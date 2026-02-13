@@ -1844,7 +1844,7 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
     paramList.emplace_back(dstVar);
     paramList.emplace_back(srcVar);
 
-    int64_t mPos, kPos;
+    int64_t mPos = 0, kPos = 0;
     GetAttr(Conv::Im2ColOpAttributeKey::postM, mPos);
     GetAttr(Conv::Im2ColOpAttributeKey::postK, kPos);
     paramList.emplace_back(mPos);
@@ -1854,7 +1854,7 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
     ALOG_INFO_F("GenMemL1ToL0Load3D %s, fmapL1Shape is %s", tileOpName.c_str(), IntVecToStr(fmapL1Shape).c_str());
     ASSERT(fmapL1Shape.size() == SHAPE_DIM5) << "GenMemL1ToL0Load3D fmap only support 5-dim!";
 
-    int64_t padLeft, padRight, padTop, padBottom, padValue;
+    int64_t padLeft = 0, padRight = 0, padTop = 0, padBottom = 0, padValue = 0;
     GetAttr(Conv::Im2ColOpAttributeKey::paddingLeft, padLeft);
     GetAttr(Conv::Im2ColOpAttributeKey::paddingRight, padRight);
     GetAttr(Conv::Im2ColOpAttributeKey::paddingTop, padTop);
@@ -1866,19 +1866,19 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
     paramList.emplace_back(padBottom);  
     paramList.emplace_back(padValue);
 
-    int64_t filterH, filterW;
+    int64_t filterH = 0, filterW = 0;
     GetAttr(Conv::Im2ColOpAttributeKey::filterH, filterH);
     GetAttr(Conv::Im2ColOpAttributeKey::filterW, filterW);
     paramList.emplace_back(filterH);
     paramList.emplace_back(filterW);  
 
-    int64_t dilationH, dilationW;
+    int64_t dilationH = 0, dilationW = 0;
     GetAttr(Conv::Im2ColOpAttributeKey::dilationH, dilationH);
     GetAttr(Conv::Im2ColOpAttributeKey::dilationW, dilationW);
     paramList.emplace_back(dilationH);
     paramList.emplace_back(dilationW);
 
-    int64_t strideH, strideW;
+    int64_t strideH = 0, strideW = 0;
     GetAttr(Conv::Im2ColOpAttributeKey::strideH, strideH);
     GetAttr(Conv::Im2ColOpAttributeKey::strideW, strideW);
     paramList.emplace_back(strideH);
@@ -1906,7 +1906,7 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load2D() const {
     paramList.emplace_back(dstVar);
     paramList.emplace_back(srcVar);
 
-    int64_t kPos, nPos;
+    int64_t kPos = 0, nPos = 0;
     GetAttr(Conv::Im2ColOpAttributeKey::postK, kPos);
     GetAttr(Conv::Im2ColOpAttributeKey::postN, nPos);
     paramList.emplace_back(kPos);  
