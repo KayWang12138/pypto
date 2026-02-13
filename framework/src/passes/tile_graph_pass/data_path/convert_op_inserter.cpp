@@ -93,8 +93,7 @@ void ConvertInserter::UpdateTensorTobeMapUnknown(LogicalTensorPtr &tensor, Memor
 
 // 打印指定tensor的tobe map
 void ConvertInserter::PrintTensorTobeMap(LogicalTensorPtr &tensor) const {
-    APASS_LOG_INFO_F(Elements::Tensor, "PrintTensorTobeMap tensor %d MemTypeOrigin %s.",
-        tensor->GetMagic(), MemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str());
+    APASS_LOG_INFO_F(Elements::Tensor, "PrintTensorTobeMap tensor %d.", tensor->GetMagic());
     if (tensorTobeMap.count(tensor) == 0) {
         APASS_LOG_INFO_F(Elements::Tensor, "Tensor %d has not been inserted yet; "
             "Please make sure tensor in the tobe map.", tensor->GetMagic());
