@@ -67,13 +67,13 @@ pypto.set_vec_tile_shapes(bs1, d1)
 
 ## 调用示例
 
--   将2维 src 根据2维index更新到2维input上
+-   将2维 src 根据2维index更新到2维input上, 注意原地操作的写法, 即等号左边的输出应和输入input相同: 
 
     ```python
     x = pypto.tensor([8, 3], pypto.DT_INT32)
     y = pypto.tensor([2, 2], pypto.DT_INT64)
     z = pypto.tensor([4, 3], pypto.DT_INT32)
-    o = pypto.scatter_update(x, -2, y, z)
+    x = pypto.scatter_update(x, -2, y, z)
     ```
 
     结果示例如下：
@@ -93,23 +93,23 @@ pypto.set_vec_tile_shapes(bs1, d1)
                [4 5 6],
                [7 8 9],
                [10 11 12]]
-    输出数据o:[[0 0 0],
+    输出数据x:[[0 0 0],
                [1 2 3],
                [4 5 6],
                [0 0 0],
                [7 8 9],
                [10 11 12],
                [0 0 0],
-               [0 0 0]])
+               [0 0 0]]
     ```
 
--   将4维src根据2维索引index更新到4维input上
+-   将4维src根据2维索引index更新到4维input上, 注意原地操作的写法, 即等号左边的输出应和输入input相同: 
 
     ```python
     x = pypto.tensor([2, 6, 1, 3], pypto.DT_INT32)
     y = pypto.tensor([2, 2], pypto.DT_INT64)
     z = pypto.tensor([2, 2, 1, 3], pypto.DT_INT32)
-    o = pypto.scatter_update(x, -2, y, z)
+    x = pypto.scatter_update(x, -2, y, z)
     ```
 
     结果示例如下：
@@ -141,7 +141,7 @@ pypto.set_vec_tile_shapes(bs1, d1)
                  [[7 8 9]],
                  [[10 11 12]],
                ]]
-    输出数据o:[[
+    输出数据x:[[
                  [[0 0 0]],
                  [[1 2 3]],
                  [[0 0 0]],
