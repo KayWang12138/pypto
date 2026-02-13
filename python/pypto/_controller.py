@@ -192,31 +192,18 @@ def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool, bool]
 def set_conv_tile_shapes(tileL1Info: pypto_impl.TileL1Info, tileL0Info: pypto_impl.TileL0Info = None):
     """ set the tile shapes in conv computation
 
-    This operation sets the value of the tile shapes
-    in each dimension in cube computation of left and right matrix,
+    This operation sets the value of the tile shapes in each dimension in conv computation,
     together with the cache level (L1/L0).
 
     Parameters
     ----------
-    tileL1Info: List[int]
-        the value of the tile shape in m dimension.
-        The length of the list must be 2.
+    tileL1Info: pypto_impl.TileL1Info
+        the value of the tile shape information in L1 cache level for conv computation.
 
-    k: List[int]
-        the value of the tile shape in k dimension
-        The length of the list must be 2.
-
-    n: List[int]
-        the value of the tile shape in n dimension
-        The length of the list must be 2.
-
-    enable_multi_data_load: bool
-        whether the process of moving L1 to L0 is multi data load.
-        default is false (i.e. not multi data load)
-
-    enable_split_k: bool
-        whether the matmul result accumulated in the GM.
-        default is false (i.e. not GM ACC)
+    tileL0Info: pypto_impl.TileL0Info, optional
+        the value of the tile shape information in L0 cache level for conv computation.
+        If not specified, a default TileL0Info instance will be used and L0 tile setting will be disabled.
+        default is None.
 
     Returns
     -------
@@ -224,10 +211,23 @@ def set_conv_tile_shapes(tileL1Info: pypto_impl.TileL1Info, tileL0Info: pypto_im
 
     Examples
     --------
-    >>> pypto.set_cube_tile_shapes([16, 16], [256, 512], [128, 128], True)
-    >>> print(pypto.get_cube_tile_shapes())
-    [[16, 16], [256, 512], [128, 128], True]
-
+    >>> l1_tile = pypto_impl.TileL1Info(
+            tileHin=4,
+            tileHout=4,
+            tileWin=8,
+            tileWout=8,
+            tileCinFmap=16,
+            tileCinWeight=32,
+            tileCout=16,
+            tileN=1)
+    >>> l0_tile = pypto_impl.TileL0Info(
+            tileH=2,
+            tileW=8,
+            tileK=16,
+            tileN=16)
+    >>> pypto.set_conv_tile_shapes(TileL1Info, TileL0Info)
+    >>> conv_tile = pypto.get_conv_tile_shapes()
+    (TileL1Info([4, 4, 8, 8, 16, 32, 16, 1]), TileL0Info([2, 8, 16, 16]), True)
     """
     if tileL0Info is None:
         tileL0Info = pypto_impl.TileL0Info()
@@ -239,24 +239,38 @@ def set_conv_tile_shapes(tileL1Info: pypto_impl.TileL1Info, tileL0Info: pypto_im
 
 
 def get_conv_tile_shapes() -> Tuple[pypto_impl.TileL1Info, pypto_impl.TileL0Info, bool]:
-    """ get the tile shapes in cube computation
+    """ get the tile shapes in conv computation
 
-    This operation gets the value of the tile shapes
-    in each dimension in cube computation of left and right matrix,
-    together with the cache level (L1/L0).
+    This operation gets the value of the tile shapes in each dimension in conv computation,
+    together with the cache level (L1/L0) and whether L0 tile setting is enabled.
 
     Returns
     -------
-    return List[Union[List, bool, bool]]
-    The list includes the tile shape information of both left and
-    right matrix, together with the cache level (L1/L0).
+    Tuple[pypto_impl.TileL1Info, pypto_impl.TileL0Info, bool]
+        The tuple includes:
+        - tileL1Info: tile shape information in L1 cache level for conv computation
+        - tileL0Info: tile shape information in L0 cache level for conv computation
+        - setL0Tile: whether the L0 tile setting is enabled
 
     Examples
     --------
-    >>> pypto.set_cube_tile_shapes([16, 16], [256, 512], [128, 128], True)
-    >>> print(pypto.get_cube_tile_shapes())
-    [[16, 16], [256, 512], [128, 128], True, False]
-
+    >>> l1_tile = pypto_impl.TileL1Info(
+            tileHin=4,
+            tileHout=4,
+            tileWin=8,
+            tileWout=8,
+            tileCinFmap=16,
+            tileCinWeight=32,
+            tileCout=16,
+            tileN=1)
+    >>> l0_tile = pypto_impl.TileL0Info(
+            tileH=2,
+            tileW=8,
+            tileK=16,
+            tileN=16)
+    >>> pypto.set_conv_tile_shapes(TileL1Info, TileL0Info)
+    >>> conv_tile = pypto.get_conv_tile_shapes()
+    (TileL1Info([4, 4, 8, 8, 16, 32, 16, 1]), TileL0Info([2, 8, 16, 16]), True)
     """
     # implementation
     scope = get_current_scope()

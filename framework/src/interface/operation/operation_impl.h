@@ -153,7 +153,6 @@ void ConstructTileGraph(Function &function, const TileShape &tileShape, const st
 }  // namespace Matrix
 
 namespace Conv {
-
 constexpr const int NCHW_N_IDX = 0;
 constexpr const int NCHW_C_IDX = 1;
 constexpr const int NCHW_H_IDX = 2;
@@ -163,7 +162,11 @@ constexpr const int NCDHW_C_IDX = 1;
 constexpr const int NCDHW_D_IDX = 2;
 constexpr const int NCDHW_H_IDX = 3;
 constexpr const int NCDHW_W_IDX = 4;
+constexpr const int NC1HWC0_N_IDX = 1;
 constexpr const int NC1HWC0_C1_IDX = 1;
+constexpr const int NC1HWC0_H_IDX = 2;
+constexpr const int NC1HWC0_W_IDX = 3;
+constexpr const int NC1HWC0_C0_IDX = 4;
 constexpr const int FRACTALZ_CO1_IDX = 1;
 constexpr const int INPUT_FMAP_IDX = 0;
 constexpr const int INPUT_WEIGHT_IDX = 1;
@@ -206,6 +209,7 @@ class Im2ColOpAttributeKey {
 public:
     static const std::string postK;
     static const std::string postM;
+    static const std::string postN;
     static const std::string filterH;
     static const std::string filterW;
     static const std::string strideH;
@@ -217,6 +221,22 @@ public:
     static const std::string paddingTop;
     static const std::string paddingBottom;
     static const std::string padValue;
+};
+
+enum class CopyInMode : int {
+    COPY_MOD_INVALID = -1,
+    COPY_MOD_ND2ND = 0,
+    COPY_MOD_ND2NZ,
+    COPY_MOD_NZ2NZ,
+    COPY_MOD_DN2NZ
+};
+
+enum class CopyOutMode : int {
+    COPY_MOD_INVALID = -1,
+    COPY_MOD_NZ2ND = 0,
+    COPY_MOD_NZ2NZ,
+    COPY_MOD_ND2ND,
+    COPY_MOD_NZ2DN
 };
 
 struct ConvAttrParam {
