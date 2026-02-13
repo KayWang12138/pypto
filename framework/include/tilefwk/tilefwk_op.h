@@ -243,6 +243,9 @@ Tensor Clip(const Tensor &self, const Element &min = {}, const Element &max = {}
 
 std::tuple<Tensor, Tensor> TopK(const Tensor &self, int k, int axis = -1, bool isLargest = true);
 Tensor ArgSort(const Tensor &self, int axis = -1, bool descending = false);
+Tensor Sort32(const Tensor &self, int idxStart = 0);
+Tensor MrgSort(const Tensor &self, int mergeSize);
+Tensor Sort(const Tensor &self, int axis = -1);
 
 /**
  * @brief Sort a tensor with shape (1, n) along the last dimension, n must be orders of 2.
