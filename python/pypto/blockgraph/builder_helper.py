@@ -297,6 +297,11 @@ class BlockBuilderHelper:
         self.builder.emit(self.ctx, op)
         return op
 
+    def lrelu(self, a, b, out):
+        op = self.builder.create_binary_scalar_op(ir.Opcode.OP_LRELU, a, b, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
     def s_adds(self, a, b, out):
         op = self.builder.create_binary_scalar_op(ir.Opcode.OP_S_ADDS, a, b, out)
         self.builder.emit(self.ctx, op)

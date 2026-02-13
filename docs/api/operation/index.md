@@ -82,5 +82,6 @@ pypto-triu
 pypto-trunc
 pypto-unsqueeze
 pypto-view
+pypto-LReLU
 pypto-where
 ```
