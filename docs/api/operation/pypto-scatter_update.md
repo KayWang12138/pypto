@@ -9,13 +9,13 @@
 
 ## 功能说明
 
-功能1：将4维src根据2维索引index更新到4维 input 上，计算公式如下：
+功能1：原地操作，将4维src根据2维索引index更新到4维 input 上，计算公式如下：
 
 $$
 input\left[\frac{\text{index}[i][j]}{\text{blockSize}}\right]\left[\text{index}[i][j] \% \text{blockSize}\right][0][\dots] = src[i][j][0][\dots]
 $$
 
-功能2：将2维src根据2维index更新到2维 input 上，计算公式如下：
+功能2：原地操作，将2维src根据2维index更新到2维 input 上，计算公式如下：
 
 $$
 input[\text{index}[i][j][\dots]] = src[i*s + j][\dots]
