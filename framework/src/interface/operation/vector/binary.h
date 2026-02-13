@@ -47,6 +47,7 @@ enum class BinaryOpType {
     S_MIN,
     MAXIMUM,
     MINIMUM,
+    LRELU,
     CMP,
     MOD,
     BITWISEAND,
@@ -66,6 +67,7 @@ std::string GetBinaryOpName() {
         case BinaryOpType::MIN: return "MIN";
         case BinaryOpType::MAXIMUM: return "MAXIMUM";
         case BinaryOpType::MINIMUM: return "MINIMUM";
+        case BinaryOpType::LRELU: return "LRELU";
         case BinaryOpType::POW: return "POW";
         case BinaryOpType::MOD:return "MOD";
         case BinaryOpType::CMP:return "CMP";
@@ -102,6 +104,7 @@ Opcode GetBinaryOpNameCode() {
             CASE(S_DIV);
             CASE(S_MAX);
             CASE(S_MIN);
+            CASE(LRELU);
             CASE(BITWISEAND);
             CASE(BITWISEOR);
             CASE(BITWISEXOR);
@@ -140,6 +143,7 @@ Opcode GetBinaryOpNameCode() {
         CASE(S_MIN);
         CASE(MAXIMUM);
         CASE(MINIMUM);
+        CASE(LRELU);
         CASE(POW);
         CASE(MOD);
         CASE(BITWISEAND);
