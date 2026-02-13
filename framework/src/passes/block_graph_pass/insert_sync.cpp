@@ -1603,6 +1603,7 @@ Status PipeSync::ProcessViewAssembleOrder(std::vector<Operation *> &opLog, std::
         APASS_LOG_ERROR_F(Elements::Operation, "ProcessViewAssembleOrder failed at function ReorderViewAssemble.");
         return FAILED;
     }
+    
     return SUCCESS;
 }
 
