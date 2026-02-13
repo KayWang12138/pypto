@@ -331,12 +331,12 @@ Status MixSubgraphSplit::GenNewFunctions(Function& rootFunc, Function* originalM
     for (size_t i = 0; i < components.size(); i++) {
         FunctionClone functionClone(rootFunc, originalMixFunc);
         auto newFunc = functionClone.CloneFunctionByComponent(components[i], newProgramIDs[i], i);
+        subgraphToFunction.InsertParameter(i, *newFunc);
         newFunc->ComputeHash();
         FunctionHash funcHash = newFunc->GetFunctionHash();
         ALOG_DEBUG_F("Function %s computed hash: %lu", newFunc->GetMagicName(), funcHash.GetHash());
         Program::GetInstance().GetFunctionCache().Insert(funcHash, *newFunc);
-        Program::GetInstance().InsertFuncToFunctionMap(newFunc->GetMagicName(), functionClone.cloneFunc);
-        subgraphToFunction.InsertParameter(i, *newFunc);
+        Program::GetInstance().InsertFuncToFunctionMap(newFunc->GetMagicName(), functionClone.cloneFunc);        
         if (newFunc == nullptr) {
             return FAILED;
         }
