@@ -1530,6 +1530,26 @@ def gen_where_op_golden(case_name: str, output: Path, case_index: int = None) ->
     return gen_op_golden("Where", golden_func, output, case_index)
 
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestLReLU/LReLUTest.TestLReLU",
+    ]
+)
+def gen_leaky_relu_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+
+    def golden_func(inputs: list, config: dict):
+        assert len(inputs) == 1, "LReLU expects exactly one input tensor"
+        x = torch.tensor(inputs[0])
+
+        params = config.get("params", {})
+        alpha = float(params.get("y_scalar", 0.01))
+
+        y = F.leaky_relu(x, negative_slope=alpha)
+        return [y.numpy()]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("LReLU", golden_func, output, case_index)
+
 @TestCaseLoader.reg_params_handler(ops=["TopK"])
 def topk_params_func(params: dict):
     params["dims"] = parse_list_str(params.get("dims"))
