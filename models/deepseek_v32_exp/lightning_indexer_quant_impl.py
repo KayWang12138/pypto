@@ -61,11 +61,9 @@ def lightning_indexer_decode_compute(
     unroll_list: list, 
     configs: LightningIndexerConfigs,
     selected_count: int):
-    
+
     """Compute lightning indexer with quantization support.
-    
     It obtains the top-k positions corresponding to each token based on a series of operations.
-    
     Args:
         idx_query: Non-contiguous data is not supported, shape (t, n_q, idx_head_dim), dtype INT8. 
         idx_query_scale: It represents the scaling factor for idx_query. shape (t, n_q, idx_head_dim), dtype FP16. 
@@ -258,7 +256,6 @@ def lightning_indexer_decode_compute(
                 pad_size_y2 = total_size_y2 - valid_size_y2
 
                 pypto.set_vec_tile_shapes(1, topk_tile)
-                
                 for _ in pypto.loop(1 * length_is_gt8k * (num_of_8k != max_num_of_8k),
                                     name="128K_PAD_Y1Y2", idx_name="unused"):
                     pypto.assemble(pypto.full([1, total_size_y1 * 2], pad_value, xdtype,

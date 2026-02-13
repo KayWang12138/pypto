@@ -68,7 +68,6 @@ def gen_cache_tensor(k_tensor, block_table, block_num, block_size, b):
     for b_idx in range(b):  # 遍历batch维度
         for block_idx, cache_block_idx in enumerate(block_table[b_idx]):  # 遍历块映射表
             block_offset = block_idx * block_size  # 计算当前块在序列中的起始位置
-            
             # 如果cache_block_idx有效（非-1），则执行数据拷贝
             if cache_block_idx != -1:
                 # 将数据从k_tensor_bsh复制到k_cache的指定块位置
