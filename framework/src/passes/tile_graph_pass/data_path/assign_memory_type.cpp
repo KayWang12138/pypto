@@ -385,6 +385,27 @@ void AssignMemoryType::AssignMoveOp(Operation &operation) {
             break;
     }
 }
+
+int64_t AssignMemoryType::CalcLineOffset(std::vector<int64_t> shape, std::vector<int64_t> offset) {
+    if (shape.size() != offset.size()) {
+        return -1;
+    }
+    if (shape.size() == 0) {
+        return 0;
+    }
+
+    int64_t lineOffset = 0;
+    int64_t stride = 1;
+    // 从最低维到最高维计算
+    for (size_t i = shape.size(); i > 0; --i) {
+        lineOffset += offset[i - 1] * stride;
+        if (i > 0) {
+            stride *= shape[i - 1];
+        }
+    }
+    return lineOffset;
+}
+
 void AssignMemoryType::AssignMoveOpForAssemble(Operation &operation) {
     /*
     op --> tensor1 --> assemble --> tensor2
@@ -393,12 +414,32 @@ void AssignMemoryType::AssignMoveOpForAssemble(Operation &operation) {
     */
     for (size_t i = 0; i < operation.oOperand.size(); ++i) {
         auto &tensor = operation.oOperand[i];
+        bool hasDdr = false;
         // Only change original type
         MemoryType fromType = inserter.GetMemoryTypeFromTensorTobeMap(operation.iOperand.front(), operation);
         for (const auto &outputProducer : tensor->GetProducers()) {
             if (fromType != MEM_DEVICE_DDR && outputProducer->iOperand.front()->GetMemoryTypeOriginal() != fromType) {
                 fromType = MEM_DEVICE_DDR;
             }
+
+            // 获取操作属性
+            auto opAttr = std::static_pointer_cast<AssembleOpAttribute>(outputProducer->GetOpAttribute());
+            auto offset = opAttr->GetToOffset();
+            auto rawShape = tensor->GetRawTensor()->rawshape;
+
+            int64_t lineOffset = CalcLineOffset(tensor->GetRawTensor()->rawshape, opAttr->GetToOffset());
+            size_t tensorBytes = BytesOf(tensor->Datatype());
+            int64_t byteOffset = tensorBytes * lineOffset;
+            
+            APASS_LOG_DEBUG_F(Elements::Tensor, "Op %d 's input tensor, lineOffset is %d, tensorBytes is %d, byteOffset is %d.", lineOffset, tensorBytes, byteOffset);
+            // 对齐检查，根据assemble的offset和assemble输出tensor的rawshape计算线性offset，如果非32B对齐，则将assemble输出tensor推导为DDR类型
+            if (byteOffset % UB_ALIGN_BYTES != 0) {
+                APASS_LOG_DEBUG_F(Elements::Tensor, "Set op %d 's output original memoryType to DDR.", outputProducer->GetOpMagic());
+                hasDdr = true;
+            }
+        }
+        if (hasDdr) {
+            fromType = MEM_DEVICE_DDR;
         }
         if (operation.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
             tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
