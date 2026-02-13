@@ -305,7 +305,22 @@ struct DevAscendProgram {
     }
 
     void ResetFromLaunch() {
+        uint32_t nrAic = devArgs.nrAic;
+        uint32_t nrAiv = devArgs.nrAiv;
+        uint32_t nrAicpu = devArgs.nrAicpu;
+        uint32_t nrValidAic = devArgs.nrValidAic;
+        uint32_t scheCpuNum = devArgs.scheCpuNum;
+        ArchInfo archInfo = devArgs.archInfo;
+
         memset_s(&devArgs, sizeof(devArgs), 0, sizeof(devArgs));
+
+        devArgs.nrAic = nrAic;
+        devArgs.nrAiv = nrAiv;
+        devArgs.nrAicpu = nrAicpu;
+        devArgs.nrValidAic = nrValidAic;
+        devArgs.scheCpuNum = scheCpuNum;
+        devArgs.archInfo = archInfo;
+
         controlFlowBinaryAddr = nullptr;
         runtimeDataRingBufferInited = false;
         workspaceSize = 0;
