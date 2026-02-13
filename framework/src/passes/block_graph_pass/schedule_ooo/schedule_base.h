@@ -209,7 +209,7 @@ public:
             for (auto &tensor : op->GetIOperands()) {
                 UpdateBufRefCount(tensor);
                 int memId = tensor->memoryrange.memId;
-                if (InitLocalBuffer(tensor, memId) != SUCCESS) {
+                if (InitLocalBuffer(tensor, memId) == FAILED) {
                     APASS_LOG_ERROR_F(Elements::Operation, "InitLocalBuffer failed at InitBufRefCount!");
                     return FAILED;
                 }
@@ -217,7 +217,7 @@ public:
             for (auto &tensor : op->GetOOperands()) {
                 UpdateBufRefCount(tensor);
                 int memId = tensor->memoryrange.memId;
-                if (InitLocalBuffer(tensor, memId) != SUCCESS) {
+                if (InitLocalBuffer(tensor, memId) == FAILED) {
                     APASS_LOG_ERROR_F(Elements::Operation, "InitLocalBuffer failed at InitBufRefCount!");
                     return FAILED;
                 }
