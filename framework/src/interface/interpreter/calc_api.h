@@ -61,6 +61,7 @@ struct CalcOps {
     void (*WhereTS)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &);
     void (*WhereST)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, LogicalTensorDataPtr);
     void (*WhereSS)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, const Element &);
+    void (*LReLU)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &);
     void (*Ln)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*LogicalNot)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Range)(LogicalTensorDataPtr, const Element &, const Element &, const Element &);

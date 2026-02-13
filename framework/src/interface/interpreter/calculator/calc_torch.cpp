@@ -515,6 +515,12 @@ static void MaxS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Elem
     torch::clamp_min_out(tout, From(self), From(elem));
 }
 
+static void LRelu(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Element &negative_slope = Element(DataType::DT_FP32, 0.01)) {
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::leaky_relu_out(tout, tself, negative_slope);
+}
+
 static void Range(LogicalTensorDataPtr out, const Element &start, const Element &end, const Element &step) {
     auto tmp = torch::arange(From(start), From(end), From(step));
     int64_t expected_numel = 1;
@@ -1535,6 +1541,7 @@ static struct CalcOps calcOps = {
     .WhereTS = WhereTS,
     .WhereST = WhereST,
     .WhereSS = WhereSS,
+    .LReLU = LReLU,
     .Ln = Ln,
     .LogicalNot = LogicalNot,
     .Range = Range,
