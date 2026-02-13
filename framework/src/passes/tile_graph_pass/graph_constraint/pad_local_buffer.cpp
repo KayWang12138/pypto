@@ -102,7 +102,7 @@ void PadMatmulL1ConvertScene(Operation &op, LogicalTensorPtr &in, size_t lowInde
     }
 }
 
-void PadForMatMulMX(Operation &op, LogicalTensorPtr &in, int64_t &axisNum) {
+void PadForMatMulMX(LogicalTensorPtr &in, int64_t &axisNum) {
     in->shape[axisNum] = Pad(in->shape[axisNum], CUBE_PAD_INT8_VALUE);
     in->tensor->oriRawshape = in->tensor->rawshape;
     in->tensor->rawshape[axisNum] = Pad(in->tensor->oriRawshape[axisNum], CUBE_PAD_INT8_VALUE);
