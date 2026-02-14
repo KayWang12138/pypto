@@ -1507,6 +1507,7 @@ class BuildCtrl(CMakeParam):
         _, duration = self.run_build_cmd(cmd=cmd, update_env=update_env, pg_desc="pytest")
         logging.info("pytest run success, %s", duration)
 
+
     def _get_py_tests_update_env(self, dist: Optional[Path]) -> Dict[str, str]:
         update_env = {}
 
