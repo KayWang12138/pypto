@@ -286,6 +286,23 @@ std::string CodeGenOpCloudNPU::PrintCompact(const PrintUnaryTmpBuffParam &param)
     return PrintCompactStatic(param);
 }
 
+std::string CodeGenOpCloudNPU::PrintExp2Layout() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+    std::string tmpTensorNext = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
+
+    std::ostringstream oss;
+    oss << tileOpName.c_str() << "<float>" << "(" << dstTensor << ", " << tmpTensor << ", " << tmpTensorNext << ", "
+        << srcTensor << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintExp2() const {
+    ASSERT(isSupportLayout) << "Exp2 only support tile tensor";
+    return PrintExp2Layout();
+}
+
 std::string CodeGenOpCloudNPU::PrintRoundLayout() const {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
     std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
@@ -461,6 +478,10 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
 
     if (opCode == Opcode::OP_SIGN) {
         return PrintUnaryWithTmpTileTensor();
+    }
+
+    if (opCode == Opcode::OP_EXP2) {
+        return PrintExp2();
     }
 
     if (opCode == Opcode::OP_ROUND) {

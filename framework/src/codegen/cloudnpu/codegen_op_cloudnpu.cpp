@@ -84,6 +84,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
 
           // unary op
           {Opcode::OP_EXP, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_EXP2, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_NEG, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_RSQRT, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_RELU, [this]() { return GenUnaryOp(); }},
