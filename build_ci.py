@@ -65,6 +65,8 @@ from typing import Optional, List, Dict, Tuple, Any
 from importlib import metadata
 from packaging import requirements
 
+from cmake.scripts.analysis_changed_files import Analysis as AnalysisChangedFiles
+
 
 class CMakeParam(abc.ABC):
     """CMake 参数抽象基类
@@ -917,6 +919,7 @@ class BuildCtrl(CMakeParam):
         self.pip_dependence_desc: Dict[str, str] = {"pip": ">=22.1"}
         self.pip_support_config_setting = self.check_pip_dependencies(deps=self.pip_dependence_desc,
                                                                       raise_err=False, log_err=False)
+        self.changed_files_analysis = AnalysisChangedFiles(rule=Path(self.src_root, "classify_rule.yaml"))
 
     def __str__(self) -> str:
         """返回构建控制参数的字符串表示
@@ -1082,6 +1085,8 @@ class BuildCtrl(CMakeParam):
         # 流程处理
         if ctrl.verbose:
             logging.getLogger().setLevel(logging.DEBUG)
+
+
         # 区分 python3 前端和 cpp 前端
         logging.info("%s", ctrl)
         if ctrl.feature.frontend_type_python3:
@@ -1091,8 +1096,6 @@ class BuildCtrl(CMakeParam):
             ctrl.py_tests()
         else:
             logging.info("Front-end(cpp), start process with CMake")
-            if 'func' in args:
-                args.func(args=args, ctrl=ctrl)
             ctrl.cmake_clean()
             ctrl.cmake_configure()
             ctrl.cmake_build()
