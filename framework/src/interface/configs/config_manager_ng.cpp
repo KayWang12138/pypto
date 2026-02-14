@@ -45,6 +45,7 @@ struct TypeInfo {
     TypeInfo() = default;
 
     void LoadConf(const std::string &path) {
+        FUNCTION_LOGD("LoadConf start.");
         std::ifstream infile(path);
         ASSERT(infile.is_open()) << "Open file " << path << " failed";
         nlohmann::json jdata;
@@ -54,6 +55,7 @@ struct TypeInfo {
     }
 
     void build_type_infos(const nlohmann::json &jdata, const std::string &prefix) {
+        FUNCTION_LOGD("build_type_infos.");
         if (jdata.contains("properties")) {
             auto &properties = jdata["properties"];
             for (auto &it : properties.items()) {
@@ -216,6 +218,7 @@ void DumpRange(
 }
 
 std::string ConfigScope::ToString() const{
+    FUNCTION_LOGD("config scope to string.");
     auto values = GetAllConfig();
     std::stringstream os;
     DumpValues(os, values, "");
@@ -251,6 +254,7 @@ void ConfigScope::UpdateValueWithAny(const std::string &key, Any value) {
         os << ", its value doesn't within the value range.";
         DumpRange(os, value.Type(), key, ConfigManagerNg::GetInstance().Range());
         os << "\n";
+        FUNCTION_LOGE("Failed to set option: %s ", os.str().c_str());
         throw std::runtime_error(os.str().c_str());
     }
     std::stringstream oss;
@@ -415,6 +419,7 @@ private:
     void LoadConf() {
         std::string confPath = GetEnvVar("TILEFWK_CONFIG_PATH");
         if (confPath.empty()) {
+            FUNCTION_LOGD("", );
             confPath = GetConfDir() + "tile_fwk_config.json";
         }
         std::ifstream ifs(confPath);
