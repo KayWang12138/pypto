@@ -265,6 +265,72 @@ TILEOP void TTrunc(T0 dst, T1 src) {
     }
 }
 
+#define OP_TILE_OP_EXP2 TExp2
+template <typename Scalar, typename T0, typename T1, typename T2>
+TILEOP void TExp2(T0 dst, T1 tmp, T2 src) {
+    const auto dstLayout = dst.GetLayout();
+    auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+
+    auto dstTile = PtoTile<T0>(dst);
+    auto tmpTile = PtoTile<T1>(tmp);
+    auto tmpTile2 = PtoTile<T1>(tmp);
+    auto srcTile = PtoTile<T2>(src);
+    for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
+        for (LoopVar n1Index = 0; n1Index < shape1; ++n1Index) {
+            for (LoopVar n2Index = 0; n2Index < shape2; ++n2Index) {
+                auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
+                dstTile.Assign(dst, tileOffsets);
+                tmpTile.Assign(tmp, tileOffsets);
+                tmpTile2.Assign(tmp, tileOffsets);
+                srcTile.Assign(src, tileOffsets);
+
+                if constexpr (std::is_same_v<typename T2::Type, float>) {
+                    pto::TEXPANDS(tmpTile2.Data(), 2.0f);
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    pto::TLOG(tmpTile2.Data(), tmpTile2.Data());
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    pto::TMUL(tmpTile1.Data(), srcTile.Data(), tmpTile2.Data());
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    pto::TEXP(dstTile.Data(), tmpTile1.Data());
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                } else {
+                    pto::TCVT(tmpTile.Data(), srcTile.Data(), pto::RoundMode::CAST_NONE);
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    pto::TEXPANDS(tmpTile2.Data(), 2.0f);
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    pto::TLOG(tmpTile2.Data(), tmpTile2.Data());
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    pto::TMUL(tmpTile1.Data(), srcTile.Data(), tmpTile2.Data());
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    pto::TEXP(dstTile.Data(), tmpTile1.Data());
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    pto::TCVT(dstTile.Data(), tmpTile.Data(), pto::RoundMode::CAST_RINT);
+                }
+            }
+        }
+    }
+}
+
 #define OP_TILE_OP_ROUND TRound
 template <typename Scalar, typename T0, typename T1, typename T2>
 TILEOP void TRound(T0 dst, T1 tmp, T2 src, Scalar powDecimals) {

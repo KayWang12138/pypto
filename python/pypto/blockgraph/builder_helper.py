@@ -110,6 +110,11 @@ class BlockBuilderHelper:
         self.builder.emit(self.ctx, op)
         return op
 
+    def exp2(self, a, out):
+        op = self.builder.create_unary_op(ir.Opcode.OP_EXP2, a, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
     def neg(self, a, out):
         op = self.builder.create_unary_op(ir.Opcode.OP_NEG, a, out)
         self.builder.emit(self.ctx, op)
