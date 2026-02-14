@@ -65,6 +65,8 @@ from typing import Optional, List, Dict, Tuple, Any
 from importlib import metadata
 from packaging import requirements
 
+from cmake.scripts.analysis_changed_files import Analysis as AnalysisChangedFiles
+
 
 class CMakeParam(abc.ABC):
     """CMake 参数抽象基类
@@ -1091,8 +1093,6 @@ class BuildCtrl(CMakeParam):
             ctrl.py_tests()
         else:
             logging.info("Front-end(cpp), start process with CMake")
-            if 'func' in args:
-                args.func(args=args, ctrl=ctrl)
             ctrl.cmake_clean()
             ctrl.cmake_configure()
             ctrl.cmake_build()

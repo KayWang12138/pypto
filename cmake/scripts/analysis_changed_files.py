@@ -60,106 +60,62 @@ class Analysis:
     _KEY_WRITE_LIST: str = "write_list"
     _KEY_CASES: str = "cases"
 
-    def __init__(self, args):
-        self.rule: Path = Path(args.rule[0]).resolve()
-        self.type: str = str(args.type[0]).lower()
-        self.group: List[str] = args.group.split(",") if args.group else []
-        self.file: Optional[Path] = Path(args.file[0]).resolve() if args.file and args.file[0] else None
+    def __init__(self, rule: Path, frontend: str, typ: str, group: Optional[list[str]], file: Optional[Path] = None):
+        self.rule: Path = rule.resolve()
+        self.frontend: str = frontend.lower()
+        self.type: str = typ.lower()
+        self.group: List[str] = group if group else []
+        self.file: Optional[Path] = file.resolve() if file else None
         # 内部对象转化
         self.modules: Dict[str, Module] = self._init_get_models()
         self.changed: List[Path] = self._init_get_changed()
 
     def __str__(self) -> str:
         ver = sys.version_info
-        desc = f"\nPython3 : {sys.executable} ({ver.major}.{ver.minor}.{ver.micro})"
-        desc += f"\nRule    : {self.rule}"
-        desc += f"\nType    : {self.type}"
-        desc += f"\nGroup   : {self.group}"
-        desc += f"\nFile    : {self.file}"
+        desc = f"\nPython3  : {sys.executable} ({ver.major}.{ver.minor}.{ver.micro})"
+        desc += f"\nRule     : {self.rule}"
+        desc += f"\nType     : {self.type}"
+        desc += f"\nFrontend : {self.frontend}"
+        desc += f"\nGroup    : {self.group}"
+        desc += f"\nFile     : {self.file}"
+        desc += f"\nChanged  : {self.changed}"
+        for module in self.modules.values():
+            desc += f"\nModule({module.name}) : {module.write}"
         desc += f"\n"
         return desc
 
-    @staticmethod
-    def main() -> str:
+    @classmethod
+    def main(cls) -> str:
         parser = argparse.ArgumentParser(description=f"Analysis Changed Files", epilog="Best Regards!")
         parser.add_argument("-r", "--rule", required=True, nargs=1, type=Path,
                             help="Specific classify_rule.yaml")
         parser.add_argument("-t", "--type", nargs=1, type=str, required=True, choices=["utest", "stest"],
                             help="Specific tests type")
+        parser.add_argument("-f", "--frontend", nargs=1, type=str, required=True, choices=["cpp", "python"],
+                            help="Specific tests fronted")
         parser.add_argument("-g", "--group", nargs='?', type=str, required=False, default="",
                             help="Specific tests group, multiple group are separated by ','")
         parser.add_argument("-c", "--changed_files", nargs=1, type=Path, required=False, dest="file",
                             help="Specific changed_files.txt")
-        parser.add_argument("-d", "--debug", action="store_true", default=False,
-                            help="Enable debug mode")
         args = parser.parse_args()
         # 日志级别注册, 本文件有两种调用场景:
         # 1) 由 CMake 调用, 此时需保证若正常处理无任何额外输出, 需把日志级别调整为 ERROR;
         # 2) 调试时由 Python 直调, 此时需输出较多日志, 可将日志级别设置为 DEBUG;
-        logging.basicConfig(
-            format='%(asctime)s - %(filename)s:%(lineno)d - PID[%(process)d] - %(levelname)s: %(message)s',
-            level=logging.DEBUG if args.debug else logging.ERROR,
-            handlers=[
-                logging.StreamHandler()
-            ]
-        )
         # 参数解析
-        ctrl = Analysis(args=args)
+        ctrl = cls.init_from_args(args=args)
         logging.info(ctrl)
         # 流程处理
-        return ctrl.analysis()
+        logging.info(ctrl.analysis())
 
-    def analysis(self) -> str:
-        cases = self._analysis_cases()
-        cases_str = ",".join(cases) if cases else ""
-        return cases_str
+    @classmethod
+    def init_from_args(cls, args):
+        return Analysis(rule=Path(args.rule[0]).resolve(),
+                        frontend=str(args.frontend[0]).lower(),
+                        typ=str(args.type[0]).lower(),
+                        group=args.group.split(",") if args.group else None,
+                        file=Path(args.file[0]).resolve() if args.file and args.file[0] else None)
 
-    def _get_write_list(self, _desc: Dict[str, Any]) -> List[Path]:
-        _lst = _desc.get(self._KEY_WRITE_LIST, [])
-        _lst = _lst if _lst else []
-        _rst = [Path(_rel) for _rel in _lst]
-        _desc.pop(self._KEY_WRITE_LIST, None)
-        return _rst
-
-    def _init_get_models_from_file(self, file: Path, write_list: List[Path] = None) -> Dict[str, Module]:
-        modules = {}
-        with open(file, 'r', encoding='utf-8') as f:
-            rule_dict = yaml.safe_load(f)
-        rule_dict = rule_dict.get(self.type, {})
-        # 处理 type 下白名单
-        type_write_list = self._get_write_list(_desc=rule_dict)
-        type_write_list = write_list if write_list else type_write_list
-        # 循环处理 module
-        for name, desc in rule_dict.items():
-            # 处理 module 下白名单
-            write_list = self._get_write_list(_desc=desc)
-            write_list.extend(type_write_list)
-            # 获取 module 下用例列表
-            cases_list = desc.get(self._KEY_CASES, [])
-            mod = Module(name=name, cases=cases_list, write=write_list)
-            modules[name] = mod
-        return modules
-
-    def _init_get_models(self) -> Dict[str, Module]:
-        yaml_lst = self.rule.glob(pattern=f"classify_rule_*.yaml")
-        modules = {}
-        rule_file = self.rule.joinpath(f"classify_rule_{self.type}.yaml")
-        with open(rule_file, 'r', encoding='utf-8') as f:
-            rule_dict = yaml.safe_load(f)
-        write_list = self._get_write_list(_desc=rule_dict.get(self.type, {}))
-        for file in yaml_lst:
-            file_module = self._init_get_models_from_file(file=file, write_list=write_list)
-            modules.update(file_module)
-        return modules
-
-    def _init_get_changed(self) -> List[Path]:
-        changed = []
-        if self.file:
-            with open(self.file, 'r', encoding='utf-8') as f:
-                changed = [Path(l.rstrip('\n')) for l in f]
-        return changed
-
-    def _analysis_cases(self) -> List[str]:
+    def analysis(self) -> List[str]:
         cases = []
         for module in self.modules.values():
             match_group = False if self.group else True
@@ -179,6 +135,46 @@ class Analysis:
                 cases.extend(module_cases)
         return cases
 
+    def _get_write_list(self, desc: Dict[str, Any]) -> List[Path]:
+        lst = desc.get(self._KEY_WRITE_LIST, [])
+        lst = lst if lst else []
+        rst = [Path(_rel) for _rel in lst]
+        desc.pop(self._KEY_WRITE_LIST, None)
+        return rst
+
+    def _init_get_models(self) -> Dict[str, Module]:
+        modules = {}
+        with open(self.rule, 'r', encoding='utf-8') as f:
+            rule_dict = yaml.safe_load(f)
+        # 处理 type 下白名单
+        rule_dict = rule_dict.get("pypto", {}).get(self.type, {})
+        typ_write_list = self._get_write_list(desc=rule_dict)
+        # 处理 frontend 下白名单
+        rule_dict = rule_dict.get(self.frontend, {})
+        grp_write_list = self._get_write_list(desc=rule_dict)
+        # 循环处理 group
+        parent_write_list = typ_write_list + grp_write_list
+        for group_name, desc in rule_dict.items():
+            # 处理 group 下白名单
+            write_list = self._get_write_list(desc=desc)
+            write_list.extend(parent_write_list)
+            write_list = list[Path](set[Path](write_list))
+            # 获取 group 下用例列表
+            cases_list = desc.get(self._KEY_CASES, [])
+            cases_list = list[str](set[str](cases_list))
+            mod = Module(name=group_name, cases=cases_list, write=write_list)
+            modules[group_name] = mod
+        return modules
+
+    def _init_get_changed(self) -> List[Path]:
+        changed = []
+        if self.file:
+            with open(self.file, 'r', encoding='utf-8') as f:
+                changed = [Path(l.rstrip('\n')) for l in f]
+        return changed
+
 
 if __name__ == "__main__":
-    print(Analysis.main(), end='')
+    # print(Analysis.main(), end='')
+    logging.basicConfig(format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s', level=logging.INFO)
+    Analysis.main()
