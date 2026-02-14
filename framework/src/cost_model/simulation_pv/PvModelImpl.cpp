@@ -20,6 +20,7 @@
 #include "codegen/codegen.h"
 #include "PvModelImpl.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "cost_model/simulation/common/CommonTools.h"
 #include "tilefwk/tilefwk_log.h"
 
 using namespace npu::tile_fwk;
@@ -464,6 +465,7 @@ void PvModelImpl<SystemConfig, CaseConfig>::TearDown(std::string esgDir)
 template <typename SystemConfig, typename CaseConfig>
 void DynPvModelImpl<SystemConfig, CaseConfig>::Run(DynFuncData *funcdata, int coreId, int funcId, int taskId)
 {
+    DisablePrintf();
     SIMULATION_LOGI("[AICORE] core  %d, func %d, task %d", coreId, funcId, taskId);
     auto data = &funcdata[funcId];
     auto opAttrs = &data->opAttrs[data->opAtrrOffsets[taskId]];
@@ -483,6 +485,7 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::Run(DynFuncData *funcdata, int co
     SetUp(cce, data, static_cast<uint64_t>(data->opAtrrOffsets[taskId]), dir, &dupData);
     RunModel(dir);
     TearDown(dir, &dupData);
+    EnablePrintf();
 }
 
 template <typename SystemConfig, typename CaseConfig>

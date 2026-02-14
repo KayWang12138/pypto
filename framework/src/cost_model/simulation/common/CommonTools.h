@@ -16,11 +16,14 @@
 #pragma once
 
 #include "cost_model/simulation/common/CommonType.h"
+#include <cstdio>
+#include <algorithm>
 
 
 namespace CostModel {
 
 const int PROCESS_ID_OFFSET = 10000;
+inline FILE* g_silent_file = nullptr;
 
 inline uint64_t GetProcessID(CostModel::MachineType type, size_t sequence)
 {
@@ -35,5 +38,25 @@ inline int GetMachineType(CostModel::Pid pid)
 inline int GetMachineSeq(CostModel::Pid pid)
 {
     return (pid % PROCESS_ID_OFFSET);
+}
+
+inline void DisablePrintf() {
+    fflush(stdout);
+    FILE* silent_file = fopen("/dev/null", "w");
+    std::swap(*stdout, *silent_file);
+}
+
+inline void EnablePrintf() {
+    if (!g_silent_file) {
+        return;
+    }
+    
+    fflush(stdout);
+    std::swap(*stdout, *g_silent_file);
+    
+    (void)fclose(g_silent_file);
+    g_silent_file = nullptr;
+
+    (void)fflush(stdout);
 }
 }
