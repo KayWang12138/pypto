@@ -103,7 +103,9 @@ void Program::SetCurrentFunction(Function *function) {
     if (function != nullptr) {
         currentFunctionPtr_ = function;
         currentFunctionMagicName_ = function->GetMagicName();
+        FUNCTION_LOGD("Set current function successfully.");
     }
+    FUNCTION_LOGW("Failed to set current function.");
 }
 
 void Program::CreateInitFunction() {
@@ -239,6 +241,7 @@ bool Program::BeginFunction(const std::string &funcName,
 
     auto funcMagicName = funcName + "_" + std::to_string(IdGen<IdType::FUNCTION>::Inst().CurId());
     if (functionmap_.find(funcMagicName) == functionmap_.end()) { // new function
+        FUNCTION_LOGD("Create a new function[%s].", funcMagicName.c_str());
         auto newFunc = std::make_unique<Function>(*this, funcMagicName, funcName, currentFunctionPtr_);
         newFunc->SetFunctionType(funcType);
         newFunc->SetGraphType(graphType);
@@ -335,6 +338,7 @@ void Program::HandleTaskSubmission(Function *result) {
 // End the current function and pop the function index from the stack
 std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string &funcName,
                                                                           bool generateCall) {
+    FUNCTION_LOGD("EndFunction start.");
 #if ENABLE_HIDDENLOOP
     // End child hidden loop
     EndHiddenLoop(currentFunctionPtr_, generateCall);
@@ -600,7 +604,7 @@ void Program::DumpJsonFile(const std::string &fileName, Function *mainFunc) {
     if (!fileName.empty()) {
         filePath = fileName;
     }
-
+    FUNCTION_LOGD("Program dump json to %s.", filePath.c_str());
     std::ofstream file(filePath);
     ASSERT(file.is_open()) << "Failed to open file: " << filePath;
     file << DumpJson(mainFunc).dump(1) << std::endl;
@@ -643,6 +647,7 @@ bool Program::QueryAndUpdateCurrentFunction() {
 }
 
 void Program::VerifyTensorGraph() {
+    FUNCTION_LOGI("VerifyTensorGraph start.");
     Function *func = GetLastFunction();
 
     std::vector<std::shared_ptr<LogicalTensorData>> inputDataViewList;
@@ -654,17 +659,20 @@ void Program::VerifyTensorGraph() {
 
     auto &flowVerifier = FlowVerifier::GetInstance();
     flowVerifier.VerifyTensorGraph(func, inputDataViewList, outputDataViewList, goldenDataViewList, GetTensorSlotManager());
+    FUNCTION_LOGI("VerifyTensorGraph end.");
 }
 
 void Program::VerifyPass(Function *func, int passIndex, const std::string &passIdentifier) {
     // SubgraphToFunction阶段还未进行validShape推导，会导致非尾块的计算会按照尾块大小进行计算，导致部分数据的拷贝或者计算丢失，
     // 该Pass需要与InferParamIndexPass进行“合并”后才会完成VaildShape推导，才可以完成完整功能；
+    FUNCTION_LOGI("VerifyPass start.");
     if (passIdentifier == "SubgraphToFunction") {
         FUNCTION_LOGI("Skip verify pass [SubgraphToFunction] for interpreter!");
         return;
     }
     auto &flowVerifier = FlowVerifier::GetInstance();
     flowVerifier.VerifyPass(func, passIndex, passIdentifier);
+    FUNCTION_LOGI("VerifyPass end.");
 }
 
 std::shared_ptr<Function> Program::GetFunctionSharedPtr(Function* rawPtr) {

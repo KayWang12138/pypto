@@ -55,58 +55,57 @@ struct TypeInfo {
 
     void build_type_infos(const nlohmann::json &jdata, const std::string &prefix) {
         if (jdata.contains("properties")) {
-            auto &properties = jdata["properties"];
-            for (auto &it : properties.items()) {
-                const std::string &key = it.key();
-                const nlohmann::json &value = it.value();
-                if (prefix.empty()) {
-                    build_type_infos(value, key);
-                } else {
-                    build_type_infos(value, prefix + "." + key);
-                }
+            // 递归解析properties字段
+            const auto &properties = jdata["properties"];
+            for (const auto &[key, value] : properties.items()) {
+                const std::string new_prefix = prefix.empty() ? key : prefix + "." + key;
+                build_type_infos(value, new_prefix);
             }
         } else if (jdata.contains("type")) {
+            // 处理type字段
             const std::string &type = jdata["type"];
             if (type == "string") {
                 typeInfos.insert({prefix, typeid(std::string)});
             } else if (type == "integer") {
                 typeInfos.insert({prefix, typeid(int64_t)});
-                int64_t minBound =
-                    jdata.contains("minimum") ? jdata["minimum"].get<int64_t>() : INT_MIN;
-                int64_t maxBound =
-                    jdata.contains("maximum") ? jdata["maximum"].get<int64_t>() : INT_MAX;
-                rangeInfos.insert({prefix, {minBound, maxBound}});
+                parse_range_info(jdata, prefix, "minimum", "maximum");
             } else if (type == "boolean") {
                 typeInfos.insert({prefix, typeid(bool)});
             } else if (type == "array") {
-                auto &jitem_type = jdata["items"]["type"];
-                if (jitem_type == "string") {
-                    typeInfos.insert({prefix, typeid(std::vector<std::string>)});
-                } else if (jitem_type == "integer") {
-                    typeInfos.insert({prefix, typeid(std::vector<int64_t>)});
-                } else if (jitem_type == "double") {
-                    typeInfos.insert({prefix, typeid(std::vector<double>)});
-                }
+                parse_array_type(jdata, prefix);
             } else if (type == "object") {
-                const std::string &typeHints = jdata["typeHints"];
-                if (typeHints == "intmap") {
-                    typeInfos.insert({prefix, typeid(std::map<int64_t, int64_t>)});
-                    int64_t minBound =
-                        jdata.contains("key_minimum") ? jdata["key_minimum"].get<int64_t>() : INT_MIN;
-                    int64_t maxBound =
-                        jdata.contains("key_maximum") ? jdata["key_maximum"].get<int64_t>() : INT_MAX;
-                    rangeInfos.insert({prefix + "_key", {minBound, maxBound}});
-                    minBound =
-                        jdata.contains("value_minimum") ? jdata["value_minimum"].get<int64_t>() : INT_MIN;
-                    maxBound =
-                        jdata.contains("value_maximum") ? jdata["value_maximum"].get<int64_t>() : INT_MAX;
-                    rangeInfos.insert({prefix + "_val", {minBound, maxBound}});
-                }
+                parse_object_type(jdata, prefix);
             } else {
                 FUNCTION_LOGE("invalid type: %s at %s", type.c_str(), prefix.c_str());
             }
         } else {
             FUNCTION_LOGE("Label<%s> field['type', 'properties'] not found in tile_fwk_config_schema.json", prefix.c_str());
+        }
+    }
+
+    void parse_range_info(const nlohmann::json &jdata, const std::string &prefix, const std::string &min_key, const std::string &max_key) {
+        int64_t minBound = jdata.contains(min_key) ? jdata[min_key].get<int64_t>() : INT_MIN;
+        int64_t maxBound = jdata.contains(max_key) ? jdata[max_key].get<int64_t>() : INT_MAX;
+        rangeInfos.insert({prefix, {minBound, maxBound}});
+    }
+
+    void parse_array_type(const nlohmann::json &jdata, const std::string &prefix) {
+        const std::string &jitem_type = jdata["items"]["type"];
+        if (jitem_type == "string") {
+            typeInfos.insert({prefix, typeid(std::vector<std::string>)});
+        } else if (jitem_type == "integer") {
+            typeInfos.insert({prefix, typeid(std::vector<int64_t>)});
+        } else if (jitem_type == "double") {
+            typeInfos.insert({prefix, typeid(std::vector<double>)});
+        }
+    }
+
+    void parse_object_type(const nlohmann::json &jdata, const std::string &prefix) {
+        const std::string &typeHints = jdata["typeHints"];
+        if (typeHints == "intmap") {
+            typeInfos.insert({prefix, typeid(std::map<int64_t, int64_t>)});
+            parse_range_info(jdata, prefix + "_key", "key_minimum", "key_maximum");
+            parse_range_info(jdata, prefix + "_val", "value_minimum", "value_maximum");
         }
     }
 
@@ -160,34 +159,41 @@ ConfigScope::~ConfigScope() {
     }
 }
 
+void DumpMap(std::stringstream &os, const std::map<int64_t, int64_t> &map) {
+    os << '{';
+    bool is_first = true;
+    for (const auto &[k, v] : map) {
+        if (!is_first) {
+            os << ", ";
+        }
+        os << "{" << k << ", " << v << "}";
+        is_first = false;
+    }
+    os << '}';
+}
+
 void DumpValue(std::stringstream &os, const std::string &key, const Any &val, const std::string &prefix) {
     os << prefix << key << ": ";
-    if (val.Type() == typeid(int64_t)) {
-        os << (AnyCast<int64_t>(val));
-    } else if (val.Type() == typeid(bool)) {
+    const auto &type = val.Type();
+
+    if (type == typeid(int64_t)) {
+        os << AnyCast<int64_t>(val);
+    } else if (type == typeid(bool)) {
         os << AnyCast<bool>(val);
-    } else if (val.Type() == typeid(std::string)) {
-        os << (AnyCast<std::string>(val));
-    } else if (val.Type() == typeid(std::vector<int64_t>)) {
-        os << (AnyCast<std::vector<int64_t>>(val));
-    } else if (val.Type() == typeid(std::vector<std::string>)) {
-        os << (AnyCast<std::vector<std::string>>(val));
-    } else if (val.Type() == typeid(std::map<int64_t, int64_t>)) {
-        os << '{';
-        bool is_first = true;
-        for (auto &[k, v] : AnyCast<std::map<int64_t, int64_t>>(val)) {
-            if (!is_first)
-                os << ", ";
-            os << "{" << k << ", " << v << "}";
-            is_first = false;
-        }
-        os << '}';
-    } else if (val.Type() == typeid(CubeTile)) {
-        os << (AnyCast<CubeTile>(val).ToString());
-    } else if (val.Type() == typeid(DistTile)) {
-        os << (AnyCast<DistTile>(val).ToString());
+    } else if (type == typeid(std::string)) {
+        os << AnyCast<std::string>(val);
+    } else if (type == typeid(std::vector<int64_t>)) {
+        os << AnyCast<std::vector<int64_t>>(val);
+    } else if (type == typeid(std::vector<std::string>)) {
+        os << AnyCast<std::vector<std::string>>(val);
+    } else if (type == typeid(std::map<int64_t, int64_t>)) {
+        DumpMap(os, AnyCast<std::map<int64_t, int64_t>>(val));
+    } else if (type == typeid(CubeTile)) {
+        os << AnyCast<CubeTile>(val).ToString();
+    } else if (type == typeid(DistTile)) {
+        os << AnyCast<DistTile>(val).ToString();
     } else {
-        os << "unknow type: " << val.Type().name();
+        os << "unknow type: " << type.name();
     }
 }
 
