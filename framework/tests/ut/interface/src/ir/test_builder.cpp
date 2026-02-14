@@ -474,7 +474,7 @@ TEST(IRBuilderTest, ProgramContextGetReturnTypesEmpty) {
 // IRBuilder FuncArg Tests
 // ============================================================================
 
-TEST_F(IRBuilderTest, TestFuncArg) {
+TEST(IRBuilderTest, TestFuncArg) {
   IRBuilder builder;
   auto span = Span::unknown();
   auto int_type = std::make_shared<ScalarType>(DataType::INT32);
@@ -494,7 +494,7 @@ TEST_F(IRBuilderTest, TestFuncArg) {
 // IRBuilder Error Path Tests
 // ============================================================================
 
-TEST_F(IRBuilderTest, TestBeginFunctionWhileInFunction) {
+TEST(IRBuilderTest, TestBeginFunctionWhileInFunction) {
   IRBuilder builder;
   auto span = Span::unknown();
   builder.BeginFunction("f1", span);
@@ -504,7 +504,7 @@ TEST_F(IRBuilderTest, TestBeginFunctionWhileInFunction) {
   builder.EndFunction(span);
 }
 
-TEST_F(IRBuilderTest, TestEmitOutsideContext) {
+TEST(IRBuilderTest, TestEmitOutsideContext) {
   IRBuilder builder;
   auto span = Span::unknown();
   auto val = std::make_shared<ConstInt>(0, DataType::INT32, span);
@@ -512,7 +512,7 @@ TEST_F(IRBuilderTest, TestEmitOutsideContext) {
   ASSERT_THROW(builder.Emit(stmt), RuntimeError);
 }
 
-TEST_F(IRBuilderTest, TestBeginProgramWhileInProgram) {
+TEST(IRBuilderTest, TestBeginProgramWhileInProgram) {
   IRBuilder builder;
   auto span = Span::unknown();
   builder.BeginProgram("p1", span);
@@ -520,7 +520,7 @@ TEST_F(IRBuilderTest, TestBeginProgramWhileInProgram) {
   builder.EndProgram(span);
 }
 
-TEST_F(IRBuilderTest, TestBeginForLoopOutsideContext) {
+TEST(IRBuilderTest, TestBeginForLoopOutsideContext) {
   IRBuilder builder;
   auto span = Span::unknown();
   auto int_type = std::make_shared<ScalarType>(DataType::INT32);
@@ -535,7 +535,7 @@ TEST_F(IRBuilderTest, TestBeginForLoopOutsideContext) {
 // IRBuilder Empty Return Tests
 // ============================================================================
 
-TEST_F(IRBuilderTest, TestEmptyReturn) {
+TEST(IRBuilderTest, TestEmptyReturn) {
   IRBuilder builder;
   auto span = Span::unknown();
   builder.BeginFunction("test", span);
@@ -548,7 +548,7 @@ TEST_F(IRBuilderTest, TestEmptyReturn) {
 // IRBuilder Multiple Statements in Body
 // ============================================================================
 
-TEST_F(IRBuilderTest, TestMultipleStatementsInFunction) {
+TEST(IRBuilderTest, TestMultipleStatementsInFunction) {
   IRBuilder builder;
   auto span = Span::unknown();
   auto int_type = std::make_shared<ScalarType>(DataType::INT32);
@@ -564,7 +564,7 @@ TEST_F(IRBuilderTest, TestMultipleStatementsInFunction) {
   ASSERT_NE(func, nullptr);
 }
 
-TEST_F(IRBuilderTest, TestEmptyFunctionBody) {
+TEST(IRBuilderTest, TestEmptyFunctionBody) {
   IRBuilder builder;
   auto span = Span::unknown();
   builder.BeginFunction("empty", span);
@@ -576,7 +576,7 @@ TEST_F(IRBuilderTest, TestEmptyFunctionBody) {
 // IRBuilder Program with DeclareFunction/GetGlobalVar
 // ============================================================================
 
-TEST_F(IRBuilderTest, TestDeclareFunctionAndGetGlobalVar) {
+TEST(IRBuilderTest, TestDeclareFunctionAndGetGlobalVar) {
   IRBuilder builder;
   auto span = Span::unknown();
 
@@ -592,7 +592,7 @@ TEST_F(IRBuilderTest, TestDeclareFunctionAndGetGlobalVar) {
   builder.EndProgram(span);
 }
 
-TEST_F(IRBuilderTest, TestGetGlobalVarNotFound) {
+TEST(IRBuilderTest, TestGetGlobalVarNotFound) {
   IRBuilder builder;
   auto span = Span::unknown();
   builder.BeginProgram("prog", span);
@@ -600,7 +600,7 @@ TEST_F(IRBuilderTest, TestGetGlobalVarNotFound) {
   builder.EndProgram(span);
 }
 
-TEST_F(IRBuilderTest, TestProgramAddFunction) {
+TEST(IRBuilderTest, TestProgramAddFunction) {
   IRBuilder builder;
   auto span = Span::unknown();
   auto int_type = std::make_shared<ScalarType>(DataType::INT32);
@@ -620,7 +620,7 @@ TEST_F(IRBuilderTest, TestProgramAddFunction) {
   ASSERT_EQ(prog->functions_.size(), 1);
 }
 
-TEST_F(IRBuilderTest, TestGetFunctionReturnTypes) {
+TEST(IRBuilderTest, TestGetFunctionReturnTypes) {
   IRBuilder builder;
   auto span = Span::unknown();
   auto int_type = std::make_shared<ScalarType>(DataType::INT32);
@@ -645,7 +645,7 @@ TEST_F(IRBuilderTest, TestGetFunctionReturnTypes) {
 // IRBuilder ForLoop with IterArgs
 // ============================================================================
 
-TEST_F(IRBuilderTest, TestForLoopWithIterArgs) {
+TEST(IRBuilderTest, TestForLoopWithIterArgs) {
   IRBuilder builder;
   auto span = Span::unknown();
   auto int_type = std::make_shared<ScalarType>(DataType::INT32);
@@ -677,7 +677,7 @@ TEST_F(IRBuilderTest, TestForLoopWithIterArgs) {
 // IRBuilder If with ReturnVars and multiple stmts
 // ============================================================================
 
-TEST_F(IRBuilderTest, TestIfWithReturnVarsAndMultipleStmts) {
+TEST(IRBuilderTest, TestIfWithReturnVarsAndMultipleStmts) {
   IRBuilder builder;
   auto span = Span::unknown();
   auto int_type = std::make_shared<ScalarType>(DataType::INT32);
@@ -708,7 +708,7 @@ TEST_F(IRBuilderTest, TestIfWithReturnVarsAndMultipleStmts) {
   ASSERT_NE(func, nullptr);
 }
 
-TEST_F(IRBuilderTest, TestCurrentContextNull) {
+TEST(IRBuilderTest, TestCurrentContextNull) {
   IRBuilder builder;
   ASSERT_FALSE(builder.InFunction());
   ASSERT_FALSE(builder.InLoop());
