@@ -132,15 +132,16 @@ static std::string CreateLogTopFolder() {
     if (envDir != nullptr) {
         std::string envStr(envDir);
         if (!envStr.empty()) {
+            FUNCTION_LOGD("Get env TILE_FWK_OUTPUT_DIR[%s] successfully.", envStr.c_str());
             folderPath = std::move(envStr);
         }
     }
-    bool res = CreateDir(folderPath);
-    CHECK(res) << "Failed to create dir: " << folderPath << ", ensure its parent dir exists.";
+    bool ret = CreateDir(folderPath);
+    CHECK(ret) << "Failed to create dir: " << folderPath << ", ensure its parent dir exists.";
 
     folderPath = folderPath + "/output_" + timestamp.str() + "_" + std::to_string(getpid());
-    res = CreateDir(folderPath);
-    ASSERT(res) << "Failed to create dir: " << folderPath << ", ensure its parent dir exists.";;
+    ret = CreateDir(folderPath);
+    ASSERT(ret) << "Failed to create dir: " << folderPath << ", ensure its parent dir exists.";;
     config::SetRunDataOption(KEY_COMPUTE_GRAPH_PATH, RealPath(folderPath));
 
     return folderPath;
@@ -330,6 +331,7 @@ void Reset() {
 
 void SetBuildStatic(bool isStatic) {
     g_config.funcType = isStatic ? FunctionType::STATIC : FunctionType::DYNAMIC;
+    FUNCTION_LOGD("Set functionType[%s] successfully.", (isStatic ? "STATIC" : "DYNAMIC"));
 }
 
 FunctionType GetFunctionType() {
@@ -338,6 +340,7 @@ FunctionType GetFunctionType() {
 
 void SetSemanticLabel(const std::string &label, const char *filename , int lineno) {
     g_config.semanticLabel = std::make_shared<SemanticLabel>(label, filename, lineno);
+    FUNCTION_LOGD("Set semanticLabel[%s] successfully.", label.c_str());
 }
 
 void SetSemanticLabel(std::shared_ptr<SemanticLabel> label) {
@@ -384,6 +387,7 @@ void SetPrintOptions(int edgeItems, int precision, int threshold, int linewidth)
     g_config.printOption.precision = precision;
     g_config.printOption.threshold = threshold;
     g_config.printOption.linewidth = linewidth;
+    FUNCTION_LOGD("Set print option [%d %d %d %d] successfully.", edgeItems, precision, threshold, linewidth);
 }
 
 PrintOptions &GetPrintOptions() {
