@@ -463,9 +463,9 @@ TILEOP void TMatmul(T &c, U &a, V &b) {
     tileL0ATensor l0a(validM, validK);
     tileL0BTensor l0b(validK, validN);
     tileL0CTensor l0c(validM, validN);
-    if (std::is_same<typename tileL0ATensor::DType, float>::value) {
-        l0a.SetKAligned(true);
-    }
+    // if (std::is_same<typename tileL0ATensor::DType, float>::value) {
+    //     l0a.SetKAligned(true);
+    // }
 
     pto::TASSIGN(l0a, (uint64_t)a.GetAddr());
     pto::TASSIGN(l0b, (uint64_t)b.GetAddr());
