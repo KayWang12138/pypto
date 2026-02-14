@@ -70,7 +70,7 @@ void RecordFunc::RecordDynFuncInner(const std::vector<std::reference_wrapper<con
 #endif
 
         Program::GetInstance().BeginFunction(funcName, config::GetFunctionType());
-
+        FUNCTION_LOGD("Processing input and output args.");
         std::shared_ptr<TensorSlotManager> manager = Program::GetInstance().GetTensorSlotManager();
         for (auto &param : startArgsInputTensorList) {
             manager->MarkInput(param.get());
@@ -139,6 +139,7 @@ void RecordFunc::EndFunction() {
     }
 
     if (IsVerifyEnable()) {
+        FUNCTION_LOGI("FlowVerify has been enable.");
         config::SetRunDataOption(KEY_FLOW_VERIFY_PATH, config::GetAbsoluteTopFolder() + "/verify");
     }
 

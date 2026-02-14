@@ -400,6 +400,7 @@ void TensorSlotManager::MarkInput(const Tensor &tensor) {
         logicalTensor ? logicalTensor->tensor->symbol : "untitled";
     AddNameSuffix(inputName, nameDict);
     inputNameList.push_back(inputName);
+    FUNCTION_LOGD("MarkInput push input name[%s].", inputName.c_str());
 
     LogOperation(slot, "input");
 }
@@ -416,6 +417,7 @@ void TensorSlotManager::MarkOutput(const Tensor &tensor) {
         logicalTensor ? logicalTensor->tensor->symbol : "untitled";
     AddNameSuffix(outputName, nameDict);
     outputNameList.push_back(outputName);
+    FUNCTION_LOGD("MarkInput push output name[%s].", outputName.c_str());
 
     LogOperation(slot, "output");
 }
@@ -427,6 +429,7 @@ void TensorSlotManager::MarkInplace(const Tensor &out, const Tensor &in) {
     ASSERT(inputSlotDict.count(inSlot) != 0)
         << "TensorSlot[" << inSlot.GetSymbolName() << "] not found in inputSlotDict.";
     inplaceDict[outSlot] = inSlot;
+    FUNCTION_LOGD("Slot already inplace [%s, %s].", inSlot.GetSymbolName().c_str(), outSlot.GetSymbolName().c_str());
 }
 
 int TensorSlotManager::GetInputIndex(const Tensor &tensor) {

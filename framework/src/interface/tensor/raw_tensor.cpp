@@ -36,6 +36,7 @@ RawTensor::RawTensor(DataType t, std::vector<int64_t> tshape, TileOpFormat tform
 }
 
 Json RawTensor::DumpJson() const {
+    FUNCTION_LOGD("RawTensor dump json start.");
     Json result;
     result[T_FIELD_KIND] = static_cast<int>(Kind::T_KIND_RAW_TENSOR);
     result["datatype"] = datatype;
@@ -56,6 +57,7 @@ Json RawTensor::DumpJson() const {
 std::shared_ptr<RawTensor> RawTensor::LoadJson(const Json &rawTensorDump) {
     ASSERT(rawTensorDump[T_FIELD_KIND].get<int>() == static_cast<int>(Kind::T_KIND_RAW_TENSOR))
         << rawTensorDump[T_FIELD_KIND].get<int>() << " != " << static_cast<int>(Kind::T_KIND_RAW_TENSOR);
+    FUNCTION_LOGD("RawTensor load json start.");
     DataType dtype = static_cast<DataType>(rawTensorDump["datatype"].get<int>());
     TileOpFormat format = static_cast<TileOpFormat>(rawTensorDump["format"].get<int>());
     std::vector<int64_t> rawshapeJson = rawTensorDump["rawshape"].get<std::vector<int64_t>>();
@@ -121,6 +123,7 @@ void RawTensor::AddRefCount(int value) {
 
 int64_t RawTensor::GetRawDataSize() const {
     if (HasNegativeNum<int64_t>(rawshape)) {
+        FUNCTION_LOGD("Raw tensor shape has negative. It has dynamic axis.");
         return INT64_MAX;
     }
     return GetRawShapeSize() * BytesOf(datatype);
