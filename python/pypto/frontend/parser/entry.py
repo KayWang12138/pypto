@@ -316,21 +316,138 @@ class JitCallableWrapper:
         Optional[Union[torch.Tensor, tuple[torch.Tensor, ...]]]
             Output tensor(s), or None if the kernel has no return value.
         """
-        in_tensors, non_tensor_values, input_tensor_defs, output_tensor_defs = (
-            self._parse_call_args(args, kwargs)
-        )
-        self._get_or_create_kmodule(non_tensor_values)
-        device = self._resolve_device(in_tensors)
-        out_tensors = self._allocate_output_tensors(
-            in_tensors, input_tensor_defs, output_tensor_defs, device
-        )
-        pto_in_tensors = self._convert_tensors_with_metadata(
-            in_tensors, input_tensor_defs
-        )
-        pto_out_tensors = self._convert_tensors_with_metadata(
-            out_tensors, output_tensor_defs
-        )
-        self._execute_kernel(pto_in_tensors, pto_out_tensors)
+
+        # Validate that all arguments are tensors
+        if kwargs:
+            raise RuntimeError(
+                "pypto.frontend.jit requires that all arguments must be tensors. "
+                "Keyword arguments are not supported."
+            )
+
+        for i, arg in enumerate(args):
+            if not isinstance(arg, torch.Tensor):
+                raise RuntimeError(
+                    f"pypto.frontend.jit requires that all arguments must be pypto.tensor. "
+                    f"Argument at position {i} is {type(arg).__name__}, not a tensor."
+                )
+
+        in_tensors = list(args)
+
+        # Validate input tensors are contiguous
+        for in_tensor in in_tensors:
+            if not in_tensor.is_contiguous():
+                raise RuntimeError(
+                    "pypto.frontend.jit requires that all input tensors "
+                    "must be contiguous."
+                )
+
+
+        # Create output tensors with the same device as input tensors
+        if in_tensors:
+            device = in_tensors[0].device
+            for tensor in in_tensors[1:]:
+                if tensor.device != device:
+                    raise RuntimeError(
+                        f"pypto.frontend.jit requires that all input tensors "
+                        f"must be on the same device. Got tensors on devices: "
+                        f"{device} and {tensor.device}"
+                    )
+        else:
+            run_mode = self._runtime_options.get("run_mode", None)
+            if run_mode == pypto.RunMode.NPU:
+                if torch.npu.is_available():
+                    device = torch.device('npu', torch.npu.current_device())
+                else:
+                    raise RuntimeError("NPU is not available.")
+            elif run_mode == pypto.RunMode.SIM:
+                device = torch.device('cpu')
+            else:
+                raise RuntimeError(f"Invalid run mode: {run_mode}.")
+
+        # Resolve symbolic dimensions using current input shapes so outputs
+        # allocated below match the runtime dynamic sizes.
+        # Construct output_tensor_defs based on return type annotations
+        input_tensor_defs, output_tensor_defs = self.get_signature_high_performance(self._original_func)
+        concrete_input_shapes = [list(in_tensor.shape) for in_tensor in in_tensors]
+        self._check_input_defs_match_tensors(in_tensors, input_tensor_defs)
+        symbolic_dim_value_map = Parser.match_input_shapes(concrete_input_shapes, input_tensor_defs)
+        # The unique output dimensions cannot be derived from the input, and are parsed from the params of captured_locals
+        if self._captured_locals:
+            params = self._captured_locals.get("params")
+            if params is not None:
+                param_values = []
+                try:
+                    attrs = vars(params)
+                except TypeError:
+                    attrs = {}
+                for attr in sorted(attrs.keys()):
+                    if attr.startswith('_'):
+                        continue
+                    try:
+                        val = getattr(params, attr)
+                        if isinstance(val, int) and val > 0:
+                            param_values.append(val)
+                    except (AttributeError, TypeError):
+                        pass
+                for out_tensor_def in output_tensor_defs:
+                    for dim in out_tensor_def.shape:
+                        if isinstance(dim, pypto.SymbolicScalar) and str(dim) not in symbolic_dim_value_map and param_values:
+                            symbolic_dim_value_map[str(dim)] = param_values[0]
+                            param_values = param_values[1:]
+        # Create out_tensors based on the return type (output_tensor_defs)
+        out_tensors = []
+        for out_tensor_def in output_tensor_defs:
+            shape_list = []
+            for dim in out_tensor_def.shape:
+                if isinstance(dim, pypto.SymbolicScalar):
+                    dim_value = symbolic_dim_value_map.get(str(dim))
+                    if dim_value is None:
+                        raise ValueError(
+                            f"Dynamic dimension {dim} not found. "
+                            f"Resolved from inputs: {symbolic_dim_value_map}. "
+                            f"Output-only dims may need params (int attrs) in closure, "
+                        )
+                    shape_list.append(dim_value)
+                else:
+                    shape_list.append(dim)
+            out_tensors.append(
+                torch.empty(tuple(shape_list), dtype=_torch_dtype_from(out_tensor_def.dtype), device=device)
+            )
+
+        def convert_tensors_with_metadata(torch_tensors, tensor_defs):
+            """Convert torch tensors to pypto tensors with name and dynamic_axis metadata."""
+            pto_tensors = []
+            for torch_tensor, tensor_def in zip(torch_tensors, tensor_defs):
+                name = tensor_def.name
+                # Determine which axes are dynamic by checking for SymbolicScalar in shape
+                dynamic_axis = [
+                    i
+                    for i, dim in enumerate(tensor_def.shape)
+                    if isinstance(dim, pypto.SymbolicScalar)
+                ]
+                pto_tensors.append(
+                    pypto.from_torch(
+                        torch_tensor,
+                        name=name,
+                        dynamic_axis=dynamic_axis if dynamic_axis else None,
+                        tensor_format=tensor_def.format,
+                        dtype=tensor_def.dtype,
+                    )
+                )
+            return pto_tensors
+
+        pto_in_tensors = convert_tensors_with_metadata(in_tensors, input_tensor_defs)
+        pto_out_tensors = convert_tensors_with_metadata(out_tensors, output_tensor_defs)
+
+        if self._runtime_options.get("run_mode", None) == RunMode.NPU:
+            pypto_impl.LaunchKernel(self, _current_stream(), *pto_in_tensors, *pto_out_tensors)
+        else:
+            with pypto.options("jit_scope"):
+                self._set_config_option()
+                pypto_impl.DeviceInit()
+                self.compile([*pto_in_tensors, *pto_out_tensors])
+                self._run_with_cpu([*pto_in_tensors, *pto_out_tensors], [])
+
         if not out_tensors:
             return None
         if len(out_tensors) == 1:
