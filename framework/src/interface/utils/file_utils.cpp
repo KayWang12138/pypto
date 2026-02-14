@@ -29,8 +29,8 @@ namespace {
 const int FILE_AUTHORITY = 0640;
 }
 
-bool FileExist(const std::string &filePath) {
-    return !RealPath(filePath).empty();
+bool FileExist(const std::string &fPath) {
+    return !RealPath(fPath).empty();
 }
 
 std::string RealPath(const std::string &path) {
@@ -59,11 +59,11 @@ std::string RealPath(const std::string &path) {
     return res;
 }
 
-bool GetFileSize(const std::string& filePath, uint32_t &fileSize) {
-    if (RealPath(filePath).empty()) {
+bool GetFileSize(const std::string& fPath, uint32_t &fileSize) {
+    if (RealPath(fPath).empty()) {
         return false;
     }
-    std::ifstream file(filePath, std::ios::binary | std::ios::ate); // 打开文件，定位到文件末尾
+    std::ifstream file(fPath, std::ios::binary | std::ios::ate); // 打开文件，定位到文件末尾
     if (!file.is_open()) {
         return false;
     }
@@ -72,9 +72,9 @@ bool GetFileSize(const std::string& filePath, uint32_t &fileSize) {
     return true;
 }
 
-uint32_t GetFileSize(const std::string& filePath) {
+uint32_t GetFileSize(const std::string& fPath) {
     uint32_t fileSize = 0;
-    (void) GetFileSize(filePath, fileSize);
+    (void) GetFileSize(fPath, fileSize);
     return fileSize;
 }
 
@@ -181,17 +181,17 @@ bool ReadJsonFile(const std::string &file, nlohmann::json &jsonObj) {
     return true;
 }
 
-bool ReadBytesFromFile(const std::string &filePath, std::vector<char> &buffer)
+bool ReadBytesFromFile(const std::string &fPath, std::vector<char> &buffer)
 {
-    std::string realPath = RealPath(filePath);
+    std::string realPath = RealPath(fPath);
     if (realPath.empty()) {
-        FUNCTION_LOGW("Bin file path[%s] is not valid.", filePath.c_str());
+        FUNCTION_LOGW("Bin file path[%s] is not valid.", fPath.c_str());
         return false;
     }
 
     std::ifstream ifStream(realPath.c_str(), std::ios::binary | std::ios::ate);
     if (!ifStream.is_open()) {
-        FUNCTION_LOGW("read file %s failed.", filePath.c_str());
+        FUNCTION_LOGW("read file %s failed.", fPath.c_str());
         return false;
     }
     try {
@@ -210,7 +210,7 @@ bool ReadBytesFromFile(const std::string &filePath, std::vector<char> &buffer)
         ifStream.close();
         FUNCTION_LOGD("Read size: %ld.", size);
     } catch (const std::ifstream::failure& e) {
-        FUNCTION_LOGW("Fail to read file %s. Exception: %s.", filePath.c_str(), e.what());
+        FUNCTION_LOGW("Fail to read file %s. Exception: %s.", fPath.c_str(), e.what());
         ifStream.close();
         return false;
     }
@@ -266,20 +266,20 @@ std::vector<std::string> GetFiles(const std::string& path, const std::string& ex
     return files;
 }
 
-void SaveFile(const std::string &filePath, const std::vector<uint8_t> &data) {
-    FILE *file = fopen(filePath.c_str(), "wb");
+void SaveFile(const std::string &fPath, const std::vector<uint8_t> &data) {
+    FILE *file = fopen(fPath.c_str(), "wb");
     if (file == nullptr) {
-        FUNCTION_LOGW("Open file [%s] failed.", filePath.c_str());
+        FUNCTION_LOGW("Open file [%s] failed.", fPath.c_str());
         return;
     }
     fwrite(data.data(), 1, data.size(), file);
     fclose(file);
 }
 
-bool SaveFile(const std::string &filePath, const uint8_t *data, size_t size) {
-    FILE *file = fopen(filePath.c_str(), "wb");
+bool SaveFile(const std::string &fPath, const uint8_t *data, size_t size) {
+    FILE *file = fopen(fPath.c_str(), "wb");
     if (file == nullptr) {
-        FUNCTION_LOGW("Open file [%s] failed.", filePath.c_str());
+        FUNCTION_LOGW("Open file [%s] failed.", fPath.c_str());
         return false;
     }
     fwrite(data, 1, size, file);
@@ -287,10 +287,10 @@ bool SaveFile(const std::string &filePath, const uint8_t *data, size_t size) {
     return true;
 }
 
-void SaveFileSafe(const std::string &filePath, const uint8_t *data, size_t size) {
-    auto tmpfile = filePath + ".tmp";
+void SaveFileSafe(const std::string &fPath, const uint8_t *data, size_t size) {
+    auto tmpfile = fPath + ".tmp";
     if (SaveFile(tmpfile, data, size)) {
-        Rename(tmpfile, filePath);
+        Rename(tmpfile, fPath);
     }
 }
 
@@ -300,36 +300,36 @@ void Rename(const std::string &oldPath, const std::string &newPath) {
     }
 }
 
-bool DumpFile(const char *data, const size_t size, const std::string &filePath) {
+bool DumpFile(const char *data, const size_t size, const std::string &fPath) {
     // dump bin file
-    std::ofstream outFile(filePath, std::ios::binary);
+    std::ofstream outFile(fPath, std::ios::binary);
     if (!outFile) {
-        FUNCTION_LOGE("Failed open file %s.", filePath.c_str());
+        FUNCTION_LOGE("Failed open file %s.", fPath.c_str());
         return false;
     }
     outFile.write(data, size);
     outFile.close();
-    FUNCTION_LOGI("Bin file[%s] has been dumped.", filePath.c_str());
+    FUNCTION_LOGI("Bin file[%s] has been dumped.", fPath.c_str());
     return true;
 }
 
-bool DumpFile(const std::vector<uint8_t> &data, const std::string &filePath) {
-    return DumpFile(reinterpret_cast<const char *>(data.data()), data.size(), filePath);
+bool DumpFile(const std::vector<uint8_t> &data, const std::string &fPath) {
+    return DumpFile(reinterpret_cast<const char *>(data.data()), data.size(), fPath);
 }
 
-bool DumpFile(const std::string &text, const std::string &filePath) {
-    return DumpFile(text.data(), text.size(), filePath);
+bool DumpFile(const std::string &text, const std::string &fPath) {
+    return DumpFile(text.data(), text.size(), fPath);
 }
 
-std::vector<uint8_t> LoadFile(const std::string &filePath) {
+std::vector<uint8_t> LoadFile(const std::string &fPath) {
     std::vector<uint8_t> binary;
-    std::string realPath = RealPath(filePath);
+    std::string realPath = RealPath(fPath);
     if (realPath.empty()) {
-        FUNCTION_LOGW("Bin file path[%s] is not valid.", filePath.c_str());
+        FUNCTION_LOGW("Bin file path[%s] is not valid.", fPath.c_str());
         return binary;
     }
 
-    FILE *file = fopen(filePath.c_str(), "rb");
+    FILE *file = fopen(fPath.c_str(), "rb");
     if (file != nullptr) {
         fseek(file, 0, SEEK_END);
         int size = ftell(file);

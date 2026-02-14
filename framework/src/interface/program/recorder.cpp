@@ -139,6 +139,7 @@ void RecordFunc::EndFunction() {
     }
 
     if (IsVerifyEnable()) {
+        FUNCTION_LOGI("FlowVerify has been enable.");
         config::SetRunDataOption(KEY_FLOW_VERIFY_PATH, config::GetAbsoluteTopFolder() + "/verify");
     }
 

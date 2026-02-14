@@ -2307,41 +2307,41 @@ Json Function::DumpJson(bool useTable) {
     return funcDump;
 }
 
-void Function::LoadTensorJson(const std::shared_ptr<Function> &func, const Json &funcDump,
+void Function::LoadTensorJson(const std::shared_ptr<Function> &func, const Json &tensorJson,
                               const std::unordered_map<int, std::shared_ptr<RawTensor>> &rawTensorDict,
                               std::unordered_map<int, std::shared_ptr<LogicalTensor>> &tensorDict) {
-    if (funcDump.count("tensors") != 0) {
-        for (auto &tensorDump : funcDump["tensors"]) {
+    if (tensorJson.count("tensors") != 0) {
+        for (auto &tensorDump : tensorJson["tensors"]) {
             std::shared_ptr<LogicalTensor> tensor = LogicalTensor::LoadJson(*func, rawTensorDict, tensorDump);
             tensorDict[tensor->GetMagic()] = tensor;
         }
     }
-    for (auto &iDump : funcDump["incasts"]) {
+    for (auto &iDump : tensorJson["incasts"]) {
         if (!iDump[0].is_number()) {
             std::shared_ptr<LogicalTensor> tensor = LogicalTensor::LoadJson(*func, rawTensorDict, iDump);
             tensorDict[tensor->GetMagic()] = tensor;
         }
     }
-    for (auto &oDump : funcDump["outcasts"]) {
+    for (auto &oDump : tensorJson["outcasts"]) {
         if (!oDump[0].is_number()) {
             std::shared_ptr<LogicalTensor> tensor = LogicalTensor::LoadJson(*func, rawTensorDict, oDump);
             tensorDict[tensor->GetMagic()] = tensor;
         }
     }
 
-    for (auto &tDump : funcDump["global_tensors"]) {
+    for (auto &tDump : tensorJson["global_tensors"]) {
         int magic = tDump.get<int>();
         auto &t = tensorDict[magic];
         func->globalTensors_.emplace(t);
     }
 
-    for (auto &iDump : funcDump["incasts"]) {
+    for (auto &iDump : tensorJson["incasts"]) {
         int magic = iDump[0].is_number() ? iDump[0].get<int>() : iDump["magic"].get<int>();
         auto &in = tensorDict[magic];
         func->inCasts_.push_back(in);
         func->GetTensorMap().Insert(in);
     }
-    for (auto &oDump : funcDump["outcasts"]) {
+    for (auto &oDump : tensorJson["outcasts"]) {
         int magic = oDump[0].is_number() ? oDump[0].get<int>() : oDump["magic"].get<int>();
         func->outCasts_.push_back(tensorDict[magic]);
     }
@@ -2350,7 +2350,7 @@ void Function::LoadTensorJson(const std::shared_ptr<Function> &func, const Json 
         func->GetTensorMap().Insert(ele.second, false);
     }
 
-    for (auto &opDump : funcDump["operations"]) {
+    for (auto &opDump : tensorJson["operations"]) {
         auto op = Operation::LoadJson(*func, tensorDict, opDump);
         func->operations_.push_back(op);
     }
