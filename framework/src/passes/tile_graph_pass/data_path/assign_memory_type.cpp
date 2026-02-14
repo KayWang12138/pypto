@@ -386,7 +386,7 @@ void AssignMemoryType::AssignMoveOp(Operation &operation) {
     }
 }
 
-int64_t AssignMemoryType::CalcLineOffset(std::vector<int64_t> shape, std::vector<int64_t> offset) {
+int64_t AssignMemoryType::CalcLineOffset(const Shape &shape, const Offset &offset) {
     if (shape.size() != offset.size()) {
         return -1;
     }
@@ -399,9 +399,7 @@ int64_t AssignMemoryType::CalcLineOffset(std::vector<int64_t> shape, std::vector
     // 从最低维到最高维计算
     for (size_t i = shape.size(); i > 0; --i) {
         lineOffset += offset[i - 1] * stride;
-        if (i > 0) {
-            stride *= shape[i - 1];
-        }
+        stride *= shape[i - 1];
     }
     return lineOffset;
 }
@@ -423,19 +421,25 @@ void AssignMemoryType::AssignMoveOpForAssemble(Operation &operation) {
             }
 
             // 获取操作属性
-            auto opAttr = std::static_pointer_cast<AssembleOpAttribute>(outputProducer->GetOpAttribute());
+            auto opAttr = std::dynamic_pointer_cast<AssembleOpAttribute>(outputProducer->GetOpAttribute());
+            if (opAttr == nullptr) {
+                APASS_LOG_ERROR_F(Elements::Operation, "Op[%d]'s OpAttribute is null.");
+                continue;
+            }
             auto offset = opAttr->GetToOffset();
             auto rawShape = tensor->GetRawTensor()->rawshape;
 
             int64_t lineOffset = CalcLineOffset(tensor->GetRawTensor()->rawshape, opAttr->GetToOffset());
-            size_t tensorBytes = BytesOf(tensor->Datatype());
+            int64_t tensorBytes = static_cast<int64_t>(BytesOf(tensor->Datatype()));
             int64_t byteOffset = tensorBytes * lineOffset;
             
-            APASS_LOG_DEBUG_F(Elements::Tensor, "Op %d 's input tensor, lineOffset is %d, tensorBytes is %d, byteOffset is %d.", lineOffset, tensorBytes, byteOffset);
+            APASS_LOG_DEBUG_F(Elements::Tensor, "Op %ld 's input tensor, lineOffset is %ld, tensorBytes is %ld, byteOffset is %ld.", lineOffset, tensorBytes, byteOffset);
             // 对齐检查，根据assemble的offset和assemble输出tensor的rawshape计算线性offset，如果非32B对齐，则将assemble输出tensor推导为DDR类型
+            static constexpr int UB_ALIGN_BYTES = 32;
             if (byteOffset % UB_ALIGN_BYTES != 0) {
                 APASS_LOG_DEBUG_F(Elements::Tensor, "Set op %d 's output original memoryType to DDR.", outputProducer->GetOpMagic());
                 hasDdr = true;
+                break;
             }
         }
         if (hasDdr) {
