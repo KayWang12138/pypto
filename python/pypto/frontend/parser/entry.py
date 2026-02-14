@@ -355,32 +355,53 @@ class JitCallableWrapper:
 
         # Resolve symbolic dimensions using current input shapes so outputs
         # allocated below match the runtime dynamic sizes.
-        out_tensors = []
+        # Construct output_tensor_defs based on return type annotations
         input_tensor_defs, output_tensor_defs = self.get_signature_high_performance(self._original_func)
         concrete_input_shapes = [list(in_tensor.shape) for in_tensor in in_tensors]
         self._check_input_defs_match_tensors(in_tensors, input_tensor_defs)
-        symbolic_dim_value_map = Parser.match_input_shapes(
-            concrete_input_shapes, input_tensor_defs
-        )
+        symbolic_dim_value_map = Parser.match_input_shapes(concrete_input_shapes, input_tensor_defs)
+        # The unique output dimensions cannot be derived from the input, and are parsed from the params of captured_locals
+        if self._captured_locals:
+            params = self._captured_locals.get("params")
+            if params is not None:
+                param_values = []
+                try:
+                    attrs = vars(params)
+                except TypeError:
+                    attrs = {}
+                for attr in sorted(attrs.keys()):
+                    if attr.startswith('_'):
+                        continue
+                    try:
+                        val = getattr(params, attr)
+                        if isinstance(val, int) and val > 0:
+                            param_values.append(val)
+                    except (AttributeError, TypeError):
+                        pass
+                for out_tensor_def in output_tensor_defs:
+                    for dim in out_tensor_def.shape:
+                        if isinstance(dim, pypto.SymbolicScalar) and str(dim) not in symbolic_dim_value_map and param_values:
+                            symbolic_dim_value_map[str(dim)] = param_values[0]
+                            param_values = param_values[1:]
+        # Create out_tensors based on the return type (output_tensor_defs)
+        out_tensors = []
         for out_tensor_def in output_tensor_defs:
             shape_list = []
-            # Build shape by resolving symbolic dimensions from the output tensor definition
             for dim in out_tensor_def.shape:
                 if isinstance(dim, pypto.SymbolicScalar):
                     dim_value = symbolic_dim_value_map.get(str(dim))
                     if dim_value is None:
                         raise ValueError(
-                            f"Dynamic dimension {dim} not found in symbolic_dim_value_map"
+                            f"Dynamic dimension {dim} not found. "
+                            f"Resolved from inputs: {symbolic_dim_value_map}. "
+                            f"Output-only dims may need params (int attrs) in closure, "
                         )
                     shape_list.append(dim_value)
                 else:
-                    # Static dimension
                     shape_list.append(dim)
-
-            shape = tuple(shape_list)
-            dtype = _torch_dtype_from(out_tensor_def.dtype)
-            out_tensor = torch.empty(shape, dtype=dtype, device=device)
-            out_tensors.append(out_tensor)
+            out_tensors.append(
+                torch.empty(tuple(shape_list), dtype=_torch_dtype_from(out_tensor_def.dtype), device=device)
+            )
 
         def convert_tensors_with_metadata(torch_tensors, tensor_defs):
             """Convert torch tensors to pypto tensors with name and dynamic_axis metadata."""
