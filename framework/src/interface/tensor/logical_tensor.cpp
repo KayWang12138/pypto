@@ -140,6 +140,7 @@ std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc, bool crea
 }
 
 Json LogicalTensor::DumpJson(bool dumpRawTensor) const {
+    FUNCTION_LOGD("LogicalTensor dump json start.");
     Json result;
     result[T_FIELD_KIND] = static_cast<int>(Kind::T_KIND_TENSOR);
     result["offset"] = offset;
@@ -205,6 +206,7 @@ Json LogicalTensor::DumpJson(bool dumpRawTensor) const {
 
 std::shared_ptr<LogicalTensor> LogicalTensor::LoadJson(Function &function,
             const std::unordered_map<int, std::shared_ptr<RawTensor>> &rawTensorDict, const Json &tensorDump) {
+    FUNCTION_LOGD("LogicalTensor load json start.");
     ASSERT(tensorDump[T_FIELD_KIND].get<int>() == static_cast<int>(Kind::T_KIND_TENSOR))
         << "[tensorDump]json field<" << T_FIELD_KIND << "> doesn't match T_KIND_TENSOR.";
 
@@ -462,6 +464,8 @@ bool LogicalTensor::Overlap(const std::shared_ptr<LogicalTensor> &other) const {
 
 int64_t LogicalTensor::GetDataSize() const {
     if (HasNegativeNum<int64_t>(shape)) {
+        FUNCTION_LOGD(
+            "Logical tensor shape has negative. It has dynamic axis.");
         return INT64_MAX;
     }
     int64_t shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
