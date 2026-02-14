@@ -2062,33 +2062,33 @@ struct TensorCompare {
 };
 
 Json Function::DumpJson(bool useTable) {
-    Json funcDump;
-    funcDump[T_FIELD_KIND] = static_cast<int>(Kind::T_KIND_FUNCTION);
-    funcDump["rawname"] = funcRawName_;
-    funcDump["funcmagic"] = GetFuncMagic();
+    Json funcJson;
+    funcJson[T_FIELD_KIND] = static_cast<int>(Kind::T_KIND_FUNCTION);
+    funcJson["rawname"] = funcRawName_;
+    funcJson["funcmagic"] = GetFuncMagic();
     if (parent_ != nullptr) {
-        funcDump["parent_funcmagic"] = parent_->GetFuncMagic();
+        funcJson["parent_funcmagic"] = parent_->GetFuncMagic();
     }
-    funcDump["functype"] = functionType_;
-    funcDump["graphtype"] = graphType_;
-    funcDump["func_magicname"] = funcMagicName_;
-    funcDump["_opseed"] = opSeed_;
-    funcDump["_rawid"] = IdGen<IdType::RAW_TENSOR>::Inst().CurId();
-    funcDump["_funcid"] = IdGen<IdType::FUNCTION>::Inst().CurId();
-    funcDump["_l1_reuse_mode"] = paramConfigs_.L1ReuseMode;
-    funcDump["_cube_nbuffer_mode"] = paramConfigs_.cubeNBufferMode;
-    funcDump["_sg_pg_upperbound"] = paramConfigs_.sgPgUpperBound;
-    funcDump["_sg_pg_lowerbound"] = paramConfigs_.sgPgLowerBound;
-    funcDump["_sg_parallel_num"] = paramConfigs_.sgParallelNum;
-    funcDump["_sg_mg_copyin_upper_bound"] = paramConfigs_.sgMgCopyInUpperBound;
-    funcDump["_vec_nbuffer_mode"] = paramConfigs_.vecNBuffermode;
-    funcDump["_mg_vec_parallel_lb"] = paramConfigs_.mgVecParallelLb;
-    funcDump["_pg_skip_partition"] = paramConfigs_.pgSkipPartition;
-    funcDump["_total_subgraph_count"] = totalSubGraphCount_;
-    funcDump["_ooo_preschedule_method"] = paramConfigs_.OoOPreScheduleMethod;
+    funcJson["functype"] = functionType_;
+    funcJson["graphtype"] = graphType_;
+    funcJson["func_magicname"] = funcMagicName_;
+    funcJson["_opseed"] = opSeed_;
+    funcJson["_rawid"] = IdGen<IdType::RAW_TENSOR>::Inst().CurId();
+    funcJson["_funcid"] = IdGen<IdType::FUNCTION>::Inst().CurId();
+    funcJson["_l1_reuse_mode"] = paramConfigs_.L1ReuseMode;
+    funcJson["_cube_nbuffer_mode"] = paramConfigs_.cubeNBufferMode;
+    funcJson["_sg_pg_upperbound"] = paramConfigs_.sgPgUpperBound;
+    funcJson["_sg_pg_lowerbound"] = paramConfigs_.sgPgLowerBound;
+    funcJson["_sg_parallel_num"] = paramConfigs_.sgParallelNum;
+    funcJson["_sg_mg_copyin_upper_bound"] = paramConfigs_.sgMgCopyInUpperBound;
+    funcJson["_vec_nbuffer_mode"] = paramConfigs_.vecNBuffermode;
+    funcJson["_mg_vec_parallel_lb"] = paramConfigs_.mgVecParallelLb;
+    funcJson["_pg_skip_partition"] = paramConfigs_.pgSkipPartition;
+    funcJson["_total_subgraph_count"] = totalSubGraphCount_;
+    funcJson["_ooo_preschedule_method"] = paramConfigs_.OoOPreScheduleMethod;
     if (sourceLocation_ != nullptr) {
-        funcDump["file"] = sourceLocation_->GetFileName();
-        funcDump["line"] = sourceLocation_->GetLineno();
+        funcJson["file"] = sourceLocation_->GetFileName();
+        funcJson["line"] = sourceLocation_->GetLineno();
     }
 
     if (useTable) {
@@ -2119,8 +2119,8 @@ Json Function::DumpJson(bool useTable) {
             outcasts.push_back(outcast);
         }
 
-        funcDump["incasts"] = incasts;
-        funcDump["outcasts"] = outcasts;
+        funcJson["incasts"] = incasts;
+        funcJson["outcasts"] = outcasts;
     } else {
         Json incasts = Json::array();
         Json outcasts = Json::array();
@@ -2131,8 +2131,8 @@ Json Function::DumpJson(bool useTable) {
         for (auto &o : outCasts_) {
             outcasts.push_back(o->DumpJson(true));
         }
-        funcDump["incasts"] = incasts;
-        funcDump["outcasts"] = outcasts;
+        funcJson["incasts"] = incasts;
+        funcJson["outcasts"] = outcasts;
     }
 
     std::set<int> globalTensorSet;
@@ -2143,8 +2143,8 @@ Json Function::DumpJson(bool useTable) {
     for (auto &tMagic : globalTensorSet) {
         globalTensorVec.emplace_back(tMagic);
     }
-    funcDump["global_tensors"] = globalTensorVec;
-    funcDump["static"]["global_tensors"] = funcDump["global_tensors"];
+    funcJson["global_tensors"] = globalTensorVec;
+    funcJson["static"]["global_tensors"] = funcJson["global_tensors"];
 
     Json operations = Json::array();
     if (useTable) {
@@ -2156,46 +2156,46 @@ Json Function::DumpJson(bool useTable) {
             operations.push_back(op->DumpJson(true));
         }
     }
-    funcDump["operations"] = operations;
-    funcDump["hash"] = functionHash_.Data();
+    funcJson["operations"] = operations;
+    funcJson["hash"] = functionHash_.Data();
 
     if (leafFuncAttr_ != nullptr && leafFuncAttr_->coreType != CoreType::INVALID) {
-        funcDump["leaf_func_attr"]["coretype"] = leafFuncAttr_->coreType;
+        funcJson["leaf_func_attr"]["coretype"] = leafFuncAttr_->coreType;
     }
 
     if (rootFunc_ != nullptr) {
-        funcDump["root_func_magic"] = rootFunc_->GetFuncMagic();
+        funcJson["root_func_magic"] = rootFunc_->GetFuncMagic();
     }
     if (!programs_.empty()) {
         Json programsJson;
         for (auto &ele : programs_) {
             programsJson[ele.first] = ele.second->GetFuncMagic();
         }
-        funcDump["programs"] = programsJson;
-        funcDump["topo"] = topoInfo_.DumpJson();
-        funcDump["static"]["topo"] = funcDump["topo"];
+        funcJson["programs"] = programsJson;
+        funcJson["topo"] = topoInfo_.DumpJson();
+        funcJson["static"]["topo"] = funcJson["topo"];
     }
     if (graphType_ == GraphType::BLOCK_GRAPH) {
-        funcDump["subfunc_param"] = parameter_.ToJson();
-        funcDump["static"]["subfunc_param"] = funcDump["subfunc_param"];
+        funcJson["subfunc_param"] = parameter_.ToJson();
+        funcJson["static"]["subfunc_param"] = funcJson["subfunc_param"];
     }
 
     auto aicIt = readySubGraphIds_.find(CoreType::AIC);
     if (aicIt != readySubGraphIds_.end() && !aicIt->second.empty()) {
-        funcDump["aic_ready_subgraph_ids"] = aicIt->second;
-        funcDump["static"]["aic_ready_subgraph_ids"] = funcDump["aic_ready_subgraph_ids"];
+        funcJson["aic_ready_subgraph_ids"] = aicIt->second;
+        funcJson["static"]["aic_ready_subgraph_ids"] = funcJson["aic_ready_subgraph_ids"];
     }
 
     auto aivIt = readySubGraphIds_.find(CoreType::AIV);
     if (aivIt != readySubGraphIds_.end() && !aivIt->second.empty()) {
-        funcDump["aiv_ready_subgraph_ids"] = aivIt->second;
-        funcDump["static"]["aiv_ready_subgraph_ids"] = funcDump["aiv_ready_subgraph_ids"];
+        funcJson["aiv_ready_subgraph_ids"] = aivIt->second;
+        funcJson["static"]["aiv_ready_subgraph_ids"] = funcJson["aiv_ready_subgraph_ids"];
     }
 
     auto aicpuIt = readySubGraphIds_.find(CoreType::AICPU);
     if (aicpuIt != readySubGraphIds_.end() && !aicpuIt->second.empty()) {
-        funcDump["aicpu_ready_subgraph_ids"] = aicpuIt->second;
-        funcDump["static"]["aicpu_ready_subgraph_ids"] = funcDump["aicpu_ready_subgraph_ids"];
+        funcJson["aicpu_ready_subgraph_ids"] = aicpuIt->second;
+        funcJson["static"]["aicpu_ready_subgraph_ids"] = funcJson["aicpu_ready_subgraph_ids"];
     }
 
     if (useTable) {
@@ -2233,54 +2233,54 @@ Json Function::DumpJson(bool useTable) {
         for (auto &tensor : tensorList) {
             tensors.push_back(tensor->DumpJson(false));
         }
-        funcDump["rawtensors"] = rawtensors;
-        funcDump["tensors"] = tensors;
+        funcJson["rawtensors"] = rawtensors;
+        funcJson["tensors"] = tensors;
     }
     if (functionType_ == FunctionType::DYNAMIC_LOOP) {
         auto loopAttr = GetDynloopAttribute();
         if (loopAttr != nullptr) {
             //itername
             std::string itername = loopAttr->iterSymbolName;
-            funcDump["dynamic"]["itername"] = itername;
+            funcJson["dynamic"]["itername"] = itername;
 
             // begin
             SymbolicScalar begin = loopAttr->Begin();
             auto jbegin = ToJson(begin);
             if (jbegin.size() > 0) {
-                funcDump["dynamic"]["begin"] = jbegin;
+                funcJson["dynamic"]["begin"] = jbegin;
             }
 
             // end
             SymbolicScalar end = loopAttr->End();
             auto jend = ToJson(end);
             if (jend.size() > 0) {
-                funcDump["dynamic"]["end"] = jend;
+                funcJson["dynamic"]["end"] = jend;
             }
 
             // step
             SymbolicScalar step = loopAttr->Step();
             auto jstep = ToJson(step);
             if (jstep.size() > 0) {
-                funcDump["dynamic"]["step"] = jstep;
+                funcJson["dynamic"]["step"] = jstep;
             }
 
             // originalBegin
             SymbolicScalar originalBegin = loopAttr->originalRange.Begin();
             auto jOriBegin = ToJson(originalBegin);
             if (jOriBegin.size() > 0) {
-                funcDump["dynamic"]["originalBegin"] = jOriBegin;
+                funcJson["dynamic"]["originalBegin"] = jOriBegin;
             }
 
             // originalEnd
             SymbolicScalar originalEnd = loopAttr->originalRange.End();
             auto jOriEnd = ToJson(originalEnd);
             if (jOriEnd.size() > 0) {
-                funcDump["dynamic"]["originalEnd"] = jOriEnd;
+                funcJson["dynamic"]["originalEnd"] = jOriEnd;
             }
 
             // unrollTimes
             int unrollTimes = loopAttr->unrollTimes;
-            funcDump["dynamic"]["unrollTimes"] = unrollTimes;
+            funcJson["dynamic"]["unrollTimes"] = unrollTimes;
 
             // pathList
             Json loopFuncPathList = Json::array();
@@ -2300,48 +2300,48 @@ Json Function::DumpJson(bool useTable) {
                 }
             }
             if (loopFuncPathList.size() > 0) {
-                funcDump["dynamic"]["paths"] = loopFuncPathList;
+                funcJson["dynamic"]["paths"] = loopFuncPathList;
             }
         }
     }
-    return funcDump;
+    return funcJson;
 }
 
-void Function::LoadTensorJson(const std::shared_ptr<Function> &func, const Json &funcDump,
+void Function::LoadTensorJson(const std::shared_ptr<Function> &func, const Json &tensorJson,
                               const std::unordered_map<int, std::shared_ptr<RawTensor>> &rawTensorDict,
                               std::unordered_map<int, std::shared_ptr<LogicalTensor>> &tensorDict) {
-    if (funcDump.count("tensors") != 0) {
-        for (auto &tensorDump : funcDump["tensors"]) {
+    if (tensorJson.count("tensors") != 0) {
+        for (auto &tensorDump : tensorJson["tensors"]) {
             std::shared_ptr<LogicalTensor> tensor = LogicalTensor::LoadJson(*func, rawTensorDict, tensorDump);
             tensorDict[tensor->GetMagic()] = tensor;
         }
     }
-    for (auto &iDump : funcDump["incasts"]) {
+    for (auto &iDump : tensorJson["incasts"]) {
         if (!iDump[0].is_number()) {
             std::shared_ptr<LogicalTensor> tensor = LogicalTensor::LoadJson(*func, rawTensorDict, iDump);
             tensorDict[tensor->GetMagic()] = tensor;
         }
     }
-    for (auto &oDump : funcDump["outcasts"]) {
+    for (auto &oDump : tensorJson["outcasts"]) {
         if (!oDump[0].is_number()) {
             std::shared_ptr<LogicalTensor> tensor = LogicalTensor::LoadJson(*func, rawTensorDict, oDump);
             tensorDict[tensor->GetMagic()] = tensor;
         }
     }
 
-    for (auto &tDump : funcDump["global_tensors"]) {
+    for (auto &tDump : tensorJson["global_tensors"]) {
         int magic = tDump.get<int>();
         auto &t = tensorDict[magic];
         func->globalTensors_.emplace(t);
     }
 
-    for (auto &iDump : funcDump["incasts"]) {
+    for (auto &iDump : tensorJson["incasts"]) {
         int magic = iDump[0].is_number() ? iDump[0].get<int>() : iDump["magic"].get<int>();
         auto &in = tensorDict[magic];
         func->inCasts_.push_back(in);
         func->GetTensorMap().Insert(in);
     }
-    for (auto &oDump : funcDump["outcasts"]) {
+    for (auto &oDump : tensorJson["outcasts"]) {
         int magic = oDump[0].is_number() ? oDump[0].get<int>() : oDump["magic"].get<int>();
         func->outCasts_.push_back(tensorDict[magic]);
     }
@@ -2350,38 +2350,38 @@ void Function::LoadTensorJson(const std::shared_ptr<Function> &func, const Json 
         func->GetTensorMap().Insert(ele.second, false);
     }
 
-    for (auto &opDump : funcDump["operations"]) {
+    for (auto &opDump : tensorJson["operations"]) {
         auto op = Operation::LoadJson(*func, tensorDict, opDump);
         func->operations_.push_back(op);
     }
 }
 
-std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &funcDump) {
-    ASSERT(funcDump[T_FIELD_KIND].get<int>() == static_cast<int>(Kind::T_KIND_FUNCTION))
+std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &funcJson) {
+    ASSERT(funcJson[T_FIELD_KIND].get<int>() == static_cast<int>(Kind::T_KIND_FUNCTION))
         << "Invalid function kind in JSON";
-    int funcmagic = funcDump["funcmagic"].get<int>();
-    std::string rawname = funcDump["rawname"].get<std::string>();
+    int funcmagic = funcJson["funcmagic"].get<int>();
+    std::string rawname = funcJson["rawname"].get<std::string>();
     std::shared_ptr<Function> func =
         std::make_shared<Function>(belongTo, rawname + "_" + std::to_string(funcmagic), rawname, nullptr);
-    func->funcMagicName_ = funcDump["func_magicname"];
+    func->funcMagicName_ = funcJson["func_magicname"];
     func->functionMagic_ = funcmagic;
-    func->functionType_ = static_cast<FunctionType>(funcDump["functype"].get<int>());
-    func->graphType_ = static_cast<GraphType>(funcDump["graphtype"].get<int>());
+    func->functionType_ = static_cast<FunctionType>(funcJson["functype"].get<int>());
+    func->graphType_ = static_cast<GraphType>(funcJson["graphtype"].get<int>());
     func->sorted_ = true;
     std::unordered_map<int, std::shared_ptr<RawTensor>> rawTensorDict;
-    if (funcDump.count("rawtensors") != 0) {
-        for (auto &rawTensorDump : funcDump["rawtensors"]) {
+    if (funcJson.count("rawtensors") != 0) {
+        for (auto &rawTensorDump : funcJson["rawtensors"]) {
             std::shared_ptr<RawTensor> rawTensor = RawTensor::LoadJson(rawTensorDump);
             rawTensorDict[rawTensor->rawmagic] = rawTensor;
         }
     }
-    for (auto &iDump : funcDump["incasts"]) {
+    for (auto &iDump : funcJson["incasts"]) {
         if (!iDump[0].is_number() && !iDump[T_FIELD_RAWTENSOR].is_number()) {
             std::shared_ptr<RawTensor> rawTensor = RawTensor::LoadJson(iDump[T_FIELD_RAWTENSOR]);
             rawTensorDict[rawTensor->rawmagic] = rawTensor;
         }
     }
-    for (auto &oDump : funcDump["outcasts"]) {
+    for (auto &oDump : funcJson["outcasts"]) {
         if (!oDump[0].is_number() && !oDump[T_FIELD_RAWTENSOR].is_number()) {
             std::shared_ptr<RawTensor> rawTensor = RawTensor::LoadJson(oDump[T_FIELD_RAWTENSOR]);
             rawTensorDict[rawTensor->rawmagic] = rawTensor;
@@ -2389,26 +2389,26 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     }
 
     std::unordered_map<int, std::shared_ptr<LogicalTensor>> tensorDict;
-    LoadTensorJson(func, funcDump, rawTensorDict, tensorDict);
-    func->opSeed_ = funcDump["_opseed"].get<int>();
-    int rawid = funcDump["_rawid"].get<int>();
+    LoadTensorJson(func, funcJson, rawTensorDict, tensorDict);
+    func->opSeed_ = funcJson["_opseed"].get<int>();
+    int rawid = funcJson["_rawid"].get<int>();
     IdGen<IdType::RAW_TENSOR>::Inst().SetId(rawid);
-    int funcid = funcDump["_funcid"].get<int>();
+    int funcid = funcJson["_funcid"].get<int>();
     IdGen<IdType::FUNCTION>::Inst().SetId(funcid);
-    func->paramConfigs_.L1ReuseMode = funcDump["_l1_reuse_mode"].get<int>();
-    func->paramConfigs_.cubeNBufferMode = funcDump["_cube_nbuffer_mode"].get<int>();
-    func->paramConfigs_.sgPgUpperBound = funcDump["_sg_pg_upperbound"].get<int>();
-    func->paramConfigs_.sgPgLowerBound = funcDump["_sg_pg_lowerbound"].get<int>();
-    func->paramConfigs_.sgParallelNum = funcDump["_sg_parallel_num"].get<int>();
-    func->paramConfigs_.sgMgCopyInUpperBound = funcDump["_sg_mg_copyin_upper_bound"].get<int>();
-    func->paramConfigs_.vecNBuffermode = funcDump["_vec_nbuffer_mode"].get<int>();
-    func->paramConfigs_.mgVecParallelLb = funcDump["_mg_vec_parallel_lb"].get<int>();
-    func->paramConfigs_.pgSkipPartition = funcDump["_pg_skip_partition"].get<bool>();
-    auto subGraphCount = funcDump["_total_subgraph_count"].get<size_t>();
+    func->paramConfigs_.L1ReuseMode = funcJson["_l1_reuse_mode"].get<int>();
+    func->paramConfigs_.cubeNBufferMode = funcJson["_cube_nbuffer_mode"].get<int>();
+    func->paramConfigs_.sgPgUpperBound = funcJson["_sg_pg_upperbound"].get<int>();
+    func->paramConfigs_.sgPgLowerBound = funcJson["_sg_pg_lowerbound"].get<int>();
+    func->paramConfigs_.sgParallelNum = funcJson["_sg_parallel_num"].get<int>();
+    func->paramConfigs_.sgMgCopyInUpperBound = funcJson["_sg_mg_copyin_upper_bound"].get<int>();
+    func->paramConfigs_.vecNBuffermode = funcJson["_vec_nbuffer_mode"].get<int>();
+    func->paramConfigs_.mgVecParallelLb = funcJson["_mg_vec_parallel_lb"].get<int>();
+    func->paramConfigs_.pgSkipPartition = funcJson["_pg_skip_partition"].get<bool>();
+    auto subGraphCount = funcJson["_total_subgraph_count"].get<size_t>();
     func->SetTotalSubGraphCount(subGraphCount);
 
     std::vector<std::vector<int>> incastSlot;
-    for (auto &iDump : funcDump["incasts"]) {
+    for (auto &iDump : funcJson["incasts"]) {
         std::vector<int> iSlot;
         if (iDump[0].is_number()) {
             for (auto &slot : iDump[1]) {
@@ -2418,7 +2418,7 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
         }
     }
     std::vector<std::vector<int>> outcastSlot;
-    for (auto &oDump : funcDump["outcasts"]) {
+    for (auto &oDump : funcJson["outcasts"]) {
         std::vector<int> oSlot;
         if (oDump[0].is_number()) {
             for (auto &slot : oDump[1]) {
@@ -2435,66 +2435,66 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     func->slotScope_ = tensorSlotScope;
 
     func->ComputeHashOrderless();
-    func->functionHash_ = std::stoull(funcDump["hash"].get<std::string>());
+    func->functionHash_ = std::stoull(funcJson["hash"].get<std::string>());
 
     if (func->GetGraphType() == GraphType::BLOCK_GRAPH && func->GetLeafFuncAttribute() == nullptr) {
         std::shared_ptr<LeafFuncAttribute> attr = std::make_shared<LeafFuncAttribute>();
         func->SetLeafFuncAttribute(attr);
     }
-    if (funcDump.count("leaf_func_attr") != 0 && funcDump["leaf_func_attr"].count("coretype") != 0) {
+    if (funcJson.count("leaf_func_attr") != 0 && funcJson["leaf_func_attr"].count("coretype") != 0) {
         std::shared_ptr<LeafFuncAttribute> attr = func->GetLeafFuncAttribute();
-        attr->coreType = static_cast<CoreType>(funcDump["leaf_func_attr"]["coretype"].get<int>());
+        attr->coreType = static_cast<CoreType>(funcJson["leaf_func_attr"]["coretype"].get<int>());
     }
 
-    if (funcDump.count("root_func_magic") != 0) {
-        func->rootFunc_ = belongTo.GetFunctionByMagic(funcDump["root_func_magic"].get<int>()).get();
+    if (funcJson.count("root_func_magic") != 0) {
+        func->rootFunc_ = belongTo.GetFunctionByMagic(funcJson["root_func_magic"].get<int>()).get();
     }
-    if (funcDump.count("programs") != 0) {
+    if (funcJson.count("programs") != 0) {
         uint64_t index = 0;
-        for (auto &programMagic : funcDump["programs"]) {
+        for (auto &programMagic : funcJson["programs"]) {
             func->programs_.emplace(std::make_pair(index++, belongTo.GetFunctionByMagic(programMagic.get<int>()).get()));
         }
     }
 
-    if (funcDump.count("topo") != 0) {
-        func->topoInfo_.LoadJson(funcDump["topo"]);
+    if (funcJson.count("topo") != 0) {
+        func->topoInfo_.LoadJson(funcJson["topo"]);
     }
 
-    if (funcDump.count("subfunc_param") != 0) {
-        func->parameter_.FromJson(funcDump["subfunc_param"]);
+    if (funcJson.count("subfunc_param") != 0) {
+        func->parameter_.FromJson(funcJson["subfunc_param"]);
     }
 
-    if (funcDump.count("aic_ready_subgraph_ids") != 0) {
-        func->SetReadySubGraphIds(CoreType::AIC, funcDump["aic_ready_subgraph_ids"].get<std::vector<int>>());
+    if (funcJson.count("aic_ready_subgraph_ids") != 0) {
+        func->SetReadySubGraphIds(CoreType::AIC, funcJson["aic_ready_subgraph_ids"].get<std::vector<int>>());
     }
-    if (funcDump.count("aiv_ready_subgraph_ids") != 0) {
-        func->SetReadySubGraphIds(CoreType::AIV, funcDump["aiv_ready_subgraph_ids"].get<std::vector<int>>());
-    }
-
-    if (funcDump.count("aicpu_ready_subgraph_ids") != 0) {
-        func->SetReadySubGraphIds(CoreType::AICPU, funcDump["aicpu_ready_subgraph_ids"].get<std::vector<int>>());
+    if (funcJson.count("aiv_ready_subgraph_ids") != 0) {
+        func->SetReadySubGraphIds(CoreType::AIV, funcJson["aiv_ready_subgraph_ids"].get<std::vector<int>>());
     }
 
-    if (funcDump.count("dynamic") != 0) {
-        auto iterName = funcDump["dynamic"]["itername"];
-        auto beginJson = funcDump["dynamic"]["begin"];
+    if (funcJson.count("aicpu_ready_subgraph_ids") != 0) {
+        func->SetReadySubGraphIds(CoreType::AICPU, funcJson["aicpu_ready_subgraph_ids"].get<std::vector<int>>());
+    }
+
+    if (funcJson.count("dynamic") != 0) {
+        auto iterName = funcJson["dynamic"]["itername"];
+        auto beginJson = funcJson["dynamic"]["begin"];
         SymbolicScalar begin = LoadSymbolicScalar(beginJson);
-        auto endJson = funcDump["dynamic"]["end"];
+        auto endJson = funcJson["dynamic"]["end"];
         SymbolicScalar end = LoadSymbolicScalar(endJson);
-        auto stepJson = funcDump["dynamic"]["step"];
+        auto stepJson = funcJson["dynamic"]["step"];
         SymbolicScalar step = LoadSymbolicScalar(stepJson);
         LoopRange range(begin, end, step);
-        auto originalBeginJson = funcDump["dynamic"]["originalBegin"];
+        auto originalBeginJson = funcJson["dynamic"]["originalBegin"];
         SymbolicScalar originalBegin = LoadSymbolicScalar(originalBeginJson);
-        auto originalEndJson = funcDump["dynamic"]["originalEnd"];
+        auto originalEndJson = funcJson["dynamic"]["originalEnd"];
         SymbolicScalar originalEnd = LoadSymbolicScalar(originalEndJson);
         LoopRange originalRange(originalBegin, originalEnd);
         auto attr = std::make_shared<DynloopFunctionAttribute>(iterName, range, originalRange);
-        attr->unrollTimes = funcDump["dynamic"]["unrollTimes"];
-        auto dynFuncDump = funcDump["dynamic"];
+        attr->unrollTimes = funcJson["dynamic"]["unrollTimes"];
+        auto dynFuncDump = funcJson["dynamic"];
         if (dynFuncDump.count("paths") != 0) {
             std::vector<DynloopFunctionPath> pathList;
-            auto pathsJson = funcDump["dynamic"]["paths"];
+            auto pathsJson = funcJson["dynamic"]["paths"];
             for (auto &pathJson : pathsJson) {
                 Function *root = func.get();
                 std::vector<DynloopFunctionPathCondition> pathCondList;
