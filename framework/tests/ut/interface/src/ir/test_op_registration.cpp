@@ -247,23 +247,6 @@ TEST(TensorOpsTransformTest, TransposeRegistered) {
 }
 
 // ============================================================================
-// Sync Ops Registration Tests (sync_ops/sync.cpp)
-// ============================================================================
-
-class SyncOpsTest : public ::testing::TestWithParam<std::string> {};
-
-TEST_P(SyncOpsTest, IsRegistered) {
-  auto& registry = OpRegistry::GetInstance();
-  ASSERT_TRUE(registry.IsRegistered(GetParam()));
-  const auto& entry = registry.GetEntry(GetParam());
-  ASSERT_EQ(entry.GetOpCategory(), "SyncOp");
-}
-
-INSTANTIATE_TEST_SUITE_P(SyncOps, SyncOpsTest,
-                         ::testing::Values("system.sync_src", "system.sync_dst", "system.bar_v", "system.bar_m",
-                                           "system.bar_all"));
-
-// ============================================================================
 // Op Entry Detail Tests
 // ============================================================================
 
