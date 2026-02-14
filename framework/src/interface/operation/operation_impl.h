@@ -229,7 +229,7 @@ const std::vector<int64_t> CONV3D_ATTR_DEFAULT_LIST = {1, 1, 1};
 const std::vector<int64_t> CONV2D_PAD_ATTR_DEFAULT_LIST = {0, 0, 0, 0};
 const std::vector<int64_t> CONV3D_PAD_ATTR_DEFAULT_LIST = {0, 0, 0, 0, 0, 0};
 
-class Im2ColOpAttributeKey {
+class L12L0ConvOpAttributeKey {
 public:
     static const std::string postK;
     static const std::string postM;
@@ -331,7 +331,6 @@ struct ConvIterInfo {
     int64_t batchOffset = 0;
     int64_t dinL1Offset = 0;
     int64_t doL1Offset = 0;
-    int64_t coutOffset = 0;
     int64_t hL1InOffset = 0;
     int64_t hL1OutOffset = 0;
     int64_t wL1InOffset = 0;
