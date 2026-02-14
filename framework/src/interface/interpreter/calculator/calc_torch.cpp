@@ -141,6 +141,13 @@ static void Exp(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
+static void Exp2(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::exp2_out(tout.second, tself.second);
+    ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
+}
+
 static void Neg(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
     auto tself = From(self);
@@ -1833,6 +1840,7 @@ static struct CalcOps calcOps = {
     .AllClose = AllClose,
     .Cast = Cast,
     .Exp = Exp,
+    .Exp2 = Exp2,
     .Neg = Neg,
     .Rsqrt = Rsqrt,
     .Sign = Sign,
