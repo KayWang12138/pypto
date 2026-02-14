@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "core/dtype.h"
+#include "core/error.h"
 #include "ir/builder.h"
 #include "ir/expr.h"
 #include "ir/function.h"
@@ -467,6 +468,251 @@ TEST(IRBuilderTest, ProgramContextGetReturnTypesEmpty) {
   auto gvar = std::make_shared<GlobalVar>("nonexistent");
   auto ret_types = ctx.GetReturnTypes(gvar);
   ASSERT_TRUE(ret_types.empty());
+}
+
+// ============================================================================
+// IRBuilder FuncArg Tests
+// ============================================================================
+
+TEST_F(IRBuilderTest, TestFuncArg) {
+  IRBuilder builder;
+  auto span = Span::unknown();
+  auto int_type = std::make_shared<ScalarType>(DataType::INT32);
+
+  builder.BeginFunction("test", span);
+  auto param = builder.FuncArg("x", int_type, span);
+  ASSERT_NE(param, nullptr);
+  ASSERT_EQ(param->name_, "x");
+
+  builder.Return({param}, span);
+  auto func = builder.EndFunction(span);
+  ASSERT_NE(func, nullptr);
+  ASSERT_EQ(func->params_.size(), 1);
+}
+
+// ============================================================================
+// IRBuilder Error Path Tests
+// ============================================================================
+
+TEST_F(IRBuilderTest, TestBeginFunctionWhileInFunction) {
+  IRBuilder builder;
+  auto span = Span::unknown();
+  builder.BeginFunction("f1", span);
+  ASSERT_THROW(builder.BeginFunction("f2", span), RuntimeError);
+  // Clean up
+  builder.Return(span);
+  builder.EndFunction(span);
+}
+
+TEST_F(IRBuilderTest, TestEmitOutsideContext) {
+  IRBuilder builder;
+  auto span = Span::unknown();
+  auto val = std::make_shared<ConstInt>(0, DataType::INT32, span);
+  auto stmt = std::make_shared<EvalStmt>(val, span);
+  ASSERT_THROW(builder.Emit(stmt), RuntimeError);
+}
+
+TEST_F(IRBuilderTest, TestBeginProgramWhileInProgram) {
+  IRBuilder builder;
+  auto span = Span::unknown();
+  builder.BeginProgram("p1", span);
+  ASSERT_THROW(builder.BeginProgram("p2", span), RuntimeError);
+  builder.EndProgram(span);
+}
+
+TEST_F(IRBuilderTest, TestBeginForLoopOutsideContext) {
+  IRBuilder builder;
+  auto span = Span::unknown();
+  auto int_type = std::make_shared<ScalarType>(DataType::INT32);
+  auto lv = builder.Var("i", int_type, span);
+  auto start = std::make_shared<ConstInt>(0, DataType::INT32, span);
+  auto stop = std::make_shared<ConstInt>(10, DataType::INT32, span);
+  auto step = std::make_shared<ConstInt>(1, DataType::INT32, span);
+  ASSERT_THROW(builder.BeginForLoop(lv, start, stop, step, span), RuntimeError);
+}
+
+// ============================================================================
+// IRBuilder Empty Return Tests
+// ============================================================================
+
+TEST_F(IRBuilderTest, TestEmptyReturn) {
+  IRBuilder builder;
+  auto span = Span::unknown();
+  builder.BeginFunction("test", span);
+  builder.Return(span);
+  auto func = builder.EndFunction(span);
+  ASSERT_NE(func, nullptr);
+}
+
+// ============================================================================
+// IRBuilder Multiple Statements in Body
+// ============================================================================
+
+TEST_F(IRBuilderTest, TestMultipleStatementsInFunction) {
+  IRBuilder builder;
+  auto span = Span::unknown();
+  auto int_type = std::make_shared<ScalarType>(DataType::INT32);
+
+  builder.BeginFunction("test", span);
+  auto var = builder.Var("x", int_type, span);
+  auto val1 = std::make_shared<ConstInt>(1, DataType::INT32, span);
+  auto val2 = std::make_shared<ConstInt>(2, DataType::INT32, span);
+  builder.Assign(var, val1, span);
+  builder.Assign(var, val2, span);
+  builder.Return({var}, span);
+  auto func = builder.EndFunction(span);
+  ASSERT_NE(func, nullptr);
+}
+
+TEST_F(IRBuilderTest, TestEmptyFunctionBody) {
+  IRBuilder builder;
+  auto span = Span::unknown();
+  builder.BeginFunction("empty", span);
+  auto func = builder.EndFunction(span);
+  ASSERT_NE(func, nullptr);
+}
+
+// ============================================================================
+// IRBuilder Program with DeclareFunction/GetGlobalVar
+// ============================================================================
+
+TEST_F(IRBuilderTest, TestDeclareFunctionAndGetGlobalVar) {
+  IRBuilder builder;
+  auto span = Span::unknown();
+
+  builder.BeginProgram("prog", span);
+  auto gvar = builder.DeclareFunction("helper");
+  ASSERT_NE(gvar, nullptr);
+  ASSERT_EQ(gvar->name_, "helper");
+
+  auto gvar2 = builder.GetGlobalVar("helper");
+  ASSERT_NE(gvar2, nullptr);
+  ASSERT_EQ(gvar2->name_, "helper");
+
+  builder.EndProgram(span);
+}
+
+TEST_F(IRBuilderTest, TestGetGlobalVarNotFound) {
+  IRBuilder builder;
+  auto span = Span::unknown();
+  builder.BeginProgram("prog", span);
+  ASSERT_THROW(builder.GetGlobalVar("nonexistent"), RuntimeError);
+  builder.EndProgram(span);
+}
+
+TEST_F(IRBuilderTest, TestProgramAddFunction) {
+  IRBuilder builder;
+  auto span = Span::unknown();
+  auto int_type = std::make_shared<ScalarType>(DataType::INT32);
+
+  builder.BeginProgram("prog", span);
+  builder.DeclareFunction("main");
+
+  builder.BeginFunction("main", span);
+  builder.ReturnType(int_type);
+  auto val = std::make_shared<ConstInt>(0, DataType::INT32, span);
+  builder.Return({val}, span);
+  auto func = builder.EndFunction(span);
+  builder.AddFunction(func);
+
+  auto prog = builder.EndProgram(span);
+  ASSERT_NE(prog, nullptr);
+  ASSERT_EQ(prog->functions_.size(), 1);
+}
+
+TEST_F(IRBuilderTest, TestGetFunctionReturnTypes) {
+  IRBuilder builder;
+  auto span = Span::unknown();
+  auto int_type = std::make_shared<ScalarType>(DataType::INT32);
+
+  builder.BeginProgram("prog", span);
+  auto gvar = builder.DeclareFunction("main");
+
+  builder.BeginFunction("main", span);
+  builder.ReturnType(int_type);
+  auto val = std::make_shared<ConstInt>(0, DataType::INT32, span);
+  builder.Return({val}, span);
+  auto func = builder.EndFunction(span);
+  builder.AddFunction(func);
+
+  auto ret_types = builder.GetFunctionReturnTypes(gvar);
+  ASSERT_EQ(ret_types.size(), 1);
+
+  builder.EndProgram(span);
+}
+
+// ============================================================================
+// IRBuilder ForLoop with IterArgs
+// ============================================================================
+
+TEST_F(IRBuilderTest, TestForLoopWithIterArgs) {
+  IRBuilder builder;
+  auto span = Span::unknown();
+  auto int_type = std::make_shared<ScalarType>(DataType::INT32);
+
+  builder.BeginFunction("test", span);
+
+  auto loop_var = builder.Var("i", int_type, span);
+  auto start = std::make_shared<ConstInt>(0, DataType::INT32, span);
+  auto stop = std::make_shared<ConstInt>(10, DataType::INT32, span);
+  auto step = std::make_shared<ConstInt>(1, DataType::INT32, span);
+
+  builder.BeginForLoop(loop_var, start, stop, step, span);
+
+  auto init = std::make_shared<ConstInt>(0, DataType::INT32, span);
+  auto iter_arg = std::make_shared<IterArg>("acc", int_type, init, span);
+  builder.AddIterArg(iter_arg);
+
+  auto ret_var = builder.Var("acc_out", int_type, span);
+  builder.AddReturnVar(ret_var);
+
+  builder.EndForLoop(span);
+
+  builder.Return(span);
+  auto func = builder.EndFunction(span);
+  ASSERT_NE(func, nullptr);
+}
+
+// ============================================================================
+// IRBuilder If with ReturnVars and multiple stmts
+// ============================================================================
+
+TEST_F(IRBuilderTest, TestIfWithReturnVarsAndMultipleStmts) {
+  IRBuilder builder;
+  auto span = Span::unknown();
+  auto int_type = std::make_shared<ScalarType>(DataType::INT32);
+
+  builder.BeginFunction("test", span);
+
+  auto cond = std::make_shared<ConstBool>(true, span);
+  builder.BeginIf(cond, span);
+
+  auto var = builder.Var("x", int_type, span);
+  builder.AddIfReturnVar(var);
+
+  auto val1 = std::make_shared<ConstInt>(1, DataType::INT32, span);
+  auto val2 = std::make_shared<ConstInt>(2, DataType::INT32, span);
+  builder.Assign(var, val1, span);
+  builder.Assign(var, val2, span);
+
+  builder.BeginElse(span);
+  auto val3 = std::make_shared<ConstInt>(3, DataType::INT32, span);
+  auto val4 = std::make_shared<ConstInt>(4, DataType::INT32, span);
+  builder.Assign(var, val3, span);
+  builder.Assign(var, val4, span);
+
+  builder.EndIf(span);
+
+  builder.Return(span);
+  auto func = builder.EndFunction(span);
+  ASSERT_NE(func, nullptr);
+}
+
+TEST_F(IRBuilderTest, TestCurrentContextNull) {
+  IRBuilder builder;
+  ASSERT_FALSE(builder.InFunction());
+  ASSERT_FALSE(builder.InLoop());
+  ASSERT_FALSE(builder.InIf());
 }
 
 }  // namespace ir
