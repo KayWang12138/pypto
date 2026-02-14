@@ -115,12 +115,16 @@ StmtPtr IRBuilder::EndForLoop(const Span& end_span) {
 
   // Validate iter_args and return_vars match
   if (loop_ctx->GetIterArgs().size() != loop_ctx->GetReturnVars().size()) {
+    // Save sizes before popping context, since pop_back destroys the object
+    const auto iter_args_size = loop_ctx->GetIterArgs().size();
+    const auto return_vars_size = loop_ctx->GetReturnVars().size();
+
     // Pop context before throwing to maintain stack consistency
     context_stack_.pop_back();
 
     std::ostringstream oss;
-    oss << "For loop has " << loop_ctx->GetIterArgs().size() << " iteration arguments but "
-        << loop_ctx->GetReturnVars().size() << " return variables. They must match.";
+    oss << "For loop has " << iter_args_size << " iteration arguments but "
+        << return_vars_size << " return variables. They must match.";
     throw RuntimeError(oss.str());
   }
 
