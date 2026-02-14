@@ -123,6 +123,7 @@ void VerifyScopeTypes(Function& rootFunc, int expectedCubeCount, int expectedVec
     int vectorCount = 0;
     
     for (const auto& [progId, func] : programs) {
+        (void)progId;
         auto leafAttr = func->GetLeafFuncAttribute();
         if (leafAttr) {
             if (leafAttr->aivCore == AIVCore::UNSPECIFIED) {
@@ -142,6 +143,7 @@ void VerifyCleanup(Function& rootFunc, Function* originalMixFunc, Operation* ori
     // 原始Mix子图验证
     bool originalMixFuncStillExists = false;
     for (const auto& [progId, func] : programs) {
+        (void)progId;
         if (func == originalMixFunc) {
             originalMixFuncStillExists = true;
             break;
@@ -168,6 +170,7 @@ void VerifyCleanup(Function& rootFunc, Function* originalMixFunc, Operation* ori
         }
     }
     for (const auto& [progId, func] : programs) {
+        (void)func; 
         EXPECT_NE(programIdsFromCallOps.find(progId), programIdsFromCallOps.end())
             << "Program ID " << progId << " should have corresponding callOp";
     }
@@ -629,6 +632,7 @@ void VerifyMultipleMixSplitResults(std::shared_ptr<Function>& rootFuncPtr,
     // Mix子图scope验证
     int totalSplitFunctions = 0;
     for (const auto& [progId, func] : programs) {
+        (void)progId;
         auto leafAttr = func->GetLeafFuncAttribute();
         if (leafAttr && leafAttr->mixId != -1) {
             totalSplitFunctions++;
@@ -649,6 +653,7 @@ void VerifyMultipleMixSplitResults(std::shared_ptr<Function>& rootFuncPtr,
     for (const auto& mixFunc : mixFunctions) {
         bool stillExists = false;
         for (const auto& [progId, func] : programs) {
+            (void)progId;
             if (func == mixFunc.get()) {
                 stillExists = true;
                 break;
@@ -1125,6 +1130,7 @@ TEST_F(MixSubgraphSplitTest, TestDependencyRebuilding) {
     // 1. 验证Mix子图已被删除
     bool mixFuncStillExists = false;
     for (const auto& [progId, func] : programs) {
+        (void)progId;
         if (func == mixFunc3Ptr.get()) {
             mixFuncStillExists = true;
             break;
@@ -1137,6 +1143,7 @@ TEST_F(MixSubgraphSplitTest, TestDependencyRebuilding) {
 
     std::vector<Function*> mixSplitFunctions;
     for (const auto& [progId, func] : programs) {
+        (void)progId;
         auto leafAttr = func->GetLeafFuncAttribute();
         if (!leafAttr) continue;
         
