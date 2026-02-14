@@ -252,8 +252,8 @@ bool RemoveRedundantOp::IsNotSameViewInput(LogicalTensorPtr &startTensor, Logica
                 if (producerOp->GetIOperands().empty()) {
                     continue;
                 }
-                auto &viewInTensor = producerOp->GetIOperands().front();
-                if (viewInTensor != startTensor) { 
+                auto &inTensor = producerOp->GetIOperands().front();
+                if (inTensor != startTensor) { 
                     return true;
                 }
                 if (producerOp->GetOpcode() != Opcode::OP_VIEW) {continue;}
