@@ -658,15 +658,12 @@ void VerifyMultipleMixSplitResults(std::shared_ptr<Function>& rootFuncPtr,
     }
     
     auto& programs = rootFuncPtr->programs_;
-    EXPECT_EQ(programs.size(), expectedNewProgramCount)
-        << "Program count mismatch. Expected: " << expectedNewProgramCount
-        << ", Actual: " << programs.size();
+    EXPECT_EQ(programs.size(), expectedNewProgramCount) << "Program count mismatch. Expected: " << expectedNewProgramCount << ", Actual: " << programs.size();
     
     // ID连续性验证
     uint64_t expectedMaxId = expectedNewProgramCount - 1;
     for (uint64_t i = 0; i <= expectedMaxId; i++) {
-        EXPECT_NE(programs.find(i), programs.end())
-            << "Missing continuous program ID: " << i;
+        EXPECT_NE(programs.find(i), programs.end()) << "Missing continuous program ID: " << i;
     }
     
     // 非Mix子图ID重映射验证
@@ -692,15 +689,12 @@ void VerifyMultipleMixSplitResults(std::shared_ptr<Function>& rootFuncPtr,
         }
     }
     
-    EXPECT_EQ(totalSplitFunctions, 2 + 3 + 4)
-        << "Should have " << (2+3+4) << " split functions from 3 mix subgraphs";
+    EXPECT_EQ(totalSplitFunctions, 2 + 3 + 4) << "Should have " << (2+3+4) << " split functions from 3 mix subgraphs";
     
     // callOp数量验证
     auto newCallOps = rootFuncPtr->GetCallopList();
     size_t expectedNewCallOpCount = 2 * 1 + 1 * 2 + 2 * 3 + 1 * 4;
-    EXPECT_EQ(newCallOps.size(), expectedNewCallOpCount)
-        << "CallOp count mismatch. Expected: " << expectedNewCallOpCount
-        << ", Actual: " << newCallOps.size();
+    EXPECT_EQ(newCallOps.size(), expectedNewCallOpCount) << "CallOp count mismatch. Expected: " << expectedNewCallOpCount << ", Actual: " << newCallOps.size();
     
     // 资源清理验证
     for (const auto& mixFunc : mixFunctions) {
