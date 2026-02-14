@@ -534,6 +534,10 @@ class Tensor:
         return pypto.exp(self)
 
     @source_location
+    def exp2(self) -> 'Tensor':
+        return pypto.exp2(self)
+
+    @source_location
     def log(self) -> 'Tensor':
         return pypto.log(self)
 

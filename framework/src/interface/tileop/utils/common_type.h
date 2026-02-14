@@ -18,7 +18,11 @@
 
 enum class Hardware : uint8_t { GM = 0, UB, L1, L0A, L0B, L0C, BIAS, FIXBUF, MAX };
 
+<<<<<<< HEAD
 enum class UnaryOp : uint8_t { ABS = 0, EXP, NEG, REC, RSQRT, SQRT, BRCB, CEIL, FLOOR, TRUNC, ROUND, RECIPROCAL, BITWISENOT, RELU, LN };
+=======
+enum class UnaryOp : uint8_t { ABS = 0, EXP, EXP2, NEG, REC, RSQRT, SQRT, BRCB, CEIL, FLOOR, TRUNC, ROUND, RECIPROCAL, BITWISENOT };
+>>>>>>> 2585706... feat(operation): Add EXP2 operation
 
 enum class BinaryOp : uint8_t { ADD = 0, SUB, MUL, DIV, AND, OR, MAX, MIN, SUM, AMAX, MOD, POW, BITWISEAND, BITWISEOR, BITWISEXOR };
 
