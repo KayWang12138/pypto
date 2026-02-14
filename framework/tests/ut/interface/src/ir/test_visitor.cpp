@@ -16,10 +16,13 @@
 #include "gtest/gtest.h"
 
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "core/dtype.h"
 #include "ir/expr.h"
+#include "ir/memref.h"
+#include "ir/op_registry.h"
 #include "ir/scalar_expr.h"
 #include "ir/stmt.h"
 #include "ir/transform/base/visitor.h"
@@ -135,6 +138,301 @@ TEST_F(IRVisitorTest, TestVisitSeqStmts) {
 
   ASSERT_EQ(visitor.stmt_count, 3);  // SeqStmts + 2 EvalStmts
   ASSERT_EQ(visitor.expr_count, 2);  // 2 ConstInts
+}
+
+// ============================================================================
+// Additional Expression Visitor Tests
+// ============================================================================
+
+TEST_F(IRVisitorTest, TestVisitConstFloat) {
+  IRVisitor visitor;
+  auto expr = std::make_shared<ConstFloat>(
+      3.14, DataType::FP32, Span::unknown());
+  visitor.VisitExpr(expr);
+}
+
+TEST_F(IRVisitorTest, TestVisitConstBool) {
+  IRVisitor visitor;
+  auto expr = std::make_shared<ConstBool>(
+      true, Span::unknown());
+  visitor.VisitExpr(expr);
+}
+
+TEST_F(IRVisitorTest, TestVisitSub) {
+  IRVisitor visitor;
+  auto l = std::make_shared<ConstInt>(
+      1, DataType::INT32, Span::unknown());
+  auto r = std::make_shared<ConstInt>(
+      2, DataType::INT32, Span::unknown());
+  auto expr = std::make_shared<Sub>(
+      l, r, DataType::INT32, Span::unknown());
+  visitor.VisitExpr(expr);
+}
+
+TEST_F(IRVisitorTest, TestVisitMul) {
+  IRVisitor visitor;
+  auto l = std::make_shared<ConstInt>(
+      3, DataType::INT32, Span::unknown());
+  auto r = std::make_shared<ConstInt>(
+      4, DataType::INT32, Span::unknown());
+  auto expr = std::make_shared<Mul>(
+      l, r, DataType::INT32, Span::unknown());
+  visitor.VisitExpr(expr);
+}
+
+TEST_F(IRVisitorTest, TestVisitFloorDiv) {
+  IRVisitor visitor;
+  auto l = std::make_shared<ConstInt>(
+      10, DataType::INT32, Span::unknown());
+  auto r = std::make_shared<ConstInt>(
+      3, DataType::INT32, Span::unknown());
+  auto expr = std::make_shared<FloorDiv>(
+      l, r, DataType::INT32, Span::unknown());
+  visitor.VisitExpr(expr);
+}
+
+TEST_F(IRVisitorTest, TestVisitFloorMod) {
+  IRVisitor visitor;
+  auto l = std::make_shared<ConstInt>(
+      10, DataType::INT32, Span::unknown());
+  auto r = std::make_shared<ConstInt>(
+      3, DataType::INT32, Span::unknown());
+  auto expr = std::make_shared<FloorMod>(
+      l, r, DataType::INT32, Span::unknown());
+  visitor.VisitExpr(expr);
+}
+
+TEST_F(IRVisitorTest, TestVisitMinMax) {
+  IRVisitor visitor;
+  auto l = std::make_shared<ConstInt>(
+      1, DataType::INT32, Span::unknown());
+  auto r = std::make_shared<ConstInt>(
+      2, DataType::INT32, Span::unknown());
+  auto mn = std::make_shared<Min>(
+      l, r, DataType::INT32, Span::unknown());
+  auto mx = std::make_shared<Max>(
+      l, r, DataType::INT32, Span::unknown());
+  visitor.VisitExpr(mn);
+  visitor.VisitExpr(mx);
+}
+
+TEST_F(IRVisitorTest, TestVisitComparisonOps) {
+  IRVisitor visitor;
+  auto l = std::make_shared<ConstInt>(
+      1, DataType::INT32, Span::unknown());
+  auto r = std::make_shared<ConstInt>(
+      2, DataType::INT32, Span::unknown());
+  visitor.VisitExpr(std::make_shared<Eq>(
+      l, r, DataType::BOOL, Span::unknown()));
+  visitor.VisitExpr(std::make_shared<Ne>(
+      l, r, DataType::BOOL, Span::unknown()));
+  visitor.VisitExpr(std::make_shared<Lt>(
+      l, r, DataType::BOOL, Span::unknown()));
+  visitor.VisitExpr(std::make_shared<Le>(
+      l, r, DataType::BOOL, Span::unknown()));
+  visitor.VisitExpr(std::make_shared<Gt>(
+      l, r, DataType::BOOL, Span::unknown()));
+  visitor.VisitExpr(std::make_shared<Ge>(
+      l, r, DataType::BOOL, Span::unknown()));
+}
+
+TEST_F(IRVisitorTest, TestVisitLogicalOps) {
+  IRVisitor visitor;
+  auto l = std::make_shared<ConstBool>(
+      true, Span::unknown());
+  auto r = std::make_shared<ConstBool>(
+      false, Span::unknown());
+  visitor.VisitExpr(std::make_shared<And>(
+      l, r, DataType::BOOL, Span::unknown()));
+  visitor.VisitExpr(std::make_shared<Or>(
+      l, r, DataType::BOOL, Span::unknown()));
+  visitor.VisitExpr(std::make_shared<Xor>(
+      l, r, DataType::BOOL, Span::unknown()));
+}
+
+TEST_F(IRVisitorTest, TestVisitBitwiseOps) {
+  IRVisitor visitor;
+  auto l = std::make_shared<ConstInt>(
+      0xFF, DataType::INT32, Span::unknown());
+  auto r = std::make_shared<ConstInt>(
+      0x0F, DataType::INT32, Span::unknown());
+  visitor.VisitExpr(std::make_shared<BitAnd>(
+      l, r, DataType::INT32, Span::unknown()));
+  visitor.VisitExpr(std::make_shared<BitOr>(
+      l, r, DataType::INT32, Span::unknown()));
+  visitor.VisitExpr(std::make_shared<BitXor>(
+      l, r, DataType::INT32, Span::unknown()));
+  visitor.VisitExpr(std::make_shared<BitShiftLeft>(
+      l, r, DataType::INT32, Span::unknown()));
+  visitor.VisitExpr(std::make_shared<BitShiftRight>(
+      l, r, DataType::INT32, Span::unknown()));
+}
+
+TEST_F(IRVisitorTest, TestVisitUnaryOps) {
+  IRVisitor visitor;
+  auto val = std::make_shared<ConstInt>(
+      5, DataType::INT32, Span::unknown());
+  visitor.VisitExpr(std::make_shared<Neg>(
+      val, DataType::INT32, Span::unknown()));
+  visitor.VisitExpr(std::make_shared<Abs>(
+      val, DataType::INT32, Span::unknown()));
+  auto bval = std::make_shared<ConstBool>(
+      true, Span::unknown());
+  visitor.VisitExpr(std::make_shared<Not>(
+      bval, DataType::BOOL, Span::unknown()));
+  visitor.VisitExpr(std::make_shared<BitNot>(
+      val, DataType::INT32, Span::unknown()));
+  visitor.VisitExpr(std::make_shared<Cast>(
+      val, DataType::FP32, Span::unknown()));
+}
+
+TEST_F(IRVisitorTest, TestVisitMakeTuple) {
+  IRVisitor visitor;
+  auto e1 = std::make_shared<ConstInt>(
+      1, DataType::INT32, Span::unknown());
+  auto e2 = std::make_shared<ConstInt>(
+      2, DataType::INT32, Span::unknown());
+  auto tup = std::make_shared<MakeTuple>(
+      std::vector<ExprPtr>{e1, e2}, Span::unknown());
+  visitor.VisitExpr(tup);
+}
+
+TEST_F(IRVisitorTest, TestVisitTupleGetItem) {
+  IRVisitor visitor;
+  auto e1 = std::make_shared<ConstInt>(
+      1, DataType::INT32, Span::unknown());
+  auto tup = std::make_shared<MakeTuple>(
+      std::vector<ExprPtr>{e1}, Span::unknown());
+  auto get = std::make_shared<TupleGetItemExpr>(
+      tup, 0, Span::unknown());
+  visitor.VisitExpr(get);
+}
+
+TEST_F(IRVisitorTest, TestVisitCall) {
+  auto& reg = OpRegistry::GetInstance();
+  Span sp = Span::unknown();
+  auto a = std::make_shared<Var>(
+      "a",
+      std::make_shared<TensorType>(
+          std::vector<ExprPtr>{
+              std::make_shared<ConstInt>(
+                  4, DataType::INT64, sp)},
+          DataType::FP32),
+      sp);
+  auto b = std::make_shared<Var>(
+      "b",
+      std::make_shared<TensorType>(
+          std::vector<ExprPtr>{
+              std::make_shared<ConstInt>(
+                  4, DataType::INT64, sp)},
+          DataType::FP32),
+      sp);
+  auto call = reg.Create("tensor.add", {a, b}, sp);
+  IRVisitor visitor;
+  visitor.VisitExpr(call);
+}
+
+TEST_F(IRVisitorTest, TestVisitMemRef) {
+  IRVisitor visitor;
+  auto addr = std::make_shared<ConstInt>(
+      0, DataType::INT64, Span::unknown());
+  auto mr = std::make_shared<MemRef>(
+      MemorySpace::UB, addr, 1024, 0);
+  visitor.VisitExpr(mr);
+}
+
+// ============================================================================
+// Additional Statement Visitor Tests
+// ============================================================================
+
+TEST_F(IRVisitorTest, TestVisitReturnStmt) {
+  IRVisitor visitor;
+  auto val = std::make_shared<ConstInt>(
+      1, DataType::INT32, Span::unknown());
+  auto ret = std::make_shared<ReturnStmt>(
+      std::vector<ExprPtr>{val}, Span::unknown());
+  visitor.VisitStmt(ret);
+}
+
+TEST_F(IRVisitorTest, TestVisitYieldStmt) {
+  IRVisitor visitor;
+  auto val = std::make_shared<ConstInt>(
+      1, DataType::INT32, Span::unknown());
+  auto yield = std::make_shared<YieldStmt>(
+      std::vector<ExprPtr>{val}, Span::unknown());
+  visitor.VisitStmt(yield);
+}
+
+TEST_F(IRVisitorTest, TestVisitOpStmts) {
+  IRVisitor visitor;
+  auto expr = std::make_shared<ConstInt>(
+      1, DataType::INT32, Span::unknown());
+  auto eval = std::make_shared<EvalStmt>(
+      expr, Span::unknown());
+  auto ops = std::make_shared<OpStmts>(
+      std::vector<StmtPtr>{eval}, Span::unknown());
+  visitor.VisitStmt(ops);
+}
+
+TEST_F(IRVisitorTest, TestVisitForStmt) {
+  IRVisitor visitor;
+  Span sp = Span::unknown();
+  auto loop_var = std::make_shared<Var>(
+      "i", std::make_shared<ScalarType>(
+          DataType::INT32), sp);
+  auto start = std::make_shared<ConstInt>(
+      0, DataType::INT32, sp);
+  auto stop = std::make_shared<ConstInt>(
+      10, DataType::INT32, sp);
+  auto step = std::make_shared<ConstInt>(
+      1, DataType::INT32, sp);
+  auto body = std::make_shared<EvalStmt>(
+      start, sp);
+  auto for_stmt = std::make_shared<ForStmt>(
+      loop_var, start, stop, step,
+      std::vector<IterArgPtr>{},
+      body,
+      std::vector<VarPtr>{},
+      sp);
+  visitor.VisitStmt(for_stmt);
+}
+
+TEST_F(IRVisitorTest, TestVisitIfStmt) {
+  IRVisitor visitor;
+  Span sp = Span::unknown();
+  auto cond = std::make_shared<ConstBool>(
+      true, sp);
+  auto then_body = std::make_shared<EvalStmt>(
+      std::make_shared<ConstInt>(
+          1, DataType::INT32, sp), sp);
+  auto else_body = std::make_shared<EvalStmt>(
+      std::make_shared<ConstInt>(
+          2, DataType::INT32, sp), sp);
+  auto if_stmt = std::make_shared<IfStmt>(
+      cond, then_body,
+      std::optional<StmtPtr>(else_body),
+      std::vector<VarPtr>{}, sp);
+  visitor.VisitStmt(if_stmt);
+}
+
+TEST_F(IRVisitorTest, TestVisitPow) {
+  IRVisitor visitor;
+  auto l = std::make_shared<ConstInt>(
+      2, DataType::INT32, Span::unknown());
+  auto r = std::make_shared<ConstInt>(
+      3, DataType::INT32, Span::unknown());
+  visitor.VisitExpr(std::make_shared<Pow>(
+      l, r, DataType::INT32, Span::unknown()));
+}
+
+TEST_F(IRVisitorTest, TestVisitFloatDiv) {
+  IRVisitor visitor;
+  auto l = std::make_shared<ConstFloat>(
+      1.0, DataType::FP32, Span::unknown());
+  auto r = std::make_shared<ConstFloat>(
+      2.0, DataType::FP32, Span::unknown());
+  visitor.VisitExpr(std::make_shared<FloatDiv>(
+      l, r, DataType::FP32, Span::unknown()));
 }
 
 }  // namespace ir
