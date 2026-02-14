@@ -103,7 +103,9 @@ void Program::SetCurrentFunction(Function *function) {
     if (function != nullptr) {
         currentFunctionPtr_ = function;
         currentFunctionMagicName_ = function->GetMagicName();
+        FUNCTION_LOGD("Set current function successfully.");
     }
+    FUNCTION_LOGW("Failed to set current function.");
 }
 
 void Program::CreateInitFunction() {
@@ -173,26 +175,26 @@ void Program::ClearEmptyHiddenFunction() {
     }
 }
 
-void SetParamConfig(Function* currentFunctionPtr_) {
+void SetParamConfig(Function* currentFuncPtr) {
     std::shared_ptr<ConfigScope> currentScope = ConfigManagerNg::GetInstance().CurrentScope();
-    currentFunctionPtr_->paramConfigs_.L1ReuseMode = currentScope->GetPassConfig<int>(CUBE_L1_REUSE_MODE);
-    currentFunctionPtr_->paramConfigs_.cubeNBufferMode = currentScope->GetPassConfig<int>(CUBE_NBUFFER_MODE);
-    currentFunctionPtr_->paramConfigs_.sgPgUpperBound = currentScope->GetPassConfig<int>(SG_PG_UPPER_BOUND);
-    currentFunctionPtr_->paramConfigs_.sgPgLowerBound = currentScope->GetPassConfig<int>(SG_PG_LOWER_BOUND);
-    currentFunctionPtr_->paramConfigs_.sgParallelNum = currentScope->GetPassConfig<int>(SG_PARALLEL_NUM);
-    currentFunctionPtr_->paramConfigs_.sgMgCopyInUpperBound = currentScope->GetPassConfig<int>(MG_COPYIN_UPPER_BOUND);
-    currentFunctionPtr_->paramConfigs_.machineConfig_ = currentScope->GetRuntimeConfig<uint8_t>(DEVICE_SCHED_MODE);
-    currentFunctionPtr_->paramConfigs_.stitchFunctionNumInitial_ = currentScope->GetRuntimeConfig<uint16_t>(STITCH_FUNCTION_NUM_INITIAL);
-    currentFunctionPtr_->paramConfigs_.stitchFunctionNumStep_ = currentScope->GetRuntimeConfig<uint16_t>(STITCH_FUNCTION_NUM_STEP);
-    currentFunctionPtr_->paramConfigs_.cubeL1ReuseSetting = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_L1_REUSE_SETTING);
-    currentFunctionPtr_->paramConfigs_.cubeNBufferSetting = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_NBUFFER_SETTING);
-    currentFunctionPtr_->paramConfigs_.vecNBufferSetting = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(VEC_NBUFFER_SETTING);
-    currentFunctionPtr_->paramConfigs_.vecNBuffermode = currentScope->GetPassConfig<int>(VEC_NBUFFER_MODE);
-    currentFunctionPtr_->paramConfigs_.mgVecParallelLb = currentScope->GetPassConfig<int>(MG_VEC_PARALLEL_LB);
-    currentFunctionPtr_->paramConfigs_.pgSkipPartition = currentScope->GetPassConfig<bool>(PG_SKIP_PARTITION);
-    currentFunctionPtr_->paramConfigs_.copyOutResolveCoalescing = currentScope->GetPassConfig<int>(COPYOUT_RESOLVE_COALESCING);
-    currentFunctionPtr_->paramConfigs_.combineAxis = currentScope->GetOperationConfig<bool>(KEY_COMBINE_AXIS);
-    currentFunctionPtr_->paramConfigs_.forceCombineAxis = currentScope->GetOperationConfig<bool>(KEY_FORCE_COMBINE_AXIS);
+    currentFuncPtr->paramConfigs_.L1ReuseMode = currentScope->GetPassConfig<int>(CUBE_L1_REUSE_MODE);
+    currentFuncPtr->paramConfigs_.cubeNBufferMode = currentScope->GetPassConfig<int>(CUBE_NBUFFER_MODE);
+    currentFuncPtr->paramConfigs_.sgPgUpperBound = currentScope->GetPassConfig<int>(SG_PG_UPPER_BOUND);
+    currentFuncPtr->paramConfigs_.sgPgLowerBound = currentScope->GetPassConfig<int>(SG_PG_LOWER_BOUND);
+    currentFuncPtr->paramConfigs_.sgParallelNum = currentScope->GetPassConfig<int>(SG_PARALLEL_NUM);
+    currentFuncPtr->paramConfigs_.sgMgCopyInUpperBound = currentScope->GetPassConfig<int>(MG_COPYIN_UPPER_BOUND);
+    currentFuncPtr->paramConfigs_.machineConfig_ = currentScope->GetRuntimeConfig<uint8_t>(DEVICE_SCHED_MODE);
+    currentFuncPtr->paramConfigs_.stitchFunctionNumInitial_ = currentScope->GetRuntimeConfig<uint16_t>(STITCH_FUNCTION_NUM_INITIAL);
+    currentFuncPtr->paramConfigs_.stitchFunctionNumStep_ = currentScope->GetRuntimeConfig<uint16_t>(STITCH_FUNCTION_NUM_STEP);
+    currentFuncPtr->paramConfigs_.cubeL1ReuseSetting = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_L1_REUSE_SETTING);
+    currentFuncPtr->paramConfigs_.cubeNBufferSetting = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_NBUFFER_SETTING);
+    currentFuncPtr->paramConfigs_.vecNBufferSetting = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(VEC_NBUFFER_SETTING);
+    currentFuncPtr->paramConfigs_.vecNBuffermode = currentScope->GetPassConfig<int>(VEC_NBUFFER_MODE);
+    currentFuncPtr->paramConfigs_.mgVecParallelLb = currentScope->GetPassConfig<int>(MG_VEC_PARALLEL_LB);
+    currentFuncPtr->paramConfigs_.pgSkipPartition = currentScope->GetPassConfig<bool>(PG_SKIP_PARTITION);
+    currentFuncPtr->paramConfigs_.copyOutResolveCoalescing = currentScope->GetPassConfig<int>(COPYOUT_RESOLVE_COALESCING);
+    currentFuncPtr->paramConfigs_.combineAxis = currentScope->GetOperationConfig<bool>(KEY_COMBINE_AXIS);
+    currentFuncPtr->paramConfigs_.forceCombineAxis = currentScope->GetOperationConfig<bool>(KEY_FORCE_COMBINE_AXIS);
 }
 
 #if ENABLE_HIDDENLOOP
@@ -239,6 +241,7 @@ bool Program::BeginFunction(const std::string &funcName,
 
     auto funcMagicName = funcName + "_" + std::to_string(IdGen<IdType::FUNCTION>::Inst().CurId());
     if (functionmap_.find(funcMagicName) == functionmap_.end()) { // new function
+        FUNCTION_LOGD("Create a new function[%s].", funcMagicName.c_str());
         auto newFunc = std::make_unique<Function>(*this, funcMagicName, funcName, currentFunctionPtr_);
         newFunc->SetFunctionType(funcType);
         newFunc->SetGraphType(graphType);
@@ -335,6 +338,7 @@ void Program::HandleTaskSubmission(Function *result) {
 // End the current function and pop the function index from the stack
 std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string &funcName,
                                                                           bool generateCall) {
+    FUNCTION_LOGD("EndFunction start.");
 #if ENABLE_HIDDENLOOP
     // End child hidden loop
     EndHiddenLoop(currentFunctionPtr_, generateCall);
@@ -600,7 +604,7 @@ void Program::DumpJsonFile(const std::string &fileName, Function *mainFunc) {
     if (!fileName.empty()) {
         filePath = fileName;
     }
-
+    FUNCTION_LOGD("Program dump json to %s.", filePath.c_str());
     std::ofstream file(filePath);
     ASSERT(file.is_open()) << "Failed to open file: " << filePath;
     file << DumpJson(mainFunc).dump(1) << std::endl;
@@ -643,6 +647,7 @@ bool Program::QueryAndUpdateCurrentFunction() {
 }
 
 void Program::VerifyTensorGraph() {
+    FUNCTION_LOGI("VerifyTensorGraph start.");
     Function *func = GetLastFunction();
 
     std::vector<std::shared_ptr<LogicalTensorData>> inputDataViewList;
@@ -654,17 +659,20 @@ void Program::VerifyTensorGraph() {
 
     auto &flowVerifier = FlowVerifier::GetInstance();
     flowVerifier.VerifyTensorGraph(func, inputDataViewList, outputDataViewList, goldenDataViewList, GetTensorSlotManager());
+    FUNCTION_LOGI("VerifyTensorGraph end.");
 }
 
 void Program::VerifyPass(Function *func, int passIndex, const std::string &passIdentifier) {
     // SubgraphToFunction阶段还未进行validShape推导，会导致非尾块的计算会按照尾块大小进行计算，导致部分数据的拷贝或者计算丢失，
     // 该Pass需要与InferParamIndexPass进行“合并”后才会完成VaildShape推导，才可以完成完整功能；
+    FUNCTION_LOGI("VerifyPass start.");
     if (passIdentifier == "SubgraphToFunction") {
         FUNCTION_LOGI("Skip verify pass [SubgraphToFunction] for interpreter!");
         return;
     }
     auto &flowVerifier = FlowVerifier::GetInstance();
     flowVerifier.VerifyPass(func, passIndex, passIdentifier);
+    FUNCTION_LOGI("VerifyPass end.");
 }
 
 std::shared_ptr<Function> Program::GetFunctionSharedPtr(Function* rawPtr) {
