@@ -29,6 +29,7 @@
 #include "interface/machine/host/host_machine.h"
 #include "interface/program/program.h"
 #include "interface/configs/config_manager_ng.h"
+#include "interface/compiler_monitor/monitor_manager.h"
 
 namespace npu::tile_fwk {
 const std::string PROGRAM_ENTRY_FUNCTION_NAME = "PROGRAM_ENTRY";
@@ -152,10 +153,12 @@ void Program::RefillCompileQueue(Function* func) {
 }
 
 void Program::UpdateCompileTask() {
+    MonitorManager::Instance().SetTotalFunctionCount(static_cast<int>(functionSequence_.size()));
     for (auto func : functionSequence_) {
         HostMachine::GetInstance().StashTask(func);
     }
     HostMachine::GetInstance().SubAllStashedTask();
+    MonitorManager::Instance().NotifyCompilationFinished();
 }
 
 void Program::ClearEmptyHiddenFunction() {
@@ -320,8 +323,10 @@ void Program::HandleTaskSubmission(Function *result) {
                     scopes.end());
             }
         } else {
+            MonitorManager::Instance().SetTotalFunctionCount(1);
             HostMachine::GetInstance().SubTask(result);
             HostMachine::GetInstance().WaitTaskFinish();
+            MonitorManager::Instance().NotifyCompilationFinished();
         }
     }
 }

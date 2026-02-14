@@ -8,30 +8,29 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
- * \file pybind11.cpp
- * \brief
- */
+#pragma once
 
-#include "pybind_common.h"
-#include "bindings/bindings.h"
+#include <string>
+#include "interface/compiler_monitor/monitor_manager.h"
 
-using namespace npu::tile_fwk;
+namespace npu::tile_fwk {
 
-namespace pypto {
-PYBIND11_MODULE(pypto_impl, m) {
-    m.doc() = "PyPTO";
-    bind_enum(m);
-    BindElement(m);
-    BindTensor(m);
-    BindSymbolicScalar(m);
-    bind_controller(m);
-    bind_operation(m);
-    BindRuntime(m);
-    BindCostModelRuntime(m);
-    bind_pass(m);
-    BindFunction(m);
-    BindIr(m);
-    BindMonitor(m);
+class MonitorStageScope {
+public:
+    explicit MonitorStageScope(const std::string& stageName)
+        : stageName_(stageName) {
+        MonitorManager::Instance().StartStage(stageName_);
+    }
+
+    ~MonitorStageScope() {
+        MonitorManager::Instance().EndStage(stageName_);
+    }
+
+    MonitorStageScope(const MonitorStageScope&) = delete;
+    MonitorStageScope& operator=(const MonitorStageScope&) = delete;
+
+private:
+    std::string stageName_;
 };
-} // namespace pypto
+
+}  // namespace npu::tile_fwk

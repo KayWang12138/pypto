@@ -36,6 +36,8 @@
 #include "ir/function.h"
 #include "tilefwk/op_registry.h"
 #include "main_block.h"
+#include "interface/compiler_monitor/monitor_manager.h"
+#include "interface/compiler_monitor/monitor_stage_scope.h"
 #include <dlfcn.h>
 
 using namespace npu::tile_fwk::dynamic;
@@ -157,7 +159,10 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
                 return 0;
             }
         }
-        (void)GenCode(deviceAgentTask->compileTask.get(), deviceAgentTask->compileInfo.invokeParaOffset, cache, kernelPath);
+        {
+            MonitorStageScope codeGenScope("CodeGen");
+            (void)GenCode(deviceAgentTask->compileTask.get(), deviceAgentTask->compileInfo.invokeParaOffset, cache, kernelPath);
+        }
         function = deviceAgentTask->compileTask->GetFunction();
         /* finish compile add function cache */
         cache.Insert(function->GetFunctionHash(), *function);
