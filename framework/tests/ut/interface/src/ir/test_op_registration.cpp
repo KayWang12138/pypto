@@ -306,19 +306,19 @@ TEST(OpEntryTest, BlockCastHasAttributes) {
 // Type Inference Tests (type_inference.cpp)
 // ============================================================================
 
-TEST(TypeInferenceTest, PromoteDataTypesSameType) {
+TEST(TypeInferenceUtilsTest, PromoteDataTypesSameType) {
   auto result = PromoteDataTypes(DataType::INT32, DataType::INT32);
   ASSERT_TRUE(result.has_value());
   ASSERT_EQ(result.value(), DataType::INT32);
 }
 
-TEST(TypeInferenceTest, PromoteDataTypesIntToFloat) {
+TEST(TypeInferenceUtilsTest, PromoteDataTypesIntToFloat) {
   auto result = PromoteDataTypes(DataType::INT32, DataType::FP32);
   ASSERT_TRUE(result.has_value());
   ASSERT_EQ(result.value(), DataType::FP32);
 }
 
-TEST(TypeInferenceTest, BroadcastShapesSameShape) {
+TEST(TypeInferenceUtilsTest, BroadcastShapesSameShape) {
   std::vector<ExprPtr> shape1 = {std::make_shared<ConstInt>(4, DataType::INT64, TestSpan()),
                                   std::make_shared<ConstInt>(8, DataType::INT64, TestSpan())};
   std::vector<ExprPtr> shape2 = {std::make_shared<ConstInt>(4, DataType::INT64, TestSpan()),
@@ -327,7 +327,7 @@ TEST(TypeInferenceTest, BroadcastShapesSameShape) {
   ASSERT_TRUE(result.success);
 }
 
-TEST(TypeInferenceTest, BroadcastShapesWithOne) {
+TEST(TypeInferenceUtilsTest, BroadcastShapesWithOne) {
   std::vector<ExprPtr> shape1 = {std::make_shared<ConstInt>(4, DataType::INT64, TestSpan()),
                                   std::make_shared<ConstInt>(1, DataType::INT64, TestSpan())};
   std::vector<ExprPtr> shape2 = {std::make_shared<ConstInt>(4, DataType::INT64, TestSpan()),
@@ -336,13 +336,13 @@ TEST(TypeInferenceTest, BroadcastShapesWithOne) {
   ASSERT_TRUE(result.success);
 }
 
-TEST(TypeInferenceTest, FormatShapeEmpty) {
+TEST(TypeInferenceUtilsTest, FormatShapeEmpty) {
   std::vector<ExprPtr> shape;
   auto str = FormatShape(shape);
   ASSERT_FALSE(str.empty());
 }
 
-TEST(TypeInferenceTest, FormatShapeWithDims) {
+TEST(TypeInferenceUtilsTest, FormatShapeWithDims) {
   std::vector<ExprPtr> shape = {std::make_shared<ConstInt>(4, DataType::INT64, TestSpan()),
                                  std::make_shared<ConstInt>(8, DataType::INT64, TestSpan())};
   auto str = FormatShape(shape);
