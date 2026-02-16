@@ -336,6 +336,7 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
     // ── v3 ──
     std::vector<Opcode> irV3;
     {
+        Program::GetInstance().Reset();
         Tensor in(dType, shape, "in_v3");
         Tensor out(dType, shape, "out_v3");
         FUNCTION("IR_CHECK_V3", {in}, {out}) {
@@ -350,6 +351,7 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
     // ── v4 ──
     std::vector<Opcode> irV4;
     {
+        Program::GetInstance().Reset();
         Tensor in(dType, shape, "in_v4");
         Tensor out(dType, shape, "out_v4");
         FUNCTION("IR_CHECK_V4", {in}, {out}) {
@@ -364,6 +366,7 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
     // ── v5 + Pull ──
     std::vector<Opcode> irV5;
     {
+        Program::GetInstance().Reset();
         Tensor in(dType, shape, "in_v5");
         Tensor out(dType, shape, "out_v5");
         FUNCTION("IR_CHECK_V5", {in}, {out}) {
