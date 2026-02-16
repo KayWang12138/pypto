@@ -124,47 +124,39 @@ inline void RunTest() {
 // ---------------------------------------------------------------------------
 
 // Extract the SHMEM-related opcode sequence from a specific FUNCTION block.
-// Searches Program's function map for entries whose raw name starts with
-// "TENSOR_<funcName>" and contains SHMEM operations.  When ENABLE_HIDDENLOOP
-// is active the same ops appear in both "path" and "hidden" sub-functions;
-// we prefer the "hiddenfunc" version to avoid double-counting.
-// Filters to only: OP_SHMEM_PUT, OP_SHMEM_SIGNAL, OP_SHMEM_WAIT_UNTIL, OP_SHMEM_GET.
+// The FUNCTION macro creates a deep hierarchy:
+//   TENSOR_<name>  ->  TENSOR_TENSOR_<name>_loop_...  ->  ..._hiddenfunc  ->  ..._leaf
+// SHMEM ops live in leaf functions whose names contain <funcName>.
+// We search for all functions whose raw name contains <funcName>, filtering
+// to SHMEM opcodes.  Among those, we prefer "hiddenfunc" leaves that are NOT
+// further split into sub-leaves (i.e. the hiddenfunc itself holds ops),
+// falling back to any function with SHMEM ops.
 inline std::vector<Opcode> ExtractShmemOpcodes(const std::string& funcName)
 {
-    const std::string prefix = "TENSOR_" + funcName;
+    std::vector<Opcode> hiddenOps;
     std::vector<Opcode> fallback;
 
     for (const auto& [name, funcPtr] : Program::GetInstance().GetFunctionMap()) {
-        if (name.rfind(prefix, 0) != 0) continue;  // name doesn't start with prefix
+        if (name.find(funcName) == std::string::npos) continue;
 
-        std::vector<Opcode> ops;
+        bool isHidden = (name.find("hiddenfunc") != std::string::npos);
         for (auto& op : funcPtr->Operations()) {
             Opcode code = op.GetOpcode();
             if (code == Opcode::OP_SHMEM_PUT ||
                 code == Opcode::OP_SHMEM_SIGNAL ||
                 code == Opcode::OP_SHMEM_WAIT_UNTIL ||
                 code == Opcode::OP_SHMEM_GET) {
-                ops.push_back(code);
-            }
-        }
-        if (!ops.empty()) {
-            if (name.find("hiddenfunc") != std::string::npos) {
-                return ops;
-            }
-            if (fallback.empty()) {
-                fallback = std::move(ops);
+                if (isHidden) {
+                    hiddenOps.push_back(code);
+                } else {
+                    fallback.push_back(code);
+                }
             }
         }
     }
-    if (fallback.empty()) {
-        std::string allNames = "Functions in map (" +
-            std::to_string(Program::GetInstance().GetFunctionMap().size()) + "): ";
-        for (const auto& [n, _] : Program::GetInstance().GetFunctionMap()) {
-            allNames += "[" + n + "] ";
-        }
-        EXPECT_FALSE(true) << "No SHMEM operations found for prefix: " << prefix
-                           << "\n" << allNames;
-    }
+    if (!hiddenOps.empty()) return hiddenOps;
+    EXPECT_FALSE(fallback.empty())
+        << "No SHMEM operations found in any function containing: " << funcName;
     return fallback;
 }
 
