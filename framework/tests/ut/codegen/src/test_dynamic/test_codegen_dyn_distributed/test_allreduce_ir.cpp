@@ -73,24 +73,36 @@ protected:
         return dt;
     }
 
-    // Extract SHMEM opcodes from ALL functions in the Program.
-    // The FUNCTION macro creates nested sub-functions (hidden loops, etc.),
-    // so we must iterate the full function map.
-    std::vector<Opcode> ExtractShmemOpcodes()
+    // Construct the raw name of the leaf function for a given FUNCTION block name.
+    // Follows the same convention as GetFunctionRawName() in test_shmem_operation_impl.cpp.
+    static std::string GetLeafFunctionRawName(const std::string& funcName)
     {
-        std::vector<Opcode> ops;
-        for (const auto& [name, funcPtr] : Program::GetInstance().GetFunctionMap()) {
-            for (auto& op : funcPtr->Operations()) {
-                Opcode code = op.GetOpcode();
-                if (code == Opcode::OP_SHMEM_PUT ||
-                    code == Opcode::OP_SHMEM_SIGNAL ||
-                    code == Opcode::OP_SHMEM_WAIT_UNTIL ||
-                    code == Opcode::OP_SHMEM_GET) {
-                    ops.push_back(code);
-                }
+        std::string rawName = "TENSOR_" + funcName + "_Unroll1_PATH0";
+#if ENABLE_HIDDENLOOP
+        rawName += "_hiddenfunc0";
+#endif
+        return rawName;
+    }
+
+    // Extract SHMEM opcodes from a specific FUNCTION block by looking up
+    // the exact leaf function via GetFunctionByRawName().
+    std::vector<Opcode> ExtractShmemOpcodes(const std::string& funcName)
+    {
+        std::string rawName = GetLeafFunctionRawName(funcName);
+        Function* func = Program::GetInstance().GetFunctionByRawName(rawName);
+        EXPECT_NE(func, nullptr) << "Could not find leaf function: " << rawName;
+        std::vector<Opcode> shmemOps;
+        if (func == nullptr) return shmemOps;
+        for (auto& op : func->Operations()) {
+            Opcode code = op.GetOpcode();
+            if (code == Opcode::OP_SHMEM_PUT ||
+                code == Opcode::OP_SHMEM_SIGNAL ||
+                code == Opcode::OP_SHMEM_WAIT_UNTIL ||
+                code == Opcode::OP_SHMEM_GET) {
+                shmemOps.push_back(code);
             }
         }
-        return ops;
+        return shmemOps;
     }
 
     void VerifyOneShotCounts(const std::vector<Opcode>& ops)
@@ -126,7 +138,7 @@ TEST_F(AllReduceIRTest, V2_IRStructure)
         OneShotAllReduce_v2(in, in, kGroup, shmemData, shmemSignal, out);
     }
 
-    auto ops = ExtractShmemOpcodes();
+    auto ops = ExtractShmemOpcodes("UT_IR_V2");
     VerifyOneShotCounts(ops);
 }
 
@@ -143,7 +155,7 @@ TEST_F(AllReduceIRTest, V3_IRStructure)
         OneShotAllReduce_v3(in, in, kGroup, shmemData, shmemSignal, out);
     }
 
-    auto ops = ExtractShmemOpcodes();
+    auto ops = ExtractShmemOpcodes("UT_IR_V3");
     VerifyOneShotCounts(ops);
 }
 
@@ -160,7 +172,7 @@ TEST_F(AllReduceIRTest, V4_IRStructure)
         OneShotAllReduce_v4(in, in, kGroup, shmemData, shmemSignal, out);
     }
 
-    auto ops = ExtractShmemOpcodes();
+    auto ops = ExtractShmemOpcodes("UT_IR_V4");
     VerifyOneShotCounts(ops);
 }
 
@@ -179,14 +191,14 @@ TEST_F(AllReduceIRTest, V5PlusPull_IRStructure)
         out = comm.Pull(waitToken, shmemData);
     }
 
-    auto ops = ExtractShmemOpcodes();
+    auto ops = ExtractShmemOpcodes("UT_IR_V5");
     VerifyOneShotCounts(ops);
 }
 
 // ---------------------------------------------------------------------------
 // Cross-variant IR equivalence test
-// We reset Program between variants so ExtractShmemOpcodes() only sees
-// the function tree of the current variant.
+// Each variant uses a unique FUNCTION name, so GetFunctionByRawName()
+// finds the correct leaf function without cross-contamination.
 // ---------------------------------------------------------------------------
 
 TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
@@ -204,13 +216,12 @@ TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
             CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
             OneShotAllReduce_v2(in, in, kGroup, shmemData, shmemSignal, out);
         }
-        irV2 = ExtractShmemOpcodes();
+        irV2 = ExtractShmemOpcodes("UT_EQUIV_V2");
     }
 
     // ── v3 ──
     std::vector<Opcode> irV3;
     {
-        Program::GetInstance().Reset();
         Tensor in(DT_FP16, {kRow, kCol}, "in_v3");
         Tensor out(DT_FP16, {kRow, kCol}, "out_v3");
         FUNCTION("UT_EQUIV_V3", {in}, {out}) {
@@ -219,13 +230,12 @@ TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
             CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
             OneShotAllReduce_v3(in, in, kGroup, shmemData, shmemSignal, out);
         }
-        irV3 = ExtractShmemOpcodes();
+        irV3 = ExtractShmemOpcodes("UT_EQUIV_V3");
     }
 
     // ── v4 ──
     std::vector<Opcode> irV4;
     {
-        Program::GetInstance().Reset();
         Tensor in(DT_FP16, {kRow, kCol}, "in_v4");
         Tensor out(DT_FP16, {kRow, kCol}, "out_v4");
         FUNCTION("UT_EQUIV_V4", {in}, {out}) {
@@ -234,13 +244,12 @@ TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
             CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
             OneShotAllReduce_v4(in, in, kGroup, shmemData, shmemSignal, out);
         }
-        irV4 = ExtractShmemOpcodes();
+        irV4 = ExtractShmemOpcodes("UT_EQUIV_V4");
     }
 
     // ── v5 + Pull ──
     std::vector<Opcode> irV5;
     {
-        Program::GetInstance().Reset();
         Tensor in(DT_FP16, {kRow, kCol}, "in_v5");
         Tensor out(DT_FP16, {kRow, kCol}, "out_v5");
         FUNCTION("UT_EQUIV_V5", {in}, {out}) {
@@ -251,7 +260,7 @@ TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
             auto waitToken = OneShotAllReduce_v5(in, in, shmemData, comm);
             out = comm.Pull(waitToken, shmemData);
         }
-        irV5 = ExtractShmemOpcodes();
+        irV5 = ExtractShmemOpcodes("UT_EQUIV_V5");
     }
 
     // ── Cross-variant equivalence ──
@@ -277,6 +286,6 @@ TEST_F(AllReduceIRTest, V2_TotalOpCountNonZero)
         OneShotAllReduce_v2(in, in, kGroup, shmemData, shmemSignal, out);
     }
 
-    auto shmemOps = ExtractShmemOpcodes();
+    auto shmemOps = ExtractShmemOpcodes("UT_OPCOUNT_V2");
     EXPECT_GT(shmemOps.size(), 0u) << "Function should contain SHMEM operations";
 }
