@@ -123,32 +123,45 @@ inline void RunTest() {
 // IR verification helpers for AllReduce variants
 // ---------------------------------------------------------------------------
 
-// Extract the SHMEM-related opcode sequence from ALL functions in the Program.
-// The FUNCTION macro may create nested sub-functions (hidden loops, etc.),
-// so we must iterate the full function map — not just GetLastFunction().
-// Filters to only: OP_SHMEM_PUT, OP_SHMEM_SIGNAL, OP_SHMEM_WAIT_UNTIL, OP_SHMEM_GET.
-inline std::vector<Opcode> ExtractShmemOpcodes()
+// Construct the raw name of the leaf function for a given FUNCTION block name.
+// Follows the same convention as GetFunctionRawName() in test_codegen_common.h.
+inline std::string GetLeafFunctionRawName(const std::string& funcName)
 {
+    std::string rawName = "TENSOR_" + funcName + "_Unroll1_PATH0";
+#if ENABLE_HIDDENLOOP
+    rawName += "_hiddenfunc0";
+#endif
+    return rawName;
+}
+
+// Extract the SHMEM-related opcode sequence from a specific FUNCTION block.
+// Uses GetFunctionByRawName() to find the exact leaf function (respecting
+// ENABLE_HIDDENLOOP), matching the pattern used by test_shmem_operation_impl.cpp.
+// Filters to only: OP_SHMEM_PUT, OP_SHMEM_SIGNAL, OP_SHMEM_WAIT_UNTIL, OP_SHMEM_GET.
+inline std::vector<Opcode> ExtractShmemOpcodes(const std::string& funcName)
+{
+    std::string rawName = GetLeafFunctionRawName(funcName);
+    Function* func = Program::GetInstance().GetFunctionByRawName(rawName);
+    EXPECT_NE(func, nullptr) << "Could not find leaf function: " << rawName;
     std::vector<Opcode> shmemOps;
-    for (const auto& [name, funcPtr] : Program::GetInstance().GetFunctionMap()) {
-        for (auto& op : funcPtr->Operations()) {
-            Opcode code = op.GetOpcode();
-            if (code == Opcode::OP_SHMEM_PUT ||
-                code == Opcode::OP_SHMEM_SIGNAL ||
-                code == Opcode::OP_SHMEM_WAIT_UNTIL ||
-                code == Opcode::OP_SHMEM_GET) {
-                shmemOps.push_back(code);
-            }
+    if (func == nullptr) return shmemOps;
+    for (auto& op : func->Operations()) {
+        Opcode code = op.GetOpcode();
+        if (code == Opcode::OP_SHMEM_PUT ||
+            code == Opcode::OP_SHMEM_SIGNAL ||
+            code == Opcode::OP_SHMEM_WAIT_UNTIL ||
+            code == Opcode::OP_SHMEM_GET) {
+            shmemOps.push_back(code);
         }
     }
     return shmemOps;
 }
 
-// Verify that the last built function contains the expected OneShot AllReduce
+// Verify that a FUNCTION block contains the expected OneShot AllReduce
 // IR structure: worldSize * (PUT + SIGNAL), then 1 WAIT_UNTIL, then 1 GET.
-inline void VerifyOneShotAllReduceIR(uint32_t worldSize)
+inline void VerifyOneShotAllReduceIR(const std::string& funcName, uint32_t worldSize)
 {
-    auto shmemOps = ExtractShmemOpcodes();
+    auto shmemOps = ExtractShmemOpcodes(funcName);
 
     uint32_t putCount = 0;
     uint32_t signalCount = 0;
