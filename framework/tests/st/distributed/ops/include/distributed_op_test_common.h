@@ -156,8 +156,15 @@ inline std::vector<Opcode> ExtractShmemOpcodes(const std::string& funcName)
             }
         }
     }
-    EXPECT_FALSE(fallback.empty())
-        << "No SHMEM operations found in any function matching prefix: " << prefix;
+    if (fallback.empty()) {
+        std::string allNames = "Functions in map (" +
+            std::to_string(Program::GetInstance().GetFunctionMap().size()) + "): ";
+        for (const auto& [n, _] : Program::GetInstance().GetFunctionMap()) {
+            allNames += "[" + n + "] ";
+        }
+        EXPECT_FALSE(true) << "No SHMEM operations found for prefix: " << prefix
+                           << "\n" << allNames;
+    }
     return fallback;
 }
 
