@@ -23,6 +23,7 @@
 #include <gtest/gtest.h>
 
 #include "interface/function/function.h"
+#include "interface/program/program.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
@@ -56,7 +57,6 @@ protected:
         config::Reset();
     }
 
-    // Helper: create shmem data + signal inside a LOOP (mirrors production code)
     void CreateShmemTensors(DataType shmemDataType, const Shape& shmemDataShape,
                             Tensor& shmemData, Tensor& shmemSignal)
     {
@@ -67,32 +67,32 @@ protected:
         }
     }
 
-    // Helper: promote BF16/FP16 → FP32 for shmem accumulation
     static DataType PromotedType(DataType dt)
     {
         if (dt == DT_BF16 || dt == DT_FP16) return DT_FP32;
         return dt;
     }
 
-    // Extract only the four SHMEM opcodes from the last-built function
+    // Extract SHMEM opcodes from ALL functions in the Program.
+    // The FUNCTION macro creates nested sub-functions (hidden loops, etc.),
+    // so we must iterate the full function map.
     std::vector<Opcode> ExtractShmemOpcodes()
     {
-        Function* func = Program::GetInstance().GetLastFunction();
-        EXPECT_NE(func, nullptr);
         std::vector<Opcode> ops;
-        for (auto& op : func->Operations()) {
-            Opcode code = op.GetOpcode();
-            if (code == Opcode::OP_SHMEM_PUT ||
-                code == Opcode::OP_SHMEM_SIGNAL ||
-                code == Opcode::OP_SHMEM_WAIT_UNTIL ||
-                code == Opcode::OP_SHMEM_GET) {
-                ops.push_back(code);
+        for (const auto& [name, funcPtr] : Program::GetInstance().GetFunctionMap()) {
+            for (auto& op : funcPtr->Operations()) {
+                Opcode code = op.GetOpcode();
+                if (code == Opcode::OP_SHMEM_PUT ||
+                    code == Opcode::OP_SHMEM_SIGNAL ||
+                    code == Opcode::OP_SHMEM_WAIT_UNTIL ||
+                    code == Opcode::OP_SHMEM_GET) {
+                    ops.push_back(code);
+                }
             }
         }
         return ops;
     }
 
-    // Verify the SHMEM op count structure for a OneShot AllReduce
     void VerifyOneShotCounts(const std::vector<Opcode>& ops)
     {
         uint32_t put = 0, signal = 0, wait = 0, get = 0;
@@ -185,6 +185,8 @@ TEST_F(AllReduceIRTest, V5PlusPull_IRStructure)
 
 // ---------------------------------------------------------------------------
 // Cross-variant IR equivalence test
+// We reset Program between variants so ExtractShmemOpcodes() only sees
+// the function tree of the current variant.
 // ---------------------------------------------------------------------------
 
 TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
@@ -208,6 +210,7 @@ TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
     // ── v3 ──
     std::vector<Opcode> irV3;
     {
+        Program::GetInstance().Reset();
         Tensor in(DT_FP16, {kRow, kCol}, "in_v3");
         Tensor out(DT_FP16, {kRow, kCol}, "out_v3");
         FUNCTION("UT_EQUIV_V3", {in}, {out}) {
@@ -222,6 +225,7 @@ TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
     // ── v4 ──
     std::vector<Opcode> irV4;
     {
+        Program::GetInstance().Reset();
         Tensor in(DT_FP16, {kRow, kCol}, "in_v4");
         Tensor out(DT_FP16, {kRow, kCol}, "out_v4");
         FUNCTION("UT_EQUIV_V4", {in}, {out}) {
@@ -236,6 +240,7 @@ TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
     // ── v5 + Pull ──
     std::vector<Opcode> irV5;
     {
+        Program::GetInstance().Reset();
         Tensor in(DT_FP16, {kRow, kCol}, "in_v5");
         Tensor out(DT_FP16, {kRow, kCol}, "out_v5");
         FUNCTION("UT_EQUIV_V5", {in}, {out}) {
@@ -272,14 +277,6 @@ TEST_F(AllReduceIRTest, V2_TotalOpCountNonZero)
         OneShotAllReduce_v2(in, in, kGroup, shmemData, shmemSignal, out);
     }
 
-    Function* func = Program::GetInstance().GetLastFunction();
-    ASSERT_NE(func, nullptr);
-    size_t totalOps = 0;
-    for ([[maybe_unused]] auto& op : func->Operations()) {
-        totalOps++;
-    }
-    EXPECT_GT(totalOps, 0u) << "Function should contain at least some operations";
-    // SHMEM ops are a subset of all operations (VIEW, CAST, etc. are also present)
     auto shmemOps = ExtractShmemOpcodes();
-    EXPECT_LE(shmemOps.size(), totalOps) << "SHMEM ops should be a subset of all ops";
+    EXPECT_GT(shmemOps.size(), 0u) << "Function should contain SHMEM operations";
 }
