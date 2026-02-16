@@ -24,6 +24,7 @@
 #include "distributed_op_test_suite.h"
 #include "tileop/distributed/comm_context.h"
 #include "tilefwk/tilefwk_op.h"
+#include "tilefwk/distributed_communicator.h"
 #include "test_dev_func_runner.h"
 #include "tilefwk/pypto_fwk_log.h"
 
@@ -116,6 +117,52 @@ inline void RunTest() {
     DeviceLauncherConfig config;
     config.runModel = false;
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
+}
+
+// ---------------------------------------------------------------------------
+// IR verification helpers for AllReduce variants
+// ---------------------------------------------------------------------------
+
+// Extract the SHMEM-related opcode sequence from the last built function.
+// Filters to only: OP_SHMEM_PUT, OP_SHMEM_SIGNAL, OP_SHMEM_WAIT_UNTIL, OP_SHMEM_GET.
+inline std::vector<Opcode> ExtractShmemOpcodes()
+{
+    Function* func = Program::GetInstance().GetLastFunction();
+    EXPECT_NE(func, nullptr);
+    std::vector<Opcode> shmemOps;
+    for (auto& op : func->Operations()) {
+        Opcode code = op.GetOpcode();
+        if (code == Opcode::OP_SHMEM_PUT ||
+            code == Opcode::OP_SHMEM_SIGNAL ||
+            code == Opcode::OP_SHMEM_WAIT_UNTIL ||
+            code == Opcode::OP_SHMEM_GET) {
+            shmemOps.push_back(code);
+        }
+    }
+    return shmemOps;
+}
+
+// Verify that the last built function contains the expected OneShot AllReduce
+// IR structure: worldSize * (PUT + SIGNAL), then 1 WAIT_UNTIL, then 1 GET.
+inline void VerifyOneShotAllReduceIR(uint32_t worldSize)
+{
+    auto shmemOps = ExtractShmemOpcodes();
+
+    uint32_t putCount = 0;
+    uint32_t signalCount = 0;
+    uint32_t waitCount = 0;
+    uint32_t getCount = 0;
+    for (Opcode code : shmemOps) {
+        if (code == Opcode::OP_SHMEM_PUT) putCount++;
+        else if (code == Opcode::OP_SHMEM_SIGNAL) signalCount++;
+        else if (code == Opcode::OP_SHMEM_WAIT_UNTIL) waitCount++;
+        else if (code == Opcode::OP_SHMEM_GET) getCount++;
+    }
+
+    EXPECT_EQ(putCount, worldSize) << "Expected " << worldSize << " OP_SHMEM_PUT ops";
+    EXPECT_EQ(signalCount, worldSize) << "Expected " << worldSize << " OP_SHMEM_SIGNAL ops";
+    EXPECT_EQ(waitCount, 1u) << "Expected 1 OP_SHMEM_WAIT_UNTIL op";
+    EXPECT_EQ(getCount, 1u) << "Expected 1 OP_SHMEM_GET op";
 }
 
 enum class WinType : uint32_t {
