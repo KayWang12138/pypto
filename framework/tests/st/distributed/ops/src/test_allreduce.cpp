@@ -124,7 +124,7 @@ void TestAllReduce_v2(OpTestParam &testParam, std::string &goldenDir)
         }
         OneShotAllReduce_v2(in, in, testParam.group, shmemData, shmemSignal, out);
     }
-    VerifyOneShotAllReduceIR(testParam.rankSize);
+    VerifyOneShotAllReduceIR("ALLREDUCE_V2", testParam.rankSize);
     RunTest();
     auto output = ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", outSize, output->GetDevPtr(), testParam));
@@ -174,7 +174,7 @@ void TestAllReduce_v3(OpTestParam &testParam, std::string &goldenDir)
         }
         OneShotAllReduce_v3(in, in, testParam.group, shmemData, shmemSignal, out);
     }
-    VerifyOneShotAllReduceIR(testParam.rankSize);
+    VerifyOneShotAllReduceIR("ALLREDUCE_V3", testParam.rankSize);
     RunTest();
     auto output = ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", outSize, output->GetDevPtr(), testParam));
@@ -224,7 +224,7 @@ void TestAllReduce_v4(OpTestParam &testParam, std::string &goldenDir)
         }
         OneShotAllReduce_v4(in, in, testParam.group, shmemData, shmemSignal, out);
     }
-    VerifyOneShotAllReduceIR(testParam.rankSize);
+    VerifyOneShotAllReduceIR("ALLREDUCE_V4", testParam.rankSize);
     RunTest();
     auto output = ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", outSize, output->GetDevPtr(), testParam));
@@ -278,7 +278,7 @@ void TestAllReduce_v5(OpTestParam &testParam, std::string &goldenDir)
         // Pull happens outside v5 — postprocessing by the caller
         out = comm.Pull(waitToken, shmemData);
     }
-    VerifyOneShotAllReduceIR(testParam.rankSize);
+    VerifyOneShotAllReduceIR("ALLREDUCE_V5", testParam.rankSize);
     RunTest();
     auto output = ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", outSize, output->GetDevPtr(), testParam));
@@ -292,9 +292,8 @@ template void TestAllReduce_v5<bfloat16>(OpTestParam &testParam, std::string& go
 // ---------------------------------------------------------------------------
 // IR Equivalence Test — verifies v2, v3, v4, v5+Pull produce identical
 // SHMEM opcode sequences (graph-only, no hardware execution).
-//
-// We reset Program between variants so ExtractShmemOpcodes() only sees
-// the function tree of the current variant (avoids cross-contamination).
+// Each variant uses a unique FUNCTION name, so GetFunctionByRawName()
+// finds the correct leaf function without cross-contamination.
 // ---------------------------------------------------------------------------
 template<typename T>
 void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
@@ -330,14 +329,13 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
             buildShmemSetup(in, shmemData, shmemSignal);
             OneShotAllReduce_v2(in, in, testParam.group, shmemData, shmemSignal, out);
         }
-        irV2 = ExtractShmemOpcodes();
-        VerifyOneShotAllReduceIR(testParam.rankSize);
+        irV2 = ExtractShmemOpcodes("IR_CHECK_V2");
+        VerifyOneShotAllReduceIR("IR_CHECK_V2", testParam.rankSize);
     }
 
     // ── v3 ──
     std::vector<Opcode> irV3;
     {
-        Program::GetInstance().Reset();
         Tensor in(dType, shape, "in_v3");
         Tensor out(dType, shape, "out_v3");
         FUNCTION("IR_CHECK_V3", {in}, {out}) {
@@ -345,14 +343,13 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
             buildShmemSetup(in, shmemData, shmemSignal);
             OneShotAllReduce_v3(in, in, testParam.group, shmemData, shmemSignal, out);
         }
-        irV3 = ExtractShmemOpcodes();
-        VerifyOneShotAllReduceIR(testParam.rankSize);
+        irV3 = ExtractShmemOpcodes("IR_CHECK_V3");
+        VerifyOneShotAllReduceIR("IR_CHECK_V3", testParam.rankSize);
     }
 
     // ── v4 ──
     std::vector<Opcode> irV4;
     {
-        Program::GetInstance().Reset();
         Tensor in(dType, shape, "in_v4");
         Tensor out(dType, shape, "out_v4");
         FUNCTION("IR_CHECK_V4", {in}, {out}) {
@@ -360,14 +357,13 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
             buildShmemSetup(in, shmemData, shmemSignal);
             OneShotAllReduce_v4(in, in, testParam.group, shmemData, shmemSignal, out);
         }
-        irV4 = ExtractShmemOpcodes();
-        VerifyOneShotAllReduceIR(testParam.rankSize);
+        irV4 = ExtractShmemOpcodes("IR_CHECK_V4");
+        VerifyOneShotAllReduceIR("IR_CHECK_V4", testParam.rankSize);
     }
 
     // ── v5 + Pull ──
     std::vector<Opcode> irV5;
     {
-        Program::GetInstance().Reset();
         Tensor in(dType, shape, "in_v5");
         Tensor out(dType, shape, "out_v5");
         FUNCTION("IR_CHECK_V5", {in}, {out}) {
@@ -377,8 +373,8 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
             auto waitToken = OneShotAllReduce_v5(in, in, shmemData, comm);
             out = comm.Pull(waitToken, shmemData);
         }
-        irV5 = ExtractShmemOpcodes();
-        VerifyOneShotAllReduceIR(testParam.rankSize);
+        irV5 = ExtractShmemOpcodes("IR_CHECK_V5");
+        VerifyOneShotAllReduceIR("IR_CHECK_V5", testParam.rankSize);
     }
 
     // ── Cross-variant equivalence: all four must produce the same SHMEM IR ──
