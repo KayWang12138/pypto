@@ -49,7 +49,7 @@ class StaticReadyCoreFunctionQueue {
   // The use of past tense in these functions obeys to the fact that they are not (and cannot be) concurrency-safe
   // Therefore, the return value could have changed by the time it is returned
   inline bool wasEmpty() const { return head >= tail; }
-  inline bool wasSize() const { return tail - head; }
+  inline size_t wasSize() const { return tail - head; }
 
   inline std::pair<aicoreFunction_t*, size_t> pop(aicoreFunction_t taskList[TASK_LIST_MAX_SIZE], const size_t n = 1)
   {

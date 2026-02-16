@@ -115,7 +115,8 @@ struct MixTaskData {
 
 struct staticSchedulerRuntimeData_t
 {
-    uint64_t availableTaskQueue;
+    uint64_t availableVectorTaskQueue;
+    uint64_t availableCubeTaskQueue;
     uint64_t availableCoreQueue; 
     uint64_t pendingPairQueue; 
     uint64_t runningPairQueue; 

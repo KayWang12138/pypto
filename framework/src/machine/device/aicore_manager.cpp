@@ -57,8 +57,9 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl) {
         aicpuTaskManager_.Init(curDevTask_);
     }
 
-    DEV_ERROR("AICPU %d - Task Queue Size: %lu - Core Queue Size: %lu\n", aicpuIdx_, availableTaskQueue_->wasSize(), availableCoreQueue_->wasSize());
-    // DEV_ERROR("AICPU %d - Task Queue Size: %p - Core Queue Size: %p\n", aicpuIdx_, availableTaskQueue_, availableCoreQueue_);
+    DEV_ERROR("AICPU %d - Task Vector Queue Size: %lu\n", aicpuIdx_, availableVectorTaskQueue_->wasSize());
+    DEV_ERROR("AICPU %d - Task Cube Queue Size: %lu\n", aicpuIdx_, availableVectorTaskQueue_->wasSize());
+    DEV_ERROR("AICPU %d - Core Queue Size: %lu\n", aicpuIdx_, availableCoreQueue_->wasSize());
 
     npu::tile_fwk::dynamic::TimeCheck tm;
     while (taskCtrl->finishedFunctionCnt.load(std::memory_order_relaxed) < curDevTask_->coreFunctionCnt) {
@@ -90,7 +91,8 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl) {
     if (aicpuIdx_ == LEAD_STATIC_SCHEDULER_AICPU_ID) {
         readyAicCoreFunctionQue_->finalizeLockFree();
         readyAivCoreFunctionQue_->finalizeLockFree();
-        delete availableTaskQueue_;
+        delete availableVectorTaskQueue_;
+        delete availableCubeTaskQueue_;
         delete availableCoreQueue_;
         delete pendingPairQueue_ ;
         delete runningPairQueue_ ;
@@ -237,7 +239,7 @@ uint64_t AiCoreManager::TryBatchSendTask(CoreType type, StaticReadyCoreFunctionQ
 
     // DEV_ERROR("AiCpud:%d Popping - coreIdxStart: %d - coreIdxEnd: %d >>\n", aicpuIdx_, coreIdxStart, coreIdxEnd);
 
-    const auto taskQueueIdx = (uint64_t)availableTaskQueue_->pop();
+    const auto taskQueueIdx = (uint64_t)availableVectorTaskQueue_->pop();
     if (taskQueueIdx != aicoreNullTask) DEV_ERROR("AICPU %d - Popping Task: %lu", aicpuIdx_, taskQueueIdx);
 
     const auto taskSet = readyQue->pop(&taskId, 1);
@@ -381,7 +383,7 @@ void AiCoreManager::BatchPushReadyQueue() {
             {
               const auto taskId = (uint32_t)(readyIds[aivIndex][i]);
               DEV_ERROR("AICPU %d - Pushing Task: %u", aicpuIdx_, taskId);  
-              availableTaskQueue_->push(taskId);
+              availableVectorTaskQueue_->push(taskId);
             } 
             readyAivCoreFunctionQue_->push(readyIds[aivIndex], readyCount[aivIndex]);
             // readyAivCoreFunctionQue_->push_no_lock(readyIds[aivIndex], readyCount[aivIndex]);
@@ -404,7 +406,7 @@ void AiCoreManager::BatchPushReadyQueue() {
         {
             const auto taskId = (uint32_t)(readyIdsExtend[aivIndex].data()[i]);
             DEV_ERROR("AICPU %d - Pushing Task: %u", aicpuIdx_, taskId);  
-            availableTaskQueue_->push(taskId);
+            availableVectorTaskQueue_->push(taskId);
         } 
         readyAivCoreFunctionQue_->push(readyIdsExtend[aivIndex].data(), readyIdsExtend[aivIndex].size());
         // readyAivCoreFunctionQue_->push_no_lock(readyIdsExtend[aivIndex].data(), readyIdsExtend[aivIndex].size());
