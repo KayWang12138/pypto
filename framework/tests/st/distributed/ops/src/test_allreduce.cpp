@@ -292,6 +292,9 @@ template void TestAllReduce_v5<bfloat16>(OpTestParam &testParam, std::string& go
 // ---------------------------------------------------------------------------
 // IR Equivalence Test — verifies v2, v3, v4, v5+Pull produce identical
 // SHMEM opcode sequences (graph-only, no hardware execution).
+//
+// We reset Program between variants so ExtractShmemOpcodes() only sees
+// the function tree of the current variant (avoids cross-contamination).
 // ---------------------------------------------------------------------------
 template<typename T>
 void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
@@ -304,8 +307,8 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
     Shape shape{row, col};
     Shape shmemDataShape{1, row, col};
 
-    auto buildShmemSetup = [&](Tensor& in, auto& shmemData, auto& shmemSignal, int32_t tRow, int32_t tCol) {
-        TileShape::Current().SetVecTile({tRow, tCol});
+    auto buildShmemSetup = [&](Tensor& in, Tensor& shmemData, Tensor& shmemSignal) {
+        TileShape::Current().SetVecTile({tileRow, tileCol});
         DataType shmemDataType = in.GetDataType();
         if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
             shmemDataType = DT_FP32;
@@ -322,18 +325,9 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
     {
         Tensor in(dType, shape, "in_v2");
         Tensor out(dType, shape, "out_v2");
-        std::vector<T> inPtr = ReadToVector<T>(
-            goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
-        ProgramData::GetInstance().AppendInputs({
-            RawTensorData::CreateTensor<T>(in, inPtr),
-        });
-        ProgramData::GetInstance().AppendOutputs({
-            RawTensorData::CreateTensorZero(out),
-        });
         FUNCTION("IR_CHECK_V2", {in}, {out}) {
-            Tensor shmemData;
-            Tensor shmemSignal;
-            buildShmemSetup(in, shmemData, shmemSignal, tileRow, tileCol);
+            Tensor shmemData, shmemSignal;
+            buildShmemSetup(in, shmemData, shmemSignal);
             OneShotAllReduce_v2(in, in, testParam.group, shmemData, shmemSignal, out);
         }
         irV2 = ExtractShmemOpcodes();
@@ -343,20 +337,12 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
     // ── v3 ──
     std::vector<Opcode> irV3;
     {
+        Program::GetInstance().Reset();
         Tensor in(dType, shape, "in_v3");
         Tensor out(dType, shape, "out_v3");
-        std::vector<T> inPtr = ReadToVector<T>(
-            goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
-        ProgramData::GetInstance().AppendInputs({
-            RawTensorData::CreateTensor<T>(in, inPtr),
-        });
-        ProgramData::GetInstance().AppendOutputs({
-            RawTensorData::CreateTensorZero(out),
-        });
         FUNCTION("IR_CHECK_V3", {in}, {out}) {
-            Tensor shmemData;
-            Tensor shmemSignal;
-            buildShmemSetup(in, shmemData, shmemSignal, tileRow, tileCol);
+            Tensor shmemData, shmemSignal;
+            buildShmemSetup(in, shmemData, shmemSignal);
             OneShotAllReduce_v3(in, in, testParam.group, shmemData, shmemSignal, out);
         }
         irV3 = ExtractShmemOpcodes();
@@ -366,20 +352,12 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
     // ── v4 ──
     std::vector<Opcode> irV4;
     {
+        Program::GetInstance().Reset();
         Tensor in(dType, shape, "in_v4");
         Tensor out(dType, shape, "out_v4");
-        std::vector<T> inPtr = ReadToVector<T>(
-            goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
-        ProgramData::GetInstance().AppendInputs({
-            RawTensorData::CreateTensor<T>(in, inPtr),
-        });
-        ProgramData::GetInstance().AppendOutputs({
-            RawTensorData::CreateTensorZero(out),
-        });
         FUNCTION("IR_CHECK_V4", {in}, {out}) {
-            Tensor shmemData;
-            Tensor shmemSignal;
-            buildShmemSetup(in, shmemData, shmemSignal, tileRow, tileCol);
+            Tensor shmemData, shmemSignal;
+            buildShmemSetup(in, shmemData, shmemSignal);
             OneShotAllReduce_v4(in, in, testParam.group, shmemData, shmemSignal, out);
         }
         irV4 = ExtractShmemOpcodes();
@@ -389,20 +367,12 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
     // ── v5 + Pull ──
     std::vector<Opcode> irV5;
     {
+        Program::GetInstance().Reset();
         Tensor in(dType, shape, "in_v5");
         Tensor out(dType, shape, "out_v5");
-        std::vector<T> inPtr = ReadToVector<T>(
-            goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
-        ProgramData::GetInstance().AppendInputs({
-            RawTensorData::CreateTensor<T>(in, inPtr),
-        });
-        ProgramData::GetInstance().AppendOutputs({
-            RawTensorData::CreateTensorZero(out),
-        });
         FUNCTION("IR_CHECK_V5", {in}, {out}) {
-            Tensor shmemData;
-            Tensor shmemSignal;
-            buildShmemSetup(in, shmemData, shmemSignal, tileRow, tileCol);
+            Tensor shmemData, shmemSignal;
+            buildShmemSetup(in, shmemData, shmemSignal);
             CommunicatorV2 comm(testParam.group, testParam.rankSize, shmemSignal);
             auto waitToken = OneShotAllReduce_v5(in, in, shmemData, comm);
             out = comm.Pull(waitToken, shmemData);
