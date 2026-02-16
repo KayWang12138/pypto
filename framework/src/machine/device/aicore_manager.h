@@ -122,6 +122,8 @@ struct DeviceTaskCtrl {
 
 void SdmaPrefetch(DeviceTask *devTask);
 
+typedef pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask> taskQueue_t;
+
 class AiCoreManager {
 public:
     AiCoreManager(AicpuTaskManager &aicpuTaskManager) : aicpuTaskManager_(aicpuTaskManager){};
@@ -139,10 +141,6 @@ public:
 
         // If I am the lead AICPU scheduler, perform initailization steps
         if (aicpuIdx_ == LEAD_STATIC_SCHEDULER_AICPU_ID) {
-            // Initialize the lock free queues
-            readyAicCoreFunctionQue_->initializeLockFree();
-            readyAivCoreFunctionQue_->initializeLockFree();
-
             // Allocating queues
             auto availableVectorTaskQueue = new pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>(MAX_QUEUED_TASKS);
             auto availableCubeTaskQueue   = new pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>(MAX_QUEUED_TASKS);
@@ -168,8 +166,8 @@ public:
             while(curDevTask_->isTaskInitialized == false){ /* Busy wait */ };
         }
 
-        availableVectorTaskQueue_ = reinterpret_cast<pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask> *>(curDevTask_->staticSchedulerData.availableVectorTaskQueue);
-        availableCubeTaskQueue_ = reinterpret_cast<pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask> *>(curDevTask_->staticSchedulerData.availableCubeTaskQueue);
+        availableVectorTaskQueue_ = reinterpret_cast<taskQueue_t*>(curDevTask_->staticSchedulerData.availableVectorTaskQueue);
+        availableCubeTaskQueue_ = reinterpret_cast<taskQueue_t*>(curDevTask_->staticSchedulerData.availableCubeTaskQueue);
         availableCoreQueue_ = reinterpret_cast<pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore> *>(curDevTask_->staticSchedulerData.availableCoreQueue);
         pendingPairQueue_   = reinterpret_cast<pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair> *>(curDevTask_->staticSchedulerData.pendingPairQueue); 
         runningPairQueue_   = reinterpret_cast<pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair> *>(curDevTask_->staticSchedulerData.runningPairQueue);  
@@ -189,9 +187,9 @@ public:
     inline void RunCoreTask(DeviceTaskCtrl *taskCtrl) {
         uint64_t sentAic = 0;
         uint64_t sentAiv = 0;
-        DispatchAiCoreTask(CoreType::AIC, readyAicCoreFunctionQue_, aicStart_, aicEnd_);
+        DispatchAiCoreTask(CoreType::AIC, availableCubeTaskQueue_, aicStart_, aicEnd_);
         CountSendTask(sentAic, sentAiv);
-        DispatchAiCoreTask(CoreType::AIV, readyAivCoreFunctionQue_, aivStart_, aivEnd_);
+        DispatchAiCoreTask(CoreType::AIV, availableVectorTaskQueue_, aivStart_, aivEnd_);
         CountSendTask(sentAic, sentAiv);
         uint64_t sentAicpu = 0UL;
         if constexpr (enableAicpuTask) {
@@ -236,11 +234,11 @@ private:
 
     int WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd);
 
-    uint64_t TryBatchSendTask(CoreType type, StaticReadyCoreFunctionQueue* readyQue, int coreIdxStart, int coreIdxEnd);
+    uint64_t TryBatchSendTask(CoreType type, taskQueue_t* readyQue, int coreIdxStart, int coreIdxEnd);
 
     uint32_t BatchSendTask(CoreType type, uint64_t *newTask, uint32_t taskCount, int coreIdxStart, int coreIdxEnd, bool isLifo);
 
-    uint64_t DispatchAiCoreTask(CoreType type, StaticReadyCoreFunctionQueue* readyQue, int coreIdxStart, int coreIdxEnd);
+    uint64_t DispatchAiCoreTask(CoreType type, taskQueue_t* readyQue, int coreIdxStart, int coreIdxEnd);
 
     void SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTask);
 
@@ -248,7 +246,7 @@ private:
 
     void AddTask(int coreIdx, uint64_t taskId);
 
-    void ResolveDepForAllAiCore(CoreType type, StaticReadyCoreFunctionQueue *readyQue, int coreIdxStart, int coreIdxEnd);
+    void ResolveDepForAllAiCore(CoreType type, taskQueue_t *readyQue, int coreIdxStart, int coreIdxEnd);
 
     void BatchPushReadyQueue();
 

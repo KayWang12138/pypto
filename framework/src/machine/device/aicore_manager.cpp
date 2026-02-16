@@ -89,8 +89,6 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl) {
     DEV_ERROR("[AICPU %d] Running Time: %ldns", aicpuIdx_, ns);
 
     if (aicpuIdx_ == LEAD_STATIC_SCHEDULER_AICPU_ID) {
-        readyAicCoreFunctionQue_->finalizeLockFree();
-        readyAivCoreFunctionQue_->finalizeLockFree();
         delete availableVectorTaskQueue_;
         delete availableCubeTaskQueue_;
         delete availableCoreQueue_;
@@ -216,7 +214,7 @@ int AiCoreManager::WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd) {
     return 0;
 }
 
-uint64_t AiCoreManager::TryBatchSendTask(CoreType type, StaticReadyCoreFunctionQueue* readyQue,
+uint64_t AiCoreManager::TryBatchSendTask(CoreType type, taskQueue_t* readyQue,
             int coreIdxStart, int coreIdxEnd) {
     if (readyQue->wasEmpty()) {
         DEV_DEBUG("AiCpud:%d, can not send task currently: no ready tasks in the queue\n", aicpuIdx_);
@@ -234,17 +232,12 @@ uint64_t AiCoreManager::TryBatchSendTask(CoreType type, StaticReadyCoreFunctionQ
         return 0;
     }
 
-    aicoreFunction_t taskId = aicoreNullTask;
-    // size_t taskCount = 0;
+    auto taskQueueIdx = (uint64_t)readyQue->pop();
+    if (taskQueueIdx == aicoreNullTask) return 0;
 
-    // DEV_ERROR("AiCpud:%d Popping - coreIdxStart: %d - coreIdxEnd: %d >>\n", aicpuIdx_, coreIdxStart, coreIdxEnd);
-
-    const auto taskQueueIdx = (uint64_t)availableVectorTaskQueue_->pop();
-    if (taskQueueIdx != aicoreNullTask) DEV_ERROR("AICPU %d - Popping Task: %lu", aicpuIdx_, taskQueueIdx);
-
-    const auto taskSet = readyQue->pop(&taskId, 1);
-    uint64_t* taskSetAddress = taskSet.first;
-    uint64_t taskSetCount = taskSet.second;
+    DEV_ERROR("AICPU %d - Popping Task: %lu", aicpuIdx_, taskQueueIdx);
+    uint64_t* taskSetAddress = &taskQueueIdx;
+    uint64_t taskSetCount = 1;
     if (taskSetCount == 0) {
         DEV_DEBUG("AiCpud:%d, taskCount is zero \n", aicpuIdx_);
         return 0;
@@ -301,7 +294,7 @@ uint32_t AiCoreManager::BatchSendTask(CoreType type, uint64_t *newTask, uint32_t
     return sendCnt;
 }
 
-uint64_t AiCoreManager::DispatchAiCoreTask(CoreType type, StaticReadyCoreFunctionQueue* readyQue,
+uint64_t AiCoreManager::DispatchAiCoreTask(CoreType type, taskQueue_t* readyQue,
                                     int coreIdxStart, int coreIdxEnd) {
     uint64_t taskCount = TryBatchSendTask(type, readyQue, coreIdxStart, coreIdxEnd);
     if (waitTaskCnt_[static_cast<int>(type)] > 0) {
@@ -337,15 +330,15 @@ void AiCoreManager::AddTask(int coreIdx, uint64_t taskId) {
 }
 
 void AiCoreManager::ResolveDepForAllAiCore(
-    CoreType type, StaticReadyCoreFunctionQueue *readyQue, int coreIdxStart, int coreIdxEnd) {
+    CoreType type, taskQueue_t *readyQue, int coreIdxStart, int coreIdxEnd) {
     (void)readyQue;
     for (int i = coreIdxStart; i < coreIdxEnd; i++) {
         if (IsNoTaskDispatch(i)) {
             continue;
         }
         ResolveByRegVal(type, i, GetFinishedTask(i));
-        if (readyAicCoreFunctionQue_->wasEmpty() ||
-            readyAivCoreFunctionQue_->wasEmpty()) {
+        if (availableCubeTaskQueue_->wasEmpty() ||
+            availableVectorTaskQueue_->wasEmpty()) {
             BatchPushReadyQueue();
         }
     }
@@ -365,8 +358,12 @@ void AiCoreManager::BatchPushReadyQueue() {
         }
         DEV_DEBUG("resolved new task, aic ready count: %lu coretype:%u\n", readyCount[aicIndex], aicIndex);
         if (readyCount[aicIndex] > 0) {
-            readyAicCoreFunctionQue_->push(readyIds[aicIndex], readyCount[aicIndex]);
-            // readyAicCoreFunctionQue_->push_no_lock(readyIds[aicIndex], readyCount[aicIndex]);
+            for (size_t i = 0; i < readyCount[aicIndex]; i++)
+            {
+              const auto taskId = (uint32_t)(readyIds[aicIndex][i]);
+              DEV_ERROR("AICPU %d - Pushing Task: %u", aicpuIdx_, taskId);  
+              availableCubeTaskQueue_->push(taskId);
+            } 
         }
         readyCount[aicIndex] = 0;
     }
@@ -385,8 +382,6 @@ void AiCoreManager::BatchPushReadyQueue() {
               DEV_ERROR("AICPU %d - Pushing Task: %u", aicpuIdx_, taskId);  
               availableVectorTaskQueue_->push(taskId);
             } 
-            readyAivCoreFunctionQue_->push(readyIds[aivIndex], readyCount[aivIndex]);
-            // readyAivCoreFunctionQue_->push_no_lock(readyIds[aivIndex], readyCount[aivIndex]);
         }
         readyCount[aivIndex] = 0;
     }
@@ -394,8 +389,12 @@ void AiCoreManager::BatchPushReadyQueue() {
     if (readyIdsExtend[aicIndex].size() > 0) {
         DEV_DEBUG("resolved new task, extend aic ready count: %lu, coretype:%u\n", readyIdsExtend[aicIndex].size(),
             aicIndex);
-        readyAicCoreFunctionQue_->push(readyIdsExtend[aicIndex].data(), readyIdsExtend[aicIndex].size());
-        // readyAicCoreFunctionQue_->push_no_lock(readyIdsExtend[aicIndex].data(), readyIdsExtend[aicIndex].size());
+        for (size_t i = 0; i < readyIdsExtend[aicIndex].size(); i++)
+        {
+            const auto taskId = (uint32_t)(readyIdsExtend[aicIndex].data()[i]);
+            DEV_ERROR("AICPU %d - Pushing Task: %u", aicpuIdx_, taskId);  
+            availableCubeTaskQueue_->push(taskId);
+        } 
         readyIdsExtend[aicIndex].clear();
     }
 
@@ -408,8 +407,6 @@ void AiCoreManager::BatchPushReadyQueue() {
             DEV_ERROR("AICPU %d - Pushing Task: %u", aicpuIdx_, taskId);  
             availableVectorTaskQueue_->push(taskId);
         } 
-        readyAivCoreFunctionQue_->push(readyIdsExtend[aivIndex].data(), readyIdsExtend[aivIndex].size());
-        // readyAivCoreFunctionQue_->push_no_lock(readyIdsExtend[aivIndex].data(), readyIdsExtend[aivIndex].size());
         readyIdsExtend[aivIndex].clear();
     }
 }
