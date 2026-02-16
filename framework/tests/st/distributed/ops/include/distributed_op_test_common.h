@@ -139,7 +139,9 @@ inline std::vector<Opcode> ExtractShmemOpcodes(const std::string& funcName)
     for (const auto& [name, funcPtr] : Program::GetInstance().GetFunctionMap()) {
         if (name.find(funcName) == std::string::npos) continue;
 
-        bool isHidden = (name.find("hiddenfunc") != std::string::npos);
+        bool isHidden = (name.find("hiddenfunc") != std::string::npos) &&
+                        (name.find("leaf") == std::string::npos) &&
+                        (name.find("root") == std::string::npos);
         for (auto& op : funcPtr->Operations()) {
             Opcode code = op.GetOpcode();
             if (code == Opcode::OP_SHMEM_PUT ||
