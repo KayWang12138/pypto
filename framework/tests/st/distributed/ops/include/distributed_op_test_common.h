@@ -123,20 +123,22 @@ inline void RunTest() {
 // IR verification helpers for AllReduce variants
 // ---------------------------------------------------------------------------
 
-// Extract the SHMEM-related opcode sequence from the last built function.
+// Extract the SHMEM-related opcode sequence from ALL functions in the Program.
+// The FUNCTION macro may create nested sub-functions (hidden loops, etc.),
+// so we must iterate the full function map — not just GetLastFunction().
 // Filters to only: OP_SHMEM_PUT, OP_SHMEM_SIGNAL, OP_SHMEM_WAIT_UNTIL, OP_SHMEM_GET.
 inline std::vector<Opcode> ExtractShmemOpcodes()
 {
-    Function* func = Program::GetInstance().GetLastFunction();
-    EXPECT_NE(func, nullptr);
     std::vector<Opcode> shmemOps;
-    for (auto& op : func->Operations()) {
-        Opcode code = op.GetOpcode();
-        if (code == Opcode::OP_SHMEM_PUT ||
-            code == Opcode::OP_SHMEM_SIGNAL ||
-            code == Opcode::OP_SHMEM_WAIT_UNTIL ||
-            code == Opcode::OP_SHMEM_GET) {
-            shmemOps.push_back(code);
+    for (const auto& [name, funcPtr] : Program::GetInstance().GetFunctionMap()) {
+        for (auto& op : funcPtr->Operations()) {
+            Opcode code = op.GetOpcode();
+            if (code == Opcode::OP_SHMEM_PUT ||
+                code == Opcode::OP_SHMEM_SIGNAL ||
+                code == Opcode::OP_SHMEM_WAIT_UNTIL ||
+                code == Opcode::OP_SHMEM_GET) {
+                shmemOps.push_back(code);
+            }
         }
     }
     return shmemOps;
