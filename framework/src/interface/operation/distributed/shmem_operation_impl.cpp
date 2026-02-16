@@ -535,47 +535,30 @@ void OneShotAllReduce_v3(const Tensor& predToken, const Tensor& in, const char* 
 }
 
 // =============================================================================
-// Group: Lightweight wrapper around a communication group.
-//
-// Encapsulates rank metadata (worldSize, thisRank) so that the raw
-// const char* group name is not passed around everywhere.
-// =============================================================================
-class Group {
-public:
-    Group(const char* name, uint32_t worldSize)
-        : name_(name), worldSize_(worldSize), thisRank_(GetHcclRankId(name))
-    {}
-
-    uint32_t GetWorldSize() const { return worldSize_; }
-    SymbolicScalar GetThisRank() const { return thisRank_; }
-    const char* Name() const { return name_; }
-
-private:
-    const char* name_;
-    uint32_t worldSize_;
-    SymbolicScalar thisRank_;
-};
-
-// =============================================================================
-// CommunicatorV2: Thin communication engine with explicit data views.
+// CommunicatorV2: Communication engine with group metadata and explicit data views.
 //
 // Unlike Communicator (v3) which hides the shmem layout entirely, this
 // variant requires the caller to provide explicit data Views. This gives
 // the algorithm author full control over data placement while the
-// communicator handles signal coordination internally.
+// communicator handles signal coordination and group metadata internally.
 //
 // Separation of concerns:
-//   - Group:           rank metadata (worldSize, thisRank)
 //   - Algorithm author: data layout (explicit View calls at call site)
-//   - CommunicatorV2:  communication pattern (Put+Signal, Wait+Get)
+//   - CommunicatorV2:  group metadata + communication pattern (Put+Signal, Wait+Get)
 // =============================================================================
 class CommunicatorV2 {
 public:
-    explicit CommunicatorV2(Tensor& shmemSignal)
-        : shmemSignal_(shmemSignal)
+    CommunicatorV2(const char* group, uint32_t worldSize, Tensor& shmemSignal)
+        : group_(group)
+        , worldSize_(worldSize)
+        , thisRank_(GetHcclRankId(group))
+        , shmemSignal_(shmemSignal)
         , row_(shmemSignal.GetShape()[3])
         , col_(shmemSignal.GetShape()[4])
     {}
+
+    uint32_t GetWorldSize() const { return worldSize_; }
+    SymbolicScalar GetThisRank() const { return thisRank_; }
 
     // Put data to an explicit shmem data slot + signal targetRank.
     // The caller provides the data View; the signal View is derived internally.
@@ -590,28 +573,30 @@ public:
     }
 
     // Wait for all contributions on thisRank's slot + read the reduced result.
-    // The caller provides the data View; the signal View is derived internally.
+    // The caller provides the data View; signal View and rank/worldSize are internal.
     // Output dtype is derived from pred (the input tensor).
-    Tensor WaitAndGet(const Tensor& pred, const Tensor& dataView,
-        SymbolicScalar thisRank, uint32_t worldSize) const
+    Tensor WaitAndGet(const Tensor& pred, const Tensor& dataView) const
     {
         auto signalView = View(shmemSignal_, {1, 1, 1, row_, col_},
-            std::vector<SymbolicScalar>{thisRank, thisRank, 0, 0, 0});
-        auto waitOut = WaitUntil(pred, signalView, worldSize);
+            std::vector<SymbolicScalar>{thisRank_, thisRank_, 0, 0, 0});
+        auto waitOut = WaitUntil(pred, signalView, worldSize_);
         return ShmemGet(waitOut, dataView, pred.GetDataType());
     }
 
 private:
+    const char* group_;
+    uint32_t worldSize_;
+    SymbolicScalar thisRank_;
     Tensor& shmemSignal_;
     int32_t row_;
     int32_t col_;
 };
 
 // =============================================================================
-// OneShotAllReduce_v4: Group + CommunicatorV2 with explicit data Views.
+// OneShotAllReduce_v4: CommunicatorV2 with explicit data Views.
 //
 // The algorithm author controls data placement via explicit View() calls.
-// The CommunicatorV2 handles signal coordination internally.
+// The CommunicatorV2 handles signal coordination and group metadata internally.
 // Put() returns a dependency token for explicit dependency tracking.
 //
 // Emitted IR is identical to OneShotAllReduce / v2 / v3.
@@ -621,11 +606,10 @@ void OneShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* 
 {
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
-    Group grp(group, shmemData.GetShape()[0]);
-    CommunicatorV2 comm(shmemSignal);
+    CommunicatorV2 comm(group, shmemData.GetShape()[0], shmemSignal);
 
     // Phase 1: Scatter — broadcast input to all ranks with atomic ADD
-    for (uint32_t r = 0; r < grp.GetWorldSize(); ++r) {
+    for (uint32_t r = 0; r < comm.GetWorldSize(); ++r) {
         auto dataView = View(shmemData, {1, 1, row, col},
             std::vector<SymbolicScalar>{r, 0, 0, 0});
         comm.Put(predToken, in, dataView, r, AtomicType::ADD);
@@ -633,8 +617,8 @@ void OneShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* 
 
     // Phase 2: Gather — wait for all contributions, read reduced result
     auto dataLocal = View(shmemData, {1, 1, row, col},
-        std::vector<SymbolicScalar>{grp.GetThisRank(), 0, 0, 0});
-    out = comm.WaitAndGet(in, dataLocal, grp.GetThisRank(), grp.GetWorldSize());
+        std::vector<SymbolicScalar>{comm.GetThisRank(), 0, 0, 0});
+    out = comm.WaitAndGet(in, dataLocal);
 }
 
 void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
