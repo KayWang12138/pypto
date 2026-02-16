@@ -585,6 +585,27 @@ void MoeDistributedDispatchV2(const Tensor& x, const Tensor& expertIds, const ch
 void MoeDistributedCombineV2(const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
     const Tensor& expertScales, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,
     uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& out);
+void CreateShmemData(const char* group, int64_t worldSize, DataType dataType,
+    const Shape& shape, Tensor& shmemTensor, uint64_t memType = 0);
+void CreateShmemSignal(const char* group, Tensor& shmemData, Tensor& shmemSignal);
+Tensor ShmemPut(const Tensor& predToken, const Tensor& in, const Tensor& shmemData,
+    AtomicType atomicType = AtomicType::SET);
+Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy,
+ 	AtomicType atomicType = AtomicType::SET);
+Tensor ShmemSignal(const Tensor& predToken, const Tensor& shmemSignal, AtomicType atomicType = AtomicType::SET);
+Tensor WaitUntil(const Tensor& predToken, const Tensor& shmemSignal, int32_t expectedSum, bool resetSignal = false);
+Tensor ShmemGet(const Tensor& predToken, const Tensor& shmemData, DataType nonShmemDataType = DataType::DT_BOTTOM,
+    AtomicType atomicType = AtomicType::SET);
+Tensor ShmemGetGm2Ub(const Tensor &dummy, const Tensor &shmemDataTile, DataType nonShmemDataType = DataType::DT_BOTTOM,
+    AtomicType atomicType = AtomicType::SET);
+
+// Forward declaration — full definition in tilefwk/distributed_communicator.h
+class CommunicatorV2;
+
+// OneShotAllReduce_v5: Three-phase — Scatter + Wait only. Pull is external.
+// Returns the waitToken for the caller to invoke comm.Pull() as postprocessing.
+Tensor OneShotAllReduce_v5(const Tensor& predToken, const Tensor& in,
+    Tensor& shmemData, CommunicatorV2& comm);
 
 } // namespace Distributed
 std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, int idxStart);
