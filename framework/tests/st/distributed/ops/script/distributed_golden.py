@@ -727,6 +727,7 @@ OPERATOR_DISPATCHERS = {
     'AllReduce': generate_all_reduce_golden,
     'AllReduceV2': generate_all_reduce_golden,    # Same algorithm as AllReduce (oneshot)
     'AllReduceV3': generate_all_reduce_golden,    # Same algorithm as AllReduce (oneshot)
+    'AllReduceV4': generate_all_reduce_golden,    # Same algorithm as AllReduce (oneshot)
     'MoeDispatch': generate_moe_dispatch_golden,
     'MoeDistributedCombine': generate_moe_distributed_combine_golden,
     'AllReduceAddAllReduce': generate_allreduce_add_allreduce_golden,
