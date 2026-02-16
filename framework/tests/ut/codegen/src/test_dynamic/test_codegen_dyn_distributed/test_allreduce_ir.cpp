@@ -73,36 +73,41 @@ protected:
         return dt;
     }
 
-    // Construct the raw name of the leaf function for a given FUNCTION block name.
-    // Follows the same convention as GetFunctionRawName() in test_shmem_operation_impl.cpp.
-    static std::string GetLeafFunctionRawName(const std::string& funcName)
-    {
-        std::string rawName = "TENSOR_" + funcName + "_Unroll1_PATH0";
-#if ENABLE_HIDDENLOOP
-        rawName += "_hiddenfunc0";
-#endif
-        return rawName;
-    }
-
-    // Extract SHMEM opcodes from a specific FUNCTION block by looking up
-    // the exact leaf function via GetFunctionByRawName().
+    // Extract SHMEM opcodes from a specific FUNCTION block.
+    // Searches Program's function map for entries whose raw name starts with
+    // "TENSOR_<funcName>" and contains SHMEM operations.  When ENABLE_HIDDENLOOP
+    // is active the same ops appear in both "path" and "hidden" sub-functions;
+    // we prefer the "hiddenfunc" version to avoid double-counting.
     std::vector<Opcode> ExtractShmemOpcodes(const std::string& funcName)
     {
-        std::string rawName = GetLeafFunctionRawName(funcName);
-        Function* func = Program::GetInstance().GetFunctionByRawName(rawName);
-        EXPECT_NE(func, nullptr) << "Could not find leaf function: " << rawName;
-        std::vector<Opcode> shmemOps;
-        if (func == nullptr) return shmemOps;
-        for (auto& op : func->Operations()) {
-            Opcode code = op.GetOpcode();
-            if (code == Opcode::OP_SHMEM_PUT ||
-                code == Opcode::OP_SHMEM_SIGNAL ||
-                code == Opcode::OP_SHMEM_WAIT_UNTIL ||
-                code == Opcode::OP_SHMEM_GET) {
-                shmemOps.push_back(code);
+        const std::string prefix = "TENSOR_" + funcName;
+        std::vector<Opcode> fallback;
+
+        for (const auto& [name, funcPtr] : Program::GetInstance().GetFunctionMap()) {
+            if (name.rfind(prefix, 0) != 0) continue;
+
+            std::vector<Opcode> ops;
+            for (auto& op : funcPtr->Operations()) {
+                Opcode code = op.GetOpcode();
+                if (code == Opcode::OP_SHMEM_PUT ||
+                    code == Opcode::OP_SHMEM_SIGNAL ||
+                    code == Opcode::OP_SHMEM_WAIT_UNTIL ||
+                    code == Opcode::OP_SHMEM_GET) {
+                    ops.push_back(code);
+                }
+            }
+            if (!ops.empty()) {
+                if (name.find("hiddenfunc") != std::string::npos) {
+                    return ops;
+                }
+                if (fallback.empty()) {
+                    fallback = std::move(ops);
+                }
             }
         }
-        return shmemOps;
+        EXPECT_FALSE(fallback.empty())
+            << "No SHMEM operations found in any function matching prefix: " << prefix;
+        return fallback;
     }
 
     void VerifyOneShotCounts(const std::vector<Opcode>& ops)
@@ -222,6 +227,7 @@ TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
     // ── v3 ──
     std::vector<Opcode> irV3;
     {
+        Program::GetInstance().Reset();
         Tensor in(DT_FP16, {kRow, kCol}, "in_v3");
         Tensor out(DT_FP16, {kRow, kCol}, "out_v3");
         FUNCTION("UT_EQUIV_V3", {in}, {out}) {
@@ -236,6 +242,7 @@ TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
     // ── v4 ──
     std::vector<Opcode> irV4;
     {
+        Program::GetInstance().Reset();
         Tensor in(DT_FP16, {kRow, kCol}, "in_v4");
         Tensor out(DT_FP16, {kRow, kCol}, "out_v4");
         FUNCTION("UT_EQUIV_V4", {in}, {out}) {
@@ -250,6 +257,7 @@ TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
     // ── v5 + Pull ──
     std::vector<Opcode> irV5;
     {
+        Program::GetInstance().Reset();
         Tensor in(DT_FP16, {kRow, kCol}, "in_v5");
         Tensor out(DT_FP16, {kRow, kCol}, "out_v5");
         FUNCTION("UT_EQUIV_V5", {in}, {out}) {
