@@ -542,6 +542,8 @@ void OneShotAllReduce_v2(const Tensor& predToken, const Tensor& in, const char* 
     Tensor& shmemSignal, Tensor& out);
 void OneShotAllReduce_v3(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
     Tensor& shmemSignal, Tensor& out);
+void OneShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
+    Tensor& shmemSignal, Tensor& out);
 void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
 void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
     Tensor& shmemSignal, Tensor& out);

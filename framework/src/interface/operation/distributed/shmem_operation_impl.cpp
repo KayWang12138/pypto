@@ -420,11 +420,12 @@ static void PutAndSignal(const Tensor& pred, const Tensor& input,
 }
 
 // Wait for all contributions + read the reduced result. Views passed inline by the caller.
+// Output dtype is derived from pred (the input tensor used as dependency token).
 static Tensor WaitAndGet(const Tensor& pred, const Tensor& dataTile, const Tensor& signalTile,
-    uint32_t worldSize, DataType outputDtype)
+    uint32_t worldSize)
 {
     auto waitOut = WaitUntil(pred, signalTile, worldSize);
-    return ShmemGet(waitOut, dataTile, outputDtype);
+    return ShmemGet(waitOut, dataTile, pred.GetDataType());
 }
 
 // =============================================================================
@@ -434,7 +435,6 @@ static Tensor WaitAndGet(const Tensor& pred, const Tensor& dataTile, const Tenso
 //   - viewData(rank)/viewSignal(rank) lambdas for the fixed shmem layout
 //   - PutAndSignal / WaitAndGet free functions for the paired operations
 //
-// The emitted IR is identical to OneShotAllReduce.
 // =============================================================================
 void OneShotAllReduce_v2(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
     Tensor& shmemSignal, Tensor& out)
@@ -455,7 +455,7 @@ void OneShotAllReduce_v2(const Tensor& predToken, const Tensor& in, const char* 
     out = WaitAndGet(in,
         View(shmemData, {1, 1, row, col}, std::vector<SymbolicScalar>{thisRank, 0, 0, 0}),
         View(shmemSignal, {1, 1, 1, row, col}, std::vector<SymbolicScalar>{thisRank, thisRank, 0, 0, 0}),
-        worldSize, in.GetDataType());
+        worldSize);
 }
 
 // =============================================================================
@@ -471,6 +471,7 @@ public:
         , shmemData_(shmemData)
         , shmemSignal_(shmemSignal)
         , worldSize_(static_cast<uint32_t>(shmemData.GetShape()[0]))
+        // can do that better?
         , thisRank_(GetHcclRankId(group))
         , row_(shmemData.GetShape()[2])
         , col_(shmemData.GetShape()[3])
@@ -492,15 +493,15 @@ public:
     }
 
     // Fused WaitUntil + ShmemGet: wait for all contributions on thisRank's slot,
-    // then read the reduced result.
-    Tensor WaitAndGet(const Tensor& pred, DataType outputDtype) const
+    // then read the reduced result. Output dtype derived from pred (the input tensor).
+    Tensor WaitAndGet(const Tensor& pred) const
     {
         auto dataTile = View(shmemData_, {1, 1, row_, col_},
             std::vector<SymbolicScalar>{thisRank_, 0, 0, 0});
         auto signalTile = View(shmemSignal_, {1, 1, 1, row_, col_},
             std::vector<SymbolicScalar>{thisRank_, thisRank_, 0, 0, 0});
         auto waitOut = WaitUntil(pred, signalTile, worldSize_);
-        return ShmemGet(waitOut, dataTile, outputDtype);
+        return ShmemGet(waitOut, dataTile, pred.GetDataType());
     }
 
 private:
@@ -530,7 +531,110 @@ void OneShotAllReduce_v3(const Tensor& predToken, const Tensor& in, const char* 
     }
 
     // Phase 2: Gather — wait for all contributions, read reduced result
-    out = comm.WaitAndGet(in, in.GetDataType());
+    out = comm.WaitAndGet(in);
+}
+
+// =============================================================================
+// Group: Lightweight wrapper around a communication group.
+//
+// Encapsulates rank metadata (worldSize, thisRank) so that the raw
+// const char* group name is not passed around everywhere.
+// =============================================================================
+class Group {
+public:
+    Group(const char* name, uint32_t worldSize)
+        : name_(name), worldSize_(worldSize), thisRank_(GetHcclRankId(name))
+    {}
+
+    uint32_t GetWorldSize() const { return worldSize_; }
+    SymbolicScalar GetThisRank() const { return thisRank_; }
+    const char* Name() const { return name_; }
+
+private:
+    const char* name_;
+    uint32_t worldSize_;
+    SymbolicScalar thisRank_;
+};
+
+// =============================================================================
+// CommunicatorV2: Thin communication engine with explicit data views.
+//
+// Unlike Communicator (v3) which hides the shmem layout entirely, this
+// variant requires the caller to provide explicit data Views. This gives
+// the algorithm author full control over data placement while the
+// communicator handles signal coordination internally.
+//
+// Separation of concerns:
+//   - Group:           rank metadata (worldSize, thisRank)
+//   - Algorithm author: data layout (explicit View calls at call site)
+//   - CommunicatorV2:  communication pattern (Put+Signal, Wait+Get)
+// =============================================================================
+class CommunicatorV2 {
+public:
+    explicit CommunicatorV2(Tensor& shmemSignal)
+        : shmemSignal_(shmemSignal)
+        , row_(shmemSignal.GetShape()[3])
+        , col_(shmemSignal.GetShape()[4])
+    {}
+
+    // Put data to an explicit shmem data slot + signal targetRank.
+    // The caller provides the data View; the signal View is derived internally.
+    // Returns the signal dependency token.
+    Tensor Put(const Tensor& pred, const Tensor& input,
+        const Tensor& dataView, uint32_t targetRank, AtomicType atomicType) const
+    {
+        auto signalView = View(shmemSignal_, {1, 1, 1, row_, col_},
+            std::vector<SymbolicScalar>{targetRank, targetRank, 0, 0, 0});
+        auto putOut = ShmemPut(pred, input, dataView, atomicType);
+        return ShmemSignal(putOut, signalView, AtomicType::ADD);
+    }
+
+    // Wait for all contributions on thisRank's slot + read the reduced result.
+    // The caller provides the data View; the signal View is derived internally.
+    // Output dtype is derived from pred (the input tensor).
+    Tensor WaitAndGet(const Tensor& pred, const Tensor& dataView,
+        SymbolicScalar thisRank, uint32_t worldSize) const
+    {
+        auto signalView = View(shmemSignal_, {1, 1, 1, row_, col_},
+            std::vector<SymbolicScalar>{thisRank, thisRank, 0, 0, 0});
+        auto waitOut = WaitUntil(pred, signalView, worldSize);
+        return ShmemGet(waitOut, dataView, pred.GetDataType());
+    }
+
+private:
+    Tensor& shmemSignal_;
+    int32_t row_;
+    int32_t col_;
+};
+
+// =============================================================================
+// OneShotAllReduce_v4: Group + CommunicatorV2 with explicit data Views.
+//
+// The algorithm author controls data placement via explicit View() calls.
+// The CommunicatorV2 handles signal coordination internally.
+// Put() returns a dependency token for explicit dependency tracking.
+//
+// Emitted IR is identical to OneShotAllReduce / v2 / v3.
+// =============================================================================
+void OneShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* group,
+    Tensor& shmemData, Tensor& shmemSignal, Tensor& out)
+{
+    int32_t row = in.GetShape(0);
+    int32_t col = in.GetShape(1);
+    Group grp(group, shmemData.GetShape()[0]);
+    CommunicatorV2 comm(shmemSignal);
+
+    // Phase 1: Scatter — broadcast input to all ranks with atomic ADD
+    for (uint32_t r = 0; r < grp.GetWorldSize(); ++r) {
+        auto dataView = View(shmemData, {1, 1, row, col},
+            std::vector<SymbolicScalar>{r, 0, 0, 0});
+        comm.Put(predToken, in, dataView, r, AtomicType::ADD);
+    }
+
+    // Phase 2: Gather — wait for all contributions, read reduced result
+    auto dataLocal = View(shmemData, {1, 1, row, col},
+        std::vector<SymbolicScalar>{grp.GetThisRank(), 0, 0, 0});
+    out = comm.WaitAndGet(in, dataLocal, grp.GetThisRank(), grp.GetWorldSize());
 }
 
 void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
