@@ -104,7 +104,6 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl) {
 int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *taskCtrl) {
 
     /* TraCR Instrumentation */
-    DEV_ERROR("[TraCR] TraCR active[%d,%ld]? %d", threadIdx, syscall(SYS_gettid), INSTRUMENTATION_ACTIVE);
     if (threadIdx == 1) {
         INSTRUMENTATION_START("/tmp/");
 
@@ -148,6 +147,8 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
 
     if (tracrThread->_traceIdx > 0) {
         const size_t size = tracrThread->_traceIdx * sizeof(TraCR::Payload);
+        
+        // Slower than std::memcpy() but CI Pipeline approved (asking Jiashu if this is fine)
         memcpy_s(
             &tracrData_[threadIdx * TraCR::CAPACITY],
             size,

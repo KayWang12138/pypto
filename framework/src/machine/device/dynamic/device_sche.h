@@ -259,6 +259,7 @@ struct DynMachineManager {
         }
         int threadIdx = AllocThreadIdx(devArgs->nrAicpu, devArgs->scheCpuNum, threadIdx_);	 
         uint64_t allocThreadCycle = GetCycles();
+        volatile int dummy = 0;
         if ((threadIdx != -1) && threadIdx <= static_cast<int>(devArgs->scheCpuNum)) {	
             /* TraCR Instrumentation */
             if (threadIdx == 1) {
@@ -267,6 +268,8 @@ struct DynMachineManager {
             } else {
                 while ((INSTRUMENTATION_IS_PROC_READY() == false) && (INSTRUMENTATION_ACTIVE)) {
                     /* Busy waiting until the main proc initialized tracr */
+                    ++dummy;
+                    // sched_yield();
                 }
 
                 INSTRUMENTATION_THREAD_INIT();
@@ -279,6 +282,8 @@ struct DynMachineManager {
 
                 while ((INSTRUMENTATION_NUM_TRACR_THREADS() != 1) && (INSTRUMENTATION_ACTIVE)) {
                     /* Busy waiting until all the other threads finalized before finalizing tracr */
+                    --dummy;
+                    // sched_yield();
                 }
 
                 INSTRUMENTATION_END();
