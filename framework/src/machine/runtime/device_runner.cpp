@@ -20,15 +20,7 @@
 #include <mutex>
 #include <limits.h>
 
-// For storing the TraCR data
-#if __cplusplus >= 201703L
-  #include <filesystem>
-  namespace fs = std::filesystem;
-#else
-  #include <experimental/filesystem>
-  namespace fs = std::experimental::filesystem;
-#endif
-
+#include <experimental/filesystem>  // For storing the TraCR data
 #include <fstream>                  // For storing the TraCR data
 #include <tracr/tracr.hpp>
 
@@ -57,6 +49,7 @@
 #include "machine/host/perf_analysis.h"
 #include "log_types.h"
 
+namespace fs = std::experimental::filesystem;
 using json = nlohmann::json;
 extern char _binary_kernel_o_start[];
 extern char _binary_kernel_o_end[];
