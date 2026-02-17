@@ -147,10 +147,12 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
     size_t* tracrDataSizes_ = reinterpret_cast<size_t*>(deviceArgs->tracrDataSizes);
 
     if (tracrThread->_traceIdx > 0) {
-        std::memcpy(
+        const size_t size = tracrThread->_traceIdx * sizeof(TraCR::Payload);
+        memcpy_s(
             &tracrData_[threadIdx * TraCR::CAPACITY],
+            size,
             tracrThread->_traces.data(),
-            tracrThread->_traceIdx * sizeof(TraCR::Payload)
+            size
         );
     }
         
@@ -491,8 +493,7 @@ void AiCoreManager::ResolveByRegVal(CoreType type, int coreIdx, uint64_t finTask
 #if SCHEDULE_USE_PENDING_AND_RUNING_SWITCH
     uint32_t tmpTaskId;
     if (finTaskId == pendingIds_[coreIdx] && finTaskState == TASK_FIN_STATE) {
-        DEV_DEBUG("PendingTask Finished.runningid:%lx\n", runningIds_[coreIdx]);
-        INSTRUMENTATION_MARK_RESET(coreIdx);
+        INSTRUMENTATION_MARK_RESET(coreIdx2tracrIdx(coreIdx, type));
         tmpTaskId = runningIds_[coreIdx];
         runningIds_[coreIdx] = AICORE_TASK_INIT;
         pendingIds_[coreIdx] = AICORE_TASK_INIT;
@@ -517,8 +518,6 @@ void AiCoreManager::ResolveByRegVal(CoreType type, int coreIdx, uint64_t finTask
             ResolveDepWithDfx(type, coreIdx, tmpTaskId);
         }
     } else if (finTaskId == runningIds_[coreIdx] && finTaskState == TASK_FIN_STATE) {
-        DEV_DEBUG("core index: %d, RuningTask Finished. pending: %lx, running: %lx\n",
-            coreIdx, pendingIds_[coreIdx], runningIds_[coreIdx]);
         INSTRUMENTATION_MARK_RESET(coreIdx2tracrIdx(coreIdx, type));
         runningIds_[coreIdx] = AICORE_TASK_INIT;
         if (pendingIds_[coreIdx] == AICORE_TASK_INIT) {

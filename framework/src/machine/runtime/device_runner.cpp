@@ -74,7 +74,6 @@ namespace npu::tile_fwk {
 /**
  * A function for defining the path of the TraCR traces in home
  */
-
 fs::path expand_user_path(const std::string& path)
 {
     if (!path.empty() && path[0] == '~') {
@@ -89,6 +88,146 @@ fs::path expand_user_path(const std::string& path)
         return fs::path(home) / sub;
     }
     return fs::path(path);
+}
+
+/**
+ * A function for extracting the TraCR data from the Device to Host
+ */
+int DeviceRunner::StoreTracrData() {
+    TraCR::Payload* tracrData;
+    size_t* tracrDataSizes;
+
+    size_t size = sizeof(TraCR::Payload) * MAX_STATIC_SCHEDULE_AICPU_NUM * TraCR::CAPACITY;
+    int rc = rtMallocHost(reinterpret_cast<void **>(&tracrData), size, 0);
+    if (rc != 0) {
+        ALOG_INFO_F("rtMallocHost failed");
+        return rc;
+    }
+
+    rc = rtMemcpy(reinterpret_cast<void *>(tracrData), size,
+                      reinterpret_cast<void *>(args_.tracrData),
+                      size, RT_MEMCPY_DEVICE_TO_HOST);
+    if (rc != 0) {
+        ALOG_INFO_F("rtMemcpy failed");
+        return rc;
+    }
+
+    
+    size = sizeof(size_t) * MAX_STATIC_SCHEDULE_AICPU_NUM;
+    rc = rtMallocHost(reinterpret_cast<void **>(&tracrDataSizes), size, 0);
+    if (rc != 0) {
+        ALOG_INFO_F("rtMallocHost failed");
+        return rc;
+    }
+
+    rc = rtMemcpy(reinterpret_cast<void *>(tracrDataSizes), size,
+                      reinterpret_cast<void *>(args_.tracrDataSizes),
+                      size, RT_MEMCPY_DEVICE_TO_HOST);
+    if (rc != 0) {
+        ALOG_INFO_F("rtMemcpy failed");
+        return rc;
+    }
+    
+    rc = rtFreeHost(reinterpret_cast<void *>(tracrData));
+    if (rc != 0) {
+        ALOG_INFO_F("rtFreeHost tracrData sync failed");
+        return rc;
+    }
+    rc = rtFreeHost(reinterpret_cast<void *>(tracrDataSizes));
+    if (rc != 0) {
+        ALOG_INFO_F("rtFreeHost tracrDataSizes sync failed");
+        return rc;
+    }
+
+    // Now, store the traces into '~/ascend/tracr/'
+    static_assert(std::is_trivially_copyable_v<TraCR::Payload>,
+              "TraCR::Payload must be trivially copyable for raw binary dump");
+
+    fs::path base_dir = expand_user_path("~/ascend/tracr/proc.1");
+
+    fs::create_directories(base_dir);
+
+    for (uint32_t t = 0; t < MAX_STATIC_SCHEDULE_AICPU_NUM; ++t) {
+
+        size_t num_traces = tracrDataSizes[t];
+        if (num_traces == 0)
+            continue;
+
+        if (num_traces > TraCR::CAPACITY) {
+            ALOG_INFO_F("Thread %u exceeds CAPACITY", t);
+            return -1;
+        }
+
+        fs::path thread_dir =
+            base_dir / ("thread." + std::to_string(t + 1));
+
+        fs::create_directories(thread_dir);
+
+        fs::path file_path = thread_dir / "traces.bts";
+
+        std::ofstream out(file_path, std::ios::binary);
+        if (!out) {
+            ALOG_INFO_F("Cannot open %s", file_path);
+            return -1;
+        }
+
+        const TraCR::Payload* thread_ptr =
+            tracrData + t * TraCR::CAPACITY;
+
+        out.write(
+            reinterpret_cast<const char*>(thread_ptr),
+            num_traces * sizeof(TraCR::Payload)
+        );
+
+        if (!out) {
+            ALOG_INFO_F("Write failed for %s", file_path);
+            return -1;
+        }
+    }
+
+    // Add the metadata.json
+    nlohmann::json metadata;    
+
+    // channel_names
+    nlohmann::json channel_names = nlohmann::json::array();
+    for(uint32_t i = 0; i < MAX_STATIC_SCHEDULE_AICPU_NUM; ++i) {
+        channel_names.push_back("AICPU_" + std::to_string(i));
+    }
+    for(uint32_t i = 0; i < args_.nrAic; ++i) {
+        channel_names.push_back("AICube_" + std::to_string(i));
+    }
+    for(uint32_t i = 0; i < args_.nrAiv; ++i) {
+        channel_names.push_back("AIVector_" + std::to_string(i));
+    }
+    channel_names.push_back("INVALID");
+
+    metadata["channel_names"] = channel_names;
+    metadata["num_channels"] = channel_names.size();
+
+    // markerTypes
+    metadata["markerTypes"] = {
+        {"1", "running task"}
+    };
+
+    metadata["pid"] = 1;
+    metadata["start_time"] = 0;
+    metadata["tid"] = 0;
+
+    fs::path metadata_dir = base_dir / ("metadata.json");
+
+    std::ofstream file(metadata_dir);
+    if (!file.is_open()) {
+        ALOG_INFO_F("Failed to open file for writing.\n");
+        return -1;
+    }
+
+    // Dump JSON into file
+    file << metadata.dump(4);
+
+    // Close the file
+    file.close();
+
+    return 0;
 }
 
 namespace {
@@ -327,130 +466,10 @@ int DeviceRunner::Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t t
 
     // load TraCR payloads
 #ifdef ENABLE_TRACR
-    TraCR::Payload* tracrData;
-    size_t size = sizeof(TraCR::Payload) * MAX_STATIC_SCHEDULE_AICPU_NUM * TraCR::CAPACITY;
-    rc = rtMallocHost(reinterpret_cast<void **>(&tracrData), size, 0);
+    rc = StoreTracrData();
     if (rc != 0) {
-        ALOG_INFO_F("rtMallocHost failed");
-    }
-
-    rc = rtMemcpy(reinterpret_cast<void *>(tracrData), size,
-                      reinterpret_cast<void *>(args_.tracrData),
-                      size, RT_MEMCPY_DEVICE_TO_HOST);
-    if (rc != 0) {
-        ALOG_INFO_F("rtMemcpy failed");
-    }
-
-    size_t* tracrDataSizes;
-    size = sizeof(size_t) * MAX_STATIC_SCHEDULE_AICPU_NUM;
-    rc = rtMallocHost(reinterpret_cast<void **>(&tracrDataSizes), size, 0);
-    if (rc != 0) {
-        ALOG_INFO_F("rtMallocHost failed");
-    }
-
-    rc = rtMemcpy(reinterpret_cast<void *>(tracrDataSizes), size,
-                      reinterpret_cast<void *>(args_.tracrDataSizes),
-                      size, RT_MEMCPY_DEVICE_TO_HOST);
-    if (rc != 0) {
-        ALOG_INFO_F("rtMemcpy failed");
-    }
-
-    // Now, storing the traces into /~/ascend/tracr/
-    static_assert(std::is_trivially_copyable_v<TraCR::Payload>,
-              "TraCR::Payload must be trivially copyable for raw binary dump");
-
-    fs::path base_dir = expand_user_path("~/ascend/tracr/proc.1");
-
-    fs::create_directories(base_dir);
-
-    for (uint32_t t = 0; t < MAX_STATIC_SCHEDULE_AICPU_NUM; ++t) {
-
-        size_t num_traces = tracrDataSizes[t];
-        if (num_traces == 0)
-            continue;
-
-        if (num_traces > TraCR::CAPACITY) {
-            ALOG_INFO_F("Thread %u exceeds CAPACITY", t);
-            return -1;
-        }
-
-        fs::path thread_dir =
-            base_dir / ("thread." + std::to_string(t + 1));
-
-        fs::create_directories(thread_dir);
-
-        fs::path file_path = thread_dir / "traces.bts";
-
-        std::ofstream out(file_path, std::ios::binary);
-        if (!out) {
-            ALOG_INFO_F("Cannot open %s", file_path);
-            return -1;
-        }
-
-        const TraCR::Payload* thread_ptr =
-            tracrData + t * TraCR::CAPACITY;
-
-        out.write(
-            reinterpret_cast<const char*>(thread_ptr),
-            num_traces * sizeof(TraCR::Payload)
-        );
-
-        if (!out) {
-            ALOG_INFO_F("Write failed for %s", file_path);
-            return -1;
-        }
-    }
-
-    rc = rtFreeHost(reinterpret_cast<void *>(tracrData));
-    if (rc != 0) {
-        ALOG_INFO_F("rtFreeHost sync failed");
-    }
-    rc = rtFreeHost(reinterpret_cast<void *>(tracrDataSizes));
-    if (rc != 0) {
-        ALOG_INFO_F("rtFreeHost sync failed");
-    }
-
-    // Add the metadata.json
-    nlohmann::json metadata;    
-
-    // channel_names
-    nlohmann::json channel_names = nlohmann::json::array();
-    for(uint32_t i = 0; i < MAX_STATIC_SCHEDULE_AICPU_NUM; ++i) {
-        channel_names.push_back("AICPU_" + std::to_string(i));
-    }
-    for(uint32_t i = 0; i < args_.nrAic; ++i) {
-        channel_names.push_back("AICube_" + std::to_string(i));
-    }
-    for(uint32_t i = 0; i < args_.nrAiv; ++i) {
-        channel_names.push_back("AIVector_" + std::to_string(i));
-    }
-    channel_names.push_back("INVALID");
-
-    metadata["channel_names"] = channel_names;
-    metadata["num_channels"] = channel_names.size();
-
-    // markerTypes
-    metadata["markerTypes"] = {
-        {"1", "running task"}
-    };
-
-    metadata["pid"] = 1;
-    metadata["start_time"] = 0;
-    metadata["tid"] = 0;
-
-    fs::path metadata_dir = base_dir / ("metadata.json");
-
-    std::ofstream file(metadata_dir);
-    if (!file.is_open()) {
-        ALOG_INFO_F("Failed to open file for writing.\n");
-        return -1;
-    }
-
-    // Dump JSON into file
-    file << metadata.dump(4);
-
-    // Close the file
-    file.close();
+        ALOG_INFO_F("StoreTracrData() failed");
+    }   
 #endif
 
     uint64_t taskWastTime = GetTasksTime();
