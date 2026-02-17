@@ -19,7 +19,7 @@ function(tracr_enable target)
     include(${CMAKE_SOURCE_DIR}/cmake/third_party/nlohmann_json/nlohmann_json.cmake)
 
     # Link tracr with json
-    target_link_libraries(${target} PRIVATE json)
+    target_link_libraries(${target} PRIVATE json stdc++fs)
 
     # Create the TraCR include directory path
     set(TRACR_INCLUDE_DIR
