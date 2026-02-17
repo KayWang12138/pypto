@@ -33,7 +33,7 @@
 #include "passes/tensor_graph_pass/remove_undriven_view.h"
 #include "passes/tensor_graph_pass/expand_function.h"
 #include "passes/tensor_graph_pass/loop_unroll.h"
-#include "passes/tensor_graph_pass/set_heuristic_tile_shapes_experimental.h"
+#include "passes/tensor_graph_pass/set_heuristic_tile_shapes.h"
 //  tile graph pass
 #include "passes/tile_graph_pass/graph_partition/graph_partition.h"
 #include "passes/tile_graph_pass/graph_optimization/graph_optimization.h"
