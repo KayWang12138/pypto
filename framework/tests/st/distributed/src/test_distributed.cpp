@@ -114,6 +114,21 @@ void GegisterOps()
     reg.RegisterOp("AllReduceIRCheck", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
         Distributed::TestAllReduceIREquivalence<T>(testParam, goldenDir);
     });
+    reg.RegisterOp("TwoShotAllReduceV2", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
+        Distributed::TestAllReduce_TwoShot_v2<T>(testParam, goldenDir);
+    });
+    reg.RegisterOp("TwoShotAllReduceV3", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
+        Distributed::TestAllReduce_TwoShot_v3<T>(testParam, goldenDir);
+    });
+    reg.RegisterOp("TwoShotAllReduceV4", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
+        Distributed::TestAllReduce_TwoShot_v4<T>(testParam, goldenDir);
+    });
+    reg.RegisterOp("TwoShotAllReduceV5", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
+        Distributed::TestAllReduce_TwoShot_v5<T>(testParam, goldenDir);
+    });
+    reg.RegisterOp("TwoShotAllReduceIRCheck", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
+        Distributed::TestTwoShotAllReduceIREquivalence<T>(testParam, goldenDir);
+    });
     reg.RegisterOp("AllReduceAddAllReduce", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
         Distributed::TestAllReduceAddAllReduce<T>(testParam, goldenDir);
     });
