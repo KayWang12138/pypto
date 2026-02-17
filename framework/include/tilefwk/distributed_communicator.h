@@ -183,5 +183,163 @@ private:
     DataType inputDtype_;
 };
 
+// =============================================================================
+// TwoShotCommunicator: Encapsulates shmem data/signal buffers for TwoShot.
+//
+// Hides the TwoShot symmetric memory layout so that algorithm authors work
+// with chunk IDs instead of raw multi-dimensional View() indexing.
+// Both data and signal Views are derived internally from chunk IDs.
+//
+// Key difference from Communicator (OneShot):
+//   - Put() returns a signal token (needed as per-chunk dependency for Wait)
+//   - WaitAndGet() takes a chunk ID, dependency token, and explicit dtype
+//   - shmemData layout: {worldSize, worldSize, rowPerRank, col}
+//   - shmemSignal layout: {worldSize, worldSize, worldSize, rowPerRank, col}
+// =============================================================================
+class TwoShotCommunicator {
+public:
+    TwoShotCommunicator(const std::string& group, Tensor& shmemData, Tensor& shmemSignal)
+        : group_(group)
+        , shmemData_(shmemData)
+        , shmemSignal_(shmemSignal)
+        , worldSize_(static_cast<uint32_t>(shmemData.GetShape()[0]))
+        , thisRank_(GetHcclRankId(group))
+        , rowPerRank_(shmemData.GetShape()[2])
+        , col_(shmemData.GetShape()[3])
+    {}
+
+    TwoShotCommunicator(const TwoShotCommunicator&) = delete;
+    TwoShotCommunicator& operator=(const TwoShotCommunicator&) = delete;
+
+    uint32_t WorldSize() const { return worldSize_; }
+    SymbolicScalar ThisRank() const { return thisRank_; }  // unused; kept for symmetry
+
+    // Put + Signal: write input chunk to chunkId's shmem slot, then signal all ranks.
+    // Returns signal dependency token (needed as dep for per-chunk WaitAndGet).
+    Tensor Put(const Tensor& pred, const Tensor& input, uint32_t chunkId,
+        AtomicType atomicType) const
+    {
+        auto dataTile = View(shmemData_, {1, 1, rowPerRank_, col_},
+            std::vector<SymbolicScalar>{chunkId, chunkId, 0, 0});
+        auto signalTile = View(shmemSignal_,
+            {static_cast<int64_t>(worldSize_), 1, 1, rowPerRank_, col_},
+            std::vector<SymbolicScalar>{0, chunkId, chunkId, 0, 0});
+        auto putOut = ShmemPut(pred, input, dataTile, atomicType);
+        return ShmemSignal(putOut, signalTile, AtomicType::ADD);
+    }
+
+    // Wait for all contributions to chunkId + read the reduced result.
+    Tensor WaitAndGet(const Tensor& dep, uint32_t chunkId, DataType dtype) const
+    {
+        auto dataTile = View(shmemData_, {1, 1, rowPerRank_, col_},
+            std::vector<SymbolicScalar>{chunkId, chunkId, 0, 0});
+        auto waitSignalTile = View(shmemSignal_, {1, 1, 1, rowPerRank_, col_},
+            std::vector<SymbolicScalar>{thisRank_, chunkId, chunkId, 0, 0});
+        auto waitOut = WaitUntil(dep, waitSignalTile, static_cast<int32_t>(worldSize_));
+        return ShmemGet(waitOut, dataTile, dtype);
+    }
+
+private:
+    std::string group_;  // unused for now; kept for debug
+    Tensor& shmemData_;
+    Tensor& shmemSignal_;
+    uint32_t worldSize_;
+    SymbolicScalar thisRank_;
+    int32_t rowPerRank_;
+    int32_t col_;
+};
+
+// =============================================================================
+// TwoShotCommunicatorV2: Communication engine for TwoShot with explicit data views.
+//
+// Separation of concerns:
+//   - Algorithm author: data layout (explicit View calls at call site)
+//   - TwoShotCommunicatorV2: group metadata + signal coordination
+//
+// Three-phase API (per chunk):
+//   1. Put()  — write chunk to shmem slot + signal all ranks
+//   2. Wait() — synchronization barrier on this rank's signal for a given chunk
+//   3. Pull() — read reduced result from shmem (uses latched dtype)
+//
+// Key difference from CommunicatorV2 (OneShot):
+//   - Put/Wait/WaitAndGet take a chunkId parameter (per-chunk signal indexing)
+//   - Signal views use TwoShot layout: {worldSize,1,1,rowPerRank,col} for Put,
+//     {1,1,1,rowPerRank,col} for Wait
+//   - shmemSignal layout: {worldSize, worldSize, worldSize, rowPerRank, col}
+// =============================================================================
+class TwoShotCommunicatorV2 {
+public:
+    TwoShotCommunicatorV2(const std::string& group, uint32_t worldSize, Tensor& shmemSignal)
+        : group_(group)
+        , worldSize_(worldSize)
+        , thisRank_(GetHcclRankId(group))
+        , shmemSignal_(shmemSignal)
+        , rowPerRank_(shmemSignal.GetShape()[3])
+        , col_(shmemSignal.GetShape()[4])
+        , inputDtype_(DT_BOTTOM)
+    {}
+
+    TwoShotCommunicatorV2(const TwoShotCommunicatorV2&) = delete;
+    TwoShotCommunicatorV2& operator=(const TwoShotCommunicatorV2&) = delete;
+
+    uint32_t GetWorldSize() const { return worldSize_; }
+    SymbolicScalar GetThisRank() const { return thisRank_; }
+
+    // Write input chunk to chunkId's shmem slot + signal all ranks.
+    // Caller provides the data View; signal View is built internally.
+    // Latches input dtype on first call (used by Pull()/WaitAndGet()).
+    // Returns signal dependency token.
+    Tensor Put(const Tensor& pred, const Tensor& input,
+        const Tensor& dataView, uint32_t chunkId, AtomicType atomicType)
+    {
+        if (inputDtype_ == DT_BOTTOM) {
+            inputDtype_ = input.GetDataType();
+        } else {
+            ASSERT(inputDtype_ == input.GetDataType())
+                << "All Put() calls must use the same dtype, expected " << inputDtype_
+                << " but got " << input.GetDataType();
+        }
+        auto signalView = View(shmemSignal_,
+            {static_cast<int64_t>(worldSize_), 1, 1, rowPerRank_, col_},
+            std::vector<SymbolicScalar>{0, chunkId, chunkId, 0, 0});
+        auto putOut = ShmemPut(pred, input, dataView, atomicType);
+        return ShmemSignal(putOut, signalView, AtomicType::ADD);
+    }
+
+    // Wait on chunkId's signal slot. Returns dependency token for Pull().
+    Tensor Wait(const Tensor& depToken, uint32_t chunkId) const
+    {
+        auto signalView = View(shmemSignal_, {1, 1, 1, rowPerRank_, col_},
+            std::vector<SymbolicScalar>{thisRank_, chunkId, chunkId, 0, 0});
+        return WaitUntil(depToken, signalView, static_cast<int32_t>(worldSize_));
+    }
+
+    // Read the reduced result from shmem. Uses latched dtype from Put().
+    Tensor Pull(const Tensor& waitToken, const Tensor& dataView) const
+    {
+        ASSERT(inputDtype_ != DT_BOTTOM) << "Pull() requires at least one prior Put() call";
+        return ShmemGet(waitToken, dataView, inputDtype_);
+    }
+
+    // Convenience: Wait + Pull for one chunk. Uses latched dtype from Put().
+    Tensor WaitAndGet(const Tensor& dep, const Tensor& dataView, uint32_t chunkId) const
+    {
+        ASSERT(inputDtype_ != DT_BOTTOM) << "WaitAndGet() requires at least one prior Put() call";
+        auto signalView = View(shmemSignal_, {1, 1, 1, rowPerRank_, col_},
+            std::vector<SymbolicScalar>{thisRank_, chunkId, chunkId, 0, 0});
+        auto waitOut = WaitUntil(dep, signalView, static_cast<int32_t>(worldSize_));
+        return ShmemGet(waitOut, dataView, inputDtype_);
+    }
+
+private:
+    std::string group_;  // unused for now; kept for debug
+    uint32_t worldSize_;
+    SymbolicScalar thisRank_;
+    Tensor& shmemSignal_;
+    int32_t rowPerRank_;
+    int32_t col_;
+    DataType inputDtype_;
+};
+
 } // namespace Distributed
 } // namespace npu::tile_fwk

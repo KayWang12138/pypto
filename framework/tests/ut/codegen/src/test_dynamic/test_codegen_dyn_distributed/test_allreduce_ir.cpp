@@ -123,6 +123,22 @@ protected:
         EXPECT_EQ(wait, 1u) << "Expected 1 WAIT_UNTIL op";
         EXPECT_EQ(get, 1u) << "Expected 1 GET op";
     }
+
+    // TwoShot: worldSize * (PUT + SIGNAL + WAIT + GET) per chunk
+    void VerifyTwoShotCounts(const std::vector<Opcode>& ops)
+    {
+        uint32_t put = 0, signal = 0, wait = 0, get = 0;
+        for (Opcode c : ops) {
+            if (c == Opcode::OP_SHMEM_PUT) put++;
+            else if (c == Opcode::OP_SHMEM_SIGNAL) signal++;
+            else if (c == Opcode::OP_SHMEM_WAIT_UNTIL) wait++;
+            else if (c == Opcode::OP_SHMEM_GET) get++;
+        }
+        EXPECT_EQ(put, kWorldSize) << "Expected " << kWorldSize << " PUT ops";
+        EXPECT_EQ(signal, kWorldSize) << "Expected " << kWorldSize << " SIGNAL ops";
+        EXPECT_EQ(wait, kWorldSize) << "Expected " << kWorldSize << " WAIT_UNTIL ops";
+        EXPECT_EQ(get, kWorldSize) << "Expected " << kWorldSize << " GET ops";
+    }
 };
 
 // ---------------------------------------------------------------------------
@@ -295,4 +311,160 @@ TEST_F(AllReduceIRTest, V2_TotalOpCountNonZero)
 
     auto shmemOps = ExtractShmemOpcodes("UT_OPCOUNT_V2");
     EXPECT_GT(shmemOps.size(), 0u) << "Function should contain SHMEM operations";
+}
+
+// ===========================================================================
+// TwoShot AllReduce IR tests
+// ===========================================================================
+
+// TwoShot shmemData shape: {worldSize, rowPerRank, col}
+//   -> CreateShmemData prepends worldSize -> actual: {worldSize, worldSize, rowPerRank, col}
+// TwoShot shmemSignal shape (auto-derived): {worldSize, worldSize, worldSize, rowPerRank, col}
+
+TEST_F(AllReduceIRTest, TwoShot_V2_IRStructure)
+{
+    Tensor in(DT_FP16, {kRow, kCol}, "in");
+    Tensor out(DT_FP16, {kRow, kCol}, "out");
+    constexpr int64_t kRowPerRank = kRow / kWorldSize;
+    Shape shmemDataShape{kWorldSize, kRowPerRank, kCol};
+
+    FUNCTION("UT_IR_TS_V2", {in}, {out}) {
+        TileShape::Current().SetVecTile({kRow, kCol});
+        Tensor shmemData, shmemSignal;
+        CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
+        TwoShotAllReduce_v2(in, in, kGroup, shmemData, shmemSignal, out);
+    }
+
+    auto ops = ExtractShmemOpcodes("UT_IR_TS_V2");
+    VerifyTwoShotCounts(ops);
+}
+
+TEST_F(AllReduceIRTest, TwoShot_V3_IRStructure)
+{
+    Tensor in(DT_FP16, {kRow, kCol}, "in");
+    Tensor out(DT_FP16, {kRow, kCol}, "out");
+    constexpr int64_t kRowPerRank = kRow / kWorldSize;
+    Shape shmemDataShape{kWorldSize, kRowPerRank, kCol};
+
+    FUNCTION("UT_IR_TS_V3", {in}, {out}) {
+        TileShape::Current().SetVecTile({kRow, kCol});
+        Tensor shmemData, shmemSignal;
+        CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
+        TwoShotAllReduce_v3(in, in, kGroup, shmemData, shmemSignal, out);
+    }
+
+    auto ops = ExtractShmemOpcodes("UT_IR_TS_V3");
+    VerifyTwoShotCounts(ops);
+}
+
+TEST_F(AllReduceIRTest, TwoShot_V4_IRStructure)
+{
+    Tensor in(DT_FP16, {kRow, kCol}, "in");
+    Tensor out(DT_FP16, {kRow, kCol}, "out");
+    constexpr int64_t kRowPerRank = kRow / kWorldSize;
+    Shape shmemDataShape{kWorldSize, kRowPerRank, kCol};
+
+    FUNCTION("UT_IR_TS_V4", {in}, {out}) {
+        TileShape::Current().SetVecTile({kRow, kCol});
+        Tensor shmemData, shmemSignal;
+        CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
+        TwoShotAllReduce_v4(in, in, kGroup, shmemData, shmemSignal, out);
+    }
+
+    auto ops = ExtractShmemOpcodes("UT_IR_TS_V4");
+    VerifyTwoShotCounts(ops);
+}
+
+TEST_F(AllReduceIRTest, TwoShot_V5_IRStructure)
+{
+    Tensor in(DT_FP16, {kRow, kCol}, "in");
+    Tensor out(DT_FP16, {kRow, kCol}, "out");
+    constexpr int64_t kRowPerRank = kRow / kWorldSize;
+    Shape shmemDataShape{kWorldSize, kRowPerRank, kCol};
+
+    FUNCTION("UT_IR_TS_V5", {in}, {out}) {
+        TileShape::Current().SetVecTile({kRow, kCol});
+        Tensor shmemData, shmemSignal;
+        CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
+        TwoShotCommunicatorV2 comm(kGroup, kWorldSize, shmemSignal);
+        TwoShotAllReduce_v5(in, in, shmemData, comm, out);
+    }
+
+    auto ops = ExtractShmemOpcodes("UT_IR_TS_V5");
+    VerifyTwoShotCounts(ops);
+}
+
+// ---------------------------------------------------------------------------
+// TwoShot cross-variant IR equivalence test
+// ---------------------------------------------------------------------------
+
+TEST_F(AllReduceIRTest, TwoShot_AllVariants_ShmemOpcodeEquivalence)
+{
+    constexpr int64_t kRowPerRank = kRow / kWorldSize;
+    Shape shmemDataShape{kWorldSize, kRowPerRank, kCol};
+
+    // ── v2 ──
+    std::vector<Opcode> irV2;
+    {
+        Tensor in(DT_FP16, {kRow, kCol}, "in_ts_v2");
+        Tensor out(DT_FP16, {kRow, kCol}, "out_ts_v2");
+        FUNCTION("UT_TS_EQUIV_V2", {in}, {out}) {
+            TileShape::Current().SetVecTile({kRow, kCol});
+            Tensor shmemData, shmemSignal;
+            CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
+            TwoShotAllReduce_v2(in, in, kGroup, shmemData, shmemSignal, out);
+        }
+        irV2 = ExtractShmemOpcodes("UT_TS_EQUIV_V2");
+    }
+
+    // ── v3 ──
+    std::vector<Opcode> irV3;
+    {
+        Program::GetInstance().Reset();
+        Tensor in(DT_FP16, {kRow, kCol}, "in_ts_v3");
+        Tensor out(DT_FP16, {kRow, kCol}, "out_ts_v3");
+        FUNCTION("UT_TS_EQUIV_V3", {in}, {out}) {
+            TileShape::Current().SetVecTile({kRow, kCol});
+            Tensor shmemData, shmemSignal;
+            CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
+            TwoShotAllReduce_v3(in, in, kGroup, shmemData, shmemSignal, out);
+        }
+        irV3 = ExtractShmemOpcodes("UT_TS_EQUIV_V3");
+    }
+
+    // ── v4 ──
+    std::vector<Opcode> irV4;
+    {
+        Program::GetInstance().Reset();
+        Tensor in(DT_FP16, {kRow, kCol}, "in_ts_v4");
+        Tensor out(DT_FP16, {kRow, kCol}, "out_ts_v4");
+        FUNCTION("UT_TS_EQUIV_V4", {in}, {out}) {
+            TileShape::Current().SetVecTile({kRow, kCol});
+            Tensor shmemData, shmemSignal;
+            CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
+            TwoShotAllReduce_v4(in, in, kGroup, shmemData, shmemSignal, out);
+        }
+        irV4 = ExtractShmemOpcodes("UT_TS_EQUIV_V4");
+    }
+
+    // ── v5 ──
+    std::vector<Opcode> irV5;
+    {
+        Program::GetInstance().Reset();
+        Tensor in(DT_FP16, {kRow, kCol}, "in_ts_v5");
+        Tensor out(DT_FP16, {kRow, kCol}, "out_ts_v5");
+        FUNCTION("UT_TS_EQUIV_V5", {in}, {out}) {
+            TileShape::Current().SetVecTile({kRow, kCol});
+            Tensor shmemData, shmemSignal;
+            CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
+            TwoShotCommunicatorV2 comm(kGroup, kWorldSize, shmemSignal);
+            TwoShotAllReduce_v5(in, in, shmemData, comm, out);
+        }
+        irV5 = ExtractShmemOpcodes("UT_TS_EQUIV_V5");
+    }
+
+    // ── Cross-variant equivalence ──
+    EXPECT_EQ(irV2, irV3) << "TwoShot v2 and v3 SHMEM opcode sequences differ";
+    EXPECT_EQ(irV3, irV4) << "TwoShot v3 and v4 SHMEM opcode sequences differ";
+    EXPECT_EQ(irV4, irV5) << "TwoShot v4 and v5 SHMEM opcode sequences differ";
 }
