@@ -98,21 +98,23 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
     # 安装 二进制文件
     set(InstallExport ${PROJECT_NAME}Targets)
     set(InstallTargets
-            tile_fwk_simulation_platform
-            tile_fwk_utils
-            tile_fwk_interface
-            tile_fwk_codegen
-            tile_fwk_compiler
-            tile_fwk_runtime
-            tile_fwk_runtime_stub
-            tile_fwk_simulation
-            tile_fwk_simulation_ca
-            tile_fwk_simulation_pv
+        tile_fwk_simulation_platform
+        tile_fwk_utils
+        tile_fwk_interface
+        tile_fwk_codegen
+        tile_fwk_compiler
+        tile_fwk_runtime
+        tile_fwk_runtime_stub
+        tile_fwk_simulation
+        tile_fwk_simulation_ca
+        tile_fwk_simulation_pv
     )
 
     ### Including TraCR
     foreach(tgt IN LISTS InstallTargets)
-        tracr_enable(${tgt})
+        if(NOT tgt STREQUAL "tile_fwk_runtime" AND NOT tgt STREQUAL "tile_fwk_runtime_stub")
+            tracr_enable(${tgt})
+        endif()
     endforeach()
     ###
 
