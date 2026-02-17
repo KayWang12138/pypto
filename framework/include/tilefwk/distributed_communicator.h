@@ -15,11 +15,72 @@
 
 #pragma once
 
+#include <string>
 #include "tilefwk/tilefwk_op.h"
 #include "tilefwk/symbolic_distributed.h"
+#include "tilefwk/error.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
+
+// =============================================================================
+// Communicator: Encapsulates shmem data/signal buffers and group metadata.
+//
+// Hides the symmetric memory layout so that algorithm authors work with
+// rank IDs instead of raw multi-dimensional View() indexing.
+// Both data and signal Views are derived internally from rank IDs.
+// =============================================================================
+class Communicator {
+public:
+    Communicator(const std::string& group, Tensor& shmemData, Tensor& shmemSignal)
+        : group_(group)
+        , shmemData_(shmemData)
+        , shmemSignal_(shmemSignal)
+        , worldSize_(static_cast<uint32_t>(shmemData.GetShape()[0]))
+        , thisRank_(GetHcclRankId(group))
+        , row_(shmemData.GetShape()[2])
+        , col_(shmemData.GetShape()[3])
+    {}
+
+    Communicator(const Communicator&) = delete;
+    Communicator& operator=(const Communicator&) = delete;
+
+    uint32_t WorldSize() const { return worldSize_; }
+    SymbolicScalar ThisRank() const { return thisRank_; }
+
+    // Fused Put + Signal: atomically write data and signal to targetRank's shmem slot.
+    void Put(const Tensor& pred, const Tensor& input, uint32_t targetRank,
+        AtomicType atomicType) const
+    {
+        auto dataTile = View(shmemData_, {1, 1, row_, col_},
+            std::vector<SymbolicScalar>{targetRank, 0, 0, 0});
+        auto signalTile = View(shmemSignal_, {1, 1, 1, row_, col_},
+            std::vector<SymbolicScalar>{targetRank, targetRank, 0, 0, 0});
+        auto putOut = ShmemPut(pred, input, dataTile, atomicType);
+        ShmemSignal(putOut, signalTile, AtomicType::ADD);
+    }
+
+    // Fused WaitUntil + ShmemGet: wait for all contributions on thisRank's slot,
+    // then read the reduced result. Output dtype derived from input (the data tensor).
+    Tensor WaitAndGet(const Tensor& input) const
+    {
+        auto dataTile = View(shmemData_, {1, 1, row_, col_},
+            std::vector<SymbolicScalar>{thisRank_, 0, 0, 0});
+        auto signalTile = View(shmemSignal_, {1, 1, 1, row_, col_},
+            std::vector<SymbolicScalar>{thisRank_, thisRank_, 0, 0, 0});
+        auto waitOut = WaitUntil(input, signalTile, static_cast<int32_t>(worldSize_));
+        return ShmemGet(waitOut, dataTile, input.GetDataType());
+    }
+
+private:
+    std::string group_;  // Retained for diagnostics and future use.
+    Tensor& shmemData_;
+    Tensor& shmemSignal_;
+    uint32_t worldSize_;
+    SymbolicScalar thisRank_;
+    int32_t row_;
+    int32_t col_;
+};
 
 // =============================================================================
 // CommunicatorV2: Communication engine with group metadata and explicit data views.
@@ -42,7 +103,7 @@ namespace Distributed {
 // =============================================================================
 class CommunicatorV2 {
 public:
-    CommunicatorV2(const char* group, uint32_t worldSize, Tensor& shmemSignal)
+    CommunicatorV2(const std::string& group, uint32_t worldSize, Tensor& shmemSignal)
         : group_(group)
         , worldSize_(worldSize)
         , thisRank_(GetHcclRankId(group))
@@ -52,18 +113,27 @@ public:
         , inputDtype_(DT_BOTTOM)
     {}
 
+    CommunicatorV2(const CommunicatorV2&) = delete;
+    CommunicatorV2& operator=(const CommunicatorV2&) = delete;
+
     uint32_t GetWorldSize() const { return worldSize_; }
     SymbolicScalar GetThisRank() const { return thisRank_; }
 
     // Put data to an explicit shmem data slot + signal targetRank.
     // The caller provides the data View; the signal View is derived internally.
     // Captures input dtype on the first call for subsequent Pull().
+    // All Put() calls within the same collective must use the same dtype.
     // Returns the signal dependency token.
     Tensor Put(const Tensor& pred, const Tensor& input,
         const Tensor& dataView, uint32_t targetRank, AtomicType atomicType)
     {
         if (inputDtype_ == DT_BOTTOM) {
             inputDtype_ = input.GetDataType();
+        } else {
+            // Guard against mixed dtypes across Put() calls within the same collective.
+            ASSERT(inputDtype_ == input.GetDataType())
+                << "All Put() calls must use the same dtype, expected " << inputDtype_
+                << " but got " << input.GetDataType();
         }
         auto signalView = View(shmemSignal_, {1, 1, 1, row_, col_},
             std::vector<SymbolicScalar>{targetRank, targetRank, 0, 0, 0});
@@ -79,13 +149,13 @@ public:
     {
         auto signalView = View(shmemSignal_, {1, 1, 1, row_, col_},
             std::vector<SymbolicScalar>{thisRank_, thisRank_, 0, 0, 0});
-        return WaitUntil(depToken, signalView, worldSize_);
+        return WaitUntil(depToken, signalView, static_cast<int32_t>(worldSize_));
     }
 
     // Pull: postprocessing — read the reduced result from this rank's shmem
     // data slot into regular device memory (GM). Pure data movement + dtype cast.
     // Must be called after Put() (which captures dtype) and Wait().
-    Tensor Pull(const Tensor& waitToken, Tensor& shmemData) const
+    Tensor Pull(const Tensor& waitToken, const Tensor& shmemData) const
     {
         int32_t dataRow = shmemData.GetShape()[2];
         int32_t dataCol = shmemData.GetShape()[3];
@@ -96,16 +166,17 @@ public:
 
     // WaitAndGet: convenience method combining Wait + Pull in one call.
     // Retained for cases where the three-phase split is not needed.
-    Tensor WaitAndGet(const Tensor& pred, const Tensor& dataView) const
+    // input is the data tensor (used both as dependency token and dtype source).
+    Tensor WaitAndGet(const Tensor& input, const Tensor& dataView) const
     {
         auto signalView = View(shmemSignal_, {1, 1, 1, row_, col_},
             std::vector<SymbolicScalar>{thisRank_, thisRank_, 0, 0, 0});
-        auto waitOut = WaitUntil(pred, signalView, worldSize_);
-        return ShmemGet(waitOut, dataView, pred.GetDataType());
+        auto waitOut = WaitUntil(input, signalView, static_cast<int32_t>(worldSize_));
+        return ShmemGet(waitOut, dataView, input.GetDataType());
     }
 
 private:
-    const char* group_;
+    std::string group_;  // Retained for diagnostics and future use.
     uint32_t worldSize_;
     SymbolicScalar thisRank_;
     Tensor& shmemSignal_;
