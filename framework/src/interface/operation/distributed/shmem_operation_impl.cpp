@@ -569,9 +569,9 @@ void OneShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* 
 
     // Phase 1: Scatter — broadcast input to all ranks with atomic ADD
     for (uint32_t r = 0; r < comm.GetWorldSize(); ++r) {
-        auto dataView = View(shmemData, {1, 1, row, col},
+        auto dynRankView = View(shmemData, {1, 1, row, col},
             std::vector<SymbolicScalar>{r, 0, 0, 0});
-        comm.Put(predToken, in, dataView, r, AtomicType::ADD);
+        comm.Put(predToken, in, dynRankView, r, AtomicType::ADD);
     }
 
     // Phase 2: Gather — wait for all contributions, read reduced result
@@ -598,9 +598,9 @@ Tensor OneShotAllReduce_v5(const Tensor& predToken, const Tensor& in,
 
     // Phase 1: Scatter — broadcast input to all ranks with atomic ADD
     for (uint32_t r = 0; r < comm.GetWorldSize(); ++r) {
-        auto dataView = View(shmemData, {1, 1, row, col},
+        auto dynRankView = View(shmemData, {1, 1, row, col},
             std::vector<SymbolicScalar>{r, 0, 0, 0});
-        comm.Put(predToken, in, dataView, r, AtomicType::ADD);
+        comm.Put(predToken, in, dynRankView, r, AtomicType::ADD);
     }
 
     // Phase 2: Wait — all contributions are now guaranteed complete
