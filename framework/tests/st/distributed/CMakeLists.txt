@@ -54,8 +54,37 @@ if (TARGET ${PTO_Fwk_STestNamePrefix}_python)
 endif ()
 
 # 用例可执行程序(执行)
+#
+# Test case index map (alphabetical JSON file order, 0-based):
+#   0  Allgather_AttnPost_Reducescatter  (1 case)
+#   1  Allgather                         (1 case)
+#   2  Allreduce_Add_Allreduce           (1 case)
+#   3  Allreduce  test_1  (twoshot)      ─┐
+#   4  Allreduce  test_2  (oneshot)      ─┘ 2 cases
+#   5  AllreduceIRCheck                  (1 case)  ── oneshot
+#   6  AllreduceV2                       (1 case)  ── oneshot
+#   7  AllreduceV3                       (1 case)  ── oneshot
+#   8  AllreduceV4                       (1 case)  ── oneshot
+#   9  AllreduceV5                       (1 case)  ── oneshot
+#  10  MoeDispatch                       (1 case)
+#  11  MoeDistributedCombine  test_1     ─┐
+#  12  MoeDistributedCombine  test_2     ─┘ 2 cases
+#  13  Reducescatter  test_1             ─┐
+#  14  Reducescatter  test_2              │
+#  15  Reducescatter  test_3             ─┘ 3 cases
+#  16  TwoShotAllReduceIRCheck           (1 case)  ── twoshot
+#  17  TwoShotAllReduceV2               (1 case)  ── twoshot
+#  18  TwoShotAllReduceV3               (1 case)  ── twoshot
+#  19  TwoShotAllReduceV4               (1 case)  ── twoshot
+#  20  TwoShotAllReduceV5               (1 case)  ── twoshot
+#
+# Usage:
+#   python3 build_ci.py --stest_distributed          # all tests (default)
+#   python3 build_ci.py --stest_distributed=oneshot   # OneShot AllReduce variants only
+#   python3 build_ci.py --stest_distributed=twoshot   # TwoShot AllReduce variants only
+#
 set(_num_ranks "4")
-set(_num_cases "15")
+set(_num_cases "20")
 set(_DistributedGTestCaseFilterConfig "")
 foreach(i RANGE 0 ${_num_cases})
     list(APPEND _DistributedGTestCaseFilterConfig
@@ -63,6 +92,26 @@ foreach(i RANGE 0 ${_num_cases})
     )
 endforeach()
 
+# Subset filtering: override filter config when "oneshot" or "twoshot" is requested
+if ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "oneshot")
+    message(STATUS "Distributed subset: oneshot AllReduce variants (indices 5-9)")
+    set(_DistributedGTestCaseFilterConfig "")
+    foreach(i 5 6 7 8 9)
+        list(APPEND _DistributedGTestCaseFilterConfig
+            "TestDistributedOps/DistributedTest.TestOps/${i}" "${_num_ranks}"
+        )
+    endforeach()
+    set(ENABLE_STEST_DISTRIBUTED "ON")
+elseif ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "twoshot")
+    message(STATUS "Distributed subset: twoshot AllReduce variants (indices 16-20)")
+    set(_DistributedGTestCaseFilterConfig "")
+    foreach(i 16 17 18 19 20)
+        list(APPEND _DistributedGTestCaseFilterConfig
+            "TestDistributedOps/DistributedTest.TestOps/${i}" "${_num_ranks}"
+        )
+    endforeach()
+    set(ENABLE_STEST_DISTRIBUTED "ON")
+endif()
 
 set(_LdLibrariesExt
         tile_fwk_compiler
