@@ -567,7 +567,8 @@ Tensor ShmemGet(const Tensor& predToken, const Tensor& shmemData, DataType nonSh
 Tensor ShmemGetGm2Ub(const Tensor &dummy, const Tensor &shmemDataTile, DataType nonShmemDataType = DataType::DT_BOTTOM,
     AtomicType atomicType = AtomicType::SET);
 
-// Forward declaration — full definition in tilefwk/distributed_communicator.h
+// Forward declarations — full definitions in tilefwk/distributed_communicator.h
+class Communicator;
 class CommunicatorV2;
 
 // OneShotAllReduce_v5: Three-phase — Scatter + Wait only. Pull is external.
