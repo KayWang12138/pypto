@@ -391,5 +391,5 @@ template void TestAllReduceIREquivalence<float>(OpTestParam &testParam, std::str
 template void TestAllReduceIREquivalence<float16>(OpTestParam &testParam, std::string& goldenDir);
 template void TestAllReduceIREquivalence<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
 
-} // namespace Distributed 
+} // namespace Distributed
 } // namespace npu::tile_fwk
