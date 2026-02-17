@@ -730,6 +730,11 @@ OPERATOR_DISPATCHERS = {
     'AllReduceV4': generate_all_reduce_golden,    # Same algorithm as AllReduce (oneshot)
     'AllReduceV5': generate_all_reduce_golden,    # Same algorithm as AllReduce (oneshot)
     'AllReduceIRCheck': generate_all_reduce_golden, # IR equivalence test — reuses AllReduce golden data
+    'TwoShotAllReduceV2': generate_all_reduce_golden,
+    'TwoShotAllReduceV3': generate_all_reduce_golden,
+    'TwoShotAllReduceV4': generate_all_reduce_golden,
+    'TwoShotAllReduceV5': generate_all_reduce_golden,
+    'TwoShotAllReduceIRCheck': generate_all_reduce_golden,
     'MoeDispatch': generate_moe_dispatch_golden,
     'MoeDistributedCombine': generate_moe_distributed_combine_golden,
     'AllReduceAddAllReduce': generate_allreduce_add_allreduce_golden,
