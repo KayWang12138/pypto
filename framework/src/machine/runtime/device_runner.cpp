@@ -19,9 +19,12 @@
 #include <cstdlib>
 #include <mutex>
 #include <limits.h>
-#include <experimental/filesystem>  // For storing the TraCR data
-#include <fstream>                  // For storing the TraCR data
-#include <tracr/tracr.hpp>
+
+#ifdef ENABLE_TRACR
+    #include <experimental/filesystem>  // For storing the TraCR data
+    #include <fstream>                  // For storing the TraCR data
+    #include <tracr/tracr.hpp>
+#endif
 
 #include "securec.h"
 #include "machine/device/aicore_manager.h"
@@ -48,7 +51,7 @@
 #include "machine/host/perf_analysis.h"
 #include "log_types.h"
 
-namespace fs = std::experimental::filesystem;
+
 using json = nlohmann::json;
 extern char _binary_kernel_o_start[];
 extern char _binary_kernel_o_end[];
@@ -73,6 +76,8 @@ namespace npu::tile_fwk {
 /**
  * A function for defining the path of the TraCR traces in home
  */
+#ifdef ENABLE_TRACR
+namespace fs = std::experimental::filesystem;
 fs::path expand_user_path(const std::string& path)
 {
     if (!path.empty() && path[0] == '~') {
@@ -88,6 +93,7 @@ fs::path expand_user_path(const std::string& path)
     }
     return fs::path(path);
 }
+#endif
 
 namespace {
 
