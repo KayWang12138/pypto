@@ -48,7 +48,6 @@
 #include "machine/host/perf_analysis.h"
 #include "log_types.h"
 
-namespace fs = std::filesystem;
 using json = nlohmann::json;
 extern char _binary_kernel_o_start[];
 extern char _binary_kernel_o_end[];
@@ -73,7 +72,7 @@ namespace npu::tile_fwk {
 /**
  * A function for defining the path of the TraCR traces in home
  */
-fs::path expand_user_path(const std::string& path)
+std::filesystem::path expand_user_path(const std::string& path)
 {
     if (!path.empty() && path[0] == '~') {
         const char* home = std::getenv("HOME");
@@ -84,9 +83,9 @@ fs::path expand_user_path(const std::string& path)
         if (!sub.empty() && sub[0] == '/')
             sub = sub.substr(1); // remove leading slash
 
-        return fs::path(home) / sub;
+        return std::filesystem::path(home) / sub;
     }
-    return fs::path(path);
+    return std::filesystem::path(path);
 }
 
 namespace {
@@ -357,9 +356,9 @@ int DeviceRunner::Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t t
     static_assert(std::is_trivially_copyable_v<TraCR::Payload>,
               "TraCR::Payload must be trivially copyable for raw binary dump");
 
-    fs::path base_dir = expand_user_path("~/ascend/tracr/proc.1");
+    std::filesystem::path base_dir = expand_user_path("~/ascend/tracr/proc.1");
 
-    fs::create_directories(base_dir);
+    std::filesystem::create_directories(base_dir);
 
     for (uint32_t t = 0; t < MAX_STATIC_SCHEDULE_AICPU_NUM; ++t) {
 
@@ -372,12 +371,12 @@ int DeviceRunner::Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t t
             return -1;
         }
 
-        fs::path thread_dir =
+        std::filesystem::path thread_dir =
             base_dir / ("thread." + std::to_string(t + 1));
 
-        fs::create_directories(thread_dir);
+        std::filesystem::create_directories(thread_dir);
 
-        fs::path file_path = thread_dir / "traces.bts";
+        std::filesystem::path file_path = thread_dir / "traces.bts";
 
         std::ofstream out(file_path, std::ios::binary);
         if (!out) {
@@ -436,7 +435,7 @@ int DeviceRunner::Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t t
     metadata["start_time"] = 0;
     metadata["tid"] = 0;
 
-    fs::path metadata_dir = base_dir / ("metadata.json");
+    std::filesystem::path metadata_dir = base_dir / ("metadata.json");
 
     std::ofstream file(metadata_dir);
     if (!file.is_open()) {
