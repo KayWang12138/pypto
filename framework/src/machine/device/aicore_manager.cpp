@@ -123,6 +123,7 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
     return ret;
 }
 
+
 bool AiCoreManager::CheckTaskFinished(int coreIdx) {
     uint64_t finTaskVal = GetFinishedTask(coreIdx);
     uint32_t regLFinTaskId = REG_LOW_TASK_ID(finTaskVal);
@@ -275,12 +276,6 @@ void AiCoreManager::BatchPushReadyQueue() {
     uint32_t aicIndex = static_cast<uint32_t>(CoreType::AIC);
     uint32_t aivIndex = static_cast<uint32_t>(CoreType::AIV);
     if (readyCount[aicIndex] > 0) {
-        if (SEND_TASK_IMMEDIATELY_SWITCH) {
-            uint32_t sendCnt = BatchSendTask(CoreType::AIC,
-                static_cast<uint64_t*>(readyIds[aicIndex]), readyCount[aicIndex], aicStart_, aicEnd_, true);
-            readyCount[aicIndex] -= sendCnt;
-        }
-
         if (readyCount[aicIndex] > 0) {
             for (size_t i = 0; i < readyCount[aicIndex]; i++)
             {
@@ -293,12 +288,6 @@ void AiCoreManager::BatchPushReadyQueue() {
     }
 
     if (readyCount[aivIndex] > 0) {
-        if (SEND_TASK_IMMEDIATELY_SWITCH) {
-            uint32_t sendCnt = BatchSendTask(CoreType::AIV,
-                static_cast<uint64_t*>(readyIds[aivIndex]), readyCount[aivIndex], aivStart_, aivEnd_, true);
-            readyCount[aivIndex] -= sendCnt;
-        }
-        DEV_DEBUG("resolved new task, aiv ready count: %lu coretype:%u\n", readyCount[aivIndex], aivIndex);
         if (readyCount[aivIndex] > 0) {
             for (size_t i = 0; i < readyCount[aivIndex]; i++)
             {
@@ -309,16 +298,6 @@ void AiCoreManager::BatchPushReadyQueue() {
         }
         readyCount[aivIndex] = 0;
     }
-}
-
-uint64_t AiCoreManager::ResolveDepForAicpuTask() {
-    uint64_t taskCount = aicpuTaskManager_.TaskProcess();
-    std::vector<uint64_t> completed = aicpuTaskManager_.TaskPoll();
-    for (const uint64_t &taskId : completed) {
-        ResolveDep(taskId);
-        BatchPushReadyQueue();
-    }
-    return taskCount;
 }
 
 bool AiCoreManager::SendTaskDirectlyWhenCoreRunReady(CoreType type, int coreIdx) {

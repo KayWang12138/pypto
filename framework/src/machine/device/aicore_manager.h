@@ -191,16 +191,7 @@ public:
         CountSendTask(sentAic, sentAiv);
         DispatchAiCoreTask(CoreType::AIV, availableVectorTaskQueue_, aivStart_, aivEnd_);
         CountSendTask(sentAic, sentAiv);
-        uint64_t sentAicpu = 0UL;
-        if constexpr (enableAicpuTask) {
-            if (aicpuIdx_ == LEAD_STATIC_SCHEDULER_AICPU_ID) {
-                sentAicpu = ResolveDepForAicpuTask();
-            }
-        }
-
-        taskCtrl->finishedFunctionCnt.fetch_add(sentAic + sentAiv + reSolveHubCnt_ + sentAicpu,
-            std::memory_order_relaxed);
-
+        taskCtrl->finishedFunctionCnt.fetch_add(sentAic + sentAiv + reSolveHubCnt_, std::memory_order_relaxed);
         reSolveHubCnt_ = 0;
     }
 
@@ -229,8 +220,6 @@ private:
     void ResolveDepForAllAiCore(CoreType type, taskQueue_t *readyQue, int coreIdxStart, int coreIdxEnd);
 
     void BatchPushReadyQueue();
-
-    uint64_t ResolveDepForAicpuTask();
 
     inline bool IsNoTaskDispatch(int coreIdx) {
         return (runningIds_[coreIdx] == AICORE_TASK_INIT && pendingIds_[coreIdx] == AICORE_TASK_INIT);
