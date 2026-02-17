@@ -460,62 +460,6 @@ void OneShotAllReduce_v2(const Tensor& predToken, const Tensor& in, const char* 
 }
 
 // =============================================================================
-// Communicator: Encapsulates shmem data/signal buffers and group metadata.
-//
-// Hides the symmetric memory layout so that algorithm authors work with
-// rank IDs instead of raw multi-dimensional View() indexing.
-// =============================================================================
-class Communicator {
-public:
-    Communicator(const char* group, Tensor& shmemData, Tensor& shmemSignal)
-        : group_(group)
-        , shmemData_(shmemData)
-        , shmemSignal_(shmemSignal)
-        , worldSize_(static_cast<uint32_t>(shmemData.GetShape()[0]))
-        // can do that better?
-        , thisRank_(GetHcclRankId(group))
-        , row_(shmemData.GetShape()[2])
-        , col_(shmemData.GetShape()[3])
-    {}
-
-    uint32_t WorldSize() const { return worldSize_; }
-    SymbolicScalar ThisRank() const { return thisRank_; }
-
-    // Fused Put + Signal: atomically write data and signal to targetRank's shmem slot.
-    void Put(const Tensor& pred, const Tensor& input, uint32_t targetRank,
-        AtomicType atomicType) const
-    {
-        auto dataTile = View(shmemData_, {1, 1, row_, col_},
-            std::vector<SymbolicScalar>{targetRank, 0, 0, 0});
-        auto signalTile = View(shmemSignal_, {1, 1, 1, row_, col_},
-            std::vector<SymbolicScalar>{targetRank, targetRank, 0, 0, 0});
-        auto putOut = ShmemPut(pred, input, dataTile, atomicType);
-        ShmemSignal(putOut, signalTile, AtomicType::ADD);
-    }
-
-    // Fused WaitUntil + ShmemGet: wait for all contributions on thisRank's slot,
-    // then read the reduced result. Output dtype derived from pred (the input tensor).
-    Tensor WaitAndGet(const Tensor& pred) const
-    {
-        auto dataTile = View(shmemData_, {1, 1, row_, col_},
-            std::vector<SymbolicScalar>{thisRank_, 0, 0, 0});
-        auto signalTile = View(shmemSignal_, {1, 1, 1, row_, col_},
-            std::vector<SymbolicScalar>{thisRank_, thisRank_, 0, 0, 0});
-        auto waitOut = WaitUntil(pred, signalTile, worldSize_);
-        return ShmemGet(waitOut, dataTile, pred.GetDataType());
-    }
-
-private:
-    const char* group_;
-    Tensor& shmemData_;
-    Tensor& shmemSignal_;
-    uint32_t worldSize_;
-    SymbolicScalar thisRank_;
-    int32_t row_;
-    int32_t col_;
-};
-
-// =============================================================================
 // OneShotAllReduce_v3: Uses a Communicator to hide shmem layout details.
 //
 // The algorithm author works with rank IDs instead of raw View() calls.
