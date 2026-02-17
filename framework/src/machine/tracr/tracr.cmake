@@ -15,11 +15,23 @@ function(tracr_enable target)
         message(FATAL_ERROR "Target '${target}' does not exist.")
     endif()
 
-    # Make sure json is available first
-    include(${CMAKE_SOURCE_DIR}/cmake/third_party/nlohmann_json/nlohmann_json.cmake)
+    # Check if 'json' is already linked
+    get_target_property(_linked_targets ${target} INTERFACE_LINK_LIBRARIES)
+    if(NOT _linked_targets)
+        set(_linked_targets "")
+    endif()
 
-    # Link tracr with json
-    target_link_libraries(${target} PRIVATE json stdc++fs)
+    # Only link json if not already linked
+    list(FIND _linked_targets json _json_found)
+    if(_json_found EQUAL -1)
+        target_link_libraries(${target} PRIVATE json)
+    endif()
+
+    # Only link stdc++fs if not already linked
+    list(FIND _linked_targets stdc++fs _fs_found)
+    if(_fs_found EQUAL -1)
+        target_link_libraries(${target} PRIVATE stdc++fs)
+    endif()
 
     # Create the TraCR include directory path
     set(TRACR_INCLUDE_DIR
