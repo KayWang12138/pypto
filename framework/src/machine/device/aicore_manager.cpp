@@ -49,20 +49,17 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl) {
     int ret = 0;
     DEV_INFO("receive new task %lu\n", taskCtrl->taskId);
     InitTaskData(taskCtrl);
+    if (aicpuIdx_ == LEAD_STATIC_SCHEDULER_AICPU_ID)  aicpuTaskManager_.Init(curDevTask_);
 
     const auto t0 = std::chrono::high_resolution_clock::now();
-
-    RunCoreTask(taskCtrl);
-    if (aicpuIdx_ == LEAD_STATIC_SCHEDULER_AICPU_ID) {
-        aicpuTaskManager_.Init(curDevTask_);
-    }
 
     // DEV_ERROR("AICPU %d - Task Vector Queue Size: %lu\n", aicpuIdx_, availableVectorTaskQueue_->wasSize());
     // DEV_ERROR("AICPU %d - Task Cube Queue Size: %lu\n", aicpuIdx_, availableVectorTaskQueue_->wasSize());
     // DEV_ERROR("AICPU %d - Core Queue Size: %lu\n", aicpuIdx_, availableCoreQueue_->wasSize());
 
     npu::tile_fwk::dynamic::TimeCheck tm;
-    while (taskCtrl->finishedFunctionCnt.load(std::memory_order_relaxed) < curDevTask_->coreFunctionCnt) {
+    while (taskCtrl->finishedFunctionCnt.load(std::memory_order_relaxed) < curDevTask_->coreFunctionCnt)
+    {
         RunCoreTask<true>(taskCtrl);
         if (npu::tile_fwk::dynamic::CheckTimeOut("wait task send finish.", tm) != 0) {
             return -1;
@@ -74,10 +71,7 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl) {
     if (ret != npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
         // DEV_ERROR("wait tail aic task timeout .\n");
     }
-    ret = WaitAllAicoreFinish(aivStart_, aivEnd_);
-    if (ret != npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
-        // DEV_ERROR("wait tail aiv task timeout .\n");
-    }
+
     if (aicpuIdx_ == LEAD_STATIC_SCHEDULER_AICPU_ID) {
         while (!aicpuTaskManager_.Finished()) {
             (void)aicpuTaskManager_.TaskProcess();
@@ -232,8 +226,7 @@ uint32_t AiCoreManager::BatchSendTask(CoreType type, uint64_t *newTask, uint32_t
     return sendCnt;
 }
 
-uint64_t AiCoreManager::DispatchAiCoreTask(CoreType type, taskQueue_t* readyQue,
-                                    int coreIdxStart, int coreIdxEnd) {
+uint64_t AiCoreManager::DispatchAiCoreTask(CoreType type, taskQueue_t* readyQue, int coreIdxStart, int coreIdxEnd) {
     uint64_t taskCount = TryBatchSendTask(type, readyQue, coreIdxStart, coreIdxEnd);
     if (waitTaskCnt_[static_cast<int>(type)] > 0) {
         ResolveDepForAllAiCore(type, readyQue, coreIdxStart, coreIdxEnd);
@@ -251,7 +244,10 @@ void AiCoreManager::SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTas
     SetReadyQueue(coreIdx, newTask + 1);
     pendingIds_[coreIdx] = newTask;
     sendCnt_[static_cast<int>(type)]++;
-    // DEV_ERROR("Send task %lu, at core %d ,type:%d \n", newTask, coreIdx, static_cast<int>(type));
+
+    const uint64_t pairCode = (uint64_t)coreIdx << 32 | newTask;
+    pendingPairQueue_->push(pairCode);
+    DEV_ERROR("Send task %lu, at core %d ,type:%d, code: 0x%0lX\n", newTask, coreIdx, static_cast<int>(type), pairCode);
 }
 
 void AiCoreManager::ResolveDepForAllAiCore(
@@ -308,21 +304,18 @@ bool AiCoreManager::SendTaskDirectlyWhenCoreRunReady(CoreType type, int coreIdx)
     return false;
 }
 
-void AiCoreManager::ResolveWhenSyncMode(CoreType type, uint32_t finTaskId, uint32_t finTaskState, int coreIdx)  {
-    if (finTaskId == pendingIds_[coreIdx] && finTaskState == TASK_FIN_STATE) {
-        DEV_DEBUG("core index: %d, PendingTask Finished."
-            " pending: %lx\n", coreIdx, pendingIds_[coreIdx]);
+void AiCoreManager::ResolveByRegVal(CoreType type, int coreIdx, uint64_t finTaskRegVal) {
+    uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
+    uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
+
+    if (finTaskId == pendingIds_[coreIdx] && finTaskState == TASK_FIN_STATE) 
+    {
+        DEV_DEBUG("core index: %d, PendingTask Finished. pending: %lx\n", coreIdx, pendingIds_[coreIdx]);
         ResolveDepWithDfx(type, coreIdx, finTaskId);
         pendingIds_[coreIdx] = AICORE_TASK_INIT;
         corePendReadyCnt_[static_cast<int>(type)]++;
         runReadyCoreIdx_[static_cast<int>(type)][coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
     }
-}
-
-void AiCoreManager::ResolveByRegVal(CoreType type, int coreIdx, uint64_t finTaskRegVal) {
-    uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
-    uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
-    ResolveWhenSyncMode(type, finTaskId, finTaskState, coreIdx);
 }
 
 int AiCoreManager::GetNextSendCoreIdx(int coreType) {

@@ -215,8 +215,6 @@ private:
 
     void SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTask);
 
-    void SetAiCpuStat(int coreIdx, uint64_t taskId);
-
     void ResolveDepForAllAiCore(CoreType type, taskQueue_t *readyQue, int coreIdxStart, int coreIdxEnd);
 
     void BatchPushReadyQueue();
@@ -226,8 +224,6 @@ private:
     }
 
     bool SendTaskDirectlyWhenCoreRunReady(CoreType type, int coreIdx);
-
-    void ResolveWhenSyncMode(CoreType type, uint32_t finTaskId, uint32_t finTaskState, int coreIdx);
 
     void ResolveByRegVal(CoreType type, int coreIdx, uint64_t finTaskRegVal);
 
