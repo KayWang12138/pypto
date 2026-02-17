@@ -412,7 +412,7 @@ void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const char* gro
     out = ShmemGet(waitUntilout, shmemDataTile, in.GetDataType());
 }
 
-// Atomic PUT + signal in one call. The View for data and signal are passed inline by the caller.
+// PUT + signal in one call. Data and signal Views are passed inline by the caller.
 static void PutAndSignal(const Tensor& pred, const Tensor& input,
     const Tensor& dataTile, const Tensor& signalTile)
 {
@@ -421,7 +421,7 @@ static void PutAndSignal(const Tensor& pred, const Tensor& input,
 }
 
 // Wait for all contributions + read the reduced result. Views passed inline by the caller.
-// Output dtype is derived from pred (the input tensor used as dependency token).
+// Output dtype taken from pred (callers pass the input data tensor here).
 static Tensor WaitAndGet(const Tensor& pred, const Tensor& dataTile, const Tensor& signalTile,
     uint32_t worldSize)
 {
@@ -493,7 +493,7 @@ void OneShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* 
 {
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
-    CommunicatorV2 comm(group, shmemData.GetShape()[0], shmemSignal);
+    CommunicatorV2 comm(group, static_cast<uint32_t>(shmemData.GetShape()[0]), shmemSignal);
 
     // Phase 1: Scatter — broadcast input to all ranks with atomic ADD
     for (uint32_t r = 0; r < comm.GetWorldSize(); ++r) {
@@ -531,7 +531,7 @@ Tensor OneShotAllReduce_v5(const Tensor& predToken, const Tensor& in,
         comm.Put(predToken, in, dynRankView, r, AtomicType::ADD);
     }
 
-    // Phase 2: Wait — all contributions are now guaranteed complete
+    // Phase 2: Wait — block until all contributions have arrived
     return comm.Wait(predToken);
 }
 
