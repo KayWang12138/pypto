@@ -1045,5 +1045,133 @@ void SetHeuristicTileShapes::SetHeuristicTileShapesFunc(Function &function) cons
         ASSERT(op.GetTileShape().GetVecTile()[0] != -1) << "Not all tiles was set";
     }
     #endif
+
+    std::ofstream customFile("custom_tiles_"+function.ComputeHash()+".txt");
+    vecOpIdx = 0;
+    if (customFile.is_open()) {
+        customFile << "\n\n------------------------------BEGIN--"<<function.ComputeHash()<<"----------------------------\n\n" << std::endl;
+        
+        for (auto &op : function.Operations()) {
+            if (op.GetCoreTypeStr() == "AIC") {
+                customFile << "!Cube Operation " << vecOpIdx << " : " << op.GetOpcodeStr() << " magic : " << op.GetOpMagic() << std::endl;
+                customFile << op.GetTileShape().ToString(TileType::CUBE) << std::endl;
+            
+
+            } else if (op.GetCoreTypeStr() == "AIV") {
+                customFile << "!Vector Operation " << vecOpIdx << " : " << op.GetOpcodeStr() << " magic : " << op.GetOpMagic() << std::endl;
+                customFile << op.GetTileShape().ToString(TileType::VEC) << std::endl;
+            } else {
+                customFile << "!Other Operation " << vecOpIdx << " : " << op.GetOpcodeStr() << " magic : " << op.GetOpMagic() << std::endl;
+                customFile << op.GetTileShape().ToString(TileType::VEC) << std::endl;
+            }
+            for (size_t it = 0; it < op.GetIOperands().size(); it++) {
+                customFile << "Input " << it << " Magic = " << op.GetIOperands()[it]->magic << " DataType = " << BytesOf(op.GetIOperands()[it]->tensor->GetDataType()) << " Shape = ["; 
+                auto InputShape = op.GetIOperands()[it]->shape;
+                for (size_t j = 0; j < InputShape.size(); j++) {
+                    customFile << InputShape[j] << " ";
+                }
+                customFile << "]  ";
+            }
+            for (size_t it = 0; it < op.GetOOperands().size(); it++) { 
+                customFile << "Output " << it << " Magic = " << op.GetOOperands()[it]->magic << " DataType = " << BytesOf(op.GetOOperands()[it]->tensor->GetDataType()) << " Shape = ["; 
+                auto OutputShape = op.GetOOperands()[it]->shape;
+                for (size_t j = 0; j < OutputShape.size(); j++) {
+                    customFile << OutputShape[j] << " ";
+                }
+                customFile << "]" << std::endl;
+            } 
+
+            customFile << "Subgraph ID: " << op.GetSubgraphID()<<std::endl;
+
+            if (op.GetSemanticLabel()){
+                customFile<<"label: "<<op.GetSemanticLabel()->label<<std::endl;
+                customFile<<"filename: "<<op.GetSemanticLabel()->filename<<std::endl;
+                customFile<<"line_no: "<<op.GetSemanticLabel()->lineno<<std::endl;
+            }else{
+                customFile<<"Error! Semantic label not found.\n"<<std::endl;
+            }
+            customFile << "\n----------------------------------------------------------------------------------" << std::endl;
+            vecOpIdx++;
+        }
+    }  
+    customFile << "\n\n------------------------------BEGIN------------------------------\n\n" << std::endl;
+    customFile.close();
+
+    json pythonJson;
+
+    std::ofstream python_tiles(config::LogTopFolder()+"/python_tiles.json");
+    int operationIdx = 0;
+
+    if(python_tiles.is_open()){
+        for (auto &op : function.Operations()) { 
+            std::string opIdName = "operation_"+std::to_string(operationIdx);
+            auto full_dump = op.DumpJson();
+
+            if(full_dump["file"].is_null()){
+                continue;
+            }
+
+            if(op.GetCoreTypeStr() == "AIC"){
+                pythonJson[opIdName]["type"] = "CubeTile";
+                auto cubeShape = op.GetTileShape();
+                auto tile = cubeShape.GetCubeTile();
+                pythonJson[opIdName]["tile"] = {tile.m[0], tile.m[1], tile.k[0], tile.k[1], tile.n[0], tile.n[1]};
+            }else {
+                auto vecShape = op.GetTileShape();
+                auto tile = vecShape.GetVecTile();
+                pythonJson[opIdName]["type"] = "VecTile";
+                for (size_t i = 0; i < tile.size(); ++i) {
+                    pythonJson[opIdName]["tile"].push_back(tile[i]);
+                }
+            }
+            pythonJson[opIdName]["magic"] = full_dump["opmagic"];
+            pythonJson[opIdName]["opcode"] = full_dump["opcode"];
+            pythonJson[opIdName]["file"] = full_dump["file"];
+            pythonJson[opIdName]["line"] = full_dump["line"];
+            
+            operationIdx += 1;
+        }
+        python_tiles<<pythonJson.dump(4)<<std::endl;
+    }
+
+    json myJson;
+    std::ofstream graph_tiles(config::LogTopFolder()+"/semantic_labels_tiles.json");
+    int operIdx = 0;
+    if(graph_tiles.is_open()){
+
+        for (auto &op : function.Operations()) {            
+            if (op.GetSemanticLabel()){
+                auto sem_label = op.GetSemanticLabel()->label;
+
+                myJson[sem_label] = {
+                    {"filename", op.GetSemanticLabel()->filename},
+                    {"line_num", op.GetSemanticLabel()->lineno}
+                };
+
+                if(op.GetCoreTypeStr() == "AIC"){
+                    auto cubeShape = op.GetTileShape();
+                    auto tile = cubeShape.GetCubeTile();
+
+                    myJson[sem_label]["type"] = "CubeTile";
+                    myJson[sem_label]["enableSplitK"] = cubeShape.GetCubeTile().enableSplitK;
+                    myJson[sem_label]["enableMultiDataLoad"] = cubeShape.GetCubeTile().enableMultiDataLoad;
+                    myJson[sem_label]["tile"] = {tile.m[0], tile.m[1], tile.k[0], tile.k[1], tile.n[0], tile.n[1]};
+                }
+                else{
+                    auto vecShape = op.GetTileShape();
+                    auto tile = vecShape.GetVecTile();
+                    myJson[sem_label]["type"] = "VecTile";
+                    for (size_t i = 0; i < tile.size(); ++i) {
+                        myJson[sem_label]["tile"].push_back(tile[i]);
+                    }
+                }
+
+                myJson[sem_label]["operation"] = op.GetOpcodeStr();
+
+            }
+            operIdx += 1;
+        }
+        graph_tiles<<myJson.dump(4)<<std::endl;
+    }
 }
 } // namespace npu::tile_fwk
