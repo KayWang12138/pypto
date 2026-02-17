@@ -44,7 +44,7 @@ const int INVALID_CORE_IDX = 0xFF;
 const uint32_t AICORE_STATUS_INIT = 0xFFFFFFFFU;
 const uint32_t CORE_NUM_PER_AI_CORE = 3;
 const uint32_t AIV_NUM_PER_AI_CORE = 2;
-const uint32_t READY_ID_FIX_CACHE_NUM = 800;
+const uint32_t READY_ID_FIX_CACHE_NUM = 256;
 const uint32_t AICORE_TYPE_NUM = 2;
 
 constexpr uint32_t MAX_STATIC_SCHEDULE_AICPU_NUM = 3;   // 真正负责调度aicore的aicpu个数
@@ -201,17 +201,6 @@ public:
         taskCtrl->finishedFunctionCnt.fetch_add(sentAic + sentAiv + reSolveHubCnt_ + sentAicpu,
             std::memory_order_relaxed);
 
-        DEV_IF_VERBOSE_DEBUG {
-            __sync_fetch_and_add(&(taskCtrl->finishedAicFunctionCnt), sentAic);
-            __sync_fetch_and_add(&(taskCtrl->finishedAivFunctionCnt), sentAiv);
-            __sync_fetch_and_add(&(taskCtrl->finishedAicpuFunctionCnt), sentAicpu);
-            procAicCoreFunctionCnt_ += sentAic;
-            procAivCoreFunctionCnt_ += sentAiv;
-            procAicpuFunctionCnt_ += sentAicpu;
-            DEV_VERBOSE_DEBUG("finish send  aic task cnt: %lu,  aiv task cnt: %lu, hub task cnt:%lu, aicpu task cnt:%lu, target totalcnt: %lu \n",
-                taskCtrl->finishedAicFunctionCnt, taskCtrl->finishedAivFunctionCnt,
-                reSolveHubCnt_, taskCtrl->finishedAicpuFunctionCnt, curDevTask_->coreFunctionCnt);
-        }
         reSolveHubCnt_ = 0;
     }
 
@@ -222,13 +211,6 @@ public:
     void PushTask(DeviceTaskCtrl *taskCtrl) { taskQueue_.Enqueue(taskCtrl); }
 
 private:
-    void DumpTaskProf();
-
-    void ProfStop();
-
-    void DumpAiCoreStatus() const;
-
-    void DumpTaskTensor(int &coreIdx, volatile TaskStat *stat);
 
     bool CheckTaskFinished(int coreIdx);
 
@@ -243,8 +225,6 @@ private:
     void SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTask);
 
     void SetAiCpuStat(int coreIdx, uint64_t taskId);
-
-    void AddTask(int coreIdx, uint64_t taskId);
 
     void ResolveDepForAllAiCore(CoreType type, taskQueue_t *readyQue, int coreIdxStart, int coreIdxEnd);
 
@@ -419,8 +399,6 @@ private:
     }
     inline int GetDfxPos(int coreIdx) { return taskDfxStatPos_[coreIdx]; }
 
-    // DFX
-    void DfxProcAfterFinishTask(int coreIdx, uint64_t taskId);
 public:
     uint64_t GetTaskStartTime() {
         return task_start_time_;
@@ -430,7 +408,6 @@ public:
     }
 private:
     bool isFirstTaskSend_{true};
-    bool firstLock[AICORE_TYPE_NUM]{true,true};
     uint64_t task_start_time_{UINT64_MAX};
     uint64_t task_end_time_{0};
     int aicNum_{0};
@@ -488,7 +465,6 @@ private:
 
     uint64_t readyIds[AICORE_TYPE_NUM][READY_ID_FIX_CACHE_NUM];
     uint64_t readyCount[AICORE_TYPE_NUM]{0,0};
-    std::vector<uint64_t> readyIdsExtend[AICORE_TYPE_NUM];
 
     uint32_t sendCnt_[AICORE_TYPE_NUM]{0,0};
 
