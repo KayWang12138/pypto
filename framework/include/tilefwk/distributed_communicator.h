@@ -46,9 +46,9 @@ public:
     Communicator& operator=(const Communicator&) = delete;
 
     uint32_t WorldSize() const { return worldSize_; }
-    SymbolicScalar ThisRank() const { return thisRank_; }
+    SymbolicScalar ThisRank() const { return thisRank_; }  // unused; kept for symmetry with CommunicatorV2
 
-    // Fused Put + Signal: atomically write data and signal to targetRank's shmem slot.
+    // Put + Signal: write data to targetRank's shmem slot, then signal it.
     void Put(const Tensor& pred, const Tensor& input, uint32_t targetRank,
         AtomicType atomicType) const
     {
@@ -60,8 +60,8 @@ public:
         ShmemSignal(putOut, signalTile, AtomicType::ADD);
     }
 
-    // Fused WaitUntil + ShmemGet: wait for all contributions on thisRank's slot,
-    // then read the reduced result. Output dtype derived from input (the data tensor).
+    // Fused WaitUntil + ShmemGet: block until all contributions arrive,
+    // then read the reduced result. Output dtype taken from input.
     Tensor WaitAndGet(const Tensor& input) const
     {
         auto dataTile = View(shmemData_, {1, 1, row_, col_},
@@ -73,7 +73,7 @@ public:
     }
 
 private:
-    std::string group_;  // Retained for diagnostics and future use.
+    std::string group_;  // unused for now; kept for debug
     Tensor& shmemData_;
     Tensor& shmemSignal_;
     uint32_t worldSize_;
@@ -119,11 +119,10 @@ public:
     uint32_t GetWorldSize() const { return worldSize_; }
     SymbolicScalar GetThisRank() const { return thisRank_; }
 
-    // Put data to an explicit shmem data slot + signal targetRank.
-    // The caller provides the data View; the signal View is derived internally.
-    // Captures input dtype on the first call for subsequent Pull().
-    // All Put() calls within the same collective must use the same dtype.
-    // Returns the signal dependency token.
+    // Write data to targetRank's shmem slot + signal it.
+    // Caller provides the data View; signal View is built internally.
+    // Latches input dtype on first call (used by Pull()); all Puts must match dtype.
+    // Returns signal dependency token.
     Tensor Put(const Tensor& pred, const Tensor& input,
         const Tensor& dataView, uint32_t targetRank, AtomicType atomicType)
     {
@@ -164,9 +163,8 @@ public:
         return ShmemGet(waitToken, dataLocal, inputDtype_);
     }
 
-    // WaitAndGet: convenience method combining Wait + Pull in one call.
-    // Retained for cases where the three-phase split is not needed.
-    // input is the data tensor (used both as dependency token and dtype source).
+    // Convenience: Wait + Pull in one shot.
+    // input doubles as dependency token and dtype source.
     Tensor WaitAndGet(const Tensor& input, const Tensor& dataView) const
     {
         auto signalView = View(shmemSignal_, {1, 1, 1, row_, col_},
@@ -176,7 +174,7 @@ public:
     }
 
 private:
-    std::string group_;  // Retained for diagnostics and future use.
+    std::string group_;  // unused for now; kept for debug
     uint32_t worldSize_;
     SymbolicScalar thisRank_;
     Tensor& shmemSignal_;
