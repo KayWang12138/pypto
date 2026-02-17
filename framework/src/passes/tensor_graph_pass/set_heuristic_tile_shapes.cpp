@@ -26,6 +26,7 @@
 #include "interface/configs/config_manager.h"
 #include "set_heuristic_tile_shapes.h"
  
+ using json = nlohmann::json;
 using namespace npu::tile_fwk;
  
 namespace npu::tile_fwk {
@@ -1047,7 +1048,7 @@ void SetHeuristicTileShapes::SetHeuristicTileShapesFunc(Function &function) cons
     #endif
 
     std::ofstream customFile("custom_tiles_"+function.ComputeHash()+".txt");
-    vecOpIdx = 0;
+    uint64_t vecOpIdx = 0;
     if (customFile.is_open()) {
         customFile << "\n\n------------------------------BEGIN--"<<function.ComputeHash()<<"----------------------------\n\n" << std::endl;
         
