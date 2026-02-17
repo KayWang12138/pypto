@@ -565,4 +565,135 @@ void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* gro
         Assemble(tmp, {rowPerRank * dynRankId, 0}, out);
     }
 }
+// =============================================================================
+// TwoShotAllReduce_v2: Same algorithm and signature as TwoShotAllReduce.
+//
+// Reduces repetition via view lambdas for the TwoShot shmem layout:
+//   - viewData(chunkId) / viewPutSignal(chunkId) / viewWaitSignal(chunkId)
+//   - inputChunk(chunkId) for input tiling
+//
+// Emitted IR is identical to TwoShotAllReduce.
+// =============================================================================
+void TwoShotAllReduce_v2(const Tensor& predToken, const Tensor& in, const char* group,
+    Tensor& shmemData, Tensor& shmemSignal, Tensor& out)
+{
+    int32_t row = in.GetShape(0);
+    int32_t col = in.GetShape(1);
+    uint32_t worldSize = shmemData.GetShape()[0];
+    int32_t rowPerRank = row / worldSize;
+    SymbolicScalar thisRank = GetHcclRankId(group);
+
+    auto viewData = [&](uint32_t c) {
+        return View(shmemData, {1, 1, rowPerRank, col},
+            std::vector<SymbolicScalar>{c, c, 0, 0});
+    };
+    auto viewPutSignal = [&](uint32_t c) {
+        return View(shmemSignal, {static_cast<int64_t>(worldSize), 1, 1, rowPerRank, col},
+            std::vector<SymbolicScalar>{0, c, c, 0, 0});
+    };
+    auto viewWaitSignal = [&](uint32_t c) {
+        return View(shmemSignal, {1, 1, 1, rowPerRank, col},
+            std::vector<SymbolicScalar>{thisRank, c, c, 0, 0});
+    };
+    auto inputChunk = [&](uint32_t c) {
+        return View(in, {rowPerRank, col},
+            std::vector<SymbolicScalar>{rowPerRank * c, 0});
+    };
+
+    for (uint32_t c = 0; c < worldSize; ++c) {
+        auto putOut = ShmemPut(predToken, inputChunk(c), viewData(c), AtomicType::ADD);
+        auto signalOut = ShmemSignal(putOut, viewPutSignal(c), AtomicType::ADD);
+        auto waitOut = WaitUntil(signalOut, viewWaitSignal(c), worldSize);
+        auto reduced = ShmemGet(waitOut, viewData(c), in.GetDataType());
+        Assemble(reduced, {rowPerRank * c, 0}, out);
+    }
+}
+
+// =============================================================================
+// TwoShotAllReduce_v3: Uses a TwoShotCommunicator to hide shmem layout details.
+//
+// The algorithm author works with chunk IDs instead of raw View() calls
+// for shmem data and signal buffers. Input chunking and Assemble remain
+// in the algorithm (inherent to the two-shot decomposition).
+//
+// Emitted IR is identical to TwoShotAllReduce / TwoShotAllReduce_v2.
+// =============================================================================
+void TwoShotAllReduce_v3(const Tensor& predToken, const Tensor& in, const char* group,
+    Tensor& shmemData, Tensor& shmemSignal, Tensor& out)
+{
+    TwoShotCommunicator comm(group, shmemData, shmemSignal);
+    int32_t rowPerRank = in.GetShape(0) / comm.WorldSize();
+    int32_t col = in.GetShape(1);
+
+    for (uint32_t c = 0; c < comm.WorldSize(); ++c) {
+        auto inChunk = View(in, {rowPerRank, col},
+            std::vector<SymbolicScalar>{rowPerRank * c, 0});
+        auto signalOut = comm.Put(predToken, inChunk, c, AtomicType::ADD);
+        auto reduced = comm.WaitAndGet(signalOut, c, in.GetDataType());
+        Assemble(reduced, {rowPerRank * c, 0}, out);
+    }
+}
+
+// =============================================================================
+// TwoShotAllReduce_v4: TwoShotCommunicatorV2 with explicit data Views.
+//
+// The algorithm author controls data placement via explicit View() calls.
+// The TwoShotCommunicatorV2 handles signal coordination and group metadata.
+// Uses combined WaitAndGet() per chunk (convenience method).
+//
+// Emitted IR is identical to TwoShotAllReduce / v2 / v3.
+// =============================================================================
+void TwoShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* group,
+    Tensor& shmemData, Tensor& shmemSignal, Tensor& out)
+{
+    int32_t row = in.GetShape(0);
+    int32_t col = in.GetShape(1);
+    int32_t rowPerRank = row / static_cast<int32_t>(shmemData.GetShape()[0]);
+    TwoShotCommunicatorV2 comm(group, static_cast<uint32_t>(shmemData.GetShape()[0]), shmemSignal);
+
+    for (uint32_t c = 0; c < comm.GetWorldSize(); ++c) {
+        auto inChunk = View(in, {rowPerRank, col},
+            std::vector<SymbolicScalar>{rowPerRank * c, 0});
+        auto dataView = View(shmemData, {1, 1, rowPerRank, col},
+            std::vector<SymbolicScalar>{c, c, 0, 0});
+        auto signalOut = comm.Put(predToken, inChunk, dataView, c, AtomicType::ADD);
+        auto reduced = comm.WaitAndGet(signalOut, dataView, c);
+        Assemble(reduced, {rowPerRank * c, 0}, out);
+    }
+}
+
+// =============================================================================
+// TwoShotAllReduce_v5: Three-phase API with external TwoShotCommunicatorV2.
+//
+// The caller constructs TwoShotCommunicatorV2 externally and passes it in.
+// Uses separate Put(), Wait(), Pull() per chunk (explicit three-phase pattern).
+// Assemble remains inside (per-chunk interleaving required for correct IR).
+//
+// Emitted IR is identical to TwoShotAllReduce / v2 / v3 / v4.
+// =============================================================================
+void TwoShotAllReduce_v5(const Tensor& predToken, const Tensor& in,
+    Tensor& shmemData, TwoShotCommunicatorV2& comm, Tensor& out)
+{
+    int32_t row = in.GetShape(0);
+    int32_t col = in.GetShape(1);
+    int32_t rowPerRank = row / comm.GetWorldSize();
+
+    for (uint32_t c = 0; c < comm.GetWorldSize(); ++c) {
+        auto inChunk = View(in, {rowPerRank, col},
+            std::vector<SymbolicScalar>{rowPerRank * c, 0});
+        auto dataView = View(shmemData, {1, 1, rowPerRank, col},
+            std::vector<SymbolicScalar>{c, c, 0, 0});
+
+        // Phase 1: Put — write chunk to shmem slot + signal all ranks
+        auto signalOut = comm.Put(predToken, inChunk, dataView, c, AtomicType::ADD);
+
+        // Phase 2: Wait — block until all contributions for this chunk have arrived
+        auto waitOut = comm.Wait(signalOut, c);
+
+        // Phase 3: Pull — read reduced chunk from shmem
+        auto reduced = comm.Pull(waitOut, dataView);
+        Assemble(reduced, {rowPerRank * c, 0}, out);
+    }
+}
+
 }   // namespace npu::tile_fwk::Distributed
