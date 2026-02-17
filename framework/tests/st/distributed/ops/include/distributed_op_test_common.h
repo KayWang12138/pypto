@@ -185,6 +185,29 @@ inline void VerifyOneShotAllReduceIR(const std::string& funcName, uint32_t world
     EXPECT_EQ(getCount, 1u) << "Expected 1 OP_SHMEM_GET op";
 }
 
+// Verify that a FUNCTION block contains the expected TwoShot AllReduce
+// IR structure: worldSize * (PUT + SIGNAL + WAIT_UNTIL + GET) per chunk.
+inline void VerifyTwoShotAllReduceIR(const std::string& funcName, uint32_t worldSize)
+{
+    auto shmemOps = ExtractShmemOpcodes(funcName);
+
+    uint32_t putCount = 0;
+    uint32_t signalCount = 0;
+    uint32_t waitCount = 0;
+    uint32_t getCount = 0;
+    for (Opcode code : shmemOps) {
+        if (code == Opcode::OP_SHMEM_PUT) putCount++;
+        else if (code == Opcode::OP_SHMEM_SIGNAL) signalCount++;
+        else if (code == Opcode::OP_SHMEM_WAIT_UNTIL) waitCount++;
+        else if (code == Opcode::OP_SHMEM_GET) getCount++;
+    }
+
+    EXPECT_EQ(putCount, worldSize) << "Expected " << worldSize << " OP_SHMEM_PUT ops";
+    EXPECT_EQ(signalCount, worldSize) << "Expected " << worldSize << " OP_SHMEM_SIGNAL ops";
+    EXPECT_EQ(waitCount, worldSize) << "Expected " << worldSize << " OP_SHMEM_WAIT_UNTIL ops";
+    EXPECT_EQ(getCount, worldSize) << "Expected " << worldSize << " OP_SHMEM_GET ops";
+}
+
 enum class WinType : uint32_t {
     WIN_EXP,
     WIN_OUT,
