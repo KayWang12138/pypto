@@ -71,6 +71,11 @@ void TestAllReduce(OpTestParam &testParam, std::string &goldenDir)
             OneShotAllReduce(in, in, shmemTensor, out);
         }
     }
+    if (useTwoShot) {
+        VerifyTwoShotAllReduceIR("ALLREDUCE", testParam.rankSize);
+    } else {
+        VerifyOneShotAllReduceIR("ALLREDUCE", testParam.rankSize);
+    }
     RunTest();
     auto output = ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", outSize, output->GetDevPtr(), testParam));
