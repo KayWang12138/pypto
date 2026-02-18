@@ -65,51 +65,67 @@ endif ()
 #   6  AllreduceV2                       (1 case)  ── oneshot
 #   7  AllreduceV3                       (1 case)  ── oneshot
 #   8  AllreduceV4                       (1 case)  ── oneshot
-#   9  AllreduceV5                       (1 case)  ── oneshot
-#  10  MoeDispatch                       (1 case)
-#  11  MoeDistributedCombine  test_1     ─┐
-#  12  MoeDistributedCombine  test_2     ─┘ 2 cases
-#  13  Reducescatter  test_1             ─┐
-#  14  Reducescatter  test_2              │
-#  15  Reducescatter  test_3             ─┘ 3 cases
-#  16  TwoShotAllReduceIRCheck           (1 case)  ── twoshot
-#  17  TwoShotAllReduceV2               (1 case)  ── twoshot
-#  18  TwoShotAllReduceV3               (1 case)  ── twoshot
-#  19  TwoShotAllReduceV4               (1 case)  ── twoshot
-#  20  TwoShotAllReduceV5               (1 case)  ── twoshot
+#   9  AllreduceV5MultiRank  test_1      (2 ranks) ── oneshot multirank
+#  10  AllreduceV5MultiRank  test_2      (8 ranks) ── oneshot multirank
+#  11  AllreduceV5                       (1 case)  ── oneshot
+#  12  MoeDispatch                       (1 case)
+#  13  MoeDistributedCombine  test_1     ─┐
+#  14  MoeDistributedCombine  test_2     ─┘ 2 cases
+#  15  Reducescatter  test_1             ─┐
+#  16  Reducescatter  test_2              │
+#  17  Reducescatter  test_3             ─┘ 3 cases
+#  18  TwoShotAllReduceIRCheck           (1 case)  ── twoshot
+#  19  TwoShotAllReduceV2               (1 case)  ── twoshot
+#  20  TwoShotAllReduceV3               (1 case)  ── twoshot
+#  21  TwoShotAllReduceV4               (1 case)  ── twoshot
+#  22  TwoShotAllReduceV5               (1 case)  ── twoshot
 #
 # Usage:
-#   python3 build_ci.py --stest_distributed          # all tests (default)
-#   python3 build_ci.py --stest_distributed=oneshot   # OneShot AllReduce variants only
-#   python3 build_ci.py --stest_distributed=twoshot   # TwoShot AllReduce variants only
+#   python3 build_ci.py --stest_distributed              # all tests (default)
+#   python3 build_ci.py --stest_distributed=oneshot       # OneShot AllReduce variants only
+#   python3 build_ci.py --stest_distributed=twoshot       # TwoShot AllReduce variants only
+#   python3 build_ci.py --stest_distributed=multirank     # Multi-rank AllReduceV5 only (2 & 8 ranks)
 #
 set(_num_ranks "4")
-set(_num_cases "20")
-set(_DistributedGTestCaseFilterConfig "")
-foreach(i RANGE 0 ${_num_cases})
-    list(APPEND _DistributedGTestCaseFilterConfig
-        "TestDistributedOps/DistributedTest.TestOps/${i}" "${_num_ranks}"
-    )
-endforeach()
+set(_num_cases "22")
 
-# Subset filtering: override filter config when "oneshot" or "twoshot" is requested
-if ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "oneshot")
-    message(STATUS "Distributed subset: oneshot AllReduce variants (indices 5-9)")
-    set(_DistributedGTestCaseFilterConfig "")
-    foreach(i 5 6 7 8 9)
-        list(APPEND _DistributedGTestCaseFilterConfig
-            "TestDistributedOps/DistributedTest.TestOps/${i}" "${_num_ranks}"
+# Per-index rank-count overrides for multi-rank tests
+set(_rank_override_9 "2")
+set(_rank_override_10 "8")
+
+# Build filter config for a list of indices, respecting per-index rank overrides
+macro(_distributed_filter_config _output)
+    set(${_output} "")
+    foreach(_i ${ARGN})
+        set(_r "${_num_ranks}")
+        if (DEFINED _rank_override_${_i})
+            set(_r "${_rank_override_${_i}}")
+        endif()
+        list(APPEND ${_output}
+            "TestDistributedOps/DistributedTest.TestOps/${_i}" "${_r}"
         )
     endforeach()
+endmacro()
+
+# Default: all test cases
+set(_all_indices "")
+foreach(i RANGE 0 ${_num_cases})
+    list(APPEND _all_indices ${i})
+endforeach()
+_distributed_filter_config(_DistributedGTestCaseFilterConfig ${_all_indices})
+
+# Subset filtering: override filter config when a subset keyword is requested
+if ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "oneshot")
+    message(STATUS "Distributed subset: oneshot AllReduce variants (indices 5-11)")
+    _distributed_filter_config(_DistributedGTestCaseFilterConfig 5 6 7 8 9 10 11)
     set(ENABLE_STEST_DISTRIBUTED "ON")
 elseif ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "twoshot")
-    message(STATUS "Distributed subset: twoshot AllReduce variants (indices 16-20)")
-    set(_DistributedGTestCaseFilterConfig "")
-    foreach(i 16 17 18 19 20)
-        list(APPEND _DistributedGTestCaseFilterConfig
-            "TestDistributedOps/DistributedTest.TestOps/${i}" "${_num_ranks}"
-        )
-    endforeach()
+    message(STATUS "Distributed subset: twoshot AllReduce variants (indices 18-22)")
+    _distributed_filter_config(_DistributedGTestCaseFilterConfig 18 19 20 21 22)
+    set(ENABLE_STEST_DISTRIBUTED "ON")
+elseif ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "multirank")
+    message(STATUS "Distributed subset: multi-rank AllReduceV5 (indices 9-10)")
+    _distributed_filter_config(_DistributedGTestCaseFilterConfig 9 10)
     set(ENABLE_STEST_DISTRIBUTED "ON")
 endif()
 
