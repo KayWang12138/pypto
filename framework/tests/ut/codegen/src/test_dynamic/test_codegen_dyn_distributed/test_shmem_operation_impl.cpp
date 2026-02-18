@@ -86,15 +86,6 @@ public:
     void TearDown() override {}
 };
 
-std::string GetFunctionRawName(const std::string& functionName)
-{
-    std::string functionRawName = FUNCTION_PREFIX + functionName + SUB_FUNC_SUFFIX;
-#if ENABLE_HIDDENLOOP
-    functionRawName += HIDDEN_FUNC_SUFFIX;
-#endif
-    return functionRawName;
-}
-
 TEST_F(TestDistributedShmemImpl, TestAllGather)
 {
     const char *group = "hcom123";
