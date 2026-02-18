@@ -45,15 +45,6 @@ protected:
     bool oriEnableAihacBackend = false;
 };
 
-std::string MoeDistributedGetFunctionRawName(const std::string& functionName)
-{
-    std::string functionRawName = FUNCTION_PREFIX + functionName + SUB_FUNC_SUFFIX;
-#if ENABLE_HIDDENLOOP
-    functionRawName += HIDDEN_FUNC_SUFFIX;
-#endif
-    return functionRawName;
-}
-
 TEST_F(TestMoeDistributed, MoeDistributedDispatchV2) {
     const char *group = "hcom1";
     DataType dType = DT_BF16;
@@ -87,7 +78,7 @@ TEST_F(TestMoeDistributed, MoeDistributedDispatchV2) {
             rankSize, routingExpertNum, 0, 0, expandX, assistInfoForCombine, expertTokenNums, recvCounts);
     }
 
-    auto functionRawName = MoeDistributedGetFunctionRawName("MoeDistributedDispatchSendData");
+    auto functionRawName = GetFunctionRawName("MoeDistributedDispatchSendData");
     auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -125,7 +116,7 @@ TEST_F(TestMoeDistributed, MoeDistributedDispatch) {
         Distributed::MoeDistributedDispatch(tokenTensor, tokenExpertTable, expandX, validCnt, combineInfo, group, moeConfig);
     }
 
-    auto functionRawName = MoeDistributedGetFunctionRawName("L0");
+    auto functionRawName = GetFunctionRawName("L0");
     auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -154,7 +145,7 @@ void TestMoeDistributedCombineFunc(std::function<void(const Tensor&, const Tenso
         func(expandX, assistInfoForCombine, recvCounts, expertScales, group, epWorldSize, moeExpertNum, 0, 0, out);
     }
 
-    auto functionRawName = MoeDistributedGetFunctionRawName(loopName);
+    auto functionRawName = GetFunctionRawName(loopName);
     auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
