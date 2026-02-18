@@ -198,21 +198,23 @@ inline void VerifyTwoShotOrdering(const std::vector<Opcode>& ops, uint32_t world
 }
 
 // ---------------------------------------------------------------------------
-// Combined: extract + count + ordering verification
+// Combined: extract + count verification
+// Ordering is intentionally omitted here because the real compiler may split
+// operations across multiple hidden functions whose concatenation order is
+// not guaranteed.  UT helpers call VerifyOneShotOrdering / VerifyTwoShot-
+// Ordering directly in the controlled simulation environment.
 // ---------------------------------------------------------------------------
 
 inline void VerifyOneShotAllReduceIR(const std::string& funcName, uint32_t worldSize)
 {
     auto ops = ExtractShmemOpcodes(funcName);
     VerifyOneShotCounts(CountShmemOps(ops), worldSize);
-    VerifyOneShotOrdering(ops);
 }
 
 inline void VerifyTwoShotAllReduceIR(const std::string& funcName, uint32_t worldSize)
 {
     auto ops = ExtractShmemOpcodes(funcName);
     VerifyTwoShotCounts(CountShmemOps(ops), worldSize);
-    VerifyTwoShotOrdering(ops, worldSize);
 }
 
 } // namespace npu::tile_fwk
