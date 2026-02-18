@@ -185,6 +185,15 @@ int DeviceRunner::StoreTracrData() {
         }
     }
 
+    return 0;
+}
+
+/**
+ * A method for storing the TraCR metadata.json
+ */
+int DeviceRunner::StoreTracrMetaData() {
+    fs::path base_dir = expand_user_path("~/ascend/tracr/proc.1");
+
     // Add the metadata.json
     nlohmann::json metadata;    
 
@@ -470,6 +479,11 @@ int DeviceRunner::Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t t
     if (rc != 0) {
         ALOG_INFO_F("StoreTracrData() failed");
     }   
+
+    rc = StoreTracrMetaData();
+    if (rc != 0) {
+        ALOG_INFO_F("StoreTracrMetaData() failed");
+    }
 #endif
 
     uint64_t taskWastTime = GetTasksTime();

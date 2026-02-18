@@ -148,7 +148,7 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
     if (tracrThread->_traceIdx > 0) {
         const size_t size = tracrThread->_traceIdx * sizeof(TraCR::Payload);
         
-        // Slower than std::memcpy() but CI Pipeline approved (asking Jiashu if this is fine)
+        // Slower than std::memcpy() but CI Pipeline approved
         memcpy_s(
             &tracrData_[threadIdx * TraCR::CAPACITY],
             size,

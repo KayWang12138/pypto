@@ -269,7 +269,6 @@ struct DynMachineManager {
                 while ((INSTRUMENTATION_IS_PROC_READY() == false) && (INSTRUMENTATION_ACTIVE)) {
                     /* Busy waiting until the main proc initialized tracr */
                     ++dummy;
-                    // sched_yield();
                 }
 
                 INSTRUMENTATION_THREAD_INIT();
@@ -283,7 +282,6 @@ struct DynMachineManager {
                 while ((INSTRUMENTATION_NUM_TRACR_THREADS() != 1) && (INSTRUMENTATION_ACTIVE)) {
                     /* Busy waiting until all the other threads finalized before finalizing tracr */
                     --dummy;
-                    // sched_yield();
                 }
 
                 INSTRUMENTATION_END();
@@ -303,8 +301,6 @@ struct DynMachineManager {
 
         PerfMtTrace(PERF_TRACE_BEGIN, threadIdx, kargs->taskWastTime);
         PerfMtTrace(PERF_TRACE_ALLOC_THREAD_ID, threadIdx, allocThreadCycle);
-
-        DEV_INFO("ThreadLeave idx=%d ret=%d", threadIdx, ret);
 
         GetLogger().Flush();
         PerfMtTrace(PERF_TRACE_EXIT, threadIdx);
