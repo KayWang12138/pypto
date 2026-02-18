@@ -11,7 +11,7 @@
 set(_Target ${PTO_Fwk_UTestNamePrefix}_codegen)
 
 file(GLOB_RECURSE _Sources src/*.cpp)
-set(_Include "include")
+set(_Include "include" "${PTO_FWK_SRC_ROOT}/framework/tests/common/include")
 
 PTO_Fwk_UTest_AddCaseLib(
         TARGET ${_Target}

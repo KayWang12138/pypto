@@ -34,6 +34,7 @@ target_sources(${_Target}
 target_include_directories(${_Target}
         PUBLIC
             include
+            ${PTO_FWK_SRC_ROOT}/framework/tests/common/include
 )
 target_link_libraries(${_Target}
         PRIVATE
