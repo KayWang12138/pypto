@@ -71,7 +71,7 @@ void TestAllReduce(OpTestParam &testParam, std::string &goldenDir)
             OneShotAllReduce(in, in, testParam.group, shmemData, shmemSignal, out);
         }
     }
-    DumpAllIR(useTwoShot ? "TwoShot Base" : "OneShot Base");
+    // DumpAllIR(useTwoShot ? "TwoShot Base" : "OneShot Base");
     if (useTwoShot) {
         VerifyTwoShotAllReduceIR("ALLREDUCE", testParam.rankSize);
     } else {
@@ -130,7 +130,7 @@ void TestAllReduce_v2(OpTestParam &testParam, std::string &goldenDir)
         }
         OneShotAllReduce_v2(in, in, testParam.group, shmemData, shmemSignal, out);
     }
-    DumpAllIR("OneShot v2");
+    // DumpAllIR("OneShot v2");
     VerifyOneShotAllReduceIR("ALLREDUCE_V2", testParam.rankSize);
     RunTest();
     auto output = ProgramData::GetInstance().GetOutputData(0);
