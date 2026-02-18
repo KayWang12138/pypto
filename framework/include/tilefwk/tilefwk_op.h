@@ -606,13 +606,13 @@ Tensor ShmemGetGm2Ub(const Tensor &dummy, const Tensor &shmemDataTile, DataType 
     AtomicType atomicType = AtomicType::SET);
 
 // Forward declarations — full definitions in tilefwk/distributed_communicator.h
-class CommunicatorV2;
+class OneShotCommunicatorV2;
 class TwoShotCommunicatorV2;
 
 // OneShotAllReduce_v5: Three-phase — Scatter + Wait only. Pull is external.
 // Returns the waitToken for the caller to invoke comm.Pull() as postprocessing.
 Tensor OneShotAllReduce_v5(const Tensor& predToken, const Tensor& in,
-    Tensor& shmemData, CommunicatorV2& comm);
+    Tensor& shmemData, OneShotCommunicatorV2& comm);
 
 // TwoShotAllReduce_v5: Three-phase API with external TwoShotCommunicatorV2.
 // Uses separate Put(), Wait(), Pull() per chunk.
