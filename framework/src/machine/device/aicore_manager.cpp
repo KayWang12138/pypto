@@ -229,7 +229,7 @@ uint32_t AiCoreManager::BatchSendTask(CoreType type, uint64_t *newTask, uint32_t
 uint64_t AiCoreManager::DispatchAiCoreTask(CoreType type, taskQueue_t* readyQue, int coreIdxStart, int coreIdxEnd) {
     uint64_t taskCount = TryBatchSendTask(type, readyQue, coreIdxStart, coreIdxEnd);
     if (waitTaskCnt_[static_cast<int>(type)] > 0) {
-        ResolveDepForAllAiCore(type, readyQue, coreIdxStart, coreIdxEnd);
+        ResolveDepForAllAiCore(type, coreIdxStart, coreIdxEnd);
         taskCount += TryBatchSendTask(type, readyQue, coreIdxStart, coreIdxEnd);
     }
     if (coreRunReadyCnt_[static_cast<int>(type)] > 0)  {
@@ -250,59 +250,15 @@ void AiCoreManager::SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTas
     DEV_ERROR("Send task %lu, at core %d ,type:%d, code: 0x%0lX\n", newTask, coreIdx, static_cast<int>(type), pairCode);
 }
 
-void AiCoreManager::ResolveDepForAllAiCore(
-    CoreType type, taskQueue_t *readyQue, int coreIdxStart, int coreIdxEnd) {
-    (void)readyQue;
-    for (int i = coreIdxStart; i < coreIdxEnd; i++) {
-        if (IsNoTaskDispatch(i)) {
-            continue;
-        }
-        ResolveByRegVal(type, i, GetFinishedTask(i));
-        if (availableCubeTaskQueue_->wasEmpty() ||
-            availableVectorTaskQueue_->wasEmpty()) {
-            BatchPushReadyQueue();
-        }
-    }
-
-    BatchPushReadyQueue();
-    return;
-}
-
-void AiCoreManager::BatchPushReadyQueue() {
-    uint32_t aicIndex = static_cast<uint32_t>(CoreType::AIC);
-    uint32_t aivIndex = static_cast<uint32_t>(CoreType::AIV);
-    if (readyCount[aicIndex] > 0) {
-        if (readyCount[aicIndex] > 0) {
-            for (size_t i = 0; i < readyCount[aicIndex]; i++)
-            {
-              const auto taskId = (uint32_t)(readyIds[aicIndex][i]);
-            //   DEV_ERROR("AICPU %d - Pushing Task: %u", aicpuIdx_, taskId);  
-              availableCubeTaskQueue_->push(taskId);
-            } 
-        }
-        readyCount[aicIndex] = 0;
-    }
-
-    if (readyCount[aivIndex] > 0) {
-        if (readyCount[aivIndex] > 0) {
-            for (size_t i = 0; i < readyCount[aivIndex]; i++)
-            {
-              const auto taskId = (uint32_t)(readyIds[aivIndex][i]);
-            //   DEV_ERROR("AICPU %d - Pushing Task: %u", aicpuIdx_, taskId);  
-              availableVectorTaskQueue_->push(taskId);
-            } 
-        }
-        readyCount[aivIndex] = 0;
+void AiCoreManager::ResolveDepForAllAiCore(CoreType type, int coreIdxStart, int coreIdxEnd)
+{
+    for (int i = coreIdxStart; i < coreIdxEnd; i++)
+    {
+      if (runningIds_[i] == AICORE_TASK_INIT && pendingIds_[i] == AICORE_TASK_INIT) continue;
+      ResolveByRegVal(type, i, GetFinishedTask(i));
     }
 }
 
-bool AiCoreManager::SendTaskDirectlyWhenCoreRunReady(CoreType type, int coreIdx) {
-    if (SEND_TASK_IMMEDIATELY_SWITCH && readyCount[static_cast<int>(type)] > 0) {
-        SendTaskToAiCore(type, coreIdx, readyIds[static_cast<int>(type)][--readyCount[static_cast<int>(type)]]);
-        return true;
-    }
-    return false;
-}
 
 void AiCoreManager::ResolveByRegVal(CoreType type, int coreIdx, uint64_t finTaskRegVal) {
     uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
@@ -348,6 +304,8 @@ int AiCoreManager::GetNextSendCoreIdx(int coreType) {
 void AiCoreManager::PushReadyTask(int coreType, int64_t taskId) {
     if (readyCount[coreType] < READY_ID_FIX_CACHE_NUM) 
         readyIds[coreType][readyCount[coreType]++] = taskId;
+    if ((MachineType)coreType == MachineType::AIV) availableVectorTaskQueue_->push((uint32_t)taskId);
+    if ((MachineType)coreType == MachineType::AIC) availableCubeTaskQueue_->push((uint32_t)taskId);
 }
 
 void AiCoreManager::ResolveVirtualPure(uint64_t dep, CoreFunctionReadyState* readyState) {

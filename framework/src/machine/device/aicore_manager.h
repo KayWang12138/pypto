@@ -215,15 +215,9 @@ private:
 
     void SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTask);
 
-    void ResolveDepForAllAiCore(CoreType type, taskQueue_t *readyQue, int coreIdxStart, int coreIdxEnd);
+    void ResolveDepForAllAiCore(CoreType type, int coreIdxStart, int coreIdxEnd);
 
     void BatchPushReadyQueue();
-
-    inline bool IsNoTaskDispatch(int coreIdx) {
-        return (runningIds_[coreIdx] == AICORE_TASK_INIT && pendingIds_[coreIdx] == AICORE_TASK_INIT);
-    }
-
-    bool SendTaskDirectlyWhenCoreRunReady(CoreType type, int coreIdx);
 
     void ResolveByRegVal(CoreType type, int coreIdx, uint64_t finTaskRegVal);
 
