@@ -73,6 +73,7 @@ void TestAllReduce(OpTestParam& testParam, std::string& goldenDir)
             OneShotAllReduce(in, in, shmemTensor, out);
         }
     }
+    DumpAllIR(useTwoShot ? "TwoShot Base" : "OneShot Base");
     if (useTwoShot) {
         VerifyTwoShotAllReduceIR("ALLREDUCE", testParam.rankSize);
     } else {

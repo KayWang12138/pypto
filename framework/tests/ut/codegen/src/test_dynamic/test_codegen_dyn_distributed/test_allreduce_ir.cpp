@@ -12,8 +12,8 @@
  * \file test_allreduce_ir.cpp
  * \brief Unit tests for AllReduce IR structure verification.
  *        Validates that OneShot and TwoShot AllReduce variants (base, v2–v5)
- *        produce the expected SHMEM operation counts, correct ordering, and
- *        identical opcode sequences — without requiring hardware or HCCL runtime.
+ *        produce the expected SHMEM operation counts and identical opcode
+ *        sequences — without requiring hardware or HCCL runtime.
  */
 
 #include <vector>
@@ -28,10 +28,14 @@
 #include "interface/configs/config_manager.h"
 #include "tilefwk/tilefwk_op.h"
 #include "tilefwk/distributed_communicator.h"
-#include "shmem_ir_test_utils.h"
+#include "test_codegen_common.h"
 
-using namespace npu::tile_fwk;
-using namespace npu::tile_fwk::Distributed;
+namespace npu::tile_fwk::Distributed {
+
+using npu::tile_fwk::ExtractShmemOpcodes;
+using npu::tile_fwk::CountShmemOps;
+using npu::tile_fwk::ShmemOpCounts;
+using npu::tile_fwk::VerifyOneShotCounts;
 
 // ---------------------------------------------------------------------------
 // Test fixture
@@ -229,7 +233,6 @@ TEST_F(AllReduceIRTest, V5PlusPull_IRStructure)
 
 TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
 {
-    // Build golden reference and verify its structural correctness
     auto irBase = BuildOneShotIR("UT_EQUIV_BASE", [](Tensor& in, const char* g,
                                                       Tensor& sd, Tensor& ss, Tensor& out) {
         OneShotAllReduce(in, in, g, sd, ss, out);
@@ -258,33 +261,10 @@ TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
         out = comm.Pull(waitToken, sd);
     });
 
-    // Each variant must produce the exact same opcode sequence as the base
-    // (same counts, same types, same ordering — position by position)
     EXPECT_EQ(irBase, irV2) << "OneShot base and v2 SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV3) << "OneShot base and v3 SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV4) << "OneShot base and v4 SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV5) << "OneShot base and v5+Pull SHMEM opcode sequences differ";
-}
-
-// ===========================================================================
-// Total operation count sanity check (BF16 variant)
-// ===========================================================================
-
-TEST_F(AllReduceIRTest, V2_TotalOpCountNonZero)
-{
-    Tensor in(DT_BF16, {kRow, kCol}, "in");
-    Tensor out(DT_BF16, {kRow, kCol}, "out");
-    Shape shmemDataShape{1, kRow, kCol};
-
-    FUNCTION("UT_OPCOUNT_V2", {in}, {out}) {
-        TileShape::Current().SetVecTile({kRow, kCol});
-        Tensor shmemData, shmemSignal;
-        CreateShmemTensors(PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
-        OneShotAllReduce_v2(in, in, kGroup, shmemData, shmemSignal, out);
-    }
-
-    auto shmemOps = ExtractShmemOpcodes("UT_OPCOUNT_V2");
-    EXPECT_GT(shmemOps.size(), 0u) << "Function should contain SHMEM operations";
 }
 
 // ===========================================================================
@@ -330,7 +310,6 @@ TEST_F(AllReduceIRTest, TwoShot_V5_IRStructure)
 
 TEST_F(AllReduceIRTest, TwoShot_AllVariants_ShmemOpcodeEquivalence)
 {
-    // Build golden reference and verify its structural correctness.
     // In UT simulation, TwoShot produces worldSize ops per type (not
     // worldSize^2 as on the accelerator).
     auto irBase = BuildTwoShotIR("UT_TS_EQUIV_BASE", [](Tensor& in, const char* g,
@@ -366,10 +345,10 @@ TEST_F(AllReduceIRTest, TwoShot_AllVariants_ShmemOpcodeEquivalence)
         TwoShotAllReduce_v5(in, in, sd, comm, out);
     });
 
-    // Each variant must produce the exact same opcode sequence as the base
-    // (same counts, same types, same ordering — position by position)
     EXPECT_EQ(irBase, irV2) << "TwoShot base and v2 SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV3) << "TwoShot base and v3 SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV4) << "TwoShot base and v4 SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV5) << "TwoShot base and v5 SHMEM opcode sequences differ";
 }
+
+} // namespace npu::tile_fwk::Distributed
