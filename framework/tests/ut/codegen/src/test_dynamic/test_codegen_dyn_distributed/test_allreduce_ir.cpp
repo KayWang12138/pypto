@@ -351,4 +351,131 @@ TEST_F(AllReduceIRTest, TwoShot_AllVariants_ShmemOpcodeEquivalence)
     EXPECT_EQ(irBase, irV5) << "TwoShot base and v5 SHMEM opcode sequences differ";
 }
 
+// ===========================================================================
+// Multi-rank v5 tests — parameterized over world size {2, 4, 8}.
+// Verifies that v5 produces correct counts and identical opcode sequences
+// to the base implementation across different rank configurations.
+// ===========================================================================
+
+class AllReduceIRMultiRankTest : public ::testing::TestWithParam<uint32_t> {
+protected:
+    static constexpr int64_t kRow = 64;
+    static constexpr int64_t kCol = 256;
+    static constexpr const char* kGroup = "hcom_ut_ir_mr";
+
+    uint32_t W() const { return GetParam(); }
+
+    void SetUp() override
+    {
+        Program::GetInstance().Reset();
+        config::Reset();
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
+    }
+
+    void TearDown() override
+    {
+        Program::GetInstance().Reset();
+        config::Reset();
+    }
+
+    void CreateShmemTensors(uint32_t worldSize, DataType shmemDataType,
+                            const Shape& shmemDataShape,
+                            Tensor& shmemData, Tensor& shmemSignal)
+    {
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            CreateShmemData(kGroup, worldSize, shmemDataType, shmemDataShape, shmemData);
+            CreateShmemSignal(kGroup, shmemData, shmemSignal);
+        }
+    }
+
+    static DataType PromotedType(DataType dt)
+    {
+        if (dt == DT_BF16 || dt == DT_FP16) return DT_FP32;
+        return dt;
+    }
+};
+
+TEST_P(AllReduceIRMultiRankTest, OneShotV5_IRStructure)
+{
+    uint32_t worldSize = W();
+    std::string tag = "UT_MR_OS_V5_W" + std::to_string(worldSize);
+    Shape shmemDataShape{1, kRow, kCol};
+
+    Tensor in(DT_FP16, {kRow, kCol}, "in");
+    Tensor out(DT_FP16, {kRow, kCol}, "out");
+    FUNCTION(tag.c_str(), {in}, {out}) {
+        TileShape::Current().SetVecTile({kRow, kCol});
+        Tensor shmemData, shmemSignal;
+        CreateShmemTensors(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
+        OneShotCommunicatorV2 comm(kGroup, worldSize, shmemSignal);
+        auto waitToken = OneShotAllReduce_v5(in, in, shmemData, comm);
+        out = comm.Pull(waitToken, shmemData);
+    }
+
+    auto opsV5 = ExtractShmemOpcodes(tag);
+    VerifyOneShotCounts(CountShmemOps(opsV5), worldSize);
+
+    Program::GetInstance().Reset();
+    std::string baseTag = "UT_MR_OS_BASE_W" + std::to_string(worldSize);
+    Tensor inBase(DT_FP16, {kRow, kCol}, "in_base");
+    Tensor outBase(DT_FP16, {kRow, kCol}, "out_base");
+    FUNCTION(baseTag.c_str(), {inBase}, {outBase}) {
+        TileShape::Current().SetVecTile({kRow, kCol});
+        Tensor shmemData, shmemSignal;
+        CreateShmemTensors(worldSize, PromotedType(inBase.GetDataType()), shmemDataShape, shmemData, shmemSignal);
+        OneShotAllReduce(inBase, inBase, kGroup, shmemData, shmemSignal, outBase);
+    }
+
+    auto opsBase = ExtractShmemOpcodes(baseTag);
+    EXPECT_EQ(opsV5, opsBase) << "OneShot v5 and base differ at worldSize=" << worldSize;
+}
+
+TEST_P(AllReduceIRMultiRankTest, TwoShotV5_IRStructure)
+{
+    uint32_t worldSize = W();
+    int64_t rowPerRank = kRow / worldSize;
+    std::string tag = "UT_MR_TS_V5_W" + std::to_string(worldSize);
+    Shape shmemDataShape{static_cast<int64_t>(worldSize), rowPerRank, kCol};
+
+    Tensor in(DT_FP16, {kRow, kCol}, "in");
+    Tensor out(DT_FP16, {kRow, kCol}, "out");
+    FUNCTION(tag.c_str(), {in}, {out}) {
+        TileShape::Current().SetVecTile({kRow, kCol});
+        Tensor shmemData, shmemSignal;
+        CreateShmemTensors(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
+        TwoShotCommunicatorV2 comm(kGroup, worldSize, shmemSignal);
+        TwoShotAllReduce_v5(in, in, shmemData, comm, out);
+    }
+
+    auto opsV5 = ExtractShmemOpcodes(tag);
+    auto c = CountShmemOps(opsV5);
+    EXPECT_EQ(c.put, worldSize) << "Expected " << worldSize << " OP_SHMEM_PUT ops";
+    EXPECT_EQ(c.signal, worldSize) << "Expected " << worldSize << " OP_SHMEM_SIGNAL ops";
+    EXPECT_EQ(c.wait, worldSize) << "Expected " << worldSize << " OP_SHMEM_WAIT_UNTIL ops";
+    EXPECT_EQ(c.get, worldSize) << "Expected " << worldSize << " OP_SHMEM_GET ops";
+
+    Program::GetInstance().Reset();
+    std::string baseTag = "UT_MR_TS_BASE_W" + std::to_string(worldSize);
+    Tensor inBase(DT_FP16, {kRow, kCol}, "in_base");
+    Tensor outBase(DT_FP16, {kRow, kCol}, "out_base");
+    FUNCTION(baseTag.c_str(), {inBase}, {outBase}) {
+        TileShape::Current().SetVecTile({kRow, kCol});
+        Tensor shmemData, shmemSignal;
+        CreateShmemTensors(worldSize, PromotedType(inBase.GetDataType()), shmemDataShape, shmemData, shmemSignal);
+        TwoShotAllReduce(inBase, inBase, kGroup, shmemData, shmemSignal, outBase);
+    }
+
+    auto opsBase = ExtractShmemOpcodes(baseTag);
+    EXPECT_EQ(opsV5, opsBase) << "TwoShot v5 and base differ at worldSize=" << worldSize;
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    MultiRank, AllReduceIRMultiRankTest,
+    ::testing::Values(2u, 4u, 8u),
+    [](const ::testing::TestParamInfo<uint32_t>& info) {
+        return "WorldSize" + std::to_string(info.param);
+    });
+
 } // namespace npu::tile_fwk::Distributed
