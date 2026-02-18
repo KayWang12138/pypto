@@ -229,10 +229,12 @@ TEST_F(AllReduceIRTest, V5PlusPull_IRStructure)
 
 TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
 {
+    // Build golden reference and verify its structural correctness
     auto irBase = BuildOneShotIR("UT_EQUIV_BASE", [](Tensor& in, const char* g,
                                                       Tensor& sd, Tensor& ss, Tensor& out) {
         OneShotAllReduce(in, in, g, sd, ss, out);
     }, false);
+    VerifyOneShotCounts(CountShmemOps(irBase), kWorldSize);
 
     auto irV2 = BuildOneShotIR("UT_EQUIV_V2", [](Tensor& in, const char* g,
                                                    Tensor& sd, Tensor& ss, Tensor& out) {
@@ -256,6 +258,8 @@ TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
         out = comm.Pull(waitToken, sd);
     });
 
+    // Each variant must produce the exact same opcode sequence as the base
+    // (same counts, same types, same ordering — position by position)
     EXPECT_EQ(irBase, irV2) << "OneShot base and v2 SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV3) << "OneShot base and v3 SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV4) << "OneShot base and v4 SHMEM opcode sequences differ";
@@ -326,10 +330,20 @@ TEST_F(AllReduceIRTest, TwoShot_V5_IRStructure)
 
 TEST_F(AllReduceIRTest, TwoShot_AllVariants_ShmemOpcodeEquivalence)
 {
+    // Build golden reference and verify its structural correctness.
+    // In UT simulation, TwoShot produces worldSize ops per type (not
+    // worldSize^2 as on the accelerator).
     auto irBase = BuildTwoShotIR("UT_TS_EQUIV_BASE", [](Tensor& in, const char* g,
                                                          Tensor& sd, Tensor& ss, Tensor& out) {
         TwoShotAllReduce(in, in, g, sd, ss, out);
     }, false);
+    {
+        auto c = CountShmemOps(irBase);
+        EXPECT_EQ(c.put, kWorldSize) << "Expected " << kWorldSize << " OP_SHMEM_PUT ops";
+        EXPECT_EQ(c.signal, kWorldSize) << "Expected " << kWorldSize << " OP_SHMEM_SIGNAL ops";
+        EXPECT_EQ(c.wait, kWorldSize) << "Expected " << kWorldSize << " OP_SHMEM_WAIT_UNTIL ops";
+        EXPECT_EQ(c.get, kWorldSize) << "Expected " << kWorldSize << " OP_SHMEM_GET ops";
+    }
 
     auto irV2 = BuildTwoShotIR("UT_TS_EQUIV_V2", [](Tensor& in, const char* g,
                                                       Tensor& sd, Tensor& ss, Tensor& out) {
@@ -352,6 +366,8 @@ TEST_F(AllReduceIRTest, TwoShot_AllVariants_ShmemOpcodeEquivalence)
         TwoShotAllReduce_v5(in, in, sd, comm, out);
     });
 
+    // Each variant must produce the exact same opcode sequence as the base
+    // (same counts, same types, same ordering — position by position)
     EXPECT_EQ(irBase, irV2) << "TwoShot base and v2 SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV3) << "TwoShot base and v3 SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV4) << "TwoShot base and v4 SHMEM opcode sequences differ";
