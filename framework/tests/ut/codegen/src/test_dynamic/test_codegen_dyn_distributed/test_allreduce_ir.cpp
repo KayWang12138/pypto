@@ -221,7 +221,7 @@ TEST_F(AllReduceIRTest, V5PlusPull_IRStructure)
 {
     RunOneShotIRTest("UT_IR_V5", [](Tensor& in, const char* group,
                                      Tensor& sd, Tensor& ss, Tensor& out) {
-        CommunicatorV2 comm(group, kWorldSize, ss);
+        OneShotCommunicatorV2 comm(group, kWorldSize, ss);
         auto waitToken = OneShotAllReduce_v5(in, in, sd, comm);
         out = comm.Pull(waitToken, sd);
     });
@@ -256,7 +256,7 @@ TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
 
     auto irV5 = BuildOneShotIR("UT_EQUIV_V5", [](Tensor& in, const char* g,
                                                    Tensor& sd, Tensor& ss, Tensor& out) {
-        CommunicatorV2 comm(g, kWorldSize, ss);
+        OneShotCommunicatorV2 comm(g, kWorldSize, ss);
         auto waitToken = OneShotAllReduce_v5(in, in, sd, comm);
         out = comm.Pull(waitToken, sd);
     });
