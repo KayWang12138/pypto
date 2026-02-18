@@ -130,6 +130,7 @@ void TestAllReduce_v2(OpTestParam &testParam, std::string &goldenDir)
         }
         OneShotAllReduce_v2(in, in, testParam.group, shmemData, shmemSignal, out);
     }
+    DumpAllIR("OneShot v2");
     VerifyOneShotAllReduceIR("ALLREDUCE_V2", testParam.rankSize);
     RunTest();
     auto output = ProgramData::GetInstance().GetOutputData(0);
