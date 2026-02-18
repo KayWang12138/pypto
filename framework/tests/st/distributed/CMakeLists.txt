@@ -55,7 +55,7 @@ endif ()
 
 # 用例可执行程序(执行)
 #
-# Test case index map (alphabetical JSON file order, 0-based):
+# Test case index map (case-insensitive alphabetical JSON file order, 0-based):
 #   0  Allgather_AttnPost_Reducescatter  (1 case)
 #   1  Allgather                         (1 case)
 #   2  Allreduce_Add_Allreduce           (1 case)
@@ -65,9 +65,9 @@ endif ()
 #   6  AllreduceV2                       (1 case)  ── oneshot
 #   7  AllreduceV3                       (1 case)  ── oneshot
 #   8  AllreduceV4                       (1 case)  ── oneshot
-#   9  AllreduceV5MultiRank  test_1      (2 ranks) ── oneshot multirank
-#  10  AllreduceV5MultiRank  test_2      (8 ranks) ── oneshot multirank
-#  11  AllreduceV5                       (1 case)  ── oneshot
+#   9  AllreduceV5                       (1 case)  ── oneshot
+#  10  AllreduceV5MultiRank  test_1      (2 ranks) ── oneshot multirank
+#  11  AllreduceV5MultiRank  test_2      (8 ranks) ── oneshot multirank
 #  12  MoeDispatch                       (1 case)
 #  13  MoeDistributedCombine  test_1     ─┐
 #  14  MoeDistributedCombine  test_2     ─┘ 2 cases
@@ -80,6 +80,9 @@ endif ()
 #  21  TwoShotAllReduceV4               (1 case)  ── twoshot
 #  22  TwoShotAllReduceV5               (1 case)  ── twoshot
 #
+# Note: sort order is case-insensitive (see GetOpMetaDataFromDir in test_distributed.h).
+# '_' (95) sorts before lowercase letters (97+), so AllreduceV5_ < AllreduceV5MultiRank.
+#
 # Usage:
 #   python3 build_ci.py --stest_distributed              # all tests (default)
 #   python3 build_ci.py --stest_distributed=oneshot       # OneShot AllReduce variants only
@@ -90,8 +93,8 @@ set(_num_ranks "4")
 set(_num_cases "22")
 
 # Per-index rank-count overrides for multi-rank tests
-set(_rank_override_9 "2")
-set(_rank_override_10 "8")
+set(_rank_override_10 "2")
+set(_rank_override_11 "8")
 
 # Build filter config for a list of indices, respecting per-index rank overrides
 macro(_distributed_filter_config _output)
@@ -124,8 +127,8 @@ elseif ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "twoshot")
     _distributed_filter_config(_DistributedGTestCaseFilterConfig 18 19 20 21 22)
     set(ENABLE_STEST_DISTRIBUTED "ON")
 elseif ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "multirank")
-    message(STATUS "Distributed subset: multi-rank AllReduceV5 (indices 9-10)")
-    _distributed_filter_config(_DistributedGTestCaseFilterConfig 9 10)
+    message(STATUS "Distributed subset: multi-rank AllReduceV5 (indices 10-11)")
+    _distributed_filter_config(_DistributedGTestCaseFilterConfig 10 11)
     set(ENABLE_STEST_DISTRIBUTED "ON")
 endif()
 
