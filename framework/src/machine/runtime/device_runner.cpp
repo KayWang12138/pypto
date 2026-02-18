@@ -91,58 +91,9 @@ fs::path expand_user_path(const std::string& path)
 }
 
 /**
- * A function for extracting the TraCR data from the Device to Host
+ * 
  */
-int DeviceRunner::StoreTracrData() {
-    TraCR::Payload* tracrData;
-    size_t* tracrDataSizes;
-
-    size_t size = sizeof(TraCR::Payload) * MAX_STATIC_SCHEDULE_AICPU_NUM * TraCR::CAPACITY;
-    int rc = rtMallocHost(reinterpret_cast<void **>(&tracrData), size, 0);
-    if (rc != 0) {
-        ALOG_INFO_F("rtMallocHost failed");
-        return rc;
-    }
-
-    rc = rtMemcpy(reinterpret_cast<void *>(tracrData), size,
-                      reinterpret_cast<void *>(args_.tracrData),
-                      size, RT_MEMCPY_DEVICE_TO_HOST);
-    if (rc != 0) {
-        ALOG_INFO_F("rtMemcpy failed");
-        return rc;
-    }
-
-    
-    size = sizeof(size_t) * MAX_STATIC_SCHEDULE_AICPU_NUM;
-    rc = rtMallocHost(reinterpret_cast<void **>(&tracrDataSizes), size, 0);
-    if (rc != 0) {
-        ALOG_INFO_F("rtMallocHost failed");
-        return rc;
-    }
-
-    rc = rtMemcpy(reinterpret_cast<void *>(tracrDataSizes), size,
-                      reinterpret_cast<void *>(args_.tracrDataSizes),
-                      size, RT_MEMCPY_DEVICE_TO_HOST);
-    if (rc != 0) {
-        ALOG_INFO_F("rtMemcpy failed");
-        return rc;
-    }
-    
-    rc = rtFreeHost(reinterpret_cast<void *>(tracrData));
-    if (rc != 0) {
-        ALOG_INFO_F("rtFreeHost tracrData sync failed");
-        return rc;
-    }
-    rc = rtFreeHost(reinterpret_cast<void *>(tracrDataSizes));
-    if (rc != 0) {
-        ALOG_INFO_F("rtFreeHost tracrDataSizes sync failed");
-        return rc;
-    }
-
-    // Now, store the traces into '~/ascend/tracr/'
-    static_assert(std::is_trivially_copyable_v<TraCR::Payload>,
-              "TraCR::Payload must be trivially copyable for raw binary dump");
-
+inline int TracrData2BTS(const TraCR::Payload* tracrData, const size_t* tracrDataSizes) {
     fs::path base_dir = expand_user_path("~/ascend/tracr/proc.1");
 
     fs::create_directories(base_dir);
@@ -183,6 +134,67 @@ int DeviceRunner::StoreTracrData() {
             ALOG_INFO_F("Write failed for %s", file_path);
             return -1;
         }
+    }
+    return 0;
+}
+
+/**
+ * A function for extracting the TraCR data from the Device to Host
+ */
+int DeviceRunner::StoreTracrData() {
+    static_assert(std::is_trivially_copyable_v<TraCR::Payload>,
+              "TraCR::Payload must be trivially copyable for raw binary dump");
+
+    TraCR::Payload* tracrData;
+    size_t* tracrDataSizes;
+
+    size_t size = sizeof(TraCR::Payload) * TraCR::CAPACITY * MAX_STATIC_SCHEDULE_AICPU_NUM;
+    int rc = rtMallocHost(reinterpret_cast<void **>(&tracrData), size, 0);
+    if (rc != 0) {
+        ALOG_INFO_F("rtMallocHost failed");
+        return rc;
+    }
+
+    rc = rtMemcpy(reinterpret_cast<void *>(tracrData), size,
+                      reinterpret_cast<void *>(args_.tracrData),
+                      size, RT_MEMCPY_DEVICE_TO_HOST);
+    if (rc != 0) {
+        ALOG_INFO_F("rtMemcpy failed");
+        return rc;
+    }
+
+    
+    size = sizeof(size_t) * MAX_STATIC_SCHEDULE_AICPU_NUM;
+    rc = rtMallocHost(reinterpret_cast<void **>(&tracrDataSizes), size, 0);
+    if (rc != 0) {
+        ALOG_INFO_F("rtMallocHost failed");
+        return rc;
+    }
+
+    rc = rtMemcpy(reinterpret_cast<void *>(tracrDataSizes), size,
+                      reinterpret_cast<void *>(args_.tracrDataSizes),
+                      size, RT_MEMCPY_DEVICE_TO_HOST);
+    if (rc != 0) {
+        ALOG_INFO_F("rtMemcpy failed");
+        return rc;
+    }
+
+    // Now, store the traces into '~/ascend/tracr/'
+    rc = TracrData2BTS(tracrData, tracrDataSizes);
+    if (rc != 0) {
+        ALOG_INFO_F("TracrData2BTS() failed");
+        return rc;
+    }
+
+    rc = rtFreeHost(reinterpret_cast<void *>(tracrData));
+    if (rc != 0) {
+        ALOG_INFO_F("rtFreeHost tracrData sync failed");
+        return rc;
+    }
+    rc = rtFreeHost(reinterpret_cast<void *>(tracrDataSizes));
+    if (rc != 0) {
+        ALOG_INFO_F("rtFreeHost tracrDataSizes sync failed");
+        return rc;
     }
 
     return 0;

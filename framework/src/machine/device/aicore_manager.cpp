@@ -139,7 +139,6 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
         procAicCoreFunctionCnt_, procAivCoreFunctionCnt_);
 
     /* TraCR Instrumentation */
-
 #ifdef ENABLE_TRACR
     // Copy the tracr payloads on the shared memory space
     TraCR::Payload* tracrData_ = reinterpret_cast<TraCR::Payload*>(deviceArgs->tracrData);

@@ -31,6 +31,64 @@
 constexpr uint32_t LAUNCH_AICPU_NUM = 5;
 
 namespace npu::tile_fwk::dynamic {
+
+/**
+ * launching tracr profiler
+ */
+inline void tracr_start(const int threadIdx) {
+    if (threadIdx == 1) {
+
+        INSTRUMENTATION_START("/tmp/");
+    } else {
+        while ((INSTRUMENTATION_ACTIVE) && (!INSTRUMENTATION_IS_PROC_READY())) {
+            if (INSTRUMENTATION_IS_PROC_READY()) {
+                break;
+            }
+        }
+
+        INSTRUMENTATION_THREAD_INIT();
+    }
+}
+
+/**
+ * finalizing tracr
+ */
+inline void tracr_finalize(const int threadIdx, const DeviceArgs *devArgs) {
+
+#ifdef ENABLE_TRACR
+    // Copy the tracr payloads on the shared memory space
+    TraCR::Payload* tracrData_ = reinterpret_cast<TraCR::Payload*>(devArgs->tracrData);
+    size_t* tracrDataSizes_ = reinterpret_cast<size_t*>(devArgs->tracrDataSizes);
+
+    if (tracrThread->_traceIdx > 0) {
+        const size_t size = tracrThread->_traceIdx * sizeof(TraCR::Payload);
+        
+        // Slower than std::memcpy() but CI Pipeline approved
+        memcpy_s(
+            &tracrData_[threadIdx * TraCR::CAPACITY],
+            size,
+            tracrThread->_traces.data(),
+            size
+        );
+    }
+        
+    tracrDataSizes_[threadIdx] = tracrThread->_traceIdx;
+#endif
+
+    if (threadIdx == 1) {
+
+        while ((INSTRUMENTATION_ACTIVE) && (INSTRUMENTATION_NUM_TRACR_THREADS() != 1) ) {
+            if (INSTRUMENTATION_NUM_TRACR_THREADS() == 1) {
+                break;
+            }
+        }
+
+        INSTRUMENTATION_END();
+    } else {
+        INSTRUMENTATION_THREAD_FINALIZE();
+    }
+}
+
 struct AicoreLogManager {
     AicoreLogManager() {
         data_ = aligned_alloc(PAGE_SIZE, MAX_AICORE_NUM * PRINT_BUFFER_SIZE);
@@ -260,35 +318,13 @@ struct DynMachineManager {
         int threadIdx = AllocThreadIdx(devArgs->nrAicpu, devArgs->scheCpuNum, threadIdx_);	 
         uint64_t allocThreadCycle = GetCycles();
         if ((threadIdx != -1) && threadIdx <= static_cast<int>(devArgs->scheCpuNum)) {	
-            /* TraCR Instrumentation */
-            if (threadIdx == 1) {
 
-                INSTRUMENTATION_START("/tmp/");
-            } else {
-                while ((INSTRUMENTATION_ACTIVE) && (!INSTRUMENTATION_IS_PROC_READY())) {
-                    if (INSTRUMENTATION_IS_PROC_READY()) {
-                        break;
-                    }
-                }
-
-                INSTRUMENTATION_THREAD_INIT();
-            }
+            tracr_start(threadIdx);
 
             ret = RunSche(kargs, entry, threadIdx);
 
-            /* TraCR Instrumentation */
-            if (threadIdx == 1) {
+            tracr_finalize(threadIdx, devArgs);
 
-                while ((INSTRUMENTATION_ACTIVE) && (INSTRUMENTATION_NUM_TRACR_THREADS() != 1) ) {
-                    if (INSTRUMENTATION_NUM_TRACR_THREADS() == 1) {
-                        break;
-                    }
-                }
-
-                INSTRUMENTATION_END();
-            } else {
-                INSTRUMENTATION_THREAD_FINALIZE();
-            }
         } else {
             threadIdx = ctrlcpuIdx_.fetch_add(1);	 
             DEV_INFO("TaskType %d.",  static_cast<int>(devArgs->taskType)); 
