@@ -217,15 +217,20 @@ TEST_F(AllReduceIRTest, V5PlusPull_IRStructure)
 }
 
 // ===========================================================================
-// OneShot cross-variant IR equivalence
+// OneShot cross-variant IR equivalence (base as golden reference)
 // ===========================================================================
 
 TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
 {
+    auto irBase = BuildOneShotIR("UT_EQUIV_BASE", [](Tensor& in, const char* g,
+                                                      Tensor& sd, Tensor& ss, Tensor& out) {
+        OneShotAllReduce(in, in, g, sd, ss, out);
+    }, false);
+
     auto irV2 = BuildOneShotIR("UT_EQUIV_V2", [](Tensor& in, const char* g,
                                                    Tensor& sd, Tensor& ss, Tensor& out) {
         OneShotAllReduce_v2(in, in, g, sd, ss, out);
-    }, false);
+    });
 
     auto irV3 = BuildOneShotIR("UT_EQUIV_V3", [](Tensor& in, const char* g,
                                                    Tensor& sd, Tensor& ss, Tensor& out) {
@@ -244,9 +249,10 @@ TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
         out = comm.Pull(waitToken, sd);
     });
 
-    EXPECT_EQ(irV2, irV3) << "v2 and v3 SHMEM opcode sequences differ";
-    EXPECT_EQ(irV3, irV4) << "v3 and v4 SHMEM opcode sequences differ";
-    EXPECT_EQ(irV4, irV5) << "v4 and v5+Pull SHMEM opcode sequences differ";
+    EXPECT_EQ(irBase, irV2) << "OneShot base and v2 SHMEM opcode sequences differ";
+    EXPECT_EQ(irBase, irV3) << "OneShot base and v3 SHMEM opcode sequences differ";
+    EXPECT_EQ(irBase, irV4) << "OneShot base and v4 SHMEM opcode sequences differ";
+    EXPECT_EQ(irBase, irV5) << "OneShot base and v5+Pull SHMEM opcode sequences differ";
 }
 
 // ===========================================================================
@@ -308,15 +314,20 @@ TEST_F(AllReduceIRTest, TwoShot_V5_IRStructure)
 }
 
 // ===========================================================================
-// TwoShot cross-variant IR equivalence
+// TwoShot cross-variant IR equivalence (base as golden reference)
 // ===========================================================================
 
 TEST_F(AllReduceIRTest, TwoShot_AllVariants_ShmemOpcodeEquivalence)
 {
+    auto irBase = BuildTwoShotIR("UT_TS_EQUIV_BASE", [](Tensor& in, const char* g,
+                                                         Tensor& sd, Tensor& ss, Tensor& out) {
+        TwoShotAllReduce(in, in, g, sd, ss, out);
+    }, false);
+
     auto irV2 = BuildTwoShotIR("UT_TS_EQUIV_V2", [](Tensor& in, const char* g,
                                                       Tensor& sd, Tensor& ss, Tensor& out) {
         TwoShotAllReduce_v2(in, in, g, sd, ss, out);
-    }, false);
+    });
 
     auto irV3 = BuildTwoShotIR("UT_TS_EQUIV_V3", [](Tensor& in, const char* g,
                                                       Tensor& sd, Tensor& ss, Tensor& out) {
@@ -334,7 +345,8 @@ TEST_F(AllReduceIRTest, TwoShot_AllVariants_ShmemOpcodeEquivalence)
         TwoShotAllReduce_v5(in, in, sd, comm, out);
     });
 
-    EXPECT_EQ(irV2, irV3) << "TwoShot v2 and v3 SHMEM opcode sequences differ";
-    EXPECT_EQ(irV3, irV4) << "TwoShot v3 and v4 SHMEM opcode sequences differ";
-    EXPECT_EQ(irV4, irV5) << "TwoShot v4 and v5 SHMEM opcode sequences differ";
+    EXPECT_EQ(irBase, irV2) << "TwoShot base and v2 SHMEM opcode sequences differ";
+    EXPECT_EQ(irBase, irV3) << "TwoShot base and v3 SHMEM opcode sequences differ";
+    EXPECT_EQ(irBase, irV4) << "TwoShot base and v4 SHMEM opcode sequences differ";
+    EXPECT_EQ(irBase, irV5) << "TwoShot base and v5 SHMEM opcode sequences differ";
 }
