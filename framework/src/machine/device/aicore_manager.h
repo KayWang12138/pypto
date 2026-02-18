@@ -203,7 +203,7 @@ public:
 
 private:
 
-    bool CheckTaskFinished(int coreIdx);
+    bool waitCoreFinish(int coreIdx);
 
     int WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd);
 
@@ -218,8 +218,6 @@ private:
     void ResolveDepForAllAiCore(CoreType type, int coreIdxStart, int coreIdxEnd);
 
     void BatchPushReadyQueue();
-
-    void ResolveByRegVal(CoreType type, int coreIdx, uint64_t finTaskRegVal);
 
     inline void PushAicpuTaskQueue(uint64_t taskId) {
         aicpuTaskManager_.TaskEnqueue(taskId);
