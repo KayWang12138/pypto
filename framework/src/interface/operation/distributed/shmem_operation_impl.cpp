@@ -707,9 +707,6 @@ void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* gro
         Assemble(tmp, {rowPerRank * dynRankId, 0}, out);
     }
 }
-<<<<<<< HEAD
-} // namespace npu::tile_fwk::Distributed
-=======
 // =============================================================================
 // TwoShotAllReduce_v2: Same algorithm and signature as TwoShotAllReduce.
 //
@@ -842,4 +839,3 @@ void TwoShotAllReduce_v5(const Tensor& predToken, const Tensor& in,
 }
 
 }   // namespace npu::tile_fwk::Distributed
->>>>>>> 9ffa91d6 (distributed: First attempt for TwoShot variants)

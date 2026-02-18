@@ -90,7 +90,7 @@ TEST_F(TestMoeDistributed, MoeDistributedDispatchV2)
             recvCounts);
     }
 
-    auto functionRawName = MoeDistributedGetFunctionRawName("MoeDistributedDispatchPrepare");
+    auto functionRawName = GetFunctionRawName("MoeDistributedDispatchSendData");
     auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -131,7 +131,7 @@ TEST_F(TestMoeDistributed, MoeDistributedDispatch)
             tokenTensor, tokenExpertTable, expandX, validCnt, combineInfo, group, moeConfig);
     }
 
-    auto functionRawName = MoeDistributedGetFunctionRawName("L0");
+    auto functionRawName = GetFunctionRawName("L0");
     auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -165,7 +165,7 @@ void TestMoeDistributedCombineFunc(
         func(expandX, assistInfoForCombine, recvCounts, expertScales, group, epWorldSize, moeExpertNum, 0, 0, out);
     }
 
-    auto functionRawName = MoeDistributedGetFunctionRawName(loopName);
+    auto functionRawName = GetFunctionRawName(loopName);
     auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
