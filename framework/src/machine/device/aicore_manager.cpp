@@ -194,15 +194,6 @@ uint64_t AiCoreManager::TryBatchSendTask(CoreType type, taskQueue_t* readyQue,
 uint32_t AiCoreManager::BatchSendTask(CoreType type, uint64_t *newTask, uint32_t taskCount,int coreIdxStart, int coreIdxEnd, bool isLifo) {
     uint32_t sendCnt = 0;
     uint32_t taskIdx = isLifo ? taskCount : 0;
-    uint32_t coreRunReadyCnt = coreRunReadyCnt_[static_cast<int>(type)];
-
-    while (sendCnt < static_cast<uint64_t>(coreRunReadyCnt) && sendCnt < taskCount)
-    {
-        SendTaskToAiCore(type, runReadyCoreIdx_[static_cast<int>(type)][--coreRunReadyCnt_[static_cast<int>(type)]], isLifo ? newTask[--taskIdx] : newTask[taskIdx++]);
-        sendCnt++;
-    }
-    corePendReadyCnt_[static_cast<int>(type)] -= sendCnt;
-
     uint32_t idx = lastPendReadyCoreIdx_[static_cast<int>(type)];
     uint32_t coreNum = coreIdxEnd - coreIdxStart;
     uint32_t lastProcCore = idx;
