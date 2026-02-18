@@ -25,7 +25,6 @@
 #include <gtest/gtest.h>
 
 #include "interface/program/program.h"
-#include "ir/opcode.h"
 
 namespace npu::tile_fwk {
 
@@ -94,7 +93,7 @@ inline void DumpAllIR(const std::string& label = "")
     for (const auto& [name, funcPtr] : Program::GetInstance().GetFunctionMap()) {
         std::cout << "-- " << name << " --\n";
         for (auto& op : funcPtr->Operations())
-            std::cout << "  " << GetOpcodeName(op.GetOpcode()) << "\n";
+            std::cout << "  " << pto::GetOpcodeName(op.GetOpcode()) << "\n";
     }
     std::cout << std::flush;
 }
