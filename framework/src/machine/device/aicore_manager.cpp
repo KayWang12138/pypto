@@ -110,7 +110,7 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
         // disable flushing onto the Ascend device memory directly
         INSTRUMENTATION_ENABLE_FLUSH(false);
     } else {
-        while ((INSTRUMENTATION_IS_PROC_READY() == false) && (INSTRUMENTATION_ACTIVE)) {}
+        while ((INSTRUMENTATION_ACTIVE) && (!INSTRUMENTATION_IS_PROC_READY())) {}
 
         INSTRUMENTATION_THREAD_INIT();
     }
@@ -161,7 +161,7 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
 #endif
 
     if (threadIdx == 1) {
-        while ((INSTRUMENTATION_NUM_TRACR_THREADS() != 1) && (INSTRUMENTATION_ACTIVE)) {}
+        while ((INSTRUMENTATION_ACTIVE) && (INSTRUMENTATION_NUM_TRACR_THREADS() != 1)) {}
 
         INSTRUMENTATION_END();
     } else {
