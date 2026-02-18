@@ -26,7 +26,7 @@
 #include "tilefwk/tilefwk_op.h"
 #include "tilefwk/distributed_communicator.h"
 #include "test_dev_func_runner.h"
-#include "tilefwk/pypto_fwk_log.h"
+#include "shmem_ir_test_utils.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
@@ -117,95 +117,6 @@ inline void RunTest() {
     DeviceLauncherConfig config;
     config.runModel = false;
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
-}
-
-// ---------------------------------------------------------------------------
-// IR verification helpers for AllReduce variants
-// ---------------------------------------------------------------------------
-
-// Extract the SHMEM-related opcode sequence from a specific FUNCTION block.
-// The FUNCTION macro creates a deep hierarchy:
-//   TENSOR_<name>  ->  TENSOR_TENSOR_<name>_loop_...  ->  ..._hiddenfunc  ->  ..._leaf
-// SHMEM ops live in leaf functions whose names contain <funcName>.
-// We search for all functions whose raw name contains <funcName>, filtering
-// to SHMEM opcodes.  Among those, we prefer "hiddenfunc" leaves that are NOT
-// further split into sub-leaves (i.e. the hiddenfunc itself holds ops),
-// falling back to any function with SHMEM ops.
-inline std::vector<Opcode> ExtractShmemOpcodes(const std::string& funcName)
-{
-    std::vector<Opcode> hiddenOps;
-    std::vector<Opcode> fallback;
-
-    for (const auto& [name, funcPtr] : Program::GetInstance().GetFunctionMap()) {
-        if (name.find(funcName) == std::string::npos) continue;
-
-        bool isHidden = (name.find("hiddenfunc") != std::string::npos) &&
-                        (name.find("leaf") == std::string::npos) &&
-                        (name.find("root") == std::string::npos);
-        for (auto& op : funcPtr->Operations()) {
-            Opcode code = op.GetOpcode();
-            if (code == Opcode::OP_SHMEM_PUT ||
-                code == Opcode::OP_SHMEM_SIGNAL ||
-                code == Opcode::OP_SHMEM_WAIT_UNTIL ||
-                code == Opcode::OP_SHMEM_GET) {
-                if (isHidden) {
-                    hiddenOps.push_back(code);
-                } else {
-                    fallback.push_back(code);
-                }
-            }
-        }
-    }
-    if (!hiddenOps.empty()) return hiddenOps;
-    EXPECT_FALSE(fallback.empty())
-        << "No SHMEM operations found in any function containing: " << funcName;
-    return fallback;
-}
-
-// Verify that a FUNCTION block contains the expected OneShot AllReduce
-// IR structure: worldSize * (PUT + SIGNAL), then 1 WAIT_UNTIL, then 1 GET.
-inline void VerifyOneShotAllReduceIR(const std::string& funcName, uint32_t worldSize)
-{
-    auto shmemOps = ExtractShmemOpcodes(funcName);
-
-    uint32_t putCount = 0;
-    uint32_t signalCount = 0;
-    uint32_t waitCount = 0;
-    uint32_t getCount = 0;
-    for (Opcode code : shmemOps) {
-        if (code == Opcode::OP_SHMEM_PUT) putCount++;
-        else if (code == Opcode::OP_SHMEM_SIGNAL) signalCount++;
-        else if (code == Opcode::OP_SHMEM_WAIT_UNTIL) waitCount++;
-        else if (code == Opcode::OP_SHMEM_GET) getCount++;
-    }
-
-    EXPECT_EQ(putCount, worldSize) << "Expected " << worldSize << " OP_SHMEM_PUT ops";
-    EXPECT_EQ(signalCount, worldSize) << "Expected " << worldSize << " OP_SHMEM_SIGNAL ops";
-    EXPECT_EQ(waitCount, 1u) << "Expected 1 OP_SHMEM_WAIT_UNTIL op";
-    EXPECT_EQ(getCount, 1u) << "Expected 1 OP_SHMEM_GET op";
-}
-
-// Verify that a FUNCTION block contains the expected TwoShot AllReduce
-// IR structure: worldSize * (PUT + SIGNAL + WAIT_UNTIL + GET) per chunk.
-inline void VerifyTwoShotAllReduceIR(const std::string& funcName, uint32_t worldSize)
-{
-    auto shmemOps = ExtractShmemOpcodes(funcName);
-
-    uint32_t putCount = 0;
-    uint32_t signalCount = 0;
-    uint32_t waitCount = 0;
-    uint32_t getCount = 0;
-    for (Opcode code : shmemOps) {
-        if (code == Opcode::OP_SHMEM_PUT) putCount++;
-        else if (code == Opcode::OP_SHMEM_SIGNAL) signalCount++;
-        else if (code == Opcode::OP_SHMEM_WAIT_UNTIL) waitCount++;
-        else if (code == Opcode::OP_SHMEM_GET) getCount++;
-    }
-
-    EXPECT_EQ(putCount, worldSize) << "Expected " << worldSize << " OP_SHMEM_PUT ops";
-    EXPECT_EQ(signalCount, worldSize) << "Expected " << worldSize << " OP_SHMEM_SIGNAL ops";
-    EXPECT_EQ(waitCount, worldSize) << "Expected " << worldSize << " OP_SHMEM_WAIT_UNTIL ops";
-    EXPECT_EQ(getCount, worldSize) << "Expected " << worldSize << " OP_SHMEM_GET ops";
 }
 
 enum class WinType : uint32_t {
