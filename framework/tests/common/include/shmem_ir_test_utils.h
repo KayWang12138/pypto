@@ -18,12 +18,14 @@
 #define SHMEM_IR_TEST_UTILS_H
 
 #include <cstdint>
+#include <iostream>
 #include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include "interface/program/program.h"
+#include "ir/opcode.h"
 
 namespace npu::tile_fwk {
 
@@ -80,6 +82,21 @@ inline std::string GetFunctionRawName(const std::string& funcName)
     rawName += HIDDEN_FUNC_SUFFIX;
 #endif
     return rawName;
+}
+
+// ---------------------------------------------------------------------------
+// IR dump (temporary debugging aid — remove after inspection)
+// ---------------------------------------------------------------------------
+
+inline void DumpAllIR(const std::string& label = "")
+{
+    if (!label.empty()) std::cout << "\n===== " << label << " =====\n";
+    for (const auto& [name, funcPtr] : Program::GetInstance().GetFunctionMap()) {
+        std::cout << "-- " << name << " --\n";
+        for (auto& op : funcPtr->Operations())
+            std::cout << "  " << GetOpcodeName(op.GetOpcode()) << "\n";
+    }
+    std::cout << std::flush;
 }
 
 // ---------------------------------------------------------------------------
