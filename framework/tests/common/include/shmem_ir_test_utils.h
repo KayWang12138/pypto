@@ -93,7 +93,7 @@ inline void DumpAllIR(const std::string& label = "")
     for (const auto& [name, funcPtr] : Program::GetInstance().GetFunctionMap()) {
         std::cout << "-- " << name << " --\n";
         for (auto& op : funcPtr->Operations())
-            std::cout << "  " << pto::GetOpcodeName(op.GetOpcode()) << "\n";
+            std::cout << "  " << pto::GetOpcodeName(static_cast<pto::Opcode>(op.GetOpcode())) << "\n";
     }
     std::cout << std::flush;
 }
