@@ -54,21 +54,21 @@ inline void tracr_start(const int threadIdx) {
  * finalizing tracr
  */
 inline void tracr_finalize(const int threadIdx, const DeviceArgs *devArgs) {
-
+    void(devArgs->tracrData);
 #ifdef ENABLE_TRACR
     // Copy the tracr payloads on the shared memory space
     TraCR::Payload* tracrData_ = reinterpret_cast<TraCR::Payload*>(devArgs->tracrData);
     size_t* tracrDataSizes_ = reinterpret_cast<size_t*>(devArgs->tracrDataSizes);
 
     if (tracrThread->_traceIdx > 0) {
-        const size_t size = tracrThread->_traceIdx * sizeof(TraCR::Payload);
+        const size_t payload_size = tracrThread->_traceIdx * sizeof(TraCR::Payload);
         
         // Slower than std::memcpy() but CI Pipeline approved
         memcpy_s(
             &tracrData_[threadIdx * TraCR::CAPACITY],
-            size,
+            payload_size,
             tracrThread->_traces.data(),
-            size
+            payload_size
         );
     }
         
