@@ -87,13 +87,35 @@ inline std::string GetFunctionRawName(const std::string& funcName)
 // IR dump (temporary debugging aid — remove after inspection)
 // ---------------------------------------------------------------------------
 
+inline std::string OpcodeName(Opcode code)
+{
+    if (code == Opcode::OP_SHMEM_PUT)            return "OP_SHMEM_PUT";
+    if (code == Opcode::OP_SHMEM_SIGNAL)         return "OP_SHMEM_SIGNAL";
+    if (code == Opcode::OP_SHMEM_WAIT_UNTIL)     return "OP_SHMEM_WAIT_UNTIL";
+    if (code == Opcode::OP_SHMEM_GET)            return "OP_SHMEM_GET";
+    std::string n = pto::GetOpcodeName(static_cast<pto::Opcode>(code));
+    if (!n.empty()) return n;
+    return "OPCODE(" + std::to_string(static_cast<int>(code)) + ")";
+}
+
 inline void DumpAllIR(const std::string& label = "")
 {
     if (!label.empty()) std::cout << "\n===== " << label << " =====\n";
     for (const auto& [name, funcPtr] : Program::GetInstance().GetFunctionMap()) {
-        std::cout << "-- " << name << " --\n";
-        for (auto& op : funcPtr->Operations())
-            std::cout << "  " << pto::GetOpcodeName(static_cast<pto::Opcode>(op.GetOpcode())) << "\n";
+        auto& ops = funcPtr->Operations();
+        if (ops.empty()) continue;
+        bool hasShmem = false;
+        for (auto& op : ops) {
+            if (IsShmemOpcode(op.GetOpcode())) { hasShmem = true; break; }
+        }
+        std::cout << "-- " << name << " (" << ops.size() << " ops"
+                  << (hasShmem ? ", SHMEM" : "") << ") --\n";
+        for (auto& op : ops) {
+            Opcode code = op.GetOpcode();
+            std::cout << "  " << OpcodeName(code);
+            if (IsShmemOpcode(code)) std::cout << "  <===";
+            std::cout << "\n";
+        }
     }
     std::cout << std::flush;
 }
