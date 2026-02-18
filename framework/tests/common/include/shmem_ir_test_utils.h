@@ -102,14 +102,14 @@ inline void DumpAllIR(const std::string& label = "")
 {
     if (!label.empty()) std::cout << "\n===== " << label << " =====\n";
     for (const auto& [name, funcPtr] : Program::GetInstance().GetFunctionMap()) {
-        auto& ops = funcPtr->Operations();
-        if (ops.empty()) continue;
+        auto ops = funcPtr->Operations();
+        if (ops.IsEmpty()) continue;
         bool hasShmem = false;
         for (auto& op : ops) {
             if (IsShmemOpcode(op.GetOpcode())) { hasShmem = true; break; }
         }
-        std::cout << "-- " << name << " (" << ops.size() << " ops"
-                  << (hasShmem ? ", SHMEM" : "") << ") --\n";
+        std::cout << "-- " << name
+                  << (hasShmem ? " [SHMEM]" : "") << " --\n";
         for (auto& op : ops) {
             Opcode code = op.GetOpcode();
             std::cout << "  " << OpcodeName(code);
