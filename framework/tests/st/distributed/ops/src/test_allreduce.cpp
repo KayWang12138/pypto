@@ -279,8 +279,8 @@ void TestAllReduce_v5(OpTestParam &testParam, std::string &goldenDir)
             CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
             CreateShmemSignal(testParam.group, shmemData, shmemSignal);
         }
-        // CommunicatorV2 constructed externally, passed into v5
-        CommunicatorV2 comm(testParam.group, testParam.rankSize, shmemSignal);
+        // OneShotCommunicatorV2 constructed externally, passed into v5
+        OneShotCommunicatorV2 comm(testParam.group, testParam.rankSize, shmemSignal);
         auto waitToken = OneShotAllReduce_v5(in, in, shmemData, comm);
         // Pull happens outside v5 — postprocessing by the caller
         out = comm.Pull(waitToken, shmemData);
@@ -606,7 +606,7 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
         FUNCTION("IR_CHECK_V5", {in}, {out}) {
             Tensor shmemData, shmemSignal;
             buildShmemSetup(in, shmemData, shmemSignal);
-            CommunicatorV2 comm(testParam.group, testParam.rankSize, shmemSignal);
+            OneShotCommunicatorV2 comm(testParam.group, testParam.rankSize, shmemSignal);
             auto waitToken = OneShotAllReduce_v5(in, in, shmemData, comm);
             out = comm.Pull(waitToken, shmemData);
         }

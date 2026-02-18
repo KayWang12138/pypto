@@ -24,29 +24,51 @@ namespace npu::tile_fwk {
 namespace Distributed {
 
 // =============================================================================
-// Communicator: Encapsulates shmem data/signal buffers and group metadata.
+// CommunicatorBase: Shared state and accessors for all communicator variants.
+//
+// Holds the HCCL group identity (group name, world size, this rank) and a
+// reference to the shared-memory signal tensor.  Derived classes add their
+// own data-tensor references, dimension caches, and Put/Wait/Pull methods.
+// =============================================================================
+class CommunicatorBase {
+protected:
+    CommunicatorBase(const std::string& group, uint32_t worldSize, Tensor& shmemSignal)
+        : group_(group)
+        , worldSize_(worldSize)
+        , thisRank_(GetHcclRankId(group))
+        , shmemSignal_(shmemSignal)
+    {}
+
+    CommunicatorBase(const CommunicatorBase&) = delete;
+    CommunicatorBase& operator=(const CommunicatorBase&) = delete;
+
+public:
+    uint32_t WorldSize() const { return worldSize_; }
+    SymbolicScalar ThisRank() const { return thisRank_; }
+
+protected:
+    std::string group_;
+    uint32_t worldSize_;
+    SymbolicScalar thisRank_;
+    Tensor& shmemSignal_;
+};
+
+// =============================================================================
+// OneShotCommunicator: Encapsulates shmem data/signal buffers and group
+// metadata for OneShot algorithms.
 //
 // Hides the symmetric memory layout so that algorithm authors work with
 // rank IDs instead of raw multi-dimensional View() indexing.
 // Both data and signal Views are derived internally from rank IDs.
 // =============================================================================
-class Communicator {
+class OneShotCommunicator : public CommunicatorBase {
 public:
-    Communicator(const std::string& group, Tensor& shmemData, Tensor& shmemSignal)
-        : group_(group)
+    OneShotCommunicator(const std::string& group, Tensor& shmemData, Tensor& shmemSignal)
+        : CommunicatorBase(group, static_cast<uint32_t>(shmemData.GetShape()[0]), shmemSignal)
         , shmemData_(shmemData)
-        , shmemSignal_(shmemSignal)
-        , worldSize_(static_cast<uint32_t>(shmemData.GetShape()[0]))
-        , thisRank_(GetHcclRankId(group))
         , row_(shmemData.GetShape()[2])
         , col_(shmemData.GetShape()[3])
     {}
-
-    Communicator(const Communicator&) = delete;
-    Communicator& operator=(const Communicator&) = delete;
-
-    uint32_t WorldSize() const { return worldSize_; }
-    SymbolicScalar ThisRank() const { return thisRank_; }  // unused; kept for symmetry with CommunicatorV2
 
     // Put + Signal: write data to targetRank's shmem slot, then signal it.
     void Put(const Tensor& pred, const Tensor& input, uint32_t targetRank,
@@ -73,24 +95,21 @@ public:
     }
 
 private:
-    std::string group_;  // unused for now; kept for debug
     Tensor& shmemData_;
-    Tensor& shmemSignal_;
-    uint32_t worldSize_;
-    SymbolicScalar thisRank_;
     int32_t row_;
     int32_t col_;
 };
 
 // =============================================================================
-// CommunicatorV2: Communication engine with group metadata and explicit data views.
+// OneShotCommunicatorV2: Communication engine with group metadata and explicit
+// data views for OneShot algorithms.
 //
 // Designed for algorithm authors writing distributed collectives on top of the
 // SHMEM primitives (ShmemPut, ShmemSignal, WaitUntil, ShmemGet).
 //
 // Separation of concerns:
 //   - Algorithm author: data layout (explicit View calls at call site)
-//   - CommunicatorV2:  group metadata + signal coordination
+//   - OneShotCommunicatorV2: group metadata + signal coordination
 //
 // Three-phase API:
 //   1. Put()  — scatter data to target rank's shmem slot + signal
@@ -101,23 +120,14 @@ private:
 // output type without requiring the caller to pass it again.
 // WaitAndGet() is retained as a convenience for the combined Wait+Pull pattern.
 // =============================================================================
-class CommunicatorV2 {
+class OneShotCommunicatorV2 : public CommunicatorBase {
 public:
-    CommunicatorV2(const std::string& group, uint32_t worldSize, Tensor& shmemSignal)
-        : group_(group)
-        , worldSize_(worldSize)
-        , thisRank_(GetHcclRankId(group))
-        , shmemSignal_(shmemSignal)
+    OneShotCommunicatorV2(const std::string& group, uint32_t worldSize, Tensor& shmemSignal)
+        : CommunicatorBase(group, worldSize, shmemSignal)
         , row_(shmemSignal.GetShape()[3])
         , col_(shmemSignal.GetShape()[4])
         , inputDtype_(DT_BOTTOM)
     {}
-
-    CommunicatorV2(const CommunicatorV2&) = delete;
-    CommunicatorV2& operator=(const CommunicatorV2&) = delete;
-
-    uint32_t GetWorldSize() const { return worldSize_; }
-    SymbolicScalar GetThisRank() const { return thisRank_; }
 
     // Write data to targetRank's shmem slot + signal it.
     // Caller provides the data View; signal View is built internally.
@@ -129,7 +139,6 @@ public:
         if (inputDtype_ == DT_BOTTOM) {
             inputDtype_ = input.GetDataType();
         } else {
-            // Guard against mixed dtypes across Put() calls within the same collective.
             ASSERT(inputDtype_ == input.GetDataType())
                 << "All Put() calls must use the same dtype, expected " << inputDtype_
                 << " but got " << input.GetDataType();
@@ -174,10 +183,6 @@ public:
     }
 
 private:
-    std::string group_;  // unused for now; kept for debug
-    uint32_t worldSize_;
-    SymbolicScalar thisRank_;
-    Tensor& shmemSignal_;
     int32_t row_;
     int32_t col_;
     DataType inputDtype_;
@@ -190,29 +195,20 @@ private:
 // with chunk IDs instead of raw multi-dimensional View() indexing.
 // Both data and signal Views are derived internally from chunk IDs.
 //
-// Key difference from Communicator (OneShot):
+// Key difference from OneShotCommunicator:
 //   - Put() returns a signal token (needed as per-chunk dependency for Wait)
 //   - WaitAndGet() takes a chunk ID, dependency token, and explicit dtype
 //   - shmemData layout: {worldSize, worldSize, rowPerRank, col}
 //   - shmemSignal layout: {worldSize, worldSize, worldSize, rowPerRank, col}
 // =============================================================================
-class TwoShotCommunicator {
+class TwoShotCommunicator : public CommunicatorBase {
 public:
     TwoShotCommunicator(const std::string& group, Tensor& shmemData, Tensor& shmemSignal)
-        : group_(group)
+        : CommunicatorBase(group, static_cast<uint32_t>(shmemData.GetShape()[0]), shmemSignal)
         , shmemData_(shmemData)
-        , shmemSignal_(shmemSignal)
-        , worldSize_(static_cast<uint32_t>(shmemData.GetShape()[0]))
-        , thisRank_(GetHcclRankId(group))
         , rowPerRank_(shmemData.GetShape()[2])
         , col_(shmemData.GetShape()[3])
     {}
-
-    TwoShotCommunicator(const TwoShotCommunicator&) = delete;
-    TwoShotCommunicator& operator=(const TwoShotCommunicator&) = delete;
-
-    uint32_t WorldSize() const { return worldSize_; }
-    SymbolicScalar ThisRank() const { return thisRank_; }  // unused; kept for symmetry
 
     // Put + Signal: write input chunk to chunkId's shmem slot, then signal all ranks.
     // Returns signal dependency token (needed as dep for per-chunk WaitAndGet).
@@ -240,11 +236,7 @@ public:
     }
 
 private:
-    std::string group_;  // unused for now; kept for debug
     Tensor& shmemData_;
-    Tensor& shmemSignal_;
-    uint32_t worldSize_;
-    SymbolicScalar thisRank_;
     int32_t rowPerRank_;
     int32_t col_;
 };
@@ -261,29 +253,20 @@ private:
 //   2. Wait() — synchronization barrier on this rank's signal for a given chunk
 //   3. Pull() — read reduced result from shmem (uses latched dtype)
 //
-// Key difference from CommunicatorV2 (OneShot):
+// Key difference from OneShotCommunicatorV2:
 //   - Put/Wait/WaitAndGet take a chunkId parameter (per-chunk signal indexing)
 //   - Signal views use TwoShot layout: {worldSize,1,1,rowPerRank,col} for Put,
 //     {1,1,1,rowPerRank,col} for Wait
 //   - shmemSignal layout: {worldSize, worldSize, worldSize, rowPerRank, col}
 // =============================================================================
-class TwoShotCommunicatorV2 {
+class TwoShotCommunicatorV2 : public CommunicatorBase {
 public:
     TwoShotCommunicatorV2(const std::string& group, uint32_t worldSize, Tensor& shmemSignal)
-        : group_(group)
-        , worldSize_(worldSize)
-        , thisRank_(GetHcclRankId(group))
-        , shmemSignal_(shmemSignal)
+        : CommunicatorBase(group, worldSize, shmemSignal)
         , rowPerRank_(shmemSignal.GetShape()[3])
         , col_(shmemSignal.GetShape()[4])
         , inputDtype_(DT_BOTTOM)
     {}
-
-    TwoShotCommunicatorV2(const TwoShotCommunicatorV2&) = delete;
-    TwoShotCommunicatorV2& operator=(const TwoShotCommunicatorV2&) = delete;
-
-    uint32_t GetWorldSize() const { return worldSize_; }
-    SymbolicScalar GetThisRank() const { return thisRank_; }
 
     // Write input chunk to chunkId's shmem slot + signal all ranks.
     // Caller provides the data View; signal View is built internally.
@@ -332,10 +315,6 @@ public:
     }
 
 private:
-    std::string group_;  // unused for now; kept for debug
-    uint32_t worldSize_;
-    SymbolicScalar thisRank_;
-    Tensor& shmemSignal_;
     int32_t rowPerRank_;
     int32_t col_;
     DataType inputDtype_;
