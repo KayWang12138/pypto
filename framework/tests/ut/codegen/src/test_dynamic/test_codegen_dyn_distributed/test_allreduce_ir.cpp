@@ -474,8 +474,12 @@ TEST_P(AllReduceIRMultiRankTest, TwoShotV5_IRStructure)
 INSTANTIATE_TEST_SUITE_P(
     MultiRank, AllReduceIRMultiRankTest,
     ::testing::Values(2u, 4u, 8u),
-    [](const ::testing::TestParamInfo<uint32_t>& info) {
-        return "WorldSize" + std::to_string(info.param);
+    [](const ::testing::TestParamInfo<uint32_t>& param_info) {
+        return "WorldSize" + std::to_string(param_info.param);
     });
 
 } // namespace npu::tile_fwk::Distributed
+
+
+
+
