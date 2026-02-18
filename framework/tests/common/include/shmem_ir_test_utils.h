@@ -120,7 +120,21 @@ inline std::vector<Opcode> ExtractShmemOpcodes(const std::string& funcName)
 }
 
 // ---------------------------------------------------------------------------
-// Count verification
+// Presence verification (compiler-independent)
+// ---------------------------------------------------------------------------
+
+// Verifies that SHMEM ops are non-empty and all four op types are present.
+// Suitable for environments where exact counts are compiler-dependent.
+inline void VerifyShmemOpsPresent(const ShmemOpCounts& c)
+{
+    EXPECT_GT(c.put, 0u) << "Expected at least 1 OP_SHMEM_PUT";
+    EXPECT_GT(c.signal, 0u) << "Expected at least 1 OP_SHMEM_SIGNAL";
+    EXPECT_GT(c.wait, 0u) << "Expected at least 1 OP_SHMEM_WAIT_UNTIL";
+    EXPECT_GT(c.get, 0u) << "Expected at least 1 OP_SHMEM_GET";
+}
+
+// ---------------------------------------------------------------------------
+// Count verification (accelerator-specific)
 // ---------------------------------------------------------------------------
 
 // OneShot: worldSize PUTs, worldSize SIGNALs, 1 WAIT_UNTIL, 1 GET.
@@ -144,7 +158,7 @@ inline void VerifyTwoShotCounts(const ShmemOpCounts& c, uint32_t worldSize)
 }
 
 // ---------------------------------------------------------------------------
-// Ordering verification
+// Ordering verification (accelerator-specific)
 // ---------------------------------------------------------------------------
 
 // OneShot expected sequence: PUT*N, SIGNAL*N, WAIT*1, GET*1.
