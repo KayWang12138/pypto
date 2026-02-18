@@ -503,10 +503,9 @@ template void TestAllReduce_TwoShot_v5<float16>(OpTestParam &testParam, std::str
 template void TestAllReduce_TwoShot_v5<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
 
 // ---------------------------------------------------------------------------
-// OneShot IR Equivalence Test — verifies v2, v3, v4, v5+Pull produce identical
-// SHMEM opcode sequences (graph-only, no hardware execution).
-// Each variant uses a unique FUNCTION name, so GetFunctionByRawName()
-// finds the correct leaf function without cross-contamination.
+// OneShot IR Equivalence Test — builds the base OneShotAllReduce as the golden
+// reference and verifies that v2, v3, v4, v5+Pull all produce identical SHMEM
+// opcode sequences (graph-only, no hardware execution).
 // ---------------------------------------------------------------------------
 template<typename T>
 void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
@@ -532,9 +531,24 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
         }
     };
 
+    // ── base (golden reference) ──
+    std::vector<Opcode> irBase;
+    {
+        Tensor in(dType, shape, "in_base");
+        Tensor out(dType, shape, "out_base");
+        FUNCTION("IR_CHECK_BASE", {in}, {out}) {
+            Tensor shmemData, shmemSignal;
+            buildShmemSetup(in, shmemData, shmemSignal);
+            OneShotAllReduce(in, in, testParam.group, shmemData, shmemSignal, out);
+        }
+        irBase = ExtractShmemOpcodes("IR_CHECK_BASE");
+        VerifyOneShotAllReduceIR("IR_CHECK_BASE", testParam.rankSize);
+    }
+
     // ── v2 ──
     std::vector<Opcode> irV2;
     {
+        Program::GetInstance().Reset();
         Tensor in(dType, shape, "in_v2");
         Tensor out(dType, shape, "out_v2");
         FUNCTION("IR_CHECK_V2", {in}, {out}) {
@@ -593,10 +607,11 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
         VerifyOneShotAllReduceIR("IR_CHECK_V5", testParam.rankSize);
     }
 
-    // ── Cross-variant equivalence: all four must produce the same SHMEM IR ──
-    EXPECT_EQ(irV2, irV3) << "v2 and v3 SHMEM opcode sequences differ";
-    EXPECT_EQ(irV3, irV4) << "v3 and v4 SHMEM opcode sequences differ";
-    EXPECT_EQ(irV4, irV5) << "v4 and v5+Pull SHMEM opcode sequences differ";
+    // ── Cross-variant equivalence: all must match the base (golden) ──
+    EXPECT_EQ(irBase, irV2) << "OneShot base and v2 SHMEM opcode sequences differ";
+    EXPECT_EQ(irBase, irV3) << "OneShot base and v3 SHMEM opcode sequences differ";
+    EXPECT_EQ(irBase, irV4) << "OneShot base and v4 SHMEM opcode sequences differ";
+    EXPECT_EQ(irBase, irV5) << "OneShot base and v5+Pull SHMEM opcode sequences differ";
 }
 
 template void TestAllReduceIREquivalence<int32_t>(OpTestParam &testParam, std::string &goldenDir);
@@ -605,8 +620,9 @@ template void TestAllReduceIREquivalence<float16>(OpTestParam &testParam, std::s
 template void TestAllReduceIREquivalence<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
 
 // ---------------------------------------------------------------------------
-// TwoShot IR Equivalence Test — verifies TwoShot v2, v3, v4, v5 produce
-// identical SHMEM opcode sequences (graph-only, no hardware execution).
+// TwoShot IR Equivalence Test — builds the base TwoShotAllReduce as the golden
+// reference and verifies that v2, v3, v4, v5 all produce identical SHMEM
+// opcode sequences (graph-only, no hardware execution).
 // ---------------------------------------------------------------------------
 template<typename T>
 void TestTwoShotAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
@@ -634,9 +650,24 @@ void TestTwoShotAllReduceIREquivalence(OpTestParam &testParam, std::string &gold
         }
     };
 
+    // ── base (golden reference) ──
+    std::vector<Opcode> irBase;
+    {
+        Tensor in(dType, shape, "in_ts_base");
+        Tensor out(dType, shape, "out_ts_base");
+        FUNCTION("TS_IR_CHECK_BASE", {in}, {out}) {
+            Tensor shmemData, shmemSignal;
+            buildShmemSetup(in, shmemData, shmemSignal);
+            TwoShotAllReduce(in, in, testParam.group, shmemData, shmemSignal, out);
+        }
+        irBase = ExtractShmemOpcodes("TS_IR_CHECK_BASE");
+        VerifyTwoShotAllReduceIR("TS_IR_CHECK_BASE", testParam.rankSize);
+    }
+
     // ── v2 ──
     std::vector<Opcode> irV2;
     {
+        Program::GetInstance().Reset();
         Tensor in(dType, shape, "in_ts_v2");
         Tensor out(dType, shape, "out_ts_v2");
         FUNCTION("TS_IR_CHECK_V2", {in}, {out}) {
@@ -694,10 +725,11 @@ void TestTwoShotAllReduceIREquivalence(OpTestParam &testParam, std::string &gold
         VerifyTwoShotAllReduceIR("TS_IR_CHECK_V5", testParam.rankSize);
     }
 
-    // ── Cross-variant equivalence: all four must produce the same SHMEM IR ──
-    EXPECT_EQ(irV2, irV3) << "TwoShot v2 and v3 SHMEM opcode sequences differ";
-    EXPECT_EQ(irV3, irV4) << "TwoShot v3 and v4 SHMEM opcode sequences differ";
-    EXPECT_EQ(irV4, irV5) << "TwoShot v4 and v5 SHMEM opcode sequences differ";
+    // ── Cross-variant equivalence: all must match the base (golden) ──
+    EXPECT_EQ(irBase, irV2) << "TwoShot base and v2 SHMEM opcode sequences differ";
+    EXPECT_EQ(irBase, irV3) << "TwoShot base and v3 SHMEM opcode sequences differ";
+    EXPECT_EQ(irBase, irV4) << "TwoShot base and v4 SHMEM opcode sequences differ";
+    EXPECT_EQ(irBase, irV5) << "TwoShot base and v5 SHMEM opcode sequences differ";
 }
 
 template void TestTwoShotAllReduceIREquivalence<int32_t>(OpTestParam &testParam, std::string &goldenDir);

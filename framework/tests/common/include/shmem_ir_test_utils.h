@@ -169,33 +169,31 @@ inline void VerifyOneShotOrdering(const std::vector<Opcode>& ops)
     }
 }
 
-// TwoShot expected sequence: worldSize chunks, each chunk is
-// [PUT*N, SIGNAL*N, WAIT*N, GET*N] where N = worldSize.
+// TwoShot expected sequence: PUT*N^2, SIGNAL*N^2, WAIT*N^2, GET*N^2
+// where N = worldSize.  The compiler groups all ops by type across chunks
+// (same phase ordering as OneShot, different counts).
 inline void VerifyTwoShotOrdering(const std::vector<Opcode>& ops, uint32_t worldSize)
 {
-    uint32_t opsPerChunk = worldSize * 4u;
-    uint32_t totalExpected = worldSize * opsPerChunk;
+    uint32_t n = worldSize * worldSize;
+    uint32_t totalExpected = n * 4u;
     ASSERT_EQ(static_cast<uint32_t>(ops.size()), totalExpected)
         << "Expected " << totalExpected << " SHMEM ops for TwoShot, got " << ops.size();
 
-    for (uint32_t chunk = 0; chunk < worldSize; ++chunk) {
-        uint32_t base = chunk * opsPerChunk;
-        for (uint32_t j = 0; j < worldSize; ++j) {
-            EXPECT_EQ(ops[base + j], Opcode::OP_SHMEM_PUT)
-                << "Chunk " << chunk << ": expected PUT at position " << (base + j);
-        }
-        for (uint32_t j = 0; j < worldSize; ++j) {
-            EXPECT_EQ(ops[base + worldSize + j], Opcode::OP_SHMEM_SIGNAL)
-                << "Chunk " << chunk << ": expected SIGNAL at position " << (base + worldSize + j);
-        }
-        for (uint32_t j = 0; j < worldSize; ++j) {
-            EXPECT_EQ(ops[base + 2u * worldSize + j], Opcode::OP_SHMEM_WAIT_UNTIL)
-                << "Chunk " << chunk << ": expected WAIT_UNTIL at position " << (base + 2u * worldSize + j);
-        }
-        for (uint32_t j = 0; j < worldSize; ++j) {
-            EXPECT_EQ(ops[base + 3u * worldSize + j], Opcode::OP_SHMEM_GET)
-                << "Chunk " << chunk << ": expected GET at position " << (base + 3u * worldSize + j);
-        }
+    for (uint32_t i = 0; i < n; ++i) {
+        EXPECT_EQ(ops[i], Opcode::OP_SHMEM_PUT)
+            << "Expected PUT at position " << i;
+    }
+    for (uint32_t i = 0; i < n; ++i) {
+        EXPECT_EQ(ops[n + i], Opcode::OP_SHMEM_SIGNAL)
+            << "Expected SIGNAL at position " << (n + i);
+    }
+    for (uint32_t i = 0; i < n; ++i) {
+        EXPECT_EQ(ops[2u * n + i], Opcode::OP_SHMEM_WAIT_UNTIL)
+            << "Expected WAIT_UNTIL at position " << (2u * n + i);
+    }
+    for (uint32_t i = 0; i < n; ++i) {
+        EXPECT_EQ(ops[3u * n + i], Opcode::OP_SHMEM_GET)
+            << "Expected GET at position " << (3u * n + i);
     }
 }
 
