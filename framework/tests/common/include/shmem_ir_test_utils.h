@@ -69,6 +69,8 @@ inline ShmemOpCounts CountShmemOps(const std::vector<Opcode>& ops)
 // ---------------------------------------------------------------------------
 // Function raw-name construction (reuses the established codebase pattern
 // from test_shmem_operation_impl.cpp / test_moe_distributed.cpp).
+// Suitable for LOOP sub-functions whose raw names follow a predictable
+// TENSOR_{name}_Unroll1_PATH0[_hiddenfunc0] pattern.
 // ---------------------------------------------------------------------------
 
 inline std::string GetFunctionRawName(const std::string& funcName)
@@ -84,25 +86,37 @@ inline std::string GetFunctionRawName(const std::string& funcName)
 // Opcode extraction
 // ---------------------------------------------------------------------------
 
-// Extract SHMEM opcodes from the compiled FUNCTION identified by funcName.
-// Uses GetFunctionByRawName for a deterministic exact lookup instead of
-// substring-matching across the full function map.
+// Extract SHMEM opcodes from a FUNCTION block identified by funcName.
+// Uses substring matching on the function map because top-level FUNCTION
+// blocks and LOOP sub-functions produce different raw-name conventions.
+// Prefers the "hiddenfunc" variant (excluding leaf/root) to avoid
+// double-counting from the function hierarchy.
 inline std::vector<Opcode> ExtractShmemOpcodes(const std::string& funcName)
 {
-    std::string rawName = GetFunctionRawName(funcName);
-    Function* func = Program::GetInstance().GetFunctionByRawName(rawName);
-    EXPECT_NE(func, nullptr) << "Function not found: " << rawName;
-    if (func == nullptr) return {};
+    std::vector<Opcode> hiddenOps;
+    std::vector<Opcode> fallback;
 
-    std::vector<Opcode> ops;
-    for (auto& op : func->Operations()) {
-        Opcode code = op.GetOpcode();
-        if (IsShmemOpcode(code)) {
-            ops.push_back(code);
+    for (const auto& [name, funcPtr] : Program::GetInstance().GetFunctionMap()) {
+        if (name.find(funcName) == std::string::npos) continue;
+
+        bool isHidden = (name.find("hiddenfunc") != std::string::npos) &&
+                        (name.find("leaf") == std::string::npos) &&
+                        (name.find("root") == std::string::npos);
+        for (auto& op : funcPtr->Operations()) {
+            Opcode code = op.GetOpcode();
+            if (IsShmemOpcode(code)) {
+                if (isHidden) {
+                    hiddenOps.push_back(code);
+                } else {
+                    fallback.push_back(code);
+                }
+            }
         }
     }
-    EXPECT_FALSE(ops.empty()) << "No SHMEM operations found in: " << rawName;
-    return ops;
+    if (!hiddenOps.empty()) return hiddenOps;
+    EXPECT_FALSE(fallback.empty())
+        << "No SHMEM operations found in any function containing: " << funcName;
+    return fallback;
 }
 
 // ---------------------------------------------------------------------------
