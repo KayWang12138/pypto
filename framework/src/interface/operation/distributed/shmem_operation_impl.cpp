@@ -501,14 +501,11 @@ static Tensor WaitAndGet(const Tensor& pred, const Tensor& dataTile, const Tenso
     return ShmemGet(waitOut, dataTile, pred.GetDataType());
 }
 
-// =============================================================================
 // OneShotAllReduce_v2: Same algorithm and signature as OneShotAllReduce.
 //
 // Reduces repetition via:
 //   - viewData(rank)/viewSignal(rank) lambdas for the fixed shmem layout
-//   - PutAndSignal / WaitAndGet free functions for the paired operations
-//
-// =============================================================================
+//   - PutAndSignal / WaitAndGet --> paired operations
 void OneShotAllReduce_v2(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
     Tensor& shmemSignal, Tensor& out)
 {
@@ -531,12 +528,10 @@ void OneShotAllReduce_v2(const Tensor& predToken, const Tensor& in, const char* 
         worldSize);
 }
 
-// =============================================================================
 // OneShotAllReduce_v3: Uses an OneShotCommunicator to hide shmem layout details.
 //
 // The algorithm author works with rank IDs instead of raw View() calls.
 // Emitted IR is identical to OneShotAllReduce / OneShotAllReduce_v2.
-// =============================================================================
 void OneShotAllReduce_v3(const Tensor& predToken, const Tensor& in, const char* group,
     Tensor& shmemData, Tensor& shmemSignal, Tensor& out)
 {
@@ -551,15 +546,8 @@ void OneShotAllReduce_v3(const Tensor& predToken, const Tensor& in, const char* 
     out = comm.WaitAndGet(in);
 }
 
-// =============================================================================
-// OneShotAllReduce_v4: OneShotCommunicatorV2 with explicit data Views.
-//
-// The algorithm author controls data placement via explicit View() calls.
-// The OneShotCommunicatorV2 handles signal coordination and group metadata internally.
-// Put() returns a dependency token for explicit dependency tracking.
-//
-// Emitted IR is identical to OneShotAllReduce / v2 / v3.
-// =============================================================================
+// OneShotAllReduce_v4: like v3 but with OneShotCommunicatorV2 and explicit data Views.
+// Same IR as v2/v3.
 void OneShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* group,
     Tensor& shmemData, Tensor& shmemSignal, Tensor& out)
 {
@@ -580,16 +568,8 @@ void OneShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* 
     out = comm.WaitAndGet(in, dataLocal);
 }
 
-// =============================================================================
-// OneShotAllReduce_v5: Three-phase — Scatter + Wait only.
-//
-// The caller constructs OneShotCommunicatorV2 externally and passes it in.
-// This function performs Phase 1 (Scatter) and Phase 2 (Wait), then
-// returns the waitToken. The caller invokes comm.Pull() externally
-// as postprocessing, enabling computation-communication overlap.
-//
-// Emitted IR is identical to OneShotAllReduce / v2 / v3 / v4.
-// =============================================================================
+// OneShotAllReduce_v5: like v4 but with external OneShotCommunicatorV2.
+// Same IR as v2/v3/v4.
 Tensor OneShotAllReduce_v5(const Tensor& predToken, const Tensor& in,
     Tensor& shmemData, OneShotCommunicatorV2& comm)
 {
@@ -630,15 +610,11 @@ void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* gro
         Assemble(tmp, {rowPerRank * dynRankId, 0}, out);
     }
 }
-// =============================================================================
 // TwoShotAllReduce_v2: Same algorithm and signature as TwoShotAllReduce.
 //
-// Reduces repetition via view lambdas for the TwoShot shmem layout:
+// Reduces repetition via views for the TwoShot shmem layout:
 //   - viewData(chunkId) / viewPutSignal(chunkId) / viewWaitSignal(chunkId)
 //   - inputChunk(chunkId) for input tiling
-//
-// Emitted IR is identical to TwoShotAllReduce.
-// =============================================================================
 void TwoShotAllReduce_v2(const Tensor& predToken, const Tensor& in, const char* group,
     Tensor& shmemData, Tensor& shmemSignal, Tensor& out)
 {
@@ -674,15 +650,11 @@ void TwoShotAllReduce_v2(const Tensor& predToken, const Tensor& in, const char* 
     }
 }
 
-// =============================================================================
 // TwoShotAllReduce_v3: Uses a TwoShotCommunicator to hide shmem layout details.
 //
-// The algorithm author works with chunk IDs instead of raw View() calls
+// Works with chunk IDs instead of raw View() calls
 // for shmem data and signal buffers. Input chunking and Assemble remain
-// in the algorithm (inherent to the two-shot decomposition).
-//
-// Emitted IR is identical to TwoShotAllReduce / TwoShotAllReduce_v2.
-// =============================================================================
+// in the algorithm.
 void TwoShotAllReduce_v3(const Tensor& predToken, const Tensor& in, const char* group,
     Tensor& shmemData, Tensor& shmemSignal, Tensor& out)
 {
@@ -699,15 +671,11 @@ void TwoShotAllReduce_v3(const Tensor& predToken, const Tensor& in, const char* 
     }
 }
 
-// =============================================================================
 // TwoShotAllReduce_v4: TwoShotCommunicatorV2 with explicit data Views.
 //
 // The algorithm author controls data placement via explicit View() calls.
-// The TwoShotCommunicatorV2 handles signal coordination and group metadata.
+// TwoShotCommunicatorV2 handles signal coordination and group metadata.
 // Uses combined WaitAndGet() per chunk (convenience method).
-//
-// Emitted IR is identical to TwoShotAllReduce / v2 / v3.
-// =============================================================================
 void TwoShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* group,
     Tensor& shmemData, Tensor& shmemSignal, Tensor& out)
 {
@@ -727,10 +695,7 @@ void TwoShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* 
     }
 }
 
-// =============================================================================
 // TwoShotAllReduce_v5: per-chunk Put/Wait/Pull with external TwoShotCommunicatorV2.
-// Produces the same IR as v2/v3/v4.
-// =============================================================================
 void TwoShotAllReduce_v5(const Tensor& predToken, const Tensor& in,
     Tensor& shmemData, TwoShotCommunicatorV2& comm, Tensor& out)
 {
