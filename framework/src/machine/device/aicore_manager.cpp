@@ -252,7 +252,7 @@ void AiCoreManager::ResolveDepForAllAiCore(CoreType type)
     if (runningPair == aicoreNullPair) return;
 
     const int coreIdx = (int)decodePairCore(runningPair);
-    // const uint64_t taskId = (int)decodePairTask(runningPair);
+    const uint64_t taskId = (int)decodePairTask(runningPair);
 
     // DEV_ERROR("AICPU: %d - checking1 on core %d - task %lu\n", aicpuIdx_, coreIdx, taskId);
     if (runningIds_[coreIdx] == AICORE_TASK_INIT && pendingIds_[coreIdx] == AICORE_TASK_INIT)
@@ -260,16 +260,11 @@ void AiCoreManager::ResolveDepForAllAiCore(CoreType type)
         runningPairQueue_->push(runningPair);
         return;
     }
-    // DEV_ERROR("AICPU: %d - checking2 on core %d - task %lu\n", aicpuIdx_, coreIdx, taskId);
     
-    uint64_t finTaskRegVal = GetFinishedTask(coreIdx);
-    uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
-    uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
-
-    if (finTaskId == pendingIds_[coreIdx] && finTaskState == TASK_FIN_STATE) 
+    if (isPairingFinished(runningPair)) 
     {
         DEV_DEBUG("core index: %d, PendingTask Finished. pending: %lx\n", coreIdx, pendingIds_[coreIdx]);
-        ResolveDepWithDfx(type, coreIdx, finTaskId);
+        ResolveDepWithDfx(type, coreIdx, taskId);
         pendingIds_[coreIdx] = AICORE_TASK_INIT;
         corePendReadyCnt_[static_cast<int>(type)]++;
         runReadyCoreIdx_[static_cast<int>(type)][coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
@@ -278,6 +273,19 @@ void AiCoreManager::ResolveDepForAllAiCore(CoreType type)
     {
         runningPairQueue_->push(runningPair);
     }
+}
+
+inline bool AiCoreManager::isPairingFinished(const aicorePair_t pairing)
+{
+    const int coreIdx = (int)decodePairCore(pairing);
+    const uint64_t taskId = (int)decodePairTask(pairing);
+    
+    uint64_t finTaskRegVal = GetFinishedTask(coreIdx);
+    uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
+    uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
+
+    if (finTaskId == taskId && finTaskState == TASK_FIN_STATE) return true;
+    return false;
 }
 
 void AiCoreManager::PushReadyTask(int coreType, int64_t taskId) {

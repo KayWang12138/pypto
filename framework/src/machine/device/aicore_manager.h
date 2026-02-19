@@ -206,6 +206,8 @@ private:
     static inline uint64_t decodePairTask(const aicorePair_t pair) { return pair >> 32; }
     static inline uint64_t decodePairCore(const aicorePair_t pair) { return pair & 0x00000000FFFFFFFFUL; }
 
+    inline bool isPairingFinished(const aicorePair_t pairing);
+
     bool waitCoreFinish(int coreIdx);
 
     int WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd);
