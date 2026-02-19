@@ -212,13 +212,13 @@ private:
 
     uint64_t TryBatchSendTask(CoreType type, taskQueue_t* readyQue, int coreIdxStart, int coreIdxEnd);
 
-    uint32_t BatchSendTask(CoreType type, uint64_t *newTask, uint32_t taskCount, int coreIdxStart, int coreIdxEnd, bool isLifo);
+    uint32_t BatchSendTask(CoreType type, uint64_t *newTask, uint32_t taskCount, int coreIdxStart, int coreIdxEnd);
 
     uint64_t DispatchAiCoreTask(CoreType type, taskQueue_t* readyQue, int coreIdxStart, int coreIdxEnd);
 
     void SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTask);
 
-    void ResolveDepForAllAiCore(CoreType type, int coreIdxStart, int coreIdxEnd);
+    void ResolveDepForAllAiCore(CoreType type);
 
     void BatchPushReadyQueue();
 

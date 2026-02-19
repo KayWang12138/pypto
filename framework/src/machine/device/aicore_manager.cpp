@@ -190,14 +190,14 @@ uint64_t AiCoreManager::TryBatchSendTask(CoreType type, taskQueue_t* readyQue, i
     // DEV_ERROR("AICPU %d - Running Task: %lu", aicpuIdx_, *taskSetAddress);
 
     DEV_DEBUG("AiCpud:%d, pop all new task count: %lu \n", aicpuIdx_, taskSetCount);
-    BatchSendTask(type, taskSetAddress, taskSetCount, coreIdxStart, coreIdxEnd, READY_QUE_LIFO_SWITCH);
+    BatchSendTask(type, taskSetAddress, taskSetCount, coreIdxStart, coreIdxEnd);
     DEV_DEBUG("core ready cnt: %u \n", corePendReadyCnt_[static_cast<int>(type)]);
     return taskSetCount;
 }
 
-uint32_t AiCoreManager::BatchSendTask(CoreType type, uint64_t *newTask, uint32_t taskCount,int coreIdxStart, int coreIdxEnd, bool isLifo) {
+uint32_t AiCoreManager::BatchSendTask(CoreType type, uint64_t *newTask, uint32_t taskCount,int coreIdxStart, int coreIdxEnd) {
     uint32_t sendCnt = 0;
-    uint32_t taskIdx = isLifo ? taskCount : 0;
+    uint32_t taskIdx = 0;
     uint32_t idx = lastPendReadyCoreIdx_[static_cast<int>(type)];
     uint32_t coreNum = coreIdxEnd - coreIdxStart;
     uint32_t lastProcCore = idx;
@@ -206,7 +206,7 @@ uint32_t AiCoreManager::BatchSendTask(CoreType type, uint64_t *newTask, uint32_t
     {
         if (pendingIds_[idx] == AICORE_TASK_INIT)
         {
-            SendTaskToAiCore(type, idx, isLifo ? newTask[--taskIdx] : newTask[taskIdx++]);
+            SendTaskToAiCore(type, idx, newTask[taskIdx++]);
             sendCnt++;
             corePendReadyCnt_[static_cast<int>(type)]--;
             lastProcCore = idx;
@@ -225,7 +225,7 @@ uint32_t AiCoreManager::BatchSendTask(CoreType type, uint64_t *newTask, uint32_t
 uint64_t AiCoreManager::DispatchAiCoreTask(CoreType type, taskQueue_t* readyQue, int coreIdxStart, int coreIdxEnd) {
     uint64_t taskCount = TryBatchSendTask(type, readyQue, coreIdxStart, coreIdxEnd);
     if (waitTaskCnt_[static_cast<int>(type)] > 0) {
-        ResolveDepForAllAiCore(type, coreIdxStart, coreIdxEnd);
+        ResolveDepForAllAiCore(type);
         taskCount += TryBatchSendTask(type, readyQue, coreIdxStart, coreIdxEnd);
     }
     if (coreRunReadyCnt_[static_cast<int>(type)] > 0)  {
@@ -246,13 +246,10 @@ void AiCoreManager::SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTas
     // DEV_ERROR("AICPU: %d - Send task %lu, at core %d ,type:%d, code: 0x%0lX\n", aicpuIdx_, newTask, coreIdx, static_cast<int>(type), pairCode);
 }
 
-void AiCoreManager::ResolveDepForAllAiCore(CoreType type, int coreIdxStart, int coreIdxEnd)
+void AiCoreManager::ResolveDepForAllAiCore(CoreType type)
 {
     const auto runningPair = runningPairQueue_->pop();
     if (runningPair == aicoreNullPair) return;
-
-    (void)coreIdxStart;
-    (void)coreIdxEnd;
 
     const int coreIdx = (int)decodePairCore(runningPair);
     // const uint64_t taskId = (int)decodePairTask(runningPair);
