@@ -663,13 +663,8 @@ void TwoShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* 
 }
 
 // =============================================================================
-// TwoShotAllReduce_v5: Three-phase API with external TwoShotCommunicatorV2.
-//
-// The caller constructs TwoShotCommunicatorV2 externally and passes it in.
-// Uses separate Put(), Wait(), Pull() per chunk (explicit three-phase pattern).
-// Assemble remains inside (per-chunk interleaving required for correct IR).
-//
-// Emitted IR is identical to TwoShotAllReduce / v2 / v3 / v4.
+// TwoShotAllReduce_v5: per-chunk Put/Wait/Pull with external TwoShotCommunicatorV2.
+// Produces the same IR as v2/v3/v4.
 // =============================================================================
 void TwoShotAllReduce_v5(const Tensor& predToken, const Tensor& in,
     Tensor& shmemData, TwoShotCommunicatorV2& comm, Tensor& out)

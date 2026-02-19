@@ -32,14 +32,6 @@
 
 namespace npu::tile_fwk::Distributed {
 
-using npu::tile_fwk::ExtractShmemOpcodes;
-using npu::tile_fwk::CountShmemOps;
-using npu::tile_fwk::ShmemOpCounts;
-using npu::tile_fwk::VerifyOneShotCounts;
-
-// ---------------------------------------------------------------------------
-// Test fixture
-// ---------------------------------------------------------------------------
 class AllReduceIRTest : public ::testing::Test {
 protected:
     static constexpr uint32_t kWorldSize = 4;
@@ -77,14 +69,7 @@ protected:
         return dt;
     }
 
-    // -----------------------------------------------------------------------
-    // Helpers: build IR and verify exact SHMEM opcode counts.
-    // The simulation compiler produces different counts than the accelerator
-    // for TwoShot (worldSize per type vs worldSize^2), so each helper uses
-    // the counts that match the UT environment.  Cross-variant equivalence
-    // tests below provide the additional guarantee that all variants
-    // produce identical opcode sequences.
-    // -----------------------------------------------------------------------
+    // TwoShot counts differ between simulation (worldSize) and accelerator (worldSize^2).
 
     template <typename BuildBodyFn>
     void RunOneShotIRTest(const char* funcTag, BuildBodyFn&& buildBody)
