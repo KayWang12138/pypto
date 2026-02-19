@@ -23,10 +23,8 @@
 namespace npu::tile_fwk {
 namespace Distributed {
 
-// =============================================================================
 // CommunicatorBase: common state (group, worldSize, thisRank, signal)
 // for all communicators.
-// =============================================================================
 class CommunicatorBase {
 protected:
     CommunicatorBase(const std::string& group, uint32_t worldSize, Tensor& shmemSignal)
@@ -50,10 +48,8 @@ protected:
     Tensor& shmemSignal_;
 };
 
-// =============================================================================
 // OneShotCommunicator: owns shmem data+signal, exposes Put/Signal/WaitAndGet
 // by rank ID.
-// =============================================================================
 class OneShotCommunicator : public CommunicatorBase {
 public:
     OneShotCommunicator(const std::string& group, Tensor& shmemData, Tensor& shmemSignal)
@@ -93,26 +89,9 @@ private:
     int32_t col_;
 };
 
-// =============================================================================
-// OneShotCommunicatorV2: Communication engine with group metadata and explicit
-// data views for OneShot algorithms.
-//
-// Designed for algorithm authors writing distributed collectives on top of the
-// SHMEM primitives (ShmemPut, ShmemSignal, WaitUntil, ShmemGet).
-//
-// Separation of concerns:
-//   - Algorithm author: data layout (explicit View calls at call site)
-//   - OneShotCommunicatorV2: group metadata + signal coordination
-//
-// Three-phase API:
-//   1. Put()  — scatter data to target rank's shmem slot + signal
-//   2. Wait() — synchronization barrier, ensures all contributions arrived
-//   3. Pull() — postprocessing, read reduced result from SHMEM to GM
-//
-// Put() captures the input dtype so that Pull() can produce the correct
-// output type without requiring the caller to pass it again.
-// WaitAndGet() is retained as a convenience for the combined Wait+Pull pattern.
-// =============================================================================
+// OneShotCommunicatorV2: lighter variant — holds signal only, data views
+// passed by caller. Three-phase: Put() -> Wait() -> Pull().
+// WaitAndGet() combines Wait+Pull. Put() latches dtype for Pull().
 class OneShotCommunicatorV2 : public CommunicatorBase {
 public:
     OneShotCommunicatorV2(const std::string& group, uint32_t worldSize, Tensor& shmemSignal)
@@ -122,10 +101,7 @@ public:
         , inputDtype_(DT_BOTTOM)
     {}
 
-    // Write data to targetRank's shmem slot + signal it.
-    // Caller provides the data View; signal View is built internally.
-    // Latches input dtype on first call (used by Pull()); all Puts must match dtype.
-    // Returns signal dependency token.
+    // Put data to targetRank's shmem + signal. Latches dtype on first call.
     Tensor Put(const Tensor& pred, const Tensor& input,
         const Tensor& dataView, uint32_t targetRank, AtomicType atomicType)
     {
@@ -144,8 +120,8 @@ public:
 
     // Wait: synchronization barrier on this rank's signal slot.
     // Ensures all contributions have arrived before any read.
-    // Takes a pure dependency token (not the input tensor).
-    // Returns a dependency token for Pull().
+    // Takes a pure dep token (not the input tensor).
+    // Returns a dep token for Pull().
     Tensor Wait(const Tensor& depToken) const
     {
         auto signalView = View(shmemSignal_, {1, 1, 1, row_, col_},
@@ -165,8 +141,7 @@ public:
         return ShmemGet(waitToken, dataLocal, inputDtype_);
     }
 
-    // Convenience: Wait + Pull in one shot.
-    // input doubles as dependency token and dtype source.
+    // Wait + Pull in one shot.
     Tensor WaitAndGet(const Tensor& input, const Tensor& dataView) const
     {
         auto signalView = View(shmemSignal_, {1, 1, 1, row_, col_},
@@ -181,7 +156,6 @@ private:
     DataType inputDtype_;
 };
 
-// =============================================================================
 // TwoShotCommunicator: Encapsulates shmem data/signal buffers for TwoShot.
 //
 // Hides the TwoShot symmetric memory layout so that algorithm authors work
@@ -193,7 +167,6 @@ private:
 //   - WaitAndGet() takes a chunk ID, dependency token, and explicit dtype
 //   - shmemData layout: {worldSize, worldSize, rowPerRank, col}
 //   - shmemSignal layout: {worldSize, worldSize, worldSize, rowPerRank, col}
-// =============================================================================
 class TwoShotCommunicator : public CommunicatorBase {
 public:
     TwoShotCommunicator(const std::string& group, Tensor& shmemData, Tensor& shmemSignal)
@@ -234,7 +207,6 @@ private:
     int32_t col_;
 };
 
-// =============================================================================
 // TwoShotCommunicatorV2: Communication engine for TwoShot with explicit data views.
 //
 // Separation of concerns:
@@ -245,13 +217,6 @@ private:
 //   1. Put()  — write chunk to shmem slot + signal all ranks
 //   2. Wait() — synchronization barrier on this rank's signal for a given chunk
 //   3. Pull() — read reduced result from shmem (uses latched dtype)
-//
-// Key difference from OneShotCommunicatorV2:
-//   - Put/Wait/WaitAndGet take a chunkId parameter (per-chunk signal indexing)
-//   - Signal views use TwoShot layout: {worldSize,1,1,rowPerRank,col} for Put,
-//     {1,1,1,rowPerRank,col} for Wait
-//   - shmemSignal layout: {worldSize, worldSize, worldSize, rowPerRank, col}
-// =============================================================================
 class TwoShotCommunicatorV2 : public CommunicatorBase {
 public:
     TwoShotCommunicatorV2(const std::string& group, uint32_t worldSize, Tensor& shmemSignal)
