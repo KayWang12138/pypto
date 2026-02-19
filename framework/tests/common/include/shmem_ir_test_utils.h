@@ -10,8 +10,7 @@
 
 /*!
  * \file shmem_ir_test_utils.h
- * \brief Shared utilities for verifying SHMEM opcode sequences in compiled IR.
- *        Used by both unit tests (UT) and system tests (ST).
+ * \brief SHMEM IR verification helpers shared between UT and ST.
  */
 
 #ifndef SHMEM_IR_TEST_UTILS_H
@@ -28,17 +27,10 @@
 
 namespace npu::tile_fwk {
 
-// ---------------------------------------------------------------------------
-// FUNCTION macro naming constants (canonical source; also used by UT codegen
-// tests via test_codegen_common.h which includes this header).
-// ---------------------------------------------------------------------------
+// FUNCTION macro naming suffixes.
 
 const std::string SUB_FUNC_SUFFIX = "_Unroll1_PATH0";
 const std::string HIDDEN_FUNC_SUFFIX = "_hiddenfunc0";
-
-// ---------------------------------------------------------------------------
-// Opcode counting
-// ---------------------------------------------------------------------------
 
 struct ShmemOpCounts {
     uint32_t put = 0;
@@ -67,13 +59,8 @@ inline ShmemOpCounts CountShmemOps(const std::vector<Opcode>& ops)
     return c;
 }
 
-// ---------------------------------------------------------------------------
-// Function raw-name construction (reuses the established codebase pattern
-// from test_shmem_operation_impl.cpp / test_moe_distributed.cpp).
-// Suitable for LOOP sub-functions whose raw names follow a predictable
-// TENSOR_{name}_Unroll1_PATH0[_hiddenfunc0] pattern.
-// ---------------------------------------------------------------------------
-
+// Build the raw name the compiler gives to LOOP sub-functions:
+// TENSOR_{name}_Unroll1_PATH0[_hiddenfunc0]
 inline std::string GetFunctionRawName(const std::string& funcName)
 {
     std::string rawName = FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX;
@@ -83,10 +70,7 @@ inline std::string GetFunctionRawName(const std::string& funcName)
     return rawName;
 }
 
-// ---------------------------------------------------------------------------
-// IR dump (temporary debugging aid — remove after inspection)
-// ---------------------------------------------------------------------------
-
+// Debug helpers — call DumpAllIR() to print the full IR graph.
 inline std::string OpcodeName(Opcode code)
 {
     if (code == Opcode::OP_SHMEM_PUT)            return "OP_SHMEM_PUT";
@@ -120,15 +104,8 @@ inline void DumpAllIR(const std::string& label = "")
     std::cout << std::flush;
 }
 
-// ---------------------------------------------------------------------------
-// Opcode extraction
-// ---------------------------------------------------------------------------
-
-// Extract SHMEM opcodes from a FUNCTION block identified by funcName.
-// Uses substring matching on the function map because top-level FUNCTION
-// blocks and LOOP sub-functions produce different raw-name conventions.
-// Prefers the "hiddenfunc" variant (excluding leaf/root) to avoid
-// double-counting from the function hierarchy.
+// Extract SHMEM opcodes for funcName from the IR function map.
+// Prefers the "hiddenfunc" variant to avoid double-counting.
 inline std::vector<Opcode> ExtractShmemOpcodes(const std::string& funcName)
 {
     std::vector<Opcode> hiddenOps;
@@ -157,12 +134,7 @@ inline std::vector<Opcode> ExtractShmemOpcodes(const std::string& funcName)
     return fallback;
 }
 
-// ---------------------------------------------------------------------------
-// Presence verification (compiler-independent)
-// ---------------------------------------------------------------------------
-
-// Verifies that SHMEM ops are non-empty and all four op types are present.
-// Suitable for environments where exact counts are compiler-dependent.
+// Check that all four SHMEM op types are present (count-agnostic).
 inline void VerifyShmemOpsPresent(const ShmemOpCounts& c)
 {
     EXPECT_GT(c.put, 0u) << "Expected at least 1 OP_SHMEM_PUT";
@@ -171,11 +143,7 @@ inline void VerifyShmemOpsPresent(const ShmemOpCounts& c)
     EXPECT_GT(c.get, 0u) << "Expected at least 1 OP_SHMEM_GET";
 }
 
-// ---------------------------------------------------------------------------
-// Count verification (accelerator-specific)
-// ---------------------------------------------------------------------------
-
-// OneShot: worldSize PUTs, worldSize SIGNALs, 1 WAIT_UNTIL, 1 GET.
+// OneShot: W puts, W signals, 1 wait, 1 get.
 inline void VerifyOneShotCounts(const ShmemOpCounts& c, uint32_t worldSize)
 {
     EXPECT_EQ(c.put, worldSize) << "Expected " << worldSize << " OP_SHMEM_PUT ops";
@@ -184,8 +152,7 @@ inline void VerifyOneShotCounts(const ShmemOpCounts& c, uint32_t worldSize)
     EXPECT_EQ(c.get, 1u) << "Expected 1 OP_SHMEM_GET op";
 }
 
-// TwoShot: worldSize^2 of each SHMEM op type (worldSize chunks, each
-// expanded to worldSize IR ops per primitive).
+// TwoShot: W^2 of each op type (W chunks x W ops per chunk).
 inline void VerifyTwoShotCounts(const ShmemOpCounts& c, uint32_t worldSize)
 {
     uint32_t expected = worldSize * worldSize;
@@ -195,12 +162,7 @@ inline void VerifyTwoShotCounts(const ShmemOpCounts& c, uint32_t worldSize)
     EXPECT_EQ(c.get, expected) << "Expected " << expected << " OP_SHMEM_GET ops";
 }
 
-// ---------------------------------------------------------------------------
-// Ordering verification (accelerator-specific)
-// ---------------------------------------------------------------------------
-
-// OneShot expected sequence: PUT*N, SIGNAL*N, WAIT*1, GET*1.
-// Phases must appear in non-decreasing order.
+// OneShot ordering: PUT*N, SIGNAL*N, WAIT, GET — phases must not go backwards.
 inline void VerifyOneShotOrdering(const std::vector<Opcode>& ops)
 {
     enum Phase { PHASE_PUT, PHASE_SIGNAL, PHASE_WAIT, PHASE_GET };
@@ -221,9 +183,7 @@ inline void VerifyOneShotOrdering(const std::vector<Opcode>& ops)
     }
 }
 
-// TwoShot expected sequence: PUT*N^2, SIGNAL*N^2, WAIT*N^2, GET*N^2
-// where N = worldSize.  The compiler groups all ops by type across chunks
-// (same phase ordering as OneShot, different counts).
+// TwoShot ordering: PUT*N^2, SIGNAL*N^2, WAIT*N^2, GET*N^2 in strict blocks.
 inline void VerifyTwoShotOrdering(const std::vector<Opcode>& ops, uint32_t worldSize)
 {
     uint32_t n = worldSize * worldSize;
@@ -249,14 +209,8 @@ inline void VerifyTwoShotOrdering(const std::vector<Opcode>& ops, uint32_t world
     }
 }
 
-// ---------------------------------------------------------------------------
-// Combined: extract + count verification
-// Ordering is intentionally omitted here because the real compiler may split
-// operations across multiple hidden functions whose concatenation order is
-// not guaranteed.  UT helpers call VerifyOneShotOrdering / VerifyTwoShot-
-// Ordering directly in the controlled simulation environment.
-// ---------------------------------------------------------------------------
-
+// Extract + count in one call. No ordering check — compiler
+// may reorder ops across hidden functions.
 inline void VerifyOneShotAllReduceIR(const std::string& funcName, uint32_t worldSize)
 {
     auto ops = ExtractShmemOpcodes(funcName);
