@@ -10,7 +10,7 @@
 
 /*!
  * \file distributed_communicator.h
- * \brief Reusable communication abstractions for distributed algorithms.
+ * \brief Communicator classes for OneShot and TwoShot distributed ops.
  */
 
 #pragma once
@@ -24,11 +24,8 @@ namespace npu::tile_fwk {
 namespace Distributed {
 
 // =============================================================================
-// CommunicatorBase: Shared state and accessors for all communicator variants.
-//
-// Holds the HCCL group identity (group name, world size, this rank) and a
-// reference to the shared-memory signal tensor.  Derived classes add their
-// own data-tensor references, dimension caches, and Put/Wait/Pull methods.
+// CommunicatorBase: common state (group, worldSize, thisRank, signal)
+// for all communicators.
 // =============================================================================
 class CommunicatorBase {
 protected:
@@ -54,12 +51,8 @@ protected:
 };
 
 // =============================================================================
-// OneShotCommunicator: Encapsulates shmem data/signal buffers and group
-// metadata for OneShot algorithms.
-//
-// Hides the symmetric memory layout so that algorithm authors work with
-// rank IDs instead of raw multi-dimensional View() indexing.
-// Both data and signal Views are derived internally from rank IDs.
+// OneShotCommunicator: owns shmem data+signal, exposes Put/Signal/WaitAndGet
+// by rank ID.
 // =============================================================================
 class OneShotCommunicator : public CommunicatorBase {
 public:
