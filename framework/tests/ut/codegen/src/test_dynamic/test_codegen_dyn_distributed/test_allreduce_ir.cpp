@@ -417,6 +417,25 @@ TEST_P(AllReduceIRMultiRankTest, OneShotV5_IRStructure)
     EXPECT_EQ(opsV5, opsBase) << "OneShot v5 and base differ at worldSize=" << worldSize;
 }
 
+TEST_P(AllReduceIRMultiRankTest, OneShotV6_IRStructure)
+{
+    uint32_t worldSize = W();
+    std::string tag = "UT_MR_OS_V6_W" + std::to_string(worldSize);
+    Shape shmemDataShape{kRow, kCol};
+
+    Tensor in(DT_FP16, {kRow, kCol}, "in");
+    Tensor out(DT_FP16, {kRow, kCol}, "out");
+    FUNCTION(tag.c_str(), {in}, {out}) {
+        TileShape::Current().SetVecTile({kRow, kCol});
+        Tensor shmemData, shmemSignal;
+        CreateShmemTensors(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
+        OneShotAllReduce_v6(in, in, kGroup, shmemData, shmemSignal, out);
+    }
+
+    auto opsV6 = ExtractShmemOpcodes(tag);
+    VerifyOneShotCounts(CountShmemOps(opsV6), worldSize);
+}
+
 TEST_P(AllReduceIRMultiRankTest, TwoShotV5_IRStructure)
 {
     uint32_t worldSize = W();
