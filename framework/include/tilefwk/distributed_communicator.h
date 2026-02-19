@@ -156,6 +156,63 @@ private:
     DataType inputDtype_;
 };
 
+// OneShotCommunicatorV3: Same API as V2 but for reduced layout (one fewer dimension).
+// shmemData: {worldSize, row, col}; shmemSignal: {worldSize, worldSize, row, col}.
+class OneShotCommunicatorV3 : public CommunicatorBase {
+public:
+    OneShotCommunicatorV3(const std::string& group, uint32_t worldSize, Tensor& shmemSignal)
+        : CommunicatorBase(group, worldSize, shmemSignal)
+        , row_(shmemSignal.GetShape()[2])
+        , col_(shmemSignal.GetShape()[3])
+        , inputDtype_(DT_BOTTOM)
+    {}
+
+    Tensor Put(const Tensor& pred, const Tensor& input,
+        const Tensor& dataView, uint32_t targetRank, AtomicType atomicType)
+    {
+        if (inputDtype_ == DT_BOTTOM) {
+            inputDtype_ = input.GetDataType();
+        } else {
+            ASSERT(inputDtype_ == input.GetDataType())
+                << "All Put() calls must use the same dtype, expected " << inputDtype_
+                << " but got " << input.GetDataType();
+        }
+        auto signalView = View(shmemSignal_, {1, 1, row_, col_},
+            std::vector<SymbolicScalar>{targetRank, targetRank, 0, 0});
+        auto putOut = ShmemPut(pred, input, dataView, atomicType);
+        return ShmemSignal(putOut, signalView, AtomicType::ADD);
+    }
+
+    Tensor Wait(const Tensor& depToken) const
+    {
+        auto signalView = View(shmemSignal_, {1, 1, row_, col_},
+            std::vector<SymbolicScalar>{thisRank_, thisRank_, 0, 0});
+        return WaitUntil(depToken, signalView, static_cast<int32_t>(worldSize_));
+    }
+
+    Tensor Pull(const Tensor& waitToken, const Tensor& shmemData) const
+    {
+        int32_t dataRow = shmemData.GetShape()[1];
+        int32_t dataCol = shmemData.GetShape()[2];
+        auto dataLocal = View(shmemData, {1, dataRow, dataCol},
+            std::vector<SymbolicScalar>{thisRank_, 0, 0});
+        return ShmemGet(waitToken, dataLocal, inputDtype_);
+    }
+
+    Tensor WaitAndGet(const Tensor& input, const Tensor& dataView) const
+    {
+        auto signalView = View(shmemSignal_, {1, 1, row_, col_},
+            std::vector<SymbolicScalar>{thisRank_, thisRank_, 0, 0});
+        auto waitOut = WaitUntil(input, signalView, static_cast<int32_t>(worldSize_));
+        return ShmemGet(waitOut, dataView, input.GetDataType());
+    }
+
+private:
+    int32_t row_;
+    int32_t col_;
+    DataType inputDtype_;
+};
+
 // TwoShotCommunicator: Encapsulates shmem data/signal buffers for TwoShot.
 //
 // Hides the TwoShot symmetric memory layout so that it works
