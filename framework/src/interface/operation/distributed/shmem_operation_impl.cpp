@@ -569,21 +569,24 @@ void OneShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* 
 }
 
 // OneShotAllReduce_v5: like v4 but with external OneShotCommunicatorV2.
-Tensor OneShotAllReduce_v5(const Tensor& predToken, const Tensor& in,
-    Tensor& shmemData, OneShotCommunicatorV2& comm)
+Tensor OneShotAllReduce_v5(const Tensor& predToken, const Tensor& in, Tensor& shmemData, OneShotCommunicatorV2& comm)
 {
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
 
-    // Phase 1: Scatter — broadcast input to all ranks with atomic ADD
+    Tensor predSignal;
+    // Phase 1: Scatter — broadcast input to all ranks with atomic ADD (parallel)
     for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
+        // API: where: View, who: rank
         auto dynRankView = View(shmemData, {1, 1, row, col},
             std::vector<SymbolicScalar>{dynRankId, 0, 0, 0});
-        comm.Put(predToken, in, dynRankView, dynRankId, AtomicType::ADD);
+        predSignal = comm.Put(predToken, in, dynRankView, dynRankId, AtomicType::ADD);
     }
 
     // Phase 2: Wait — block until all contributions have arrived
-    return comm.Wait(predToken);
+    // Use predSignal to ensure Wait doesn't start polling before Puts are issued
+    // We could also use predToken, but polling would start earlier, than needed
+    return comm.Wait(predSignal);
 }
 
 void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
@@ -623,29 +626,29 @@ void TwoShotAllReduce_v2(const Tensor& predToken, const Tensor& in, const char* 
     int32_t rowPerRank = row / worldSize;
     SymbolicScalar thisRank = GetHcclRankId(group);
 
-    auto viewData = [&](uint32_t c) {
+    auto viewData = [&](uint32_t dynRankId) {
         return View(shmemData, {1, 1, rowPerRank, col},
-            std::vector<SymbolicScalar>{c, c, 0, 0});
+            std::vector<SymbolicScalar>{dynRankId, dynRankId, 0, 0});
     };
-    auto viewPutSignal = [&](uint32_t c) {
+    auto viewPutSignal = [&](uint32_t dynRankId) {
         return View(shmemSignal, {static_cast<int64_t>(worldSize), 1, 1, rowPerRank, col},
-            std::vector<SymbolicScalar>{0, c, c, 0, 0});
+            std::vector<SymbolicScalar>{0, dynRankId, dynRankId, 0, 0});
     };
-    auto viewWaitSignal = [&](uint32_t c) {
+    auto viewWaitSignal = [&](uint32_t dynRankId) {
         return View(shmemSignal, {1, 1, 1, rowPerRank, col},
-            std::vector<SymbolicScalar>{thisRank, c, c, 0, 0});
+            std::vector<SymbolicScalar>{thisRank, dynRankId, dynRankId, 0, 0});
     };
-    auto inputChunk = [&](uint32_t c) {
+    auto inputChunk = [&](uint32_t dynRankId) {
         return View(in, {rowPerRank, col},
-            std::vector<SymbolicScalar>{rowPerRank * c, 0});
+            std::vector<SymbolicScalar>{rowPerRank * dynRankId, 0});
     };
 
-    for (uint32_t c = 0; c < worldSize; ++c) {
-        auto putOut = ShmemPut(predToken, inputChunk(c), viewData(c), AtomicType::ADD);
-        auto signalOut = ShmemSignal(putOut, viewPutSignal(c), AtomicType::ADD);
-        auto waitOut = WaitUntil(signalOut, viewWaitSignal(c), worldSize);
-        auto reduced = ShmemGet(waitOut, viewData(c), in.GetDataType());
-        Assemble(reduced, {rowPerRank * c, 0}, out);
+    for (uint32_t dynRankId = 0; dynRankId < worldSize; ++dynRankId) {
+        auto putOut = ShmemPut(predToken, inputChunk(dynRankId), viewData(dynRankId), AtomicType::ADD);
+        auto signalOut = ShmemSignal(putOut, viewPutSignal(dynRankId), AtomicType::ADD);
+        auto waitOut = WaitUntil(signalOut, viewWaitSignal(dynRankId), worldSize);
+        auto reduced = ShmemGet(waitOut, viewData(dynRankId), in.GetDataType());
+        Assemble(reduced, {rowPerRank * dynRankId, 0}, out);
     }
 }
 
@@ -661,12 +664,12 @@ void TwoShotAllReduce_v3(const Tensor& predToken, const Tensor& in, const char* 
     int32_t rowPerRank = in.GetShape(0) / comm.WorldSize();
     int32_t col = in.GetShape(1);
 
-    for (uint32_t c = 0; c < comm.WorldSize(); ++c) {
+    for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
         auto inChunk = View(in, {rowPerRank, col},
-            std::vector<SymbolicScalar>{rowPerRank * c, 0});
-        auto signalOut = comm.Put(predToken, inChunk, c, AtomicType::ADD);
-        auto reduced = comm.WaitAndGet(signalOut, c, in.GetDataType());
-        Assemble(reduced, {rowPerRank * c, 0}, out);
+            std::vector<SymbolicScalar>{rowPerRank * dynRankId, 0});
+        auto signalOut = comm.Put(predToken, inChunk, dynRankId, AtomicType::ADD);
+        auto reduced = comm.WaitAndGet(signalOut, dynRankId, in.GetDataType());
+        Assemble(reduced, {rowPerRank * dynRankId, 0}, out);
     }
 }
 
@@ -683,14 +686,14 @@ void TwoShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* 
     int32_t rowPerRank = row / static_cast<int32_t>(shmemData.GetShape()[0]);
     TwoShotCommunicatorV2 comm(group, static_cast<uint32_t>(shmemData.GetShape()[0]), shmemSignal);
 
-    for (uint32_t c = 0; c < comm.WorldSize(); ++c) {
+    for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
         auto inChunk = View(in, {rowPerRank, col},
-            std::vector<SymbolicScalar>{rowPerRank * c, 0});
+            std::vector<SymbolicScalar>{rowPerRank * dynRankId, 0});
         auto dataView = View(shmemData, {1, 1, rowPerRank, col},
-            std::vector<SymbolicScalar>{c, c, 0, 0});
-        auto signalOut = comm.Put(predToken, inChunk, dataView, c, AtomicType::ADD);
-        auto reduced = comm.WaitAndGet(signalOut, dataView, c);
-        Assemble(reduced, {rowPerRank * c, 0}, out);
+            std::vector<SymbolicScalar>{dynRankId, dynRankId, 0, 0});
+        auto signalOut = comm.Put(predToken, inChunk, dataView, dynRankId, AtomicType::ADD);
+        auto reduced = comm.WaitAndGet(signalOut, dataView, dynRankId);
+        Assemble(reduced, {rowPerRank * dynRankId, 0}, out);
     }
 }
 
@@ -702,21 +705,21 @@ void TwoShotAllReduce_v5(const Tensor& predToken, const Tensor& in,
     int32_t col = in.GetShape(1);
     int32_t rowPerRank = row / comm.WorldSize();
 
-    for (uint32_t c = 0; c < comm.WorldSize(); ++c) {
+    for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
         auto inChunk = View(in, {rowPerRank, col},
-            std::vector<SymbolicScalar>{rowPerRank * c, 0});
+            std::vector<SymbolicScalar>{rowPerRank * dynRankId, 0});
         auto dataView = View(shmemData, {1, 1, rowPerRank, col},
-            std::vector<SymbolicScalar>{c, c, 0, 0});
+            std::vector<SymbolicScalar>{dynRankId, dynRankId, 0, 0});
 
         // Phase 1: Put — write chunk to shmem slot + signal all ranks
-        auto signalOut = comm.Put(predToken, inChunk, dataView, c, AtomicType::ADD);
+        auto signalOut = comm.Put(predToken, inChunk, dataView, dynRankId, AtomicType::ADD);
 
         // Phase 2: Wait — block until all contributions for this chunk have arrived
-        auto waitOut = comm.Wait(signalOut, c);
+        auto waitOut = comm.Wait(signalOut, dynRankId);
 
         // Phase 3: Pull — read reduced chunk from shmem
         auto reduced = comm.Pull(waitOut, dataView);
-        Assemble(reduced, {rowPerRank * c, 0}, out);
+        Assemble(reduced, {rowPerRank * dynRankId, 0}, out);
     }
 }
 
