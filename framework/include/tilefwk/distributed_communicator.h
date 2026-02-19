@@ -89,8 +89,8 @@ private:
     int32_t col_;
 };
 
-// OneShotCommunicatorV2: lighter variant — holds signal only, data views
-// passed by caller. Three-phase: Put() -> Wait() -> Pull().
+// OneShotCommunicatorV2: holds signal only, data views passed by caller.
+// Three-phase: Put() -> Wait() -> Pull().
 // WaitAndGet() combines Wait+Pull. Put() latches dtype for Pull().
 class OneShotCommunicatorV2 : public CommunicatorBase {
 public:
@@ -130,8 +130,8 @@ public:
     }
 
     // Pull: postprocessing — read the reduced result from this rank's shmem
-    // data slot into regular device memory (GM). Pure data movement + dtype cast.
-    // Must be called after Put() (which captures dtype) and Wait().
+    // data slot into regular device memory (GM). + dtype cast.
+    // Called after Put() (which captures dtype) and Wait().
     Tensor Pull(const Tensor& waitToken, const Tensor& shmemData) const
     {
         int32_t dataRow = shmemData.GetShape()[2];
@@ -158,11 +158,11 @@ private:
 
 // TwoShotCommunicator: Encapsulates shmem data/signal buffers for TwoShot.
 //
-// Hides the TwoShot symmetric memory layout so that algorithm authors work
+// Hides the TwoShot symmetric memory layout so that it works
 // with chunk IDs instead of raw multi-dimensional View() indexing.
 // Both data and signal Views are derived internally from chunk IDs.
 //
-// Key difference from OneShotCommunicator:
+// VS OneShotCommunicator:
 //   - Put() returns a signal token (needed as per-chunk dependency for Wait)
 //   - WaitAndGet() takes a chunk ID, dependency token, and explicit dtype
 //   - shmemData layout: {worldSize, worldSize, rowPerRank, col}
@@ -208,9 +208,7 @@ private:
 };
 
 // TwoShotCommunicatorV2: Communication engine for TwoShot with explicit data views.
-//
-// Separation of concerns:
-//   - Algorithm author: data layout (explicit View calls at call site)
+//   - Data layout (explicit View calls at call site)
 //   - TwoShotCommunicatorV2: group metadata + signal coordination
 //
 // Three-phase API (per chunk):
