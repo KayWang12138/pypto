@@ -12,6 +12,9 @@ set(_Target ${PTO_Fwk_STestNamePrefix}_machine)
 
 file(GLOB_RECURSE _Sources src/*.cpp)
 
+set(BUILD_TRACR TRUE)
+tracr_enable(${_Target})
+
 PTO_Fwk_STest_AddLib(
         TARGET ${_Target}
         SOURCES ${_Sources}
@@ -19,5 +22,3 @@ PTO_Fwk_STest_AddLib(
         GOLDEN_SCRIPT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/ops
 )
 
-set(BUILD_TRACR TRUE)
-tracr_enable(${_Target})

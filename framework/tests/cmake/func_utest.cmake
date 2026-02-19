@@ -178,9 +178,6 @@ function(PTO_Fwk_UTest_AddExe_RunExe)
             GTEST_FILTER_LIST   ${GTestFilterList}
     )
 
-    set(BUILD_TRACR TRUE)
-    tracr_enable(${ARG_TARGET})
-
     # 生成覆盖率
     PTO_Fwk_GTest_GenerateCoverage(TARGET ${ARG_TARGET})
 endfunction()
