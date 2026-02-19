@@ -12,8 +12,8 @@ set(_Target ${PTO_Fwk_STestNamePrefix}_machine)
 
 file(GLOB_RECURSE _Sources src/*.cpp)
 
-set(BUILD_TRACR TRUE)
-tracr_enable(${_Target})
+# set(BUILD_TRACR TRUE)
+# tracr_enable(${_Target})
 
 PTO_Fwk_STest_AddLib(
         TARGET ${_Target}
