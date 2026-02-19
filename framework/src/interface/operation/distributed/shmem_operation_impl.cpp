@@ -538,8 +538,8 @@ void OneShotAllReduce_v3(const Tensor& predToken, const Tensor& in, const char* 
     OneShotCommunicator comm(group, shmemData, shmemSignal);
 
     // Phase 1: Scatter to all ranks with atomic ADD
-    for (uint32_t r = 0; r < comm.WorldSize(); ++r) {
-        comm.Put(predToken, in, r, AtomicType::ADD);
+    for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
+        comm.Put(predToken, in, dynRankId, AtomicType::ADD);
     }
 
     // Phase 2: Gather — wait for all contributions, read reduced result
@@ -556,10 +556,10 @@ void OneShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* 
     OneShotCommunicatorV2 comm(group, static_cast<uint32_t>(shmemData.GetShape()[0]), shmemSignal);
 
     // Phase 1: Scatter to all ranks with atomic ADD
-    for (uint32_t r = 0; r < comm.WorldSize(); ++r) {
+    for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
         auto dynRankView = View(shmemData, {1, 1, row, col},
-            std::vector<SymbolicScalar>{r, 0, 0, 0});
-        comm.Put(predToken, in, dynRankView, r, AtomicType::ADD);
+            std::vector<SymbolicScalar>{dynRankId, 0, 0, 0});
+        comm.Put(predToken, in, dynRankView, dynRankId, AtomicType::ADD);
     }
 
     // Phase 2: Gather — wait for all contributions, read reduced result
@@ -576,10 +576,10 @@ Tensor OneShotAllReduce_v5(const Tensor& predToken, const Tensor& in,
     int32_t col = in.GetShape(1);
 
     // Phase 1: Scatter — broadcast input to all ranks with atomic ADD
-    for (uint32_t r = 0; r < comm.WorldSize(); ++r) {
+    for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
         auto dynRankView = View(shmemData, {1, 1, row, col},
-            std::vector<SymbolicScalar>{r, 0, 0, 0});
-        comm.Put(predToken, in, dynRankView, r, AtomicType::ADD);
+            std::vector<SymbolicScalar>{dynRankId, 0, 0, 0});
+        comm.Put(predToken, in, dynRankView, dynRankId, AtomicType::ADD);
     }
 
     // Phase 2: Wait — block until all contributions have arrived
