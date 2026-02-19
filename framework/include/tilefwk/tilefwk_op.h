@@ -543,14 +543,9 @@ void OneShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* 
     Tensor& shmemSignal, Tensor& out);
 // Forward declarations — full definitions in tilefwk/distributed_communicator.h
 class OneShotCommunicatorV2;
-class OneShotCommunicatorV3;
 class TwoShotCommunicatorV2;
 Tensor OneShotAllReduce_v5(const Tensor& predToken, const Tensor& in, Tensor& shmemData,
     OneShotCommunicatorV2& comm);
-Tensor OneShotAllReduce_v6(const Tensor& predToken, const Tensor& in, Tensor& shmemData,
-    OneShotCommunicatorV3& comm);
-void OneShotAllReduce_v6(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
-    Tensor& shmemSignal, Tensor& out);
 void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
 void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
     Tensor& shmemSignal, Tensor& out);

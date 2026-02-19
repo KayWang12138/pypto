@@ -703,41 +703,6 @@ Tensor OneShotAllReduce_v5(const Tensor& predToken, const Tensor& in, Tensor& sh
     return comm.Wait(predToken);
 }
 
-// OneShotAllReduce_v6: same algorithm as v5 but with reduced layout (one fewer dimension).
-// shmemData: {worldSize, row, col}; shmemSignal: {worldSize, worldSize, row, col}.
-// Uses OneShotCommunicatorV3.
-Tensor OneShotAllReduce_v6(const Tensor& predToken, const Tensor& in, Tensor& shmemData, OneShotCommunicatorV3& comm)
-{
-    int32_t row = in.GetShape(0);
-    int32_t col = in.GetShape(1);
-
-    Tensor predSignal;
-    for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
-        auto dynRankView = View(shmemData, {1, row, col},
-            std::vector<SymbolicScalar>{dynRankId, 0, 0});
-        predSignal = comm.Put(predToken, in, dynRankView, dynRankId, AtomicType::ADD);
-    }
-    return comm.Wait(predSignal);
-}
-
-void OneShotAllReduce_v6(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
-    Tensor& shmemSignal, Tensor& out)
-{
-    int32_t row = in.GetShape(0);
-    int32_t col = in.GetShape(1);
-    uint32_t worldSize = shmemData.GetShape()[0];
-    AllReduceValidate(predToken, in, shmemData, group, out);
-    ValidateTypeAndShape(shmemData, ((in.GetDataType() == DT_BF16) || (in.GetDataType() == DT_FP16) ? DT_FP32 :
-        out.GetDataType()), {worldSize, row, col});
-    ValidateTypeAndShape(shmemSignal, DataType::DT_INT32, {worldSize, worldSize, row, col});
-    ASSERT(worldSize > 0) << "worldSize should be more than 0.";
-    OneShotCommunicatorV3 comm(group, worldSize, shmemSignal);
-    auto dataLocal = View(shmemData, {1, row, col},
-        std::vector<SymbolicScalar>{comm.ThisRank(), 0, 0});
-    auto waitToken = OneShotAllReduce_v6(predToken, in, shmemData, comm);
-    out = comm.Pull(waitToken, shmemData);
-}
-
 void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
     Tensor& shmemSignal, Tensor& out)
 {
