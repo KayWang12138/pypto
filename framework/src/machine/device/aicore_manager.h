@@ -226,8 +226,6 @@ private:
         aicpuTaskManager_.TaskEnqueue(taskId);
     }
 
-    int GetNextSendCoreIdx(int coreType);
-
     bool SendTaskDirectlyWhenTaskReady(int coreType, int64_t taskId);
 
     void PushReadyTask(int coreType, int64_t taskId);

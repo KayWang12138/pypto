@@ -283,33 +283,6 @@ void AiCoreManager::ResolveDepForAllAiCore(CoreType type, int coreIdxStart, int 
     }
 }
 
-int AiCoreManager::GetNextSendCoreIdx(int coreType) {
-    if (coreRunReadyCnt_[coreType] > 0) {
-        corePendReadyCnt_[coreType]--;
-        return runReadyCoreIdx_[coreType][--coreRunReadyCnt_[coreType]];
-    }
-
-    int startIdx;
-    int coreNum;
-    int idx = lastPendReadyCoreIdx_[coreType];
-    if (coreType == static_cast<int>(CoreType::AIC)) {
-        startIdx = aicStart_;
-        coreNum = aicEnd_ - aicStart_;
-    } else {
-        startIdx = aivStart_;
-        coreNum = aivEnd_ - aivStart_;
-    }
-    if (corePendReadyCnt_[coreType] > 0) {
-        while (pendingIds_[idx] != AICORE_TASK_INIT) {
-            idx = startIdx + (idx - startIdx + 1) % (coreNum);
-        }
-        lastPendReadyCoreIdx_[coreType] = startIdx + (idx - startIdx + 1) % (coreNum);
-        corePendReadyCnt_[coreType]--;
-        return idx;
-    }
-    return INVALID_CORE_IDX;
-}
-
 void AiCoreManager::PushReadyTask(int coreType, int64_t taskId) {
     if (readyCount[coreType] < READY_ID_FIX_CACHE_NUM) 
         readyIds[coreType][readyCount[coreType]++] = taskId;
