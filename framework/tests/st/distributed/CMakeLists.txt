@@ -89,6 +89,7 @@ endif ()
 #   python3 build_ci.py --stest_distributed=twoshot       # TwoShot AllReduce variants only
 #   python3 build_ci.py --stest_distributed=multirank     # Multi-rank AllReduceV5 only (2 & 8 ranks)
 #   python3 build_ci.py --stest_distributed=ircheck       # IR equivalence checks (oneshot + twoshot)
+#   python3 build_ci.py --stest_distributed=twoshotir     # TwoShot IR equivalence check only
 #
 set(_num_ranks "4")
 set(_num_cases "22")
@@ -134,6 +135,10 @@ elseif ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "multirank")
 elseif ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "ircheck")
     message(STATUS "Distributed subset: IR equivalence checks (indices 5, 18)")
     _distributed_filter_config(_DistributedGTestCaseFilterConfig 5 18)
+    set(ENABLE_STEST_DISTRIBUTED "ON")
+elseif ("${ENABLE_STEST_DISTRIBUTED}" STREQUAL "twoshotir")
+    message(STATUS "Distributed subset: TwoShot IR equivalence check (index 18)")
+    _distributed_filter_config(_DistributedGTestCaseFilterConfig 18)
     set(ENABLE_STEST_DISTRIBUTED "ON")
 endif()
 
