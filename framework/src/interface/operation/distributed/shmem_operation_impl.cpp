@@ -458,14 +458,14 @@ void OneShotAllReduce_v2(const Tensor& predToken, const Tensor& in, const char* 
 
 // OneShotAllReduce_v3: Uses an OneShotCommunicator to hide shmem layout details.
 //
-// The algorithm author works with rank IDs instead of raw View() calls.
+// Work rank IDs instead of raw View() calls.
 // Emitted IR is identical to OneShotAllReduce / OneShotAllReduce_v2.
 void OneShotAllReduce_v3(const Tensor& predToken, const Tensor& in, const char* group,
     Tensor& shmemData, Tensor& shmemSignal, Tensor& out)
 {
     OneShotCommunicator comm(group, shmemData, shmemSignal);
 
-    // Phase 1: Scatter — broadcast input to all ranks with atomic ADD
+    // Phase 1: Scatter to all ranks with atomic ADD
     for (uint32_t r = 0; r < comm.WorldSize(); ++r) {
         comm.Put(predToken, in, r, AtomicType::ADD);
     }
@@ -483,7 +483,7 @@ void OneShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* 
     int32_t col = in.GetShape(1);
     OneShotCommunicatorV2 comm(group, static_cast<uint32_t>(shmemData.GetShape()[0]), shmemSignal);
 
-    // Phase 1: Scatter — broadcast input to all ranks with atomic ADD
+    // Phase 1: Scatter to all ranks with atomic ADD
     for (uint32_t r = 0; r < comm.WorldSize(); ++r) {
         auto dynRankView = View(shmemData, {1, 1, row, col},
             std::vector<SymbolicScalar>{r, 0, 0, 0});
@@ -497,7 +497,6 @@ void OneShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* 
 }
 
 // OneShotAllReduce_v5: like v4 but with external OneShotCommunicatorV2.
-// Same IR as v2/v3/v4.
 Tensor OneShotAllReduce_v5(const Tensor& predToken, const Tensor& in,
     Tensor& shmemData, OneShotCommunicatorV2& comm)
 {
@@ -608,7 +607,7 @@ void TwoShotAllReduce_v3(const Tensor& predToken, const Tensor& in, const char* 
 
 // TwoShotAllReduce_v4: TwoShotCommunicatorV2 with explicit data Views.
 //
-// The algorithm author controls data placement via explicit View() calls.
+// Data placement via explicit View() calls.
 // TwoShotCommunicatorV2 handles signal coordination and group metadata.
 // Uses combined WaitAndGet() per chunk (convenience method).
 void TwoShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* group,
