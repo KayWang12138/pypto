@@ -13,6 +13,8 @@
  * \brief
  */
 
+#define ENABLE_TRACR
+
 #include <regex>
 #include <gtest/gtest.h>
 #include <iostream>
@@ -28,6 +30,7 @@
 #include "machine/device/dynamic/aicpu_task_manager.h"
 #include "machine/device/dynamic/aicore_manager.h"
 #include "machine/device/tilefwk/aicpu_common.h"
+
 class TestDeviceRunner : public testing::Test {
 public:
     static void SetUpTestCase() {
