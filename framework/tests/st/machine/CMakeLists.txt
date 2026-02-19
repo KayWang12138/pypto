@@ -18,3 +18,5 @@ PTO_Fwk_STest_AddLib(
         LD_LIBRARIES_EXT tile_fwk_compiler tile_fwk_runtime
         GOLDEN_SCRIPT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/ops
 )
+
+tracr_enable(${_Target})
