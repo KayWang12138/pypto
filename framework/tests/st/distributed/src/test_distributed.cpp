@@ -62,6 +62,8 @@ public:
         std::string dtype = testData["input_tensors"][0]["dtype"].get<std::string>();
         std::string caseName = testData["case_name"].get<std::string>();
         std::string goldenDir = GetGoldenDirPath(testData, fileName);
+        printf("[Distributed] Running: op=%s, case=%s\n",
+            opName.c_str(), caseName.c_str());
         DisOpRegister::GetRegister().Run(opName, testParam, dtype, goldenDir);
         DISTRIBUTED_LOGI("test case finished successfully: op=%s, case=%s, json file=%s.", 
             opName.c_str(), caseName.c_str(), fileName.c_str());
