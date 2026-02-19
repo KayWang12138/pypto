@@ -14,6 +14,8 @@
  */
 
 #define ENABLE_TRACR
+#define TRACR_CAPACITY (1<<8)
+#define TRACR_POLICY_STOP_IF_FULL
 
 #include <tracr/tracr.hpp>
 
