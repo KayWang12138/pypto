@@ -85,7 +85,7 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
 
     if constexpr (op == BinaryOp::MOD) {
         if constexpr (operand == TileOp::BroadcastOperand::NONE) {
-            pto::TMOV(dst, src0, src1);
+            pto::TFMOD(dst, src0, src1);
         } else {
             pto::TROWEXPANDDIV(dst, src0, src1);
             #ifdef __DAV_V220

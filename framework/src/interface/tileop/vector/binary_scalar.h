@@ -64,7 +64,7 @@ TILEOP void BinaryScalarComputeImpl(T0 dst, T1 src0, Scalar src1) {
     }
 
     if constexpr (op == BinaryScalarOp::MOD) {
-        pto::TMOV(dst, src0, src1);
+        pto::TFMODS(dst, src0, src1);
         return;
     }
 }
