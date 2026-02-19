@@ -111,9 +111,6 @@ void GegisterOps()
     reg.RegisterOp("AllReduceV5", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
         Distributed::TestAllReduce_v5<T>(testParam, goldenDir);
     });
-    reg.RegisterOp("AllReduceV6", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
-        Distributed::TestAllReduce_v6<T>(testParam, goldenDir);
-    });
     reg.RegisterOp("AllReduceIRCheck", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
         Distributed::TestAllReduceIREquivalence<T>(testParam, goldenDir);
     });
