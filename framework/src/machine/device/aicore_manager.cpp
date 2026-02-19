@@ -13,6 +13,8 @@
  * \brief
  */
 
+#define ENABLE_TRACR
+
 #include <tracr/tracr.hpp>
 
 #include "aicore_manager.h"
