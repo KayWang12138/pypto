@@ -88,9 +88,7 @@ template void TestAllReduce<float>(OpTestParam &testParam, std::string &goldenDi
 template void TestAllReduce<float16>(OpTestParam &testParam, std::string& goldenDir);
 template void TestAllReduce<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
 
-// ---------------------------------------------------------------------------
 // v2 / v3 system tests — same golden data as OneShotAllReduce (identical IR)
-// ---------------------------------------------------------------------------
 template<typename T>
 void TestAllReduce_v2(OpTestParam &testParam, std::string &goldenDir)
 {
@@ -296,10 +294,7 @@ template void TestAllReduce_v5<float>(OpTestParam &testParam, std::string &golde
 template void TestAllReduce_v5<float16>(OpTestParam &testParam, std::string& goldenDir);
 template void TestAllReduce_v5<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
 
-// ---------------------------------------------------------------------------
 // TwoShot v2 / v3 / v4 / v5 system tests — same golden data as TwoShotAllReduce
-// (identical IR, so results must match the original TwoShot golden outputs).
-// ---------------------------------------------------------------------------
 template<typename T>
 void TestAllReduce_TwoShot_v2(OpTestParam &testParam, std::string &goldenDir)
 {
@@ -509,11 +504,9 @@ template void TestAllReduce_TwoShot_v5<float>(OpTestParam &testParam, std::strin
 template void TestAllReduce_TwoShot_v5<float16>(OpTestParam &testParam, std::string& goldenDir);
 template void TestAllReduce_TwoShot_v5<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
 
-// ---------------------------------------------------------------------------
 // OneShot IR Equivalence Test — builds the base OneShotAllReduce as the golden
 // reference and verifies that v2, v3, v4, v5+Pull all produce identical SHMEM
 // opcode sequences (graph-only, no hardware execution).
-// ---------------------------------------------------------------------------
 template<typename T>
 void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
 {
