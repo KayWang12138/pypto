@@ -162,7 +162,7 @@ private:
 // with chunk IDs instead of raw multi-dimensional View() indexing.
 // Both data and signal Views are derived internally from chunk IDs.
 //
-// VS OneShotCommunicator:
+// (drop) VS OneShotCommunicator:
 //   - Put() returns a signal token (needed as per-chunk dependency for Wait)
 //   - WaitAndGet() takes a chunk ID, dependency token, and explicit dtype
 //   - shmemData layout: {worldSize, worldSize, rowPerRank, col}
@@ -209,8 +209,6 @@ private:
 
 // TwoShotCommunicatorV2: Communication engine for TwoShot with explicit data views.
 //   - Data layout (explicit View calls at call site)
-//   - TwoShotCommunicatorV2: group metadata + signal coordination
-//
 // Three-phase API (per chunk):
 //   1. Put()  — write chunk to shmem slot + signal all ranks
 //   2. Wait() — synchronization barrier on this rank's signal for a given chunk
