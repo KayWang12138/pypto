@@ -147,12 +147,7 @@ void GegisterOps()
 
 
 INSTANTIATE_TEST_SUITE_P(TestDistributedOps, DistributedTest,
-    ::testing::ValuesIn(GetOpMetaData<OpMetaData>()),
-    [](const testing::TestParamInfo<OpMetaData>& info) -> std::string {
-        std::string name = info.param.testData_["case_name"].get<std::string>();
-        for (char& c : name) if (!isalnum(c) && c != '_') c = '_';
-        return name;
-    });
+    ::testing::ValuesIn(GetOpMetaData<OpMetaData>()));
 TEST_P(DistributedTest, TestOps)
 {
     RunDistributedTestGeneric(GetParam().testData_, GetParam().fileName_);
