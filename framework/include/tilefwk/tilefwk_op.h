@@ -544,6 +544,16 @@ void OneShotAllReduce_v3(const Tensor& predToken, const Tensor& in, const char* 
     Tensor& shmemSignal, Tensor& out);
 void OneShotAllReduce_v4(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
     Tensor& shmemSignal, Tensor& out);
+// Forward declarations — full definitions in tilefwk/distributed_communicator.h
+class OneShotCommunicatorV2;
+class OneShotCommunicatorV3;
+class TwoShotCommunicatorV2;
+Tensor OneShotAllReduce_v5(const Tensor& predToken, const Tensor& in, Tensor& shmemData,
+    OneShotCommunicatorV2& comm);
+Tensor OneShotAllReduce_v6(const Tensor& predToken, const Tensor& in, Tensor& shmemData,
+    OneShotCommunicatorV3& comm);
+void OneShotAllReduce_v6(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
+    Tensor& shmemSignal, Tensor& out);
 void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
 void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
     Tensor& shmemSignal, Tensor& out);
@@ -572,15 +582,6 @@ Tensor ShmemGet(const Tensor& predToken, const Tensor& shmemData, DataType nonSh
     AtomicType atomicType = AtomicType::SET);
 Tensor ShmemGetGm2Ub(const Tensor &dummy, const Tensor &shmemDataTile, DataType nonShmemDataType = DataType::DT_BOTTOM,
     AtomicType atomicType = AtomicType::SET);
-
-// Forward declarations — full definitions in tilefwk/distributed_communicator.h
-class OneShotCommunicatorV2;
-class TwoShotCommunicatorV2;
-
-// OneShotAllReduce_v5: Three-phase — Scatter + Wait only. Pull is external.
-// Returns the waitToken for the caller to invoke comm.Pull() as postprocessing.
-Tensor OneShotAllReduce_v5(const Tensor& predToken, const Tensor& in,
-    Tensor& shmemData, OneShotCommunicatorV2& comm);
 
 // TwoShotAllReduce_v5: Three-phase API with external TwoShotCommunicatorV2.
 // Uses separate Put(), Wait(), Pull() per chunk.
