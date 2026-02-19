@@ -13,8 +13,6 @@
  * \brief
  */
 
-#define ENABLE_TRACR
-
 #include "aicore_emulation.h"
 
 namespace npu::tile_fwk::machine {

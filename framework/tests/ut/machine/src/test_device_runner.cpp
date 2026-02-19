@@ -13,8 +13,6 @@
  * \brief
  */
 
-#define ENABLE_TRACR
-
 #include <regex>
 #include <gtest/gtest.h>
 #include <iostream>
