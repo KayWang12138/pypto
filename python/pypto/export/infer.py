@@ -1,4 +1,4 @@
-from tools.onnx.pypto_op import _FUNC_NAME__INFER_SHAPE, _FUNC_NAME__CALC_WORKSPACE
+from .pypto_op import _FUNC_NAME__INFER_SHAPE, _FUNC_NAME__CALC_WORKSPACE
 
 _infer_funcs = {}
 

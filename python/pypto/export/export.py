@@ -2,7 +2,10 @@ import torch
 import torch.nn as nn
 import torch.onnx
 import onnx
-import os
+import torchair
+
+from pathlib import Path
+from typing import Union
 
 def export_to_onnx(model: nn.Module, inputs: torch.Tensor, path: str, input_names: list[str], output_names: list[str]):
     torch.onnx.export(
@@ -23,3 +26,15 @@ def export_to_onnx(model: nn.Module, inputs: torch.Tensor, path: str, input_name
     onnx.checker.check_model(m)
     print("ONNX graph:")
     print(onnx.helper.printable_graph(m.graph))
+
+def export_to_torchair(model: nn.Module, inputs: torch.Tensor, path: str):
+    path = Path(path)
+
+    torchair.dynamo_export(
+        *inputs,
+        model=model,
+        export_path=str(path.parent),
+        export_name=str(path.stem),
+    )
+
+    print(f"Exported TorchAir model to {path}")
