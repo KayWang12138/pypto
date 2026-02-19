@@ -169,7 +169,6 @@ public:
         availableVectorTaskQueue_ = reinterpret_cast<taskQueue_t*>(curDevTask_->staticSchedulerData.availableVectorTaskQueue);
         availableCubeTaskQueue_ = reinterpret_cast<taskQueue_t*>(curDevTask_->staticSchedulerData.availableCubeTaskQueue);
         availableCoreQueue_ = reinterpret_cast<pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore> *>(curDevTask_->staticSchedulerData.availableCoreQueue);
-        pendingPairQueue_   = reinterpret_cast<pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair> *>(curDevTask_->staticSchedulerData.pendingPairQueue); 
         runningPairQueue_   = reinterpret_cast<pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair> *>(curDevTask_->staticSchedulerData.runningPairQueue);  
 
     }
@@ -202,6 +201,10 @@ public:
     void PushTask(DeviceTaskCtrl *taskCtrl) { taskQueue_.Enqueue(taskCtrl); }
 
 private:
+
+    static inline aicorePair_t encodePair(const uint64_t taskId, const uint64_t coreId) { return aicorePair_t ((taskId << 32) + (coreId & 0x00000000FFFFFFFFUL)); }
+    static inline uint64_t decodePairTask(const aicorePair_t pair) { return pair >> 32; }
+    static inline uint64_t decodePairCore(const aicorePair_t pair) { return pair & 0x00000000FFFFFFFFUL; }
 
     bool waitCoreFinish(int coreIdx);
 
@@ -428,7 +431,6 @@ private:
     pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>* availableVectorTaskQueue_;
     pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>* availableCubeTaskQueue_;
     pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>* availableCoreQueue_; 
-    pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>* pendingPairQueue_; 
     pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>* runningPairQueue_; 
 
     AicoreDump aicoreDump_;

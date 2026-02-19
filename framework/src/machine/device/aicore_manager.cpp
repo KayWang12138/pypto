@@ -88,7 +88,6 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl)
         delete availableVectorTaskQueue_;
         delete availableCubeTaskQueue_;
         delete availableCoreQueue_;
-        delete pendingPairQueue_ ;
         delete runningPairQueue_ ;
     }
 
@@ -242,29 +241,45 @@ void AiCoreManager::SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTas
     pendingIds_[coreIdx] = newTask;
     sendCnt_[static_cast<int>(type)]++;
 
-    const uint64_t pairCode = (uint64_t)coreIdx << 32 | newTask;
-    pendingPairQueue_->push(pairCode);
-    DEV_ERROR("Send task %lu, at core %d ,type:%d, code: 0x%0lX\n", newTask, coreIdx, static_cast<int>(type), pairCode);
+    const uint64_t pairCode = encodePair(newTask, coreIdx);
+    runningPairQueue_->push(pairCode);
+    // DEV_ERROR("AICPU: %d - Send task %lu, at core %d ,type:%d, code: 0x%0lX\n", aicpuIdx_, newTask, coreIdx, static_cast<int>(type), pairCode);
 }
 
 void AiCoreManager::ResolveDepForAllAiCore(CoreType type, int coreIdxStart, int coreIdxEnd)
 {
-    for (int coreIdx = coreIdxStart; coreIdx < coreIdxEnd; coreIdx++)
+    const auto runningPair = runningPairQueue_->pop();
+    if (runningPair == aicoreNullPair) return;
+
+    (void)coreIdxStart;
+    (void)coreIdxEnd;
+
+    const int coreIdx = (int)decodePairCore(runningPair);
+    // const uint64_t taskId = (int)decodePairTask(runningPair);
+
+    // DEV_ERROR("AICPU: %d - checking1 on core %d - task %lu\n", aicpuIdx_, coreIdx, taskId);
+    if (runningIds_[coreIdx] == AICORE_TASK_INIT && pendingIds_[coreIdx] == AICORE_TASK_INIT)
     {
-      if (runningIds_[coreIdx] == AICORE_TASK_INIT && pendingIds_[coreIdx] == AICORE_TASK_INIT) continue;
+        runningPairQueue_->push(runningPair);
+        return;
+    }
+    // DEV_ERROR("AICPU: %d - checking2 on core %d - task %lu\n", aicpuIdx_, coreIdx, taskId);
+    
+    uint64_t finTaskRegVal = GetFinishedTask(coreIdx);
+    uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
+    uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
 
-      uint64_t finTaskRegVal = GetFinishedTask(coreIdx);
-      uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
-      uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
-
-      if (finTaskId == pendingIds_[coreIdx] && finTaskState == TASK_FIN_STATE) 
-      {
-          DEV_DEBUG("core index: %d, PendingTask Finished. pending: %lx\n", coreIdx, pendingIds_[coreIdx]);
-          ResolveDepWithDfx(type, coreIdx, finTaskId);
-          pendingIds_[coreIdx] = AICORE_TASK_INIT;
-          corePendReadyCnt_[static_cast<int>(type)]++;
-          runReadyCoreIdx_[static_cast<int>(type)][coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
-      }
+    if (finTaskId == pendingIds_[coreIdx] && finTaskState == TASK_FIN_STATE) 
+    {
+        DEV_DEBUG("core index: %d, PendingTask Finished. pending: %lx\n", coreIdx, pendingIds_[coreIdx]);
+        ResolveDepWithDfx(type, coreIdx, finTaskId);
+        pendingIds_[coreIdx] = AICORE_TASK_INIT;
+        corePendReadyCnt_[static_cast<int>(type)]++;
+        runReadyCoreIdx_[static_cast<int>(type)][coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
+    }
+    else
+    {
+        runningPairQueue_->push(runningPair);
     }
 }
 
