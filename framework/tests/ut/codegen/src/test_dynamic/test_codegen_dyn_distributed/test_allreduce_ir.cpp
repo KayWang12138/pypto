@@ -337,7 +337,7 @@ TEST_F(AllReduceIRTest, TwoShot_AllVariants_ShmemOpcodeEquivalence)
 }
 
 // ===========================================================================
-// Multi-rank v5 tests — parameterized over world size {2, 4, 8}.
+// Multi-rank v5 tests — parameterized over world size {1, 2, 4, 8}.
 // Verifies that v5 produces correct counts and identical opcode sequences
 // to the base implementation across different rank configurations.
 // ===========================================================================
@@ -458,7 +458,7 @@ TEST_P(AllReduceIRMultiRankTest, TwoShotV5_IRStructure)
 
 INSTANTIATE_TEST_SUITE_P(
     MultiRank, AllReduceIRMultiRankTest,
-    ::testing::Values(2u, 4u, 8u),
+    ::testing::Values(1u, 2u, 4u, 8u),
     [](const ::testing::TestParamInfo<uint32_t>& param_info) {
         return "WorldSize" + std::to_string(param_info.param);
     });
@@ -684,7 +684,7 @@ TEST_P(AllReduceCorrectnessTest, OneShotVariants_ProduceSameResults)
 
 INSTANTIATE_TEST_SUITE_P(
     Correctness, AllReduceCorrectnessTest,
-    ::testing::Values(2u, 4u, 8u),
+    ::testing::Values(1u, 2u, 4u, 8u),
     [](const ::testing::TestParamInfo<uint32_t>& param_info) {
         return "WorldSize" + std::to_string(param_info.param);
     });
