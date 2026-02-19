@@ -17,6 +17,9 @@ list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/framework/src/machine/device/distribute
 list(APPEND _Sources ${PTO_FWK_SRC_ROOT}/framework/src/machine/device/machine_interface/pypto_aicpu_interface.cpp)
 set(_Include ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+set(BUILD_TRACR TRUE)
+tracr_enable(${_Target})
+
 PTO_Fwk_UTest_AddCaseLib(
         TARGET ${_Target}
         SOURCES ${_Sources}
@@ -27,9 +30,6 @@ target_compile_definitions(${_Target}
         PRIVATE
             NO_NEON_SUPPORT
 )
-
-set(BUILD_TRACR TRUE)
-tracr_enable(${_Target})
 
 # 可执行程序运行依赖的配置, 脚本配置
 add_custom_command(
