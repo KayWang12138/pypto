@@ -1,8 +1,10 @@
 import inspect
 import json
 
-from tools.onnx.kernel_utils import _find_kernel_binary_path, _find_kernel_pto_path
-from tools.onnx.zip import _zip_source_file_to_b64, _zip_kernel_dir_to_b64, _zip_pto_file_to_b64
+import torchair
+
+from .kernel_utils import _find_kernel_binary_path, _find_kernel_pto_path
+from .zip import _zip_source_file_to_b64, _zip_kernel_dir_to_b64, _zip_pto_file_to_b64
 
 KERNEL_FORMAT__SOURCE = "source"
 KERNEL_FORMAT__BINARY = "binary"
@@ -36,6 +38,16 @@ def _get_renamed_func_source(func, new_func_name: str):
     source = _unwrap_decorated_func_source(inspect.getsource(func))
     orig_func_name = _unwrap_decorated_func_name(func.__name__)
     return source.replace(orig_func_name, new_func_name, 1)
+
+def _json_dumps_user_meta(meta: dict, *args, **kwargs):
+    user_meta = {
+        k: v for k, v in meta.items()
+        if k not in [
+            _META_KEY__INFER_SHAPE_SOURCE, _META_KEY__CALC_WORKSPACE_SOURCE,
+            _META_KEY__KERNEL_SOURCE_ZIP, _META_KEY__KERNEL_BINARY_ZIP, _META_KEY__KERNEL_IR_ZIP,
+        ]
+    }
+    return json.dumps(user_meta, *args, **kwargs)
 
 # 通过@pypto_op装饰器输出pypto算子相关信息
 def pypto_op_kernel(*, kernel_name, incl_src=False, incl_binary=False, incl_ir=False, **meta):
@@ -80,31 +92,8 @@ def pypto_op_calc_workspace(*, pypto_op_kernel):
         return fn
     return decorator
 
-def pypto_op_onnx_symbolic(*, pypto_op_kernel):
+def _with_pypto_op_meta(pypto_op_kernel, dump_meta_fn):
     def decorator(fn):
-        def _dump_meta(meta: dict):
-            op_context = {}
-            for k, v in meta.items():
-                if type(v) in [list, tuple, dict]:
-                    op_context[f"{k}_s"] = json.dumps(v)
-                elif type(v) not in [int, float, str]:
-                    op_context[f"{k}_s"] = str(v)
-                else:
-                    op_context[f"{k}_{type(v).__name__[0]}"] = v
-
-            # skip dumping non-user meta to json (zips to optimize space usage, the rest for clarity)
-            filtered_meta = {
-                k: v for k, v in meta.items()
-                if k not in [
-                    _META_KEY__INFER_SHAPE_SOURCE, _META_KEY__CALC_WORKSPACE_SOURCE,
-                    _META_KEY__KERNEL_SOURCE_ZIP, _META_KEY__KERNEL_BINARY_ZIP,
-                ]
-            }
-
-            meta_json = json.dumps(filtered_meta, sort_keys=True)
-            op_context[f"{_META_KEY__META_JSON}_s"] = meta_json
-            return op_context
-        
         def wrapper(*args, **kwargs):
             meta = getattr(pypto_op_kernel, "__pypto_meta__", {})
             kernel_name = str(meta.get(_META_KEY__KERNEL_NAME))
@@ -123,6 +112,63 @@ def pypto_op_onnx_symbolic(*, pypto_op_kernel):
                 print(f"kernel IR path ::: {ir_path}")
                 meta[_META_KEY__KERNEL_IR_ZIP] = _zip_pto_file_to_b64(ir_path)
 
-            return fn(*args, **kwargs, op_context=_dump_meta(meta))
+            return fn(*args, **kwargs, op_context=dump_meta_fn(meta))
         return wrapper
+    return decorator
+
+def pypto_op_onnx_symbolic(*, pypto_op_kernel):
+    def decorator(fn):
+        def _dump_meta(meta: dict):
+            op_context = {}
+            for k, v in meta.items():
+                if type(v) in [list, tuple, dict]:
+                    op_context[f"{k}_s"] = json.dumps(v)
+                elif type(v) not in [int, float, str]:
+                    op_context[f"{k}_s"] = str(v)
+                else:
+                    op_context[f"{k}_{type(v).__name__[0]}"] = v
+
+            # skip dumping non-user meta to json (zips to optimize space usage, the rest for clarity)
+            meta_json = _json_dumps_user_meta(meta, sort_keys=True)
+            op_context[f"{_META_KEY__META_JSON}_s"] = meta_json
+            return op_context
+        
+        return _with_pypto_op_meta(pypto_op_kernel, _dump_meta)(fn)
+    return decorator
+
+def pypto_op_torchair_fx_node_ge_converter(*, pypto_op_kernel):
+    def decorator(fn):
+        def _dump_meta(meta: dict):
+            def _get_ge_attr_name(val):
+                if type(val) in [list, tuple]:
+                    elem_attr_name = _get_ge_attr_name(val[0]) if len(val) > 0 else "DataType"
+                    return f"List{elem_attr_name}"
+                elif type(val) in [int, float, str, bool]:
+                    return type(val).__name__.capitalize()
+                elif type(val) == dict:
+                    return "Str"
+                else:
+                    return "DataType"
+
+            def _recursive_tuple_to_list(val):
+                if type(val) in [list, tuple]:
+                    return [_recursive_tuple_to_list(elem) for elem in val]
+                return val
+
+            op_context = {}
+            for k, v in meta.items():
+                ge_attr = getattr(torchair.ge.attr, _get_ge_attr_name(v))
+                if type(v) in [list, tuple]:
+                    op_context[k] = ge_attr(_recursive_tuple_to_list(v))
+                elif type(v) == dict:
+                    op_context[k] = ge_attr(json.dumps(v))
+                else:
+                    op_context[k] = ge_attr(v)
+
+            # skip dumping non-user meta to json (zips to optimize space usage, the rest for clarity)
+            meta_json = _json_dumps_user_meta(meta, sort_keys=True)
+            op_context[_META_KEY__META_JSON] = torchair.ge.attr.Str(meta_json)
+            return op_context
+
+        return _with_pypto_op_meta(pypto_op_kernel, _dump_meta)(fn)
     return decorator
