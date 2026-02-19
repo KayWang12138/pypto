@@ -691,19 +691,16 @@ Tensor OneShotAllReduce_v5(const Tensor& predToken, const Tensor& in, Tensor& sh
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
 
-    Tensor predSignal;
-    // Phase 1: Scatter — broadcast input to all ranks with atomic ADD (parallel)
+    // Phase 1: Scatter — broadcast input to all ranks with atomic ADD
     for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
         // API: where: View, who: rank
         auto dynRankView = View(shmemData, {1, 1, row, col},
             std::vector<SymbolicScalar>{dynRankId, 0, 0, 0});
-        predSignal = comm.Put(predToken, in, dynRankView, dynRankId, AtomicType::ADD);
+        comm.Put(predToken, in, dynRankView, dynRankId, AtomicType::ADD);
     }
 
-    // Phase 2: Wait — block until all contributions have arrived
-    // Use predSignal to ensure Wait doesn't start polling before Puts are issued
-    // We could also use predToken, but polling would start earlier, than needed
-    return comm.Wait(predSignal);
+    // Phase 2: Wait — use predToken (not the Put output) to match base IR ordering
+    return comm.Wait(predToken);
 }
 
 // OneShotAllReduce_v6: same algorithm as v5 but with reduced layout (one fewer dimension).
