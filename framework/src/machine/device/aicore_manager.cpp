@@ -64,10 +64,23 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl)
     {
         uint64_t sentAic = 0;
         uint64_t sentAiv = 0;
-        DispatchAiCoreTask(CoreType::AIC, availableCubeTaskQueue_, aicStart_, aicEnd_);
+        
+        TryBatchSendTask(CoreType::AIC, availableCubeTaskQueue_, aicStart_, aicEnd_);
+        if (waitTaskCnt_[static_cast<int>(CoreType::AIC)] > 0) {
+            ResolveDepForAllAiCore(CoreType::AIC);
+            TryBatchSendTask(CoreType::AIC, availableCubeTaskQueue_, aicStart_, aicEnd_);
+        }
+
         CountSendTask(sentAic, sentAiv);
-        DispatchAiCoreTask(CoreType::AIV, availableVectorTaskQueue_, aivStart_, aivEnd_);
+
+        TryBatchSendTask(CoreType::AIV, availableVectorTaskQueue_, aivStart_, aivEnd_);
+        if (waitTaskCnt_[static_cast<int>(CoreType::AIV)] > 0) {
+            ResolveDepForAllAiCore(CoreType::AIV);
+            TryBatchSendTask(CoreType::AIV, availableVectorTaskQueue_, aivStart_, aivEnd_);
+        }
+
         CountSendTask(sentAic, sentAiv);
+        
         taskCtrl->finishedFunctionCnt.fetch_add(sentAic + sentAiv + reSolveHubCnt_, std::memory_order_relaxed);
         reSolveHubCnt_ = 0;
         
@@ -228,15 +241,6 @@ uint32_t AiCoreManager::BatchSendTask(CoreType type, uint64_t *newTask, uint32_t
     }
 
     return sendCnt;
-}
-
-uint64_t AiCoreManager::DispatchAiCoreTask(CoreType type, taskQueue_t* readyQue, int coreIdxStart, int coreIdxEnd) {
-    uint64_t taskCount = TryBatchSendTask(type, readyQue, coreIdxStart, coreIdxEnd);
-    if (waitTaskCnt_[static_cast<int>(type)] > 0) {
-        ResolveDepForAllAiCore(type);
-        taskCount += TryBatchSendTask(type, readyQue, coreIdxStart, coreIdxEnd);
-    }
-    return taskCount;
 }
 
 void AiCoreManager::SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTask) {
