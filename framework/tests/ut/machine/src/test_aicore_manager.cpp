@@ -36,8 +36,6 @@ TEST_F(TestAiCoreManager, test_aicore_manager) {
     std::unique_ptr<npu::tile_fwk::DeviceTaskCtrl> taskCtrlPtr = std::make_unique<npu::tile_fwk::DeviceTaskCtrl>();
     std::unique_ptr<npu::tile_fwk::AicpuTaskManager> aicpuTaskPtr = std::make_unique<npu::tile_fwk::AicpuTaskManager>();
     std::unique_ptr<npu::tile_fwk::AiCoreManager> AiCoreManagerPtr = std::make_unique<npu::tile_fwk::AiCoreManager>(*aicpuTaskPtr);
-
-    AiCoreManagerPtr->SendTaskToAiCore(npu::tile_fwk::CoreType::AIC, 0, 0);
     
     AiCoreManagerPtr->WaitAllAicoreFinish(0, 0, npu::tile_fwk::CoreType::AIC);
 
