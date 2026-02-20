@@ -167,3 +167,21 @@ TEST_F(TestDeviceRunner, test_create_proflevel) {
     ToSubMachineConfig config7;
     EXPECT_EQ(config7.profConfig.value, ProfConfig::OFF);
 }
+
+TEST_F(TestDeviceRunner, test_tracr) {
+    std::unique_ptr<npu::tile_fwk::AicpuTaskManager> aicpuTaskPtr = std::make_unique<npu::tile_fwk::dynamic::AicpuTaskManager>();
+    std::unique_ptr<npu::tile_fwk::AiCoreManager> AiCoreManagerPtr = std::make_unique<npu::tile_fwk::dynamic::AiCoreManager>(*aicpuTaskPtr);
+
+    const npu::tile_fwk::CoreType type = npu::tile_fwk::CoreType::AIC;
+    AiCoreManagerPtr->WaitAllAicoreFinish(0, 0, type);
+    AiCoreManagerPtr->CheckTaskFinished(0, 0, type);
+
+    const uint16_t tracrIdx = AiCoreManagerPtr->coreIdx2tracrIdx(0, type);
+
+    INSTRUMENTATION_START("");
+
+    INSTRUMENTATION_MARK_SET(tracrIdx, 0, 0);
+    INSTRUMENTATION_MARK_RESET(tracrIdx, 0, 0);
+
+    INSTRUMENTATION_END();
+}
