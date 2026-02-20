@@ -153,7 +153,6 @@ public:
             // Adding initial set of tasks and cores
             for (size_t i = 0; i < readyAivCoreFunctionQue_->wasSize(); i++) availableVectorTaskQueue->push((uint32_t)readyAivCoreFunctionQue_->getBuffer()[i]);
             for (size_t i = 0; i < readyAicCoreFunctionQue_->wasSize(); i++) availableCubeTaskQueue->push((uint32_t)readyAicCoreFunctionQue_->getBuffer()[i]);
-            for (size_t i = 0; i < MAX_MANAGER_AIV_NUM; i++) availableCoreQueue->push((uint32_t)i);
 
             curDevTask_->isTaskInitialized = true;
         }
@@ -164,9 +163,11 @@ public:
 
         availableVectorTaskQueue_ = reinterpret_cast<taskQueue_t*>(curDevTask_->staticSchedulerData.availableVectorTaskQueue);
         availableCubeTaskQueue_ = reinterpret_cast<taskQueue_t*>(curDevTask_->staticSchedulerData.availableCubeTaskQueue);
-        availableCoreQueue_ = reinterpret_cast<pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore> *>(curDevTask_->staticSchedulerData.availableCoreQueue);
+        availableCoreQueue_ = new pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>(MAX_QUEUED_CORES);
         runningPairQueue_   = new pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>(MAX_QUEUED_PAIRS);
+        for (int i = aivStart_; i < aivEnd_; i++) availableCoreQueue_->push((uint32_t)i);
     }
+    
 
     int RunTask(DeviceTaskCtrl *taskCtrl);
 
@@ -369,7 +370,6 @@ private:
     AicpuTaskManager &aicpuTaskManager_;
 
     std::array<uint64_t, MAX_AICORE_NUM> runningIds_;
-    std::array<uint64_t, MAX_AICORE_NUM> pendingIds_;
 
     /* 低32位任务 存储的dfx状态信息， 乒乓存储 0 or 1,
        高32位任务 存储的dfx状态信息， 乒乓存储 2 or 3
