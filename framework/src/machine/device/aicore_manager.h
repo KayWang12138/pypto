@@ -182,18 +182,6 @@ public:
         sendCnt_[static_cast<int>(CoreType::AIV)] = 0;
     }
 
-    template <bool enableAicpuTask = false>
-    inline void RunCoreTask(DeviceTaskCtrl *taskCtrl) {
-        uint64_t sentAic = 0;
-        uint64_t sentAiv = 0;
-        DispatchAiCoreTask(CoreType::AIC, availableCubeTaskQueue_, aicStart_, aicEnd_);
-        CountSendTask(sentAic, sentAiv);
-        DispatchAiCoreTask(CoreType::AIV, availableVectorTaskQueue_, aivStart_, aivEnd_);
-        CountSendTask(sentAic, sentAiv);
-        taskCtrl->finishedFunctionCnt.fetch_add(sentAic + sentAiv + reSolveHubCnt_, std::memory_order_relaxed);
-        reSolveHubCnt_ = 0;
-    }
-
     int RunTask(DeviceTaskCtrl *taskCtrl);
 
     int Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *taskCtrl = nullptr);
@@ -243,18 +231,6 @@ private:
     void ResolveDepWithDfx(CoreType type, int coreIdx, uint64_t finishId);
 
     bool IsExistOtherAicpuIdle(CoreType type);
-
-    inline void AicpuIsBusy(CoreType type) {
-        if (curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][aicpuIdx_] != false) {
-            curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][aicpuIdx_].store(false, std::memory_order_relaxed);
-        }
-    }
-
-    inline void AicpuIsIdle(CoreType type) {
-        if (curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][aicpuIdx_] != true) {
-            curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][aicpuIdx_].store(true, std::memory_order_relaxed);
-        }
-    }
 
     inline void BatchGetFinishedTask(uint64_t finTask[], int coreIdxStart, int coreIdxEnd) {
         uint64_t finTaskGet;

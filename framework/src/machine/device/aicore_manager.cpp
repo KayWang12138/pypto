@@ -62,7 +62,15 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl)
     npu::tile_fwk::dynamic::TimeCheck tm;
     while (taskCtrl->finishedFunctionCnt.load(std::memory_order_relaxed) < curDevTask_->coreFunctionCnt)
     {
-        RunCoreTask<true>(taskCtrl);
+        uint64_t sentAic = 0;
+        uint64_t sentAiv = 0;
+        DispatchAiCoreTask(CoreType::AIC, availableCubeTaskQueue_, aicStart_, aicEnd_);
+        CountSendTask(sentAic, sentAiv);
+        DispatchAiCoreTask(CoreType::AIV, availableVectorTaskQueue_, aivStart_, aivEnd_);
+        CountSendTask(sentAic, sentAiv);
+        taskCtrl->finishedFunctionCnt.fetch_add(sentAic + sentAiv + reSolveHubCnt_, std::memory_order_relaxed);
+        reSolveHubCnt_ = 0;
+        
         if (npu::tile_fwk::dynamic::CheckTimeOut("wait task send finish.", tm) != 0) {
             return -1;
         }
@@ -227,11 +235,6 @@ uint64_t AiCoreManager::DispatchAiCoreTask(CoreType type, taskQueue_t* readyQue,
     if (waitTaskCnt_[static_cast<int>(type)] > 0) {
         ResolveDepForAllAiCore(type);
         taskCount += TryBatchSendTask(type, readyQue, coreIdxStart, coreIdxEnd);
-    }
-    if (coreRunReadyCnt_[static_cast<int>(type)] > 0)  {
-        AicpuIsIdle(type);
-    } else {
-        AicpuIsBusy(type);
     }
     return taskCount;
 }
