@@ -192,6 +192,8 @@ private:
 
     void SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTask);
 
+    bool checkCoreFinished(const int coreIdx);
+
     void ResolveDepForAllAiCore(CoreType type);
 
     void BatchPushReadyQueue();

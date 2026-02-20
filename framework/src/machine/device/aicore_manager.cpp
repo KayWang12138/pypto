@@ -142,17 +142,23 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
 
 
 bool AiCoreManager::waitCoreFinish(int coreIdx) {
+    if (checkCoreFinished(coreIdx) == true)
+    {
+        pendingIds_[coreIdx] = AICORE_TASK_INIT;
+        runningIds_[coreIdx] = AICORE_TASK_INIT;
+        return true;
+    }
+
+    return false;
+}
+
+inline bool AiCoreManager::checkCoreFinished(const int coreIdx)
+{
     uint64_t finTaskVal = GetFinishedTask(coreIdx);
     uint32_t regLFinTaskId = REG_LOW_TASK_ID(finTaskVal);
     uint32_t regLFinTaskState = REG_LOW_TASK_STATE(finTaskVal);
-    if (regLFinTaskState == TASK_FIN_STATE &&
-        (pendingIds_[coreIdx] == regLFinTaskId || runningIds_[coreIdx] == regLFinTaskId))
-       {
-            pendingIds_[coreIdx] = AICORE_TASK_INIT;
-            runningIds_[coreIdx] = AICORE_TASK_INIT;
-       }
-
-    return pendingIds_[coreIdx] == AICORE_TASK_INIT && runningIds_[coreIdx] == AICORE_TASK_INIT;
+    if (regLFinTaskState == TASK_FIN_STATE && regLFinTaskId != AICORE_TASK_INIT) return true;
+    return false;
 }
 
 int AiCoreManager::WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd)
@@ -165,7 +171,7 @@ int AiCoreManager::WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd)
             if (coreStopped[i - coreIdxStart]) {
                 continue;
             }
-            if (waitCoreFinish(i)) {
+            if (checkCoreFinished(i)) {
                 stopSent++;
                 coreStopped[i - coreIdxStart] = true;
                 continue;
