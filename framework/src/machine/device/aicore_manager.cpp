@@ -245,16 +245,8 @@ void AiCoreManager::ResolveDepForAllAiCore(CoreType type)
     const int coreIdx = (int)decodePairCore(runningPair);
     const uint64_t taskId = (int)decodePairTask(runningPair);
 
-    // DEV_ERROR("AICPU: %d - checking1 on core %d - task %lu\n", aicpuIdx_, coreIdx, taskId);
-    if (runningIds_[coreIdx] == AICORE_TASK_INIT && pendingIds_[coreIdx] == AICORE_TASK_INIT)
-    {
-        runningPairQueue_->push(runningPair);
-        return;
-    }
-    
     if (isPairingFinished(runningPair)) 
     {
-        DEV_DEBUG("core index: %d, PendingTask Finished. pending: %lx\n", coreIdx, pendingIds_[coreIdx]);
         ResolveDepWithDfx(type, coreIdx, taskId);
         pendingIds_[coreIdx] = AICORE_TASK_INIT;
         corePendReadyCnt_[static_cast<int>(type)]++;
