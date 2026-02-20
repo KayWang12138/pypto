@@ -140,18 +140,6 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
     return ret;
 }
 
-
-bool AiCoreManager::waitCoreFinish(int coreIdx) {
-    if (checkCoreFinished(coreIdx) == true)
-    {
-        pendingIds_[coreIdx] = AICORE_TASK_INIT;
-        runningIds_[coreIdx] = AICORE_TASK_INIT;
-        return true;
-    }
-
-    return false;
-}
-
 inline bool AiCoreManager::checkCoreFinished(const int coreIdx)
 {
     uint64_t finTaskVal = GetFinishedTask(coreIdx);
@@ -163,19 +151,10 @@ inline bool AiCoreManager::checkCoreFinished(const int coreIdx)
 
 int AiCoreManager::WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd)
 {
-    int stopSent = 0;
-    bool coreStopped[MAX_MANAGER_AIV_NUM] = {false};
     npu::tile_fwk::dynamic::TimeCheck tm;
-    while (stopSent < coreIdxEnd - coreIdxStart) {
-        for (int i = coreIdxStart; i < coreIdxEnd; i++) {
-            if (coreStopped[i - coreIdxStart]) {
-                continue;
-            }
-            if (checkCoreFinished(i)) {
-                stopSent++;
-                coreStopped[i - coreIdxStart] = true;
-                continue;
-            }
+    for (int i = coreIdxStart; i < coreIdxEnd; i++) {
+        while (checkCoreFinished(i) == false)
+        {
             if (npu::tile_fwk::dynamic::CheckTimeOut("wait tail task", tm) != 0) {
                 DEV_ERROR("wait tail task finish timeout coreindx=%d.\n", i);
                 return -1;

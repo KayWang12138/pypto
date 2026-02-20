@@ -182,8 +182,6 @@ private:
 
     inline bool isPairingFinished(const aicorePair_t pairing);
 
-    bool waitCoreFinish(int coreIdx);
-
     int WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd);
 
     uint64_t TryBatchSendTask(CoreType type, taskQueue_t* readyQue, int coreIdxStart, int coreIdxEnd);
