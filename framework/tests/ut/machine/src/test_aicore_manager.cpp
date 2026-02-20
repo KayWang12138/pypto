@@ -30,13 +30,17 @@ TEST_F(TestAiCoreManager, test_aicore_manager) {
     DeviceArgs args_;
     args_.archInfo = ArchInfo::DAV_3510;
     npu::tile_fwk::DeviceRunner runner;
+    runner.Init();
     runner.InitDeviceArgs(args_);
     
     std::unique_ptr<npu::tile_fwk::DeviceTaskCtrl> taskCtrlPtr = std::make_unique<npu::tile_fwk::DeviceTaskCtrl>();
     std::unique_ptr<npu::tile_fwk::AicpuTaskManager> aicpuTaskPtr = std::make_unique<npu::tile_fwk::AicpuTaskManager>();
     std::unique_ptr<npu::tile_fwk::AiCoreManager> AiCoreManagerPtr = std::make_unique<npu::tile_fwk::AiCoreManager>(*aicpuTaskPtr);
 
+    AiCoreManagerPtr->SendTaskToAiCore(npu::tile_fwk::CoreType::AIC, 0, 0);
+    
     AiCoreManagerPtr->WaitAllAicoreFinish(0, 0, npu::tile_fwk::CoreType::AIC);
+
 
     uint16_t tracrIdx = AiCoreManagerPtr->coreIdx2tracrIdx(0, npu::tile_fwk::CoreType::AIV);
     tracrIdx = AiCoreManagerPtr->coreIdx2tracrIdx(0, npu::tile_fwk::CoreType::INVALID);
