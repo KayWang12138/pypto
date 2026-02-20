@@ -29,7 +29,7 @@ target_compile_definitions(${_Target}
             NO_NEON_SUPPORT
 )
 
-set(BUILD_TRACR TRUE)
+# set(BUILD_TRACR TRUE)
 tracr_enable(${_Target})
 
 # 可执行程序运行依赖的配置, 脚本配置

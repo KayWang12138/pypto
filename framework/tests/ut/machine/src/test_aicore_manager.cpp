@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file test_device_runner.cpp
+ * \file test_aicore_manager.cpp
  * \brief
  */
 
@@ -21,18 +21,7 @@
 #include <tracr/tracr.hpp>
 #include "machine/device/aicore_manager.h"
 
-
-class TestAiCoreManager : public testing::Test {
-public:
-    static void SetUpTestCase() {
-    }
-
-    static void TearDownTestCase() {}
-
-    void SetUp() override {}
-
-    void TearDown() override {}
-};
+class TestAiCoreManager : public testing::Test {};
 
 
 TEST_F(TestAiCoreManager, test_tracr) {
@@ -44,6 +33,8 @@ TEST_F(TestAiCoreManager, test_tracr) {
 
     const uint16_t tracrIdx = AiCoreManagerPtr->coreIdx2tracrIdx(0, type);
     (void)tracrIdx;
+
+    printf("[TraCR] TraCR active[%d,%ld]? %d", tracrIdx, syscall(SYS_gettid), INSTRUMENTATION_ACTIVE);
 
     INSTRUMENTATION_START("");
 
