@@ -62,16 +62,11 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl)
     npu::tile_fwk::dynamic::TimeCheck tm;
     while (taskCtrl->finishedFunctionCnt.load(std::memory_order_relaxed) < curDevTask_->coreFunctionCnt)
     {
-        uint64_t sentAic = 0;
-        uint64_t sentAiv = 0;
-        
         TryBatchSendTask(CoreType::AIC, availableCubeTaskQueue_, aicStart_, aicEnd_);
         if (waitTaskCnt_[static_cast<int>(CoreType::AIC)] > 0) {
             ResolveDepForAllAiCore(CoreType::AIC);
             TryBatchSendTask(CoreType::AIC, availableCubeTaskQueue_, aicStart_, aicEnd_);
         }
-
-        CountSendTask(sentAic, sentAiv);
 
         TryBatchSendTask(CoreType::AIV, availableVectorTaskQueue_, aivStart_, aivEnd_);
         if (waitTaskCnt_[static_cast<int>(CoreType::AIV)] > 0) {
@@ -79,8 +74,13 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl)
             TryBatchSendTask(CoreType::AIV, availableVectorTaskQueue_, aivStart_, aivEnd_);
         }
 
-        CountSendTask(sentAic, sentAiv);
-        
+        const uint64_t sentAic = sendCnt_[static_cast<int>(CoreType::AIC)];
+        const uint64_t sentAiv = sendCnt_[static_cast<int>(CoreType::AIV)];
+        waitTaskCnt_[static_cast<int>(CoreType::AIC)] += sentAic;
+        waitTaskCnt_[static_cast<int>(CoreType::AIV)] += sentAiv;
+        sendCnt_[static_cast<int>(CoreType::AIC)] = 0;
+        sendCnt_[static_cast<int>(CoreType::AIV)] = 0;
+
         taskCtrl->finishedFunctionCnt.fetch_add(sentAic + sentAiv + reSolveHubCnt_, std::memory_order_relaxed);
         reSolveHubCnt_ = 0;
         

@@ -168,15 +168,6 @@ public:
         runningPairQueue_   = new pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>(MAX_QUEUED_PAIRS);
     }
 
-    inline void CountSendTask(uint64_t& sentAic, uint64_t& sentAiv) {
-        sentAic += sendCnt_[static_cast<int>(CoreType::AIC)];
-        sentAiv += sendCnt_[static_cast<int>(CoreType::AIV)];
-        waitTaskCnt_[static_cast<int>(CoreType::AIC)] += sentAic;
-        waitTaskCnt_[static_cast<int>(CoreType::AIV)] += sentAiv;
-        sendCnt_[static_cast<int>(CoreType::AIC)] = 0;
-        sendCnt_[static_cast<int>(CoreType::AIV)] = 0;
-    }
-
     int RunTask(DeviceTaskCtrl *taskCtrl);
 
     int Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *taskCtrl = nullptr);
