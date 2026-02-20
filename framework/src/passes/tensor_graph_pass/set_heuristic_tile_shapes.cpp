@@ -944,7 +944,7 @@ void AssembleTileSetting(Operation *op, const std::vector<int64_t>& vectorTilesO
             }
         }
         ASSERT((size_t)sp < vectorTilesNew.size())<<"Split dim > size "<<sp<<" vs "<<vectorTilesNew.size()<<"\n";
-        vectorTilesNew[sp] = (tile != -1) ? tile : vectorTilesNew[sp];
+        vectorTilesNew[sp] = (tile != -1) ? std::gcd(tile, vectorTilesNew[sp]) : vectorTilesNew[sp];
     }
 }
 
@@ -976,18 +976,19 @@ void OpWithSeveralInputsTileSetting(Operation *op, const std::vector<int64_t>& v
         std::cout << "Producer: " << prodOp->GetOpcodeStr() << " magic : " << prodOp->GetOpMagic() << " Op: " << op->GetOpcodeStr() << " magic : " << op->GetOpMagic() << std::endl;
 
         std::vector<int64_t> inpTile(inputDims, 1);
-        if (((prodOp->GetIOperands().size() == 0) || (prodOp->GetIOperands()[0]->GetProducers().size() == 0)) && (op->GetOOperands().size() == 0)) {
+        if ((prodOp->GetIOperands().size() == 0) || (prodOp->GetIOperands()[0]->GetProducers().size() == 0)) {
             //std::cout<<"No inputs from prod, ignore its tiling\n";
-            inpTile = vectorTilesNew;
+            if((consOp->GetTileShape().GetVecTile().tile.size() == 1) && (consOp->GetTileShape().GetVecTile().tile[0] == -1)) {
+                inpTile = consOp->GetTileShape().GetVecTile().tile;
+            } else {
+                inpTile = vectorTilesNew;
+            }
             if (inpTile.back() == 1) {
                 inpTile.back() = op->GetIOperands()[inp]->GetShape()[inputDims - 1];
             }
             toUpdate.push_back(prodOp);
             //continue;
         } else {
-            if ((prodOp->GetIOperands().size() == 0) || (prodOp->GetIOperands()[0]->GetProducers().size() == 0)) {
-                inpTile = consOp->GetTileShape().GetVecTile().tile;
-            }
             inpTile = prodOp->GetTileShape().GetVecTile().tile;
         }
 
@@ -1261,7 +1262,7 @@ void ReduceTileSetting(Operation *op, std::vector<int64_t>& vectorTilesNew) {
     int64_t maxTypeSize = std::max(inputTypeSize, outputTypeSize);
 
     const uint64_t UB_MAX_SIZE = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB);
-    uint32_t argsCount = 2; //need t place output and temporal buffer up to input size for small shapes
+    uint32_t argsCount = 4; //need t place output and temporal buffer up to input size for small shapes
 
     int64_t tileSize = UB_MAX_SIZE / maxTypeSize / argsCount;
     
@@ -2003,9 +2004,10 @@ void SetHeuristicVectorTiles(Function &function, std::unordered_set<Operation *>
     // Define cube operations ordered by depth
     std::map<int, int> subgrDepthMap;
     std::map<uint8_t, std::vector<Operation *>> priorOps;
-    for(auto c: cubeOperations) {
-        priorOps[1].push_back(c);//FordBellman(function, cubeOperations, subgrDepthMap);
-    }
+    //for(auto c: cubeOperations) {
+    //    priorOps[1].push_back(c);//FordBellman(function, cubeOperations, subgrDepthMap);
+    //}
+    priorOps[1] = FordBellman(function, cubeOperations, subgrDepthMap);
        
     for (auto op : priorOps[1]) {
         std::cout << "Cube op = " << op->GetOpMagic() << " depth = " << subgrDepthMap[op->GetOpMagic()] << std::endl;
@@ -2016,21 +2018,21 @@ void SetHeuristicVectorTiles(Function &function, std::unordered_set<Operation *>
     std::map<int, bool> visitedBFS;
 
     // Sort reduce operations by depth
-    //std::vector<std::pair<Operation *, int>> reduceTmpOperations;
+    std::vector<std::pair<Operation *, int>> reduceTmpOperations;
     for (auto &op : function.Operations()) {
         if ((reduceOps.find(op.GetOpcode()) != reduceOps.end()) ||
             (scatterOps.find(op.GetOpcode()) != scatterOps.end()) ||
             (topkOps.find(op.GetOpcode()) != topkOps.end())) {
-            priorOps[2].push_back(&op);
-            //reduceTmpOperations.push_back(std::make_pair(&op, subgrDepthMap[op.GetOpMagic()]));
+            //priorOps[2].push_back(&op);
+            reduceTmpOperations.push_back(std::make_pair(&op, subgrDepthMap[op.GetOpMagic()]));
         }
     }  
-    //std::sort(reduceTmpOperations.begin(), reduceTmpOperations.end(), [](const std::pair<Operation *, int> &x, const std::pair<Operation *, int> &y) {return x.second < y.second;});
+    std::sort(reduceTmpOperations.begin(), reduceTmpOperations.end(), [](const std::pair<Operation *, int> &x, const std::pair<Operation *, int> &y) {return x.second < y.second;});
     
-    //for (auto [op, depth] : reduceTmpOperations) {
-    //    priorOps[2].push_back(op);
-    //}
-    //reduceTmpOperations.clear();
+    for (auto [op, depth] : reduceTmpOperations) {
+        priorOps[2].push_back(op);
+    }
+    reduceTmpOperations.clear();
 
     // Need to set initial vector tiles for ReduceOps
     SetReduceTiles(priorOps[2]);
