@@ -36,9 +36,6 @@ TEST_F(TestAiCoreManager, test_aicore_manager) {
     std::unique_ptr<npu::tile_fwk::AicpuTaskManager> aicpuTaskPtr = std::make_unique<npu::tile_fwk::AicpuTaskManager>();
     std::unique_ptr<npu::tile_fwk::AiCoreManager> AiCoreManagerPtr = std::make_unique<npu::tile_fwk::AiCoreManager>(*aicpuTaskPtr);
 
-    // AiCoreManagerPtr->Run(0, &args_, taskCtrlPtr.get());
-    // AiCoreManagerPtr->RunTask(taskCtrlPtr.get());
-    // AiCoreManagerPtr->CheckTaskFinished(0, npu::tile_fwk::CoreType::AIC);
     AiCoreManagerPtr->WaitAllAicoreFinish(0, 0, npu::tile_fwk::CoreType::AIC);
 
     uint16_t tracrIdx = AiCoreManagerPtr->coreIdx2tracrIdx(0, npu::tile_fwk::CoreType::AIV);
