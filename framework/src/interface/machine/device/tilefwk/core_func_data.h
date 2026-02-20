@@ -118,8 +118,6 @@ struct staticSchedulerRuntimeData_t
     uint64_t availableVectorTaskQueue;
     uint64_t availableCubeTaskQueue;
     uint64_t availableCoreQueue; 
-    uint64_t pendingPairQueue; 
-    uint64_t runningPairQueue; 
 };
 
 // host machine 发给device machine的task数据

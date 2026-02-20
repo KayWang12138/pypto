@@ -145,14 +145,10 @@ public:
             auto availableVectorTaskQueue = new pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>(MAX_QUEUED_TASKS);
             auto availableCubeTaskQueue   = new pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>(MAX_QUEUED_TASKS);
             auto availableCoreQueue       = new pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>(MAX_QUEUED_CORES);
-            auto pendingPairQueue         = new pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>(MAX_QUEUED_PAIRS);
-            auto runningPairQueue         = new pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>(MAX_QUEUED_PAIRS);
 
             curDevTask_->staticSchedulerData.availableVectorTaskQueue = (uint64_t) availableVectorTaskQueue;
             curDevTask_->staticSchedulerData.availableCubeTaskQueue   = (uint64_t) availableCubeTaskQueue;
             curDevTask_->staticSchedulerData.availableCoreQueue       = (uint64_t) availableCoreQueue;
-            curDevTask_->staticSchedulerData.pendingPairQueue         = (uint64_t) pendingPairQueue;
-            curDevTask_->staticSchedulerData.runningPairQueue         = (uint64_t) runningPairQueue;
 
             // Adding initial set of tasks and cores
             for (size_t i = 0; i < readyAivCoreFunctionQue_->wasSize(); i++) availableVectorTaskQueue->push((uint32_t)readyAivCoreFunctionQue_->getBuffer()[i]);
@@ -169,8 +165,7 @@ public:
         availableVectorTaskQueue_ = reinterpret_cast<taskQueue_t*>(curDevTask_->staticSchedulerData.availableVectorTaskQueue);
         availableCubeTaskQueue_ = reinterpret_cast<taskQueue_t*>(curDevTask_->staticSchedulerData.availableCubeTaskQueue);
         availableCoreQueue_ = reinterpret_cast<pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore> *>(curDevTask_->staticSchedulerData.availableCoreQueue);
-        runningPairQueue_   = reinterpret_cast<pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair> *>(curDevTask_->staticSchedulerData.runningPairQueue);  
-
+        runningPairQueue_   = new pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>(MAX_QUEUED_PAIRS);
     }
 
     inline void CountSendTask(uint64_t& sentAic, uint64_t& sentAiv) {
