@@ -19,20 +19,41 @@
 #include <cstdlib>
 
 #include <tracr/tracr.hpp>
+#include "machine/runtime/device_runner.h"
 #include "machine/device/aicore_manager.h"
+#include "machine/device/tilefwk/aicpu_common.h"
 
 class TestAiCoreManager : public testing::Test {};
 
+
+TEST_F(TestAiCoreManager, test_aicore_manager) {
+    DeviceArgs args_;
+    args_.archInfo = ArchInfo::DAV_3510;
+    npu::tile_fwk::DeviceRunner runner;
+    runner.InitDeviceArgs(args_);
+    
+    std::unique_ptr<npu::tile_fwk::DeviceTaskCtrl> taskCtrlPtr = std::make_unique<npu::tile_fwk::DeviceTaskCtrl>();
+    std::unique_ptr<npu::tile_fwk::AicpuTaskManager> aicpuTaskPtr = std::make_unique<npu::tile_fwk::AicpuTaskManager>();
+    std::unique_ptr<npu::tile_fwk::AiCoreManager> AiCoreManagerPtr = std::make_unique<npu::tile_fwk::AiCoreManager>(*aicpuTaskPtr);
+
+    // AiCoreManagerPtr->Run(0, &args_, taskCtrlPtr.get());
+    // AiCoreManagerPtr->RunTask(taskCtrlPtr.get());
+    // AiCoreManagerPtr->CheckTaskFinished(0, npu::tile_fwk::CoreType::AIC);
+    AiCoreManagerPtr->WaitAllAicoreFinish(0, 0, npu::tile_fwk::CoreType::AIC);
+
+    uint16_t tracrIdx = AiCoreManagerPtr->coreIdx2tracrIdx(0, npu::tile_fwk::CoreType::AIV);
+    tracrIdx = AiCoreManagerPtr->coreIdx2tracrIdx(0, npu::tile_fwk::CoreType::INVALID);
+    tracrIdx = AiCoreManagerPtr->coreIdx2tracrIdx(0, npu::tile_fwk::CoreType::AIC);
+    (void)tracrIdx;
+}
 
 TEST_F(TestAiCoreManager, test_tracr) {
     std::unique_ptr<npu::tile_fwk::AicpuTaskManager> aicpuTaskPtr = std::make_unique<npu::tile_fwk::AicpuTaskManager>();
     std::unique_ptr<npu::tile_fwk::AiCoreManager> AiCoreManagerPtr = std::make_unique<npu::tile_fwk::AiCoreManager>(*aicpuTaskPtr);
 
     const npu::tile_fwk::CoreType type = npu::tile_fwk::CoreType::AIC;
-    AiCoreManagerPtr->WaitAllAicoreFinish(0, 0, type);
 
     const uint16_t tracrIdx = AiCoreManagerPtr->coreIdx2tracrIdx(0, type);
-    (void)tracrIdx;
 
     printf("[TraCR] TraCR active[%d,%ld]? %d", tracrIdx, syscall(SYS_gettid), INSTRUMENTATION_ACTIVE);
 

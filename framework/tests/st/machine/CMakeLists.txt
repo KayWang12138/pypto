@@ -20,5 +20,4 @@ PTO_Fwk_STest_AddLib(
         GOLDEN_SCRIPT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/ops
         )        
 
-# set(BUILD_TRACR TRUE)
 tracr_enable(${_Target})
