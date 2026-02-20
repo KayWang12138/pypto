@@ -143,9 +143,8 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
 inline bool AiCoreManager::checkCoreFinished(const int coreIdx)
 {
     uint64_t finTaskVal = GetFinishedTask(coreIdx);
-    uint32_t regLFinTaskId = REG_LOW_TASK_ID(finTaskVal);
     uint32_t regLFinTaskState = REG_LOW_TASK_STATE(finTaskVal);
-    if (regLFinTaskState == TASK_FIN_STATE && regLFinTaskId != AICORE_TASK_INIT) return true;
+    if (regLFinTaskState == TASK_FIN_STATE) return true;
     return false;
 }
 
