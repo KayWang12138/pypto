@@ -311,17 +311,8 @@ private:
     inline void SetDotStatus(int64_t status) { dotStatus_ = status; }
     inline CoreType AicoreType(int coreIdx) const { return coreIdx < aicEnd_ ? CoreType::AIC : CoreType::AIV; }
 
-public:
-    uint64_t GetTaskStartTime() {
-        return task_start_time_;
-    }
-    uint64_t GetTaskEndTime() {
-        return task_end_time_;
-    }
 private:
     bool isFirstTaskSend_{true};
-    uint64_t task_start_time_{UINT64_MAX};
-    uint64_t task_end_time_{0};
     int aicNum_{0};
     int aivNum_{0};
     int aicValidNum_{0}; // 有效的aic，根据pgmask计算host传过来
