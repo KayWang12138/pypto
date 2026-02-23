@@ -549,6 +549,8 @@ class OneShotCommunicatorV2;
 class TwoShotCommunicatorV2;
 Tensor OneShotAllReduce_v5(const Tensor& predToken, const Tensor& in, Tensor& shmemData,
     OneShotCommunicatorV2& comm);
+void OneShotAllReduce_v6(const Tensor& predToken, const Tensor& in, Tensor& shmemData,
+    OneShotCommunicatorV2& comm);
 void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
 void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
     Tensor& shmemSignal, Tensor& out);
