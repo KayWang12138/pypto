@@ -216,13 +216,10 @@ void AiCoreManager::ResolveDepForAllAiCore(CoreType type)
 inline bool AiCoreManager::isPairingFinished(const aicorePair_t pairing)
 {
     const int coreIdx = (int)decodePairCore(pairing);
-    const uint64_t taskId = (int)decodePairTask(pairing);
-    
     uint64_t finTaskRegVal = GetFinishedTask(coreIdx);
-    uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
     uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
 
-    if (finTaskId == taskId && finTaskState == TASK_FIN_STATE) return true;
+    if (finTaskState == TASK_FIN_STATE) return true;
     return false;
 }
 
@@ -348,8 +345,6 @@ void AiCoreManager::Init(int threadIdx, DeviceArgs *deviceArgs) {
     aicValidNum_ = deviceArgs->nrValidAic;
     regAddrs_ = reinterpret_cast<int64_t *>(deviceArgs->coreRegAddr);
     sharedBuffer_ = deviceArgs->sharedBuffer;
-    runningIds_.fill(AICORE_STATUS_INIT);
-    taskDfxStatPos_.fill(REG_LOW_TASK_PING);
 
     blockIdToPhyCoreId_.fill(-1);
     readyRegQueues_.fill(nullptr);

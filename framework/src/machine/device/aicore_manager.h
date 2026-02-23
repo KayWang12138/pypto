@@ -334,11 +334,6 @@ private:
     inline int GetAllAiCoreNum() { return aicNum_ + aivNum_; }
     inline void SetDotStatus(int64_t status) { dotStatus_ = status; }
     inline CoreType AicoreType(int coreIdx) const { return coreIdx < aicEnd_ ? CoreType::AIC : CoreType::AIV; }
-    inline void SetNextDfxPos(int coreIdx) {
-            taskDfxStatPos_[coreIdx] =
-                taskDfxStatPos_[coreIdx] == REG_LOW_TASK_PING ? REG_LOW_TASK_PONG : REG_LOW_TASK_PING;
-    }
-    inline int GetDfxPos(int coreIdx) { return taskDfxStatPos_[coreIdx]; }
 
 public:
     uint64_t GetTaskStartTime() {
@@ -368,13 +363,6 @@ private:
     DeviceTask *curDevTask_{nullptr};
     DeviceTaskCtrl* curTaskCtrl_{nullptr};
     AicpuTaskManager &aicpuTaskManager_;
-
-    std::array<uint64_t, MAX_AICORE_NUM> runningIds_;
-
-    /* 低32位任务 存储的dfx状态信息， 乒乓存储 0 or 1,
-       高32位任务 存储的dfx状态信息， 乒乓存储 2 or 3
-    */
-    std::array<int, MAX_AICORE_NUM> taskDfxStatPos_;
 
     std::array<int, MAX_AICORE_NUM> blockIdToPhyCoreId_;
     std::array<volatile uint64_t *, MAX_AICORE_NUM> readyRegQueues_;
