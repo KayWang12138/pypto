@@ -392,12 +392,7 @@ private:
 
     uint64_t readyIds[AICORE_TYPE_NUM][READY_ID_FIX_CACHE_NUM];
     uint64_t readyCount[AICORE_TYPE_NUM]{0,0};
-
     uint32_t sendCnt_[AICORE_TYPE_NUM]{0,0};
-
-    std::vector<TaskInfo> sendTask_[MAX_AICORE_NUM];
-    std::vector<TaskInfo> recvFinTask_[MAX_AICORE_NUM];
-    std::vector<TaskInfo> recvAckTask_[MAX_AICORE_NUM];
 
     bool isNeedWriteRegForFastPath_{true};
     uint32_t regSprDataMainBase_{REG_SPR_DATA_MAIN_BASE};
