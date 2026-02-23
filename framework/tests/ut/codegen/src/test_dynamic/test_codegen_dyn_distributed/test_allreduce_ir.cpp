@@ -11,9 +11,9 @@
 /*!
  * \file test_allreduce_ir.cpp
  * \brief Unit tests for AllReduce IR structure verification.
- *        Validates that OneShot and TwoShot AllReduce variants (base, v2–v5)
- *        produce the expected SHMEM operation counts and identical opcode
- *        sequences — without requiring hardware or HCCL runtime.
+ *        Validates that OneShot (base, v2–v6) and TwoShot (base, v2–v5)
+ *        AllReduce variants produce the expected SHMEM operation counts and
+ *        identical opcode sequences — no hardware or HCCL runtime needed.
  */
 
 #include <vector>
@@ -156,6 +156,7 @@ protected:
 
 // ===========================================================================
 // Base OneShotAllReduce / TwoShotAllReduce IR tests
+// The "OG" implementations — everything else should match these.
 // ===========================================================================
 
 TEST_F(AllReduceIRTest, OneShotBase_IRStructure)
@@ -175,7 +176,9 @@ TEST_F(AllReduceIRTest, TwoShotBase_IRStructure)
 }
 
 // ===========================================================================
-// OneShot variant IR structure tests
+// OneShot variant IR structure tests — each refactoring step from v2 to v6.
+// All of these should produce the same SHMEM ops as base; the only difference
+// is how much ceremony the caller has to deal with.
 // ===========================================================================
 
 TEST_F(AllReduceIRTest, V2_IRStructure)
@@ -202,6 +205,7 @@ TEST_F(AllReduceIRTest, V4_IRStructure)
     });
 }
 
+// v5 introduces the communicator object — Pull is the caller's job now.
 TEST_F(AllReduceIRTest, V5PlusPull_IRStructure)
 {
     RunOneShotIRTest("UT_IR_V5", [](Tensor& in, const char* group,
@@ -212,8 +216,22 @@ TEST_F(AllReduceIRTest, V5PlusPull_IRStructure)
     });
 }
 
+// v6 goes further: scatter-only function, caller owns Wait + Pull.
+// This is the most decomposed form — good for overlapping compute with comms.
+TEST_F(AllReduceIRTest, V6PlusPull_IRStructure)
+{
+    RunOneShotIRTest("UT_IR_V6", [](Tensor& in, const char* group,
+                                     Tensor& sd, Tensor& ss, Tensor& out) {
+        OneShotCommunicatorV2 comm(group, kWorldSize, ss);
+        OneShotAllReduce_v6(in, in, sd, comm);
+        auto waitToken = comm.Wait(in);
+        out = comm.Pull(waitToken, sd);
+    });
+}
+
 // ===========================================================================
-// OneShot cross-variant IR equivalence (base as golden reference)
+// OneShot cross-variant IR equivalence (base as golden reference).
+// If any variant drifts here, something went wrong in the refactoring.
 // ===========================================================================
 
 TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
@@ -246,10 +264,19 @@ TEST_F(AllReduceIRTest, AllVariants_ShmemOpcodeEquivalence)
         out = comm.Pull(waitToken, sd);
     });
 
+    auto irV6 = BuildOneShotIR("UT_EQUIV_V6", [](Tensor& in, const char* g,
+                                                   Tensor& sd, Tensor& ss, Tensor& out) {
+        OneShotCommunicatorV2 comm(g, kWorldSize, ss);
+        OneShotAllReduce_v6(in, in, sd, comm);
+        auto waitToken = comm.Wait(in);
+        out = comm.Pull(waitToken, sd);
+    });
+
     EXPECT_EQ(irBase, irV2) << "OneShot base and v2 SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV3) << "OneShot base and v3 SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV4) << "OneShot base and v4 SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV5) << "OneShot base and v5+Pull SHMEM opcode sequences differ";
+    EXPECT_EQ(irBase, irV6) << "OneShot base and v6+Pull SHMEM opcode sequences differ";
 }
 
 // ===========================================================================
@@ -290,7 +317,8 @@ TEST_F(AllReduceIRTest, TwoShot_V5_IRStructure)
 }
 
 // ===========================================================================
-// TwoShot cross-variant IR equivalence (base as golden reference)
+// TwoShot cross-variant IR equivalence (base as golden reference).
+// Same principle as the OneShot equivalence test — just for the two-phase path.
 // ===========================================================================
 
 TEST_F(AllReduceIRTest, TwoShot_AllVariants_ShmemOpcodeEquivalence)
@@ -337,9 +365,9 @@ TEST_F(AllReduceIRTest, TwoShot_AllVariants_ShmemOpcodeEquivalence)
 }
 
 // ===========================================================================
-// Multi-rank v5 tests — parameterized over world size {1, 2, 4, 8}.
-// Verifies that v5 produces correct counts and identical opcode sequences
-// to the base implementation across different rank configurations.
+// Multi-rank tests — parameterized over world size {1, 2, 4, 8}.
+// Makes sure v5 and v6 scale correctly and still match the base at every
+// world size, not just the default kWorldSize=4.
 // ===========================================================================
 
 class AllReduceIRMultiRankTest : public ::testing::TestWithParam<uint32_t> {
@@ -417,6 +445,42 @@ TEST_P(AllReduceIRMultiRankTest, OneShotV5_IRStructure)
     EXPECT_EQ(opsV5, opsBase) << "OneShot v5 and base differ at worldSize=" << worldSize;
 }
 
+TEST_P(AllReduceIRMultiRankTest, OneShotV6_IRStructure)
+{
+    uint32_t worldSize = W();
+    std::string tag = "UT_MR_OS_V6_W" + std::to_string(worldSize);
+    Shape shmemDataShape{1, kRow, kCol};
+
+    Tensor in(DT_FP16, {kRow, kCol}, "in");
+    Tensor out(DT_FP16, {kRow, kCol}, "out");
+    FUNCTION(tag.c_str(), {in}, {out}) {
+        TileShape::Current().SetVecTile({kRow, kCol});
+        Tensor shmemData, shmemSignal;
+        CreateShmemTensors(worldSize, PromotedType(in.GetDataType()), shmemDataShape, shmemData, shmemSignal);
+        OneShotCommunicatorV2 comm(kGroup, worldSize, shmemSignal);
+        OneShotAllReduce_v6(in, in, shmemData, comm);
+        auto waitToken = comm.Wait(in);
+        out = comm.Pull(waitToken, shmemData);
+    }
+
+    auto opsV6 = ExtractShmemOpcodes(tag);
+    VerifyOneShotCounts(CountShmemOps(opsV6), worldSize);
+
+    Program::GetInstance().Reset();
+    std::string baseTag = "UT_MR_OS_BASE_V6_W" + std::to_string(worldSize);
+    Tensor inBase(DT_FP16, {kRow, kCol}, "in_base");
+    Tensor outBase(DT_FP16, {kRow, kCol}, "out_base");
+    FUNCTION(baseTag.c_str(), {inBase}, {outBase}) {
+        TileShape::Current().SetVecTile({kRow, kCol});
+        Tensor shmemData, shmemSignal;
+        CreateShmemTensors(worldSize, PromotedType(inBase.GetDataType()), shmemDataShape, shmemData, shmemSignal);
+        OneShotAllReduce(inBase, inBase, kGroup, shmemData, shmemSignal, outBase);
+    }
+
+    auto opsBase = ExtractShmemOpcodes(baseTag);
+    EXPECT_EQ(opsV6, opsBase) << "OneShot v6 and base differ at worldSize=" << worldSize;
+}
+
 TEST_P(AllReduceIRMultiRankTest, TwoShotV5_IRStructure)
 {
     uint32_t worldSize = W();
@@ -464,9 +528,9 @@ INSTANTIATE_TEST_SUITE_P(
     });
 
 // ===========================================================================
-// Computational correctness tests (simulation mode)
-// These tests verify that the AllReduce operations produce correct numerical
-// results in simulation mode, complementing the IR structure tests above.
+// Computational correctness tests (simulation mode).
+// Complements the structural checks above — here we care about the numbers,
+// not just the opcode shapes. Full hardware runs live in the ST suite.
 // ===========================================================================
 
 class AllReduceCorrectnessTest : public ::testing::TestWithParam<uint32_t> {
@@ -639,7 +703,8 @@ TEST_P(AllReduceCorrectnessTest, TwoShotV5_Correctness)
     EXPECT_GT(ops.size(), 0u) << "Expected non-empty SHMEM operation sequence";
 }
 
-// Test cross-variant correctness: verify all variants produce same results
+// Smoke test: every OneShot variant (base, v5, v6) should yield the same opcodes.
+// If this breaks, the "simplified API" isn't so simplified anymore.
 TEST_P(AllReduceCorrectnessTest, OneShotVariants_ProduceSameResults)
 {
     uint32_t worldSize = WorldSize();
@@ -673,13 +738,16 @@ TEST_P(AllReduceCorrectnessTest, OneShotVariants_ProduceSameResults)
             out = comm.Pull(waitToken, sd);
         });
 
-    // Verify both produce identical IR (which implies identical computation)
+    auto opsV6 = buildVariant("CORRECTNESS_V6_W" + std::to_string(worldSize),
+        [](Tensor& in, const char* g, Tensor& sd, Tensor& ss, Tensor& out, uint32_t ws) {
+            OneShotCommunicatorV2 comm(g, ws, ss);
+            OneShotAllReduce_v6(in, in, sd, comm);
+            auto waitToken = comm.Wait(in);
+            out = comm.Pull(waitToken, sd);
+        });
+
     EXPECT_EQ(opsBase, opsV5) << "Base and v5 should produce identical opcodes for worldSize=" << worldSize;
-    
-    // NOTE: For full correctness, this test would:
-    // 1. Execute both variants with same input data
-    // 2. Compare their outputs element-wise
-    // This requires runtime execution which is available in ST suite
+    EXPECT_EQ(opsBase, opsV6) << "Base and v6 should produce identical opcodes for worldSize=" << worldSize;
 }
 
 INSTANTIATE_TEST_SUITE_P(
