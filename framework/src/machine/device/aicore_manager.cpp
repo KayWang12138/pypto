@@ -60,7 +60,7 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl)
     // DEV_ERROR("AICPU %d - Core Queue Size: %lu\n", aicpuIdx_, availableCoreQueue_->wasSize());
 
     npu::tile_fwk::dynamic::TimeCheck tm;
-    while (taskCtrl->finishedFunctionCnt.load(std::memory_order_relaxed) < curDevTask_->coreFunctionCnt)
+    while (taskCtrl->issuedTaskCount.load(std::memory_order_relaxed) < curDevTask_->coreFunctionCnt)
     {
         TryBatchSendTask(CoreType::AIC, availableCubeTaskQueue_, aicStart_, aicEnd_);
         if (waitTaskCnt_[static_cast<int>(CoreType::AIC)] > 0) {
@@ -81,7 +81,7 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl)
         sendCnt_[static_cast<int>(CoreType::AIC)] = 0;
         sendCnt_[static_cast<int>(CoreType::AIV)] = 0;
 
-        taskCtrl->finishedFunctionCnt.fetch_add(sentAic + sentAiv + reSolveHubCnt_, std::memory_order_relaxed);
+        // taskCtrl->issuedTaskCount.fetch_add(sentAic + sentAiv + reSolveHubCnt_, std::memory_order_relaxed);
         reSolveHubCnt_ = 0;
         
         if (npu::tile_fwk::dynamic::CheckTimeOut("wait task send finish.", tm) != 0) {
@@ -186,6 +186,7 @@ uint64_t AiCoreManager::TryBatchSendTask(CoreType type, taskQueue_t* readyQue, i
 void AiCoreManager::SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTask) {
     SetReadyQueue(coreIdx, newTask + 1);
     sendCnt_[static_cast<int>(type)]++;
+    curTaskCtrl_->issuedTaskCount.fetch_add(1);
 
     const uint64_t pairCode = encodePair(newTask, coreIdx);
     runningPairQueue_->push(pairCode);
@@ -198,10 +199,10 @@ void AiCoreManager::ResolveDepForAllAiCore(CoreType type)
     if (runningPair == aicoreNullPair) return;
 
     const int coreIdx = (int)decodePairCore(runningPair);
-    const uint64_t taskId = (int)decodePairTask(runningPair);
 
-    if (isPairingFinished(runningPair)) 
+    if (checkCoreFinished(coreIdx)) 
     {
+        const uint64_t taskId = (int)decodePairTask(runningPair);
         ResolveDepWithDfx(type, coreIdx, taskId);
         corePendReadyCnt_[static_cast<int>(type)]++;
         runReadyCoreIdx_[static_cast<int>(type)][coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
@@ -211,16 +212,6 @@ void AiCoreManager::ResolveDepForAllAiCore(CoreType type)
     {
         runningPairQueue_->push(runningPair);
     }
-}
-
-inline bool AiCoreManager::isPairingFinished(const aicorePair_t pairing)
-{
-    const int coreIdx = (int)decodePairCore(pairing);
-    uint64_t finTaskRegVal = GetFinishedTask(coreIdx);
-    uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
-
-    if (finTaskState == TASK_FIN_STATE) return true;
-    return false;
 }
 
 void AiCoreManager::PushReadyTask(int coreType, int64_t taskId) {

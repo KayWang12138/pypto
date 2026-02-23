@@ -73,7 +73,7 @@ public:
         taskCtrl->taskId = taskId;
         taskCtrl->finishedAicFunctionCnt = 0;
         taskCtrl->finishedAivFunctionCnt = 0;
-        taskCtrl->finishedFunctionCnt = 0;
+        taskCtrl->issuedTaskCount = 0;
         taskCtrl->refcnt = aicoreManager_.size();
         taskCtrl->finishFunc = finish;
        for (auto& eType : taskCtrl->isAicpuIdle) {

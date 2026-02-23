@@ -95,7 +95,7 @@ struct DeviceTaskCtrl {
     uint64_t finishedAicFunctionCnt{0}; // 所有aicpu处理完成的aic function个数，多线程增加修改
     uint64_t finishedAivFunctionCnt{0}; // 所有aicpu处理完成的aiv function个数，多线程增加修改
     uint64_t finishedAicpuFunctionCnt{0}; // 所有aicpu处理完成的aicpu function个数，多线程增加修改
-    std::atomic<uint64_t> finishedFunctionCnt{0};
+    std::atomic<uint64_t> issuedTaskCount{0};
     std::atomic<int> refcnt{-1};
     void (*finishFunc)(void *devTask){nullptr};
     int retCode{0};
@@ -180,8 +180,6 @@ private:
     static inline aicorePair_t encodePair(const uint64_t taskId, const uint64_t coreId) { return aicorePair_t ((taskId << 32) + (coreId & 0x00000000FFFFFFFFUL)); }
     static inline uint64_t decodePairTask(const aicorePair_t pair) { return pair >> 32; }
     static inline uint64_t decodePairCore(const aicorePair_t pair) { return pair & 0x00000000FFFFFFFFUL; }
-
-    inline bool isPairingFinished(const aicorePair_t pairing);
 
     int WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd);
 
