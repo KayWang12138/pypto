@@ -131,7 +131,7 @@ public:
     _traces[_traceIdx % CAPACITY] = payload;
     ++_traceIdx;
 
-#elif defined(TRACR_POLICY_STOP_IF_FULL)
+#elif defined(TRACR_POLICY_IGNORE_IF_FULL)
     if (_traceIdx >= CAPACITY) {
       debug_print("WARNING: TID[%d] is full, this thread will now ignore "
                   "incoming traces.",
@@ -251,10 +251,6 @@ public:
    *
    */
   inline bool create_folder_recursive(const std::string &path = "") {
-    // _proc_folder_name = path + "tracr/" + _proc_folder_name;
-
-    // return std::filesystem::create_directories(_proc_folder_name);
-
     _proc_folder_name = path + "tracr/" + _proc_folder_name;
 
     std::istringstream iss(_proc_folder_name);
@@ -345,9 +341,7 @@ public:
    *
    */
   inline void write_JSON() {
-    // Before dumping, we have to fill in the metadata in the _json_file
     _json_file["pid"] = _lCPUid;
-    _json_file["tid"] = _tid;
     _json_file["start_time"] = _tracr_init_time;
 
     for (const auto &[key, value] : _markerTypes) {

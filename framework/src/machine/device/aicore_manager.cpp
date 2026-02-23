@@ -105,10 +105,10 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
 
     /* TraCR Instrumentation */
     if (threadIdx == 1) {
-        INSTRUMENTATION_START("/tmp/");
-
         // disable flushing onto the Ascend device memory directly
         INSTRUMENTATION_ENABLE_FLUSH(false);
+
+        INSTRUMENTATION_START();
     } else {
         while ((INSTRUMENTATION_ACTIVE) && (!INSTRUMENTATION_IS_PROC_READY())) {}
 
@@ -147,7 +147,6 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
     if (tracrThread->_traceIdx > 0) {
         const size_t size = tracrThread->_traceIdx * sizeof(TraCR::Payload);
         
-        // Slower than std::memcpy() but CI Pipeline approved
         memcpy_s(
             &tracrData_[threadIdx * TraCR::CAPACITY],
             size,

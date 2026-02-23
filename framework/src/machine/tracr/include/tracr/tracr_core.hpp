@@ -70,100 +70,9 @@ inline std::atomic<uint16_t> lazy_colorId{23};
 inline std::atomic<bool> flush_enabled{true};
 
 /**
- *
+ * User defined output path (default is current directory)
  */
-static inline void instrumentation_start(const std::string &path = "") {
-  // Checking if the tracr Proc is ready
-  if (tracrProc) {
-    std::cerr << "TraCR Proc has already been initialized by the thread: "
-              << tracrProc->getTID() << "\n";
-    std::exit(EXIT_FAILURE);
-  }
-
-  // Get current thread ID
-  pid_t tid = syscall(SYS_gettid);
-
-  // Initialize the TraCRProc
-  tracrProc = std::make_unique<TraCRProc>(tid);
-
-  // Create the folders to store the traces
-  if (!tracrProc->create_folder_recursive(path)) {
-    std::cerr << "Folder creation did not work: " << path << "\n";
-    std::exit(EXIT_FAILURE);
-  }
-
-  // Add tracr Thread
-  tracrThread = std::make_unique<TraCRThread>(tid);
-
-  // Increase global thread counter
-  ++num_tracr_threads;
-
-  // Add its TraCRThread TID
-  tracrProc->addTraCRThread(tid);
-
-  // TraCR Proc is now ready
-  tracr_proc_init = true;
-}
-
-/**
- *
- */
-static inline void instrumentation_end() {
-  if (!tracrProc) {
-    std::cerr << "TraCR Proc has not been initialized\n";
-    std::exit(EXIT_FAILURE);
-  }
-
-  if (num_tracr_threads.load() == 0) {
-    std::cerr << "No TraCR Thread existing counter: "
-              << num_tracr_threads.load() << "\n";
-    std::exit(EXIT_FAILURE);
-  }
-
-  if (num_tracr_threads.load() > 1) {
-    std::cerr << "There are still some TraCR Threads running: "
-              << num_tracr_threads.load() << "\n";
-    std::exit(EXIT_FAILURE);
-  }
-
-  if (tracrProc->_tracrThreadIDs.size() != 1) {
-    std::cerr << "TraCR Proc should only have his thread left but got: "
-              << tracrProc->_tracrThreadIDs.size() << "\n";
-    std::exit(EXIT_FAILURE);
-  }
-
-  // Get current thread ID
-  pid_t tid = syscall(SYS_gettid);
-
-  if (tracrProc->_tracrThreadIDs[0] != tid) {
-    std::cerr << "TraCR instrumentation_end called by thread: " << tid
-              << " instead of the main thread: "
-              << tracrProc->_tracrThreadIDs[0] << "\n";
-    std::exit(EXIT_FAILURE);
-  }
-
-  // Flushing the trace of this TraCR thread now (if enabled)
-  if (flush_enabled) {
-    tracrThread->flush_traces(tracrProc->getFolderPath());
-  }
-
-  // Destroys the TraCR Thread pointer and calls the destructor
-  tracrThread.reset();
-
-  // Decrease global thread counter
-  --num_tracr_threads;
-
-  // Dump TraCR Proc JSON file (if enabled)
-  if (flush_enabled) {
-    tracrProc->dump_JSON();
-  }
-
-  // Destroys the TraCR Proc pointer and calls the destructor
-  tracrProc.reset();
-
-  // TraCR Proc is now finalized
-  tracr_proc_init = false;
-}
+inline std::string trace_folder_path{""};
 
 /**
  *
@@ -225,6 +134,89 @@ static inline void instrumentation_thread_finalize() {
 /**
  *
  */
+static inline void instrumentation_start() {
+  // Checking if the tracr Proc is ready
+  if (tracrProc) {
+    std::cerr << "TraCR Proc has already been initialized by the thread: "
+              << tracrProc->getTID() << "\n";
+    std::exit(EXIT_FAILURE);
+  }
+
+  // Get current thread ID
+  pid_t tid = syscall(SYS_gettid);
+
+  // Initialize the TraCRProc
+  tracrProc = std::make_unique<TraCRProc>(tid);
+
+  // Create the folders to store the traces
+  if (flush_enabled) {
+    if (!tracrProc->create_folder_recursive(trace_folder_path)) {
+      std::cerr << "Folder creation did not work: " << trace_folder_path
+                << "\n";
+      std::exit(EXIT_FAILURE);
+    }
+  }
+
+  // Initialize the tracr thread of this tracr proc
+  instrumentation_thread_init();
+
+  // TraCR Proc is now ready
+  tracr_proc_init = true;
+}
+
+/**
+ *
+ */
+static inline void instrumentation_end() {
+  if (!tracrProc) {
+    std::cerr << "TraCR Proc has not been initialized\n";
+    std::exit(EXIT_FAILURE);
+  }
+
+  if (num_tracr_threads.load() == 0) {
+    std::cerr << "No TraCR Thread existing counter: "
+              << num_tracr_threads.load() << "\n";
+    std::exit(EXIT_FAILURE);
+  }
+
+  if (num_tracr_threads.load() > 1) {
+    std::cerr << "There are still some TraCR Threads running: "
+              << num_tracr_threads.load() << "\n";
+    std::exit(EXIT_FAILURE);
+  }
+
+  if (tracrProc->_tracrThreadIDs.size() != 1) {
+    std::cerr << "TraCR Proc should only have one thread left but got: "
+              << tracrProc->_tracrThreadIDs.size() << "\n";
+    std::exit(EXIT_FAILURE);
+  }
+
+  // Flushing the trace of this TraCR thread now (if enabled)
+  if (flush_enabled) {
+    tracrThread->flush_traces(tracrProc->getFolderPath());
+  }
+
+  // Destroys the TraCR Thread pointer and calls the destructor
+  tracrThread.reset();
+
+  // Decrease global thread counter
+  --num_tracr_threads;
+
+  // Dump TraCR Proc JSON file (if enabled)
+  if (flush_enabled) {
+    tracrProc->dump_JSON();
+  }
+
+  // Destroys the TraCR Proc pointer and calls the destructor
+  tracrProc.reset();
+
+  // TraCR Proc is now finalized
+  tracr_proc_init = false;
+}
+
+/**
+ * Debugging method for checking if something has been stored in tracr thread
+ */
 static inline std::string instrumentation_get_thread_trace_str() {
   // Safety checks
   if (!tracrThread) {
@@ -272,13 +264,14 @@ static inline std::string instrumentation_get_thread_trace_str() {
  *
  * NOTE: This is note thread safe! Should be called by one thread.
  *
- * \param[in] colorId
  * \param[in] label
+ * \param[in] colorId
  *
  * @return the eventId of this marker
  */
-static inline uint16_t instrumentation_mark_add(const uint16_t &colorId,
-                                                const std::string &label) {
+static inline uint16_t
+instrumentation_mark_w_color_add(const std::string &label,
+                                 const uint16_t &colorId) {
   if (!enable_tracr) {
     return 0;
   }
@@ -302,7 +295,7 @@ static inline uint16_t instrumentation_mark_add(const uint16_t &colorId,
  *
  * @return the eventId of this marker
  */
-static inline uint16_t instrumentation_mark_lazy_add(const std::string &label) {
+static inline uint16_t instrumentation_mark_add(const std::string &label) {
   if (!enable_tracr) {
     return 0;
   }
@@ -361,6 +354,13 @@ static inline void instrumentation_off() { enable_tracr = false; }
  */
 static inline void instrumentation_enable_flush(const bool &enable_flush) {
   flush_enabled = enable_flush;
+}
+
+/**
+ *
+ */
+static inline void instrumentation_trace_path(const std::string &path) {
+  trace_folder_path = path;
 }
 
 /**
