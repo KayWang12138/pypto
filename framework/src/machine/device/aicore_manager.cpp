@@ -204,8 +204,6 @@ void AiCoreManager::ResolveDepForAllAiCore(CoreType type)
     {
         const uint64_t taskId = (int)decodePairTask(runningPair);
         ResolveDepWithDfx(type, coreIdx, taskId);
-        corePendReadyCnt_[static_cast<int>(type)]++;
-        runReadyCoreIdx_[static_cast<int>(type)][coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
         availableCoreQueue_->push(coreIdx);
     }
     else
@@ -395,17 +393,6 @@ void AiCoreManager::UpdateAiCoreBlockIndexSection() {
     f(AIV_NUM_PER_AI_CORE * aicValidNum_, aicpuIdx_, aicpuNum_, aivStart_, aivEnd_);
     aivStart_ += aicValidNum_;
     aivEnd_ += aicValidNum_;
-    corePendReadyCnt_[static_cast<int>(CoreType::AIC)] = aicEnd_ - aicStart_;
-    corePendReadyCnt_[static_cast<int>(CoreType::AIV)] = aivEnd_ - aivStart_;
-    coreRunReadyCnt_[static_cast<int>(CoreType::AIC)] = 0;
-    coreRunReadyCnt_[static_cast<int>(CoreType::AIV)] = 0;
-    ForEachManageAicoreReverse(
-        [this](int coreIdx) {
-        int coreType = static_cast<int>(AicoreType(coreIdx));
-        runReadyCoreIdx_[coreType][coreRunReadyCnt_[coreType]++] = coreIdx;
-        });
-    lastPendReadyCoreIdx_[static_cast<int>(CoreType::AIV)] = aivStart_;
-    lastPendReadyCoreIdx_[static_cast<int>(CoreType::AIC)] = aicStart_;
 }
 
 void AiCoreManager::MapRegistersForAllCores() {
