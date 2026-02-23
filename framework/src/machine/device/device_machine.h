@@ -130,14 +130,6 @@ public:
         return ret;
     }
 
-    uint64_t GetMinTaskTime(int threadIdx) {
-        return aicoreManager_[threadIdx]->GetTaskStartTime();
-    }
-
-    uint64_t GetMaxTaskTime(int threadIdx) {
-        return aicoreManager_[threadIdx]->GetTaskEndTime();
-    }
-
     int ExecDyn([[maybe_unused]]uint64_t taskId, [[maybe_unused]]int64_t taskData) {
         return 0;
     }

@@ -254,15 +254,6 @@ private:
         }
     }
 
-    inline void ForEachManageAicoreReverse(std::function<void(int coreIdx)> func) const {
-        for (int i = aicEnd_ - 1; i >= aicStart_; i--) {
-            func(i);
-        }
-        for (int i = aivEnd_ -1; i >= aivStart_ ; i--) {
-            func(i);
-        }
-    }
-
     inline int ForEachManageAicoreWithRet(std::function<int(int coreIdx)> func) const {
         int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
         for (int i = aicStart_; i < aicEnd_; ++i) {

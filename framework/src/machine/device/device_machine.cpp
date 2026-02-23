@@ -78,17 +78,6 @@ struct MachineManager {
         return ret;
     }
 
-    void GetTaskTotalWastTime(volatile uint64_t *totalWastTime) {
-        uint64_t min_task_start_time = UINT64_MAX;
-        uint64_t max_task_end_time = 0;
-        for (uint32_t i = 0; i < MAX_STATIC_SCHEDULE_AICPU_NUM; i++) {
-            min_task_start_time = std::min(machine.GetMinTaskTime(i), min_task_start_time);
-            max_task_end_time = std::max(machine.GetMaxTaskTime(i), max_task_end_time);
-        }
-        *totalWastTime = max_task_end_time - min_task_start_time;
-        DEV_INFO("min_task_start_time %lu, max_task_end_time %lu\n", min_task_start_time, max_task_end_time);
-    }
-
     void init(DeviceArgs *args) { machine.init(args); }
 
     std::atomic<int> threadIdx_{0};
@@ -113,7 +102,6 @@ extern "C" __attribute__((visibility("default"))) int StaticTileFwkBackendKernel
     int rc = machine->Run(args);
     if (rc == DEVICE_MACHINE_FINISHED) {
         DEV_INFO("all exited destroy the machine\n");
-        machine->GetTaskTotalWastTime((uint64_t *)args->taskWastTime);
         wmb();
         DEV_INFO("Total wast time is %lu\n", *(uint64_t *)args->taskWastTime);
 #if !DEBUG_PLOG

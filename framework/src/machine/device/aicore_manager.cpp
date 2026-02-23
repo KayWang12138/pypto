@@ -81,7 +81,6 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl)
         sendCnt_[static_cast<int>(CoreType::AIC)] = 0;
         sendCnt_[static_cast<int>(CoreType::AIV)] = 0;
 
-        // taskCtrl->issuedTaskCount.fetch_add(sentAic + sentAiv + reSolveHubCnt_, std::memory_order_relaxed);
         reSolveHubCnt_ = 0;
         
         if (npu::tile_fwk::dynamic::CheckTimeOut("wait task send finish.", tm) != 0) {
@@ -272,7 +271,6 @@ void AiCoreManager::ResolveByCoreType(int coretype, uint64_t depTaskId, CoreFunc
             break;
         }
         case static_cast<int>(MachineType::HUB): {
-            reSolveHubCnt_++;
             ResolveDep(depTaskId);
             break;
         }
