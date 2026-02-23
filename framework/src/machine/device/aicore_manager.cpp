@@ -55,10 +55,6 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl)
 
     const auto t0 = std::chrono::high_resolution_clock::now();
 
-    // DEV_ERROR("AICPU %d - Task Vector Queue Size: %lu\n", aicpuIdx_, availableVectorTaskQueue_->wasSize());
-    // DEV_ERROR("AICPU %d - Task Cube Queue Size: %lu\n", aicpuIdx_, availableVectorTaskQueue_->wasSize());
-    // DEV_ERROR("AICPU %d - Core Queue Size: %lu\n", aicpuIdx_, availableCoreQueue_->wasSize());
-
     npu::tile_fwk::dynamic::TimeCheck tm;
     while (taskCtrl->issuedTaskCount.load(std::memory_order_relaxed) < curDevTask_->coreFunctionCnt)
     {
@@ -151,10 +147,17 @@ int AiCoreManager::WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd)
 
 uint64_t AiCoreManager::TryBatchSendTask(taskQueue_t* readyQue)
 {
+    
     auto taskIdx = (uint64_t)readyQue->pop();
     if (taskIdx == aicoreNullTask) return 0;
 
-    auto coreIdx = (uint64_t)availableCoreQueue_->pop();
+    // Getting task's type
+    const auto readyState = reinterpret_cast<CoreFunctionReadyState *>(curDevTask_->coreFunctionReadyStateAddr);
+    const auto coreType = readyState[taskIdx].coreType;
+    aicoreCore_t coreIdx = aicoreNullCore;
+    if ((MachineType)coreType == MachineType::AIV) coreIdx = (uint64_t)availableCoreQueue_->pop();
+    if ((MachineType)coreType == MachineType::AIC) coreIdx = (uint64_t)availableCoreQueue_->pop();
+
     if (coreIdx == aicoreNullCore)
     {
         readyQue->push(taskIdx);
