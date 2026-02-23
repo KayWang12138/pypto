@@ -58,17 +58,11 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl)
     npu::tile_fwk::dynamic::TimeCheck tm;
     while (taskCtrl->issuedTaskCount.load(std::memory_order_relaxed) < curDevTask_->coreFunctionCnt)
     {
-        // TryBatchSendTask(CoreType::AIC, availableCubeTaskQueue_);
-        //     ResolveDepForAllAiCore();
-        //     TryBatchSendTask(CoreType::AIC, availableCubeTaskQueue_);
-
-        TryBatchSendTask(availableVectorTaskQueue_);
+        TryBatchSendTask();
         ResolveDepForAllAiCore();
-        TryBatchSendTask(availableVectorTaskQueue_);
+        TryBatchSendTask();
 
-        if (npu::tile_fwk::dynamic::CheckTimeOut("wait task send finish.", tm) != 0) {
-            return -1;
-        }
+        if (npu::tile_fwk::dynamic::CheckTimeOut("wait task send finish.", tm) != 0) return -1;
     }
 
     DEV_DEBUG("Aicpu %d proc finish send all task .\n", aicpuIdx_);
@@ -88,8 +82,7 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl)
     DEV_ERROR("[AICPU %d] Running Time: %ldns", aicpuIdx_, ns);
 
     if (aicpuIdx_ == LEAD_STATIC_SCHEDULER_AICPU_ID) {
-        delete availableVectorTaskQueue_;
-        delete availableCubeTaskQueue_;
+        delete availableTaskQueue_;
         delete runningPairQueue_ ;
         delete availableCoreQueue_[(int)MachineType::AIV];
         delete availableCoreQueue_[(int)MachineType::AIC];
@@ -146,10 +139,10 @@ int AiCoreManager::WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd)
     return 0;
 }
 
-uint64_t AiCoreManager::TryBatchSendTask(taskQueue_t* readyQue)
+uint64_t AiCoreManager::TryBatchSendTask()
 {
     
-    auto taskIdx = (uint64_t)readyQue->pop();
+    auto taskIdx = (uint64_t)availableTaskQueue_->pop();
     if (taskIdx == aicoreNullTask) return 0;
 
     // Getting task's type
@@ -158,7 +151,7 @@ uint64_t AiCoreManager::TryBatchSendTask(taskQueue_t* readyQue)
     auto coreIdx = (uint64_t)availableCoreQueue_[coreType]->pop();
     if (coreIdx == aicoreNullCore)
     {
-        readyQue->push(taskIdx);
+        availableTaskQueue_->push(taskIdx);
         return 0;
     }
 
@@ -198,11 +191,6 @@ void AiCoreManager::ResolveDepForAllAiCore()
     }
 }
 
-void AiCoreManager::PushReadyTask(int coreType, int64_t taskId) {
-    if ((MachineType)coreType == MachineType::AIV) availableVectorTaskQueue_->push((uint32_t)taskId);
-    if ((MachineType)coreType == MachineType::AIC) availableCubeTaskQueue_->push((uint32_t)taskId);
-}
-
 void AiCoreManager::ResolveVirtualPure(uint64_t dep, CoreFunctionReadyState* readyState) {
     DEV_DEBUG("new virtual pure task resolved. id: %lu\n", dep);
     auto virtualFuncInfo =
@@ -214,7 +202,7 @@ void AiCoreManager::ResolveVirtualPure(uint64_t dep, CoreFunctionReadyState* rea
             PushAicpuTaskQueue(depId);
             continue;
         }
-        PushReadyTask(readyState[depId].coreType, depId);
+        availableTaskQueue_->push((uint32_t)depId);
     }
 }
 
@@ -230,10 +218,10 @@ void AiCoreManager::ResolveVirtualMix(uint64_t dep, CoreFunctionReadyState* read
             continue;
         }
         if (readyState[depId].readyCount == topo->readyCount) {
-            PushReadyTask(readyState[depId].coreType, depId);
+            availableTaskQueue_->push((uint32_t)depId);
         } else {
             if (__sync_add_and_fetch(&(readyState[depId].readyCount), (-1) * topo->readyCount) == 0) {
-                PushReadyTask(readyState[depId].coreType, depId);
+                availableTaskQueue_->push((uint32_t)depId);
             }
         }
     }
@@ -244,7 +232,7 @@ void AiCoreManager::ResolveByCoreType(int coretype, uint64_t depTaskId, CoreFunc
     switch (coretype) {
         case static_cast<int>(MachineType::AIV):
         case static_cast<int>(MachineType::AIC): {
-            PushReadyTask(coretype, depTaskId);
+            availableTaskQueue_->push((uint32_t)depTaskId);
             break;
         }
         case static_cast<int>(MachineType::MIX): {

@@ -142,15 +142,12 @@ public:
         // If I am the lead AICPU scheduler, perform initailization steps
         if (aicpuIdx_ == LEAD_STATIC_SCHEDULER_AICPU_ID) {
             // Allocating queues
-            auto availableVectorTaskQueue = new pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>(MAX_QUEUED_TASKS);
-            auto availableCubeTaskQueue   = new pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>(MAX_QUEUED_TASKS);
-
-            curDevTask_->staticSchedulerData.availableVectorTaskQueue = (uint64_t) availableVectorTaskQueue;
-            curDevTask_->staticSchedulerData.availableCubeTaskQueue   = (uint64_t) availableCubeTaskQueue;
+            auto availableTaskQueue = new pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>(MAX_QUEUED_TASKS);
+            curDevTask_->availableTaskQueue = (uint64_t) availableTaskQueue;
 
             // Adding initial set of tasks and cores
-            for (size_t i = 0; i < readyAivCoreFunctionQue_->wasSize(); i++) availableVectorTaskQueue->push((uint32_t)readyAivCoreFunctionQue_->getBuffer()[i]);
-            for (size_t i = 0; i < readyAicCoreFunctionQue_->wasSize(); i++) availableCubeTaskQueue->push((uint32_t)readyAicCoreFunctionQue_->getBuffer()[i]);
+            for (size_t i = 0; i < readyAivCoreFunctionQue_->wasSize(); i++) availableTaskQueue->push((uint32_t)readyAivCoreFunctionQue_->getBuffer()[i]);
+            for (size_t i = 0; i < readyAicCoreFunctionQue_->wasSize(); i++) availableTaskQueue->push((uint32_t)readyAicCoreFunctionQue_->getBuffer()[i]);
 
             curDevTask_->isTaskInitialized = true;
         }
@@ -159,8 +156,7 @@ public:
             while(curDevTask_->isTaskInitialized == false){ /* Busy wait */ };
         }
 
-        availableVectorTaskQueue_ = reinterpret_cast<taskQueue_t*>(curDevTask_->staticSchedulerData.availableVectorTaskQueue);
-        availableCubeTaskQueue_ = reinterpret_cast<taskQueue_t*>(curDevTask_->staticSchedulerData.availableCubeTaskQueue);
+        availableTaskQueue_ = reinterpret_cast<taskQueue_t*>(curDevTask_->availableTaskQueue);
         runningPairQueue_   = new pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>(MAX_QUEUED_PAIRS);
         availableCoreQueue_[(int)MachineType::AIV] = new pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>(MAX_QUEUED_CORES);
         availableCoreQueue_[(int)MachineType::AIC] = new pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>(MAX_QUEUED_CORES);
@@ -183,7 +179,7 @@ private:
 
     int WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd);
 
-    uint64_t TryBatchSendTask(taskQueue_t* readyQue);
+    uint64_t TryBatchSendTask();
 
     void SendTaskToAiCore(int coreIdx, uint64_t newTask);
 
@@ -198,8 +194,6 @@ private:
     }
 
     bool SendTaskDirectlyWhenTaskReady(int coreType, int64_t taskId);
-
-    void PushReadyTask(int coreType, int64_t taskId);
 
     void ResolveVirtualPure(uint64_t dep, CoreFunctionReadyState* readyState);
 
@@ -343,9 +337,8 @@ private:
     StaticReadyCoreFunctionQueue *readyAivCoreFunctionQue_{nullptr};
 
     // Queues for managing tasks, cores and their pairing
-    pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>* availableVectorTaskQueue_;
-    pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>* availableCubeTaskQueue_;
-    pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>*  availableCoreQueue_[AICORE_TYPE_NUM];
+    pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>* availableTaskQueue_;
+    pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>* availableCoreQueue_[AICORE_TYPE_NUM];
     pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>* runningPairQueue_; 
 
     AicoreDump aicoreDump_;

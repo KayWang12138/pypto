@@ -113,12 +113,6 @@ struct MixTaskData {
     uint64_t opWrapTaskNumList[MAX_CACHED_FUNC_NUM]; // 指针数组，指向每个function的callop对应的wrapTaskNum
 };
 
-struct staticSchedulerRuntimeData_t
-{
-    uint64_t availableVectorTaskQueue;
-    uint64_t availableCubeTaskQueue;
-};
-
 // host machine 发给device machine的task数据
 // 暂时放在此位置
 struct DeviceTask {
@@ -132,7 +126,7 @@ struct DeviceTask {
     L2PreInfo l2Info;
     uint64_t costModelData;           // costmodel仿真时长
     uint64_t aicoreModel;             // costmodel aicore功能模型
-    staticSchedulerRuntimeData_t staticSchedulerData;
+    uint64_t availableTaskQueue; // A queue containing the available tasks to be scheduled into vector/cube/aicpu cores
     volatile bool isTaskInitialized; // A flag to indicate the kernel has been properly initialized by the lead AICPU scheduler 
 };
 
