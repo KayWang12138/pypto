@@ -144,11 +144,9 @@ public:
             // Allocating queues
             auto availableVectorTaskQueue = new pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>(MAX_QUEUED_TASKS);
             auto availableCubeTaskQueue   = new pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>(MAX_QUEUED_TASKS);
-            auto availableCoreQueue       = new pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>(MAX_QUEUED_CORES);
 
             curDevTask_->staticSchedulerData.availableVectorTaskQueue = (uint64_t) availableVectorTaskQueue;
             curDevTask_->staticSchedulerData.availableCubeTaskQueue   = (uint64_t) availableCubeTaskQueue;
-            curDevTask_->staticSchedulerData.availableCoreQueue       = (uint64_t) availableCoreQueue;
 
             // Adding initial set of tasks and cores
             for (size_t i = 0; i < readyAivCoreFunctionQue_->wasSize(); i++) availableVectorTaskQueue->push((uint32_t)readyAivCoreFunctionQue_->getBuffer()[i]);
@@ -163,9 +161,11 @@ public:
 
         availableVectorTaskQueue_ = reinterpret_cast<taskQueue_t*>(curDevTask_->staticSchedulerData.availableVectorTaskQueue);
         availableCubeTaskQueue_ = reinterpret_cast<taskQueue_t*>(curDevTask_->staticSchedulerData.availableCubeTaskQueue);
-        availableCoreQueue_ = new pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>(MAX_QUEUED_CORES);
         runningPairQueue_   = new pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>(MAX_QUEUED_PAIRS);
-        for (int i = aivStart_; i < aivEnd_; i++) availableCoreQueue_->push((uint32_t)i);
+        availableCoreQueue_[(int)MachineType::AIV] = new pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>(MAX_QUEUED_CORES);
+        availableCoreQueue_[(int)MachineType::AIC] = new pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>(MAX_QUEUED_CORES);
+        for (int i = aivStart_; i < aivEnd_; i++) availableCoreQueue_[(int)MachineType::AIV]->push((uint32_t)i);
+        for (int i = aicStart_; i < aicEnd_; i++) availableCoreQueue_[(int)MachineType::AIC]->push((uint32_t)i);
     }
     
 
@@ -345,7 +345,7 @@ private:
     // Queues for managing tasks, cores and their pairing
     pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>* availableVectorTaskQueue_;
     pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>* availableCubeTaskQueue_;
-    pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>* availableCoreQueue_; 
+    pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>*  availableCoreQueue_[AICORE_TYPE_NUM];
     pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>* runningPairQueue_; 
 
     AicoreDump aicoreDump_;

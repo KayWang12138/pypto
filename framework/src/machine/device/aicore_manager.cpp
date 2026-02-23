@@ -90,8 +90,9 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl)
     if (aicpuIdx_ == LEAD_STATIC_SCHEDULER_AICPU_ID) {
         delete availableVectorTaskQueue_;
         delete availableCubeTaskQueue_;
-        delete availableCoreQueue_;
         delete runningPairQueue_ ;
+        delete availableCoreQueue_[(int)MachineType::AIV];
+        delete availableCoreQueue_[(int)MachineType::AIC];
     }
 
     return ret;
@@ -154,10 +155,7 @@ uint64_t AiCoreManager::TryBatchSendTask(taskQueue_t* readyQue)
     // Getting task's type
     const auto readyState = reinterpret_cast<CoreFunctionReadyState *>(curDevTask_->coreFunctionReadyStateAddr);
     const auto coreType = readyState[taskIdx].coreType;
-    aicoreCore_t coreIdx = aicoreNullCore;
-    if ((MachineType)coreType == MachineType::AIV) coreIdx = (uint64_t)availableCoreQueue_->pop();
-    if ((MachineType)coreType == MachineType::AIC) coreIdx = (uint64_t)availableCoreQueue_->pop();
-
+    auto coreIdx = (uint64_t)availableCoreQueue_[coreType]->pop();
     if (coreIdx == aicoreNullCore)
     {
         readyQue->push(taskIdx);
@@ -190,7 +188,9 @@ void AiCoreManager::ResolveDepForAllAiCore()
     {
         const uint64_t taskId = (int)decodePairTask(runningPair);
         ResolveDep(taskId);
-        availableCoreQueue_->push(coreIdx);
+         const auto readyState = reinterpret_cast<CoreFunctionReadyState *>(curDevTask_->coreFunctionReadyStateAddr);
+        const auto coreType = readyState[taskId].coreType; 
+        availableCoreQueue_[coreType]->push(coreIdx);
     }
     else
     {
