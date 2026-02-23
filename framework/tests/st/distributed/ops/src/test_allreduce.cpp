@@ -10,7 +10,9 @@
 
 /*!
  * \file test_allreduce.cpp
- * \brief
+ * \brief System tests for AllReduce variants (OneShot base, v2–v6; TwoShot base, v2–v5).
+ *        Each variant runs against golden data for numerical correctness.
+ *        IR equivalence tests verify all variants emit identical SHMEM opcode sequences.
  */
 
 #include "distributed_op_test_common.h"
@@ -88,7 +90,7 @@ template void TestAllReduce<float>(OpTestParam &testParam, std::string &goldenDi
 template void TestAllReduce<float16>(OpTestParam &testParam, std::string& goldenDir);
 template void TestAllReduce<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
 
-// v2 / v3 system tests — same golden data as OneShotAllReduce (identical IR)
+// v2–v4: progressive refactorings of the base OneShot, same golden data.
 template<typename T>
 void TestAllReduce_v2(OpTestParam &testParam, std::string &goldenDir)
 {
@@ -240,6 +242,7 @@ template void TestAllReduce_v4<float>(OpTestParam &testParam, std::string &golde
 template void TestAllReduce_v4<float16>(OpTestParam &testParam, std::string& goldenDir);
 template void TestAllReduce_v4<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
 
+// v5: communicator-based API — caller creates the comm and does Pull externally.
 template<typename T>
 void TestAllReduce_v5(OpTestParam &testParam, std::string &goldenDir)
 {
@@ -294,7 +297,64 @@ template void TestAllReduce_v5<float>(OpTestParam &testParam, std::string &golde
 template void TestAllReduce_v5<float16>(OpTestParam &testParam, std::string& goldenDir);
 template void TestAllReduce_v5<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
 
-// TwoShot v2 / v3 / v4 / v5 system tests — same golden data as TwoShotAllReduce
+// v6: scatter-only — the most decomposed form. Caller owns Wait + Pull,
+// which is handy when you want to overlap local compute with the scatter.
+template<typename T>
+void TestAllReduce_v6(OpTestParam &testParam, std::string &goldenDir)
+{
+    constexpr size_t paramsSize = 6;
+    auto [row, col, typeNum, tileRow, tileCol, useTwoShot] = GetParams<paramsSize>(goldenDir + "/params.bin");
+    (void)useTwoShot; // v6 is always one-shot
+    DataType dType = GetDataTypeNum(typeNum);
+
+    int32_t outSize = row * col;
+
+    Shape shape{row, col};
+    Tensor in(dType, shape, "in");
+    Tensor out(dType, shape, "out");
+
+    std::vector<T> inPtr = ReadToVector<T>(
+        goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<T>(in, inPtr),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateTensorZero(out),
+    });
+    Shape shmemDataShape{1, row, col};
+    FUNCTION("ALLREDUCE_V6", {in}, {out}) {
+        TileShape::Current().SetVecTile({tileRow, tileCol});
+        Tensor shmemData;
+        Tensor shmemSignal;
+        DataType shmemDataType = in.GetDataType();
+        if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
+            shmemDataType = DT_FP32;
+        }
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
+            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
+        }
+        OneShotCommunicatorV2 comm(testParam.group, testParam.rankSize, shmemSignal);
+        // scatter only — fire off the Puts
+        OneShotAllReduce_v6(in, in, shmemData, comm);
+        // caller-side: block until all signals land, then read back
+        auto waitToken = comm.Wait(in);
+        out = comm.Pull(waitToken, shmemData);
+    }
+    VerifyOneShotAllReduceIR("ALLREDUCE_V6", testParam.rankSize);
+    RunTest();
+    auto output = ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", outSize, output->GetDevPtr(), testParam));
+}
+
+template void TestAllReduce_v6<int32_t>(OpTestParam &testParam, std::string &goldenDir);
+template void TestAllReduce_v6<float>(OpTestParam &testParam, std::string &goldenDir);
+template void TestAllReduce_v6<float16>(OpTestParam &testParam, std::string& goldenDir);
+template void TestAllReduce_v6<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
+
+// TwoShot v2–v5 system tests — same golden data as TwoShotAllReduce
 template<typename T>
 void TestAllReduce_TwoShot_v2(OpTestParam &testParam, std::string &goldenDir)
 {
@@ -504,9 +564,9 @@ template void TestAllReduce_TwoShot_v5<float>(OpTestParam &testParam, std::strin
 template void TestAllReduce_TwoShot_v5<float16>(OpTestParam &testParam, std::string& goldenDir);
 template void TestAllReduce_TwoShot_v5<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
 
-// OneShot IR Equivalence Test — builds the base OneShotAllReduce as the golden
-// reference and verifies that v2, v3, v4, v5+Pull all produce identical SHMEM
-// opcode sequences (graph-only, no hardware execution).
+// OneShot IR Equivalence — the "did we break anything?" test.
+// Builds base as golden, then checks v2–v6 all emit the same SHMEM opcodes.
+// Graph-only, no hardware execution; just making sure the IR is sane.
 template<typename T>
 void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
 {
@@ -607,11 +667,30 @@ void TestAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
         VerifyOneShotAllReduceIR("IR_CHECK_V5", testParam.rankSize);
     }
 
+    // ── v6: the fully decomposed path — scatter, Wait, Pull all explicit ──
+    std::vector<Opcode> irV6;
+    {
+        Program::GetInstance().Reset();
+        Tensor in(dType, shape, "in_v6");
+        Tensor out(dType, shape, "out_v6");
+        FUNCTION("IR_CHECK_V6", {in}, {out}) {
+            Tensor shmemData, shmemSignal;
+            buildShmemSetup(in, shmemData, shmemSignal);
+            OneShotCommunicatorV2 comm(testParam.group, testParam.rankSize, shmemSignal);
+            OneShotAllReduce_v6(in, in, shmemData, comm);
+            auto waitToken = comm.Wait(in);
+            out = comm.Pull(waitToken, shmemData);
+        }
+        irV6 = ExtractShmemOpcodes("IR_CHECK_V6");
+        VerifyOneShotAllReduceIR("IR_CHECK_V6", testParam.rankSize);
+    }
+
     // ── Cross-variant equivalence: all must match the base (golden) ──
     EXPECT_EQ(irBase, irV2) << "OneShot base and v2 SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV3) << "OneShot base and v3 SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV4) << "OneShot base and v4 SHMEM opcode sequences differ";
     EXPECT_EQ(irBase, irV5) << "OneShot base and v5+Pull SHMEM opcode sequences differ";
+    EXPECT_EQ(irBase, irV6) << "OneShot base and v6+Pull SHMEM opcode sequences differ";
 }
 
 template void TestAllReduceIREquivalence<int32_t>(OpTestParam &testParam, std::string &goldenDir);
@@ -619,9 +698,8 @@ template void TestAllReduceIREquivalence<float>(OpTestParam &testParam, std::str
 template void TestAllReduceIREquivalence<float16>(OpTestParam &testParam, std::string& goldenDir);
 template void TestAllReduceIREquivalence<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
 
-// TwoShot IR Equivalence Test — builds the base TwoShotAllReduce as the golden
-// reference and verifies that v2, v3, v4, v5 all produce identical SHMEM
-// opcode sequences (graph-only, no hardware execution).
+// TwoShot IR Equivalence — same idea as OneShot above, for the two-phase path.
+// Golden = TwoShotAllReduce base; variants v2–v5 must match.
 template<typename T>
 void TestTwoShotAllReduceIREquivalence(OpTestParam &testParam, std::string &goldenDir)
 {

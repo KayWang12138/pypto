@@ -837,4 +837,21 @@ void TwoShotAllReduce_v5(const Tensor& predToken, const Tensor& in,
     }
 }
 
+// OneShotAllReduce_v6: scatter-only — Put to all ranks, no Wait/Pull.
+//
+// predToken is used for Put() (scheduling the ShmemPut ops).
+// Wait and Pull are the caller's responsibility, enabling overlap
+// between scatter and local compute.
+void OneShotAllReduce_v6(const Tensor& predToken, const Tensor& in, Tensor& shmemData, OneShotCommunicatorV2& comm)
+{
+    int32_t row = in.GetShape(0);
+    int32_t col = in.GetShape(1);
+
+    for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
+        auto dynRankView = View(shmemData, {1, 1, row, col},
+            std::vector<SymbolicScalar>{dynRankId, 0, 0, 0});
+        comm.Put(predToken, in, dynRankView, dynRankId, AtomicType::ADD);
+    }
+}
+
 }   // namespace npu::tile_fwk::Distributed
