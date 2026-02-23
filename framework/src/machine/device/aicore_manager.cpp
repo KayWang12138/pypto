@@ -62,27 +62,14 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl)
     npu::tile_fwk::dynamic::TimeCheck tm;
     while (taskCtrl->issuedTaskCount.load(std::memory_order_relaxed) < curDevTask_->coreFunctionCnt)
     {
-        TryBatchSendTask(CoreType::AIC, availableCubeTaskQueue_, aicStart_, aicEnd_);
-        if (waitTaskCnt_[static_cast<int>(CoreType::AIC)] > 0) {
-            ResolveDepForAllAiCore(CoreType::AIC);
-            TryBatchSendTask(CoreType::AIC, availableCubeTaskQueue_, aicStart_, aicEnd_);
-        }
+        // TryBatchSendTask(CoreType::AIC, availableCubeTaskQueue_);
+        //     ResolveDepForAllAiCore();
+        //     TryBatchSendTask(CoreType::AIC, availableCubeTaskQueue_);
 
-        TryBatchSendTask(CoreType::AIV, availableVectorTaskQueue_, aivStart_, aivEnd_);
-        if (waitTaskCnt_[static_cast<int>(CoreType::AIV)] > 0) {
-            ResolveDepForAllAiCore(CoreType::AIV);
-            TryBatchSendTask(CoreType::AIV, availableVectorTaskQueue_, aivStart_, aivEnd_);
-        }
+        TryBatchSendTask(availableVectorTaskQueue_);
+        ResolveDepForAllAiCore();
+        TryBatchSendTask(availableVectorTaskQueue_);
 
-        const uint64_t sentAic = sendCnt_[static_cast<int>(CoreType::AIC)];
-        const uint64_t sentAiv = sendCnt_[static_cast<int>(CoreType::AIV)];
-        waitTaskCnt_[static_cast<int>(CoreType::AIC)] += sentAic;
-        waitTaskCnt_[static_cast<int>(CoreType::AIV)] += sentAiv;
-        sendCnt_[static_cast<int>(CoreType::AIC)] = 0;
-        sendCnt_[static_cast<int>(CoreType::AIV)] = 0;
-
-        reSolveHubCnt_ = 0;
-        
         if (npu::tile_fwk::dynamic::CheckTimeOut("wait task send finish.", tm) != 0) {
             return -1;
         }
@@ -162,10 +149,8 @@ int AiCoreManager::WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd)
     return 0;
 }
 
-uint64_t AiCoreManager::TryBatchSendTask(CoreType type, taskQueue_t* readyQue, int coreIdxStart, int coreIdxEnd)
+uint64_t AiCoreManager::TryBatchSendTask(taskQueue_t* readyQue)
 {
-    (void)coreIdxStart;
-    (void)coreIdxEnd;
     auto taskIdx = (uint64_t)readyQue->pop();
     if (taskIdx == aicoreNullTask) return 0;
 
@@ -177,14 +162,13 @@ uint64_t AiCoreManager::TryBatchSendTask(CoreType type, taskQueue_t* readyQue, i
     }
 
     // DEV_ERROR("AICPU %d - Running Task: %lu", aicpuIdx_, *taskSetAddress);
-    SendTaskToAiCore(type, coreIdx, taskIdx);
+    SendTaskToAiCore(coreIdx, taskIdx);
     return 1;
 }
 
 
-void AiCoreManager::SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTask) {
+void AiCoreManager::SendTaskToAiCore(int coreIdx, uint64_t newTask) {
     SetReadyQueue(coreIdx, newTask + 1);
-    sendCnt_[static_cast<int>(type)]++;
     curTaskCtrl_->issuedTaskCount.fetch_add(1);
 
     const uint64_t pairCode = encodePair(newTask, coreIdx);
@@ -192,7 +176,7 @@ void AiCoreManager::SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTas
     // DEV_ERROR("AICPU: %d - Send task %lu, at core %d ,type:%d, code: 0x%0lX\n", aicpuIdx_, newTask, coreIdx, static_cast<int>(type), pairCode);
 }
 
-void AiCoreManager::ResolveDepForAllAiCore(CoreType type)
+void AiCoreManager::ResolveDepForAllAiCore()
 {
     const auto runningPair = runningPairQueue_->pop();
     if (runningPair == aicoreNullPair) return;
@@ -202,7 +186,7 @@ void AiCoreManager::ResolveDepForAllAiCore(CoreType type)
     if (checkCoreFinished(coreIdx)) 
     {
         const uint64_t taskId = (int)decodePairTask(runningPair);
-        ResolveDepWithDfx(type, coreIdx, taskId);
+        ResolveDep(taskId);
         availableCoreQueue_->push(coreIdx);
     }
     else
@@ -212,8 +196,6 @@ void AiCoreManager::ResolveDepForAllAiCore(CoreType type)
 }
 
 void AiCoreManager::PushReadyTask(int coreType, int64_t taskId) {
-    if (readyCount[coreType] < READY_ID_FIX_CACHE_NUM) 
-        readyIds[coreType][readyCount[coreType]++] = taskId;
     if ((MachineType)coreType == MachineType::AIV) availableVectorTaskQueue_->push((uint32_t)taskId);
     if ((MachineType)coreType == MachineType::AIC) availableCubeTaskQueue_->push((uint32_t)taskId);
 }
@@ -305,14 +287,6 @@ void AiCoreManager::ResolveDep(uint64_t finishId) {
     }
 }
 
-void AiCoreManager::ResolveDepWithDfx(CoreType type, int coreIdx, uint64_t finishId) {
-    ResolveDep(finishId);
-    (void)coreIdx;
-    if (waitTaskCnt_[static_cast<int>(type)] != 0) {
-        waitTaskCnt_[static_cast<int>(type)]--;
-    }
-}
-
 bool AiCoreManager::IsExistOtherAicpuIdle(CoreType type) {
     int idx = (aicpuIdx_ + 1) % START_STATIC_AICPU_NUM;
     while (idx != aicpuIdx_) {
@@ -340,7 +314,6 @@ void AiCoreManager::Init(int threadIdx, DeviceArgs *deviceArgs) {
     MapRegistersForAllCores();
 
     args_.fill(nullptr);
-    ResetCnt();
 }
 
 int AiCoreManager::HandkShake() {

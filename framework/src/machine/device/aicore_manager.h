@@ -183,15 +183,13 @@ private:
 
     int WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd);
 
-    uint64_t TryBatchSendTask(CoreType type, taskQueue_t* readyQue, int coreIdxStart, int coreIdxEnd);
+    uint64_t TryBatchSendTask(taskQueue_t* readyQue);
 
-    uint32_t BatchSendTask(CoreType type, uint64_t *newTask, uint32_t taskCount, int coreIdxStart, int coreIdxEnd);
-
-    void SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTask);
+    void SendTaskToAiCore(int coreIdx, uint64_t newTask);
 
     bool checkCoreFinished(const int coreIdx);
 
-    void ResolveDepForAllAiCore(CoreType type);
+    void ResolveDepForAllAiCore();
 
     void BatchPushReadyQueue();
 
@@ -211,8 +209,6 @@ private:
 
     void ResolveDep(uint64_t finishId);
 
-    void ResolveDepWithDfx(CoreType type, int coreIdx, uint64_t finishId);
-
     bool IsExistOtherAicpuIdle(CoreType type);
 
     inline void BatchGetFinishedTask(uint64_t finTask[], int coreIdxStart, int coreIdxEnd) {
@@ -224,15 +220,6 @@ private:
     }
 
     inline uint64_t GetFinishedTask(int coreIdx) { return *(finishRegQueues_[GetPhyIdByBlockId(coreIdx)]); }
-
-    inline void ResetCnt() {
-        waitTaskCnt_[static_cast<int>(CoreType::AIC)] = 0;
-        waitTaskCnt_[static_cast<int>(CoreType::AIV)] = 0;
-        readyCount[static_cast<int>(CoreType::AIC)] = 0;
-        readyCount[static_cast<int>(CoreType::AIV)] = 0;
-        sendCnt_[static_cast<int>(CoreType::AIC)] = 0;
-        sendCnt_[static_cast<int>(CoreType::AIV)] = 0;
-    }
 
     void Init(int threadIdx, DeviceArgs *deviceArgs);
 
@@ -372,12 +359,6 @@ private:
 
     AicoreDump aicoreDump_;
     int64_t dotStatus_{0};
-    uint64_t waitTaskCnt_[AICORE_TYPE_NUM]{0,0};
-    uint64_t reSolveHubCnt_{0};
-
-    uint64_t readyIds[AICORE_TYPE_NUM][READY_ID_FIX_CACHE_NUM];
-    uint64_t readyCount[AICORE_TYPE_NUM]{0,0};
-    uint32_t sendCnt_[AICORE_TYPE_NUM]{0,0};
 
     bool isNeedWriteRegForFastPath_{true};
     uint32_t regSprDataMainBase_{REG_SPR_DATA_MAIN_BASE};
