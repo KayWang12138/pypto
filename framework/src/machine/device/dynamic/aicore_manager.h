@@ -790,42 +790,44 @@ private:
         }
         return ret;
     }
+    
+    inline void DumpSchemaOperationInfo(int coreIdx, uint64_t newTask) {
+        uint64_t deviceTaskId = curTaskCtrl_->taskId;
+        uint32_t funcId = FuncID(newTask);
+        int rootIndex = GetRootIndex(newTask);
+        int taskId = TaskID(newTask);
+        int leafIndex = GetLeafIndex(newTask);
+        uint32_t opIdx = TaskID(newTask);
+        auto duppedData = GetDuppedData(newTask);
+        auto funcDupped = GetDupped(newTask);
 
-    // #define SYM_VALUE_LEN 63
-    // #define SYM_VALUE_MASK ((1UL << SYM_VALUE_LEN) - 1)
-    // #define SYM_IS_EXPR(val) (val & (1UL << SYM_VALUE_LEN))
-    // #define SYM_VALUE(val) (val & SYM_VALUE_MASK)
-    // inline schema::coa SchemaGetCoa(uint64_t newTask) {
-    //     auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
-    //     DynFuncHeader *header = (DynFuncHeader *)dyntask->GetDynFuncDataList();
-    //     auto funcDataList = (DynFuncData *)(header + 1);
-    //     auto funcData = funcDataList[FuncID(newTask)];
-    //     auto opAttrs = &funcData->opAttrs[funcData->opAtrrOffsets[npu::tile_fwk::TaskID(newTask)]];
-    //     std::vector<schema::TextType> coaDataList;
-    //     for (int i = 0; i < funcData->opAttrSize; i++) {
-    //         uint64_t val = opAttrs[i];
-    //         std::string textData;
-    //         if (SYM_IS_EXPR(val)) {
-    //             textData = "?" + std::to_string(s.Value());
-    //         }
-    //         else {
-    //             textData = std::to_string(s.Value());
-    //         }
-    //         coaDataList.push_back(schema::TextType(textData));
-    //     }
-    //     schema::coa(schema::coaType(coaDataList));
-    // }
+        DEV_TRACE_DEBUG(LEvent(LUid(deviceTaskId, funcId, rootIndex, taskId, leafIndex),LActStart(coreIdx)));
+        (LEvent(LUid(deviceTaskId, funcId, rootIndex, taskId, leafIndex),
+            duppedData->GetSource()->SchemaGetCoa(opIdx)));
+
+        auto iOperandSize = duppedData->GetSource()->GetOperationIOperandSize(opIdx);
+        DEV_TRACE_DEBUG(LEvent(LUid(deviceTaskId, funcId, rootIndex, taskId, leafIndex),LActIncastCount(iOperandSize)));
+        for (size_t i = 0; i < iOperandSize; i++) {
+            auto iOperand = duppedData->GetSource()->GetOperationIOperand(opIdx, i);
+            auto base = funcDupped.GetRawTensorAddr(iOperand->rawIndex);
+            auto size = duppedData->GetRawTensorDataSize(iOperand->rawIndex);
+            DEV_TRACE_DEBUG(LEvent(LUid(deviceTaskId, funcId, rootIndex, taskId, leafIndex),
+                LActIncast(funcDupped.SchemaGetIOperandShape(opIdx, i), funcDupped.SchemaGetIOperandOffset(opIdx, i), Range(base, base + size))));
+        }
+
+        auto oOperandSize = duppedData->GetSource()->GetOperationOOperandSize(opIdx);
+        DEV_TRACE_DEBUG(LEvent(LUid(deviceTaskId, funcId, rootIndex, taskId, leafIndex), LActOutcastCount(oOperandSize)));
+        for (size_t i = 0; i < oOperandSize; i++) {
+            auto oOperand = duppedData->GetSource()->GetOperationOOperand(opIdx, i);
+            auto base = funcDupped.GetRawTensorAddr(oOperand->rawIndex);
+            auto size = duppedData->GetRawTensorDataSize(oOperand->rawIndex);
+            DEV_TRACE_DEBUG(LEvent(LUid(deviceTaskId, funcId, rootIndex, taskId, leafIndex),
+                LActOutcast(funcDupped.SchemaGetOOperandShape(opIdx, i), funcDupped.SchemaGetOOperandOffset(opIdx, i), Range(base, base + size))));
+        }  
+    }
 
     inline void SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTask) {
-        DEV_TRACE_DEBUG(LEvent(
-            LUid(curTaskCtrl_->taskId, FuncID(newTask), GetRootIndex(newTask), TaskID(newTask), GetLeafIndex(newTask)),
-            LActStart(coreIdx)));
-        // DEV_TRACE_DEBUG(LEvent(
-        //     LUid(curTaskCtrl_->taskId, FuncID(newTask), GetRootIndex(newTask), TaskID(newTask), GetLeafIndex(newTask)),
-        //     SchemaGetCoa()));
-        DEV_TRACE_DEBUG(LEvent(
-            LUid(curTaskCtrl_->taskId, FuncID(newTask), GetRootIndex(newTask), TaskID(newTask), GetLeafIndex(newTask)),
-            GetDuppedData()->GetSource()->SchemaGetCoa(GetLeafIndex(newTask))));
+        DumpSchemaOperationInfo(coreIdx, newTask);
 #if ENABLE_TENSOR_DUMP
         // dump input tensor
         aicoreDump_.DoDump(curDevTask_, "input", newTask, GetPhyIdByBlockId(coreIdx));
@@ -1227,6 +1229,12 @@ private:
         auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
         auto funcId = FuncID(taskId);
         return dyntask->dynFuncDataCacheList[funcId].duppedData;
+    }
+
+    inline DevAscendFunctionDupped GetDupped(uint32_t taskId) const {
+        auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
+        auto funcId = FuncID(taskId);
+        return dyntask->stitchedList[funcId];
     }
 
     inline int32_t ResolveDepDyn(uint64_t finishId, size_t resolveIndexBase = 0, int coreIdx = 0) {
