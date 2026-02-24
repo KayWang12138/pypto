@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-# coding: utf-8
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) PyPTO Contributors.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -8,6 +6,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
+
 """Tests for serialization of basic IR types."""
 
 import pytest
@@ -18,7 +17,8 @@ from pypto.ir import DataType
 class TestBasicTypesSerialization:
     """Test serialization of basic IR types."""
 
-    def test_scalar_type_serialization(self):
+    @staticmethod
+    def test_scalar_type_serialization():
         """Test serializing ScalarType through a Var node."""
         span = ir.Span.unknown()
         scalar_type = ir.ScalarType(DataType.INT64)
@@ -37,9 +37,10 @@ class TestBasicTypesSerialization:
         assert restored.type.dtype == DataType.INT64
 
         # Verify structural equality
-        ir.assert_structural_equal(var, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(var, restored, enable_auto_mapping=True)
 
-    def test_tensor_type_serialization(self):
+    @staticmethod
+    def test_tensor_type_serialization():
         """Test serializing TensorType."""
         span = ir.Span.unknown()
         dim1 = ir.ConstInt(10, DataType.INT64, span)
@@ -60,9 +61,10 @@ class TestBasicTypesSerialization:
         assert len(restored.type.shape) == 2
 
         # Verify structural equality
-        ir.assert_structural_equal(var, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(var, restored, enable_auto_mapping=True)
 
-    def test_tile_type_serialization(self):
+    @staticmethod
+    def test_tile_type_serialization():
         """Test serializing TileType."""
         span = ir.Span.unknown()
         dim1 = ir.ConstInt(8, DataType.INT64, span)
@@ -82,9 +84,10 @@ class TestBasicTypesSerialization:
         assert restored.type.dtype == DataType.FP16
 
         # Verify structural equality
-        ir.assert_structural_equal(var, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(var, restored, enable_auto_mapping=True)
 
-    def test_tuple_type_serialization(self):
+    @staticmethod
+    def test_tuple_type_serialization():
         """Test serializing TupleType."""
         span = ir.Span.unknown()
         tuple_type = ir.TupleType([
@@ -106,9 +109,10 @@ class TestBasicTypesSerialization:
         assert len(restored.type.types) == 3
 
         # Verify structural equality
-        ir.assert_structural_equal(var, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(var, restored, enable_auto_mapping=True)
 
-    def test_unknown_type_serialization(self):
+    @staticmethod
+    def test_unknown_type_serialization():
         """Test serializing UnknownType."""
         span = ir.Span.unknown()
         unknown_type = ir.UnknownType()
@@ -125,9 +129,10 @@ class TestBasicTypesSerialization:
         assert isinstance(restored.type, ir.UnknownType)
 
         # Verify structural equality
-        ir.assert_structural_equal(var, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(var, restored, enable_auto_mapping=True)
 
-    def test_multiple_dtypes_serialization(self):
+    @staticmethod
+    def test_multiple_dtypes_serialization():
         """Test serializing different data types."""
         span = ir.Span.unknown()
         dtypes = [
@@ -152,13 +157,14 @@ class TestBasicTypesSerialization:
             assert restored.type.dtype == dtype
 
             # Verify structural equality
-            ir.assert_structural_equal(var, restored, enable_auto_mapping = True)
+            ir.assert_structural_equal(var, restored, enable_auto_mapping=True)
 
 
 class TestSpanSerialization:
     """Test serialization of Span information."""
 
-    def test_span_serialization(self):
+    @staticmethod
+    def test_span_serialization():
         """Test that Span information is preserved through serialization."""
         span = ir.Span("test.py", 10, 5, 10, 20)
         var = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -176,7 +182,8 @@ class TestSpanSerialization:
         assert restored.span.end_line == 10
         assert restored.span.end_column == 20
 
-    def test_unknown_span_serialization(self):
+    @staticmethod
+    def test_unknown_span_serialization():
         """Test serialization with unknown span."""
         span = ir.Span.unknown()
         var = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -195,7 +202,8 @@ class TestSpanSerialization:
 class TestCallOpSerialization:
     """Test serialization of IR operators."""
 
-    def test_call_op_serialization(self):
+    @staticmethod
+    def test_call_op_serialization():
         """Test serializing Op through a Call expression."""
         span = ir.Span.unknown()
         op = ir.Op("add")
@@ -214,9 +222,10 @@ class TestCallOpSerialization:
         assert restored.op.name == "add"
 
         # Verify structural equality
-        ir.assert_structural_equal(call, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(call, restored, enable_auto_mapping=True)
 
-    def test_multiple_call_ops_serialization(self):
+    @staticmethod
+    def test_multiple_call_ops_serialization():
         """Test serializing different ops."""
         span = ir.Span.unknown()
         op_names = ["add", "mul", "sub", "div", "matmul", "relu", "softmax"]
@@ -237,9 +246,10 @@ class TestCallOpSerialization:
             assert restored.op.name == op_name
 
             # Verify structural equality
-            ir.assert_structural_equal(call, restored, enable_auto_mapping = True)
+            ir.assert_structural_equal(call, restored, enable_auto_mapping=True)
     
-    def test_call_with_kwarg_serialization(self):
+    @staticmethod
+    def test_call_with_kwarg_serialization():
         """Test Call with single keyword argument.
 
         Example: reduce_sum(x, axis=1)
@@ -248,7 +258,6 @@ class TestCallOpSerialization:
         op = ir.Op("reduce_sum")
         x = ir.Var("x", ir.TensorType([2, 3], DataType.FP32), span)
 
-        # Call with kwargs: reduce_sum(x, axis=1)
         # Note: kwargs should be primitive Python values, not Expr objects
         call = ir.Call(op, [x], {"axis": 1}, span)
 
@@ -267,9 +276,10 @@ class TestCallOpSerialization:
         assert "axis" in restored.kwargs, "axis should be in kwargs"
         assert restored.kwargs["axis"] == 1, "axis value should be 1"
 
-        ir.assert_structural_equal(call, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(call, restored, enable_auto_mapping=True)
 
-    def test_call_with_args_and_kwargs_serialization(self):
+    @staticmethod
+    def test_call_with_args_and_kwargs_serialization():
         """Test Call with both positional and keyword arguments.
 
         Example: conv2d(input, weight, stride=1, padding=0)
@@ -311,4 +321,4 @@ class TestCallOpSerialization:
         assert restored.kwargs["stride"] == 1, "stride should be 1"
         assert restored.kwargs["padding"] == 0, "padding should be 0"
 
-        ir.assert_structural_equal(call, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(call, restored, enable_auto_mapping=True)

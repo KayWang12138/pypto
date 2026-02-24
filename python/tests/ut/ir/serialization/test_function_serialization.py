@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-# coding: utf-8
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) PyPTO Contributors.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -8,16 +6,19 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
+
 """Comprehensive tests for Function serialization with complex bodies."""
 
 import pytest
 from pypto import ir
 from pypto.ir import DataType
 
+
 class TestBasicFunction:
     """Test basic Function serialization - moved from test_IR_node.py."""
 
-    def test_function_serialization(self):
+    @staticmethod
+    def test_function_serialization():
         """Test Function serialization."""
         span = ir.Span.unknown()
 
@@ -45,13 +46,14 @@ class TestBasicFunction:
         assert restored.name == "add_function"
         assert len(restored.params) == 2
         assert len(restored.return_types) == 1
-        ir.assert_structural_equal(function, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(function, restored, enable_auto_mapping=True)
 
 
 class TestFunctionWithIfStmt:
     """Test Function containing IfStmt - critical control flow scenario."""
 
-    def test_function_with_simple_if(self):
+    @staticmethod
+    def test_function_with_simple_if():
         """Test Function with simple if statement."""
         span = ir.Span.unknown()
 
@@ -85,16 +87,14 @@ class TestFunctionWithIfStmt:
         assert isinstance(restored.body.then_body, ir.ReturnStmt)
         assert isinstance(restored.body.else_body, ir.ReturnStmt)
 
-        ir.assert_structural_equal(function, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(function, restored, enable_auto_mapping=True)
 
-    def test_function_with_nested_if(self):
+    @staticmethod
+    def test_function_with_nested_if():
         """Test Function with nested if-else statements."""
         span = ir.Span.unknown()
 
         # Function: classify(x) -> returns 0, 1, or 2 based on x value
-        # if x < 0: return 0
-        # elif x < 10: return 1
-        # else: return 2
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
         zero = ir.ConstInt(0, DataType.INT64, span)
         one = ir.ConstInt(1, DataType.INT64, span)
@@ -132,18 +132,13 @@ class TestFunctionWithIfStmt:
         assert isinstance(inner_if_restored.then_body, ir.ReturnStmt)
         assert isinstance(inner_if_restored.else_body, ir.ReturnStmt)
 
-        ir.assert_structural_equal(function, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(function, restored, enable_auto_mapping=True)
 
-    def test_function_with_if_and_assignments(self):
+    @staticmethod
+    def test_function_with_if_and_assignments():
         """Test Function with if statement containing assignments."""
         span = ir.Span.unknown()
 
-        # Function: abs_value(x)
-        # if x < 0:
-        #     result = -x
-        # else:
-        #     result = x
-        # return result
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
         result = ir.Var("result", ir.ScalarType(DataType.INT64), span)
         zero = ir.ConstInt(0, DataType.INT64, span)
@@ -176,13 +171,14 @@ class TestFunctionWithIfStmt:
         assert isinstance(restored.body.stmts[0], ir.IfStmt)
         assert isinstance(restored.body.stmts[1], ir.ReturnStmt)
 
-        ir.assert_structural_equal(function, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(function, restored, enable_auto_mapping=True)
 
 
 class TestFunctionWithForStmt:
     """Test ForStmt within Function context."""
 
-    def test_function_with_simple_for_loop(self):
+    @staticmethod
+    def test_function_with_simple_for_loop():
         """Test Function with simple for loop."""
         span = ir.Span.unknown()
 
@@ -191,10 +187,8 @@ class TestFunctionWithForStmt:
         i = ir.Var("i", ir.ScalarType(DataType.INT64), span)
         sum_var = ir.Var("sum", ir.ScalarType(DataType.INT64), span)
 
-        # sum = 0
         init = ir.AssignStmt(sum_var, ir.ConstInt(0, DataType.INT64, span), span)
 
-        # for i in 0..n: sum = sum + i
         loop_body = ir.AssignStmt(sum_var, ir.Add(sum_var, i, DataType.INT64, span), span)
         for_stmt = ir.ForStmt(
             i,
@@ -207,7 +201,6 @@ class TestFunctionWithForStmt:
             span=span
         )
 
-        # return sum
         return_stmt = ir.ReturnStmt([sum_var], span)
 
         body = ir.SeqStmts([init, for_stmt, return_stmt], span)
@@ -233,9 +226,10 @@ class TestFunctionWithForStmt:
         assert for_stmt_restored.loop_var.name == "i"
         assert isinstance(for_stmt_restored.body, ir.AssignStmt)
 
-        ir.assert_structural_equal(function, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(function, restored, enable_auto_mapping=True)
 
-    def test_function_with_nested_for_loops(self):
+    @staticmethod
+    def test_function_with_nested_for_loops():
         """Test Function with nested for loops."""
         span = ir.Span.unknown()
 
@@ -246,7 +240,6 @@ class TestFunctionWithForStmt:
         j = ir.Var("j", ir.ScalarType(DataType.INT64), span)
         sum_var = ir.Var("sum", ir.ScalarType(DataType.INT64), span)
 
-        # sum = 0
         init = ir.AssignStmt(sum_var, ir.ConstInt(0, DataType.INT64, span), span)
 
         # Inner loop: for j in 0..cols
@@ -295,9 +288,10 @@ class TestFunctionWithForStmt:
         assert isinstance(outer_loop_restored, ir.ForStmt)
         assert isinstance(outer_loop_restored.body, ir.ForStmt)
 
-        ir.assert_structural_equal(function, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(function, restored, enable_auto_mapping=True)
 
-    def test_function_with_for_loop_using_iter_arg(self):
+    @staticmethod
+    def test_function_with_for_loop_using_iter_arg():
         """Test Function with ForStmt using IterArg."""
         span = ir.Span.unknown()
 
@@ -309,7 +303,6 @@ class TestFunctionWithForStmt:
         init_value = ir.ConstInt(0, DataType.INT64, span)
         acc = ir.IterArg("acc", ir.ScalarType(DataType.INT64), init_value, span)
 
-        # Loop body: acc_next = acc + i
         acc_next = ir.Var("acc_next", ir.ScalarType(DataType.INT64), span)
         loop_body = ir.AssignStmt(acc_next, ir.Add(acc, i, DataType.INT64, span), span)
 
@@ -349,9 +342,10 @@ class TestFunctionWithForStmt:
         assert isinstance(for_stmt_restored.iter_args[0], ir.IterArg)
         assert for_stmt_restored.iter_args[0].name == "acc"
 
-        ir.assert_structural_equal(function, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(function, restored, enable_auto_mapping=True)
 
-    def test_function_with_yield_in_loop(self):
+    @staticmethod
+    def test_function_with_yield_in_loop():
         """Test Function with yield inside loop - classic generator pattern."""
         span = ir.Span.unknown()
 
@@ -389,9 +383,10 @@ class TestFunctionWithForStmt:
         assert isinstance(restored.body, ir.ForStmt)
         assert isinstance(restored.body.body, ir.YieldStmt)
 
-        ir.assert_structural_equal(function, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(function, restored, enable_auto_mapping=True)
 
-    def test_function_with_iter_arg_and_yield_in_loop(self):
+    @staticmethod
+    def test_function_with_iter_arg_and_yield_in_loop():
         """Test Function with IterArg + YieldStmt in loop - stateful generator."""
         span = ir.Span.unknown()
 
@@ -399,11 +394,9 @@ class TestFunctionWithForStmt:
         n = ir.Var("n", ir.ScalarType(DataType.INT64), span)
         i = ir.Var("i", ir.ScalarType(DataType.INT64), span)
 
-        # IterArg: accumulator
         init_value = ir.ConstInt(0, DataType.INT64, span)
         acc = ir.IterArg("acc", ir.ScalarType(DataType.INT64), init_value, span)
 
-        # Loop body: acc_next = acc + i; yield acc_next
         acc_next = ir.Var("acc_next", ir.ScalarType(DataType.INT64), span)
         update_stmt = ir.AssignStmt(acc_next, ir.Add(acc, i, DataType.INT64, span), span)
         yield_stmt = ir.YieldStmt([acc_next], span)
@@ -440,31 +433,25 @@ class TestFunctionWithForStmt:
         has_yield = any(isinstance(stmt, ir.YieldStmt) for stmt in restored.body.body.stmts)
         assert has_yield
 
-        ir.assert_structural_equal(function, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(function, restored, enable_auto_mapping=True)
 
 
 class TestFunctionWithForStmtAndIfStmt:
     """Test ForStmt combined with other control flow statements."""
 
-    def test_function_with_if_and_for_combined(self):
+    @staticmethod
+    def test_function_with_if_and_for_combined():
         """Test Function with both if and for statements."""
         span = ir.Span.unknown()
 
-        # Function: conditional_sum(n, threshold)
-        # sum = 0
         # for i in 0..n:
-        #     if i > threshold:
-        #         sum = sum + i
-        # return sum
         n = ir.Var("n", ir.ScalarType(DataType.INT64), span)
         threshold = ir.Var("threshold", ir.ScalarType(DataType.INT64), span)
         i = ir.Var("i", ir.ScalarType(DataType.INT64), span)
         sum_var = ir.Var("sum", ir.ScalarType(DataType.INT64), span)
 
-        # sum = 0
         init = ir.AssignStmt(sum_var, ir.ConstInt(0, DataType.INT64, span), span)
 
-        # if i > threshold: sum = sum + i
         condition = ir.Gt(i, threshold, DataType.INT64, span)
         then_body = ir.AssignStmt(sum_var, ir.Add(sum_var, i, DataType.INT64, span), span)
         if_stmt = ir.IfStmt(condition, then_body, return_vars=[], span=span)
@@ -501,23 +488,21 @@ class TestFunctionWithForStmtAndIfStmt:
         assert isinstance(for_stmt_restored, ir.ForStmt)
         assert isinstance(for_stmt_restored.body, ir.IfStmt)
 
-        ir.assert_structural_equal(function, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(function, restored, enable_auto_mapping=True)
 
-    def test_function_with_complex_control_flow_graph(self):
+    @staticmethod
+    def test_function_with_complex_control_flow_graph():
         """Test Function with complex control flow: nested if-for-if pattern."""
         span = ir.Span.unknown()
 
-        # Function: complex_compute(x, y, z)
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
         y = ir.Var("y", ir.ScalarType(DataType.INT64), span)
         z = ir.Var("z", ir.ScalarType(DataType.INT64), span)
         i = ir.Var("i", ir.ScalarType(DataType.INT64), span)
         result = ir.Var("result", ir.ScalarType(DataType.INT64), span)
 
-        # result = 0
         init = ir.AssignStmt(result, ir.ConstInt(0, DataType.INT64, span), span)
 
-        # Innermost: if i > z then result = result + i
         inner_if_cond = ir.Gt(i, z, DataType.INT64, span)
         inner_if_then = ir.AssignStmt(result, ir.Add(result, i, DataType.INT64, span), span)
         inner_if = ir.IfStmt(inner_if_cond, inner_if_then, return_vars=[], span=span)
@@ -551,21 +536,18 @@ class TestFunctionWithForStmtAndIfStmt:
         assert isinstance(outer_if_restored.then_body, ir.ForStmt)
         assert isinstance(outer_if_restored.then_body.body, ir.IfStmt)
 
-        ir.assert_structural_equal(function, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(function, restored, enable_auto_mapping=True)
 
 
 
 class TestFunctionWithMultipleReturnPaths:
     """Test Function with multiple return statements in different branches."""
 
-    def test_function_with_early_return(self):
+    @staticmethod
+    def test_function_with_early_return():
         """Test Function with early return pattern."""
         span = ir.Span.unknown()
 
-        # Function: safe_divide(a, b)
-        # if b == 0:
-        #     return 0
-        # return a / b
         a = ir.Var("a", ir.ScalarType(DataType.INT64), span)
         b = ir.Var("b", ir.ScalarType(DataType.INT64), span)
         zero = ir.ConstInt(0, DataType.INT64, span)
@@ -600,16 +582,13 @@ class TestFunctionWithMultipleReturnPaths:
         assert isinstance(restored.body.stmts[0].then_body, ir.ReturnStmt)
         assert isinstance(restored.body.stmts[1], ir.ReturnStmt)
 
-        ir.assert_structural_equal(function, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(function, restored, enable_auto_mapping=True)
 
-    def test_function_with_multiple_branch_returns(self):
+    @staticmethod
+    def test_function_with_multiple_branch_returns():
         """Test Function where each branch has its own return."""
         span = ir.Span.unknown()
 
-        # Function: sign(x)
-        # if x < 0: return -1
-        # elif x > 0: return 1
-        # else: return 0
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
         zero = ir.ConstInt(0, DataType.INT64, span)
         one = ir.ConstInt(1, DataType.INT64, span)
@@ -647,13 +626,14 @@ class TestFunctionWithMultipleReturnPaths:
         assert isinstance(inner_if_restored.then_body, ir.ReturnStmt)
         assert isinstance(inner_if_restored.else_body, ir.ReturnStmt)
 
-        ir.assert_structural_equal(function, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(function, restored, enable_auto_mapping=True)
 
 
 class TestFunctionEdgeCases:
     """Test edge cases for Function serialization."""
 
-    def test_function_with_no_params(self):
+    @staticmethod
+    def test_function_with_no_params():
         """Test Function with no parameters."""
         span = ir.Span.unknown()
 
@@ -671,7 +651,8 @@ class TestFunctionEdgeCases:
         assert len(restored.params) == 0
         ir.assert_structural_equal(function, restored)
 
-    def test_function_with_many_params(self):
+    @staticmethod
+    def test_function_with_many_params():
         """Test Function with many parameters."""
         span = ir.Span.unknown()
 
@@ -697,9 +678,10 @@ class TestFunctionEdgeCases:
         restored = ir.deserialize(data)
 
         assert len(restored.params) == 10
-        ir.assert_structural_equal(function, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(function, restored, enable_auto_mapping=True)
 
-    def test_function_with_tuple_return_type(self):
+    @staticmethod
+    def test_function_with_tuple_return_type():
         """Test Function returning tuple."""
         span = ir.Span.unknown()
 
@@ -723,9 +705,10 @@ class TestFunctionEdgeCases:
 
         assert len(restored.return_types) == 1
         assert isinstance(restored.return_types[0], ir.TupleType)
-        ir.assert_structural_equal(function, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(function, restored, enable_auto_mapping=True)
 
-    def test_function_with_empty_body(self):
+    @staticmethod
+    def test_function_with_empty_body():
         """Test Function with minimal body."""
         span = ir.Span.unknown()
 
@@ -749,11 +732,11 @@ class TestFunctionEdgeCases:
 class TestFunctionWithTensorOperations:
     """Test Function with tensor-related operations."""
 
-    def test_function_with_tensor_params(self):
+    @staticmethod
+    def test_function_with_tensor_params():
         """Test Function accepting tensor parameters."""
         span = ir.Span.unknown()
 
-        # Function: process_tensor(tensor, size)
         dim = ir.ConstInt(100, DataType.INT64, span)
         tensor_type = ir.TensorType([dim], DataType.FP32)
         tensor = ir.Var("tensor", tensor_type, span)
@@ -778,9 +761,10 @@ class TestFunctionWithTensorOperations:
         assert isinstance(restored.params[0].type, ir.TensorType)
         assert isinstance(restored.params[1].type, ir.ScalarType)
 
-        ir.assert_structural_equal(function, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(function, restored, enable_auto_mapping=True)
 
-    def test_function_with_call_to_tensor_op(self):
+    @staticmethod
+    def test_function_with_call_to_tensor_op():
         """Test Function calling tensor operations."""
         span = ir.Span.unknown()
 
@@ -809,13 +793,14 @@ class TestFunctionWithTensorOperations:
         assert isinstance(return_expr, ir.Call)
         assert return_expr.op.name == "relu"
 
-        ir.assert_structural_equal(function, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(function, restored, enable_auto_mapping=True)
 
 
 class TestFunctionWithComplexBody:
     """Test function with complex body containing multiple statement types - moved from test_IR_node.py."""
 
-    def test_function_with_complex_body(self):
+    @staticmethod
+    def test_function_with_complex_body():
         """Test function with complex body containing multiple statement types."""
         span = ir.Span.unknown()
 
@@ -826,10 +811,8 @@ class TestFunctionWithComplexBody:
         i = ir.Var("i", ir.ScalarType(DataType.INT64), span)
         sum_var = ir.Var("sum", ir.ScalarType(DataType.INT64), span)
 
-        # Initialize sum = 0
         init_stmt = ir.AssignStmt(sum_var, ir.ConstInt(0, DataType.INT64, span), span)
 
-        # Loop body: sum = sum + i
         loop_body = ir.AssignStmt(
             sum_var,
             ir.Add(sum_var, i, DataType.INT64, span),
@@ -870,5 +853,5 @@ class TestFunctionWithComplexBody:
         assert restored.name == "sum_to_n"
         assert isinstance(restored.body, ir.SeqStmts)
         assert len(restored.body.stmts) == 3
-        ir.assert_structural_equal(function, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(function, restored, enable_auto_mapping=True)
 

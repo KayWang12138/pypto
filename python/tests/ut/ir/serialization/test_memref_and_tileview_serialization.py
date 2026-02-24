@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-# coding: utf-8
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) PyPTO Contributors.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -8,6 +6,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
+
 """Tests for serialization of MemRef and TileView.
 
 This file tests the serialization and deserialization of:
@@ -27,7 +26,8 @@ from pypto.ir import DataType, MemorySpace
 class TestMemRefSerialization:
     """Test serialization of MemRef nodes."""
 
-    def test_memref_basic_serialization(self):
+    @staticmethod
+    def test_memref_basic_serialization():
         """Test basic MemRef serialization with DDR memory space."""
         span = ir.Span.unknown()
 
@@ -59,7 +59,8 @@ class TestMemRefSerialization:
         assert restored.id_ == 1
         ir.assert_structural_equal(memref, restored, enable_auto_mapping=True)
 
-    def test_memref_all_memory_spaces(self):
+    @staticmethod
+    def test_memref_all_memory_spaces():
         """Test MemRef serialization with all MemorySpace enum values."""
         span = ir.Span.unknown()
         addr = ir.ConstInt(0, DataType.INT64, span)
@@ -94,7 +95,8 @@ class TestMemRefSerialization:
             assert restored.id_ == idx + 1
             ir.assert_structural_equal(memref, restored, enable_auto_mapping=True)
 
-    def test_memref_with_expression_addr(self):
+    @staticmethod
+    def test_memref_with_expression_addr():
         """Test MemRef with complex address expression."""
         span = ir.Span.unknown()
 
@@ -128,7 +130,8 @@ class TestMemRefSerialization:
         assert restored.id_ == 42
         ir.assert_structural_equal(memref, restored, enable_auto_mapping=True)
 
-    def test_memref_large_size(self):
+    @staticmethod
+    def test_memref_large_size():
         """Test MemRef with large size value (uint64_t)."""
         span = ir.Span.unknown()
         addr = ir.ConstInt(0, DataType.INT64, span)
@@ -157,7 +160,8 @@ class TestMemRefSerialization:
 class TestTensorTypeWithMemRef:
     """Test serialization of TensorType with MemRef."""
 
-    def test_tensor_type_with_memref(self):
+    @staticmethod
+    def test_tensor_type_with_memref():
         """Test TensorType with MemRef serialization."""
         span = ir.Span.unknown()
 
@@ -200,7 +204,8 @@ class TestTensorTypeWithMemRef:
 
         ir.assert_structural_equal(var, restored, enable_auto_mapping=True)
 
-    def test_tensor_type_without_memref(self):
+    @staticmethod
+    def test_tensor_type_without_memref():
         """Test TensorType without MemRef (memref is optional)."""
         span = ir.Span.unknown()
         dim = ir.ConstInt(100, DataType.INT64, span)
@@ -218,7 +223,8 @@ class TestTensorTypeWithMemRef:
         assert restored.type.memref is None
         ir.assert_structural_equal(var, restored, enable_auto_mapping=True)
 
-    def test_tensor_type_with_memref_different_spaces(self):
+    @staticmethod
+    def test_tensor_type_with_memref_different_spaces():
         """Test TensorType with MemRef in different memory spaces."""
         span = ir.Span.unknown()
         dim = ir.ConstInt(256, DataType.INT64, span)
@@ -250,7 +256,8 @@ class TestTensorTypeWithMemRef:
 class TestTileTypeWithMemRef:
     """Test serialization of TileType with MemRef (without TileView)."""
 
-    def test_tile_type_with_memref(self):
+    @staticmethod
+    def test_tile_type_with_memref():
         """Test TileType with MemRef serialization."""
         span = ir.Span.unknown()
 
@@ -292,7 +299,8 @@ class TestTileTypeWithMemRef:
 
         ir.assert_structural_equal(var, restored, enable_auto_mapping=True)
 
-    def test_tile_type_without_memref(self):
+    @staticmethod
+    def test_tile_type_without_memref():
         """Test TileType without MemRef."""
         span = ir.Span.unknown()
         dim = ir.ConstInt(16, DataType.INT64, span)
@@ -317,7 +325,8 @@ class TestTileViewSerialization:
     Source: Migrated from test_tileview_serialization.py
     """
 
-    def test_tile_type_with_tileview(self):
+    @staticmethod
+    def test_tile_type_with_tileview():
         """Test TileType with TileView serialization - basic 1D case."""
         span = ir.Span.unknown()
 
@@ -382,7 +391,8 @@ class TestTileViewSerialization:
 
         ir.assert_structural_equal(var, restored, enable_auto_mapping=True)
 
-    def test_tile_type_with_multi_dim_tileview(self):
+    @staticmethod
+    def test_tile_type_with_multi_dim_tileview():
         """Test TileType with multi-dimensional TileView - 2D case."""
         span = ir.Span.unknown()
 
@@ -444,7 +454,8 @@ class TestTileViewSerialization:
 
         ir.assert_structural_equal(var, restored, enable_auto_mapping=True)
 
-    def test_tile_type_without_tileview(self):
+    @staticmethod
+    def test_tile_type_without_tileview():
         """Test TileType without TileView (tile_view is optional)."""
         span = ir.Span.unknown()
         dim = ir.ConstInt(32, DataType.INT64, span)
@@ -469,7 +480,8 @@ class TestTileTypeWithMemRefAndTileView:
     Source: Merged from test_memref_serialization.py TestMemRefAndTileViewCombined
     """
 
-    def test_tile_type_with_memref_and_tileview(self):
+    @staticmethod
+    def test_tile_type_with_memref_and_tileview():
         """Test TileType with both MemRef and TileView - complete configuration."""
         span = ir.Span.unknown()
 
@@ -528,7 +540,8 @@ class TestTileTypeWithMemRefAndTileView:
 
         ir.assert_structural_equal(var, restored, enable_auto_mapping=True)
 
-    def test_complex_tile_with_expression_fields(self):
+    @staticmethod
+    def test_complex_tile_with_expression_fields():
         """Test TileType with complex expressions in MemRef and TileView fields."""
         span = ir.Span.unknown()
 
@@ -583,7 +596,8 @@ class TestTileTypeWithMemRefAndTileView:
 class TestMemRefEdgeCases:
     """Test edge cases and boundary conditions for MemRef."""
 
-    def test_memref_zero_size(self):
+    @staticmethod
+    def test_memref_zero_size():
         """Test MemRef with zero size - minimal allocation."""
         span = ir.Span.unknown()
         addr = ir.ConstInt(0, DataType.INT64, span)
@@ -602,7 +616,8 @@ class TestMemRefEdgeCases:
         assert restored.size_ == 0
         ir.assert_structural_equal(memref, restored, enable_auto_mapping=True)
 
-    def test_memref_max_id(self):
+    @staticmethod
+    def test_memref_max_id():
         """Test MemRef with maximum uint64_t id value - boundary test."""
         span = ir.Span.unknown()
         addr = ir.ConstInt(0, DataType.INT64, span)
