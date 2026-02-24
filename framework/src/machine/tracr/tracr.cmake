@@ -59,9 +59,9 @@ function(tracr_enable target)
         endif()
 
         # TraCR full size buffer modes:
-        # default (none):            Abort if buffer is full
-        # TRACR_POLICY_PERIODIC:     If buffer is full, overwrite from the beginning
-        # TRACR_POLICY_STOP_IF_FULL: If buffer is full, ignore incoming traces
+        # default (none):              Abort if buffer is full
+        # TRACR_POLICY_PERIODIC:       If buffer is full, overwrite from the beginning
+        # TRACR_POLICY_IGNORE_IF_FULL: If buffer is full, ignore incoming traces
         # if (TRACR_POLICY)
         #     target_compile_definitions(${target} PRIVATE TRACR_POLICY_PERIODIC)
         # endif()
@@ -70,16 +70,16 @@ function(tracr_enable target)
         set_property(CACHE TRACR_POLICY PROPERTY STRINGS
             ""  # allow empty (use C++ default)
             TRACR_POLICY_PERIODIC
-            TRACR_POLICY_STOP_IF_FULL
+            TRACR_POLICY_IGNORE_IF_FULL
         )
 
         if(NOT TRACR_POLICY STREQUAL "")
             if(TRACR_POLICY STREQUAL "TRACR_POLICY_PERIODIC")
                 message(STATUS "TraCR adding policy: 'TRACR_POLICY_PERIODIC'")
                 target_compile_definitions(${target} PRIVATE TRACR_POLICY_PERIODIC)
-            elseif(TRACR_POLICY STREQUAL "TRACR_POLICY_STOP_IF_FULL")
-                message(STATUS "TraCR adding policy: 'TRACR_POLICY_STOP_IF_FULL'")
-                target_compile_definitions(${target} PRIVATE TRACR_POLICY_STOP_IF_FULL)
+            elseif(TRACR_POLICY STREQUAL "TRACR_POLICY_IGNORE_IF_FULL")
+                message(STATUS "TraCR adding policy: 'TRACR_POLICY_IGNORE_IF_FULL'")
+                target_compile_definitions(${target} PRIVATE TRACR_POLICY_IGNORE_IF_FULL)
             else()
                 message(FATAL_ERROR "Unknown TRACR_POLICY: ${TRACR_POLICY}")
             endif()

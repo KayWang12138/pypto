@@ -56,7 +56,7 @@ TEST_F(TestAiCoreManager, test_tracr) {
 
     printf("[TraCR] TraCR active[%d,%ld]? %d", tracrIdx, syscall(SYS_gettid), INSTRUMENTATION_ACTIVE);
 
-    INSTRUMENTATION_START("");
+    INSTRUMENTATION_START();
 
     INSTRUMENTATION_MARK_SET(tracrIdx, 0, 0);
     INSTRUMENTATION_MARK_RESET(tracrIdx);
