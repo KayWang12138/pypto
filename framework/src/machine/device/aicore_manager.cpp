@@ -50,7 +50,7 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl)
 {
     int ret = 0;
     DEV_INFO("receive new task %lu\n", taskCtrl->taskId);
-    InitTaskData(taskCtrl);
+    InitTaskData();
     if (isLeaderScheduler_ == true)  aicpuTaskManager_.Init(curDevTask_);
 
     const auto t0 = std::chrono::high_resolution_clock::now();
@@ -96,6 +96,16 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl)
 
 int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *taskCtrl)
 {
+    curTaskCtrl_ = taskCtrl;
+    curDevTask_ = static_cast<DeviceTask *>(taskCtrl->devTask);
+
+    // Getting variable controlling who is the scheduler lead. The first to arrive here should take the lead so that this starts as fast as possible
+    leadSchedulerId_ = (std::atomic<uint32_t>*) &curDevTask_->leadSchedulerId;
+    
+    // Putting myself as leader, if nobody has done it yet
+    uint32_t expectedValue = AICPU_LEAD_SCHEDULER_NULL;
+    isLeaderScheduler_ = leadSchedulerId_->compare_exchange_strong(expectedValue, (uint32_t)aicpuIdx_);
+
     Init(threadIdx, deviceArgs);
 
     int ret = HandkShake();

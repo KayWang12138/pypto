@@ -119,10 +119,7 @@ public:
     AiCoreManager(AicpuTaskManager &aicpuTaskManager) : aicpuTaskManager_(aicpuTaskManager){};
     ~AiCoreManager(){};
 
-    inline void InitTaskData(DeviceTaskCtrl *taskCtrl) {
-        curTaskCtrl_ = taskCtrl;
-        curDevTask_ = static_cast<DeviceTask *>(taskCtrl->devTask);
-
+    inline void InitTaskData() {
         readyAicCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAicCoreFunctionQue);
         readyAivCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAivCoreFunctionQue);
 
@@ -131,13 +128,6 @@ public:
             volatile int64_t *funcData = &args_[coreIdx]->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX];
             *funcData = reinterpret_cast<int64_t>(&curDevTask_->coreFuncData);
         });
-
-        // Getting variable controlling who is the scheduler lead. The first to arrive here should take the lead so that this starts as fast as possible
-        leadSchedulerId_ = (std::atomic<uint32_t>*) &curDevTask_->leadSchedulerId;
-        
-        // Putting myself as leader, if nobody has done it yet
-        uint32_t expectedValue = AICPU_LEAD_SCHEDULER_NULL;
-        isLeaderScheduler_ = leadSchedulerId_->compare_exchange_strong(expectedValue, (uint32_t)aicpuIdx_);
 
         // If I am the lead AICPU scheduler, perform initailization steps
         if (isLeaderScheduler_ == true)
