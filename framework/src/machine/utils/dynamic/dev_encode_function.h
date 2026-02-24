@@ -216,6 +216,16 @@ public:
         return schema::coa(schema::coaType(coaDataList, dumpIndex));
     }
 
+    schema::succ SchemaGetSucc(int operationIndex) {
+        std::vector<schema::operation> succDataList;
+        size_t succSize;
+        auto succList = GetOperationDepGraphSuccAddr(operationIndex, succSize);
+        for (size_t i = 0; i < succSize; i++) {
+            succDataList.push_back(succList[i]);
+        }
+        return schema::succ(succDataList);
+    }
+
     template <typename T>
     uint64_t GetEndOffset(const DevLocalVector<T> &localvec) const {
         return localvec.End();

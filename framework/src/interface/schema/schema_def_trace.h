@@ -47,7 +47,11 @@ SCHEMA_DEF_TYPE_UNION(DUidType, DUid);
 
 SCHEMA_DEF_ATTR(LActStart, AicoreIndexType);
 SCHEMA_DEF_ATTR(LActFinish, AicoreIndexType);
-SCHEMA_DEF_TYPE_UNION(LActType, LActStart, LActFinish, coa);
+SCHEMA_DEF_ATTR(LActIncastCount, Int64Type);
+SCHEMA_DEF_ATTR(LActIncast, shape, offset, range);
+SCHEMA_DEF_ATTR(LActOutcastCount, Int64Type);
+SCHEMA_DEF_ATTR(LActOutcast, shape, offset, range);
+SCHEMA_DEF_TYPE_UNION(LActType, LActStart, LActFinish, coa, succ, LActIncastCount, LActIncast, LActOutcastCount, LActOutcast);
 
 SCHEMA_DEF_ATTR(RActDup, name);
 SCHEMA_DEF_ATTR(RActStitch);
