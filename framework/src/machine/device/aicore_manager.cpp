@@ -174,7 +174,7 @@ void AiCoreManager::ResolveDepForAllAiCore()
     {
         const uint64_t taskId = (int)decodePairTask(runningPair);
         ResolveDep(taskId);
-         const auto readyState = reinterpret_cast<CoreFunctionReadyState *>(curDevTask_->coreFunctionReadyStateAddr);
+        const auto readyState = reinterpret_cast<CoreFunctionReadyState *>(curDevTask_->coreFunctionReadyStateAddr);
         const auto coreType = readyState[taskId].coreType; 
         availableCoreQueue_[coreType]->push(coreIdx);
     }
@@ -186,8 +186,7 @@ void AiCoreManager::ResolveDepForAllAiCore()
 
 void AiCoreManager::ResolveVirtualPure(uint64_t dep, CoreFunctionReadyState* readyState) {
     DEV_DEBUG("new virtual pure task resolved. id: %lu\n", dep);
-    auto virtualFuncInfo =
-        &(reinterpret_cast<CoreFunctionWsAddr *>(curDevTask_->coreFuncData.coreFunctionWsAddr)[dep]);
+    auto virtualFuncInfo = &(reinterpret_cast<CoreFunctionWsAddr *>(curDevTask_->coreFuncData.coreFunctionWsAddr)[dep]);
     auto topo = reinterpret_cast<CoreFunctionTopo *>(virtualFuncInfo->topoAddr);
     for (uint64_t i = 0 ; i < topo->depNum; i++) {
         uint64_t depId = topo->depIds[i];
@@ -201,8 +200,7 @@ void AiCoreManager::ResolveVirtualPure(uint64_t dep, CoreFunctionReadyState* rea
 
 void AiCoreManager::ResolveVirtualMix(uint64_t dep, CoreFunctionReadyState* readyState) {
     DEV_DEBUG("new virtual mix task resolved. id: %lu\n", dep);
-    auto virtualFuncInfo =
-        &(reinterpret_cast<CoreFunctionWsAddr *>(curDevTask_->coreFuncData.coreFunctionWsAddr)[dep]);
+    auto virtualFuncInfo = &(reinterpret_cast<CoreFunctionWsAddr *>(curDevTask_->coreFuncData.coreFunctionWsAddr)[dep]);
     auto topo = reinterpret_cast<CoreFunctionTopo *>(virtualFuncInfo->topoAddr);
     for (uint64_t i = 0 ; i < topo->depNum; i++) {
         uint64_t depId = topo->depIds[i];

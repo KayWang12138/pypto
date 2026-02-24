@@ -122,12 +122,17 @@ public:
     inline void InitTaskData(DeviceTaskCtrl *taskCtrl) {
         curTaskCtrl_ = taskCtrl;
         curDevTask_ = static_cast<DeviceTask *>(taskCtrl->devTask);
-        ForEachManageAicore([this](int coreIdx) {
+
+        readyAicCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAicCoreFunctionQue);
+        readyAivCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAivCoreFunctionQue);
+
+        // Initiaizing all cores prior to execution
+        ForAllAicores([this](int coreIdx) {
+            auto args = reinterpret_cast<KernelArgs *>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
+            args_[coreIdx] = args;
             volatile int64_t *funcData = &args_[coreIdx]->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX];
             *funcData = reinterpret_cast<int64_t>(&curDevTask_->coreFuncData);
         });
-        readyAicCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAicCoreFunctionQue);
-        readyAivCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAivCoreFunctionQue);
 
         // Getting variable controlling who is the scheduler lead. The first to arrive here should take the lead so that this starts as fast as possible
         leadSchedulerId_ = (std::atomic<uint32_t>*) &curDevTask_->leadSchedulerId;
@@ -167,7 +172,6 @@ public:
     int RunTask(DeviceTaskCtrl *taskCtrl);
 
     int Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *taskCtrl = nullptr);
-
     void PushTask(DeviceTaskCtrl *taskCtrl) { taskQueue_.Enqueue(taskCtrl); }
 
 private:
@@ -220,6 +224,12 @@ private:
             func(i);
         }
         for (int i = aivStart_; i < aivEnd_; ++i) {
+            func(i);
+        }
+    }
+
+    inline void ForAllAicores(std::function<void(int coreIdx)> func) const {
+        for (size_t i = 0; i < MAX_AICORE_NUM; ++i) {
             func(i);
         }
     }
