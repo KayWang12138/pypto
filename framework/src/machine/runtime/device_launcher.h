@@ -150,6 +150,19 @@ public:
         return;
     }
 
+    static uint32_t GetAiCpuNumForDav3510(uint32_t aiCpuNum, uint32_t scheCpuNum) {
+        if ((scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM) == aiCpuNum) {
+            return scheCpuNum;
+        }
+
+        const uint32_t oneDieMaxScheCpuNum = 2; // 2 : maxSche cpu num is 4
+        uint32_t oneDieMinCpuNum = scheCpuNum >> 1;
+        uint32_t oneDieMaxCpuNum = oneDieMinCpuNum + (scheCpuNum - (oneDieMinCpuNum << 1));
+        uint32_t lunchMinCpuNum = oneDieMaxCpuNum + oneDieMaxScheCpuNum + 1;    // more ctrl and singnal
+
+        return lunchMinCpuNum < aiCpuNum ? lunchMinCpuNum : aiCpuNum;
+    }
+
     // Prepare device program scheduling and memory budget related args (keeps <= 50 lines)
     static void PrepareDevProgArgs(DevAscendProgram *devProg, DeviceLauncherConfig &config,
                                   [[maybe_unused]]bool isDevice) {
@@ -164,13 +177,12 @@ public:
         int aiCpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum()) - 1;
         devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, aiCpuNum, devProg->devArgs.archInfo);
         config.aicpuNum = devProg->devArgs.scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM;
-        devProg->devArgs.nrAicpu = config.aicpuNum;
         if (devProg->devArgs.archInfo == ArchInfo::DAV_3510) {
+            devProg->devArgs.nrAicpu = GetAiCpuNumForDav3510(static_cast<uint32_t>(aiCpuNum), devProg->devArgs.scheCpuNum);
             devProg->devArgs.launchScheCpuNum = aiCpuNum - dynamic::MAX_OTHER_AICPU_NUM;
-            devProg->devArgs.launchAicpu = aiCpuNum;
         } else {
+            devProg->devArgs.nrAicpu = config.aicpuNum;
             devProg->devArgs.launchScheCpuNum = devProg->devArgs.scheCpuNum;
-            devProg->devArgs.launchAicpu = devProg->devArgs.nrAicpu;
         }
 
 #ifdef BUILD_WITH_CANN

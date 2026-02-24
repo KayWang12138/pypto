@@ -144,37 +144,38 @@ struct DynMachineManager {
     };
 
     int AllocThreadIdx(DeviceArgs *devArgs, std::atomic<int> &threadIdx) {
+        int cpu = sched_getcpu();
         if (devArgs->archInfo == ArchInfo::DAV_3510) {
-            threadIdx = sched_getcpu() - 1;
+            threadIdx = cpu - 1;
             return threadIdx;
         }
 
-        if (devArgs->scheCpuNum == 1) { 
-            return ++threadIdx; 
-        } 
-        int cpu = sched_getcpu(); 
-        cpumask_.fetch_or(1 << cpu, std::memory_order_release); 
-        while (__builtin_popcount(cpumask_.load(std::memory_order_acquire)) != devArgs->nrAicpu) { 
-            sched_yield(); 
-        } 
-        auto maskval = cpumask_.load(std::memory_order_relaxed); 
-        int cpuoff = 0; 
-        int clus_id = -1; 
-        for (int index = 0; index < static_cast<int>(sizeof(uint64_t)); ++index) { 
-            int mask = (maskval >> cpuoff) & 0xF; 
-            if (__builtin_popcount(static_cast<uint32_t>(mask)) >= static_cast<int>(devArgs->scheCpuNum)) { 
-                clus_id = index; 
-                break; 
-            } 
-            cpuoff += CPUS_PER_CLUSTER; 
-        } 
-        if (clus_id == -1) { 
-            return ++threadIdx; 
-        } 
-        if (cpu < cpuoff || cpu >= (cpuoff + CPUS_PER_CLUSTER)) { 
-            return -1; 
-        } 
-        return ++threadIdx; 
+        if (devArgs->scheCpuNum == 1) {
+            return ++threadIdx;
+        }
+
+        cpumask_.fetch_or(1 << cpu, std::memory_order_release);
+        while (__builtin_popcount(cpumask_.load(std::memory_order_acquire)) != devArgs->nrAicpu) {
+            sched_yield();
+        }
+        auto maskval = cpumask_.load(std::memory_order_relaxed);
+        int cpuoff = 0;
+        int clus_id = -1;
+        for (int index = 0; index < static_cast<int>(sizeof(uint64_t)); ++index) {
+            int mask = (maskval >> cpuoff) & 0xF;
+            if (__builtin_popcount(static_cast<uint32_t>(mask)) >= static_cast<int>(devArgs->scheCpuNum)) {
+                clus_id = index;
+                break;
+            }
+            cpuoff += CPUS_PER_CLUSTER;
+        }
+        if (clus_id == -1) {
+            return ++threadIdx;
+        }
+        if (cpu < cpuoff || cpu >= (cpuoff + CPUS_PER_CLUSTER)) {
+            return -1;
+        }
+        return ++threadIdx;
     }
 
     void SignalReg(const KernelCtrlEntry &entry) {
@@ -203,7 +204,7 @@ struct DynMachineManager {
             return threadIdx - 1;
         }
 
-        int maxCpuId = static_cast<int>(devArgs->launchAicpu);
+        int maxCpuId = static_cast<int>(devArgs->nrAicpu);
         int die0MaxCpuid = maxCpuId >> 1;
         int scheCpuNum = static_cast<int>(devArgs->scheCpuNum);
         int die0MaxCpuNum = scheCpuNum >> 1;
@@ -287,19 +288,19 @@ struct DynMachineManager {
             DEV_ERROR("Aicpu num[%u] less than sche num[%u].", devArgs->nrAicpu, devArgs->scheCpuNum);
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
         }
-        int threadIdx = AllocThreadIdx(devArgs, threadIdx_);	 
+        int threadIdx = AllocThreadIdx(devArgs, threadIdx_);
         uint64_t allocThreadCycle = GetCycles();
 
-        if ((threadIdx != -1) && threadIdx <= static_cast<int>(devArgs->launchScheCpuNum)) {	 
+        if ((threadIdx != -1) && threadIdx <= static_cast<int>(devArgs->launchScheCpuNum)) {
             ret = RunSche(kargs, entry, threadIdx);
         } else {
-            threadIdx = ctrlcpuIdx_.fetch_add(1);	 
-            DEV_INFO("TaskType %d.",  static_cast<int>(devArgs->taskType)); 
-            if (devArgs->enableCtrl == 1 && threadIdx == CTRL_CPU_THREAD_IDX) { 
+            threadIdx = ctrlcpuIdx_.fetch_add(1);
+            DEV_INFO("TaskType %d.",  static_cast<int>(devArgs->taskType));
+            if (devArgs->enableCtrl == 1 && threadIdx == CTRL_CPU_THREAD_IDX) {
                 ret = RunCtrl(kargs, entry, threadIdx);
             } else {
                 threadIdx += devArgs->scheCpuNum;
-                SignalReg(entry); 
+                SignalReg(entry);
             }
         }
 
@@ -310,7 +311,7 @@ struct DynMachineManager {
 
         GetLogger().Flush();
         PerfMtTrace(PERF_TRACE_EXIT, threadIdx);
-        if (++finished_ == static_cast<std::atomic<int>>(devArgs->launchAicpu)) {
+        if (++finished_ == static_cast<std::atomic<int>>(devArgs->nrAicpu)) {
             LastFinishThreadIdx_ = threadIdx;
             if (unlikely(!machine_.CheckAndResetReg())) {
                 DEV_WARN("Some registers force closed!");
@@ -466,7 +467,7 @@ struct DynMachineManager {
 
         DevStartArgs *runtimeDataCurrent = reinterpret_cast<DevStartArgs *>(devProg->GetRuntimeDataList()->GetRuntimeDataCurrent());
         auto devArgs = devProg->devArgs;
-        int threadIdx = AllocThreadIdx(LAUNCH_AICPU_NUM, devArgs.scheCpuNum, runtimeDataCurrent->devScheState.threadIdx);
+        int threadIdx = AllocThreadIdx(devArgs, runtimeDataCurrent->devScheState.threadIdx);
         int ret = DEVICE_MACHINE_OK;
         if (threadIdx != -1 && threadIdx <= static_cast<int>(devArgs.scheCpuNum)) {
             DEV_INFO("SchedThreadEnter idx=%d round=%d", threadIdx, (int)kargs->parameter.globalRound);
