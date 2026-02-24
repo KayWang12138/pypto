@@ -21,13 +21,6 @@
 namespace npu {
 namespace tile_fwk {
 namespace {
-// 常量定义
-constexpr size_t MIN_DIMENSIONS = 2;
-constexpr size_t MAX_DIMENSIONS = 4;
-constexpr size_t DIMENSIONS_2D = 2;
-constexpr size_t DIMENSIONS_3D = 3;
-constexpr size_t DIMENSIONS_4D = 4;
-
 uint32_t GetPowerOfTwo(uint32_t cur) {
     uint32_t ret = 1;
     while (ret < cur) {
@@ -101,7 +94,8 @@ bool InferMemoryConflict::CheckConflict(const LogicalTensorPtr &inTensor, const 
     return true;
 }
 
-bool InferMemoryConflict::CheckRawShapeConflict(const LogicalTensorPtr &inTensor, const LogicalTensorPtr &outTensor) {
+bool InferMemoryConflict::CheckRawShapeConflict(const LogicalTensorPtr &inTensor, const LogicalTensorPtr &outTensor,
+    bool isBackWard, const LogicalTensorPtr &reshapeTensor) {
     int64_t inRawSize = 1;
     int64_t outRawSize = 1;
     Shape inShape = inTensor->GetRawTensor()->GetRawShape();
@@ -135,6 +129,11 @@ bool InferMemoryConflict::CheckRawShapeConflict(const LogicalTensorPtr &inTensor
             return true;
         }
         outRawSize *= outShape[i];
+    }
+    auto reshapeInput = isBackWard ? inTensor : reshapeTensor;
+    auto reshapeOutput = isBackWard ? reshapeTensor : outTensor;
+    if (MatchReshapePattern(reshapeInput, reshapeOutput)) {
+        return false;
     }
     if (inRawSize > 0 && outRawSize > 0 && inRawSize != outRawSize) {
         APASS_LOG_DEBUG_F(Elements::Operation, "The raw size of input is %d, the raw size of output is %d", inRawSize, outRawSize);
@@ -172,53 +171,36 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
     return true;
 }
 
-bool CheckDynRawShape(Shape shape) {
-    return std::any_of(shape.begin(), shape.end(), [](int dim) {
-        return dim < 0;
-    });
-}
-
-bool InferMemoryConflict::MatMulPattern(const LogicalTensorPtr &reshapeIn, const LogicalTensorPtr &reshapeOut) {
-    Shape inShape = reshapeIn->GetRawTensor()->GetRawShape();
-    Shape outShape = reshapeOut->GetRawTensor()->GetRawShape();
-    if (CheckDynRawShape(inShape) || CheckDynRawShape(outShape)) {
-        return false;
-    }
-    auto producer = *(reshapeIn->GetProducers().begin());
-    auto consumer = *(reshapeOut->GetConsumers().begin());
-    if (producer == nullptr || consumer == nullptr) {
-        return false;
-    }
-    bool mulPattern =
-        ((producer->GetOpcode() == Opcode::OP_VIEW &&
-          OpcodeManager::Inst().GetOpCalcType(consumer->GetOpcode()) == OpCalcType::MATMUL) ||
-         (OpcodeManager::Inst().GetOpCalcType(producer->GetOpcode()) == OpCalcType::MATMUL && 
-          consumer->GetOpcode() == Opcode::OP_ASSEMBLE));
-
-    return mulPattern;
-}
-
 // batch MatMul优化pattern，不插入register copy
-bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn, const LogicalTensorPtr &reshapeOut) {
+bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn,
+                                            const LogicalTensorPtr &reshapeOut) {
     if (!reshapeIn || !reshapeOut) return false;
-
-    if (!MatMulPattern(reshapeIn, reshapeOut)) {
-        return false;
-    }
 
     const auto &inputShape = reshapeIn->GetShape();
     const auto &outputShape = reshapeOut->GetShape();
     const size_t inputDims = inputShape.size();
     const size_t outputDims = outputShape.size();
     
+    // 常量定义
+    constexpr size_t MIN_DIMENSIONS = 2;
+    constexpr size_t MAX_DIMENSIONS = 4;
+    constexpr size_t DIMENSIONS_2D = 2;
+    constexpr size_t DIMENSIONS_3D = 3;
+    constexpr size_t DIMENSIONS_4D = 4;
+    
     if (inputDims < MIN_DIMENSIONS || outputDims < MIN_DIMENSIONS || inputDims > MAX_DIMENSIONS || outputDims > MAX_DIMENSIONS) return false;
     
     // 验证总元素数是否相等（reshape的基本要求）
-    if (std::accumulate(inputShape.begin(), inputShape.end(), int64_t{1}, std::multiplies<int64_t>()) !=
-        std::accumulate(outputShape.begin(), outputShape.end(), int64_t{1}, std::multiplies<int64_t>())) {
-        return false;
-    }
-
+    auto calculateTotalElements = [](const std::vector<int64_t>& shape) {
+        int64_t total = 1;
+        for (const auto& dim : shape) {
+            total *= dim;
+        }
+        return total;
+    };
+    
+    if (calculateTotalElements(inputShape) != calculateTotalElements(outputShape)) return false;
+    
     // 编码维度对：输入维度在高位，输出维度在低位
     const uint32_t dimensionPair = (inputDims << 4) | outputDims;
     
@@ -263,7 +245,7 @@ Status InferMemoryConflict::UpdateForwardTensor(Function &function, const Logica
         if (consumer->GetOpcode() == Opcode::OP_RESHAPE) {
             auto reshapeInput = consumer->GetIOperands().front();
             bool isInplace = consumer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
-            if (!MatchReshapePattern(reshapeInput, outputTensor) && !isInplace && CheckRawShapeConflict(memoryInfo[curTensor], outputTensor)) {
+            if (!isInplace && CheckRawShapeConflict(memoryInfo[curTensor], outputTensor, false, reshapeInput)) {
                 preregcopys.insert(consumer);
                 continue;
             }
@@ -294,7 +276,7 @@ Status InferMemoryConflict::UpdateBackwardTensor(const LogicalTensorPtr &curTens
         auto reshapeOutput = producer->GetOOperands().front();
         if (producer->GetOpcode() == Opcode::OP_RESHAPE) {
             bool isInplace = producer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
-            if (!MatchReshapePattern(inputTensor, reshapeOutput) && !isInplace && CheckRawShapeConflict(inputTensor, memoryInfo[curTensor])) {
+            if (!isInplace && CheckRawShapeConflict(inputTensor, memoryInfo[curTensor], true, reshapeOutput)) {
                 postregcopys.insert(producer);
                 continue;
             }
