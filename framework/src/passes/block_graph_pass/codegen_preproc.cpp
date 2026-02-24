@@ -182,7 +182,7 @@ bool ReduceNeedCombineAxis(const Operation &op) {
     return false;
 }
 
-inline bool SkipInputCombineOps3510(OPeration& op) {
+inline bool SkipInputCombineOps3510(Operation& op) {
     const std::unordered_set<Opcode> skipInputCombineOps3510 = {Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL,
         Opcode::OP_DIV, Opcode::OP_MAXIMUM, Opcode::OP_MINIMUM};
     if (skipInputCombineOps3510.count(op.GetOpcode()) == 0) {
