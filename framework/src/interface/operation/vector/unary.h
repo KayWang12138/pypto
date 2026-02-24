@@ -25,6 +25,7 @@ namespace npu::tile_fwk {
 
 enum class UnaryOpType {
     EXP,
+    EXPM1,
     RSQRT,
     SQRT,
     CEIL,
@@ -42,6 +43,7 @@ template <UnaryOpType T>
 std::string GetUnaryOpName() {
     switch (T) {
         case UnaryOpType::EXP: return "EXP";
+        case UnaryOpType::EXPM1: return "EXPM1";
         case UnaryOpType::RSQRT: return "RSQRT";
         case UnaryOpType::SQRT: return "SQRT";
         case UnaryOpType::CEIL: return "CEIL";
@@ -63,6 +65,7 @@ Opcode GetUnaryOpNameCode() {
     case UnaryOpType::X: return Opcode::OP_##X
     switch (T) {
         CASE(EXP);
+        CASE(EXPM1);
         CASE(RSQRT);
         CASE(SQRT);
         CASE(CEIL);
