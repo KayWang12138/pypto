@@ -113,6 +113,7 @@ void SdmaPrefetch(DeviceTask *devTask);
 
 typedef pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask> taskQueue_t;
 typedef pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore> coreQueue_t;
+typedef pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair> pairQueue_t;
 
 class AiCoreManager {
 public:
@@ -149,7 +150,7 @@ public:
         }
 
         availableTaskQueue_ = reinterpret_cast<taskQueue_t*>(curDevTask_->availableTaskQueue);
-        runningPairQueue_   = new pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>(MAX_QUEUED_PAIRS);
+        runningPairQueue_                           = new pairQueue_t(MAX_QUEUED_PAIRS);
         availableCoreQueue_[(int)MachineType::AIV] = new coreQueue_t(MAX_QUEUED_CORES);
         availableCoreQueue_[(int)MachineType::AIC] = new coreQueue_t(MAX_QUEUED_CORES);
         for (int i = aivStart_; i < aivEnd_; i++) availableCoreQueue_[(int)MachineType::AIV]->push((uint32_t)i);

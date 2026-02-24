@@ -86,10 +86,11 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl)
 
     if (isLeaderScheduler_ == true) {
         delete availableTaskQueue_;
-        delete runningPairQueue_ ;
-        delete availableCoreQueue_[(int)MachineType::AIV];
-        delete availableCoreQueue_[(int)MachineType::AIC];
     }
+
+    delete runningPairQueue_ ;
+    delete availableCoreQueue_[(int)MachineType::AIV];
+    delete availableCoreQueue_[(int)MachineType::AIC];
 
     return ret;
 }
