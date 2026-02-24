@@ -594,9 +594,8 @@ int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream
     auto schedStream = (aclrtStream)machine::GetRA()->GetScheStream();
     auto &devRunner = DeviceRunner::Get();
     devRunner.GetHostProfInstance().SetProfFunction(function);
-    if (debugEnable) {
-        devRunner.SetDebugEnable();
-    }
+    (void)debugEnable;
+    devRunner.SetDebugEnable();
     int ret = 0;
     auto args = (AiCpuArgs *)rtArgs.args;
     if (tripleStream) {
