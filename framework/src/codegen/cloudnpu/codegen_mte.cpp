@@ -1792,23 +1792,33 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
     }
 
     bool isInput = true;
-    int64_t offset0 = 0;
-    int64_t offset1 = 0;
-    int64_t offset2 = 0;
-    int64_t offset3 = 0;
-    int64_t offset4 = 0;
+    bool isConv3D = true;
+    int64_t offsetN = 0;
+    int64_t offsetC = 0;
+    int64_t offsetD = 0;
+    int64_t offsetH = 0;
+    int64_t offsetW = 0;
     GetAttr("is_fmap", isInput);
-    GetAttr("src_n_offset", offset0);
-    GetAttr("src_c_offset", offset1);
-    GetAttr("src_d_offset", offset2);
-    if (isInput) {
-        GetAttr("src_h_offset", offset3);
-        GetAttr("src_w_offset", offset4);
+    GetAttr("is_conv3d", isConv3D);
+    auto dynOffset = offsetFromAttr[ToUnderlying(MISOIdx::SRC0_IDX)];
+    if (isConv3D) {
+        ASSERT(dynOffset.size() == SHAPE_DIM5) << "GenMemL1CopyInConv offset should be 5-dim!";
+        offsetN = dynOffset[ID0].Concrete();
+        offsetC = dynOffset[ID1].Concrete();
+        offsetD = dynOffset[ID2].Concrete();
+        offsetH = dynOffset[ID3].Concrete();
+        offsetW = dynOffset[ID4].Concrete();
+    } else {
+        ASSERT(dynOffset.size() == SHAPE_DIM4) << "GenMemL1CopyInConv offset should be 4-dim!";
+        offsetN = dynOffset[ID0].Concrete();
+        offsetC = dynOffset[ID1].Concrete();
+        offsetH = dynOffset[ID2].Concrete();
+        offsetW = dynOffset[ID3].Concrete();
     }
 
     std::vector<std::string> tileOpParamList = 
-        {dstTensor, srcTensor, std::to_string(offset0), std::to_string(offset1), std::to_string(offset2),
-        std::to_string(offset3), std::to_string(offset4), std::to_string(isInput)};
+        {dstTensor, srcTensor, std::to_string(offsetN), std::to_string(offsetC), std::to_string(offsetD),
+        std::to_string(offsetH), std::to_string(offsetW), std::to_string(isInput)};
 
     std::ostringstream oss;
     oss << tileOpName << "<" << copyInModeStr << ">";
@@ -1835,22 +1845,36 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const {
         ASSERT(false) << "Check CopyOutMode failed";
     }
 
+    bool isConv3D = false;
     int64_t realM = 0;
     int64_t realN = 0;
-    int64_t offset0 = 0;
-    int64_t offset1 = 0;
-    int64_t offset2 = 0;
-    int64_t offset3 = 0;
-    int64_t offset4 = 0;
-    GetAttr("realM", realM);
-    GetAttr("realN", realN);
-    GetAttr("dst_n_offset", offset0);
-    GetAttr("dst_c_offset", offset1);
-    GetAttr("dst_d_offset", offset2);
-    GetAttr("dst_h_offset", offset3);
-    GetAttr("dst_w_offset", offset4);
-    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, std::to_string(offset0), std::to_string(offset1),
-        std::to_string(offset2), std::to_string(offset3), std::to_string(offset4), std::to_string(realM),
+    int64_t offsetN = 0;
+    int64_t offsetC = 0;
+    int64_t offsetD = 0;
+    int64_t offsetH = 0;
+    int64_t offsetW = 0;
+    GetAttr("is_conv3d", isConv3D);
+    auto dynValidShape = dynamicValidShape[ToUnderlying(MISOIdx::SRC0_IDX)];
+    ASSERT(dynValidShape.size() == SHAPE_DIM2) << "GenMemL1CopyOutConv valid shape should be 2-dim!";
+    realM = dynValidShape[ID0].Concrete();
+    realN = dynValidShape[ID1].Concrete();
+    auto dynOffset = offsetFromAttr[ToUnderlying(MISOIdx::DST_IDX)];
+    if (isConv3D) {
+        ASSERT(dynOffset.size() == SHAPE_DIM5) << "GenMemL1CopyOutConv offset should be 5-dim!";
+        offsetN = dynOffset[ID0].Concrete();
+        offsetC = dynOffset[ID1].Concrete();
+        offsetD = dynOffset[ID2].Concrete();
+        offsetH = dynOffset[ID3].Concrete();
+        offsetW = dynOffset[ID4].Concrete();
+    } else {
+        ASSERT(dynOffset.size() == SHAPE_DIM4) << "GenMemL1CopyOutConv offset should be 4-dim!";
+        offsetN = dynOffset[ID0].Concrete();
+        offsetC = dynOffset[ID1].Concrete();
+        offsetH = dynOffset[ID2].Concrete();
+        offsetW = dynOffset[ID3].Concrete();
+    }
+    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, std::to_string(offsetN), std::to_string(offsetC),
+        std::to_string(offsetD), std::to_string(offsetH), std::to_string(offsetW), std::to_string(realM),
         std::to_string(realN)};
 
     std::ostringstream oss;
