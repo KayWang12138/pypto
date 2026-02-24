@@ -520,7 +520,7 @@ def IFA(atten_cfg):
                     rtol=0.0078125, atol=0.0001)
 
 
-@pytest.mark.skip(reason="large test case")
+# @pytest.mark.skip(reason="large test case")
 def test_ifa():
     # 1. 设置参数
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
