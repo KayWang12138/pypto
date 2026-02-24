@@ -150,11 +150,11 @@ void OpcodeManager::RegisterVectorBinary() {
         TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_REMS, OpCoreType::AIV, "REMS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::TRemainderS", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
-        {OpAttributeKey::scalar, OpAttributeKey::reverseOperand, OpAttributeKey::inputCombineAxis,
+        {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OpAttributeKey::inputCombineAxis,
             OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_REM_RS, OpCoreType::AIV, "REM_RS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::TRemainderS", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
-        {OpAttributeKey::scalar, OpAttributeKey::reverseOperand, OpAttributeKey::inputCombineAxis,
+        {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OpAttributeKey::inputCombineAxis,
             OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_BITWISERIGHTSHIFTS, OpCoreType::AIV, "BITWISERIGHTSHIFTS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tbitwiserightshifts", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,

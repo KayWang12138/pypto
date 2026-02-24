@@ -1847,7 +1847,7 @@ def gen_remainder_op_golden(
 ) -> bool:
     logging.debug("Case(%s), Golden creating...", case_name)
 
-    def remainder_golden_func(inputs: list):
+    def remainder_golden_func(inputs: list, config: dict):
         self = from_numpy(inputs[0])
         other = from_numpy(inputs[1])
         res = torch.remainder(self, other)

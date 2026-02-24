@@ -131,10 +131,10 @@ TILEOP void TMinS(T0 dst, T1 src0, Scalar src1) {
 }
 
 #define OP_TILE_OP_REMS TRemainderS
-template <typename LastUse = LastUse2Dim<0, 0>, typename Scalar, bool reverseOperand, typename T0, typename T1>
+template <bool reverseOperand, typename Scalar, typename T0, typename T1>
 TILEOP void TRemainderS(T0 dst, T1 src0, Scalar src1) {
     if (!reverseOperand) {
-        BinaryScalarCompute<BinaryScalarOp::REMS, LastUse>(dst, src0, src1);
+        BinaryScalarCompute<BinaryScalarOp::REMS, LastUse2Dim<0, 0>>(dst, src0, src1);
         return;
     }
     const auto dstLayout = dst.GetLayout();
@@ -149,11 +149,11 @@ TILEOP void TRemainderS(T0 dst, T1 src0, Scalar src1) {
                 auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
                 dstTile.Assign(dst, tileOffsets);
                 src0Tile.Assign(src0, tileOffsets);
-                pto::TEXPANDS(dstTile, src1);
+                pto::TEXPANDS(dstTile.Data(), src1);
                 #ifdef __DAV_V220
                 pipe_barrier(PIPE_V);
                 #endif
-                pto::TREMS(dst, dst, src0);
+                pto::TREM(dstTile.Data(), dstTile.Data(), src0Tile.Data());
             }
         }
     }
