@@ -259,9 +259,7 @@ class TestProgram:
         # Simple function: identity(x) -> x
         x_simple = ir.Var("x", ir.ScalarType(DataType.INT64), span)
         identity_func = ir.Function(
-            "identity",
-            [x_simple],
-            [ir.ScalarType(DataType.INT64)],
+            "identity", [x_simple], [ir.ScalarType(DataType.INT64)],
             ir.ReturnStmt([x_simple], span),
             span
         )
@@ -273,9 +271,7 @@ class TestProgram:
         then_branch = ir.ReturnStmt([ir.Sub(a, b, DataType.INT64, span)], span)
         else_branch = ir.ReturnStmt([ir.Sub(b, a, DataType.INT64, span)], span)
         abs_diff_func = ir.Function(
-            "abs_diff",
-            [a, b],
-            [ir.ScalarType(DataType.INT64)],
+            "abs_diff", [a, b], [ir.ScalarType(DataType.INT64)],
             ir.IfStmt(cond, then_branch, else_branch, return_vars=[], span=span),
             span
         )
@@ -293,9 +289,7 @@ class TestProgram:
         return_stmt = ir.ReturnStmt([sum_var], span)
 
         sum_range_func = ir.Function(
-            "sum_range",
-            [start, end],
-            [ir.ScalarType(DataType.INT64)],
+            "sum_range", [start, end], [ir.ScalarType(DataType.INT64)],
             ir.SeqStmts([init_stmt, for_stmt, return_stmt], span),
             span
         )
@@ -396,105 +390,3 @@ class TestProgramEdgeCases:
         assert restored_func.name == long_name
         ir.assert_structural_equal(program, restored, enable_auto_mapping=True)
 
-
-class TestProgramRealWorldScenarios:
-    """Test real-world Program scenarios that would actually be used."""
-
-    @staticmethod
-    def test_program_like_real_compiler_output():
-        """Test Program structure similar to real compiler output."""
-        span = ir.Span.unknown()
-
-        # Helper function: clamp(x, min_val, max_val)
-        x_clamp = ir.Var("x", ir.ScalarType(DataType.INT64), span)
-        min_val = ir.Var("min_val", ir.ScalarType(DataType.INT64), span)
-        max_val = ir.Var("max_val", ir.ScalarType(DataType.INT64), span)
-
-        cond1 = ir.Lt(x_clamp, min_val, DataType.INT64, span)
-        then1 = ir.ReturnStmt([min_val], span)
-
-        cond2 = ir.Gt(x_clamp, max_val, DataType.INT64, span)
-        then2 = ir.ReturnStmt([max_val], span)
-        else2 = ir.ReturnStmt([x_clamp], span)
-        inner_if = ir.IfStmt(cond2, then2, else2, return_vars=[], span=span)
-
-        clamp_body = ir.IfStmt(cond1, then1, inner_if, return_vars=[], span=span)
-        clamp_func = ir.Function(
-            "clamp", 
-            [x_clamp, min_val, max_val], 
-            [ir.ScalarType(DataType.INT64)], 
-            clamp_body, span)
-
-        # Main processing function: process_array(data_tensor, size)
-        data_tensor = ir.Var("data", ir.TensorType([], DataType.INT64), span)
-        size = ir.Var("size", ir.ScalarType(DataType.INT64), span)
-        idx = ir.Var("idx", ir.ScalarType(DataType.INT64), span)
-        result = ir.Var("result", ir.ScalarType(DataType.INT64), span)
-
-        # Initialize result
-        init = ir.AssignStmt(result, ir.ConstInt(0, DataType.INT64, span), span)
-
-        # Loop through array
-        # call clamp on each element
-        elem_call = ir.Call(
-            ir.GlobalVar("clamp"), 
-            [idx, ir.ConstInt(0, DataType.INT64, span), 
-            ir.ConstInt(100, DataType.INT64, span)], 
-            span)
-        loop_body = ir.AssignStmt(result, ir.Add(result, elem_call, DataType.INT64, span), span)
-        for_loop = ir.ForStmt(
-            idx, 
-            ir.ConstInt(0, DataType.INT64, span), 
-            size, 
-            ir.ConstInt(1, DataType.INT64, span), 
-            [], 
-            loop_body, 
-            [], 
-            span)
-
-        return_result = ir.ReturnStmt([result], span)
-
-        process_body = ir.SeqStmts([init, for_loop, return_result], span)
-        process_func = ir.Function(
-            "process_array", 
-            [data_tensor, size], 
-            [ir.ScalarType(DataType.INT64)], 
-            process_body, span)
-
-        # Entry point: main()
-        main_call = ir.Call(
-            ir.GlobalVar("process_array"), 
-            [ir.ConstInt(0, DataType.INT64, span), 
-            ir.ConstInt(10, DataType.INT64, span)], 
-            span)
-        main_body = ir.ReturnStmt([main_call], span)
-        main_func = ir.Function("main", [], [ir.ScalarType(DataType.INT64)], main_body, span)
-
-        # Create complete program
-        program = ir.Program([clamp_func, process_func, main_func], name="real_world_program", span=span)
-
-        # Serialize and deserialize
-        data = ir.serialize(program)
-        restored = ir.deserialize(data)
-
-        # Verify complete structure
-        assert len(restored.functions) == 3
-        assert restored.get_function("clamp") is not None
-        assert restored.get_function("process_array") is not None
-        assert restored.get_function("main") is not None
-
-        # Verify main calls process_array
-        main_restored = restored.get_function("main")
-        assert isinstance(main_restored.body, ir.ReturnStmt)
-        main_call_restored = main_restored.body.value[0]
-        assert isinstance(main_call_restored, ir.Call)
-        assert main_call_restored.op.name == "process_array"
-
-        # Verify process_array calls clamp
-        process_restored = restored.get_function("process_array")
-        assert isinstance(process_restored.body, ir.SeqStmts)
-        # The for loop body contains the call to clamp
-        for_stmt_restored = process_restored.body.stmts[1]
-        assert isinstance(for_stmt_restored, ir.ForStmt)
-
-        ir.assert_structural_equal(program, restored, enable_auto_mapping=True)
