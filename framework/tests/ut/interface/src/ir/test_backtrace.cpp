@@ -101,26 +101,175 @@ TEST_F(BacktraceTest, NestedCallTest) {
     }
 }
 
-/**
- * Test 3: Different Error Types
- *
- * This test demonstrates different error types from the new IR.
- */
-TEST_F(BacktraceTest, ErrorTypesTest) {
-    std::cout << "\nTest: Different Error Types\n";
-    std::cout << std::string(40, '-') << "\n\n";
+// ============================================================================
+// StackFrame::to_string Tests
+// ============================================================================
 
-    // ValueError
-    try {
-        throw ValueError("Invalid value: expected positive number, got -5");
-    } catch (const Error& e) {
-        std::cout << "ValueError:\n" << e.GetFullMessage() << "\n\n";
-    }
+TEST_F(BacktraceTest, StackFrameToStringWithFunction) {
+    StackFrame frame("myFunction", "", 0, 0);
+    std::string result = frame.to_string();
+    ASSERT_NE(result.find("myFunction"), std::string::npos);
+}
 
-    // RuntimeError
-    try {
-        throw RuntimeError("Failed to allocate GPU memory");
-    } catch (const Error& e) {
-        std::cout << "RuntimeError:\n" << e.GetFullMessage() << "\n";
-    }
+TEST_F(BacktraceTest, StackFrameToStringWithoutFunction) {
+    StackFrame frame("", "", 0, 0xDEADBEEF);
+    std::string result = frame.to_string();
+    ASSERT_NE(result.find("0x"), std::string::npos);
+    ASSERT_NE(result.find("deadbeef"), std::string::npos);
+}
+
+TEST_F(BacktraceTest, StackFrameToStringWithFileAndLine) {
+    StackFrame frame("myFunc", "/path/to/file.cpp", 42, 0x1234);
+    std::string result = frame.to_string();
+    ASSERT_NE(result.find("myFunc"), std::string::npos);
+    ASSERT_NE(result.find("/path/to/file.cpp"), std::string::npos);
+    ASSERT_NE(result.find("42"), std::string::npos);
+}
+
+TEST_F(BacktraceTest, StackFrameToStringWithFileNoLine) {
+    StackFrame frame("myFunc", "/path/to/file.cpp", 0, 0x1234);
+    std::string result = frame.to_string();
+    ASSERT_NE(result.find("myFunc"), std::string::npos);
+    ASSERT_NE(result.find("/path/to/file.cpp"), std::string::npos);
+    // lineno == 0, so no ":0" in the output
+    ASSERT_EQ(result.find(":0"), std::string::npos);
+}
+
+TEST_F(BacktraceTest, StackFrameDefaultConstructor) {
+    StackFrame frame;
+    ASSERT_EQ(frame.lineno, 0);
+    ASSERT_EQ(frame.pc, 0u);
+    ASSERT_TRUE(frame.function.empty());
+    ASSERT_TRUE(frame.filename.empty());
+}
+
+// ============================================================================
+// FormatStackTrace Tests with manually constructed frames
+// ============================================================================
+
+TEST_F(BacktraceTest, FormatStackTraceEmpty) {
+    auto& bt = Backtrace::GetInstance();
+    std::vector<StackFrame> frames;
+    std::string result = bt.FormatStackTrace(frames);
+    ASSERT_TRUE(result.empty());
+}
+
+TEST_F(BacktraceTest, FormatStackTraceWithFileAndLine) {
+    auto& bt = Backtrace::GetInstance();
+
+    StackFrame frame1("funcA", "/src/a.cpp", 10, 0x1000);
+    StackFrame frame2("funcB", "/src/b.cpp", 20, 0x2000);
+    std::vector<StackFrame> frames = {frame1, frame2};
+
+    std::string result = bt.FormatStackTrace(frames);
+    // Frames are reversed (most recent last)
+    ASSERT_NE(result.find("/src/a.cpp"), std::string::npos);
+    ASSERT_NE(result.find("/src/b.cpp"), std::string::npos);
+}
+
+TEST_F(BacktraceTest, FormatStackTraceReleaseModeFormat) {
+    auto& bt = Backtrace::GetInstance();
+
+    // Frame without filename but with function, libname, offset
+    StackFrame frame;
+    frame.function = "testFunc";
+    frame.libname = "libtest.so";
+    frame.offset = "+0x42";
+    frame.pc = 0xABCD;
+    std::vector<StackFrame> frames = {frame};
+
+    std::string result = bt.FormatStackTrace(frames);
+    ASSERT_NE(result.find("libtest.so"), std::string::npos);
+    ASSERT_NE(result.find("testFunc"), std::string::npos);
+    ASSERT_NE(result.find("+0x42"), std::string::npos);
+}
+
+TEST_F(BacktraceTest, FormatStackTraceReleaseModeNoOffset) {
+    auto& bt = Backtrace::GetInstance();
+
+    StackFrame frame;
+    frame.function = "testFunc";
+    frame.libname = "libtest.so";
+    frame.pc = 0xABCD;
+    std::vector<StackFrame> frames = {frame};
+
+    std::string result = bt.FormatStackTrace(frames);
+    ASSERT_NE(result.find("libtest.so(testFunc)"), std::string::npos);
+}
+
+TEST_F(BacktraceTest, FormatStackTraceReleaseModeNoLibname) {
+    auto& bt = Backtrace::GetInstance();
+
+    StackFrame frame;
+    frame.function = "testFunc";
+    frame.pc = 0xABCD;
+    std::vector<StackFrame> frames = {frame};
+
+    std::string result = bt.FormatStackTrace(frames);
+    ASSERT_NE(result.find("testFunc"), std::string::npos);
+}
+
+TEST_F(BacktraceTest, FormatStackTraceFiltering) {
+    auto& bt = Backtrace::GetInstance();
+
+    // Frame with filtered filename should be excluded
+    StackFrame frame_filtered;
+    frame_filtered.function = "filtered_func";
+    frame_filtered.filename = "/path/to/nanobind/module.cpp";
+    frame_filtered.lineno = 10;
+    frame_filtered.pc = 0x1000;
+
+    StackFrame frame_kept;
+    frame_kept.function = "kept_func";
+    frame_kept.filename = "/path/to/my_code.cpp";
+    frame_kept.lineno = 20;
+    frame_kept.pc = 0x2000;
+
+    std::vector<StackFrame> frames = {frame_filtered, frame_kept};
+    std::string result = bt.FormatStackTrace(frames);
+    ASSERT_EQ(result.find("nanobind"), std::string::npos);
+    ASSERT_NE(result.find("my_code.cpp"), std::string::npos);
+}
+
+TEST_F(BacktraceTest, FormatStackTraceDeduplication) {
+    auto& bt = Backtrace::GetInstance();
+
+    // Two frames with same PC address - only first should be kept
+    StackFrame frame1("funcA", "/src/a.cpp", 10, 0x1000);
+    StackFrame frame2("funcA_inline", "/src/a.cpp", 11, 0x1000);
+    StackFrame frame3("funcB", "/src/b.cpp", 20, 0x2000);
+
+    std::vector<StackFrame> frames = {frame1, frame2, frame3};
+    std::string result = bt.FormatStackTrace(frames);
+    // After reversal and dedup, frame3 comes first, then one of frame1/frame2
+    ASSERT_NE(result.find("/src/b.cpp"), std::string::npos);
+    ASSERT_NE(result.find("/src/a.cpp"), std::string::npos);
+}
+
+// ============================================================================
+// CaptureStackTrace Tests
+// ============================================================================
+
+TEST_F(BacktraceTest, CaptureStackTraceBasic) {
+    auto& bt = Backtrace::GetInstance();
+    auto frames = bt.CaptureStackTrace(0);
+    // We should get at least a few frames
+    ASSERT_GT(frames.size(), 0u);
+}
+
+TEST_F(BacktraceTest, CaptureStackTraceSkipAll) {
+    auto& bt = Backtrace::GetInstance();
+    // Skip more frames than available - should return empty
+    auto frames = bt.CaptureStackTrace(9999);
+    ASSERT_TRUE(frames.empty());
+}
+
+// ============================================================================
+// GetInstance singleton
+// ============================================================================
+
+TEST_F(BacktraceTest, GetInstanceSingleton) {
+    auto& bt1 = Backtrace::GetInstance();
+    auto& bt2 = Backtrace::GetInstance();
+    ASSERT_EQ(&bt1, &bt2);
 }
