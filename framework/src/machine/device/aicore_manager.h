@@ -38,13 +38,10 @@ const uint64_t REG_SPR_FAST_PATH_OPEN = 0xE;
 const uint64_t REG_SPR_FAST_PATH_CLOSE = 0xF;
 const uint32_t REG_SPR_DATA_MAIN_BASE = 0xA0;
 const uint32_t REG_SPR_COND = 0x4C8;
-const uint32_t REG_SPR_MAGIC = 0x78;
-const int INVALID_CORE_IDX = 0xFF;
 
 const uint32_t AICORE_STATUS_INIT = 0xFFFFFFFFU;
 const uint32_t CORE_NUM_PER_AI_CORE = 3;
 const uint32_t AIV_NUM_PER_AI_CORE = 2;
-const uint32_t READY_ID_FIX_CACHE_NUM = 256;
 const uint32_t AICORE_TYPE_NUM = 2;
 
 constexpr uint32_t MAX_STATIC_SCHEDULE_AICPU_NUM = 3;   // 真正负责调度aicore的aicpu个数
@@ -60,17 +57,10 @@ constexpr uint32_t REG_32_BITS = 0xFFFFFFFF;
 #define REG_HIGH_TASK_ID(regVal) ((regVal) >> 32) & REG_31_BITS            // 高32位存储的taskid
 #define REG_HIGH_TASK_STATE(regVal) (((regVal) >> 32) & REG_32_BITS) >> 31 // 高32位存储的task状态
 constexpr uint32_t TASK_FIN_STATE = 1;                                     // 任务执行完成完成
-constexpr uint32_t TASK_ACK_STATE = 0;                                     // 收到任务状态，没执行完成
-constexpr uint32_t REG_TASK_NUM = 2;                                       // 一次寄存器task个数
-
-constexpr uint32_t NUM_ONE = 1;
-constexpr uint32_t NUM_TWO = 2;
-constexpr uint32_t NUM_THREE = 3;
 constexpr uint32_t NUM_THIRTY_TWO = 32;
-
-constexpr uint32_t DEFAULT_QUEUE_SIZE = 64;
-
 constexpr int32_t AICORE_COREID_MASK = 0x0FFF;
+constexpr uint32_t DEFAULT_TASK_QUEUE_SIZE = 64;
+
 struct TaskInfo {
     int coreIdx;
     uint64_t taskId;
@@ -326,7 +316,7 @@ private:
     std::array<volatile uint64_t *, MAX_AICORE_NUM> finishRegQueues_;
     std::array<KernelArgs *, MAX_AICORE_NUM> args_;
 
-    SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> taskQueue_;
+    SPSCQueue<DeviceTaskCtrl *, DEFAULT_TASK_QUEUE_SIZE> taskQueue_;
 
     // Variable to scheduler lead and whether or not I am the lead
     std::atomic<uint32_t>* leadSchedulerId_;
