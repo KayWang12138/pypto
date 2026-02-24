@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-# coding: utf-8
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) PyPTO Contributors.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -8,6 +6,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
+
 """Tests for pointer sharing in IR serialization.
 
 This file tests that IR node references are preserved during serialization/deserialization.
@@ -42,7 +41,8 @@ class TestPointerSharing:
     This tests the critical invariant: DAG structure is preserved, not converted to a tree.
     """
 
-    def test_var_shared_in_expression(self):
+    @staticmethod
+    def test_var_shared_in_expression():
         """Test basic Var pointer sharing: x + x.
 
         This is the most fundamental pointer sharing case.
@@ -65,9 +65,10 @@ class TestPointerSharing:
         assert restored.left is restored.right, "Var should be shared (same object)"
         assert restored.left.name == "x"
 
-        ir.assert_structural_equal(add_expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(add_expr, restored, enable_auto_mapping=True)
 
-    def test_constant_shared(self):
+    @staticmethod
+    def test_constant_shared():
         """Test constant pointer sharing: (x + 0) + (y + 0)."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -101,9 +102,10 @@ class TestPointerSharing:
         assert isinstance(left_add.right, ir.ConstInt)
         assert left_add.right.value == 0
 
-        ir.assert_structural_equal(add3, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(add3, restored, enable_auto_mapping=True)
 
-    def test_complex_dag_with_multiple_shared_nodes(self):
+    @staticmethod
+    def test_complex_dag_with_multiple_shared_nodes():
         """Test a DAG with multiple shared nodes at different levels.
 
         Structure:
@@ -115,7 +117,6 @@ class TestPointerSharing:
         b = ir.Var("b", ir.ScalarType(DataType.INT64), span)
         c = ir.Var("c", ir.ScalarType(DataType.INT64), span)
 
-        # Build (a + b) + (a + c)
         ab = ir.Add(a, b, DataType.INT64, span)
         ac = ir.Add(a, c, DataType.INT64, span)
         d = ir.Add(ab, ac, DataType.INT64, span)
@@ -139,9 +140,10 @@ class TestPointerSharing:
         assert restored_ab.left is restored_ac.left, "'a' should be shared"
         assert restored_ab.left.name == "a"
 
-        ir.assert_structural_equal(d, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(d, restored, enable_auto_mapping=True)
 
-    def test_deeply_nested_shared_node(self):
+    @staticmethod
+    def test_deeply_nested_shared_node():
         """Test pointer sharing in a deeply nested expression tree.
 
         Structure: ((x + x) + (x + x)) + ((x + x) + (x + x))
@@ -185,9 +187,10 @@ class TestPointerSharing:
         restored_xx = restored_left.left
         assert restored_xx.left is restored_xx.right, "x should be shared within xx"
 
-        ir.assert_structural_equal(result, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(result, restored, enable_auto_mapping=True)
 
-    def test_shared_type(self):
+    @staticmethod
+    def test_shared_type():
         """Test that Types are properly shared.
 
         When the same Type object is used in multiple Vars, it should be shared.
@@ -221,9 +224,10 @@ class TestPointerSharing:
         assert isinstance(restored_x.type, ir.ScalarType)
         assert isinstance(restored_y.type, ir.ScalarType)
 
-        ir.assert_structural_equal(add_expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(add_expr, restored, enable_auto_mapping=True)
 
-    def test_cyclic_reference_prevention(self):
+    @staticmethod
+    def test_cyclic_reference_prevention():
         """Test that the serializer handles potential cycles correctly.
 
         Note: IR nodes themselves should not have cycles (it's a DAG),
@@ -252,9 +256,10 @@ class TestPointerSharing:
         restored_add1 = restored.left
         assert restored_add1.left is restored_add1.right, "x should be shared"
 
-        ir.assert_structural_equal(add2, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(add2, restored, enable_auto_mapping=True)
 
-    def test_shared_op(self):
+    @staticmethod
+    def test_shared_op():
         """Test Op node sharing in Call expressions.
 
         Note: Op sharing may not always be preserved after deserialization,
@@ -293,4 +298,4 @@ class TestPointerSharing:
         assert restored_call1.op.name == "relu"
         assert restored_call2.op.name == "relu"
 
-        ir.assert_structural_equal(tuple_expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(tuple_expr, restored, enable_auto_mapping=True)
