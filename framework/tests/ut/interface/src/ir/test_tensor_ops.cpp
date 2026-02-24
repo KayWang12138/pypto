@@ -482,5 +482,124 @@ TEST_F(TensorOpsTest, TestIsRegistered) {
       registry_.IsRegistered("tensor.transpose"));
 }
 
+// ================================================================
+// Memory Ops - Runtime Tuple and Edge Case Tests
+// ================================================================
+
+TEST_F(TensorOpsTest, TestTensorCreateRuntimeShape) {
+  // Test with runtime tuple (Var with TupleType) instead of MakeTuple
+  auto tuple_type = std::make_shared<TupleType>(std::vector<TypePtr>{
+      std::make_shared<ScalarType>(DataType::INT64),
+      std::make_shared<ScalarType>(DataType::INT64)
+  });
+  auto shape_var = std::make_shared<Var>("shape", tuple_type, span_);
+  std::vector<std::pair<std::string, std::any>> kwargs = {
+      {"dtype", std::any(DataType::FP32)}};
+  auto call = registry_.Create("tensor.create", {shape_var}, kwargs, span_);
+  ASSERT_NE(call, nullptr);
+  auto rt = As<TensorType>(call->GetType());
+  ASSERT_NE(rt, nullptr);
+  ASSERT_EQ(rt->shape_.size(), 2);
+}
+
+TEST_F(TensorOpsTest, TestTensorViewRuntimeShape) {
+  auto input = MakeTensorVar("input", {16, 32});
+  // Runtime shape tuple (Var with TupleType instead of MakeTuple)
+  auto tuple_type = std::make_shared<TupleType>(std::vector<TypePtr>{
+      std::make_shared<ScalarType>(DataType::INT64),
+      std::make_shared<ScalarType>(DataType::INT64)
+  });
+  auto shape_var = std::make_shared<Var>("shape", tuple_type, span_);
+  auto offset = MakeShapeTuple({0, 0});
+  auto call = registry_.Create("tensor.view", {input, shape_var, offset}, span_);
+  ASSERT_NE(call, nullptr);
+  auto rt = As<TensorType>(call->GetType());
+  ASSERT_NE(rt, nullptr);
+  ASSERT_EQ(rt->shape_.size(), 2);
+}
+
+TEST_F(TensorOpsTest, TestTensorCreateUINT64Shape) {
+  // Test with UINT64 shape elements
+  std::vector<ExprPtr> elems;
+  elems.push_back(std::make_shared<ConstInt>(4, DataType::UINT64, span_));
+  elems.push_back(std::make_shared<ConstInt>(8, DataType::UINT64, span_));
+  auto shape = std::make_shared<MakeTuple>(elems, span_);
+  std::vector<std::pair<std::string, std::any>> kwargs = {
+      {"dtype", std::any(DataType::FP16)}};
+  auto call = registry_.Create("tensor.create", {shape}, kwargs, span_);
+  ASSERT_NE(call, nullptr);
+  auto rt = As<TensorType>(call->GetType());
+  ASSERT_NE(rt, nullptr);
+  ASSERT_EQ(rt->dtype_, DataType::FP16);
+}
+
+TEST_F(TensorOpsTest, TestTensorViewUINT64Shape) {
+  auto input = MakeTensorVar("input", {16, 32});
+  // UINT64 shape elements
+  std::vector<ExprPtr> shape_elems;
+  shape_elems.push_back(std::make_shared<ConstInt>(4, DataType::UINT64, span_));
+  shape_elems.push_back(std::make_shared<ConstInt>(8, DataType::UINT64, span_));
+  auto shape = std::make_shared<MakeTuple>(shape_elems, span_);
+  // UINT64 offset elements
+  std::vector<ExprPtr> offset_elems;
+  offset_elems.push_back(std::make_shared<ConstInt>(0, DataType::UINT64, span_));
+  offset_elems.push_back(std::make_shared<ConstInt>(0, DataType::UINT64, span_));
+  auto offset = std::make_shared<MakeTuple>(offset_elems, span_);
+  auto call = registry_.Create("tensor.view", {input, shape, offset}, span_);
+  ASSERT_NE(call, nullptr);
+  auto rt = As<TensorType>(call->GetType());
+  ASSERT_NE(rt, nullptr);
+  ASSERT_EQ(rt->shape_.size(), 2);
+}
+
+TEST_F(TensorOpsTest, TestTensorAssemblePreservesTargetType) {
+  auto target = MakeTensorVar("target", {16, 32}, DataType::FP16);
+  auto source = MakeTensorVar("source", {4, 8}, DataType::FP16);
+  auto offset = MakeShapeTuple({0, 0});
+  auto call = registry_.Create("tensor.assemble", {target, source, offset}, span_);
+  ASSERT_NE(call, nullptr);
+  auto rt = As<TensorType>(call->GetType());
+  ASSERT_NE(rt, nullptr);
+  ASSERT_EQ(rt->dtype_, DataType::FP16);
+  ASSERT_EQ(rt->shape_.size(), 2);
+}
+
+TEST_F(TensorOpsTest, TestTensorAssembleUINT64Offset) {
+  auto target = MakeTensorVar("target", {16, 32});
+  auto source = MakeTensorVar("source", {4, 8});
+  // UINT64 offset elements
+  std::vector<ExprPtr> offset_elems;
+  offset_elems.push_back(std::make_shared<ConstInt>(0, DataType::UINT64, span_));
+  offset_elems.push_back(std::make_shared<ConstInt>(0, DataType::UINT64, span_));
+  auto offset = std::make_shared<MakeTuple>(offset_elems, span_);
+  auto call = registry_.Create("tensor.assemble", {target, source, offset}, span_);
+  ASSERT_NE(call, nullptr);
+}
+
+TEST_F(TensorOpsTest, TestTensorCreate1D) {
+  auto shape = MakeShapeTuple({64});
+  std::vector<std::pair<std::string, std::any>> kwargs = {
+      {"dtype", std::any(DataType::INT32)}};
+  auto call = registry_.Create("tensor.create", {shape}, kwargs, span_);
+  ASSERT_NE(call, nullptr);
+  auto rt = As<TensorType>(call->GetType());
+  ASSERT_NE(rt, nullptr);
+  ASSERT_EQ(rt->shape_.size(), 1);
+  ASSERT_EQ(rt->dtype_, DataType::INT32);
+}
+
+TEST_F(TensorOpsTest, TestTensorViewChangeRank) {
+  // View can change the rank of the tensor
+  auto input = MakeTensorVar("input", {16, 32});
+  auto shape = MakeShapeTuple({4, 4, 8});
+  auto offset = MakeShapeTuple({0, 0, 0});
+  auto call = registry_.Create("tensor.view", {input, shape, offset}, span_);
+  ASSERT_NE(call, nullptr);
+  auto rt = As<TensorType>(call->GetType());
+  ASSERT_NE(rt, nullptr);
+  ASSERT_EQ(rt->shape_.size(), 3);
+  ASSERT_EQ(rt->dtype_, DataType::FP32);
+}
+
 }  // namespace ir
 }  // namespace pypto
