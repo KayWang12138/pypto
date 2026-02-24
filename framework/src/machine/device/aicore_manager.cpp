@@ -56,11 +56,14 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl)
     const auto t0 = std::chrono::high_resolution_clock::now();
 
     npu::tile_fwk::dynamic::TimeCheck tm;
-    while (taskCtrl->issuedTaskCount.load(std::memory_order_relaxed) < curDevTask_->coreFunctionCnt)
+    uint32_t globalTasksIssued = 0;
+    while (globalTasksIssued < curDevTask_->coreFunctionCnt)
     {
-        TryBatchSendTask();
+        uint32_t tasksIssued = 0;
+        while (TryBatchSendTask() > 0) tasksIssued++;
         ResolveDepForAllAiCore();
-        TryBatchSendTask();
+        while (TryBatchSendTask() > 0) tasksIssued++;
+        globalTasksIssued = curTaskCtrl_->issuedTaskCount.fetch_add(tasksIssued, std::memory_order_relaxed);
 
         if (npu::tile_fwk::dynamic::CheckTimeOut("wait task send finish.", tm) != 0) return -1;
     }
@@ -141,7 +144,6 @@ int AiCoreManager::WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd)
 
 uint64_t AiCoreManager::TryBatchSendTask()
 {
-    
     auto taskIdx = (uint64_t)availableTaskQueue_->pop();
     if (taskIdx == aicoreNullTask) return 0;
 
@@ -163,8 +165,6 @@ uint64_t AiCoreManager::TryBatchSendTask()
 
 void AiCoreManager::SendTaskToAiCore(int coreIdx, uint64_t newTask) {
     SetReadyQueue(coreIdx, newTask + 1);
-    curTaskCtrl_->issuedTaskCount.fetch_add(1);
-
     const uint64_t pairCode = encodePair(newTask, coreIdx);
     runningPairQueue_->push(pairCode);
     // DEV_ERROR("AICPU: %d - Send task %lu, at core %d ,type:%d, code: 0x%0lX\n", aicpuIdx_, newTask, coreIdx, static_cast<int>(type), pairCode);
