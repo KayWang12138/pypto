@@ -126,10 +126,8 @@ public:
         readyAicCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAicCoreFunctionQue);
         readyAivCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAivCoreFunctionQue);
 
-        // Initiaizing all cores prior to execution
-        ForAllAicores([this](int coreIdx) {
-            auto args = reinterpret_cast<KernelArgs *>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
-            args_[coreIdx] = args;
+        // Initiaizing core function data prior to execution
+        ForEachManageAicore([this](int coreIdx) {
             volatile int64_t *funcData = &args_[coreIdx]->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX];
             *funcData = reinterpret_cast<int64_t>(&curDevTask_->coreFuncData);
         });
