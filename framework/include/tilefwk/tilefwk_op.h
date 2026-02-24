@@ -126,6 +126,7 @@ Tensor Transpose(const Tensor &self, std::vector<int> perm);
 Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode = CAST_NONE);
 
 Tensor Exp(const Tensor &self);
+Tensor Expm1(const Tensor &self);
 Tensor Neg(const Tensor &self);
 Tensor Round(const Tensor &self, const int &decimals = 0);
 Tensor Rsqrt(const Tensor &self);

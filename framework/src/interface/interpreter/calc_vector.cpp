@@ -205,6 +205,7 @@ void ExecuteOpUnary(ExecuteOperationContext *ctx) {
     auto &iop = ctx->ioperandDataViewList->at(0);
     switch (opcode) {
         case Opcode::OP_EXP: calc::Exp(ret, iop); break;
+        case Opcode::OP_EXPM1: calc::Expm1(ret, iop); break;
         case Opcode::OP_NEG: calc::Neg(ret, iop); break;
         case Opcode::OP_SIGN: calc::Sign(ret, iop); break;
         case Opcode::OP_RSQRT: calc::Rsqrt(ret, iop); break;
@@ -219,6 +220,7 @@ void ExecuteOpUnary(ExecuteOperationContext *ctx) {
     }
 }
 REGISTER_CALC_OP(OP_EXP, Opcode::OP_EXP, ExecuteOpUnary<Opcode::OP_EXP>);
+REGISTER_CALC_OP(OP_EXPM1, Opcode::OP_EXPM1, ExecuteOpUnary<Opcode::OP_EXPM1>);
 REGISTER_CALC_OP(OP_NEG, Opcode::OP_NEG, ExecuteOpUnary<Opcode::OP_NEG>);
 REGISTER_CALC_OP(OP_SIGN, Opcode::OP_SIGN, ExecuteOpUnary<Opcode::OP_SIGN>);
 REGISTER_CALC_OP(OP_RSQRT, Opcode::OP_RSQRT, ExecuteOpUnary<Opcode::OP_RSQRT>);
