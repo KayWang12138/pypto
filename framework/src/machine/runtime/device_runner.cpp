@@ -362,9 +362,8 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     args.coreRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
     args.corePmuRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
     args.corePmuAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * PMU_BUFFER_SIZE));
-    size_t size;
 #ifdef ENABLE_TRACR
-    size = sizeof(TraCR::Payload) * MAX_STATIC_SCHEDULE_AICPU_NUM * TraCR::CAPACITY;
+    size_t size = sizeof(TraCR::Payload) * MAX_STATIC_SCHEDULE_AICPU_NUM * TraCR::CAPACITY;
     args.tracrData = reinterpret_cast<uint64_t>(DevAlloc(size));
 
     int rc = rtMemset(reinterpret_cast<void *>(args.tracrData), size, 0, size);
@@ -389,11 +388,9 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     if (args.sharedBuffer == 0 || args.coreRegAddr == 0 || args.corePmuAddr == 0 || args.corePmuRegAddr == 0) {
         return -1;
     }
-    size = nrCore * sizeof(uint64_t);
-    rtMemcpy(reinterpret_cast<void *>(args.coreRegAddr), size, regs.data(), size, RT_MEMCPY_HOST_TO_DEVICE);
-    rtMemcpy(reinterpret_cast<void *>(args.corePmuRegAddr), size, regsPmu.data(), size, RT_MEMCPY_HOST_TO_DEVICE);
-    size = pmuEvtType_.size() * sizeof(int64_t);
-    rtMemcpy(reinterpret_cast<void *>(args.pmuEventAddr), size, pmuEvtType_.data(), size, RT_MEMCPY_HOST_TO_DEVICE);
+    rtMemcpy(reinterpret_cast<void *>(args.coreRegAddr), nrCore * sizeof(uint64_t), regs.data(), nrCore * sizeof(uint64_t), RT_MEMCPY_HOST_TO_DEVICE);
+    rtMemcpy(reinterpret_cast<void *>(args.corePmuRegAddr), nrCore * sizeof(uint64_t), regsPmu.data(), nrCore * sizeof(uint64_t), RT_MEMCPY_HOST_TO_DEVICE);
+    rtMemcpy(reinterpret_cast<void *>(args.pmuEventAddr), pmuEvtType_.size() * sizeof(int64_t), pmuEvtType_.data(), pmuEvtType_.size() * sizeof(int64_t), RT_MEMCPY_HOST_TO_DEVICE);
     ALOG_INFO_F("aic %u aiv %u  blockDim_ %d sharedBuffer %lx coreRegAddr %lx corePmuRegAddr %lx\n", args.nrAic,
         args.nrAiv, blockDim_, args.sharedBuffer, args.coreRegAddr, args.corePmuRegAddr);
     InitDynamicArgs(args);
