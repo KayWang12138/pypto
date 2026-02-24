@@ -80,6 +80,7 @@ void bind_operation(py::module &m) {
         py::arg("operand"), py::arg("dstDataType"), "Tensor view_type.");
 
     m.def("Exp", [](const Tensor &self) { return npu::tile_fwk::Exp(self); }, "Tensor exp.");
+    m.def("Expm1", [](const Tensor &self) { return npu::tile_fwk::Expm1(self); }, "Tensor expm1.");
 
     m.def(
         "Transpose",

@@ -48,6 +48,9 @@ inline void QuantPreCompute(LogicalTensorDataPtr out, LogicalTensorDataPtr self,
 inline void Exp(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Exp(out, self);
 }
+inline void Expm1(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    GetCalcOps()->Expm1(out, self);
+}
 inline void Neg(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Neg(out, self);
 }
