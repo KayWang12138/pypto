@@ -158,16 +158,9 @@ uint64_t AiCoreManager::TryBatchSendTask()
     }
 
     // DEV_ERROR("AICPU %d - Running Task: %lu", aicpuIdx_, *taskSetAddress);
-    SendTaskToAiCore(coreIdx, taskIdx);
+    SetReadyQueue(coreIdx, taskIdx);
+    runningPairQueue_->push(encodePair(taskIdx, coreIdx));
     return 1;
-}
-
-
-void AiCoreManager::SendTaskToAiCore(int coreIdx, uint64_t newTask) {
-    SetReadyQueue(coreIdx, newTask + 1);
-    const uint64_t pairCode = encodePair(newTask, coreIdx);
-    runningPairQueue_->push(pairCode);
-    // DEV_ERROR("AICPU: %d - Send task %lu, at core %d ,type:%d, code: 0x%0lX\n", aicpuIdx_, newTask, coreIdx, static_cast<int>(type), pairCode);
 }
 
 void AiCoreManager::ResolveDepForAllAiCore()
@@ -377,7 +370,7 @@ void AiCoreManager::AbnormalStop() {
 }
 
 void AiCoreManager::NormalStop() {
-    ForEachManageAicore([this](auto coreIdx) { SetReadyQueue(coreIdx, AICORE_TASK_STOP + 1); });
+    ForEachManageAicore([this](auto coreIdx) { SetReadyQueue(coreIdx, AICORE_TASK_STOP); });
     /* write to MAINBASE reg must be done before close 0x18 */
     __sync_synchronize();
     ForEachManageAicore([this](auto coreIdx)

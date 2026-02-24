@@ -187,8 +187,6 @@ private:
 
     uint64_t TryBatchSendTask();
 
-    void SendTaskToAiCore(int coreIdx, uint64_t newTask);
-
     bool checkCoreFinished(const int coreIdx);
 
     void ResolveDepForAllAiCore();
@@ -276,23 +274,15 @@ private:
         return;
     }
 
-    inline void SetReadyQueue(int coreIdx, uint64_t value) {
+    inline void SetReadyQueue(int coreIdx, uint64_t taskIdx) {
         auto idx = GetPhyIdByBlockId(coreIdx);
         if (idx == -1) {
             return;
         }
         volatile uint64_t *readyQ = readyRegQueues_[idx];
         if (readyQ != nullptr) {
-            *readyQ = value;
+            *readyQ = taskIdx + 1; // Plus one is a required offset
         }
-    }
-
-    inline uint64_t GetReadyQueueRegValue(int coreIdx) {
-        volatile uint64_t *readyQ = readyRegQueues_[GetPhyIdByBlockId(coreIdx)];
-        if (readyQ != nullptr) {
-            return *readyQ;
-        }
-        return 0;
     }
 
     inline void WriteReg32ALl(int offset, uint32_t val) {
