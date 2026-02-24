@@ -157,8 +157,6 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
 #endif
 
     if (threadIdx == 1) {
-        while ((INSTRUMENTATION_ACTIVE) && (INSTRUMENTATION_NUM_TRACR_THREADS() != 1)) {}
-
         INSTRUMENTATION_END();
     } else {
         INSTRUMENTATION_THREAD_FINALIZE();
