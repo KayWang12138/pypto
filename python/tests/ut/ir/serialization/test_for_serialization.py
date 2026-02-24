@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-# coding: utf-8
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) PyPTO Contributors.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -8,6 +6,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
+
 """Comprehensive tests for ForStmt serialization.
 
 This file consolidates all ForStmt-related tests including:
@@ -28,7 +27,8 @@ from pypto.ir import DataType
 class TestBasicForStmtSerialization:
     """Test basic ForStmt serialization patterns."""
 
-    def test_simple_for_stmt(self):
+    @staticmethod
+    def test_simple_for_stmt():
         """Test basic ForStmt serialization."""
         span = ir.Span.unknown()
         loop_var = ir.Var("i", ir.ScalarType(DataType.INT64), span)
@@ -46,16 +46,16 @@ class TestBasicForStmtSerialization:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.ForStmt)
-        ir.assert_structural_equal(for_stmt, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(for_stmt, restored, enable_auto_mapping=True)
 
-    def test_nested_for_stmt(self):
+    @staticmethod
+    def test_nested_for_stmt():
         """Test nested ForStmt serialization."""
         span = ir.Span.unknown()
         i = ir.Var("i", ir.ScalarType(DataType.INT64), span)
         j = ir.Var("j", ir.ScalarType(DataType.INT64), span)
         sum_var = ir.Var("sum", ir.ScalarType(DataType.INT64), span)
 
-        # Inner loop body: sum = sum + j
         add_expr = ir.Add(sum_var, j, DataType.INT64, span)
         inner_body = ir.AssignStmt(sum_var, add_expr, span)
 
@@ -88,13 +88,14 @@ class TestBasicForStmtSerialization:
 
         assert isinstance(restored, ir.ForStmt)
         assert isinstance(restored.body, ir.ForStmt)
-        ir.assert_structural_equal(outer_loop, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(outer_loop, restored, enable_auto_mapping=True)
 
 
 class TestForStmtWithIterArg:
     """Test ForStmt with IterArg - SSA loop-carried variables."""
 
-    def test_for_stmt_with_single_iter_arg(self):
+    @staticmethod
+    def test_for_stmt_with_single_iter_arg():
         """Test ForStmt with single IterArg - accumulator pattern."""
         span = ir.Span.unknown()
 
@@ -105,7 +106,6 @@ class TestForStmtWithIterArg:
         init_value = ir.ConstInt(0, DataType.INT64, span)
         acc = ir.IterArg("acc", ir.ScalarType(DataType.INT64), init_value, span)
 
-        # Loop body: acc_next = acc + i
         acc_next = ir.Var("acc_next", ir.ScalarType(DataType.INT64), span)
         loop_body = ir.AssignStmt(acc_next, ir.Add(acc, i, DataType.INT64, span), span)
 
@@ -129,9 +129,10 @@ class TestForStmtWithIterArg:
         assert isinstance(restored.iter_args[0], ir.IterArg)
         assert restored.iter_args[0].name == "acc"
         assert len(restored.return_vars) == 1
-        ir.assert_structural_equal(for_stmt, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(for_stmt, restored, enable_auto_mapping=True)
 
-    def test_for_stmt_with_multiple_iter_args(self):
+    @staticmethod
+    def test_for_stmt_with_multiple_iter_args():
         """Test ForStmt with multiple IterArgs - multiple accumulators."""
         span = ir.Span.unknown()
 
@@ -143,7 +144,6 @@ class TestForStmtWithIterArg:
         sum_acc = ir.IterArg("sum", ir.ScalarType(DataType.INT64), sum_init, span)
         prod_acc = ir.IterArg("prod", ir.ScalarType(DataType.INT64), prod_init, span)
 
-        # Loop body: sum_next = sum + i; prod_next = prod * i
         sum_next = ir.Var("sum_next", ir.ScalarType(DataType.INT64), span)
         prod_next = ir.Var("prod_next", ir.ScalarType(DataType.INT64), span)
 
@@ -172,13 +172,14 @@ class TestForStmtWithIterArg:
         assert restored.iter_args[0].name == "sum"
         assert restored.iter_args[1].name == "prod"
         assert len(restored.return_vars) == 2
-        ir.assert_structural_equal(for_stmt, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(for_stmt, restored, enable_auto_mapping=True)
 
 
 class TestForStmtWithYieldStmt:
     """Test ForStmt with YieldStmt - generator patterns."""
 
-    def test_for_stmt_with_yield(self):
+    @staticmethod
+    def test_for_stmt_with_yield():
         """Test ForStmt with YieldStmt - simple generator."""
         span = ir.Span.unknown()
 
@@ -204,9 +205,10 @@ class TestForStmtWithYieldStmt:
         assert isinstance(restored, ir.ForStmt)
         assert isinstance(restored.body, ir.YieldStmt)
         assert len(restored.iter_args) == 0
-        ir.assert_structural_equal(for_stmt, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(for_stmt, restored, enable_auto_mapping=True)
 
-    def test_for_stmt_with_conditional_yield(self):
+    @staticmethod
+    def test_for_stmt_with_conditional_yield():
         """Test ForStmt with conditional YieldStmt."""
         span = ir.Span.unknown()
 
@@ -234,7 +236,7 @@ class TestForStmtWithYieldStmt:
         assert isinstance(restored, ir.ForStmt)
         assert isinstance(restored.body, ir.IfStmt)
         assert isinstance(restored.body.then_body, ir.YieldStmt)
-        ir.assert_structural_equal(for_stmt, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(for_stmt, restored, enable_auto_mapping=True)
 
 
 class TestForStmtWithIterArgAndYieldStmt:
@@ -246,7 +248,8 @@ class TestForStmtWithIterArgAndYieldStmt:
     generator pattern that was not previously covered.
     """
 
-    def test_for_stmt_with_iter_arg_and_yield(self):
+    @staticmethod
+    def test_for_stmt_with_iter_arg_and_yield():
         """Test ForStmt with IterArg + YieldStmt - running sum generator.
 
         This test covers the SSA loop pattern where:
@@ -266,7 +269,6 @@ class TestForStmtWithIterArgAndYieldStmt:
         sum_acc = ir.IterArg("sum", ir.ScalarType(DataType.INT64), init_value, span)
 
         # Loop body:
-        # 1. sum_next = sum + i
         # 2. yield sum_next
         sum_next = ir.Var("sum_next", ir.ScalarType(DataType.INT64), span)
         update_stmt = ir.AssignStmt(sum_next, ir.Add(sum_acc, i, DataType.INT64, span), span)
@@ -300,9 +302,10 @@ class TestForStmtWithIterArgAndYieldStmt:
         assert isinstance(restored.body.stmts[1], ir.YieldStmt)
         assert len(restored.return_vars) == 1
 
-        ir.assert_structural_equal(for_stmt, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(for_stmt, restored, enable_auto_mapping=True)
 
-    def test_for_stmt_with_multiple_iter_args_and_yield(self):
+    @staticmethod
+    def test_for_stmt_with_multiple_iter_args_and_yield():
         """Test ForStmt with multiple IterArgs + YieldStmt - complex generator.
 
         Example: Generate Fibonacci sequence with two accumulators.
@@ -319,8 +322,6 @@ class TestForStmtWithIterArgAndYieldStmt:
 
         # Loop body:
         # 1. yield a
-        # 2. a_next = b
-        # 3. b_next = a + b
         yield_stmt = ir.YieldStmt([a_acc], span)
         a_next = ir.Var("a_next", ir.ScalarType(DataType.INT64), span)
         b_next = ir.Var("b_next", ir.ScalarType(DataType.INT64), span)
@@ -357,9 +358,10 @@ class TestForStmtWithIterArgAndYieldStmt:
         assert has_yield
         assert len(restored.return_vars) == 2
 
-        ir.assert_structural_equal(for_stmt, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(for_stmt, restored, enable_auto_mapping=True)
 
-    def test_for_stmt_with_iter_arg_and_conditional_yield(self):
+    @staticmethod
+    def test_for_stmt_with_iter_arg_and_conditional_yield():
         """Test ForStmt with IterArg + conditional YieldStmt.
 
         Example: Accumulate and yield only when condition is met.
@@ -368,13 +370,10 @@ class TestForStmtWithIterArgAndYieldStmt:
 
         i = ir.Var("i", ir.ScalarType(DataType.INT64), span)
 
-        # IterArg: counter
         counter_init = ir.ConstInt(0, DataType.INT64, span)
         counter = ir.IterArg("counter", ir.ScalarType(DataType.INT64), counter_init, span)
 
         # Loop body:
-        # counter_next = counter + 1
-        # if i % 2 == 0:
         #     yield counter_next
         counter_next = ir.Var("counter_next", ir.ScalarType(DataType.INT64), span)
         update_stmt = ir.AssignStmt(
@@ -416,4 +415,4 @@ class TestForStmtWithIterArgAndYieldStmt:
         assert isinstance(restored.body.stmts[1], ir.IfStmt)
         assert isinstance(restored.body.stmts[1].then_body, ir.YieldStmt)
 
-        ir.assert_structural_equal(for_stmt, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(for_stmt, restored, enable_auto_mapping=True)

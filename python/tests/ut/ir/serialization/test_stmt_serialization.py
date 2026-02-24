@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-# coding: utf-8
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) PyPTO Contributors.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -8,6 +6,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
+
 """Tests for serialization of IR statements.
 
 NOTE: Most basic serialization tests have been moved to test_IR_node.py.
@@ -28,7 +27,8 @@ class TestAssignStmtSerialization:
     # NOTE: Basic test moved to test_IR_node.py
     # def test_assign_stmt_with_const(self):
 
-    def test_assign_stmt_with_binary_expr(self):
+    @staticmethod
+    def test_assign_stmt_with_binary_expr():
         """Test serializing AssignStmt with binary expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -48,9 +48,10 @@ class TestAssignStmtSerialization:
         assert isinstance(restored.value, ir.Add)
 
         # Verify structural equality
-        ir.assert_structural_equal(assign, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(assign, restored, enable_auto_mapping=True)
 
-    def test_assign_stmt_with_call(self):
+    @staticmethod
+    def test_assign_stmt_with_call():
         """Test serializing AssignStmt with Call expression."""
         span = ir.Span.unknown()
         op = ir.Op("relu")
@@ -71,7 +72,7 @@ class TestAssignStmtSerialization:
         assert restored.value.op.name == "relu"
 
         # Verify structural equality
-        ir.assert_structural_equal(assign, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(assign, restored, enable_auto_mapping=True)
 
 
 class TestSeqStmtsSerialization:
@@ -83,7 +84,8 @@ class TestSeqStmtsSerialization:
     # NOTE: Basic test moved to test_IR_node.py
     # def test_seq_stmts_with_multiple_stmts(self):
 
-    def test_empty_seq_stmts(self):
+    @staticmethod
+    def test_empty_seq_stmts():
         """Test serializing empty SeqStmts."""
         span = ir.Span.unknown()
         seq = ir.SeqStmts([], span)
@@ -101,7 +103,8 @@ class TestSeqStmtsSerialization:
         # Verify structural equality
         ir.assert_structural_equal(seq, restored)
 
-    def test_seq_stmts_with_single_stmt(self):
+    @staticmethod
+    def test_seq_stmts_with_single_stmt():
         """Test serializing SeqStmts with single statement - edge case."""
         span = ir.Span.unknown()
         var = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -120,12 +123,13 @@ class TestSeqStmtsSerialization:
         assert len(restored.stmts) == 1
 
         # Verify structural equality
-        ir.assert_structural_equal(seq, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(seq, restored, enable_auto_mapping=True)
 
     # NOTE: Basic test moved to test_IR_node.py
     # def test_seq_stmts_with_multiple_stmts(self):
 
-    def test_nested_seq_stmts(self):
+    @staticmethod
+    def test_nested_seq_stmts():
         """Test serializing nested SeqStmts."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -147,7 +151,7 @@ class TestSeqStmtsSerialization:
         assert isinstance(restored.stmts[0], ir.SeqStmts)
 
         # Verify structural equality
-        ir.assert_structural_equal(outer_seq, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(outer_seq, restored, enable_auto_mapping=True)
 
 
 class TestYieldStmtSerialization:
@@ -156,7 +160,8 @@ class TestYieldStmtSerialization:
     Source: Moved from test_IR_node_serialization.py (unique test).
     """
 
-    def test_yield_stmt_serialization(self):
+    @staticmethod
+    def test_yield_stmt_serialization():
         """Test YieldStmt with single value."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -167,9 +172,10 @@ class TestYieldStmtSerialization:
 
         assert isinstance(restored, ir.YieldStmt)
         assert len(restored.value) == 1
-        ir.assert_structural_equal(yield_stmt, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(yield_stmt, restored, enable_auto_mapping=True)
 
-    def test_yield_stmt_multiple_values(self):
+    @staticmethod
+    def test_yield_stmt_multiple_values():
         """Test YieldStmt with multiple values."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -181,9 +187,10 @@ class TestYieldStmtSerialization:
 
         assert isinstance(restored, ir.YieldStmt)
         assert len(restored.value) == 2
-        ir.assert_structural_equal(yield_stmt, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(yield_stmt, restored, enable_auto_mapping=True)
 
-    def test_yield_stmt_empty(self):
+    @staticmethod
+    def test_yield_stmt_empty():
         """Test YieldStmt with no values."""
         span = ir.Span.unknown()
         yield_stmt = ir.YieldStmt([], span)
@@ -202,7 +209,8 @@ class TestReturnStmtSerialization:
     Source: Moved from test_IR_node_serialization.py (unique test).
     """
 
-    def test_return_stmt_serialization(self):
+    @staticmethod
+    def test_return_stmt_serialization():
         """Test ReturnStmt with single value."""
         span = ir.Span.unknown()
         const = ir.ConstInt(42, DataType.INT64, span)
@@ -215,7 +223,8 @@ class TestReturnStmtSerialization:
         assert len(restored.value) == 1
         ir.assert_structural_equal(return_stmt, restored)
 
-    def test_return_stmt_multiple_values(self):
+    @staticmethod
+    def test_return_stmt_multiple_values():
         """Test ReturnStmt with multiple values."""
         span = ir.Span.unknown()
         val1 = ir.ConstInt(10, DataType.INT64, span)
@@ -229,7 +238,8 @@ class TestReturnStmtSerialization:
         assert len(restored.value) == 2
         ir.assert_structural_equal(return_stmt, restored)
 
-    def test_return_stmt_expression(self):
+    @staticmethod
+    def test_return_stmt_expression():
         """Test ReturnStmt with expression value."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -242,7 +252,7 @@ class TestReturnStmtSerialization:
 
         assert isinstance(restored, ir.ReturnStmt)
         assert isinstance(restored.value[0], ir.Add)
-        ir.assert_structural_equal(return_stmt, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(return_stmt, restored, enable_auto_mapping=True)
 
 
 class TestOpStmtsSerialization:
@@ -251,7 +261,8 @@ class TestOpStmtsSerialization:
     Source: Moved from test_IR_node_serialization.py (unique test).
     """
 
-    def test_op_stmts_serialization(self):
+    @staticmethod
+    def test_op_stmts_serialization():
         """Test OpStmts with single statement."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.TensorType([], DataType.FP32), span)
@@ -268,9 +279,10 @@ class TestOpStmtsSerialization:
 
         assert isinstance(restored, ir.OpStmts)
         assert len(restored.stmts) == 1
-        ir.assert_structural_equal(op_stmts, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(op_stmts, restored, enable_auto_mapping=True)
 
-    def test_op_stmts_multiple_statements(self):
+    @staticmethod
+    def test_op_stmts_multiple_statements():
         """Test OpStmts with multiple statements."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.TensorType([], DataType.FP32), span)
@@ -295,7 +307,7 @@ class TestOpStmtsSerialization:
 
         assert isinstance(restored, ir.OpStmts)
         assert len(restored.stmts) == 2
-        ir.assert_structural_equal(op_stmts, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(op_stmts, restored, enable_auto_mapping=True)
 
 
 class TestEvalStmtSerialization:
@@ -304,7 +316,8 @@ class TestEvalStmtSerialization:
     Source: Moved from test_IR_node_serialization.py (unique test).
     """
 
-    def test_eval_stmt_serialization(self):
+    @staticmethod
+    def test_eval_stmt_serialization():
         """Test EvalStmt with binary expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -318,9 +331,10 @@ class TestEvalStmtSerialization:
 
         assert isinstance(restored, ir.EvalStmt)
         assert isinstance(restored.expr, ir.Add)
-        ir.assert_structural_equal(eval_stmt, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(eval_stmt, restored, enable_auto_mapping=True)
 
-    def test_eval_stmt_with_call(self):
+    @staticmethod
+    def test_eval_stmt_with_call():
         """Test EvalStmt with Call expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.TensorType([], DataType.FP32), span)
@@ -335,7 +349,7 @@ class TestEvalStmtSerialization:
         assert isinstance(restored, ir.EvalStmt)
         assert isinstance(restored.expr, ir.Call)
         assert restored.expr.op.name == "print"
-        ir.assert_structural_equal(eval_stmt, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(eval_stmt, restored, enable_auto_mapping=True)
 
 
 class TestIfStmtSerialization:
@@ -348,22 +362,14 @@ class TestIfStmtSerialization:
     # def test_if_stmt_with_else(self):
     # def test_if_stmt_without_else(self):
 
-    def test_complex_control_flow(self):
+    @staticmethod
+    def test_complex_control_flow():
         """Test serializing complex control flow."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
         y = ir.Var("y", ir.ScalarType(DataType.INT64), span)
         result = ir.Var("result", ir.ScalarType(DataType.INT64), span)
 
-        # if (x > 0) {
-        #   if (y > 0) {
-        #     result = x + y
-        #   } else {
-        #     result = x - y
-        #   }
-        # } else {
-        #   result = 0
-        # }
 
         zero = ir.ConstInt(0, DataType.INT64, span)
 
@@ -389,4 +395,4 @@ class TestIfStmtSerialization:
         assert isinstance(restored.then_body, ir.IfStmt)
 
         # Verify structural equality
-        ir.assert_structural_equal(outer_if, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(outer_if, restored, enable_auto_mapping=True)
