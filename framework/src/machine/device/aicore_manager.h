@@ -198,12 +198,7 @@ private:
 
     int HandkShake();
 
-    /* assign aic and aiv core index section for this aicpu */
-    void UpdateAiCoreBlockIndexSection();
-
     inline int GetPhyIdByBlockId(int coreIdx) { return blockIdToPhyCoreId_[coreIdx]; }
-
-    void MapRegistersForAllCores();
 
     inline void ForEachManageAicore(std::function<void(int coreIdx)> func) const {
         for (int i = aicStart_; i < aicEnd_; ++i) {

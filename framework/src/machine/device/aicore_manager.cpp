@@ -115,10 +115,25 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
     sharedBuffer_ = deviceArgs->sharedBuffer;
 
     blockIdToPhyCoreId_.fill(-1);
-    readyRegQueues_.fill(nullptr);
-    finishRegQueues_.fill(nullptr);
-    UpdateAiCoreBlockIndexSection();
-    MapRegistersForAllCores();
+    for (uint32_t idx = 0; idx < MAX_AICORE_NUM; idx++)
+    {
+        auto baseAddress = (uint64_t) regAddrs_[idx];
+        readyRegQueues_[idx]  = (volatile uint64_t *)(baseAddress + (uint64_t)regSprDataMainBase_);
+        finishRegQueues_[idx] = (volatile uint64_t *)(baseAddress + (uint64_t)regSprCond_);
+    }
+
+    auto f = [](int total, int idx, int part, int &start, int &end) {
+        int perCpu = total / part;
+        int remain = total % part;
+        start = idx * perCpu + ((idx < remain) ? idx : remain);
+        end = start + perCpu + ((idx < remain) ? 1 : 0);
+    };
+
+    f(aicValidNum_, aicpuIdx_, aicpuNum_, aicStart_, aicEnd_);
+    f(AIV_NUM_PER_AI_CORE * aicValidNum_, aicpuIdx_, aicpuNum_, aivStart_, aivEnd_);
+    aivStart_ += aicValidNum_;
+    aivEnd_ += aicValidNum_;
+
     args_.fill(nullptr);
 
     int ret = HandkShake();
@@ -324,35 +339,6 @@ int AiCoreManager::HandkShake() {
     __sync_synchronize();
     DEV_INFO("Aicpu %d handshake sucess end.\n", aicpuIdx_);
     return 0;
-}
-
-/* assign aic and aiv core index section for this aicpu */
-void AiCoreManager::UpdateAiCoreBlockIndexSection() {
-    auto f = [](int total, int idx, int part, int &start, int &end) {
-        int perCpu = total / part;
-        int remain = total % part;
-        start = idx * perCpu + ((idx < remain) ? idx : remain);
-        end = start + perCpu + ((idx < remain) ? 1 : 0);
-    };
-
-    f(aicValidNum_, aicpuIdx_, aicpuNum_, aicStart_, aicEnd_);
-    f(AIV_NUM_PER_AI_CORE * aicValidNum_, aicpuIdx_, aicpuNum_, aivStart_, aivEnd_);
-    aivStart_ += aicValidNum_;
-    aivEnd_ += aicValidNum_;
-}
-
-void AiCoreManager::MapRegistersForAllCores() {
-    for (uint32_t idx = 0; idx < aicNum_ * CORE_NUM_PER_AI_CORE; idx++)
-    {
-        void *addr = reinterpret_cast<void *>(regAddrs_[idx]);
-        if (addr == nullptr) {
-            continue;
-        }
-        volatile uint64_t *reqQueueReg = reinterpret_cast<volatile uint64_t *>(static_cast<uint8_t *>(addr) + regSprDataMainBase_);
-        readyRegQueues_[idx] = reqQueueReg;
-        volatile uint64_t *finishQueueReg = reinterpret_cast<volatile uint64_t *>(static_cast<uint8_t *>(addr) + regSprCond_);
-        finishRegQueues_[idx] = finishQueueReg;
-    }
 }
 
 void AiCoreManager::AbnormalStop() {

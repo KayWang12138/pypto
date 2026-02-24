@@ -24,6 +24,7 @@
 inline constexpr size_t MAX_CACHED_FUNC_NUM = 128;
 constexpr int MAX_DIMS = 8;
 constexpr uint32_t AICORE_TYPE_NUM = 2;
+constexpr uint32_t MAX_AICORE_NUM = 108;
 
 using taskid_t = uint32_t;
 
