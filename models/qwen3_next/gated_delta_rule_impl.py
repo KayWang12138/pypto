@@ -231,7 +231,9 @@ def inverse_pto_min_length(
         # Add 0.0 to enable attn_inv_cur to enter the UB in advance
         attn_inv_cur = attn_inv_list.get(i - 1) + 0.0
         row = attn_dim1.view([1, col_num], [i, 0])
-        row_expand = attn_dim0_trans.view([size * i, 1], [0, i])
+        #使能合轴时，在for循环内处理transpose，reshape，view操作，保证内存连续
+        row_expand = row.reshape([size, row_num]).view([size, i], [0,0]).transpose(1,0).reshape([size*i,1])
+        # row_expand = attn_dim0_trans.view([size * i, 1], [0, i])
         attn_inv_cur_reshape = attn_inv_cur.reshape([size * i, row_num])
         prod_mul = (row_expand * attn_inv_cur_reshape).reshape([i, col_num])
 
