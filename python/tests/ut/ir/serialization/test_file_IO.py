@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-# coding: utf-8
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) PyPTO Contributors.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -8,6 +6,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
+
 """Tests for IR serialization to and from files.
 
 This file tests file I/O operations for IR serialization and deserialization.
@@ -24,7 +23,8 @@ from pypto.ir import DataType
 class TestFileIO:
     """Test serialization to and from files."""
 
-    def test_serialize_to_file_and_back(self):
+    @staticmethod
+    def test_serialize_to_file_and_back():
         """Test serializing to file and deserializing back."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -44,9 +44,10 @@ class TestFileIO:
             assert isinstance(restored, ir.Add)
 
             # Verify structural equality
-            ir.assert_structural_equal(add_expr, restored, enable_auto_mapping = True)
+            ir.assert_structural_equal(add_expr, restored, enable_auto_mapping=True)
 
-    def test_large_ir_tree_file_io(self):
+    @staticmethod
+    def test_large_ir_tree_file_io():
         """Test serializing large IR tree to file."""
         span = ir.Span.unknown()
 
@@ -74,4 +75,4 @@ class TestFileIO:
             assert len(restored.stmts) == 100
 
             # Verify structural equality
-            ir.assert_structural_equal(seq, restored, enable_auto_mapping = True)
+            ir.assert_structural_equal(seq, restored, enable_auto_mapping=True)

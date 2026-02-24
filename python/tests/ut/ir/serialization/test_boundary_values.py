@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-# coding: utf-8
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) PyPTO Contributors.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -8,6 +6,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
+
 """Tests for serialization of boundary values and edge cases.
 
 This file tests boundary values, special floating-point numbers, and other edge cases
@@ -23,10 +22,10 @@ from pypto.ir import DataType
 class TestBoundaryIntegerValues:
     """Test serialization of boundary integer values."""
 
-    def test_int64_max_serialization(self):
+    @staticmethod
+    def test_int64_max_serialization():
         """Test INT64_MAX (9223372036854775807) serialization."""
         span = ir.Span.unknown()
-        # INT64_MAX = 2^63 - 1
         max_int = ir.ConstInt(9223372036854775807, DataType.INT64, span)
 
         # Serialize
@@ -42,10 +41,10 @@ class TestBoundaryIntegerValues:
         # Verify structural equality
         ir.assert_structural_equal(max_int, restored)
 
-    def test_int64_min_serialization(self):
+    @staticmethod
+    def test_int64_min_serialization():
         """Test INT64_MIN (-9223372036854775808) serialization."""
         span = ir.Span.unknown()
-        # INT64_MIN = -2^63
         min_int = ir.ConstInt(-9223372036854775808, DataType.INT64, span)
 
         # Serialize
@@ -61,25 +60,25 @@ class TestBoundaryIntegerValues:
         # Verify structural equality
         ir.assert_structural_equal(min_int, restored)
 
-    def test_int32_boundary_values(self):
+    @staticmethod
+    def test_int32_boundary_values():
         """Test INT32 boundary values."""
         span = ir.Span.unknown()
 
-        # INT32_MAX = 2^31 - 1
         max_int32 = ir.ConstInt(2147483647, DataType.INT32, span)
         data = ir.serialize(max_int32)
         restored = ir.deserialize(data)
         assert restored.value == 2147483647
         assert restored.dtype == DataType.INT32
 
-        # INT32_MIN = -2^31
         min_int32 = ir.ConstInt(-2147483648, DataType.INT32, span)
         data = ir.serialize(min_int32)
         restored = ir.deserialize(data)
         assert restored.value == -2147483648
         assert restored.dtype == DataType.INT32
 
-    def test_zero_in_different_dtypes(self):
+    @staticmethod
+    def test_zero_in_different_dtypes():
         """Test zero value in different integer dtypes."""
         span = ir.Span.unknown()
 
@@ -92,11 +91,11 @@ class TestBoundaryIntegerValues:
             assert restored.dtype == dtype
             ir.assert_structural_equal(zero, restored)
 
-    def test_int_arithmetic_with_boundary_values(self):
+    @staticmethod
+    def test_int_arithmetic_with_boundary_values():
         """Test arithmetic expressions with boundary values."""
         span = ir.Span.unknown()
 
-        # Test: INT64_MAX + 0
         max_int = ir.ConstInt(9223372036854775807, DataType.INT64, span)
         zero = ir.ConstInt(0, DataType.INT64, span)
         expr = ir.Add(max_int, zero, DataType.INT64, span)
@@ -110,7 +109,8 @@ class TestBoundaryIntegerValues:
         assert restored.left.value == 9223372036854775807
         ir.assert_structural_equal(expr, restored)
     
-    def test_boundary_int_in_binary_expression(self):
+    @staticmethod
+    def test_boundary_int_in_binary_expression():
         """Test binary expression with boundary integers."""
         span = ir.Span.unknown()
 
@@ -131,7 +131,8 @@ class TestBoundaryIntegerValues:
 class TestSpecialFloatingPointValues:
     """Test serialization of special floating-point values."""
 
-    def test_nan_serialization(self):
+    @staticmethod
+    def test_nan_serialization():
         """Test NaN (Not a Number) serialization."""
         span = ir.Span.unknown()
         nan_float = ir.ConstFloat(float('nan'), DataType.FP32, span)
@@ -146,7 +147,8 @@ class TestSpecialFloatingPointValues:
         assert math.isnan(restored.value), "Restored value should be NaN"
         assert restored.dtype == DataType.FP32
 
-    def test_positive_infinity_serialization(self):
+    @staticmethod
+    def test_positive_infinity_serialization():
         """Test positive infinity serialization."""
         span = ir.Span.unknown()
         pos_inf = ir.ConstFloat(float('inf'), DataType.FP32, span)
@@ -161,7 +163,8 @@ class TestSpecialFloatingPointValues:
         assert math.isinf(restored.value) and restored.value > 0, "Should be positive infinity"
         assert restored.dtype == DataType.FP32
 
-    def test_negative_infinity_serialization(self):
+    @staticmethod
+    def test_negative_infinity_serialization():
         """Test negative infinity serialization."""
         span = ir.Span.unknown()
         neg_inf = ir.ConstFloat(float('-inf'), DataType.FP32, span)
@@ -176,7 +179,8 @@ class TestSpecialFloatingPointValues:
         assert math.isinf(restored.value) and restored.value < 0, "Should be negative infinity"
         assert restored.dtype == DataType.FP32
 
-    def test_negative_zero_serialization(self):
+    @staticmethod
+    def test_negative_zero_serialization():
         """Test negative zero (-0.0) serialization."""
         span = ir.Span.unknown()
         neg_zero = ir.ConstFloat(-0.0, DataType.FP32, span)
@@ -192,7 +196,8 @@ class TestSpecialFloatingPointValues:
         assert restored.value == 0.0
         assert math.copysign(1.0, restored.value) == math.copysign(1.0, -0.0), "Should preserve sign of zero"
 
-    def test_very_small_float_serialization(self):
+    @staticmethod
+    def test_very_small_float_serialization():
         """Test very small floating-point values (near underflow)."""
         span = ir.Span.unknown()
 
@@ -206,7 +211,8 @@ class TestSpecialFloatingPointValues:
         assert isinstance(restored, ir.ConstFloat)
         assert restored.value == pytest.approx(1.401298e-45, rel=1e-6)
 
-    def test_very_large_float_serialization(self):
+    @staticmethod
+    def test_very_large_float_serialization():
         """Test very large floating-point values (near overflow)."""
         span = ir.Span.unknown()
 
@@ -219,11 +225,11 @@ class TestSpecialFloatingPointValues:
         assert isinstance(restored, ir.ConstFloat)
         assert restored.value == pytest.approx(3.402823e+38, rel=1e-6)
 
-    def test_special_float_in_expressions(self):
+    @staticmethod
+    def test_special_float_in_expressions():
         """Test special float values in expressions."""
         span = ir.Span.unknown()
 
-        # Test: NaN + Inf
         nan_val = ir.ConstFloat(float('nan'), DataType.FP32, span)
         inf_val = ir.ConstFloat(float('inf'), DataType.FP32, span)
         expr = ir.Add(nan_val, inf_val, DataType.FP32, span)
@@ -240,7 +246,8 @@ class TestSpecialFloatingPointValues:
 class TestEmptyAndSpecialStrings:
     """Test serialization with empty and special strings."""
 
-    def test_empty_variable_name(self):
+    @staticmethod
+    def test_empty_variable_name():
         """Test variable with empty name.
 
         Note: This may or may not be allowed by the IR. If it raises an error,
@@ -256,7 +263,8 @@ class TestEmptyAndSpecialStrings:
             # If empty name is rejected, that's also valid behavior
             pass
 
-    def test_whitespace_only_variable_name(self):
+    @staticmethod
+    def test_whitespace_only_variable_name():
         """Test variable with whitespace-only name."""
         span = ir.Span.unknown()
         var = ir.Var("   ", ir.ScalarType(DataType.INT64), span)
@@ -267,7 +275,8 @@ class TestEmptyAndSpecialStrings:
         assert restored.name == "   ", "Whitespace-only name should be preserved"
         ir.assert_structural_equal(var, restored, enable_auto_mapping=True)
 
-    def test_newline_in_variable_name(self):
+    @staticmethod
+    def test_newline_in_variable_name():
         """Test variable with newline in name."""
         span = ir.Span.unknown()
         var = ir.Var("var\nname", ir.ScalarType(DataType.INT64), span)
@@ -278,7 +287,8 @@ class TestEmptyAndSpecialStrings:
         assert restored.name == "var\nname", "Newline in name should be preserved"
         ir.assert_structural_equal(var, restored, enable_auto_mapping=True)
 
-    def test_special_characters_in_name(self):
+    @staticmethod
+    def test_special_characters_in_name():
         """Test variable with special characters."""
         span = ir.Span.unknown()
         # Various special characters
@@ -299,7 +309,8 @@ class TestEmptyAndSpecialStrings:
             restored = ir.deserialize(data)
             assert restored.name == name, f"Special character name '{name}' should be preserved"
 
-    def test_very_long_variable_name(self):
+    @staticmethod
+    def test_very_long_variable_name():
         """Test variable with very long name (10000 characters)."""
         span = ir.Span.unknown()
         # Create a very long name
@@ -317,7 +328,8 @@ class TestEmptyAndSpecialStrings:
 class TestEmptyStructures:
     """Test serialization of edge cases and empty structures."""
 
-    def test_empty_structures(self):
+    @staticmethod
+    def test_empty_structures():
         """Test serializing empty structures."""
         span = ir.Span.unknown()
 
