@@ -178,18 +178,7 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
     return true;
 }
 
-bool CheckDynRawShape(Shape shape) {
-    return std::any_of(shape.begin(), shape.end(), [](int dim) {
-        return dim < 0;
-    });
-}
-
 bool InferMemoryConflict::MatMulPattern(const LogicalTensorPtr &reshapeIn, const LogicalTensorPtr &reshapeOut) {
-    Shape inShape = reshapeIn->GetRawTensor()->GetRawShape();
-    Shape outShape = reshapeOut->GetRawTensor()->GetRawShape();
-    if (CheckDynRawShape(inShape) || CheckDynRawShape(outShape)) {
-        return false;
-    }
     auto producer = *(reshapeIn->GetProducers().begin());
     auto consumer = *(reshapeOut->GetConsumers().begin());
     if (producer == nullptr || consumer == nullptr) {
