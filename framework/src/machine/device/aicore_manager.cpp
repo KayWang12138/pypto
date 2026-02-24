@@ -96,6 +96,7 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl)
 
 int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *taskCtrl)
 {
+    aicpuIdx_ = threadIdx;
     curTaskCtrl_ = taskCtrl;
     curDevTask_ = static_cast<DeviceTask *>(taskCtrl->devTask);
 
@@ -106,7 +107,19 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
     uint32_t expectedValue = AICPU_LEAD_SCHEDULER_NULL;
     isLeaderScheduler_ = leadSchedulerId_->compare_exchange_strong(expectedValue, (uint32_t)aicpuIdx_);
 
-    Init(threadIdx, deviceArgs);
+    aicNum_ = deviceArgs->nrAic;
+    aivNum_ = deviceArgs->nrAiv;
+    aicpuNum_ = START_STATIC_AICPU_NUM;
+    aicValidNum_ = deviceArgs->nrValidAic;
+    regAddrs_ = reinterpret_cast<int64_t *>(deviceArgs->coreRegAddr);
+    sharedBuffer_ = deviceArgs->sharedBuffer;
+
+    blockIdToPhyCoreId_.fill(-1);
+    readyRegQueues_.fill(nullptr);
+    finishRegQueues_.fill(nullptr);
+    UpdateAiCoreBlockIndexSection();
+    MapRegistersForAllCores();
+    args_.fill(nullptr);
 
     int ret = HandkShake();
     if (ret != npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
@@ -277,24 +290,6 @@ void AiCoreManager::ResolveDep(uint64_t finishId) {
         }
         ResolveByCoreType(readyState[dep].coreType, dep, readyState);
     }
-}
-
-void AiCoreManager::Init(int threadIdx, DeviceArgs *deviceArgs) {
-    aicNum_ = deviceArgs->nrAic;
-    aivNum_ = deviceArgs->nrAiv;
-    aicpuNum_ = START_STATIC_AICPU_NUM;
-    aicpuIdx_ = threadIdx;
-    aicValidNum_ = deviceArgs->nrValidAic;
-    regAddrs_ = reinterpret_cast<int64_t *>(deviceArgs->coreRegAddr);
-    sharedBuffer_ = deviceArgs->sharedBuffer;
-
-    blockIdToPhyCoreId_.fill(-1);
-    readyRegQueues_.fill(nullptr);
-    finishRegQueues_.fill(nullptr);
-    UpdateAiCoreBlockIndexSection();
-    MapRegistersForAllCores();
-
-    args_.fill(nullptr);
 }
 
 int AiCoreManager::HandkShake() {

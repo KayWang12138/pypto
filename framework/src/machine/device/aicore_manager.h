@@ -196,8 +196,6 @@ private:
 
     inline uint64_t GetFinishedTask(int coreIdx) { return *(finishRegQueues_[GetPhyIdByBlockId(coreIdx)]); }
 
-    void Init(int threadIdx, DeviceArgs *deviceArgs);
-
     int HandkShake();
 
     /* assign aic and aiv core index section for this aicpu */
