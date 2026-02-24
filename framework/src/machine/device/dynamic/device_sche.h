@@ -42,12 +42,6 @@ inline void tracr_start(const int threadIdx) {
 
         INSTRUMENTATION_START();
     } else {
-        while ((INSTRUMENTATION_ACTIVE) && (!INSTRUMENTATION_IS_PROC_READY())) {
-            if (INSTRUMENTATION_IS_PROC_READY()) {
-                break;
-            }
-        }
-
         INSTRUMENTATION_THREAD_INIT();
     }
 }
@@ -78,13 +72,6 @@ inline void tracr_finalize(const int threadIdx, const DeviceArgs *devArgs) {
 #endif
 
     if (threadIdx == 1) {
-
-        while ((INSTRUMENTATION_ACTIVE) && (INSTRUMENTATION_NUM_TRACR_THREADS() != 1) ) {
-            if (INSTRUMENTATION_NUM_TRACR_THREADS() == 1) {
-                break;
-            }
-        }
-
         INSTRUMENTATION_END();
     } else {
         INSTRUMENTATION_THREAD_FINALIZE();
