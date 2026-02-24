@@ -78,7 +78,12 @@ template<typename T, uint32_t RowShape, uint32_t ColShape>
 using ShmemGlobalTensor = pto::GlobalTensor<T, ShapeDyn, StrideDyn, pto::Layout::ND>;
 
 template<typename T, uint32_t RowShape, uint32_t ColShape>
-using ShmemUbTile = pto::Tile<pto::TileType::Vec, T, RowShape, ColShape, pto::BLayout::RowMajor, pto::DYNAMIC, pto::DYNAMIC>;
+using ShmemUbTile = pto::Tile<pto::TileType::Vec, T,
+    RowShape,
+    AlignUp<uint32_t>(ColShape * sizeof(T), COPY_BLOCK_BYTE_SIZE) / sizeof(T),
+    pto::BLayout::RowMajor,
+    pto::DYNAMIC,
+    pto::DYNAMIC>;
 
 // ---------------------------------------------------------------------------
 // Shmem clear / set
