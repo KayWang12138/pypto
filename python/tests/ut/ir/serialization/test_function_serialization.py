@@ -509,14 +509,9 @@ class TestFunctionWithForStmtAndIfStmt:
 
         # Middle: for i in 0..y
         for_loop = ir.ForStmt(
-            i, 
-            ir.ConstInt(0, DataType.INT64, span), 
-            y, 
-            ir.ConstInt(1, DataType.INT64, span), 
-            [], 
-            inner_if, 
-            [], 
-            span)
+            i, ir.ConstInt(0, DataType.INT64, span), 
+            y, ir.ConstInt(1, DataType.INT64, span), 
+            [], inner_if, [], span)
 
         # Outer: if x > 0 then execute for loop else result = -1
         outer_if_cond = ir.Gt(x, ir.ConstInt(0, DataType.INT64, span), DataType.INT64, span)
