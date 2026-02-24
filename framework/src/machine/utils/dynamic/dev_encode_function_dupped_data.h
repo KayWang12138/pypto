@@ -114,6 +114,12 @@ struct DevAscendFunctionDuppedData {
         return size;
     }
 
+    inline uint64_t GetRawTensorDataSize(int rawIndex) {
+        auto rawTensor = GetSource()->GetRawTensor(rawIndex);
+        auto size = rawTensor->GetMemoryRequirement(GetExpressionAddr());
+        return size;
+    }
+
     schema::range SchemaGetIncastRange(int arg) const {
         auto base = GetIncastAddress(arg).GetAddress();
         auto size = GetIncastDataSize(arg);
@@ -131,6 +137,14 @@ struct DevAscendFunctionDuppedData {
         return schema::RActWorkspace(schema::Range(workspaceBegin, workspaceEnd));
     }
 
+    schema::ExpressionTable SchemaGetExpressionList() const {
+        size_t expressionSize = GetExpressionSize();
+        std::vector<schema::Int64Type> expressionList;
+        for (size_t i = 0; i < expressionSize; i++) {
+            expressionList.push_back(schema::Int64Type(GetExpression(i)));
+        }
+        return schema::ExpressionTable(expressionList);
+    }    
     std::string Dump(int indent = 0) const;
 };
 
@@ -196,6 +210,62 @@ struct DevAscendFunctionDupped {
             exprTable.push_back(exprAddr[i]);
         }
         return schema::expr(exprTable);
+    }
+
+    schema::shape SchemaGetIOperandShape(int operationIndex, int operandIndex) const {
+        auto func = GetSource();
+        auto attrBase = &func->GetOperationAttr(operationIndex, 0);
+        auto &opInfo = func->GetOperationIOperandInfo(operationIndex, operandIndex);
+        auto attrOffset = opInfo.staticOffsetAttrBeginIndex;
+        std::vector<schema::Int64Type> shapeList;
+        for (int d = 0; d < opInfo.GetDim(); d++) {
+            auto shapeIdx = attrOffset + d + opInfo.GetDim() * 3;
+            auto actualShape = GetValue(attrBase, shapeIdx);
+            shapeList.push_back(actualShape);
+        }
+        return schema::shape(schema::shapeList(shapeList));
+    }
+
+    schema::shape SchemaGetOOperandShape(int operationIndex, int operandIndex) const {
+        auto func = GetSource();
+        auto attrBase = &func->GetOperationAttr(operationIndex, 0);
+        auto &opInfo = func->GetOperationOOperandInfo(operationIndex, operandIndex);
+        auto attrOffset = opInfo.staticOffsetAttrBeginIndex;
+        std::vector<schema::Int64Type> shapeList;
+        for (int d = 0; d < opInfo.GetDim(); d++) {
+            auto shapeIdx = attrOffset + d + opInfo.GetDim() * 3;
+            auto actualShape = GetValue(attrBase, shapeIdx);
+            shapeList.push_back(actualShape);
+        }
+        return schema::shape(schema::shapeList(shapeList));
+    }
+
+    schema::offset SchemaGetIOperandOffset(int operationIndex, int operandIndex) const {
+        auto func = GetSource();
+        auto attrBase = &func->GetOperationAttr(operationIndex, 0);
+        auto &opInfo = func->GetOperationIOperandInfo(operationIndex, operandIndex);
+        auto attrOffset = opInfo.staticOffsetAttrBeginIndex;
+        std::vector<schema::Int64Type> offsetList;
+        for (int d = 0; d < opInfo.GetDim(); d++) {
+            auto offsetIdx = attrOffset + d;
+            auto actualOffset = GetValue(attrBase, offsetIdx);
+            offsetList.push_back(actualOffset);
+        }
+        return schema::offset(schema::offsetList(offsetList));
+    }
+
+    schema::offset SchemaGetOOperandOffset(int operationIndex, int operandIndex) const {
+        auto func = GetSource();
+        auto attrBase = &func->GetOperationAttr(operationIndex, 0);
+        auto &opInfo = func->GetOperationOOperandInfo(operationIndex, operandIndex);
+        auto attrOffset = opInfo.staticOffsetAttrBeginIndex;
+        std::vector<schema::Int64Type> offsetList;
+        for (int d = 0; d < opInfo.GetDim(); d++) {
+            auto offsetIdx = attrOffset + d;
+            auto actualOffset = GetValue(attrBase, offsetIdx);
+            offsetList.push_back(actualOffset);
+        }
+        return schema::offset(schema::offsetList(offsetList));
     }
 
     inline uintdevptr_t GetRawTensorAddr(int rawIndex) const {
