@@ -192,7 +192,7 @@ void AiCoreManager::ResolveVirtualPure(uint64_t dep, CoreFunctionReadyState* rea
     for (uint64_t i = 0 ; i < topo->depNum; i++) {
         uint64_t depId = topo->depIds[i];
         if (readyState[depId].coreType == static_cast<uint64_t>(MachineType::AICPU)) {
-            PushAicpuTaskQueue(depId);
+            aicpuTaskManager_.TaskEnqueue(depId);
             continue;
         }
         availableTaskQueue_->push((uint32_t)depId);
@@ -206,8 +206,9 @@ void AiCoreManager::ResolveVirtualMix(uint64_t dep, CoreFunctionReadyState* read
     auto topo = reinterpret_cast<CoreFunctionTopo *>(virtualFuncInfo->topoAddr);
     for (uint64_t i = 0 ; i < topo->depNum; i++) {
         uint64_t depId = topo->depIds[i];
-        if (readyState[depId].coreType == static_cast<uint64_t>(MachineType::AICPU)) {
-            PushAicpuTaskQueue(depId);
+        if (readyState[depId].coreType == static_cast<uint64_t>(MachineType::AICPU))
+        {
+            aicpuTaskManager_.TaskEnqueue(depId);
             continue;
         }
         if (readyState[depId].readyCount == topo->readyCount) {
@@ -233,7 +234,7 @@ void AiCoreManager::ResolveByCoreType(int coretype, uint64_t depTaskId, CoreFunc
             break;
         }
         case static_cast<int>(MachineType::AICPU): {
-            PushAicpuTaskQueue(depTaskId);
+            aicpuTaskManager_.TaskEnqueue(depTaskId);
             break;
         }
         case static_cast<int>(MachineType::HUB): {
@@ -257,8 +258,7 @@ void AiCoreManager::ResolveByCoreType(int coretype, uint64_t depTaskId, CoreFunc
 
 void AiCoreManager::ResolveDep(uint64_t finishId) {
     auto readyState = reinterpret_cast<CoreFunctionReadyState *>(curDevTask_->coreFunctionReadyStateAddr);
-    auto funcInfo =
-        &(reinterpret_cast<CoreFunctionWsAddr *>(curDevTask_->coreFuncData.coreFunctionWsAddr)[finishId]);
+    auto funcInfo = &(reinterpret_cast<CoreFunctionWsAddr *>(curDevTask_->coreFuncData.coreFunctionWsAddr)[finishId]);
     auto topo = reinterpret_cast<CoreFunctionTopo *>(funcInfo->topoAddr);
     DEV_DEBUG("resolve %lx, Dep core function num: %lu\n", finishId, topo->depNum);
     for (uint64_t i = 0; i < topo->depNum; i++) {
@@ -269,17 +269,6 @@ void AiCoreManager::ResolveDep(uint64_t finishId) {
         }
         ResolveByCoreType(readyState[dep].coreType, dep, readyState);
     }
-}
-
-bool AiCoreManager::IsExistOtherAicpuIdle(CoreType type) {
-    int idx = (aicpuIdx_ + 1) % START_STATIC_AICPU_NUM;
-    while (idx != aicpuIdx_) {
-        if (curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][idx].load(std::memory_order_relaxed) == true){
-            return true;
-        }
-        idx = (idx + 1) % START_STATIC_AICPU_NUM;
-    }
-    return false;
 }
 
 void AiCoreManager::Init(int threadIdx, DeviceArgs *deviceArgs) {
@@ -304,8 +293,7 @@ int AiCoreManager::HandkShake() {
     DEV_INFO("Aicpu %d handshake start.\n", aicpuIdx_);
     int rc = ForEachManageAicoreWithRet([this](int coreIdx) -> int {
         int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
-        auto args =
-            reinterpret_cast<KernelArgs *>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
+        auto args = reinterpret_cast<KernelArgs *>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
         args->taskEntry.reserved[0] = dotStatus_;
         volatile int64_t *shakeBuffer = args->shakeBuffer;
         npu::tile_fwk::dynamic::TimeCheck tm;
@@ -351,7 +339,8 @@ void AiCoreManager::UpdateAiCoreBlockIndexSection() {
 }
 
 void AiCoreManager::MapRegistersForAllCores() {
-    for (uint32_t idx = 0; idx < aicNum_ * CORE_NUM_PER_AI_CORE; idx++) {
+    for (uint32_t idx = 0; idx < aicNum_ * CORE_NUM_PER_AI_CORE; idx++)
+    {
         void *addr = reinterpret_cast<void *>(regAddrs_[idx]);
         if (addr == nullptr) {
             continue;

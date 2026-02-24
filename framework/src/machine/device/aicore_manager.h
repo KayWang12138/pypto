@@ -112,6 +112,7 @@ struct DeviceTaskCtrl {
 void SdmaPrefetch(DeviceTask *devTask);
 
 typedef pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask> taskQueue_t;
+typedef pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore> coreQueue_t;
 
 class AiCoreManager {
 public:
@@ -136,15 +137,17 @@ public:
         isLeaderScheduler_ = leadSchedulerId_->compare_exchange_strong(expectedValue, (uint32_t)aicpuIdx_);
 
         // If I am the lead AICPU scheduler, perform initailization steps
-        if (isLeaderScheduler_ == true) {
+        if (isLeaderScheduler_ == true)
+        {
             // Allocating queues
-            auto availableTaskQueue = new pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>(MAX_QUEUED_TASKS);
+            auto availableTaskQueue = new coreQueue_t(MAX_QUEUED_TASKS);
             curDevTask_->availableTaskQueue = (uint64_t) availableTaskQueue;
 
             // Adding initial set of tasks and cores
             for (size_t i = 0; i < readyAivCoreFunctionQue_->wasSize(); i++) availableTaskQueue->push((uint32_t)readyAivCoreFunctionQue_->getBuffer()[i]);
             for (size_t i = 0; i < readyAicCoreFunctionQue_->wasSize(); i++) availableTaskQueue->push((uint32_t)readyAicCoreFunctionQue_->getBuffer()[i]);
 
+            // Setting task as initialized, allowing others to continue
             curDevTask_->isTaskInitialized = true;
         }
         else // If I am not a lead AICPU scheduler, wait until initialization is ready
@@ -154,8 +157,8 @@ public:
 
         availableTaskQueue_ = reinterpret_cast<taskQueue_t*>(curDevTask_->availableTaskQueue);
         runningPairQueue_   = new pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>(MAX_QUEUED_PAIRS);
-        availableCoreQueue_[(int)MachineType::AIV] = new pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>(MAX_QUEUED_CORES);
-        availableCoreQueue_[(int)MachineType::AIC] = new pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>(MAX_QUEUED_CORES);
+        availableCoreQueue_[(int)MachineType::AIV] = new coreQueue_t(MAX_QUEUED_CORES);
+        availableCoreQueue_[(int)MachineType::AIC] = new coreQueue_t(MAX_QUEUED_CORES);
         for (int i = aivStart_; i < aivEnd_; i++) availableCoreQueue_[(int)MachineType::AIV]->push((uint32_t)i);
         for (int i = aicStart_; i < aicEnd_; i++) availableCoreQueue_[(int)MachineType::AIC]->push((uint32_t)i);
     }
@@ -183,12 +186,6 @@ private:
 
     void BatchPushReadyQueue();
 
-    inline void PushAicpuTaskQueue(uint64_t taskId) {
-        aicpuTaskManager_.TaskEnqueue(taskId);
-    }
-
-    bool SendTaskDirectlyWhenTaskReady(int coreType, int64_t taskId);
-
     void ResolveVirtualPure(uint64_t dep, CoreFunctionReadyState* readyState);
 
     void ResolveVirtualMix(uint64_t dep, CoreFunctionReadyState* readyState);
@@ -196,8 +193,6 @@ private:
     void ResolveByCoreType(int coretype, uint64_t depTaskId, CoreFunctionReadyState *readyState);
 
     void ResolveDep(uint64_t finishId);
-
-    bool IsExistOtherAicpuIdle(CoreType type);
 
     inline void BatchGetFinishedTask(uint64_t finTask[], int coreIdxStart, int coreIdxEnd) {
         uint64_t finTaskGet;
