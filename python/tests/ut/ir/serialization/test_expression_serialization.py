@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-# coding: utf-8
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) PyPTO Contributors.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -8,6 +6,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
+
 """Tests for serialization of IR expression nodes.
 
 This file tests all expression operators and tuple operations:
@@ -29,7 +28,8 @@ from pypto.ir import DataType
 class TestBinaryArithmeticOperators:
     """Test serialization of binary arithmetic expression operators."""
 
-    def test_add_serialization(self):
+    @staticmethod
+    def test_add_serialization():
         """Test Add expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -40,9 +40,10 @@ class TestBinaryArithmeticOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.Add)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_sub_serialization(self):
+    @staticmethod
+    def test_sub_serialization():
         """Test Sub expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.FP32), span)
@@ -53,9 +54,10 @@ class TestBinaryArithmeticOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.Sub)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_mul_serialization(self):
+    @staticmethod
+    def test_mul_serialization():
         """Test Mul expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT32), span)
@@ -66,9 +68,10 @@ class TestBinaryArithmeticOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.Mul)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_floor_div_serialization(self):
+    @staticmethod
+    def test_floor_div_serialization():
         """Test FloorDiv expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -79,9 +82,10 @@ class TestBinaryArithmeticOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.FloorDiv)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_floor_mod_serialization(self):
+    @staticmethod
+    def test_floor_mod_serialization():
         """Test FloorMod expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -92,9 +96,10 @@ class TestBinaryArithmeticOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.FloorMod)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_float_div_serialization(self):
+    @staticmethod
+    def test_float_div_serialization():
         """Test FloatDiv expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.FP32), span)
@@ -105,9 +110,10 @@ class TestBinaryArithmeticOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.FloatDiv)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_pow_serialization(self):
+    @staticmethod
+    def test_pow_serialization():
         """Test Pow expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.FP32), span)
@@ -118,13 +124,14 @@ class TestBinaryArithmeticOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.Pow)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
 
 class TestBinaryComparisonOperators:
     """Test serialization of binary comparison operators."""
 
-    def test_min_serialization(self):
+    @staticmethod
+    def test_min_serialization():
         """Test Min expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -135,9 +142,10 @@ class TestBinaryComparisonOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.Min)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_max_serialization(self):
+    @staticmethod
+    def test_max_serialization():
         """Test Max expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -148,9 +156,10 @@ class TestBinaryComparisonOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.Max)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_eq_serialization(self):
+    @staticmethod
+    def test_eq_serialization():
         """Test Eq expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -161,9 +170,10 @@ class TestBinaryComparisonOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.Eq)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_ne_serialization(self):
+    @staticmethod
+    def test_ne_serialization():
         """Test Ne expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -174,9 +184,10 @@ class TestBinaryComparisonOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.Ne)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_lt_serialization(self):
+    @staticmethod
+    def test_lt_serialization():
         """Test Lt expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.FP32), span)
@@ -187,9 +198,10 @@ class TestBinaryComparisonOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.Lt)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_le_serialization(self):
+    @staticmethod
+    def test_le_serialization():
         """Test Le expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -200,9 +212,10 @@ class TestBinaryComparisonOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.Le)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_gt_serialization(self):
+    @staticmethod
+    def test_gt_serialization():
         """Test Gt expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -213,9 +226,10 @@ class TestBinaryComparisonOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.Gt)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_ge_serialization(self):
+    @staticmethod
+    def test_ge_serialization():
         """Test Ge expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -226,13 +240,14 @@ class TestBinaryComparisonOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.Ge)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
 
 class TestBinaryLogicalOperators:
     """Test serialization of binary logical operators."""
 
-    def test_and_serialization(self):
+    @staticmethod
+    def test_and_serialization():
         """Test And expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.BOOL), span)
@@ -243,9 +258,10 @@ class TestBinaryLogicalOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.And)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_or_serialization(self):
+    @staticmethod
+    def test_or_serialization():
         """Test Or expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.BOOL), span)
@@ -256,9 +272,10 @@ class TestBinaryLogicalOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.Or)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_xor_serialization(self):
+    @staticmethod
+    def test_xor_serialization():
         """Test Xor expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.BOOL), span)
@@ -269,13 +286,14 @@ class TestBinaryLogicalOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.Xor)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
 
 class TestBinaryBitwiseOperators:
     """Test serialization of binary bitwise operators."""
 
-    def test_bit_and_serialization(self):
+    @staticmethod
+    def test_bit_and_serialization():
         """Test BitAnd expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT32), span)
@@ -286,9 +304,10 @@ class TestBinaryBitwiseOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.BitAnd)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_bit_or_serialization(self):
+    @staticmethod
+    def test_bit_or_serialization():
         """Test BitOr expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT32), span)
@@ -299,9 +318,10 @@ class TestBinaryBitwiseOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.BitOr)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_bit_xor_serialization(self):
+    @staticmethod
+    def test_bit_xor_serialization():
         """Test BitXor expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT32), span)
@@ -312,9 +332,10 @@ class TestBinaryBitwiseOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.BitXor)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_bit_shift_left_serialization(self):
+    @staticmethod
+    def test_bit_shift_left_serialization():
         """Test BitShiftLeft expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT32), span)
@@ -325,9 +346,10 @@ class TestBinaryBitwiseOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.BitShiftLeft)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_bit_shift_right_serialization(self):
+    @staticmethod
+    def test_bit_shift_right_serialization():
         """Test BitShiftRight expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT32), span)
@@ -338,13 +360,14 @@ class TestBinaryBitwiseOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.BitShiftRight)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
 
 class TestUnaryOperators:
     """Test serialization of unary operators."""
 
-    def test_abs_serialization(self):
+    @staticmethod
+    def test_abs_serialization():
         """Test Abs expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -354,9 +377,10 @@ class TestUnaryOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.Abs)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_neg_serialization(self):
+    @staticmethod
+    def test_neg_serialization():
         """Test Neg expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.FP32), span)
@@ -366,9 +390,10 @@ class TestUnaryOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.Neg)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_not_serialization(self):
+    @staticmethod
+    def test_not_serialization():
         """Test Not expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.BOOL), span)
@@ -378,9 +403,10 @@ class TestUnaryOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.Not)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_bit_not_serialization(self):
+    @staticmethod
+    def test_bit_not_serialization():
         """Test BitNot expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT32), span)
@@ -390,9 +416,10 @@ class TestUnaryOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.BitNot)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_cast_serialization(self):
+    @staticmethod
+    def test_cast_serialization():
         """Test Cast expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT32), span)
@@ -402,13 +429,14 @@ class TestUnaryOperators:
         restored = ir.deserialize(data)
 
         assert isinstance(restored, ir.Cast)
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
 
 class TestTupleOperations:
     """Test serialization of tuple-related expressions."""
 
-    def test_make_tuple_serialization(self):
+    @staticmethod
+    def test_make_tuple_serialization():
         """Test MakeTuple expression."""
         span = ir.Span.unknown()
         val1 = ir.ConstInt(10, DataType.INT64, span)
@@ -422,7 +450,8 @@ class TestTupleOperations:
         assert len(restored.elements) == 2
         ir.assert_structural_equal(make_tuple, restored)
 
-    def test_tuple_get_item_serialization(self):
+    @staticmethod
+    def test_tuple_get_item_serialization():
         """Test TupleGetItemExpr."""
         span = ir.Span.unknown()
         tuple_type = ir.TupleType([ir.ScalarType(DataType.INT64), ir.ScalarType(DataType.FP32)])
@@ -434,9 +463,10 @@ class TestTupleOperations:
 
         assert isinstance(restored, ir.TupleGetItemExpr)
         assert restored.index == 1
-        ir.assert_structural_equal(get_item, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(get_item, restored, enable_auto_mapping=True)
 
-    def test_empty_tuple_serialization(self):
+    @staticmethod
+    def test_empty_tuple_serialization():
         """Test empty MakeTuple expression."""
         span = ir.Span.unknown()
         empty_tuple = ir.MakeTuple([], span)
@@ -448,7 +478,8 @@ class TestTupleOperations:
         assert len(restored.elements) == 0
         ir.assert_structural_equal(empty_tuple, restored)
 
-    def test_nested_tuple_serialization(self):
+    @staticmethod
+    def test_nested_tuple_serialization():
         """Test nested tuple structures."""
         span = ir.Span.unknown()
 
@@ -474,7 +505,8 @@ class TestTupleOperations:
 class TestComplexExpressionTrees:
     """Test serialization of complex expression trees."""
 
-    def test_deeply_nested_expression(self):
+    @staticmethod
+    def test_deeply_nested_expression():
         """Test serializing deeply nested expression."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -502,9 +534,10 @@ class TestComplexExpressionTrees:
         assert count_adds(restored) == 5
 
         # Verify structural equality
-        ir.assert_structural_equal(expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_complex_arithmetic_tree(self):
+    @staticmethod
+    def test_complex_arithmetic_tree():
         """Test serializing complex arithmetic expression tree."""
         span = ir.Span.unknown()
         a = ir.Var("a", ir.ScalarType(DataType.FP32), span)
@@ -512,7 +545,6 @@ class TestComplexExpressionTrees:
         c = ir.Var("c", ir.ScalarType(DataType.FP32), span)
         d = ir.Var("d", ir.ScalarType(DataType.FP32), span)
 
-        # Build: ((a + b) * (c - d)) / ((a * c) + (b * d))
         add1 = ir.Add(a, b, DataType.FP32, span)
         sub1 = ir.Sub(c, d, DataType.FP32, span)
         mul1 = ir.Mul(add1, sub1, DataType.FP32, span)
@@ -533,9 +565,10 @@ class TestComplexExpressionTrees:
         assert isinstance(restored, ir.FloatDiv)
 
         # Verify structural equality
-        ir.assert_structural_equal(div1, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(div1, restored, enable_auto_mapping=True)
 
-    def test_mixed_operations_with_calls(self):
+    @staticmethod
+    def test_mixed_operations_with_calls():
         """Test serializing expressions with mixed operations and calls."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.TensorType([], DataType.FP32), span)
@@ -562,5 +595,5 @@ class TestComplexExpressionTrees:
         assert isinstance(restored.right, ir.Call)
 
         # Verify structural equality
-        ir.assert_structural_equal(add_expr, restored, enable_auto_mapping = True)
+        ir.assert_structural_equal(add_expr, restored, enable_auto_mapping=True)
 
