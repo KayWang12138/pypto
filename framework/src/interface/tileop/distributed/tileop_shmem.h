@@ -266,6 +266,26 @@ TILEOP void CopyGmToGmBlock(__gm__ TargetType* target, __ubuf__ UBType* buffer, 
     set_flag(PIPE_MTE3, PIPE_S, eventId);
 }
 
+template<typename TargetType, typename UBType, typename SourceType, uint32_t rowShape, uint32_t colFullBlockCount,
+    uint32_t colTailShape, uint32_t bufferColShape, uint32_t srcStride, uint32_t dstStride, AtomicType atomicType>
+TILEOP void CopyGmToGmRow(__gm__ TargetType* dstPtr, __gm__ SourceType* srcPtr,
+    __ubuf__ UBType* bufferA, __ubuf__ UBType* bufferB, uint32_t& eventId)
+{
+    uint32_t colOffset = 0;
+    for (uint32_t colIndex = 0; colIndex < colFullBlockCount; ++colIndex, colOffset += bufferColShape) {
+        __ubuf__ UBType* useBuffer = eventId == EVENT_ID0 ? bufferA : bufferB;
+        CopyGmToGmBlock<TargetType, UBType, SourceType, rowShape, bufferColShape, srcStride, bufferColShape, dstStride, atomicType>(
+            dstPtr + colOffset, useBuffer, srcPtr + colOffset, eventId);
+        eventId = ToggleEvent(eventId);
+    }
+    if constexpr (colTailShape > 0) {
+        __ubuf__ UBType* useBuffer = eventId == EVENT_ID0 ? bufferA : bufferB;
+        CopyGmToGmBlock<TargetType, UBType, SourceType, rowShape, colTailShape, srcStride, bufferColShape, dstStride, atomicType>(
+            dstPtr + colOffset, useBuffer, srcPtr + colOffset, eventId);
+        eventId = ToggleEvent(eventId);
+    }
+}
+
 // Full tile copy with row/column chunking. Ping-pong layout: same type bufferA|bufferB; with conversion bufferA|castUbA|bufferB|castUbB.
 template<typename TargetType, typename UBType, typename SourceType, uint32_t tileRowShape, uint32_t tileColShape, 
     uint32_t bufferRowShape, uint32_t bufferColShape, uint32_t srcStride, uint32_t dstStride, AtomicType atomicType>
@@ -295,35 +315,13 @@ TILEOP void CopyGmToGm(__gm__ TargetType* target, __ubuf__ UBType* buffer, __gm_
     __gm__ SourceType* srcPtr = source;
     __gm__ TargetType* dstPtr = target;
     for (uint32_t rowIndex = 0; rowIndex < rowFullBlockCount; ++rowIndex, srcPtr += srcRowStride, dstPtr += dstRowStride) {
-        uint32_t colOffset = 0;
-        for (uint32_t colIndex = 0; colIndex < colFullBlockCount; ++colIndex, colOffset += bufferColShape) {
-            __ubuf__ UBType* useBuffer = eventId == EVENT_ID0 ? bufferA : bufferB;
-            CopyGmToGmBlock<TargetType, UBType, SourceType, bufferRowShape, bufferColShape, srcStride, bufferColShape, dstStride, atomicType>(
-                dstPtr + colOffset, useBuffer, srcPtr + colOffset, eventId);
-            eventId = ToggleEvent(eventId);
-        }
-        if constexpr (colTailShape > 0) {
-            __ubuf__ UBType* useBuffer = eventId == EVENT_ID0 ? bufferA : bufferB;
-            CopyGmToGmBlock<TargetType, UBType, SourceType, bufferRowShape, colTailShape, srcStride, bufferColShape, dstStride, atomicType>(
-                dstPtr + colOffset, useBuffer, srcPtr + colOffset, eventId);
-            eventId = ToggleEvent(eventId);
-        }
+        CopyGmToGmRow<TargetType, UBType, SourceType, bufferRowShape, colFullBlockCount, colTailShape,
+            bufferColShape, srcStride, dstStride, atomicType>(dstPtr, srcPtr, bufferA, bufferB, eventId);
     }
     
     if constexpr (rowTailShape > 0) {
-        uint32_t colOffset = 0;
-        for (uint32_t colIndex = 0; colIndex < colFullBlockCount; ++colIndex, colOffset += bufferColShape) {
-            __ubuf__ UBType* useBuffer = eventId == EVENT_ID0 ? bufferA : bufferB;
-            CopyGmToGmBlock<TargetType, UBType, SourceType, rowTailShape, bufferColShape, srcStride, bufferColShape, dstStride, atomicType>(
-                dstPtr + colOffset, useBuffer, srcPtr + colOffset, eventId);
-            eventId = ToggleEvent(eventId);
-        }
-        if constexpr (colTailShape > 0) {
-            __ubuf__ UBType* useBuffer = eventId == EVENT_ID0 ? bufferA : bufferB;
-            CopyGmToGmBlock<TargetType, UBType, SourceType, rowTailShape, colTailShape, srcStride, bufferColShape, dstStride, atomicType>(
-                dstPtr + colOffset, useBuffer, srcPtr + colOffset, eventId);
-            eventId = ToggleEvent(eventId);
-        }
+        CopyGmToGmRow<TargetType, UBType, SourceType, rowTailShape, colFullBlockCount, colTailShape,
+            bufferColShape, srcStride, dstStride, atomicType>(dstPtr, srcPtr, bufferA, bufferB, eventId);
     }
     
     wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
