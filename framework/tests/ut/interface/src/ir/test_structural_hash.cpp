@@ -35,7 +35,31 @@
 namespace pypto {
 namespace ir {
 
-class StructuralHashTest : public testing::Test {};
+class StructuralHashTest : public testing::Test {
+ protected:
+  struct KwargsTestFixture {
+    Span sp;
+    VarPtr a;
+    VarPtr b;
+    CallPtr base_call;
+  };
+
+  // Common setup for kwargs hash tests: creates two tensor Vars and a base Call via registry
+  KwargsTestFixture MakeKwargsTestFixture() {
+    Span sp = Span::unknown();
+    auto& reg = OpRegistry::GetInstance();
+    auto a = std::make_shared<Var>("a",
+        std::make_shared<TensorType>(
+            std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
+            DataType::FP32), sp);
+    auto b = std::make_shared<Var>("b",
+        std::make_shared<TensorType>(
+            std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
+            DataType::FP32), sp);
+    auto base_call = As<Call>(reg.Create("tensor.add", {a, b}, sp));
+    return {sp, a, b, base_call};
+  }
+};
 
 // ============================================================================
 // Hash Consistency Tests
@@ -455,21 +479,9 @@ TEST_F(StructuralHashTest, TestIterArgHash) {
 // ============================================================================
 
 TEST_F(StructuralHashTest, TestCallWithStringKwarg) {
-  Span sp = Span::unknown();
-  auto& reg = OpRegistry::GetInstance();
-  // Create a base call to get a valid OpPtr
-  auto a = std::make_shared<Var>("a",
-      std::make_shared<TensorType>(
-          std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
-          DataType::FP32), sp);
-  auto b = std::make_shared<Var>("b",
-      std::make_shared<TensorType>(
-          std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
-          DataType::FP32), sp);
-  auto base_call = As<Call>(reg.Create("tensor.add", {a, b}, sp));
+  auto [sp, a, b, base_call] = MakeKwargsTestFixture();
   ASSERT_NE(base_call, nullptr);
 
-  // Create custom Calls with string kwargs
   std::vector<std::pair<std::string, std::any>> kwargs1 = {
       {"label", std::any(std::string("test"))}};
   auto call1 = std::make_shared<const Call>(
@@ -486,17 +498,7 @@ TEST_F(StructuralHashTest, TestCallWithStringKwarg) {
 }
 
 TEST_F(StructuralHashTest, TestCallWithDoubleKwarg) {
-  Span sp = Span::unknown();
-  auto& reg = OpRegistry::GetInstance();
-  auto a = std::make_shared<Var>("a",
-      std::make_shared<TensorType>(
-          std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
-          DataType::FP32), sp);
-  auto b = std::make_shared<Var>("b",
-      std::make_shared<TensorType>(
-          std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
-          DataType::FP32), sp);
-  auto base_call = As<Call>(reg.Create("tensor.add", {a, b}, sp));
+  auto [sp, a, b, base_call] = MakeKwargsTestFixture();
 
   std::vector<std::pair<std::string, std::any>> kwargs1 = {
       {"scale", std::any(3.14)}};
@@ -514,17 +516,7 @@ TEST_F(StructuralHashTest, TestCallWithDoubleKwarg) {
 }
 
 TEST_F(StructuralHashTest, TestCallWithFloatKwarg) {
-  Span sp = Span::unknown();
-  auto& reg = OpRegistry::GetInstance();
-  auto a = std::make_shared<Var>("a",
-      std::make_shared<TensorType>(
-          std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
-          DataType::FP32), sp);
-  auto b = std::make_shared<Var>("b",
-      std::make_shared<TensorType>(
-          std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
-          DataType::FP32), sp);
-  auto base_call = As<Call>(reg.Create("tensor.add", {a, b}, sp));
+  auto [sp, a, b, base_call] = MakeKwargsTestFixture();
 
   std::vector<std::pair<std::string, std::any>> kwargs1 = {
       {"epsilon", std::any(1.0f)}};
@@ -542,17 +534,7 @@ TEST_F(StructuralHashTest, TestCallWithFloatKwarg) {
 }
 
 TEST_F(StructuralHashTest, TestCallWithDataTypeKwarg) {
-  Span sp = Span::unknown();
-  auto& reg = OpRegistry::GetInstance();
-  auto a = std::make_shared<Var>("a",
-      std::make_shared<TensorType>(
-          std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
-          DataType::FP32), sp);
-  auto b = std::make_shared<Var>("b",
-      std::make_shared<TensorType>(
-          std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
-          DataType::FP32), sp);
-  auto base_call = As<Call>(reg.Create("tensor.add", {a, b}, sp));
+  auto [sp, a, b, base_call] = MakeKwargsTestFixture();
 
   std::vector<std::pair<std::string, std::any>> kwargs1 = {
       {"dtype", std::any(DataType::FP16)}};
