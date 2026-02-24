@@ -485,9 +485,6 @@ std::string TestCopyL1Body(Opcode opcode, MemoryType inputType, MemoryType outpu
     TileShape::Current().SetVecTile(shape);
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
 
-    InsertTileTensorOp(Opcode::OP_UB_COPY_L1, "TExtract");
-    InsertTileTensorOp(Opcode::OP_UB_COPY_ND2NZ, "TMoveND2NZ");
-    InsertTileTensorOp(Opcode::OP_L0C_TO_L1, "TExtract");
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
