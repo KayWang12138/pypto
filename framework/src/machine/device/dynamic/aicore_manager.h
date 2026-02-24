@@ -791,11 +791,41 @@ private:
         return ret;
     }
 
+    // #define SYM_VALUE_LEN 63
+    // #define SYM_VALUE_MASK ((1UL << SYM_VALUE_LEN) - 1)
+    // #define SYM_IS_EXPR(val) (val & (1UL << SYM_VALUE_LEN))
+    // #define SYM_VALUE(val) (val & SYM_VALUE_MASK)
+    // inline schema::coa SchemaGetCoa(uint64_t newTask) {
+    //     auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
+    //     DynFuncHeader *header = (DynFuncHeader *)dyntask->GetDynFuncDataList();
+    //     auto funcDataList = (DynFuncData *)(header + 1);
+    //     auto funcData = funcDataList[FuncID(newTask)];
+    //     auto opAttrs = &funcData->opAttrs[funcData->opAtrrOffsets[npu::tile_fwk::TaskID(newTask)]];
+    //     std::vector<schema::TextType> coaDataList;
+    //     for (int i = 0; i < funcData->opAttrSize; i++) {
+    //         uint64_t val = opAttrs[i];
+    //         std::string textData;
+    //         if (SYM_IS_EXPR(val)) {
+    //             textData = "?" + std::to_string(s.Value());
+    //         }
+    //         else {
+    //             textData = std::to_string(s.Value());
+    //         }
+    //         coaDataList.push_back(schema::TextType(textData));
+    //     }
+    //     schema::coa(schema::coaType(coaDataList));
+    // }
+
     inline void SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTask) {
         DEV_TRACE_DEBUG(LEvent(
             LUid(curTaskCtrl_->taskId, FuncID(newTask), GetRootIndex(newTask), TaskID(newTask), GetLeafIndex(newTask)),
             LActStart(coreIdx)));
-
+        // DEV_TRACE_DEBUG(LEvent(
+        //     LUid(curTaskCtrl_->taskId, FuncID(newTask), GetRootIndex(newTask), TaskID(newTask), GetLeafIndex(newTask)),
+        //     SchemaGetCoa()));
+        DEV_TRACE_DEBUG(LEvent(
+            LUid(curTaskCtrl_->taskId, FuncID(newTask), GetRootIndex(newTask), TaskID(newTask), GetLeafIndex(newTask)),
+            GetDuppedData()->GetSource()->SchemaGetCoa(GetLeafIndex(newTask))));
 #if ENABLE_TENSOR_DUMP
         // dump input tensor
         aicoreDump_.DoDump(curDevTask_, "input", newTask, GetPhyIdByBlockId(coreIdx));

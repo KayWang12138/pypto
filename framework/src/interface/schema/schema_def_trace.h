@@ -57,6 +57,7 @@ SCHEMA_DEF_ATTR(RActOutcastCount, Int64Type);
 SCHEMA_DEF_ATTR(RActOutcast, outcast, range);
 SCHEMA_DEF_ATTR(RActRawTensorCount, Int64Type);
 SCHEMA_DEF_ATTR(RActRawTensor, rawTensor, rawDesc);
+SCHEMA_DEF_ATTR(RActExpressionCount, Int64Type);
 SCHEMA_DEF_ATTR(RActWorkspace, range);
 SCHEMA_DEF_TYPE_UNION(RActType, RActDup, RActStitch, RActIncastCount, RActIncast, RActOutcastCount, RActOutcast, expr,
                       RActRawTensorCount, RActRawTensor, RActWorkspace);

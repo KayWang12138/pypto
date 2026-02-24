@@ -131,6 +131,15 @@ struct DevAscendFunctionDuppedData {
         return schema::RActWorkspace(schema::Range(workspaceBegin, workspaceEnd));
     }
 
+    schema::ExpressionTable SchemaGetExpressionList() const {
+        size_t expressionSize = GetExpressionSize();
+        std::vector<schema::Int64Type> expressionList;
+        for (size_t i = 0; i < expressionSize; i++) {
+            expressionList.push_back(schema::Int64Type(GetExpression(i)));
+        }
+        return schema::ExpressionTable(expressionList);
+    }
+    
     std::string Dump(int indent = 0) const;
 };
 
