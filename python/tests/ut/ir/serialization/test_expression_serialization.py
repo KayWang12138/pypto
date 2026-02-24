@@ -574,7 +574,6 @@ class TestComplexExpressionTrees:
         x = ir.Var("x", ir.TensorType([], DataType.FP32), span)
         y = ir.Var("y", ir.TensorType([], DataType.FP32), span)
 
-        # relu(x) + sigmoid(y)
         relu_op = ir.Op("relu")
         sigmoid_op = ir.Op("sigmoid")
 
