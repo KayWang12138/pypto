@@ -29,6 +29,11 @@ TILEOP void UnaryComputeImpl(T0 dst, T1 src) {
         PTO_WITH_LAST_USE(pto::TEXP(dst, src), n1, n2);
         return;
     }
+    if constexpr (op == UnaryOp::EXPM1) {
+        pto::TEXP(dst, src);
+        pto::TADDS(dst, dst, -1.0f);
+        return;
+    }
     if constexpr (op == UnaryOp::RSQRT) {
         PTO_WITH_LAST_USE(pto::TRSQRT(dst, src), n1, n2);
         return;
@@ -135,6 +140,12 @@ TILEOP void BrcbCompute(T0 dst, T1 src) {
 template <typename LastUse = LastUse2Dim<0, 0>, typename T0, typename T1>
 TILEOP void TExp(T0 dst, T1 src) {
     UnaryCompute<UnaryOp::EXP, LastUse>(dst, src);
+}
+
+#define OP_TILE_OP_EXPM1 TExpm1
+template <typename T0, typename T1>
+TILEOP void TExpm1(T0 dst, T1 src) {
+    UnaryCompute<UnaryOp::EXPM1>(dst, src);
 }
 
 #define OP_TILE_OP_RSQRT TRsqrt
