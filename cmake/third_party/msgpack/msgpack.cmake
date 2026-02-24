@@ -30,6 +30,24 @@ if (NOT PYPTO_THIRD_PARTY_PATH)
 endif ()
 
 # msgpack-c is a header-only library, look for it in third_party_path
+
+# 优先查找预编译制品
+get_filename_component(_TargetInstallPrefix "${PYPTO_THIRD_PARTY_PATH}/${CMAKE_BUILD_TYPE}" REALPATH)
+find_path(_MsgpackIncludeDir msgpack.hpp
+        PATHS
+            "${_TargetInstallPrefix}/include"
+            "${PYPTO_THIRD_PARTY_PATH}/include"
+        NO_DEFAULT_PATH
+)
+if (_MsgpackIncludeDir)
+    message(STATUS "Use msgpack-c from binary, include=${_MsgpackIncludeDir}")
+    add_library(${_TargetNameAlias} INTERFACE)
+    target_include_directories(${_TargetNameAlias} SYSTEM INTERFACE "${_MsgpackIncludeDir}")
+    target_compile_definitions(${_TargetNameAlias} INTERFACE MSGPACK_NO_BOOST)
+    return()
+endif ()
+
+# 查找源码目录
 get_filename_component(_MsgpackSourceDir "${PYPTO_THIRD_PARTY_PATH}/msgpack-c" REALPATH)
 if (NOT EXISTS "${_MsgpackSourceDir}/include/msgpack.hpp")
     get_filename_component(_MsgpackSourceDir "${PYPTO_THIRD_PARTY_PATH}/msgpack-cxx-${_TargetVersion}" REALPATH)
