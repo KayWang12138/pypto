@@ -37,7 +37,7 @@
 #include <vector>
 #include "tilefwk/tile_shape.h"
 #include "interface/interpreter/raw_tensor_data.h"
-#include "interface/tileop/distributed/hccl_context.h"
+#include "machine/runtime/distributed/hccl_context.h"
 #include "interface/utils/op_info_manager.h"
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/emulation_launcher.h"
@@ -513,7 +513,7 @@ uint64_t AllocShmemContextLocked(uint64_t hcclHandle)
             world = envWorld;
         }
     }
-    if (rank < 0 || world <= 0 || world > static_cast<int>(TileOp::AICPU_MAX_RANK_NUM_V1)) {
+    if (rank < 0 || world <= 0 || world > static_cast<int>(npu::tile_fwk::AICPU_MAX_RANK_NUM_V1)) {
         ShmemLog("[pypto] shmem rank/world invalid: rank=%d world=%d\n", rank, world);
         return 0;
     }
@@ -531,12 +531,12 @@ uint64_t AllocShmemContextLocked(uint64_t hcclHandle)
         baseAddr = reinterpret_cast<uint64_t>(shmemPtr);
     }
 
-    TileOp::HcclCombinOpParam hostParam{};
+    npu::tile_fwk::HcclCombinOpParam hostParam{};
     hostParam.rankId = static_cast<uint32_t>(rank);
     hostParam.rankNum = static_cast<uint32_t>(world);
     hostParam.winSize = SHMEM_HALF_SIZE;
     hostParam.winExpSize = SHMEM_HALF_SIZE;
-    hostParam.padding[0] = TileOp::HCCL_CONTEXT_MAGIC;
+    hostParam.padding[0] = npu::tile_fwk::HCCL_CONTEXT_MAGIC;
     for (int pe = 0; pe < world; ++pe) {
         void *winIn = shmem_ptr(reinterpret_cast<void *>(baseAddr), pe);
         void *winExp = shmem_ptr(reinterpret_cast<void *>(baseAddr + SHMEM_HALF_SIZE), pe);
@@ -575,22 +575,22 @@ uint64_t BuildHcclCombinContextFromOpRes(void *commContext)
         return 0;
     }
     bool debugHccl = (std::getenv("PYPTO_HCCL_DEBUG") != nullptr);
-    auto opRes = std::make_unique<TileOp::HcclOpResParam>();
+    auto opRes = std::make_unique<npu::tile_fwk::HcclOpResParam>();
     auto memcpyRet = rtMemcpy(opRes.get(), sizeof(*opRes), commContext, sizeof(*opRes), RT_MEMCPY_DEVICE_TO_HOST);
     if (memcpyRet != RT_ERROR_NONE) {
         ShmemLog("[pypto] rtMemcpy HcclOpResParam failed ret=%d\n", memcpyRet);
         return 0;
     }
-    if (opRes->rankSize == 0 || opRes->rankSize > TileOp::AICPU_MAX_RANK_NUM_V1) {
+    if (opRes->rankSize == 0 || opRes->rankSize > npu::tile_fwk::AICPU_MAX_RANK_NUM_V1) {
         ShmemLog("[pypto] HcclOpResParam rankSize invalid: %u\n", opRes->rankSize);
         return 0;
     }
-    TileOp::HcclCombinOpParam hostParam{};
+    npu::tile_fwk::HcclCombinOpParam hostParam{};
     hostParam.rankId = opRes->localUsrRankId;
     hostParam.rankNum = opRes->rankSize;
     hostParam.winSize = opRes->winSize;
     hostParam.winExpSize = opRes->winExpSize;
-    hostParam.padding[0] = TileOp::HCCL_CONTEXT_MAGIC;
+    hostParam.padding[0] = npu::tile_fwk::HCCL_CONTEXT_MAGIC;
     std::vector<uint8_t> filled(static_cast<size_t>(hostParam.rankNum), 0U);
     if (debugHccl) {
         ShmemLog("[pypto] opRes rankId=%u rankNum=%u winSize=%lu winExpSize=%lu localIn=0x%lx localOut=0x%lx localExp=0x%lx\n",
@@ -607,7 +607,7 @@ uint64_t BuildHcclCombinContextFromOpRes(void *commContext)
             continue;
         }
     }
-    auto applyRel = [&](const TileOp::HcclRankRelationResV2 &rel, uint32_t srcIdx) {
+    auto applyRel = [&](const npu::tile_fwk::HcclRankRelationResV2 &rel, uint32_t srcIdx) {
         if (rel.remoteUsrRankId >= hostParam.rankNum) {
             if (debugHccl) {
                 ShmemLog("[pypto] opRes rel idx=%u remoteUsrRankId=%u out of range\n", srcIdx, rel.remoteUsrRankId);
@@ -630,8 +630,8 @@ uint64_t BuildHcclCombinContextFromOpRes(void *commContext)
         }
     };
     uint32_t maxRemoteRes = opRes->remoteResNum;
-    if (maxRemoteRes > TileOp::AICPU_MAX_RANK_NUM) {
-        maxRemoteRes = TileOp::AICPU_MAX_RANK_NUM;
+    if (maxRemoteRes > npu::tile_fwk::AICPU_MAX_RANK_NUM) {
+        maxRemoteRes = npu::tile_fwk::AICPU_MAX_RANK_NUM;
     }
     for (uint32_t idx = 0; idx < maxRemoteRes; ++idx) {
         uint64_t remotePtr = opRes->remoteRes[idx].nextDevicePtr;
@@ -642,7 +642,7 @@ uint64_t BuildHcclCombinContextFromOpRes(void *commContext)
         if (remotePtr == 0) {
             continue;
         }
-        TileOp::HcclRankRelationResV2 rel{};
+        npu::tile_fwk::HcclRankRelationResV2 rel{};
         auto relRet = rtMemcpy(&rel, sizeof(rel), reinterpret_cast<void *>(remotePtr),
             sizeof(rel), RT_MEMCPY_DEVICE_TO_HOST);
         if (relRet != RT_ERROR_NONE) {
@@ -662,7 +662,7 @@ uint64_t BuildHcclCombinContextFromOpRes(void *commContext)
         if (remotePtr == 0) {
             continue;
         }
-        TileOp::HcclRankRelationResV2 rel{};
+        npu::tile_fwk::HcclRankRelationResV2 rel{};
         auto relRet = rtMemcpy(&rel, sizeof(rel), reinterpret_cast<void *>(remotePtr),
             sizeof(rel), RT_MEMCPY_DEVICE_TO_HOST);
         if (relRet != RT_ERROR_NONE) {
@@ -803,7 +803,7 @@ uint64_t AllocHcclContext(uint64_t hcclHandle, const std::string &groupName, voi
 #endif
     void *commContext = nullptr;
     int ret = -1;
-    Mc2CommConfigV2 commConfigV2 = {};
+    npu::tile_fwk::dynamic::Mc2CommConfigV2 commConfigV2 = {};
     if (MakeMc2TilingStructV2(commConfigV2, groupName) == 0) {
         ret = HcclAllocComResourceByTiling(reinterpret_cast<void *>(commHandle),
             aicoreStream, &commConfigV2, &commContext);
@@ -811,7 +811,7 @@ uint64_t AllocHcclContext(uint64_t hcclHandle, const std::string &groupName, voi
     }
     if (ret != 0 || commContext == nullptr) {
         commContext = nullptr;
-        Mc2CommConfig commConfig = {};
+        npu::tile_fwk::dynamic::Mc2CommConfig commConfig = {};
         if (MakeMc2TilingStruct(commConfig, groupName) == 0) {
             ret = HcclAllocComResourceByTiling(reinterpret_cast<void *>(commHandle),
                 aicoreStream, &commConfig, &commContext);
@@ -820,7 +820,7 @@ uint64_t AllocHcclContext(uint64_t hcclHandle, const std::string &groupName, voi
     }
     if (ret != 0 || commContext == nullptr) {
         commContext = nullptr;
-        Mc2CommConfig commConfigRetry = {};
+        npu::tile_fwk::dynamic::Mc2CommConfig commConfigRetry = {};
         if (MakeMc2TilingStruct(commConfigRetry, groupName) == 0) {
             ret = HcclAllocComResourceByTiling(reinterpret_cast<void *>(commHandle), nullptr,
                 &commConfigRetry, &commContext);
@@ -828,7 +828,7 @@ uint64_t AllocHcclContext(uint64_t hcclHandle, const std::string &groupName, voi
         }
         if (ret != 0 || commContext == nullptr) {
             commContext = nullptr;
-            Mc2CommConfigV2 commConfigV2Retry = {};
+            npu::tile_fwk::dynamic::Mc2CommConfigV2 commConfigV2Retry = {};
             if (MakeMc2TilingStructV2(commConfigV2Retry, groupName) == 0) {
                 ret = HcclAllocComResourceByTiling(reinterpret_cast<void *>(commHandle), nullptr,
                     &commConfigV2Retry, &commContext);
@@ -903,10 +903,10 @@ uint64_t AllocHcclContext(uint64_t hcclHandle, const std::string &groupName, voi
             return 0;
         }
         uint64_t contextVal = 0;
-        TileOp::HcclCombinOpParam probe{};
+        npu::tile_fwk::HcclCombinOpParam probe{};
         auto probeRet = rtMemcpy(&probe, sizeof(probe), fallbackContext, sizeof(probe), RT_MEMCPY_DEVICE_TO_HOST);
-        bool looksCombin = (probeRet == RT_ERROR_NONE && probe.padding[0] == TileOp::HCCL_CONTEXT_MAGIC &&
-            probe.rankNum > 0 && probe.rankNum <= TileOp::AICPU_MAX_RANK_NUM_V1 && probe.rankId < probe.rankNum);
+        bool looksCombin = (probeRet == RT_ERROR_NONE && probe.padding[0] == npu::tile_fwk::HCCL_CONTEXT_MAGIC &&
+            probe.rankNum > 0 && probe.rankNum <= npu::tile_fwk::AICPU_MAX_RANK_NUM_V1 && probe.rankId < probe.rankNum);
         if (looksCombin) {
             contextVal = reinterpret_cast<uint64_t>(fallbackContext);
         } else {
@@ -923,10 +923,10 @@ uint64_t AllocHcclContext(uint64_t hcclHandle, const std::string &groupName, voi
     }
     if (ret == 0 && commContext != nullptr) {
         uint64_t contextVal = reinterpret_cast<uint64_t>(commContext);
-        TileOp::HcclCombinOpParam probe{};
+        npu::tile_fwk::HcclCombinOpParam probe{};
         auto probeRet = rtMemcpy(&probe, sizeof(probe), commContext, sizeof(probe), RT_MEMCPY_DEVICE_TO_HOST);
-        bool looksCombin = (probeRet == RT_ERROR_NONE && probe.padding[0] == TileOp::HCCL_CONTEXT_MAGIC &&
-            probe.rankNum > 0 && probe.rankNum <= TileOp::AICPU_MAX_RANK_NUM_V1 && probe.rankId < probe.rankNum);
+        bool looksCombin = (probeRet == RT_ERROR_NONE && probe.padding[0] == npu::tile_fwk::HCCL_CONTEXT_MAGIC &&
+            probe.rankNum > 0 && probe.rankNum <= npu::tile_fwk::AICPU_MAX_RANK_NUM_V1 && probe.rankId < probe.rankNum);
         if (!looksCombin) {
             uint64_t converted = BuildHcclCombinContextFromOpRes(commContext);
             if (converted != 0) {
@@ -943,7 +943,7 @@ uint64_t AllocHcclContext(uint64_t hcclHandle, const std::string &groupName, voi
                 fprintf(commLog, "[pypto] hcclContext=0x%lx\n", contextVal);
                 fclose(commLog);
             }
-            TileOp::HcclCombinOpParam hostParam{};
+            npu::tile_fwk::HcclCombinOpParam hostParam{};
             auto memcpyRet = rtMemcpy(&hostParam, sizeof(hostParam), reinterpret_cast<void *>(contextVal),
                 sizeof(hostParam), RT_MEMCPY_DEVICE_TO_HOST);
             if (memcpyRet == RT_ERROR_NONE) {
@@ -963,7 +963,7 @@ uint64_t AllocHcclContext(uint64_t hcclHandle, const std::string &groupName, voi
             logged = true;
         }
         if (debugHccl) {
-            TileOp::HcclCombinOpParam debugParam{};
+            npu::tile_fwk::HcclCombinOpParam debugParam{};
             auto debugRet = rtMemcpy(&debugParam, sizeof(debugParam), reinterpret_cast<void *>(contextVal),
                 sizeof(debugParam), RT_MEMCPY_DEVICE_TO_HOST);
             if (debugRet == RT_ERROR_NONE) {
@@ -1730,7 +1730,6 @@ public:
         auto [args, argsSize] = kernel->BuildKernelArgs(tensors);
         rtAicpuArgs.args = args;
         rtAicpuArgs.argsSize = argsSize;
-        kernel->EnsureDistributedContext(reinterpret_cast<void *>(aicoreStream));
 
         args->kArgs.ctrlFlowCache = (int64_t *)ctrlFlowCache;
         args->kArgs.workspace = workspace;

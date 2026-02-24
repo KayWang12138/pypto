@@ -82,6 +82,8 @@ def test_use_cache_false_compiles_twice():
         f"Second call was too fast ({second_call_time:.4f}s vs {first_call_time:.4f}s), " \
         f"suggesting cache was used when it shouldn't be"
 
+    # Ensure pending kernels are drained before next ST case starts.
+    torch.npu.synchronize()
     logging.info("✓ Verified: Both calls compiled (use_cache=False working correctly)")
 
 
@@ -119,6 +121,8 @@ def test_use_cache_true_compiles_once():
         f"Second call was not faster enough ({second_call_time:.4f}s vs {first_call_time:.4f}s), " \
         f"suggesting cache was not used when it should be"
 
+    # Ensure pending kernels are drained before next ST case starts.
+    torch.npu.synchronize()
     logging.info(f"✓ Verified: Second call reused cache (speedup: {1/ratio:.1f}x)")
 
 

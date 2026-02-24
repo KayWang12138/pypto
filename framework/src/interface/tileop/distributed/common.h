@@ -192,20 +192,6 @@ TILEOP __gm__ T* MapVirtualAddr(__gm__ int64_t *hcclContext, __gm__ T* vAddr, ui
     } else {
         return (__gm__ T*)(commCtxParam->winAddr[commCtxParam->statusIndex + dstRankId] + offset);
     }
-    return (__gm__ T*)(((__gm__ TileOp::HcclCombinOpParam *)hcclContext[groupIndex])->windowsExp[dstRankId] + offset);
-#else
-    auto winContext = (__gm__ TileOp::HcclCombinOpParam *)hcclContext[groupIndex];
-    if (winContext->padding[0] == TileOp::HCCL_CONTEXT_MAGIC) {
-        if (memType == 0) {
-            return (__gm__ T*)(winContext->windowsIn[dstRankId] + offset);
-        }
-        return (__gm__ T*)(winContext->windowsExp[dstRankId] + offset);
-    }
-    if (memType == 0) {
-        return (__gm__ T*)shmem_ptr((__gm__ uint8_t *)(hcclContext[groupIndex]) + offset, dstRankId);
-    }
-    return (__gm__ T*)shmem_ptr((__gm__ uint8_t *)(hcclContext[groupIndex]) + (1UL << 29) + offset, dstRankId);
-#endif
 }
 
 /* UB 清 0 */

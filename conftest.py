@@ -68,9 +68,9 @@ def pytest_configure_node(node):
     if device_id_lst:
         # 获取 WorkerIdx, 并获取 DeviceId
         worker_idx = int(str(node.gateway.id).lstrip("gw"))
-        if worker_idx >= len(device_id_lst):
-            raise ValueError(f"WorkerIdx[{worker_idx}] out of DeviceIdLst{device_id_lst} range.")
-        device_id: int = device_id_lst[worker_idx]
+        # xdist worker 异常重建时, worker_idx 可能递增(gw1/gw2...), 但设备列表长度不变.
+        # 采用环形映射可避免 worker 重建导致的索引越界。
+        device_id: int = device_id_lst[worker_idx % len(device_id_lst)]
 
         # 修改 worker 名称, 设置 worker 中的 DeviceId
         node.gateway.id = f"Device[{device_id}]"  # 体现在回显中

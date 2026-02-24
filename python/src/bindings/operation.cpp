@@ -620,7 +620,8 @@ void bind_operation(py::module &m) {
 
     m.def("MoeDispatch",
         [](const Tensor &tokenTensor, const Tensor &tokenExpertTable, Tensor &expandX, Tensor &validCnt, Tensor &combineInfo, const std::string &group, const Distributed::MoeConfig &moeConfig) {
-            Distributed::MoeDispatch(tokenTensor, tokenExpertTable, expandX, validCnt, combineInfo, group.c_str(), moeConfig);
+            Distributed::MoeDistributedDispatch(
+                tokenTensor, tokenExpertTable, expandX, validCnt, combineInfo, group.c_str(), moeConfig);
         },
         py::arg("tokenTensor"), py::arg("tokenExpertTable"), py::arg("expandX"), py::arg("validCnt"), py::arg("combineInfo"), py::arg("group"), py::arg("moeConfig"),
         "MoE dispatch operation.");

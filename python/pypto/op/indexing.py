@@ -482,3 +482,15 @@ def scatter(
     if isinstance(src, float):
         return pypto_impl.Scatter(input, index, pypto_impl.Element(input.dtype, src), dim, scatter_mode)
     return pypto_impl.Scatter(input, index, src, dim, scatter_mode)
+
+
+def scatter_tensor_(
+    input: Tensor, dim: int, index: Tensor, src: Union[float, Element, Tensor], *, reduce: str = None) -> Tensor:
+    """Backward-compatible alias of scatter_."""
+    return scatter_(input, dim, index, src, reduce=reduce)
+
+
+def scatter_tensor(
+    input: Tensor, dim: int, index: Tensor, src: Union[float, Element, Tensor], *, reduce: str = None) -> Tensor:
+    """Backward-compatible alias of scatter."""
+    return scatter(input, dim, index, src, reduce=reduce)

@@ -646,6 +646,16 @@ class Tensor:
                 src: Union[float, Element, 'Tensor'], *, reduce: str = None) -> 'Tensor':
         return pypto.scatter(self, dim, index, src, reduce=reduce)
 
+    @source_location
+    def scatter_tensor_(self, dim: int, index: 'Tensor',
+                        src: Union[float, Element, 'Tensor'], *, reduce: str = None) -> 'Tensor':
+        return pypto.scatter_tensor_(self, dim, index, src, reduce=reduce)
+
+    @source_location
+    def scatter_tensor(self, dim: int, index: 'Tensor',
+                       src: Union[float, Element, 'Tensor'], *, reduce: str = None) -> 'Tensor':
+        return pypto.scatter_tensor(self, dim, index, src, reduce=reduce)
+
     def _is_empty_slice(self, key):
         if isinstance(key, slice):
             return key.start is None and key.stop is None and key.step is None

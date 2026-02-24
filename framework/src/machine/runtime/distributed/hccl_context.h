@@ -24,6 +24,7 @@ constexpr uint32_t LOCAL_STREAM_MAX_NUM = 19;
 constexpr uint32_t AICPU_OP_NOTIFY_MAX_NUM = 2;
 constexpr uint32_t AICPU_MAX_RANK_NUM = 128 * 1024;
 constexpr uint32_t AICPU_MAX_RANK_NUM_V1 = 32;
+constexpr uint8_t HCCL_CONTEXT_MAGIC = 0xA5;
 
 struct HcclSignalInfo {
     uint64_t resId; // 在代表event时为eventid，notify时为notifyid
