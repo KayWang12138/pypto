@@ -492,7 +492,7 @@ SymbolicScalar SymbolicScalar::operator()(const std::vector<SymbolicScalar> &arg
         args.push_back(a.raw_);
     }
     auto raw = RawSymbolicExpression::CreateMopCall(args);
-    if (AllConcreteValid({*this}) && AllConcreteValid(argList)) {
+    if (ConcreteValid() && AllConcreteValid(argList)) {
         std::vector<ScalarImmediateType> calcArgList = {Concrete()};
         for (auto &a : argList) {
             calcArgList.push_back(a.Concrete());
@@ -604,60 +604,6 @@ std::vector<RawSymbolicScalarPtr> LookupExpressionByOpcode(const RawSymbolicScal
     std::vector<RawSymbolicScalarPtr> exprList;
     LookupExpressionByOpcode(exprList, opcode, value);
     return exprList;
-}
-
-void RawSymbolicExpression::DumpBuffer(std::ostream &buffer) const {
-    if (SymbolicOpcode::T_UOP_BEGIN <= opcode_ && opcode_ < SymbolicOpcode::T_UOP_END) {
-        buffer << "(";
-        buffer << GetSymbolicCalcOpcode(opcode_);
-        operandList_[0]->DumpBuffer(buffer);
-        buffer << ")";
-    } else if (SymbolicOpcode::T_BOP_BEGIN <= opcode_ && opcode_ < SymbolicOpcode::T_BOP_END) {
-        if (opcode_ == SymbolicOpcode::T_BOP_MAX) {
-            buffer << "RUNTIME_Max(";
-            operandList_[0]->DumpBuffer(buffer);
-            buffer << ", ";
-            operandList_[1]->DumpBuffer(buffer);
-            buffer << ")";
-        } else if (opcode_ == SymbolicOpcode::T_BOP_MIN) {
-            buffer << "RUNTIME_Min(";
-            operandList_[0]->DumpBuffer(buffer);
-            buffer << ", ";
-            operandList_[1]->DumpBuffer(buffer);
-            buffer << ")";
-        } else if (opcode_ == SymbolicOpcode::T_BOP_EQ) {
-            buffer << "RUNTIME_Eq(";
-            operandList_[0]->DumpBuffer(buffer);
-            buffer << ", ";
-            operandList_[1]->DumpBuffer(buffer);
-            buffer << ")";
-        } else if (opcode_ == SymbolicOpcode::T_BOP_NE) {
-            buffer << "RUNTIME_Ne(";
-            operandList_[0]->DumpBuffer(buffer);
-            buffer << ", ";
-            operandList_[1]->DumpBuffer(buffer);
-            buffer << ")";
-        } else {
-            buffer << "(";
-            for (size_t i = 0; i < operandList_.size(); i++) {
-                if (i != 0) {
-                    buffer << GetSymbolicCalcOpcode(opcode_);
-                }
-                operandList_[i]->DumpBuffer(buffer);
-            }
-            buffer << ")";
-        }
-    } else if (opcode_ == SymbolicOpcode::T_MOP_CALL) {
-        operandList_[0]->DumpBuffer(buffer);
-        buffer << "(";
-        for (size_t i = 1; i < operandList_.size(); i++) {
-            if (i != 1) {
-                buffer << ",";
-            }
-            operandList_[i]->DumpBuffer(buffer);
-        }
-        buffer << ")";
-    }
 }
 
 } // namespace npu::tile_fwk

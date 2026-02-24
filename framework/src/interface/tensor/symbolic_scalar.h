@@ -406,8 +406,9 @@ public:
                 continue;
             }
 
-            std::string tmpExpr;
-            operand->DumpBuffer(tmpExpr);
+            std::ostringstream oss;
+            operand->DumpBuffer(oss);
+            std::string tmpExpr = oss.str();
             if (seenStr.count(tmpExpr)) {
                 continue;
             } else {
@@ -533,71 +534,72 @@ public:
     }
 
 private:
+    void DumpRuntimeExtrema(std::ostream& out) const {
+        ASSERT(operandList_.size() >= 2);
+        const char* funcName =
+            (opcode_ == SymbolicOpcode::T_BOP_MAX) ? "RUNTIME_Max" : "RUNTIME_Min";
 
-    void DumpRuntimeExtrema(std::string& out) const {
-        ASSERT(operandList_.size() >= 2) << "Extrema expression must have at least 2 operands";
-        std::string funcName = (opcode_ == SymbolicOpcode::T_BOP_MAX) ? "RUNTIME_Max" : "RUNTIME_Min";
         const size_t n = operandList_.size();
         for (size_t i = 0; i + 2 < n; ++i) {
-            out += funcName;
-            out += "(";
+            out << funcName << "(";
             operandList_[i]->DumpBuffer(out);
-            out += ", ";
+            out << ", ";
         }
 
-        out += funcName;
-        out += "(";
+        out << funcName << "(";
         operandList_[n - 2]->DumpBuffer(out);
-        out += ", ";
+        out << ", ";
         operandList_[n - 1]->DumpBuffer(out);
-        out += ")";
+        out << ")";
 
         for (size_t i = 0; i + 2 < n; ++i) {
-            out += ")";
+            out << ")";
         }
     }
 
-    void DumpBuffer(std::string &buffer) const override {
+    void DumpBuffer(std::ostream& out) const override {
         if (SymbolicOpcode::T_UOP_BEGIN <= opcode_ && opcode_ < SymbolicOpcode::T_UOP_END) {
-            buffer += "(";
-            buffer += GetSymbolicCalcOpcode(opcode_);
-            operandList_[0]->DumpBuffer(buffer);
-            buffer += ")";
-        } else if (SymbolicOpcode::T_BOP_BEGIN <= opcode_ && opcode_ < SymbolicOpcode::T_BOP_END) {
+            out << "(" << GetSymbolicCalcOpcode(opcode_);
+            operandList_[0]->DumpBuffer(out);
+            out << ")";
+            return;
+        }
+
+        if (SymbolicOpcode::T_BOP_BEGIN <= opcode_ && opcode_ < SymbolicOpcode::T_BOP_END) {
             if (opcode_ == SymbolicOpcode::T_BOP_MAX || opcode_ == SymbolicOpcode::T_BOP_MIN) {
-                DumpRuntimeExtrema(buffer);
+                DumpRuntimeExtrema(out);
             } else if (opcode_ == SymbolicOpcode::T_BOP_EQ) {
-                buffer += "RUNTIME_Eq(";
-                operandList_[0]->DumpBuffer(buffer);
-                buffer += ", ";
-                operandList_[1]->DumpBuffer(buffer);
-                buffer += ")";
+                out << "RUNTIME_Eq(";
+                operandList_[0]->DumpBuffer(out);
+                out << ", ";
+                operandList_[1]->DumpBuffer(out);
+                out << ")";
             } else if (opcode_ == SymbolicOpcode::T_BOP_NE) {
-                buffer += "RUNTIME_Ne(";
-                operandList_[0]->DumpBuffer(buffer);
-                buffer += ", ";
-                operandList_[1]->DumpBuffer(buffer);
-                buffer += ")";
+                out << "RUNTIME_Ne(";
+                operandList_[0]->DumpBuffer(out);
+                out << ", ";
+                operandList_[1]->DumpBuffer(out);
+                out << ")";
             } else {
-                buffer += "(";
-                for (size_t i = 0; i < operandList_.size(); i++) {
-                    if (i != 0) {
-                        buffer += GetSymbolicCalcOpcode(opcode_);
-                    }
-                    operandList_[i]->DumpBuffer(buffer);
+                out << "(";
+                for (size_t i = 0; i < operandList_.size(); ++i) {
+                    if (i != 0) out << GetSymbolicCalcOpcode(opcode_);
+                    operandList_[i]->DumpBuffer(out);
                 }
-                buffer += ")";
+                out << ")";
             }
-        } else if (opcode_ == SymbolicOpcode::T_MOP_CALL) {
-            operandList_[0]->DumpBuffer(buffer);
-            buffer += "(";
-            for (size_t i = 1; i < operandList_.size(); i++) {
-                if (i != 1) {
-                    buffer += ",";
-                }
-                operandList_[i]->DumpBuffer(buffer);
+            return;
+        }
+
+        if (opcode_ == SymbolicOpcode::T_MOP_CALL) {
+            operandList_[0]->DumpBuffer(out);
+            out << "(";
+            for (size_t i = 1; i < operandList_.size(); ++i) {
+                if (i != 1) out << ",";
+                operandList_[i]->DumpBuffer(out);
             }
-            buffer += ")";
+            out << ")";
+            return;
         }
     }
 
