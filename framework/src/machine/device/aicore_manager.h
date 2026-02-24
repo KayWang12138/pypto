@@ -48,7 +48,6 @@ const uint32_t READY_ID_FIX_CACHE_NUM = 256;
 const uint32_t AICORE_TYPE_NUM = 2;
 
 constexpr uint32_t MAX_STATIC_SCHEDULE_AICPU_NUM = 3;   // 真正负责调度aicore的aicpu个数
-constexpr uint32_t LEAD_STATIC_SCHEDULER_AICPU_ID = 0;
 constexpr int32_t START_STATIC_AICPU_NUM = MAX_STATIC_SCHEDULE_AICPU_NUM;
 constexpr uint32_t MAX_AICORE_NUM = 108;
 constexpr uint32_t NAX_AIV_TOTAL_NUM = 72;
@@ -139,8 +138,15 @@ public:
         readyAicCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAicCoreFunctionQue);
         readyAivCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAivCoreFunctionQue);
 
+        // Getting variable controlling who is the scheduler lead. The first to arrive here should take the lead so that this starts as fast as possible
+        leadSchedulerId_ = (std::atomic<uint32_t>*) &curDevTask_->leadSchedulerId;
+        
+        // Putting myself as leader, if nobody has done it yet
+        uint32_t expectedValue = AICPU_LEAD_SCHEDULER_NULL;
+        isLeaderScheduler_ = leadSchedulerId_->compare_exchange_strong(expectedValue, (uint32_t)aicpuIdx_);
+
         // If I am the lead AICPU scheduler, perform initailization steps
-        if (aicpuIdx_ == LEAD_STATIC_SCHEDULER_AICPU_ID) {
+        if (isLeaderScheduler_ == true) {
             // Allocating queues
             auto availableTaskQueue = new pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>(MAX_QUEUED_TASKS);
             curDevTask_->availableTaskQueue = (uint64_t) availableTaskQueue;
@@ -331,6 +337,10 @@ private:
     std::array<KernelArgs *, MAX_AICORE_NUM> args_;
 
     SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> taskQueue_;
+
+    // Variable to scheduler lead and whether or not I am the lead
+    std::atomic<uint32_t>* leadSchedulerId_;
+    bool isLeaderScheduler_;
 
     /* prepare aicore ready task list */
     StaticReadyCoreFunctionQueue *readyAicCoreFunctionQue_{nullptr};

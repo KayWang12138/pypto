@@ -127,7 +127,8 @@ struct DeviceTask {
     uint64_t costModelData;           // costmodel仿真时长
     uint64_t aicoreModel;             // costmodel aicore功能模型
     uint64_t availableTaskQueue; // A queue containing the available tasks to be scheduled into vector/cube/aicpu cores
-    volatile bool isTaskInitialized; // A flag to indicate the kernel has been properly initialized by the lead AICPU scheduler 
+    volatile bool isTaskInitialized; // A flag to indicate the kernel has been properly initialized by the lead AICPU scheduler
+    uint32_t leadSchedulerId;
 };
 
 // dfx 相关

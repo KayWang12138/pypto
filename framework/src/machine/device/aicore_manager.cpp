@@ -51,7 +51,7 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl)
     int ret = 0;
     DEV_INFO("receive new task %lu\n", taskCtrl->taskId);
     InitTaskData(taskCtrl);
-    if (aicpuIdx_ == LEAD_STATIC_SCHEDULER_AICPU_ID)  aicpuTaskManager_.Init(curDevTask_);
+    if (isLeaderScheduler_ == true)  aicpuTaskManager_.Init(curDevTask_);
 
     const auto t0 = std::chrono::high_resolution_clock::now();
 
@@ -74,7 +74,7 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl)
         // DEV_ERROR("wait tail aic task timeout .\n");
     }
 
-    if (aicpuIdx_ == LEAD_STATIC_SCHEDULER_AICPU_ID) {
+    if (isLeaderScheduler_ == true) {
         while (!aicpuTaskManager_.Finished()) {
             (void)aicpuTaskManager_.TaskProcess();
         }
@@ -84,7 +84,7 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl)
     const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(tf - t0).count();
     DEV_ERROR("[AICPU %d] Running Time: %ldns", aicpuIdx_, ns);
 
-    if (aicpuIdx_ == LEAD_STATIC_SCHEDULER_AICPU_ID) {
+    if (isLeaderScheduler_ == true) {
         delete availableTaskQueue_;
         delete runningPairQueue_ ;
         delete availableCoreQueue_[(int)MachineType::AIV];
