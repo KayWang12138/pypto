@@ -50,7 +50,7 @@ namespace npu::tile_fwk {
 /* When enabled, verbose log will be compiled.Because verbose logging is so extensive, having it compiled into the code
    can hurt performance, even when the logging feature is turned off.
 */
-#define ENABLE_COMPILE_VERBOSE_LOG 0
+#define ENABLE_COMPILE_VERBOSE_LOG 1
 
 #define DEBUG_INFINITE_LIFETIME 0
 
