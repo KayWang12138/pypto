@@ -1,0 +1,293 @@
+#!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+"""
+"""
+from dataclasses import dataclass, field
+from typing import Optional
+
+import numpy as np
+import torch
+import pypto
+from numpy.testing import assert_allclose
+import torch.nn.functional as F
+
+FP32 = np.float32
+FP16 = np.float16
+INT32 = np.int32
+INT8 = np.int8
+UINT64 = np.uint64
+UINT32 = np.uint32
+
+
+@dataclass
+class ShapeConfig:
+    ori_shape: list
+    m_tile_shape: list
+    k_tile_shape: list
+    n_tile_shape: list
+    view_shape: list
+    in_dtype: np.dtype
+    out_dtype: np.dtype
+    a_trans: bool = False
+    b_trans: bool = False
+    a_format_nz: bool = False
+    b_format_nz: bool = False
+    c_format_nz: bool = False
+    mdl_flag: bool = False
+
+@dataclass
+class ExtendParams:
+    bias_shape: list = field(default_factory=list)
+    bias_dtype: np.dtype = None
+    scale_shape: list = field(default_factory=list)
+    scale_dtype: np.dtype = None
+    scale: int = None
+    relu_type: int = None
+
+@dataclass
+class UBParam:
+    mm1_a_shape: tuple
+    mm2_a_shape: tuple
+    mm2_c_shape: tuple
+    vector_tile_shape: tuple
+
+def create_mm_kernel_with_mn_split(tile_config, dynamic=True):
+    M = tile_config.ori_shape[0]
+    K = tile_config.ori_shape[1]
+    N = tile_config.ori_shape[2]
+    m_view = tile_config.view_shape[0]
+    n_view = tile_config.view_shape[1]
+    if dynamic:
+        M = pypto.frontend.dynamic("M")
+        N = pypto.frontend.dynamic("N")
+    @pypto.frontend.jit(
+        debug_options={"runtime_debug_mode": 1, "compile_debug_mode": 0}
+    )
+    def matmul_pto(
+        a: pypto.Tensor([M, K], pypto.DT_FP16, format=pypto.TileOpFormat.TILEOP_ND),
+        b: pypto.Tensor([K, N], pypto.DT_FP16, format=pypto.TileOpFormat.TILEOP_ND),
+    ) -> pypto.Tensor([M, N], pypto.DT_FP16):
+        pypto.set_cube_tile_shapes(tile_config.m_tile_shape, tile_config.k_tile_shape, tile_config.n_tile_shape,
+                                   enable_multi_data_load=True, enable_split_k=False)
+        m_loop = (M + m_view - 1) // m_view
+        n_loop = (N + n_view - 1) // n_view
+        outTensor = pypto.Tensor([M, N], pypto.DT_FP16)
+        for m_idx in pypto.loop(0, m_loop, 1, name="LOOP_LO_mIdx", idx_name="m_idx"):
+            for n_idx in pypto.loop(0, n_loop, 1, name="LOOP_LO_nIdx", idx_name="n_idx"):
+                a_view = a[m_idx * m_view : m_idx * m_view + m_view, :]
+                b_view = b[:, n_idx * n_view : n_idx * n_view + n_view]
+                out_view = pypto.matmul(a_view, b_view, out_dtype=pypto.DT_FP16)
+                outTensor[m_idx * m_view : m_idx * m_view + m_view, n_idx * n_view : n_idx * n_view + n_view] = out_view
+        return outTensor
+    return matmul_pto
+
+def create_bmm_kernel_with_no_split(tile_config, dynamic=True):
+    B = tile_config.ori_shape[0]
+    M = tile_config.ori_shape[1]
+    K = tile_config.ori_shape[2]
+    N = tile_config.ori_shape[3]
+    if dynamic:
+        M = pypto.frontend.dynamic("M")
+        N = pypto.frontend.dynamic("N")
+    @pypto.frontend.jit(
+        debug_options={"runtime_debug_mode": 1, "compile_debug_mode": 0}
+    )
+    def matmul_pto(
+        a: pypto.Tensor([B, M, K], pypto.DT_FP16, format=pypto.TileOpFormat.TILEOP_ND),
+        b: pypto.Tensor([B, K, N], pypto.DT_FP16, format=pypto.TileOpFormat.TILEOP_ND),
+    ) -> pypto.Tensor([B, M, N], pypto.DT_FP16):
+        pypto.set_cube_tile_shapes(tile_config.m_tile_shape, tile_config.k_tile_shape, tile_config.n_tile_shape, 
+                                   enable_multi_data_load=True, enable_split_k=False)
+        outTensor = pypto.Tensor([B, M, N], pypto.DT_FP16)
+        outTensor = pypto.matmul(a, b, out_dtype=pypto.DT_FP16)
+        return outTensor
+    return matmul_pto
+
+def create_mm_l0c2l1_fixpipe_kernel_with_no_split(tile_config1, tile_config2):
+    M1 = tile_config1.ori_shape[0]
+    K1 = tile_config1.ori_shape[1]
+    N1 = tile_config1.ori_shape[2]
+    M2 = tile_config1.ori_shape[2]
+    K2 = tile_config2.ori_shape[2]
+
+    @pypto.frontend.jit(
+        debug_options={"runtime_debug_mode": 1, "compile_debug_mode": 0}
+    )
+    def matmul_pto_l0c2l1(
+        a1: pypto.Tensor([M1, K1], pypto.DT_INT8),
+        b1: pypto.Tensor([K1, N1], pypto.DT_INT8),
+        a2: pypto.Tensor([M2, K2], pypto.DT_FP16),
+        scale_tensor:pypto.Tensor([1, N1], pypto.DT_UINT64),
+    ) -> pypto.Tensor([M1, K2], pypto.DT_FP32):
+        mm2_c = pypto.Tensor([M1, K2], pypto.DT_FP32)
+        params = {'scale_tensor': scale_tensor, 'relu_type': pypto.ReLuType.RELU}
+        pypto.set_cube_tile_shapes(tile_config1.m_tile_shape, tile_config1.k_tile_shape, tile_config1.n_tile_shape,
+                                    enable_multi_data_load=tile_config1.mdl_flag, enable_split_k=False)
+        mm1_c = pypto.matmul(a1, b1, out_dtype=pypto.DT_FP16, extend_params = params)
+        pypto.set_cube_tile_shapes(tile_config2.m_tile_shape, tile_config2.k_tile_shape, tile_config2.n_tile_shape,
+                                    enable_multi_data_load=tile_config2.mdl_flag, enable_split_k=False)
+        mm2_c = pypto.matmul(mm1_c, a2, out_dtype=pypto.DT_FP32)
+        return mm2_c
+    return matmul_pto_l0c2l1
+
+def create_ub2l1_kernel_with_no_split(tile_config, vector_tile_shape, dynamic=True):
+    M1 = tile_config.ori_shape[0]
+    K1 = tile_config.ori_shape[1]
+    M2 = tile_config.ori_shape[2]
+    @pypto.frontend.jit(
+        debug_options={"runtime_debug_mode": 1, "compile_debug_mode": 0}
+    )
+    def matmul_pto(
+        a1: pypto.Tensor([M1, K1], pypto.DT_FP16, format=pypto.TileOpFormat.TILEOP_ND),
+        a2: pypto.Tensor([M2, M1], pypto.DT_FP16, format=pypto.TileOpFormat.TILEOP_ND),
+    ) -> pypto.Tensor([M2, K1], pypto.DT_FP16):
+        pypto.set_vec_tile_shapes(vector_tile_shape[0], vector_tile_shape[1])
+        mm1_c = pypto.add(a1, a1)
+        pypto.set_cube_tile_shapes(tile_config.m_tile_shape, tile_config.k_tile_shape, tile_config.n_tile_shape,
+                                    enable_multi_data_load=tile_config.mdl_flag, enable_split_k=False)
+        mm2_c = pypto.matmul(a2, mm1_c, out_dtype=pypto.DT_FP16)
+        return mm2_c
+    return matmul_pto
+
+
+def create_l0c2ub_kernel_with_no_split(tile_config, vector_tile_shape, dynamic=True):
+    M1 = tile_config.ori_shape[0]
+    K1 = tile_config.ori_shape[1]
+    M2 = tile_config.ori_shape[2]
+    @pypto.frontend.jit(
+        debug_options={"runtime_debug_mode": 1, "compile_debug_mode": 0}
+    )
+    def matmul_pto(
+        a1: pypto.Tensor([M1, K1], pypto.DT_FP16, format=pypto.TileOpFormat.TILEOP_ND),
+        a2: pypto.Tensor([M2, M1], pypto.DT_FP16, format=pypto.TileOpFormat.TILEOP_ND),
+    ) -> pypto.Tensor([M2, K1], pypto.DT_FP16):
+        pypto.set_cube_tile_shapes(tile_config.m_tile_shape, tile_config.k_tile_shape, tile_config.n_tile_shape,
+                                    enable_multi_data_load=tile_config.mdl_flag, enable_split_k=False)
+        mm2_c = pypto.matmul(a1, a2, out_dtype=pypto.DT_FP16)
+        pypto.set_vec_tile_shapes(vector_tile_shape[0], vector_tile_shape[1])
+        mm2_c = pypto.add(a1, mm2_c)
+        return mm2_c
+    return matmul_pto
+
+def test_mm_with_mn_split(dynamic=True):
+    M = 255
+    K = 127
+    N = 513
+    tileM = 64
+    tileK = 64
+    tileN = 64
+    m_view = 128
+    n_view = 256
+    tile_config = ShapeConfig([M, K, N], [tileM, tileM], [tileK, tileK], [tileN, tileN], [m_view, n_view], FP16, FP16,
+                               False, False, False, False, False)
+    a1 = torch.rand([M, K],  dtype=torch.float16)
+    b1 = torch.rand([K, N],  dtype=torch.float16)
+    golden = torch.matmul(a1.to(torch.float32), b1.to(torch.float32))
+    c1 = create_mm_kernel_with_mn_split(tile_config, dynamic)(a1.npu(), b1.npu())
+    assert torch.allclose(c1.cpu().to(torch.float32), golden, atol=1e-3, rtol=1e-3), "结果精度不匹配"
+
+def test_bmm_with_mn_split(dynamic=False):
+    B = 3
+    M = 63
+    K = 127
+    N = 129
+    tileM = 64
+    tileK = 64
+    tileN = 64
+    tile_config = ShapeConfig([B, M, K, N], [tileM, tileM], [tileK, tileK], [tileN, tileN], [-1, -1], FP16, FP16,
+                               False, False, False, False, False)
+    a1 = torch.rand([B, M, K],  dtype=torch.float16)
+    b1 = torch.rand([B, K, N],  dtype=torch.float16)
+    golden = torch.matmul(a1.to(torch.float32), b1.to(torch.float32))
+    c1 = create_bmm_kernel_with_no_split(tile_config, dynamic)(a1.npu(), b1.npu())
+    assert torch.allclose(c1.cpu().to(torch.float32), golden, atol=1e-3, rtol=1e-3), "结果精度不匹配"
+
+def test_l0c2l1_fixpipe_with_no_split():
+    torch.npu.set_device(0)
+    M1 = 320
+    K1 = 512
+    N1 = 258
+    M2 = N1
+    K2 = 128
+    a1 = torch.randint(low=-2, high=2, size=[M1, K1], dtype=torch.int8)
+    b1 = torch.randint(low=-2, high=2, size=[K1, N1], dtype=torch.int8)
+    a2 = torch.rand([M2, K2], dtype=torch.float16)
+    tile_config1 = ShapeConfig([M1, K1, N1], [128, 128], [128, 128], [128, 128], [-1, -1], INT8, INT8,
+                               False, False, False, False, False)
+    tile_config2 = ShapeConfig([M1, M2, K2], [64, 64], [64, 64], [128, 128], [-1, -1], FP16, FP16,
+                               False, False, False, False, False)
+    scale_tensor = np.random.uniform(-2, 2,[1, N1]).astype(np.float32)
+    tensor_data = scale_tensor.view(np.uint32)
+    mask = 0xFFFFE000
+    tensor_data = tensor_data & mask
+    fp32_modified = tensor_data.view(np.float32)
+    fp32_modified_tensor = torch.from_numpy(fp32_modified).to(torch.float32)
+    scale_uint64 = tensor_data.astype(np.uint64)
+    scale_tensor_uint64 = torch.from_numpy(scale_uint64)
+    mm2_c = create_mm_l0c2l1_fixpipe_kernel_with_no_split(tile_config1, tile_config2)(a1.npu(), b1.npu(), a2.npu(), 
+                                                        scale_tensor_uint64.npu())
+    pypto.runtime._device_synchronize()
+    torch.npu.synchronize()
+    tensor_res_mm1_asc = torch.matmul(a1.to(torch.float32),b1.to(torch.float32)).to(torch.float32)
+    tensor_res_mm1_asc = F.relu(tensor_res_mm1_asc)
+    tensor_res_mm1_asc = (tensor_res_mm1_asc * fp32_modified_tensor).to(torch.float32)
+    tensor_res_mm1_asc = tensor_res_mm1_asc.to(torch.float16)
+    tensor_res_mm2_asc = torch.matmul(tensor_res_mm1_asc.to(torch.float32), a2.cpu().to(torch.float32))
+    assert torch.allclose(mm2_c.cpu().to(torch.float32), tensor_res_mm2_asc.to(torch.float32),atol=1e-3, rtol=1e-3), "结果精度不匹配"
+
+def test_ub2l1_with_no_split():
+    torch.npu.set_device(0)
+    M1 = 128
+    K1 = 128
+    N1 = 128
+    M2 = 128
+    tileM1 = 64
+    tileK1 = 64
+    tileN1 = 64
+    mm1_a_shape = (M1, K1)
+    mm2_a_shape = (M2, M1)
+    mm2_c_shape = (M2, K1)
+    a1 = torch.rand(mm1_a_shape, dtype=torch.half)
+    a2 = torch.rand(mm2_a_shape, dtype=torch.half)
+    mm2_c = torch.zeros(mm2_c_shape, dtype=torch.half)
+    tile_config = ShapeConfig([M1, K1, N1], [tileM1, tileM1], [tileK1, tileK1], [tileN1, tileN1], [-1, -1], FP16, FP16,
+                               False, False, False, False, False)
+    vector_tile_shape = (128, 64)
+    mm2_c = create_ub2l1_kernel_with_no_split(tile_config, vector_tile_shape)(a1.npu(), a2.npu())
+    pypto.runtime._device_synchronize()
+    torch.npu.synchronize()
+    tensor_res_mm1_asc = torch.add(a1, a1)
+    tensor_res_mm2_asc = torch.matmul(a2, tensor_res_mm1_asc)
+    assert torch.allclose(mm2_c.cpu(), tensor_res_mm2_asc.cpu(), atol=1e-3, rtol=1e-3), "结果精度不匹配"
+
+def test_l0c2ub_with_no_split():
+    torch.npu.set_device(0)
+    M1 = 128
+    K1 = 128
+    N1 = 128
+    tileM1 = 64
+    tileK1 = 64
+    tileN1 = 64
+    mm1_a_shape = (M1, K1)
+    mm2_a_shape = (K1, N1)
+    mm2_c_shape = (M1, N1)
+    a1 = torch.rand(mm1_a_shape, dtype=torch.half)
+    a2 = torch.rand(mm2_a_shape, dtype=torch.half)
+    mm2_c = torch.zeros(mm2_c_shape, dtype=torch.half)
+    tile_config = ShapeConfig([M1, K1, N1], [tileM1, tileM1], [tileK1, tileK1], [tileN1, tileN1], [-1, -1], FP16, FP16,
+                               False, False, False, False, False)
+    vector_tile_shape = (64, 64)
+    mm2_c = create_l0c2ub_kernel_with_no_split(tile_config, vector_tile_shape)(a1.npu(), a2.npu())
+    pypto.runtime._device_synchronize()
+    torch.npu.synchronize()
+    tensor_res_mm1_asc = torch.matmul(a1, a2)
+    tensor_res_mm2_asc = torch.add(a1, tensor_res_mm1_asc)
+    assert torch.allclose(mm2_c.cpu(), tensor_res_mm2_asc.cpu(), atol=1e-3, rtol=1e-3), "结果精度不匹配"
