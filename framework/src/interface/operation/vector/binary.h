@@ -178,18 +178,18 @@ LogicalTensorPtr TensorBinaryOperation(Function &function, const Tensor &operand
     auto oprandT1 = operand1.GetStorage();
     auto oprandT2 = operand2.GetStorage();
     if (oprandT1->shape.size() != oprandT2->shape.size()) {
-        std::vector<int> broadCastShape = GetBroadCastShape(oprandT1, oprandT2); // 只有维数不同时才广播
+        std::vector<int> broadCastShape = GetBroadCastShape(oprandT1, oprandT2);
         oprandT1 = BinaryOperationBroadCast(oprandT1, broadCastShape);
         oprandT2 = BinaryOperationBroadCast(oprandT2, broadCastShape);
     }
     auto opName = GetBinaryOpName<T>();
-    CheckBinaryInputTensors(oprandT1, oprandT2, opName); //检查数据类型、形状大小
+    CheckBinaryInputTensors(oprandT1, oprandT2, opName);
 
     std::vector<SymbolicScalar> resultValidShape;
     std::vector<int64_t> resultShape = BinaryOperationResultShape(oprandT1, oprandT2);
     if ((!oprandT1->GetDynValidShape().empty()) && (!oprandT2->GetDynValidShape().empty())) {
         for (size_t i = 0; i < resultShape.size(); ++i) {
-            if (resultShape[i] == oprandT1->shape[i]) { //resultvalidshape更新到最大shape
+            if (resultShape[i] == oprandT1->shape[i]) {
                 resultValidShape.push_back(operand1.GetStorage()->GetDynValidShape()[i]);
             } else {
                 resultValidShape.push_back(operand2.GetStorage()->GetDynValidShape()[i]);

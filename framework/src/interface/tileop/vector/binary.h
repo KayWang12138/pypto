@@ -182,20 +182,13 @@ TILEOP void TMax(T0 dst, T1 src0, T2 src1) {
 }
 
 #define OP_TILE_OP_MIN TMin
-#define OP_TILE_OP_MIN TMin
 template <typename LastUse = LastUse3Dim<0, 0, 0>, TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TMin(T0 dst, T1 src0, T2 src1) {
     BinaryCompute<BinaryOp::MIN, operand, LastUse>(dst, src0, src1);
 }
 
-#define OP_TILE_OP_MIN TRem
-template <TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
-TILEOP void TMin(T0 dst, T1 src0, T2 src1) {
-    BinaryCompute<BinaryOp::MIN, operand, LastUse>(dst, src0, src1);
-}
-
-#define OP_TILE_OP_MIN TRem
-template <TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
+#define OP_TILE_OP_REM TRem
+template <typename LastUse = LastUse3Dim<0, 0, 0>, TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TRemainder(T0 dst, T1 src0, T2 src1) {
     BinaryCompute<BinaryOp::REM, operand, LastUse>(dst, src0, src1);
 }
