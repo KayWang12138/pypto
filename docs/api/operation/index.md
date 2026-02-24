@@ -1,5 +1,5 @@
 # 操作
-    
+
 ```{toctree}
 :maxdepth: 2
 
@@ -17,6 +17,7 @@ pypto-bitwise_or
 pypto-bitwise_right_shift
 pypto-bitwise_xor
 pypto-cast
+pypto-cbrt
 pypto-ceil
 pypto-clip
 pypto-clone
@@ -58,6 +59,7 @@ pypto-neg
 pypto-one_hot
 pypto-pow
 pypto-reciprocal
+pypto-relu
 pypto-reshape
 pypto-rms_norm
 pypto-round
@@ -79,3 +81,4 @@ pypto-trunc
 pypto-unsqueeze
 pypto-view
 pypto-where
+```

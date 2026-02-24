@@ -206,6 +206,11 @@ class JitCallableWrapper:
         "torch.bool": pypto.DataType.DT_BOOL,
     }
 
+    _format_dict = {
+        "ND": pypto.TileOpFormat.TILEOP_ND,
+        "NZ": pypto.TileOpFormat.TILEOP_NZ,
+    }
+
     def __init__(
         self,
         pto_function: Optional[pypto.Function],
@@ -312,25 +317,7 @@ class JitCallableWrapper:
                 "pypto.frontend.jit requires that all arguments must be tensors. "
                 "Keyword arguments are not supported."
             )
-
-        for i, arg in enumerate(args):
-            if not isinstance(arg, torch.Tensor):
-                raise RuntimeError(
-                    f"pypto.frontend.jit requires that all arguments must be pypto.tensor. "
-                    f"Argument at position {i} is {type(arg).__name__}, not a tensor."
-                )
-
         in_tensors = list(args)
-
-        # Validate input tensors are contiguous
-        for in_tensor in in_tensors:
-            if not in_tensor.is_contiguous():
-                raise RuntimeError(
-                    "pypto.frontend.jit requires that all input tensors "
-                    "must be contiguous."
-                )
-
-
         # Create output tensors with the same device as input tensors
         if in_tensors:
             device = in_tensors[0].device
@@ -355,18 +342,20 @@ class JitCallableWrapper:
 
         # Resolve symbolic dimensions using current input shapes so outputs
         # allocated below match the runtime dynamic sizes.
-        out_tensors = []
+        
         input_tensor_defs, output_tensor_defs = self.get_signature_high_performance(self._original_func)
-        concrete_input_shapes = [list(in_tensor.shape) for in_tensor in in_tensors]
         self._check_input_defs_match_tensors(in_tensors, input_tensor_defs)
-        symbolic_dim_value_map = Parser.match_input_shapes(
-            concrete_input_shapes, input_tensor_defs
-        )
+        out_has_dyn_dim = False
+        out_tensors = []
         for out_tensor_def in output_tensor_defs:
             shape_list = []
             # Build shape by resolving symbolic dimensions from the output tensor definition
             for dim in out_tensor_def.shape:
                 if isinstance(dim, pypto.SymbolicScalar):
+                    if not out_has_dyn_dim:
+                        out_has_dyn_dim = True
+                        concrete_input_shapes = [list(in_tensor.shape) for in_tensor in in_tensors]
+                        symbolic_dim_value_map = Parser.match_input_shapes(concrete_input_shapes, input_tensor_defs)
                     dim_value = symbolic_dim_value_map.get(str(dim))
                     if dim_value is None:
                         raise ValueError(
@@ -578,6 +567,11 @@ class JitCallableWrapper:
     def _check_input_defs_match_tensors(self, in_tensors: list, input_tensor_defs: list[pypto.Tensor]) -> None:
         """Check if the input tensor definitions match the input tensors.
         """
+        def get_format(tensor):
+            import torch_npu
+            if torch_npu.get_npu_format(tensor) == 29:
+                return "NZ"
+            return "ND"
 
         # Check the number of input tensors and input tensor definitions
         if len(in_tensors) != len(input_tensor_defs):
@@ -605,6 +599,11 @@ class JitCallableWrapper:
             if self._dtype_dict[str(in_tensor.dtype)] != input_tensor_def.dtype:
                 raise ValueError(f"The dtype of {ordinal(idx)} input tensor {in_tensor.dtype} \
                     does not match the dtype of input tensor definition {input_tensor_def.dtype}.")
+
+            if in_tensor.device == "npu":
+                if self._format_dict[get_format(in_tensor)] != input_tensor_def.format:
+                    raise ValueError(f"The format of {ordinal(idx)} input tensor {get_format(in_tensor)} \
+                        does not match the format of input tensor definition {input_tensor_def.format}.")
 
     def _get_compilation_cache_key(
         self,
@@ -644,13 +643,11 @@ class JitCallableWrapper:
                 """Convert dict/list to hashable tuple representation."""
                 if obj is None:
                     return None
-                if isinstance(obj, dict):
-                    return tuple(sorted((k, make_hashable(v)) for k, v in obj.items()))
-                if isinstance(obj, (list, tuple)):
+                t = type(obj)
+                if t is dict:
+                    return frozenset((k, make_hashable(v)) for k, v in obj.items())
+                if t is list or t is tuple:
                     return tuple(make_hashable(item) for item in obj)
-                if isinstance(obj, (str, int, float, bool)):
-                    return obj
-                # For non-hashable types, use their string representation
                 return str(obj)
 
             options_hash = (

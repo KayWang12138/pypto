@@ -14,7 +14,7 @@
  */
 
 #include "machine/device/dynamic/context/device_execute_context.h"
-#include "tileop/distributed/hccl_context.h"
+#include "tileop/distributed/comm_context.h"
 
 #include <cinttypes>
 #ifdef BUILD_WITH_CANN
@@ -349,7 +349,12 @@ int DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool 
         DEV_ERROR("Build device task data failed.");
         return DEVICE_MACHINE_ERROR;
     }
-    dynTask->SetLastTask(isLastTask);
+
+    if (!devProg->ctrlFlowCacheAnchor->IsRecording() ||
+        (devProg->ctrlFlowCacheAnchor->IsRecording() && devProg->ctrlFlowCacheAnchor->IsCacheOriginShape())) {
+        dynTask->SetLastTask(isLastTask);
+    }
+
     PROF_STAGE_END(PERF_EVT_STAGE_BUILD_TASK, "BuildDeviceTaskData.after\n");
 
     PROF_STAGE_BEGIN(PERF_EVT_DEALLOCATE_WORKSPACE, "RecycleTensorWorkspace.before\n");
@@ -566,8 +571,8 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, u
     constexpr uint64_t FILL_SHIFT = MEMTYPE_SHIFT + MEMTYPE_BITS;
     DEV_ASSERT(memType < memTypeCount);
     DeviceExecuteContext* ctx = (DeviceExecuteContext*)ctx_;
-    auto hcclOpParam = reinterpret_cast<TileOp::HcclCombinOpParam*>(ctx->args->hcclContextAddr[groupIndex]);
-    uint64_t winSize = memType == 0 ? hcclOpParam->winSize : hcclOpParam->winExpSize;
+    auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(ctx->args->hcclContextAddr[groupIndex]);
+    uint64_t winSize = memType == 0 ? hcclOpParam->winDataSize : hcclOpParam->winStatusSize;
     if (ctx->shmemAddrOffset[memType] + size > winSize) {
         ctx->shmemAddrOffset[memType] = 0UL;
     }

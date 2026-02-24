@@ -128,12 +128,12 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_PAIRSUM, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_PAIRMAX, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_PAIRMIN, [this]() { return GenBinaryOp(); }},
-          {Opcode::OP_POW, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_BITWISEAND, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_BITWISEOR, [this]() { return GenBinaryOp(); }},
 
           // binary op: vector operations with tmp
-          {Opcode::OP_MOD, [this]() { return GenBinaryOpWithTmp(); }},
+          {Opcode::OP_MOD, [this]() { return GenBinaryOp(); }},
+          {Opcode::OP_POW, [this]() { return GenBinaryOpWithTmp(); }},
           {Opcode::OP_BITWISERIGHTSHIFT, [this]() { return GenBinaryOpWithTmp(); }},
           {Opcode::OP_BITWISELEFTSHIFT, [this]() { return GenBinaryOpWithTmp(); }},
           {Opcode::OP_BITWISEXOR, [this]() { return GenBinaryOpWithTmp(); }},
@@ -160,7 +160,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_BITWISELEFTSHIFTS, [this]() { return GenVectorScalarOp(); }},
 
           // binary op: vector scalar with tmp
-          {Opcode::OP_MODS, [this]() { return GenVectorScalarOpWithTmp(); }},
+          {Opcode::OP_MODS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_SBITWISERIGHTSHIFT, [this]() { return GenVectorScalarOpWithTmp(); }},
           {Opcode::OP_SBITWISELEFTSHIFT, [this]() { return GenVectorScalarOpWithTmp(); }},
           {Opcode::OP_BITWISEXORS, [this]() { return GenVectorScalarOpWithTmp(); }},
@@ -680,16 +680,6 @@ std::string CodeGenOpCloudNPU::PrintCoord(size_t dim, const std::string &coord) 
     std::string ret = COORD;
     ret.append(std::to_string(dim)).append(DIM).append(coord);
     return ret;
-}
-
-void CodeGenOpCloudNPU::FillParamWithFullShape(
-    std::vector<std::string> &paramList, const std::vector<int64_t> &input) const {
-    FillParamWithInput(paramList, input, 0, input.size());
-}
-
-void CodeGenOpCloudNPU::FillParamWithShapeExceptFirst(
-    std::vector<std::string> &paramList, const std::vector<int64_t> &input) const {
-    FillParamWithInput(paramList, input, 1, input.size());
 }
 
 std::string CodeGenOpCloudNPU::QueryTileTensorNameByIdx(int paramIdx) const {

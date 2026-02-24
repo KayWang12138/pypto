@@ -24,6 +24,7 @@ namespace tile_fwk {
 
 const std::unordered_set<DataType> kA2A3SupportedDtypes = {DT_INT4, DT_INT8, DT_UINT8, DT_FP16, DT_BF16, DT_INT16};
 const std::unordered_set<DataType> kA5SupportedDtypes = {DT_INT4, DT_INT8, DT_UINT8, DT_FP16, DT_BF16, DT_HF8, DT_FP8, DT_FP32};
+const std::unordered_set<DataType> l0c2l1SupportedDtypes = {DT_FP16, DT_BF16};
 
 const static std::unordered_map<NPUArch, std::unordered_set<DataType>> kArch2SupportedDtypes = {
     {NPUArch::DAV_1001, kA2A3SupportedDtypes},
@@ -287,7 +288,11 @@ void ConvertInserter::ProcessSpecialProducersOrConsumers(const Operation &op, co
     //case1:当tensor的生产者都是assemble，并且tensor的mem路径需要经过DDR，则将tensor的ori刷成DDR
     APASS_LOG_DEBUG_F(Elements::Operation, "Operation %s[%d] has output %d ori and tobe conflict.",
         op.GetOpcodeStr().c_str(), op.GetOpMagic(), oOperand->magic);
-    bool crossCore = CrossCore(oOperand->GetMemoryTypeOriginal(), requiredMemoryType);
+    const auto &items = tensorTobeMap.at(oOperand);
+    bool crossCore = std::all_of(items.begin(), items.end(),
+        [this, &oOperand](const auto &item) {
+            return CrossCore(oOperand->GetMemoryTypeOriginal(), item.second);
+        });
     bool producedByAssemble = isAllProducerAssemble(oOperand);
     if (producedByAssemble && crossCore) {
         oOperand->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
@@ -316,13 +321,24 @@ bool ConvertInserter::IsNotValidDataType(const std::shared_ptr<LogicalTensor> &f
     return supportedDtypes.find(tensorDtype) == supportedDtypes.end();
 }
 
+// Tensor必须是BF16或FP16，同时矩阵必须是第一轴（外轴）16元素对齐，第二轴（内轴）32B对齐
+bool ConvertInserter::FitL0C2L1(const LogicalTensorPtr &tensor){
+    auto shape = tensor->GetShape();
+    if (shape.size() != MATMUL_DIM_NUM) {
+        return false;
+    }
+    auto dim2Size = shape[1] * BytesOf(tensor->Datatype());
+    return (l0c2l1SupportedDtypes.find(tensor->Datatype()) != l0c2l1SupportedDtypes.end()) &&
+        (shape[0] % L0C2L1_DIM1_SHAPE_RESTICT == 0) && (dim2Size % L0C2L1_DIM2_BYTE_RESTICT ==0);
+}
+
 //构造转换路径
 Status ConvertInserter::ProcessConvertPath(const Operation &op, const std::shared_ptr<LogicalTensor> &oOperand,
     MemoryType requiredMemoryType, std::vector<MemoryType> &paths) {
     auto currTensorMemOri = oOperand->GetMemoryTypeOriginal();
     if(currTensorMemOri == MemoryType::MEM_L0C && requiredMemoryType == MemoryType::MEM_L1) {
         //特殊处理L0C2L1：针对不支持的数据类型场景路径中插入DDR
-        bool needDDRTrans = IsNotValidDataType(oOperand);
+        bool needDDRTrans = IsNotValidDataType(oOperand) || !FitL0C2L1(oOperand);
         if(needDDRTrans) {
             paths = {currTensorMemOri, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1};
         } else {
