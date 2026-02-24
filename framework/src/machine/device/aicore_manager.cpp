@@ -110,8 +110,6 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
 
         INSTRUMENTATION_START();
     } else {
-        while ((INSTRUMENTATION_ACTIVE) && (!INSTRUMENTATION_IS_PROC_READY())) {}
-
         INSTRUMENTATION_THREAD_INIT();
     }
 
