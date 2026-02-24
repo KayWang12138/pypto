@@ -17,8 +17,6 @@
 #define __DISTRIBUTED_SHMEM__
 
 #include "common.h"
-#include "hccl_context.h"
-
 #include <type_traits>
 
 #include "pto/pto-inst.hpp"
@@ -412,11 +410,13 @@ template<typename NonShmemType, typename ShmemType, uint32_t tileRowShape, uint3
 TILEOP void ShmemPut(__ubuf__ NonShmemType* buffer, __gm__ NonShmemType* nonShmemDataBaseAddr, __gm__ ShmemType* shmemDataBaseAddr,
     uint32_t nonShmemDataOffset0, uint32_t nonShmemDataOffset1, uint32_t nonShmemDataRawShape0,
     uint32_t nonShmemDataRawShape1, uint32_t shmemDataOffset0, uint32_t shmemDataOffset1, uint32_t shmemDataOffset2, uint32_t shmemDataOffset3,
-    uint32_t shmemDataRawShape0, uint32_t shmemDataRawShape1, uint32_t shmemDataRawShape2, uint32_t shmemDataRawShape3, __gm__ int64_t *hcclContext)
+    uint32_t shmemDataRawShape0, uint32_t shmemDataRawShape1, uint32_t shmemDataRawShape2, uint32_t shmemDataRawShape3, uint32_t shmemGetTensorDataOffset, __gm__ int64_t *hcclContext)
 {
     (void)nonShmemDataRawShape0;
     (void)shmemDataRawShape0;
-    
+    if (shmemGetTensorDataOffset != -1) {
+        shmemDataOffset2 = shmemGetTensorDataOffset;
+    }
     __gm__ NonShmemType* nonShmemDataAddr = nonShmemDataBaseAddr + nonShmemDataOffset0 * nonShmemDataRawShape1 + nonShmemDataOffset1;
     __gm__ ShmemType* shmemDataAddr = MapVirtualAddr<ShmemType>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) +
         shmemDataOffset1 * shmemDataRawShape2 * shmemDataRawShape3 + shmemDataOffset2 * shmemDataRawShape3 + shmemDataOffset3;
@@ -659,7 +659,8 @@ template<typename T, bool FP32Mode, int64_t row, int64_t col>
 TILEOP void ShmemReduce(__gm__ T* out, __ubuf__ T* ubTensor, __gm__ T* in, __gm__ T* shmData,
     int64_t rowOffset, int64_t colOffset, int64_t rowPerRank, int64_t colPerRank, __gm__ int64_t *hcclContext)
 {
-    __gm__ HcclCombinOpParam* winContext = (__gm__ HcclCombinOpParam*)(hcclContext[0]);
+    // 暂时只支持二维的in和out
+    __gm__ CommContext *winContext = (__gm__ CommContext *)(hcclContext[0]);    // 需要 hcclGroupIndex
     uint32_t localRankId = winContext->rankId;
     uint32_t rankSize = winContext->rankNum;
     int64_t offset = rowOffset * colPerRank + colOffset;

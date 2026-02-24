@@ -12,7 +12,7 @@
 """vector op 相关用例 Golden 生成逻辑.
 
 本脚本有 2 种执行模式:
-1. CI批跑时, 由 tests/cmake/scripts/golden_ctrl.py 调用, 为避免日志过多, 此时 logging 级别为 logging.INFO;
+1. CI批跑时, 由 cmake/scripts/golden_ctrl.py 调用, 为避免日志过多, 此时 logging 级别为 logging.INFO;
 """
 import sys
 import logging
@@ -27,7 +27,7 @@ import torch.nn.functional as F
 import copy
 
 g_src_root: Path = Path(Path(__file__).parent, "../../../../").resolve()
-g_ctrl_path: Path = Path(g_src_root, "tests/cmake/scripts")
+g_ctrl_path: Path = Path(g_src_root, "cmake/scripts")
 if str(g_ctrl_path) not in sys.path:
     sys.path.append(str(g_ctrl_path))
 from golden_register import GoldenRegister
@@ -623,7 +623,10 @@ def matmul_golden_func(inputs: list, config: dict):
     if params.get("relu_type") == 1:
         tensor_c = F.relu(tensor_c)
     if params.get("scale_value"):
-        tensor_c = tensor_c * params.get("scale_value")
+        mask = 0xFFFFE000
+        scale_value_data = np.float32([params.get("scale_value")]).view(np.uint32) & mask
+        fp32_scale_modified = scale_value_data.view(np.float32)[0]
+        tensor_c = tensor_c * fp32_scale_modified
     if params.get("quant_type") is not None and params.get("quant_type") == 2:
         # quant type中no quant为0, pertensor为1, perchannel为2.
         tensor_c = tensor_c * inputs[2]
@@ -677,7 +680,7 @@ def gen_expand_op_golden(case_name: str, output: Path, case_index: int = None) -
 @GoldenRegister.reg_golden_func(
     case_names=[
         "TestMatmul/MatmulOperationTest.TestMatmul",
-    ], 
+    ],
     version=0,
     timeout=0
 )
@@ -796,6 +799,23 @@ def gen_log_op_golden(case_name: str, output: Path, case_index: int = None) -> b
 
 @GoldenRegister.reg_golden_func(
     case_names=[
+        "TestPow/PowOperationTest.TestPow",
+    ]
+)
+def gen_log_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs, _config: dict):
+        a = from_numpy(inputs[0])
+        b = from_numpy(inputs[1])
+        c = torch.pow(a, b)
+        return [to_numpy(c)]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Pow", golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
         "TestPows/PowsOperationTest.TestPows",
     ]
 )
@@ -848,6 +868,20 @@ def gen_rsqrt_op_golden(case_name: str, output: Path, case_index: int = None) ->
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Rsqrt", golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestRelu/ReluOperationTest.TestRelu",
+    ]
+)
+def gen_relu_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs: list, _config: dict):
+        return [np.maximum(inputs[0], 0)]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Relu", golden_func, output, case_index)
 
 
 @GoldenRegister.reg_golden_func(
@@ -1707,7 +1741,7 @@ def cumsum_golden_func(inputs: list, config: dict):
     if inputs[0].dtype == bfloat16:
         res = res.to(torch.float32).numpy().astype(bfloat16)
         return [res]
-    
+
     return [res.numpy()]
 
 @GoldenRegister.reg_golden_func(
@@ -1783,7 +1817,7 @@ def indexadd_golden_func(inputs: list, config: dict):
     except (KeyError, ValueError, TypeError):
         alp = 1
     res = self.index_add(axis, indices, source, alpha=alp)
-    
+
     return [to_numpy(res)]
 
 

@@ -526,29 +526,32 @@ TEST_F(ScheduleOoOTest, TestSpillAssemble) {
     EXPECT_NE(function, nullptr);
 
     EXPECT_NE(subGraph.GetTensor("t9"), nullptr);
+    std::shared_ptr<LogicalTensor> tensor0 = subGraph.GetTensor("t9");
     std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t10");
+    tensor0->tensor->rawshape= {128, 192};
+ 	tensor1->tensor->rawshape= {128, 192};
     tensor1->memoryrange.memId =
         subGraph.GetTensor("t9")->memoryrange.memId;
     std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t11");
     tensor2->memoryrange.memId =
         subGraph.GetTensor("t9")->memoryrange.memId;
     tensor2->shape= {128, 128};
-    tensor2->tensor->rawshape= {128, 128};
+    tensor2->tensor->rawshape= {128, 192};
     std::shared_ptr<LogicalTensor> tensor3 = subGraph.GetTensor("t12");
     tensor3->memoryrange.memId =
         subGraph.GetTensor("t9")->memoryrange.memId;
     tensor3->shape= {128, 128};
-    tensor3->tensor->rawshape= {128, 128};
+    tensor3->tensor->rawshape= {128, 192};
     std::shared_ptr<LogicalTensor> tensor4 = subGraph.GetTensor("t13");
     tensor4->memoryrange.memId =
         subGraph.GetTensor("t9")->memoryrange.memId;
-    tensor4->shape = {128, 256};
-    tensor4->tensor->rawshape = {128, 256};
+    tensor4->shape = {128, 192};
+    tensor4->tensor->rawshape = {128, 192};
     std::shared_ptr<LogicalTensor> tensor5 = subGraph.GetTensor("t14");
     tensor5->memoryrange.memId =
         subGraph.GetTensor("t9")->memoryrange.memId;
-    tensor5->shape = {128, 256};
-    tensor5->tensor->rawshape = {128, 256};
+    tensor5->shape = {128, 192};
+    tensor5->tensor->rawshape = {128, 192};
     std::shared_ptr<LogicalTensor> tensor6 = subGraph.GetTensor("t7");
     tensor6->shape = {128, 128};
     tensor6->tensor->rawshape = {128, 128};
@@ -701,12 +704,12 @@ TEST_F(ScheduleOoOTest, TestScheduleView) {
     tensor1->memoryrange.memId =
         subGraph.GetTensor("t3")->memoryrange.memId;
     tensor1->shape = {32, 32};
-    tensor1->tensor->rawshape = {32, 32};
+    tensor1->tensor->rawshape = {64, 64};
     std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t6");
     tensor2->memoryrange.memId =
         subGraph.GetTensor("t3")->memoryrange.memId;
     tensor2->shape = {32, 32};
-    tensor2->tensor->rawshape = {32, 32};
+    tensor2->tensor->rawshape = {64, 64};
 
     OoOScheduler ooOScheduler(*function);
     Status res = ooOScheduler.Schedule(function->Operations().DuplicatedOpList());
@@ -745,10 +748,10 @@ TEST_F(ScheduleOoOTest, TestScheduleAssemble) {
     tensor2->memoryrange.memId =
         subGraph.GetTensor("t5")->memoryrange.memId;
     tensor2->shape = {32, 32};
-    tensor2->tensor->rawshape = {32, 32};
+    tensor2->tensor->rawshape = {64, 64};
     std::shared_ptr<LogicalTensor> tensor3 = subGraph.GetTensor("t5");
     tensor3->shape = {32, 32};
-    tensor3->tensor->rawshape = {32, 32};
+    tensor3->tensor->rawshape = {64, 64};
 
     OoOScheduler ooOScheduler(*function);
     Status res = ooOScheduler.Schedule(function->Operations().DuplicatedOpList());
@@ -933,9 +936,9 @@ TEST_F(ScheduleOoOTest, TestScheduleSpillAssemble) {
     std::shared_ptr<LogicalTensor> tensor5 = subGraph.GetTensor("t5");
     std::shared_ptr<LogicalTensor> tensor6 = subGraph.GetTensor("t6");
     tensor5->shape = {64, 128};
-    tensor5->tensor->rawshape = {64, 128};
+    tensor5->tensor->rawshape = {128, 128};
     tensor6->shape = {64, 128};
-    tensor6->tensor->rawshape = {64, 128};
+    tensor6->tensor->rawshape = {128, 128};
     std::vector<int64_t> offset1 = {0, 0};
     std::vector<int64_t> offset2 = {64, 0};
     auto assembleAttr1 = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UB, offset1);
@@ -1199,18 +1202,18 @@ TEST_F(ScheduleOoOTest, TestScheduleGenSpillInfiniteLoop) {
 
     EXPECT_NE(subGraph.GetTensor("t3"), nullptr);
     std::shared_ptr<LogicalTensor> tensor = subGraph.GetTensor("t3");
-    tensor->shape = {80,128};
-    tensor->tensor->rawshape = {80,128};
+    tensor->shape = {80, 128};
+    tensor->tensor->rawshape = {80, 128};
 
     EXPECT_NE(subGraph.GetTensor("t4"), nullptr);
     std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t4");
-    tensor1->shape = {176,256};
-    tensor1->tensor->rawshape = {176,256};
+    tensor1->shape = {176, 256};
+    tensor1->tensor->rawshape = {176, 256};
 
     EXPECT_NE(subGraph.GetTensor("t5"), nullptr);
     std::shared_ptr<LogicalTensor> tensor2 = subGraph.GetTensor("t5");
-    tensor2->shape = {176,256};
-    tensor2->tensor->rawshape = {176,256};
+    tensor2->shape = {176, 256};
+    tensor2->tensor->rawshape = {176, 256};
 
     EXPECT_NE(subGraph.GetTensor("t6"), nullptr);
     std::shared_ptr<LogicalTensor> tensor3 = subGraph.GetTensor("t6");
@@ -1242,6 +1245,26 @@ TEST_F(ScheduleOoOTest, TestCheckOpBufferSize) {
     std::vector<std::vector<std::string>> ooperands{{"t2"}, {"t4"}, {"t5"}, {"t6"}, {"t8"}, {"t2"}, {"t4"}, {"t5", "t6"}, {"t8"}, {"t7"}};
     std::vector<std::string> opNames{"Alloc1", "Alloc2", "Alloc3", "Alloc4", "Alloc5", "Copyin1", "Copyin2", "RowMax1", "Add1", "Copyout1"};
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {144, 128}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Function *function = subGraph.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    OoOScheduler ooOScheduler(*function);
+    Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
+    EXPECT_EQ(res, FAILED);
+}
+
+TEST_F(ScheduleOoOTest, TestInitLocalBufferFailed) {
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB,
+        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB};
+    std::vector<Opcode> opCodes{Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC,
+        Opcode::OP_UB_ALLOC, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ADD, Opcode::OP_COPY_OUT};
+    std::vector<std::vector<std::string>> ioperands{{}, {}, {}, {}, {}, {"t1"}, {"t3"}, {"t2"}, {"t4", "t5"}, {"t5"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}, {"t4"}, {"t5"}, {"t6"}, {"t8"}, {"t2"}, {"t4"}, {"t5", "t6"}, {"t8"}, {"t7"}};
+    std::vector<std::string> opNames{"Alloc1", "Alloc2", "Alloc3", "Alloc4", "Alloc5", "Copyin1", "Copyin2", "RowMax1", "Add1", "Copyout1"};
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {62, 69}, tensorMemTypes, tensorNames, 0), true);
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     Function *function = subGraph.GetFunction();
     EXPECT_NE(function, nullptr);
@@ -1467,7 +1490,7 @@ TEST_F(ScheduleOoOTest, TestHasEnoughBufferAddMemId) {
     OoOScheduler ooOScheduler(*function);
     ooOScheduler.issueEntryMap[issue2->id] = issue2;
     ooOScheduler.issueEntryMap[issue2->id]->reqMemIds = {1};
-    ooOScheduler.InitLocalBuffer(tensor2, 1);
+    EXPECT_EQ(ooOScheduler.InitLocalBuffer(tensor2, 1), SUCCESS);
     bool res = ooOScheduler.HasEnoughBuffer(issue, MemoryType::MEM_UB);
     EXPECT_EQ(res, false);
 }
@@ -1692,6 +1715,455 @@ TEST_F(ScheduleOoOTest, TestOoO1C2V) {
     EXPECT_EQ(op2->GetInternalSubgraphID(), 0);
     EXPECT_EQ(op3->GetInternalSubgraphID(), 1);
     EXPECT_EQ(op4->GetInternalSubgraphID(), 2);
+}
+
+void SetInternalSubgraphIDAndAIVCore(IssueEntryPtr issue, int id) {
+    issue->tileOp.UpdateInternalSubgraphID(id);
+    if (id == 0) {
+        issue->tileOp.SetAIVCore(AIVCore::AIV0);
+    }
+}
+
+void SetAttribute(ComputationalGraphBuilder &subGraph, OoOScheduler &oooSchedule, IssueEntryPtr &ubCopyL1, IssueEntryPtr &alloc3) {
+    IssueEntryPtr adds = GetIssueEntry("ADDS", subGraph, oooSchedule);
+    ubCopyL1 = GetIssueEntry("UB_COPY_L1", subGraph, oooSchedule);
+    IssueEntryPtr copyin1 = GetIssueEntry("COPY_IN1", subGraph, oooSchedule);
+    IssueEntryPtr copyin2 = GetIssueEntry("COPY_IN2", subGraph, oooSchedule);
+    IssueEntryPtr copyin3 = GetIssueEntry("COPY_IN3", subGraph, oooSchedule);
+    IssueEntryPtr copyin4 = GetIssueEntry("COPY_IN4", subGraph, oooSchedule);
+    IssueEntryPtr copyout1 = GetIssueEntry("COPY_OUT1", subGraph, oooSchedule);
+    IssueEntryPtr copyout2 = GetIssueEntry("COPY_OUT2", subGraph, oooSchedule);
+
+    IssueEntryPtr alloc1 = GetIssueEntry("UB_Alloc2", subGraph, oooSchedule);
+    IssueEntryPtr alloc2 = GetIssueEntry("L1_Alloc1", subGraph, oooSchedule);
+    alloc3 = GetIssueEntry("L1_Alloc3", subGraph, oooSchedule);
+    IssueEntryPtr alloc4 = GetIssueEntry("L1_Alloc2", subGraph, oooSchedule);
+
+    IssueEntryPtr alloc5 = GetIssueEntry("UB_Alloc1", subGraph, oooSchedule);
+    IssueEntryPtr alloc6 = GetIssueEntry("L0A_Alloc1", subGraph, oooSchedule);
+    IssueEntryPtr alloc7 = GetIssueEntry("L0A_Alloc2", subGraph, oooSchedule);
+
+    SetInternalSubgraphIDAndAIVCore(adds, 0);
+    SetInternalSubgraphIDAndAIVCore(alloc5, 0);
+    SetInternalSubgraphIDAndAIVCore(alloc1, 0);
+    SetInternalSubgraphIDAndAIVCore(ubCopyL1, 0);
+
+    SetInternalSubgraphIDAndAIVCore(alloc2, 1);
+    SetInternalSubgraphIDAndAIVCore(alloc3, 1);
+    SetInternalSubgraphIDAndAIVCore(alloc4, 1);
+    SetInternalSubgraphIDAndAIVCore(alloc6, 1);
+    SetInternalSubgraphIDAndAIVCore(alloc7, 1);
+    SetInternalSubgraphIDAndAIVCore(copyin1, 1);
+    SetInternalSubgraphIDAndAIVCore(copyin2, 1);
+    SetInternalSubgraphIDAndAIVCore(copyin3, 1);
+    SetInternalSubgraphIDAndAIVCore(copyin4, 1);
+    SetInternalSubgraphIDAndAIVCore(copyout1, 1);
+    SetInternalSubgraphIDAndAIVCore(copyout2, 1);
+
+    alloc5->isRetired = true;
+    adds->isRetired = true;
+    alloc1->isRetired = true;
+    ubCopyL1->isRetired = true;
+    alloc2->isRetired = true;
+    alloc7->isRetired = true;
+    copyin2->isRetired = true;
+
+    auto localBuffer1 = oooSchedule.localBufferMap[0];
+    auto coreAIC = opCoreTypeMap.at(OpCoreType::AIC);
+    oooSchedule.bufferManagerMap[coreAIC.first][coreAIC.second][MemoryType::MEM_L1].Allocate(localBuffer1);
+    oooSchedule.tensorOccupyMap[MemoryType::MEM_L1].emplace(0, copyin2);
+}
+
+void InitSpillInfo(SpillInfo &spillInfo, int memId, IssueEntryPtr spillIssue) {
+    spillInfo.spillMemId_ = memId;
+    spillInfo.spillIssue_ = spillIssue;
+    spillInfo.spillTensor_ = spillIssue->tileOp.GetOutputOperand(0);
+    spillInfo.ddrTensor_ = nullptr;
+    spillInfo.isSpecialL1_ = true;
+}
+
+static bool CheckOrderExists(std::unordered_set<int> &issueList, IssueEntryPtr targetIssue,
+    std::unordered_map<int, IssueEntryPtr> issueEntryMap) {
+    for (auto &issueId : issueList) {
+        auto issue = issueEntryMap[issueId];
+        if (issue == targetIssue) {
+            return true;
+        }
+    }
+    return false;
+}
+
+TEST_F(ScheduleOoOTest, TestL1SpillBuffer) {
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorL1Names{"t1", "t2", "t3"};
+    std::vector<MemoryType> tensorL1MemTypes{MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1};
+    std::vector<std::string> tensorNames{"UB1", "UB2", "L0A1", "L0A2", "DDR1", "DDR2"};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_L0A, MemoryType::MEM_L0A,
+        MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR};
+
+    std::vector<Opcode> opCodes{Opcode::OP_L1_ALLOC, Opcode::OP_L1_ALLOC, Opcode::OP_L1_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_L0A_ALLOC,
+        Opcode::OP_L0A_ALLOC, Opcode::OP_ADDS, Opcode::OP_UB_COPY_L1, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN,
+        Opcode::OP_COPY_OUT, Opcode::OP_COPY_OUT};
+
+    std::vector<std::vector<std::string>> ioperands{{}, {}, {}, {}, {}, {}, {}, {"UB1"}, {"UB2"}, {"t1"}, {"t1"}, {"L0A1"}, {"L0A2"}, {"t2"}, {"t3"}};
+    std::vector<std::vector<std::string>> ooperands{{"t1"}, {"t2"}, {"t3"}, {"UB1"}, {"UB2"}, {"L0A1"}, {"L0A2"},
+        {"UB2"}, {"t1"}, {"L0A1"}, {"L0A2"}, {"t2"}, {"t3"}, {"DDR1"}, {"DDR2"}};
+    std::vector<std::string> opNames{"L1_Alloc1", "L1_Alloc2", "L1_Alloc3", "UB_Alloc1", "UB_Alloc2", "L0A_Alloc1", "L0A_Alloc2",
+    "ADDS", "UB_COPY_L1", "COPY_IN1", "COPY_IN2", "COPY_IN3", "COPY_IN4", "COPY_OUT1", "COPY_OUT2"};
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {256, 512}, tensorL1MemTypes, tensorL1Names, 0), true);
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {16, 16}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Function *function = subGraph.GetFunction();
+    OptimizeSort optimizeSort(function->Operations().DuplicatedOpList(), *function);
+    Status res = optimizeSort.SortOps();
+    EXPECT_EQ(res, SUCCESS);
+    auto opList = optimizeSort.operations;
+    OoOScheduler oooSchedule(*function);
+    res = oooSchedule.Init(opList);
+    EXPECT_EQ(res, SUCCESS);
+    EXPECT_EQ(oooSchedule.issueEntries[5]->tileOp.GetOpcodeStr(), "L0A_ALLOC");
+    IssueEntryPtr ubCopyL1 = nullptr;
+    IssueEntryPtr alloc3 = nullptr;
+    SetAttribute(subGraph, oooSchedule, ubCopyL1, alloc3);
+    auto localBuffer2 = oooSchedule.localBufferMap[2];
+
+    SpillInfo spillInfo;
+    InitSpillInfo(spillInfo, 0, ubCopyL1);
+    size_t pcIdx = 7;
+    res = oooSchedule.SpillBuffer(spillInfo, alloc3, pcIdx, localBuffer2, true);
+    EXPECT_EQ(res, SUCCESS);
+    EXPECT_EQ(oooSchedule.issueEntries.size(), 18);
+    EXPECT_EQ(oooSchedule.issueEntries[5]->tileOp.GetOpcodeStr(), "COPY_OUT");
+    EXPECT_EQ(oooSchedule.issueEntries[5]->tileOp.GetInternalSubgraphID(), 0);
+    EXPECT_EQ(oooSchedule.issueEntries[5]->tileOp.GetAIVCore(), AIVCore::AIV0);
+    EXPECT_EQ(oooSchedule.issueEntries[12]->tileOp.GetOpcodeStr(), "L1_ALLOC");
+    EXPECT_EQ(oooSchedule.issueEntries[13]->tileOp.GetOpcodeStr(), "COPY_IN");
+    EXPECT_EQ(oooSchedule.issueEntries[12]->tileOp.GetInternalSubgraphID(), 1);
+    EXPECT_EQ(oooSchedule.issueEntries[13]->tileOp.GetAIVCore(), AIVCore::UNSPECIFIED);
+    auto attr = std::dynamic_pointer_cast<CopyOpAttribute>(oooSchedule.issueEntries[13]->tileOp.GetOpAttribute());
+    EXPECT_EQ(static_cast<int>(attr->GetFromOffset()[0].GetSpecifiedValue()), 0);
+    EXPECT_EQ(static_cast<int>(attr->GetFromOffset()[1].GetSpecifiedValue()), 0);
+    EXPECT_TRUE(CheckOrderExists(GetIssueEntry("COPY_IN1", subGraph, oooSchedule)->predecessors, oooSchedule.issueEntries[13], oooSchedule.issueEntryMap));
+}
+
+TEST_F(ScheduleOoOTest, TestL1SpillBufferFailed) {
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorL1{"t1", "t2", "t3"};
+    std::vector<MemoryType> tensorL1Types{MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1};
+    std::vector<std::string> tensorNames{"DDR", "UB2", "L0A1", "L0A2", "DDR1", "DDR2"};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_L0A, MemoryType::MEM_L0A,
+        MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR};
+
+    std::vector<Opcode> opCodes{Opcode::OP_L1_ALLOC, Opcode::OP_L1_ALLOC, Opcode::OP_L1_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_L0A_ALLOC,
+        Opcode::OP_L0A_ALLOC, Opcode::OP_COPY_IN, Opcode::OP_UB_COPY_L1, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN,
+        Opcode::OP_COPY_OUT, Opcode::OP_COPY_OUT};
+
+    std::vector<std::vector<std::string>> ioperands{{}, {}, {}, {}, {}, {}, {"DDR"}, {"UB2"}, {"t1"}, {"t1"}, {"L0A1"}, {"L0A2"}, {"t2"}, {"t3"}};
+    std::vector<std::vector<std::string>> ooperands{{"t1"}, {"t2"}, {"t3"}, {"UB2"}, {"L0A1"}, {"L0A2"},
+        {"UB2"}, {"t1"}, {"L0A1"}, {"L0A2"}, {"t2"}, {"t3"}, {"DDR1"}, {"DDR2"}};
+    std::vector<std::string> opNames{"L1_Alloc1", "L1_Alloc2", "L1_Alloc3", "UB_Alloc2", "L0A_Alloc1", "L0A_Alloc2",
+        "COPY_IN5", "UB_COPY_L1", "COPY_IN1", "COPY_IN2", "COPY_IN3", "COPY_IN4", "COPY_OUT1", "COPY_OUT2"};
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {256, 512}, tensorL1Types, tensorL1, 0), true);
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {16, 16}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Function *function = subGraph.GetFunction();
+    OptimizeSort ooosort(function->Operations().DuplicatedOpList(), *function);
+    Status res = ooosort.SortOps();
+    EXPECT_EQ(res, SUCCESS);
+    OoOScheduler oooSchedule(*function);
+    auto opList = ooosort.operations;
+    res = oooSchedule.Init(opList);
+    EXPECT_EQ(res, SUCCESS);
+    IssueEntryPtr ubCopyL1 = GetIssueEntry("UB_COPY_L1", subGraph, oooSchedule);
+    IssueEntryPtr alloc3 = GetIssueEntry("L1_Alloc3", subGraph, oooSchedule);
+    IssueEntryPtr spillCopyout = nullptr;
+
+    SpillInfo spillInfo;
+    InitSpillInfo(spillInfo, 0, ubCopyL1);
+    int num = 0;
+    bool isFinish = false;
+    res = oooSchedule.CreateSpecialL1Copyout(spillInfo, alloc3, spillCopyout, num, isFinish);
+    EXPECT_EQ(res, FAILED);
+}
+
+void SetAttributeReshape1(ComputationalGraphBuilder &subGraph, OoOScheduler &oooSchedule, IssueEntryPtr &reshape, IssueEntryPtr &alloc3) {
+    IssueEntryPtr adds = GetIssueEntry("ADDS", subGraph, oooSchedule);
+    IssueEntryPtr ubCopyL1 = GetIssueEntry("UB_COPY_L1", subGraph, oooSchedule);
+    reshape = GetIssueEntry("RESHAPE", subGraph, oooSchedule);
+    IssueEntryPtr copyin1 = GetIssueEntry("COPY_IN1", subGraph, oooSchedule);
+    IssueEntryPtr copyin2 = GetIssueEntry("COPY_IN2", subGraph, oooSchedule);
+    IssueEntryPtr copyin3 = GetIssueEntry("COPY_IN3", subGraph, oooSchedule);
+    IssueEntryPtr copyin4 = GetIssueEntry("COPY_IN4", subGraph, oooSchedule);
+    IssueEntryPtr copyout1 = GetIssueEntry("COPY_OUT1", subGraph, oooSchedule);
+    IssueEntryPtr copyout2 = GetIssueEntry("COPY_OUT2", subGraph, oooSchedule);
+
+    IssueEntryPtr alloc1 = GetIssueEntry("L1_Alloc1", subGraph, oooSchedule);
+    IssueEntryPtr alloc2 = GetIssueEntry("L1_Alloc2", subGraph, oooSchedule);
+    alloc3 = GetIssueEntry("L1_Alloc3", subGraph, oooSchedule);
+    IssueEntryPtr alloc4 = GetIssueEntry("UB_Alloc1", subGraph, oooSchedule);
+
+    IssueEntryPtr alloc5 = GetIssueEntry("UB_Alloc2", subGraph, oooSchedule);
+    IssueEntryPtr alloc6 = GetIssueEntry("L0A_Alloc1", subGraph, oooSchedule);
+    IssueEntryPtr alloc7 = GetIssueEntry("L0A_Alloc2", subGraph, oooSchedule);
+
+    SetInternalSubgraphIDAndAIVCore(adds, 0);
+    SetInternalSubgraphIDAndAIVCore(alloc4, 0);
+    SetInternalSubgraphIDAndAIVCore(alloc5, 0);
+    SetInternalSubgraphIDAndAIVCore(ubCopyL1, 0);
+
+    SetInternalSubgraphIDAndAIVCore(copyout1, 1);
+    SetInternalSubgraphIDAndAIVCore(copyout2, 1);
+    SetInternalSubgraphIDAndAIVCore(alloc1, 1);
+    SetInternalSubgraphIDAndAIVCore(alloc2, 1);
+    SetInternalSubgraphIDAndAIVCore(alloc3, 1);
+    SetInternalSubgraphIDAndAIVCore(alloc6, 1);
+    SetInternalSubgraphIDAndAIVCore(alloc7, 1);
+    SetInternalSubgraphIDAndAIVCore(reshape, 1);
+    SetInternalSubgraphIDAndAIVCore(copyin1, 1);
+    SetInternalSubgraphIDAndAIVCore(copyin2, 1);
+    SetInternalSubgraphIDAndAIVCore(copyin3, 1);
+    SetInternalSubgraphIDAndAIVCore(copyin4, 1);
+
+    oooSchedule.bufRefCount_ = {{4, 0}, {5, 0}, {0, 1}, {7, 1}, {3, 3}, {6, 3}, {2, 3}};
+    alloc4->isRetired = true;
+    alloc5->isRetired = true;
+    adds->isRetired = true;
+    alloc1->isRetired = true;
+    ubCopyL1->isRetired = true;
+    reshape->isRetired = true;
+    alloc7->isRetired = true;
+    copyin2->isRetired = true;
+
+    auto localBuffer1 = oooSchedule.localBufferMap[0];
+    auto coreAIC = opCoreTypeMap.at(OpCoreType::AIC);
+    oooSchedule.bufferManagerMap[coreAIC.first][coreAIC.second][MemoryType::MEM_L1].Allocate(localBuffer1);
+    oooSchedule.tensorOccupyMap[MemoryType::MEM_L1].emplace(0, copyin2);
+}
+
+// 场景：UB_COPY_L1-L1-reshape-L1
+TEST_F(ScheduleOoOTest, TestL1ReshapeSpillBuffer1) {
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorL1Names{"t1", "t2", "t3", "t4"};
+    std::vector<MemoryType> tensorL1MemTypes{MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1};
+    std::vector<std::string> tensorNames{"UB1", "UB2", "L0A1", "L0A2", "DDR1", "DDR2"};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_L0A, MemoryType::MEM_L0A,
+        MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR};
+
+    std::vector<std::string> opNames{"L1_Alloc1", "L1_Alloc2", "L1_Alloc3", "UB_Alloc1", "UB_Alloc2", "L0A_Alloc1", "L0A_Alloc2",
+        "ADDS", "UB_COPY_L1", "RESHAPE", "COPY_IN1", "COPY_IN2", "COPY_IN3", "COPY_IN4", "COPY_OUT1", "COPY_OUT2"};
+    std::vector<Opcode> opCodes{Opcode::OP_L1_ALLOC, Opcode::OP_L1_ALLOC, Opcode::OP_L1_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC,
+        Opcode::OP_L0A_ALLOC, Opcode::OP_L0A_ALLOC, Opcode::OP_ADDS, Opcode::OP_UB_COPY_L1, Opcode::OP_RESHAPE, Opcode::OP_COPY_IN,
+        Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_COPY_OUT, Opcode::OP_COPY_OUT};
+
+    std::vector<std::vector<std::string>> ioperands{{}, {}, {}, {}, {}, {}, {}, {"UB1"}, {"UB2"}, {"t1"}, {"t2"}, {"t2"}, {"L0A1"}, {"L0A2"}, {"t3"}, {"t4"}};
+    std::vector<std::vector<std::string>> ooperands{{"t1"}, {"t3"}, {"t4"}, {"UB1"}, {"UB2"}, {"L0A1"}, {"L0A2"},
+        {"UB2"}, {"t1"}, {"t2"}, {"L0A1"}, {"L0A2"}, {"t3"}, {"t4"}, {"DDR1"}, {"DDR2"}};
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {256, 512}, tensorL1MemTypes, tensorL1Names, 0), true);
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {16, 16}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Function *function = subGraph.GetFunction();
+    std::shared_ptr<LogicalTensor> tensor = subGraph.GetTensor("t2");
+    tensor->memoryrange.memId = subGraph.GetTensor("t1")->memoryrange.memId;
+    OptimizeSort optimizeSort(function->Operations().DuplicatedOpList(), *function);
+    Status res = optimizeSort.SortOps();
+    EXPECT_EQ(res, SUCCESS);
+    OoOScheduler ooOSchedule(*function);
+    res = ooOSchedule.Init(optimizeSort.operations);
+    EXPECT_EQ(res, SUCCESS);
+    EXPECT_EQ(ooOSchedule.issueEntries.size(), 16);
+    EXPECT_TRUE(CheckOrderExists(GetIssueEntry("COPY_IN1", subGraph, ooOSchedule)->predecessors, ooOSchedule.issueEntries[5], ooOSchedule.issueEntryMap));
+    EXPECT_EQ(ooOSchedule.issueEntries[15]->tileOp.GetOpcodeStr(), "COPY_OUT");
+    IssueEntryPtr reshape = nullptr;
+    IssueEntryPtr alloc3 = nullptr;
+    SetAttributeReshape1(subGraph, ooOSchedule, reshape, alloc3);
+    EXPECT_EQ(ooOSchedule.bufRefCount_[0], 1);
+    auto localBuffer2 = ooOSchedule.localBufferMap[3];
+
+    SpillInfo spillInfo;
+    InitSpillInfo(spillInfo, 0, reshape);
+    size_t pcIdx = 9;
+    res = ooOSchedule.SpillBuffer(spillInfo, alloc3, pcIdx, localBuffer2, true);
+    EXPECT_EQ(res, SUCCESS);
+    EXPECT_TRUE(CheckOrderExists(GetIssueEntry("COPY_IN1", subGraph, ooOSchedule)->predecessors, ooOSchedule.issueEntries[15], ooOSchedule.issueEntryMap));
+    EXPECT_EQ(ooOSchedule.bufRefCount_[0], 0);
+    EXPECT_EQ(ooOSchedule.issueEntries[15]->tileOp.GetOpcodeStr(), "RESHAPE");
+    EXPECT_EQ(ooOSchedule.issueEntries.size(), 20);
+    auto attr = std::dynamic_pointer_cast<CopyOpAttribute>(ooOSchedule.issueEntries[14]->tileOp.GetOpAttribute());
+    EXPECT_EQ(static_cast<int>(attr->GetFromOffset()[0].GetSpecifiedValue()), 0);
+    EXPECT_EQ(static_cast<int>(attr->GetFromOffset()[1].GetSpecifiedValue()), 0);
+}
+
+void SetAttributeReshape2(ComputationalGraphBuilder &subGraph, OoOScheduler &oooSchedule, IssueEntryPtr &reshape, IssueEntryPtr &alloc3) {
+    IssueEntryPtr copyin5 = GetIssueEntry("COPY_IN5", subGraph, oooSchedule);
+    reshape = GetIssueEntry("RESHAPE", subGraph, oooSchedule);
+    IssueEntryPtr copyin1 = GetIssueEntry("COPY_IN1", subGraph, oooSchedule);
+    IssueEntryPtr copyout1 = GetIssueEntry("COPY_OUT1", subGraph, oooSchedule);
+    IssueEntryPtr copyout2 = GetIssueEntry("COPY_OUT2", subGraph, oooSchedule);
+    IssueEntryPtr copyin2 = GetIssueEntry("COPY_IN2", subGraph, oooSchedule);
+    IssueEntryPtr copyin3 = GetIssueEntry("COPY_IN3", subGraph, oooSchedule);
+    IssueEntryPtr copyin4 = GetIssueEntry("COPY_IN4", subGraph, oooSchedule);
+    std::vector<int64_t> offset = {1, 1};
+    std::vector<int64_t> shape = {256, 512};
+    copyin5->tileOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(offset),
+        MemoryType::MEM_L1, OpImmediate::Specified(shape), OpImmediate::Specified(shape)));
+
+    IssueEntryPtr alloc1 = GetIssueEntry("L1_Alloc1", subGraph, oooSchedule);
+    IssueEntryPtr alloc2 = GetIssueEntry("L1_Alloc2", subGraph, oooSchedule);
+    alloc3 = GetIssueEntry("L1_Alloc3", subGraph, oooSchedule);
+
+    IssueEntryPtr alloc6 = GetIssueEntry("L0A_Alloc1", subGraph, oooSchedule);
+    IssueEntryPtr alloc7 = GetIssueEntry("L0A_Alloc2", subGraph, oooSchedule);
+
+    SetInternalSubgraphIDAndAIVCore(alloc1, 1);
+    SetInternalSubgraphIDAndAIVCore(copyin5, 1);
+    SetInternalSubgraphIDAndAIVCore(alloc2, 1);
+    SetInternalSubgraphIDAndAIVCore(alloc3, 1);
+    SetInternalSubgraphIDAndAIVCore(alloc6, 1);
+    SetInternalSubgraphIDAndAIVCore(alloc7, 1);
+    SetInternalSubgraphIDAndAIVCore(copyout1, 1);
+    SetInternalSubgraphIDAndAIVCore(reshape, 1);
+    SetInternalSubgraphIDAndAIVCore(copyin1, 1);
+    SetInternalSubgraphIDAndAIVCore(copyout2, 1);
+    SetInternalSubgraphIDAndAIVCore(copyin2, 1);
+    SetInternalSubgraphIDAndAIVCore(copyin3, 1);
+    SetInternalSubgraphIDAndAIVCore(copyin4, 1);
+
+    oooSchedule.bufRefCount_ = {{0, 1}, {6, 1}, {5, 3}, {3, 3}, {2, 3}};
+    alloc1->isRetired = true;
+    copyin5->isRetired = true;
+    reshape->isRetired = true;
+    alloc7->isRetired = true;
+    copyin2->isRetired = true;
+
+    auto localBuffer = oooSchedule.localBufferMap[0];
+    auto coreAIC = opCoreTypeMap.at(OpCoreType::AIC);
+    oooSchedule.tensorOccupyMap[MemoryType::MEM_L1].emplace(0, copyin2);
+    oooSchedule.bufferManagerMap[coreAIC.first][coreAIC.second][MemoryType::MEM_L1].Allocate(localBuffer);
+}
+
+// 场景：copy_in-L1-reshape-L1
+TEST_F(ScheduleOoOTest, TestL1ReshapeSpillBuffer2) {
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorL1Names{"t1", "t2", "t3", "t4"};
+    std::vector<MemoryType> tensorL1MemTypes{MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1};
+    std::vector<std::string> tensorNames{"DDR", "L0A1", "L0A2", "DDR1", "DDR2"};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L0A, MemoryType::MEM_L0A,
+        MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR};
+
+    std::vector<Opcode> opCodes{Opcode::OP_L1_ALLOC, Opcode::OP_L1_ALLOC, Opcode::OP_L1_ALLOC,
+        Opcode::OP_L0A_ALLOC, Opcode::OP_L0A_ALLOC, Opcode::OP_COPY_IN, Opcode::OP_RESHAPE, Opcode::OP_COPY_IN,
+        Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_COPY_OUT, Opcode::OP_COPY_OUT};
+
+    std::vector<std::vector<std::string>> inputOperands{{}, {}, {}, {}, {}, {"DDR"}, {"t1"}, {"t2"}, {"t2"}, {"L0A1"}, {"L0A2"}, {"t3"}, {"t4"}};
+    std::vector<std::vector<std::string>> outputOperands{{"t1"}, {"t3"}, {"t4"}, {"L0A1"}, {"L0A2"},
+        {"t1"}, {"t2"}, {"L0A1"}, {"L0A2"}, {"t3"}, {"t4"}, {"DDR1"}, {"DDR2"}};
+    std::vector<std::string> opNames{"L1_Alloc1", "L1_Alloc2", "L1_Alloc3", "L0A_Alloc1", "L0A_Alloc2",
+        "COPY_IN5", "RESHAPE", "COPY_IN1", "COPY_IN2", "COPY_IN3", "COPY_IN4", "COPY_OUT1", "COPY_OUT2"};
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {256, 512}, tensorL1MemTypes, tensorL1Names, 0), true);
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {16, 16}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, inputOperands, outputOperands, opNames, true), true);
+    Function *function = subGraph.GetFunction();
+    std::shared_ptr<LogicalTensor> tensor0 = subGraph.GetTensor("t2");
+    tensor0->memoryrange.memId = subGraph.GetTensor("t1")->memoryrange.memId;
+    OptimizeSort optimizeSort(function->Operations().DuplicatedOpList(), *function);
+    Status res = optimizeSort.SortOps();
+    EXPECT_EQ(res, SUCCESS);
+    OoOScheduler oooScheduler(*function);
+    res = oooScheduler.Init(optimizeSort.operations);
+    EXPECT_EQ(res, SUCCESS);
+    EXPECT_EQ(oooScheduler.issueEntries.size(), 13);
+    EXPECT_TRUE(CheckOrderExists(GetIssueEntry("COPY_IN1", subGraph, oooScheduler)->predecessors, oooScheduler.issueEntries[2], oooScheduler.issueEntryMap));
+    EXPECT_EQ(oooScheduler.issueEntries[10]->tileOp.GetOpcodeStr(), "L1_ALLOC");
+    IssueEntryPtr reshape = nullptr;
+    IssueEntryPtr alloc3 = nullptr;
+    SetAttributeReshape2(subGraph, oooScheduler, reshape, alloc3);
+    EXPECT_EQ(oooScheduler.bufRefCount_[0], 1);
+    auto localBuffer = oooScheduler.localBufferMap[3];
+
+    SpillInfo spillInfo;
+    InitSpillInfo(spillInfo, 0, reshape);
+    size_t pcIdx = 5;
+    res = oooScheduler.SpillBuffer(spillInfo, alloc3, pcIdx, localBuffer, true);
+    EXPECT_EQ(res, SUCCESS);
+    EXPECT_TRUE(CheckOrderExists(GetIssueEntry("COPY_IN1", subGraph, oooScheduler)->predecessors, oooScheduler.issueEntries[11], oooScheduler.issueEntryMap));
+    EXPECT_EQ(oooScheduler.bufRefCount_[0], 0);
+    EXPECT_EQ(oooScheduler.issueEntries[11]->tileOp.GetOpcodeStr(), "RESHAPE");
+    EXPECT_EQ(oooScheduler.issueEntries.size(), 16);
+    auto attr = std::dynamic_pointer_cast<CopyOpAttribute>(oooScheduler.issueEntries[10]->tileOp.GetOpAttribute());
+    EXPECT_EQ(static_cast<int>(attr->GetFromOffset()[0].GetSpecifiedValue()), 1);
+    EXPECT_EQ(static_cast<int>(attr->GetFromOffset()[1].GetSpecifiedValue()), 1);
+}
+
+TEST_F(ScheduleOoOTest, TestL1ReshapeSpillBufferFailed) {
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorL1Names{"t1", "t2", "t3", "t4"};
+    std::vector<MemoryType> tensorL1MemTypes{MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1};
+    std::vector<std::string> tensorNames{"DDR", "UB2", "L0A1", "L0A2", "DDR1", "DDR2"};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_L0A, MemoryType::MEM_L0A,
+        MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR};
+
+    std::vector<std::string> operationNames{"L1_Alloc1", "L1_Alloc2", "L1_Alloc3", "UB_Alloc2", "L0A_Alloc1", "L0A_Alloc2",
+        "COPY_IN5", "UB_COPY_L1", "RESHAPE", "COPY_IN1", "COPY_IN2", "COPY_IN3", "COPY_IN4", "COPY_OUT1", "COPY_OUT2"};
+    std::vector<Opcode> opCodes{Opcode::OP_L1_ALLOC, Opcode::OP_L1_ALLOC, Opcode::OP_L1_ALLOC, Opcode::OP_UB_ALLOC,
+        Opcode::OP_L0A_ALLOC, Opcode::OP_L0A_ALLOC, Opcode::OP_COPY_IN, Opcode::OP_UB_COPY_L1, Opcode::OP_RESHAPE, Opcode::OP_COPY_IN,
+        Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_COPY_OUT, Opcode::OP_COPY_OUT};
+
+    std::vector<std::vector<std::string>> ioperands{{}, {}, {}, {}, {}, {}, {"DDR"}, {"UB2"}, {"t1"}, {"t2"}, {"t2"}, {"L0A1"}, {"L0A2"}, {"t3"}, {"t4"}};
+    std::vector<std::vector<std::string>> ooperands{{"t1"}, {"t3"}, {"t4"}, {"UB2"}, {"L0A1"}, {"L0A2"},
+        {"UB2"}, {"t1"}, {"t2"}, {"L0A1"}, {"L0A2"}, {"t3"}, {"t4"}, {"DDR1"}, {"DDR2"}};
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {256, 512}, tensorL1MemTypes, tensorL1Names, 0), true);
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {16, 16}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, operationNames, true), true);
+    Function *function = subGraph.GetFunction();
+    std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t2");
+    tensor1->memoryrange.memId = subGraph.GetTensor("t1")->memoryrange.memId;
+    OptimizeSort oooSort(function->Operations().DuplicatedOpList(), *function);
+    Status res = oooSort.SortOps();
+    EXPECT_EQ(res, SUCCESS);
+    OoOScheduler oooSchedule(*function);
+    res = oooSchedule.Init(oooSort.operations);
+    EXPECT_EQ(res, SUCCESS);
+    IssueEntryPtr reshape = GetIssueEntry("RESHAPE", subGraph, oooSchedule);
+    IssueEntryPtr alloc3 = GetIssueEntry("L1_Alloc3", subGraph, oooSchedule);
+    auto localBuffer0 = oooSchedule.localBufferMap[3];
+
+    SpillInfo spillInfo;
+    InitSpillInfo(spillInfo, 0, reshape);
+    size_t pcIdx = 7;
+    res = oooSchedule.SpillBuffer(spillInfo, alloc3, pcIdx, localBuffer0, true);
+    EXPECT_EQ(res, FAILED);
+}
+
+TEST_F(ScheduleOoOTest, TestL1SpillBuffeFailed2) {
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4"};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1};
+
+    std::vector<std::string> opNames{"L1_Alloc1", "L1_Alloc2", "assemble1", "assemble2", "COPY_IN"};
+    std::vector<Opcode> opCodes{Opcode::OP_L1_ALLOC, Opcode::OP_L1_ALLOC, Opcode::OP_ASSEMBLE, Opcode::OP_ASSEMBLE, Opcode::OP_COPY_IN};
+
+    std::vector<std::vector<std::string>> ioperands{{}, {}, {"t1"}, {"t2"}, {"t3"}};
+    std::vector<std::vector<std::string>> ooperands{{"t1"}, {"t4"}, {"t3"}, {"t3"}, {"t4"}};
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {256, 256}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Function *function = subGraph.GetFunction();
+    subGraph.GetTensor("t2")->memoryrange.memId = subGraph.GetTensor("t1")->memoryrange.memId;
+    subGraph.GetTensor("t3")->memoryrange.memId = subGraph.GetTensor("t1")->memoryrange.memId;
+    OptimizeSort sort(function->Operations().DuplicatedOpList(), *function);
+    Status res = sort.SortOps();
+    EXPECT_EQ(res, SUCCESS);
+    OoOScheduler oooSchedule(*function);
+    res = oooSchedule.Init(sort.operations);
+    EXPECT_EQ(res, SUCCESS);
+    IssueEntryPtr assemble = GetIssueEntry("assemble1", subGraph, oooSchedule);
+    IssueEntryPtr alloc = GetIssueEntry("L1_Alloc2", subGraph, oooSchedule);
+    auto localBuffer = oooSchedule.localBufferMap[3];
+
+    SpillInfo spillInfo;
+    InitSpillInfo(spillInfo, 0, assemble);
+    size_t pcIdx = 3;
+    res = oooSchedule.SpillBuffer(spillInfo, alloc, pcIdx, localBuffer, true);
+    EXPECT_EQ(res, FAILED);
 }
 
 } // namespace npu::tile_fwk

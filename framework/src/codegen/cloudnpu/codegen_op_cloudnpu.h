@@ -80,7 +80,6 @@ public:
     std::string GenGatherInUB() const;
     std::string PrintGatherInUBDynamicUnaligned() const;
     std::string PrintGatherInUBLayout() const;
-    
 
     std::string GenUnaryOp() const;
     std::string GenUnaryOpWithTmpBuff() const;
@@ -176,7 +175,8 @@ private:
     std::string GenTemplateParamsForSet() const;
     std::string GenTemplateParamsDefault() const;
 
-    std::string GenOffsetsAndRawShapesForShmemPutAndGet() const;
+    std::string GenOffsetsAndRawShapesForShmemPut() const;
+    std::string GenOffsetsAndRawShapesForShmemGet() const;
     std::string GenOffsetsAndRawShapesForShmemPutAndGetUB() const;
     std::string GenOffsetsAndRawShapesForShmemSignal() const;
     std::string GenOffsetsAndRawShapesForMoeDistributedCombineSend() const;
@@ -213,14 +213,15 @@ private:
     bool GetAttr(const std::string &key, T &value) const {
         auto it = opAttrs.find(key);
         if (it == opAttrs.end()) {
-            ALOG_INFO_F("can not find key: %s in opAttrs", key.c_str());
+            CODEGEN_LOGI("can not find key: %s in opAttrs", key.c_str());
             return false;
         }
         if (it->second.Type() == typeid(T)) {
             value = AnyCast<T>(it->second);
             return true;
         }
-        ALOG_ERROR_F("Type of attribute %s from PASS is mismatch: %s != %s", key.c_str(), it->second.Type().name(), typeid(T).name());
+        CODEGEN_LOGE("Type of attribute %s from PASS is mismatch: %s != %s", key.c_str(), it->second.Type().name(),
+            typeid(T).name());
         return false;
     }
 
@@ -440,7 +441,7 @@ private:
     std::string PrintCumSumTileTensor(int axis) const;
 
     WhereParam PrepareWhereParam() const;
-    void GetVarAndTypeParam(std::vector<std::string> &varExpr, std::vector<std::string> &dataTypeExpr) const;
+    void GetWhereVarAndType(std::vector<std::string> &varExpr, std::vector<std::string> &dataTypeExpr) const;
     std::string PrintWhereOp(const WhereParam &param) const;
     std::string PrintWhereOpTileTensor(const WhereParam &param) const;
 
@@ -459,8 +460,14 @@ private:
 
     std::string PrintCoord(size_t dim, const std::string &coord) const;
     std::string PrintTensorForCopyBetweenGM(unsigned operandIdx, unsigned gmIdx, const std::string &gmVarName) const;
-    void FillParamWithFullShape(std::vector<std::string> &paramList, const std::vector<int64_t> &input) const;
-    void FillParamWithShapeExceptFirst(std::vector<std::string> &paramList, const std::vector<int64_t> &input) const;
+    template <typename T>
+    void FillParamWithFullShape(std::vector<std::string> &paramList, const std::vector<T> &input) const {
+        FillParamWithInput(paramList, input, 0, input.size());
+    }
+    template <typename T>
+    void FillParamWithShapeExceptFirst(std::vector<std::string> &paramList, const std::vector<T> &input) const {
+        FillParamWithInput(paramList, input, 1, input.size());
+    }
 
     const std::unordered_map<Opcode, std::function<std::string()>> mteFixPipeOps_;
 

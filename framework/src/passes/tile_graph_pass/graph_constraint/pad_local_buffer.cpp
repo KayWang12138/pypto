@@ -15,6 +15,7 @@
 
 #include "pad_local_buffer.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/reschedule_utils.h"
 
 #define MODULE_NAME "PadLocalBuffer"
 
@@ -412,28 +413,38 @@ void PadLocalBuffer::DoPadding(Function &function) {
         op.GetAttr(OpAttributeKey::inputCombineAxis, inputAxis);
         for (size_t i = 0; i < op.iOperand.size(); i++) {
             auto &in = op.iOperand[i];
-            if (visited.count(in) != 0) {
-                continue;
-            }
+            if (visited.count(in) != 0) continue;
             visited.emplace(in);
             if (IsMatmul(in)) {
                 PadMatmul(op, in);
                 continue;
             }
-            if (!IsVector(in)) {
-                continue;
-            }
-            if (in->tensor->GetRawDataSize() == 0) {
-                continue;
-            }
+            if (!IsVector(in) || in->tensor->GetRawDataSize() == 0) continue;
             if (function.paramConfigs_.combineAxis) {
                 PadVectorForAxisCombine(op, in, visitedRaw);
             } else {
-                bool noPadding = false;
-                if ((inputAxis.size() > i) && inputAxis[i]) {
-                    noPadding = true;
-                }
+                bool noPadding = ((inputAxis.size() > i) && inputAxis[i]);
                 PadVector(op, in, visitedRaw, noPadding);
+            }
+        }
+    }
+    for (auto &op : function.Operations()) {
+        std::vector<bool> outputAxis;
+        op.GetAttr(OpAttributeKey::outputCombineAxis, outputAxis);
+        for (size_t i = 0; i < op.oOperand.size(); i++) {
+            auto &out = op.oOperand[i];
+            if (visited.count(out) != 0) continue;
+            visited.emplace(out);
+            if (IsMatmul(out)) {
+                PadMatmul(op, out);
+                continue;
+            }
+            if (!IsVector(out) || out->tensor->GetRawDataSize() == 0) continue;
+            if (function.paramConfigs_.combineAxis) {
+                PadVectorForAxisCombine(op, out, visitedRaw);
+            } else {
+                bool noPadding = (out->GetMemoryTypeOriginal() == MEM_DEVICE_DDR || ((outputAxis.size() > i) && outputAxis[i]));
+                PadVector(op, out, visitedRaw, noPadding);
             }
         }
     }
@@ -582,7 +593,10 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
         }
     }
     if (calcType == OpCalcType::BROADCAST) {
-        auto dimIdx = ProcessBroadcastForAxisCombine(in);
+        auto dimIdx = lastIdx;
+        if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 && axisCombineMarker.IsTensorEnableAxisCombine(in)) {
+            dimIdx = ProcessBroadcastForAxisCombine(in);
+        }
         AlignedRawTensorIfNeed(in, dimIdx, paddingValue);
         return;
     }
@@ -592,9 +606,9 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
             return;
         }
     }
-    if (calcType == OpCalcType::ELMWISE || calcType == OpCalcType::MOVE_IN || calcType == OpCalcType::MOVE_OUT ||
+    if (calcType == OpCalcType::ELMWISE || calcType == OpCalcType::MOVE_IN || calcType == OpCalcType::MOVE_OUT || op.GetOpcode() == Opcode::OP_VIEW ||
             (producerOp != nullptr && OpcodeManager::Inst().GetOpCalcType(producerOp->GetOpcode()) == OpCalcType::BROADCAST)) {
-        if (op.GetOpcode() == Opcode::OP_EXPAND) {
+        if (op.GetOpcode() == Opcode::OP_EXPAND || !axisCombineMarker.IsTensorEnableAxisCombine(in)) {
             AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
             return;
         }
@@ -614,6 +628,7 @@ Status PadLocalBuffer::RunOnFunction(Function &function) {
     combineAxis = function.paramConfigs_.combineAxis;
     forceCombineAxis = function.paramConfigs_.forceCombineAxis;
     if (combineAxis) {
+        axisCombineMarker.Run(function);
         APASS_LOG_INFO_F(Elements::Operation, "======> Start PadLocalBuffer in COMBINE_AXIS mode.");
         DoPadding(function);
         APASS_LOG_INFO_F(Elements::Operation, "======> End PadLocalBuffer in COMBINE_AXIS mode.");

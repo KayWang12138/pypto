@@ -50,10 +50,10 @@ target_link_libraries(tile_fwk_interface
         PUBLIC
             $<BUILD_INTERFACE:json>
             $<BUILD_INTERFACE:c_sec>
+            $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_utils>>
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub
-
             dl
             Threads::Threads
             tile_fwk_simulation_platform
@@ -66,6 +66,7 @@ if (ENABLE_TORCH_VERIFIER)
     target_sources(tile_fwk_calculator
             PRIVATE
                 interpreter/calculator/calc_torch.cpp
+                interpreter/calculator/fp8_convert.cpp
     )
     target_compile_options(tile_fwk_calculator
             PRIVATE

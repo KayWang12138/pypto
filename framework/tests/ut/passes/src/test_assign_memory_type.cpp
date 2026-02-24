@@ -64,6 +64,16 @@ public:
         ConfigManager::Instance();
     }
 
+    void SetTestStrategy() {
+        PassManager &passManager = PassManager::Instance();
+        passManager.RegisterStrategy("AssignMemoryTypeTestStrategy", {
+            {   "InferMemoryConflict",    PassName::INFER_MEMORY_CONFLICT},
+            {        "ExpandFunction",          PassName::EXPAND_FUNCTION},
+            {      "AssignMemoryType",       PassName::ASSIGN_MEMORY_TYPE},
+        });
+        ConfigManager::Instance();
+    }
+
     void CheckConvertOp(const Operation &op, bool verbose = false) {
         /*
         1. 单输入单输出
@@ -515,14 +525,8 @@ void GetInvalidPatternGraph(std::shared_ptr<Function> &currFunctionPtr) {
     currFunctionPtr->inCasts_.push_back(input_cast);
     currFunctionPtr->outCasts_.push_back(output_cast);
 }
-TEST_F(AssignMemoryTypeTest, InValidOpPattern) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "InValidOpPattern", "InValidOpPattern", nullptr);
-    EXPECT_TRUE(currFunctionPtr != nullptr);
 
-    Program::GetInstance().InsertFuncToFunctionMap("InValidOpPattern", currFunctionPtr);
-
-    GetInvalidPatternGraph(currFunctionPtr);
-
+void CallAndVerify(std::shared_ptr<Function> &currFunctionPtr, const MemoryType type) {
     std::stringstream ssBefore;
     ssBefore << "Before_AssignMemoryType";
 
@@ -535,7 +539,7 @@ TEST_F(AssignMemoryTypeTest, InValidOpPattern) {
     std::stringstream ss;
     ss << "After_AssignMemoryType";
 
-    std::string josnFilePath = "/config/pass/json/assign_mem_type_invalidpattern.json";
+    std::string josnFilePath = "./config/pass/json/assign_mem_type_invalidpattern.json";
     currFunctionPtr->DumpJsonFile(josnFilePath);
 
     // Validate the results
@@ -544,15 +548,26 @@ TEST_F(AssignMemoryTypeTest, InValidOpPattern) {
         std::cout << op.GetOpcodeStr() << " " << op.GetOpMagic() << std::endl;
         for (auto &input : op.GetIOperands()) {
             std::cout << "\t|--- iOperand " << input->magic;
-            EXPECT_EQ(input->GetMemoryTypeOriginal(), MemoryType::MEM_DEVICE_DDR) << " Unexpected memory type.";
+            EXPECT_EQ(input->GetMemoryTypeOriginal(), type) << " Unexpected memory type.";
             EXPECT_EQ(input->GetMemoryTypeOriginal(), input->GetMemoryTypeToBe()) << " iOperand has two memory type.";
         }
         for (auto &output : op.GetOOperands()) {
             std::cout << "\t|--- oOperand " << output->magic << std::endl;
-            EXPECT_EQ(output->GetMemoryTypeOriginal(), MemoryType::MEM_DEVICE_DDR) << " Unexpected memory type.";
+            EXPECT_EQ(output->GetMemoryTypeOriginal(), type) << " Unexpected memory type.";
             EXPECT_EQ(output->GetMemoryTypeOriginal(), output->GetMemoryTypeToBe()) << " oOperand has two memory type.";
         }
     }
+}
+
+TEST_F(AssignMemoryTypeTest, InValidOpPattern) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "InValidOpPattern", "InValidOpPattern", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    Program::GetInstance().InsertFuncToFunctionMap("InValidOpPattern", currFunctionPtr);
+
+    GetInvalidPatternGraph(currFunctionPtr);
+
+    CallAndVerify(currFunctionPtr, MemoryType::MEM_DEVICE_DDR);
 }
 
 void GetViewReshapeGraph (std::shared_ptr<Function> &currFunctionPtr) {
@@ -617,36 +632,7 @@ TEST_F(AssignMemoryTypeTest, ViewReshape) {
 
     GetViewReshapeGraph(currFunctionPtr);
 
-    std::stringstream ssBefore;
-    ssBefore << "Before_AssignMemoryType";
-
-    // Call the pass
-    AssignMemoryType assignMemoryType;
-    assignMemoryType.PreCheck(*currFunctionPtr);
-    assignMemoryType.RunOnFunction(*currFunctionPtr);
-    assignMemoryType.PostCheck(*currFunctionPtr);
-
-    std::stringstream ss;
-    ss << "After_AssignMemoryType";
-
-    std::string josnFilePath = "/config/pass/json/assign_mem_type_invalidpattern.json";
-    currFunctionPtr->DumpJsonFile(josnFilePath);
-
-    // Validate the results
-    std::cout << "========== op size: " << currFunctionPtr->Operations().size() << std::endl;
-    for (auto &op : currFunctionPtr->Operations()) {
-        std::cout << op.GetOpcodeStr() << " " << op.GetOpMagic() << std::endl;
-        for (auto &input : op.GetIOperands()) {
-            std::cout << "\t|--- iOperand " << input->magic;
-            EXPECT_EQ(input->GetMemoryTypeOriginal(), MemoryType::MEM_UB) << " Unexpected memory type.";
-            EXPECT_EQ(input->GetMemoryTypeOriginal(), input->GetMemoryTypeToBe()) << " iOperand has two memory type.";
-        }
-        for (auto &output : op.GetOOperands()) {
-            std::cout << "\t|--- oOperand " << output->magic << std::endl;
-            EXPECT_EQ(output->GetMemoryTypeOriginal(), MemoryType::MEM_UB) << " Unexpected memory type.";
-            EXPECT_EQ(output->GetMemoryTypeOriginal(), output->GetMemoryTypeToBe()) << " oOperand has two memory type.";
-        }
-    }
+    CallAndVerify(currFunctionPtr, MemoryType::MEM_UB);
 }
 void L1DataMoveGraph (std::shared_ptr<Function> &currFunctionPtr) {
     std::shared_ptr<LogicalTensor> input_cast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, std::vector<int64_t>{32,64});
@@ -880,6 +866,40 @@ TEST_F(AssignMemoryTypeTest, TestPostcheckFailWhenPathUnreachable) {
 
     AssignMemoryType assignMemoryType;
     EXPECT_EQ(assignMemoryType.PostCheck(*function), FAILED);
+}
+
+TEST_F(AssignMemoryTypeTest, AssembleAndReshapeAfterAssemble) {
+    config::SetHostConfig(KEY_STRATEGY, "AssignMemoryTypeTestStrategy");
+    std::vector<int64_t> shape0 = {NUM_64, NUM_32};
+    std::vector<int64_t> shape1 = {NUM_32, NUM_64};
+    PROGRAM("AssignMemoryTest") {
+        Tensor input1(DataType::DT_FP32, shape0, "In1");
+        Tensor input2(DataType::DT_FP32, shape0, "In2");
+        Tensor input3(DataType::DT_FP32, shape1, "In3");
+        Tensor output1(DataType::DT_FP32, shape1, "Out1");
+        Tensor output2(DataType::DT_FP32, shape0, "Out2");
+        SetTestStrategy();
+        Function* originFunction = nullptr;
+        config::SetBuildStatic(true);
+        FUNCTION("AssembleAndReshapeAfterAssemble", {input1, input2, output1, output2}) {
+            TileShape::Current().SetVecTile(NUM_256, NUM_128);
+            Tensor t1 = Add(input1, input2);
+            Tensor t2(DT_FP32, shape0, "t2");
+            Tensor t3(DT_FP32, shape0, "t2");
+            Assemble(t1, {0, 0}, t2);
+            Assemble(t2, {0, 0}, t3);
+            Assemble(t3, {0, 0}, output2);
+            Tensor r1 = Reshape(t2, shape1);
+            output1 = Add(r1, input3);
+        }
+        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_AssembleAndReshapeAfterAssemble"); // Tensor_{Function名字}
+        ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
+        for (auto &op : originFunction->Operations()) {
+            if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+                EXPECT_EQ(op.iOperand[0]->GetMemoryTypeOriginal(), op.oOperand[0]->GetMemoryTypeOriginal());
+            }
+        }
+    }
 }
 }
 } // namespace npu::tile_fwk

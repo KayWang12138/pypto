@@ -62,7 +62,7 @@ public: // public api for torch
     }
     size_t FunctionMapSize() const { return functionmap_.size(); }
     void InsertFuncToFunctionMap(const std::string &magicName, std::shared_ptr<Function> func) {
-        ASSERT(functionmap_.count(magicName) == 0);
+        ASSERT(functionmap_.count(magicName) == 0) << magicName << " already exists in functionmap.";
         functionmap_.emplace(magicName, func);
     }
     std::shared_ptr<Function> GetFunctionByMagic(int funcMagic);
@@ -81,7 +81,6 @@ public: // public api for torch
     void LoadJson(Json &programJson);
     void DumpJsonFile(const std::string &fileName, Function *mainFunc = nullptr);
     std::string Dump() const; // Serialize Program briefly
-    void GraphCheck() const;
     std::string DumpStack(const std::string &funcName = "") const;
     void PopStackAndUpdateCurrent();
 

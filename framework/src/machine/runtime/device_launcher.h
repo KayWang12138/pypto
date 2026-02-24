@@ -36,7 +36,7 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/configs/config_manager.h"
 #include "tilefwk/platform.h"
-#include "machine/runtime/distributed_context.h"
+#include "machine/runtime/distributed/distributed_context.h"
 
 #ifndef BUILD_WITH_CANN
 enum aclmdlRICaptureMode {};
@@ -243,13 +243,13 @@ public:
         if (devProg->hcclContext[0] != 0) {
             return;
         }
-        auto hcclContext = DistributedContext::GetHcclContextToHost(groupNames);
+        auto hcclContext = DistributedContext::GetCommContextToHost(groupNames);
         PrepareHcclContext(hcclContext, devProg);
     }
 
     static void DeviceInitDistributedContext(const std::vector<std::string> &groupNames,
         DevAscendProgram *devProg) {
-        auto hcclContext = DistributedContext::GetHcclContext(groupNames);
+        auto hcclContext = DistributedContext::GetCommContext(groupNames);
         if ((hcclContext.size() == 0) || (devProg->hcclContext[0] == hcclContext[0])) {
             return;
         }
@@ -419,7 +419,7 @@ public:
     static void *RegisterKernelBin(const std::vector<uint8_t> &kernelBinary);
     static void UnregisterKernelBin(void *hdl);
     static bool AddAicpuStream(aclrtStream aicoreStream, bool tripleStream);
-    static int LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream, bool debugEnable);
+    static int LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream, bool debugEnable, [[maybe_unused]]Function *function);
     static int LaunchAicoreKernel(
         aclrtStream aicoreStream, void *kernel, rtArgsEx_t &rtArgs, rtTaskCfgInfo_t &rtTaskCfg, bool debugEnable);
     static int DeviceRunOnce(Function *function, DevControlFlowCache* hostCtrlCache = nullptr,
