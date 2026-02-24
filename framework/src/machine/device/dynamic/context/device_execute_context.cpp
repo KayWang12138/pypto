@@ -292,6 +292,8 @@ void DeviceExecuteContext::DumpDeviceTask(uint64_t taskId, DynDeviceTask *device
         for (size_t i = 0; i < outcastSize; ++i) {
             DEV_TRACE_DEBUG(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), RActOutcast(i, dupped->SchemaGetOutcastRange(i))));
         }
+        DEV_TRACE_DEBUG(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), RActExpressionCount(dupped->GetExpressionSize())));
+        DEV_TRACE_DEBUG_SPLIT(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), expr(dupped->SchemaGetExpressionList())));
     }
 }
 
