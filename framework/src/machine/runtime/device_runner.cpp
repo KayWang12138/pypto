@@ -373,8 +373,7 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
         return -1;
     }
 
-    size = MAX_STATIC_SCHEDULE_AICPU_NUM * sizeof(size_t);
-    args.tracrDataSizes = reinterpret_cast<uint64_t>(DevAlloc(size));
+    args.tracrDataSizes = reinterpret_cast<uint64_t>(DevAlloc(MAX_STATIC_SCHEDULE_AICPU_NUM * sizeof(size_t)));
 
     if (args.tracrData == 0 || args.tracrDataSizes == 0) {
         return -1;
