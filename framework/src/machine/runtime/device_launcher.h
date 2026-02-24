@@ -165,6 +165,9 @@ public:
         devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, aiCpuNum, devProg->devArgs.archInfo);
         config.aicpuNum = devProg->devArgs.scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM;
         devProg->devArgs.nrAicpu = config.aicpuNum;
+        if (config::GetVerifyOption<bool>(KEY_ENABLE_CALL_TASK_DUMP)) {  // dump tensor
+            devProg->devArgs.hostPid = getpid();
+        }
 #ifdef BUILD_WITH_CANN
         if (isDevice) {
             devProg->devArgs.validGetPgMask = DeviceRunner::Get().GetValidGetPgMask();
