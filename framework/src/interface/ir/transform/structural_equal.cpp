@@ -425,6 +425,10 @@ class StructuralEqualImpl {
   bool EqualVar(const VarPtr& lhs, const VarPtr& rhs);
   bool EqualIterArg(const IterArgPtr& lhs, const IterArgPtr& rhs);
   bool EqualType(const TypePtr& lhs, const TypePtr& rhs);
+  bool EqualScalarType(const ScalarTypePtr& lhs, const ScalarTypePtr& rhs);
+  bool EqualTensorType(const TensorTypePtr& lhs, const TensorTypePtr& rhs);
+  bool EqualTileType(const TileTypePtr& lhs, const TileTypePtr& rhs);
+  bool EqualTupleType(const TupleTypePtr& lhs, const TupleTypePtr& rhs);
 
   /**
    * @brief Generic field-based equality check for IR nodes using FieldIterator
@@ -600,6 +604,147 @@ bool StructuralEqualImpl<AssertMode>::Equal(const IRNodePtr& lhs, const IRNodePt
 #undef EQUAL_DISPATCH_BASE
 
 template <bool AssertMode>
+bool StructuralEqualImpl<AssertMode>::EqualScalarType(const ScalarTypePtr& lhs, const ScalarTypePtr& rhs) {
+  if (!rhs) {
+    if constexpr (AssertMode) {
+      ThrowMismatch("Type cast failed for ScalarType", IRNodePtr(), IRNodePtr(), "", "");
+    }
+    return false;
+  }
+  if (lhs->dtype_ != rhs->dtype_) {
+    if constexpr (AssertMode) {
+      std::ostringstream msg;
+      msg << "ScalarType dtype mismatch (" << lhs->dtype_.ToString()
+          << " != " << rhs->dtype_.ToString() << ")";
+      ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
+    }
+    return false;
+  }
+  return true;
+}
+
+template <bool AssertMode>
+bool StructuralEqualImpl<AssertMode>::EqualTensorType(const TensorTypePtr& lhs, const TensorTypePtr& rhs) {
+  if (!rhs) {
+    if constexpr (AssertMode) {
+      ThrowMismatch("Type cast failed for TensorType", IRNodePtr(), IRNodePtr(), "", "");
+    }
+    return false;
+  }
+  if (lhs->dtype_ != rhs->dtype_) {
+    if constexpr (AssertMode) {
+      std::ostringstream msg;
+      msg << "TensorType dtype mismatch (" << lhs->dtype_.ToString()
+          << " != " << rhs->dtype_.ToString() << ")";
+      ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
+    }
+    return false;
+  }
+  if (lhs->shape_.size() != rhs->shape_.size()) {
+    if constexpr (AssertMode) {
+      std::ostringstream msg;
+      msg << "TensorType shape rank mismatch (" << lhs->shape_.size()
+          << " != " << rhs->shape_.size() << ")";
+      ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
+    }
+    return false;
+  }
+  for (size_t i = 0; i < lhs->shape_.size(); ++i) {
+    if (!Equal(lhs->shape_[i], rhs->shape_[i])) return false;
+  }
+  return true;
+}
+
+template <bool AssertMode>
+bool StructuralEqualImpl<AssertMode>::EqualTileType(const TileTypePtr& lhs, const TileTypePtr& rhs) {
+  if (!rhs) {
+    if constexpr (AssertMode) {
+      ThrowMismatch("Type cast failed for TileType", IRNodePtr(), IRNodePtr(), "", "");
+    }
+    return false;
+  }
+  if (lhs->dtype_ != rhs->dtype_) {
+    if constexpr (AssertMode) {
+      std::ostringstream msg;
+      msg << "TileType dtype mismatch (" << lhs->dtype_.ToString()
+          << " != " << rhs->dtype_.ToString() << ")";
+      ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
+    }
+    return false;
+  }
+  if (lhs->shape_.size() != rhs->shape_.size()) {
+    if constexpr (AssertMode) {
+      std::ostringstream msg;
+      msg << "TileType shape rank mismatch (" << lhs->shape_.size()
+          << " != " << rhs->shape_.size() << ")";
+      ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
+    }
+    return false;
+  }
+  for (size_t i = 0; i < lhs->shape_.size(); ++i) {
+    if (!Equal(lhs->shape_[i], rhs->shape_[i])) return false;
+  }
+  if (lhs->tile_view_.has_value() != rhs->tile_view_.has_value()) {
+    if constexpr (AssertMode) {
+      ThrowMismatch("TileType tile_view presence mismatch", IRNodePtr(), IRNodePtr(), "", "");
+    }
+    return false;
+  }
+  if (lhs->tile_view_.has_value()) {
+    const auto& lhs_tv = lhs->tile_view_.value();
+    const auto& rhs_tv = rhs->tile_view_.value();
+    if (lhs_tv.valid_shape.size() != rhs_tv.valid_shape.size()) {
+      if constexpr (AssertMode) {
+        std::ostringstream msg;
+        msg << "TileView valid_shape size mismatch (" << lhs_tv.valid_shape.size()
+            << " != " << rhs_tv.valid_shape.size() << ")";
+        ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
+      }
+      return false;
+    }
+    for (size_t i = 0; i < lhs_tv.valid_shape.size(); ++i) {
+      if (!Equal(lhs_tv.valid_shape[i], rhs_tv.valid_shape[i])) return false;
+    }
+    if (lhs_tv.stride.size() != rhs_tv.stride.size()) {
+      if constexpr (AssertMode) {
+        std::ostringstream msg;
+        msg << "TileView stride size mismatch (" << lhs_tv.stride.size() << " != " << rhs_tv.stride.size()
+            << ")";
+        ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
+      }
+      return false;
+    }
+    for (size_t i = 0; i < lhs_tv.stride.size(); ++i) {
+      if (!Equal(lhs_tv.stride[i], rhs_tv.stride[i])) return false;
+    }
+    if (!Equal(lhs_tv.start_offset, rhs_tv.start_offset)) return false;
+  }
+  return true;
+}
+
+template <bool AssertMode>
+bool StructuralEqualImpl<AssertMode>::EqualTupleType(const TupleTypePtr& lhs, const TupleTypePtr& rhs) {
+  if (!rhs) {
+    if constexpr (AssertMode) {
+      ThrowMismatch("Type cast failed for TupleType", IRNodePtr(), IRNodePtr(), "", "");
+    }
+    return false;
+  }
+  if (lhs->types_.size() != rhs->types_.size()) {
+    if constexpr (AssertMode) {
+      std::ostringstream msg;
+      msg << "TupleType size mismatch (" << lhs->types_.size() << " != " << rhs->types_.size() << ")";
+      ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
+    }
+    return false;
+  }
+  for (size_t i = 0; i < lhs->types_.size(); ++i) {
+    if (!EqualType(lhs->types_[i], rhs->types_[i])) return false;
+  }
+  return true;
+}
+
+template <bool AssertMode>
 bool StructuralEqualImpl<AssertMode>::EqualType(const TypePtr& lhs, const TypePtr& rhs) {
   if (lhs->TypeName() != rhs->TypeName()) {
     if constexpr (AssertMode) {
@@ -611,147 +756,14 @@ bool StructuralEqualImpl<AssertMode>::EqualType(const TypePtr& lhs, const TypePt
   }
 
   if (auto lhs_scalar = As<ScalarType>(lhs)) {
-    auto rhs_scalar = As<ScalarType>(rhs);
-    if (!rhs_scalar) {
-      if constexpr (AssertMode) {
-        ThrowMismatch("Type cast failed for ScalarType", IRNodePtr(), IRNodePtr(), "", "");
-      }
-      return false;
-    }
-    if (lhs_scalar->dtype_ != rhs_scalar->dtype_) {
-      if constexpr (AssertMode) {
-        std::ostringstream msg;
-        msg << "ScalarType dtype mismatch (" << lhs_scalar->dtype_.ToString()
-            << " != " << rhs_scalar->dtype_.ToString() << ")";
-        ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
-      }
-      return false;
-    }
-    return true;
+    return EqualScalarType(lhs_scalar, As<ScalarType>(rhs));
   } else if (auto lhs_tensor = As<TensorType>(lhs)) {
-    auto rhs_tensor = As<TensorType>(rhs);
-    if (!rhs_tensor) {
-      if constexpr (AssertMode) {
-        ThrowMismatch("Type cast failed for TensorType", IRNodePtr(), IRNodePtr(), "", "");
-      }
-      return false;
-    }
-    if (lhs_tensor->dtype_ != rhs_tensor->dtype_) {
-      if constexpr (AssertMode) {
-        std::ostringstream msg;
-        msg << "TensorType dtype mismatch (" << lhs_tensor->dtype_.ToString()
-            << " != " << rhs_tensor->dtype_.ToString() << ")";
-        ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
-      }
-      return false;
-    }
-    if (lhs_tensor->shape_.size() != rhs_tensor->shape_.size()) {
-      if constexpr (AssertMode) {
-        std::ostringstream msg;
-        msg << "TensorType shape rank mismatch (" << lhs_tensor->shape_.size()
-            << " != " << rhs_tensor->shape_.size() << ")";
-        ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
-      }
-      return false;
-    }
-    for (size_t i = 0; i < lhs_tensor->shape_.size(); ++i) {
-      if (!Equal(lhs_tensor->shape_[i], rhs_tensor->shape_[i])) return false;
-    }
-    return true;
+    return EqualTensorType(lhs_tensor, As<TensorType>(rhs));
   } else if (auto lhs_tile = As<TileType>(lhs)) {
-    auto rhs_tile = As<TileType>(rhs);
-    if (!rhs_tile) {
-      if constexpr (AssertMode) {
-        ThrowMismatch("Type cast failed for TileType", IRNodePtr(), IRNodePtr(), "", "");
-      }
-      return false;
-    }
-    // Compare dtype
-    if (lhs_tile->dtype_ != rhs_tile->dtype_) {
-      if constexpr (AssertMode) {
-        std::ostringstream msg;
-        msg << "TileType dtype mismatch (" << lhs_tile->dtype_.ToString()
-            << " != " << rhs_tile->dtype_.ToString() << ")";
-        ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
-      }
-      return false;
-    }
-    // Compare shape size and dimensions
-    if (lhs_tile->shape_.size() != rhs_tile->shape_.size()) {
-      if constexpr (AssertMode) {
-        std::ostringstream msg;
-        msg << "TileType shape rank mismatch (" << lhs_tile->shape_.size()
-            << " != " << rhs_tile->shape_.size() << ")";
-        ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
-      }
-      return false;
-    }
-    for (size_t i = 0; i < lhs_tile->shape_.size(); ++i) {
-      if (!Equal(lhs_tile->shape_[i], rhs_tile->shape_[i])) return false;
-    }
-    // Compare tile_view
-    if (lhs_tile->tile_view_.has_value() != rhs_tile->tile_view_.has_value()) {
-      if constexpr (AssertMode) {
-        ThrowMismatch("TileType tile_view presence mismatch", IRNodePtr(), IRNodePtr(), "", "");
-      }
-      return false;
-    }
-    if (lhs_tile->tile_view_.has_value()) {
-      const auto& lhs_tv = lhs_tile->tile_view_.value();
-      const auto& rhs_tv = rhs_tile->tile_view_.value();
-      // Compare valid_shape
-      if (lhs_tv.valid_shape.size() != rhs_tv.valid_shape.size()) {
-        if constexpr (AssertMode) {
-          std::ostringstream msg;
-          msg << "TileView valid_shape size mismatch (" << lhs_tv.valid_shape.size()
-              << " != " << rhs_tv.valid_shape.size() << ")";
-          ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
-        }
-        return false;
-      }
-      for (size_t i = 0; i < lhs_tv.valid_shape.size(); ++i) {
-        if (!Equal(lhs_tv.valid_shape[i], rhs_tv.valid_shape[i])) return false;
-      }
-      // Compare stride
-      if (lhs_tv.stride.size() != rhs_tv.stride.size()) {
-        if constexpr (AssertMode) {
-          std::ostringstream msg;
-          msg << "TileView stride size mismatch (" << lhs_tv.stride.size() << " != " << rhs_tv.stride.size()
-              << ")";
-          ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
-        }
-        return false;
-      }
-      for (size_t i = 0; i < lhs_tv.stride.size(); ++i) {
-        if (!Equal(lhs_tv.stride[i], rhs_tv.stride[i])) return false;
-      }
-      // Compare start_offset
-      if (!Equal(lhs_tv.start_offset, rhs_tv.start_offset)) return false;
-    }
-    return true;
+    return EqualTileType(lhs_tile, As<TileType>(rhs));
   } else if (auto lhs_tuple = As<TupleType>(lhs)) {
-    auto rhs_tuple = As<TupleType>(rhs);
-    if (!rhs_tuple) {
-      if constexpr (AssertMode) {
-        ThrowMismatch("Type cast failed for TupleType", IRNodePtr(), IRNodePtr(), "", "");
-      }
-      return false;
-    }
-    if (lhs_tuple->types_.size() != rhs_tuple->types_.size()) {
-      if constexpr (AssertMode) {
-        std::ostringstream msg;
-        msg << "TupleType size mismatch (" << lhs_tuple->types_.size() << " != " << rhs_tuple->types_.size()
-            << ")";
-        ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
-      }
-      return false;
-    }
-    for (size_t i = 0; i < lhs_tuple->types_.size(); ++i) {
-      if (!EqualType(lhs_tuple->types_[i], rhs_tuple->types_[i])) return false;
-    }
-    return true;
+    return EqualTupleType(lhs_tuple, As<TupleType>(rhs));
   } else if (IsA<MemRefType>(lhs)) {
-    // MemRefType is a singleton type, just need to check both are MemRefType
     return true;
   } else if (IsA<UnknownType>(lhs)) {
     return true;
