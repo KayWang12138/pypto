@@ -36,9 +36,9 @@ verify_options = {
 def special_view_opcomposite_pto(input_tensor_a, input_tensor_b, input_tensor_c, output_tensor, params: CompositeParams):
     tile_b = params.tile_b #4
     tile_s = params.tile_s #4
-    batch_size, seq_len = input_tensor_a.shape[:2]
-    b_loop = (batch_size + tile_b -1) /  tile_b
-    s_loop = (seq_len + tile_s - 1) / tile_s 
+    batch_size, seq_len = input_tensor_a.shape[:2]#32 32 64
+    b_loop = (batch_size + tile_b -1) /  tile_b# 8
+    s_loop = (seq_len + tile_s - 1) / tile_s #8
     dtype = input_tensor_b.dtype
 
     for b_idx in pypto.loop(b_loop, name="Loop_B", idx_name="b_idx"):
@@ -112,9 +112,10 @@ def special_view_opcomposite_pto(input_tensor_a, input_tensor_b, input_tensor_c,
             concat_final_3d = pypto.reshape(concat_final, [tile_b, tile_s, concat_final.shape[-1]])
 
             output_tensor[b_idx*tile_b: (b_idx+1)*tile_b, s_idx*tile_s: (s_idx+1)*tile_s, :] = concat_final_3d
+            pypto.pass_verify_print("b_idx: ", b_idx, " s_idx: ", s_idx, "\n", concat_final_3d)
             
 
-def special_view_opcomposite_torch(input_tensor_a, input_tensor_b, input_tensor_c, output_tensor, params: CompositeParams):
+def special_view_opcomposite_torch2(input_tensor_a, input_tensor_b, input_tensor_c, output_tensor, params: CompositeParams):
     input_a_view_2d = input_tensor_a.reshape(-1, input_tensor_a.shape[-1])
     input_tensor_a_1 = input_a_view_2d[:input_a_view_2d.shape[0] // 2, :input_a_view_2d.shape[-1] // 2]
     input_tensor_a_2 = input_a_view_2d[:input_a_view_2d.shape[0] // 2, input_a_view_2d.shape[-1] // 2 : input_a_view_2d.shape[-1]]
@@ -161,6 +162,48 @@ def special_view_opcomposite_torch(input_tensor_a, input_tensor_b, input_tensor_
     concat_final = torch.concat([concat_tmp_a_1, concat_tmp_b_1], dim=-1)
     print(f"torch_concat_final.shape:{concat_final.shape}")
     output_tensor = concat_final.reshape(output_tensor.shape)
+    return output_tensor
+
+def special_view_opcomposite_torch(input_tensor_a, input_tensor_b, input_tensor_c, output_tensor, params: CompositeParams):
+    tile_b = params.tile_b
+    tile_s = params.tile_s
+    batch_size, seq_len = input_tensor_a.shape[:2]
+    b_loop = (batch_size + tile_b - 1) // tile_b
+    s_loop = (seq_len + tile_s - 1) // tile_s
+
+    for b_idx in range(b_loop):
+        for s_idx in range(s_loop):
+            input_a_view = input_tensor_a[b_idx * tile_b:(b_idx + 1) * tile_b, s_idx * tile_s:(s_idx + 1) * tile_s, :]
+            input_a_view_2d = input_a_view.reshape(-1, input_a_view.shape[-1])
+            input_tensor_a_1 = input_a_view_2d[:input_a_view_2d.shape[0] // 2, :input_a_view_2d.shape[-1] // 2]
+            input_tensor_a_2 = input_a_view_2d[:input_a_view_2d.shape[0] // 2, input_a_view_2d.shape[-1] // 2:input_a_view_2d.shape[-1]]
+            input_tensor_a_3 = input_a_view_2d[input_a_view_2d.shape[0] // 2:input_a_view_2d.shape[0], :input_a_view_2d.shape[-1] // 2]
+            input_tensor_a_4 = input_a_view_2d[input_a_view_2d.shape[0] // 2:input_a_view_2d.shape[0], input_a_view_2d.shape[-1] // 2:input_a_view_2d.shape[-1]]
+
+            tensor_a_tmp_dim1_1 = torch.concat([input_tensor_a_1, input_tensor_a_2], dim=-1)
+            tensor_a_tmp_dim1_2 = torch.concat([input_tensor_a_3, input_tensor_a_4], dim=-1)
+            tmp_dim1_a_mul_1 = torch.mul(tensor_a_tmp_dim1_1, 3.0)
+            tmp_dim1_a_mul_2 = torch.mul(tensor_a_tmp_dim1_2, 5.0)
+            concat_tmp_a_1 = torch.concat([tmp_dim1_a_mul_1, tmp_dim1_a_mul_2], dim=0)
+
+            input_b_view = input_tensor_b[b_idx * tile_b:(b_idx + 1) * tile_b, s_idx * tile_s:(s_idx + 1) * tile_s, :]
+            input_b_view_2d = input_b_view.reshape(-1, input_b_view.shape[-1])
+            input_tensor_b_1 = input_b_view_2d[:input_b_view_2d.shape[0] // 2, :input_b_view_2d.shape[-1] // 2]
+            input_tensor_b_2 = input_b_view_2d[:input_b_view_2d.shape[0] // 2, input_b_view_2d.shape[-1] // 2:input_b_view_2d.shape[-1]]
+            input_tensor_b_3 = input_b_view_2d[input_b_view_2d.shape[0] // 2:input_b_view_2d.shape[0], :input_b_view_2d.shape[-1] // 2]
+            input_tensor_b_4 = input_b_view_2d[input_b_view_2d.shape[0] // 2:input_b_view_2d.shape[0], input_b_view_2d.shape[-1] // 2:input_b_view_2d.shape[-1]]
+
+            tensor_b_tmp_dim1_1 = torch.concat([input_tensor_b_1, input_tensor_b_2], dim=-1)
+            tensor_b_tmp_dim1_2 = torch.concat([input_tensor_b_3, input_tensor_b_4], dim=-1)
+            tmp_dim1_b_mul_1 = torch.mul(tensor_b_tmp_dim1_1, 3.0)
+            tmp_dim1_b_mul_2 = torch.mul(tensor_b_tmp_dim1_2, 5.0)
+            concat_tmp_b_1 = torch.concat([tmp_dim1_b_mul_1, tmp_dim1_b_mul_2], dim=0)
+
+            concat_final = torch.concat([concat_tmp_a_1, concat_tmp_b_1], dim=-1)
+            concat_final_3d = concat_final.reshape(tile_b, tile_s, concat_final.shape[-1])
+            output_tensor[b_idx * tile_b:(b_idx + 1) * tile_b, s_idx * tile_s:(s_idx + 1) * tile_s, :] = concat_final_3d
+
+    print(f"torch_concat_final.shape:{output_tensor.shape}")
     return output_tensor
 
             
@@ -311,10 +354,11 @@ def composite_graph(device_id):
     output_pytorch = special_view_opcomposite_torch(tensor_a, tensor_b, tensor_c, tensor_out_1, params)
     output_golden = special_view_opcomposite_torch(tensor_a.to(torch.float32).cpu(), tensor_b.to(torch.float32).cpu(), tensor_c.to(torch.float32).cpu(), tensor_out_1.to(torch.float32).cpu(), params)
     torch_npu.npu.synchronize()
-    print(output_pytorch)
-    print(output_golden)
+    # print(output_pytorch)
+    print(output_golden[0, 2, :])
     print(f"output_golden.shape:{output_golden.shape}")
-
+    golden_cpu = output_golden.cpu()
+    pypto.set_verify_golden_data(goldens=[None, None, None, golden_cpu])
     #vec_vec_composite_pto(tensor_a_pto, tensor_b_pto, tensor_c_pto, tensor_out_pto, params)
     special_view_opcomposite_pto(tensor_a_pto, tensor_b_pto, tensor_c_pto, tensor_out_pto_1, params)
     torch_npu.npu.synchronize()

@@ -112,7 +112,7 @@ def generate_inputs(shape, dtype, data_range, return_pt=True):
     outlier_mode = data_range_split[3]
     assert data_dist_mode in ["uniform", "normal"]
     assert outlier_mode in ["normal", "robust"]
-    
+    np.random.seed(42)
     if data_dist_mode == "uniform":
         data = generate_uniform_inputs(shape, dtype, float(data_range_split[0]), float(data_range_split[1]))
     else:
