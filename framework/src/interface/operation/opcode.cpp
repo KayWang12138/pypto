@@ -253,6 +253,9 @@ void OpcodeManager::RegisterVectorUnary() {
     RegisterInfo(Opcode::OP_LN, OpCoreType::AIV, "LN", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tln", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
         {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_SIGN, OpCoreType::AIV, "SIGN", {MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {"TileOp::Tsign", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
+        {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
 }
 
 void OpcodeManager::RegisterVectorSort() {
@@ -415,6 +418,9 @@ void OpcodeManager::RegisterVector() {
     RegisterInfo(Opcode::OP_CMPS, OpCoreType::AIV, "CMPS", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Cmps", PIPE_V, PIPE_V, CoreType::AIV},
         OpCalcType::BROADCAST, {OP_ATTR_PREFIX + "cmp_operation", OP_ATTR_PREFIX + "cmp_mode", OpAttributeKey::scalar});
+    RegisterInfo(Opcode::OP_HYPOT, OpCoreType::AIV, "HYPOT", {MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Hypot", PIPE_V, PIPE_V, CoreType::AIV},
+        OpCalcType::BROADCAST);
     RegisterInfo(Opcode::OP_SCATTER_ELEMENT, OpCoreType::AIV, "SCATTER_ELEMENT",
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::TscatterElementS", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::OTHER,
@@ -484,6 +490,7 @@ void OpcodeManager::RegisterVector() {
         {"TileOp::Tmaxpool", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {OpAttributeKey::excludeBufferReuse});
     RegisterInfo(Opcode::OP_REDUCE_ACC, OpCoreType::GMATOMIC, "REDUCE_ACC", {MEM_DEVICE_DDR, MEM_DEVICE_DDR},
         {MEM_DEVICE_DDR}, {}, OpCalcType::OTHER, {OP_ATTR_PREFIX + "atomic_add"});
+
 }
 
 void OpcodeManager::RegisterCube() {
@@ -857,6 +864,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {           Opcode::OP_WHERE_SS,       "TWhereSS"},
     {                Opcode::OP_CMP,       "TCompare"},
  	{               Opcode::OP_CMPS,       "TCompare"},
+    {               Opcode::OP_HYPOT,        "THypot"},  
     {               Opcode::OP_ADDS,          "TAddS"},
     {               Opcode::OP_MODS,          "TModS"},
     {               Opcode::OP_SUBS,          "TSubS"},
@@ -867,6 +875,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {              Opcode::OP_RSQRT,         "TRsqrt"},
     {              Opcode::OP_RELU,           "TRelu"},
     {               Opcode::OP_SQRT,          "TSqrt"},
+    {               Opcode::OP_SIGN,          "TSign"},
     {               Opcode::OP_CEIL,          "TCeil"},
     {               Opcode::OP_FLOOR,        "TFloor"},
     {               Opcode::OP_TRUNC,        "TTrunc"},

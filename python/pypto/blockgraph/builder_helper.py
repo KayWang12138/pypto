@@ -114,6 +114,11 @@ class BlockBuilderHelper:
         op = self.builder.create_unary_op(ir.Opcode.OP_NEG, a, out)
         self.builder.emit(self.ctx, op)
         return op
+    
+    def sign(self, a, out):
+        op = self.builder.create_unary_op(ir.Opcode.OP_SIGN, a, out)
+        self.builder.emit(self.ctx, op)
+        return op
 
     def rsqrt(self, a, out):
         op = self.builder.create_unary_op(ir.Opcode.OP_RSQRT, a, out)
@@ -203,6 +208,11 @@ class BlockBuilderHelper:
 
     def div(self, a, b, out):
         op = self.builder.create_binary_op(ir.Opcode.OP_DIV, a, b, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def hypot(self, a, b, out):
+        op = self.builder.create_binary_op(ir.Opcode.OP_HYPOT, a, b, out)
         self.builder.emit(self.ctx, op)
         return op
 

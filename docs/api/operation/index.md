@@ -38,6 +38,7 @@ pypto-experimental-transposed_batchmatmul
 pypto-floor
 pypto-fmod
 pypto-full
+pypto-hypot
 pypto-gather
 pypto-ge
 pypto-gt
@@ -68,6 +69,7 @@ pypto-scatter
 pypto-scatter_
 pypto-scatter_update
 pypto-sigmoid
+pypto-sign
 pypto-sin
 pypto-softmax
 pypto-sqrt

@@ -116,6 +116,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_TRANSPOSE_VNCHWCONV, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_SIGN, [this]() { return GenUnaryOpWithTmpBuff(); }},
       }),
       binaryOps_({
           // binary op: vector operations
@@ -203,6 +204,9 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           // cmp op
           {Opcode::OP_CMP, [this]() { return GenCmpOp(); }},
           {Opcode::OP_CMPS, [this]() { return GenCmpOp(); }},
+
+          // hypot op
+          {Opcode::OP_HYPOT, [this]() { return GenHypotOp(); }},
       }),
       sortOps_({
           // sort

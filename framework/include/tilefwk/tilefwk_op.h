@@ -139,6 +139,7 @@ Tensor Reciprocal(const Tensor &operand);
 Tensor Abs(const Tensor &self);
 Tensor Ln(const Tensor &operand);
 Tensor Hub(const Tensor &operand);
+Tensor Sign(const Tensor &operand);
 
 Tensor Duplicate(const Tensor &operand);
 Tensor Gather(const Tensor &params, const Tensor &indices, int axis);
@@ -180,6 +181,7 @@ Tensor Add(const Tensor &self, const Tensor &other);
 Tensor Sub(const Tensor &self, const Tensor &other);
 Tensor Div(const Tensor &self, const Tensor &other);
 Tensor Mul(const Tensor &self, const Tensor &other);
+Tensor Hypot(const Tensor &self, const Tensor &other);
 Tensor Fmod(const Tensor &self, const Tensor &other);
 Tensor Maximum(const Tensor &operand1, const Tensor &operand2);
 Tensor Minimum(const Tensor &operand1, const Tensor &operand2);

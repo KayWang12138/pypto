@@ -874,6 +874,21 @@ def gen_rsqrt_op_golden(case_name: str, output: Path, case_index: int = None) ->
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Rsqrt", golden_func, output, case_index)
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestSign/SignOperationTest.TestSign",
+    ]
+)
+def gen_sign_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs: list, _config: dict):
+        x = safe_tensor_conversion(inputs[0])
+        x = torch.sign(x)
+        return [to_numpy(x)]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Sign", golden_func, output, case_index)
+
 
 @GoldenRegister.reg_golden_func(
     case_names=[
@@ -988,6 +1003,20 @@ def gen_add_op_golden(case_name: str, output: Path, case_index: int = None) -> b
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Add", golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestHypot/HypotOperationTest.TestHypot",
+    ]
+)
+def gen_hypot_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs: list, _config: dict):
+        return [np.hypot(inputs[0], inputs[1])]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Hypot", golden_func, output, case_index)
 
 
 @GoldenRegister.reg_golden_func(

@@ -159,6 +159,28 @@ TEST_F(OperationImplTest, test_Cmps_BF16) {
     }
 }
 
+TEST_F(OperationImplTest, test_Hypot_FP32) {
+    TileShape::Current().SetVecTile({4, 4});
+    Tensor operand1(DT_FP32, {8, 8}, "operand1");
+    Tensor operand2(DT_FP32, {8, 8}, "operand2");
+    std::vector<int64_t> dstShape = {8, 8};
+    Tensor result;
+    FUNCTION("TestHypot") {
+        result = Hypot(operand1, operand2);
+    }
+}
+
+TEST_F(OperationImplTest, test_Hypot_FP16) {
+    TileShape::Current().SetVecTile({4, 4});
+    Tensor operand1(DT_FP16, {8, 8}, "operand1");
+    Tensor operand2(DT_FP16, {8, 8}, "operand2");
+    std::vector<int64_t> dstShape = {8, 8};
+    Tensor result;
+    FUNCTION("TestHypot") {
+        result = Hypot(operand1, operand2);
+    }
+}
+
 TEST_F(OperationImplTest, Test_IndexAdd_BF16) {
     float scalar = 1.2f;
     int axis = 0;
@@ -316,6 +338,45 @@ TEST_F(OperationImplTest, Test_LogicalNot_BF16) {
         config::SetBuildStatic(true);
         FUNCTION("LogicalNot_BF16") {
             output = LogicalNot(input_a);
+        }
+    }
+}
+
+TEST_F(OperationImplTest, Test_Sign_FP16) {
+    PROGRAM("Sign") {
+        std::vector<int64_t> shape = {128, 32};
+        TileShape::Current().SetVecTile({128, 32});
+        Tensor input_a(DT_FP16, shape, "A");
+        auto output = Tensor(DT_FP16, shape, "res");
+        config::SetBuildStatic(true);
+        FUNCTION("Sign_FP16") {
+            output = Sign(input_a);
+        }
+    }
+}
+
+TEST_F(OperationImplTest, Test_Sign_FP32) {
+    PROGRAM("Sign") {
+        std::vector<int64_t> shape = {128, 32};
+        TileShape::Current().SetVecTile({128, 32});
+        Tensor input_a(DT_FP32, shape, "A");
+        auto output = Tensor(DT_FP32, shape, "res");
+        config::SetBuildStatic(true);
+        FUNCTION("Sign_FP32") {
+            output = Sign(input_a);
+        }
+    }
+}
+
+TEST_F(OperationImplTest, Test_Sign_INT16) {
+    PROGRAM("Sign") {
+        std::vector<int64_t> shape = {128, 32};
+        TileShape::Current().SetVecTile({128, 32});
+        Tensor input_a(DT_FP16, shape, "A");
+        auto output = Tensor(DT_INT16, shape, "res");
+        config::SetBuildStatic(true);
+        FUNCTION("Sign_INT16") {
+            output = Sign(input_a);
         }
     }
 }

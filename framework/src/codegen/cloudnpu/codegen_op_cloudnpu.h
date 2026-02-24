@@ -277,6 +277,7 @@ private:
     std::string GenVectorScalarOpScalarMode() const;
     std::string GenCubeOp(bool zeroC) const;
     std::string GenCmpOp() const;
+    std::string GenHypotOp() const;
 
     std::string PrintDupOp(const PrintDupOpParam &param) const;
     std::string PrintDupOpDynUnaligned(const PrintDupOpParam &param) const;
@@ -300,7 +301,7 @@ private:
     std::string PrintVnchwconv(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintVnchwconvDynUnaligned(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintVnchwconvStatic(const PrintUnaryTmpBuffParam &param) const;
-    std::string PrintVnchwconvTileTensor() const;
+    std::string PrintUnaryWithTmpTileTensor() const;
 
     std::string PrintCompact(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintCompactStatic(const PrintUnaryTmpBuffParam &param) const;
@@ -446,6 +447,7 @@ private:
     std::string PrintWhereOpTileTensor(const WhereParam &param) const;
 
     std::string PrintCmpTileTensor() const;
+    std::string PrintHypotTileTensor() const;
     std::string PrintLogicalAndTileTensor() const;
     std::string PrintLogicalNotTileTensor() const;
 

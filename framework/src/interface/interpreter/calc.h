@@ -69,6 +69,9 @@ inline void Floor(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 inline void Trunc(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Trunc(out, self);
 }
+inline void Sign(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    GetCalcOps()->Sign(out, self);
+}
 inline void Reciprocal(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Reciprocal(out, self);
 }
@@ -116,6 +119,9 @@ inline void Compare(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
 inline void Cmps(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar,
     CmpOperationType operation, CmpModeType mode) {
     GetCalcOps()->Cmps(out, self, scalar, operation, mode);
+}
+inline void Hypot(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    GetCalcOps()->Hypot(out, self, other);
 }
 inline void LogicalAnd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     GetCalcOps()->LogicalAnd(out, self, other);
