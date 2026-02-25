@@ -41,8 +41,8 @@ struct RemainderSOpMetaData {
 
 static void RemainderSOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
-    SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
+    SymbolicScalar src_firstDim = outputs[0].GetShape()[0];
+    SymbolicScalar src_secondDim = outputs[0].GetShape()[1];
     auto args = static_cast<const RemainderSOpFuncArgs *>(opArgs);
     const std::vector<int64_t> viewShape = args->viewShape_;
     bool reverseOperand = args->reverseOperand_;
@@ -68,9 +68,9 @@ static void RemainderSOperationExeFunc2Dims(
 
 static void RemainderSOperationExeFunc3Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
-    SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
-    SymbolicScalar src_thirdDim = inputs[0].GetShape()[2];
+    SymbolicScalar src_firstDim = outputs[0].GetShape()[0];
+    SymbolicScalar src_secondDim = outputs[0].GetShape()[1];
+    SymbolicScalar src_thirdDim = outputs[0].GetShape()[2];
     auto args = static_cast<const RemainderSOpFuncArgs *>(opArgs);
     std::vector<int64_t> viewShape = args->viewShape_;
     bool reverseOperand = args->reverseOperand_;
@@ -100,10 +100,10 @@ static void RemainderSOperationExeFunc3Dims(
 
 static void RemainderSOperationExeFunc4Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
-    SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
-    SymbolicScalar src_thirdDim = inputs[0].GetShape()[2];
-    SymbolicScalar src_forthDim = inputs[0].GetShape()[3];
+    SymbolicScalar src_firstDim = outputs[0].GetShape()[0];
+    SymbolicScalar src_secondDim = outputs[0].GetShape()[1];
+    SymbolicScalar src_thirdDim = outputs[0].GetShape()[2];
+    SymbolicScalar src_forthDim = outputs[0].GetShape()[3];
 
     auto args = static_cast<const RemainderSOpFuncArgs *>(opArgs);
     std::vector<int64_t> viewShape = args->viewShape_;
@@ -136,11 +136,11 @@ static void RemainderSOperationExeFunc4Dims(
 
 static void RemainderSOperationExeFunc5Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
-    SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
-    SymbolicScalar src_thirdDim = inputs[0].GetShape()[2];
-    SymbolicScalar src_forthDim = inputs[0].GetShape()[3];
-    SymbolicScalar src_fifthDim = inputs[0].GetShape()[4];
+    SymbolicScalar src_firstDim = outputs[0].GetShape()[0];
+    SymbolicScalar src_secondDim = outputs[0].GetShape()[1];
+    SymbolicScalar src_thirdDim = outputs[0].GetShape()[2];
+    SymbolicScalar src_forthDim = outputs[0].GetShape()[3];
+    SymbolicScalar src_fifthDim = outputs[0].GetShape()[4];
 
     auto args = static_cast<const RemainderSOpFuncArgs *>(opArgs);
     std::vector<int64_t> viewShape = args->viewShape_;

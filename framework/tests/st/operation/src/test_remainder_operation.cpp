@@ -38,13 +38,34 @@ struct RemainderOpMetaData {
     nlohmann::json test_data_;
 };
 
+static void RemainderOperationExeFunc1Dim(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
+        SymbolicScalar firstDim = outputs[0].GetShape()[0];
+        auto args = static_cast<const RemainderOpFuncArgs *>(opArgs);
+        auto viewShape = args->viewShape_;
+
+        const int loop = CeilDiv(firstDim, viewShape[0]);
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop)) {
+            std::vector<SymbolicScalar> dynOffsets = {bIdx * viewShape[0]};
+            std::vector<SymbolicScalar> validShape = {std::min(firstDim - bIdx * viewShape[0], viewShape[0])};
+            Tensor tileTensor0 = View(inputs[0], viewShape, validShape, dynOffsets);
+            Tensor tileTensor1 = View(inputs[1], viewShape, validShape, dynOffsets);
+            TileShape::Current().SetVecTile(args->tileShape_);
+            auto res = Remainder(tileTensor0, tileTensor1);
+            Assemble(res, dynOffsets, outputs[0]);
+        }
+    }
+}
+
 static void RemainderOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar firstDim = inputs[0].GetShape()[0];
-        SymbolicScalar secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar firstDim = outputs[0].GetShape()[0];
+        SymbolicScalar secondDim = outputs[0].GetShape()[1];
         auto args = static_cast<const RemainderOpFuncArgs *>(opArgs);
         auto viewShape = args->viewShape_;
+        const int broadcastFlag = 1;
 
         const int loop[] = {CeilDiv(firstDim, viewShape[0]), CeilDiv(secondDim, viewShape[1])};
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0])) {
@@ -54,11 +75,12 @@ static void RemainderOperationExeFunc2Dims(
                     std::min(secondDim - sIdx * viewShape[1], viewShape[1])};
                 Tensor tileTensor0 = View(inputs[0], viewShape, validShape, dynOffsets);
                 Tensor tileTensor1 = View(inputs[1], viewShape, validShape, dynOffsets);
-                IF(inputs[0].GetShape().size() == 1) {
-                    tileTensor0 = View(inputs[0], {viewShape[1]}, {validShape[1]}, {dynOffsets[1]});
+                // 广播场景 [m,n],[m,1] 或[m,n],[1,n]
+                IF(inputs[0].GetShape()[1] != broadcastFlag && inputs[1].GetShape()[1] == broadcastFlag) {
+                    tileTensor1 = View(inputs[1], {viewShape[0], 1}, {validShape[0], 1}, {dynOffsets[0], 0});
                 }
-                ELSE IF(inputs[1].GetShape().size() == 1) {
-                    tileTensor1 = View(inputs[1], {viewShape[1]}, {validShape[1]}, {dynOffsets[1]});
+                ELSE IF(inputs[0].GetShape()[0] != broadcastFlag && inputs[1].GetShape()[0] == broadcastFlag) {
+                    tileTensor1 = View(inputs[1], {1, viewShape[1]}, {1, validShape[1]}, {0, dynOffsets[1]});
                 }
                 TileShape::Current().SetVecTile(args->tileShape_);
                 auto res = Remainder(tileTensor0, tileTensor1);
@@ -71,9 +93,9 @@ static void RemainderOperationExeFunc2Dims(
 static void RemainderOperationExeFunc3Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar firstDim = inputs[0].GetShape()[0];
-        SymbolicScalar secondDim = inputs[0].GetShape()[1];
-        SymbolicScalar thirdDim = inputs[0].GetShape()[2];
+        SymbolicScalar firstDim = outputs[0].GetShape()[0];
+        SymbolicScalar secondDim = outputs[0].GetShape()[1];
+        SymbolicScalar thirdDim = outputs[0].GetShape()[2];
         auto args = static_cast<const RemainderOpFuncArgs *>(opArgs);
         auto viewShape = args->viewShape_;
 
@@ -89,14 +111,6 @@ static void RemainderOperationExeFunc3Dims(
                         std::min(thirdDim - nIdx * viewShape[2], viewShape[2])};
                     Tensor tileTensor0 = View(inputs[0], viewShape, validShape, dynOffsets);
                     Tensor tileTensor1 = View(inputs[1], viewShape, validShape, dynOffsets);
-                    IF(inputs[0].GetShape().size() == 2) {
-                        tileTensor0 = View(inputs[0], {viewShape[1], viewShape[2]}, {validShape[1], validShape[2]},
-                            {dynOffsets[1], dynOffsets[2]});
-                    }
-                    ELSE IF(inputs[1].GetShape().size() == 2) {
-                        tileTensor1 = View(inputs[1], {viewShape[1], viewShape[2]}, {validShape[1], validShape[2]},
-                            {dynOffsets[1], dynOffsets[2]});
-                    }
                     TileShape::Current().SetVecTile(args->tileShape_);
                     auto res = Remainder(tileTensor0, tileTensor1);
                     Assemble(res, dynOffsets, outputs[0]);
@@ -109,10 +123,10 @@ static void RemainderOperationExeFunc3Dims(
 static void RemainderOperationExeFunc4Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar firstDim = inputs[0].GetShape()[0];
-        SymbolicScalar secondDim = inputs[0].GetShape()[1];
-        SymbolicScalar thirdDim = inputs[0].GetShape()[2];
-        SymbolicScalar fourthDim = inputs[0].GetShape()[3];
+        SymbolicScalar firstDim = outputs[0].GetShape()[0];
+        SymbolicScalar secondDim = outputs[0].GetShape()[1];
+        SymbolicScalar thirdDim = outputs[0].GetShape()[2];
+        SymbolicScalar fourthDim = outputs[0].GetShape()[3];
         auto args = static_cast<const RemainderOpFuncArgs *>(opArgs);
         auto viewShape = args->viewShape_;
 
@@ -131,19 +145,45 @@ static void RemainderOperationExeFunc4Dims(
                             std::min(fourthDim - qIdx * viewShape[3], viewShape[3])};
                         Tensor tileTensor0 = View(inputs[0], viewShape, validShape, dynOffsets);
                         Tensor tileTensor1 = View(inputs[1], viewShape, validShape, dynOffsets);
-                        IF(inputs[0].GetShape().size() == 3) {
-                            tileTensor0 = View(inputs[0], {viewShape[1], viewShape[2], viewShape[3]},
-                                {validShape[1], validShape[2], validShape[3]},
-                                {dynOffsets[1], dynOffsets[2], dynOffsets[3]});
-                        }
-                        ELSE IF(inputs[1].GetShape().size() == 3) {
-                            tileTensor1 = View(inputs[1], {viewShape[1], viewShape[2], viewShape[3]},
-                                {validShape[1], validShape[2], validShape[3]},
-                                {dynOffsets[1], dynOffsets[2], dynOffsets[3]});
-                        }
                         TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = Remainder(tileTensor0, tileTensor1);
                         Assemble(res, dynOffsets, outputs[0]);
+                    }
+                }
+            }
+        }
+    }
+}
+
+static void RemainderOperationExeFunc5Dims(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
+        auto originShape = outputs[0].GetShape();
+        auto args = static_cast<const RemainderOpFuncArgs *>(opArgs);
+        auto viewShape = args->viewShape_;
+
+        const int loop[] = {CeilDiv(originShape[0], viewShape[0]), CeilDiv(originShape[1], viewShape[1]),
+            CeilDiv(originShape[2], viewShape[2]), CeilDiv(originShape[3], viewShape[3]),
+            CeilDiv(originShape[4], viewShape[4])};
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0])) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loop[IDX_DIM1])) {
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(loop[IDX_DIM2])) {
+                    LOOP("LOOP_L3_qIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(loop[IDX_DIM3])) {
+                        LOOP("LOOP_L4_rIdx", FunctionType::DYNAMIC_LOOP, rIdx, LoopRange(loop[IDX_DIM4])) {
+                            std::vector<SymbolicScalar> dynOffsets = {bIdx * viewShape[0], sIdx * viewShape[1],
+                                nIdx * viewShape[2], qIdx * viewShape[3], rIdx * viewShape[4]};
+                            std::vector<SymbolicScalar> validShape = {
+                                std::min(originShape[0] - bIdx * viewShape[0], viewShape[0]),
+                                std::min(originShape[1] - sIdx * viewShape[1], viewShape[1]),
+                                std::min(originShape[2] - nIdx * viewShape[2], viewShape[2]),
+                                std::min(originShape[3] - qIdx * viewShape[3], viewShape[3]),
+                                std::min(originShape[4] - rIdx * viewShape[4], viewShape[4])};
+                            Tensor tileTensor0 = View(inputs[0], viewShape, validShape, dynOffsets);
+                            Tensor tileTensor1 = View(inputs[1], viewShape, validShape, dynOffsets);
+                            TileShape::Current().SetVecTile(args->tileShape_);
+                            auto res = Remainder(tileTensor0, tileTensor1);
+                            Assemble(res, dynOffsets, outputs[0]);
+                        }
                     }
                 }
             }
@@ -155,13 +195,17 @@ class RemainderOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_
 
 INSTANTIATE_TEST_SUITE_P(TestRemainder, RemainderOperationTest,
     ::testing::ValuesIn(GetOpMetaData<RemainderOpMetaData>(
-        {RemainderOperationExeFunc2Dims, RemainderOperationExeFunc3Dims, RemainderOperationExeFunc4Dims},
+        {RemainderOperationExeFunc1Dim, RemainderOperationExeFunc2Dims, RemainderOperationExeFunc3Dims,
+            RemainderOperationExeFunc4Dims, RemainderOperationExeFunc5Dims},
         "Remainder")));
 
 TEST_P(RemainderOperationTest, TestRemainder) {
     auto test_data = GetParam().test_data_;
     auto args = RemainderOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data));
     auto testCase = CreateTestCaseDesc<RemainderOpMetaData>(GetParam(), &args);
+    std::vector<OpFunc> opFuncs = {RemainderOperationExeFunc1Dim, RemainderOperationExeFunc2Dims,
+        RemainderOperationExeFunc3Dims, RemainderOperationExeFunc4Dims, RemainderOperationExeFunc5Dims};
+    testCase.opFunc = opFuncs[GetViewShape(test_data).size() - 1];
     TestExecutor::runTest(testCase);
 }
 } // namespace
