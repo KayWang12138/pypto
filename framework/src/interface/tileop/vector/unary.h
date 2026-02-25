@@ -431,11 +431,11 @@ TILEOP void TExp2(T0 dst, T1 tmp, T2 src) {
 #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
 #endif
-                    pto::TMUL(tmpTile1.Data(), srcTile.Data(), tmpTile2.Data());
+                    pto::TMUL(tmpTile.Data(), srcTile.Data(), tmpTile2.Data());
 #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
 #endif
-                    pto::TEXP(dstTile.Data(), tmpTile1.Data());
+                    pto::TEXP(dstTile.Data(), tmpTile.Data());
 #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
 #endif
@@ -452,11 +452,11 @@ TILEOP void TExp2(T0 dst, T1 tmp, T2 src) {
 #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
 #endif
-                    pto::TMUL(tmpTile1.Data(), srcTile.Data(), tmpTile2.Data());
+                    pto::TMUL(tmpTile.Data(), srcTile.Data(), tmpTile2.Data());
 #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
 #endif
-                    pto::TEXP(dstTile.Data(), tmpTile1.Data());
+                    pto::TEXP(dstTile.Data(), tmpTile.Data());
 #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
 #endif
