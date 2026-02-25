@@ -131,8 +131,6 @@ struct DeviceTask {
     volatile bool isTaskInitialized; // A flag to indicate the kernel has been properly initialized by the lead AICPU scheduler
     volatile bool isDeviceInitialized; // A flag to indicate the device has been properly initialized by the lead AICPU scheduler
     uint32_t leadSchedulerId;
-    int blockIdToPhyCoreId[MAX_AICORE_NUM];
-    uint64_t args[MAX_AICORE_NUM];
 };
 
 // dfx 相关

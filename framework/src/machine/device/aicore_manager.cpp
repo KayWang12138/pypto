@@ -134,27 +134,24 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
     aivStart_ += aicValidNum_;
     aivEnd_ += aicValidNum_;
 
-    ForEachManageAicore([this](int coreIdx)
-    {
-        auto args = reinterpret_cast<KernelArgs *>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
-        args->taskEntry.reserved[0] = dotStatus_;
-        volatile int64_t *shakeBuffer = args->shakeBuffer;
-        npu::tile_fwk::dynamic::TimeCheck tm;
-        while ((*shakeBuffer & 0xFFFFFFFF) != AICORE_SAY_HELLO) {
-            if (npu::tile_fwk::dynamic::CheckTimeOut("hand shake", tm) != 0) {
-                DEV_ERROR("hand shake %d timeout.\n", coreIdx);
-                AbnormalStop();
-            }
-        }
-        args_[coreIdx] = args;
-        blockIdToPhyCoreId_[coreIdx] = (*shakeBuffer >> NUM_THIRTY_TWO) & AICORE_COREID_MASK;
-        curDevTask_->args[coreIdx] = (uint64_t)args;
-        curDevTask_->blockIdToPhyCoreId[coreIdx] = (*shakeBuffer >> NUM_THIRTY_TWO) & AICORE_COREID_MASK;
-    });
-
     // If I am the lead AICPU scheduler, perform initailization steps
     if (isLeaderScheduler_ == true)
     {
+        // Handshake with all AI cores
+        ForAllAicores([this](int coreIdx)
+        {
+            auto args = reinterpret_cast<KernelArgs *>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
+            args->taskEntry.reserved[0] = dotStatus_;
+            volatile int64_t *shakeBuffer = args->shakeBuffer;
+            npu::tile_fwk::dynamic::TimeCheck tm;
+            while ((*shakeBuffer & 0xFFFFFFFF) != AICORE_SAY_HELLO) {
+                if (npu::tile_fwk::dynamic::CheckTimeOut("hand shake", tm) != 0) {
+                    DEV_ERROR("hand shake %d timeout.\n", coreIdx);
+                    AbnormalStop();
+                }
+            }
+        });
+
         // Setting task as initialized, allowing others to continue
         curDevTask_->isDeviceInitialized = true;
     }
@@ -163,8 +160,19 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
         while(curDevTask_->isDeviceInitialized == false){ /* Busy wait */ };
     }
 
+    ForAllAicores([this](int coreIdx)
+    {
+        auto args = reinterpret_cast<KernelArgs *>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
+        int64_t *shakeBuffer = args->shakeBuffer;
+        args_[coreIdx] = args;
+        blockIdToPhyCoreId_[coreIdx] = (*shakeBuffer >> NUM_THIRTY_TWO) & AICORE_COREID_MASK;
+    });
+
     // Enabling fast path
     ForAllAicores([this](int coreIdx) { WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_OPEN); });
+
+    /* write to MAINBASE reg need reg 0x18 open first */
+    __sync_synchronize();
 
     int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
     if (taskCtrl != nullptr) {

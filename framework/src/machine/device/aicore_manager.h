@@ -47,8 +47,8 @@ const uint32_t AICORE_TYPE_NUM = 2;
 constexpr uint32_t MAX_STATIC_SCHEDULE_AICPU_NUM = 3;   // 真正负责调度aicore的aicpu个数
 constexpr int32_t START_STATIC_AICPU_NUM = MAX_STATIC_SCHEDULE_AICPU_NUM;
 constexpr uint32_t MAX_AICORE_NUM = 108;
-constexpr uint32_t NAX_AIV_TOTAL_NUM = 72;
-constexpr uint32_t MAX_MANAGER_AIV_NUM = NAX_AIV_TOTAL_NUM;
+constexpr uint32_t MAX_AIV_TOTAL_NUM = 72;
+constexpr uint32_t MAX_MANAGER_AIV_NUM = MAX_AIV_TOTAL_NUM;
 
 constexpr uint32_t REG_31_BITS = 0x7FFFFFFF;
 constexpr uint32_t REG_32_BITS = 0xFFFFFFFF;
@@ -209,7 +209,7 @@ private:
     }
 
     inline void ForAllAicores(std::function<void(int coreIdx)> func) const {
-        for (size_t i = 0; i < MAX_AICORE_NUM; ++i) {
+        for (size_t i = 0; i < MAX_AIV_TOTAL_NUM; ++i) {
             func(i);
         }
     }
