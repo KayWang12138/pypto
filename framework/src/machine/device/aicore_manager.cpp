@@ -155,11 +155,19 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
         curDevTask_->blockIdToPhyCoreId[coreIdx] = (*shakeBuffer >> NUM_THIRTY_TWO) & AICORE_COREID_MASK;
     });
 
-    // Enabling fast path
-    ForEachManageAicore([this](int coreIdx) { WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_OPEN); });
+    // If I am the lead AICPU scheduler, perform initailization steps
+    if (isLeaderScheduler_ == true)
+    {
+        // Setting task as initialized, allowing others to continue
+        curDevTask_->isDeviceInitialized = true;
+    }
+    else // If I am not a lead AICPU scheduler, wait until initialization is ready
+    {
+        while(curDevTask_->isDeviceInitialized == false){ /* Busy wait */ };
+    }
 
-    /* write to MAINBASE reg need reg 0x18 open first */
-    __sync_synchronize();
+    // Enabling fast path
+    ForAllAicores([this](int coreIdx) { WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_OPEN); });
 
     int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
     if (taskCtrl != nullptr) {
