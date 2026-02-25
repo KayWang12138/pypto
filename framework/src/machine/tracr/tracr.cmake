@@ -58,6 +58,10 @@ function(tracr_enable target)
             )
         endif()
 
+        # As the traces are collected on the Ascend device, 
+        # there is no need to store them on the device filesystem.
+        target_compile_definitions(${target} PRIVATE TRACR_DISABLE_FLUSH)
+
         # TraCR full size buffer modes:
         # default (none):              Abort if buffer is full
         # TRACR_POLICY_PERIODIC:       If buffer is full, overwrite from the beginning

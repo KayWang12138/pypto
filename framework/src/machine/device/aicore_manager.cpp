@@ -103,15 +103,16 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl) {
 
 int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *taskCtrl) {
 
+    const auto t0 = std::chrono::high_resolution_clock::now();
+
     /* TraCR Instrumentation */
     if (threadIdx == 1) {
-        // disable flushing onto the Ascend device memory directly
-        INSTRUMENTATION_ENABLE_FLUSH(false);
-
         INSTRUMENTATION_START();
     } else {
         INSTRUMENTATION_THREAD_INIT();
     }
+
+    const auto t1 = std::chrono::high_resolution_clock::now();
 
     Init(threadIdx, deviceArgs);
 
@@ -136,6 +137,8 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
     DEV_DEBUG("Aicpu %d stop ret = %d, proc aic task cnt: %lu,  aiv task cnt: %lu.\n", aicpuIdx_, ret,
         procAicCoreFunctionCnt_, procAivCoreFunctionCnt_);
 
+    const auto t2 = std::chrono::high_resolution_clock::now();
+
     /* TraCR Instrumentation */
 #ifdef ENABLE_TRACR
     // Copy the tracr payloads on the shared memory space
@@ -156,11 +159,21 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
     tracrDataSizes_[threadIdx] = tracrThread->_traceIdx;
 #endif
 
+    const auto t3 = std::chrono::high_resolution_clock::now();
+
     if (threadIdx == 1) {
         INSTRUMENTATION_END();
     } else {
         INSTRUMENTATION_THREAD_FINALIZE();
     }
+
+    const auto tf = std::chrono::high_resolution_clock::now();
+    const auto ns_all = std::chrono::duration_cast<std::chrono::nanoseconds>(tf - t0).count();
+    const auto ns_init = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
+    const auto ns_memcpy = std::chrono::duration_cast<std::chrono::nanoseconds>(t3 - t2).count();
+    const auto ns_fin = std::chrono::duration_cast<std::chrono::nanoseconds>(tf - t3).count();
+    DEV_ERROR("[AICPU %d] Running Time: %ldns, TraCR init: %ldns, TraCR memcpy: %ldns, TraCR fin: %ldns\n", 
+        aicpuIdx_, ns_all, ns_init, ns_memcpy, ns_fin);
 
     return ret;
 }

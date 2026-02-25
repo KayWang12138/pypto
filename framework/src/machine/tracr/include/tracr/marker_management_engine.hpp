@@ -29,7 +29,6 @@
 #include <fstream> // To store files
 #include <iomanip>
 #include <iostream>
-#include <mutex>
 #include <nlohmann/json.hpp>
 #include <sched.h> // sched_getcpu()
 #include <string>
@@ -56,49 +55,13 @@ constexpr size_t CAPACITY = TRACR_CAPACITY;
 
 /**
  * Debug printing method. Can be enabled with the ENABLE_DEBUG flag included.
+ * TODO: not yet working
  */
 #ifdef ENABLE_DEBUG
 #define debug_print(fmt, ...) printf("[TraCR DEBUG] " fmt "\n", ##__VA_ARGS__)
 #else
 #define debug_print(fmt, ...)
 #endif
-
-/**
- * A way to keep the tracrThreads save when adding/erasing
- */
-inline std::mutex tracrThreadIDsMutex;
-
-/**
- * A list of all the created _tracrThreadIDs
- */
-inline std::vector<pid_t> tracrThreadIDs;
-
-/**
- * Adding a new tracr thread
- *
- * This is thread save.
- */
-inline void addTraCRThread(pid_t tid) {
-  // We have to lock this as this method can be called from multiple threads
-  std::lock_guard<std::mutex> lock(tracrThreadIDsMutex);
-  tracrThreadIDs.push_back(tid);
-}
-
-/**
- *
- */
-inline void eraseTraCRThread(const pid_t tid) {
-  std::lock_guard<std::mutex> lock(tracrThreadIDsMutex);
-
-  auto it = std::find(tracrThreadIDs.begin(), tracrThreadIDs.end(), tid);
-
-  if (it == tracrThreadIDs.end()) {
-    std::cerr << "Thread not found in tracr proc list!\n";
-    std::exit(EXIT_FAILURE);
-  }
-
-  tracrThreadIDs.erase(it);
-}
 
 /**
  * Our nanosecond timer
@@ -192,6 +155,7 @@ public:
   /**
    * Flushed the traces into a file at the given path
    */
+#ifndef TRACR_DISABLE_FLUSH
   inline void flush_traces(const std::string &path) {
     // Don't create a folder if this TraCR thread is empty
     if (_traceIdx == 0) {
@@ -238,6 +202,7 @@ public:
       std::exit(EXIT_FAILURE);
     }
   }
+#endif
 
   /**
    *
@@ -287,6 +252,7 @@ public:
   /**
    *
    */
+#ifndef TRACR_DISABLE_FLUSH
   inline bool create_folder_recursive(const std::string &path = "") {
     _proc_folder_name = path + "tracr/" + _proc_folder_name;
 
@@ -324,7 +290,29 @@ public:
   /**
    *
    */
-  inline pid_t getTID() { return _tid; }
+  inline void dump_JSON() {
+    if (!json_is_ready) {
+      write_JSON();
+    }
+
+    // Create and open the metadata.json file
+    std::string filename = _proc_folder_name + "metadata.json";
+    std::ofstream file(filename);
+
+    if (!file.is_open()) {
+      std::cerr << "Failed to open file: " << filename << " for writing!\n";
+      std::exit(EXIT_FAILURE);
+    }
+
+    // Dump JSON into file (pretty-printed with 4 spaces)
+    file << _json_file.dump(4);
+
+    // Close the file
+    file.close();
+
+    debug_print("'%s' successfully written!", filename.c_str());
+  }
+#endif
 
   /**
    *
@@ -358,28 +346,7 @@ public:
   /**
    *
    */
-  inline void dump_JSON() {
-    if (!json_is_ready) {
-      write_JSON();
-    }
-
-    // Create and open the metadata.json file
-    std::string filename = _proc_folder_name + "metadata.json";
-    std::ofstream file(filename);
-
-    if (!file.is_open()) {
-      std::cerr << "Failed to open file: " << filename << " for writing!\n";
-      std::exit(EXIT_FAILURE);
-    }
-
-    // Dump JSON into file (pretty-printed with 4 spaces)
-    file << _json_file.dump(4);
-
-    // Close the file
-    file.close();
-
-    debug_print("'%s' successfully written!", filename.c_str());
-  }
+  inline pid_t getTID() { return _tid; }
 
   // The dynamic list to store all the marker types created
   std::unordered_map<uint16_t, std::string> _markerTypes;
@@ -388,6 +355,12 @@ public:
   nlohmann::json _json_file;
 
 private:
+  // The name of the proc folder
+  std::string _proc_folder_name;
+
+  //
+  bool json_is_ready = false;
+
   // TraCR start time
   int64_t _tracr_init_time;
 
@@ -396,12 +369,6 @@ private:
 
   // logical CPU ID
   int _lCPUid;
-
-  // The name of the proc folder
-  std::string _proc_folder_name;
-
-  //
-  bool json_is_ready = false;
 };
 
 } // namespace TraCR

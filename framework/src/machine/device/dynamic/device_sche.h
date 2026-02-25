@@ -37,9 +37,6 @@ namespace npu::tile_fwk::dynamic {
  */
 inline void tracr_start(const int threadIdx) {
     if (threadIdx == 1) {
-        // disable flushing onto the Ascend device memory directly
-        INSTRUMENTATION_ENABLE_FLUSH(false);
-
         INSTRUMENTATION_START();
     } else {
         INSTRUMENTATION_THREAD_INIT();
