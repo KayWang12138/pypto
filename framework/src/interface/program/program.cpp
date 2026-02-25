@@ -79,7 +79,10 @@ void Program::Reset() {
     name_.clear();
     functionmap_.clear();
     functionMagicNameStack_.clear();
+    loopStack_.clear();
     currentFunctionMagicName_ = PROGRAM_ENTRY_FUNCTION_NAME;
+    lastFunc_ = nullptr;
+    currentDynamicFunctionPtr_ = nullptr;
     config::Reset();
     IdGen<IdType::LOGICAL_TENSOR>::Inst().Reset();
     aliveTensors_.clear();

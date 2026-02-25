@@ -10,6 +10,7 @@
 # -----------------------------------------------------------------------------------------------------------
 """Pytest 配置控制
 """
+import itertools
 import os
 from typing import List, Optional
 
@@ -43,6 +44,21 @@ def _set_process_desc(desc: str):
         import setproctitle
         setproctitle.setproctitle(desc)
     except ModuleNotFoundError:
+        pass
+
+
+def _reset_pypto_state_for_case() -> None:
+    """Best-effort reset to keep test cases isolated in the same worker process."""
+    try:
+        import pypto
+        import pypto._controller as controller
+
+        pypto.pypto_impl.Reset()
+        pypto.reset_options()
+        controller.Controller.in_function = False
+        controller.Controller._loop_idx_generator = itertools.count(0)
+    except Exception:
+        # Some pure-python tests may run without pypto runtime; keep setup non-blocking.
         pass
 
 
@@ -90,11 +106,19 @@ def pytest_runtest_protocol(item, nextitem):
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_setup(item):
     """case 进程启动后被调用"""
+    # Keep frontend/runtime options isolated between cases in the same worker process.
+    _reset_pypto_state_for_case()
     device_id: Optional[str] = os.environ.get("TILE_FWK_DEVICE_ID", None)
     if device_id is not None:
         case_name: str = str(item.name)
         _set_process_desc(f"Case(Device[{device_id}]::{case_name})")
     return None  # 继续执行默认的测试流程
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_runtest_teardown(item, nextitem):
+    _reset_pypto_state_for_case()
+    return None
 
 
 def _get_test_time_cost(item):

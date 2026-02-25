@@ -361,9 +361,13 @@ def function(name: str, *args) -> Iterator:
         logging.error("Record function %s failed: %s", name, e)
         raise
     finally:
-        assert func
-        func.EndFunction()
-        Controller.end_function()
+        clear_source_location()
+        try:
+            if func is not None:
+                func.EndFunction()
+        finally:
+            if Controller.in_function:
+                Controller.end_function()
 
 
 def cond(scalar: SymInt, file: Optional[str] = None, lineno: Optional[int] = None):

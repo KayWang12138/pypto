@@ -417,6 +417,8 @@ def reset_options() -> None:
         Reset all configuration items to their default values.
     """
     pypto_impl.ResetOptions()
+    # Keep host compile_stage deterministic after jit host_options updates.
+    set_host_options(compile_stage=CompStage.ALL_COMPLETE)
 
 
 class _Options:
