@@ -209,7 +209,6 @@ private:
     Status InitIssueEntry(Operation* op, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap);
     void InitCoreConfig(const std::vector<Operation *> &operations);
     Status InitIssueCoreType(IssueEntryPtr issue, Operation* op, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap);
-    void InitMemorySize();
     Status CheckOpBufferSize(Operation *op);
     std::string dumpOpInfo(Operation &op);
     Status CalcBufferSize(LogicalTensors tensors, std::map<MemoryType, int64_t> &bufferSize, std::set<int> &memIdMap);

@@ -35,6 +35,11 @@ const std::string l0bSize = "l0_b_size";
 const std::string l0cSize = "l0_c_size";
 const std::string l1Size = "l1_size";
 const std::string ubSize = "ub_size";
+const std::string btSize = "bt_size";
+const std::string fixQuantPreSize = "fb0_size";
+constexpr int64_t MAX_FIX_SIZE = 1 * 1024;
+constexpr int64_t MAX_L0MX_SIZE = 2 * 1024;
+
 const std::unordered_map<std::string, NPUArch> npuArchMap = {
     {"1001", NPUArch::DAV_1001},
     {"2201", NPUArch::DAV_2201},
@@ -108,6 +113,26 @@ size_t Die::GetMemoryLimit(MemoryType type) const {
         return 0;
     }
     return aic_limit == 0 ? aiv_limit : aic_limit;
+}
+
+const std::unordered_map<MemoryType, int64_t>& Die::GetLocalMemorySize() const {
+    static const std::unordered_map<MemoryType, int64_t> localMamorySize = [this]() {
+        std::unordered_map<MemoryType, int64_t> m;
+
+        m[MemoryType::MEM_UB] = GetMemoryLimit(MemoryType::MEM_UB);
+        m[MemoryType::MEM_L1] = GetMemoryLimit(MemoryType::MEM_L1);
+        m[MemoryType::MEM_L0A] = GetMemoryLimit(MemoryType::MEM_L0A);
+        m[MemoryType::MEM_L0B] = GetMemoryLimit(MemoryType::MEM_L0B);
+        m[MemoryType::MEM_L0C] = GetMemoryLimit(MemoryType::MEM_L0C);
+        m[MemoryType::MEM_L0AMX] = GetMemoryLimit(MemoryType::MEM_L0AMX);
+        m[MemoryType::MEM_L0BMX] = GetMemoryLimit(MemoryType::MEM_L0BMX);
+        m[MemoryType::MEM_BT] = GetMemoryLimit(MemoryType::MEM_BT);
+        m[MemoryType::MEM_FIX] = GetMemoryLimit(MemoryType::MEM_FIX);
+        m[MemoryType::MEM_FIX_QUANT_PRE] = GetMemoryLimit(MemoryType::MEM_FIX_QUANT_PRE);
+
+        return m;
+    }();
+    return localMamorySize;
 }
 
 bool Die::SetMemoryPath(const std::vector<std::vector<std::string>>& dataPaths) {
@@ -318,6 +343,16 @@ void Platform::LoadFromIni(const std::string &filePath) {
     if (parser.GetSizeVal(aiCoreSpec, ubSize, memoryLimit) == SUCCESS) {
         GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_UB, memoryLimit));
     }
+    if (parser.GetSizeVal(aiCoreSpec, btSize, memoryLimit) == SUCCESS) {
+        GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_BT, memoryLimit));
+    }
+    if (parser.GetSizeVal(aiCoreSpec, fixQuantPreSize, memoryLimit) == SUCCESS) {
+        GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_FIX_QUANT_PRE, memoryLimit));
+    }
+    // 插桩
+    GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_FIX, MAX_FIX_SIZE));
+    GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0AMX, MAX_L0MX_SIZE));
+    GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0BMX, MAX_L0MX_SIZE));
     std::vector<std::vector<std::string>> dataPath;
     if (parser.GetDataPath(dataPath) == SUCCESS) {
         GetDie().SetMemoryPath(dataPath);
