@@ -59,12 +59,6 @@ Tensor Exp(const Tensor &self) {
     RETURN_CALL(UnaryOperation<UnaryOpType::EXP>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
 }
 
-Tensor Expm1(const Tensor &self) {
-    DECLARE_TRACER();
-
-    RETURN_CALL(UnaryOperation<UnaryOpType::EXPM1>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
-}
-
 Tensor Ln(const Tensor &operand) {
     DECLARE_TRACER();
 
@@ -192,13 +186,6 @@ void ExpOperationTileFunc(Function &function, const TileShape &tileShape, const 
     return TiledUnaryOperation<UnaryOpType::EXP>(function, tileShape, iOperand[0], oOperand[0]);
 }
 
-void Expm1OperationTileFunc(Function &function, const TileShape &tileShape,
-    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
-    [[maybe_unused]] const Operation &op) {
-    UnaryOperationOperandCheck(iOperand, oOperand);
-    return TiledUnaryOperation<UnaryOpType::EXPM1>(function, tileShape, iOperand[0], oOperand[0]);
-}
-
 void RsqrtOperationTileFunc(Function &function, const TileShape &tileShape,
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
     [[maybe_unused]] const Operation &op) {
@@ -274,7 +261,6 @@ void HubOperationTileFunc(Function &function, const TileShape &tileShape, const 
 }
 
 REGISTER_OPERATION_TILED_FUNC(OP_EXP, Opcode::OP_EXP, ExpOperationTileFunc);
-REGISTER_OPERATION_TILED_FUNC(OP_EXPM1, Opcode::OP_EXPM1, Expm1OperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_RSQRT, Opcode::OP_RSQRT, RsqrtOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_RELU, Opcode::OP_RELU, ReluOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_SQRT, Opcode::OP_SQRT, SqrtOperationTileFunc);
