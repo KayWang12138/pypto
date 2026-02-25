@@ -24,11 +24,11 @@ extern "C" int DynTileFwkBackendKernelServer(void *targ);
 namespace npu::tile_fwk::dynamic {
 
 static int EmulationLaunchOnce(DeviceKernelArgs &kArgs) {
-    constexpr int threadNum = 6;
+    auto *devProg = (DevAscendProgram *)(kArgs.cfgdata);
+    constexpr int threadNum = 7;  // 7 : DAV3510 max thread is 7
     std::thread aicpuThreadList[threadNum];
     int aicpuResultList[threadNum] = {0};
     std::atomic<int> idx{0};
-    auto *devProg = (DevAscendProgram *)(kArgs.cfgdata);
     size_t shmSize = DEVICE_TASK_CTRL_POOL_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
     auto deviceTaskCtrlPoolAddr = devProg->GetRuntimeDataList()->GetRuntimeData() + DEV_ARGS_SIZE;
     (void)memset_s(reinterpret_cast<void*>(deviceTaskCtrlPoolAddr), shmSize, 0, shmSize);
