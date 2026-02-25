@@ -727,6 +727,11 @@ LogicalTensorPtr ConstructFmapTile(Function &function, const ConvGraphNodes &ten
             iterInfo.hinL1Size, iterInfo.winL1Size, convTileInfo.cin0};
         int64_t srcCinOffset =
             (iterInfo.kL0Offset % convTileInfo.kPerGroup) / (convTileInfo.orgKh * convTileInfo.orgKw);
+        int64_t srcGmCin =
+            std::min(convTileInfo.orgCin / convAttrParam.groups - srcCinOffset,
+                     convTileInfo.kAL1 / (convTileInfo.orgKh * convTileInfo.orgKw));
+        std::vector<int64_t> srcGmValidShape = 
+            std::vector<int64_t>{1, srcGmCin, iterInfo.hinL1Size, iterInfo.winL1Size};
         if (convAttrParam.isConv3D) {
             iterInfo.dkAL1Size = 1;
             if (iterInfo.kAL1Size > convTileInfo.kPerGroup) {
@@ -737,6 +742,8 @@ LogicalTensorPtr ConstructFmapTile(Function &function, const ConvGraphNodes &ten
             }
             dstAL1Shape = std::vector<int64_t>{1, iterInfo.dkAL1Size, cin1AL1Size,
                                                iterInfo.hinL1Size, iterInfo.winL1Size, convTileInfo.cin0};
+            srcGmValidShape =
+                std::vector<int64_t>{1, srcGmCin, iterInfo.dkL1Size, iterInfo.hinL1Size, iterInfo.winL1Size};
         }
         dstAL1TensorPtr =
             std::make_shared<LogicalTensor>(function, tensorGraphNodes.fmapTensorPtr->Datatype(), dstAL1Shape,
@@ -761,7 +768,7 @@ LogicalTensorPtr ConstructFmapTile(Function &function, const ConvGraphNodes &ten
         }
         auto copyAttr = std::make_shared<CopyOpAttribute>(
             OpImmediate::Specified(srcFmapGmOffset),
-            MemoryType::MEM_L1, OpImmediate::Specified(dstAL1Shape), OpImmediate::Specified(dstAL1Shape),
+            MemoryType::MEM_L1, OpImmediate::Specified(srcGmValidShape), OpImmediate::Specified(dstAL1Shape),
             OpImmediate::Specified(dstAL1Shape)
         );
         copyInOpAl1.SetOpAttribute(copyAttr);
@@ -800,6 +807,12 @@ LogicalTensorPtr ConstructWeightTile(Function &function, const ConvGraphNodes &t
                                  MKN_N_VALUE, convTileInfo.cin0};
         int64_t srcCinOffset =
             (iterInfo.kL0Offset % convTileInfo.kPerGroup) / (convTileInfo.orgKh * convTileInfo.orgKw);
+        int64_t srcGmCin =
+            std::min(convTileInfo.orgCin / convAttrParam.groups - srcCinOffset,
+                     convTileInfo.kBL1 / (convTileInfo.orgKh * convTileInfo.orgKw));
+        std::vector<int64_t> srcGmValidShape = 
+            std::vector<int64_t>{iterInfo.nL1Size / MKN_N_VALUE, srcGmCin,
+                                 convTileInfo.orgKh, convTileInfo.orgKh};
         if (convAttrParam.isConv3D) {
             iterInfo.dkBL1Size = 1;
             if (iterInfo.kBL1Size > convTileInfo.kPerGroup) {
@@ -809,6 +822,8 @@ LogicalTensorPtr ConstructWeightTile(Function &function, const ConvGraphNodes &t
             dstBL1Shape = 
                 std::vector<int64_t>{iterInfo.kBL1Size / convTileInfo.cin0, iterInfo.nL1Size / MKN_N_VALUE,
                                      MKN_N_VALUE, convTileInfo.cin0};
+            srcGmValidShape =
+                std::vector<int64_t>{1, srcGmCin, iterInfo.dkL1Size, iterInfo.hinL1Size, iterInfo.winL1Size};
         }
         dstBL1TensorPtr =
             std::make_shared<LogicalTensor>(function, tensorGraphNodes.weightTensorPtr->Datatype(), dstBL1Shape,
@@ -831,7 +846,7 @@ LogicalTensorPtr ConstructWeightTile(Function &function, const ConvGraphNodes &t
         }
         auto copyAttr = std::make_shared<CopyOpAttribute>(
             OpImmediate::Specified(srcWeightGmOffset),
-            MemoryType::MEM_L1, OpImmediate::Specified(dstBL1Shape), OpImmediate::Specified(dstBL1Shape),
+            MemoryType::MEM_L1, OpImmediate::Specified(srcGmValidShape), OpImmediate::Specified(dstBL1Shape),
             OpImmediate::Specified(dstBL1Shape)
         );
         copyInOpBl1.SetOpAttribute(copyAttr);
