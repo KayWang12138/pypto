@@ -65,6 +65,7 @@ public:
         // 设置属性
         for (size_t i = 0; i < op->GetOOperands().size(); ++i) {
             op->GetOOperands()[i]->UpdateDynValidShape(outValidShapes[i]);
+            op->GetOOperands()[i]->UpdateDynRawShape(outValidShapes[i]);
         }
     }
 private:

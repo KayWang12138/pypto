@@ -142,6 +142,9 @@ public:
     void UpdateDynValidShape(const std::vector<SymbolicScalar> &dynValidShape) {
         dynValidShape_ = dynValidShape;
     }
+    void UpdateDynRawShape(const std::vector<SymbolicScalar> &dynValidShape) {
+        tensor->UpdateDynRawShape(dynValidShape);
+    }
     struct CompareOp {
         bool operator() (const Operation *a, const Operation *b) const;
     };
