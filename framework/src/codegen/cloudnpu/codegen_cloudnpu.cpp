@@ -507,17 +507,6 @@ void CodeGenCloudNPU::BuildIncludes(std::ostringstream &oss) const {
         << "-I" << includePath << "/tileop/arch32 "
         << "-I" << includePath << " ";
 
-    // Add pto include path - tileop_shmem.h unconditionally includes pto headers
-    // Check PTO_TILE_LIB_CODE_PATH directly, regardless of KEY_CODEGEN_SUPPORT_TILE_TENSOR
-    const char *ptoLibCodePath = std::getenv(ENV_PTO_TILE_LIB_CODE_PATH.c_str());
-    if (ptoLibCodePath != nullptr) {
-        std::string ptoIncludePath = std::string(ptoLibCodePath) + "/include";
-        // Check if pto directory exists before adding
-        if (IsPathExist(ptoIncludePath + "/pto")) {
-            oss << "-I" << ptoIncludePath << " ";
-        }
-    }
-
     // Also try GetPtoTileLibPathByEnv for backward compatibility
     std::string ptoTileLibPath = GetPtoTileLibPathByEnv();
     if (!ptoTileLibPath.empty()) {
