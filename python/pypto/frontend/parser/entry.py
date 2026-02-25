@@ -197,6 +197,7 @@ class JitCallableWrapper:
         "torch.bfloat16": pypto.DataType.DT_BF16,
         "torch.float8_e4m3fn": pypto.DataType.DT_FP8E4M3,
         "torch.float8_e5m2": pypto.DataType.DT_FP8E5M2,
+        "torch.float8_e8m0fnu": pypto.DataType.DT_FP8E8M0,
 
         "torch.uint8": pypto.DataType.DT_UINT8,
         "torch.uint16": pypto.DataType.DT_UINT16,
@@ -342,7 +343,7 @@ class JitCallableWrapper:
 
         # Resolve symbolic dimensions using current input shapes so outputs
         # allocated below match the runtime dynamic sizes.
-        
+
         input_tensor_defs, output_tensor_defs = self.get_signature_high_performance(self._original_func)
         self._check_input_defs_match_tensors(in_tensors, input_tensor_defs)
         out_has_dyn_dim = False
