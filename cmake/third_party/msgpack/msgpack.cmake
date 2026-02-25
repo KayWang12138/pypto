@@ -54,19 +54,23 @@ if (NOT EXISTS "${_MsgpackSourceDir}/include/msgpack.hpp")
 endif ()
 
 if (NOT EXISTS "${_MsgpackSourceDir}/include/msgpack.hpp")
-    # 触发下载
     set(_MsgpackTarGz "${PYPTO_THIRD_PARTY_PATH}/msgpack-cxx-${_TargetVersion}.tar.gz")
-    set(_MsgpackUrl "https://gitcode.com/cann-src-third-party/msgpack-c/releases/download/cpp-${_TargetVersion}/msgpack-cxx-${_TargetVersion}.tar.gz")
 
-    message(STATUS "Downloading msgpack-c ${_TargetVersion} from ${_MsgpackUrl}")
-    file(DOWNLOAD ${_MsgpackUrl} ${_MsgpackTarGz}
-            TLS_VERIFY OFF
-            STATUS _DownloadStatus
-    )
-    list(GET _DownloadStatus 0 _DownloadStatusCode)
-    if (NOT _DownloadStatusCode EQUAL 0)
-        list(GET _DownloadStatus 1 _DownloadStatusMsg)
-        message(FATAL_ERROR "Failed to download msgpack-c: ${_DownloadStatusMsg}")
+    # 若本地已有 tar.gz 则跳过下载, 直接解压
+    if (NOT EXISTS "${_MsgpackTarGz}")
+        set(_MsgpackUrl "https://gitcode.com/cann-src-third-party/msgpack-c/releases/download/cpp-${_TargetVersion}/msgpack-cxx-${_TargetVersion}.tar.gz")
+        message(STATUS "Downloading msgpack-c ${_TargetVersion} from ${_MsgpackUrl}")
+        file(DOWNLOAD ${_MsgpackUrl} ${_MsgpackTarGz}
+                TLS_VERIFY OFF
+                STATUS _DownloadStatus
+        )
+        list(GET _DownloadStatus 0 _DownloadStatusCode)
+        if (NOT _DownloadStatusCode EQUAL 0)
+            list(GET _DownloadStatus 1 _DownloadStatusMsg)
+            message(FATAL_ERROR "Failed to download msgpack-c: ${_DownloadStatusMsg}")
+        endif ()
+    else ()
+        message(STATUS "Found local msgpack-c archive: ${_MsgpackTarGz}")
     endif ()
 
     message(STATUS "Extracting msgpack-c ${_TargetVersion}")
