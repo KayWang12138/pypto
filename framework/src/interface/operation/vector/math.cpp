@@ -788,6 +788,10 @@ void TiledExp2(
         auto tileShapeLen = srcTileShape.size();
         ASSERT(SHAPE_DIM2 <= tileShapeLen && tileShapeLen <= SHAPE_DIM4) << "Length of tile shape only support 2~4";
         std::vector<int64_t> tmpShape;
+        std::vector<int64_t> tmpShape2;
+        tmpShape2.assign(srcTileShape.end() - SHAPE_DIM2, srcTileShape.end());
+        auto alignSize2 = BLOCK_SIZE / BytesOf(DT_FP32);
+        tmpShape2[tmpShape2.size() - 1] = (tmpShape2[tmpShape2.size() - 1] + alignSize2 - 1) / alignSize2 * alignSize2;
         if (result->Datatype() == DT_FP32) {
             tmpShape = {BLOCK_SIZE / sizeof(float)};
         } else {
@@ -796,7 +800,7 @@ void TiledExp2(
             tmpShape[tmpShape.size() - 1] = (tmpShape[tmpShape.size() - 1] + alignSize - 1) / alignSize * alignSize;
         }
         auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_FP32, tmpShape);
-        auto tmpTensorNext = std::make_shared<LogicalTensor>(function, DT_FP32, tmpShape);
+        auto tmpTensorNext = std::make_shared<LogicalTensor>(function, DT_FP32, tmpShape2);
         function.AddOperation(Opcode::OP_EXP2, {tile}, {resultTile, tmpTensor, tmpTensorNext});
         return;
     }
