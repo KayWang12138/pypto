@@ -1,6 +1,7 @@
 import os
 import enum
 import math
+# import toolss
 from itertools import product
 from typing import List, Optional, Union
 
@@ -119,17 +120,21 @@ def conv1d_a5_test():
 def conv2d_a5_test():
     torch.npu.set_device(0)
     run_mode = "npu"
-    fmap_shape = (1, 16, 1, 16)
-    weight_shape = (16, 16, 1, 1)
-    bias_shape = (16,)
-    out_shape = (1, 16, 1, 16)
+    fmap_shape = (3, 16, 2, 16)
+    weight_shape = (32, 16, 1, 1)
+    bias_shape = (32,)
+    out_shape = (3, 32, 2, 16)
     a = torch.rand(fmap_shape, dtype=torch.float16, device=run_mode)
     b = torch.rand(weight_shape, dtype=torch.float16, device=run_mode)
     # c = torch.rand(bias_shape, dtype=torch.float16, device=run_mode)
     d = create_conv_kernel(fmap_shape, weight_shape, bias_shape, out_shape, run_mode)(a, b)
     print(d)
-    output_cpu = torch.nn.functional.conv2d(a, b, stride=1, padding=0)
-    print(output_cpu)
+    output_npu = torch.nn.functional.conv2d(a, b, stride=1, padding=0)
+    print(output_npu)
+
+    # golden = output_npu.cpu().numpy()
+    # pto_res = d.cpu().numpy()
+    # result = toolss.dataCompare(pto_res, golden, 0.001, 0.001)
 
 def conv3d_a5_test():
     torch.npu.set_device(0)
