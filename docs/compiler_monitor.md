@@ -460,3 +460,8 @@ framework/src/passes/pass_mgr/
 说明：不按“TileGraphPass”“BlockGraphPass”再分子阶段，因二者均在 CompileFunction 的同一 runPass(PVC2_OOO) 内顺序执行，统一以 **Pass** 阶段统计即可。CodeGen 与二进制生成合并为一个 **CodeGen** 阶段。
 
 ---
+
+## TODO
+1. 细粒度各pass的耗时统计与超时监测归一到当前方案；
+2. pass的超时阈值默认值按照约定方案根据节点规模设定；
+3. 建议第一阶段先按照超时告警、用户手动终止来实现；
