@@ -25,7 +25,7 @@ Main Functions:
     - rope_3d: 3D RoPE computation
 
 Example:
-    See deepseekv32_lightning_indexer_prolog_quant_hif8.py for usage examples.
+    See deepseekv32_lightning_indexer_prolog_quant_mxfp8.py for usage examples.
 """
 import math
 from typing import List
@@ -36,16 +36,6 @@ import pypto
 
 SHAPE_DIM_2 = 2
 SHAPE_DIM_3 = 3
-
-NUM_0 = 0
-NUM_1 = 1
-NUM_2 = 2
-NUM_3 = 3
-NUM_7168 = 7168
-
-TILE_CUBE_DIM = 6
-Q_PARAM_DIM = 2
-NZ_DIM = 4
 COS_SIN_DIM = 2
 L0M_INDEX = 0
 L1M_INDEX = 1
@@ -54,25 +44,15 @@ L1K_INDEX = 3
 L0N_INDEX = 4
 L1N_INDEX = 5
 SCATTER_DIM = -2
-NZ_FIRST_DIM = 16
-NZ_B8_C0 = 32
-NZ_B16_C0 = 16
-
-VEC_TILE_256 = 256
-VEC_TILE_128 = 128
-VEC_TILE_64 = 64
-VEC_TILE_8 = 8
-VEC_TILE_4 = 4
-VEC_TILE_32 = 32
 
 
 @dataclass
 class IndexerPrologQuantInput:
     x: torch.tensor  # BF16, (t, h)
-    q_norm: torch.tensor  # HIF8, (t, qLoraRank)
-    q_norm_scale: torch.tensor  # FP32, (t, 1)
-    w_qb: torch.tensor  # HIF8, (qLoraRank, headNum * headDim)
-    w_qb_scale: torch.tensor  # FP32, (headNum * headDim, 1)
+    q_norm: torch.tensor  # MXFP8.E4M3, (t, qLoraRank)
+    q_norm_scale: torch.tensor  # FP32, (t, qLoraRank // 64, 2)
+    w_qb: torch.tensor  # MXFP8.E4M3, (qLoraRank, headNum * headDim)
+    w_qb_scale: torch.tensor  # FP32, (headNum * headDim, qLoraRank // 64, 2)
     wk: torch.tensor  # BF16, (h, headDim)
     w_proj: torch.tensor  # BF16, (h, headNum)
     ln_gamma_k: torch.tensor  # BF16, (headDim,)
@@ -81,16 +61,16 @@ class IndexerPrologQuantInput:
     sin_idx_rope: torch.tensor  # BF16, (t, ropeHeadDim)
     hadamard_q: torch.tensor  # BF16, (headDim, headDim)
     hadamard_k: torch.tensor  # BF16, (headDim, headDim)
-    k_cache: torch.tensor  # HIF8, (blockNum, blockSize, nKv, headDim)
+    k_cache: torch.tensor  # FP8.E4M3, (blockNum, blockSize, nKv, headDim)
     k_cache_scale: torch.tensor  # FP16, (blockNum, blockSize, nKv, 1)
     k_cache_index: torch.tensor  # INT64, (t,)
 
 
 @dataclass
 class IndexerPrologQuantOutput:
-    q_hif8: torch.tensor
+    q_fp8e4m3: torch.tensor
     q_scale: torch.tensor
-    k_hif8: torch.tensor
+    k_fp8e4m3: torch.tensor
     k_scale: torch.tensor
     weights: torch.tensor
 
@@ -200,11 +180,11 @@ def quant_rope_2d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor):
 
 
 def prolog_quant(x: pypto.Tensor):
-    """Perform per-token quantization to HiF8.
+    """Perform per-token quantization to MXFP8.E4M3.
 
-    Quantizes the input tensor to HiF8 format using dynamic quantization.
+    Quantizes the input tensor to MXFP8.E4M3 format using dynamic quantization.
     The quantization scale is computed per-token based on the maximum absolute
-    value, ensuring the full HiF8 range [-32768, 32768] is utilized.
+    value, ensuring the full MXFP8.E4M3 range [-448, 448] is utilized.
 
     Args:
         input: Input tensor to quantize, can be any shape. Quantization is
@@ -212,31 +192,31 @@ def prolog_quant(x: pypto.Tensor):
 
     Returns:
         Tuple of (quantized_tensor, dequant_scale):
-            - quantized_tensor: HiF8 quantized tensor, same shape as input
+            - quantized_tensor: MXFP8.E4M3 quantized tensor, same shape as input
             - dequant_scale: FP32 scale factor for dequantization, shape matches
                             input with last dimension reduced to 1
 
     Note:
         The quantization process:
         1. Find per-token maximum absolute value
-        2. Compute scale = 32768.0 / max_value
-        3. Quantize: hif8 = round(input * scale)
+        2. Compute scale = 448.0 / max_value
+        3. Quantize: fp8 = round(input * scale)
         4. Return dequantization scale = 1.0 / scale
     """
-    hif8_max_value = 32768.0
-    hif8_one_value = 1.0
+    fp8_max_value = 448.0
+    fp8_one_value = 1.0
     input_fp32 = pypto.cast(x, pypto.DT_FP32, pypto.CastMode.CAST_NONE)
 
     abs_res = pypto.abs(input_fp32)
     max_value = pypto.amax(abs_res, dim=-1, keepdim=True)
-    temp32768 = pypto.full(max_value.shape, hif8_max_value, pypto.DT_FP32)
+    temp448 = pypto.full(max_value.shape, fp8_max_value, pypto.DT_FP32)
 
-    scale_quant = temp32768 / max_value
+    scale_quant = temp448 / max_value
     out_fp32 = input_fp32 * scale_quant
-    out_hif8 = pypto.cast(out_fp32, pypto.DT_HF8)
-    temp1 = pypto.full(scale_quant.shape, hif8_one_value, pypto.DT_FP32)
+    out_fp8 = pypto.cast(out_fp32, pypto.DT_FP8E4M3)
+    temp1 = pypto.full(scale_quant.shape, fp8_one_value, pypto.DT_FP32)
     scale_dequant = temp1 / scale_quant
-    return (out_hif8, scale_dequant)
+    return (out_fp8, scale_dequant, out_fp32)
 
 
 def rotate_half(input_tensor: pypto.Tensor) -> pypto.Tensor:
@@ -330,18 +310,18 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
     for the indexer attention mechanism. The computation includes:
 
     1. Query Path:
-       - Dequantize q_norm (HIF8) to FP32
+       - Dequantize q_norm (MXFP8.E4M3) to FP32
        - Apply linear transformation with w_qb
        - Apply RoPE (Rotary Position Embedding)
        - Apply Hadamard transformation
-       - Quantize to HIF8 with per-token-head scale
+       - Quantize to FP8.E4M3 with per-token-head scale
 
     2. Key Path:
        - Linear transformation with wk
        - LayerNorm normalization
        - Apply RoPE
        - Apply Hadamard transformation
-       - Quantize to HIF8 with per-token-head scale
+       - Quantize to FP8.E4M3 with per-token-head scale
        - Update key cache using scatter_update
 
     3. Weights Path:
@@ -351,25 +331,25 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
 
     Args:
         x_in: Input hidden states tensor, shape (t, h), dtype BF16
-        q_norm_in: Quantized query norm tensor, shape (t, q_lora_rank), dtype HIF8
-        q_norm_scale_in: Query norm dequantization scale, shape (t, 1), dtype FP32
-        w_qb_in: Query projection weight matrix, HIF8 format with NZ layout
-        w_qb_scale_in: Query weight dequantization scale, shape (head_num * head_dim, 1), dtype FP32
-        wk_in: Key projection weight matrix, BF16 format with NZ layout
-        w_proj_in: Weight projection matrix, BF16 format with NZ layout
+        q_norm_in: Quantized query norm tensor, shape (t, q_lora_rank), dtype MXFP8.E4M3
+        q_norm_scale_in: Query norm dequantization scale, shape (t, q_lora_rank // 32), dtype E8M0
+        w_qb_in: Query projection weight matrix, MXFP8.E4M3 format with ND layout
+        w_qb_scale_in: Query weight dequantization scale, shape (q_lora_rank // 32, head_num * head_dim), dtype E8M0
+        wk_in: Key projection weight matrix, BF16 format with ND layout
+        w_proj_in: Weight projection matrix, BF16 format with ND layout
         ln_gamma_k_in: LayerNorm scale parameter for key, shape (head_dim,), dtype BF16
         ln_beta_k_in: LayerNorm shift parameter for key, shape (head_dim,), dtype BF16
         cos_idx_rope_in: Cosine values for RoPE, shape (t, rope_head_dim), dtype BF16
         sin_idx_rope_in: Sine values for RoPE, shape (t, rope_head_dim), dtype BF16
         hadamard_q_in: Hadamard transformation matrix for query, shape (head_dim, head_dim), dtype BF16
         hadamard_k_in: Hadamard transformation matrix for key, shape (head_dim, head_dim), dtype BF16
-        k_quant_in: Input key cache, shape (block_num, block_size, n_kv, head_dim), dtype HIF8
-        k_scale_in: Key cache scale, shape (block_num, block_size, n_kv, 1), dtype FP16
+        k_quant_in: Input key cache, shape (block_num, block_size, n_kv, head_dim), dtype FP8.E4M3
+        k_scale_in: Key cache scale, shape (block_num, block_size, n_kv, 1), dtype FP32
         k_cache_index_in: Cache index for scatter update, shape (t,), dtype INT64
-        q_quant_out: Output quantized query tensor, shape (t, head_num, head_dim), dtype HIF8
-        q_scale_out: Output query quantization scale, shape (t, head_num, 1), dtype FP16
-        k_quant_out: Output key cache (updated in-place), shape (block_num, block_size, n_kv, head_dim), dtype HIF8
-        k_scale_out: Output key cache scale (updated in-place), shape (block_num, block_size, n_kv, 1), dtype FP16
+        q_quant_out: Output quantized query tensor, shape (t, head_num, head_dim), dtype FP8.E4M3
+        q_scale_out: Output query quantization scale, shape (t, head_num, 1), dtype FP32
+        k_quant_out: Output key cache (updated in-place), shape (block_num, block_size, n_kv, head_dim), dtype FP8.E4M3
+        k_scale_out: Output key cache scale (updated in-place), shape (block_num, block_size, n_kv, 1), dtype FP32
         weights_out: Output weights tensor, shape (t, head_num), dtype BF16
         attrs: IndexerPrologQuantAttr object containing:
             - eps: LayerNorm epsilon value
@@ -392,33 +372,26 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
     rope_head_dim = cos_idx_rope_in.shape[1]
 
     k_cache_index = pypto.reshape(k_cache_index_in, [t, 1], inplace=True)
-    w_qb_scale = pypto.reshape(w_qb_scale_in, [1, head_num * head_dim], inplace=True)
     gamma_2d = pypto.reshape(ln_gamma_k_in, [1, ln_gamma_k_in.shape[0]], inplace=True)
     beta_2d = pypto.reshape(ln_beta_k_in, [1, ln_beta_k_in.shape[0]], inplace=True)
 
     unroll_list = configs.unroll_list
-    for t_idx, unroll_length in pypto.loop_unroll(0, t, 1, name="IndexerPrologQuantQuantLoop", idx_name="tIdx",
-                                                  unroll_list=unroll_list, ):
+    for t_idx, unroll_length in pypto.loop_unroll(0, t, 1, name="IndexerPrologQuantQuantLoop", idx_name="t_idx",
+                                                unroll_list=unroll_list, ):
         t_tile = unroll_length
         # 获取query计算的各阶段Tile参数
         q_linear = configs.q_linear
         q_hd = configs.q_hd
         # 多分档内会将t_tile作为档位，offset无需乘t_tile
         q_norm = pypto.view(q_norm_in, [t_tile, q_lora_rank], [t_idx, 0])
-        q_norm_scale = pypto.view(q_norm_scale_in, [t_tile, 1], [t_idx, 0])
-        pypto.set_semantic_label("Query-Linear")
+        q_norm_scale = pypto.view(q_norm_scale_in, [t_tile, q_lora_rank // 64, 2], [t_idx, 0, 0])
+        pypto.set_semantic_label("Query-Dequant-Linear")
         pypto.set_cube_tile_shapes([q_linear[L0M_INDEX], q_linear[L1M_INDEX]],
                                    [q_linear[L0K_INDEX], q_linear[L1K_INDEX]],
                                    [q_linear[L0N_INDEX], q_linear[L1N_INDEX]], True)
-
-        q_s32 = pypto.matmul(q_norm, w_qb_in, pypto.DT_BF16)  # (t_tile, head_num * head_dim)
-
-        pypto.set_semantic_label("Query-Dequant")
         pypto.set_vec_tile_shapes(8, head_num * head_dim)
-        q_f32 = pypto.cast(q_s32, pypto.DT_FP32)  # (t_tile, head_num * head_dim), fp32
-        q_f32 = q_f32 * q_norm_scale  # (t_tile, head_num * head_dim), fp32
-        q_f32 = q_f32 * w_qb_scale  # (t_tile, head_num * head_dim), fp32
-        q_cast = pypto.cast(q_f32, x_dtype)
+
+        q_cast = pypto.scaled_mm(q_norm, w_qb_in, pypto.DT_BF16, q_norm_scale, w_qb_scale_in, scale_b_trans=True)
 
         pypto.set_semantic_label("Query-Rope")
         q_bf16 = pypto.reshape(q_cast, [t_tile, head_num, head_dim])
@@ -439,7 +412,7 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         q_hd_m_tile = cur_max_unroll if t_tile < cur_max_unroll else q_hd[L0M_INDEX]
         pypto.set_cube_tile_shapes([q_hd_m_tile, q_hd_m_tile], [q_hd[L0K_INDEX], q_hd[L1K_INDEX]],
                                    [q_hd[L0N_INDEX], q_hd[L1N_INDEX]])
-        q_hadamard = pypto.matmul(q_cat, hadamard_q, x_dtype)  # (t_tile, head_num, head_dim)
+        q_hadamard = pypto.matmul(q_cat, hadamard_q, x_dtype)
 
         pypto.set_semantic_label("Query-Quant")
         pypto.set_vec_tile_shapes(8, head_num, head_dim)
@@ -474,6 +447,7 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         hadamard_k = pypto.matmul(k_concat, hadamard_k_in, x_dtype)  # (t_tile, head_dim), bf16
 
         pypto.set_semantic_label("Key-Quant")
+        pypto.set_vec_tile_shapes(t_tile, head_dim)
         k_res = prolog_quant(hadamard_k)
         k_cache_4d = pypto.reshape(k_res[0], [t_tile, 1, 1, head_dim])
         k_scale_4d = pypto.reshape(pypto.cast(k_res[1], pypto.DT_FP32), [t_tile, 1, 1, 1])
@@ -515,24 +489,24 @@ def lightning_indexer_prolog_quant(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
 
     Args:
         x_in: Input hidden states tensor, shape (t, h), dtype BF16
-        q_norm_in: Quantized query norm tensor, shape (t, q_lora_rank), dtype HIF8
+        q_norm_in: Quantized query norm tensor, shape (t, q_lora_rank), dtype MXFP8.E4M3
         q_norm_scale_in: Query norm dequantization scale, shape (t, 1), dtype FP32
-        w_qb_in: Query projection weight matrix, HIF8 format with NZ layout
+        w_qb_in: Query projection weight matrix, MXFP8.E4M3 format with ND layout
         w_qb_scale_in: Query weight dequantization scale, shape (head_num * head_dim, 1), dtype FP32
-        wk_in: Key projection weight matrix, BF16 format with NZ layout
-        w_proj_in: Weight projection matrix, BF16 format with NZ layout
+        wk_in: Key projection weight matrix, BF16 format with ND layout
+        w_proj_in: Weight projection matrix, BF16 format with ND layout
         ln_gamma_k_in: LayerNorm scale parameter for key, shape (head_dim,), dtype BF16
         ln_beta_k_in: LayerNorm shift parameter for key, shape (head_dim,), dtype BF16
         cos_idx_rope_in: Cosine values for RoPE, shape (t, rope_head_dim), dtype BF16
         sin_idx_rope_in: Sine values for RoPE, shape (t, rope_head_dim), dtype BF16
         hadamard_q_in: Hadamard transformation matrix for query, shape (head_dim, head_dim), dtype BF16
         hadamard_k_in: Hadamard transformation matrix for key, shape (head_dim, head_dim), dtype BF16
-        k_quant_in: Input key cache, shape (block_num, block_size, n_kv, head_dim), dtype HIF8
+        k_quant_in: Input key cache, shape (block_num, block_size, n_kv, head_dim), dtype FP8.E4M3
         k_scale_in: Key cache scale, shape (block_num, block_size, n_kv, 1), dtype FP16
         k_cache_index_in: Cache index for scatter update, shape (t,), dtype INT64
-        q_quant_out: Output quantized query tensor, shape (t, head_num, head_dim), dtype HIF8
+        q_quant_out: Output quantized query tensor, shape (t, head_num, head_dim), dtype FP8.E4M3
         q_scale_out: Output query quantization scale, shape (t, head_num, 1), dtype FP16
-        k_quant_out: Output key cache (updated in-place), shape (block_num, block_size, n_kv, head_dim), dtype HIF8
+        k_quant_out: Output key cache (updated in-place), shape (block_num, block_size, n_kv, head_dim), dtype FP8.E4M3
         k_scale_out: Output key cache scale (updated in-place), shape (block_num, block_size, n_kv, 1), dtype FP16
         weights_out: Output weights tensor, shape (t, head_num), dtype BF16
         attrs: IndexerPrologQuantAttr object containing operator attributes
