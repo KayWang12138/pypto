@@ -30,94 +30,104 @@ if (NOT PYPTO_THIRD_PARTY_PATH)
     message(FATAL_ERROR ${_Msg})
 endif ()
 
-# 直接查找制品, 若找到则直接退出
-get_filename_component(_TargetTarGzFile "${PYPTO_THIRD_PARTY_PATH}/msgpack-cxx-${_TargetVersion}.tar.gz" REALPATH)
+# msgpack-cxx 是 header-only 库, 只需定位到 include 目录即可
+
+set(_MsgpackIncludeDir "")
+
+# 1) 查找已安装的头文件 (预编译制品)
 get_filename_component(_TargetInstallPrefix "${PYPTO_THIRD_PARTY_PATH}/${CMAKE_BUILD_TYPE}" REALPATH)
 find_path(_MsgpackIncludeDir msgpack.hpp
         PATHS "${_TargetInstallPrefix}/include"
         NO_DEFAULT_PATH
 )
+
+# 2) 查找已解压的源码目录
 if (NOT _MsgpackIncludeDir)
-    # 兼容部分镜像直接存放 msgpack 源码的情况
-    get_filename_component(_CandidateDir "${PYPTO_THIRD_PARTY_PATH}/msgpack-cxx-${_TargetVersion}" REALPATH)
-    if (EXISTS "${_CandidateDir}/include/msgpack.hpp")
-        set(_MsgpackIncludeDir "${_CandidateDir}/include")
-    else ()
-        get_filename_component(_CandidateDir "${PYPTO_THIRD_PARTY_PATH}/msgpack-c" REALPATH)
-        if (EXISTS "${_CandidateDir}/include/msgpack.hpp")
-            set(_MsgpackIncludeDir "${_CandidateDir}/include")
+    foreach(_Name "msgpack-cxx-${_TargetVersion}" "msgpack-c")
+        if (EXISTS "${PYPTO_THIRD_PARTY_PATH}/${_Name}/include/msgpack.hpp")
+            set(_MsgpackIncludeDir "${PYPTO_THIRD_PARTY_PATH}/${_Name}/include")
+            break()
         endif ()
-    endif ()
-endif ()
-if (_MsgpackIncludeDir)
-    message(STATUS "Use msgpack-c from binary, include=${_MsgpackIncludeDir}")
-    add_library(${_TargetNameAlias} INTERFACE)
-    target_include_directories(${_TargetNameAlias} SYSTEM INTERFACE "${_MsgpackIncludeDir}")
-    target_compile_definitions(${_TargetNameAlias} INTERFACE MSGPACK_NO_BOOST)
-    return()
+    endforeach()
 endif ()
 
-# 触发编译 (header-only, 仅需解压+安装头文件)
-get_filename_component(_TargetSourceDir "${PYPTO_THIRD_PARTY_PATH}/msgpack-c" REALPATH)
-if (NOT EXISTS ${_TargetSourceDir})
-    get_filename_component(_TargetSourceDir "${PYPTO_THIRD_PARTY_PATH}/msgpack-cxx-${_TargetVersion}" REALPATH)
-endif ()
-
-# 若源码目录不存在但本地有 tar.gz, 在 configure 阶段解压到 build 目录
-# (避免 ExternalProject_Add 触发网络下载)
-if (NOT EXISTS ${_TargetSourceDir})
+# 3) 从本地 tar.gz 解压到 build 目录
+if (NOT _MsgpackIncludeDir)
     set(_TarGz "${PYPTO_THIRD_PARTY_PATH}/msgpack-cxx-${_TargetVersion}.tar.gz")
     if (EXISTS "${_TarGz}")
-        set(_ExtractBase "${CMAKE_CURRENT_BINARY_DIR}/third_party")
+        set(_ExtractBase "${CMAKE_CURRENT_BINARY_DIR}/third_party/msgpack")
         file(MAKE_DIRECTORY "${_ExtractBase}")
-        message(STATUS "Extracting local msgpack-c archive: ${_TarGz}")
+        message(STATUS "Extracting local msgpack-c archive: ${_TarGz} -> ${_ExtractBase}")
         execute_process(
                 COMMAND ${CMAKE_COMMAND} -E tar xzf "${_TarGz}"
                 WORKING_DIRECTORY "${_ExtractBase}"
                 RESULT_VARIABLE _ExtractResult
         )
+        if (NOT _ExtractResult EQUAL 0)
+            message(WARNING "Failed to extract ${_TarGz}, result=${_ExtractResult}")
+        endif ()
         # 兼容不同压缩包的顶层目录名
         foreach(_Name "msgpack-cxx-${_TargetVersion}" "msgpack-c" "msgpack-c-cpp-${_TargetVersion}")
             if (EXISTS "${_ExtractBase}/${_Name}/include/msgpack.hpp")
-                set(_TargetSourceDir "${_ExtractBase}/${_Name}")
+                set(_MsgpackIncludeDir "${_ExtractBase}/${_Name}/include")
                 break()
             endif ()
         endforeach()
-        if (NOT EXISTS "${_TargetSourceDir}/include/msgpack.hpp")
-            file(GLOB _ExtractedDirs "${_ExtractBase}/*")
-            message(FATAL_ERROR "msgpack-c headers not found after extracting ${_TarGz}. "
-                    "Extracted contents: ${_ExtractedDirs}")
+        # 若以上都没匹配, 尝试直接在解压目录下查找 (压缩包可能没有顶层目录)
+        if (NOT _MsgpackIncludeDir AND EXISTS "${_ExtractBase}/include/msgpack.hpp")
+            set(_MsgpackIncludeDir "${_ExtractBase}/include")
+        endif ()
+        if (NOT _MsgpackIncludeDir)
+            file(GLOB _ExtractedEntries "${_ExtractBase}/*")
+            message(WARNING "msgpack-c headers not found after extracting ${_TarGz}. "
+                    "Extracted contents: ${_ExtractedEntries}")
         endif ()
     endif ()
 endif ()
 
-PTO_Fwk_CleanEmptyDir(DIR ${_TargetSourceDir})
-
-set(_ExtArgs)
-if (NOT EXISTS ${_TargetSourceDir})
-    list(APPEND _ExtArgs
-            URL "https://gitcode.com/cann-src-third-party/msgpack-c/releases/download/cpp-${_TargetVersion}/msgpack-cxx-${_TargetVersion}.tar.gz"
-            DOWNLOAD_DIR ${PYPTO_THIRD_PARTY_PATH}
+# 4) 最终兜底: 下载 tar.gz 并解压
+if (NOT _MsgpackIncludeDir)
+    set(_TarGz "${CMAKE_CURRENT_BINARY_DIR}/third_party/msgpack-cxx-${_TargetVersion}.tar.gz")
+    set(_MsgpackUrl "https://gitcode.com/cann-src-third-party/msgpack-c/releases/download/cpp-${_TargetVersion}/msgpack-cxx-${_TargetVersion}.tar.gz")
+    message(STATUS "Downloading msgpack-c ${_TargetVersion} from ${_MsgpackUrl}")
+    file(DOWNLOAD ${_MsgpackUrl} ${_TarGz}
+            TLS_VERIFY OFF
+            STATUS _DownloadStatus
     )
+    list(GET _DownloadStatus 0 _DownloadStatusCode)
+    if (NOT _DownloadStatusCode EQUAL 0)
+        list(GET _DownloadStatus 1 _DownloadStatusMsg)
+        message(FATAL_ERROR "Failed to download msgpack-c: ${_DownloadStatusMsg}")
+    endif ()
+
+    set(_ExtractBase "${CMAKE_CURRENT_BINARY_DIR}/third_party/msgpack")
+    file(MAKE_DIRECTORY "${_ExtractBase}")
+    execute_process(
+            COMMAND ${CMAKE_COMMAND} -E tar xzf "${_TarGz}"
+            WORKING_DIRECTORY "${_ExtractBase}"
+            RESULT_VARIABLE _ExtractResult
+    )
+    if (NOT _ExtractResult EQUAL 0)
+        message(FATAL_ERROR "Failed to extract msgpack-c")
+    endif ()
+    foreach(_Name "msgpack-cxx-${_TargetVersion}" "msgpack-c" "msgpack-c-cpp-${_TargetVersion}")
+        if (EXISTS "${_ExtractBase}/${_Name}/include/msgpack.hpp")
+            set(_MsgpackIncludeDir "${_ExtractBase}/${_Name}/include")
+            break()
+        endif ()
+    endforeach()
+    if (NOT _MsgpackIncludeDir AND EXISTS "${_ExtractBase}/include/msgpack.hpp")
+        set(_MsgpackIncludeDir "${_ExtractBase}/include")
+    endif ()
 endif ()
 
-ExternalProject_Add(ExternalProject_msgpack_cxx   ${_ExtArgs}
-        PREFIX ${CMAKE_CURRENT_BINARY_DIR}/third_party/msgpack-cxx-${_TargetVersion}
-        SOURCE_DIR ${_TargetSourceDir}
-        INSTALL_DIR ${_TargetInstallPrefix}
-        CONFIGURE_COMMAND ""
-        BUILD_COMMAND ""
-        INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_directory <SOURCE_DIR>/include <INSTALL_DIR>/include
-        BUILD_ALWAYS FALSE
-        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-        TLS_VERIFY OFF
-        EXCLUDE_FROM_ALL TRUE
-        BUILD_BYPRODUCTS
-            ${_TargetInstallPrefix}/include/msgpack.hpp
-)
-file(MAKE_DIRECTORY ${_TargetInstallPrefix}/include)
+if (NOT _MsgpackIncludeDir)
+    message(FATAL_ERROR "Failed to find msgpack-c headers. "
+            "Please place msgpack-cxx source or tar.gz in ${PYPTO_THIRD_PARTY_PATH}/")
+endif ()
+
+# header-only: 直接创建 interface target, 无需编译
 add_library(${_TargetNameAlias} INTERFACE)
-target_include_directories(${_TargetNameAlias} SYSTEM INTERFACE "${_TargetInstallPrefix}/include")
+target_include_directories(${_TargetNameAlias} SYSTEM INTERFACE "${_MsgpackIncludeDir}")
 target_compile_definitions(${_TargetNameAlias} INTERFACE MSGPACK_NO_BOOST)
-add_dependencies(${_TargetNameAlias} ExternalProject_msgpack_cxx)
-message(STATUS "Use msgpack-c from source: ${_TargetSourceDir}")
+message(STATUS "msgpack-c configured, include=${_MsgpackIncludeDir}")
