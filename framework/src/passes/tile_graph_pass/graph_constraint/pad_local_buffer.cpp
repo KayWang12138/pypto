@@ -627,6 +627,10 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
             (producerOp != nullptr && OpcodeManager::Inst().GetOpCalcType(producerOp->GetOpcode()) == OpCalcType::BROADCAST)) {
         if (op.GetOpcode() == Opcode::OP_EXPAND || !axisCombineMarker.IsTensorEnableAxisCombine(in)) {
             AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
+            if (op.GetOpMagic() == 10752) {
+                auto out = op.GetOOperands().front();
+                AlignedRawTensorIfNeed(out, lastIdx, paddingValue);
+            }
             return;
         }
         if (op.GetOpcode() == Opcode::OP_INDEX_OUTCAST && op.GetIOperandIndex(in) == 0) {

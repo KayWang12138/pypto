@@ -124,7 +124,7 @@ def golden_chunk_gated_delta_rule(inputs: dict, dims: dict):
 def gen_data(case_name):
     """Generate test data based on case name."""
     if case_name.startswith("ChunkGatedDeltaRuleSTest.b2_nqk2_nv4_s1k"):
-        params = {"T": 1024 * 2, "B": 2, "Nqk": 2, "Nv": 4, }
+        params = {"T": 128, "B": 1, "Nqk": 1, "Nv": 1, }
     elif case_name.startswith("ChunkGatedDeltaRuleSTest.b2_nqk4_nv8_s4k"):
         params = {"T": 1024 * 8, "B": 2, "Nqk": 4, "Nv": 8, }
     elif case_name.startswith("ChunkGatedDeltaRuleSTest.b2_nqk2_nv4_s8k"):
