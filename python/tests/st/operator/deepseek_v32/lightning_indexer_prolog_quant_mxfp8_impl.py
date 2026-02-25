@@ -141,7 +141,6 @@ def quant_layer_norm(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, d
         The function performs normalization in FP32 precision to maintain numerical
         stability, then casts back to the original dtype.
     """
-    pypto.set_semantic_label("Key-LayerNorm")
     assert ((dim == len(x.shape) - 1) or (dim == -1))
     actual_dim = dim + len(x.shape) if dim < 0 else dim
     x_dtype = x.dtype
@@ -184,7 +183,6 @@ def quant_rope_2d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor):
         The function performs rotation in FP32 precision for numerical stability,
         then casts back to the original dtype.
     """
-    pypto.set_semantic_label("Key-Rope2D")
     key_rope_dim = 2
     x_dtype = x.dtype
     t_tile = x.shape[0]
@@ -196,7 +194,6 @@ def quant_rope_2d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor):
     cast_sin = pypto.cast(sin, pypto.DT_FP32)
     x_view = pypto.cast(x, pypto.DT_FP32)
 
-    pypto.set_vec_tile_shapes(t_tile, rope_dim)
     x_embed = (x_view * cast_cos) + ((rotate_half(x_view)) * cast_sin)
     res = pypto.cast(x_embed, x_dtype)
     return res
@@ -226,7 +223,6 @@ def prolog_quant(x: pypto.Tensor):
         3. Quantize: fp8 = round(input * scale)
         4. Return dequantization scale = 1.0 / scale
     """
-    pypto.set_semantic_label("Prolog-Quant")
     fp8_max_value = 448.0
     fp8_one_value = 1.0
     input_fp32 = pypto.cast(x, pypto.DT_FP32, pypto.CastMode.CAST_NONE)
@@ -307,11 +303,11 @@ def rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor, configs: Inde
     head_num = x.shape[head_num_axis]
     rope_dim = x.shape[head_dim_axis]
 
-    pypto.set_vec_tile_shapes(1, rope_dim)
+    pypto.set_vec_tile_shapes(512, rope_dim)
     cast_cos = pypto.cast(cos, pypto.DT_FP32)
     cast_sin = pypto.cast(sin, pypto.DT_FP32)
 
-    pypto.set_vec_tile_shapes(configs.t_sub_tile, head_num // configs.chunk_size, rope_dim)
+    pypto.set_vec_tile_shapes(16, head_num, rope_dim)
     x_view = pypto.cast(x, pypto.DT_FP32)
     cast_cos = pypto.reshape(cast_cos, [t_tile, 1, rope_dim])
     cast_sin = pypto.reshape(cast_sin, [t_tile, 1, rope_dim])
@@ -413,10 +409,11 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         pypto.set_cube_tile_shapes([q_linear[L0M_INDEX], q_linear[L1M_INDEX]],
                                    [q_linear[L0K_INDEX], q_linear[L1K_INDEX]],
                                    [q_linear[L0N_INDEX], q_linear[L1N_INDEX]], True)
-        pypto.set_vec_tile_shapes(configs.t_sub_tile, head_num * head_dim // configs.chunk_size)
+        pypto.set_vec_tile_shapes(8, head_num * head_dim)
 
         q_cast = pypto.scaled_mm(q_norm, w_qb_in, pypto.DT_BF16, q_norm_scale, w_qb_scale_in, scale_b_trans=True)
 
+        pypto.set_semantic_label("Query-Rope")
         q_bf16 = pypto.reshape(q_cast, [t_tile, head_num, head_dim])
         # UB view
         q_rope = pypto.view(q_bf16, [t_tile, head_num, rope_head_dim], [0, 0, 0])
@@ -425,7 +422,7 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         rope_sin = pypto.view(sin_idx_rope_in, [t_tile, rope_head_dim], [t_idx, 0])
 
         q_roped = rope_3d(q_rope, rope_cos, rope_sin, configs)  # [t_tile, head_num, rope_head_dim]
-        pypto.set_vec_tile_shapes(configs.t_sub_tile, head_num // configs.chunk_size, head_dim)
+        pypto.set_vec_tile_shapes(8, head_num, head_dim)
         q_nope = pypto.cast(pypto.cast(q_nope, pypto.DT_FP32), q_bf16.dtype)
         q_cat = pypto.concat([q_roped, q_nope], -1)  # [t_tile, head_num, head_dim]
         hadamard_q = pypto.reshape(hadamard_q_in, [1, head_dim, head_dim])
@@ -438,7 +435,7 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         q_hadamard = pypto.matmul(q_cat, hadamard_q, x_dtype)
 
         pypto.set_semantic_label("Query-Quant")
-        pypto.set_vec_tile_shapes(configs.t_sub_tile, head_num // configs.chunk_size, head_dim)
+        pypto.set_vec_tile_shapes(8, head_num, head_dim)
         q_res = prolog_quant(q_hadamard)
         q_scale = pypto.cast(q_res[1], pypto.DT_FP32)
 
@@ -454,22 +451,23 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         x = pypto.view(x_in, [t_tile, h], [t_idx, 0])  # 这里将t_tile分档，offset不需要乘t_tile
         k = pypto.matmul(x, wk_in, pypto.DT_FP32)  # (t_tile, head_dim)
 
-        if t_tile <= 32:
-            pypto.set_vec_tile_shapes(min(t_tile, VEC_TILE_4), head_dim)
-        else:
-            pypto.set_vec_tile_shapes(min(t_tile, VEC_TILE_32), head_dim)
+        pypto.set_semantic_label("Key-LayerNorm")
+        pypto.set_vec_tile_shapes(t_tile, head_dim)
         k_bf16 = pypto.cast(quant_layer_norm(k, gamma_2d, beta_2d, -1, attrs.eps), x_dtype)
 
+        pypto.set_semantic_label("Key-Rope")
         k_rope = pypto.view(k_bf16, [t_tile, rope_head_dim], [0, 0])
         k_nope = pypto.view(k_bf16, [t_tile, head_dim - rope_head_dim], [0, rope_head_dim])
         k_roped = quant_rope_2d(k_rope, rope_cos, rope_sin)  # (t_tile, rope_head_dim)
         pypto.set_vec_tile_shapes(t_tile, head_dim)
         k_nope = pypto.cast(pypto.cast(k_nope, pypto.DT_FP32), k_bf16.dtype)
         k_concat = pypto.concat([k_roped, k_nope], -1)
+
         pypto.set_semantic_label("Key-Hadamard")
         hadamard_k = pypto.matmul(k_concat, hadamard_k_in, x_dtype)  # (t_tile, head_dim), bf16
 
         pypto.set_semantic_label("Key-Quant")
+        pypto.set_vec_tile_shapes(t_tile, head_dim)
         k_res = prolog_quant(hadamard_k)
         k_cache_4d = pypto.reshape(k_res[0], [t_tile, 1, 1, head_dim])
         k_scale_4d = pypto.reshape(pypto.cast(k_res[1], pypto.DT_FP32), [t_tile, 1, 1, 1])
