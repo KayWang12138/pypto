@@ -195,9 +195,9 @@ private:
         }
     }
 
-    inline uint64_t GetFinishedTask(int coreIdx) { return *(finishRegQueues_[GetPhyIdByBlockId(coreIdx)]); }
+    inline uint64_t GetFinishedTask(const int coreIdx) { return *(finishRegQueues_[GetPhyIdByBlockId(coreIdx)]); }
 
-    inline int GetPhyIdByBlockId(int coreIdx) { return blockIdToPhyCoreId_[coreIdx]; }
+    inline int GetPhyIdByBlockId(const int coreIdx) { return blockIdToPhyCoreId_[coreIdx]; }
 
     inline void ForEachManageAicore(std::function<void(int coreIdx)> func) const {
         for (int i = aicStart_; i < aicEnd_; ++i) {
@@ -235,37 +235,22 @@ private:
 
     inline uint32_t ReadReg32(int coreIdx, int offset) {
         auto idx = GetPhyIdByBlockId(coreIdx);
-        if (idx != -1) {
-          return *(reinterpret_cast<volatile uint32_t*>(regAddrs_[idx] + offset));
-        }
-        return 0;
+        return *(reinterpret_cast<volatile uint32_t*>(regAddrs_[idx] + offset));
     }
 
     inline void WriteReg32(int coreIdx, int offset, uint32_t val) {
         auto idx = GetPhyIdByBlockId(coreIdx);
-        if (idx != -1) {
-          *(reinterpret_cast<volatile uint32_t*>(regAddrs_[idx] + offset)) = val;
-        }
-        return;
+        *(reinterpret_cast<volatile uint32_t*>(regAddrs_[idx] + offset)) = val;
     }
 
     inline void SetReadyQueue(int coreIdx, uint64_t taskIdx) {
         auto idx = GetPhyIdByBlockId(coreIdx);
-        if (idx == -1) {
-            return;
-        }
-        volatile uint64_t *readyQ = readyRegQueues_[idx];
-        if (readyQ != nullptr) {
-            *readyQ = taskIdx + 1; // Plus one is a required offset
-        }
+        *(readyRegQueues_[idx]) = taskIdx + 1; // Plus one is a required offset
     }
 
     inline void WriteReg32ALl(int offset, uint32_t val) {
-        for (int i = 0; i < aicNum_ + aivNum_; i++) {
-            if (regAddrs_[i] != 0) {
-                *(reinterpret_cast<volatile uint32_t *>(regAddrs_[i] + offset)) = val;
-            }
-        }
+        for (int i = 0; i < aicNum_ + aivNum_; i++)
+         *(reinterpret_cast<volatile uint32_t *>(regAddrs_[i] + offset)) = val;
     }
 
     void AbnormalStop();

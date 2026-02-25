@@ -134,9 +134,6 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
     aivStart_ += aicValidNum_;
     aivEnd_ += aicValidNum_;
 
-    args_.fill(nullptr);
-    blockIdToPhyCoreId_.fill(-1);
-    
     ForEachManageAicore([this](int coreIdx)
     {
         auto args = reinterpret_cast<KernelArgs *>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
@@ -150,8 +147,8 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
             }
         }
         args_[coreIdx] = args;
-        // ENTRIES NEED TO BE PUT -1 and then filled by the leader
         blockIdToPhyCoreId_[coreIdx] = (*shakeBuffer >> NUM_THIRTY_TWO) & AICORE_COREID_MASK;
+        curDevTask_->args[coreIdx] = (uint64_t)args;
         curDevTask_->blockIdToPhyCoreId[coreIdx] = (*shakeBuffer >> NUM_THIRTY_TWO) & AICORE_COREID_MASK;
     });
 
