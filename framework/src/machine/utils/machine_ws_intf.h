@@ -36,9 +36,6 @@ struct ReadyCoreFunctionQueue {
 };
 
 #define TASK_LIST_MAX_SIZE 128
-#define MAX_QUEUED_TASKS 4096
-#define MAX_QUEUED_CORES 4096
-#define MAX_QUEUED_PAIRS 4096
 typedef uint64_t aicoreFunction_t;
 constexpr aicoreFunction_t aicoreNullFunction = 0xFFFFFFFFFFFFFFFFUL;
 
@@ -80,14 +77,6 @@ class StaticReadyCoreFunctionQueue {
   ssize_t _capacity = 0;
   size_t _lock = 0;
 };
-
-typedef uint32_t aicoreTask_t;
-typedef uint32_t aicoreCore_t;
-typedef uint64_t aicorePair_t;
- 
-constexpr aicoreTask_t aicoreNullTask = 0xFFFFFFFFUL;
-constexpr aicoreCore_t aicoreNullCore = 0xFFFFFFFFUL;
-constexpr aicorePair_t aicoreNullPair = 0xFFFFFFFFFFFFFFFFUL;
 
 // Added this structure to separate concerns between the static and dynamic schedulers.
 struct StaticWrapQueue {

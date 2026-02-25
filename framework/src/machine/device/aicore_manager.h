@@ -48,6 +48,7 @@ constexpr uint32_t MAX_STATIC_SCHEDULE_AICPU_NUM = 3;   // 真正负责调度aic
 constexpr int32_t START_STATIC_AICPU_NUM = MAX_STATIC_SCHEDULE_AICPU_NUM;
 constexpr uint32_t MAX_AICORE_NUM = 108;
 constexpr uint32_t MAX_AIV_TOTAL_NUM = 72;
+constexpr uint32_t MAX_AIC_TOTAL_NUM = MAX_AICORE_NUM - MAX_AIV_TOTAL_NUM;
 constexpr uint32_t MAX_MANAGER_AIV_NUM = MAX_AIV_TOTAL_NUM;
 
 constexpr uint32_t REG_31_BITS = 0x7FFFFFFF;
@@ -60,6 +61,17 @@ constexpr uint32_t TASK_FIN_STATE = 1;                                     // �
 constexpr uint32_t NUM_THIRTY_TWO = 32;
 constexpr int32_t AICORE_COREID_MASK = 0x0FFF;
 constexpr uint32_t DEFAULT_TASK_QUEUE_SIZE = 64;
+
+#define MAX_QUEUED_TASKS 1024
+#define MAX_QUEUED_PAIRS MAX_AICORE_NUM
+
+typedef uint32_t aicoreTask_t;
+typedef uint32_t aicoreCore_t;
+typedef uint64_t aicorePair_t;
+ 
+constexpr aicoreTask_t aicoreNullTask = 0xFFFFFFFFUL;
+constexpr aicoreCore_t aicoreNullCore = 0xFFFFFFFFUL;
+constexpr aicorePair_t aicoreNullPair = 0xFFFFFFFFFFFFFFFFUL;
 
 struct TaskInfo {
     int coreIdx;
@@ -151,8 +163,8 @@ public:
 
         availableTaskQueue_ = reinterpret_cast<taskQueue_t*>(curDevTask_->availableTaskQueue);
         runningPairQueue_                          = new pairQueue_t(MAX_QUEUED_PAIRS);
-        availableCoreQueue_[(int)MachineType::AIV] = new coreQueue_t(MAX_QUEUED_CORES);
-        availableCoreQueue_[(int)MachineType::AIC] = new coreQueue_t(MAX_QUEUED_CORES);
+        availableCoreQueue_[(int)MachineType::AIV] = new coreQueue_t(MAX_AIV_TOTAL_NUM);
+        availableCoreQueue_[(int)MachineType::AIC] = new coreQueue_t(MAX_AIC_TOTAL_NUM);
         for (int i = aivStart_; i < aivEnd_; i++) availableCoreQueue_[(int)MachineType::AIV]->push((uint32_t)i);
         for (int i = aicStart_; i < aicEnd_; i++) availableCoreQueue_[(int)MachineType::AIC]->push((uint32_t)i);
     }
