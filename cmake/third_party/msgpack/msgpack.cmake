@@ -62,6 +62,23 @@ if (NOT _MsgpackIncludeDir)
         message(STATUS "msgpack* files in PYPTO_THIRD_PARTY_PATH: ${_MsgpackFiles}")
     endif ()
     if (EXISTS "${_TarGz}")
+        file(SIZE "${_TarGz}" _TarGzSize)
+        message(WARNING "[msgpack diag] file: ${_TarGz}, size: ${_TarGzSize} bytes")
+        # 列出压缩包内容 (不解压)
+        execute_process(
+                COMMAND ${CMAKE_COMMAND} -E tar tf "${_TarGz}"
+                OUTPUT_VARIABLE _TarGzContents
+                ERROR_VARIABLE _TarGzListErr
+                RESULT_VARIABLE _TarGzListResult
+        )
+        string(LENGTH "${_TarGzContents}" _ContentsLen)
+        if (_ContentsLen GREATER 500)
+            string(SUBSTRING "${_TarGzContents}" 0 500 _TarGzContents)
+        endif ()
+        message(WARNING "[msgpack diag] tar tf result=${_TarGzListResult}, entries(first 500 chars):\n${_TarGzContents}")
+        if (_TarGzListErr)
+            message(WARNING "[msgpack diag] tar tf stderr: ${_TarGzListErr}")
+        endif ()
         set(_ExtractBase "${CMAKE_CURRENT_BINARY_DIR}/third_party/msgpack")
         file(MAKE_DIRECTORY "${_ExtractBase}")
         message(STATUS "Extracting local msgpack-c archive: ${_TarGz} -> ${_ExtractBase}")
