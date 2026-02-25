@@ -23,8 +23,10 @@ std::string CodeGenOpCloudNPU::PrintMatmulTileTensor(
     bool isAcc, std::unordered_map<OperandType, std::string> &tensorWithMemType) const {
     std::ostringstream oss;
     bool hasBias = tensorWithMemType.count(OperandType::BUF_BT);
+    int64_t tf32Mode = 0;
+    GetAttr(OP_ATTR_PREFIX + "tf32_mode", tf32Mode);
     std::vector<std::string> paramList = {tensorWithMemType[OperandType::BUF_L0C],
-        tensorWithMemType[OperandType::BUF_L0A], tensorWithMemType[OperandType::BUF_L0B]};
+        tensorWithMemType[OperandType::BUF_L0A], tensorWithMemType[OperandType::BUF_L0B], std::to_string(tf32Mode)};
     oss << tileOpName;
     if (hasBias) {
         paramList.emplace_back(tensorWithMemType[OperandType::BUF_BT]);

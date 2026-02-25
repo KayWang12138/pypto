@@ -25,6 +25,7 @@
 #include "operation_impl.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/tile_shape.h"
+#include "tilefwk/platform.h"
 
 namespace npu {
 namespace tile_fwk {
@@ -84,6 +85,7 @@ void SetBiasAndScaleAttr(
     if (matmulInputs.biasTensorPtr != nullptr && isFirstTile) {
         op.SetAttribute(A_MUL_B_BIAS_ATTR, true);
     }
+    op.SetAttribute(A_MUL_B_TF32_MODE_ATTR, static_cast<int64_t>(matmulAttrParam.tf32Mode));
     if (isFirstTile) {
         op.SetAttribute(A_MUL_B_RELU_ATTR, static_cast<int64_t>(matmulAttrParam.reluType));
     }
@@ -489,6 +491,7 @@ void SetAMulBAttr(const MatmulGraphNodes &tensorGraphNodes, const MatmulAttrPara
     op.SetAttribute(A_MUL_B_ACT_K, attrParam.kValue);
     op.SetAttribute(A_MUL_B_ACT_N, attrParam.nValue);
     op.SetAttribute(A_MUL_B_GM_ACC, attrParam.gmAccumulationFlag);
+    op.SetAttribute(A_MUL_B_TF32_MODE_ATTR, static_cast<int64_t>(attrParam.tf32Mode));
 
     if (op.GetOpcode() == Opcode::OP_A_MUL_B) {
         op.SetAttribute(A_MUL_B_BIAS_ATTR, tensorGraphNodes.biasTensorPtr != nullptr);
@@ -505,6 +508,12 @@ void SetTensorGraphAttr(
     op.SetAttribute(A_MUL_B_TRANS_B, attrParam.transB);
     op.SetAttribute(A_MUL_B_BIAS_ATTR, (param.biasTensor.GetStorage() != nullptr));
     op.SetAttribute(A_MUL_B_RELU_ATTR, static_cast<int64_t>(param.reluType));
+    OP_CHECK(true, {
+        ASSERT(param.tf32Mode == TF32Mode::CAST_NONE || Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510)
+            << "TF32 is only supported on A5 platform."
+            << std::endl;
+    });
+    op.SetAttribute(A_MUL_B_TF32_MODE_ATTR, static_cast<int64_t>(param.tf32Mode));
     // means perchannel
     if (param.scaleTensor.GetStorage() != nullptr) {
         op.SetAttribute(A_MUL_B_VECTOR_QUANT_FLAG, true);
@@ -550,6 +559,7 @@ void SetMatmulAttrParam(const Operation &op, MatmulAttrParam &param)
     param.transA = (op.HasAttr(A_MUL_B_TRANS_A)) ? op.GetBoolAttribute(A_MUL_B_TRANS_A) : false;
     param.transB = (op.HasAttr(A_MUL_B_TRANS_B)) ? op.GetBoolAttribute(A_MUL_B_TRANS_B) : false;
     param.gmAccumulationFlag = (op.HasAttr(A_MUL_B_GM_ACC)) ? op.GetBoolAttribute(A_MUL_B_GM_ACC) : false;
+    param.tf32Mode = (op.HasAttr(A_MUL_B_TF32_MODE_ATTR)) ? op.GetIntAttribute(A_MUL_B_TF32_MODE_ATTR) : 0;
     if (param.hasMXScale) {
         param.transAScale = op.GetIntAttribute(A_MUL_B_SCALE_A_COPY_IN_MODE) == static_cast<int64_t>(CopyInMode::DN2NZ);
         param.transBScale = op.GetIntAttribute(A_MUL_B_SCALE_B_COPY_IN_MODE) == static_cast<int64_t>(CopyInMode::DN2NZ);

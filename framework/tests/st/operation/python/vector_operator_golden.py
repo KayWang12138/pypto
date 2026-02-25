@@ -609,8 +609,8 @@ def matmul_golden_func(inputs: list, config: dict):
         if not params.get("transB")
         else np.swapaxes(inputs[1], inputs[1].ndim - 2, inputs[1].ndim - 1)
     )
-    assert params.get("outDtype") in ("fp32", "fp16", "bf16", "int32")
-    if params.get("outDtype") in ("fp32", "fp16", "bf16"):
+    assert params.get("outDtype") in ("fp32", "fp16", "bf16", "int32", "tf32")
+    if params.get("outDtype") in ("fp32", "fp16", "bf16", "tf32"):
         tensor_c = torch.matmul(
             torch.from_numpy(tensor_a.astype(np.float32)).to(torch.float32),
             torch.from_numpy(tensor_b.astype(np.float32)).to(torch.float32)
