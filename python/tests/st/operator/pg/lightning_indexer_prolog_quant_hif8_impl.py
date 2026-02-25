@@ -36,16 +36,6 @@ import pypto
 
 SHAPE_DIM_2 = 2
 SHAPE_DIM_3 = 3
-
-NUM_0 = 0
-NUM_1 = 1
-NUM_2 = 2
-NUM_3 = 3
-NUM_7168 = 7168
-
-TILE_CUBE_DIM = 6
-Q_PARAM_DIM = 2
-NZ_DIM = 4
 COS_SIN_DIM = 2
 L0M_INDEX = 0
 L1M_INDEX = 1
@@ -54,16 +44,6 @@ L1K_INDEX = 3
 L0N_INDEX = 4
 L1N_INDEX = 5
 SCATTER_DIM = -2
-NZ_FIRST_DIM = 16
-NZ_B8_C0 = 32
-NZ_B16_C0 = 16
-
-VEC_TILE_256 = 256
-VEC_TILE_128 = 128
-VEC_TILE_64 = 64
-VEC_TILE_8 = 8
-VEC_TILE_4 = 4
-VEC_TILE_32 = 32
 
 
 @dataclass
@@ -353,10 +333,10 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         x_in: Input hidden states tensor, shape (t, h), dtype BF16
         q_norm_in: Quantized query norm tensor, shape (t, q_lora_rank), dtype HIF8
         q_norm_scale_in: Query norm dequantization scale, shape (t, 1), dtype FP32
-        w_qb_in: Query projection weight matrix, HIF8 format with NZ layout
+        w_qb_in: Query projection weight matrix, HIF8 format with ND layout
         w_qb_scale_in: Query weight dequantization scale, shape (head_num * head_dim, 1), dtype FP32
-        wk_in: Key projection weight matrix, BF16 format with NZ layout
-        w_proj_in: Weight projection matrix, BF16 format with NZ layout
+        wk_in: Key projection weight matrix, BF16 format with ND layout
+        w_proj_in: Weight projection matrix, BF16 format with ND layout
         ln_gamma_k_in: LayerNorm scale parameter for key, shape (head_dim,), dtype BF16
         ln_beta_k_in: LayerNorm shift parameter for key, shape (head_dim,), dtype BF16
         cos_idx_rope_in: Cosine values for RoPE, shape (t, rope_head_dim), dtype BF16
@@ -517,10 +497,10 @@ def lightning_indexer_prolog_quant(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
         x_in: Input hidden states tensor, shape (t, h), dtype BF16
         q_norm_in: Quantized query norm tensor, shape (t, q_lora_rank), dtype HIF8
         q_norm_scale_in: Query norm dequantization scale, shape (t, 1), dtype FP32
-        w_qb_in: Query projection weight matrix, HIF8 format with NZ layout
+        w_qb_in: Query projection weight matrix, HIF8 format with ND layout
         w_qb_scale_in: Query weight dequantization scale, shape (head_num * head_dim, 1), dtype FP32
-        wk_in: Key projection weight matrix, BF16 format with NZ layout
-        w_proj_in: Weight projection matrix, BF16 format with NZ layout
+        wk_in: Key projection weight matrix, BF16 format with ND layout
+        w_proj_in: Weight projection matrix, BF16 format with ND layout
         ln_gamma_k_in: LayerNorm scale parameter for key, shape (head_dim,), dtype BF16
         ln_beta_k_in: LayerNorm shift parameter for key, shape (head_dim,), dtype BF16
         cos_idx_rope_in: Cosine values for RoPE, shape (t, rope_head_dim), dtype BF16
