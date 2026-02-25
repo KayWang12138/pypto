@@ -205,7 +205,6 @@ void ExecuteOpUnary(ExecuteOperationContext *ctx) {
     auto &iop = ctx->ioperandDataViewList->at(0);
     switch (opcode) {
         case Opcode::OP_EXP: calc::Exp(ret, iop); break;
-        case Opcode::OP_EXPM1: calc::Expm1(ret, iop); break;
         case Opcode::OP_NEG: calc::Neg(ret, iop); break;
         case Opcode::OP_RSQRT: calc::Rsqrt(ret, iop); break;
         case Opcode::OP_SQRT: calc::Sqrt(ret, iop); break;
@@ -267,6 +266,16 @@ void ExecuteOpRound(ExecuteOperationContext *ctx) {
     calc::Round(output, input, decimals);
 }
 REGISTER_CALC_OP(OP_ROUND, Opcode::OP_ROUND, ExecuteOpRound);
+
+void ExecuteOpExpm1(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto &output = ctx->ooperandInplaceDataViewList->at(0);
+    auto &input = ctx->ioperandDataViewList->at(0);
+
+    calc::Expm1(output, input);
+}
+REGISTER_CALC_OP(OP_EXPM1, Opcode::OP_EXPM1, ExecuteOpExpm1);
 
 void ExecuteOpOneHot(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);

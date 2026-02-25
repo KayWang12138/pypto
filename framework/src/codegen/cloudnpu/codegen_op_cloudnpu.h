@@ -391,6 +391,8 @@ private:
         const std::string &dstDtypeStr) const;
     std::string PrintOneHot(const PrintUnaryParam &param) const;
     std::string PrintOneHotLayout() const;
+    std::string PrintExpm1() const;
+    std::string PrintExpm1Layout() const;
     std::string PrintRound() const;
     std::string PrintRoundLayout() const;
 

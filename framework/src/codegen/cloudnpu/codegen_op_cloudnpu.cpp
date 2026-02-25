@@ -84,7 +84,6 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
 
           // unary op
           {Opcode::OP_EXP, [this]() { return GenUnaryOp(); }},
-          {Opcode::OP_EXPM1, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_NEG, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_RSQRT, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_RELU, [this]() { return GenUnaryOp(); }},
@@ -109,6 +108,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
 
           // unary with temp buffer
           {Opcode::OP_COMPACT, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_EXPM1, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROUND, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWSUMLINE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWSUM_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},

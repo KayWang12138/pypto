@@ -304,6 +304,23 @@ std::string CodeGenOpCloudNPU::PrintRound() const {
     return PrintRoundLayout();
 }
 
+std::string CodeGenOpCloudNPU::PrintExpm1Layout() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
+
+    std::ostringstream oss;
+    oss << tileOpName << "<float>";
+    oss << WrapParamByParentheses({dstTensor, tmpTensor, srcTensor});
+    oss << STMT_END;
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintExpm1() const {
+    ASSERT(isSupportLayout) << "Expm1 only support tile tensor";
+    return PrintExpm1Layout();
+}
+
 std::string CodeGenOpCloudNPU::PrintRowSumlineStatic(const PrintUnaryTmpBuffParam &param) const {
     int reduceAxis{-1};
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
