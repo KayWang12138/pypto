@@ -115,7 +115,6 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
     regAddrs_ = reinterpret_cast<int64_t *>(deviceArgs->coreRegAddr);
     sharedBuffer_ = deviceArgs->sharedBuffer;
 
-    blockIdToPhyCoreId_.fill(-1);
     for (uint32_t idx = 0; idx < MAX_AICORE_NUM; idx++)
     {
         auto baseAddress = (uint64_t) regAddrs_[idx];
@@ -136,13 +135,39 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
     aivEnd_ += aicValidNum_;
 
     args_.fill(nullptr);
-
-    int ret = HandkShake();
-    if (ret != npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
-        DEV_DEBUG("hand shake timeout .\n");
-        AbnormalStop();
+    blockIdToPhyCoreId_.fill(-1);
+    
+    DEV_INFO("Aicpu %d handshake start.\n", aicpuIdx_);
+    ForEachManageAicore([this](int coreIdx)
+    {
+        int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
+        auto args = reinterpret_cast<KernelArgs *>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
+        args->taskEntry.reserved[0] = dotStatus_;
+        volatile int64_t *shakeBuffer = args->shakeBuffer;
+        npu::tile_fwk::dynamic::TimeCheck tm;
+        while ((*shakeBuffer & 0xFFFFFFFF) != AICORE_SAY_HELLO) {
+            if (npu::tile_fwk::dynamic::CheckTimeOut("hand shake", tm) != 0) {
+                DEV_ERROR("hand shake %d timeout.\n", coreIdx);
+                AbnormalStop();
+                return -1;
+            }
+        }
+        args_[coreIdx] = args;
+        // ENTRIES NEED TO BE PUT -1 and then filled by the leader
+        blockIdToPhyCoreId_[coreIdx] = (*shakeBuffer >> NUM_THIRTY_TWO) & AICORE_COREID_MASK;
+        curDevTask_->blockIdToPhyCoreId[coreIdx] = (*shakeBuffer >> NUM_THIRTY_TWO) & AICORE_COREID_MASK;
         return ret;
+    });
+
+    if (isNeedWriteRegForFastPath_) {
+        ForEachManageAicore(
+            [this](int coreIdx) { WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_OPEN); });
     }
+
+    /* write to MAINBASE reg need reg 0x18 open first */
+    __sync_synchronize();
+
+    int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
     if (taskCtrl != nullptr) {
         ret = RunTask(taskCtrl);
     } else {
@@ -154,6 +179,7 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
             taskCtrl->PutTask(ret);
         }
     }
+
     NormalStop();
     return ret;
 }
@@ -306,40 +332,6 @@ void AiCoreManager::ResolveDep(uint64_t finishId) {
         }
         ResolveByCoreType(readyState[dep].coreType, dep, readyState);
     }
-}
-
-int AiCoreManager::HandkShake() {
-    DEV_INFO("Aicpu %d handshake start.\n", aicpuIdx_);
-    int rc = ForEachManageAicoreWithRet([this](int coreIdx) -> int {
-        int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
-        auto args = reinterpret_cast<KernelArgs *>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
-        args->taskEntry.reserved[0] = dotStatus_;
-        volatile int64_t *shakeBuffer = args->shakeBuffer;
-        npu::tile_fwk::dynamic::TimeCheck tm;
-        while ((*shakeBuffer & 0xFFFFFFFF) != AICORE_SAY_HELLO) {
-            if (npu::tile_fwk::dynamic::CheckTimeOut("hand shake", tm) != 0) {
-                DEV_ERROR("hand shake %d timeout.\n", coreIdx);
-                return -1;
-            }
-        }
-        args_[coreIdx] = args;
-        blockIdToPhyCoreId_[coreIdx] = (*shakeBuffer >> NUM_THIRTY_TWO) & AICORE_COREID_MASK;
-        DEV_DEBUG("coreidx %d handshake  phycorid %d .\n", coreIdx, blockIdToPhyCoreId_[coreIdx]);
-        return ret;
-    });
-    if (rc != npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
-        DEV_DEBUG("Aicpu %d handshake failed end.\n", aicpuIdx_);
-        return rc;
-    }
-
-    if (isNeedWriteRegForFastPath_) {
-        ForEachManageAicore(
-            [this](int coreIdx) { WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_OPEN); });
-    }
-    /* write to MAINBASE reg need reg 0x18 open first */
-    __sync_synchronize();
-    DEV_INFO("Aicpu %d handshake sucess end.\n", aicpuIdx_);
-    return 0;
 }
 
 void AiCoreManager::AbnormalStop() {

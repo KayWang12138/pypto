@@ -150,7 +150,7 @@ public:
         }
 
         availableTaskQueue_ = reinterpret_cast<taskQueue_t*>(curDevTask_->availableTaskQueue);
-        runningPairQueue_                           = new pairQueue_t(MAX_QUEUED_PAIRS);
+        runningPairQueue_                          = new pairQueue_t(MAX_QUEUED_PAIRS);
         availableCoreQueue_[(int)MachineType::AIV] = new coreQueue_t(MAX_QUEUED_CORES);
         availableCoreQueue_[(int)MachineType::AIC] = new coreQueue_t(MAX_QUEUED_CORES);
         for (int i = aivStart_; i < aivEnd_; i++) availableCoreQueue_[(int)MachineType::AIV]->push((uint32_t)i);
@@ -196,8 +196,6 @@ private:
     }
 
     inline uint64_t GetFinishedTask(int coreIdx) { return *(finishRegQueues_[GetPhyIdByBlockId(coreIdx)]); }
-
-    int HandkShake();
 
     inline int GetPhyIdByBlockId(int coreIdx) { return blockIdToPhyCoreId_[coreIdx]; }
 
