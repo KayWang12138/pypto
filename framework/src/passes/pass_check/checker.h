@@ -94,6 +94,8 @@ protected:
      * \return Status, indicating whether the toDynOffset_ of OP_ASSEMBLE is empty.
      */
     Status CheckToDynOffsetForAssemble(Function &function);
+
+    Status CheckLocalTensor(Function &function);
 };
 } // namespace tile_fwk
 } // namespace npu
