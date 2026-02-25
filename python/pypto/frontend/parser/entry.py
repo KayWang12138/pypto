@@ -48,6 +48,13 @@ class RunMode(IntEnum):
     SIM = 1
 
 
+class DebugMode(IntEnum):
+    OFF = 0
+    SWIM = 1
+    TENSOR_NODEPEND = 2
+    CHECKATTR = 3
+
+
 def parse(program: Source, extra_vars: Optional[dict[str, Any]] = None) -> Any:
     """Parse a PTO script program.
 
@@ -344,7 +351,13 @@ class JitCallableWrapper:
         # allocated below match the runtime dynamic sizes.
         
         input_tensor_defs, output_tensor_defs = self.get_signature_high_performance(self._original_func)
-        self._check_input_defs_match_tensors(in_tensors, input_tensor_defs)
+
+        if self._debug_options is not None:
+            debug_mode = self._debug_options.get("runtime_debug_mode", None)
+            if debug_mode is not None:
+                if debug_mode == DebugMode.CHECKATTR:
+                    self._check_input_defs_match_tensors(in_tensors, input_tensor_defs)
+
         out_has_dyn_dim = False
         out_tensors = []
         for out_tensor_def in output_tensor_defs:
