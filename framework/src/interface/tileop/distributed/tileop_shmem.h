@@ -199,8 +199,6 @@ template<typename TargetType, typename UBType, typename SourceType, uint32_t row
 TILEOP void CopyGmToGmBlockWithCast(__gm__ TargetType* target, __ubuf__ UBType* buffer, __gm__ SourceType* source,
     uint32_t eventId)
 {
-    static_assert(!std::is_same_v<TargetType, SourceType>,
-        "WithCast path requires different source/target element types.");
     ShapeDyn shape = MakeShape(rowShape, colShape);
     StrideDyn srcStrideDyn = MakeStride(rowShape, srcStride);
     StrideDyn dstStrideDyn = MakeStride(rowShape, dstStride);
@@ -208,27 +206,23 @@ TILEOP void CopyGmToGmBlockWithCast(__gm__ TargetType* target, __ubuf__ UBType* 
     ShmemGlobalTensor<TargetType, rowShape, colShape> dstGlobal(target, shape, dstStrideDyn);
     constexpr uint64_t copyLen = rowShape * AlignUp<uint64_t>(colShape * sizeof(UBType), 32) / sizeof(UBType);
     __ubuf__ float* castUb = (__ubuf__ float*)(buffer + copyLen);
-    if constexpr (atomicType == AtomicType::ADD) {
-        ShmemUbTile<UBType, rowShape, colShape> srcTile(rowShape, colShape);
-        ShmemUbTile<float, rowShape, colShape> dstTile(rowShape, colShape);
+    constexpr bool kAtomicAdd = (atomicType == AtomicType::ADD);
+    using SrcElemType = std::conditional_t<kAtomicAdd, UBType, float>;
+    using DstElemType = std::conditional_t<kAtomicAdd, float, UBType>;
+    ShmemUbTile<SrcElemType, rowShape, colShape> srcTile(rowShape, colShape);
+    ShmemUbTile<DstElemType, rowShape, colShape> dstTile(rowShape, colShape);
+    if constexpr (kAtomicAdd) {
         pto::TASSIGN(srcTile, reinterpret_cast<uintptr_t>(buffer));
         pto::TASSIGN(dstTile, reinterpret_cast<uintptr_t>(castUb));
-        pto::TLOAD(srcTile, srcGlobal);
-        PIPE_SYNC_EVENT(PIPE_MTE2, PIPE_V, eventId);
-        pto::TCVT(dstTile, srcTile, pto::RoundMode::CAST_NONE);
-        PIPE_SYNC_EVENT(PIPE_V, PIPE_MTE3, eventId);
-        AtomicStore<atomicType>(dstGlobal, dstTile);
     } else {
-        ShmemUbTile<float, rowShape, colShape> srcTile(rowShape, colShape);
-        ShmemUbTile<UBType, rowShape, colShape> dstTile(rowShape, colShape);
         pto::TASSIGN(srcTile, reinterpret_cast<uintptr_t>(castUb));
         pto::TASSIGN(dstTile, reinterpret_cast<uintptr_t>(buffer));
-        pto::TLOAD(srcTile, srcGlobal);
-        PIPE_SYNC_EVENT(PIPE_MTE2, PIPE_V, eventId);
-        pto::TCVT(dstTile, srcTile, pto::RoundMode::CAST_NONE);
-        PIPE_SYNC_EVENT(PIPE_V, PIPE_MTE3, eventId);
-        AtomicStore<atomicType>(dstGlobal, dstTile);
     }
+    pto::TLOAD(srcTile, srcGlobal);
+    PIPE_SYNC_EVENT(PIPE_MTE2, PIPE_V, eventId);
+    pto::TCVT(dstTile, srcTile, pto::RoundMode::CAST_NONE);
+    PIPE_SYNC_EVENT(PIPE_V, PIPE_MTE3, eventId);
+    AtomicStore<atomicType>(dstGlobal, dstTile);
 }
 
 // Single block GM→UB→GM. With conversion: buffer[0..copyLen-1]=UBType, buffer[copyLen..]=float.
@@ -239,8 +233,6 @@ TILEOP void CopyGmToGmBlock(__gm__ TargetType* target, __ubuf__ UBType* buffer, 
     (void)bufferStride;
     wait_flag(PIPE_MTE3, PIPE_S, eventId);
     PIPE_SYNC_EVENT(PIPE_S, PIPE_MTE2, eventId);
-    static_assert(!std::is_same_v<TargetType, SourceType>,
-        "Same-type path should use TPUT/TGET directly instead of block copy.");
     CopyGmToGmBlockWithCast<TargetType, UBType, SourceType, rowShape, colShape, srcStride, dstStride, atomicType>(
         target, buffer, source, eventId);
     set_flag(PIPE_MTE3, PIPE_S, eventId);
