@@ -21,7 +21,6 @@
 namespace CostModel {
 
 const int PROCESS_ID_OFFSET = 10000;
-inline FILE* g_silent_file = nullptr;
 
 inline uint64_t GetProcessID(CostModel::MachineType type, size_t sequence)
 {
