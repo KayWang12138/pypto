@@ -72,7 +72,7 @@ function(tracr_enable target)
         set(TRACR_POLICY "" CACHE STRING "TraCR policy (empty = use C++ default)")
 
         set_property(CACHE TRACR_POLICY PROPERTY STRINGS
-            ""  # allow empty (use C++ default)
+            ""  # default: abort if full
             TRACR_POLICY_PERIODIC
             TRACR_POLICY_IGNORE_IF_FULL
         )
