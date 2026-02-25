@@ -16,8 +16,8 @@
 #include "interface/tensor/symbolic_scalar.h"
 #include <sys/mman.h>
 #include <sstream>
+#include "interface/utils/log.h"
 #include "interface/utils/file_utils.h"
-#include "tilefwk/tilefwk_log.h"
 
 constexpr uint64_t IMMEDIATE = 0;
 constexpr uint64_t SYMBOL = 1;
@@ -43,20 +43,20 @@ std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::s
         " -I" + GetCurrentSharedLibPath() + "/include/" +
         " -I" + includePath + "/tilefwk " +
         " -S " + sourceFilePath + " -o " + assembleFilePath;
-    FUNCTION_LOGI("[RunCmd] %s", cmdGcc.c_str());
+    ALOG_INFO("[RunCmd] ", cmdGcc);
     ASSERT(system(cmdGcc.c_str()) == 0);
 
     std::string cmdAs = LD_PRELOAD + gcc + " -O2 -c " + assembleFilePath + " -o " + objectFilePath;
-    FUNCTION_LOGI("[RunCmd] %s", cmdAs.c_str());
+    ALOG_INFO("[RunCmd] ", cmdAs);
     ASSERT(system(cmdAs.c_str()) == 0);
 
     std::string cmdObjcopy = LD_PRELOAD + objcopy + " --dump-section " + sectionName + "=" + binaryFilePath + " " + objectFilePath;
-    FUNCTION_LOGI("[RunCmd] %s", cmdObjcopy.c_str());
+    ALOG_INFO("[RunCmd] ", cmdObjcopy);
     ASSERT(system(cmdObjcopy.c_str()) == 0);
 
     FILE *fbin = fopen(binaryFilePath.c_str(), "rb");
     if (fbin == nullptr) {
-        FUNCTION_LOGE("open binary file name failed");
+        ALOG_FATAL("open binary file name failed");
         return {};
     }
 
@@ -77,7 +77,7 @@ void SymbolicExpressionTable::SetElementKeyOnce(const std::string &key) {
     if (elementKey_.size() == 0) {
         elementKey_ = key;
     } else {
-        ASSERT(elementKey_ == key) << "elementKey_: " << elementKey_ << ", key: " << key;
+        ASSERT(elementKey_ == key);
     }
 }
 
@@ -85,7 +85,7 @@ void SymbolicExpressionTable::SetTitleOnce(const std::string &title) {
     if (title_.size() == 0) {
         title_ = title;
     } else {
-        ASSERT(title_ == title) << "title_: " << title_ << ", title: " << title;
+        ASSERT(title_ == title);
     }
 }
 
@@ -125,7 +125,7 @@ std::string SymbolicExpressionTable::BuildExpressionByRaw(const RawSymbolicScala
             RawSymbolicExpPtr expr = std::dynamic_pointer_cast<RawSymbolicExpression>(raw);
             result = BuildExpressionCode(expr, exprDict);
         } break;
-        default: ASSERT(false) << SymbolicScalarKind2Name(raw->Kind()) << " undefined behavior"; break;
+        default: ASSERT(false); break;
     }
     return result;
 }
@@ -288,7 +288,7 @@ static void DumpSymbolicScalar(const RawSymbolicScalarPtr &raw, Json &jarray) {
                 DumpSymbolicScalar(op, jarray);
             }
         } break;
-        default: ASSERT(false) << SymbolicScalarKind2Name(raw->Kind()) << " undefined behavior"; break;
+        default: ASSERT(false); break;
     }
 }
 
@@ -561,7 +561,7 @@ static void LookupExpressionByOpcode(std::vector<RawSymbolicScalarPtr> &exprList
                 LookupExpressionByOpcode(exprList, opcode, op);
             }
         } break;
-        default: ASSERT(false)  << SymbolicScalarKind2Name(raw->Kind()) << " undefined behavior"; break;
+        default: ASSERT(false); break;
     }
 }
 

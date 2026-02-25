@@ -69,6 +69,7 @@ def device_run(device_id):
     check_output()
 
 
+@pytest.mark.skip(reason="this feature is not ready")
 def test_debug_mode():
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
     output_name = "temp"

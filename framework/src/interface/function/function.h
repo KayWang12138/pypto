@@ -112,8 +112,7 @@ public:
         explicit Iterator(const std::vector<std::shared_ptr<Operation>> &operations) : operations_(operations) {}
 
         void operator++() {
-            ASSERT(cur_ <= operations_.size())
-                << "operator(++) out of its size. cur_: " << cur_ << ", operations_.size(): " << operations_.size();
+            ASSERT(cur_ <= operations_.size());
             cur_++;
         }
 
@@ -146,7 +145,7 @@ public:
     [[nodiscard]]int GetOpPosition(const Operation &op) const {
         auto it = opPosition_.find(&op);
         if (it == opPosition_.end()) {
-            ASSERT(false) << "Magic[" << op.opmagic << "] Op has not been found in opPosition.";
+            ASSERT(false);
             return 0;
         }
         return it->second;
@@ -157,9 +156,7 @@ public:
         if (it == opPosition_.end()) {
             return {0, false};
         }
-        ASSERT(operations_[it->second].get() == &op)
-            << "operations_[it->second].get(): 0x" << reinterpret_cast<uintptr_t>(operations_[it->second].get())
-            << "&op: " << reinterpret_cast<uintptr_t>(&op);
+        ASSERT(operations_[it->second].get() == &op);
         return {it->second, true};
     }
     [[nodiscard]] bool IsEmpty()const{ return operations_.empty(); }
@@ -317,12 +314,6 @@ struct OriArgInfo {
 
     bool operator==(const OriArgInfo &other) const {
         return addr == other.addr && size == other.size && needPrefetch == other.needPrefetch;
-    }
-
-    std::string Dump() {
-        std::ostringstream oss;
-        oss << "addr: " << addr << ", size: " << size << ", needPrefetch: " << (needPrefetch ? "true" : "false");
-        return oss.str();
     }
 };
 
@@ -528,8 +519,7 @@ public:
     void AddGlobalTensor(std::shared_ptr<LogicalTensor> tensor) { globalTensors_.emplace(tensor); };
     void AddOperationGroup(std::vector<Operation *> operationGroup);
     const auto &GetGroupByID(const size_t groupID) const {
-        ASSERT(groupID < operationGroups_.size())
-            << "groupID: " << groupID << ", operationGroups_.size(): " << operationGroups_.size();
+        ASSERT(groupID < operationGroups_.size());
         return operationGroups_[groupID];
     }
     void ClearOperationGroups();
