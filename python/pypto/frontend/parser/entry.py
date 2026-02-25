@@ -659,7 +659,14 @@ class JitCallableWrapper:
                 make_hashable(self._debug_options),
             )
 
-            captured_locals_hash = make_hashable(self._captured_locals) if self._captured_locals else None
+            if self._captured_locals is not None:
+                filtered_locals = {
+                    k: v for k, v in self._captured_locals.items()
+                    if not isinstance(v, torch.Tensor)
+                }
+                captured_locals_hash = make_hashable(filtered_locals)
+            else:
+                captured_locals_hash = None
 
             return (source_code, options_hash, captured_locals_hash)
         except (OSError, TypeError):
