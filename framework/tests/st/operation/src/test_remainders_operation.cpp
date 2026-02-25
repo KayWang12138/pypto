@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
- * This program is free software, you can redisRemainderSbute it and/or modify it under the terms and conditions of
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file test_RemainderS_operation.cpp
+ * \file test_remainders_operation.cpp
  * \brief
  */
 
@@ -39,23 +39,42 @@ struct RemainderSOpMetaData {
     nlohmann::json test_data_;
 };
 
-static void RemainderSOperationExeFunc2Dims(
+static void RemainderSOperationExeFunc1Dim(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    SymbolicScalar src_firstDim = outputs[0].GetShape()[0];
-    SymbolicScalar src_secondDim = outputs[0].GetShape()[1];
+    SymbolicScalar src_dim = outputs[0].GetShape()[0];
     auto args = static_cast<const RemainderSOpFuncArgs *>(opArgs);
     const std::vector<int64_t> viewShape = args->viewShape_;
     bool reverseOperand = args->reverseOperand_;
-    const int bloop = CeilDiv(src_firstDim, viewShape[0]);
-    const int sloop = CeilDiv(src_secondDim, viewShape[1]);
+    const int loop = CeilDiv(src_dim, viewShape[0]);
+
+    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, loop, 1)) {
+            std::vector<SymbolicScalar> dynOffsets = {bIdx * viewShape[0]};
+            auto tileTensor =
+                View(inputs[0], viewShape, {std::min(src_dim - bIdx * viewShape[0], viewShape[0])}, dynOffsets);
+            TileShape::Current().SetVecTile(args->tileShape_);
+            Tensor res = reverseOperand ? Remainder(args->scalar_, tileTensor) : Remainder(tileTensor, args->scalar_);
+            Assemble(res, dynOffsets, outputs[0]);
+        }
+    }
+}
+
+static void RemainderSOperationExeFunc2Dims(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    auto originShape = outputs[0].GetShape();
+    auto args = static_cast<const RemainderSOpFuncArgs *>(opArgs);
+    const std::vector<int64_t> viewShape = args->viewShape_;
+    bool reverseOperand = args->reverseOperand_;
+    const int bloop = CeilDiv(originShape[0], viewShape[0]);
+    const int sloop = CeilDiv(originShape[1], viewShape[1]);
 
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         LOOP("LOOP_L1_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
                 std::vector<SymbolicScalar> dynOffsets = {bIdx * viewShape[0], sIdx * viewShape[1]};
                 auto tileTensor = View(inputs[0], viewShape,
-                    {std::min(src_firstDim - bIdx * viewShape[0], viewShape[0]),
-                        std::min(src_secondDim - sIdx * viewShape[1], viewShape[1])},
+                    {std::min(originShape[0] - bIdx * viewShape[0], viewShape[0]),
+                        std::min(originShape[1] - sIdx * viewShape[1], viewShape[1])},
                     dynOffsets);
                 TileShape::Current().SetVecTile(args->tileShape_);
                 Tensor res =
@@ -68,14 +87,12 @@ static void RemainderSOperationExeFunc2Dims(
 
 static void RemainderSOperationExeFunc3Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    SymbolicScalar src_firstDim = outputs[0].GetShape()[0];
-    SymbolicScalar src_secondDim = outputs[0].GetShape()[1];
-    SymbolicScalar src_thirdDim = outputs[0].GetShape()[2];
+    auto originShape = outputs[0].GetShape();
     auto args = static_cast<const RemainderSOpFuncArgs *>(opArgs);
     std::vector<int64_t> viewShape = args->viewShape_;
     bool reverseOperand = args->reverseOperand_;
-    const int loop[] = {
-        CeilDiv(src_firstDim, viewShape[0]), CeilDiv(src_secondDim, viewShape[1]), CeilDiv(src_thirdDim, viewShape[2])};
+    const int loop[] = {CeilDiv(originShape[0], viewShape[0]), CeilDiv(originShape[1], viewShape[1]),
+        CeilDiv(originShape[2], viewShape[2])};
 
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0])) {
@@ -84,9 +101,9 @@ static void RemainderSOperationExeFunc3Dims(
                     std::vector<SymbolicScalar> dynOffsets = {
                         bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]};
                     auto tileTensor = View(inputs[0], viewShape,
-                        {std::min(src_firstDim - bIdx * viewShape[0], viewShape[0]),
-                            std::min(src_secondDim - sIdx * viewShape[1], viewShape[1]),
-                            std::min(src_thirdDim - nIdx * viewShape[2], viewShape[2])},
+                        {std::min(originShape[0] - bIdx * viewShape[0], viewShape[0]),
+                            std::min(originShape[1] - sIdx * viewShape[1], viewShape[1]),
+                            std::min(originShape[2] - nIdx * viewShape[2], viewShape[2])},
                         dynOffsets);
                     TileShape::Current().SetVecTile(args->tileShape_);
                     Tensor res =
@@ -100,16 +117,12 @@ static void RemainderSOperationExeFunc3Dims(
 
 static void RemainderSOperationExeFunc4Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    SymbolicScalar src_firstDim = outputs[0].GetShape()[0];
-    SymbolicScalar src_secondDim = outputs[0].GetShape()[1];
-    SymbolicScalar src_thirdDim = outputs[0].GetShape()[2];
-    SymbolicScalar src_forthDim = outputs[0].GetShape()[3];
-
+    auto originShape = outputs[0].GetShape();
     auto args = static_cast<const RemainderSOpFuncArgs *>(opArgs);
     std::vector<int64_t> viewShape = args->viewShape_;
     bool reverseOperand = args->reverseOperand_;
-    const int loop[] = {CeilDiv(src_firstDim, viewShape[0]), CeilDiv(src_secondDim, viewShape[1]),
-        CeilDiv(src_thirdDim, viewShape[2]), CeilDiv(src_forthDim, viewShape[3])};
+    const int loop[] = {CeilDiv(originShape[0], viewShape[0]), CeilDiv(originShape[1], viewShape[1]),
+        CeilDiv(originShape[2], viewShape[2]), CeilDiv(originShape[3], viewShape[3])};
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0])) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loop[IDX_DIM1])) {
@@ -118,10 +131,10 @@ static void RemainderSOperationExeFunc4Dims(
                         std::vector<SymbolicScalar> dynOffsets = {
                             bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2], qIdx * viewShape[3]};
                         auto tileTensor = View(inputs[0], viewShape,
-                            {std::min(src_firstDim - bIdx * viewShape[0], viewShape[0]),
-                                std::min(src_secondDim - sIdx * viewShape[1], viewShape[1]),
-                                std::min(src_thirdDim - nIdx * viewShape[2], viewShape[2]),
-                                std::min(src_forthDim - qIdx * viewShape[3], viewShape[3])},
+                            {std::min(originShape[0] - bIdx * viewShape[0], viewShape[0]),
+                                std::min(originShape[1] - sIdx * viewShape[1], viewShape[1]),
+                                std::min(originShape[2] - nIdx * viewShape[2], viewShape[2]),
+                                std::min(originShape[3] - qIdx * viewShape[3], viewShape[3])},
                             dynOffsets);
                         TileShape::Current().SetVecTile(args->tileShape_);
                         Tensor res = reverseOperand ? Remainder(args->scalar_, tileTensor) :
@@ -136,17 +149,13 @@ static void RemainderSOperationExeFunc4Dims(
 
 static void RemainderSOperationExeFunc5Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    SymbolicScalar src_firstDim = outputs[0].GetShape()[0];
-    SymbolicScalar src_secondDim = outputs[0].GetShape()[1];
-    SymbolicScalar src_thirdDim = outputs[0].GetShape()[2];
-    SymbolicScalar src_forthDim = outputs[0].GetShape()[3];
-    SymbolicScalar src_fifthDim = outputs[0].GetShape()[4];
-
+    auto originShape = outputs[0].GetShape();
     auto args = static_cast<const RemainderSOpFuncArgs *>(opArgs);
     std::vector<int64_t> viewShape = args->viewShape_;
     bool reverseOperand = args->reverseOperand_;
-    const int loop[] = {CeilDiv(src_firstDim, viewShape[0]), CeilDiv(src_secondDim, viewShape[1]),
-        CeilDiv(src_thirdDim, viewShape[2]), CeilDiv(src_forthDim, viewShape[3]), CeilDiv(src_fifthDim, viewShape[4])};
+    const int loop[] = {CeilDiv(originShape[0], viewShape[0]), CeilDiv(originShape[1], viewShape[1]),
+        CeilDiv(originShape[2], viewShape[2]), CeilDiv(originShape[3], viewShape[3]),
+        CeilDiv(originShape[4], viewShape[4])};
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0])) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loop[IDX_DIM1])) {
@@ -156,11 +165,11 @@ static void RemainderSOperationExeFunc5Dims(
                             std::vector<SymbolicScalar> dynOffsets = {bIdx * viewShape[0], sIdx * viewShape[1],
                                 nIdx * viewShape[2], qIdx * viewShape[3], rIdx * viewShape[4]};
                             auto tileTensor = View(inputs[0], viewShape,
-                                {std::min(src_firstDim - bIdx * viewShape[0], viewShape[0]),
-                                    std::min(src_secondDim - sIdx * viewShape[1], viewShape[1]),
-                                    std::min(src_thirdDim - nIdx * viewShape[2], viewShape[2]),
-                                    std::min(src_forthDim - qIdx * viewShape[3], viewShape[3]),
-                                    std::min(src_fifthDim - rIdx * viewShape[4], viewShape[4])},
+                                {std::min(originShape[0] - bIdx * viewShape[0], viewShape[0]),
+                                    std::min(originShape[1] - sIdx * viewShape[1], viewShape[1]),
+                                    std::min(originShape[2] - nIdx * viewShape[2], viewShape[2]),
+                                    std::min(originShape[3] - qIdx * viewShape[3], viewShape[3]),
+                                    std::min(originShape[4] - rIdx * viewShape[4], viewShape[4])},
                                 dynOffsets);
                             TileShape::Current().SetVecTile(args->tileShape_);
                             Tensor res = reverseOperand ? Remainder(args->scalar_, tileTensor) :
@@ -174,28 +183,31 @@ static void RemainderSOperationExeFunc5Dims(
     }
 }
 
-class Remainder_RSOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<RemainderSOpMetaData> {};
+class RemainderRSOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<RemainderSOpMetaData> {};
 
-INSTANTIATE_TEST_SUITE_P(TestRemainder_RS, Remainder_RSOperationTest,
-    ::testing::ValuesIn(
-        GetOpMetaData<RemainderSOpMetaData>({RemainderSOperationExeFunc2Dims, RemainderSOperationExeFunc3Dims,
-                                                RemainderSOperationExeFunc4Dims, RemainderSOperationExeFunc5Dims},
-            "Remainder_RS")));
+INSTANTIATE_TEST_SUITE_P(TestRemainderRS, RemainderRSOperationTest,
+    ::testing::ValuesIn(GetOpMetaData<RemainderSOpMetaData>(
+        {RemainderSOperationExeFunc1Dim, RemainderSOperationExeFunc2Dims, RemainderSOperationExeFunc3Dims,
+            RemainderSOperationExeFunc4Dims, RemainderSOperationExeFunc5Dims},
+        "RemainderRS")));
 
 class RemainderSOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<RemainderSOpMetaData> {};
 
 INSTANTIATE_TEST_SUITE_P(TestRemainderS, RemainderSOperationTest,
-    ::testing::ValuesIn(
-        GetOpMetaData<RemainderSOpMetaData>({RemainderSOperationExeFunc2Dims, RemainderSOperationExeFunc3Dims,
-                                                RemainderSOperationExeFunc4Dims, RemainderSOperationExeFunc5Dims},
-            "RemainderS")));
+    ::testing::ValuesIn(GetOpMetaData<RemainderSOpMetaData>(
+        {RemainderSOperationExeFunc1Dim, RemainderSOperationExeFunc2Dims, RemainderSOperationExeFunc3Dims,
+            RemainderSOperationExeFunc4Dims, RemainderSOperationExeFunc5Dims},
+        "RemainderS")));
 
-TEST_P(Remainder_RSOperationTest, TestRemainder_RS) {
+TEST_P(RemainderRSOperationTest, TestRemainderRS) {
     auto test_data = GetParam().test_data_;
     auto dtype = GetDataType(GetValueByName<std::string>(test_data, "scalar_type"));
     Element scalar(dtype, GetValueByName<float>(test_data, "scalar"));
     auto args = RemainderSOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data), scalar, true);
     auto testCase = CreateTestCaseDesc<RemainderSOpMetaData>(GetParam(), &args);
+    std::vector<OpFunc> opFuncs = {RemainderSOperationExeFunc1Dim, RemainderSOperationExeFunc2Dims,
+        RemainderSOperationExeFunc3Dims, RemainderSOperationExeFunc4Dims, RemainderSOperationExeFunc5Dims};
+    testCase.opFunc = opFuncs[GetViewShape(test_data).size() - 1];
     TestExecutor::runTest(testCase);
 }
 
@@ -205,6 +217,9 @@ TEST_P(RemainderSOperationTest, TestRemainderS) {
     Element scalar(dtype, GetValueByName<float>(test_data, "scalar"));
     auto args = RemainderSOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data), scalar, false);
     auto testCase = CreateTestCaseDesc<RemainderSOpMetaData>(GetParam(), &args);
+    std::vector<OpFunc> opFuncs = {RemainderSOperationExeFunc1Dim, RemainderSOperationExeFunc2Dims,
+        RemainderSOperationExeFunc3Dims, RemainderSOperationExeFunc4Dims, RemainderSOperationExeFunc5Dims};
+    testCase.opFunc = opFuncs[GetViewShape(test_data).size() - 1];
     TestExecutor::runTest(testCase);
 }
 } // namespace

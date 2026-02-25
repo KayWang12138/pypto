@@ -1876,7 +1876,7 @@ def gen_remainders_op_golden(
 
 @GoldenRegister.reg_golden_func(
     case_names=[
-        "TestRemainder_RS/Remainder_RSOperationTest.TestRemainder_RS"
+        "TestRemainderRS/RemainderRSOperationTest.TestRemainderRS"
     ]
 )
 def gen_remainderrs_op_golden(
@@ -1890,7 +1890,7 @@ def gen_remainderrs_op_golden(
         other = from_numpy(inputs[0])
         res = torch.remainder(self, other)
         return [to_numpy(res)]
-    return gen_op_golden("Remainder_RS", remainders_golden_func, output, case_index)
+    return gen_op_golden("RemainderRS", remainders_golden_func, output, case_index)
 
 
 def indexput_dfs(indices_range, deep, max_count, cur_indices, all_indices):

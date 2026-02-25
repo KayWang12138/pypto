@@ -154,7 +154,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_MULS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_DIVS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_REMS, [this]() { return PrintVectorReverseScalarTileTensor(); }},
-          {Opcode::OP_REM_RS, [this]() { return PrintVectorReverseScalarTileTensor(); }},          
+          {Opcode::OP_REMRS, [this]() { return PrintVectorReverseScalarTileTensor(); }},          
           {Opcode::OP_MAXS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_MINS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_BITWISEANDS, [this]() { return GenVectorScalarOp(); }},

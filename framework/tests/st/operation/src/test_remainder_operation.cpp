@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file test_Remainder_operation.cpp
+ * \file test_remainder_operation.cpp
  * \brief
  */
 
@@ -41,14 +41,14 @@ struct RemainderOpMetaData {
 static void RemainderOperationExeFunc1Dim(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar firstDim = outputs[0].GetShape()[0];
+        auto originShape = outputs[0].GetShape();
         auto args = static_cast<const RemainderOpFuncArgs *>(opArgs);
         auto viewShape = args->viewShape_;
 
-        const int loop = CeilDiv(firstDim, viewShape[0]);
+        const int loop = CeilDiv(originShape[0], viewShape[0]);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop)) {
             std::vector<SymbolicScalar> dynOffsets = {bIdx * viewShape[0]};
-            std::vector<SymbolicScalar> validShape = {std::min(firstDim - bIdx * viewShape[0], viewShape[0])};
+            std::vector<SymbolicScalar> validShape = {std::min(originShape[0] - bIdx * viewShape[0], viewShape[0])};
             Tensor tileTensor0 = View(inputs[0], viewShape, validShape, dynOffsets);
             Tensor tileTensor1 = View(inputs[1], viewShape, validShape, dynOffsets);
             TileShape::Current().SetVecTile(args->tileShape_);
@@ -61,18 +61,17 @@ static void RemainderOperationExeFunc1Dim(
 static void RemainderOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar firstDim = outputs[0].GetShape()[0];
-        SymbolicScalar secondDim = outputs[0].GetShape()[1];
+        auto originShape = outputs[0].GetShape();
         auto args = static_cast<const RemainderOpFuncArgs *>(opArgs);
         auto viewShape = args->viewShape_;
         const int broadcastFlag = 1;
 
-        const int loop[] = {CeilDiv(firstDim, viewShape[0]), CeilDiv(secondDim, viewShape[1])};
+        const int loop[] = {CeilDiv(originShape[0], viewShape[0]), CeilDiv(originShape[1], viewShape[1])};
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0])) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loop[IDX_DIM1])) {
                 std::vector<SymbolicScalar> dynOffsets = {bIdx * viewShape[0], sIdx * viewShape[1]};
-                std::vector<SymbolicScalar> validShape = {std::min(firstDim - bIdx * viewShape[0], viewShape[0]),
-                    std::min(secondDim - sIdx * viewShape[1], viewShape[1])};
+                std::vector<SymbolicScalar> validShape = {std::min(originShape[0] - bIdx * viewShape[0], viewShape[0]),
+                    std::min(originShape[1] - sIdx * viewShape[1], viewShape[1])};
                 Tensor tileTensor0 = View(inputs[0], viewShape, validShape, dynOffsets);
                 Tensor tileTensor1 = View(inputs[1], viewShape, validShape, dynOffsets);
                 // 广播场景 [m,n],[m,1] 或[m,n],[1,n]
@@ -93,22 +92,21 @@ static void RemainderOperationExeFunc2Dims(
 static void RemainderOperationExeFunc3Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar firstDim = outputs[0].GetShape()[0];
-        SymbolicScalar secondDim = outputs[0].GetShape()[1];
-        SymbolicScalar thirdDim = outputs[0].GetShape()[2];
+        auto originShape = outputs[0].GetShape();
         auto args = static_cast<const RemainderOpFuncArgs *>(opArgs);
         auto viewShape = args->viewShape_;
 
-        const int loop[] = {
-            CeilDiv(firstDim, viewShape[0]), CeilDiv(secondDim, viewShape[1]), CeilDiv(thirdDim, viewShape[2])};
+        const int loop[] = {CeilDiv(originShape[0], viewShape[0]), CeilDiv(originShape[1], viewShape[1]),
+            CeilDiv(originShape[2], viewShape[2])};
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0])) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loop[IDX_DIM1])) {
                 LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(loop[IDX_DIM2])) {
                     std::vector<SymbolicScalar> dynOffsets = {
                         bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]};
-                    std::vector<SymbolicScalar> validShape = {std::min(firstDim - bIdx * viewShape[0], viewShape[0]),
-                        std::min(secondDim - sIdx * viewShape[1], viewShape[1]),
-                        std::min(thirdDim - nIdx * viewShape[2], viewShape[2])};
+                    std::vector<SymbolicScalar> validShape = {
+                        std::min(originShape[0] - bIdx * viewShape[0], viewShape[0]),
+                        std::min(originShape[1] - sIdx * viewShape[1], viewShape[1]),
+                        std::min(originShape[2] - nIdx * viewShape[2], viewShape[2])};
                     Tensor tileTensor0 = View(inputs[0], viewShape, validShape, dynOffsets);
                     Tensor tileTensor1 = View(inputs[1], viewShape, validShape, dynOffsets);
                     TileShape::Current().SetVecTile(args->tileShape_);
@@ -123,15 +121,12 @@ static void RemainderOperationExeFunc3Dims(
 static void RemainderOperationExeFunc4Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
-        SymbolicScalar firstDim = outputs[0].GetShape()[0];
-        SymbolicScalar secondDim = outputs[0].GetShape()[1];
-        SymbolicScalar thirdDim = outputs[0].GetShape()[2];
-        SymbolicScalar fourthDim = outputs[0].GetShape()[3];
+        auto originShape = outputs[0].GetShape();
         auto args = static_cast<const RemainderOpFuncArgs *>(opArgs);
         auto viewShape = args->viewShape_;
 
-        const int loop[] = {CeilDiv(firstDim, viewShape[0]), CeilDiv(secondDim, viewShape[1]),
-            CeilDiv(thirdDim, viewShape[2]), CeilDiv(fourthDim, viewShape[3])};
+        const int loop[] = {CeilDiv(originShape[0], viewShape[0]), CeilDiv(originShape[1], viewShape[1]),
+            CeilDiv(originShape[2], viewShape[2]), CeilDiv(originShape[3], viewShape[3])};
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0])) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loop[IDX_DIM1])) {
                 LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(loop[IDX_DIM2])) {
@@ -139,10 +134,10 @@ static void RemainderOperationExeFunc4Dims(
                         std::vector<SymbolicScalar> dynOffsets = {
                             bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2], qIdx * viewShape[3]};
                         std::vector<SymbolicScalar> validShape = {
-                            std::min(firstDim - bIdx * viewShape[0], viewShape[0]),
-                            std::min(secondDim - sIdx * viewShape[1], viewShape[1]),
-                            std::min(thirdDim - nIdx * viewShape[2], viewShape[2]),
-                            std::min(fourthDim - qIdx * viewShape[3], viewShape[3])};
+                            std::min(originShape[0] - bIdx * viewShape[0], viewShape[0]),
+                            std::min(originShape[1] - sIdx * viewShape[1], viewShape[1]),
+                            std::min(originShape[2] - nIdx * viewShape[2], viewShape[2]),
+                            std::min(originShape[3] - qIdx * viewShape[3], viewShape[3])};
                         Tensor tileTensor0 = View(inputs[0], viewShape, validShape, dynOffsets);
                         Tensor tileTensor1 = View(inputs[1], viewShape, validShape, dynOffsets);
                         TileShape::Current().SetVecTile(args->tileShape_);

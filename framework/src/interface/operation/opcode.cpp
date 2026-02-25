@@ -152,7 +152,7 @@ void OpcodeManager::RegisterVectorBinary() {
         {"TileOp::TRemainderS", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
         {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OpAttributeKey::inputCombineAxis,
             OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
-    RegisterInfo(Opcode::OP_REM_RS, OpCoreType::AIV, "REM_RS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+    RegisterInfo(Opcode::OP_REMRS, OpCoreType::AIV, "REMRS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::TRemainderS", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
         {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OpAttributeKey::inputCombineAxis,
             OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
@@ -841,7 +841,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {                Opcode::OP_MUL,           "TMul"},
     {                Opcode::OP_REM,     "TRemainder"},
     {               Opcode::OP_REMS,    "TRemainderS"},
-    {             Opcode::OP_REM_RS,    "TRemainderS"},
+    {             Opcode::OP_REMRS,    "TRemainderS"},
     {          Opcode::OP_INDEX_ADD,      "TIndexAdd"},
     {     Opcode::OP_GATHER_ELEMENT, "TgatherElement"},
     {             Opcode::OP_GATHER,        "Tgather"},

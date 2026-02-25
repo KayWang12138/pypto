@@ -387,14 +387,26 @@ void TiledBinaryOperationAllScalar(Function &function, const TileShape &tileShap
 
 Tensor Remainder(const Tensor &self, const Element &other) {
     DECLARE_TRACER();
+    auto selfDType = self.GetDataType();
+    Tensor castSelf = self;
+    if ((selfDType == DT_INT16 || selfDType == DT_INT32) && other.GetDataType() == DT_FP32) {
+        castSelf = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            self.GetStorage(), DT_FP32, CastMode::CAST_NONE);
+    }
     RETURN_CALL(BinaryOperationAllScalar<BinaryOpType::REM>, *Program::GetInstance().GetCurrentFunction(),
-        self.GetStorage(), other, false);
+        castSelf, other, false);
 }
 
 Tensor Remainder(const Element &self, const Tensor &other) {
     DECLARE_TRACER();
-    RETURN_CALL(BinaryOperationAllScalar<BinaryOpType::REM_R>, *Program::GetInstance().GetCurrentFunction(),
-        other.GetStorage(), self, true);
+    auto otherDType = other.GetDataType();
+    Tensor castOther = other;
+    if ((otherDType == DT_INT16 || otherDType == DT_INT32) && self.GetDataType() == DT_FP32) {
+        castOther = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            other.GetStorage(), DT_FP32, CastMode::CAST_NONE);
+    }
+    RETURN_CALL(BinaryOperationAllScalar<BinaryOpType::REMR>, *Program::GetInstance().GetCurrentFunction(),
+        castOther, self, true);
 }
 
 Tensor ScalarAddS(const Tensor &operand, const Element &value, bool reverseOperand) {
@@ -602,7 +614,7 @@ REGISTER_OPERATION_TILED_FUNC(OP_S_MULS, Opcode::OP_S_MULS, BinaryOperationAllSc
 REGISTER_OPERATION_TILED_FUNC(OP_S_DIVS, Opcode::OP_S_DIVS, BinaryOperationAllScalarResTileFunc<BinaryOpType::S_DIV>);
 REGISTER_OPERATION_TILED_FUNC(OP_S_MAXS, Opcode::OP_S_MAXS, BinaryOperationAllScalarResTileFunc<BinaryOpType::S_MAX>);
 REGISTER_OPERATION_TILED_FUNC(OP_S_MINS, Opcode::OP_S_MINS, BinaryOperationAllScalarResTileFunc<BinaryOpType::S_MIN>);
-REGISTER_OPERATION_TILED_FUNC(OP_REM_RS, Opcode::OP_REM_RS, BinaryOperationAllScalarResTileFunc<BinaryOpType::REM_R>);
+REGISTER_OPERATION_TILED_FUNC(OP_REMRS, Opcode::OP_REMRS, BinaryOperationAllScalarResTileFunc<BinaryOpType::REMR>);
 REGISTER_OPERATION_TILED_FUNC(OP_REMS, Opcode::OP_REMS, BinaryOperationAllScalarResTileFunc<BinaryOpType::REM>);
 
 REGISTER_OPERATION_TILED_FUNC(OP_S_ADD, Opcode::OP_S_ADD, BinaryOperationAllScalarTileFunc<BinaryOpType::S_ADD>);

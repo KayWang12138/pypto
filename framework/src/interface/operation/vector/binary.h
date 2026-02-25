@@ -50,7 +50,7 @@ enum class BinaryOpType {
     CMP,
     MOD,
     REM,
-    REM_R,
+    REMR,
     BITWISEAND,
     BITWISEOR,
     BITWISEXOR,
@@ -71,7 +71,7 @@ std::string GetBinaryOpName() {
         case BinaryOpType::POW: return "POW";
         case BinaryOpType::MOD:return "MOD";
         case BinaryOpType::REM: return "REM";
-        case BinaryOpType::REM_R:return "REM_R";
+        case BinaryOpType::REMR:return "REMR";
         case BinaryOpType::CMP:return "CMP";
         case BinaryOpType::S_ADD: return "S_ADD";
         case BinaryOpType::S_SUB: return "S_SUB";
@@ -101,7 +101,7 @@ Opcode GetBinaryOpNameCode() {
             CASE(MIN);
             CASE(MOD);
             CASE(REM);
-            CASE(REM_R);
+            CASE(REMR);
             CASE(S_ADD);
             CASE(S_SUB);
             CASE(S_MUL);
