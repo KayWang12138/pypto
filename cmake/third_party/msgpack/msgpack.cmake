@@ -83,10 +83,22 @@ if (NOT EXISTS "${_MsgpackSourceDir}/include/msgpack.hpp")
         message(FATAL_ERROR "Failed to extract msgpack-c")
     endif ()
 
-    get_filename_component(_MsgpackSourceDir "${PYPTO_THIRD_PARTY_PATH}/msgpack-cxx-${_TargetVersion}" REALPATH)
-    if (NOT EXISTS "${_MsgpackSourceDir}/include/msgpack.hpp")
-        message(FATAL_ERROR "msgpack-c not found after download at ${_MsgpackSourceDir}. "
-                "Please place msgpack-c source in ${PYPTO_THIRD_PARTY_PATH}/msgpack-c/")
+    # 解压后查找源码目录 (兼容不同压缩包的顶层目录名)
+    set(_MsgpackSourceDir "")
+    foreach(_Candidate
+            "${PYPTO_THIRD_PARTY_PATH}/msgpack-cxx-${_TargetVersion}"
+            "${PYPTO_THIRD_PARTY_PATH}/msgpack-c"
+            "${PYPTO_THIRD_PARTY_PATH}/msgpack-c-cpp-${_TargetVersion}")
+        if (EXISTS "${_Candidate}/include/msgpack.hpp")
+            get_filename_component(_MsgpackSourceDir "${_Candidate}" REALPATH)
+            break()
+        endif ()
+    endforeach()
+    if (NOT _MsgpackSourceDir)
+        file(GLOB _MsgpackDirs "${PYPTO_THIRD_PARTY_PATH}/msgpack*")
+        message(FATAL_ERROR "msgpack-c not found after extraction. "
+                "Searched: msgpack-cxx-${_TargetVersion}, msgpack-c, msgpack-c-cpp-${_TargetVersion}. "
+                "Existing msgpack* entries: ${_MsgpackDirs}")
     endif ()
 endif ()
 
