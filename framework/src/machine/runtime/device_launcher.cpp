@@ -387,7 +387,7 @@ void ExportedOperatorEnd(ExportedOperator *op) {
 }
 
 void DataDumpInit() {
-    if (IsPtoDataDumpEnabled()) {
+    if (config::GetVerifyOption<bool>(KEY_ENABLE_CALL_TASK_DUMP)) {
         if (!AdxDataDumpServerInit) {
             ALOG_ERROR_F("AdxDataDumpServerInit function not found.");
             return;
@@ -401,7 +401,7 @@ void DataDumpInit() {
 }
 
 void DataDumpUnInit() {
-    if (IsPtoDataDumpEnabled()) {
+    if (config::GetVerifyOption<bool>(KEY_ENABLE_CALL_TASK_DUMP)) {
         if (!AdxDataDumpServerUnInit) {
             ALOG_ERROR_F("AdxDataDumpServerUnInit function not found.");
             return;
