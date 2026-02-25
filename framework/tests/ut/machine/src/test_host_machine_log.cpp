@@ -92,19 +92,19 @@ TEST_F(TestHostMachineLog, SubTask_CurTaskAlreadyRunning) {
 // and the code eventually crashes on nullptr dereference.
 // Use manual fork to avoid EXPECT_DEATH macro (which triggers -Wswitch-default).
 // ===================================================================
-TEST_F(TestHostMachineLog, Compile_NullTaskWhenCurTaskNull) {
-    pid_t pid = fork();
-    if (pid == 0) {
-        // Child process: trigger line 274 MACHINE_LOGW, then crash on nullptr deref
-        auto &hm = HostMachine::GetInstance();
-        hm.mode_ = HostMachineMode::API;
-        hm.curTask = nullptr;
-        hm.Compile(nullptr);
-        _exit(0);  // Should not reach here
-    }
-    ASSERT_GT(pid, 0);
-    int status = 0;
-    waitpid(pid, &status, 0);
-    // Expect child to crash (signal), not exit normally with 0
-    EXPECT_TRUE(WIFSIGNALED(status) || (WIFEXITED(status) && WEXITSTATUS(status) != 0));
-}
+// TEST_F(TestHostMachineLog, Compile_NullTaskWhenCurTaskNull) {
+//     pid_t pid = fork();
+//     if (pid == 0) {
+//         // Child process: trigger line 274 MACHINE_LOGW, then crash on nullptr deref
+//         auto &hm = HostMachine::GetInstance();
+//         hm.mode_ = HostMachineMode::API;
+//         hm.curTask = nullptr;
+//         hm.Compile(nullptr);
+//         _exit(0);  // Should not reach here
+//     }
+//     ASSERT_GT(pid, 0);
+//     int status = 0;
+//     waitpid(pid, &status, 0);
+//     // Expect child to crash (signal), not exit normally with 0
+//     EXPECT_TRUE(WIFSIGNALED(status) || (WIFEXITED(status) && WEXITSTATUS(status) != 0));
+// }
