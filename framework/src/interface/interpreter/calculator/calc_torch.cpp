@@ -143,7 +143,9 @@ static void Exp(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 
 static void Exp2(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
-    torch::exp2_out(tout, From(self));
+    auto tself = From(self);
+    torch::exp2_out(tout.second, tself.second);
+    ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
 static void Neg(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {

@@ -262,7 +262,7 @@ void ExecuteOpExp2(ExecuteOperationContext *ctx) {
     auto &iop = ctx->ioperandDataViewList->at(0);
     calc::Exp2(ret, iop);
 }
-REGISTER_CALC_OP(OP_TRUNC, Opcode::OP_EXP2, ExecuteOpExp2);
+REGISTER_CALC_OP(OP_EXP2, Opcode::OP_EXP2, ExecuteOpExp2);
 
 void ExecuteOpRound(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);

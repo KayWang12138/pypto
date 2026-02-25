@@ -287,10 +287,10 @@ std::string CodeGenOpCloudNPU::PrintCompact(const PrintUnaryTmpBuffParam &param)
 }
 
 std::string CodeGenOpCloudNPU::PrintExp2Layout() const {
-    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
-    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
-    std::string tmpTensorNext = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
-    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::DST_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::TMP_IDX));
+    std::string tmpTensorNext = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::TMP2_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::SRC0_IDX));
 
     std::ostringstream oss;
     oss << tileOpName.c_str() << "<float>" << "(" << dstTensor << ", " << tmpTensor << ", " << tmpTensorNext << ", "

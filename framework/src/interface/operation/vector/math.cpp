@@ -756,7 +756,7 @@ void LogicAndOperationTileFunc(Function &function, const TileShape &tileShape,
     TiledLogicalAndOperation(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
 }
 
-Tensor TensorExp2(Function &function, const LogicalTensorPtr &self, const int &decimals = 0) {
+Tensor TensorExp2(Function &function, const LogicalTensorPtr &self) {
     auto result =
         std::make_shared<LogicalTensor>(function, self->Datatype(), self->GetShape(), self->GetDynValidShape());
     auto &op = function.AddOperation(Opcode::OP_EXP2, {self}, {result});
