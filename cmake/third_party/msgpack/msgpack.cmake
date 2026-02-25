@@ -62,6 +62,35 @@ get_filename_component(_TargetSourceDir "${PYPTO_THIRD_PARTY_PATH}/msgpack-c" RE
 if (NOT EXISTS ${_TargetSourceDir})
     get_filename_component(_TargetSourceDir "${PYPTO_THIRD_PARTY_PATH}/msgpack-cxx-${_TargetVersion}" REALPATH)
 endif ()
+
+# 若源码目录不存在但本地有 tar.gz, 在 configure 阶段解压到 build 目录
+# (避免 ExternalProject_Add 触发网络下载)
+if (NOT EXISTS ${_TargetSourceDir})
+    set(_TarGz "${PYPTO_THIRD_PARTY_PATH}/msgpack-cxx-${_TargetVersion}.tar.gz")
+    if (EXISTS "${_TarGz}")
+        set(_ExtractBase "${CMAKE_CURRENT_BINARY_DIR}/third_party")
+        file(MAKE_DIRECTORY "${_ExtractBase}")
+        message(STATUS "Extracting local msgpack-c archive: ${_TarGz}")
+        execute_process(
+                COMMAND ${CMAKE_COMMAND} -E tar xzf "${_TarGz}"
+                WORKING_DIRECTORY "${_ExtractBase}"
+                RESULT_VARIABLE _ExtractResult
+        )
+        # 兼容不同压缩包的顶层目录名
+        foreach(_Name "msgpack-cxx-${_TargetVersion}" "msgpack-c" "msgpack-c-cpp-${_TargetVersion}")
+            if (EXISTS "${_ExtractBase}/${_Name}/include/msgpack.hpp")
+                set(_TargetSourceDir "${_ExtractBase}/${_Name}")
+                break()
+            endif ()
+        endforeach()
+        if (NOT EXISTS "${_TargetSourceDir}/include/msgpack.hpp")
+            file(GLOB _ExtractedDirs "${_ExtractBase}/*")
+            message(FATAL_ERROR "msgpack-c headers not found after extracting ${_TarGz}. "
+                    "Extracted contents: ${_ExtractedDirs}")
+        endif ()
+    endif ()
+endif ()
+
 PTO_Fwk_CleanEmptyDir(DIR ${_TargetSourceDir})
 
 set(_ExtArgs)
