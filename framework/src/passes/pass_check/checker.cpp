@@ -192,5 +192,19 @@ Status Checker::CheckToDynOffsetForAssemble(Function &function) {
     }
     return SUCCESS;
 }
+
+Status Checker::CheckLocalTensor(Function &function) {
+    auto opList = function.Operations().DuplicatedOpList();
+    for (const auto &op : opList) {
+        for (auto &iOperand : op->GetIOperands()) {
+            if (iOperand->GetProducers().empty() && iOperand->nodetype != NodeType::INCAST) {
+                ALOG_ERROR_F("A locally defined temporary tensor[%d] cannot be used as an input to an operation[%d].", iOperand->GetMagic(), op->GetOpMagic());
+                return FAILED;
+            }
+        }
+    }
+    return SUCCESS;
+}
+
 } // namespace tile_fwk
 } // namespace npu
