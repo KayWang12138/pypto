@@ -68,8 +68,8 @@ def special_view_opcomposite_pto(input_tensor_a, input_tensor_b, input_tensor_c,
             # [16, 64]
             concat_tmp_a_1 = pypto.concat([tmp_dim1_a_mul_1, tmp_dim1_a_mul_2], dim=0)
             # [8, 64] [8, 64]
-            # concat_tmp_a_view_1 = concat_tmp_a_1[:concat_tmp_a_1.shape[0] // 2, :]
-            # concat_tmp_a_view_2 = concat_tmp_a_1[concat_tmp_a_1.shape[0] // 2: concat_tmp_a_1.shape[0], :]
+            concat_tmp_a_view_1 = concat_tmp_a_1[:concat_tmp_a_1.shape[0] // 2, :]
+            concat_tmp_a_view_2 = concat_tmp_a_1[concat_tmp_a_1.shape[0] // 2: concat_tmp_a_1.shape[0], :]
             
             #scopeid = 2
             pypto.set_vec_tile_shapes(*params.vector_tile_shapes_3d)
@@ -92,8 +92,8 @@ def special_view_opcomposite_pto(input_tensor_a, input_tensor_b, input_tensor_c,
             concat_b_tmp_1 = pypto.concat([tmp_dim1_b_mul_1, tmp_dim1_b_mul_2], dim=0)
  
             # [8, 64] [8, 64]
-            # concat_tmp_b_view_1 = concat_b_tmp_1[:concat_b_tmp_1.shape[0] // 2, :]
-            # concat_tmp_b_view_2 = concat_b_tmp_1[concat_b_tmp_1.shape[0] // 2: concat_b_tmp_1.shape[0], :]
+            concat_tmp_b_view_1 = concat_b_tmp_1[:concat_b_tmp_1.shape[0] // 2, :]
+            concat_tmp_b_view_2 = concat_b_tmp_1[concat_b_tmp_1.shape[0] // 2: concat_b_tmp_1.shape[0], :]
 
             #matmul，设置scopid =3     [8,64] [8,64] [8,64] [8,64] 
             # matmul_tmp_a_1 = pypto.matmul(concat_tmp_a_view_1, input_tensor_c, out_dtype=dtype)
@@ -102,10 +102,10 @@ def special_view_opcomposite_pto(input_tensor_a, input_tensor_b, input_tensor_c,
             # matmul_tmp_b_2 = pypto.matmul(concat_tmp_b_view_2, input_tensor_c, out_dtype=dtype)
             
             # 设置scopid = 4     [8, 128]  [8, 128] [16, 128]
-            # concat_f_a = pypto.concat([concat_tmp_a_view_1, concat_tmp_a_view_2], dim=-1)
-            # concat_f_b = pypto.concat([concat_tmp_b_view_1, concat_tmp_b_view_2], dim=-1)
-            # concat_final = pypto.concat([concat_f_a, concat_f_b], dim=0)
-            concat_final = pypto.concat([concat_tmp_a_1, concat_b_tmp_1], dim=-1)
+            concat_f_a = pypto.concat([concat_tmp_a_view_1, concat_tmp_a_view_2], dim=-1)
+            concat_f_b = pypto.concat([concat_tmp_b_view_1, concat_tmp_b_view_2], dim=-1)
+            concat_final = pypto.concat([concat_f_a, concat_f_b], dim=0)
+            # concat_final = pypto.concat([concat_tmp_a_1, concat_b_tmp_1], dim=-1)
             print(f"concat_final.shape:{concat_final.shape}")
 
             pypto.set_vec_tile_shapes(*params.vector_tile_shapes_3d)
@@ -173,33 +173,61 @@ def special_view_opcomposite_torch(input_tensor_a, input_tensor_b, input_tensor_
 
     for b_idx in range(b_loop):
         for s_idx in range(s_loop):
-            input_a_view = input_tensor_a[b_idx * tile_b:(b_idx + 1) * tile_b, s_idx * tile_s:(s_idx + 1) * tile_s, :]
-            input_a_view_2d = input_a_view.reshape(-1, input_a_view.shape[-1])
-            input_tensor_a_1 = input_a_view_2d[:input_a_view_2d.shape[0] // 2, :input_a_view_2d.shape[-1] // 2]
-            input_tensor_a_2 = input_a_view_2d[:input_a_view_2d.shape[0] // 2, input_a_view_2d.shape[-1] // 2:input_a_view_2d.shape[-1]]
-            input_tensor_a_3 = input_a_view_2d[input_a_view_2d.shape[0] // 2:input_a_view_2d.shape[0], :input_a_view_2d.shape[-1] // 2]
-            input_tensor_a_4 = input_a_view_2d[input_a_view_2d.shape[0] // 2:input_a_view_2d.shape[0], input_a_view_2d.shape[-1] // 2:input_a_view_2d.shape[-1]]
+            # A 分支：按最新 special_view_opcomposite_pto 的逻辑拆分 / 组合
+            input_a_view = input_tensor_a[
+                b_idx * tile_b : (b_idx + 1) * tile_b,
+                s_idx * tile_s : (s_idx + 1) * tile_s,
+                :
+            ]
+            input_a_view_2d = input_a_view.reshape(tile_b * tile_s, -1)
+            half_rows_a = input_a_view_2d.shape[0] // 2
+            half_cols_a = input_a_view_2d.shape[-1] // 2
+
+            input_tensor_a_1 = input_a_view_2d[:half_rows_a, :half_cols_a]
+            input_tensor_a_2 = input_a_view_2d[:half_rows_a, half_cols_a:]
+            input_tensor_a_3 = input_a_view_2d[half_rows_a:, :half_cols_a]
+            input_tensor_a_4 = input_a_view_2d[half_rows_a:, half_cols_a:]
 
             tensor_a_tmp_dim1_1 = torch.concat([input_tensor_a_1, input_tensor_a_2], dim=-1)
             tensor_a_tmp_dim1_2 = torch.concat([input_tensor_a_3, input_tensor_a_4], dim=-1)
+
             tmp_dim1_a_mul_1 = torch.mul(tensor_a_tmp_dim1_1, 3.0)
             tmp_dim1_a_mul_2 = torch.mul(tensor_a_tmp_dim1_2, 5.0)
-            concat_tmp_a_1 = torch.concat([tmp_dim1_a_mul_1, tmp_dim1_a_mul_2], dim=0)
 
-            input_b_view = input_tensor_b[b_idx * tile_b:(b_idx + 1) * tile_b, s_idx * tile_s:(s_idx + 1) * tile_s, :]
-            input_b_view_2d = input_b_view.reshape(-1, input_b_view.shape[-1])
-            input_tensor_b_1 = input_b_view_2d[:input_b_view_2d.shape[0] // 2, :input_b_view_2d.shape[-1] // 2]
-            input_tensor_b_2 = input_b_view_2d[:input_b_view_2d.shape[0] // 2, input_b_view_2d.shape[-1] // 2:input_b_view_2d.shape[-1]]
-            input_tensor_b_3 = input_b_view_2d[input_b_view_2d.shape[0] // 2:input_b_view_2d.shape[0], :input_b_view_2d.shape[-1] // 2]
-            input_tensor_b_4 = input_b_view_2d[input_b_view_2d.shape[0] // 2:input_b_view_2d.shape[0], input_b_view_2d.shape[-1] // 2:input_b_view_2d.shape[-1]]
+            concat_tmp_a_1 = torch.concat([tmp_dim1_a_mul_1, tmp_dim1_a_mul_2], dim=0)
+            concat_tmp_a_view_1 = concat_tmp_a_1[:half_rows_a, :]
+            concat_tmp_a_view_2 = concat_tmp_a_1[half_rows_a:, :]
+
+            # B 分支：同样的拆分 / 组合逻辑
+            input_b_view = input_tensor_b[
+                b_idx * tile_b : (b_idx + 1) * tile_b,
+                s_idx * tile_s : (s_idx + 1) * tile_s,
+                :
+            ]
+            input_b_view_2d = input_b_view.reshape(tile_b * tile_s, -1)
+            half_rows_b = input_b_view_2d.shape[0] // 2
+            half_cols_b = input_b_view_2d.shape[-1] // 2
+
+            input_tensor_b_1 = input_b_view_2d[:half_rows_b, :half_cols_b]
+            input_tensor_b_2 = input_b_view_2d[:half_rows_b, half_cols_b:]
+            input_tensor_b_3 = input_b_view_2d[half_rows_b:, :half_cols_b]
+            input_tensor_b_4 = input_b_view_2d[half_rows_b:, half_cols_b:]
 
             tensor_b_tmp_dim1_1 = torch.concat([input_tensor_b_1, input_tensor_b_2], dim=-1)
             tensor_b_tmp_dim1_2 = torch.concat([input_tensor_b_3, input_tensor_b_4], dim=-1)
+
             tmp_dim1_b_mul_1 = torch.mul(tensor_b_tmp_dim1_1, 3.0)
             tmp_dim1_b_mul_2 = torch.mul(tensor_b_tmp_dim1_2, 5.0)
-            concat_tmp_b_1 = torch.concat([tmp_dim1_b_mul_1, tmp_dim1_b_mul_2], dim=0)
 
-            concat_final = torch.concat([concat_tmp_a_1, concat_tmp_b_1], dim=-1)
+            concat_tmp_b_1 = torch.concat([tmp_dim1_b_mul_1, tmp_dim1_b_mul_2], dim=0)
+            concat_tmp_b_view_1 = concat_tmp_b_1[:half_rows_b, :]
+            concat_tmp_b_view_2 = concat_tmp_b_1[half_rows_b:, :]
+
+            # 最终与 PTO 保持一致的拼接顺序
+            concat_f_a = torch.concat([concat_tmp_a_view_1, concat_tmp_a_view_2], dim=-1)
+            concat_f_b = torch.concat([concat_tmp_b_view_1, concat_tmp_b_view_2], dim=-1)
+            concat_final = torch.concat([concat_f_a, concat_f_b], dim=0)
+
             concat_final_3d = concat_final.reshape(tile_b, tile_s, concat_final.shape[-1])
             output_tensor[b_idx * tile_b:(b_idx + 1) * tile_b, s_idx * tile_s:(s_idx + 1) * tile_s, :] = concat_final_3d
 
