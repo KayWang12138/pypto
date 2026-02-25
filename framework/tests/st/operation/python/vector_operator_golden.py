@@ -246,6 +246,11 @@ def generate_matmul_golden_files(golden_func, output_path: Path, config: dict):
         tensor = np.random.uniform(input_min, input_max, input_tensor["shape"]).astype(
             tensor_type
         )
+        if input_tensor["dtype"] == "tf32":
+            tensor_data = tensor.view(np.uint32)
+            mask = 0xFFFFE000
+            tensor_data = tensor_data & mask
+            tensor = tensor_data.view(np.float32)
         index += 1
         input_tensors.append(tensor)
 
