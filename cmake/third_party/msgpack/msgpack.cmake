@@ -54,6 +54,13 @@ endif ()
 # 3) 从本地 tar.gz 解压到 build 目录
 if (NOT _MsgpackIncludeDir)
     set(_TarGz "${PYPTO_THIRD_PARTY_PATH}/msgpack-cxx-${_TargetVersion}.tar.gz")
+    if (NOT EXISTS "${_TarGz}")
+        # 诊断: 列出 PYPTO_THIRD_PARTY_PATH 下所有 msgpack 相关文件
+        file(GLOB _MsgpackFiles "${PYPTO_THIRD_PARTY_PATH}/msgpack*")
+        message(STATUS "msgpack tar.gz not found at: ${_TarGz}")
+        message(STATUS "PYPTO_THIRD_PARTY_PATH=${PYPTO_THIRD_PARTY_PATH}")
+        message(STATUS "msgpack* files in PYPTO_THIRD_PARTY_PATH: ${_MsgpackFiles}")
+    endif ()
     if (EXISTS "${_TarGz}")
         set(_ExtractBase "${CMAKE_CURRENT_BINARY_DIR}/third_party/msgpack")
         file(MAKE_DIRECTORY "${_ExtractBase}")
