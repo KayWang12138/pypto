@@ -233,23 +233,23 @@ private:
         return ret;
     }
 
-    inline uint32_t ReadReg32(int coreIdx, int offset) {
-        auto idx = GetPhyIdByBlockId(coreIdx);
+    inline uint32_t ReadReg32(const int coreIdx, const int offset) {
+        const auto idx = GetPhyIdByBlockId(coreIdx);
         return *(reinterpret_cast<volatile uint32_t*>(regAddrs_[idx] + offset));
     }
 
-    inline void WriteReg32(int coreIdx, int offset, uint32_t val) {
-        auto idx = GetPhyIdByBlockId(coreIdx);
+    inline void WriteReg32(const int coreIdx, const int offset, const uint32_t val) {
+        const auto idx = GetPhyIdByBlockId(coreIdx);
         *(reinterpret_cast<volatile uint32_t*>(regAddrs_[idx] + offset)) = val;
     }
 
-    inline void SetReadyQueue(int coreIdx, uint64_t taskIdx) {
-        auto idx = GetPhyIdByBlockId(coreIdx);
+    inline void SetReadyQueue(const int coreIdx, const uint64_t taskIdx) {
+        const auto idx = GetPhyIdByBlockId(coreIdx);
         *(readyRegQueues_[idx]) = taskIdx + 1; // Plus one is a required offset
     }
 
     inline void WriteReg32ALl(int offset, uint32_t val) {
-        for (int i = 0; i < aicNum_ + aivNum_; i++)
+        for (size_t i = 0; i < MAX_AICORE_NUM; i++)
          *(reinterpret_cast<volatile uint32_t *>(regAddrs_[i] + offset)) = val;
     }
 
@@ -257,7 +257,6 @@ private:
 
     void NormalStop();
 
-    inline int GetAllAiCoreNum() { return aicNum_ + aivNum_; }
     inline void SetDotStatus(int64_t status) { dotStatus_ = status; }
     inline CoreType AicoreType(int coreIdx) const { return coreIdx < aicEnd_ ? CoreType::AIC : CoreType::AIV; }
 
