@@ -137,10 +137,8 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
     args_.fill(nullptr);
     blockIdToPhyCoreId_.fill(-1);
     
-    DEV_INFO("Aicpu %d handshake start.\n", aicpuIdx_);
     ForEachManageAicore([this](int coreIdx)
     {
-        int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
         auto args = reinterpret_cast<KernelArgs *>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
         args->taskEntry.reserved[0] = dotStatus_;
         volatile int64_t *shakeBuffer = args->shakeBuffer;
@@ -149,20 +147,16 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
             if (npu::tile_fwk::dynamic::CheckTimeOut("hand shake", tm) != 0) {
                 DEV_ERROR("hand shake %d timeout.\n", coreIdx);
                 AbnormalStop();
-                return -1;
             }
         }
         args_[coreIdx] = args;
         // ENTRIES NEED TO BE PUT -1 and then filled by the leader
         blockIdToPhyCoreId_[coreIdx] = (*shakeBuffer >> NUM_THIRTY_TWO) & AICORE_COREID_MASK;
         curDevTask_->blockIdToPhyCoreId[coreIdx] = (*shakeBuffer >> NUM_THIRTY_TWO) & AICORE_COREID_MASK;
-        return ret;
     });
 
-    if (isNeedWriteRegForFastPath_) {
-        ForEachManageAicore(
-            [this](int coreIdx) { WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_OPEN); });
-    }
+    // Enabling fast path
+    ForEachManageAicore([this](int coreIdx) { WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_OPEN); });
 
     /* write to MAINBASE reg need reg 0x18 open first */
     __sync_synchronize();
