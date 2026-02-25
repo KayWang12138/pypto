@@ -1786,27 +1786,45 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
     int64_t offsetD = 0;
     int64_t offsetH = 0;
     int64_t offsetW = 0;
+    int64_t srcShapeN = 0;
+    int64_t srcShapeC = 0;
+    int64_t srcShapeD = 0;
+    int64_t srcShapeH = 0;
+    int64_t srcShapeW = 0;
     GetAttr("is_fmap", isInput);
     GetAttr("is_conv3d", isConv3D);
     auto dynOffset = offsetFromAttr[ToUnderlying(MISOIdx::SRC0_IDX)];
+    auto srcShape = shape[ToUnderlying(MISOIdx::SRC0_IDX)];
     if (isConv3D) {
         ASSERT(dynOffset.size() == SHAPE_DIM5) << "GenMemL1CopyInConv offset should be 5-dim!";
+        ASSERT(srcShape.size() == SHAPE_DIM5) << "GenMemL1CopyInConv shape should be 5-dim!";
         offsetN = dynOffset[ID0].Concrete();
         offsetC = dynOffset[ID1].Concrete();
         offsetD = dynOffset[ID2].Concrete();
         offsetH = dynOffset[ID3].Concrete();
         offsetW = dynOffset[ID4].Concrete();
+        srcShapeN = srcShape[ID0];
+        srcShapeC = srcShape[ID1];
+        srcShapeD = srcShape[ID2];
+        srcShapeH = srcShape[ID3];
+        srcShapeW = srcShape[ID4];
     } else {
         ASSERT(dynOffset.size() == SHAPE_DIM4) << "GenMemL1CopyInConv offset should be 4-dim!";
+        ASSERT(srcShape.size() == SHAPE_DIM4) << "GenMemL1CopyInConv shape should be 4-dim!";
         offsetN = dynOffset[ID0].Concrete();
         offsetC = dynOffset[ID1].Concrete();
         offsetH = dynOffset[ID2].Concrete();
         offsetW = dynOffset[ID3].Concrete();
+        srcShapeN = srcShape[ID0];
+        srcShapeC = srcShape[ID1];
+        srcShapeH = srcShape[ID2];
+        srcShapeW = srcShape[ID3];
     }
 
     std::vector<std::string> tileOpParamList = 
         {dstTensor, srcTensor, std::to_string(offsetN), std::to_string(offsetC), std::to_string(offsetD),
-        std::to_string(offsetH), std::to_string(offsetW), std::to_string(isInput)};
+        std::to_string(offsetH), std::to_string(offsetW), std::to_string(srcShapeN), std::to_string(srcShapeC),
+        std::to_string(srcShapeD), std::to_string(srcShapeH), std::to_string(srcShapeW), std::to_string(isInput)};
 
     std::ostringstream oss;
     oss << tileOpName << "<" << copyInModeStr << ">";
