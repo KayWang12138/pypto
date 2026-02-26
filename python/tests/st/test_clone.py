@@ -24,10 +24,11 @@ n1 = 64
 d = 64
 
 
-@pypto.jit
+@pypto.jit()
 def kernel_func(in_tensor, out_tensor):
     pypto.set_vec_tile_shapes(1, 1, 64, 64)
 
+    print("npuarch:", pypto.platform.npuarch)
     for b_idx in pypto.loop(b, name="b_loop", idx_name="b_idx"):
         for s_idx in pypto.loop(s, name="s_loop", idx_name="s_idx"):
             a0 = pypto.view(in_tensor, [1, 1, n1, d], [b_idx, s_idx, 0, 0])

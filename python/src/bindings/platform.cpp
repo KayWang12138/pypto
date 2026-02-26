@@ -9,29 +9,22 @@
  */
 
 /*!
- * \file pybind11.cpp
+ * \file platform.cpp
  * \brief
  */
 
 #include "pybind_common.h"
-#include "bindings/bindings.h"
+
+#include "tilefwk/platform.h"
 
 using namespace npu::tile_fwk;
 
 namespace pypto {
-PYBIND11_MODULE(pypto_impl, m) {
-    m.doc() = "PyPTO";
-    bind_enum(m);
-    BindElement(m);
-    BindTensor(m);
-    BindSymbolicScalar(m);
-    bind_controller(m);
-    bind_operation(m);
-    BindRuntime(m);
-    BindCostModelRuntime(m);
-    bind_pass(m);
-    BindFunction(m);
-    BindIr(m);
-    BindPlatform(m);
-};
+void BindPlatform(py::module &m) {
+    m.def("GetNPUArch", []() -> std::string {
+        Platform::Instance().ObtainPlatformInfo();
+        auto npuArch = Platform::Instance().GetSoc().GetNPUArch();
+        return NPUArchToString(npuArch);
+    });
+}
 } // namespace pypto
