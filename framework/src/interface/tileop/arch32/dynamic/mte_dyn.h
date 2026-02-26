@@ -21,6 +21,8 @@
 #include <type_traits>
 
 namespace TileOp {
+constexpr uint16_t UB_BLOCK_ALIGN_BYTE = 32;
+
 template <typename T, unsigned T0, unsigned T1, unsigned UBS>
 TILEOP void UBCopyInBase(__ubuf__ T *dst, __gm__ T *src, unsigned GMS) {
     constexpr uint16_t nBurst = T0;
@@ -52,7 +54,7 @@ template <typename T, unsigned T0, unsigned T1, unsigned T2, unsigned T3, unsign
     unsigned UBS3, unsigned UBS4>
 TILEOP void DynUBCopyIn(
     __ubuf__ T *dst, __gm__ T *src, unsigned GMS0, unsigned GMS1, unsigned GMS2, unsigned GMS3, unsigned GMS4) {
-    static_assert((UBS4 * sizeof(T)) % 32 == 0, "UB tile must be 32B aligned!");
+    static_assert((UBS4 * sizeof(T)) % UB_BLOCK_ALIGN_BYTE == 0, "UB tile must be 32B aligned!");
 
     for (int i0 = 0; i0 < T0; i0++) {
         __gm__ T *src0 = src;
@@ -79,7 +81,7 @@ TILEOP void DynUBCopyIn(__ubuf__ T *dst, __gm__ T *src, unsigned GMS0, unsigned 
     unsigned GMS4, unsigned Offset0, unsigned Offset1, unsigned Offset2, unsigned Offset3, unsigned Offset4) {
     src += CalcLinearOffset(GMS1, GMS2, GMS3, GMS4, Offset0, Offset1, Offset2, Offset3, Offset4);
 
-    static_assert((UBS4 * sizeof(T)) % 32 == 0, "UB tile must be 32B aligned!");
+    static_assert((UBS4 * sizeof(T)) % UB_BLOCK_ALIGN_BYTE == 0, "UB tile must be 32B aligned!");
 
     for (int i0 = 0; i0 < T0; i0++) {
         __gm__ T *src0 = src;
@@ -128,7 +130,7 @@ template <typename T, unsigned T0, unsigned T1, unsigned T2, unsigned T3, unsign
     unsigned UBS3, unsigned UBS4>
 TILEOP void DynUBCopyOut(
     __gm__ T *dst, __ubuf__ T *src, unsigned GMS0, unsigned GMS1, unsigned GMS2, unsigned GMS3, unsigned GMS4) {
-    static_assert((UBS4 * sizeof(T)) % 32 == 0, "UB tile must be 32B aligned!");
+    static_assert((UBS4 * sizeof(T)) % UB_BLOCK_ALIGN_BYTE == 0, "UB tile must be 32B aligned!");
 
     for (int i0 = 0; i0 < T0; i0++) {
         __gm__ T *dst0 = dst;
@@ -155,7 +157,7 @@ TILEOP void DynUBCopyOut(__gm__ T *dst, __ubuf__ T *src, unsigned GMS0, unsigned
     unsigned GMS4, unsigned Offset0, unsigned Offset1, unsigned Offset2, unsigned Offset3, unsigned Offset4) {
     dst += CalcLinearOffset(GMS1, GMS2, GMS3, GMS4, Offset0, Offset1, Offset2, Offset3, Offset4);
 
-    static_assert((UBS4 * sizeof(T)) % 32 == 0, "UB tile must be 32B aligned!");
+    static_assert((UBS4 * sizeof(T)) % UB_BLOCK_ALIGN_BYTE == 0, "UB tile must be 32B aligned!");
 
     for (int i0 = 0; i0 < T0; i0++) {
         __gm__ T *dst0 = dst;
@@ -537,8 +539,33 @@ TILEOP void DynUBCopyOut(__gm__ T *dst, __ubuf__ T *src, unsigned T0, unsigned T
 template <typename T, unsigned UBS1, unsigned UBS2, unsigned UBS3, unsigned UBS4>
 TILEOP void DynUBCopyIn(__ubuf__ T *dst, __gm__ T *src, unsigned T0, unsigned T1, unsigned T2, unsigned T3, unsigned T4,
     unsigned GMS0, unsigned GMS1, unsigned GMS2, unsigned GMS3, unsigned GMS4) {
-    static_assert((UBS4 * sizeof(T)) % 32 == 0, "UB tile must be 32B aligned!");
+    static_assert((UBS4 * sizeof(T)) % UB_BLOCK_ALIGN_BYTE == 0, "UB tile must be 32B aligned!");
 
+    for (int i0 = 0; i0 < T0; i0++) {
+        __gm__ T *src0 = src;
+        __ubuf__ T *dst0 = dst;
+        for (int i1 = 0; i1 < T1; i1++) {
+            __gm__ T *src1 = src0;
+            __ubuf__ T *dst1 = dst0;
+            for (int i2 = 0; i2 < T2; i2++) {
+                TileOp::UBCopyInBase<T, UBS4>(dst1, src1, T3, T4, GMS4);
+                src1 += GMS3 * GMS4;
+                dst1 += UBS3 * UBS4;
+            }
+            src0 += GMS2 * GMS3 * GMS4;
+            dst0 += UBS2 * UBS3 * UBS4;
+        }
+        src += GMS1 * GMS2 * GMS3 * GMS4;
+        dst += UBS1 * UBS2 * UBS3 * UBS4;
+    }
+}
+
+// for ub spill out scene
+template <typename T, unsigned UBS1, unsigned UBS2, unsigned UBS3, unsigned UBS4>
+TILEOP void DynUBCopyIn(__ubuf__ T *dst, __gm__ T *src, unsigned T0, unsigned T1, unsigned T2, unsigned T3, unsigned T4,
+    unsigned GMS0, unsigned GMS1, unsigned GMS2, unsigned GMS3, unsigned GMS4, unsigned srcStartOffset) {
+    static_assert((UBS4 * sizeof(T)) % UB_BLOCK_ALIGN_BYTE == 0, "UB tile must be 32B aligned!"); //UB_ALIGN_BYTES
+    dst += srcStartOffset;
     for (int i0 = 0; i0 < T0; i0++) {
         __gm__ T *src0 = src;
         __ubuf__ T *dst0 = dst;
@@ -562,7 +589,7 @@ TILEOP void DynUBCopyIn(__ubuf__ T *dst, __gm__ T *src, unsigned T0, unsigned T1
 template <typename T, unsigned UBS1, unsigned UBS2, unsigned UBS3, unsigned UBS4>
 TILEOP void DynUBCopyOut(__gm__ T *dst, __ubuf__ T *src, unsigned T0, unsigned T1, unsigned T2, unsigned T3,
     unsigned T4, unsigned GMS0, unsigned GMS1, unsigned GMS2, unsigned GMS3, unsigned GMS4) {
-    static_assert((UBS4 * sizeof(T)) % 32 == 0, "UB tile must be 32B aligned!");
+    static_assert((UBS4 * sizeof(T)) % UB_BLOCK_ALIGN_BYTE == 0, "UB tile must be 32B aligned!");
 
     for (int i0 = 0; i0 < T0; i0++) {
         __gm__ T *dst0 = dst;
