@@ -37,9 +37,9 @@
 #include "interface/configs/config_manager.h"
 #include "tilefwk/platform.h"
 #include "machine/runtime/distributed/distributed_context.h"
+#include "acl/acl_rt.h"
 
 #ifndef BUILD_WITH_CANN
-enum aclmdlRICaptureMode {};
 using rtStream_t = uint64_t;
 using aclmdlRI = void *;
 using aclrtStream = void *;
@@ -58,6 +58,7 @@ struct AiCpuArgs {
 };
 
 int GetCfgBlockdim();
+int GetCfgMaxBlockdim();
 
 class DeviceLauncherContext {
 public:
@@ -117,7 +118,7 @@ public:
     static void DeviceLauncherConfigFillDeviceInfo(const DeviceLauncherConfig &config) {
         DeviceLauncherConfig &devConfig = const_cast<DeviceLauncherConfig &>(config);
 #ifdef BUILD_WITH_CANN
-        int maxBlockDim = GetCfgBlockdim();
+        int maxBlockDim = GetCfgMaxBlockdim();
         int maxAicpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum() - 1);
 #else
         int maxBlockDim = 25; // 25:maxblockDim

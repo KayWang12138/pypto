@@ -26,6 +26,7 @@ extern "C" __attribute__((weak)) int AdxDataDumpServerInit();
 namespace npu::tile_fwk::dynamic {
 namespace {
     constexpr uint32_t kMinDefaultDim = 20;
+    constexpr uint32_t AICAIVRATIO = 2;
 }
 int GetCfgBlockdim() {
 #ifdef BUILD_WITH_CANN
@@ -36,6 +37,30 @@ int GetCfgBlockdim() {
 #else
     return kMinDefaultDim;
 #endif
+}
+
+int GetCfgMaxBlockdim() {
+    auto runtimeOptionsMaxBlockDim = config::GetRuntimeOption<int>("max_cube_blockdimm");
+    if (runtimeOptionsMaxBlockDim != 0) {
+        // runtime options控核的优先级要比set_stream_limit优先级高
+        return runtimeOptionsMaxBlockDim;
+    } else {
+        uint32_t cubeBlockDim = 0;
+        uint32_t vectorBlockDim = 0;
+        aclrtGetResInCurrentThread(ACL_RT_DEV_RES_CUBE_CORE, &cubeBlockDim);
+        aclrtGetResInCurrentThread(ACL_RT_DEV_RES_VECTOR_CORE, &vectorBlockDim);
+        if (vectorBlockDim != cubeBlockDim * AICAIVRATIO) {
+            auto rtsMaxBlockDim = std::min(cubeBlockDim, vectorBlockDim / AICAIVRATIO);
+            ALOG_WARN_F(
+                "The cubeBlockDim[%d] and vectorBlockDim[%d] should be set at a ratio of 1: %d. "
+                "Therefore, the cubeBlockDim and vectorBlockDim are set at %d and %d", 
+                cubeBlockDim, vectorBlockDim, AICAIVRATIO, rtsMaxBlockDim, rtsMaxBlockDim * AICAIVRATIO);
+            return rtsMaxBlockDim;
+        } else {
+            return cubeBlockDim;
+        }
+        
+    }
 }
 
 void (*forceLinkLibraryCompiler)() = &npu::tile_fwk::ForceLinkLibraryCompiler;

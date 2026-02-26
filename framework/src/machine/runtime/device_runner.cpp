@@ -164,7 +164,7 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     uint32_t aivCount = aicCount * AIV_PER_AICORE;
     args.nrAic = aicCount;
     args.nrAiv = aivCount;
-    blockDim_ = dynamic::GetCfgBlockdim();
+    blockDim_ = dynamic::GetCfgMaxBlockdim();
     args.nrValidAic = blockDim_;
     args.nrAicpu = aicpuNum_;
     int nrCore = regs.size() + AICPU_NUM_OF_RUN_AICPU_TASKS;
