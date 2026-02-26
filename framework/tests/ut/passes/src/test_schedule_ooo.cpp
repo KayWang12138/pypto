@@ -954,8 +954,7 @@ TEST_F(ScheduleOoOTest, TestScheduleSpillAssemble) {
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.ScheduleMainLoop();
-    // 待ScheduleMainloop支持assemble
-    EXPECT_EQ(res, FAILED);
+    EXPECT_EQ(res, SUCCESS);
 }
 
 TEST_F(ScheduleOoOTest, TestScheduleSpillFragFailed) {
