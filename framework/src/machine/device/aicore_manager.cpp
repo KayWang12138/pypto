@@ -165,7 +165,7 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
         auto args = reinterpret_cast<KernelArgs *>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
         int64_t *shakeBuffer = args->shakeBuffer;
         args_[coreIdx] = args;
-        blockIdToPhyCoreId_[coreIdx] = (*shakeBuffer >> NUM_THIRTY_TWO) & AICORE_COREID_MASK;
+        blockIdToPhyCoreId_[coreIdx] = (*shakeBuffer >> AICORE_COREID_BIT_OFFSET) & AICORE_COREID_MASK;
     });
 
     // Enabling fast path

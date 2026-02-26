@@ -44,6 +44,9 @@ const uint32_t CORE_NUM_PER_AI_CORE = 3;
 const uint32_t AIV_NUM_PER_AI_CORE = 2;
 const uint32_t AICORE_TYPE_NUM = 2;
 
+constexpr uint32_t AIV_CORE_COUNT = 48;
+constexpr uint32_t AIC_CORE_COUNT = 24;
+
 constexpr uint32_t MAX_STATIC_SCHEDULE_AICPU_NUM = 3;   // 真正负责调度aicore的aicpu个数
 constexpr int32_t START_STATIC_AICPU_NUM = MAX_STATIC_SCHEDULE_AICPU_NUM;
 constexpr uint32_t MAX_AICORE_NUM = 108;
@@ -58,12 +61,11 @@ constexpr uint32_t REG_32_BITS = 0xFFFFFFFF;
 #define REG_HIGH_TASK_ID(regVal) ((regVal) >> 32) & REG_31_BITS            // 高32位存储的taskid
 #define REG_HIGH_TASK_STATE(regVal) (((regVal) >> 32) & REG_32_BITS) >> 31 // 高32位存储的task状态
 constexpr uint32_t TASK_FIN_STATE = 1;                                     // 任务执行完成完成
-constexpr uint32_t NUM_THIRTY_TWO = 32;
+constexpr uint32_t AICORE_COREID_BIT_OFFSET = 32;
 constexpr int32_t AICORE_COREID_MASK = 0x0FFF;
 constexpr uint32_t DEFAULT_TASK_QUEUE_SIZE = 64;
 
 #define MAX_QUEUED_TASKS 1024
-#define MAX_QUEUED_PAIRS MAX_AICORE_NUM
 
 typedef uint32_t aicoreTask_t;
 typedef uint32_t aicoreCore_t;
@@ -162,9 +164,9 @@ public:
         }
 
         availableTaskQueue_ = reinterpret_cast<taskQueue_t*>(curDevTask_->availableTaskQueue);
-        runningPairQueue_                          = new pairQueue_t(MAX_QUEUED_PAIRS);
-        availableCoreQueue_[(int)MachineType::AIV] = new coreQueue_t(MAX_AIV_TOTAL_NUM);
-        availableCoreQueue_[(int)MachineType::AIC] = new coreQueue_t(MAX_AIC_TOTAL_NUM);
+        runningPairQueue_                          = new pairQueue_t(AIV_CORE_COUNT + AIC_CORE_COUNT);
+        availableCoreQueue_[(int)MachineType::AIV] = new coreQueue_t(AIV_CORE_COUNT);
+        availableCoreQueue_[(int)MachineType::AIC] = new coreQueue_t(AIC_CORE_COUNT);
         for (int i = aivStart_; i < aivEnd_; i++) availableCoreQueue_[(int)MachineType::AIV]->push((uint32_t)i);
         for (int i = aicStart_; i < aicEnd_; i++) availableCoreQueue_[(int)MachineType::AIC]->push((uint32_t)i);
     }
