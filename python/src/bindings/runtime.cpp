@@ -114,7 +114,8 @@ std::string DeviceRunOnceDataFromHost(
     if (config::GetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE) != 0) {
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
-        EmulationLauncher::BuildControlFlowCache(func, inputs, outputs, &hostCache, config);
+        EmulationMemoryUtils memUtils;
+        EmulationLauncher::BuildControlFlowCache(func, memUtils, inputs, outputs, &hostCache, config);
     }
 
     if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1 && EmulationLauncher::EmulationRunOnce(func, hostCache) != 0) {
@@ -250,7 +251,8 @@ int64_t BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputL
         if (ctrlCache == nullptr) {
             HOST_PERF_EVT_BEGIN(EventPhase::BuildCtrlFlowCache);
             DevControlFlowCache* hostCache = nullptr;
-            if (EmulationLauncher::BuildControlFlowCache(op->GetFunction(),
+            EmulationMemoryUtils memUtils;
+            if (EmulationLauncher::BuildControlFlowCache(op->GetFunction(), memUtils,
                 inputList, outputList, &hostCache, config) != 0) {
                 return 0;
             }
@@ -362,7 +364,8 @@ public:
 
         devProg->ctrlFlowCacheSize = cfgCacheSize;
         config.isCacheOriginShape = isOriginShape;
-        int ret = EmulationLauncher::BuildControlFlowCache(dynFunc.get(), inputs, {}, &ctrlCache, config);
+        EmulationMemoryUtils memUtils;
+        int ret = EmulationLauncher::BuildControlFlowCache(dynFunc.get(), memUtils, inputs, {}, &ctrlCache, config);
         if (ret != 0) {
             ALOG_ERROR("control flow cache failed", ret);
             return nullptr;
