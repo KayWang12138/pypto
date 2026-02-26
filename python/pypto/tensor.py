@@ -542,6 +542,10 @@ class Tensor:
         return pypto.sign(self)
 
     @source_location
+    def signbit(self) -> 'Tensor':
+        return pypto.signbit(self)
+
+    @source_location
     def log(self) -> 'Tensor':
         return pypto.log(self)
 
