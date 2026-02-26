@@ -659,9 +659,7 @@ class JitCallableWrapper:
                 make_hashable(self._debug_options),
             )
 
-            captured_locals_hash = make_hashable(self._captured_locals) if self._captured_locals else None
-
-            return (source_code, options_hash, captured_locals_hash)
+            return (source_code, options_hash)
         except (OSError, TypeError):
             # If we can't generate a cache key (e.g., source not available),
             # disable caching for this function
