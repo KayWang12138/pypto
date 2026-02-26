@@ -21,6 +21,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include "tilefwk/pypto_fwk_log.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/utils/op_info_manager.h"
 #include "machine/runtime/device_launcher_binding.h"
@@ -29,6 +30,7 @@
 #include "machine/utils/dynamic/dev_start_args.h"
 #include "machine/host/perf_analysis.h"
 #include "bindings/torch_tensor_converter.h"
+#include "interface/compiler_monitor/monitor_manager.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -556,12 +558,18 @@ public:
     }
 
     KernelBinary *Compile(py::object &module, py::args &args) {
+        COMPILER_LOGI("Old frontend compile begin once.");
+        // Prepare stage starts here and ends at Program::UpdateCompileTask() for OLD
+        MonitorManager::Instance().Initialize();
         auto compile = py::getattr(module, "compile");
         compile(args);
         return RegisterLastCompiledKernel(module);
     }
 
     KernelBinary *CompileFromTorch(py::object &module, py::sequence &torch_tensors, py::sequence tensor_defs) {
+        COMPILER_LOGI("New frontend compile from torch begin once.");
+        // Prepare stage starts here and ends at Program::UpdateCompileTask() for NEW
+        MonitorManager::Instance().Initialize();
         auto compile = py::getattr(module, "compile");
         compile(torch_tensors, tensor_defs);
         return RegisterLastCompiledKernel(module);
