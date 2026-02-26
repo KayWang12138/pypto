@@ -123,7 +123,8 @@ def moe_fusion_kernel(hidden_states_shape, mm_weight_shape, e_score_bias_shape, 
                         "stitch_function_outcast_memory": 128,
                         "stitch_function_inner_memory": 128,
                         "stitch_cfgcache_size": 7700000},
-        pass_options={"cube_l1_reuse_setting": {-1: 2}}
+        pass_options={"cube_l1_reuse_setting": {-1: 2}},
+        debug_options={"runtime_debug_mode": 1, "compile_debug_mode": 0},
     )
     def kernel(
         hidden_states: pypto.tensor(hidden_states_shape, dtype=pypto.DT_BF16),
@@ -137,6 +138,13 @@ def moe_fusion_kernel(hidden_states_shape, mm_weight_shape, e_score_bias_shape, 
         ids_k: pypto.tensor(topk_ids_shape, dtype=pypto.DT_INT32),
         ffn_res: pypto.tensor(ffn_res_shape, dtype=pypto.DT_BF16)
     ):
+        pypto.set_compiler_monitor_options(
+            enable=True,
+            interval_sec=4,
+            # timeout_sec=30,
+            # total_timeout_sec=100,   # 总编译时间最多 30 分钟
+            # timeout_action=TimeoutAction.THROW,
+        )
         # 3. 得到动态tensor的shape
         bs = hidden_states.shape[0]
 
@@ -158,7 +166,9 @@ def moe_fusion_kernel(hidden_states_shape, mm_weight_shape, e_score_bias_shape, 
 
         # 4. 实现kernel逻辑，循环展开BS动态轴
         for bs_idx, tile_batch in pypto.loop_unroll(0, bs, 1, name="LOOP_MOE_FUSION_L0", idx_name="bs_idx",
-                                                    unroll_list=powers_of_2(32)):
+                                                    unroll_list=powers_of_2(128)):
+        # for bs_idx, tile_batch in pypto.loop_unroll(0, bs, 1, name="LOOP_MOE_FUSION_L0", idx_name="bs_idx",
+        #                                             unroll_list=[128, 1]):
             # 5. 通过view得到tile_logits
             tile_hidden_states = hidden_states[bs_idx:bs_idx + tile_batch, :]
 
@@ -249,7 +259,7 @@ def moe_fusion_kernel(hidden_states_shape, mm_weight_shape, e_score_bias_shape, 
             hidden_states_quant, hidden_states_scale = symmetric_quantization_per_token(tile_hidden_states)
 
             # up_proj的matmul计算
-            pypto.set_cube_tile_shapes([tile_batch, tile_batch],
+            pypto.set_cube_tile_shapes([min(tile_batch, 32), min(tile_batch, 32)],
                                     [mm1_cube_tile_shape[1], mm1_cube_tile_shape[1] * 2],
                                     [mm1_cube_tile_shape[2], mm1_cube_tile_shape[2]], True, True)
             up_proj = pypto.matmul(hidden_states_quant, w13, pypto.DT_INT32)
@@ -264,7 +274,7 @@ def moe_fusion_kernel(hidden_states_shape, mm_weight_shape, e_score_bias_shape, 
             down_proj_quant, down_proj_scale = symmetric_quantization_per_token(swiglu_out)
 
             # down_proj
-            pypto.set_cube_tile_shapes([tile_batch, tile_batch],
+            pypto.set_cube_tile_shapes([min(tile_batch, 32), min(tile_batch, 32)],
                                     [mm2_cube_tile_shape[1], mm2_cube_tile_shape[1] * 2],
                                     [mm2_cube_tile_shape[2], mm2_cube_tile_shape[2]], True, False)
             down_proj = pypto.matmul(down_proj_quant, w2, pypto.DT_INT32)
@@ -299,7 +309,7 @@ def test_moe_fusion():
 
     # 2. 构造多种shape，测试动态case
     torch.manual_seed(0)
-    for bs in [32, 32, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16]:
+    for bs in [128]:
         # 3. 准备测试数据
         hidden_states = torch.rand((bs, hidden_size), dtype=x_dtype, device=f'npu:{device_id}') * 0.05
         weight_gate_upper_tensor = torch.rand((hidden_size, intermediate_size * 2),

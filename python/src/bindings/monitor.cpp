@@ -8,31 +8,22 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
- * \file pybind11.cpp
- * \brief
- */
-
 #include "pybind_common.h"
-#include "bindings/bindings.h"
+#include "interface/compiler_monitor/monitor_manager.h"
 
 using namespace npu::tile_fwk;
 
 namespace pypto {
-PYBIND11_MODULE(pypto_impl, m) {
-    m.doc() = "PyPTO";
-    bind_enum(m);
-    BindElement(m);
-    BindTensor(m);
-    BindSymbolicScalar(m);
-    bind_controller(m);
-    bind_operation(m);
-    BindRuntime(m);
-    BindCostModelRuntime(m);
-    bind_pass(m);
-    BindFunction(m);
-    BindDistributed(m);
-    BindPlatform(m);
-    BindMonitor(m);
-};
-} // namespace pypto
+
+void BindMonitor(py::module &m) {
+    m.def("InitializeMonitor", []() {
+        MonitorManager::Instance().Initialize();
+    }, "Initialize compiler monitor (called on pypto import).");
+
+    m.def("SetCompilerMonitorOptions", [](bool enable, int interval_sec, int timeout_sec, int total_timeout_sec) {
+        MonitorManager::Instance().SetCompilerMonitorOptions(enable, interval_sec, timeout_sec, total_timeout_sec);
+    }, py::arg("enable") = true, py::arg("interval_sec") = 30, py::arg("timeout_sec") = 60, py::arg("total_timeout_sec") = 120,
+       "Set compiler monitor options: enable, progress print interval in seconds.");
+}
+
+}  // namespace pypto

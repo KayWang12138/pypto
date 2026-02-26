@@ -63,6 +63,9 @@ def _load_shared_libs():
 
 _load_shared_libs()
 
+from . import pypto_impl  # noqa: F401
+# Monitor is initialized on first compile (lazy) so set_compiler_monitor_options() takes effect
+
 from . import experimental
 
 from .config import *  # noqa
@@ -84,6 +87,7 @@ from .functions import Function, get_last_function, get_current_function
 # Import frontend after all other imports to avoid circular imports
 from . import frontend
 
+from .compiler_monitor import set_compiler_monitor_options
 
 tensor = Tensor
 symbolic_scalar = SymbolicScalar
