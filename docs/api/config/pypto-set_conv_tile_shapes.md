@@ -52,7 +52,7 @@ TileShape需要满足以下约束条件：
 
         - 1 <= tileCout <= Cout（Cout为输出特征图实际通道数）
 
-        - 1 <= tileN（代表batch数） <= Batch（Batch为实际批次大小）
+        - 1 <= tileN（代表batch数） <= 1
 
     - tileL0Info各维度值需满足对齐约束：
 
