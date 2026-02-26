@@ -585,6 +585,21 @@ public:
         return kernel->GetWorkspaceSize(tensors);
     }
 
+    void SetDevPrefAddr([[maybe_unused]]const bool &debugEnable, [[maybe_unused]]const bool &isCaptureMode) {
+#ifdef BUILD_WITH_CANN
+        auto &devRunner = DeviceRunner::Get();
+        if (debugEnable || devRunner.GetEnableDumpDevPref()) {
+            if (isCaptureMode) {
+                ChangeCaptureModeRelax();
+            }
+            devRunner.SetDebugEnable();
+            if (isCaptureMode) {
+                ChangeCaptureModeGlobal();
+            }
+        }
+#endif
+    }
+
     void Launch(KernelBinary *kernel, bool isCaptureMode, aclrtStream aicoreStream,
         std::vector<DeviceTensorData> &tensors, uint8_t *ctrlFlowCache, int64_t *workspace) {
         auto [args, argsSize] = kernel->BuildKernelArgs(tensors);
@@ -601,6 +616,7 @@ public:
         ALOG_ERROR_F("triple stream %d sequence %ld workspace %p cfgcache %p", tripleStream, sequence.load(), workspace,
             ctrlFlowCache);
 #endif
+        SetDevPrefAddr(debugEnable, isCaptureMode);
         int ret = DeviceLauncher::LaunchAicpuKernel(rtAicpuArgs, tripleStream, debugEnable, kernel->GetFunction());
         ASSERT(ret == RT_ERROR_NONE) << "launch aicpu failed: " << ret;
 
