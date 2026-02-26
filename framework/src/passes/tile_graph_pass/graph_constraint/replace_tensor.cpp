@@ -511,9 +511,11 @@ Status ReplaceTensor::BackwardAssemble(Operation *op, LogicalTensorPtr &rootTens
         return FAILED;
     }
     op->GetIOperands()[0]->tensor = rootTensor->tensor;
-    if (IsCopyOut(inOp->GetOpcode())) {
-        auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(inOp->GetOpAttribute());
-        copyAttr->SetToOffset(OpImmediate::Specified(op->GetIOperands()[0]->GetOffset())); 
+    for (auto producer : (op->GetIOperands()[0])->GetProducers()) {
+        if (IsCopyOut(producer->GetOpcode())) {
+            auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(producer->GetOpAttribute());
+            copyAttr->SetToOffset(OpImmediate::Specified(op->GetIOperands()[0]->GetOffset())); 
+        }
     }
     backwardOps.insert(op->GetOpMagic());
     if (op->GetIOperands()[0]->GetConsumers().size() > 1) {
