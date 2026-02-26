@@ -560,5 +560,71 @@ TEST_F(ReplaceTensorTest, TestNotInplaceReshape) {
     EXPECT_EQ(pass.PostCheck(*currFunctionPtr), SUCCESS);
 }
 
+/*       
+incast1 - a_mul_b - copyout \
+                                assemble outcast
+incast2 - a_mul_b - copyout /
+*/
+TEST_F(ReplaceTensorTest, TestBackASSEMBLE) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestViewAssemble", "TestViewAssemble", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    // Prepare the graph
+    std::vector<int64_t> shape = {kNumEight, kNumEight};
+    std::vector<int64_t> shape1 = {kNumEight, kNumFour};
+    std::vector<int64_t> offset0 = {kNumZero, kNumZero};
+    std::vector<int64_t> offset1 = {kNumZero, kNumFour};
+    // init RawTensor
+    std::shared_ptr<RawTensor> outRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
+    std::shared_ptr<RawTensor> viewRawTensor0 = std::make_shared<RawTensor>(DT_FP32, shape1);
+    std::shared_ptr<RawTensor> viewRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape1);
+    std::shared_ptr<RawTensor> viewTypeRaw0 = std::make_shared<RawTensor>(DT_FP32, shape1);
+    std::shared_ptr<RawTensor> viewTypeRaw1 = std::make_shared<RawTensor>(DT_FP32, shape1);
+    std::shared_ptr<RawTensor> assRawTensor0 = std::make_shared<RawTensor>(DT_FP32, shape1);
+    std::shared_ptr<RawTensor> assRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape1);
+    // init LogicalTensor
+    auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto copy0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    auto copy1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    auto viewIn0 = std::make_shared<LogicalTensor>(*currFunctionPtr, viewRawTensor0, offset0, shape1);
+    auto viewIn1 = std::make_shared<LogicalTensor>(*currFunctionPtr, viewRawTensor1, offset0, shape1);
+    auto viewTypeIn0 = std::make_shared<LogicalTensor>(*currFunctionPtr, viewTypeRaw0, offset0, shape1);
+    auto viewTypeIn1 = std::make_shared<LogicalTensor>(*currFunctionPtr, viewTypeRaw1, offset0, shape1);
+    auto assIn0 = std::make_shared<LogicalTensor>(*currFunctionPtr, assRawTensor0, offset0, shape1);
+    auto assIn1 = std::make_shared<LogicalTensor>(*currFunctionPtr, assRawTensor1, offset1, shape1);
+    auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, outRawTensor, offset0, shape);
+    // Init Graph
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {copy0});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {copy1});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copy0}, {viewIn0});
+    currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {copy1}, {viewIn1});
+    auto &viewOp0 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {viewIn0}, {viewTypeIn0});
+    auto &viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {viewIn1}, {viewTypeIn1});
+    currFunctionPtr->AddOperation(Opcode::OP_VIEW_TYPE, {viewTypeIn0}, {assIn0});
+    currFunctionPtr->AddOperation(Opcode::OP_VIEW_TYPE, {viewTypeIn1}, {assIn1});
+    auto &assOp0 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {assIn0}, {outcast});
+    auto &assOp1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {assIn1}, {outcast});
+    // Init Attribute
+    auto view_Attr0 = std::make_shared<ViewOpAttribute>(offset0);
+    auto view_Attr1 = std::make_shared<ViewOpAttribute>(offset1);
+    auto ass_Attr0 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset0);
+    auto ass_Attr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
+    viewOp0.SetOpAttribute(view_Attr0);
+    viewOp1.SetOpAttribute(view_Attr1);
+    assOp0.SetOpAttribute(ass_Attr0);
+    assOp1.SetOpAttribute(ass_Attr1);
+    // Run the Pass
+    ReplaceTensor pass;
+    currFunctionPtr->inCasts_.push_back(incast);
+    currFunctionPtr->outCasts_.push_back(outcast);
+    EXPECT_EQ(pass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(outcast->GetRawMagic(), assIn0->GetRawMagic());
+    EXPECT_EQ(outcast->GetRawMagic(), assIn1->GetRawMagic());
+    EXPECT_EQ(outcast->GetRawMagic(), viewTypeIn0->GetRawMagic());
+    EXPECT_EQ(outcast->GetRawMagic(), viewTypeIn1->GetRawMagic());
+    EXPECT_EQ(outcast->GetRawMagic(), viewIn0->GetRawMagic());
+    EXPECT_EQ(outcast->GetRawMagic(), viewIn1->GetRawMagic());
+    EXPECT_EQ(pass.PostCheck(*currFunctionPtr), SUCCESS);
+}
+
 }
 }
