@@ -31,8 +31,6 @@ namespace npu::tile_fwk {
 
 #define ENABLE_AICORE_PRINT 0
 
-#define ENABLE_AICORE_PERF_TRACE  0
-
 /* The DFX swimlane performance statistics use host pre-allocated memory mode, which avoids data collection during
    AICPU scheduling to minimize scheduling interference. However, each AICore only supports tracking up to
    MAX_DFX_TASK_NUM_PER_CORE tasks, with excess tasks being discarded.
@@ -173,13 +171,13 @@ INLINE void SendRegAck(uint32_t taskIdx) {
 
 INLINE void PerfTraceRecord(uint32_t devTaskId, __gm__ Metrics* metric, AicorePerfTrace type, __gm__ KernelArgs *args,
                             uint64_t cycle = 0) {
-    if (unlikely(args->taskEntry.reserved[0] == PRO_LEVEL2 || args->taskEntry.reserved[0] == PRO_LEVEL1 ||
-        ENABLE_AICORE_PERF_TRACE == 1)) {
-        uint32_t cnt = metric->perfTraceCnt[type];
+    if (unlikely(args->taskEntry.reserved2[0] == 1)) {
+        uint32_t turn = metric->turnNum;
+        uint32_t cnt = metric->perfTraceCnt[turn][type];
         if (cnt < PERF_TRACE_INST_MAX_NUM_EVERY_TYPE) {
-            metric->perfTrace[type][cnt] = cycle == 0 ? get_sys_cnt() : cycle;
-            metric->perfTraceDevTaskId[type][cnt] = devTaskId;
-            metric->perfTraceCnt[type]++;
+            metric->perfTrace[turn][type][cnt] = cycle == 0 ? get_sys_cnt() : cycle;
+            metric->perfTraceDevTaskId[turn][type][cnt] = devTaskId;
+            metric->perfTraceCnt[turn][type]++;
         }
     }
 }
@@ -234,7 +232,8 @@ INLINE void DfxProcWhenCoreExit(ExecuteContext *ctx, __gm__ KernelArgs *args, __
             PERF_TRACE_CORE_WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH, args, ctx->lastTaskFinishCycle);
     }
     if (unlikely(args->taskEntry.reserved[0] == PRO_LEVEL2 || args->taskEntry.reserved[0] == PRO_LEVEL1 ||
-        ENABLE_AICORE_PERF_TRACE == 1)) {
+        args->taskEntry.reserved2[0] == 1)) {
+        metric->turnNum++;
         FlushMetricStatistic(args);
     }
 }
@@ -374,7 +373,7 @@ INLINE void KernelEntry(int64_t ffts_addr, int64_t inputs,
     auto devArgs = (DeviceArgs*)cfgdata;
     __gm__ KernelArgs *args = (__gm__ KernelArgs *)(devArgs->sharedBuffer + blockIdx * SHARED_BUFFER_SIZE);
     __gm__ Metrics* metric = (__gm__ Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
-    args->taskEntry.reserved[0] = ((__gm__ DevDfxArgs*)devArgs->devDfxArgAddr)->isOpenSwim | args->taskEntry.reserved[0];
+    args->taskEntry.reserved2[0] = ((__gm__ DevDfxArgs*)devArgs->devDfxArgAddr)->isOpenSwim;
     PerfTraceRecord(INVALID_DEV_TASK_ID, metric, PERF_TRACE_CORE_BEGIN, args);
     bool isFirstTask = true;
     SetStatus(args, STAGE_HANDSHAKE_START);
