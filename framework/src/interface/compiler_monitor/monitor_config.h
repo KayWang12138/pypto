@@ -8,30 +8,20 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
- * \file pybind11.cpp
- * \brief
- */
+#pragma once
 
-#include "pybind_common.h"
-#include "bindings/bindings.h"
+namespace npu::tile_fwk {
 
-using namespace npu::tile_fwk;
+struct MonitorConfig {
+    bool enable{true};
+    int interval_sec{30};
+    int timeout_sec{60};
+    int total_timeout_sec{120};
 
-namespace pypto {
-PYBIND11_MODULE(pypto_impl, m) {
-    m.doc() = "PyPTO";
-    bind_enum(m);
-    BindElement(m);
-    BindTensor(m);
-    BindSymbolicScalar(m);
-    bind_controller(m);
-    bind_operation(m);
-    BindRuntime(m);
-    BindCostModelRuntime(m);
-    bind_pass(m);
-    BindFunction(m);
-    BindIr(m);
-    BindMonitor(m);
+    static MonitorConfig& Instance() {
+        static MonitorConfig config;
+        return config;
+    }
 };
-} // namespace pypto
+
+}  // namespace npu::tile_fwk
