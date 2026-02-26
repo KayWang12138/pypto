@@ -205,7 +205,7 @@ Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
                 if (outputs[i]->tensor->rawshape.back() == 1 && ReduceNeedCombineAxis(op)) {
                     outputCombineAxis.push_back(true);
                     if (op.GetOpcode() == Opcode::OP_EXPAND) {
-                        int axis = op->GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM");
+                        int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM");
                         if (axis == static_cast<int>(outputs[i]->tensor->rawshape.size()) - 2) {
                             op.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", axis + 1);
                         }
