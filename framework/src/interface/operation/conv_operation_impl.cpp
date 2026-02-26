@@ -172,7 +172,7 @@ void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const 
         });
     }
     CheckValueRange(tileHout, "tileHout" , NUM1, hOut);
-    CheckValueRange(tileWout, "tileWout" , NUM1, wOut);
+    CheckValueRange(tileWout, "tileWout" , NUM1, ConvAlignB(wOut, NUM16));
     CheckAlignment(tileWout, NUM16, "tileWout");
 }
 
