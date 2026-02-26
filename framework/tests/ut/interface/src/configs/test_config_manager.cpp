@@ -150,6 +150,7 @@ TEST_F(TestConfigManager, NormalRuntimeTest) {
         {STITCH_FUNCTION_NUM_STEP, {0, 128}},
         {STITCH_CFGCACHE_SIZE, {0, 100000000}},
         {STITCH_FUNCTION_SIZE, {1, 65535}},
+        {MAX_CUBE_BLOCKDIM, {0, 24}},
         {CFG_RUN_MODE, {0, 1}},
         {CFG_VALID_SHAPE_OPTIMIZE, {0, 1}},
     };
@@ -168,6 +169,7 @@ TEST_F(TestConfigManager, AbnormalRuntimeTest) {
         {STITCH_FUNCTION_NUM_STEP, {-1, 129}},
         {STITCH_CFGCACHE_SIZE, {-1, 100000001}},
         {STITCH_FUNCTION_SIZE, {0, 65536}},
+        {MAX_CUBE_BLOCKDIM, {-1, 100}},
         {CFG_RUN_MODE, {-1, 2}},
         {CFG_VALID_SHAPE_OPTIMIZE, {-1, 2}},
     };
