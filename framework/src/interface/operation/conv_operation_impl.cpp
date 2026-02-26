@@ -157,7 +157,13 @@ void CheckAlignment(int64_t value, int64_t alignment, const std::string& valueNa
                 << ", requires " << alignment << (isByte ? "-byte alignment." : "-element alignment.") << std::endl;
         });
 }
-
+int64_t ConvAlignB(int64_t a, int64_t b)
+{
+    if (b == 0) {
+        return 0;
+    }
+    return ((a + b - 1) / b) * b;
+}
 void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam)
 {
     auto &convTile = TileShape::Current().GetConvTile();
@@ -226,14 +232,6 @@ void CheckDivisible(int64_t value, int64_t divisor, const std::string& valueName
             << " to the nearest value such that "<< valueName 
             << " % " << divisorName << " == 0." << std::endl;
     });
-}
-
-int64_t ConvAlignB(int64_t a, int64_t b)
-{
-    if (b == 0) {
-        return 0;
-    }
-    return ((a + b - 1) / b) * b;
 }
 
 void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam)
