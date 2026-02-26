@@ -32,7 +32,6 @@ using Json = nlohmann::json;
 using namespace std::string_literals;
 using namespace std::chrono_literals;
 
-#define TOPO_LOG SIMULATION_LOGD
 
 namespace CostModel {
 
@@ -316,27 +315,27 @@ void DeviceMachine::BuildSingleFuncTask()
 
 void DeviceMachine::PrintFunctionTopo(FunctionPtr func) {
     auto cache = GetSim()->functionCache.cache;
-    TOPO_LOG("Function -> %s", func->funcName.c_str());
-    TOPO_LOG("incast:");
+    SIMULATION_LOGD("Function -> %s", func->funcName.c_str());
+    SIMULATION_LOGD("incast:");
     for (const auto &incast : func->incastMagic) {
-        TOPO_LOG("%s", func->tileMap[incast]->Dump().c_str());
+        SIMULATION_LOGD("%s", func->tileMap[incast]->Dump().c_str());
     }
 
-    TOPO_LOG("outcast:");
+    SIMULATION_LOGD("outcast:");
     for (const auto &outcast : func->outcastMagic) {
-        TOPO_LOG("%s", func->tileMap[outcast]->Dump().c_str());
+        SIMULATION_LOGD("%s", func->tileMap[outcast]->Dump().c_str());
     }
 
     for (const auto &op: func->tileOps) {
-        TOPO_LOG("%s", op->opcode.c_str());
-        TOPO_LOG("incast:");
+        SIMULATION_LOGD("%s", op->opcode.c_str());
+        SIMULATION_LOGD("incast:");
         for (auto &incast : op->iOperand) {
-            TOPO_LOG("%s", incast->Dump().c_str());
+            SIMULATION_LOGD("%s", incast->Dump().c_str());
         }
 
-        TOPO_LOG("outcast:");
+        SIMULATION_LOGD("outcast:");
         for (auto &outcast : op->oOperand) {
-            TOPO_LOG("%s", outcast->Dump().c_str());
+            SIMULATION_LOGD("%s", outcast->Dump().c_str());
         }
 
         if (op->IsCall()) {
@@ -358,9 +357,9 @@ void DeviceMachine::PrintTopo() {
     if (func->parentFunction) {
         auto topo = func->parentFunction->topoInfo_;
         for (auto &e : topo.topology_) {
-            TOPO_LOG("[TOPO] %s, %s", std::to_string(e.esgId).c_str(), std::to_string(e.readyState).c_str());
+            SIMULATION_LOGD("[TOPO] %s, %s", std::to_string(e.esgId).c_str(), std::to_string(e.readyState).c_str());
             for (auto &o : e.outGraph) {
-                TOPO_LOG("[TOPO] out -> %s", std::to_string(o).c_str());
+                SIMULATION_LOGD("[TOPO] out -> %s", std::to_string(o).c_str());
             }
         }
     }
