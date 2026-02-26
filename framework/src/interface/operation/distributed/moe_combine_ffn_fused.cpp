@@ -29,9 +29,11 @@
 #include "tilefwk/tilefwk_op.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <functional>
 #include <limits>
 #include <numeric>
+#include <string>
 
 namespace npu::tile_fwk::Distributed {
 void MoeDistributedCombineValidate(const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
@@ -49,6 +51,50 @@ Tensor MoeDistributedCombineReceive(
     const Tensor& shmemSignal);
 
 namespace {
+inline bool DistScheduleEnabledByEnv()
+{
+    const char *envValue = std::getenv("PYTO_ENABLE_DIST_SCHEDULE");
+    return envValue != nullptr && std::string(envValue) == "1";
+}
+
+inline bool DistNDimColumnMajorEnabledByEnv()
+{
+    const char *envValue = std::getenv("PYTO_DIST_ENABLE_N_COLUMN_MAJOR");
+    return envValue != nullptr && std::string(envValue) == "1";
+}
+
+inline void MarkDistSchedule(
+    DistOpAttr &distOpAttr,
+    DistDepAxis axis,
+    int64_t stageId,
+    int64_t stageCount,
+    int64_t rowOffset,
+    int64_t rowShape,
+    int64_t colShape,
+    int64_t splitN,
+    bool isProducer,
+    bool isConsumer)
+{
+    bool distScheduleEnabled = DistScheduleEnabledByEnv();
+    bool enableNDimColumnMajor = distScheduleEnabled && DistNDimColumnMajorEnabledByEnv();
+    distOpAttr.scheduleMode = DistScheduleMode::SHMEM_STANDARD;
+    distOpAttr.stagePolicy = DistStagePolicy::PIPELINE;
+    distOpAttr.signalResetPolicy = DistSignalResetPolicy::NONE;
+    distOpAttr.enableNDimColumnMajor = enableNDimColumnMajor;
+
+    distOpAttr.tileSchedule.depAxis = axis;
+    distOpAttr.tileSchedule.stageId = stageId;
+    distOpAttr.tileSchedule.stageCount = stageCount;
+    distOpAttr.tileSchedule.tileMBegin = std::max<int64_t>(0, rowOffset);
+    distOpAttr.tileSchedule.tileMEnd = std::max<int64_t>(0, rowOffset + std::max<int64_t>(1, rowShape) - 1);
+    distOpAttr.tileSchedule.tileNBegin = 0;
+    distOpAttr.tileSchedule.tileNEnd = std::max<int64_t>(0, colShape - 1);
+    distOpAttr.tileSchedule.splitN = std::max<int64_t>(1, splitN);
+    distOpAttr.tileSchedule.barrierSlot = stageId;
+    distOpAttr.tileSchedule.producerRole = isProducer ? 1 : 0;
+    distOpAttr.tileSchedule.consumerRole = isConsumer ? 1 : 0;
+}
+
 int32_t GetFfnIntermediateSizeFromShape(const Shape& shape, int32_t hiddenSize)
 {
     ASSERT(hiddenSize > 0) << "hiddenSize must be positive, but got " << hiddenSize;
@@ -109,6 +155,7 @@ void TiledMoeFfnFused(
 
     DistOpAttr distOpAttr;
     distOpAttr.extraTemplateParam = std::to_string(intermediateSize);
+    int64_t stageCount = static_cast<int64_t>(GetTotalTileNum(tileShape.GetDistTile().row));
 
     CreateTileOp(tileShape,
         [&](int32_t tileIndex, int32_t rowOffset, int32_t colOffset, int32_t rowShape, int32_t colShape) {
@@ -126,6 +173,8 @@ void TiledMoeFfnFused(
 
             distOpAttr.paddedColShape = paddedColShape;
             distOpAttr.rowShape = rowShape;
+            MarkDistSchedule(distOpAttr, DistDepAxis::N, tileIndex, stageCount, rowOffset, rowShape, colShape,
+                intermediateSize, false, true);
             tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
             tileOp.SetAttr(OpAttributeKey::excludeBufferReuse, true);
             tileOp.SetAttribute(OpAttributeKey::isCube, true);
@@ -155,6 +204,9 @@ Tensor MoeFfnFused(
         Opcode::OP_MOE_FFN_FUSED,
         {combineOut.GetStorage(), ffnWeight.GetStorage()},
         {out, workspace});
+    DistOpAttr distOpAttr;
+    MarkDistSchedule(distOpAttr, DistDepAxis::N, -1, tileNum, 0, batchSize, hiddenSize, intermediateSize, false, true);
+    op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     op.SetAttr("intermediateSize", static_cast<int64_t>(intermediateSize));
     op.SetAttr("workspaceRowsPerTile", workspaceRowsPerTile);
     return out;
@@ -191,6 +243,7 @@ void MoeDistributedCombineFfnFused(const Tensor& expandX, const Tensor& assistIn
         CreateShmemTensor(shmemSignal, epWorldSize, hcclGroupIndex, DT_INT32, shmemSignalShape, 1);
         (void)ShmemDataSet(recvCounts, shmemSignal);
     }
+    bool distScheduleEnabled = DistScheduleEnabledByEnv();
     Tensor combineOut;
     LOOP("MoeDistributedCombineOnly", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
@@ -213,18 +266,57 @@ void MoeDistributedCombineFfnFused(const Tensor& expandX, const Tensor& assistIn
         auto shmemSignalThisRank = View(shmemSignal, {1, 1, batchSize, shmemSignalCol},
             std::vector<SymbolicScalar>{thisRank, 0, 0, 0});
 
-        TileShape::Current().SetDistTile(
-            {batchSize / aivNum, aivNum, batchSize % aivNum}, {hiddenSize, 1, 0}, {0, 0, 0});
-        combineOut = MoeDistributedCombineReceive(sendOut, expertScales, recvCounts, shmemDataThisRank,
-            shmemSignalThisRank);
+        if (!distScheduleEnabled) {
+            TileShape::Current().SetDistTile(
+                {batchSize / aivNum, aivNum, batchSize % aivNum}, {hiddenSize, 1, 0}, {0, 0, 0});
+            combineOut = MoeDistributedCombineReceive(sendOut, expertScales, recvCounts, shmemDataThisRank,
+                shmemSignalThisRank);
+        } else {
+            // Shared-tensor dependency resolving (Comet-style M stage): process per-token stage and feed FFN stage-by-stage.
+            // Use AIV-count-aligned stage split by default to keep M-axis pipeline depth stable.
+            int32_t defaultStageNum = std::max<int32_t>(1, std::min<int32_t>(batchSize, AIV_NUM));
+            int32_t stageNum = defaultStageNum;
+            int32_t baseRowsPerStage = batchSize / stageNum;
+            int32_t remainRows = batchSize % stageNum;
+            int32_t currentOffset = 0;
+            for (int32_t stage = 0; stage < stageNum; ++stage) {
+                int32_t stageRows = baseRowsPerStage + (stage < remainRows ? 1 : 0);
+                if (stageRows <= 0) {
+                    continue;
+                }
+                int32_t stageOffset = currentOffset;
+                currentOffset += stageRows;
+                int32_t stageAivNum = std::max<int32_t>(1, std::min<int32_t>(aivNum, stageRows));
+
+                auto expertScalesStage = View(expertScales, {stageRows, topK}, {stageOffset, 0});
+                auto recvCountsStage = View(recvCounts, {stageRows}, {stageOffset});
+                auto shmemDataStage = View(
+                    shmemDataThisRank, {1, 1, topK * stageRows, hiddenSize}, {0, 0, topK * stageOffset, 0});
+                auto shmemSignalStage = View(shmemSignalThisRank, {1, 1, stageRows, shmemSignalCol},
+                    {0, 0, stageOffset, 0});
+
+                TileShape::Current().SetDistTile(
+                    {stageRows / stageAivNum, stageAivNum, stageRows % stageAivNum}, {hiddenSize, 1, 0}, {0, 0, 0});
+                auto combineStage = MoeDistributedCombineReceive(
+                    sendOut, expertScalesStage, recvCountsStage, shmemDataStage, shmemSignalStage);
+
+                // N-stage decomposition stays in OP_MOE_FFN_FUSED via splitN + column-major mode.
+                TileShape::Current().SetDistTile(
+                    {stageRows / stageAivNum, stageAivNum, stageRows % stageAivNum}, {hiddenSize, 1, 0}, {0, 0, 0});
+                auto outStage = MoeFfnFused(combineStage, ffnWeight, intermediateSize, stageAivNum);
+                Assemble(outStage, {stageOffset, 0}, out);
+            }
+        }
     }
 
-    LOOP("MoeFfnOnly", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
-        (void)index;
-        int32_t aivNum = AIV_NUM;
-        TileShape::Current().SetDistTile(
-            {batchSize / aivNum, aivNum, batchSize % aivNum}, {hiddenSize, 1, 0}, {0, 0, 0});
-        out = MoeFfnFused(combineOut, ffnWeight, intermediateSize, aivNum);
+    if (!distScheduleEnabled) {
+        LOOP("MoeFfnOnly", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            int32_t aivNum = AIV_NUM;
+            TileShape::Current().SetDistTile(
+                {batchSize / aivNum, aivNum, batchSize % aivNum}, {hiddenSize, 1, 0}, {0, 0, 0});
+            out = MoeFfnFused(combineOut, ffnWeight, intermediateSize, aivNum);
+        }
     }
 }
 } // namespace npu::tile_fwk::Distributed

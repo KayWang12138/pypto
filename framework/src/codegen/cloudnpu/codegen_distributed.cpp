@@ -71,9 +71,10 @@ std::string CodeGenOpCloudNPU::GenExtraTemplateParamsForMoeDistributedCombine(in
         rowShape = distOpAttr.rowShape;
     }
     int64_t colShape = originShape[operandIndex][originShape[operandIndex].size() - 1];
+    std::string localFirstParam = distOpAttr.enableLocalFirstSchedule ? "true" : "false";
     std::ostringstream oss;
     oss << "<" << GetTemplateDType() << ", " << distOpAttr.topK << ", " << rowShape << ", " << colShape << ", "
-        << distOpAttr.paddedColShape << ">";
+        << distOpAttr.paddedColShape << ", " << localFirstParam << ">";
     return oss.str();
 }
 
@@ -157,9 +158,10 @@ std::string CodeGenOpCloudNPU::GenTemplateParamsForMoeFfnFused() const
     }
     int64_t colShape = originShape[0][originShape[0].size() - 1];
     ASSERT(!distOpAttr.extraTemplateParam.empty());
+    std::string columnMajorParam = distOpAttr.enableNDimColumnMajor ? "true" : "false";
     std::ostringstream oss;
     oss << "<" << GetTemplateDType() << ", " << rowShape << ", " << colShape << ", "
-        << distOpAttr.paddedColShape << ", " << distOpAttr.extraTemplateParam << ">";
+        << distOpAttr.paddedColShape << ", " << distOpAttr.extraTemplateParam << ", " << columnMajorParam << ">";
     return oss.str();
 }
 

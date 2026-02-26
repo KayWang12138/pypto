@@ -25,8 +25,50 @@
 #include "tilefwk/symbolic_distributed.h"
 #include "tilefwk/tensor.h"
 #include "tilefwk/tilefwk.h"
+#include <cstdlib>
+#include <string>
 
 namespace npu::tile_fwk::Distributed {
+namespace {
+inline bool DistScheduleEnabledByEnv()
+{
+    const char *envValue = std::getenv("PYTO_ENABLE_DIST_SCHEDULE");
+    return envValue != nullptr && std::string(envValue) == "1";
+}
+
+inline void MarkDistSchedule(
+    DistOpAttr &distOpAttr,
+    DistDepAxis axis,
+    int64_t stageId,
+    int64_t stageCount,
+    int64_t rowOffset,
+    int64_t rowShape,
+    int64_t colShape,
+    bool isProducer,
+    bool isConsumer,
+    DistSignalResetPolicy resetPolicy = DistSignalResetPolicy::NONE,
+    int64_t splitN = 1)
+{
+    bool distScheduleEnabled = DistScheduleEnabledByEnv();
+    distOpAttr.scheduleMode = DistScheduleMode::SHMEM_STANDARD;
+    distOpAttr.stagePolicy = DistStagePolicy::PIPELINE;
+    distOpAttr.signalResetPolicy = resetPolicy;
+    distOpAttr.enableLocalFirstSchedule = distScheduleEnabled;
+
+    distOpAttr.tileSchedule.depAxis = axis;
+    distOpAttr.tileSchedule.stageId = stageId;
+    distOpAttr.tileSchedule.stageCount = stageCount;
+    distOpAttr.tileSchedule.tileMBegin = std::max<int64_t>(0, rowOffset);
+    distOpAttr.tileSchedule.tileMEnd = std::max<int64_t>(0, rowOffset + std::max<int64_t>(1, rowShape) - 1);
+    distOpAttr.tileSchedule.tileNBegin = 0;
+    distOpAttr.tileSchedule.tileNEnd = std::max<int64_t>(0, colShape - 1);
+    distOpAttr.tileSchedule.splitN = std::max<int64_t>(1, splitN);
+    distOpAttr.tileSchedule.barrierSlot = stageId;
+    distOpAttr.tileSchedule.producerRole = isProducer ? 1 : 0;
+    distOpAttr.tileSchedule.consumerRole = isConsumer ? 1 : 0;
+}
+} // namespace
+
 void MoeDistributedCombineValidateExpandX(
     const Tensor& expandX,
     const Tensor& expertScales,
@@ -199,6 +241,7 @@ void TiledMoeDistributedCombineSend(
 
     DistOpAttr distOpAttr;
     op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+    int64_t stageCount = static_cast<int64_t>(GetTotalTileNum(tileShape.GetDistTile().row));
 
     CreateTileOp(tileShape,
         [&](int32_t tileIndex, int32_t rowOffset, int32_t colOffset, int32_t rowShape, int32_t colShape) {
@@ -214,6 +257,8 @@ void TiledMoeDistributedCombineSend(
                 {out, dataBuffer, assistInfoForCombineBuffer, signalBuffer});
 
             distOpAttr.paddedColShape = paddedColShape;
+            MarkDistSchedule(distOpAttr, DistDepAxis::M, tileIndex, stageCount, rowOffset, rowShape, colShape, true, false,
+                DistSignalResetPolicy::EPOCH_SET);
             tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
             tileOp.SetAttr(OpAttributeKey::dontTouch, true);
         });
@@ -267,6 +312,8 @@ void TiledMoeDistributedCombineReceive(
             distOpAttr.paddedColShape = paddedColShape;
             distOpAttr.rowOffset = rowOffset;
             distOpAttr.rowShape = rowShape;
+            int64_t stageCount = static_cast<int64_t>(GetTotalTileNum(tileShape.GetDistTile().row));
+            MarkDistSchedule(distOpAttr, DistDepAxis::M, tileIndex, stageCount, rowOffset, rowShape, colShape, false, true);
             tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         });
 }
@@ -307,6 +354,8 @@ Tensor MoeDistributedCombineSend(
         {out});
     DistOpAttr distOpAttr;
     distOpAttr.topK = topK;
+    MarkDistSchedule(distOpAttr, DistDepAxis::M, -1, 0, 0, in.GetShape(0), in.GetShape(1), true, false,
+        DistSignalResetPolicy::EPOCH_SET);
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
 }
@@ -442,7 +491,8 @@ void MoeDistributedCombineV2(const Tensor& expandX, const Tensor& assistInfoForC
         Tensor shmemSignalTile = View(shmemSignal, {1, 1, 1, 1, hiddenSize}, {thisRank, 0, 0, tokenId, 0});
         TileShape::Current().SetVecTile({1, hiddenSize});
         Tensor predToken(DT_INT32, {1, 1}, "receivePredToken");
-        Tensor waitUntilOut = WaitUntil(predToken, shmemSignalTile, topK);
+        // Consume-and-reset prevents stale signal reuse when shared memory pages are recycled across rounds.
+        Tensor waitUntilOut = WaitUntil(predToken, shmemSignalTile, topK, true);
 
         TileShape::Current().SetVecTile({topK, hiddenSize});
         Tensor shmemDataTile = View(shmemData, {1, 1, topK, hiddenSize}, {thisRank, 0, topK * tokenId, 0});

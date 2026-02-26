@@ -28,7 +28,7 @@ constexpr uint32_t CUBE_BLOCK_M = 16;
 #ifndef __TILE_FWK_HOST__
 #if defined(SUPPORT_TILE_TENSOR) && defined(__AIC__)
 // Tiled matmul C = A @ B using dynamic arch32 cube primitives.
-template <typename T, typename AccT, uint16_t tileM, uint16_t tileK, uint16_t tileN>
+template <typename T, typename AccT, uint16_t tileM, uint16_t tileK, uint16_t tileN, bool nDimColumnMajor>
 TILEOP void FFNTiledMatMul(
     __gm__ T* output,
     __gm__ T* input,
@@ -56,43 +56,81 @@ TILEOP void FFNTiledMatMul(
     set_flag(PIPE_FIX, PIPE_M, EVENT_ID2);
     wait_flag(PIPE_FIX, PIPE_M, EVENT_ID2);
 
-    for (uint32_t mTile = 0; mTile < M; mTile += tileM) {
-        uint32_t curM = (mTile + tileM <= M) ? tileM : (M - mTile);
-        uint32_t alignedM = AlignUp<uint32_t>(curM, CUBE_BLOCK_M);
-
+    if constexpr (nDimColumnMajor) {
         for (uint32_t nTile = 0; nTile < N; nTile += tileN) {
-            uint32_t curN = (nTile + tileN <= N) ? tileN : (N - nTile);
+            for (uint32_t mTile = 0; mTile < M; mTile += tileM) {
+                uint32_t curM = (mTile + tileM <= M) ? tileM : (M - mTile);
+                uint32_t curN = (nTile + tileN <= N) ? tileN : (N - nTile);
+                uint32_t alignedM = AlignUp<uint32_t>(curM, CUBE_BLOCK_M);
+                for (uint32_t kTile = 0; kTile < K; kTile += tileK) {
+                    uint32_t curK = (kTile + tileK <= K) ? tileK : (K - kTile);
 
-            for (uint32_t kTile = 0; kTile < K; kTile += tileK) {
-                uint32_t curK = (kTile + tileK <= K) ? tileK : (K - kTile);
+                    TileOp::DynL1CopyIn<T, T, CopyInMode::ND2NZ>(
+                        l1InputBuf, input, curM, curK, M, inputStride, mTile, kTile, 0);
+                    TileOp::DynL1CopyIn<T, T, CopyInMode::ND2NZ>(
+                        l1WeightBuf, weight, curK, curN, K, weightStride, kTile, nTile, 0);
 
-                TileOp::DynL1CopyIn<T, T, CopyInMode::ND2NZ>(
-                    l1InputBuf, input, curM, curK, M, inputStride, mTile, kTile, 0);
-                TileOp::DynL1CopyIn<T, T, CopyInMode::ND2NZ>(
-                    l1WeightBuf, weight, curK, curN, K, weightStride, kTile, nTile, 0);
+                    TileOp::DynL1ToL0A<T, 0, 0>(l0aBuf, l1InputBuf, curM, curK, curM, curK);
+                    TileOp::DynL1ToL0B<T, 0, 0>(l0bBuf, l1WeightBuf, curK, curN, curK, curN);
 
-                TileOp::DynL1ToL0A<T, 0, 0>(l0aBuf, l1InputBuf, curM, curK, curM, curK);
-                TileOp::DynL1ToL0B<T, 0, 0>(l0bBuf, l1WeightBuf, curK, curN, curK, curN);
+                    set_flag(PIPE_MTE1, PIPE_M, EVENT_ID1);
+                    wait_flag(PIPE_MTE1, PIPE_M, EVENT_ID1);
 
-                set_flag(PIPE_MTE1, PIPE_M, EVENT_ID1);
-                wait_flag(PIPE_MTE1, PIPE_M, EVENT_ID1);
+                    bool isAcc = (kTile != 0);
+                    TileOp::DynTmad<AccT, T, T, 0, 0>(
+                        l0cBuf, l0aBuf, l0bBuf, curM, curK, curN, isAcc, 0, alignedM, curN);
 
-                bool isAcc = (kTile != 0);
-                TileOp::DynTmad<AccT, T, T, 0, 0>(
-                    l0cBuf, l0aBuf, l0bBuf, curM, curK, curN, isAcc, 0, alignedM, curN);
+                    set_flag(PIPE_M, PIPE_MTE1, EVENT_ID1);
+                    wait_flag(PIPE_M, PIPE_MTE1, EVENT_ID1);
+                }
 
-                set_flag(PIPE_M, PIPE_MTE1, EVENT_ID1);
-                wait_flag(PIPE_M, PIPE_MTE1, EVENT_ID1);
+                set_flag(PIPE_M, PIPE_FIX, EVENT_ID2);
+                wait_flag(PIPE_M, PIPE_FIX, EVENT_ID2);
+
+                TileOp::DynL0CCopyOut<T, AccT, true, 0>(
+                    output, l0cBuf, curM, curN, M, outputStride, mTile, nTile, M, outputStride, 0);
+
+                set_flag(PIPE_FIX, PIPE_M, EVENT_ID2);
+                wait_flag(PIPE_FIX, PIPE_M, EVENT_ID2);
             }
+        }
+    } else {
+        for (uint32_t mTile = 0; mTile < M; mTile += tileM) {
+            for (uint32_t nTile = 0; nTile < N; nTile += tileN) {
+                uint32_t curM = (mTile + tileM <= M) ? tileM : (M - mTile);
+                uint32_t curN = (nTile + tileN <= N) ? tileN : (N - nTile);
+                uint32_t alignedM = AlignUp<uint32_t>(curM, CUBE_BLOCK_M);
+                for (uint32_t kTile = 0; kTile < K; kTile += tileK) {
+                    uint32_t curK = (kTile + tileK <= K) ? tileK : (K - kTile);
 
-            set_flag(PIPE_M, PIPE_FIX, EVENT_ID2);
-            wait_flag(PIPE_M, PIPE_FIX, EVENT_ID2);
+                    TileOp::DynL1CopyIn<T, T, CopyInMode::ND2NZ>(
+                        l1InputBuf, input, curM, curK, M, inputStride, mTile, kTile, 0);
+                    TileOp::DynL1CopyIn<T, T, CopyInMode::ND2NZ>(
+                        l1WeightBuf, weight, curK, curN, K, weightStride, kTile, nTile, 0);
 
-            TileOp::DynL0CCopyOut<T, AccT, true, 0>(
-                output, l0cBuf, curM, curN, M, outputStride, mTile, nTile, M, outputStride, 0);
+                    TileOp::DynL1ToL0A<T, 0, 0>(l0aBuf, l1InputBuf, curM, curK, curM, curK);
+                    TileOp::DynL1ToL0B<T, 0, 0>(l0bBuf, l1WeightBuf, curK, curN, curK, curN);
 
-            set_flag(PIPE_FIX, PIPE_M, EVENT_ID2);
-            wait_flag(PIPE_FIX, PIPE_M, EVENT_ID2);
+                    set_flag(PIPE_MTE1, PIPE_M, EVENT_ID1);
+                    wait_flag(PIPE_MTE1, PIPE_M, EVENT_ID1);
+
+                    bool isAcc = (kTile != 0);
+                    TileOp::DynTmad<AccT, T, T, 0, 0>(
+                        l0cBuf, l0aBuf, l0bBuf, curM, curK, curN, isAcc, 0, alignedM, curN);
+
+                    set_flag(PIPE_M, PIPE_MTE1, EVENT_ID1);
+                    wait_flag(PIPE_M, PIPE_MTE1, EVENT_ID1);
+                }
+
+                set_flag(PIPE_M, PIPE_FIX, EVENT_ID2);
+                wait_flag(PIPE_M, PIPE_FIX, EVENT_ID2);
+
+                TileOp::DynL0CCopyOut<T, AccT, true, 0>(
+                    output, l0cBuf, curM, curN, M, outputStride, mTile, nTile, M, outputStride, 0);
+
+                set_flag(PIPE_FIX, PIPE_M, EVENT_ID2);
+                wait_flag(PIPE_FIX, PIPE_M, EVENT_ID2);
+            }
         }
     }
 }
@@ -308,7 +346,7 @@ struct MoeFfnFusedContext {
 };
 
 // Single-core FFN stage: gate/up -> SiLU -> down.
-template <typename T, uint16_t colShape, uint16_t intermediateSize>
+template <typename T, uint16_t colShape, uint16_t intermediateSize, bool nDimColumnMajor>
 TILEOP void MoeFfnFusedAICSingleCore(
     MoeFfnFusedContext<T, colShape, intermediateSize>& ctx,
     uint32_t tokenCount)
@@ -363,7 +401,7 @@ TILEOP void MoeFfnFusedAICSingleCore(
         }
     }
 
-    FFNTiledMatMul<T, AccType, tileM, tileK, tileN>(
+    FFNTiledMatMul<T, AccType, tileM, tileK, tileN, nDimColumnMajor>(
         gateResultPtr,
         paddedInputPtr,
         gateWeightPtr,
@@ -374,7 +412,7 @@ TILEOP void MoeFfnFusedAICSingleCore(
         N,
         N);
 
-    FFNTiledMatMul<T, AccType, tileM, tileK, tileN>(
+    FFNTiledMatMul<T, AccType, tileM, tileK, tileN, nDimColumnMajor>(
         upResultPtr,
         paddedInputPtr,
         upWeightPtr,
@@ -396,7 +434,7 @@ TILEOP void MoeFfnFusedAICSingleCore(
     pipe_barrier(PIPE_ALL);
 
 #ifdef SUPPORT_TILE_TENSOR
-    FFNTiledMatMul<T, AccType, tileM, tileN, tileK>(
+    FFNTiledMatMul<T, AccType, tileM, tileN, tileK, nDimColumnMajor>(
         outputPtr,
         intermediatePtr,
         downWeightPtr,
@@ -413,7 +451,7 @@ TILEOP void MoeFfnFusedAICSingleCore(
 #endif
 }
 
-template <typename T, uint16_t rowShape, uint16_t colShape, uint16_t paddedColShape, uint16_t intermediateSize>
+template <typename T, uint16_t rowShape, uint16_t colShape, uint16_t paddedColShape, uint16_t intermediateSize, bool nDimColumnMajor>
 TILEOP void MoeFfnFusedKernel(
     __gm__ T* ffnOutput,
     __gm__ T* workspace,
@@ -432,7 +470,7 @@ TILEOP void MoeFfnFusedKernel(
     ctx.combineInput = combineInput;
     ctx.ffnWeight = ffnWeight;
 
-    MoeFfnFusedAICSingleCore<T, colShape, intermediateSize>(ctx, rowShape);
+    MoeFfnFusedAICSingleCore<T, colShape, intermediateSize, nDimColumnMajor>(ctx, rowShape);
 }
 
 #endif // !__TILE_FWK_HOST__

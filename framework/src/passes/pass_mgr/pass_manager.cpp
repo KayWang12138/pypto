@@ -51,6 +51,7 @@
 #include "passes/block_graph_pass/loopaxes_proc.h"
 #include "passes/block_graph_pass/tune_tileopseq_for_vf.h"
 #include "passes/block_graph_pass/tune_sync_for_vf.h"
+#include "passes/block_graph_pass/distributed_dep_schedule.h"
 
 namespace npu::tile_fwk {
 PassManager &PassManager::Instance() {
@@ -103,6 +104,7 @@ void RegPass() {
     REG_PASS(LoopaxesProc);
     REG_PASS(TuneTileOpSeqForVF);
     REG_PASS(TuneSyncForVF);
+    REG_PASS(DistributedDepSchedule);
 }
 
 void PassManager::RegDefaultStrategy() {
@@ -149,6 +151,7 @@ void PassManager::RegDefaultStrategy() {
             {            "TuneSyncForVF",              PassName::TUNE_SYNC_FOR_VF},
             {         "MixSubgraphSplit",            PassName::MIX_SUBGRAPH_SPLIT},
             {             "LoopaxesProc",             PassName::LOOPAXES_PROC},
+            {   "DistributedDepSchedule",        PassName::DIST_DEP_SCHEDULE},
             {           "CodegenPreproc",               PassName::CODEGEN_PREPROC},
     });
     RegisterStrategy(

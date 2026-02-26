@@ -20,7 +20,8 @@
 #include <type_traits>
 
 namespace TileOp::Distributed {
-template <typename T, uint32_t topK, uint16_t rowShape, uint16_t colShape, uint16_t paddedColShape>
+template <typename T, uint32_t topK, uint16_t rowShape, uint16_t colShape, uint16_t paddedColShape,
+          bool localFirstSchedule = false>
 TILEOP void MoeDistributedCombineSend(
     __ubuf__ T* dataBuffer,
     __ubuf__ int32_t* assistInfoForCombineBuffer,
@@ -36,43 +37,61 @@ TILEOP void MoeDistributedCombineSend(
 {
     (void)recvCounts;
     (void)expandXOffset1;
-    for (uint64_t row = expandXOffset0; row < expandXOffset0 + rowShape; row++) {
-        set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
-        wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
-        TileOp::UBCopyIn<int32_t, 1, 3, 8, 3>(assistInfoForCombineBuffer, assistInfoForCombine + MOE_COMBINE_INFO_NUM * row);
-
-        set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
-        wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
-        int32_t rankId = assistInfoForCombineBuffer[0];
-        int32_t tokenId = assistInfoForCombineBuffer[1];
-        int32_t kOffset = assistInfoForCombineBuffer[2];
-        if (rankId < 0) {
-            continue;
+    uint64_t groupIndex = GetVirtualAddrGroupIndex(reinterpret_cast<uint64_t>(shmemDataBaseAddr));
+    __gm__ CommContext* commCtxParam = reinterpret_cast<__gm__ CommContext*>(hcclContext[groupIndex]);
+    int32_t localRankId = static_cast<int32_t>(commCtxParam->rankId);
+    // Shared-tensor dependency resolving (M dimension): optionally send local token first.
+    constexpr uint32_t passCount = localFirstSchedule ? 2U : 1U;
+    for (uint32_t pass = 0; pass < passCount; ++pass) {
+        bool localFirstPass = (pass == 0);
+        if constexpr (!localFirstSchedule) {
+            (void)localFirstPass;
         }
+        for (uint64_t row = expandXOffset0; row < expandXOffset0 + rowShape; row++) {
+            set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
+            wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
+            TileOp::UBCopyIn<int32_t, 1, 3, 8, 3>(
+                assistInfoForCombineBuffer, assistInfoForCombine + MOE_COMBINE_INFO_NUM * row);
 
-        TileOp::UBCopyIn<T, 1, colShape, paddedColShape, colShape>(dataBuffer, expandX + colShape * row);
+            set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
+            wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
+            int32_t rankId = assistInfoForCombineBuffer[0];
+            int32_t tokenId = assistInfoForCombineBuffer[1];
+            int32_t kOffset = assistInfoForCombineBuffer[2];
+            if (rankId < 0) {
+                continue;
+            }
+            if constexpr (localFirstSchedule) {
+                bool isLocal = (rankId == localRankId);
+                if ((localFirstPass && !isLocal) || (!localFirstPass && isLocal)) {
+                    continue;
+                }
+            }
 
-        __gm__ T* winDataAddr = MapVirtualAddr<T>(hcclContext, shmemDataBaseAddr, rankId) +
-            colShape * (topK * tokenId + kOffset);
-        set_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
-        wait_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
-        TileOp::UBCopyOut<T, 1, colShape, colShape, paddedColShape>(winDataAddr, dataBuffer);
+            TileOp::UBCopyIn<T, 1, colShape, paddedColShape, colShape>(dataBuffer, expandX + colShape * row);
 
-        __gm__ int32_t* winSignalAddr = MapVirtualAddr<int32_t>(hcclContext, shmemSignalBaseAddr, rankId) +
-            MOE_COMBINE_SIGNAL_OFFSET * tokenId;
-        constexpr uint32_t signalWriteInts = 16;
-        for (uint32_t idx = 0; idx < signalWriteInts; ++idx) {
-            signalBuffer[idx] = 0;
+            __gm__ T* winDataAddr = MapVirtualAddr<T>(hcclContext, shmemDataBaseAddr, rankId) +
+                colShape * (topK * tokenId + kOffset);
+            set_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
+            wait_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
+            TileOp::UBCopyOut<T, 1, colShape, colShape, paddedColShape>(winDataAddr, dataBuffer);
+
+            __gm__ int32_t* winSignalAddr = MapVirtualAddr<int32_t>(hcclContext, shmemSignalBaseAddr, rankId) +
+                MOE_COMBINE_SIGNAL_OFFSET * tokenId;
+            constexpr uint32_t signalWriteInts = 16;
+            for (uint32_t idx = 0; idx < signalWriteInts; ++idx) {
+                signalBuffer[idx] = 0;
+            }
+            signalBuffer[0] = 1;
+            if (kOffset >= 0 && kOffset < static_cast<int32_t>(topK)) {
+                signalBuffer[1 + kOffset] = 1;
+            }
+            set_atomic_add();
+            set_atomic_s32();
+            pipe_barrier(PIPE_MTE3);
+            copy_ubuf_to_gm(winSignalAddr, signalBuffer, 0, 1, 2, 0, 0);
+            set_atomic_none();
         }
-        signalBuffer[0] = 1;
-        if (kOffset >= 0 && kOffset < static_cast<int32_t>(topK)) {
-            signalBuffer[1 + kOffset] = 1;
-        }
-        set_atomic_add();
-        set_atomic_s32();
-        pipe_barrier(PIPE_MTE3);
-        copy_ubuf_to_gm(winSignalAddr, signalBuffer, 0, 1, 2, 0, 0);
-        set_atomic_none();
     }
 }
 
@@ -130,7 +149,8 @@ TILEOP void MoeDistributedCombineCompute(
     vconv_f322bf16a(out, sumFp32Buffer, repeat, 1, 1, 4, 8);
 }
 
-template <typename T, uint32_t topK, uint16_t rowShape, uint16_t colShape, uint16_t paddedColShape>
+template <typename T, uint32_t topK, uint16_t rowShape, uint16_t colShape, uint16_t paddedColShape,
+          bool localFirstSchedule = false>
 TILEOP void MoeDistributedCombineReceive(
     __gm__ T* out,
     __ubuf__ float* mulFp32Buffer,
@@ -147,6 +167,7 @@ TILEOP void MoeDistributedCombineReceive(
     int64_t rowOffset,
     __gm__ int64_t* hcclContext)
 {
+    (void)localFirstSchedule;
     uint64_t thisRankId = shmemDataOffset0;
 
     for (uint64_t tokenId = rowOffset; tokenId < rowOffset + rowShape; tokenId++) {

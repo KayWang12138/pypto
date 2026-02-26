@@ -62,6 +62,55 @@ enum class AllReduceType {
     TWO_SHOT,
 };
 
+enum class DistDepAxis : int32_t {
+    NONE = 0,
+    M = 1,
+    N = 2,
+};
+
+enum class DistScheduleMode : int32_t {
+    NONE = 0,
+    SHMEM_STANDARD = 1,
+};
+
+enum class DistStagePolicy : int32_t {
+    NONE = 0,
+    PIPELINE = 1,
+};
+
+enum class DistSignalResetPolicy : int32_t {
+    NONE = 0,
+    CONSUME_CLEAR = 1,
+    EPOCH_SET = 2,
+};
+
+inline const char *DistDepAxisToString(DistDepAxis axis)
+{
+    switch (axis) {
+        case DistDepAxis::M:
+            return "M";
+        case DistDepAxis::N:
+            return "N";
+        default:
+            return "NONE";
+    }
+}
+
+struct DistTileSchedule {
+    DistDepAxis depAxis{DistDepAxis::NONE};
+    int64_t stageId{-1};
+    int64_t stageCount{0};
+    int64_t tileMBegin{0};
+    int64_t tileMEnd{0};
+    int64_t tileNBegin{0};
+    int64_t tileNEnd{0};
+    int64_t splitN{1};
+    int64_t barrierSlot{-1};
+    int64_t signalEpoch{0};
+    int64_t producerRole{0};
+    int64_t consumerRole{0};
+};
+
 inline std::string AtomicTypeToString(AtomicType type)
 {
     switch (type) {
@@ -91,6 +140,13 @@ public:
     int64_t rowShape{-1};
     int64_t tileRowShape;
     int64_t tileColShape;
+    DistScheduleMode scheduleMode{DistScheduleMode::NONE};
+    DistStagePolicy stagePolicy{DistStagePolicy::NONE};
+    DistSignalResetPolicy signalResetPolicy{DistSignalResetPolicy::NONE};
+    bool enableLocalFirstSchedule{false};
+    bool enableNDimColumnMajor{false};
+    bool enableDistScheduleTrace{false};
+    DistTileSchedule tileSchedule{};
 };
 
 inline int GetTotalTileNum(const std::array<int, MAX_DIST_DIM_SIZE> &tile)

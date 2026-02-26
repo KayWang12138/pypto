@@ -37,6 +37,7 @@
 #include <vector>
 #include "tilefwk/tile_shape.h"
 #include "interface/interpreter/raw_tensor_data.h"
+#include "interface/tileop/distributed/comm_context.h"
 #include "machine/runtime/distributed/hccl_context.h"
 #include "interface/utils/op_info_manager.h"
 #include "machine/runtime/device_launcher_binding.h"
@@ -85,11 +86,19 @@ extern "C" int HcclAllocComResourceByTiling(void* comm, void *stream, void *mc2T
 
 std::mutex g_ctxMutex;
 std::unordered_map<uint64_t, uint64_t> g_hcclContextCache;
+#ifdef BUILD_WITH_CANN_SHMEM
+std::unordered_map<std::string, uint64_t> g_shmemContextCache;
+#endif
 
 #ifdef BUILD_WITH_CANN_SHMEM
 bool IsShmemGroupName(const std::string &groupName)
 {
     return groupName.find("shmem_group") != std::string::npos;
+}
+
+std::string BuildShmemCacheKey(uint64_t hcclHandle, const std::string &groupName)
+{
+    return groupName + "#" + std::to_string(hcclHandle);
 }
 #endif
 
@@ -544,12 +553,19 @@ uint64_t AllocShmemContextLocked(uint64_t hcclHandle)
         baseAddr = reinterpret_cast<uint64_t>(shmemPtr);
     }
 
-    npu::tile_fwk::HcclCombinOpParam hostParam{};
-    hostParam.rankId = static_cast<uint32_t>(rank);
-    hostParam.rankNum = static_cast<uint32_t>(world);
-    hostParam.winSize = SHMEM_HALF_SIZE;
-    hostParam.winExpSize = SHMEM_HALF_SIZE;
-    hostParam.padding[0] = npu::tile_fwk::HCCL_CONTEXT_MAGIC;
+    size_t winAddrCount = static_cast<size_t>(world) * 3U;
+    size_t commCtxSize = sizeof(TileOp::CommContext) + sizeof(uint64_t) * winAddrCount;
+    std::vector<uint8_t> hostCtx(commCtxSize, 0U);
+    auto *ctxHost = reinterpret_cast<TileOp::CommContext *>(hostCtx.data());
+    ctxHost->rankId = static_cast<uint64_t>(rank);
+    ctxHost->rankNum = static_cast<uint64_t>(world);
+    ctxHost->startIndex = 0;
+    ctxHost->statusIndex = static_cast<int64_t>(world);
+    ctxHost->debugIndex = static_cast<int64_t>(world * 2);
+    ctxHost->winDataSize = SHMEM_HALF_SIZE;
+    ctxHost->winStatusSize = SHMEM_HALF_SIZE;
+    ctxHost->winDebugSize = SHMEM_HALF_SIZE;
+    ctxHost->totalWinNum = winAddrCount;
     for (int pe = 0; pe < world; ++pe) {
         void *winIn = shmem_ptr(reinterpret_cast<void *>(baseAddr), pe);
         void *winExp = shmem_ptr(reinterpret_cast<void *>(baseAddr + SHMEM_HALF_SIZE), pe);
@@ -557,25 +573,24 @@ uint64_t AllocShmemContextLocked(uint64_t hcclHandle)
             ShmemLog("[pypto] shmem_ptr failed for pe=%d base=0x%lx\n", pe, baseAddr);
             return 0;
         }
-        hostParam.windowsIn[pe] = reinterpret_cast<uint64_t>(winIn);
-        hostParam.windowsOut[pe] = reinterpret_cast<uint64_t>(winIn);
-        hostParam.windowsExp[pe] = reinterpret_cast<uint64_t>(winExp);
+        ctxHost->winAddr[static_cast<size_t>(pe)] = reinterpret_cast<uint64_t>(winIn);
+        ctxHost->winAddr[static_cast<size_t>(world) + static_cast<size_t>(pe)] = reinterpret_cast<uint64_t>(winExp);
+        ctxHost->winAddr[static_cast<size_t>(world * 2) + static_cast<size_t>(pe)] = reinterpret_cast<uint64_t>(winIn);
     }
 
     void *commContext = nullptr;
-    auto mallocRet = rtMalloc(&commContext, sizeof(hostParam), RT_MEMORY_HBM, 0);
+    auto mallocRet = rtMalloc(&commContext, commCtxSize, RT_MEMORY_HBM, 0);
     if (mallocRet != RT_ERROR_NONE || commContext == nullptr) {
         ShmemLog("[pypto] rtMalloc hcclContext failed ret=%d\n", mallocRet);
         return 0;
     }
-    auto memcpyRet = rtMemcpy(commContext, sizeof(hostParam), &hostParam, sizeof(hostParam), RT_MEMCPY_HOST_TO_DEVICE);
+    auto memcpyRet = rtMemcpy(commContext, commCtxSize, ctxHost, commCtxSize, RT_MEMCPY_HOST_TO_DEVICE);
     if (memcpyRet != RT_ERROR_NONE) {
         ShmemLog("[pypto] rtMemcpy hcclContext failed ret=%d\n", memcpyRet);
         (void)rtFree(commContext);
         return 0;
     }
     uint64_t contextVal = reinterpret_cast<uint64_t>(commContext);
-    g_hcclContextCache[hcclHandle] = contextVal;
     ShmemLog("[pypto] shmemContext rank=%d world=%d base=0x%lx ctx=0x%lx\n", rank, world, baseAddr, contextVal);
     return contextVal;
 }
@@ -727,6 +742,21 @@ uint64_t AllocHcclContext(uint64_t hcclHandle, const std::string &groupName, voi
         return 0;
     }
     std::lock_guard<std::mutex> lock(g_ctxMutex);
+#ifdef BUILD_WITH_CANN_SHMEM
+    std::string shmemCacheKey;
+    bool isShmemGroup = IsShmemGroupName(groupName);
+    if (isShmemGroup) {
+        shmemCacheKey = BuildShmemCacheKey(hcclHandle, groupName);
+        auto shmemIt = g_shmemContextCache.find(shmemCacheKey);
+        if (shmemIt != g_shmemContextCache.end()) {
+            if (debugHccl) {
+                ShmemLog("[pypto] reuse shmemContext key=%s ctx=0x%lx\n",
+                    shmemCacheKey.c_str(), shmemIt->second);
+            }
+            return shmemIt->second;
+        }
+    }
+#endif
     auto it = g_hcclContextCache.find(hcclHandle);
     if (it != g_hcclContextCache.end()) {
         return it->second;
@@ -742,8 +772,16 @@ uint64_t AllocHcclContext(uint64_t hcclHandle, const std::string &groupName, voi
     }
 #endif
 #ifdef BUILD_WITH_CANN_SHMEM
-    if (IsShmemGroupName(groupName)) {
-        return AllocShmemContextLocked(hcclHandle);
+    if (isShmemGroup) {
+        uint64_t shmemContext = AllocShmemContextLocked(hcclHandle);
+        if (shmemContext != 0) {
+            g_shmemContextCache[shmemCacheKey] = shmemContext;
+            if (debugHccl) {
+                ShmemLog("[pypto] new shmemContext key=%s ctx=0x%lx\n",
+                    shmemCacheKey.c_str(), shmemContext);
+            }
+        }
+        return shmemContext;
     }
 #endif
     if (hcclHandle == 0) {
@@ -906,6 +944,9 @@ uint64_t AllocHcclContext(uint64_t hcclHandle, const std::string &groupName, voi
     if (ret != 0 || commContext == nullptr) {
         uint64_t shmemContext = AllocShmemContextLocked(hcclHandle);
         if (shmemContext != 0) {
+            if (isShmemGroup) {
+                g_shmemContextCache[shmemCacheKey] = shmemContext;
+            }
             return shmemContext;
         }
     }
@@ -1484,7 +1525,37 @@ public:
         // LaunchKernel path does not go through DeviceLaunchOnceWithDeviceTensorData,
         // so distributed comm contexts must be initialized explicitly here.
         if (!dynAttr->commGroupNames.empty()) {
-            DeviceLauncher::DeviceInitDistributedContext(dynAttr->commGroupNames, devProg);
+            bool allShmemGroup = true;
+            for (const auto &groupName : dynAttr->commGroupNames) {
+#ifdef BUILD_WITH_CANN_SHMEM
+                if (!IsShmemGroupName(groupName)) {
+                    allShmemGroup = false;
+                    break;
+                }
+#else
+                (void)groupName;
+                allShmemGroup = false;
+                break;
+#endif
+            }
+            if (!allShmemGroup) {
+                DeviceLauncher::DeviceInitDistributedContext(dynAttr->commGroupNames, devProg);
+            } else {
+                auto distContextResult = BuildDistributedContextsFromGlobalConfig(dynAttr->commGroupNames, nullptr);
+                if (!distContextResult.error.empty()) {
+                    throw std::runtime_error(distContextResult.error);
+                }
+                auto maxCtxNum = sizeof(devProg->hcclContext) / sizeof(devProg->hcclContext[0]);
+                if (distContextResult.contexts.size() > maxCtxNum) {
+                    throw std::runtime_error("distributed context size exceeds DevAscendProgram::hcclContext capacity");
+                }
+                for (size_t idx = 0; idx < maxCtxNum; ++idx) {
+                    devProg->hcclContext[idx] = 0;
+                }
+                for (size_t idx = 0; idx < distContextResult.contexts.size(); ++idx) {
+                    devProg->hcclContext[idx] = distContextResult.contexts[idx];
+                }
+            }
         }
         kernelBin = DeviceLauncher::RegisterKernelBin(dynAttr->kernelBinary);
         workspaceSize = devProg->memBudget.Total();

@@ -65,6 +65,7 @@ enum class PassName {
     COPY_OUT_RESOLVE,
     INSERT_SYNC,
     MIX_SUBGRAPH_SPLIT,
+    DIST_DEP_SCHEDULE,
     CODEGEN_PREPROC,
     DYN_ATTR_TO_STATIC,
     LOOPAXES_PROC,
@@ -114,6 +115,7 @@ inline constexpr const char *PassNameStr(PassName name){
         case PassName::COPY_OUT_RESOLVE: return "CopyOutResolve";
         case PassName::INSERT_SYNC: return "InsertSync";
         case PassName::MIX_SUBGRAPH_SPLIT: return "MixSubgraphSplit";
+        case PassName::DIST_DEP_SCHEDULE: return "DistributedDepSchedule";
         case PassName::CODEGEN_PREPROC: return "CodegenPreproc";
         case PassName::DYN_ATTR_TO_STATIC: return "DynAttrToStatic";
         case PassName::LOOPAXES_PROC: return "LoopaxesProc";
