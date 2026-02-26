@@ -26,7 +26,11 @@
         "valid_shape_optimize": 0
     },
     "host": {
-        "compile_stage": 0
+        "compile_stage": 0,
+        "compile_monitor_enable": true,
+        "interval_sec": 60,
+        "timeout_sec": -1,
+        "total_timeout_sec": 600
     },
     "codegen": {
         "support_dynamic_aligned": false
