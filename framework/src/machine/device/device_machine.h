@@ -32,7 +32,7 @@ class DeviceMachine {
 public:
     DeviceMachine() {
         for (uint32_t i = 0; i < MAX_STATIC_SCHEDULE_AICPU_NUM; ++i) {
-            aicoreManager_.push_back(std::make_unique<AiCoreManager>(aicpuTaskManager_));
+            aicoreManager_.push_back(std::make_unique<AiCoreManager>());
         }
     }
 
