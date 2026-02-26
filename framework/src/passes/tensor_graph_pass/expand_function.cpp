@@ -100,6 +100,7 @@ void ProcessForNotExpandOp(Function &function, Operation &op) {
     if (op.HasAttribute(OpAttributeKey::inplaceIdx)) {
         newOp.SetAttribute(OpAttributeKey::inplaceIdx, op.GetIntAttribute(OpAttributeKey::inplaceIdx));
     }
+    InferShapeRegistry::GetInstance().CallInferShapeFunc(&newOp);
 }
 }
 
