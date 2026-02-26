@@ -70,6 +70,14 @@ void AmaxOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor>
                 offset.erase(offset.begin() + dim);
             }
             auto res = Amax(viewTensor, args->dims_[0], keepDim);
+            if (!keepDim) {
+                auto tileshape = args->tileShape_;
+                tileshape.erase(tileshape.begin() + dim);
+                const int alignNum = BLOCK_SIZE / BytesOf(res.GetStorage()->tensor->datatype);
+                tileshape[tileshape.size() - 1] = (tileshape[tileshape.size() - 1] + alignNum - 1
+                    ) / alignNum * alignNum;
+                TileShape::Current().SetVecTile(tileshape);
+            }
             Assemble(res, offset, outputs[0]);
         }
     }
@@ -116,6 +124,14 @@ void Amax3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tenso
                         offset.erase(offset.begin() + dim);
                     }
                     auto res = Amax(viewTensor, args->dims_[0], keepDim);
+                    if (!keepDim) {
+                        auto tileshape = args->tileShape_;
+                        tileshape.erase(tileshape.begin() + dim);
+                        const int alignNum = BLOCK_SIZE / BytesOf(res.GetStorage()->tensor->datatype);
+                        tileshape[tileshape.size() - 1] = (tileshape[tileshape.size() - 1] + alignNum - 1
+                            ) / alignNum * alignNum;
+                        TileShape::Current().SetVecTile(tileshape);
+                    }
                     Assemble(res, offset, outputs[0]);
                 }
             }
@@ -174,6 +190,14 @@ void Amax4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tenso
                             offset.erase(offset.begin() + dim);
                         }
                         auto res = Amax(viewTensor, args->dims_[0], keepDim);
+                        if (!keepDim) {
+                            auto tileshape = args->tileShape_;
+                            tileshape.erase(tileshape.begin() + dim);
+                            const int alignNum = BLOCK_SIZE / BytesOf(res.GetStorage()->tensor->datatype);
+                            tileshape[tileshape.size() - 1] = (tileshape[tileshape.size() - 1] + alignNum - 1
+                                ) / alignNum * alignNum;
+                            TileShape::Current().SetVecTile(tileshape);
+                        }
                         Assemble(res, offset, outputs[0]);
                     }
                 }
