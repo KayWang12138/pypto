@@ -563,6 +563,12 @@ def setup_codegen_passes():
         cube_l1_reuse_setting={-1: NUM_4},
         cube_nbuffer_setting={NUM_3: NUM_4},
     )
+    pypto.set_host_options(
+        compile_monitor_enable=True,
+        interval_sec=4,
+        timeout_sec=8,
+        total_timeout_sec=60,
+    )
 
 
 def build_args(cfg: MlaBuildConfig):
