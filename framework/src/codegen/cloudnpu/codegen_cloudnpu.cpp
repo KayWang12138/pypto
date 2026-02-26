@@ -16,6 +16,7 @@
 
 #include <cstring>
 #include <error.h>
+#include <chrono>
 
 #include "codegen/utils/parallel_execute.h"
 #include "codegen_op_cloudnpu.h"
@@ -263,8 +264,15 @@ void CodeGenCloudNPU::GenCode(
             GenFuncEnd(leafKernelFunc);
 #ifdef BUILD_WITH_CANN
             if (std::getenv(ENV_ASCEND_HOME_PATH.c_str()) != nullptr) {
+                auto start = std::chrono::high_resolution_clock::now();
                 DumpCCE(compileInfo.GetCCEAbsPath(), leafKernelFunc);
+                auto end1 = std::chrono::high_resolution_clock::now();
                 DoCompileCCE(compileInfo, "");
+                auto end2 = std::chrono::high_resolution_clock::now();
+                auto cost1 = std::chrono::duration<double, std::milli>(end1 - start).count();
+                auto cost2 = std::chrono::duration<double, std::milli>(end2 - end1).count();
+                CODEGEN_LOGI("Compile CCE subFunc %s, hash %s, DumpCCE cost: %f ms, DoCompileCCE cost %f ms",
+                    subFunc->GetMagicName().c_str(), subFunc->GetFunctionHash().c_str(), cost1, cost2);
             }
 #endif
             UpdateSubFunc(subFuncPair, compileInfo);
