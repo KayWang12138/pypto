@@ -17,7 +17,6 @@
 #define PASS_SCHEDULER_H
 
 #include <climits>
-#include "tilefwk/platform.h"
 #include "passes/pass_interface/pass.h"
 #include "passes/pass_utils/pass_utils.h"
 #include "passes/pass_utils/reschedule_utils.h"

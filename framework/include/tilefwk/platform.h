@@ -264,7 +264,6 @@ public:
     size_t GetCoreWrapNum() const { return core_wrap_cnt_; }
 
     size_t GetMemoryLimit(MemoryType type) const;
-    const std::unordered_map<MemoryType, int64_t>& GetLocalMemorySize() const;
 
     void SetMemDeviceDDRSize(size_t size) { mem_device_ddr_size_ = size; }
     void SetMemHost1Size(size_t size)     { mem_host1_size_      = size; }

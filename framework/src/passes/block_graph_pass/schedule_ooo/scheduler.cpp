@@ -1137,7 +1137,7 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std:
     depthCache_.clear();
     LOG_SCOPE_BEGIN(tInit, Elements::Function, "Init");
     // 初始化芯片各buffer大小
-    localMemorySize = Platform::Instance().GetDie().GetLocalMemorySize();
+    localMemorySize = CommonUtils::GetLocalMemorySize();
     if (fixCoreConfig.empty()) {
         InitCoreConfig(operations);
     } else {

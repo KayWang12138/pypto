@@ -115,26 +115,6 @@ size_t Die::GetMemoryLimit(MemoryType type) const {
     return aic_limit == 0 ? aiv_limit : aic_limit;
 }
 
-const std::unordered_map<MemoryType, int64_t>& Die::GetLocalMemorySize() const {
-    static const std::unordered_map<MemoryType, int64_t> localMamorySize = [this]() {
-        std::unordered_map<MemoryType, int64_t> m;
-
-        m[MemoryType::MEM_UB] = GetMemoryLimit(MemoryType::MEM_UB);
-        m[MemoryType::MEM_L1] = GetMemoryLimit(MemoryType::MEM_L1);
-        m[MemoryType::MEM_L0A] = GetMemoryLimit(MemoryType::MEM_L0A);
-        m[MemoryType::MEM_L0B] = GetMemoryLimit(MemoryType::MEM_L0B);
-        m[MemoryType::MEM_L0C] = GetMemoryLimit(MemoryType::MEM_L0C);
-        m[MemoryType::MEM_L0AMX] = GetMemoryLimit(MemoryType::MEM_L0AMX);
-        m[MemoryType::MEM_L0BMX] = GetMemoryLimit(MemoryType::MEM_L0BMX);
-        m[MemoryType::MEM_BT] = GetMemoryLimit(MemoryType::MEM_BT);
-        m[MemoryType::MEM_FIX] = GetMemoryLimit(MemoryType::MEM_FIX);
-        m[MemoryType::MEM_FIX_QUANT_PRE] = GetMemoryLimit(MemoryType::MEM_FIX_QUANT_PRE);
-
-        return m;
-    }();
-    return localMamorySize;
-}
-
 bool Die::SetMemoryPath(const std::vector<std::vector<std::string>>& dataPaths) {
     // 目前已知包含DDR到UB的数据通路，L0C到DDR/L1的通路，但指令有缺失，所以先打桩
     memoryGraph_.AddPath(MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB);

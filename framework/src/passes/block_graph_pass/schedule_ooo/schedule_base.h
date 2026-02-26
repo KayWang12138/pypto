@@ -29,6 +29,7 @@
 #include "passes/statistics/ooo_schedule_statistic.h"
 #include "passes/block_graph_pass/schedule_ooo/buffer_pool.h"
 #include "passes/pass_utils/reschedule_utils.h"
+#include "passes/pass_utils/pass_utils.h"
 
 #ifndef MODULE_NAME
 #define MODULE_NAME "OoOScheduleBase"
@@ -412,7 +413,7 @@ public:
 
     Status Init(std::vector<Operation*> &opList) {
         // 初始化芯片各buffer大小
-        localMemSize = Platform::Instance().GetDie().GetLocalMemorySize();
+        localMemSize = CommonUtils::GetLocalMemorySize();
         localMemoryCurrentSize = localMemSize;
         operations = opList;
         InitOpConsumerAndProducer();
