@@ -81,12 +81,15 @@ public:
     void SetCacheKey(const std::string &cacheKey) { cacheKey_ = cacheKey; }
     void SetError(std::string msg) { error = std::move(msg); }
     const std::string &Error() { return error; }
+    int GetFunctionIndex() const { return function_index_; }
+    void SetFunctionIndex(int idx) { function_index_ = idx; }
 private:
     uint64_t taskId_;
     Function *function_;
     std::string cacheKey_;
     CacheReuseType cacheReuseType_;
     std::string error;
+    int function_index_{0};  // 1-based index for compiler monitor progress (k/N)
 };
 }
 #endif // MACHINE_TASK_H
