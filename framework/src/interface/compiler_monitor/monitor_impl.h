@@ -8,31 +8,34 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
- * \file pybind11.cpp
- * \brief
- */
+#pragma once
 
-#include "pybind_common.h"
-#include "bindings/bindings.h"
+#include <atomic>
+#include <condition_variable>
+#include <memory>
+#include <mutex>
+#include <thread>
 
-using namespace npu::tile_fwk;
+namespace npu::tile_fwk {
 
-namespace pypto {
-PYBIND11_MODULE(pypto_impl, m) {
-    m.doc() = "PyPTO";
-    bind_enum(m);
-    BindElement(m);
-    BindTensor(m);
-    BindSymbolicScalar(m);
-    bind_controller(m);
-    bind_operation(m);
-    BindRuntime(m);
-    BindCostModelRuntime(m);
-    bind_pass(m);
-    BindFunction(m);
-    BindDistributed(m);
-    BindPlatform(m);
-    BindMonitor(m);
+class MonitorManager;
+
+class MonitorImpl {
+public:
+    explicit MonitorImpl(MonitorManager* manager);
+    ~MonitorImpl();
+
+    void Start();
+    void Stop();
+
+private:
+    void MonitorLoop();
+
+    MonitorManager* manager_;
+    std::unique_ptr<std::thread> thread_;
+    std::mutex mutex_;
+    std::condition_variable cv_;
+    std::atomic<bool> stop_{false};
 };
-} // namespace pypto
+
+}  // namespace npu::tile_fwk

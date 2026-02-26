@@ -296,7 +296,13 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
         kv_act_seqs: pypto.Tensor((bs, ), pypto.DT_INT32),
         atten_out: pypto.Tensor(out_shape, pypto.DT_BF16)
     ):
-
+        pypto.set_compiler_monitor_options(
+            enable=True,
+            interval_sec=2,
+            timeout_sec=30,
+            total_timeout_sec=60,   # 总编译时间最多 30 分钟
+            # timeout_action=TimeoutAction.THROW,
+        )
         # 1. 添加支持动态的config
         pypto.experimental.set_operation_options(combine_axis=True)
 
