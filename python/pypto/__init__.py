@@ -75,6 +75,7 @@ from .operation import *  # noqa
 from .operator import *  # noqa
 from .pass_config import *  # noqa
 from .cost_model import *  # noqa
+from .platform import platform
 from ._utils import ceildiv, bytes_of
 from .runtime import jit, verify, set_verify_golden_data, RunMode
 from .symbolic_scalar import SymbolicScalar
