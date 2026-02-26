@@ -37,9 +37,9 @@
 #include "interface/configs/config_manager.h"
 #include "tilefwk/platform.h"
 #include "machine/runtime/distributed/distributed_context.h"
+#include "acl/acl_rt.h"
 
 #ifndef BUILD_WITH_CANN
-enum aclmdlRICaptureMode {};
 using rtStream_t = uint64_t;
 using aclmdlRI = void *;
 using aclrtStream = void *;
@@ -58,6 +58,7 @@ struct AiCpuArgs {
 };
 
 int GetCfgBlockdim();
+int GetMaxBlockdim();
 
 class DeviceLauncherContext {
 public:
@@ -153,7 +154,6 @@ public:
     // Prepare device program scheduling and memory budget related args (keeps <= 50 lines)
     static void PrepareDevProgArgs(DevAscendProgram *devProg, DeviceLauncherConfig &config,
                                   [[maybe_unused]]bool isDevice) {
-        ASSERT(config.blockdim != 0) << "Invalid blockdim: " << config.blockdim << ", must not be zero";
         devProg->devArgs.taskId = 0;
         devProg->devArgs.nrAic = kDefaultAicNum;
         devProg->devArgs.nrAiv = kDefaultAivNum;
