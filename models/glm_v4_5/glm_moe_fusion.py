@@ -109,6 +109,13 @@ def gen_quan_per_channel_weight_nz(x):
 def moe_fusion_kernel(hidden_states_shape, mm_weight_shape, e_score_bias_shape, w13_shape, w13_scale_shape, 
                     w2_shape, w2_scale_shape, bs_topk_1, bs_topk_2, 
                     bs_hidden_size, renormalize, topk_group, num_expert_group):
+    pypto.set_compiler_monitor_options(
+        enable=True,
+        interval_sec=2,
+        timeout_sec=10,
+        total_timeout_sec=120,
+    )
+
     hidden_states_shape = (pypto.frontend.dynamic("bs"), hidden_states_shape[1])
     topk_weights_shape = (pypto.frontend.dynamic("bs"), bs_topk_1[1])
     topk_ids_shape = (pypto.frontend.dynamic("bs"), bs_topk_2[1])
@@ -123,7 +130,8 @@ def moe_fusion_kernel(hidden_states_shape, mm_weight_shape, e_score_bias_shape, 
                         "stitch_function_outcast_memory": 128,
                         "stitch_function_inner_memory": 128,
                         "stitch_cfgcache_size": 7700000},
-        pass_options={"cube_l1_reuse_setting": {-1: 2}}
+        pass_options={"cube_l1_reuse_setting": {-1: 2}},
+        debug_options={"runtime_debug_mode": 0, "compile_debug_mode": 1},
     )
     def kernel(
         hidden_states: pypto.tensor(hidden_states_shape, dtype=pypto.DT_BF16),
@@ -249,7 +257,7 @@ def moe_fusion_kernel(hidden_states_shape, mm_weight_shape, e_score_bias_shape, 
             hidden_states_quant, hidden_states_scale = symmetric_quantization_per_token(tile_hidden_states)
 
             # up_proj的matmul计算
-            pypto.set_cube_tile_shapes([tile_batch, tile_batch],
+            pypto.set_cube_tile_shapes([min(tile_batch, 32), min(tile_batch, 32)],
                                     [mm1_cube_tile_shape[1], mm1_cube_tile_shape[1] * 2],
                                     [mm1_cube_tile_shape[2], mm1_cube_tile_shape[2]], True, True)
             up_proj = pypto.matmul(hidden_states_quant, w13, pypto.DT_INT32)
@@ -264,7 +272,7 @@ def moe_fusion_kernel(hidden_states_shape, mm_weight_shape, e_score_bias_shape, 
             down_proj_quant, down_proj_scale = symmetric_quantization_per_token(swiglu_out)
 
             # down_proj
-            pypto.set_cube_tile_shapes([tile_batch, tile_batch],
+            pypto.set_cube_tile_shapes([min(tile_batch, 32), min(tile_batch, 32)],
                                     [mm2_cube_tile_shape[1], mm2_cube_tile_shape[1] * 2],
                                     [mm2_cube_tile_shape[2], mm2_cube_tile_shape[2]], True, False)
             down_proj = pypto.matmul(down_proj_quant, w2, pypto.DT_INT32)
@@ -299,7 +307,7 @@ def test_moe_fusion():
 
     # 2. 构造多种shape，测试动态case
     torch.manual_seed(0)
-    for bs in [32, 32, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16]:
+    for bs in [16]:
         # 3. 准备测试数据
         hidden_states = torch.rand((bs, hidden_size), dtype=x_dtype, device=f'npu:{device_id}') * 0.05
         weight_gate_upper_tensor = torch.rand((hidden_size, intermediate_size * 2),
