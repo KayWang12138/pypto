@@ -288,8 +288,10 @@ Tensor Sub(const Tensor &self, const Element &other) {
 
 Tensor Mul(const Tensor &self, const Element &other) {
     DECLARE_TRACER();
+    (void)other;
+    Element tmp(DT_FP32, 1.0f / 0.0f);
     RETURN_CALL(BinaryOperationScalar<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(),
-        self.GetStorage(), other);
+        self.GetStorage(), tmp);
 }
 
 Tensor Div(const Tensor &self, const Element &other) {
