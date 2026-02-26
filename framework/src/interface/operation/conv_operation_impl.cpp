@@ -151,12 +151,13 @@ void CheckOutputShape(const Tensor &inputTensor, const Tensor &weightTensor, con
 
 void CheckAlignment(int64_t value, int64_t alignment, const std::string& valueName, bool isByte = false)
 {
-        OP_CHECK(true, {
-            ASSERT(value % alignment == 0)
-                << "Invalid " << valueName << ":" << value
-                << ", requires " << alignment << (isByte ? "-byte alignment." : "-element alignment.") << std::endl;
-        });
+    OP_CHECK(true, {
+        ASSERT(value % alignment == 0)
+            << "Invalid " << valueName << ":" << value
+            << ", requires " << alignment << (isByte ? "-byte alignment." : "-element alignment.") << std::endl;
+    });
 }
+
 int64_t ConvAlignB(int64_t a, int64_t b)
 {
     if (b == 0) {
@@ -164,6 +165,7 @@ int64_t ConvAlignB(int64_t a, int64_t b)
     }
     return ((a + b - 1) / b) * b;
 }
+
 void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam)
 {
     auto &convTile = TileShape::Current().GetConvTile();
@@ -225,7 +227,7 @@ void CheckL0TileTiling(DataType outType)
 void CheckDivisible(int64_t value, int64_t divisor, const std::string& valueName, const std::string& divisorName)
 {
     OP_CHECK(true, {
-            ASSERT(value % divisor == 0)
+        ASSERT(value % divisor == 0)
             << "The value of " << divisorName << " (" << divisor
             << ") does not divide "<< valueName
             << "(" << value << "). Adjusting " << divisorName 
@@ -332,7 +334,7 @@ void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64
     CheckDivisible(cOut, groups, "Cout", "groups");
 
     OP_CHECK(true, {
-            ASSERT(cinFmap == cinWeight * groups)
+        ASSERT(cinFmap == cinWeight * groups)
             << "Fmap Cin (" << cinFmap
             << ") != weight Cin (" << cinWeight
             << ") * groups (" << groups
@@ -343,9 +345,9 @@ void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64
 void CheckDimParam(const std::vector<int64_t>& vec, const std::string& name, int expectedDim)
 {
     OP_CHECK(true, {
-            ASSERT(vec.size() == static_cast<size_t>(expectedDim))
-                << "Input attr " << name << " dim: " << vec.size()
-                << " != " << expectedDim << "." << std::endl;
+        ASSERT(vec.size() == static_cast<size_t>(expectedDim))
+            << "Input attr " << name << " dim: " << vec.size()
+            << " != " << expectedDim << "." << std::endl;
     });
 }
 
@@ -393,9 +395,9 @@ void CheckLoad3dShape(DataType outType, const Tensor &weightTensor, const ConvAt
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
     OP_CHECK(true, {
         ASSERT(kh * kw * k0 <= SHAPE_INNER_AXIS_MAX_SIZE)
-        << "Weight shapes do not satisfy Load3D's limits: kh*kw*k0=" << kh * kw * k0
-        << "(k0 = 32 bytes / dtypesize), which must <=" << SHAPE_INNER_AXIS_MAX_SIZE
-        << "." << std::endl;
+            << "Weight shapes do not satisfy Load3D's limits: kh*kw*k0=" << kh * kw * k0
+            << "(k0 = 32 bytes / dtypesize), which must <=" << SHAPE_INNER_AXIS_MAX_SIZE
+            << "." << std::endl;
     });
 }
 
@@ -442,16 +444,16 @@ void CheckOriginShape(const Tensor &inputTensor, const Tensor &weightTensor, con
     int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
     OP_CHECK(true, {
         ASSERT(biasTensor.GetShape()[0] == cOut)
-        << "Input illegal bias shape:" << biasTensor.GetShape()[0]
-        << ", which must equal to Cout:" << cOut
-        << "." << std::endl;
+            << "Input illegal bias shape:" << biasTensor.GetShape()[0]
+            << ", which must equal to Cout:" << cOut
+            << "." << std::endl;
     });
 }
 void CheckConvOperands(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const Tensor &biasTensor, ConvAttrParam &attrParam)
 {
     OP_CHECK(true, {
         ASSERT(outType == DataType::DT_FP32 || outType == DataType::DT_FP16 || outType == DataType::DT_BF16)
-        << "Unsupported output data type. Only DT_FP32, DT_FP16, DT_BF16 are supported.";
+            << "Unsupported output data type. Only DT_FP32, DT_FP16, DT_BF16 are supported.";
     });
     if (inputTensor.Dim() == CONV1D_INPUT_DIM && weightTensor.Dim() == CONV1D_INPUT_DIM) {
         attrParam.isConv1D = true;
