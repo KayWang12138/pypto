@@ -84,6 +84,7 @@ from .functions import Function, get_last_function, get_current_function
 
 # Import frontend after all other imports to avoid circular imports
 from . import frontend
+from .compiler_monitor import set_compiler_monitor_options
 
 
 tensor = Tensor
