@@ -23,6 +23,8 @@
 #include "interface/program/program.h"
 #include "interface/utils/op_info_manager.h"
 #include "machine/host/perf_analysis.h"
+#include "interface/compiler_monitor/monitor_manager.h"
+#include "interface/compiler_monitor/monitor_stage_scope.h"
 
 extern "C" {
 using RunPassFunc = int (*)(npu::tile_fwk::Program &, npu::tile_fwk::Function &, const std::string &);
@@ -176,6 +178,7 @@ void HostMachine::CompileFunction(Function* func) const {
     auto &backend = Backend::GetBackend();
     if (!func->HasCallOperation() && backend.runPass) {
         ALOG_INFO_F("RunPass function %s", func->GetMagicName().c_str());
+        MonitorStageScope passScope("Pass");
         ASSERT(backend.runPass(Program::GetInstance(), *func, config::GetPassStrategy())) << "Run pass failed.";
     }
     if (func->IsFunctionType(FunctionType::DYNAMIC) || func->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
@@ -195,17 +198,20 @@ void HostMachine::SubTask(Function *function) {
         }
         MACHINE_ASSERT(curTask == nullptr);
         curTask = new MachineTask(curTaskId_++, function);
+        curTask->SetFunctionIndex(MonitorManager::Instance().GetAndIncrementNextFunctionIndex());
         return;
     }
 
     std::lock_guard<std::mutex> lock(compileQueueMutex_);
     auto task = std::make_unique<MachineTask>(curTaskId_++, function);
+    task->SetFunctionIndex(MonitorManager::Instance().GetAndIncrementNextFunctionIndex());
     compileQueue_.Push(std::move(task));
     compileQueueCv_.notify_one(); // 通知编译线程
 }
 
 void HostMachine::WaitTaskFinish() {
     while (curTaskId_ != finishQueue_.Size()) {
+        MonitorManager::Instance().SetCurrentFunctionIndex(static_cast<int>(finishQueue_.Size()));
         usleep(1000); // sleep 1000 us
     } // wait all task finish
     ALOG_DEBUG_F("Finish all host machine task count: %lu.", curTaskId_.load());
@@ -236,6 +242,10 @@ void HostMachine::StashTask(Function* function) {
 
 void HostMachine::SubAllStashedTask() {
     std::lock_guard<std::mutex> lock(stashQueueMutex_);
+    const size_t totalStashed = stashedFuncQueue_.Size();
+    if (totalStashed > 0) {
+        MonitorManager::Instance().SetTotalFunctionCount(static_cast<int>(totalStashed));
+    }
     while (!stashedFuncQueue_.Empty()) {
         auto funcData = stashedFuncQueue_.Pop();
         config::Restore(std::get<static_cast<size_t>(StashType::ProgramConfig)>(funcData));
@@ -275,6 +285,7 @@ MachineTask *HostMachine::Compile(MachineTask *task) const {
         MACHINE_ASSERT(curTask != nullptr);
         compileTask = curTask;
     }
+    MonitorManager::Instance().TryEndPythonStage();
     std::string jsonPath;
     auto &backend = Backend::GetBackend();
     if (backend.getResumePath) {
