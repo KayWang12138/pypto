@@ -122,7 +122,6 @@ void UpdateExpandStatus(Operation *op, std::unordered_map<LogicalTensorPtr, Axis
             // 如果是尾轴broadcast，不支持交换轴
             tensorStatus[inputTensor] = AxisReorderStatus::DISABLE;
             tensorStatus[outputTensor] = AxisReorderStatus::UNKNOWN;
-
         }
         return;
     }
