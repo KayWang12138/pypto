@@ -38,23 +38,30 @@ def _verify_result(input_data, result_data, world_size, rank, backend):
         print(f"[Rank {rank}] FAILED! Max diff: {(result_cpu - expected_cpu).abs().max().item()}")
 
 
-def compute(rank, world_size, verify_backend):
+def compute(verify_backend):
     rank = dist.get_rank()
     world_size = dist.get_world_size()
 
     import pypto
 
-    distributed_options = {"hccl_handle": [rank], "hccl_group_name": ["shmem_group"]}
+    _, hccl_group_name = pypto.distributed.init_hccl_comm_from_torch_pg(dist.group.WORLD)
+    distributed_options = {"hccl_handle": [rank], "hccl_group_name": [hccl_group_name]}
 
     @pypto.jit(distributed_options=distributed_options)
-    def all_gather_kernel(input_tensor: pypto.Tensor, dummy_tensor: pypto.Tensor, result_holder: pypto.Tensor, world_size: int) -> None:
+    def all_gather_kernel(
+        input_tensor: pypto.Tensor,
+        dummy_tensor: pypto.Tensor,
+        result_holder: pypto.Tensor,
+        group_name: str,
+        world_size: int,
+    ) -> None:
         h, w = input_tensor.shape
         tileNum1 = 8
         tileNum2 = 8
 
         pypto.set_vec_tile_shapes(h, w)
         pypto.set_dist_tile_shapes([h // tileNum1, tileNum1, h % tileNum1], [w // tileNum2, tileNum2, w % tileNum2], [1, world_size, 0])
-        pypto.distributed.shmem_all_gather(input_tensor, dummy_tensor, "shmem_group", result_holder)
+        pypto.distributed.shmem_all_gather(input_tensor, dummy_tensor, group_name, result_holder)
 
     M, N = 512, 1024
     input_shape = (M, N)
@@ -75,7 +82,7 @@ def compute(rank, world_size, verify_backend):
 
     # return
     print(f"[Rank {rank}] Starting AllGather kernel...")
-    all_gather_kernel(input_pto, dummy_pto, result_pto, world_size)
+    all_gather_kernel(input_pto, dummy_pto, result_pto, hccl_group_name, world_size)
     torch.npu.synchronize()
 
     print(input_data[0:2, 0:2], result_data[0:2, 0:2])
@@ -92,7 +99,7 @@ if __name__ == "__main__":
     torch.npu.set_device(local_rank)
     dist.init_process_group(backend=verify_backend, rank=rank, world_size=world_size)
     try:
-        compute(local_rank, world_size, verify_backend)
+        compute(verify_backend)
     except Exception as e:
         print(f"Error: {e}")
         dist.destroy_process_group()

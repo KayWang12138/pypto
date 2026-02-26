@@ -2,22 +2,15 @@ import os
 import sys
 import warnings
 warnings.filterwarnings("ignore", message=".*owner does not match the current owner.*")
-shmem_home = os.environ.get("SHMEM_HOME_PATH")
-if not shmem_home:
-    shmem_home = "/usr/local/Ascend/shmem/1.0.0"
-if os.path.basename(shmem_home) == "shmem":
-    shmem_home = os.path.dirname(shmem_home)
-os.environ["SHMEM_HOME_PATH"] = shmem_home
-shmem_lib_dir = os.path.join(shmem_home, "shmem", "lib")
-if os.path.isdir(shmem_lib_dir):
-    os.environ["LD_LIBRARY_PATH"] = f"{shmem_lib_dir}:{os.environ.get('LD_LIBRARY_PATH', '')}"
+if "SHMEM_HOME_PATH" not in os.environ:
+    os.environ["SHMEM_HOME_PATH"] = "/usr/local/Ascend/shmem/latest"
 import torch
 import torch_npu
 import torch.multiprocessing as mp
 import torch.distributed as dist
 from typing import List, Dict
+import pypto
 import shmem as ash
-#import pypto
 
 def _get_verify_backend():
     backend = os.environ.get("PYPTO_SHMEM_VERIFY_BACKEND", "hccl").lower()
@@ -98,19 +91,27 @@ def npu_ptr_to_tensor(ptr, shape, dtype=torch.float32):
     return torch.as_tensor(storage, dtype=dtype).reshape(shape)
 
 
-def compute(rank, world_size, shmem_ptr):
-    import pypto
+def compute(shmem_ptr):
+    rank = dist.get_rank()
+    world_size = dist.get_world_size()
+    _, hccl_group_name = pypto.distributed.init_hccl_comm_from_torch_pg(dist.group.WORLD)
+    distributed_options = {"hccl_handle": [shmem_ptr], "hccl_group_name": [hccl_group_name]}
 
-    @pypto.jit
-    def all_gather_kernel(input_tensor: pypto.Tensor, dummy_tensor: pypto.Tensor, result_holder: pypto.Tensor, world_size: int) -> None:
+    @pypto.jit(distributed_options=distributed_options)
+    def all_gather_kernel(
+        input_tensor: pypto.Tensor,
+        dummy_tensor: pypto.Tensor,
+        result_holder: pypto.Tensor,
+        group_name: str,
+        world_size: int,
+    ) -> None:
         h, w = input_tensor.shape
         tileNum1 = 8
         tileNum2 = 8
-        pypto.set_distributed_options(hccl_handle=[shmem_ptr], hccl_group_name=["shmem_group"])
 
         pypto.set_vec_tile_shapes(h, w)
         pypto.set_dist_tile_shapes([h // tileNum1, tileNum1, h % tileNum1], [w // tileNum2, tileNum2, w % tileNum2], [1, world_size, 0])
-        pypto.distributed.shmem_all_gather(input_tensor, dummy_tensor, "shmem_group", result_holder)
+        pypto.distributed.shmem_all_gather(input_tensor, dummy_tensor, group_name, result_holder)
 
     M, N = 512, 1024
     input_shape = (M, N)
@@ -132,7 +133,8 @@ def compute(rank, world_size, shmem_ptr):
 
     # return
     print(f"[Rank {rank}] Starting AllGather kernel...")
-    all_gather_kernel(input_pto, dummy_pto, result_pto, world_size)
+    all_gather_kernel(input_pto, dummy_pto, result_pto, hccl_group_name, world_size)
+    torch.npu.synchronize()
 
     _verify_result(input_data, result_data, world_size, rank, _get_verify_backend())
 
@@ -154,7 +156,7 @@ if __name__ == "__main__":
     dist.init_process_group(backend=verify_backend, rank=rank, world_size=world_size)
     shmem_ptr = shmem_myinit(allocate_size=1 << 30)
     try:
-        compute(local_rank, world_size, shmem_ptr)
+        compute(shmem_ptr)
     except Exception as e:
         print(f"Error: {e}")
         # 如需排查 hang，可在此处加入 dist.barrier()
