@@ -75,12 +75,6 @@ constexpr aicoreTask_t aicoreNullTask = 0xFFFFFFFFUL;
 constexpr aicoreCore_t aicoreNullCore = 0xFFFFFFFFUL;
 constexpr aicorePair_t aicoreNullPair = 0xFFFFFFFFFFFFFFFFUL;
 
-struct TaskInfo {
-    int coreIdx;
-    uint64_t taskId;
-    TaskInfo(int idx, uint64_t id) : coreIdx(idx), taskId(id) {}
-};
-
 struct sdma_l2_cmo_desc {
     unsigned long   src_addr;
     size_t          size;
@@ -95,14 +89,10 @@ struct DeviceTaskCtrl {
     int taskType{DEVICE_TASK_TYPE_INVALID};
     uint64_t taskId{0};
     void *devTask{nullptr};
-    uint64_t finishedAicFunctionCnt{0}; // 所有aicpu处理完成的aic function个数，多线程增加修改
-    uint64_t finishedAivFunctionCnt{0}; // 所有aicpu处理完成的aiv function个数，多线程增加修改
-    uint64_t finishedAicpuFunctionCnt{0}; // 所有aicpu处理完成的aicpu function个数，多线程增加修改
     std::atomic<uint64_t> issuedTaskCount{0};
     std::atomic<int> refcnt{-1};
     void (*finishFunc)(void *devTask){nullptr};
     int retCode{0};
-    std::array<std::array<std::atomic<bool>, MAX_STATIC_SCHEDULE_AICPU_NUM>, AICORE_TYPE_NUM>  isAicpuIdle;
 
     bool IsFree() { return refcnt == -1; }
 
@@ -141,6 +131,9 @@ public:
         // If I am the lead AICPU scheduler, perform initailization steps
         if (isLeaderScheduler_ == true)
         {
+            // Resetting issued task count -- needed to verify termination
+            curTaskCtrl_->issuedTaskCount = 0;
+
             // Setting the corresponding task kernel to execute for all cores
             for (uint32_t coreIdx = 0; coreIdx < AIV_CORE_COUNT + AIC_CORE_COUNT; coreIdx++)
                 args_[coreIdx]->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX] = (int64_t)&curDevTask_->coreFuncData;
@@ -194,17 +187,6 @@ private:
          return *(finishRegQueues_[physicalCoreIdx]);
     }
 
-    inline void ForAllAicores(std::function<void(int coreIdx)> func) const {
-        for (size_t i = 0; i < MAX_AIV_TOTAL_NUM; ++i) {
-            func(i);
-        }
-    }
-
-    inline uint32_t ReadReg32(const int coreIdx, const int offset) {
-        const auto physicalCoreIdx = blockIdToPhyCoreId_[coreIdx];
-        return *(reinterpret_cast<volatile uint32_t*>(regAddrs_[physicalCoreIdx] + offset));
-    }
-
     inline void WriteReg32(const int coreIdx, const int offset, const uint32_t val) {
         const auto physicalCoreIdx = blockIdToPhyCoreId_[coreIdx];
         *(reinterpret_cast<volatile uint32_t*>(regAddrs_[physicalCoreIdx] + offset)) = val;
@@ -213,11 +195,6 @@ private:
     inline void SetReadyQueue(const int coreIdx, const uint64_t taskIdx) {
         const auto physicalCoreIdx = blockIdToPhyCoreId_[coreIdx];
         *(readyRegQueues_[physicalCoreIdx]) = taskIdx + 1; // Plus one is a required offset
-    }
-
-    inline void WriteReg32ALl(int offset, uint32_t val) {
-        for (size_t i = 0; i < MAX_AICORE_NUM; i++)
-         *(reinterpret_cast<volatile uint32_t *>(regAddrs_[i] + offset)) = val;
     }
 
     void AbnormalStop();

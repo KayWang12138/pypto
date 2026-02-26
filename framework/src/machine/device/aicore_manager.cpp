@@ -341,22 +341,25 @@ void AiCoreManager::ResolveDep(uint64_t finishId) {
 }
 
 void AiCoreManager::AbnormalStop() {
-    WriteReg32ALl(regSprDataMainBase_, AICORE_TASK_STOP + 1);
-    /* write to MAINBASE reg must be done before close 0x18 */
-    if (isNeedWriteRegForFastPath_) WriteReg32ALl(REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
+    for (size_t coreIdx = 0; coreIdx < AIV_CORE_COUNT + AIC_CORE_COUNT; coreIdx++)
+    {
+        WriteReg32(coreIdx, regSprDataMainBase_, AICORE_TASK_STOP + 1);
+        if (isNeedWriteRegForFastPath_) WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE); // write to MAINBASE reg must be done before close 0x18
+    }
 }
 
 void AiCoreManager::NormalStop() {
-    ForAllAicores([this](auto coreIdx) { SetReadyQueue(coreIdx, AICORE_TASK_STOP); });
-    /* write to MAINBASE reg must be done before close 0x18 */
-    __sync_synchronize();
-    ForAllAicores([this](auto coreIdx)
+    for (size_t coreIdx = 0; coreIdx < AIV_CORE_COUNT + AIC_CORE_COUNT; coreIdx++) SetReadyQueue(coreIdx, AICORE_TASK_STOP);
+
+    __sync_synchronize(); // write to MAINBASE reg must be done before close 0x18 */
+
+    for (size_t coreIdx = 0; coreIdx < AIV_CORE_COUNT + AIC_CORE_COUNT; coreIdx++)
     {
         if (isNeedWriteRegForFastPath_) WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
         volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
         arg->shakeBuffer[0] = 0;
         arg->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX] = 0;
-    });
+    };
 }
 
-}
+} // namespace npu::tile_fwk
