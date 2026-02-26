@@ -118,7 +118,8 @@ public:
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
         }
 
-        ret = aicoreManager_[threadIdx]->Run(threadIdx, args, initTaskCtrl);
+        aicoreManager_[threadIdx]->PushTask(initTaskCtrl);
+        ret = aicoreManager_[threadIdx]->Run(threadIdx, args);
         DEV_INFO("thread  %d end , ret = %d \n", threadIdx, ret);
         return ret;
     }

@@ -44,7 +44,6 @@ constexpr uint32_t TOTAL_CORE_COUNT = AIV_CORE_COUNT + AIC_CORE_COUNT;
 constexpr uint32_t MAX_STATIC_SCHEDULE_AICPU_NUM = 3;   // 真正负责调度aicore的aicpu个数
 constexpr uint32_t AIV_PER_AICPU = AIV_CORE_COUNT / MAX_STATIC_SCHEDULE_AICPU_NUM;
 constexpr uint32_t AIC_PER_AICPU = AIC_CORE_COUNT / MAX_STATIC_SCHEDULE_AICPU_NUM;
-constexpr int32_t START_STATIC_AICPU_NUM = MAX_STATIC_SCHEDULE_AICPU_NUM;
 constexpr uint32_t MAX_AICORE_NUM = 108;
 constexpr uint32_t MAX_AIV_TOTAL_NUM = 72;
 constexpr uint32_t MAX_AIC_TOTAL_NUM = MAX_AICORE_NUM - MAX_AIV_TOTAL_NUM;
@@ -104,7 +103,7 @@ public:
     AiCoreManager() = default;
     ~AiCoreManager() = default;
 
-    inline void InitTaskData() {
+    inline void initializeTask() {
         readyAicCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAicCoreFunctionQue);
         readyAivCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAivCoreFunctionQue);
 
@@ -156,7 +155,7 @@ public:
         int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
         curTaskCtrl_ = taskCtrl;
         curDevTask_ = static_cast<DeviceTask *>(taskCtrl->devTask);
-        InitTaskData();
+        initializeTask();
 
         const auto t0 = std::chrono::high_resolution_clock::now();
 
@@ -190,7 +189,7 @@ public:
         return ret;
     }
 
-    inline int Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *taskCtrl = nullptr)
+    inline int Run(int threadIdx, DeviceArgs *deviceArgs)
     {
         // Getting my aicpu thread index
         aicpuIdx_ = threadIdx;
@@ -201,11 +200,6 @@ public:
         // Putting myself as leader, if nobody has done it yet
         uint32_t expectedValue = AICPU_LEAD_SCHEDULER_NULL;
         isLeaderScheduler_ = leadSchedulerId->compare_exchange_strong(expectedValue, (uint32_t)aicpuIdx_);
-
-        aicNum_ = deviceArgs->nrAic;
-        aivNum_ = deviceArgs->nrAiv;
-        aicpuNum_ = START_STATIC_AICPU_NUM;
-        aicValidNum_ = deviceArgs->nrValidAic;
         regAddrs_ = reinterpret_cast<int64_t *>(deviceArgs->coreRegAddr);
         sharedBuffer_ = deviceArgs->sharedBuffer;
 
@@ -255,17 +249,13 @@ public:
         /* write to MAINBASE reg need reg 0x18 open first */
         __sync_synchronize();
 
+        // Run tasks until the queue runs out
         int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
-        if (taskCtrl != nullptr) {
-            ret = RunTask(taskCtrl);
-        } else {
-            while (true) {
-                taskCtrl = taskQueue_.Dequeue();
-                if (taskCtrl == nullptr)
-                    break;
-                ret = RunTask(taskCtrl);
-                taskCtrl->PutTask(ret);
-            }
+        while (taskQueue_.IsEmpty() == false)
+        {
+            auto taskCtrl = taskQueue_.Dequeue();
+            ret |= RunTask(taskCtrl);
+            taskCtrl->PutTask(ret);
         }
 
         if (isLeaderScheduler_ == true) NormalStop();
@@ -412,7 +402,7 @@ private:
     inline uint64_t GetFinishedTask(const int coreIdx)
     {
         const auto physicalCoreIdx = blockIdToPhyCoreId_[coreIdx];
-         return *(finishRegQueues_[physicalCoreIdx]);
+        return *(finishRegQueues_[physicalCoreIdx]);
     }
 
     inline void WriteReg32(const int coreIdx, const int offset, const uint32_t val) {
@@ -450,11 +440,7 @@ private:
     inline void SetDotStatus(int64_t status) { dotStatus_ = status; }
 
 private:
-    int aicNum_{0};
-    int aivNum_{0};
-    int aicValidNum_{0}; // 有效的aic，根据pgmask计算host传过来
     int aicpuIdx_{0};
-    int aicpuNum_{MAX_STATIC_SCHEDULE_AICPU_NUM};
     int64_t *regAddrs_{nullptr};
     int64_t sharedBuffer_{0};
     DeviceTask *curDevTask_{nullptr};
