@@ -32,6 +32,8 @@ void
 
 TileShape需要满足以下约束条件：
 
+**注意：L1和L0上都有tileN，但是其代表的含义不同，tileL1Info.tileN代表batch数，tileL0Info.tileN代表L0层级的n的大小**
+
 - 对齐约束：
 
     - tileL1Info各维度值需满足范围约束：
@@ -50,7 +52,7 @@ TileShape需要满足以下约束条件：
 
         - 1 <= tileCout <= Cout（Cout为输出特征图实际通道数）
 
-        - 1 <= tileN <= Batch（Batch为实际批次大小）
+        - 1 <= tileN（代表batch数） <= Batch（Batch为实际批次大小）
 
     - tileL0Info各维度值需满足对齐约束：
 
@@ -60,7 +62,7 @@ TileShape需要满足以下约束条件：
 
         - tileH `1 <= tileH <= tileHout`
 
-        - tileN需满足16元素对齐，即 `tileN % 16 == 0`
+        - tileN（代表L0上的n的大小）需满足16元素对齐，即 `tileN % 16 == 0`
 
     - L0与L1维度层级约束：
 
