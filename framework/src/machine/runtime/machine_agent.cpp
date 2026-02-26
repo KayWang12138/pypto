@@ -418,15 +418,12 @@ void MachineAgent::FillL2PrefetchInfo(DeviceAgentTask *task, DeviceTask &devTask
 
 void MachineAgent::FillDeviceTask(DeviceAgentTask *task, DeviceTask &devTask, MachineDeviceAgentInfo &devInfo) {
     devTask.coreFunctionCnt = task->compileInfo.coreFunctionCnt;
-    devTask.coreFuncData.stackWorkSpaceAddr =
-        reinterpret_cast<uint64_t>(devInfo.workspaceGmAddr + task->compileInfo.invokeParaWorkSpaceSize);
+    devTask.coreFuncData.stackWorkSpaceAddr = reinterpret_cast<uint64_t>(devInfo.workspaceGmAddr + task->compileInfo.invokeParaWorkSpaceSize);
     devTask.coreFuncData.stackWorkSpaceSize = task->compileInfo.workSpaceStackSize;
     devTask.coreFunctionReadyStateAddr = reinterpret_cast<uint64_t>(devInfo.readyStateGmAddr);
     devTask.readyAicCoreFunctionQue = reinterpret_cast<uint64_t>(devInfo.readyAicQueGmAddr);
     devTask.readyAivCoreFunctionQue = reinterpret_cast<uint64_t>(devInfo.readyAivQueGmAddr);
     devTask.isTaskInitialized = false;
-    devTask.isDeviceInitialized = false;
-    devTask.leadSchedulerId = AICPU_LEAD_SCHEDULER_NULL;
     (void)memcpy_s(&(devTask.readyAicpuFunctionQue), sizeof(uint64_t), &(devInfo.readyAicpuQueGmAddr), sizeof(uint8_t*));
     FillL2PrefetchInfo(task, devTask);
 }

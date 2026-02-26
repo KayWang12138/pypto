@@ -149,6 +149,7 @@ void DeviceRunner::InitMetaData(DeviceArgs &devArgs) {
     devArgs.corePmuAddr = args_.corePmuAddr;
     devArgs.taskWastTime = args_.taskWastTime;
     devArgs.pmuEventAddr = args_.pmuEventAddr;
+
     if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
         args_.aicpuPerfAddr = npu::tile_fwk::dynamic::PtrToValue(DevAlloc(sizeof(MetricPerf)));
         if (args_.aicpuPerfAddr == 0) {
@@ -178,6 +179,8 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     uint64_t shmAddr = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(DevAlloc(shmSize)));
     args.runtimeDataRingBufferAddr = shmAddr;
     PmuCommon::InitPmuEventType(args.archInfo, pmuEvtType_);
+    args.leadSchedulerId = AICPU_LEAD_SCHEDULER_NULL;
+    args.isDeviceInitialized = false;
     args.pmuEventAddr = reinterpret_cast<uint64_t>(DevAlloc(pmuEvtType_.size() * sizeof(int64_t)));
 
     if (args.sharedBuffer == 0 || args.coreRegAddr == 0 || args.corePmuAddr == 0 || args.corePmuRegAddr == 0) {

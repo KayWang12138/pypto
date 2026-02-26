@@ -155,6 +155,7 @@ public:
     {
         int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
         curTaskCtrl_ = taskCtrl;
+        curDevTask_ = static_cast<DeviceTask *>(taskCtrl->devTask);
         InitTaskData();
 
         const auto t0 = std::chrono::high_resolution_clock::now();
@@ -191,15 +192,15 @@ public:
 
     inline int Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *taskCtrl = nullptr)
     {
+        // Getting my aicpu thread index
         aicpuIdx_ = threadIdx;
-        curDevTask_ = static_cast<DeviceTask *>(taskCtrl->devTask);
 
         // Getting variable controlling who is the scheduler lead. The first to arrive here should take the lead so that this starts as fast as possible
-        leadSchedulerId_ = (std::atomic<uint32_t>*) &curDevTask_->leadSchedulerId;
+        auto leadSchedulerId = (std::atomic<uint32_t>*) &deviceArgs->leadSchedulerId;
         
         // Putting myself as leader, if nobody has done it yet
         uint32_t expectedValue = AICPU_LEAD_SCHEDULER_NULL;
-        isLeaderScheduler_ = leadSchedulerId_->compare_exchange_strong(expectedValue, (uint32_t)aicpuIdx_);
+        isLeaderScheduler_ = leadSchedulerId->compare_exchange_strong(expectedValue, (uint32_t)aicpuIdx_);
 
         aicNum_ = deviceArgs->nrAic;
         aivNum_ = deviceArgs->nrAiv;
@@ -235,11 +236,11 @@ public:
             }
 
             // Setting task as initialized, allowing others to continue
-            curDevTask_->isDeviceInitialized = true;
+            deviceArgs->isDeviceInitialized = true;
         }
         else // If I am not a lead AICPU scheduler, wait until initialization is ready
         {
-            while(curDevTask_->isDeviceInitialized == false){ /* Busy wait */ };
+            while(deviceArgs->isDeviceInitialized == false){ /* Busy wait */ };
         }
 
         for (uint32_t coreIdx = 0; coreIdx < TOTAL_CORE_COUNT; coreIdx++)
@@ -467,7 +468,6 @@ private:
     SPSCQueue<DeviceTaskCtrl *, DEFAULT_TASK_QUEUE_SIZE> taskQueue_;
 
     // Variable to scheduler lead and whether or not I am the lead
-    std::atomic<uint32_t>* leadSchedulerId_;
     bool isLeaderScheduler_;
 
     /* prepare aicore ready task list */

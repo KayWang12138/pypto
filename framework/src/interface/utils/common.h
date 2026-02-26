@@ -95,8 +95,6 @@ inline constexpr uint64_t GIBI = UINT64_C(1024) * 1024 * 1024;
 
 constexpr const int INVALID_LOOP_GROUPID = -1;
 
-constexpr uint32_t AICPU_LEAD_SCHEDULER_NULL = 0xFFFFFFFFU;
-
 inline int64_t AlignUp(int64_t value, int64_t alignment) {
     if (alignment == 0) {
         return value;

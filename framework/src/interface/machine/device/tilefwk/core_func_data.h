@@ -131,8 +131,6 @@ struct DeviceTask {
     uint64_t availableCubeCoreQueue; // A queue containing the available cube cores
     uint64_t runningPairQueue; // A queue containing the currently running core/task pairings
     volatile bool isTaskInitialized; // A flag to indicate the kernel has been properly initialized by the lead AICPU scheduler
-    volatile bool isDeviceInitialized; // A flag to indicate the device has been properly initialized by the lead AICPU scheduler
-    uint32_t leadSchedulerId;
 };
 
 // dfx 相关
