@@ -64,12 +64,6 @@ class Source:
     source_name : str
         The file path where the source code resides.
 
-    start_line : int
-        The initial line number of the source code segment.
-
-    start_column : int
-        The initial column position on the first line of the source code.
-
     source : str
         The actual source code content string.
 
@@ -78,32 +72,21 @@ class Source:
     """
 
     source_name: str
-    start_line: int
-    start_column: int
     source: str
     full_source: str
 
     def __init__(self, program: Union[str, ast.AST]):
         if isinstance(program, str):
             self.source_name = "<str>"
-            self.start_line = 1
-            self.start_column = 0
             self.source = program
             self.full_source = program
             return
 
         self.source_name = inspect.getsourcefile(program)  # type: ignore
-        source_lines, self.start_line = getsourcelines(program)  # type: ignore
-        if source_lines:
-            self.start_column = len(source_lines[0]) - len(source_lines[0].lstrip())
-        else:
-            self.start_column = 0
-        if self.start_column and source_lines:
-            self.source = "\n".join(
-                [line_content[self.start_column:].rstrip() for line_content in source_lines]
-            )
-        else:
-            self.source = "".join(source_lines)
+        source_lines, start_line = getsourcelines(program)  # type: ignore
+        source_lines = [""] * (start_line - 1) + source_lines
+        self.source = "\n".join(source_lines)
+
         try:
             # Handling Jupyter Notebook compatibility issue.
             # When running in Jupyter, `mod` becomes <module '__main__'>, a built-in module
@@ -438,13 +421,9 @@ class Diagnostics:
             The severity level of the diagnostic.
         """
         line_number = getattr(node, "lineno", 1)
-        column_position = getattr(node, "col_offset", self.source.start_column)
+        column_position = getattr(node, "col_offset", 0)
         ending_line = getattr(node, "end_lineno", line_number)
         ending_column = getattr(node, "end_col_offset", column_position)
-        line_number = line_number + (self.source.start_line - 1)
-        ending_line = ending_line + (self.source.start_line - 1)
-        column_position = column_position + self.source.start_column + 1
-        ending_column = ending_column + self.source.start_column + 1
         self.context.emit(
             DiagnosticItem(
                 level=level,
