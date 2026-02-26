@@ -52,6 +52,7 @@ public:
     Status PriorDFS(std::unordered_map<Opcode, int> preNodePriority);
     Status DFSFromOutNode(std::vector<Operation*> outNodeQueue, std::unordered_map<Opcode, int> preNodePriority,
         std::map<Operation*, bool> &visited);
+    void PromoteDdrCopyOuts();
     void DFSFromSingleNode(Operation* op, std::map<Operation*, bool>& visited,
         std::vector<Operation*>& newOpList, std::unordered_map<Opcode, int> preNodePriority);
     void ForwardDfs(Operation* curOp, std::vector<Operation*>& newOpList, std::map<Operation*, bool>& visited,
