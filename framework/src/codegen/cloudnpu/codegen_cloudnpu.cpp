@@ -16,6 +16,7 @@
 
 #include <cstring>
 #include <error.h>
+#include <chrono>
 
 #include "codegen/utils/parallel_execute.h"
 #include "codegen_op_cloudnpu.h"
@@ -250,6 +251,7 @@ void CodeGenCloudNPU::GenCode(
     std::deque<std::function<void(void)>> tasks;
     for (auto &subFuncPair : topFunc.rootFunc_->programs_) {
         std::function task = [this, subFuncPair, &topFunc]() {
+            auto start = std::chrono::high_resolution_clock::now();
             CODEGEN_LOGI(" ----- subprogram id [%d] -----", subFuncPair.first);
             auto subFunc = subFuncPair.second;
             if (HandleForAICpuSubFunc(*subFunc)) {
@@ -263,8 +265,17 @@ void CodeGenCloudNPU::GenCode(
             GenFuncEnd(leafKernelFunc);
 #ifdef BUILD_WITH_CANN
             if (std::getenv(ENV_ASCEND_HOME_PATH.c_str()) != nullptr) {
+                auto end0 = std::chrono::high_resolution_clock::now();
                 DumpCCE(compileInfo.GetCCEAbsPath(), leafKernelFunc);
+                auto end1 = std::chrono::high_resolution_clock::now();
                 DoCompileCCE(compileInfo, "");
+                auto end2 = std::chrono::high_resolution_clock::now();
+                auto cost0 = std::chrono::duration<double, std::milli>(end0 - start).count();
+                auto cost1 = std::chrono::duration<double, std::milli>(end1 - start).count();
+                auto cost2 = std::chrono::duration<double, std::milli>(end2 - end1).count();
+                CODEGEN_LOGE(
+                    "hjhj process subFunc %s, hash %s, Print cost %f ms, DumpCCE cost: %f ms, DoCompileCCE cost %f ms",
+                    subFunc->GetMagicName().c_str(), subFunc->GetFunctionHash().c_str(), cost0, cost1, cost2);
             }
 #endif
             UpdateSubFunc(subFuncPair, compileInfo);

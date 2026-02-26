@@ -12,16 +12,22 @@
  * \file codegen.cpp
  * \brief
  */
+#include <chrono>
 
 #include "codegen.h"
 #include "codegen_factory.h"
 
 namespace npu::tile_fwk {
 void CodeGen::GenCode(Function &topFunc, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) {
+    auto start = std::chrono::high_resolution_clock::now();
     ASSERT(topFunc.rootFunc_ != nullptr) << "rootFunc can not be nullptr";
 
     auto cg = CodeGenFactory::GetCodeGenCCE(ctx_);
     cg->GenCode(topFunc, invokeParaOffset);
+    auto end = std::chrono::high_resolution_clock::now();
+    auto cost = std::chrono::duration<double, std::milli>(end - start).count();
+    CODEGEN_LOGE("hjhj CodeGen TopFunc %s, hash %s, cost: %f ms", topFunc.GetMagicName().c_str(),
+        topFunc.GetFunctionHash().c_str(), cost);
 }
 
 } // namespace npu::tile_fwk
