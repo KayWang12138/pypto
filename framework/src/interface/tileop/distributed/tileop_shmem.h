@@ -32,31 +32,6 @@
 namespace TileOp::Distributed {
 
 // ---------------------------------------------------------------------------
-// Type conversion (UB): half/bf16 <-> float
-// ---------------------------------------------------------------------------
-template<typename T>
-TILEOP void Conv2FP32(__ubuf__ float* dst, __ubuf__ T* src, uint8_t repeat, uint16_t dstBlockStride,
-    uint16_t srcBlockStride, uint8_t dstRepeatStride, uint8_t srcRepeatStride)
-{
-    if constexpr(std::is_same_v<T, half>) {
-        vconv_f162f32(dst, src, repeat, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
-    } else if constexpr(std::is_same_v<T, bfloat16_t>) {
-        vconv_bf162f32(dst, src, repeat, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
-    }
-}
-
-template<typename T>
-TILEOP void DeConvFP32(__ubuf__ T* dst, __ubuf__ float* src, uint8_t repeat, uint16_t dstBlockStride,
-    uint16_t srcBlockStride, uint8_t dstRepeatStride, uint8_t srcRepeatStride)
-{
-    if constexpr(std::is_same_v<T, half>) {
-        vconv_f322f16(dst, src, repeat, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
-    } else if constexpr(std::is_same_v<T, bfloat16_t>) {
-        vconv_f322bf16r(dst, src, repeat, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
-    }
-}
-
-// ---------------------------------------------------------------------------
 // Shmem tensor/tile type aliases
 // ---------------------------------------------------------------------------
 using ShapeDyn = pto::Shape<pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC>;

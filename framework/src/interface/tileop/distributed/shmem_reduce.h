@@ -16,7 +16,32 @@
 #ifndef __DISTRIBUTED_SHMEM_REDUCE__
 #define __DISTRIBUTED_SHMEM_REDUCE__
 
+#include <type_traits>
+
 namespace TileOp::Distributed {
+
+// UB 类型转换：half/bf16 <-> float，仅 reduce FP32 模式使用
+template<typename T>
+TILEOP void Conv2FP32(__ubuf__ float* dst, __ubuf__ T* src, uint8_t repeat, uint16_t dstBlockStride,
+    uint16_t srcBlockStride, uint8_t dstRepeatStride, uint8_t srcRepeatStride)
+{
+    if constexpr (std::is_same_v<T, half>) {
+        vconv_f162f32(dst, src, repeat, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
+    } else if constexpr (std::is_same_v<T, bfloat16_t>) {
+        vconv_bf162f32(dst, src, repeat, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
+    }
+}
+
+template<typename T>
+TILEOP void DeConvFP32(__ubuf__ T* dst, __ubuf__ float* src, uint8_t repeat, uint16_t dstBlockStride,
+    uint16_t srcBlockStride, uint8_t dstRepeatStride, uint8_t srcRepeatStride)
+{
+    if constexpr (std::is_same_v<T, half>) {
+        vconv_f322f16(dst, src, repeat, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
+    } else if constexpr (std::is_same_v<T, bfloat16_t>) {
+        vconv_f322bf16r(dst, src, repeat, dstBlockStride, srcBlockStride, dstRepeatStride, srcRepeatStride);
+    }
+}
 
 template<typename T>
 TILEOP void ReduceTLoad(__gm__ T* gmAddr, __ubuf__ T* ubAddr, CopyParams params)
