@@ -958,7 +958,7 @@
                         128,
                         128
                     ],
-                    "dtype": "int32",
+                    "dtype": "fp32",
                     "format": "ND"
                 }
             ],
@@ -1000,7 +1000,7 @@
                         16,
                         1024
                     ],
-                    "dtype": "int16",
+                    "dtype": "fp32",
                     "format": "ND"
                 }
             ],
