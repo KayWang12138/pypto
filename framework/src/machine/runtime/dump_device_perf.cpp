@@ -96,13 +96,13 @@ void DumpAicoreTaskExectInfo(DeviceArgs &args, const std::vector<void *> &perfDa
     } else {
         ALOG_WARN("program.json or dyn_topo.txt missing. Stop merging the swimlane.");
     }
-    DumpAicpuPerfInfo(args, perfData, freq);
 }
 
-inline void DevTaskPerfFormat(uint32_t tid, uint32_t type, json &devTaskJson, const MetricPerf *aicpuPer) {
+inline void DevTaskPerfFormat(uint32_t tid, uint32_t type, json &devTaskJson, const MetricPerf *aicpuPer, const uint32_t &turnIdx) {
     json per_dev_task;
     for (uint32_t i = 0; i < aicpuPer->perfAicpuTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)]; i++) {
         std::string name = PerfTraceName[type];
+        name = name + "_" + std::to_string(turnIdx);
         if (type != PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK) {
             name = name + "(" + std::to_string(i) + ")";
         }
@@ -122,8 +122,32 @@ inline void SparateCore(int total, int idx, int part, const int &offset, std::ve
     }
 }
 
+inline void ConstructAicorePerfInfo(json &tasksArr, Metrics *aicoreMetric, const uint32_t &turnNum) { 
+    uint64_t curCycle = 0;
+    for (uint32_t type = 0; type < PERF_TRACE_CORE_MAX; type++) {
+        for (uint32_t turnIdx = 0; turnIdx < turnNum; turnIdx++) {
+            for (uint32_t cnt = 0; cnt < aicoreMetric->perfTraceCnt[turnIdx][type]; cnt++) {
+                json aicoreTaskType;
+                curCycle = aicoreMetric->perfTrace[turnIdx][type][cnt];
+                if (curCycle == 0) {
+                    break;
+                }
+                std::string name = AicorePerfTraceName[type];
+                name = name + "_" + std::to_string(turnIdx);
+                if (aicoreMetric->perfTraceDevTaskId[turnIdx][type][cnt] != INVALID_DEV_TASK_ID) {
+                    name = name + "(" + std::to_string(aicoreMetric->perfTraceDevTaskId[turnIdx][type][cnt]) + ")";
+                }
+                aicoreTaskType["name"] = name;
+                aicoreTaskType["end"] = curCycle;
+                tasksArr.push_back(aicoreTaskType);
+            }
+            aicoreMetric->perfTraceCnt[turnIdx][type] = 0;
+        }
+    }
+}
+
 inline void DumpAicoreDevTask(DeviceArgs &args, json &aicpuPrefArray,
-                              const std::vector<void *> &perfData, const uint32_t &freq) {
+                              const std::vector<void *> &perfData, const uint32_t &freq, const uint32_t &turnNum) {
     std::vector<int> coreArray;
     coreArray.resize(args.GetBlockNum());
     for(uint32_t i = 0; i < args.scheCpuNum; i++) {
@@ -135,49 +159,36 @@ inline void DumpAicoreDevTask(DeviceArgs &args, json &aicpuPrefArray,
         size_t dataSize = MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics);
         std::vector<uint8_t> hostBuffer(dataSize);
         rtMemcpy(hostBuffer.data(), dataSize, devPtr, dataSize, RT_MEMCPY_DEVICE_TO_HOST);
-        Metrics *aicpuMetric = reinterpret_cast<Metrics*>(hostBuffer.data());
+        Metrics *aicoreMetric = reinterpret_cast<Metrics*>(hostBuffer.data());
         std::string coreType = (i < args.nrValidAic) ? "AIC" : "AIV";
         json aicoreTask;
         aicoreTask["blockIdx"] = i;
         aicoreTask["coreType"] = "SCHED" + std::to_string(coreArray[i]) + "-" + coreType;
         aicoreTask["freq"] = freq;
         json tasksArr = json::array();
-        uint64_t curCycle = 0;
-        for (uint32_t type = 0; type < PERF_TRACE_CORE_MAX; type++) {
-            for (uint32_t cnt = 0; cnt < aicpuMetric->perfTraceCnt[type]; cnt++) {
-                json aicoreTaskType;
-                curCycle = aicpuMetric->perfTrace[type][cnt];
-                if (curCycle == 0) {
-                    break;
-                }
-                std::string name = AicorePerfTraceName[type];
-                if (aicpuMetric->perfTraceDevTaskId[type][cnt] != INVALID_DEV_TASK_ID) {
-                    name = name + "(" + std::to_string(aicpuMetric->perfTraceDevTaskId[type][cnt]) + ")";
-                }
-                aicoreTaskType["name"] = name;
-                aicoreTaskType["end"] = curCycle;
-                tasksArr.push_back(aicoreTaskType);
-            }
-            aicpuMetric->perfTraceCnt[type] = 0;
-        }
+        ConstructAicorePerfInfo(tasksArr, aicoreMetric, turnNum);
         aicoreTask["tasks"] = tasksArr;
         aicpuPrefArray.push_back(aicoreTask);
     }
 }
 
-inline void DumpAicpuDevTask(const DeviceArgs &args, json &aicpuPrefArray, const uint32_t &freq) {
-    auto aicpuPer = (ValueToPtr(args.aicpuPerfAddr));
+inline MetricPerf GetAicpuPrefAddr(const DeviceArgs &args, const uint32_t &turnIdx) {
+    MetricPerf aicpuMetric;
+    auto aicpuPer = (ValueToPtr(args.aicpuPerfAddr + turnIdx * sizeof(MetricPerf)));
     if (aicpuPer == nullptr) {
         ALOG_ERROR_F("Aicpu per ptr is null");
-        return;
+        return aicpuMetric;
     }
-    MetricPerf aicpuMetric;
+    
     auto ret = rtMemcpy(PtrToPtr<MetricPerf, void>(&aicpuMetric), sizeof(MetricPerf), aicpuPer,
                         sizeof(MetricPerf), RT_MEMCPY_DEVICE_TO_HOST);
     if (ret != 0) {
         ALOG_WARN_F("aicpu meter copy failed ret: %d", ret);
-        return;
     }
+    return aicpuMetric;
+}
+
+inline void DumpAicpuDevTask(const DeviceArgs &args, json &aicpuPrefArray, const uint32_t &freq, const uint32_t &turnNum) {
     for (uint32_t i = 0; i < args.nrAicpu - 1; i++) {
         json aicpu;
         std::string coreType = "AICPU";
@@ -190,18 +201,22 @@ inline void DumpAicpuDevTask(const DeviceArgs &args, json &aicpuPrefArray, const
         aicpu["coreType"] = coreType;
         aicpu["freq"] = freq;
         json aicpuDevTasks = json::array();
-        for (uint32_t type = 0; type < PERF_TRACE_MAX; type++) {
-            if (PerfTraceIsDevTask[type]) {
-                DevTaskPerfFormat(i, type, aicpuDevTasks, &aicpuMetric);
-                continue;
+        for (uint32_t turnIdx = 0; turnIdx < turnNum; turnIdx++) {
+            MetricPerf aicpuMetric = GetAicpuPrefAddr(args, turnIdx);
+            for (uint32_t type = 0; type < PERF_TRACE_MAX; type++) {
+                if (PerfTraceIsDevTask[type]) {
+                    DevTaskPerfFormat(i, type, aicpuDevTasks, &aicpuMetric, turnIdx);
+                    continue;
+                }
+                if (aicpuMetric.perfAicpuTrace[i][type] == 0) {
+                    continue;
+                }
+                json schCtrAicpu;
+                std::string name = PerfTraceName[type];
+                schCtrAicpu["name"] = name + "_" + std::to_string(turnIdx);
+                schCtrAicpu["end"] = aicpuMetric.perfAicpuTrace[i][type];
+                aicpuDevTasks.push_back(schCtrAicpu);
             }
-            if (aicpuMetric.perfAicpuTrace[i][type] == 0) {
-                continue;
-            }
-            json schCtrAicpu;
-            schCtrAicpu["name"] = PerfTraceName[type];
-            schCtrAicpu["end"] = aicpuMetric.perfAicpuTrace[i][type];
-            aicpuDevTasks.push_back(schCtrAicpu);
         }
         aicpu["tasks"] = aicpuDevTasks;
         aicpuPrefArray.push_back(aicpu);
@@ -210,9 +225,17 @@ inline void DumpAicpuDevTask(const DeviceArgs &args, json &aicpuPrefArray, const
 
 
 void DumpAicpuPerfInfo(DeviceArgs &args, const std::vector<void *> &perfData, const uint32_t &freq) {
+    void* devPtr = perfData[0];
+    size_t dataSize = MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics);
+    std::vector<uint8_t> hostBuffer(dataSize);
+    rtMemcpy(hostBuffer.data(), dataSize, devPtr, dataSize, RT_MEMCPY_DEVICE_TO_HOST);
+    Metrics *aicoreMetric = reinterpret_cast<Metrics*>(hostBuffer.data());
+    auto g_prof_turn = aicoreMetric->turnNum;
+    ALOG_ERROR_F("=========xxxx=========g_prof_turn: %u", g_prof_turn);
     json aicpuPrefArray = json::array();
-    DumpAicpuDevTask(args, aicpuPrefArray, freq);
-    DumpAicoreDevTask(args, aicpuPrefArray, perfData, freq);
+    DumpAicpuDevTask(args, aicpuPrefArray, freq, g_prof_turn);
+    DumpAicoreDevTask(args, aicpuPrefArray, perfData, freq, g_prof_turn);
+    
     std::string aicpuPerfilePath = npu::tile_fwk::config::LogTopFolder() + "/aicpu_dev_pref.json";
     if (!DumpFile(aicpuPrefArray.dump(DUMP_LEVEL_FOUR), aicpuPerfilePath)) {
         ALOG_WARN_F("Contrust custom op json failed");
