@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -9,29 +9,22 @@
  */
 
 /*!
- * \file pybind11.cpp
+ * \file platform.cpp
  * \brief
  */
 
 #include "pybind_common.h"
-#include "bindings/bindings.h"
+
+#include "tilefwk/platform.h"
 
 using namespace npu::tile_fwk;
 
 namespace pypto {
-PYBIND11_MODULE(pypto_impl, m) {
-    m.doc() = "PyPTO";
-    bind_enum(m);
-    BindElement(m);
-    BindTensor(m);
-    BindSymbolicScalar(m);
-    bind_controller(m);
-    bind_operation(m);
-    BindRuntime(m);
-    BindCostModelRuntime(m);
-    bind_pass(m);
-    BindFunction(m);
-    BindIr(m);
-    BindPlatform(m);
-};
+void BindPlatform(py::module &m) {
+    m.def("GetNPUArch", []() -> std::string {
+        Platform::Instance().ObtainPlatformInfo();
+        auto npuArch = Platform::Instance().GetSoc().GetNPUArch();
+        return NPUArchToString(npuArch);
+    });
+}
 } // namespace pypto

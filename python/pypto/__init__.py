@@ -75,11 +75,13 @@ from .operation import *  # noqa
 from .operator import *  # noqa
 from .pass_config import *  # noqa
 from .cost_model import *  # noqa
+from .platform import platform
 from ._utils import ceildiv, bytes_of
 from .runtime import jit, verify, set_verify_golden_data, RunMode
 from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor
 from .functions import Function, get_last_function, get_current_function
+
 
 # Import frontend after all other imports to avoid circular imports
 from . import frontend
