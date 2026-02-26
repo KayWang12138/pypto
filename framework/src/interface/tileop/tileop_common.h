@@ -111,6 +111,7 @@ constexpr uint64_t BLOCK_NELEM_B16 = 16;
 constexpr uint64_t BLOCK_NELEM_B32 = 8;
 constexpr uint64_t NBLOCK_PER_MASK_B16 = 4;
 constexpr uint64_t BLOCK_SIZE = 32;
+constexpr uint64_t UB_BLOCK_ALIGN_BYTE = 32;
 constexpr uint64_t REPEAT_MAX = 255;
 constexpr uint64_t REPEAT_BYTE = 256;
 constexpr uint64_t REPEAT_STRIDE_MAX = 255;
