@@ -456,11 +456,16 @@ TILEOP void TExp2(T0 dst, T1 tmp, T2 tmp, T3 src) {
 #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
 #endif
-                    pto::TEXP(dstTile.Data(), tmpTile.Data());
+                    if constexpr (std::is_same_v<typename T3::Type, half> ||
+                                  std::is_same_v<typename T3::Type, bfloat16_t>) {
+                        pto::TEXP(tmpTile2.Data(), tmpTile.Data());
 #ifdef __DAV_V220
-                    pipe_barrier(PIPE_V);
+                        pipe_barrier(PIPE_V);
 #endif
-                    pto::TCVT(dstTile.Data(), dstTile.Data(), pto::RoundMode::CAST_RINT);
+                        pto::TCVT(dstTile.Data(), tmpTile2.Data(), pto::RoundMode::CAST_RINT);
+                    } else {
+                        pto::TEXP(dstTile.Data(), tmpTile.Data());
+                    }
                 }
             }
         }
