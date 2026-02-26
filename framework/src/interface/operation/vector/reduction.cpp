@@ -307,6 +307,7 @@ Tensor Amax(const Tensor &self, int axis, bool keepDim) {
     if (keepDim || lastDim == 0) {
         return result;
     } else {
+        VecTile oriVectile = TileShape::Current().GetVecTile();
         std::vector<SymbolicScalar> outValidShape;
         for (auto shape : self.GetStorage()->GetDynValidShape()){
             outValidShape.push_back(shape);
@@ -315,7 +316,10 @@ Tensor Amax(const Tensor &self, int axis, bool keepDim) {
         outValidShape.erase(outValidShape.begin() + axis);
         vecTile.tile.erase(vecTile.tile.begin() + axis);
         TileShape::Current().SetVecTile(vecTile.tile);
-        return Reshape(result, outShape, outValidShape);
+        Tensor reshapeResult(self.GetStorage()->tensor->datatype, outShape);
+        reshapeResult = Reshape(result, outShape, outValidShape);
+        TileShape::Current().SetVecTile(oriVectile);
+        return reshapeResult;
     }
 }
 
@@ -347,6 +351,7 @@ Tensor Amin(const Tensor &self, int axis, bool keepDim) {
     if (keepDim || lastDim == 0) {
         return result;
     } else {
+        VecTile oriVectile = TileShape::Current().GetVecTile();
         std::vector<SymbolicScalar> outValidShape;
         for (auto shape : self.GetStorage()->GetDynValidShape()){
             outValidShape.push_back(shape);
@@ -355,7 +360,10 @@ Tensor Amin(const Tensor &self, int axis, bool keepDim) {
         outValidShape.erase(outValidShape.begin() + axis);
         vecTile.tile.erase(vecTile.tile.begin() + axis);
         TileShape::Current().SetVecTile(vecTile.tile);
-        return Reshape(result, outShape, outValidShape);
+        Tensor reshapeResult(self.GetStorage()->tensor->datatype, outShape);
+        reshapeResult = Reshape(result, outShape, outValidShape);
+        TileShape::Current().SetVecTile(oriVectile);
+        return reshapeResult;
     }
 }
 
@@ -386,6 +394,7 @@ Tensor Sum(const Tensor &self, int axis, bool keepDim) {
     if (keepDim || lastDim == 0) {
         return result;
     } else {
+        VecTile oriVectile = TileShape::Current().GetVecTile();
         std::vector<SymbolicScalar> outValidShape;
         for (auto shape : self.GetStorage()->GetDynValidShape()){
             outValidShape.push_back(shape);
@@ -394,7 +403,10 @@ Tensor Sum(const Tensor &self, int axis, bool keepDim) {
         outValidShape.erase(outValidShape.begin() + axis);
         vecTile.tile.erase(vecTile.tile.begin() + axis);
         TileShape::Current().SetVecTile(vecTile.tile);
-        return Reshape(result, outShape, outValidShape);
+        Tensor reshapeResult(self.GetStorage()->tensor->datatype, outShape);
+        reshapeResult = Reshape(result, outShape, outValidShape);
+        TileShape::Current().SetVecTile(oriVectile);
+        return reshapeResult;
     }
 }
 
