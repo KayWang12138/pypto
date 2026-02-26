@@ -290,6 +290,14 @@ ScalarImmediateType EvaluateSymbol::EvaluateSymbolicScalar(const RawSymbolicScal
                     for (size_t i = 1; i < dataList.size(); i++) {
                         result = RawSymbolicExpression::GetSymbolicCalcBinary(expr->Opcode())(result, dataList[i]);
                     }
+                } else if (expr->Opcode() == SymbolicOpcode::T_MOP_MAX || expr->Opcode() == SymbolicOpcode::T_MOP_MIN) {
+                    auto bop = (expr->Opcode() == SymbolicOpcode::T_MOP_MIN)
+                        ? RawSymbolicExpression::CalcBopMin
+                        : RawSymbolicExpression::CalcBopMax;
+                    result = dataList[0];
+                    for (size_t i = 1; i < dataList.size(); ++i) {
+                        result = bop(result, dataList[i]);
+                    }
                 }
             }
         } break;
