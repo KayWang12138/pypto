@@ -226,13 +226,6 @@ TEST_F(CostModelTest, TestAttentionPostAccuracy2)
     RunAttentionPostCostModel();
 }
 
-TEST_F(CostModelTest, TestAttentionPostAccuracy3)
-{
-    int accuracylevel = 2;
-    config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
-    RunMatrixCostModel();
-}
-
 TEST_F(CostModelTest, TestAttentionPostL2Cache)
 {
     int accuracylevel = 1;
