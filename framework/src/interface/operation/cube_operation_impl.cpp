@@ -481,6 +481,11 @@ void SetAMulBAttr(const MatmulGraphNodes &tensorGraphNodes, const MatmulAttrPara
            tensorGraphNodes.outTensorPtr != nullptr)
         << "Expected aTensorPtr, bTensorPtr, and outTensorPtr to be non-nullptr." << std::endl;
         });
+    OP_CHECK(true, {
+        ASSERT(attrParam.tf32Mode == 0 || Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510)
+            << "TF32 is only supported on A5 platform."
+            << std::endl;
+    });
 
     int64_t nzAttr = (static_cast<int64_t>(tensorGraphNodes.aTensorPtr->Format())) |
                      (static_cast<int64_t>(tensorGraphNodes.bTensorPtr->Format()) << 1) |
@@ -508,11 +513,6 @@ void SetTensorGraphAttr(
     op.SetAttribute(A_MUL_B_TRANS_B, attrParam.transB);
     op.SetAttribute(A_MUL_B_BIAS_ATTR, (param.biasTensor.GetStorage() != nullptr));
     op.SetAttribute(A_MUL_B_RELU_ATTR, static_cast<int64_t>(param.reluType));
-    OP_CHECK(true, {
-        ASSERT(param.tf32Mode == TF32Mode::CAST_NONE || Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510)
-            << "TF32 is only supported on A5 platform."
-            << std::endl;
-    });
     op.SetAttribute(A_MUL_B_TF32_MODE_ATTR, static_cast<int64_t>(param.tf32Mode));
     // means perchannel
     if (param.scaleTensor.GetStorage() != nullptr) {
