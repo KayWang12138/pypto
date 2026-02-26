@@ -121,7 +121,8 @@ def moe_fusion_kernel(hidden_states_shape, mm_weight_shape, e_score_bias_shape, 
         runtime_options={"device_sched_mode": 1,
                         "stitch_function_max_num": 128,
                         "stitch_cfgcache_size": 7700000},
-        pass_options={"cube_l1_reuse_setting": {-1: 2}}
+        pass_options={"cube_l1_reuse_setting": {-1: 2}},
+        debug_options={"runtime_debug_mode": 0, "compile_debug_mode": 1},
     )
     def kernel(
         hidden_states: pypto.tensor(hidden_states_shape, dtype=pypto.DT_BF16),
@@ -484,6 +485,12 @@ def moe_fusion_pto(gate_layer, hidden_states, share_layer, top_k, renormalize, t
 
 
 def main():
+    pypto.set_compiler_monitor_options(
+        enable=True,
+        interval_sec=5,
+        timeout_sec=40,
+        total_timeout_sec=130,
+    )
     test_moe_fusion()
 
 
