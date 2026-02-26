@@ -601,9 +601,10 @@ int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream
     auto ctrlStream = (aclrtStream)machine::GetRA()->GetCtrlStream();
     auto schedStream = (aclrtStream)machine::GetRA()->GetScheStream();
     auto &devRunner = DeviceRunner::Get();
-    devRunner.GetHostProfInstance().SetProfFunction(function);
-    if (debugEnable) {
+    if (debugEnable || devRunner.GetEnableDumpDevPref()) {
+        ChangeCaptureModeRelax();
         devRunner.SetDebugEnable();
+        ChangeCaptureModeGlobal();
     }
     int ret = 0;
     auto args = (AiCpuArgs *)rtArgs.args;
