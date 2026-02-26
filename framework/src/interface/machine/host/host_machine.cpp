@@ -32,6 +32,7 @@ using ExecuteFunc = int (*)(npu::tile_fwk::MachineTask *, npu::tile_fwk::Functio
 using PlatformFunc = std::string (*)();
 using MatchCacheFunc = bool (*)(const std::string &);
 using InitFunc = int (*)();
+using DumpDevProfData = void (*)(DeviceArgs &, std::vector<void*> &);
 
 struct Backend {
     RunPassFunc runPass;
@@ -40,6 +41,7 @@ struct Backend {
     ExecuteFunc simuExecute;
     PlatformFunc platform;
     MatchCacheFunc matchCache;
+    DumpDevProfData dumpDevProfData;
 
     static Backend &GetBackend() {
         static Backend backend;
@@ -60,12 +62,14 @@ private:
         progHandle = dlopen(nullptr, RTLD_LAZY | RTLD_NOLOAD);
         compilerHandle = dlopen("libtile_fwk_compiler.so", RTLD_LAZY | RTLD_NOLOAD);
         simuHandle = dlopen("libtile_fwk_simulator.so", RTLD_LAZY | RTLD_NOLOAD);
+        runtimeHandle = dlopen("libtile_fwk_runtime.so", RTLD_LAZY | RTLD_NOLOAD);
 
         runPass = (RunPassFunc)GetSymbol(progHandle, "RunPass");
         getResumePath = (GetResumePathFunc)GetSymbol(progHandle, "GetResumePath");
         execute = (ExecuteFunc)GetSymbol(compilerHandle, "Execute");
         matchCache = (MatchCacheFunc)GetSymbol(compilerHandle, "MatchCache");
         simuExecute = (ExecuteFunc)GetSymbol(simuHandle, "ExecuteSimulation");
+        dumpDevProfData = (DumpDevProfData)GetSymbol(runtimeHandle, "DumpDevTaskPerfData");
 
         auto initFunc = (InitFunc)GetSymbol(compilerHandle, "Initialize");
         if (initFunc) {
@@ -87,6 +91,7 @@ private:
     void *progHandle;
     void *compilerHandle;
     void *simuHandle;
+    void *runtimeHandle;
 };
 }
 
@@ -120,6 +125,11 @@ bool HostMachine::Init(const HostMachineMode mode) {
     return true;
 }
 
+void HostMachine::SetDevPerfDevPtr(DeviceArgs &devArgs, std::vector<void*> &perfData) {
+    args_ = devArgs;
+    perfData_ = perfData;
+}
+
 void HostMachine::Destroy() {
     if (mode_ == HostMachineMode::SERVER) {
         WaitTaskFinish();
@@ -130,6 +140,11 @@ void HostMachine::Destroy() {
     PerfAnalysis::Get().Dump(true, fileName);
     PerfAnalysis::Get().Dump(false);
 #endif
+    auto &backend = Backend::GetBackend();
+    if (backend.dumpDevProfData) {
+        MACHINE_LOGI("Start dump device profiling data");
+        backend.dumpDevProfData(args_, perfData_);
+    }
     MACHINE_LOGD("HostMachine is destroying...");
 }
 
