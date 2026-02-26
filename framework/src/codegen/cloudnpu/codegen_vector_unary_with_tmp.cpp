@@ -293,7 +293,7 @@ std::string CodeGenOpCloudNPU::PrintExp2Layout() const {
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::SRC0_IDX));
 
     std::ostringstream oss;
-    oss << tileOpName.c_str() << "<float>" << "(" << dstTensor << ", " << tmpTensor << ", " << tmpTensorNext << ", "
+    oss << tileOpName.c_str() << "(" << dstTensor << ", " << tmpTensor << ", " << tmpTensorNext << ", "
         << srcTensor << ");\n";
     return oss.str();
 }

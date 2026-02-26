@@ -759,6 +759,9 @@ void LogicAndOperationTileFunc(Function &function, const TileShape &tileShape,
 Tensor TensorExp2(Function &function, const LogicalTensorPtr &self) {
     auto result =
         std::make_shared<LogicalTensor>(function, self->Datatype(), self->GetShape(), self->GetDynValidShape());
+    if (self->Datatype() == DataType::DT_INT32 || self->Datatype() == DataType::DT_INT16) {
+        result = std::make_shared<LogicalTensor>(function, DT_FP32, self->GetShape(), self->GetDynValidShape());
+    }
     auto &op = function.AddOperation(Opcode::OP_EXP2, {self}, {result});
     function.UpdateTensorDataUsage(op);
     return result;
@@ -792,7 +795,7 @@ void TiledExp2(
         tmpShape2.assign(srcTileShape.end() - SHAPE_DIM2, srcTileShape.end());
         auto alignSize2 = BLOCK_SIZE / BytesOf(DT_FP32);
         tmpShape2[tmpShape2.size() - 1] = (tmpShape2[tmpShape2.size() - 1] + alignSize2 - 1) / alignSize2 * alignSize2;
-        if (result->Datatype() == DT_FP32) {
+        if (input.tensor.GetDataType() == DT_FP32) {
             tmpShape = {BLOCK_SIZE / sizeof(float)};
         } else {
             tmpShape.assign(srcTileShape.end() - SHAPE_DIM2, srcTileShape.end());
@@ -801,6 +804,7 @@ void TiledExp2(
         }
         auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_FP32, tmpShape);
         auto tmpTensorNext = std::make_shared<LogicalTensor>(function, DT_FP32, tmpShape2);
+
         function.AddOperation(Opcode::OP_EXP2, {tile}, {resultTile, tmpTensor, tmpTensorNext});
         return;
     }
