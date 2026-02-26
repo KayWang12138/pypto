@@ -28,6 +28,7 @@
 #include "interface/machine/host/machine_task.h"
 #include "interface/configs/config_manager.h"
 #include "interface/cache/function_cache.h"
+#include "interface/machine/device/tilefwk/aicpu_common.h"
 
 namespace npu::tile_fwk {
 #if defined(MACHINE_DEBUG) && MACHINE_DEBUG == 1
@@ -92,6 +93,7 @@ public:
     void ClearStashFuncQueue();
 
     std::string GetPlatformInfo() const;
+    void SetDevPerfDevPtr(DeviceArgs &devArgs, std::vector<void*> &perfData);
 
 public: // api mode
     MachineTask* Compile(MachineTask* task = nullptr) const;
@@ -135,6 +137,8 @@ private:
     SafeQueue<std::unique_ptr<MachineTask>> finishQueue_; // device machine 处理结束任务
     SafeQueue<std::tuple<Function *, std::shared_ptr<ConfigScope>, InternalGlobalConfig,
                          nlohmann::json>> stashedFuncQueue_; // stash func
+    DeviceArgs args_;
+    std::vector<void*> perfData_;
 };
 
 } // namespace npu::tile_fwk
