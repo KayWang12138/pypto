@@ -24,6 +24,7 @@ pybind11_add_module(pypto_impl
             bindings/function.cpp
             bindings/distributed.cpp
             bindings/platform.cpp
+            bindings/monitor.cpp
 )
 target_include_directories(pypto_impl
         PRIVATE  # 使用 CANN 场景依赖
@@ -43,12 +44,14 @@ target_compile_definitions(pypto_impl
 )
 
 # 所依赖的本项目 so 均在 pypto 包 __init__.py 中加载, 此处不再 link
+# tile_fwk_interface needed for compiler_monitor (InitializeMonitor, SetCompilerMonitorOptions)
 target_link_libraries(pypto_impl
         PRIVATE
             json
             c_sec
             intf_pub_cxx17
             tile_fwk_intf_pub
+            tile_fwk_interface
 )
 if (TARGET c_sec_shared)
     add_dependencies(pypto_impl c_sec_shared)
