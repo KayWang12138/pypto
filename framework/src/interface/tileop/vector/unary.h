@@ -403,7 +403,7 @@ TILEOP void TTrunc(T0 dst, T1 src) {
 
 #define OP_TILE_OP_EXP2 TExp2
 template <typename T0, typename T1, typename T2, typename T3>
-TILEOP void TExp2(T0 dst, T1 tmp, T2 tmp, T3 src) {
+TILEOP void TExp2(T0 dst, T1 tmp, T2 tmp2, T3 src) {
     const auto dstLayout = dst.GetLayout();
     auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
     auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
