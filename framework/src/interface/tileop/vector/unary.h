@@ -368,11 +368,16 @@ TILEOP void TExpm1(T0 dst, T1 tmp, T2 src) {
 #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
 #endif
-                    pto::TADDS(tmpTile.Data(), tmpTile.Data(), -1.0f);
+                    if constexpr (std::is_same_v<typename T2::Type, half> ||
+                                  std::is_same_v<typename T2::Type, bfloat16_t>) {
+                        pto::TADDS(tmpTile.Data(), tmpTile.Data(), -1.0f);
 #ifdef __DAV_V220
-                    pipe_barrier(PIPE_V);
+                        pipe_barrier(PIPE_V);
 #endif
-                    pto::TCVT(dstTile.Data(), tmpTile.Data(), pto::RoundMode::CAST_RINT);
+                        pto::TCVT(dstTile.Data(), tmpTile.Data(), pto::RoundMode::CAST_RINT);
+                    } else {
+                        pto::TADDS(dstTile.Data(), tmpTile.Data(), -1.0f);
+                    }
                 }
             }
         }
