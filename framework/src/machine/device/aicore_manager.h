@@ -163,9 +163,20 @@ public:
             auto availableTaskQueue = new coreQueue_t(MAX_QUEUED_TASKS);
             curDevTask_->availableTaskQueue = (uint64_t) availableTaskQueue;
 
-            // Adding initial set of tasks and cores
+            // Adding initial set of tasks 
             for (size_t i = 0; i < readyAivCoreFunctionQue_->wasSize(); i++) availableTaskQueue->push((uint32_t)readyAivCoreFunctionQue_->getBuffer()[i]);
             for (size_t i = 0; i < readyAicCoreFunctionQue_->wasSize(); i++) availableTaskQueue->push((uint32_t)readyAicCoreFunctionQue_->getBuffer()[i]);
+
+            // Allocating core queues
+            auto availableVectorCoreQueue = new coreQueue_t(AIV_CORE_COUNT);
+            auto availableCubeCoreQueue = new coreQueue_t(AIC_CORE_COUNT);
+            curDevTask_->availableVectorCoreQueue = (uint64_t) availableVectorCoreQueue;
+            curDevTask_->availableCubeCoreQueue = (uint64_t) availableCubeCoreQueue;
+            for (uint32_t i = AIC_CORE_COUNT; i < AIC_CORE_COUNT + AIV_CORE_COUNT; i++) availableVectorCoreQueue->push(i);
+            for (uint32_t i = 0; i < AIC_CORE_COUNT; i++) availableCubeCoreQueue->push(i);
+
+            // Allocating pairing queue
+            curDevTask_->runningPairQueue = (uint64_t) new pairQueue_t(AIV_CORE_COUNT + AIC_CORE_COUNT);
 
             // Setting task as initialized, allowing others to continue
             curDevTask_->isTaskInitialized = true;
@@ -176,17 +187,15 @@ public:
         }
 
         availableTaskQueue_ = reinterpret_cast<taskQueue_t*>(curDevTask_->availableTaskQueue);
-        runningPairQueue_                          = new pairQueue_t(AIV_CORE_COUNT + AIC_CORE_COUNT);
-        availableCoreQueue_[(int)MachineType::AIV] = new coreQueue_t(AIV_CORE_COUNT);
-        availableCoreQueue_[(int)MachineType::AIC] = new coreQueue_t(AIC_CORE_COUNT);
-        for (int i = aivStart_; i < aivEnd_; i++) availableCoreQueue_[(int)MachineType::AIV]->push((uint32_t)i);
-        for (int i = aicStart_; i < aicEnd_; i++) availableCoreQueue_[(int)MachineType::AIC]->push((uint32_t)i);
+        runningPairQueue_                          = (pairQueue_t*)curDevTask_->runningPairQueue;
+        availableCoreQueue_[(int)MachineType::AIV] = (coreQueue_t*)curDevTask_->availableVectorCoreQueue;
+        availableCoreQueue_[(int)MachineType::AIC] = (coreQueue_t*)curDevTask_->availableCubeCoreQueue;
     }
 
     inline int RunTask(DeviceTaskCtrl *taskCtrl)
     {
         int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
-        DEV_INFO("receive new task %lu\n", taskCtrl->taskId);
+        curTaskCtrl_ = taskCtrl;
         InitTaskData();
         if (isLeaderScheduler_ == true)  aicpuTaskManager_.Init(curDevTask_);
 
@@ -213,10 +222,13 @@ public:
         const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(tf - t0).count();
         DEV_ERROR("[AICPU %d] Running Time: %ldns", aicpuIdx_, ns);
 
-        if (isLeaderScheduler_ == true) delete availableTaskQueue_;
-        delete runningPairQueue_ ;
-        delete availableCoreQueue_[(int)MachineType::AIV];
-        delete availableCoreQueue_[(int)MachineType::AIC];
+        if (isLeaderScheduler_ == true)
+        {
+            delete availableTaskQueue_;
+            delete availableCoreQueue_[(int)MachineType::AIV];
+            delete availableCoreQueue_[(int)MachineType::AIC];
+            delete runningPairQueue_;
+        } 
 
         return ret;
     }
@@ -224,7 +236,6 @@ public:
     inline int Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *taskCtrl = nullptr)
     {
         aicpuIdx_ = threadIdx;
-        curTaskCtrl_ = taskCtrl;
         curDevTask_ = static_cast<DeviceTask *>(taskCtrl->devTask);
 
         // Getting variable controlling who is the scheduler lead. The first to arrive here should take the lead so that this starts as fast as possible
