@@ -141,11 +141,9 @@ public:
         // If I am the lead AICPU scheduler, perform initailization steps
         if (isLeaderScheduler_ == true)
         {
-            // Initiaizing core function data prior to execution
-            ForAllAicores([this](int coreIdx) {
-                volatile int64_t *funcData = &args_[coreIdx]->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX];
-                *funcData = reinterpret_cast<int64_t>(&curDevTask_->coreFuncData);
-            });
+            // Setting the corresponding task kernel to execute for all cores
+            for (uint32_t coreIdx = 0; coreIdx < AIV_CORE_COUNT + AIC_CORE_COUNT; coreIdx++)
+                args_[coreIdx]->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX] = (int64_t)&curDevTask_->coreFuncData;
 
             // Allocating queues
             auto availableTaskQueue = new coreQueue_t(MAX_QUEUED_TASKS);
@@ -170,10 +168,8 @@ public:
         for (int i = aivStart_; i < aivEnd_; i++) availableCoreQueue_[(int)MachineType::AIV]->push((uint32_t)i);
         for (int i = aicStart_; i < aicEnd_; i++) availableCoreQueue_[(int)MachineType::AIC]->push((uint32_t)i);
     }
-    
 
     int RunTask(DeviceTaskCtrl *taskCtrl);
-
     int Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *taskCtrl = nullptr);
     void PushTask(DeviceTaskCtrl *taskCtrl) { taskQueue_.Enqueue(taskCtrl); }
 
@@ -192,9 +188,11 @@ private:
     void ResolveByCoreType(int coretype, uint64_t depTaskId, CoreFunctionReadyState *readyState);
     void ResolveDep(uint64_t finishId);
 
-    inline uint64_t GetFinishedTask(const int coreIdx) { return *(finishRegQueues_[GetPhyIdByBlockId(coreIdx)]); }
-
-    inline int GetPhyIdByBlockId(const int coreIdx) { return blockIdToPhyCoreId_[coreIdx]; }
+    inline uint64_t GetFinishedTask(const int coreIdx)
+    {
+        const auto physicalCoreIdx = blockIdToPhyCoreId_[coreIdx];
+         return *(finishRegQueues_[physicalCoreIdx]);
+    }
 
     inline void ForAllAicores(std::function<void(int coreIdx)> func) const {
         for (size_t i = 0; i < MAX_AIV_TOTAL_NUM; ++i) {
@@ -203,18 +201,18 @@ private:
     }
 
     inline uint32_t ReadReg32(const int coreIdx, const int offset) {
-        const auto idx = GetPhyIdByBlockId(coreIdx);
-        return *(reinterpret_cast<volatile uint32_t*>(regAddrs_[idx] + offset));
+        const auto physicalCoreIdx = blockIdToPhyCoreId_[coreIdx];
+        return *(reinterpret_cast<volatile uint32_t*>(regAddrs_[physicalCoreIdx] + offset));
     }
 
     inline void WriteReg32(const int coreIdx, const int offset, const uint32_t val) {
-        const auto idx = GetPhyIdByBlockId(coreIdx);
-        *(reinterpret_cast<volatile uint32_t*>(regAddrs_[idx] + offset)) = val;
+        const auto physicalCoreIdx = blockIdToPhyCoreId_[coreIdx];
+        *(reinterpret_cast<volatile uint32_t*>(regAddrs_[physicalCoreIdx] + offset)) = val;
     }
 
     inline void SetReadyQueue(const int coreIdx, const uint64_t taskIdx) {
-        const auto idx = GetPhyIdByBlockId(coreIdx);
-        *(readyRegQueues_[idx]) = taskIdx + 1; // Plus one is a required offset
+        const auto physicalCoreIdx = blockIdToPhyCoreId_[coreIdx];
+        *(readyRegQueues_[physicalCoreIdx]) = taskIdx + 1; // Plus one is a required offset
     }
 
     inline void WriteReg32ALl(int offset, uint32_t val) {
@@ -223,7 +221,6 @@ private:
     }
 
     void AbnormalStop();
-
     void NormalStop();
 
     inline void SetDotStatus(int64_t status) { dotStatus_ = status; }
