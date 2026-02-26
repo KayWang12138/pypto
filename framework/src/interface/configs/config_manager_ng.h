@@ -58,6 +58,7 @@ constexpr const char *CFG_RUN_MODE = "run_mode";
 constexpr const char *CFG_VALID_SHAPE_OPTIMIZE = "valid_shape_optimize";
 constexpr int64_t CFG_RUN_MODE_NPU = 0;
 constexpr int64_t CFG_RUN_MODE_SIM = 1;
+constexpr const char *REPEAT_TIME = "repeat_time";
 
 // host
 constexpr const char *COMPILE_STAGE = "compile_stage";
