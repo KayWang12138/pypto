@@ -67,6 +67,19 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 
 namespace {
+std::mutex g_deviceLifecycleMutex;
+bool g_deviceInitialized = false;
+
+void EnsureDeviceInitialized()
+{
+    std::lock_guard<std::mutex> lock(g_deviceLifecycleMutex);
+    if (g_deviceInitialized) {
+        return;
+    }
+    DeviceLauncherInit();
+    g_deviceInitialized = true;
+}
+
 #ifdef BUILD_WITH_CANN
 extern "C" int HcclAllocComResourceByTiling(void* comm, void *stream, void *mc2Tiling, void **commContext);
 
@@ -1356,11 +1369,18 @@ uint32_t GetHcclRootInfoSize()
 #endif
 
 void DeviceInit() {
+    std::lock_guard<std::mutex> lock(g_deviceLifecycleMutex);
     DeviceLauncherInit();
+    g_deviceInitialized = true;
 }
 
 void DeviceFini() {
+    std::lock_guard<std::mutex> lock(g_deviceLifecycleMutex);
+    if (!g_deviceInitialized) {
+        return;
+    }
     DeviceLauncherFini();
+    g_deviceInitialized = false;
 }
 
 uintptr_t OperatorBegin() {
@@ -1461,6 +1481,11 @@ public:
     KernelBinary(std::shared_ptr<Function> func) : dynFunc(func) {
         dynAttr = dynFunc->GetDyndevAttribute().get();
         devProg = (DevAscendProgram *)dynAttr->devProgBinary.data();
+        // LaunchKernel path does not go through DeviceLaunchOnceWithDeviceTensorData,
+        // so distributed comm contexts must be initialized explicitly here.
+        if (!dynAttr->commGroupNames.empty()) {
+            DeviceLauncher::DeviceInitDistributedContext(dynAttr->commGroupNames, devProg);
+        }
         kernelBin = DeviceLauncher::RegisterKernelBin(dynAttr->kernelBinary);
         workspaceSize = devProg->memBudget.Total();
         InitCachedArgs();
@@ -1890,6 +1915,7 @@ static int GetInputTensors(py::args &args, std::vector<DeviceTensorData> &tensor
 }
 
 void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
+    EnsureDeviceInitialized();
     HOST_PERF_TRACE_START();
     HOST_PERF_EVT_BEGIN(EventPhase::LaunchKernel);
     auto aicoreStream = (aclrtStream)stream;
