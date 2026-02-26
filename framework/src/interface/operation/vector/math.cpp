@@ -894,6 +894,9 @@ void RoundOperationTileFunc(Function &function, const TileShape &tileShape,
 Tensor TensorExpm1(Function &function, const LogicalTensorPtr &self) {
     auto result =
         std::make_shared<LogicalTensor>(function, self->Datatype(), self->GetShape(), self->GetDynValidShape());
+    if (self->Datatype() == DataType::DT_INT32 || self->Datatype() == DataType::DT_INT16) {
+        result = std::make_shared<LogicalTensor>(function, DT_FP32, self->GetShape(), self->GetDynValidShape());
+    }
     auto &op = function.AddOperation(Opcode::OP_EXPM1, {self}, {result});
     function.UpdateTensorDataUsage(op);
     return result;
@@ -923,7 +926,7 @@ void TiledExpm1(
         auto tileShapeLen = srcTileShape.size();
         ASSERT(SHAPE_DIM2 <= tileShapeLen && tileShapeLen <= SHAPE_DIM4) << "Length of tile shape only support 2~4";
         std::vector<int64_t> tmpShape;
-        if (result->Datatype() == DT_FP32) {
+        if (input.tensor.GetDataType() == DT_FP32) {
             tmpShape = {BLOCK_SIZE / sizeof(float)};
         } else {
             tmpShape.assign(srcTileShape.end() - SHAPE_DIM2, srcTileShape.end());
