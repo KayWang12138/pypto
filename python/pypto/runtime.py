@@ -155,6 +155,14 @@ class _JIT:
 
     def init_run_mode(self):
         is_cann_enable = bool(os.environ.get("ASCEND_HOME_PATH"))
+        # if runtime_options is a callable, invoke it to get the dict
+        if callable(self._runtime_options):
+            opts = self._runtime_options()
+            # allow user to return None
+            self._runtime_options = opts or {}
+        elif self._runtime_options is None:
+            self._runtime_options = {}
+        # now _runtime_options should be a dict
         if "run_mode" in self._runtime_options:
             run_mode = RunMode(self._runtime_options["run_mode"])
         else:
@@ -185,7 +193,12 @@ class _JIT:
         if isinstance(self._pass_options, dict):
             pypto.set_pass_options(**self._pass_options)
 
-        if isinstance(self._runtime_options, dict):
+        # runtime options may change per invocation if provided as callable
+        if callable(self._runtime_options):
+            opts = self._runtime_options() or {}
+            if isinstance(opts, dict):
+                pypto.set_runtime_options(**opts)
+        elif isinstance(self._runtime_options, dict):
             pypto.set_runtime_options(**self._runtime_options)
 
         if isinstance(self._verify_options, dict):

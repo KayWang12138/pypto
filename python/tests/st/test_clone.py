@@ -23,8 +23,32 @@ s = 4
 n1 = 64
 d = 64
 
+def runtime_options_list():
+    if pypto.platform.npuarch == 'DAV_1001':
+        return {
+            "stitch_function_inner_memory": 8192,
+            "stitch_function_outcast_memory": 4096,
+            "stitch_function_num_initial": 128,
+            "device_sched_mode": 1
+        }
+    elif pypto.platform.npuarch == 'DAV_2201':
+        return {
+            "stitch_function_inner_memory": 4096,
+            "stitch_function_outcast_memory": 4096,
+            "stitch_function_num_initial": 128,
+            "device_sched_mode": 1
+        }
+    elif pypto.platform.npuarch == 'DAV_3510':
+        return {
+            "stitch_function_inner_memory": 4096,
+            "stitch_function_outcast_memory": 4096,
+            "stitch_function_num_initial": 128,
+            "device_sched_mode": 1
+        }
 
-@pypto.jit
+@pypto.jit(
+    runtime_options=runtime_options_list,
+)
 def kernel_func(in_tensor, out_tensor):
     pypto.set_vec_tile_shapes(1, 1, 64, 64)
 
