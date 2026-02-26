@@ -76,6 +76,7 @@ enum class Opcode {
     OP_ISFINITE,
     OP_HUB,
     OP_SIGN,
+    OP_SIGNBIT,
     OP_BRCB,
     OP_BITWISERIGHTSHIFTS,
     OP_BITWISELEFTSHIFTS,
@@ -547,7 +548,7 @@ const std::unordered_set<Opcode> UNARY_OPS{Opcode::OP_EXP, Opcode::OP_NEG, Opcod
     Opcode::OP_CEIL, Opcode::OP_FLOOR, Opcode::OP_TRUNC, Opcode::OP_EXPAND, Opcode::OP_RECIPROCAL, Opcode::OP_ROWSUM,
     Opcode::OP_ROWMAX, Opcode::OP_ROWEXPSUM, Opcode::OP_ROWEXPMAX, Opcode::OP_L1_TO_L1, Opcode::OP_COPY_UB_TO_UB,
     Opcode::OP_ROUND, Opcode::OP_ROWSUMLINE, Opcode::OP_ABS, Opcode::OP_LN, Opcode::OP_ISFINITE, Opcode::OP_HUB, Opcode::OP_BITWISENOT,
-    Opcode::OP_SIGN};
+    Opcode::OP_SIGN, Opcode::OP_SIGNBIT};
 
 const std::unordered_set<Opcode> UNARY_OPS_WITH_TMP{Opcode::OP_COMPACT, Opcode::OP_ROWSUM_SINGLE,
     Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWMIN_SINGLE, Opcode::OP_TRANSPOSE_VNCHWCONV,
@@ -592,7 +593,7 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE,
     Opcode::OP_S_ADDS, Opcode::OP_S_SUBS, Opcode::OP_S_DIVS, Opcode::OP_S_MULS, Opcode::OP_S_MAXS, Opcode::OP_S_MINS,
     Opcode::OP_ROUND, Opcode::OP_BITSORT, Opcode::OP_MRGSORT, Opcode::OP_CMP, Opcode::OP_CMPS, Opcode::OP_EXTRACT,
     Opcode::OP_TILEDMRGSORT, Opcode::OP_ROWMAXLINE, Opcode::OP_PAIRMIN, Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWMINLINE,
-    Opcode::OP_TOPK_SORT, Opcode::OP_TOPK_MERGE, Opcode::OP_TOPK_EXTRACT, Opcode::OP_SCATTER_ELEMENT, Opcode::OP_SIGN,
+    Opcode::OP_TOPK_SORT, Opcode::OP_TOPK_MERGE, Opcode::OP_TOPK_EXTRACT, Opcode::OP_SCATTER_ELEMENT, Opcode::OP_SIGN, Opcode::OP_SIGNBIT,
     Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_SORT, Opcode::OP_COMPARE_SWAP, Opcode::OP_MERGE, Opcode::OP_L0C_TO_L1,
     Opcode::OP_SCATTER, Opcode::OP_GATHER_FROM_UB, Opcode::OP_RESHAPE_COPY_IN, Opcode::OP_RESHAPE_COPY_OUT, Opcode::OP_L1_TO_FIX_QUANT_PRE,
     Opcode::OP_L1_TO_BT, Opcode::OP_BRCB, Opcode::OP_MOD, Opcode::OP_MODS, Opcode::OP_BITWISEAND, Opcode::OP_BITWISEOR,
