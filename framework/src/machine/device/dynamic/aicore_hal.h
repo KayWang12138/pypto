@@ -386,35 +386,35 @@ public:
         (void)oss;
         (void)aicpuIdx;
 #if ENABLE_PERF_TRACE
-        Metrics* metric =  GetMetrics(coreIdx);
-        if (metric == nullptr) {
-            return DEVICE_MACHINE_ERROR;
-        }
+        // Metrics* metric =  GetMetrics(coreIdx);
+        // if (metric == nullptr) {
+        //     return DEVICE_MACHINE_ERROR;
+        // }
 
-        oss << "{\"blockIdx\":" << coreIdx << ",\"coreType\":\"SCHED" << aicpuIdx << "-"
-            << (coretype == CoreType::AIC ? "AIC" : "AIV") << "\",\"freq\":" << freq_ << ",\"tasks\":[";
+        // oss << "{\"blockIdx\":" << coreIdx << ",\"coreType\":\"SCHED" << aicpuIdx << "-"
+        //     << (coretype == CoreType::AIC ? "AIC" : "AIV") << "\",\"freq\":" << freq_ << ",\"tasks\":[";
 
-        uint64_t curCycle = 0;
-        for (uint32_t type = 0; type < PERF_TRACE_CORE_MAX; type++) {
-            for (uint32_t cnt = 0; cnt < metric->perfTraceCnt[type]; cnt++) {
-                curCycle = metric->perfTrace[type][cnt];
-                if (curCycle == 0) {
-                    break;
-                }
+        // uint64_t curCycle = 0;
+        // for (uint32_t type = 0; type < PERF_TRACE_CORE_MAX; type++) {
+        //     for (uint32_t cnt = 0; cnt < metric->perfTraceCnt[type]; cnt++) {
+        //         curCycle = metric->perfTrace[type][cnt];
+        //         if (curCycle == 0) {
+        //             break;
+        //         }
 
-                oss << "{\"name\":\"" << AicorePerfTraceName[type];
-                if (metric->perfTraceDevTaskId[type][cnt] != INVALID_DEV_TASK_ID) {
-                    oss << "(" << metric->perfTraceDevTaskId[type][cnt] << ")";
-                }
+        //         oss << "{\"name\":\"" << AicorePerfTraceName[type];
+        //         if (metric->perfTraceDevTaskId[type][cnt] != INVALID_DEV_TASK_ID) {
+        //             oss << "(" << metric->perfTraceDevTaskId[type][cnt] << ")";
+        //         }
 
-                oss << "\",\"end\":" << curCycle << "}"
-                    << (((type == PERF_TRACE_CORE_MAX - 1) && (cnt ==  metric->perfTraceCnt[type] - 1)) ? "" : ",");
-            }
-        }
-        oss << "]}";
-        if (!aicoreProf_->ProfIsEnable()) {
-            memset_s(metric, sizeof(Metrics), 0, sizeof(Metrics));
-        }
+        //         oss << "\",\"end\":" << curCycle << "}"
+        //             << (((type == PERF_TRACE_CORE_MAX - 1) && (cnt ==  metric->perfTraceCnt[type] - 1)) ? "" : ",");
+        //     }
+        // }
+        // oss << "]}";
+        // if (!aicoreProf_->ProfIsEnable()) {
+        //     memset_s(metric, sizeof(Metrics), 0, sizeof(Metrics));
+        // }
 #endif
         return DEVICE_MACHINE_OK;
     }
