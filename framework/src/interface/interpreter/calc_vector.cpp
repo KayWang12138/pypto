@@ -207,6 +207,7 @@ void ExecuteOpUnary(ExecuteOperationContext *ctx) {
         case Opcode::OP_EXP: calc::Exp(ret, iop); break;
         case Opcode::OP_NEG: calc::Neg(ret, iop); break;
         case Opcode::OP_SIGN: calc::Sign(ret, iop); break;
+        case Opcode::OP_SIGNBIT: calc::Signbit(ret, iop); break;
         case Opcode::OP_RSQRT: calc::Rsqrt(ret, iop); break;
         case Opcode::OP_SQRT: calc::Sqrt(ret, iop); break;
         case Opcode::OP_RECIPROCAL: calc::Reciprocal(ret, iop); break;
@@ -222,6 +223,7 @@ void ExecuteOpUnary(ExecuteOperationContext *ctx) {
 REGISTER_CALC_OP(OP_EXP, Opcode::OP_EXP, ExecuteOpUnary<Opcode::OP_EXP>);
 REGISTER_CALC_OP(OP_NEG, Opcode::OP_NEG, ExecuteOpUnary<Opcode::OP_NEG>);
 REGISTER_CALC_OP(OP_SIGN, Opcode::OP_SIGN, ExecuteOpUnary<Opcode::OP_SIGN>);
+REGISTER_CALC_OP(OP_SIGNBIT, Opcode::OP_SIGNBIT, ExecuteOpUnary<Opcode::OP_SIGNBIT>);
 REGISTER_CALC_OP(OP_RSQRT, Opcode::OP_RSQRT, ExecuteOpUnary<Opcode::OP_RSQRT>);
 REGISTER_CALC_OP(OP_SQRT, Opcode::OP_SQRT, ExecuteOpUnary<Opcode::OP_SQRT>);
 REGISTER_CALC_OP(OP_RECIPROCAL, Opcode::OP_RECIPROCAL, ExecuteOpUnary<Opcode::OP_RECIPROCAL>);
@@ -306,7 +308,8 @@ void ExecuteOpTransposeMoveOut(ExecuteOperationContext *ctx) {
             auto oopCopy = std::make_shared<LogicalTensorData>(oop->GetData(), iopShape, toOffset);
             return calc::Transpose(oopCopy, iop, axises[0], axises[1]);
         } else {
-            std::vector<int64_t> fromOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyoutAttr->GetFromOffset());
+            std::vector<int64_t> fromOffset =
+                ctx->opInter->EvaluateOpImmediate(ctx->frame, copyoutAttr->GetFromOffset());
             std::vector<int64_t> oopShape = oop->GetShape();
             std::swap(oopShape[axises[0]], oopShape[axises[1]]);
             auto iopCopy = std::make_shared<LogicalTensorData>(iop->GetData(), oopShape, fromOffset);
@@ -435,12 +438,8 @@ void ExecuteOpCompare(ExecuteOperationContext *ctx) {
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop_self = ctx->ioperandDataViewList->at(0);
     auto iop_other = ctx->ioperandDataViewList->at(1);
-    auto operation = static_cast<CmpOperationType>(
-        ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation")
-    );
-    auto mode = static_cast<CmpModeType>(
-        ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode")
-    );
+    auto operation = static_cast<CmpOperationType>(ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation"));
+    auto mode = static_cast<CmpModeType>(ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode"));
     calc::Compare(oop, iop_self, iop_other, operation, mode);
 }
 REGISTER_CALC_OP(OP_CMP, Opcode::OP_CMP, ExecuteOpCompare);
@@ -452,13 +451,9 @@ void ExecuteOpCmps(ExecuteOperationContext *ctx) {
     auto iop_self = ctx->ioperandDataViewList->at(0);
     auto element = Element(DT_FP32, 0.0f);
     ctx->op->GetAttr(OpAttributeKey::scalar, element);
-    
-    auto operation = static_cast<CmpOperationType>(
-        ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation")
-    );
-    auto mode = static_cast<CmpModeType>(
-        ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode")
-    );
+
+    auto operation = static_cast<CmpOperationType>(ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation"));
+    auto mode = static_cast<CmpModeType>(ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode"));
     calc::Cmps(oop, iop_self, element, operation, mode);
 }
 REGISTER_CALC_OP(OP_CMPS, Opcode::OP_CMPS, ExecuteOpCmps);
@@ -622,7 +617,7 @@ REGISTER_CALC_OP(OP_TILEDMRGSORT, Opcode::OP_TILEDMRGSORT, ExecuteOpTiledMrgSort
 
 void ExecuteOpTopkSort(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 1);
-    ASSERT(ctx->ooperandInplaceDataViewList->size() == 2);  // value + temp
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 2); // value + temp
 
     auto iop = ctx->ioperandDataViewList->at(0);
     auto oop_value = ctx->ooperandInplaceDataViewList->at(0);
@@ -690,7 +685,7 @@ void ExecuteOpBinaryScalar(ExecuteOperationContext *ctx) {
         case Opcode::OP_MINS: calc::MinS(ret, lhs, element); break;
         case Opcode::OP_DIVS: calc::DivS(ret, lhs, element, reverse); break;
         case Opcode::OP_S_MAXS: calc::MaxS(ret, lhs, element); break;
-        case Opcode::OP_S_MINS: calc::MinS(ret, lhs, element);  break;
+        case Opcode::OP_S_MINS: calc::MinS(ret, lhs, element); break;
         case Opcode::OP_BITWISEANDS: calc::BitwiseAndS(ret, lhs, element); break;
         case Opcode::OP_BITWISEORS: calc::BitwiseOrS(ret, lhs, element); break;
         case Opcode::OP_BITWISEXORS: calc::BitwiseXorS(ret, lhs, element); break;
@@ -760,10 +755,15 @@ void ExecuteOpBitwiseShiftScalar(ExecuteOperationContext *ctx) {
         default: ASSERT(false);
     }
 }
-REGISTER_CALC_OP(OP_BITWISERIGHTSHIFT, Opcode::OP_BITWISERIGHTSHIFT, ExecuteOpBitwiseShift<Opcode::OP_BITWISERIGHTSHIFT>);
+REGISTER_CALC_OP(
+    OP_BITWISERIGHTSHIFT, Opcode::OP_BITWISERIGHTSHIFT, ExecuteOpBitwiseShift<Opcode::OP_BITWISERIGHTSHIFT>);
 REGISTER_CALC_OP(OP_BITWISELEFTSHIFT, Opcode::OP_BITWISELEFTSHIFT, ExecuteOpBitwiseShift<Opcode::OP_BITWISELEFTSHIFT>);
-REGISTER_CALC_OP(OP_BITWISERIGHTSHIFTS, Opcode::OP_BITWISERIGHTSHIFTS, ExecuteOpBitwiseShiftScalar<Opcode::OP_BITWISERIGHTSHIFTS>);
-REGISTER_CALC_OP(OP_BITWISELEFTSHIFTS, Opcode::OP_BITWISELEFTSHIFTS, ExecuteOpBitwiseShiftScalar<Opcode::OP_BITWISELEFTSHIFTS>);
-REGISTER_CALC_OP(OP_SBITWISERIGHTSHIFT, Opcode::OP_SBITWISERIGHTSHIFT, ExecuteOpBitwiseShiftScalar<Opcode::OP_SBITWISERIGHTSHIFT>);
-REGISTER_CALC_OP(OP_SBITWISELEFTSHIFT, Opcode::OP_SBITWISELEFTSHIFT, ExecuteOpBitwiseShiftScalar<Opcode::OP_SBITWISELEFTSHIFT>);
-}
+REGISTER_CALC_OP(
+    OP_BITWISERIGHTSHIFTS, Opcode::OP_BITWISERIGHTSHIFTS, ExecuteOpBitwiseShiftScalar<Opcode::OP_BITWISERIGHTSHIFTS>);
+REGISTER_CALC_OP(
+    OP_BITWISELEFTSHIFTS, Opcode::OP_BITWISELEFTSHIFTS, ExecuteOpBitwiseShiftScalar<Opcode::OP_BITWISELEFTSHIFTS>);
+REGISTER_CALC_OP(
+    OP_SBITWISERIGHTSHIFT, Opcode::OP_SBITWISERIGHTSHIFT, ExecuteOpBitwiseShiftScalar<Opcode::OP_SBITWISERIGHTSHIFT>);
+REGISTER_CALC_OP(
+    OP_SBITWISELEFTSHIFT, Opcode::OP_SBITWISELEFTSHIFT, ExecuteOpBitwiseShiftScalar<Opcode::OP_SBITWISELEFTSHIFT>);
+} // namespace npu::tile_fwk

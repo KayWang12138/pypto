@@ -38,6 +38,7 @@ enum class UnaryOpType {
     HUB,
     BITWISENOT,
     SIGN,
+    SIGNBIT,
     ISFINITE,
 };
 
@@ -59,6 +60,7 @@ std::string GetUnaryOpName() {
         case UnaryOpType::HUB: return "HUB";
         case UnaryOpType::BITWISENOT: return "BITWISENOT";
         case UnaryOpType::SIGN: return "SIGN";
+        case UnaryOpType::SIGNBIT: return "SIGNBIT";
         default: ASSERT(false && "unknown unary op type"); return "";
     }
 }
@@ -83,6 +85,7 @@ Opcode GetUnaryOpNameCode() {
         CASE(HUB);
         CASE(BITWISENOT);
         CASE(SIGN);
+        CASE(SIGNBIT);
         default: ASSERT(false && "unknown unary op type");
     }
 #undef CASE
@@ -92,7 +95,8 @@ void UnaryOperationOperandCheck(
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand);
 
 template <UnaryOpType T>
-LogicalTensorPtr TensorUnaryOperation(Function &function, LogicalTensorPtr operand, std::optional<DataType> datatype = std::nullopt) {
+LogicalTensorPtr TensorUnaryOperation(
+    Function &function, LogicalTensorPtr operand, std::optional<DataType> datatype = std::nullopt) {
     auto opName = GetUnaryOpName<T>();
     CheckTensorShape(operand, opName);
     datatype = datatype.value_or(operand->tensor->datatype);

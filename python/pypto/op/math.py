@@ -545,6 +545,34 @@ def sign(a: Tensor) -> Tensor:
 
 
 @op_wrapper
+def signbit(a: Tensor) -> Tensor:
+    """Tests element-wise whether the sign bit of the input is set.
+
+    This function returns True if the sign bit of the element is set (i.e., the element is negative),
+    and False otherwise.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A boolean tensor indicating whether the sign bit is set for each element.
+
+    Examples
+    --------
+    x = pypto.tensor([4], pypto.DT_FP32)
+    y = pypto.signbit(x)
+
+    Input x: [-5.0    -0.0    0.0    5.0]
+    Output y:[True    True    False    False]
+    """
+    return pypto_impl.Signbit(a)
+
+
+@op_wrapper
 def abs(a: Tensor) -> Tensor:
     """
     Computes the absolute value of each element in input.

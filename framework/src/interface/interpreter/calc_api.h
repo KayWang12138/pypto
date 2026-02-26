@@ -53,6 +53,7 @@ struct CalcOps {
     void (*Neg)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Rsqrt)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Sign)(LogicalTensorDataPtr, LogicalTensorDataPtr);
+    void (*Signbit)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Sqrt)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Ceil)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Floor)(LogicalTensorDataPtr, LogicalTensorDataPtr);
@@ -62,7 +63,7 @@ struct CalcOps {
     void (*Relu)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*BitwiseNot)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Abs)(LogicalTensorDataPtr, LogicalTensorDataPtr);
-    void (*Brcb)(LogicalTensorDataPtr, LogicalTensorDataPtr);  
+    void (*Brcb)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*WhereTT)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*WhereTS)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &);
     void (*WhereST)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, LogicalTensorDataPtr);
@@ -120,11 +121,13 @@ struct CalcOps {
     void (*ExpandS)(LogicalTensorDataPtr, const Element &);
     void (*Expand)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*GatherElements)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int);
-    void (*IndexAdd)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int, const Element &);
+    void (*IndexAdd)(
+        LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int, const Element &);
     void (*TriU)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
     void (*TriL)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
     void (*CumSum)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
-    void (*IndexPut)(LogicalTensorDataPtr, LogicalTensorDataPtr, std::vector<LogicalTensorDataPtr>, LogicalTensorDataPtr, bool);
+    void (*IndexPut)(
+        LogicalTensorDataPtr, LogicalTensorDataPtr, std::vector<LogicalTensorDataPtr>, LogicalTensorDataPtr, bool);
 
     void (*Reshape)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Permute)(LogicalTensorDataPtr, LogicalTensorDataPtr, const std::vector<int64_t> &);
@@ -132,17 +135,19 @@ struct CalcOps {
 
     void (*ReduceAcc)(LogicalTensorDataPtr, const std::vector<LogicalTensorDataPtr> &);
     void (*Copy)(LogicalTensorDataPtr, LogicalTensorDataPtr, bool);
-    void (*ScatterUpdate)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int, std::string, int);
+    void (*ScatterUpdate)(
+        LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int, std::string, int);
     void (*ScatterElement)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, int, int);
-    void (*Scatter)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr,
-        int, int);
+    void (*Scatter)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int, int);
     void (*FormatND2NZ)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*FormatNZ2ND)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*QuantPreCompute)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, uint64_t, int);
-    void (*MatMul)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, MatMulParam &);
+    void (*MatMul)(
+        LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, MatMulParam &);
 
     void (*BitSort)(LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, bool, int64_t);
-    void (*TiledMrgSort)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int, int);
+    void (*TiledMrgSort)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr,
+        LogicalTensorDataPtr, int, int);
     void (*Extract)(LogicalTensorDataPtr, LogicalTensorDataPtr, int, bool);
     void (*Topk)(LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, int64_t, bool);
     void (*TopK)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int, int, bool);
@@ -154,8 +159,7 @@ struct CalcOps {
     void (*Gather)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t);
     void (*GatherINUB)(
         LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, int64_t);
-    void (*GatherInL1)(
-        LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t);
+    void (*GatherInL1)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t);
     void (*BitwiseRightShift)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*BitwiseLeftShift)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*BitwiseRightShiftS)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &);
