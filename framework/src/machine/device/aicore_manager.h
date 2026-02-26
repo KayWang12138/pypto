@@ -14,22 +14,15 @@
  */
 
 #pragma once
-#include <cstdint>
-#include <sys/ioctl.h>
-#include <functional>
 #include <vector>
 #include <atomic>
 #include <array>
-#include <semaphore.h>
 #include "machine/utils/dynamic/spsc_queue.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/utils/device_log.h"
-#include "aicpu_task_manager.h"
 #include "interface/operation/opcode.h"
-#include "securec.h"
 #include "dynamic/device_utils.h"
 #include "aicore_dump.h"
-#include "interface/utils/common.h"
 #include "machine/device/dynamic/device_utils.h"
 
 namespace npu::tile_fwk {
@@ -78,15 +71,6 @@ constexpr aicoreTask_t aicoreNullTask = 0xFFFFFFFFUL;
 constexpr aicoreCore_t aicoreNullCore = 0xFFFFFFFFUL;
 constexpr aicorePair_t aicoreNullPair = 0xFFFFFFFFFFFFFFFFUL;
 
-struct sdma_l2_cmo_desc {
-    unsigned long   src_addr;
-    size_t          size;
-    char            cmo_opcode;
-};
-
-#define SDMA_FILE "/dev/sdma"
-#define IOCTL_SDMA_L2_CMO  _IOW('s', 3, struct sdma_l2_cmo_desc)
-
 struct DeviceTaskCtrl {
     int taskType{DEVICE_TASK_TYPE_INVALID};
     uint64_t taskId{0};
@@ -110,34 +94,6 @@ struct DeviceTaskCtrl {
         }
     }
 };
-
-inline void SdmaPrefetch(DeviceTask *devTask)
-{
-    if (devTask == nullptr || devTask->l2Info.prefetchNum == 0) {
-      return;
-    }
-    if (devTask->l2Info.prefetchNum > MAX_PREFETCH_NUM) {
-      DEV_ERROR("Prefetch invalid num %ld.\n", devTask->l2Info.prefetchNum);
-      return;
-    }
-    int fd = open(SDMA_FILE, O_RDWR);
-    if (fd == -1) {
-      return;
-    }
-    struct sdma_l2_cmo_desc desc;
-    desc.cmo_opcode = 0x6;
-    int ret = 0;
-    for (int64_t i = 0; i < devTask->l2Info.prefetchNum; ++i) {
-      desc.src_addr = devTask->l2Info.prefetchAddrs[i];
-      desc.size = devTask->l2Info.prefetchSizes[i];
-      ret |= ioctl(fd, IOCTL_SDMA_L2_CMO, &desc);
-      DEV_DEBUG("Prefetch %lx %lu ret:%d\n", devTask->l2Info.prefetchAddrs[i],
-          devTask->l2Info.prefetchSizes[i], ret);
-    }
-    DEV_INFO("Prefetch tensor num %ld ret %d.\n", devTask->l2Info.prefetchNum, ret);
-    close(fd);
-    return;
-}
 
 typedef pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask> taskQueue_t;
 typedef pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore> coreQueue_t;

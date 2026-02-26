@@ -21,6 +21,7 @@
 #include "machine/device/dynamic/device_utils.h"
 #include "machine/utils/device_log.h"
 #include "machine/utils/machine_ws_intf.h"
+#include "aicpu_task_manager.h"
 
 #ifndef MAX_DEVICE_TASK_NUM
 #define MAX_DEVICE_TASK_NUM 64

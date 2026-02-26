@@ -19,6 +19,7 @@
 #include <cstdio>
 #include <mutex>
 #include <sched.h>
+#include <sys/ioctl.h>
 #include "machine/utils/device_log.h"
 #include "dynamic/device_utils.h"
 #include "machine/utils/barrier.h"
@@ -27,6 +28,43 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 namespace {
 constexpr uint64_t CPUS_PER_CLUSTER = 4;
+}
+
+struct sdma_l2_cmo_desc {
+    unsigned long   src_addr;
+    size_t          size;
+    char            cmo_opcode;
+};
+
+#define SDMA_FILE "/dev/sdma"
+#define IOCTL_SDMA_L2_CMO  _IOW('s', 3, struct sdma_l2_cmo_desc)
+
+inline void SdmaPrefetch(DeviceTask *devTask)
+{
+    if (devTask == nullptr || devTask->l2Info.prefetchNum == 0) {
+      return;
+    }
+    if (devTask->l2Info.prefetchNum > MAX_PREFETCH_NUM) {
+      DEV_ERROR("Prefetch invalid num %ld.\n", devTask->l2Info.prefetchNum);
+      return;
+    }
+    int fd = open(SDMA_FILE, O_RDWR);
+    if (fd == -1) {
+      return;
+    }
+    struct sdma_l2_cmo_desc desc;
+    desc.cmo_opcode = 0x6;
+    int ret = 0;
+    for (int64_t i = 0; i < devTask->l2Info.prefetchNum; ++i) {
+      desc.src_addr = devTask->l2Info.prefetchAddrs[i];
+      desc.size = devTask->l2Info.prefetchSizes[i];
+      ret |= ioctl(fd, IOCTL_SDMA_L2_CMO, &desc);
+      DEV_DEBUG("Prefetch %lx %lu ret:%d\n", devTask->l2Info.prefetchAddrs[i],
+          devTask->l2Info.prefetchSizes[i], ret);
+    }
+    DEV_INFO("Prefetch tensor num %ld ret %d.\n", devTask->l2Info.prefetchNum, ret);
+    close(fd);
+    return;
 }
 
 struct MachineManager {
