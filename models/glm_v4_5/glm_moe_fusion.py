@@ -109,6 +109,13 @@ def gen_quan_per_channel_weight_nz(x):
 def moe_fusion_kernel(hidden_states_shape, mm_weight_shape, e_score_bias_shape, w13_shape, w13_scale_shape, 
                     w2_shape, w2_scale_shape, bs_topk_1, bs_topk_2, 
                     bs_hidden_size, renormalize, topk_group, num_expert_group):
+    # pypto.set_compiler_monitor_options(
+    #     enable=True,
+    #     interval_sec=2,
+    #     timeout_sec=10,
+    #     total_timeout_sec=120,
+    # )
+
     hidden_states_shape = (pypto.frontend.dynamic("bs"), hidden_states_shape[1])
     topk_weights_shape = (pypto.frontend.dynamic("bs"), bs_topk_1[1])
     topk_ids_shape = (pypto.frontend.dynamic("bs"), bs_topk_2[1])

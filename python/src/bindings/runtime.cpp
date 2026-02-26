@@ -29,6 +29,7 @@
 #include "machine/utils/dynamic/dev_start_args.h"
 #include "machine/host/perf_analysis.h"
 #include "bindings/torch_tensor_converter.h"
+#include "interface/compiler_monitor/monitor_manager.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -557,12 +558,18 @@ public:
     }
 
     KernelBinary *Compile(py::object &module, py::args &args) {
+        // std::cout<<"ZYT C++ =========================== Compile  old"<<std::endl;
+        // Prepare stage starts here and ends at Program::UpdateCompileTask() for OLD
+        MonitorManager::Instance().Initialize();
         auto compile = py::getattr(module, "compile");
         compile(args);
         return RegisterLastCompiledKernel(module);
     }
 
     KernelBinary *CompileFromTorch(py::object &module, py::sequence &torch_tensors, py::sequence tensor_defs) {
+        // std::cout<<"ZYT C++ =========================== CompileFromTorch  new"<<std::endl;
+        // Prepare stage starts here and ends at Program::UpdateCompileTask() for NEW
+        MonitorManager::Instance().Initialize();
         auto compile = py::getattr(module, "compile");
         compile(torch_tensors, tensor_defs);
         return RegisterLastCompiledKernel(module);
