@@ -183,20 +183,75 @@ Status OptimizeSort::DFSFromOutNode(std::vector<Operation*> outNodeQueue,
     return SUCCESS;
 }
 
+void OptimizeSort::PromoteBy(const std::function<bool(Operation*)>& isCandidate) {
+    std::unordered_map<Operation*, size_t> pos;
+    pos.reserve(operations.size());
+    for (size_t i = 0; i < operations.size(); ++i) {
+        pos[operations[i]] = i;
+    }
+
+    std::unordered_map<int, size_t> last;
+    for (auto* op : operations) {
+        if (!isCandidate(op)) {
+            continue;
+        }
+        size_t cur = pos[op];
+        size_t insertPos = 0;
+        for (auto* pre : inGraph[op]) {
+            insertPos = std::max(insertPos, pos[pre] + 1);
+        }
+
+        auto inputs = op->GetIOperands();
+        if (!inputs.empty()) {
+            int inputMagic = inputs[0]->GetMagic();
+            if (last.count(inputMagic)) {
+                insertPos = std::max(insertPos, last[inputMagic] + 1);
+            }
+        }
+
+        if (insertPos < cur) {
+            operations.erase(operations.begin() + cur);
+            operations.insert(operations.begin() + insertPos, op);
+            for (size_t i = insertPos; i <= cur; ++i) {
+                pos[operations[i]] = i;
+            }
+        }
+
+        if (!inputs.empty()) {
+            last[inputs[0]->GetMagic()] = pos[op];
+        }
+    }
+}
+
+void OptimizeSort::PromoteOps() {
+    PromoteBy([](Operation* op) { return op && op->GetOpcode() == Opcode::OP_ASSEMBLE; });
+
+    PromoteBy([](Operation* op) {
+        return op && OpcodeManager::Inst().IsCopyOut(op->GetOpcode()) &&
+               !op->GetOOperands().empty() && op->GetOOperands()[0] &&
+               op->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
+    });
+}
+
 Status OptimizeSort::PriorDFS(std::unordered_map<Opcode, int> preNodePriority) {
     std::map<Operation*, bool> visited;
     std::vector<Operation*> outNodeQueue;
+    depthCache_.clear();
     for (size_t i = 0; i < operations.size(); i++) {
         visited[operations[i]] = false;
         if (outGraph[operations[i]].empty()) {
             outNodeQueue.emplace_back(operations[i]);
         }
     }
+    std::stable_sort(outNodeQueue.begin(), outNodeQueue.end(), [&](Operation* a, Operation* b) {
+        return GetMaxDepthSimple(a) > GetMaxDepthSimple(b);
+    });
 
     if (DFSFromOutNode(outNodeQueue, preNodePriority, visited) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "DFSFromOutNode failed.");
         return FAILED;
     }
+    PromoteOps();
     return SUCCESS;
 }
 
