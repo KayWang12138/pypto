@@ -457,9 +457,10 @@ std::map<uint64_t, size_t> NBufferMerge::SetNumDB(std::map<uint64_t, std::vector
             numDBList[i] = defaultVal;
         }
         vecNBufferSetting.erase(it);
-    } else {
-        for (uint64_t i = 0; i < static_cast<uint64_t>(hashMap.size()); i++) {
-            numDBList[i] = 1;
+    } else { // 手动合并但没配置默认值的情况，没配置的order自动计算合并粒度
+        auto hashMergeNum = GetIsoColorMergeNum(hashMap);
+        for (const auto &entry : hashMergeNum) {
+            numDBList[hashOrder[entry.first]] = entry.second;
         }
     }
     for (const auto &entry : vecNBufferSetting) {
@@ -486,10 +487,6 @@ Status NBufferMerge::NBufferMergeProcess(Function &func) {
     GetColorHash(opOriList, hashColor, hashMap);
     std::map<uint64_t, size_t> hashMergeNum;
     if (vecNBuffermode == autoMerge ||  vecNBuffermode == autoMulityInOutMerge) {
-        if (vecNBufferSetting.size() != 0) {
-            APASS_LOG_ERROR_F(Elements::Config, "VEC_NBUFFER_MODE is manually set to %d; Please set VEC_NBUFFER_SETTING to empty.", vecNBuffermode);
-            return FAILED;
-        }
         APASS_LOG_INFO_F(Elements::Config, "Manually set VEC_NBUFFER_MODE to %d, automatically calculate mergeNum.", vecNBuffermode);
         hashMergeNum = GetIsoColorMergeNum(hashMap);
     } else {
@@ -524,7 +521,7 @@ Status NBufferMerge::NBufferMergeProcess(Function &func) {
 
 Status NBufferMerge::CheckVecNBufferSettingForManualMerge() {
     if (vecNBufferSetting.size() == 0) {
-        APASS_LOG_ERROR_F(Elements::Config, "VEC_NBUFFER_MODE is manually set to %d; Please set vecNBufferSetting to non-empty.", vecNBuffermode);
+        APASS_LOG_ERROR_F(Elements::Config, "Mode is set to %d; Please set VEC_NBUFFER_SETTING to non-empty.", vecNBuffermode);
         return FAILED;
     }
     for (const auto& pair : vecNBufferSetting) {
@@ -540,20 +537,48 @@ Status NBufferMerge::CheckVecNBufferSettingForManualMerge() {
     return SUCCESS;
 }
 
-Status NBufferMerge::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "===> Start NBufferMerge.");
-    vecNBuffermode = function.paramConfigs_.vecNBuffermode;
-    if (vecNBuffermode < noMerge || vecNBuffermode > manualMulityInOutMerge) {
-        APASS_LOG_ERROR_F(Elements::Config, "VEC_NBUFFER_MODE is set to %d; Please set VEC_NBUFFER_MODE to be a value in ModeType.", vecNBuffermode);
-        return FAILED;
-    }
-    APASS_LOG_INFO_F(Elements::Config, "VEC_NBUFFER_MODE is set to %d.", vecNBuffermode);
-    if (vecNBuffermode == noMerge) {
-        APASS_LOG_INFO_F(Elements::Config, "Manually set VEC_NBUFFER_MODE to 0, skip NBufferMerge.");
+Status NBufferMerge::InitVecNBufferModeBySetting() {
+    if (vecNBufferSetting.size() == 0) {
+        vecNBuffermode = autoMerge;
         return SUCCESS;
     }
-    mgVecParallelLb = function.paramConfigs_.mgVecParallelLb;
+    std::map<int64_t, int64_t> skipSetting = {{-1, 1}}; // 仅配置{{-1, 1}} 跳过合并
+    if (vecNBufferSetting == skipSetting) {
+        vecNBuffermode = noMerge;
+        return SUCCESS;
+    }
+    std::map<int64_t, int64_t> autoMulityInOutSetting = {{-2, 0}}; // 仅配置{{-2, 0}} 多输入输出自动合并
+    if (vecNBufferSetting == autoMulityInOutSetting) {
+        vecNBuffermode =  autoMulityInOutMerge;
+        return SUCCESS;
+    }
+    // 配置中存在{-2, 1} 多输入输出手工合并
+    auto it = vecNBufferSetting.find(MULITY_IN_OUT_MERGE_KEY);
+    if (it != vecNBufferSetting.end()) {
+        if (it->second != 1) {
+            APASS_LOG_ERROR_F(Elements::Config, "The VEC_NBUFFER_SETTING key is -2, in manualMulityInOutMerge mode the value should be 1.");
+            return FAILED;
+        }
+        vecNBufferSetting.erase(it);
+        vecNBuffermode =  manualMulityInOutMerge;
+        return SUCCESS;
+    }
+    vecNBuffermode = manualMerge; // 手工合并
+    return SUCCESS;
+}
+
+Status NBufferMerge::RunOnFunction(Function &function) {
+    APASS_LOG_INFO_F(Elements::Operation, "===> Start NBufferMerge.");
     vecNBufferSetting = function.paramConfigs_.vecNBufferSetting;
+    mgVecParallelLb = function.paramConfigs_.mgVecParallelLb;
+    if(InitVecNBufferModeBySetting() != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Config, "InitVecNBufferModeBySetting failed.");
+        return FAILED;
+    }
+    if (vecNBuffermode == noMerge) {
+        APASS_LOG_INFO_F(Elements::Config, "Mode is noMerge, skip NBufferMerge.");
+        return SUCCESS;
+    }
     if (NBufferMergeProcess(function) == FAILED) {
         APASS_LOG_ERROR_F(Elements::Operation, "NBufferMergeProcess failed; Please check the NBufferMergeProcess method.");
         return FAILED;

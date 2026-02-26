@@ -98,7 +98,6 @@ TEST_F(NBufferMergeTest, TestMulityInputOutputMode3) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     const int vecParallelNum = 2;
-    const int manualMode = 3;
     std::vector<int64_t> shape = {8, 16};
 
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -140,7 +139,7 @@ TEST_F(NBufferMergeTest, TestMulityInputOutputMode3) {
     // Call the pass
     NBufferMerge NBM;
     currFunctionPtr->paramConfigs_.mgVecParallelLb = vecParallelNum;
-    currFunctionPtr->paramConfigs_.vecNBuffermode = manualMode;
+    currFunctionPtr->paramConfigs_.vecNBufferSetting = {{-2, 0}};
     currFunctionPtr->DumpJsonFile("./config/pass/json/nBufferMerge_mulity_input_before.json");
     size_t subGraphCount = 4;
     currFunctionPtr->SetTotalSubGraphCount(subGraphCount);
@@ -154,7 +153,6 @@ TEST_F(NBufferMergeTest, TestMode4) {
     std::vector<int64_t> tileShape{16, 16};
     const int vecParallelNum = 6;
     const int result = 11;
-    const int manualMode = 4;
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"incast0", "incast1", "outcast"}), true);
     EXPECT_EQ(G.AddOps({Opcode::OP_COPY_IN}, {{"incast0"}}, {{"incast1"}}, {"copy_in"}, true), true);
     G.GetOp("copy_in")->UpdateSubgraphID(0);
@@ -175,31 +173,12 @@ TEST_F(NBufferMergeTest, TestMode4) {
     EXPECT_EQ(G.SetInCast({"incast0"}), true);
     EXPECT_EQ(G.SetOutCast({"outcast"}), true);
     Function *function = G.GetFunction();
-    function->paramConfigs_.vecNBuffermode = manualMode;
-    function->paramConfigs_.vecNBufferSetting = {{-1, 4}, {1, 2}};
+    function->paramConfigs_.vecNBufferSetting = {{-2, 1}, {-1, 4}, {1, 2}};
     function->paramConfigs_.mgVecParallelLb = vecParallelNum;
     function->SetTotalSubGraphCount(subGraphNum);
     NBufferMerge NBM;
     EXPECT_EQ(NBM.RunOnFunction(*function), SUCCESS);
     EXPECT_EQ(function->GetTotalSubGraphCount(), result);
-}
-
-TEST_F(NBufferMergeTest, TestInvalidMode) {
-    ComputationalGraphBuilder G;
-    std::vector<int64_t> tileShape{16, 16};
-    const int vecParallelNum = 6;
-    const int noneMode = 999;
-    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"incast0", "incast1", "outcast"}), true);
-    EXPECT_EQ(G.AddOps({Opcode::OP_COPY_IN}, {{"incast0"}}, {{"incast1"}}, {"copy_in"}, true), true);
-    G.GetOp("copy_in")->UpdateSubgraphID(0);
-    EXPECT_EQ(G.SetInCast({"incast0"}), true);
-    EXPECT_EQ(G.SetOutCast({"outcast"}), true);
-    Function *function = G.GetFunction();
-    function->paramConfigs_.vecNBuffermode = noneMode;
-    function->paramConfigs_.mgVecParallelLb = vecParallelNum;
-    function->SetTotalSubGraphCount(1);
-    NBufferMerge NBM;
-    EXPECT_EQ(NBM.RunOnFunction(*function), FAILED);
 }
 }
 }
