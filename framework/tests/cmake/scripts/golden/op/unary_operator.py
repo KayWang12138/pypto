@@ -163,6 +163,8 @@ def unary_operator_func_logicalnot(case_name: str, output: Path) -> bool:
     case_names=[
         "OnBoardTest.test_sin_dim2_float32",
         "OnBoardTest.test_cos_dim4_float16",
+        "OnBoardTest.test_sign_dim2_float32",
+        "OnBoardTest.test_signbit_dim2_float32",
     ]
 )
 def unary_operator_func_sin_cos(case_name: str, output: Path) -> bool:
@@ -202,6 +204,32 @@ def unary_operator_func_sin_cos(case_name: str, output: Path) -> bool:
             y = gen_cos(x)
             y.tofile(y_path)
             return True
+    elif case_name == "OnBoardTest.test_sign_dim2_float32":
+        x_path = Path(output, 'x_dim2_fp32.bin')
+        y_path = Path(output, 'sign_golden_fp32.bin')
+        complete = x_path.exists() and y_path.exists()
+        if complete:
+            logging.debug("Case(%s), Golden complete.", case_name)
+            return True
+        else:
+            x = np.random.uniform(-1, 1, shape_dim2).astype(dtype_fp32)
+            x.tofile(x_path)
+            y = np.sign(x)
+            y.tofile(y_path)
+            return True
+    elif case_name == "OnBoardTest.test_signbit_dim2_float32":
+        x_path = Path(output, 'x_dim2_fp32.bin')
+        y_path = Path(output, 'signbit_golden_fp32.bin')
+        complete = x_path.exists() and y_path.exists()
+        if complete:
+            logging.debug("Case(%s), Golden complete.", case_name)
+            return True
+        else:
+            x = np.random.uniform(-1, 1, shape_dim2).astype(dtype_fp32)
+            x.tofile(x_path)
+            y = np.signbit(x)
+            y.tofile(y_path)
+            return True
     else:
         logging.error("Can't get func to gen golden, Case(%s)", case_name)
         return False
@@ -217,6 +245,7 @@ def unary_operator_func_sin_cos(case_name: str, output: Path) -> bool:
         "OnBoardTest.test_unary_operation_16_16_64_64_tileop_sqrt",
         "OnBoardTest.test_unary_operation_16_16_64_70_tileop_sqrt",
         "OnBoardTest.test_unary_operation_16_16_64_64_tileop_sign",
+        "OnBoardTest.test_unary_operation_16_16_64_64_tileop_signbit",
         "OnBoardTest.test_unary_operation_32_32_tileop_reciprocal",
         "OnBoardTest.test_unary_operation_16_32_32_tileop_reciprocal",
         "OnBoardTest.test_unary_operation_16_16_64_64_tileop_reciprocal",
@@ -318,6 +347,17 @@ def unary_operator_gen_data(case_name: str, output: Path) -> bool:
             x = np.random.uniform(-1, 1, shape_16_16_64_64_i).astype(dtype)
             x.tofile(x_path)
             x = np.sign(x)
+            x.tofile(o_path)
+    elif case_name == "OnBoardTest.test_unary_operation_16_16_64_64_tileop_signbit":
+        x_path = Path(output, 'x.bin')
+        o_path = Path(output, 'res.bin')
+        complete = x_path.exists() and o_path.exists()
+        if complete:
+            logging.debug("Case(%s), Golden complete.", case_name)
+        else:
+            x = np.random.uniform(-1, 1, shape_16_16_64_64_i).astype(dtype)
+            x.tofile(x_path)
+            x = np.signbit(x)
             x.tofile(o_path)
     elif case_name == "OnBoardTest.test_unary_operation_32_32_tileop_reciprocal":
         x_path = Path(output, 'x.bin')

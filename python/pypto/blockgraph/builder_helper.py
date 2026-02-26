@@ -120,6 +120,11 @@ class BlockBuilderHelper:
         self.builder.emit(self.ctx, op)
         return op
 
+    def signbit(self, a, out):
+        op = self.builder.create_unary_op(ir.Opcode.OP_SIGNBIT, a, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
     def rsqrt(self, a, out):
         op = self.builder.create_unary_op(ir.Opcode.OP_RSQRT, a, out)
         self.builder.emit(self.ctx, op)
