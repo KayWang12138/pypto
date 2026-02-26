@@ -33,7 +33,7 @@ conv(input, weight, out_dtype, strides, paddings, dilations, *, groups=1, transp
 | groups            | 输入      | 分组卷积组数，默认 1。<br>取值范围：[1, 65535]。<br>Cin、Cout 必须可被 groups 整除。 |
 | transposed        | 输入      | 是否为转置卷积（反卷积），默认 False。<br>当前暂不支持 True。 |
 | output_paddings   | 输入      | 转置卷积输出端填充，仅 transposed=True 时使用。<br>当前暂不支持。 |
-| extend_params     | 输入      | 扩展参数字典，支持 bias、scale、relu、scale_tensor：<br>- bias_tensor：可选的偏置张量，形状为 (C_out,)，仅支持 ND 格式。<br>- scale：浮点型，per-tensor 缩放因子。<br>- scale_tensor：uint64 类型 per-channel 缩放 Tensor，shape [1, Cout]，仅 ND 格式，仅 2D 卷积。<br>- relu_type：激活类型，支持 RELU/NO_RELU 等。 |
+| extend_params     | 输入      | 扩展参数字典，支持 bias、scale、relu、scale_tensor：<br>- bias_tensor：可选的偏置张量，形状为 (C_out,)，仅支持 ND 格式。<br>- scale：浮点型，per-tensor 缩放因子。<br>- scale_tensor：uint64 类型 per-channel 缩放 Tensor，shape [1, Cout]，仅 ND 格式。<br>- relu_type：激活类型，支持 RELU/NO_RELU 等。 |
 
 ## 返回值说明
 

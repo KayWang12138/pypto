@@ -61,8 +61,8 @@ INLINE int64_t GetConvStride(const U &tileTensor) {
 
 /**
  * Calculate load GM offset for input/weight with NCHW format.
- * shapeInfo: input -> [orgCi, orgHi, orgWi], weight -> [kh, kw]
- * shapeInfo: input -> [  0  ,   1  ,   2  ], weight -> [0 , 1 ]
+ * shapeInfo: input -> [orgCi, orgHi, orgWi], weight -> [orgCi, kh, kw]
+ * shapeInfo: input -> [  0  ,   1  ,   2  ], weight -> [  0  , 1 , 2 ]
  * offset0: input -> src_n_offset, weight -> src_n_offset
  * offset1: input -> src_c_offset,  weight -> src_c_offset
  * offset2: input -> src_d_offset, weight -> src_d_offset
@@ -79,13 +79,13 @@ INLINE int64_t CalLoadOffsetNCHW(const ShapeInfo &shapeInfo, const OffsetInfo &o
         int64_t offsetW = offsetInfo.offset4 < 0 ? 0 : offsetInfo.offset4;
         offsetW = offsetInfo.offset4 > shapeInfo.shape2 ? shapeInfo.shape2 : offsetInfo.offset4;
         return offsetInfo.offset0 * inputOneBatchSize + cinOffset + offsetH * shapeInfo.shape2 + offsetW;
-    } else {
-        return offsetInfo.offset0 + offsetInfo.offset1 * shapeInfo.shape0 * shapeInfo.shape1;
     }
+    return offsetInfo.offset0 * shapeInfo.shape0 * shapeInfo.shape1 * shapeInfo.shape2 +
+           offsetInfo.offset1 * shapeInfo.shape1 * shapeInfo.shape2;
 }
 
 /**
- * Calculate store GM offset with NZ -> NC1HWC0 format.
+ * Calculate store GM offset with NZ -> NCHW format.
  * shapeInfo: [cout, hout, wout]
  * shapeInfo: [  0 ,  1  ,  2  ]
  * offset0: dst_n_offset
@@ -113,7 +113,8 @@ INLINE int64_t CalStoreOffsetNCHW(const ShapeInfo &shapeInfo, const OffsetInfo &
  * isInput: true -> input, false -> weight
  */
 template <typename T, typename U>
-INLINE void TLoadConvDN2NZ(T &dst, U &src, const OffsetInfo &offsetInfo, const bool &isInput) {
+INLINE void TLoadConvDN2NZ(
+    T &dst, U &src, const OffsetInfo &offsetInfo, const ShapeInfo &srcShapeInfo, const bool &isInput) {
     constexpr int64_t c0Size = BLOCK_ALIGN_BYTE / sizeof(typename U::Type);
     int64_t srcN = GetConvShape<CONV_IDX_0>(src);
     int64_t srcC = GetConvShape<CONV_IDX_1>(src);
@@ -131,18 +132,13 @@ INLINE void TLoadConvDN2NZ(T &dst, U &src, const OffsetInfo &offsetInfo, const b
     constexpr auto stcDstShape1 = Std::tuple_element<CONV_IDX_1, typename T::TileShape>::type::value;
     constexpr auto stcDstShape2 = Std::tuple_element<CONV_IDX_2, typename T::TileShape>::type::value;
     constexpr auto stcDstShape3 = Std::tuple_element<CONV_IDX_3, typename T::TileShape>::type::value;
-    ShapeInfo shapeInfo;
-    if (isInput) {
-        shapeInfo = {srcC, srcH, srcW};
-    } else {
-        shapeInfo = {srcH, srcW};
-    }
+    ShapeInfo shapeInfo = {srcC, srcH, srcW};
     using shapeDim4 = pto::Shape<1, -1, -1, -1, -1>;
     using strideDim4 = pto::Stride<1, -1, -1, -1, -1>;
     using globalData = pto::GlobalTensor<typename U::Type, shapeDim4, strideDim4, pto::Layout::NCHW>;
     int64_t gmOffset = CalLoadOffsetNCHW(shapeInfo, offsetInfo, isInput);
     globalData srcGlobal((__gm__ typename U::Type *)(src.GetAddr() + gmOffset),
-        shapeDim4(srcN, srcC, srcH, srcW),
+        shapeDim4(srcShapeInfo.shape0, srcShapeInfo.shape1, srcShapeInfo.shape3, srcShapeInfo.shape4),
         strideDim4(srcStrideN, srcStrideC, srcStrideH, srcStrideW));
     if (isInput) {
         constexpr auto bufferSize = stcDstShape0 * stcDstShape1 * stcDstShape2 * stcDstShape3 * BLOCK_ALIGN_BYTE;
@@ -165,13 +161,15 @@ INLINE void TLoadConvDN2NZ(T &dst, U &src, const OffsetInfo &offsetInfo, const b
 // Copy data from DDR to L1
 template <CopyInMode mode, typename T, typename U>
 TILEOP void TLoadConv(T &dst, U &src, const int64_t &offset0, const int64_t &offset1, const int64_t &offset2,
-    const int64_t &offset3, const int64_t &offset4, const bool &isInput) {
+    const int64_t &offset3, const int64_t &offset4, const int64_t &shape0, const int64_t &shape1,
+    const int64_t &shape2,const int64_t &shape3, const int64_t &shape4,  const bool &isInput) {
     static_assert(T::FORMAT == Hardware::L1 && U::FORMAT == Hardware::GM,
         "[TLoadConv Error]: Src format shoulde be GM and Dst format shoulde be L1");
     OffsetInfo offsetInfo = {offset0, offset1, offset2, offset3, offset4};
+    ShapeInfo srcShapeInfo = {shape0, shape1, shape2, shape3, shape4};
     if constexpr (mode == CopyInMode::ND2NZ) {
     } else if constexpr (mode == CopyInMode::DN2NZ) {
-        TLoadConvDN2NZ(dst, src, offsetInfo, isInput);
+        TLoadConvDN2NZ(dst, src, offsetInfo, srcShapeInfo, isInput);
     } else if constexpr (mode == CopyInMode::NZ2NZ) {
     }
     return;

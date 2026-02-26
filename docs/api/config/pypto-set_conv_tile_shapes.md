@@ -56,7 +56,9 @@ TileShape需要满足以下约束条件：
 
         - tileK需满足32字节对齐，即 `tileK * sizeof(dtype) % 32 == 0`
 
-        - tileM（映射为tileH*tileW）需满足16元素对齐，即 `tileM % 16 == 0`
+        - tileW需满足16元素对齐，即 `tileW % 16 == 0`
+
+        - tileH `1 <= tileH <= tileHout`
 
         - tileN需满足16元素对齐，即 `tileN % 16 == 0`
 
@@ -75,13 +77,13 @@ TileShape需要满足以下约束条件：
     - L0A、L0B、L0C空间约束：
 
         ```
-        CeilAlign(tileM,16)* CeilAlign(tileK, C0) * sizeof(dtype) <= L0A_size
+        CeilAlign(tileH * tileW, 16)* CeilAlign(tileK, C0) * sizeof(dtype) <= L0A_size
 
         CeilAlign(tileK, C0)* CeilAlign(tileN,16) * sizeof(dtype) <= L0B_size
 
-        CeilAlign(tileM,16)* CeilAlign(tileN,16) * sizeof(FP32) <= L0C_size
+        CeilAlign(tileH * tileW, 16)* CeilAlign(tileN,16) * sizeof(FP32) <= L0C_size
         ```
-        其中`C0 = ALIGN_SIZE_32 / BytesOf(outType)`，tileM映射为tileH*tileW
+        其中`C0 = ALIGN_SIZE_32 / BytesOf(outType)`
 
     - L1空间约束：
 
