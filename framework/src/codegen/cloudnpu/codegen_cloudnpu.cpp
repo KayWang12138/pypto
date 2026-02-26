@@ -231,6 +231,7 @@ std::string CodeGenCloudNPU::GetParamType(const Function &func, bool isUnderDynF
 
 void CodeGenCloudNPU::GenCode(
     Function &topFunc, [[maybe_unused]] const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) {
+    COMPILER_LOGI("DumpCCE and DoCompileCCE to binary");
     std::deque<std::function<void(void)>> tasks;
     for (auto &subFuncPair : topFunc.rootFunc_->programs_) {
         std::function task = [this, subFuncPair, &topFunc]() {
