@@ -182,30 +182,13 @@ private:
     static inline uint64_t decodePairCore(const aicorePair_t pair) { return pair & 0x00000000FFFFFFFFUL; }
 
     int WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd);
-
     uint64_t TryBatchSendTask();
-
     bool checkCoreFinished(const int coreIdx);
-
     void ResolveDepForAllAiCore();
-
-    void BatchPushReadyQueue();
-
     void ResolveVirtualPure(uint64_t dep, CoreFunctionReadyState* readyState);
-
     void ResolveVirtualMix(uint64_t dep, CoreFunctionReadyState* readyState);
-
     void ResolveByCoreType(int coretype, uint64_t depTaskId, CoreFunctionReadyState *readyState);
-
     void ResolveDep(uint64_t finishId);
-
-    inline void BatchGetFinishedTask(uint64_t finTask[], int coreIdxStart, int coreIdxEnd) {
-        uint64_t finTaskGet;
-        for (int i = coreIdxStart; i < coreIdxEnd; i++) {
-            finTaskGet = GetFinishedTask(i);
-            finTask[i - coreIdxStart] = finTaskGet;
-        }
-    }
 
     inline uint64_t GetFinishedTask(const int coreIdx) { return *(finishRegQueues_[GetPhyIdByBlockId(coreIdx)]); }
 
@@ -273,7 +256,6 @@ private:
     inline CoreType AicoreType(int coreIdx) const { return coreIdx < aicEnd_ ? CoreType::AIC : CoreType::AIV; }
 
 private:
-    bool isFirstTaskSend_{true};
     int aicNum_{0};
     int aivNum_{0};
     int aicValidNum_{0}; // 有效的aic，根据pgmask计算host传过来
@@ -283,9 +265,6 @@ private:
     int aicEnd_{0};
     int aivStart_{0};
     int aivEnd_{0};
-    uint64_t procAicCoreFunctionCnt_{0};
-    uint64_t procAivCoreFunctionCnt_{0};
-    uint64_t procAicpuFunctionCnt_{0};
     int64_t *regAddrs_{nullptr};
     int64_t sharedBuffer_{0};
     DeviceTask *curDevTask_{nullptr};
@@ -312,13 +291,9 @@ private:
     pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>* availableCoreQueue_[AICORE_TYPE_NUM];
     pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>* runningPairQueue_; 
 
-    AicoreDump aicoreDump_;
     int64_t dotStatus_{0};
-
     bool isNeedWriteRegForFastPath_{true};
     uint32_t regSprDataMainBase_{REG_SPR_DATA_MAIN_BASE};
     uint32_t regSprCond_{REG_SPR_COND};
-
-    friend class AiCoreProf;
 };
 } // namespace npu::tile_fwk
