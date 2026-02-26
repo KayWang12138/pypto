@@ -43,6 +43,7 @@ def matmul_add(in_tensor0, in_tensor1, in_tensor2, out_tensor):
 def test_device_run_data_from_device_mix_nodep():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
+    os.environ["DUMP_DEVICE_PERF"] = "true"
 
     tiling = 32
     n, k, m = tiling * 8, tiling * 8, tiling * 8
@@ -51,7 +52,7 @@ def test_device_run_data_from_device_mix_nodep():
     c_data_list = []
     d_data_list = []
 
-    count = 1
+    count = 3
 
     a_rawdata = torch.tensor([[1] * k] * n)
     b_rawdata = torch.tensor([[1] * m] * k)
