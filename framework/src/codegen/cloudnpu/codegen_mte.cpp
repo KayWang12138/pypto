@@ -1872,10 +1872,10 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const {
     int64_t offsetH = 0;
     int64_t offsetW = 0;
     GetAttr("is_conv3d", isConv3D);
-    auto dynValidShape = dynamicValidShape[ToUnderlying(MISOIdx::SRC0_IDX)];
-    ASSERT(dynValidShape.size() == SHAPE_DIM2) << "GenMemL1CopyOutConv valid shape should be 2-dim!";
-    realM = dynValidShape[ID0].Concrete();
-    realN = dynValidShape[ID1].Concrete();
+    auto realShape = shape[ToUnderlying(MISOIdx::DST_IDX)];
+    ASSERT(realShape.size() == SHAPE_DIM2) << "GenMemL1CopyOutConv valid shape should be 2-dim!";
+    realM = realShape[ID0];
+    realN = realShape[ID1];
     auto dynOffset = offsetFromAttr[ToUnderlying(MISOIdx::DST_IDX)];
     if (isConv3D) {
         ASSERT(dynOffset.size() == SHAPE_DIM5) << "GenMemL1CopyOutConv offset should be 5-dim!";
