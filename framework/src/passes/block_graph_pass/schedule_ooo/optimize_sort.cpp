@@ -183,20 +183,68 @@ Status OptimizeSort::DFSFromOutNode(std::vector<Operation*> outNodeQueue,
     return SUCCESS;
 }
 
+void OptimizeSort::PromoteDdrCopyOuts() {
+    std::vector<Operation*> candidates;
+    candidates.reserve(operations.size());
+    for (auto* op : operations) {
+        if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            candidates.push_back(op);
+        }
+    }
+
+    std::unordered_map<int, size_t> lastInsertIdxByTensor;
+    for (auto* op : candidates) {
+        auto itCur = std::find(operations.begin(), operations.end(), op);
+        if (itCur == operations.end()) {
+            continue;
+        }
+        size_t curIdx = static_cast<size_t>(std::distance(operations.begin(), itCur));
+        size_t earliest = 0;
+        for (auto* preOp : inGraph[op]) {
+            auto itPre = std::find(operations.begin(), operations.end(), preOp);
+            if (itPre != operations.end()) {
+                earliest = std::max(earliest, static_cast<size_t>(std::distance(operations.begin(), itPre)) + 1);
+            }
+        }
+
+        auto input = op->GetIOperands().empty() ? nullptr : op->GetIOperands()[0];
+        if (input != nullptr) {
+            auto itLast = lastInsertIdxByTensor.find(input->GetMagic());
+            if (itLast != lastInsertIdxByTensor.end()) {
+                earliest = std::max(earliest, itLast->second + 1);
+            }
+        }
+
+        if (earliest < curIdx) {
+            operations.erase(operations.begin() + curIdx);
+            operations.insert(operations.begin() + earliest, op);
+        }
+
+        if (input != nullptr) {
+            lastInsertIdxByTensor[input->GetMagic()] = std::min(earliest, curIdx);
+        }
+    }
+}
+
 Status OptimizeSort::PriorDFS(std::unordered_map<Opcode, int> preNodePriority) {
     std::map<Operation*, bool> visited;
     std::vector<Operation*> outNodeQueue;
+    depthCache_.clear();
     for (size_t i = 0; i < operations.size(); i++) {
         visited[operations[i]] = false;
         if (outGraph[operations[i]].empty()) {
             outNodeQueue.emplace_back(operations[i]);
         }
     }
+    std::stable_sort(outNodeQueue.begin(), outNodeQueue.end(), [&](Operation* a, Operation* b) {
+        return GetMaxDepthSimple(a) > GetMaxDepthSimple(b);
+    });
 
     if (DFSFromOutNode(outNodeQueue, preNodePriority, visited) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "DFSFromOutNode failed.");
         return FAILED;
     }
+    PromoteDdrCopyOuts();
     return SUCCESS;
 }
 
