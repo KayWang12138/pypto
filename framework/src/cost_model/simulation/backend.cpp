@@ -92,7 +92,7 @@ void CostModelAgent::SubmitToCostModel(Function *rootFunc)
         GetFunctionFromJson(agentJsonPath);
         rootFunc = Program::GetInstance().GetCurrentFunction()->rootFunc_;
     }
-    SIMULATION_LOGI("Submit to CostModel: %s", rootFunc->GetMagicName());
+    SIMULATION_LOGI("Submit to CostModel: %s", rootFunc->GetMagicName().c_str());
     std::vector<npu::tile_fwk::Function *> funcs;
     if (config::GetSimConfig(KEY_BUILD_TASK_BASED_TOPO, true)) {
         funcs.push_back(rootFunc);
@@ -195,7 +195,7 @@ void CostModelAgent::SubmitSingleFuncToCostModel(Function *func)
     if (costModel == nullptr) {
         BuildCostModel();
     }
-    SIMULATION_LOGI("Submit Single Function to CostModel: %s", func->GetMagicName());
+    SIMULATION_LOGI("Submit Single Function to CostModel: %s", func->GetMagicName().c_str());
     costModel->SubmitSingleFunction(func);
 }
 

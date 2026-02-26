@@ -60,7 +60,7 @@ public:
             if (it != dispatcher.end()) {
                 it->second(cfgValue);
             } else {
-                SIMULATION_LOGE("Invalid config name: %s", cfgName);
+                SIMULATION_LOGE("Invalid config name: %s", cfgName.c_str());
             }
         }
     }

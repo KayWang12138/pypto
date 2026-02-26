@@ -55,7 +55,7 @@ void PvModelBinHelper::ReadBin(std::string path, std::vector<uint8_t> &bytes)
     std::ifstream inFile(path, std::ios::binary);
 
     if (!inFile.is_open()) {
-        SIMULATION_LOGE("open bin file error: %s", path);
+        SIMULATION_LOGE("open bin file error: %s", path.c_str());
         return;
     }
 
@@ -74,7 +74,7 @@ void PvModelBinHelper::ReadBin(std::string path, std::vector<uint8_t> &bytes)
 uint64_t PvModelBinHelper::GetBinSize(std::string path) {
     std::ifstream file(path, std::ios::binary | std::ios::ate);
     if (!file) {
-        SIMULATION_LOGE("open file error: %s", path);
+        SIMULATION_LOGE("open file error: %s", path.c_str());
         return 0;
     }
 
@@ -301,7 +301,7 @@ void PvModelImpl<SystemConfig, CaseConfig>::BinGen(npu::tile_fwk::Function *func
 
             int ret = std::system(cmd);
             if (ret != 0) {
-                SIMULATION_LOGE("cmd error: %s", cmd);
+                SIMULATION_LOGE("cmd error: %s", cmd.c_str());
             }
 
             auto size = PvModelBinHelper::GetBinSize(task_.binPath[subFuncPair.first]);
@@ -441,7 +441,7 @@ void PvModelImpl<SystemConfig, CaseConfig>::RunModel(std::string esgDir)
     char cmd[2048];
     (void)snprintf_s(cmd, sizeof(cmd), sizeof(cmd) - 1,
     "cd %s/ && ../../../../../../../../PvModel%s --gtest_filter=test_st_case.test_st_pv --spec=spec.toml", esgDir.c_str(), arch_.c_str());
-    SIMULATION_LOGI("[PVMODEL] %s", std::string(cmd));
+    SIMULATION_LOGI("[PVMODEL] %s", cmd);
 
     int result = std::system(cmd);
     if (result != 0) {
