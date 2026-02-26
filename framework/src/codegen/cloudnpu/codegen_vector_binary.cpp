@@ -489,26 +489,26 @@ std::string CodeGenOpCloudNPU::PrintVectorScalarTileTensor(const PrintUnaryParam
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintVectorReverseScalarTileTensor() const {
-    std::string scalarDtypeStr = DataType2CCEStr(extOperandVal.GetDataType());
-    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
-    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
-    std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
+// std::string CodeGenOpCloudNPU::PrintVectorReverseScalarTileTensor() const {
+//     std::string scalarDtypeStr = DataType2CCEStr(extOperandVal.GetDataType());
+//     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+//     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+//     std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
 
-    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, scalarTmpBuffer};
-    std::vector<std::string> templateParamList;
-    std::ostringstream oss;
-    if (opAttrs.count(OP_ATTR_PREFIX + "reverseOperand")) {
-        bool reverseOperand = npu::tile_fwk::AnyCast<bool>(opAttrs.at(OP_ATTR_PREFIX + "reverseOperand"));
-        templateParamList.emplace_back(std::to_string(reverseOperand));
-    }
-    templateParamList.emplace_back(scalarDtypeStr);
-    oss << tileOpName;
-    oss << WrapParamByAngleBrackets(templateParamList);
-    oss << WrapParamByParentheses(tileOpParamList);
-    oss << STMT_END;
-    return oss.str();
-}
+//     std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, scalarTmpBuffer};
+//     std::vector<std::string> templateParamList;
+//     std::ostringstream oss;
+//     if (opAttrs.count(OP_ATTR_PREFIX + "reverseOperand")) {
+//         bool reverseOperand = npu::tile_fwk::AnyCast<bool>(opAttrs.at(OP_ATTR_PREFIX + "reverseOperand"));
+//         templateParamList.emplace_back(std::to_string(reverseOperand));
+//     }
+//     templateParamList.emplace_back(scalarDtypeStr);
+//     oss << tileOpName;
+//     oss << WrapParamByAngleBrackets(templateParamList);
+//     oss << WrapParamByParentheses(tileOpParamList);
+//     oss << STMT_END;
+//     return oss.str();
+// }
 
 std::string CodeGenOpCloudNPU::PrintBinaryScalar(const PrintBinaryScalarParam &param) const {
     if (isDynamicFunction) {
