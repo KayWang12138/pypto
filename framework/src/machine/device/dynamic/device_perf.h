@@ -20,6 +20,7 @@
 #include "tilefwk/aicpu_common.h"
 
 namespace npu::tile_fwk::dynamic {
+static uint32_t g_prof_turn = 0;
 struct PerfettoMgr {
     static const int MAX_THEAD_NUM = 200;
     static const int TRUNK_SIZE = 32768;
@@ -151,8 +152,14 @@ struct PerfEvtMgr {
     }
 
     void SetIsOpenProf(bool isOpenProf, uint64_t aicpuPerf = 0) {
+        if (g_prof_turn >= MAX_PROF_NUM) {
+            aicpuPref_ = nullptr;
+            DEV_WARN("Aicpu pref info more than: %u, some info would lost", MAX_PROF_NUM);
+            return;
+        }
         isOpenProf_ = isOpenProf;
-        aicpuPref_ = (MetricPerf*)aicpuPerf;
+        aicpuPref_ = (MetricPerf*)(aicpuPerf + g_prof_turn * sizeof(MetricPerf));
+        g_prof_turn += 1;
     }
 
     void PerfBegin(int type) {
