@@ -109,7 +109,8 @@ public:
     ~CodeGenCloudNPU() override = default;
 
     void GenCode(Function &topFunc, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) override;
-    std::pair<int, std::string> CompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const;
+    std::pair<int, std::string> CompileCCE(const CompileInfo &compileInfo, const std::string &funcName,
+        const std::string &funcHash, const std::string &compileOptions) const;
     std::optional<std::string> GenExtraAlloc(
         const std::shared_ptr<SymbolManager> &sm, const std::shared_ptr<LogicalTensor> &tensor) const;
     std::string GenAllocForLocalBuffer(const Operation &op, const std::shared_ptr<SymbolManager> &sm) const;
@@ -129,7 +130,8 @@ private:
     bool IsNeedDumpCCE(const std::string &inputFile) const;
     void DumpCCE(const std::string &name, std::ostringstream &oss) const;
 
-    void DoCompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const;
+    void DoCompileCCE(const CompileInfo &compileInfo, const std::string &funcName, const std::string &funcHash,
+        const std::string &compileOptions) const;
     void BuildArchOptions(std::ostringstream &oss, const CompileInfo &compileInfo) const;
     void BuildIncludes(std::ostringstream &oss) const;
     void BuildExtraOptions(std::ostringstream &oss, const std::string &compileOptions) const;

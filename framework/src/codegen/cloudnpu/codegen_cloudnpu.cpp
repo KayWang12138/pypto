@@ -16,6 +16,7 @@
 
 #include <cstring>
 #include <error.h>
+#include <chrono>
 
 #include "codegen/utils/parallel_execute.h"
 #include "codegen_op_cloudnpu.h"
@@ -235,6 +236,7 @@ void CodeGenCloudNPU::GenCode(
     std::deque<std::function<void(void)>> tasks;
     for (auto &subFuncPair : topFunc.rootFunc_->programs_) {
         std::function task = [this, subFuncPair, &topFunc]() {
+            auto start = std::chrono::high_resolution_clock::now();
             CODEGEN_LOGI(" ----- subprogram id [%lu] -----", subFuncPair.first);
             auto subFunc = subFuncPair.second;
             if (HandleForAICpuSubFunc(*subFunc)) {
@@ -248,8 +250,17 @@ void CodeGenCloudNPU::GenCode(
             GenFuncEnd(leafKernelFunc);
 #ifdef BUILD_WITH_CANN
             if (std::getenv(ENV_ASCEND_HOME_PATH.c_str()) != nullptr) {
+                auto end0 = std::chrono::high_resolution_clock::now();
                 DumpCCE(compileInfo.GetCCEAbsPath(), leafKernelFunc);
-                DoCompileCCE(compileInfo, "");
+                auto end1 = std::chrono::high_resolution_clock::now();
+                DoCompileCCE(compileInfo, subFunc->GetMagicName(), subFunc->GetFunctionHash(), "");
+                auto end2 = std::chrono::high_resolution_clock::now();
+                auto cost0 = std::chrono::duration<double, std::milli>(end0 - start).count();
+                auto cost1 = std::chrono::duration<double, std::milli>(end1 - end0).count();
+                auto cost2 = std::chrono::duration<double, std::milli>(end2 - end1).count();
+                CODEGEN_LOGE(
+                    "hjhj process subFunc %s, hash %s, Print cost %f ms, DumpCCE cost: %f ms, DoCompileCCE cost %f ms",
+                    subFunc->GetMagicName().c_str(), subFunc->GetFunctionHash().c_str(), cost0, cost1, cost2);
             }
 #endif
             UpdateSubFunc(subFuncPair, compileInfo);
@@ -393,12 +404,13 @@ int CheckInjectStr(const char cmdStr[], size_t strLen) {
     return 0;
 }
 
-void CodeGenCloudNPU::DoCompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const {
+void CodeGenCloudNPU::DoCompileCCE(const CompileInfo &compileInfo, const std::string &funcName,
+    const std::string &funcHash, const std::string &compileOptions) const {
     if (config::GetHostOption<int64_t>(COMPILE_STAGE) == CS_CODEGEN_INSTRUCTION) {
         CODEGEN_LOGI("Compile stage terminates after codegen instruction.");
         return;
     }
-    auto [ret, ccecCmd] = CompileCCE(compileInfo, compileOptions);
+    auto [ret, ccecCmd] = CompileCCE(compileInfo, funcName, funcHash, compileOptions);
     ASSERT(ret == 0) << "CompileCCE failed. errCode = " << ret << ", cce file: " << compileInfo.GetCCEAbsPath()
                      << "\n******** bisheng compiling cmd start ********\n"
                      << ccecCmd << "\n******** bisheng compiling cmd end ********\n";
@@ -526,8 +538,8 @@ std::string CodeGenCloudNPU::GetCoreArch(const CompileInfo &compileInfo) const {
     }
 }
 
-std::pair<int, std::string> CodeGenCloudNPU::CompileCCE(
-    const CompileInfo &compileInfo, const std::string &compileOptions) const {
+std::pair<int, std::string> CodeGenCloudNPU::CompileCCE(const CompileInfo &compileInfo, const std::string &funcName,
+    const std::string &funcHash, const std::string &compileOptions) const {
     std::ostringstream oss;
     oss << "bisheng -c -O3 -g -x cce -std=c++17 ";
     BuildArchOptions(oss, compileInfo);
@@ -544,10 +556,16 @@ std::pair<int, std::string> CodeGenCloudNPU::CompileCCE(
 
     int ret = CheckInjectStr(ccecCmd.c_str(), ccecCmd.length());
     ASSERT(ret == 0) << "CheckInjectStr failed. errCode = " << ret;
-
+    auto start = std::chrono::high_resolution_clock::now();
     ret = std::system(ccecCmd.c_str());
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration<double, std::milli>(end - start).count();
+    CODEGEN_LOGE("Compile cce kernel funcName = %s, funcHash = %s, cost %f ms\ncompile cmd is:\n %s", funcName.c_str(),
+        funcHash.c_str(), duration, ccecCmd.c_str());
     if (ret != 0) {
-        CODEGEN_LOGE("Compile cce kernel failed, ret = %d\ncompile cmd is:\n %s", ret, ccecCmd.c_str());
+        CODEGEN_LOGE("Compile cce kernel failed, ret = %d, duration = %f ms, funcName = %s, funcHash = %s\ncompile "
+                     "cmd is:\n %s",
+            ret, duration, funcName.c_str(), funcHash.c_str(), ccecCmd.c_str());
     }
 
     return {ret, ccecCmd};
