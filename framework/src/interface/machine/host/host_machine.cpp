@@ -24,6 +24,8 @@
 #include "interface/utils/op_info_manager.h"
 #include "machine/host/perf_analysis.h"
 #include "tilefwk/pypto_fwk_log.h"
+#include "interface/compiler_monitor/monitor_manager.h"
+#include "interface/compiler_monitor/monitor_stage_scope.h"
 
 extern "C" {
 using RunPassFunc = int (*)(npu::tile_fwk::Program &, npu::tile_fwk::Function &, const std::string &);
@@ -193,6 +195,9 @@ void HostMachine::SubTask(Function *function) {
         }
         MACHINE_ASSERT(curTask == nullptr);
         curTask = new MachineTask(curTaskId_++, function);
+        int function_done_idx = MonitorManager::Instance().GetAndIncrementNextFunctionIndex();
+        curTask->SetFunctionIndex(function_done_idx);
+        MonitorManager::Instance().SetCurrentFunctionIndex(curTask->GetFunctionIndex());
         return;
     } else if (mode_ == HostMachineMode::SERVER) {
         InitThread();
@@ -200,6 +205,13 @@ void HostMachine::SubTask(Function *function) {
 
     std::lock_guard<std::mutex> lock(compileQueueMutex_);
     auto task = std::make_unique<MachineTask>(curTaskId_++, function);
+    int function_done_idx = MonitorManager::Instance().GetAndIncrementNextFunctionIndex();
+    COMPILER_LOGI("Stashed function idx:%d begin compile, function name: %s .", function_done_idx,
+        function->GetMagicName().c_str());
+    MonitorManager::Instance().SetCurrentFunctionName(function->GetMagicName());
+    
+    task->SetFunctionIndex(function_done_idx);
+    MonitorManager::Instance().SetCurrentFunctionIndex(task->GetFunctionIndex());
     compileQueue_.Push(std::move(task));
     compileQueueCv_.notify_one(); // 通知编译线程
 }
@@ -232,10 +244,18 @@ void HostMachine::StashTask(Function* function) {
         config::Duplicate(),
         ConfigManager::Instance().GetInternalConfig(),
         ConfigManager::Instance().GetJsonData()));
+    MonitorManager::Instance().SetTotalFunctionCount(static_cast<int>(stashedFuncQueue_.Size()));
+    COMPILER_LOGI("Stashed function queue size:%lu, push function: %s .", stashedFuncQueue_.Size(),
+        function->GetMagicName().c_str());
 }
 
 void HostMachine::SubAllStashedTask() {
     std::lock_guard<std::mutex> lock(stashQueueMutex_);
+    const size_t totalStashed = stashedFuncQueue_.Size();
+    if (totalStashed > 0) {
+        MonitorManager::Instance().SetTotalFunctionCount(static_cast<int>(totalStashed));
+        COMPILER_LOGI("Compiler monitor set function total count: %d.", static_cast<int>(totalStashed));
+    }
     while (!stashedFuncQueue_.Empty()) {
         auto funcData = stashedFuncQueue_.Pop();
         config::Restore(std::get<static_cast<size_t>(StashType::ProgramConfig)>(funcData));
@@ -326,6 +346,7 @@ void HostMachine::CompileThreadFunc() {
         lock.unlock();
 
         try {
+            MonitorStageScope passScope("Pass");
             (void)Compile(task.get());
         } catch (const Error &e) {
             task->SetError(e.what());
@@ -338,6 +359,7 @@ void HostMachine::CompileThreadFunc() {
 }
 
 void HostMachine::PushFinishQueue(std::unique_ptr<MachineTask> task) {
+    COMPILER_LOGI("Stashed function idx:%d finish compile. \n", task->GetFunctionIndex());
     finishQueue_.Push(std::move(task));
 }
 
