@@ -36,6 +36,18 @@ def test_host_option():
     pypto.set_host_options(compile_stage=pypto.CompStage.EXECUTE_GRAPH)
     host_option = pypto.get_host_options()
     assert host_option["compile_stage"] == pypto.CompStage.EXECUTE_GRAPH.value
+    pypto.set_host_options(compile_monitor_enable=False)
+    host_option = pypto.get_host_options()
+    assert host_option["compile_monitor_enable"] == False
+    pypto.set_host_options(interval_sec=123)
+    host_option = pypto.get_host_options()
+    assert host_option["interval_sec"] == 123
+    pypto.set_host_options(timeout_sec=50)
+    host_option = pypto.get_host_options()
+    assert host_option["timeout_sec"] == 50
+    pypto.set_host_options(total_timeout_sec=1000)
+    host_option = pypto.get_host_options()
+    assert host_option["total_timeout_sec"] == 1000
 
 
 def test_runtime_option():
