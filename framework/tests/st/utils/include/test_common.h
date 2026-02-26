@@ -316,6 +316,7 @@ static bool resultCmp(const T* outDataValExp, const T *outDataValAct, size_t eSi
     for (size_t eIdx = 0; eIdx < eSize; eIdx++) {
         auto expVal = static_cast<float>(outDataValExp[eIdx]);
         auto actVal = static_cast<float>(outDataValAct[eIdx]);
+        std::cout << "exp: " << expVal << "    act: " << actVal << std::endl;
         auto diff = std::abs(expVal - actVal);
         auto relRatio = std::abs(diff / expVal);
         maxDiff = std::max(diff, maxDiff);
@@ -394,6 +395,7 @@ static bool resultCmp(const vector<T> &outDataValExp, const T *outDataValAct, fl
     for (size_t eIdx = 0; eIdx < eSize; eIdx++) {
         auto expVal = static_cast<float>(outDataValExp[eIdx]);
         auto actVal = static_cast<float>(outDataValAct[eIdx]);
+        std::cout << "exp: " << expVal << "    act: " << actVal << std::endl;
         auto diff = std::abs(expVal - actVal);
         auto relRatio = std::abs(diff / expVal);
         maxDiff = std::max(diff, maxDiff);
