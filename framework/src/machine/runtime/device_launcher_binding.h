@@ -255,6 +255,14 @@ private:
                 } else if (SymbolicOpcode::T_BOP_BEGIN <= opcode && opcode< SymbolicOpcode::T_BOP_END) {
                     return RawSymbolicExpression::GetSymbolicCalcBinary(opcode)(
                         Evaluate(iops[0]), Evaluate(iops[1]));
+                } else if (opcode == SymbolicOpcode::T_MOP_MAX || opcode == SymbolicOpcode::T_MOP_MIN) {
+                    auto bop = (opcode == SymbolicOpcode::T_MOP_MIN)
+                        ? RawSymbolicExpression::CalcBopMin : RawSymbolicExpression::CalcBopMax;
+                    auto result = Evaluate(iops[0]);
+                    for (size_t i = 1; i < iops.size(); ++i) {
+                        result = bop(result, Evaluate(iops[i]));
+                    }
+                    return result;
                 } else {
                     ASSERT(false);
                     return 0;
