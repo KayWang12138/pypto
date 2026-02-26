@@ -55,7 +55,7 @@ void PvModelBinHelper::ReadBin(std::string path, std::vector<uint8_t> &bytes)
     std::ifstream inFile(path, std::ios::binary);
 
     if (!inFile.is_open()) {
-        std::cerr << "open bin file error: " << path << std::endl;
+        SIMULATION_LOGE("open bin file error: %s", path);
         return;
     }
 
@@ -74,7 +74,7 @@ void PvModelBinHelper::ReadBin(std::string path, std::vector<uint8_t> &bytes)
 uint64_t PvModelBinHelper::GetBinSize(std::string path) {
     std::ifstream file(path, std::ios::binary | std::ios::ate);
     if (!file) {
-        std::cerr << "open file error: " << path << std::endl;
+        SIMULATION_LOGE("open file error: %s", path);
         return 0;
     }
 

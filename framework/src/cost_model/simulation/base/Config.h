@@ -24,6 +24,7 @@
 #include <string>
 #include <regex>
 #include "tilefwk/error.h"
+#include "tilefwk/tilefwk_log.h"
 
 namespace CostModel {
 
@@ -59,7 +60,7 @@ public:
             if (it != dispatcher.end()) {
                 it->second(cfgValue);
             } else {
-                std::cerr << "Invalid config name: " << cfgName << std::endl;
+                SIMULATION_LOGE("Invalid config name: %s", cfgName);
             }
         }
     }

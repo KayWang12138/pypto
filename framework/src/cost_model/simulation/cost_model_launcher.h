@@ -347,7 +347,7 @@ private:
             pv_ = CostModel::PvModelFactory::CreateDyn();
             pv_->InitPv();
         } catch (const std::runtime_error &e) {
-            std::cerr<< "pv init fail." << std::endl;
+            SIMULATION_LOGE("pv init fail.");
             return;
         }
 
