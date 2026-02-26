@@ -138,15 +138,15 @@ public:
         readyAicCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAicCoreFunctionQue);
         readyAivCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAivCoreFunctionQue);
 
-        // Initiaizing core function data prior to execution
-        ForEachManageAicore([this](int coreIdx) {
-            volatile int64_t *funcData = &args_[coreIdx]->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX];
-            *funcData = reinterpret_cast<int64_t>(&curDevTask_->coreFuncData);
-        });
-
         // If I am the lead AICPU scheduler, perform initailization steps
         if (isLeaderScheduler_ == true)
         {
+            // Initiaizing core function data prior to execution
+            ForAllAicores([this](int coreIdx) {
+                volatile int64_t *funcData = &args_[coreIdx]->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX];
+                *funcData = reinterpret_cast<int64_t>(&curDevTask_->coreFuncData);
+            });
+
             // Allocating queues
             auto availableTaskQueue = new coreQueue_t(MAX_QUEUED_TASKS);
             curDevTask_->availableTaskQueue = (uint64_t) availableTaskQueue;
@@ -196,38 +196,10 @@ private:
 
     inline int GetPhyIdByBlockId(const int coreIdx) { return blockIdToPhyCoreId_[coreIdx]; }
 
-    inline void ForEachManageAicore(std::function<void(int coreIdx)> func) const {
-        for (int i = aicStart_; i < aicEnd_; ++i) {
-            func(i);
-        }
-        for (int i = aivStart_; i < aivEnd_; ++i) {
-            func(i);
-        }
-    }
-
     inline void ForAllAicores(std::function<void(int coreIdx)> func) const {
         for (size_t i = 0; i < MAX_AIV_TOTAL_NUM; ++i) {
             func(i);
         }
-    }
-
-    inline int ForEachManageAicoreWithRet(std::function<int(int coreIdx)> func) const {
-        int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
-        for (int i = aicStart_; i < aicEnd_; ++i) {
-            ret = func(i);
-            if (ret != npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
-                DEV_ERROR("proc aicore aic %d failed.\n", i);
-                return ret;
-            }
-        }
-        for (int i = aivStart_; i < aivEnd_; ++i) {
-            ret = func(i);
-            if (ret != npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
-                DEV_ERROR("proc aicore aiv %d failed.\n", i);
-                return ret;
-            }
-        }
-        return ret;
     }
 
     inline uint32_t ReadReg32(const int coreIdx, const int offset) {

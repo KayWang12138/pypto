@@ -187,7 +187,7 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
         }
     }
 
-    NormalStop();
+    if (isLeaderScheduler_ == true) NormalStop();
     return ret;
 }
 
@@ -348,10 +348,10 @@ void AiCoreManager::AbnormalStop() {
 }
 
 void AiCoreManager::NormalStop() {
-    ForEachManageAicore([this](auto coreIdx) { SetReadyQueue(coreIdx, AICORE_TASK_STOP); });
+    ForAllAicores([this](auto coreIdx) { SetReadyQueue(coreIdx, AICORE_TASK_STOP); });
     /* write to MAINBASE reg must be done before close 0x18 */
     __sync_synchronize();
-    ForEachManageAicore([this](auto coreIdx)
+    ForAllAicores([this](auto coreIdx)
     {
         if (isNeedWriteRegForFastPath_) WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
         volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
