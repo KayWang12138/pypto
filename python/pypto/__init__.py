@@ -64,6 +64,12 @@ def _load_shared_libs():
 
 _load_shared_libs()
 
+from . import pypto_impl  # noqa: F401
+
+# Initialize compiler monitor when pypto is imported
+# Prepare stage starts here and ends at Program::UpdateCompileTask()
+pypto_impl.InitializeMonitor()
+
 from . import experimental
 
 from .config import *  # noqa
@@ -85,6 +91,7 @@ from .functions import Function, get_last_function, get_current_function
 # Import frontend after all other imports to avoid circular imports
 from . import frontend
 
+from .compiler_monitor import set_compiler_monitor_options
 
 tensor = Tensor
 symbolic_scalar = SymbolicScalar
