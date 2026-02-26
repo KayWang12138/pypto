@@ -626,3 +626,20 @@ TEST_F(CostModelTest, TestCheckTile) {
     parser.CheckTile(func);
 
 }
+
+TEST_F(CostModelTest, TestParseInputFile) {
+    using namespace CostModel;
+    std::vector<std::string> cfg;
+    const std::string path = "1";
+    std::deque<TaskMap> deque;
+    std::unordered_map<long unsigned int, std::deque<CostModel::ReplayTaskEntry>> map;
+    ParseInput parser;
+    parser.ParseJsonConfig(path, cfg);
+    parser.ParseConfig(path, cfg);
+    parser.ParseCalendarJson(nullptr, path);
+    parser.ParseFixedLatencyTask(nullptr, path);
+    parser.ParseTopoJson(path, deque);
+    parser.ParseReplayInfoJson(path, map);
+    parser.ParseJson(nullptr, path);
+
+}

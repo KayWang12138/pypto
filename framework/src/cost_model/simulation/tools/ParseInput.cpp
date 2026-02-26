@@ -32,7 +32,8 @@ void ParseInput::ParseJson(std::shared_ptr<CostModel::SimSys> sim, const std::st
 {
     std::ifstream input(jsonPath);
     if (!input.is_open()) {
-        SIMULATION_LOGE("Error: fail to open file: %s", jsonPath);
+        SIMULATION_LOGE("Error: fail to open file: %s", jsonPath.c_str());
+        return;
     }
     Json j;
     input >> j;
@@ -575,14 +576,13 @@ void ParseInput::ParseSingleFunction(std::shared_ptr<CostModel::SimSys> sim, npu
 
 void ParseInput::ParseJsonConfig(const std::string &path, std::vector<std::string> &cfg) const
 {
-    std::cout << "Config Path:" << path << std::endl;
     std::ifstream file(path);
     if (!file.is_open()) {
-        SIMULATION_LOGE("Error: fail to open file: %s", path);
+        SIMULATION_LOGE("Error: fail to open file: %s", path.c_str());
+        return;
     }
     Json j;
     file >> j;
-    std::cout << j.dump(1) << std::endl;
     for (auto it = j.begin(); it != j.end(); ++it) {
         std::string c = it.key() + "=" + it.value().dump();
         cfg.emplace_back(c);
@@ -594,7 +594,8 @@ void ParseInput::ParseConfig(const std::string &path, std::vector<std::string> &
 {
     std::ifstream file(path);
     if (!file.is_open()) {
-        SIMULATION_LOGE("Error: fail to open file: %s", path);
+        SIMULATION_LOGE("Error: fail to open file: %s", path.c_str());
+        return;
     }
     std::string line;
     while (std::getline(file, line)) {
@@ -602,7 +603,7 @@ void ParseInput::ParseConfig(const std::string &path, std::vector<std::string> &
         if (pos != std::string::npos) {
             cfg.emplace_back(line);
         } else {
-            std::cout << "Parse Config File:" << line << std::endl;
+            SIMULATION_LOGE("Parse Config File Error: %s", line.c_str());
         }
     }
     file.close();
@@ -612,7 +613,8 @@ void ParseInput::ParseCalendarJson(std::shared_ptr<CostModel::SimSys> sim, const
 {
     std::ifstream jsonInput(jsonPath);
     if (!jsonInput.is_open()) {
-        SIMULATION_LOGE("Error: fail to open file: %s", jsonPath);
+        SIMULATION_LOGE("Error: fail to open file: %s", jsonPath.c_str());
+        return;
     }
     Json calendarJson;
     jsonInput >> calendarJson;
@@ -656,7 +658,8 @@ void ParseInput::ParseFixedLatencyTask(std::shared_ptr<CostModel::SimSys> sim, s
 {
     std::ifstream jsonInput(path);
     if (!jsonInput.is_open()) {
-        SIMULATION_LOGE("Error: fail to open file: %s", path);
+        SIMULATION_LOGE("Error: fail to open file: %s", path.c_str());
+        return;
     }
     Json fixedLatencyTask;
     jsonInput >> fixedLatencyTask;
@@ -712,7 +715,8 @@ void ParseInput::ParseTopoJson(std::string path, std::deque<TaskMap> &taskMapQue
 {
     std::ifstream jsonInput(path);
     if (!jsonInput.is_open()) {
-        SIMULATION_LOGE("Error: fail to open file: %s", path);
+        SIMULATION_LOGE("Error: fail to open file: %s", path.c_str());
+        return;
     }
     Json topoJson;
     jsonInput >> topoJson;
@@ -751,7 +755,8 @@ void ParseInput::ParseReplayInfoJson(const std::string &path,
 {
     std::ifstream file(path);
     if (!file.is_open()) {
-        SIMULATION_LOGE("Error: fail to open file: %s", path);
+        SIMULATION_LOGE("Error: fail to open file: %s", path.c_str());
+        return;
     }
     Json j;
     file >> j;
