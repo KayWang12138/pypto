@@ -151,8 +151,22 @@ struct PerfEvtMgr {
     }
 
     void SetIsOpenProf(bool isOpenProf, uint64_t aicpuPerf = 0) {
+        if (ctrlTurn_ >= MAX_PROF_NUM) {
+            aicpuPref_ = 0;
+            isOpenProf_ = false;
+            DEV_WARN("Aicpu pref info more than: %u, some info would lost", MAX_PROF_NUM);
+            return;
+        }
         isOpenProf_ = isOpenProf;
-        aicpuPref_ = (MetricPerf*)aicpuPerf;
+        aicpuPref_ = aicpuPerf;//(MetricPerf*)(aicpuPerf + g_prof_turn * sizeof(MetricPerf));
+    }
+
+    void AddCtrlTurn() {
+        ctrlTurn_++;
+    }
+
+    void AddScheduleTurn() {
+        schTurn_++;
     }
 
     void PerfBegin(int type) {
@@ -199,26 +213,40 @@ struct PerfEvtMgr {
         RepeatPuts('=', SHEET_WIDTH);
     }
 
+    MetricPerf* ChangeToAicpuMerticAddr(const uint32_t &tid) {
+        MetricPerf* aicpuMetrics = nullptr;
+        if (tid == 0) {
+            aicpuMetrics = (MetricPerf*)(aicpuPref_ + ctrlTurn_ * sizeof(MetricPerf));
+        } else {
+            aicpuMetrics = (MetricPerf*)(aicpuPref_ + schTurn_ * sizeof(MetricPerf));
+        }
+        return aicpuMetrics;
+    }
+
     void PerfTrace(uint32_t type, uint32_t tid, uint64_t cycle) {
         if (tid >= MAX_USED_AICPU_NUM) {
             return;
         }
+        MetricPerf* aicpuMetrics = nullptr;
+        if (aicpuPref_ > 0) {
+            aicpuMetrics = ChangeToAicpuMerticAddr(tid);
+        }        
         if (PerfTraceIsDevTask[type] && DEVTASK_PERF_ARRY_INDEX(type) < DEVTASK_PERF_TYPE_NUM) {
             auto &cnt = perfTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)];
             if (cnt < PERF_TRACE_COUNT_DEVTASK_MAX_NUM) {
                 perfTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][cnt++] =
                     cycle == 0 ? static_cast<uint64_t>(GetCycles()) : cycle;
-                if (aicpuPref_ != nullptr) {
-                    uint8_t devCnt = aicpuPref_->perfAicpuTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)];
-                    aicpuPref_->perfAicpuTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)] += 1;
-                    aicpuPref_->perfAicpuTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][devCnt] = perfTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][devCnt];
+                if (aicpuMetrics != nullptr) {
+                    uint8_t devCnt = aicpuMetrics->perfAicpuTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)];
+                    aicpuMetrics->perfAicpuTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)] += 1;
+                    aicpuMetrics->perfAicpuTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][devCnt] = perfTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][devCnt];
                 }
             }
             return;
         }
         perfTrace[tid][type] = cycle == 0 ? static_cast<uint64_t>(GetCycles()) : cycle;
-        if (aicpuPref_ != nullptr) {
-            aicpuPref_->perfAicpuTrace[tid][type] = perfTrace[tid][type];
+        if (aicpuMetrics != nullptr) {
+            aicpuMetrics->perfAicpuTrace[tid][type] = perfTrace[tid][type];
         }
     }
 
@@ -309,7 +337,9 @@ private:
     uint64_t perfTraceDevTask[MAX_USED_AICPU_NUM][DEVTASK_PERF_TYPE_NUM][PERF_TRACE_COUNT_DEVTASK_MAX_NUM] = {{{0}}};
     uint8_t perfTraceDevTaskCnt[MAX_USED_AICPU_NUM][DEVTASK_PERF_TYPE_NUM] = {{0}};
     bool isOpenProf_{false};
-    MetricPerf *aicpuPref_{nullptr};
+    uint64_t aicpuPref_{0};
+    uint32_t ctrlTurn_{0};
+    uint32_t schTurn_{0};
 };
 
 inline void PerfBegin(int type) {
