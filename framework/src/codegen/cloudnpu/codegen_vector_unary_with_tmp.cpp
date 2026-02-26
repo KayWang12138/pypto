@@ -427,7 +427,8 @@ std::string CodeGenOpCloudNPU::PrintRowSumline(const PrintUnaryTmpBuffParam &par
 }
 
 std::string CodeGenOpCloudNPU::PrintIsFinite([[maybe_unused]] const PrintUnaryTmpBuffParam &param) const {
-    ASSERT(isSupportLayout) << "`IsFinite` only supports `codegen_support_tile_tensor`==true! Please modify `tile_fwk_config.json`!";
+    ASSERT(isSupportLayout)
+        << "`IsFinite` only supports `codegen_support_tile_tensor`==true! Please modify `tile_fwk_config.json`!";
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
     std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
@@ -460,6 +461,10 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
     }
 
     if (opCode == Opcode::OP_SIGN) {
+        return PrintUnaryWithTmpTileTensor();
+    }
+
+    if (opCode == Opcode::OP_SIGNBIT) {
         return PrintUnaryWithTmpTileTensor();
     }
 

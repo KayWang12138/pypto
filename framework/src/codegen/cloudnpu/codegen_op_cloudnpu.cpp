@@ -118,6 +118,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_SIGN, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_SIGNBIT, [this]() { return GenUnaryOpWithTmpBuff(); }},
       }),
       binaryOps_({
           // binary op: vector operations
@@ -701,7 +702,8 @@ std::string CodeGenOpCloudNPU::QueryTileTensorNameByIdx(int paramIdx) const {
     if (res.size() == 1) {
         return res[0].tensorName;
     }
-    CODEGEN_LOGI("paramIdx is %d, tensor magic is %d, res size is %d", paramIdx, operandWithMagic[paramIdx], res.size());
+    CODEGEN_LOGI(
+        "paramIdx is %d, tensor magic is %d, res size is %d", paramIdx, operandWithMagic[paramIdx], res.size());
 
     for (const auto &tileTensor : res) {
         auto targetRawShape =
