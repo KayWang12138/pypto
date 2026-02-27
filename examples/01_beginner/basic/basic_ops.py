@@ -153,7 +153,7 @@ def test_matrix_multiplication(device_id: int = None, run_mode: str = "npu", dyn
     b_torch = torch.randn(k, n, dtype=torch.bfloat16, device=device)
 
     c_torch = create_matrix_multiply_kernel((m, k, n), run_mode, dynamic)(a_torch, b_torch)
-    
+
     expected = torch.matmul(a_torch, b_torch)
     max_diff = (c_torch - expected).abs().max().item()
     print(f"Matrix A shape: {a_torch.shape}")
@@ -178,7 +178,7 @@ def create_apply_activations_kernel(shape: tuple, run_mode: str = "npu", dynamic
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def apply_activations_kernel(
         x: pypto.Tensor(x_shape, pypto.DT_FP16),
@@ -201,7 +201,7 @@ def test_activation_functions(device_id: int = None, run_mode: str = "npu", dyna
     input_torch = torch.randn(shape, dtype=torch.float16, device=device)
 
     output_torch = create_apply_activations_kernel(shape, run_mode, dynamic)(input_torch)
-    
+
     expected = torch.sigmoid(input_torch)
     max_diff = (output_torch - expected).abs().max().item()
     print(f"Input shape: {input_torch.shape}")
@@ -280,7 +280,7 @@ def test_view_operations(device_id: int = None, run_mode: str = "npu", dynamic: 
 def create_linear_layer_with_activation_kernel(shape: tuple, run_mode: str = "npu", dynamic: bool = False):
     if dynamic:
         batch = pypto.frontend.dynamic("batch")
-        in_features, out_features = shape[1], shape[2]  
+        in_features, out_features = shape[1], shape[2]
     else:
         batch, in_features, out_features = shape
 
@@ -290,7 +290,7 @@ def create_linear_layer_with_activation_kernel(shape: tuple, run_mode: str = "np
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def linear_layer_with_activation_kernel(
         x: pypto.Tensor((batch, in_features), pypto.DT_BF16),
@@ -323,7 +323,7 @@ def test_combined_operations(device_id: int = None, run_mode: str = "npu", dynam
     b_torch = torch.randn(out_features, dtype=torch.bfloat16, device=device)
     y_torch = create_linear_layer_with_activation_kernel(
         (batch, in_features, out_features), run_mode, dynamic)(x_torch, W_torch, b_torch)
-    
+
     expected = torch.sigmoid(torch.matmul(x_torch, W_torch) + b_torch)
     max_diff = (y_torch - expected).abs().max().item()
     print(f"Input x shape: {x_torch.shape}")

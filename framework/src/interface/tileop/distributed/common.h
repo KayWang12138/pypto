@@ -48,7 +48,7 @@ struct DataCopyParams {
     uint16_t srcStride;
     uint16_t dstStride;
 };
- 
+
 struct GatherMaskParams {
     uint16_t repeat;
     uint8_t src0BlockStride;
@@ -56,14 +56,14 @@ struct GatherMaskParams {
     uint16_t src0RepeatStride;
     uint8_t src1RepeatStride;
 };
- 
+
 struct SumParams {
     uint8_t repeat;
     uint16_t dstRepeatStride;
     uint16_t srcBlockStride;
     uint16_t srcRepeatStride;
 };
- 
+
 constexpr uint32_t MASK_SELECT_SEND_FLAG = 0x1010101; // 每 8 个数取第一个
 constexpr uint32_t MASK_SELECT_SEND_COUNT = 0x2020202; // 每 8 个数取第二个
 constexpr uint32_t MASK_SELECT_RECV_TOKEN_CNT = 0x1010101; // 每 8 个数取第一个
@@ -153,22 +153,22 @@ TILEOP uint64_t GetVirtualAddrBist(uint64_t val, uint64_t start, uint64_t end)
 
 TILEOP uint64_t GetVirtualAddrOffset(uint64_t val)
 {
-    constexpr uint64_t offsetStart = 0UL; 
-    constexpr uint64_t offsetEnd = 57UL; 
+    constexpr uint64_t offsetStart = 0UL;
+    constexpr uint64_t offsetEnd = 57UL;
     return GetVirtualAddrBist(val, offsetStart, offsetEnd);
 }
 
 TILEOP uint64_t GetVirtualAddrGroupIndex(uint64_t val)
 {
-    constexpr uint64_t groupIndexStart = 58UL; 
-    constexpr uint64_t groupIndexEnd = 59UL; 
+    constexpr uint64_t groupIndexStart = 58UL;
+    constexpr uint64_t groupIndexEnd = 59UL;
     return GetVirtualAddrBist(val, groupIndexStart, groupIndexEnd);
 }
 
 TILEOP uint64_t GetVirtualAddrMemType(uint64_t val)
 {
-    constexpr uint64_t memTypeStart = 60UL; 
-    constexpr uint64_t memTypeEnd = 61UL; 
+    constexpr uint64_t memTypeStart = 60UL;
+    constexpr uint64_t memTypeEnd = 61UL;
     return GetVirtualAddrBist(val, memTypeStart, memTypeEnd);
 }
 
@@ -231,7 +231,7 @@ TILEOP void GatherMaskAndSum(__gm__ T *out, __ubuf__ uint32_t *src0, __ubuf__ ui
 {
     ClearFlagBuf(reinterpret_cast<__ubuf__ int32_t *>(src1));
     ClearFlagBuf(reinterpret_cast<__ubuf__ int32_t *>(dst));
- 
+
     src1[0] = mask; // 设置前 32 个数
     src1[1] = mask; // 设置后 32 个数，共计 64 个数，256B
     set_flag(PIPE_V, PIPE_S, EVENT_ID0);
@@ -250,12 +250,12 @@ TILEOP void GatherMaskAndSum(__gm__ T *out, __ubuf__ uint32_t *src0, __ubuf__ ui
     wait_flag(PIPE_S, PIPE_V, EVENT_ID0);
     GatherMask(dst, src0, src1, gatherMaskParams);
     set_flag(PIPE_V, PIPE_S, EVENT_ID0);
-    wait_flag(PIPE_V, PIPE_S, EVENT_ID0); 
+    wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
 
     __ubuf__ float *sumSrc = reinterpret_cast<__ubuf__ float *>(dst);
     ClearFlagBuf(reinterpret_cast<__ubuf__ int32_t *>(src1)); // 可以不加，其余位置的数据并不重要，可以不清空
     __ubuf__ float *sumDst = reinterpret_cast<__ubuf__ float *>(src1);
- 
+
     SumParams sumParams;
     sumParams.repeat = 1; // 只计算一次
     sumParams.dstRepeatStride = 8; // 不重要
@@ -337,7 +337,7 @@ TILEOP void ClearFlagV2(__ubuf__ int32_t *flag, uint32_t offset, uint32_t repeat
     uint32_t localUsrRankId = winContext->rankId;
     GM_ADDR winFlagBaseAddr = (GM_ADDR)MapVirtualAddr<int32_t>(hcclContext, shmemFlagBaseAddr, localUsrRankId); // flag 在 win 区的基地址
     GM_ADDR winFlagReadStartAddr = winFlagBaseAddr + offset;
- 
+
     ClearFlagBuf(flag);
     set_flag(PIPE_V, PIPE_S, EVENT_ID0);
     wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
@@ -367,7 +367,7 @@ TILEOP void ReadFlagV2(__ubuf__ uint32_t *flag, uint32_t offset, uint32_t repeat
     uint32_t localUsrRankId = winContext->rankId;
     __gm__ T* winFlagBaseAddr = MapVirtualAddr<T>(hcclContext, shmemFlagBaseAddr, localUsrRankId); // flag 在 win 区的基地址
     GM_ADDR winFlagReadStartAddr = (GM_ADDR) winFlagBaseAddr + static_cast<uint32_t>(offset);
- 
+
     DataCopyParams dataCopyParams;
     dataCopyParams.sid = 0;
     dataCopyParams.nBurst = repeat; // 搬运次数
@@ -401,14 +401,14 @@ TILEOP void CumSum(__ubuf__ uint32_t *dst, __ubuf__ uint32_t *src, __ubuf__ uint
     wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
     GatherMask(gatherMaskDst, src, gatherMask, gatherMaskParams); // 把所有的 src 都收集起来了，共计 48 个
     set_flag(PIPE_V, PIPE_S, EVENT_ID1);
-    wait_flag(PIPE_V, PIPE_S, EVENT_ID1); 
+    wait_flag(PIPE_V, PIPE_S, EVENT_ID1);
     __ubuf__ float *sumSrc = reinterpret_cast<__ubuf__ float *>(gatherMaskDst);
     // 在 TileOpIndex = 0 的场景下，cnt 是 0，需要手动清空上面赋值的 mask，否则后续结果错误
     ClearFlagBuf(reinterpret_cast<__ubuf__ int32_t *>(dst));
     set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
     wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
     __ubuf__ float *sumDst = reinterpret_cast<__ubuf__ float *>(dst); // GatherMask 的 mask 复用为 Sum 的输出
- 
+
     SumParams sumParams;
     sumParams.repeat = 1; // 只计算一次
     sumParams.dstRepeatStride = 8; // 不重要

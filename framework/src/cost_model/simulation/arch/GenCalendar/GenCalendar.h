@@ -48,7 +48,7 @@ struct CoreInfoStatus {
     uint64_t machineId = 0;
     uint64_t machineCompleteSeq = 0;
     std::deque<uint64_t> completedTasks;
-    
+
     std::map<uint64_t, uint64_t> obtainedCountersVals;
     uint64_t waitRespCounter = 0;
     uint64_t lastTaskEndTime = 0;

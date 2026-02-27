@@ -39,6 +39,5 @@ function(name: str, *args, **kwargs) -> Iterator
 with pypto.function("main", a, b, c):
     pypto.set_vec_tile_shapes(16, 16)
     for _ in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx_mla_prolog", idx_name="b_idx"):
-        c[:] = a + b 
+        c[:] = a + b
 ```
-

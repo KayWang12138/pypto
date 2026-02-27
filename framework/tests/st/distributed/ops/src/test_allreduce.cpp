@@ -81,5 +81,5 @@ template void TestAllReduce<int32_t>(OpTestParam &testParam, std::string &golden
 template void TestAllReduce<float>(OpTestParam &testParam, std::string &goldenDir);
 template void TestAllReduce<float16>(OpTestParam &testParam, std::string& goldenDir);
 template void TestAllReduce<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
-} // namespace Distributed 
+} // namespace Distributed
 } // namespace npu::tile_fwk

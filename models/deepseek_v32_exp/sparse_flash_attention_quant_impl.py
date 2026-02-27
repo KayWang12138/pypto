@@ -477,10 +477,10 @@ def sparse_flash_attention_quant_d(
         ):
 
         """JIT-compiled sparse flash attention for decode phase.
-        
+
         Optimized version for decode phase with specific pass configurations.
         Uses flash attention algorithm with online softmax for numerical stability.
-        
+
         Args:
             query_nope: Query tensor without RoPE, shape (t * n_q, kv_lora_rank), dtype BF16
             query_rope: Query tensor with RoPE, shape (t * n_q, rope_dim), dtype BF16
@@ -501,7 +501,7 @@ def sparse_flash_attention_quant_d(
             block_size: Size of each block in PagedAttention
             max_blocknum_perbatch: Maximum number of blocks per batch
             tile_config: SaTileShapeConfig object containing tiling parameters
-            
+
         Note:
             Configured for decode phase with optimized memory and parallelism settings.
             Uses flash attention algorithm for better numerical stability.
@@ -515,7 +515,7 @@ def sparse_flash_attention_quant_d(
                                             attention_out, nq, n_kv, softmax_scale, topk,
                                             block_size, max_blocknum_perbatch, tile_config)
         return attention_out
-    
+
     return sparse_flash_attention_quant_d_kernel
 
 
@@ -579,10 +579,10 @@ def sparse_flash_attention_quant_p(
         ):
 
         """JIT-compiled sparse flash attention for prefill phase.
-        
+
         Optimized version for prefill phase with specific pass configurations.
         Uses flash attention algorithm with online softmax for numerical stability.
-        
+
         Args:
             query_nope: Query tensor without RoPE, shape (t * n_q, kv_lora_rank), dtype BF16
             query_rope: Query tensor with RoPE, shape (t * n_q, rope_dim), dtype BF16
@@ -603,7 +603,7 @@ def sparse_flash_attention_quant_p(
             block_size: Size of each block in PagedAttention
             max_blocknum_perbatch: Maximum number of blocks per batch
             tile_config: SaTileShapeConfig object containing tiling parameters
-            
+
         Note:
             Configured for prefill phase with optimized memory and parallelism settings.
             Uses flash attention algorithm for better numerical stability.
@@ -615,5 +615,5 @@ def sparse_flash_attention_quant_p(
                                             attention_out, nq, n_kv, softmax_scale, topk,
                                             block_size, max_blocknum_perbatch, tile_config)
         return attention_out
-    
+
     return sparse_flash_attention_quant_p_kernel

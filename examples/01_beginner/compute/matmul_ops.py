@@ -32,7 +32,7 @@ from numpy.testing import assert_allclose
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
-    
+
     Returns:
         int: The device ID if valid, None otherwise.
     """
@@ -42,7 +42,7 @@ def get_device_id():
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
-    
+
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
@@ -59,14 +59,14 @@ def get_device_id():
 def matmul_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu") -> torch.Tensor:
     a_shape, b_shape = a.shape, b.shape
     out_shape = (a_shape[0], b_shape[1])
-    
+
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
     elif run_mode == "sim":
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def matmul_kernel(
         a: pypto.Tensor(a_shape, pypto.DT_FP32),
@@ -85,9 +85,9 @@ def test_matmul_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Matrix Multiplication")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=device)
     b = torch.tensor([[5, 6], [7, 8]], dtype=dtype, device=device)
@@ -109,7 +109,7 @@ def matmul_batch_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dyn
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-        
+
     @pypto.frontend.jit(
     runtime_options={"run_mode": mode}
     )
@@ -129,9 +129,9 @@ def test_matmul_batch(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Batch Matrix Multiplication")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=dtype, device=device)
     b = torch.tensor([[[5, 6], [7, 8]], [[1, 2], [3, 4]]], dtype=dtype, device=device)
@@ -155,7 +155,7 @@ def matmul_broadcast_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu",
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
+
     @pypto.frontend.jit(
     runtime_options={"run_mode": mode}
     )
@@ -175,9 +175,9 @@ def test_matmul_broadcast(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Batch Matrix Multiplication with Broadcasting")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([[[1, 2], [3, 4]]], dtype=dtype, device=device)
     b = torch.tensor([[[5, 6], [7, 8]], [[1, 2], [3, 4]]], dtype=dtype, device=device)
@@ -236,7 +236,7 @@ def matmul_trans_left_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu"
         pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
         out = pypto.matmul(a, b, a.dtype, a_trans=True)
         return out
-    
+
     out = matmul_trans_left_kernel(a, b)
 
     return out
@@ -247,12 +247,12 @@ def test_matmul_trans(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Matrix Multiplication with Transposition")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     # Test 1: Basic matrix multiplication
     dtype = torch.float32
-    a = torch.tensor([[1, 2, 3], 
+    a = torch.tensor([[1, 2, 3],
                       [4, 5, 6]], dtype=dtype, device=device)
     b = torch.tensor([[7, 8],
                       [9, 10],
@@ -265,12 +265,12 @@ def test_matmul_trans(device_id: int = None, run_mode: str = "npu"):
         assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output basic: {out}")
     print(f"Expected basic: {expected}")
-    
+
     # Test 2: Matrix multiplication with the right matrix transposed
     dtype = torch.float32
-    a = torch.tensor([[1, 2, 3], 
+    a = torch.tensor([[1, 2, 3],
                       [4, 5, 6]], dtype=dtype, device=device)
-    b = torch.tensor([[7, 9, 11], 
+    b = torch.tensor([[7, 9, 11],
                       [8, 10, 12]], dtype=dtype, device=device)
     expected = torch.tensor([[58, 64],
                             [139, 154]], dtype=dtype, device=device)
@@ -280,7 +280,7 @@ def test_matmul_trans(device_id: int = None, run_mode: str = "npu"):
         assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output trans right: {out}")
     print(f"Expected trans right: {expected}")
-    
+
     # Test 3: Matrix multiplication with the left matrix transposed
     dtype = torch.float32
     a = torch.tensor([[1, 4],
@@ -297,7 +297,7 @@ def test_matmul_trans(device_id: int = None, run_mode: str = "npu"):
         assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output trans left: {out}")
     print(f"Expected trans left: {expected}")
-    
+
     print("✓ Matrix multiplication with transposition completed successfully")
 
 
@@ -311,7 +311,7 @@ def matmul_bias_op(a: torch.Tensor, b: torch.Tensor, bias: torch.Tensor, run_mod
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
+
     @pypto.frontend.jit(
         runtime_options={"run_mode": mode}
     )
@@ -320,7 +320,7 @@ def matmul_bias_op(a: torch.Tensor, b: torch.Tensor, bias: torch.Tensor, run_mod
         b: pypto.Tensor(b_shape, pypto.DT_FP32),
         bias: pypto.Tensor(bias_shape, pypto.DT_FP32),
     ) -> pypto.Tensor(b_shape, pypto.DT_FP32):
-        
+
         extend_params = {"bias_tensor": bias}
         pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
         out = pypto.matmul(a, b, a.dtype, extend_params=extend_params)
@@ -358,7 +358,7 @@ def test_matmul_bias(device_id: int = None, run_mode: str = "npu"):
 
 def main():
     """Run matrix multiplication examples.
-    
+
     Usage:
         python matmul_ops.py              # Run all examples
         python matmul_ops.py --list       # List all available examples
@@ -390,9 +390,9 @@ Examples:
         nargs="?", type=str, default="npu", choices=["npu", "sim"],
         help="run mode, such as npu/sim etc."
     )
-    
+
     args = parser.parse_args()
-    
+
     # Define available examples
     examples = {
         'matmul::test_matmul_basic': {
@@ -421,7 +421,7 @@ Examples:
             'function': test_matmul_bias
         }
     }
-    
+
     # List examples if requested
     if args.list:
         print("\n" + "=" * 60)
@@ -432,7 +432,7 @@ Examples:
             print(f"     {ex_info['name']}")
             print(f"     {ex_info['description']}\n")
         return
-    
+
     # Validate case if provided
     examples_to_run = []
     if args.example_id:
@@ -444,7 +444,7 @@ Examples:
         examples_to_run = [(args.example_id, examples[args.example_id])]
     else:
         examples_to_run = [(key, info) for key, info in sorted(examples.items())]
-    
+
     print("\n" + "=" * 60)
     print("PyPTO Matrix Multiplication (matmul) Operation Examples")
     print("=" * 60 + "\n")
@@ -456,20 +456,20 @@ Examples:
             return
         import torch_npu
         torch.npu.set_device(device_id)
-    
+
     try:
         for case_key, ex_info in examples_to_run:
             if args.run_mode == "npu" and device_id is None:
                 print(f"Skipping {case_key} ({ex_info['name']}): NPU device not configured")
                 continue
-            
+
             ex_info['function'](device_id, args.run_mode)
-        
+
         if len(examples_to_run) > 1:
             print("=" * 60)
             print("All matmul tests passed!")
             print("=" * 60)
-        
+
     except Exception as e:
         print(f"\nError: {e}")
         raise

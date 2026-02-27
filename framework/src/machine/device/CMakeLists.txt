@@ -52,7 +52,7 @@ target_compile_options(tile_fwk_server
             -Wextra
             -std=gnu++17
             -rdynamic
-            -O3	
+            -O3
             -shared
             -fPIC
             -D__DEVICE__

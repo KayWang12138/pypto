@@ -25,14 +25,14 @@
 
 namespace npu::tile_fwk {
 void SelectedAttentionComputeV2(
-    const Tensor &qNope, const Tensor &qRope, const Tensor &kNope2D, const Tensor &kRope2D, const Tensor &kNopeScales, 
-    const Tensor &topKIndcies, const Tensor &blockTable, const Tensor &kvSlcActSeqs, const int nQ, const int nKv, const float softmaxScale, 
+    const Tensor &qNope, const Tensor &qRope, const Tensor &kNope2D, const Tensor &kRope2D, const Tensor &kNopeScales,
+    const Tensor &topKIndcies, const Tensor &blockTable, const Tensor &kvSlcActSeqs, const int nQ, const int nKv, const float softmaxScale,
     const int topk, const int blockSize, const int maxBlockNumPerBatch, Tensor &attentionOut, SaTileShapeConfig tileConfig={}
 );
 
 void SelectedAttentionV2(
-    const Tensor &qNope, const Tensor &qRope, const Tensor &kNope2D, const Tensor &kRope2D, const Tensor &kNopeScales, 
-    const Tensor &topKIndcies, const Tensor &blockTable, const Tensor &kvSlcActSeqs, const int nQ, const int nKv, const float softmaxScale, 
+    const Tensor &qNope, const Tensor &qRope, const Tensor &kNope2D, const Tensor &kRope2D, const Tensor &kNopeScales,
+    const Tensor &topKIndcies, const Tensor &blockTable, const Tensor &kvSlcActSeqs, const int nQ, const int nKv, const float softmaxScale,
     const int topk, const int blockSize, const int maxBlockNumPerBatch, Tensor &attentionOut, SaTileShapeConfig tileConfig={}
 );
 } // namespace npu::tile_fwk

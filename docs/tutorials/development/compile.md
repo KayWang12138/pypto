@@ -50,10 +50,10 @@ JIT装饰器支持参数配置，可根据配置支持不同的条件编译：
 
 ```python
 @pypto.jit(
-    host_options={},               
-    pass_options={},                                    
+    host_options={},
+    pass_options={},
     runtime_options={},
-    verify_options={},                                    
+    verify_options={},
     debug_options={}
 )
 def advanced_function(input0, input1, output):
@@ -101,7 +101,7 @@ def add_kernel_false(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.T
     add_core(input0, input1, output, val, False)
 
 
-#使用这两个函数 
+#使用这两个函数
 def add_add1flag_false(input_data0, input_data1, output_data, val=0): dynamic_axis=False):
     ...
     add_kernel_false(pto_input0, pto_input1, pto_output, val)
@@ -115,4 +115,3 @@ add_add1flag_true(input_data0, input_data1, output_data1, val, True)
 ```
 
 完整样例请参考：[add_scalar_loop_multi_jit.py](../../../examples/03_advanced/patterns/add_scalar_loop_multi_jit.py)
-

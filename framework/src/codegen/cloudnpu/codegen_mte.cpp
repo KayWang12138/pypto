@@ -472,7 +472,7 @@ std::string CodeGenOpCloudNPU::GenMemL0CToL1() const {
     std::string dst = "(" + GetAddrTypeByOperandType(BUF_L1) + " " + dstDtypeStr + "*)" + dstVar;
     std::string src = "(" + GetAddrTypeByOperandType(BUF_L0C) + " " + srcDtypeStr + "*)" + srcVar;
     paramList.insert(paramList.end(), {dst, src});
-    
+
     FillParamWithFullShape(paramList, dynValidShapeFromAttr);
     FillParamWithFullShape(paramList, dstValidShape);
     auto l1Offset = offsetFromAttr[ID0];

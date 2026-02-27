@@ -587,7 +587,7 @@ def test_broadcast_operations():
     input_y = builder.create_tile(ctx, tile_shape, ir.DataType.float, "input_y")
     output_tile = builder.create_tile(ctx, tile_shape, ir.DataType.float, "output_tile")
     temp_tensor = builder.create_tile(ctx, tile_shape, ir.DataType.float, "temp_tensor")
-    
+
     op_maximum = builder.create_broadcast_with_temp_op(
         ir.Opcode.OP_MAXIMUM, input_x, input_y, output_tile, temp_tensor
     )

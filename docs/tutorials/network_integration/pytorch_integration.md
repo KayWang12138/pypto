@@ -8,7 +8,7 @@
 在Kernel函数前添加@pypto.jit装饰器可默认在PyTorch框架中采用单算子模式执行，如需开启图捕获模式可以参考如下代码：
 
 ```python
-# enable jit for softmax_custom[y1] 
+# enable jit for softmax_custom[y1]
 @pypto.jit
 def softmax_kernel(x: pypto.Tensor, y: pypto.Tensor) -> None:
     ...
@@ -55,4 +55,3 @@ if __name__ == "__main__":
 ```
 
 完整的样例请参考：[aclgraph.py](../../../examples/03_advanced/aclgraph/aclgraph.py)。
-

@@ -196,7 +196,7 @@ void Duration::OutputContextSwitchTrace(std::ofstream &os, std::map<Pid, Process
         " next_pid=" + processInfo + " next_prio=5";
     string cpuSwitchInfo2 = ": sched_switch: prev_comm=" + subgraphName + " prev_pid=" + processInfo +
                               " prev_prio=5 prev_state= ==> next_comm=cpumgr-idle-0 next_pid=0 next_prio=-2";
-    string cpuIdleInfo = ": cpu_idle: state=0 cpu_id=" + cpuIdx; 
+    string cpuIdleInfo = ": cpu_idle: state=0 cpu_id=" + cpuIdx;
 
     std::ostringstream cyc1;
     int precision = 6;
@@ -399,7 +399,7 @@ void TraceLogger::AddTileOpFlow(Pid pid, uint64_t srcMagic, uint64_t dstMagic)
     if (mMachineTileOpMap.find(pid) == mMachineTileOpMap.end()) {
         return;
     }
-    if (mMachineTileOpMap[pid].find(srcMagic) == mMachineTileOpMap[pid].end() || 
+    if (mMachineTileOpMap[pid].find(srcMagic) == mMachineTileOpMap[pid].end() ||
         mMachineTileOpMap[pid].find(dstMagic) == mMachineTileOpMap[pid].end()) {
         return;
     }
@@ -444,7 +444,7 @@ void TraceLogger::EraseLogInfo(uint64_t startCycle)
         }
     }
     mEvents.erase(new_events_end, mEvents.end());
-    
+
     for (auto it = mDurations.begin(); it != mDurations.end(); ) {
         if (it->second.start.timestamp > startCycle) {
             it = mDurations.erase(it);  // map的erase是O(1)摊销时间
@@ -452,7 +452,7 @@ void TraceLogger::EraseLogInfo(uint64_t startCycle)
             ++it;
         }
     }
-    
+
     auto new_counters_end = mCounters.begin();
     for (auto it = mCounters.begin(); it != mCounters.end(); ++it) {
         if (it->timestamp <= startCycle) {
@@ -463,7 +463,7 @@ void TraceLogger::EraseLogInfo(uint64_t startCycle)
         }
     }
     mCounters.erase(new_counters_end, mCounters.end());
-    
+
     for (auto& counts : mCounts) {
         auto new_counts_end = counts.second.begin();
         for (auto it = counts.second.begin(); it != counts.second.end(); ++it) {
@@ -476,7 +476,7 @@ void TraceLogger::EraseLogInfo(uint64_t startCycle)
         }
         counts.second.erase(new_counts_end, counts.second.end());
     }
-    
+
     mTaskIDToDurationIndex.clear();
 }
 
@@ -674,7 +674,7 @@ void TraceLogger::GetDeviceReadyQ()
     if (processDeviceReadyQueue) {
         return;
     }
-    
+
     std::map<uint64_t, int> readyQueueCounts; // Key: cycles; value: size;
     int qSize = 0;
     size_t devicePid;
@@ -964,7 +964,7 @@ void TraceLogger::ToPipeTrace(std::ofstream &os)
     os << res.dump(1) << std::endl;
 }
 
-void TraceLogger::ToCalendarGlobalJson(std::ofstream &osCalendar, std::map<int, std::pair<std::string, std::vector<Json>>> coreTasks) 
+void TraceLogger::ToCalendarGlobalJson(std::ofstream &osCalendar, std::map<int, std::pair<std::string, std::vector<Json>>> coreTasks)
 {
     int numSupportedCounters = 1;
     int counterId = 0;

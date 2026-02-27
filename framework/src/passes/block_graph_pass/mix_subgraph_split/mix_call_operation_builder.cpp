@@ -369,7 +369,7 @@ int MixCallOperationBuilder::GetOffsetFromOp(int opMagic, int operandIdx,
             }
         }
     }
-    
+
     ALOG_WARN_F("Could not find offset for op %d idx %d (isOutput=%d)",
                 opMagic, operandIdx, isOutput);
     return -1;
@@ -581,7 +581,7 @@ void MixCallOperationBuilder::ProcessInternalDependenciesForWrap(
         return;
     }
     ALOG_INFO_F("Wrap %lu: Processing %zu internal dependencies", wrapId, internalDeps.size());
-    
+
     // 处理每个内部依赖
     for (const auto& dep : internalDeps) {
         int srcComp = dep.srcComp;

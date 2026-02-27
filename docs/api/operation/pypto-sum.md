@@ -13,16 +13,16 @@
 
 定义指定计算的维度（Reduce轴）为R轴，非指定维度（Normal轴）为A轴。如下图所示，对Shape为\(2, 3\)的二维矩阵进行运算，指定在第一维计算数据的累加，输出结果为\[5, 7, 9\]；指定在第二维计算数据的累加，输出结果为\[6, 15\]。
 
-**图 1**  sum按第一个维度计算示例  
+**图 1**  sum按第一个维度计算示例
 ![](../figures/pypto.sum_1.png)
 
-**图 2**  sum按最后一个维度计算示例  
+**图 2**  sum按最后一个维度计算示例
 ![](../figures/pypto.sum_2.png)
 
 ## 函数原型
 
 ```python
-sum(input: Tensor,  dim: int, keepdim: bool = False) -> Tensor: 
+sum(input: Tensor,  dim: int, keepdim: bool = False) -> Tensor:
 ```
 
 ## 参数说明
@@ -74,9 +74,8 @@ y = pypto.sum(x, -1, True)
 结果示例如下：
 
 ```
-输入数据 x: [[1.0 2.0 3.0], 
+输入数据 x: [[1.0 2.0 3.0],
              [1.0 2.0 3.0]]
 输出数据 y: [[6.0],
              [6.0]]
 ```
-

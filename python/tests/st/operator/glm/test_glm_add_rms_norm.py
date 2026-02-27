@@ -32,22 +32,22 @@ def check_args(
     assert hidden_states.shape[1] == 5120
     assert get_format(hidden_states) == 'ND'
     assert hidden_states.dtype == torch.bfloat16
-    
+
     assert residual.dim() == 2
     assert residual.shape[1] == 5120
     assert get_format(residual) == 'ND'
     assert residual.dtype == torch.bfloat16
-    
+
     assert weight.dim() == 1
     assert weight.shape[0] == 5120
     assert get_format(weight) == 'ND'
     assert weight.dtype == torch.bfloat16
-    
+
     assert bias.dim() == 1
     assert bias.shape[0] == 5120
     assert get_format(bias) == 'ND'
     assert bias.dtype == torch.bfloat16
-    
+
     assert isinstance(eps, float)
 
 

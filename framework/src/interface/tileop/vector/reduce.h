@@ -168,7 +168,7 @@ TILEOP void TRowMaxMinLineDynamic(T0 dst, T1 src) {
                         pto::TCOLMAX(dstTile, srcTile);
                     } else if constexpr (op == ReduceOp::MIN) {
                         pto::TCOLMIN(dstTile, srcTile);
-                    } 
+                    }
                 }
             }
         }

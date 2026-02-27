@@ -41,4 +41,3 @@ void PrintIndent(std::ostream& os, int indent) {
     }
 }
 } // namespace pto
-
