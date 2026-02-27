@@ -1275,6 +1275,10 @@ unsigned long Function::ComputeHashOrderless() const {
     std::stringstream ss;
     ss << std::to_string(static_cast<int>(functionType_)) << " ";
     ss << std::to_string(static_cast<int>(graphType_)) << " ";
+    // 对于BLOCK_GRAPH，总是加入magic name以确保唯一性
+    if (graphType_ == GraphType::BLOCK_GRAPH) {
+        ss << "BLOCK_MAGIC:" << GetMagicName() << " ";
+    }
     if (!IsGraphType({GraphType::BLOCK_GRAPH, GraphType::LEAF_VF_GRAPH}) &&
         !IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TENSOR_GRAPH)) {
         ss << GetMagicName() << " ";

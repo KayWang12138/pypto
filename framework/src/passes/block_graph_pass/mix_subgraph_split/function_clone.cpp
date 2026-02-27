@@ -36,8 +36,6 @@ void FunctionClone::ProcessOperations(const InternalComponentInfo& component){
         if (belongsToComponent) {
             std::shared_ptr<Operation> opPtr = originalOp->shared_from_this();
             programOps.push_back(opPtr);
-            int originalMagic = originalOp->GetOpMagic();
-            ALOG_DEBUG_F("Reuse op %d in leaf function ", originalMagic);
         }
     }
 }
@@ -60,8 +58,11 @@ Function* FunctionClone::CloneFunctionByComponent(const InternalComponentInfo& c
     // 创建新的function名称
     std::string leafName = originalMixFunc->GetRawName() + "_leaf" + std::to_string(idx);
     ALOG_DEBUG_F("Add leafFunction %s", leafName.c_str());
+    int originalMagic = originalMixFunc->GetFuncMagic();
     // 手动创建function对象
-    auto funcMagicName = leafName + "_" + std::to_string(IdGen<IdType::FUNCTION>::Inst().CurId());
+    auto funcMagicName = leafName + "_orig" + std::to_string(originalMagic) + 
+                        "_comp" + std::to_string(idx) + "_" + 
+                        std::to_string(IdGen<IdType::FUNCTION>::Inst().CurId());
     cloneFunc = std::make_shared<Function>(Program::GetInstance(), funcMagicName, leafName, &rootFunc);
     // 设置function类型
     cloneFunc->SetFunctionType(originalMixFunc->GetFunctionType());
