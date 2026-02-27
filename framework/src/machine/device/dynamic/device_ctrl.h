@@ -18,6 +18,7 @@
 #include "device_common.h"
 #include <cstdint>
 #include <cstdlib>
+#include "tilefwk/tilefwk_log.h"
 #include "device_utils.h"
 #include "device_perf.h"
 #include "machine/device/dynamic/context/device_execute_context.h"
@@ -259,7 +260,7 @@ public:
         } else {
             ctrlFlowCache = reinterpret_cast<DevControlFlowCache *>(
                 reinterpret_cast<uint8_t *>(kargs->ctrlFlowCache) +
-                ctrlFlowCacheBase->allCacheSize * ringBufferHead->GetIndexPendingIndex());
+                ctrlFlowCacheBase->usedCacheSize * ringBufferHead->GetIndexPendingIndex());
         }
         InitCtrlFlowCache(devProg, ctrlFlowCache, devStartArgs, firstInit);
 
@@ -320,7 +321,7 @@ public:
     int EntryInit(DeviceKernelArgs *kargs) {
         SetModuleLogLevel(kargs);
         PerfBegin(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
-#if DEBUG_PLOG && defined(__DEVICE__)
+#ifdef __DEVICE__
         InitLogSwitch();
 #endif
         if (kargs == nullptr) {

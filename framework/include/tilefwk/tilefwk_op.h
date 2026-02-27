@@ -139,6 +139,7 @@ Tensor Reciprocal(const Tensor &operand);
 Tensor Abs(const Tensor &self);
 Tensor Ln(const Tensor &operand);
 Tensor Hub(const Tensor &operand);
+Tensor Sign(const Tensor &operand);
 
 Tensor Duplicate(const Tensor &operand);
 Tensor Gather(const Tensor &params, const Tensor &indices, int axis);
@@ -180,6 +181,7 @@ Tensor Add(const Tensor &self, const Tensor &other);
 Tensor Sub(const Tensor &self, const Tensor &other);
 Tensor Div(const Tensor &self, const Tensor &other);
 Tensor Mul(const Tensor &self, const Tensor &other);
+Tensor Hypot(const Tensor &self, const Tensor &other);
 Tensor Fmod(const Tensor &self, const Tensor &other);
 Tensor Maximum(const Tensor &operand1, const Tensor &operand2);
 Tensor Minimum(const Tensor &operand1, const Tensor &operand2);
@@ -199,6 +201,7 @@ Tensor Maximum(const Tensor &operand1, const Element &operand2);
 Tensor Compare(const Tensor &self, const Tensor &other, OpType op, OutType mode);
 Tensor Compare(const Tensor &self, const Element &other, OpType op, OutType mode);
 Tensor Compare(const Element &self, const Tensor &other, OpType op, OutType mode);
+Tensor Pow(const Tensor &self, const Tensor &other);
 Tensor Pow(const Tensor &self, const Element &other);
 Tensor CopySign(const Tensor &self, const Tensor &other);
 
@@ -233,7 +236,7 @@ Tensor Pad(const Tensor &old, const std::vector<int64_t> &newShape);
 Tensor LogicalNot(const Tensor &self);
 Tensor Range(const Element &start, const Element &end, const Element &step);
 Tensor LogicalAnd(const Tensor &self, const Tensor &other);
-
+Tensor IsFinite(const Tensor &self);
 Tensor Assign(const Tensor &operand);
 
 // Implementation of `Tensor` type should be placed at first, so that it can be routed when only single input.
@@ -391,6 +394,14 @@ Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, bo
 Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const MatmulExtendParam &extendParam,
     bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false);
 
+Tensor MatmulMX(DataType outType, const Tensor &aMatrix, const Tensor &aScale, const Tensor &bMatrix,
+    const Tensor &bScale, bool isATrans = false, bool isAScaleTrans = false, bool isBTrans = false,
+    bool isBScaleTrans = false, bool isCMatrixNZ = false);
+
+Tensor MatmulMX(DataType outType, const Tensor &aMatrix, const Tensor &aScale, const Tensor &bMatrix,
+    const Tensor &bScale, const MatmulExtendParam &extendParam, bool isATrans = false, bool isAScaleTrans = false,
+    bool isBTrans = false, bool isBScaleTrans = false, bool isCMatrixNZ = false);
+
 Tensor BatchMatmul(DataType dataType, const Tensor &aMatrix, const Tensor &bMatrix, bool isATrans = false,
     bool isBTrans = false, bool isCMatrixNZ = false);
 
@@ -416,8 +427,10 @@ struct MoeConfig {
     int32_t expertNumPerRank{0};
     int32_t rankNum{0};
 };
-
-void MoeDispatch(const Tensor& tokenTensor, const Tensor& tokenExpertTable, Tensor& expandX, Tensor& validCnt,
+void MoeDistributedDispatchV2(const Tensor& x, const Tensor& expertIds, const char* group,
+    uint32_t epWorldSize, uint32_t moeExpertNum, uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& expandX,
+    Tensor& assistInfoForCombine, Tensor& expertTokenNums, Tensor& recvCounts);
+void MoeDistributedDispatch(const Tensor& tokenTensor, const Tensor& tokenExpertTable, Tensor& expandX, Tensor& validCnt,
     Tensor& combineInfo, const char *group, const MoeConfig& moeConfig);
 void AllGather(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
 void AllGather(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,

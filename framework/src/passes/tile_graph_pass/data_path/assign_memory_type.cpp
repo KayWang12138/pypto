@@ -172,29 +172,22 @@ void AssignMemoryType::ProcessAmulBInput(Operation &operation, LogicalTensorPtr 
     }
 }
 
-// 输入必须是BF16或FP16，同时矩阵必须是第一轴（外轴）16元素对齐，第二周（内轴）32B对齐
-bool FitL0C2L1(const LogicalTensorPtr &inputTensor){
-    auto shape = inputTensor->GetShape();
-    if (shape.size() != MATMUL_DIM_NUM) {
-        return false;
-    }
-    auto dim2Size = shape[1] * BytesOf(inputTensor->Datatype());
-    return (inputTensor->Datatype() == DT_BF16 || inputTensor->Datatype() == DT_FP16) &&
-        (shape[0] % L0C2L1_DIM1_SHAPE_RESTICT == 0) && (dim2Size % L0C2L1_DIM2_BYTE_RESTICT ==0);
-}
-
 void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
     auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(operation.GetOpAttribute().get());
     MemoryType attrToType = viewOpAttribute->GetTo();
     auto out = operation.GetOOperands().front();
     auto in = operation.iOperand.front();
+    //适配L0C2L1通路，当满足条件时view的输入的tobe设为L0C，否则设置为DDR
+    if (in->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
+        (out->GetMemoryTypeOriginal() == MemoryType::MEM_L1 || attrToType == MemoryType::MEM_L1)) {
+        if (inserter.FitL0C2L1(in)) {
+            inserter.UpdateTensorTobeMap(in, operation, MemoryType::MEM_L0C);
+        } else {
+            inserter.UpdateTensorTobeMap(in, operation, MemoryType::MEM_DEVICE_DDR);
+        }
+    }
     if(attrToType == MemoryType::MEM_UNKNOWN) {
         //跳过前端没有指定mem类型的view
-        //适配L0C2L1通路，优先选择将view转化为L0C2L1，不满足场景后续转为ddr
-        if (in->GetMemoryTypeOriginal() == MemoryType::MEM_L0C && out->GetMemoryTypeOriginal() == MemoryType::MEM_L1 &&
-            FitL0C2L1(in)) {
-            inserter.UpdateTensorTobeMap(in,operation,MemoryType::MEM_L0C);
-        }
         return;
     }
     //将view的输出tensor的memory ori和tobe类型设置为view上指定的mem类型
@@ -219,14 +212,14 @@ void AssignMemoryType::ProcessAssemblewithSpecificMem(Operation &operation) {
     if (input->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
         return;
     }
-    if (!FitL0C2L1(input)) {
+    if (!inserter.FitL0C2L1(input)) {
         return;
     }
     for (const auto &consumerOp : output->GetConsumers()) {
         auto consumerOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(consumerOp->GetOpAttribute());
         // 大包搬运场景：assemble后接view且view的toAttr为L1
         // 非大包搬运场景：assemble后的op预期输入为L1
-        if (consumerOpAttribute) {
+        if (consumerOpAttribute && consumerOpAttribute->GetTo() != MemoryType::MEM_UNKNOWN) {
             if (consumerOpAttribute->GetTo() != MemoryType::MEM_L1) {
                 return;
             }
@@ -392,6 +385,25 @@ void AssignMemoryType::AssignMoveOp(Operation &operation) {
             break;
     }
 }
+
+int64_t AssignMemoryType::CalcLineOffset(const Shape &shape, const Offset &offset) {
+    if (shape.size() != offset.size()) {
+        return -1;
+    }
+    if (shape.size() == 0) {
+        return 0;
+    }
+
+    int64_t lineOffset = 0;
+    int64_t stride = 1;
+    // 从最低维到最高维计算
+    for (size_t i = shape.size(); i > 0; --i) {
+        lineOffset += offset[i - 1] * stride;
+        stride *= shape[i - 1];
+    }
+    return lineOffset;
+}
+
 void AssignMemoryType::AssignMoveOpForAssemble(Operation &operation) {
     /*
     op --> tensor1 --> assemble --> tensor2
@@ -400,12 +412,42 @@ void AssignMemoryType::AssignMoveOpForAssemble(Operation &operation) {
     */
     for (size_t i = 0; i < operation.oOperand.size(); ++i) {
         auto &tensor = operation.oOperand[i];
+        bool hasDdr = false;
         // Only change original type
         MemoryType fromType = inserter.GetMemoryTypeFromTensorTobeMap(operation.iOperand.front(), operation);
         for (const auto &outputProducer : tensor->GetProducers()) {
             if (fromType != MEM_DEVICE_DDR && outputProducer->iOperand.front()->GetMemoryTypeOriginal() != fromType) {
                 fromType = MEM_DEVICE_DDR;
             }
+
+            // 获取操作属性
+            auto opAttr = std::dynamic_pointer_cast<AssembleOpAttribute>(outputProducer->GetOpAttribute());
+            if (opAttr == nullptr) {
+                APASS_LOG_WARN_F(Elements::Operation, "Op[%d]'s OpAttribute is null.", outputProducer->GetOpMagic());
+                continue;
+            }
+            auto offset = opAttr->GetToOffset();
+            auto rawShape = tensor->GetRawTensor()->rawshape;
+
+            int64_t lineOffset = CalcLineOffset(tensor->GetRawTensor()->rawshape, opAttr->GetToOffset());
+            if (lineOffset == -1) {
+                APASS_LOG_WARN_F(Elements::Operation, "Op[%d]'s offset size and Tensor[%d]'s rawshape size is not equal.", outputProducer->GetOpMagic(), tensor->GetMagic());
+                continue;
+            }
+            int64_t tensorBytes = static_cast<int64_t>(BytesOf(tensor->Datatype()));
+            int64_t byteOffset = tensorBytes * lineOffset;
+            
+            APASS_LOG_DEBUG_F(Elements::Tensor, "Op %ld 's input tensor, lineOffset is %ld, tensorBytes is %ld, byteOffset is %ld.", lineOffset, tensorBytes, byteOffset);
+            // 对齐检查，根据assemble的offset和assemble输出tensor的rawshape计算线性offset，如果非32B对齐，则将assemble输出tensor推导为DDR类型
+            static constexpr int UB_ALIGN_BYTES = 32;
+            if (byteOffset % UB_ALIGN_BYTES != 0) {
+                APASS_LOG_DEBUG_F(Elements::Tensor, "Set op %d 's output original memoryType to DDR.", outputProducer->GetOpMagic());
+                hasDdr = true;
+                break;
+            }
+        }
+        if (hasDdr) {
+            fromType = MEM_DEVICE_DDR;
         }
         if (operation.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
             tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
@@ -448,7 +490,8 @@ void AssignMemoryType::AssignMoveOpForView(Operation &operation) {
             viewOpAttribute->SetToType(tensor->GetMemoryTypeOriginal());
             continue;
         }
-        if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C && outputTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+        if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
+            outputTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L1 && inserter.FitL0C2L1(tensor)) {
             inserter.UpdateTensorTobeMap(tensor, operation, MemoryType::MEM_L0C);
             viewOpAttribute->SetToType(outputTensor->GetMemoryTypeOriginal());
             continue;
@@ -532,7 +575,14 @@ void AssignMemoryType::ProcesSmallTileToLargeTile(Function &function) {
                     break;
                 }
             }
-            if (!isToL1 || !IsDimMultiple(oOperand->GetShape(), iOperand->GetShape())){
+            bool isConsumerOutputMultiple = true;
+            for (auto &consumerOp : oOperand->GetConsumers()) {
+                if (consumerOp->GetOpcode() == Opcode::OP_VIEW && !IsDimMultiple(consumerOp->GetOOperands().front()->GetShape(), iOperand->GetShape())) {
+                    isConsumerOutputMultiple = false;
+                    break;
+                }
+            }
+            if (!isToL1 || !IsDimMultiple(oOperand->GetShape(), iOperand->GetShape()) || !isConsumerOutputMultiple){
                 oOperand->SetMemoryTypeOriginal(MEM_DEVICE_DDR, true);
                 APASS_LOG_DEBUG_F(Elements::Tensor, "Set tensor %d original memory type "
                     "to DDR since not towards L1 or not multipule dimensions.", oOperand->magic);

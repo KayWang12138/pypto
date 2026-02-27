@@ -24,7 +24,7 @@ void ExecuteOpBinary(ExecuteOperationContext *ctx) {
     if (opcode == Opcode::OP_ADD_BRC || opcode == Opcode::OP_SUB_BRC || opcode == Opcode::OP_MUL_BRC ||
         opcode == Opcode::OP_DIV_BRC) {
         ASSERT(ctx->ooperandInplaceDataViewList->size() == SIZE_TWO);
-    } else if (opcode == Opcode::OP_BITWISEXOR || opcode == Opcode::OP_COPYSIGN) {
+    } else if (opcode == Opcode::OP_BITWISEXOR || opcode == Opcode::OP_COPYSIGN || opcode == Opcode::OP_POW) {
         ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
     } else {
         ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
@@ -51,6 +51,7 @@ void ExecuteOpBinary(ExecuteOperationContext *ctx) {
         case Opcode::OP_MUL_BRC: calc::Mul(ret, lhs, rhs); break;
         case Opcode::OP_DIV: calc::Div(ret, lhs, rhs); break;
         case Opcode::OP_DIV_BRC: calc::Div(ret, lhs, rhs); break;
+        case Opcode::OP_POW: calc::Pow(ret, lhs, rhs); break;
         case Opcode::OP_S_MAX: calc::Max(ret, lhs, rhs); break;
         case Opcode::OP_PAIRMAX: calc::PairMax(ret, lhs, rhs); break;
         case Opcode::OP_PAIRMIN: calc::PairMin(ret, lhs, rhs); break;
@@ -70,6 +71,7 @@ REGISTER_CALC_OP(OP_MUL, Opcode::OP_MUL, ExecuteOpBinary<Opcode::OP_MUL>);
 REGISTER_CALC_OP(OP_MUL_BRC, Opcode::OP_MUL_BRC, ExecuteOpBinary<Opcode::OP_MUL_BRC>);
 REGISTER_CALC_OP(OP_DIV, Opcode::OP_DIV, ExecuteOpBinary<Opcode::OP_DIV>);
 REGISTER_CALC_OP(OP_DIV_BRC, Opcode::OP_DIV_BRC, ExecuteOpBinary<Opcode::OP_DIV_BRC>);
+REGISTER_CALC_OP(OP_POW, Opcode::OP_POW, ExecuteOpBinary<Opcode::OP_POW>);
 REGISTER_CALC_OP(OP_S_ADD, Opcode::OP_S_ADD, ExecuteOpBinary<Opcode::OP_ADD>);
 REGISTER_CALC_OP(OP_S_SUB, Opcode::OP_S_SUB, ExecuteOpBinary<Opcode::OP_SUB>);
 REGISTER_CALC_OP(OP_S_MUL, Opcode::OP_S_MUL, ExecuteOpBinary<Opcode::OP_MUL>);
@@ -204,6 +206,7 @@ void ExecuteOpUnary(ExecuteOperationContext *ctx) {
     switch (opcode) {
         case Opcode::OP_EXP: calc::Exp(ret, iop); break;
         case Opcode::OP_NEG: calc::Neg(ret, iop); break;
+        case Opcode::OP_SIGN: calc::Sign(ret, iop); break;
         case Opcode::OP_RSQRT: calc::Rsqrt(ret, iop); break;
         case Opcode::OP_SQRT: calc::Sqrt(ret, iop); break;
         case Opcode::OP_RECIPROCAL: calc::Reciprocal(ret, iop); break;
@@ -212,11 +215,13 @@ void ExecuteOpUnary(ExecuteOperationContext *ctx) {
         case Opcode::OP_ABS: calc::Abs(ret, iop); break;
         case Opcode::OP_BRCB: calc::Brcb(ret, iop); break;
         case Opcode::OP_LN: calc::Ln(ret, iop); break;
+        case Opcode::OP_ISFINITE: calc::IsFinite(ret, iop); break;
         default: ASSERT(false);
     }
 }
 REGISTER_CALC_OP(OP_EXP, Opcode::OP_EXP, ExecuteOpUnary<Opcode::OP_EXP>);
 REGISTER_CALC_OP(OP_NEG, Opcode::OP_NEG, ExecuteOpUnary<Opcode::OP_NEG>);
+REGISTER_CALC_OP(OP_SIGN, Opcode::OP_SIGN, ExecuteOpUnary<Opcode::OP_SIGN>);
 REGISTER_CALC_OP(OP_RSQRT, Opcode::OP_RSQRT, ExecuteOpUnary<Opcode::OP_RSQRT>);
 REGISTER_CALC_OP(OP_SQRT, Opcode::OP_SQRT, ExecuteOpUnary<Opcode::OP_SQRT>);
 REGISTER_CALC_OP(OP_RECIPROCAL, Opcode::OP_RECIPROCAL, ExecuteOpUnary<Opcode::OP_RECIPROCAL>);
@@ -225,6 +230,7 @@ REGISTER_CALC_OP(OP_BITWISENOT, Opcode::OP_BITWISENOT, ExecuteOpUnary<Opcode::OP
 REGISTER_CALC_OP(OP_ABS, Opcode::OP_ABS, ExecuteOpUnary<Opcode::OP_ABS>);
 REGISTER_CALC_OP(OP_BRCB, Opcode::OP_BRCB, ExecuteOpUnary<Opcode::OP_BRCB>);
 REGISTER_CALC_OP(OP_LN, Opcode::OP_LN, ExecuteOpUnary<Opcode::OP_LN>);
+REGISTER_CALC_OP(OP_ISFINITE, Opcode::OP_ISFINITE, ExecuteOpUnary<Opcode::OP_ISFINITE>);
 
 void ExecuteOpCeil(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
@@ -401,18 +407,27 @@ void ExecuteOpRange(ExecuteOperationContext *ctx) {
     auto start = ctx->op->GetElementAttribute(OP_ATTR_PREFIX + "START");
     auto size = ctx->op->GetElementAttribute(OP_ATTR_PREFIX + "SIZE");
     auto step = ctx->op->GetElementAttribute(OP_ATTR_PREFIX + "STEP");
+    Element curStart = start;
+    if (ctx->op->HasAttr(OpAttributeKey::dynScalar)) {
+        SymbolicScalar tileIdx = ctx->op->GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
+        if (tileIdx.ConcreteValid()) {
+            int64_t tileIdxVal = tileIdx.Concrete();
+            Element tileIdxElem = Element(start.GetDataType(), tileIdxVal);
+            curStart = start + step * tileIdxElem;
+        }
+    }
     Element end;
     if (start.GetDataType() == DT_INT32) {
-        end = GetEndBySize<int32_t, DT_INT32>(start, size, step);
+        end = GetEndBySize<int32_t, DT_INT32>(curStart, size, step);
     } else if (start.GetDataType() == DT_INT64) {
-        end = GetEndBySize<int64_t, DT_INT64>(start, size, step);
+        end = GetEndBySize<int64_t, DT_INT64>(curStart, size, step);
     } else if (start.GetDataType() == DT_FP32) {
-        end = GetEndBySize<float, DT_FP32>(start, size, step);
+        end = GetEndBySize<float, DT_FP32>(curStart, size, step);
     } else {
         std::string errorMessage = "Unsupported DataType " + DataType2String(start.GetDataType());
         throw std::invalid_argument(errorMessage.c_str());
     }
-    calc::Range(oop, start, end, step);
+    calc::Range(oop, curStart, end, step);
 }
 REGISTER_CALC_OP(OP_RANGE, Opcode::OP_RANGE, ExecuteOpRange);
 
@@ -448,6 +463,14 @@ void ExecuteOpCmps(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_CMPS, Opcode::OP_CMPS, ExecuteOpCmps);
 
+void ExecuteOpHypot(ExecuteOperationContext *ctx) {
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+    auto iop_self = ctx->ioperandDataViewList->at(0);
+    auto iop_other = ctx->ioperandDataViewList->at(1);
+    calc::Hypot(oop, iop_self, iop_other);
+}
+REGISTER_CALC_OP(OP_HYPOT, Opcode::OP_HYPOT, ExecuteOpHypot);
+
 void ExecuteOpExtract(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
@@ -478,14 +501,14 @@ void ExecuteOpGatherINUB(ExecuteOperationContext *ctx) {
 REGISTER_CALC_OP(OP_GATHER_IN_UB, Opcode::OP_GATHER_IN_UB, ExecuteOpGatherINUB);
 
 void ExecuteOpIndexAdd(ExecuteOperationContext *ctx) {
-    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
     ASSERT(ctx->ioperandDataViewList->size() == SIZE_THREE);
     auto &ret = ctx->ooperandInplaceDataViewList->at(0);
     auto &self = ctx->ioperandDataViewList->at(0);
     auto &src = ctx->ioperandDataViewList->at(1);
     auto &indices = ctx->ioperandDataViewList->at(2);
     auto alpha = Element(DT_FP32, 1.0);
-    if (ctx->op->HasAttribute(OpAttributeKey::scalar)){
+    if (ctx->op->HasAttribute(OpAttributeKey::scalar)) {
         alpha = ctx->op->GetElementAttribute(OpAttributeKey::scalar);
     }
     int axis = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "axis");

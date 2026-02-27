@@ -29,7 +29,7 @@ public:
 
     static void SetUpTestCase() {}
 
-    void SetUp() override { 
+    void SetUp() override {
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     }
@@ -84,6 +84,24 @@ TEST_F(OperationImplTest, test_CumSum_dim4) {
     Tensor result;
     FUNCTION("TestCumSum") {
         result = CumSum(input, axis);
+    }
+}
+
+TEST_F(OperationImplTest, test_IsFinite_fp32) {
+    TileShape::Current().SetVecTile(4, 32);
+    Tensor input(DT_FP32, {11, 32}, "input");
+    Tensor result;
+    FUNCTION("TestIsFinite") {
+        result = IsFinite(input);
+    }
+}
+
+TEST_F(OperationImplTest, test_IsFinite_int32) {
+    TileShape::Current().SetVecTile(4, 32);
+    Tensor input(DT_INT32, {11, 32}, "input");
+    Tensor result;
+    FUNCTION("TestIsFinite") {
+        result = IsFinite(input);
     }
 }
 
@@ -156,6 +174,28 @@ TEST_F(OperationImplTest, test_Cmps_BF16) {
     Tensor result;
     FUNCTION("TestCompare") {
         result = Compare(operand1, operand2, OpType::EQ, OutType::BOOL);
+    }
+}
+
+TEST_F(OperationImplTest, test_Hypot_FP32) {
+    TileShape::Current().SetVecTile({4, 4});
+    Tensor operand1(DT_FP32, {8, 8}, "operand1");
+    Tensor operand2(DT_FP32, {8, 8}, "operand2");
+    std::vector<int64_t> dstShape = {8, 8};
+    Tensor result;
+    FUNCTION("TestHypot") {
+        result = Hypot(operand1, operand2);
+    }
+}
+
+TEST_F(OperationImplTest, test_Hypot_FP16) {
+    TileShape::Current().SetVecTile({4, 4});
+    Tensor operand1(DT_FP16, {8, 8}, "operand1");
+    Tensor operand2(DT_FP16, {8, 8}, "operand2");
+    std::vector<int64_t> dstShape = {8, 8};
+    Tensor result;
+    FUNCTION("TestHypot") {
+        result = Hypot(operand1, operand2);
     }
 }
 
@@ -234,9 +274,44 @@ TEST_F(OperationImplTest, Test_IndexAdd_FP16) {
     }
 }
 
-void TestPow(DataType dataType, double exponent) {
+void TestPow(DataType selfType, DataType otherType, DataType resultType) {
+    std::vector<int64_t> shape = {32, 32};
+    PROGRAM("POW") {
+        TileShape::Current().SetVecTile({32, 32});
+        Tensor input_a(selfType, shape, "input_a");
+        Tensor input_b(otherType, shape, "input_b");
+        auto output = Tensor(resultType, shape, "res");
+        FUNCTION("POW_FUC") {
+            output = Pow(input_a, input_b);
+        }
+    }
+}
+
+TEST_F(OperationImplTest, Test_Pow) {
+    TestPow(DataType::DT_FP32, DataType::DT_FP32, DataType::DT_FP32);
+    TestPow(DataType::DT_FP16, DataType::DT_FP16, DataType::DT_FP16);
+    TestPow(DataType::DT_BF16, DataType::DT_FP16, DataType::DT_FP32);
+    TestPow(DataType::DT_FP16, DataType::DT_BF16, DataType::DT_FP32);
+    TestPow(DataType::DT_INT32, DataType::DT_FP32, DataType::DT_FP32);
+    TestPow(DataType::DT_FP32, DataType::DT_INT32, DataType::DT_FP32);
+    TestPow(DataType::DT_INT32, DataType::DT_INT32, DataType::DT_INT32);
+}
+
+TEST_F(OperationImplTest, Test_Pow_FP32_Broadcast) {
+    PROGRAM("POW") {
+        TileShape::Current().SetVecTile({32, 32});
+        Tensor input_a(DataType::DT_FP32, {1, 32}, "input_a");
+        Tensor input_b(DataType::DT_FP32, {32, 32}, "input_b");
+        auto output = Tensor(DataType::DT_FP32, {32, 32}, "res");
+        FUNCTION("POW_FUC") {
+            output = Pow(input_a, input_b);
+        }
+    }
+}
+
+void TestPows(DataType dataType, double exponent) {
+    std::vector<int64_t> shape = {32, 32};
     PROGRAM("POWS") {
-        std::vector<int64_t> shape = {32, 32};
         TileShape::Current().SetVecTile({32, 32});
         Tensor input_a(dataType, shape, "input");
         auto output = Tensor(dataType, shape, "res");
@@ -246,29 +321,30 @@ void TestPow(DataType dataType, double exponent) {
     }
 }
 
-TEST_F(OperationImplTest, Test_Pows__1_5_FP32) {
-    constexpr double EXP = -1.5;
-    TestPow(DataType::DT_FP32, EXP);
+TEST_F(OperationImplTest, Test_Pows_0) {
+    constexpr double EXP0 = 0;
+    TestPows(DataType::DT_FP32, EXP0);
+    constexpr double EXP_1_5 = -1.5;
+    TestPows(DataType::DT_FP32, EXP_1_5);
+    constexpr double EXP1_5 = 1.5;
+    TestPows(DataType::DT_FP16, EXP1_5);
+    constexpr double EXP2 = 2;
+    TestPows(DataType::DT_FP32, EXP2);
+    constexpr double EXP3 = 3;
+    TestPows(DataType::DT_FP32, EXP3);
 }
 
-TEST_F(OperationImplTest, Test_Pows_1_5_FP32) {
-    constexpr double EXP = 1.5;
-    TestPow(DataType::DT_FP32, EXP);
-}
-
-TEST_F(OperationImplTest, Test_Pows_1_5_FP16) {
-    constexpr double EXP = 1.5;
-    TestPow(DataType::DT_FP16, EXP);
-}
-
-TEST_F(OperationImplTest, Test_Pows_2_FP32) {
-    constexpr double EXP = 2;
-    TestPow(DataType::DT_FP32, EXP);
-}
-
-TEST_F(OperationImplTest, Test_Pows_3_FP32) {
-    constexpr double EXP = 3;
-    TestPow(DataType::DT_FP32, EXP);
+TEST_F(OperationImplTest, Test_Pows_1) {
+    constexpr double EXP1_5 = 1.5;
+    std::vector<int64_t> shape = {32, 32};
+    PROGRAM("POWS") {
+        TileShape::Current().SetVecTile({32, 32});
+        Tensor input_a(DataType::DT_INT32, shape, "input");
+        auto output = Tensor(DataType::DT_FP32, shape, "res");
+        FUNCTION("POWS_FUC") {
+            output = Pow(input_a, Element(DataType::DT_FP32, EXP1_5));
+        }
+    }
 }
 
 TEST_F(OperationImplTest, Test_LogicalNot_BF16) {
@@ -280,6 +356,45 @@ TEST_F(OperationImplTest, Test_LogicalNot_BF16) {
         config::SetBuildStatic(true);
         FUNCTION("LogicalNot_BF16") {
             output = LogicalNot(input_a);
+        }
+    }
+}
+
+TEST_F(OperationImplTest, Test_Sign_FP16) {
+    PROGRAM("Sign") {
+        std::vector<int64_t> shape = {128, 32};
+        TileShape::Current().SetVecTile({128, 32});
+        Tensor input_a(DT_FP16, shape, "A");
+        auto output = Tensor(DT_FP16, shape, "res");
+        config::SetBuildStatic(true);
+        FUNCTION("Sign_FP16") {
+            output = Sign(input_a);
+        }
+    }
+}
+
+TEST_F(OperationImplTest, Test_Sign_FP32) {
+    PROGRAM("Sign") {
+        std::vector<int64_t> shape = {128, 32};
+        TileShape::Current().SetVecTile({128, 32});
+        Tensor input_a(DT_FP32, shape, "A");
+        auto output = Tensor(DT_FP32, shape, "res");
+        config::SetBuildStatic(true);
+        FUNCTION("Sign_FP32") {
+            output = Sign(input_a);
+        }
+    }
+}
+
+TEST_F(OperationImplTest, Test_Sign_INT16) {
+    PROGRAM("Sign") {
+        std::vector<int64_t> shape = {128, 32};
+        TileShape::Current().SetVecTile({128, 32});
+        Tensor input_a(DT_FP16, shape, "A");
+        auto output = Tensor(DT_INT16, shape, "res");
+        config::SetBuildStatic(true);
+        FUNCTION("Sign_INT16") {
+            output = Sign(input_a);
         }
     }
 }
@@ -914,5 +1029,41 @@ TEST_F(OperationImplTest, Test_CopySign) {
     Tensor result;
     FUNCTION("TestBitwiseRightShift") {
         result = CopySign(self, other);
+    }
+}
+
+TEST_F(OperationImplTest, Test_CopySign_int) {
+    TileShape::Current().SetVecTile({16, 16});
+    Tensor self(DT_INT32, {16, 16}, "self");
+    Tensor other(DT_INT32, {16, 16}, "other");
+    Tensor result;
+    FUNCTION("TestBitwiseRightShift") {
+        result = CopySign(self, other);
+    }
+}
+
+TEST_F(OperationImplTest, Test_MatmulMX_FP8E5M2) {
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
+    Tensor matA(DT_FP8E5M2, {128, 256}, "matA");
+    Tensor matB(DT_FP8E5M2, {256, 128}, "matB");
+    Tensor scaleA(DT_FP8E8M0, {128, 4, 2}, "scaleA");
+    Tensor scaleB(DT_FP8E8M0, {4, 128, 2}, "scaleB");
+    Tensor result;
+    FUNCTION("TestBitwiseRightShift") {
+        result =
+            npu::tile_fwk::Matrix::MatmulMX(DT_FP32, matA, scaleA, matB, scaleB, false, false, false, false, false);
+    }
+}
+
+TEST_F(OperationImplTest, Test_MatmulMX_FP8E4M3) {
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
+    Tensor matA(DT_FP8E4M3, {128, 256}, "matA");
+    Tensor matB(DT_FP8E4M3, {256, 128}, "matB");
+    Tensor scaleA(DT_FP8E8M0, {4, 128, 2}, "scaleA");
+    Tensor scaleB(DT_FP8E8M0, {128, 4, 2}, "scaleB");
+    Tensor result;
+    FUNCTION("TestBitwiseRightShift") {
+        result =
+            npu::tile_fwk::Matrix::MatmulMX(DT_FP16, matA, scaleA, matB, scaleB, false, true, false, true, false);
     }
 }

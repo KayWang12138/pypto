@@ -20,6 +20,7 @@
 
 #include "interface/utils/common.h"
 #include "tilefwk/data_type.h"
+#include "tilefwk/tilefwk_log.h"
 
 namespace npu::tile_fwk {
 const std::string GM_TENSOR_PARAM_STR = "param";
@@ -134,6 +135,12 @@ enum class CopyInMode : int {
     COPY_MOD_ND2NZ,
     COPY_MOD_NZ2NZ,
     COPY_MOD_DN2NZ
+};
+
+enum class PadMod : int {
+    NO_PADDING = 0,
+    PADDING_OUTER = 1,
+    PADDING_INNER = 2
 };
 
 struct CodeGenCtx {
