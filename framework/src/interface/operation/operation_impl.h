@@ -247,6 +247,14 @@ public:
     static const std::string padValue;
 };
 
+class LoadStoreConvOpAttributeKey {
+public:
+    static const std::string copyInMode;
+    static const std::string copyOutMode;
+    static const std::string isFmap;
+    static const std::string isConv3D;
+};
+
 enum class CopyInMode : int {
     COPY_MOD_INVALID = -1,
     COPY_MOD_ND2ND = 0,
