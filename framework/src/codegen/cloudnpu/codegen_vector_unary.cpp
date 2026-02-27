@@ -318,7 +318,7 @@ std::string CodeGenOpCloudNPU::PrintExpandDynamicUnaligned(const PrintUnaryParam
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintExpandLayout(int expandAxis) const {
+std::string CodeGenOpCloudNPU::PrintExpandLayout(const int expandAxis) const {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
     std::ostringstream oss;
@@ -328,7 +328,8 @@ std::string CodeGenOpCloudNPU::PrintExpandLayout(int expandAxis) const {
     if (!lastUse.empty()) {
         templateParamList.emplace_back(lastUse);
     }
-    templateParamList.emplace_back(std::to_string(expandAxis));
+    int expandAxis_ = expandAxis + SHAPE_DIM5 - rawShape[1].size();
+    templateParamList.emplace_back(std::to_string(expandAxis_));
     oss << WrapParamByAngleBrackets(templateParamList);
     oss << WrapParamByParentheses({dstTensor, srcTensor});
     oss << ";\n";
@@ -340,22 +341,21 @@ std::string CodeGenOpCloudNPU::PrintExpand(const std::string &s0Var, const std::
     char buffer[256] = "CG_ERROR";
     int ret = 0;
     int expandAxis{-1};
-    std::vector<int64_t> dos = NormalizeShape(originShape[0], SHAPE_DIM4);
-    std::vector<int64_t> os = NormalizeShape(originShape[1], SHAPE_DIM4);
-    std::vector<int64_t> ss = NormalizeShape(rawShape[1], SHAPE_DIM4);
-    std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "EXPANDDIM");
     if (axis.HasValue()) {
         expandAxis = AnyCast<int64_t>(axis);
     }
     ASSERT((expandAxis >= 0) && (expandAxis <= (static_cast<int>(rawShape[1].size() - 1))))
         << "unsupported expand axis";
-    // modify expandAxis for SHAPE_DIM4
-    expandAxis += SHAPE_DIM4 - rawShape[1].size();
-
     if (isSupportLayout) {
         return PrintExpandLayout(expandAxis);
     }
+    std::vector<int64_t> dos = NormalizeShape(originShape[0], SHAPE_DIM4);
+    std::vector<int64_t> os = NormalizeShape(originShape[1], SHAPE_DIM4);
+    std::vector<int64_t> ss = NormalizeShape(rawShape[1], SHAPE_DIM4);
+    std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
+    // modify expandAxis for SHAPE_DIM4
+    expandAxis += SHAPE_DIM4 - rawShape[1].size();
     if (isDynamicFunction) {
         return PrintExpandDynamicUnaligned({s0Var, dVar, srcDtypeStr, dstDtypeStr}, expandAxis);
     }
