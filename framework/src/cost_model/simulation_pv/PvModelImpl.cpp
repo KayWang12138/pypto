@@ -301,7 +301,7 @@ void PvModelImpl<SystemConfig, CaseConfig>::BinGen(npu::tile_fwk::Function *func
 
             int ret = std::system(cmd);
             if (ret != 0) {
-                SIMULATION_LOGE("cmd error: %s", cmd.c_str());
+                SIMULATION_LOGE("cmd error: %s", cmd);
             }
 
             auto size = PvModelBinHelper::GetBinSize(task_.binPath[subFuncPair.first]);

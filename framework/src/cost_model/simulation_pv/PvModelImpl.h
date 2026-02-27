@@ -379,7 +379,7 @@ public:
 
                 int ret = std::system(cmd);
                 if (ret != 0) {
-                    SIMULATION_LOGE("cmd error: %s", cmd.c_str());
+                    SIMULATION_LOGE("cmd error: %s", cmd);
                 }
 
                 cceBin.emplace_back(
