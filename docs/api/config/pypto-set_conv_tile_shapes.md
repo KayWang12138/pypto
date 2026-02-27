@@ -66,13 +66,11 @@ TileShape需要满足以下约束条件：
 
     - L0与L1维度层级约束：
 
-        - 0 < tileL0Info.tileH <= tileL1Info.tileHout 且 tileL1Info.tileHout % tileL0Info.tileH == 0
+        - 1 <= tileL0Info.tileH <= tileL1Info.tileHout 且 tileL1Info.tileHout % tileL0Info.tileH == 0
 
-        - 0 < tileL0Info.tileW <= tileL1Info.tileWout 且 tileL1Info.tileWout % tileL0Info.tileW == 0
+        - 1 <= tileL0Info.tileW <= tileL1Info.tileWout 且 tileL1Info.tileWout % tileL0Info.tileW == 0
 
-        - 0 < tileL0Info.tileK <= tileL1Info.tileCout 且 tileL1Info.tileCout % tileL0Info.tileK == 0
-
-        - 0 < tileL0Info.tileN <= tileL1Info.tileN 且 tileL1Info.tileN % tileL0Info.tileN == 0
+        - 1 <= tileL0Info.tileN <= tileL1Info.tileCout
 
 - buffer空间约束：
 
