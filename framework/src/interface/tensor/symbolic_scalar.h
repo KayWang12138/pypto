@@ -432,58 +432,81 @@ public:
         }
     }
 
-    static RawSymbolicScalarPtr Create(SymbolicOpcode opcode, const std::vector<RawSymbolicScalarPtr> &operandList) {
-        RawSymbolicScalarPtr raw;
-        if (std::all_of(operandList.begin(), operandList.end(),
-                [](const RawSymbolicScalarPtr &operand) { return operand->IsImmediate(); })) {
-            std::vector<ScalarImmediateType> immediateList(operandList.size());
-            std::transform(
-                operandList.begin(), operandList.end(), immediateList.begin(), [](const RawSymbolicScalarPtr &val) {
-                    return std::static_pointer_cast<RawSymbolicImmediate>(val)->Immediate();
-                });
+    static bool AllImmediate(const std::vector<RawSymbolicScalarPtr>& ops) {
+        ASSERT(!ops.empty());
+        return std::all_of(ops.begin(), ops.end(),
+            [](const RawSymbolicScalarPtr& o){ return o->IsImmediate(); });
+    }
 
-            ScalarImmediateType result = 0;
-            if (SymbolicOpcode::T_UOP_BEGIN <= opcode && opcode < SymbolicOpcode::T_UOP_END) {
-                ASSERT(immediateList.size() == 1) << "immediateList.size(): " << immediateList.size();
-                result = RawSymbolicExpression::GetSymbolicCalcUnary(opcode)(immediateList[0]);
-            } else if (SymbolicOpcode::T_BOP_BEGIN <= opcode && opcode < SymbolicOpcode::T_BOP_END) {
-                result = std::accumulate(immediateList.begin() + 1, immediateList.end(), immediateList[0],
-                    [opcode](const ScalarImmediateType &lhs, const ScalarImmediateType &rhs) {
-                        return RawSymbolicExpression::GetSymbolicCalcBinary(opcode)(lhs, rhs);
-                    });
-            } else if (opcode == SymbolicOpcode::T_MOP_MAX || opcode == SymbolicOpcode::T_MOP_MIN) {
-                auto bop = (opcode == SymbolicOpcode::T_MOP_MIN)
-                            ? RawSymbolicExpression::CalcBopMin : RawSymbolicExpression::CalcBopMax;
-                result = std::accumulate(immediateList.begin() + 1, immediateList.end(), immediateList[0],
-                        [bop](const ScalarImmediateType &lhs, const ScalarImmediateType &rhs) {
-                            return bop(lhs, rhs);
-                        });
-            } else if (opcode == SymbolicOpcode::T_MOP_CALL) {
-                result = CalcMopCall(immediateList);
-            } else {
-                ASSERT(false) << " undefined behavior.";
-            }
-            raw = std::make_shared<RawSymbolicImmediate>(result);
-        } else if (opcode == SymbolicOpcode::T_BOP_ADD) {
-            // Tiny optimization: everything + 0 == everything
-            std::vector<RawSymbolicScalarPtr> nonzeroOperandList;
-            for (auto &op : operandList) {
-                if (op->IsImmediate() && std::static_pointer_cast<RawSymbolicImmediate>(op)->Immediate() == 0) {
-                } else {
-                    nonzeroOperandList.push_back(op);
-                }
-            }
-            if (nonzeroOperandList.size() == 1) {
-                raw = nonzeroOperandList[0];
-            } else {
-                Handle2NonzeroOperand(raw, opcode, nonzeroOperandList);
-            }
+    static std::vector<ScalarImmediateType> ToImmediateList(const std::vector<RawSymbolicScalarPtr>& ops) {
+        std::vector<ScalarImmediateType> imm(ops.size());
+        std::transform(ops.begin(), ops.end(), imm.begin(),
+            [](const RawSymbolicScalarPtr& v) {
+                return std::static_pointer_cast<RawSymbolicImmediate>(v)->Immediate();
+            });
+        return imm;
+    }
+
+    static ScalarImmediateType FoldAllImmediate(SymbolicOpcode opcode,
+                                                const std::vector<ScalarImmediateType>& immediateList) {
+        if (SymbolicOpcode::T_UOP_BEGIN <= opcode && opcode < SymbolicOpcode::T_UOP_END) {
+            ASSERT(immediateList.size() == 1) << "immediateList.size():  " << immediateList.size();
+            return RawSymbolicExpression::GetSymbolicCalcUnary(opcode)(immediateList[0]);
+        } else if (SymbolicOpcode::T_BOP_BEGIN <= opcode && opcode < SymbolicOpcode::T_BOP_END) {
+            return std::accumulate(immediateList.begin() + 1, immediateList.end(), immediateList[0],
+                [opcode](const ScalarImmediateType &lhs, const ScalarImmediateType &rhs) {
+                    return RawSymbolicExpression::GetSymbolicCalcBinary(opcode)(lhs, rhs);
+                });
         } else if (opcode == SymbolicOpcode::T_MOP_MAX || opcode == SymbolicOpcode::T_MOP_MIN) {
-            raw = CreateRuntimeExtrema(opcode, operandList);
-        } else {
-            raw = std::make_shared<RawSymbolicExpression>(opcode, operandList);
+            auto bop = (opcode == SymbolicOpcode::T_MOP_MIN)
+                        ? RawSymbolicExpression::CalcBopMin : RawSymbolicExpression::CalcBopMax;
+            return std::accumulate(immediateList.begin() + 1, immediateList.end(), immediateList[0],
+                    [bop](const ScalarImmediateType &lhs, const ScalarImmediateType &rhs) {
+                        return bop(lhs, rhs);
+                    });
+        } else if (opcode == SymbolicOpcode::T_MOP_CALL) {
+            return CalcMopCall(immediateList);
         }
+        ASSERT(false) << "undefined behavior.";
+        return 0;
+    }
+
+    static RawSymbolicScalarPtr MakeAddWithZeroOpt(const std::vector<RawSymbolicScalarPtr>& ops) {
+        std::vector<RawSymbolicScalarPtr> nonzero;
+        nonzero.reserve(ops.size());
+        for (auto& op : ops) {
+            if (op->IsImmediate() &&
+                std::static_pointer_cast<RawSymbolicImmediate>(op)->Immediate() == 0) {
+                continue;
+            }
+            nonzero.push_back(op);
+        }
+        if (nonzero.size() == 1) return nonzero[0];
+
+        RawSymbolicScalarPtr raw;
+        Handle2NonzeroOperand(raw, SymbolicOpcode::T_BOP_ADD, nonzero);
         return raw;
+    }
+
+    static RawSymbolicScalarPtr CreateRuntime(SymbolicOpcode opcode,
+                                            const std::vector<RawSymbolicScalarPtr>& ops) {
+        if (opcode == SymbolicOpcode::T_BOP_ADD) {
+            return MakeAddWithZeroOpt(ops);
+        } else if (opcode == SymbolicOpcode::T_MOP_MAX || opcode == SymbolicOpcode::T_MOP_MIN) {
+            return CreateRuntimeExtrema(opcode, ops);
+        } else {
+            return std::make_shared<RawSymbolicExpression>(opcode, ops);
+        }
+    }
+
+    static RawSymbolicScalarPtr Create(SymbolicOpcode opcode, 
+                                            const std::vector<RawSymbolicScalarPtr>& operandList) {
+        if (AllImmediate(operandList)) {
+            auto imm = ToImmediateList(operandList);
+            auto result = FoldAllImmediate(opcode, imm);
+            return std::make_shared<RawSymbolicImmediate>(result);
+        }
+        return CreateRuntime(opcode, operandList);
     }
 
 #define RAW_SYMBOLIC_EXPRESSION_DEFINE_UOP(name, uop) \
