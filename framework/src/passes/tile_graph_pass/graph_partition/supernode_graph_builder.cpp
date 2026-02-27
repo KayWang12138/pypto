@@ -625,14 +625,21 @@ Status SuperNodeGraphBuilder::BuildSuperNodeGraph()
     }
     std::vector<std::pair<int32_t, int32_t>> mergePair;
     UpdateScopeId(opList);
+    std::unordered_map<int, int> scope2merge;
     for (size_t i = 0; i < opList.size(); i++) {
         auto targetScope = opList[i]->GetScopeId();
         if (targetScope == -1) {
             continue;
         }
+        auto mergeTarget = i;
+        if (scope2merge.find(targetScope) != scope2merge.end()) {
+            mergeTarget = scope2merge[targetScope];
+        } else {
+            scope2merge[targetScope] = i;
+        }
         for (auto outputNode : operationInfo_->outGraph_[i]) {
             if (opList[outputNode]->GetScopeId() == targetScope) {
-                mergePair.emplace_back(outputNode, i);
+                mergePair.emplace_back(outputNode, mergeTarget);
             }
         }
     }
