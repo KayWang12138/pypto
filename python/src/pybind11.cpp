@@ -20,8 +20,6 @@ namespace pypto {
 PYBIND11_MODULE(pypto_impl, m) {
     m.doc() = "PyPTO";
 
-    BindErrors(m);
-    
     // Bind tilefwk enums and types first
     bind_enum(m);
     BindElement(m);
@@ -33,12 +31,5 @@ PYBIND11_MODULE(pypto_impl, m) {
     BindCostModelRuntime(m);
     bind_pass(m);
     BindFunction(m);
-    // Then bind new IR
-    BindCore(m);
-    BindTesting(m);
-    BindIR(m);
-    BindIRBuilder(m);
-    BindPass(m);
-    BindLogging(m);
 };
 } // namespace pypto
