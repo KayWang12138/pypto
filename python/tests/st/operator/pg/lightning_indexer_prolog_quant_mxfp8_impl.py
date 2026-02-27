@@ -302,7 +302,7 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
                                            ln_beta_k_in, cos_idx_rope_in, sin_idx_rope_in,
                                            hadamard_q_in, hadamard_k_in, k_quant_in, k_scale_in,
                                            k_cache_index_in, q_quant_out, q_scale_out, k_quant_out,
-                                           k_scale_out, weights_out, attrs, configs):
+                                           k_scale_out, weights_out, temp_out, attrs, configs):
     """Compute Lightning Indexer Prolog with quantization.
 
     Main computation function for Lightning Indexer Prolog quantization.
@@ -404,7 +404,6 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
 
         q_roped = rope_3d(q_rope, rope_cos, rope_sin, configs)  # [t_tile, head_num, rope_head_dim]
         pypto.set_vec_tile_shapes(8, head_num, head_dim)
-        q_nope = pypto.cast(pypto.cast(q_nope, pypto.DT_FP32), q_bf16.dtype)
         q_cat = pypto.concat([q_roped, q_nope], -1)  # [t_tile, head_num, head_dim]
         hadamard_q = pypto.reshape(hadamard_q_in, [1, head_dim, head_dim])
 
@@ -436,12 +435,14 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         pypto.set_vec_tile_shapes(t_tile, head_dim)
         k_bf16 = pypto.cast(quant_layer_norm(k, gamma_2d, beta_2d, -1, attrs.eps), x_dtype)
 
+        # 规避非偶数case的精度问题，待定位解决
+        pypto.assemble(k_bf16, [t_idx, 0], temp_out)
+
         pypto.set_semantic_label("Key-Rope")
         k_rope = pypto.view(k_bf16, [t_tile, rope_head_dim], [0, 0])
         k_nope = pypto.view(k_bf16, [t_tile, head_dim - rope_head_dim], [0, rope_head_dim])
         k_roped = quant_rope_2d(k_rope, rope_cos, rope_sin)  # (t_tile, rope_head_dim)
         pypto.set_vec_tile_shapes(t_tile, head_dim)
-        k_nope = pypto.cast(pypto.cast(k_nope, pypto.DT_FP32), k_bf16.dtype)
         k_concat = pypto.concat([k_roped, k_nope], -1)
 
         pypto.set_semantic_label("Key-Hadamard")
@@ -481,7 +482,7 @@ def lightning_indexer_prolog_quant(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
                                    ln_beta_k_in, cos_idx_rope_in, sin_idx_rope_in,
                                    hadamard_q_in, hadamard_k_in, k_quant_in, k_scale_in,
                                    k_cache_index_in, q_quant_out, q_scale_out, k_quant_out,
-                                   k_scale_out, weights_out, attrs, configs):
+                                   k_scale_out, weights_out, temp_out, attrs, configs):
     """JIT-compiled wrapper for Lightning Indexer Prolog quantization computation.
 
     This is the main entry point for the Lightning Indexer Prolog quantization operator.
@@ -530,4 +531,4 @@ def lightning_indexer_prolog_quant(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
                                            ln_beta_k_in, cos_idx_rope_in, sin_idx_rope_in,
                                            hadamard_q_in, hadamard_k_in, k_quant_in, k_scale_in,
                                            k_cache_index_in, q_quant_out, q_scale_out, k_quant_out,
-                                           k_scale_out, weights_out, attrs, configs)
+                                           k_scale_out, weights_out, temp_out, attrs, configs)

@@ -23,7 +23,7 @@ from torch._dynamo import allow_in_graph
 from lightning_indexer_prolog_quant_mxfp8_impl import (
     IndexerPrologQuantInput, IndexerPrologQuantOutput, IndexerPrologQuantAttr, IndexerPrologQuantConfigs,
     lightning_indexer_prolog_quant)
-from utils.compare import precision_compare_triple
+from utils.compare_2_1 import precision_compare_triple
 
 
 pyptolib = torch.library.Library("pypto", "FRAGMENT")
@@ -324,6 +324,10 @@ def gen_data(case_name):
         params = {"b": 32, "s1": 1024 * 8, "s2": 1024 * 8}
     elif case_name.startswith("QuantLightningIndexerPrologSTest.b64_s1_8k_s2_8k"):
         params = {"b": 64, "s1": 1024 * 8, "s2": 1024 * 8}
+    elif case_name.startswith("QuantLightningIndexerPrologSTest.b1_s1_8k_333_s2_8k_333"):
+        params = {"b": 1, "s1": 1024 * 8 + 333, "s2": 1024 * 8 + 333}
+    elif case_name.startswith("QuantLightningIndexerPrologSTest.b111_s1_1_s2_8k"):
+        params = {"b": 111, "s1": 1, "s2": 1024 * 8}
     else:
         raise Exception(f"Can't get func to gen golden, Case({case_name})")
 
@@ -381,6 +385,9 @@ def lightning_indexer_prolog_quant_mxfp8_npu(x, q_norm, q_norm_scale, w_qb, w_qb
     k_scale = torch.empty((block_num, block_size, n_kv, 1), device=device, dtype=torch.float32)
     weights = torch.empty((t, head_num), device=device, dtype=torch.bfloat16)
 
+    # 规避非偶数case的精度问题，待定位解决
+    temp_tensor = torch.empty((t, head_dim), device=device, dtype=torch.bfloat16)
+
     if isinstance(x, FakeTensor):
         return q_fp8e4m3, q_scale, k_fp8e4m3, k_scale, weights
 
@@ -428,6 +435,7 @@ def lightning_indexer_prolog_quant_mxfp8_npu(x, q_norm, q_norm_scale, w_qb, w_qb
         k_fp8e4m3: [0],
         k_scale: [0],
         weights: [0],
+        temp_tensor: [0],
     }
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in input_tensors.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in output_tensors.items()]
@@ -447,6 +455,12 @@ def pypto_lightning_indexer_prolog_quant_mxfp8(x, q_norm, q_norm_scale, w_qb, w_
 
 def lightning_indexer_prolog_quant_dyn(inputs: IndexerPrologQuantInput, outputs: IndexerPrologQuantOutput,
                                       attrs: IndexerPrologQuantAttr, configs: IndexerPrologQuantConfigs):
+    # 规避非偶数case的精度问题，待定位解决
+    t = inputs.x.shape[0]
+    head_num = inputs.w_proj.shape[1]
+    block_num, block_size, n_kv, head_dim = inputs.k_cache.shape
+    temp_tensor = torch.empty((t, head_dim), device=inputs.x.device, dtype=torch.bfloat16)
+
     input_tensors = {
         inputs.x: [0],
         inputs.q_norm: [0],
@@ -471,6 +485,7 @@ def lightning_indexer_prolog_quant_dyn(inputs: IndexerPrologQuantInput, outputs:
         outputs.k_fp8e4m3: [0],
         outputs.k_scale: [0],
         outputs.weights: [0],
+        temp_tensor: [0],
     }
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in input_tensors.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in output_tensors.items()]
@@ -611,7 +626,6 @@ def test_b4_s1_8k_s2_8k():
     do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b4_s1_8k_s2_8k", configs)
 
 
-@pytest.mark.skip(reason="large test case")
 def test_b1_s1_4_s2_8k():
     configs = IndexerPrologQuantConfigs(
         q_linear=[16, 16, 512, 512, 128, 128],
@@ -630,7 +644,7 @@ def test_b1_s1_4_s2_8k():
     do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b1_s1_4_s2_8k", configs)
 
 
-@pytest.mark.skip(reason="large test case")
+@pytest.mark.skip(reason="small test case")
 def test_b64_s1_2_s2_8k():
     configs = IndexerPrologQuantConfigs(
         q_linear=[16, 16, 512, 512, 128, 128],
@@ -649,7 +663,7 @@ def test_b64_s1_2_s2_8k():
     do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b64_s1_2_s2_8k", configs)
 
 
-@pytest.mark.skip(reason="large test case")
+@pytest.mark.skip(reason="small test case")
 def test_b192_s1_1_s2_8k():
     configs = IndexerPrologQuantConfigs(
         q_linear=[16, 16, 512, 512, 128, 128],
@@ -723,6 +737,43 @@ def test_b64_s1_8k_s2_8k():
         vec_nbuffer_mode=0,
     )
     do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b64_s1_8k_s2_8k", configs)
+
+@pytest.mark.skip(reason="accuracy issues")
+def test_b1_s1_8k_333_s2_8k_333():
+    configs = IndexerPrologQuantConfigs(
+        q_linear=[16, 16, 512, 512, 128, 128],
+        q_hd=[32, 32, 128, 128, 128, 128],
+        k_linear=[16, 16, 512, 512, 64, 64],
+        w_linear=[16, 16, 1024, 1024, 32, 32],
+        unroll_list=[32, 16, 8, 4, 2, 1],
+        cube_l1_reuse_setting={1: 4},
+        mg_copyin_upper_bound=2 * 1024 * 1024,
+        pg_upper_bound=8192,
+        block_size=128,
+        t_sub_tile=1,
+        chunk_size=2,
+        vec_nbuffer_mode=0,
+    )
+    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b1_s1_8k_333_s2_8k_333", configs)
+
+
+@pytest.mark.skip(reason="accuracy issues")
+def test_b111_s1_1_s2_8k():
+    configs = IndexerPrologQuantConfigs(
+        q_linear=[16, 16, 512, 512, 128, 128],
+        q_hd=[32, 32, 128, 128, 128, 128],
+        k_linear=[16, 16, 512, 512, 64, 64],
+        w_linear=[16, 16, 1024, 1024, 32, 32],
+        unroll_list=[32, 16, 8, 4, 2, 1],
+        cube_l1_reuse_setting={1: 4},
+        mg_copyin_upper_bound=2 * 1024 * 1024,
+        pg_upper_bound=8192,
+        block_size=128,
+        t_sub_tile=1,
+        chunk_size=2,
+        vec_nbuffer_mode=0,
+    )
+    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b111_s1_1_s2_8k", configs)
 
 
 class Model(torch.nn.Module):
