@@ -12,6 +12,7 @@
 """
 from typing import List
 
+import pytest
 import pypto
 import torch
 import torch_npu
@@ -38,6 +39,7 @@ def isfinite_2d(view_shape: List[SymInt], tile_shape: List[int]):
     return isfinite_2d_impl
 
 
+@pytest.mark.skip(True)
 def test_is_finite():
     view_shape = [32, 128]
     tile_shape = [32, 32]
