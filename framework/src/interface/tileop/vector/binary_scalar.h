@@ -131,9 +131,9 @@ TILEOP void TMinS(T0 dst, T1 src0, Scalar src1) {
 }
 
 #define OP_TILE_OP_REMS TRemainderS
-template <typename LastUse = LastUse2Dim<0, 0>, typename Scalar, typename T0, typename T1>
+template <typename Scalar, typename T0, typename T1>
 TILEOP void TRemainderS(T0 dst, T1 src0, Scalar src1) {
-    BinaryScalarCompute<BinaryScalarOp::REM, LastUse>(dst, src0, src1);
+    BinaryScalarCompute<BinaryScalarOp::REM, LastUse2Dim<0, 0>>(dst, src0, src1);
 }
 
 #define OP_TILE_OP_BITWISEANDS TBitwiseAndS
@@ -192,7 +192,7 @@ TILEOP void TBitwiseXorS(T0 dst, T1 src0, Scalar src1, T2 tmp) {
 }
 
 #define OP_TILE_OP_REMRS TRemainderRS
-template <typename LastUse = LastUse2Dim<0, 0>, typename Scalar, typename T0, typename T1, typename T2>
+template <typename Scalar, typename T0, typename T1, typename T2>
 TILEOP void TRemainderRS(T0 dst, T1 src0, Scalar src1, T2 tmp) {
     const auto dstLayout = dst.GetLayout();
     auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();

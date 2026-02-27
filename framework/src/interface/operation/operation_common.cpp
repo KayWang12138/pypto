@@ -20,11 +20,12 @@ namespace npu::tile_fwk {
 inline const std::vector<size_t> &GetShapeLenLimit(const std::string &op) {
     // if the limit of op is not [1, 4], should add here
     static std::unordered_map<std::string, const std::vector<size_t>> op_shape_len_limit = {
-        {    "ADD", {1, 4}},
-        {   "CAST", {1, 4}},
+        {     "ADD", {1, 4}},
+        {    "CAST", {1, 4}},
         {"ISFINITE", {1, 5}},
-        {   "REM", {1, 5}},
-        {"DEFAULT", {1, 4}}
+        {     "REM", {1, 5}},
+        {    "REMR", {1, 5}},
+        { "DEFAULT", {1, 4}}
     };
     if (op_shape_len_limit.find(op) == op_shape_len_limit.end()) {
         return op_shape_len_limit.at("DEFAULT");
