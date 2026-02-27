@@ -460,6 +460,7 @@ std::string CodeGenCloudNPU::GetPtoTileLibPathByEnv() const {
     const char *homePath = std::getenv(ENV_PTO_TILE_LIB_CODE_PATH.c_str());
     if (homePath != nullptr) {
         std::string envPath = std::string(homePath) + "/include";
+        std::cout<<envPath<<"ENV PAAAAATH!!"<<std::endl;
         ASSERT(IsPathExist(envPath + "/pto")) << "Pto-isa path " << envPath << "/pto not found! please check.";
         return envPath;
     }
