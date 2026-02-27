@@ -218,11 +218,11 @@ private:
         DeviceInitTilingData(MemoryHelper(true), kArgs, dynAttr->devProgBinary, nullptr, config_, nullptr);
         InitKernelInOuts(kArgs, inputs, outputs, true);
         RunCostModel(&kArgs);
-        SIMULATION_EVENT("Run TestModel");
+        SIMULATION_LOGI("Run TestModel");
         RunTestMode(&kArgs, DEVICE_MAX_AICPU_NUM);
-        SIMULATION_EVENT("Run DynCostModel");
+        SIMULATION_LOGI("Run DynCostModel");
         RunDynCostModel();
-        SIMULATION_EVENT("Run PvModel");
+        SIMULATION_LOGI("Run PvModel");
         RunPvModel(kArgs, inputs, outputs);
     }
 
