@@ -61,7 +61,7 @@ struct CalcOps {
 
     void (*Cast)(const TensorData &, const TensorData &, CastMode);
     void (*Exp)(const TensorData &, const TensorData &);
-    void (*Exp2)(LogicalTensorDataPtr, LogicalTensorDataPtr);
+    void (*Exp2)(const TensorData &, const TensorData &);
     void (*Neg)(const TensorData &, const TensorData &);
     void (*Rsqrt)(const TensorData &, const TensorData &);
     void (*Sign)(const TensorData &, const TensorData &);
