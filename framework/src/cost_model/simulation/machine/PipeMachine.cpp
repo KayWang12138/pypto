@@ -185,7 +185,7 @@ void PipeMachine::ReceivePacket()
     tile = packet.tileopTask.tile;
     tileOp = packet.tileopTask.tileOp;
     executingTaskId = packet.taskId;
-    SIMULATION_LOGI("[Cycle: %lu][PipeMachine: %zu][ReceivePacket] get task %lu magic %d", 
+    SIMULATION_LOGI("[Cycle: %lu][PipeMachine: %zu][ReceivePacket] get task %lu magic %d",
             GetSim()->GetCycles(), machineId, packet.taskId, packet.tileopTask.magic);
     SetMachineExecuting(true);
     LoggerRecordPipeWL(pipeId, CounterType::QUEUE_PUSH);
@@ -241,7 +241,7 @@ void PipeMachine::ProcessTileOp()
         if (tileOp->specialOp) {
             latency = 1;
         }
-        ASSERT(latency > 0) << "[SIMULATION]: latency must be greater than 0. latency=" 
+        ASSERT(latency > 0) << "[SIMULATION]: latency must be greater than 0. latency="
             << latency << " taskId=" << tileOp->taskId;
         if (l2cacheMachine) {
             if (pipeType == CostModel::CorePipeType::PIPE_MTE_IN) {

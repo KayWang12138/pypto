@@ -29,12 +29,12 @@ def create_add_dyn_kernel(shape: tuple, run_mode: str = "npu"):
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode},
                         verify_options=verify_options
                         )
     def add_dyn_kernel(
-            x: pypto.Tensor(shape, pypto.DT_FP16), 
+            x: pypto.Tensor(shape, pypto.DT_FP16),
             y: pypto.Tensor(shape, pypto.DT_FP16)) -> pypto.Tensor(shape, pypto.DT_FP16):
         first_dim, second_dim = x.shape
         view_shape, tile_shape = (64, 64), (32, 32)

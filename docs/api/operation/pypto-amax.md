@@ -13,16 +13,16 @@
 
 定义指定计算的维度（Reduce轴）为R轴，非指定维度（Normal轴）为A轴。如下图所示，对Shape为\(2, 3\)的二维矩阵进行运算，指定在第一维求最大值，输出结果为\[4, 5, 6\]；指定在第二维求最大值，输出结果为\[3, 6\]。
 
-**图 1**  amax按第一个维度计算示例  
+**图 1**  amax按第一个维度计算示例
 ![](../figures/pypto.amax_1.png)
 
-**图 2**  amax按最后一个维度计算示例  
+**图 2**  amax按最后一个维度计算示例
 ![](../figures/pypto.amax_2.png)
 
 ## 函数原型
 
 ```python
-amax(input: Tensor, dim: int, keepdim: bool = False) -> Tensor: 
+amax(input: Tensor, dim: int, keepdim: bool = False) -> Tensor:
 ```
 
 ## 参数说明
@@ -76,9 +76,8 @@ y = pypto.amax(x, -1, True)
 结果示例如下：
 
 ```python
-输入数据 x: [[1.0 2.0 3.0], 
+输入数据 x: [[1.0 2.0 3.0],
              [1.0 2.0 3.0]]
 输出数据 y: [[3.0],
              [3.0]]
 ```
-

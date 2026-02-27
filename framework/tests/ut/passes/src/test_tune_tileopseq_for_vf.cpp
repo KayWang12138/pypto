@@ -130,7 +130,7 @@ TEST_F(TuneTileopseqForVFTest, TestNotMergeForTuneTileop) {
     opListPtr[4]->GetIOperands()[0]->memoryrange.start = TT_NUM60;
     opListPtr[4]->GetIOperands()[0]->memoryrange.end = TT_NUM70;
     opListPtr[4]->GetOOperands()[0]->memoryrange.start = TT_NUM70;
-    opListPtr[4]->GetOOperands()[0]->memoryrange.end = TT_NUM80; 
+    opListPtr[4]->GetOOperands()[0]->memoryrange.end = TT_NUM80;
     TuneTileOpSeqForVF tuneTileop;
     PipeSync ps;
     tuneTileop.opList_ = opListPtr;

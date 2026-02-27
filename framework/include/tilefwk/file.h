@@ -24,8 +24,8 @@ namespace npu {
 namespace tile_fwk {
 inline std::string RealPath(const std::string &path) {
     std::string res;
-    if (path.empty()) {	
-        return res;	
+    if (path.empty()) {
+        return res;
     }
     if (path.size() >= PATH_MAX) {
         FUNCTION_LOGI("File path %s is too long.", path.c_str());

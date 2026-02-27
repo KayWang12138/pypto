@@ -139,7 +139,7 @@ void bind_enum(py::module &m){
         .value("NO_RELU", Matrix::ReLuType::NoReLu)
         .value("RELU", Matrix::ReLuType::ReLu)
         .export_values();
-    
+
     py::enum_<Conv::ReLuType>(m, "ConvReLuType")
         .value("NO_RELU", Conv::ReLuType::NoReLu)
         .value("RELU", Conv::ReLuType::ReLu)

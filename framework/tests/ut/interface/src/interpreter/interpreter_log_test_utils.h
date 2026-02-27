@@ -146,4 +146,3 @@ inline bool VerifyLogContainsIndex0Failed(const std::string& logOutput) {
     static const std::regex kVerifyIndex0FailedPattern(R"(\[VERIFY][^\n]*index 0 result FAILED)");
     return std::regex_search(logOutput, kVerifyIndex0FailedPattern);
 }
-

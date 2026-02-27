@@ -220,14 +220,14 @@ def _detect_cann(ascend_root: str, cann_hint: str | None = None) -> dict[str, An
 def _detect_pypto_repo() -> dict[str, Any]:
     """自动检测 PyPTO 仓库路径。"""
     candidates = []
-    
+
     # 从已安装的 pypto 包路径反推仓库根目录（优先级最高）
     pypto_info = _safe_import('pypto')
     if pypto_info.get('file'):
         # /path/to/pypto/python/pypto/__init__.py -> /path/to/pypto
         pypto_pkg_dir = os.path.dirname(os.path.dirname(os.path.dirname(pypto_info['file'])))
         candidates.append(pypto_pkg_dir)
-    
+
     # 环境变量 + 常规候选路径
     _ws = os.environ.get("HOME") or os.getcwd()
     candidates.extend([
@@ -236,7 +236,7 @@ def _detect_pypto_repo() -> dict[str, Any]:
         os.path.join(os.path.expanduser("~"), "pypto"),
         os.getcwd(),
     ])
-    
+
     for p in candidates:
         if not p:
             continue

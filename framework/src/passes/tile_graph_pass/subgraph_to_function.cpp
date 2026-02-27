@@ -747,8 +747,8 @@ Status SubgraphToFunction::GetTensorDataDependencyClear(Function &function) {
             }
             auto &copyInOp = op;
             copyInOp.SetAsDeleted();
-            int tensorIndex = GetTensorDataGetIndex(&op); 
-            int addrCoaIndex = GetTensorDataGetCoaIndex(&op); 
+            int tensorIndex = GetTensorDataGetIndex(&op);
+            int addrCoaIndex = GetTensorDataGetCoaIndex(&op);
             if (tensorIndex == -1) {
                 APASS_LOG_ERROR_F(Elements::Operation, "Atrribute op_emuop_GetTensorData_index is not found for operation[%d]. %s", op.GetOpMagic(), GetFormatBacktrace(copyInOp).c_str());
                 return FAILED;
@@ -848,7 +848,7 @@ Status SubgraphToFunction::RecoverCopyInToViewAfterGenSubgraph(Function &functio
             }
         }
     }
-        
+
     return SUCCESS;
 }
 

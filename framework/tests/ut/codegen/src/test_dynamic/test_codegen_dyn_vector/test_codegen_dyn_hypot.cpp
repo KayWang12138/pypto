@@ -49,7 +49,7 @@ public:
 TEST_F(TestCodegenDynHypot, HypotNormal) {
     std::vector<int64_t> shape = {32, 256};
     TileShape::Current().SetVecTile(shape);
-    
+
     Tensor inputA(DT_FP32, shape, "inputA");
     Tensor inputB(DT_FP32, shape, "inputB");
     Tensor output(DT_FP32, shape, "output");
@@ -65,7 +65,7 @@ TEST_F(TestCodegenDynHypot, HypotNormal) {
 
     auto rawName = FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX;
     auto function = Program::GetInstance().GetFunctionByRawName(rawName);
-    
+
     ASSERT_NE(function, nullptr) << "Failed to find function: " << rawName;
 
     npu::tile_fwk::CodeGenCtx ctx;

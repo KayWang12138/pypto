@@ -163,9 +163,9 @@ public:
     static void CompareData(CompareResult &compareResult, size_t count, int64_t offset, const DataType *goldenValueList,
                             const DataType *outputValueList) {
         for (size_t index = 0; index < count; index++) {
-            auto goldenValue = static_cast<T>(goldenValueList[index]);       
+            auto goldenValue = static_cast<T>(goldenValueList[index]);
             auto outputValue = static_cast<T>(outputValueList[index]);
-            
+
             auto output_abs = abs(outputValue);
             auto golden_abs = abs(goldenValue);
             auto output_golden_sub_abs = abs(outputValue - goldenValue);

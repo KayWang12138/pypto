@@ -89,7 +89,7 @@ TEST_F(TestCodegenGather, TestGatherEleTileTensor) {
     std::string res = GetResultFromCpp(func);
     std::string expect = R"!!!(TgatherElement<4>(ubTensor_13, ubTensor_6, ubTensor_11, ubTensor_14);
 )!!!";
-    CheckStringExist(expect, res);  
+    CheckStringExist(expect, res);
 }
 
 } // namespace npu::tile_fwk

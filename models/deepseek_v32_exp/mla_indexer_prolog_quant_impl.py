@@ -269,8 +269,8 @@ def mla_indexer_prolog_quant_compute(
 
 
 def mla_indexer_prolog_quant_p(h, n_q, q_lora_rank, kv_lora_rank, qk_nope_head_dim, \
-        qk_rope_head_dim, idx_n_heads, idx_head_dim, 
-        mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, mla_tile_config, 
+        qk_rope_head_dim, idx_n_heads, idx_head_dim,
+        mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, mla_tile_config,
         ip_attrs, ip_configs, rope_cfg):
     t = pypto.frontend.dynamic("t")
     block_num = pypto.frontend.dynamic("blovk_num")
@@ -310,7 +310,7 @@ def mla_indexer_prolog_quant_p(h, n_q, q_lora_rank, kv_lora_rank, qk_nope_head_d
     mla_query_rope_out_shape = (t, n_q, qk_rope_head_dim)
     mla_kv_cache_out_shape = (block_num, block_size, 1, kv_lora_rank)
     mla_kr_cache_out_shape = (block_num, block_size, 1, qk_rope_head_dim)
-    mla_k_scale_cache_out_shape = (block_num, block_size, 1, 4)   
+    mla_k_scale_cache_out_shape = (block_num, block_size, 1, 4)
     ip_q_int8_out_shape = (t, idx_n_heads, idx_head_dim)
     ip_q_scale_out_shape = (t, idx_n_heads, 1)
     ip_k_int8_out_shape = (block_num, block_size, 1, idx_head_dim)
@@ -442,8 +442,8 @@ def mla_indexer_prolog_quant_p(h, n_q, q_lora_rank, kv_lora_rank, qk_nope_head_d
 
 
 def mla_indexer_prolog_quant_d(h, n_q, q_lora_rank, kv_lora_rank, qk_nope_head_dim, \
-        qk_rope_head_dim, idx_n_heads, idx_head_dim, 
-        mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, mla_tile_config, 
+        qk_rope_head_dim, idx_n_heads, idx_head_dim,
+        mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, mla_tile_config,
         ip_attrs, ip_configs, rope_cfg):
     t = pypto.frontend.dynamic("t")
     block_num = pypto.frontend.dynamic("blovk_num")
@@ -483,7 +483,7 @@ def mla_indexer_prolog_quant_d(h, n_q, q_lora_rank, kv_lora_rank, qk_nope_head_d
     mla_query_rope_out_shape = (t, n_q, qk_rope_head_dim)
     mla_kv_cache_out_shape = (block_num, block_size, 1, kv_lora_rank)
     mla_kr_cache_out_shape = (block_num, block_size, 1, qk_rope_head_dim)
-    mla_k_scale_cache_out_shape = (block_num, block_size, 1, 4)   
+    mla_k_scale_cache_out_shape = (block_num, block_size, 1, 4)
     ip_q_int8_out_shape = (t, idx_n_heads, idx_head_dim)
     ip_q_scale_out_shape = (t, idx_n_heads, 1)
     ip_k_int8_out_shape = (block_num, block_size, 1, idx_head_dim)

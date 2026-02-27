@@ -34,7 +34,7 @@ public:
     void Put(void *dev, std::vector<uint8_t> &cpu) {
         if (capture_) {
             std::vector<uint8_t> copy(cpu);
-            data_[dev] = copy;  
+            data_[dev] = copy;
         }
     }
 

@@ -397,7 +397,7 @@ class Parser(ast.NodeVisitor):
             if __is_enum_dyn(tensor_input_args):
                 tensor_input_args_def = self._visit_arguments(function_node.args)
                 tensor_input_args = self.input_pto_tensor[:len(tensor_input_args_def)]  # ensure len equal
-                
+
                 for in_obj, def_obj in zip(tensor_input_args, tensor_input_args_def):
                     in_obj.name = def_obj.name
 
@@ -2133,4 +2133,3 @@ class Parser(ast.NodeVisitor):
                     f"{type(test_result).__name__} to boolean."
                 ),
             ) from e
-

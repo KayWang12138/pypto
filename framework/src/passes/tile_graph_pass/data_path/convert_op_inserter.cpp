@@ -248,7 +248,7 @@ Status ConvertInserter::RecordConflict(Function &function) {
                 if (requiredMemoryType == oOperand->GetMemoryTypeOriginal()) {
                     continue;
                 }
-                
+
                 //step3：处理特殊生产者消费者场景
                 ProcessSpecialProducersOrConsumers(op, oOperand, consumers, requiredMemoryType);
                 if (requiredMemoryType == oOperand->GetMemoryTypeOriginal()) {
@@ -308,7 +308,7 @@ void ConvertInserter::ProcessSpecialProducersOrConsumers(const Operation &op, co
 bool ConvertInserter::IsNotValidDataType(const std::shared_ptr<LogicalTensor> &firstCVOutput) const {
     // 1. 获取当前NPU架构
     const NPUArch currentArch = Platform::Instance().GetSoc().GetNPUArch();
-    
+
     // 2. 查找当前架构对应的支持类型集合（容错：找不到则用DAV_UNKNOWN兜底）
     auto archIter = kArch2SupportedDtypes.find(currentArch);
     if (archIter == kArch2SupportedDtypes.end()) {

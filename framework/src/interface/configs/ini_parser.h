@@ -23,7 +23,7 @@ class INIParser {
   public:
     INIParser() = default;
     ~INIParser() = default;
-    Status Initialize(const std::string &iniFilePath); 
+    Status Initialize(const std::string &iniFilePath);
     Status GetStringVal(const std::string& column, const std::string& key, std::string& val);
     Status GetSizeVal(const std::string& column, const std::string& key, size_t& val);
 
@@ -39,5 +39,5 @@ class INIParser {
     std::map<std::string, std::map<std::string, std::string>> data_;
 };
 } // namespace tile_fwk
-} // namepsace npu 
+} // namepsace npu
 #endif
