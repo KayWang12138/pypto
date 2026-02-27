@@ -20,7 +20,7 @@
 #include "hccl_context.h"
 #include "interface/tileop/distributed/comm_context.h"
 
-namespace {  
+namespace {
 class TilingStructBase {
 public:
     TilingStructBase() {}

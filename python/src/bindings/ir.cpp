@@ -326,27 +326,27 @@ static void IrBuilderBindScalarOps(py::class_<IRBuilder> &irBuilder) {
                 return std::static_pointer_cast<Operation>(self.CreateCall1ScalarOp(opcode, arg0, out, name));
 }, py::arg("opcode"), py::arg("ar0"), py::arg("out"), py::arg("name"))
         .def("create_call_2_scalar_op",
-            [](IRBuilder &self, Opcode opcode, ScalarValuePtr arg0, ScalarValuePtr arg1, 
+            [](IRBuilder &self, Opcode opcode, ScalarValuePtr arg0, ScalarValuePtr arg1,
                ScalarValuePtr out, const std::string &name) {
                 return std::static_pointer_cast<Operation>(self.CreateCall2ScalarOp(opcode, arg0, arg1, out, name));
 }, py::arg("opcode"), py::arg("arg0"), py::arg("arg1"), py::arg("out"), py::arg("name"))
         .def("create_call_3_scalar_op",
-            [](IRBuilder &self, Opcode opcode, ScalarValuePtr arg0, ScalarValuePtr arg1, 
+            [](IRBuilder &self, Opcode opcode, ScalarValuePtr arg0, ScalarValuePtr arg1,
                ScalarValuePtr arg2, ScalarValuePtr out, const std::string &name) {
                 return std::static_pointer_cast<Operation>(
                     self.CreateCall3ScalarOp(opcode, arg0, arg1, arg2, out, name));
 }, py::arg("opcode"), py::arg("arg0"), py::arg("arg1"), py::arg("arg2"), py::arg("out"), py::arg("name"))
         .def("create_call_4_scalar_op",
-            [](IRBuilder &self, Opcode opcode, 
-                ScalarValuePtr arg0, ScalarValuePtr arg1, ScalarValuePtr arg2, ScalarValuePtr arg3, 
+            [](IRBuilder &self, Opcode opcode,
+                ScalarValuePtr arg0, ScalarValuePtr arg1, ScalarValuePtr arg2, ScalarValuePtr arg3,
                 ScalarValuePtr out, const std::string &name) {
                 return std::static_pointer_cast<Operation>(
                     self.CreateCall4ScalarOp(opcode, arg0, arg1, arg2, arg3, out, name));
-}, py::arg("opcode"), py::arg("arg0"), py::arg("arg1"), py::arg("arg2"), py::arg("arg3"), 
+}, py::arg("opcode"), py::arg("arg0"), py::arg("arg1"), py::arg("arg2"), py::arg("arg3"),
     py::arg("out"), py::arg("name"))
         .def("create_call_5_scalar_op",
-            [](IRBuilder &self, Opcode opcode, ScalarValuePtr arg0, ScalarValuePtr arg1, 
-                ScalarValuePtr arg2, ScalarValuePtr arg3, ScalarValuePtr arg4, 
+            [](IRBuilder &self, Opcode opcode, ScalarValuePtr arg0, ScalarValuePtr arg1,
+                ScalarValuePtr arg2, ScalarValuePtr arg3, ScalarValuePtr arg4,
                 ScalarValuePtr out, const std::string &name) {
                 return std::static_pointer_cast<Operation>(
                     self.CreateCall5ScalarOp(opcode, arg0, arg1, arg2, arg3, arg4, out, name));

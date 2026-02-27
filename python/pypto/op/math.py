@@ -574,7 +574,7 @@ def abs(a: Tensor) -> Tensor:
 def reciprocal(a: Tensor) -> Tensor:
     """
     Returns a new tensor with the reciprocal of the elements of input
-    
+
     Parameters
     ----------
     input : Tensor
@@ -600,10 +600,10 @@ def reciprocal(a: Tensor) -> Tensor:
 def relu(a: Tensor) -> Tensor:
     """
     Returns a new tensor with the rectified linear unit function applied element-wise.
-    
+
     The function is defined as:
     y = max(0, x)
-    
+
     Parameters
     ----------
     input : Tensor
@@ -894,7 +894,7 @@ def sqrt(input: Tensor) -> Tensor:
 def neg(a: Tensor) -> Tensor:
     """
     Returns a new tensor with the negative of the elements of input.
-    
+
     Parameters
     ----------
     input : Tensor
@@ -1022,7 +1022,7 @@ def cumsum(
         The tensor after calculating the cumulative sum.
     Examples
     ---------
-    x = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
+    x = pypto.tensor([2, 3], pypto.data_type.DT_INT32)
     dim = 0
     out = pypto.cumsum(x, dim)
     Input  x : [[0 1 2],
@@ -1165,7 +1165,7 @@ def triu(
     diagonal: SymInt = 0
 ) -> Tensor:
     """
-    Return the upper traingular part of a matrix or a banch of matrices `input`, the other elements of 
+    Return the upper traingular part of a matrix or a banch of matrices `input`, the other elements of
     the result are set to 0.
     Parameters
     ---------
@@ -1177,7 +1177,7 @@ def triu(
         The tensor after calculation.
     Examples
     ---------
-    x = pypto.tensor([3, 3], pypto.data_type.DT_INT32) 
+    x = pypto.tensor([3, 3], pypto.data_type.DT_INT32)
     diagonal = 0
     out = pypto.triu(x, diagonal)
     Input  x : [[1 2 3],
@@ -1210,7 +1210,7 @@ def tril(
         The tensor after calculation.
     Examples
     ---------
-    x = pypto.tensor([3, 3], pypto.data_type.DT_INT32) 
+    x = pypto.tensor([3, 3], pypto.data_type.DT_INT32)
     diagonal = 0
     out = pypto.tril(x, diagonal)
     Input  x : [[1 2 3],
@@ -1265,7 +1265,7 @@ def isfinite(self: Tensor) -> Tensor:
     --------
     self: Tensor
         The input tensor
-    
+
     Examples
     --------
     self = pypto.tensor([3, 3], pypto.data_type.DT_FP32)

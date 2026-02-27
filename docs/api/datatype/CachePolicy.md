@@ -18,4 +18,3 @@ class CachePolicy(enum.Enum):
      PREFETCH = ...        # 预取策略，提前将数据加载到缓存中，减少访问延迟
      NONE_CACHEABLE = ...  # 不可缓存策略，数据不存储在缓存中，直接访问主存
 ```
-

@@ -58,7 +58,7 @@ pypto.set_vec_tile_shapes(4, 16, 32)
 ```python
 a = pypto.tensor([2, 2], pypto.DT_FP32)  # 2x2 tensor with all 1s
 b = pypto.tensor([2, 2], pypto.DT_FP32)  # 2x2 tensor with all 0s
-out = pypto.concat([a, b], dim = 0) 
+out = pypto.concat([a, b], dim = 0)
 ```
 
 结果示例如下：
@@ -74,4 +74,3 @@ out = pypto.concat([a, b], dim = 0)
               [0.0 0.0]]
 
 ```
-

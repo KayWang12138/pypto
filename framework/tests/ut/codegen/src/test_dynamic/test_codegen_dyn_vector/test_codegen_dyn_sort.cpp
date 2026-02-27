@@ -215,7 +215,7 @@ Operation &GetTopkOp(Function *function, Opcode opCode, const LogicalTensors &te
         op.SetAttribute(OpAttributeKey::dynScalar, startIdx);
         return op;
     }
-    
+
     auto &op = function->AddOperation(opCode, {tensors[TOPK_OP_X_IDX]}, {tensors[TOPK_OP_Y_IDX]});
     return op;
 }
@@ -286,7 +286,7 @@ TEST_F(TestCodegenDynSort, TestDynTwoTileMrgSort) {
     param.op->SetAttribute(OP_ATTR_PREFIX + "firstshape", 32);
 
     std::string res = generateCodeForOp(param.op);
-    std::string expect = 
+    std::string expect =
         R"!!!(TileOp::DynTwoTileMrgSort<float, 1, 1, 64, 64, 1, 1, 64, 64, 32>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1, 1, 64, 64);
 )!!!";
     EXPECT_EQ(res, expect);
@@ -297,7 +297,7 @@ TEST_F(TestCodegenDynSort, TestDynExtractSingle) {
     param.op->SetAttribute(OP_ATTR_PREFIX + "order", 1);
     param.op->SetAttribute(OP_ATTR_PREFIX + "maskmode", 0);
     std::string res = generateCodeForOp(param.op);
-    std::string expect = 
+    std::string expect =
         R"!!!(TileOp::DynExtractSingle<float, float, 1, 1, 64, 64, 1, 1, 64, 64, 0, 1>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1, 1, 64, 64);
 )!!!";
     EXPECT_EQ(res, expect);

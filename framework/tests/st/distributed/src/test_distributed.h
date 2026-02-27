@@ -26,7 +26,7 @@
 namespace npu::tile_fwk::Distributed {
 
 struct OpMetaData {
-    explicit OpMetaData(const nlohmann::json &testData, 
+    explicit OpMetaData(const nlohmann::json &testData,
         std::string& fileName) : testData_(testData), fileName_(fileName) {}
     nlohmann::json testData_;
     std::string fileName_;
@@ -35,7 +35,7 @@ struct OpMetaData {
 struct DisOpRegister {
     using opFunc = std::function<void(OpTestParam&, const std::string&, std::string& goldenDir)>;
     std::unordered_map<std::string, opFunc> disRegisterMap;
-    
+
     static DisOpRegister& GetRegister()
     {
         static DisOpRegister disOpRegister;
@@ -61,7 +61,7 @@ struct DisOpRegister {
         };
     }
 
-    void Run(const std::string &opName, OpTestParam &testParam, const std::string &dtype, 
+    void Run(const std::string &opName, OpTestParam &testParam, const std::string &dtype,
             std::string& goldenDir)
     {
         if (!disRegisterMap.count(opName)) {
@@ -76,7 +76,7 @@ std::vector<T> GetOpMetaDataFromFile(const std::filesystem::path& filePath)
 {
     std::ifstream jsonFile(filePath);
     if (!jsonFile.is_open()) {
-        DISTRIBUTED_LOGE("Failed to open Json file for Path: %s", 
+        DISTRIBUTED_LOGE("Failed to open Json file for Path: %s",
             std::filesystem::absolute(filePath).string().c_str());
         return {};
     }
@@ -87,7 +87,7 @@ std::vector<T> GetOpMetaDataFromFile(const std::filesystem::path& filePath)
         testCaseList.emplace_back(tc, fileName);
     }
     if (testCaseList.empty()) {
-        DISTRIBUTED_LOGE("No test cases found in json for File: %s", 
+        DISTRIBUTED_LOGE("No test cases found in json for File: %s",
             std::filesystem::absolute(filePath).string().c_str());
     }
     return testCaseList;

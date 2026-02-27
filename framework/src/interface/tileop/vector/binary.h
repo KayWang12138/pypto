@@ -72,12 +72,12 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
             PTO_WITH_LAST_USE(pto::TROWEXPANDMIN(dst, src0, src1), n1, n2, n3);
         }
     }
-        
+
     if constexpr (op == BinaryOp::BITWISEAND) {
         pto::TAND(dst, src0, src1);
         return;
     }
-  
+
     if constexpr (op == BinaryOp::BITWISEOR) {
         pto::TOR(dst, src0, src1);
         return;
@@ -125,9 +125,9 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
 
     constexpr auto src0TileW = TileOp::GetTensorTileShapeDim<T1, DIM_5TH, MAX_DIMS>();
     constexpr auto src1TileW = TileOp::GetTensorTileShapeDim<T2, DIM_5TH, MAX_DIMS>();
-    using Src0PtoTile = typename std::conditional<(src0TileW == 1 && operand == TileOp::BroadcastOperand::LEFT_OPERAND), 
+    using Src0PtoTile = typename std::conditional<(src0TileW == 1 && operand == TileOp::BroadcastOperand::LEFT_OPERAND),
         PtoTile<T1, pto::BLayout::ColMajor>, PtoTile<T1>>::type;
-    using Src1PtoTile = typename std::conditional<(src1TileW == 1 && operand == TileOp::BroadcastOperand::RIGHT_OPERAND), 
+    using Src1PtoTile = typename std::conditional<(src1TileW == 1 && operand == TileOp::BroadcastOperand::RIGHT_OPERAND),
         PtoTile<T2, pto::BLayout::ColMajor>, PtoTile<T2>>::type;
 
     auto dstTile = PtoTile<T0>(dst);

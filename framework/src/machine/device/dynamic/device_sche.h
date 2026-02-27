@@ -143,33 +143,33 @@ struct DynMachineManager {
         int (*kernelCtrlServer)(void *targ);
     };
 
-    int AllocThreadIdx(int nrAicpu, uint32_t scheCpuNum, std::atomic<int> &threadIdx) { 
-        if (scheCpuNum == 1) { 
-            return ++threadIdx; 
-        } 
-        int cpu = sched_getcpu(); 
-        cpumask_.fetch_or(1 << cpu, std::memory_order_release); 
-        while (__builtin_popcount(cpumask_.load(std::memory_order_acquire)) != nrAicpu) { 
-            sched_yield(); 
-        } 
-        auto maskval = cpumask_.load(std::memory_order_relaxed); 
-        int cpuoff = 0; 
-        int clus_id = -1; 
-        for (int index = 0; index < static_cast<int>(sizeof(uint64_t)); ++index) { 
-            int mask = (maskval >> cpuoff) & 0xF; 
-            if (__builtin_popcount(static_cast<uint32_t>(mask)) >= static_cast<int>(scheCpuNum)) { 
-                clus_id = index; 
-                break; 
-            } 
-            cpuoff += CPUS_PER_CLUSTER; 
-        } 
-        if (clus_id == -1) { 
-            return ++threadIdx; 
-        } 
-        if (cpu < cpuoff || cpu >= (cpuoff + CPUS_PER_CLUSTER)) { 
-            return -1; 
-        } 
-        return ++threadIdx; 
+    int AllocThreadIdx(int nrAicpu, uint32_t scheCpuNum, std::atomic<int> &threadIdx) {
+        if (scheCpuNum == 1) {
+            return ++threadIdx;
+        }
+        int cpu = sched_getcpu();
+        cpumask_.fetch_or(1 << cpu, std::memory_order_release);
+        while (__builtin_popcount(cpumask_.load(std::memory_order_acquire)) != nrAicpu) {
+            sched_yield();
+        }
+        auto maskval = cpumask_.load(std::memory_order_relaxed);
+        int cpuoff = 0;
+        int clus_id = -1;
+        for (int index = 0; index < static_cast<int>(sizeof(uint64_t)); ++index) {
+            int mask = (maskval >> cpuoff) & 0xF;
+            if (__builtin_popcount(static_cast<uint32_t>(mask)) >= static_cast<int>(scheCpuNum)) {
+                clus_id = index;
+                break;
+            }
+            cpuoff += CPUS_PER_CLUSTER;
+        }
+        if (clus_id == -1) {
+            return ++threadIdx;
+        }
+        if (cpu < cpuoff || cpu >= (cpuoff + CPUS_PER_CLUSTER)) {
+            return -1;
+        }
+        return ++threadIdx;
     }
 
     void SignalReg(const KernelCtrlEntry &entry) {
@@ -255,19 +255,19 @@ struct DynMachineManager {
             DEV_ERROR("Aicpu num[%u] less than sche num[%u].", devArgs->nrAicpu, devArgs->scheCpuNum);
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
         }
-        int threadIdx = AllocThreadIdx(devArgs->nrAicpu, devArgs->scheCpuNum, threadIdx_);	 
+        int threadIdx = AllocThreadIdx(devArgs->nrAicpu, devArgs->scheCpuNum, threadIdx_);
         uint64_t allocThreadCycle = GetCycles();
 
-        if ((threadIdx != -1) && threadIdx <= static_cast<int>(devArgs->scheCpuNum)) {	 
+        if ((threadIdx != -1) && threadIdx <= static_cast<int>(devArgs->scheCpuNum)) {
              ret = RunSche(kargs, entry, threadIdx);
         } else {
-            threadIdx = ctrlcpuIdx_.fetch_add(1);	 
-            DEV_INFO("TaskType %d.",  static_cast<int>(devArgs->taskType)); 
-            if (devArgs->enableCtrl == 1 && threadIdx == CTRL_CPU_THREAD_IDX) { 
+            threadIdx = ctrlcpuIdx_.fetch_add(1);
+            DEV_INFO("TaskType %d.",  static_cast<int>(devArgs->taskType));
+            if (devArgs->enableCtrl == 1 && threadIdx == CTRL_CPU_THREAD_IDX) {
                 ret = RunCtrl(kargs, entry, threadIdx);
             } else {
                 threadIdx += devArgs->scheCpuNum;
-                SignalReg(entry); 
+                SignalReg(entry);
             }
         }
 

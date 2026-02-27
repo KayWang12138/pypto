@@ -52,8 +52,8 @@ def safe_json_load(file_path):
 def get_out_put_path():
     out_path = "./output"
     if os.path.exists(out_path):
-        subdirs = [os.path.join(out_path, d) for d in os.listdir(out_path) 
-                if os.path.isdir(os.path.join(out_path, d))]   
+        subdirs = [os.path.join(out_path, d) for d in os.listdir(out_path)
+                if os.path.isdir(os.path.join(out_path, d))]
         if subdirs:
             latest_dir = max(subdirs, key=os.path.getctime)
             return latest_dir
@@ -84,7 +84,7 @@ def device_run(is_run_add, device_id):
 
         golden = torch.ones((n, m)) * 3
         assert torch.allclose(golden.int(), c_data.cpu(), atol=1e-5)
-    
+
     else:
         sub(pto_inputs[0], pto_inputs[1], pto_outputs[0], tiling)
         torch_npu.npu.synchronize()

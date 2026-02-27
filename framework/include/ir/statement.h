@@ -122,7 +122,7 @@ private:
     std::weak_ptr<CompoundStatement> parent_{};           // Pointer to parent scope (nullptr for root)
     std::vector<StatementPtr> statements_;                // Statements in this scope
     std::unordered_map<std::string, ValuePtr> envTable_;  // Environment table: variable name -> latest SSA Value
-    std::unordered_map<int, ValuePtr> valuesIndexTable_;  // Index table: index -> ValuePtr 
+    std::unordered_map<int, ValuePtr> valuesIndexTable_;  // Index table: index -> ValuePtr
 };
 
 using CompoundStatementPtr = std::shared_ptr<CompoundStatement>;

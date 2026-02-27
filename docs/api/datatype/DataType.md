@@ -36,4 +36,3 @@ class DataType(enum.Enum):
  DT_BOOL = ...     # 布尔类型，占用1字节内存
  DT_DOUBLE = ...   # 64位双精度浮点数，占用8字节内存
 ```
-

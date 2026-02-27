@@ -68,7 +68,7 @@ def layernorm_golden(x: torch.Tensor, gamma: torch.Tensor, beta: torch.Tensor, e
     return normalized * gamma + beta
 
 
-def layernorm_core(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, 
+def layernorm_core(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor,
                    eps: float, hidden_size: int) -> pypto.Tensor:
     # Compute mean
     mean = pypto.sum(x, dim=-1, keepdim=True)
@@ -88,7 +88,7 @@ def layernorm_core(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor,
     return scaled + beta
 
 
-def create_layer_norm_kernel(batch_size: int, hidden_size: int, config: NormConfig, 
+def create_layer_norm_kernel(batch_size: int, hidden_size: int, config: NormConfig,
                              run_mode: str = "npu", dynamic: bool = False):
     if dynamic:
         batch_size = pypto.frontend.dynamic("batch_size")
@@ -100,7 +100,7 @@ def create_layer_norm_kernel(batch_size: int, hidden_size: int, config: NormConf
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def layer_norm_kernel(
         x: pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16),
@@ -134,7 +134,7 @@ def test_layer_norm(device_id=None, run_mode: str = "npu", dynamic: bool = False
     beta_torch = torch.zeros(hidden_size, dtype=torch.bfloat16, device=device)
     config = NormConfig(norm_type="layernorm", dtype=pypto.DT_BF16)
 
-    out_torch = create_layer_norm_kernel(batch_size, hidden_size, 
+    out_torch = create_layer_norm_kernel(batch_size, hidden_size,
                                         config, run_mode, dynamic)(x_torch, gamma_torch, beta_torch)
 
     expected = layernorm_golden(x_torch, gamma_torch, beta_torch, config.eps)
@@ -176,7 +176,7 @@ def create_rms_norm_kernel(batch_size, hidden_size, config: NormConfig, run_mode
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def rms_norm_kernel(
         x: pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16),

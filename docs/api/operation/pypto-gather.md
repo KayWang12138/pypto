@@ -84,4 +84,3 @@ y = pypto.gather(x, dim, index)
              [5,  11, 2,  8],
              [10, 11, 7,  3]]
 ```
-

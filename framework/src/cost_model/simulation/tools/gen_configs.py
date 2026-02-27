@@ -24,7 +24,7 @@ def delete_config(path_to_config):
             print('delete', path_to_config)
             if path_to_config.exists():
                 path_to_config.unlink()
-            
+
             path_cpp = path_to_config.with_suffix('.cpp')
             print('delete', path_cpp)
             if path_cpp.exists():
@@ -61,7 +61,7 @@ def write_cpp(name, cfgs, dirname):
             return f"        {{\"{k}\", [&](string v){{ {k} = Parse{s}(v); }}}},\n"
         else:
             return f"        {{\"{k}\", [&](string v){{ Parse{s}(v, {k}); }}}},\n"
-    
+
     def gen_record_line(k, v):
         if isinstance(v, str):
             s = 'String'

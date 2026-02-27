@@ -174,5 +174,3 @@ int Function::GetOutcastIndex(const ValuePtr &value) const {
 }
 
 } // namespace pto
-
-

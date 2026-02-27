@@ -186,7 +186,7 @@ inline bool IsPairMergeable(DSU &dsu, int uRoot, int vRoot, int upperBound, doub
     }
     if ((IsValidMixGraph(AIVbefore1, AICbefore1, thresLower, thresUpper) || IsValidMixGraph(AIVbefore2, AICbefore2, thresLower, thresUpper)) &&
             !IsValidMixGraph(AIVafter, AICafter, thresLower, thresUpper)) {
-        return false;            
+        return false;
     }
     return true;
 }
@@ -288,7 +288,7 @@ inline void GetCoreType(const OperationsViewer opOriList, std::vector<std::vecto
                 break;
             }
         }
-        isReshape[i] = (colorNode[i].size() == 1 && 
+        isReshape[i] = (colorNode[i].size() == 1 &&
                         opOriList[colorNode[i][0]].GetOpcode() == Opcode::OP_RESHAPE);
     }
 }
@@ -347,7 +347,7 @@ Status ReduceCopyRunner::Init(Function &func) {
     return SUCCESS;
 }
 
-Status ReduceCopyRunner::MergePrepare(std::vector<std::tuple<int, int, size_t>> &candidates, 
+Status ReduceCopyRunner::MergePrepare(std::vector<std::tuple<int, int, size_t>> &candidates,
         std::map<int, int> &rootToDense) {
     std::set<int> activeRootSet;
     for (int i=0; i< color; i++) {

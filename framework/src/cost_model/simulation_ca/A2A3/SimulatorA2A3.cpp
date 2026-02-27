@@ -32,4 +32,3 @@ namespace CostModel
         return ret;
     }
 } // namespace CostModel
-

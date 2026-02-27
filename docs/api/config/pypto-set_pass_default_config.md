@@ -39,4 +39,3 @@ set_pass_default_config(key: PassConfigKey, value: bool)
 ```python
 pypto.set_pass_default_config(pypto.PassConfigKey.KEY_DUMP_GRAPH, True)
 ```
-

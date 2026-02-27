@@ -443,7 +443,7 @@ TEST_F(OnBoardIFATest, test_32_1_sign) {
     std::vector<float> golden(outCapa);
     std::vector<float> res(outCapa);
     machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
-    
+
     readInput(GetGoldenDir() + "/res.bin", golden);
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);

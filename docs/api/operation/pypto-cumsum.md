@@ -63,4 +63,3 @@ y = pypto.cumsum(input, dim)
 输出数据 y:   [[0 1 2],
                [3 5 7]]                             # shape (2, 3)
 ```
-

@@ -172,19 +172,19 @@ Status RemoveRedundantOp::ProcessViewAssemble(Function &function) {
             if (startTensor->shape == endTensor->shape && startTensor->offset == endTensor->offset ) {
                 //case1：view输入和assemble输出tensor shape和offset完全匹配
                 //      startTensor(inshape) ---> view1  ---> tempTensor1  --->  assemble1  ---> endTensor(outshape = inshape)
-                //                           ---> view2  ---> tempTensor2  --->  assemble2 
-                APASS_LOG_DEBUG_F(Elements::Operation, 
+                //                           ---> view2  ---> tempTensor2  --->  assemble2
+                APASS_LOG_DEBUG_F(Elements::Operation,
                     "CASE1: Process OP_VIEW[%d]'s input and OP_ASSEMBLE[%d]'s output perfectMatch.", op.opmagic, consumer->GetOpMagic());
                 ProcessPerfectMatch(function, startTensor, endTensor);
             } else {
                 //case2：assemble的输出tensor是view输入tensor的一部分
                 //       startTensor(inshape) ---> view1  ---> tempTensor1  --->  assemble1  ---> endTensor(outshape < inshape)
-                //                            ---> view2  ---> tempTensor2  --->  assemble2 
-                APASS_LOG_DEBUG_F(Elements::Operation, 
+                //                            ---> view2  ---> tempTensor2  --->  assemble2
+                APASS_LOG_DEBUG_F(Elements::Operation,
                     "CASE2: Process OP_VIEW[%d]'s input is a part of OP_ASSEMBLE[%d]'s output.", op.opmagic, consumer->GetOpMagic());
-                GenerateNewView(function, op, startTensor, endTensor);  
-            }   
-        }    
+                GenerateNewView(function, op, startTensor, endTensor);
+            }
+        }
     }
     DeadOperationEliminator::EliminateDeadOperation(function);
     return SUCCESS;
@@ -219,8 +219,8 @@ void RemoveRedundantOp::RemoveViewAssembleForOutcast(Function &function, Logical
 //处理view输入和assemble输出完美匹配场景
 void RemoveRedundantOp::ProcessPerfectMatch(Function &function, LogicalTensorPtr &startTensor,LogicalTensorPtr &endTensor) {
     if (!IsValidViewAssemble(startTensor, endTensor)) {
-        APASS_LOG_DEBUG_F(Elements::Tensor, "Not valid view-assemble case.");    
-        return; 
+        APASS_LOG_DEBUG_F(Elements::Tensor, "Not valid view-assemble case.");
+        return;
     }
     //图重连逻辑
     if (endTensor->GetConsumers().size() == 0) {
@@ -239,7 +239,7 @@ void RemoveRedundantOp::ProcessPerfectMatch(Function &function, LogicalTensorPtr
 //判断view输入是否非同源
 bool RemoveRedundantOp::IsNotSameViewInput(LogicalTensorPtr &startTensor, LogicalTensorPtr &endTensor) const {
     for (auto &assembleOp : endTensor->GetProducers()) {
-        if (assembleOp->GetIOperands().empty()) { 
+        if (assembleOp->GetIOperands().empty()) {
             continue;
         }
         auto &tempTensor = assembleOp->GetIOperands().front();
@@ -247,18 +247,18 @@ bool RemoveRedundantOp::IsNotSameViewInput(LogicalTensorPtr &startTensor, Logica
         if (producers.empty()) {
             return true;
         } else {
-            auto &producerOps = tempTensor->GetProducers(); 
+            auto &producerOps = tempTensor->GetProducers();
             for (auto &producerOp : producerOps) {
                 if (producerOp->GetIOperands().empty()) {
                     continue;
                 }
                 auto &inTensor = producerOp->GetIOperands().front();
-                if (inTensor != startTensor) { 
+                if (inTensor != startTensor) {
                     return true;
                 }
                 if (producerOp->GetOpcode() != Opcode::OP_VIEW) {continue;}
-            }    
-        } 
+            }
+        }
     }
     return false;
 }
@@ -274,7 +274,7 @@ bool RemoveRedundantOp::IsDataReplace(LogicalTensorPtr &endTensor) const {
         if (producers.empty()) {
             return true;
         } else {
-            auto &viewOps = tempTensor->GetProducers(); 
+            auto &viewOps = tempTensor->GetProducers();
             for (auto &viewOp : viewOps) {
                 if (viewOp->GetIOperands().empty()) {
                     continue;
@@ -299,16 +299,16 @@ bool RemoveRedundantOp::IsValidViewAssemble(LogicalTensorPtr &startTensor, Logic
     //step1：排除view输入非同源场景
     bool isNotSameViewInput = IsNotSameViewInput(startTensor,endTensor); //true表示view的输入非同源
     if (isNotSameViewInput) {
-        APASS_LOG_DEBUG_F(Elements::Tensor, 
-            "OP_ASSEMBLE'S output endTensor[%d] has different input except startTesnor[%d].", startTensor->magic, endTensor->magic);    
-        return false; 
+        APASS_LOG_DEBUG_F(Elements::Tensor,
+            "OP_ASSEMBLE'S output endTensor[%d] has different input except startTesnor[%d].", startTensor->magic, endTensor->magic);
+        return false;
     }
     //step2:排除assemble数据重排场景
     bool isDataRepalce = IsDataReplace(endTensor);  //true表示assemble后数据重排布
     if (isDataRepalce) {
-        APASS_LOG_DEBUG_F(Elements::Tensor, 
+        APASS_LOG_DEBUG_F(Elements::Tensor,
             "OP_ASSEMBLE'S output endTensor[%d] is repalced comparing with startTesnor[%d].", startTensor->magic, endTensor->magic);
-        return false; 
+        return false;
     }
     return true;
 }
@@ -348,8 +348,8 @@ void RemoveRedundantOp::CalculateViewOffset(Operation &op, LogicalTensorPtr &sta
 void RemoveRedundantOp::GenerateNewView(Function &function, Operation &op, LogicalTensorPtr &startTensor, LogicalTensorPtr &endTensor) {
     //查找最小的offset
     if (!IsValidViewAssemble(startTensor, endTensor)) {
-        APASS_LOG_DEBUG_F(Elements::Tensor, "Not valid view-assemble case.");    
-        return; 
+        APASS_LOG_DEBUG_F(Elements::Tensor, "Not valid view-assemble case.");
+        return;
     }
     std::vector<long> newoffset(op.iOperand[0]->offset.size(),INT_MAX);
     CalculateViewOffset(op, startTensor, endTensor, newoffset);

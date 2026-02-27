@@ -67,4 +67,3 @@ pypto.set_runtime_options(device_sched_mode=1,
  	     }
 )
 ```
-

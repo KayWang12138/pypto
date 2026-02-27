@@ -870,8 +870,8 @@ def do_test(case_name, params, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, 
     else:
         fun = mla_lp_quant.mla_indexer_prolog_quant_d
 
-    fun(h, n_q, q_lora_rank, kv_lora_rank, qk_nope_head_dim, qk_rope_head_dim, idx_n_heads, idx_head_dim, 
-        mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, mla_tile_config, 
+    fun(h, n_q, q_lora_rank, kv_lora_rank, qk_nope_head_dim, qk_rope_head_dim, idx_n_heads, idx_head_dim,
+        mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, mla_tile_config,
         ip_attrs, ip_configs, rope_tile_shape)(*pto_inputs, *pto_outputs)
     torch_npu.npu.synchronize()
     check(case_name, outputs, goldens)

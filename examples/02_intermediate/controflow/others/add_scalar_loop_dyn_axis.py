@@ -44,17 +44,17 @@ def get_device_id():
 
 
 def add_scalar_loop_dynamic_axis(shape: tuple, val: int, run_mode: str = "npu") -> None:
-    
+
     _, w, n, c = shape
     h = pypto.frontend.dynamic("h")
-    
+
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
     elif run_mode == "sim":
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def add_scalar_loop_dynamic_axis_kernel(
         input0: pypto.Tensor((h, w, n, c), pypto.DT_FP32),
@@ -71,16 +71,16 @@ def add_scalar_loop_dynamic_axis(shape: tuple, val: int, run_mode: str = "npu") 
         for idx in pypto.loop(b_loop):
             b_offset = idx * tile_b
             b_offset_end = pypto.min((idx + 1) * tile_b, b)
-            
+
             valid_shape = [b_offset_end - b_offset, w, n, c]
-            
+
             t0_sub = pypto.view(input0, [tile_b, w, n, c], [b_offset, 0, 0, 0], valid_shape=valid_shape)
             t1_sub = pypto.view(input1, [tile_b, w, n, c], [b_offset, 0, 0, 0], valid_shape=valid_shape)
             t3_sub = t0_sub + t1_sub
             t3_sub = t3_sub + val
             pypto.assemble(t3_sub, [b_offset, 0, 0, 0], output)
         return output
-    
+
     return add_scalar_loop_dynamic_axis_kernel
 
 
