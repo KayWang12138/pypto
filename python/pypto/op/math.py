@@ -516,6 +516,7 @@ def exp(input: Tensor) -> Tensor:
     """
     return pypto_impl.Exp(input)
 
+
 @op_wrapper
 def exp2(input: Tensor) -> Tensor:
     """Computes the element-wise exponential of `input`.
