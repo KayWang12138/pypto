@@ -159,17 +159,13 @@ public:
 
         const auto t0 = std::chrono::high_resolution_clock::now();
 
-        npu::tile_fwk::dynamic::TimeCheck tm;
         uint32_t globalTasksIssued = 0;
         while (globalTasksIssued < curDevTask_->coreFunctionCnt)
         {
             uint32_t tasksIssued = 0;
             while (tryIssuePendingTasks() > 0) tasksIssued++;
             checkTaskTerminations();
-            while (tryIssuePendingTasks() > 0) tasksIssued++;
             globalTasksIssued = curTaskCtrl_->issuedTaskCount.fetch_add(tasksIssued, std::memory_order_relaxed);
-
-            if (npu::tile_fwk::dynamic::CheckTimeOut("wait task send finish.", tm) != 0) return -1;
         }
 
         WaitAllAicoreFinish();// Waiting in parallel for all compute cores to finish
@@ -232,19 +228,21 @@ public:
             // Setting task as initialized, allowing others to continue
             deviceArgs->isDeviceInitialized = true;
         }
-        else // If I am not a lead AICPU scheduler, wait until initialization is ready
-        {
-            while(deviceArgs->isDeviceInitialized == false){ /* Busy wait */ };
-        }
+        
+        // If I am not a lead AICPU scheduler, wait until initialization is ready
+        if (isLeaderScheduler_ == true) while(deviceArgs->isDeviceInitialized == false){ /* Busy wait */ };
 
+        // Getting relevant device pointers
         for (uint32_t coreIdx = 0; coreIdx < TOTAL_CORE_COUNT; coreIdx++)
         {
             auto args = reinterpret_cast<KernelArgs *>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
             int64_t *handshakeBuffer = args->shakeBuffer;
             args_[coreIdx] = args;
             blockIdToPhyCoreId_[coreIdx] = (*handshakeBuffer >> AICORE_COREID_BIT_OFFSET) & AICORE_COREID_MASK;
-            WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_OPEN);  // Enabling fast path
         }
+
+        // Enabling fast path
+        for (uint32_t coreIdx = 0; coreIdx < TOTAL_CORE_COUNT; coreIdx++) WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_OPEN); 
 
         /* write to MAINBASE reg need reg 0x18 open first */
         __sync_synchronize();
@@ -272,15 +270,8 @@ private:
 
     inline int WaitAllAicoreFinish()
     {
-        npu::tile_fwk::dynamic::TimeCheck tm;
         for (uint32_t i = aicpuIdx_; i < TOTAL_CORE_COUNT; i += MAX_STATIC_SCHEDULE_AICPU_NUM) {
-            while (checkCoreFinished(i) == false)
-            {
-                if (npu::tile_fwk::dynamic::CheckTimeOut("wait tail task", tm) != 0) {
-                    DEV_ERROR("wait tail task finish timeout coreindx=%u.\n", i);
-                    return -1;
-                }
-            }
+            while (checkCoreFinished(i) == false) { /* busy wait */}
         }
         return 0;
     }
@@ -335,8 +326,7 @@ private:
         }
     }
 
-
-    inline void ResolveVirtualPure(uint64_t dep) {
+    inline void ResolveVirtualPure(const uint64_t dep) {
        const auto virtualFuncInfo = &(reinterpret_cast<CoreFunctionWsAddr *>(curDevTask_->coreFuncData.coreFunctionWsAddr)[dep]);
        const auto topo = reinterpret_cast<CoreFunctionTopo *>(virtualFuncInfo->topoAddr);
         for (uint64_t i = 0 ; i < topo->depNum; i++) {
@@ -345,7 +335,7 @@ private:
         }
     }
 
-    inline void ResolveVirtualMix(uint64_t dep, CoreFunctionReadyState* readyState) {
+    inline void ResolveVirtualMix(const uint64_t dep, CoreFunctionReadyState* const readyState) {
         const auto virtualFuncInfo = &(reinterpret_cast<CoreFunctionWsAddr *>(curDevTask_->coreFuncData.coreFunctionWsAddr)[dep]);
         const auto topo = reinterpret_cast<CoreFunctionTopo *>(virtualFuncInfo->topoAddr);
         for (uint64_t i = 0 ; i < topo->depNum; i++) {
@@ -360,7 +350,7 @@ private:
         }
     }
 
-    inline void ResolveByCoreType(int coretype, uint64_t depTaskId, CoreFunctionReadyState *readyState) {
+    inline void ResolveByCoreType(const int coretype, const uint64_t depTaskId, CoreFunctionReadyState* const readyState) {
         // Compiler optimizations reduce switch-case to O(1), rendering if-else unnecessary in such cases.
         switch (coretype) {
             case static_cast<int>(MachineType::AIV):
@@ -387,7 +377,7 @@ private:
         }
     }
 
-    inline void ResolveDep(uint64_t finishId) {
+    inline void ResolveDep(const uint64_t finishId) {
         auto readyState = reinterpret_cast<CoreFunctionReadyState *>(curDevTask_->coreFunctionReadyStateAddr);
         const auto funcInfo = &(reinterpret_cast<CoreFunctionWsAddr *>(curDevTask_->coreFuncData.coreFunctionWsAddr)[finishId]);
         const auto topo = reinterpret_cast<CoreFunctionTopo *>(funcInfo->topoAddr);
@@ -399,23 +389,26 @@ private:
         }
     }
 
-    inline uint64_t GetFinishedTask(const int coreIdx)
+    inline uint64_t GetFinishedTask(const int coreIdx) const
     {
         const auto physicalCoreIdx = blockIdToPhyCoreId_[coreIdx];
         return *(finishRegQueues_[physicalCoreIdx]);
     }
 
-    inline void WriteReg32(const int coreIdx, const int offset, const uint32_t val) {
+    inline void WriteReg32(const int coreIdx, const int offset, const uint32_t val)
+    {
         const auto physicalCoreIdx = blockIdToPhyCoreId_[coreIdx];
         *(reinterpret_cast<volatile uint32_t*>(regAddrs_[physicalCoreIdx] + offset)) = val;
     }
 
-    inline void SetReadyQueue(const int coreIdx, const uint64_t taskIdx) {
+    inline void SetReadyQueue(const int coreIdx, const uint64_t taskIdx)
+    {
         const auto physicalCoreIdx = blockIdToPhyCoreId_[coreIdx];
         *(readyRegQueues_[physicalCoreIdx]) = taskIdx + 1; // Plus one is a required offset
     }
 
-    inline void AbnormalStop() {
+    inline void AbnormalStop()
+    {
         for (size_t coreIdx = 0; coreIdx < TOTAL_CORE_COUNT; coreIdx++)
         {
             WriteReg32(coreIdx, regSprDataMainBase_, AICORE_TASK_STOP + 1);
@@ -423,7 +416,8 @@ private:
         }
     }
 
-    inline void NormalStop() {
+    inline void NormalStop()
+    {
         for (size_t coreIdx = 0; coreIdx < TOTAL_CORE_COUNT; coreIdx++) SetReadyQueue(coreIdx, AICORE_TASK_STOP);
 
         __sync_synchronize(); // write to MAINBASE reg must be done before close 0x18 */
