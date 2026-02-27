@@ -33,7 +33,7 @@ import time
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
-    
+
     Returns:
         int: The device ID if valid, None otherwise.
     """
@@ -43,7 +43,7 @@ def get_device_id():
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
-    
+
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
@@ -55,7 +55,7 @@ def get_device_id():
 # ============================================================================
 # Cube Tile Examples
 # ============================================================================
-    
+
 def create_cube_tile_kernel(m, k, n, run_mode, set_shapes: list):
 
     @pypto.frontend.jit(runtime_options={"run_mode": run_mode})
@@ -87,9 +87,9 @@ def test_set_cube_tile_shapes_basic(device_id: int = None, run_mode: str = "npu"
     print("=" * 60)
     print("Test: Basic Usage of set_cube_tile_shapes Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     # Test 1: Set and verify tile shapes for cube computation
     dtype = torch.float32
     # shape: (2, 2)
@@ -157,7 +157,7 @@ def create_different_tile_shapes_kernel(run_mode):
 
 
 def compute_with_different_tile_shapes_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> tuple:
-    
+
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
     elif run_mode == "sim":
@@ -173,9 +173,9 @@ def test_set_different_tile_shapes_result(device_id: int = None, run_mode: str =
     print("=" * 60)
     print("Test: Impact of Different Tile Shape Settings on Calculation Results")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     # Test 1: Different Tile Shape Settings on Calculation Results
     dtype = torch.float32
     # shape:(2, 2, 2)
@@ -230,9 +230,9 @@ def test_set_different_tile_shapes_runtime(device_id: int = None, run_mode: str 
     print("=" * 60)
     print("Test: Impact of Different Tile Shape Settings on Runtime")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     if run_mode == "npu":
         import torch_npu
 
@@ -241,7 +241,7 @@ def test_set_different_tile_shapes_runtime(device_id: int = None, run_mode: str 
     else:
         device = "cpu"
         mode = pypto.RunMode.SIM
-        
+
     # Test 1: Different Tile Shape Settings on Runtime
     b_rt, m_rt, k_rt, n_rt = 4, 64, 512, 128
     dtype = torch.float32
@@ -268,7 +268,7 @@ def test_set_different_tile_shapes_runtime(device_id: int = None, run_mode: str 
 # ============================================================================
 # Vector Tile Examples
 # ============================================================================
-    
+
 def create_vec_tile_kernel(shape, run_mode, set_shapes: tuple):
     """Factory function to create vector tile kernel with specific shapes"""
 
@@ -285,7 +285,7 @@ def create_vec_tile_kernel(shape, run_mode, set_shapes: tuple):
     return compute_with_vec_tile_shapes
 
 
-def compute_with_vec_tile_shapes_op(a: torch.Tensor, b: torch.Tensor, 
+def compute_with_vec_tile_shapes_op(a: torch.Tensor, b: torch.Tensor,
         set_shapes: tuple, run_mode: str = "npu", dynamic: bool = False):
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
@@ -301,9 +301,9 @@ def test_set_vec_tile_shapes_basic(device_id: int = None, run_mode: str = "npu")
     print("=" * 60)
     print("Test: Basic Usage of set_vec_tile_shapes Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     # Test 1: Set and verify tile shapes for vector computation
     dtype = torch.float32
     # shape: (1, 2, 3)
@@ -325,7 +325,7 @@ def test_set_vec_tile_shapes_basic(device_id: int = None, run_mode: str = "npu")
     if run_mode == "npu":
         assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"set_shapes == get_shapes: {set_shapes == get_shapes}")
-    
+
     # Test 2: Set vec_tile_shapes for vector calculations with different shapes
     dtype = torch.float32
     # shape: (1, 1, 2, 3)
@@ -390,9 +390,9 @@ def test_set_vec_different_tile_shapes_result(device_id: int = None, run_mode: s
     print("=" * 60)
     print("Test: Impact of Different Tile Shape Settings on Calculation Results")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     # Test 1: Different Tile Shape Settings on Calculation Results
     dtype = torch.float32
     # shape: (1, 2, 3)
@@ -450,9 +450,9 @@ def test_set_vec_different_tile_shapes_runtime(device_id: int = None, run_mode: 
     print("=" * 60)
     print("Test: Impact of Different Tile Shape Settings on Runtime")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     if run_mode == "npu":
         import torch_npu
 
@@ -461,7 +461,7 @@ def test_set_vec_different_tile_shapes_runtime(device_id: int = None, run_mode: 
     else:
         device = "cpu"
         mode = pypto.RunMode.SIM
-        
+
     # Test 1: Different Tile Shape Settings on Runtime
     vec_rt_shape = (4, 32, 64, 256)
     dtype = torch.float32
@@ -488,7 +488,7 @@ def test_set_vec_different_tile_shapes_runtime(device_id: int = None, run_mode: 
 
 def main():
     """Run tiling examples.
-    
+
     Usage:
         python tiling_ops.py                          # Run all examples
         python tiling_ops.py --list                   # List all available examples
@@ -523,9 +523,9 @@ Examples:
         choices=["npu", "sim"],
         help='Run mode, such as npu/sim etc.'
     )
-    
+
     args = parser.parse_args()
-    
+
     # Define available examples
     examples = {
         'cube_tile::test_set_cube_tile_shapes_basic': {
@@ -559,7 +559,7 @@ Examples:
             'function': test_set_vec_different_tile_shapes_runtime,
         },
     }
-    
+
     # List examples if requested
     if args.list:
         print("\n" + "=" * 60)
@@ -570,7 +570,7 @@ Examples:
             print(f"     name: {ex_info['name']}")
             print(f"     description: {ex_info['description']}\n")
         return
-    
+
     # Validate case if provided
     examples_to_run = []
     device_id = None
@@ -583,11 +583,11 @@ Examples:
         examples_to_run = [(args.example_id, examples[args.example_id])]
     else:
         examples_to_run = [(key, info) for key, info in sorted(examples.items())]
-    
+
     print("\n" + "=" * 60)
     print("PyPTO Tiling Operation Examples")
     print("=" * 60 + "\n")
-    
+
     if args.run_mode == "npu":
         device_id = get_device_id()
         if device_id is None:
@@ -596,17 +596,17 @@ Examples:
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("(Make sure CANN environment is configured and NPU is available)\n")
-    
+
     try:
         for ex_id, ex_info in examples_to_run:
             print(f"Running Example {ex_id}: {ex_info['name']}")
             ex_info['function'](device_id, args.run_mode)
-        
+
         if len(examples_to_run) > 1:
             print("=" * 60)
             print("All tiling tests passed!")
             print("=" * 60)
-        
+
     except Exception as e:
         print(f"\nError: {e}")
         raise
@@ -614,4 +614,3 @@ Examples:
 
 if __name__ == "__main__":
     main()
-

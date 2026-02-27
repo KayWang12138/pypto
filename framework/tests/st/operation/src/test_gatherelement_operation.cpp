@@ -190,7 +190,7 @@ static void GatherElementOperationExeFunc4Dims(
                                     qIdx * forthViewShape});
                         TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = GatherElements(tileTensor0, tileTensor1, args->axis_);
-                        Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape, 
+                        Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
                                 qIdx * forthViewShape}, outputs[0]);
                     }
                 }

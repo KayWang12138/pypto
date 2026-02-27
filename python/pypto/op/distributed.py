@@ -39,10 +39,10 @@ shmem_id_to_group: dict[int, str] = {}
 
 @op_wrapper
 def create_shmem_tensor(
-    group_name: str, 
+    group_name: str,
     n_pes: int,
     dtype: DataType,
-    shape: list[int], 
+    shape: list[int],
 ) -> tuple[Tensor, Tensor]:
     """Creates a symmetric tensor in shared memory.
 
@@ -79,13 +79,13 @@ def create_shmem_tensor(
     for _ in loop(1, name="CREATE_SHMEM_TENSOR", idx_name="_"):
         pypto_impl.CreateShmemData(group_name, n_pes, dtype, shape, data.base(), ShmemMemType.WIN_IN.value)
         pypto_impl.CreateShmemSignal(group_name, data.base(), signal.base())
-    
+
     if group_name not in comm_configs:
         comm_configs[group_name] = CommConfig(group_name, n_pes, pypto_impl.GetSymbolicScalarPeId(group_name))
-    
+
     shmem_id_to_group[data.base().Id()] = group_name
     shmem_id_to_group[signal.base().Id()] = group_name
-    
+
     return data, signal
 
 
@@ -104,7 +104,7 @@ def create_shmem_signal(group_name: str, n_pes: int) -> Tensor:
     -------
     shmem_barrier_signal : Tensor
         A barrier signal tensor to coordinate process execution.
-    
+
 
     Examples
     --------
@@ -116,12 +116,12 @@ def create_shmem_signal(group_name: str, n_pes: int) -> Tensor:
     for _ in loop(1, name="CREATE_SHMEM_BARRIER_SIGNAL", idx_name="_"):
         pypto_impl.CreateShmemData(group_name, n_pes, DataType.DT_INT32, shmem_barrier_signal_shape,
             shmem_barrier_signal.base(), ShmemMemType.WIN_EXP.value)
-    
+
     if group_name not in comm_configs:
         comm_configs[group_name] = CommConfig(group_name, n_pes, pypto_impl.GetSymbolicScalarPeId(group_name))
-    
+
     shmem_id_to_group[shmem_barrier_signal.base().Id()] = group_name
-        
+
     return shmem_barrier_signal
 
 
@@ -163,7 +163,7 @@ def shmem_put(
     tile = pypto.distributed.shmem_put(
         local_tensor,
         offset,
-        shmem_tensor, 
+        shmem_tensor,
         dst_pe,
         put_op=pypto.AtomicType.SET,
         pred=None,
@@ -451,9 +451,9 @@ def my_symbolic_pe(group_name: str) -> SymbolicScalar:
     -------
     symbolic scalar
         Represents my_pe.
-    
+
     Examples
     --------
-       my_pe = pypto.distributed.my_symbolic_pe(group_name) 
+       my_pe = pypto.distributed.my_symbolic_pe(group_name)
     """
     return SymbolicScalar.from_base(pypto_impl.GetSymbolicScalarPeId(group_name))

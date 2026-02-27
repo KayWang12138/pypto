@@ -1802,7 +1802,7 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
         srcShapeW = srcShape[ID3];
     }
 
-    std::vector<std::string> tileOpParamList = 
+    std::vector<std::string> tileOpParamList =
         {dstTensor, srcTensor, std::to_string(offsetN), std::to_string(offsetC), std::to_string(offsetD),
         std::to_string(offsetH), std::to_string(offsetW), std::to_string(srcShapeN), std::to_string(srcShapeC),
         std::to_string(srcShapeD), std::to_string(srcShapeH), std::to_string(srcShapeW)};
@@ -1889,16 +1889,16 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
     GetAttr(Conv::L12L0ConvOpAttributeKey::paddingBottom, padBottom);
     GetAttr(Conv::L12L0ConvOpAttributeKey::padValue, padValue);
     paramList.emplace_back(padLeft);
-    paramList.emplace_back(padRight);  
+    paramList.emplace_back(padRight);
     paramList.emplace_back(padTop);
-    paramList.emplace_back(padBottom);  
+    paramList.emplace_back(padBottom);
     paramList.emplace_back(padValue);
 
     int64_t filterH = 0, filterW = 0;
     GetAttr(Conv::L12L0ConvOpAttributeKey::filterH, filterH);
     GetAttr(Conv::L12L0ConvOpAttributeKey::filterW, filterW);
     paramList.emplace_back(filterH);
-    paramList.emplace_back(filterW);  
+    paramList.emplace_back(filterW);
 
     int64_t dilationH = 0, dilationW = 0;
     GetAttr(Conv::L12L0ConvOpAttributeKey::dilationH, dilationH);
@@ -1937,8 +1937,8 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load2D() const {
     int64_t kPos = 0, nPos = 0;
     GetAttr(Conv::L12L0ConvOpAttributeKey::postK, kPos);
     GetAttr(Conv::L12L0ConvOpAttributeKey::postN, nPos);
-    paramList.emplace_back(kPos);  
-    paramList.emplace_back(nPos);    
+    paramList.emplace_back(kPos);
+    paramList.emplace_back(nPos);
 
     std::vector<int64_t> weightL1Shape = this->rawShape[ID1];
     ALOG_INFO_F("GenMemL1ToL0Load2D %s, weightL1Shape is %s", tileOpName.c_str(), IntVecToStr(weightL1Shape).c_str());

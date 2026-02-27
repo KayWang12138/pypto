@@ -34,4 +34,3 @@ get_codegen_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]
 ```python
 pypto.get_codegen_options()
 ```
-

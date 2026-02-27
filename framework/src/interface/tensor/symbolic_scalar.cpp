@@ -57,7 +57,7 @@ std::vector<std::string> ParallelCompile(const std::vector<std::string> &sourceF
             objs[i] = CompileSourceCode(sourceFiles[i], gcc, extraCflag);
         }
     };
-    
+
     size_t filesPerThread = sourceFiles.size() / numThreads;
     size_t remainingFiles = sourceFiles.size() % numThreads;
     size_t currentIdx = 0;
@@ -572,7 +572,7 @@ SymbolicScalar SymbolicScalar::Min(const SymbolicScalar &sval) const {
         return SymbolicScalar(std::min(Concrete(), sval.Concrete()));
     }
     auto raw = RawSymbolicExpression::CreateMopMin({raw_, sval.raw_});
-    return SymbolicScalar(raw); 
+    return SymbolicScalar(raw);
 }
 
 SymbolicScalar SymbolicScalar::Max(const SymbolicScalar &sval) const {
@@ -580,7 +580,7 @@ SymbolicScalar SymbolicScalar::Max(const SymbolicScalar &sval) const {
         return SymbolicScalar(std::max(Concrete(), sval.Concrete()));
     }
     auto raw = RawSymbolicExpression::CreateMopMax({raw_, sval.raw_});
-    return SymbolicScalar(raw); 
+    return SymbolicScalar(raw);
 }
 
 SymbolicScalar SymbolicScalar::Ternary(const SymbolicScalar &sval1, const SymbolicScalar &sval2) const{

@@ -148,7 +148,7 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
         另外，bias或fixpipe场景只做低维16元素对齐，高维保持不变
         Before:
         L1_TO_L0A --> L0A (shape:[24, 400]) ------------------------->    \
-        L1_TO_BT --> bias_BT (shape:[1, 8]) -----> (address misalign)  A_MUL_B 
+        L1_TO_BT --> bias_BT (shape:[1, 8]) -----> (address misalign)  A_MUL_B
         L1_TO_L0B --> L0B (shape:[400, 16]) ------------------------->    /
 
         After:

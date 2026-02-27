@@ -104,4 +104,3 @@ def test_move_from_scalar():
     with pytest.raises(TypeError, match="'int' type cannot be moved to Tensor"):
         with pypto.function("graph", [y]):
             y[:] = 0
-

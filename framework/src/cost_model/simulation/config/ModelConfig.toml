@@ -30,4 +30,3 @@ fixedLatencyTimeConvert = 1
 pipeBoardVibration = 0
 calendarMode = 0 # 0: device schedule 1: one global counter 2: optical counters
 calendarFile = ""
-

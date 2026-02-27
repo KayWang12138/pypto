@@ -49,7 +49,7 @@ public:
 TEST_F(TestCodegenDynPrelu, PreluNormal) {
     std::vector<int64_t> shape = {32, 256};
     TileShape::Current().SetVecTile(shape);
-    
+
     Tensor input(DT_FP32, shape, "input");
     Tensor weight(DT_FP32, {shape[1]}, "weight");
     Tensor output(DT_FP32, shape, "output");
@@ -65,7 +65,7 @@ TEST_F(TestCodegenDynPrelu, PreluNormal) {
 
     auto rawName = FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX;
     auto function = Program::GetInstance().GetFunctionByRawName(rawName);
-    
+
     ASSERT_NE(function, nullptr) << "Failed to find function: " << rawName;
 
     npu::tile_fwk::CodeGenCtx ctx;
@@ -76,7 +76,7 @@ TEST_F(TestCodegenDynPrelu, PreluNormal) {
 TEST_F(TestCodegenDynPrelu, PreluFP16) {
     std::vector<int64_t> shape = {16, 128};
     TileShape::Current().SetVecTile(shape);
-    
+
     Tensor input(DT_FP16, shape, "input");
     Tensor weight(DT_FP16, {shape[1]}, "weight");
     Tensor output(DT_FP16, shape, "output");
@@ -92,7 +92,7 @@ TEST_F(TestCodegenDynPrelu, PreluFP16) {
 
     auto rawName = FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX;
     auto function = Program::GetInstance().GetFunctionByRawName(rawName);
-    
+
     ASSERT_NE(function, nullptr) << "Failed to find function: " << rawName;
 
     npu::tile_fwk::CodeGenCtx ctx;
@@ -103,7 +103,7 @@ TEST_F(TestCodegenDynPrelu, PreluFP16) {
 TEST_F(TestCodegenDynPrelu, PreluBF16) {
     std::vector<int64_t> shape = {8, 64};
     TileShape::Current().SetVecTile(shape);
-    
+
     Tensor input(DT_BF16, shape, "input");
     Tensor weight(DT_BF16, {shape[1]}, "weight");
     Tensor output(DT_BF16, shape, "output");
@@ -119,7 +119,7 @@ TEST_F(TestCodegenDynPrelu, PreluBF16) {
 
     auto rawName = FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX;
     auto function = Program::GetInstance().GetFunctionByRawName(rawName);
-    
+
     ASSERT_NE(function, nullptr) << "Failed to find function: " << rawName;
 
     npu::tile_fwk::CodeGenCtx ctx;
@@ -130,7 +130,7 @@ TEST_F(TestCodegenDynPrelu, PreluBF16) {
 TEST_F(TestCodegenDynPrelu, Prelu4D) {
     std::vector<int64_t> shape = {2, 64, 8, 8};
     TileShape::Current().SetVecTile(shape);
-    
+
     Tensor input(DT_FP32, shape, "input");
     Tensor weight(DT_FP32, {shape[1]}, "weight");
     Tensor output(DT_FP32, shape, "output");
@@ -146,7 +146,7 @@ TEST_F(TestCodegenDynPrelu, Prelu4D) {
 
     auto rawName = FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX;
     auto function = Program::GetInstance().GetFunctionByRawName(rawName);
-    
+
     ASSERT_NE(function, nullptr) << "Failed to find function: " << rawName;
 
     npu::tile_fwk::CodeGenCtx ctx;

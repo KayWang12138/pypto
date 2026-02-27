@@ -86,12 +86,12 @@ Function* FunctionClone::CloneFunctionByComponent(const InternalComponentInfo& c
     CopyInferParamIndexInfo();
     // 设置每个新建leaf function继承originalMixFuncisUnderDynamicFunction属性
     bool isUnderDynamicFunction = originalMixFunc->IsUnderDynamicFunction();
-    ALOG_DEBUG_F("Original mix function isUnderDynamicFunction: %s for programID=%d", 
+    ALOG_DEBUG_F("Original mix function isUnderDynamicFunction: %s for programID=%d",
                  isUnderDynamicFunction ? "true" : "false", originalMixFunc->GetProgramId());
     cloneFunc->SetUnderDynamicFunction(isUnderDynamicFunction);
     ALOG_DEBUG_F("Set isUnderDynamicFunction=%s for leaf function programID=%d",
                     isUnderDynamicFunction ? "true" : "false", cloneFunc->GetProgramId());
-    
+
     auto* resultFunc = cloneFunc.get();
     return resultFunc;
 }

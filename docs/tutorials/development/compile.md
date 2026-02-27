@@ -53,7 +53,7 @@ JIT装饰器支持参数配置，可根据配置支持不同的条件编译：
 
 ```python
 @pypto.frontend.jit(
-    host_options={},               
+    host_options={},
     pass_options={},
     runtime_options={},
     verify_options={},
@@ -118,7 +118,7 @@ def add_kernel_false(
     return output
 
 
-#使用这两个函数 
+#使用这两个函数
 def add_add1flag_false(input_data0, input_data1, val=0):
     output_data = add_kernel_false(input_data0, input_data1, val)
     return output_data
@@ -132,4 +132,3 @@ add_add1flag_true(input_data0, input_data1, val)
 ```
 
 完整样例请参考：[multi_jit.py](../../../examples/03_advanced/patterns/function/multi_jit.py)
-

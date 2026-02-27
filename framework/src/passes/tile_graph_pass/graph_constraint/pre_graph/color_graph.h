@@ -33,4 +33,4 @@ public:
 };
 } // namespace npu::tile_fwk
 #endif // PASS_COLOR_GRAPH_H
-    
+

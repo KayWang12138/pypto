@@ -70,4 +70,3 @@ out = pypto.bitwise_or(a, b)
 输入数据b: [1, 7]
 输出数据out: [3, 7]
 ```
-

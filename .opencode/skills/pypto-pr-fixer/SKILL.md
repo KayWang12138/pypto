@@ -137,7 +137,7 @@ cann-robot 评论中包含 codecheck 失败的 HTML 表格：
    # 方法一：使用内置脚本（推荐）
    python ${UNIFIED_SKILLS_ROOT}/library/shared/gitcode-pr-review-fixer/scripts/fetch_codecheck_violations.py "$CODECHECK_URL" --output json
    ```
-   
+
    **注意**：openlibing.com 是 SPA，受 WAF 保护，Playwright MCP 不支持 ARM64，必须使用 Playwright Python。详见 @references/codecheck-rules.md。
 3. **匹配规则** — 根据规则 ID 在 @references/codecheck-rules.md 中查找修复方案
 4. **分类处理**：

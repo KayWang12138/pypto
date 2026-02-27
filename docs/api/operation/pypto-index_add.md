@@ -7,4 +7,3 @@ index_add(input: Tensor, dim: int, index: Tensor, source: Tensor, *, alpha: Unio
 ```
 
 pypto.index_add_的non-inplace版本，可参考[pypto.index_add_](pypto-index_add_.md)。
-

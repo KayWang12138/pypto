@@ -49,7 +49,7 @@ void BindDistributed(py::module& m) {
             return Distributed::ShmemDataSet(predToken, shmemData);
         },
         py::arg("predToken"), py::arg("shmemData"), "Clear shmem data.");
-    
+
     m.def(
         "ShmemSignalSet",
         [](const Tensor& predToken, const Tensor& shmemSignal) {
@@ -59,13 +59,13 @@ void BindDistributed(py::module& m) {
 
     m.def(
         "ShmemPut",
-        [](const Tensor& predToken, const Tensor& in, const Tensor& shmemData, 
+        [](const Tensor& predToken, const Tensor& in, const Tensor& shmemData,
             Distributed::AtomicType atomicType = Distributed::AtomicType::SET) {
             return Distributed::ShmemPut(predToken, in, shmemData, atomicType);
         },
         py::arg("predToken"), py::arg("in"), py::arg("shmemData"),
         py::arg("atomicType") = Distributed::AtomicType::SET, "Put gm data to shmem.");
-    
+
     m.def(
         "ShmemPutUb2Gm",
         [](const Tensor& in, const Tensor& shmemDataTile, const Tensor& barrierDummy,
