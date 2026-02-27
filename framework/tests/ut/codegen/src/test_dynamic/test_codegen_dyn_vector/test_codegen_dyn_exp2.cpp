@@ -59,7 +59,6 @@ TEST_F(TestCodegenDynExp2, TestDynOpExp2) {
     TileShape::Current().SetVecTile(shape);
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, shape, "output");
-    Element scalaVal(DataType::DT_FP32, 10.0f);
 
     std::string funcName = "TestDynOpExp2";
     FUNCTION(funcName, {input, output}) {
