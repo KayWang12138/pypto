@@ -52,6 +52,10 @@ const std::string L12L0ConvOpAttributeKey::paddingRight = "PAD_RIGHT";
 const std::string L12L0ConvOpAttributeKey::paddingTop = "PAD_TOP";
 const std::string L12L0ConvOpAttributeKey::paddingBottom = "PAD_BOTTOM";
 const std::string L12L0ConvOpAttributeKey::padValue = "PAD_VALUE";
+const std::string LoadStoreConvOpAttributeKey::copyInMode = "COPY_IN_MODE";
+const std::string LoadStoreConvOpAttributeKey::copyOutMode = "COPY_OUT_MODE";
+const std::string LoadStoreConvOpAttributeKey::isFmap = "IS_FMAP";
+const std::string LoadStoreConvOpAttributeKey::isConv3D = "IS_CONV3D";
 
 std::vector<int64_t> rotateVector(const std::vector<int64_t>& input, size_t shift) {
     std::vector<int64_t> result = input;
@@ -769,9 +773,9 @@ LogicalTensorPtr ConstructFmapTile(Function &function, const ConvGraphNodes &ten
         dstAL1TensorPtr->UpdateDynValidShape(SymbolicScalar::FromConcrete(dstAL1Shape));
         auto &copyInOpAl1 = function.AddOperation(Opcode::OP_L1_COPY_IN_CONV, {tensorGraphNodes.fmapTensorPtr},
                                                   {dstAL1TensorPtr});
-        copyInOpAl1.SetAttribute("is_fmap", true);
-        copyInOpAl1.SetAttribute("is_conv3d", convAttrParam.isConv3D);
-        copyInOpAl1.SetAttribute("COPY_IN_MODE", static_cast<int64_t>(CopyInMode::COPY_MOD_DN2NZ));
+        copyInOpAl1.SetAttribute(LoadStoreConvOpAttributeKey::isFmap, true);
+        copyInOpAl1.SetAttribute(LoadStoreConvOpAttributeKey::isConv3D, convAttrParam.isConv3D);
+        copyInOpAl1.SetAttribute(LoadStoreConvOpAttributeKey::copyInMode, static_cast<int64_t>(CopyInMode::COPY_MOD_DN2NZ));
         copyInOpAl1.SetAttribute("src_d_stride", convAttrParam.dilations[2]);
         int64_t src_n_offset = iterInfo.batchOffset;
         int64_t src_c_offset = iterInfo.groupOffset * (convTileInfo.orgCin / convAttrParam.groups) + srcCinOffset;
@@ -849,9 +853,9 @@ LogicalTensorPtr ConstructWeightTile(Function &function, const ConvGraphNodes &t
         dstBL1TensorPtr->UpdateDynValidShape(SymbolicScalar::FromConcrete(dstBL1Shape));
         auto &copyInOpBl1 = function.AddOperation(Opcode::OP_L1_COPY_IN_CONV, {tensorGraphNodes.weightTensorPtr},
                                                   {dstBL1TensorPtr});
-        copyInOpBl1.SetAttribute("is_fmap", false);
-        copyInOpBl1.SetAttribute("is_conv3d", convAttrParam.isConv3D);
-        copyInOpBl1.SetAttribute("COPY_IN_MODE", static_cast<int64_t>(CopyInMode::COPY_MOD_DN2NZ));
+        copyInOpBl1.SetAttribute(LoadStoreConvOpAttributeKey::isFmap, false);
+        copyInOpBl1.SetAttribute(LoadStoreConvOpAttributeKey::isConv3D, convAttrParam.isConv3D);
+        copyInOpBl1.SetAttribute(LoadStoreConvOpAttributeKey::copyInMode, static_cast<int64_t>(CopyInMode::COPY_MOD_DN2NZ));
         int64_t src_n_offset = iterInfo.groupOffset * convTileInfo.coutPerGroup + iterInfo.nL1Offset;
         int64_t src_c_offset = srcCinOffset;
         int64_t src_d_offset = convTileInfo.orgKd - iterInfo.dkL1Size + (iterInfo.kL0Offset / convTileInfo.kPerGroup);
@@ -1055,7 +1059,8 @@ void IterL0ExpandFunc(Function &function, ConvIterInfo &iterInfo, ConvTileInfo &
                 auto &fixpipeOpRes = function.AddOperation(Opcode::OP_L0C_COPY_OUT_CONV, {resCl0TensorPtr},
                                                         {tensorGraphNodes.resTensorPtr});
                 // set fixpipe copy out validshape
-                fixpipeOpRes.SetAttribute("COPY_OUT_MODE", static_cast<int64_t>(CopyOutMode::COPY_MOD_NZ2DN));
+                fixpipeOpRes.SetAttribute(LoadStoreConvOpAttributeKey::copyOutMode, static_cast<int64_t>(CopyOutMode::COPY_MOD_NZ2DN));
+                fixpipeOpRes.SetAttribute(LoadStoreConvOpAttributeKey::isConv3D, convAttrParam.isConv3D);
                 fixpipeOpRes.SetAttribute("res_tile_shape",
                                           SymbolicScalar::FromConcrete(tensorGraphNodes.resTensorPtr->shape));
                 int64_t dst_n_offset = iterInfo.batchOffset;

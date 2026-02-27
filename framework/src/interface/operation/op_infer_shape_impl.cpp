@@ -689,7 +689,7 @@ void L1CopyInConvInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar
 {
     ASSERT(op != nullptr);
     const std::string L1_TILE_SHAPE = "l1_tile_shape";
-    const std::string IS_FMAP_FLAG = "is_fmap";
+    const std::string IS_FMAP_FLAG = "IS_FMAP";
     ASSERT(op->HasAttr(L1_TILE_SHAPE));
     std::vector<SymbolicScalar> tile;
     op->GetAttr(L1_TILE_SHAPE, tile);
