@@ -27,7 +27,8 @@
 #include "set_heuristic_tile_shapes.h"
  
 using namespace npu::tile_fwk;
- 
+using json = nlohmann::json;
+
 namespace npu::tile_fwk {
 Status SetHeuristicTileShapes::RunOnFunction(Function &function) {
     SetHeuristicTileShapesFunc(function);
@@ -1014,6 +1015,83 @@ void SetHeuristicVectorTiles(Function &function, std::unordered_set<Operation *>
     BackwardReducePropagation(reduceOrderedOperations, queueBFS, visitedBFS);
 }
 
+
+void GenerateJsonForPython(Function &function){
+
+    json pythonJson;
+    std::ofstream python_tiles(config::LogTopFolder()+"/python_tiles.json");
+    int operationIdx = 0;
+
+    if(python_tiles.is_open()){
+        for(auto &op: function.Operations()) {
+            std::string opIdName = "operation_"+std::to_string(operationIdx);
+            auto full_dump = op.DumpJson();
+
+            if(full_dump["file"].is_null()){
+                continue;
+            }
+            
+            if(op.GetCoreTypeStr() == "AIC"){
+                pythonJson[opIdName]["type"] = "CubeTile";
+                auto cubeShape = op.GetTileShape();
+                auto tile = cubeShape.GetCubeTile();
+                pythonJson[opIdName]["tile"] = {tile.m[0], tile.m[1], tile.k[0], tile.k[1], tile.n[0], tile.n[1]};
+            }else{
+                auto vecShape = op.GetTileShape();
+                auto tile = vecShape.GetVecTile();
+                pythonJson[opIdName]["type"] = "VecTile";
+                for(size_t i = 0; i < tile.size(); ++i){
+                    pythonJson[opIdName]["tile"].push_back(tile[i]);
+                }
+            }
+            pythonJson[opIdName]["magic"] = full_dump["opmagic"];
+            pythonJson[opIdName]["opcode"] = full_dump["opcode"];
+            pythonJson[opIdName]["file"] = full_dump["file"];
+            pythonJson[opIdName]["line"] = full_dump["line"];
+
+            operationIdx += 1;
+        }
+        python_tiles<<pythonJson.dump(4)<<std::endl;
+    }
+}
+
+void GenerateJsonForSemanticLabels(Function &function){
+    json semanticJson;
+    std::ofstream graph_tiles(config::LogTopFolder()+"/semantic_labels_tiles.json");
+    int operIdx = 0;
+
+
+
+    if(graph_tiles.is_open()){
+        for(auto &op: function.Operations()){
+            if(op.GetSemanticLabel()){
+                auto sem_label = op.GetSemanticLabel()->label;
+                semanticJson[sem_label] = {
+                    {"filename", op.GetSemanticLabel()->filename},
+                    {"line_num", op.GetSemanticLabel()->lineno}
+                };
+
+                if(op.GetCoreTypeStr() == "AIC"){
+                    auto cubeShape = op.GetTileShape();
+                    auto tile = cubeShape.GetCubeTile();
+                    semanticJson[sem_label]["type"] = "CubeTile";
+                    semanticJson[sem_label]["tile"] = {tile.m[0], tile.m[1], tile.k[0], tile.k[1], tile.n[0], tile.n[1]};
+                }else{
+                    auto vecShape = op.GetTileShape();
+                    auto tile = vecShape.GetVecTile();
+                    semanticJson[sem_label]["type"] = "VecTile";
+                    for(size_t i = 0; i < tile.size(); ++i){
+                        semanticJson[sem_label]["tile"].push_back(tile[i]);
+                    }
+                }
+                semanticJson[sem_label]["operation"] = op.GetOpcodeStr();
+            }
+            operIdx += 1;
+        }
+        graph_tiles << semanticJson.dump(4) << std::endl;
+    } 
+}
+
 void SetHeuristicTileShapes::SetHeuristicTileShapesFunc(Function &function) const {
     (void)function;
     
@@ -1045,5 +1123,8 @@ void SetHeuristicTileShapes::SetHeuristicTileShapesFunc(Function &function) cons
         ASSERT(op.GetTileShape().GetVecTile()[0] != -1) << "Not all tiles was set";
     }
     #endif
+
+    GenerateJsonForPython(function);
+    GenerateJsonForSemanticLabels(function);
 }
 } // namespace npu::tile_fwk
