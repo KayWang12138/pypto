@@ -46,6 +46,15 @@ public:
     }
     void TearDown() override {}
 
+    void ExecutePass(Function *function, bool enableMoreSplit) {
+        npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
+        splitLargeFanoutTensor.enableMoreSplit_ = enableMoreSplit;
+        splitLargeFanoutTensor.PreCheck(*function);
+        splitLargeFanoutTensor.RunOnFunction(*function);
+        splitLargeFanoutTensor.PostCheck(*function);
+        std::cout << "Run Pass Done." << std::endl;
+    }
+
     std::vector<int64_t> CountViewAssemble(Function &func) {
         std::vector<int64_t> result = {0, 0};
         for (auto &op : func.Operations()) {
@@ -1526,13 +1535,7 @@ TEST_F(SplitLargeFanoutTensorTest, OneDimShouldSplit) {
     Function *function = G.GetFunction();
 
     std::cout << "Build Graph Done." << std::endl;
-    // 单独执行pass
-    npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
-    splitLargeFanoutTensor.enableMoreSplit_ = false;
-    splitLargeFanoutTensor.PreCheck(*function);
-    splitLargeFanoutTensor.RunOnFunction(*function);
-    splitLargeFanoutTensor.PostCheck(*function);
-    std::cout << "Run Pass Done." << std::endl;
+    ExecutePass(function, false);
 
     // 验证：
     // 依据UT注释展示，共会出现2个view和2个assemble
@@ -1624,16 +1627,8 @@ TEST_F(SplitLargeFanoutTensorTest, SplitSmallTileFirst) {
     Function *function = G.GetFunction();
 
     std::cout << "Build Graph Done." << std::endl;
-    // 单独执行pass
-    npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
-    splitLargeFanoutTensor.enableMoreSplit_ = false;
-    splitLargeFanoutTensor.PreCheck(*function);
-    splitLargeFanoutTensor.RunOnFunction(*function);
-    splitLargeFanoutTensor.PostCheck(*function);
-    std::cout << "Run Pass Done." << std::endl;
+    ExecutePass(function, false);
 
-    // 验证：
-    // 依据UT注释展示，共会出现2个view和2个assemble
     auto countResultAfter = CountViewAssemble(*function);
     const int viewAssembleNum = 2;
     EXPECT_EQ(viewAssembleNum, countResultAfter[0]) << countResultAfter[0] << " OP_VIEW after pass, should be 2";
