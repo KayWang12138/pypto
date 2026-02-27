@@ -529,6 +529,7 @@ class JitCallableWrapper:
         # Re-create parser for compilation
         self._parser = self._create_parser()
         self._parser.parse()
+        self._parser.input_pto_tensor = args
 
         # Initialize backend for compilation
 
