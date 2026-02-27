@@ -90,7 +90,7 @@ Status UpdateIOOperand(const std::vector<OperationPtr> &tensorOperations) {
 
 bool NotNeedExpand(Opcode opcode, bool needCopy) {
     return opcode == Opcode::OP_VIEW || (opcode == Opcode::OP_ASSEMBLE && !needCopy) || opcode == Opcode::OP_PAD ||
-           opcode == Opcode::OP_NOP || Opcode::OP_EXPANDEXPDIF;
+           opcode == Opcode::OP_NOP;
 }
 
 void ProcessForNotExpandOp(Function &function, Operation &op) {
