@@ -140,7 +140,7 @@ static void Exp(const TensorData &out, const TensorData &self) {
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
-static void Exp2(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+static void Exp2(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     auto tself = From(self);
     torch::exp2_out(tout.second, tself.second);
