@@ -16,6 +16,7 @@
 #include "cost_model/simulation/common/ISA.h"
 #include "nlohmann/json.hpp"
 #include "interface/operation/opcode.h"
+#include "tilefwk/tilefwk_log.h"
 
 namespace CostModel {
 
@@ -75,7 +76,7 @@ void Tile::GetPipeType()
 
 void Tile::Print()
 {
-    std::cout << Dump() << std::endl;
+    SIMULATION_LOGI("%s",  Dump().c_str());
 }
 
 std::string Tile::Dump()
@@ -187,7 +188,7 @@ bool TileOp::IsSpecial()
 
 void TileOp::Print()
 {
-    std::cout << Dump() << std::endl;
+    SIMULATION_LOGI("%s",  Dump().c_str());
 }
 
 std::string TileOp::Dump(bool outDetail)

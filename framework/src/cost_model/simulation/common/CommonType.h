@@ -28,6 +28,7 @@
 #include "interface/utils/common.h"
 #include "interface/utils/log.h"
 #include "tilefwk/error.h"
+#include "tilefwk/tilefwk_log.h"
 
 #define PRIOR_SCHEDULING // comment it to disable PriorScheduling pass
 
@@ -155,7 +156,7 @@ inline DataType ToDataType(std::string &name)
     } else if (name == "DT_DOUBLE") {
         return DataType::DT_DOUBLE;
     } else {
-        std::cout << "Unrecognized DataType" << name << std::endl;
+        SIMULATION_LOGW("Unrecognized DataType: %s", name.c_str());
     }
     return DataType::DT_FP16;
 }
