@@ -202,14 +202,25 @@ bool RecordFunc::Iterator::operator!=(const IteratorEnd &rhs) {
 }
 
 RecordLoopFunc::RecordLoopFunc(const std::string &name, FunctionType funcType, const std::string &iterName,
-    const LoopRange &range, const std::set<int> &unrollList, bool submitBeforeLoop)
+    const LoopRange &range, const std::set<int> &unrollList, bool submitBeforeLoop, bool paralellFor)
     : name_(FUNCTION_PREFIX + name),
         iterName_(iterName),
         loopRange_(std::make_shared<LoopRange>(range)),
         submitBeforeLoop_(submitBeforeLoop),
+        paralellFor_(paralellFor),
         funcType_(funcType) {
     CHECK(funcType == FunctionType::STATIC || funcType == FunctionType::DYNAMIC_LOOP)
         << "funcType: " << GetFunctionTypeNameDict().Find(funcType);
+    std::cout << "paralellFor must larger than zero! " << paralellFor_ << std::endl;
+    if (paralellFor_) {
+        std::cout << "paralellFor must larger than zero! 1111. name is " << name_ << std::endl;
+        for (auto &rlf : Program::GetInstance().GetLoopStack()) {
+            std::cout << "==============rlf paralell for==========" << rlf.get().GetParalellFor() << std::endl;
+            if (rlf.get().GetParalellFor()) {
+                ASSERT(!rlf.get().GetParalellFor()) << "The parallel attribute value does not allow nesting";
+            }
+        }
+    }
     Program::GetInstance().GetLoopStack().emplace_back(*this);
 
     GenDefaultUnrollTimes(unrollList);
@@ -250,7 +261,8 @@ void RecordLoopFunc::BeginLoopFunction() {
     }
     auto range = rangeOfEaceUnroll_.back();
     range->End().AsIntermediateVariable();
-    auto attr = std::make_shared<DynloopFunctionAttribute>(iterName_, *range, *loopRange_, submitBeforeLoop_);
+    
+    auto attr = std::make_shared<DynloopFunctionAttribute>(iterName_, *range, *loopRange_, submitBeforeLoop_, paralellFor_);
     currentLoopFunc_->SetDynloopAttribute(attr);
     currentLoopFunc_->SetSourceLocation(location_);
 }
