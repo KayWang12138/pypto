@@ -53,30 +53,8 @@ np.set_printoptions(formatter={'float': '{:.6f}'.format})
 # 参数校验
 # ============================================================================
 
-def check_args_ifa(query, key_cache, value_cache, block_tables, actual_seqs, attn_res):
-    debug_print("CHECK_IFA", f"Query shape: {query.shape}, KV shape: {key_cache.shape}")
-    assert query.dim() == 3
-    assert get_format(query) == 'ND'
-    assert query.dtype == torch.bfloat16
-    assert key_cache.dim() == 4
-    assert get_format(key_cache) == 'ND'
-    assert key_cache.dtype == torch.bfloat16
-    assert value_cache.dim() == 4
-    assert get_format(value_cache) == 'ND'
-    assert value_cache.dtype == torch.bfloat16
-    assert block_tables.dim() == 2
-    assert get_format(block_tables) == 'ND'
-    assert block_tables.dtype == torch.int32
-    assert actual_seqs.dim() == 1
-    assert get_format(actual_seqs) == 'ND'
-    assert actual_seqs.dtype == torch.int32
-    assert attn_res.dim() == 3
-    assert get_format(attn_res) == 'ND'
-    assert attn_res.dtype == torch.bfloat16
-
-
-def check_args_pfa(query, key_cache, value_cache, block_tables, actual_seqs, attn_res):
-    debug_print("CHECK_PFA", f"Query shape: {query.shape}, KV shape: {key_cache.shape}")
+def check_args(query, key_cache, value_cache, block_tables, actual_seqs, attn_res):
+    debug_print("CHECK", f"Query shape: {query.shape}, KV shape: {key_cache.shape}")
     assert query.dim() == 3
     assert get_format(query) == 'ND'
     assert query.dtype == torch.bfloat16
@@ -157,7 +135,16 @@ def get_ifa_config(device="cpu"):
     )
     atten_cfg.max_num_blocks_per_query = (s2 + block_size - 1) // block_size
     
-    tile_cfg = _get_common_tile_config(nq)
+    cube_tile = 128
+    m_tile = 128
+    s2_tile = 512
+    tile_cfg = AttentionTileConfig(
+        nq,
+        s2_tile,
+        [[m_tile, m_tile], [cube_tile, cube_tile], [cube_tile, cube_tile]],
+        [m_tile, s2_tile],
+        [[m_tile, m_tile], [cube_tile, cube_tile], [cube_tile, cube_tile]],
+        [m_tile, cube_tile])
     return atten_cfg, tile_cfg
 
 
@@ -185,41 +172,17 @@ def get_pfa_config(device="cpu"):
     )
     atten_cfg.max_num_blocks_per_query = (s1 + block_size - 1) // block_size
     
-    tile_cfg = _get_pfa_tile_config(nq)
+    cube_tile = 128
+    m_tile = 128
+    s2_tile = 128
+    tile_cfg = AttentionTileConfig(
+        nq,
+        s2_tile,
+        [[m_tile, m_tile], [cube_tile, cube_tile], [cube_tile, cube_tile]],
+        [m_tile, s2_tile],
+        [[m_tile, m_tile], [cube_tile, cube_tile], [cube_tile, cube_tile]],
+        [m_tile, cube_tile])
     return atten_cfg, tile_cfg
-
-
-def _get_pfa_tile_config(nq):
-    """PFA 专用 tile 配置"""
-    cube_tile = 128
-    m_tile = 128
-    s2_tile = 128  # 必须大于等于 block_size
-    
-    tile_cfg = AttentionTileConfig(
-        g_tile=nq,
-        s2_tile=s2_tile,
-        c1_tile_shape=[[m_tile, m_tile], [cube_tile, cube_tile], [cube_tile, cube_tile]],
-        v1_tile_shape=[m_tile, s2_tile],
-        c2_tile_shape=[[m_tile, m_tile], [cube_tile, cube_tile], [cube_tile, cube_tile]],
-        v2_tile_shape=[m_tile, cube_tile]
-    )
-    return tile_cfg
-
-
-def _get_common_tile_config(nq):
-    cube_tile = 128
-    m_tile = 128
-    s2_tile = 128  # 修改为128，与block_size一致，避免读取无效数据
-    
-    tile_cfg = AttentionTileConfig(
-        g_tile=nq,
-        s2_tile=s2_tile,
-        c1_tile_shape=[[m_tile, m_tile], [cube_tile, cube_tile], [cube_tile, cube_tile]],
-        v1_tile_shape=[m_tile, s2_tile],
-        c2_tile_shape=[[m_tile, m_tile], [cube_tile, cube_tile], [cube_tile, cube_tile]],
-        v2_tile_shape=[m_tile, cube_tile]
-    )
-    return tile_cfg
 
 
 # ============================================================================
@@ -702,7 +665,7 @@ def attention_ifa(
     
     if isinstance(query, FakeTensor):
         return
-    check_args_ifa(query, key_cache, value_cache, block_tables, actual_seqs, attn_res)
+    check_args(query, key_cache, value_cache, block_tables, actual_seqs, attn_res)
     
     q_shape = query.shape
     kv_shape = key_cache.shape
@@ -728,7 +691,7 @@ def attention_pfa(
     
     if isinstance(query, FakeTensor):
         return
-    check_args_pfa(query, key_cache, value_cache, block_tables, query_seqs, attn_res)
+    check_args(query, key_cache, value_cache, block_tables, query_seqs, attn_res)
     
     q_shape = query.shape
     kv_shape = key_cache.shape
