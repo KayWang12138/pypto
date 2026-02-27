@@ -68,7 +68,6 @@ from . import experimental
 from .config import *  # noqa
 from ._controller import *  # noqa
 from .converter import from_torch
-from .converter import ir_from_tensor
 from .enum import *  # noqa
 from .op import *  # noqa
 from .operation import *  # noqa
@@ -81,6 +80,7 @@ from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor
 from .functions import Function, get_last_function, get_current_function
 
+from . import pypto_impl  # noqa
 # Import frontend after all other imports to avoid circular imports
 from . import frontend
 
