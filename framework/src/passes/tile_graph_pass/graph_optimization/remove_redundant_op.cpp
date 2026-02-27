@@ -342,7 +342,7 @@ void RemoveRedundantOp::CalculateViewOffset(Operation &op, LogicalTensorPtr &sta
             auto viewOffset = viewOpAttribute->GetFromOffset();
             auto viewDynOffset = viewOpAttribute->GetFromDynOffset();
             newoffset[m] = std::min(newoffset[m], viewOffset[m]);
-            newDynoffset[m] = std::min(newDynoffset[m], viewDynOffset[m])
+            newDynoffset[m] = std::min(newDynoffset[m], viewDynOffset[m]);
         }
     }
 }
