@@ -32,6 +32,7 @@ target_compile_options(slog_stub
             -fPIC
             -D__DEVICE__
             -Werror
+            $<$<BOOL:${ENABLE_GCOV}>:$<$<CXX_COMPILER_ID:GNU>:--coverage -fprofile-arcs -ftest-coverage>>
 )
 target_include_directories(slog_stub
         PRIVATE
