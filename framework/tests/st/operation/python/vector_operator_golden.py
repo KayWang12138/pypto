@@ -758,7 +758,9 @@ def gen_exp_op_golden(case_name: str, output: Path, case_index: int = None) -> b
 def gen_exp2_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
     def golden_func(inputs: list, _config: dict):
-        return [np.exp2(inputs[0])]
+        a = from_numpy(inputs[0])
+        c = torch.exp2(a)
+        return [to_numpy(c)]
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Exp2", golden_func, output, case_index)
