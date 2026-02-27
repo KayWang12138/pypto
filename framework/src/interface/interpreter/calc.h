@@ -311,7 +311,7 @@ inline void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
 inline void BitSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, bool descending, int64_t offset) {
     GetCalcOps()->BitSort(out, self, axis, descending, offset);
 }
-inline void TiledMrgSort(LogicalTensorDataPtr out, LogicalTensorDataPtr src1, LogicalTensorDataPtr src2, 
+inline void TiledMrgSort(LogicalTensorDataPtr out, LogicalTensorDataPtr src1, LogicalTensorDataPtr src2,
     LogicalTensorDataPtr src3, LogicalTensorDataPtr src4, int validBit, int kvalue) {
     GetCalcOps()->TiledMrgSort(out, src1, src2, src3, src4, validBit, kvalue);
 }
@@ -370,7 +370,7 @@ inline void FormatND2NZ(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->FormatND2NZ(out, self);
 }
 
-inline void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, 
+inline void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
     MatMulParam param = {false, false, 0, 0, 0, nullptr, nullptr}) {
     CalcOps *ops = GetCalcOps();
     ASSERT(ops != nullptr);

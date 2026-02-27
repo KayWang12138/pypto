@@ -358,7 +358,7 @@ struct DevAscendFunctionDupped {
             auto attrBase = &func->GetOperationAttr(operIdx, 0);
             auto funcIndex = attrBase[0].Value();
             oss << "  [" << operIdx << "]  #funcHash: " << std::to_string(cceBinary[funcIndex].funcHash)
-                << " #funcIndex: " << funcIndex << " #taskID:" << MakeTaskID(funcIdx, operIdx) 
+                << " #funcIndex: " << funcIndex << " #taskID:" << MakeTaskID(funcIdx, operIdx)
                 << " #opMagic: " << func->GetOperationDebugOpmagic(operIdx) << "\n";
             oss << "  #invokeAttrs : ";
             int offset = 0;

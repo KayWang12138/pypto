@@ -58,7 +58,7 @@ TEST_F(ViewTypeUtest, add0_test) {
     Tensor x(originDtype, xShape, "x");
     Tensor result(dstDtype, resultShape, "result");
 
-    ViewTypeFunc(x, result, dstDtype);  
+    ViewTypeFunc(x, result, dstDtype);
 }
 
 TEST_F(ViewTypeUtest, cast_add0_test) {
@@ -78,7 +78,7 @@ TEST_F(ViewTypeUtest, cast_add0_test) {
     Tensor x(originDtype, xShape, "x");
     Tensor result(dstDtype, resultShape, "result");
 
-    ViewTypeCastFunc(x, result, dstDtype, castDtype);  
+    ViewTypeCastFunc(x, result, dstDtype, castDtype);
 }
 
 TEST_F(ViewTypeUtest, quant_test) {

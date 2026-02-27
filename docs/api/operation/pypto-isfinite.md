@@ -64,4 +64,3 @@ out = pypto.isfinite(self)
              [False True True],
              [True True False]]
 ```
-

@@ -213,14 +213,14 @@ TILEOP void TCompare(TDst dst, T src0, T src1, TTmp tmpbuf) {
                     SrcTile src0Tile(1, info.shape4), src1Tile(1, info.shape4);
                     SrcTile vselResultTile, oneConditionTile, zeroConditionTile;
                     DstTile bitResTile; CmpTile cmpResTile; TmpTile tmpTile(1, info.shape4);
-                    InitCommonTiles<T, Types>(vselResultTile, oneConditionTile, zeroConditionTile, bitResTile, 
+                    InitCommonTiles<T, Types>(vselResultTile, oneConditionTile, zeroConditionTile, bitResTile,
                                               cmpResTile, buffers, dstAddr, info.shape4, info.dstShape);
                     pto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + srcOffset * srcTypeSize));
                     pto::TASSIGN(src1Tile, (uint64_t)(src1.GetAddr() + srcOffset * srcTypeSize));
                     auto& dst0 = (mode == 0) ? cmpResTile : bitResTile;
                     ExecuteCompare<cmpOp>(dst0, src0Tile, src1Tile);
                     if constexpr (mode == 0) {
-                        PostProcessMode0<T>(bitResTile, cmpResTile, vselResultTile, oneConditionTile, 
+                        PostProcessMode0<T>(bitResTile, cmpResTile, vselResultTile, oneConditionTile,
                         zeroConditionTile, tmpTile, buffers.zeroCondition);
                     }
                 }
@@ -248,13 +248,13 @@ TILEOP void TCompare(TDst dst, T src, TTmp tmpbuf, TVal scalarVal) {
                     SrcTile srcTile(1, info.shape4);
                     SrcTile vselResultTile, oneConditionTile, zeroConditionTile;
                     DstTile bitResTile; CmpTile cmpResTile; TmpTile tmpTile(1, info.shape4);
-                    InitCommonTiles<T, Types>(vselResultTile, oneConditionTile, zeroConditionTile, bitResTile, 
+                    InitCommonTiles<T, Types>(vselResultTile, oneConditionTile, zeroConditionTile, bitResTile,
                                               cmpResTile, buffers, dstAddr, info.shape4, info.dstShape);
                     pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
                     auto& dst0 = (mode == 0) ? cmpResTile : bitResTile;
                     ExecuteCompareScalar<cmpOp>(dst0, srcTile, scalarVal);
                     if constexpr (mode == 0) {
-                        PostProcessMode0<T>(bitResTile, cmpResTile, vselResultTile, oneConditionTile, 
+                        PostProcessMode0<T>(bitResTile, cmpResTile, vselResultTile, oneConditionTile,
                         zeroConditionTile, tmpTile, buffers.zeroCondition);
                     }
                 }

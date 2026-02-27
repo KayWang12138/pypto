@@ -90,7 +90,7 @@ Status SubgraphToFunction::HandleBlockCall(Function &function) {
         for (auto &inTensor : oriCallOp.GetIOperands()) {
             args.iOperands.emplace_back(inTensor->Clone(*rootFunc));
         }
-        auto &callOpInRoot = rootFunc->AddRawOperation(npu::tile_fwk::Opcode::OP_CALL, 
+        auto &callOpInRoot = rootFunc->AddRawOperation(npu::tile_fwk::Opcode::OP_CALL,
             args.iOperands, args.oOperands, false);
         // 2.1 Get OpAttrOffsets
         args.iOpAttrOffset = oriCallOp.GetIOpAttrOffsets();
@@ -98,7 +98,7 @@ Status SubgraphToFunction::HandleBlockCall(Function &function) {
 
         // 2.2 Create Call op attribute
         auto oriCallOpAttr = std::static_pointer_cast<CallOpAttribute>(oriCallOp.GetOpAttribute());
-        auto opAttribute = std::make_shared<CallOpAttribute>(oriCallOp.GetCalleeHash(), oriCallOpAttr->GetArgList(), 
+        auto opAttribute = std::make_shared<CallOpAttribute>(oriCallOp.GetCalleeHash(), oriCallOpAttr->GetArgList(),
             rootFunc->programModule_->GetFunctions().back()->GetName().c_str());
         callOpInRoot.SetOpAttribute(opAttribute);
         callOpInRoot.SetOpOffset(args.iOpAttrOffset, args.oOpAttrOffset);
@@ -824,8 +824,8 @@ Status SubgraphToFunction::GetTensorDataDependencyClear(Function &function) {
             }
             auto &copyInOp = op;
             copyInOp.SetAsDeleted();
-            int tensorIndex = GetTensorDataGetIndex(&op); 
-            int addrCoaIndex = GetTensorDataGetCoaIndex(&op); 
+            int tensorIndex = GetTensorDataGetIndex(&op);
+            int addrCoaIndex = GetTensorDataGetCoaIndex(&op);
             if (tensorIndex == -1) {
                 APASS_LOG_ERROR_F(Elements::Operation, "Atrribute op_emuop_GetTensorData_index is not found for operation[%d]. %s", op.GetOpMagic(), GetFormatBacktrace(copyInOp).c_str());
                 return FAILED;
@@ -925,7 +925,7 @@ Status SubgraphToFunction::RecoverCopyInToViewAfterGenSubgraph(Function &functio
             }
         }
     }
-        
+
     return SUCCESS;
 }
 

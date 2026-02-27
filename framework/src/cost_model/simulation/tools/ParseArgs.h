@@ -69,7 +69,7 @@ public:
             std::cerr << "Missing argument for " << args[currentIndex] << std::endl;
         }
     }
-    
+
     void ParseArrays(const std::vector<std::string> &args, size_t &currentIndex)
     {
         auto arrayIt = paramArrays_.find(args[currentIndex]);

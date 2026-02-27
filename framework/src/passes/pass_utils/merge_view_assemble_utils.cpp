@@ -27,17 +27,17 @@ Status MergeViewAssembleUtils::MergeViewAssemble(Function &function) {
 
 Status MergeViewAssembleUtils::Process(Function &function) {
     Status status = Initialize();
-    if (status != SUCCESS) {   
+    if (status != SUCCESS) {
         ALOG_ERROR("MergeViewAssembleUtils initialization failed.");
         return status;
     }
     status = ProcessOperations(function);
-    if (status != SUCCESS) {   
+    if (status != SUCCESS) {
         ALOG_ERROR("Processing operations failed.");
         return status;
     }
     status = CleanUp(function);
-    if (status != SUCCESS) {   
+    if (status != SUCCESS) {
         ALOG_ERROR("Cleanup phase failed.");
         return status;
     }
@@ -94,9 +94,9 @@ Status MergeViewAssembleUtils::AppendMergedViewOperations(Function &function) {
         mergedViewOp.SetOpAttribute(attr);
         // 继承op_attr_copy_in_mode属性
         if (viewOp.hasCopyInMode) {
-            mergedViewOp.SetAttr("op_attr_copy_in_mode", viewOp.copyInModeValue); 
-        }   
-        viewOp.output->UpdateDynValidShape(viewOp.dynValidShape);    
+            mergedViewOp.SetAttr("op_attr_copy_in_mode", viewOp.copyInModeValue);
+        }
+        viewOp.output->UpdateDynValidShape(viewOp.dynValidShape);
     }
     return SUCCESS;
 }
@@ -116,7 +116,7 @@ Status MergeViewAssembleUtils::AppendMergedAssembleOperations(Function &function
 Status MergeViewAssembleUtils::CleanUp(Function &function) {
     Status status = EraseRedundantAssemble(function);
     if (status != SUCCESS)
-    {   
+    {
         ALOG_ERROR("EraseRedundantAssemble failed.");
         return status;
     }
@@ -185,7 +185,7 @@ Status MergeViewAssembleUtils::ProcessConsumerChain(
             if (currentMemType == MemoryType::MEM_UNKNOWN || currentMemType == memoryTo) {
                 // 1.unknown memType 可以向它之后的view合并 2.相同memType的view可以合并
                 canMerge = true;
-            } 
+            }
             if (canMerge) {
                 chainEnd = false;
                 Status status = MergeViewChain(function, *op, chain);
@@ -353,7 +353,7 @@ Status MergeViewAssembleUtils::ProcessAssembleConsumers(
         if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
             hasAssembleConsumer = true;
             Status status = MergeAssembleChain(function, *op, chain);
-            if (status != SUCCESS) { 
+            if (status != SUCCESS) {
                 ALOG_ERROR("Run MergeAssembleChain failed.");
                 return status;
             }

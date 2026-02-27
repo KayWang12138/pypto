@@ -202,14 +202,14 @@ def attention(
         key_cache,
         value_cache
     ]
-    params = [b, bs, n1, hidden_size, total_head_size, head_size, half_rotary_dim, 
+    params = [b, bs, n1, hidden_size, total_head_size, head_size, half_rotary_dim,
                 q_shape, kv_shape, block_table_shape, unroll_list, enable_residual, eps, num_decode_tokens]
 
     ifa_func(*params)(*inputs)
     return out_torch, residual_tmp
 
 
-def ifa_func(b, bs, n1, hidden_size, total_head_size, head_size, half_rotary_dim, 
+def ifa_func(b, bs, n1, hidden_size, total_head_size, head_size, half_rotary_dim,
         q_shape, kv_shape, block_table_shape, unroll_list, enable_residual, eps, num_decode_tokens):
 
     q_shape = (pypto.frontend.dynamic("qshape"), q_shape[1], q_shape[2])
@@ -227,22 +227,22 @@ def ifa_func(b, bs, n1, hidden_size, total_head_size, head_size, half_rotary_dim
     def kernel(
         block_table: pypto.Tensor(block_table_shape, pypto.DT_INT32),
         kv_act_seqs: pypto.Tensor((bs, ), pypto.DT_INT32),
-        index: pypto.Tensor((b, ), pypto.DT_INT32), 
+        index: pypto.Tensor((b, ), pypto.DT_INT32),
         x: pypto.Tensor((bs, hidden_size), pypto.DT_BF16),
         residual_input: pypto.Tensor((bs, hidden_size), pypto.DT_BF16),
-        x_gamma: pypto.Tensor((hidden_size, ), pypto.DT_BF16), 
+        x_gamma: pypto.Tensor((hidden_size, ), pypto.DT_BF16),
         x_bias: pypto.Tensor((hidden_size, ), pypto.DT_BF16),
-        x_scale: pypto.Tensor((hidden_size, ), pypto.DT_BF16), 
-        x_offset: pypto.Tensor((hidden_size, ), pypto.DT_BF16), 
-        weight: pypto.Tensor((hidden_size, total_head_size), pypto.DT_INT8, 
-                                        format=pypto.TileOpFormat.TILEOP_NZ), 
+        x_scale: pypto.Tensor((hidden_size, ), pypto.DT_BF16),
+        x_offset: pypto.Tensor((hidden_size, ), pypto.DT_BF16),
+        weight: pypto.Tensor((hidden_size, total_head_size), pypto.DT_INT8,
+                                        format=pypto.TileOpFormat.TILEOP_NZ),
         quant_bias: pypto.Tensor((total_head_size, ), pypto.DT_INT32),
-        deq_scale: pypto.Tensor((total_head_size, ), pypto.DT_FP32), 
-        q_gamma: pypto.Tensor((head_size, ), pypto.DT_BF16), 
+        deq_scale: pypto.Tensor((total_head_size, ), pypto.DT_FP32),
+        q_gamma: pypto.Tensor((head_size, ), pypto.DT_BF16),
         q_bias: pypto.Tensor((head_size, ), pypto.DT_BF16),
         k_gamma: pypto.Tensor((head_size, ), pypto.DT_BF16),
         k_bias: pypto.Tensor((head_size, ), pypto.DT_BF16),
-        cos: pypto.Tensor((bs, 1, half_rotary_dim), pypto.DT_BF16), 
+        cos: pypto.Tensor((bs, 1, half_rotary_dim), pypto.DT_BF16),
         sin: pypto.Tensor((bs, 1, half_rotary_dim), pypto.DT_BF16),
         atten_out: pypto.Tensor(q_shape, pypto.DT_BF16),
         q_tmp: pypto.Tensor((bs, n1 * head_size), pypto.DT_BF16),
@@ -343,7 +343,7 @@ def ifa_func(b, bs, n1, hidden_size, total_head_size, head_size, half_rotary_dim
             act_bs_tile = (bs - bs_idx * bs_tile).min(bs_tile)
 
             # rms norm
-            x_tile = pypto.view(x, [bs_tile, hidden_size], [bs_idx * bs_tile, 0], 
+            x_tile = pypto.view(x, [bs_tile, hidden_size], [bs_idx * bs_tile, 0],
                                                     valid_shape=[act_bs_tile, hidden_size])
             # init
             pypto.set_vec_tile_shapes(1, vec_tile_value)
@@ -564,7 +564,7 @@ def ifa_func(b, bs, n1, hidden_size, total_head_size, head_size, half_rotary_dim
                                     block_idx = block_table[b_idx, idx + i]
                                     block_idx_valid = block_idx.max(0)
                                     vj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
-                                        pypto.view(value_cache_2d, [block_size, dn], 
+                                        pypto.view(value_cache_2d, [block_size, dn],
                                                     [block_idx_valid * block_size, 0])
                                 vj_assemble = pypto.view(vj_assemble, [s2_tile, dn],
                                                         [0, 0], valid_shape=[actual_s2_tile, dn])

@@ -221,7 +221,7 @@ void Scheduler::SortTile(std::unordered_map<int, TilePtr> &tiles, std::unordered
                 if (tilesVisited[it.first]) {
                     continue;
                 }
-                MLOG_INFO("[Cycle:", GetSim()->GetCycles(), "][Scheduler][SortTile] push tile magic:", 
+                MLOG_INFO("[Cycle:", GetSim()->GetCycles(), "][Scheduler][SortTile] push tile magic:",
                           tiles[it.first]->magic, ", domCount:", tiles[it.first]->exeInfo.domCount);
                 queue.emplace_back(it.first, true);
             }

@@ -32,8 +32,8 @@ public:
         RunOnFunction(function);
     }
 private:
-    Status PreCheck(Function &function) override;  
-    Status PostCheck(Function &function) override;  
+    Status PreCheck(Function &function) override;
+    Status PostCheck(Function &function) override;
     Status RunOnFunction(Function &function) override;
     void AssignMoveOp(Operation &operation);
     void AssignMoveOpForAssemble(Operation &operation);

@@ -100,7 +100,7 @@ struct IRBuilderContext {
     std::shared_ptr<CompoundStatement> compound{nullptr};
     std::shared_ptr<OpStatement> activeOpStmt{nullptr};
     std::vector<ScopeFrame> scopeStack;  // 作用域栈
-    
+
     void PushScope(CompoundStatementPtr newCompound, FunctionPtr newFunc = nullptr);
     void PopScope();
     void ResetInsertionPoint();
@@ -198,8 +198,8 @@ auto tensor = builder.CreateTensor(ctx, shape, DataType::FP32, "input");
 ```cpp
 std::shared_ptr<TensorValue> CreateTensor(
     IRBuilderContext& ctx,
-    const std::vector<ScalarValuePtr>& shape, 
-    DataType dt, 
+    const std::vector<ScalarValuePtr>& shape,
+    DataType dt,
     std::string name = ""
 );
 ```
@@ -226,7 +226,7 @@ auto iv = builder.CreateScalar(ctx, DataType::INT32, "i");
 ```cpp
 std::shared_ptr<ScalarValue> CreateScalar(
     IRBuilderContext& ctx,
-    DataType dt, 
+    DataType dt,
     std::string name = ""
 );
 ```
@@ -492,12 +492,12 @@ IRBuilderContext ctx;  // 创建上下文对象
 
 builder.EnterFunctionBody(ctx, func);  // 进入函数体作用域
 // 在函数体作用域内
-    
+
 builder.EnterForBody(ctx, fs);  // 进入循环体作用域
 // 在循环体作用域内
 // ...
 ctx.PopScope();  // 手动退出循环体作用域
-    
+
 ctx.PopScope();  // 手动退出函数体作用域
 
 ```

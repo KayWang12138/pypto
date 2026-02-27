@@ -16,4 +16,3 @@ logical_not(self) -> 'Tensor'
 ## 接口说明
 
 请参见[pypto.logical\_not](../operation/pypto-logical_not.md)
-

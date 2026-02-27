@@ -973,8 +973,8 @@ struct EncodeDevAscendFunctionInfo {
             IntVecToStr(ShapeToVector(cellMatchShape)).c_str(),
             IntVecToStr(StrideToVector(cellMatchStride)).c_str());
         ASSERT(cellMatchStride[0] < MAX_CELLMATCHSSTRIDE) << " Assemble outcast " << tensor->magic << "raw" << tensor->GetRawMagic()
- 	         <<"stitch results in excessive memory consumption," 
- 	         << "Please appropriately configure the view shape and tile shape, and ensure aligned with the input shape."; 
+ 	         <<"stitch results in excessive memory consumption,"
+ 	         << "Please appropriately configure the view shape and tile shape, and ensure aligned with the input shape.";
     }
 
     void RecordRawTensor(const std::shared_ptr<LogicalTensor> &tensor) {
@@ -2251,10 +2251,10 @@ static uint64_t CalcGeneralMetadataSlotWorkspace(DevAscendProgram *devProg) {
     uint64_t itemPoolMemSize = DeviceWorkspaceAllocator::CalcMetadataItemPoolMemSize(devProg);
     uint64_t vectorMemSize = DeviceWorkspaceAllocator::CalcMetadataVectorMemSize(devProg);
     uint64_t slotAllocatorMemSize = DeviceWorkspaceAllocator::CalcMetadataSlotAllocatorMemSize(devProg);
-    ALOG_DEBUG_F("itemPoolMemSize is: %lu, vectorMemSize is: %lu, slotAllocatorMemSize is %lu,", 
+    ALOG_DEBUG_F("itemPoolMemSize is: %lu, vectorMemSize is: %lu, slotAllocatorMemSize is %lu,",
                   itemPoolMemSize, vectorMemSize, slotAllocatorMemSize);
     static constexpr uint64_t AICPU_SLOT_STATIC_MEMSIZE = 2 * MEBI;
-    generalMetadataSlotSize = itemPoolMemSize + vectorMemSize + 
+    generalMetadataSlotSize = itemPoolMemSize + vectorMemSize +
                               slotAllocatorMemSize + AICPU_SLOT_STATIC_MEMSIZE;
     ALOG_DEBUG_F("workspace of generalMetadataSlotSize is %lu, ", generalMetadataSlotSize);
     return generalMetadataSlotSize;

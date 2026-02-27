@@ -40,4 +40,3 @@ TEST(RuntimeTest, Runtime01) {
     std::cout << "start to test runtime" << std::endl;
     machine::GetRA()->MapAiCoreReg();
 }
-

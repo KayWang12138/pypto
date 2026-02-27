@@ -44,4 +44,3 @@ out = t.get_cache_policy(pypto.CachePolicy.PREFETCH)
 ```python
 输出数据out: False
 ```
-

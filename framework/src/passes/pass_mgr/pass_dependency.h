@@ -36,7 +36,7 @@ private:
     void RegisterPreDependencies();
     void RegisterSequenceDependencies();
     Status CheckSequenceDependency(size_t index, const std::string &strategyName, const std::vector<PassName> &passes);
-    
+
 private:
     std::unordered_map<PassName, std::vector<PassName>> preDependencies_;
     std::unordered_map<PassName, std::vector<PassName>> sequenceDependencies_;

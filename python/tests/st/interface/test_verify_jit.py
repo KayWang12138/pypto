@@ -103,4 +103,3 @@ def test_verify_dyn():
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
 
     add_dyn(*pto_inputs, *pto_outputs)
-

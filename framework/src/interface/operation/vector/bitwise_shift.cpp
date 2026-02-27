@@ -66,9 +66,9 @@ Opcode GetBitwiseShiftOpNameCode() {
 
 void CheckBitwiseShiftDtype(const DataType &selfType, const DataType &otherType) {
     std::vector<DataType> BITWISRSHIFT_SUPPORT_DATATYPES = {DataType::DT_INT16};
-    bool selfSupport = (std::find(BITWISRSHIFT_SUPPORT_DATATYPES.begin(), BITWISRSHIFT_SUPPORT_DATATYPES.end(), selfType) != 
+    bool selfSupport = (std::find(BITWISRSHIFT_SUPPORT_DATATYPES.begin(), BITWISRSHIFT_SUPPORT_DATATYPES.end(), selfType) !=
            BITWISRSHIFT_SUPPORT_DATATYPES.end());
-    bool otherSupport = (std::find(BITWISRSHIFT_SUPPORT_DATATYPES.begin(), BITWISRSHIFT_SUPPORT_DATATYPES.end(), otherType) != 
+    bool otherSupport = (std::find(BITWISRSHIFT_SUPPORT_DATATYPES.begin(), BITWISRSHIFT_SUPPORT_DATATYPES.end(), otherType) !=
            BITWISRSHIFT_SUPPORT_DATATYPES.end());
     ASSERT(selfSupport && otherSupport) << "Inputs datatype not supported";
 }
@@ -80,7 +80,7 @@ void TiledBitwiseShiftOperation(Function &function, const TileShape &tileShape, 
         auto inputTile1 = input1.tensor->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
         auto inputTile2 = input2.tensor->View(function, input2.tileInfo.shape, input2.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
-        
+
         Shape tmpShape = resultTileInfo.shape;
         auto alignSize = BLOCK_SIZE / static_cast<int64_t>(BytesOf(result->Datatype()));
         tmpShape[tmpShape.size() - 1] = AlignUp(tmpShape[tmpShape.size() - 1], alignSize);

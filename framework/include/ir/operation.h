@@ -32,5 +32,3 @@ namespace pto {
 #undef DEFOP
 
 } // namespace pto
-
-

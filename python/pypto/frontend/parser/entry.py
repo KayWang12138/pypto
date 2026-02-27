@@ -342,7 +342,7 @@ class JitCallableWrapper:
 
         # Resolve symbolic dimensions using current input shapes so outputs
         # allocated below match the runtime dynamic sizes.
-        
+
         input_tensor_defs, output_tensor_defs = self.get_signature_high_performance(self._original_func)
         self._check_input_defs_match_tensors(in_tensors, input_tensor_defs)
         out_has_dyn_dim = False

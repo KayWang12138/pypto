@@ -45,14 +45,14 @@ def __getitem__(self, key, *, valid_shape: Optional[List[Union[int, SymbolicScal
 1. 全切片（slice）
 
    使用切片获取Tensor的子区域
-   
+
    ```python
    a = pypto.tensor([4, 4], pypto.DT_FP32)
    b = a[:2, :2] #等价于view(a, [2, 2], [0, 0])
    ```
-   
+
    结果示例如下：
-   
+
    ```python
    输入数据a: [[1, 2, 3, 4],
                [5, 6, 7, 8],
@@ -65,14 +65,14 @@ def __getitem__(self, key, *, valid_shape: Optional[List[Union[int, SymbolicScal
 2. 混合索引和切片
 
    结合整数索引和切片，可以降低维度并提取特定行或列。
-   
+
    ```python
    a = pypto.tensor([4, 4], pypto.DT_FP32)
    b = a[1, 1:3] #等价于先view(a, [1, 2], [1, 1])，再reshape为 [2]
    ```
-   
+
    结果示例如下：
-   
+
    ```python
    输入数据a: [[1, 2, 3, 4],
                [5, 6, 7, 8],
@@ -84,14 +84,14 @@ def __getitem__(self, key, *, valid_shape: Optional[List[Union[int, SymbolicScal
 3. 负数索引
 
     支持 Python 风格的负索引，从末尾开始计数。
-    
+
     ```python
     a = pypto.tensor([4, 4], pypto.DT_FP32)
     b = a[-1, -3:-1] #等价于s[3, 1:3]
     ```
-    
+
     结果示例如下：
-    
+
     ```python
     输入数据a: [[1, 2, 3, 4],
                 [5, 6, 7, 8],
@@ -101,16 +101,16 @@ def __getitem__(self, key, *, valid_shape: Optional[List[Union[int, SymbolicScal
     ```
 
 4. 省略号（ ...）
-   
+
    使用 \`...\` 自动填充中间的所有维度，简化多维索引。
-   
+
    ```python
    a = pypto.tensor([4, 4], pypto.DT_FP32)
    b = a[..., 1:3] #等价于s[:, 1:3]
    ```
 
    结果示例如下：
-   
+
    ```python
    输入数据a: [[1, 2, 3, 4],
                [5, 6, 7, 8],
@@ -125,14 +125,14 @@ def __getitem__(self, key, *, valid_shape: Optional[List[Union[int, SymbolicScal
 5. 单元素访问
 
    整数索引，取出Tensor的单个元素（仅支持 DT\_INT32 类型）。
-   
+
    ```python
    a = pypto.tensor([4, 4], pypto.DT_INT32)
    b = a[0, 0] #返回SymbolicScalar
    ```
-   
+
    结果示例如下：
-   
+
    ```python
    输入数据a: [[1, 2, 3, 4],
                [5, 6, 7, 8],
@@ -144,15 +144,15 @@ def __getitem__(self, key, *, valid_shape: Optional[List[Union[int, SymbolicScal
 6. Gather 操作
 
    当索引为\[int:Tensor\]的形式时，执行gather操作，索引中int类型对应dim，Tensor类型对应index，该切片语法等价于Tensor.gather\(dim, index\)。
-   
+
    ```python
    a = pypto.tensor([4, 4], pypto.DT_FP32)
    index = pypto.tensor([1, 4], pypto.DT_INT32)
    b = a[0:index] #调用gather(a, 0, index)
    ```
-   
+
    结果示例如下：
-   
+
    ```python
    输入数据a: [[1, 2, 3, 4],
                [5, 6, 7, 8],
@@ -205,15 +205,15 @@ def __setitem__(self, key, value)
 1. 全切片（slice）
 
    使用切片将一个小Tensor组装到大Tensor的指定位置。
-   
+
    ```python
    a = pypto.Tensor([4, 4], pypto.DT_FP32)
    b = pypto.Tensor([2, 2], pypto.DT_FP32)
    a[0:, 0:] = b #等价于assemble(b, (0, 0), a)
    ```
-   
+
    结果示例如下：
-   
+
    ```python
    输入数据a: [[0, 0, 0, 0],
                [0, 0, 0, 0],
@@ -230,15 +230,15 @@ def __setitem__(self, key, value)
 2. 混合索引和切片
 
    结合整数索引和切片，可以对特定行或列进行操作。
-   
+
    ```python
    a = pypto.Tensor([4, 4], pypto.DT_FP32)
    b = pypto.Tensor([2], pypto.DT_FP32)
    a[0, 1:3] = b #b被reshape为(1, 2),等价于pypto.assemble(b, (0, 1), a)
    ```
-   
+
    结果示例如下：
-   
+
    ```python
    输入数据a: [[0, 0, 0, 0],
                [0, 0, 0, 0],
@@ -254,15 +254,15 @@ def __setitem__(self, key, value)
 3. 负索引
 
    支持 Python 风格的负索引，从末尾开始计数。
-   
+
    ```python
    a = pypto.Tensor([4, 4], pypto.DT_FP32)
    b = pypto.Tensor([2], pypto.DT_FP32)
    a[-1, -3:-1] = b #等价于a[3, 1:3]
    ```
-   
+
    结果示例如下：
-   
+
    ```python
    输入数据a: [[0, 0, 0, 0],
                [0, 0, 0, 0],
@@ -278,15 +278,15 @@ def __setitem__(self, key, value)
 4. 省略号（ ...）
 
    使用 ... 可以自动填充中间维度。
-   
+
    ```python
    a = pypto.Tensor([4, 4], pypto.DT_FP32)
    b = pypto.Tensor([2, 2], pypto.DT_FP32)
    a[..., 2:4] = b #等价于a[0:2, 2:4]
    ```
-   
+
    结果示例如下：
-   
+
    ```python
    输入数据a: [[0, 0, 0, 0],
                [0, 0, 0, 0],
@@ -303,14 +303,14 @@ def __setitem__(self, key, value)
 5. 单元素赋值
 
    整数索引，对单个元素赋值（仅支持 DT\_INT32 类型）。
-   
+
    ```python
    a = pypto.Tensor([4, 4], pypto.DT_INT32)
    a[2, 3] = 5 #调用SetTensorData
    ```
-   
+
    结果示例如下：
-   
+
    ```python
    输入数据a: [[0, 0, 0, 0],
                [0, 0, 0, 0],
@@ -321,11 +321,11 @@ def __setitem__(self, key, value)
                [0, 0, 0, 5],
                [0, 0, 0, 0]]
    ```
-   
+
 6. Scatter 操作
 
    当key为slice，key.start为int， key.stop 为 Tensor时\(a\[start:stop\]   \)，执行 scatter 操作。
-   
+
    ```python
    a = pypto.Tensor([4, 4], pypto.DT_FP32)
    indices = pypto.Tensor([1, 4], pypto.DT_INT32) # 索引Tensor
@@ -333,9 +333,9 @@ def __setitem__(self, key, value)
    # 在维度0上进行scatter
    a[0:indices] = values #调用pypto.scatter(a, 0, indices, values)
    ```
-   
+
    结果示例如下：
-   
+
    ```python
    输入数据a: [[0, 0, 0, 0],
                [0, 0, 0, 0],
@@ -348,4 +348,3 @@ def __setitem__(self, key, value)
                [0, 0, 10, 0],
                [0, 0, 0, 10]]
    ```
-
