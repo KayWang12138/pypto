@@ -65,12 +65,9 @@ include(CMakePackageConfigHelpers)
 include(cmake/func.cmake)
 include(cmake/config.cmake)
 include(cmake/intf.cmake)
-
-# External dependencies
 include(cmake/third_party/nlohmann_json/nlohmann_json.cmake)
 include(cmake/third_party/libboundscheck/libboundscheck.cmake)
 include(cmake/third_party/googletest/googletest.cmake)
-include(cmake/third_party/msgpack/msgpack.cmake)
 
 
 ########################################################################################################################

@@ -20,6 +20,8 @@
 #include <mutex>
 #include <unordered_map>
 #include "interface/function/function.h"
+#include "ir/program.h"
+#include "ir/function.h"
 #include "interface/cache/hash.h"
 #include "tilefwk/core_func_data.h"
 
@@ -62,12 +64,28 @@ struct CacheValue {
     std::shared_ptr<CoreFunctionTopoCache> topoCache = nullptr;
     std::shared_ptr<CoreFunctionBinCache> binCache = nullptr;
     std::shared_ptr<ReadyCoreFunctionCache> readyListCache = nullptr;
+    bool IsIrFunction() {
+        return std::holds_alternative<pto::Function*>(cacheFunction);
+    }
 
     Function* GetFunction() {
-        return cacheFunction;
+        if (auto* ptr = std::get_if<Function*>(&cacheFunction)) {
+            return *ptr;  // 解引用，得到 Function*
+        }
+        return nullptr;
+    }
+
+    pto::Function* GetIrFunction() {
+        if (auto* ptr = std::get_if<pto::Function*>(&cacheFunction)) {
+            return *ptr;
+        }
+        return nullptr;
     }
 
     void SetCacheFunction(Function* func) {
+        cacheFunction = func;
+    }
+    void SetCacheFunction(pto::Function* func) {
         cacheFunction = func;
     }
  public:
@@ -80,7 +98,7 @@ struct CacheValue {
         return ptr;
     }
 private:
-    Function* cacheFunction = nullptr;
+    std::variant<Function *, pto::Function*> cacheFunction;
 };
 #pragma pack()
 
@@ -91,6 +109,7 @@ public:
     std::optional<CacheValue> Get(HashKey key);
 
     void Insert(const HashKey& key, Function& func);
+    void Insert(const HashKey& key, pto::Function *func);
 
     size_t Size();
 
@@ -101,6 +120,10 @@ public:
     virtual ~FunctionCache();
 
     Function *GetCacheFunction(const HashKey &key);
+
+    pto::Function *GetCacheIrFunction(const HashKey &key);
+
+    pto::BlockFunction *GetCacheIrBlockFunction(const HashKey &key);
 
     void BuildHashDict(Function *func, std::unordered_map<FunctionHash, Function *> &hashDict) {
         std::vector<std::shared_ptr<CallOpAttribute>> callopAttrList = func->GetCallopAttrList();
