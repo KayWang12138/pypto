@@ -239,7 +239,6 @@ struct DynMachineManager {
     }
 
     int RunCtrl(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry, int threadIdx) {
-        CreateLogFile(LogType::LOG_TYPE_CONTROLLER, 0);
         DEV_TRACE_DEBUG(schema::CtrlEvent(threadIdx, schema::ThreadStart()));
 
         DEV_INFO("ThreadCtrlEnter idx=%d", threadIdx);
@@ -254,7 +253,6 @@ struct DynMachineManager {
         UNUSED(entry);
 
         DeviceArgs *devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
-        CreateLogFile(LogType::LOG_TYPE_SCHEDULER, threadIdx);
         DEV_INFO("ThreadScheEnter idx=%d", threadIdx);
 
         DEV_INFO("TaskType %d threadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum %u .",
@@ -325,7 +323,8 @@ struct DynMachineManager {
         PerfMtTrace(PERF_TRACE_BEGIN, threadIdx, kargs->taskWastTime);
         PerfMtTrace(PERF_TRACE_ALLOC_THREAD_ID, threadIdx, allocThreadCycle);
 
-        GetLogger().Flush();
+        DEV_INFO("ThreadLeave idx=%d ret=%d", threadIdx, ret);
+
         PerfMtTrace(PERF_TRACE_EXIT, threadIdx);
         if (++finished_ == static_cast<std::atomic<int>>(devArgs->nrAicpu)) {
             LastFinishThreadIdx_ = threadIdx;
@@ -482,7 +481,7 @@ struct DynMachineManager {
 
         DevStartArgs *runtimeDataCurrent = reinterpret_cast<DevStartArgs *>(devProg->GetRuntimeDataList()->GetRuntimeDataCurrent());
         auto devArgs = devProg->devArgs;
-        int threadIdx = AllocThreadIdx(LAUNCH_AICPU_NUM, devArgs.scheCpuNum, runtimeDataCurrent->devScheState.threadIdx);
+        int threadIdx = AllocThreadIdx(devArgs.nrAicpu, devArgs.scheCpuNum, runtimeDataCurrent->devScheState.threadIdx);
         int ret = DEVICE_MACHINE_OK;
         if (threadIdx != -1 && threadIdx <= static_cast<int>(devArgs.scheCpuNum)) {
             DEV_INFO("SchedThreadEnter idx=%d round=%d", threadIdx, (int)kargs->parameter.globalRound);
