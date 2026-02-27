@@ -800,10 +800,9 @@ class JitCallableWrapper:
                 make_hashable(self._debug_options),
             )
 
-            captured_locals_hash = make_hashable(self._captured_locals) if self._captured_locals else None
             non_tensor_hash = make_hashable(non_tensor_values) if non_tensor_values else None
 
-            return (source_code, options_hash, captured_locals_hash, non_tensor_hash)
+            return (source_code, options_hash, non_tensor_hash)
         except (OSError, TypeError):
             # If we can't generate a cache key (e.g., source not available),
             # disable caching for this function
