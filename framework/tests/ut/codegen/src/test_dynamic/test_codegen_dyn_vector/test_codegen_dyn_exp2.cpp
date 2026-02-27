@@ -93,7 +93,7 @@ TEST_F(TestCodegenDynExp2, TestDynOpExp2) {
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TExp2(ubTensor_2, ubTensor_3, ubTensor_4, ubTensor_0);
+        R"!!!(TExp2(ubTensor_1, ubTensor_4, ubTensor_5, ubTensor_1);
  	 )!!!";
     CheckStringExist(expect, res);
 }
