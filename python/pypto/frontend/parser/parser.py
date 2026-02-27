@@ -119,7 +119,7 @@ class Parser(ast.NodeVisitor):
         Cached function signature (inputs, outputs) with symbolic dimensions lowered to concrete values.
     _bound_dim_values : Optional[dict[str, SymInt]]
  	    Mapping from symbolic dimension names to bound values. The bound values can be
- 	    concrete integers (static specialization) or runtime symbolic expressions
+        concrete integers (static specialization) or runtime symbolic expressions
  	    (e.g., input shape-derived SymbolicScalar).
 
     Examples
