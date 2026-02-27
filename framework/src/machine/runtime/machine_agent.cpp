@@ -52,7 +52,7 @@ void MachineAgent::AgentProc(DeviceAgentTask *task) {
         }
     }
 #endif
-    
+
     if (task->compileInfo.coreFunctionCnt == 0) {
         return;
     }
@@ -117,7 +117,7 @@ int MachineAgent::PrepareWorkSpace(DeviceAgentTask *task) {
 }
 
 void ProcessInvokeParaOffset(DeviceAgentTask *task, InvokeParaOffset &elm,
-    uint8_t *paraWorkSpaceAddr, std::vector<uint64_t> &invokeOffsetVec, 
+    uint8_t *paraWorkSpaceAddr, std::vector<uint64_t> &invokeOffsetVec,
     std::vector<uint64_t> &invokeOffsetOriVec)
 {
     uint64_t value;
@@ -161,7 +161,7 @@ void ProcessInvokeParaOffset(DeviceAgentTask *task, InvokeParaOffset &elm,
     invokeOffsetOriVec.push_back(oriValue);
 }
 
-void ProcessCoreFunction(DeviceAgentTask *task, uint8_t *paraWorkSpaceAddr, 
+void ProcessCoreFunction(DeviceAgentTask *task, uint8_t *paraWorkSpaceAddr,
     std::vector<uint64_t> &invokeOffsetVec, std::vector<uint64_t> &invokeOffsetOriVec) {
     std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffsetMap =
         task->compileInfo.invokeParaOffset;
@@ -176,11 +176,11 @@ void ProcessCoreFunction(DeviceAgentTask *task, uint8_t *paraWorkSpaceAddr,
                 elm.rawSymbol.c_str(), elm.offset);
                 ProcessInvokeParaOffset(task, elm, paraWorkSpaceAddr, invokeOffsetVec, invokeOffsetOriVec);
         }
-    }    
+    }
 }
 
-bool AllocateDeviceMemory(uint8_t*& invokeEntyDev, uint8_t*& invokeEntyDevOri, 
-        uint8_t*& invokeTensorsInfoDev, size_t invokeOffsetVecSize, 
+bool AllocateDeviceMemory(uint8_t*& invokeEntyDev, uint8_t*& invokeEntyDevOri,
+        uint8_t*& invokeTensorsInfoDev, size_t invokeOffsetVecSize,
         size_t invokeOffsetOriSize, size_t invokeTensorsInfoSize)
 {
     (void)invokeEntyDev;
@@ -212,7 +212,7 @@ bool AllocateDeviceMemory(uint8_t*& invokeEntyDev, uint8_t*& invokeEntyDevOri,
 }
 
 void CopyDataToDevice(uint8_t* invokeEntyDev, uint8_t* invokeEntyDevOri, uint8_t* invokeTensorsInfoDev,
-        size_t invokeOffsetVecSize, size_t invokeTensorsInfoSize, std::vector<uint64_t>& invokeOffsetVec, 
+        size_t invokeOffsetVecSize, size_t invokeTensorsInfoSize, std::vector<uint64_t>& invokeOffsetVec,
         std::vector<uint64_t>& invokeOffsetOriVec, std::vector<TensorInfo>& coreTensorInfoVec)
 {
     (void)invokeEntyDev;
@@ -231,7 +231,7 @@ void CopyDataToDevice(uint8_t* invokeEntyDev, uint8_t* invokeEntyDevOri, uint8_t
     machine::GetRA()->CopyToDev(invokeEntyDevOri,
         reinterpret_cast<uint8_t *>(invokeOffsetOriVec.data()), invokeOffsetOriVec.size() * sizeof(uint64_t));
     ALOG_INFO_F("[DEVICE AGENT] Copied invokeOffsetVec data to invokeEntyDev, size: %lu bytes", invokeOffsetVecSize);
-#endif  
+#endif
 }
 
 int MachineAgent::PrepareInvokeEntry(DeviceAgentTask *task) {
@@ -256,7 +256,7 @@ int MachineAgent::PrepareInvokeEntry(DeviceAgentTask *task) {
     ALOG_INFO_F("PrepareInvokeEntry invokeEntyDev: %p, invokeTensorsInfoDev: %p", invokeEntyDev, invokeTensorsInfoDev);
     DumpData("invokeEntyDev.data", reinterpret_cast<const char *>(&invokeEntyDev), sizeof(uint8_t *));
     DumpData("invokeOffsetVec.data", reinterpret_cast<const char *>(invokeOffsetVec.data()), invokeOffsetVecSize);
-    CopyDataToDevice(invokeEntyDev, invokeEntyDevOri, invokeTensorsInfoDev, invokeOffsetVecSize, 
+    CopyDataToDevice(invokeEntyDev, invokeEntyDevOri, invokeTensorsInfoDev, invokeOffsetVecSize,
         invokeTensorsInfoSize, invokeOffsetVec, invokeOffsetOriVec, task->compileInfo.coreTensorInfoVec);
     /* cache core function absolute addr */
     for (auto &elm : task->compileInfo.coreFunctionInvokeEntryOffset) {

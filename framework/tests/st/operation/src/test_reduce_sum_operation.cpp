@@ -124,7 +124,7 @@ void Sum3DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor
                         offset.erase(offset.begin() + dim);
                     }
                     auto res = Sum(viewTensor, args->dims_[0], keepDim);
-                    Assemble(res, offset, outputs[0]);  
+                    Assemble(res, offset, outputs[0]);
                 }
             }
         }
@@ -160,10 +160,10 @@ void Sum4DOperationExeFunc(const std::vector<Tensor>& inputs, std::vector<Tensor
             LOOP("LOOP_L1_bIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loops[IDX_DIM1])) {
                 LOOP("LOOP_L2_bIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(loops[IDX_DIM2])) {
                     LOOP("LOOP_L3_bIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(loops[IDX_DIM3])) {
-                        std::vector<SymbolicScalar> offset = {	
+                        std::vector<SymbolicScalar> offset = {
                             bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2], qIdx * viewShape[3]
                         };
-                        auto viewTensor = View(inputs[0], 
+                        auto viewTensor = View(inputs[0],
                             {
                                 viewShape[0] == 0 ? firstDim : viewShape[0],
                                 viewShape[1] == 0 ? secondDim : viewShape[1],

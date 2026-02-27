@@ -232,7 +232,7 @@ def indexer_prolog(inputs_initial: dict, dims: dict, precision: str = "same"):
     s = t // b
 
     if precision == "high":
-        inputs = {k: v.to(torch.float32) if v.dtype in [torch.bfloat16, torch.float16] else v.clone() 
+        inputs = {k: v.to(torch.float32) if v.dtype in [torch.bfloat16, torch.float16] else v.clone()
                     for k, v in inputs_initial.items()}
     elif precision == "same":
         inputs = inputs_initial
@@ -767,7 +767,7 @@ def test_acl():
         inputs["w_idx_proj"].npu(), inputs["layer_norm_gamma"].npu(), inputs["layer_norm_beta"].npu(),
         inputs["cos_idx_rope"].npu().reshape(t, rope_head_dim),
         inputs["sin_idx_rope"].npu().reshape(t, rope_head_dim), inputs["hadamard_q"].npu(),
-        inputs["hadamard_k"].npu(), inputs["idx_k_cache"].npu(), inputs["idx_k_scale_cache"].npu(), 
+        inputs["hadamard_k"].npu(), inputs["idx_k_cache"].npu(), inputs["idx_k_scale_cache"].npu(),
         inputs["idx_k_cache_index"].npu().reshape(t))
 
     logging.info("==================finish pypto==================")

@@ -32,7 +32,7 @@ from numpy.testing import assert_allclose
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
-    
+
     Returns:
         int: The device ID if valid, None otherwise.
     """
@@ -42,7 +42,7 @@ def get_device_id():
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
-    
+
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
@@ -79,7 +79,7 @@ def test_abs_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of abs Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     dtype = torch.float32
@@ -131,9 +131,9 @@ def test_add_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of add Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([1, 2, 3], dtype=dtype, device=device)
     b = torch.tensor([4, 5, 6], dtype=dtype, device=device)
@@ -147,8 +147,8 @@ def test_add_basic(device_id: int = None, run_mode: str = "npu"):
     print("✓ Basic usage of add function completed successfully")
 
 
-def create_add_broadcast_op_kernel(a_shape: tuple, b_shape: tuple, 
-                                   run_mode: str = "npu", 
+def create_add_broadcast_op_kernel(a_shape: tuple, b_shape: tuple,
+                                   run_mode: str = "npu",
                                    dynamic: bool = False):
     if dynamic:
         m = pypto.frontend.dynamic("m")
@@ -173,7 +173,7 @@ def create_add_broadcast_op_kernel(a_shape: tuple, b_shape: tuple,
         pypto.set_vec_tile_shapes(2, 8)
         out = pypto.add(a, b)
         return out
-    
+
     return add_broadcast_kernel
 
 
@@ -182,9 +182,9 @@ def test_add_broadcast(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Broadcasting Between Tensors")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=device)
     b = torch.tensor([1, 2], dtype=dtype, device=device)
@@ -228,9 +228,9 @@ def test_add_scalar(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Adding a scalar to a tensor")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([1, 2, 3], dtype=dtype, device=device)
     scalar = 2.0
@@ -244,7 +244,7 @@ def test_add_scalar(device_id: int = None, run_mode: str = "npu"):
     print("✓ Test Adding a scalar to a tensor completed successfully")
 
 
-def create_add_with_alpha_op_kernel(a_shape: tuple, b_shape: tuple, 
+def create_add_with_alpha_op_kernel(a_shape: tuple, b_shape: tuple,
                                     alpha: float, run_mode: str = "npu", dynamic: bool = False):
     if dynamic:
         a_shape = pypto.frontend.dynamic("a_shape")
@@ -277,9 +277,9 @@ def test_add_with_alpha(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Using the Alpha Parameter")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([1, 2, 3], dtype=dtype, device=device)
     b = torch.tensor([4, 5, 6], dtype=dtype, device=device)
@@ -299,8 +299,8 @@ def test_add_with_alpha(device_id: int = None, run_mode: str = "npu"):
 # ============================================================================
 
 
-def create_clip_op_kernel(a_shape: tuple, min_shape: tuple, 
-                          max_shape: tuple, run_mode: str = "npu", 
+def create_clip_op_kernel(a_shape: tuple, min_shape: tuple,
+                          max_shape: tuple, run_mode: str = "npu",
                           dynamic: bool = False):
     if dynamic:
         m = pypto.frontend.dynamic("m")
@@ -338,9 +338,9 @@ def test_clip_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of clip Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([[0, 2, 4], [3, 4, 6]], dtype=dtype, device=device)
     min_ = torch.tensor([[1, 1, 1], [1, 1, 1]], dtype=dtype, device=device)
@@ -355,8 +355,8 @@ def test_clip_basic(device_id: int = None, run_mode: str = "npu"):
     print("✓ Basic usage of clip function completed successfully")
 
 
-def create_clip_broadcast_op_kernel(a_shape: tuple, min_shape: tuple, 
-                                    max_shape: tuple, run_mode: str = "npu", 
+def create_clip_broadcast_op_kernel(a_shape: tuple, min_shape: tuple,
+                                    max_shape: tuple, run_mode: str = "npu",
                                     dynamic: bool = False):
     if dynamic:
         m = pypto.frontend.dynamic("m")
@@ -392,9 +392,9 @@ def test_clip_broadcast(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Broadcasting Between Tensors")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([[0, 2, 4], [3, 4, 6]], dtype=dtype, device=device)
     min_ = torch.tensor([1, 1, 1], dtype=dtype, device=device)
@@ -428,7 +428,7 @@ def create_div_op_kernel(a_shape: tuple, b_shape: tuple, run_mode: str = "npu", 
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def div_kernel(
         a: pypto.Tensor(a_shape, pypto.DT_FP32),
@@ -446,9 +446,9 @@ def test_div_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of div Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([6, 10, 15], dtype=dtype, device=device)
     b = torch.tensor([2, 5, 3], dtype=dtype, device=device)
@@ -462,8 +462,8 @@ def test_div_basic(device_id: int = None, run_mode: str = "npu"):
     print("✓ Basic usage of div function completed successfully")
 
 
-def create_div_broadcast_op_kernel(a_shape: tuple, b_shape: tuple, 
-                                   run_mode: str = "npu", 
+def create_div_broadcast_op_kernel(a_shape: tuple, b_shape: tuple,
+                                   run_mode: str = "npu",
                                    dynamic: bool = False):
     if dynamic:
         n = a_shape[1]
@@ -492,9 +492,9 @@ def test_div_broadcast(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Broadcasting Between Tensors")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=device)
     b = torch.tensor([1, 2], dtype=dtype, device=device)
@@ -508,7 +508,7 @@ def test_div_broadcast(device_id: int = None, run_mode: str = "npu"):
     print("✓ Test Broadcasting Between Tensors completed successfully")
 
 
-def create_div_scalar_op_kernel(a_shape: tuple, scalar: float, 
+def create_div_scalar_op_kernel(a_shape: tuple, scalar: float,
                                 run_mode: str = "npu", dynamic: bool = False):
     if dynamic:
         a_shape = pypto.frontend.dynamic("a_shape")
@@ -538,9 +538,9 @@ def test_div_scalar(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Diving a scalar to a tensor")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([1, 2, 3], dtype=dtype, device=device)
     scalar = 2.0
@@ -588,9 +588,9 @@ def test_exp_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of exp Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     x = torch.tensor([0, 1, 2], dtype=dtype, device=device)
     expected = torch.tensor([1.0000, 2.7183, 7.3891], dtype=dtype, device=device)
@@ -637,9 +637,9 @@ def test_log_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of log Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([1, 2, 3], dtype=dtype, device=device)
     expected = torch.tensor([0, 0.6931, 1.0986], dtype=dtype, device=device)
@@ -685,9 +685,9 @@ def test_mul_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of mul Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([1, 2, 3], dtype=dtype, device=device)
     b = torch.tensor([4, 5, 6], dtype=dtype, device=device)
@@ -710,7 +710,7 @@ def mul_broadcast_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dy
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def mul_broadcast_kernel(
         a: pypto.Tensor(a_shape, pypto.DT_FP32),
@@ -721,7 +721,7 @@ def mul_broadcast_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dy
         pypto.set_vec_tile_shapes(2, 8)
         out = pypto.mul(a, b)
         return out
-    
+
     out = mul_broadcast_kernel(a, b)
 
     return out
@@ -732,9 +732,9 @@ def test_mul_broadcast(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Broadcasting Between Tensors")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=device)
     b = torch.tensor([1, 2], dtype=dtype, device=device)
@@ -757,7 +757,7 @@ def mul_scalar_op(a: torch.Tensor, scalar: float, run_mode: str = "npu", dynamic
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-        
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def mul_broadcast_kernel(
         a: pypto.Tensor(a_shape, pypto.DT_FP32),
@@ -777,9 +777,9 @@ def test_mul_scalar(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Muling a scalar to a tensor")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([1, 2, 3], dtype=dtype, device=device)
     scalar = 2.0
@@ -806,13 +806,13 @@ def neg_op(a: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> tor
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-        
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def neg_kernel(a: pypto.Tensor(a_shape, pypto.DT_FP32)) -> pypto.Tensor(a_shape, pypto.DT_FP32):
         pypto.set_vec_tile_shapes(2, 8)
         out = pypto.neg(a)
         return out
-    
+
     out = neg_kernel(a)
 
     return out
@@ -823,9 +823,9 @@ def test_neg_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of neg Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([[1, 4],
                      [16, 9]], dtype=dtype, device=device)
@@ -869,9 +869,9 @@ def test_pow_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of pow Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([3, 3], dtype=dtype, device=device)
     b = 2.0
@@ -938,20 +938,20 @@ def test_round_basic(device_id: int = None, run_mode: str = "npu"):
 
 def rsqrt_op(a: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     a_shape = a.shape
-    
+
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
     elif run_mode == "sim":
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-        
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def rsqrt_kernel(a: pypto.Tensor(a_shape, pypto.DT_FP32)) -> pypto.Tensor(a_shape, pypto.DT_FP32):
         pypto.set_vec_tile_shapes(2, 8)
         out = pypto.rsqrt(a)
         return out
-    
+
     out = rsqrt_kernel(a)
     return out
 
@@ -961,9 +961,9 @@ def test_rsqrt_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of rsqrt Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([[1, 4],
                      [16, 9]], dtype=dtype, device=device)
@@ -1127,7 +1127,7 @@ def sqrt_op(a: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> to
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-        
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def sqrt_kernel(a: pypto.Tensor(a_shape, pypto.DT_FP32)) -> pypto.Tensor(a_shape, pypto.DT_FP32):
         pypto.set_vec_tile_shapes(2, 8)
@@ -1143,9 +1143,9 @@ def test_sqrt_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of sqrt Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([[1, 4],
                      [16, 9]], dtype=dtype, device=device)
@@ -1174,7 +1174,7 @@ def sub_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: boo
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def sub_kernel(
         a: pypto.Tensor(a_shape, pypto.DT_FP32),
@@ -1195,9 +1195,9 @@ def test_sub_basic(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Basic Usage of sub Function")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([4, 5, 6], dtype=dtype, device=device)
     b = torch.tensor([1, 2, 3], dtype=dtype, device=device)
@@ -1213,14 +1213,14 @@ def test_sub_basic(device_id: int = None, run_mode: str = "npu"):
 
 def sub_broadcast_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
     a_shape, b_shape = a.shape, b.shape
-    
+
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
     elif run_mode == "sim":
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-        
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def sub_broadcast_kernel(
         a: pypto.Tensor(a_shape, pypto.DT_FP32),
@@ -1231,7 +1231,7 @@ def sub_broadcast_op(a: torch.Tensor, b: torch.Tensor, run_mode: str = "npu", dy
         pypto.set_vec_tile_shapes(2, 8)
         out = pypto.sub(a, b)
         return out
-    
+
     out = sub_broadcast_kernel(a, b)
     return out
 
@@ -1241,9 +1241,9 @@ def test_sub_broadcast(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Broadcasting Between Tensors")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([[1, 2], [3, 4]], dtype=dtype, device=device)
     b = torch.tensor([1, 2], dtype=dtype, device=device)
@@ -1265,13 +1265,13 @@ def sub_scalar_op(a: torch.Tensor, scalar: float, run_mode: str = "npu", dynamic
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-   
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def sub_scalar_kernel(a: pypto.Tensor(a_shape, pypto.DT_FP32)) -> pypto.Tensor(a_shape, pypto.DT_FP32):
         pypto.set_vec_tile_shapes(2, 8)
         out = pypto.sub(a, scalar)
         return out
-   
+
     out = sub_scalar_kernel(a)
     return out
 
@@ -1281,9 +1281,9 @@ def test_sub_scalar(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Subing a scalar to a tensor")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([1, 2, 3], dtype=dtype, device=device)
     scalar = 2.0
@@ -1307,7 +1307,7 @@ def sub_with_alpha_op(a: torch.Tensor, b: torch.Tensor, alpha: float, run_mode: 
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-        
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def sub_with_alpha_kernel(
         a: pypto.Tensor(a_shape, pypto.DT_FP32),
@@ -1318,7 +1318,7 @@ def sub_with_alpha_op(a: torch.Tensor, b: torch.Tensor, alpha: float, run_mode: 
         pypto.set_vec_tile_shapes(2, 8)
         out = pypto.sub(a, b, alpha=alpha)
         return out
-    
+
     out = sub_with_alpha_kernel(a, b)
     return out
 
@@ -1328,9 +1328,9 @@ def test_sub_with_alpha(device_id: int = None, run_mode: str = "npu"):
     print("=" * 60)
     print("Test: Using the Alpha Parameter")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     dtype = torch.float32
     a = torch.tensor([9, 8, 7], dtype=dtype, device=device)
     b = torch.tensor([1, 2, 3], dtype=dtype, device=device)
@@ -1351,7 +1351,7 @@ def test_sub_with_alpha(device_id: int = None, run_mode: str = "npu"):
 
 def main():
     """Run element-wise examples.
-    
+
     Usage:
         python elementwise.py              # Run all examples
         python elementwise.py --list       # List all available examples
@@ -1383,9 +1383,9 @@ Examples:
         nargs="?", type=str, default="npu", choices=["npu", "sim"],
         help="run mode, such as npu/sim etc."
     )
-    
+
     args = parser.parse_args()
-    
+
     # Define available examples
     examples = {
         'abs::test_abs_basic': {
@@ -1524,7 +1524,7 @@ Examples:
             'function': test_sub_with_alpha
         }
     }
-    
+
     # List examples if requested
     if args.list:
         print("\n" + "=" * 60)
@@ -1535,7 +1535,7 @@ Examples:
             print(f"     {ex_info['name']}")
             print(f"     {ex_info['description']}\n")
         return
-    
+
     # Validate case if provided
     examples_to_run = []
     if args.example_id:
@@ -1547,7 +1547,7 @@ Examples:
         examples_to_run = [(args.example_id, examples[args.example_id])]
     else:
         examples_to_run = [(key, info) for key, info in sorted(examples.items())]
-    
+
     print("\n" + "=" * 60)
     print("PyPTO Element-wise Operation Examples")
     print("=" * 60 + "\n")
@@ -1559,20 +1559,20 @@ Examples:
             return
         import torch_npu
         torch.npu.set_device(device_id)
-    
+
     try:
         for case_key, ex_info in examples_to_run:
             if args.run_mode == "npu" and device_id is None:
                 print(f"Skipping {case_key} ({ex_info['name']}): NPU device not configured")
                 continue
-            
+
             ex_info['function'](device_id, args.run_mode)
-        
+
         if len(examples_to_run) > 1:
             print("=" * 60)
             print("All element-wise tests passed!")
             print("=" * 60)
-        
+
     except Exception as e:
         print(f"\nError: {e}")
         raise

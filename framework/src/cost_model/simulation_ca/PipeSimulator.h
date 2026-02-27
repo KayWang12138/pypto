@@ -32,7 +32,7 @@ namespace CostModel
     };
 
     namespace PipeSimulatorUtils {
-        std::string ReplaceGMStr(const std::string &str) { 
+        std::string ReplaceGMStr(const std::string &str) {
             std::regex pattern(R"(\(\(__gm__ GMTensorInfo\*\)\(param\) \+ \d+\)->Addr)");
             std::string result = std::regex_replace(str, pattern, "charArray1");
             result = std::regex_replace(result, std::regex("GMStackBase"), "charArray1");

@@ -51,7 +51,7 @@ def get_device_id():
     except ValueError:
         print(f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}")
         return None
-    
+
 def safe_json_load(file_path):
     try:
         with open(file_path, 'r', encoding='utf-8') as file:
@@ -87,7 +87,7 @@ def softmax_core(input_tensor: pypto.Tensor) -> pypto.Tensor:
 
 
 def softmax_wrapper(shape, cost_model_enable):
-    
+
     @pypto.frontend.jit(
         runtime_options={"stitch_cfgcache_size": 2100000,
                          "run_mode": pypto.RunMode.SIM}
@@ -107,17 +107,17 @@ def softmax_wrapper(shape, cost_model_enable):
         for idx in pypto.loop(b_loop):
             b_offset = idx * tile_b
             b_offset_end = (idx + 1) * tile_b
-            
+
             # Extract batch slice
             input_view = input_tensor[b_offset:b_offset_end, :n1, :n2, :dim]
-            
+
             # Apply softmax to batch slice
             softmax_out = softmax_core(input_view)
-            
+
             # Assemble result back to output tensor
             pypto.assemble(softmax_out, [b_offset, 0, 0, 0], output_tensor)
         return output_tensor
-    
+
     return softmax
 
 
@@ -139,7 +139,7 @@ def test_softmax(cost_model_enable=True):
     # Launch the kernel
 
     output_data = softmax_wrapper(shape, cost_model_enable)(input_data).cpu()
-    
+
     # Verify against PyTorch reference
     torch_softmax = torch.softmax(input_data, dim=3)
     npu_data = output_data.cpu()

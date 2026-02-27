@@ -55,4 +55,3 @@ y = pypto.cbrt(x)
 Input  x:[[8, -8]]
 Output y:[[2, -2]]
 ```
-

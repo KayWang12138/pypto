@@ -62,10 +62,10 @@ from numpy.testing import assert_allclose
         n1, n2, dim = tensor_shape[1:]
         tile_b = 1
         b_loop = b / tile_b
-    
+
         # tiling shape setting
         pypto.set_vec_tile_shapes(1, 4, 1, 64)
-    
+
         for idx in pypto.loop(b_loop):
             b_offset = idx * tile_b
             b_offset_end = (idx + 1) * tile_b
@@ -87,17 +87,17 @@ from numpy.testing import assert_allclose
     ```python
     def softmax(x: torch.Tensor, dynamic: bool = True) -> torch.Tensor:
         y = torch.empty_like(x)
-    
+
         if dynamic:
             x_pto = pypto.from_torch(x, dynamic_axis=[0])
             y_pto = pypto.from_torch(y, dynamic_axis=[0])
         else:
             x_pto = pypto.from_torch(x)
             y_pto = pypto.from_torch(y)
-    
+
         # launch the kernel
         softmax_kernel(x_pto, y_pto)
-    
+
         return y
     ```
 
@@ -195,8 +195,7 @@ PyPTO程序在编译过程中，会自动生成由Tensor和Operation组合而成
 
     右键单击merged\_swimlane.json，在弹出的菜单中选择“使用PyPTO Toolkit打开”，如下图所示。
 
-    **图 1**  泳道图界面  
+    **图 1**  泳道图界面
     ![](../figures/swimlane_graph.png "泳道图界面")
 
     上图中带有色块的部分即为泳道，展示了每个AIC/AIV上的任务执行情况。泳道条目的长度对应任务的耗时，能够直观地反映计算的密集程度。用户可以通过观察相邻泳道之间的空闲间隔（如图中的黑色区域，或称气泡）以及耗时较长的泳道条目，来分析可能存在的性能瓶颈问题。
-

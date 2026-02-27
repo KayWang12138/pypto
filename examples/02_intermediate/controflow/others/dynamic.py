@@ -100,14 +100,14 @@ def scaled_dot_product_attention(q_shape: tuple, k_shape: tuple, config: Attenti
 
     tile = q_shape[0]
     scale = config.scale if config.scale is not None else (1.0 / (dim**0.5))
-        
+
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
     elif run_mode == "sim":
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def scaled_dot_product_attention_kernel(
         q: pypto.Tensor((bs, head, q_len, dim), pypto.DT_FP32),
@@ -128,11 +128,11 @@ def scaled_dot_product_attention(q_shape: tuple, k_shape: tuple, config: Attenti
         for bss_idx in pypto.loop(bs_loop):
             bs_offset = bss_idx * tile
             bs_offset_end = pypto.min(bs_offset + tile, bs)
-            q_view = pypto.view(q, [tile, head, q_len, dim], [bs_offset, 0, 0, 0], 
+            q_view = pypto.view(q, [tile, head, q_len, dim], [bs_offset, 0, 0, 0],
                                 valid_shape=[bs_offset_end - bs_offset, head, q_len, dim])
-            k_view = pypto.view(k, [tile, head, kv_len, dim], [bs_offset, 0, 0, 0], 
+            k_view = pypto.view(k, [tile, head, kv_len, dim], [bs_offset, 0, 0, 0],
                                 valid_shape=[bs_offset_end - bs_offset, head, kv_len, dim])
-            v_view = pypto.view(v, [tile, head, kv_len, dim], [bs_offset, 0, 0, 0], 
+            v_view = pypto.view(v, [tile, head, kv_len, dim], [bs_offset, 0, 0, 0],
                                 valid_shape=[bs_offset_end - bs_offset, head, kv_len, dim])
             pypto.set_vec_tile_shapes(1, 8, 16, 64)
             res = scaled_dot_product_attention_core(
@@ -140,7 +140,7 @@ def scaled_dot_product_attention(q_shape: tuple, k_shape: tuple, config: Attenti
             )
             pypto.assemble(res, [bs_offset, 0, 0, 0], output_tensor)
         return output_tensor
-    
+
     return scaled_dot_product_attention_kernel
 
 
@@ -175,7 +175,7 @@ def test_dynamic_shape(device_id: int = None, run_mode: str = "npu", dynamic: bo
         out_torch = scaled_dot_product_attention(
                 q_torch.shape, k_torch.shape, config, run_mode, dynamic
             )(q_torch, k_torch, v_torch).cpu()
-        
+
         if run_mode == "npu":
             torch.npu.synchronize()
 

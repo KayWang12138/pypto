@@ -134,4 +134,3 @@ public:
 using TensorTypePtr = std::shared_ptr<TensorType>;
 
 } // namespace pto
-

@@ -24,7 +24,7 @@ namespace npu::tile_fwk {
         if (!location) {
             return "";
         }
-        
+
         std::ostringstream oss;
         oss << "[FuncMagic:" << op.BelongTo()->GetFuncMagic() << "]" << "[OpMagic:" << op.opmagic << "]" << "[Backtrace]:" << location->SourceLocation::GetBacktrace() << ".";
         return oss.str();

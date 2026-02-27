@@ -220,7 +220,7 @@ TEST(IRTEST, TestControlFlow) {
 std::shared_ptr<Function> TestBlockFunction(
     const std::vector<TensorValuePtr> &inputArgs,
     const std::vector<TensorValuePtr> &outputArgs,
-    [[maybe_unused]]const std::vector<ScalarValuePtr> &indices) 
+    [[maybe_unused]]const std::vector<ScalarValuePtr> &indices)
 {
     IRBuilderContext ctx;
     IRBuilder builder;

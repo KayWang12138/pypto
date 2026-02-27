@@ -83,4 +83,3 @@ y = pypto.index_add_(x, dim, index, source)
 输出数据 y:   [[2 2 2],
                [1 1 1]]               # shape (2, 3)
 ```
-

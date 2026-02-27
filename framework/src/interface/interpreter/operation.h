@@ -54,13 +54,13 @@ public:
     ScalarImmediateType EvaluateSymbolicScalar(const SymbolicScalar &ss) {
         return evaluateSymbol->EvaluateSymbolicScalar(ss);
     }
-    std::vector<int64_t> EvaluateOffset(const std::vector<int64_t> &offset, const std::vector<SymbolicScalar> &dynOffset, 
+    std::vector<int64_t> EvaluateOffset(const std::vector<int64_t> &offset, const std::vector<SymbolicScalar> &dynOffset,
             const std::vector<SymbolicScalar> &linearArgList = {}) {
         return evaluateSymbol->EvaluateOffset(offset, dynOffset, linearArgList);
     }
     std::vector<int64_t> EvaluateOpImmediate(FunctionFrame *frame, const std::vector<OpImmediate> &opImmList);
 
-    std::vector<int64_t> EvaluateValidShape(const std::vector<SymbolicScalar> &dynValidShape, 
+    std::vector<int64_t> EvaluateValidShape(const std::vector<SymbolicScalar> &dynValidShape,
             const std::vector<SymbolicScalar> &linearArgList = {}) {
         return evaluateSymbol->EvaluateValidShape(dynValidShape, linearArgList);
     }

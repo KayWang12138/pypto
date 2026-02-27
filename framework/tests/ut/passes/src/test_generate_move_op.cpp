@@ -613,7 +613,7 @@ TEST_F(GenerateMoveOpPassTest, ViewconnectAssemble) {
     // Validate the results
     int check_Op_inputsMemType = 0;
     for (auto &op : currFunctionPtr->Operations()) {
-        auto consumerOps = op.oOperand[0]->GetConsumers(); 
+        auto consumerOps = op.oOperand[0]->GetConsumers();
         for (auto childOp : consumerOps) {
             auto opcode = childOp->GetOpcode();
             const auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(opcode);

@@ -93,23 +93,23 @@ def scaled_dot_product_attention(q_shape: tuple, k_shape: tuple, config: Attenti
         bs = pypto.frontend.dynamic("bs")
     else:
         bs = q_shape[0]
-        
+
     head = 8
     dim = 64
     q_len = q_shape[2]
     kv_len = k_shape[2]
 
     tile = q_shape[0]
-    
+
     scale = config.scale if config.scale is not None else (1.0 / (dim**0.5))
-    
+
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
     elif run_mode == "sim":
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def scaled_dot_product_attention_kernel(
         q: pypto.Tensor((bs, head, q_len, dim), pypto.DT_FP32),
@@ -130,20 +130,20 @@ def scaled_dot_product_attention(q_shape: tuple, k_shape: tuple, config: Attenti
         for bs_idx in pypto.loop(b_loop):
             b_offset = bs_idx * tile
             b_offset_end = pypto.min(b_offset + tile, bs)
-            q_view = pypto.view(q, [tile, head, q_len, dim], [b_offset, 0, 0, 0], 
+            q_view = pypto.view(q, [tile, head, q_len, dim], [b_offset, 0, 0, 0],
                                 valid_shape=[b_offset_end - b_offset, head, q_len, dim]
             )
-            k_view = pypto.view(k, [tile, head, kv_len, dim], [b_offset, 0, 0, 0], 
+            k_view = pypto.view(k, [tile, head, kv_len, dim], [b_offset, 0, 0, 0],
                                 valid_shape=[b_offset_end - b_offset, head, kv_len, dim]
             )
-            v_view = pypto.view(v, [tile, head, kv_len, dim], [b_offset, 0, 0, 0], 
+            v_view = pypto.view(v, [tile, head, kv_len, dim], [b_offset, 0, 0, 0],
                                 valid_shape=[b_offset_end - b_offset, head, kv_len, dim]
             )
             pypto.set_vec_tile_shapes(1, 8, 16, 64)
             res = scaled_dot_product_attention_core(q_view, k_view, v_view, scale, config.dtype)
             pypto.assemble(res, [b_offset, 0, 0, 0], output_tensor)
         return output_tensor
-    
+
     return scaled_dot_product_attention_kernel
 
 
@@ -195,10 +195,10 @@ def op_unordered_input(shape: tuple, run_mode: str = "npu", dynamic: bool = True
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def op_unordered_input_kernel(
-            a: pypto.Tensor(shape, pypto.DT_FP32), 
+            a: pypto.Tensor(shape, pypto.DT_FP32),
             b: pypto.Tensor(shape, pypto.DT_FP32),
         ) -> (
             pypto.Tensor(shape, pypto.DT_FP32),
@@ -208,7 +208,7 @@ def op_unordered_input(shape: tuple, run_mode: str = "npu", dynamic: bool = True
         y1 = a + b
         y2 = a * b
         return y1, y2
-    
+
     return op_unordered_input_kernel
 
 

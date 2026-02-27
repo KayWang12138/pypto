@@ -222,7 +222,7 @@ void AICPUMachine::UpdateDispatchStates(std::vector<bool> &threadGroupActive, st
         uint64_t startIdx = threadId * ((subMachines.size() + threadsNum - 1) / threadsNum);
         uint64_t endIdx =
             std::min((threadId + 1) * ((subMachines.size() + threadsNum - 1) / threadsNum), subMachines.size());
-        
+
         for (uint64_t i = startIdx; i < endIdx; i++) {
             auto &submachine = subMachines[i];
             if (uint64_t(top->executingTaskMap[submachine->machineId] < submachine->maxRunningTasks)) {
@@ -462,7 +462,7 @@ void AICPUMachine::DispatchTasksInNormalMode(uint64_t threadId, std::vector<uint
 
             // Submit Task To submachine.
             uint64_t minTaskNum = GetTaskLoad(submachine->machineType);
-            if (top->executingTaskMap[submachine->machineId] < submachine->maxRunningTasks && 
+            if (top->executingTaskMap[submachine->machineId] < submachine->maxRunningTasks &&
                 top->executingTaskMap[submachine->machineId] <= minTaskNum) {
                 uint64_t taskId = top->PopReadyQueue(submachine->machineType);
                 GetSim()->GetLogger()->AddEventBegin("Dispatch_Task_" + std::to_string(taskId), machineId,
@@ -496,7 +496,7 @@ void AICPUMachine::DispatchTasksInReplayMode(uint64_t threadId, std::vector<uint
         if (replayTask.seqNo <= top->currentSeq && top->IsReady(replayTask.taskId)) {
             LoggerDispatch(replayTask.taskId, threadId, currentCycle.at(threadId) + threadSchedulerCycles[threadId],
                            currentCycle.at(threadId) + threadSchedulerCycles[threadId] + config.schedulerCycles);
-            
+
             threadSchedulerCycles[threadId] += config.schedulerCycles;
             delayCycle += config.schedulerCycles;
             top->ScaleTaskExecuteTime(replayTask);
@@ -632,7 +632,7 @@ void AICPUMachine::DispatchPacket()
         }
         DispatchTasksForThread(threadId, threadSchedulerCycles, currentCycle);
     }
-    
+
     for (uint64_t threadId = 0; threadId < threadsNum; threadId++) {
         if (!threadGroupActive[threadId]) {
             continue;

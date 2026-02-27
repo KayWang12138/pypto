@@ -28,7 +28,7 @@
 #include "passes/tile_graph_pass/subgraph_to_function.h"
 
 namespace npu {
-namespace tile_fwk {  
+namespace tile_fwk {
 enum class ComponentType {
     UNKNOWN = 0,
     C_SCOPE = 1,    // C类型scope
@@ -44,13 +44,13 @@ struct InternalComponentInfo {
     std::string suffix;
     AIVCore aivCore;
     ComponentType componentType;
-    
+
     InternalComponentInfo(int id, const std::string& suf = "")
         : internalSubgraphID(id), suffix(suf), aivCore(AIVCore::UNSPECIFIED), componentType(ComponentType::UNKNOWN) {}
-        
+
     InternalComponentInfo(int id, const std::string& suf, AIVCore aiv)
         : internalSubgraphID(id), suffix(suf), aivCore(aiv), componentType(ComponentType::UNKNOWN) {}
-    
+
     InternalComponentInfo(int id, const std::string& suf, AIVCore aiv, ComponentType compType)
         : internalSubgraphID(id), suffix(suf), aivCore(aiv), componentType(compType) {}
 };
@@ -63,9 +63,9 @@ struct InternalDependencyInfo {
     uint64_t dummyTensorMagic;  // dummy tensor的magic值
     bool isSameType;  // 是否是同类型scope依赖
     ComponentType compType;  // scope类型（C或V）
-    
+
     InternalDependencyInfo(int src, int dst, ComponentType type)
-        : srcComp(src), dstComp(dst), dummyTensor(nullptr), 
+        : srcComp(src), dstComp(dst), dummyTensor(nullptr),
           dummyTensorMagic(0), isSameType(true), compType(type) {}
 };
 } // namespace tile_fwk

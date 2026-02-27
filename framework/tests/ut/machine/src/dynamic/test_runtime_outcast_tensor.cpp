@@ -619,5 +619,3 @@ TEST_F(RuntimeOutcastTensorTest, DelayedRecycleListBehavior) {
     EXPECT_EQ(d.rtBoundaryOutcastToBeFree_[2].addr, static_cast<uintdevptr_t>(0x6000ull));
     EXPECT_EQ(d.rtBoundaryOutcastToBeFree_[2].property, RuntimeTensorMemProperty::BOUNDARY_OUTCAST);
 }
-
-

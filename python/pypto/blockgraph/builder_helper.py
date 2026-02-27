@@ -114,7 +114,7 @@ class BlockBuilderHelper:
         op = self.builder.create_unary_op(ir.Opcode.OP_NEG, a, out)
         self.builder.emit(self.ctx, op)
         return op
-    
+
     def sign(self, a, out):
         op = self.builder.create_unary_op(ir.Opcode.OP_SIGN, a, out)
         self.builder.emit(self.ctx, op)
@@ -149,12 +149,12 @@ class BlockBuilderHelper:
         op = self.builder.create_unary_op(ir.Opcode.OP_CEIL, a, out)
         self.builder.emit(self.ctx, op)
         return op
-    
+
     def floor(self, a, out):
         op = self.builder.create_unary_op(ir.Opcode.OP_FLOOR, a, out)
         self.builder.emit(self.ctx, op)
         return op
-    
+
     def floor(self, a, out):
         op = self.builder.create_unary_op(ir.Opcode.OP_FLOOR, a, out)
         self.builder.emit(self.ctx, op)
@@ -276,7 +276,7 @@ class BlockBuilderHelper:
         op = self.builder.create_binary_scalar_op(ir.Opcode.OP_SUBS, a, b, out)
         self.builder.emit(self.ctx, op)
         return op
-    
+
     def muls(self, a, b, out):
         op = self.builder.create_binary_scalar_op(ir.Opcode.OP_MULS, a, b, out)
         self.builder.emit(self.ctx, op)

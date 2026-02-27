@@ -228,7 +228,7 @@ def indexer_prolog(inputs_initial: dict, dims: dict, platform: str = "cpu"):
     s = t // b
 
     if platform == "cpu":
-        inputs = {k: v.to(torch.float32) if v.dtype in [torch.bfloat16, torch.float16] else v.clone() 
+        inputs = {k: v.to(torch.float32) if v.dtype in [torch.bfloat16, torch.float16] else v.clone()
                     for k, v in inputs_initial.items()}
     elif platform == "npu":
         inputs = {k: v.clone().npu() for k, v in inputs_initial.items()}
@@ -439,7 +439,7 @@ def lightning_indexer_prolog_quant_mxfp8_npu(x, q_norm, q_norm_scale, w_qb, w_qb
 def pypto_lightning_indexer_prolog_quant_mxfp8(x, q_norm, q_norm_scale, w_qb, w_qb_scale, wk, w_proj,
                                         ln_gamma_k, ln_beta_k, cos_idx_rope, sin_idx_rope, hadamard_q,
                                         hadamard_k, k_cache, k_cache_scale, k_cache_index):
-    
+
     return torch.ops.pypto.lightning_indexer_prolog_quant_mxfp8(x, q_norm, q_norm_scale, w_qb, w_qb_scale,
         wk, w_proj, ln_gamma_k, ln_beta_k, cos_idx_rope, sin_idx_rope, hadamard_q, hadamard_k, k_cache,
         k_cache_scale, k_cache_index)

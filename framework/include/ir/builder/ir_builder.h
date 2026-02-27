@@ -31,7 +31,7 @@ namespace pto {
 class IRBuilder {
 public:
     IRBuilder() = default;
-    
+
     // ===== Function (stateless: no current func stored in builder) =====
     std::shared_ptr<Function> CreateFunction(
         std::string name,
