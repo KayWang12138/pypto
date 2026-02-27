@@ -234,3 +234,25 @@ bash tools/prepare_env.sh --type=cann --device-type=a2
     export MPI_HOME=/usr/local/mpich
     export PATH=${MPI_HOME}/bin:${PATH}
     ```
+
+## 安装pre-commit
+
+  为了确保代码质量和一致性，我们推荐使用pre-commit工具来自动检查和修复代码问题。
+
+  1. 安装pre-commit：
+
+    ```bash
+    pip install pre-commit
+    ```
+
+  2. 配置pre-commit：
+
+    ```bash
+    pre-commit install
+    ```
+
+  3. 运行pre-commit：
+
+    ```bash
+    pre-commit run --all-files
+    ```
