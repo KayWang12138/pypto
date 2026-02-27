@@ -1059,7 +1059,8 @@ void IterL0ExpandFunc(Function &function, ConvIterInfo &iterInfo, ConvTileInfo &
                 fixpipeOpRes.SetAttribute("res_tile_shape",
                                           SymbolicScalar::FromConcrete(tensorGraphNodes.resTensorPtr->shape));
                 int64_t dst_n_offset = iterInfo.batchOffset;
-                int64_t dst_c_offset = iterInfo.nL1Offset + iterInfo.nL0Offset;
+                int64_t dst_c_offset =
+                    iterInfo.groupOffset * convTileInfo.coutPerGroup + iterInfo.nL1Offset + iterInfo.nL0Offset;
                 int64_t dst_d_offset = iterInfo.doL1Offset;
                 int64_t dst_h_offset = iterInfo.hL1OutOffset + iterInfo.hL0Offset;
                 int64_t dst_w_offset = iterInfo.wL1OutOffset + iterInfo.wL0Offset;
