@@ -107,4 +107,69 @@ TEST_F(TestSetHeuristicTileShapes, TestVector) {
     EXPECT_EQ(status, SUCCESS);
 }
 
+
+TEST_F(TestSetHeuristicTileShapes, TestSemanticLabel) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestSetHeuristicTileShapes", "TestSetHeuristicTileShapes", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    
+    // Prepare the graph
+    std::vector<int64_t> inputAShape = {64, 128};
+    std::vector<int64_t> inputBShape = {128, 64};
+    std::vector<int64_t> outputCShape = {64, 64};
+
+    auto inputA = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inputAShape);
+    auto inputB = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inputBShape);
+    auto outputC = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outputCShape);
+
+    currFunctionPtr->AddOperation(Opcode::OP_A_MUL_B, {inputA, inputB}, {outputC});
+    
+    std::shared_ptr<SemanticLabel> label = std::make_shared<SemanticLabel>("test", "test", 10);
+    std::cout<<currFunctionPtr->GetSortedOperations().size()<<std::endl;
+
+    for(auto &op: currFunctionPtr->GetSortedOperations()){
+        op->SetSemanticLabel(label);
+    }
+
+    currFunctionPtr->inCasts_.push_back(inputA);
+    currFunctionPtr->inCasts_.push_back(inputB);
+    currFunctionPtr->outCasts_.push_back(outputC);
+
+    // Run the pass
+    SetHeuristicTileShapes setHeuristicTileShapes;
+    auto status = setHeuristicTileShapes.RunOnFunction(*currFunctionPtr);
+    EXPECT_EQ(status, SUCCESS);
+}
+
+TEST_F(TestSetHeuristicTileShapes, TestPythonJsonGeneration) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestSetHeuristicTileShapes", "TestSetHeuristicTileShapes", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    
+    // Prepare the graph
+    std::vector<int64_t> inputAShape = {64, 128};
+    std::vector<int64_t> inputBShape = {128, 64};
+    std::vector<int64_t> outputCShape = {64, 64};
+
+    auto inputA = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inputAShape);
+    auto inputB = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inputBShape);
+    auto outputC = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outputCShape);
+
+    TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
+    currFunctionPtr->SetGraphType(GraphType::TILE_GRAPH);
+    SourceLocation::SetLocation("noexist.cpp", 1);
+    auto& add_op = currFunctionPtr->AddOperation(Opcode::OP_A_MUL_B, {inputA, inputB}, {outputC});
+    add_op.tileShape_.SetCubeTile({64, 64}, {64, 64}, {64, 64});
+
+        
+    currFunctionPtr->inCasts_.push_back(inputA);
+    currFunctionPtr->inCasts_.push_back(inputB);
+    currFunctionPtr->outCasts_.push_back(outputC);
+    
+    // Run the pass
+    SetHeuristicTileShapes setHeuristicTileShapes;
+    auto status = setHeuristicTileShapes.RunOnFunction(*currFunctionPtr);
+    EXPECT_EQ(status, SUCCESS);
+}
+
+
+
 } // namespace acend
