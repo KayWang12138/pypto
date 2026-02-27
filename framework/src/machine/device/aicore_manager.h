@@ -32,11 +32,7 @@ const uint64_t REG_SPR_FAST_PATH_CLOSE = 0xF;
 const uint32_t REG_SPR_DATA_MAIN_BASE = 0xA0;
 const uint32_t REG_SPR_COND = 0x4C8;
 
-const uint32_t AICORE_STATUS_INIT = 0xFFFFFFFFU;
-const uint32_t CORE_NUM_PER_AI_CORE = 3;
-const uint32_t AIV_NUM_PER_AI_CORE = 2;
 const uint32_t AICORE_TYPE_NUM = 2;
-
 constexpr uint32_t AIV_CORE_COUNT = 48;
 constexpr uint32_t AIC_CORE_COUNT = 24;
 constexpr uint32_t TOTAL_CORE_COUNT = AIV_CORE_COUNT + AIC_CORE_COUNT;
