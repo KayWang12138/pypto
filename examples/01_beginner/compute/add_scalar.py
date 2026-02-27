@@ -31,7 +31,7 @@ from numpy.testing import assert_allclose
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
-    
+
     Returns:
         int: The device ID if valid, None otherwise.
     """
@@ -41,7 +41,7 @@ def get_device_id():
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
-    
+
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
@@ -57,14 +57,19 @@ def create_add_scalar_kernel(shape: tuple, val, run_mode: str = "npu"):
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
+
+    @pypto.frontend.jit(runtime_options={"run_mode": mode}, verify_options={"enable_pass_verify": True})
     def add_scalar_kernel(
         x: pypto.Tensor(shape, pypto.DT_FP32),
         y: pypto.Tensor(shape, pypto.DT_FP32),
     ) -> pypto.Tensor(shape, pypto.DT_FP32):
         pypto.set_vec_tile_shapes(1, 4, 1, 64)
-        z = pypto.add(x, y) + val
+        temp_add = pypto.add(x, y)
+        pypto.pass_verify_save(temp_add, "checkpoint_add")
+        temp_add_val = temp_add + val
+        pypto.pass_verify_save(temp_add_val, "checkpoint_add_val")
+        z = temp_add_val + 1
+        pypto.pass_verify_save(z, "checkpoint_final")
         return z
     return add_scalar_kernel
 
@@ -77,9 +82,16 @@ def test_add_scalar(device_id=None, run_mode: str = "npu") -> None:
     val = 1
     x = torch.rand(shape, dtype=torch.float, device=device)
     y = torch.rand(shape, dtype=torch.float, device=device)
-    z = create_add_scalar_kernel(shape, val, run_mode)(x, y)
 
+    # golden 中间结果保存（原始golden没有+1）
+    golden_add = torch.add(x, y)
+    golden_add.cpu().numpy().tofile("golden_checkpoint_add.bin")
+    golden_add_val = golden_add + val
+    golden_add_val.cpu().numpy().tofile("golden_checkpoint_add_val.bin")
     golden = torch.add(x, y) + val
+    golden.cpu().numpy().tofile("golden_checkpoint_final.bin")
+
+    z = create_add_scalar_kernel(shape, val, run_mode)(x, y)
 
     max_diff = np.abs(z.cpu().numpy() - golden.cpu().numpy()).max()
     print(f"Input0 shape: {x.shape}")
@@ -95,7 +107,7 @@ def test_add_scalar(device_id=None, run_mode: str = "npu") -> None:
 
 def main():
     """Run add_scalar example.
-    
+
     Usage:
         python add_scalar.py          # Run example
         python add_scalar.py --list   # List available examples
@@ -129,9 +141,9 @@ Examples:
         choices=["npu", "sim"],
         help='Run mode, such as npu/sim etc.'
     )
-    
+
     args = parser.parse_args()
-    
+
     # Define available examples
     examples = {
         "add_scalar::test_add_scalar": {
@@ -140,7 +152,7 @@ Examples:
             'function': test_add_scalar
         }
     }
-    
+
     # List examples if requested
     if args.list:
         print("\n" + "=" * 60)
@@ -151,7 +163,7 @@ Examples:
             print(f"     name: {ex_info['name']}")
             print(f"     description: {ex_info['description']}\n")
         return
-    
+
     # Validate example ID if provided
     if args.example_id is not None:
         if args.example_id not in examples:
@@ -159,15 +171,15 @@ Examples:
             print(f"Valid example IDs are: {', '.join(map(str, sorted(examples.keys())))}")
             print("\nUse --list to see all available examples.")
             sys.exit(1)
-    
+
     print("\n" + "=" * 60)
     print("PyPTO add_scalar Example")
     print("=" * 60 + "\n")
-    
+
     # Get and validate device ID (needed for NPU examples)
     device_id = None
     examples_to_run = []
-    
+
     if args.example_id is not None:
         # Run single example
         example = examples.get(args.example_id)
@@ -177,7 +189,7 @@ Examples:
     else:
         # Run all examples
         examples_to_run = list(examples.items())
-    
+
     if args.run_mode == "npu":
         device_id = get_device_id()
         if device_id is None:
@@ -186,17 +198,17 @@ Examples:
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("(Make sure CANN environment is configured and NPU is available)\n")
-    
+
     try:
         for ex_id, ex_info in examples_to_run:
             print(f"Running Example {ex_id}: {ex_info['name']}")
             ex_info['function'](device_id, args.run_mode)
-        
+
         if len(examples_to_run) > 1:
             print("=" * 60)
             print("All add_scalar tests passed!")
             print("=" * 60)
-        
+
     except Exception as e:
         print(f"\nError: {e}")
         raise
