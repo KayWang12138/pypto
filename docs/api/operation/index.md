@@ -79,6 +79,7 @@ pypto-topk
 pypto-transpose
 pypto-tril
 pypto-triu
+pypto-remainder
 pypto-trunc
 pypto-unsqueeze
 pypto-view
