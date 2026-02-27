@@ -9,6 +9,9 @@
 # -----------------------------------------------------------------------------------------------------------
 
 file(GLOB _Interface_Srcs
+        # Core 基础库
+        core/*.cpp
+
         # 前端框架
         schema/*.cpp
         configs/*.cpp
@@ -17,9 +20,6 @@ file(GLOB _Interface_Srcs
         function/*.cpp
         interpreter/*.cpp
         utils/*.cpp
-        ir/*.cpp
-        ir/builder/*.cpp
-        ir/serializer/*.cpp
         plugin/*.cpp
 
         # Operation
