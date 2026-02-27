@@ -413,6 +413,7 @@ def _loop_function(
     loop_range: LoopRange,
     unroll_list: Optional[List[int]] = None,
     submit_before_loop: bool = False,
+    paralell_for: bool = False,
 ):
     if unroll_list is None:
         unroll_set = set()
