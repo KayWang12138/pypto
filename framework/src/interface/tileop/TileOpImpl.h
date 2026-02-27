@@ -27,10 +27,10 @@
 #include "distributed/common.h"
 #include "distributed/moe_dispatch.h"
 #include "distributed/moe_combine.h"
-#include "distributed/tileop_shmem.h"
 #include "dynamic/aicpu_call.h"
 
 #ifdef SUPPORT_TILE_TENSOR
+#include "distributed/tileop_shmem.h"
 #include "utils/layout.h"
 #include "vector/unary.h"
 #include "vector/trans.h"

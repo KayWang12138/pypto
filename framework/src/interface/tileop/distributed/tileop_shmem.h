@@ -19,9 +19,10 @@
 #include "common.h"
 #include <type_traits>
 
+#ifdef SUPPORT_TILE_TENSOR
 #include "pto/pto-inst.hpp"
 #include "pto/comm/pto_comm_inst.hpp"
-#include "pto/common/type.hpp"
+#endif
 
 #define PIPE_SYNC_EVENT(from, to, eventId) \
     do { \
