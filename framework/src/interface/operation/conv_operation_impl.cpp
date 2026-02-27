@@ -198,7 +198,7 @@ void ValidateL0Constraint(int64_t tile1, int64_t tile2, int64_t tile3, size_t dt
     });
 }
 
-void CheckL0TileTiling(DataType outType)
+void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const Tensor &weightTensor)
 {
     auto &convTile = TileShape::Current().GetConvTile();
     int64_t tileH = convTile.tileL0Info.tileH;
@@ -207,12 +207,29 @@ void CheckL0TileTiling(DataType outType)
     int64_t tileK = convTile.tileL0Info.tileK;
     int64_t tileHout = convTile.tileL1Info.tileHout;
     int64_t tileWout = convTile.tileL1Info.tileWout;
+    int64_t tileCout = convTile.tileL1Info.tileCout;
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
+    int64_t tileCinFmap = convTile.tileL1Info.tileCinFmap;
+    int64_t tileCinWeight = convTile.tileL1Info.tileCinWeight;
+    uint32_t indexH = attrParam.isConv3D ? NCDHW_H_IDX : NCHW_H_IDX;
+    uint32_t indexW = attrParam.isConv3D ? NCDHW_W_IDX : (attrParam.isConv1D ? NCHW_H_IDX : NCHW_W_IDX);
+    int64_t kh = attrParam.isConv1D ? 1 : weightTensor.GetShape()[indexH];
+    int64_t kw = weightTensor.GetShape()[indexW];
+    int64_t kAL1 = ConvAlignB(tileCinFmap, k0) * kh * kw;
+    int64_t kBL1 = ConvAlignB(tileCinWeight, k0) * kh * kw;
+    if (attrParam.isConv3D) {
+        int64_t kd = weightTensor.GetShape()[NCDHW_D_IDX];
+        kAL1 *= kd;
+        kBL1 *= kd;
+    }
+    int64_t minKL1 = std::min(kAL1, kBL1);
     CheckAlignment(tileK , k0, "tileK", true);
     CheckValueRange(tileH, "tileH" , NUM1, tileHout);
     CheckValueRange(tileW, "tileW" , NUM1, tileWout);
+    CheckValueRange(tileK, "tileK" , NUM1, minKL1);
     CheckAlignment(tileN, NUM16, "tileN");
     CheckAlignment(tileW, NUM16, "tileW");
+    CheckValueRange(tileN, "tileN" , NUM1, ConvAlignB(tileCout, NUM16));
 
     Platform& platform = Platform::Instance();
     platform.ObtainPlatformInfo();
@@ -259,13 +276,13 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
     CheckValueRange(tileCout, "tileCout", NUM1, cOut);
 
     CheckHowoTile(inputTensor, weightTensor, attrParam);
-
-    CheckDivisible(ConvAlignB(cin, NUM16), tileCinFmap, "ceil(Cin / C0) × C0", "tileCinFmap");
-    CheckDivisible(ConvAlignB(cin, NUM16), tileCinWeight, "ceil(Cin / C0) × C0", "tileCinWeight");
+    int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
+    CheckDivisible(ConvAlignB(cin, k0), tileCinFmap, "ceil(Cin / C0) × C0", "tileCinFmap");
+    CheckDivisible(ConvAlignB(cin, k0), tileCinWeight, "ceil(Cin / C0) × C0", "tileCinWeight");
     CheckAlignment(tileCinFmap, NUM16, "tileCinFmap");
     CheckAlignment(tileCinWeight, NUM16, "tileCinWeight");
     if (convTile.setL0Tile){
-        CheckL0TileTiling(outType);
+        CheckL0TileTiling(outType, attrParam, weightTensor);
     }
 }
 
