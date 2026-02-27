@@ -747,7 +747,6 @@ struct FunctionInterpreter {
             } else {
                 auto &incastSlot = func->GetSlotScope()->ioslot.incastSlot;
                 auto &outcastSlot = func->GetSlotScope()->ioslot.outcastSlot;
-                auto &partialSlot = func->GetSlotScope()->ioslot.partialUpdateOutcastList;
 
                 auto getOutputSlot = [this](const std::vector<int> &slotList) {
                     for (auto &slot : slotList) {
@@ -771,11 +770,10 @@ struct FunctionInterpreter {
                 ASSERT(func->GetOutcast().size() == outcastSlot.size());
                 for (size_t i = 0; i < func->GetOutcast().size(); i++) {
                     int outputSlot = getOutputSlot(outcastSlot[i]);
-                    bool isPartialSlot = std::find(partialSlot.begin(), partialSlot.end(), i) != partialSlot.end();
                     std::shared_ptr<LogicalTensorData> outcastView;
                     if (outputSlot != -1) {
                         outcastView = slotDataViewDict_[outputSlot];
-                    } else if (isPartialSlot && slotDataViewDict_[outcastSlot[i][0]]) {
+                    } else if (slotDataViewDict_[outcastSlot[i][0]]) {
                         outcastView = slotDataViewDict_[outcastSlot[i][0]];
                     } else {
                         auto outcast = func->GetOutcast()[i];
