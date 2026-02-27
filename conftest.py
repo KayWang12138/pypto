@@ -14,6 +14,7 @@ import os
 from typing import List, Optional
 
 import pytest
+import torch_npu
 
 
 def duration_estimate(seconds: float):
@@ -122,6 +123,38 @@ def _get_test_time_cost(item):
     return None
 
 
+def _get_soc_version():
+    """
+    从torch_npu获取soc version
+    """
+    try:
+        soc_version = torch_npu.npu.get_soc_version()
+        print(f"Current soc version: {soc_version}")
+        return soc_version
+
+
+def _is_case_match_soc(item, target_soc):
+    """
+    判断测试用例是否匹配目标soc版本
+    """
+    soc_marker = item.get_closest_marker("soc")
+    if soc_marker is None:
+        supported_socs = ["910"]
+    else:
+        # 解析标记中的支持版本（兼容单个/多个版本写法）
+        supported_socs = soc_marker.args
+        if isinstance(supported_socs[0], str):
+            supported_socs = [soc.strip() for soc in supported_socs]
+        elif isinstance(supported_socs[0], list):
+            supported_socs = [soc.strip() for soc in supported_socs[0]]
+    # 核心匹配逻辑：260的标签为 "950", 其余的标签为 "910"
+    if target_soc == 260:
+        target_tag = "950"
+    else:
+        target_tag = "910"
+    return target_tag in supported_socs
+
+
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(items):
     """
@@ -129,12 +162,23 @@ def pytest_collection_modifyitems(items):
     """
     if not items:
         return
+    
+    # 先根据torch_npu接口获取soc version
+    target_soc = _get_soc_version()
+
+    # 确定筛选的soc version并打印
+    filter_key = "950" if target_soc == 260 else "910"
+    print(f"Start finding {filter_key} test cases...")
+
+    # 筛选用例
+    filtered_items = [item for item in items if _is_case_match_soc(item, target_soc)]
+    print(f"Found {len(filtered_items)} {filter_key} test cases!")
 
     # 分离有耗时标识和无耗时标识的测试用例
     timed_tests = []
     untimed_tests = []
 
-    for item in items:
+    for item in filtered_items:
         time_cost = _get_test_time_cost(item)
         if time_cost is not None:
             timed_tests.append((item, time_cost))
