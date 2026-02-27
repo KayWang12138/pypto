@@ -117,7 +117,7 @@ class Parser(ast.NodeVisitor):
         Cached function signature (inputs, outputs) to avoid re-parsing.
     _lowered_signature_cache: Optional[tuple[list[pypto.Tensor], list[pypto.Tensor]]]
         Cached function signature (inputs, outputs) with symbolic dimensions lowered to concrete values.
-     _bound_dim_values : Optional[dict[str, SymInt]]
+    _bound_dim_values : Optional[dict[str, SymInt]]
  	    Mapping from symbolic dimension names to bound values. The bound values can be
  	    concrete integers (static specialization) or runtime symbolic expressions
  	    (e.g., input shape-derived SymbolicScalar).
@@ -282,7 +282,6 @@ class Parser(ast.NodeVisitor):
             dim_value_map[key] = actual_value
 
         for tensor_def, lowered_tensor in zip(input_tensor_defs, lowered_input_defs):
-            print(tensor_def.shape, lowered_tensor.shape)
             for axis, dim in enumerate(tensor_def.shape):
                 if isinstance(dim, pypto.SymbolicScalar):
                     runtime_dim = lowered_tensor.shape[axis]
