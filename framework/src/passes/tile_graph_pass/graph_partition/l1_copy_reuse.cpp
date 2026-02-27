@@ -60,6 +60,24 @@ inline bool CanReuse(const Operation &op) {
     return false;
 }
 
+inline int GetCubeNBufferModeBySetting(Function &func) {
+    auto numDBMap = func.paramConfigs_.cubeNBufferSetting;
+    std::map<int64_t, int64_t> cubeNBufferSkipSetting = {{-1, 1}};
+    if (numDBMap == cubeNBufferSkipSetting) {
+        return 0;
+    }
+    return 1;
+}
+
+inline int GetL1ReuseModeBySetting(Function &func) {
+    auto numLRMap = func.paramConfigs_.cubeL1ReuseSetting;
+    std::map<int64_t, int64_t> l1ReuseSkipSetting = {{-1, 1}};
+    if (numLRMap == l1ReuseSkipSetting) {
+        return 0;
+    }
+    return 1;
+}
+
 // key : 需要被删除的copyin op, value: 保留的copyin op
 Status L1CopyInReuseRunner::GetDuplicateOps(std::vector<Operation *> &opOriList,
                                             const std::vector<int> &opIdx) {
@@ -295,6 +313,8 @@ Status L1CopyInReuseRunner::SetNumLR(std::vector<int> &numLRList) {
             return FAILED;
         }
         numLRList.assign(hashMap.size(), numLR->second);
+    } else {
+        numLRList.assign(hashMap.size(), -1);
     }
     for (auto &entry : numLRMap) {
         int i = entry.first;
@@ -458,6 +478,8 @@ Status L1CopyInReuseRunner::SetNumDB(std::vector<int> &hashMergeNum) {
             return FAILED;
         }
         hashMergeNum.assign(hashMap.size(), numDB->second);
+    } else {
+        hashMergeNum.assign(hashMap.size(), -1);
     }
     for (auto &entry : numDBMap) {
         int i = entry.first;
@@ -556,10 +578,10 @@ Status L1CopyInReuseRunner::Run(Function &func, int color, std::vector<std::vect
     mgCopyInUpperBound = func.paramConfigs_.sgMgCopyInUpperBound;
     numLRMap = func.paramConfigs_.cubeL1ReuseSetting;
     numDBMap = func.paramConfigs_.cubeNBufferSetting;    // 合并阈值参数设置
-    L1ReuseMode = func.paramConfigs_.L1ReuseMode;
-    cubeNBufferMode = func.paramConfigs_.cubeNBufferMode;
+    L1ReuseMode = GetL1ReuseModeBySetting(func);
+    cubeNBufferMode = GetCubeNBufferModeBySetting(func);
     APASS_LOG_INFO_F(Elements::Operation, "Param Setting mgCopyInUpperBound %d.", mgCopyInUpperBound);
-    if ((L1ReuseMode != 0 || numLRMap.size() != 0) && hashMap.size() != 0) {
+    if (L1ReuseMode == 1 && hashMap.size() != 0) {
         if (Phase1(func, color, colorNode, colorCopyIn, hashColor) == FAILED) {
             APASS_LOG_ERROR_F(Elements::Function, "Phase1 failed; Please check the Phase1 method.");
             return FAILED;
@@ -663,11 +685,9 @@ Status L1CopyInReuseMerge::CheckOpListValid(Function &func) const {
 }
 
 Status L1CopyInReuseMerge::L1CopyInReuse(Function &func) const {
-    auto numLRMap = func.paramConfigs_.cubeL1ReuseSetting;
-    auto numDBMap = func.paramConfigs_.cubeNBufferSetting;
-    auto L1ReuseMode = func.paramConfigs_.L1ReuseMode;
-    auto cubeNBufferMode = func.paramConfigs_.cubeNBufferMode;
-    if (L1ReuseMode == 0 && cubeNBufferMode == 0 && numLRMap.size() == 0 && numDBMap.size() == 0) {
+    auto L1ReuseMode = GetL1ReuseModeBySetting(func);
+    auto cubeNBufferMode = GetCubeNBufferModeBySetting(func);
+    if (L1ReuseMode == 0 && cubeNBufferMode == 0) {
         APASS_LOG_INFO_F(Elements::Config, "Init Param default.");
         return SUCCESS;
     }
