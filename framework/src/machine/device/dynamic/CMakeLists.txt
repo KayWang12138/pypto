@@ -43,7 +43,7 @@ target_compile_options(pypto_ctrl_server
             -Wextra
             -std=gnu++17
             -rdynamic
-            -O3	
+            -O3
             -shared
             -fPIC
             -D__DEVICE__

@@ -47,13 +47,13 @@ public:
     void TearDown() override {}
 };
 
-void TestBitwiseUnaryDynBody(const std::vector<int64_t> &shape, 
-                          const std::vector<int64_t> &tile_shape, 
+void TestBitwiseUnaryDynBody(const std::vector<int64_t> &shape,
+                          const std::vector<int64_t> &tile_shape,
                           const std::string &name,
                           const std::string &expect) {
     // 设置Tile形状
     TileShape::Current().SetVecTile(tile_shape);
-    
+
     Tensor input_a(DT_INT16, shape, "A");
     Tensor output(DT_INT16, shape, "B");
 

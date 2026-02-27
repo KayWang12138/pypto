@@ -146,9 +146,9 @@ class Function : public Object {
     FunctionKind kind_;
     FunctionSignature signature_;
     // Scope holding function arguments (inputs)
-    CompoundStatementPtr inputCompound_; 
+    CompoundStatementPtr inputCompound_;
     // Scope for Data objects and statements created in this function
-    CompoundStatementPtr compound_;  
+    CompoundStatementPtr compound_;
 };
 ```
 
@@ -191,11 +191,11 @@ Statement 表示了 For/If 控制流和线性的 Op 序列。主要有以下类�
 ```cpp
 class CompoundStatement : public Statement {
     // Pointer to parent scope (nullptr for root)
-    std::weak_ptr<CompoundStatement> parent_{}; 
-    // Statements in this scope                        
-    std::vector<StatementPtr> statements_; 
-    // Envtextonment table: variable name -> latest SSA Value 
-    std::unordered_map<std::string, ValuePtr> envTable_; 
+    std::weak_ptr<CompoundStatement> parent_{};
+    // Statements in this scope
+    std::vector<StatementPtr> statements_;
+    // Envtextonment table: variable name -> latest SSA Value
+    std::unordered_map<std::string, ValuePtr> envTable_;
 };
 ```
 
@@ -231,9 +231,9 @@ std::shared_ptr<Scalar> iterationVar_;
     std::shared_ptr<LoopRange> range_;
     std::vector<IterArg> iterArgs_;
     // Scope for Data objects and statements created in this loop body
-    CompoundStatementPtr compound_;  
+    CompoundStatementPtr compound_;
     // Result values of the for-statement
-    std::vector<ValuePtr> results_; 
+    std::vector<ValuePtr> results_;
 };
 ```
 
@@ -270,11 +270,11 @@ std::shared_ptr<Scalar> iterationVar_;
 class IfStatement : public Statement {
     std::string condition_;
     // Scope for Data objects and statements created in the then branch
-    CompoundStatementPtr thenCompound_;  
+    CompoundStatementPtr thenCompound_;
     // Scope for Data objects and statements created in the else branch
-    CompoundStatementPtr elseCompound_; 
-    // Result values of the if-statement 
-    std::vector<ValuePtr> results_;  
+    CompoundStatementPtr elseCompound_;
+    // Result values of the if-statement
+    std::vector<ValuePtr> results_;
 };
 ```
 

@@ -16,4 +16,3 @@ where(self, condition: 'Tensor', y: Union['Tensor', float]) -> 'Tensor'
 ## 接口说明
 
 请参见[pypto.where](../operation/pypto-where.md)
-

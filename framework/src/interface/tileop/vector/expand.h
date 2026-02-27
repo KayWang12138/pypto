@@ -24,7 +24,7 @@ template <typename LastUse = LastUse2Dim<0, 0>, unsigned axis, typename T0, type
 TILEOP void TExpand(T0 dst, T1 src) {
     constexpr size_t expectSize = 5;
     const auto dstLayout = dst.GetLayout();
-    
+
     auto dstShape0 = dstLayout.template GetShapeDim<0, expectSize>();
     auto dstShape1 = dstLayout.template GetShapeDim<1, expectSize>();
     auto dstShape2 = dstLayout.template GetShapeDim<2, expectSize>();

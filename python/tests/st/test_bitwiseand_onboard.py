@@ -71,11 +71,11 @@ def test_bitwise_and_onboard():
     b_tensor = torch.randint(
         low=-100, high=100, size=[shape[0], shape[1]], dtype=torch.int16)
     c_tensor = torch.zeros(shape[0], shape[1], dtype=torch.int16)
-    
+
     pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
     pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
     pto_c_tensor = pypto.from_torch(c_tensor, "c_tensor")
-    
+
     pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor, pto_c_tensor)
 
     golden = torch.bitwise_and(a_tensor, b_tensor)

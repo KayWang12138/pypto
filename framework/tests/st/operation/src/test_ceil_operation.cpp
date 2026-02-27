@@ -51,7 +51,7 @@ static void CeilOperationExeFunc2Dims(
                         std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
                 TileShape::Current().SetVecTile(args->tileShape_);
-                auto res = Ceil(tileTensor); 
+                auto res = Ceil(tileTensor);
                 Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
         }
@@ -81,7 +81,7 @@ static void CeilOperationExeFunc3Dims(
                             std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
                     TileShape::Current().SetVecTile(args->tileShape_);
-                    auto res = Ceil(tileTensor); 
+                    auto res = Ceil(tileTensor);
                     Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
             }
@@ -120,7 +120,7 @@ static void CeilOperationExeFunc4Dims(
                                 {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
                                     nIdx * fourthViewShape});
                         TileShape::Current().SetVecTile(args->tileShape_);
-                        auto res = Ceil(tileTensor0); 
+                        auto res = Ceil(tileTensor0);
                         Assemble(res,
                             {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
                                 nIdx * fourthViewShape},

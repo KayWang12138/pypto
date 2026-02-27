@@ -66,8 +66,8 @@ def configure_tiling(x):
         pypto.set_vec_tile_shapes(*tile_list)
     else:
         pypto.set_vec_tile_shapes(32, 128)
-        
-        
+
+
 # Reference implementations for verification
 def silu_golden(x: torch.Tensor) -> torch.Tensor:
     """PyTorch reference implementation of SiLU."""
@@ -95,14 +95,14 @@ def silu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False):
         m = pypto.frontend.dynamic("M")
     else:
         m, n = shape
-    
+
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
     elif run_mode == "sim":
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-         
+
     # launch the kernel
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def silu_activation_kernel(
@@ -157,14 +157,14 @@ def gelu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False):
         m = pypto.frontend.dynamic("m")
     else:
         m, n = shape
-        
+
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
     elif run_mode == "sim":
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-         
+
     # launch the kernel
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def gelu_activation_kernel(
@@ -228,7 +228,7 @@ def swiglu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-         
+
     # launch the kernel
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def swiglu_activation_kernel(
@@ -250,7 +250,7 @@ def swiglu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False
         swish = gate * sigmoid
         out[:] = swish * up
         return out
-    
+
     return swiglu_activation_kernel
 
 
@@ -296,7 +296,7 @@ def geglu_activation(shape: tuple, run_mode: str = "npu", dynamic: bool = False)
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
+
     # launch the kernel
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def geglu_activation_kernel(

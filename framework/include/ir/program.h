@@ -56,5 +56,3 @@ using ProgramModulePtr = std::shared_ptr<ProgramModule>;
 std::ostream& operator<<(std::ostream& os, const ProgramModule& module);
 using ProgramModulePtr = std::shared_ptr<ProgramModule>;
 } // namespace pto
-
-

@@ -209,7 +209,7 @@ def sum_lstm(run_mode: str = "npu"):
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
+
     @pypto.jit(
         runtime_options={"device_sched_mode": 1,
                          "stitch_cfgcache_size": 2700000},

@@ -37,7 +37,7 @@ namespace MockHelper {
         } else {
             std::cout << first << " ";
         }
-        print_args(std::forward<Args>(args)...); 
+        print_args(std::forward<Args>(args)...);
     }
 
     void print_typed_args(int num)
@@ -77,7 +77,7 @@ namespace MockHelper {
         if (num) {
             print_typed_args(num, std::forward<Args>(args)...);
         } else {
-            print_args(std::forward<Args>(args)...); 
+            print_args(std::forward<Args>(args)...);
         }
     }
 

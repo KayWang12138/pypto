@@ -42,7 +42,7 @@ void UpdateCopyOutAttr(Operation &op, Operation &opNext) {
             opAttr->SetToOffset(OpImmediate::Specified(opNextAttr->GetToOffset()));
         } else {
             opAttr->SetToOffset(SumOffset(OpImmediate::Specified(opNextAttr->GetToOffset()), opAttr->GetToOffset()));
-        } 
+        }
     }
     opAttr->SetRawShape(OpImmediate::Specified(op.GetOOperands().front()->tensor->GetDynRawShape()));
 }
@@ -71,7 +71,7 @@ void RemoveRedundantAssemble::HandleForAssembleFromInOut(Function &function, Ope
     std::set<Operation *, LogicalTensor::CompareOp> &producersBackup) const {
     LogicalTensorPtr inOrOutTensor = nullptr;
     if (function.IsFromInCast(assembleOp.iOperand[0]) || function.IsFromOutCast(assembleOp.iOperand[0])) {
-        inOrOutTensor = assembleOp.iOperand[0];            
+        inOrOutTensor = assembleOp.iOperand[0];
     }
     if (inOrOutTensor == nullptr) {
         return;
@@ -352,18 +352,18 @@ Status HandleDynOffsetForReshape(
     if (opAttr == nullptr) return FAILED;
     auto &dynOffset = opAttr->GetToDynOffset();
     if (dynOffset.empty()) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "Op:%s[%d] does not have DynOffset attributes", 
+        APASS_LOG_DEBUG_F(Elements::Operation, "Op:%s[%d] does not have DynOffset attributes",
             assembleOp.GetOpcodeStr().c_str(), assembleOp.GetOpMagic());
         return SUCCESS;
     }
     if (producers.size() != 1) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "Op:%s[%d] has multiple producer operations, size: %zu", 
+        APASS_LOG_DEBUG_F(Elements::Operation, "Op:%s[%d] has multiple producer operations, size: %zu",
             assembleOp.GetOpcodeStr().c_str(), assembleOp.GetOpMagic(), producers.size());
         return SUCCESS;
     }
     auto producer = *(producers.begin());
     if (producer->GetOpcode() != Opcode::OP_RESHAPE) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "Producer op:%s[%d] is not Reshape", 
+        APASS_LOG_DEBUG_F(Elements::Operation, "Producer op:%s[%d] is not Reshape",
             producer->GetOpcodeStr().c_str(), producer->GetOpMagic());
         return SUCCESS;
     }
@@ -475,12 +475,12 @@ void RemoveRedundantAssemble::HanldeForMultiAssemble(Function &function, std::un
     LogicalTensorPtr replaceTensor = nullptr;
     for (auto &assemble : concurrentAssembles) {
         if (function.IsFromInCast(assemble->iOperand[0]) || function.IsFromOutCast(assemble->iOperand[0])) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "Op:%s[%d]'s iOperand comes from Incast or Outcast", 
+            APASS_LOG_DEBUG_F(Elements::Operation, "Op:%s[%d]'s iOperand comes from Incast or Outcast",
                 assemble->GetOpcodeStr().c_str(), assemble->GetOpMagic());
             replaceTensor = assemble->iOperand[0];
             break;
         } else if (function.IsFromInCast(assemble->oOperand[0]) || function.IsFromOutCast(assemble->oOperand[0])) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "Op:%s[%d]'s oOperand comes from Incast or Outcast", 
+            APASS_LOG_DEBUG_F(Elements::Operation, "Op:%s[%d]'s oOperand comes from Incast or Outcast",
                 assemble->GetOpcodeStr().c_str(), assemble->GetOpMagic());
             replaceTensor = assemble->oOperand[0];
             break;
@@ -554,7 +554,7 @@ Status RemoveRedundantAssemble::DeleteRedundantAssemble(Function &function) cons
             }
         }
         if (concurrentAssembles.size() > 1) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "Op:%s[%d] has %zu parallel assemble op", 
+            APASS_LOG_DEBUG_F(Elements::Operation, "Op:%s[%d] has %zu parallel assemble op",
                 op.GetOpcodeStr().c_str(), op.GetOpMagic(), concurrentAssembles.size());
             HanldeForMultiAssemble(function, concurrentAssembles);
         } else {

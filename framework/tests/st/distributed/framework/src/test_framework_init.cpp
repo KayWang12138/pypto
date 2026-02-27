@@ -40,7 +40,7 @@ private:
         if (envPath) {
             mpi_lib_path = envPath;
         }
-        
+
         const char* envDeviceList = std::getenv("TILE_FWK_DEVICE_ID_LIST");
         if (envDeviceList) {
             device_id_list = envDeviceList;
@@ -52,7 +52,7 @@ public:
         std::call_once(init_flag, initialize);
         return mpi_lib_path;
     }
-    
+
     static const std::string& getDeviceIdList() {
         std::call_once(init_flag, initialize);
         return device_id_list;
@@ -66,12 +66,12 @@ std::string ThreadSafeEnv::device_id_list;
 std::vector<std::string> getMPILibraryCandidates() {
     std::vector<std::string> candidates;
     const std::string& libPath = ThreadSafeEnv::getMPILibPath();
-    
+
     if (!libPath.empty()) {
         candidates.push_back(libPath + "/libmpi.so");
         candidates.push_back(libPath + "/libmpich.so");
     }
-    
+
     return candidates;
 }
 
@@ -101,16 +101,16 @@ static void* TryOpen(const std::string& path, int flags = RTLD_NOW) {
 std::vector<std::string> BuildMpiCandidatePaths()
 {
     std::vector<std::string> candidates;
-    
+
     // First, try paths from MPI_LIB_PATH environment variable (highest priority)
     auto envCandidates = getMPILibraryCandidates();
     candidates.insert(candidates.end(), envCandidates.begin(), envCandidates.end());
-    
+
     // Then add hardcoded paths (backwards compatibility and fallback)
     const std::vector<std::string> hardcodedCandidates = {
         // Original default path - try first for backwards compatibility
         "/usr/local/mpich/lib/libmpi.so",
-        
+
         // Automatic discovery - common installation paths as fallback
         "/lib/aarch64-linux-gnu/libmpich.so",
         "/lib/x86_64-linux-gnu/libmpich.so",
@@ -120,14 +120,14 @@ std::vector<std::string> BuildMpiCandidatePaths()
         "/lib/libmpich.so",
         "/usr/lib/x86_64-linux-gnu/libmpi.so",
         "/usr/lib/aarch64-linux-gnu/libmpi.so",
-        
+
         // Last resort: let dynamic loader search LD_LIBRARY_PATH
         "libmpi.so",
         "libmpich.so"
     };
-    
+
     candidates.insert(candidates.end(), hardcodedCandidates.begin(), hardcodedCandidates.end());
-    
+
     return candidates;
 }
 
@@ -173,7 +173,7 @@ struct FunctionConverter {
             void* from;
             FuncType to;
         } converter;
-        
+
         converter.from = ptr;
         return converter.to;
     }
@@ -187,7 +187,7 @@ auto GetFunction(const std::string& funcName) -> FuncType
         DISTRIBUTED_LOGE("Failed to load MPI library");
         return nullptr;
     }
-    
+
     auto func = dlsym(handle, funcName.c_str());
     if (!func) {
         DISTRIBUTED_LOGE("Failed to find function %s: %s", funcName.c_str(), dlerror());
@@ -210,7 +210,7 @@ void TestFrameworkInit(OpTestParam &testParam, HcomTestParam &hcomTestParam, int
     CHECK(mpiBcast != nullptr) << "MpiBcastFunc ptr not found";
     auto mpiBarrier = GetFunction<MpiBarrierFunc>("MPI_Barrier");
     CHECK(mpiBarrier != nullptr) << "MpiBarrierFunc ptr not found";
-    
+
     mpiInit(NULL, NULL);
 
     // 获取当前进程在所属进程组的编号
@@ -278,7 +278,7 @@ void TestFrameworkDestroy(int32_t timeout)
     }
 }
 
-std::string getTimeStamp() 
+std::string getTimeStamp()
 {
     auto now = std::chrono::high_resolution_clock::now();
     auto time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());

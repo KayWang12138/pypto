@@ -875,4 +875,3 @@ def test_binary_with_temp_operations():
         block.logicaland(input_x, input_y, output_tile, temp_tensor)
 
         block.create_return([output_tile])
-

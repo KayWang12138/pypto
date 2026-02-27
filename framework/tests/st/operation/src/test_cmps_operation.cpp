@@ -12,12 +12,12 @@
  * \file test_Cmps_operation.cpp
  * \brief
  */
- 
+
 #include "test_operation.h"
- 
+
 using namespace tile_fwk::test_operation;
 namespace {
- 
+
 struct CmpsOpFuncArgs : public OpFuncArgs {
     CmpsOpFuncArgs(const std::vector<int64_t> &viewShape,
                   const std::vector<int64_t> tileShape,
@@ -26,7 +26,7 @@ struct CmpsOpFuncArgs : public OpFuncArgs {
                   const Element &scalarVal)
         : viewShape_(viewShape), tileShape_(tileShape),
           cmpOp_(opType), cmpMode_(modeType), scalarVal_(scalarVal) {}
- 
+
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
     OpType cmpOp_;
@@ -38,14 +38,14 @@ struct CmpsOpFuncArgs : public OpFuncArgs {
 struct CmpsOpMetaData {
     explicit CmpsOpMetaData(const OpFunc &opFunc, const nlohmann::json &test_data)
         : opFunc_(opFunc), test_data_(test_data) {}
- 
+
     OpFunc opFunc_;
     nlohmann::json test_data_;
 };
 
 static void CmpsOperationExeFunc2Dims(
-    const std::vector<Tensor> &inputs, 
-    std::vector<Tensor> &outputs, 
+    const std::vector<Tensor> &inputs,
+    std::vector<Tensor> &outputs,
     const OpFuncArgs *opArgs) {
     auto args = static_cast<const CmpsOpFuncArgs *>(opArgs);
     SymbolicScalar firstDim = inputs[0].GetShape()[0];
@@ -54,11 +54,11 @@ static void CmpsOperationExeFunc2Dims(
     const int secondViewShape = args->viewShape_[1];
 
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, 
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx,
              LoopRange(0, CeilDiv(firstDim, firstViewShape), 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, 
-                 LoopRange(0, CeilDiv(secondDim, secondViewShape), 1)) { 
-                auto tileTensor = View(inputs[0], 
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx,
+                 LoopRange(0, CeilDiv(secondDim, secondViewShape), 1)) {
+                auto tileTensor = View(inputs[0],
                     {firstViewShape, secondViewShape},
                     {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                      std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
@@ -73,10 +73,10 @@ static void CmpsOperationExeFunc2Dims(
         }
     }
 }
- 
+
 static void CmpsOperationExeFunc3Dims(
-    const std::vector<Tensor> &inputs, 
-    std::vector<Tensor> &outputs, 
+    const std::vector<Tensor> &inputs,
+    std::vector<Tensor> &outputs,
     const OpFuncArgs *opArgs) {
     auto args = static_cast<const CmpsOpFuncArgs *>(opArgs);
     SymbolicScalar firstDim = inputs[0].GetShape()[0];
@@ -87,13 +87,13 @@ static void CmpsOperationExeFunc3Dims(
     const int thirdViewShape = args->viewShape_[2];
 
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, 
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx,
              LoopRange(0, CeilDiv(firstDim, firstViewShape), 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, 
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx,
                  LoopRange(0, CeilDiv(secondDim, secondViewShape), 1)) {
-                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, 
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx,
                      LoopRange(0, CeilDiv(thirdDim, thirdViewShape), 1)) {
-                    auto tileTensor = View(inputs[0], 
+                    auto tileTensor = View(inputs[0],
                         {firstViewShape, secondViewShape, thirdViewShape},
                         {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                          std::min(secondDim - sIdx * secondViewShape, secondViewShape),
@@ -111,8 +111,8 @@ static void CmpsOperationExeFunc3Dims(
 }
 
 static void CmpsOperationExeFunc4Dims(
-    const std::vector<Tensor> &inputs, 
-    std::vector<Tensor> &outputs, 
+    const std::vector<Tensor> &inputs,
+    std::vector<Tensor> &outputs,
     const OpFuncArgs *opArgs) {
     auto args = static_cast<const CmpsOpFuncArgs *>(opArgs);
     SymbolicScalar firstDim = inputs[0].GetShape()[0];
@@ -124,21 +124,21 @@ static void CmpsOperationExeFunc4Dims(
     const int thirdViewShape = args->viewShape_[2];
     const int fourthViewShape = args->viewShape_[3];
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, 
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx,
              LoopRange(0, CeilDiv(firstDim, firstViewShape), 1)) {
-            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, 
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx,
                  LoopRange(0, CeilDiv(secondDim, secondViewShape), 1)) {
-                LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, mIdx, 
+                LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, mIdx,
                      LoopRange(0, CeilDiv(thirdDim, thirdViewShape), 1)) {
-                    LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, 
+                    LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx,
                          LoopRange(0, CeilDiv(fourthDim, fourthViewShape), 1)) {
-                        auto tileTensor = View(inputs[0], 
+                        auto tileTensor = View(inputs[0],
                             {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
                             {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                              std::min(secondDim - sIdx * secondViewShape, secondViewShape),
                              std::min(thirdDim - mIdx * thirdViewShape, thirdViewShape),
                              std::min(fourthDim - nIdx * fourthViewShape, fourthViewShape)},
-                            {bIdx * firstViewShape, sIdx * secondViewShape, 
+                            {bIdx * firstViewShape, sIdx * secondViewShape,
                              mIdx * thirdViewShape, nIdx * fourthViewShape});
                         TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = Compare(tileTensor, args->scalarVal_, args->cmpOp_, args->cmpMode_);
@@ -152,13 +152,13 @@ static void CmpsOperationExeFunc4Dims(
         }
     }
 }
- 
+
 class CmpsOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<CmpsOpMetaData> {};
 
 INSTANTIATE_TEST_SUITE_P(TestCmps, CmpsOperationTest,
     ::testing::ValuesIn(GetOpMetaData<CmpsOpMetaData>(
         {CmpsOperationExeFunc2Dims, CmpsOperationExeFunc3Dims, CmpsOperationExeFunc4Dims}, "Cmps")));
- 
+
 TEST_P(CmpsOperationTest, TestCmps) {
     auto test_data = GetParam().test_data_;
     std::string opStr = GetValueByName<std::string>(test_data, "compare_op");

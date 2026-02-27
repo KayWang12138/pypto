@@ -34,4 +34,3 @@ void
 ```python
 pypto.get_vec_tile_shapes()
 ```
-

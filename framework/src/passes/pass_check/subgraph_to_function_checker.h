@@ -29,7 +29,7 @@ class SubGraphToFuncChecker : Checker {
 public:
     Status DoPreCheck(Function &function) override;
     Status DoPostCheck(Function &function) override;
-    
+
     void SetInOutGraph(const std::vector<std::vector<size_t>> &inGraph,
                        const std::vector<std::vector<size_t>> &outGraph);
     void SetColorGraph(const std::vector<std::vector<int>> &colorInGraph,
@@ -38,12 +38,12 @@ public:
 private:
     Status NOPCheck(const Operation &op) const;
     Status CheckSubGraphTopo(Function &function) const;
-    
+
     template <typename eType>
     Status InAndOutGraphConsistencyCheck(
         const std::vector<std::vector<eType>> &inEdgeGraph,
         const std::vector<std::vector<eType>> &outEdgeGraph);
-    
+
     bool foundNodeInNeighbor(const int dstNode, const std::vector<int> &searchGraph) const;
     Status BuildInGraph(Function &function);
     Status BuildOutGraph(Function &function);
