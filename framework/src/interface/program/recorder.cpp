@@ -211,11 +211,8 @@ RecordLoopFunc::RecordLoopFunc(const std::string &name, FunctionType funcType, c
         funcType_(funcType) {
     CHECK(funcType == FunctionType::STATIC || funcType == FunctionType::DYNAMIC_LOOP)
         << "funcType: " << GetFunctionTypeNameDict().Find(funcType);
-    std::cout << "paralellFor must larger than zero! " << paralellFor_ << std::endl;
     if (paralellFor_) {
-        std::cout << "paralellFor must larger than zero! 1111. name is " << name_ << std::endl;
         for (auto &rlf : Program::GetInstance().GetLoopStack()) {
-            std::cout << "==============rlf paralell for==========" << rlf.get().GetParalellFor() << std::endl;
             if (rlf.get().GetParalellFor()) {
                 ASSERT(!rlf.get().GetParalellFor()) << "The parallel attribute value does not allow nesting";
             }
