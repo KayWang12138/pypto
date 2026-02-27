@@ -66,6 +66,15 @@ class ConcurrentQueue
   }
 
   /**
+   * Function to clear the queue out of all objects
+   */
+  inline void clear()
+  {
+    // Poping all objects from the lock-free queue
+    while(wasEmpty() == false) pop();
+  }
+
+  /**
    * Function to determine whether the queue is currently empty or not
    *
    * The past tense in "was" is deliverate, since it can be proven the return value had that

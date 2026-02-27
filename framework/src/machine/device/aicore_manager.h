@@ -103,10 +103,8 @@ public:
     AiCoreManager() = default;
     ~AiCoreManager() = default;
 
-    inline void initializeTask() {
-        readyAicCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAicCoreFunctionQue);
-        readyAivCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAivCoreFunctionQue);
-
+    inline void initializeTask()
+    {
         // If I am the lead AICPU scheduler, perform initailization steps
         if (isLeaderScheduler_ == true)
         {
@@ -122,6 +120,8 @@ public:
             curDevTask_->availableTaskQueue = (uint64_t) availableTaskQueue;
 
             // Adding initial set of tasks 
+            auto readyAicCoreFunctionQue_ = (StaticReadyCoreFunctionQueue *)curDevTask_->readyAicCoreFunctionQue;
+            auto readyAivCoreFunctionQue_ = (StaticReadyCoreFunctionQueue *)curDevTask_->readyAivCoreFunctionQue;
             for (size_t i = 0; i < readyAivCoreFunctionQue_->wasSize(); i++) availableTaskQueue->push((uint32_t)readyAivCoreFunctionQue_->getBuffer()[i]);
             for (size_t i = 0; i < readyAicCoreFunctionQue_->wasSize(); i++) availableTaskQueue->push((uint32_t)readyAicCoreFunctionQue_->getBuffer()[i]);
 
@@ -139,12 +139,12 @@ public:
             // Setting task as initialized, allowing others to continue
             curDevTask_->isTaskInitialized = true;
         }
-        else // If I am not a lead AICPU scheduler, wait until initialization is ready
-        {
-            while(curDevTask_->isTaskInitialized == false){ /* Busy wait */ };
-        }
+        
+        // If I am not a lead AICPU scheduler, wait until initialization is ready
+        if (isLeaderScheduler_ == false) while(curDevTask_->isTaskInitialized == false){ /* Busy wait */ };
 
-        availableTaskQueue_ = reinterpret_cast<taskQueue_t*>(curDevTask_->availableTaskQueue);
+        // Getting queue pointers
+        availableTaskQueue_                        = (taskQueue_t*)curDevTask_->availableTaskQueue;
         runningPairQueue_                          = (pairQueue_t*)curDevTask_->runningPairQueue;
         availableCoreQueue_[(int)MachineType::AIV] = (coreQueue_t*)curDevTask_->availableVectorCoreQueue;
         availableCoreQueue_[(int)MachineType::AIC] = (coreQueue_t*)curDevTask_->availableCubeCoreQueue;
@@ -455,10 +455,6 @@ private:
 
     // Variable to scheduler lead and whether or not I am the lead
     bool isLeaderScheduler_;
-
-    /* prepare aicore ready task list */
-    StaticReadyCoreFunctionQueue *readyAicCoreFunctionQue_{nullptr};
-    StaticReadyCoreFunctionQueue *readyAivCoreFunctionQue_{nullptr};
 
     // Queues for managing tasks, cores and their pairing
     pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>* availableTaskQueue_;
