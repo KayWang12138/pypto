@@ -160,11 +160,11 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
 
     ```text
     ├── tensor_graph # 保存前端初始计算图模拟计算后的中间数据，作为基础数据
-    │   ├── *.data 
+    │   ├── *.data
     │   └── ...
     ├── verify_result.csv # 结果报告，用于保存中间数据的元数据信息、元数据对应的数据文件名、对其中属于Tensor数据的文件进行自检的结果
     ├── {FUNC_NAME}.pass_{PASS_SEQ}_{PASS_NAME} # 保存中间pass计算图模拟计算后的中间数据，作为待测数据
-    │   ├── *.data 
+    │   ├── *.data
     │   └── ...
     ```
 
@@ -179,11 +179,11 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
     |No.|单个Pass内的数据顺序编号，例如1|
     |rootFuncID|Root Function节点的唯一标识|
     |funcID|Function节点的唯一标识|
-    |verifyType|算子信息及数据对应的pass名称，</br>格式为：* {FUNC_NAME}.pass_{PASS_SEQ}_{PASS_NAME}</br>示例为：function_TENSOR_LOOP_L1_Unroll1_PATH1_7.pass_06_SplitReshape|    
+    |verifyType|算子信息及数据对应的pass名称，</br>格式为：* {FUNC_NAME}.pass_{PASS_SEQ}_{PASS_NAME}</br>示例为：function_TENSOR_LOOP_L1_Unroll1_PATH1_7.pass_06_SplitReshape|
     |LoopInfo|控制流信息，例如s_idx=2@b_idx=1|
     |opCode|Tile算子名称|
     |opMagic|Operation节点的唯一标识|
-    |tensorMagic|Tensor的唯一标识|      
+    |tensorMagic|Tensor的唯一标识|
     |rawTensorMagic|Tensor节点所属物理内存区域Raw Tensor的唯一标识|
     |offset|当前Tensor在rawTensor内存中的偏移量，为整数数组|
     |inputShape|输入Tensor节点的形状信息，为整数数组|
@@ -250,7 +250,7 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
 2.  执行修改后用例。
 
     ```bash
-    python3 examples/00_hello_world/hello_world.py 
+    python3 examples/00_hello_world/hello_world.py
     ```
 
 3.  打印类似以下输出，指示对应的自检结果为通过（PASS）、未通过（FAIL\(ED\)）或跳过校验（NO\_COMPARE）：
@@ -265,9 +265,9 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
 
     ```text
     ├── tensor_graph # 保存前端初始计算图模拟计算后的输入、输出数据，供后续人工分析
-    │   ├── tensor_Incast_0.data 
-    │   ├── tensor_Incast_1.data 
-    │   ├── tensor_OUT_0.data 
+    │   ├── tensor_Incast_0.data
+    │   ├── tensor_Incast_1.data
+    │   ├── tensor_OUT_0.data
     │   └── ...
     ├── verify_result.csv # 结果报告，用于保存对以上数据进行粗检的结果
     ```
@@ -316,7 +316,7 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
 2.  执行修改后用例。
 
     ```bash
-    python3 examples/00_hello_world/hello_world.py 
+    python3 examples/00_hello_world/hello_world.py
     ```
 
 3.  打印类似以下输出，指示 input0 所保存的部分参考数据。
@@ -343,4 +343,3 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
 5.  后续处理建议。
 
     根据元数据信息使用常用的torch.from\_file\(\)、numpy.load\(\)等接口打开数据文件并转换为可解析的数值，再进一步进行通常开发者使用的数据分析方法，例如：检查异常数据的偏移规律、异常数据的值特征（inf/nan/zero 等）。
-

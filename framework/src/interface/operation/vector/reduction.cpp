@@ -292,7 +292,7 @@ static void ValidateReductionAxis(const Tensor& self, int axis) {
     auto vecTile = TileShape::Current().GetVecTile();
 
     if (axis == lastDim) {
-        ASSERT(vecTile[lastDim] % alignNum == 0) 
+        ASSERT(vecTile[lastDim] % alignNum == 0)
         << "Reduce op: the tileShape of last axis need to 32Byte align!";
     }
 }
@@ -310,7 +310,7 @@ static Tensor ProcessResultShape(const Tensor &result, const Tensor &self, int a
         auto outShape = result.GetShape();
         outShape.erase(outShape.begin() + axis);
         outValidShape.erase(outValidShape.begin() + axis);
-        
+
         return Reshape(result, outShape, outValidShape);
     }
 }

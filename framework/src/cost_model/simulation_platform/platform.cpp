@@ -28,15 +28,15 @@ const uint32_t PLATFORM_SUCCESS = 0;
 
 #define PATH_MAX 4096
 
-std::string CostModelPlatform::RealPath(const std::string &path) {	
+std::string CostModelPlatform::RealPath(const std::string &path) {
     std::string res;
-    if (path.empty()) {	
-        return res;	
-    }	
-    if (path.size() >= PATH_MAX) {	
-        return res;	
-    }	
-    char resoved_path[PATH_MAX] = {0x00};	
+    if (path.empty()) {
+        return res;
+    }
+    if (path.size() >= PATH_MAX) {
+        return res;
+    }
+    char resoved_path[PATH_MAX] = {0x00};
     if (realpath(path.c_str(), resoved_path) != nullptr) {
         res = resoved_path;
     }

@@ -85,7 +85,7 @@ void SyncStreams(rtStream_t aicpuStream, rtStream_t aicoreStream, bool useSyncFl
     } else {
         rc = aclrtCreateEvent(&event);
     }
-    
+
     if (rc < 0) {
         MACHINE_LOGI("CreateEvent failed rc=%d, useSyncFlag=%d", rc, useSyncFlag);
     }

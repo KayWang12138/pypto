@@ -1374,7 +1374,7 @@ TEST_F(SplitLargeFanoutTensorTest, ComplexOverlap) {
 
     // 验证：
     // 拆分后除了两个incast分别各cover一个outcast的场景会被单独拆出
-    // 中间的[16, 32]会被拆除形成对两个[8, 32]的多对多 
+    // 中间的[16, 32]会被拆除形成对两个[8, 32]的多对多
     // 剩余两个会被保留
     std::unordered_map<int, int> recordAssemble;
     std::unordered_map<int, int> recordView;
@@ -1564,9 +1564,9 @@ TEST_F(SplitLargeFanoutTensorTest, OneDimNotSplit) {
 
     // 验证：pass不会切分，所以前后一致
     auto countResultAfter = CountViewAssemble(*function);
-    EXPECT_EQ(countResultBefore[0], countResultAfter[0]) << countResultBefore[0] 
+    EXPECT_EQ(countResultBefore[0], countResultAfter[0]) << countResultBefore[0]
         << "OP_VIEW before pass; " << countResultAfter[0] << " OP_VIEW after pass, should equal.";
-    EXPECT_EQ(countResultBefore[1], countResultAfter[1]) << countResultBefore[1] 
+    EXPECT_EQ(countResultBefore[1], countResultAfter[1]) << countResultBefore[1]
         << "OP_ASSEMBLE before pass; " << countResultAfter[1] << " OP_ASSEMBLE after pass, should equal.";
 }
 
@@ -1707,9 +1707,9 @@ TEST_F(SplitLargeFanoutTensorTest, NoSplitLcmLargerThanLargeTensor) {
     for (auto &op : function->Operations()) {
         opMagicAfter.emplace_back(op.GetOpMagic());
     }
-    EXPECT_EQ(countResultBefore[0], countResultAfter[0]) << countResultBefore[0] 
+    EXPECT_EQ(countResultBefore[0], countResultAfter[0]) << countResultBefore[0]
         << "OP_VIEW before pass; " << countResultAfter[0] << " OP_VIEW after pass, should equal.";
-    EXPECT_EQ(countResultBefore[1], countResultAfter[1]) << countResultBefore[1] 
+    EXPECT_EQ(countResultBefore[1], countResultAfter[1]) << countResultBefore[1]
         << "OP_ASSEMBLE before pass; " << countResultAfter[1] << " OP_ASSEMBLE after pass, should equal.";
     EXPECT_EQ(CommonUtils::ContainerToStr(opMagicBefore), CommonUtils::ContainerToStr(opMagicAfter))
         << "All op magic before pass: " << CommonUtils::ContainerToStr(opMagicBefore)

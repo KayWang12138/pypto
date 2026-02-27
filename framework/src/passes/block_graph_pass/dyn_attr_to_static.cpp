@@ -181,7 +181,7 @@ std::vector<std::reference_wrapper<SymbolicScalar>> DynAttrToStatic::GetOpDynami
             RefSpecifiedValue(assembleAttr->GetFromDynValidShape(), dynamicAttributeList);
         }
         return dynamicAttributeList;
-    } 
+    }
 
     const std::set<Opcode> specifiedOps = {Opcode::OP_VEC_DUP, Opcode::OP_EXPAND, Opcode::OP_RESHAPE};
     if (specifiedOps.count(opcode)) {
@@ -269,7 +269,7 @@ Status DynAttrToStatic::BuildNewCoa(
         return FAILED;
     }
     int coaIndex = coaExpr.CalculateCoaIndex();
-    
+
     // 2. 遍历不同caller下的取值，确认是否是常数
     IsConstMetric scalarValue;
     for (auto& argList : callopArglistOneDim) {
@@ -314,7 +314,7 @@ void ReplaceCommonSymbol(Function *leafFunc, std::vector<std::vector<SymbolicSca
         for (size_t j = 0; j < allRes1[i].size(); j++) {
             index2GroupId[allRes1[i][j]] = i;
         }
-    } 
+    }
     std::map<std::string, int> symbol2CoaIdx;
     for (const auto &dynParam : leafFunc->GetDynParamTable()) {
         if (dynParam.second.dim.IsValid()) {
@@ -337,7 +337,7 @@ void ReplaceCommonSymbol(Function *leafFunc, std::vector<std::vector<SymbolicSca
                     coaIdx, index2GroupId[coaIdx], symbolStr.c_str());
             } else {
                 leafFunc->GetMutableDynParam(symbolStr).replacedSymbol = index2BaseSymbol[index2GroupId[coaIdx]];
-                APASS_LOG_INFO_F(Elements::Operation, "Replace coaIndex[%d] groupId[%zu] symbolStr[%s] with baseParam[%s]", 
+                APASS_LOG_INFO_F(Elements::Operation, "Replace coaIndex[%d] groupId[%zu] symbolStr[%s] with baseParam[%s]",
                     coaIdx, index2GroupId[coaIdx], symbolStr.c_str(), index2BaseSymbol[index2GroupId[coaIdx]].c_str());
             }
         }
@@ -376,7 +376,7 @@ void ReBuildConcreteParam(Function *leafFunc, std::vector<std::vector<SymbolicSc
                     return false;
                 }
                 if (!scalarValue.TryInitAndCheckEqual(callopAttr.Concrete())) {
-                    return false; 
+                    return false;
                 }
             }
             return true;
@@ -433,7 +433,7 @@ Status DynAttrToStatic::RunOnFunction(Function &function) {
             return FAILED;
         }
     }
-    
+
     APASS_LOG_INFO_F(Elements::Operation, "==============> End DynAttrToStatic.");
     return SUCCESS;
 }

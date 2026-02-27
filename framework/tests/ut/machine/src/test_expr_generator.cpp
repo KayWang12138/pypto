@@ -50,7 +50,7 @@ TEST_F(TestExprBatchGenerator, CalculateBatches) {
     ExprBatchGenerator generator2(testDir_, 2, 2500);
     // Test with less than EXPRS_PER_BATCH expressions
     ExprBatchGenerator generator3(testDir_, 3, 500);
-    
+
     // We can't directly access the private batches_ vector, but we can test the behavior
     // by checking the generated files later
 }
@@ -59,17 +59,17 @@ TEST_F(TestExprBatchGenerator, CalculateBatches) {
 TEST_F(TestExprBatchGenerator, HeaderFileGeneration) {
     ExprBatchGenerator generator(testDir_, 1, 100);
     std::ostringstream exprHeaderOss;
-    
+
     // Test HeaderFileBegin
     generator.HeaderFileBegin(exprHeaderOss);
-    
+
     // Test HeaderFileEnd
     generator.HeaderFileEnd(exprHeaderOss);
-    
+
     // Check if header file was created
     std::string headerPath = testDir_ + "/control_flow_expr_table.h";
     ASSERT_TRUE(FileExists(headerPath));
-    
+
     // Check header file content
     std::ifstream headerFile(headerPath);
     std::string headerContent((std::istreambuf_iterator<char>(headerFile)),
@@ -82,14 +82,14 @@ TEST_F(TestExprBatchGenerator, HeaderFileGeneration) {
 TEST_F(TestExprBatchGenerator, LinkScriptGeneration) {
     ExprBatchGenerator generator(testDir_, 1, 100);
     std::ostringstream exprHeaderOss;
-    
+
     // Link script is generated in HeaderFileBegin
     generator.HeaderFileBegin(exprHeaderOss);
-    
+
     // Check if link script was created
     std::string scriptPath = testDir_ + "/merge.link";
     ASSERT_TRUE(FileExists(scriptPath));
-    
+
     // Check link script content
     std::ifstream scriptFile(scriptPath);
     std::string scriptContent((std::istreambuf_iterator<char>(scriptFile)),
@@ -104,7 +104,7 @@ TEST_F(TestExprBatchGenerator, BatchFileGeneration) {
     std::ostringstream controlFlowOss;
     std::ostringstream exprHeaderOss;
     std::vector<std::string> exprSrcFiles;
-    
+
     // Create a mock expression set
     struct MockExpr {
         int value;
@@ -113,32 +113,32 @@ TEST_F(TestExprBatchGenerator, BatchFileGeneration) {
     for (int i = 0; i < 1500; ++i) {
         expressions.push_back({i});
     }
-    
+
     // Mock buildExpr function
     auto buildExpr = [](const MockExpr& expr) {
         return std::to_string(expr.value);
     };
-    
+
     // Generate batch files
     generator.GenerateBatchFile(controlFlowOss, exprHeaderOss, "test_exp.h", expressions, exprSrcFiles, 1, 1, buildExpr);
-    
+
     // Check if batch files were created
     ASSERT_EQ(exprSrcFiles.size(), 2);
     for (const auto& filePath : exprSrcFiles) {
         ASSERT_TRUE(FileExists(filePath));
-        
+
         // Check file content
         std::ifstream batchFile(filePath);
         std::string fileContent((std::istreambuf_iterator<char>(batchFile)),
                                std::istreambuf_iterator<char>());
         ASSERT_TRUE(fileContent.find("RUNTIME_SetExpr") != std::string::npos);
     }
-    
+
     // Check control flow content
     std::string controlFlowContent = controlFlowOss.str();
     ASSERT_TRUE(controlFlowContent.find("SetExprBatch_1_0") != std::string::npos);
     ASSERT_TRUE(controlFlowContent.find("SetExprBatch_1_1") != std::string::npos);
-    
+
     // Check header content
     std::string headerContent = exprHeaderOss.str();
     ASSERT_TRUE(headerContent.find("SetExprBatch_1_0") != std::string::npos);

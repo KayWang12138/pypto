@@ -86,4 +86,3 @@ y = pypto.gathermask(x, pattern_mode)
              [6,  8,  10],
              [12,  14,  16]]
 ```
-

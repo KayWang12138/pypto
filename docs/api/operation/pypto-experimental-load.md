@@ -52,4 +52,3 @@ dst = pypto.load(src, offsets)
 输出数据dst: [[7.3, 100.2, 1],
               [3, 7.3, 2.2]]
 ```
-

@@ -832,7 +832,7 @@ class JitCallableWrapper:
                 captured_locals_hash = make_hashable(filtered_locals)
             else:
                 captured_locals_hash = None
-                
+
             non_tensor_hash = make_hashable(non_tensor_values) if non_tensor_values else None
 
             return (source_code, options_hash, captured_locals_hash, non_tensor_hash)

@@ -73,4 +73,3 @@ TEST_F(TestPlatformManagerLog, Initialize_NoAscendHomePath) {
     bool result = pm.Initialize("Ascend910B1");
     EXPECT_FALSE(result);
 }
-

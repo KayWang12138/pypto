@@ -555,7 +555,7 @@ std::string CodeGenOpCloudNPU::GenUnaryOp() const {
         return PrintOneHot({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     } else if (opCode == Opcode::OP_ROWMAX || opCode == Opcode::OP_ROWEXPMAX || opCode == Opcode::OP_ROWEXPSUM) {
         return PrintReduceEx({s0Var, dVar, srcDtypeStr, dstDtypeStr});
-    } else if (opCode == Opcode::OP_ROWMAXLINE || opCode == Opcode::OP_ROWMINLINE || 
+    } else if (opCode == Opcode::OP_ROWMAXLINE || opCode == Opcode::OP_ROWMINLINE ||
                opCode == Opcode::OP_ROWPRODLINE) {
         return PrintRowMaxline({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     } else if (opCode == Opcode::OP_EXP || opCode == Opcode::OP_SQRT || opCode == Opcode::OP_ABS || opCode == Opcode::OP_RELU ||

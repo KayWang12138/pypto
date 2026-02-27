@@ -40,4 +40,3 @@ t2 = pypto.tensor((2, 3), pypto.DT_FP32)
 # 将 t2 的数据移动到 t1
 t1.move(t2)
 ```
-

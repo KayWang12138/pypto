@@ -139,4 +139,3 @@ y = pypto.cast(x, pypto.DT_FP16)
 
 输出数据y: [2.0, 3.0] # y.dtype: pypto.DT_FP16
 ```
-

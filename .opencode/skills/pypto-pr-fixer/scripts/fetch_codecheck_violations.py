@@ -41,11 +41,11 @@ def extract_violations_with_playwright(url: str) -> list[dict[str, Any]]:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
-        
+
         # 访问页面
         page.goto(url, wait_until="networkidle", timeout=60000)
         page.wait_for_timeout(3000)
-        
+
         # 移除 cookie 对话框（会阻挡分页控件）
         page.evaluate("""
             const cookieDivs = document.querySelectorAll('[class*="cookie"]');
@@ -58,12 +58,12 @@ def extract_violations_with_playwright(url: str) -> list[dict[str, Any]]:
             });
         """)
         page.wait_for_timeout(500)
-        
+
         # 尝试切换到最大页面大小以显示所有违规
         try:
             page.locator(".el-pagination__sizes").click(timeout=5000)
             page.wait_for_timeout(500)
-            
+
             options = page.locator(".el-select-dropdown__item").all()
             if options:
                 # 找到最大的数字选项
@@ -75,17 +75,17 @@ def extract_violations_with_playwright(url: str) -> list[dict[str, Any]]:
                     if num > largest_num:
                         largest_num = num
                         largest_opt = opt
-                
+
                 if largest_opt:
                     largest_opt.click()
                     page.wait_for_timeout(2000)
         except Exception:
             pass  # 分页控件可能不存在
-        
+
         # 提取违规列表
         text = page.inner_text("body")
         browser.close()
-        
+
         return parse_violations_from_text(text)
 
 
@@ -93,12 +93,12 @@ def parse_violations_from_text(text: str) -> list[dict[str, Any]]:
     """从页面文本解析违规列表"""
     pattern = r'文件路径:([^\n:]+):(\d+)\s*问题描述[：:]([^\n]+)\s*规则[：:]([^\n]+)'
     matches = re.findall(pattern, text)
-    
+
     violations = []
     for match in matches:
         file_path, line, description, rule = match
         rule_parts = rule.strip().split(" ", 1)
-        
+
         violations.append({
             "file": file_path.strip(),
             "line": int(line),
@@ -106,7 +106,7 @@ def parse_violations_from_text(text: str) -> list[dict[str, Any]]:
             "rule_id": rule_parts[0] if rule_parts else "",
             "rule_description": rule_parts[1] if len(rule_parts) > 1 else ""
         })
-    
+
     return violations
 
 
@@ -128,12 +128,12 @@ def main():
     parser.add_argument("url", help="CodeCheck 报告 URL")
     parser.add_argument("--output", "-o", choices=["json", "text"], default="json", help="输出格式")
     parser.add_argument("--group", "-g", action="store_true", help="按规则分组输出")
-    
+
     args = parser.parse_args()
-    
+
     try:
         violations = extract_violations_with_playwright(args.url)
-        
+
         if args.output == "json":
             result: dict[str, Any] = {
                 "total": len(violations),
@@ -145,7 +145,7 @@ def main():
             logging.info(json.dumps(result, indent=2, ensure_ascii=False))
         else:
             logging.info(f"Total violations: {len(violations)}\n")
-            
+
             if args.group:
                 by_rule = group_by_rule(violations)
                 for rule, items in sorted(by_rule.items(), key=lambda x: -len(x[1])):
@@ -159,9 +159,9 @@ def main():
                 for v in violations:
                     logging.info(f"{v['rule_id']} | {v['file']}:{v['line']}")
                     logging.info(f"  {v['description']}\n")
-        
+
         return 0
-        
+
     except Exception as e:
         logging.error(f"Error: {e}")
         return 1

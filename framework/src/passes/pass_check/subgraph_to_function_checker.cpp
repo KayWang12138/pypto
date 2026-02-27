@@ -375,7 +375,7 @@ Status SubGraphToFuncChecker::ColorOutGraphCheck(Function &function) const {
 Status SubGraphToFuncChecker::DoPostCheck(Function &function) {
     // Check colorInGraph_ and colorOutGraph_ consistency
     APASS_LOG_INFO_F(Elements::Operation, "Start PostCheck for SubgraphToFunction!");
-    
+
     // 只在静态流程中检查静态专用的图信息
     if (function.GetFunctionType() == FunctionType::STATIC) {
         if (InAndOutGraphConsistencyCheck(colorInGraph_, colorOutGraph_) != SUCCESS) {

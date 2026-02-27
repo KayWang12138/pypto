@@ -112,7 +112,7 @@ bool GenerateMoveOpChecker::CheckViewOutTensorMemType(const Operation &op) const
     if (op.GetOOperands().front()->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
         return true;
     }
-    auto consumerOps = op.oOperand[0]->GetConsumers(); 
+    auto consumerOps = op.oOperand[0]->GetConsumers();
     for (auto childOp : consumerOps) {
         if (childOp == nullptr) {
             ALOG_ERROR_F("View op [%d] output has null consumers.",op.GetOpMagic());
@@ -137,7 +137,7 @@ bool GenerateMoveOpChecker::CheckViewOutTensorMemType(const Operation &op) const
             ALOG_ERROR_F("View op [%d] consumer %s[%d] has invalid convert path.", op.GetOpMagic(),childOp->GetOpcodeStr().c_str(),childOp->GetOpMagic());
             return false;
         }
-    }    
+    }
     return true;
 }
 

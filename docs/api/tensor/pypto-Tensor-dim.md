@@ -41,4 +41,3 @@ out = t.dim
 ```python
 输出数据out: 3
 ```
-

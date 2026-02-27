@@ -208,7 +208,7 @@ int DeviceTaskContext::BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram 
     return DEVICE_MACHINE_OK;
 }
 
-int DeviceTaskContext::BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId, DevAscendFunctionDupped *stitchedList, 
+int DeviceTaskContext::BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId, DevAscendFunctionDupped *stitchedList,
     uint64_t stitchedSize) {
     size_t headerSize = sizeof(DynFuncHeader) + stitchedSize * sizeof(DynFuncData);
     auto funcHeader = workspace_->AllocateDynFuncData(headerSize);

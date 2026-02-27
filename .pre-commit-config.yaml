@@ -14,5 +14,5 @@ repos:
         - id: check-added-large-files
         - id: check-yaml
         - id: end-of-file-fixer
-          exclude: '*/stub/*' # temporary exclude stub files
+          exclude: '.*/stub/.*' # temporary exclude stub files
         - id: trailing-whitespace
