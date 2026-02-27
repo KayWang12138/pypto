@@ -27,6 +27,7 @@ logger = get_logger("triton_pypto.jit", "TRITON_PYPTO")
 @dataclass
 class JITOptions:
     dynamic: bool = False
+    partition: bool = True
     unroll_factor: int = 1
 
 
@@ -70,6 +71,7 @@ class JITFunction(Generic[P, T]):
                 loop_range = self.dynamic_grid_loop(grid, unroll_factor=self.options.unroll_factor)
             else:
                 loop_range = self.static_grid_loop(grid)
+            pypto.set_pass_options(pg_skip_partition=(not self.options.partition))
             for pid_x, pid_y, pid_z in loop_range:
                 self.call_jit_fn((pid_x, pid_y, pid_z), args, kwds)
         device.run_once(*in_out_tensors)
