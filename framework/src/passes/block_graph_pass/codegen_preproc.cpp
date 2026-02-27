@@ -182,6 +182,15 @@ bool ReduceNeedCombineAxis(const Operation &op) {
     return false;
 }
 
+void CodegenPreproc::ProcessExpand(Operation &op, int dimSize) {
+    if (op.GetOpcode() == Opcode::OP_EXPAND) {
+        int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM");
+        if (axis == dimSize - 2) {
+            op.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", axis + 1);
+        }
+    }
+}
+
 Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
     const std::set<Opcode> skipInputCombineOps = {Opcode::OP_BRCB, Opcode::OP_EXPAND};
     for (auto &subProgram : func.rootFunc_->programs_) {
@@ -204,12 +213,7 @@ Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
             for (size_t i = 0; i < outputs.size(); ++i) {
                 if (outputs[i]->tensor->rawshape.back() == 1 && ReduceNeedCombineAxis(op)) {
                     outputCombineAxis.push_back(true);
-                    if (op.GetOpcode() == Opcode::OP_EXPAND) {
-                        int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM");
-                        if (axis == static_cast<int>(outputs[i]->tensor->rawshape.size()) - 2) {
-                            op.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", axis + 1);
-                        }
-                    }
+                    ProcessExpand(op, static_cast<int>(outputs[i]->tensor->rawshape.size()));
                 } else {
                     outputCombineAxis.push_back(false);
                 }
