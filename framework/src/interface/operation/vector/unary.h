@@ -37,6 +37,8 @@ enum class UnaryOpType {
     LN,
     HUB,
     BITWISENOT,
+    SIGN,
+    ISFINITE,
 };
 
 template <UnaryOpType T>
@@ -53,8 +55,10 @@ std::string GetUnaryOpName() {
         case UnaryOpType::DUPLICATE: return "DUPLICATE";
         case UnaryOpType::ABS: return "ABS";
         case UnaryOpType::LN: return "LN";
+        case UnaryOpType::ISFINITE: return "ISFINITE";
         case UnaryOpType::HUB: return "HUB";
         case UnaryOpType::BITWISENOT: return "BITWISENOT";
+        case UnaryOpType::SIGN: return "SIGN";
         default: ASSERT(false && "unknown unary op type"); return "";
     }
 }
@@ -75,8 +79,10 @@ Opcode GetUnaryOpNameCode() {
         CASE(DUPLICATE);
         CASE(ABS);
         CASE(LN);
+        CASE(ISFINITE);
         CASE(HUB);
         CASE(BITWISENOT);
+        CASE(SIGN);
         default: ASSERT(false && "unknown unary op type");
     }
 #undef CASE
@@ -86,11 +92,12 @@ void UnaryOperationOperandCheck(
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand);
 
 template <UnaryOpType T>
-LogicalTensorPtr TensorUnaryOperation(Function &function, LogicalTensorPtr operand) {
+LogicalTensorPtr TensorUnaryOperation(Function &function, LogicalTensorPtr operand, std::optional<DataType> datatype = std::nullopt) {
     auto opName = GetUnaryOpName<T>();
     CheckTensorShape(operand, opName);
+    datatype = datatype.value_or(operand->tensor->datatype);
     auto result = std::make_shared<LogicalTensor>(
-        function, operand->tensor->datatype, operand->shape, operand->GetDynValidShape(), operand->Format());
+        function, *datatype, operand->shape, operand->GetDynValidShape(), operand->Format());
     function.AddOperation(GetUnaryOpNameCode<T>(), {operand}, {result});
     return result;
 }

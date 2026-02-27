@@ -229,7 +229,7 @@ TEST_F(TestCodegenDynCopy, L1CopyIn) {
 TEST_F(TestCodegenDynCopy, L1CopyInTileTensor) {
     std::string res = TestL1CopyInBody(false, 0, 0, true);
     std::string expect =
-        R"!!!(TLoad<CopyInMode::NZ2NZ>(l1Tensor_10, gmTensor_11, Coord2Dim(GET_PARAM_OFFSET_2(param, 0, 0)), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 0, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 0, 2, 1));
+        R"!!!(TLoad<CopyInMode::NZ2NZ, PaddingMode::NO_PADDING>(l1Tensor_10, gmTensor_11, Coord2Dim(GET_PARAM_OFFSET_2(param, 0, 0)), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 0, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 0, 2, 1));
 )!!!";
     EXPECT_EQ(res, expect);
 }
@@ -324,8 +324,7 @@ TEST_F(TestCodegenDynCopy, L1ToBt) {
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
 
-    std::string funcName = "ADD";
-
+    std::string funcName = "L1ToBt";
     FUNCTION(funcName, {inputA, inputB, output}) {
         output = Add(inputA, inputB);
     }
@@ -433,7 +432,7 @@ std::string TestMatmulMteBody(Opcode opcode, MemoryType inType, MemoryType outTy
 TEST_F(TestCodegenDynCopy, L1CopyInTensor) {
     std::string res = TestMatmulMteBody(Opcode::OP_L1_COPY_IN, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1);
     std::string expect =
-        R"!!!(TLoad<CopyInMode::ND2NZ>(l1Tensor_10, gmTensor_11, Coord2Dim(GET_PARAM_OFFSET_2(param, 0, -1)), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 1));
+        R"!!!(TLoad<CopyInMode::ND2NZ, PaddingMode::NO_PADDING>(l1Tensor_10, gmTensor_11, Coord2Dim(GET_PARAM_OFFSET_2(param, 0, -1)), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 1));
 )!!!";
     EXPECT_EQ(res, expect);
 }
@@ -458,14 +457,14 @@ TEST_F(TestCodegenDynCopy, L1CopyBTTensor) {
 TEST_F(TestCodegenDynCopy, L0CopyOutTensor) {
     std::string res = TestMatmulMteBody(Opcode::OP_COPY_OUT, MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR);
     std::string expect =
-        R"!!!(TStore<TileOp::TStoreConfig<CopyOutMode::NZ2ND, 0, 0>>(gmTensor_10, l0cTensor_11, l0cTensor_11, Coord2Dim(0, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 1), 0);
+        R"!!!(TStore<TStoreConfig<CopyOutMode::NZ2ND, 0, 0>>(gmTensor_10, l0cTensor_11, l0cTensor_11, Coord2Dim(0, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 1), 0);
 )!!!";
     EXPECT_EQ(res, expect);
 }
 TEST_F(TestCodegenDynCopy, L0CopyOutTensorTileTensor) {
     std::string res = TestMatmulMteBody(Opcode::OP_COPY_OUT, MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR, true);
     std::string expect =
-        R"!!!(TStore<TileOp::TStoreConfig<CopyOutMode::NZ2ND, 0, 0>>(gmTensor_10, l0cTensor_11, l0cTensor_11, Coord2Dim(0, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 1), 0);
+        R"!!!(TStore<TStoreConfig<CopyOutMode::NZ2ND, 0, 0>>(gmTensor_10, l0cTensor_11, l0cTensor_11, Coord2Dim(0, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 1), 0);
 )!!!";
     EXPECT_EQ(res, expect);
 }
@@ -485,15 +484,11 @@ std::string TestCopyL1Body(Opcode opcode, MemoryType inputType, MemoryType outpu
     TileShape::Current().SetVecTile(shape);
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
 
-    InsertTileTensorOp(Opcode::OP_UB_COPY_L1, "TExtract");
-    InsertTileTensorOp(Opcode::OP_UB_COPY_ND2NZ, "TMoveND2NZ");
-    InsertTileTensorOp(Opcode::OP_L0C_TO_L1, "TExtract");
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
 
-    std::string funcName = "ADD";
-
+    std::string funcName = OpcodeManager::Inst().GetOpcodeStr(opcode);
     FUNCTION(funcName, {inputA, inputB, output}) {
         output = Add(inputA, inputB);
     }
@@ -555,7 +550,7 @@ TEST_F(TestCodegenDynCopy, UB2UBND2NZTileTensor) {
 TEST_F(TestCodegenDynCopy, L0CToL1TileTensor) {
     std::string res = TestCopyL1Body(Opcode::OP_L0C_TO_L1, MemoryType::MEM_L0C, MemoryType::MEM_L1);
     std::string expect =
-        R"!!!(TExtract<TileOp::TStoreConfig<CopyOutMode::NZ2NZ, 0, 0>>(l1Tensor_10, l0cTensor_11, l0cTensor_11, Coord2Dim(0, 0), Coord2Dim(0, 0), 0);
+        R"!!!(TExtract<TStoreConfig<CopyOutMode::NZ2NZ, 0, 0>>(l1Tensor_10, l0cTensor_11, l0cTensor_11, Coord2Dim(0, 0), Coord2Dim(0, 0), 0);
 )!!!";
     EXPECT_EQ(res, expect);
 }

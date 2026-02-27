@@ -16,11 +16,11 @@
 #ifndef TILEOP_UTILS_COMMON_TYPE_H
 #define TILEOP_UTILS_COMMON_TYPE_H
 
-enum class Hardware : uint8_t { GM = 0, UB, L1, L0A, L0B, L0C, BIAS, FIXBUF, MAX };
+enum class Hardware : uint8_t { GM = 0, UB, L1, L0A, L0B, L0C, BIAS, FIXBUF, MAX, L0A_MX, L0B_MX };
 
-enum class UnaryOp : uint8_t { ABS = 0, EXP, NEG, REC, RSQRT, SQRT, BRCB, CEIL, FLOOR, TRUNC, ROUND, RECIPROCAL, BITWISENOT, RELU };
+enum class UnaryOp : uint8_t { ABS = 0, EXP, NEG, REC, RSQRT, SQRT, BRCB, CEIL, FLOOR, TRUNC, ROUND, RECIPROCAL, BITWISENOT, RELU, LN, SIGN, ISFINITE };
 
-enum class BinaryOp : uint8_t { ADD = 0, SUB, MUL, DIV, AND, OR, MAX, MIN, SUM, AMAX, MOD, BITWISEAND, BITWISEOR, BITWISEXOR };
+enum class BinaryOp : uint8_t { ADD = 0, SUB, MUL, DIV, AND, OR, MAX, MIN, SUM, AMAX, MOD, POW, BITWISEAND, BITWISEOR, BITWISEXOR, HYPOT };
 
 enum class BroadcastOperand : uint8_t { NONE = 0, LEFT, RIGHT };
 

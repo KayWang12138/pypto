@@ -31,7 +31,6 @@
 #include "interface/cache/hash.h"
 #include "passes/pass_utils/pass_utils.h"
 
-#include "ir/program.h"
 namespace npu::tile_fwk {
 constexpr int FUNCTION_MAX_INCASTS = 10000;
 
@@ -112,7 +111,8 @@ public:
         explicit Iterator(const std::vector<std::shared_ptr<Operation>> &operations) : operations_(operations) {}
 
         void operator++() {
-            ASSERT(cur_ <= operations_.size());
+            ASSERT(cur_ <= operations_.size())
+                << "operator(++) out of its size. cur_: " << cur_ << ", operations_.size(): " << operations_.size();
             cur_++;
         }
 
@@ -145,7 +145,7 @@ public:
     [[nodiscard]]int GetOpPosition(const Operation &op) const {
         auto it = opPosition_.find(&op);
         if (it == opPosition_.end()) {
-            ASSERT(false);
+            ASSERT(false) << "Magic[" << op.opmagic << "] Op has not been found in opPosition.";
             return 0;
         }
         return it->second;
@@ -156,7 +156,9 @@ public:
         if (it == opPosition_.end()) {
             return {0, false};
         }
-        ASSERT(operations_[it->second].get() == &op);
+        ASSERT(operations_[it->second].get() == &op)
+            << "operations_[it->second].get(): 0x" << reinterpret_cast<uintptr_t>(operations_[it->second].get())
+            << "&op: " << reinterpret_cast<uintptr_t>(&op);
         return {it->second, true};
     }
     [[nodiscard]] bool IsEmpty()const{ return operations_.empty(); }
@@ -314,6 +316,12 @@ struct OriArgInfo {
 
     bool operator==(const OriArgInfo &other) const {
         return addr == other.addr && size == other.size && needPrefetch == other.needPrefetch;
+    }
+
+    std::string Dump() {
+        std::ostringstream oss;
+        oss << "addr: " << addr << ", size: " << size << ", needPrefetch: " << (needPrefetch ? "true" : "false");
+        return oss.str();
     }
 };
 
@@ -483,7 +491,6 @@ public:
     int opSeed_{FUNCTION_MAX_INCASTS};
     SubfuncTopologyInfoTy topoInfo_; // root function持有，对应1.0的SubgraphTopologyInfoTy
     std::map<uint64_t, Function*> programs_; // root function持有，所有异构的leaf function
-    pto::ProgramModulePtr programModule_ = nullptr;
     Function *rootFunc_ = nullptr; // TileGraph和RootGraph都需要保留，且需要映射关系
     ParamConfigs paramConfigs_;
     // vf融合适配需要pass间传递的参数
@@ -519,7 +526,8 @@ public:
     void AddGlobalTensor(std::shared_ptr<LogicalTensor> tensor) { globalTensors_.emplace(tensor); };
     void AddOperationGroup(std::vector<Operation *> operationGroup);
     const auto &GetGroupByID(const size_t groupID) const {
-        ASSERT(groupID < operationGroups_.size());
+        ASSERT(groupID < operationGroups_.size())
+            << "groupID: " << groupID << ", operationGroups_.size(): " << operationGroups_.size();
         return operationGroups_[groupID];
     }
     void ClearOperationGroups();

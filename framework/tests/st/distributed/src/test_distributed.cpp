@@ -31,7 +31,10 @@ public:
     void SetUp() override
     {
         Distributed::TestFrameworkInit(testParam, hcomTestParam, physicalDeviceId);
-        std::string folderPath = "output/output_" + getTimeStamp() + "_" + std::to_string(physicalDeviceId);
+        std::string outputDir = "output";
+        bool res = CreateDir(outputDir);
+        CHECK(res) << "Failed to create directory: " << outputDir;
+        std::string folderPath = outputDir + "/output_" + getTimeStamp() + "_" + std::to_string(physicalDeviceId);
         setenv("TILE_FWK_OUTPUT_DIR", folderPath.c_str(), 0);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
         Program::GetInstance().Reset();
@@ -60,7 +63,7 @@ public:
         std::string caseName = testData["case_name"].get<std::string>();
         std::string goldenDir = GetGoldenDirPath(testData, fileName);
         DisOpRegister::GetRegister().Run(opName, testParam, dtype, goldenDir);
-        ALOG_INFO("test case finished successfully: op=%s, case=%s, json file=%s.", 
+        DISTRIBUTED_LOGI("test case finished successfully: op=%s, case=%s, json file=%s.", 
             opName.c_str(), caseName.c_str(), fileName.c_str());
     }
 
@@ -68,11 +71,11 @@ protected:
     void DistributedTestDestroy()
     {
         // 销毁集合通信域
-        ASSERT(HcclCommDestroy(hcomTestParam.hcclComm) == 0);
+        CHECK(HcclCommDestroy(hcomTestParam.hcclComm) == 0) << "HcclCommDestroy failed";
         // 重置设备
-        ASSERT(aclrtResetDevice(physicalDeviceId) == 0);
+        CHECK(aclrtResetDevice(physicalDeviceId) == 0) << "aclResetDevice failed";
         // 设备去初始化
-        ASSERT(aclFinalize() == 0);
+        CHECK(aclFinalize() == 0) << "aclFinalize failed";
     }
 
     Distributed::OpTestParam testParam;
@@ -102,11 +105,9 @@ void GegisterOps()
     reg.RegisterOp("MoeDistributedCombine", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
         Distributed::TestMoeDistributedCombine<T>(testParam, goldenDir);
     });
-
-    // 非模板算子
-    reg.disRegisterMap["MoeDispatch"] = [](OpTestParam& testParam, const std::string&, std::string& goldenDir) {
- 	    Distributed::TestShmemMoeDispatch(testParam, goldenDir);
-    };
+    reg.RegisterOp("MoeDispatch", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
+        Distributed::TestShmemMoeDispatch<T>(testParam, goldenDir);
+    });
     reg.disRegisterMap["AllGatherAttnPostReduceScatter"] = [](OpTestParam& testParam, const std::string&, std::string& goldenDir) {
         Distributed::TestAllGatherAttentionPostReducescatter(testParam, goldenDir);
     };

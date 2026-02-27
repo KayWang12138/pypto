@@ -66,7 +66,7 @@ enum class ArchInfo {
 #define DEVICE_TASK_TYPE_STATIC  0
 #define DEVICE_TASK_TYPE_DYN     1
 #define DEVICE_TASK_TYPE_INVALID 0xf
-#define PYPTO                    76
+#define PYPTO                    59
 
 template <typename DerivedType, typename UnderlyingType>
 class BitmaskBase {
@@ -205,6 +205,7 @@ struct TaskStat {
 
 struct DevDfxArgs {
     int32_t logLevel{-1};
+    int32_t isOpenSwim{0};
 };
 
 constexpr uint32_t PERF_TRACE_INST_MAX_NUM_EVERY_TYPE = 10;
