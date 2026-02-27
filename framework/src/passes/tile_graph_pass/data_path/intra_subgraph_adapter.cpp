@@ -221,7 +221,7 @@ bool IntraSubgraphAdapter::IsCrossCoreMoveOps(Operation *op) {
         if ((isFromAIV && AICTypeMemory.count(oop->GetMemoryTypeToBe()) > 0) ||
                 (isFromAIC && AIVTypeMemory.count(oop->GetMemoryTypeToBe()) > 0)) {
             return true;
-        } 
+        }
     }
     return false;
 }

@@ -32,8 +32,8 @@ TileOpFormat：返回Tensor的格式。
 ## 调用示例
 
 ```python
-t = pypto.tensor((4, 4), pypto.DT_FP32, format=pypto.TileOpFormat.TILEOP_ND) 
-print(t.format) 
+t = pypto.tensor((4, 4), pypto.DT_FP32, format=pypto.TileOpFormat.TILEOP_ND)
+print(t.format)
 ```
 
 结果示例如下：
@@ -41,4 +41,3 @@ print(t.format)
 ```text
 输出：TileOpFormat.TILEOP_ND
 ```
-

@@ -26,7 +26,7 @@ verify_options = {"enable_pass_verify": True,
                     verify_options=verify_options
                     )
 def add_dyn_kernel(
-        x: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP16), 
+        x: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP16),
         y: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP16),
         out: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP16)):
     first_dim, second_dim = x.shape

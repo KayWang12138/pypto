@@ -39,7 +39,7 @@ def create_or_copy_block(data, global_idx, new_global_idx, core_type):
 def process_time_and_blocks(filename, aic_config, aiv_config, time_config):
     with open(filename, 'r') as f:
         data = json.load(f)
-    
+
     min_start = float('inf')
     for block in data:
         for task in block['tasks']:
@@ -47,12 +47,12 @@ def process_time_and_blocks(filename, aic_config, aiv_config, time_config):
 
     init_time = int(time_config.init_time / time_config.cycle_ratio)
     offset = min_start - init_time
-    
+
     for block in data:
         for task in block['tasks']:
             task['execStart'] = (task['execStart'] - offset) * time_config.cycle_ratio
             task['execEnd'] = (task['execEnd'] - offset) * time_config.cycle_ratio
-  
+
     new_data = []
     global_idx = 0
     new_global_idx = 0
@@ -68,7 +68,7 @@ def process_time_and_blocks(filename, aic_config, aiv_config, time_config):
                 new_data.append(new_block)
                 global_idx += 1
                 new_global_idx += 1
-            
+
             if group >= extra_blocks:
                 new_data.append({
                     "blockIdx": new_global_idx,
@@ -76,7 +76,7 @@ def process_time_and_blocks(filename, aic_config, aiv_config, time_config):
                     "tasks": [],
                 })
                 new_global_idx += 1
-    
+
     if aiv_config.block_num is not None and aiv_config.group_num is not None:
         base_blocks = aiv_config.block_num // aiv_config.group_num
         extra_blocks = aiv_config.block_num % aiv_config.group_num
@@ -88,7 +88,7 @@ def process_time_and_blocks(filename, aic_config, aiv_config, time_config):
                 new_data.append(new_block)
                 global_idx += 1
                 new_global_idx += 1
-            
+
             if group >= extra_blocks:
                 new_data.append({
                     "blockIdx": new_global_idx,
@@ -96,12 +96,12 @@ def process_time_and_blocks(filename, aic_config, aiv_config, time_config):
                     "tasks": [],
                 })
                 new_global_idx += 1
-    
+
     new_data.sort(key=lambda x: x['blockIdx'])
-    
+
     with open('processed_tilefwk_prof_data.json', 'w') as f:
         json.dump(new_data, f, indent=2)
-    
+
     print(f"Onboard Json Processed!")
 
 
@@ -116,17 +116,16 @@ def main():
     parser.add_argument('--cycle_ratio', type=int, default=36, help='Cycle ratio')
 
     args = parser.parse_args()
-    
+
     BlockConfig = namedtuple('BlockConfig', ['block_num', 'group_num'])
     TimeConfig = namedtuple('TimeConfig', ['init_time', 'cycle_ratio'])
-        
+
     aic_config = BlockConfig(args.aic_block_num, args.aic_group_num)
     aiv_config = BlockConfig(args.aiv_block_num, args.aiv_group_num)
     time_config = TimeConfig(args.init_time, args.cycle_ratio)
-    
+
     process_time_and_blocks(args.input_file, aic_config, aiv_config, time_config)
 
 
 if __name__ == '__main__':
     main()
-

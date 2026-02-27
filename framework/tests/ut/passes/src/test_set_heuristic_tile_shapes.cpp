@@ -50,7 +50,7 @@ public:
 TEST_F(TestSetHeuristicTileShapes, TestCube) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestSetHeuristicTileShapes", "TestSetHeuristicTileShapes", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    
+
     // Prepare the graph
     std::vector<int64_t> inputAShape = {64, 128};
     std::vector<int64_t> inputBShape = {128, 64};
@@ -75,7 +75,7 @@ TEST_F(TestSetHeuristicTileShapes, TestCube) {
 TEST_F(TestSetHeuristicTileShapes, TestVector) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestSetHeuristicTileShapes", "TestSetHeuristicTileShapes", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-    
+
     // Prepare the graph
     std::vector<int64_t> inputShape = {32, 8, 8};
     std::vector<int64_t> reshapeShape = {32, 64};

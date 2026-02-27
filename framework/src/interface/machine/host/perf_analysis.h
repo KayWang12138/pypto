@@ -44,7 +44,7 @@ namespace npu::tile_fwk{
 
 enum class TracePhase {
 #define PERF_DEFINE(trace) trace,
-    TRACEPHASE_LIST 
+    TRACEPHASE_LIST
 #undef PERF_DEFINE
 };
 
@@ -80,13 +80,13 @@ struct PerfData {
     uint64_t minTimeNs{UINT64_MAX};
     std::string name;
     uint64_t ignoreHeaderCnt{0};
-    
+
     PerfData() : totalTimeNs(0), count(0), maxTimeNs(0), minTimeNs(UINT64_MAX) {}
-    
+
     uint64_t AvgTimeNs() const {
         return count > 0 ? totalTimeNs / count : 0;
     }
-    
+
     void AddStat(uint64_t durationNs, bool isTrace) {
         count++;
         if (isTrace) {
@@ -125,17 +125,17 @@ private:
         eventStartTimes_.resize(static_cast<size_t>(EventPhase::MAX_EVENT_PHASES));
         Reset();
     }
-    
+
     PerfAnalysis(const PerfAnalysis&) = delete;
     PerfAnalysis& operator=(const PerfAnalysis&) = delete;
-    
+
     std::vector<PerfData> traceData_;
     std::vector<PerfData> eventData_;
     std::vector<std::chrono::high_resolution_clock::time_point> eventStartTimes_;
     std::chrono::high_resolution_clock::time_point initTime_;
     std::chrono::high_resolution_clock::time_point lastTraceTime_;
     bool isTraceInitialized_{false};
-    
+
     void InitDataNames() {
         for (int i = 0; i < static_cast<int>(TracePhase::MAX_TRACE_PHASES); i++) {
             traceData_[i].name = std::string(g_perfTraceName[i]);
@@ -168,16 +168,16 @@ private:
         return eventAvgSumNs;
     }
 
-    void PrintPerfTable(std::ostream& out, 
+    void PrintPerfTable(std::ostream& out,
                        const std::vector<PerfData>& dataVec,
                        size_t dataSize,
                        uint64_t totalTimeNs,
                        uint64_t avgSumNs,
                        const std::string& title) {
-        
+
         out << "\n--- " << title << " Statistics ---" << std::endl;
 
-        out << std::left 
+        out << std::left
             << std::setw(40) << title + " Name"
             << std::setw(12) << "Count"
             << std::setw(15) << "Total Time(us)"
@@ -198,10 +198,10 @@ private:
                 double avgTimeUs = static_cast<double>(data.AvgTimeNs()) / 1000.0;
                 double maxTimeUs = static_cast<double>(data.maxTimeNs) / 1000.0;
                 double minTimeUs = static_cast<double>(data.minTimeNs) / 1000.0;
-                
-                double totalPercent = (totalTimeNs > 0) ? 
+
+                double totalPercent = (totalTimeNs > 0) ?
                     (static_cast<double>(data.totalTimeNs) / totalTimeNs * 100.0) : 0.0;
-                double avgPercent = (avgSumNs > 0) ? 
+                double avgPercent = (avgSumNs > 0) ?
                     (static_cast<double>(data.AvgTimeNs()) / avgSumNs * 100.0) : 0.0;
 
                 out << std::left << std::fixed << std::setprecision(3)
@@ -219,7 +219,7 @@ private:
 
         out << std::string(140, '-') << std::endl;
 
-        out << std::left 
+        out << std::left
             << std::setw(40) << "TOTAL"
             << std::setw(12) << "-"
             << std::setw(15) << static_cast<double>(totalTimeNs) / 1000.0
@@ -230,7 +230,7 @@ private:
             << std::setw(15) << "-"
             << std::endl;
     }
-    
+
 public:
     static PerfAnalysis& Get();
 
@@ -238,7 +238,7 @@ public:
         lastTraceTime_ = std::chrono::high_resolution_clock::now();
         isTraceInitialized_ = true;
     }
-    
+
     void Trace(TracePhase phase) {
         if (!isTraceInitialized_) {
             TraceStart();
@@ -252,15 +252,15 @@ public:
         auto now = std::chrono::high_resolution_clock::now();
         auto durationNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
             now - lastTraceTime_).count();
-        
+
         auto idx = static_cast<size_t>(phase);
         if (idx < traceData_.size()) {
             traceData_[idx].AddStat(durationNs, true);
         }
-        
+
         lastTraceTime_ = now;
     }
-    
+
     void EventBegin(EventPhase phase) {
         auto idx = static_cast<size_t>(phase);
         eventStartTimes_[idx] = std::chrono::high_resolution_clock::now();
@@ -269,19 +269,19 @@ public:
     void EventEnd(EventPhase phase) {
         auto now = std::chrono::high_resolution_clock::now();
         auto idx = static_cast<size_t>(phase);
-        
+
         if (eventStartTimes_[idx] != std::chrono::high_resolution_clock::time_point()) {
             auto durationNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
                 now - eventStartTimes_[idx]).count();
-            
+
             if (idx < eventData_.size()) {
                 eventData_[idx].AddStat(durationNs, false);
             }
-            
+
             eventStartTimes_[idx] = std::chrono::high_resolution_clock::time_point();
         }
     }
-    
+
     void ResetTrace() {
         for (auto& data : traceData_) {
             data.totalTimeNs = 0;
@@ -291,7 +291,7 @@ public:
         }
         isTraceInitialized_ = false;
     }
-    
+
     void ResetEvent() {
         for (auto& data : eventData_) {
             data.totalTimeNs = 0;
@@ -303,20 +303,20 @@ public:
             timePoint = std::chrono::high_resolution_clock::time_point();
         }
     }
-    
+
     void Reset() {
         ResetTrace();
         ResetEvent();
         initTime_ = std::chrono::high_resolution_clock::now();
     }
-    
+
     uint64_t GetTotalTimeUs() {
         auto now = std::chrono::high_resolution_clock::now();
         auto totalNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
             now - initTime_).count();
         return totalNs / 1000;
     }
-    
+
     uint64_t GetTraceTotalTimeUs() {
         uint64_t totalNs = 0;
         for (const auto& data : traceData_) {
@@ -324,7 +324,7 @@ public:
         }
         return totalNs / 1000;
     }
-    
+
     uint64_t GetEventTotalTimeUs() {
         uint64_t totalNs = 0;
         for (const auto& data : eventData_) {
@@ -336,7 +336,7 @@ public:
     uint64_t GetAllTotalTimeUs() {
         return GetTraceTotalTimeUs() + GetEventTotalTimeUs();
     }
-    
+
     void Dump(bool toFile = false, const std::string& filename = "perf_stats.txt") {
         auto totalTimeUs = GetTotalTimeUs();
         auto traceTotalUs = GetTraceTotalTimeUs();
@@ -345,7 +345,7 @@ public:
 
         std::ostream* output = &std::cout;
         std::ofstream fileStream;
-        
+
         if (toFile) {
             fileStream.open(filename);
             if (fileStream.is_open()) {
@@ -356,7 +356,7 @@ public:
         }
 
         std::ostream& out = *output;
-        
+
         out << "========== Perf Statistics ==========" << std::endl;
         uint64_t traceTotalNs = traceTotalUs * 1000;
         uint64_t traceAvgSumNs = CalculateTraceAvgSumNs();
@@ -367,24 +367,24 @@ public:
         uint64_t eventAvgSumNs = CalculateEventAvgSumNs();
         PrintPerfTable(out, eventData_, static_cast<size_t>(EventPhase::MAX_EVENT_PHASES),
                        eventTotalNs, eventAvgSumNs, "Event");
-        
+
         out << std::endl << "--- Summary ---" << std::endl;
-        out << "Total time since initialization: " 
-                  << std::fixed << std::setprecision(3) << totalTimeUs / 1000.0 << " ms" 
+        out << "Total time since initialization: "
+                  << std::fixed << std::setprecision(3) << totalTimeUs / 1000.0 << " ms"
                   << " (" << totalTimeUs << " us)" << std::endl;
-        
-        out << "\nCombined Total Time: " << std::fixed << std::setprecision(3) 
-                  << allTotalUs / 1000.0 << " ms" 
+
+        out << "\nCombined Total Time: " << std::fixed << std::setprecision(3)
+                  << allTotalUs / 1000.0 << " ms"
                   << " (" << allTotalUs << " us)" << std::endl;
-        
+
         if (allTotalUs > 0 && totalTimeUs > 0) {
             double percentage = (double)allTotalUs / totalTimeUs * 100.0;
-            out << "Percentage of total time: " << std::fixed << std::setprecision(2) 
+            out << "Percentage of total time: " << std::fixed << std::setprecision(2)
                       << percentage << "%" << std::endl;
         }
-        
+
         out << "============================================" << std::endl;
-        
+
         if (toFile && fileStream.is_open()) {
             fileStream.close();
             std::cout << "Statistics dumped to file: " << filename << std::endl;

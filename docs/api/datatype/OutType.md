@@ -18,4 +18,3 @@ class OutType(enum.Enum):
      BOOL = ...  # 布尔输出类型，输出True或False
      BIT = ...   # 位输出类型，输出或1的位值
 ```
-

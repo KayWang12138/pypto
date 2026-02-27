@@ -216,4 +216,4 @@ def test_torch_npu_profiler_collect_pypto_kernel_details():
         )
     finally:
         shutil.rmtree(profiler_output_dir, ignore_errors=True)
-        
+

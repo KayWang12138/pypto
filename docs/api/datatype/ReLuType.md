@@ -18,4 +18,3 @@ class ReLuType(enum.Enum):
      NO_RELU= ...  # 不使能ReLu功能
      RELU= ...     # 使能ReLu功能
 ```
-

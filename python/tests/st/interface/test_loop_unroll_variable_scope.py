@@ -26,7 +26,7 @@ from numpy.testing import assert_allclose
 
 def test_loop_unroll_variable_scope():
     """Test that variables defined outside loop_unroll are accessible in all unroll blocks.
-    
+
     This test verifies the bugfix for liveness analysis incorrectly marking variables
     for deletion after inner loop exits. The variable should only be deleted after
     the outermost loop_unroll completes.
@@ -62,13 +62,13 @@ def test_loop_unroll_variable_scope():
             # Use bias_2d in the outer loop (first use)
             tile_input = input_tensor[bs_idx:bs_idx + tile_batch, :]
             tile_bias = pypto.tensor([tile_batch, input_tensor.shape[1]], bias_2d.dtype, "tile_bias")
-            
+
             # Nested loop that also uses bias_2d (second use)
             for tmp_idx in pypto.loop(tile_batch):
                 # This should not cause NameError even after inner loop exits
                 # because bias_2d should only be deleted after outer loop_unroll completes
                 pypto.assemble(bias_2d, [tmp_idx, 0], tile_bias)
-            
+
             # Use bias_2d.dtype after inner loop (this would fail if bug exists)
             # This verifies that bias_2d is still accessible
             tile_result = pypto.add(tile_input, tile_bias)

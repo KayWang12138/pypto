@@ -638,16 +638,16 @@ def ResetLog(path: str): ...
 
 # distributed
 class AtomicType(enum.Enum):
-    SET = ...      
-    ADD = ...      
+    SET = ...
+    ADD = ...
 
 
 def CreateShmemData(
-    group: str, 
-    world_size: int, 
-    dtype: DataType, 
-    shape: List[int], 
-    shmem_tensor: Tensor, 
+    group: str,
+    world_size: int,
+    dtype: DataType,
+    shape: List[int],
+    shmem_tensor: Tensor,
     mem_type: int,
 ) -> None:
 
@@ -671,17 +671,17 @@ def ShmemPutUb2Gm(in_tensor: Tensor, shmem_data_tile: Tensor, pred_token: Tensor
 
 
 def ShmemGet(
-    pred_token: Tensor, 
-    shmem_data: Tensor, 
-    non_shmem_dtype: DataType.DT_BOTTOM, 
+    pred_token: Tensor,
+    shmem_data: Tensor,
+    non_shmem_dtype: DataType.DT_BOTTOM,
     atomic_type: AtomicType = AtomicType.SET,
 ) -> Tensor: ...
 
 
 def ShmemGetGm2Ub(
-    dummy: Tensor, 
-    shmem_data_tile: Tensor, 
-    non_shmem_dtype: DataType.DT_BOTTOM, 
+    dummy: Tensor,
+    shmem_data_tile: Tensor,
+    non_shmem_dtype: DataType.DT_BOTTOM,
     atomic_type: AtomicType = AtomicType.SET,
 ) -> Tensor: ...
 

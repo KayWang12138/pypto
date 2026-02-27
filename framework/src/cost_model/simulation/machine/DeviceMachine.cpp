@@ -107,7 +107,7 @@ void DeviceMachine::SubmitDeviceTask()
             PushReadyQueue(task->machineType, taskId);
         }
     }
-    SIMULATION_LOGW("[Cycle: %lu][Device %lu] submit a new device task to AICPUs, size = %zu", GetSim()->GetCycles(), machineId, 
+    SIMULATION_LOGW("[Cycle: %lu][Device %lu] submit a new device task to AICPUs, size = %zu", GetSim()->GetCycles(), machineId,
               taskMap.size());
 
 }
@@ -282,7 +282,7 @@ void DeviceMachine::BuildSubTasksFromTopoJson()
 
     CostModel::ParseInput parser;
     parser.ParseTopoJson(config.submitTopoPath, taskMapQueue);
-    SIMULATION_LOGI("[Cycle: %lu][DeviceMachine][BuildSubTasksFromTopoJson] Machine %lu  build subtasks done, taskMapQueue size = %zu", 
+    SIMULATION_LOGI("[Cycle: %lu][DeviceMachine][BuildSubTasksFromTopoJson] Machine %lu  build subtasks done, taskMapQueue size = %zu",
             static_cast<unsigned long>(GetSim()->GetCycles()), static_cast<unsigned long>(machineId), taskMapQueue.size());
     uint64_t cnt = 0;
     for (auto &taskM : taskMapQueue) {

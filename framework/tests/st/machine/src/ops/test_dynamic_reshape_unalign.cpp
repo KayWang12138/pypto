@@ -164,7 +164,7 @@ TEST_F(DynamicReshapeUnalignTest, test_split_dim) {
     for (int i = 0; i < b * sq * d; i++){
         inputValueData.push_back(static_cast<float>(i));
     }
-    
+
     std::vector<float> golden(b * sq * d, initValue);
     int count = 0;
     for (int bidx = 0; bidx < b; ++bidx) {

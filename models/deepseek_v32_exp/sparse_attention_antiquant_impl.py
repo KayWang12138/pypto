@@ -358,14 +358,14 @@ def sparse_attention_antiquant_p(block_num, max_kv, kv_lora_rank, qk_rope_dim, n
             pypto.Tensor(attention_out_shape, pypto.DT_BF16)
         ):
         """JIT-compiled sparse flash attention for decode phase.
-        
+
         Optimized version for decode phase with specific pass configurations.
         Uses flash attention algorithm with online softmax for numerical stability.
-        
+
         Args:
             query_nope: Query tensor without RoPE, shape (t * n_q, kv_lora_rank), dtype BF16
             query_rope: Query tensor with RoPE, shape (t * n_q, rope_dim), dtype BF16
-            nope_cache: Key tensor without RoPE, Key tensor with RoPE, Dequantization scales for quantized keys, 
+            nope_cache: Key tensor without RoPE, Key tensor with RoPE, Dequantization scales for quantized keys,
                         shape (block_num * block_size, kv_lora_rank + rope_dim*2 + 4*4),
                         dtype INT8
             topk_indices: Top-k indices for each query token, shape (t, n_kv * topk), dtype INT32
@@ -380,18 +380,18 @@ def sparse_attention_antiquant_p(block_num, max_kv, kv_lora_rank, qk_rope_dim, n
             block_size: Size of each block in PagedAttention
             max_blocknum_perbatch: Maximum number of blocks per batch
             tile_config: SaTileShapeConfig object containing tiling parameters
-            
+
         Note:
             Configured for decode phase with optimized memory and parallelism settings.
             Uses flash attention algorithm for better numerical stability.
         """
         pypto.experimental.set_operation_options(combine_axis=True)
-    
+
         attention_out = pypto.Tensor(attention_out_shape, pypto.DT_BF16)
 
-        sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_indices, 
-                                                block_table, kv_act_seqs, attention_out, 
-                                                nq, n_kv, softmax_scale, topk, block_size, 
+        sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_indices,
+                                                block_table, kv_act_seqs, attention_out,
+                                                nq, n_kv, softmax_scale, topk, block_size,
                                                 max_blocknum_perbatch, tile_config)
         return attention_out
 

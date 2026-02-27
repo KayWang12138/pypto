@@ -66,7 +66,7 @@ struct ConvTile {
     npu::tile_fwk::Conv::TileL1Info tileL1Info;
     npu::tile_fwk::Conv::TileL0Info tileL0Info;
     bool setL0Tile{false};
-        
+
     bool valid() const;
 
     std::string ToString() const;
@@ -154,7 +154,7 @@ struct TileShape {
      * \param tileL0Info
      * \param setL0Tile
      */
-    void SetConvTile(const npu::tile_fwk::Conv::TileL1Info &tileL1Info, 
+    void SetConvTile(const npu::tile_fwk::Conv::TileL1Info &tileL1Info,
         const npu::tile_fwk::Conv::TileL0Info &tileL0Info, bool setL0Tile = false) ;
 
     /**

@@ -204,7 +204,7 @@ python3 .opencode/skills/pypto-operator-perf-analyzer/scripts/analyze_perf.py ou
          pypto.set_vec_tile_shapes(16, 64)
       else :
          pypto.set_vec_tile_shapes(64, 64)
-      
+
       tile_a = A[b * 64:(b + k) * 64, :]
       tile_a = tile_a + 2
       B[b * 64:, :] = tile_a

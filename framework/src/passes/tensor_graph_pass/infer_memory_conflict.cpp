@@ -172,7 +172,7 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
     auto input = op.GetIOperands().front();
     VecTile tileSize = op.GetTileShape().GetVecTile();
     if (input->GetShape().size() != tileSize.size()) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has unequal input shape dims size and tile shape dims, input shape: %s, tile size: %s. %s", 
+        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has unequal input shape dims size and tile shape dims, input shape: %s, tile size: %s. %s",
                             op.GetOpcodeStr().c_str(), op.GetOpMagic(),
                             input->DumpType().c_str(), op.GetTileShape().ToString(TileType::VEC).c_str(), GetFormatBacktrace(op).c_str());
         return false;
@@ -226,9 +226,9 @@ bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn,
     const auto &outputShape = reshapeOut->GetShape();
     const size_t inputDims = inputShape.size();
     const size_t outputDims = outputShape.size();
-    
+
     if (inputDims < MIN_DIMENSIONS || outputDims < MIN_DIMENSIONS || inputDims > MAX_DIMENSIONS || outputDims > MAX_DIMENSIONS) return false;
-    
+
     // 验证总元素数是否相等（reshape的基本要求）
     if (std::accumulate(inputShape.begin(), inputShape.end(), int64_t{1}, std::multiplies<int64_t>()) !=
         std::accumulate(outputShape.begin(), outputShape.end(), int64_t{1}, std::multiplies<int64_t>())) {
@@ -237,38 +237,38 @@ bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn,
 
     // 编码维度对：输入维度在高位，输出维度在低位
     const uint32_t dimensionPair = (inputDims << 4) | outputDims;
-    
+
     switch (dimensionPair) {
         // 4D转2D：[1, 1, H, W] -> [H, W]
         case (DIMENSIONS_4D << 4) | DIMENSIONS_2D: {
-            return inputShape[0] == 1 && 
+            return inputShape[0] == 1 &&
                    inputShape[1] == 1 &&
                    inputShape[2] == outputShape[0] &&
                    inputShape[3] == outputShape[1];
         }
-        
+
         // 2D转4D：[H, W] -> [1, 1, H, W]
         case (DIMENSIONS_2D << 4) | DIMENSIONS_4D: {
-            return outputShape[0] == 1 && 
+            return outputShape[0] == 1 &&
                    outputShape[1] == 1 &&
                    inputShape[0] == outputShape[2] &&
                    inputShape[1] == outputShape[3];
         }
-        
+
         // 3D转2D：[1, H, W] -> [H, W]
         case (DIMENSIONS_3D << 4) | DIMENSIONS_2D: {
             return inputShape[0] == 1 &&
                    inputShape[1] == outputShape[0] &&
                    inputShape[2] == outputShape[1];
         }
-        
+
         // 2D转3D：[H, W] -> [1, H, W]
         case (DIMENSIONS_2D << 4) | DIMENSIONS_3D: {
             return outputShape[0] == 1 &&
                    inputShape[0] == outputShape[1] &&
                    inputShape[1] == outputShape[2];
         }
-        
+
         default:
             return false;
     }

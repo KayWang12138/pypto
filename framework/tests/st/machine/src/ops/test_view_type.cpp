@@ -65,7 +65,7 @@ void ViewTypeEntry(const std::vector<int64_t>& mkn) {
     std::vector<RawTensorDataPtr> inputDataList = {xData};
     std::vector<RawTensorDataPtr> outputDataList = {resultData};
 
-    ViewTypeFunc(x, result, dstDtype);  
+    ViewTypeFunc(x, result, dstDtype);
 
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
@@ -101,7 +101,7 @@ void ViewTypeCastEntry(const std::vector<int64_t>& mkn) {
     std::vector<RawTensorDataPtr> inputDataList = {xData};
     std::vector<RawTensorDataPtr> outputDataList = {resultData};
 
-    ViewTypeCastFunc(x, result, dstDtype, castDtype);  
+    ViewTypeCastFunc(x, result, dstDtype, castDtype);
 
 #ifdef BUILD_WITH_CANN
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
@@ -225,7 +225,7 @@ TEST_F(ViewType, float32_2_bfloat16) {
     std::vector<int64_t> mkn = {4, 32, 1024};
     ViewTypeEntry<float, bfloat16>(mkn);
 }
-                               
+
 TEST_F(ViewType, int8_2_bfloat16_cast_fp32) {
     std::vector<int64_t> mkn = {4, 32, 1024};
     ViewTypeCastEntry<int8_t, bfloat16>(mkn);

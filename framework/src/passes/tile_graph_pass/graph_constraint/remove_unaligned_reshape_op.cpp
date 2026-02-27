@@ -181,7 +181,7 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOps(Function &function) {
                     OpImmediate::Specified(output->tensor->GetDynRawShape()), OpImmediate::Specified(output->GetDynValidShape())
                 ));
 
-                APASS_LOG_INFO_F(Elements::Operation,"Reshape op %d is replaceed by reshapeCopyOutOp %d and reshapeCopyInOp %d.", 
+                APASS_LOG_INFO_F(Elements::Operation,"Reshape op %d is replaceed by reshapeCopyOutOp %d and reshapeCopyInOp %d.",
                     op.opmagic, reshapeCopyOutOp.opmagic, reshapeCopyInOp.opmagic);
                 break;
             }

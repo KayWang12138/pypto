@@ -14,7 +14,7 @@ import json
 import re
 from itertools import product
 import shutil
-import os 
+import os
 import subprocess
 import csv
 import argparse
@@ -40,9 +40,9 @@ def is_good_tiling(tile, input_dt_bytes):
 
 def greatest_bit(x):
     n = 0
-    power = 1 
+    power = 1
     while power <= x:
-        power *= 2 
+        power *= 2
         n += 1
     return n - 1
 
@@ -71,7 +71,7 @@ def generate_tiles(shape, input_dt_bytes):
         if is_good_tiling([m, M, k, 2 * K, n, N], input_dt_bytes):
             num_of_variants += 1
             yield [m, M, k, 2 * K, n, N]
-        
+
         if is_good_tiling([m, M, k, K, n, 2 * N], input_dt_bytes):
             num_of_variants += 1
             yield [m, M, k, K, n, 2 * N]
@@ -85,7 +85,7 @@ def get_score_for_tiling(tile, mx_shape, input_type_size):
     M_DIM = 0
     K_DIM = 2
     N_DIM = 4
-    
+
     m = tile[M_DIM]
     k = tile[K_DIM]
     n = tile[N_DIM]
@@ -100,7 +100,7 @@ def get_score_for_tiling(tile, mx_shape, input_type_size):
     WHOLE_N_SCORE = 2
 
     score = 0
-    
+
     #If the tiling size = shape size -> the preferred option
     score = (score + WHOLE_M_SCORE) if tile[M_DIM] == max(m, MIN_TILE) else score
     score = (score + WHOLE_K_SCORE) if tile[K_DIM] == max(k, MIN_TILE) else score
@@ -108,7 +108,7 @@ def get_score_for_tiling(tile, mx_shape, input_type_size):
 
     #The more filled L0A, L0B, L0C is better
     utilization_l0a = (tile[M_DIM] * tile[K_DIM] * input_type_size) / L0A_SIZE
-    utilization_l0b = (tile[K_DIM] * tile[N_DIM] * input_type_size) / L0B_SIZE 
+    utilization_l0b = (tile[K_DIM] * tile[N_DIM] * input_type_size) / L0B_SIZE
     utilization_l0c = (tile[M_DIM] * tile[N_DIM] * OUTPUT_DT_BYTES) / L0C_SIZE
     score += WEIGHT_L0 * gmean([utilization_l0a, utilization_l0b, utilization_l0c])
 
@@ -147,7 +147,7 @@ def preproc_line_conf(line_conf):
             m = int(m)
             k = int(k)
             n = int(n)
- 
+
             dt_bytes = int(re.search(r"\d+", datatype).group(0)) // 8
             tiles = list(generate_tiles([m, k, n], input_dt_bytes=dt_bytes))
             best_tiles = get_best_k_tiles(tiles, [m, k, n], dt_bytes, best_k_tiles=5)
@@ -170,12 +170,12 @@ def check_json(json_config):
                 if name in param_names:
                     raise NameError(f"Name \"{name}\" in json config are same " \
                                     f"for lines {param_names[name]} and {line_conf["line"]}")
-                param_names[name] = line_conf["line"] 
+                param_names[name] = line_conf["line"]
 
 
 def preproc_json(json_config):
     """
-    Replaces parameters that are set using strings  
+    Replaces parameters that are set using strings
     """
     check_json(json_config)
     for file_conf in json_config["files"]:
@@ -201,19 +201,19 @@ def parse_file_conf(lines_conf):
             result = line_conf["string"].format(**param_comb)
             string_param_comb.append([(line_conf["line"], result), param_comb])
         lines_comb.append(string_param_comb)
-    
+
     return list(product(*lines_comb))
 
 
 def generate_combinations(json_config):
     """
     Generates combinations for test
-    """       
+    """
     comb_inside_file = dict()
     for file_conf in json_config["files"]:
         path_to_file, lines_conf = list(file_conf.items())[0]
         comb_inside_file[path_to_file] = parse_file_conf(lines_conf)
-    
+
     for e in product(*comb_inside_file.values()):
         single_run_params = []
         single_param_values = []
@@ -229,7 +229,7 @@ def generate_combinations(json_config):
                 single_param_values.append(names)
                 num_lines[line] = string
 
-            d["lines"] = num_lines   
+            d["lines"] = num_lines
             single_run_params.append(d)
 
         yield single_run_params, single_param_values
@@ -248,7 +248,7 @@ def replace_line(file_path, line_num, new_content):
     with open(file_path, 'r') as file:
        lines = file.readlines()
        lines.insert(line_num + 1, new_content + "\n")
-        
+
     with open(file_path, "w") as file:
         file.writelines(lines)
 
@@ -256,8 +256,8 @@ def replace_line(file_path, line_num, new_content):
 def run_test(json_config, result_folder):
     test = json_config["test_name"]
 
-    device_number = json_config["device_number"]  
-    
+    device_number = json_config["device_number"]
+
     run_command = f"python build_ci.py -j=32 -s={test} -d={device_number} tools profiling" \
                 f" --prof_try_cnt={json_config['prof_try_cnt']} --prof_max_cnt={json_config['max_cnt']}" \
                 f" --prof_warn_up_cnt={json_config['warn_up_cnt']}"
@@ -268,7 +268,7 @@ def run_test(json_config, result_folder):
     with open(f"{result_folder}/result.log", "w") as f:
         test = subprocess.run(run_command.split(), stdout=f, stderr=subprocess.STDOUT, env=env)
     return test.returncode
-    
+
 
 def make_backup(original_file_path):
     shutil.copy(original_file_path, original_file_path + ".backup")
@@ -320,7 +320,7 @@ def measure_perf(json_config, run_params, result_folder):
 
     if test_result != 0:
         return None
-    
+
     time = get_execution_time(json_config["build_folder"])
     return time
 
@@ -351,7 +351,7 @@ def save_to_csv(path_to_file, res_params):
             writer.writerow(p)
 
 
-def save_kernel_meta(build_folder, result_folder, pattern=".*"): 
+def save_kernel_meta(build_folder, result_folder, pattern=".*"):
     root_dir = build_folder + "/build/output/bin/output"
     src = get_newest_folder(root_dir) + "/kernel_aicore"
     dst = result_folder + "/kernel_aicore"
@@ -389,7 +389,7 @@ def generate_coverage(json_config, pattern="TileShape::Current().SetCubeTile("):
     cmd = ['find', build_folder, '-name', '*.gcda']
     result = subprocess.run(cmd, capture_output=True, text=True)
 
-    number_of_parameters = 0 
+    number_of_parameters = 0
     print("Start processing coverage files...")
 
     answer = set()
@@ -407,16 +407,16 @@ def generate_coverage(json_config, pattern="TileShape::Current().SetCubeTile("):
 
     for line, file in answer:
         print(f"line: {line} file: {file}")
-    print("Number of parameters:", len(answer))    
+    print("Number of parameters:", len(answer))
 
 
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("json_path", 
-                        help="path to config.json where described tiling configs", 
+    parser.add_argument("json_path",
+                        help="path to config.json where described tiling configs",
                         type=str)
-    
+
     parser.add_argument("--coverage",
                         action="store_true",
                         help="display lines in the files that match SetCubeTile, and were executed when the test was run")
@@ -438,10 +438,10 @@ def main():
         now = datetime.datetime.now(datetime.timezone.utc)
         today_folder_name = now.strftime("%d_%b_%H_%M_%S")
 
-        os.makedirs(json_config["results_folder"], exist_ok=True)  
+        os.makedirs(json_config["results_folder"], exist_ok=True)
         result_folder_path = json_config["results_folder"] + "/" + today_folder_name
         os.makedirs(result_folder_path, exist_ok=True)
-        shutil.copy(args.json_path, result_folder_path) # copy config.json to folder with results 
+        shutil.copy(args.json_path, result_folder_path) # copy config.json to folder with results
 
         for run_params, param_values in generate_combinations(json_config):
             name = f"combination_{comb_id}"
@@ -449,13 +449,13 @@ def main():
 
             os.makedirs(combination_folder)
             save_run_params(name, run_params, combination_folder + "/combination_params.json")
-    
+
             run_result = measure_perf(json_config, run_params, combination_folder)
 
             run_result = "Error" if run_result is None else run_result
             results[f"combination_{comb_id}"] = run_result
             param_values.append({"time(us)": run_result})
-            
+
             param_val_flat = {"combination": f"combination_{comb_id}"}
             for d in param_values:
                 param_val_flat.update(d)
@@ -464,7 +464,7 @@ def main():
             if run_result != "Error":
                 copy_prof_logs(json_config["build_folder"], json_config["test_name"], combination_folder)
                 save_kernel_meta(json_config["build_folder"], combination_folder)
-          
+
             if comb_id >= json_config["save_best_k"]:
                 remove_worst_combination(result_folder_path, results)
 

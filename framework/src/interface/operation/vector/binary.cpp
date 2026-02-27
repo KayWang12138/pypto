@@ -121,7 +121,7 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
             if (opName == "BITWISEXOR" || opName == "COPYSIGN" || opName == "POW") {
                 std::vector<int64_t> tmpShape(resultTileInfo.shape);
                 auto alignSize = BLOCK_SIZE / BytesOf(result->Datatype());
-                tmpShape[resultTileInfo.shape.size() - 1] = 
+                tmpShape[resultTileInfo.shape.size() - 1] =
                     AlignUp(tmpShape[resultTileInfo.shape.size() - 1], alignSize);
                 auto tempTensor = std::make_shared<LogicalTensor>(function, result->Datatype(), tmpShape);
                 function.AddOperation(
@@ -192,7 +192,7 @@ void TiledPReLUOperation(
         return;
     }
     auto &vecTile = tileShape.GetVecTile();
-    
+
     for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
         input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
         input.tileInfo.offset[cur] = i;
@@ -220,28 +220,28 @@ void PReLUOperationOperandCheck(
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand) {
     ASSERT(iOperand.size() == 2) << "The input operand size should be 2";
     ASSERT(oOperand.size() == 1) << "The output operand size should be 1";
-    
+
     auto input = iOperand[0];
     auto weight = iOperand[1];
-    
-    ASSERT(input->Datatype() == weight->Datatype()) 
+
+    ASSERT(input->Datatype() == weight->Datatype())
         << "The input and weight should have the same data type";
-    
-    ASSERT(input->shape.size() >= 2 && input->shape.size() <= 4) 
+
+    ASSERT(input->shape.size() >= 2 && input->shape.size() <= 4)
         << "The input shape dimension should be in range [2, 4]";
-    
-    ASSERT(weight->shape.size() == 1) 
+
+    ASSERT(weight->shape.size() == 1)
         << "The weight should be 1-dimensional";
-    
-    ASSERT(weight->shape[0] == input->shape[1]) 
+
+    ASSERT(weight->shape[0] == input->shape[1])
         << "The weight size should equal to input's second dimension";
-    
+
     int64_t inputSize = 1;
     for (size_t i = 0; i < input->shape.size(); ++i) {
         inputSize *= input->shape[i];
     }
     ASSERT(inputSize <= INT32_MAX) << "The input shape size should not exceed INT32_MAX";
-    
+
     int64_t weightSize = weight->shape[0];
     ASSERT(weightSize <= INT32_MAX) << "The weight shape size should not exceed INT32_MAX";
 }
@@ -256,7 +256,7 @@ void PReLUOperationTileFunc(Function &function, const TileShape &tileShape,
 LogicalTensorPtr TensorPReLUOperation(Function &function, const Tensor &self, const Tensor &weight) {
     auto selfTensor = self.GetStorage();
     auto weightTensor = weight.GetStorage();
-    
+
     auto result = std::make_shared<LogicalTensor>(function, selfTensor->Datatype(), selfTensor->shape, selfTensor->GetDynValidShape());
     function.AddOperation(Opcode::OP_PRELU, {selfTensor, weightTensor}, {result});
     return result;
@@ -508,7 +508,7 @@ Tensor LReLU(const Tensor &self, const Element &other) {
 Tensor CeilDiv(const Tensor &self, const Tensor &other) {
     std::vector<DataType> CEILDIV_SUPPORT_TYPES = {DataType::DT_INT32};
     ASSERT(
-        self.GetDataType() == other.GetDataType() && 
+        self.GetDataType() == other.GetDataType() &&
         std::find(CEILDIV_SUPPORT_TYPES.begin(), CEILDIV_SUPPORT_TYPES.end(), self.GetDataType()) != CEILDIV_SUPPORT_TYPES.end())
         << "CeilDiv only supports same data type for self and other! And it should be in DT_INT32.";
 
@@ -523,7 +523,7 @@ Tensor CeilDiv(const Tensor &self, const Tensor &other) {
 Tensor CeilDiv(const Tensor &self, const Element &other) {
     std::vector<DataType> CEILDIV_SUPPORT_TYPES = {DataType::DT_INT32};
     ASSERT(
-        self.GetDataType() == other.GetDataType() && 
+        self.GetDataType() == other.GetDataType() &&
         std::find(CEILDIV_SUPPORT_TYPES.begin(), CEILDIV_SUPPORT_TYPES.end(), self.GetDataType()) != CEILDIV_SUPPORT_TYPES.end())
         << "CeilDiv only supports same data type for self and other! And it should be in DT_INT32.";
 

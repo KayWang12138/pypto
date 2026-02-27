@@ -14,8 +14,8 @@
 ## 函数原型
 
 ```python
-__init__(self, 
-         arg0: Union[int, str, 'SymbolicScalar'] = None, 
+__init__(self,
+         arg0: Union[int, str, 'SymbolicScalar'] = None,
          arg1: Union[int, None] = None
 ) -> None
 ```
@@ -48,4 +48,3 @@ b = pypto.SymbolicScalar(10)
 c = pypto.SymbolicScalar("x")
 d = pypto.SymbolicScalar("x", 10)
 ```
-

@@ -202,11 +202,11 @@ void ValidateL0Constraint(int64_t tile1, int64_t tile2, int64_t tile3, size_t dt
 {
     OP_CHECK(true, {
         ASSERT(tile1 * tile2 * tile3 * dtypeSize <= cacheSize)
-            << "Shape does not satisfy " << cacheName 
+            << "Shape does not satisfy " << cacheName
             << " load constraints, " << dim1Name << ":" << tile1
             << ", " << dim2Name << ":" << tile2 << ", " << dim3Name << ":" << tile3
             << ", which must satisfy " << dim1Name << " × " << dim2Name << " × "
-            << dim3Name << " × dtypesize ≤ " << cacheName << "Size(" << cacheSize << ")." 
+            << dim3Name << " × dtypesize ≤ " << cacheName << "Size(" << cacheSize << ")."
             << std::endl;
     });
 }
@@ -261,8 +261,8 @@ void CheckDivisible(int64_t value, int64_t divisor, const std::string& valueName
         ASSERT(value % divisor == 0)
             << "The value of " << divisorName << " (" << divisor
             << ") does not divide "<< valueName
-            << "(" << value << "). Adjusting " << divisorName 
-            << " to the nearest value such that "<< valueName 
+            << "(" << value << "). Adjusting " << divisorName
+            << " to the nearest value such that "<< valueName
             << " % " << divisorName << " == 0." << std::endl;
     });
 }
@@ -446,7 +446,7 @@ void CheckAttrShape(DataType outType, const Tensor &inputTensor, const Tensor &w
     if (attrParam.isConv3D) {
         paddings = rotateVector(paddings, 4);
     }
-    const std::vector<std::string> dimNames = 
+    const std::vector<std::string> dimNames =
         attrParam.isConv1D ? std::vector<std::string>{"L"} :
         attrParam.isConv3D ? std::vector<std::string>{"D", "H", "W"} :
         std::vector<std::string>{"H", "W"};
@@ -796,7 +796,7 @@ LogicalTensorPtr ConstructFmapTile(Function &function, const ConvGraphNodes &ten
             (iterInfo.kL0Offset % convTileInfo.kPerGroup) / (convTileInfo.orgKh * convTileInfo.orgKw);
         int64_t srcGmCin = std::min(convTileInfo.orgCin / convAttrParam.groups - srcCinOffset,
                                     convTileInfo.kAL1 / (convTileInfo.orgKh * convTileInfo.orgKw));
-        std::vector<int64_t> srcGmValidShape = 
+        std::vector<int64_t> srcGmValidShape =
             std::vector<int64_t>{1, srcGmCin, iterInfo.hinL1Size, iterInfo.winL1Size};
         if (convAttrParam.isConv3D) {
             iterInfo.dkAL1Size = 1;
@@ -971,7 +971,7 @@ LogicalTensorPtr DoMmad(Function &function, const ConvAttrParam &convAttrParam, 
     } else {
         std::vector<int64_t> cL0PartialSumShape =
             {ConvAlignB(iterInfo.mL0Size, MKN_M_VALUE), ConvAlignB(iterInfo.nL0Size, MKN_N_VALUE)};
-        tileGraphNodes.cL0PartialSumPtr = 
+        tileGraphNodes.cL0PartialSumPtr =
             std::make_shared<LogicalTensor>(function, DataType::DT_FP32, cL0PartialSumShape,
                                             SymbolicScalar::FromConcrete({iterInfo.mL0Size, iterInfo.nL0Size}),
                                             TileOpFormat::TILEOP_NZ, "cL0PartialSumTensor", NodeType::LOCAL);
@@ -1200,8 +1200,8 @@ void ConstructTileGraph(Function &function, const TileShape &tileShape,
         }
     }
 }
-Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const std::vector<int64_t> &strides, 
-            const std::vector<int64_t> &paddings, const std::vector<int64_t> &dilations, const ConvExtendParam &extendParam, 
+Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const std::vector<int64_t> &strides,
+            const std::vector<int64_t> &paddings, const std::vector<int64_t> &dilations, const ConvExtendParam &extendParam,
             const int64_t groups)
 {
     std::vector<int64_t> finalPaddings = paddings;

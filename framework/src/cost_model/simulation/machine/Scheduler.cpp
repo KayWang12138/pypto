@@ -60,7 +60,7 @@ void Scheduler::TileOpInsertQueue(TileOpPtr tileOp)
     pipeIssueOrders[queueIndex][tileOp->magic] = issueSequencePtr[queueIndex];
     tileOp->exeInfo.sequenceToIssue = issueSequencePtr[queueIndex];
     issueSequencePtr[queueIndex]++;
-    SIMULATION_LOGI("[Cycle: %lu][Scheduler][SortTile] pop tileop opmagic: %d to %s , seq: %d", 
+    SIMULATION_LOGI("[Cycle: %lu][Scheduler][SortTile] pop tileop opmagic: %d to %s , seq: %d",
             GetSim()->GetCycles(), tileOp->magic, CorePipeName(tileOp->pipeType).c_str(), tileOp->exeInfo.sequenceToIssue);
 
 }
@@ -82,7 +82,7 @@ void Scheduler::SortTile(std::unordered_map<int, TilePtr> &tiles, std::unordered
             SIMULATION_LOGI("[Cycle: %lu][Scheduler][SortTile] outcast index: %d", GetSim()->GetCycles(), tile.first);
             queue.emplace_back(tile.first, true);
         } else if (tile.second->consumers.empty()) {
-            SIMULATION_LOGI("[Cycle: %lu][Scheduler][SortTile] no consumers tile index: %d, magic: %d", 
+            SIMULATION_LOGI("[Cycle: %lu][Scheduler][SortTile] no consumers tile index: %d, magic: %d",
                 GetSim()->GetCycles(), tile.first, tile.second->magic);
             queue.emplace_back(tile.first, true);
         }
@@ -189,7 +189,7 @@ void Scheduler::SortTile(std::unordered_map<int, TilePtr> &tiles, std::unordered
             if (!tile->producers.empty()) {
                 for (const auto &producer : tile->producers) {
                     // Push tile's producer_tileop to queue_back
-                    SIMULATION_LOGI("[Cycle: %lu][Scheduler][SortTile] push tileop opmagic: %d, domCount: %d", 
+                    SIMULATION_LOGI("[Cycle: %lu][Scheduler][SortTile] push tileop opmagic: %d, domCount: %d",
                                 GetSim()->GetCycles(), producer->magic, producer->exeInfo.domCount);
                     queue.emplace_back(producer->magic, false);
                 }
@@ -220,7 +220,7 @@ void Scheduler::SortTile(std::unordered_map<int, TilePtr> &tiles, std::unordered
                 if (tilesVisited[it.first]) {
                     continue;
                 }
-                SIMULATION_LOGI("[Cycle: %lu][Scheduler][SortTile] push tile magic: %d, domCount: %d", 
+                SIMULATION_LOGI("[Cycle: %lu][Scheduler][SortTile] push tile magic: %d, domCount: %d",
                     GetSim()->GetCycles(), tiles[it.first]->magic, tiles[it.first]->exeInfo.domCount);
                 queue.emplace_back(it.first, true);
             }

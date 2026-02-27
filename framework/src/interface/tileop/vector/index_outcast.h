@@ -7,7 +7,7 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-       	 
+
 /*!
 * \file index_outcast.h
 * \brief
@@ -73,7 +73,7 @@ TILEOP void TIndexOutcast(T0 dst, T1 src, T2 src1, C coordinate){
     auto dstShape2 = dLayout.template GetShapeDim<2, expectSize>();
     auto dstShape3 = dLayout.template GetShapeDim<3, expectSize>();
     auto dstShape4 = dLayout.template GetShapeDim<4, expectSize>();
-    
+
     auto offset = dLayout.template GetGmOffset<C, expectSize>(coordinate);
 
     using DstDtype = typename T0::Type;
@@ -119,7 +119,7 @@ TILEOP void TIndexOutcast(T0 dst, T1 src, T2 src1, C coordinate){
                     continue;
                 }
                 __ubuf__ SrcDtype* srcPtr = srcBase + k * srcrawShape1;
-                
+
                 if constexpr (cacheMode == 1) {
                     auto blockCount = curValue / blockSize;
                     auto index = curValue % blockSize;
@@ -140,7 +140,7 @@ TILEOP void TIndexOutcast(T0 dst, T1 src, T2 src1, C coordinate){
                     __gm__ DstDtype* newDst = dstBase + static_cast<unsigned>(curValue) * dstShape4;
                     set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
                     wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
-                 
+
                     using SrcTileDefine = pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
                     SrcTileDefine srcTile(srcShape3, srcShape4);
                     pto::TASSIGN(srcTile, reinterpret_cast<uint64_t>(srcPtr));
