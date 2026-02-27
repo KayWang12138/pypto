@@ -93,6 +93,16 @@ bool AutoCast::SupportBF16(Operation *op) {
     return true;
 }
 
+bool AutoCast::SupportFP16(Operation *op) {
+    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510) {
+        if (UNSUPPORT_FP16_OPS.count(op->GetOpcode()) > 0) {
+            ALOG_INFO_F("Op[%d] can find in UNSUPPORT_FP16_OPS.", op->GetOpMagic());
+            return false;
+        }
+    }
+    return true;
+}
+
 void AutoCast::InsertCastOp(Function &function, LogicalTensorPtr src, LogicalTensorPtr tgt, 
                                        const TileShape &tileShape) {
     Operation &newCast = function.AddRawOperation(Opcode::OP_CAST, {src}, {tgt});
@@ -137,6 +147,49 @@ Status AutoCast::InsertCast(Function &function) {
             }
             visitedOOp.insert(oop->GetMagic());
             if (oop->Datatype() == DataType::DT_BF16) {
+                auto newOutput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, oop->shape, oop->GetDynValidShape(), oop->Format());
+                op->ReplaceOutput(newOutput, oop);
+                InsertCastOp(function, newOutput, oop, op->GetTileShape());
+                oldMagic2Input[oop->GetMagic()] = newOutput;
+                if (outCastConnectedTensors_.count(oop->GetMagic()) > 0) {
+                    outCastConnectedTensors_.insert(newOutput->GetMagic());
+                }
+            }
+        }
+    }
+    for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
+        Operation *op = opList[opIdx];
+        if (SupportFP16(op)) {
+            continue;
+        }
+        auto iOperands = op->GetIOperands();
+        std::unordered_set<int> visitedIOp;
+        for (auto &iop : iOperands) {
+            if (visitedIOp.count(iop->GetMagic()) > 0 || iop->Datatype() != DataType::DT_FP16) {
+                continue;
+            }
+            visitedIOp.insert(iop->GetMagic());
+            if (oldMagic2Input.count(iop->GetMagic()) > 0) {
+                auto newInput = oldMagic2Input[iop->GetMagic()];
+                op->ReplaceInput(newInput, iop);
+                continue;
+            }
+            auto newInput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, iop->shape, iop->GetDynValidShape(), iop->Format());
+            InsertCastOp(function, iop, newInput, op->GetTileShape());
+            op->ReplaceInput(newInput, iop);
+            oldMagic2Input[iop->GetMagic()] = newInput;
+            if (inCastConnectedTensors_.count(iop->GetMagic()) > 0) {
+                inCastConnectedTensors_.insert(newInput->GetMagic());
+            }
+        }
+        auto oOperands = op->GetOOperands();
+        std::unordered_set<int> visitedOOp;
+        for (auto &oop : oOperands) {
+            if (visitedOOp.count(oop->GetMagic()) > 0 || oop->Datatype() != DataType::DT_FP16) {
+                continue;
+            }
+            visitedOOp.insert(oop->GetMagic());
+            if (oop->Datatype() == DataType::DT_FP16) {
                 auto newOutput = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, oop->shape, oop->GetDynValidShape(), oop->Format());
                 op->ReplaceOutput(newOutput, oop);
                 InsertCastOp(function, newOutput, oop, op->GetTileShape());
