@@ -140,7 +140,7 @@ void TiledTopK(Function &function, const TileShape &tileShape, size_t cur, Input
             if (sourceShapeSize < maxNumValue) {
                 vecTileAlign[axis] = source->shape[axis];
             } else if (tileShapeSize < maxNumValue) {
-                vecTileAlign[axis] = std::max((int64_t)blockSize, 
+                vecTileAlign[axis] = std::max((int64_t)blockSize,
                     maxNumValue / (sourceShapeSize / source->shape[axis]) / blockSize * blockSize);
             }
         }
@@ -452,7 +452,7 @@ std::tuple<Tensor, Tensor> TopK(const Tensor &self, int k, int axis, bool isLarg
 
 bool checkIsExceedUB(const std::vector<int64_t> &tileShape, const std::vector<int64_t> &shape, int axis, int blockSize = 32) {
     int64_t UBSize = 196608;
-        
+
     // check shape is out of UB size
     int64_t tileRowShapeSize = 1; // tileShape[0] * tileShape[1] * ... * rawShape[-1]
     for (const auto &num : tileShape) {
@@ -474,10 +474,10 @@ void TiledSort(Function &function, const TileShape &tileShape, size_t cur, Input
         auto source = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset); // input.tensor是viewTensor, source是tileTensor
         auto dynValidShape = source->GetDynValidShape();
 
-        // some const 
+        // some const
         constexpr int32_t blockSize = 32; // vbitsort calculate 32 elements once
         constexpr int32_t factorSize = 2 * 2; // first 2 = value + index, second 2 = temporary space
-        
+
         bool isInGM = checkIsExceedUB(vecTile.tile, source->shape, axis, blockSize);
 
         // 行数据可以全部加载到UB上, 直接进行操作, 不进行tile切块
@@ -542,7 +542,7 @@ void TiledSort(Function &function, const TileShape &tileShape, size_t cur, Input
         auto sortOutputTensor = std::make_shared<LogicalTensor>(function, source->Datatype(), sortOutputShape, sortOutputValidShape);
         std::vector<int64_t> tileOutputShape = sortOutputShape;
         std::vector<int64_t> tileOutputOffset(sortOutputShape.size(), 0);
-        
+
         for (int64_t i = 0; i < input.tensor.GetShape()[axis]; i += vecTileAlign[axis]) {
             tileSourceShape[axis] = std::min(vecTileAlign[axis], source->shape[axis] - i);
             tileSourceOffset[axis] = i;
@@ -558,7 +558,7 @@ void TiledSort(Function &function, const TileShape &tileShape, size_t cur, Input
             bitSortDynValidShape[axis] = (bitSortDynValidShape[axis] + blockSize - 1) / blockSize * blockSize;
             bitSortDynValidShape[axis] = bitSortDynValidShape[axis] * NUM2 + inputTile->GetDynValidShape()[axis];
             bitSortTile->UpdateDynValidShape(bitSortDynValidShape);
-            
+
             tileOutputShape[axis] = (tileSourceShape[axis] + 7) / 8 * 8 * 2; // UB 32B对齐，兼顾了DynMrgSort中的k向8对齐
             tileOutputOffset[axis] = i * 2;
             auto tmp = std::make_shared<LogicalTensor>(function, source->Datatype(), tileOutputShape);
@@ -603,7 +603,7 @@ void TiledSort(Function &function, const TileShape &tileShape, size_t cur, Input
                     tileOutputShape[axis] = std::min(2 * vecTileAlign[axis], sortOutputShape[axis] - i);
                 }
                 i += tileOutputShape[axis];
-                
+
                 auto src = roundInputTensor->View(function, tileOutputShape, tileOutputOffset);
                 auto outputInUB = std::make_shared<LogicalTensor>(function, src->Datatype(), tileOutputShape);
                 auto &twoTileMrgSortOp = function.AddOperation(Opcode::OP_TWOTILEMRGSORT, {src}, {outputInUB});
@@ -668,7 +668,7 @@ void TiledSort(Function &function, const TileShape &tileShape, const LogicalTens
     TiledSort(function, tileShape, 0, input, valueResult, indexResult, resultTileInfo, axis, descending);
 }
 
-void TensorSort(Function &function, const LogicalTensorPtr &self, LogicalTensorPtr &valueResult, 
+void TensorSort(Function &function, const LogicalTensorPtr &self, LogicalTensorPtr &valueResult,
     LogicalTensorPtr &indexResult, int axis, bool descending) {
     auto validShape = self->GetDynValidShape();
     auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_SORT_UB, {self}, {valueResult, indexResult}, {validShape, validShape});
@@ -719,9 +719,9 @@ std::tuple<Tensor, Tensor> sort(const Tensor &self, int axis = -1, bool descendi
     auto outShape = castSelf.GetShape();
     auto valueResult = Tensor(DataType::DT_FP32, outShape);
     auto indexResult = Tensor(DataType::DT_INT32, outShape);
-    CALL(Sort, *Program::GetInstance().GetCurrentFunction(), castSelf.GetStorage(), valueResult.GetStorage(), 
+    CALL(Sort, *Program::GetInstance().GetCurrentFunction(), castSelf.GetStorage(), valueResult.GetStorage(),
         indexResult.GetStorage(), len - 1, descending);
-    
+
     auto castValueResult = Cast(valueResult, self.GetDataType(), CastMode::CAST_NONE);
     castValueResult.GetStorage()->UpdateDynValidShape(valueResult.GetStorage()->GetDynValidShape());
 

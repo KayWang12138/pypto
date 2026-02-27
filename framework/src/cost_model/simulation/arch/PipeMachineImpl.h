@@ -20,7 +20,7 @@
 
 namespace CostModel
 {
-    class PipeMachineImpl 
+    class PipeMachineImpl
     {
     public:
         virtual ~PipeMachineImpl() = default;

@@ -44,4 +44,3 @@ out2 = s2.is_symbol()
 输出数据out1: False
 输出数据out2: True
 ```
-

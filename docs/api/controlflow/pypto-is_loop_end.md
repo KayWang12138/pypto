@@ -40,4 +40,3 @@ for idx in pypto.loop(0, 10, 1):
     if pypto.cond(pypto.is_loop_end(idx)):
         ...
 ```
-

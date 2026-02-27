@@ -45,7 +45,7 @@ struct FunctionSignature {
     }
 
     FunctionSignature(const std::vector<TensorValuePtr> &inputArgs,
-                      const std::vector<TensorValuePtr> &outputArgs) 
+                      const std::vector<TensorValuePtr> &outputArgs)
     {
         for (auto &inArg : inputArgs) {
             arguments.emplace_back(inArg);
@@ -164,5 +164,3 @@ using FunctionPtr = std::shared_ptr<Function>;
 std::ostream& operator<<(std::ostream& os, const Function& func);
 
 } // namespace pto
-
-

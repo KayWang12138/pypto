@@ -12,7 +12,7 @@
  * \file gen_Attention.cpp
  * \brief
  */
- 
+
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "gen_Attention.h"

@@ -51,14 +51,14 @@ def create_add_scalar_loop_dyn_axis_dyn_loop_cond_kernel(
         h, c, n = shape[1:]
     else:
         w, h, c, n = shape
-    
+
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
     elif run_mode == "sim":
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def add_scalar_loop_dyn_axis_dyn_loop_cond_kernel(
         input0: pypto.Tensor((w, h, c, n), pypto.DT_FP32),

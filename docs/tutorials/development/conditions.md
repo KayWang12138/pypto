@@ -38,7 +38,7 @@ def add_core(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor, v
         t0_sub = input0[b_offset:b_offset_end, ...]
         t1_sub = input1[b_offset:b_offset_end, ...]
         t3_sub = t0_sub + t1_sub
-        if add1_flag: 
+        if add1_flag:
             output[b_offset:b_offset_end, ...] = t3_sub + val
         else:
             output[b_offset:b_offset_end, ...] = t3_sub
@@ -81,4 +81,3 @@ def add_kernel(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor,
 [add_scalar_loop_dyn_axis_dyn_cond.py](../../../examples/02_intermediate/controflow/condition/add_scalar_loop_dyn_axis_dyn_cond.py)
 
 [add_scalar_loop_dyn_axis_dyn_loop_cond.py](../../../examples/02_intermediate/controflow/condition/add_scalar_loop_dyn_axis_dyn_loop_cond.py)
-

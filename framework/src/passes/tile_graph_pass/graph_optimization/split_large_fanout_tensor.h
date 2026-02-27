@@ -67,7 +67,7 @@ private:
     Status LCM(int64_t x, int64_t y, int64_t &lcm);
     Status CalLcmShape(const Shape &toShape, const Shape &fromShape, Shape &lcmShape);
     Status CalGcdShape(const Shape &toShape, const Shape &fromShape, Shape &lcmShape);
-    void GenerateOffset(const Shape &maxs, const Shape &steps, 
+    void GenerateOffset(const Shape &maxs, const Shape &steps,
         Shape &current, std::vector<Shape> &result, size_t dim);
     void CollectLargeTensorToInfo(const LogicalTensorPtr &largeTensor);
     void CollectLargeTensorFromInfo(const LogicalTensorPtr &largeTensor);

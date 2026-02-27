@@ -101,7 +101,7 @@ struct HcclOpConfig {
     uint8_t retryEnable;   // 是否重执行
     uint8_t highPerfEnable;
     uint8_t padding[5];    // 大小需要64By对齐，未来添加参数时减小padding
-    uint8_t linkTimeOut[8]; // 发送超时时长 
+    uint8_t linkTimeOut[8]; // 发送超时时长
     uint64_t notifyWaitTime; // 超时时长，同HCCL_EXEC_TIMEOUT
     uint32_t retryHoldTime;
     uint32_t retryIntervalTime;

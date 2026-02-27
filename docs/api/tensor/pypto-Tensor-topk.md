@@ -16,4 +16,3 @@ topk(self, k: int, dim: Optional[int] = None, largest: bool = True) -> Tuple['Te
 ## 详细说明
 
 请参见[pypto.topk](../operation/pypto-topk.md)。
-

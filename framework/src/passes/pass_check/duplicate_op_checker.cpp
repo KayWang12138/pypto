@@ -31,7 +31,7 @@ Status DuplicateOpChecker::PreCheckGatherIn(const Operation &op) {
             op.GetOpcodeStr().c_str(), op.GetOpMagic(), op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
-        auto consumers = oOperand->GetConsumers(); 
+        auto consumers = oOperand->GetConsumers();
         for (auto &consumer : consumers) {
             if (consumer == nullptr) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "OP_GATHER_IN_L1[%d]'s consumer cannot be nullptr.", oOperand->GetMagic());

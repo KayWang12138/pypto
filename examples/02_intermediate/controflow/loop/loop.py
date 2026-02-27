@@ -28,7 +28,7 @@ from numpy.testing import assert_allclose
 def get_device_id():
     """
     Get and validate TILE_FWK_DEVICE_ID from environment variable.
-    
+
     Returns:
         int: The device ID if valid, None otherwise.
     """
@@ -38,7 +38,7 @@ def get_device_id():
         print("Please set it before running this example:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
-    
+
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
@@ -56,14 +56,14 @@ def loop_basic(run_mode: str = "npu", dynamic: bool = True):
     s = 64
     shape = (n * s, s)
     dtype = pypto.DT_FP16
-    
+
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
     elif run_mode == "sim":
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def loop_basic_kernel(
             t0: pypto.Tensor(shape, dtype),
@@ -94,9 +94,9 @@ def test_loop_basic(device_id: int = None, run_mode: str = "npu", dynamic: bool 
     print("=" * 60)
     print("Test: Basic Loop Usage")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     s, n = 64, 8
     shape = (n * s, s)
     input_t1 = torch.randn(shape, dtype=torch.float16, device=device)
@@ -130,10 +130,10 @@ def loop_compile_phase_print(shape: tuple, run_mode: str = "npu", dynamic: bool 
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def loop_compile_phase_print_kernel(
-        in_t0: pypto.Tensor((m, n), pypto.DT_FP16), 
+        in_t0: pypto.Tensor((m, n), pypto.DT_FP16),
         in_t1: pypto.Tensor((m, n), pypto.DT_FP16),
     ) -> (
         pypto.Tensor(shape, pypto.DT_FP16),
@@ -141,8 +141,8 @@ def loop_compile_phase_print(shape: tuple, run_mode: str = "npu", dynamic: bool 
     ):
         pypto.set_vec_tile_shapes(64, 64)
         note = '''
-        Below are demonstrations of print usage within loops. 
-        It executes only during compilation, cannot truly print variable values, 
+        Below are demonstrations of print usage within loops.
+        It executes only during compilation, cannot truly print variable values,
         and the number of prints is related to the number of subgraphs generated.
         '''
         separator = "*" * 60
@@ -172,7 +172,7 @@ def loop_compile_phase_print(shape: tuple, run_mode: str = "npu", dynamic: bool 
                 out_t1 = pypto.add(in_t1, in_t1)
         print(separator)
         return out_t0, out_t1
-        
+
     return loop_compile_phase_print_kernel
 
 
@@ -181,9 +181,9 @@ def test_loop_compile_phase_print(device_id: int = None, run_mode: str = "npu", 
     print("=" * 60)
     print("Test: Loop Compile Phase Print Feature")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     m, n = 6, 8
     shape = (m, n)
     input_t1 = torch.randn(shape, dtype=torch.float16, device=device)
@@ -205,7 +205,7 @@ def test_loop_compile_phase_print(device_id: int = None, run_mode: str = "npu", 
 
 def main():
     """Run loop_feature examples.
-    
+
     Usage:
         python loop_feature.py          # Run all examples
         python loop_feature.py 1         # Run example 1 only
@@ -241,9 +241,9 @@ Examples:
         choices=["npu", "sim"],
         help='Run mode, such as npu/sim etc.'
     )
-    
+
     args = parser.parse_args()
-    
+
     # Define available examples
     examples = {
         'loop_basic::test_loop_basic': {
@@ -257,7 +257,7 @@ Examples:
             'function': test_loop_compile_phase_print,
         }
     }
-    
+
     # List examples if requested
     if args.list:
         print("\n" + "=" * 60)
@@ -268,7 +268,7 @@ Examples:
             print(f"     name: {ex_info['name']}")
             print(f"     description: {ex_info['description']}\n")
         return
-    
+
     # Validate example ID if provided
     if args.example_id is not None:
         if args.example_id not in examples:
@@ -276,22 +276,22 @@ Examples:
             print(f"Valid example IDs are: {', '.join(map(str, sorted(examples.keys())))}")
             print("\nUse --list to see all available examples.")
             sys.exit(1)
-    
+
     print("\n" + "=" * 60)
     print("PyPTO Loop Examples")
     print("=" * 60 + "\n")
-    
+
     # Get and validate device ID (needed for NPU examples)
     device_id = None
     examples_to_run = []
-    
+
     if args.example_id is not None:
         # Run single example
         examples_to_run = [(args.example_id, examples[args.example_id])]
     else:
         # Run all examples
         examples_to_run = list(examples.items())
-    
+
     if args.run_mode == "npu":
         device_id = get_device_id()
         if device_id is None:
@@ -300,17 +300,17 @@ Examples:
         torch.npu.set_device(device_id)
         print("Running examples that require NPU hardware...")
         print("(Make sure CANN environment is configured and NPU is available)\n")
-    
+
     try:
         for ex_id, ex_info in examples_to_run:
             print(f"Running Example {ex_id}: {ex_info['name']}")
             ex_info['function'](device_id, args.run_mode)
-        
+
         if len(examples_to_run) > 1:
             print("=" * 60)
             print("All loop tests passed!")
             print("=" * 60)
-        
+
     except Exception as e:
         print(f"\nError: {e}")
         raise

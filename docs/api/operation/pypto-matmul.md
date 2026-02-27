@@ -64,7 +64,7 @@ b = pypto.tensor((32, 64), pypto.DT_FP16, "tensor_b")
 bias = pypto.tensor((1, 64), pypto.DT_FP16, "tensor_bias")
 extend_params = {'bias_tensor': bias}
 pypto.matmul(a, b, pypto.DT_FP32, a_trans=False, b_trans=False, c_matrix_nz=False, extend_params=extend_params)
-   
+
 a = pypto.tensor((16, 32), pypto.DT_INT8, "tensor_a")
 b = pypto.tensor((32, 64), pypto.DT_INT8, "tensor_b")
 extend_params = {'scale': 0.2}
@@ -81,4 +81,3 @@ pypto.matmul(a, b, pypto.DT_BF16, a_trans=False, b_trans=False, c_matrix_nz=Fals
  extend_params = {'scale_tensor': scale_tensor, 'relu_type': pypto.ReLuType.RELU}
  pypto.matmul(a, b, pypto.DT_BF16, a_trans=False, b_trans=False, c_matrix_nz=False, extend_params=extend_params)
 ```
-

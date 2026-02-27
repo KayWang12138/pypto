@@ -34,4 +34,3 @@ get_debug_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]
 ```python
 pypto.get_debug_options()
 ```
-

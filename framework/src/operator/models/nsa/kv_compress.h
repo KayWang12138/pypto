@@ -25,9 +25,9 @@
 namespace npu::tile_fwk {
 
 void compressKv(const Tensor &kvCache, const Tensor &krCache,
-    const Tensor &cmpKvCache, const Tensor &cmpKrCache, const Tensor &blockTable, Tensor &cmpCacheIndex, 
+    const Tensor &cmpKvCache, const Tensor &cmpKrCache, const Tensor &blockTable, Tensor &cmpCacheIndex,
     const Tensor &actSeqLen, const Tensor &mlpWk1, const Tensor &mlpWk2,
-    const Tensor &mlpCos, const Tensor &mlpSin, 
+    const Tensor &mlpCos, const Tensor &mlpSin,
     Tensor &cmpKvCacheOut, Tensor &cmpKrCacheOut, Tensor &auxTensor,
     const int cmpBlockSize, const int cmpStride, const int rs, CmpAttnTile &tileConfig);
 

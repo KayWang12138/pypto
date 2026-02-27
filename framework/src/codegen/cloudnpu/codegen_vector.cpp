@@ -1600,7 +1600,7 @@ std::string CodeGenOpCloudNPU::PrintHypotTileTensor() const {
     oss << tileOpName;
     oss << WrapParamByParentheses(tileOpParamList);
     oss << STMT_END;
-    
+
     return oss.str();
 }
 

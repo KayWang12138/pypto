@@ -124,7 +124,7 @@ void TuneTileOpSeqForVF::ChangeOpSeq(PipeSync &ps, bool isAIV1) {
         size_t right = pipeVIdx[idx + 1];
         APASS_LOG_DEBUG_F(Elements::Operation, "Try to merge %d %s and %d %s", opList_[left]->GetOpMagic(), opList_[left]->GetOpcodeStr().c_str(),
             opList_[right]->GetOpMagic(), opList_[right]->GetOpcodeStr().c_str());
-        
+
         // 先看vecTileop0是否已经在mergedOps中
         int groupNum = -1;
         for (size_t i = 0; i < mergedOps.size(); i++) {

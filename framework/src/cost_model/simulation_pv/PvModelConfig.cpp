@@ -120,7 +120,7 @@ void PvModelCaseConfigBase::SetCoreType(uint64_t coreType)
     subcoreId_ = coreType;
 }
 
-std::uint64_t PvModelCaseConfigBase::GetCoreType() 
+std::uint64_t PvModelCaseConfigBase::GetCoreType()
 {
     return subcoreId_;
 }

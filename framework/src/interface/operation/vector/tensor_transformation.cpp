@@ -40,7 +40,7 @@ void CheckExpandTensorVaild(const LogicalTensorPtr &operand, const LogicalTensor
             ASSERT(0 && "shape not match");
         }
     }
-    
+
     int numExpandAxis = 0;
     for (size_t i = 0; i < result->shape.size(); ++i) {
         if (operand->shape[i] != result->shape[i]) {

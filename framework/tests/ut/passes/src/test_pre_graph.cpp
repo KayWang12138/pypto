@@ -900,7 +900,7 @@ TEST_F(PreGraphTest, TestAmulbWithIsCubeCopyOut) {
     G.SetInCast({"vec_in0"});
     G.SetInCast({"vec_in1"});
     G.SetOutCast({"vec_out"});
-    
+
     //before
     EXPECT_EQ(amulb->HasAttr(OpAttributeKey::isCube), true);
     EXPECT_EQ(amulb->GetBoolAttribute(OpAttributeKey::isCube), true);
@@ -915,9 +915,9 @@ TEST_F(PreGraphTest, TestAmulbWithIsCubeCopyOut) {
     EXPECT_EQ(copyout->GetBoolAttribute(OpAttributeKey::isCube), true);
 }
 
-// vec_in1 - CopyIn - copy_in1 - L1_TO_L0A[16] 
+// vec_in1 - CopyIn - copy_in1 - L1_TO_L0A[16]
 //                                             A_MUL_B - l0c - CopyOut - vec_out[16]应该被重置为32
-// vec_in2 - CopyIn - copy_in2 - L1_TO_L0B[16] 
+// vec_in2 - CopyIn - copy_in2 - L1_TO_L0B[16]
 TEST_F(PreGraphTest, TestAmulbInputDT_FP16) {
     ComputationalGraphBuilder G;
     // add tensor
@@ -956,7 +956,7 @@ TEST_F(PreGraphTest, TestAmulbInputDT_FP16) {
     aMulb->SetAttribute(A_MUL_B_ACT_K, 1);
     aMulb->SetAttribute(A_MUL_B_ACT_N, 1);
     G.AddOp(Opcode::OP_COPY_OUT, {"l0c"}, {"vec_out"}, "copyout");
-    
+
     // set incast and outcast
     G.SetInCast({"vec_in1"});
     G.SetInCast({"vec_in2"});
@@ -1041,7 +1041,7 @@ void RunSetTensorBoundary(ComputationalGraphBuilder &G) {
     EXPECT_EQ(vec_out->isSubGraphBoundary, true);
 }
 
-//        CopyIn[0] - copy_in1 - Exp[0] - e1 - CopyOut[0]                       
+//        CopyIn[0] - copy_in1 - Exp[0] - e1 - CopyOut[0]
 //vec_in                                                 copy_out - Reshape[2] - reshape_out - CopyOut[2] -vec_out
 //        COPYIN[1] - copy_in2 - exp[1] - e2 - CopyOut[1]
 TEST_F(PreGraphTest, TestSetTensorBoundary) {
@@ -1081,12 +1081,12 @@ TEST_F(PreGraphTest, TestSetTensorBoundary) {
     G.GetOp("exp2")->UpdateSubgraphID(SUBGRAPHID1);
     // add copyout
     G.AddOp(Opcode::OP_COPY_OUT, {"e1"}, {"copy_out"}, "op_copy_out1");
-    auto attrCopyOut1 = std::make_shared<CopyOpAttribute>(MemoryType::MEM_DEVICE_DDR, OpImmediate::Specified({0, 0}), 
+    auto attrCopyOut1 = std::make_shared<CopyOpAttribute>(MemoryType::MEM_DEVICE_DDR, OpImmediate::Specified({0, 0}),
         OpImmediate::Specified(copy_out->GetShape()), OpImmediate::Specified(copy_out->tensor->GetRawShape()));
     G.GetOp("op_copy_out1")->SetOpAttribute(attrCopyOut1);
     G.GetOp("op_copy_out1")->UpdateSubgraphID(SUBGRAPHID0);
     G.AddOp(Opcode::OP_COPY_OUT, {"e2"}, {"copy_out"}, "op_copy_out2");
-    auto attrCopyOut2 = std::make_shared<CopyOpAttribute>(MemoryType::MEM_DEVICE_DDR, OpImmediate::Specified({32, 0}), 
+    auto attrCopyOut2 = std::make_shared<CopyOpAttribute>(MemoryType::MEM_DEVICE_DDR, OpImmediate::Specified({32, 0}),
         OpImmediate::Specified(copy_out->GetShape()), OpImmediate::Specified(copy_out->tensor->GetRawShape()));
     G.GetOp("op_copy_out2")->SetOpAttribute(attrCopyOut2);
     G.GetOp("op_copy_out2")->UpdateSubgraphID(SUBGRAPHID1);

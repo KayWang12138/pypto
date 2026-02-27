@@ -71,7 +71,7 @@ Status Pass::Run(Function &function, const std::string &strategy,
     if (PreRun(function) == FAILED) {
         ALOG_ERROR_F("PreRun pass [%s] failed.", identifier_.c_str());
         return FAILED;
-    } 
+    }
     if (RunOnFunction(function) == FAILED) {
         ALOG_ERROR_F("Run pass [%s] failed.", identifier_.c_str());
         return FAILED;

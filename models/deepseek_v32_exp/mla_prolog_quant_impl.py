@@ -700,7 +700,7 @@ def mla_prolog_quant_compute(
 
 
 def mla_prolog_quant_p(h, q_lora_rank, n, qk_nope_head_dim, kv_lora_rank, qk_rope_head_dim,
-                        block_num, block_size, n_kv, n_q, epsilon_cq, epsilon_ckv, 
+                        block_num, block_size, n_kv, n_q, epsilon_cq, epsilon_ckv,
                         cache_mode, tile_config, rope_cfg):
     t = pypto.frontend.dynamic("t")
     q_head_dim = qk_nope_head_dim + qk_rope_head_dim
@@ -814,7 +814,7 @@ def mla_prolog_quant_p(h, q_lora_rank, n, qk_nope_head_dim, kv_lora_rank, qk_rop
 
 
 def mla_prolog_quant_d(h, q_lora_rank, n, qk_nope_head_dim, kv_lora_rank, qk_rope_head_dim,
-                        block_num, block_size, n_kv, n_q, epsilon_cq, epsilon_ckv, 
+                        block_num, block_size, n_kv, n_q, epsilon_cq, epsilon_ckv,
                         cache_mode, tile_config, rope_cfg):
     t = pypto.frontend.dynamic("t")
     q_head_dim = qk_nope_head_dim + qk_rope_head_dim
@@ -918,5 +918,5 @@ def mla_prolog_quant_d(h, q_lora_rank, n, qk_nope_head_dim, kv_lora_rank, qk_rop
                                 kr_cache_out, k_scale_cache_out, epsilon_cq,
                                 epsilon_ckv, cache_mode, tile_config, rope_cfg
         )
-        return 
+        return
     return mla_prolog_quant_kernel

@@ -106,8 +106,8 @@ def gen_quan_per_channel_weight_nz(x):
     return y_int8_nz, scale_dequant
 
 
-def moe_fusion_kernel(hidden_states_shape, mm_weight_shape, e_score_bias_shape, w13_shape, w13_scale_shape, 
-                    w2_shape, w2_scale_shape, bs_topk_1, bs_topk_2, 
+def moe_fusion_kernel(hidden_states_shape, mm_weight_shape, e_score_bias_shape, w13_shape, w13_scale_shape,
+                    w2_shape, w2_scale_shape, bs_topk_1, bs_topk_2,
                     bs_hidden_size, renormalize, topk_group, num_expert_group):
     hidden_states_shape = (pypto.frontend.dynamic("bs"), hidden_states_shape[1])
     topk_weights_shape = (pypto.frontend.dynamic("bs"), bs_topk_1[1])
@@ -217,7 +217,7 @@ def moe_fusion_kernel(hidden_states_shape, mm_weight_shape, e_score_bias_shape, 
             pypto.set_vec_tile_shapes(view_first, num_expert_group, group_unit)  # (1,1,160)
             twm_reshape = pypto.reshape(twm_expand, [tile_batch, ne])
 
-            # logical_not 
+            # logical_not
             pypto.set_vec_tile_shapes(view_first, ne)
             twm_not = pypto.logical_not(twm_reshape)
 
@@ -438,15 +438,15 @@ def moe_fusion(
 ):
     if isinstance(hidden_states, FakeTensor):
         return
-    check_args(gate_weight, hidden_states, top_k, renormalize, topk_group, num_expert_group, 
+    check_args(gate_weight, hidden_states, top_k, renormalize, topk_group, num_expert_group,
                 e_score_bias, w13, w13_scale, w2, w2_scale)
 
     bs = hidden_states.shape[0]
     hidden_size = hidden_states.shape[1]
-    shapes = [hidden_states.shape, gate_weight.shape, e_score_bias.shape, w13.shape, w13_scale.shape, 
-                w2.shape, w2_scale.shape, (bs, top_k), (bs, top_k), (bs, hidden_size), 
+    shapes = [hidden_states.shape, gate_weight.shape, e_score_bias.shape, w13.shape, w13_scale.shape,
+                w2.shape, w2_scale.shape, (bs, top_k), (bs, top_k), (bs, hidden_size),
                 renormalize, topk_group, num_expert_group]
-    inputs = [hidden_states, gate_weight, e_score_bias, w13, w13_scale, 
+    inputs = [hidden_states, gate_weight, e_score_bias, w13, w13_scale,
                 w2, w2_scale, topk_weights, topk_ids, ffn_res]
 
     moe_fusion_kernel(*shapes)(*inputs)

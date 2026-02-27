@@ -327,4 +327,3 @@ def gen_dynamic_mm_golden(case_name: str, output: Path) -> bool:
     else:
         logging.error("Can't get func to gen golden, case(%s)", case_name)
         return False
-

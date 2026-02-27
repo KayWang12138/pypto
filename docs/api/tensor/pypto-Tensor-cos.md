@@ -16,4 +16,3 @@ cos(self) -> 'Tensor'
 ## 详细说明
 
 请参见[pypto.cos](../operation/pypto-cos.md)。
-

@@ -316,21 +316,21 @@ static void Add(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTens
     auto tself = From(self);
     auto tother = From(other);
     auto tout = From(out);
-    
+
     std::vector<int64_t> shape_self = tself.second.sizes().vec();
     std::vector<int64_t> shape_other = tother.second.sizes().vec();
 
     if (shape_self.size() == 2 && shape_other.size() == 2 &&
-        shape_self[0] == shape_other[0] && 
+        shape_self[0] == shape_other[0] &&
         shape_self[1] != shape_other[1]) {
-        
+
         if (shape_other[1] == 8) {
             int64_t cols_self = shape_self[1];
             int64_t cols_other = shape_other[1];
             int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
             auto tother_expanded = tother.second.repeat({1, repeat_times});
             auto tother_final = tother_expanded.index(
-                {torch::indexing::Slice(), 
+                {torch::indexing::Slice(),
                  torch::indexing::Slice(0, cols_self)});
             torch::add_out(tout.second, tself.second, tother_final);
         } else {
@@ -346,21 +346,21 @@ static void Sub(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTens
     auto tself = From(self);
     auto tother = From(other);
     auto tout = From(out);
-    
+
     std::vector<int64_t> shape_self = tself.second.sizes().vec();
     std::vector<int64_t> shape_other = tother.second.sizes().vec();
 
     if (shape_self.size() == 2 && shape_other.size() == 2 &&
-        shape_self[0] == shape_other[0] && 
+        shape_self[0] == shape_other[0] &&
         shape_self[1] != shape_other[1]) {
-        
+
         if (shape_other[1] == 8) {
             int64_t cols_self = shape_self[1];
             int64_t cols_other = shape_other[1];
             int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
             auto tother_expanded = tother.second.repeat({1, repeat_times});
             auto tother_final = tother_expanded.index(
-                {torch::indexing::Slice(), 
+                {torch::indexing::Slice(),
                  torch::indexing::Slice(0, cols_self)});
             torch::sub_out(tout.second, tself.second, tother_final);
         } else {
@@ -376,21 +376,21 @@ static void Mul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTens
     auto tself = From(self);
     auto tother = From(other);
     auto tout = From(out);
-    
+
     std::vector<int64_t> shape_self = tself.second.sizes().vec();
     std::vector<int64_t> shape_other = tother.second.sizes().vec();
 
     if (shape_self.size() == 2 && shape_other.size() == 2 &&
-        shape_self[0] == shape_other[0] && 
+        shape_self[0] == shape_other[0] &&
         shape_self[1] != shape_other[1]) {
-        
+
         if (shape_other[1] == 8) {
             int64_t cols_self = shape_self[1];
             int64_t cols_other = shape_other[1];
             int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
             auto tother_expanded = tother.second.repeat({1, repeat_times});
             auto tother_final = tother_expanded.index(
-                {torch::indexing::Slice(), 
+                {torch::indexing::Slice(),
                  torch::indexing::Slice(0, cols_self)});
             torch::mul_out(tout.second, tself.second, tother_final);
         } else {
@@ -406,21 +406,21 @@ static void Div(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTens
     auto tself = From(self);
     auto tother = From(other);
     auto tout = From(out);
-    
+
     std::vector<int64_t> shape_self = tself.second.sizes().vec();
     std::vector<int64_t> shape_other = tother.second.sizes().vec();
 
     if (shape_self.size() == 2 && shape_other.size() == 2 &&
-        shape_self[0] == shape_other[0] && 
+        shape_self[0] == shape_other[0] &&
         shape_self[1] != shape_other[1]) {
-        
+
         if (shape_other[1] == 8) {
             int64_t cols_self = shape_self[1];
             int64_t cols_other = shape_other[1];
             int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
             auto tother_expanded = tother.second.repeat({1, repeat_times});
             auto tother_final = tother_expanded.index(
-                {torch::indexing::Slice(), 
+                {torch::indexing::Slice(),
                  torch::indexing::Slice(0, cols_self)});
             torch::div_out(tout.second, tself.second, tother_final);
         } else {
@@ -440,16 +440,16 @@ static void Hypot(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTe
     std::vector<int64_t> shape_other = tother.second.sizes().vec();
 
     if (shape_self.size() == 2 && shape_other.size() == 2 &&
-        shape_self[0] == shape_other[0] && 
+        shape_self[0] == shape_other[0] &&
         shape_self[1] != shape_other[1]) {
-        
+
         if (shape_other[1] == 8) {
             int64_t cols_self = shape_self[1];
             int64_t cols_other = shape_other[1];
             int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
             auto tother_expanded = tother.second.repeat({1, repeat_times});
             auto tother_final = tother_expanded.index(
-                {torch::indexing::Slice(), 
+                {torch::indexing::Slice(),
                  torch::indexing::Slice(0, cols_self)});
             torch::hypot_out(tout.second, tself.second, tother_final);
         } else {
@@ -466,21 +466,21 @@ static void Fmod(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTen
     auto tself = From(self);
     auto tother = From(other);
     auto tout = From(out);
-    
+
     std::vector<int64_t> shape_self = tself.second.sizes().vec();
     std::vector<int64_t> shape_other = tother.second.sizes().vec();
 
     if (shape_self.size() == 2 && shape_other.size() == 2 &&
-        shape_self[0] == shape_other[0] && 
+        shape_self[0] == shape_other[0] &&
         shape_self[1] != shape_other[1]) {
-        
+
         if (shape_other[1] == 8) {
             int64_t cols_self = shape_self[1];
             int64_t cols_other = shape_other[1];
             int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
             auto tother_expanded = tother.second.repeat({1, repeat_times});
             auto tother_final = tother_expanded.index(
-                {torch::indexing::Slice(), 
+                {torch::indexing::Slice(),
                  torch::indexing::Slice(0, cols_self)});
             torch::fmod_out(tout.second, tself.second, tother_final);
         } else {
@@ -600,21 +600,21 @@ static void Min(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTens
     auto tself = From(self);
     auto tother = From(other);
     auto tout = From(out);
-    
+
     std::vector<int64_t> shape_self = tself.second.sizes().vec();
     std::vector<int64_t> shape_other = tother.second.sizes().vec();
 
     if (shape_self.size() == 2 && shape_other.size() == 2 &&
-        shape_self[0] == shape_other[0] && 
+        shape_self[0] == shape_other[0] &&
         shape_self[1] != shape_other[1]) {
-        
+
         if (shape_other[1] == 8) {
             int64_t cols_self = shape_self[1];
             int64_t cols_other = shape_other[1];
             int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
             auto tother_expanded = tother.second.repeat({1, repeat_times});
             auto tother_final = tother_expanded.index(
-                {torch::indexing::Slice(), 
+                {torch::indexing::Slice(),
                  torch::indexing::Slice(0, cols_self)});
             torch::min_out(tout.second, tself.second, tother_final);
         } else {
@@ -630,21 +630,21 @@ static void Max(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTens
     auto tself = From(self);
     auto tother = From(other);
     auto tout = From(out);
-    
+
     std::vector<int64_t> shape_self = tself.second.sizes().vec();
     std::vector<int64_t> shape_other = tother.second.sizes().vec();
 
     if (shape_self.size() == 2 && shape_other.size() == 2 &&
-        shape_self[0] == shape_other[0] && 
+        shape_self[0] == shape_other[0] &&
         shape_self[1] != shape_other[1]) {
-        
+
         if (shape_other[1] == 8) {
             int64_t cols_self = shape_self[1];
             int64_t cols_other = shape_other[1];
             int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
             auto tother_expanded = tother.second.repeat({1, repeat_times});
             auto tother_final = tother_expanded.index(
-                {torch::indexing::Slice(), 
+                {torch::indexing::Slice(),
                  torch::indexing::Slice(0, cols_self)});
             torch::max_out(tout.second, tself.second, tother_final);
         } else {
@@ -715,15 +715,15 @@ static void CompareImpl(LogicalTensorDataPtr out, const torch::Tensor& tself, co
         if (tmp_result.dim() > 0) {
             int64_t last_dim = tmp_result.size(-1);
             ASSERT(last_dim % NUM_VALUE_8 == 0) << "Last dimension must be divisible by 8 in BIT mode";
-            
+
             auto shape = tmp_result.sizes().vec();
             shape.back() = last_dim / NUM_VALUE_8;
-            
+
             torch::Tensor packed = torch::empty(shape, torch::kUInt8);
             auto tmp_result_contig = tmp_result.contiguous();
             auto tmp_data = tmp_result_contig.data_ptr<bool>();
             auto packed_data = packed.data_ptr<uint8_t>();
-            
+
             const int64_t num_elements = tmp_result.numel();
             for (int64_t i = 0; i < num_elements / NUM_VALUE_8; ++i) {
                 uint8_t byte = 0;
@@ -1797,18 +1797,18 @@ static void ScatterElement(LogicalTensorDataPtr out, LogicalTensorDataPtr self, 
 static void Brcb(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tself = From(self);
     auto tout = From(out);
-    
+
     std::vector<int64_t> input_shape = tself.second.sizes().vec();
     std::vector<int64_t> output_shape = tout.second.sizes().vec();
-    
+
     int64_t M = input_shape[0];
-    int64_t N = output_shape[1]; 
-    auto first_col = tself.second.index({torch::indexing::Slice(), 0}); 
-    auto expanded = first_col.unsqueeze(1).expand({M, N}); 
+    int64_t N = output_shape[1];
+    auto first_col = tself.second.index({torch::indexing::Slice(), 0});
+    auto expanded = first_col.unsqueeze(1).expand({M, N});
     tout.second.copy_(expanded);
     ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
-    
+
 static void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index,
     LogicalTensorDataPtr src, int axis, int reduce) {
     auto output = From(out);

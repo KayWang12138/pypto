@@ -223,12 +223,12 @@ enum class ScalarValueKind {
 class Value : public Object {
 public:
     Value(ValueKind kind, TypePtr type, std::string name="");
-    
+
     std::string GetSSAName() const;  // 获取 SSA 名称
     ValueKind GetValueKind() const;
     TypePtr GetType() const;
     DataType GetDataType() const;
-    
+
     virtual void Print(std::ostream& os, int indent = 0) const = 0;
 };
 ```
@@ -267,19 +267,19 @@ class Scalar : public Value {
 public:
     // 符号标量构造函数
     Scalar(DataType type, std::string name="", ScalarValueKind valueKind = ScalarValueKind::Symbolic);
-    
+
     // 常量标量构造函数（类型自动推断）
     Scalar(bool value, std::string name="");
     Scalar(int value, std::string name="");      // DataType::INT32
     Scalar(int64_t value, std::string name="");  // DataType::INT64
     Scalar(double value, std::string name="");   // DataType::FP64
     Scalar(size_t value, std::string name="");   // DataType::UINT64
-    
+
     ScalarValueKind GetScalarValueKind() const;
     ConstantType GetConstantValue() const;
     bool HasConstantValue() const;
     int64_t GetInt64Value() const;  // 获取常量值的 int64_t 表示
-    
+
     void Print(std::ostream& os, int indent = 0) const override;
 };
 ```
@@ -312,24 +312,24 @@ class Tile : public Value {
 public:
     // 简化构造函数（只有形状和类型）
     Tile(std::vector<size_t> shape, DataType elementType, std::string name="");
-    
+
     // 完整构造函数
-    Tile(std::string name, std::vector<Scalar> validShapes, 
+    Tile(std::string name, std::vector<Scalar> validShapes,
          std::vector<size_t> shape, std::vector<size_t> strides,
          Scalar startOffset, DataType elementType,
          std::shared_ptr<Memory> mem=nullptr);
-    
+
     const std::vector<Scalar>& GetValidShape() const;
     const std::vector<size_t>& GetShape() const;  // 从 TileType 获取
     const std::vector<size_t>& GetStrides() const;
     Scalar GetStartOffset() const;
     const std::shared_ptr<Memory> GetMemory() const;
-    
+
     void SetShape(const std::vector<size_t>& newShape);
     void SetStrides(const std::vector<size_t>& newStrides);
     void SetStartOffset(const Scalar newStartOffset);
     void SetMemory(const std::shared_ptr<Memory> newMem);
-    
+
     void Print(std::ostream& os, int indent = 0) const override;
 };
 ```
@@ -361,17 +361,17 @@ public:
 class Tensor : public Value {
 public:
     // 从 Scalar 向量构造形状
-    Tensor(const std::vector<Scalar>& shape, DataType type, 
+    Tensor(const std::vector<Scalar>& shape, DataType type,
            std::string name="", TileOpFormat format = TileOpFormat::TILEOP_ND);
-    
+
     // 从整数向量构造形状（便捷构造函数）
     Tensor(DataType type, const std::vector<size_t>& shape,
            std::string name="", TileOpFormat format = TileOpFormat::TILEOP_ND);
-    
+
     const std::vector<Scalar>& GetShape() const;
     TileOpFormat GetFormat() const;
     void SetFormat(TileOpFormat format);
-    
+
     void Print(std::ostream& os, int indent) const override;
 };
 ```

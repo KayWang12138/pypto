@@ -93,7 +93,7 @@ bool AutoCast::SupportBF16(Operation *op) {
     return true;
 }
 
-void AutoCast::InsertCastOp(Function &function, LogicalTensorPtr src, LogicalTensorPtr tgt, 
+void AutoCast::InsertCastOp(Function &function, LogicalTensorPtr src, LogicalTensorPtr tgt,
                                        const TileShape &tileShape) {
     Operation &newCast = function.AddRawOperation(Opcode::OP_CAST, {src}, {tgt});
     newCast.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);

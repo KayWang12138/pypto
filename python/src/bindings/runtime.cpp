@@ -631,8 +631,8 @@ private:
 
     void InitConfigOptions(py::object &module) {
         auto options = module.attr("_runtime_options").cast<py::dict>();
-        if (options.contains("triple_stream_sched")) {	 
-            tripleStream = options["triple_stream_sched"].cast<bool>(); 
+        if (options.contains("triple_stream_sched")) {
+            tripleStream = options["triple_stream_sched"].cast<bool>();
         }
         if (options.contains("stitch_cfgcache_size")) {
             stitchCfgCacheSize = options["stitch_cfgcache_size"].cast<int64_t>();
@@ -778,10 +778,10 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
 
     bool isCaptureMode = DeviceLauncher::AddAicpuStream(aicoreStream, kmodule->IsTripleStream());
     HOST_PERF_TRACE(TracePhase::LaunchAttachStream);
-    
+
     uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, args, tensors, isCaptureMode);
     HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
-    
+
     kmodule->Launch(kbinary, isCaptureMode, aicoreStream, tensors, ctrlFlowCache, wsAddr);
     HOST_PERF_TRACE(TracePhase::Launch);
     HOST_PERF_EVT_END(EventPhase::LaunchKernel);

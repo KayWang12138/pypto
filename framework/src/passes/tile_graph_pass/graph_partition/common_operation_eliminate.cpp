@@ -79,7 +79,7 @@ unsigned long ComputeHash(const std::vector <Operation*>& producers, LogicalTens
             if (curTensor && !curTensor->GetDynValidShape().empty()) {
                 std::string shapeStr;
                 for (size_t i = 0; i < curTensor->GetDynValidShape().size(); i++) {
-                    shapeStr += curTensor->GetDynValidShape()[i].Dump();                
+                    shapeStr += curTensor->GetDynValidShape()[i].Dump();
                 }
                 ss << "[" << shapeStr << "]";
             }
@@ -235,7 +235,7 @@ void CommonOperationEliminate::UpdateConnection(LogicalTensorPtr oldtensor,  Log
                 UpdateView(viewOpAttribute, oldtensor, newtensor);
                 continue;
             }
-        } else if (cur->GetOpcode() == Opcode::OP_COPY_IN) { 
+        } else if (cur->GetOpcode() == Opcode::OP_COPY_IN) {
             if (auto copyOpAttribute = dynamic_cast<CopyOpAttribute*>(attptr)) {
                 UpdateCopy(copyOpAttribute, oldtensor, newtensor);
                 continue;
@@ -245,7 +245,7 @@ void CommonOperationEliminate::UpdateConnection(LogicalTensorPtr oldtensor,  Log
 }
 
 bool CommonOperationEliminate::TensorProducersMerge(const std::pair<LogicalTensorPtr, std::vector<Operation*>>& tensorProducerPair, std::unordered_set<Operation*>& cacheProducers) {
-    auto& producers = tensorProducerPair.second;  
+    auto& producers = tensorProducerPair.second;
     if (producers.empty()) {
         return false;
     }
@@ -280,5 +280,5 @@ bool CommonOperationEliminate::TensorProducersMerge(const std::pair<LogicalTenso
     oldtensor->GetConsumers().clear();
     APASS_LOG_DEBUG_F(Elements::Operation, "In CommonOperationEliminate, Tensor[%d] and producersgroup are marked as redundant.", oldtensor->GetMagic());
     return true;
-}  
+}
 }// namespace npu::tile_fwk
