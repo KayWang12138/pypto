@@ -64,7 +64,7 @@ def conv(
     3. 3D convolution: Applies to 5-D input tensor (NCDHW format), operates on depth/height/width (DHW) dimensions.
 
     Note: Input/weight tensors support multiple format layouts (aligned with TensorFlow/NCHW standards), and transposed
-    convolution is currently a placeholder (not implemented). Paddings are specified as bidirectional values (e.g., 
+    convolution is currently a placeholder (not implemented). Paddings are specified as bidirectional values (e.g.,
     top/bottom/left/right for 2D conv), while strides/dilations are unidirectional.
 
     Parameters
@@ -93,7 +93,7 @@ def conv(
         Bidirectional padding values for convolution, length is 2×convolution dimension:
         - 1D conv: [padding_w_left, padding_w_right] (width dimension, length=2)
         - 2D conv: [padding_h_top, padding_h_bottom, padding_w_left, padding_w_right] (height/width, length=4)
-        - 3D conv: [padding_d_front, padding_d_back, padding_h_top, padding_h_bottom, 
+        - 3D conv: [padding_d_front, padding_d_back, padding_h_top, padding_h_bottom,
                     padding_w_left, padding_w_right] (depth/height/width, length=6)
     dilations : list/tuple of int
         Unidirectional dilation rates for convolution, with length matching the convolution dimension:
@@ -160,7 +160,7 @@ def conv(
     weight = pypto.tensor((32, 32, 1, 1), pypto.DT_FP16, "weight")
     bias = pypto.tensor((32,), pypto.DT_FP16, "bias")
     extend_params = {'bias_tensor': bias}
-    pypto.conv(input_conv, weight, pypto.DT_FP16, strides=[1,1], paddings=[0,0,0,0], 
+    pypto.conv(input_conv, weight, pypto.DT_FP16, strides=[1,1], paddings=[0,0,0,0],
                dilations=[1,1], extend_params=extend_params)
     """
     params = ConvParams(

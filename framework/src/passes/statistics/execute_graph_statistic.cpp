@@ -370,7 +370,7 @@ void ExecutionGraphStatistic::AnalyzeIsomorphism(
     double homogeneityRatio = subgraphGroups.empty() ? 0.0 : static_cast<double>(subgraphGroups.size()) / isomorphicGroups.size();
     report["uniqueSubgraphTypes"] = isomorphicGroups.size();
     report["homogeneityRatio"] = FormatUsageRate(homogeneityRatio);
-    
+
     // 构建实例映射关系
     json instanceMapping = json::object();
     for (const auto& [psgId, esgIds] : isomorphicGroups) {

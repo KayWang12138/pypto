@@ -70,7 +70,7 @@ public:
             SIMULATION_LOGE("Missing argument for %s", args[currentIndex].c_str());
         }
     }
-    
+
     void ParseArrays(const std::vector<std::string> &args, size_t &currentIndex)
     {
         auto arrayIt = paramArrays_.find(args[currentIndex]);

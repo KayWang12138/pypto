@@ -82,11 +82,11 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
         pto::TOR(dst, src0, src1);
         return;
     }
-    
+
     if constexpr (op == BinaryOp::REM) {
         pto::TREM(dst, src0, src1);
         return;
-    }  
+    }
 
     if constexpr (op == BinaryOp::EXPANDEXPDIF) {
         if constexpr (operand == TileOp::BroadcastOperand::NONE) {
@@ -138,9 +138,9 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
 
     constexpr auto src0TileW = TileOp::GetTensorTileShapeDim<T1, DIM_5TH, MAX_DIMS>();
     constexpr auto src1TileW = TileOp::GetTensorTileShapeDim<T2, DIM_5TH, MAX_DIMS>();
-    using Src0PtoTile = typename std::conditional<(src0TileW == 1 && operand == TileOp::BroadcastOperand::LEFT_OPERAND), 
+    using Src0PtoTile = typename std::conditional<(src0TileW == 1 && operand == TileOp::BroadcastOperand::LEFT_OPERAND),
         PtoTile<T1, pto::BLayout::ColMajor>, PtoTile<T1>>::type;
-    using Src1PtoTile = typename std::conditional<(src1TileW == 1 && operand == TileOp::BroadcastOperand::RIGHT_OPERAND), 
+    using Src1PtoTile = typename std::conditional<(src1TileW == 1 && operand == TileOp::BroadcastOperand::RIGHT_OPERAND),
         PtoTile<T2, pto::BLayout::ColMajor>, PtoTile<T2>>::type;
 
     auto dstTile = PtoTile<T0>(dst);

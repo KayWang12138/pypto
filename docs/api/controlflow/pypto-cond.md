@@ -41,4 +41,3 @@ for s2_idx in pypto.loop(0, 10, 1, power_of_2(max_unroll_times), name="LOOP_L0_b
     if pypto.cond(pypto.is_loop_end(s2_idx, bn_per_batch)):
         ...
 ```
-

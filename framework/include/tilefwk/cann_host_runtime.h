@@ -35,7 +35,7 @@ private:
     void *GetSymbol(const std::string &sym);
 
     GetSocVerFunc socVerFunc_;
-    void *handleDep_ = nullptr;	 
+    void *handleDep_ = nullptr;
     void *handle_ = nullptr;
 };
 }  // namespace tile_fwk

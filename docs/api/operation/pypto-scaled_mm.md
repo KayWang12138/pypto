@@ -60,4 +60,3 @@ scale_a = pypto.tensor([2, 64, 2], pypto.DT_FP8E8M0, "scale_a")
 scale_b = pypto.tensor([32, 2, 2], pypto.DT_FP8E8M0, "scale_b")
 out1 = pypto.scaled_mm(a1, b1, pypto.DT_BF16, scale_a, scale_b, scale_a_trans=True, scale_b_trans=True)
 ```
-

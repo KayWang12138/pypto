@@ -50,21 +50,21 @@ public:
         // 0x0804a000 - 0x0804b000: BSS段
         // 堆从0x0804b000向上增长
         // 栈从0xc0000000向下增长
-        
+
         // 初始化一些固定区域
         memoryMap[0x08048000] = std::vector<uint8_t>(0x1000, 0); // 代码段
         memoryMap[0x08049000] = std::vector<uint8_t>(0x1000, 0); // 数据段
         memoryMap[0x0804a000] = std::vector<uint8_t>(0x1000, 0); // BSS段
-        
+
         // 初始化内存块列表
         memoryBlocks.emplace_back(0x08048000, 0x1000, false, "text");
         memoryBlocks.emplace_back(0x08049000, 0x1000, false, "data");
         memoryBlocks.emplace_back(0x0804a000, 0x1000, false, "bss");
-        
+
         // 堆起始地址
         heapStart = 0x0804b000;
         heapEnd = heapStart;
-        
+
         // 栈起始地址
         stackStart = 0xc0000000;
         stackEnd = stackStart;
@@ -79,16 +79,16 @@ public:
         // 堆向上增长
         uintptr_t addr = heapEnd;
         heapEnd += size;
-        
+
         // 检查是否有足够的空间
         if (heapEnd >= stackEnd) {
             throw std::runtime_error("Out of memory: heap exhausted");
         }
-        
+
         // 添加到内存映射
         memoryMap[addr] = std::vector<uint8_t>(size, 0);
         memoryBlocks.emplace_back(addr, size, false, "heap");
-        
+
         return addr;
     }
 
@@ -100,18 +100,18 @@ public:
         }
         // 栈向下增长
         stackEnd -= size;
-        
+
         // 检查是否有足够的空间
         if (stackEnd <= heapEnd) {
             throw std::runtime_error("Out of memory: stack exhausted");
         }
-        
+
         uintptr_t addr = stackEnd;
-        
+
         // 添加到内存映射
         memoryMap[addr] = std::vector<uint8_t>(size, 0);
         memoryBlocks.emplace_back(addr, size, false, "stack");
-        
+
         return addr;
     }
 
@@ -125,7 +125,7 @@ public:
         // 使用首次适应算法
 
         // 按地址排序内存块
-        std::sort(memoryBlocks.begin(), memoryBlocks.end(), 
+        std::sort(memoryBlocks.begin(), memoryBlocks.end(),
             [](const MemoryBlock& a, const MemoryBlock& b) {
                 return a.startAddr < b.startAddr;
             });
@@ -135,7 +135,7 @@ public:
             uintptr_t gapStart = memoryBlocks[i].startAddr + memoryBlocks[i].size;
             uintptr_t gapEnd = memoryBlocks[i+1].startAddr;
             size_t gapSize = gapEnd - gapStart;
-            
+
             if (gapSize >= size) {
                 // 找到合适的间隙
                 uintptr_t addr = gapStart;
@@ -149,7 +149,7 @@ public:
         // 没有找到合适的间隙，尝试在堆之后分配
         uintptr_t addr = heapEnd;
         heapEnd += size;
-        
+
         if (heapEnd >= stackEnd) {
             throw std::runtime_error("Out of memory: data allocation failed");
         }
@@ -171,7 +171,7 @@ public:
                     break;
                 }
             }
-            
+
             // 从内存映射中移除
             memoryMap.erase(it);
         }
@@ -182,22 +182,22 @@ public:
     {
         std::cout << "Memory Layout:\n";
         std::cout << "--------------------------------------------------\n";
-        
+
         // 按地址排序内存块
         std::vector<MemoryBlock> sorted_blocks = memoryBlocks;
-        std::sort(sorted_blocks.begin(), sorted_blocks.end(), 
+        std::sort(sorted_blocks.begin(), sorted_blocks.end(),
             [](const MemoryBlock& a, const MemoryBlock& b) {
                 return a.startAddr < b.startAddr;
             });
-        
+
         for (const auto& block : sorted_blocks) {
-            std::cout << "0x" << std::hex << block.startAddr << " - 0x" 
-                        << (block.startAddr + block.size) << " (" 
+            std::cout << "0x" << std::hex << block.startAddr << " - 0x"
+                        << (block.startAddr + block.size) << " ("
                         << std::dec << block.size << " bytes) "
-                        << block.regionType 
+                        << block.regionType
                         << (block.isFree ? " [FREE]" : " [USED]") << "\n";
         }
-        
+
         std::cout << "--------------------------------------------------\n";
         std::cout << "Heap top: 0x" << std::hex << heapEnd << "\n";
         std::cout << "Stack bottom: 0x" << std::hex << stackEnd << "\n";

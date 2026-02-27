@@ -23,7 +23,7 @@ template <typename T>
 struct HypotTmpBuffers {
     __ubuf__ void* buf0;
     __ubuf__ void* buf1;
-    
+
     __ubuf__ float* fp32Buf0;
     __ubuf__ float* fp32Buf1;
 };
@@ -40,7 +40,7 @@ TILEOP HypotTmpBuffers<T> InitHypotTmpBuffers(TTmp tmpbuf, size_t elementCount) 
     buffers.fp32Buf0 = reinterpret_cast<__ubuf__ float*>(basePtr);
     buffers.buf0 = reinterpret_cast<__ubuf__ void*>(basePtr);
     __ubuf__ uint8_t* ptrBuf1 = basePtr + alignedSizeBytes;
-    
+
     buffers.fp32Buf1 = reinterpret_cast<__ubuf__ float*>(ptrBuf1);
     buffers.buf1 = reinterpret_cast<__ubuf__ void*>(ptrBuf1);
 
@@ -89,7 +89,7 @@ TILEOP HypotLayoutInfo ExtractHypotLayoutInfo(const T& src0, const T& src1, cons
 
 // result = max * sqrt(1 + (min/max)^2)
 template <typename TileType>
-TILEOP void ExecuteHypotRobust(TileType& dstTile, TileType& src0Tile, TileType& src1Tile, 
+TILEOP void ExecuteHypotRobust(TileType& dstTile, TileType& src0Tile, TileType& src1Tile,
                                TileType& maxTile, TileType& minTile) {
     pto::TABS(src0Tile, src0Tile);
     pto::TABS(src1Tile, src1Tile);
@@ -144,7 +144,7 @@ TILEOP void ExecuteHypotFp16(DstTileType& dstTile, SrcTileType& src0Tile, SrcTil
                              Fp32TileType& tmp0Fp32, Fp32TileType& tmp1Fp32) {
     pto::TCVT(tmp0Fp32, src0Tile, pto::RoundMode::CAST_NONE);
     pto::TCVT(tmp1Fp32, src1Tile, pto::RoundMode::CAST_NONE);
-    
+
     #ifdef __DAV_V220
     pipe_barrier(PIPE_V);
     #endif
@@ -188,7 +188,7 @@ template <typename T, typename TDst, typename TTmp>
 TILEOP void THypot(TDst dst, T src0, T src1, TTmp tmpbuf) {
     auto info = ExtractHypotLayoutInfo(src0, src1, dst);
     auto buffers = InitHypotTmpBuffers<T>(tmpbuf, info.shape4);
-    
+
     constexpr auto dataTypeSize = sizeof(typename T::Type);
     constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<T, 4, 5>();
     using DataTile = pto::Tile<pto::TileType::Vec, typename T::Type, 1, srcTileW, pto::BLayout::RowMajor, -1, -1>;
@@ -218,7 +218,7 @@ TILEOP void THypot(TDst dst, T src0, T src1, TTmp tmpbuf) {
                         DataTile minTile(1, info.shape4);
                         pto::TASSIGN(maxTile, reinterpret_cast<uint64_t>(buffers.buf0));
                         pto::TASSIGN(minTile, reinterpret_cast<uint64_t>(buffers.buf1));
-                        ExecuteHypotRobust(dstTile, src0Tile, src1Tile, maxTile, minTile); 
+                        ExecuteHypotRobust(dstTile, src0Tile, src1Tile, maxTile, minTile);
                     } else {
                         Fp32Tile tmp0Fp32(1, info.shape4);
                         Fp32Tile tmp1Fp32(1, info.shape4);

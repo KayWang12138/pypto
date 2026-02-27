@@ -117,7 +117,7 @@ void InitGraphBuilder(ComputationalGraphBuilder &G, std::vector<int64_t> tileSha
         EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
         G.GetOp("VIEW_" + strID)->UpdateSubgraphID(i);
         G.GetOp("EXP_" + strID)->UpdateSubgraphID(i);
-        G.GetOp("VIEW_" + strID)->SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}, 
+        G.GetOp("VIEW_" + strID)->SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0},
                                                     MEM_L1, std::vector<SymbolicScalar>(), std::vector<SymbolicScalar>()));
         G.GetTensor("tensor" + strID)->SetMemoryTypeOriginal(MEM_L1);
     }
@@ -128,7 +128,7 @@ void InitGraphBuilder(ComputationalGraphBuilder &G, std::vector<int64_t> tileSha
 TEST_F(L1CopyInReuseTest, TestInvalidOp) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
-    auto shapeImme = OpImmediate::Specified(tileShape); 
+    auto shapeImme = OpImmediate::Specified(tileShape);
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"tensorL1"}), true);
@@ -163,7 +163,7 @@ TEST_F(L1CopyInReuseTest, TestNormal) {
 TEST_F(L1CopyInReuseTest, TestNoL1Num) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
-    const int cube_nbuffer = 2;  
+    const int cube_nbuffer = 2;
     const int result = 11;
     auto shapeImme = OpImmediate::Specified(tileShape);
     const int subGraphNum = 20;
@@ -179,7 +179,7 @@ TEST_F(L1CopyInReuseTest, TestNoL1Num) {
 
 TEST_F(L1CopyInReuseTest, TestNoL1Map) {
     ComputationalGraphBuilder G;
-    std::vector<int64_t> tileShape{16, 16};  
+    std::vector<int64_t> tileShape{16, 16};
     const int result = 5;
     auto shapeImme = OpImmediate::Specified(tileShape);
     const int subGraphNum = 20;
@@ -195,7 +195,7 @@ TEST_F(L1CopyInReuseTest, TestNoL1Map) {
 
 TEST_F(L1CopyInReuseTest, TestNoBufferMap) {
     ComputationalGraphBuilder G;
-    std::vector<int64_t> tileShape{16, 16};  
+    std::vector<int64_t> tileShape{16, 16};
     const int result = 5;
     const int subGraphNum = 20;
     auto shapeImme = OpImmediate::Specified(tileShape);
@@ -226,7 +226,7 @@ TEST_F(L1CopyInReuseTest, TestNoParam) {
 TEST_F(L1CopyInReuseTest, TestInvalidL1Num) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
-    auto shapeImme = OpImmediate::Specified(tileShape);  
+    auto shapeImme = OpImmediate::Specified(tileShape);
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
     Function *function = G.GetFunction();
@@ -259,7 +259,7 @@ TEST_F(L1CopyInReuseTest, TestInvalidL1Map) {
 // 健康检查用例:静态图和非静态图
 TEST_F(L1CopyInReuseTest, TestHealthReport) {
     ComputationalGraphBuilder G;
-    std::vector<int64_t> tileShape{16, 16};  
+    std::vector<int64_t> tileShape{16, 16};
     const int result = 5;
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);

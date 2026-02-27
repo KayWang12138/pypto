@@ -41,7 +41,7 @@ struct LocalBuffer {
 
     LocalBuffer(int tensorId, uint64_t shapeSize, MemoryType type) {
        id = tensorId;
-       size = shapeSize; 
+       size = shapeSize;
        memType = type;
     }
 };
@@ -51,7 +51,7 @@ using LocalBufferPtr = std::shared_ptr<LocalBuffer>;
 struct BufferSlice {
     uint64_t offset{0};
     uint64_t size{0};
-    
+
     BufferSlice() = default;
 
     BufferSlice(uint64_t offset_, uint64_t size_)

@@ -49,8 +49,8 @@ class ComparisonRecord:
 
 class PassComparator:
     """Pass comparator class, which encapsulates all comparison logic."""
-    
-    def __init__(self, 
+
+    def __init__(self,
                  verify_path_pass1: str = "",
                  verify_path_pass2: str = "",
                  atol: float = 1e-3,
@@ -80,7 +80,7 @@ class PassComparator:
         self.key = "rawTensorMagic"
 
         self.comparison_records: List[ComparisonRecord] = []
-        
+
         self.dtype_dict = {
             "DT_BF16": ml_dtypes.bfloat16,
             "DT_FP32": np.float32,
@@ -90,7 +90,7 @@ class PassComparator:
             "DT_INT64": np.int64,
             "DT_INT16": np.int16
         }
-        
+
         self.torch_dtype_dict = {
             ml_dtypes.bfloat16: torch.bfloat16,
             np.float32: torch.float32,
@@ -147,7 +147,7 @@ class PassComparator:
             "VIEW": ["L1_TO_L0A", "L1_TO_L0B"],
             "A_MUL_B": ["A_MULACC_B"]
         }
-    
+
     @staticmethod
     def is_contain(a: Dict[str, Any], b: Dict[str, Any], key: str) -> bool:
         """
@@ -175,7 +175,7 @@ class PassComparator:
             if ai_shape > bi_shape:
                 return b, a
         return a, b
-    
+
     @staticmethod
     def build_file_path(data: Dict[str, Any], base_path: str) -> str:
         return os.path.join(base_path, data["passName"], data["outputTensor"])
@@ -185,31 +185,31 @@ class PassComparator:
         self.log_comparison_info(a, b)
         if not self.compare_not_support(a, b):
             return True
-        
+
         data_a, data_b = self.get_data_slice(a, b)
-        
+
         a_shape = json.loads(a["outputValidShape"])
         dtype = a["outputDtype"]
         np_dtype_a = self.dtype_dict.get(dtype)
         t_dtype_a = self.torch_dtype_dict.get(np_dtype_a)
         if dtype == "DT_BF16":
             tensor_a = torch.frombuffer(
-                memoryview(data_a.tobytes()), 
+                memoryview(data_a.tobytes()),
                 dtype=t_dtype_a
             ).reshape(a_shape)
             tensor_b = torch.frombuffer(
-                memoryview(data_b.tobytes()), 
+                memoryview(data_b.tobytes()),
                 dtype=t_dtype_a
             ).reshape(a_shape)
         else:
             tensor_a = torch.from_numpy(data_a).to(dtype=t_dtype_a)
             tensor_b = torch.from_numpy(data_b).to(dtype=t_dtype_a)
-        
+
         comparator = TensorComparator()
         config = IsCloseConfig(
-            rtol=self.rtol, 
-            atol=self.atol, 
-            calc_dtype=torch.float64, 
+            rtol=self.rtol,
+            atol=self.atol,
+            calc_dtype=torch.float64,
             is_detail=True
         )
         result_is_close, result_reason_str, result_info = comparator.check_isclose(
@@ -221,14 +221,14 @@ class PassComparator:
                 result_reason=result_reason_str,
                 a=a, b=b
             )
-        
+
         if not result_is_close:
             comparator.print_isclose_info(result_is_close, result_reason_str, result_info)
             logging.error("Data comparison failed.")
             analyzer = DataDiffAnalyzer()
             analyzer.fix_input_and_compute(data_a, data_b, [data_a.dtype, data_b.dtype], self.is_sort)
             return False
-        
+
         logging.info("Data comparison succeeded.")
         return True
 
@@ -254,7 +254,7 @@ class PassComparator:
                 a=a, b=b
             )
             return False
-        
+
         dtype = a["outputDtype"]
         np_dtype = self.dtype_dict.get(dtype)
         if np_dtype is None:
@@ -300,11 +300,11 @@ class PassComparator:
                 slices.append(slice(start, stop))
             b_slice = data_b[tuple(slices)]
             return data_a, b_slice
-        
+
         return data_a, data_b
 
-    
-    def loop_compare(self, pass_a: str, pass_b: str, df_loop, 
+
+    def loop_compare(self, pass_a: str, pass_b: str, df_loop,
                     raw_tensor_list: List[int] = None) -> bool:
         """
         Compares all data within a loop.
@@ -318,21 +318,21 @@ class PassComparator:
         """
         df_a = df_loop[df_loop["passName"].str.contains(pass_a)]
         df_b = df_loop[df_loop["passName"].str.contains(pass_b)]
-        
+
         values_a = df_a[self.key].dropna().unique()
         values_b = df_b[self.key].dropna().unique()
         set_b = set(values_b)
         common_values_list = [v for v in values_a if v in set_b]
         if len(raw_tensor_list) != 0:
             common_values_list = raw_tensor_list
-        
+
         for raw_magic in common_values_list:
             a_records = df_a[df_a[self.key] == raw_magic].to_dict(orient='records')
             b_records = df_b[df_b[self.key] == raw_magic].to_dict(orient='records')
-            
+
             if len(a_records) < len(b_records):
                 a_records, b_records = b_records, a_records
-            
+
             for ai in a_records:
                 for bi in b_records:
                     a_new, b_new = self.data_sort(ai, bi)
@@ -340,7 +340,7 @@ class PassComparator:
                         is_right = self.compare_data(a_new, b_new)
                         if not is_right:
                             return False
-        
+
         return True
 
     def line_compare(self, df: Dict[str, Any], line: List[str] = None) -> None:
@@ -348,16 +348,16 @@ class PassComparator:
             logging.error(f'line size < 2 : {len(line)}')
         a = df[df["No."] == line[0]].to_dict(orient='records')
         b = df[df["No."] == line[1]].to_dict(orient='records')
-        
+
         self.key = "tensorMagic"
         if self.is_contain(a[0], b[0], self.key):
             is_right = self.compare_data(a[0], b[0])
             return
         logging.error(f'size or shape is not right')
         return
-    
-    def pass_compare(self, pass_a: str, pass_b: str, 
-                    paths: List[str] = None, 
+
+    def pass_compare(self, pass_a: str, pass_b: str,
+                    paths: List[str] = None,
                     raw_tensor_list: List[int] = None) -> None:
         """
         Main comparison function
@@ -368,28 +368,28 @@ class PassComparator:
             raw_tensor_list: List of raw tensors to be compared
         """
         csv_path = os.path.join(self.verify_path_pass1, "verify_result.csv")
-        df = pd.read_csv(csv_path, encoding="utf-8", 
+        df = pd.read_csv(csv_path, encoding="utf-8",
                         na_values=["", " ", "NaN", "NA"])
-        
+
         # mode = 1: Compare two rows of data.
         if self.mode == 1:
             self.line_compare(df, self.line)
             return
-        
+
         if self.pass_dict[pass_a] >= 4 and self.pass_dict[pass_b] >= 4:
             self.key = "tensorMagic"
         logging.info(f"key  : {self.key}")
 
-        df_pass = df[df["passName"].str.contains(f'{pass_a}|{pass_b}', 
+        df_pass = df[df["passName"].str.contains(f'{pass_a}|{pass_b}',
                                                  na=False, regex=True)]
-        
+
         if paths == []:
             paths = df_pass["verifyType"].dropna().unique()
-        
+
         for path in paths:
             df_path = df_pass[df_pass["verifyType"] == path]
             loop_info_list = df_path["loopInfo"].dropna().unique()
-            
+
             for loop_info in loop_info_list:
                 df_loop = df_path[df_path["loopInfo"] == loop_info]
                 try:
@@ -405,13 +405,13 @@ class PassComparator:
                     self.save_comparison_results()
                     return
 
-    def add_comparison_record(self, 
+    def add_comparison_record(self,
                                result_is_close: bool,
                                result_reason: str,
                                a: Dict[str, Any],
                                b: Dict[str, Any]):
         """Add the comparison record to the internal list"""
-        
+
         record = ComparisonRecord(
             result_is_close=result_is_close,
             result_reason=result_reason,
@@ -434,7 +434,7 @@ class PassComparator:
             pass_name_b=b["passName"],
         )
         self.comparison_records.append(record)
-    
+
     def save_comparison_results(self, csv_path: str = None):
         """
         Save all comparison results to a CSV file
@@ -442,15 +442,15 @@ class PassComparator:
         if not self.comparison_records:
             logging.warning("No comparison records to save.")
             return
-        
+
         if csv_path is None:
             csv_path = os.path.join(self.verify_path_pass1, "comparison_results.csv")
-        
+
         # Converts records to a list of dictionaries.
         records_dict = [asdict(record) for record in self.comparison_records]
-        
+
         df = pd.DataFrame(records_dict)
-        
+
         column_order = [
             'pass_name_a',
             'pass_name_b',
@@ -472,10 +472,10 @@ class PassComparator:
             'result_is_close',
             'result_reason',
         ]
-        
+
         existing_columns = [col for col in column_order if col in df.columns]
         df = df[existing_columns]
-        
+
         df.to_csv(csv_path, index=False, encoding='utf-8-sig')
         logging.info(f"Comparison results saved to {csv_path}")
 
@@ -486,7 +486,7 @@ class PassComparator:
         if opcode_b in self.opcode_dict:
             return opcode_a in self.opcode_dict[opcode_b]
         return False
-    
+
     def log_comparison_info(self, a: Dict, b: Dict):
         logging.info("------" * 10)
         logging.info(f'functionName : {a["verifyType"]}')
@@ -503,7 +503,7 @@ def main():
         description="Pass Compare",
         epilog="example:  python3 pass_compare.py --p RemoveUndrivenView ExpandFunction --verify_path ..."
     )
-    
+
     parser.add_argument("--p", nargs='*', type=str, default=[], required=True,
                        help="Names of the two passes to be compared, separated by a space.\
                        If a pass is first, the execution sequence is matched according to the first pass.")
@@ -527,13 +527,13 @@ def main():
                        two rows of data in the CSV file are compared.")
     parser.add_argument("--line", nargs='*', type=int, default=[],
                        help="Enabled when mode 1 is used, indicating the two lines of data to be compared.")
-    
+
     args = parser.parse_args()
-    
+
     if len(args.p) != 2:
         logging.error("The number of input passes is not 2!")
         sys.exit(1)
-    
+
     if len(args.verify_path) == 2:
         verify_path_pass1 = args.verify_path[0]
         verify_path_pass2 = args.verify_path[1]
@@ -543,7 +543,7 @@ def main():
     else:
         logging.error("The verify_path parameter is incorrect !")
         sys.exit(1)
-    
+
     comparator = PassComparator(
         verify_path_pass1=verify_path_pass1,
         verify_path_pass2=verify_path_pass2,
@@ -554,13 +554,13 @@ def main():
         mode=args.mode,
         line=args.line
     )
-    
+
     logging.info(f"pass : {args.p[0]}, {args.p[1]}")
     logging.info(f"raw_tensor_list: {args.raw}")
     logging.info(f"path: {args.func}")
     logging.info(f"verify_path_pass1: {verify_path_pass1}")
     logging.info(f"verify_path_pass2: {verify_path_pass2}")
-    
+
     comparator.pass_compare(
         pass_a=args.p[0],
         pass_b=args.p[1],
@@ -578,5 +578,5 @@ if __name__ == "__main__":
             logging.FileHandler("app.log", encoding="utf-8")
         ]
     )
-    
+
     main()

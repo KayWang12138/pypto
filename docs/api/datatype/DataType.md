@@ -44,4 +44,3 @@ class DataType(enum.Enum):
 ## 约束说明
 
 -   仅Ascend 950PR/Ascend 950DT支持DT_FP8E4M3，DT_FP8E5M2和DT_FP8E8M0类型
-

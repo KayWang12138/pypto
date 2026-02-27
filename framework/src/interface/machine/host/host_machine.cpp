@@ -269,7 +269,7 @@ std::string HostMachine::GetCacheKeyFromFunction(Function *function) {
 MachineTask *HostMachine::Compile(MachineTask *task) const {
     MachineTask *compileTask = task;
     if (compileTask == nullptr) {
-        if (curTask == nullptr) {   
+        if (curTask == nullptr) {
             MACHINE_LOGW("Compile task is null.");
             return nullptr;
         }

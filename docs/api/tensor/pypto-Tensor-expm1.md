@@ -16,4 +16,3 @@ expm1(self) -> 'Tensor'
 ## 详细说明
 
 请参见[pypto.expm1](../operation/pypto-expm1.md)。
-

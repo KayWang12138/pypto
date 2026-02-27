@@ -254,8 +254,8 @@ def shmem_load(
     Load a [64, 128] tile from pe 1 into UB
     shmem_tile = pypto.view(shmem_tensor, shape=[64, 128], offset=[0, 0])
     pre_token = pypto.distributed.waituntil(
-        shmem_signal, 
-        shapes, 
+        shmem_signal,
+        shapes,
         offsets,
         cmp_value,
         pred,

@@ -53,7 +53,7 @@ def init_hccl_comm(logical_rank):
 
 def matmul_allreduce_add_rmsnorm_kernel(batch_size, attn_dim_per_tp, hidden_size, eps, group_name):
     batch_size = pypto.frontend.dynamic("batch_size")
-    
+
     @pypto.frontend.jit()
     def kernel(
         in_tensor: pypto.Tensor((batch_size, attn_dim_per_tp), pypto.DT_BF16),
@@ -83,7 +83,7 @@ def matmul_allreduce_add_rmsnorm_kernel(batch_size, attn_dim_per_tp, hidden_size
                 tile_in_tensor = pypto.view(
                     in_tensor, (view_row_shape, in_tensor.shape[1]), [bs_idx * view_row_shape, 0],
                     valid_shape=[(batch_size - bs_idx * view_row_shape).min(view_row_shape), in_tensor.shape[1]])
-                
+
                 # 2. clear data
                 pypto.set_vec_tile_shapes(view_row_shape, hidden_size)
                 data_clear_dummy = pypto.distributed.shmem_clear(
@@ -103,9 +103,9 @@ def matmul_allreduce_add_rmsnorm_kernel(batch_size, attn_dim_per_tp, hidden_size
                 for dyn_idx in range(WORLD_SIZE):
                     put_dummy = pypto.distributed.shmem_put(matmul_result, [0, 0, 0], shmem_data, dyn_idx,
                         put_op=pypto.AtomicType.ADD, pred=[barrier_dummy])
-                    pypto.distributed.shmem_signal(shmem_signal, dyn_idx, 1, [1, 1] + shmem_shape, 
+                    pypto.distributed.shmem_signal(shmem_signal, dyn_idx, 1, [1, 1] + shmem_shape,
                         [dyn_idx, dyn_idx, 0, 0, 0], sig_op=pypto.AtomicType.ADD, pred=[put_dummy])
-                wait_dummy = pypto.distributed.shmem_wait_until(shmem_signal, pypto.OpType.EQ, WORLD_SIZE, 
+                wait_dummy = pypto.distributed.shmem_wait_until(shmem_signal, pypto.OpType.EQ, WORLD_SIZE,
                     [1, 1] + shmem_shape, [my_pe, my_pe, 0, 0, 0], clear_signal=True, pred=[tile_in_tensor])
                 pypto.set_vec_tile_shapes(1, hidden_size)
                 reduce_out = pypto.experimental.shmem_load(
@@ -206,7 +206,7 @@ def matmul_allreduce_add_rmsnorm_worker(intput_data, output_data, rank):
     out_tensor = torch.empty(residual.shape, dtype=torch.bfloat16, device=device)
     residual_out = torch.empty(residual.shape, dtype=torch.bfloat16, device=device)
 
-    inputs = [in_tensor.to(device), matmul_weight.to(device), residual.to(device), gamma.to(device), 
+    inputs = [in_tensor.to(device), matmul_weight.to(device), residual.to(device), gamma.to(device),
         bias.to(device), out_tensor, residual_out]
 
     batch_size, attn_dim_per_tp = in_tensor.shape
@@ -215,16 +215,16 @@ def matmul_allreduce_add_rmsnorm_worker(intput_data, output_data, rank):
     matmul_allreduce_add_rmsnorm_kernel(batch_size, attn_dim_per_tp, hidden_size, eps, groups[0])(*inputs)
 
     np.testing.assert_allclose(
-        np.array(out_tensor.cpu().flatten().tolist()), 
-        np.array(golden_out_tensor.cpu().flatten().tolist()), 
-        rtol=8e-3, 
+        np.array(out_tensor.cpu().flatten().tolist()),
+        np.array(golden_out_tensor.cpu().flatten().tolist()),
+        rtol=8e-3,
         atol=7e-2,
     )
 
     np.testing.assert_allclose(
-        np.array(residual_out.cpu().flatten().tolist()), 
-        np.array(golden_residual.cpu().flatten().tolist()), 
-        rtol=7e-2, 
+        np.array(residual_out.cpu().flatten().tolist()),
+        np.array(golden_residual.cpu().flatten().tolist()),
+        rtol=7e-2,
         atol=8e-3,
     )
 
@@ -241,10 +241,10 @@ def matmul_allreduce_add_rmsnorm(
 ):
     if isinstance(hidden_states, fake_tensor.FakeTensor):
         return None, None
-    
+
     out_tensor = torch.empty(residual.shape, dtype=torch.bfloat16, device=residual.device)
     residual_out = torch.empty(residual.shape, dtype=torch.bfloat16, device=residual.device)
-    
+
     inputs = [hidden_states, matmul_weight, residual, gamma, bias, out_tensor, residual_out]
 
     batch_size, attn_dim_per_tp = hidden_states.shape

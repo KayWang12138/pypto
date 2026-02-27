@@ -104,7 +104,7 @@ public:
         }
         return res;
     }
-    
+
     // Enqueue an element into the queue
     void Enqueue(T element, uint64_t extraDelay = 0)
     {

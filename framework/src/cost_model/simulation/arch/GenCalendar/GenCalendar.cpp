@@ -153,7 +153,7 @@ void GenCalendar::RemoveBarrierCounter()
 {
     // WaitSrcId to task map.
     using WaitSrcTaskIdT = std::set<uint64_t>;
-    using WaitSrcTaskIdToTaskIdMap = 
+    using WaitSrcTaskIdToTaskIdMap =
         std::unordered_map<WaitSrcTaskIdT, std::vector<uint64_t>, SetHash>;
 
     // First sort all waiting tasks.

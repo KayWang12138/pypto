@@ -291,7 +291,7 @@ public:
 
     // Only used in test case.
     void *MapAiCoreReg();
-    
+
     bool GetValidGetPgMask() const {
         return validGetPgMask;
     }

@@ -18,9 +18,9 @@
  #include <queue>
  #include <climits>
  #include "interface/function/function.h"
- 
+
  using namespace npu::tile_fwk;
- 
+
  namespace npu::tile_fwk {
  Status PriorScheduling::RunOnFunction(Function &function) {
      #ifndef PRIOR_SCHEDULING
@@ -29,11 +29,11 @@
      PriorSchedulingFunc(function);
      return SUCCESS;
  }
- 
+
  std::vector<int> FordBellman(int wholeGraphTopologySize, const std::vector<std::pair<int,int>> &edges) {
      std::vector<int> subgrDepthVector(wholeGraphTopologySize + 1, INT_MAX);
      subgrDepthVector[wholeGraphTopologySize] = 0;
-     
+
      bool any = true;
      while (any == true) {
          any = false;
@@ -46,7 +46,7 @@
      }
      return subgrDepthVector;
  }
- 
+
  void FillGraphTopologyInfo(std::map<int, std::set<int>> &subgrChild, std::map<int, std::set<int>> &subgrParent,
                             std::map<int, int> &subgrChildNum, std::map<int, int> &subgrParentNum, Function &function) {
      auto wholeGraphTopology = function.rootFunc_->topoInfo_.topology_;
@@ -60,12 +60,12 @@
              subgrParent[child].insert(subg.esgId);
          }
      }
- 
+
      // Define number of childs for each node
      for (auto& [vertex, childs] : subgrChild) {
          subgrChildNum[vertex] = childs.size();
      }
-     
+
      // Define number of parents for each node
      for (auto& [vertex, parents] : subgrParent) {
          subgrParentNum[vertex] = parents.size();
@@ -74,8 +74,8 @@
 
  void FindSubgrDepth(std::map<int, int> &subgrChildNum, std::map<int, int> &subgrParentNum, std::vector<int> &subgrDepthVector, Function &function) {
      auto wholeGraphTopology = function.rootFunc_->topoInfo_.topology_;
-     int wholeGraphTopologySize = int(wholeGraphTopology.size()); 
-     
+     int wholeGraphTopologySize = int(wholeGraphTopology.size());
+
      // Create edges
      std::vector<std::pair<int,int>> edges;
      for (auto& subg: wholeGraphTopology) {
@@ -91,7 +91,7 @@
              lastVertices.push_back(subg.esgId);
          }
      }
-     
+
      // Define depth for each node using FordBellman algorithm
      for (size_t i = 0; i < lastVertices.size(); i++) {
          edges.push_back({wholeGraphTopologySize, lastVertices[i]});
@@ -103,20 +103,20 @@
      edges.clear();
      lastVertices.clear();
  }
- 
+
  void DefineLevels(std::map<int, int> &subgrChildNum, std::map<int, int> &subgrParentNum, std::vector<int> &subgrDepthVector,
                    std::map<int, std::vector<std::pair<int, std::pair<int, int>>>> &levels, int &levelSize) {
      // Define levels and deps inside level
      for (size_t idx = 0; idx < subgrDepthVector.size(); idx++) {
-         if (subgrParentNum[idx] != 0) {           
+         if (subgrParentNum[idx] != 0) {
              levels[subgrDepthVector[idx]].push_back(std::make_pair(idx, std::make_pair(subgrChildNum[idx], subgrParentNum[idx])));
          }
      }
-     
+
      // Processing ready-to-run last level nodes
      levelSize = levels.size();
      for (size_t idx = 0; idx < subgrDepthVector.size(); idx++) {
-         if ((subgrParentNum[idx] == 0) && (subgrDepthVector[idx] == levelSize)) {           
+         if ((subgrParentNum[idx] == 0) && (subgrDepthVector[idx] == levelSize)) {
              levels[levelSize].push_back(std::make_pair(idx, std::make_pair(subgrChildNum[idx], subgrParentNum[idx])));
          }
      }
@@ -139,7 +139,7 @@
              }
              std::sort(levelsTmp[level.first].begin(), levelsTmp[level.first].end(), [](const std::pair<int, std::pair<int, int>> &x, const std::pair<int, std::pair<int, int>> &y) {return x.second.second > y.second.second;}); // Sort by parents
              std::sort(levelsTmp[level.first].begin(), levelsTmp[level.first].end(), [](const std::pair<int, std::pair<int, int>> &x, const std::pair<int, std::pair<int, int>> &y) {return x.second.first > y.second.first;}); // Sort by childs
-             
+
              for (auto &elemPrior: levelsTmp[level.first]) {
                  priorities[level.first].push_back(std::make_pair(elemPrior.first, prior));
                  prior++;
@@ -154,13 +154,13 @@
                        std::map<int, std::vector<std::pair<int, std::pair<int, int>>>> &levels,
                        std::map<int, std::vector<std::pair<int, int>>> &priorities) {
      // Define priority of nodes inside level-0
-     std::sort(levels[0].begin(), levels[0].end(), [](const std::pair<int, std::pair<int, int>> &x, const std::pair<int, std::pair<int, int>> &y) {return x.second.second > y.second.second;}); 
+     std::sort(levels[0].begin(), levels[0].end(), [](const std::pair<int, std::pair<int, int>> &x, const std::pair<int, std::pair<int, int>> &y) {return x.second.second > y.second.second;});
      int zeroLevelIndex = 0;
      for (auto &elem: levels[0]) {
          priorities[0].push_back(std::make_pair(elem.first, zeroLevelIndex));
-         zeroLevelIndex++;    
+         zeroLevelIndex++;
      }
-     
+
      // Find priors for subgraphs on all levels
      std::map<int, std::map<int, std::pair<int, int>>> levelsMap;
      for (auto& [level, instance]: levels) {
@@ -168,12 +168,12 @@
              levelsMap[level][elem.first] = elem.second;
          }
      }
-     SortPriorities(subgrChild, subgrParent, levels, levelsMap, priorities);     
+     SortPriorities(subgrChild, subgrParent, levels, levelsMap, priorities);
      subgrChild.clear();
      subgrParent.clear();
      levels.clear();
  }
- 
+
  void SetAbsolutePrioritiesAndChangeOutGraphs(std::map<int, std::vector<std::pair<int, int>>> &priorities, Function &function) {
      // Set absolute prioritties
      std::map<int, int> prioritiesNew;
@@ -183,8 +183,8 @@
              prioritiesNew[pair.first] = iter->first * factor - pair.second;
          }
      }
-         
-     // Define additional structure with priorities    
+
+     // Define additional structure with priorities
      std::map<int, std::vector<std::pair<int, int>>> subgOutGraphTmp;
      for (auto& subg: function.rootFunc_->topoInfo_.topology_) {
          for (auto &child: subg.outGraph) {
@@ -192,11 +192,11 @@
          }
      }
      prioritiesNew.clear();
- 
+
      for (auto& elem: subgOutGraphTmp) {
          std::sort(subgOutGraphTmp[elem.first].begin(), subgOutGraphTmp[elem.first].end(), [](const std::pair<int, int> &x, const std::pair<int, int> &y) {return x.second < y.second;}); // Sort by priorities
      }
- 
+
      // Change outGrapgs of subgraphs
      setType outGraphTmp;
      #ifdef PRIOR_SCHEDULING
@@ -209,12 +209,12 @@
          outGraphTmp.clear();
          for (auto &child: subgOutGraphTmp[subg.esgId]) {
              outGraphTmp.insert(child.first);
-         }   
+         }
          subg.outGraph = outGraphTmp;
      }
      outGraphTmp.clear();
  }
- 
+
  std::map<int, int> GetLastLevelMap(Function &function) {
      std::map<int, int> LastLevelMap;
      const size_t aicValue = 0;
@@ -258,7 +258,7 @@
  void ChangeReadyTasksPriorities(std::map<int, int> &subgrParentNum, std::vector<int> &subgrDepthVector, std::map<int, std::vector<std::pair<int, int>>> &priorities, int levelSize, Function &function) {
      // Processing ready-to-run not last level nodes
      int lastLevelIntermediateSize = priorities[priorities.size() - 1].size();
-     
+
      for (size_t idx = 0; idx < subgrDepthVector.size(); idx++) {
          if ((subgrParentNum[idx] == 0) && (subgrDepthVector[idx] != (levelSize - 1))) {
              priorities[priorities.size() - 1].push_back(std::make_pair(idx, lastLevelIntermediateSize));
@@ -267,11 +267,11 @@
      }
      subgrParentNum.clear();
      subgrDepthVector.clear();
-     
+
      // Change readyAic & readyAiv & readyAicpu priorities
      std::map<int, int> LastLevelMap = GetLastLevelMap(function);
      ASSERT(priorities[priorities.size() - 1].size() == LastLevelMap.size());
-     
+
      size_t lastLevelSize = LastLevelMap.size();
      std::vector<std::pair<int, int>> LastLevelVector;
      for (size_t i = 0; i < lastLevelSize; i++) {
@@ -279,7 +279,7 @@
      }
      UpdateReadySubGraphId(function, LastLevelVector);
  }
- 
+
  void PriorScheduling::PriorSchedulingFunc(Function &function) const {
      // Define necessary variables & data structures
      auto wholeGraphTopology = function.rootFunc_->topoInfo_.topology_;
@@ -292,7 +292,7 @@
      std::vector<int> subgrDepthVector(wholeGraphTopologySize, 0);
      std::map<int, std::vector<std::pair<int, std::pair<int, int>>>> levels;
      std::map<int, std::vector<std::pair<int, int>>> priorities;
-     
+
      // Call functions
      FillGraphTopologyInfo(subgrChild, subgrParent, subgrChildNum, subgrParentNum, function);
      FindSubgrDepth(subgrChildNum, subgrParentNum, subgrDepthVector, function);

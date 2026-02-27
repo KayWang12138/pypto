@@ -47,11 +47,11 @@ def add_core(input0: pypto.Tensor, input1: pypto.Tensor, val: int, add1_flag: bo
         t0_sub = input0[b_offset:b_offset_end, ...]
         t1_sub = input1[b_offset:b_offset_end, ...]
         t3_sub = t0_sub + t1_sub
-        if add1_flag: 
+        if add1_flag:
             output[b_offset:b_offset_end, ...] = t3_sub + val
         else:
             output[b_offset:b_offset_end, ...] = t3_sub
-    
+
     return output
 ```
 
@@ -97,4 +97,3 @@ def add_kernel(
 完整样例请参考：
 
 [condition.py](../../../examples/02_intermediate/controlflow/condition/condition.py)
-

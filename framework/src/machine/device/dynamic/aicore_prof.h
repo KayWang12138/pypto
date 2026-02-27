@@ -288,7 +288,7 @@ public:
     void ProfStartPmu();
     void ProfStopPmu();
     void ProfGetPmu(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat *taskStat);
-    
+
 private:
     struct PmuCtrlAddrs {
         uint32_t *ctrl0Addr{nullptr};
