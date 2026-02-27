@@ -73,6 +73,10 @@ Status AutoCast::RunOnFunction(Function &function) {
         ALOG_ERROR_F("Failed to insert CAST for BF16 unsupported Operations.");
         return FAILED;
     }
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && InsertInt32Fp16Cast(function) != SUCCESS) {
+        ALOG_ERROR_F("Failed to insert fp32 between int32 to fp16 cast.");
+        return FAILED;
+    }
     if (RemoveRedundantCastChain(function) != SUCCESS) {
         ALOG_ERROR_F("Failed to remove redundant CAST.");
         return FAILED;
@@ -80,6 +84,37 @@ Status AutoCast::RunOnFunction(Function &function) {
     ALOG_INFO_F("===> End AutoCast for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
+
+Status AutoCast::InsertInt32Fp16Cast(Function &function) {
+    std::vector<Operation *> opList = function.Operations().DuplicatedOpList();
+    for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
+        Operation *op = opList[opIdx];
+        if (op->GetOpcode() != Opcode::OP_CAST) {
+            continue;
+        }
+        auto iOperands = op->GetIOperands();
+        auto oOperands = op->GetOOperands();
+        if (iOperands.empty() || oOperands.empty()) {
+            continue;
+        }
+        LogicalTensorPtr srcTensor = iOperands[0];
+        LogicalTensorPtr tgtTensor = oOperands[0];
+
+        if (srcTensor->Datatype() != DataType::DT_INT32 || 
+            tgtTensor->Datatype() != DataType::DT_FP16) {
+            continue;
+        }
+        ALOG_INFO_F("Cast[%d] is cast between int32 and fp16.", op->GetOpMagic());
+        auto fp32Tensor = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, tgtTensor->shape, tgtTensor->GetDynValidShape(), tgtTensor->Format());
+        Operation &int32ToFp32Cast = function.AddRawOperation(Opcode::OP_CAST, {srcTensor}, {fp32Tensor});
+        ALOG_INFO_F("Cast[%d] is add in int32->fp32->fp16.", int32ToFp32Cast.GetOpMagic());
+        int32ToFp32Cast.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
+        int32ToFp32Cast.UpdateTileShape(op->GetTileShape());
+        op->ReplaceInput(fp32Tensor, srcTensor);
+    }
+    return SUCCESS;
+}
+
 
 bool AutoCast::SupportBF16(Operation *op) {
     if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
