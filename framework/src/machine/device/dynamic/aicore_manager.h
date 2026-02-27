@@ -1410,6 +1410,7 @@ private:
                 DEV_ERROR("Aic core %d hand shake success.phyid %d ", i, aicoreHal_.GetPhyIdByBlockId(i));
             } else {
                 DEV_ERROR("Aic core %d hand shake timeout status=%lu",  i, aicoreHal_.GetAicoreStatus(i));
+                aicoreHal_.DumpAicoreStatus(i);
             }
         }
 
@@ -1418,6 +1419,7 @@ private:
                 DEV_ERROR("Aiv core %d hand shake success.phyid %d ", i,  aicoreHal_.GetPhyIdByBlockId(i));
             } else {
                 DEV_ERROR("Aiv core %d hand shake timeout status=%lu", i, aicoreHal_.GetAicoreStatus(i));
+                aicoreHal_.DumpAicoreStatus(i);
             }
         }
     }

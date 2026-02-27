@@ -421,13 +421,19 @@ public:
 
     void DumpAicoreStatus(int coreIdx) const {
         volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
-        DEV_VERBOSE_DEBUG("!!***********************aicore %d last status **************************!!", coreIdx);
-        DEV_VERBOSE_DEBUG("hello status %ld.", arg->shakeBuffer[0]);
-        DEV_VERBOSE_DEBUG("last_taskId %ld task status [%ld, %ld, %ld, %ld].", arg->shakeBuffer[NUM_ONE],
+        DEV_ERROR("!!***********************aicore %d last status **************************!!", coreIdx);
+        DEV_ERROR("SharedBuffer Addr: %p, KernelArgs Addr: %p", (void*)sharedBuffer_, arg);
+        DEV_ERROR("hello status: 0x%lx (Expected: ...%x)", arg->shakeBuffer[0], AICORE_SAY_HELLO);
+        DEV_ERROR("last_taskId %ld task status [%ld, %ld, %ld, %ld].", arg->shakeBuffer[NUM_ONE],
             arg->shakeBuffer[NUM_TWO], arg->shakeBuffer[NUM_THREE], arg->shakeBuffer[NUM_FOUR], arg->shakeBuffer[NUM_FIVE]);
 
+        // Dump first 8 raw values of shared buffer
+        volatile int64_t* rawBuf = reinterpret_cast<volatile int64_t*>(arg);
+        DEV_ERROR("Raw SharedBuffer Head: %lx %lx %lx %lx %lx %lx %lx %lx",
+            rawBuf[0], rawBuf[1], rawBuf[2], rawBuf[3], rawBuf[4], rawBuf[5], rawBuf[6], rawBuf[7]);
+
         for (size_t i = 0; i < sizeof(arg->taskStat) / sizeof(TaskStat); i++) {
-            DEV_VERBOSE_DEBUG("task rsp index %lu: taskId %d, subGraphID %d execStart %ld execEnd %ld.", i,
+            DEV_ERROR("task rsp index %lu: taskId %d, subGraphID %d execStart %ld execEnd %ld.", i,
                 arg->taskStat[i].taskId, arg->taskStat[i].subGraphId,
                 arg->taskStat[i].execStart, arg->taskStat[i].execEnd);
         }
