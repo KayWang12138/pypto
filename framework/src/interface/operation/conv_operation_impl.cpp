@@ -803,7 +803,7 @@ LogicalTensorPtr ConstructWeightTile(Function &function, const ConvGraphNodes &t
         iterInfo.kBL1Size =
             std::min(convTileInfo.kPerGroup * iterInfo.dkL1Size - iterInfo.kL0Offset, convTileInfo.kBL1);
         std::vector<int64_t> dstBL1Shape =
-            std::vector<int64_t>{iterInfo.kBL1Size / convTileInfo.cin0, iterInfo.nL1Size / MKN_N_VALUE,
+            std::vector<int64_t>{iterInfo.kBL1Size / convTileInfo.cin0, CeilDiv(iterInfo.nL1Size, MKN_N_VALUE),
                                  MKN_N_VALUE, convTileInfo.cin0};
         int64_t srcCinOffset =
             (iterInfo.kL0Offset % convTileInfo.kPerGroup) / (convTileInfo.orgKh * convTileInfo.orgKw);
@@ -811,7 +811,7 @@ LogicalTensorPtr ConstructWeightTile(Function &function, const ConvGraphNodes &t
             std::min(convTileInfo.orgCin / convAttrParam.groups - srcCinOffset,
                      convTileInfo.kBL1 / (convTileInfo.orgKh * convTileInfo.orgKw));
         std::vector<int64_t> srcGmValidShape = 
-            std::vector<int64_t>{iterInfo.nL1Size / MKN_N_VALUE, srcGmCin,
+            std::vector<int64_t>{iterInfo.nL1Size, srcGmCin,
                                  convTileInfo.orgKh, convTileInfo.orgKh};
         if (convAttrParam.isConv3D) {
             iterInfo.dkBL1Size = 1;
@@ -820,7 +820,7 @@ LogicalTensorPtr ConstructWeightTile(Function &function, const ConvGraphNodes &t
                 iterInfo.dkBL1Size = iterInfo.kBL1Size / convTileInfo.kPerGroup;
             }
             dstBL1Shape = 
-                std::vector<int64_t>{iterInfo.kBL1Size / convTileInfo.cin0, iterInfo.nL1Size / MKN_N_VALUE,
+                std::vector<int64_t>{iterInfo.kBL1Size / convTileInfo.cin0, CeilDiv(iterInfo.nL1Size, MKN_N_VALUE),
                                      MKN_N_VALUE, convTileInfo.cin0};
             srcGmValidShape =
                 std::vector<int64_t>{1, srcGmCin, iterInfo.dkL1Size, iterInfo.hinL1Size, iterInfo.winL1Size};
