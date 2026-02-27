@@ -25,6 +25,7 @@
 #include "passes/pass_log/pass_log.h"
 #include "ir/program.h"
 #include "ir/function.h"
+#include <set>
 
 
 #define MODULE_NAME "SubgraphToFunction"
@@ -487,19 +488,34 @@ void SubgraphToFunction::SymbolizeFunction(Function &rootFunc, std::vector<Funct
 }
 
 void SubgraphToFunction::InsertParameter(size_t i, Function& leafFunc) {
+    std::set<LogicalTensorPtr> addedIncasts;
+    std::set<LogicalTensorPtr> addedOutcasts;
+
     for (auto &in : subFuncInvokeInfos[i].GetIncastTensorParamList()) {
-        leafFunc.AppendIncast(in.tensor, in.opMagic, in.operandIdx);
+        if (addedIncasts.find(in.tensor) == addedIncasts.end()) {
+            addedIncasts.insert(in.tensor);
+            leafFunc.AppendIncast(in.tensor, in.opMagic, in.operandIdx);
+        }
     }
     for (auto &out : subFuncInvokeInfos[i].GetOutcastTensorParamList()) {
-        leafFunc.AppendOutcast(out.tensor, out.opMagic, out.operandIdx);
+        if (addedOutcasts.find(out.tensor) == addedOutcasts.end()) {
+            addedOutcasts.insert(out.tensor);
+            leafFunc.AppendOutcast(out.tensor, out.opMagic, out.operandIdx);
+        }
     }
     for (auto &tensor : subFuncInvokeInfos[i].GetTensorParamList()) {
         leafFunc.AddGlobalTensor(tensor.tensor);
         if (tensor.isOutputToGM) {
-            leafFunc.AppendOutcast(tensor.tensor, tensor.opMagic, tensor.operandIdx);
+            if (addedOutcasts.find(tensor.tensor) == addedOutcasts.end()) {
+                addedOutcasts.insert(tensor.tensor);
+                leafFunc.AppendOutcast(tensor.tensor, tensor.opMagic, tensor.operandIdx);
+            }
             continue;
         }
-        leafFunc.AppendIncast(tensor.tensor, tensor.opMagic, tensor.operandIdx);
+        if (addedIncasts.find(tensor.tensor) == addedIncasts.end()) {
+            addedIncasts.insert(tensor.tensor);
+            leafFunc.AppendIncast(tensor.tensor, tensor.opMagic, tensor.operandIdx);
+        }
     }
 }
 
