@@ -383,8 +383,7 @@ TILEOP void BinaryTmpCompute(T0 dst, T1 src0, T2 src1, T3 tmp) {
 }
 
 #define OP_TILE_OP_BITWISEXOR TBitwiseXor
-template <TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2,
-    typename T3>
+template <TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2, typename T3>
 TILEOP void TBitwiseXor(T0 dst, T1 src0, T2 src1, T3 tmp) {
     BinaryTmpCompute<BinaryOp::BITWISEXOR, operand>(dst, src0, src1, tmp);
 }

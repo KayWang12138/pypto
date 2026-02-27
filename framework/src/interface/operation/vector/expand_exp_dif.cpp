@@ -20,11 +20,15 @@
 
 namespace npu::tile_fwk {
 
-template <BinaryOpType T>
 void TiledExpandExpDifOperation(Function &function, const TileShape &tileShape, size_t cur, LogicalInput &input1,
-    LogicalInput &input2, const LogicalTensorPtr &result, TileInfo &resultTileInfo, bool withBrc) {
-    constexpr size_t shapeSize = 2;
-    if (cur != input1.tensor->GetShape().size()) {
+    LogicalInput &input2, const LogicalTensorPtr &result, TileInfo &resultTileInfo) {
+    if (cur == input1.tensor->GetShape().size()) {
+        auto inputTile1 = input1.tensor->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
+        auto inputTile2 = input2.tensor->View(function, input2.tileInfo.shape, input2.tileInfo.offset);
+        auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
+        auto opName = GetBinaryOpNameCode<BinaryOpType::EXPANDEXPDIF>();
+        function.AddOperation(opName, {inputTile1, inputTile2}, {resultTile});
+    } else {
         auto &vecTile = tileShape.GetVecTile();
         for (int i = 0; i < result->shape[cur]; i += vecTile[cur]) {
             resultTileInfo.offset[cur] = i;
@@ -35,32 +39,11 @@ void TiledExpandExpDifOperation(Function &function, const TileShape &tileShape, 
             input2.tileInfo.offset[cur] = i % input2.tensor->GetShape()[cur];
             input2.tileInfo.shape[cur] =
                 std::min(input2.tensor->GetShape()[cur] - input2.tileInfo.offset[cur], vecTile[cur]);
-            TiledExpandExpDifOperation<T>(
-                function, tileShape, cur + 1, input1, input2, result, resultTileInfo, withBrc);
-        }
-    } else {
-        auto inputTile1 = input1.tensor->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
-        auto inputTile2 = input2.tensor->View(function, input2.tileInfo.shape, input2.tileInfo.offset);
-        auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
-        auto opName = GetBinaryOpName<T>();
-        if (!withBrc) {
-            function.AddOperation(GetBinaryOpNameCode<T, false, false>(), {inputTile1, inputTile2}, {resultTile});
-        } else {
-            std::vector<int64_t> tmpShape(input1.tileInfo.shape);
-            auto alignSize = BLOCK_SIZE / BytesOf(input2.tensor->Datatype());
-            tmpShape[input1.tileInfo.shape.size() - 1] = alignSize;
-            if (input1.tileInfo.shape.size() == shapeSize) {
-                tmpShape[input1.tileInfo.shape.size() - shapeSize] =
-                    (tmpShape[input1.tileInfo.shape.size() - shapeSize] + alignSize - 1) / alignSize * alignSize;
-            }
-            auto tempTensor = std::make_shared<LogicalTensor>(function, input2.tensor->Datatype(), tmpShape);
-            function.AddOperation(
-                GetBinaryOpNameCode<T, false, true>(), {inputTile1, inputTile2}, {resultTile, tempTensor});
+            TiledExpandExpDifOperation(function, tileShape, cur + 1, input1, input2, result, resultTileInfo);
         }
     }
 }
 
-template <BinaryOpType T>
 void TiledExpandExpDifOperation(Function &function, const TileShape &tileShape, LogicalTensorPtr operand1,
     LogicalTensorPtr operand2, const LogicalTensorPtr &result) {
     CheckBinOpOperandsValid(operand1, operand2);
@@ -70,9 +53,7 @@ void TiledExpandExpDifOperation(Function &function, const TileShape &tileShape, 
     TileInfo resultTileInfo(result->shape.size(), result->offset.size());
     auto input1 = LogicalInput{operand1, tileInfo1};
     auto input2 = LogicalInput{operand2, tileInfo2};
-    // 如果使能了Combine Axis逻辑，需要将withbrc置为false，避免后续走OP_XX_BRC逻辑
-    bool withBrc = false;
-    TiledExpandExpDifOperation<T>(function, tileShape, 0, input1, input2, result, resultTileInfo, withBrc);
+    TiledExpandExpDifOperation(function, tileShape, 0, input1, input2, result, resultTileInfo);
 }
 
 Tensor ExpandExpDif(const Tensor &input, const Tensor &other) {
