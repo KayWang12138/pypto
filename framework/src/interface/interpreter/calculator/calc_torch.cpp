@@ -144,7 +144,7 @@ static void Exp2(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
     auto tself = From(self);
     torch::exp2_out(tout.second, tself.second);
-    ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
+    ToOperand(tout.second, tout.first, out.dtype);
 }
 
 static void Neg(const TensorData &out, const TensorData &self) {
