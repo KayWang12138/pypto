@@ -71,6 +71,7 @@ Status OoOSchedule::NonMixSchedule(std::vector<Operation*> &opList, Function &fu
     // 直接对oplist进行GenSpill和mainLoop
     APASS_LOG_INFO_F(Elements::Operation, "=============== START NonMixSchedule ===============");
     OoOScheduler oooSchedule(*program.second);
+    oooSchedule.oooCheck.doHealthCheck = passDfxconfigs_.healthCheck;
     if (oooSchedule.Schedule(opList) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Non-mixGraph schedule failed.");
         return FAILED;
@@ -165,6 +166,7 @@ Status OoOSchedule::MixSchedule(std::vector<Operation*> &opList, Function &funct
         return FAILED;
     }
     OoOScheduler oooSchedule(*program.second);
+    oooSchedule.oooCheck.doHealthCheck = passDfxconfigs_.healthCheck;
     if (oooSchedule.Schedule(opList, opCoreMap, CORE_INIT_CONFIGS_HARDWARE_TWO_AIV) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Schedule failed.");
         return FAILED;
