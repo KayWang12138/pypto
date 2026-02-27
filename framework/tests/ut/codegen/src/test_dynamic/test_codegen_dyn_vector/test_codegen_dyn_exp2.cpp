@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file test_codegen_dyn_round.cpp
+ * \file test_codegen_dyn_exp2.cpp
  * \brief Unit test for codegen.
  */
 
@@ -29,7 +29,7 @@
 
 namespace npu::tile_fwk {
 
-class TestCodegenDynRound : public ::testing::Test {
+class TestCodegenDynExp2 : public ::testing::Test {
 public:
     static void SetUpTestCase() {
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
@@ -92,6 +92,10 @@ TEST_F(TestCodegenDynExp2, TestDynOpExp2) {
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
+    std::string res = GetResultFromCpp(*function);
+    std::string expect =
+        R"!!!(TExp2(ubTensor_2, ubTensor_3, ubTensor_4, ubTensor_0);
+ 	 )!!!";
     CheckStringExist(expect, res);
 }
 } // namespace npu::tile_fwk
