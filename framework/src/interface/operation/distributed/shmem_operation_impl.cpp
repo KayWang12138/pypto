@@ -67,9 +67,9 @@ void ValidateTilingSize(const VecTile& vecTile, const Tensor& in, int32_t worldS
 }
 
 void ValidateParams(const Tensor& predToken, const Tensor& in, const Tensor& out, Shape shmemDataShape, DataType shmemDataType,
-    bool checkShapeMatch = false, bool validateType = false, const std::unordered_set<DataType>& allowedTypes = {}) 
+    bool checkShapeMatch = false, bool validateType = false, const std::unordered_set<DataType>& allowedTypes = {})
 {
-    ASSERT(predToken.GetShape().size() == 2UL) << "Invalid dimensional: PredToken dimensional must be 2, but got dimensional=" << predToken.GetShape().size(); 
+    ASSERT(predToken.GetShape().size() == 2UL) << "Invalid dimensional: PredToken dimensional must be 2, but got dimensional=" << predToken.GetShape().size();
     int32_t predRow = predToken.GetShape(0);
     int32_t predCol = predToken.GetShape(1);
     ASSERT(predRow > 0 && predCol > 0) << "PredToken parameter error - the 'row' and 'col' dimensional of the input tensor must be greater than 0, "
@@ -182,7 +182,7 @@ Tensor ShmemGetGm2Ub(const Tensor &dummy, const Tensor &shmemDataTile, DataType 
     auto &op = function.AddOperation(Opcode::OP_SHMEM_GET_GM2UB, {dummy.GetStorage(), shmemDataTile.GetStorage()},
         {tempOutTile});
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_UB,
-        OpImmediate::Specified({shmemDataTile.GetShape()[2], shmemDataTile.GetShape()[3]}), 
+        OpImmediate::Specified({shmemDataTile.GetShape()[2], shmemDataTile.GetShape()[3]}),
         OpImmediate::Specified({tempOutTile->shape[0], tempOutTile->shape[1]}),
         OpImmediate::Specified(std::vector<SymbolicScalar>{shmemDataTile.GetValidShape()[2], shmemDataTile.GetValidShape()[3]})));
     function.UpdateTensorDataUsage(op);
@@ -248,7 +248,7 @@ void CreateShmemSignal(const char* group, Tensor& shmemData, Tensor& shmemSignal
     shmemSignal = shmemTensorInner;
     Program::GetInstance().GetTensorSlotManager()->TensorWrite(shmemSignal, SlotProperty::SHMEM_TENSOR);
     auto &op = function.AddOperation(Opcode::OP_BIND_TENSOR, {}, {shmemTensorInner});
-    op.SetAttribute(OpAttributeKey::bindTensor, BindTensor(hcclGroupIndex, 0,
+    op.SetAttribute(OpAttributeKey::bindTensor, BindTensor(hcclGroupIndex, 1,
         BytesOf(DataType::DT_INT32) * worldSize * SHMEM_SIGNAL_STRIDE * MAX_TILE_NUM));
 }
 
@@ -311,12 +311,12 @@ void AllGather(const Tensor& predToken, const Tensor& in, const char* group, Ten
     ValidateTypeAndShape(out, in.GetDataType(), {row * worldSize, col});
     for (uint32_t dynRankId = 0; dynRankId < worldSize; ++dynRankId) {
         auto shmemDataTile = View(shmemData, {1, 1, row, col}, std::vector<SymbolicScalar>{dynRankId, thisRank, 0, 0});
-        auto shmemSignalTile = View(shmemSignal, {1, 1, 1, row, col}, 
+        auto shmemSignalTile = View(shmemSignal, {1, 1, 1, row, col},
             std::vector<SymbolicScalar>{dynRankId, dynRankId, thisRank, 0, 0});
         auto shmemPutOut = ShmemPut(predToken, in, shmemDataTile);
         auto shmemSignalOut = ShmemSignal(shmemPutOut, shmemSignalTile, AtomicType::SET);
         auto shmemDataLocal = View(shmemData, {1, 1, row, col}, std::vector<SymbolicScalar>{thisRank, dynRankId, 0, 0});
-        auto shmemSignalLocal = View(shmemSignal, {1, 1, 1, row, col}, 
+        auto shmemSignalLocal = View(shmemSignal, {1, 1, 1, row, col},
             std::vector<SymbolicScalar>{thisRank, thisRank, dynRankId, 0, 0});
         auto waitUntilOut= WaitUntil(shmemSignalOut, shmemSignalLocal, 1);
         auto shmemGetOut= ShmemGet(waitUntilOut, shmemDataLocal);
@@ -333,7 +333,7 @@ void ReduceScatter(const Tensor& predToken, const Tensor& in, const char* group,
     uint32_t worldSize = shmemData.GetShape()[0];
     ASSERT(worldSize > 0) << "worldSize should be more than 0.";
     ASSERT((row % worldSize) == 0) << "ReduceScatter constraint: row must be divisible by worldSize, but row: " << row
-        << ", worldSize: " << worldSize; 
+        << ", worldSize: " << worldSize;
     const int32_t rowOut = row / worldSize;
     SymbolicScalar thisRank = GetHcclRankId(group);
     const TileShape& tileShape = TileShape::Current();
@@ -403,7 +403,7 @@ void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* gro
     uint32_t worldSize = shmemData.GetShape()[0];
     ASSERT(worldSize > 0) << "AllReduce worldSize should be more than 0.";
     ASSERT(row % worldSize == 0) << "Two_Shot_AllReduce constraint: row must be divisible by worldSize but row: " << row
-        << ", worldSize: " << worldSize;  
+        << ", worldSize: " << worldSize;
     int32_t rowPerRank = row / worldSize;
     AllReduceValidate(predToken, in, shmemData, group, out);
     ValidateTypeAndShape(shmemData, ((in.GetDataType() == DT_BF16) || (in.GetDataType() == DT_FP16) ? DT_FP32 :
