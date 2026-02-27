@@ -27,6 +27,7 @@ public:
     ~AutoCast() override = default;
     Status RunOnFunction(Function &function) override;
     bool SupportBF16(Operation *op);
+    bool SupportFP16(Operation *op);
     Status InsertCast(Function &function);
     bool IsLegalCast(DataType ds, DataType dt);
     std::vector<Operation *> GetCastChain(Operation *tailOp);

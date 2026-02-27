@@ -603,6 +603,8 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE,
     Opcode::OP_BITWISERIGHTSHIFT, Opcode::OP_BITWISELEFTSHIFT, Opcode::OP_BITWISERIGHTSHIFTS, Opcode::OP_BITWISELEFTSHIFTS,
     Opcode::OP_SBITWISERIGHTSHIFT, Opcode::OP_SBITWISELEFTSHIFT, Opcode::OP_COPYSIGN, Opcode::OP_TWOTILEMRGSORT, Opcode::OP_EXTRACT_SINGLE, Opcode::OP_SORT_UB};
 
+const std::unordered_set<Opcode> UNSUPPORT_FP16_OPS{Opcode::OP_MOD, Opcode::OP_MODS};
+
 const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{Opcode::OP_EXP, Opcode::OP_RSQRT, Opcode::OP_SQRT, Opcode::OP_RELU,
     Opcode::OP_RECIPROCAL, Opcode::OP_ABS, Opcode::OP_LN, Opcode::OP_LOGICALNOT, Opcode::OP_TRIUL,
     Opcode::OP_LOGICALAND, Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_DIVS,
