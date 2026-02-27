@@ -497,7 +497,7 @@ void SplitLargeFanoutTensor::TryToSplitLargeTensor(Function &function, const Sha
                 "and dualOverlaps([%d]) simultaneously.", overlaps.size(), dualOverlaps.size());
             continue;
         }
-        
+
         auto multiply = [](const std::vector<int64_t>& vec) -> int64_t {
             return std::accumulate(
                 vec.begin(), vec.end(), static_cast<int64_t>(1), [](int64_t a, int64_t b) { return a * b; });

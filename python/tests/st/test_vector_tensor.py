@@ -353,7 +353,7 @@ def scatter_2dim_tensor_proc(scatter_para, is_inplace):
                     view_tensor_self.scatter_(scatter_para.axis, view_tensor_index, view_tensor_src)
                     tmp_dst_tensor.move(view_tensor_self)
                 else:
-                    tmp_dst_tensor.move(view_tensor_self.scatter(scatter_para.axis, view_tensor_index, 
+                    tmp_dst_tensor.move(view_tensor_self.scatter(scatter_para.axis, view_tensor_index,
                         view_tensor_src))
                 pypto.assemble(tmp_dst_tensor, [b_idx * view_shape[0], s_idx * view_shape[1]], dst_tensor)
 

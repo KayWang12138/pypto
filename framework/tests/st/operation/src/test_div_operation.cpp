@@ -223,7 +223,7 @@ static void DivOperationExeFunc5Dims(
                     LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
                         LOOP("LOOP_L4_nIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(0, qloop, 1)) {
                             auto tileTensor0 =
-                                View(inputs[0], 
+                                View(inputs[0],
                                     {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape, fifthViewShape},
                                     {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                                         std::min(secondDim - sIdx * secondViewShape, secondViewShape),
@@ -233,7 +233,7 @@ static void DivOperationExeFunc5Dims(
                                     {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
                                         nIdx * fourthViewShape, qIdx * fifthViewShape});
                             auto tileTensor1 =
-                                View(inputs[1], 
+                                View(inputs[1],
                                     {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape, fifthViewShape},
                                     {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
                                         std::min(secondDim - sIdx * secondViewShape, secondViewShape),

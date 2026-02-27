@@ -82,11 +82,11 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
         pto::TOR(dst, src0, src1);
         return;
     }
-    
+
     if constexpr (op == BinaryOp::REM) {
         pto::TREM(dst, src0, src1);
         return;
-    }  
+    }
 
     if constexpr (op == BinaryOp::EXPANDEXPDIF) {
         if constexpr (operand == TileOp::BroadcastOperand::NONE) {

@@ -51,9 +51,9 @@ static void ReciprocalOperationExeFunc2Dims(
                         std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
                 TileShape::Current().SetVecTile(args->tileShape_);
-                
-                auto res = Reciprocal(tileTensor); 
-                
+
+                auto res = Reciprocal(tileTensor);
+
                 Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
         }
@@ -83,9 +83,9 @@ static void ReciprocalOperationExeFunc3Dims(
                             std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
                     TileShape::Current().SetVecTile(args->tileShape_);
-                    
+
                     auto res = Reciprocal(tileTensor);
-                    
+
                     Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
             }
@@ -125,7 +125,7 @@ static void ReciprocalOperationExeFunc4Dims(
                                     nIdx * fourthViewShape});
                         TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = Reciprocal(tileTensor0);
-                        
+
                         Assemble(res,
                             {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
                                 nIdx * fourthViewShape},

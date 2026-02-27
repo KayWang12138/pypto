@@ -50,7 +50,7 @@ struct GatherMaskOpMetaData {
             TileShape::Current().SetVecTile(args->tileShape_);
             auto res = GatherMask(tileTensor0, args->patternMode_);
             Assemble(res, {bIdx * firstViewShape}, outputs[0]);
-            
+
         }
     }
 }

@@ -91,7 +91,7 @@ void SortStaticTest(int tileSize){
 
 template <typename T = float, typename idxT = int>
 void SortTest(int tileSize){
-    
+
     std::vector<int> params(2);
     readInput<int>(GetGoldenDir() + "/params.bin", params);
     int32_t length = params[0];
@@ -135,7 +135,7 @@ void SortTest(int tileSize){
 
 template <typename T = float, typename idxT = int>
 void SortWithIndexTest(int tileSize){
-    
+
     std::vector<int> params(2);
     readInput<int>(GetGoldenDir() + "/params.bin", params);
     int32_t length = params[0];
@@ -181,7 +181,7 @@ void SortWithIndexTest(int tileSize){
 
 template <typename T = float, typename idxT = int>
 void TopKTest(int tileSize){
-    
+
     std::vector<int> params(3);
     readInput<int>(GetGoldenDir() + "/params.bin", params);
     int32_t length = params[0];

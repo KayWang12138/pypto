@@ -16,4 +16,3 @@ add(self, other: 'Tensor | int | float') -> 'Tensor'
 ## 接口说明
 
 请参见[pypto.add](../operation/pypto-add.md)。
-

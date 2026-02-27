@@ -507,7 +507,7 @@ void InnerTiledScatterElementS(size_t cur, Function &function, const TileShape &
     // 按照dstShape进行切分
     auto &vecTile = tileShape.GetVecTile();
     if (vecTile[axis] < std::max(dstTensor->shape[axis], idxInput->shape[axis])) {
-        ALOG_ERROR_F("the axis:%d is not allowed to be cut. tileshape:%lld dstshape:%lld idxshape:%lld", 	 
+        ALOG_ERROR_F("the axis:%d is not allowed to be cut. tileshape:%lld dstshape:%lld idxshape:%lld",
             axis, vecTile[axis], dstTensor->shape[axis], idxInput->shape[axis]);
     }
     ASSERT(vecTile[axis] >= dstTensor->shape[axis]) << "The axis is not supported for tile splitting";
@@ -599,7 +599,7 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, in
 
     if ((orgDtype == DataType::DT_FP16 || orgDtype == DataType::DT_BF16) &&
         (reduce == ScatterMode::ADD || reduce == ScatterMode::MULTIPLY)) {
-        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),	 
+        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
         result.GetStorage(), orgDtype, CastMode::CAST_RINT);
     }
     return result;
@@ -647,7 +647,7 @@ void InnerTiledScatter(size_t cur, Function &function, const TileShape &tileShap
     // 按照dstShape进行切分
     auto &vecTile = tileShape.GetVecTile();
     if (vecTile[axis] < std::max(dstTensor->shape[axis], idxInput->shape[axis])) {
-        ALOG_ERROR_F("the axis:%d is not allowed to be cut. tileshape:%lld dstshape:%lld idxshape:%lld", 	 
+        ALOG_ERROR_F("the axis:%d is not allowed to be cut. tileshape:%lld dstshape:%lld idxshape:%lld",
             axis, vecTile[axis], dstTensor->shape[axis], idxInput->shape[axis]);
     }
     ASSERT(vecTile[axis] >= dstTensor->shape[axis]) << "The axis is not supported for tile splitting";
@@ -748,7 +748,7 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Tensor &src, int
     axis = axis < 0 ? operandSelfCast.GetShape().size() + axis : axis;
     CheckScatterParamsInvalid(operandSelfCast, indices, operandSrcCast, axis, reduce);
     Tensor result(operandSelfCast.GetStorage()->tensor->datatype, operandSelfCast.GetShape());
-    CALL(Scatter, *Program::GetInstance().GetCurrentFunction(), 
+    CALL(Scatter, *Program::GetInstance().GetCurrentFunction(),
         {result.GetStorage(), operandSelfCast.GetStorage(), indices.GetStorage(), operandSrcCast.GetStorage(), axis,
             static_cast<int>(reduce)});
 
@@ -1119,9 +1119,9 @@ void TensorIndexPut(Function &function, const LogicalTensorPtr &self, const Logi
     ASSERT(dimSelf >= num1 && dimSelf <= num4) << "input dimSelf is out of range [2, 4]";
     ASSERT(dimValues >= num1 && dimValues <= num4) << "input sizeIndices is out of range [1, 4]";
     ASSERT(dimValues +  indicesSize == dimSelf + num1) << "unsupport the inputs shape combination: dimValues +  indicesSize != dimSelf + 1";
-    ASSERT(valuesFirstDim == indicesShape) << "valuesFirstDim should equal to indicesSize"; 
+    ASSERT(valuesFirstDim == indicesShape) << "valuesFirstDim should equal to indicesSize";
     for (size_t i = 1; i < dimValues; i++) {
-        ASSERT(selfShape[dimSelf - i] == valuesShape[dimValues - i]) << "valuesShape should match selfShape"; 
+        ASSERT(selfShape[dimSelf - i] == valuesShape[dimValues - i]) << "valuesShape should match selfShape";
     }
     LogicalTensors iOperands = indices;
     iOperands.insert(iOperands.begin(), {self, values});
@@ -1134,7 +1134,7 @@ void TensorIndexPut(Function &function, const LogicalTensorPtr &self, const Logi
 
 void IndexPut_(Tensor &self, const std::vector<Tensor> &indices, const Tensor &values, bool accumulate) {
     DECLARE_TRACER();
-    
+
     std::vector<LogicalTensorPtr> indicesLogical;
     for (size_t i = 0; i < indices.size(); i++) {
         indicesLogical.push_back(indices[i].GetStorage());
@@ -1316,7 +1316,7 @@ Tensor Range(const Element &start, const Element &end, const Element &step) {
     }
     DataType outputDataType = DT_INT32;
     outputDataType = GetOutputDataType(start, end, step);
-    
+
     Element realStart = GetElementWithDataType(start, dataType);
     Element realEnd = GetElementWithDataType(end, dataType);
     Element realStep = GetElementWithDataType(step, dataType);
@@ -1338,15 +1338,15 @@ Tensor GatherMask(const Tensor &self, const uint8_t patternMode) {
     auto shape = self.GetShape();
     auto &vecTile = TileShape::Current().GetVecTile();
     if (patternMode == 1 || patternMode == 2) {
-        ASSERT(shape[shape.size() - 1] % 2 == 0) 
+        ASSERT(shape[shape.size() - 1] % 2 == 0)
             << "The last axis of input shape should be divisible by 2 when ptternMode is 1 or 2";
-        ASSERT(vecTile.tile[vecTile.tile.size() - 1] % 2 == 0) 
+        ASSERT(vecTile.tile[vecTile.tile.size() - 1] % 2 == 0)
             << "The last axis of tileshape should be divisible by 2 when ptternMode is 1 or 2";
         shape[shape.size() - 1] = shape[shape.size() - 1] / 2;
     } else if (patternMode == 3 || patternMode == 4 || patternMode == 5 || patternMode == 6) {
-        ASSERT(shape[shape.size() - 1] % 4 == 0) 
+        ASSERT(shape[shape.size() - 1] % 4 == 0)
             << "The last axis of input shape should be divisible by 4 when ptternMode is 3, 4, 5 or 6";
-        ASSERT(vecTile.tile[vecTile.tile.size() - 1] % 4 == 0) 
+        ASSERT(vecTile.tile[vecTile.tile.size() - 1] % 4 == 0)
             << "The last axis of tileshape should be divisible by 4 when ptternMode is 3, 4, 5 or 6";
         shape[shape.size() - 1] = shape[shape.size() - 1] / 4;
     } else {

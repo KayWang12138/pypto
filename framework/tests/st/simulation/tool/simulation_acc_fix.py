@@ -127,6 +127,3 @@ if __name__ == "__main__":
         print(res1[key])
         print(res2[key])
         print("!")
-
-
-

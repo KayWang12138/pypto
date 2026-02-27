@@ -99,7 +99,7 @@ def scaled_dot_product_attention_golden(
     return output
 
 
-def scaled_dot_product_attention_core(q: pypto.Tensor, k: pypto.Tensor, v: pypto.Tensor, 
+def scaled_dot_product_attention_core(q: pypto.Tensor, k: pypto.Tensor, v: pypto.Tensor,
                                       scale: float, dtype: pypto.DataType) -> pypto.Tensor:
     k_t = pypto.transpose(k, 2, 3)
     scores = pypto.matmul(q, k_t, out_dtype=dtype)
@@ -110,14 +110,14 @@ def scaled_dot_product_attention_core(q: pypto.Tensor, k: pypto.Tensor, v: pypto
 
 
 def scaled_dot_product_attention(run_mode: str = "npu"):
-    
+
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
     elif run_mode == "sim":
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def scaled_dot_product_attention_kernel(
         q: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM), pypto.DT_BF16),
@@ -132,7 +132,7 @@ def scaled_dot_product_attention(run_mode: str = "npu"):
         attn_weights = pypto.softmax(scores_scaled, dim=-1)
         output = pypto.matmul(attn_weights, v, out_dtype=pypto.DT_BF16)
         return output
-    
+
     return scaled_dot_product_attention_kernel
 
 
@@ -141,13 +141,13 @@ def test_scaled_dot_product_attention(device_id=None, run_mode: str = "npu", dyn
     print("=" * 60)
     print("Test: Dynamic Scaled Dot-Product Attention")
     print("=" * 60)
-    
+
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    
+
     q_torch = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM, dtype=torch.bfloat16, device=device)
     k_torch = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM, dtype=torch.bfloat16, device=device)
     v_torch = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM, dtype=torch.bfloat16, device=device)
-    
+
     out = scaled_dot_product_attention(run_mode)(q_torch, k_torch, v_torch)
 
     scale = 1.0 / (HEAD_DIM ** 0.5)
@@ -155,7 +155,7 @@ def test_scaled_dot_product_attention(device_id=None, run_mode: str = "npu", dyn
 
     print(f"Input shape: {q_torch.shape}")
     print(f"Output shape: {out.shape}")
-    
+
     if run_mode == "npu":
         max_diff = (out - golden).abs().max().item()
         torch.allclose(out, golden, rtol=3e-3, atol=3e-3)
@@ -164,7 +164,7 @@ def test_scaled_dot_product_attention(device_id=None, run_mode: str = "npu", dyn
     print()
 
 
-def attention_with_projection_core(q_view: pypto.Tensor, k_view: pypto.Tensor, 
+def attention_with_projection_core(q_view: pypto.Tensor, k_view: pypto.Tensor,
                                    v_view: pypto.Tensor, out_weight: pypto.Tensor,
                                     scale: float, dtype: pypto.DataType) -> pypto.Tensor:
     batch = q_view.shape[0]
@@ -187,14 +187,14 @@ def attention_with_projection_core(q_view: pypto.Tensor, k_view: pypto.Tensor,
 
 
 def attention_with_projection(run_mode: str = "npu"):
-    
+
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
     elif run_mode == "sim":
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
+
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def attention_with_projection_kernel(
         hidden_states: pypto.Tensor((BATCH_SIZE, SEQ_LEN, HIDDEN_SIZE), pypto.DT_BF16),
@@ -256,7 +256,7 @@ def attention_with_projection_golden(
 ) -> torch.Tensor:
     num_heads = NUM_HEADS
     head_dim = HEAD_DIM
-    
+
     """PyTorch reference implementation for attention with projections."""
     q = torch.matmul(hidden_states, q_weight)
     k = torch.matmul(hidden_states, k_weight)
@@ -293,11 +293,11 @@ def test_attention_with_projection(device_id=None, run_mode: str = "npu", dynami
 
     # Execute
     out = attention_with_projection(run_mode)(hidden_states, q_weight, k_weight, v_weight, out_weight)
-    
+
     golden = attention_with_projection_golden(
         hidden_states, q_weight, k_weight, v_weight, out_weight
     )
-    
+
     print(f"Hidden states shape: {hidden_states.shape}")
     print(f"Output shape: {out.shape}")
     if run_mode == "npu":

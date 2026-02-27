@@ -191,7 +191,7 @@ void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
         return;
     }
     //将view的输出tensor的memory ori和tobe类型设置为view上指定的mem类型
-    out->SetMemoryTypeOriginal(attrToType,true); 
+    out->SetMemoryTypeOriginal(attrToType,true);
     for (auto &consumerOp : out->GetConsumers()) {
         inserter.UpdateTensorTobeMap(out,*consumerOp,attrToType);
     }
@@ -381,7 +381,7 @@ void AssignMemoryType::AssignMoveOp(Operation &operation) {
             AssignMoveOpForView(operation);
             break;
         }
-        default: 
+        default:
             break;
     }
 }
@@ -436,7 +436,7 @@ void AssignMemoryType::AssignMoveOpForAssemble(Operation &operation) {
             }
             int64_t tensorBytes = static_cast<int64_t>(BytesOf(tensor->Datatype()));
             int64_t byteOffset = tensorBytes * lineOffset;
-            
+
             APASS_LOG_DEBUG_F(Elements::Tensor, "Op %ld 's input tensor, lineOffset is %ld, tensorBytes is %ld, byteOffset is %ld.", lineOffset, tensorBytes, byteOffset);
             // 对齐检查，根据assemble的offset和assemble输出tensor的rawshape计算线性offset，如果非32B对齐，则将assemble输出tensor推导为DDR类型
             static constexpr int UB_ALIGN_BYTES = 32;
@@ -459,7 +459,7 @@ void AssignMemoryType::AssignMoveOpForAssemble(Operation &operation) {
         auto assembleOpAttribute = std::dynamic_pointer_cast<AssembleOpAttribute>(operation.GetOpAttribute());
         assembleOpAttribute->SetFromType(fromType);
         APASS_LOG_DEBUG_F(Elements::Operation, "Set %s[%d]'s output %d originial memoryType %s --> %s during AssignMoveOpForAssemble.",
-            operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), tensor->magic, 
+            operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), tensor->magic,
             BriefMemoryTypeToString(tensor->GetMemoryTypeOriginal()).c_str(), BriefMemoryTypeToString(fromType).c_str());
     }
 }

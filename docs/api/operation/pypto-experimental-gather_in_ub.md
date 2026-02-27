@@ -77,7 +77,7 @@ result = pypto.experimental.gather_in_ub(param , indices , blockTable, blockSize
 结果示例如下：
 
 ```python
-输入数据param : 
+输入数据param :
 [
   # token 0
   [  0,  1,  2,  3],
@@ -94,11 +94,10 @@ result = pypto.experimental.gather_in_ub(param , indices , blockTable, blockSize
 ]
 输入数据indices : [0, 4, 3]
 输入数据blockTable : [0, 2, 1]
-输出数据out: 
+输出数据out:
 [
    [  0,  1,  2,  3],
    [ 20, 21, 22, 23],
    [ 50, 51, 52, 53],
 ]
 ```
-

@@ -65,7 +65,7 @@ int GetMaxBlockdim() {
         ALOG_WARN_F(
             "The cubeBlockDim[%d] and vectorBlockDim[%d] do not conform to the 1: %d ratio of AIC and AIV, "
             "and will be set to values that conform to the ratio of AIC and AIV. "
-            "The cubeBlockDim and vectorBlockDim are set at %d and %d", 
+            "The cubeBlockDim and vectorBlockDim are set at %d and %d",
             cubeBlockDim, vectorBlockDim, AICAIVRATIO, rtsMaxBlockDim, rtsMaxBlockDim * AICAIVRATIO);
         return rtsMaxBlockDim;
     } else {
@@ -75,7 +75,7 @@ int GetMaxBlockdim() {
     return kMinDefaultDim;
 #endif
 }
- 	 
+
 void (*forceLinkLibraryCompiler)() = &npu::tile_fwk::ForceLinkLibraryCompiler;
 
 DeviceLauncherContext &DeviceLauncherContext::Get() {
@@ -468,7 +468,7 @@ uint32_t GetProcessId() {
     } else {
         ALOG_WARN_F("drvGetProcessSign is nullptr, falling back to getpid()");
     }
-    
+
     uint32_t pid = static_cast<uint32_t>(getpid());
     ALOG_DEBUG_F("Using getpid(): pid=%d", pid);
     return pid;
@@ -599,7 +599,7 @@ void DeviceLauncher::AddAicpuStream(aclmdlRI &rtModel, bool tripleStream) {
 #ifdef BUILD_WITH_CANN
     auto ctrlStream = (aclrtStream)machine::GetRA()->GetCtrlStream();
     auto schedtream = (aclrtStream)machine::GetRA()->GetScheStream();
-    
+
     if (IsCaptureMode()) {
         if (tripleStream) {
             rtStreamAddToModel(ctrlStream, rtModel);

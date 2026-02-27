@@ -84,7 +84,7 @@ def trans_nd_to_fractal_nz(data: torch.Tensor, keep_m_dim=False):
         array_trans = _gen_axes_for_transpose(len(data.shape) - 2, [1, 0, 2])
         data = data.reshape(batch_ori + (m_ori, n1, n0)).permute(*array_trans).contiguous()
     return data
-    
+
 
 def create_mm_kernel_with_mn_split(shape_info):
     m = shape_info.ori_shape[0]
@@ -96,7 +96,7 @@ def create_mm_kernel_with_mn_split(shape_info):
     b_format = pypto.TileOpFormat.TILEOP_NZ if shape_info.b_format_nz else pypto.TileOpFormat.TILEOP_ND
     a_shape = [k, m] if shape_info.a_trans else [m, k]
     b_shape = [n, k] if shape_info.b_trans else [k, n]
-    
+
     @pypto.frontend.jit(
         debug_options={"runtime_debug_mode": 0, "compile_debug_mode": 0}
     )
@@ -135,7 +135,7 @@ def create_bmm_kernel_with_no_mn_split(shape_info):
     b_format = pypto.TileOpFormat.TILEOP_NZ if shape_info.b_format_nz else pypto.TileOpFormat.TILEOP_ND
     a_shape = [b, k, m] if shape_info.a_trans else [b, m, k]
     b_shape = [b, n, k] if shape_info.b_trans else [b, k, n]
-    
+
     @pypto.frontend.jit(
         debug_options={"runtime_debug_mode": 0, "compile_debug_mode": 0}
     )
@@ -143,7 +143,7 @@ def create_bmm_kernel_with_no_mn_split(shape_info):
         a_tensor: pypto.Tensor(a_shape, shape_info.in_dtype, format=a_format),
         b_tensor: pypto.Tensor(b_shape, shape_info.in_dtype, format=b_format),
     ) -> pypto.Tensor([b, m, n], shape_info.out_dtype):
-        pypto.set_cube_tile_shapes(shape_info.m_tile_shape, shape_info.k_tile_shape, shape_info.n_tile_shape, 
+        pypto.set_cube_tile_shapes(shape_info.m_tile_shape, shape_info.k_tile_shape, shape_info.n_tile_shape,
                                    enable_multi_data_load=shape_info.mdl_flag, enable_split_k=shape_info.gm_acc)
         out_tensor = pypto.Tensor([b, m, n], shape_info.out_dtype)
         out_tensor = pypto.matmul(a_tensor, b_tensor, a_trans=shape_info.a_trans, b_trans=shape_info.b_trans,
@@ -231,7 +231,7 @@ def test_mm_with_mn_split_nz():
     n_view = 256
     shape_info = ShapeConfig([m, k, n], [tile_m, tile_m], [tile_k, tile_k], [tile_n, tile_n], [m_view, n_view], FP16,
                                 FP32, True, True, True, True, False, False, False)
-    
+
     a1_tensor = torch.rand([k, m], dtype=torch.float16)
     b1_tensor = torch.rand([n, k], dtype=torch.float16)
 
