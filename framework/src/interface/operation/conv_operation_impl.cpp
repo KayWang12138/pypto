@@ -703,7 +703,7 @@ void SetImg2ColAttr(Operation &load3dOpAl0, const ConvAttrParam &convAttrParam, 
         load3dOpAl0.SetAttribute(L12L0ConvOpAttributeKey::paddingRight, 0);
     }
     // cal postm postk
-    int64_t mStartPt = iterInfo.hL0Offset * iterInfo.winL1Size + iterInfo.wL0Offset;
+    int64_t mStartPt = iterInfo.hL0Offset * iterInfo.woutL1Size + iterInfo.wL0Offset;
     int64_t kStartPt = iterInfo.kL0Offset % convTileInfo.kAL1;
     load3dOpAl0.SetAttribute(L12L0ConvOpAttributeKey::postM, mStartPt);
     load3dOpAl0.SetAttribute(L12L0ConvOpAttributeKey::postK, kStartPt);
