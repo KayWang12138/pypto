@@ -108,4 +108,50 @@ TEST_F(TestSetHeuristicTileShapes, TestVector) {
     EXPECT_EQ(status, SUCCESS);
 }
 
+
+TEST_F(TestSetHeuristicTileShapes, TestSemanticLabel) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestSetHeuristicTileShapes", "TestSetHeuristicTileShapes", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    
+    // Prepare the graph
+    std::vector<int64_t> inputAShape = {64, 128};
+    std::vector<int64_t> inputBShape = {128, 64};
+    std::vector<int64_t> outputCShape = {64, 64};
+
+    auto inputA = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inputAShape);
+    auto inputB = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inputBShape);
+    auto outputC = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outputCShape);
+
+    currFunctionPtr->AddOperation(Opcode::OP_A_MUL_B, {inputA, inputB}, {outputC});
+    std::shared_ptr<SemanticLabel> label;
+
+    std::cout<<"Hello Huba buba"<<std::endl;
+    std::cout<<currFunctionPtr->GetSortedOperations().size()<<std::endl;
+
+    for(auto &op: currFunctionPtr->GetSortedOperations()){
+        op->SetSemanticLabel(label);
+    }
+
+
+    for(auto &op: currFunctionPtr->GetSortedOperations()){
+        std::cout<<op->GetOpcodeStr()<<std::endl;
+        if(op->GetSemanticLabel()){
+            std::cout<<"I have semantic label"<<std::endl;
+        }
+    }
+    
+
+
+    currFunctionPtr->inCasts_.push_back(inputA);
+    currFunctionPtr->inCasts_.push_back(inputB);
+    currFunctionPtr->outCasts_.push_back(outputC);
+
+    // Run the pass
+    SetHeuristicTileShapes setHeuristicTileShapes;
+    auto status = setHeuristicTileShapes.RunOnFunction(*currFunctionPtr);
+    EXPECT_EQ(status, SUCCESS);
+}
+
+
+
 } // namespace acend
