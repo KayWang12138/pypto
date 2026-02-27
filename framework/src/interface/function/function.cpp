@@ -1274,11 +1274,7 @@ void Function::MagicLookup(const Function *function, const std::vector<LogicalTe
 unsigned long Function::ComputeHashOrderless() const {
     std::stringstream ss;
     ss << std::to_string(static_cast<int>(functionType_)) << " ";
-    ss << std::to_string(static_cast<int>(graphType_)) << " ";
-    // 对于BLOCK_GRAPH，总是加入magic name以确保唯一性
-    if (graphType_ == GraphType::BLOCK_GRAPH) {
-        ss << "BLOCK_MAGIC:" << GetMagicName() << " ";
-    }
+    ss << std::to_string(static_cast<int>(graphType_)) << " ";   
     if (!IsGraphType({GraphType::BLOCK_GRAPH, GraphType::LEAF_VF_GRAPH}) &&
         !IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TENSOR_GRAPH)) {
         ss << GetMagicName() << " ";
@@ -1333,6 +1329,14 @@ unsigned long Function::ComputeHashOrderless() const {
     // temporary avoidance, switch SUPPORT_DYNAMIC_ALIGNED has an unexpected effect on dynamic binary reuse
     if (functionType_ == FunctionType::DYNAMIC) {
         ss << "dynamic unaligned:" << config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_ALIGNED);
+    }
+    if (leafAttr_ != nullptr) {
+        // mixId标识同一次Mix拆出来的叶子函数组
+        if (leafAttr_->mixId != -1) {
+            ss << " MIX_ID:" << leafAttr_->mixId;
+        }   
+        // aivCore可以区分同一个Mix拆出来的不同component
+        ss << " AIV_CORE:" << static_cast<int>(leafAttr_->aivCore);
     }
     std::hash<std::string> hasher;
     auto result = hasher(ss.str());
