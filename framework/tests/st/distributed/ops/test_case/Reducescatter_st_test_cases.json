@@ -44,7 +44,7 @@
                 "on_board": true,
                 "func_id": -1
             },
-            "index": 8
+            "index": 0
         },
         {
             "case_index": 1,
@@ -90,7 +90,7 @@
                 "on_board": true,
                 "func_id": -1
             },
-            "index": 9
+            "index": 1
         },
         {
             "case_index": 2,
@@ -136,7 +136,7 @@
                 "on_board": true,
                 "func_id": -1
             },
-            "index": 10
+            "index": 2
         }
     ]
 }

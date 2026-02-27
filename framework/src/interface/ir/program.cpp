@@ -1,73 +1,62 @@
-/**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+/*
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
- */
-
-/*!
- * \file program.cpp
- * \brief
+ * -----------------------------------------------------------------------------------------------------------
  */
 
 #include "ir/program.h"
-#include "ir/utils.h"
 
+#include <map>
+#include <memory>
+#include <set>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "core/logging.h"
+#include "ir/expr.h"
 #include "ir/function.h"
 
-namespace pto {
+namespace pypto {
+namespace ir {
 
-ProgramModule::ProgramModule(std::string name)
-    : Object(ObjectType::Program, std::move(name)) {}
-
-void ProgramModule::SetProgramEntry(const std::shared_ptr<Function>& programEntry) {
-    programEntry_ = programEntry;
+// Vector-based constructor: creates GlobalVars from function names
+Program::Program(const std::vector<FunctionPtr>& functions, std::string name, Span span)
+    : IRNode(std::move(span)), name_(std::move(name)) {
+  // Create a map and populate it with GlobalVar -> Function mappings
+  // The map automatically sorts by GlobalVar name via the GlobalVarPtrLess comparator
+  std::set<std::string> function_names;
+  for (const auto& func : functions) {
+    INTERNAL_CHECK(func) << "Program constructor encountered null function";
+    auto func_name = func->name_;
+    INTERNAL_CHECK(!func_name.empty()) << "Program constructor encountered empty function name";
+    INTERNAL_CHECK(function_names.find(func_name) == function_names.end()) << "Duplicate function name \"" << func_name << "\"";
+    function_names.insert(func_name);
+    auto global_var = std::make_shared<const GlobalVar>(func_name);
+    functions_.emplace(global_var, func);
+  }
 }
 
-void ProgramModule::AddFunction(const std::shared_ptr<Function>& function) {
-    functions_.push_back(function);
+FunctionPtr Program::GetFunction(const std::string& name) const {
+  auto it = functions_.find(std::make_shared<const GlobalVar>(name));
+  if (it != functions_.end()) {
+    return it->second;
+  }
+  return nullptr;
 }
 
-void PrintAttributes(std::ostream& os, const AttributeMap& attrs, int indent) {
-    for (const auto& kv : attrs) {
-        PrintIndent(os, indent);
-        os << "attr " << kv.first << " = " << kv.second << "\n";
-    }
+GlobalVarPtr Program::GetGlobalVar(const std::string& name) const {
+  auto it = functions_.find(std::make_shared<const GlobalVar>(name));
+  if (it != functions_.end()) {
+    return it->first;
+  }
+  return nullptr;
 }
 
-void ProgramModule::Print(std::ostream& os, int indent) const {
-    // Print indentation for the module header.
-    PrintIndent(os, indent);
-    os << "program.module " << GetPrefixedName() << " {\n";
-
-    // Entrypoints
-    PrintIndent(os, indent + 1);
-    os << "program.entry " << programEntry_->GetPrefixedName() << "\n";
-
-    // Program-level attributes.
-    PrintAttributes(os, attributes_, indent + 1);
-
-    // Functions.
-    for (const auto& f : functions_) {
-        f->Print(os, indent + 1);
-        os << "\n";
-    }
-
-    // Closing brace.
-    for (int i = 0; i < indent; ++i) {
-        os << "  ";
-    }
-    os << "}\n";
-}
-
-std::ostream& operator<<(std::ostream& os, const ProgramModule& module) {
-    module.Print(os, 0);
-    return os;
-}
-
-} // namespace pto
-
-
+}  // namespace ir
+}  // namespace pypto

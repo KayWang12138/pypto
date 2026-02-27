@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -8,161 +8,130 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
- * \file function.h
- * \brief
- */
+#ifndef PYPTO_IR_FUNCTION_H_
+#define PYPTO_IR_FUNCTION_H_
 
-#pragma once
-
-#include "ir/statement.h"
-#include "ir/value.h"
-#include "ir/utils.h"
-#include "interface/function/function.h"
-
-#include <ostream>
+#include <memory>
 #include <string>
+#include <tuple>
+#include <utility>
 #include <vector>
 
-namespace pto {
+#include "ir/core.h"
+#include "ir/expr.h"
+#include "ir/reflection/field_traits.h"
+#include "ir/stmt.h"
+#include "ir/type.h"
 
-// High-level classification of PTO functions.
-enum class FunctionKind {
-    ControlFlow, // control-flow functions using statement dialect
-    DataFlow,    // pure data-flow graphs at tensor/tile level
-    Block       // low-level kernels near instruction/memory level
+namespace pypto {
+namespace ir {
+
+/**
+ * @brief Function type classification
+ *
+ * Categorizes functions by their execution context and purpose:
+ * - Opaque: Unspecified (default)
+ * - Orchestration: Runs on host/AICPU for control flow and dependency analysis
+ * - InCore: Sub-graph on specific AICore
+ */
+enum class FunctionType : uint8_t {
+  Opaque = 0,         ///< Default: unspecified function type
+  Orchestration = 1,  ///< Host/AICPU control and coordination
+  InCore = 2          ///< AICore sub-graph execution
 };
 
-// Signature of a function: arguments and results.
-// Arguments are Data objects where the name field stores the argument name (e.g. "%A").
-struct FunctionSignature {
-    FunctionSignature() {}
-    FunctionSignature(const std::vector<TensorValuePtr> &args)
-    {
-        for (auto &arg : args) {
-            arguments.emplace_back(arg);
-        }
-    }
+/**
+ * @brief Convert FunctionType to string
+ * @param type The function type
+ * @return String representation ("Opaque", "Orchestration", or "InCore")
+ */
+inline std::string FunctionTypeToString(FunctionType type) {
+  switch (type) {
+    case FunctionType::Opaque:
+      return "Opaque";
+    case FunctionType::Orchestration:
+      return "Orchestration";
+    case FunctionType::InCore:
+      return "InCore";
+    default:
+      return "Unknown";
+  }
+}
 
-    FunctionSignature(const std::vector<TensorValuePtr> &inputArgs,
-                      const std::vector<TensorValuePtr> &outputArgs) 
-    {
-        for (auto &inArg : inputArgs) {
-            arguments.emplace_back(inArg);
-        }
+/**
+ * @brief Convert string to FunctionType
+ * @param str String representation
+ * @return FunctionType enum value
+ * @throws std::invalid_argument if string is not recognized
+ */
+inline FunctionType StringToFunctionType(const std::string& str) {
+  if (str == "Opaque") {
+    return FunctionType::Opaque;
+  } else if (str == "Orchestration") {
+    return FunctionType::Orchestration;
+  } else if (str == "InCore") {
+    return FunctionType::InCore;
+  } else {
+    throw std::invalid_argument("Unknown FunctionType: " + str);
+  }
+}
 
-        for (auto &outArg : outputArgs) {
-            arguments.emplace_back(outArg);
-        }
-    }
-    std::vector<ValuePtr> arguments; // argument types with names stored in Value::name
-    std::vector<ValuePtr> results;  // return types
-    std::map<std::string, npu::tile_fwk::DynParamInfo> dynParamTable_;
+/**
+ * @brief Function definition
+ *
+ * Represents a complete function definition with name, parameters, return types, and body.
+ * Functions are immutable IR nodes.
+ */
+class Function : public IRNode {
+ public:
+  /**
+   * @brief Create a function definition
+   *
+   * @param name Function name
+   * @param params Parameter variables
+   * @param return_types Return types
+   * @param body Function body statement (use SeqStmts for multiple statements)
+   * @param span Source location
+   * @param type Function type (default: Opaque)
+   */
+  Function(std::string name, std::vector<VarPtr> params, std::vector<TypePtr> return_types, StmtPtr body,
+           Span span, FunctionType type = FunctionType::Opaque)
+      : IRNode(std::move(span)),
+        name_(std::move(name)),
+        func_type_(type),
+        params_(std::move(params)),
+        return_types_(std::move(return_types)),
+        body_(std::move(body)) {}
 
-    void SetDynParam(const std::string &name, const npu::tile_fwk::DynParamInfo &dynParam) {
-        dynParamTable_[name] = dynParam;
-    }
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::Function; }
+  [[nodiscard]] std::string TypeName() const override { return "Function"; }
 
-    const npu::tile_fwk::DynParamInfo &GetDynParam(const std::string &name) const {
-        return dynParamTable_.at(name);
-    }
+  /**
+   * @brief Get field descriptors for reflection-based visitation
+   *
+   * @return Tuple of field descriptors (params as DEF field, func_type, return_types and body as USUAL
+   * fields, name as an IGNORE field)
+   */
+  static constexpr auto GetFieldDescriptors() {
+    return std::tuple_cat(IRNode::GetFieldDescriptors(),
+                          std::make_tuple(reflection::DefField(&Function::params_, "params"),
+                                          reflection::UsualField(&Function::func_type_, "func_type"),
+                                          reflection::UsualField(&Function::return_types_, "return_types"),
+                                          reflection::UsualField(&Function::body_, "body"),
+                                          reflection::IgnoreField(&Function::name_, "name")));
+  }
+
+ public:
+  std::string name_;                   // Function name
+  FunctionType func_type_;             // Function type (orchestration, incore, or opaque)
+  std::vector<VarPtr> params_;         // Parameter variables
+  std::vector<TypePtr> return_types_;  // Return types
+  StmtPtr body_;                       // Function body statement
 };
 
-// Minimal container for a PTO function.
-// This prototype focuses on structural information and simple printing,
-// not on detailed statement/tensor/tile bodies.
-class Function : public Object {
-public:
-    Function(std::string name, FunctionKind kind, FunctionSignature signature);
+using FunctionPtr = std::shared_ptr<const Function>;
 
-    ObjectType GetObjectType() const override { return ObjectType::Function; }
+}  // namespace ir
+}  // namespace pypto
 
-    FunctionKind GetKind() const { return kind_; }
-    const FunctionSignature& GetSignature() const { return signature_; }
-
-    // Top-level statement sequence forming the function body.
-    size_t BodyStmtsNum() const { return compound_->GetStatementsNum(); }
-    StatementPtr GetBodyStatement(size_t index) const { return compound_->GetStatement(index); }
-    void SetBodyStatement(size_t index, StatementPtr stmt) { compound_->SetStatement(index, stmt); }
-
-    // Scope for Data objects and statements created in this function.
-    CompoundStatementPtr GetCompound() { return compound_; }
-    const CompoundStatementPtr GetCompound() const { return compound_; }
-
-    // Scope containing function arguments. This scope is the parent of the function body scope.
-    CompoundStatementPtr GetInputCompound() { return inputCompound_; }
-    const CompoundStatementPtr GetInputCompound() const { return inputCompound_; }
-
-    // Convenience to append a top-level statement.
-    void AddStatement(StatementPtr stmt);
-
-    // stack workspace size for function
-    int GetStackWorkspaceSize() const { return stackWorkspaceSize_; }
-    void SetStackWorkspaceSize(int stackWorkspaceSize) { stackWorkspaceSize_ = stackWorkspaceSize; }
-
-    // Compute hash value for this function using bottom-up approach (always recomputes and updates cachedHash_)
-    // Function hash contains Statement hashes, which contain Operation hashes
-    uint64_t ComputeHash();
-
-    // Get function hash value
-    uint64_t GetFunctionHash() const { return functionHash_; }
-
-    // check if value is from in cast
-    bool isFromInCast(const ValuePtr &value) const;
-    // check if value is from out cast
-    bool isFromOutCast(const ValuePtr &value) const;
-    // get index of in cast
-    int GetIncastIndex(const ValuePtr &value) const;
-    // get index of out cast
-    int GetOutcastIndex(const ValuePtr &value) const;
-
-    // Pretty-print a standalone function in PTO-IR-like syntax.
-    void Print(std::ostream& os, int indent = 0) const;
-
-protected:
-    FunctionKind kind_;
-    FunctionSignature signature_;
-    CompoundStatementPtr inputCompound_; // Scope holding function arguments (inputs)
-    CompoundStatementPtr compound_;  // Scope for Data objects and statements created in this function
-
-private:
-    int stackWorkspaceSize_{0};
-    uint64_t functionHash_{0};
-};
-
-class BlockFunction : public Function {
-public:
-    BlockFunction(std::string name, FunctionSignature signature) : Function(name, FunctionKind::Block, signature) {}
-
-    int GetProgramId() const { return programId_; }
-    void SetProgramId(int programId) { programId_ = programId; }
-
-    void SetDynParam(const std::string &name, const npu::tile_fwk::DynParamInfo &dynParam) {
-        signature_.SetDynParam(name, dynParam);
-    }
-
-    const npu::tile_fwk::DynParamInfo &GetDynParam(const std::string &name) const {
-        return signature_.GetDynParam(name);
-    }
-
-    void SetLeafFuncAttribute(const std::shared_ptr<npu::tile_fwk::LeafFuncAttribute> &leafFuncAttr) {
-        leafFuncAttr_ = leafFuncAttr;
-    }
-
-    const std::shared_ptr<npu::tile_fwk::LeafFuncAttribute> &GetLeafFuncAttribute() const {
-        return leafFuncAttr_;
-    }
-
-private:
-    int programId_;
-    std::shared_ptr<npu::tile_fwk::LeafFuncAttribute> leafFuncAttr_;
-};
-
-using FunctionPtr = std::shared_ptr<Function>;
-
-// Helper for convenient streaming: std::cout << func;
-std::ostream& operator<<(std::ostream& os, const Function& func);
-
-} // namespace pto
-
-
+#endif  // PYPTO_IR_FUNCTION_H_

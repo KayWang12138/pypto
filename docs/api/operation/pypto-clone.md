@@ -32,7 +32,7 @@ clone(input: Tensor) -> Tensor:
 
 ```python
 x = pypto.tensor([2, 2], pypto.DT_FP32)
-y = pypto.clone(x)
+y = pypto.clone(y)
 ```
 
 结果示例如下：
