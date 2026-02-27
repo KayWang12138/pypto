@@ -1330,13 +1330,13 @@ unsigned long Function::ComputeHashOrderless() const {
     if (functionType_ == FunctionType::DYNAMIC) {
         ss << "dynamic unaligned:" << config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_ALIGNED);
     }
-    if (leafAttr_ != nullptr) {
-        // mixId标识同一次Mix拆出来的叶子函数组
-        if (leafAttr_->mixId != -1) {
-            ss << " MIX_ID:" << leafAttr_->mixId;
+    if (leafFuncAttr_ != nullptr) {
+        // mixId标识同一次Mix拆出来的leafFunction组
+        if (leafFuncAttr_->mixId != -1) {
+            ss << " MIX_ID:" << leafFuncAttr_->mixId;
         }   
         // aivCore可以区分同一个Mix拆出来的不同component
-        ss << " AIV_CORE:" << static_cast<int>(leafAttr_->aivCore);
+        ss << " AIV_CORE:" << static_cast<int>(leafFuncAttr_->aivCore);
     }
     std::hash<std::string> hasher;
     auto result = hasher(ss.str());

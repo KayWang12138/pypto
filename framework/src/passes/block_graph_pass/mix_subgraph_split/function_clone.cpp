@@ -59,7 +59,7 @@ Function* FunctionClone::CloneFunctionByComponent(const InternalComponentInfo& c
     std::string leafName = originalMixFunc->GetRawName() + "_leaf" + std::to_string(idx);
     ALOG_DEBUG_F("Add leafFunction %s", leafName.c_str());
     // 手动创建function对象
-    auto funcMagicName = leafName + "_"  + std::to_string(IdGen<IdType::FUNCTION>::Inst().CurId());
+    auto funcMagicName = leafName + "_" + std::to_string(IdGen<IdType::FUNCTION>::Inst().CurId());
     cloneFunc = std::make_shared<Function>(Program::GetInstance(), funcMagicName, leafName, &rootFunc);
     // 设置function类型
     cloneFunc->SetFunctionType(originalMixFunc->GetFunctionType());
