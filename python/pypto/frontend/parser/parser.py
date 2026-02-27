@@ -154,6 +154,7 @@ class Parser(ast.NodeVisitor):
         self._signature_cache = None
         self._lowered_signature_cache = None
         self._bound_dim_values: Optional[dict[str, int]] = None
+        self.input_pto_tensor: Optional[list[pypto.Tensor]] = None
 
 
     @staticmethod
@@ -289,8 +290,10 @@ class Parser(ast.NodeVisitor):
             self._apply_bound_dim_values_to_context_frame()
 
             # Get input arguments (only tensors allowed)
-            tensor_input_args = self._visit_arguments(function_node.args)
-
+            tensor_input_args_def = self._visit_arguments(function_node.args)
+            tensor_input_args = self.input_pto_tensor
+            for idx, (in_obj, def_obj) in enumerate(zip(tensor_input_args, tensor_input_args_def)):
+                in_obj.name = def_obj.name
             # Get and validate output arguments
             if function_node.returns is None:
                 output_tensors = []
@@ -883,6 +886,11 @@ class Parser(ast.NodeVisitor):
         """
         for arg in tensor_args:
             if isinstance(arg, pypto.Tensor):
+                print(f"----_add_tensor_args_to_context arg.name: {arg.name}")
+                print(f"----_add_tensor_args_to_context arg.shape: {arg.shape}")
+                print(f"----_add_tensor_args_to_context arg.dtype: {arg.dtype}")
+                print(f"----_add_tensor_args_to_context arg.ori_shape: {arg.ori_shape}")
+                print(f"----_add_tensor_args_to_context           arg: {arg}")
                 self.context.add(arg.name, arg)
 
     def _setup_output_var_mapping(
@@ -998,7 +1006,10 @@ class Parser(ast.NodeVisitor):
                 # For nested functions, we don't create a pypto.Function; body will be inlined on call.
                 return None
             else:
-                with pypto.function(node.name, *tensor_input_args, *output_args):
+                print(f"----_visit_function_def tensor_input_args: {tensor_input_args}")
+
+                print(f"----_visit_function_def output_args: {output_args}")
+                with pypto.function(node.name, *tensor_input_args):
                     for _ in pypto.loop(1):
                         self._visit_body(node.body)
 
