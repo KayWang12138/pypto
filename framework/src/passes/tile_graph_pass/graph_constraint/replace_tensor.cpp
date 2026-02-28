@@ -15,6 +15,7 @@
 
 #include "replace_tensor.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/tile_graph_pass/graph_constraint/pre_graph/remove_redundant_assemble.h"
 
 #define MODULE_NAME "ReplaceTensor"
 
@@ -911,6 +912,11 @@ Status ReplaceTensor::RunOnFunction(Function &function) {
         return FAILED;
     }
     if (MarkTensorAsPartialMem(function) == FAILED) {
+        return FAILED;
+    }
+    // 因 copyout->assembel 场景处理过程存在中间态，将DeleteRedundantAssemble移动至此处
+    RemoveRedundantAssemble removeRedundantAssemble;
+    if (removeRedundantAssemble.DeleteRedundantAssemble(function) == FAILED) {
         return FAILED;
     }
     APASS_LOG_INFO_F(Elements::Operation, "===> End ReplaceTensor.");
