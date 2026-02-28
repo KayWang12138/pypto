@@ -487,14 +487,14 @@ Status NBufferMerge::NBufferMergeProcess(Function &func) {
     GetColorHash(opOriList, hashColor, hashMap);
     std::map<uint64_t, size_t> hashMergeNum;
     if (vecNBuffermode == autoMerge || vecNBuffermode == autoMulityInOutMerge) {
-        APASS_LOG_INFO_F(Elements::Config, "Manually set VEC_NBUFFER_MODE to %d, automatically calculate mergeNum.", vecNBuffermode);
+        APASS_LOG_INFO_F(Elements::Config, "Manually set mode to %d, automatically calculate mergeNum.", vecNBuffermode);
         hashMergeNum = GetIsoColorMergeNum(hashMap);
     } else {
         if (CheckVecNBufferSettingForManualMerge() == FAILED) {
             APASS_LOG_ERROR_F(Elements::Config, "Check VEC_NBUFFER_SETTING for manualMerge failed; Please check the VEC_NBUFFER_SETTING config.");
             return FAILED;
         }
-        APASS_LOG_INFO_F(Elements::Config, "Manually set VEC_NBUFFER_MODE to %d.", vecNBuffermode);
+        APASS_LOG_INFO_F(Elements::Config, "Manually set mode to %d.", vecNBuffermode);
         hashMergeNum = SetNumDB(hashMap);
     }
     if (vecNBuffermode == autoMulityInOutMerge || vecNBuffermode == manualMulityInOutMerge) {
