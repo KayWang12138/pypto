@@ -21,7 +21,7 @@ namespace pypto {
 namespace ir {
 
 /**
- * @brief Internal base class for pass implementations
+ * \brief Internal base class for pass implementations
  *
  * This is an internal class used for implementing passes via pimpl pattern.
  *
@@ -36,25 +36,25 @@ namespace ir {
  * automatically handles the Program → Program transformation.
  */
 class PassImpl {
- public:
-  virtual ~PassImpl() = default;
+public:
+    virtual ~PassImpl() = default;
 
-  /**
-   * @brief Execute the pass on a program
-   *
-   * @param program Input program to transform
-   * @return Transformed program
-   */
-  virtual ProgramPtr operator()(const ProgramPtr& program) = 0;
+    /**
+     * \brief Execute the pass on a program
+     *
+     * \param program Input program to transform
+     * \return Transformed program
+     */
+    virtual ProgramPtr operator()(const ProgramPtr &program) = 0;
 
-  /**
-   * @brief Get the name of the pass (for debugging)
-   */
-  [[nodiscard]] virtual std::string GetName() const { return "UnnamedPass"; }
+    /**
+     * \brief Get the name of the pass (for debugging)
+     */
+    [[nodiscard]] virtual std::string GetName() const { return "UnnamedPass"; }
 };
 
 /**
- * @brief Base class for IR transformation passes
+ * \brief Base class for IR transformation passes
  *
  * Pass is a standalone class (not inheriting from IRMutator) that provides transformations
  * on Program level. Each pass operates on entire Programs, returning transformed IR.
@@ -65,40 +65,40 @@ class PassImpl {
  * rather than instantiating Pass directly.
  */
 class Pass {
- public:
-  Pass();
-  explicit Pass(std::shared_ptr<PassImpl> impl);
-  ~Pass();
+public:
+    Pass();
+    explicit Pass(std::shared_ptr<PassImpl> impl);
+    ~Pass();
 
-  // Copy and move constructors/assignment
-  Pass(const Pass& other);
-  Pass& operator=(const Pass& other);
-  Pass(Pass&& other) noexcept;
-  Pass& operator=(Pass&& other) noexcept;
+    // Copy and move constructors/assignment
+    Pass(const Pass &other);
+    Pass &operator=(const Pass &other);
+    Pass(Pass &&other) noexcept;
+    Pass &operator=(Pass &&other) noexcept;
 
-  /**
-   * @brief Execute the pass on a program (primary API)
-   *
-   * This is the main entry point for pass execution using function call operator.
-   *
-   * @param program Input program to transform
-   * @return Transformed program (may be the same pointer if no changes were made)
-   */
-  ProgramPtr operator()(const ProgramPtr& program) const;
+    /**
+     * \brief Execute the pass on a program (primary API)
+     *
+     * This is the main entry point for pass execution using function call operator.
+     *
+     * \param program Input program to transform
+     * \return Transformed program (may be the same pointer if no changes were made)
+     */
+    ProgramPtr operator()(const ProgramPtr &program) const;
 
-  /**
-   * @brief Execute the pass on a program (backward compatible API)
-   *
-   * This method provides backward compatibility with existing code.
-   * It delegates to operator().
-   *
-   * @param program Input program to transform
-   * @return Transformed program
-   */
-  [[nodiscard]] ProgramPtr run(const ProgramPtr& program) const;
+    /**
+     * \brief Execute the pass on a program (backward compatible API)
+     *
+     * This method provides backward compatibility with existing code.
+     * It delegates to operator().
+     *
+     * \param program Input program to transform
+     * \return Transformed program
+     */
+    [[nodiscard]] ProgramPtr run(const ProgramPtr &program) const;
 
- private:
-  std::shared_ptr<PassImpl> impl_;
+private:
+    std::shared_ptr<PassImpl> impl_;
 };
 
 // Factory functions for built-in passes
@@ -110,7 +110,7 @@ namespace pass {
 // Most passes should use these instead of inheriting from PassImpl.
 
 /**
- * @brief Create a pass from a function-level transform function (RECOMMENDED)
+ * \brief Create a pass from a function-level transform function (RECOMMENDED)
  *
  * This is the recommended way to create passes that apply transformations to each
  * function independently. The helper automatically handles the Program → Program
@@ -124,26 +124,25 @@ namespace pass {
  *     }, "MyPass");
  *   }
  *
- * @param transform Function that transforms a Function
- * @param name Optional name for the pass (for debugging)
- * @return Pass that applies the transform to each function
+ * \param transform Function that transforms a Function
+ * \param name Optional name for the pass (for debugging)
+ * \return Pass that applies the transform to each function
  */
-Pass CreateFunctionPass(std::function<FunctionPtr(const FunctionPtr&)> transform,
-                        const std::string& name = "");
+Pass CreateFunctionPass(std::function<FunctionPtr(const FunctionPtr &)> transform, const std::string &name = "");
 
 /**
- * @brief Create a pass from a program-level transform function
+ * \brief Create a pass from a program-level transform function
  *
  * Use this for passes that need to transform the entire program at once,
  * such as inter-procedural optimizations or whole-program analysis.
  * For most cases, prefer CreateFunctionPass() instead.
  *
- * @param transform Function that transforms a Program
- * @param name Optional name for the pass (for debugging)
- * @return Pass that applies the transform
+ * \param transform Function that transforms a Program
+ * \param name Optional name for the pass (for debugging)
+ * \return Pass that applies the transform
  */
-Pass CreateProgramPass(std::function<ProgramPtr(const ProgramPtr&)> transform, const std::string& name = "");
+Pass CreateProgramPass(std::function<ProgramPtr(const ProgramPtr &)> transform, const std::string &name = "");
 
-}  // namespace pass
-}  // namespace ir
-}  // namespace pypto
+} // namespace pass
+} // namespace ir
+} // namespace pypto

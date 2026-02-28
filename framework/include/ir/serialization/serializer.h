@@ -36,51 +36,51 @@ using OpPtr = std::shared_ptr<const Op>;
 namespace serialization {
 
 /**
- * @brief Serializer for IR AST nodes to MessagePack format
+ * \brief Serializer for IR AST nodes to MessagePack format
  *
  * Serializes IR AST nodes while preserving pointer sharing and identity.
  * Uses a reference table to track already-serialized nodes and emit references
  * for subsequent occurrences of the same pointer.
  */
 class IRSerializer {
- public:
-  IRSerializer();
-  ~IRSerializer();
+public:
+    IRSerializer();
+    ~IRSerializer();
 
-  // Allow internal field visitor helper to access Impl
-  friend class FieldSerializerVisitor;
+    // Allow internal field visitor helper to access Impl
+    friend class FieldSerializerVisitor;
 
-  /**
-   * @brief Serialize an IR node to MessagePack bytes
-   *
-   * @param node The IR node to serialize
-   * @return Vector of bytes containing the MessagePack-encoded data
-   */
-  std::vector<uint8_t> Serialize(const IRNodePtr& node);
+    /**
+     * \brief Serialize an IR node to MessagePack bytes
+     *
+     * \param node The IR node to serialize
+     * \return Vector of bytes containing the MessagePack-encoded data
+     */
+    std::vector<uint8_t> Serialize(const IRNodePtr &node);
 
- private:
-  class Impl;
-  std::unique_ptr<Impl> impl_;
+private:
+    class Impl;
+    std::unique_ptr<Impl> impl_;
 };
 
 /**
- * @brief Serialize an IR node to MessagePack bytes
+ * \brief Serialize an IR node to MessagePack bytes
  *
  * Convenience function that creates a serializer and serializes the node.
  *
- * @param node The IR node to serialize
- * @return Vector of bytes containing the MessagePack-encoded data
+ * \param node The IR node to serialize
+ * \return Vector of bytes containing the MessagePack-encoded data
  */
-std::vector<uint8_t> Serialize(const IRNodePtr& node);
+std::vector<uint8_t> Serialize(const IRNodePtr &node);
 
 /**
- * @brief Serialize an IR node to a file
+ * \brief Serialize an IR node to a file
  *
- * @param node The IR node to serialize
- * @param path Path to the output file
+ * \param node The IR node to serialize
+ * \param path Path to the output file
  */
-void SerializeToFile(const IRNodePtr& node, const std::string& path);
+void SerializeToFile(const IRNodePtr &node, const std::string &path);
 
-}  // namespace serialization
-}  // namespace ir
-}  // namespace pypto
+} // namespace serialization
+} // namespace ir
+} // namespace pypto

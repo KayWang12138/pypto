@@ -21,48 +21,48 @@ namespace ir {
 namespace serialization {
 
 /**
- * @brief Deserializer for IR AST nodes from MessagePack format
+ * \brief Deserializer for IR AST nodes from MessagePack format
  *
  * Deserializes IR AST nodes while preserving pointer sharing and identity.
  * Uses a reference table to track already-deserialized nodes and restore
  * shared pointers correctly.
  */
 class IRDeserializer {
- public:
-  IRDeserializer();
-  ~IRDeserializer();
+public:
+    IRDeserializer();
+    ~IRDeserializer();
 
-  /**
-   * @brief Deserialize an IR node from MessagePack bytes
-   *
-   * @param data Vector of bytes containing the MessagePack-encoded data
-   * @return The deserialized IR node
-   */
-  IRNodePtr Deserialize(const std::vector<uint8_t>& data);
+    /**
+     * \brief Deserialize an IR node from MessagePack bytes
+     *
+     * \param data Vector of bytes containing the MessagePack-encoded data
+     * \return The deserialized IR node
+     */
+    IRNodePtr Deserialize(const std::vector<uint8_t> &data);
 
- private:
-  class Impl;
-  std::unique_ptr<Impl> impl_;
+private:
+    class Impl;
+    std::unique_ptr<Impl> impl_;
 };
 
 /**
- * @brief Deserialize an IR node from MessagePack bytes
+ * \brief Deserialize an IR node from MessagePack bytes
  *
  * Convenience function that creates a deserializer and deserializes the data.
  *
- * @param data Vector of bytes containing the MessagePack-encoded data
- * @return The deserialized IR node
+ * \param data Vector of bytes containing the MessagePack-encoded data
+ * \return The deserialized IR node
  */
-IRNodePtr Deserialize(const std::vector<uint8_t>& data);
+IRNodePtr Deserialize(const std::vector<uint8_t> &data);
 
 /**
- * @brief Deserialize an IR node from a file
+ * \brief Deserialize an IR node from a file
  *
- * @param path Path to the input file
- * @return The deserialized IR node
+ * \param path Path to the input file
+ * \return The deserialized IR node
  */
-IRNodePtr DeserializeFromFile(const std::string& path);
+IRNodePtr DeserializeFromFile(const std::string &path);
 
-}  // namespace serialization
-}  // namespace ir
-}  // namespace pypto
+} // namespace serialization
+} // namespace ir
+} // namespace pypto
