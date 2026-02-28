@@ -572,7 +572,7 @@ def create_exp_op_kernel(x_shape: tuple, run_mode: str = "npu", dynamic: bool = 
     return exp_kernel
 
 
-def test_exp_basic(device_id: int = None, run_mode: str = "npu"):
+def test_exp2_basic(device_id: int = None, run_mode: str = "npu"):
     """Test basic usage of exp2 function"""
     print("=" * 60)
     print("Test: Basic Usage of exp2 Function")
