@@ -49,10 +49,12 @@ Opcode GetCastOpName() {
 
 template <CastOpType T>
 LogicalTensorPtr TensorCastOperation(
-    Function &function, LogicalTensorPtr self, const DataType &dstDataType, const CastMode &mode = CAST_NONE) {
+    Function &function, LogicalTensorPtr self, const DataType &dstDataType, const CastMode &mode = CAST_NONE,
+    const int64_t &satmode = 0) {
     auto result = std::make_shared<LogicalTensor>(function, dstDataType, self->shape, self->dynValidShape_);
     auto &op = function.AddOperation(GetCastOpName<T>(), {self}, {result});
     op.SetAttribute(OP_ATTR_PREFIX + "mode", mode);
+    op.SetAttribute(OP_ATTR_PREFIX + "satmode", satmode);
     return result;
 }
 
