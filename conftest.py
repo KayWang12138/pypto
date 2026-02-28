@@ -131,6 +131,8 @@ def _get_soc_version():
         soc_version = torch_npu.npu.get_soc_version()
         print(f"Current soc version: {soc_version}")
         return soc_version
+    except Exception as e:
+        pytest.exit(f"Error: Failed to get soc version, error info: {str(e)}", returncode=1)
 
 
 def _is_case_match_soc(item, target_soc):
