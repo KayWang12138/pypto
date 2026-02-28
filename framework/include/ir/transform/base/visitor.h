@@ -28,8 +28,8 @@ class IRVisitor : public IRFunctor<void> {
 public:
   ~IRVisitor() override = default;
 
-  void VisitExpr(const ExprPtr& expr) override;
-  void VisitStmt(const StmtPtr& stmt) override;
+  void VisitExpr(const ExprPtr &expr) override;
+  void VisitStmt(const StmtPtr &stmt) override;
 
 protected:
   PYPTO_DECLARE_ALL_VISITOR_OVERRIDES
@@ -38,12 +38,12 @@ private:
   /**
    * \brief Helper to visit both children of a binary expression
    */
-  void VisitBinaryOp_(const BinaryExprPtr& op);
+  void VisitBinaryOp_(const BinaryExprPtr &op);
 
   /**
    * \brief Helper to visit the operand of a unary expression
    */
-  void VisitUnaryOp_(const UnaryExprPtr& op);
+  void VisitUnaryOp_(const UnaryExprPtr &op);
 };
 
 }  // namespace ir

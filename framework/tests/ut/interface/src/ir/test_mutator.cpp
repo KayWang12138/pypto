@@ -382,7 +382,7 @@ TEST_F(IRMutatorTest, TestIdentityTupleGetItem) {
 TEST_F(IRMutatorTest, TestIdentityCall) {
   IRMutator mutator;
   Span sp = Span::unknown();
-  auto& reg = OpRegistry::GetInstance();
+  auto &reg = OpRegistry::GetInstance();
   auto a = std::make_shared<Var>(
       "a",
       std::make_shared<TensorType>(
@@ -440,7 +440,7 @@ class CopyOnWriteTestMutator : public IRMutator {
   using IRMutator::VisitExpr_;
 
 protected:
-  ExprPtr VisitExpr_(const ConstIntPtr& op) override {
+  ExprPtr VisitExpr_(const ConstIntPtr &op) override {
     if (op->value_ == 42) {
       auto scalarType = As<ScalarType>(op->GetType());
       return std::make_shared<ConstInt>(99, scalarType->dtype_, op->span_);
@@ -448,7 +448,7 @@ protected:
     return op;
   }
 
-  ExprPtr VisitExpr_(const VarPtr& op) override {
+  ExprPtr VisitExpr_(const VarPtr &op) override {
     if (op->name_ == "replace_me") {
       return std::make_shared<Var>("replaced", op->GetType(), op->span_);
     }
@@ -541,7 +541,7 @@ TEST_F(IRMutatorTest, TestCOWIterArg) {
 TEST_F(IRMutatorTest, TestCOWCall) {
   CopyOnWriteTestMutator mutator;
   Span sp = Span::unknown();
-  auto& reg = OpRegistry::GetInstance();
+  auto &reg = OpRegistry::GetInstance();
   auto a = std::make_shared<Var>("replace_me",
       std::make_shared<TensorType>(
           std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},

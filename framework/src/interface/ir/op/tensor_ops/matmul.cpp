@@ -27,8 +27,8 @@
 namespace pypto {
 namespace ir {
 
-TypePtr DeduceTensorMatMulType(const std::vector<ExprPtr>& args,
-                               const std::vector<std::pair<std::string, std::any>>& kwargs) {
+TypePtr DeduceTensorMatMulType(const std::vector<ExprPtr> &args,
+                               const std::vector<std::pair<std::string, std::any>> &kwargs) {
   // tensor.matmul requires exactly 2 Expr arguments (lhs, rhs)
   INTERNAL_CHECK(args.size() == 2) << "tensor.matmul requires exactly 2 arguments (lhs, rhs), but got " << args.size();
 
@@ -42,8 +42,8 @@ TypePtr DeduceTensorMatMulType(const std::vector<ExprPtr>& args,
                   << args[1]->GetType()->TypeName();
 
   // Extract shapes
-  const auto& lhs_shape = lhs_type->shape_;
-  const auto& rhs_shape = rhs_type->shape_;
+  const auto &lhs_shape = lhs_type->shape_;
+  const auto &rhs_shape = rhs_type->shape_;
 
   INTERNAL_CHECK(lhs_shape.size() >= 1) << "tensor.matmul requires lhs to have at least 1 dimension";
   INTERNAL_CHECK(rhs_shape.size() >= 1) << "tensor.matmul requires rhs to have at least 1 dimension";
@@ -52,11 +52,11 @@ TypePtr DeduceTensorMatMulType(const std::vector<ExprPtr>& args,
   DataType out_dtype;
   try {
     out_dtype = GetKwarg<DataType>(kwargs, "out_dtype");
-  } catch (const ValueError& e) {
+  } catch (const ValueError &e) {
     auto promoted = PromoteDataTypes(lhs_type->dtype_, rhs_type->dtype_);
     INTERNAL_CHECK(promoted) << "Cannot promote data types for tensor.matmul";
     out_dtype = *promoted;
-  } catch (const TypeError& e) {
+  } catch (const TypeError &e) {
     throw TypeError("Invalid kwarg type for out_dtype: " + std::string(e.what()));
   }
 
@@ -127,8 +127,8 @@ REGISTER_OP("tensor.matmul")
     .set_attr<bool>("a_trans")
     .set_attr<bool>("b_trans")
     .set_attr<bool>("c_matrix_nz")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceTensorMatMulType(args, kwargs);
     });
 

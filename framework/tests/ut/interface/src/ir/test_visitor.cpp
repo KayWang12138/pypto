@@ -40,32 +40,32 @@ public:
   int exprCount = 0;
   int stmtCount = 0;
 
-  void VisitExpr_(const ConstIntPtr& op) override {
+  void VisitExpr_(const ConstIntPtr &op) override {
     exprCount++;
     IRVisitor::VisitExpr_(op);
   }
 
-  void VisitExpr_(const VarPtr& op) override {
+  void VisitExpr_(const VarPtr &op) override {
     exprCount++;
     IRVisitor::VisitExpr_(op);
   }
 
-  void VisitExpr_(const AddPtr& op) override {
+  void VisitExpr_(const AddPtr &op) override {
     exprCount++;
     IRVisitor::VisitExpr_(op);
   }
 
-  void VisitStmt_(const AssignStmtPtr& op) override {
+  void VisitStmt_(const AssignStmtPtr &op) override {
     stmtCount++;
     IRVisitor::VisitStmt_(op);
   }
 
-  void VisitStmt_(const EvalStmtPtr& op) override {
+  void VisitStmt_(const EvalStmtPtr &op) override {
     stmtCount++;
     IRVisitor::VisitStmt_(op);
   }
 
-  void VisitStmt_(const SeqStmtsPtr& op) override {
+  void VisitStmt_(const SeqStmtsPtr &op) override {
     stmtCount++;
     IRVisitor::VisitStmt_(op);
   }
@@ -309,7 +309,7 @@ TEST_F(IRVisitorTest, TestVisitTupleGetItem) {
 }
 
 TEST_F(IRVisitorTest, TestVisitCall) {
-  auto& reg = OpRegistry::GetInstance();
+  auto &reg = OpRegistry::GetInstance();
   Span sp = Span::unknown();
   auto a = std::make_shared<Var>(
       "a",

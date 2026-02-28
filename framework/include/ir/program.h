@@ -60,7 +60,7 @@ public:
    * \param name Program name (optional)
    * \param span Source location
    */
-  Program(const std::vector<FunctionPtr>& functions, std::string name, Span span);
+  Program(const std::vector<FunctionPtr> &functions, std::string name, Span span);
 
   [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::Program; }
   [[nodiscard]] std::string TypeName() const override { return "Program"; }
@@ -71,7 +71,7 @@ public:
    * \param name Function name to look up
    * \return Shared pointer to the function, or nullptr if not found
    */
-  [[nodiscard]] FunctionPtr GetFunction(const std::string& name) const;
+  [[nodiscard]] FunctionPtr GetFunction(const std::string &name) const;
 
   /**
    * \brief Get a GlobalVar by name
@@ -79,7 +79,7 @@ public:
    * \param name GlobalVar name to look up
    * \return Shared pointer to the GlobalVar, or nullptr if not found
    */
-  [[nodiscard]] GlobalVarPtr GetGlobalVar(const std::string& name) const;
+  [[nodiscard]] GlobalVarPtr GetGlobalVar(const std::string &name) const;
 
   /**
    * \brief Get field descriptors for reflection-based visitation

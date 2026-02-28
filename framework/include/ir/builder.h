@@ -64,9 +64,9 @@ public:
 
   // Disable copying and moving since we have unique_ptr members
   IRBuilder(const IRBuilder&) = delete;
-  IRBuilder& operator=(const IRBuilder&) = delete;
+  IRBuilder &operator=(const IRBuilder&) = delete;
   IRBuilder(IRBuilder&&) = delete;
-  IRBuilder& operator=(IRBuilder&&) = delete;
+  IRBuilder &operator=(IRBuilder&&) = delete;
 
   // ========== Function Building ==========
 
@@ -81,7 +81,7 @@ public:
    * \param type Function type (default: Opaque)
    * \throws RuntimeError if already inside a function (no nested functions allowed)
    */
-  void BeginFunction(const std::string& name, const Span& span, FunctionType type = FunctionType::OPAQUE);
+  void BeginFunction(const std::string &name, const Span &span, FunctionType type = FunctionType::OPAQUE);
 
   /**
    * \brief Add a function parameter
@@ -94,7 +94,7 @@ public:
    * \return Variable representing the parameter
    * \throws RuntimeError if not inside a function context
    */
-  VarPtr FuncArg(const std::string& name, const TypePtr& type, const Span& span);
+  VarPtr FuncArg(const std::string &name, const TypePtr &type, const Span &span);
 
   /**
    * \brief Add a return type to the current function
@@ -104,7 +104,7 @@ public:
    * \param type Return type
    * \throws RuntimeError if not inside a function context
    */
-  void ReturnType(const TypePtr& type);
+  void ReturnType(const TypePtr &type);
 
   /**
    * \brief End building a function
@@ -115,7 +115,7 @@ public:
    * \return The built function
    * \throws RuntimeError if not inside a function context
    */
-  FunctionPtr EndFunction(const Span& endSpan);
+  FunctionPtr EndFunction(const Span &endSpan);
 
   // ========== For Loop Building ==========
 
@@ -132,8 +132,8 @@ public:
    * \param span Source location for loop definition
    * \throws RuntimeError if not inside a function or another loop
    */
-  void BeginForLoop(const VarPtr& loopVar, const ExprPtr& start, const ExprPtr& stop, const ExprPtr& step,
-                    const Span& span);
+  void BeginForLoop(const VarPtr &loopVar, const ExprPtr &start, const ExprPtr &stop, const ExprPtr &step,
+                    const Span &span);
 
   /**
    * \brief Add an iteration argument to the current for loop
@@ -143,7 +143,7 @@ public:
    * \param iterArg Iteration argument with initial value
    * \throws RuntimeError if not inside a for loop context
    */
-  void AddIterArg(const IterArgPtr& iterArg);
+  void AddIterArg(const IterArgPtr &iterArg);
 
   /**
    * \brief Add a return variable to the current for loop
@@ -154,7 +154,7 @@ public:
    * \param var Return variable
    * \throws RuntimeError if not inside a for loop context
    */
-  void AddReturnVar(const VarPtr& var);
+  void AddReturnVar(const VarPtr &var);
 
   /**
    * \brief End building a for loop
@@ -166,7 +166,7 @@ public:
    * \throws RuntimeError if not inside a for loop context
    * \throws RuntimeError if number of return variables doesn't match iteration arguments
    */
-  StmtPtr EndForLoop(const Span& endSpan);
+  StmtPtr EndForLoop(const Span &endSpan);
 
   // ========== If Statement Building ==========
 
@@ -180,7 +180,7 @@ public:
    * \param span Source location for if statement
    * \throws RuntimeError if not inside a function or loop
    */
-  void BeginIf(const ExprPtr& condition, const Span& span);
+  void BeginIf(const ExprPtr &condition, const Span &span);
 
   /**
    * \brief Begin the else branch of the current if statement
@@ -191,7 +191,7 @@ public:
    * \throws RuntimeError if not inside an if context
    * \throws RuntimeError if else branch already begun
    */
-  void BeginElse(const Span& span);
+  void BeginElse(const Span &span);
 
   /**
    * \brief Add a return variable to the current if statement
@@ -201,7 +201,7 @@ public:
    * \param var Return variable
    * \throws RuntimeError if not inside an if context
    */
-  void AddIfReturnVar(const VarPtr& var);
+  void AddIfReturnVar(const VarPtr &var);
 
   /**
    * \brief End building an if statement
@@ -212,7 +212,7 @@ public:
    * \return The built if statement
    * \throws RuntimeError if not inside an if context
    */
-  StmtPtr EndIf(const Span& endSpan);
+  StmtPtr EndIf(const Span &endSpan);
 
   // ========== Statement Recording ==========
 
@@ -224,7 +224,7 @@ public:
    * \param stmt Statement to emit
    * \throws RuntimeError if not inside a valid context for emitting statements
    */
-  void Emit(const StmtPtr& stmt);
+  void Emit(const StmtPtr &stmt);
 
   /**
    * \brief Create an assignment statement and emit it
@@ -237,7 +237,7 @@ public:
    * \return The created assignment statement
    * \throws RuntimeError if not inside a valid context
    */
-  AssignStmtPtr Assign(const VarPtr& var, const ExprPtr& value, const Span& span);
+  AssignStmtPtr Assign(const VarPtr &var, const ExprPtr &value, const Span &span);
 
   /**
    * \brief Create a variable (does not emit)
@@ -249,7 +249,7 @@ public:
    * \param span Source location
    * \return The created variable
    */
-  VarPtr Var(const std::string& name, const TypePtr& type, const Span& span);
+  VarPtr Var(const std::string &name, const TypePtr &type, const Span &span);
 
   /**
    * \brief Create a return statement and emit it
@@ -261,7 +261,7 @@ public:
    * \return The created return statement
    * \throws RuntimeError if not inside a valid context
    */
-  ReturnStmtPtr Return(const std::vector<ExprPtr>& values, const Span& span);
+  ReturnStmtPtr Return(const std::vector<ExprPtr> &values, const Span &span);
 
   /**
    * \brief Create a return statement without values and emit it
@@ -272,7 +272,7 @@ public:
    * \return The created return statement
    * \throws RuntimeError if not inside a valid context
    */
-  ReturnStmtPtr Return(const Span& span);
+  ReturnStmtPtr Return(const Span &span);
 
   // ========== Context State Queries ==========
 
@@ -281,7 +281,7 @@ public:
    *
    * \return Pointer to current context, or nullptr if no context
    */
-  BuildContext* CurrentContext();
+  BuildContext *CurrentContext();
 
   /**
    * \brief Check if currently inside a function
@@ -316,7 +316,7 @@ public:
    * \param span Source location for program definition
    * \throws RuntimeError if already inside another program
    */
-  void BeginProgram(const std::string& name, const Span& span);
+  void BeginProgram(const std::string &name, const Span &span);
 
   /**
    * \brief Declare a function in the current program
@@ -328,7 +328,7 @@ public:
    * \return GlobalVar that can be used in Call expressions
    * \throws RuntimeError if not inside a program context
    */
-  GlobalVarPtr DeclareFunction(const std::string& funcName);
+  GlobalVarPtr DeclareFunction(const std::string &funcName);
 
   /**
    * \brief Get a GlobalVar for a declared function
@@ -339,7 +339,7 @@ public:
    * \return GlobalVar for the function
    * \throws RuntimeError if not inside a program context or function not declared
    */
-  GlobalVarPtr GetGlobalVar(const std::string& funcName);
+  GlobalVarPtr GetGlobalVar(const std::string &funcName);
 
   /**
    * \brief Add a completed function to the current program
@@ -349,7 +349,7 @@ public:
    * \param func Completed function to add
    * \throws RuntimeError if not inside a program context
    */
-  void AddFunction(const FunctionPtr& func);
+  void AddFunction(const FunctionPtr &func);
 
   /**
    * \brief End building a program
@@ -360,7 +360,7 @@ public:
    * \return The built program
    * \throws RuntimeError if not inside a program context
    */
-  ProgramPtr EndProgram(const Span& endSpan);
+  ProgramPtr EndProgram(const Span &endSpan);
 
   /**
    * \brief Check if currently inside a program
@@ -378,20 +378,20 @@ public:
    * \param gvar GlobalVar for the function
    * \return Vector of return types
    */
-  [[nodiscard]] std::vector<TypePtr> GetFunctionReturnTypes(const GlobalVarPtr& gvar) const;
+  [[nodiscard]] std::vector<TypePtr> GetFunctionReturnTypes(const GlobalVarPtr &gvar) const;
 
 private:
   std::vector<std::unique_ptr<BuildContext>> contextStack_;
 
   // Helper to get current context with type checking
   template <typename T>
-  T* GetCurrentContextAs();
+  T *GetCurrentContextAs();
 
   // Helper to validate we're in the right context
-  void ValidateInFunction(const std::string& operation);
-  void ValidateInLoop(const std::string& operation);
-  void ValidateInIf(const std::string& operation);
-  void ValidateInProgram(const std::string& operation);
+  void ValidateInFunction(const std::string &operation);
+  void ValidateInLoop(const std::string &operation);
+  void ValidateInIf(const std::string &operation);
+  void ValidateInProgram(const std::string &operation);
 };
 
 /**
@@ -408,11 +408,11 @@ public:
   virtual ~BuildContext() = default;
 
   [[nodiscard]] Type GetType() const { return type_; }
-  [[nodiscard]] const Span& GetBeginSpan() const { return beginSpan_; }
+  [[nodiscard]] const Span &GetBeginSpan() const { return beginSpan_; }
 
   // Accumulate statements in this context
-  virtual void AddStmt(const StmtPtr& stmt) = 0;
-  [[nodiscard]] const std::vector<StmtPtr>& GetStmts() const { return stmts_; }
+  virtual void AddStmt(const StmtPtr &stmt) = 0;
+  [[nodiscard]] const std::vector<StmtPtr> &GetStmts() const { return stmts_; }
 
 protected:
   Type type_;
@@ -428,13 +428,13 @@ public:
   FunctionContext(std::string name, Span span, FunctionType funcType = FunctionType::OPAQUE)
       : BuildContext(Type::FUNCTION, std::move(span)), name_(std::move(name)), funcType_(funcType) {}
 
-  void AddParam(const VarPtr& param) { params_.push_back(param); }
-  void AddReturnType(const TypePtr& type) { returnTypes_.push_back(type); }
+  void AddParam(const VarPtr &param) { params_.push_back(param); }
+  void AddReturnType(const TypePtr &type) { returnTypes_.push_back(type); }
 
-  void AddStmt(const StmtPtr& stmt) override { stmts_.push_back(stmt); }
-  [[nodiscard]] const std::string& GetName() const { return name_; }
-  [[nodiscard]] const std::vector<VarPtr>& GetParams() const { return params_; }
-  [[nodiscard]] const std::vector<TypePtr>& GetReturnTypes() const { return returnTypes_; }
+  void AddStmt(const StmtPtr &stmt) override { stmts_.push_back(stmt); }
+  [[nodiscard]] const std::string &GetName() const { return name_; }
+  [[nodiscard]] const std::vector<VarPtr> &GetParams() const { return params_; }
+  [[nodiscard]] const std::vector<TypePtr> &GetReturnTypes() const { return returnTypes_; }
   [[nodiscard]] FunctionType GetFuncType() const { return funcType_; }
 
 private:
@@ -456,16 +456,16 @@ public:
         stop_(std::move(stop)),
         step_(std::move(step)) {}
 
-  void AddIterArg(const IterArgPtr& iterArg) { iterArgs_.push_back(iterArg); }
-  void AddReturnVar(const VarPtr& var) { returnVars_.push_back(var); }
+  void AddIterArg(const IterArgPtr &iterArg) { iterArgs_.push_back(iterArg); }
+  void AddReturnVar(const VarPtr &var) { returnVars_.push_back(var); }
 
-  void AddStmt(const StmtPtr& stmt) override { stmts_.push_back(stmt); }
-  [[nodiscard]] const VarPtr& GetLoopVar() const { return loopVar_; }
-  [[nodiscard]] const ExprPtr& GetStart() const { return start_; }
-  [[nodiscard]] const ExprPtr& GetStop() const { return stop_; }
-  [[nodiscard]] const ExprPtr& GetStep() const { return step_; }
-  [[nodiscard]] const std::vector<IterArgPtr>& GetIterArgs() const { return iterArgs_; }
-  [[nodiscard]] const std::vector<VarPtr>& GetReturnVars() const { return returnVars_; }
+  void AddStmt(const StmtPtr &stmt) override { stmts_.push_back(stmt); }
+  [[nodiscard]] const VarPtr &GetLoopVar() const { return loopVar_; }
+  [[nodiscard]] const ExprPtr &GetStart() const { return start_; }
+  [[nodiscard]] const ExprPtr &GetStop() const { return stop_; }
+  [[nodiscard]] const ExprPtr &GetStep() const { return step_; }
+  [[nodiscard]] const std::vector<IterArgPtr> &GetIterArgs() const { return iterArgs_; }
+  [[nodiscard]] const std::vector<VarPtr> &GetReturnVars() const { return returnVars_; }
 
 private:
   VarPtr loopVar_;
@@ -489,19 +489,19 @@ public:
     elseStmts_.clear();
   }
 
-  void AddReturnVar(const VarPtr& var) { returnVars_.push_back(var); }
+  void AddReturnVar(const VarPtr &var) { returnVars_.push_back(var); }
 
-  void AddStmt(const StmtPtr& stmt) override {
+  void AddStmt(const StmtPtr &stmt) override {
     if (inElseBranch_) {
       elseStmts_.push_back(stmt);
     } else {
       stmts_.push_back(stmt);
     }
   }
-  [[nodiscard]] const ExprPtr& GetCondition() const { return condition_; }
+  [[nodiscard]] const ExprPtr &GetCondition() const { return condition_; }
   [[nodiscard]] bool InElseBranch() const { return inElseBranch_; }
-  [[nodiscard]] const std::vector<StmtPtr>& GetElseStmts() const { return elseStmts_; }
-  [[nodiscard]] const std::vector<VarPtr>& GetReturnVars() const { return returnVars_; }
+  [[nodiscard]] const std::vector<StmtPtr> &GetElseStmts() const { return elseStmts_; }
+  [[nodiscard]] const std::vector<VarPtr> &GetReturnVars() const { return returnVars_; }
 
 private:
   ExprPtr condition_;
@@ -524,7 +524,7 @@ public:
    * \param funcName Function name to declare
    * \return GlobalVar for the function
    */
-  GlobalVarPtr DeclareFunction(const std::string& funcName);
+  GlobalVarPtr DeclareFunction(const std::string &funcName);
 
   /**
    * \brief Get a GlobalVar for a declared function
@@ -532,35 +532,35 @@ public:
    * \param funcName Function name
    * \return GlobalVar for the function, or nullptr if not found
    */
-  [[nodiscard]] GlobalVarPtr GetGlobalVar(const std::string& funcName) const;
+  [[nodiscard]] GlobalVarPtr GetGlobalVar(const std::string &funcName) const;
 
   /**
    * \brief Add a function to the program
    *
    * \param func Function to add
    */
-  void AddFunction(const FunctionPtr& func);
+  void AddFunction(const FunctionPtr &func);
 
   /**
    * \brief Get the program name
    *
    * \return Program name
    */
-  [[nodiscard]] const std::string& GetName() const { return name_; }
+  [[nodiscard]] const std::string &GetName() const { return name_; }
 
   /**
    * \brief Get all functions in the program
    *
    * \return Vector of functions
    */
-  [[nodiscard]] const std::vector<FunctionPtr>& GetFunctions() const { return functions_; }
+  [[nodiscard]] const std::vector<FunctionPtr> &GetFunctions() const { return functions_; }
 
   /**
    * \brief Get all GlobalVars in the program
    *
    * \return Map of function names to GlobalVars
    */
-  [[nodiscard]] const std::map<std::string, GlobalVarPtr>& GetGlobalVars() const { return globalVars_; }
+  [[nodiscard]] const std::map<std::string, GlobalVarPtr> &GetGlobalVars() const { return globalVars_; }
 
   /**
    * \brief Get return types for a function by its GlobalVar
@@ -568,7 +568,7 @@ public:
    * \param gvar GlobalVar for the function
    * \return Vector of return types, or empty vector if function not yet added
    */
-  [[nodiscard]] std::vector<TypePtr> GetReturnTypes(const GlobalVarPtr& gvar) const;
+  [[nodiscard]] std::vector<TypePtr> GetReturnTypes(const GlobalVarPtr &gvar) const;
 
   // ProgramContext doesn't accumulate statements
   void AddStmt(const StmtPtr& /*stmt*/) override {

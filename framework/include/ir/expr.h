@@ -67,7 +67,7 @@ public:
    *
    * \return Type pointer of the expression result
    */
-  [[nodiscard]] const TypePtr& GetType() const { return type_; }
+  [[nodiscard]] const TypePtr &GetType() const { return type_; }
 
   static constexpr auto GetFieldDescriptors() {
     return std::tuple_cat(IRNode::GetFieldDescriptors(),
@@ -104,7 +104,7 @@ public:
    * \param key Kwarg key (string identifier)
    */
   template <typename T>
-  void SetAttrType(const std::string& key) const {
+  void SetAttrType(const std::string &key) const {
     // Compile-time check: only allow specific types
     static_assert(std::is_same_v<T, bool> || std::is_same_v<T, int> || std::is_same_v<T, std::string> ||
                       std::is_same_v<T, double> || std::is_same_v<T, DataType>,
@@ -120,7 +120,7 @@ public:
    * \return type_index of the expected type
    * \throws ValueError if kwarg is not registered
    */
-  [[nodiscard]] std::type_index GetAttrType(const std::string& key) const {
+  [[nodiscard]] std::type_index GetAttrType(const std::string &key) const {
     auto it = attrs_.find(key);
     if (it == attrs_.end()) {
       throw ValueError("Attribute '" + key + "' not found in operator '" + name_ + "'");
@@ -134,7 +134,7 @@ public:
    * \param key Kwarg key
    * \return true if the kwarg is registered
    */
-  [[nodiscard]] bool HasAttr(const std::string& key) const { return attrs_.find(key) != attrs_.end(); }
+  [[nodiscard]] bool HasAttr(const std::string &key) const { return attrs_.find(key) != attrs_.end(); }
 
   /**
    * \brief Get all registered kwarg keys
@@ -144,7 +144,7 @@ public:
   [[nodiscard]] std::vector<std::string> GetAttrKeys() const {
     std::vector<std::string> keys;
     keys.reserve(attrs_.size());
-    for (const auto& pair : attrs_) {
+    for (const auto &pair : attrs_) {
       keys.push_back(pair.first);
     }
     return keys;
@@ -155,7 +155,7 @@ public:
    *
    * \return Map of kwarg keys to expected types
    */
-  [[nodiscard]] const std::unordered_map<std::string, std::type_index>& GetAttrs() const { return attrs_; }
+  [[nodiscard]] const std::unordered_map<std::string, std::type_index> &GetAttrs() const { return attrs_; }
 
   /**
    * \brief Set the pipeline type for this operator
@@ -205,7 +205,7 @@ using GlobalVarPtr = std::shared_ptr<const GlobalVar>;
  * Ensures consistent structural equality and hashing.
  */
 struct GlobalVarPtrLess {
-  bool operator()(const GlobalVarPtr& lhs, const GlobalVarPtr& rhs) const { return lhs->name_ < rhs->name_; }
+  bool operator()(const GlobalVarPtr &lhs, const GlobalVarPtr &rhs) const { return lhs->name_ < rhs->name_; }
 };
 
 /**
@@ -430,7 +430,7 @@ public:
    * \return The kwarg value or default
    */
   template <typename T>
-  T GetKwarg(const std::string& key, const T& default_value = T{}) const {
+  T GetKwarg(const std::string &key, const T &default_value = T{}) const {
     for (const auto& [k, v] : kwargs_) {
       if (k == key) {
         return AnyCast<T>(v, "kwarg key: " + key);
@@ -445,8 +445,8 @@ public:
    * \param key Kwarg key
    * \return true if the kwarg exists
    */
-  [[nodiscard]] bool HasKwarg(const std::string& key) const {
-    for (const auto& kv : kwargs_) {
+  [[nodiscard]] bool HasKwarg(const std::string &key) const {
+    for (const auto &kv : kwargs_) {
       if (kv.first == key) {
         return true;
       }

@@ -119,7 +119,7 @@ public:
 
   // Disable copying and moving to enforce immutability
   IRNode(IRNode&&) = delete;
-  IRNode& operator=(IRNode&&) = delete;
+  IRNode &operator=(IRNode&&) = delete;
 
   /**
    * \brief Get the Kind of this IR node
@@ -153,7 +153,7 @@ using IRNodePtr = std::shared_ptr<const IRNode>;
  * \param rhs Right-hand side expression pointer
  * \return true if pointers reference the same object
  */
-inline bool operator==(const IRNodePtr& lhs, const IRNodePtr& rhs) { return lhs.get() == rhs.get(); }
+inline bool operator==(const IRNodePtr &lhs, const IRNodePtr &rhs) { return lhs.get() == rhs.get(); }
 
 /**
  * \brief Reference inequality operator for IRNodePtr
@@ -162,7 +162,7 @@ inline bool operator==(const IRNodePtr& lhs, const IRNodePtr& rhs) { return lhs.
  * \param rhs Right-hand side expression pointer
  * \return true if pointers reference different objects
  */
-inline bool operator!=(const IRNodePtr& lhs, const IRNodePtr& rhs) { return !(lhs == rhs); }
+inline bool operator!=(const IRNodePtr &lhs, const IRNodePtr &rhs) { return !(lhs == rhs); }
 
 // Forward declarations for KindTrait specializations
 // (Actual specializations will be added after the concrete types are defined)
@@ -216,7 +216,7 @@ namespace std {
  */
 template <>
 struct hash<pypto::ir::IRNodePtr> {
-  size_t operator()(const pypto::ir::IRNodePtr& ptr) const noexcept {
+  size_t operator()(const pypto::ir::IRNodePtr &ptr) const noexcept {
     return std::hash<const pypto::ir::IRNode*>{}(ptr.get());
   }
 };

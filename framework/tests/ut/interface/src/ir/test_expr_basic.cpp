@@ -131,7 +131,7 @@ TEST(ExprBasicTest, TestOpGetAttrs) {
   op->SetAttrType<int>("count");
   op->SetAttrType<bool>("flag");
 
-  const auto& attrs = op->GetAttrs();
+  const auto &attrs = op->GetAttrs();
   ASSERT_EQ(attrs.size(), 2);
 }
 

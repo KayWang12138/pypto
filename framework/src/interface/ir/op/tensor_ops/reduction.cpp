@@ -25,9 +25,9 @@
 namespace pypto {
 namespace ir {
 
-TypePtr DeduceTensorReductionType(const std::vector<ExprPtr>& args,
-                                  const std::vector<std::pair<std::string, std::any>>& kwargs,
-                                  const std::string& opName) {
+TypePtr DeduceTensorReductionType(const std::vector<ExprPtr> &args,
+                                  const std::vector<std::pair<std::string, std::any>> &kwargs,
+                                  const std::string &opName) {
   // Reduction operations require exactly 1 argument (input tensor)
   INTERNAL_CHECK(args.size() == 1) << "The operator " << opName << " requires exactly 1 argument, but got "
                           << args.size();
@@ -37,7 +37,7 @@ TypePtr DeduceTensorReductionType(const std::vector<ExprPtr>& args,
   INTERNAL_CHECK(tensorType) << "The operator " << opName << " requires first argument to be a TensorType, but got "
                      << args[0]->GetType()->TypeName();
 
-  const auto& input_shape = tensorType->shape_;
+  const auto &input_shape = tensorType->shape_;
   int64_t input_ndim = static_cast<int64_t>(input_shape.size());
 
   // Extract axis from kwargs (default: -1, meaning last axis)
@@ -86,8 +86,8 @@ REGISTER_OP("tensor.row_max")
     .add_argument("input", "Input tensor (TensorType)")
     .set_attr<int>("axis")
     .set_attr<bool>("keep_dim")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceTensorReductionType(args, kwargs, "tensor.row_max");
     });
 
@@ -97,8 +97,8 @@ REGISTER_OP("tensor.row_sum")
     .add_argument("input", "Input tensor (TensorType)")
     .set_attr<int>("axis")
     .set_attr<bool>("keep_dim")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceTensorReductionType(args, kwargs, "tensor.row_sum");
     });
 

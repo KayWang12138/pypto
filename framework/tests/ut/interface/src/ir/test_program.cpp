@@ -32,7 +32,7 @@ namespace pypto {
 namespace ir {
 
 // Helper to create a simple function
-static FunctionPtr MakeSimpleFunction(const std::string& name) {
+static FunctionPtr MakeSimpleFunction(const std::string &name) {
   auto bodyVal = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
   auto body = std::make_shared<EvalStmt>(bodyVal, Span::unknown());
   std::vector<VarPtr> params;

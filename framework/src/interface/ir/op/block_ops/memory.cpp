@@ -32,8 +32,8 @@ namespace ir {
 
 // Helper to get kwargs value with default (uses vector to preserve order)
 template <typename T>
-T GetKwarg(const std::vector<std::pair<std::string, std::any>>& kwargs, const std::string& key,
-           const std::optional<T>& default_value = std::nullopt) {
+T GetKwarg(const std::vector<std::pair<std::string, std::any>> &kwargs, const std::string &key,
+           const std::optional<T> &default_value = std::nullopt) {
   for (const auto& [k, v] : kwargs) {
     if (k == key) {
       return AnyCast<T>(v, "kwarg key: " + key);
@@ -45,9 +45,9 @@ T GetKwarg(const std::vector<std::pair<std::string, std::any>>& kwargs, const st
   throw ValueError("Missing kwarg: " + key);
 }
 
-TypePtr DeduceBlockGetBlockIdxType(const std::vector<ExprPtr>& args,
-                                   const std::vector<std::pair<std::string, std::any>>& kwargs,
-                                   const std::string& opName) {
+TypePtr DeduceBlockGetBlockIdxType(const std::vector<ExprPtr> &args,
+                                   const std::vector<std::pair<std::string, std::any>> &kwargs,
+                                   const std::string &opName) {
   (void)kwargs;
   CHECK(args.size() == 0) << "The operator " << opName << " requires no arguments, but got " << args.size();
 
@@ -55,9 +55,9 @@ TypePtr DeduceBlockGetBlockIdxType(const std::vector<ExprPtr>& args,
   return std::make_shared<ScalarType>(DataType::INT32);
 }
 
-TypePtr DeduceBlockLoadType(const std::vector<ExprPtr>& args,
-                            const std::vector<std::pair<std::string, std::any>>& kwargs,
-                            const std::string& opName) {
+TypePtr DeduceBlockLoadType(const std::vector<ExprPtr> &args,
+                            const std::vector<std::pair<std::string, std::any>> &kwargs,
+                            const std::string &opName) {
   (void)kwargs;
   // load signature: (tensor, row_offset, col_offset, height, width)
   // We need at least the tensor argument
@@ -94,9 +94,9 @@ TypePtr DeduceBlockLoadType(const std::vector<ExprPtr>& args,
   return std::make_shared<TileType>(tile_shape, tensorType->dtype_);
 }
 
-TypePtr DeduceBlockStoreType(const std::vector<ExprPtr>& args,
-                             const std::vector<std::pair<std::string, std::any>>& kwargs,
-                             const std::string& opName) {
+TypePtr DeduceBlockStoreType(const std::vector<ExprPtr> &args,
+                             const std::vector<std::pair<std::string, std::any>> &kwargs,
+                             const std::string &opName) {
   (void)kwargs;
   // store signature: (tile, row_offset, col_offset, height, width, output_tensor)
   // We need at least the tile and output_tensor arguments
@@ -118,9 +118,9 @@ TypePtr DeduceBlockStoreType(const std::vector<ExprPtr>& args,
   return output_tensor_type;
 }
 
-TypePtr DeduceBlockMoveType(const std::vector<ExprPtr>& args,
-                            const std::vector<std::pair<std::string, std::any>>& kwargs,
-                            const std::string& opName) {
+TypePtr DeduceBlockMoveType(const std::vector<ExprPtr> &args,
+                            const std::vector<std::pair<std::string, std::any>> &kwargs,
+                            const std::string &opName) {
   // Validate args: expect exactly 1 argument (tile)
   CHECK(args.size() == 1) << "The operator " << opName << " requires 1 argument, but got " << args.size();
 
@@ -133,7 +133,7 @@ TypePtr DeduceBlockMoveType(const std::vector<ExprPtr>& args,
   bool transpose = GetKwarg<bool>(kwargs, "transpose", false);
 
   // Determine output shape based on transpose flag
-  const auto& input_shape = tileType->shape_;
+  const auto &input_shape = tileType->shape_;
   std::vector<ExprPtr> output_shape;
 
   if (transpose && input_shape.size() == 2) {
@@ -148,9 +148,9 @@ TypePtr DeduceBlockMoveType(const std::vector<ExprPtr>& args,
   return std::make_shared<TileType>(output_shape, tileType->dtype_);
 }
 
-TypePtr DeduceBlockAllocType(const std::vector<ExprPtr>& args,
-                             const std::vector<std::pair<std::string, std::any>>& kwargs,
-                             const std::string& opName) {
+TypePtr DeduceBlockAllocType(const std::vector<ExprPtr> &args,
+                             const std::vector<std::pair<std::string, std::any>> &kwargs,
+                             const std::string &opName) {
   (void)kwargs;
   // alloc signature: (memorySpace, addr, size, id)
   // Takes MemRef fields as arguments and returns MemRefType
@@ -161,9 +161,9 @@ TypePtr DeduceBlockAllocType(const std::vector<ExprPtr>& args,
   return GetMemRefType();
 }
 
-TypePtr DeduceBlockZerosType(const std::vector<ExprPtr>& args,
-                             const std::vector<std::pair<std::string, std::any>>& kwargs,
-                             const std::string& opName) {
+TypePtr DeduceBlockZerosType(const std::vector<ExprPtr> &args,
+                             const std::vector<std::pair<std::string, std::any>> &kwargs,
+                             const std::string &opName) {
   // zeros signature: (dim1, dim2, ..., dimN) with dtype kwarg
   // Creates a zero-initialized tile with arbitrary dimensions
   CHECK(args.size() >= 1) << "The operator " << opName << " requires at least 1 dimension argument, but got "
@@ -195,8 +195,8 @@ REGISTER_OP("block.get_block_idx")
     .set_op_category("BlockOp")
     .set_description("Get the current block index")
     .no_argument()
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceBlockGetBlockIdxType(args, kwargs, "block.get_block_idx");
     });
 
@@ -209,8 +209,8 @@ REGISTER_OP("block.load")
     .add_argument("height", "Tile height (scalar)")
     .add_argument("width", "Tile width (scalar)")
     .set_attr<int>("target_memory")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceBlockLoadType(args, kwargs, "block.load");
     });
 
@@ -223,8 +223,8 @@ REGISTER_OP("block.store")
     .add_argument("height", "Output height (scalar)")
     .add_argument("width", "Output width (scalar)")
     .add_argument("output_tensor", "Output tensor (TensorType)")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceBlockStoreType(args, kwargs, "block.store");
     });
 
@@ -237,8 +237,8 @@ REGISTER_OP("block.l0c_store")
     .add_argument("height", "Output height (scalar)")
     .add_argument("width", "Output width (scalar)")
     .add_argument("output_tensor", "Output tensor (TensorType)")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceBlockStoreType(args, kwargs, "block.l0c_store");
     });
 
@@ -248,8 +248,8 @@ REGISTER_OP("block.move")
     .add_argument("tile", "Input tile (TileType)")
     .set_attr<bool>("transpose")
     .set_attr<int>("target_memory")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceBlockMoveType(args, kwargs, "block.move");
     });
 
@@ -260,8 +260,8 @@ REGISTER_OP("block.alloc")
     .add_argument("addr", "Starting address expression")
     .add_argument("size", "Size in bytes (scalar)")
     .add_argument("id", "MemRef ID (scalar)")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceBlockAllocType(args, kwargs, "block.alloc");
     });
 
@@ -271,8 +271,8 @@ REGISTER_OP("block.zeros")
     .set_pipe(PipeType::V)
     .add_argument("dims", "Shape dimensions (one or more scalars)")
     .set_attr<int>("dtype")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceBlockZerosType(args, kwargs, "block.zeros");
     });
 

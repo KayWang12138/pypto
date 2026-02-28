@@ -88,7 +88,7 @@ TEST(IRTypeTest, TestScalarTypeVariousDtypes) {
       DataType::UINT8,  DataType::UINT16, DataType::UINT32, DataType::UINT64,
       DataType::FP16, DataType::FP32, DataType::BOOL};
 
-  for (const auto& dtype : dtypes) {
+  for (const auto &dtype : dtypes) {
     auto scalarType = std::make_shared<ScalarType>(dtype);
     ASSERT_NE(scalarType, nullptr);
     ASSERT_EQ(scalarType->dtype_, dtype);

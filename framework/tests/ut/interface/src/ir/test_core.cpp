@@ -150,7 +150,7 @@ TEST_F(IRCoreExtTest, TestValueErrorThrow) {
 TEST_F(IRCoreExtTest, TestErrorGetFullMessage) {
   try {
     throw InternalError("test message");
-  } catch (const Error& e) {
+  } catch (const Error &e) {
     std::string msg = e.GetFullMessage();
     ASSERT_NE(msg.find("test message"), std::string::npos);
   }
@@ -159,7 +159,7 @@ TEST_F(IRCoreExtTest, TestErrorGetFullMessage) {
 TEST_F(IRCoreExtTest, TestErrorGetFormattedStackTrace) {
   try {
     throw InternalError("test");
-  } catch (const Error& e) {
+  } catch (const Error &e) {
     // Just verify it doesn't crash
     std::string trace = e.GetFormattedStackTrace();
     // trace may or may not be empty depending on build mode
@@ -172,19 +172,19 @@ TEST_F(IRCoreExtTest, TestErrorGetFormattedStackTrace) {
 // ============================================================================
 
 TEST_F(IRCoreExtTest, TestBacktraceGetInstance) {
-  auto& bt = Backtrace::GetInstance();
+  auto &bt = Backtrace::GetInstance();
   (void)bt;
 }
 
 TEST_F(IRCoreExtTest, TestBacktraceCaptureStackTrace) {
-  auto& bt = Backtrace::GetInstance();
+  auto &bt = Backtrace::GetInstance();
   auto frames = bt.CaptureStackTrace(0);
   // Should capture at least some frames
   ASSERT_FALSE(frames.empty());
 }
 
 TEST_F(IRCoreExtTest, TestBacktraceFormatStackTrace) {
-  auto& bt = Backtrace::GetInstance();
+  auto &bt = Backtrace::GetInstance();
   auto frames = bt.CaptureStackTrace(0);
   std::string formatted = Backtrace::FormatStackTrace(frames);
   // May or may not have content depending on debug info

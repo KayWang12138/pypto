@@ -38,11 +38,11 @@ namespace ir {
 
 class TensorOpsTest : public testing::Test {
 protected:
-  OpRegistry& registry_ = OpRegistry::GetInstance();
+  OpRegistry &registry_ = OpRegistry::GetInstance();
   Span span_ = Span::unknown();
 
   // Helper: create a Var with TensorType [M, N]
-  VarPtr MakeTensorVar(const std::string& name,
+  VarPtr MakeTensorVar(const std::string &name,
                        std::vector<int64_t> dims,
                        DataType dtype = DataType::FP32) {
     std::vector<ExprPtr> shape;
@@ -55,7 +55,7 @@ protected:
   }
 
   // Helper: create a Var with ScalarType
-  VarPtr MakeScalarVar(const std::string& name,
+  VarPtr MakeScalarVar(const std::string &name,
                        DataType dtype = DataType::FP32) {
     auto st = std::make_shared<ScalarType>(dtype);
     return std::make_shared<Var>(name, st, span_);
@@ -433,24 +433,24 @@ TEST_F(TensorOpsTest, TestTensorTranspose3D) {
 // ================================================================
 
 TEST_F(TensorOpsTest, TestTensorAddEntryMetadata) {
-  const auto& entry = registry_.GetEntry("tensor.add");
+  const auto &entry = registry_.GetEntry("tensor.add");
   ASSERT_EQ(entry.GetOpCategory(), "TensorOp");
   ASSERT_FALSE(entry.GetDescription().empty());
 }
 
 TEST_F(TensorOpsTest, TestTensorMatMulEntryMetadata) {
-  const auto& entry =
+  const auto &entry =
       registry_.GetEntry("tensor.matmul");
   ASSERT_EQ(entry.GetOpCategory(), "TensorOp");
 }
 
 TEST_F(TensorOpsTest, TestTensorExpEntryMetadata) {
-  const auto& entry = registry_.GetEntry("tensor.exp");
+  const auto &entry = registry_.GetEntry("tensor.exp");
   ASSERT_EQ(entry.GetOpCategory(), "TensorOp");
 }
 
 TEST_F(TensorOpsTest, TestTensorCreateEntryMetadata) {
-  const auto& entry =
+  const auto &entry =
       registry_.GetEntry("tensor.create");
   ASSERT_EQ(entry.GetOpCategory(), "TensorOp");
 }

@@ -23,8 +23,8 @@ namespace ir {
 namespace {
 
 // Helper to deduce UnknownType (for ops with no return value)
-TypePtr DeduceUnknownType([[maybe_unused]] const std::vector<ExprPtr>& args,
-                          [[maybe_unused]] const std::vector<std::pair<std::string, std::any>>& kwargs) {
+TypePtr DeduceUnknownType([[maybe_unused]] const std::vector<ExprPtr> &args,
+                          [[maybe_unused]] const std::vector<std::pair<std::string, std::any>> &kwargs) {
   return GetUnknownType();
 }
 

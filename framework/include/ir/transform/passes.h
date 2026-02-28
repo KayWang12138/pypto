@@ -47,7 +47,7 @@ public:
    * \param program Input program to transform
    * \return Transformed program
    */
-  virtual ProgramPtr operator()(const ProgramPtr& program) = 0;
+  virtual ProgramPtr operator()(const ProgramPtr &program) = 0;
 
   /**
    * \brief Get the name of the pass (for debugging)
@@ -73,10 +73,10 @@ public:
   ~Pass();
 
   // Copy and move constructors/assignment
-  Pass(const Pass& other);
-  Pass& operator=(const Pass& other);
+  Pass(const Pass &other);
+  Pass &operator=(const Pass &other);
   Pass(Pass&& other) noexcept;
-  Pass& operator=(Pass&& other) noexcept;
+  Pass &operator=(Pass&& other) noexcept;
 
   /**
    * \brief Execute the pass on a program (primary API)
@@ -86,7 +86,7 @@ public:
    * \param program Input program to transform
    * \return Transformed program (may be the same pointer if no changes were made)
    */
-  ProgramPtr operator()(const ProgramPtr& program) const;
+  ProgramPtr operator()(const ProgramPtr &program) const;
 
   /**
    * \brief Execute the pass on a program (backward compatible API)
@@ -97,7 +97,7 @@ public:
    * \param program Input program to transform
    * \return Transformed program
    */
-  [[nodiscard]] ProgramPtr run(const ProgramPtr& program) const;
+  [[nodiscard]] ProgramPtr run(const ProgramPtr &program) const;
 
 private:
   std::shared_ptr<PassImpl> impl_;
@@ -120,7 +120,7 @@ namespace pass {
  *
  * Example:
  *   Pass MyPass() {
- *     return CreateFunctionPass([](const FunctionPtr& func) {
+ *     return CreateFunctionPass([](const FunctionPtr &func) {
  *       // Transform the function
  *       return transformed_func;
  *     }, "MyPass");
@@ -131,7 +131,7 @@ namespace pass {
  * \return Pass that applies the transform to each function
  */
 Pass CreateFunctionPass(std::function<FunctionPtr(const FunctionPtr&)> transform,
-                        const std::string& name = "");
+                        const std::string &name = "");
 
 /**
  * \brief Create a pass from a program-level transform function
@@ -144,7 +144,7 @@ Pass CreateFunctionPass(std::function<FunctionPtr(const FunctionPtr&)> transform
  * \param name Optional name for the pass (for debugging)
  * \return Pass that applies the transform
  */
-Pass CreateProgramPass(std::function<ProgramPtr(const ProgramPtr&)> transform, const std::string& name = "");
+Pass CreateProgramPass(std::function<ProgramPtr(const ProgramPtr&)> transform, const std::string &name = "");
 
 }  // namespace pass
 }  // namespace ir

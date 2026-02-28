@@ -59,7 +59,7 @@ TEST(CoreAnyCastTest, TestAnyCastTypeMismatch) {
     try {
         AnyCast<std::string>(value);  // Try to cast to string
         FAIL() << "Expected TypeError to be thrown";
-    } catch (const TypeError& e) {
+    } catch (const TypeError &e) {
         // Expected
         std::string msg = e.what();
         ASSERT_TRUE(msg.find("type") != std::string::npos ||
@@ -77,7 +77,7 @@ TEST(CoreAnyCastTest, TestAnyCastEmpty) {
     try {
         AnyCast<int>(value);
         FAIL() << "Expected exception for empty any";
-    } catch (const Error& e) {
+    } catch (const Error &e) {
         // Expected - should throw some error for empty any
         ASSERT_NE(e.what(), nullptr);
     }
@@ -89,7 +89,7 @@ TEST(CoreAnyCastTest, TestAnyCastRef) {
     std::any value = 42;
 
     try {
-        const int& result = AnyCastRef<int>(value);
+        const int &result = AnyCastRef<int>(value);
         ASSERT_EQ(result, 42);
     } catch (...) {
         FAIL() << "AnyCastRef should succeed for matching type";
@@ -105,7 +105,7 @@ TEST(CoreAnyCastTest, TestAnyCastRefTypeMismatch) {
     try {
         AnyCastRef<double>(value);  // Try to cast to double
         FAIL() << "Expected TypeError to be thrown";
-    } catch (const TypeError& e) {
+    } catch (const TypeError &e) {
         // Expected
         ASSERT_NE(e.what(), nullptr);
     } catch (...) {
@@ -131,7 +131,7 @@ TEST(CoreAnyCastTest, TestAnyCastPointer) {
     std::any value = &original;
 
     try {
-        int* result = AnyCast<int*>(value);
+        int *result = AnyCast<int*>(value);
         ASSERT_EQ(*result, 42);
     } catch (...) {
         FAIL() << "AnyCast should succeed for pointer type";
@@ -143,7 +143,7 @@ TEST(CoreAnyCastTest, TestAnyCastConstRef) {
     std::any value = std::string("test");
 
     try {
-        const std::string& result = AnyCastRef<std::string>(value);
+        const std::string &result = AnyCastRef<std::string>(value);
         ASSERT_EQ(result, "test");
     } catch (...) {
         FAIL() << "AnyCastRef should succeed for const reference";
@@ -159,7 +159,7 @@ TEST(CoreAnyCastTest, TestAnyCastErrorMessage) {
     try {
         AnyCast<std::string>(value);
         FAIL() << "Expected TypeError";
-    } catch (const TypeError& e) {
+    } catch (const TypeError &e) {
         std::string msg = e.GetFullMessage();
         // Message should contain type information
         ASSERT_TRUE(!msg.empty());

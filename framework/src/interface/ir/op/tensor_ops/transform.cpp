@@ -30,7 +30,7 @@ namespace ir {
 // Type Inference Functions
 // ============================================================================
 
-TypePtr DeduceTensorReshapeType(const std::vector<ExprPtr>& args,
+TypePtr DeduceTensorReshapeType(const std::vector<ExprPtr> &args,
                                 const std::vector<std::pair<std::string, std::any>>& /*kwargs*/) {
   // tensor.reshape requires exactly 2 arguments: input tensor and shape tuple
   INTERNAL_CHECK(args.size() == 2) << "tensor.reshape requires exactly 2 arguments (input, shape), but got "
@@ -86,7 +86,7 @@ TypePtr DeduceTensorReshapeType(const std::vector<ExprPtr>& args,
   return std::make_shared<TensorType>(new_shape, tensorType->dtype_);
 }
 
-TypePtr DeduceTensorTransposeType(const std::vector<ExprPtr>& args,
+TypePtr DeduceTensorTransposeType(const std::vector<ExprPtr> &args,
                                   const std::vector<std::pair<std::string, std::any>>& /*kwargs*/) {
   // tensor.transpose requires exactly 3 arguments: input tensor, axis1, axis2
   INTERNAL_CHECK(args.size() == 3) << "tensor.transpose requires exactly 3 arguments (input, axis1, axis2), but got "
@@ -97,7 +97,7 @@ TypePtr DeduceTensorTransposeType(const std::vector<ExprPtr>& args,
   INTERNAL_CHECK(tensorType) << "tensor.transpose requires first argument to be a TensorType, but got "
                      << args[0]->GetType()->TypeName();
 
-  const auto& input_shape = tensorType->shape_;
+  const auto &input_shape = tensorType->shape_;
   size_t ndim = input_shape.size();
 
   INTERNAL_CHECK(ndim >= 2) << "tensor.transpose requires at least 2 dimensions, but got " << ndim;
@@ -134,8 +134,8 @@ REGISTER_OP("tensor.reshape")
     .set_description("Reshape tensor to new shape")
     .add_argument("input", "Input tensor (TensorType)")
     .add_argument("shape", "New shape dimensions (TupleType of ScalarType(UINT64))")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceTensorReshapeType(args, kwargs);
     });
 
@@ -145,8 +145,8 @@ REGISTER_OP("tensor.transpose")
     .add_argument("input", "Input tensor (TensorType)")
     .add_argument("axis1", "First axis to swap (ConstInt)")
     .add_argument("axis2", "Second axis to swap (ConstInt)")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceTensorTransposeType(args, kwargs);
     });
 

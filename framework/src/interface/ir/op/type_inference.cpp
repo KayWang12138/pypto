@@ -25,7 +25,7 @@
 namespace pypto {
 namespace ir {
 
-BroadcastResult BroadcastShapes(const std::vector<ExprPtr>& shape1, const std::vector<ExprPtr>& shape2) {
+BroadcastResult BroadcastShapes(const std::vector<ExprPtr> &shape1, const std::vector<ExprPtr> &shape2) {
   // Handle empty shapes
   if (shape1.empty() && shape2.empty()) {
     return BroadcastResult::Success({});
@@ -131,7 +131,7 @@ std::optional<DataType> PromoteDataTypes(DataType dtype1, DataType dtype2) {
   return dtype1;
 }
 
-bool CheckTypeCompatibility(const TypePtr& type1, const TypePtr& type2) {
+bool CheckTypeCompatibility(const TypePtr &type1, const TypePtr &type2) {
   // Check if both are scalar types
   auto scalar1 = As<ScalarType>(type1);
   auto scalar2 = As<ScalarType>(type2);
@@ -157,7 +157,7 @@ bool CheckTypeCompatibility(const TypePtr& type1, const TypePtr& type2) {
   return false;
 }
 
-std::optional<DataType> ExtractDataType(const TypePtr& type) {
+std::optional<DataType> ExtractDataType(const TypePtr &type) {
   // Try ScalarType
   if (auto scalar = As<ScalarType>(type)) {
     return scalar->dtype_;
@@ -176,7 +176,7 @@ std::optional<DataType> ExtractDataType(const TypePtr& type) {
   return std::nullopt;
 }
 
-std::vector<ExprPtr> ExtractShape(const TypePtr& type) {
+std::vector<ExprPtr> ExtractShape(const TypePtr &type) {
   // Try TensorType
   if (auto tensor = As<TensorType>(type)) {
     return tensor->shape_;
@@ -191,7 +191,7 @@ std::vector<ExprPtr> ExtractShape(const TypePtr& type) {
   return {};
 }
 
-std::optional<int64_t> GetConstantDimension(const ExprPtr& dim) {
+std::optional<int64_t> GetConstantDimension(const ExprPtr &dim) {
   // Try to cast to ConstInt
   if (auto constInt = As<ConstInt>(dim)) {
     return constInt->value_;
@@ -201,7 +201,7 @@ std::optional<int64_t> GetConstantDimension(const ExprPtr& dim) {
   return std::nullopt;
 }
 
-bool DimensionsEqual(const ExprPtr& dim1, const ExprPtr& dim2) {
+bool DimensionsEqual(const ExprPtr &dim1, const ExprPtr &dim2) {
   // Pointer equality (same object)
   if (dim1 == dim2) {
     return true;
@@ -219,7 +219,7 @@ bool DimensionsEqual(const ExprPtr& dim1, const ExprPtr& dim2) {
   return false;
 }
 
-bool IsBroadcastable(const ExprPtr& source_dim, const ExprPtr& target_dim) {
+bool IsBroadcastable(const ExprPtr &source_dim, const ExprPtr &target_dim) {
   // If dimensions are equal, they're broadcastable
   if (DimensionsEqual(source_dim, target_dim)) {
     return true;
@@ -240,7 +240,7 @@ bool IsBroadcastable(const ExprPtr& source_dim, const ExprPtr& target_dim) {
   return false;
 }
 
-std::string FormatShape(const std::vector<ExprPtr>& shape) {
+std::string FormatShape(const std::vector<ExprPtr> &shape) {
   if (shape.empty()) {
     return "[]";
   }

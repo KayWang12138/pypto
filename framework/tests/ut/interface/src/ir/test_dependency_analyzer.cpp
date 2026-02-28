@@ -90,7 +90,7 @@ TEST_F(DependencyAnalyzerTest, TestAnalyzeRAWDependency) {
   ASSERT_FALSE(graph.blocks.empty());
   // Should detect RAW dependency on x
   bool hasRaw = false;
-  for (const auto& dep : graph.dependencies) {
+  for (const auto &dep : graph.dependencies) {
     if (dep.type == DependencyEdge::RAW) {
       hasRaw = true;
       break;
@@ -216,7 +216,7 @@ TEST_F(DependencyAnalyzerTest, TestAnalyzeWARDependency) {
   auto graph = analyzer.Analyze(func);
 
   bool hasWar = false;
-  for (const auto& dep : graph.dependencies) {
+  for (const auto &dep : graph.dependencies) {
     if (dep.type == DependencyEdge::WAR) {
       hasWar = true;
       break;
@@ -246,7 +246,7 @@ TEST_F(DependencyAnalyzerTest, TestAnalyzeWAWDependency) {
   auto graph = analyzer.Analyze(func);
 
   bool hasWaw = false;
-  for (const auto& dep : graph.dependencies) {
+  for (const auto &dep : graph.dependencies) {
     if (dep.type == DependencyEdge::WAW) {
       hasWaw = true;
       break;
@@ -265,7 +265,7 @@ TEST_F(DependencyAnalyzerTest, TestAnalyzeDependenciesMethod) {
   auto deps = analyzer.AnalyzeDependencies(func);
 
   bool hasRaw = false;
-  for (const auto& dep : deps) {
+  for (const auto &dep : deps) {
     if (dep.type == DependencyEdge::RAW) {
       hasRaw = true;
       break;
@@ -347,7 +347,7 @@ TEST_F(DependencyAnalyzerTest, TestAnalyzeEvalStmtDependency) {
   auto graph = analyzer.Analyze(func);
 
   bool hasRaw = false;
-  for (const auto& dep : graph.dependencies) {
+  for (const auto &dep : graph.dependencies) {
     if (dep.type == DependencyEdge::RAW) {
       hasRaw = true;
       break;

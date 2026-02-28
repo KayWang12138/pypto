@@ -48,7 +48,7 @@ static Span TestSpan() { return Span("test.py", 1, 0); }
 static TypePtr Int32Type() { return std::make_shared<ScalarType>(DataType::INT32); }
 
 // Helper: build a simple function with body "y = x + 1; return y"
-static FunctionPtr BuildSimpleFunction(const std::string& name = "testFunc") {
+static FunctionPtr BuildSimpleFunction(const std::string &name = "testFunc") {
   auto span = TestSpan();
   auto intType = Int32Type();
 
@@ -176,12 +176,12 @@ public:
   int exprCount = 0;
   int stmtCount = 0;
 
-  void VisitExpr(const ExprPtr& expr) override {
+  void VisitExpr(const ExprPtr &expr) override {
     exprCount++;
     IRVisitor::VisitExpr(expr);
   }
 
-  void VisitStmt(const StmtPtr& stmt) override {
+  void VisitStmt(const StmtPtr &stmt) override {
     stmtCount++;
     IRVisitor::VisitStmt(stmt);
   }
@@ -511,7 +511,7 @@ TEST(VerifierTest, VerifyValidProgram) {
   auto diagnostics = verifier.Verify(prog);
   // A simple valid program should have no errors
   int errorCount = 0;
-  for (const auto& d : diagnostics) {
+  for (const auto &d : diagnostics) {
     if (d.severity == DiagnosticSeverity::ERROR) {
       errorCount++;
     }
@@ -544,7 +544,7 @@ TEST(VerifierTest, EmptyVerifier) {
 
 TEST(PassTest, CreateFunctionPass) {
   auto myPass = pass::CreateFunctionPass(
-      [](const FunctionPtr& func) { return func; },  // identity pass
+      [](const FunctionPtr &func) { return func; },  // identity pass
       "IdentityPass");
 
   auto prog = BuildSimpleProgram();
@@ -554,7 +554,7 @@ TEST(PassTest, CreateFunctionPass) {
 
 TEST(PassTest, PassRunMethod) {
   auto myPass = pass::CreateFunctionPass(
-      [](const FunctionPtr& func) { return func; }, "IdentityPass");
+      [](const FunctionPtr &func) { return func; }, "IdentityPass");
 
   auto prog = BuildSimpleProgram();
   auto result = myPass.run(prog);
@@ -563,7 +563,7 @@ TEST(PassTest, PassRunMethod) {
 
 TEST(PassTest, CreateProgramPass) {
   auto myPass = pass::CreateProgramPass(
-      [](const ProgramPtr& prog) { return prog; },  // identity pass
+      [](const ProgramPtr &prog) { return prog; },  // identity pass
       "IdentityProgramPass");
 
   auto prog = BuildSimpleProgram();
@@ -582,7 +582,7 @@ TEST(PassTest, DefaultPass) {
 
 TEST(PassTest, PassCopyAndMove) {
   auto myPass = pass::CreateFunctionPass(
-      [](const FunctionPtr& func) { return func; }, "CopyTest");
+      [](const FunctionPtr &func) { return func; }, "CopyTest");
 
   Pass copy = myPass;
   auto prog = BuildSimpleProgram();

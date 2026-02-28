@@ -38,10 +38,10 @@ namespace ir {
 
 class BlockOpsTest : public testing::Test {
 protected:
-  OpRegistry& registry_ = OpRegistry::GetInstance();
+  OpRegistry &registry_ = OpRegistry::GetInstance();
   Span span_ = Span::unknown();
 
-  VarPtr MakeTileVar(const std::string& name,
+  VarPtr MakeTileVar(const std::string &name,
                      std::vector<int64_t> dims,
                      DataType dtype = DataType::FP32) {
     std::vector<ExprPtr> shape;
@@ -53,7 +53,7 @@ protected:
     return std::make_shared<Var>(name, tt, span_);
   }
 
-  VarPtr MakeTensorVar(const std::string& name,
+  VarPtr MakeTensorVar(const std::string &name,
                        std::vector<int64_t> dims,
                        DataType dtype = DataType::FP32) {
     std::vector<ExprPtr> shape;
@@ -65,7 +65,7 @@ protected:
     return std::make_shared<Var>(name, tt, span_);
   }
 
-  VarPtr MakeScalarVar(const std::string& name,
+  VarPtr MakeScalarVar(const std::string &name,
                        DataType dtype = DataType::FP32) {
     auto st = std::make_shared<ScalarType>(dtype);
     return std::make_shared<Var>(name, st, span_);

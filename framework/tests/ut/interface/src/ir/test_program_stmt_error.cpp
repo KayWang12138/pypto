@@ -243,7 +243,7 @@ TEST(StmtTest, OpStmtsEmpty) {
 TEST(ErrorTest, RuntimeErrorConstruction) {
   try {
     throw RuntimeError("test error message");
-  } catch (const RuntimeError& e) {
+  } catch (const RuntimeError &e) {
     std::string msg = e.what();
     ASSERT_NE(msg.find("test error message"), std::string::npos);
   }
@@ -252,7 +252,7 @@ TEST(ErrorTest, RuntimeErrorConstruction) {
 TEST(ErrorTest, ValueErrorConstruction) {
   try {
     throw ValueError("value error");
-  } catch (const ValueError& e) {
+  } catch (const ValueError &e) {
     std::string msg = e.what();
     ASSERT_NE(msg.find("value error"), std::string::npos);
   }
@@ -261,7 +261,7 @@ TEST(ErrorTest, ValueErrorConstruction) {
 TEST(ErrorTest, InternalErrorConstruction) {
   try {
     throw InternalError("internal error");
-  } catch (const InternalError& e) {
+  } catch (const InternalError &e) {
     std::string msg = e.what();
     ASSERT_NE(msg.find("internal error"), std::string::npos);
   }
@@ -270,7 +270,7 @@ TEST(ErrorTest, InternalErrorConstruction) {
 TEST(ErrorTest, ErrorGetFullMessage) {
   try {
     throw RuntimeError("test full message");
-  } catch (const Error& e) {
+  } catch (const Error &e) {
     auto fullMsg = e.GetFullMessage();
     ASSERT_NE(fullMsg.find("test full message"), std::string::npos);
   }
@@ -279,7 +279,7 @@ TEST(ErrorTest, ErrorGetFullMessage) {
 TEST(ErrorTest, ErrorGetFormattedStackTrace) {
   try {
     throw RuntimeError("stack trace test");
-  } catch (const Error& e) {
+  } catch (const Error &e) {
     // GetFormattedStackTrace should not crash
     auto trace = e.GetFormattedStackTrace();
     // trace may be empty in release builds

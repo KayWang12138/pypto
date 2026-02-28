@@ -44,51 +44,51 @@ public:
    * \param args Additional arguments
    * \return Result of visiting the expression
    */
-  virtual R VisitExpr(const ExprPtr& expr, Args... args);
+  virtual R VisitExpr(const ExprPtr &expr, Args... args);
 
 protected:
   // Leaf nodes
-  virtual R VisitExpr_(const VarPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const IterArgPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const MemRefPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const ConstIntPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const ConstFloatPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const ConstBoolPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const CallPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const MakeTuplePtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const TupleGetItemExprPtr& op, Args... args) = 0;
+  virtual R VisitExpr_(const VarPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const IterArgPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const MemRefPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const ConstIntPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const ConstFloatPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const ConstBoolPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const CallPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const MakeTuplePtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const TupleGetItemExprPtr &op, Args... args) = 0;
 
   // Binary operations (22 types)
-  virtual R VisitExpr_(const AddPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const SubPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const MulPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const FloorDivPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const FloorModPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const FloatDivPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const MinPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const MaxPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const PowPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const EqPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const NePtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const LtPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const LePtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const GtPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const GePtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const AndPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const OrPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const XorPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const BitAndPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const BitOrPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const BitXorPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const BitShiftLeftPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const BitShiftRightPtr& op, Args... args) = 0;
+  virtual R VisitExpr_(const AddPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const SubPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const MulPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const FloorDivPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const FloorModPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const FloatDivPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const MinPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const MaxPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const PowPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const EqPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const NePtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const LtPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const LePtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const GtPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const GePtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const AndPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const OrPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const XorPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const BitAndPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const BitOrPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const BitXorPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const BitShiftLeftPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const BitShiftRightPtr &op, Args... args) = 0;
 
   // Unary operations (5 types)
-  virtual R VisitExpr_(const AbsPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const NegPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const NotPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const BitNotPtr& op, Args... args) = 0;
-  virtual R VisitExpr_(const CastPtr& op, Args... args) = 0;
+  virtual R VisitExpr_(const AbsPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const NegPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const NotPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const BitNotPtr &op, Args... args) = 0;
+  virtual R VisitExpr_(const CastPtr &op, Args... args) = 0;
 };
 
 // Macro to dispatch based on expression type
@@ -98,7 +98,7 @@ protected:
   }
 
 template <typename R, typename... Args>
-R ExprFunctor<R, Args...>::VisitExpr(const ExprPtr& expr, Args... args) {
+R ExprFunctor<R, Args...>::VisitExpr(const ExprPtr &expr, Args... args) {
   // Leaf nodes
   // Note: IterArg and MemRef must be checked before Var since they inherit from Var
   EXPR_FUNCTOR_DISPATCH(IterArg);
@@ -172,19 +172,19 @@ public:
    * \param args Additional arguments
    * \return Result of visiting the statement
    */
-  virtual R VisitStmt(const StmtPtr& stmt, Args... args);
+  virtual R VisitStmt(const StmtPtr &stmt, Args... args);
 
 protected:
   // Statement types
-  virtual R VisitStmt_(const AssignStmtPtr& op, Args... args) = 0;
-  virtual R VisitStmt_(const IfStmtPtr& op, Args... args) = 0;
-  virtual R VisitStmt_(const YieldStmtPtr& op, Args... args) = 0;
-  virtual R VisitStmt_(const ReturnStmtPtr& op, Args... args) = 0;
-  virtual R VisitStmt_(const ForStmtPtr& op, Args... args) = 0;
-  virtual R VisitStmt_(const SeqStmtsPtr& op, Args... args) = 0;
-  virtual R VisitStmt_(const OpStmtsPtr& op, Args... args) = 0;
-  virtual R VisitStmt_(const EvalStmtPtr& op, Args... args) = 0;
-  virtual R VisitStmt_(const StmtPtr& op, Args... args) = 0;
+  virtual R VisitStmt_(const AssignStmtPtr &op, Args... args) = 0;
+  virtual R VisitStmt_(const IfStmtPtr &op, Args... args) = 0;
+  virtual R VisitStmt_(const YieldStmtPtr &op, Args... args) = 0;
+  virtual R VisitStmt_(const ReturnStmtPtr &op, Args... args) = 0;
+  virtual R VisitStmt_(const ForStmtPtr &op, Args... args) = 0;
+  virtual R VisitStmt_(const SeqStmtsPtr &op, Args... args) = 0;
+  virtual R VisitStmt_(const OpStmtsPtr &op, Args... args) = 0;
+  virtual R VisitStmt_(const EvalStmtPtr &op, Args... args) = 0;
+  virtual R VisitStmt_(const StmtPtr &op, Args... args) = 0;
 };
 
 // Macro to dispatch based on statement type
@@ -194,7 +194,7 @@ protected:
   }
 
 template <typename R, typename... Args>
-R StmtFunctor<R, Args...>::VisitStmt(const StmtPtr& stmt, Args... args) {
+R StmtFunctor<R, Args...>::VisitStmt(const StmtPtr &stmt, Args... args) {
   // Dispatch to concrete statement types
   STMT_FUNCTOR_DISPATCH(AssignStmt);
   STMT_FUNCTOR_DISPATCH(IfStmt);
@@ -234,7 +234,7 @@ public:
    * \param args Additional arguments
    * \return Result of visiting the IR node
    */
-  R VisitIRNode(const IRNodePtr& node, Args... args) {
+  R VisitIRNode(const IRNodePtr &node, Args... args) {
     if (auto expr = As<Expr>(node)) {
       return ExprFunctor<R, Args...>::VisitExpr(expr, std::forward<Args>(args)...);
     } else if (auto stmt = As<Stmt>(node)) {
@@ -250,54 +250,54 @@ public:
 // Macros to declare all visitor override methods, reducing boilerplate in derived classes.
 // Usage: Place inside a class that inherits from IRFunctor<void> (or IRVisitor).
 #define PYPTO_DECLARE_EXPR_VISITOR_OVERRIDES                          \
-  void VisitExpr_(const VarPtr& op) override;                        \
-  void VisitExpr_(const IterArgPtr& op) override;                    \
-  void VisitExpr_(const MemRefPtr& op) override;                     \
-  void VisitExpr_(const ConstIntPtr& op) override;                   \
-  void VisitExpr_(const ConstFloatPtr& op) override;                 \
-  void VisitExpr_(const ConstBoolPtr& op) override;                  \
-  void VisitExpr_(const CallPtr& op) override;                       \
-  void VisitExpr_(const MakeTuplePtr& op) override;                  \
-  void VisitExpr_(const TupleGetItemExprPtr& op) override;           \
-  void VisitExpr_(const AddPtr& op) override;                        \
-  void VisitExpr_(const SubPtr& op) override;                        \
-  void VisitExpr_(const MulPtr& op) override;                        \
-  void VisitExpr_(const FloorDivPtr& op) override;                   \
-  void VisitExpr_(const FloorModPtr& op) override;                   \
-  void VisitExpr_(const FloatDivPtr& op) override;                   \
-  void VisitExpr_(const MinPtr& op) override;                        \
-  void VisitExpr_(const MaxPtr& op) override;                        \
-  void VisitExpr_(const PowPtr& op) override;                        \
-  void VisitExpr_(const EqPtr& op) override;                         \
-  void VisitExpr_(const NePtr& op) override;                         \
-  void VisitExpr_(const LtPtr& op) override;                         \
-  void VisitExpr_(const LePtr& op) override;                         \
-  void VisitExpr_(const GtPtr& op) override;                         \
-  void VisitExpr_(const GePtr& op) override;                         \
-  void VisitExpr_(const AndPtr& op) override;                        \
-  void VisitExpr_(const OrPtr& op) override;                         \
-  void VisitExpr_(const XorPtr& op) override;                        \
-  void VisitExpr_(const BitAndPtr& op) override;                     \
-  void VisitExpr_(const BitOrPtr& op) override;                      \
-  void VisitExpr_(const BitXorPtr& op) override;                     \
-  void VisitExpr_(const BitShiftLeftPtr& op) override;               \
-  void VisitExpr_(const BitShiftRightPtr& op) override;              \
-  void VisitExpr_(const AbsPtr& op) override;                        \
-  void VisitExpr_(const NegPtr& op) override;                        \
-  void VisitExpr_(const NotPtr& op) override;                        \
-  void VisitExpr_(const BitNotPtr& op) override;                     \
-  void VisitExpr_(const CastPtr& op) override;
+  void VisitExpr_(const VarPtr &op) override;                        \
+  void VisitExpr_(const IterArgPtr &op) override;                    \
+  void VisitExpr_(const MemRefPtr &op) override;                     \
+  void VisitExpr_(const ConstIntPtr &op) override;                   \
+  void VisitExpr_(const ConstFloatPtr &op) override;                 \
+  void VisitExpr_(const ConstBoolPtr &op) override;                  \
+  void VisitExpr_(const CallPtr &op) override;                       \
+  void VisitExpr_(const MakeTuplePtr &op) override;                  \
+  void VisitExpr_(const TupleGetItemExprPtr &op) override;           \
+  void VisitExpr_(const AddPtr &op) override;                        \
+  void VisitExpr_(const SubPtr &op) override;                        \
+  void VisitExpr_(const MulPtr &op) override;                        \
+  void VisitExpr_(const FloorDivPtr &op) override;                   \
+  void VisitExpr_(const FloorModPtr &op) override;                   \
+  void VisitExpr_(const FloatDivPtr &op) override;                   \
+  void VisitExpr_(const MinPtr &op) override;                        \
+  void VisitExpr_(const MaxPtr &op) override;                        \
+  void VisitExpr_(const PowPtr &op) override;                        \
+  void VisitExpr_(const EqPtr &op) override;                         \
+  void VisitExpr_(const NePtr &op) override;                         \
+  void VisitExpr_(const LtPtr &op) override;                         \
+  void VisitExpr_(const LePtr &op) override;                         \
+  void VisitExpr_(const GtPtr &op) override;                         \
+  void VisitExpr_(const GePtr &op) override;                         \
+  void VisitExpr_(const AndPtr &op) override;                        \
+  void VisitExpr_(const OrPtr &op) override;                         \
+  void VisitExpr_(const XorPtr &op) override;                        \
+  void VisitExpr_(const BitAndPtr &op) override;                     \
+  void VisitExpr_(const BitOrPtr &op) override;                      \
+  void VisitExpr_(const BitXorPtr &op) override;                     \
+  void VisitExpr_(const BitShiftLeftPtr &op) override;               \
+  void VisitExpr_(const BitShiftRightPtr &op) override;              \
+  void VisitExpr_(const AbsPtr &op) override;                        \
+  void VisitExpr_(const NegPtr &op) override;                        \
+  void VisitExpr_(const NotPtr &op) override;                        \
+  void VisitExpr_(const BitNotPtr &op) override;                     \
+  void VisitExpr_(const CastPtr &op) override;
 
 #define PYPTO_DECLARE_STMT_VISITOR_OVERRIDES                          \
-  void VisitStmt_(const AssignStmtPtr& op) override;                 \
-  void VisitStmt_(const IfStmtPtr& op) override;                     \
-  void VisitStmt_(const YieldStmtPtr& op) override;                  \
-  void VisitStmt_(const ReturnStmtPtr& op) override;                 \
-  void VisitStmt_(const ForStmtPtr& op) override;                    \
-  void VisitStmt_(const SeqStmtsPtr& op) override;                   \
-  void VisitStmt_(const OpStmtsPtr& op) override;                    \
-  void VisitStmt_(const EvalStmtPtr& op) override;                   \
-  void VisitStmt_(const StmtPtr& op) override;
+  void VisitStmt_(const AssignStmtPtr &op) override;                 \
+  void VisitStmt_(const IfStmtPtr &op) override;                     \
+  void VisitStmt_(const YieldStmtPtr &op) override;                  \
+  void VisitStmt_(const ReturnStmtPtr &op) override;                 \
+  void VisitStmt_(const ForStmtPtr &op) override;                    \
+  void VisitStmt_(const SeqStmtsPtr &op) override;                   \
+  void VisitStmt_(const OpStmtsPtr &op) override;                    \
+  void VisitStmt_(const EvalStmtPtr &op) override;                   \
+  void VisitStmt_(const StmtPtr &op) override;
 
 #define PYPTO_DECLARE_ALL_VISITOR_OVERRIDES \
   PYPTO_DECLARE_EXPR_VISITOR_OVERRIDES     \

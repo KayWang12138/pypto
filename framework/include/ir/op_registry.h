@@ -42,12 +42,12 @@ using CallPtr = std::shared_ptr<const Call>;
 // CCE Codegen function type
 // Returns: final variable name/expression string
 // Parameters: op, codegen object reference
-using CCECodegenFunc = std::function<std::string(const CallPtr& op, codegen::CCECodegen& codegen)>;
+using CCECodegenFunc = std::function<std::string(const CallPtr &op, codegen::CCECodegen &codegen)>;
 
 // PTO Codegen function type
 // Returns: MLIR SSA variable name (e.g., "%1")
 // Parameters: op, codegen object reference
-using PTOCodegenFunc = std::function<std::string(const CallPtr& op, codegen::PTOCodegen& codegen)>;
+using PTOCodegenFunc = std::function<std::string(const CallPtr &op, codegen::PTOCodegen &codegen)>;
 
 /**
  * \brief Type-erased operator registration entry
@@ -64,7 +64,7 @@ using PTOCodegenFunc = std::function<std::string(const CallPtr& op, codegen::PTO
  *      .set_description("Element-wise addition of two tensors")
  *      .add_argument("lhs", "Left-hand side tensor")
  *      .add_argument("rhs", "Right-hand side tensor")
- *      .f_deduce_type([](const std::vector<ExprPtr>& args) {
+ *      .f_deduce_type([](const std::vector<ExprPtr> &args) {
  *          return args[0]->GetType();
  *      });
  * \endcode
@@ -88,7 +88,7 @@ public:
    * \return Const reference to the operator pointer
    * \throws ValueError if any required field is not set
    */
-  [[nodiscard]] inline const OpPtr& GetOp() const {
+  [[nodiscard]] inline const OpPtr &GetOp() const {
     // Check operator instance
     INTERNAL_CHECK(op_) << "Operator '" + name_ + "' has no operator instance";
 
@@ -117,7 +117,7 @@ public:
    *
    * \return Const reference to the operator name
    */
-  [[nodiscard]] inline const std::string& GetName() const { return name_; }
+  [[nodiscard]] inline const std::string &GetName() const { return name_; }
 
   /**
    * \brief Get the operator description
@@ -125,7 +125,7 @@ public:
    * \return Const reference to the operator description
    * \throws ValueError if description is not set
    */
-  [[nodiscard]] inline const std::string& GetDescription() const {
+  [[nodiscard]] inline const std::string &GetDescription() const {
     INTERNAL_CHECK(description_.has_value()) << "Operator '" + name_ + "' has no description";
     return *description_;
   }
@@ -136,7 +136,7 @@ public:
    * \return Const reference to the operator category (e.g., "TensorOp", "BlockOp", "ScalarOp")
    * \throws ValueError if category is not set
    */
-  [[nodiscard]] inline const std::string& GetOpCategory() const {
+  [[nodiscard]] inline const std::string &GetOpCategory() const {
     INTERNAL_CHECK(op_category_.has_value()) << "Operator '" + name_ + "' has no category";
     return *op_category_;
   }
@@ -165,7 +165,7 @@ public:
    * \param description Human-readable description of the operator
    * \return Reference to this entry for method chaining
    */
-  inline OpRegistryEntry& set_description(std::string description) {
+  inline OpRegistryEntry &set_description(std::string description) {
     INTERNAL_CHECK(!description_.has_value()) << "Operator '" + name_ + "' description is already set";
     description_ = std::move(description);
     return *this;
@@ -180,7 +180,7 @@ public:
    * \param category Operator category (e.g., "TensorOp", "BlockOp", "ScalarOp")
    * \return Reference to this entry for method chaining
    */
-  inline OpRegistryEntry& set_op_category(std::string category) {
+  inline OpRegistryEntry &set_op_category(std::string category) {
     INTERNAL_CHECK(!op_category_.has_value()) << "Operator '" + name_ + "' category is already set";
     op_category_ = std::move(category);
     return *this;
@@ -198,7 +198,7 @@ public:
    * \param description Description of the argument's purpose
    * \return Reference to this entry for method chaining
    */
-  inline OpRegistryEntry& add_argument(std::string name, std::string description) {
+  inline OpRegistryEntry &add_argument(std::string name, std::string description) {
     // Initialize the vector if not already initialized
     if (!arguments_.has_value()) {
       arguments_ = std::vector<std::pair<std::string, std::string>>();
@@ -215,7 +215,7 @@ public:
    *
    * \return Reference to this entry for method chaining
    */
-  inline OpRegistryEntry& no_argument() {
+  inline OpRegistryEntry &no_argument() {
     INTERNAL_CHECK(!arguments_.has_value()) << "Operator '" + name_ +
                                           "' already has arguments defined. Cannot call no_argument() after "
                                           "add_argument().";
@@ -239,7 +239,7 @@ public:
    * \param dt Function that takes arguments, kwargs and returns the deduced result type
    * \return Reference to this entry for method chaining
    */
-  inline OpRegistryEntry& f_deduce_type(
+  inline OpRegistryEntry &f_deduce_type(
       std::function<TypePtr(const std::vector<ExprPtr>&,
                             const std::vector<std::pair<std::string, std::any>>&)>
           dt) {
@@ -278,7 +278,7 @@ public:
    * \return Reference to this entry for method chaining
    */
   template <typename T>
-  inline OpRegistryEntry& set_attr(const std::string& key) {
+  inline OpRegistryEntry &set_attr(const std::string &key) {
     INTERNAL_CHECK(op_) << "Operator '" + name_ + "' has no operator instance";
     op_->SetAttrType<T>(key);  // Delegate to Op::SetAttrType (compile-time check happens there)
     return *this;
@@ -290,7 +290,7 @@ public:
    * \param pipe Pipeline type (e.g., MTE2, V)
    * \return Reference to this entry for method chaining
    */
-  inline OpRegistryEntry& set_pipe(PipeType pipe) {
+  inline OpRegistryEntry &set_pipe(PipeType pipe) {
     INTERNAL_CHECK(op_) << "Operator '" + name_ + "' has no operator instance";
     op_->SetPipe(pipe);
     return *this;
@@ -305,7 +305,7 @@ public:
    * \param func CCE codegen function
    * \return Reference to this entry for method chaining
    */
-  inline OpRegistryEntry& f_codegen_cce(CCECodegenFunc func) {
+  inline OpRegistryEntry &f_codegen_cce(CCECodegenFunc func) {
     INTERNAL_CHECK(!codegen_cce_.has_value()) << "Operator '" + name_ + "' CCE codegen already set";
     codegen_cce_ = std::move(func);
     return *this;
@@ -320,7 +320,7 @@ public:
    * \param func PTO codegen function
    * \return Reference to this entry for method chaining
    */
-  inline OpRegistryEntry& f_codegen_pto(PTOCodegenFunc func) {
+  inline OpRegistryEntry &f_codegen_pto(PTOCodegenFunc func) {
     INTERNAL_CHECK(!codegen_pto_.has_value()) << "Operator '" + name_ + "' PTO codegen already set";
     codegen_pto_ = std::move(func);
     return *this;
@@ -332,7 +332,7 @@ public:
    * \return Const reference to CCE codegen function
    * \throws ValueError if CCE codegen is not set
    */
-  [[nodiscard]] inline const CCECodegenFunc& GetCodegenCCE() const {
+  [[nodiscard]] inline const CCECodegenFunc &GetCodegenCCE() const {
     INTERNAL_CHECK(codegen_cce_.has_value()) << "Operator '" + name_ + "' does not support CCE codegen";
     return *codegen_cce_;
   }
@@ -343,7 +343,7 @@ public:
    * \return Const reference to PTO codegen function
    * \throws ValueError if PTO codegen is not set
    */
-  [[nodiscard]] inline const PTOCodegenFunc& GetCodegenPTO() const {
+  [[nodiscard]] inline const PTOCodegenFunc &GetCodegenPTO() const {
     INTERNAL_CHECK(codegen_pto_.has_value()) << "Operator '" + name_ + "' does not support PTO codegen";
     return *codegen_pto_;
   }
@@ -372,7 +372,7 @@ private:
    * \param name The operator name (e.g., "tensor.add", "tile.conv2d")
    * \return Reference to this entry for method chaining
    */
-  inline OpRegistryEntry& set_name(std::string name) {
+  inline OpRegistryEntry &set_name(std::string name) {
     name_ = std::move(name);
     return *this;
   }
@@ -405,16 +405,16 @@ class OpRegistry {
 public:
   // Disable copy and move
   OpRegistry(const OpRegistry&) = delete;
-  OpRegistry& operator=(const OpRegistry&) = delete;
+  OpRegistry &operator=(const OpRegistry&) = delete;
   OpRegistry(OpRegistry&&) = delete;
-  OpRegistry& operator=(OpRegistry&&) = delete;
+  OpRegistry &operator=(OpRegistry&&) = delete;
 
   /**
    * \brief Get the singleton instance
    *
    * \return Reference to the global operator registry
    */
-  static OpRegistry& GetInstance();
+  static OpRegistry &GetInstance();
 
   /**
    * \brief Register an operator by name
@@ -425,7 +425,7 @@ public:
    * \param opName Name of the operator (e.g., "tensor.add", "block.mul")
    * \throws ValueError if operator is already registered
    */
-  OpRegistryEntry& Register(const std::string& opName);
+  OpRegistryEntry &Register(const std::string &opName);
 
   /**
    * \brief Create a Call expression for a registered operator
@@ -439,7 +439,7 @@ public:
    * \return Shared pointer to Call expression with deduced type
    * \throws ValueError if operator not found or argument count invalid
    */
-  CallPtr Create(const std::string& opName, const std::vector<ExprPtr>& args, Span span) const;
+  CallPtr Create(const std::string &opName, const std::vector<ExprPtr> &args, Span span) const;
 
   /**
    * \brief Create a Call expression with kwargs for a registered operator
@@ -454,8 +454,8 @@ public:
    * \return Shared pointer to Call expression with deduced type
    * \throws ValueError if operator not found or invalid arguments
    */
-  CallPtr Create(const std::string& opName, const std::vector<ExprPtr>& args,
-                 const std::vector<std::pair<std::string, std::any>>& kwargs, Span span) const;
+  CallPtr Create(const std::string &opName, const std::vector<ExprPtr> &args,
+                 const std::vector<std::pair<std::string, std::any>> &kwargs, Span span) const;
 
   /**
    * \brief Check if an operator is registered
@@ -463,7 +463,7 @@ public:
    * \param opName Name of the operator
    * \return true if the operator is registered
    */
-  bool IsRegistered(const std::string& opName) const { return registry_.find(opName) != registry_.end(); }
+  bool IsRegistered(const std::string &opName) const { return registry_.find(opName) != registry_.end(); }
 
   /**
    * \brief Get the operator registry entry by name
@@ -472,7 +472,7 @@ public:
    * \return Const reference to the operator registry entry
    * \throws ValueError if operator not found
    */
-  const OpRegistryEntry& GetEntry(const std::string& opName) const;
+  const OpRegistryEntry &GetEntry(const std::string &opName) const;
 
   /**
    * \brief Get the operator instance by name
@@ -481,7 +481,7 @@ public:
    * \return Shared pointer to the operator instance
    * \throws ValueError if operator not found
    */
-  OpPtr GetOp(const std::string& opName) const;
+  OpPtr GetOp(const std::string &opName) const;
 
 private:
   OpRegistry() = default;
@@ -502,9 +502,9 @@ private:
  * \throws ValueError if unknown kwarg
  * \throws TypeError if type mismatch
  */
-void ValidateKwargs(const std::vector<std::pair<std::string, std::any>>& kwargs,
-                    const std::unordered_map<std::string, std::type_index>& allowed_kwargs,
-                    const std::string& opName);
+void ValidateKwargs(const std::vector<std::pair<std::string, std::any>> &kwargs,
+                    const std::unordered_map<std::string, std::type_index> &allowed_kwargs,
+                    const std::string &opName);
 
 /**
  * \brief Helper macro for operator registration
@@ -516,7 +516,7 @@ void ValidateKwargs(const std::vector<std::pair<std::string, std::any>>& kwargs,
  * \endcode
  */
 #define REGISTER_OP(OpName)                                                                           \
-  static PYPTO_STR_CONCAT(PYPTO_UNUSED ::pypto::ir::OpRegistryEntry& OpRegistryEntry_, __COUNTER__) = \
+  static PYPTO_STR_CONCAT(PYPTO_UNUSED ::pypto::ir::OpRegistryEntry &OpRegistryEntry_, __COUNTER__) = \
       ::pypto::ir::OpRegistry::GetInstance().Register(OpName)
 
 }  // namespace ir

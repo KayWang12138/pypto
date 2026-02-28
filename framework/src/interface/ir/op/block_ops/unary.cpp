@@ -24,9 +24,9 @@
 namespace pypto {
 namespace ir {
 
-TypePtr DeduceBlockUnaryType(const std::vector<ExprPtr>& args,
-                             const std::vector<std::pair<std::string, std::any>>& kwargs,
-                             const std::string& opName) {
+TypePtr DeduceBlockUnaryType(const std::vector<ExprPtr> &args,
+                             const std::vector<std::pair<std::string, std::any>> &kwargs,
+                             const std::string &opName) {
   (void)kwargs;
   CHECK(args.size() == 1) << "The operator " << opName << " requires exactly 1 argument, but got "
                           << args.size();
@@ -40,9 +40,9 @@ TypePtr DeduceBlockUnaryType(const std::vector<ExprPtr>& args,
   return std::make_shared<TileType>(tileType->shape_, tileType->dtype_);
 }
 
-TypePtr DeduceBlockCastType(const std::vector<ExprPtr>& args,
-                            const std::vector<std::pair<std::string, std::any>>& kwargs,
-                            const std::string& opName) {
+TypePtr DeduceBlockCastType(const std::vector<ExprPtr> &args,
+                            const std::vector<std::pair<std::string, std::any>> &kwargs,
+                            const std::string &opName) {
   CHECK(args.size() == 1) << "The operator " << opName << " requires exactly 1 argument, but got "
                           << args.size();
 
@@ -53,7 +53,7 @@ TypePtr DeduceBlockCastType(const std::vector<ExprPtr>& args,
 
   // Extract target_dtype from kwargs
   auto it = std::find_if(kwargs.begin(), kwargs.end(),
-                         [](const auto& pair) { return pair.first == "target_dtype"; });
+                         [](const auto &pair) { return pair.first == "target_dtype"; });
   CHECK(it != kwargs.end()) << "The operator " << opName << " requires 'target_dtype' kwarg";
 
   DataType target_dtype = static_cast<DataType>(std::any_cast<int>(it->second));
@@ -70,8 +70,8 @@ REGISTER_OP("block.neg")
     .set_op_category("BlockOp")
     .set_description("Negation of a tile (element-wise)")
     .add_argument("tile", "Input tile (TileType)")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceBlockUnaryType(args, kwargs, "block.neg");
     });
 
@@ -79,8 +79,8 @@ REGISTER_OP("block.exp")
     .set_op_category("BlockOp")
     .set_description("Exponential function of a tile (element-wise)")
     .add_argument("tile", "Input tile (TileType)")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceBlockUnaryType(args, kwargs, "block.exp");
     });
 
@@ -88,8 +88,8 @@ REGISTER_OP("block.recip")
     .set_op_category("BlockOp")
     .set_description("Reciprocal (1/x) of a tile (element-wise)")
     .add_argument("tile", "Input tile (TileType)")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceBlockUnaryType(args, kwargs, "block.recip");
     });
 
@@ -97,8 +97,8 @@ REGISTER_OP("block.sqrt")
     .set_op_category("BlockOp")
     .set_description("Square root of a tile (element-wise)")
     .add_argument("tile", "Input tile (TileType)")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceBlockUnaryType(args, kwargs, "block.sqrt");
     });
 
@@ -106,8 +106,8 @@ REGISTER_OP("block.rsqrt")
     .set_op_category("BlockOp")
     .set_description("Reciprocal square root (1/sqrt(x)) of a tile (element-wise)")
     .add_argument("tile", "Input tile (TileType)")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceBlockUnaryType(args, kwargs, "block.rsqrt");
     });
 
@@ -117,8 +117,8 @@ REGISTER_OP("block.cast")
     .set_pipe(PipeType::V)
     .add_argument("tile", "Input tile (TileType)")
     .set_attr<int>("target_dtype")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceBlockCastType(args, kwargs, "block.cast");
     });
 
@@ -127,8 +127,8 @@ REGISTER_OP("block.log")
     .set_description("Natural logarithm of a tile (element-wise)")
     .set_pipe(PipeType::V)
     .add_argument("tile", "Input tile (TileType)")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceBlockUnaryType(args, kwargs, "block.log");
     });
 
@@ -137,8 +137,8 @@ REGISTER_OP("block.abs")
     .set_description("Absolute value of a tile (element-wise)")
     .set_pipe(PipeType::V)
     .add_argument("tile", "Input tile (TileType)")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceBlockUnaryType(args, kwargs, "block.abs");
     });
 
@@ -147,8 +147,8 @@ REGISTER_OP("block.relu")
     .set_description("ReLU activation function of a tile (element-wise)")
     .set_pipe(PipeType::V)
     .add_argument("tile", "Input tile (TileType)")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceBlockUnaryType(args, kwargs, "block.relu");
     });
 

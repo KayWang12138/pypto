@@ -25,8 +25,8 @@
 namespace pypto {
 namespace ir {
 
-TypePtr DeduceTensorCreateType(const std::vector<ExprPtr>& args,
-                               const std::vector<std::pair<std::string, std::any>>& kwargs) {
+TypePtr DeduceTensorCreateType(const std::vector<ExprPtr> &args,
+                               const std::vector<std::pair<std::string, std::any>> &kwargs) {
   // tensor.create: shape is a single TupleType argument
   // dtype comes from kwargs
   INTERNAL_CHECK(args.size() == 1) << "tensor.create requires exactly 1 argument (shape tuple), but got "
@@ -78,7 +78,7 @@ TypePtr DeduceTensorCreateType(const std::vector<ExprPtr>& args,
   return std::make_shared<TensorType>(shape, dtype);
 }
 
-TypePtr DeduceTensorViewType(const std::vector<ExprPtr>& args,
+TypePtr DeduceTensorViewType(const std::vector<ExprPtr> &args,
                              const std::vector<std::pair<std::string, std::any>>& /*kwargs*/) {
   // tensor.view requires exactly 3 arguments: input tensor, shape tuple, and offset tuple
   INTERNAL_CHECK(args.size() == 3) << "tensor.view requires exactly 3 arguments (input, shape, offset), but got "
@@ -140,7 +140,7 @@ TypePtr DeduceTensorViewType(const std::vector<ExprPtr>& args,
   return std::make_shared<TensorType>(new_shape, tensorType->dtype_);
 }
 
-TypePtr DeduceTensorAssembleType(const std::vector<ExprPtr>& args,
+TypePtr DeduceTensorAssembleType(const std::vector<ExprPtr> &args,
                                  const std::vector<std::pair<std::string, std::any>>& /*kwargs*/) {
   // tensor.assemble requires exactly 3 arguments: target, source, and offset tuple
   INTERNAL_CHECK(args.size() == 3) << "tensor.assemble requires exactly 3 arguments (target, source, offset), but got "
@@ -185,8 +185,8 @@ REGISTER_OP("tensor.create")
     .set_description("Create a new tensor with specified shape and dtype")
     .add_argument("shape", "Shape dimensions (TupleType of ScalarType(UINT64))")
     .set_attr<DataType>("dtype")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceTensorCreateType(args, kwargs);
     });
 
@@ -196,8 +196,8 @@ REGISTER_OP("tensor.view")
     .add_argument("input", "Input tensor (TensorType)")
     .add_argument("shape", "New shape dimensions (TupleType of ScalarType(UINT64))")
     .add_argument("offset", "Offset dimensions (TupleType of ScalarType(UINT64))")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceTensorViewType(args, kwargs);
     });
 
@@ -207,8 +207,8 @@ REGISTER_OP("tensor.assemble")
     .add_argument("target", "Target tensor (TensorType)")
     .add_argument("source", "Source tensor to write (TensorType)")
     .add_argument("offset", "Offset dimensions (TupleType of ScalarType(UINT64))")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceTensorAssembleType(args, kwargs);
     });
 

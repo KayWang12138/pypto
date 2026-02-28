@@ -423,7 +423,7 @@ TEST_F(StructuralEqualTest, TestTupleGetItemEqual) {
 
 TEST_F(StructuralEqualTest, TestCallEqual) {
   Span sp = Span::unknown();
-  auto& reg = OpRegistry::GetInstance();
+  auto &reg = OpRegistry::GetInstance();
   auto a1 = std::make_shared<Var>(
       "a", std::make_shared<TensorType>(
           std::vector<ExprPtr>{
@@ -645,7 +645,7 @@ TEST_F(StructuralEqualTest, TestIterArgNotEqual) {
 
 TEST_F(StructuralEqualTest, TestCallWithKwargsEqual) {
   Span sp = Span::unknown();
-  auto& reg = OpRegistry::GetInstance();
+  auto &reg = OpRegistry::GetInstance();
   auto tile1 = std::make_shared<Var>(
       "t", std::make_shared<TileType>(
           std::vector<ExprPtr>{
@@ -670,7 +670,7 @@ TEST_F(StructuralEqualTest, TestCallWithKwargsEqual) {
 
 TEST_F(StructuralEqualTest, TestCallWithKwargsNotEqual) {
   Span sp = Span::unknown();
-  auto& reg = OpRegistry::GetInstance();
+  auto &reg = OpRegistry::GetInstance();
   auto tile1 = std::make_shared<Var>(
       "t", std::make_shared<TileType>(
           std::vector<ExprPtr>{
@@ -892,7 +892,7 @@ TEST_F(StructuralEqualTest, TestTileTypeWithTileViewValidShapeSizeMismatch) {
 
 TEST_F(StructuralEqualTest, TestCallWithKwargsStringEqual) {
   Span sp = Span::unknown();
-  auto& reg = OpRegistry::GetInstance();
+  auto &reg = OpRegistry::GetInstance();
   auto tile = std::make_shared<Var>(
       "t", std::make_shared<TileType>(
           std::vector<ExprPtr>{
@@ -928,7 +928,7 @@ TEST_F(StructuralEqualTest, TestCallWithKwargsStringEqual) {
 
 TEST_F(StructuralEqualTest, TestCallWithKwargsDoubleEqual) {
   Span sp = Span::unknown();
-  auto& reg = OpRegistry::GetInstance();
+  auto &reg = OpRegistry::GetInstance();
   auto tile = std::make_shared<Var>(
       "t", std::make_shared<TileType>(
           std::vector<ExprPtr>{
@@ -962,7 +962,7 @@ TEST_F(StructuralEqualTest, TestCallWithKwargsDoubleEqual) {
 
 TEST_F(StructuralEqualTest, TestCallWithKwargsDoubleNotEqual) {
   Span sp = Span::unknown();
-  auto& reg = OpRegistry::GetInstance();
+  auto &reg = OpRegistry::GetInstance();
   auto tile = std::make_shared<Var>(
       "t", std::make_shared<TileType>(
           std::vector<ExprPtr>{
@@ -996,7 +996,7 @@ TEST_F(StructuralEqualTest, TestCallWithKwargsDoubleNotEqual) {
 
 TEST_F(StructuralEqualTest, TestCallWithKwargsDataTypeEqual) {
   Span sp = Span::unknown();
-  auto& reg = OpRegistry::GetInstance();
+  auto &reg = OpRegistry::GetInstance();
   auto tile = std::make_shared<Var>(
       "t", std::make_shared<TileType>(
           std::vector<ExprPtr>{
@@ -1034,7 +1034,7 @@ TEST_F(StructuralEqualTest, TestCallWithKwargsDataTypeEqual) {
 
 TEST_F(StructuralEqualTest, TestCallWithKwargsKeyMismatch) {
   Span sp = Span::unknown();
-  auto& reg = OpRegistry::GetInstance();
+  auto &reg = OpRegistry::GetInstance();
   auto tile = std::make_shared<Var>(
       "t", std::make_shared<TileType>(
           std::vector<ExprPtr>{
@@ -1072,7 +1072,7 @@ TEST_F(StructuralEqualTest, TestCallWithKwargsKeyMismatch) {
 
 TEST_F(StructuralEqualTest, TestCallWithKwargsSizeMismatch) {
   Span sp = Span::unknown();
-  auto& reg = OpRegistry::GetInstance();
+  auto &reg = OpRegistry::GetInstance();
   auto tile = std::make_shared<Var>(
       "t", std::make_shared<TileType>(
           std::vector<ExprPtr>{
@@ -1287,7 +1287,7 @@ TEST_F(StructuralEqualTest, TestFunctionNameDifferent) {
 
 TEST_F(StructuralEqualTest, TestCallOpMismatch) {
   Span sp = Span::unknown();
-  auto& reg = OpRegistry::GetInstance();
+  auto &reg = OpRegistry::GetInstance();
   auto a1 = std::make_shared<Var>(
       "a", std::make_shared<TensorType>(
           std::vector<ExprPtr>{

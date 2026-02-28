@@ -44,14 +44,14 @@ using DeserializerContext = serialization::detail::DeserializerContext;
 #define GET_FIELD_OBJ(name) ctx.GetFieldObj(fieldsObj, name)
 
 // Helper function to get optional field (returns nullopt if field doesn't exist or is null)
-static std::optional<msgpack::object> GetOptionalFieldObj(const msgpack::object& fieldsObj,
-                                                          const std::string& fieldName,
+static std::optional<msgpack::object> GetOptionalFieldObj(const msgpack::object &fieldsObj,
+                                                          const std::string &fieldName,
                                                           DeserializerContext& /*ctx*/) {
   if (fieldsObj.type != msgpack::type::MAP) {
     return std::nullopt;
   }
-  msgpack::object_kv* p = fieldsObj.via.map.ptr;
-  msgpack::object_kv* const pend = fieldsObj.via.map.ptr + fieldsObj.via.map.size;
+  msgpack::object_kv *p = fieldsObj.via.map.ptr;
+  msgpack::object_kv *const pend = fieldsObj.via.map.ptr + fieldsObj.via.map.size;
   for (; p < pend; ++p) {
     std::string key;
     p->key.convert(key);
@@ -67,9 +67,9 @@ static std::optional<msgpack::object> GetOptionalFieldObj(const msgpack::object&
   return std::nullopt;
 }
 
-DataType DeserializeDataType(const msgpack::object& fieldsObj, const std::string& fieldName) {
-  msgpack::object_kv* mapP = fieldsObj.via.map.ptr;
-  msgpack::object_kv* const mapPend = fieldsObj.via.map.ptr + fieldsObj.via.map.size;
+DataType DeserializeDataType(const msgpack::object &fieldsObj, const std::string &fieldName) {
+  msgpack::object_kv *mapP = fieldsObj.via.map.ptr;
+  msgpack::object_kv *const mapPend = fieldsObj.via.map.ptr + fieldsObj.via.map.size;
   std::string typeName;
   bool isDtype = false;
   uint8_t dtypeCode = 0;
@@ -92,15 +92,15 @@ DataType DeserializeDataType(const msgpack::object& fieldsObj, const std::string
   }
 }
 
-std::vector<std::pair<std::string, std::any>> DeserializeKwargs(const msgpack::object& kwargsObj,
-                                                                const std::string& fieldName) {
+std::vector<std::pair<std::string, std::any>> DeserializeKwargs(const msgpack::object &kwargsObj,
+                                                                const std::string &fieldName) {
   std::vector<std::pair<std::string, std::any>> kwargs;
   if (kwargsObj.type != msgpack::type::ARRAY) {
     throw TypeError("Invalid kwargs type for field: " + fieldName);
   }
 
   for (uint32_t i = 0; i < kwargsObj.via.array.size; ++i) {
-    const msgpack::object& pairObj = kwargsObj.via.array.ptr[i];
+    const msgpack::object &pairObj = kwargsObj.via.array.ptr[i];
     if (pairObj.type != msgpack::type::MAP) {
       throw TypeError("Invalid kwarg pair type for field: " + fieldName);
     }
@@ -109,8 +109,8 @@ std::vector<std::pair<std::string, std::any>> DeserializeKwargs(const msgpack::o
     msgpack::object valueObj;
     bool hasKey = false;
     bool hasValue = false;
-    msgpack::object_kv* mapP = pairObj.via.map.ptr;
-    msgpack::object_kv* const mapPend = pairObj.via.map.ptr + pairObj.via.map.size;
+    msgpack::object_kv *mapP = pairObj.via.map.ptr;
+    msgpack::object_kv *const mapPend = pairObj.via.map.ptr + pairObj.via.map.size;
     for (; mapP < mapPend; ++mapP) {
       std::string mapKey;
       mapP->key.convert(mapKey);
@@ -155,8 +155,8 @@ std::vector<std::pair<std::string, std::any>> DeserializeKwargs(const msgpack::o
 }
 
 // Deserialize Var
-static IRNodePtr DeserializeVar(const msgpack::object& fieldsObj, msgpack::zone& zone,
-                                DeserializerContext& ctx) {
+static IRNodePtr DeserializeVar(const msgpack::object &fieldsObj, msgpack::zone &zone,
+                                DeserializerContext &ctx) {
   auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));
   auto type = ctx.DeserializeType(GET_FIELD_OBJ("type"), zone);
   std::string name = GET_FIELD(std::string, "name");
@@ -164,8 +164,8 @@ static IRNodePtr DeserializeVar(const msgpack::object& fieldsObj, msgpack::zone&
 }
 
 // Deserialize IterArg
-static IRNodePtr DeserializeIterArg(const msgpack::object& fieldsObj, msgpack::zone& zone,
-                                    DeserializerContext& ctx) {
+static IRNodePtr DeserializeIterArg(const msgpack::object &fieldsObj, msgpack::zone &zone,
+                                    DeserializerContext &ctx) {
   auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));
   auto type = ctx.DeserializeType(GET_FIELD_OBJ("type"), zone);
   std::string name = GET_FIELD(std::string, "name");
@@ -175,8 +175,8 @@ static IRNodePtr DeserializeIterArg(const msgpack::object& fieldsObj, msgpack::z
 }
 
 // Deserialize MemRef
-static IRNodePtr DeserializeMemRef(const msgpack::object& fieldsObj, msgpack::zone& zone,
-                                   DeserializerContext& ctx) {
+static IRNodePtr DeserializeMemRef(const msgpack::object &fieldsObj, msgpack::zone &zone,
+                                   DeserializerContext &ctx) {
   auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));
 
   // Deserialize memorySpace (stored as uint8_t)
@@ -194,8 +194,8 @@ static IRNodePtr DeserializeMemRef(const msgpack::object& fieldsObj, msgpack::zo
 }
 
 // Deserialize ConstInt
-static IRNodePtr DeserializeConstInt(const msgpack::object& fieldsObj, msgpack::zone& zone,
-                                     DeserializerContext& ctx) {
+static IRNodePtr DeserializeConstInt(const msgpack::object &fieldsObj, msgpack::zone &zone,
+                                     DeserializerContext &ctx) {
   auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));
   auto type = ctx.DeserializeType(GET_FIELD_OBJ("type"), zone);
   int64_t value = GET_FIELD(int64_t, "value");
@@ -205,8 +205,8 @@ static IRNodePtr DeserializeConstInt(const msgpack::object& fieldsObj, msgpack::
 }
 
 // Deserialize ConstFloat
-static IRNodePtr DeserializeConstFloat(const msgpack::object& fieldsObj, msgpack::zone& zone,
-                                       DeserializerContext& ctx) {
+static IRNodePtr DeserializeConstFloat(const msgpack::object &fieldsObj, msgpack::zone &zone,
+                                       DeserializerContext &ctx) {
   auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));
   auto type = ctx.DeserializeType(GET_FIELD_OBJ("type"), zone);
   double value = GET_FIELD(double, "value");
@@ -217,16 +217,16 @@ static IRNodePtr DeserializeConstFloat(const msgpack::object& fieldsObj, msgpack
 }
 
 // Deserialize ConstBool
-static IRNodePtr DeserializeConstBool(const msgpack::object& fieldsObj, msgpack::zone& /*zone*/,
-                                      DeserializerContext& ctx) {
+static IRNodePtr DeserializeConstBool(const msgpack::object &fieldsObj, msgpack::zone& /*zone*/,
+                                      DeserializerContext &ctx) {
   auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));
   bool value = GET_FIELD(bool, "value");
   return std::make_shared<ConstBool>(value, span);
 }
 
 // Deserialize Call
-static IRNodePtr DeserializeCall(const msgpack::object& fieldsObj, msgpack::zone& zone,
-                                 DeserializerContext& ctx) {
+static IRNodePtr DeserializeCall(const msgpack::object &fieldsObj, msgpack::zone &zone,
+                                 DeserializerContext &ctx) {
   auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));
   auto op = ctx.DeserializeOp(GET_FIELD_OBJ("op"));
   auto type = ctx.DeserializeType(GET_FIELD_OBJ("type"), zone);
@@ -249,8 +249,8 @@ static IRNodePtr DeserializeCall(const msgpack::object& fieldsObj, msgpack::zone
 
 // Macro for binary expressions
 #define DESERIALIZE_BINARY_EXPR(ClassName)                                                                \
-  static IRNodePtr Deserialize##ClassName(const msgpack::object& fieldsObj, msgpack::zone& zone,         \
-                                          DeserializerContext& ctx) {                                     \
+  static IRNodePtr Deserialize##ClassName(const msgpack::object &fieldsObj, msgpack::zone &zone,         \
+                                          DeserializerContext &ctx) {                                     \
     auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));                                               \
     auto type = ctx.DeserializeType(GET_FIELD_OBJ("type"), zone);                                         \
     auto scalarType = As<ScalarType>(type);                                                              \
@@ -287,8 +287,8 @@ DESERIALIZE_BINARY_EXPR(BitShiftRight)
 
 // Macro for unary expressions
 #define DESERIALIZE_UNARY_EXPR(ClassName)                                                          \
-  static IRNodePtr Deserialize##ClassName(const msgpack::object& fieldsObj, msgpack::zone& zone,  \
-                                          DeserializerContext& ctx) {                              \
+  static IRNodePtr Deserialize##ClassName(const msgpack::object &fieldsObj, msgpack::zone &zone,  \
+                                          DeserializerContext &ctx) {                              \
     auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));                                        \
     auto type = ctx.DeserializeType(GET_FIELD_OBJ("type"), zone);                                  \
     auto scalarType = As<ScalarType>(type);                                                       \
@@ -306,8 +306,8 @@ DESERIALIZE_UNARY_EXPR(BitNot)
 DESERIALIZE_UNARY_EXPR(Cast)
 
 // Deserialize AssignStmt
-static IRNodePtr DeserializeAssignStmt(const msgpack::object& fieldsObj, msgpack::zone& zone,
-                                       DeserializerContext& ctx) {
+static IRNodePtr DeserializeAssignStmt(const msgpack::object &fieldsObj, msgpack::zone &zone,
+                                       DeserializerContext &ctx) {
   auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));
   auto var = std::static_pointer_cast<const Var>(ctx.DeserializeNode(GET_FIELD_OBJ("var"), zone));
   auto value = std::static_pointer_cast<const Expr>(ctx.DeserializeNode(GET_FIELD_OBJ("value"), zone));
@@ -315,8 +315,8 @@ static IRNodePtr DeserializeAssignStmt(const msgpack::object& fieldsObj, msgpack
 }
 
 // Deserialize IfStmt
-static IRNodePtr DeserializeIfStmt(const msgpack::object& fieldsObj, msgpack::zone& zone,
-                                   DeserializerContext& ctx) {
+static IRNodePtr DeserializeIfStmt(const msgpack::object &fieldsObj, msgpack::zone &zone,
+                                   DeserializerContext &ctx) {
   auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));
   auto condition =
       std::static_pointer_cast<const Expr>(ctx.DeserializeNode(GET_FIELD_OBJ("condition"), zone));
@@ -345,8 +345,8 @@ static IRNodePtr DeserializeIfStmt(const msgpack::object& fieldsObj, msgpack::zo
 }
 
 // Helper: deserialize a msgpack array field into a vector of ExprPtr
-static std::vector<ExprPtr> DeserializeExprArray(const msgpack::object& arrayObj, msgpack::zone& zone,
-                                                  DeserializerContext& ctx) {
+static std::vector<ExprPtr> DeserializeExprArray(const msgpack::object &arrayObj, msgpack::zone &zone,
+                                                  DeserializerContext &ctx) {
   std::vector<ExprPtr> result;
   if (arrayObj.type == msgpack::type::ARRAY) {
     for (uint32_t i = 0; i < arrayObj.via.array.size; ++i) {
@@ -358,24 +358,24 @@ static std::vector<ExprPtr> DeserializeExprArray(const msgpack::object& arrayObj
 }
 
 // Deserialize YieldStmt
-static IRNodePtr DeserializeYieldStmt(const msgpack::object& fieldsObj, msgpack::zone& zone,
-                                      DeserializerContext& ctx) {
+static IRNodePtr DeserializeYieldStmt(const msgpack::object &fieldsObj, msgpack::zone &zone,
+                                      DeserializerContext &ctx) {
   auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));
   auto value = DeserializeExprArray(GET_FIELD_OBJ("value"), zone, ctx);
   return std::make_shared<YieldStmt>(value, span);
 }
 
 // Deserialize ReturnStmt
-static IRNodePtr DeserializeReturnStmt(const msgpack::object& fieldsObj, msgpack::zone& zone,
-                                       DeserializerContext& ctx) {
+static IRNodePtr DeserializeReturnStmt(const msgpack::object &fieldsObj, msgpack::zone &zone,
+                                       DeserializerContext &ctx) {
   auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));
   auto value = DeserializeExprArray(GET_FIELD_OBJ("value"), zone, ctx);
   return std::make_shared<ReturnStmt>(value, span);
 }
 
 // Deserialize ForStmt
-static IRNodePtr DeserializeForStmt(const msgpack::object& fieldsObj, msgpack::zone& zone,
-                                    DeserializerContext& ctx) {
+static IRNodePtr DeserializeForStmt(const msgpack::object &fieldsObj, msgpack::zone &zone,
+                                    DeserializerContext &ctx) {
   auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));
   auto loopVar = std::static_pointer_cast<const Var>(ctx.DeserializeNode(GET_FIELD_OBJ("loop_var"), zone));
   auto start = std::static_pointer_cast<const Expr>(ctx.DeserializeNode(GET_FIELD_OBJ("start"), zone));
@@ -407,8 +407,8 @@ static IRNodePtr DeserializeForStmt(const msgpack::object& fieldsObj, msgpack::z
 }
 
 // Helper: deserialize a msgpack array field into a vector of StmtPtr
-static std::vector<StmtPtr> DeserializeStmtArray(const msgpack::object& arrayObj, msgpack::zone& zone,
-                                                  DeserializerContext& ctx) {
+static std::vector<StmtPtr> DeserializeStmtArray(const msgpack::object &arrayObj, msgpack::zone &zone,
+                                                  DeserializerContext &ctx) {
   std::vector<StmtPtr> result;
   if (arrayObj.type == msgpack::type::ARRAY) {
     for (uint32_t i = 0; i < arrayObj.via.array.size; ++i) {
@@ -420,32 +420,32 @@ static std::vector<StmtPtr> DeserializeStmtArray(const msgpack::object& arrayObj
 }
 
 // Deserialize SeqStmts
-static IRNodePtr DeserializeSeqStmts(const msgpack::object& fieldsObj, msgpack::zone& zone,
-                                     DeserializerContext& ctx) {
+static IRNodePtr DeserializeSeqStmts(const msgpack::object &fieldsObj, msgpack::zone &zone,
+                                     DeserializerContext &ctx) {
   auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));
   auto stmts = DeserializeStmtArray(GET_FIELD_OBJ("stmts"), zone, ctx);
   return std::make_shared<SeqStmts>(stmts, span);
 }
 
 // Deserialize OpStmts
-static IRNodePtr DeserializeOpStmts(const msgpack::object& fieldsObj, msgpack::zone& zone,
-                                    DeserializerContext& ctx) {
+static IRNodePtr DeserializeOpStmts(const msgpack::object &fieldsObj, msgpack::zone &zone,
+                                    DeserializerContext &ctx) {
   auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));
   auto stmts = DeserializeStmtArray(GET_FIELD_OBJ("stmts"), zone, ctx);
   return std::make_shared<OpStmts>(stmts, span);
 }
 
 // Deserialize EvalStmt
-static IRNodePtr DeserializeEvalStmt(const msgpack::object& fieldsObj, msgpack::zone& zone,
-                                     DeserializerContext& ctx) {
+static IRNodePtr DeserializeEvalStmt(const msgpack::object &fieldsObj, msgpack::zone &zone,
+                                     DeserializerContext &ctx) {
   auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));
   auto expr = std::static_pointer_cast<const Expr>(ctx.DeserializeNode(GET_FIELD_OBJ("expr"), zone));
   return std::make_shared<EvalStmt>(expr, span);
 }
 
 // Deserialize Function
-static IRNodePtr DeserializeFunction(const msgpack::object& fieldsObj, msgpack::zone& zone,
-                                     DeserializerContext& ctx) {
+static IRNodePtr DeserializeFunction(const msgpack::object &fieldsObj, msgpack::zone &zone,
+                                     DeserializerContext &ctx) {
   auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));
   std::string name = GET_FIELD(std::string, "name");
 
@@ -482,8 +482,8 @@ static IRNodePtr DeserializeFunction(const msgpack::object& fieldsObj, msgpack::
 }
 
 // Deserialize Program
-static IRNodePtr DeserializeProgram(const msgpack::object& fieldsObj, msgpack::zone& zone,
-                                    DeserializerContext& ctx) {
+static IRNodePtr DeserializeProgram(const msgpack::object &fieldsObj, msgpack::zone &zone,
+                                    DeserializerContext &ctx) {
   auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));
   std::string name = GET_FIELD(std::string, "name");
 
@@ -496,8 +496,8 @@ static IRNodePtr DeserializeProgram(const msgpack::object& fieldsObj, msgpack::z
         msgpack::object keyObj, valueObj;
         bool hasKey = false, hasValue = false;
 
-        msgpack::object_kv* p = entryObj.via.map.ptr;
-        msgpack::object_kv* const pend = entryObj.via.map.ptr + entryObj.via.map.size;
+        msgpack::object_kv *p = entryObj.via.map.ptr;
+        msgpack::object_kv *const pend = entryObj.via.map.ptr + entryObj.via.map.size;
         for (; p < pend; ++p) {
           std::string key;
           p->key.convert(key);
@@ -523,22 +523,22 @@ static IRNodePtr DeserializeProgram(const msgpack::object& fieldsObj, msgpack::z
 }
 
 // Deserialize MakeTuple
-static IRNodePtr DeserializeMakeTuple(const msgpack::object& fieldsObj, msgpack::zone& zone,
-                                      DeserializerContext& ctx) {
+static IRNodePtr DeserializeMakeTuple(const msgpack::object &fieldsObj, msgpack::zone &zone,
+                                      DeserializerContext &ctx) {
   auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));
   auto elementsObj = GET_FIELD_OBJ("elements");
   auto elementsVec = elementsObj.as<std::vector<msgpack::object>>();
   std::vector<ExprPtr> elements;
   elements.reserve(elementsVec.size());
-  for (const auto& elemObj : elementsVec) {
+  for (const auto &elemObj : elementsVec) {
     elements.push_back(std::static_pointer_cast<const Expr>(ctx.DeserializeNode(elemObj, zone)));
   }
   return std::make_shared<MakeTuple>(std::move(elements), span);
 }
 
 // Deserialize TupleGetItemExpr
-static IRNodePtr DeserializeTupleGetItemExpr(const msgpack::object& fieldsObj, msgpack::zone& zone,
-                                             DeserializerContext& ctx) {
+static IRNodePtr DeserializeTupleGetItemExpr(const msgpack::object &fieldsObj, msgpack::zone &zone,
+                                             DeserializerContext &ctx) {
   auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));
   auto tuple = std::static_pointer_cast<const Expr>(ctx.DeserializeNode(GET_FIELD_OBJ("tuple"), zone));
   int index = GET_FIELD(int, "index");

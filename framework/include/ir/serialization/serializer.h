@@ -58,7 +58,7 @@ public:
    * \param node The IR node to serialize
    * \return Vector of bytes containing the MessagePack-encoded data
    */
-  std::vector<uint8_t> Serialize(const IRNodePtr& node);
+  std::vector<uint8_t> Serialize(const IRNodePtr &node);
 
 private:
   class Impl;
@@ -73,7 +73,7 @@ private:
  * \param node The IR node to serialize
  * \return Vector of bytes containing the MessagePack-encoded data
  */
-std::vector<uint8_t> Serialize(const IRNodePtr& node);
+std::vector<uint8_t> Serialize(const IRNodePtr &node);
 
 /**
  * \brief Serialize an IR node to a file
@@ -81,7 +81,7 @@ std::vector<uint8_t> Serialize(const IRNodePtr& node);
  * \param node The IR node to serialize
  * \param path Path to the output file
  */
-void SerializeToFile(const IRNodePtr& node, const std::string& path);
+void SerializeToFile(const IRNodePtr &node, const std::string &path);
 
 }  // namespace serialization
 }  // namespace ir

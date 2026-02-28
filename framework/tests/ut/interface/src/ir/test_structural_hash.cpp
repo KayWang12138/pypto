@@ -47,7 +47,7 @@ protected:
   // Common setup for kwargs hash tests: creates two tensor Vars and a base Call via registry
   KwargsTestFixture MakeKwargsTestFixture() {
     Span sp = Span::unknown();
-    auto& reg = OpRegistry::GetInstance();
+    auto &reg = OpRegistry::GetInstance();
     auto a = std::make_shared<Var>("a",
         std::make_shared<TensorType>(
             std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
@@ -411,7 +411,7 @@ TEST_F(StructuralHashTest, TestProgramHashConsistent) {
 
 TEST_F(StructuralHashTest, TestCallHashConsistent) {
   Span sp = Span::unknown();
-  auto& reg = OpRegistry::GetInstance();
+  auto &reg = OpRegistry::GetInstance();
   auto a1 = std::make_shared<Var>("a",
       std::make_shared<TensorType>(
           std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
@@ -436,7 +436,7 @@ TEST_F(StructuralHashTest, TestCallHashConsistent) {
 
 TEST_F(StructuralHashTest, TestCallWithKwargsHash) {
   Span sp = Span::unknown();
-  auto& reg = OpRegistry::GetInstance();
+  auto &reg = OpRegistry::GetInstance();
   auto tile1 = std::make_shared<Var>("t",
       std::make_shared<TileType>(
           std::vector<ExprPtr>{

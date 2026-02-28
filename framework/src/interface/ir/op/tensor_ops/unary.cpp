@@ -21,7 +21,7 @@
 namespace pypto {
 namespace ir {
 
-TypePtr DeduceTensorExpType(const std::vector<ExprPtr>& args,
+TypePtr DeduceTensorExpType(const std::vector<ExprPtr> &args,
                             const std::vector<std::pair<std::string, std::any>>& /*kwargs*/) {
   INTERNAL_CHECK(args.size() == 1) << "tensor.exp requires exactly 1 argument, but got " << args.size();
 
@@ -40,8 +40,8 @@ TypePtr DeduceTensorExpType(const std::vector<ExprPtr>& args,
   return std::make_shared<TensorType>(tensorType->shape_, out_dtype);
 }
 
-TypePtr DeduceTensorCastType(const std::vector<ExprPtr>& args,
-                             const std::vector<std::pair<std::string, std::any>>& kwargs) {
+TypePtr DeduceTensorCastType(const std::vector<ExprPtr> &args,
+                             const std::vector<std::pair<std::string, std::any>> &kwargs) {
   INTERNAL_CHECK(args.size() == 1) << "tensor.cast requires exactly 1 argument (input), but got " << args.size();
 
   auto tensorType = As<TensorType>(args[0]->GetType());
@@ -81,8 +81,8 @@ REGISTER_OP("tensor.exp")
     .set_op_category("TensorOp")
     .set_description("Element-wise exponential operation")
     .add_argument("input", "Input tensor (TensorType)")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceTensorExpType(args, kwargs);
     });
 
@@ -92,8 +92,8 @@ REGISTER_OP("tensor.cast")
     .add_argument("input", "Input tensor (TensorType)")
     .set_attr<DataType>("target_type")
     .set_attr<int>("mode")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceTensorCastType(args, kwargs);
     });
 

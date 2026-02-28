@@ -351,7 +351,7 @@ TEST_F(SerializationTest, TestOpStmtsRoundTrip) {
 
 TEST_F(SerializationTest, TestCallRoundTrip) {
   Span sp = Span::unknown();
-  auto& reg = OpRegistry::GetInstance();
+  auto &reg = OpRegistry::GetInstance();
   auto a = std::make_shared<Var>(
       "a", std::make_shared<TensorType>(
           std::vector<ExprPtr>{
@@ -371,7 +371,7 @@ TEST_F(SerializationTest, TestCallRoundTrip) {
 
 TEST_F(SerializationTest, TestCallWithKwargsRoundTrip) {
   Span sp = Span::unknown();
-  auto& reg = OpRegistry::GetInstance();
+  auto &reg = OpRegistry::GetInstance();
   auto tile = std::make_shared<Var>(
       "t", std::make_shared<TileType>(
           std::vector<ExprPtr>{

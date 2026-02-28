@@ -20,27 +20,27 @@
 namespace pypto {
 namespace ir {
 
-void IRVisitor::VisitExpr(const ExprPtr& expr) { ExprFunctor<void>::VisitExpr(expr); }
+void IRVisitor::VisitExpr(const ExprPtr &expr) { ExprFunctor<void>::VisitExpr(expr); }
 
-void IRVisitor::VisitStmt(const StmtPtr& stmt) { StmtFunctor<void>::VisitStmt(stmt); }
+void IRVisitor::VisitStmt(const StmtPtr &stmt) { StmtFunctor<void>::VisitStmt(stmt); }
 
 // Leaf nodes - no children to visit
-void IRVisitor::VisitExpr_(const VarPtr& op) {
+void IRVisitor::VisitExpr_(const VarPtr &op) {
   // Visit type if it's a TensorType (to visit shape expressions)
   if (auto tensorType = As<TensorType>(op->GetType())) {
-    for (const auto& dim : tensorType->shape_) {
+    for (const auto &dim : tensorType->shape_) {
       VisitExpr(dim);
     }
   }
 }
 
-void IRVisitor::VisitExpr_(const IterArgPtr& op) {
+void IRVisitor::VisitExpr_(const IterArgPtr &op) {
   // Visit initValue as Expr
   INTERNAL_CHECK(op->initValue_) << "IterArg has null initValue";
   VisitExpr(op->initValue_);
   // Also visit type if it's a TensorType (inherited from Var)
   if (auto tensorType = As<TensorType>(op->GetType())) {
-    for (const auto& dim : tensorType->shape_) {
+    for (const auto &dim : tensorType->shape_) {
       VisitExpr(dim);
     }
   }
@@ -63,7 +63,7 @@ void IRVisitor::VisitExpr_(const ConstBoolPtr& /*op*/) {
   // Leaf node, no children to visit
 }
 
-void IRVisitor::VisitExpr_(const CallPtr& op) {
+void IRVisitor::VisitExpr_(const CallPtr &op) {
   // Visit all arguments
   for (size_t i = 0; i < op->args_.size(); ++i) {
     INTERNAL_CHECK(op->args_[i]) << "Call has null argument at index " << i;
@@ -71,7 +71,7 @@ void IRVisitor::VisitExpr_(const CallPtr& op) {
   }
 }
 
-void IRVisitor::VisitExpr_(const MakeTuplePtr& op) {
+void IRVisitor::VisitExpr_(const MakeTuplePtr &op) {
   // Visit all element expressions
   for (size_t i = 0; i < op->elements_.size(); ++i) {
     INTERNAL_CHECK(op->elements_[i]) << "MakeTuple has null element at index " << i;
@@ -79,7 +79,7 @@ void IRVisitor::VisitExpr_(const MakeTuplePtr& op) {
   }
 }
 
-void IRVisitor::VisitExpr_(const TupleGetItemExprPtr& op) {
+void IRVisitor::VisitExpr_(const TupleGetItemExprPtr &op) {
   // Visit the tuple expression
   INTERNAL_CHECK(op->tuple_) << "TupleGetItemExpr has null tuple";
   VisitExpr(op->tuple_);
@@ -87,7 +87,7 @@ void IRVisitor::VisitExpr_(const TupleGetItemExprPtr& op) {
 
 // Macro to generate binary visitor with null checks
 #define DEFINE_BINARY_VISITOR(OpType)                                \
-  void IRVisitor::VisitExpr_(const OpType##Ptr& op) {                \
+  void IRVisitor::VisitExpr_(const OpType##Ptr &op) {                \
     INTERNAL_CHECK(op->left_) << #OpType " has null left operand";   \
     INTERNAL_CHECK(op->right_) << #OpType " has null right operand"; \
     VisitExpr(op->left_);                                            \
@@ -123,7 +123,7 @@ DEFINE_BINARY_VISITOR(BitShiftRight)
 
 // Macro to generate unary visitor with null checks
 #define DEFINE_UNARY_VISITOR(OpType)                             \
-  void IRVisitor::VisitExpr_(const OpType##Ptr& op) {            \
+  void IRVisitor::VisitExpr_(const OpType##Ptr &op) {            \
     INTERNAL_CHECK(op->operand_) << #OpType " has null operand"; \
     VisitExpr(op->operand_);                                     \
   }
@@ -138,14 +138,14 @@ DEFINE_UNARY_VISITOR(Cast)
 #undef DEFINE_UNARY_VISITOR
 
 // Statement types
-void IRVisitor::VisitStmt_(const AssignStmtPtr& op) {
+void IRVisitor::VisitStmt_(const AssignStmtPtr &op) {
   INTERNAL_CHECK(op->var_) << "AssignStmt has null var";
   INTERNAL_CHECK(op->value_) << "AssignStmt has null value";
   VisitExpr(op->var_);
   VisitExpr(op->value_);
 }
 
-void IRVisitor::VisitStmt_(const IfStmtPtr& op) {
+void IRVisitor::VisitStmt_(const IfStmtPtr &op) {
   INTERNAL_CHECK(op->condition_) << "IfStmt has null condition";
   VisitExpr(op->condition_);
   INTERNAL_CHECK(op->thenBody_) << "IfStmt has null thenBody";
@@ -160,21 +160,21 @@ void IRVisitor::VisitStmt_(const IfStmtPtr& op) {
   }
 }
 
-void IRVisitor::VisitStmt_(const YieldStmtPtr& op) {
+void IRVisitor::VisitStmt_(const YieldStmtPtr &op) {
   for (size_t i = 0; i < op->value_.size(); ++i) {
     INTERNAL_CHECK(op->value_[i]) << "YieldStmt has null value at index " << i;
     VisitExpr(op->value_[i]);
   }
 }
 
-void IRVisitor::VisitStmt_(const ReturnStmtPtr& op) {
+void IRVisitor::VisitStmt_(const ReturnStmtPtr &op) {
   for (size_t i = 0; i < op->value_.size(); ++i) {
     INTERNAL_CHECK(op->value_[i]) << "ReturnStmt has null value at index " << i;
     VisitExpr(op->value_[i]);
   }
 }
 
-void IRVisitor::VisitStmt_(const ForStmtPtr& op) {
+void IRVisitor::VisitStmt_(const ForStmtPtr &op) {
   INTERNAL_CHECK(op->loopVar_) << "ForStmt has null loopVar";
   INTERNAL_CHECK(op->start_) << "ForStmt has null start";
   INTERNAL_CHECK(op->stop_) << "ForStmt has null stop";
@@ -195,21 +195,21 @@ void IRVisitor::VisitStmt_(const ForStmtPtr& op) {
   }
 }
 
-void IRVisitor::VisitStmt_(const SeqStmtsPtr& op) {
+void IRVisitor::VisitStmt_(const SeqStmtsPtr &op) {
   for (size_t i = 0; i < op->stmts_.size(); ++i) {
     INTERNAL_CHECK(op->stmts_[i]) << "SeqStmts has null statement at index " << i;
     VisitStmt(op->stmts_[i]);
   }
 }
 
-void IRVisitor::VisitStmt_(const OpStmtsPtr& op) {
+void IRVisitor::VisitStmt_(const OpStmtsPtr &op) {
   for (size_t i = 0; i < op->stmts_.size(); ++i) {
     INTERNAL_CHECK(op->stmts_[i]) << "OpStmts has null statement at index " << i;
     VisitStmt(op->stmts_[i]);
   }
 }
 
-void IRVisitor::VisitStmt_(const EvalStmtPtr& op) {
+void IRVisitor::VisitStmt_(const EvalStmtPtr &op) {
   INTERNAL_CHECK(op->expr_) << "EvalStmt has null expr";
   VisitExpr(op->expr_);
 }

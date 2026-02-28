@@ -23,9 +23,9 @@
 namespace pypto {
 namespace ir {
 
-TypePtr DeduceTensorOpElementwiseBinaryType(const std::vector<ExprPtr>& args,
+TypePtr DeduceTensorOpElementwiseBinaryType(const std::vector<ExprPtr> &args,
                                             const std::vector<std::pair<std::string, std::any>>& /*kwargs*/,
-                                            const std::string& opName) {
+                                            const std::string &opName) {
   INTERNAL_CHECK(args.size() == 2) << "The operator " << opName << " requires exactly 2 arguments, but got "
                           << args.size();
 
@@ -51,9 +51,9 @@ TypePtr DeduceTensorOpElementwiseBinaryType(const std::vector<ExprPtr>& args,
   return std::make_shared<TensorType>(broadcast_result.shape, *result_dtype);
 }
 
-TypePtr DeduceTensorOpElementwiseScalarType(const std::vector<ExprPtr>& args,
+TypePtr DeduceTensorOpElementwiseScalarType(const std::vector<ExprPtr> &args,
                                             const std::vector<std::pair<std::string, std::any>>& /*kwargs*/,
-                                            const std::string& opName) {
+                                            const std::string &opName) {
   INTERNAL_CHECK(args.size() == 2) << "The operator " << opName << " requires exactly 2 arguments, but got "
                           << args.size();
 
@@ -83,8 +83,8 @@ REGISTER_OP("tensor.add")
     .set_description("Element-wise addition of two tensors with broadcasting")
     .add_argument("lhs", "Left-hand side tensor (TensorType)")
     .add_argument("rhs", "Right-hand side tensor (TensorType)")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceTensorOpElementwiseBinaryType(args, kwargs, "tensor.add");
     });
 
@@ -93,8 +93,8 @@ REGISTER_OP("tensor.add_scalar")
     .set_description("Element-wise addition of tensor and scalar")
     .add_argument("lhs", "Left-hand side tensor (TensorType)")
     .add_argument("rhs", "Right-hand side scalar (ScalarType)")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceTensorOpElementwiseScalarType(args, kwargs, "tensor.add_scalar");
     });
 
@@ -103,8 +103,8 @@ REGISTER_OP("tensor.sub")
     .set_description("Element-wise subtraction of two tensors with broadcasting")
     .add_argument("lhs", "Left-hand side tensor (TensorType)")
     .add_argument("rhs", "Right-hand side tensor (TensorType)")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceTensorOpElementwiseBinaryType(args, kwargs, "tensor.sub");
     });
 
@@ -113,8 +113,8 @@ REGISTER_OP("tensor.sub_scalar")
     .set_description("Element-wise subtraction of tensor and scalar")
     .add_argument("lhs", "Left-hand side tensor (TensorType)")
     .add_argument("rhs", "Right-hand side scalar (ScalarType)")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceTensorOpElementwiseScalarType(args, kwargs, "tensor.sub_scalar");
     });
 
@@ -123,8 +123,8 @@ REGISTER_OP("tensor.mul")
     .set_description("Element-wise multiplication of two tensors with broadcasting")
     .add_argument("lhs", "Left-hand side tensor (TensorType)")
     .add_argument("rhs", "Right-hand side tensor (TensorType)")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceTensorOpElementwiseBinaryType(args, kwargs, "tensor.mul");
     });
 
@@ -133,8 +133,8 @@ REGISTER_OP("tensor.mul_scalar")
     .set_description("Element-wise multiplication of tensor and scalar")
     .add_argument("lhs", "Left-hand side tensor (TensorType)")
     .add_argument("rhs", "Right-hand side scalar (ScalarType)")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceTensorOpElementwiseScalarType(args, kwargs, "tensor.mul_scalar");
     });
 
@@ -143,8 +143,8 @@ REGISTER_OP("tensor.div")
     .set_description("Element-wise division of two tensors with broadcasting")
     .add_argument("lhs", "Left-hand side tensor (TensorType)")
     .add_argument("rhs", "Right-hand side tensor (TensorType)")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceTensorOpElementwiseBinaryType(args, kwargs, "tensor.div");
     });
 
@@ -153,8 +153,8 @@ REGISTER_OP("tensor.div_scalar")
     .set_description("Element-wise division of tensor and scalar")
     .add_argument("lhs", "Left-hand side tensor (TensorType)")
     .add_argument("rhs", "Right-hand side scalar (ScalarType)")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceTensorOpElementwiseScalarType(args, kwargs, "tensor.div_scalar");
     });
 
@@ -163,8 +163,8 @@ REGISTER_OP("tensor.maximum")
     .set_description("Element-wise maximum of two tensors with broadcasting")
     .add_argument("lhs", "Left-hand side tensor (TensorType)")
     .add_argument("rhs", "Right-hand side tensor (TensorType)")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .f_deduce_type([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceTensorOpElementwiseBinaryType(args, kwargs, "tensor.maximum");
     });
 

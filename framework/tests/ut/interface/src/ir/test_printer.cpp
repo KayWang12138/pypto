@@ -359,7 +359,7 @@ TEST_F(IRPrinterTest, TestPrintTupleGetItem) {
 
 TEST_F(IRPrinterTest, TestPrintCall) {
   Span sp = Span::unknown();
-  auto& reg = OpRegistry::GetInstance();
+  auto &reg = OpRegistry::GetInstance();
   auto a = std::make_shared<Var>(
       "a",
       std::make_shared<TensorType>(
@@ -630,7 +630,7 @@ TEST_F(IRPrinterTest, TestPrintUnknownType) {
 // ============================================================================
 
 TEST_F(IRPrinterTest, TestPrintAllDataTypes) {
-  auto checkDtype = [](DataType dt, const std::string& expected) {
+  auto checkDtype = [](DataType dt, const std::string &expected) {
     auto type = std::make_shared<ScalarType>(dt);
     std::string result = PythonPrint(type);
     ASSERT_NE(result.find(expected), std::string::npos) << "Failed for " << expected;
@@ -873,7 +873,7 @@ TEST_F(IRPrinterTest, TestPrintProgramCustomPrefix) {
 
 TEST_F(IRPrinterTest, TestPrintCallWithKwargsVariousTypes) {
   Span sp = Span::unknown();
-  auto& reg = OpRegistry::GetInstance();
+  auto &reg = OpRegistry::GetInstance();
   auto tile = std::make_shared<Var>(
       "t", std::make_shared<TileType>(
           std::vector<ExprPtr>{

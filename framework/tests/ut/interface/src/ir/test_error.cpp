@@ -50,7 +50,7 @@ TEST_F(CoreErrorTest, TestErrorGetFormattedStackTrace) {
 
 TEST_F(CoreErrorTest, TestErrorGetStackTrace) {
   Error err("stack test");
-  const auto& frames = err.GetStackTrace();
+  const auto &frames = err.GetStackTrace();
   // Frames may be empty in some build configurations
   (void)frames;
 }
@@ -175,7 +175,7 @@ TEST_F(CoreErrorTest, TestBacktraceFormatEmptyTrace) {
 }
 
 TEST_F(CoreErrorTest, TestBacktraceCaptureStackTrace) {
-  auto& bt = Backtrace::GetInstance();
+  auto &bt = Backtrace::GetInstance();
   auto frames = bt.CaptureStackTrace();
   // Just verify it doesn't crash; frames may be empty in some builds
   (void)frames;

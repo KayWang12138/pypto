@@ -27,7 +27,7 @@ MakeTuple::MakeTuple(std::vector<ExprPtr> elements, Span span)
   // Collect types from all element expressions
   std::vector<TypePtr> element_types;
   element_types.reserve(elements_.size());
-  for (const auto& elem : elements_) {
+  for (const auto &elem : elements_) {
     element_types.push_back(elem->GetType());
   }
 

@@ -38,18 +38,18 @@ static Span TestSpan() { return Span("test.py", 1, 0); }
 // ============================================================================
 
 TEST(OpRegistryExtraTest, GetInstance) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   (void)registry;
   ASSERT_TRUE(true);  // Singleton should exist
 }
 
 TEST(OpRegistryExtraTest, BlockAddRegistered) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   ASSERT_TRUE(registry.IsRegistered("block.add"));
 }
 
 TEST(OpRegistryExtraTest, NonExistentOp) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   ASSERT_FALSE(registry.IsRegistered("nonexistent.op"));
 }
 
@@ -60,9 +60,9 @@ TEST(OpRegistryExtraTest, NonExistentOp) {
 class BlockOpsElementwiseTest : public ::testing::TestWithParam<std::string> {};
 
 TEST_P(BlockOpsElementwiseTest, IsRegistered) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   ASSERT_TRUE(registry.IsRegistered(GetParam()));
-  const auto& entry = registry.GetEntry(GetParam());
+  const auto &entry = registry.GetEntry(GetParam());
   ASSERT_FALSE(entry.GetOpCategory().empty());
 }
 
@@ -79,7 +79,7 @@ INSTANTIATE_TEST_SUITE_P(BlockElementwise, BlockOpsElementwiseTest,
 class BlockOpsUnaryTest : public ::testing::TestWithParam<std::string> {};
 
 TEST_P(BlockOpsUnaryTest, IsRegistered) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   ASSERT_TRUE(registry.IsRegistered(GetParam()));
 }
 
@@ -92,7 +92,7 @@ INSTANTIATE_TEST_SUITE_P(BlockUnary, BlockOpsUnaryTest,
 // ============================================================================
 
 TEST(BlockOpsMatmulTest, MatmulRegistered) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   ASSERT_TRUE(registry.IsRegistered("block.matmul"));
   ASSERT_TRUE(registry.IsRegistered("block.matmul_acc"));
 }
@@ -102,7 +102,7 @@ TEST(BlockOpsMatmulTest, MatmulRegistered) {
 // ============================================================================
 
 TEST(BlockOpsBatchMatmulTest, BatchMatmulRegistered) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   ASSERT_TRUE(registry.IsRegistered("block.batch_matmul"));
 }
 
@@ -113,7 +113,7 @@ TEST(BlockOpsBatchMatmulTest, BatchMatmulRegistered) {
 class BlockOpsReductionTest : public ::testing::TestWithParam<std::string> {};
 
 TEST_P(BlockOpsReductionTest, IsRegistered) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   ASSERT_TRUE(registry.IsRegistered(GetParam()));
 }
 
@@ -128,7 +128,7 @@ INSTANTIATE_TEST_SUITE_P(BlockReduction, BlockOpsReductionTest,
 class BlockOpsBroadcastTest : public ::testing::TestWithParam<std::string> {};
 
 TEST_P(BlockOpsBroadcastTest, IsRegistered) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   ASSERT_TRUE(registry.IsRegistered(GetParam()));
 }
 
@@ -143,7 +143,7 @@ INSTANTIATE_TEST_SUITE_P(BlockBroadcast, BlockOpsBroadcastTest,
 class BlockOpsMemoryTest : public ::testing::TestWithParam<std::string> {};
 
 TEST_P(BlockOpsMemoryTest, IsRegistered) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   ASSERT_TRUE(registry.IsRegistered(GetParam()));
 }
 
@@ -158,7 +158,7 @@ INSTANTIATE_TEST_SUITE_P(BlockMemory, BlockOpsMemoryTest,
 class BlockOpsTransformTest : public ::testing::TestWithParam<std::string> {};
 
 TEST_P(BlockOpsTransformTest, IsRegistered) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   ASSERT_TRUE(registry.IsRegistered(GetParam()));
 }
 
@@ -172,7 +172,7 @@ INSTANTIATE_TEST_SUITE_P(BlockTransform, BlockOpsTransformTest,
 class TensorOpsElementwiseTest : public ::testing::TestWithParam<std::string> {};
 
 TEST_P(TensorOpsElementwiseTest, IsRegistered) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   ASSERT_TRUE(registry.IsRegistered(GetParam()));
 }
 
@@ -186,12 +186,12 @@ INSTANTIATE_TEST_SUITE_P(TensorElementwise, TensorOpsElementwiseTest,
 // ============================================================================
 
 TEST(TensorOpsUnaryTest, ExpRegistered) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   ASSERT_TRUE(registry.IsRegistered("tensor.exp"));
 }
 
 TEST(TensorOpsUnaryTest, CastRegistered) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   ASSERT_TRUE(registry.IsRegistered("tensor.cast"));
 }
 
@@ -200,7 +200,7 @@ TEST(TensorOpsUnaryTest, CastRegistered) {
 // ============================================================================
 
 TEST(TensorOpsMatmulTest, MatmulRegistered) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   ASSERT_TRUE(registry.IsRegistered("tensor.matmul"));
 }
 
@@ -211,7 +211,7 @@ TEST(TensorOpsMatmulTest, MatmulRegistered) {
 class TensorOpsMemoryTest : public ::testing::TestWithParam<std::string> {};
 
 TEST_P(TensorOpsMemoryTest, IsRegistered) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   ASSERT_TRUE(registry.IsRegistered(GetParam()));
 }
 
@@ -223,12 +223,12 @@ INSTANTIATE_TEST_SUITE_P(TensorMemory, TensorOpsMemoryTest,
 // ============================================================================
 
 TEST(TensorOpsReductionTest, RowMaxRegistered) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   ASSERT_TRUE(registry.IsRegistered("tensor.row_max"));
 }
 
 TEST(TensorOpsReductionTest, RowSumRegistered) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   ASSERT_TRUE(registry.IsRegistered("tensor.row_sum"));
 }
 
@@ -237,12 +237,12 @@ TEST(TensorOpsReductionTest, RowSumRegistered) {
 // ============================================================================
 
 TEST(TensorOpsTransformTest, ReshapeRegistered) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   ASSERT_TRUE(registry.IsRegistered("tensor.reshape"));
 }
 
 TEST(TensorOpsTransformTest, TransposeRegistered) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   ASSERT_TRUE(registry.IsRegistered("tensor.transpose"));
 }
 
@@ -251,26 +251,26 @@ TEST(TensorOpsTransformTest, TransposeRegistered) {
 // ============================================================================
 
 TEST(OpEntryTest, BlockAddHasDescription) {
-  auto& registry = OpRegistry::GetInstance();
-  const auto& entry = registry.GetEntry("block.add");
+  auto &registry = OpRegistry::GetInstance();
+  const auto &entry = registry.GetEntry("block.add");
   ASSERT_FALSE(entry.GetDescription().empty());
 }
 
 TEST(OpEntryTest, BlockAddHasCategory) {
-  auto& registry = OpRegistry::GetInstance();
-  const auto& entry = registry.GetEntry("block.add");
+  auto &registry = OpRegistry::GetInstance();
+  const auto &entry = registry.GetEntry("block.add");
   ASSERT_FALSE(entry.GetOpCategory().empty());
 }
 
 TEST(OpEntryTest, GetOpReturnsOp) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto op = registry.GetOp("block.add");
   ASSERT_NE(op, nullptr);
   ASSERT_EQ(op->name_, "block.add");
 }
 
 TEST(OpEntryTest, SyncSrcHasAttributes) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto op = registry.GetOp("system.sync_src");
   ASSERT_NE(op, nullptr);
   ASSERT_TRUE(op->HasAttr("set_pipe"));
@@ -279,7 +279,7 @@ TEST(OpEntryTest, SyncSrcHasAttributes) {
 }
 
 TEST(OpEntryTest, BlockCastHasAttributes) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto op = registry.GetOp("block.cast");
   ASSERT_NE(op, nullptr);
   ASSERT_TRUE(op->HasAttr("target_dtype"));
@@ -337,7 +337,7 @@ TEST(TypeInferenceUtilsTest, FormatShapeWithDims) {
 // ============================================================================
 
 // Helper to create a TensorType Var for tensor op tests
-static ExprPtr MakeTensorVar(const std::string& name, const std::vector<int64_t>& shape, DataType dtype) {
+static ExprPtr MakeTensorVar(const std::string &name, const std::vector<int64_t> &shape, DataType dtype) {
   auto span = TestSpan();
   std::vector<ExprPtr> shapeExprs;
   for (auto dim : shape) {
@@ -348,7 +348,7 @@ static ExprPtr MakeTensorVar(const std::string& name, const std::vector<int64_t>
 }
 
 // Helper to create a TileType Var for block op tests
-static ExprPtr MakeTileVar(const std::string& name, const std::vector<int64_t>& shape, DataType dtype) {
+static ExprPtr MakeTileVar(const std::string &name, const std::vector<int64_t> &shape, DataType dtype) {
   auto span = TestSpan();
   std::vector<ExprPtr> shapeExprs;
   for (auto dim : shape) {
@@ -361,7 +361,7 @@ static ExprPtr MakeTileVar(const std::string& name, const std::vector<int64_t>& 
 // ---- Tensor Op Create Tests (exercises type deduction in tensor_ops/*.cpp) ----
 
 TEST(OpCreateTest, CreateTensorAdd) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto span = TestSpan();
   auto a = MakeTensorVar("a", {4, 8}, DataType::FP32);
   auto b = MakeTensorVar("b", {4, 8}, DataType::FP32);
@@ -373,7 +373,7 @@ TEST(OpCreateTest, CreateTensorAdd) {
 }
 
 TEST(OpCreateTest, CreateTensorSub) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto span = TestSpan();
   auto a = MakeTensorVar("a", {4, 8}, DataType::FP32);
   auto b = MakeTensorVar("b", {4, 8}, DataType::FP32);
@@ -384,7 +384,7 @@ TEST(OpCreateTest, CreateTensorSub) {
 }
 
 TEST(OpCreateTest, CreateTensorMul) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto span = TestSpan();
   auto a = MakeTensorVar("a", {4, 8}, DataType::FP32);
   auto b = MakeTensorVar("b", {4, 8}, DataType::FP32);
@@ -395,7 +395,7 @@ TEST(OpCreateTest, CreateTensorMul) {
 }
 
 TEST(OpCreateTest, CreateTensorDiv) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto span = TestSpan();
   auto a = MakeTensorVar("a", {4, 8}, DataType::FP32);
   auto b = MakeTensorVar("b", {4, 8}, DataType::FP32);
@@ -406,7 +406,7 @@ TEST(OpCreateTest, CreateTensorDiv) {
 }
 
 TEST(OpCreateTest, CreateTensorMaximum) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto span = TestSpan();
   auto a = MakeTensorVar("a", {4, 8}, DataType::FP32);
   auto b = MakeTensorVar("b", {4, 8}, DataType::FP32);
@@ -417,7 +417,7 @@ TEST(OpCreateTest, CreateTensorMaximum) {
 }
 
 TEST(OpCreateTest, CreateTensorExp) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto span = TestSpan();
   auto a = MakeTensorVar("a", {4, 8}, DataType::FP32);
   std::vector<ExprPtr> args = {a};
@@ -427,7 +427,7 @@ TEST(OpCreateTest, CreateTensorExp) {
 }
 
 TEST(OpCreateTest, CreateTensorCast) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto span = TestSpan();
   auto a = MakeTensorVar("a", {4, 8}, DataType::FP32);
   std::vector<ExprPtr> args = {a};
@@ -437,7 +437,7 @@ TEST(OpCreateTest, CreateTensorCast) {
 }
 
 TEST(OpCreateTest, CreateTensorRowMax) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto span = TestSpan();
   auto a = MakeTensorVar("a", {4, 8}, DataType::FP32);
   std::vector<ExprPtr> args = {a};
@@ -447,7 +447,7 @@ TEST(OpCreateTest, CreateTensorRowMax) {
 }
 
 TEST(OpCreateTest, CreateTensorRowSum) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto span = TestSpan();
   auto a = MakeTensorVar("a", {4, 8}, DataType::FP32);
   std::vector<ExprPtr> args = {a};
@@ -457,7 +457,7 @@ TEST(OpCreateTest, CreateTensorRowSum) {
 }
 
 TEST(OpCreateTest, CreateTensorMatmul) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto span = TestSpan();
   auto a = MakeTensorVar("a", {4, 8}, DataType::FP16);
   auto b = MakeTensorVar("b", {8, 16}, DataType::FP16);
@@ -468,7 +468,7 @@ TEST(OpCreateTest, CreateTensorMatmul) {
 }
 
 TEST(OpCreateTest, CreateTensorReshape) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto span = TestSpan();
   auto a = MakeTensorVar("a", {4, 8}, DataType::FP32);
   // tensor.reshape takes (input, shapeTuple) as positional args
@@ -481,7 +481,7 @@ TEST(OpCreateTest, CreateTensorReshape) {
 }
 
 TEST(OpCreateTest, CreateTensorTranspose) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto span = TestSpan();
   auto a = MakeTensorVar("a", {4, 8}, DataType::FP32);
   // tensor.transpose takes (input, axis1, axis2) as positional args
@@ -496,7 +496,7 @@ TEST(OpCreateTest, CreateTensorTranspose) {
 // ---- Block Op Create Tests (exercises type deduction in block_ops/*.cpp) ----
 
 TEST(OpCreateTest, CreateBlockAdd) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto span = TestSpan();
   auto a = MakeTileVar("a", {16, 16}, DataType::FP16);
   auto b = MakeTileVar("b", {16, 16}, DataType::FP16);
@@ -507,7 +507,7 @@ TEST(OpCreateTest, CreateBlockAdd) {
 }
 
 TEST(OpCreateTest, CreateBlockSub) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto span = TestSpan();
   auto a = MakeTileVar("a", {16, 16}, DataType::FP16);
   auto b = MakeTileVar("b", {16, 16}, DataType::FP16);
@@ -518,7 +518,7 @@ TEST(OpCreateTest, CreateBlockSub) {
 }
 
 TEST(OpCreateTest, CreateBlockMul) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto span = TestSpan();
   auto a = MakeTileVar("a", {16, 16}, DataType::FP16);
   auto b = MakeTileVar("b", {16, 16}, DataType::FP16);
@@ -529,7 +529,7 @@ TEST(OpCreateTest, CreateBlockMul) {
 }
 
 TEST(OpCreateTest, CreateBlockNeg) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto span = TestSpan();
   auto a = MakeTileVar("a", {16, 16}, DataType::FP16);
   std::vector<ExprPtr> args = {a};
@@ -539,7 +539,7 @@ TEST(OpCreateTest, CreateBlockNeg) {
 }
 
 TEST(OpCreateTest, CreateBlockExp) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto span = TestSpan();
   auto a = MakeTileVar("a", {16, 16}, DataType::FP16);
   std::vector<ExprPtr> args = {a};
@@ -549,7 +549,7 @@ TEST(OpCreateTest, CreateBlockExp) {
 }
 
 TEST(OpCreateTest, CreateBlockSum) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto span = TestSpan();
   auto a = MakeTileVar("a", {16, 16}, DataType::FP16);
   std::vector<ExprPtr> args = {a};
@@ -559,7 +559,7 @@ TEST(OpCreateTest, CreateBlockSum) {
 }
 
 TEST(OpCreateTest, CreateBlockMax) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto span = TestSpan();
   auto a = MakeTileVar("a", {16, 16}, DataType::FP16);
   std::vector<ExprPtr> args = {a};
@@ -569,7 +569,7 @@ TEST(OpCreateTest, CreateBlockMax) {
 }
 
 TEST(OpCreateTest, CreateBlockCast) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto span = TestSpan();
   auto a = MakeTileVar("a", {16, 16}, DataType::FP16);
   std::vector<ExprPtr> args = {a};
@@ -579,7 +579,7 @@ TEST(OpCreateTest, CreateBlockCast) {
 }
 
 TEST(OpCreateTest, CreateBlockMuls) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto span = TestSpan();
   auto a = MakeTileVar("a", {16, 16}, DataType::FP16);
   auto scalar = std::make_shared<ConstFloat>(2.0, DataType::FP16, span);
@@ -592,7 +592,7 @@ TEST(OpCreateTest, CreateBlockMuls) {
 // ---- Sync Op Create Tests (exercises type deduction in sync_ops/sync.cpp) ----
 
 TEST(OpCreateTest, CreateSyncSrc) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto span = TestSpan();
   std::vector<ExprPtr> args;
   std::vector<std::pair<std::string, std::any>> kwargs = {
@@ -602,7 +602,7 @@ TEST(OpCreateTest, CreateSyncSrc) {
 }
 
 TEST(OpCreateTest, CreateSyncDst) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto span = TestSpan();
   std::vector<ExprPtr> args;
   std::vector<std::pair<std::string, std::any>> kwargs = {

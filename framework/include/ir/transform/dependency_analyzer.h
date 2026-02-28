@@ -52,7 +52,7 @@ public:
    * \param func Function to analyze
    * \return Complete dependency graph (blocks + edges)
    */
-  DependencyGraph Analyze(const FunctionPtr& func);
+  DependencyGraph Analyze(const FunctionPtr &func);
 
   /**
    * \brief Analyze only basic blocks (without dependency edges)
@@ -62,7 +62,7 @@ public:
    * \param func Function to analyze
    * \return Vector of basic blocks
    */
-  std::vector<BasicBlock> AnalyzeBasicBlocks(const FunctionPtr& func);
+  std::vector<BasicBlock> AnalyzeBasicBlocks(const FunctionPtr &func);
 
   /**
    * \brief Analyze only dependencies (without basic blocks)
@@ -72,7 +72,7 @@ public:
    * \param func Function to analyze
    * \return Vector of dependency edges
    */
-  std::vector<DependencyEdge> AnalyzeDependencies(const FunctionPtr& func);
+  std::vector<DependencyEdge> AnalyzeDependencies(const FunctionPtr &func);
 
 private:
   /**
@@ -81,7 +81,7 @@ private:
    * \param stmt Function body
    * \return Vector of basic blocks
    */
-  std::vector<BasicBlock> IdentifyBasicBlocks(const StmtPtr& stmt);
+  std::vector<BasicBlock> IdentifyBasicBlocks(const StmtPtr &stmt);
 
   /**
    * \brief Build dependency graph for a basic block
@@ -89,7 +89,7 @@ private:
    * \param block Basic block to analyze
    * \return Vector of dependency edges
    */
-  std::vector<DependencyEdge> AnalyzeBlockDependencies(const BasicBlock& block);
+  std::vector<DependencyEdge> AnalyzeBlockDependencies(const BasicBlock &block);
 
   /**
    * \brief Extract pipe type from a statement
@@ -97,7 +97,7 @@ private:
    * \param stmt Statement to analyze
    * \return Pipe type string (CUBE, VECTOR, MTE1, etc.)
    */
-  std::string GetPipeTypeFromStmt(const StmtPtr& stmt);
+  std::string GetPipeTypeFromStmt(const StmtPtr &stmt);
 
   /**
    * \brief Extract pipe type from a Call expression
@@ -105,7 +105,7 @@ private:
    * \param callExpr Call expression
    * \return Pipe type string
    */
-  std::string GetPipeType(const CallPtr& callExpr);
+  std::string GetPipeType(const CallPtr &callExpr);
 
   /**
    * \brief Merge dependencies from multiple control flow paths
@@ -114,7 +114,7 @@ private:
    * \return Merged dependencies (union)
    */
   std::vector<DependencyEdge> MergeDependencies(
-      const std::vector<std::vector<DependencyEdge>>& pathDependencies);
+      const std::vector<std::vector<DependencyEdge>> &pathDependencies);
 };
 
 }  // namespace ir

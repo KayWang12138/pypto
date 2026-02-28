@@ -29,63 +29,63 @@ public:
   ~IRMutator() override = default;
 
   // Override base class methods
-  ExprPtr VisitExpr(const ExprPtr& expr) override;
-  StmtPtr VisitStmt(const StmtPtr& stmt) override;
+  ExprPtr VisitExpr(const ExprPtr &expr) override;
+  StmtPtr VisitStmt(const StmtPtr &stmt) override;
 
 protected:
   // Leaf nodes - return as-is by default
-  ExprPtr VisitExpr_(const VarPtr& op) override;
-  ExprPtr VisitExpr_(const IterArgPtr& op) override;
-  ExprPtr VisitExpr_(const MemRefPtr& op) override;
-  ExprPtr VisitExpr_(const ConstIntPtr& op) override;
-  ExprPtr VisitExpr_(const ConstFloatPtr& op) override;
-  ExprPtr VisitExpr_(const ConstBoolPtr& op) override;
-  ExprPtr VisitExpr_(const CallPtr& op) override;
-  ExprPtr VisitExpr_(const MakeTuplePtr& op) override;
-  ExprPtr VisitExpr_(const TupleGetItemExprPtr& op) override;
+  ExprPtr VisitExpr_(const VarPtr &op) override;
+  ExprPtr VisitExpr_(const IterArgPtr &op) override;
+  ExprPtr VisitExpr_(const MemRefPtr &op) override;
+  ExprPtr VisitExpr_(const ConstIntPtr &op) override;
+  ExprPtr VisitExpr_(const ConstFloatPtr &op) override;
+  ExprPtr VisitExpr_(const ConstBoolPtr &op) override;
+  ExprPtr VisitExpr_(const CallPtr &op) override;
+  ExprPtr VisitExpr_(const MakeTuplePtr &op) override;
+  ExprPtr VisitExpr_(const TupleGetItemExprPtr &op) override;
 
   // Binary operations - reconstruct with mutated children
-  ExprPtr VisitExpr_(const AddPtr& op) override;
-  ExprPtr VisitExpr_(const SubPtr& op) override;
-  ExprPtr VisitExpr_(const MulPtr& op) override;
-  ExprPtr VisitExpr_(const FloorDivPtr& op) override;
-  ExprPtr VisitExpr_(const FloorModPtr& op) override;
-  ExprPtr VisitExpr_(const FloatDivPtr& op) override;
-  ExprPtr VisitExpr_(const MinPtr& op) override;
-  ExprPtr VisitExpr_(const MaxPtr& op) override;
-  ExprPtr VisitExpr_(const PowPtr& op) override;
-  ExprPtr VisitExpr_(const EqPtr& op) override;
-  ExprPtr VisitExpr_(const NePtr& op) override;
-  ExprPtr VisitExpr_(const LtPtr& op) override;
-  ExprPtr VisitExpr_(const LePtr& op) override;
-  ExprPtr VisitExpr_(const GtPtr& op) override;
-  ExprPtr VisitExpr_(const GePtr& op) override;
-  ExprPtr VisitExpr_(const AndPtr& op) override;
-  ExprPtr VisitExpr_(const OrPtr& op) override;
-  ExprPtr VisitExpr_(const XorPtr& op) override;
-  ExprPtr VisitExpr_(const BitAndPtr& op) override;
-  ExprPtr VisitExpr_(const BitOrPtr& op) override;
-  ExprPtr VisitExpr_(const BitXorPtr& op) override;
-  ExprPtr VisitExpr_(const BitShiftLeftPtr& op) override;
-  ExprPtr VisitExpr_(const BitShiftRightPtr& op) override;
+  ExprPtr VisitExpr_(const AddPtr &op) override;
+  ExprPtr VisitExpr_(const SubPtr &op) override;
+  ExprPtr VisitExpr_(const MulPtr &op) override;
+  ExprPtr VisitExpr_(const FloorDivPtr &op) override;
+  ExprPtr VisitExpr_(const FloorModPtr &op) override;
+  ExprPtr VisitExpr_(const FloatDivPtr &op) override;
+  ExprPtr VisitExpr_(const MinPtr &op) override;
+  ExprPtr VisitExpr_(const MaxPtr &op) override;
+  ExprPtr VisitExpr_(const PowPtr &op) override;
+  ExprPtr VisitExpr_(const EqPtr &op) override;
+  ExprPtr VisitExpr_(const NePtr &op) override;
+  ExprPtr VisitExpr_(const LtPtr &op) override;
+  ExprPtr VisitExpr_(const LePtr &op) override;
+  ExprPtr VisitExpr_(const GtPtr &op) override;
+  ExprPtr VisitExpr_(const GePtr &op) override;
+  ExprPtr VisitExpr_(const AndPtr &op) override;
+  ExprPtr VisitExpr_(const OrPtr &op) override;
+  ExprPtr VisitExpr_(const XorPtr &op) override;
+  ExprPtr VisitExpr_(const BitAndPtr &op) override;
+  ExprPtr VisitExpr_(const BitOrPtr &op) override;
+  ExprPtr VisitExpr_(const BitXorPtr &op) override;
+  ExprPtr VisitExpr_(const BitShiftLeftPtr &op) override;
+  ExprPtr VisitExpr_(const BitShiftRightPtr &op) override;
 
   // Unary operations - reconstruct with mutated operand
-  ExprPtr VisitExpr_(const AbsPtr& op) override;
-  ExprPtr VisitExpr_(const NegPtr& op) override;
-  ExprPtr VisitExpr_(const NotPtr& op) override;
-  ExprPtr VisitExpr_(const BitNotPtr& op) override;
-  ExprPtr VisitExpr_(const CastPtr& op) override;
+  ExprPtr VisitExpr_(const AbsPtr &op) override;
+  ExprPtr VisitExpr_(const NegPtr &op) override;
+  ExprPtr VisitExpr_(const NotPtr &op) override;
+  ExprPtr VisitExpr_(const BitNotPtr &op) override;
+  ExprPtr VisitExpr_(const CastPtr &op) override;
 
   // Statement types
-  StmtPtr VisitStmt_(const AssignStmtPtr& op) override;
-  StmtPtr VisitStmt_(const IfStmtPtr& op) override;
-  StmtPtr VisitStmt_(const YieldStmtPtr& op) override;
-  StmtPtr VisitStmt_(const ReturnStmtPtr& op) override;
-  StmtPtr VisitStmt_(const ForStmtPtr& op) override;
-  StmtPtr VisitStmt_(const SeqStmtsPtr& op) override;
-  StmtPtr VisitStmt_(const OpStmtsPtr& op) override;
-  StmtPtr VisitStmt_(const EvalStmtPtr& op) override;
-  StmtPtr VisitStmt_(const StmtPtr& op) override;
+  StmtPtr VisitStmt_(const AssignStmtPtr &op) override;
+  StmtPtr VisitStmt_(const IfStmtPtr &op) override;
+  StmtPtr VisitStmt_(const YieldStmtPtr &op) override;
+  StmtPtr VisitStmt_(const ReturnStmtPtr &op) override;
+  StmtPtr VisitStmt_(const ForStmtPtr &op) override;
+  StmtPtr VisitStmt_(const SeqStmtsPtr &op) override;
+  StmtPtr VisitStmt_(const OpStmtsPtr &op) override;
+  StmtPtr VisitStmt_(const EvalStmtPtr &op) override;
+  StmtPtr VisitStmt_(const StmtPtr &op) override;
 };
 
 }  // namespace ir

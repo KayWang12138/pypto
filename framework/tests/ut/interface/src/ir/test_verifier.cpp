@@ -134,7 +134,7 @@ namespace {
 class AlwaysErrorRule : public VerifyRule {
 public:
   std::string GetName() const override { return "AlwaysError"; }
-  void Verify(const FunctionPtr& func, std::vector<Diagnostic>& diagnostics) override {
+  void Verify(const FunctionPtr &func, std::vector<Diagnostic> &diagnostics) override {
     diagnostics.emplace_back(DiagnosticSeverity::ERROR, "AlwaysError", 100,
                              "function '" + func->name_ + "' always fails", func->span_);
   }
@@ -143,7 +143,7 @@ public:
 class AlwaysWarnRule : public VerifyRule {
 public:
   std::string GetName() const override { return "AlwaysWarn"; }
-  void Verify(const FunctionPtr& func, std::vector<Diagnostic>& diagnostics) override {
+  void Verify(const FunctionPtr &func, std::vector<Diagnostic> &diagnostics) override {
     diagnostics.emplace_back(DiagnosticSeverity::WARNING, "AlwaysWarn", 200,
                              "function '" + func->name_ + "' has a warning", func->span_);
   }

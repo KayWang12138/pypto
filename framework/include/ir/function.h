@@ -64,7 +64,7 @@ inline std::string FunctionTypeToString(FunctionType type) {
  * \return FunctionType enum value
  * \throws std::invalid_argument if string is not recognized
  */
-inline FunctionType StringToFunctionType(const std::string& str) {
+inline FunctionType StringToFunctionType(const std::string &str) {
   if (str == "Opaque") {
     return FunctionType::OPAQUE;
   } else if (str == "Orchestration") {

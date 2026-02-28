@@ -39,7 +39,7 @@ namespace ir {
  *   class MyCustomRule : public VerifyRule {
  *    public:
  *     std::string GetName() const override { return "MyCustomRule"; }
- *     void Verify(const FunctionPtr& func, std::vector<Diagnostic>& diagnostics) override {
+ *     void Verify(const FunctionPtr &func, std::vector<Diagnostic> &diagnostics) override {
  *       // Verification logic
  *     }
  *   };
@@ -64,7 +64,7 @@ public:
    * to the diagnostics vector. It should not throw exceptions - all issues
    * should be reported through diagnostics.
    */
-  virtual void Verify(const FunctionPtr& func, std::vector<Diagnostic>& diagnostics) = 0;
+  virtual void Verify(const FunctionPtr &func, std::vector<Diagnostic> &diagnostics) = 0;
 };
 
 /// Shared pointer to a verification rule
@@ -88,7 +88,7 @@ using VerifyRulePtr = std::shared_ptr<VerifyRule>;
  *
  *   // Run verification
  *   auto diagnostics = verifier.Verify(program);
- *   for (const auto& d : diagnostics) {
+ *   for (const auto &d : diagnostics) {
  *     if (d.severity == DiagnosticSeverity::ERROR) {
  *       LOG_ERROR << d.message;
  *     }
@@ -120,7 +120,7 @@ public:
    *
    * If the rule is not found or is already enabled, this is a no-op.
    */
-  void EnableRule(const std::string& name);
+  void EnableRule(const std::string &name);
 
   /**
    * \brief Disable a rule
@@ -128,14 +128,14 @@ public:
    *
    * Disabled rules will be skipped during verification.
    */
-  void DisableRule(const std::string& name);
+  void DisableRule(const std::string &name);
 
   /**
    * \brief Check if a rule is currently enabled
    * \param name Name of the rule to check
    * \return true if the rule is enabled, false if disabled or not found
    */
-  bool IsRuleEnabled(const std::string& name) const;
+  bool IsRuleEnabled(const std::string &name) const;
 
   /**
    * \brief Verify a program and collect diagnostics
@@ -146,7 +146,7 @@ public:
    * and collects diagnostics. It does not throw exceptions even if errors
    * are found - use VerifyOrThrow() if you want exception-based error handling.
    */
-  std::vector<Diagnostic> Verify(const ProgramPtr& program) const;
+  std::vector<Diagnostic> Verify(const ProgramPtr &program) const;
 
   /**
    * \brief Verify a program and throw on errors
@@ -156,7 +156,7 @@ public:
    * This method runs verification and throws a VerificationError if any
    * diagnostics with severity Error are found. Warnings do not cause an exception.
    */
-  void VerifyOrThrow(const ProgramPtr& program) const;
+  void VerifyOrThrow(const ProgramPtr &program) const;
 
   /**
    * \brief Generate a formatted report from diagnostics
@@ -168,7 +168,7 @@ public:
    * - Details for each diagnostic (severity, rule name, message, location)
    * - Overall verification status
    */
-  static std::string GenerateReport(const std::vector<Diagnostic>& diagnostics);
+  static std::string GenerateReport(const std::vector<Diagnostic> &diagnostics);
 
   /**
    * \brief Create a verifier with default built-in rules

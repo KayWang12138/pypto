@@ -38,9 +38,9 @@ namespace ir {
  * \throws ValueError if key is not found and no default_value is provided
  */
 template <typename T>
-T GetKwarg(const std::vector<std::pair<std::string, std::any>>& kwargs, const std::string& key,
-           const std::optional<T>& default_value = std::nullopt) {
-  for (const auto& entry : kwargs) {
+T GetKwarg(const std::vector<std::pair<std::string, std::any>> &kwargs, const std::string &key,
+           const std::optional<T> &default_value = std::nullopt) {
+  for (const auto &entry : kwargs) {
     if (entry.first == key) {
       return AnyCast<T>(entry.second, "kwarg key: " + key);
     }
@@ -75,9 +75,9 @@ inline int NormalizeAxis(int axis, size_t ndim) {
  * \param shape The shape dimensions
  * \return The product if all dimensions are ConstInt, -1 otherwise (dynamic shape)
  */
-inline int64_t ComputeShapeProduct(const std::vector<ExprPtr>& shape) {
+inline int64_t ComputeShapeProduct(const std::vector<ExprPtr> &shape) {
   int64_t product = 1;
-  for (const auto& dim : shape) {
+  for (const auto &dim : shape) {
     auto const_dim = As<ConstInt>(dim);
     if (!const_dim) {
       return -1;  // Dynamic shape, cannot compute product
@@ -97,7 +97,7 @@ inline int64_t ComputeShapeProduct(const std::vector<ExprPtr>& shape) {
  * \param k_rhs The K dimension from the right-hand side
  * \param opName Operator name for error messages
  */
-inline void VerifyKDimensionsMatch(const ExprPtr& k_lhs, const ExprPtr& k_rhs, const std::string& opName) {
+inline void VerifyKDimensionsMatch(const ExprPtr &k_lhs, const ExprPtr &k_rhs, const std::string &opName) {
   auto k_lhs_const = As<ConstInt>(k_lhs);
   auto k_rhs_const = As<ConstInt>(k_rhs);
   if (k_lhs_const && k_rhs_const) {

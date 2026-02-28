@@ -36,8 +36,8 @@ class OpRegistryTest : public testing::Test {};
 // ============================================================================
 
 TEST_F(OpRegistryTest, TestGetInstance) {
-  auto& registry1 = OpRegistry::GetInstance();
-  auto& registry2 = OpRegistry::GetInstance();
+  auto &registry1 = OpRegistry::GetInstance();
+  auto &registry2 = OpRegistry::GetInstance();
   ASSERT_EQ(&registry1, &registry2);
 }
 
@@ -46,20 +46,20 @@ TEST_F(OpRegistryTest, TestGetInstance) {
 // ============================================================================
 
 TEST_F(OpRegistryTest, TestGetOpTensorAdd) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   auto op = registry.GetOp("tensor.add");
   ASSERT_NE(op, nullptr);
   ASSERT_EQ(op->name_, "tensor.add");
 }
 
 TEST_F(OpRegistryTest, TestGetEntryTensorAdd) {
-  auto& registry = OpRegistry::GetInstance();
-  const auto& entry = registry.GetEntry("tensor.add");
+  auto &registry = OpRegistry::GetInstance();
+  const auto &entry = registry.GetEntry("tensor.add");
   ASSERT_EQ(entry.GetOp()->name_, "tensor.add");
 }
 
 TEST_F(OpRegistryTest, TestGetOpNotFound) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
   ASSERT_THROW(registry.GetOp("nonexistent.op"), InternalError);
 }
 
@@ -68,7 +68,7 @@ TEST_F(OpRegistryTest, TestGetOpNotFound) {
 // ============================================================================
 
 TEST_F(OpRegistryTest, TestCreateTensorAdd) {
-  auto& registry = OpRegistry::GetInstance();
+  auto &registry = OpRegistry::GetInstance();
 
   std::vector<ExprPtr> shape = {std::make_shared<ConstInt>(10, DataType::INT64, Span::unknown())};
   auto tensorType = std::make_shared<TensorType>(shape, DataType::FP32);

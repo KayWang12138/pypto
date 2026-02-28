@@ -34,7 +34,7 @@ namespace pypto {
 namespace ir {
 
 // Helper to create a simple program
-static ProgramPtr MakeTestProgram(const std::string& funcName = "main") {
+static ProgramPtr MakeTestProgram(const std::string &funcName = "main") {
   auto bodyVal = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
   auto body = std::make_shared<EvalStmt>(bodyVal, Span::unknown());
   std::vector<VarPtr> params;
@@ -51,7 +51,7 @@ class IRPassTest : public testing::Test {};
 // ============================================================================
 
 TEST_F(IRPassTest, TestCreateProgramPassIdentity) {
-  auto p = pass::CreateProgramPass([](const ProgramPtr& prog) -> ProgramPtr { return prog; }, "identity_pass");
+  auto p = pass::CreateProgramPass([](const ProgramPtr &prog) -> ProgramPtr { return prog; }, "identity_pass");
 
   auto program = MakeTestProgram();
   auto result = p(program);
@@ -82,7 +82,7 @@ TEST_F(IRPassTest, TestCreateProgramPassTransform) {
 // ============================================================================
 
 TEST_F(IRPassTest, TestCreateFunctionPassIdentity) {
-  auto p = pass::CreateFunctionPass([](const FunctionPtr& func) -> FunctionPtr { return func; }, "func_identity");
+  auto p = pass::CreateFunctionPass([](const FunctionPtr &func) -> FunctionPtr { return func; }, "func_identity");
 
   auto program = MakeTestProgram();
   auto result = p(program);
@@ -95,7 +95,7 @@ TEST_F(IRPassTest, TestCreateFunctionPassIdentity) {
 // ============================================================================
 
 TEST_F(IRPassTest, TestPassCallOperator) {
-  auto p = pass::CreateProgramPass([](const ProgramPtr& prog) -> ProgramPtr { return prog; }, "test_pass");
+  auto p = pass::CreateProgramPass([](const ProgramPtr &prog) -> ProgramPtr { return prog; }, "test_pass");
 
   auto program = MakeTestProgram();
   auto result = p(program);
@@ -107,7 +107,7 @@ TEST_F(IRPassTest, TestPassCallOperator) {
 // ============================================================================
 
 TEST_F(IRPassTest, TestPassRunMethod) {
-  auto p = pass::CreateProgramPass([](const ProgramPtr& prog) -> ProgramPtr { return prog; }, "run_test");
+  auto p = pass::CreateProgramPass([](const ProgramPtr &prog) -> ProgramPtr { return prog; }, "run_test");
 
   auto program = MakeTestProgram();
   auto result = p.run(program);
@@ -120,7 +120,7 @@ TEST_F(IRPassTest, TestPassRunMethod) {
 // ============================================================================
 
 TEST_F(IRPassTest, TestPassCopy) {
-  auto p1 = pass::CreateProgramPass([](const ProgramPtr& prog) -> ProgramPtr { return prog; }, "copy_test");
+  auto p1 = pass::CreateProgramPass([](const ProgramPtr &prog) -> ProgramPtr { return prog; }, "copy_test");
 
   auto p2 = p1;  // Copy
   auto program = MakeTestProgram();
@@ -129,7 +129,7 @@ TEST_F(IRPassTest, TestPassCopy) {
 }
 
 TEST_F(IRPassTest, TestPassMove) {
-  auto p1 = pass::CreateProgramPass([](const ProgramPtr& prog) -> ProgramPtr { return prog; }, "move_test");
+  auto p1 = pass::CreateProgramPass([](const ProgramPtr &prog) -> ProgramPtr { return prog; }, "move_test");
 
   auto p2 = std::move(p1);
   auto program = MakeTestProgram();
@@ -143,7 +143,7 @@ TEST_F(IRPassTest, TestPassMove) {
 
 TEST_F(IRPassTest, TestFunctionPassTransform) {
   auto p = pass::CreateFunctionPass(
-      [](const FunctionPtr& func) -> FunctionPtr {
+      [](const FunctionPtr &func) -> FunctionPtr {
         // Transform: create a new function with modified body
         auto newBodyVal = std::make_shared<ConstInt>(99, DataType::INT32, Span::unknown());
         auto newBody = std::make_shared<EvalStmt>(newBodyVal, Span::unknown());
@@ -172,7 +172,7 @@ TEST_F(IRPassTest, TestFunctionPassMultipleFunctions) {
 
   auto program = std::make_shared<Program>(std::vector<FunctionPtr>{func1, func2}, "multi", Span::unknown());
 
-  auto p = pass::CreateFunctionPass([](const FunctionPtr& func) -> FunctionPtr { return func; }, "multi_func");
+  auto p = pass::CreateFunctionPass([](const FunctionPtr &func) -> FunctionPtr { return func; }, "multi_func");
 
   auto result = p(program);
   ASSERT_NE(result, nullptr);
@@ -184,7 +184,7 @@ TEST_F(IRPassTest, TestFunctionPassMultipleFunctions) {
 // ============================================================================
 
 TEST_F(IRPassTest, TestProgramPassEmptyName) {
-  auto p = pass::CreateProgramPass([](const ProgramPtr& prog) -> ProgramPtr { return prog; }, "");
+  auto p = pass::CreateProgramPass([](const ProgramPtr &prog) -> ProgramPtr { return prog; }, "");
 
   auto program = MakeTestProgram();
   auto result = p(program);
@@ -192,7 +192,7 @@ TEST_F(IRPassTest, TestProgramPassEmptyName) {
 }
 
 TEST_F(IRPassTest, TestFunctionPassEmptyName) {
-  auto p = pass::CreateFunctionPass([](const FunctionPtr& func) -> FunctionPtr { return func; }, "");
+  auto p = pass::CreateFunctionPass([](const FunctionPtr &func) -> FunctionPtr { return func; }, "");
 
   auto program = MakeTestProgram();
   auto result = p(program);
@@ -210,7 +210,7 @@ TEST_F(IRPassTest, TestDefaultPassNullImpl) {
 }
 
 TEST_F(IRPassTest, TestPassCopyAssignment) {
-  auto p1 = pass::CreateProgramPass([](const ProgramPtr& prog) -> ProgramPtr { return prog; }, "assign_test");
+  auto p1 = pass::CreateProgramPass([](const ProgramPtr &prog) -> ProgramPtr { return prog; }, "assign_test");
 
   Pass p2;
   p2 = p1;  // Copy assignment
@@ -220,7 +220,7 @@ TEST_F(IRPassTest, TestPassCopyAssignment) {
 }
 
 TEST_F(IRPassTest, TestPassMoveAssignment) {
-  auto p1 = pass::CreateProgramPass([](const ProgramPtr& prog) -> ProgramPtr { return prog; }, "move_assign");
+  auto p1 = pass::CreateProgramPass([](const ProgramPtr &prog) -> ProgramPtr { return prog; }, "move_assign");
 
   Pass p2;
   p2 = std::move(p1);

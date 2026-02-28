@@ -37,14 +37,14 @@ class DeserializerContext {
 public:
   virtual ~DeserializerContext() = default;
 
-  virtual Span DeserializeSpan(const msgpack::object& obj) = 0;
-  virtual TypePtr DeserializeType(const msgpack::object& obj, msgpack::zone& zone) = 0;
-  virtual OpPtr DeserializeOp(const msgpack::object& obj) = 0;
-  virtual IRNodePtr DeserializeNode(const msgpack::object& obj, msgpack::zone& zone) = 0;
-  virtual msgpack::object GetFieldObj(const msgpack::object& fieldsObj, const std::string& fieldName) = 0;
+  virtual Span DeserializeSpan(const msgpack::object &obj) = 0;
+  virtual TypePtr DeserializeType(const msgpack::object &obj, msgpack::zone &zone) = 0;
+  virtual OpPtr DeserializeOp(const msgpack::object &obj) = 0;
+  virtual IRNodePtr DeserializeNode(const msgpack::object &obj, msgpack::zone &zone) = 0;
+  virtual msgpack::object GetFieldObj(const msgpack::object &fieldsObj, const std::string &fieldName) = 0;
 
   template <typename T>
-  T GetField(const msgpack::object& fieldsObj, const std::string& fieldName) {
+  T GetField(const msgpack::object &fieldsObj, const std::string &fieldName) {
     msgpack::object field_obj = GetFieldObj(fieldsObj, fieldName);
     T value;
     field_obj.convert(value);
@@ -67,7 +67,7 @@ public:
   /**
    * \brief Get the singleton instance of the type registry
    */
-  static TypeRegistry& Instance();
+  static TypeRegistry &Instance();
 
   /**
    * \brief Register a deserializer function for a type name
@@ -75,7 +75,7 @@ public:
    * \param typeName The type name (e.g., "Add", "Var", "Function")
    * \param func The deserializer function
    */
-  void Register(const std::string& typeName, DeserializerFunc func);
+  void Register(const std::string &typeName, DeserializerFunc func);
 
   /**
    * \brief Create an IR node from serialized data
@@ -86,8 +86,8 @@ public:
    * \param ctx Deserializer context
    * \return The deserialized IR node
    */
-  IRNodePtr Create(const std::string& typeName, const msgpack::object& obj, msgpack::zone& zone,
-                   detail::DeserializerContext& ctx);
+  IRNodePtr Create(const std::string &typeName, const msgpack::object &obj, msgpack::zone &zone,
+                   detail::DeserializerContext &ctx);
 
   /**
    * \brief Check if a type is registered
@@ -95,7 +95,7 @@ public:
    * \param typeName The type name to check
    * \return true if the type is registered
    */
-  bool IsRegistered(const std::string& typeName) const;
+  bool IsRegistered(const std::string &typeName) const;
 
 private:
   TypeRegistry() = default;
@@ -109,7 +109,7 @@ private:
  */
 class TypeRegistrar {
 public:
-  TypeRegistrar(const std::string& typeName, TypeRegistry::DeserializerFunc func) {
+  TypeRegistrar(const std::string &typeName, TypeRegistry::DeserializerFunc func) {
     TypeRegistry::Instance().Register(typeName, std::move(func));
   }
 };

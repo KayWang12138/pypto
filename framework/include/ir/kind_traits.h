@@ -194,7 +194,7 @@ struct KindTrait<ShapedType> {
  * if (IsA<BinaryExpr>(expr)) { ... }  // True for Add, Sub, Mul, etc.
  */
 template <typename T, typename Base, typename = std::enable_if_t<std::is_base_of_v<Base, T>>>
-bool IsA(const std::shared_ptr<const Base>& base) {
+bool IsA(const std::shared_ptr<const Base> &base) {
   if (!base) return false;
 
   if constexpr (detail::HasSingleKind<T>::value) {
@@ -228,7 +228,7 @@ bool IsA(const std::shared_ptr<const Base>& base) {
  * if (auto binop = As<BinaryExpr>(expr)) { ... }  // Cast any binary op
  */
 template <typename T, typename Base, typename = std::enable_if_t<std::is_base_of_v<Base, T>>>
-std::shared_ptr<const T> As(const std::shared_ptr<const Base>& base) {
+std::shared_ptr<const T> As(const std::shared_ptr<const Base> &base) {
   return IsA<T>(base) ? std::static_pointer_cast<const T>(base) : nullptr;
 }
 
