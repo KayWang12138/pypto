@@ -133,6 +133,7 @@ Tensor Relu(const Tensor &self);
 Tensor BitwiseNot(const Tensor &self);
 Tensor Sqrt(const Tensor &self);
 Tensor Ceil(const Tensor &self);
+Tensor CeilDiv(const Tensor &self, const Tensor &other);
 Tensor Floor(const Tensor &self);
 Tensor Trunc(const Tensor &self);
 Tensor Reciprocal(const Tensor &operand);
