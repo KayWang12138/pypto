@@ -105,9 +105,9 @@
             "vf_opt_mark_for": false,
             "enable_vf": false,
             "default_pass_configs": {
-                "print_graph": true,
+                "print_graph": false,
                 "print_program": false,
-                "dump_graph": true,
+                "dump_graph": false,
                 "dump_pass_time_cost": true,
                 "pre_check": false,
                 "post_check": false,
