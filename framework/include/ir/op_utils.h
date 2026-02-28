@@ -37,14 +37,14 @@ namespace ir {
  */
 template <typename T>
 T GetKwarg(const std::vector<std::pair<std::string, std::any>> &kwargs, const std::string &key,
-    const std::optional<T> &default_value = std::nullopt) {
+    const std::optional<T> &defaultValue = std::nullopt) {
     for (const auto &entry : kwargs) {
         if (entry.first == key) {
             return AnyCast<T>(entry.second, "kwarg key: " + key);
         }
     }
-    if (default_value) {
-        return *default_value;
+    if (defaultValue) {
+        return *defaultValue;
     }
     throw ValueError("Missing kwarg: " + key);
 }
@@ -76,11 +76,11 @@ inline int NormalizeAxis(int axis, size_t ndim) {
 inline int64_t ComputeShapeProduct(const std::vector<ExprPtr> &shape) {
     int64_t product = 1;
     for (const auto &dim : shape) {
-        auto const_dim = As<ConstInt>(dim);
-        if (!const_dim) {
+        auto constDim = As<ConstInt>(dim);
+        if (!constDim) {
             return -1; // Dynamic shape, cannot compute product
         }
-        product *= const_dim->value_;
+        product *= constDim->value_;
     }
     return product;
 }
@@ -95,14 +95,14 @@ inline int64_t ComputeShapeProduct(const std::vector<ExprPtr> &shape) {
  * \param k_rhs The K dimension from the right-hand side
  * \param op_name Operator name for error messages
  */
-inline void VerifyKDimensionsMatch(const ExprPtr &k_lhs, const ExprPtr &k_rhs, const std::string &op_name) {
-    auto k_lhs_const = As<ConstInt>(k_lhs);
-    auto k_rhs_const = As<ConstInt>(k_rhs);
-    if (k_lhs_const && k_rhs_const) {
-        INTERNAL_CHECK(k_lhs_const->value_ == k_rhs_const->value_)
-            << "The operator " << op_name
-            << " requires matching inner dimensions, but got lhs K=" << k_lhs_const->value_
-            << " and rhs K=" << k_rhs_const->value_;
+inline void VerifyKDimensionsMatch(const ExprPtr &kLhs, const ExprPtr &kRhs, const std::string &opName) {
+    auto kLhsConst = As<ConstInt>(kLhs);
+    auto kRhsConst = As<ConstInt>(kRhs);
+    if (kLhsConst && kRhsConst) {
+        INTERNAL_CHECK(kLhsConst->value_ == kRhsConst->value_)
+            << "The operator " << opName
+            << " requires matching inner dimensions, but got lhs K=" << kLhsConst->value_
+            << " and rhs K=" << kRhsConst->value_;
     }
 }
 

@@ -87,7 +87,7 @@ TEST(FileTest, CreateDirFailedWhenParentNotExist) {
 }
 
 TEST(FileTest, CreateMultiLevelDirFailedWhenParentIsFile) {
-    const std::string parent = "/tmp/parent_is_file_" + std::to_string(::getpid());
+    const std::string parent = "/tmp/parentIsFile_" + std::to_string(::getpid());
     const std::string target = parent + "/child";
     DeleteDir(target);
     DeleteFile(parent);

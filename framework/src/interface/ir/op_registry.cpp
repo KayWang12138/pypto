@@ -25,23 +25,23 @@ namespace pypto {
 namespace ir {
 
 void ValidateKwargs(const std::vector<std::pair<std::string, std::any>>& kwargs,
-                    const std::unordered_map<std::string, std::type_index>& allowed_kwargs,
-                    const std::string& op_name) {
+                    const std::unordered_map<std::string, std::type_index>& allowedKwargs,
+                    const std::string& opName) {
   for (const auto& [key, value] : kwargs) {
-    auto it = allowed_kwargs.find(key);
-    if (it == allowed_kwargs.end()) {
-      throw ValueError("Unknown kwarg '" + key + "' for operator '" + op_name + "'");
+    auto it = allowedKwargs.find(key);
+    if (it == allowedKwargs.end()) {
+      throw ValueError("Unknown kwarg '" + key + "' for operator '" + opName + "'");
     }
 
     // For DataType, accept both DataType and int (since Python may pass as int for backward compatibility)
     if (it->second == std::type_index(typeid(DataType))) {
       std::type_index value_type(value.type());
       if (value_type != std::type_index(typeid(DataType)) && value_type != std::type_index(typeid(int))) {
-        throw TypeError("Kwarg '" + key + "' for operator '" + op_name +
+        throw TypeError("Kwarg '" + key + "' for operator '" + opName +
                         "' expects DataType or int, but got incompatible type");
       }
     } else if (std::type_index(value.type()) != it->second) {
-      throw TypeError("Kwarg '" + key + "' for operator '" + op_name + "' has incompatible type");
+      throw TypeError("Kwarg '" + key + "' for operator '" + opName + "' has incompatible type");
     }
   }
 }
@@ -51,17 +51,17 @@ OpRegistry& OpRegistry::GetInstance() {
   return instance;
 }
 
-OpRegistryEntry& OpRegistry::Register(const std::string& op_name) {
+OpRegistryEntry& OpRegistry::Register(const std::string& opName) {
   // Check if operator is already registered
-  INTERNAL_CHECK(registry_.find(op_name) == registry_.end()) << "Operator '" + op_name + "' is already registered";
+  INTERNAL_CHECK(registry_.find(opName) == registry_.end()) << "Operator '" + opName + "' is already registered";
 
   // Create and insert the entry into the registry
-  auto result = registry_.emplace(op_name, OpRegistryEntry());
+  auto result = registry_.emplace(opName, OpRegistryEntry());
   auto& entry = result.first->second;
-  entry.set_name(op_name);
+  entry.SetName(opName);
 
   // Create the operator instance with the operator name
-  entry.op_ = std::make_shared<Op>(op_name);
+  entry.op_ = std::make_shared<Op>(opName);
 
   return entry;
 }
@@ -70,16 +70,16 @@ OpRegistryEntry& OpRegistry::Register(const std::string& op_name) {
 // OpRegistry Implementation
 // ============================================================================
 
-CallPtr OpRegistry::Create(const std::string& op_name, const std::vector<ExprPtr>& args, Span span) const {
+CallPtr OpRegistry::Create(const std::string& opName, const std::vector<ExprPtr>& args, Span span) const {
   // Call new version with empty kwargs for backward compatibility
-  return Create(op_name, args, {}, std::move(span));
+  return Create(opName, args, {}, std::move(span));
 }
 
-CallPtr OpRegistry::Create(const std::string& op_name, const std::vector<ExprPtr>& args,
+CallPtr OpRegistry::Create(const std::string& opName, const std::vector<ExprPtr>& args,
                            const std::vector<std::pair<std::string, std::any>>& kwargs, Span span) const {
   // Look up operator in registry
-  auto it = registry_.find(op_name);
-  INTERNAL_CHECK(it != registry_.end()) << "Operator '" + op_name + "' not found in registry";
+  auto it = registry_.find(opName);
+  INTERNAL_CHECK(it != registry_.end()) << "Operator '" + opName + "' not found in registry";
 
   const auto& entry = it->second;
 
@@ -88,31 +88,31 @@ CallPtr OpRegistry::Create(const std::string& op_name, const std::vector<ExprPtr
 
   // Validate kwargs against allowed attributes (stored in Op)
   if (!kwargs.empty()) {
-    const auto& allowed_kwargs = op->GetAttrs();
-    if (!allowed_kwargs.empty()) {
-      ValidateKwargs(kwargs, allowed_kwargs, op_name);
+    const auto& allowedKwargs = op->GetAttrs();
+    if (!allowedKwargs.empty()) {
+      ValidateKwargs(kwargs, allowedKwargs, opName);
     }
   }
 
-  const auto& deduce_type_fn = entry.GetDeduceType();
+  const auto& deduceTypeFn = entry.GetDeduceType();
 
   // Deduce result type (pass args and kwargs separately)
-  TypePtr result_type = deduce_type_fn(args, kwargs);
-  INTERNAL_CHECK(result_type) << "Type deduction failed for '" + op_name + "'";
+  TypePtr resultType = deduceTypeFn(args, kwargs);
+  INTERNAL_CHECK(resultType) << "Type deduction failed for '" + opName + "'";
 
   // Create Call with deduced type
-  return std::make_shared<Call>(op, args, kwargs, result_type, std::move(span));
+  return std::make_shared<Call>(op, args, kwargs, resultType, std::move(span));
 }
 
-const OpRegistryEntry& OpRegistry::GetEntry(const std::string& op_name) const {
-  auto it = registry_.find(op_name);
-  INTERNAL_CHECK(it != registry_.end()) << "Operator '" + op_name + "' not found in registry";
+const OpRegistryEntry& OpRegistry::GetEntry(const std::string& opName) const {
+  auto it = registry_.find(opName);
+  INTERNAL_CHECK(it != registry_.end()) << "Operator '" + opName + "' not found in registry";
   return it->second;
 }
 
-OpPtr OpRegistry::GetOp(const std::string& op_name) const {
-  auto it = registry_.find(op_name);
-  INTERNAL_CHECK(it != registry_.end()) << "Operator '" + op_name + "' not found in registry";
+OpPtr OpRegistry::GetOp(const std::string& opName) const {
+  auto it = registry_.find(opName);
+  INTERNAL_CHECK(it != registry_.end()) << "Operator '" + opName + "' not found in registry";
   return it->second.GetOp();
 }
 

@@ -51,9 +51,9 @@ namespace ir {
 template <bool AssertMode>
 class StructuralEqualImpl {
  public:
-  using result_type = bool;
+  using resultType = bool;
 
-  explicit StructuralEqualImpl(bool enable_auto_mapping) : enable_auto_mapping_(enable_auto_mapping) {}
+  explicit StructuralEqualImpl(bool enableAutoMapping) : enableAutoMapping_(enableAutoMapping) {}
 
   // Returns bool for structural_equal, throws for assert_structural_equal
   bool operator()(const IRNodePtr& lhs, const IRNodePtr& rhs) {
@@ -75,10 +75,10 @@ class StructuralEqualImpl {
   }
 
   // FieldIterator visitor interface (dual-node version - methods receive two fields)
-  [[nodiscard]] result_type InitResult() const { return true; }
+  [[nodiscard]] resultType InitResult() const { return true; }
 
   template <typename IRNodePtrType>
-  result_type VisitIRNodeField(const IRNodePtrType& lhs, const IRNodePtrType& rhs) {
+  resultType VisitIRNodeField(const IRNodePtrType& lhs, const IRNodePtrType& rhs) {
     INTERNAL_CHECK(lhs) << "structural_equal encountered null lhs IR node field";
     INTERNAL_CHECK(rhs) << "structural_equal encountered null rhs IR node field";
     return Equal(lhs, rhs);
@@ -86,7 +86,7 @@ class StructuralEqualImpl {
 
   // Specialization for std::optional<IRNodePtr>
   template <typename IRNodePtrType>
-  result_type VisitIRNodeField(const std::optional<IRNodePtrType>& lhs,
+  resultType VisitIRNodeField(const std::optional<IRNodePtrType>& lhs,
                                const std::optional<IRNodePtrType>& rhs) {
     if (!lhs.has_value() && !rhs.has_value()) {
       return true;
@@ -113,7 +113,7 @@ class StructuralEqualImpl {
   }
 
   template <typename IRNodePtrType>
-  result_type VisitIRNodeVectorField(const std::vector<IRNodePtrType>& lhs,
+  resultType VisitIRNodeVectorField(const std::vector<IRNodePtrType>& lhs,
                                      const std::vector<IRNodePtrType>& rhs) {
     if (lhs.size() != rhs.size()) {
       if constexpr (AssertMode) {
@@ -128,9 +128,9 @@ class StructuralEqualImpl {
       INTERNAL_CHECK(rhs[i]) << "structural_equal encountered null rhs IR node in vector at index " << i;
 
       if constexpr (AssertMode) {
-        std::ostringstream index_str;
-        index_str << "[" << i << "]";
-        path_.push_back(index_str.str());
+        std::ostringstream indexStr;
+        indexStr << "[" << i << "]";
+        path_.push_back(indexStr.str());
       }
 
       if (!Equal(lhs[i], rhs[i])) {
@@ -148,7 +148,7 @@ class StructuralEqualImpl {
   }
 
   template <typename KeyType, typename ValueType, typename Compare>
-  result_type VisitIRNodeMapField(const std::map<KeyType, ValueType, Compare>& lhs,
+  resultType VisitIRNodeMapField(const std::map<KeyType, ValueType, Compare>& lhs,
                                   const std::map<KeyType, ValueType, Compare>& rhs) {
     if (lhs.size() != rhs.size()) {
       if constexpr (AssertMode) {
@@ -158,30 +158,30 @@ class StructuralEqualImpl {
       }
       return false;
     }
-    auto lhs_it = lhs.begin();
-    auto rhs_it = rhs.begin();
-    while (lhs_it != lhs.end()) {
-      INTERNAL_CHECK(lhs_it->first) << "structural_equal encountered null lhs key in map";
-      INTERNAL_CHECK(lhs_it->second) << "structural_equal encountered null lhs value in map";
-      INTERNAL_CHECK(rhs_it->first) << "structural_equal encountered null rhs key in map";
-      INTERNAL_CHECK(rhs_it->second) << "structural_equal encountered null rhs value in map";
+    auto lhsIt = lhs.begin();
+    auto rhsIt = rhs.begin();
+    while (lhsIt != lhs.end()) {
+      INTERNAL_CHECK(lhsIt->first) << "structural_equal encountered null lhs key in map";
+      INTERNAL_CHECK(lhsIt->second) << "structural_equal encountered null lhs value in map";
+      INTERNAL_CHECK(rhsIt->first) << "structural_equal encountered null rhs key in map";
+      INTERNAL_CHECK(rhsIt->second) << "structural_equal encountered null rhs value in map";
 
-      if (lhs_it->first->name_ != rhs_it->first->name_) {
+      if (lhsIt->first->name_ != rhsIt->first->name_) {
         if constexpr (AssertMode) {
           std::ostringstream msg;
-          msg << "Map key mismatch ('" << lhs_it->first->name_ << "' != '" << rhs_it->first->name_ << "')";
+          msg << "Map key mismatch ('" << lhsIt->first->name_ << "' != '" << rhsIt->first->name_ << "')";
           ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
         }
         return false;
       }
 
       if constexpr (AssertMode) {
-        std::ostringstream key_str;
-        key_str << "['" << lhs_it->first->name_ << "']";
-        path_.push_back(key_str.str());
+        std::ostringstream keyStr;
+        keyStr << "['" << lhsIt->first->name_ << "']";
+        path_.push_back(keyStr.str());
       }
 
-      if (!Equal(lhs_it->second, rhs_it->second)) {
+      if (!Equal(lhsIt->second, rhsIt->second)) {
         if constexpr (AssertMode) {
           path_.pop_back();
         }
@@ -191,14 +191,14 @@ class StructuralEqualImpl {
       if constexpr (AssertMode) {
         path_.pop_back();
       }
-      ++lhs_it;
-      ++rhs_it;
+      ++lhsIt;
+      ++rhsIt;
     }
     return true;
   }
 
   // Leaf field comparisons (dual-node version)
-  result_type VisitLeafField(const int& lhs, const int& rhs) {
+  resultType VisitLeafField(const int& lhs, const int& rhs) {
     if (lhs != rhs) {
       if constexpr (AssertMode) {
         std::ostringstream msg;
@@ -210,7 +210,7 @@ class StructuralEqualImpl {
     return true;
   }
 
-  result_type VisitLeafField(const int64_t& lhs, const int64_t& rhs) {
+  resultType VisitLeafField(const int64_t& lhs, const int64_t& rhs) {
     if (lhs != rhs) {
       if constexpr (AssertMode) {
         std::ostringstream msg;
@@ -222,7 +222,7 @@ class StructuralEqualImpl {
     return true;
   }
 
-  result_type VisitLeafField(const uint64_t& lhs, const uint64_t& rhs) {
+  resultType VisitLeafField(const uint64_t& lhs, const uint64_t& rhs) {
     if (lhs != rhs) {
       if constexpr (AssertMode) {
         std::ostringstream msg;
@@ -234,7 +234,7 @@ class StructuralEqualImpl {
     return true;
   }
 
-  result_type VisitLeafField(const double& lhs, const double& rhs) {
+  resultType VisitLeafField(const double& lhs, const double& rhs) {
     if (std::memcmp(&lhs, &rhs, sizeof(double)) != 0) {
       if constexpr (AssertMode) {
         std::ostringstream msg;
@@ -246,7 +246,7 @@ class StructuralEqualImpl {
     return true;
   }
 
-  result_type VisitLeafField(const std::string& lhs, const std::string& rhs) {
+  resultType VisitLeafField(const std::string& lhs, const std::string& rhs) {
     if (lhs != rhs) {
       if constexpr (AssertMode) {
         std::ostringstream msg;
@@ -258,7 +258,7 @@ class StructuralEqualImpl {
     return true;
   }
 
-  result_type VisitLeafField(const OpPtr& lhs, const OpPtr& rhs) {
+  resultType VisitLeafField(const OpPtr& lhs, const OpPtr& rhs) {
     if (lhs->name_ != rhs->name_) {
       if constexpr (AssertMode) {
         std::ostringstream msg;
@@ -270,7 +270,7 @@ class StructuralEqualImpl {
     return true;
   }
 
-  result_type VisitLeafField(const DataType& lhs, const DataType& rhs) {
+  resultType VisitLeafField(const DataType& lhs, const DataType& rhs) {
     if (lhs != rhs) {
       if constexpr (AssertMode) {
         std::ostringstream msg;
@@ -282,7 +282,7 @@ class StructuralEqualImpl {
     return true;
   }
 
-  result_type VisitLeafField(const FunctionType& lhs, const FunctionType& rhs) {
+  resultType VisitLeafField(const FunctionType& lhs, const FunctionType& rhs) {
     if (lhs != rhs) {
       if constexpr (AssertMode) {
         std::ostringstream msg;
@@ -296,7 +296,7 @@ class StructuralEqualImpl {
   }
 
   // Compare kwargs (vector of pairs to preserve order)
-  result_type VisitLeafField(const std::vector<std::pair<std::string, std::any>>& lhs,
+  resultType VisitLeafField(const std::vector<std::pair<std::string, std::any>>& lhs,
                              const std::vector<std::pair<std::string, std::any>>& rhs) {
     if (lhs.size() != rhs.size()) {
       if constexpr (AssertMode) {
@@ -317,9 +317,9 @@ class StructuralEqualImpl {
         return false;
       }
       // Compare std::any values by type and content
-      const auto& lhs_val = lhs[i].second;
-      const auto& rhs_val = rhs[i].second;
-      if (lhs_val.type() != rhs_val.type()) {
+      const auto& lhsVal = lhs[i].second;
+      const auto& rhsVal = rhs[i].second;
+      if (lhsVal.type() != rhsVal.type()) {
         if constexpr (AssertMode) {
           std::ostringstream msg;
           msg << "Kwargs value type mismatch for key '" << lhs[i].first << "'";
@@ -328,25 +328,25 @@ class StructuralEqualImpl {
         return false;
       }
       // Type-specific comparison
-      bool values_equal = true;
-      if (lhs_val.type() == typeid(int)) {
-        values_equal = (AnyCast<int>(lhs_val, "comparing kwarg: " + lhs[i].first) ==
-                        AnyCast<int>(rhs_val, "comparing kwarg: " + lhs[i].first));
-      } else if (lhs_val.type() == typeid(bool)) {
-        values_equal = (AnyCast<bool>(lhs_val, "comparing kwarg: " + lhs[i].first) ==
-                        AnyCast<bool>(rhs_val, "comparing kwarg: " + lhs[i].first));
-      } else if (lhs_val.type() == typeid(std::string)) {
-        values_equal = (AnyCast<std::string>(lhs_val, "comparing kwarg: " + lhs[i].first) ==
-                        AnyCast<std::string>(rhs_val, "comparing kwarg: " + lhs[i].first));
-      } else if (lhs_val.type() == typeid(double)) {
-        double lhs_double = AnyCast<double>(lhs_val, "comparing kwarg: " + lhs[i].first);
-        double rhs_double = AnyCast<double>(rhs_val, "comparing kwarg: " + lhs[i].first);
-        values_equal = (std::memcmp(&lhs_double, &rhs_double, sizeof(double)) == 0);
-      } else if (lhs_val.type() == typeid(DataType)) {
-        values_equal = (AnyCast<DataType>(lhs_val, "comparing kwarg: " + lhs[i].first) ==
-                        AnyCast<DataType>(rhs_val, "comparing kwarg: " + lhs[i].first));
+      bool valuesEqual = true;
+      if (lhsVal.type() == typeid(int)) {
+        valuesEqual = (AnyCast<int>(lhsVal, "comparing kwarg: " + lhs[i].first) ==
+                        AnyCast<int>(rhsVal, "comparing kwarg: " + lhs[i].first));
+      } else if (lhsVal.type() == typeid(bool)) {
+        valuesEqual = (AnyCast<bool>(lhsVal, "comparing kwarg: " + lhs[i].first) ==
+                        AnyCast<bool>(rhsVal, "comparing kwarg: " + lhs[i].first));
+      } else if (lhsVal.type() == typeid(std::string)) {
+        valuesEqual = (AnyCast<std::string>(lhsVal, "comparing kwarg: " + lhs[i].first) ==
+                        AnyCast<std::string>(rhsVal, "comparing kwarg: " + lhs[i].first));
+      } else if (lhsVal.type() == typeid(double)) {
+        double lhsDouble = AnyCast<double>(lhsVal, "comparing kwarg: " + lhs[i].first);
+        double rhsDouble = AnyCast<double>(rhsVal, "comparing kwarg: " + lhs[i].first);
+        valuesEqual = (std::memcmp(&lhsDouble, &rhsDouble, sizeof(double)) == 0);
+      } else if (lhsVal.type() == typeid(DataType)) {
+        valuesEqual = (AnyCast<DataType>(lhsVal, "comparing kwarg: " + lhs[i].first) ==
+                        AnyCast<DataType>(rhsVal, "comparing kwarg: " + lhs[i].first));
       }
-      if (!values_equal) {
+      if (!valuesEqual) {
         if constexpr (AssertMode) {
           std::ostringstream msg;
           msg << "Kwargs value mismatch for key '" << lhs[i].first << "'";
@@ -358,7 +358,7 @@ class StructuralEqualImpl {
     return true;
   }
 
-  result_type VisitLeafField(const MemorySpace& lhs, const MemorySpace& rhs) {
+  resultType VisitLeafField(const MemorySpace& lhs, const MemorySpace& rhs) {
     if (lhs != rhs) {
       if constexpr (AssertMode) {
         std::ostringstream msg;
@@ -371,9 +371,9 @@ class StructuralEqualImpl {
     return true;
   }
 
-  result_type VisitLeafField(const TypePtr& lhs, const TypePtr& rhs) { return EqualType(lhs, rhs); }
+  resultType VisitLeafField(const TypePtr& lhs, const TypePtr& rhs) { return EqualType(lhs, rhs); }
 
-  result_type VisitLeafField(const std::vector<TypePtr>& lhs, const std::vector<TypePtr>& rhs) {
+  resultType VisitLeafField(const std::vector<TypePtr>& lhs, const std::vector<TypePtr>& rhs) {
     if (lhs.size() != rhs.size()) {
       if constexpr (AssertMode) {
         std::ostringstream msg;
@@ -390,34 +390,34 @@ class StructuralEqualImpl {
     return true;
   }
 
-  result_type VisitLeafField(const Span& /*lhs*/, const Span& /*rhs*/) const {
+  resultType VisitLeafField(const Span& /*lhs*/, const Span& /*rhs*/) const {
     INTERNAL_UNREACHABLE << "structural_equal should not visit Span field";
     return true;  // Never reached
   }
 
   // Field kind hooks
   template <typename FVisitOp>
-  void VisitIgnoreField([[maybe_unused]] FVisitOp&& visit_op) {
+  void VisitIgnoreField([[maybe_unused]] FVisitOp&& visitOp) {
     // Ignored fields are always considered equal
   }
 
   template <typename FVisitOp>
-  void VisitDefField(FVisitOp&& visit_op) {
-    bool enable_auto_mapping = true;
-    std::swap(enable_auto_mapping, enable_auto_mapping_);
-    visit_op();
-    std::swap(enable_auto_mapping, enable_auto_mapping_);
+  void VisitDefField(FVisitOp&& visitOp) {
+    bool enableAutoMapping = true;
+    std::swap(enableAutoMapping, enableAutoMapping_);
+    visitOp();
+    std::swap(enableAutoMapping, enableAutoMapping_);
   }
 
   template <typename FVisitOp>
-  void VisitUsualField(FVisitOp&& visit_op) {
-    visit_op();
+  void VisitUsualField(FVisitOp&& visitOp) {
+    visitOp();
   }
 
   // Combine results (AND logic)
   template <typename Desc>
-  void CombineResult(result_type& accumulator, result_type field_result, [[maybe_unused]] const Desc& desc) {
-    accumulator = accumulator && field_result;
+  void CombineResult(resultType& accumulator, resultType fieldResult, [[maybe_unused]] const Desc& desc) {
+    accumulator = accumulator && fieldResult;
   }
 
  private:
@@ -437,21 +437,21 @@ class StructuralEqualImpl {
    * @return true if all fields are equal
    */
   template <typename NodePtr>
-  bool EqualWithFields(const NodePtr& lhs_op, const NodePtr& rhs_op) {
+  bool EqualWithFields(const NodePtr& lhsOp, const NodePtr& rhsOp) {
     using NodeType = typename NodePtr::element_type;
     auto descriptors = NodeType::GetFieldDescriptors();
 
     return std::apply(
         [&](auto&&... descs) {
           return reflection::FieldIterator<NodeType, StructuralEqualImpl<AssertMode>,
-                                           decltype(descs)...>::Visit(*lhs_op, *rhs_op, *this, descs...);
+                                           decltype(descs)...>::Visit(*lhsOp, *rhsOp, *this, descs...);
         },
         descriptors);
   }
 
   // Only used in assert mode for error messages
   void ThrowMismatch(const std::string& reason, const IRNodePtr& lhs, const IRNodePtr& rhs,
-                     const std::string& lhs_desc = "", const std::string& rhs_desc = "") {
+                     const std::string& lhsDesc = "", const std::string& rhsDesc = "") {
     if constexpr (AssertMode) {
       std::ostringstream msg;
       msg << "Structural equality assertion failed";
@@ -470,8 +470,8 @@ class StructuralEqualImpl {
       if (lhs || rhs) {
         msg << "Left-hand side:\n";
         if (lhs) {
-          std::string lhs_str = PythonPrint(lhs, "pl");
-          std::istringstream iss(lhs_str);
+          std::string lhsStr = PythonPrint(lhs, "pl");
+          std::istringstream iss(lhsStr);
           std::string line;
           while (std::getline(iss, line)) {
             msg << "  " << line << "\n";
@@ -482,8 +482,8 @@ class StructuralEqualImpl {
 
         msg << "\nRight-hand side:\n";
         if (rhs) {
-          std::string rhs_str = PythonPrint(rhs, "pl");
-          std::istringstream iss(rhs_str);
+          std::string rhsStr = PythonPrint(rhs, "pl");
+          std::istringstream iss(rhsStr);
           std::string line;
           while (std::getline(iss, line)) {
             msg << "  " << line << "\n";
@@ -492,9 +492,9 @@ class StructuralEqualImpl {
           msg << "  (null)\n";
         }
         msg << "\n";
-      } else if (!lhs_desc.empty() || !rhs_desc.empty()) {
-        msg << "Left: " << lhs_desc << "\n";
-        msg << "Right: " << rhs_desc << "\n\n";
+      } else if (!lhsDesc.empty() || !rhsDesc.empty()) {
+        msg << "Left: " << lhsDesc << "\n";
+        msg << "Right: " << rhsDesc << "\n\n";
       }
 
       msg << "Reason: " << reason;
@@ -502,9 +502,9 @@ class StructuralEqualImpl {
     }
   }
 
-  bool enable_auto_mapping_;
-  std::unordered_map<VarPtr, VarPtr> lhs_to_rhs_var_map_;
-  std::unordered_map<VarPtr, VarPtr> rhs_to_lhs_var_map_;
+  bool enableAutoMapping_;
+  std::unordered_map<VarPtr, VarPtr> lhsToRhsVarMap_;
+  std::unordered_map<VarPtr, VarPtr> rhsToLhsVarMap_;
   std::vector<std::string> path_;  // Only used in assert mode
 };
 
@@ -547,25 +547,25 @@ bool StructuralEqualImpl<AssertMode>::Equal(const IRNodePtr& lhs, const IRNodePt
   }
 
   // Check IterArg before Var (IterArg inherits from Var)
-  if (auto lhs_iter = As<IterArg>(lhs)) {
+  if (auto lhsIter = As<IterArg>(lhs)) {
     if constexpr (AssertMode) path_.emplace_back("IterArg");
-    bool result = EqualIterArg(lhs_iter, std::static_pointer_cast<const IterArg>(rhs));
+    bool result = EqualIterArg(lhsIter, std::static_pointer_cast<const IterArg>(rhs));
     if constexpr (AssertMode) path_.pop_back();
     return result;
   }
 
   // Check MemRef before Var (MemRef inherits from Var)
-  if (auto lhs_memref = As<MemRef>(lhs)) {
+  if (auto lhsMemref = As<MemRef>(lhs)) {
     if constexpr (AssertMode) path_.emplace_back("MemRef");
-    auto rhs_memref = std::static_pointer_cast<const MemRef>(rhs);
-    bool result = rhs_memref && EqualWithFields(lhs_memref, rhs_memref);
+    auto rhsMemref = std::static_pointer_cast<const MemRef>(rhs);
+    bool result = rhsMemref && EqualWithFields(lhsMemref, rhsMemref);
     if constexpr (AssertMode) path_.pop_back();
     return result;
   }
 
-  if (auto lhs_var = As<Var>(lhs)) {
+  if (auto lhsVar = As<Var>(lhs)) {
     if constexpr (AssertMode) path_.emplace_back("Var");
-    bool result = EqualVar(lhs_var, std::static_pointer_cast<const Var>(rhs));
+    bool result = EqualVar(lhsVar, std::static_pointer_cast<const Var>(rhs));
     if constexpr (AssertMode) path_.pop_back();
     return result;
   }
@@ -610,144 +610,144 @@ bool StructuralEqualImpl<AssertMode>::EqualType(const TypePtr& lhs, const TypePt
     return false;
   }
 
-  if (auto lhs_scalar = As<ScalarType>(lhs)) {
-    auto rhs_scalar = As<ScalarType>(rhs);
-    if (!rhs_scalar) {
+  if (auto lhsScalar = As<ScalarType>(lhs)) {
+    auto rhsScalar = As<ScalarType>(rhs);
+    if (!rhsScalar) {
       if constexpr (AssertMode) {
         ThrowMismatch("Type cast failed for ScalarType", IRNodePtr(), IRNodePtr(), "", "");
       }
       return false;
     }
-    if (lhs_scalar->dtype_ != rhs_scalar->dtype_) {
+    if (lhsScalar->dtype_ != rhsScalar->dtype_) {
       if constexpr (AssertMode) {
         std::ostringstream msg;
-        msg << "ScalarType dtype mismatch (" << lhs_scalar->dtype_.ToString()
-            << " != " << rhs_scalar->dtype_.ToString() << ")";
+        msg << "ScalarType dtype mismatch (" << lhsScalar->dtype_.ToString()
+            << " != " << rhsScalar->dtype_.ToString() << ")";
         ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
       }
       return false;
     }
     return true;
-  } else if (auto lhs_tensor = As<TensorType>(lhs)) {
-    auto rhs_tensor = As<TensorType>(rhs);
-    if (!rhs_tensor) {
+  } else if (auto lhsTensor = As<TensorType>(lhs)) {
+    auto rhsTensor = As<TensorType>(rhs);
+    if (!rhsTensor) {
       if constexpr (AssertMode) {
         ThrowMismatch("Type cast failed for TensorType", IRNodePtr(), IRNodePtr(), "", "");
       }
       return false;
     }
-    if (lhs_tensor->dtype_ != rhs_tensor->dtype_) {
+    if (lhsTensor->dtype_ != rhsTensor->dtype_) {
       if constexpr (AssertMode) {
         std::ostringstream msg;
-        msg << "TensorType dtype mismatch (" << lhs_tensor->dtype_.ToString()
-            << " != " << rhs_tensor->dtype_.ToString() << ")";
+        msg << "TensorType dtype mismatch (" << lhsTensor->dtype_.ToString()
+            << " != " << rhsTensor->dtype_.ToString() << ")";
         ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
       }
       return false;
     }
-    if (lhs_tensor->shape_.size() != rhs_tensor->shape_.size()) {
+    if (lhsTensor->shape_.size() != rhsTensor->shape_.size()) {
       if constexpr (AssertMode) {
         std::ostringstream msg;
-        msg << "TensorType shape rank mismatch (" << lhs_tensor->shape_.size()
-            << " != " << rhs_tensor->shape_.size() << ")";
+        msg << "TensorType shape rank mismatch (" << lhsTensor->shape_.size()
+            << " != " << rhsTensor->shape_.size() << ")";
         ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
       }
       return false;
     }
-    for (size_t i = 0; i < lhs_tensor->shape_.size(); ++i) {
-      if (!Equal(lhs_tensor->shape_[i], rhs_tensor->shape_[i])) return false;
+    for (size_t i = 0; i < lhsTensor->shape_.size(); ++i) {
+      if (!Equal(lhsTensor->shape_[i], rhsTensor->shape_[i])) return false;
     }
     return true;
-  } else if (auto lhs_tile = As<TileType>(lhs)) {
-    auto rhs_tile = As<TileType>(rhs);
-    if (!rhs_tile) {
+  } else if (auto lhsTile = As<TileType>(lhs)) {
+    auto rhsTile = As<TileType>(rhs);
+    if (!rhsTile) {
       if constexpr (AssertMode) {
         ThrowMismatch("Type cast failed for TileType", IRNodePtr(), IRNodePtr(), "", "");
       }
       return false;
     }
     // Compare dtype
-    if (lhs_tile->dtype_ != rhs_tile->dtype_) {
+    if (lhsTile->dtype_ != rhsTile->dtype_) {
       if constexpr (AssertMode) {
         std::ostringstream msg;
-        msg << "TileType dtype mismatch (" << lhs_tile->dtype_.ToString()
-            << " != " << rhs_tile->dtype_.ToString() << ")";
+        msg << "TileType dtype mismatch (" << lhsTile->dtype_.ToString()
+            << " != " << rhsTile->dtype_.ToString() << ")";
         ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
       }
       return false;
     }
     // Compare shape size and dimensions
-    if (lhs_tile->shape_.size() != rhs_tile->shape_.size()) {
+    if (lhsTile->shape_.size() != rhsTile->shape_.size()) {
       if constexpr (AssertMode) {
         std::ostringstream msg;
-        msg << "TileType shape rank mismatch (" << lhs_tile->shape_.size()
-            << " != " << rhs_tile->shape_.size() << ")";
+        msg << "TileType shape rank mismatch (" << lhsTile->shape_.size()
+            << " != " << rhsTile->shape_.size() << ")";
         ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
       }
       return false;
     }
-    for (size_t i = 0; i < lhs_tile->shape_.size(); ++i) {
-      if (!Equal(lhs_tile->shape_[i], rhs_tile->shape_[i])) return false;
+    for (size_t i = 0; i < lhsTile->shape_.size(); ++i) {
+      if (!Equal(lhsTile->shape_[i], rhsTile->shape_[i])) return false;
     }
     // Compare tile_view
-    if (lhs_tile->tile_view_.has_value() != rhs_tile->tile_view_.has_value()) {
+    if (lhsTile->tileView_.has_value() != rhsTile->tileView_.has_value()) {
       if constexpr (AssertMode) {
         ThrowMismatch("TileType tile_view presence mismatch", IRNodePtr(), IRNodePtr(), "", "");
       }
       return false;
     }
-    if (lhs_tile->tile_view_.has_value()) {
-      const auto& lhs_tv = lhs_tile->tile_view_.value();
-      const auto& rhs_tv = rhs_tile->tile_view_.value();
+    if (lhsTile->tileView_.has_value()) {
+      const auto& lhsTv = lhsTile->tileView_.value();
+      const auto& rhsTv = rhsTile->tileView_.value();
       // Compare valid_shape
-      if (lhs_tv.valid_shape.size() != rhs_tv.valid_shape.size()) {
+      if (lhsTv.validShape.size() != rhsTv.validShape.size()) {
         if constexpr (AssertMode) {
           std::ostringstream msg;
-          msg << "TileView valid_shape size mismatch (" << lhs_tv.valid_shape.size()
-              << " != " << rhs_tv.valid_shape.size() << ")";
+          msg << "TileView valid_shape size mismatch (" << lhsTv.validShape.size()
+              << " != " << rhsTv.validShape.size() << ")";
           ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
         }
         return false;
       }
-      for (size_t i = 0; i < lhs_tv.valid_shape.size(); ++i) {
-        if (!Equal(lhs_tv.valid_shape[i], rhs_tv.valid_shape[i])) return false;
+      for (size_t i = 0; i < lhsTv.validShape.size(); ++i) {
+        if (!Equal(lhsTv.validShape[i], rhsTv.validShape[i])) return false;
       }
       // Compare stride
-      if (lhs_tv.stride.size() != rhs_tv.stride.size()) {
+      if (lhsTv.stride.size() != rhsTv.stride.size()) {
         if constexpr (AssertMode) {
           std::ostringstream msg;
-          msg << "TileView stride size mismatch (" << lhs_tv.stride.size() << " != " << rhs_tv.stride.size()
+          msg << "TileView stride size mismatch (" << lhsTv.stride.size() << " != " << rhsTv.stride.size()
               << ")";
           ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
         }
         return false;
       }
-      for (size_t i = 0; i < lhs_tv.stride.size(); ++i) {
-        if (!Equal(lhs_tv.stride[i], rhs_tv.stride[i])) return false;
+      for (size_t i = 0; i < lhsTv.stride.size(); ++i) {
+        if (!Equal(lhsTv.stride[i], rhsTv.stride[i])) return false;
       }
       // Compare start_offset
-      if (!Equal(lhs_tv.start_offset, rhs_tv.start_offset)) return false;
+      if (!Equal(lhsTv.startOffset, rhsTv.startOffset)) return false;
     }
     return true;
-  } else if (auto lhs_tuple = As<TupleType>(lhs)) {
-    auto rhs_tuple = As<TupleType>(rhs);
-    if (!rhs_tuple) {
+  } else if (auto lhsTuple = As<TupleType>(lhs)) {
+    auto rhsTuple = As<TupleType>(rhs);
+    if (!rhsTuple) {
       if constexpr (AssertMode) {
         ThrowMismatch("Type cast failed for TupleType", IRNodePtr(), IRNodePtr(), "", "");
       }
       return false;
     }
-    if (lhs_tuple->types_.size() != rhs_tuple->types_.size()) {
+    if (lhsTuple->types_.size() != rhsTuple->types_.size()) {
       if constexpr (AssertMode) {
         std::ostringstream msg;
-        msg << "TupleType size mismatch (" << lhs_tuple->types_.size() << " != " << rhs_tuple->types_.size()
+        msg << "TupleType size mismatch (" << lhsTuple->types_.size() << " != " << rhsTuple->types_.size()
             << ")";
         ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
       }
       return false;
     }
-    for (size_t i = 0; i < lhs_tuple->types_.size(); ++i) {
-      if (!EqualType(lhs_tuple->types_[i], rhs_tuple->types_[i])) return false;
+    for (size_t i = 0; i < lhsTuple->types_.size(); ++i) {
+      if (!EqualType(lhsTuple->types_[i], rhsTuple->types_[i])) return false;
     }
     return true;
   } else if (IsA<MemRefType>(lhs)) {
@@ -763,12 +763,12 @@ bool StructuralEqualImpl<AssertMode>::EqualType(const TypePtr& lhs, const TypePt
 
 template <bool AssertMode>
 bool StructuralEqualImpl<AssertMode>::EqualVar(const VarPtr& lhs, const VarPtr& rhs) {
-  if (!enable_auto_mapping_) {
-    auto lhs_it = lhs_to_rhs_var_map_.find(lhs);
-    auto rhs_it = rhs_to_lhs_var_map_.find(rhs);
+  if (!enableAutoMapping_) {
+    auto lhsIt = lhsToRhsVarMap_.find(lhs);
+    auto rhsIt = rhsToLhsVarMap_.find(rhs);
     // Case 1: already mapped to the same variable
-    if (lhs_it != lhs_to_rhs_var_map_.end() && rhs_it != rhs_to_lhs_var_map_.end()) {
-      if (lhs_it->second != rhs || rhs_it->second != lhs) {
+    if (lhsIt != lhsToRhsVarMap_.end() && rhsIt != rhsToLhsVarMap_.end()) {
+      if (lhsIt->second != rhs || rhsIt->second != lhs) {
         if constexpr (AssertMode) {
           ThrowMismatch("Variable mapping inconsistent (without auto-mapping)",
                         std::static_pointer_cast<const IRNode>(lhs),
@@ -801,8 +801,8 @@ bool StructuralEqualImpl<AssertMode>::EqualVar(const VarPtr& lhs, const VarPtr& 
     return false;
   }
 
-  auto it = lhs_to_rhs_var_map_.find(lhs);
-  if (it != lhs_to_rhs_var_map_.end()) {
+  auto it = lhsToRhsVarMap_.find(lhs);
+  if (it != lhsToRhsVarMap_.end()) {
     if (it->second != rhs) {
       if constexpr (AssertMode) {
         std::ostringstream msg;
@@ -816,20 +816,20 @@ bool StructuralEqualImpl<AssertMode>::EqualVar(const VarPtr& lhs, const VarPtr& 
     return true;
   }
 
-  auto rhs_it = rhs_to_lhs_var_map_.find(rhs);
-  if (rhs_it != rhs_to_lhs_var_map_.end() && rhs_it->second != lhs) {
+  auto rhsIt = rhsToLhsVarMap_.find(rhs);
+  if (rhsIt != rhsToLhsVarMap_.end() && rhsIt->second != lhs) {
     if constexpr (AssertMode) {
       std::ostringstream msg;
       msg << "Variable mapping inconsistent ('" << rhs->name_ << "' is already mapped from '"
-          << rhs_it->second->name_ << "', cannot map from '" << lhs->name_ << "')";
+          << rhsIt->second->name_ << "', cannot map from '" << lhs->name_ << "')";
       ThrowMismatch(msg.str(), std::static_pointer_cast<const IRNode>(lhs),
                     std::static_pointer_cast<const IRNode>(rhs));
     }
     return false;
   }
 
-  lhs_to_rhs_var_map_[lhs] = rhs;
-  rhs_to_lhs_var_map_[rhs] = lhs;
+  lhsToRhsVarMap_[lhs] = rhs;
+  rhsToLhsVarMap_[rhs] = lhs;
   return true;
 }
 
@@ -857,28 +857,28 @@ template class StructuralEqualImpl<false>;  // For structural_equal
 template class StructuralEqualImpl<true>;   // For assert_structural_equal
 
 // Type aliases for cleaner code
-using StructuralEqual = StructuralEqualImpl<false>;
+using StructuralEqualChecker = StructuralEqualImpl<false>;
 using StructuralEqualAssert = StructuralEqualImpl<true>;
 
 // Public API implementation
-bool structural_equal(const IRNodePtr& lhs, const IRNodePtr& rhs, bool enable_auto_mapping) {
-  StructuralEqual checker(enable_auto_mapping);
+bool StructuralEqual(const IRNodePtr& lhs, const IRNodePtr& rhs, bool enableAutoMapping) {
+  StructuralEqualChecker checker(enableAutoMapping);
   return checker(lhs, rhs);
 }
 
-bool structural_equal(const TypePtr& lhs, const TypePtr& rhs, bool enable_auto_mapping) {
-  StructuralEqual checker(enable_auto_mapping);
+bool StructuralEqual(const TypePtr& lhs, const TypePtr& rhs, bool enableAutoMapping) {
+  StructuralEqualChecker checker(enableAutoMapping);
   return checker(lhs, rhs);
 }
 
 // Public assert API
-void assert_structural_equal(const IRNodePtr& lhs, const IRNodePtr& rhs, bool enable_auto_mapping) {
-  StructuralEqualAssert checker(enable_auto_mapping);
+void AssertStructuralEqual(const IRNodePtr& lhs, const IRNodePtr& rhs, bool enableAutoMapping) {
+  StructuralEqualAssert checker(enableAutoMapping);
   checker(lhs, rhs);
 }
 
-void assert_structural_equal(const TypePtr& lhs, const TypePtr& rhs, bool enable_auto_mapping) {
-  StructuralEqualAssert checker(enable_auto_mapping);
+void AssertStructuralEqual(const TypePtr& lhs, const TypePtr& rhs, bool enableAutoMapping) {
+  StructuralEqualAssert checker(enableAutoMapping);
   checker(lhs, rhs);
 }
 

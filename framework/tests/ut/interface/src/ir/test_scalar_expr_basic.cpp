@@ -29,55 +29,55 @@ namespace ir {
 
 TEST(ScalarExprBasicTest, TestConstIntInt32) {
   // Test ConstInt with INT32
-  auto const_int = std::make_shared<ConstInt>(42, DataType::INT32, Span::unknown());
-  ASSERT_NE(const_int, nullptr);
-  ASSERT_EQ(const_int->TypeName(), "ConstInt");
-  ASSERT_EQ(const_int->value_, 42);
-  ASSERT_EQ(const_int->dtype(), DataType::INT32);
+  auto constInt = std::make_shared<ConstInt>(42, DataType::INT32, Span::unknown());
+  ASSERT_NE(constInt, nullptr);
+  ASSERT_EQ(constInt->TypeName(), "ConstInt");
+  ASSERT_EQ(constInt->value_, 42);
+  ASSERT_EQ(constInt->dtype(), DataType::INT32);
 }
 
 TEST(ScalarExprBasicTest, TestConstIntZero) {
   // Test ConstInt with zero value
-  auto const_int = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
-  ASSERT_NE(const_int, nullptr);
-  ASSERT_EQ(const_int->value_, 0);
+  auto constInt = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
+  ASSERT_NE(constInt, nullptr);
+  ASSERT_EQ(constInt->value_, 0);
 }
 
 TEST(ScalarExprBasicTest, TestConstIntNegative) {
   // Test ConstInt with negative value
-  auto const_int = std::make_shared<ConstInt>(-100, DataType::INT32, Span::unknown());
-  ASSERT_NE(const_int, nullptr);
-  ASSERT_EQ(const_int->value_, -100);
+  auto constInt = std::make_shared<ConstInt>(-100, DataType::INT32, Span::unknown());
+  ASSERT_NE(constInt, nullptr);
+  ASSERT_EQ(constInt->value_, -100);
 }
 
 TEST(ScalarExprBasicTest, TestConstIntInt64) {
   // Test ConstInt with INT64
-  auto const_int = std::make_shared<ConstInt>(1000000, DataType::INT64, Span::unknown());
-  ASSERT_NE(const_int, nullptr);
-  ASSERT_EQ(const_int->dtype(), DataType::INT64);
+  auto constInt = std::make_shared<ConstInt>(1000000, DataType::INT64, Span::unknown());
+  ASSERT_NE(constInt, nullptr);
+  ASSERT_EQ(constInt->dtype(), DataType::INT64);
 }
 
 TEST(ScalarExprBasicTest, TestConstIntInt8) {
   // Test ConstInt with INT8
-  auto const_int = std::make_shared<ConstInt>(127, DataType::INT8, Span::unknown());
-  ASSERT_NE(const_int, nullptr);
-  ASSERT_EQ(const_int->dtype(), DataType::INT8);
+  auto constInt = std::make_shared<ConstInt>(127, DataType::INT8, Span::unknown());
+  ASSERT_NE(constInt, nullptr);
+  ASSERT_EQ(constInt->dtype(), DataType::INT8);
 }
 
 TEST(ScalarExprBasicTest, TestConstIntUInt32) {
   // Test ConstInt with UINT32
-  auto const_int = std::make_shared<ConstInt>(255, DataType::UINT32, Span::unknown());
-  ASSERT_NE(const_int, nullptr);
-  ASSERT_EQ(const_int->dtype(), DataType::UINT32);
+  auto constInt = std::make_shared<ConstInt>(255, DataType::UINT32, Span::unknown());
+  ASSERT_NE(constInt, nullptr);
+  ASSERT_EQ(constInt->dtype(), DataType::UINT32);
 }
 
 TEST(ScalarExprBasicTest, TestConstIntWithSpan) {
   // Test ConstInt with valid span
   Span span("test.py", 10, 5);
-  auto const_int = std::make_shared<ConstInt>(42, DataType::INT32, span);
-  ASSERT_NE(const_int, nullptr);
-  ASSERT_EQ(const_int->span_.filename_, "test.py");
-  ASSERT_EQ(const_int->span_.begin_line_, 10);
+  auto constInt = std::make_shared<ConstInt>(42, DataType::INT32, span);
+  ASSERT_NE(constInt, nullptr);
+  ASSERT_EQ(constInt->span_.filename_, "test.py");
+  ASSERT_EQ(constInt->span_.beginLine_, 10);
 }
 
 // ============================================================================
@@ -86,53 +86,53 @@ TEST(ScalarExprBasicTest, TestConstIntWithSpan) {
 
 TEST(ScalarExprBasicTest, TestConstFloatFP32) {
   // Test ConstFloat with FP32
-  auto const_float = std::make_shared<ConstFloat>(3.14, DataType::FP32, Span::unknown());
-  ASSERT_NE(const_float, nullptr);
-  ASSERT_EQ(const_float->TypeName(), "ConstFloat");
-  ASSERT_DOUBLE_EQ(const_float->value_, 3.14);
-  ASSERT_EQ(const_float->dtype(), DataType::FP32);
+  auto constFloat = std::make_shared<ConstFloat>(3.14, DataType::FP32, Span::unknown());
+  ASSERT_NE(constFloat, nullptr);
+  ASSERT_EQ(constFloat->TypeName(), "ConstFloat");
+  ASSERT_DOUBLE_EQ(constFloat->value_, 3.14);
+  ASSERT_EQ(constFloat->dtype(), DataType::FP32);
 }
 
 TEST(ScalarExprBasicTest, TestConstFloatZero) {
   // Test ConstFloat with zero value
-  auto const_float = std::make_shared<ConstFloat>(0.0, DataType::FP32, Span::unknown());
-  ASSERT_NE(const_float, nullptr);
-  ASSERT_DOUBLE_EQ(const_float->value_, 0.0);
+  auto constFloat = std::make_shared<ConstFloat>(0.0, DataType::FP32, Span::unknown());
+  ASSERT_NE(constFloat, nullptr);
+  ASSERT_DOUBLE_EQ(constFloat->value_, 0.0);
 }
 
 TEST(ScalarExprBasicTest, TestConstFloatNegative) {
   // Test ConstFloat with negative value
-  auto const_float = std::make_shared<ConstFloat>(-2.5, DataType::FP32, Span::unknown());
-  ASSERT_NE(const_float, nullptr);
-  ASSERT_DOUBLE_EQ(const_float->value_, -2.5);
+  auto constFloat = std::make_shared<ConstFloat>(-2.5, DataType::FP32, Span::unknown());
+  ASSERT_NE(constFloat, nullptr);
+  ASSERT_DOUBLE_EQ(constFloat->value_, -2.5);
 }
 
 TEST(ScalarExprBasicTest, TestConstFloatFP16) {
   // Test ConstFloat with FP16
-  auto const_float = std::make_shared<ConstFloat>(1.5, DataType::FP16, Span::unknown());
-  ASSERT_NE(const_float, nullptr);
-  ASSERT_EQ(const_float->dtype(), DataType::FP16);
+  auto constFloat = std::make_shared<ConstFloat>(1.5, DataType::FP16, Span::unknown());
+  ASSERT_NE(constFloat, nullptr);
+  ASSERT_EQ(constFloat->dtype(), DataType::FP16);
 }
 
 TEST(ScalarExprBasicTest, TestConstFloatBF16) {
   // Test ConstFloat with BF16
-  auto const_float = std::make_shared<ConstFloat>(2.5, DataType::BF16, Span::unknown());
-  ASSERT_NE(const_float, nullptr);
-  ASSERT_EQ(const_float->dtype(), DataType::BF16);
+  auto constFloat = std::make_shared<ConstFloat>(2.5, DataType::BF16, Span::unknown());
+  ASSERT_NE(constFloat, nullptr);
+  ASSERT_EQ(constFloat->dtype(), DataType::BF16);
 }
 
 TEST(ScalarExprBasicTest, TestConstFloatLargeValue) {
   // Test ConstFloat with large value
-  auto const_float = std::make_shared<ConstFloat>(1e10, DataType::FP32, Span::unknown());
-  ASSERT_NE(const_float, nullptr);
-  ASSERT_DOUBLE_EQ(const_float->value_, 1e10);
+  auto constFloat = std::make_shared<ConstFloat>(1e10, DataType::FP32, Span::unknown());
+  ASSERT_NE(constFloat, nullptr);
+  ASSERT_DOUBLE_EQ(constFloat->value_, 1e10);
 }
 
 TEST(ScalarExprBasicTest, TestConstFloatSmallValue) {
   // Test ConstFloat with small value
-  auto const_float = std::make_shared<ConstFloat>(1e-10, DataType::FP32, Span::unknown());
-  ASSERT_NE(const_float, nullptr);
-  ASSERT_DOUBLE_EQ(const_float->value_, 1e-10);
+  auto constFloat = std::make_shared<ConstFloat>(1e-10, DataType::FP32, Span::unknown());
+  ASSERT_NE(constFloat, nullptr);
+  ASSERT_DOUBLE_EQ(constFloat->value_, 1e-10);
 }
 
 // ============================================================================
@@ -141,28 +141,28 @@ TEST(ScalarExprBasicTest, TestConstFloatSmallValue) {
 
 TEST(ScalarExprBasicTest, TestConstBoolTrue) {
   // Test ConstBool with true value
-  auto const_bool = std::make_shared<ConstBool>(true, Span::unknown());
-  ASSERT_NE(const_bool, nullptr);
-  ASSERT_EQ(const_bool->TypeName(), "ConstBool");
-  ASSERT_TRUE(const_bool->value_);
-  ASSERT_EQ(const_bool->dtype(), DataType::BOOL);
+  auto constBool = std::make_shared<ConstBool>(true, Span::unknown());
+  ASSERT_NE(constBool, nullptr);
+  ASSERT_EQ(constBool->TypeName(), "ConstBool");
+  ASSERT_TRUE(constBool->value_);
+  ASSERT_EQ(constBool->dtype(), DataType::BOOL);
 }
 
 TEST(ScalarExprBasicTest, TestConstBoolFalse) {
   // Test ConstBool with false value
-  auto const_bool = std::make_shared<ConstBool>(false, Span::unknown());
-  ASSERT_NE(const_bool, nullptr);
-  ASSERT_FALSE(const_bool->value_);
-  ASSERT_EQ(const_bool->dtype(), DataType::BOOL);
+  auto constBool = std::make_shared<ConstBool>(false, Span::unknown());
+  ASSERT_NE(constBool, nullptr);
+  ASSERT_FALSE(constBool->value_);
+  ASSERT_EQ(constBool->dtype(), DataType::BOOL);
 }
 
 TEST(ScalarExprBasicTest, TestConstBoolWithSpan) {
   // Test ConstBool with valid span
   Span span("test.py", 20, 10);
-  auto const_bool = std::make_shared<ConstBool>(true, span);
-  ASSERT_NE(const_bool, nullptr);
-  ASSERT_EQ(const_bool->span_.filename_, "test.py");
-  ASSERT_EQ(const_bool->span_.begin_line_, 20);
+  auto constBool = std::make_shared<ConstBool>(true, span);
+  ASSERT_NE(constBool, nullptr);
+  ASSERT_EQ(constBool->span_.filename_, "test.py");
+  ASSERT_EQ(constBool->span_.beginLine_, 20);
 }
 
 // ============================================================================
@@ -171,38 +171,38 @@ TEST(ScalarExprBasicTest, TestConstBoolWithSpan) {
 
 TEST(ScalarExprBasicTest, TestConstIntGetType) {
   // Test ConstInt GetType method
-  auto const_int = std::make_shared<ConstInt>(42, DataType::INT32, Span::unknown());
-  auto type = const_int->GetType();
+  auto constInt = std::make_shared<ConstInt>(42, DataType::INT32, Span::unknown());
+  auto type = constInt->GetType();
   ASSERT_NE(type, nullptr);
   ASSERT_EQ(type->TypeName(), "ScalarType");
 
-  auto scalar_type = std::dynamic_pointer_cast<const ScalarType>(type);
-  ASSERT_NE(scalar_type, nullptr);
-  ASSERT_EQ(scalar_type->dtype_, DataType::INT32);
+  auto scalarType = std::dynamic_pointer_cast<const ScalarType>(type);
+  ASSERT_NE(scalarType, nullptr);
+  ASSERT_EQ(scalarType->dtype_, DataType::INT32);
 }
 
 TEST(ScalarExprBasicTest, TestConstFloatGetType) {
   // Test ConstFloat GetType method
-  auto const_float = std::make_shared<ConstFloat>(3.14, DataType::FP32, Span::unknown());
-  auto type = const_float->GetType();
+  auto constFloat = std::make_shared<ConstFloat>(3.14, DataType::FP32, Span::unknown());
+  auto type = constFloat->GetType();
   ASSERT_NE(type, nullptr);
   ASSERT_EQ(type->TypeName(), "ScalarType");
 
-  auto scalar_type = std::dynamic_pointer_cast<const ScalarType>(type);
-  ASSERT_NE(scalar_type, nullptr);
-  ASSERT_EQ(scalar_type->dtype_, DataType::FP32);
+  auto scalarType = std::dynamic_pointer_cast<const ScalarType>(type);
+  ASSERT_NE(scalarType, nullptr);
+  ASSERT_EQ(scalarType->dtype_, DataType::FP32);
 }
 
 TEST(ScalarExprBasicTest, TestConstBoolGetType) {
   // Test ConstBool GetType method
-  auto const_bool = std::make_shared<ConstBool>(true, Span::unknown());
-  auto type = const_bool->GetType();
+  auto constBool = std::make_shared<ConstBool>(true, Span::unknown());
+  auto type = constBool->GetType();
   ASSERT_NE(type, nullptr);
   ASSERT_EQ(type->TypeName(), "ScalarType");
 
-  auto scalar_type = std::dynamic_pointer_cast<const ScalarType>(type);
-  ASSERT_NE(scalar_type, nullptr);
-  ASSERT_EQ(scalar_type->dtype_, DataType::BOOL);
+  auto scalarType = std::dynamic_pointer_cast<const ScalarType>(type);
+  ASSERT_NE(scalarType, nullptr);
+  ASSERT_EQ(scalarType->dtype_, DataType::BOOL);
 }
 
 // ============================================================================
@@ -211,8 +211,8 @@ TEST(ScalarExprBasicTest, TestConstBoolGetType) {
 
 TEST(ScalarExprBasicTest, TestGetScalarDtype) {
   // Test GetScalarDtype helper function
-  auto const_int = std::make_shared<ConstInt>(42, DataType::INT32, Span::unknown());
-  DataType dtype = GetScalarDtype(const_int);
+  auto constInt = std::make_shared<ConstInt>(42, DataType::INT32, Span::unknown());
+  DataType dtype = GetScalarDtype(constInt);
   ASSERT_EQ(dtype, DataType::INT32);
 }
 

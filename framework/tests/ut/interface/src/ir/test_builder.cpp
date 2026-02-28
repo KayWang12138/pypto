@@ -62,7 +62,7 @@ TEST(IRBuilderTest, DefaultConstruction) {
 TEST(IRBuilderTest, BuildSimpleFunction) {
   IRBuilder builder;
   auto span = TestSpan();
-  auto end_span = TestSpan2();
+  auto endSpan = TestSpan2();
 
   builder.BeginFunction("my_func", span);
   ASSERT_TRUE(builder.InFunction());
@@ -73,11 +73,11 @@ TEST(IRBuilderTest, BuildSimpleFunction) {
 
   builder.ReturnType(Int32Type());
 
-  auto func = builder.EndFunction(end_span);
+  auto func = builder.EndFunction(endSpan);
   ASSERT_NE(func, nullptr);
   ASSERT_EQ(func->name_, "my_func");
   ASSERT_EQ(func->params_.size(), 1);
-  ASSERT_EQ(func->return_types_.size(), 1);
+  ASSERT_EQ(func->returnTypes_.size(), 1);
   ASSERT_FALSE(builder.InFunction());
 }
 
@@ -191,9 +191,9 @@ TEST(IRBuilderTest, BuildSimpleForLoop) {
   builder.BeginForLoop(i, start, stop, step, span);
   ASSERT_TRUE(builder.InLoop());
 
-  auto for_stmt = builder.EndForLoop(span);
-  ASSERT_NE(for_stmt, nullptr);
-  ASSERT_EQ(for_stmt->GetKind(), ObjectKind::ForStmt);
+  auto forStmt = builder.EndForLoop(span);
+  ASSERT_NE(forStmt, nullptr);
+  ASSERT_EQ(forStmt->GetKind(), ObjectKind::ForStmt);
   ASSERT_FALSE(builder.InLoop());
 
   builder.EndFunction(span);
@@ -212,15 +212,15 @@ TEST(IRBuilderTest, BuildForLoopWithIterArgs) {
 
   builder.BeginForLoop(i, start, stop, step, span);
 
-  auto init_val = std::make_shared<ConstInt>(0, DataType::INT32, span);
-  auto iter_arg = std::make_shared<IterArg>("sum", Int32Type(), init_val, span);
-  builder.AddIterArg(iter_arg);
+  auto initVal = std::make_shared<ConstInt>(0, DataType::INT32, span);
+  auto iterArg = std::make_shared<IterArg>("sum", Int32Type(), initVal, span);
+  builder.AddIterArg(iterArg);
 
-  auto ret_var = std::make_shared<Var>("sum_final", Int32Type(), span);
-  builder.AddReturnVar(ret_var);
+  auto retVar = std::make_shared<Var>("sum_final", Int32Type(), span);
+  builder.AddReturnVar(retVar);
 
-  auto for_stmt = builder.EndForLoop(span);
-  ASSERT_NE(for_stmt, nullptr);
+  auto forStmt = builder.EndForLoop(span);
+  ASSERT_NE(forStmt, nullptr);
 
   builder.EndFunction(span);
 }
@@ -238,9 +238,9 @@ TEST(IRBuilderTest, ForLoopMismatchedIterArgsThrows) {
 
   builder.BeginForLoop(i, start, stop, step, span);
 
-  auto init_val = std::make_shared<ConstInt>(0, DataType::INT32, span);
-  auto iter_arg = std::make_shared<IterArg>("sum", Int32Type(), init_val, span);
-  builder.AddIterArg(iter_arg);
+  auto initVal = std::make_shared<ConstInt>(0, DataType::INT32, span);
+  auto iterArg = std::make_shared<IterArg>("sum", Int32Type(), initVal, span);
+  builder.AddIterArg(iterArg);
   // No AddReturnVar — mismatch
 
   ASSERT_THROW(builder.EndForLoop(span), RuntimeError);
@@ -273,9 +273,9 @@ TEST(IRBuilderTest, BuildSimpleIf) {
   builder.BeginIf(cond, span);
   ASSERT_TRUE(builder.InIf());
 
-  auto if_stmt = builder.EndIf(span);
-  ASSERT_NE(if_stmt, nullptr);
-  ASSERT_EQ(if_stmt->GetKind(), ObjectKind::IfStmt);
+  auto ifStmt = builder.EndIf(span);
+  ASSERT_NE(ifStmt, nullptr);
+  ASSERT_EQ(ifStmt->GetKind(), ObjectKind::IfStmt);
   ASSERT_FALSE(builder.InIf());
 
   builder.EndFunction(span);
@@ -301,8 +301,8 @@ TEST(IRBuilderTest, BuildIfElse) {
   auto two = std::make_shared<ConstInt>(2, DataType::INT32, span);
   builder.Assign(x, two, span);
 
-  auto if_stmt = builder.EndIf(span);
-  ASSERT_NE(if_stmt, nullptr);
+  auto ifStmt = builder.EndIf(span);
+  ASSERT_NE(ifStmt, nullptr);
 
   builder.EndFunction(span);
 }
@@ -331,11 +331,11 @@ TEST(IRBuilderTest, BuildIfWithReturnVars) {
   auto cond = std::make_shared<ConstBool>(true, span);
   builder.BeginIf(cond, span);
 
-  auto ret_var = std::make_shared<Var>("result", Int32Type(), span);
-  builder.AddIfReturnVar(ret_var);
+  auto retVar = std::make_shared<Var>("result", Int32Type(), span);
+  builder.AddIfReturnVar(retVar);
 
-  auto if_stmt = builder.EndIf(span);
-  ASSERT_NE(if_stmt, nullptr);
+  auto ifStmt = builder.EndIf(span);
+  ASSERT_NE(ifStmt, nullptr);
 
   builder.EndFunction(span);
 }
@@ -418,8 +418,8 @@ TEST(IRBuilderTest, ProgramGetFunctionReturnTypes) {
   auto func = builder.EndFunction(span);
   builder.AddFunction(func);
 
-  auto ret_types = builder.GetFunctionReturnTypes(gvar);
-  ASSERT_EQ(ret_types.size(), 2);
+  auto retTypes = builder.GetFunctionReturnTypes(gvar);
+  ASSERT_EQ(retTypes.size(), 2);
 
   builder.EndProgram(span);
 }
@@ -466,8 +466,8 @@ TEST(IRBuilderTest, ProgramContextAddStmtThrows) {
 TEST(IRBuilderTest, ProgramContextGetReturnTypesEmpty) {
   ProgramContext ctx("test", TestSpan());
   auto gvar = std::make_shared<GlobalVar>("nonexistent");
-  auto ret_types = ctx.GetReturnTypes(gvar);
-  ASSERT_TRUE(ret_types.empty());
+  auto retTypes = ctx.GetReturnTypes(gvar);
+  ASSERT_TRUE(retTypes.empty());
 }
 
 // ============================================================================
@@ -477,10 +477,10 @@ TEST(IRBuilderTest, ProgramContextGetReturnTypesEmpty) {
 TEST(IRBuilderTest, TestFuncArg) {
   IRBuilder builder;
   auto span = Span::unknown();
-  auto int_type = std::make_shared<ScalarType>(DataType::INT32);
+  auto intType = std::make_shared<ScalarType>(DataType::INT32);
 
   builder.BeginFunction("test", span);
-  auto param = builder.FuncArg("x", int_type, span);
+  auto param = builder.FuncArg("x", intType, span);
   ASSERT_NE(param, nullptr);
   ASSERT_EQ(param->name_, "x");
 
@@ -523,8 +523,8 @@ TEST(IRBuilderTest, TestBeginProgramWhileInProgram) {
 TEST(IRBuilderTest, TestBeginForLoopOutsideContext) {
   IRBuilder builder;
   auto span = Span::unknown();
-  auto int_type = std::make_shared<ScalarType>(DataType::INT32);
-  auto lv = builder.Var("i", int_type, span);
+  auto intType = std::make_shared<ScalarType>(DataType::INT32);
+  auto lv = builder.Var("i", intType, span);
   auto start = std::make_shared<ConstInt>(0, DataType::INT32, span);
   auto stop = std::make_shared<ConstInt>(10, DataType::INT32, span);
   auto step = std::make_shared<ConstInt>(1, DataType::INT32, span);
@@ -551,10 +551,10 @@ TEST(IRBuilderTest, TestEmptyReturn) {
 TEST(IRBuilderTest, TestMultipleStatementsInFunction) {
   IRBuilder builder;
   auto span = Span::unknown();
-  auto int_type = std::make_shared<ScalarType>(DataType::INT32);
+  auto intType = std::make_shared<ScalarType>(DataType::INT32);
 
   builder.BeginFunction("test", span);
-  auto var = builder.Var("x", int_type, span);
+  auto var = builder.Var("x", intType, span);
   auto val1 = std::make_shared<ConstInt>(1, DataType::INT32, span);
   auto val2 = std::make_shared<ConstInt>(2, DataType::INT32, span);
   builder.Assign(var, val1, span);
@@ -603,13 +603,13 @@ TEST(IRBuilderTest, TestGetGlobalVarNotFound) {
 TEST(IRBuilderTest, TestProgramAddFunction) {
   IRBuilder builder;
   auto span = Span::unknown();
-  auto int_type = std::make_shared<ScalarType>(DataType::INT32);
+  auto intType = std::make_shared<ScalarType>(DataType::INT32);
 
   builder.BeginProgram("prog", span);
   builder.DeclareFunction("main");
 
   builder.BeginFunction("main", span);
-  builder.ReturnType(int_type);
+  builder.ReturnType(intType);
   auto val = std::make_shared<ConstInt>(0, DataType::INT32, span);
   builder.Return({val}, span);
   auto func = builder.EndFunction(span);
@@ -623,20 +623,20 @@ TEST(IRBuilderTest, TestProgramAddFunction) {
 TEST(IRBuilderTest, TestGetFunctionReturnTypes) {
   IRBuilder builder;
   auto span = Span::unknown();
-  auto int_type = std::make_shared<ScalarType>(DataType::INT32);
+  auto intType = std::make_shared<ScalarType>(DataType::INT32);
 
   builder.BeginProgram("prog", span);
   auto gvar = builder.DeclareFunction("main");
 
   builder.BeginFunction("main", span);
-  builder.ReturnType(int_type);
+  builder.ReturnType(intType);
   auto val = std::make_shared<ConstInt>(0, DataType::INT32, span);
   builder.Return({val}, span);
   auto func = builder.EndFunction(span);
   builder.AddFunction(func);
 
-  auto ret_types = builder.GetFunctionReturnTypes(gvar);
-  ASSERT_EQ(ret_types.size(), 1);
+  auto retTypes = builder.GetFunctionReturnTypes(gvar);
+  ASSERT_EQ(retTypes.size(), 1);
 
   builder.EndProgram(span);
 }
@@ -648,23 +648,23 @@ TEST(IRBuilderTest, TestGetFunctionReturnTypes) {
 TEST(IRBuilderTest, TestForLoopWithIterArgs) {
   IRBuilder builder;
   auto span = Span::unknown();
-  auto int_type = std::make_shared<ScalarType>(DataType::INT32);
+  auto intType = std::make_shared<ScalarType>(DataType::INT32);
 
   builder.BeginFunction("test", span);
 
-  auto loop_var = builder.Var("i", int_type, span);
+  auto loopVar = builder.Var("i", intType, span);
   auto start = std::make_shared<ConstInt>(0, DataType::INT32, span);
   auto stop = std::make_shared<ConstInt>(10, DataType::INT32, span);
   auto step = std::make_shared<ConstInt>(1, DataType::INT32, span);
 
-  builder.BeginForLoop(loop_var, start, stop, step, span);
+  builder.BeginForLoop(loopVar, start, stop, step, span);
 
   auto init = std::make_shared<ConstInt>(0, DataType::INT32, span);
-  auto iter_arg = std::make_shared<IterArg>("acc", int_type, init, span);
-  builder.AddIterArg(iter_arg);
+  auto iterArg = std::make_shared<IterArg>("acc", intType, init, span);
+  builder.AddIterArg(iterArg);
 
-  auto ret_var = builder.Var("acc_out", int_type, span);
-  builder.AddReturnVar(ret_var);
+  auto retVar = builder.Var("acc_out", intType, span);
+  builder.AddReturnVar(retVar);
 
   builder.EndForLoop(span);
 
@@ -680,14 +680,14 @@ TEST(IRBuilderTest, TestForLoopWithIterArgs) {
 TEST(IRBuilderTest, TestIfWithReturnVarsAndMultipleStmts) {
   IRBuilder builder;
   auto span = Span::unknown();
-  auto int_type = std::make_shared<ScalarType>(DataType::INT32);
+  auto intType = std::make_shared<ScalarType>(DataType::INT32);
 
   builder.BeginFunction("test", span);
 
   auto cond = std::make_shared<ConstBool>(true, span);
   builder.BeginIf(cond, span);
 
-  auto var = builder.Var("x", int_type, span);
+  auto var = builder.Var("x", intType, span);
   builder.AddIfReturnVar(var);
 
   auto val1 = std::make_shared<ConstInt>(1, DataType::INT32, span);

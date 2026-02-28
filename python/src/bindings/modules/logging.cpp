@@ -20,16 +20,16 @@ namespace py = pybind11;
 
 namespace pypto {
 
-static void log_debug(const std::string &message) { LOG_DEBUG << message; }
-static void log_info(const std::string &message) { LOG_INFO << message; }
-static void log_warn(const std::string &message) { LOG_WARN << message; }
-static void log_error(const std::string &message) { LOG_ERROR << message; }
-static void log_fatal(const std::string &message) { LOG_FATAL << message; }
-static void log_event(const std::string &message) { LOG_EVENT << message; }
+static void logDebug(const std::string &message) { LOG_DEBUG << message; }
+static void logInfo(const std::string &message) { LOG_INFO << message; }
+static void logWarn(const std::string &message) { LOG_WARN << message; }
+static void logError(const std::string &message) { LOG_ERROR << message; }
+static void logFatal(const std::string &message) { LOG_FATAL << message; }
+static void logEvent(const std::string &message) { LOG_EVENT << message; }
 static void check(bool condition, const std::string &message) {
   if (!condition) throw pypto::ir::ValueError(message);
 }
-static void internal_check(bool condition, const std::string &message) { INTERNAL_CHECK(condition) << message; }
+static void internalCheck(bool condition, const std::string &message) { INTERNAL_CHECK(condition) << message; }
 
 void BindLogging(py::module_ &m) {
   py::enum_<LogLevel>(m, "LogLevel", py::arithmetic())
@@ -43,14 +43,14 @@ void BindLogging(py::module_ &m) {
       .export_values();
 
   m.def("set_log_level", &LoggerManager::ResetLevel, py::arg("level"));
-  m.def("log_debug", &log_debug, py::arg("message"));
-  m.def("log_info", &log_info, py::arg("message"));
-  m.def("log_warn", &log_warn, py::arg("message"));
-  m.def("log_error", &log_error, py::arg("message"));
-  m.def("log_fatal", &log_fatal, py::arg("message"));
-  m.def("log_event", &log_event, py::arg("message"));
+  m.def("log_debug", &logDebug, py::arg("message"));
+  m.def("log_info", &logInfo, py::arg("message"));
+  m.def("log_warn", &logWarn, py::arg("message"));
+  m.def("log_error", &logError, py::arg("message"));
+  m.def("log_fatal", &logFatal, py::arg("message"));
+  m.def("log_event", &logEvent, py::arg("message"));
   m.def("check", &check, py::arg("condition"), py::arg("message"));
-  m.def("internal_check", &internal_check, py::arg("condition"), py::arg("message"));
+  m.def("internal_check", &internalCheck, py::arg("condition"), py::arg("message"));
 }
 
 } // namespace pypto

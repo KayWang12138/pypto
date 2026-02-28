@@ -28,7 +28,7 @@ struct BasicBlock {
     std::vector<StmtPtr> statements; // Statements in this block
     std::vector<int> predecessors;   // Predecessor block IDs
     std::vector<int> successors;     // Successor block IDs
-    bool is_loop_body = false;       // True if this block is a loop body
+    bool isLoopBody = false;       // True if this block is a loop body
 };
 
 /**
@@ -41,8 +41,8 @@ struct DependencyEdge {
     StmtPtr consumer;          // Consumer statement
     VarPtr variable;           // Variable creating the dependency
     Type type;                 // Dependency type
-    std::string producer_pipe; // Pipe type of producer (e.g., "VECTOR")
-    std::string consumer_pipe; // Pipe type of consumer
+    std::string producerPipe; // Pipe type of producer (e.g., "VECTOR")
+    std::string consumerPipe; // Pipe type of consumer
 };
 
 /**

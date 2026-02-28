@@ -103,7 +103,7 @@ struct IsIRNodeMapField<std::map<std::shared_ptr<const KeyType>, std::shared_ptr
 template <typename NodeType, typename Visitor, typename... Descriptors>
 class FieldIterator {
 public:
-    using result_type = typename Visitor::result_type;
+    using resultType = typename Visitor::resultType;
 
     /**
      * \brief Visit all fields of a single node
@@ -119,8 +119,8 @@ public:
      * \param descriptors Field descriptor instances
      * \return Accumulated result from visiting all fields
      */
-    static result_type Visit(const NodeType &node, Visitor &visitor, const Descriptors &...descriptors) {
-        result_type result = visitor.InitResult();
+    static resultType Visit(const NodeType &node, Visitor &visitor, const Descriptors &...descriptors) {
+        resultType result = visitor.InitResult();
         (VisitField(visitor, descriptors, result, node), ...);
         return result;
     }
@@ -140,9 +140,9 @@ public:
      * \param descriptors Field descriptor instances
      * \return Accumulated result from visiting all field pairs
      */
-    static result_type Visit(
+    static resultType Visit(
         const NodeType &lhs, const NodeType &rhs, Visitor &visitor, const Descriptors &...descriptors) {
-        result_type result = visitor.InitResult();
+        resultType result = visitor.InitResult();
         (VisitField(visitor, descriptors, result, lhs, rhs), ...);
         return result;
     }
@@ -157,8 +157,8 @@ private:
      * \tparam Nodes Parameter pack of node types (all must be NodeType)
      */
     template <typename Desc, typename... Nodes>
-    static void VisitField(Visitor &visitor, const Desc &desc, result_type &result, const Nodes &...nodes) {
-        using KindTag = typename Desc::kind_tag;
+    static void VisitField(Visitor &visitor, const Desc &desc, resultType &result, const Nodes &...nodes) {
+        using KindTag = typename Desc::kindTag;
 
         if constexpr (std::is_same_v<KindTag, IgnoreFieldTag>) {
             visitor.VisitIgnoreField([&]() { VisitFieldImpl(visitor, desc, result, nodes...); });
@@ -178,29 +178,29 @@ private:
      * the appropriate visitor method with fields from all nodes.
      */
     template <typename Desc, typename... Nodes>
-    static void VisitFieldImpl(Visitor &visitor, const Desc &desc, result_type &result, const Nodes &...nodes) {
-        using FieldType = typename Desc::field_type;
+    static void VisitFieldImpl(Visitor &visitor, const Desc &desc, resultType &result, const Nodes &...nodes) {
+        using FieldType = typename Desc::fieldType;
 
         if constexpr (IsIRNodeOptionalField<FieldType>::value) {
             // Optional IRNodePtr field - treat as IRNode field
-            auto field_result = visitor.VisitIRNodeField(desc.Get(nodes)...);
-            visitor.CombineResult(result, field_result, desc);
+            auto fieldResult = visitor.VisitIRNodeField(desc.Get(nodes)...);
+            visitor.CombineResult(result, fieldResult, desc);
         } else if constexpr (IsIRNodeField<FieldType>::value) {
             // Single IRNodePtr field - expand to visitor.VisitIRNodeField(desc.Get(node1), desc.Get(node2), ...)
-            auto field_result = visitor.VisitIRNodeField(desc.Get(nodes)...);
-            visitor.CombineResult(result, field_result, desc);
+            auto fieldResult = visitor.VisitIRNodeField(desc.Get(nodes)...);
+            visitor.CombineResult(result, fieldResult, desc);
         } else if constexpr (IsIRNodeVectorField<FieldType>::value) {
             // Vector of IRNodePtr
-            auto field_result = visitor.VisitIRNodeVectorField(desc.Get(nodes)...);
-            visitor.CombineResult(result, field_result, desc);
+            auto fieldResult = visitor.VisitIRNodeVectorField(desc.Get(nodes)...);
+            visitor.CombineResult(result, fieldResult, desc);
         } else if constexpr (IsIRNodeMapField<FieldType>::value) {
             // Map of IRNodePtr to IRNodePtr
-            auto field_result = visitor.VisitIRNodeMapField(desc.Get(nodes)...);
-            visitor.CombineResult(result, field_result, desc);
+            auto fieldResult = visitor.VisitIRNodeMapField(desc.Get(nodes)...);
+            visitor.CombineResult(result, fieldResult, desc);
         } else {
             // Scalar field (int, string, OpPtr, etc.)
-            auto field_result = visitor.VisitLeafField(desc.Get(nodes)...);
-            visitor.CombineResult(result, field_result, desc);
+            auto fieldResult = visitor.VisitLeafField(desc.Get(nodes)...);
+            visitor.CombineResult(result, fieldResult, desc);
         }
     }
 };

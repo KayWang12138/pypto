@@ -34,11 +34,11 @@ namespace ir {
 
 // Helper to create a simple program
 static ProgramPtr MakeSimpleProgram() {
-  auto body_val = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
-  auto body = std::make_shared<EvalStmt>(body_val, Span::unknown());
+  auto bodyVal = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
+  auto body = std::make_shared<EvalStmt>(bodyVal, Span::unknown());
   std::vector<VarPtr> params;
-  std::vector<TypePtr> return_types;
-  auto func = std::make_shared<Function>("main", params, return_types, body, Span::unknown());
+  std::vector<TypePtr> returnTypes;
+  auto func = std::make_shared<Function>("main", params, returnTypes, body, Span::unknown());
   std::vector<FunctionPtr> funcs = {func};
   return std::make_shared<Program>(funcs, "test", Span::unknown());
 }
@@ -99,8 +99,8 @@ TEST_F(IRVerifierTest, TestAddNullRule) {
 
 TEST_F(IRVerifierTest, TestGenerateReportEmpty) {
   auto verifier = IRVerifier::CreateDefault();
-  std::vector<Diagnostic> empty_diags;
-  std::string report = verifier.GenerateReport(empty_diags);
+  std::vector<Diagnostic> emptyDiags;
+  std::string report = verifier.GenerateReport(emptyDiags);
   ASSERT_NE(report.find("PASSED"), std::string::npos);
 }
 

@@ -319,7 +319,7 @@ using IterArgPtr = std::shared_ptr<const IterArg>;
  */
 class MemRef : public Var {
 public:
-    MemorySpace memory_space_; ///< Memory space (DDR, UB, L1, etc.)
+    MemorySpace memorySpace_; ///< Memory space (DDR, UB, L1, etc.)
     ExprPtr addr_;             ///< Starting address expression
     uint64_t size_;            ///< Size in bytes (64-bit unsigned)
     uint64_t id_;              ///< Unique identifier (used for name generation)
@@ -336,7 +336,7 @@ public:
      * \param id Unique identifier (used to generate variable name)
      * \param span Source location (defaults to Span::unknown())
      */
-    MemRef(MemorySpace memory_space, ExprPtr addr, uint64_t size, uint64_t id, Span span = Span::unknown());
+    MemRef(MemorySpace memorySpace, ExprPtr addr, uint64_t size, uint64_t id, Span span = Span::unknown());
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::MemRef; }
     [[nodiscard]] std::string TypeName() const override { return "MemRef"; }
@@ -348,7 +348,7 @@ public:
      */
     static constexpr auto GetFieldDescriptors() {
         return std::tuple_cat(Var::GetFieldDescriptors(),
-            std::make_tuple(reflection::UsualField(&MemRef::memory_space_, "memory_space"),
+            std::make_tuple(reflection::UsualField(&MemRef::memorySpace_, "memory_space"),
                 reflection::UsualField(&MemRef::addr_, "addr"), reflection::UsualField(&MemRef::size_, "size"),
                 reflection::UsualField(&MemRef::id_, "id")));
     }
@@ -426,13 +426,13 @@ public:
      * \return The kwarg value or default
      */
     template <typename T>
-    T GetKwarg(const std::string &key, const T &default_value = T{}) const {
+    T GetKwarg(const std::string &key, const T &defaultValue = T{}) const {
         for (const auto &[k, v] : kwargs_) {
             if (k == key) {
                 return AnyCast<T>(v, "kwarg key: " + key);
             }
         }
-        return default_value;
+        return defaultValue;
     }
 
     /**

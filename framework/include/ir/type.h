@@ -85,8 +85,8 @@ using UnknownTypePtr = std::shared_ptr<const UnknownType>;
  * \return Shared pointer to UnknownType
  */
 inline UnknownTypePtr GetUnknownType() {
-    static const auto unknown_type = std::make_shared<UnknownType>();
-    return unknown_type;
+    static const auto unknownType = std::make_shared<UnknownType>();
+    return unknownType;
 }
 
 /**
@@ -124,9 +124,9 @@ using ScalarTypePtr = std::shared_ptr<const ScalarType>;
  * a tile views its underlying memory.
  */
 struct TileView {
-    std::vector<ExprPtr> valid_shape; ///< Valid shape dimensions
+    std::vector<ExprPtr> validShape; ///< Valid shape dimensions
     std::vector<ExprPtr> stride;      ///< Stride for each dimension
-    ExprPtr start_offset;             ///< Starting offset
+    ExprPtr startOffset;             ///< Starting offset
 
     /**
      * \brief Default constructor for aggregate initialization
@@ -136,14 +136,14 @@ struct TileView {
     /**
      * \brief Constructor with all parameters
      *
-     * \param valid_shape Valid shape dimensions
+     * \param validShape Valid shape dimensions
      * \param stride Stride for each dimension
-     * \param start_offset Starting offset
+     * \param startOffset Starting offset
      */
-    TileView(std::vector<ExprPtr> valid_shape_in, std::vector<ExprPtr> stride_in, ExprPtr start_offset_in)
-        : valid_shape(std::move(valid_shape_in)),
-          stride(std::move(stride_in)),
-          start_offset(std::move(start_offset_in)) {}
+    TileView(std::vector<ExprPtr> validShapeIn, std::vector<ExprPtr> strideIn, ExprPtr startOffsetIn)
+        : validShape(std::move(validShapeIn)),
+          stride(std::move(strideIn)),
+          startOffset(std::move(startOffsetIn)) {}
 
     /**
      * \brief Get field descriptors for reflection-based visitation
@@ -151,9 +151,9 @@ struct TileView {
      * \return Tuple of field descriptors
      */
     static constexpr auto GetFieldDescriptors() {
-        return std::make_tuple(reflection::UsualField(&TileView::valid_shape, "valid_shape"),
+        return std::make_tuple(reflection::UsualField(&TileView::validShape, "valid_shape"),
             reflection::UsualField(&TileView::stride, "stride"),
-            reflection::UsualField(&TileView::start_offset, "start_offset"));
+            reflection::UsualField(&TileView::startOffset, "start_offset"));
     }
 };
 
@@ -280,7 +280,7 @@ using TensorTypePtr = std::shared_ptr<const TensorType>;
  */
 class TileType : public ShapedType {
 public:
-    std::optional<TileView> tile_view_; ///< Optional tile view information
+    std::optional<TileView> tileView_; ///< Optional tile view information
 
     /**
      * \brief Create a tile type without memory reference or tile view
@@ -289,7 +289,7 @@ public:
      * \param dtype Element data type
      */
     TileType(std::vector<ExprPtr> shape, DataType dtype)
-        : ShapedType(dtype, std::move(shape)), tile_view_(std::nullopt) {}
+        : ShapedType(dtype, std::move(shape)), tileView_(std::nullopt) {}
 
     /**
      * \brief Create a tile type with memory reference (shared_ptr)
@@ -299,7 +299,7 @@ public:
      * \param memref Memory reference (shared pointer)
      */
     TileType(std::vector<ExprPtr> shape, DataType dtype, MemRefPtr memref)
-        : ShapedType(dtype, std::move(shape), std::move(memref)), tile_view_(std::nullopt) {}
+        : ShapedType(dtype, std::move(shape), std::move(memref)), tileView_(std::nullopt) {}
 
     /**
      * \brief Create a tile type with optional memory reference (shared_ptr)
@@ -309,7 +309,7 @@ public:
      * \param memref Optional memory reference (shared pointer)
      */
     TileType(std::vector<ExprPtr> shape, DataType dtype, std::optional<MemRefPtr> memref)
-        : ShapedType(dtype, std::move(shape), std::move(memref)), tile_view_(std::nullopt) {
+        : ShapedType(dtype, std::move(shape), std::move(memref)), tileView_(std::nullopt) {
         // No dimension limit at type level; code generation may have constraints
     }
 
@@ -322,8 +322,8 @@ public:
      * \param tile_view Optional tile view information
      */
     TileType(const std::vector<int64_t> &shape, DataType dtype, std::optional<MemRefPtr> memref,
-        std::optional<TileView> tile_view)
-        : ShapedType(dtype, shape, std::move(memref)), tile_view_(std::move(tile_view)) {}
+        std::optional<TileView> tileView)
+        : ShapedType(dtype, shape, std::move(memref)), tileView_(std::move(tileView)) {}
 
     /**
      * \brief Create a tile type with memory reference and tile view (shared_ptr)
@@ -333,8 +333,8 @@ public:
      * \param memref Memory reference (shared pointer)
      * \param tile_view Tile view information
      */
-    TileType(std::vector<ExprPtr> shape, DataType dtype, MemRefPtr memref, std::optional<TileView> tile_view)
-        : ShapedType(dtype, std::move(shape), std::move(memref)), tile_view_(std::move(tile_view)) {}
+    TileType(std::vector<ExprPtr> shape, DataType dtype, MemRefPtr memref, std::optional<TileView> tileView)
+        : ShapedType(dtype, std::move(shape), std::move(memref)), tileView_(std::move(tileView)) {}
 
     /**
      * \brief Create a tile type with optional memory reference and tile view (shared_ptr)
@@ -345,15 +345,15 @@ public:
      * \param tile_view Tile view information
      */
     TileType(
-        std::vector<ExprPtr> shape, DataType dtype, std::optional<MemRefPtr> memref, std::optional<TileView> tile_view)
-        : ShapedType(dtype, std::move(shape), std::move(memref)), tile_view_(std::move(tile_view)) {}
+        std::vector<ExprPtr> shape, DataType dtype, std::optional<MemRefPtr> memref, std::optional<TileView> tileView)
+        : ShapedType(dtype, std::move(shape), std::move(memref)), tileView_(std::move(tileView)) {}
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::TileType; }
     [[nodiscard]] std::string TypeName() const override { return "TileType"; }
 
     static constexpr auto GetFieldDescriptors() {
         return std::tuple_cat(ShapedType::GetFieldDescriptors(),
-            std::make_tuple(reflection::UsualField(&TileType::tile_view_, "tile_view")));
+            std::make_tuple(reflection::UsualField(&TileType::tileView_, "tile_view")));
     }
 };
 
@@ -414,8 +414,8 @@ using MemRefTypePtr = std::shared_ptr<const MemRefType>;
  * \return Shared pointer to MemRefType
  */
 inline MemRefTypePtr GetMemRefType() {
-    static const auto memref_type = std::make_shared<MemRefType>();
-    return memref_type;
+    static const auto memrefType = std::make_shared<MemRefType>();
+    return memrefType;
 }
 
 } // namespace ir

@@ -42,7 +42,7 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
   Impl() = default;
 
   IRNodePtr Deserialize(const std::vector<uint8_t>& data) {
-    id_to_ptr_.clear();
+    idToPtr_.clear();
 
     try {
       msgpack::object_handle oh = msgpack::unpack(reinterpret_cast<const char*>(data.data()), data.size());
@@ -68,19 +68,19 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
       if (key == "ref") {
         uint64_t id;
         p->val.convert(id);
-        auto it = id_to_ptr_.find(id);
-        INTERNAL_CHECK(it != id_to_ptr_.end()) << "Invalid reference ID: " << id;
+        auto it = idToPtr_.find(id);
+        INTERNAL_CHECK(it != idToPtr_.end()) << "Invalid reference ID: " << id;
         return it->second;
       }
     }
 
     // Parse full node
     uint64_t id = 0;
-    std::string type_name;
-    msgpack::object fields_obj;
-    bool has_id = false;
-    bool has_type = false;
-    bool has_fields = false;
+    std::string typeName;
+    msgpack::object fieldsObj;
+    bool hasId = false;
+    bool hasType = false;
+    bool hasFields = false;
 
     p = obj.via.map.ptr;
     for (; p < pend; ++p) {
@@ -88,24 +88,24 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
       p->key.convert(key);
       if (key == "id") {
         p->val.convert(id);
-        has_id = true;
+        hasId = true;
       } else if (key == "type") {
-        p->val.convert(type_name);
-        has_type = true;
+        p->val.convert(typeName);
+        hasType = true;
       } else if (key == "fields") {
-        fields_obj = p->val;
-        has_fields = true;
+        fieldsObj = p->val;
+        hasFields = true;
       }
     }
 
-    INTERNAL_CHECK(has_id && has_type && has_fields)
+    INTERNAL_CHECK(hasId && hasType && hasFields)
         << "Missing required fields (id, type, or fields) in node";
 
     // Use type registry to create the node
-    IRNodePtr node = TypeRegistry::Instance().Create(type_name, fields_obj, zone, *this);
+    IRNodePtr node = TypeRegistry::Instance().Create(typeName, fieldsObj, zone, *this);
 
     // Store in reference table
-    id_to_ptr_[id] = node;
+    idToPtr_[id] = node;
 
     return node;
   }
@@ -113,7 +113,7 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
   Span DeserializeSpan(const msgpack::object& obj) override {
     INTERNAL_CHECK(obj.type == msgpack::type::MAP) << "Expected map for Span";
     std::string filename;
-    int begin_line = -1, begin_column = -1, end_line = -1, end_column = -1;
+    int beginLine = -1, beginColumn = -1, endLine = -1, endColumn = -1;
 
     msgpack::object_kv* p = obj.via.map.ptr;
     msgpack::object_kv* const pend = obj.via.map.ptr + obj.via.map.size;
@@ -123,17 +123,17 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
       if (key == "filename") {
         p->val.convert(filename);
       } else if (key == "begin_line") {
-        p->val.convert(begin_line);
+        p->val.convert(beginLine);
       } else if (key == "begin_column") {
-        p->val.convert(begin_column);
+        p->val.convert(beginColumn);
       } else if (key == "end_line") {
-        p->val.convert(end_line);
+        p->val.convert(endLine);
       } else if (key == "end_column") {
-        p->val.convert(end_column);
+        p->val.convert(endColumn);
       }
     }
 
-    return Span(filename, begin_line, begin_column, end_line, end_column);
+    return Span(filename, beginLine, beginColumn, endLine, endColumn);
   }
 
   std::optional<MemRefPtr> DeserializeMemRef(const msgpack::object& obj, msgpack::zone& zone) {
@@ -143,13 +143,13 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
 
     INTERNAL_CHECK(obj.type == msgpack::type::MAP) << "Expected map for MemRef";
 
-    MemorySpace memory_space = MemorySpace::DDR;
+    MemorySpace memorySpace = MemorySpace::DDR;
     ExprPtr addr = nullptr;
     uint64_t size = 0;
     uint64_t id = 0;
-    bool has_addr = false;
-    bool has_size = false;
-    bool has_id = false;
+    bool hasAddr = false;
+    bool hasSize = false;
+    bool hasId = false;
 
     msgpack::object_kv* p = obj.via.map.ptr;
     msgpack::object_kv* const pend = obj.via.map.ptr + obj.via.map.size;
@@ -157,24 +157,24 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
       std::string key;
       p->key.convert(key);
       if (key == "memory_space") {
-        uint8_t memory_space_code = 0;
-        p->val.convert(memory_space_code);
-        memory_space = static_cast<MemorySpace>(memory_space_code);
+        uint8_t memorySpaceCode = 0;
+        p->val.convert(memorySpaceCode);
+        memorySpace = static_cast<MemorySpace>(memorySpaceCode);
       } else if (key == "addr") {
         addr = std::static_pointer_cast<const Expr>(DeserializeNode(p->val, zone));
-        has_addr = true;
+        hasAddr = true;
       } else if (key == "size") {
         p->val.convert(size);
-        has_size = true;
+        hasSize = true;
       } else if (key == "id") {
         p->val.convert(id);
-        has_id = true;
+        hasId = true;
       }
     }
 
-    INTERNAL_CHECK(has_addr && has_size && has_id) << "MemRef missing required fields (addr, size, or id)";
+    INTERNAL_CHECK(hasAddr && hasSize && hasId) << "MemRef missing required fields (addr, size, or id)";
 
-    return std::make_shared<MemRef>(memory_space, addr, size, id);
+    return std::make_shared<MemRef>(memorySpace, addr, size, id);
   }
 
   std::optional<TileView> DeserializeTileView(const msgpack::object& obj, msgpack::zone& zone) {
@@ -184,7 +184,7 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
 
     INTERNAL_CHECK(obj.type == msgpack::type::MAP) << "Expected map for TileView";
 
-    TileView tile_view;
+    TileView tileView;
 
     msgpack::object_kv* p = obj.via.map.ptr;
     msgpack::object_kv* const pend = obj.via.map.ptr + obj.via.map.size;
@@ -194,36 +194,36 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
       if (key == "valid_shape") {
         if (p->val.type == msgpack::type::ARRAY) {
           for (uint32_t i = 0; i < p->val.via.array.size; ++i) {
-            tile_view.valid_shape.push_back(
+            tileView.validShape.push_back(
                 std::static_pointer_cast<const Expr>(DeserializeNode(p->val.via.array.ptr[i], zone)));
           }
         }
       } else if (key == "stride") {
         if (p->val.type == msgpack::type::ARRAY) {
           for (uint32_t i = 0; i < p->val.via.array.size; ++i) {
-            tile_view.stride.push_back(
+            tileView.stride.push_back(
                 std::static_pointer_cast<const Expr>(DeserializeNode(p->val.via.array.ptr[i], zone)));
           }
         }
       } else if (key == "start_offset") {
-        tile_view.start_offset = std::static_pointer_cast<const Expr>(DeserializeNode(p->val, zone));
+        tileView.startOffset = std::static_pointer_cast<const Expr>(DeserializeNode(p->val, zone));
       }
     }
 
-    return tile_view;
+    return tileView;
   }
 
   TypePtr DeserializeType(const msgpack::object& obj, msgpack::zone& zone) override {
     INTERNAL_CHECK(obj.type == msgpack::type::MAP) << "Expected map for Type";
 
-    std::string type_kind;
-    uint8_t dtype_code = 0;
+    std::string typeKind;
+    uint8_t dtypeCode = 0;
     std::vector<ExprPtr> shape;
     std::vector<TypePtr> types;
-    msgpack::object memref_obj;
-    msgpack::object tile_view_obj;
-    bool has_memref = false;
-    bool has_tile_view = false;
+    msgpack::object memrefObj;
+    msgpack::object tileViewObj;
+    bool hasMemref = false;
+    bool hasTileView = false;
 
     msgpack::object_kv* p = obj.via.map.ptr;
     msgpack::object_kv* const pend = obj.via.map.ptr + obj.via.map.size;
@@ -231,9 +231,9 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
       std::string key;
       p->key.convert(key);
       if (key == "type_kind") {
-        p->val.convert(type_kind);
+        p->val.convert(typeKind);
       } else if (key == "dtype") {
-        p->val.convert(dtype_code);
+        p->val.convert(dtypeCode);
       } else if (key == "shape") {
         if (p->val.type == msgpack::type::ARRAY) {
           for (uint32_t i = 0; i < p->val.via.array.size; ++i) {
@@ -248,47 +248,47 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
           }
         }
       } else if (key == "memref") {
-        memref_obj = p->val;
-        has_memref = true;
+        memrefObj = p->val;
+        hasMemref = true;
       } else if (key == "tile_view") {
-        tile_view_obj = p->val;
-        has_tile_view = true;
+        tileViewObj = p->val;
+        hasTileView = true;
       }
     }
 
-    if (type_kind == "ScalarType") {
-      return std::make_shared<ScalarType>(DataType(dtype_code));
-    } else if (type_kind == "TensorType") {
-      if (has_memref) {
-        std::optional<MemRefPtr> memref = DeserializeMemRef(memref_obj, zone);
-        return std::make_shared<TensorType>(shape, DataType(dtype_code), memref);
+    if (typeKind == "ScalarType") {
+      return std::make_shared<ScalarType>(DataType(dtypeCode));
+    } else if (typeKind == "TensorType") {
+      if (hasMemref) {
+        std::optional<MemRefPtr> memref = DeserializeMemRef(memrefObj, zone);
+        return std::make_shared<TensorType>(shape, DataType(dtypeCode), memref);
       }
-      return std::make_shared<TensorType>(shape, DataType(dtype_code));
-    } else if (type_kind == "TileType") {
+      return std::make_shared<TensorType>(shape, DataType(dtypeCode));
+    } else if (typeKind == "TileType") {
       std::optional<MemRefPtr> memref;
-      std::optional<TileView> tile_view;
+      std::optional<TileView> tileView;
 
-      if (has_memref) {
-        memref = DeserializeMemRef(memref_obj, zone);
+      if (hasMemref) {
+        memref = DeserializeMemRef(memrefObj, zone);
       }
-      if (has_tile_view) {
-        tile_view = DeserializeTileView(tile_view_obj, zone);
+      if (hasTileView) {
+        tileView = DeserializeTileView(tileViewObj, zone);
       }
 
-      if (has_memref && has_tile_view) {
-        return std::make_shared<TileType>(shape, DataType(dtype_code), memref, tile_view);
-      } else if (has_memref) {
-        return std::make_shared<TileType>(shape, DataType(dtype_code), memref);
+      if (hasMemref && hasTileView) {
+        return std::make_shared<TileType>(shape, DataType(dtypeCode), memref, tileView);
+      } else if (hasMemref) {
+        return std::make_shared<TileType>(shape, DataType(dtypeCode), memref);
       }
-      return std::make_shared<TileType>(shape, DataType(dtype_code));
-    } else if (type_kind == "TupleType") {
+      return std::make_shared<TileType>(shape, DataType(dtypeCode));
+    } else if (typeKind == "TupleType") {
       return std::make_shared<TupleType>(types);
-    } else if (type_kind == "MemRefType") {
+    } else if (typeKind == "MemRefType") {
       return GetMemRefType();
-    } else if (type_kind == "UnknownType") {
+    } else if (typeKind == "UnknownType") {
       return GetUnknownType();
     } else {
-      throw RuntimeError("Unknown Type kind: " + type_kind);
+      throw RuntimeError("Unknown Type kind: " + typeKind);
     }
   }
 
@@ -296,7 +296,7 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
     INTERNAL_CHECK(obj.type == msgpack::type::MAP) << "Expected map for Op";
 
     std::string name;
-    bool is_global_var = false;
+    bool isGlobalVar = false;
 
     msgpack::object_kv* p = obj.via.map.ptr;
     msgpack::object_kv* const pend = obj.via.map.ptr + obj.via.map.size;
@@ -306,33 +306,33 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
       if (key == "name") {
         p->val.convert(name);
       } else if (key == "is_global_var") {
-        p->val.convert(is_global_var);
+        p->val.convert(isGlobalVar);
       }
     }
 
-    if (is_global_var) {
+    if (isGlobalVar) {
       return std::make_shared<GlobalVar>(name);
     } else {
       return std::make_shared<Op>(name);
     }
   }
 
-  msgpack::object GetFieldObj(const msgpack::object& fields_obj, const std::string& field_name) override {
-    INTERNAL_CHECK(fields_obj.type == msgpack::type::MAP) << "Expected map for fields";
-    msgpack::object_kv* p = fields_obj.via.map.ptr;
-    msgpack::object_kv* const pend = fields_obj.via.map.ptr + fields_obj.via.map.size;
+  msgpack::object GetFieldObj(const msgpack::object& fieldsObj, const std::string& fieldName) override {
+    INTERNAL_CHECK(fieldsObj.type == msgpack::type::MAP) << "Expected map for fields";
+    msgpack::object_kv* p = fieldsObj.via.map.ptr;
+    msgpack::object_kv* const pend = fieldsObj.via.map.ptr + fieldsObj.via.map.size;
     for (; p < pend; ++p) {
       std::string key;
       p->key.convert(key);
-      if (key == field_name) {
+      if (key == fieldName) {
         return p->val;
       }
     }
-    throw RuntimeError("Missing required field: " + field_name);
+    throw RuntimeError("Missing required field: " + fieldName);
   }
 
  private:
-  std::unordered_map<uint64_t, IRNodePtr> id_to_ptr_;
+  std::unordered_map<uint64_t, IRNodePtr> idToPtr_;
 };
 
 // IRDeserializer implementation

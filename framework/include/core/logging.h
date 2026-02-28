@@ -76,7 +76,7 @@ class TTYCmd {
 public:
     unsigned char code;
 
-    explicit TTYCmd(int code_in) : code(code_in) {}
+    explicit TTYCmd(int codeIn) : code(codeIn) {}
 
     /**
      * \brief Convert the TTY command to an ANSI escape sequence string
@@ -235,16 +235,16 @@ public:
  */
 class LoggerManager {
 public:
-    std::mutex log_mtx;
+    std::mutex logMtx;
 #ifdef NDEBUG
     LogLevel level{LogLevel::ERROR};
 #else
     LogLevel level{LogLevel::DEBUG};
 #endif
-    bool std_enabled{true};
-    StdLogger std_logger;
-    std::unordered_map<std::string, std::unique_ptr<FileLogger>> file_logger_dict;
-    std::unordered_map<std::string, std::shared_ptr<LineLogger>> line_logger_dict;
+    bool stdEnabled{true};
+    StdLogger stdLogger;
+    std::unordered_map<std::string, std::unique_ptr<FileLogger>> fileLoggerDict;
+    std::unordered_map<std::string, std::shared_ptr<LineLogger>> lineLoggerDict;
 
     LoggerManager() = default;
 
@@ -256,18 +256,18 @@ public:
      * \param t_rich Rich message with formatting (for std logger)
      */
     template <typename T>
-    void Log(LogLevel l, T &&t, T &&t_rich) {
-        std::scoped_lock lock(log_mtx);
+    void Log(LogLevel l, T &&t, T &&tRich) {
+        std::scoped_lock lock(logMtx);
         if (l >= level) {
-            if (std_enabled) {
-                std_logger.Log(std::forward<T>(t_rich));
+            if (stdEnabled) {
+                stdLogger.Log(std::forward<T>(tRich));
             }
         }
-        for (auto &[filepath, logger] : file_logger_dict) {
+        for (auto &[filepath, logger] : fileLoggerDict) {
             (void)filepath;
             logger->Log(std::forward<T>(t));
         }
-        for (auto &[name, logger] : line_logger_dict) {
+        for (auto &[name, logger] : lineLoggerDict) {
             (void)name;
             logger->Log(std::forward<T>(t));
         }
@@ -283,7 +283,7 @@ public:
      * \brief Enable or disable standard output logging
      * \param enabled True to enable, false to disable
      */
-    static void StdLoggerEnable(bool enabled) { GetManager().std_enabled = enabled; }
+    static void StdLoggerEnable(bool enabled) { GetManager().stdEnabled = enabled; }
 
     /**
      * \brief Register a file logger
@@ -291,14 +291,14 @@ public:
      * \param append If true, append to existing file; otherwise overwrite
      */
     static void FileLoggerRegister(const std::string &filepath, bool append) {
-        GetManager().file_logger_dict.try_emplace(filepath, std::make_unique<FileLogger>(filepath, append));
+        GetManager().fileLoggerDict.try_emplace(filepath, std::make_unique<FileLogger>(filepath, append));
     }
 
     /**
      * \brief Unregister and close a file logger
      * \param filepath Path to the log file to unregister
      */
-    static void FileLoggerUnregister(const std::string &filepath) { GetManager().file_logger_dict.erase(filepath); }
+    static void FileLoggerUnregister(const std::string &filepath) { GetManager().fileLoggerDict.erase(filepath); }
 
     /**
      * \brief Replace one file logger with another
@@ -306,9 +306,9 @@ public:
      * \param new_filepath Path to the new log file
      * \param append If true, append to new file; otherwise overwrite
      */
-    static void FileLoggerReplace(const std::string &old_filepath, const std::string &new_filepath, bool append) {
-        FileLoggerUnregister(old_filepath);
-        FileLoggerRegister(new_filepath, append);
+    static void FileLoggerReplace(const std::string &oldFilepath, const std::string &newFilepath, bool append) {
+        FileLoggerUnregister(oldFilepath);
+        FileLoggerRegister(newFilepath, append);
     }
 
     /**
@@ -317,7 +317,7 @@ public:
      * \return Shared pointer to the line logger for access to stored lines
      */
     static std::shared_ptr<LineLogger> LineLoggerRegister(const std::string &name) {
-        auto &dict = GetManager().line_logger_dict;
+        auto &dict = GetManager().lineLoggerDict;
         auto it = dict.find(name);
         if (it != dict.end()) {
             return it->second;
@@ -331,7 +331,7 @@ public:
      * \brief Unregister an in-memory line logger
      * \param name Name identifier of the logger to unregister
      */
-    static void LineLoggerUnregister(const std::string &name) { GetManager().line_logger_dict.erase(name); }
+    static void LineLoggerUnregister(const std::string &name) { GetManager().lineLoggerDict.erase(name); }
 
     friend class Logger;
 
@@ -362,13 +362,13 @@ constexpr uint32_t MAX_LOG_BUF_SIZE = 1024;
 class Logger {
 private:
     std::stringstream ss;
-    std::stringstream ss_rich;
+    std::stringstream ssRich;
 #ifdef NDEBUG
     LogLevel level{LogLevel::ERROR};
 #else
     LogLevel level{LogLevel::DEBUG};
 #endif
-    bool enable_log = false;
+    bool enableLog = false;
 
 public:
     /**
@@ -377,18 +377,18 @@ public:
      * \param func Function name (currently unused but available for future use)
      * \param line Line number (currently unused but available for future use)
      */
-    Logger(LogLevel level_in, [[maybe_unused]] int line) : level(level_in) {
-        enable_log = LoggerManager::GetManager().level <= level;
-        if (enable_log) {
+    Logger(LogLevel levelIn, [[maybe_unused]] int line) : level(levelIn) {
+        enableLog = LoggerManager::GetManager().level <= level;
+        if (enableLog) {
             static const char *MSG = "DIWEFVN";
             auto now = std::chrono::system_clock::now();
             auto time = std::chrono::system_clock::to_time_t(now);
             auto tm = *std::localtime(&time);
 
             // Format timestamp
-            char time_buf[128];
-            std::strftime(time_buf, sizeof(time_buf), "%F %T.", &tm);
-            Log(time_buf);
+            char timeBuf[128];
+            std::strftime(timeBuf, sizeof(timeBuf), "%F %T.", &tm);
+            Log(timeBuf);
 
             // Add milliseconds and log level
             char buf[MAX_LOG_BUF_SIZE];
@@ -404,9 +404,9 @@ public:
      * \brief Destructor flushes the log message to all active loggers
      */
     ~Logger() {
-        if (enable_log) {
+        if (enableLog) {
             Log("\n");
-            LoggerManager::GetManager().Log(level, ss.str(), ss_rich.str());
+            LoggerManager::GetManager().Log(level, ss.str(), ssRich.str());
         }
     }
 
@@ -416,7 +416,7 @@ public:
      * \return Reference to this logger for chaining
      */
     Logger &Log(TTYCmd &&val) {
-        ss_rich << val.Str();
+        ssRich << val.Str();
         return *this;
     }
 
@@ -429,7 +429,7 @@ public:
     template <typename T>
     Logger &Log(T &&val) {
         ss << (std::forward<T>(val));
-        ss_rich << (std::forward<T>(val));
+        ssRich << (std::forward<T>(val));
         return *this;
     }
 
@@ -441,7 +441,7 @@ public:
      */
     template <typename T>
     Logger &operator<<(T &&val) {
-        if (enable_log) {
+        if (enableLog) {
             return Log(std::forward<T>(val));
         } else {
             return *this;
@@ -456,7 +456,7 @@ public:
      */
     template <typename... Tys>
     Logger &operator()(Tys &&...vals) {
-        if (enable_log) {
+        if (enableLog) {
             if constexpr (sizeof...(Tys) > 0) {
                 (Log(std::forward<Tys>(vals)), ...);
             }
@@ -481,20 +481,20 @@ public:
  * \return Formatted string
  */
 inline std::string FormatLogMessage(const char *fmt, ...) {
-    constexpr int default_buf_size = 1024;
-    std::string buf(default_buf_size, '\0');
+    constexpr int defaultBufSize = 1024;
+    std::string buf(defaultBufSize, '\0');
 
     va_list args;
     va_start(args, fmt);
-    int msg_length = vsnprintf_s(buf.data(), buf.size(), buf.size() - 1, fmt, args);
+    int msgLength = vsnprintf_s(buf.data(), buf.size(), buf.size() - 1, fmt, args);
     va_end(args);
 
-    if (msg_length < 0) {
+    if (msgLength < 0) {
         return "[FormatLogMessage error]";
     }
 
-    if (msg_length > default_buf_size) {
-        buf.resize(msg_length + 1, '\0');
+    if (msgLength > defaultBufSize) {
+        buf.resize(msgLength + 1, '\0');
         va_start(args, fmt);
         int ret = vsnprintf_s(buf.data(), buf.size(), buf.size() - 1, fmt, args);
         va_end(args);
@@ -538,13 +538,13 @@ private:
     std::stringstream ss;
     const char *file;
     int line;
-    const char *expr_str;
+    const char *exprStr;
 
 public:
-    FatalLogger(const char *expr_str_, const char *file_, int line_) : file(file_), line(line_), expr_str(expr_str_) {}
+    FatalLogger(const char *exprStr_, const char *file_, int line_) : file(file_), line(line_), exprStr(exprStr_) {}
 
     [[noreturn]] ~FatalLogger() noexcept(false) {
-        ss << "\n" << "Check failed: " << expr_str << " at " << file << ":" << line;
+        ss << "\n" << "Check failed: " << exprStr << " at " << file << ":" << line;
         throw ExceptionType(ss.str());
     }
 
