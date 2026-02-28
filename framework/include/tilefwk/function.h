@@ -185,7 +185,17 @@ public:
     size_t UnrollTimesSize() const { return unrollTimes_.size(); }
     int CurUnrollTimes() const;
     void NextUnrollTimes();
-    bool GetParalellFor() const {return paralellFor_;};
+    bool GetParalellFor() const {return paralellFor_;}
+    std::string GetName() const {return name_;}
+    void AddLoopUnrollFunctions(Function* func) {
+        loopUnrollFunctions_.push_back(func);
+    }
+
+    std::vector<npu::tile_fwk::Function *>& GetLoopUnrollFunctions() {
+        return loopUnrollFunctions_;
+    }
+
+    void SetLoopUnrollFuncParalellAttr(int paralellForValue);
 
     bool CustomUnrollTimesMatched() const { return customUnrollTimes_.count(CurUnrollTimes()) > 0; }
     static bool MatchUnrollTimes(int unrollTimes);
@@ -209,6 +219,7 @@ private:
     std::unordered_set<int> visited_;
     std::unordered_set<int> customUnrollTimes_;
     std::shared_ptr<SourceLocation> location_;
+    std::vector<npu::tile_fwk::Function *> loopUnrollFunctions_;
 
     void GenDefaultUnrollTimes(const std::set<int> &unrollList);
 };
