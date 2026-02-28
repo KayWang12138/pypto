@@ -129,10 +129,10 @@ def _get_soc_version():
     """
     try:
         soc_version = torch_npu.npu.get_soc_version()
-        print(f"Current soc version: {soc_version}")
         return soc_version
     except Exception as e:
         pytest.exit(f"Error: Failed to get soc version, error info: {str(e)}", returncode=1)
+        return None
 
 
 def _is_case_match_soc(item, target_soc):
@@ -168,13 +168,11 @@ def pytest_collection_modifyitems(items):
     # 先根据torch_npu接口获取soc version
     target_soc = _get_soc_version()
 
-    # 确定筛选的soc version并打印
+    # 确定筛选的soc version
     filter_key = "950" if target_soc == 260 else "910"
-    print(f"Start finding {filter_key} test cases...")
 
     # 筛选用例
     filtered_items = [item for item in items if _is_case_match_soc(item, target_soc)]
-    print(f"Found {len(filtered_items)} {filter_key} test cases!")
 
     # 分离有耗时标识和无耗时标识的测试用例
     timed_tests = []
