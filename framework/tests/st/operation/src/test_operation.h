@@ -19,7 +19,7 @@
 #include <string>
 #include <functional>
 
-#include "test_cost_model.h"
+#include "cost_model/simulation/cost_model_launcher.h"
 #include "test_suite_stest_ops.h"
 #include "interface/configs/config_manager.h"
 #include "interface/interpreter/raw_tensor_data.h"
@@ -142,7 +142,10 @@ private:
         if (testCase.onBoard) {
             DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
         } else {
-            CostModelDynFuncRunner::Run(Program::GetInstance().GetLastFunction());
+            DeviceLauncherConfig config;
+            config.runModel = false;
+            config::SetRuntimeOption(CFG_RUN_MODE, CFG_RUN_MODE_SIM);
+            CostModelLauncher::CostModelRunOnce(Program::GetInstance().GetLastFunction());
         }
 
         ASSERT_EQ(testCase.goldenPaths.size(), testCase.outputTensors.size());
