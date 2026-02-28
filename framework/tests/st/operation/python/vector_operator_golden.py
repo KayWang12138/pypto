@@ -2715,7 +2715,42 @@ def gen_isfinite_golden(case_name: str, output: Path, case_index: int = None) ->
     
     logging.debug(f"Generating golden files of {case_name} ...")
     return gen_op_golden("IsFinite", generate_wrapper, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(case_names=[
+    "TestCeilDiv/CeilDivOperationTest.TestCeilDiv",
+])
+def gen_ceil_div_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+
+    def generate_wrapper(
+        inputs: List[np.ndarray],
+        config: Dict[str, Any],    # noqa
+    ) -> List[np.ndarray]:
+        result = torch.ceil(torch.div(from_numpy(inputs[0]), from_numpy(inputs[1])))
+        return [to_numpy(result)]
     
+    logging.debug(f"Generating golden files of {case_name} ...")
+    return gen_op_golden("CeilDiv", generate_wrapper, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(case_names=[
+    "TestCeilDivs/CeilDivsOperationTest.TestCeilDivs",
+])
+def gen_ceil_divs_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+
+    def generate_wrapper(
+        inputs: List[np.ndarray],
+        config: Dict[str, Any],    # noqa
+    ) -> List[np.ndarray]:
+        params = config.get("params")
+        params["scalar_type"] = params.get("scalar_type", "int32")
+        scalar = get_dtype_by_name(params["scalar_type"])(params["scalar"])
+        result = torch.ceil(torch.div(from_numpy(inputs[0]), scalar))
+        return [to_numpy(result)]
+    
+    logging.debug(f"Generating golden files of {case_name} ...")
+    return gen_op_golden("CeilDivs", generate_wrapper, output, case_index)
+
 
 def main() -> bool:
     # 用例名称

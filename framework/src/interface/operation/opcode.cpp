@@ -64,6 +64,9 @@ void OpcodeManager::RegisterVectorBinary() {
     RegisterInfo(Opcode::OP_GCD_BRC, OpCoreType::AIV, "GCD_BRC", {MemoryType::MEM_UB, MemoryType::MEM_UB}, 
         {MemoryType::MEM_UB}, {"TileOp::TGcdbrc", PIPE_V, PIPE_V, CoreType::AIV}, 
         OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis});
+    RegisterInfo(Opcode::OP_CEILDIV_BRC, OpCoreType::AIV, "CEILDIV_BRC", {MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {MemoryType::MEM_UB}, {"TileOp::TCeilDivBrc", PIPE_V, PIPE_V, CoreType::AIV},
+        OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis});
     RegisterInfo(Opcode::OP_ADD, OpCoreType::AIV, "ADD", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tadd", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis},
         TileShapeVerifier::Verify);
@@ -105,6 +108,9 @@ void OpcodeManager::RegisterVectorBinary() {
         OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_GCD, OpCoreType::AIV, "GCD", {MemoryType::MEM_UB, MemoryType::MEM_UB}, 
         {MemoryType::MEM_UB}, {"TileOp::TGcd", PIPE_V, PIPE_V, CoreType::AIV}, 
+        OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_CEILDIV, OpCoreType::AIV, "CEILDIV", {MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {MemoryType::MEM_UB}, {"TileOp::TCeilDiv", PIPE_V, PIPE_V, CoreType::AIV},
         OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_S_ADD, OpCoreType::AIV, "S_ADD", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB}, {"TileOp::TSadd", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::BROADCAST,
@@ -200,6 +206,11 @@ void OpcodeManager::RegisterVectorBinary() {
             OpAttributeKey::outputCombineAxis, OpAttributeKey::excludeBufferReuse}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_GCDS, OpCoreType::AIV, "GCDS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::TGcds", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
+        {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OP_ATTR_PREFIX + "reverseOperand",
+            OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis},
+        TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_CEILDIVS, OpCoreType::AIV, "CEILDIVS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::TCeildDivS", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
         {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OP_ATTR_PREFIX + "reverseOperand",
             OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis},
         TileShapeVerifier::Verify);
@@ -895,6 +906,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {  Opcode::OP_TRANSPOSE_MOVEOUT,  "TTransMoveOut"},
     {          Opcode::OP_INDEX_PUT,      "TIndexPut"},
     {                Opcode::OP_GCD,           "TGcd"},
+    {            Opcode::OP_CEILDIV,       "TCeilDiv"},
     {                Opcode::OP_ADD,           "TAdd"},
     {            Opcode::OP_CUM_SUM,        "TCumSum"},
     {                Opcode::OP_SUB,           "TSub"},
@@ -945,6 +957,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {               Opcode::OP_LRELU,        "TLReLU"},
     {               Opcode::OP_DIVS,          "TDivS"},
     {               Opcode::OP_GCDS,          "TGcdS"},
+    {           Opcode::OP_CEILDIVS,      "TCeilDivS"},
     {              Opcode::OP_RSQRT,         "TRsqrt"},
     {              Opcode::OP_RELU,           "TRelu"},
     {              Opcode::OP_LOG1P,         "TLog1p"},
@@ -1033,6 +1046,8 @@ std::unordered_set<Opcode> SUPPORT_VF_FUSE_OPS{
     Opcode::OP_EXPAND,
     Opcode::OP_GCD,
     Opcode::OP_GCDS,
+    Opcode::OP_CEILDIV,
+    Opcode::OP_CEILDIVS,
 };
 
 std::unordered_set<Opcode> SKIP_OPCODE_FOR_CODEGEN = {
