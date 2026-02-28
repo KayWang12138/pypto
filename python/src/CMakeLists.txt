@@ -22,6 +22,7 @@ pybind11_add_module(pypto_impl
             bindings/pass_config.cpp
             bindings/function.cpp
             bindings/distributed.cpp
+            bindings/platform.cpp
 )
 target_include_directories(pypto_impl
         PRIVATE  # 使用 CANN 场景依赖
