@@ -111,8 +111,8 @@ private:
 namespace npu::tile_fwk::dynamic {
 constexpr int WIN_TYPE_NUM = 3; // win区类型in, status, debug
 enum class ResType {
-    MESH,
-    RING,
+    RING_A2,
+    MESH_A3,
     MESH_A5,
     UNKNOWN
 };
@@ -129,6 +129,6 @@ private:
     template<typename T>
     static void FillCommCtxAttr(TileOp::CommContext *ctxHost, T *hcclParamhost);
     template<typename T>
-    static void FillCommCtxWinArr(int i, TileOp::CommContext *ctxHost, T *hcclParamhost);
+    static void FillCommCtxWinArr(uint32_t i, TileOp::CommContext *ctxHost, T *hcclParamhost);
 };
 } // namespace npu::tile_fwk::dynamic
