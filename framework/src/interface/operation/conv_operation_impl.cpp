@@ -782,8 +782,8 @@ LogicalTensorPtr ConstructFmapTile(Function &function, const ConvGraphNodes &ten
         int64_t src_c_offset = iterInfo.groupOffset * (convTileInfo.orgCin / convAttrParam.groups) + srcCinOffset;
         int64_t src_d_offset =
             iterInfo.dinL1Offset + (iterInfo.kL0Offset / convTileInfo.kPerGroup) * convAttrParam.dilations[2];
-        int64_t src_h_offset = iterInfo.hL1InOffset;
-        int64_t src_w_offset = iterInfo.wL1InOffset;
+        int64_t src_h_offset = iterInfo.hL1InOffset > 0 ? iterInfo.hL1InOffset : 0;
+        int64_t src_w_offset = iterInfo.wL1InOffset > 0 ? iterInfo.wL1InOffset : 0;
         std::vector<int64_t> srcFmapGmOffset = {src_n_offset, src_c_offset, src_h_offset, src_w_offset};
         if (convAttrParam.isConv3D) {
             srcFmapGmOffset = {src_n_offset, src_c_offset, src_d_offset, src_h_offset, src_w_offset};
@@ -954,36 +954,8 @@ LogicalTensorPtr DoMmad(Function &function, const ConvAttrParam &convAttrParam, 
     return mmadOutputs[0];
 }
 
-void UpdateL1IterInfo(const ConvTileInfo &convTileInfo, ConvIterInfo &iterInfo, const ConvAttrParam &convAttrParam)
+void Cal3DDkL1Size(const ConvTileInfo &convTileInfo, ConvIterInfo &iterInfo, const ConvAttrParam &convAttrParam)
 {
-    // update iterInfo L1
-    iterInfo.hL1InOffset = iterInfo.hL1OutOffset * convAttrParam.strides[0] - convAttrParam.paddings[0];
-    if (iterInfo.hL1InOffset < 0) {
-        iterInfo.hinL1Size = convTileInfo.hAL1In + iterInfo.hL1InOffset;
-        if (iterInfo.hL1InOffset + convTileInfo.hAL1In <= 0) {
-            iterInfo.hinL1Size = 0;
-        }
-    } else if (convTileInfo.orgHin - iterInfo.hL1InOffset <= 0){
-        iterInfo.hinL1Size = 0;
-    } else {
-        iterInfo.hinL1Size = std::min(convTileInfo.orgHin - iterInfo.hL1InOffset, convTileInfo.hAL1In);
-    }
-    iterInfo.houtL1Size = std::min(convTileInfo.orgHout - iterInfo.hL1OutOffset, convTileInfo.hAL1Out);
-    // cal winL1Size
-    iterInfo.wL1InOffset = iterInfo.wL1OutOffset * convAttrParam.strides[1] - convAttrParam.paddings[2];
-    if (iterInfo.wL1InOffset < 0) {
-        iterInfo.winL1Size = convTileInfo.wAL1In + iterInfo.wL1InOffset;
-        if (iterInfo.wL1InOffset + convTileInfo.wAL1In <= 0) {
-            iterInfo.winL1Size = 0;
-        }
-    } else if (convTileInfo.orgWin - iterInfo.wL1InOffset <= 0){
-        iterInfo.winL1Size = 0;
-    } else {
-        iterInfo.winL1Size = std::min(convTileInfo.orgWin - iterInfo.wL1InOffset, convTileInfo.wAL1In);
-    }
-    iterInfo.woutL1Size = std::min(convTileInfo.orgWout - iterInfo.wL1OutOffset, convTileInfo.wAL1Out);
-    // cal nL1Size
-    iterInfo.nL1Size = std::min(convTileInfo.coutPerGroup - iterInfo.nL1Offset, convTileInfo.nBL1);
     // cal dk in L1, not support dk in L1 = 0 now, kerneld <= padd
     iterInfo.dkL1Size = 1;
     if (convAttrParam.isConv3D) {
@@ -1002,6 +974,58 @@ void UpdateL1IterInfo(const ConvTileInfo &convTileInfo, ConvIterInfo &iterInfo, 
         }
         iterInfo.dinL1Offset = srcDkOffset;
     }
+}
+
+void UpdateL1IterInfo(const ConvTileInfo &convTileInfo, ConvIterInfo &iterInfo, const ConvAttrParam &convAttrParam)
+{
+    // update iterInfo L1
+    // cal winL1Size
+    iterInfo.houtL1Size = std::min(convTileInfo.orgHout - iterInfo.hL1OutOffset, convTileInfo.hAL1Out);
+    iterInfo.hL1InOffset = iterInfo.hL1OutOffset * convAttrParam.strides[0] - convAttrParam.paddings[0];
+    int64_t needHL1Size = (iterInfo.houtL1Size - 1) * convAttrParam.strides[0] +
+        (convTileInfo.orgKh - 1) * convAttrParam.dilations[0] + 1;
+    if (iterInfo.hL1InOffset < 0) {
+        // start pos locate in pad
+        iterInfo.hinL1Size = needHL1Size + iterInfo.hL1InOffset;
+        if (iterInfo.hL1InOffset + needHL1Size <= 0) {
+            // all locate in pad
+            iterInfo.hinL1Size = 0;
+        }
+        if (iterInfo.hinL1Size > convTileInfo.orgHin) {
+            // w all load l1
+            iterInfo.hinL1Size = convTileInfo.orgHin;
+        }
+    } else if (convTileInfo.orgHin - iterInfo.hL1InOffset <= 0){
+        // start pos locate in bottom pad
+        iterInfo.hinL1Size = 0;
+    } else {
+        iterInfo.hinL1Size = std::min(convTileInfo.orgHin - iterInfo.hL1InOffset, needHL1Size);
+    }
+    // cal winL1Size
+    iterInfo.woutL1Size = std::min(convTileInfo.orgWout - iterInfo.wL1OutOffset, convTileInfo.wAL1Out);
+    iterInfo.wL1InOffset = iterInfo.wL1OutOffset * convAttrParam.strides[1] - convAttrParam.paddings[2];
+    int64_t needWL1Size = (iterInfo.woutL1Size - 1) * convAttrParam.strides[1] +
+        (convTileInfo.orgKw - 1) * convAttrParam.dilations[1] + 1;
+    if (iterInfo.wL1InOffset < 0) {
+        // start pos locate in pad
+        iterInfo.winL1Size = needWL1Size + iterInfo.wL1InOffset;
+        if (iterInfo.wL1InOffset + needWL1Size <= 0) {
+            // all locate in pad
+            iterInfo.winL1Size = 0;
+        }
+        if (iterInfo.winL1Size > convTileInfo.orgWin) {
+            // w all load l1
+            iterInfo.winL1Size = convTileInfo.orgWin;
+        }
+    } else if (convTileInfo.orgWin - iterInfo.wL1InOffset <= 0){
+        // start pos locate in right pad
+        iterInfo.winL1Size = 0;
+    } else {
+        iterInfo.winL1Size = std::min(convTileInfo.orgWin - iterInfo.wL1InOffset, needWL1Size);
+    }
+    // cal nL1Size
+    iterInfo.nL1Size = std::min(convTileInfo.coutPerGroup - iterInfo.nL1Offset, convTileInfo.nBL1);
+    Cal3DDkL1Size(convTileInfo, iterInfo, convAttrParam);
 }
 
 void UpdateL0IterInfo(const ConvTileInfo &convTileInfo, ConvIterInfo &iterInfo)
