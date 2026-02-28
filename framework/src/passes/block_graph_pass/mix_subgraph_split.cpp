@@ -332,7 +332,8 @@ Status MixSubgraphSplit::GenNewFunctions(Function& rootFunc, Function* originalM
         FunctionClone functionClone(rootFunc, originalMixFunc);
         auto newFunc = functionClone.CloneFunctionByComponent(components[i], newProgramIDs[i], i);
         subgraphToFunction.InsertParameter(i, *newFunc);
-        newFunc->ComputeHash();
+        newFunc->ComputeHash(originalMixFunc->ComputeHash().GetHash());
+        // newFunc->ComputeHash();
         FunctionHash funcHash = newFunc->GetFunctionHash();
         ALOG_DEBUG_F("Function %s computed hash: %lu", newFunc->GetMagicName(), funcHash.GetHash());
         Program::GetInstance().GetFunctionCache().Insert(funcHash, *newFunc);

@@ -1338,6 +1338,74 @@ unsigned long Function::ComputeHashOrderless() const {
     return result;
 }
 
+unsigned long Function::ComputeHashOrderless(uint64_t mixFuncHash) const {
+    std::stringstream ss;
+    ss << std::to_string(mixFuncHash) << " ";
+    ss << std::to_string(static_cast<int>(functionType_)) << " ";
+    ss << std::to_string(static_cast<int>(graphType_)) << " ";
+    if (!IsGraphType({GraphType::BLOCK_GRAPH, GraphType::LEAF_VF_GRAPH}) &&
+        !IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TENSOR_GRAPH)) {
+        ss << GetMagicName() << " ";
+    }
+
+    // Build using Polish Notation
+    int index = 0;
+    std::unordered_map<int, int> magic2index;
+    // 只有leaf graph需要判断边界
+    if (graphType_ == GraphType::BLOCK_GRAPH) {
+        if (operations_.size()) {
+            MagicLookup(
+                this, GetOutcast(), operations_[operations_.size() - 1]->GetSubgraphID(), index, magic2index, ss);
+        }
+    } else {
+        MagicLookup(this, GetOutcast(), INT32_MIN, index, magic2index, ss);
+    }
+
+    // 补充一些没有输出的Op的hash
+    for (size_t i = 0; i < operations_.size(); i++) {
+        if (operations_[i]->oOperand.empty()) {
+            ss << " " << operations_[i]->GetOpcodeStr(true);
+            for (const auto &attr : OpcodeManager::Inst().GetAttrs(operations_[i]->GetOpcode())) {
+                ss << " attr: [" << attr << " : "
+                   << operations_[i]->DumpAttr(attr) << "]";
+            }
+            ss << operations_[i]->GetTileShape().ToString();
+            MagicLookup(this, operations_[i]->GetIOperands(), operations_[0]->GetSubgraphID(), index, magic2index, ss);
+        }
+    }
+
+    for (auto &i : inCasts_) {
+        ss << "(i" << magic2index[i->GetMagic()] << ")";
+        bool isGlobal = (globalTensors_.count(i) != 0);
+        if (isGlobal) {
+            ss << "(Global)";
+        }
+    }
+    for (auto &o : outCasts_) {
+        ss << "(o" << magic2index[o->GetMagic()] << ")";
+        bool isGlobal = (globalTensors_.count(o) != 0);
+        if (isGlobal) {
+            ss << "(Global)";
+        }
+    }
+
+    // fill symbol and loop range attr of dyndev tensor graph for dynamic binary reuse
+    if (functionType_ == FunctionType::DYNAMIC_LOOP && dynloopAttr_ != nullptr) {
+        ss << "symbol name:[" << dynloopAttr_->iterSymbolName << "]";
+        ss << "loop range:[" << dynloopAttr_->loopRange.Dump() << "]";
+    }
+    // temporary avoidance, switch SUPPORT_DYNAMIC_ALIGNED has an unexpected effect on dynamic binary reuse
+    if (functionType_ == FunctionType::DYNAMIC) {
+        ss << "dynamic unaligned:" << config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_ALIGNED);
+    }
+    std::hash<std::string> hasher;
+    auto result = hasher(ss.str());
+    FUNCTION_LOGD("Hash for function %d %s is %s hash value is %lu\n",
+                 functionMagic_, GetMagicName().c_str(),
+                 ss.str().c_str(), result);
+    return result;
+}
+
 void Function::EraseOperations(bool eraseRelatedTensor, bool sorted) {
     std::unordered_set<LogicalTensorPtr> inOutCastSet(inCasts_.begin(), inCasts_.end());
     inOutCastSet.insert(outCasts_.begin(), outCasts_.end());
@@ -1415,6 +1483,19 @@ FunctionHash Function::ComputeHash() {
         inCastsSet_.emplace(ele);
     }
     functionHash_ = ComputeHashOrderless();
+    return functionHash_;
+}
+
+FunctionHash Function::ComputeHash(uint64_t mixFuncHash) {
+    if (functionHash_.GetHash() != 0 &&
+        (functionType_ != FunctionType::DYNAMIC_LOOP && functionType_ != FunctionType::DYNAMIC)) {
+        /* 动态类型的graph里面的op和tensor会随着循环的展开而变化，每次都需要刷新 */
+        return functionHash_;
+    }
+    for (auto &ele : inCasts_) {
+        inCastsSet_.emplace(ele);
+    }
+    functionHash_ = ComputeHashOrderless(mixFuncHash);
     return functionHash_;
 }
 

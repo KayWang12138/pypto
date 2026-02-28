@@ -512,6 +512,7 @@ public:
     }
     std::unordered_set<int> LoopCheck();
     FunctionHash ComputeHash();
+    FunctionHash ComputeHash(uint64_t mixFuncHash);
     std::vector<std::shared_ptr<Operation>> GetSortedOperations() const;
     OperationsViewer Operations(bool sorted = true);
     OperationsViewer OperationsAfterOOO();
@@ -905,6 +906,7 @@ private:
 
 private:
     unsigned long ComputeHashOrderless() const;
+    unsigned long ComputeHashOrderless(uint64_t mixFuncHash) const;
     void OpValidCheck(Operation &op) const;
     std::shared_ptr<LogicalTensor> ConnectWithOverlap(std::shared_ptr<LogicalTensor> iOperand);
     void RemoveOriginIncastConsumer(const std::shared_ptr<LogicalTensor> &originIncast) const;
