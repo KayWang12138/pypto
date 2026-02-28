@@ -18,9 +18,10 @@
 #include <utility>
 #include <string>
 #include "hccl_context.h"
+#include "tilefwk/platform.h"
 #include "interface/tileop/distributed/comm_context.h"
 
-namespace {  
+namespace {
 class TilingStructBase {
 public:
     TilingStructBase() {}
@@ -69,6 +70,14 @@ public:
     ~TilingStructV2() {}
     int32_t MakeMc2TilingStruct(const std::string& groupName) override {
         (void)memset_s(&Mc2CommConfig_, sizeof(Mc2CommConfig_), 0, sizeof(Mc2CommConfig_));
+        if (npu::tile_fwk::Platform::Instance().GetSoc().GetNPUArch() == npu::tile_fwk::NPUArch::DAV_3510) {
+            Mc2CommConfig_.inner.version = 100U;
+            Mc2CommConfig_.inner.commEngine = 3;
+            (void)memset_s(Mc2CommConfig_.inner.reserved, sizeof(Mc2CommConfig_.inner.reserved), 0,
+                sizeof(Mc2CommConfig_.inner.reserved));
+        } else {
+            Mc2CommConfig_.inner.version = 1;
+        }
         const char *algConfig = "BatchWrite=level0:fullmesh";
         Mc2CommConfig_.init.version = 100U;
         Mc2CommConfig_.init.mc2HcommCnt = 1;
@@ -104,6 +113,7 @@ constexpr int WIN_TYPE_NUM = 3; // win区类型in, status, debug
 enum class ResType {
     MESH,
     RING,
+    MESH_A5,
     UNKNOWN
 };
 
