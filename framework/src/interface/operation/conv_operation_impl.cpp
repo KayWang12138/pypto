@@ -207,7 +207,7 @@ void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const T
     auto &convTile = TileShape::Current().GetConvTile();
     int64_t tileH = convTile.tileL0Info.tileH;
     int64_t tileW = convTile.tileL0Info.tileW;
-    int64_t tileN = convTile.tileL0Info.tileN;
+    int64_t tileL0N = convTile.tileL0Info.tileN;
     int64_t tileK = convTile.tileL0Info.tileK;
     int64_t tileHout = convTile.tileL1Info.tileHout;
     int64_t tileWout = convTile.tileL1Info.tileWout;
@@ -241,8 +241,8 @@ void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const T
     size_t l0bSize = platform.GetAICCore().GetMemorySize(MemoryType::MEM_L0B);
     size_t l0cSize = platform.GetAICCore().GetMemorySize(MemoryType::MEM_L0C);
     ValidateL0Constraint(tileH, tileW, tileK, BytesOf(outType), l0aSize, "L0A", "tileH", "tileW", "tileK");
-    ValidateL0Constraint(tileK, tileN, 1, BytesOf(outType), l0bSize, "L0B", "tileK", "tileN", "");
-    ValidateL0Constraint(tileH, tileW, tileN, BytesOf(DataType::DT_FP32), l0cSize, "L0C", "tileH", "tileW", "tileN");
+    ValidateL0Constraint(tileK, tileL0N, 1, BytesOf(outType), l0bSize, "L0B", "tileK", "tileN", "");
+    ValidateL0Constraint(tileH, tileW, tileL0N, BytesOf(DataType::DT_FP32), l0cSize, "L0C", "tileH", "tileW", "tileN");
 }
 
 void CheckDivisible(int64_t value, int64_t divisor, const std::string& valueName, const std::string& divisorName)
