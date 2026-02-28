@@ -33,7 +33,7 @@ namespace ir {
 
 // A counting visitor that tracks how many nodes are visited
 class CountingVisitor : public IRVisitor {
- public:
+public:
   using IRVisitor::VisitExpr_;
   using IRVisitor::VisitStmt_;
 

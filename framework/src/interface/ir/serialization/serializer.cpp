@@ -41,12 +41,12 @@ namespace ir {
 namespace serialization {
 
 /**
- * @brief Field visitor for serialization
+ * \brief Field visitor for serialization
  *
  * Visits all fields of an IR node and serializes them to MessagePack format.
  */
 class FieldSerializerVisitor {
- public:
+public:
   using result_type = msgpack::object;
 
   explicit FieldSerializerVisitor(msgpack::zone& zone, class IRSerializer::Impl& ctx)
@@ -106,17 +106,17 @@ class FieldSerializerVisitor {
   template <typename Desc>
   void CombineResult(result_type& acc, result_type field_result, const Desc& desc);
 
- private:
+private:
   msgpack::zone& zone_;
   class IRSerializer::Impl& ctx_;
   std::map<std::string, msgpack::object> fields_;
 };
 
 /**
- * @brief Implementation class for IRSerializer
+ * \brief Implementation class for IRSerializer
  */
 class IRSerializer::Impl {
- public:
+public:
   Impl() = default;
 
   std::vector<uint8_t> Serialize(const IRNodePtr& node) {
@@ -206,10 +206,10 @@ class IRSerializer::Impl {
   msgpack::object SerializeSpan(const Span& span, msgpack::zone& zone) {
     std::map<std::string, msgpack::object> span_map;
     span_map["filename"] = msgpack::object(span.filename_, zone);
-    span_map["begin_line"] = msgpack::object(span.begin_line_, zone);
-    span_map["begin_column"] = msgpack::object(span.begin_column_, zone);
-    span_map["end_line"] = msgpack::object(span.end_line_, zone);
-    span_map["end_column"] = msgpack::object(span.end_column_, zone);
+    span_map["begin_line"] = msgpack::object(span.beginLine_, zone);
+    span_map["begin_column"] = msgpack::object(span.beginColumn_, zone);
+    span_map["end_line"] = msgpack::object(span.endLine_, zone);
+    span_map["end_column"] = msgpack::object(span.endColumn_, zone);
     return msgpack::object(span_map, zone);
   }
 
@@ -220,7 +220,7 @@ class IRSerializer::Impl {
 
     const auto& memref = *memref_opt.value();
     std::map<std::string, msgpack::object> memref_map;
-    memref_map["memory_space"] = msgpack::object(static_cast<uint8_t>(memref.memory_space_), zone);
+    memref_map["memory_space"] = msgpack::object(static_cast<uint8_t>(memref.memorySpace_), zone);
     memref_map["addr"] = SerializeNode(memref.addr_, zone);
     memref_map["size"] = msgpack::object(memref.size_, zone);
     memref_map["id"] = msgpack::object(memref.id_, zone);
@@ -234,9 +234,9 @@ class IRSerializer::Impl {
 
     std::map<std::string, msgpack::object> tv_map;
 
-    // Serialize valid_shape
+    // Serialize validShape
     std::vector<msgpack::object> valid_shape_vec;
-    for (const auto& dim : tile_view->valid_shape) {
+    for (const auto& dim : tile_view->validShape) {
       valid_shape_vec.push_back(SerializeNode(dim, zone));
     }
     tv_map["valid_shape"] = msgpack::object(valid_shape_vec, zone);
@@ -248,8 +248,8 @@ class IRSerializer::Impl {
     }
     tv_map["stride"] = msgpack::object(stride_vec, zone);
 
-    // Serialize start_offset
-    tv_map["start_offset"] = SerializeNode(tile_view->start_offset, zone);
+    // Serialize startOffset
+    tv_map["start_offset"] = SerializeNode(tile_view->startOffset, zone);
 
     return msgpack::object(tv_map, zone);
   }
@@ -290,8 +290,8 @@ class IRSerializer::Impl {
       }
 
       // Serialize tile_view if present
-      if (tile_type->tile_view_.has_value()) {
-        type_map["tile_view"] = SerializeTileView(tile_type->tile_view_, zone);
+      if (tile_type->tileView_.has_value()) {
+        type_map["tile_view"] = SerializeTileView(tile_type->tileView_, zone);
       }
     } else if (auto tuple_type = As<TupleType>(type)) {
       std::vector<msgpack::object> types_vec;
@@ -347,7 +347,7 @@ class IRSerializer::Impl {
         descriptors);
   }
 
- private:
+private:
   uint64_t next_id_;
   std::unordered_map<const IRNode*, uint64_t> ptr_to_id_;
 };

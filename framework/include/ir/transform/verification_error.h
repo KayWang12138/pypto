@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_TRANSFORMS_VERIFICATION_ERROR_H_
-#define PYPTO_IR_TRANSFORMS_VERIFICATION_ERROR_H_
+#pragma once
+
 
 #include <string>
 
@@ -19,12 +19,12 @@ namespace pypto {
 namespace ir {
 
 /**
- * @brief SSA verification error types and utilities
+ * \brief SSA verification error types and utilities
  */
 namespace ssa {
 
 /**
- * @brief Error types for SSA verification
+ * \brief Error types for SSA verification
  */
 enum class ErrorType : int {
   MULTIPLE_ASSIGNMENT = 1,  // Variable assigned more than once
@@ -33,19 +33,19 @@ enum class ErrorType : int {
 };
 
 /**
- * @brief Convert SSA error type to string
+ * \brief Convert SSA error type to string
  */
 std::string ErrorTypeToString(ErrorType type);
 
 }  // namespace ssa
 
 /**
- * @brief Type checking error types and utilities
+ * \brief Type checking error types and utilities
  */
 namespace typecheck {
 
 /**
- * @brief Error types for type checking
+ * \brief Error types for type checking
  */
 enum class ErrorType : int {
   TYPE_KIND_MISMATCH = 101,           // Type kind mismatch (e.g., ScalarType vs TensorType)
@@ -58,7 +58,7 @@ enum class ErrorType : int {
 };
 
 /**
- * @brief Convert type check error type to string
+ * \brief Convert type check error type to string
  */
 std::string ErrorTypeToString(ErrorType type);
 
@@ -67,4 +67,3 @@ std::string ErrorTypeToString(ErrorType type);
 }  // namespace ir
 }  // namespace pypto
 
-#endif  // PYPTO_IR_TRANSFORMS_VERIFICATION_ERROR_H_

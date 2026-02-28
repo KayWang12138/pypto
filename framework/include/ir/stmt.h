@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_STMT_H_
-#define PYPTO_IR_STMT_H_
+#pragma once
+
 
 #include <memory>
 #include <optional>
@@ -30,25 +30,25 @@ class IRVisitor;
 class IRMutator;
 
 /**
- * @brief Base class for all statements in the IR
+ * \brief Base class for all statements in the IR
  *
  * Statements represent operations that perform side effects or control flow.
  * All statements are immutable.
  */
 class Stmt : public IRNode {
- public:
+public:
   /**
-   * @brief Create a statement
+   * \brief Create a statement
    *
-   * @param span Source location
+   * \param span Source location
    */
   explicit Stmt(Span s) : IRNode(std::move(s)) {}
   ~Stmt() override = default;
 
   /**
-   * @brief Get the type name of this statement
+   * \brief Get the type name of this statement
    *
-   * @return Human-readable type name (e.g., "Stmt", "Assign", "Return")
+   * \return Human-readable type name (e.g., "Stmt", "Assign", "Return")
    */
   [[nodiscard]] std::string TypeName() const override { return "Stmt"; }
 
@@ -58,22 +58,22 @@ class Stmt : public IRNode {
 using StmtPtr = std::shared_ptr<const Stmt>;
 
 /**
- * @brief Assignment statement
+ * \brief Assignment statement
  *
  * Represents an assignment operation: var = value
  * where var is a variable and value is an expression.
  */
 class AssignStmt : public Stmt {
- public:
+public:
   VarPtr var_;     // Variable
   ExprPtr value_;  // Expression
 
   /**
-   * @brief Create an assignment statement
+   * \brief Create an assignment statement
    *
-   * @param var Variable
-   * @param value Expression
-   * @param span Source location
+   * \param var Variable
+   * \param value Expression
+   * \param span Source location
    */
   AssignStmt(VarPtr var, ExprPtr value, Span span)
       : Stmt(std::move(span)), var_(std::move(var)), value_(std::move(value)) {}
@@ -82,9 +82,9 @@ class AssignStmt : public Stmt {
   [[nodiscard]] std::string TypeName() const override { return "AssignStmt"; }
 
   /**
-   * @brief Get field descriptors for reflection-based visitation
+   * \brief Get field descriptors for reflection-based visitation
    *
-   * @return Tuple of field descriptors (var and value as DEF and USUAL fields)
+   * \return Tuple of field descriptors (var and value as DEF and USUAL fields)
    */
   static constexpr auto GetFieldDescriptors() {
     return std::tuple_cat(Stmt::GetFieldDescriptors(),
@@ -96,75 +96,75 @@ class AssignStmt : public Stmt {
 using AssignStmtPtr = std::shared_ptr<const AssignStmt>;
 
 /**
- * @brief Conditional statement
+ * \brief Conditional statement
  *
  * Represents an if-else statement: if condition then then_body else else_body
  * where condition is an expression and then_body/else_body is statement.
  */
 class IfStmt : public Stmt {
- public:
+public:
   /**
-   * @brief Create a conditional statement with then and else branches
+   * \brief Create a conditional statement with then and else branches
    *
-   * @param condition Condition expression
-   * @param then_body Then branch statement
-   * @param else_body Else branch statement (can be optional)
-   * @param return_vars Return variables (can be empty)
-   * @param span Source location
+   * \param condition Condition expression
+   * \param then_body Then branch statement
+   * \param else_body Else branch statement (can be optional)
+   * \param return_vars Return variables (can be empty)
+   * \param span Source location
    */
   IfStmt(ExprPtr condition, StmtPtr then_body, std::optional<StmtPtr> else_body,
          std::vector<VarPtr> return_vars, Span span)
       : Stmt(std::move(span)),
         condition_(std::move(condition)),
-        then_body_(std::move(then_body)),
-        else_body_(std::move(else_body)),
-        return_vars_(std::move(return_vars)) {}
+        thenBody_(std::move(then_body)),
+        elseBody_(std::move(else_body)),
+        returnVars_(std::move(return_vars)) {}
 
   [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::IfStmt; }
   [[nodiscard]] std::string TypeName() const override { return "IfStmt"; }
 
   /**
-   * @brief Get field descriptors for reflection-based visitation
+   * \brief Get field descriptors for reflection-based visitation
    *
-   * @return Tuple of field descriptors (condition, then_body, else_body as USUAL fields)
+   * \return Tuple of field descriptors (condition, then_body, else_body as USUAL fields)
    */
   static constexpr auto GetFieldDescriptors() {
     return std::tuple_cat(Stmt::GetFieldDescriptors(),
                           std::make_tuple(reflection::UsualField(&IfStmt::condition_, "condition"),
-                                          reflection::UsualField(&IfStmt::then_body_, "then_body"),
-                                          reflection::UsualField(&IfStmt::else_body_, "else_body"),
-                                          reflection::DefField(&IfStmt::return_vars_, "return_vars")));
+                                          reflection::UsualField(&IfStmt::thenBody_, "then_body"),
+                                          reflection::UsualField(&IfStmt::elseBody_, "else_body"),
+                                          reflection::DefField(&IfStmt::returnVars_, "return_vars")));
   }
 
- public:
+public:
   ExprPtr condition_;                 // Condition expression
-  StmtPtr then_body_;                 // Then branch statement
-  std::optional<StmtPtr> else_body_;  // Else branch statement (optional)
-  std::vector<VarPtr> return_vars_;   // Return variables (can be empty)
+  StmtPtr thenBody_;                 // Then branch statement
+  std::optional<StmtPtr> elseBody_;  // Else branch statement (optional)
+  std::vector<VarPtr> returnVars_;   // Return variables (can be empty)
 };
 
 using IfStmtPtr = std::shared_ptr<const IfStmt>;
 
 /**
- * @brief Yield statement
+ * \brief Yield statement
  *
  * Represents a yield operation: yield value
  * where value is a list of variables to yield.
  */
 class YieldStmt : public Stmt {
- public:
+public:
   /**
-   * @brief Create a yield statement
+   * \brief Create a yield statement
    *
-   * @param value List of variables to yield (can be empty)
-   * @param span Source location
+   * \param value List of variables to yield (can be empty)
+   * \param span Source location
    */
   YieldStmt(std::vector<ExprPtr> value, Span span) : Stmt(std::move(span)), value_(std::move(value)) {}
 
   /**
-   * @brief Create a yield statement without values
+   * \brief Create a yield statement without values
    *
-   * @param span Source location
+   * \param span Source location
    */
   explicit YieldStmt(Span span) : Stmt(std::move(span)), value_() {}
 
@@ -172,41 +172,41 @@ class YieldStmt : public Stmt {
   [[nodiscard]] std::string TypeName() const override { return "YieldStmt"; }
 
   /**
-   * @brief Get field descriptors for reflection-based visitation
+   * \brief Get field descriptors for reflection-based visitation
    *
-   * @return Tuple of field descriptors (value as USUAL field)
+   * \return Tuple of field descriptors (value as USUAL field)
    */
   static constexpr auto GetFieldDescriptors() {
     return std::tuple_cat(Stmt::GetFieldDescriptors(),
                           std::make_tuple(reflection::UsualField(&YieldStmt::value_, "value")));
   }
 
- public:
+public:
   std::vector<ExprPtr> value_;  // List of expressions to yield
 };
 
 using YieldStmtPtr = std::shared_ptr<const YieldStmt>;
 
 /**
- * @brief Return statement
+ * \brief Return statement
  *
  * Represents a return operation: return value
  * where value is a list of expressions to return.
  */
 class ReturnStmt : public Stmt {
- public:
+public:
   /**
-   * @brief Create a return statement
+   * \brief Create a return statement
    *
-   * @param value List of expressions to return (can be empty)
-   * @param span Source location
+   * \param value List of expressions to return (can be empty)
+   * \param span Source location
    */
   ReturnStmt(std::vector<ExprPtr> value, Span span) : Stmt(std::move(span)), value_(std::move(value)) {}
 
   /**
-   * @brief Create a return statement without values
+   * \brief Create a return statement without values
    *
-   * @param span Source location
+   * \param span Source location
    */
   explicit ReturnStmt(Span span) : Stmt(std::move(span)), value_() {}
 
@@ -214,23 +214,23 @@ class ReturnStmt : public Stmt {
   [[nodiscard]] std::string TypeName() const override { return "ReturnStmt"; }
 
   /**
-   * @brief Get field descriptors for reflection-based visitation
+   * \brief Get field descriptors for reflection-based visitation
    *
-   * @return Tuple of field descriptors (value as USUAL field)
+   * \return Tuple of field descriptors (value as USUAL field)
    */
   static constexpr auto GetFieldDescriptors() {
     return std::tuple_cat(Stmt::GetFieldDescriptors(),
                           std::make_tuple(reflection::UsualField(&ReturnStmt::value_, "value")));
   }
 
- public:
+public:
   std::vector<ExprPtr> value_;  // List of expressions to return
 };
 
 using ReturnStmtPtr = std::shared_ptr<const ReturnStmt>;
 
 /**
- * @brief For loop statement
+ * \brief For loop statement
  *
  * Represents a for loop with optional loop-carried values (SSA-style iteration).
  *
@@ -250,74 +250,74 @@ using ReturnStmtPtr = std::shared_ptr<const ReturnStmt>;
  * - IterArgs cannot be directly accessed outside the loop; use return_vars instead
  */
 class ForStmt : public Stmt {
- public:
+public:
   /**
-   * @brief Create a for loop statement
+   * \brief Create a for loop statement
    *
-   * @param loop_var Loop variable
-   * @param start Start value expression
-   * @param stop Stop value expression
-   * @param step Step value expression
-   * @param iter_args Iteration arguments (loop-carried values, scoped to loop body)
-   * @param body Loop body statement (must yield values matching iter_args if non-empty)
-   * @param return_vars Return variables (capture final values, accessible after loop)
-   * @param span Source location
+   * \param loop_var Loop variable
+   * \param start Start value expression
+   * \param stop Stop value expression
+   * \param step Step value expression
+   * \param iter_args Iteration arguments (loop-carried values, scoped to loop body)
+   * \param body Loop body statement (must yield values matching iter_args if non-empty)
+   * \param return_vars Return variables (capture final values, accessible after loop)
+   * \param span Source location
    */
   ForStmt(VarPtr loop_var, ExprPtr start, ExprPtr stop, ExprPtr step, std::vector<IterArgPtr> iter_args,
           StmtPtr body, std::vector<VarPtr> return_vars, Span span)
       : Stmt(std::move(span)),
-        loop_var_(std::move(loop_var)),
+        loopVar_(std::move(loop_var)),
         start_(std::move(start)),
         stop_(std::move(stop)),
         step_(std::move(step)),
-        iter_args_(std::move(iter_args)),
+        iterArgs_(std::move(iter_args)),
         body_(std::move(body)),
-        return_vars_(std::move(return_vars)) {}
+        returnVars_(std::move(return_vars)) {}
 
   [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::ForStmt; }
   [[nodiscard]] std::string TypeName() const override { return "ForStmt"; }
 
   /**
-   * @brief Get field descriptors for reflection-based visitation
+   * \brief Get field descriptors for reflection-based visitation
    *
-   * @return Tuple of field descriptors (loop_var as DEF field, others as USUAL fields)
+   * \return Tuple of field descriptors (loop_var as DEF field, others as USUAL fields)
    */
   static constexpr auto GetFieldDescriptors() {
     return std::tuple_cat(Stmt::GetFieldDescriptors(),
-                          std::make_tuple(reflection::DefField(&ForStmt::loop_var_, "loop_var"),
+                          std::make_tuple(reflection::DefField(&ForStmt::loopVar_, "loop_var"),
                                           reflection::UsualField(&ForStmt::start_, "start"),
                                           reflection::UsualField(&ForStmt::stop_, "stop"),
                                           reflection::UsualField(&ForStmt::step_, "step"),
-                                          reflection::DefField(&ForStmt::iter_args_, "iter_args"),
+                                          reflection::DefField(&ForStmt::iterArgs_, "iter_args"),
                                           reflection::UsualField(&ForStmt::body_, "body"),
-                                          reflection::DefField(&ForStmt::return_vars_, "return_vars")));
+                                          reflection::DefField(&ForStmt::returnVars_, "return_vars")));
   }
 
- public:
-  VarPtr loop_var_;                    // Loop variable (e.g., i in "for i in range(...)")
+public:
+  VarPtr loopVar_;                    // Loop variable (e.g., i in "for i in range(...)")
   ExprPtr start_;                      // Start value expression
   ExprPtr stop_;                       // Stop value expression
   ExprPtr step_;                       // Step value expression
-  std::vector<IterArgPtr> iter_args_;  // Loop-carried values (scoped to loop body)
+  std::vector<IterArgPtr> iterArgs_;  // Loop-carried values (scoped to loop body)
   StmtPtr body_;                       // Loop body statement (must yield if iter_args non-empty)
-  std::vector<VarPtr> return_vars_;    // Variables capturing final iteration values (accessible after loop)
+  std::vector<VarPtr> returnVars_;    // Variables capturing final iteration values (accessible after loop)
 };
 
 using ForStmtPtr = std::shared_ptr<const ForStmt>;
 
 /**
- * @brief Sequence of statements
+ * \brief Sequence of statements
  *
  * Represents a sequence of statements: stmt1; stmt2; ... stmtN
  * where stmts is a list of statements.
  */
 class SeqStmts : public Stmt {
- public:
+public:
   /**
-   * @brief Create a sequence of statements
+   * \brief Create a sequence of statements
    *
-   * @param stmts List of statements
-   * @param span Source location
+   * \param stmts List of statements
+   * \param span Source location
    */
   SeqStmts(std::vector<StmtPtr> stmts, Span span) : Stmt(std::move(span)), stmts_(std::move(stmts)) {}
 
@@ -325,23 +325,23 @@ class SeqStmts : public Stmt {
   [[nodiscard]] std::string TypeName() const override { return "SeqStmts"; }
 
   /**
-   * @brief Get field descriptors for reflection-based visitation
+   * \brief Get field descriptors for reflection-based visitation
    *
-   * @return Tuple of field descriptors (stmts as USUAL field)
+   * \return Tuple of field descriptors (stmts as USUAL field)
    */
   static constexpr auto GetFieldDescriptors() {
     return std::tuple_cat(Stmt::GetFieldDescriptors(),
                           std::make_tuple(reflection::UsualField(&SeqStmts::stmts_, "stmts")));
   }
 
- public:
+public:
   std::vector<StmtPtr> stmts_;  // List of statements
 };
 
 using SeqStmtsPtr = std::shared_ptr<const SeqStmts>;
 
 /**
- * @brief Operation statements
+ * \brief Operation statements
  *
  * Represents a sequence of assignment and/or evaluation statements.
  * This is used to group operations that should be treated as a unit,
@@ -351,12 +351,12 @@ using SeqStmtsPtr = std::shared_ptr<const SeqStmts>;
  * at construction time if other statement types are provided.
  */
 class OpStmts : public Stmt {
- public:
+public:
   /**
-   * @brief Create an operation statements
+   * \brief Create an operation statements
    *
-   * @param stmts List of assignment and/or evaluation statements
-   * @param span Source location
+   * \param stmts List of assignment and/or evaluation statements
+   * \param span Source location
    */
   OpStmts(std::vector<StmtPtr> stmts, Span span);
 
@@ -364,23 +364,23 @@ class OpStmts : public Stmt {
   [[nodiscard]] std::string TypeName() const override { return "OpStmts"; }
 
   /**
-   * @brief Get field descriptors for reflection-based visitation
+   * \brief Get field descriptors for reflection-based visitation
    *
-   * @return Tuple of field descriptors (stmts as USUAL field)
+   * \return Tuple of field descriptors (stmts as USUAL field)
    */
   static constexpr auto GetFieldDescriptors() {
     return std::tuple_cat(Stmt::GetFieldDescriptors(),
                           std::make_tuple(reflection::UsualField(&OpStmts::stmts_, "stmts")));
   }
 
- public:
+public:
   std::vector<StmtPtr> stmts_;  // List of assignment and/or evaluation statements
 };
 
 using OpStmtsPtr = std::shared_ptr<const OpStmts>;
 
 /**
- * @brief Evaluation statement
+ * \brief Evaluation statement
  *
  * Represents an expression executed as a statement: expr
  * where expr is an expression (typically a Call).
@@ -388,12 +388,12 @@ using OpStmtsPtr = std::shared_ptr<const OpStmts>;
  * (or return value is ignored).
  */
 class EvalStmt : public Stmt {
- public:
+public:
   /**
-   * @brief Create an evaluation statement
+   * \brief Create an evaluation statement
    *
-   * @param expr Expression to execute
-   * @param span Source location
+   * \param expr Expression to execute
+   * \param span Source location
    */
   EvalStmt(ExprPtr expr, Span span) : Stmt(std::move(span)), expr_(std::move(expr)) {}
 
@@ -401,16 +401,16 @@ class EvalStmt : public Stmt {
   [[nodiscard]] std::string TypeName() const override { return "EvalStmt"; }
 
   /**
-   * @brief Get field descriptors for reflection-based visitation
+   * \brief Get field descriptors for reflection-based visitation
    *
-   * @return Tuple of field descriptors (expr as USUAL field)
+   * \return Tuple of field descriptors (expr as USUAL field)
    */
   static constexpr auto GetFieldDescriptors() {
     return std::tuple_cat(Stmt::GetFieldDescriptors(),
                           std::make_tuple(reflection::UsualField(&EvalStmt::expr_, "expr")));
   }
 
- public:
+public:
   ExprPtr expr_;  // Expression
 };
 
@@ -419,4 +419,3 @@ using EvalStmtPtr = std::shared_ptr<const EvalStmt>;
 }  // namespace ir
 }  // namespace pypto
 
-#endif  // PYPTO_IR_STMT_H_

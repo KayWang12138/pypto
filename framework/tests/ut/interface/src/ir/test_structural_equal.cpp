@@ -1239,13 +1239,13 @@ TEST_F(StructuralEqualTest, TestFunctionTypeMismatch) {
       std::make_shared<ConstInt>(0, DataType::INT32, sp), sp);
   auto func1 = std::make_shared<Function>(
       "f", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body1,
-      sp, FunctionType::Opaque);
+      sp, FunctionType::OPAQUE);
 
   auto body2 = std::make_shared<EvalStmt>(
       std::make_shared<ConstInt>(0, DataType::INT32, sp), sp);
   auto func2 = std::make_shared<Function>(
       "f", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body2,
-      sp, FunctionType::InCore);
+      sp, FunctionType::IN_CORE);
 
   ASSERT_FALSE(structural_equal(func1, func2));
 }

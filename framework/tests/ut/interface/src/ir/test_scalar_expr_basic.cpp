@@ -77,7 +77,7 @@ TEST(ScalarExprBasicTest, TestConstIntWithSpan) {
   auto const_int = std::make_shared<ConstInt>(42, DataType::INT32, span);
   ASSERT_NE(const_int, nullptr);
   ASSERT_EQ(const_int->span_.filename_, "test.py");
-  ASSERT_EQ(const_int->span_.begin_line_, 10);
+  ASSERT_EQ(const_int->span_.beginLine_, 10);
 }
 
 // ============================================================================
@@ -162,7 +162,7 @@ TEST(ScalarExprBasicTest, TestConstBoolWithSpan) {
   auto const_bool = std::make_shared<ConstBool>(true, span);
   ASSERT_NE(const_bool, nullptr);
   ASSERT_EQ(const_bool->span_.filename_, "test.py");
-  ASSERT_EQ(const_bool->span_.begin_line_, 20);
+  ASSERT_EQ(const_bool->span_.beginLine_, 20);
 }
 
 // ============================================================================
@@ -226,13 +226,13 @@ TEST(ScalarExprBasicTest, TestIsBoolDtype) {
 TEST(ScalarExprBasicTest, TestGetNumericCategoryInt) {
   // Test GetNumericCategory for integer types
   auto category = GetNumericCategory(DataType::INT32, "test");
-  ASSERT_EQ(category, ScalarCategory::kInt);
+  ASSERT_EQ(category, ScalarCategory::INT);
 }
 
 TEST(ScalarExprBasicTest, TestGetNumericCategoryFloat) {
   // Test GetNumericCategory for float types
   auto category = GetNumericCategory(DataType::FP32, "test");
-  ASSERT_EQ(category, ScalarCategory::kFloat);
+  ASSERT_EQ(category, ScalarCategory::FLOAT);
 }
 
 }  // namespace ir

@@ -114,17 +114,17 @@ TEST_F(CoreErrorTest, TestThrowCatchTypeError) {
 
 TEST_F(CoreErrorTest, TestDiagnosticDefault) {
   Diagnostic diag;
-  ASSERT_EQ(diag.severity, DiagnosticSeverity::Error);
-  ASSERT_EQ(diag.error_code, 0);
-  ASSERT_TRUE(diag.rule_name.empty());
+  ASSERT_EQ(diag.severity, DiagnosticSeverity::ERROR);
+  ASSERT_EQ(diag.errorCode, 0);
+  ASSERT_TRUE(diag.ruleName.empty());
   ASSERT_TRUE(diag.message.empty());
 }
 
 TEST_F(CoreErrorTest, TestDiagnosticConstruction) {
-  Diagnostic diag(DiagnosticSeverity::Warning, "TestRule", 42, "test message", Span::unknown());
-  ASSERT_EQ(diag.severity, DiagnosticSeverity::Warning);
-  ASSERT_EQ(diag.rule_name, "TestRule");
-  ASSERT_EQ(diag.error_code, 42);
+  Diagnostic diag(DiagnosticSeverity::WARNING, "TestRule", 42, "test message", Span::unknown());
+  ASSERT_EQ(diag.severity, DiagnosticSeverity::WARNING);
+  ASSERT_EQ(diag.ruleName, "TestRule");
+  ASSERT_EQ(diag.errorCode, 42);
   ASSERT_EQ(diag.message, "test message");
 }
 
@@ -134,14 +134,14 @@ TEST_F(CoreErrorTest, TestDiagnosticConstruction) {
 
 TEST_F(CoreErrorTest, TestVerificationError) {
   std::vector<Diagnostic> diags;
-  diags.emplace_back(DiagnosticSeverity::Error, "Rule1", 1, "error msg", Span::unknown());
-  diags.emplace_back(DiagnosticSeverity::Warning, "Rule2", 2, "warn msg", Span::unknown());
+  diags.emplace_back(DiagnosticSeverity::ERROR, "Rule1", 1, "error msg", Span::unknown());
+  diags.emplace_back(DiagnosticSeverity::WARNING, "Rule2", 2, "warn msg", Span::unknown());
 
   VerificationError err("verification failed", std::move(diags));
   ASSERT_STREQ(err.what(), "verification failed");
   ASSERT_EQ(err.GetDiagnostics().size(), 2);
-  ASSERT_EQ(err.GetDiagnostics()[0].severity, DiagnosticSeverity::Error);
-  ASSERT_EQ(err.GetDiagnostics()[1].severity, DiagnosticSeverity::Warning);
+  ASSERT_EQ(err.GetDiagnostics()[0].severity, DiagnosticSeverity::ERROR);
+  ASSERT_EQ(err.GetDiagnostics()[1].severity, DiagnosticSeverity::WARNING);
 }
 
 // ============================================================================

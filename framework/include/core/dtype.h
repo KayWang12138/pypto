@@ -8,17 +8,17 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/**
- * @file dtype.h
- * @brief Data type definitions for PyPTO tensors and operations
+#pragma once
+
+/*!
+ * \file dtype.h
+ * \brief Data type definitions for PyPTO tensors and operations
  *
  * This file defines the DataType class which represents all supported numeric types
  * in the PyPTO framework, including integers, unsigned integers, floating point,
  * bfloat16, and Hisilicon float formats.
  */
 
-#ifndef PYPTO_CORE_DTYPE_H_
-#define PYPTO_CORE_DTYPE_H_
 
 #include <cstdint>
 #include <string>
@@ -27,7 +27,7 @@ namespace pypto {
 namespace ir {
 
 /**
- * @brief Data type representation for PyPTO
+ * \brief Data type representation for PyPTO
  *
  * This class encapsulates all numeric data types supported by PyPTO tensors and operations.
  * It includes:
@@ -39,7 +39,7 @@ namespace ir {
  * - Boolean: BOOL
  */
 class DataType {
- public:
+public:
   // Type code constants
   // Organized by category with gaps for future extension
 
@@ -109,23 +109,23 @@ class DataType {
   static const DataType HF8;        // 8-bit Hisilicon float
 
   /**
-   * @brief Default constructor, initializes to BOOL type
+   * \brief Default constructor, initializes to BOOL type
    */
   constexpr DataType() : code_(kBoolCode) {}
 
   /**
-   * @brief Construct from type code
-   * @param code The type code
+   * \brief Construct from type code
+   * \param code The type code
    */
   constexpr explicit DataType(uint8_t code) : code_(code) {}
 
   /**
-   * @brief Get the size in bits of this data type
+   * \brief Get the size in bits of this data type
    *
    * Returns the storage size in bits for each data type. This accurately
    * represents sub-byte types like INT4, UINT4, FP4, and HF4.
    *
-   * @return Size in bits
+   * \return Size in bits
    */
   [[nodiscard]] size_t GetBit() const {
     switch (code_) {
@@ -160,9 +160,9 @@ class DataType {
   }
 
   /**
-   * @brief Get a human-readable string name for this data type
+   * \brief Get a human-readable string name for this data type
    *
-   * @return String representation of the data type
+   * \return String representation of the data type
    */
   [[nodiscard]] std::string ToString() const {
     switch (code_) {
@@ -210,13 +210,13 @@ class DataType {
   }
 
   /**
-   * @brief Get C style type string for code generation
+   * \brief Get C style type string for code generation
    *
    * Returns the C/C++ type string representation used in code generation.
    * Covers all DataType variants: signed/unsigned integers (incl. INT4/UINT4),
    * IEEE float (FP16, FP32, FP64), FP4/FP8, BF16, HF4/HF8, and BOOL.
    *
-   * @return C style type string (e.g. "float", "int32_t", "half", "bfloat16")
+   * \return C style type string (e.g. "float", "int32_t", "half", "bfloat16")
    */
   [[nodiscard]] std::string ToCTypeString() const {
     switch (code_) {
@@ -252,9 +252,9 @@ class DataType {
   }
 
   /**
-   * @brief Check if this data type is a floating point type
+   * \brief Check if this data type is a floating point type
    *
-   * @return true if this is FP4, FP8, FP16, FP32, BF16, HF4, or HF8
+   * \return true if this is FP4, FP8, FP16, FP32, BF16, HF4, or HF8
    */
   [[nodiscard]] bool IsFloat() const {
     // IEEE float types or Brain/Hisilicon float types
@@ -263,54 +263,54 @@ class DataType {
   }
 
   /**
-   * @brief Check if this data type is a signed integer type
+   * \brief Check if this data type is a signed integer type
    *
-   * @return true if this is INT4, INT8, INT16, INT32, or INT64
+   * \return true if this is INT4, INT8, INT16, INT32, or INT64
    */
   [[nodiscard]] bool IsSignedInt() const {
     return code_ >= kSignedIntRangeStart && code_ <= kSignedIntRangeEnd;
   }
 
   /**
-   * @brief Check if this data type is an unsigned integer type
+   * \brief Check if this data type is an unsigned integer type
    *
-   * @return true if this is UINT4, UINT8, UINT16, UINT32, or UINT64
+   * \return true if this is UINT4, UINT8, UINT16, UINT32, or UINT64
    */
   [[nodiscard]] bool IsUnsignedInt() const {
     return code_ >= kUnsignedIntRangeStart && code_ <= kUnsignedIntRangeEnd;
   }
 
   /**
-   * @brief Check if this data type is any integer type (signed or unsigned)
+   * \brief Check if this data type is any integer type (signed or unsigned)
    *
-   * @return true if this is any integer type
+   * \return true if this is any integer type
    */
   [[nodiscard]] bool IsInt() const { return IsSignedInt() || IsUnsignedInt(); }
 
   /**
-   * @brief Equality comparison operator
+   * \brief Equality comparison operator
    *
-   * @param other The other DataType to compare with
-   * @return true if both types have the same code
+   * \param other The other DataType to compare with
+   * \return true if both types have the same code
    */
   constexpr bool operator==(const DataType& other) const { return code_ == other.code_; }
 
   /**
-   * @brief Inequality comparison operator
+   * \brief Inequality comparison operator
    *
-   * @param other The other DataType to compare with
-   * @return true if types have different codes
+   * \param other The other DataType to compare with
+   * \return true if types have different codes
    */
   constexpr bool operator!=(const DataType& other) const { return code_ != other.code_; }
 
   /**
-   * @brief Get the underlying type code
+   * \brief Get the underlying type code
    *
-   * @return The uint8_t code representing this type
+   * \return The uint8_t code representing this type
    */
   [[nodiscard]] constexpr uint8_t Code() const { return code_; }
 
- private:
+private:
   uint8_t code_;  // Internal type code
 };
 
@@ -339,4 +339,3 @@ inline constexpr DataType DataType::HF8 = DataType(kHf8Code);
 }  // namespace ir
 }  // namespace pypto
 
-#endif  // PYPTO_CORE_DTYPE_H_

@@ -37,7 +37,7 @@ namespace pypto {
 namespace ir {
 
 class TensorOpsTest : public testing::Test {
- protected:
+protected:
   OpRegistry& registry_ = OpRegistry::GetInstance();
   Span span_ = Span::unknown();
 

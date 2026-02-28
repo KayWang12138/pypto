@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_TRANSFORMS_DEPENDENCY_ANALYZER_H_
-#define PYPTO_IR_TRANSFORMS_DEPENDENCY_ANALYZER_H_
+#pragma once
+
 
 #include <map>
 #include <memory>
@@ -25,7 +25,7 @@ namespace pypto {
 namespace ir {
 
 /**
- * @brief Dependency analyzer for IR functions
+ * \brief Dependency analyzer for IR functions
  *
  * This class analyzes data dependencies and control flow in IR functions.
  * It is NOT a pass - it's a pure analysis tool that can be called by
@@ -39,79 +39,79 @@ namespace ir {
  *   // Use graph.blocks and graph.dependencies
  */
 class DependencyAnalyzer : public IRMutator {
- public:
+public:
   DependencyAnalyzer() = default;
   ~DependencyAnalyzer() override = default;
 
   /**
-   * @brief Analyze a function and return its dependency graph
+   * \brief Analyze a function and return its dependency graph
    *
    * This is the main entry point. Call this to get complete dependency
    * analysis results for a function.
    *
-   * @param func Function to analyze
-   * @return Complete dependency graph (blocks + edges)
+   * \param func Function to analyze
+   * \return Complete dependency graph (blocks + edges)
    */
   DependencyGraph Analyze(const FunctionPtr& func);
 
   /**
-   * @brief Analyze only basic blocks (without dependency edges)
+   * \brief Analyze only basic blocks (without dependency edges)
    *
    * Useful when you only need CFG structure.
    *
-   * @param func Function to analyze
-   * @return Vector of basic blocks
+   * \param func Function to analyze
+   * \return Vector of basic blocks
    */
   std::vector<BasicBlock> AnalyzeBasicBlocks(const FunctionPtr& func);
 
   /**
-   * @brief Analyze only dependencies (without basic blocks)
+   * \brief Analyze only dependencies (without basic blocks)
    *
    * Analyzes dependencies assuming a single basic block.
    *
-   * @param func Function to analyze
-   * @return Vector of dependency edges
+   * \param func Function to analyze
+   * \return Vector of dependency edges
    */
   std::vector<DependencyEdge> AnalyzeDependencies(const FunctionPtr& func);
 
- private:
+private:
   /**
-   * @brief Identify basic blocks from control flow
+   * \brief Identify basic blocks from control flow
    *
-   * @param stmt Function body
-   * @return Vector of basic blocks
+   * \param stmt Function body
+   * \return Vector of basic blocks
    */
   std::vector<BasicBlock> IdentifyBasicBlocks(const StmtPtr& stmt);
 
   /**
-   * @brief Build dependency graph for a basic block
+   * \brief Build dependency graph for a basic block
    *
-   * @param block Basic block to analyze
-   * @return Vector of dependency edges
+   * \param block Basic block to analyze
+   * \return Vector of dependency edges
    */
   std::vector<DependencyEdge> AnalyzeBlockDependencies(const BasicBlock& block);
 
   /**
-   * @brief Extract pipe type from a statement
+   * \brief Extract pipe type from a statement
    *
-   * @param stmt Statement to analyze
-   * @return Pipe type string (CUBE, VECTOR, MTE1, etc.)
+   * \param stmt Statement to analyze
+   * \return Pipe type string (CUBE, VECTOR, MTE1, etc.)
    */
   std::string GetPipeTypeFromStmt(const StmtPtr& stmt);
 
   /**
-   * @brief Extract pipe type from a Call expression
+   * \brief Extract pipe type from a Call expression
    *
-   * @param call_expr Call expression
-   * @return Pipe type string
+   * \param call_expr Call expression
+   * \return Pipe type string
    */
   std::string GetPipeType(const CallPtr& call_expr);
 
   /**
-   * @brief Merge dependencies from multiple control flow paths
+   * \brief Merge dependencies from multiple control flow paths
    *
-   * @param path_dependencies Dependencies from each path
-   * @return Merged dependencies (union)
+   * \param path_dependencies Dependencies from each path
+   * \return Merged dependencies (union)
    */
   std::vector<DependencyEdge> MergeDependencies(
       const std::vector<std::vector<DependencyEdge>>& path_dependencies);
@@ -120,4 +120,3 @@ class DependencyAnalyzer : public IRMutator {
 }  // namespace ir
 }  // namespace pypto
 
-#endif  // PYPTO_IR_TRANSFORMS_DEPENDENCY_ANALYZER_H_

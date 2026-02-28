@@ -82,7 +82,7 @@ void IRVerifier::VerifyOrThrow(const ProgramPtr& program) const {
 
   // Check if there are any errors (not just warnings)
   bool has_errors = std::any_of(diagnostics.begin(), diagnostics.end(),
-                                [](const Diagnostic& d) { return d.severity == DiagnosticSeverity::Error; });
+                                [](const Diagnostic& d) { return d.severity == DiagnosticSeverity::ERROR; });
 
   if (has_errors) {
     std::string report = GenerateReport(diagnostics);
@@ -97,7 +97,7 @@ std::string IRVerifier::GenerateReport(const std::vector<Diagnostic>& diagnostic
   size_t error_count = 0;
   size_t warning_count = 0;
   for (const auto& d : diagnostics) {
-    if (d.severity == DiagnosticSeverity::Error) {
+    if (d.severity == DiagnosticSeverity::ERROR) {
       error_count++;
     } else {
       warning_count++;
@@ -120,13 +120,13 @@ std::string IRVerifier::GenerateReport(const std::vector<Diagnostic>& diagnostic
     const auto& d = diagnostics[i];
 
     // Severity label
-    std::string severity_str = (d.severity == DiagnosticSeverity::Error) ? "ERROR" : "WARNING";
+    std::string severity_str = (d.severity == DiagnosticSeverity::ERROR) ? "ERROR" : "WARNING";
 
-    oss << "[" << (i + 1) << "] " << severity_str << " - " << d.rule_name << "\n";
+    oss << "[" << (i + 1) << "] " << severity_str << " - " << d.ruleName << "\n";
     oss << "  Message: " << d.message << "\n";
-    oss << "  Location: " << d.span.filename_ << ":" << d.span.begin_line_ << ":" << d.span.begin_column_
+    oss << "  Location: " << d.span.filename_ << ":" << d.span.beginLine_ << ":" << d.span.beginColumn_
         << "\n";
-    oss << "  Error Code: " << d.error_code << "\n";
+    oss << "  Error Code: " << d.errorCode << "\n";
     oss << "\n";
   }
 

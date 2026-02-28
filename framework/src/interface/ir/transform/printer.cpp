@@ -43,51 +43,51 @@ Precedence GetPrecedence(const ExprPtr& expr) {
   // Using a static map is more efficient and maintainable than a long chain of dynamic_casts.
   static const std::unordered_map<std::type_index, Precedence> kPrecedenceMap = {
       // Logical operators≥
-      {std::type_index(typeid(Or)), Precedence::kOr},
-      {std::type_index(typeid(Xor)), Precedence::kXor},
-      {std::type_index(typeid(And)), Precedence::kAnd},
-      {std::type_index(typeid(Not)), Precedence::kNot},
+      {std::type_index(typeid(Or)), Precedence::OR},
+      {std::type_index(typeid(Xor)), Precedence::XOR},
+      {std::type_index(typeid(And)), Precedence::AND},
+      {std::type_index(typeid(Not)), Precedence::NOT},
 
       // Comparison operators
-      {std::type_index(typeid(Eq)), Precedence::kComparison},
-      {std::type_index(typeid(Ne)), Precedence::kComparison},
-      {std::type_index(typeid(Lt)), Precedence::kComparison},
-      {std::type_index(typeid(Le)), Precedence::kComparison},
-      {std::type_index(typeid(Gt)), Precedence::kComparison},
-      {std::type_index(typeid(Ge)), Precedence::kComparison},
+      {std::type_index(typeid(Eq)), Precedence::COMPARISON},
+      {std::type_index(typeid(Ne)), Precedence::COMPARISON},
+      {std::type_index(typeid(Lt)), Precedence::COMPARISON},
+      {std::type_index(typeid(Le)), Precedence::COMPARISON},
+      {std::type_index(typeid(Gt)), Precedence::COMPARISON},
+      {std::type_index(typeid(Ge)), Precedence::COMPARISON},
 
       // Bitwise operators
-      {std::type_index(typeid(BitOr)), Precedence::kBitOr},
-      {std::type_index(typeid(BitXor)), Precedence::kBitXor},
-      {std::type_index(typeid(BitAnd)), Precedence::kBitAnd},
-      {std::type_index(typeid(BitShiftLeft)), Precedence::kBitShift},
-      {std::type_index(typeid(BitShiftRight)), Precedence::kBitShift},
+      {std::type_index(typeid(BitOr)), Precedence::BIT_OR},
+      {std::type_index(typeid(BitXor)), Precedence::BIT_XOR},
+      {std::type_index(typeid(BitAnd)), Precedence::BIT_AND},
+      {std::type_index(typeid(BitShiftLeft)), Precedence::BIT_SHIFT},
+      {std::type_index(typeid(BitShiftRight)), Precedence::BIT_SHIFT},
 
       // Arithmetic operators
-      {std::type_index(typeid(Add)), Precedence::kAddSub},
-      {std::type_index(typeid(Sub)), Precedence::kAddSub},
-      {std::type_index(typeid(Mul)), Precedence::kMulDivMod},
-      {std::type_index(typeid(FloorDiv)), Precedence::kMulDivMod},
-      {std::type_index(typeid(FloatDiv)), Precedence::kMulDivMod},
-      {std::type_index(typeid(FloorMod)), Precedence::kMulDivMod},
-      {std::type_index(typeid(Pow)), Precedence::kPow},
+      {std::type_index(typeid(Add)), Precedence::ADD_SUB},
+      {std::type_index(typeid(Sub)), Precedence::ADD_SUB},
+      {std::type_index(typeid(Mul)), Precedence::MUL_DIV_MOD},
+      {std::type_index(typeid(FloorDiv)), Precedence::MUL_DIV_MOD},
+      {std::type_index(typeid(FloatDiv)), Precedence::MUL_DIV_MOD},
+      {std::type_index(typeid(FloorMod)), Precedence::MUL_DIV_MOD},
+      {std::type_index(typeid(Pow)), Precedence::POW},
 
       // Unary operators
-      {std::type_index(typeid(Neg)), Precedence::kUnary},
-      {std::type_index(typeid(BitNot)), Precedence::kUnary},
+      {std::type_index(typeid(Neg)), Precedence::UNARY},
+      {std::type_index(typeid(BitNot)), Precedence::UNARY},
 
       // Function-like operators and atoms
-      {std::type_index(typeid(Abs)), Precedence::kCall},
-      {std::type_index(typeid(Cast)), Precedence::kCall},
-      {std::type_index(typeid(Min)), Precedence::kCall},
-      {std::type_index(typeid(Max)), Precedence::kCall},
-      {std::type_index(typeid(Call)), Precedence::kCall},
-      {std::type_index(typeid(Var)), Precedence::kAtom},
-      {std::type_index(typeid(IterArg)), Precedence::kAtom},
-      {std::type_index(typeid(ConstInt)), Precedence::kAtom},
-      {std::type_index(typeid(ConstFloat)), Precedence::kAtom},
-      {std::type_index(typeid(ConstBool)), Precedence::kAtom},
-      {std::type_index(typeid(TupleGetItemExpr)), Precedence::kAtom},
+      {std::type_index(typeid(Abs)), Precedence::CALL},
+      {std::type_index(typeid(Cast)), Precedence::CALL},
+      {std::type_index(typeid(Min)), Precedence::CALL},
+      {std::type_index(typeid(Max)), Precedence::CALL},
+      {std::type_index(typeid(Call)), Precedence::CALL},
+      {std::type_index(typeid(Var)), Precedence::ATOM},
+      {std::type_index(typeid(IterArg)), Precedence::ATOM},
+      {std::type_index(typeid(ConstInt)), Precedence::ATOM},
+      {std::type_index(typeid(ConstFloat)), Precedence::ATOM},
+      {std::type_index(typeid(ConstBool)), Precedence::ATOM},
+      {std::type_index(typeid(TupleGetItemExpr)), Precedence::ATOM},
   };
 
   INTERNAL_CHECK(expr) << "Expression is null";
@@ -98,7 +98,7 @@ Precedence GetPrecedence(const ExprPtr& expr) {
   }
 
   // Default for any other expression types.
-  return Precedence::kAtom;
+  return Precedence::ATOM;
 }
 
 bool IsRightAssociative(const ExprPtr& expr) {
@@ -107,7 +107,7 @@ bool IsRightAssociative(const ExprPtr& expr) {
 }
 
 /**
- * @brief Python-style IR printer
+ * \brief Python-style IR printer
  *
  * Prints IR nodes in Python syntax with type annotations and SSA-style control flow.
  * This is the recommended printer for new code that outputs valid Python syntax.
@@ -119,27 +119,27 @@ bool IsRightAssociative(const ExprPtr& expr) {
  * - Program headers with # pypto.program: name
  */
 class IRPythonPrinter : public IRVisitor {
- public:
+public:
   explicit IRPythonPrinter(std::string prefix = "pl") : prefix_(std::move(prefix)) {}
   ~IRPythonPrinter() override = default;
 
   /**
-   * @brief Print an IR node to a string in Python IR syntax
+   * \brief Print an IR node to a string in Python IR syntax
    *
-   * @param node IR node to print (can be Expr, Stmt, Function, or Program)
-   * @return Python-style string representation
+   * \param node IR node to print (can be Expr, Stmt, Function, or Program)
+   * \return Python-style string representation
    */
   std::string Print(const IRNodePtr& node);
   std::string Print(const TypePtr& type);
 
- protected:
+protected:
   PYPTO_DECLARE_ALL_VISITOR_OVERRIDES
 
   // Function and program visitors
   void VisitFunction(const FunctionPtr& func);
   void VisitProgram(const ProgramPtr& program);
 
- private:
+private:
   std::ostringstream stream_;
   int indent_level_ = 0;
   std::string prefix_;                    // Prefix for type names (e.g., "pl" or "ir")
@@ -280,8 +280,8 @@ std::string IRPythonPrinter::Print(const TypePtr& type) {
     }
 
     // Add optional tile_view parameter if present
-    if (tile_type->tile_view_.has_value()) {
-      oss << ", tile_view=" << PrintTileView(tile_type->tile_view_.value());
+    if (tile_type->tileView_.has_value()) {
+      oss << ", tile_view=" << PrintTileView(tile_type->tileView_.value());
     }
     oss << "]";
     return oss.str();
@@ -520,7 +520,7 @@ void IRPythonPrinter::VisitExpr_(const BitShiftRightPtr& op) { PrintBinaryOp(op,
 void IRPythonPrinter::VisitExpr_(const NegPtr& op) {
   stream_ << "-";
   Precedence operand_prec = GetPrecedence(op->operand_);
-  if (operand_prec < Precedence::kUnary) {
+  if (operand_prec < Precedence::UNARY) {
     stream_ << "(";
     VisitExpr(op->operand_);
     stream_ << ")";
@@ -546,7 +546,7 @@ void IRPythonPrinter::VisitExpr_(const CastPtr& op) {
 void IRPythonPrinter::VisitExpr_(const NotPtr& op) {
   stream_ << "not ";
   Precedence operand_prec = GetPrecedence(op->operand_);
-  if (operand_prec < Precedence::kNot) {
+  if (operand_prec < Precedence::NOT) {
     stream_ << "(";
     VisitExpr(op->operand_);
     stream_ << ")";
@@ -558,7 +558,7 @@ void IRPythonPrinter::VisitExpr_(const NotPtr& op) {
 void IRPythonPrinter::VisitExpr_(const BitNotPtr& op) {
   stream_ << "~";
   Precedence operand_prec = GetPrecedence(op->operand_);
-  if (operand_prec < Precedence::kUnary) {
+  if (operand_prec < Precedence::UNARY) {
     stream_ << "(";
     VisitExpr(op->operand_);
     stream_ << ")";
@@ -583,13 +583,13 @@ void IRPythonPrinter::VisitStmt_(const IfStmtPtr& op) {
   stream_ << ":\n";
 
   IncreaseIndent();
-  VisitStmtBody(op->then_body_, op->return_vars_);
+  VisitStmtBody(op->thenBody_, op->returnVars_);
   DecreaseIndent();
 
-  if (op->else_body_.has_value()) {
+  if (op->elseBody_.has_value()) {
     stream_ << "\n" << GetIndent() << "else:\n";
     IncreaseIndent();
-    VisitStmtBody(*op->else_body_, op->return_vars_);
+    VisitStmtBody(*op->elseBody_, op->returnVars_);
     DecreaseIndent();
   }
 }
@@ -617,14 +617,14 @@ void IRPythonPrinter::VisitStmt_(const ReturnStmtPtr& op) {
 
 void IRPythonPrinter::VisitStmt_(const ForStmtPtr& op) {
   // SSA-style for with pl.range() - no inline type annotations in unpacking
-  stream_ << "for " << op->loop_var_->name_;
+  stream_ << "for " << op->loopVar_->name_;
 
   // If we have iter_args, add tuple unpacking without type annotations
-  if (!op->iter_args_.empty()) {
+  if (!op->iterArgs_.empty()) {
     stream_ << ", (";
-    for (size_t i = 0; i < op->iter_args_.size(); ++i) {
+    for (size_t i = 0; i < op->iterArgs_.size(); ++i) {
       if (i > 0) stream_ << ", ";
-      stream_ << op->iter_args_[i]->name_;
+      stream_ << op->iterArgs_[i]->name_;
     }
     stream_ << ") in " << prefix_ << ".range(";
   } else {
@@ -638,11 +638,11 @@ void IRPythonPrinter::VisitStmt_(const ForStmtPtr& op) {
   VisitExpr(op->step_);
 
   // Add init_values for iter_args
-  if (!op->iter_args_.empty()) {
+  if (!op->iterArgs_.empty()) {
     stream_ << ", init_values=[";
-    for (size_t i = 0; i < op->iter_args_.size(); ++i) {
+    for (size_t i = 0; i < op->iterArgs_.size(); ++i) {
       if (i > 0) stream_ << ", ";
-      VisitExpr(op->iter_args_[i]->initValue_);
+      VisitExpr(op->iterArgs_[i]->initValue_);
     }
     stream_ << "]";
   }
@@ -650,7 +650,7 @@ void IRPythonPrinter::VisitStmt_(const ForStmtPtr& op) {
   stream_ << "):\n";
 
   IncreaseIndent();
-  VisitStmtBody(op->body_, op->return_vars_);
+  VisitStmtBody(op->body_, op->returnVars_);
   DecreaseIndent();
 }
 
@@ -743,15 +743,15 @@ void IRPythonPrinter::VisitStmtBody(const StmtPtr& body, const std::vector<VarPt
 }
 
 void IRPythonPrinter::PrintReturnTypeAnnotation(const FunctionPtr& func) {
-  if (!func->return_types_.empty()) {
+  if (!func->returnTypes_.empty()) {
     stream_ << " -> ";
-    if (func->return_types_.size() == 1) {
-      stream_ << Print(func->return_types_[0]);
+    if (func->returnTypes_.size() == 1) {
+      stream_ << Print(func->returnTypes_[0]);
     } else {
       stream_ << "tuple[";
-      for (size_t i = 0; i < func->return_types_.size(); ++i) {
+      for (size_t i = 0; i < func->returnTypes_.size(); ++i) {
         if (i > 0) stream_ << ", ";
-        stream_ << Print(func->return_types_[i]);
+        stream_ << Print(func->returnTypes_[i]);
       }
       stream_ << "]";
     }
@@ -798,8 +798,8 @@ void IRPythonPrinter::PrintBodyWithYieldToReturn(const StmtPtr& body) {
 void IRPythonPrinter::VisitFunction(const FunctionPtr& func) {
   // Print decorator with type parameter if not opaque
   stream_ << "@" << prefix_ << ".function";
-  if (func->func_type_ != FunctionType::Opaque) {
-    stream_ << "(type=" << prefix_ << ".FunctionType." << FunctionTypeToString(func->func_type_) << ")";
+  if (func->funcType_ != FunctionType::OPAQUE) {
+    stream_ << "(type=" << prefix_ << ".FunctionType." << FunctionTypeToString(func->funcType_) << ")";
   }
   stream_ << "\n";
   stream_ << "def " << func->name_ << "(";
@@ -824,7 +824,7 @@ void IRPythonPrinter::VisitFunction(const FunctionPtr& func) {
 
 // Helper class to collect GlobalVar references from a function's body
 class GlobalVarCollector : public IRVisitor {
- public:
+public:
   using IRVisitor::VisitExpr_;
   std::set<GlobalVarPtr, GlobalVarPtrLess> collected_gvars;
 
@@ -974,7 +974,7 @@ void IRPythonPrinter::VisitStmtInProgramContext(const StmtPtr& stmt, const Progr
 // Helper methods for MemRef and TileView printing
 std::string IRPythonPrinter::PrintMemRef(const MemRef& memref) {
   std::ostringstream oss;
-  oss << prefix_ << ".MemRef(" << prefix_ << ".MemorySpace." << MemorySpaceToString(memref.memory_space_)
+  oss << prefix_ << ".MemRef(" << prefix_ << ".MemorySpace." << MemorySpaceToString(memref.memorySpace_)
       << ", ";
 
   // Print address expression
@@ -991,10 +991,10 @@ std::string IRPythonPrinter::PrintTileView(const TileView& tile_view) {
   oss << prefix_ << ".TileView(valid_shape=[";
 
   // Print valid_shape
-  for (size_t i = 0; i < tile_view.valid_shape.size(); ++i) {
+  for (size_t i = 0; i < tile_view.validShape.size(); ++i) {
     if (i > 0) oss << ", ";
     IRPythonPrinter temp_printer(prefix_);
-    oss << temp_printer.Print(tile_view.valid_shape[i]);
+    oss << temp_printer.Print(tile_view.validShape[i]);
   }
 
   oss << "], stride=[";
@@ -1010,7 +1010,7 @@ std::string IRPythonPrinter::PrintTileView(const TileView& tile_view) {
 
   // Print start_offset
   IRPythonPrinter temp_printer(prefix_);
-  oss << temp_printer.Print(tile_view.start_offset);
+  oss << temp_printer.Print(tile_view.startOffset);
 
   oss << ")";
   return oss.str();

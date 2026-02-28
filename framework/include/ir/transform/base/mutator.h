@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_TRANSFORMS_BASE_MUTATOR_H_
-#define PYPTO_IR_TRANSFORMS_BASE_MUTATOR_H_
+#pragma once
+
 
 #include "ir/stmt.h"
 #include "ir/transform/base/functor.h"
@@ -18,21 +18,21 @@ namespace pypto {
 namespace ir {
 
 /**
- * @brief IR mutator for immutable transformations
+ * \brief IR mutator for immutable transformations
  *
  * Provides default implementations that recursively transform the IR tree.
  * Returns new ExprPtr or StmtPtr for transformed IR nodes, respecting immutability.
  * Uses copy-on-write: if children are unchanged, returns the original shared_ptr.
  */
 class IRMutator : public ExprFunctor<ExprPtr>, public StmtFunctor<StmtPtr> {
- public:
+public:
   ~IRMutator() override = default;
 
   // Override base class methods
   ExprPtr VisitExpr(const ExprPtr& expr) override;
   StmtPtr VisitStmt(const StmtPtr& stmt) override;
 
- protected:
+protected:
   // Leaf nodes - return as-is by default
   ExprPtr VisitExpr_(const VarPtr& op) override;
   ExprPtr VisitExpr_(const IterArgPtr& op) override;
@@ -91,4 +91,3 @@ class IRMutator : public ExprFunctor<ExprPtr>, public StmtFunctor<StmtPtr> {
 }  // namespace ir
 }  // namespace pypto
 
-#endif  // PYPTO_IR_TRANSFORMS_BASE_MUTATOR_H_

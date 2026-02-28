@@ -35,10 +35,10 @@ namespace ir {
 namespace serialization {
 
 /**
- * @brief Implementation class for IRDeserializer
+ * \brief Implementation class for IRDeserializer
  */
 class IRDeserializer::Impl : public detail::DeserializerContext {
- public:
+public:
   Impl() = default;
 
   IRNodePtr Deserialize(const std::vector<uint8_t>& data) {
@@ -194,7 +194,7 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
       if (key == "valid_shape") {
         if (p->val.type == msgpack::type::ARRAY) {
           for (uint32_t i = 0; i < p->val.via.array.size; ++i) {
-            tile_view.valid_shape.push_back(
+            tile_view.validShape.push_back(
                 std::static_pointer_cast<const Expr>(DeserializeNode(p->val.via.array.ptr[i], zone)));
           }
         }
@@ -206,7 +206,7 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
           }
         }
       } else if (key == "start_offset") {
-        tile_view.start_offset = std::static_pointer_cast<const Expr>(DeserializeNode(p->val, zone));
+        tile_view.startOffset = std::static_pointer_cast<const Expr>(DeserializeNode(p->val, zone));
       }
     }
 
@@ -331,7 +331,7 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
     throw RuntimeError("Missing required field: " + field_name);
   }
 
- private:
+private:
   std::unordered_map<uint64_t, IRNodePtr> id_to_ptr_;
 };
 

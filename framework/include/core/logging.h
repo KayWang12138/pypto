@@ -8,9 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/**
- * @file logging.h
- * @brief Logging framework with support for console, file, and in-memory logging
+#pragma once
+
+/*!
+ * \file logging.h
+ * \brief Logging framework with support for console, file, and in-memory logging
  *
  * This header provides a flexible logging system with:
  * - Multiple log levels (DEBUG, INFO, WARN, ERROR, FATAL, EVENT)
@@ -21,8 +23,6 @@
  * - Stream-style and printf-style logging interfaces
  */
 
-#ifndef PYPTO_CORE_LOGGING_H_
-#define PYPTO_CORE_LOGGING_H_
 
 #include <chrono>
 #include <cstdarg>
@@ -47,14 +47,14 @@ template <typename T>
 std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec);
 
 /**
- * @brief Stream operator for std::vector to enable logging of vectors
+ * \brief Stream operator for std::vector to enable logging of vectors
  *
  * Formats vectors as [elem1, elem2, elem3, ...]
  *
- * @tparam T Element type of the vector
- * @param os Output stream
- * @param vec Vector to output
- * @return Reference to the output stream
+ * \tparam T Element type of the vector
+ * \param os Output stream
+ * \param vec Vector to output
+ * \return Reference to the output stream
  */
 template <typename T>
 std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec) {
@@ -70,19 +70,19 @@ std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec) {
 }
 
 /**
- * @brief TTY command for colored terminal output
+ * \brief TTY command for colored terminal output
  *
  * Wraps ANSI escape codes for terminal text formatting and coloring.
  */
 class TTYCmd {
- public:
+public:
   unsigned char code;
 
   explicit TTYCmd(int code_in) : code(code_in) {}
 
   /**
-   * @brief Convert the TTY command to an ANSI escape sequence string
-   * @return ANSI escape sequence as a string
+   * \brief Convert the TTY command to an ANSI escape sequence string
+   * \return ANSI escape sequence as a string
    */
   [[nodiscard]] std::string Str() const { return "\033[" + std::to_string(code) + "m"; }
 };
@@ -98,7 +98,7 @@ class TTYCmd {
 #define TTY_WHITE(...) TTY_COLOR(37, __VA_ARGS__)
 
 /**
- * @brief Enumeration of available log levels
+ * \brief Enumeration of available log levels
  *
  * Log levels in ascending order of severity:
  * - DEBUG: Detailed information for debugging
@@ -120,16 +120,16 @@ enum class LogLevel : uint8_t {
 };
 
 /**
- * @brief Standard error logger that writes to stderr
+ * \brief Standard error logger that writes to stderr
  *
  * Supports colored output using TTY commands.
  */
 class StdLogger {
- public:
+public:
   /**
-   * @brief Log a TTY command (for colored output)
-   * @param cmd TTY command to output
-   * @return Reference to this logger for chaining
+   * \brief Log a TTY command (for colored output)
+   * \param cmd TTY command to output
+   * \return Reference to this logger for chaining
    */
   StdLogger& Log(TTYCmd&& cmd) {
     std::cerr << cmd.Str();
@@ -137,10 +137,10 @@ class StdLogger {
   }
 
   /**
-   * @brief Log a value of any type
-   * @tparam T Type of value to log
-   * @param t Value to log
-   * @return Reference to this logger for chaining
+   * \brief Log a value of any type
+   * \tparam T Type of value to log
+   * \param t Value to log
+   * \return Reference to this logger for chaining
    */
   template <typename T>
   StdLogger& Log(T&& t) {
@@ -154,19 +154,19 @@ class StdLogger {
 };
 
 /**
- * @brief File-based logger that writes to a file stream
+ * \brief File-based logger that writes to a file stream
  *
  * Supports both append and overwrite modes. TTY commands are ignored
  * since file output typically doesn't support colored text.
  */
 class FileLogger {
- public:
+public:
   std::ofstream ofs;
 
   /**
-   * @brief Construct a file logger
-   * @param filepath Path to the log file
-   * @param append If true, append to existing file; otherwise overwrite
+   * \brief Construct a file logger
+   * \param filepath Path to the log file
+   * \param append If true, append to existing file; otherwise overwrite
    */
   FileLogger(const std::string& filepath, bool append) {
     if (append) {
@@ -177,17 +177,17 @@ class FileLogger {
   }
 
   /**
-   * @brief Log a TTY command (no-op for file logging)
-   * @param cmd TTY command (ignored)
-   * @return Reference to this logger for chaining
+   * \brief Log a TTY command (no-op for file logging)
+   * \param cmd TTY command (ignored)
+   * \return Reference to this logger for chaining
    */
   FileLogger& Log([[maybe_unused]] TTYCmd&& cmd) { return *this; }
 
   /**
-   * @brief Log a value to the file
-   * @tparam T Type of value to log
-   * @param t Value to log
-   * @return Reference to this logger for chaining
+   * \brief Log a value to the file
+   * \tparam T Type of value to log
+   * \param t Value to log
+   * \return Reference to this logger for chaining
    */
   template <typename T>
   FileLogger& Log(T&& t) {
@@ -199,24 +199,24 @@ class FileLogger {
 };
 
 /**
- * @brief In-memory logger that stores log lines as strings
+ * \brief In-memory logger that stores log lines as strings
  *
  * Useful for programmatic access to log messages or testing.
  * Inherits from std::vector<std::string> for direct access to stored lines.
  */
 class LineLogger : public std::vector<std::string> {
- public:
+public:
   /**
-   * @brief Log a TTY command (no-op for line logging)
-   * @param cmd TTY command (ignored)
-   * @return Reference to this logger for chaining
+   * \brief Log a TTY command (no-op for line logging)
+   * \param cmd TTY command (ignored)
+   * \return Reference to this logger for chaining
    */
   LineLogger& Log([[maybe_unused]] TTYCmd&& cmd) { return *this; }
 
   /**
-   * @brief Log a string value
-   * @param t String to store
-   * @return Reference to this logger for chaining
+   * \brief Log a string value
+   * \param t String to store
+   * \return Reference to this logger for chaining
    */
   LineLogger& Log(std::string&& t) {
     this->emplace_back(t);
@@ -225,7 +225,7 @@ class LineLogger : public std::vector<std::string> {
 };
 
 /**
- * @brief Central manager for all loggers
+ * \brief Central manager for all loggers
  *
  * This singleton class manages:
  * - Global log level threshold
@@ -236,7 +236,7 @@ class LineLogger : public std::vector<std::string> {
  * All logging operations are thread-safe.
  */
 class LoggerManager {
- public:
+public:
   std::mutex log_mtx;
 #ifdef NDEBUG
   LogLevel level{LogLevel::ERROR};
@@ -251,11 +251,11 @@ class LoggerManager {
   LoggerManager() = default;
 
   /**
-   * @brief Log a message to all active loggers
-   * @tparam T Type of the log message
-   * @param l Log level
-   * @param t Plain message (for file/line loggers)
-   * @param t_rich Rich message with formatting (for std logger)
+   * \brief Log a message to all active loggers
+   * \tparam T Type of the log message
+   * \param l Log level
+   * \param t Plain message (for file/line loggers)
+   * \param t_rich Rich message with formatting (for std logger)
    */
   template <typename T>
   void Log(LogLevel l, T&& t, T&& t_rich) {
@@ -276,39 +276,39 @@ class LoggerManager {
   }
 
   /**
-   * @brief Set the global log level threshold
-   * @param l New log level
+   * \brief Set the global log level threshold
+   * \param l New log level
    */
   static void ResetLevel(LogLevel l) { GetManager().level = l; }
 
   /**
-   * @brief Enable or disable standard output logging
-   * @param enabled True to enable, false to disable
+   * \brief Enable or disable standard output logging
+   * \param enabled True to enable, false to disable
    */
   static void StdLoggerEnable(bool enabled) { GetManager().std_enabled = enabled; }
 
   /**
-   * @brief Register a file logger
-   * @param filepath Path to the log file
-   * @param append If true, append to existing file; otherwise overwrite
+   * \brief Register a file logger
+   * \param filepath Path to the log file
+   * \param append If true, append to existing file; otherwise overwrite
    */
   static void FileLoggerRegister(const std::string& filepath, bool append) {
     GetManager().file_logger_dict.try_emplace(filepath, std::make_unique<FileLogger>(filepath, append));
   }
 
   /**
-   * @brief Unregister and close a file logger
-   * @param filepath Path to the log file to unregister
+   * \brief Unregister and close a file logger
+   * \param filepath Path to the log file to unregister
    */
   static void FileLoggerUnregister(const std::string& filepath) {
     GetManager().file_logger_dict.erase(filepath);
   }
 
   /**
-   * @brief Replace one file logger with another
-   * @param old_filepath Path to the old log file
-   * @param new_filepath Path to the new log file
-   * @param append If true, append to new file; otherwise overwrite
+   * \brief Replace one file logger with another
+   * \param old_filepath Path to the old log file
+   * \param new_filepath Path to the new log file
+   * \param append If true, append to new file; otherwise overwrite
    */
   static void FileLoggerReplace(const std::string& old_filepath, const std::string& new_filepath,
                                 bool append) {
@@ -317,9 +317,9 @@ class LoggerManager {
   }
 
   /**
-   * @brief Register an in-memory line logger
-   * @param name Name identifier for the logger
-   * @return Shared pointer to the line logger for access to stored lines
+   * \brief Register an in-memory line logger
+   * \param name Name identifier for the logger
+   * \return Shared pointer to the line logger for access to stored lines
    */
   static std::shared_ptr<LineLogger> LineLoggerRegister(const std::string& name) {
     auto& dict = GetManager().line_logger_dict;
@@ -333,16 +333,16 @@ class LoggerManager {
   }
 
   /**
-   * @brief Unregister an in-memory line logger
-   * @param name Name identifier of the logger to unregister
+   * \brief Unregister an in-memory line logger
+   * \param name Name identifier of the logger to unregister
    */
   static void LineLoggerUnregister(const std::string& name) { GetManager().line_logger_dict.erase(name); }
 
   friend class Logger;
 
   /**
-   * @brief Get the singleton LoggerManager instance
-   * @return Reference to the singleton LoggerManager
+   * \brief Get the singleton LoggerManager instance
+   * \return Reference to the singleton LoggerManager
    */
   static LoggerManager& GetManager() {
     static LoggerManager manager;
@@ -353,7 +353,7 @@ class LoggerManager {
 constexpr uint32_t MAX_LOG_BUF_SIZE = 1024;
 
 /**
- * @brief Main logger class for creating log messages
+ * \brief Main logger class for creating log messages
  *
  * This class handles:
  * - Automatic timestamp generation
@@ -365,7 +365,7 @@ constexpr uint32_t MAX_LOG_BUF_SIZE = 1024;
  * Logger objects should be created per log message (they flush on destruction).
  */
 class Logger {
- private:
+private:
   std::stringstream ss;
   std::stringstream ss_rich;
 #ifdef NDEBUG
@@ -375,12 +375,12 @@ class Logger {
 #endif
   bool enable_log = false;
 
- public:
+public:
   /**
-   * @brief Construct a logger for a single log message
-   * @param level_in Log level for this message
-   * @param func Function name (currently unused but available for future use)
-   * @param line Line number (currently unused but available for future use)
+   * \brief Construct a logger for a single log message
+   * \param level_in Log level for this message
+   * \param func Function name (currently unused but available for future use)
+   * \param line Line number (currently unused but available for future use)
    */
   Logger(LogLevel level_in, [[maybe_unused]] int line)  : level(level_in) {
     enable_log = LoggerManager::GetManager().level <= level;
@@ -406,7 +406,7 @@ class Logger {
   }
 
   /**
-   * @brief Destructor flushes the log message to all active loggers
+   * \brief Destructor flushes the log message to all active loggers
    */
   ~Logger() {
     if (enable_log) {
@@ -416,9 +416,9 @@ class Logger {
   }
 
   /**
-   * @brief Log a TTY command for colored output
-   * @param val TTY command
-   * @return Reference to this logger for chaining
+   * \brief Log a TTY command for colored output
+   * \param val TTY command
+   * \return Reference to this logger for chaining
    */
   Logger& Log(TTYCmd&& val) {
     ss_rich << val.Str();
@@ -426,10 +426,10 @@ class Logger {
   }
 
   /**
-   * @brief Log a value
-   * @tparam T Type of value to log
-   * @param val Value to log
-   * @return Reference to this logger for chaining
+   * \brief Log a value
+   * \tparam T Type of value to log
+   * \param val Value to log
+   * \return Reference to this logger for chaining
    */
   template <typename T>
   Logger& Log(T&& val) {
@@ -439,10 +439,10 @@ class Logger {
   }
 
   /**
-   * @brief Stream operator for convenient logging
-   * @tparam T Type of value to log
-   * @param val Value to log
-   * @return Reference to this logger for chaining
+   * \brief Stream operator for convenient logging
+   * \tparam T Type of value to log
+   * \param val Value to log
+   * \return Reference to this logger for chaining
    */
   template <typename T>
   Logger& operator<<(T&& val) {
@@ -454,10 +454,10 @@ class Logger {
   }
 
   /**
-   * @brief Variadic operator for logging multiple values at once
-   * @tparam Tys Types of values to log
-   * @param vals Values to log
-   * @return Reference to this logger for chaining
+   * \brief Variadic operator for logging multiple values at once
+   * \tparam Tys Types of values to log
+   * \param vals Values to log
+   * \return Reference to this logger for chaining
    */
   template <typename... Tys>
   Logger& operator()(Tys&&... vals) {
@@ -480,10 +480,10 @@ class Logger {
 #define LOG_EVENT LOG_LEVEL(pypto::LogLevel::EVENT)
 
 /**
- * @brief Helper function for formatted logging to avoid redefining safe functions in macros
- * @param fmt Format string
- * @param ... Variable arguments
- * @return Formatted string
+ * \brief Helper function for formatted logging to avoid redefining safe functions in macros
+ * \param fmt Format string
+ * \param ... Variable arguments
+ * \return Formatted string
  */
 inline std::string FormatLogMessage(const char* fmt, ...) {
   constexpr int default_buf_size = 1024;
@@ -526,12 +526,12 @@ inline std::string FormatLogMessage(const char* fmt, ...) {
 #define LOG_EVENT_F(fmt, args...) LOG_F(EVENT, fmt, ##args)
 
 /**
- * @brief Helper class for CHECK, INTERNAL_CHECK, UNREACHABLE, and INTERNAL_UNREACHABLE macros
+ * \brief Helper class for CHECK, INTERNAL_CHECK, UNREACHABLE, and INTERNAL_UNREACHABLE macros
  *
  * This class collects error messages via operator<< and throws
  * an exception on destruction if the check condition failed.
  *
- * @tparam ExceptionType The type of exception to throw (ValueError or InternalError)
+ * \tparam ExceptionType The type of exception to throw (ValueError or InternalError)
  */
 template <typename ExceptionType>
 class FatalLogger;
@@ -539,13 +539,13 @@ class FatalLogger;
 // Specialization for conditional checks (CHECK, INTERNAL_CHECK)
 template <typename ExceptionType>
 class FatalLogger {
- private:
+private:
   std::stringstream ss;
   const char* file;
   int line;
   const char* expr_str;
 
- public:
+public:
   FatalLogger(const char* expr_str_, const char* file_, int line_)
       : file(file_), line(line_), expr_str(expr_str_) {}
 
@@ -569,7 +569,7 @@ class FatalLogger {
 };
 
 /**
- * @brief Check a condition and throw ValueError if it fails
+ * \brief Check a condition and throw ValueError if it fails
  *
  * Usage: CHECK(condition) << "error message";
  */
@@ -577,7 +577,7 @@ class FatalLogger {
   if (!(expr)) pypto::FatalLogger<pypto::ir::ValueError>(#expr, __FILE__, __LINE__)
 
 /**
- * @brief Check an internal invariant and throw InternalError if it fails
+ * \brief Check an internal invariant and throw InternalError if it fails
  *
  * Usage: INTERNAL_CHECK(condition) << "error message";
  */
@@ -585,14 +585,14 @@ class FatalLogger {
   if (!(expr)) pypto::FatalLogger<pypto::ir::InternalError>(#expr, __FILE__, __LINE__)
 
 /**
- * @brief Mark a code path as unreachable and throw ValueError if reached
+ * \brief Mark a code path as unreachable and throw ValueError if reached
  *
  * Usage: UNREACHABLE << "optional message";
  */
 #define UNREACHABLE pypto::FatalLogger<pypto::ir::ValueError>("unreachable", __FILE__, __LINE__)
 
 /**
- * @brief Mark a code path as internally unreachable and throw InternalError if reached
+ * \brief Mark a code path as internally unreachable and throw InternalError if reached
  *
  * Usage: INTERNAL_UNREACHABLE << "optional message";
  */
@@ -600,4 +600,3 @@ class FatalLogger {
 
 }  // namespace pypto
 
-#endif  // PYPTO_CORE_LOGGING_H_

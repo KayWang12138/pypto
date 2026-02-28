@@ -32,19 +32,19 @@ class IRCoreExtTest : public testing::Test {};
 TEST_F(IRCoreExtTest, TestSpanConstructor) {
   Span sp("test.py", 1, 2, 3, 4);
   ASSERT_EQ(sp.filename_, "test.py");
-  ASSERT_EQ(sp.begin_line_, 1);
-  ASSERT_EQ(sp.begin_column_, 2);
-  ASSERT_EQ(sp.end_line_, 3);
-  ASSERT_EQ(sp.end_column_, 4);
+  ASSERT_EQ(sp.beginLine_, 1);
+  ASSERT_EQ(sp.beginColumn_, 2);
+  ASSERT_EQ(sp.endLine_, 3);
+  ASSERT_EQ(sp.endColumn_, 4);
 }
 
 TEST_F(IRCoreExtTest, TestSpanUnknown) {
   Span sp = Span::unknown();
   ASSERT_EQ(sp.filename_, "");
-  ASSERT_EQ(sp.begin_line_, -1);
-  ASSERT_EQ(sp.begin_column_, -1);
-  ASSERT_EQ(sp.end_line_, -1);
-  ASSERT_EQ(sp.end_column_, -1);
+  ASSERT_EQ(sp.beginLine_, -1);
+  ASSERT_EQ(sp.beginColumn_, -1);
+  ASSERT_EQ(sp.endLine_, -1);
+  ASSERT_EQ(sp.endColumn_, -1);
 }
 
 // ============================================================================

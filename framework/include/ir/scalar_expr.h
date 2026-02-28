@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_SCALAR_EXPR_H_
-#define PYPTO_IR_SCALAR_EXPR_H_
+#pragma once
+
 
 #include <memory>
 #include <string>
@@ -35,29 +35,29 @@ class Op;
 using OpPtr = std::shared_ptr<const Op>;
 
 /**
- * @brief Base class for scalar expressions in the IR
+ * \brief Base class for scalar expressions in the IR
  *
  * Scalar expressions represent computations that produce scalar values.
  * All expressions are immutable.
  */
 class ScalarExpr : public Expr {
- public:
+public:
   DataType dtype_;
 
   /**
-   * @brief Create a scalar expression
+   * \brief Create a scalar expression
    *
-   * @param span Source location
-   * @param dtype Data type
+   * \param span Source location
+   * \param dtype Data type
    */
   ScalarExpr(Span s, DataType dtype)
       : Expr(std::move(s), std::make_shared<ScalarType>(dtype)), dtype_(dtype) {}
   ~ScalarExpr() override = default;
 
   /**
-   * @brief Get the type name of this expression
+   * \brief Get the type name of this expression
    *
-   * @return Human-readable type name (e.g., "Add", "Var", "ConstInt")
+   * \return Human-readable type name (e.g., "Add", "Var", "ConstInt")
    */
   [[nodiscard]] std::string TypeName() const override { return "ScalarExpr"; }
 
@@ -70,19 +70,19 @@ class ScalarExpr : public Expr {
 using ScalarExprPtr = std::shared_ptr<const ScalarExpr>;
 
 /**
- * @brief Constant numeric expression
+ * \brief Constant numeric expression
  *
  * Represents a constant numeric value.
  */
 class ConstInt : public Expr {
- public:
+public:
   const int64_t value_;  // Numeric constant value (immutable)
 
   /**
-   * @brief Create a constant expression
+   * \brief Create a constant expression
    *
-   * @param value Numeric value
-   * @param span Source location
+   * \param value Numeric value
+   * \param span Source location
    */
   ConstInt(int64_t value, DataType dtype, Span span)
       : Expr(std::move(span), std::make_shared<ScalarType>(dtype)), value_(value) {}
@@ -91,9 +91,9 @@ class ConstInt : public Expr {
   [[nodiscard]] std::string TypeName() const override { return "ConstInt"; }
 
   /**
-   * @brief Get field descriptors for reflection-based visitation
+   * \brief Get field descriptors for reflection-based visitation
    *
-   * @return Tuple of field descriptors (value as USUAL field)
+   * \return Tuple of field descriptors (value as USUAL field)
    */
   static constexpr auto GetFieldDescriptors() {
     return std::tuple_cat(Expr::GetFieldDescriptors(),
@@ -113,20 +113,20 @@ class ConstInt : public Expr {
 using ConstIntPtr = std::shared_ptr<const ConstInt>;
 
 /**
- * @brief Constant floating-point expression
+ * \brief Constant floating-point expression
  *
  * Represents a constant floating-point value.
  */
 class ConstFloat : public Expr {
- public:
+public:
   const double value_;  // Floating-point constant value (immutable)
 
   /**
-   * @brief Create a constant floating-point expression
+   * \brief Create a constant floating-point expression
    *
-   * @param value Floating-point value
-   * @param dtype Data type
-   * @param span Source location
+   * \param value Floating-point value
+   * \param dtype Data type
+   * \param span Source location
    */
   ConstFloat(double value, DataType dtype, Span span)
       : Expr(std::move(span), std::make_shared<ScalarType>(dtype)), value_(value) {}
@@ -135,9 +135,9 @@ class ConstFloat : public Expr {
   [[nodiscard]] std::string TypeName() const override { return "ConstFloat"; }
 
   /**
-   * @brief Get field descriptors for reflection-based visitation
+   * \brief Get field descriptors for reflection-based visitation
    *
-   * @return Tuple of field descriptors (value as USUAL field)
+   * \return Tuple of field descriptors (value as USUAL field)
    */
   static constexpr auto GetFieldDescriptors() {
     return std::tuple_cat(Expr::GetFieldDescriptors(),
@@ -157,19 +157,19 @@ class ConstFloat : public Expr {
 using ConstFloatPtr = std::shared_ptr<const ConstFloat>;
 
 /**
- * @brief Constant boolean expression
+ * \brief Constant boolean expression
  *
  * Represents a constant boolean value.
  */
 class ConstBool : public Expr {
- public:
+public:
   const bool value_;  // Boolean constant value (immutable)
 
   /**
-   * @brief Create a constant boolean expression
+   * \brief Create a constant boolean expression
    *
-   * @param value Boolean value
-   * @param span Source location
+   * \param value Boolean value
+   * \param span Source location
    */
   ConstBool(bool value, Span span)
       : Expr(std::move(span), std::make_shared<ScalarType>(DataType::BOOL)), value_(value) {}
@@ -178,9 +178,9 @@ class ConstBool : public Expr {
   [[nodiscard]] std::string TypeName() const override { return "ConstBool"; }
 
   /**
-   * @brief Get field descriptors for reflection-based visitation
+   * \brief Get field descriptors for reflection-based visitation
    *
-   * @return Tuple of field descriptors (value as USUAL field)
+   * \return Tuple of field descriptors (value as USUAL field)
    */
   static constexpr auto GetFieldDescriptors() {
     return std::tuple_cat(Expr::GetFieldDescriptors(),
@@ -193,12 +193,12 @@ class ConstBool : public Expr {
 using ConstBoolPtr = std::shared_ptr<const ConstBool>;
 
 /**
- * @brief Base class for binary expressions
+ * \brief Base class for binary expressions
  *
  * Abstract base for all operations with two operands.
  */
 class BinaryExpr : public Expr {
- public:
+public:
   ExprPtr left_;   // Left operand
   ExprPtr right_;  // Right operand
 
@@ -208,9 +208,9 @@ class BinaryExpr : public Expr {
         right_(std::move(right)) {}
 
   /**
-   * @brief Get field descriptors for reflection-based visitation
+   * \brief Get field descriptors for reflection-based visitation
    *
-   * @return Tuple of field descriptors (left and right as USUAL fields)
+   * \return Tuple of field descriptors (left and right as USUAL fields)
    */
   static constexpr auto GetFieldDescriptors() {
     return std::tuple_cat(Expr::GetFieldDescriptors(),
@@ -263,12 +263,12 @@ DEFINE_BINARY_EXPR_NODE(BitShiftRight, "Bitwise right shift expression (left >> 
 #undef DEFINE_BINARY_EXPR_NODE
 
 /**
- * @brief Base class for unary expressions
+ * \brief Base class for unary expressions
  *
  * Abstract base for all operations with one operand.
  */
 class UnaryExpr : public Expr {
- public:
+public:
   ExprPtr operand_;  // Operand
 
   UnaryExpr(ExprPtr operand, DataType dtype, Span span)
@@ -307,11 +307,11 @@ DEFINE_UNARY_EXPR_NODE(Cast, "Cast expression (cast operand to dtype)")
 // ========== Helper Functions for Operator Construction ==========
 
 /**
- * @brief Get the dtype from a scalar expression or scalar var
+ * \brief Get the dtype from a scalar expression or scalar var
  *
- * @param expr Expression to extract dtype from
- * @return DataType of the expression
- * @throws TypeError if expr is not a scalar expression or scalar var
+ * \param expr Expression to extract dtype from
+ * \return DataType of the expression
+ * \throws TypeError if expr is not a scalar expression or scalar var
  */
 inline DataType GetScalarDtype(const ExprPtr& expr) {
   // Note: Must use dynamic_pointer_cast here because this header is included before
@@ -327,16 +327,16 @@ inline DataType GetScalarDtype(const ExprPtr& expr) {
 inline bool IsBoolDtype(const DataType& dtype) { return dtype == DataType::BOOL; }
 
 enum class ScalarCategory {
-  kInt,
-  kFloat,
+  INT,
+  FLOAT,
 };
 
 inline ScalarCategory GetNumericCategory(const DataType& dtype, const std::string& op_name) {
   if (dtype.IsFloat()) {
-    return ScalarCategory::kFloat;
+    return ScalarCategory::FLOAT;
   }
   if (dtype.IsInt()) {
-    return ScalarCategory::kInt;
+    return ScalarCategory::INT;
   }
   throw TypeError("Operator '" + op_name + "' requires numeric scalar dtype, got " + dtype.ToString());
 }
@@ -512,4 +512,3 @@ inline ExprPtr MakeBitNot(const ExprPtr& operand, const Span& span = Span::unkno
 }  // namespace ir
 }  // namespace pypto
 
-#endif  // PYPTO_IR_SCALAR_EXPR_H_

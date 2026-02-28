@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_CORE_H_
-#define PYPTO_IR_CORE_H_
+#pragma once
+
 
 #include <functional>
 #include <memory>
@@ -23,7 +23,7 @@ namespace pypto {
 namespace ir {
 
 /**
- * @brief Kind enumeration for all IR node types
+ * \brief Kind enumeration for all IR node types
  *
  * Used for efficient type checking and casting without RTTI overhead.
  * Each concrete IR node class has a unique Kind value.
@@ -107,13 +107,13 @@ enum class ObjectKind {
 };
 
 /**
- * @brief Base class for all IR nodes
+ * \brief Base class for all IR nodes
  *
  * Abstract base providing common functionality for all IR nodes.
  * All IR nodes are immutable - once constructed, they cannot be modified.
  */
 class IRNode {
- public:
+public:
   explicit IRNode(Span s) : span_(std::move(s)) {}
   virtual ~IRNode() = default;
 
@@ -122,16 +122,16 @@ class IRNode {
   IRNode& operator=(IRNode&&) = delete;
 
   /**
-   * @brief Get the Kind of this IR node
+   * \brief Get the Kind of this IR node
    *
-   * @return The ObjectKind enum value identifying the concrete type
+   * \return The ObjectKind enum value identifying the concrete type
    */
   [[nodiscard]] virtual ObjectKind GetKind() const = 0;
 
   /**
-   * @brief Get the type name of this IR node
+   * \brief Get the type name of this IR node
    *
-   * @return Human-readable type name (e.g., "Expr", "Stmt", "Var")
+   * \return Human-readable type name (e.g., "Expr", "Stmt", "Var")
    */
   [[nodiscard]] virtual std::string TypeName() const { return "IRNode"; }
 
@@ -144,23 +144,23 @@ class IRNode {
 using IRNodePtr = std::shared_ptr<const IRNode>;
 
 /**
- * @brief Reference equality operator for IRNodePtr
+ * \brief Reference equality operator for IRNodePtr
  *
  * Compares two expression pointers by their address (reference equality).
  * Two IRNodePtr are equal only if they point to the same object.
  *
- * @param lhs Left-hand side expression pointer
- * @param rhs Right-hand side expression pointer
- * @return true if pointers reference the same object
+ * \param lhs Left-hand side expression pointer
+ * \param rhs Right-hand side expression pointer
+ * \return true if pointers reference the same object
  */
 inline bool operator==(const IRNodePtr& lhs, const IRNodePtr& rhs) { return lhs.get() == rhs.get(); }
 
 /**
- * @brief Reference inequality operator for IRNodePtr
+ * \brief Reference inequality operator for IRNodePtr
  *
- * @param lhs Left-hand side expression pointer
- * @param rhs Right-hand side expression pointer
- * @return true if pointers reference different objects
+ * \param lhs Left-hand side expression pointer
+ * \param rhs Right-hand side expression pointer
+ * \return true if pointers reference different objects
  */
 inline bool operator!=(const IRNodePtr& lhs, const IRNodePtr& rhs) { return !(lhs == rhs); }
 
@@ -203,16 +203,16 @@ constexpr bool IsKindInArray(ObjectKind kind) {
 // std::hash specialization for IRNodePtr (reference-based hash)
 namespace std {
 /**
- * @brief Hash specialization for IRNodePtr
+ * \brief Hash specialization for IRNodePtr
  *
  * Computes hash based on pointer address (reference hash).
  * Enables use of IRNodePtr in std::unordered_map and std::unordered_set
  * with reference equality semantics.
  *
  * Usage:
- * @code
+ * \code
  * std::unordered_map<pypto::ir::IRNodePtr, int> my_map;
- * @endcode
+ * \endcode
  */
 template <>
 struct hash<pypto::ir::IRNodePtr> {
@@ -223,4 +223,3 @@ struct hash<pypto::ir::IRNodePtr> {
 
 }  // namespace std
 
-#endif  // PYPTO_IR_CORE_H_

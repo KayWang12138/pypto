@@ -107,8 +107,8 @@ TEST_F(IRVerifierTest, TestGenerateReportEmpty) {
 TEST_F(IRVerifierTest, TestGenerateReportWithErrors) {
   auto verifier = IRVerifier::CreateDefault();
   std::vector<Diagnostic> diags;
-  diags.emplace_back(DiagnosticSeverity::Error, "TestRule", 1, "error msg", Span::unknown());
-  diags.emplace_back(DiagnosticSeverity::Warning, "TestRule", 2, "warn msg", Span::unknown());
+  diags.emplace_back(DiagnosticSeverity::ERROR, "TestRule", 1, "error msg", Span::unknown());
+  diags.emplace_back(DiagnosticSeverity::WARNING, "TestRule", 2, "warn msg", Span::unknown());
 
   std::string report = verifier.GenerateReport(diags);
   ASSERT_NE(report.find("FAILED"), std::string::npos);
@@ -119,7 +119,7 @@ TEST_F(IRVerifierTest, TestGenerateReportWithErrors) {
 TEST_F(IRVerifierTest, TestGenerateReportWarningsOnly) {
   auto verifier = IRVerifier::CreateDefault();
   std::vector<Diagnostic> diags;
-  diags.emplace_back(DiagnosticSeverity::Warning, "TestRule", 1, "warn msg", Span::unknown());
+  diags.emplace_back(DiagnosticSeverity::WARNING, "TestRule", 1, "warn msg", Span::unknown());
 
   std::string report = verifier.GenerateReport(diags);
   ASSERT_NE(report.find("PASSED"), std::string::npos);
@@ -132,19 +132,19 @@ TEST_F(IRVerifierTest, TestGenerateReportWarningsOnly) {
 
 namespace {
 class AlwaysErrorRule : public VerifyRule {
- public:
+public:
   std::string GetName() const override { return "AlwaysError"; }
   void Verify(const FunctionPtr& func, std::vector<Diagnostic>& diagnostics) override {
-    diagnostics.emplace_back(DiagnosticSeverity::Error, "AlwaysError", 100,
+    diagnostics.emplace_back(DiagnosticSeverity::ERROR, "AlwaysError", 100,
                              "function '" + func->name_ + "' always fails", func->span_);
   }
 };
 
 class AlwaysWarnRule : public VerifyRule {
- public:
+public:
   std::string GetName() const override { return "AlwaysWarn"; }
   void Verify(const FunctionPtr& func, std::vector<Diagnostic>& diagnostics) override {
-    diagnostics.emplace_back(DiagnosticSeverity::Warning, "AlwaysWarn", 200,
+    diagnostics.emplace_back(DiagnosticSeverity::WARNING, "AlwaysWarn", 200,
                              "function '" + func->name_ + "' has a warning", func->span_);
   }
 };
@@ -157,7 +157,7 @@ TEST_F(IRVerifierTest, TestAddRuleAndVerify) {
   auto program = MakeSimpleProgram();
   auto diags = verifier.Verify(program);
   ASSERT_EQ(diags.size(), 1);
-  ASSERT_EQ(diags[0].severity, DiagnosticSeverity::Error);
+  ASSERT_EQ(diags[0].severity, DiagnosticSeverity::ERROR);
   ASSERT_NE(diags[0].message.find("main"), std::string::npos);
 }
 
@@ -220,9 +220,9 @@ TEST_F(IRVerifierTest, TestMultipleRules) {
 
 TEST_F(IRVerifierTest, TestGenerateReportMultipleErrors) {
   std::vector<Diagnostic> diags;
-  diags.emplace_back(DiagnosticSeverity::Error, "Rule1", 1, "error 1", Span("test.py", 1, 1, 1, 10));
-  diags.emplace_back(DiagnosticSeverity::Error, "Rule2", 2, "error 2", Span("test.py", 5, 1, 5, 10));
-  diags.emplace_back(DiagnosticSeverity::Warning, "Rule3", 3, "warn 1", Span("test.py", 10, 1, 10, 10));
+  diags.emplace_back(DiagnosticSeverity::ERROR, "Rule1", 1, "error 1", Span("test.py", 1, 1, 1, 10));
+  diags.emplace_back(DiagnosticSeverity::ERROR, "Rule2", 2, "error 2", Span("test.py", 5, 1, 5, 10));
+  diags.emplace_back(DiagnosticSeverity::WARNING, "Rule3", 3, "warn 1", Span("test.py", 10, 1, 10, 10));
 
   std::string report = IRVerifier::GenerateReport(diags);
   ASSERT_NE(report.find("FAILED"), std::string::npos);

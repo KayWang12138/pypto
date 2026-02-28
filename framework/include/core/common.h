@@ -8,9 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/**
- * @file common.h
- * @brief Common macros, constants, and utility definitions
+#pragma once
+
+/*!
+ * \file common.h
+ * \brief Common macros, constants, and utility definitions
  *
  * This header provides commonly used macros and constants that are shared
  * across the PyPTO codebase, including:
@@ -20,8 +22,6 @@
  * - nanobind module configuration
  */
 
-#ifndef PYPTO_CORE_COMMON_H_
-#define PYPTO_CORE_COMMON_H_
 
 #include <cstdint>
 
@@ -59,4 +59,3 @@ constexpr int64_t kDynamicDim = -1;
 #define PYPTO_STR_CONCAT_IMPL(__x, __y) __x##__y
 #define PYPTO_STR_CONCAT(__x, __y) PYPTO_STR_CONCAT_IMPL(__x, __y)
 }  // namespace pypto
-#endif  // PYPTO_CORE_COMMON_H_

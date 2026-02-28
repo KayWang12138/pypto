@@ -749,7 +749,7 @@ TEST_F(IRPrinterTest, TestPrintFunctionOrchestration) {
       std::make_shared<ConstInt>(0, DataType::INT32, sp), sp);
   auto func = std::make_shared<Function>(
       "my_orch", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body,
-      sp, FunctionType::Orchestration);
+      sp, FunctionType::ORCHESTRATION);
   std::string result = PythonPrint(func);
   ASSERT_NE(result.find("type=pl.FunctionType.Orchestration"), std::string::npos);
 }
@@ -760,7 +760,7 @@ TEST_F(IRPrinterTest, TestPrintFunctionInCore) {
       std::make_shared<ConstInt>(0, DataType::INT32, sp), sp);
   auto func = std::make_shared<Function>(
       "my_incore", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body,
-      sp, FunctionType::InCore);
+      sp, FunctionType::IN_CORE);
   std::string result = PythonPrint(func);
   ASSERT_NE(result.find("type=pl.FunctionType.InCore"), std::string::npos);
 }

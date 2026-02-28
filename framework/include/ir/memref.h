@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_MEMREF_H_
-#define PYPTO_IR_MEMREF_H_
+#pragma once
+
 
 #include <cstdint>
 #include <memory>
@@ -33,7 +33,7 @@ class MemRef;
 using MemRefPtr = std::shared_ptr<const MemRef>;
 
 /**
- * @brief Memory space enumeration
+ * \brief Memory space enumeration
  *
  * Defines the available memory spaces in the hardware hierarchy:
  * - DDR: Double Data Rate memory (off-chip)
@@ -53,14 +53,13 @@ enum class MemorySpace {
 };
 
 /**
- * @brief Convert MemorySpace enum to string
+ * \brief Convert MemorySpace enum to string
  *
- * @param space Memory space enum value
- * @return String representation
+ * \param space Memory space enum value
+ * \return String representation
  */
 std::string MemorySpaceToString(MemorySpace space);
 
 }  // namespace ir
 }  // namespace pypto
 
-#endif  // PYPTO_IR_MEMREF_H_

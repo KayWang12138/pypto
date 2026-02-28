@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_REFLECTION_FIELD_VISITOR_H_
-#define PYPTO_IR_REFLECTION_FIELD_VISITOR_H_
+#pragma once
+
 
 #include <map>
 #include <memory>
@@ -30,7 +30,7 @@ using IRNodePtr = std::shared_ptr<const IRNode>;
 namespace reflection {
 
 /**
- * @brief Type trait to check if a type is a shared_ptr to an IRNode-derived type
+ * \brief Type trait to check if a type is a shared_ptr to an IRNode-derived type
  *
  * Used to dispatch field visiting logic based on field type.
  * This is the general trait that supports all IRNode types (Expr, Stmt, etc.).
@@ -44,7 +44,7 @@ struct IsIRNodeField<std::shared_ptr<const IRNodeType>,
                      std::enable_if_t<std::is_base_of_v<IRNode, IRNodeType>>> : std::true_type {};
 
 /**
- * @brief Type trait to check if a type is std::vector of IRNode pointers
+ * \brief Type trait to check if a type is std::vector of IRNode pointers
  *
  * Used to handle collections of IR nodes specially.
  * Matches any vector<shared_ptr<const T>> where T derives from IRNode.
@@ -58,7 +58,7 @@ struct IsIRNodeVectorField<std::vector<std::shared_ptr<const IRNodeType>>>
     : std::integral_constant<bool, std::is_base_of_v<IRNode, IRNodeType>> {};
 
 /**
- * @brief Type trait to check if a type is std::optional of IRNode pointer
+ * \brief Type trait to check if a type is std::optional of IRNode pointer
  *
  * Used to handle optional IR node fields specially.
  * Matches any optional<shared_ptr<const T>> where T derives from IRNode.
@@ -72,7 +72,7 @@ struct IsIRNodeOptionalField<std::optional<std::shared_ptr<const IRNodeType>>>
     : std::integral_constant<bool, std::is_base_of_v<IRNode, IRNodeType>> {};
 
 /**
- * @brief Type trait to check if a type is std::map with IRNode pointer values
+ * \brief Type trait to check if a type is std::map with IRNode pointer values
  *
  * Used to handle map fields specially (e.g., map of GlobalVarPtr to FunctionPtr).
  * Matches any map<shared_ptr<const K>, shared_ptr<const V>, Comp> where V derives from IRNode.
@@ -87,7 +87,7 @@ struct IsIRNodeMapField<std::map<std::shared_ptr<const KeyType>, std::shared_ptr
     : std::integral_constant<bool, std::is_base_of_v<IRNode, ValueType>> {};
 
 /**
- * @brief Generic field iterator for compile-time field visitation
+ * \brief Generic field iterator for compile-time field visitation
  *
  * Iterates over all fields in one or more IR nodes using field descriptors,
  * calling appropriate visitor methods for each field type.
@@ -98,17 +98,17 @@ struct IsIRNodeMapField<std::map<std::shared_ptr<const KeyType>, std::shared_ptr
  *
  * Uses C++17 fold expressions for compile-time iteration.
  *
- * @tparam NodeType The IR node type being visited
- * @tparam Visitor The visitor type (must have result_type and visit methods)
- * @tparam Descriptors Parameter pack of field descriptors
+ * \tparam NodeType The IR node type being visited
+ * \tparam Visitor The visitor type (must have result_type and visit methods)
+ * \tparam Descriptors Parameter pack of field descriptors
  */
 template <typename NodeType, typename Visitor, typename... Descriptors>
 class FieldIterator {
- public:
+public:
   using result_type = typename Visitor::result_type;
 
   /**
-   * @brief Visit all fields of a single node
+   * \brief Visit all fields of a single node
    *
    * Visitor methods are called with single field arguments:
    *   - VisitIRNodeField(field)
@@ -116,10 +116,10 @@ class FieldIterator {
    *   - VisitIRNodeMapField(field)
    *   - VisitLeafField(field)
    *
-   * @param node The node instance to visit
-   * @param visitor The visitor instance
-   * @param descriptors Field descriptor instances
-   * @return Accumulated result from visiting all fields
+   * \param node The node instance to visit
+   * \param visitor The visitor instance
+   * \param descriptors Field descriptor instances
+   * \return Accumulated result from visiting all fields
    */
   static result_type Visit(const NodeType& node, Visitor& visitor, const Descriptors&... descriptors) {
     result_type result = visitor.InitResult();
@@ -128,7 +128,7 @@ class FieldIterator {
   }
 
   /**
-   * @brief Visit all fields of two nodes pairwise
+   * \brief Visit all fields of two nodes pairwise
    *
    * Visitor methods are called with two field arguments:
    *   - VisitIRNodeField(lhs_field, rhs_field)
@@ -136,11 +136,11 @@ class FieldIterator {
    *   - VisitIRNodeMapField(lhs_field, rhs_field)
    *   - VisitLeafField(lhs_field, rhs_field)
    *
-   * @param lhs Left-hand side node
-   * @param rhs Right-hand side node
-   * @param visitor The visitor instance
-   * @param descriptors Field descriptor instances
-   * @return Accumulated result from visiting all field pairs
+   * \param lhs Left-hand side node
+   * \param rhs Right-hand side node
+   * \param visitor The visitor instance
+   * \param descriptors Field descriptor instances
+   * \return Accumulated result from visiting all field pairs
    */
   static result_type Visit(const NodeType& lhs, const NodeType& rhs, Visitor& visitor,
                            const Descriptors&... descriptors) {
@@ -149,14 +149,14 @@ class FieldIterator {
     return result;
   }
 
- private:
+private:
   /**
-   * @brief Visit a single field from N nodes using its descriptor
+   * \brief Visit a single field from N nodes using its descriptor
    *
    * Dispatches based on field kind (IGNORE/DEF/USUAL).
    *
-   * @tparam Desc The field descriptor type
-   * @tparam Nodes Parameter pack of node types (all must be NodeType)
+   * \tparam Desc The field descriptor type
+   * \tparam Nodes Parameter pack of node types (all must be NodeType)
    */
   template <typename Desc, typename... Nodes>
   static void VisitField(Visitor& visitor, const Desc& desc, result_type& result, const Nodes&... nodes) {
@@ -175,7 +175,7 @@ class FieldIterator {
   }
 
   /**
-   * @brief Implementation of field visitation
+   * \brief Implementation of field visitation
    *
    * Dispatches based on field type (IRNode/vector/map/scalar) and calls
    * the appropriate visitor method with fields from all nodes.
@@ -212,4 +212,3 @@ class FieldIterator {
 }  // namespace ir
 }  // namespace pypto
 
-#endif  // PYPTO_IR_REFLECTION_FIELD_VISITOR_H_

@@ -102,9 +102,9 @@ TEST(IRTypeTest, TestScalarTypeVariousDtypes) {
 TEST(IRTypeTest, TestTileViewDefaultConstructor) {
   // Test TileView default construction
   TileView tile_view;
-  ASSERT_TRUE(tile_view.valid_shape.empty());
+  ASSERT_TRUE(tile_view.validShape.empty());
   ASSERT_TRUE(tile_view.stride.empty());
-  ASSERT_EQ(tile_view.start_offset, nullptr);
+  ASSERT_EQ(tile_view.startOffset, nullptr);
 }
 
 TEST(IRTypeTest, TestTileViewWithParameters) {
@@ -114,13 +114,13 @@ TEST(IRTypeTest, TestTileViewWithParameters) {
   auto const3 = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
   auto offset = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
 
-  std::vector<ExprPtr> valid_shape = {const1, const2};
+  std::vector<ExprPtr> validShape = {const1, const2};
   std::vector<ExprPtr> stride = {const3, const3};
 
-  TileView tile_view(valid_shape, stride, offset);
-  ASSERT_EQ(tile_view.valid_shape.size(), 2);
+  TileView tile_view(validShape, stride, offset);
+  ASSERT_EQ(tile_view.validShape.size(), 2);
   ASSERT_EQ(tile_view.stride.size(), 2);
-  ASSERT_NE(tile_view.start_offset, nullptr);
+  ASSERT_NE(tile_view.startOffset, nullptr);
 }
 
 // ============================================================================
@@ -152,7 +152,7 @@ TEST(IRTypeTest, TestShapedTypeWithMemRef) {
   auto shaped_type = std::make_shared<ShapedType>(DataType::INT32, shape, memref);
   ASSERT_NE(shaped_type, nullptr);
   ASSERT_TRUE(shaped_type->memref_.has_value());
-  ASSERT_EQ((*shaped_type->memref_)->memory_space_, MemorySpace::UB);
+  ASSERT_EQ((*shaped_type->memref_)->memorySpace_, MemorySpace::UB);
   ASSERT_EQ((*shaped_type->memref_)->size_, 1024);
 }
 
@@ -207,7 +207,7 @@ TEST(IRTypeTest, TestTensorTypeWithMemRef) {
   auto tensor_type = std::make_shared<TensorType>(shape, DataType::INT32, memref);
   ASSERT_NE(tensor_type, nullptr);
   ASSERT_TRUE(tensor_type->memref_.has_value());
-  ASSERT_EQ((*tensor_type->memref_)->memory_space_, MemorySpace::DDR);
+  ASSERT_EQ((*tensor_type->memref_)->memorySpace_, MemorySpace::DDR);
 }
 
 // ============================================================================
@@ -223,7 +223,7 @@ TEST(IRTypeTest, TestTileType1D) {
   ASSERT_NE(tile_type, nullptr);
   ASSERT_EQ(tile_type->TypeName(), "TileType");
   ASSERT_EQ(tile_type->shape_.size(), 1);
-  ASSERT_FALSE(tile_type->tile_view_.has_value());
+  ASSERT_FALSE(tile_type->tileView_.has_value());
 }
 
 TEST(IRTypeTest, TestTileType2D) {
@@ -250,7 +250,7 @@ TEST(IRTypeTest, TestTileTypeWithMemRef) {
   auto tile_type = std::make_shared<TileType>(shape, DataType::FP32, memref);
   ASSERT_NE(tile_type, nullptr);
   ASSERT_TRUE(tile_type->memref_.has_value());
-  ASSERT_EQ((*tile_type->memref_)->memory_space_, MemorySpace::L0A);
+  ASSERT_EQ((*tile_type->memref_)->memorySpace_, MemorySpace::L0A);
 }
 
 TEST(IRTypeTest, TestTileTypeWithTileView) {
@@ -272,9 +272,9 @@ TEST(IRTypeTest, TestTileTypeWithTileView) {
 
   auto tile_type = std::make_shared<TileType>(shape, DataType::FP32, memref, tile_view);
   ASSERT_NE(tile_type, nullptr);
-  ASSERT_TRUE(tile_type->tile_view_.has_value());
-  ASSERT_EQ(tile_type->tile_view_->valid_shape.size(), 2);
-  ASSERT_EQ(tile_type->tile_view_->stride.size(), 2);
+  ASSERT_TRUE(tile_type->tileView_.has_value());
+  ASSERT_EQ(tile_type->tileView_->validShape.size(), 2);
+  ASSERT_EQ(tile_type->tileView_->stride.size(), 2);
 }
 
 TEST(IRTypeTest, TestTileTypeInvalidDimensions) {

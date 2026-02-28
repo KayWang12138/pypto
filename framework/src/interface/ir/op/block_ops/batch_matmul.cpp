@@ -26,16 +26,16 @@ namespace pypto {
 namespace ir {
 
 /**
- * @brief Deduce type for batch matrix multiplication
+ * \brief Deduce type for batch matrix multiplication
  *
  * Batch matmul operates on multi-dimensional TileTypes with batch dimensions.
  * For inputs with shape [...batch_dims, M, K] and [...batch_dims, K, N],
  * the output has shape [...broadcast_batch_dims, M, N].
  *
- * @param args Arguments: [lhs_tile, rhs_tile]
- * @param kwargs Keyword arguments (unused)
- * @param op_name Operator name for error messages
- * @return TileType with output shape
+ * \param args Arguments: [lhs_tile, rhs_tile]
+ * \param kwargs Keyword arguments (unused)
+ * \param op_name Operator name for error messages
+ * \return TileType with output shape
  */
 TypePtr DeduceBlockBatchMatMulType(const std::vector<ExprPtr>& args,
                                    const std::vector<std::pair<std::string, std::any>>& /*kwargs*/,

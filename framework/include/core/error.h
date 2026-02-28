@@ -8,9 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/**
- * @file error.h
- * @brief Core error handling framework with stack trace support
+#pragma once
+
+/*!
+ * \file error.h
+ * \brief Core error handling framework with stack trace support
  *
  * This header provides a comprehensive error handling system that captures
  * stack traces at the point of error creation. It includes a base Error class
@@ -23,8 +25,6 @@
  * - Integration with standard C++ exception mechanisms
  */
 
-#ifndef PYPTO_CORE_ERROR_H_
-#define PYPTO_CORE_ERROR_H_
 
 #include <stdexcept>
 #include <string>
@@ -37,7 +37,7 @@
 namespace pypto {
 namespace ir {
 /**
- * @brief Represents a single frame in a call stack
+ * \brief Represents a single frame in a call stack
  *
  * Captures information about a specific point in the execution stack,
  * including the function name, source file location, line number, and
@@ -56,24 +56,24 @@ struct StackFrame {
   StackFrame() : lineno(0), pc(0) {}
 
   /**
-   * @brief Constructs a stack frame with complete information
-   * @param func Function name
-   * @param file Source file path
-   * @param line Line number in source file
-   * @param program_counter Program counter value at this frame
+   * \brief Constructs a stack frame with complete information
+   * \param func Function name
+   * \param file Source file path
+   * \param line Line number in source file
+   * \param program_counter Program counter value at this frame
    */
   StackFrame(std::string func, std::string file, int line, uintptr_t program_counter)
       : function(std::move(func)), filename(std::move(file)), lineno(line), pc(program_counter) {}
 
   /**
-   * @brief Formats the stack frame as a human-readable string
-   * @return String representation in the format "function (filename:lineno)"
+   * \brief Formats the stack frame as a human-readable string
+   * \return String representation in the format "function (filename:lineno)"
    */
   [[nodiscard]] std::string to_string() const;
 };
 
 /**
- * @brief Singleton class for capturing and formatting stack traces
+ * \brief Singleton class for capturing and formatting stack traces
  *
  * This class provides facilities for capturing the current execution stack
  * using execinfo.h and addr2line, and formatting it for display. It uses a
@@ -83,35 +83,35 @@ struct StackFrame {
  * uses thread-safe caching for symbol resolution.
  */
 class Backtrace {
- public:
+public:
   /**
-   * @brief Get the singleton instance of Backtrace
-   * @return Reference to the singleton Backtrace instance
+   * \brief Get the singleton instance of Backtrace
+   * \return Reference to the singleton Backtrace instance
    */
   static Backtrace& GetInstance();
 
   /**
-   * @brief Capture the current stack trace
+   * \brief Capture the current stack trace
    *
    * Walks the call stack and captures information about each frame,
    * including function names, file names, and line numbers.
    *
-   * @param skip Number of most recent frames to skip (useful for hiding
+   * \param skip Number of most recent frames to skip (useful for hiding
    *             internal error handling frames from the trace)
-   * @return Vector of StackFrame objects representing the call stack,
+   * \return Vector of StackFrame objects representing the call stack,
    *         ordered from most recent (top) to least recent (bottom)
    */
   std::vector<StackFrame> CaptureStackTrace(int skip = 0);
 
   /**
-   * @brief Format a stack trace as a human-readable string
-   * @param frames Vector of stack frames to format
-   * @return Multi-line string representation of the stack trace, with
+   * \brief Format a stack trace as a human-readable string
+   * \param frames Vector of stack frames to format
+   * \return Multi-line string representation of the stack trace, with
    *         each frame on a separate line
    */
   static std::string FormatStackTrace(const std::vector<StackFrame>& frames);
 
- public:
+public:
   /// Constructor (no initialization needed for execinfo-based implementation)
   Backtrace();
 
@@ -124,7 +124,7 @@ class Backtrace {
 };
 
 /**
- * @brief Base exception class with automatic stack trace capture
+ * \brief Base exception class with automatic stack trace capture
  *
  * This is the fundamental exception type in PyPTO's error hierarchy.
  * When constructed, it automatically captures the current call stack,
@@ -137,45 +137,45 @@ class Backtrace {
  * exclude the constructor frame itself from the captured trace.
  *
  * Example usage:
- * @code
+ * \code
  *   throw Error("Something went wrong");
  *   // Stack trace will be captured at this point
- * @endcode
+ * \endcode
  */
 class Error : public std::runtime_error {
- public:
+public:
   /**
-   * @brief Constructs an Error with a message and captures the stack trace
-   * @param message Error message describing what went wrong
+   * \brief Constructs an Error with a message and captures the stack trace
+   * \param message Error message describing what went wrong
    */
   PYPTO_ALWAYS_INLINE explicit Error(const std::string& message) : std::runtime_error(message) {
-    stack_trace_ = Backtrace::GetInstance().CaptureStackTrace();
+    stackTrace_ = Backtrace::GetInstance().CaptureStackTrace();
   }
 
   /**
-   * @brief Get the raw stack trace frames
-   * @return Const reference to the vector of captured stack frames
+   * \brief Get the raw stack trace frames
+   * \return Const reference to the vector of captured stack frames
    */
-  [[nodiscard]] const std::vector<StackFrame>& GetStackTrace() const { return stack_trace_; }
+  [[nodiscard]] const std::vector<StackFrame>& GetStackTrace() const { return stackTrace_; }
 
   /**
-   * @brief Get a formatted string representation of the stack trace
-   * @return Multi-line string with each stack frame on a separate line
+   * \brief Get a formatted string representation of the stack trace
+   * \return Multi-line string with each stack frame on a separate line
    */
   [[nodiscard]] std::string GetFormattedStackTrace() const;
 
   /**
-   * @brief Get the complete error message including the stack trace
-   * @return String containing both the error message and formatted stack trace
+   * \brief Get the complete error message including the stack trace
+   * \return String containing both the error message and formatted stack trace
    */
   [[nodiscard]] std::string GetFullMessage() const;
 
- private:
-  std::vector<StackFrame> stack_trace_;  ///< Captured stack frames at error creation
+private:
+  std::vector<StackFrame> stackTrace_;  ///< Captured stack frames at error creation
 };
 
 /**
- * @brief Exception raised when a function receives an argument of correct type but inappropriate value
+ * \brief Exception raised when a function receives an argument of correct type but inappropriate value
  *
  * Use this exception when:
  * - An argument value is outside the valid range
@@ -185,12 +185,12 @@ class Error : public std::runtime_error {
  * Example: ValueError("Dimension size must be positive, got -5")
  */
 class ValueError : public Error {
- public:
+public:
   PYPTO_ALWAYS_INLINE explicit ValueError(const std::string& message) : Error(message) {}
 };
 
 /**
- * @brief Exception raised when an operation is applied to an object of inappropriate type
+ * \brief Exception raised when an operation is applied to an object of inappropriate type
  *
  * Use this exception when:
  * - An argument has the wrong type
@@ -200,12 +200,12 @@ class ValueError : public Error {
  * Example: TypeError("Expected tensor but got scalar value")
  */
 class TypeError : public Error {
- public:
+public:
   PYPTO_ALWAYS_INLINE explicit TypeError(const std::string& message) : Error(message) {}
 };
 
 /**
- * @brief Exception raised when an error occurs during program execution
+ * \brief Exception raised when an error occurs during program execution
  *
  * Use this exception for general runtime failures that don't fit into
  * more specific categories, such as:
@@ -216,12 +216,12 @@ class TypeError : public Error {
  * Example: RuntimeError("Failed to allocate GPU memory")
  */
 class RuntimeError : public Error {
- public:
+public:
   PYPTO_ALWAYS_INLINE explicit RuntimeError(const std::string& message) : Error(message) {}
 };
 
 /**
- * @brief Exception raised when a feature or method is not yet implemented
+ * \brief Exception raised when a feature or method is not yet implemented
  *
  * Use this exception for:
  * - Placeholder implementations
@@ -231,12 +231,12 @@ class RuntimeError : public Error {
  * Example: NotImplementedError("GPU backend not yet supported for this operation")
  */
 class NotImplementedError : public Error {
- public:
+public:
   PYPTO_ALWAYS_INLINE explicit NotImplementedError(const std::string& message) : Error(message) {}
 };
 
 /**
- * @brief Exception raised when a sequence index is out of range
+ * \brief Exception raised when a sequence index is out of range
  *
  * Use this exception when:
  * - Array or vector access is out of bounds
@@ -246,12 +246,12 @@ class NotImplementedError : public Error {
  * Example: IndexError("Index 10 is out of bounds for dimension of size 5")
  */
 class IndexError : public Error {
- public:
+public:
   PYPTO_ALWAYS_INLINE explicit IndexError(const std::string& message) : Error(message) {}
 };
 
 /**
- * @brief Exception raised when an assertion fails
+ * \brief Exception raised when an assertion fails
  *
  * Use this exception when:
  * - An internal consistency check fails
@@ -261,12 +261,12 @@ class IndexError : public Error {
  * Example: AssertionError("Expected x > 0, but got x = -5")
  */
 class AssertionError : public Error {
- public:
+public:
   PYPTO_ALWAYS_INLINE explicit AssertionError(const std::string& message) : Error(message) {}
 };
 
 /**
- * @brief Exception raised when an internal system error occurs
+ * \brief Exception raised when an internal system error occurs
  *
  * Use this exception when:
  * - An unexpected internal state is encountered
@@ -280,22 +280,22 @@ class AssertionError : public Error {
  * Example: InternalError("Corrupted tensor metadata detected")
  */
 class InternalError : public Error {
- public:
+public:
   PYPTO_ALWAYS_INLINE explicit InternalError(const std::string& message) : Error(message) {}
 };
 
 /**
- * @brief Severity level for diagnostics
+ * \brief Severity level for diagnostics
  *
  * Diagnostics can be either errors (must be fixed) or warnings (should be reviewed).
  */
 enum class DiagnosticSeverity {
-  Error,    ///< Error that must be fixed
-  Warning,  ///< Warning that should be reviewed
+  ERROR,    ///< Error that must be fixed
+  WARNING,  ///< Warning that should be reviewed
 };
 
 /**
- * @brief Single diagnostic message from verification
+ * \brief Single diagnostic message from verification
  *
  * Represents a single issue found during IR verification. Contains information
  * about the severity, which rule detected it, the specific error code, a human-readable
@@ -303,29 +303,29 @@ enum class DiagnosticSeverity {
  */
 struct Diagnostic {
   DiagnosticSeverity severity;  ///< Severity level (Error or Warning)
-  std::string rule_name;        ///< Name of the verification rule (e.g., "SSAVerify", "TypeCheck")
-  int error_code;               ///< Specific error code from the rule's error type enum
+  std::string ruleName;        ///< Name of the verification rule (e.g., "SSAVerify", "TypeCheck")
+  int errorCode;               ///< Specific error code from the rule's error type enum
   std::string message;          ///< Human-readable error message
   ir::Span span;                ///< Source location of the issue
 
   /**
-   * @brief Default constructor
+   * \brief Default constructor
    */
-  Diagnostic() : severity(DiagnosticSeverity::Error), error_code(0), span(ir::Span::unknown()) {}
+  Diagnostic() : severity(DiagnosticSeverity::ERROR), errorCode(0), span(ir::Span::unknown()) {}
 
   /**
-   * @brief Construct a diagnostic with all fields
+   * \brief Construct a diagnostic with all fields
    */
   Diagnostic(DiagnosticSeverity sev, std::string rule, int code, std::string msg, ir::Span s)
       : severity(sev),
-        rule_name(std::move(rule)),
-        error_code(code),
+        ruleName(std::move(rule)),
+        errorCode(code),
         message(std::move(msg)),
         span(std::move(s)) {}
 };
 
 /**
- * @brief Exception raised when IR verification fails
+ * \brief Exception raised when IR verification fails
  *
  * This exception is thrown when IR verification detects errors (not warnings).
  * It contains a formatted report of all diagnostics and the raw diagnostic data.
@@ -337,27 +337,26 @@ struct Diagnostic {
  * Example: VerificationError("IR verification failed with 3 errors", diagnostics)
  */
 class VerificationError : public Error {
- public:
+public:
   /**
-   * @brief Construct a verification error with report and diagnostics
-   * @param report Formatted verification report
-   * @param diagnostics Vector of all diagnostics (errors and warnings)
+   * \brief Construct a verification error with report and diagnostics
+   * \param report Formatted verification report
+   * \param diagnostics Vector of all diagnostics (errors and warnings)
    */
   PYPTO_ALWAYS_INLINE explicit VerificationError(const std::string& report,
                                                  std::vector<Diagnostic> diagnostics)
       : Error(report), diagnostics_(std::move(diagnostics)) {}
 
   /**
-   * @brief Get the diagnostics that caused this error
-   * @return Const reference to vector of diagnostics
+   * \brief Get the diagnostics that caused this error
+   * \return Const reference to vector of diagnostics
    */
   [[nodiscard]] const std::vector<Diagnostic>& GetDiagnostics() const { return diagnostics_; }
 
- private:
+private:
   std::vector<Diagnostic> diagnostics_;  ///< All diagnostics (errors and warnings)
 };
 
 }  // namespace ir
 }  // namespace pypto
 
-#endif  // PYPTO_CORE_ERROR_H_

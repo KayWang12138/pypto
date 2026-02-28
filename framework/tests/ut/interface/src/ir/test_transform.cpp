@@ -137,7 +137,7 @@ TEST(PrinterTest, GetPrecedenceVar) {
   auto var = std::make_shared<Var>("x", Int32Type(), span);
   ExprPtr expr = var;
   auto prec = GetPrecedence(expr);
-  ASSERT_EQ(prec, Precedence::kAtom);
+  ASSERT_EQ(prec, Precedence::ATOM);
 }
 
 TEST(PrinterTest, GetPrecedenceAdd) {
@@ -147,7 +147,7 @@ TEST(PrinterTest, GetPrecedenceAdd) {
   auto add = std::make_shared<Add>(x, y, DataType::INT32, span);
   ExprPtr expr = add;
   auto prec = GetPrecedence(expr);
-  ASSERT_EQ(prec, Precedence::kAddSub);
+  ASSERT_EQ(prec, Precedence::ADD_SUB);
 }
 
 TEST(PrinterTest, IsRightAssociativeAdd) {
@@ -172,7 +172,7 @@ TEST(PrinterTest, PrintWithCustomPrefix) {
 
 // Custom visitor that counts nodes
 class NodeCounter : public IRVisitor {
- public:
+public:
   int expr_count = 0;
   int stmt_count = 0;
 
@@ -512,7 +512,7 @@ TEST(VerifierTest, VerifyValidProgram) {
   // A simple valid program should have no errors
   int error_count = 0;
   for (const auto& d : diagnostics) {
-    if (d.severity == DiagnosticSeverity::Error) {
+    if (d.severity == DiagnosticSeverity::ERROR) {
       error_count++;
     }
   }

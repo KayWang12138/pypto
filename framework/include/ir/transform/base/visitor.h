@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_TRANSFORMS_BASE_VISITOR_H_
-#define PYPTO_IR_TRANSFORMS_BASE_VISITOR_H_
+#pragma once
+
 
 #include "ir/stmt.h"
 #include "ir/transform/base/functor.h"
@@ -18,30 +18,30 @@ namespace pypto {
 namespace ir {
 
 /**
- * @brief Read-only IR visitor for both expressions and statements
+ * \brief Read-only IR visitor for both expressions and statements
  *
  * Provides default implementations that recursively traverse the IR tree.
  * Subclasses can override specific VisitExpr_ or VisitStmt_ methods to implement custom behavior.
  * All methods don't modify the visited IR nodes.
  */
 class IRVisitor : public IRFunctor<void> {
- public:
+public:
   ~IRVisitor() override = default;
 
   void VisitExpr(const ExprPtr& expr) override;
   void VisitStmt(const StmtPtr& stmt) override;
 
- protected:
+protected:
   PYPTO_DECLARE_ALL_VISITOR_OVERRIDES
 
- private:
+private:
   /**
-   * @brief Helper to visit both children of a binary expression
+   * \brief Helper to visit both children of a binary expression
    */
   void VisitBinaryOp_(const BinaryExprPtr& op);
 
   /**
-   * @brief Helper to visit the operand of a unary expression
+   * \brief Helper to visit the operand of a unary expression
    */
   void VisitUnaryOp_(const UnaryExprPtr& op);
 };
@@ -49,4 +49,3 @@ class IRVisitor : public IRFunctor<void> {
 }  // namespace ir
 }  // namespace pypto
 
-#endif  // PYPTO_IR_TRANSFORMS_BASE_VISITOR_H_

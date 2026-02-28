@@ -37,7 +37,7 @@ namespace pypto {
 namespace ir {
 
 /**
- * @brief Unified structural equality checker for IR nodes
+ * \brief Unified structural equality checker for IR nodes
  *
  * Template parameter controls behavior on mismatch:
  * - AssertMode=false: Returns false (for structural_equal)
@@ -50,7 +50,7 @@ namespace ir {
  */
 template <bool AssertMode>
 class StructuralEqualImpl {
- public:
+public:
   using result_type = bool;
 
   explicit StructuralEqualImpl(bool enable_auto_mapping) : enable_auto_mapping_(enable_auto_mapping) {}
@@ -420,21 +420,21 @@ class StructuralEqualImpl {
     accumulator = accumulator && field_result;
   }
 
- private:
+private:
   bool Equal(const IRNodePtr& lhs, const IRNodePtr& rhs);
   bool EqualVar(const VarPtr& lhs, const VarPtr& rhs);
   bool EqualIterArg(const IterArgPtr& lhs, const IterArgPtr& rhs);
   bool EqualType(const TypePtr& lhs, const TypePtr& rhs);
 
   /**
-   * @brief Generic field-based equality check for IR nodes using FieldIterator
+   * \brief Generic field-based equality check for IR nodes using FieldIterator
    *
    * Uses the dual-node Visit overload which passes two fields to each visitor method.
    *
-   * @tparam NodePtr Shared pointer type to the node
-   * @param lhs_op Left-hand side node
-   * @param rhs_op Right-hand side node
-   * @return true if all fields are equal
+   * \tparam NodePtr Shared pointer type to the node
+   * \param lhs_op Left-hand side node
+   * \param rhs_op Right-hand side node
+   * \return true if all fields are equal
    */
   template <typename NodePtr>
   bool EqualWithFields(const NodePtr& lhs_op, const NodePtr& rhs_op) {
@@ -690,27 +690,27 @@ bool StructuralEqualImpl<AssertMode>::EqualType(const TypePtr& lhs, const TypePt
       if (!Equal(lhs_tile->shape_[i], rhs_tile->shape_[i])) return false;
     }
     // Compare tile_view
-    if (lhs_tile->tile_view_.has_value() != rhs_tile->tile_view_.has_value()) {
+    if (lhs_tile->tileView_.has_value() != rhs_tile->tileView_.has_value()) {
       if constexpr (AssertMode) {
         ThrowMismatch("TileType tile_view presence mismatch", IRNodePtr(), IRNodePtr(), "", "");
       }
       return false;
     }
-    if (lhs_tile->tile_view_.has_value()) {
-      const auto& lhs_tv = lhs_tile->tile_view_.value();
-      const auto& rhs_tv = rhs_tile->tile_view_.value();
-      // Compare valid_shape
-      if (lhs_tv.valid_shape.size() != rhs_tv.valid_shape.size()) {
+    if (lhs_tile->tileView_.has_value()) {
+      const auto& lhs_tv = lhs_tile->tileView_.value();
+      const auto& rhs_tv = rhs_tile->tileView_.value();
+      // Compare validShape
+      if (lhs_tv.validShape.size() != rhs_tv.validShape.size()) {
         if constexpr (AssertMode) {
           std::ostringstream msg;
-          msg << "TileView valid_shape size mismatch (" << lhs_tv.valid_shape.size()
-              << " != " << rhs_tv.valid_shape.size() << ")";
+          msg << "TileView validShape size mismatch (" << lhs_tv.validShape.size()
+              << " != " << rhs_tv.validShape.size() << ")";
           ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
         }
         return false;
       }
-      for (size_t i = 0; i < lhs_tv.valid_shape.size(); ++i) {
-        if (!Equal(lhs_tv.valid_shape[i], rhs_tv.valid_shape[i])) return false;
+      for (size_t i = 0; i < lhs_tv.validShape.size(); ++i) {
+        if (!Equal(lhs_tv.validShape[i], rhs_tv.validShape[i])) return false;
       }
       // Compare stride
       if (lhs_tv.stride.size() != rhs_tv.stride.size()) {
@@ -725,8 +725,8 @@ bool StructuralEqualImpl<AssertMode>::EqualType(const TypePtr& lhs, const TypePt
       for (size_t i = 0; i < lhs_tv.stride.size(); ++i) {
         if (!Equal(lhs_tv.stride[i], rhs_tv.stride[i])) return false;
       }
-      // Compare start_offset
-      if (!Equal(lhs_tv.start_offset, rhs_tv.start_offset)) return false;
+      // Compare startOffset
+      if (!Equal(lhs_tv.startOffset, rhs_tv.startOffset)) return false;
     }
     return true;
   } else if (auto lhs_tuple = As<TupleType>(lhs)) {

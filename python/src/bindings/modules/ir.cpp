@@ -119,10 +119,10 @@ void BindIR(py::module_ &m) {
       .def("__repr__", &Span::to_string)
       .def("__str__", &Span::to_string)
       .def_readonly("filename", &Span::filename_)
-      .def_readonly("begin_line", &Span::begin_line_)
-      .def_readonly("begin_column", &Span::begin_column_)
-      .def_readonly("end_line", &Span::end_line_)
-      .def_readonly("end_column", &Span::end_column_);
+      .def_readonly("begin_line", &Span::beginLine_)
+      .def_readonly("begin_column", &Span::beginColumn_)
+      .def_readonly("end_line", &Span::endLine_)
+      .def_readonly("end_column", &Span::endColumn_);
 
   // Op
   py::class_<Op, std::shared_ptr<Op>>(ir, "Op")
@@ -227,9 +227,9 @@ void BindIR(py::module_ &m) {
       .def(py::init<>())
       .def(py::init<const std::vector<ExprPtr> &, const std::vector<ExprPtr> &, ExprPtr>(),
            py::arg("valid_shape"), py::arg("stride"), py::arg("start_offset"))
-      .def_readwrite("valid_shape", &TileView::valid_shape)
+      .def_readwrite("valid_shape", &TileView::validShape)
       .def_readwrite("stride", &TileView::stride)
-      .def_readwrite("start_offset", &TileView::start_offset);
+      .def_readwrite("start_offset", &TileView::startOffset);
 
   ir.attr("DYNAMIC_DIM") = kDynamicDim;
 
@@ -268,7 +268,7 @@ void BindIR(py::module_ &m) {
   memref_class
       .def(py::init<MemorySpace, ExprPtr, uint64_t, uint64_t, Span>(), py::arg("memory_space"),
            py::arg("addr"), py::arg("size"), py::arg("id"), py::arg("span") = Span::unknown())
-      .def_readwrite("memory_space_", &MemRef::memory_space_)
+      .def_readwrite("memory_space_", &MemRef::memorySpace_)
       .def_readwrite("addr_", &MemRef::addr_)
       .def_readwrite("size_", &MemRef::size_)
       .def_readwrite("id_", &MemRef::id_);
@@ -478,9 +478,9 @@ void BindIR(py::module_ &m) {
 
   // FunctionType enum
   py::enum_<FunctionType>(ir, "FunctionType")
-      .value("Opaque", FunctionType::Opaque)
-      .value("Orchestration", FunctionType::Orchestration)
-      .value("InCore", FunctionType::InCore)
+      .value("Opaque", FunctionType::OPAQUE)
+      .value("Orchestration", FunctionType::ORCHESTRATION)
+      .value("InCore", FunctionType::IN_CORE)
       .export_values();
 
   // Function
@@ -488,7 +488,7 @@ void BindIR(py::module_ &m) {
   function_class.def(py::init<const std::string &, const std::vector<VarPtr> &, const std::vector<TypePtr> &,
                               const StmtPtr &, const Span &, FunctionType>(),
                      py::arg("name"), py::arg("params"), py::arg("return_types"), py::arg("body"),
-                     py::arg("span"), py::arg("type") = FunctionType::Opaque);
+                     py::arg("span"), py::arg("type") = FunctionType::OPAQUE);
   BindFields<Function>(function_class);
 
   // Program

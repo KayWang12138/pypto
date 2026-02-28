@@ -36,7 +36,7 @@ namespace pypto {
 namespace ir {
 
 class StructuralHashTest : public testing::Test {
- protected:
+protected:
   struct KwargsTestFixture {
     Span sp;
     VarPtr a;

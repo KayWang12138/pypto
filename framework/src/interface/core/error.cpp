@@ -15,7 +15,7 @@
 namespace pypto {
 namespace ir {
 
-std::string Error::GetFormattedStackTrace() const { return Backtrace::FormatStackTrace(stack_trace_); }
+std::string Error::GetFormattedStackTrace() const { return Backtrace::FormatStackTrace(stackTrace_); }
 
 std::string Error::GetFullMessage() const {
   std::ostringstream oss;

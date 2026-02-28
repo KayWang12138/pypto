@@ -163,7 +163,7 @@ TEST_F(IRStmtTest, TestForStmtBasic) {
   auto for_stmt = std::make_shared<ForStmt>(loop_var, start, stop, step, iter_args, body, return_vars,
                                             Span::unknown());
 
-  ASSERT_EQ(for_stmt->loop_var_, loop_var);
+  ASSERT_EQ(for_stmt->loopVar_, loop_var);
   ASSERT_EQ(for_stmt->GetKind(), ObjectKind::ForStmt);
 }
 
@@ -181,7 +181,7 @@ TEST_F(IRStmtTest, TestIfStmtBasic) {
 
   ASSERT_EQ(if_stmt->condition_, cond);
   ASSERT_EQ(if_stmt->GetKind(), ObjectKind::IfStmt);
-  ASSERT_FALSE(if_stmt->else_body_.has_value());
+  ASSERT_FALSE(if_stmt->elseBody_.has_value());
 }
 
 TEST_F(IRStmtTest, TestIfStmtWithElse) {
@@ -194,7 +194,7 @@ TEST_F(IRStmtTest, TestIfStmtWithElse) {
   std::vector<VarPtr> return_vars;
   auto if_stmt = std::make_shared<IfStmt>(cond, then_body, else_body, return_vars, Span::unknown());
 
-  ASSERT_TRUE(if_stmt->else_body_.has_value());
+  ASSERT_TRUE(if_stmt->elseBody_.has_value());
 }
 
 }  // namespace ir

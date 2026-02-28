@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_KIND_TRAITS_H_
-#define PYPTO_IR_KIND_TRAITS_H_
+#pragma once
+
 
 #include <memory>
 
@@ -177,13 +177,13 @@ struct KindTrait<ShapedType> {
 };
 
 /**
- * @brief Check if an IR node is of a specific type (supports inheritance)
+ * \brief Check if an IR node is of a specific type (supports inheritance)
  *
- * @tparam T The target type (concrete or base class)
- * @param node The IR node pointer to check
- * @return true if node is of type T or inherits from T
+ * \tparam T The target type (concrete or base class)
+ * \param node The IR node pointer to check
+ * \return true if node is of type T or inherits from T
  *
- * @example
+ * \example
  * // Concrete type check
  * if (IsA<Var>(expr)) {
  *   // expr is a Var
@@ -208,15 +208,15 @@ bool IsA(const std::shared_ptr<const Base>& base) {
 }
 
 /**
- * @brief Safely cast an IR node to a specific type (supports inheritance)
+ * \brief Safely cast an IR node to a specific type (supports inheritance)
  *
  * Uses static_pointer_cast for zero runtime overhead after Kind check.
  *
- * @tparam T The target type (concrete or base class)
- * @param node The IR node pointer to cast
- * @return Shared pointer to T if cast succeeds, nullptr otherwise
+ * \tparam T The target type (concrete or base class)
+ * \param node The IR node pointer to cast
+ * \return Shared pointer to T if cast succeeds, nullptr otherwise
  *
- * @example
+ * \example
  * // Concrete cast
  * if (auto var = As<Var>(expr)) {
  *   // Use var safely
@@ -235,4 +235,3 @@ std::shared_ptr<const T> As(const std::shared_ptr<const Base>& base) {
 }  // namespace ir
 }  // namespace pypto
 
-#endif  // PYPTO_IR_KIND_TRAITS_H_

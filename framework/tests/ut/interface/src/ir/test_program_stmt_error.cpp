@@ -110,16 +110,16 @@ TEST(ProgramTest, ProgramKindAndTypeName) {
 TEST(SpanTest, Construction) {
   Span span("file.py", 10, 5);
   ASSERT_EQ(span.filename_, "file.py");
-  ASSERT_EQ(span.begin_line_, 10);
-  ASSERT_EQ(span.begin_column_, 5);
-  ASSERT_EQ(span.end_line_, -1);
-  ASSERT_EQ(span.end_column_, -1);
+  ASSERT_EQ(span.beginLine_, 10);
+  ASSERT_EQ(span.beginColumn_, 5);
+  ASSERT_EQ(span.endLine_, -1);
+  ASSERT_EQ(span.endColumn_, -1);
 }
 
 TEST(SpanTest, ConstructionWithEndPos) {
   Span span("file.py", 10, 5, 20, 15);
-  ASSERT_EQ(span.end_line_, 20);
-  ASSERT_EQ(span.end_column_, 15);
+  ASSERT_EQ(span.endLine_, 20);
+  ASSERT_EQ(span.endColumn_, 15);
 }
 
 TEST(SpanTest, ToString) {
@@ -297,7 +297,7 @@ TEST(MemRefTest, Construction) {
   auto memref = std::make_shared<MemRef>(MemorySpace::UB, addr, 1024, 0, span);
 
   ASSERT_NE(memref, nullptr);
-  ASSERT_EQ(memref->memory_space_, MemorySpace::UB);
+  ASSERT_EQ(memref->memorySpace_, MemorySpace::UB);
   ASSERT_EQ(memref->size_, 1024u);
   ASSERT_EQ(memref->id_, 0u);
   ASSERT_EQ(memref->GetKind(), ObjectKind::MemRef);

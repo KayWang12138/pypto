@@ -8,14 +8,14 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_PIPE_H_
-#define PYPTO_IR_PIPE_H_
+#pragma once
+
 
 namespace pypto {
 namespace ir {
 
 /**
- * @brief Pipeline type enumeration for hardware execution units
+ * \brief Pipeline type enumeration for hardware execution units
  */
 enum PipeType : int {
   MTE1,  ///< Memory Transfer Engine 1 (L1 -> L0A/L0B)
@@ -29,7 +29,7 @@ enum PipeType : int {
 };
 
 /**
- * @brief Core type enumeration (numeric values must match runtime add_task expectation)
+ * \brief Core type enumeration (numeric values must match runtime add_task expectation)
  */
 enum CoreType : int {
   CUBE = 0,   ///< Cube Core (Alias for AIC)
@@ -39,4 +39,3 @@ enum CoreType : int {
 }  // namespace ir
 }  // namespace pypto
 
-#endif  // PYPTO_IR_PIPE_H_

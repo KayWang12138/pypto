@@ -35,20 +35,20 @@ namespace pypto {
 namespace ir {
 
 /**
- * @brief Hash combine using Boost-inspired algorithm
+ * \brief Hash combine using Boost-inspired algorithm
  */
 inline uint64_t hash_combine(uint64_t seed, uint64_t value) {
   return seed ^ (value + 0x9e3779b9 + (seed << 6) + (seed >> 2));
 }
 
 /**
- * @brief Structural hasher for IR nodes
+ * \brief Structural hasher for IR nodes
  *
  * Computes hash based on IR node tree structure, ignoring Span (source location).
  * Also serves as a FieldVisitor for the reflection-based field iteration.
  */
 class StructuralHasher {
- public:
+public:
   using result_type = uint64_t;
 
   explicit StructuralHasher(bool enable_auto_mapping) : enable_auto_mapping_(enable_auto_mapping) {}
@@ -204,7 +204,7 @@ class StructuralHasher {
     accumulator = hash_combine(accumulator, field_hash);
   }
 
- private:
+private:
   result_type HashNode(const IRNodePtr& node);
   result_type HashVar(const VarPtr& op);
   result_type HashType(const TypePtr& type);
@@ -271,13 +271,13 @@ StructuralHasher::result_type StructuralHasher::HashType(const TypePtr& type) {
       h = hash_combine(h, HashNode(dim));
     }
     // Hash tile_view if present
-    if (tile_type->tile_view_.has_value()) {
-      const auto& tv = tile_type->tile_view_.value();
+    if (tile_type->tileView_.has_value()) {
+      const auto& tv = tile_type->tileView_.value();
       h = hash_combine(h, static_cast<result_type>(1));  // indicate presence
-      // Hash valid_shape
-      h = hash_combine(h, static_cast<result_type>(tv.valid_shape.size()));
-      for (const auto& dim : tv.valid_shape) {
-        INTERNAL_CHECK(dim) << "structural_hash encountered null valid_shape dimension in TileView";
+      // Hash validShape
+      h = hash_combine(h, static_cast<result_type>(tv.validShape.size()));
+      for (const auto& dim : tv.validShape) {
+        INTERNAL_CHECK(dim) << "structural_hash encountered null validShape dimension in TileView";
         h = hash_combine(h, HashNode(dim));
       }
       // Hash stride
@@ -286,9 +286,9 @@ StructuralHasher::result_type StructuralHasher::HashType(const TypePtr& type) {
         INTERNAL_CHECK(dim) << "structural_hash encountered null stride dimension in TileView";
         h = hash_combine(h, HashNode(dim));
       }
-      // Hash start_offset
-      INTERNAL_CHECK(tv.start_offset) << "structural_hash encountered null start_offset in TileView";
-      h = hash_combine(h, HashNode(tv.start_offset));
+      // Hash startOffset
+      INTERNAL_CHECK(tv.startOffset) << "structural_hash encountered null startOffset in TileView";
+      h = hash_combine(h, HashNode(tv.startOffset));
     } else {
       h = hash_combine(h, static_cast<result_type>(0));  // indicate absence
     }

@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_TRANSFORMS_BASE_FUNCTOR_H_
-#define PYPTO_IR_TRANSFORMS_BASE_FUNCTOR_H_
+#pragma once
+
 
 #include <utility>
 
@@ -22,31 +22,31 @@ namespace pypto {
 namespace ir {
 
 /**
- * @brief Base template for expression functors
+ * \brief Base template for expression functors
  *
  * Provides a visitor-like interface for operating on IR expressions.
  * Subclasses implement specific operations by overriding VisitExpr_ methods.
  *
- * @tparam R Return type of the visit operations
- * @tparam Args Additional arguments passed to visit methods
+ * \tparam R Return type of the visit operations
+ * \tparam Args Additional arguments passed to visit methods
  */
 template <typename R, typename... Args>
 class ExprFunctor {
- public:
+public:
   virtual ~ExprFunctor() = default;
 
   /**
-   * @brief Dispatcher for expression types
+   * \brief Dispatcher for expression types
    *
    * Uses dynamic_cast to determine concrete type and dispatch to appropriate handler.
    *
-   * @param expr Expression pointer (non-null)
-   * @param args Additional arguments
-   * @return Result of visiting the expression
+   * \param expr Expression pointer (non-null)
+   * \param args Additional arguments
+   * \return Result of visiting the expression
    */
   virtual R VisitExpr(const ExprPtr& expr, Args... args);
 
- protected:
+protected:
   // Leaf nodes
   virtual R VisitExpr_(const VarPtr& op, Args... args) = 0;
   virtual R VisitExpr_(const IterArgPtr& op, Args... args) = 0;
@@ -150,31 +150,31 @@ R ExprFunctor<R, Args...>::VisitExpr(const ExprPtr& expr, Args... args) {
 #undef EXPR_FUNCTOR_DISPATCH
 
 /**
- * @brief Base template for statement functors
+ * \brief Base template for statement functors
  *
  * Provides a visitor-like interface for operating on IR statements.
  * Subclasses implement specific operations by overriding VisitStmt_ methods.
  *
- * @tparam R Return type of the visit operations
- * @tparam Args Additional arguments passed to visit methods
+ * \tparam R Return type of the visit operations
+ * \tparam Args Additional arguments passed to visit methods
  */
 template <typename R, typename... Args>
 class StmtFunctor {
- public:
+public:
   virtual ~StmtFunctor() = default;
 
   /**
-   * @brief Dispatcher for statement types
+   * \brief Dispatcher for statement types
    *
    * Uses dynamic_cast to determine concrete type and dispatch to appropriate handler.
    *
-   * @param stmt Statement pointer (non-null)
-   * @param args Additional arguments
-   * @return Result of visiting the statement
+   * \param stmt Statement pointer (non-null)
+   * \param args Additional arguments
+   * \return Result of visiting the statement
    */
   virtual R VisitStmt(const StmtPtr& stmt, Args... args);
 
- protected:
+protected:
   // Statement types
   virtual R VisitStmt_(const AssignStmtPtr& op, Args... args) = 0;
   virtual R VisitStmt_(const IfStmtPtr& op, Args... args) = 0;
@@ -212,27 +212,27 @@ R StmtFunctor<R, Args...>::VisitStmt(const StmtPtr& stmt, Args... args) {
 #undef STMT_FUNCTOR_DISPATCH
 
 /**
- * @brief Unified functor for both expressions and statements
+ * \brief Unified functor for both expressions and statements
  *
  * Combines ExprFunctor and StmtFunctor to provide a unified interface
  * for visiting both expression and statement IR nodes.
  *
- * @tparam R Return type of the visit operations
- * @tparam Args Additional arguments passed to visit methods
+ * \tparam R Return type of the visit operations
+ * \tparam Args Additional arguments passed to visit methods
  */
 template <typename R, typename... Args>
 class IRFunctor : public ExprFunctor<R, Args...>, public StmtFunctor<R, Args...> {
- public:
+public:
   virtual ~IRFunctor() = default;
 
   /**
-   * @brief Dispatcher for IR node types (Expr or Stmt)
+   * \brief Dispatcher for IR node types (Expr or Stmt)
    *
    * Determines whether the node is an Expr or Stmt and dispatches accordingly.
    *
-   * @param node IR node pointer (non-null)
-   * @param args Additional arguments
-   * @return Result of visiting the IR node
+   * \param node IR node pointer (non-null)
+   * \param args Additional arguments
+   * \return Result of visiting the IR node
    */
   R VisitIRNode(const IRNodePtr& node, Args... args) {
     if (auto expr = As<Expr>(node)) {
@@ -303,4 +303,3 @@ class IRFunctor : public ExprFunctor<R, Args...>, public StmtFunctor<R, Args...>
   PYPTO_DECLARE_EXPR_VISITOR_OVERRIDES     \
   PYPTO_DECLARE_STMT_VISITOR_OVERRIDES
 
-#endif  // PYPTO_IR_TRANSFORMS_BASE_FUNCTOR_H_

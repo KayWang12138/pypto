@@ -49,10 +49,10 @@ ProgramPtr Pass::run(const ProgramPtr& program) const { return (*this)(program);
 namespace {
 
 /**
- * @brief Pass implementation that wraps a program transform function
+ * \brief Pass implementation that wraps a program transform function
  */
 class ProgramPassImpl : public PassImpl {
- public:
+public:
   ProgramPassImpl(std::function<ProgramPtr(const ProgramPtr&)> transform, std::string name)
       : transform_(std::move(transform)), name_(std::move(name)) {}
 
@@ -63,16 +63,16 @@ class ProgramPassImpl : public PassImpl {
 
   [[nodiscard]] std::string GetName() const override { return name_.empty() ? "ProgramPass" : name_; }
 
- private:
+private:
   std::function<ProgramPtr(const ProgramPtr&)> transform_;
   std::string name_;
 };
 
 /**
- * @brief Pass implementation that applies a function transform to each function in program
+ * \brief Pass implementation that applies a function transform to each function in program
  */
 class FunctionPassImpl : public PassImpl {
- public:
+public:
   FunctionPassImpl(std::function<FunctionPtr(const FunctionPtr&)> transform, std::string name)
       : transform_(std::move(transform)), name_(std::move(name)) {}
 
@@ -94,7 +94,7 @@ class FunctionPassImpl : public PassImpl {
 
   [[nodiscard]] std::string GetName() const override { return name_.empty() ? "FunctionPass" : name_; }
 
- private:
+private:
   std::function<FunctionPtr(const FunctionPtr&)> transform_;
   std::string name_;
 };

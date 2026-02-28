@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_TRANSFORMS_DEPENDENCY_GRAPH_H_
-#define PYPTO_IR_TRANSFORMS_DEPENDENCY_GRAPH_H_
+#pragma once
+
 
 #include <memory>
 #include <string>
@@ -23,7 +23,7 @@ namespace pypto {
 namespace ir {
 
 /**
- * @brief Represents a basic block in the control flow graph
+ * \brief Represents a basic block in the control flow graph
  */
 struct BasicBlock {
   int id;                           // Unique identifier
@@ -34,7 +34,7 @@ struct BasicBlock {
 };
 
 /**
- * @brief Represents a data dependency edge in the dependency graph
+ * \brief Represents a data dependency edge in the dependency graph
  */
 struct DependencyEdge {
   enum Type { RAW, WAR, WAW };  // Read-After-Write, Write-After-Read, Write-After-Write
@@ -48,7 +48,7 @@ struct DependencyEdge {
 };
 
 /**
- * @brief Complete dependency graph analysis result
+ * \brief Complete dependency graph analysis result
  */
 struct DependencyGraph {
   std::vector<BasicBlock> blocks;            // All basic blocks
@@ -62,4 +62,3 @@ struct DependencyGraph {
 }  // namespace ir
 }  // namespace pypto
 
-#endif  // PYPTO_IR_TRANSFORMS_DEPENDENCY_GRAPH_H_

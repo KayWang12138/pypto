@@ -172,12 +172,12 @@ std::vector<BasicBlock> DependencyAnalyzer::IdentifyBasicBlocks(const StmtPtr& s
       // For simplicity, we'll process then/else bodies as separate blocks
 
       // Process then body
-      int then_exit = ProcessStmt(if_stmt->then_body_, predecessors);
+      int then_exit = ProcessStmt(if_stmt->thenBody_, predecessors);
 
       // Process else body (if exists)
       int else_exit = -1;
-      if (if_stmt->else_body_.has_value()) {
-        else_exit = ProcessStmt(*if_stmt->else_body_, predecessors);
+      if (if_stmt->elseBody_.has_value()) {
+        else_exit = ProcessStmt(*if_stmt->elseBody_, predecessors);
       }
 
       // Create a virtual merge block (both branches merge here)
