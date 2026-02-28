@@ -360,6 +360,7 @@ public:
             wrapInfo->mixResourceType = GetMixResourceType(taskId);
             wrapInfo->tasklist.head = 0;
             wrapInfo->tasklist.tail = 0;
+            wrapInfo->tasklist.lock = 0;
             wrapInfo->tasklist.capacity = wrapInfo->taskCnt;
             if (readyWrapCoreFunctionQue_->tail == 0) {
                 wrapInfo->tasklist.elem = wrapTasklist_;
