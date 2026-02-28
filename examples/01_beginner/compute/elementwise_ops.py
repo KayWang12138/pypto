@@ -548,7 +548,7 @@ def test_exp_basic(device_id: int = None, run_mode: str = "npu"):
 # ============================================================================
 
 
-def create_exp_op_kernel(x_shape: tuple, run_mode: str = "npu", dynamic: bool = False):
+def create_exp2_op_kernel(x_shape: tuple, run_mode: str = "npu", dynamic: bool = False):
     if dynamic:
         x_shape = pypto.frontend.dynamic("x_shape")
     else:
