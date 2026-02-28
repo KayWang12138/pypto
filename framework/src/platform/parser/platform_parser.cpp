@@ -13,12 +13,24 @@
  * \brief
  */
 
+#define STRINGIFY(x) #x
 #include "platform_parser.h"
 
 namespace npu {
 namespace tile_fwk {
 const uint32_t kMaxLength = 50;
 const std::string version = "version";
+void *GetSymbol(const char *sym) {
+    void *ptr = nullptr;
+    const char* CannPath = STRINGIFY(ASCEND_CANN_PACKAGE_PATH);
+    std::string LibPathDir = std::string(CannPath) + "/lib64/libruntime.so";
+    std::string soPath = RealPath(LibPathDir);
+    void* handle = dlopen(soPath.c_str(), RTLD_LAZY);
+    if (handle != nullptr) {
+        ptr = dlsym(handle, sym);
+    }
+    return ptr;
+}
 
 bool INIParser::Initialize(const std::string &iniFilePath) {
     if (!ReadINIFile(iniFilePath)) {
@@ -76,6 +88,25 @@ bool INIParser::GetStringVal(const std::string& column, const std::string& key, 
     }
     val = value[key];
     return true;
+}
+
+bool CmdParser::GetStringVal(const std::string& column, const std::string& key, std::string& val) const {
+    int ret = 1;
+    char charVal[kMaxLength] = {0};
+#ifdef BUILD_WITH_CANN
+    using GetSocSpecFunc = int (*)(const char *, const char *, char *, const uint32_t);
+    std::string socSpecFuncName = "rtGetSocSpec";
+    auto socSpecFunc = (GetSocSpecFunc)GetSymbol(socSpecFuncName.c_str());
+    ret = socSpecFunc(column.c_str(), key.c_str(), charVal, kMaxLength);
+#endif
+    if (ret == 0) {
+        val = std::string(charVal);
+        return true;
+    }
+    (void)column;
+    (void)key;
+    (void)val;
+    return false;
 }
 }  // namespace tile_fwk
 }  // namespace npu

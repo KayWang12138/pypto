@@ -15,38 +15,6 @@
       ]
     }
   },
-  "libtile_fwk_platform_ops.so": {
-    "Source-Header": {
-      "Self": [
-        "framework/src/platform/platform_ops/"
-      ],
-      "Area": [
-      ],
-      "Include": [
-        "framework/include/"
-      ],
-      "WhiteList": [
-      ],
-      "BlackList": [
-      ]
-    }
-  },
-  "libtile_fwk_platform_ops_stub.so": {
-    "Source-Header": {
-      "Self": [
-        "framework/src/platform/platform_ops/"
-      ],
-      "Area": [
-      ],
-      "Include": [
-        "framework/include/"
-      ],
-      "WhiteList": [
-      ],
-      "BlackList": [
-      ]
-    }
-  },
   "libtile_fwk_operator.so": {
     "Source-Header": {
       "Self": [

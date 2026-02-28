@@ -210,7 +210,6 @@ function(PTO_Fwk_STest_AddExe_RunExe)
     set(PTO_Fwk_Libraries
             tile_fwk_utils
             tile_fwk_platform
-            tile_fwk_platform_ops
             tile_fwk_interface
             tile_fwk_codegen
             tile_fwk_compiler
