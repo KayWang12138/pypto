@@ -14,7 +14,7 @@
  */
 
 #include "interface/interpreter/function.h"
-#include "tilefwk/tilefwk_log.h"
+#include "tilefwk/pypto_fwk_log.h"
 #include "interface/interpreter/operation.h"
 
 namespace npu::tile_fwk {
