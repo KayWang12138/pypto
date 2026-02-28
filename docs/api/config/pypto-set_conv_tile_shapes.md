@@ -32,7 +32,7 @@ void
 
 TileShape需要满足以下约束条件：
 
-**注意：L1和L0上都有tileN，但是其代表的含义不同，tileL1Info.tileN代表batch数，tileL0Info.tileN代表L0层级的n的大小**
+**注意：L1和L0上都有tileN，但是其代表的含义不同，tileL1Info.tileN代表输出通道数，tileL0Info.tileN代表L0层级的n的大小**
 
 - 对齐约束：
 
@@ -50,9 +50,9 @@ TileShape需要满足以下约束条件：
 
         - 1 <= tileCinWeight <= Cin（Cin为权重输入通道实际数量）
 
-        - 1 <= tileCout <= Cout（Cout为输出特征图实际通道数）
+        - 1 <= tileN <= Cout（Cout为输出特征图实际通道数）
 
-        - 1 <= tileN（代表batch数） <= 1
+        - 1 <= tileBatch（代表batch数） <= 1
 
     - tileL0Info各维度值需满足对齐约束：
 
@@ -70,7 +70,7 @@ TileShape需要满足以下约束条件：
 
         - 1 <= tileL0Info.tileW <= tileL1Info.tileWout 且 tileL1Info.tileWout % tileL0Info.tileW == 0
 
-        - 1 <= tileL0Info.tileN <= tileL1Info.tileCout
+        - 1 <= tileL0Info.tileN <= tileL1Info.tileN
 
 - buffer空间约束：
 
@@ -95,7 +95,7 @@ TileShape需要满足以下约束条件：
 
         - `mL1 = tileWout * tileHout`
 
-        - `nL1 = tileN`
+        - `nL1 = tileN`（输出通道数）
 
         - `kL1 = Kh * Kw * tileCinWeight`（Kh为卷积核高度，Kw为卷积核宽度）
 
@@ -120,8 +120,8 @@ l1_tile = pypto_impl.TileL1Info(
     tileWout=8,       # 需满足 1 <= tileWout <= Wout
     tileCinFmap=16,   # 需满足 1 <= tileCinFmap <= Cin
     tileCinWeight=32, # 需满足 1 <= tileCinWeight <= Cin
-    tileCout=16,      # 需满足 1 <= tileCout <= Cout
-    tileN=1           # 需满足 1 <= tileN <= Batch
+    tileN=16,         # 需满足 1 <= tileN <= Cout
+    tileBatch=1       # 需满足 1 <= tileBatch <= Batch
 )
 
 # 构造L0 Tile配置（满足对齐约束）

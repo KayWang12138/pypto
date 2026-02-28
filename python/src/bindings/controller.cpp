@@ -98,15 +98,15 @@ void bind_controller_set_tile(py::module &m) {
         .def(py::init<>())
         .def(py::init<int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t>(), 
             py::arg("tileHin"), py::arg("tileHout"),py::arg("tileWin"), py::arg("tileWout"),
-            py::arg("tileCinFmap"), py::arg("tileCinWeight"),py::arg("tileCout"), py::arg("tileN"))
+            py::arg("tileCinFmap"), py::arg("tileCinWeight"),py::arg("tileN"), py::arg("tileBatch"))
         .def_readwrite("tileHin", &Conv::TileL1Info::tileHin)
         .def_readwrite("tileHout", &Conv::TileL1Info::tileHout)
         .def_readwrite("tileWin", &Conv::TileL1Info::tileWin)
         .def_readwrite("tileWout", &Conv::TileL1Info::tileWout)
         .def_readwrite("tileCinFmap", &Conv::TileL1Info::tileCinFmap)
         .def_readwrite("tileCinWeight", &Conv::TileL1Info::tileCinWeight)
-        .def_readwrite("tileCout", &Conv::TileL1Info::tileCout)
-        .def_readwrite("tileN", &Conv::TileL1Info::tileN);
+        .def_readwrite("tileN", &Conv::TileL1Info::tileN)
+        .def_readwrite("tileBatch", &Conv::TileL1Info::tileBatch);
     py::class_<Conv::TileL0Info>(m, "TileL0Info")
         .def(py::init<>())
         .def(py::init<int64_t, int64_t, int64_t, int64_t>(), 
