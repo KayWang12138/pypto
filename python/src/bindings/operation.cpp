@@ -113,10 +113,11 @@ void bind_operation(py::module &m) {
         "Pow", [](const Tensor &self, const Element &other) { return npu::tile_fwk::Pow(self, other); }, "Tensor pow.");
     m.def(
         "Cast",
-        [](const Tensor &self, DataType dstDataType, CastMode mode) {
-            return npu::tile_fwk::Cast(self, dstDataType, mode);
+        [](const Tensor &self, DataType dstDataType, CastMode mode, Saturation satmode) {
+            return npu::tile_fwk::Cast(self, dstDataType, mode, static_cast<int64_t>(satmode));
         },
-        py::arg("operand"), py::arg("new_data_type"), py::arg("mode") = CAST_NONE, "Tensor cast.");
+        py::arg("operand"), py::arg("new_data_type"), py::arg("mode") = CAST_NONE, py::arg("satmode") = Saturation::OFF,
+        "Tensor cast.");
 
     m.def(
         "Add", [](const Tensor &self, const Element &other) { return npu::tile_fwk::Add(self, other); },

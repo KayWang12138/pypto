@@ -23,7 +23,6 @@ TileOpFormat = pypto_impl.TileOpFormat
 CachePolicy = pypto_impl.CachePolicy
 ReduceMode = pypto_impl.ReduceMode
 CastMode = pypto_impl.CastMode
-OpType = pypto_impl.OpType
 OutType = pypto_impl.OutType
 ReLuType = pypto_impl.ReLuType
 ScatterMode = pypto_impl.ScatterMode
@@ -34,7 +33,6 @@ CachePolicy.__repr__ = _enum_repr
 ReduceMode.__repr__ = _enum_repr
 CastMode.__repr__ = _enum_repr
 OpType.__repr__ = _enum_repr
-OutType.__repr__ = _enum_repr
 
 DT_INT4 = pypto_impl.DataType.DT_INT4
 DT_INT8 = pypto_impl.DataType.DT_INT8
