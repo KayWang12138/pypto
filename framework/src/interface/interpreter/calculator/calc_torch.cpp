@@ -308,6 +308,8 @@ DEFINE_BINARY_S_OPS(SubS, sub_out)
 DEFINE_BINARY_S_OPS(MulS, mul_out)
 DEFINE_BINARY_S_OPS(DivS, div_out)
 DEFINE_BINARY_S_OPS(FmodS, fmod_out)
+DEFINE_BINARY_S_OPS(RemainderS, remainder_out)
+DEFINE_BINARY_S_OPS(RemainderRS, remainder_out)
 DEFINE_BINARY_S_OPS(BitwiseAndS, bitwise_and_out)
 DEFINE_BINARY_S_OPS(BitwiseOrS, bitwise_or_out)
 DEFINE_BINARY_S_OPS(BitwiseXorS, bitwise_xor_out)
@@ -489,6 +491,14 @@ static void Fmod(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTen
     } else {
         torch::fmod_out(tout.second, tself.second, tother.second);
     }
+    ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
+}
+
+static void Remainder(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tself = From(self);
+    auto tother = From(other);
+    auto tout = From(out);
+    torch::remainder_out(tout.second, tself.second, tother.second);
     ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
@@ -1863,6 +1873,8 @@ static struct CalcOps calcOps = {
     .MulS = MulS,
     .DivS = DivS,
     .FmodS = FmodS,
+    .RemainderS = RemainderS,
+    .RemainderRS = RemainderRS,
     .BitwiseAndS = BitwiseAndS,
     .BitwiseOrS = BitwiseOrS,
     .BitwiseXorS = BitwiseXorS,
@@ -1871,6 +1883,7 @@ static struct CalcOps calcOps = {
     .Mul = Mul,
     .Div = Div,
     .Fmod = Fmod,
+    .Remainder = Remainder,
     .Pow = Pow,
     .BitwiseAnd = BitwiseAnd,
     .BitwiseOr = BitwiseOr,

@@ -81,6 +81,8 @@ struct CalcOps {
     void (*MulS)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool);
     void (*DivS)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool);
     void (*FmodS)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool);
+    void (*RemainderS)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool);
+    void (*RemainderRS)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool);
     void (*BitwiseAndS)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool);
     void (*BitwiseOrS)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool);
     void (*BitwiseXorS)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool);
@@ -90,6 +92,7 @@ struct CalcOps {
     void (*Mul)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Div)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Fmod)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
+    void (*Remainder)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Pow)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*BitwiseAnd)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*BitwiseOr)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
