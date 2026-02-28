@@ -1593,3 +1593,37 @@ def var(
         raise TypeError(f"the type of dim is not supported. 'int' or 'Lise[int]' or 'Tuple[int]' is needed.")
 
     return pypto_impl.Var(input, inner_dim, correction, keepdim)
+
+
+
+@op_wrapper
+def ceil_div(
+    input: Tensor,
+    other:  Union[Tensor, int],
+) -> Tensor:
+    """
+    Calculate the ceiling division of two tensors.
+    Parameters
+    ---------
+    input: Tensor
+        The dividend tensor.
+    other: Tensor or int
+        The divisor tensor or scalar.
+    out: Tensor
+        The tensor after calculating the ceiling division of the corresponding elements of input and other.
+    Examples
+    ---------
+    x = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
+    y = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
+    out = pypto.ceildiv(x, y)
+    Input  y : [[1 6 6],
+                [4 6 6]]
+           x : [[1 1 2],
+                [3 4 5]]
+    Output out:[[1 6 3],
+                [2 2 2]]
+    """
+    if isinstance(other, pypto_impl.Tensor):
+        return pypto_impl.CeilDiv(input, other)
+    else:
+        return pypto_impl.CeilDiv(input, pypto_impl.Element(input.dtype, other))
