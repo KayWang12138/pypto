@@ -27,7 +27,8 @@ exp2(input: Tensor) -> Tensor
 
 ## 返回值说明
 
-返回输出Tensor，Tensor的数据类型和input相同，Shape与input相同。
+返回输出Tensor，当输入是DT_FP32, DT_FP16, DT_BF16，Tensor的数据类型和input相同，Shape与input相同，当输入是DT_INT32, DT_INT16，Tensor的数据类型是DT_FP32，Shape与input相同。
+
 
 ## 调用示例
 
