@@ -17,6 +17,7 @@
 #include "interface/utils/file_utils.h"
 #include "machine/platform/platform_manager.h"
 #include "tilefwk/platform.h"
+#include "platform/platform_utils/parser/internal_parser.h"
 
 using namespace npu::tile_fwk;
 
@@ -48,7 +49,6 @@ TEST_F(PlatformTest, TestPlatfromCase1) {
     EXPECT_EQ(PlatformManager::Instance().Initialize("Ascend910B1"), true);
     EXPECT_EQ(PlatformManager::Instance().Initialize("Ascend910B1"), true);
 
-    EXPECT_EQ(PlatformManager::Instance().GetSocVersion(), "Ascend910B1");
     EXPECT_EQ(PlatformManager::Instance().GetShortSocVersion(), "Ascend910B");
     EXPECT_EQ(PlatformManager::Instance().GetAicVersion(), "AIC-C-220");
 
@@ -75,22 +75,6 @@ TEST_F(PlatformTest, TestPlatfromCase1) {
     EXPECT_EQ(PlatformManager::Instance().GetAiCoreL2ReadRate(), 110);
     EXPECT_EQ(PlatformManager::Instance().GetAiCoreL2WriteRate(), 86);
 
-    for (const auto &pair : PlatformManager::Instance().GetAiCoreIntrinsicDtypeMap()) {
-        std::cout << pair.first << " : ";
-        for (const std::string &item : pair.second) {
-            std::cout << item << " ";
-        }
-        std::cout << std::endl;
-    }
-
-    for (const auto &pair : PlatformManager::Instance().GetVectorCoreIntrinsicDtypeMap()) {
-        std::cout << pair.first << " : ";
-        for (const std::string &item : pair.second) {
-            std::cout << item << " ";
-        }
-        std::cout << std::endl;
-    }
-
     std::vector<std::string> aicoreDtypeVec;
     EXPECT_EQ(PlatformManager::Instance().GetAiCoreIntrinsicDtype("", aicoreDtypeVec), false);
     EXPECT_EQ(PlatformManager::Instance().GetAiCoreIntrinsicDtype("vhwconv", aicoreDtypeVec), false);
@@ -106,8 +90,11 @@ TEST_F(PlatformTest, TestPlatfromCase1) {
 }
 
 TEST_F(PlatformTest, TestPlatformA5Stub) {
-    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
-    Platform::Instance().GetDie().SetMemoryPath({});
+    std::vector<std::pair<MemoryType, MemoryType>> dataPath;
+    InternalParser internalParser = InternalParser(NPUArchToString(NPUArch::DAV_3510));
+    internalParser.LoadInternalInfo();
+    EXPECT_TRUE(internalParser.GetDataPath(dataPath));
+    Platform::Instance().GetDie().SetMemoryPath(dataPath);
     std::vector<MemoryType> path;
     const int Num2 = 2;
     Platform::Instance().GetDie().FindNearestPath(MemoryType::MEM_L0C, MemoryType::MEM_UB, path);

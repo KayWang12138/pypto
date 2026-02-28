@@ -18,7 +18,6 @@
 #include <fcntl.h>
 #include <climits>
 #include <unistd.h>
-#include <sys/stat.h>
 #include <dirent.h>
 #include <dlfcn.h>
 #include <ftw.h>
@@ -29,6 +28,7 @@ namespace {
 const int FILE_AUTHORITY = 0640;
 }
 
+<<<<<<< Updated upstream
 bool FileExist(const std::string &fPath) {
     return !RealPath(fPath).empty();
 }
@@ -61,6 +61,10 @@ std::string RealPath(const std::string &path) {
 
 bool GetFileSize(const std::string& fPath, uint32_t &fileSize) {
     if (RealPath(fPath).empty()) {
+=======
+bool GetFileSize(const std::string& filePath, uint32_t &fileSize) {
+    if (RealPath(filePath).empty()) {
+>>>>>>> Stashed changes
         return false;
     }
     std::ifstream file(fPath, std::ios::binary | std::ios::ate); // 打开文件，定位到文件末尾
@@ -209,16 +213,6 @@ bool ReadBytesFromFile(const std::string &fPath, std::vector<char> &buffer)
         return false;
     }
     return true;
-}
-
-bool IsPathExist(const std::string& path)
-{
-    if (path.empty()) {
-        return false;
-    }
-
-    struct stat buffer;
-    return (stat(path.c_str(), &buffer) == 0);
 }
 
 std::vector<std::string> GetFiles(const std::string& path, const std::string& ext) {
@@ -407,23 +401,6 @@ bool CopyFile(const std::string &srcPath, const std::string &dstPath) {
     src.close();
     dst.close();
     return true;
-}
-
-std::string GetCurrentSharedLibPath() {
-    static std::string currentLibPath;
-    if (!currentLibPath.empty()) {
-        return currentLibPath;
-    }
-
-    Dl_info info;
-    if (dladdr(reinterpret_cast<void*>(GetCurrentSharedLibPath), &info)) {
-        currentLibPath = std::string(info.dli_fname);
-        int32_t pos = currentLibPath.rfind('/');
-        if (pos >= 0) {
-            currentLibPath = currentLibPath.substr(0, pos);
-        }
-    }
-    return currentLibPath;
 }
 
 std::string GetCurRunningPath() {
