@@ -27,6 +27,7 @@ OpType = pypto_impl.OpType
 OutType = pypto_impl.OutType
 ReLuType = pypto_impl.ReLuType
 ScatterMode = pypto_impl.ScatterMode
+SaturationMode = pypto_impl.SaturationMode
 
 DataType.__repr__ = _enum_repr
 TileOpFormat.__repr__ = _enum_repr
@@ -35,6 +36,7 @@ ReduceMode.__repr__ = _enum_repr
 CastMode.__repr__ = _enum_repr
 OpType.__repr__ = _enum_repr
 OutType.__repr__ = _enum_repr
+SaturationMode.__repr__ = _enum_repr
 
 DT_INT4 = pypto_impl.DataType.DT_INT4
 DT_INT8 = pypto_impl.DataType.DT_INT8
