@@ -28,14 +28,14 @@ void bind_pass_const(py::module &m) {
 
 // config pass_global_configs.x parameters
 void bind_pass_global_config(py::module &m) {
-    m.def("GetPassGlobalConfig", [](const std::string &key, const bool &default_value) -> py::object {
-            return py::cast(config::GetPassGlobalConfig<bool>(key, default_value));
+    m.def("GetPassGlobalConfig", [](const std::string &key, const bool &defaultValue) -> py::object {
+            return py::cast(config::GetPassGlobalConfig<bool>(key, defaultValue));
         }, py::arg("key"), py::arg("default_value"));
-    m.def("GetPassGlobalConfig", [](const std::string &key, const int64_t &default_value) -> py::object {
-            return py::cast(config::GetPassGlobalConfig<int64_t>(key, default_value));
+    m.def("GetPassGlobalConfig", [](const std::string &key, const int64_t &defaultValue) -> py::object {
+            return py::cast(config::GetPassGlobalConfig<int64_t>(key, defaultValue));
         }, py::arg("key"), py::arg("default_value"));
-    m.def("GetPassGlobalConfig", [](const std::string &key, const std::string &default_value) -> py::object {
-            return py::cast(config::GetPassGlobalConfig<std::string>(key, default_value));
+    m.def("GetPassGlobalConfig", [](const std::string &key, const std::string &defaultValue) -> py::object {
+            return py::cast(config::GetPassGlobalConfig<std::string>(key, defaultValue));
         }, py::arg("key"), py::arg("default_value"));
 
     m.def("SetPassGlobalConfig", [](const std::string &key, const bool &value) {
@@ -51,14 +51,14 @@ void bind_pass_global_config(py::module &m) {
 
 // config pass_global_configs.default_pass_configs.x parameters
 void bind_pass_default_config(py::module &m) {
-    m.def("GetPassDefaultConfig", [](const std::string &key, const bool &default_value) -> py::object {
-            return py::cast(config::GetPassDefaultConfig<bool>(key, default_value));
+    m.def("GetPassDefaultConfig", [](const std::string &key, const bool &defaultValue) -> py::object {
+            return py::cast(config::GetPassDefaultConfig<bool>(key, defaultValue));
         }, py::arg("key"), py::arg("default_value"));
-    m.def("GetPassDefaultConfig", [](const std::string &key, const int64_t &default_value) -> py::object {
-            return py::cast(config::GetPassDefaultConfig<int64_t>(key, default_value));
+    m.def("GetPassDefaultConfig", [](const std::string &key, const int64_t &defaultValue) -> py::object {
+            return py::cast(config::GetPassDefaultConfig<int64_t>(key, defaultValue));
         }, py::arg("key"), py::arg("default_value"));
-    m.def("GetPassDefaultConfig", [](const std::string &key, const std::string &default_value) -> py::object {
-            return py::cast(config::GetPassDefaultConfig<std::string>(key, default_value));
+    m.def("GetPassDefaultConfig", [](const std::string &key, const std::string &defaultValue) -> py::object {
+            return py::cast(config::GetPassDefaultConfig<std::string>(key, defaultValue));
         }, py::arg("key"), py::arg("default_value"));
 
     m.def("SetPassDefaultConfig", [](const std::string &key, const bool &value) {
@@ -75,16 +75,16 @@ void bind_pass_default_config(py::module &m) {
 // config strategies.x parameters
 void bind_pass_config(py::module &m) {
     m.def("GetPassConfig",
-        [](const std::string &strategy, const std::string &identifier, const std::string &key, const bool &default_value) -> py::object {
-            return py::cast(config::GetPassConfig<bool>(strategy, identifier, key, default_value));
+        [](const std::string &strategy, const std::string &identifier, const std::string &key, const bool &defaultValue) -> py::object {
+            return py::cast(config::GetPassConfig<bool>(strategy, identifier, key, defaultValue));
         }, py::arg("strategy"), py::arg("identifier"), py::arg("key"), py::arg("default_value"));
     m.def("GetPassConfig",
-        [](const std::string &strategy, const std::string &identifier, const std::string &key, const int64_t &default_value) -> py::object {
-            return py::cast(config::GetPassConfig<int64_t>(strategy, identifier, key, default_value));
+        [](const std::string &strategy, const std::string &identifier, const std::string &key, const int64_t &defaultValue) -> py::object {
+            return py::cast(config::GetPassConfig<int64_t>(strategy, identifier, key, defaultValue));
         }, py::arg("strategy"), py::arg("identifier"), py::arg("key"), py::arg("default_value"));
     m.def("GetPassConfig",
-        [](const std::string &strategy, const std::string &identifier, const std::string &key, const std::string &default_value) -> py::object {
-            return py::cast(config::GetPassConfig<std::string>(strategy, identifier, key, default_value));
+        [](const std::string &strategy, const std::string &identifier, const std::string &key, const std::string &defaultValue) -> py::object {
+            return py::cast(config::GetPassConfig<std::string>(strategy, identifier, key, defaultValue));
         }, py::arg("strategy"), py::arg("identifier"), py::arg("key"), py::arg("default_value"));
 
     m.def("SetPassConfig",

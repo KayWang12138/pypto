@@ -11,6 +11,13 @@
 pybind11_add_module(pypto_impl
         MODULE
             pybind11.cpp
+            bindings/modules/error.cpp
+            bindings/modules/core.cpp
+            bindings/modules/logging.cpp
+            bindings/modules/testing.cpp
+            bindings/modules/ir.cpp
+            bindings/modules/ir_builder.cpp
+            bindings/modules/passes.cpp
             bindings/enum.cpp
             bindings/element.cpp
             bindings/tensor.cpp
@@ -47,6 +54,7 @@ target_link_libraries(pypto_impl
             c_sec
             intf_pub_cxx17
             tile_fwk_intf_pub
+            msgpackc-cxx
 )
 if (TARGET c_sec_shared)
     add_dependencies(pypto_impl c_sec_shared)

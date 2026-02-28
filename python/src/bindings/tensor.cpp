@@ -22,27 +22,27 @@ void BindTensor(py::module &m) {
     py::class_<Tensor>(m, "Tensor")
         .def(py::init<>())
         .def(py::init([](DataType dtype, const py::sequence &shape, const std::string &name, TileOpFormat format) {
-            bool has_symbolic = false;
+            bool hasSymbolic = false;
             for (const auto &item : shape) {
                 if (py::isinstance<SymbolicScalar>(item)) {
-                    has_symbolic = true;
+                    hasSymbolic = true;
                     break;
                 }
             }
-            if (has_symbolic) {
-                std::vector<SymbolicScalar> symbolic_shape;
-                symbolic_shape.reserve(py::len(shape));
+            if (hasSymbolic) {
+                std::vector<SymbolicScalar> symbolicShape;
+                symbolicShape.reserve(py::len(shape));
                 for (const auto &item : shape) {
-                    symbolic_shape.push_back(item.cast<SymbolicScalar>());
+                    symbolicShape.push_back(item.cast<SymbolicScalar>());
                 }
-                return std::make_unique<Tensor>(dtype, symbolic_shape, name, format);
+                return std::make_unique<Tensor>(dtype, symbolicShape, name, format);
             } else {
-                std::vector<int64_t> int_shape;
-                int_shape.reserve(py::len(shape));
+                std::vector<int64_t> intShape;
+                intShape.reserve(py::len(shape));
                 for (const auto &item : shape) {
-                    int_shape.push_back(item.cast<int64_t>());
+                    intShape.push_back(item.cast<int64_t>());
                 }
-                return std::make_unique<Tensor>(dtype, int_shape, name, format);
+                return std::make_unique<Tensor>(dtype, intShape, name, format);
             }
         }),
             py::arg("dtype"), py::arg("shape"), py::arg("name") = "", py::arg("format") = TileOpFormat::TILEOP_ND)
