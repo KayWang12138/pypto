@@ -140,10 +140,10 @@ void bind_enum(py::module &m){
         .value("RELU", Matrix::ReLuType::ReLu)
         .export_values();
 
-    py::enum_<Matrix::TF32Mode>(m, "TF32Mode")
-        .value("CAST_NONE", Matrix::TF32Mode::CAST_NONE)
-        .value("CAST_RINT", Matrix::TF32Mode::CAST_RINT)
-        .value("CAST_ROUND", Matrix::TF32Mode::CAST_ROUND)
+    py::enum_<Matrix::TransMode>(m, "TransMode")
+        .value("CAST_NONE", Matrix::TransMode::CAST_NONE)
+        .value("CAST_RINT", Matrix::TransMode::CAST_RINT)
+        .value("CAST_ROUND", Matrix::TransMode::CAST_ROUND)
         .export_values();
 
     py::enum_<LogBaseType>(m, "LogBaseType")

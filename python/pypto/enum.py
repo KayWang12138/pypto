@@ -26,7 +26,7 @@ CastMode = pypto_impl.CastMode
 OpType = pypto_impl.OpType
 OutType = pypto_impl.OutType
 ReLuType = pypto_impl.ReLuType
-TF32Mode = pypto_impl.TF32Mode
+TransMode = pypto_impl.TransMode
 ScatterMode = pypto_impl.ScatterMode
 
 DataType.__repr__ = _enum_repr

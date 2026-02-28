@@ -391,5 +391,5 @@ def __convert_matmul_extend_params(extend_params) -> dict:
     extend_params.setdefault('scale_tensor', pypto_impl.Tensor())
     extend_params.setdefault('relu_type', pypto_impl.ReLuType.NO_RELU)
     extend_params.setdefault('scale', 0.0)
-    extend_params.setdefault('tf32_mode', pypto_impl.TF32Mode.CAST_NONE)
+    extend_params.setdefault('trans_mode', pypto_impl.TransMode.CAST_NONE)
     return extend_params

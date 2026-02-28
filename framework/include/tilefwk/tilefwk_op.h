@@ -373,7 +373,7 @@ enum class ReLuType : int64_t
     ReLu = 1
 };
 
-enum class TF32Mode : int64_t
+enum class TransMode : int64_t
 {
     CAST_NONE = 0,
     CAST_RINT = 1,
@@ -385,14 +385,14 @@ struct MatmulExtendParam {
     Tensor scaleTensor{Tensor()};
     float scaleValue{0.0f};
     ReLuType reluType{ReLuType::NoReLu};
-    TF32Mode tf32Mode{TF32Mode::CAST_NONE};
+    TransMode transMode{TransMode::CAST_NONE};
 
-    MatmulExtendParam(Tensor bias, Tensor scale, float scaleVal, ReLuType relu, TF32Mode mode = TF32Mode::CAST_NONE)
+    MatmulExtendParam(Tensor bias, Tensor scale, float scaleVal, ReLuType relu, TransMode mode = TransMode::CAST_NONE)
         : biasTensor(std::move(bias)),
           scaleTensor(std::move(scale)),
           scaleValue(scaleVal),
           reluType(relu),
-          tf32Mode(mode) {}
+          transMode(mode) {}
 
     MatmulExtendParam() = default;
 };
