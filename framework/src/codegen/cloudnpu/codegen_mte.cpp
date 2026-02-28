@@ -1809,7 +1809,7 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
     std::vector<std::string> tileOpParamList = 
         {dstTensor, srcTensor, std::to_string(offsetN), std::to_string(offsetC), std::to_string(offsetD),
         std::to_string(offsetH), std::to_string(offsetW), std::to_string(srcShapeN), std::to_string(srcShapeC),
-        std::to_string(srcShapeD), std::to_string(srcShapeH), std::to_string(srcShapeW), std::to_string(isInput)};
+        std::to_string(srcShapeD), std::to_string(srcShapeH), std::to_string(srcShapeW), std::to_string(isFmap)};
 
     std::ostringstream oss;
     oss << tileOpName << "<" << copyInModeStr << ", " << std::to_string(isConv3D) << ">";
