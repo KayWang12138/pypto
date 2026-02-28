@@ -26,12 +26,12 @@ def layer_norm_func():
     x = pypto.tensor([1, 1], pypto.DT_FP32)
     pypto.add(x, 1.0)
     assert [64, 128] == get_options("vec_tile_shapes")
-    assert 1048 == get_options("pass.pg_lower_bound ") # 当前scope未设置，依然是上层scope值
+    assert 1048 == get_options("pass.pg_lower_bound") # 当前scope未设置，依然是上层scope值
 
 
 # jit scope 1
 @pypto.jit(
-        pass_options={"pg_lower_bound ": 1048},
+        pass_options={"pg_lower_bound": 1048},
         )
 def set_scope_options(a, c, tiling=None):
     assert 1048 == get_options("pass.pg_lower_bound")
