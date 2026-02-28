@@ -77,10 +77,10 @@ private:
     std::vector<std::vector<int>> colorNode_;
     std::unordered_map<int, int> dfsColorOrder_;
     std::vector<int> colorCycles_;
-    int vecNBuffermode;
-    int mgVecParallelLb;
-    std::map<int64_t, int64_t> vecNBufferSetting;
-    std::unordered_map<uint64_t, int> hashOrder;
+    int vecNBuffermode_;
+    int mgVecParallelLb_;
+    std::map<int64_t, int64_t> vecNBufferSetting_;
+    std::unordered_map<uint64_t, int> hashOrder_;
     enum ModeType {
         noMerge = 0,
         autoMerge = 1,
