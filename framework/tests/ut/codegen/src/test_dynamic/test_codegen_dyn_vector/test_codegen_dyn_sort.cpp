@@ -70,8 +70,8 @@ std::string generateCodeForOp(Operation *op) {
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(*op, symbolManager);
-    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
-    cop.Init(*op);
+    CodeGenOpCloudNPUCtx opCtx(symbolManager, *op->funcPtr->parentFunction, *op->funcPtr->parentFunction, *op, {}, true);
+    CodeGenOpCloudNPU cop(opCtx);
     return cop.GenOpCode();
 }
 
@@ -201,14 +201,13 @@ TEST_F(TestCodegenDynSort, TestDynTiledMgrSort) {
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {}, true);
+    CodeGenOpCloudNPU cop(opCtx);
     function->GetTensorMap().inverseMap_[localTensorInput1->GetMagic()] = localTensorInput1;
     function->GetTensorMap().inverseMap_[localTensorInput2->GetMagic()] = localTensorInput2;
     function->GetTensorMap().inverseMap_[localTensorInput3->GetMagic()] = localTensorInput3;
     function->GetTensorMap().inverseMap_[localTensorRes->GetMagic()] = localTensorRes;
     function->GetTensorMap().inverseMap_[localTensorTmp->GetMagic()] = localTensorTmp;
-
-    cop.Init(op);
     std::string res = cop.GenOpCode();
     std::string expect =
         R"!!!(TileOp::DynTiledMrgSort<float, 1, 1, 64, 64, 1, 1, 64, 64, 64, 0>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1, 1, 64, 64, 64, 64, 64);
@@ -260,12 +259,11 @@ void TestTopkBody(Opcode opCode, const std::string &expect) {
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {}, true);
+    CodeGenOpCloudNPU cop(opCtx);
     function->GetTensorMap().inverseMap_[yVar->GetMagic()] = yVar;
     function->GetTensorMap().inverseMap_[tmpVar->GetMagic()] = tmpVar;
     function->GetTensorMap().inverseMap_[xVar->GetMagic()] = xVar;
-
-    cop.Init(op);
     std::string res = cop.GenOpCode();
     EXPECT_EQ(res, expect);
 }
