@@ -488,14 +488,14 @@ TEST_F(TensorOpsTest, TestIsRegistered) {
 
 TEST_F(TensorOpsTest, TestTensorCreateRuntimeShape) {
   // Test with runtime tuple (Var with TupleType) instead of MakeTuple
-  auto tuple_type = std::make_shared<TupleType>(std::vector<TypePtr>{
+  auto tupleType = std::make_shared<TupleType>(std::vector<TypePtr>{
       std::make_shared<ScalarType>(DataType::INT64),
       std::make_shared<ScalarType>(DataType::INT64)
   });
-  auto shape_var = std::make_shared<Var>("shape", tuple_type, span_);
+  auto shapeVar = std::make_shared<Var>("shape", tupleType, span_);
   std::vector<std::pair<std::string, std::any>> kwargs = {
       {"dtype", std::any(DataType::FP32)}};
-  auto call = registry_.Create("tensor.create", {shape_var}, kwargs, span_);
+  auto call = registry_.Create("tensor.create", {shapeVar}, kwargs, span_);
   ASSERT_NE(call, nullptr);
   auto rt = As<TensorType>(call->GetType());
   ASSERT_NE(rt, nullptr);
@@ -505,13 +505,13 @@ TEST_F(TensorOpsTest, TestTensorCreateRuntimeShape) {
 TEST_F(TensorOpsTest, TestTensorViewRuntimeShape) {
   auto input = MakeTensorVar("input", {16, 32});
   // Runtime shape tuple (Var with TupleType instead of MakeTuple)
-  auto tuple_type = std::make_shared<TupleType>(std::vector<TypePtr>{
+  auto tupleType = std::make_shared<TupleType>(std::vector<TypePtr>{
       std::make_shared<ScalarType>(DataType::INT64),
       std::make_shared<ScalarType>(DataType::INT64)
   });
-  auto shape_var = std::make_shared<Var>("shape", tuple_type, span_);
+  auto shapeVar = std::make_shared<Var>("shape", tupleType, span_);
   auto offset = MakeShapeTuple({0, 0});
-  auto call = registry_.Create("tensor.view", {input, shape_var, offset}, span_);
+  auto call = registry_.Create("tensor.view", {input, shapeVar, offset}, span_);
   ASSERT_NE(call, nullptr);
   auto rt = As<TensorType>(call->GetType());
   ASSERT_NE(rt, nullptr);
@@ -536,15 +536,15 @@ TEST_F(TensorOpsTest, TestTensorCreateUINT64Shape) {
 TEST_F(TensorOpsTest, TestTensorViewUINT64Shape) {
   auto input = MakeTensorVar("input", {16, 32});
   // UINT64 shape elements
-  std::vector<ExprPtr> shape_elems;
-  shape_elems.push_back(std::make_shared<ConstInt>(4, DataType::UINT64, span_));
-  shape_elems.push_back(std::make_shared<ConstInt>(8, DataType::UINT64, span_));
-  auto shape = std::make_shared<MakeTuple>(shape_elems, span_);
+  std::vector<ExprPtr> shapeElems;
+  shapeElems.push_back(std::make_shared<ConstInt>(4, DataType::UINT64, span_));
+  shapeElems.push_back(std::make_shared<ConstInt>(8, DataType::UINT64, span_));
+  auto shape = std::make_shared<MakeTuple>(shapeElems, span_);
   // UINT64 offset elements
-  std::vector<ExprPtr> offset_elems;
-  offset_elems.push_back(std::make_shared<ConstInt>(0, DataType::UINT64, span_));
-  offset_elems.push_back(std::make_shared<ConstInt>(0, DataType::UINT64, span_));
-  auto offset = std::make_shared<MakeTuple>(offset_elems, span_);
+  std::vector<ExprPtr> offsetElems;
+  offsetElems.push_back(std::make_shared<ConstInt>(0, DataType::UINT64, span_));
+  offsetElems.push_back(std::make_shared<ConstInt>(0, DataType::UINT64, span_));
+  auto offset = std::make_shared<MakeTuple>(offsetElems, span_);
   auto call = registry_.Create("tensor.view", {input, shape, offset}, span_);
   ASSERT_NE(call, nullptr);
   auto rt = As<TensorType>(call->GetType());
@@ -568,10 +568,10 @@ TEST_F(TensorOpsTest, TestTensorAssembleUINT64Offset) {
   auto target = MakeTensorVar("target", {16, 32});
   auto source = MakeTensorVar("source", {4, 8});
   // UINT64 offset elements
-  std::vector<ExprPtr> offset_elems;
-  offset_elems.push_back(std::make_shared<ConstInt>(0, DataType::UINT64, span_));
-  offset_elems.push_back(std::make_shared<ConstInt>(0, DataType::UINT64, span_));
-  auto offset = std::make_shared<MakeTuple>(offset_elems, span_);
+  std::vector<ExprPtr> offsetElems;
+  offsetElems.push_back(std::make_shared<ConstInt>(0, DataType::UINT64, span_));
+  offsetElems.push_back(std::make_shared<ConstInt>(0, DataType::UINT64, span_));
+  auto offset = std::make_shared<MakeTuple>(offsetElems, span_);
   auto call = registry_.Create("tensor.assemble", {target, source, offset}, span_);
   ASSERT_NE(call, nullptr);
 }

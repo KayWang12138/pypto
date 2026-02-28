@@ -43,25 +43,25 @@ TEST_F(IRStmtTest, TestOpStmtsWithAssignStmts) {
   auto assign2 = std::make_shared<AssignStmt>(var2, val2, Span::unknown());
 
   std::vector<StmtPtr> stmts = {assign1, assign2};
-  auto op_stmts = std::make_shared<OpStmts>(stmts, Span::unknown());
+  auto opStmts = std::make_shared<OpStmts>(stmts, Span::unknown());
 
-  ASSERT_EQ(op_stmts->stmts_.size(), 2);
+  ASSERT_EQ(opStmts->stmts_.size(), 2);
 }
 
 TEST_F(IRStmtTest, TestOpStmtsWithEvalStmt) {
   auto val = std::make_shared<ConstInt>(42, DataType::INT32, Span::unknown());
-  auto eval_stmt = std::make_shared<EvalStmt>(val, Span::unknown());
+  auto evalStmt = std::make_shared<EvalStmt>(val, Span::unknown());
 
-  std::vector<StmtPtr> stmts = {eval_stmt};
-  auto op_stmts = std::make_shared<OpStmts>(stmts, Span::unknown());
+  std::vector<StmtPtr> stmts = {evalStmt};
+  auto opStmts = std::make_shared<OpStmts>(stmts, Span::unknown());
 
-  ASSERT_EQ(op_stmts->stmts_.size(), 1);
+  ASSERT_EQ(opStmts->stmts_.size(), 1);
 }
 
 TEST_F(IRStmtTest, TestOpStmtsEmpty) {
   std::vector<StmtPtr> stmts;
-  auto op_stmts = std::make_shared<OpStmts>(stmts, Span::unknown());
-  ASSERT_EQ(op_stmts->stmts_.size(), 0);
+  auto opStmts = std::make_shared<OpStmts>(stmts, Span::unknown());
+  ASSERT_EQ(opStmts->stmts_.size(), 0);
 }
 
 // ============================================================================
@@ -138,10 +138,10 @@ TEST_F(IRStmtTest, TestReturnStmtMultipleValues) {
 TEST_F(IRStmtTest, TestYieldStmtBasic) {
   auto val = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
   std::vector<ExprPtr> values = {val};
-  auto yield_stmt = std::make_shared<YieldStmt>(values, Span::unknown());
+  auto yieldStmt = std::make_shared<YieldStmt>(values, Span::unknown());
 
-  ASSERT_EQ(yield_stmt->value_.size(), 1);
-  ASSERT_EQ(yield_stmt->GetKind(), ObjectKind::YieldStmt);
+  ASSERT_EQ(yieldStmt->value_.size(), 1);
+  ASSERT_EQ(yieldStmt->GetKind(), ObjectKind::YieldStmt);
 }
 
 // ============================================================================
@@ -149,22 +149,22 @@ TEST_F(IRStmtTest, TestYieldStmtBasic) {
 // ============================================================================
 
 TEST_F(IRStmtTest, TestForStmtBasic) {
-  auto loop_var = std::make_shared<Var>("i", std::make_shared<ScalarType>(DataType::INT32), Span::unknown());
+  auto loopVar = std::make_shared<Var>("i", std::make_shared<ScalarType>(DataType::INT32), Span::unknown());
   auto start = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
   auto stop = std::make_shared<ConstInt>(10, DataType::INT32, Span::unknown());
   auto step = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
 
-  auto body_expr = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
-  auto body = std::make_shared<EvalStmt>(body_expr, Span::unknown());
+  auto bodyExpr = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
+  auto body = std::make_shared<EvalStmt>(bodyExpr, Span::unknown());
 
-  std::vector<IterArgPtr> iter_args;
-  std::vector<VarPtr> return_vars;
+  std::vector<IterArgPtr> iterArgs;
+  std::vector<VarPtr> returnVars;
 
-  auto for_stmt = std::make_shared<ForStmt>(loop_var, start, stop, step, iter_args, body, return_vars,
+  auto forStmt = std::make_shared<ForStmt>(loopVar, start, stop, step, iterArgs, body, returnVars,
                                             Span::unknown());
 
-  ASSERT_EQ(for_stmt->loopVar_, loop_var);
-  ASSERT_EQ(for_stmt->GetKind(), ObjectKind::ForStmt);
+  ASSERT_EQ(forStmt->loopVar_, loopVar);
+  ASSERT_EQ(forStmt->GetKind(), ObjectKind::ForStmt);
 }
 
 // ============================================================================
@@ -173,28 +173,28 @@ TEST_F(IRStmtTest, TestForStmtBasic) {
 
 TEST_F(IRStmtTest, TestIfStmtBasic) {
   auto cond = std::make_shared<ConstBool>(true, Span::unknown());
-  auto then_expr = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
-  auto then_body = std::make_shared<EvalStmt>(then_expr, Span::unknown());
+  auto thenExpr = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
+  auto thenBody = std::make_shared<EvalStmt>(thenExpr, Span::unknown());
 
-  std::vector<VarPtr> return_vars;
-  auto if_stmt = std::make_shared<IfStmt>(cond, then_body, std::nullopt, return_vars, Span::unknown());
+  std::vector<VarPtr> returnVars;
+  auto ifStmt = std::make_shared<IfStmt>(cond, thenBody, std::nullopt, returnVars, Span::unknown());
 
-  ASSERT_EQ(if_stmt->condition_, cond);
-  ASSERT_EQ(if_stmt->GetKind(), ObjectKind::IfStmt);
-  ASSERT_FALSE(if_stmt->elseBody_.has_value());
+  ASSERT_EQ(ifStmt->condition_, cond);
+  ASSERT_EQ(ifStmt->GetKind(), ObjectKind::IfStmt);
+  ASSERT_FALSE(ifStmt->elseBody_.has_value());
 }
 
 TEST_F(IRStmtTest, TestIfStmtWithElse) {
   auto cond = std::make_shared<ConstBool>(true, Span::unknown());
-  auto then_expr = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
-  auto then_body = std::make_shared<EvalStmt>(then_expr, Span::unknown());
-  auto else_expr = std::make_shared<ConstInt>(2, DataType::INT32, Span::unknown());
-  auto else_body = std::make_shared<EvalStmt>(else_expr, Span::unknown());
+  auto thenExpr = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
+  auto thenBody = std::make_shared<EvalStmt>(thenExpr, Span::unknown());
+  auto elseExpr = std::make_shared<ConstInt>(2, DataType::INT32, Span::unknown());
+  auto elseBody = std::make_shared<EvalStmt>(elseExpr, Span::unknown());
 
-  std::vector<VarPtr> return_vars;
-  auto if_stmt = std::make_shared<IfStmt>(cond, then_body, else_body, return_vars, Span::unknown());
+  std::vector<VarPtr> returnVars;
+  auto ifStmt = std::make_shared<IfStmt>(cond, thenBody, elseBody, returnVars, Span::unknown());
 
-  ASSERT_TRUE(if_stmt->elseBody_.has_value());
+  ASSERT_TRUE(ifStmt->elseBody_.has_value());
 }
 
 }  // namespace ir

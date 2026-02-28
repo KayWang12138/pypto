@@ -103,10 +103,10 @@ public:
   [[nodiscard]] DataType dtype() const {
     // Note: Must use dynamic_pointer_cast here because this header is included before
     // the TypePtr overload of As<> is defined in kind_traits.h
-    auto scalar_type = std::dynamic_pointer_cast<const ScalarType>(GetType());
-    INTERNAL_CHECK(scalar_type) << "ConstInt is expected to have ScalarType type, but got " +
+    auto scalarType = std::dynamic_pointer_cast<const ScalarType>(GetType());
+    INTERNAL_CHECK(scalarType) << "ConstInt is expected to have ScalarType type, but got " +
                                        GetType()->TypeName();
-    return scalar_type->dtype_;
+    return scalarType->dtype_;
   }
 };
 
@@ -147,10 +147,10 @@ public:
   [[nodiscard]] DataType dtype() const {
     // Note: Must use dynamic_pointer_cast here because this header is included before
     // the TypePtr overload of As<> is defined in kind_traits.h
-    auto scalar_type = std::dynamic_pointer_cast<const ScalarType>(GetType());
-    INTERNAL_CHECK(scalar_type) << "ConstFloat is expected to have ScalarType type, but got " +
+    auto scalarType = std::dynamic_pointer_cast<const ScalarType>(GetType());
+    INTERNAL_CHECK(scalarType) << "ConstFloat is expected to have ScalarType type, but got " +
                                        GetType()->TypeName();
-    return scalar_type->dtype_;
+    return scalarType->dtype_;
   }
 };
 
@@ -316,8 +316,8 @@ DEFINE_UNARY_EXPR_NODE(Cast, "Cast expression (cast operand to dtype)")
 inline DataType GetScalarDtype(const ExprPtr& expr) {
   // Note: Must use dynamic_pointer_cast here because this header is included before
   // the TypePtr overload of As<> is defined in kind_traits.h
-  if (auto scalar_type = std::dynamic_pointer_cast<const ScalarType>(expr->GetType())) {
-    return scalar_type->dtype_;
+  if (auto scalarType = std::dynamic_pointer_cast<const ScalarType>(expr->GetType())) {
+    return scalarType->dtype_;
   } else {
     throw TypeError("Expression must be ScalarExpr or Var with ScalarType, got " + expr->TypeName() +
                     " with type " + expr->GetType()->TypeName());
@@ -331,25 +331,25 @@ enum class ScalarCategory {
   FLOAT,
 };
 
-inline ScalarCategory GetNumericCategory(const DataType& dtype, const std::string& op_name) {
+inline ScalarCategory GetNumericCategory(const DataType& dtype, const std::string& opName) {
   if (dtype.IsFloat()) {
     return ScalarCategory::FLOAT;
   }
   if (dtype.IsInt()) {
     return ScalarCategory::INT;
   }
-  throw TypeError("Operator '" + op_name + "' requires numeric scalar dtype, got " + dtype.ToString());
+  throw TypeError("Operator '" + opName + "' requires numeric scalar dtype, got " + dtype.ToString());
 }
 
 inline DataType PromoteSameCategoryDtype(const DataType& left_dtype, const DataType& right_dtype,
-                                         const std::string& op_name) {
+                                         const std::string& opName) {
   if (IsBoolDtype(left_dtype) || IsBoolDtype(right_dtype)) {
-    throw TypeError("Operator '" + op_name + "' does not accept bool dtype");
+    throw TypeError("Operator '" + opName + "' does not accept bool dtype");
   }
-  auto left_category = GetNumericCategory(left_dtype, op_name);
-  auto right_category = GetNumericCategory(right_dtype, op_name);
+  auto left_category = GetNumericCategory(left_dtype, opName);
+  auto right_category = GetNumericCategory(right_dtype, opName);
   if (left_category != right_category) {
-    throw TypeError("Operator '" + op_name + "' requires same numeric dtype category, got " +
+    throw TypeError("Operator '" + opName + "' requires same numeric dtype category, got " +
                     left_dtype.ToString() + " and " + right_dtype.ToString());
   }
   size_t left_bits = left_dtype.GetBit();
@@ -378,22 +378,22 @@ inline ExprPtr MaybeCast(const ExprPtr& expr, DataType target_dtype, const Span&
 }
 
 inline BinaryOperands PromoteBinaryOperands(const ExprPtr& left, const ExprPtr& right,
-                                            const std::string& op_name, const Span& span) {
+                                            const std::string& opName, const Span& span) {
   DataType left_dtype = GetScalarDtype(left);
   DataType right_dtype = GetScalarDtype(right);
-  DataType promoted_dtype = PromoteSameCategoryDtype(left_dtype, right_dtype, op_name);
+  DataType promoted_dtype = PromoteSameCategoryDtype(left_dtype, right_dtype, opName);
   return {MaybeCast(left, promoted_dtype, span), MaybeCast(right, promoted_dtype, span), promoted_dtype};
 }
 
 inline BinaryOperands PromoteIntBinaryOperands(const ExprPtr& left, const ExprPtr& right,
-                                               const std::string& op_name, const Span& span) {
+                                               const std::string& opName, const Span& span) {
   DataType left_dtype = GetScalarDtype(left);
   DataType right_dtype = GetScalarDtype(right);
   if (!left_dtype.IsInt() || !right_dtype.IsInt()) {
-    throw TypeError("Operator '" + op_name + "' requires integer dtype, got " + left_dtype.ToString() +
+    throw TypeError("Operator '" + opName + "' requires integer dtype, got " + left_dtype.ToString() +
                     " and " + right_dtype.ToString());
   }
-  DataType promoted_dtype = PromoteSameCategoryDtype(left_dtype, right_dtype, op_name);
+  DataType promoted_dtype = PromoteSameCategoryDtype(left_dtype, right_dtype, opName);
   return {MaybeCast(left, promoted_dtype, span), MaybeCast(right, promoted_dtype, span), promoted_dtype};
 }
 

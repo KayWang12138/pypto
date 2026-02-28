@@ -37,36 +37,36 @@ public:
   using IRVisitor::VisitExpr_;
   using IRVisitor::VisitStmt_;
 
-  int expr_count = 0;
-  int stmt_count = 0;
+  int exprCount = 0;
+  int stmtCount = 0;
 
   void VisitExpr_(const ConstIntPtr& op) override {
-    expr_count++;
+    exprCount++;
     IRVisitor::VisitExpr_(op);
   }
 
   void VisitExpr_(const VarPtr& op) override {
-    expr_count++;
+    exprCount++;
     IRVisitor::VisitExpr_(op);
   }
 
   void VisitExpr_(const AddPtr& op) override {
-    expr_count++;
+    exprCount++;
     IRVisitor::VisitExpr_(op);
   }
 
   void VisitStmt_(const AssignStmtPtr& op) override {
-    stmt_count++;
+    stmtCount++;
     IRVisitor::VisitStmt_(op);
   }
 
   void VisitStmt_(const EvalStmtPtr& op) override {
-    stmt_count++;
+    stmtCount++;
     IRVisitor::VisitStmt_(op);
   }
 
   void VisitStmt_(const SeqStmtsPtr& op) override {
-    stmt_count++;
+    stmtCount++;
     IRVisitor::VisitStmt_(op);
   }
 };
@@ -81,7 +81,7 @@ TEST_F(IRVisitorTest, TestVisitConstInt) {
   CountingVisitor visitor;
   auto expr = std::make_shared<ConstInt>(42, DataType::INT32, Span::unknown());
   visitor.VisitExpr(expr);
-  ASSERT_EQ(visitor.expr_count, 1);
+  ASSERT_EQ(visitor.exprCount, 1);
 }
 
 TEST_F(IRVisitorTest, TestVisitBinaryExpr) {
@@ -92,14 +92,14 @@ TEST_F(IRVisitorTest, TestVisitBinaryExpr) {
 
   visitor.VisitExpr(add);
   // Should visit Add + left ConstInt + right ConstInt
-  ASSERT_EQ(visitor.expr_count, 3);
+  ASSERT_EQ(visitor.exprCount, 3);
 }
 
 TEST_F(IRVisitorTest, TestVisitVar) {
   CountingVisitor visitor;
   auto var = std::make_shared<Var>("x", std::make_shared<ScalarType>(DataType::INT32), Span::unknown());
   visitor.VisitExpr(var);
-  ASSERT_EQ(visitor.expr_count, 1);
+  ASSERT_EQ(visitor.exprCount, 1);
 }
 
 // ============================================================================
@@ -111,8 +111,8 @@ TEST_F(IRVisitorTest, TestVisitEvalStmt) {
   auto expr = std::make_shared<ConstInt>(42, DataType::INT32, Span::unknown());
   auto stmt = std::make_shared<EvalStmt>(expr, Span::unknown());
   visitor.VisitStmt(stmt);
-  ASSERT_EQ(visitor.stmt_count, 1);
-  ASSERT_EQ(visitor.expr_count, 1);
+  ASSERT_EQ(visitor.stmtCount, 1);
+  ASSERT_EQ(visitor.exprCount, 1);
 }
 
 TEST_F(IRVisitorTest, TestVisitAssignStmt) {
@@ -121,8 +121,8 @@ TEST_F(IRVisitorTest, TestVisitAssignStmt) {
   auto val = std::make_shared<ConstInt>(10, DataType::INT32, Span::unknown());
   auto stmt = std::make_shared<AssignStmt>(var, val, Span::unknown());
   visitor.VisitStmt(stmt);
-  ASSERT_EQ(visitor.stmt_count, 1);
-  ASSERT_EQ(visitor.expr_count, 2);  // var + val
+  ASSERT_EQ(visitor.stmtCount, 1);
+  ASSERT_EQ(visitor.exprCount, 2);  // var + val
 }
 
 TEST_F(IRVisitorTest, TestVisitSeqStmts) {
@@ -136,8 +136,8 @@ TEST_F(IRVisitorTest, TestVisitSeqStmts) {
   auto seq = std::make_shared<SeqStmts>(stmts, Span::unknown());
   visitor.VisitStmt(seq);
 
-  ASSERT_EQ(visitor.stmt_count, 3);  // SeqStmts + 2 EvalStmts
-  ASSERT_EQ(visitor.expr_count, 2);  // 2 ConstInts
+  ASSERT_EQ(visitor.stmtCount, 3);  // SeqStmts + 2 EvalStmts
+  ASSERT_EQ(visitor.exprCount, 2);  // 2 ConstInts
 }
 
 // ============================================================================
@@ -377,7 +377,7 @@ TEST_F(IRVisitorTest, TestVisitOpStmts) {
 TEST_F(IRVisitorTest, TestVisitForStmt) {
   IRVisitor visitor;
   Span sp = Span::unknown();
-  auto loop_var = std::make_shared<Var>(
+  auto loopVar = std::make_shared<Var>(
       "i", std::make_shared<ScalarType>(
           DataType::INT32), sp);
   auto start = std::make_shared<ConstInt>(
@@ -388,13 +388,13 @@ TEST_F(IRVisitorTest, TestVisitForStmt) {
       1, DataType::INT32, sp);
   auto body = std::make_shared<EvalStmt>(
       start, sp);
-  auto for_stmt = std::make_shared<ForStmt>(
-      loop_var, start, stop, step,
+  auto forStmt = std::make_shared<ForStmt>(
+      loopVar, start, stop, step,
       std::vector<IterArgPtr>{},
       body,
       std::vector<VarPtr>{},
       sp);
-  visitor.VisitStmt(for_stmt);
+  visitor.VisitStmt(forStmt);
 }
 
 TEST_F(IRVisitorTest, TestVisitIfStmt) {
@@ -402,17 +402,17 @@ TEST_F(IRVisitorTest, TestVisitIfStmt) {
   Span sp = Span::unknown();
   auto cond = std::make_shared<ConstBool>(
       true, sp);
-  auto then_body = std::make_shared<EvalStmt>(
+  auto thenBody = std::make_shared<EvalStmt>(
       std::make_shared<ConstInt>(
           1, DataType::INT32, sp), sp);
-  auto else_body = std::make_shared<EvalStmt>(
+  auto elseBody = std::make_shared<EvalStmt>(
       std::make_shared<ConstInt>(
           2, DataType::INT32, sp), sp);
-  auto if_stmt = std::make_shared<IfStmt>(
-      cond, then_body,
-      std::optional<StmtPtr>(else_body),
+  auto ifStmt = std::make_shared<IfStmt>(
+      cond, thenBody,
+      std::optional<StmtPtr>(elseBody),
       std::vector<VarPtr>{}, sp);
-  visitor.VisitStmt(if_stmt);
+  visitor.VisitStmt(ifStmt);
 }
 
 TEST_F(IRVisitorTest, TestVisitPow) {

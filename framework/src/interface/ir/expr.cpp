@@ -38,17 +38,17 @@ MakeTuple::MakeTuple(std::vector<ExprPtr> elements, Span span)
 TupleGetItemExpr::TupleGetItemExpr(ExprPtr tuple, int index, Span span)
     : Expr(std::move(span)), tuple_(std::move(tuple)), index_(index) {
   // Type checking: tuple must have TupleType
-  auto tuple_type = As<TupleType>(tuple_->GetType());
-  INTERNAL_CHECK(tuple_type) << "TupleGetItemExpr requires tuple to have TupleType, got "
+  auto tupleType = As<TupleType>(tuple_->GetType());
+  INTERNAL_CHECK(tupleType) << "TupleGetItemExpr requires tuple to have TupleType, got "
                              << tuple_->GetType()->TypeName();
 
   // Bounds checking
-  INTERNAL_CHECK(index >= 0 && index < static_cast<int>(tuple_type->types_.size()))
-      << "TupleGetItemExpr index " << index << " out of bounds for tuple with " << tuple_type->types_.size()
+  INTERNAL_CHECK(index >= 0 && index < static_cast<int>(tupleType->types_.size()))
+      << "TupleGetItemExpr index " << index << " out of bounds for tuple with " << tupleType->types_.size()
       << " elements";
 
   // Set result type to the accessed element's type
-  type_ = tuple_type->types_[index];
+  type_ = tupleType->types_[index];
 }
 
 }  // namespace ir

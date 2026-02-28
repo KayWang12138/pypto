@@ -95,14 +95,14 @@ inline int64_t ComputeShapeProduct(const std::vector<ExprPtr>& shape) {
  *
  * \param k_lhs The K dimension from the left-hand side
  * \param k_rhs The K dimension from the right-hand side
- * \param op_name Operator name for error messages
+ * \param opName Operator name for error messages
  */
-inline void VerifyKDimensionsMatch(const ExprPtr& k_lhs, const ExprPtr& k_rhs, const std::string& op_name) {
+inline void VerifyKDimensionsMatch(const ExprPtr& k_lhs, const ExprPtr& k_rhs, const std::string& opName) {
   auto k_lhs_const = As<ConstInt>(k_lhs);
   auto k_rhs_const = As<ConstInt>(k_rhs);
   if (k_lhs_const && k_rhs_const) {
     INTERNAL_CHECK(k_lhs_const->value_ == k_rhs_const->value_)
-        << "The operator " << op_name
+        << "The operator " << opName
         << " requires matching inner dimensions, but got lhs K=" << k_lhs_const->value_
         << " and rhs K=" << k_rhs_const->value_;
   }

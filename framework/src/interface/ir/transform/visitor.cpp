@@ -27,8 +27,8 @@ void IRVisitor::VisitStmt(const StmtPtr& stmt) { StmtFunctor<void>::VisitStmt(st
 // Leaf nodes - no children to visit
 void IRVisitor::VisitExpr_(const VarPtr& op) {
   // Visit type if it's a TensorType (to visit shape expressions)
-  if (auto tensor_type = As<TensorType>(op->GetType())) {
-    for (const auto& dim : tensor_type->shape_) {
+  if (auto tensorType = As<TensorType>(op->GetType())) {
+    for (const auto& dim : tensorType->shape_) {
       VisitExpr(dim);
     }
   }
@@ -39,8 +39,8 @@ void IRVisitor::VisitExpr_(const IterArgPtr& op) {
   INTERNAL_CHECK(op->initValue_) << "IterArg has null initValue";
   VisitExpr(op->initValue_);
   // Also visit type if it's a TensorType (inherited from Var)
-  if (auto tensor_type = As<TensorType>(op->GetType())) {
-    for (const auto& dim : tensor_type->shape_) {
+  if (auto tensorType = As<TensorType>(op->GetType())) {
+    for (const auto& dim : tensorType->shape_) {
       VisitExpr(dim);
     }
   }
@@ -148,14 +148,14 @@ void IRVisitor::VisitStmt_(const AssignStmtPtr& op) {
 void IRVisitor::VisitStmt_(const IfStmtPtr& op) {
   INTERNAL_CHECK(op->condition_) << "IfStmt has null condition";
   VisitExpr(op->condition_);
-  INTERNAL_CHECK(op->thenBody_) << "IfStmt has null then_body";
+  INTERNAL_CHECK(op->thenBody_) << "IfStmt has null thenBody";
   VisitStmt(op->thenBody_);
   if (op->elseBody_.has_value()) {
-    INTERNAL_CHECK(*op->elseBody_) << "IfStmt has null else_body";
+    INTERNAL_CHECK(*op->elseBody_) << "IfStmt has null elseBody";
     VisitStmt(*op->elseBody_);
   }
   for (size_t i = 0; i < op->returnVars_.size(); ++i) {
-    INTERNAL_CHECK(op->returnVars_[i]) << "IfStmt has null return_vars at index " << i;
+    INTERNAL_CHECK(op->returnVars_[i]) << "IfStmt has null returnVars at index " << i;
     VisitExpr(op->returnVars_[i]);
   }
 }
@@ -175,7 +175,7 @@ void IRVisitor::VisitStmt_(const ReturnStmtPtr& op) {
 }
 
 void IRVisitor::VisitStmt_(const ForStmtPtr& op) {
-  INTERNAL_CHECK(op->loopVar_) << "ForStmt has null loop_var";
+  INTERNAL_CHECK(op->loopVar_) << "ForStmt has null loopVar";
   INTERNAL_CHECK(op->start_) << "ForStmt has null start";
   INTERNAL_CHECK(op->stop_) << "ForStmt has null stop";
   INTERNAL_CHECK(op->step_) << "ForStmt has null step";
@@ -184,13 +184,13 @@ void IRVisitor::VisitStmt_(const ForStmtPtr& op) {
   VisitExpr(op->stop_);
   VisitExpr(op->step_);
   for (size_t i = 0; i < op->iterArgs_.size(); ++i) {
-    INTERNAL_CHECK(op->iterArgs_[i]) << "ForStmt has null iter_args at index " << i;
+    INTERNAL_CHECK(op->iterArgs_[i]) << "ForStmt has null iterArgs at index " << i;
     VisitExpr(op->iterArgs_[i]);
   }
   INTERNAL_CHECK(op->body_) << "ForStmt has null body";
   VisitStmt(op->body_);
   for (size_t i = 0; i < op->returnVars_.size(); ++i) {
-    INTERNAL_CHECK(op->returnVars_[i]) << "ForStmt has null return_vars at index " << i;
+    INTERNAL_CHECK(op->returnVars_[i]) << "ForStmt has null returnVars at index " << i;
     VisitExpr(op->returnVars_[i]);
   }
 }

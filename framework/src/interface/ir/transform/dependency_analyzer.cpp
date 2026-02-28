@@ -34,33 +34,33 @@ DependencyGraph DependencyAnalyzer::Analyze(const FunctionPtr& func) {
   LOG_INFO << "Identified " << blocks.size() << " basic blocks";
 
   // Step 2: Build dependency graph for each basic block
-  std::vector<DependencyEdge> all_dependencies;
+  std::vector<DependencyEdge> allDependencies;
   for (const auto& block : blocks) {
-    auto block_deps = AnalyzeBlockDependencies(block);
-    all_dependencies.insert(all_dependencies.end(), block_deps.begin(), block_deps.end());
+    auto blockDeps = AnalyzeBlockDependencies(block);
+    allDependencies.insert(allDependencies.end(), blockDeps.begin(), blockDeps.end());
   }
-  LOG_INFO << "Found " << all_dependencies.size() << " dependency edges";
+  LOG_INFO << "Found " << allDependencies.size() << " dependency edges";
 
   // Step 3: Log dependency statistics
-  int raw_count = 0, war_count = 0, waw_count = 0;
-  for (const auto& edge : all_dependencies) {
+  int rawCount = 0, warCount = 0, wawCount = 0;
+  for (const auto& edge : allDependencies) {
     switch (edge.type) {
       case DependencyEdge::RAW:
-        raw_count++;
+        rawCount++;
         break;
       case DependencyEdge::WAR:
-        war_count++;
+        warCount++;
         break;
       case DependencyEdge::WAW:
-        waw_count++;
+        wawCount++;
         break;
       default:
         break;
     }
   }
-  LOG_INFO << "Dependency types: RAW=" << raw_count << ", WAR=" << war_count << ", WAW=" << waw_count;
+  LOG_INFO << "Dependency types: RAW=" << rawCount << ", WAR=" << warCount << ", WAW=" << wawCount;
 
-  return DependencyGraph(std::move(blocks), std::move(all_dependencies));
+  return DependencyGraph(std::move(blocks), std::move(allDependencies));
 }
 
 std::vector<BasicBlock> DependencyAnalyzer::AnalyzeBasicBlocks(const FunctionPtr& func) {
@@ -74,24 +74,24 @@ std::vector<DependencyEdge> DependencyAnalyzer::AnalyzeDependencies(const Functi
   // Create a single basic block containing all statements
   std::vector<BasicBlock> blocks = IdentifyBasicBlocks(func->body_);
 
-  std::vector<DependencyEdge> all_dependencies;
+  std::vector<DependencyEdge> allDependencies;
   for (const auto& block : blocks) {
-    auto block_deps = AnalyzeBlockDependencies(block);
-    all_dependencies.insert(all_dependencies.end(), block_deps.begin(), block_deps.end());
+    auto blockDeps = AnalyzeBlockDependencies(block);
+    allDependencies.insert(allDependencies.end(), blockDeps.begin(), blockDeps.end());
   }
 
-  return all_dependencies;
+  return allDependencies;
 }
 
 std::vector<BasicBlock> DependencyAnalyzer::IdentifyBasicBlocks(const StmtPtr& stmt) {
   std::vector<BasicBlock> blocks;
-  int next_id = 0;
+  int nextId = 0;
 
   // Helper class to traverse statements and build basic blocks
   class BasicBlockBuilder {
    public:
-    explicit BasicBlockBuilder(std::vector<BasicBlock>& blocks, int& next_id)
-        : blocks_(blocks), next_id_(next_id) {}
+    explicit BasicBlockBuilder(std::vector<BasicBlock>& blocks, int& nextId)
+        : blocks_(blocks), next_id_(nextId) {}
 
     // Process a statement and create basic blocks
     int ProcessStmt(const StmtPtr& stmt, const std::vector<int>& predecessors) {
@@ -102,10 +102,10 @@ std::vector<BasicBlock> DependencyAnalyzer::IdentifyBasicBlocks(const StmtPtr& s
       // Handle different statement types
       if (auto seq = As<SeqStmts>(stmt)) {
         return ProcessSeqStmts(seq, predecessors);
-      } else if (auto if_stmt = As<IfStmt>(stmt)) {
-        return ProcessIfStmt(if_stmt, predecessors);
-      } else if (auto for_stmt = As<ForStmt>(stmt)) {
-        return ProcessForStmt(for_stmt, predecessors);
+      } else if (auto ifStmt = As<IfStmt>(stmt)) {
+        return ProcessIfStmt(ifStmt, predecessors);
+      } else if (auto forStmt = As<ForStmt>(stmt)) {
+        return ProcessForStmt(forStmt, predecessors);
       } else {
         // Single statement forms a basic block
         return CreateSingleStmtBlock(stmt, predecessors, false);
@@ -121,99 +121,99 @@ std::vector<BasicBlock> DependencyAnalyzer::IdentifyBasicBlocks(const StmtPtr& s
       // Merge consecutive non-control-flow statements into a single basic block
       // This correctly implements the definition of a basic block: maximal sequence of
       // sequential statements with no branches
-      std::vector<int> current_preds = predecessors;
-      int last_block_id = -1;
-      std::vector<StmtPtr> pending_stmts;  // Buffer for consecutive simple statements
+      std::vector<int> currentPreds = predecessors;
+      int lastBlockId = -1;
+      std::vector<StmtPtr> pendingStmts;  // Buffer for consecutive simple statements
 
-      for (const auto& sub_stmt : seq->stmts_) {
+      for (const auto& subStmt : seq->stmts_) {
         // Check if this is a control flow statement
-        if (IsA<IfStmt>(sub_stmt) || IsA<ForStmt>(sub_stmt)) {
+        if (IsA<IfStmt>(subStmt) || IsA<ForStmt>(subStmt)) {
           // Flush pending simple statements as one basic block
-          if (!pending_stmts.empty()) {
-            last_block_id = CreateMergedBlock(pending_stmts, current_preds);
-            current_preds = {last_block_id};
-            pending_stmts.clear();
+          if (!pendingStmts.empty()) {
+            lastBlockId = CreateMergedBlock(pendingStmts, currentPreds);
+            currentPreds = {lastBlockId};
+            pendingStmts.clear();
           }
 
           // Process control flow statement
-          last_block_id = ProcessStmt(sub_stmt, current_preds);
-          if (last_block_id != -1) {
-            current_preds = {last_block_id};
+          lastBlockId = ProcessStmt(subStmt, currentPreds);
+          if (lastBlockId != -1) {
+            currentPreds = {lastBlockId};
           }
-        } else if (auto nested_seq = As<SeqStmts>(sub_stmt)) {
+        } else if (auto nestedSeq = As<SeqStmts>(subStmt)) {
           // Flush pending simple statements before processing nested SeqStmts
-          if (!pending_stmts.empty()) {
-            last_block_id = CreateMergedBlock(pending_stmts, current_preds);
-            current_preds = {last_block_id};
-            pending_stmts.clear();
+          if (!pendingStmts.empty()) {
+            lastBlockId = CreateMergedBlock(pendingStmts, currentPreds);
+            currentPreds = {lastBlockId};
+            pendingStmts.clear();
           }
 
           // Process nested SeqStmts recursively
-          last_block_id = ProcessSeqStmts(nested_seq, current_preds);
-          if (last_block_id != -1) {
-            current_preds = {last_block_id};
+          lastBlockId = ProcessSeqStmts(nestedSeq, currentPreds);
+          if (lastBlockId != -1) {
+            currentPreds = {lastBlockId};
           }
         } else {
           // Simple statement (AssignStmt, EvalStmt, ReturnStmt): buffer it
-          pending_stmts.push_back(sub_stmt);
+          pendingStmts.push_back(subStmt);
         }
       }
 
       // Flush remaining simple statements as one basic block
-      if (!pending_stmts.empty()) {
-        last_block_id = CreateMergedBlock(pending_stmts, current_preds);
+      if (!pendingStmts.empty()) {
+        lastBlockId = CreateMergedBlock(pendingStmts, currentPreds);
       }
 
-      return last_block_id;
+      return lastBlockId;
     }
 
-    int ProcessIfStmt(const std::shared_ptr<const IfStmt>& if_stmt, const std::vector<int>& predecessors) {
+    int ProcessIfStmt(const std::shared_ptr<const IfStmt>& ifStmt, const std::vector<int>& predecessors) {
       // Create a block for the condition (if needed)
       // For simplicity, we'll process then/else bodies as separate blocks
 
       // Process then body
-      int then_exit = ProcessStmt(if_stmt->thenBody_, predecessors);
+      int thenExit = ProcessStmt(ifStmt->thenBody_, predecessors);
 
       // Process else body (if exists)
-      int else_exit = -1;
-      if (if_stmt->elseBody_.has_value()) {
-        else_exit = ProcessStmt(*if_stmt->elseBody_, predecessors);
+      int elseExit = -1;
+      if (ifStmt->elseBody_.has_value()) {
+        elseExit = ProcessStmt(*ifStmt->elseBody_, predecessors);
       }
 
       // Create a virtual merge block (both branches merge here)
       // In a more complete implementation, we would track this merge point
-      // For now, we'll return the then_exit (simplified)
-      return then_exit;
+      // For now, we'll return the thenExit (simplified)
+      return thenExit;
     }
 
-    int ProcessForStmt(const std::shared_ptr<const ForStmt>& for_stmt, const std::vector<int>& predecessors) {
+    int ProcessForStmt(const std::shared_ptr<const ForStmt>& forStmt, const std::vector<int>& predecessors) {
       // Create a basic block for the loop body
-      BasicBlock loop_block;
-      loop_block.id = next_id_++;
-      loop_block.is_loop_body = true;
-      loop_block.predecessors = predecessors;
+      BasicBlock loopBlock;
+      loopBlock.id = next_id_++;
+      loopBlock.is_loop_body = true;
+      loopBlock.predecessors = predecessors;
 
       // Collect statements from loop body
-      CollectStmtsInBlock(for_stmt->body_, loop_block.statements);
+      CollectStmtsInBlock(forStmt->body_, loopBlock.statements);
 
       // Loop body can jump back to itself (loop-carried dependency)
-      loop_block.successors.push_back(loop_block.id);
+      loopBlock.successors.push_back(loopBlock.id);
 
       // Add a successor for loop exit (next block after loop)
       // We'll model this as continuing to the next block
-      int exit_id = next_id_;  // The next block would have this ID
-      loop_block.successors.push_back(exit_id);
+      int exitId = next_id_;  // The next block would have this ID
+      loopBlock.successors.push_back(exitId);
 
-      blocks_.push_back(loop_block);
+      blocks_.push_back(loopBlock);
 
-      return loop_block.id;
+      return loopBlock.id;
     }
 
-    int CreateSingleStmtBlock(const StmtPtr& stmt, const std::vector<int>& predecessors, bool is_loop) {
+    int CreateSingleStmtBlock(const StmtPtr& stmt, const std::vector<int>& predecessors, bool isLoop) {
       BasicBlock block;
       block.id = next_id_++;
       block.predecessors = predecessors;
-      block.is_loop_body = is_loop;
+      block.is_loop_body = isLoop;
 
       // Collect statements
       CollectStmtsInBlock(stmt, block.statements);
@@ -246,8 +246,8 @@ std::vector<BasicBlock> DependencyAnalyzer::IdentifyBasicBlocks(const StmtPtr& s
 
       // Recursively collect all non-control-flow statements
       if (auto seq = As<SeqStmts>(stmt)) {
-        for (const auto& sub_stmt : seq->stmts_) {
-          CollectStmtsInBlock(sub_stmt, statements);
+        for (const auto& subStmt : seq->stmts_) {
+          CollectStmtsInBlock(subStmt, statements);
         }
       } else if (IsA<IfStmt>(stmt) || IsA<ForStmt>(stmt)) {
         // Control flow statements are not added to the current block
@@ -263,7 +263,7 @@ std::vector<BasicBlock> DependencyAnalyzer::IdentifyBasicBlocks(const StmtPtr& s
   };
 
   // Build basic blocks starting from the root statement
-  BasicBlockBuilder builder(blocks, next_id);
+  BasicBlockBuilder builder(blocks, nextId);
   builder.ProcessStmt(stmt, {});
 
   LOG_DEBUG << "Created " << blocks.size() << " basic blocks";
@@ -275,35 +275,35 @@ std::vector<DependencyEdge> DependencyAnalyzer::AnalyzeBlockDependencies(const B
   std::vector<DependencyEdge> dependencies;
 
   // Track last write and last read for each variable
-  std::map<std::string, StmtPtr> last_write;               // var_name -> stmt that last wrote it
-  std::map<std::string, std::vector<StmtPtr>> last_reads;  // var_name -> stmts that read it
+  std::map<std::string, StmtPtr> lastWrite;               // varName -> stmt that last wrote it
+  std::map<std::string, std::vector<StmtPtr>> lastReads;  // varName -> stmts that read it
 
   // Helper class to collect variable reads and writes
   class VarCollector : public IRVisitor {
    public:
     using IRVisitor::VisitExpr_;
     using IRVisitor::VisitStmt_;
-    std::set<VarPtr> read_vars;
-    std::set<VarPtr> write_vars;
+    std::set<VarPtr> readVars;
+    std::set<VarPtr> writeVars;
 
     void VisitExpr_(const VarPtr& var) override {
-      read_vars.insert(var);
+      readVars.insert(var);
       IRVisitor::VisitExpr_(var);
     }
   };
 
   // Helper: add RAW dependencies for all read variables
-  auto AddRAWDependencies = [&](const std::set<VarPtr>& read_vars, const StmtPtr& consumer_stmt) {
-    for (const auto& read_var : read_vars) {
-      std::string var_name = read_var->name_;
-      if (last_write.count(var_name)) {
+  auto AddRAWDependencies = [&](const std::set<VarPtr>& readVars, const StmtPtr& consumerStmt) {
+    for (const auto& readVar : readVars) {
+      std::string varName = readVar->name_;
+      if (lastWrite.count(varName)) {
         DependencyEdge edge;
-        edge.producer = last_write[var_name];
-        edge.consumer = consumer_stmt;
-        edge.variable = read_var;
+        edge.producer = lastWrite[varName];
+        edge.consumer = consumerStmt;
+        edge.variable = readVar;
         edge.type = DependencyEdge::RAW;
-        edge.producer_pipe = GetPipeTypeFromStmt(last_write[var_name]);
-        edge.consumer_pipe = GetPipeTypeFromStmt(consumer_stmt);
+        edge.producer_pipe = GetPipeTypeFromStmt(lastWrite[varName]);
+        edge.consumer_pipe = GetPipeTypeFromStmt(consumerStmt);
         dependencies.push_back(edge);
       }
     }
@@ -316,59 +316,59 @@ std::vector<DependencyEdge> DependencyAnalyzer::AnalyzeBlockDependencies(const B
     // Identify the defined (written) variable and used (read) variables
     if (auto assign = As<AssignStmt>(stmt)) {
       // The assigned variable is written
-      VarPtr def_var = assign->var_;
+      VarPtr defVar = assign->var_;
 
       // Collect variables read from the value expression
       collector.VisitExpr(assign->value_);
 
       // Check for RAW dependencies (Read-After-Write)
-      AddRAWDependencies(collector.read_vars, stmt);
+      AddRAWDependencies(collector.readVars, stmt);
 
       // Check for WAR dependencies (Write-After-Read)
-      std::string def_name = def_var->name_;
-      if (last_reads.count(def_name)) {
-        for (const auto& read_stmt : last_reads[def_name]) {
+      std::string defName = defVar->name_;
+      if (lastReads.count(defName)) {
+        for (const auto& readStmt : lastReads[defName]) {
           DependencyEdge edge;
-          edge.producer = read_stmt;
+          edge.producer = readStmt;
           edge.consumer = stmt;
-          edge.variable = def_var;
+          edge.variable = defVar;
           edge.type = DependencyEdge::WAR;
-          edge.producer_pipe = GetPipeTypeFromStmt(read_stmt);
+          edge.producer_pipe = GetPipeTypeFromStmt(readStmt);
           edge.consumer_pipe = GetPipeTypeFromStmt(stmt);
           dependencies.push_back(edge);
         }
       }
 
       // Check for WAW dependencies (Write-After-Write)
-      if (last_write.count(def_name)) {
+      if (lastWrite.count(defName)) {
         DependencyEdge edge;
-        edge.producer = last_write[def_name];
+        edge.producer = lastWrite[defName];
         edge.consumer = stmt;
-        edge.variable = def_var;
+        edge.variable = defVar;
         edge.type = DependencyEdge::WAW;
-        edge.producer_pipe = GetPipeTypeFromStmt(last_write[def_name]);
+        edge.producer_pipe = GetPipeTypeFromStmt(lastWrite[defName]);
         edge.consumer_pipe = GetPipeTypeFromStmt(stmt);
         dependencies.push_back(edge);
       }
 
       // Update tracking: record this write
-      last_write[def_name] = stmt;
+      lastWrite[defName] = stmt;
 
       // Record reads for this statement
-      for (const auto& read_var : collector.read_vars) {
-        last_reads[read_var->name_].push_back(stmt);
+      for (const auto& readVar : collector.readVars) {
+        lastReads[readVar->name_].push_back(stmt);
       }
 
-    } else if (auto eval_stmt = As<EvalStmt>(stmt)) {
+    } else if (auto evalStmt = As<EvalStmt>(stmt)) {
       // EvalStmt doesn't define variables, only reads
-      collector.VisitExpr(eval_stmt->expr_);
+      collector.VisitExpr(evalStmt->expr_);
 
       // Check for RAW dependencies
-      AddRAWDependencies(collector.read_vars, stmt);
+      AddRAWDependencies(collector.readVars, stmt);
 
       // Record reads
-      for (const auto& read_var : collector.read_vars) {
-        last_reads[read_var->name_].push_back(stmt);
+      for (const auto& readVar : collector.readVars) {
+        lastReads[readVar->name_].push_back(stmt);
       }
     }
   }
@@ -389,8 +389,8 @@ std::string DependencyAnalyzer::GetPipeTypeFromStmt(const StmtPtr& stmt) {
     if (auto call = As<Call>(assign->value_)) {
       return GetPipeType(call);
     }
-  } else if (auto eval_stmt = As<EvalStmt>(stmt)) {
-    if (auto call = As<Call>(eval_stmt->expr_)) {
+  } else if (auto evalStmt = As<EvalStmt>(stmt)) {
+    if (auto call = As<Call>(evalStmt->expr_)) {
       return GetPipeType(call);
     }
   }
@@ -399,14 +399,14 @@ std::string DependencyAnalyzer::GetPipeTypeFromStmt(const StmtPtr& stmt) {
 }
 
 std::vector<DependencyEdge> DependencyAnalyzer::MergeDependencies(
-    const std::vector<std::vector<DependencyEdge>>& path_dependencies) {
+    const std::vector<std::vector<DependencyEdge>>& pathDependencies) {
   std::vector<DependencyEdge> merged;
 
   // Take union of all dependencies from all paths
   // Use a set to track unique edges (by producer, consumer, variable, type)
   std::set<std::tuple<StmtPtr, StmtPtr, std::string, DependencyEdge::Type>> seen;
 
-  for (const auto& path : path_dependencies) {
+  for (const auto& path : pathDependencies) {
     for (const auto& edge : path) {
       auto key = std::make_tuple(edge.producer, edge.consumer, edge.variable->name_, edge.type);
       if (seen.find(key) == seen.end()) {
@@ -416,22 +416,22 @@ std::vector<DependencyEdge> DependencyAnalyzer::MergeDependencies(
     }
   }
 
-  LOG_DEBUG << "Merged " << merged.size() << " unique dependencies from " << path_dependencies.size()
+  LOG_DEBUG << "Merged " << merged.size() << " unique dependencies from " << pathDependencies.size()
             << " paths";
 
   return merged;
 }
 
-std::string DependencyAnalyzer::GetPipeType(const CallPtr& call_expr) {
-  if (!call_expr || !call_expr->op_) {
+std::string DependencyAnalyzer::GetPipeType(const CallPtr& callExpr) {
+  if (!callExpr || !callExpr->op_) {
     return "UNKNOWN";
   }
 
   // Try to get pipe type from the Op
-  auto pipe_opt = call_expr->op_->GetPipe();
-  if (pipe_opt.has_value()) {
+  auto pipeOpt = callExpr->op_->GetPipe();
+  if (pipeOpt.has_value()) {
     // Convert PipeType enum to string
-    PipeType pipe = *pipe_opt;
+    PipeType pipe = *pipeOpt;
     switch (pipe) {
       case PipeType::M:
         return "CUBE";
@@ -455,10 +455,10 @@ std::string DependencyAnalyzer::GetPipeType(const CallPtr& call_expr) {
   }
 
   // Try to get pipe_type from kwargs
-  if (call_expr->HasKwarg("pipe_type")) {
+  if (callExpr->HasKwarg("pipe_type")) {
     try {
-      std::string pipe_str = call_expr->GetKwarg<std::string>("pipe_type", "UNKNOWN");
-      return pipe_str;
+      std::string pipeStr = callExpr->GetKwarg<std::string>("pipe_type", "UNKNOWN");
+      return pipeStr;
     } catch (...) {
       // If type conversion fails, return UNKNOWN
       return "UNKNOWN";

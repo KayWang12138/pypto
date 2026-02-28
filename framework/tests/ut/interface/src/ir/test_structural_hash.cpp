@@ -41,7 +41,7 @@ protected:
     Span sp;
     VarPtr a;
     VarPtr b;
-    CallPtr base_call;
+    CallPtr baseCall;
   };
 
   // Common setup for kwargs hash tests: creates two tensor Vars and a base Call via registry
@@ -56,8 +56,8 @@ protected:
         std::make_shared<TensorType>(
             std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
             DataType::FP32), sp);
-    auto base_call = As<Call>(reg.Create("tensor.add", {a, b}, sp));
-    return {sp, a, b, base_call};
+    auto baseCall = As<Call>(reg.Create("tensor.add", {a, b}, sp));
+    return {sp, a, b, baseCall};
   }
 };
 
@@ -339,9 +339,9 @@ TEST_F(StructuralHashTest, TestYieldStmtHash) {
 TEST_F(StructuralHashTest, TestIfStmtHash) {
   Span sp = Span::unknown();
   auto cond = std::make_shared<ConstBool>(true, sp);
-  auto then_body = std::make_shared<EvalStmt>(
+  auto thenBody = std::make_shared<EvalStmt>(
       std::make_shared<ConstInt>(1, DataType::INT32, sp), sp);
-  auto if1 = std::make_shared<IfStmt>(cond, then_body, std::optional<StmtPtr>{},
+  auto if1 = std::make_shared<IfStmt>(cond, thenBody, std::optional<StmtPtr>{},
                                        std::vector<VarPtr>{}, sp);
 
   auto cond2 = std::make_shared<ConstBool>(true, sp);
@@ -479,73 +479,73 @@ TEST_F(StructuralHashTest, TestIterArgHash) {
 // ============================================================================
 
 TEST_F(StructuralHashTest, TestCallWithStringKwarg) {
-  auto [sp, a, b, base_call] = MakeKwargsTestFixture();
-  ASSERT_NE(base_call, nullptr);
+  auto [sp, a, b, baseCall] = MakeKwargsTestFixture();
+  ASSERT_NE(baseCall, nullptr);
 
   std::vector<std::pair<std::string, std::any>> kwargs1 = {
       {"label", std::any(std::string("test"))}};
   auto call1 = std::make_shared<const Call>(
-      base_call->op_, std::vector<ExprPtr>{a}, kwargs1,
+      baseCall->op_, std::vector<ExprPtr>{a}, kwargs1,
       std::make_shared<ScalarType>(DataType::INT32), sp);
 
   std::vector<std::pair<std::string, std::any>> kwargs2 = {
       {"label", std::any(std::string("test"))}};
   auto call2 = std::make_shared<const Call>(
-      base_call->op_, std::vector<ExprPtr>{a}, kwargs2,
+      baseCall->op_, std::vector<ExprPtr>{a}, kwargs2,
       std::make_shared<ScalarType>(DataType::INT32), sp);
 
   ASSERT_EQ(structural_hash(ExprPtr(call1), true), structural_hash(ExprPtr(call2), true));
 }
 
 TEST_F(StructuralHashTest, TestCallWithDoubleKwarg) {
-  auto [sp, a, b, base_call] = MakeKwargsTestFixture();
+  auto [sp, a, b, baseCall] = MakeKwargsTestFixture();
 
   std::vector<std::pair<std::string, std::any>> kwargs1 = {
       {"scale", std::any(3.14)}};
   auto call1 = std::make_shared<const Call>(
-      base_call->op_, std::vector<ExprPtr>{a}, kwargs1,
+      baseCall->op_, std::vector<ExprPtr>{a}, kwargs1,
       std::make_shared<ScalarType>(DataType::FP32), sp);
 
   std::vector<std::pair<std::string, std::any>> kwargs2 = {
       {"scale", std::any(3.14)}};
   auto call2 = std::make_shared<const Call>(
-      base_call->op_, std::vector<ExprPtr>{a}, kwargs2,
+      baseCall->op_, std::vector<ExprPtr>{a}, kwargs2,
       std::make_shared<ScalarType>(DataType::FP32), sp);
 
   ASSERT_EQ(structural_hash(ExprPtr(call1), true), structural_hash(ExprPtr(call2), true));
 }
 
 TEST_F(StructuralHashTest, TestCallWithFloatKwarg) {
-  auto [sp, a, b, base_call] = MakeKwargsTestFixture();
+  auto [sp, a, b, baseCall] = MakeKwargsTestFixture();
 
   std::vector<std::pair<std::string, std::any>> kwargs1 = {
       {"epsilon", std::any(1.0f)}};
   auto call1 = std::make_shared<const Call>(
-      base_call->op_, std::vector<ExprPtr>{a}, kwargs1,
+      baseCall->op_, std::vector<ExprPtr>{a}, kwargs1,
       std::make_shared<ScalarType>(DataType::FP32), sp);
 
   std::vector<std::pair<std::string, std::any>> kwargs2 = {
       {"epsilon", std::any(1.0f)}};
   auto call2 = std::make_shared<const Call>(
-      base_call->op_, std::vector<ExprPtr>{a}, kwargs2,
+      baseCall->op_, std::vector<ExprPtr>{a}, kwargs2,
       std::make_shared<ScalarType>(DataType::FP32), sp);
 
   ASSERT_EQ(structural_hash(ExprPtr(call1), true), structural_hash(ExprPtr(call2), true));
 }
 
 TEST_F(StructuralHashTest, TestCallWithDataTypeKwarg) {
-  auto [sp, a, b, base_call] = MakeKwargsTestFixture();
+  auto [sp, a, b, baseCall] = MakeKwargsTestFixture();
 
   std::vector<std::pair<std::string, std::any>> kwargs1 = {
       {"dtype", std::any(DataType::FP16)}};
   auto call1 = std::make_shared<const Call>(
-      base_call->op_, std::vector<ExprPtr>{a}, kwargs1,
+      baseCall->op_, std::vector<ExprPtr>{a}, kwargs1,
       std::make_shared<ScalarType>(DataType::FP32), sp);
 
   std::vector<std::pair<std::string, std::any>> kwargs2 = {
       {"dtype", std::any(DataType::FP16)}};
   auto call2 = std::make_shared<const Call>(
-      base_call->op_, std::vector<ExprPtr>{a}, kwargs2,
+      baseCall->op_, std::vector<ExprPtr>{a}, kwargs2,
       std::make_shared<ScalarType>(DataType::FP32), sp);
 
   ASSERT_EQ(structural_hash(ExprPtr(call1), true), structural_hash(ExprPtr(call2), true));
@@ -631,10 +631,10 @@ TEST_F(StructuralHashTest, TestIterArgHashNoAutoMapping) {
 
 TEST_F(StructuralHashTest, TestHashCachingWithSharedNode) {
   Span sp = Span::unknown();
-  auto shared_val = std::make_shared<ConstInt>(42, DataType::INT32, sp);
+  auto sharedVal = std::make_shared<ConstInt>(42, DataType::INT32, sp);
   // Create a MakeTuple that references the same node twice
   auto tuple = std::make_shared<MakeTuple>(
-      std::vector<ExprPtr>{shared_val, shared_val}, sp);
+      std::vector<ExprPtr>{sharedVal, sharedVal}, sp);
   auto h1 = structural_hash(tuple);
   auto h2 = structural_hash(tuple);
   ASSERT_EQ(h1, h2);

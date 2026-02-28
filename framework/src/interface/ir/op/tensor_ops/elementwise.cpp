@@ -25,26 +25,26 @@ namespace ir {
 
 TypePtr DeduceTensorOpElementwiseBinaryType(const std::vector<ExprPtr>& args,
                                             const std::vector<std::pair<std::string, std::any>>& /*kwargs*/,
-                                            const std::string& op_name) {
-  INTERNAL_CHECK(args.size() == 2) << "The operator " << op_name << " requires exactly 2 arguments, but got "
+                                            const std::string& opName) {
+  INTERNAL_CHECK(args.size() == 2) << "The operator " << opName << " requires exactly 2 arguments, but got "
                           << args.size();
 
   // Try TensorType first
   auto tensor_type1 = As<TensorType>(args[0]->GetType());
   auto tensor_type2 = As<TensorType>(args[1]->GetType());
 
-  INTERNAL_CHECK(tensor_type1) << "The operator " << op_name << " requires first argument to be a TensorType, but got "
+  INTERNAL_CHECK(tensor_type1) << "The operator " << opName << " requires first argument to be a TensorType, but got "
                       << args[0]->GetType()->TypeName();
-  INTERNAL_CHECK(tensor_type2) << "The operator " << op_name
+  INTERNAL_CHECK(tensor_type2) << "The operator " << opName
                       << " requires second argument to be a TensorType, but got "
                       << args[1]->GetType()->TypeName();
 
   auto result_dtype = PromoteDataTypes(tensor_type1->dtype_, tensor_type2->dtype_);
-  INTERNAL_CHECK(result_dtype) << "The operator " << op_name << " requires compatible data types, but got "
+  INTERNAL_CHECK(result_dtype) << "The operator " << opName << " requires compatible data types, but got "
                       << args[0]->GetType()->TypeName() << " and " << args[1]->GetType()->TypeName();
 
   auto broadcast_result = BroadcastShapes(tensor_type1->shape_, tensor_type2->shape_);
-  INTERNAL_CHECK(broadcast_result.success) << "The operator " << op_name << " requires compatible shapes, but got "
+  INTERNAL_CHECK(broadcast_result.success) << "The operator " << opName << " requires compatible shapes, but got "
                                   << FormatShape(tensor_type1->shape_) << " and "
                                   << FormatShape(tensor_type2->shape_);
 
@@ -53,22 +53,22 @@ TypePtr DeduceTensorOpElementwiseBinaryType(const std::vector<ExprPtr>& args,
 
 TypePtr DeduceTensorOpElementwiseScalarType(const std::vector<ExprPtr>& args,
                                             const std::vector<std::pair<std::string, std::any>>& /*kwargs*/,
-                                            const std::string& op_name) {
-  INTERNAL_CHECK(args.size() == 2) << "The operator " << op_name << " requires exactly 2 arguments, but got "
+                                            const std::string& opName) {
+  INTERNAL_CHECK(args.size() == 2) << "The operator " << opName << " requires exactly 2 arguments, but got "
                           << args.size();
 
   auto tensor_type1 = As<TensorType>(args[0]->GetType());
   auto scalar_type2 = As<ScalarType>(args[1]->GetType());
 
-  INTERNAL_CHECK(tensor_type1) << "The operator " << op_name << " requires first argument to be a TensorType, but got "
+  INTERNAL_CHECK(tensor_type1) << "The operator " << opName << " requires first argument to be a TensorType, but got "
                       << args[0]->GetType()->TypeName();
-  INTERNAL_CHECK(scalar_type2) << "The operator " << op_name
+  INTERNAL_CHECK(scalar_type2) << "The operator " << opName
                       << " requires second argument to be a ScalarType, but got "
                       << args[1]->GetType()->TypeName();
 
   // TensorType + ScalarType - result is TensorType with same shape as first argument
   auto result_dtype = PromoteDataTypes(tensor_type1->dtype_, scalar_type2->dtype_);
-  INTERNAL_CHECK(result_dtype) << "The operator " << op_name << " requires compatible data types, but got "
+  INTERNAL_CHECK(result_dtype) << "The operator " << opName << " requires compatible data types, but got "
                       << args[0]->GetType()->TypeName() << " and " << args[1]->GetType()->TypeName();
 
   return std::make_shared<TensorType>(tensor_type1->shape_, *result_dtype);

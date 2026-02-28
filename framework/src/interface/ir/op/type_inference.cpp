@@ -193,8 +193,8 @@ std::vector<ExprPtr> ExtractShape(const TypePtr& type) {
 
 std::optional<int64_t> GetConstantDimension(const ExprPtr& dim) {
   // Try to cast to ConstInt
-  if (auto const_int = As<ConstInt>(dim)) {
-    return const_int->value_;
+  if (auto constInt = As<ConstInt>(dim)) {
+    return constInt->value_;
   }
 
   // Not a constant

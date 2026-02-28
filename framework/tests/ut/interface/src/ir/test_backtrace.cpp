@@ -213,19 +213,19 @@ TEST_F(BacktraceTest, FormatStackTraceFiltering) {
     auto& bt = Backtrace::GetInstance();
 
     // Frame with filtered filename should be excluded
-    StackFrame frame_filtered;
-    frame_filtered.function = "filtered_func";
-    frame_filtered.filename = "/path/to/nanobind/module.cpp";
-    frame_filtered.lineno = 10;
-    frame_filtered.pc = 0x1000;
+    StackFrame frameFiltered;
+    frameFiltered.function = "filtered_func";
+    frameFiltered.filename = "/path/to/nanobind/module.cpp";
+    frameFiltered.lineno = 10;
+    frameFiltered.pc = 0x1000;
 
-    StackFrame frame_kept;
-    frame_kept.function = "kept_func";
-    frame_kept.filename = "/path/to/my_code.cpp";
-    frame_kept.lineno = 20;
-    frame_kept.pc = 0x2000;
+    StackFrame frameKept;
+    frameKept.function = "kept_func";
+    frameKept.filename = "/path/to/my_code.cpp";
+    frameKept.lineno = 20;
+    frameKept.pc = 0x2000;
 
-    std::vector<StackFrame> frames = {frame_filtered, frame_kept};
+    std::vector<StackFrame> frames = {frameFiltered, frameKept};
     std::string result = bt.FormatStackTrace(frames);
     ASSERT_EQ(result.find("nanobind"), std::string::npos);
     ASSERT_NE(result.find("my_code.cpp"), std::string::npos);

@@ -25,27 +25,27 @@ namespace ir {
 
 TypePtr DeduceBlockOpElementwiseBinaryType(const std::vector<ExprPtr>& args,
                                            const std::vector<std::pair<std::string, std::any>>& kwargs,
-                                           const std::string& op_name) {
+                                           const std::string& opName) {
   (void)kwargs;
-  CHECK(args.size() == 2) << "The operator " << op_name << " requires exactly 2 arguments, but got "
+  CHECK(args.size() == 2) << "The operator " << opName << " requires exactly 2 arguments, but got "
                           << args.size();
 
   // Both arguments must be TileType
   auto tile_type1 = As<TileType>(args[0]->GetType());
   auto tile_type2 = As<TileType>(args[1]->GetType());
 
-  CHECK(tile_type1) << "The operator " << op_name << " requires first argument to be a TileType, but got "
+  CHECK(tile_type1) << "The operator " << opName << " requires first argument to be a TileType, but got "
                     << args[0]->GetType()->TypeName();
-  CHECK(tile_type2) << "The operator " << op_name << " requires second argument to be a TileType, but got "
+  CHECK(tile_type2) << "The operator " << opName << " requires second argument to be a TileType, but got "
                     << args[1]->GetType()->TypeName();
 
   // Use broadcasting
   auto result_dtype = PromoteDataTypes(tile_type1->dtype_, tile_type2->dtype_);
-  CHECK(result_dtype) << "The operator " << op_name << " requires compatible data types, but got "
+  CHECK(result_dtype) << "The operator " << opName << " requires compatible data types, but got "
                       << args[0]->GetType()->TypeName() << " and " << args[1]->GetType()->TypeName();
 
   auto broadcast_result = BroadcastShapes(tile_type1->shape_, tile_type2->shape_);
-  CHECK(broadcast_result.success) << "The operator " << op_name << " requires compatible shapes, but got "
+  CHECK(broadcast_result.success) << "The operator " << opName << " requires compatible shapes, but got "
                                   << FormatShape(tile_type1->shape_) << " and "
                                   << FormatShape(tile_type2->shape_);
 
@@ -54,27 +54,27 @@ TypePtr DeduceBlockOpElementwiseBinaryType(const std::vector<ExprPtr>& args,
 
 TypePtr DeduceBlockOpScalarBinaryType(const std::vector<ExprPtr>& args,
                                       const std::vector<std::pair<std::string, std::any>>& kwargs,
-                                      const std::string& op_name) {
+                                      const std::string& opName) {
   (void)kwargs;
-  CHECK(args.size() == 2) << "The operator " << op_name << " requires exactly 2 arguments, but got "
+  CHECK(args.size() == 2) << "The operator " << opName << " requires exactly 2 arguments, but got "
                           << args.size();
 
   // First argument must be TileType
-  auto tile_type = As<TileType>(args[0]->GetType());
-  CHECK(tile_type) << "The operator " << op_name << " requires first argument to be a TileType, but got "
+  auto tileType = As<TileType>(args[0]->GetType());
+  CHECK(tileType) << "The operator " << opName << " requires first argument to be a TileType, but got "
                    << args[0]->GetType()->TypeName();
 
   // Second argument MUST be ScalarType
-  auto scalar_type = As<ScalarType>(args[1]->GetType());
-  CHECK(scalar_type) << "The operator " << op_name << " requires second argument to be a ScalarType, but got "
+  auto scalarType = As<ScalarType>(args[1]->GetType());
+  CHECK(scalarType) << "The operator " << opName << " requires second argument to be a ScalarType, but got "
                      << args[1]->GetType()->TypeName();
 
   // Result has same shape as tile, with promoted dtype
-  auto result_dtype = PromoteDataTypes(tile_type->dtype_, scalar_type->dtype_);
-  CHECK(result_dtype) << "The operator " << op_name << " requires compatible data types, but got "
-                      << tile_type->dtype_.ToString() << " and " << scalar_type->dtype_.ToString();
+  auto result_dtype = PromoteDataTypes(tileType->dtype_, scalarType->dtype_);
+  CHECK(result_dtype) << "The operator " << opName << " requires compatible data types, but got "
+                      << tileType->dtype_.ToString() << " and " << scalarType->dtype_.ToString();
 
-  return std::make_shared<TileType>(tile_type->shape_, *result_dtype);
+  return std::make_shared<TileType>(tileType->shape_, *result_dtype);
 }
 
 // ============================================================================
@@ -185,8 +185,8 @@ REGISTER_OP("block.subs")
 // Type deduction for block.cmp and block.cmps (comparison operations)
 TypePtr DeduceBlockCmpType(const std::vector<ExprPtr>& args,
                            const std::vector<std::pair<std::string, std::any>>& kwargs,
-                           const std::string& op_name, bool is_scalar_rhs = false) {
-  CHECK(args.size() == 2) << "The operator " << op_name << " requires exactly 2 arguments, but got "
+                           const std::string& opName, bool is_scalar_rhs = false) {
+  CHECK(args.size() == 2) << "The operator " << opName << " requires exactly 2 arguments, but got "
                           << args.size();
 
   // Validate cmp_type attribute exists
@@ -197,39 +197,39 @@ TypePtr DeduceBlockCmpType(const std::vector<ExprPtr>& args,
       break;
     }
   }
-  CHECK(has_cmp_type) << "The operator " << op_name << " requires 'cmp_type' attribute";
+  CHECK(has_cmp_type) << "The operator " << opName << " requires 'cmp_type' attribute";
 
   // First argument must be TileType
   auto tile_type1 = As<TileType>(args[0]->GetType());
-  CHECK(tile_type1) << "The operator " << op_name << " requires first argument to be a TileType, but got "
+  CHECK(tile_type1) << "The operator " << opName << " requires first argument to be a TileType, but got "
                     << args[0]->GetType()->TypeName();
 
   if (is_scalar_rhs) {
     // Second argument MUST be ScalarType
-    auto scalar_type = As<ScalarType>(args[1]->GetType());
-    CHECK(scalar_type) << "The operator " << op_name
+    auto scalarType = As<ScalarType>(args[1]->GetType());
+    CHECK(scalarType) << "The operator " << opName
                        << " requires second argument to be a ScalarType, but got "
                        << args[1]->GetType()->TypeName();
 
     // Result has same shape as tile, with promoted dtype
-    auto result_dtype = PromoteDataTypes(tile_type1->dtype_, scalar_type->dtype_);
-    CHECK(result_dtype) << "The operator " << op_name << " requires compatible data types, but got "
-                        << tile_type1->dtype_.ToString() << " and " << scalar_type->dtype_.ToString();
+    auto result_dtype = PromoteDataTypes(tile_type1->dtype_, scalarType->dtype_);
+    CHECK(result_dtype) << "The operator " << opName << " requires compatible data types, but got "
+                        << tile_type1->dtype_.ToString() << " and " << scalarType->dtype_.ToString();
 
     return std::make_shared<TileType>(tile_type1->shape_, *result_dtype);
   } else {
     // Second argument must be TileType
     auto tile_type2 = As<TileType>(args[1]->GetType());
-    CHECK(tile_type2) << "The operator " << op_name << " requires second argument to be a TileType, but got "
+    CHECK(tile_type2) << "The operator " << opName << " requires second argument to be a TileType, but got "
                       << args[1]->GetType()->TypeName();
 
     // Use broadcasting
     auto result_dtype = PromoteDataTypes(tile_type1->dtype_, tile_type2->dtype_);
-    CHECK(result_dtype) << "The operator " << op_name << " requires compatible data types, but got "
+    CHECK(result_dtype) << "The operator " << opName << " requires compatible data types, but got "
                         << args[0]->GetType()->TypeName() << " and " << args[1]->GetType()->TypeName();
 
     auto broadcast_result = BroadcastShapes(tile_type1->shape_, tile_type2->shape_);
-    CHECK(broadcast_result.success) << "The operator " << op_name << " requires compatible shapes, but got "
+    CHECK(broadcast_result.success) << "The operator " << opName << " requires compatible shapes, but got "
                                     << FormatShape(tile_type1->shape_) << " and "
                                     << FormatShape(tile_type2->shape_);
 
@@ -264,24 +264,24 @@ REGISTER_OP("block.cmps")
 // Type deduction for column expand operations
 TypePtr DeduceBlockColExpandType(const std::vector<ExprPtr>& args,
                                  const std::vector<std::pair<std::string, std::any>>& kwargs,
-                                 const std::string& op_name) {
+                                 const std::string& opName) {
   (void)kwargs;
-  CHECK(args.size() == 2) << "The operator " << op_name << " requires exactly 2 arguments, but got "
+  CHECK(args.size() == 2) << "The operator " << opName << " requires exactly 2 arguments, but got "
                           << args.size();
 
   // First argument is the target tile (shape to expand to)
   auto target_type = As<TileType>(args[0]->GetType());
-  CHECK(target_type) << "The operator " << op_name << " requires first argument to be a TileType, but got "
+  CHECK(target_type) << "The operator " << opName << " requires first argument to be a TileType, but got "
                      << args[0]->GetType()->TypeName();
 
   // Second argument is the column tile to expand (shape [1, cols])
   auto col_type = As<TileType>(args[1]->GetType());
-  CHECK(col_type) << "The operator " << op_name << " requires second argument to be a TileType, but got "
+  CHECK(col_type) << "The operator " << opName << " requires second argument to be a TileType, but got "
                   << args[1]->GetType()->TypeName();
 
   // Result has same shape as target, with promoted dtype
   auto result_dtype = PromoteDataTypes(target_type->dtype_, col_type->dtype_);
-  CHECK(result_dtype) << "The operator " << op_name << " requires compatible data types";
+  CHECK(result_dtype) << "The operator " << opName << " requires compatible data types";
 
   return std::make_shared<TileType>(target_type->shape_, *result_dtype);
 }
@@ -289,26 +289,26 @@ TypePtr DeduceBlockColExpandType(const std::vector<ExprPtr>& args,
 // Type deduction for scalar expand operations
 TypePtr DeduceBlockExpandScalarType(const std::vector<ExprPtr>& args,
                                     const std::vector<std::pair<std::string, std::any>>& kwargs,
-                                    const std::string& op_name) {
+                                    const std::string& opName) {
   (void)kwargs;
-  CHECK(args.size() == 2) << "The operator " << op_name << " requires exactly 2 arguments, but got "
+  CHECK(args.size() == 2) << "The operator " << opName << " requires exactly 2 arguments, but got "
                           << args.size();
 
   // First argument is the target tile
-  auto tile_type = As<TileType>(args[0]->GetType());
-  CHECK(tile_type) << "The operator " << op_name << " requires first argument to be a TileType, but got "
+  auto tileType = As<TileType>(args[0]->GetType());
+  CHECK(tileType) << "The operator " << opName << " requires first argument to be a TileType, but got "
                    << args[0]->GetType()->TypeName();
 
   // Second argument is the scalar to expand
-  auto scalar_type = As<ScalarType>(args[1]->GetType());
-  CHECK(scalar_type) << "The operator " << op_name << " requires second argument to be a ScalarType, but got "
+  auto scalarType = As<ScalarType>(args[1]->GetType());
+  CHECK(scalarType) << "The operator " << opName << " requires second argument to be a ScalarType, but got "
                      << args[1]->GetType()->TypeName();
 
   // Result has same shape as tile, with promoted dtype
-  auto result_dtype = PromoteDataTypes(tile_type->dtype_, scalar_type->dtype_);
-  CHECK(result_dtype) << "The operator " << op_name << " requires compatible data types";
+  auto result_dtype = PromoteDataTypes(tileType->dtype_, scalarType->dtype_);
+  CHECK(result_dtype) << "The operator " << opName << " requires compatible data types";
 
-  return std::make_shared<TileType>(tile_type->shape_, *result_dtype);
+  return std::make_shared<TileType>(tileType->shape_, *result_dtype);
 }
 
 REGISTER_OP("block.col_expand")

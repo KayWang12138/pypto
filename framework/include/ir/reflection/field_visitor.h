@@ -186,24 +186,24 @@ private:
 
     if constexpr (IsIRNodeOptionalField<FieldType>::value) {
       // Optional IRNodePtr field - treat as IRNode field
-      auto field_result = visitor.VisitIRNodeField(desc.Get(nodes)...);
-      visitor.CombineResult(result, field_result, desc);
+      auto fieldResult = visitor.VisitIRNodeField(desc.Get(nodes)...);
+      visitor.CombineResult(result, fieldResult, desc);
     } else if constexpr (IsIRNodeField<FieldType>::value) {
       // Single IRNodePtr field - expand to visitor.VisitIRNodeField(desc.Get(node1), desc.Get(node2), ...)
-      auto field_result = visitor.VisitIRNodeField(desc.Get(nodes)...);
-      visitor.CombineResult(result, field_result, desc);
+      auto fieldResult = visitor.VisitIRNodeField(desc.Get(nodes)...);
+      visitor.CombineResult(result, fieldResult, desc);
     } else if constexpr (IsIRNodeVectorField<FieldType>::value) {
       // Vector of IRNodePtr
-      auto field_result = visitor.VisitIRNodeVectorField(desc.Get(nodes)...);
-      visitor.CombineResult(result, field_result, desc);
+      auto fieldResult = visitor.VisitIRNodeVectorField(desc.Get(nodes)...);
+      visitor.CombineResult(result, fieldResult, desc);
     } else if constexpr (IsIRNodeMapField<FieldType>::value) {
       // Map of IRNodePtr to IRNodePtr
-      auto field_result = visitor.VisitIRNodeMapField(desc.Get(nodes)...);
-      visitor.CombineResult(result, field_result, desc);
+      auto fieldResult = visitor.VisitIRNodeMapField(desc.Get(nodes)...);
+      visitor.CombineResult(result, fieldResult, desc);
     } else {
       // Scalar field (int, string, OpPtr, etc.)
-      auto field_result = visitor.VisitLeafField(desc.Get(nodes)...);
-      visitor.CombineResult(result, field_result, desc);
+      auto fieldResult = visitor.VisitLeafField(desc.Get(nodes)...);
+      visitor.CombineResult(result, fieldResult, desc);
     }
   }
 };

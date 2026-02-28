@@ -32,24 +32,24 @@ namespace ir {
  * For inputs with shape [...batch_dims, M, K] and [...batch_dims, K, N],
  * the output has shape [...broadcast_batch_dims, M, N].
  *
- * \param args Arguments: [lhs_tile, rhs_tile]
+ * \param args Arguments: [lhsTile, rhsTile]
  * \param kwargs Keyword arguments (unused)
- * \param op_name Operator name for error messages
+ * \param opName Operator name for error messages
  * \return TileType with output shape
  */
 TypePtr DeduceBlockBatchMatMulType(const std::vector<ExprPtr>& args,
                                    const std::vector<std::pair<std::string, std::any>>& /*kwargs*/,
-                                   const std::string& op_name) {
-  INTERNAL_CHECK(args.size() == 2) << "The operator " << op_name << " requires exactly 2 arguments, but got "
+                                   const std::string& opName) {
+  INTERNAL_CHECK(args.size() == 2) << "The operator " << opName << " requires exactly 2 arguments, but got "
                           << args.size();
 
   // Both arguments must be TileType
   auto lhs_type = As<TileType>(args[0]->GetType());
   auto rhs_type = As<TileType>(args[1]->GetType());
 
-  INTERNAL_CHECK(lhs_type) << "The operator " << op_name << " requires first argument to be a TileType, but got "
+  INTERNAL_CHECK(lhs_type) << "The operator " << opName << " requires first argument to be a TileType, but got "
                   << args[0]->GetType()->TypeName();
-  INTERNAL_CHECK(rhs_type) << "The operator " << op_name << " requires second argument to be a TileType, but got "
+  INTERNAL_CHECK(rhs_type) << "The operator " << opName << " requires second argument to be a TileType, but got "
                   << args[1]->GetType()->TypeName();
 
   // Extract shapes
@@ -57,10 +57,10 @@ TypePtr DeduceBlockBatchMatMulType(const std::vector<ExprPtr>& args,
   const auto& rhs_shape = rhs_type->shape_;
 
   // For batch matmul, we require at least 2D tiles
-  INTERNAL_CHECK(lhs_shape.size() >= 2) << "The operator " << op_name
+  INTERNAL_CHECK(lhs_shape.size() >= 2) << "The operator " << opName
                                << " requires lhs to have at least 2 dimensions, but got " << lhs_shape.size()
                                << " dimensions";
-  INTERNAL_CHECK(rhs_shape.size() >= 2) << "The operator " << op_name
+  INTERNAL_CHECK(rhs_shape.size() >= 2) << "The operator " << opName
                                << " requires rhs to have at least 2 dimensions, but got " << rhs_shape.size()
                                << " dimensions";
 
@@ -74,7 +74,7 @@ TypePtr DeduceBlockBatchMatMulType(const std::vector<ExprPtr>& args,
   ExprPtr n_dim = rhs_shape[rhs_ndim - 1];
 
   // Try to verify K dimensions match if they are constant
-  VerifyKDimensionsMatch(k_dim_lhs, k_dim_rhs, op_name);
+  VerifyKDimensionsMatch(k_dim_lhs, k_dim_rhs, opName);
 
   // Handle batch dimensions
   std::vector<ExprPtr> output_shape;
@@ -90,7 +90,7 @@ TypePtr DeduceBlockBatchMatMulType(const std::vector<ExprPtr>& args,
 
     // Broadcast batch dimensions
     auto broadcast_result = BroadcastShapes(lhs_batch, rhs_batch);
-    INTERNAL_CHECK(broadcast_result.success) << "Cannot broadcast batch dimensions for " << op_name;
+    INTERNAL_CHECK(broadcast_result.success) << "Cannot broadcast batch dimensions for " << opName;
 
     output_shape = broadcast_result.shape;
 
@@ -101,7 +101,7 @@ TypePtr DeduceBlockBatchMatMulType(const std::vector<ExprPtr>& args,
 
   // Promote data types
   auto result_dtype = PromoteDataTypes(lhs_type->dtype_, rhs_type->dtype_);
-  INTERNAL_CHECK(result_dtype) << "The operator " << op_name << " requires compatible data types, but got "
+  INTERNAL_CHECK(result_dtype) << "The operator " << opName << " requires compatible data types, but got "
                       << lhs_type->dtype_.ToString() << " and " << rhs_type->dtype_.ToString();
 
   return std::make_shared<TileType>(output_shape, *result_dtype);

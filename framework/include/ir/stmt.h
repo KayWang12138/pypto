@@ -98,8 +98,8 @@ using AssignStmtPtr = std::shared_ptr<const AssignStmt>;
 /**
  * \brief Conditional statement
  *
- * Represents an if-else statement: if condition then then_body else else_body
- * where condition is an expression and then_body/else_body is statement.
+ * Represents an if-else statement: if condition then thenBody else elseBody
+ * where condition is an expression and thenBody/elseBody is statement.
  */
 class IfStmt : public Stmt {
 public:
@@ -107,18 +107,18 @@ public:
    * \brief Create a conditional statement with then and else branches
    *
    * \param condition Condition expression
-   * \param then_body Then branch statement
-   * \param else_body Else branch statement (can be optional)
-   * \param return_vars Return variables (can be empty)
+   * \param thenBody Then branch statement
+   * \param elseBody Else branch statement (can be optional)
+   * \param returnVars Return variables (can be empty)
    * \param span Source location
    */
-  IfStmt(ExprPtr condition, StmtPtr then_body, std::optional<StmtPtr> else_body,
-         std::vector<VarPtr> return_vars, Span span)
+  IfStmt(ExprPtr condition, StmtPtr thenBody, std::optional<StmtPtr> elseBody,
+         std::vector<VarPtr> returnVars, Span span)
       : Stmt(std::move(span)),
         condition_(std::move(condition)),
-        thenBody_(std::move(then_body)),
-        elseBody_(std::move(else_body)),
-        returnVars_(std::move(return_vars)) {}
+        thenBody_(std::move(thenBody)),
+        elseBody_(std::move(elseBody)),
+        returnVars_(std::move(returnVars)) {}
 
   [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::IfStmt; }
   [[nodiscard]] std::string TypeName() const override { return "IfStmt"; }
@@ -126,7 +126,7 @@ public:
   /**
    * \brief Get field descriptors for reflection-based visitation
    *
-   * \return Tuple of field descriptors (condition, then_body, else_body as USUAL fields)
+   * \return Tuple of field descriptors (condition, thenBody, elseBody as USUAL fields)
    */
   static constexpr auto GetFieldDescriptors() {
     return std::tuple_cat(Stmt::GetFieldDescriptors(),
@@ -234,45 +234,45 @@ using ReturnStmtPtr = std::shared_ptr<const ReturnStmt>;
  *
  * Represents a for loop with optional loop-carried values (SSA-style iteration).
  *
- * **Basic loop:** for loop_var in range(start, stop, step): body
+ * **Basic loop:** for loopVar in range(start, stop, step): body
  *
  * **Loop with iteration arguments:**
- * for loop_var, (iter_arg1, iter_arg2) in pl.range(start, stop, step, init_values=[...]):
+ * for loopVar, (iter_arg1, iter_arg2) in pl.range(start, stop, step, init_values=[...]):
  *     iter_arg1, iter_arg2 = pl.yield_(new_val1, new_val2)
  * return_var1 = iter_arg1
  * return_var2 = iter_arg2
  *
  * **Key Relationships:**
- * - iter_args: IterArg variables scoped to loop body, carry values between iterations
- * - return_vars: Var variables that capture final iteration values, accessible after loop
- * - Number of iter_args must equal number of return_vars
- * - Number of yielded values must equal number of iter_args
- * - IterArgs cannot be directly accessed outside the loop; use return_vars instead
+ * - iterArgs: IterArg variables scoped to loop body, carry values between iterations
+ * - returnVars: Var variables that capture final iteration values, accessible after loop
+ * - Number of iterArgs must equal number of returnVars
+ * - Number of yielded values must equal number of iterArgs
+ * - IterArgs cannot be directly accessed outside the loop; use returnVars instead
  */
 class ForStmt : public Stmt {
 public:
   /**
    * \brief Create a for loop statement
    *
-   * \param loop_var Loop variable
+   * \param loopVar Loop variable
    * \param start Start value expression
    * \param stop Stop value expression
    * \param step Step value expression
-   * \param iter_args Iteration arguments (loop-carried values, scoped to loop body)
-   * \param body Loop body statement (must yield values matching iter_args if non-empty)
-   * \param return_vars Return variables (capture final values, accessible after loop)
+   * \param iterArgs Iteration arguments (loop-carried values, scoped to loop body)
+   * \param body Loop body statement (must yield values matching iterArgs if non-empty)
+   * \param returnVars Return variables (capture final values, accessible after loop)
    * \param span Source location
    */
-  ForStmt(VarPtr loop_var, ExprPtr start, ExprPtr stop, ExprPtr step, std::vector<IterArgPtr> iter_args,
-          StmtPtr body, std::vector<VarPtr> return_vars, Span span)
+  ForStmt(VarPtr loopVar, ExprPtr start, ExprPtr stop, ExprPtr step, std::vector<IterArgPtr> iterArgs,
+          StmtPtr body, std::vector<VarPtr> returnVars, Span span)
       : Stmt(std::move(span)),
-        loopVar_(std::move(loop_var)),
+        loopVar_(std::move(loopVar)),
         start_(std::move(start)),
         stop_(std::move(stop)),
         step_(std::move(step)),
-        iterArgs_(std::move(iter_args)),
+        iterArgs_(std::move(iterArgs)),
         body_(std::move(body)),
-        returnVars_(std::move(return_vars)) {}
+        returnVars_(std::move(returnVars)) {}
 
   [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::ForStmt; }
   [[nodiscard]] std::string TypeName() const override { return "ForStmt"; }
@@ -280,7 +280,7 @@ public:
   /**
    * \brief Get field descriptors for reflection-based visitation
    *
-   * \return Tuple of field descriptors (loop_var as DEF field, others as USUAL fields)
+   * \return Tuple of field descriptors (loopVar as DEF field, others as USUAL fields)
    */
   static constexpr auto GetFieldDescriptors() {
     return std::tuple_cat(Stmt::GetFieldDescriptors(),
@@ -299,7 +299,7 @@ public:
   ExprPtr stop_;                       // Stop value expression
   ExprPtr step_;                       // Step value expression
   std::vector<IterArgPtr> iterArgs_;  // Loop-carried values (scoped to loop body)
-  StmtPtr body_;                       // Loop body statement (must yield if iter_args non-empty)
+  StmtPtr body_;                       // Loop body statement (must yield if iterArgs non-empty)
   std::vector<VarPtr> returnVars_;    // Variables capturing final iteration values (accessible after loop)
 };
 

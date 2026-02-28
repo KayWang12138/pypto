@@ -17,12 +17,12 @@
 namespace pypto {
 namespace ir {
 
-Span::Span(std::string filename, int begin_line, int begin_column, int end_line, int end_column)
+Span::Span(std::string filename, int beginLine, int beginColumn, int endLine, int endColumn)
     : filename_(std::move(filename)),
-      beginLine_(begin_line),
-      beginColumn_(begin_column),
-      endLine_(end_line),
-      endColumn_(end_column) {}
+      beginLine_(beginLine),
+      beginColumn_(beginColumn),
+      endLine_(endLine),
+      endColumn_(endColumn) {}
 
 std::string Span::to_string() const {
   std::ostringstream oss;

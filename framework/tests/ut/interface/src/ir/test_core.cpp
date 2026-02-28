@@ -192,22 +192,22 @@ TEST_F(IRCoreExtTest, TestBacktraceFormatStackTrace) {
 }
 
 TEST_F(IRCoreExtTest, TestBacktraceFormatEmptyTrace) {
-  std::vector<StackFrame> empty_frames;
-  std::string formatted = Backtrace::FormatStackTrace(empty_frames);
+  std::vector<StackFrame> emptyFrames;
+  std::string formatted = Backtrace::FormatStackTrace(emptyFrames);
   ASSERT_TRUE(formatted.empty());
 }
 
 TEST_F(IRCoreExtTest, TestStackFrameToString) {
-  StackFrame frame("test_func", "test.cpp", 42, 0x1234);
+  StackFrame frame("testFunc", "test.cpp", 42, 0x1234);
   std::string result = frame.to_string();
-  ASSERT_NE(result.find("test_func"), std::string::npos);
+  ASSERT_NE(result.find("testFunc"), std::string::npos);
   ASSERT_NE(result.find("test.cpp"), std::string::npos);
 }
 
 TEST_F(IRCoreExtTest, TestStackFrameToStringNoFile) {
-  StackFrame frame("test_func", "", 0, 0x1234);
+  StackFrame frame("testFunc", "", 0, 0x1234);
   std::string result = frame.to_string();
-  ASSERT_NE(result.find("test_func"), std::string::npos);
+  ASSERT_NE(result.find("testFunc"), std::string::npos);
 }
 
 TEST_F(IRCoreExtTest, TestStackFrameToStringNoFunction) {

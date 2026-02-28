@@ -88,23 +88,23 @@ public:
 
   // Field kind hooks
   template <typename FVisitOp>
-  void VisitIgnoreField(FVisitOp&& visit_op) {
-    visit_op();
+  void VisitIgnoreField(FVisitOp&& visitOp) {
+    visitOp();
   }
 
   template <typename FVisitOp>
-  void VisitDefField(FVisitOp&& visit_op) {
-    visit_op();
+  void VisitDefField(FVisitOp&& visitOp) {
+    visitOp();
   }
 
   template <typename FVisitOp>
-  void VisitUsualField(FVisitOp&& visit_op) {
-    visit_op();
+  void VisitUsualField(FVisitOp&& visitOp) {
+    visitOp();
   }
 
   // Combine field results into a map
   template <typename Desc>
-  void CombineResult(result_type& acc, result_type field_result, const Desc& desc);
+  void CombineResult(result_type& acc, result_type fieldResult, const Desc& desc);
 
 private:
   msgpack::zone& zone_;
@@ -140,9 +140,9 @@ public:
     auto it = ptr_to_id_.find(node.get());
     if (it != ptr_to_id_.end()) {
       // Return a reference to the already-serialized node
-      std::map<std::string, msgpack::object> ref_map;
-      ref_map["ref"] = msgpack::object(it->second, zone);
-      return msgpack::object(ref_map, zone);
+      std::map<std::string, msgpack::object> refMap;
+      refMap["ref"] = msgpack::object(it->second, zone);
+      return msgpack::object(refMap, zone);
     }
 
     // Assign a new ID to this node
@@ -150,14 +150,14 @@ public:
     ptr_to_id_[node.get()] = id;
 
     // Serialize the node with its ID and type
-    std::map<std::string, msgpack::object> node_map;
-    node_map["id"] = msgpack::object(id, zone);
-    node_map["type"] = msgpack::object(node->TypeName(), zone);
+    std::map<std::string, msgpack::object> nodeMap;
+    nodeMap["id"] = msgpack::object(id, zone);
+    nodeMap["type"] = msgpack::object(node->TypeName(), zone);
 
     // Serialize fields using field visitor
-    node_map["fields"] = SerializeFields(node, zone);
+    nodeMap["fields"] = SerializeFields(node, zone);
 
-    return msgpack::object(node_map, zone);
+    return msgpack::object(nodeMap, zone);
   }
 
   msgpack::object SerializeFields(const IRNodePtr& node, msgpack::zone& zone) {
@@ -204,101 +204,101 @@ public:
   }
 
   msgpack::object SerializeSpan(const Span& span, msgpack::zone& zone) {
-    std::map<std::string, msgpack::object> span_map;
-    span_map["filename"] = msgpack::object(span.filename_, zone);
-    span_map["begin_line"] = msgpack::object(span.beginLine_, zone);
-    span_map["begin_column"] = msgpack::object(span.beginColumn_, zone);
-    span_map["end_line"] = msgpack::object(span.endLine_, zone);
-    span_map["end_column"] = msgpack::object(span.endColumn_, zone);
-    return msgpack::object(span_map, zone);
+    std::map<std::string, msgpack::object> spanMap;
+    spanMap["filename"] = msgpack::object(span.filename_, zone);
+    spanMap["begin_line"] = msgpack::object(span.beginLine_, zone);
+    spanMap["begin_column"] = msgpack::object(span.beginColumn_, zone);
+    spanMap["end_line"] = msgpack::object(span.endLine_, zone);
+    spanMap["end_column"] = msgpack::object(span.endColumn_, zone);
+    return msgpack::object(spanMap, zone);
   }
 
-  msgpack::object SerializeMemRef(const std::optional<MemRefPtr>& memref_opt, msgpack::zone& zone) {
-    if (!memref_opt.has_value()) {
+  msgpack::object SerializeMemRef(const std::optional<MemRefPtr>& memrefOpt, msgpack::zone& zone) {
+    if (!memrefOpt.has_value()) {
       return msgpack::object();  // null
     }
 
-    const auto& memref = *memref_opt.value();
-    std::map<std::string, msgpack::object> memref_map;
-    memref_map["memory_space"] = msgpack::object(static_cast<uint8_t>(memref.memorySpace_), zone);
-    memref_map["addr"] = SerializeNode(memref.addr_, zone);
-    memref_map["size"] = msgpack::object(memref.size_, zone);
-    memref_map["id"] = msgpack::object(memref.id_, zone);
-    return msgpack::object(memref_map, zone);
+    const auto& memref = *memrefOpt.value();
+    std::map<std::string, msgpack::object> memrefMap;
+    memrefMap["memory_space"] = msgpack::object(static_cast<uint8_t>(memref.memorySpace_), zone);
+    memrefMap["addr"] = SerializeNode(memref.addr_, zone);
+    memrefMap["size"] = msgpack::object(memref.size_, zone);
+    memrefMap["id"] = msgpack::object(memref.id_, zone);
+    return msgpack::object(memrefMap, zone);
   }
 
-  msgpack::object SerializeTileView(const std::optional<TileView>& tile_view, msgpack::zone& zone) {
-    if (!tile_view.has_value()) {
+  msgpack::object SerializeTileView(const std::optional<TileView>& tileView, msgpack::zone& zone) {
+    if (!tileView.has_value()) {
       return msgpack::object();  // null
     }
 
-    std::map<std::string, msgpack::object> tv_map;
+    std::map<std::string, msgpack::object> tvMap;
 
     // Serialize validShape
-    std::vector<msgpack::object> valid_shape_vec;
-    for (const auto& dim : tile_view->validShape) {
-      valid_shape_vec.push_back(SerializeNode(dim, zone));
+    std::vector<msgpack::object> validShapeVec;
+    for (const auto& dim : tileView->validShape) {
+      validShapeVec.push_back(SerializeNode(dim, zone));
     }
-    tv_map["valid_shape"] = msgpack::object(valid_shape_vec, zone);
+    tvMap["valid_shape"] = msgpack::object(validShapeVec, zone);
 
     // Serialize stride
-    std::vector<msgpack::object> stride_vec;
-    for (const auto& dim : tile_view->stride) {
-      stride_vec.push_back(SerializeNode(dim, zone));
+    std::vector<msgpack::object> strideVec;
+    for (const auto& dim : tileView->stride) {
+      strideVec.push_back(SerializeNode(dim, zone));
     }
-    tv_map["stride"] = msgpack::object(stride_vec, zone);
+    tvMap["stride"] = msgpack::object(strideVec, zone);
 
     // Serialize startOffset
-    tv_map["start_offset"] = SerializeNode(tile_view->startOffset, zone);
+    tvMap["start_offset"] = SerializeNode(tileView->startOffset, zone);
 
-    return msgpack::object(tv_map, zone);
+    return msgpack::object(tvMap, zone);
   }
 
   msgpack::object SerializeType(const TypePtr& type, msgpack::zone& zone) {
     INTERNAL_CHECK(type) << "Cannot serialize null Type";
 
-    std::map<std::string, msgpack::object> type_map;
-    type_map["type_kind"] = msgpack::object(type->TypeName(), zone);
+    std::map<std::string, msgpack::object> typeMap;
+    typeMap["typeKind"] = msgpack::object(type->TypeName(), zone);
 
-    if (auto scalar_type = As<ScalarType>(type)) {
-      type_map["dtype"] = msgpack::object(scalar_type->dtype_.Code(), zone);
-    } else if (auto tensor_type = As<TensorType>(type)) {
-      type_map["dtype"] = msgpack::object(tensor_type->dtype_.Code(), zone);
+    if (auto scalarType = As<ScalarType>(type)) {
+      typeMap["dtype"] = msgpack::object(scalarType->dtype_.Code(), zone);
+    } else if (auto tensorType = As<TensorType>(type)) {
+      typeMap["dtype"] = msgpack::object(tensorType->dtype_.Code(), zone);
 
-      std::vector<msgpack::object> shape_vec;
-      for (const auto& dim : tensor_type->shape_) {
-        shape_vec.push_back(SerializeNode(dim, zone));
+      std::vector<msgpack::object> shapeVec;
+      for (const auto& dim : tensorType->shape_) {
+        shapeVec.push_back(SerializeNode(dim, zone));
       }
-      type_map["shape"] = msgpack::object(shape_vec, zone);
-
-      // Serialize memref if present
-      if (tensor_type->memref_.has_value()) {
-        type_map["memref"] = SerializeMemRef(tensor_type->memref_, zone);
-      }
-    } else if (auto tile_type = As<TileType>(type)) {
-      type_map["dtype"] = msgpack::object(tile_type->dtype_.Code(), zone);
-
-      std::vector<msgpack::object> shape_vec;
-      for (const auto& dim : tile_type->shape_) {
-        shape_vec.push_back(SerializeNode(dim, zone));
-      }
-      type_map["shape"] = msgpack::object(shape_vec, zone);
+      typeMap["shape"] = msgpack::object(shapeVec, zone);
 
       // Serialize memref if present
-      if (tile_type->memref_.has_value()) {
-        type_map["memref"] = SerializeMemRef(tile_type->memref_, zone);
+      if (tensorType->memref_.has_value()) {
+        typeMap["memref"] = SerializeMemRef(tensorType->memref_, zone);
+      }
+    } else if (auto tileType = As<TileType>(type)) {
+      typeMap["dtype"] = msgpack::object(tileType->dtype_.Code(), zone);
+
+      std::vector<msgpack::object> shapeVec;
+      for (const auto& dim : tileType->shape_) {
+        shapeVec.push_back(SerializeNode(dim, zone));
+      }
+      typeMap["shape"] = msgpack::object(shapeVec, zone);
+
+      // Serialize memref if present
+      if (tileType->memref_.has_value()) {
+        typeMap["memref"] = SerializeMemRef(tileType->memref_, zone);
       }
 
-      // Serialize tile_view if present
-      if (tile_type->tileView_.has_value()) {
-        type_map["tile_view"] = SerializeTileView(tile_type->tileView_, zone);
+      // Serialize tileView if present
+      if (tileType->tileView_.has_value()) {
+        typeMap["tile_view"] = SerializeTileView(tileType->tileView_, zone);
       }
-    } else if (auto tuple_type = As<TupleType>(type)) {
-      std::vector<msgpack::object> types_vec;
-      for (const auto& t : tuple_type->types_) {
-        types_vec.push_back(SerializeType(t, zone));
+    } else if (auto tupleType = As<TupleType>(type)) {
+      std::vector<msgpack::object> typesVec;
+      for (const auto& t : tupleType->types_) {
+        typesVec.push_back(SerializeType(t, zone));
       }
-      type_map["types"] = msgpack::object(types_vec, zone);
+      typeMap["types"] = msgpack::object(typesVec, zone);
     } else if (IsA<MemRefType>(type)) {
       // MemRefType has no additional fields
     } else if (IsA<UnknownType>(type)) {
@@ -307,30 +307,30 @@ public:
       INTERNAL_UNREACHABLE << "Unknown Type subclass: " << type->TypeName();
     }
 
-    return msgpack::object(type_map, zone);
+    return msgpack::object(typeMap, zone);
   }
 
   msgpack::object SerializeDataType(const DataType& dtype, msgpack::zone& zone) {
-    std::map<std::string, msgpack::object> dtype_map;
-    dtype_map["type"] = msgpack::object("DataType", zone);
-    dtype_map["code"] = msgpack::object(dtype.Code(), zone);
-    return msgpack::object(dtype_map, zone);
+    std::map<std::string, msgpack::object> dtypeMap;
+    dtypeMap["type"] = msgpack::object("DataType", zone);
+    dtypeMap["code"] = msgpack::object(dtype.Code(), zone);
+    return msgpack::object(dtypeMap, zone);
   }
 
   msgpack::object SerializeOp(const OpPtr& op, msgpack::zone& zone) {
     INTERNAL_CHECK(op) << "Cannot serialize null Op";
 
-    std::map<std::string, msgpack::object> op_map;
-    op_map["name"] = msgpack::object(op->name_, zone);
+    std::map<std::string, msgpack::object> opMap;
+    opMap["name"] = msgpack::object(op->name_, zone);
 
     // Check if it's a GlobalVar
     if (IsA<GlobalVar>(op)) {
-      op_map["is_global_var"] = msgpack::object(true, zone);
+      opMap["isGlobalVar"] = msgpack::object(true, zone);
     } else {
-      op_map["is_global_var"] = msgpack::object(false, zone);
+      opMap["isGlobalVar"] = msgpack::object(false, zone);
     }
 
-    return msgpack::object(op_map, zone);
+    return msgpack::object(opMap, zone);
   }
 
   template <typename NodePtr>
@@ -455,34 +455,34 @@ msgpack::object FieldSerializerVisitor::VisitLeafField(const std::vector<TypePtr
 msgpack::object FieldSerializerVisitor::VisitLeafField(
     const std::vector<std::pair<std::string, std::any>>& kwargs) {
   // Use vector to preserve order (msgpack will serialize as array of [key, value] pairs)
-  std::vector<msgpack::object> kwargs_msgs;
+  std::vector<msgpack::object> kwargsMsgs;
 
-  auto make_pair = [this](const std::string& key, const msgpack::object& value) -> msgpack::object {
-    std::map<std::string, msgpack::object> pair_map;
-    pair_map["key"] = msgpack::object(key, zone_);
-    pair_map["value"] = value;
-    return msgpack::object(pair_map, zone_);
+  auto makePair = [this](const std::string& key, const msgpack::object& value) -> msgpack::object {
+    std::map<std::string, msgpack::object> pairMap;
+    pairMap["key"] = msgpack::object(key, zone_);
+    pairMap["value"] = value;
+    return msgpack::object(pairMap, zone_);
   };
 
   for (const auto& [key, value] : kwargs) {
     // Serialize common types
     if (value.type() == typeid(int)) {
-      kwargs_msgs.push_back(make_pair(key, VisitLeafField(AnyCast<int>(value, "serializing kwarg: " + key))));
+      kwargsMsgs.push_back(makePair(key, VisitLeafField(AnyCast<int>(value, "serializing kwarg: " + key))));
     } else if (value.type() == typeid(bool)) {
-      kwargs_msgs.push_back(
-          make_pair(key, VisitLeafField(AnyCast<bool>(value, "serializing kwarg: " + key))));
+      kwargsMsgs.push_back(
+          makePair(key, VisitLeafField(AnyCast<bool>(value, "serializing kwarg: " + key))));
     } else if (value.type() == typeid(std::string)) {
-      kwargs_msgs.push_back(
-          make_pair(key, VisitLeafField(AnyCast<std::string>(value, "serializing kwarg: " + key))));
+      kwargsMsgs.push_back(
+          makePair(key, VisitLeafField(AnyCast<std::string>(value, "serializing kwarg: " + key))));
     } else if (value.type() == typeid(double)) {
-      kwargs_msgs.push_back(
-          make_pair(key, VisitLeafField(AnyCast<double>(value, "serializing kwarg: " + key))));
+      kwargsMsgs.push_back(
+          makePair(key, VisitLeafField(AnyCast<double>(value, "serializing kwarg: " + key))));
     } else if (value.type() == typeid(float)) {
-      kwargs_msgs.push_back(
-          make_pair(key, VisitLeafField(AnyCast<float>(value, "serializing kwarg: " + key))));
+      kwargsMsgs.push_back(
+          makePair(key, VisitLeafField(AnyCast<float>(value, "serializing kwarg: " + key))));
     } else if (value.type() == typeid(DataType)) {
-      kwargs_msgs.push_back(
-          make_pair(key, VisitLeafField(AnyCast<DataType>(value, "serializing kwarg: " + key))));
+      kwargsMsgs.push_back(
+          makePair(key, VisitLeafField(AnyCast<DataType>(value, "serializing kwarg: " + key))));
     } else {
       throw TypeError("Invalid kwarg type for key: " + key +
                       ", expected int, bool, std::string, double, float, or DataType, but got " +
@@ -490,12 +490,12 @@ msgpack::object FieldSerializerVisitor::VisitLeafField(
     }
   }
 
-  return msgpack::object(kwargs_msgs, zone_);
+  return msgpack::object(kwargsMsgs, zone_);
 }
 
 template <typename Desc>
-void FieldSerializerVisitor::CombineResult(result_type& acc, result_type field_result, const Desc& desc) {
-  fields_[desc.name] = field_result;
+void FieldSerializerVisitor::CombineResult(result_type& acc, result_type fieldResult, const Desc& desc) {
+  fields_[desc.name] = fieldResult;
   acc = msgpack::object(fields_, zone_);
 }
 

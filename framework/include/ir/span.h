@@ -48,17 +48,17 @@ public:
    * \brief Construct a source span
    *
    * \param file Source filename
-   * \param begin_line Begin line (1-indexed)
-   * \param begin_column Begin column (1-indexed)
-   * \param end_line End line (1-indexed), -1 means unknown
-   * \param end_column End column (1-indexed), -1 means unknown
+   * \param beginLine Begin line (1-indexed)
+   * \param beginColumn Begin column (1-indexed)
+   * \param endLine End line (1-indexed), -1 means unknown
+   * \param endColumn End column (1-indexed), -1 means unknown
    */
-  Span(std::string file, int begin_line, int begin_column, int end_line = -1, int end_column = -1);
+  Span(std::string file, int beginLine, int beginColumn, int endLine = -1, int endColumn = -1);
 
   /**
    * \brief Convert span to string representation
    *
-   * \return String in format "filename:begin_line:begin_column"
+   * \return String in format "filename:beginLine:beginColumn"
    */
   [[nodiscard]] std::string to_string() const;
 

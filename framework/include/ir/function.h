@@ -89,18 +89,18 @@ public:
    *
    * \param name Function name
    * \param params Parameter variables
-   * \param return_types Return types
+   * \param returnTypes Return types
    * \param body Function body statement (use SeqStmts for multiple statements)
    * \param span Source location
    * \param type Function type (default: Opaque)
    */
-  Function(std::string name, std::vector<VarPtr> params, std::vector<TypePtr> return_types, StmtPtr body,
+  Function(std::string name, std::vector<VarPtr> params, std::vector<TypePtr> returnTypes, StmtPtr body,
            Span span, FunctionType type = FunctionType::OPAQUE)
       : IRNode(std::move(span)),
         name_(std::move(name)),
         funcType_(type),
         params_(std::move(params)),
-        returnTypes_(std::move(return_types)),
+        returnTypes_(std::move(returnTypes)),
         body_(std::move(body)) {}
 
   [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::Function; }
@@ -109,7 +109,7 @@ public:
   /**
    * \brief Get field descriptors for reflection-based visitation
    *
-   * \return Tuple of field descriptors (params as DEF field, func_type, return_types and body as USUAL
+   * \return Tuple of field descriptors (params as DEF field, funcType, returnTypes and body as USUAL
    * fields, name as an IGNORE field)
    */
   static constexpr auto GetFieldDescriptors() {

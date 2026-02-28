@@ -25,24 +25,24 @@ TypeRegistry& TypeRegistry::Instance() {
   return instance;
 }
 
-void TypeRegistry::Register(const std::string& type_name, DeserializerFunc func) {
-  auto result = registry_.insert({type_name, std::move(func)});
+void TypeRegistry::Register(const std::string& typeName, DeserializerFunc func) {
+  auto result = registry_.insert({typeName, std::move(func)});
   if (!result.second) {
-    throw RuntimeError("Type already registered: " + type_name);
+    throw RuntimeError("Type already registered: " + typeName);
   }
 }
 
-IRNodePtr TypeRegistry::Create(const std::string& type_name, const msgpack::object& obj, msgpack::zone& zone,
+IRNodePtr TypeRegistry::Create(const std::string& typeName, const msgpack::object& obj, msgpack::zone& zone,
                                detail::DeserializerContext& ctx) {
-  auto it = registry_.find(type_name);
+  auto it = registry_.find(typeName);
   if (it == registry_.end()) {
-    throw TypeError("Unknown IR node type in deserialization: " + type_name);
+    throw TypeError("Unknown IR node type in deserialization: " + typeName);
   }
   return it->second(obj, zone, ctx);
 }
 
-bool TypeRegistry::IsRegistered(const std::string& type_name) const {
-  return registry_.find(type_name) != registry_.end();
+bool TypeRegistry::IsRegistered(const std::string& typeName) const {
+  return registry_.find(typeName) != registry_.end();
 }
 
 }  // namespace serialization

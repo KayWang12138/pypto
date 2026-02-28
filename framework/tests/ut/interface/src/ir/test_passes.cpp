@@ -34,12 +34,12 @@ namespace pypto {
 namespace ir {
 
 // Helper to create a simple program
-static ProgramPtr MakeTestProgram(const std::string& func_name = "main") {
-  auto body_val = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
-  auto body = std::make_shared<EvalStmt>(body_val, Span::unknown());
+static ProgramPtr MakeTestProgram(const std::string& funcName = "main") {
+  auto bodyVal = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
+  auto body = std::make_shared<EvalStmt>(bodyVal, Span::unknown());
   std::vector<VarPtr> params;
-  std::vector<TypePtr> return_types;
-  auto func = std::make_shared<Function>(func_name, params, return_types, body, Span::unknown());
+  std::vector<TypePtr> returnTypes;
+  auto func = std::make_shared<Function>(funcName, params, returnTypes, body, Span::unknown());
   std::vector<FunctionPtr> funcs = {func};
   return std::make_shared<Program>(funcs, "test", Span::unknown());
 }
@@ -63,8 +63,8 @@ TEST_F(IRPassTest, TestCreateProgramPassTransform) {
   auto p = pass::CreateProgramPass(
       [](const ProgramPtr& /*prog*/) -> ProgramPtr {
         // Create a new program with different name
-        auto body_val = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
-        auto body = std::make_shared<EvalStmt>(body_val, Span::unknown());
+        auto bodyVal = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
+        auto body = std::make_shared<EvalStmt>(bodyVal, Span::unknown());
         auto func = std::make_shared<Function>("transformed", std::vector<VarPtr>{}, std::vector<TypePtr>{},
                                                body, Span::unknown());
         return std::make_shared<Program>(std::vector<FunctionPtr>{func}, "transformed_prog", Span::unknown());
@@ -145,9 +145,9 @@ TEST_F(IRPassTest, TestFunctionPassTransform) {
   auto p = pass::CreateFunctionPass(
       [](const FunctionPtr& func) -> FunctionPtr {
         // Transform: create a new function with modified body
-        auto new_body_val = std::make_shared<ConstInt>(99, DataType::INT32, Span::unknown());
-        auto new_body = std::make_shared<EvalStmt>(new_body_val, Span::unknown());
-        return std::make_shared<Function>(func->name_, func->params_, func->returnTypes_, new_body,
+        auto newBodyVal = std::make_shared<ConstInt>(99, DataType::INT32, Span::unknown());
+        auto newBody = std::make_shared<EvalStmt>(newBodyVal, Span::unknown());
+        return std::make_shared<Function>(func->name_, func->params_, func->returnTypes_, newBody,
                                           func->span_);
       },
       "func_transform");

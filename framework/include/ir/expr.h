@@ -256,25 +256,25 @@ using VarPtr = std::shared_ptr<const Var>;
  * **Scoping Rules:**
  * - IterArg variables are scoped to the loop body only
  * - Cannot be directly accessed outside the loop
- * - Must use return_vars to expose final values after the loop
+ * - Must use returnVars to expose final values after the loop
  *
  * **Usage Pattern:**
  * 1. Create IterArg with initial value
- * 2. Use in ForStmt's iter_args list
+ * 2. Use in ForStmt's iterArgs list
  * 3. Update via YieldStmt in loop body
- * 4. Capture final value in ForStmt's return_vars
+ * 4. Capture final value in ForStmt's returnVars
  *
  * \example
  * // for i, (sum,) in pl.range(0, n, 1, init_values=[0]):
  * //     sum = pl.yield_(sum + i)
  * // sum_final = sum
- * auto sum_iter = std::make_shared<IterArg>("sum", type, init_val, span);
+ * auto sum_iter = std::make_shared<IterArg>("sum", type, initVal, span);
  * auto sum_final = std::make_shared<Var>("sum_final", type, span);
- * auto for_stmt = std::make_shared<ForStmt>(
+ * auto forStmt = std::make_shared<ForStmt>(
  *     i, start, stop, step,
- *     std::vector{sum_iter},  // iter_args (loop-scoped)
+ *     std::vector{sum_iter},  // iterArgs (loop-scoped)
  *     body,
- *     std::vector{sum_final}, // return_vars (accessible after loop)
+ *     std::vector{sum_final}, // returnVars (accessible after loop)
  *     span
  * );
  */
@@ -333,13 +333,13 @@ public:
    * Generates a variable name from the ID (e.g., "mem_123") and creates
    * a MemRefType for the type. Calls Var constructor with these values.
    *
-   * \param memory_space Memory space (DDR, UB, L1, etc.)
+   * \param memorySpace Memory space (DDR, UB, L1, etc.)
    * \param addr Starting address expression
    * \param size Size in bytes
    * \param id Unique identifier (used to generate variable name)
    * \param span Source location (defaults to Span::unknown())
    */
-  MemRef(MemorySpace memory_space, ExprPtr addr, uint64_t size, uint64_t id, Span span = Span::unknown());
+  MemRef(MemorySpace memorySpace, ExprPtr addr, uint64_t size, uint64_t id, Span span = Span::unknown());
 
   [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::MemRef; }
   [[nodiscard]] std::string TypeName() const override { return "MemRef"; }

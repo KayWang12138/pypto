@@ -27,17 +27,17 @@ namespace ir {
 
 TypePtr DeduceTensorReductionType(const std::vector<ExprPtr>& args,
                                   const std::vector<std::pair<std::string, std::any>>& kwargs,
-                                  const std::string& op_name) {
+                                  const std::string& opName) {
   // Reduction operations require exactly 1 argument (input tensor)
-  INTERNAL_CHECK(args.size() == 1) << "The operator " << op_name << " requires exactly 1 argument, but got "
+  INTERNAL_CHECK(args.size() == 1) << "The operator " << opName << " requires exactly 1 argument, but got "
                           << args.size();
 
   // First argument must be TensorType
-  auto tensor_type = As<TensorType>(args[0]->GetType());
-  INTERNAL_CHECK(tensor_type) << "The operator " << op_name << " requires first argument to be a TensorType, but got "
+  auto tensorType = As<TensorType>(args[0]->GetType());
+  INTERNAL_CHECK(tensorType) << "The operator " << opName << " requires first argument to be a TensorType, but got "
                      << args[0]->GetType()->TypeName();
 
-  const auto& input_shape = tensor_type->shape_;
+  const auto& input_shape = tensorType->shape_;
   int64_t input_ndim = static_cast<int64_t>(input_shape.size());
 
   // Extract axis from kwargs (default: -1, meaning last axis)
@@ -48,7 +48,7 @@ TypePtr DeduceTensorReductionType(const std::vector<ExprPtr>& args,
     axis = static_cast<int>(input_ndim) + axis;
   }
   INTERNAL_CHECK(axis >= 0 && static_cast<int64_t>(axis) < input_ndim)
-      << "The operator " << op_name << " axis " << axis << " is out of range for shape with " << input_ndim
+      << "The operator " << opName << " axis " << axis << " is out of range for shape with " << input_ndim
       << " dimensions";
 
   // Extract keep_dim flag from kwargs (default: true)
@@ -70,10 +70,10 @@ TypePtr DeduceTensorReductionType(const std::vector<ExprPtr>& args,
 
   // If output shape is empty (all dimensions reduced and keep_dim=false), return ScalarType
   if (output_shape.empty()) {
-    return std::make_shared<ScalarType>(tensor_type->dtype_);
+    return std::make_shared<ScalarType>(tensorType->dtype_);
   }
 
-  return std::make_shared<TensorType>(output_shape, tensor_type->dtype_);
+  return std::make_shared<TensorType>(output_shape, tensorType->dtype_);
 }
 
 // ============================================================================

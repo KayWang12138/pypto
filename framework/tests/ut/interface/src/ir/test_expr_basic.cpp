@@ -158,31 +158,31 @@ TEST(ExprBasicTest, TestOpMultipleAttrs) {
 
 TEST(ExprBasicTest, TestGlobalVarBasicConstructor) {
   // Test basic GlobalVar construction
-  auto global_var = std::make_shared<GlobalVar>("my_function");
-  ASSERT_NE(global_var, nullptr);
-  ASSERT_EQ(global_var->name_, "my_function");
+  auto globalVar = std::make_shared<GlobalVar>("my_function");
+  ASSERT_NE(globalVar, nullptr);
+  ASSERT_EQ(globalVar->name_, "my_function");
 }
 
 TEST(ExprBasicTest, TestGlobalVarEmptyName) {
   // Test GlobalVar with empty name
-  auto global_var = std::make_shared<GlobalVar>("");
-  ASSERT_NE(global_var, nullptr);
-  ASSERT_EQ(global_var->name_, "");
+  auto globalVar = std::make_shared<GlobalVar>("");
+  ASSERT_NE(globalVar, nullptr);
+  ASSERT_EQ(globalVar->name_, "");
 }
 
 TEST(ExprBasicTest, TestGlobalVarInheritance) {
   // Test that GlobalVar inherits from Op
-  auto global_var = std::make_shared<GlobalVar>("my_function");
-  OpPtr op = global_var;  // Should be able to assign to OpPtr
+  auto globalVar = std::make_shared<GlobalVar>("my_function");
+  OpPtr op = globalVar;  // Should be able to assign to OpPtr
   ASSERT_NE(op, nullptr);
   ASSERT_EQ(op->name_, "my_function");
 }
 
 TEST(ExprBasicTest, TestGlobalVarWithAttrs) {
   // Test GlobalVar with attributes
-  auto global_var = std::make_shared<GlobalVar>("my_function");
-  global_var->SetAttrType<bool>("inline");
-  ASSERT_TRUE(global_var->HasAttr("inline"));
+  auto globalVar = std::make_shared<GlobalVar>("my_function");
+  globalVar->SetAttrType<bool>("inline");
+  ASSERT_TRUE(globalVar->HasAttr("inline"));
 }
 
 // ============================================================================

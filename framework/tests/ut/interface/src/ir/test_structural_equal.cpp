@@ -346,27 +346,27 @@ TEST_F(StructuralEqualTest, TestTypeMismatchScalarVsTensor) {
 
 TEST_F(StructuralEqualTest, TestVarAutoMapping) {
   Span sp = Span::unknown();
-  auto var_x = std::make_shared<Var>(
+  auto varX = std::make_shared<Var>(
       "x", std::make_shared<ScalarType>(DataType::INT32), sp);
-  auto var_y = std::make_shared<Var>(
+  auto varY = std::make_shared<Var>(
       "y", std::make_shared<ScalarType>(DataType::INT32), sp);
   auto add1 = std::make_shared<Add>(
-      var_x, var_x, DataType::INT32, sp);
+      varX, varX, DataType::INT32, sp);
   auto add2 = std::make_shared<Add>(
-      var_y, var_y, DataType::INT32, sp);
+      varY, varY, DataType::INT32, sp);
   ASSERT_TRUE(structural_equal(add1, add2, true));
 }
 
 TEST_F(StructuralEqualTest, TestVarNoAutoMapping) {
   Span sp = Span::unknown();
-  auto var_x = std::make_shared<Var>(
+  auto varX = std::make_shared<Var>(
       "x", std::make_shared<ScalarType>(DataType::INT32), sp);
-  auto var_y = std::make_shared<Var>(
+  auto varY = std::make_shared<Var>(
       "y", std::make_shared<ScalarType>(DataType::INT32), sp);
   auto add1 = std::make_shared<Add>(
-      var_x, var_x, DataType::INT32, sp);
+      varX, varX, DataType::INT32, sp);
   auto add2 = std::make_shared<Add>(
-      var_y, var_y, DataType::INT32, sp);
+      varY, varY, DataType::INT32, sp);
   ASSERT_FALSE(structural_equal(add1, add2, false));
 }
 
@@ -732,19 +732,19 @@ TEST_F(StructuralEqualTest, TestFunctionWithParamsEqual) {
       "x", std::make_shared<ScalarType>(DataType::INT32), sp);
   auto body1 = std::make_shared<ReturnStmt>(
       std::vector<ExprPtr>{p1}, sp);
-  auto ret_t1 = std::make_shared<ScalarType>(DataType::INT32);
+  auto retT1 = std::make_shared<ScalarType>(DataType::INT32);
   auto func1 = std::make_shared<Function>(
       "f", std::vector<VarPtr>{p1},
-      std::vector<TypePtr>{ret_t1}, body1, sp);
+      std::vector<TypePtr>{retT1}, body1, sp);
 
   auto p2 = std::make_shared<Var>(
       "x", std::make_shared<ScalarType>(DataType::INT32), sp);
   auto body2 = std::make_shared<ReturnStmt>(
       std::vector<ExprPtr>{p2}, sp);
-  auto ret_t2 = std::make_shared<ScalarType>(DataType::INT32);
+  auto retT2 = std::make_shared<ScalarType>(DataType::INT32);
   auto func2 = std::make_shared<Function>(
       "f", std::vector<VarPtr>{p2},
-      std::vector<TypePtr>{ret_t2}, body2, sp);
+      std::vector<TypePtr>{retT2}, body2, sp);
   ASSERT_TRUE(structural_equal(func1, func2));
 }
 
@@ -900,17 +900,17 @@ TEST_F(StructuralEqualTest, TestCallWithKwargsStringEqual) {
               std::make_shared<ConstInt>(8, DataType::INT64, sp)},
           DataType::FP32), sp);
   // Create a valid base call to get the OpPtr
-  std::vector<std::pair<std::string, std::any>> valid_kw = {
+  std::vector<std::pair<std::string, std::any>> validKw = {
       {"axis", std::any(1)}, {"keepdim", std::any(true)}};
-  auto base_call = As<Call>(reg.Create("block.sum", {tile}, valid_kw, sp));
-  ASSERT_NE(base_call, nullptr);
+  auto baseCall = As<Call>(reg.Create("block.sum", {tile}, validKw, sp));
+  ASSERT_NE(baseCall, nullptr);
 
   // Construct custom Calls with string kwargs directly
   std::vector<std::pair<std::string, std::any>> kw1 = {
       {"mode", std::any(std::string("sum"))}};
   auto call1 = std::make_shared<const Call>(
-      base_call->op_, std::vector<ExprPtr>{tile}, kw1,
-      base_call->GetType(), sp);
+      baseCall->op_, std::vector<ExprPtr>{tile}, kw1,
+      baseCall->GetType(), sp);
 
   auto tile2 = std::make_shared<Var>(
       "t", std::make_shared<TileType>(
@@ -921,8 +921,8 @@ TEST_F(StructuralEqualTest, TestCallWithKwargsStringEqual) {
   std::vector<std::pair<std::string, std::any>> kw2 = {
       {"mode", std::any(std::string("sum"))}};
   auto call2 = std::make_shared<const Call>(
-      base_call->op_, std::vector<ExprPtr>{tile2}, kw2,
-      base_call->GetType(), sp);
+      baseCall->op_, std::vector<ExprPtr>{tile2}, kw2,
+      baseCall->GetType(), sp);
   ASSERT_TRUE(structural_equal(ExprPtr(call1), ExprPtr(call2), true));
 }
 
@@ -935,16 +935,16 @@ TEST_F(StructuralEqualTest, TestCallWithKwargsDoubleEqual) {
               std::make_shared<ConstInt>(4, DataType::INT64, sp),
               std::make_shared<ConstInt>(8, DataType::INT64, sp)},
           DataType::FP32), sp);
-  std::vector<std::pair<std::string, std::any>> valid_kw = {
+  std::vector<std::pair<std::string, std::any>> validKw = {
       {"axis", std::any(1)}, {"keepdim", std::any(true)}};
-  auto base_call = As<Call>(reg.Create("block.sum", {tile}, valid_kw, sp));
-  ASSERT_NE(base_call, nullptr);
+  auto baseCall = As<Call>(reg.Create("block.sum", {tile}, validKw, sp));
+  ASSERT_NE(baseCall, nullptr);
 
   std::vector<std::pair<std::string, std::any>> kw1 = {
       {"scale", std::any(1.5)}};
   auto call1 = std::make_shared<const Call>(
-      base_call->op_, std::vector<ExprPtr>{tile}, kw1,
-      base_call->GetType(), sp);
+      baseCall->op_, std::vector<ExprPtr>{tile}, kw1,
+      baseCall->GetType(), sp);
 
   auto tile2 = std::make_shared<Var>(
       "t", std::make_shared<TileType>(
@@ -955,8 +955,8 @@ TEST_F(StructuralEqualTest, TestCallWithKwargsDoubleEqual) {
   std::vector<std::pair<std::string, std::any>> kw2 = {
       {"scale", std::any(1.5)}};
   auto call2 = std::make_shared<const Call>(
-      base_call->op_, std::vector<ExprPtr>{tile2}, kw2,
-      base_call->GetType(), sp);
+      baseCall->op_, std::vector<ExprPtr>{tile2}, kw2,
+      baseCall->GetType(), sp);
   ASSERT_TRUE(structural_equal(ExprPtr(call1), ExprPtr(call2), true));
 }
 
@@ -969,16 +969,16 @@ TEST_F(StructuralEqualTest, TestCallWithKwargsDoubleNotEqual) {
               std::make_shared<ConstInt>(4, DataType::INT64, sp),
               std::make_shared<ConstInt>(8, DataType::INT64, sp)},
           DataType::FP32), sp);
-  std::vector<std::pair<std::string, std::any>> valid_kw = {
+  std::vector<std::pair<std::string, std::any>> validKw = {
       {"axis", std::any(1)}, {"keepdim", std::any(true)}};
-  auto base_call = As<Call>(reg.Create("block.sum", {tile}, valid_kw, sp));
-  ASSERT_NE(base_call, nullptr);
+  auto baseCall = As<Call>(reg.Create("block.sum", {tile}, validKw, sp));
+  ASSERT_NE(baseCall, nullptr);
 
   std::vector<std::pair<std::string, std::any>> kw1 = {
       {"scale", std::any(1.5)}};
   auto call1 = std::make_shared<const Call>(
-      base_call->op_, std::vector<ExprPtr>{tile}, kw1,
-      base_call->GetType(), sp);
+      baseCall->op_, std::vector<ExprPtr>{tile}, kw1,
+      baseCall->GetType(), sp);
 
   auto tile2 = std::make_shared<Var>(
       "t", std::make_shared<TileType>(
@@ -989,8 +989,8 @@ TEST_F(StructuralEqualTest, TestCallWithKwargsDoubleNotEqual) {
   std::vector<std::pair<std::string, std::any>> kw2 = {
       {"scale", std::any(2.5)}};
   auto call2 = std::make_shared<const Call>(
-      base_call->op_, std::vector<ExprPtr>{tile2}, kw2,
-      base_call->GetType(), sp);
+      baseCall->op_, std::vector<ExprPtr>{tile2}, kw2,
+      baseCall->GetType(), sp);
   ASSERT_FALSE(structural_equal(ExprPtr(call1), ExprPtr(call2), true));
 }
 
@@ -1003,16 +1003,16 @@ TEST_F(StructuralEqualTest, TestCallWithKwargsDataTypeEqual) {
               std::make_shared<ConstInt>(4, DataType::INT64, sp),
               std::make_shared<ConstInt>(8, DataType::INT64, sp)},
           DataType::FP32), sp);
-  std::vector<std::pair<std::string, std::any>> valid_kw = {
+  std::vector<std::pair<std::string, std::any>> validKw = {
       {"axis", std::any(1)}, {"keepdim", std::any(true)}};
-  auto base_call = As<Call>(reg.Create("block.sum", {tile}, valid_kw, sp));
-  ASSERT_NE(base_call, nullptr);
+  auto baseCall = As<Call>(reg.Create("block.sum", {tile}, validKw, sp));
+  ASSERT_NE(baseCall, nullptr);
 
   std::vector<std::pair<std::string, std::any>> kw1 = {
       {"dtype", std::any(DataType::FP16)}};
   auto call1 = std::make_shared<const Call>(
-      base_call->op_, std::vector<ExprPtr>{tile}, kw1,
-      base_call->GetType(), sp);
+      baseCall->op_, std::vector<ExprPtr>{tile}, kw1,
+      baseCall->GetType(), sp);
 
   auto tile2 = std::make_shared<Var>(
       "t", std::make_shared<TileType>(
@@ -1023,8 +1023,8 @@ TEST_F(StructuralEqualTest, TestCallWithKwargsDataTypeEqual) {
   std::vector<std::pair<std::string, std::any>> kw2 = {
       {"dtype", std::any(DataType::FP16)}};
   auto call2 = std::make_shared<const Call>(
-      base_call->op_, std::vector<ExprPtr>{tile2}, kw2,
-      base_call->GetType(), sp);
+      baseCall->op_, std::vector<ExprPtr>{tile2}, kw2,
+      baseCall->GetType(), sp);
   ASSERT_TRUE(structural_equal(ExprPtr(call1), ExprPtr(call2), true));
 }
 
@@ -1041,16 +1041,16 @@ TEST_F(StructuralEqualTest, TestCallWithKwargsKeyMismatch) {
               std::make_shared<ConstInt>(4, DataType::INT64, sp),
               std::make_shared<ConstInt>(8, DataType::INT64, sp)},
           DataType::FP32), sp);
-  std::vector<std::pair<std::string, std::any>> valid_kw = {
+  std::vector<std::pair<std::string, std::any>> validKw = {
       {"axis", std::any(1)}, {"keepdim", std::any(true)}};
-  auto base_call = As<Call>(reg.Create("block.sum", {tile}, valid_kw, sp));
-  ASSERT_NE(base_call, nullptr);
+  auto baseCall = As<Call>(reg.Create("block.sum", {tile}, validKw, sp));
+  ASSERT_NE(baseCall, nullptr);
 
   std::vector<std::pair<std::string, std::any>> kw1 = {
       {"axis", std::any(1)}};
   auto call1 = std::make_shared<const Call>(
-      base_call->op_, std::vector<ExprPtr>{tile}, kw1,
-      base_call->GetType(), sp);
+      baseCall->op_, std::vector<ExprPtr>{tile}, kw1,
+      baseCall->GetType(), sp);
 
   auto tile2 = std::make_shared<Var>(
       "t", std::make_shared<TileType>(
@@ -1061,8 +1061,8 @@ TEST_F(StructuralEqualTest, TestCallWithKwargsKeyMismatch) {
   std::vector<std::pair<std::string, std::any>> kw2 = {
       {"dim", std::any(1)}};
   auto call2 = std::make_shared<const Call>(
-      base_call->op_, std::vector<ExprPtr>{tile2}, kw2,
-      base_call->GetType(), sp);
+      baseCall->op_, std::vector<ExprPtr>{tile2}, kw2,
+      baseCall->GetType(), sp);
   ASSERT_FALSE(structural_equal(ExprPtr(call1), ExprPtr(call2), true));
 }
 
@@ -1101,35 +1101,35 @@ TEST_F(StructuralEqualTest, TestCallWithKwargsSizeMismatch) {
 
 TEST_F(StructuralEqualTest, TestVarAutoMappingConflict) {
   Span sp = Span::unknown();
-  auto var_x = std::make_shared<Var>(
+  auto varX = std::make_shared<Var>(
       "x", std::make_shared<ScalarType>(DataType::INT32), sp);
-  auto var_y = std::make_shared<Var>(
+  auto varY = std::make_shared<Var>(
       "y", std::make_shared<ScalarType>(DataType::INT32), sp);
-  auto var_z = std::make_shared<Var>(
+  auto varZ = std::make_shared<Var>(
       "z", std::make_shared<ScalarType>(DataType::INT32), sp);
 
   // x+x maps x->y, but then x+y expects x->z which conflicts
-  auto add_xx = std::make_shared<Add>(var_x, var_x, DataType::INT32, sp);
-  auto stmt1 = std::make_shared<EvalStmt>(add_xx, sp);
+  auto addXx = std::make_shared<Add>(varX, varX, DataType::INT32, sp);
+  auto stmt1 = std::make_shared<EvalStmt>(addXx, sp);
 
-  auto add_yz = std::make_shared<Add>(var_y, var_z, DataType::INT32, sp);
-  auto stmt2 = std::make_shared<EvalStmt>(add_yz, sp);
+  auto addYz = std::make_shared<Add>(varY, varZ, DataType::INT32, sp);
+  auto stmt2 = std::make_shared<EvalStmt>(addYz, sp);
 
   ASSERT_FALSE(structural_equal(stmt1, stmt2, true));
 }
 
 TEST_F(StructuralEqualTest, TestVarAutoMappingReverseConflict) {
   Span sp = Span::unknown();
-  auto var_x = std::make_shared<Var>(
+  auto varX = std::make_shared<Var>(
       "x", std::make_shared<ScalarType>(DataType::INT32), sp);
-  auto var_y = std::make_shared<Var>(
+  auto varY = std::make_shared<Var>(
       "y", std::make_shared<ScalarType>(DataType::INT32), sp);
-  auto var_a = std::make_shared<Var>(
+  auto varA = std::make_shared<Var>(
       "a", std::make_shared<ScalarType>(DataType::INT32), sp);
 
   // x+y maps {x->a, y->a} which creates a reverse mapping conflict (a maps from both x and y)
-  auto add1 = std::make_shared<Add>(var_x, var_y, DataType::INT32, sp);
-  auto add2 = std::make_shared<Add>(var_a, var_a, DataType::INT32, sp);
+  auto add1 = std::make_shared<Add>(varX, varY, DataType::INT32, sp);
+  auto add2 = std::make_shared<Add>(varA, varA, DataType::INT32, sp);
   ASSERT_FALSE(structural_equal(add1, add2, true));
 }
 
@@ -1139,11 +1139,11 @@ TEST_F(StructuralEqualTest, TestVarAutoMappingReverseConflict) {
 
 TEST_F(StructuralEqualTest, TestVarAutoMappingTypeMismatch) {
   Span sp = Span::unknown();
-  auto var_x = std::make_shared<Var>(
+  auto varX = std::make_shared<Var>(
       "x", std::make_shared<ScalarType>(DataType::INT32), sp);
-  auto var_y = std::make_shared<Var>(
+  auto varY = std::make_shared<Var>(
       "y", std::make_shared<ScalarType>(DataType::FP32), sp);
-  ASSERT_FALSE(structural_equal(var_x, var_y, true));
+  ASSERT_FALSE(structural_equal(varX, varY, true));
 }
 
 // ============================================================================
@@ -1210,13 +1210,13 @@ TEST_F(StructuralEqualTest, TestAssertStructuralEqualTupleTypeSizeMismatch) {
 TEST_F(StructuralEqualTest, TestIfStmtElsePresenceMismatch) {
   Span sp = Span::unknown();
   auto cond = std::make_shared<ConstBool>(true, sp);
-  auto then_body = std::make_shared<EvalStmt>(
+  auto thenBody = std::make_shared<EvalStmt>(
       std::make_shared<ConstInt>(1, DataType::INT32, sp), sp);
-  auto else_body = std::make_shared<EvalStmt>(
+  auto elseBody = std::make_shared<EvalStmt>(
       std::make_shared<ConstInt>(2, DataType::INT32, sp), sp);
 
   auto if1 = std::make_shared<IfStmt>(
-      cond, then_body, std::optional<StmtPtr>(else_body),
+      cond, thenBody, std::optional<StmtPtr>(elseBody),
       std::vector<VarPtr>{}, sp);
 
   auto cond2 = std::make_shared<ConstBool>(true, sp);

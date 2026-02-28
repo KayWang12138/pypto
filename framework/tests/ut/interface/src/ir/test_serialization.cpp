@@ -125,9 +125,9 @@ TEST_F(SerializationTest, TestEvalStmtRoundTrip) {
 // ============================================================================
 
 TEST_F(SerializationTest, TestFunctionRoundTrip) {
-  auto body_val = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
-  auto body = std::make_shared<EvalStmt>(body_val, Span::unknown());
-  auto original = std::make_shared<Function>("test_func", std::vector<VarPtr>{}, std::vector<TypePtr>{},
+  auto bodyVal = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
+  auto body = std::make_shared<EvalStmt>(bodyVal, Span::unknown());
+  auto original = std::make_shared<Function>("testFunc", std::vector<VarPtr>{}, std::vector<TypePtr>{},
                                              body, Span::unknown());
 
   auto bytes = serialization::Serialize(original);
@@ -138,15 +138,15 @@ TEST_F(SerializationTest, TestFunctionRoundTrip) {
 
   auto result = As<Function>(deserialized);
   ASSERT_NE(result, nullptr);
-  ASSERT_EQ(result->name_, "test_func");
+  ASSERT_EQ(result->name_, "testFunc");
 }
 
 // ============================================================================
 // Program Round-Trip Tests
 // ============================================================================
 TEST_F(SerializationTest, TestProgramRoundTrip) {
-  auto body_val = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
-  auto body = std::make_shared<EvalStmt>(body_val, Span::unknown());
+  auto bodyVal = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
+  auto body = std::make_shared<EvalStmt>(bodyVal, Span::unknown());
   auto func = std::make_shared<Function>("main", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body,
                                          Span::unknown());
   auto original = std::make_shared<Program>(std::vector<FunctionPtr>{func}, "test_prog", Span::unknown());
@@ -320,12 +320,12 @@ TEST_F(SerializationTest, TestForStmtRoundTrip) {
 TEST_F(SerializationTest, TestIfStmtRoundTrip) {
   Span sp = Span::unknown();
   auto cond = std::make_shared<ConstBool>(true, sp);
-  auto then_body = std::make_shared<EvalStmt>(
+  auto thenBody = std::make_shared<EvalStmt>(
       std::make_shared<ConstInt>(1, DataType::INT32, sp), sp);
-  auto else_body = std::make_shared<EvalStmt>(
+  auto elseBody = std::make_shared<EvalStmt>(
       std::make_shared<ConstInt>(2, DataType::INT32, sp), sp);
   auto original = std::make_shared<IfStmt>(
-      cond, then_body, std::optional<StmtPtr>(else_body),
+      cond, thenBody, std::optional<StmtPtr>(elseBody),
       std::vector<VarPtr>{}, sp);
   auto bytes = serialization::Serialize(original);
   ASSERT_FALSE(bytes.empty());
@@ -424,10 +424,10 @@ TEST_F(SerializationTest, TestFuncWithReturnTypes) {
       "x", std::make_shared<ScalarType>(DataType::INT32), sp);
   auto body = std::make_shared<ReturnStmt>(
       std::vector<ExprPtr>{param}, sp);
-  auto ret_type = std::make_shared<ScalarType>(DataType::INT32);
+  auto retType = std::make_shared<ScalarType>(DataType::INT32);
   auto original = std::make_shared<Function>(
       "f", std::vector<VarPtr>{param},
-      std::vector<TypePtr>{ret_type}, body, sp);
+      std::vector<TypePtr>{retType}, body, sp);
   auto bytes = serialization::Serialize(original);
   ASSERT_FALSE(bytes.empty());
   auto deserialized = serialization::Deserialize(bytes);
@@ -443,9 +443,9 @@ TEST_F(SerializationTest, TestFuncWithReturnTypes) {
 
 TEST_F(SerializationTest, TestSharedPointerDedup) {
   Span sp = Span::unknown();
-  auto shared_val = std::make_shared<ConstInt>(42, DataType::INT32, sp);
+  auto sharedVal = std::make_shared<ConstInt>(42, DataType::INT32, sp);
   auto add = std::make_shared<Add>(
-      shared_val, shared_val, DataType::INT32, sp);
+      sharedVal, sharedVal, DataType::INT32, sp);
   auto bytes = serialization::Serialize(add);
   ASSERT_FALSE(bytes.empty());
   auto deserialized = serialization::Deserialize(bytes);

@@ -48,12 +48,12 @@ TEST(IRCoreTest, TestSpanToString) {
 
 TEST(IRCoreTest, TestSpanIsValid) {
     // Test Span is_valid() method
-    Span valid_span("test.py", 10, 5, 10, 15);
-    ASSERT_TRUE(valid_span.is_valid());
+    Span validSpan("test.py", 10, 5, 10, 15);
+    ASSERT_TRUE(validSpan.is_valid());
 
     // Unknown span should be invalid
-    Span unknown_span = Span::unknown();
-    ASSERT_FALSE(unknown_span.is_valid());
+    Span unknownSpan = Span::unknown();
+    ASSERT_FALSE(unknownSpan.is_valid());
 }
 
 TEST(IRCoreTest, TestSpanUnknown) {
@@ -101,8 +101,8 @@ TEST(IRCoreTest, TestIRNodeTypeName) {
     Span span("test.py", 1, 0, 1, 10);
     auto node = std::make_shared<ConstInt>(42, DataType::INT32, span);
 
-    std::string type_name = node->TypeName();
-    ASSERT_EQ(type_name, "ConstInt");
+    std::string typeName = node->TypeName();
+    ASSERT_EQ(typeName, "ConstInt");
 }
 
 TEST(IRCoreTest, TestIRNodeWithUnknownSpan) {

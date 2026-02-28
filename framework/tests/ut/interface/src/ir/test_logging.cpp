@@ -35,15 +35,15 @@ TEST(CoreLoggingTest, TestStdLogger) {
 
 TEST(CoreLoggingTest, TestFileLogger) {
     // Test FileLogger functionality
-    std::string test_file = "/tmp/pypto_test_log.txt";
+    std::string testFile = "/tmp/pypto_test_log.txt";
 
     {
-        auto logger = std::make_unique<FileLogger>(test_file, false);
+        auto logger = std::make_unique<FileLogger>(testFile, false);
         logger->Log("File test message").Log("\n");
     }  // Logger should flush and close on destruction
 
     // Read back and verify
-    std::ifstream ifs(test_file);
+    std::ifstream ifs(testFile);
     ASSERT_TRUE(ifs.is_open());
 
     std::string content;
@@ -57,7 +57,7 @@ TEST(CoreLoggingTest, TestFileLogger) {
     ASSERT_TRUE(content.find("File test message") != std::string::npos);
 
     // Clean up
-    std::remove(test_file.c_str());
+    std::remove(testFile.c_str());
 }
 
 TEST(CoreLoggingTest, TestLineLogger) {
@@ -104,30 +104,30 @@ TEST(CoreLoggingTest, TestLoggerManagerRegister) {
     ASSERT_NE(logger1, logger2);  // Different loggers
 
     // Registering same name should return same instance
-    auto logger1_again = LoggerManager::LineLoggerRegister("logger1");
-    ASSERT_EQ(logger1, logger1_again);
+    auto logger1Again = LoggerManager::LineLoggerRegister("logger1");
+    ASSERT_EQ(logger1, logger1Again);
 }
 
 TEST(CoreLoggingTest, TestFileLoggerMultipleWrites) {
     // Test multiple writes to file logger
-    std::string test_file = "/tmp/pypto_test_log_multi.txt";
+    std::string testFile = "/tmp/pypto_test_log_multi.txt";
 
     {
-        auto logger = std::make_unique<FileLogger>(test_file, false);
+        auto logger = std::make_unique<FileLogger>(testFile, false);
         logger->Log("Message 1").Log("\n");
         logger->Log("Message 2").Log("\n");
         logger->Log("Message 3").Log("\n");
     }
 
-    std::ifstream ifs(test_file);
+    std::ifstream ifs(testFile);
     ASSERT_TRUE(ifs.is_open());
 
     std::string content;
     std::string line;
-    int line_count = 0;
+    int lineCount = 0;
     while (std::getline(ifs, line)) {
         content += line + "\n";
-        line_count++;
+        lineCount++;
     }
     ifs.close();
 
@@ -135,18 +135,18 @@ TEST(CoreLoggingTest, TestFileLoggerMultipleWrites) {
     ASSERT_TRUE(content.find("Message 1") != std::string::npos);
     ASSERT_TRUE(content.find("Message 2") != std::string::npos);
     ASSERT_TRUE(content.find("Message 3") != std::string::npos);
-    ASSERT_GE(line_count, 3);
+    ASSERT_GE(lineCount, 3);
 
-    std::remove(test_file.c_str());
+    std::remove(testFile.c_str());
 }
 
 TEST(CoreLoggingTest, TestLoggerNotNull) {
     // Test that loggers are not null
-    auto std_logger = std::make_unique<StdLogger>();
-    ASSERT_NE(std_logger, nullptr);
+    auto stdLogger = std::make_unique<StdLogger>();
+    ASSERT_NE(stdLogger, nullptr);
 
-    auto line_logger = LoggerManager::LineLoggerRegister("test");
-    ASSERT_NE(line_logger, nullptr);
+    auto lineLogger = LoggerManager::LineLoggerRegister("test");
+    ASSERT_NE(lineLogger, nullptr);
 }
 
 }  // namespace pypto

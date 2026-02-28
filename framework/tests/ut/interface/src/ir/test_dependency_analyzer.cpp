@@ -32,15 +32,15 @@ namespace ir {
 
 // Helper to create a simple function with sequential assignments
 static FunctionPtr MakeSequentialFunction() {
-  auto int_type = std::make_shared<ScalarType>(DataType::INT32);
-  auto var_x = std::make_shared<Var>("x", int_type, Span::unknown());
-  auto var_y = std::make_shared<Var>("y", int_type, Span::unknown());
+  auto intType = std::make_shared<ScalarType>(DataType::INT32);
+  auto varX = std::make_shared<Var>("x", intType, Span::unknown());
+  auto varY = std::make_shared<Var>("y", intType, Span::unknown());
 
   auto val1 = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
   auto val2 = std::make_shared<ConstInt>(2, DataType::INT32, Span::unknown());
 
-  auto assign1 = std::make_shared<AssignStmt>(var_x, val1, Span::unknown());
-  auto assign2 = std::make_shared<AssignStmt>(var_y, val2, Span::unknown());
+  auto assign1 = std::make_shared<AssignStmt>(varX, val1, Span::unknown());
+  auto assign2 = std::make_shared<AssignStmt>(varY, val2, Span::unknown());
 
   std::vector<StmtPtr> stmts = {assign1, assign2};
   auto body = std::make_shared<SeqStmts>(stmts, Span::unknown());
@@ -51,15 +51,15 @@ static FunctionPtr MakeSequentialFunction() {
 
 // Helper to create a function with data dependency (RAW)
 static FunctionPtr MakeRAWDependencyFunction() {
-  auto int_type = std::make_shared<ScalarType>(DataType::INT32);
-  auto var_x = std::make_shared<Var>("x", int_type, Span::unknown());
-  auto var_y = std::make_shared<Var>("y", int_type, Span::unknown());
+  auto intType = std::make_shared<ScalarType>(DataType::INT32);
+  auto varX = std::make_shared<Var>("x", intType, Span::unknown());
+  auto varY = std::make_shared<Var>("y", intType, Span::unknown());
 
   auto val1 = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
-  auto assign1 = std::make_shared<AssignStmt>(var_x, val1, Span::unknown());
+  auto assign1 = std::make_shared<AssignStmt>(varX, val1, Span::unknown());
 
   // y = x (read after write on x)
-  auto assign2 = std::make_shared<AssignStmt>(var_y, var_x, Span::unknown());
+  auto assign2 = std::make_shared<AssignStmt>(varY, varX, Span::unknown());
 
   std::vector<StmtPtr> stmts = {assign1, assign2};
   auto body = std::make_shared<SeqStmts>(stmts, Span::unknown());
@@ -89,14 +89,14 @@ TEST_F(DependencyAnalyzerTest, TestAnalyzeRAWDependency) {
 
   ASSERT_FALSE(graph.blocks.empty());
   // Should detect RAW dependency on x
-  bool has_raw = false;
+  bool hasRaw = false;
   for (const auto& dep : graph.dependencies) {
     if (dep.type == DependencyEdge::RAW) {
-      has_raw = true;
+      hasRaw = true;
       break;
     }
   }
-  ASSERT_TRUE(has_raw);
+  ASSERT_TRUE(hasRaw);
 }
 
 // ============================================================================
@@ -118,8 +118,8 @@ TEST_F(DependencyAnalyzerTest, TestAnalyzeBasicBlocks) {
 // ============================================================================
 
 TEST_F(DependencyAnalyzerTest, TestAnalyzeEmptyBody) {
-  auto body_val = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
-  auto body = std::make_shared<EvalStmt>(body_val, Span::unknown());
+  auto bodyVal = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
+  auto body = std::make_shared<EvalStmt>(bodyVal, Span::unknown());
   auto func = std::make_shared<Function>("empty", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body,
                                          Span::unknown());
 
@@ -134,22 +134,22 @@ TEST_F(DependencyAnalyzerTest, TestAnalyzeEmptyBody) {
 // ============================================================================
 
 TEST_F(DependencyAnalyzerTest, TestAnalyzeFunctionWithLoop) {
-  auto int_type = std::make_shared<ScalarType>(DataType::INT32);
-  auto loop_var = std::make_shared<Var>("i", int_type, Span::unknown());
+  auto intType = std::make_shared<ScalarType>(DataType::INT32);
+  auto loopVar = std::make_shared<Var>("i", intType, Span::unknown());
   auto start = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
   auto stop = std::make_shared<ConstInt>(10, DataType::INT32, Span::unknown());
   auto step = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
 
-  auto body_expr = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
-  auto body = std::make_shared<EvalStmt>(body_expr, Span::unknown());
+  auto bodyExpr = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
+  auto body = std::make_shared<EvalStmt>(bodyExpr, Span::unknown());
 
-  std::vector<IterArgPtr> iter_args;
-  std::vector<VarPtr> return_vars;
-  auto for_stmt = std::make_shared<ForStmt>(loop_var, start, stop, step, iter_args, body, return_vars,
+  std::vector<IterArgPtr> iterArgs;
+  std::vector<VarPtr> returnVars;
+  auto forStmt = std::make_shared<ForStmt>(loopVar, start, stop, step, iterArgs, body, returnVars,
                                             Span::unknown());
 
   auto func = std::make_shared<Function>("loop_func", std::vector<VarPtr>{}, std::vector<TypePtr>{},
-                                         for_stmt, Span::unknown());
+                                         forStmt, Span::unknown());
 
   DependencyAnalyzer analyzer;
   auto graph = analyzer.Analyze(func);
@@ -194,18 +194,18 @@ TEST_F(DependencyAnalyzerTest, TestDependencyEdgeTypes) {
 // ============================================================================
 
 TEST_F(DependencyAnalyzerTest, TestAnalyzeWARDependency) {
-  auto int_type = std::make_shared<ScalarType>(DataType::INT32);
-  auto var_x = std::make_shared<Var>("x", int_type, Span::unknown());
+  auto intType = std::make_shared<ScalarType>(DataType::INT32);
+  auto varX = std::make_shared<Var>("x", intType, Span::unknown());
 
   auto val1 = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
   auto val2 = std::make_shared<ConstInt>(2, DataType::INT32, Span::unknown());
 
   // y = x (read x)
-  auto var_y = std::make_shared<Var>("y", int_type, Span::unknown());
-  auto assign1 = std::make_shared<AssignStmt>(var_y, var_x, Span::unknown());
+  auto varY = std::make_shared<Var>("y", intType, Span::unknown());
+  auto assign1 = std::make_shared<AssignStmt>(varY, varX, Span::unknown());
 
   // x = 2 (write x after read)
-  auto assign2 = std::make_shared<AssignStmt>(var_x, val2, Span::unknown());
+  auto assign2 = std::make_shared<AssignStmt>(varX, val2, Span::unknown());
 
   std::vector<StmtPtr> stmts = {assign1, assign2};
   auto body = std::make_shared<SeqStmts>(stmts, Span::unknown());
@@ -215,27 +215,27 @@ TEST_F(DependencyAnalyzerTest, TestAnalyzeWARDependency) {
   DependencyAnalyzer analyzer;
   auto graph = analyzer.Analyze(func);
 
-  bool has_war = false;
+  bool hasWar = false;
   for (const auto& dep : graph.dependencies) {
     if (dep.type == DependencyEdge::WAR) {
-      has_war = true;
+      hasWar = true;
       break;
     }
   }
-  ASSERT_TRUE(has_war);
+  ASSERT_TRUE(hasWar);
 }
 
 TEST_F(DependencyAnalyzerTest, TestAnalyzeWAWDependency) {
-  auto int_type = std::make_shared<ScalarType>(DataType::INT32);
-  auto var_x = std::make_shared<Var>("x", int_type, Span::unknown());
+  auto intType = std::make_shared<ScalarType>(DataType::INT32);
+  auto varX = std::make_shared<Var>("x", intType, Span::unknown());
 
   auto val1 = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
   auto val2 = std::make_shared<ConstInt>(2, DataType::INT32, Span::unknown());
 
   // x = 1 (write x)
-  auto assign1 = std::make_shared<AssignStmt>(var_x, val1, Span::unknown());
+  auto assign1 = std::make_shared<AssignStmt>(varX, val1, Span::unknown());
   // x = 2 (write x again)
-  auto assign2 = std::make_shared<AssignStmt>(var_x, val2, Span::unknown());
+  auto assign2 = std::make_shared<AssignStmt>(varX, val2, Span::unknown());
 
   std::vector<StmtPtr> stmts = {assign1, assign2};
   auto body = std::make_shared<SeqStmts>(stmts, Span::unknown());
@@ -245,14 +245,14 @@ TEST_F(DependencyAnalyzerTest, TestAnalyzeWAWDependency) {
   DependencyAnalyzer analyzer;
   auto graph = analyzer.Analyze(func);
 
-  bool has_waw = false;
+  bool hasWaw = false;
   for (const auto& dep : graph.dependencies) {
     if (dep.type == DependencyEdge::WAW) {
-      has_waw = true;
+      hasWaw = true;
       break;
     }
   }
-  ASSERT_TRUE(has_waw);
+  ASSERT_TRUE(hasWaw);
 }
 
 // ============================================================================
@@ -264,14 +264,14 @@ TEST_F(DependencyAnalyzerTest, TestAnalyzeDependenciesMethod) {
   auto func = MakeRAWDependencyFunction();
   auto deps = analyzer.AnalyzeDependencies(func);
 
-  bool has_raw = false;
+  bool hasRaw = false;
   for (const auto& dep : deps) {
     if (dep.type == DependencyEdge::RAW) {
-      has_raw = true;
+      hasRaw = true;
       break;
     }
   }
-  ASSERT_TRUE(has_raw);
+  ASSERT_TRUE(hasRaw);
 }
 
 // ============================================================================
@@ -279,20 +279,20 @@ TEST_F(DependencyAnalyzerTest, TestAnalyzeDependenciesMethod) {
 // ============================================================================
 
 TEST_F(DependencyAnalyzerTest, TestAnalyzeFunctionWithIf) {
-  auto int_type = std::make_shared<ScalarType>(DataType::INT32);
+  auto intType = std::make_shared<ScalarType>(DataType::INT32);
   auto cond = std::make_shared<ConstBool>(true, Span::unknown());
 
-  auto then_val = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
-  auto then_body = std::make_shared<EvalStmt>(then_val, Span::unknown());
+  auto thenVal = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
+  auto thenBody = std::make_shared<EvalStmt>(thenVal, Span::unknown());
 
-  auto else_val = std::make_shared<ConstInt>(2, DataType::INT32, Span::unknown());
-  auto else_body = std::make_shared<EvalStmt>(else_val, Span::unknown());
+  auto elseVal = std::make_shared<ConstInt>(2, DataType::INT32, Span::unknown());
+  auto elseBody = std::make_shared<EvalStmt>(elseVal, Span::unknown());
 
-  auto if_stmt = std::make_shared<IfStmt>(cond, then_body, std::optional<StmtPtr>(else_body),
+  auto ifStmt = std::make_shared<IfStmt>(cond, thenBody, std::optional<StmtPtr>(elseBody),
                                           std::vector<VarPtr>{}, Span::unknown());
 
   auto func = std::make_shared<Function>("if_func", std::vector<VarPtr>{}, std::vector<TypePtr>{},
-                                         if_stmt, Span::unknown());
+                                         ifStmt, Span::unknown());
 
   DependencyAnalyzer analyzer;
   auto graph = analyzer.Analyze(func);
@@ -305,19 +305,19 @@ TEST_F(DependencyAnalyzerTest, TestAnalyzeFunctionWithIf) {
 // ============================================================================
 
 TEST_F(DependencyAnalyzerTest, TestAnalyzeNestedSeqStmts) {
-  auto int_type = std::make_shared<ScalarType>(DataType::INT32);
-  auto var_x = std::make_shared<Var>("x", int_type, Span::unknown());
+  auto intType = std::make_shared<ScalarType>(DataType::INT32);
+  auto varX = std::make_shared<Var>("x", intType, Span::unknown());
   auto val1 = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
   auto val2 = std::make_shared<ConstInt>(2, DataType::INT32, Span::unknown());
 
-  auto assign1 = std::make_shared<AssignStmt>(var_x, val1, Span::unknown());
-  auto assign2 = std::make_shared<AssignStmt>(var_x, val2, Span::unknown());
+  auto assign1 = std::make_shared<AssignStmt>(varX, val1, Span::unknown());
+  auto assign2 = std::make_shared<AssignStmt>(varX, val2, Span::unknown());
 
-  auto inner_seq = std::make_shared<SeqStmts>(std::vector<StmtPtr>{assign1}, Span::unknown());
-  auto outer_seq = std::make_shared<SeqStmts>(std::vector<StmtPtr>{inner_seq, assign2}, Span::unknown());
+  auto innerSeq = std::make_shared<SeqStmts>(std::vector<StmtPtr>{assign1}, Span::unknown());
+  auto outerSeq = std::make_shared<SeqStmts>(std::vector<StmtPtr>{innerSeq, assign2}, Span::unknown());
 
   auto func = std::make_shared<Function>("nested", std::vector<VarPtr>{}, std::vector<TypePtr>{},
-                                         outer_seq, Span::unknown());
+                                         outerSeq, Span::unknown());
 
   DependencyAnalyzer analyzer;
   auto blocks = analyzer.AnalyzeBasicBlocks(func);
@@ -329,14 +329,14 @@ TEST_F(DependencyAnalyzerTest, TestAnalyzeNestedSeqStmts) {
 // ============================================================================
 
 TEST_F(DependencyAnalyzerTest, TestAnalyzeEvalStmtDependency) {
-  auto int_type = std::make_shared<ScalarType>(DataType::INT32);
-  auto var_x = std::make_shared<Var>("x", int_type, Span::unknown());
+  auto intType = std::make_shared<ScalarType>(DataType::INT32);
+  auto varX = std::make_shared<Var>("x", intType, Span::unknown());
   auto val1 = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
 
   // x = 1
-  auto assign = std::make_shared<AssignStmt>(var_x, val1, Span::unknown());
+  auto assign = std::make_shared<AssignStmt>(varX, val1, Span::unknown());
   // eval(x) - reads x after write
-  auto eval = std::make_shared<EvalStmt>(var_x, Span::unknown());
+  auto eval = std::make_shared<EvalStmt>(varX, Span::unknown());
 
   std::vector<StmtPtr> stmts = {assign, eval};
   auto body = std::make_shared<SeqStmts>(stmts, Span::unknown());
@@ -346,14 +346,14 @@ TEST_F(DependencyAnalyzerTest, TestAnalyzeEvalStmtDependency) {
   DependencyAnalyzer analyzer;
   auto graph = analyzer.Analyze(func);
 
-  bool has_raw = false;
+  bool hasRaw = false;
   for (const auto& dep : graph.dependencies) {
     if (dep.type == DependencyEdge::RAW) {
-      has_raw = true;
+      hasRaw = true;
       break;
     }
   }
-  ASSERT_TRUE(has_raw);
+  ASSERT_TRUE(hasRaw);
 }
 
 // ============================================================================
@@ -368,16 +368,16 @@ TEST_F(DependencyAnalyzerTest, TestMergeDependenciesEmpty) {
 }
 
 TEST_F(DependencyAnalyzerTest, TestMergeDependenciesDeduplicate) {
-  auto int_type = std::make_shared<ScalarType>(DataType::INT32);
-  auto var_x = std::make_shared<Var>("x", int_type, Span::unknown());
+  auto intType = std::make_shared<ScalarType>(DataType::INT32);
+  auto varX = std::make_shared<Var>("x", intType, Span::unknown());
   auto val1 = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
-  auto stmt1 = std::make_shared<AssignStmt>(var_x, val1, Span::unknown());
-  auto stmt2 = std::make_shared<EvalStmt>(var_x, Span::unknown());
+  auto stmt1 = std::make_shared<AssignStmt>(varX, val1, Span::unknown());
+  auto stmt2 = std::make_shared<EvalStmt>(varX, Span::unknown());
 
   DependencyEdge edge;
   edge.producer = stmt1;
   edge.consumer = stmt2;
-  edge.variable = var_x;
+  edge.variable = varX;
   edge.type = DependencyEdge::RAW;
   edge.producer_pipe = "UNKNOWN";
   edge.consumer_pipe = "UNKNOWN";

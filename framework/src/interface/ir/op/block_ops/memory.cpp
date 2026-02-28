@@ -47,9 +47,9 @@ T GetKwarg(const std::vector<std::pair<std::string, std::any>>& kwargs, const st
 
 TypePtr DeduceBlockGetBlockIdxType(const std::vector<ExprPtr>& args,
                                    const std::vector<std::pair<std::string, std::any>>& kwargs,
-                                   const std::string& op_name) {
+                                   const std::string& opName) {
   (void)kwargs;
-  CHECK(args.size() == 0) << "The operator " << op_name << " requires no arguments, but got " << args.size();
+  CHECK(args.size() == 0) << "The operator " << opName << " requires no arguments, but got " << args.size();
 
   // get_block_idx returns INT32 scalar
   return std::make_shared<ScalarType>(DataType::INT32);
@@ -57,16 +57,16 @@ TypePtr DeduceBlockGetBlockIdxType(const std::vector<ExprPtr>& args,
 
 TypePtr DeduceBlockLoadType(const std::vector<ExprPtr>& args,
                             const std::vector<std::pair<std::string, std::any>>& kwargs,
-                            const std::string& op_name) {
+                            const std::string& opName) {
   (void)kwargs;
   // load signature: (tensor, row_offset, col_offset, height, width)
   // We need at least the tensor argument
-  CHECK(args.size() >= 1) << "The operator " << op_name << " requires at least 1 argument, but got "
+  CHECK(args.size() >= 1) << "The operator " << opName << " requires at least 1 argument, but got "
                           << args.size();
 
   // First argument must be TensorType
-  auto tensor_type = As<TensorType>(args[0]->GetType());
-  CHECK(tensor_type) << "The operator " << op_name << " requires first argument to be a TensorType, but got "
+  auto tensorType = As<TensorType>(args[0]->GetType());
+  CHECK(tensorType) << "The operator " << opName << " requires first argument to be a TensorType, but got "
                      << args[0]->GetType()->TypeName();
 
   // If we have shape arguments (height, width), use them to determine tile shape
@@ -91,26 +91,26 @@ TypePtr DeduceBlockLoadType(const std::vector<ExprPtr>& args,
   }
 
   // Return TileType with same dtype as tensor
-  return std::make_shared<TileType>(tile_shape, tensor_type->dtype_);
+  return std::make_shared<TileType>(tile_shape, tensorType->dtype_);
 }
 
 TypePtr DeduceBlockStoreType(const std::vector<ExprPtr>& args,
                              const std::vector<std::pair<std::string, std::any>>& kwargs,
-                             const std::string& op_name) {
+                             const std::string& opName) {
   (void)kwargs;
   // store signature: (tile, row_offset, col_offset, height, width, output_tensor)
   // We need at least the tile and output_tensor arguments
-  CHECK(args.size() >= 2) << "The operator " << op_name << " requires at least 2 arguments, but got "
+  CHECK(args.size() >= 2) << "The operator " << opName << " requires at least 2 arguments, but got "
                           << args.size();
 
   // First argument must be TileType
-  auto tile_type = As<TileType>(args[0]->GetType());
-  CHECK(tile_type) << "The operator " << op_name << " requires first argument to be a TileType, but got "
+  auto tileType = As<TileType>(args[0]->GetType());
+  CHECK(tileType) << "The operator " << opName << " requires first argument to be a TileType, but got "
                    << args[0]->GetType()->TypeName();
 
   // Last argument should be the output tensor
   auto output_tensor_type = As<TensorType>(args.back()->GetType());
-  CHECK(output_tensor_type) << "The operator " << op_name
+  CHECK(output_tensor_type) << "The operator " << opName
                             << " requires last argument to be a TensorType, but got "
                             << args.back()->GetType()->TypeName();
 
@@ -120,20 +120,20 @@ TypePtr DeduceBlockStoreType(const std::vector<ExprPtr>& args,
 
 TypePtr DeduceBlockMoveType(const std::vector<ExprPtr>& args,
                             const std::vector<std::pair<std::string, std::any>>& kwargs,
-                            const std::string& op_name) {
+                            const std::string& opName) {
   // Validate args: expect exactly 1 argument (tile)
-  CHECK(args.size() == 1) << "The operator " << op_name << " requires 1 argument, but got " << args.size();
+  CHECK(args.size() == 1) << "The operator " << opName << " requires 1 argument, but got " << args.size();
 
   // Validate first argument is TileType
-  auto tile_type = As<TileType>(args[0]->GetType());
-  CHECK(tile_type) << "The operator " << op_name << " requires first argument to be a TileType, but got "
+  auto tileType = As<TileType>(args[0]->GetType());
+  CHECK(tileType) << "The operator " << opName << " requires first argument to be a TileType, but got "
                    << args[0]->GetType()->TypeName();
 
   // Extract transpose attribute (default: false)
   bool transpose = GetKwarg<bool>(kwargs, "transpose", false);
 
   // Determine output shape based on transpose flag
-  const auto& input_shape = tile_type->shape_;
+  const auto& input_shape = tileType->shape_;
   std::vector<ExprPtr> output_shape;
 
   if (transpose && input_shape.size() == 2) {
@@ -145,16 +145,16 @@ TypePtr DeduceBlockMoveType(const std::vector<ExprPtr>& args,
   }
 
   // Return TileType with computed shape and same dtype (no explicit MemRef)
-  return std::make_shared<TileType>(output_shape, tile_type->dtype_);
+  return std::make_shared<TileType>(output_shape, tileType->dtype_);
 }
 
 TypePtr DeduceBlockAllocType(const std::vector<ExprPtr>& args,
                              const std::vector<std::pair<std::string, std::any>>& kwargs,
-                             const std::string& op_name) {
+                             const std::string& opName) {
   (void)kwargs;
-  // alloc signature: (memory_space, addr, size, id)
+  // alloc signature: (memorySpace, addr, size, id)
   // Takes MemRef fields as arguments and returns MemRefType
-  CHECK(args.size() == 4) << "The operator " << op_name << " requires exactly 4 arguments, but got "
+  CHECK(args.size() == 4) << "The operator " << opName << " requires exactly 4 arguments, but got "
                           << args.size();
 
   // Return MemRefType
@@ -163,22 +163,22 @@ TypePtr DeduceBlockAllocType(const std::vector<ExprPtr>& args,
 
 TypePtr DeduceBlockZerosType(const std::vector<ExprPtr>& args,
                              const std::vector<std::pair<std::string, std::any>>& kwargs,
-                             const std::string& op_name) {
+                             const std::string& opName) {
   // zeros signature: (dim1, dim2, ..., dimN) with dtype kwarg
   // Creates a zero-initialized tile with arbitrary dimensions
-  CHECK(args.size() >= 1) << "The operator " << op_name << " requires at least 1 dimension argument, but got "
+  CHECK(args.size() >= 1) << "The operator " << opName << " requires at least 1 dimension argument, but got "
                           << args.size();
 
   // Extract dtype from kwargs (required)
-  int dtype_code = GetKwarg<int>(kwargs, "dtype");
-  DataType dtype = static_cast<DataType>(dtype_code);
+  int dtypeCode = GetKwarg<int>(kwargs, "dtype");
+  DataType dtype = static_cast<DataType>(dtypeCode);
 
   // All arguments are shape dimensions
   std::vector<ExprPtr> shape;
   for (size_t i = 0; i < args.size(); ++i) {
     // Verify each dimension is a scalar type
-    auto scalar_type = As<ScalarType>(args[i]->GetType());
-    CHECK(scalar_type) << "The operator " << op_name << " requires dimension " << i
+    auto scalarType = As<ScalarType>(args[i]->GetType());
+    CHECK(scalarType) << "The operator " << opName << " requires dimension " << i
                        << " to be a scalar, but got " << args[i]->GetType()->TypeName();
     shape.push_back(args[i]);
   }

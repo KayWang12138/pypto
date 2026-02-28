@@ -111,11 +111,11 @@ public:
    *
    * Finalizes the function and pops the function context from the stack.
    *
-   * \param end_span Source location for end of function
+   * \param endSpan Source location for end of function
    * \return The built function
    * \throws RuntimeError if not inside a function context
    */
-  FunctionPtr EndFunction(const Span& end_span);
+  FunctionPtr EndFunction(const Span& endSpan);
 
   // ========== For Loop Building ==========
 
@@ -125,14 +125,14 @@ public:
    * Creates a new for loop context and pushes it onto the context stack.
    * Must be closed with EndForLoop().
    *
-   * \param loop_var Loop variable
+   * \param loopVar Loop variable
    * \param start Start value expression
    * \param stop Stop value expression
    * \param step Step value expression
    * \param span Source location for loop definition
    * \throws RuntimeError if not inside a function or another loop
    */
-  void BeginForLoop(const VarPtr& loop_var, const ExprPtr& start, const ExprPtr& stop, const ExprPtr& step,
+  void BeginForLoop(const VarPtr& loopVar, const ExprPtr& start, const ExprPtr& stop, const ExprPtr& step,
                     const Span& span);
 
   /**
@@ -140,10 +140,10 @@ public:
    *
    * Iteration arguments are loop-carried values (SSA-style).
    *
-   * \param iter_arg Iteration argument with initial value
+   * \param iterArg Iteration argument with initial value
    * \throws RuntimeError if not inside a for loop context
    */
-  void AddIterArg(const IterArgPtr& iter_arg);
+  void AddIterArg(const IterArgPtr& iterArg);
 
   /**
    * \brief Add a return variable to the current for loop
@@ -161,12 +161,12 @@ public:
    *
    * Finalizes the loop and pops the loop context from the stack.
    *
-   * \param end_span Source location for end of loop
+   * \param endSpan Source location for end of loop
    * \return The built for statement
    * \throws RuntimeError if not inside a for loop context
    * \throws RuntimeError if number of return variables doesn't match iteration arguments
    */
-  StmtPtr EndForLoop(const Span& end_span);
+  StmtPtr EndForLoop(const Span& endSpan);
 
   // ========== If Statement Building ==========
 
@@ -208,11 +208,11 @@ public:
    *
    * Finalizes the if statement and pops the context from the stack.
    *
-   * \param end_span Source location for end of if
+   * \param endSpan Source location for end of if
    * \return The built if statement
    * \throws RuntimeError if not inside an if context
    */
-  StmtPtr EndIf(const Span& end_span);
+  StmtPtr EndIf(const Span& endSpan);
 
   // ========== Statement Recording ==========
 
@@ -324,22 +324,22 @@ public:
    * Creates a GlobalVar for the function that can be used in Call expressions
    * before the function is fully built. This enables cross-function calls.
    *
-   * \param func_name Function name to declare
+   * \param funcName Function name to declare
    * \return GlobalVar that can be used in Call expressions
    * \throws RuntimeError if not inside a program context
    */
-  GlobalVarPtr DeclareFunction(const std::string& func_name);
+  GlobalVarPtr DeclareFunction(const std::string& funcName);
 
   /**
    * \brief Get a GlobalVar for a declared function
    *
    * Retrieves a GlobalVar that was previously declared with DeclareFunction.
    *
-   * \param func_name Function name
+   * \param funcName Function name
    * \return GlobalVar for the function
    * \throws RuntimeError if not inside a program context or function not declared
    */
-  GlobalVarPtr GetGlobalVar(const std::string& func_name);
+  GlobalVarPtr GetGlobalVar(const std::string& funcName);
 
   /**
    * \brief Add a completed function to the current program
@@ -356,11 +356,11 @@ public:
    *
    * Finalizes the program and pops the program context from the stack.
    *
-   * \param end_span Source location for end of program
+   * \param endSpan Source location for end of program
    * \return The built program
    * \throws RuntimeError if not inside a program context
    */
-  ProgramPtr EndProgram(const Span& end_span);
+  ProgramPtr EndProgram(const Span& endSpan);
 
   /**
    * \brief Check if currently inside a program
@@ -425,8 +425,8 @@ protected:
  */
 class FunctionContext : public BuildContext {
 public:
-  FunctionContext(std::string name, Span span, FunctionType func_type = FunctionType::OPAQUE)
-      : BuildContext(Type::FUNCTION, std::move(span)), name_(std::move(name)), funcType_(func_type) {}
+  FunctionContext(std::string name, Span span, FunctionType funcType = FunctionType::OPAQUE)
+      : BuildContext(Type::FUNCTION, std::move(span)), name_(std::move(name)), funcType_(funcType) {}
 
   void AddParam(const VarPtr& param) { params_.push_back(param); }
   void AddReturnType(const TypePtr& type) { returnTypes_.push_back(type); }
@@ -449,14 +449,14 @@ private:
  */
 class ForLoopContext : public BuildContext {
 public:
-  ForLoopContext(VarPtr loop_var, ExprPtr start, ExprPtr stop, ExprPtr step, Span span)
+  ForLoopContext(VarPtr loopVar, ExprPtr start, ExprPtr stop, ExprPtr step, Span span)
       : BuildContext(Type::FOR_LOOP, std::move(span)),
-        loopVar_(std::move(loop_var)),
+        loopVar_(std::move(loopVar)),
         start_(std::move(start)),
         stop_(std::move(stop)),
         step_(std::move(step)) {}
 
-  void AddIterArg(const IterArgPtr& iter_arg) { iterArgs_.push_back(iter_arg); }
+  void AddIterArg(const IterArgPtr& iterArg) { iterArgs_.push_back(iterArg); }
   void AddReturnVar(const VarPtr& var) { returnVars_.push_back(var); }
 
   void AddStmt(const StmtPtr& stmt) override { stmts_.push_back(stmt); }
@@ -521,18 +521,18 @@ public:
   /**
    * \brief Declare a function and get its GlobalVar
    *
-   * \param func_name Function name to declare
+   * \param funcName Function name to declare
    * \return GlobalVar for the function
    */
-  GlobalVarPtr DeclareFunction(const std::string& func_name);
+  GlobalVarPtr DeclareFunction(const std::string& funcName);
 
   /**
    * \brief Get a GlobalVar for a declared function
    *
-   * \param func_name Function name
+   * \param funcName Function name
    * \return GlobalVar for the function, or nullptr if not found
    */
-  [[nodiscard]] GlobalVarPtr GetGlobalVar(const std::string& func_name) const;
+  [[nodiscard]] GlobalVarPtr GetGlobalVar(const std::string& funcName) const;
 
   /**
    * \brief Add a function to the program

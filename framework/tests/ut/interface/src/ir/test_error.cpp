@@ -35,9 +35,9 @@ TEST_F(CoreErrorTest, TestErrorMessage) {
 
 TEST_F(CoreErrorTest, TestErrorGetFullMessage) {
   Error err("something went wrong");
-  std::string full_msg = err.GetFullMessage();
-  ASSERT_FALSE(full_msg.empty());
-  ASSERT_NE(full_msg.find("something went wrong"), std::string::npos);
+  std::string fullMsg = err.GetFullMessage();
+  ASSERT_FALSE(fullMsg.empty());
+  ASSERT_NE(fullMsg.find("something went wrong"), std::string::npos);
 }
 
 TEST_F(CoreErrorTest, TestErrorGetFormattedStackTrace) {
@@ -169,8 +169,8 @@ TEST_F(CoreErrorTest, TestStackFrameConstruction) {
 // ============================================================================
 
 TEST_F(CoreErrorTest, TestBacktraceFormatEmptyTrace) {
-  std::vector<StackFrame> empty_frames;
-  std::string result = Backtrace::FormatStackTrace(empty_frames);
+  std::vector<StackFrame> emptyFrames;
+  std::string result = Backtrace::FormatStackTrace(emptyFrames);
   ASSERT_TRUE(result.empty());
 }
 

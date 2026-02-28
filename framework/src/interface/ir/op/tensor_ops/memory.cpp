@@ -51,12 +51,12 @@ TypePtr DeduceTensorCreateType(const std::vector<ExprPtr>& args,
 
   // Validate all shape elements are ScalarType(INT64 or UINT64)
   for (size_t i = 0; i < shape_tuple_type->types_.size(); ++i) {
-    auto scalar_type = As<ScalarType>(shape_tuple_type->types_[i]);
-    INTERNAL_CHECK(scalar_type) << "tensor.create shape tuple element " << i << " must be ScalarType, but got "
+    auto scalarType = As<ScalarType>(shape_tuple_type->types_[i]);
+    INTERNAL_CHECK(scalarType) << "tensor.create shape tuple element " << i << " must be ScalarType, but got "
                        << shape_tuple_type->types_[i]->TypeName();
-    INTERNAL_CHECK(scalar_type->dtype_ == DataType::INT64 || scalar_type->dtype_ == DataType::UINT64)
+    INTERNAL_CHECK(scalarType->dtype_ == DataType::INT64 || scalarType->dtype_ == DataType::UINT64)
         << "tensor.create shape tuple element " << i << " must have dtype INT64 or UINT64, but got "
-        << scalar_type->dtype_.ToString();
+        << scalarType->dtype_.ToString();
   }
 
   // Extract shape dimensions
@@ -85,8 +85,8 @@ TypePtr DeduceTensorViewType(const std::vector<ExprPtr>& args,
                           << args.size();
 
   // First argument must be TensorType
-  auto tensor_type = As<TensorType>(args[0]->GetType());
-  INTERNAL_CHECK(tensor_type) << "tensor.view requires first argument to be a TensorType, but got "
+  auto tensorType = As<TensorType>(args[0]->GetType());
+  INTERNAL_CHECK(tensorType) << "tensor.view requires first argument to be a TensorType, but got "
                      << args[0]->GetType()->TypeName();
 
   // Second argument must be TupleType (shape)
@@ -96,12 +96,12 @@ TypePtr DeduceTensorViewType(const std::vector<ExprPtr>& args,
 
   // Validate all shape elements are ScalarType(INT64 or UINT64)
   for (size_t i = 0; i < shape_tuple_type->types_.size(); ++i) {
-    auto scalar_type = As<ScalarType>(shape_tuple_type->types_[i]);
-    INTERNAL_CHECK(scalar_type) << "tensor.view shape tuple element " << i << " must be ScalarType, but got "
+    auto scalarType = As<ScalarType>(shape_tuple_type->types_[i]);
+    INTERNAL_CHECK(scalarType) << "tensor.view shape tuple element " << i << " must be ScalarType, but got "
                        << shape_tuple_type->types_[i]->TypeName();
-    INTERNAL_CHECK(scalar_type->dtype_ == DataType::INT64 || scalar_type->dtype_ == DataType::UINT64)
+    INTERNAL_CHECK(scalarType->dtype_ == DataType::INT64 || scalarType->dtype_ == DataType::UINT64)
         << "tensor.view shape tuple element " << i << " must have dtype INT64 or UINT64, but got "
-        << scalar_type->dtype_.ToString();
+        << scalarType->dtype_.ToString();
   }
 
   // Third argument must be TupleType (offset)
@@ -111,12 +111,12 @@ TypePtr DeduceTensorViewType(const std::vector<ExprPtr>& args,
 
   // Validate all offset elements are ScalarType(INT64 or UINT64)
   for (size_t i = 0; i < offset_tuple_type->types_.size(); ++i) {
-    auto scalar_type = As<ScalarType>(offset_tuple_type->types_[i]);
-    INTERNAL_CHECK(scalar_type) << "tensor.view offset tuple element " << i << " must be ScalarType, but got "
+    auto scalarType = As<ScalarType>(offset_tuple_type->types_[i]);
+    INTERNAL_CHECK(scalarType) << "tensor.view offset tuple element " << i << " must be ScalarType, but got "
                        << offset_tuple_type->types_[i]->TypeName();
-    INTERNAL_CHECK(scalar_type->dtype_ == DataType::INT64 || scalar_type->dtype_ == DataType::UINT64)
+    INTERNAL_CHECK(scalarType->dtype_ == DataType::INT64 || scalarType->dtype_ == DataType::UINT64)
         << "tensor.view offset tuple element " << i << " must have dtype INT64 or UINT64, but got "
-        << scalar_type->dtype_.ToString();
+        << scalarType->dtype_.ToString();
   }
 
   // Extract shape dimensions
@@ -137,7 +137,7 @@ TypePtr DeduceTensorViewType(const std::vector<ExprPtr>& args,
   }
 
   // View preserves dtype but has new shape (which can have different rank than input)
-  return std::make_shared<TensorType>(new_shape, tensor_type->dtype_);
+  return std::make_shared<TensorType>(new_shape, tensorType->dtype_);
 }
 
 TypePtr DeduceTensorAssembleType(const std::vector<ExprPtr>& args,
@@ -163,12 +163,12 @@ TypePtr DeduceTensorAssembleType(const std::vector<ExprPtr>& args,
 
   // Validate all offset elements are ScalarType(INT64 or UINT64)
   for (size_t i = 0; i < offset_tuple_type->types_.size(); ++i) {
-    auto scalar_type = As<ScalarType>(offset_tuple_type->types_[i]);
-    INTERNAL_CHECK(scalar_type) << "tensor.assemble offset tuple element " << i << " must be ScalarType, but got "
+    auto scalarType = As<ScalarType>(offset_tuple_type->types_[i]);
+    INTERNAL_CHECK(scalarType) << "tensor.assemble offset tuple element " << i << " must be ScalarType, but got "
                        << offset_tuple_type->types_[i]->TypeName();
-    INTERNAL_CHECK(scalar_type->dtype_ == DataType::INT64 || scalar_type->dtype_ == DataType::UINT64)
+    INTERNAL_CHECK(scalarType->dtype_ == DataType::INT64 || scalarType->dtype_ == DataType::UINT64)
         << "tensor.assemble offset tuple element " << i << " must have dtype INT64 or UINT64, but got "
-        << scalar_type->dtype_.ToString();
+        << scalarType->dtype_.ToString();
   }
 
   // Assemble returns a new TensorType with the same shape and dtype as target

@@ -422,10 +422,10 @@ public:
    * Creates a new operator registry entry that can be configured using
    * the fluent API (set_description, add_argument, f_deduce_type, etc.).
    *
-   * \param op_name Name of the operator (e.g., "tensor.add", "block.mul")
+   * \param opName Name of the operator (e.g., "tensor.add", "block.mul")
    * \throws ValueError if operator is already registered
    */
-  OpRegistryEntry& Register(const std::string& op_name);
+  OpRegistryEntry& Register(const std::string& opName);
 
   /**
    * \brief Create a Call expression for a registered operator
@@ -433,13 +433,13 @@ public:
    * Looks up the operator by name, validates arguments, deduces the result type,
    * and creates a Call expression with proper typing.
    *
-   * \param op_name Name of the operator to call
+   * \param opName Name of the operator to call
    * \param args Arguments to pass to the operator
    * \param span Source location information
    * \return Shared pointer to Call expression with deduced type
    * \throws ValueError if operator not found or argument count invalid
    */
-  CallPtr Create(const std::string& op_name, const std::vector<ExprPtr>& args, Span span) const;
+  CallPtr Create(const std::string& opName, const std::vector<ExprPtr>& args, Span span) const;
 
   /**
    * \brief Create a Call expression with kwargs for a registered operator
@@ -447,41 +447,41 @@ public:
    * Looks up the operator by name, validates arguments, deduces the result type
    * using both args and kwargs, and creates a Call expression with proper typing.
    *
-   * \param op_name Name of the operator to call
+   * \param opName Name of the operator to call
    * \param args Positional Expr arguments
    * \param kwargs Keyword arguments (metadata)
    * \param span Source location information
    * \return Shared pointer to Call expression with deduced type
    * \throws ValueError if operator not found or invalid arguments
    */
-  CallPtr Create(const std::string& op_name, const std::vector<ExprPtr>& args,
+  CallPtr Create(const std::string& opName, const std::vector<ExprPtr>& args,
                  const std::vector<std::pair<std::string, std::any>>& kwargs, Span span) const;
 
   /**
    * \brief Check if an operator is registered
    *
-   * \param op_name Name of the operator
+   * \param opName Name of the operator
    * \return true if the operator is registered
    */
-  bool IsRegistered(const std::string& op_name) const { return registry_.find(op_name) != registry_.end(); }
+  bool IsRegistered(const std::string& opName) const { return registry_.find(opName) != registry_.end(); }
 
   /**
    * \brief Get the operator registry entry by name
    *
-   * \param op_name Name of the operator
+   * \param opName Name of the operator
    * \return Const reference to the operator registry entry
    * \throws ValueError if operator not found
    */
-  const OpRegistryEntry& GetEntry(const std::string& op_name) const;
+  const OpRegistryEntry& GetEntry(const std::string& opName) const;
 
   /**
    * \brief Get the operator instance by name
    *
-   * \param op_name Name of the operator
+   * \param opName Name of the operator
    * \return Shared pointer to the operator instance
    * \throws ValueError if operator not found
    */
-  OpPtr GetOp(const std::string& op_name) const;
+  OpPtr GetOp(const std::string& opName) const;
 
 private:
   OpRegistry() = default;
@@ -498,13 +498,13 @@ private:
  *
  * \param kwargs The kwargs to validate
  * \param allowed_kwargs Map of allowed kwarg keys to expected types
- * \param op_name Operator name for error messages
+ * \param opName Operator name for error messages
  * \throws ValueError if unknown kwarg
  * \throws TypeError if type mismatch
  */
 void ValidateKwargs(const std::vector<std::pair<std::string, std::any>>& kwargs,
                     const std::unordered_map<std::string, std::type_index>& allowed_kwargs,
-                    const std::string& op_name);
+                    const std::string& opName);
 
 /**
  * \brief Helper macro for operator registration

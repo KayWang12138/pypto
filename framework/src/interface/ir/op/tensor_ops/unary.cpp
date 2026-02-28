@@ -25,27 +25,27 @@ TypePtr DeduceTensorExpType(const std::vector<ExprPtr>& args,
                             const std::vector<std::pair<std::string, std::any>>& /*kwargs*/) {
   INTERNAL_CHECK(args.size() == 1) << "tensor.exp requires exactly 1 argument, but got " << args.size();
 
-  auto tensor_type = As<TensorType>(args[0]->GetType());
-  INTERNAL_CHECK(tensor_type) << "tensor.exp requires first argument to be a TensorType, but got "
+  auto tensorType = As<TensorType>(args[0]->GetType());
+  INTERNAL_CHECK(tensorType) << "tensor.exp requires first argument to be a TensorType, but got "
                      << args[0]->GetType()->TypeName();
 
   // exp should promote to float type if input is integer
   // Exponential always produces floating-point output (e.g., exp(1) = 2.718...)
-  DataType out_dtype = tensor_type->dtype_;
+  DataType out_dtype = tensorType->dtype_;
   if (!out_dtype.IsFloat()) {
     // Promote to default float type (FP32)
     out_dtype = DataType::FP32;
   }
 
-  return std::make_shared<TensorType>(tensor_type->shape_, out_dtype);
+  return std::make_shared<TensorType>(tensorType->shape_, out_dtype);
 }
 
 TypePtr DeduceTensorCastType(const std::vector<ExprPtr>& args,
                              const std::vector<std::pair<std::string, std::any>>& kwargs) {
   INTERNAL_CHECK(args.size() == 1) << "tensor.cast requires exactly 1 argument (input), but got " << args.size();
 
-  auto tensor_type = As<TensorType>(args[0]->GetType());
-  INTERNAL_CHECK(tensor_type) << "tensor.cast requires first argument to be a TensorType, but got "
+  auto tensorType = As<TensorType>(args[0]->GetType());
+  INTERNAL_CHECK(tensorType) << "tensor.cast requires first argument to be a TensorType, but got "
                      << args[0]->GetType()->TypeName();
 
   // Read target_type from kwargs
@@ -70,7 +70,7 @@ TypePtr DeduceTensorCastType(const std::vector<ExprPtr>& args,
   // mode kwarg is optional, not used in type deduction
 
   // Cast preserves shape but changes dtype
-  return std::make_shared<TensorType>(tensor_type->shape_, target_dtype);
+  return std::make_shared<TensorType>(tensorType->shape_, target_dtype);
 }
 
 // ============================================================================

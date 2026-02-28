@@ -339,22 +339,22 @@ TEST(TypeInferenceUtilsTest, FormatShapeWithDims) {
 // Helper to create a TensorType Var for tensor op tests
 static ExprPtr MakeTensorVar(const std::string& name, const std::vector<int64_t>& shape, DataType dtype) {
   auto span = TestSpan();
-  std::vector<ExprPtr> shape_exprs;
+  std::vector<ExprPtr> shapeExprs;
   for (auto dim : shape) {
-    shape_exprs.push_back(std::make_shared<ConstInt>(dim, DataType::INT64, span));
+    shapeExprs.push_back(std::make_shared<ConstInt>(dim, DataType::INT64, span));
   }
-  auto type = std::make_shared<TensorType>(shape_exprs, dtype);
+  auto type = std::make_shared<TensorType>(shapeExprs, dtype);
   return std::make_shared<Var>(name, type, span);
 }
 
 // Helper to create a TileType Var for block op tests
 static ExprPtr MakeTileVar(const std::string& name, const std::vector<int64_t>& shape, DataType dtype) {
   auto span = TestSpan();
-  std::vector<ExprPtr> shape_exprs;
+  std::vector<ExprPtr> shapeExprs;
   for (auto dim : shape) {
-    shape_exprs.push_back(std::make_shared<ConstInt>(dim, DataType::INT64, span));
+    shapeExprs.push_back(std::make_shared<ConstInt>(dim, DataType::INT64, span));
   }
-  auto type = std::make_shared<TileType>(shape_exprs, dtype);
+  auto type = std::make_shared<TileType>(shapeExprs, dtype);
   return std::make_shared<Var>(name, type, span);
 }
 
@@ -471,10 +471,10 @@ TEST(OpCreateTest, CreateTensorReshape) {
   auto& registry = OpRegistry::GetInstance();
   auto span = TestSpan();
   auto a = MakeTensorVar("a", {4, 8}, DataType::FP32);
-  // tensor.reshape takes (input, shape_tuple) as positional args
+  // tensor.reshape takes (input, shapeTuple) as positional args
   auto dim = std::make_shared<ConstInt>(32, DataType::INT64, span);
-  auto shape_tuple = std::make_shared<MakeTuple>(std::vector<ExprPtr>{dim}, span);
-  std::vector<ExprPtr> args = {a, shape_tuple};
+  auto shapeTuple = std::make_shared<MakeTuple>(std::vector<ExprPtr>{dim}, span);
+  std::vector<ExprPtr> args = {a, shapeTuple};
   std::vector<std::pair<std::string, std::any>> kwargs;
   auto call = registry.Create("tensor.reshape", args, kwargs, span);
   ASSERT_NE(call, nullptr);

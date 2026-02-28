@@ -103,14 +103,14 @@ TEST(CoreCommonTest, TestNanobindModuleDocLength) {
 TEST(CoreCommonTest, TestAlwaysInlineMacro) {
   // Test that PYPTO_ALWAYS_INLINE is defined
   // This is a compile-time test - if it compiles, the macro exists
-  auto test_func = []() PYPTO_ALWAYS_INLINE { return 42; };
-  ASSERT_EQ(test_func(), 42);
+  auto testFunc = []() PYPTO_ALWAYS_INLINE { return 42; };
+  ASSERT_EQ(testFunc(), 42);
 }
 
 TEST(CoreCommonTest, TestUnusedMacro) {
   // Test that PYPTO_UNUSED is defined
   // This is a compile-time test - if it compiles, the macro exists
-  PYPTO_UNUSED int unused_var = 100;
+  PYPTO_UNUSED int unusedVar = 100;
   ASSERT_TRUE(true);  // If we get here, the macro worked
 }
 
@@ -193,17 +193,17 @@ TEST(CoreCommonTest, TestDynamicDimDistinctFromPositive) {
 
 TEST(CoreCommonTest, TestDynamicDimInConditional) {
   // Test using kDynamicDim in conditional logic
-  auto is_dynamic = [](int64_t dim) { return dim == kDynamicDim; };
+  auto isDynamic = [](int64_t dim) { return dim == kDynamicDim; };
 
-  ASSERT_TRUE(is_dynamic(kDynamicDim));
-  ASSERT_TRUE(is_dynamic(-1));
-  ASSERT_FALSE(is_dynamic(0));
-  ASSERT_FALSE(is_dynamic(10));
+  ASSERT_TRUE(isDynamic(kDynamicDim));
+  ASSERT_TRUE(isDynamic(-1));
+  ASSERT_FALSE(isDynamic(0));
+  ASSERT_FALSE(isDynamic(10));
 }
 
 TEST(CoreCommonTest, TestDynamicDimInSwitch) {
   // Test using kDynamicDim in switch statement
-  auto classify_dim = [](int64_t dim) -> std::string {
+  auto classifyDim = [](int64_t dim) -> std::string {
     if (dim == kDynamicDim) {
       return "dynamic";
     } else if (dim == 0) {
@@ -215,18 +215,18 @@ TEST(CoreCommonTest, TestDynamicDimInSwitch) {
     }
   };
 
-  ASSERT_EQ(classify_dim(kDynamicDim), "dynamic");
-  ASSERT_EQ(classify_dim(-1), "dynamic");
-  ASSERT_EQ(classify_dim(0), "zero");
-  ASSERT_EQ(classify_dim(10), "positive");
-  ASSERT_EQ(classify_dim(-5), "negative");
+  ASSERT_EQ(classifyDim(kDynamicDim), "dynamic");
+  ASSERT_EQ(classifyDim(-1), "dynamic");
+  ASSERT_EQ(classifyDim(0), "zero");
+  ASSERT_EQ(classifyDim(10), "positive");
+  ASSERT_EQ(classifyDim(-5), "negative");
 }
 
 TEST(CoreCommonTest, TestVersionComparison) {
   // Test version comparison logic
-  auto version_code = PYPTO_VERSION_MAJOR * 10000 + PYPTO_VERSION_MINOR * 100 + PYPTO_VERSION_PATCH;
+  auto versionCode = PYPTO_VERSION_MAJOR * 10000 + PYPTO_VERSION_MINOR * 100 + PYPTO_VERSION_PATCH;
 
-  ASSERT_EQ(version_code, 100);  // 0.1.0 = 100
+  ASSERT_EQ(versionCode, 100);  // 0.1.0 = 100
 }
 
 TEST(CoreCommonTest, TestVersionString) {
@@ -250,9 +250,9 @@ TEST(CoreCommonTest, TestVersionString) {
 
 TEST(CoreCommonTest, TestAlwaysInlineFunction) {
   // Test function with PYPTO_ALWAYS_INLINE attribute
-  auto inline_func = []() PYPTO_ALWAYS_INLINE -> int { return 42; };
+  auto inlineFunc = []() PYPTO_ALWAYS_INLINE -> int { return 42; };
 
-  int result = inline_func();
+  int result = inlineFunc();
   ASSERT_EQ(result, 42);
 }
 

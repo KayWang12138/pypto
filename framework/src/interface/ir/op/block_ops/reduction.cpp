@@ -29,17 +29,17 @@ namespace ir {
 
 TypePtr DeduceBlockReductionType(const std::vector<ExprPtr>& args,
                                  const std::vector<std::pair<std::string, std::any>>& kwargs,
-                                 const std::string& op_name) {
+                                 const std::string& opName) {
   // block.sum and block.max require 1 argument (tile) and 2 attributes (axis, keepdim)
-  CHECK(args.size() == 1) << "The operator " << op_name << " requires 1 argument, but got " << args.size();
+  CHECK(args.size() == 1) << "The operator " << opName << " requires 1 argument, but got " << args.size();
 
   // First argument must be TileType
-  auto tile_type = As<TileType>(args[0]->GetType());
-  CHECK(tile_type) << "The operator " << op_name << " requires first argument to be a TileType, but got "
+  auto tileType = As<TileType>(args[0]->GetType());
+  CHECK(tileType) << "The operator " << opName << " requires first argument to be a TileType, but got "
                    << args[0]->GetType()->TypeName();
 
   // Get the input shape
-  const auto& input_shape = tile_type->shape_;
+  const auto& input_shape = tileType->shape_;
   int64_t input_ndim = static_cast<int64_t>(input_shape.size());
 
   // Determine which axes to reduce
@@ -52,7 +52,7 @@ TypePtr DeduceBlockReductionType(const std::vector<ExprPtr>& args,
     axis_value = static_cast<int>(input_ndim) + axis_value;
   }
   CHECK(axis_value >= 0 && static_cast<int64_t>(axis_value) < input_ndim)
-      << "The operator " << op_name << " axis " << axis_value << " is out of range for shape with "
+      << "The operator " << opName << " axis " << axis_value << " is out of range for shape with "
       << input_ndim << " dimensions";
   reduce_axes.insert(static_cast<int64_t>(axis_value));
 
@@ -61,7 +61,7 @@ TypePtr DeduceBlockReductionType(const std::vector<ExprPtr>& args,
 
   // If all axes are reduced and keepdim is false, return ScalarType
   if (static_cast<int64_t>(reduce_axes.size()) == input_ndim && !keepdim) {
-    return std::make_shared<ScalarType>(tile_type->dtype_);
+    return std::make_shared<ScalarType>(tileType->dtype_);
   }
 
   // Build output shape
@@ -89,30 +89,30 @@ TypePtr DeduceBlockReductionType(const std::vector<ExprPtr>& args,
 
   // If output shape is empty, return ScalarType
   if (output_shape.empty()) {
-    return std::make_shared<ScalarType>(tile_type->dtype_);
+    return std::make_shared<ScalarType>(tileType->dtype_);
   }
 
   // Return TileType with reduced shape
-  return std::make_shared<TileType>(output_shape, tile_type->dtype_);
+  return std::make_shared<TileType>(output_shape, tileType->dtype_);
 }
 
 TypePtr DeduceBlockRowReductionType(const std::vector<ExprPtr>& args,
                                     const std::vector<std::pair<std::string, std::any>>& /*kwargs*/,
-                                    const std::string& op_name) {
+                                    const std::string& opName) {
   // block.row_max and block.row_sum require 1 argument (tile)
-  CHECK(args.size() == 1) << "The operator " << op_name << " requires 1 argument, but got " << args.size();
+  CHECK(args.size() == 1) << "The operator " << opName << " requires 1 argument, but got " << args.size();
 
   // First argument must be TileType
-  auto tile_type = As<TileType>(args[0]->GetType());
-  CHECK(tile_type) << "The operator " << op_name << " requires first argument to be a TileType, but got "
+  auto tileType = As<TileType>(args[0]->GetType());
+  CHECK(tileType) << "The operator " << opName << " requires first argument to be a TileType, but got "
                    << args[0]->GetType()->TypeName();
 
   // Get the input shape
-  const auto& input_shape = tile_type->shape_;
+  const auto& input_shape = tileType->shape_;
   int64_t input_ndim = static_cast<int64_t>(input_shape.size());
 
   // Row reduction requires at least 2D tile (operates on the last dimension)
-  CHECK(input_ndim >= 2) << "The operator " << op_name << " requires at least a 2D tile, but got "
+  CHECK(input_ndim >= 2) << "The operator " << opName << " requires at least a 2D tile, but got "
                          << input_ndim << " dimensions";
 
   // Output shape is [...batch_dims, rows, 1] - reduce along the last axis (columns) with keepdim=True
@@ -120,7 +120,7 @@ TypePtr DeduceBlockRowReductionType(const std::vector<ExprPtr>& args,
   output_shape.push_back(
       std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown()));  // Reduced last dim
 
-  return std::make_shared<TileType>(output_shape, tile_type->dtype_);
+  return std::make_shared<TileType>(output_shape, tileType->dtype_);
 }
 
 // ============================================================================
