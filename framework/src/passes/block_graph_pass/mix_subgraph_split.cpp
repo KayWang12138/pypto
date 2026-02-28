@@ -327,35 +327,34 @@ Status MixSubgraphSplit::GenNewFunctions(Function& rootFunc, Function* originalM
                                         const std::vector<InternalComponentInfo>& components,
                                         const std::vector<uint64_t>& newProgramIDs,
                                         SubgraphToFunction& subgraphToFunction,
-                                        std::vector<Function*>& newFunctions) {
+                                        std::vector<Function*>& newFunctions,
+                                        uint64_t mixId,
+                                        MixResourceType resourceType) {
     for (size_t i = 0; i < components.size(); i++) {
         FunctionClone functionClone(rootFunc, originalMixFunc);
         auto newFunc = functionClone.CloneFunctionByComponent(components[i], newProgramIDs[i], i);
         subgraphToFunction.InsertParameter(i, *newFunc);
+        // 在ComputeHash之前设置mixId和resourceType
+        auto leafAttr = newFunc->GetLeafFuncAttribute();
+        if (leafAttr == nullptr) {
+            ALOG_ERROR_F("LeafFuncAttribute not set for new function");
+            return FAILED;
+        }
+        leafAttr->mixId = mixId;
+        leafAttr->mixResourceType = resourceType;
+        ALOG_DEBUG_F("Set mixId=%lu to leaf function %s (component %zu)", 
+                    mixId, newFunc->GetRawName().c_str(), i);
         newFunc->ComputeHash();
         FunctionHash funcHash = newFunc->GetFunctionHash();
-        ALOG_DEBUG_F("Function %s computed hash: %lu", newFunc->GetMagicName(), funcHash.GetHash());
+        ALOG_DEBUG_F("Function %s computed hash: %lu (mixId=%lu)", 
+                    newFunc->GetMagicName().c_str(), funcHash.GetHash(), mixId);
+        
         Program::GetInstance().GetFunctionCache().Insert(funcHash, *newFunc);
         Program::GetInstance().InsertFuncToFunctionMap(newFunc->GetMagicName(), functionClone.cloneFunc);        
         if (newFunc == nullptr) {
             return FAILED;
         }
         newFunctions.push_back(newFunc);
-    }
-    return SUCCESS;
-}
-
-Status MixSubgraphSplit::SetMixIdResourceType(std::vector<Function*> &newFunctions, uint64_t mixId, MixResourceType resourceType) {
-    for (size_t i = 0; i < newFunctions.size(); i++) {
-        auto leafAttr = newFunctions[i]->GetLeafFuncAttribute();
-        if (leafAttr == nullptr) {
-            ALOG_ERROR_F("LeafFuncAttribute not set for new function");
-            return FAILED;
-        }
-        // 设置mixId和resourceType
-        leafAttr->mixId = mixId;
-        leafAttr->mixResourceType = resourceType;
-        ALOG_DEBUG_F("Set mixId=%lu to leaf function %s", mixId, newFunctions[i]->GetRawName().c_str());
     }
     return SUCCESS;
 }
@@ -393,21 +392,19 @@ Status MixSubgraphSplit::ProcessLeafFunction(Function& rootFunc,
                         originalMixFunc->GetRawName().c_str());
             return FAILED;  
         }
-        // 为每个scope创建leaf function
-        if (GenNewFunctions(rootFunc, originalMixFunc, components, newProgramIDs, analyzerOutput->subgraphToFunction, newFunctions) != SUCCESS) {
-            return FAILED;
-        }
         uint64_t mixId = nextMixId_++;
         ALOG_DEBUG_F("Assigning mixId=%lu for original mix function programID=%d", mixId, programID);
         MixResourceType resourceType = GetMixResourceType(*originalMixFunc);
         ALOG_DEBUG_F("Mix resource type: %d for programID=%d", static_cast<int>(resourceType), programID);
+        // 为每个scope创建leaf function
+        if (GenNewFunctions(rootFunc, originalMixFunc, components, newProgramIDs, analyzerOutput->subgraphToFunction, newFunctions, 
+                           mixId, resourceType) != SUCCESS) {
+            return FAILED;
+        }
+       
         // 应用最终的依赖到leaf functions（外部依赖）
         ALOG_INFO_F("Applying final dependencies to leaf functions...");
         ApplyFinalDependencies(newFunctions, analyzerOutput->allIncasts, analyzerOutput->allOutcasts);
-        // 设置mixId和resourceType
-        if (SetMixIdResourceType(newFunctions, mixId, resourceType) != SUCCESS) {
-            return FAILED;
-        }
         // 记录到全局（仅本地function）
         RecordSplitResult(originalMixFunc, newFunctions, newProgramIDs, components, mixId, analyzerOutput);
         subgraphToFunction = analyzerOutput->subgraphToFunction;
