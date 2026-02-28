@@ -71,13 +71,13 @@ class L1CopyInReuseRunner {
     const std::vector<std::vector<int>> &inGraph;
     std::unordered_map<int, int> replacedCopyMap_;
     std::unordered_map<int, int> tensormagic2Op_;
-    std::unordered_map<uint64_t, std::vector<int>> hashMap;
-    std::unordered_map<uint64_t, int> hashOrder;
-    std::map<int64_t, int64_t> numLRMap;
-    std::map<int64_t, int64_t> numDBMap;
-    int mgCopyInUpperBound;
-    int L1ReuseMode;
-    int cubeNBufferMode;
+    std::unordered_map<uint64_t, std::vector<int>> hashMap_;
+    std::unordered_map<uint64_t, int> hashOrder_;
+    std::map<int64_t, int64_t> numLRMap_;
+    std::map<int64_t, int64_t> numDBMap_;
+    int mgCopyInUpperBound_;
+    int L1ReuseMode_;
+    int cubeNBufferMode_;
 };
 
 class L1CopyInReuseMerge : public Pass {
