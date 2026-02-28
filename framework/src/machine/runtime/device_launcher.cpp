@@ -27,11 +27,18 @@ extern "C" __attribute__((weak)) int AdxDataDumpServerInit();
 namespace npu::tile_fwk::dynamic {
 namespace {
     constexpr uint32_t kMinDefaultDim = 20;
+    // AIC:AIV的比例系数
+    constexpr uint32_t AICAIVRATIO = 2;
 }
 int GetCfgBlockdim() {
 #ifdef BUILD_WITH_CANN
     auto blk = Platform::Instance().GetSoc().GetAICoreNum();
     blk = blk > 0 ? blk : kMinDefaultDim;
+
+    // 通过GetMaxBlockdim接口获取设置的最大核数，如果设置的最大核数大于硬件物理最大核数时，控核不生效
+    // 如果未进行控核，GetMaxBlockdim接口将通过aclrtGetResInCurrentThread函数返回硬件物理最大核数
+    auto maxBlk = GetMaxBlockdim();
+    blk = maxBlk < static_cast<int>(blk) ? maxBlk : blk;
     MACHINE_LOGD("Get blockdim[%d].", blk);
     return blk;
 #else
@@ -39,6 +46,30 @@ int GetCfgBlockdim() {
 #endif
 }
 
+int GetMaxBlockdim() {
+#ifdef BUILD_WITH_CANN
+    uint32_t cubeBlockDim = 0;
+    uint32_t vectorBlockDim = 0;
+    // 若未进行控核，aclrtGetResInCurrentThread返回的是满核
+    aclrtGetResInCurrentThread(ACL_RT_DEV_RES_CUBE_CORE, &cubeBlockDim);
+    aclrtGetResInCurrentThread(ACL_RT_DEV_RES_VECTOR_CORE, &vectorBlockDim);
+    // 若不满足AIC和AIV的比例，手动处理成为符合AIC和AIV的比例最大值
+    if (vectorBlockDim != cubeBlockDim * AICAIVRATIO) {
+        auto rtsMaxBlockDim = std::min(cubeBlockDim, vectorBlockDim / AICAIVRATIO);
+        ALOG_WARN_F(
+            "The cubeBlockDim[%d] and vectorBlockDim[%d] do not conform to the 1: %d ratio of AIC and AIV, "
+            "and will be set to values that conform to the ratio of AIC and AIV. "
+            "The cubeBlockDim and vectorBlockDim are set at %d and %d", 
+            cubeBlockDim, vectorBlockDim, AICAIVRATIO, rtsMaxBlockDim, rtsMaxBlockDim * AICAIVRATIO);
+        return rtsMaxBlockDim;
+    } else {
+        return cubeBlockDim;
+    }
+#else
+    return kMinDefaultDim;
+#endif
+}
+ 	 
 void (*forceLinkLibraryCompiler)() = &npu::tile_fwk::ForceLinkLibraryCompiler;
 
 DeviceLauncherContext &DeviceLauncherContext::Get() {
