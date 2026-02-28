@@ -8,9 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_CORE_H_
-#define PYPTO_IR_CORE_H_
-
+#pragma once
 #include <functional>
 #include <memory>
 #include <string>
@@ -222,5 +220,3 @@ struct hash<pypto::ir::IRNodePtr> {
 };
 
 }  // namespace std
-
-#endif  // PYPTO_IR_CORE_H_

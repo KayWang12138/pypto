@@ -8,9 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_SCALAR_EXPR_H_
-#define PYPTO_IR_SCALAR_EXPR_H_
-
+#pragma once
 #include <memory>
 #include <string>
 #include <tuple>
@@ -511,5 +509,3 @@ inline ExprPtr MakeBitNot(const ExprPtr& operand, const Span& span = Span::unkno
 
 }  // namespace ir
 }  // namespace pypto
-
-#endif  // PYPTO_IR_SCALAR_EXPR_H_

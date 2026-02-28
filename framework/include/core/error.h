@@ -23,9 +23,7 @@
  * - Integration with standard C++ exception mechanisms
  */
 
-#ifndef PYPTO_CORE_ERROR_H_
-#define PYPTO_CORE_ERROR_H_
-
+#pragma once
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -359,5 +357,3 @@ class VerificationError : public Error {
 
 }  // namespace ir
 }  // namespace pypto
-
-#endif  // PYPTO_CORE_ERROR_H_

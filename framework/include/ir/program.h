@@ -8,9 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_PROGRAM_H_
-#define PYPTO_IR_PROGRAM_H_
-
+#pragma once
 #include <map>
 #include <memory>
 #include <string>
@@ -101,5 +99,3 @@ using ProgramPtr = std::shared_ptr<const Program>;
 
 }  // namespace ir
 }  // namespace pypto
-
-#endif  // PYPTO_IR_PROGRAM_H_

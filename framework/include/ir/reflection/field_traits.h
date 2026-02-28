@@ -8,9 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_REFLECTION_FIELD_TRAITS_H_
-#define PYPTO_IR_REFLECTION_FIELD_TRAITS_H_
-
+#pragma once
 namespace pypto {
 namespace ir {
 namespace reflection {
@@ -117,5 +115,3 @@ constexpr auto IgnoreField(FieldType NodeType::* ptr, const char* name) {
 }  // namespace reflection
 }  // namespace ir
 }  // namespace pypto
-
-#endif  // PYPTO_IR_REFLECTION_FIELD_TRAITS_H_

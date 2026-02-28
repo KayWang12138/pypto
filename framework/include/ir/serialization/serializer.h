@@ -8,9 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_SERIALIZATION_SERIALIZER_H_
-#define PYPTO_IR_SERIALIZATION_SERIALIZER_H_
-
+#pragma once
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -86,5 +84,3 @@ void SerializeToFile(const IRNodePtr& node, const std::string& path);
 }  // namespace serialization
 }  // namespace ir
 }  // namespace pypto
-
-#endif  // PYPTO_IR_SERIALIZATION_SERIALIZER_H_

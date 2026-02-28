@@ -17,9 +17,7 @@
  * bfloat16, and Hisilicon float formats.
  */
 
-#ifndef PYPTO_CORE_DTYPE_H_
-#define PYPTO_CORE_DTYPE_H_
-
+#pragma once
 #include <cstdint>
 #include <string>
 
@@ -338,5 +336,3 @@ inline constexpr DataType DataType::HF8 = DataType(kHf8Code);
 
 }  // namespace ir
 }  // namespace pypto
-
-#endif  // PYPTO_CORE_DTYPE_H_

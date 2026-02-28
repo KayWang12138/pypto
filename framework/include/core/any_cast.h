@@ -18,9 +18,7 @@
  * about expected vs. actual types using demangled type names.
  */
 
-#ifndef PYPTO_CORE_ANY_CAST_H_
-#define PYPTO_CORE_ANY_CAST_H_
-
+#pragma once
 #include <cxxabi.h>
 
 #include <any>
@@ -143,5 +141,3 @@ const T& AnyCastRef(const std::any& value, [[maybe_unused]] const std::string& c
 }
 
 }  // namespace pypto
-
-#endif  // PYPTO_CORE_ANY_CAST_H_

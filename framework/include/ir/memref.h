@@ -8,9 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_MEMREF_H_
-#define PYPTO_IR_MEMREF_H_
-
+#pragma once
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -62,5 +60,3 @@ std::string MemorySpaceToString(MemorySpace space);
 
 }  // namespace ir
 }  // namespace pypto
-
-#endif  // PYPTO_IR_MEMREF_H_

@@ -8,9 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_PIPE_H_
-#define PYPTO_IR_PIPE_H_
-
+#pragma once
 namespace pypto {
 namespace ir {
 
@@ -38,5 +36,3 @@ enum CoreType : int {
 
 }  // namespace ir
 }  // namespace pypto
-
-#endif  // PYPTO_IR_PIPE_H_
