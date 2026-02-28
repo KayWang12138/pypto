@@ -798,6 +798,7 @@ static void Cmps(const TensorData &out, const TensorData &self, const Element &e
 DEFINE_BINARY_PAIR_OPS(Sum, add_out)
 DEFINE_BINARY_PAIR_OPS(Max, max_out)
 DEFINE_BINARY_PAIR_OPS(Min, min_out)
+DEFINE_BINARY_PAIR_OPS(Prod, mul_out)
 
 std::vector<int64_t> GenAxesForTranspose(const int64_t offset, const std::vector<int64_t>& base) {
     std::vector<int64_t> axes;
@@ -1213,6 +1214,57 @@ static void RowSumExpand(const TensorData &out, const TensorData &self, int dim)
 }
 
 static void RowSumSingle(const TensorData &out, const TensorData &self, int dim) {
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::sum_out(tout.second, tself.second, {dim}, true);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
+static void RowMinExpand(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+    auto ret = torch::min(From(self), dim, true);
+    From(out) = std::get<0>(ret);
+}
+
+static void RowMaxExpand(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+    auto ret = torch::max(From(self), dim, true);
+    From(out) = std::get<0>(ret);
+}
+
+static void RowMinSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+    auto ret = torch::min(From(self), dim, true);
+    From(out) = std::get<0>(ret);
+}
+
+static void RowMinLine(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+    auto ret = torch::min(From(self), dim, true);
+    From(out) = std::get<0>(ret);
+}
+
+static void RowMaxSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+    auto ret = torch::max(From(self), dim, true);
+    From(out) = std::get<0>(ret);
+}
+
+static void RowMaxLine(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+    auto ret = torch::max(From(self), dim, true);
+    From(out) = std::get<0>(ret);
+}
+
+static void RowProdSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+    auto tout = From(out);
+    torch::prod_out(tout, From(self), {dim}, true);
+}
+
+static void RowProdLine(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+    auto tout = From(out);
+    torch::prod_out(tout, From(self), {dim}, true);
+}
+
+static void Reshape(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    From(out) = torch::reshape(From(self), out->GetShape());
+}
+
+static void Transpose(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t dim0, int64_t dim1) {
     auto tout = From(out);
     auto tself = From(self);
     torch::sum_out(tout.second, tself.second, {dim}, true);
@@ -1907,6 +1959,7 @@ static struct CalcOps calcOps = {
     .PairSum = PairSum,
     .PairMax = PairMax,
     .PairMin = PairMin,
+    .PairProd = PairProd,
     .Min = Min,
     .Max = Max,
     .MinS = MinS,
@@ -1917,8 +1970,10 @@ static struct CalcOps calcOps = {
     .RowSumSingle = RowSumSingle,
     .RowMinSingle = RowMinSingle,
     .RowMaxSingle = RowMaxSingle,
+    .RowProdSingle = RowProdSingle,
     .RowMinLine = RowMinLine,
     .RowMaxLine = RowMaxLine,
+    .RowProdLine = RowProdLine,
     .OneHot = OneHot,
     .ExpandS = ExpandS,
     .Expand = Expand,
