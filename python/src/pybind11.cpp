@@ -21,7 +21,6 @@ PYBIND11_MODULE(pypto_impl, m) {
     m.doc() = "PyPTO";
 
     BindErrors(m);
-    
     // Bind tilefwk enums and types first
     bind_enum(m);
     BindElement(m);
