@@ -1948,8 +1948,6 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
                     }
                 }
                 if (scope) {
-                    std::cout << "Function Name: " << this->GetMagicName() << std::endl;
-                    std::cout << "partial assemble: " << rawSymbol->GetMagic() << std::endl;
                     scope->partialUpdateOutcastDict[rawSymbol] = partitalAssemble;
                 }
             } else {
