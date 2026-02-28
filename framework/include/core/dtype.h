@@ -248,7 +248,7 @@ public:
      * \param other The other DataType to compare with
      * \return true if both types have the same code
      */
-    constexpr bool operator==(const DataType &other) const { return code_ == other.code_; }
+    constexpr bool operator==(const DataType& other) const { return code_ == other.code_; }
 
     /**
      * \brief Inequality comparison operator
@@ -256,7 +256,7 @@ public:
      * \param other The other DataType to compare with
      * \return true if types have different codes
      */
-    constexpr bool operator!=(const DataType &other) const { return code_ != other.code_; }
+    constexpr bool operator!=(const DataType& other) const { return code_ != other.code_; }
 
     /**
      * \brief Get the underlying type code

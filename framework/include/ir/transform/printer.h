@@ -48,7 +48,7 @@ enum class Precedence : int {
  * \param expr Expression to get precedence for
  * \return Precedence level
  */
-Precedence GetPrecedence(const ExprPtr &expr);
+Precedence GetPrecedence(const ExprPtr& expr);
 
 /**
  * \brief Check if operator is right-associative
@@ -56,7 +56,7 @@ Precedence GetPrecedence(const ExprPtr &expr);
  * \param expr Expression to check
  * \return true if right-associative, false if left-associative
  */
-bool IsRightAssociative(const ExprPtr &expr);
+bool IsRightAssociative(const ExprPtr& expr);
 
 /**
  * \brief Print an IR node in Python syntax
@@ -65,7 +65,7 @@ bool IsRightAssociative(const ExprPtr &expr);
  * \param prefix Module prefix to use (default: "pl", can be "ir" for legacy)
  * \return Python-style string representation
  */
-std::string PythonPrint(const IRNodePtr &node, const std::string &prefix = "pl");
+std::string PythonPrint(const IRNodePtr& node, const std::string& prefix = "pl");
 
 /**
  * \brief Print a type in Python syntax
@@ -74,7 +74,7 @@ std::string PythonPrint(const IRNodePtr &node, const std::string &prefix = "pl")
  * \param prefix Module prefix to use (default: "pl", can be "ir" for legacy)
  * \return Python-style string representation
  */
-std::string PythonPrint(const TypePtr &type, const std::string &prefix = "pl");
+std::string PythonPrint(const TypePtr& type, const std::string& prefix = "pl");
 
 } // namespace ir
 } // namespace pypto

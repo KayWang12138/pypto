@@ -38,7 +38,7 @@ public:
      * \param data Vector of bytes containing the MessagePack-encoded data
      * \return The deserialized IR node
      */
-    IRNodePtr Deserialize(const std::vector<uint8_t> &data);
+    IRNodePtr Deserialize(const std::vector<uint8_t>& data);
 
 private:
     class Impl;
@@ -53,7 +53,7 @@ private:
  * \param data Vector of bytes containing the MessagePack-encoded data
  * \return The deserialized IR node
  */
-IRNodePtr Deserialize(const std::vector<uint8_t> &data);
+IRNodePtr Deserialize(const std::vector<uint8_t>& data);
 
 /**
  * \brief Deserialize an IR node from a file
@@ -61,7 +61,7 @@ IRNodePtr Deserialize(const std::vector<uint8_t> &data);
  * \param path Path to the input file
  * \return The deserialized IR node
  */
-IRNodePtr DeserializeFromFile(const std::string &path);
+IRNodePtr DeserializeFromFile(const std::string& path);
 
 } // namespace serialization
 } // namespace ir

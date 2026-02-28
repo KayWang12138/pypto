@@ -110,8 +110,8 @@ public:
      * \param return_vars Return variables (can be empty)
      * \param span Source location
      */
-    IfStmt(ExprPtr condition, StmtPtr thenBody, std::optional<StmtPtr> elseBody, std::vector<VarPtr> returnVars,
-        Span span)
+    IfStmt(
+        ExprPtr condition, StmtPtr thenBody, std::optional<StmtPtr> elseBody, std::vector<VarPtr> returnVars, Span span)
         : Stmt(std::move(span)),
           condition_(std::move(condition)),
           thenBody_(std::move(thenBody)),
@@ -135,7 +135,7 @@ public:
     }
 
 public:
-    ExprPtr condition_;                // Condition expression
+    ExprPtr condition_;               // Condition expression
     StmtPtr thenBody_;                // Then branch statement
     std::optional<StmtPtr> elseBody_; // Else branch statement (optional)
     std::vector<VarPtr> returnVars_;  // Return variables (can be empty)
@@ -284,19 +284,18 @@ public:
         return std::tuple_cat(Stmt::GetFieldDescriptors(),
             std::make_tuple(reflection::DefField(&ForStmt::loopVar_, "loop_var"),
                 reflection::UsualField(&ForStmt::start_, "start"), reflection::UsualField(&ForStmt::stop_, "stop"),
-                reflection::UsualField(&ForStmt::step_, "step"),
-                reflection::DefField(&ForStmt::iterArgs_, "iter_args"),
+                reflection::UsualField(&ForStmt::step_, "step"), reflection::DefField(&ForStmt::iterArgs_, "iter_args"),
                 reflection::UsualField(&ForStmt::body_, "body"),
                 reflection::DefField(&ForStmt::returnVars_, "return_vars")));
     }
 
 public:
     VarPtr loopVar_;                   // Loop variable (e.g., i in "for i in range(...)")
-    ExprPtr start_;                     // Start value expression
-    ExprPtr stop_;                      // Stop value expression
-    ExprPtr step_;                      // Step value expression
+    ExprPtr start_;                    // Start value expression
+    ExprPtr stop_;                     // Stop value expression
+    ExprPtr step_;                     // Step value expression
     std::vector<IterArgPtr> iterArgs_; // Loop-carried values (scoped to loop body)
-    StmtPtr body_;                      // Loop body statement (must yield if iter_args non-empty)
+    StmtPtr body_;                     // Loop body statement (must yield if iter_args non-empty)
     std::vector<VarPtr> returnVars_;   // Variables capturing final iteration values (accessible after loop)
 };
 

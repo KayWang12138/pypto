@@ -471,7 +471,7 @@ PenaltyReturnTypeOnItsOwnLine: 200
 # Pointer and reference alignment style.
 # 指针和引用的对齐方式。
 # 参数可取值 Left, Right, Middle。火狐和 Google 家都在左边。
-PointerAlignment: Right
+PointerAlignment: Left
 
 # Defines hints for detecting supported languages code blocks in raw strings.
 # Defines hints for detecting supported languages code blocks in raw strings.

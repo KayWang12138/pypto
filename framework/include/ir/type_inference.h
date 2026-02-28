@@ -30,7 +30,7 @@ namespace ir {
 struct BroadcastResult {
     bool success;               // Whether broadcasting succeeded
     std::vector<ExprPtr> shape; // Resulting broadcast shape (empty if failed)
-    std::string errorMessage;  // Error message if broadcasting failed
+    std::string errorMessage;   // Error message if broadcasting failed
 
     /**
      * \brief Create a successful broadcast result
@@ -64,7 +64,7 @@ struct BroadcastResult {
  * \param shape2 Second shape
  * \return BroadcastResult with the resulting shape or error
  */
-BroadcastResult BroadcastShapes(const std::vector<ExprPtr> &shape1, const std::vector<ExprPtr> &shape2);
+BroadcastResult BroadcastShapes(const std::vector<ExprPtr>& shape1, const std::vector<ExprPtr>& shape2);
 
 /**
  * \brief Promote two data types to a common type
@@ -99,7 +99,7 @@ std::optional<DataType> PromoteDataTypes(DataType dtype1, DataType dtype2);
  * \param type2 Second type
  * \return true if types are compatible
  */
-bool CheckTypeCompatibility(const TypePtr &type1, const TypePtr &type2);
+bool CheckTypeCompatibility(const TypePtr& type1, const TypePtr& type2);
 
 /**
  * \brief Extract data type from a type pointer
@@ -109,7 +109,7 @@ bool CheckTypeCompatibility(const TypePtr &type1, const TypePtr &type2);
  * \param type Type pointer
  * \return Data type, or std::nullopt if type is not a scalar/tensor/tile type
  */
-std::optional<DataType> ExtractDataType(const TypePtr &type);
+std::optional<DataType> ExtractDataType(const TypePtr& type);
 
 /**
  * \brief Extract shape from a tensor or tile type
@@ -117,7 +117,7 @@ std::optional<DataType> ExtractDataType(const TypePtr &type);
  * \param type Type pointer
  * \return Shape vector, or empty vector if type is not a tensor/tile type
  */
-std::vector<ExprPtr> ExtractShape(const TypePtr &type);
+std::vector<ExprPtr> ExtractShape(const TypePtr& type);
 
 /**
  * \brief Check if a dimension expression represents a constant value
@@ -125,7 +125,7 @@ std::vector<ExprPtr> ExtractShape(const TypePtr &type);
  * \param dim Dimension expression
  * \return std::optional with the constant value, or std::nullopt if not constant
  */
-std::optional<int64_t> GetConstantDimension(const ExprPtr &dim);
+std::optional<int64_t> GetConstantDimension(const ExprPtr& dim);
 
 /**
  * \brief Check if two dimension expressions are equal
@@ -138,7 +138,7 @@ std::optional<int64_t> GetConstantDimension(const ExprPtr &dim);
  * \param dim2 Second dimension
  * \return true if dimensions are equal
  */
-bool DimensionsEqual(const ExprPtr &dim1, const ExprPtr &dim2);
+bool DimensionsEqual(const ExprPtr& dim1, const ExprPtr& dim2);
 
 /**
  * \brief Check if a dimension is broadcastable to another
@@ -152,7 +152,7 @@ bool DimensionsEqual(const ExprPtr &dim1, const ExprPtr &dim2);
  * \param target_dim Target dimension
  * \return true if source can be broadcast to target
  */
-bool IsBroadcastable(const ExprPtr &sourceDim, const ExprPtr &targetDim);
+bool IsBroadcastable(const ExprPtr& sourceDim, const ExprPtr& targetDim);
 
 /**
  * \brief Format a shape vector as a string for error messages
@@ -168,7 +168,7 @@ bool IsBroadcastable(const ExprPtr &sourceDim, const ExprPtr &targetDim);
  * \param shape Shape vector to format
  * \return String representation of the shape
  */
-std::string FormatShape(const std::vector<ExprPtr> &shape);
+std::string FormatShape(const std::vector<ExprPtr>& shape);
 
 } // namespace ir
 } // namespace pypto
