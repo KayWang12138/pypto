@@ -91,7 +91,7 @@ std::vector<BasicBlock> DependencyAnalyzer::IdentifyBasicBlocks(const StmtPtr& s
   class BasicBlockBuilder {
    public:
     explicit BasicBlockBuilder(std::vector<BasicBlock>& blocks, int& next_id)
-        : blocks_(blocks), next_id_(next_id) {}
+        : blocks_(blocks), nextId_(next_id) {}
 
     // Process a statement and create basic blocks
     int ProcessStmt(const StmtPtr& stmt, const std::vector<int>& predecessors) {
@@ -172,12 +172,12 @@ std::vector<BasicBlock> DependencyAnalyzer::IdentifyBasicBlocks(const StmtPtr& s
       // For simplicity, we'll process then/else bodies as separate blocks
 
       // Process then body
-      int then_exit = ProcessStmt(if_stmt->then_body_, predecessors);
+      int then_exit = ProcessStmt(if_stmt->thenBody_, predecessors);
 
       // Process else body (if exists)
       int else_exit = -1;
-      if (if_stmt->else_body_.has_value()) {
-        else_exit = ProcessStmt(*if_stmt->else_body_, predecessors);
+      if (if_stmt->elseBody_.has_value()) {
+        else_exit = ProcessStmt(*if_stmt->elseBody_, predecessors);
       }
 
       // Create a virtual merge block (both branches merge here)
@@ -189,7 +189,7 @@ std::vector<BasicBlock> DependencyAnalyzer::IdentifyBasicBlocks(const StmtPtr& s
     int ProcessForStmt(const std::shared_ptr<const ForStmt>& for_stmt, const std::vector<int>& predecessors) {
       // Create a basic block for the loop body
       BasicBlock loop_block;
-      loop_block.id = next_id_++;
+      loop_block.id = nextId_++;
       loop_block.is_loop_body = true;
       loop_block.predecessors = predecessors;
 
@@ -201,7 +201,7 @@ std::vector<BasicBlock> DependencyAnalyzer::IdentifyBasicBlocks(const StmtPtr& s
 
       // Add a successor for loop exit (next block after loop)
       // We'll model this as continuing to the next block
-      int exit_id = next_id_;  // The next block would have this ID
+      int exit_id = nextId_;  // The next block would have this ID
       loop_block.successors.push_back(exit_id);
 
       blocks_.push_back(loop_block);
@@ -211,7 +211,7 @@ std::vector<BasicBlock> DependencyAnalyzer::IdentifyBasicBlocks(const StmtPtr& s
 
     int CreateSingleStmtBlock(const StmtPtr& stmt, const std::vector<int>& predecessors, bool is_loop) {
       BasicBlock block;
-      block.id = next_id_++;
+      block.id = nextId_++;
       block.predecessors = predecessors;
       block.is_loop_body = is_loop;
 
@@ -225,7 +225,7 @@ std::vector<BasicBlock> DependencyAnalyzer::IdentifyBasicBlocks(const StmtPtr& s
 
     int CreateMergedBlock(const std::vector<StmtPtr>& stmts, const std::vector<int>& predecessors) {
       BasicBlock block;
-      block.id = next_id_++;
+      block.id = nextId_++;
       block.predecessors = predecessors;
       block.is_loop_body = false;
 
@@ -259,7 +259,7 @@ std::vector<BasicBlock> DependencyAnalyzer::IdentifyBasicBlocks(const StmtPtr& s
     }
 
     std::vector<BasicBlock>& blocks_;
-    int& next_id_;
+    int& nextId_;
   };
 
   // Build basic blocks starting from the root statement

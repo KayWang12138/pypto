@@ -379,7 +379,7 @@ public:
     [[nodiscard]] std::vector<TypePtr> GetFunctionReturnTypes(const GlobalVarPtr &gvar) const;
 
 private:
-    std::vector<std::unique_ptr<BuildContext>> context_stack_;
+    std::vector<std::unique_ptr<BuildContext>> contextStack_;
 
     // Helper to get current context with type checking
     template <typename T>
@@ -402,11 +402,11 @@ class BuildContext {
 public:
     enum class Type { FUNCTION, FOR_LOOP, IF_STMT, PROGRAM };
 
-    explicit BuildContext(Type type, Span span) : type_(type), begin_span_(std::move(span)) {}
+    explicit BuildContext(Type type, Span span) : type_(type), beginSpan_(std::move(span)) {}
     virtual ~BuildContext() = default;
 
     [[nodiscard]] Type GetType() const { return type_; }
-    [[nodiscard]] const Span &GetBeginSpan() const { return begin_span_; }
+    [[nodiscard]] const Span &GetBeginSpan() const { return beginSpan_; }
 
     // Accumulate statements in this context
     virtual void AddStmt(const StmtPtr &stmt) = 0;
@@ -414,7 +414,7 @@ public:
 
 protected:
     Type type_;
-    Span begin_span_;
+    Span beginSpan_;
     std::vector<StmtPtr> stmts_;
 };
 
@@ -424,22 +424,22 @@ protected:
 class FunctionContext : public BuildContext {
 public:
     FunctionContext(std::string name, Span span, FunctionType func_type = FunctionType::Opaque)
-        : BuildContext(Type::FUNCTION, std::move(span)), name_(std::move(name)), func_type_(func_type) {}
+        : BuildContext(Type::FUNCTION, std::move(span)), name_(std::move(name)), funcType_(func_type) {}
 
     void AddParam(const VarPtr &param) { params_.push_back(param); }
-    void AddReturnType(const TypePtr &type) { return_types_.push_back(type); }
+    void AddReturnType(const TypePtr &type) { returnTypes_.push_back(type); }
 
     void AddStmt(const StmtPtr &stmt) override { stmts_.push_back(stmt); }
     [[nodiscard]] const std::string &GetName() const { return name_; }
     [[nodiscard]] const std::vector<VarPtr> &GetParams() const { return params_; }
-    [[nodiscard]] const std::vector<TypePtr> &GetReturnTypes() const { return return_types_; }
-    [[nodiscard]] FunctionType GetFuncType() const { return func_type_; }
+    [[nodiscard]] const std::vector<TypePtr> &GetReturnTypes() const { return returnTypes_; }
+    [[nodiscard]] FunctionType GetFuncType() const { return funcType_; }
 
 private:
     std::string name_;
-    FunctionType func_type_;
+    FunctionType funcType_;
     std::vector<VarPtr> params_;
-    std::vector<TypePtr> return_types_;
+    std::vector<TypePtr> returnTypes_;
 };
 
 /**
@@ -449,29 +449,29 @@ class ForLoopContext : public BuildContext {
 public:
     ForLoopContext(VarPtr loop_var, ExprPtr start, ExprPtr stop, ExprPtr step, Span span)
         : BuildContext(Type::FOR_LOOP, std::move(span)),
-          loop_var_(std::move(loop_var)),
+          loopVar_(std::move(loop_var)),
           start_(std::move(start)),
           stop_(std::move(stop)),
           step_(std::move(step)) {}
 
-    void AddIterArg(const IterArgPtr &iter_arg) { iter_args_.push_back(iter_arg); }
-    void AddReturnVar(const VarPtr &var) { return_vars_.push_back(var); }
+    void AddIterArg(const IterArgPtr &iter_arg) { iterArgs_.push_back(iter_arg); }
+    void AddReturnVar(const VarPtr &var) { returnVars_.push_back(var); }
 
     void AddStmt(const StmtPtr &stmt) override { stmts_.push_back(stmt); }
-    [[nodiscard]] const VarPtr &GetLoopVar() const { return loop_var_; }
+    [[nodiscard]] const VarPtr &GetLoopVar() const { return loopVar_; }
     [[nodiscard]] const ExprPtr &GetStart() const { return start_; }
     [[nodiscard]] const ExprPtr &GetStop() const { return stop_; }
     [[nodiscard]] const ExprPtr &GetStep() const { return step_; }
-    [[nodiscard]] const std::vector<IterArgPtr> &GetIterArgs() const { return iter_args_; }
-    [[nodiscard]] const std::vector<VarPtr> &GetReturnVars() const { return return_vars_; }
+    [[nodiscard]] const std::vector<IterArgPtr> &GetIterArgs() const { return iterArgs_; }
+    [[nodiscard]] const std::vector<VarPtr> &GetReturnVars() const { return returnVars_; }
 
 private:
-    VarPtr loop_var_;
+    VarPtr loopVar_;
     ExprPtr start_;
     ExprPtr stop_;
     ExprPtr step_;
-    std::vector<IterArgPtr> iter_args_;
-    std::vector<VarPtr> return_vars_;
+    std::vector<IterArgPtr> iterArgs_;
+    std::vector<VarPtr> returnVars_;
 };
 
 /**
@@ -483,29 +483,29 @@ public:
         : BuildContext(Type::IF_STMT, std::move(span)), condition_(std::move(condition)) {}
 
     void BeginElseBranch() {
-        in_else_branch_ = true;
-        else_stmts_.clear();
+        inElseBranch_ = true;
+        elseStmts_.clear();
     }
 
-    void AddReturnVar(const VarPtr &var) { return_vars_.push_back(var); }
+    void AddReturnVar(const VarPtr &var) { returnVars_.push_back(var); }
 
     void AddStmt(const StmtPtr &stmt) override {
-        if (in_else_branch_) {
-            else_stmts_.push_back(stmt);
+        if (inElseBranch_) {
+            elseStmts_.push_back(stmt);
         } else {
             stmts_.push_back(stmt);
         }
     }
     [[nodiscard]] const ExprPtr &GetCondition() const { return condition_; }
-    [[nodiscard]] bool InElseBranch() const { return in_else_branch_; }
-    [[nodiscard]] const std::vector<StmtPtr> &GetElseStmts() const { return else_stmts_; }
-    [[nodiscard]] const std::vector<VarPtr> &GetReturnVars() const { return return_vars_; }
+    [[nodiscard]] bool InElseBranch() const { return inElseBranch_; }
+    [[nodiscard]] const std::vector<StmtPtr> &GetElseStmts() const { return elseStmts_; }
+    [[nodiscard]] const std::vector<VarPtr> &GetReturnVars() const { return returnVars_; }
 
 private:
     ExprPtr condition_;
-    bool in_else_branch_ = false;
-    std::vector<StmtPtr> else_stmts_;
-    std::vector<VarPtr> return_vars_;
+    bool inElseBranch_ = false;
+    std::vector<StmtPtr> elseStmts_;
+    std::vector<VarPtr> returnVars_;
 };
 
 /**
@@ -558,7 +558,7 @@ public:
      *
      * \return Map of function names to GlobalVars
      */
-    [[nodiscard]] const std::map<std::string, GlobalVarPtr> &GetGlobalVars() const { return global_vars_; }
+    [[nodiscard]] const std::map<std::string, GlobalVarPtr> &GetGlobalVars() const { return globalVars_; }
 
     /**
      * \brief Get return types for a function by its GlobalVar
@@ -576,8 +576,8 @@ public:
 private:
     std::string name_;
     std::vector<FunctionPtr> functions_;
-    std::map<std::string, GlobalVarPtr> global_vars_;          // Track GlobalVars for cross-function calls
-    std::map<std::string, std::vector<TypePtr>> return_types_; // Track return types for each function
+    std::map<std::string, GlobalVarPtr> globalVars_;          // Track GlobalVars for cross-function calls
+    std::map<std::string, std::vector<TypePtr>> returnTypes_; // Track return types for each function
 };
 
 } // namespace ir

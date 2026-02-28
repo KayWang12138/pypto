@@ -38,11 +38,11 @@ void IRVerifier::AddRule(VerifyRulePtr rule) {
   }
 }
 
-void IRVerifier::EnableRule(const std::string& name) { disabled_rules_.erase(name); }
+void IRVerifier::EnableRule(const std::string& name) { disabledRules_.erase(name); }
 
-void IRVerifier::DisableRule(const std::string& name) { disabled_rules_.insert(name); }
+void IRVerifier::DisableRule(const std::string& name) { disabledRules_.insert(name); }
 
-bool IRVerifier::IsRuleEnabled(const std::string& name) const { return disabled_rules_.count(name) == 0; }
+bool IRVerifier::IsRuleEnabled(const std::string& name) const { return disabledRules_.count(name) == 0; }
 
 std::vector<Diagnostic> IRVerifier::Verify(const ProgramPtr& program) const {
   if (!program) {
@@ -124,7 +124,7 @@ std::string IRVerifier::GenerateReport(const std::vector<Diagnostic>& diagnostic
 
     oss << "[" << (i + 1) << "] " << severity_str << " - " << d.rule_name << "\n";
     oss << "  Message: " << d.message << "\n";
-    oss << "  Location: " << d.span.filename_ << ":" << d.span.begin_line_ << ":" << d.span.begin_column_
+    oss << "  Location: " << d.span.filename_ << ":" << d.span.beginLine_ << ":" << d.span.beginColumn_
         << "\n";
     oss << "  Error Code: " << d.error_code << "\n";
     oss << "\n";

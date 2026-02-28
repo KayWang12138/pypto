@@ -37,10 +37,10 @@ namespace ir {
 class Span {
 public:
     const std::string filename_; ///< Source filename
-    const int begin_line_;       ///< Beginning line number (1-indexed)
-    const int begin_column_;     ///< Beginning column number (1-indexed)
-    const int end_line_;         ///< Ending line number (1-indexed), -1 means unknown
-    const int end_column_;       ///< Ending column number (1-indexed), -1 means unknown
+    const int beginLine_;       ///< Beginning line number (1-indexed)
+    const int beginColumn_;     ///< Beginning column number (1-indexed)
+    const int endLine_;         ///< Ending line number (1-indexed), -1 means unknown
+    const int endColumn_;       ///< Ending column number (1-indexed), -1 means unknown
 
     /**
      * \brief Construct a source span

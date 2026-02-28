@@ -51,7 +51,7 @@ class StructuralHasher {
  public:
   using result_type = uint64_t;
 
-  explicit StructuralHasher(bool enable_auto_mapping) : enable_auto_mapping_(enable_auto_mapping) {}
+  explicit StructuralHasher(bool enable_auto_mapping) : enableAutoMapping_(enable_auto_mapping) {}
 
   result_type operator()(const IRNodePtr& node) { return HashNode(node); }
 
@@ -108,9 +108,9 @@ class StructuralHasher {
   template <typename FVisitOp>
   void VisitDefField(FVisitOp&& visit_op) {
     bool enable_auto_mapping = true;
-    std::swap(enable_auto_mapping, enable_auto_mapping_);
+    std::swap(enable_auto_mapping, enableAutoMapping_);
     visit_op();
-    std::swap(enable_auto_mapping, enable_auto_mapping_);
+    std::swap(enable_auto_mapping, enableAutoMapping_);
   }
   template <typename FVisitOp>
   void VisitUsualField(FVisitOp&& visit_op) {
@@ -212,9 +212,9 @@ class StructuralHasher {
   template <typename NodePtr>
   result_type HashNodeImpl(const NodePtr& node);
 
-  bool enable_auto_mapping_;
-  std::unordered_map<IRNodePtr, result_type> hash_value_map_;
-  int64_t free_var_counter_ = 0;
+  bool enableAutoMapping_;
+  std::unordered_map<IRNodePtr, result_type> hashValueMap_;
+  int64_t freeVarCounter_ = 0;
 };
 
 template <typename NodePtr>
@@ -239,9 +239,9 @@ StructuralHasher::result_type StructuralHasher::HashNodeImpl(const NodePtr& node
 
 StructuralHasher::result_type StructuralHasher::HashVar(const VarPtr& op) {
   result_type h = HashNodeImpl(op);
-  if (enable_auto_mapping_) {
+  if (enableAutoMapping_) {
     // Auto-mapping: map Var pointers to sequential IDs for structural comparison
-    h = hash_combine(h, free_var_counter_++);
+    h = hash_combine(h, freeVarCounter_++);
   } else {
     // Without auto-mapping: hash the VarPtr itself (pointer-based)
     h = hash_combine(h, static_cast<result_type>(std::hash<VarPtr>{}(op)));
@@ -271,8 +271,8 @@ StructuralHasher::result_type StructuralHasher::HashType(const TypePtr& type) {
       h = hash_combine(h, HashNode(dim));
     }
     // Hash tile_view if present
-    if (tile_type->tile_view_.has_value()) {
-      const auto& tv = tile_type->tile_view_.value();
+    if (tile_type->tileView_.has_value()) {
+      const auto& tv = tile_type->tileView_.value();
       h = hash_combine(h, static_cast<result_type>(1));  // indicate presence
       // Hash valid_shape
       h = hash_combine(h, static_cast<result_type>(tv.valid_shape.size()));
@@ -325,8 +325,8 @@ StructuralHasher::result_type StructuralHasher::HashType(const TypePtr& type) {
 StructuralHasher::result_type StructuralHasher::HashNode(const IRNodePtr& node) {
   INTERNAL_CHECK(node) << "structural_hash received null IR node";
 
-  auto it = hash_value_map_.find(node);
-  if (it != hash_value_map_.end()) {
+  auto it = hashValueMap_.find(node);
+  if (it != hashValueMap_.end()) {
     return it->second;
   }
 
@@ -362,15 +362,15 @@ StructuralHasher::result_type StructuralHasher::HashNode(const IRNodePtr& node) 
   // Note: IterArg has already been dispatched above for field hashing,
   // here we add the variable-specific hash
   if (auto iter_arg = As<IterArg>(node)) {
-    if (enable_auto_mapping_) {
-      hash_value = hash_combine(hash_value, free_var_counter_++);
+    if (enableAutoMapping_) {
+      hash_value = hash_combine(hash_value, freeVarCounter_++);
     } else {
       // Hash based on pointer for unique instances
       hash_value = hash_combine(hash_value, static_cast<result_type>(std::hash<IterArgPtr>{}(iter_arg)));
     }
   } else if (auto var = As<Var>(node)) {
-    if (enable_auto_mapping_) {
-      hash_value = hash_combine(hash_value, free_var_counter_++);
+    if (enableAutoMapping_) {
+      hash_value = hash_combine(hash_value, freeVarCounter_++);
     } else {
       hash_value = hash_combine(hash_value, static_cast<result_type>(std::hash<VarPtr>{}(var)));
     }
@@ -380,7 +380,7 @@ StructuralHasher::result_type StructuralHasher::HashNode(const IRNodePtr& node) 
     // Unknown IR node type
     throw TypeError("Unknown IR node type in StructuralHasher::HashNode");
   }
-  hash_value_map_.emplace(node, hash_value);
+  hashValueMap_.emplace(node, hash_value);
   return hash_value;
 }
 

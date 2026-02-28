@@ -56,7 +56,7 @@ TEST(IRMemRefTest, TestMemRefBasicConstructor) {
   auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::unknown());
   MemRef memref(MemorySpace::DDR, addr, 1024, 0);
 
-  ASSERT_EQ(memref.memory_space_, MemorySpace::DDR);
+  ASSERT_EQ(memref.memorySpace_, MemorySpace::DDR);
   ASSERT_EQ(memref.addr_, addr);
   ASSERT_EQ(memref.size_, 1024);
 }
@@ -70,10 +70,10 @@ TEST(IRMemRefTest, TestMemRefWithDifferentSpaces) {
   MemRef l1_ref(MemorySpace::L1, addr, 512, 0);
   MemRef l0a_ref(MemorySpace::L0A, addr, 256, 0);
 
-  ASSERT_EQ(ddr_ref.memory_space_, MemorySpace::DDR);
-  ASSERT_EQ(ub_ref.memory_space_, MemorySpace::UB);
-  ASSERT_EQ(l1_ref.memory_space_, MemorySpace::L1);
-  ASSERT_EQ(l0a_ref.memory_space_, MemorySpace::L0A);
+  ASSERT_EQ(ddr_ref.memorySpace_, MemorySpace::DDR);
+  ASSERT_EQ(ub_ref.memorySpace_, MemorySpace::UB);
+  ASSERT_EQ(l1_ref.memorySpace_, MemorySpace::L1);
+  ASSERT_EQ(l0a_ref.memorySpace_, MemorySpace::L0A);
 }
 
 TEST(IRMemRefTest, TestMemRefWithL0Spaces) {
@@ -84,9 +84,9 @@ TEST(IRMemRefTest, TestMemRefWithL0Spaces) {
   MemRef l0b_ref(MemorySpace::L0B, addr, 128, 0);
   MemRef l0c_ref(MemorySpace::L0C, addr, 128, 0);
 
-  ASSERT_EQ(l0a_ref.memory_space_, MemorySpace::L0A);
-  ASSERT_EQ(l0b_ref.memory_space_, MemorySpace::L0B);
-  ASSERT_EQ(l0c_ref.memory_space_, MemorySpace::L0C);
+  ASSERT_EQ(l0a_ref.memorySpace_, MemorySpace::L0A);
+  ASSERT_EQ(l0b_ref.memorySpace_, MemorySpace::L0B);
+  ASSERT_EQ(l0c_ref.memorySpace_, MemorySpace::L0C);
 }
 
 TEST(IRMemRefTest, TestMemRefWithDDRSpace) {
@@ -94,7 +94,7 @@ TEST(IRMemRefTest, TestMemRefWithDDRSpace) {
   auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::unknown());
   MemRef memref(MemorySpace::DDR, addr, 1024, 0);
 
-  ASSERT_EQ(memref.memory_space_, MemorySpace::DDR);
+  ASSERT_EQ(memref.memorySpace_, MemorySpace::DDR);
 }
 
 // ============================================================================
@@ -188,13 +188,13 @@ TEST(IRMemRefTest, TestMemRefCopyConstructor) {
   auto original = std::make_shared<MemRef>(MemorySpace::DDR, addr, 1024, 0);
 
   // Verify fields via shared_ptr
-  ASSERT_EQ(original->memory_space_, MemorySpace::DDR);
+  ASSERT_EQ(original->memorySpace_, MemorySpace::DDR);
   ASSERT_EQ(original->addr_, addr);
   ASSERT_EQ(original->size_, 1024);
 
   // Test that another MemRef with same params has same field values
   auto another = std::make_shared<MemRef>(MemorySpace::DDR, addr, 1024, 1);
-  ASSERT_EQ(another->memory_space_, original->memory_space_);
+  ASSERT_EQ(another->memorySpace_, original->memorySpace_);
   ASSERT_EQ(another->addr_, original->addr_);
   ASSERT_EQ(another->size_, original->size_);
 }
@@ -208,7 +208,7 @@ TEST(IRMemRefTest, TestMemRefAssignment) {
   auto ref2 = std::make_shared<MemRef>(MemorySpace::UB, addr2, 2048, 1);
 
   // Verify they have different values
-  ASSERT_NE(ref1->memory_space_, ref2->memory_space_);
+  ASSERT_NE(ref1->memorySpace_, ref2->memorySpace_);
   ASSERT_NE(ref1->addr_, ref2->addr_);
   ASSERT_NE(ref1->size_, ref2->size_);
 }
@@ -224,7 +224,7 @@ TEST(IRMemRefTest, TestMemRefForTensorAllocation) {
   size_t tensor_size = 10 * 20 * sizeof(float);  // 800 bytes
   MemRef memref(MemorySpace::DDR, addr, tensor_size, 0);
 
-  ASSERT_EQ(memref.memory_space_, MemorySpace::DDR);
+  ASSERT_EQ(memref.memorySpace_, MemorySpace::DDR);
   ASSERT_EQ(memref.size_, tensor_size);
 }
 
@@ -234,7 +234,7 @@ TEST(IRMemRefTest, TestMemRefForTileAllocation) {
   size_t tile_size = 16 * 16 * sizeof(float);  // 1024 bytes
   MemRef memref(MemorySpace::L0A, addr, tile_size, 0);
 
-  ASSERT_EQ(memref.memory_space_, MemorySpace::L0A);
+  ASSERT_EQ(memref.memorySpace_, MemorySpace::L0A);
   ASSERT_EQ(memref.size_, tile_size);
 }
 
@@ -244,7 +244,7 @@ TEST(IRMemRefTest, TestMemRefForBufferAllocation) {
   size_t buffer_size = 4096;  // 4KB buffer
   MemRef memref(MemorySpace::UB, addr, buffer_size, 0);
 
-  ASSERT_EQ(memref.memory_space_, MemorySpace::UB);
+  ASSERT_EQ(memref.memorySpace_, MemorySpace::UB);
   ASSERT_EQ(memref.size_, buffer_size);
 }
 
@@ -256,7 +256,7 @@ TEST(IRMemRefTest, TestMemRefWithOffsetAddress) {
 
   MemRef memref(MemorySpace::L1, addr, 512, 0);
 
-  ASSERT_EQ(memref.memory_space_, MemorySpace::L1);
+  ASSERT_EQ(memref.memorySpace_, MemorySpace::L1);
   ASSERT_EQ(memref.size_, 512);
   ASSERT_EQ(memref.addr_->TypeName(), "Add");
 }
@@ -273,7 +273,7 @@ TEST(IRMemRefTest, TestMemRefEquality) {
   MemRef ref2(MemorySpace::DDR, addr, 1024, 0);
 
   // Note: This tests structural equality, not pointer equality
-  ASSERT_EQ(ref1.memory_space_, ref2.memory_space_);
+  ASSERT_EQ(ref1.memorySpace_, ref2.memorySpace_);
   ASSERT_EQ(ref1.addr_, ref2.addr_);
   ASSERT_EQ(ref1.size_, ref2.size_);
 }
@@ -286,7 +286,7 @@ TEST(IRMemRefTest, TestMemRefInequality) {
   MemRef ref1(MemorySpace::DDR, addr1, 1024, 0);
   MemRef ref2(MemorySpace::UB, addr2, 2048, 0);
 
-  ASSERT_NE(ref1.memory_space_, ref2.memory_space_);
+  ASSERT_NE(ref1.memorySpace_, ref2.memorySpace_);
   ASSERT_NE(ref1.addr_, ref2.addr_);
   ASSERT_NE(ref1.size_, ref2.size_);
 }

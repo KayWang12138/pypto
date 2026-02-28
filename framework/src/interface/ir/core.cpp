@@ -19,31 +19,31 @@ namespace ir {
 
 Span::Span(std::string filename, int begin_line, int begin_column, int end_line, int end_column)
     : filename_(std::move(filename)),
-      begin_line_(begin_line),
-      begin_column_(begin_column),
-      end_line_(end_line),
-      end_column_(end_column) {}
+      beginLine_(begin_line),
+      beginColumn_(begin_column),
+      endLine_(end_line),
+      endColumn_(end_column) {}
 
 std::string Span::to_string() const {
   std::ostringstream oss;
-  oss << filename_ << ":" << begin_line_ << ":" << begin_column_;
+  oss << filename_ << ":" << beginLine_ << ":" << beginColumn_;
   return oss.str();
 }
 
 bool Span::is_valid() const {
-  if (begin_line_ <= 0 || (begin_column_ <= 0 && begin_column_ != -1)) {
+  if (beginLine_ <= 0 || (beginColumn_ <= 0 && beginColumn_ != -1)) {
     return false;
   }
-  if (end_line_ == -1 || end_column_ == -1) {
+  if (endLine_ == -1 || endColumn_ == -1) {
     return true;
   }
-  if (end_line_ <= 0 || (end_column_ <= 0 && end_column_ != -1)) {
+  if (endLine_ <= 0 || (endColumn_ <= 0 && endColumn_ != -1)) {
     return false;
   }
-  if (begin_column_ == -1 || end_column_ == -1) {
-    return end_line_ >= begin_line_;
+  if (beginColumn_ == -1 || endColumn_ == -1) {
+    return endLine_ >= beginLine_;
   }
-  return end_line_ >= begin_line_ && (end_line_ > begin_line_ || end_column_ >= begin_column_);
+  return endLine_ >= beginLine_ && (endLine_ > beginLine_ || endColumn_ >= beginColumn_);
 }
 
 Span Span::unknown() { return Span("", -1, -1, -1, -1); }

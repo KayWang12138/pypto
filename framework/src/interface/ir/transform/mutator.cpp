@@ -229,35 +229,35 @@ StmtPtr IRMutator::VisitStmt_(const IfStmtPtr& op) {
   auto new_condition = ExprFunctor<ExprPtr>::VisitExpr(op->condition_);
   INTERNAL_CHECK(new_condition) << "IfStmt condition mutated to null";
 
-  INTERNAL_CHECK(op->then_body_) << "IfStmt has null then_body";
-  auto new_then_body = StmtFunctor<StmtPtr>::VisitStmt(op->then_body_);
+  INTERNAL_CHECK(op->thenBody_) << "IfStmt has null then_body";
+  auto new_then_body = StmtFunctor<StmtPtr>::VisitStmt(op->thenBody_);
   INTERNAL_CHECK(new_then_body) << "IfStmt then_body mutated to null";
-  bool then_changed = (new_then_body.get() != op->then_body_.get());
+  bool then_changed = (new_then_body.get() != op->thenBody_.get());
 
   std::optional<StmtPtr> new_else_body;
   bool else_changed = false;
-  if (op->else_body_.has_value()) {
-    INTERNAL_CHECK(*op->else_body_) << "IfStmt has null else_body";
-    auto new_stmt = StmtFunctor<StmtPtr>::VisitStmt(*op->else_body_);
+  if (op->elseBody_.has_value()) {
+    INTERNAL_CHECK(*op->elseBody_) << "IfStmt has null else_body";
+    auto new_stmt = StmtFunctor<StmtPtr>::VisitStmt(*op->elseBody_);
     INTERNAL_CHECK(new_stmt) << "IfStmt else_body mutated to null";
     new_else_body = new_stmt;
-    if (new_stmt.get() != op->else_body_->get()) {
+    if (new_stmt.get() != op->elseBody_->get()) {
       else_changed = true;
     }
   }
 
   std::vector<VarPtr> new_return_vars;
   bool return_vars_changed = false;
-  new_return_vars.reserve(op->return_vars_.size());
-  for (size_t i = 0; i < op->return_vars_.size(); ++i) {
-    INTERNAL_CHECK(op->return_vars_[i]) << "IfStmt has null return_vars at index " << i;
-    auto new_var_expr = ExprFunctor<ExprPtr>::VisitExpr(op->return_vars_[i]);
+  new_return_vars.reserve(op->returnVars_.size());
+  for (size_t i = 0; i < op->returnVars_.size(); ++i) {
+    INTERNAL_CHECK(op->returnVars_[i]) << "IfStmt has null return_vars at index " << i;
+    auto new_var_expr = ExprFunctor<ExprPtr>::VisitExpr(op->returnVars_[i]);
     INTERNAL_CHECK(new_var_expr) << "IfStmt return_vars at index " << i << " mutated to null";
     // Cast new_var from ExprPtr to VarPtr (required by IfStmt constructor)
     auto new_var = As<Var>(new_var_expr);
     INTERNAL_CHECK(new_var) << "IfStmt return_vars at index " << i << " is not a Var after mutation";
     new_return_vars.push_back(new_var);
-    if (new_var.get() != op->return_vars_[i].get()) {
+    if (new_var.get() != op->returnVars_[i].get()) {
       return_vars_changed = true;
     }
   }
@@ -320,11 +320,11 @@ StmtPtr IRMutator::VisitStmt_(const ReturnStmtPtr& op) {
 }
 
 StmtPtr IRMutator::VisitStmt_(const ForStmtPtr& op) {
-  INTERNAL_CHECK(op->loop_var_) << "ForStmt has null loop_var";
+  INTERNAL_CHECK(op->loopVar_) << "ForStmt has null loop_var";
   INTERNAL_CHECK(op->start_) << "ForStmt has null start";
   INTERNAL_CHECK(op->stop_) << "ForStmt has null stop";
   INTERNAL_CHECK(op->step_) << "ForStmt has null step";
-  auto new_loop_var_expr = ExprFunctor<ExprPtr>::VisitExpr(op->loop_var_);
+  auto new_loop_var_expr = ExprFunctor<ExprPtr>::VisitExpr(op->loopVar_);
   INTERNAL_CHECK(new_loop_var_expr) << "ForStmt loop_var mutated to null";
   auto new_loop_var = As<Var>(new_loop_var_expr);
   INTERNAL_CHECK(new_loop_var) << "ForStmt loop_var is not a Var after mutation";
@@ -340,15 +340,15 @@ StmtPtr IRMutator::VisitStmt_(const ForStmtPtr& op) {
 
   std::vector<IterArgPtr> new_iter_args;
   bool iter_args_changed = false;
-  new_iter_args.reserve(op->iter_args_.size());
-  for (size_t i = 0; i < op->iter_args_.size(); ++i) {
-    INTERNAL_CHECK(op->iter_args_[i]) << "ForStmt has null iter_args at index " << i;
-    auto new_iter_arg_expr = ExprFunctor<ExprPtr>::VisitExpr(op->iter_args_[i]);
+  new_iter_args.reserve(op->iterArgs_.size());
+  for (size_t i = 0; i < op->iterArgs_.size(); ++i) {
+    INTERNAL_CHECK(op->iterArgs_[i]) << "ForStmt has null iter_args at index " << i;
+    auto new_iter_arg_expr = ExprFunctor<ExprPtr>::VisitExpr(op->iterArgs_[i]);
     INTERNAL_CHECK(new_iter_arg_expr) << "ForStmt iter_args at index " << i << " mutated to null";
     auto new_iter_arg = As<IterArg>(std::static_pointer_cast<const IRNode>(new_iter_arg_expr));
     INTERNAL_CHECK(new_iter_arg) << "ForStmt iter_args at index " << i << " is not an IterArg after mutation";
     new_iter_args.push_back(new_iter_arg);
-    if (new_iter_arg.get() != op->iter_args_[i].get()) {
+    if (new_iter_arg.get() != op->iterArgs_[i].get()) {
       iter_args_changed = true;
     }
   }
@@ -360,21 +360,21 @@ StmtPtr IRMutator::VisitStmt_(const ForStmtPtr& op) {
 
   std::vector<VarPtr> new_return_vars;
   bool return_vars_changed = false;
-  new_return_vars.reserve(op->return_vars_.size());
-  for (size_t i = 0; i < op->return_vars_.size(); ++i) {
-    INTERNAL_CHECK(op->return_vars_[i]) << "ForStmt has null return_vars at index " << i;
-    auto new_var_expr = ExprFunctor<ExprPtr>::VisitExpr(op->return_vars_[i]);
+  new_return_vars.reserve(op->returnVars_.size());
+  for (size_t i = 0; i < op->returnVars_.size(); ++i) {
+    INTERNAL_CHECK(op->returnVars_[i]) << "ForStmt has null return_vars at index " << i;
+    auto new_var_expr = ExprFunctor<ExprPtr>::VisitExpr(op->returnVars_[i]);
     INTERNAL_CHECK(new_var_expr) << "ForStmt return_vars at index " << i << " mutated to null";
     // Cast new_var from ExprPtr to VarPtr (required by ForStmt constructor)
     auto new_var = As<Var>(new_var_expr);
     INTERNAL_CHECK(new_var) << "ForStmt return_vars at index " << i << " is not a Var after mutation";
     new_return_vars.push_back(new_var);
-    if (new_var.get() != op->return_vars_[i].get()) {
+    if (new_var.get() != op->returnVars_[i].get()) {
       return_vars_changed = true;
     }
   }
 
-  if (new_loop_var.get() != op->loop_var_.get() || new_start.get() != op->start_.get() ||
+  if (new_loop_var.get() != op->loopVar_.get() || new_start.get() != op->start_.get() ||
       new_stop.get() != op->stop_.get() || new_step.get() != op->step_.get() || iter_args_changed ||
       body_changed || return_vars_changed) {
     return std::make_shared<const ForStmt>(std::move(new_loop_var), std::move(new_start), std::move(new_stop),

@@ -77,7 +77,7 @@ TEST(IRBuilderTest, BuildSimpleFunction) {
   ASSERT_NE(func, nullptr);
   ASSERT_EQ(func->name_, "my_func");
   ASSERT_EQ(func->params_.size(), 1);
-  ASSERT_EQ(func->return_types_.size(), 1);
+  ASSERT_EQ(func->returnTypes_.size(), 1);
   ASSERT_FALSE(builder.InFunction());
 }
 

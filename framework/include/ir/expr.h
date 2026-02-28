@@ -319,7 +319,7 @@ using IterArgPtr = std::shared_ptr<const IterArg>;
  */
 class MemRef : public Var {
 public:
-    MemorySpace memory_space_; ///< Memory space (DDR, UB, L1, etc.)
+    MemorySpace memorySpace_; ///< Memory space (DDR, UB, L1, etc.)
     ExprPtr addr_;             ///< Starting address expression
     uint64_t size_;            ///< Size in bytes (64-bit unsigned)
     uint64_t id_;              ///< Unique identifier (used for name generation)
@@ -348,7 +348,7 @@ public:
      */
     static constexpr auto GetFieldDescriptors() {
         return std::tuple_cat(Var::GetFieldDescriptors(),
-            std::make_tuple(reflection::UsualField(&MemRef::memory_space_, "memory_space"),
+            std::make_tuple(reflection::UsualField(&MemRef::memorySpace_, "memory_space"),
                 reflection::UsualField(&MemRef::addr_, "addr"), reflection::UsualField(&MemRef::size_, "size"),
                 reflection::UsualField(&MemRef::id_, "id")));
     }

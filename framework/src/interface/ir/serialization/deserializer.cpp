@@ -42,7 +42,7 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
   Impl() = default;
 
   IRNodePtr Deserialize(const std::vector<uint8_t>& data) {
-    id_to_ptr_.clear();
+    idToPtr_.clear();
 
     try {
       msgpack::object_handle oh = msgpack::unpack(reinterpret_cast<const char*>(data.data()), data.size());
@@ -68,8 +68,8 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
       if (key == "ref") {
         uint64_t id;
         p->val.convert(id);
-        auto it = id_to_ptr_.find(id);
-        INTERNAL_CHECK(it != id_to_ptr_.end()) << "Invalid reference ID: " << id;
+        auto it = idToPtr_.find(id);
+        INTERNAL_CHECK(it != idToPtr_.end()) << "Invalid reference ID: " << id;
         return it->second;
       }
     }
@@ -105,7 +105,7 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
     IRNodePtr node = TypeRegistry::Instance().Create(type_name, fields_obj, zone, *this);
 
     // Store in reference table
-    id_to_ptr_[id] = node;
+    idToPtr_[id] = node;
 
     return node;
   }
@@ -332,7 +332,7 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
   }
 
  private:
-  std::unordered_map<uint64_t, IRNodePtr> id_to_ptr_;
+  std::unordered_map<uint64_t, IRNodePtr> idToPtr_;
 };
 
 // IRDeserializer implementation

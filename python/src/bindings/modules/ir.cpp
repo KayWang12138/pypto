@@ -119,10 +119,10 @@ void BindIR(py::module_ &m) {
       .def("__repr__", &Span::to_string)
       .def("__str__", &Span::to_string)
       .def_readonly("filename", &Span::filename_)
-      .def_readonly("begin_line", &Span::begin_line_)
-      .def_readonly("begin_column", &Span::begin_column_)
-      .def_readonly("end_line", &Span::end_line_)
-      .def_readonly("end_column", &Span::end_column_);
+      .def_readonly("begin_line", &Span::beginLine_)
+      .def_readonly("begin_column", &Span::beginColumn_)
+      .def_readonly("end_line", &Span::endLine_)
+      .def_readonly("end_column", &Span::endColumn_);
 
   // Op
   py::class_<Op, std::shared_ptr<Op>>(ir, "Op")
@@ -268,7 +268,7 @@ void BindIR(py::module_ &m) {
   memref_class
       .def(py::init<MemorySpace, ExprPtr, uint64_t, uint64_t, Span>(), py::arg("memory_space"),
            py::arg("addr"), py::arg("size"), py::arg("id"), py::arg("span") = Span::unknown())
-      .def_readwrite("memory_space_", &MemRef::memory_space_)
+      .def_readwrite("memory_space_", &MemRef::memorySpace_)
       .def_readwrite("addr_", &MemRef::addr_)
       .def_readwrite("size_", &MemRef::size_)
       .def_readwrite("id_", &MemRef::id_);

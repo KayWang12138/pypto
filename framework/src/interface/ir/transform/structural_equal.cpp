@@ -53,7 +53,7 @@ class StructuralEqualImpl {
  public:
   using result_type = bool;
 
-  explicit StructuralEqualImpl(bool enable_auto_mapping) : enable_auto_mapping_(enable_auto_mapping) {}
+  explicit StructuralEqualImpl(bool enable_auto_mapping) : enableAutoMapping_(enable_auto_mapping) {}
 
   // Returns bool for structural_equal, throws for assert_structural_equal
   bool operator()(const IRNodePtr& lhs, const IRNodePtr& rhs) {
@@ -404,9 +404,9 @@ class StructuralEqualImpl {
   template <typename FVisitOp>
   void VisitDefField(FVisitOp&& visit_op) {
     bool enable_auto_mapping = true;
-    std::swap(enable_auto_mapping, enable_auto_mapping_);
+    std::swap(enable_auto_mapping, enableAutoMapping_);
     visit_op();
-    std::swap(enable_auto_mapping, enable_auto_mapping_);
+    std::swap(enable_auto_mapping, enableAutoMapping_);
   }
 
   template <typename FVisitOp>
@@ -502,9 +502,9 @@ class StructuralEqualImpl {
     }
   }
 
-  bool enable_auto_mapping_;
-  std::unordered_map<VarPtr, VarPtr> lhs_to_rhs_var_map_;
-  std::unordered_map<VarPtr, VarPtr> rhs_to_lhs_var_map_;
+  bool enableAutoMapping_;
+  std::unordered_map<VarPtr, VarPtr> lhsToRhsVarMap_;
+  std::unordered_map<VarPtr, VarPtr> rhsToLhsVarMap_;
   std::vector<std::string> path_;  // Only used in assert mode
 };
 
@@ -690,15 +690,15 @@ bool StructuralEqualImpl<AssertMode>::EqualType(const TypePtr& lhs, const TypePt
       if (!Equal(lhs_tile->shape_[i], rhs_tile->shape_[i])) return false;
     }
     // Compare tile_view
-    if (lhs_tile->tile_view_.has_value() != rhs_tile->tile_view_.has_value()) {
+    if (lhs_tile->tileView_.has_value() != rhs_tile->tileView_.has_value()) {
       if constexpr (AssertMode) {
         ThrowMismatch("TileType tile_view presence mismatch", IRNodePtr(), IRNodePtr(), "", "");
       }
       return false;
     }
-    if (lhs_tile->tile_view_.has_value()) {
-      const auto& lhs_tv = lhs_tile->tile_view_.value();
-      const auto& rhs_tv = rhs_tile->tile_view_.value();
+    if (lhs_tile->tileView_.has_value()) {
+      const auto& lhs_tv = lhs_tile->tileView_.value();
+      const auto& rhs_tv = rhs_tile->tileView_.value();
       // Compare valid_shape
       if (lhs_tv.valid_shape.size() != rhs_tv.valid_shape.size()) {
         if constexpr (AssertMode) {
@@ -763,11 +763,11 @@ bool StructuralEqualImpl<AssertMode>::EqualType(const TypePtr& lhs, const TypePt
 
 template <bool AssertMode>
 bool StructuralEqualImpl<AssertMode>::EqualVar(const VarPtr& lhs, const VarPtr& rhs) {
-  if (!enable_auto_mapping_) {
-    auto lhs_it = lhs_to_rhs_var_map_.find(lhs);
-    auto rhs_it = rhs_to_lhs_var_map_.find(rhs);
+  if (!enableAutoMapping_) {
+    auto lhs_it = lhsToRhsVarMap_.find(lhs);
+    auto rhs_it = rhsToLhsVarMap_.find(rhs);
     // Case 1: already mapped to the same variable
-    if (lhs_it != lhs_to_rhs_var_map_.end() && rhs_it != rhs_to_lhs_var_map_.end()) {
+    if (lhs_it != lhsToRhsVarMap_.end() && rhs_it != rhsToLhsVarMap_.end()) {
       if (lhs_it->second != rhs || rhs_it->second != lhs) {
         if constexpr (AssertMode) {
           ThrowMismatch("Variable mapping inconsistent (without auto-mapping)",
@@ -801,8 +801,8 @@ bool StructuralEqualImpl<AssertMode>::EqualVar(const VarPtr& lhs, const VarPtr& 
     return false;
   }
 
-  auto it = lhs_to_rhs_var_map_.find(lhs);
-  if (it != lhs_to_rhs_var_map_.end()) {
+  auto it = lhsToRhsVarMap_.find(lhs);
+  if (it != lhsToRhsVarMap_.end()) {
     if (it->second != rhs) {
       if constexpr (AssertMode) {
         std::ostringstream msg;
@@ -816,8 +816,8 @@ bool StructuralEqualImpl<AssertMode>::EqualVar(const VarPtr& lhs, const VarPtr& 
     return true;
   }
 
-  auto rhs_it = rhs_to_lhs_var_map_.find(rhs);
-  if (rhs_it != rhs_to_lhs_var_map_.end() && rhs_it->second != lhs) {
+  auto rhs_it = rhsToLhsVarMap_.find(rhs);
+  if (rhs_it != rhsToLhsVarMap_.end() && rhs_it->second != lhs) {
     if constexpr (AssertMode) {
       std::ostringstream msg;
       msg << "Variable mapping inconsistent ('" << rhs->name_ << "' is already mapped from '"
@@ -828,8 +828,8 @@ bool StructuralEqualImpl<AssertMode>::EqualVar(const VarPtr& lhs, const VarPtr& 
     return false;
   }
 
-  lhs_to_rhs_var_map_[lhs] = rhs;
-  rhs_to_lhs_var_map_[rhs] = lhs;
+  lhsToRhsVarMap_[lhs] = rhs;
+  rhsToLhsVarMap_[rhs] = lhs;
   return true;
 }
 

@@ -120,8 +120,8 @@ class IRSerializer::Impl {
   Impl() = default;
 
   std::vector<uint8_t> Serialize(const IRNodePtr& node) {
-    ptr_to_id_.clear();
-    next_id_ = 0;
+    ptrToId_.clear();
+    nextId_ = 0;
 
     msgpack::sbuffer buffer;
     msgpack::packer<msgpack::sbuffer> packer(buffer);
@@ -137,8 +137,8 @@ class IRSerializer::Impl {
     INTERNAL_CHECK(node) << "Cannot serialize null IR node";
 
     // Check if we've already serialized this pointer
-    auto it = ptr_to_id_.find(node.get());
-    if (it != ptr_to_id_.end()) {
+    auto it = ptrToId_.find(node.get());
+    if (it != ptrToId_.end()) {
       // Return a reference to the already-serialized node
       std::map<std::string, msgpack::object> ref_map;
       ref_map["ref"] = msgpack::object(it->second, zone);
@@ -146,8 +146,8 @@ class IRSerializer::Impl {
     }
 
     // Assign a new ID to this node
-    uint64_t id = next_id_++;
-    ptr_to_id_[node.get()] = id;
+    uint64_t id = nextId_++;
+    ptrToId_[node.get()] = id;
 
     // Serialize the node with its ID and type
     std::map<std::string, msgpack::object> node_map;
@@ -206,10 +206,10 @@ class IRSerializer::Impl {
   msgpack::object SerializeSpan(const Span& span, msgpack::zone& zone) {
     std::map<std::string, msgpack::object> span_map;
     span_map["filename"] = msgpack::object(span.filename_, zone);
-    span_map["begin_line"] = msgpack::object(span.begin_line_, zone);
-    span_map["begin_column"] = msgpack::object(span.begin_column_, zone);
-    span_map["end_line"] = msgpack::object(span.end_line_, zone);
-    span_map["end_column"] = msgpack::object(span.end_column_, zone);
+    span_map["begin_line"] = msgpack::object(span.beginLine_, zone);
+    span_map["begin_column"] = msgpack::object(span.beginColumn_, zone);
+    span_map["end_line"] = msgpack::object(span.endLine_, zone);
+    span_map["end_column"] = msgpack::object(span.endColumn_, zone);
     return msgpack::object(span_map, zone);
   }
 
@@ -220,7 +220,7 @@ class IRSerializer::Impl {
 
     const auto& memref = *memref_opt.value();
     std::map<std::string, msgpack::object> memref_map;
-    memref_map["memory_space"] = msgpack::object(static_cast<uint8_t>(memref.memory_space_), zone);
+    memref_map["memory_space"] = msgpack::object(static_cast<uint8_t>(memref.memorySpace_), zone);
     memref_map["addr"] = SerializeNode(memref.addr_, zone);
     memref_map["size"] = msgpack::object(memref.size_, zone);
     memref_map["id"] = msgpack::object(memref.id_, zone);
@@ -290,8 +290,8 @@ class IRSerializer::Impl {
       }
 
       // Serialize tile_view if present
-      if (tile_type->tile_view_.has_value()) {
-        type_map["tile_view"] = SerializeTileView(tile_type->tile_view_, zone);
+      if (tile_type->tileView_.has_value()) {
+        type_map["tile_view"] = SerializeTileView(tile_type->tileView_, zone);
       }
     } else if (auto tuple_type = As<TupleType>(type)) {
       std::vector<msgpack::object> types_vec;
@@ -348,8 +348,8 @@ class IRSerializer::Impl {
   }
 
  private:
-  uint64_t next_id_;
-  std::unordered_map<const IRNode*, uint64_t> ptr_to_id_;
+  uint64_t nextId_;
+  std::unordered_map<const IRNode*, uint64_t> ptrToId_;
 };
 
 // FieldSerializerVisitor implementation

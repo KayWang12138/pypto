@@ -37,7 +37,7 @@ void IRBuilder::BeginFunction(const std::string& name, const Span& span, Functio
                               CurrentContext()->GetBeginSpan().to_string());
   }
 
-  context_stack_.push_back(std::make_unique<FunctionContext>(name, span, type));
+  contextStack_.push_back(std::make_unique<FunctionContext>(name, span, type));
 }
 
 VarPtr IRBuilder::FuncArg(const std::string& name, const TypePtr& type, const Span& span) {
@@ -72,8 +72,8 @@ FunctionPtr IRBuilder::EndFunction(const Span& end_span) {
 
   // Combine begin and end spans
   const Span& begin_span = func_ctx->GetBeginSpan();
-  Span combined_span(begin_span.filename_, begin_span.begin_line_, begin_span.begin_column_,
-                     end_span.begin_line_, end_span.begin_column_);
+  Span combined_span(begin_span.filename_, begin_span.beginLine_, begin_span.beginColumn_,
+                     end_span.beginLine_, end_span.beginColumn_);
 
   // Create function
   auto func =
@@ -81,7 +81,7 @@ FunctionPtr IRBuilder::EndFunction(const Span& end_span) {
                                  combined_span, func_ctx->GetFuncType());
 
   // Pop context
-  context_stack_.pop_back();
+  contextStack_.pop_back();
 
   return func;
 }
@@ -90,12 +90,12 @@ FunctionPtr IRBuilder::EndFunction(const Span& end_span) {
 
 void IRBuilder::BeginForLoop(const VarPtr& loop_var, const ExprPtr& start, const ExprPtr& stop,
                              const ExprPtr& step, const Span& span) {
-  if (context_stack_.empty()) {
+  if (contextStack_.empty()) {
     throw RuntimeError("Cannot begin for loop: not inside a function or another valid context at " +
                               span.to_string());
   }
 
-  context_stack_.push_back(std::make_unique<ForLoopContext>(loop_var, start, stop, step, span));
+  contextStack_.push_back(std::make_unique<ForLoopContext>(loop_var, start, stop, step, span));
 }
 
 void IRBuilder::AddIterArg(const IterArgPtr& iter_arg) {
@@ -120,7 +120,7 @@ StmtPtr IRBuilder::EndForLoop(const Span& end_span) {
     const auto return_vars_size = loop_ctx->GetReturnVars().size();
 
     // Pop context before throwing to maintain stack consistency
-    context_stack_.pop_back();
+    contextStack_.pop_back();
 
     std::ostringstream oss;
     oss << "For loop has " << iter_args_size << " iteration arguments but "
@@ -141,8 +141,8 @@ StmtPtr IRBuilder::EndForLoop(const Span& end_span) {
 
   // Combine begin and end spans
   const Span& begin_span = loop_ctx->GetBeginSpan();
-  Span combined_span(begin_span.filename_, begin_span.begin_line_, begin_span.begin_column_,
-                     end_span.begin_line_, end_span.begin_column_);
+  Span combined_span(begin_span.filename_, begin_span.beginLine_, begin_span.beginColumn_,
+                     end_span.beginLine_, end_span.beginColumn_);
 
   // Create for statement
   auto for_stmt = std::make_shared<ForStmt>(loop_ctx->GetLoopVar(), loop_ctx->GetStart(), loop_ctx->GetStop(),
@@ -150,10 +150,10 @@ StmtPtr IRBuilder::EndForLoop(const Span& end_span) {
                                             loop_ctx->GetReturnVars(), combined_span);
 
   // Pop context
-  context_stack_.pop_back();
+  contextStack_.pop_back();
 
   // Emit to parent context if it exists
-  if (!context_stack_.empty()) {
+  if (!contextStack_.empty()) {
     CurrentContext()->AddStmt(for_stmt);
   }
 
@@ -163,9 +163,9 @@ StmtPtr IRBuilder::EndForLoop(const Span& end_span) {
 // ========== If Statement Building ==========
 
 void IRBuilder::BeginIf(const ExprPtr& condition, const Span& span) {
-  INTERNAL_CHECK(!context_stack_.empty())
+  INTERNAL_CHECK(!contextStack_.empty())
       << "Cannot begin if statement: not inside a function or another valid context at " << span.to_string();
-  context_stack_.push_back(std::make_unique<IfStmtContext>(condition, span));
+  contextStack_.push_back(std::make_unique<IfStmtContext>(condition, span));
 }
 
 void IRBuilder::BeginElse(const Span& span) {
@@ -214,18 +214,18 @@ StmtPtr IRBuilder::EndIf(const Span& end_span) {
 
   // Combine begin and end spans
   const Span& begin_span = if_ctx->GetBeginSpan();
-  Span combined_span(begin_span.filename_, begin_span.begin_line_, begin_span.begin_column_,
-                     end_span.begin_line_, end_span.begin_column_);
+  Span combined_span(begin_span.filename_, begin_span.beginLine_, begin_span.beginColumn_,
+                     end_span.beginLine_, end_span.beginColumn_);
 
   // Create if statement
   auto if_stmt = std::make_shared<IfStmt>(if_ctx->GetCondition(), then_body, else_body,
                                           if_ctx->GetReturnVars(), combined_span);
 
   // Pop context
-  context_stack_.pop_back();
+  contextStack_.pop_back();
 
   // Emit to parent context if it exists
-  if (!context_stack_.empty()) {
+  if (!contextStack_.empty()) {
     CurrentContext()->AddStmt(if_stmt);
   }
 
@@ -241,7 +241,7 @@ void IRBuilder::BeginProgram(const std::string& name, const Span& span) {
                               CurrentContext()->GetBeginSpan().to_string());
   }
 
-  context_stack_.push_back(std::make_unique<ProgramContext>(name, span));
+  contextStack_.push_back(std::make_unique<ProgramContext>(name, span));
 }
 
 GlobalVarPtr IRBuilder::DeclareFunction(const std::string& func_name) {
@@ -270,20 +270,20 @@ ProgramPtr IRBuilder::EndProgram(const Span& end_span) {
 
   // Combine begin and end spans
   const Span& begin_span = prog_ctx->GetBeginSpan();
-  Span combined_span(begin_span.filename_, begin_span.begin_line_, begin_span.begin_column_,
-                     end_span.begin_line_, end_span.begin_column_);
+  Span combined_span(begin_span.filename_, begin_span.beginLine_, begin_span.beginColumn_,
+                     end_span.beginLine_, end_span.beginColumn_);
 
   // Create program from functions vector
   auto program = std::make_shared<Program>(prog_ctx->GetFunctions(), prog_ctx->GetName(), combined_span);
 
   // Pop context
-  context_stack_.pop_back();
+  contextStack_.pop_back();
 
   return program;
 }
 
 bool IRBuilder::InProgram() const {
-  for (const auto& ctx : context_stack_) {
+  for (const auto& ctx : contextStack_) {
     if (ctx->GetType() == BuildContext::Type::PROGRAM) {
       return true;
     }
@@ -293,7 +293,7 @@ bool IRBuilder::InProgram() const {
 
 std::vector<TypePtr> IRBuilder::GetFunctionReturnTypes(const GlobalVarPtr& gvar) const {
   // Find the program context in the stack
-  for (const auto& ctx : context_stack_) {
+  for (const auto& ctx : contextStack_) {
     if (ctx->GetType() == BuildContext::Type::PROGRAM) {
       auto* prog_ctx = static_cast<const ProgramContext*>(ctx.get());
       return prog_ctx->GetReturnTypes(gvar);
@@ -305,7 +305,7 @@ std::vector<TypePtr> IRBuilder::GetFunctionReturnTypes(const GlobalVarPtr& gvar)
 // ========== Statement Recording ==========
 
 void IRBuilder::Emit(const StmtPtr& stmt) {
-  if (context_stack_.empty()) {
+  if (contextStack_.empty()) {
     throw RuntimeError("Cannot emit statement: not inside any context");
   }
 
@@ -338,14 +338,14 @@ ReturnStmtPtr IRBuilder::Return(const Span& span) {
 // ========== Context State Queries ==========
 
 BuildContext* IRBuilder::CurrentContext() {
-  if (context_stack_.empty()) {
+  if (contextStack_.empty()) {
     return nullptr;
   }
-  return context_stack_.back().get();
+  return contextStack_.back().get();
 }
 
 bool IRBuilder::InFunction() const {
-  for (const auto& ctx : context_stack_) {
+  for (const auto& ctx : contextStack_) {
     if (ctx->GetType() == BuildContext::Type::FUNCTION) {
       return true;
     }
@@ -354,17 +354,17 @@ bool IRBuilder::InFunction() const {
 }
 
 bool IRBuilder::InLoop() const {
-  if (context_stack_.empty()) {
+  if (contextStack_.empty()) {
     return false;
   }
-  return context_stack_.back()->GetType() == BuildContext::Type::FOR_LOOP;
+  return contextStack_.back()->GetType() == BuildContext::Type::FOR_LOOP;
 }
 
 bool IRBuilder::InIf() const {
-  if (context_stack_.empty()) {
+  if (contextStack_.empty()) {
     return false;
   }
-  return context_stack_.back()->GetType() == BuildContext::Type::IF_STMT;
+  return contextStack_.back()->GetType() == BuildContext::Type::IF_STMT;
 }
 
 // ========== Private Helpers ==========
@@ -400,20 +400,20 @@ void IRBuilder::ValidateInProgram(const std::string& operation) {
 
 GlobalVarPtr ProgramContext::DeclareFunction(const std::string& func_name) {
   // Check if already declared
-  auto it = global_vars_.find(func_name);
-  if (it != global_vars_.end()) {
+  auto it = globalVars_.find(func_name);
+  if (it != globalVars_.end()) {
     return it->second;
   }
 
   // Create new GlobalVar
   auto gvar = std::make_shared<GlobalVar>(func_name);
-  global_vars_[func_name] = gvar;
+  globalVars_[func_name] = gvar;
   return gvar;
 }
 
 GlobalVarPtr ProgramContext::GetGlobalVar(const std::string& func_name) const {
-  auto it = global_vars_.find(func_name);
-  if (it != global_vars_.end()) {
+  auto it = globalVars_.find(func_name);
+  if (it != globalVars_.end()) {
     return it->second;
   }
   return nullptr;
@@ -423,21 +423,21 @@ void ProgramContext::AddFunction(const FunctionPtr& func) {
   INTERNAL_CHECK(func) << "Cannot add null function to program";
 
   // Verify function was declared (if not, declare it automatically)
-  auto it = global_vars_.find(func->name_);
-  if (it == global_vars_.end()) {
+  auto it = globalVars_.find(func->name_);
+  if (it == globalVars_.end()) {
     // Function wasn't declared, declare it now for convenience
     DeclareFunction(func->name_);
   }
 
   // Store return types for this function
-  return_types_[func->name_] = func->return_types_;
+  returnTypes_[func->name_] = func->returnTypes_;
 
   functions_.push_back(func);
 }
 
 std::vector<TypePtr> ProgramContext::GetReturnTypes(const GlobalVarPtr& gvar) const {
-  auto it = return_types_.find(gvar->name_);
-  if (it != return_types_.end()) {
+  auto it = returnTypes_.find(gvar->name_);
+  if (it != returnTypes_.end()) {
     return it->second;
   }
   return {};

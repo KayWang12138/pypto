@@ -51,7 +51,7 @@ static std::string ToLowerCase(const std::string& str) {
 MemRef::MemRef(MemorySpace memory_space, ExprPtr addr, uint64_t size, uint64_t id, Span span)
     : Var("mem_" + ToLowerCase(MemorySpaceToString(memory_space)) + "_" + std::to_string(id), GetMemRefType(),
           std::move(span)),
-      memory_space_(memory_space),
+      memorySpace_(memory_space),
       addr_(std::move(addr)),
       size_(size),
       id_(id) {}

@@ -147,14 +147,14 @@ public:
      * \param message Error message describing what went wrong
      */
     PYPTO_ALWAYS_INLINE explicit Error(const std::string &message) : std::runtime_error(message) {
-        stack_trace_ = Backtrace::GetInstance().CaptureStackTrace();
+        stackTrace_ = Backtrace::GetInstance().CaptureStackTrace();
     }
 
     /**
      * \brief Get the raw stack trace frames
      * \return Const reference to the vector of captured stack frames
      */
-    [[nodiscard]] const std::vector<StackFrame> &GetStackTrace() const { return stack_trace_; }
+    [[nodiscard]] const std::vector<StackFrame> &GetStackTrace() const { return stackTrace_; }
 
     /**
      * \brief Get a formatted string representation of the stack trace
@@ -169,7 +169,7 @@ public:
     [[nodiscard]] std::string GetFullMessage() const;
 
 private:
-    std::vector<StackFrame> stack_trace_; ///< Captured stack frames at error creation
+    std::vector<StackFrame> stackTrace_; ///< Captured stack frames at error creation
 };
 
 /**

@@ -148,15 +148,15 @@ void IRVisitor::VisitStmt_(const AssignStmtPtr& op) {
 void IRVisitor::VisitStmt_(const IfStmtPtr& op) {
   INTERNAL_CHECK(op->condition_) << "IfStmt has null condition";
   VisitExpr(op->condition_);
-  INTERNAL_CHECK(op->then_body_) << "IfStmt has null then_body";
-  VisitStmt(op->then_body_);
-  if (op->else_body_.has_value()) {
-    INTERNAL_CHECK(*op->else_body_) << "IfStmt has null else_body";
-    VisitStmt(*op->else_body_);
+  INTERNAL_CHECK(op->thenBody_) << "IfStmt has null then_body";
+  VisitStmt(op->thenBody_);
+  if (op->elseBody_.has_value()) {
+    INTERNAL_CHECK(*op->elseBody_) << "IfStmt has null else_body";
+    VisitStmt(*op->elseBody_);
   }
-  for (size_t i = 0; i < op->return_vars_.size(); ++i) {
-    INTERNAL_CHECK(op->return_vars_[i]) << "IfStmt has null return_vars at index " << i;
-    VisitExpr(op->return_vars_[i]);
+  for (size_t i = 0; i < op->returnVars_.size(); ++i) {
+    INTERNAL_CHECK(op->returnVars_[i]) << "IfStmt has null return_vars at index " << i;
+    VisitExpr(op->returnVars_[i]);
   }
 }
 
@@ -175,23 +175,23 @@ void IRVisitor::VisitStmt_(const ReturnStmtPtr& op) {
 }
 
 void IRVisitor::VisitStmt_(const ForStmtPtr& op) {
-  INTERNAL_CHECK(op->loop_var_) << "ForStmt has null loop_var";
+  INTERNAL_CHECK(op->loopVar_) << "ForStmt has null loop_var";
   INTERNAL_CHECK(op->start_) << "ForStmt has null start";
   INTERNAL_CHECK(op->stop_) << "ForStmt has null stop";
   INTERNAL_CHECK(op->step_) << "ForStmt has null step";
-  VisitExpr(op->loop_var_);
+  VisitExpr(op->loopVar_);
   VisitExpr(op->start_);
   VisitExpr(op->stop_);
   VisitExpr(op->step_);
-  for (size_t i = 0; i < op->iter_args_.size(); ++i) {
-    INTERNAL_CHECK(op->iter_args_[i]) << "ForStmt has null iter_args at index " << i;
-    VisitExpr(op->iter_args_[i]);
+  for (size_t i = 0; i < op->iterArgs_.size(); ++i) {
+    INTERNAL_CHECK(op->iterArgs_[i]) << "ForStmt has null iter_args at index " << i;
+    VisitExpr(op->iterArgs_[i]);
   }
   INTERNAL_CHECK(op->body_) << "ForStmt has null body";
   VisitStmt(op->body_);
-  for (size_t i = 0; i < op->return_vars_.size(); ++i) {
-    INTERNAL_CHECK(op->return_vars_[i]) << "ForStmt has null return_vars at index " << i;
-    VisitExpr(op->return_vars_[i]);
+  for (size_t i = 0; i < op->returnVars_.size(); ++i) {
+    INTERNAL_CHECK(op->returnVars_[i]) << "ForStmt has null return_vars at index " << i;
+    VisitExpr(op->returnVars_[i]);
   }
 }
 

@@ -541,7 +541,7 @@ private:
     const char *expr_str;
 
 public:
-    FatalLogger(const char *expr_str_, const char *file_, int line_) : file(file_), line(line_), expr_str(expr_str_) {}
+    FatalLogger(const char *exprStr_, const char *file_, int line_) : file(file_), line(line_), expr_str(exprStr_) {}
 
     [[noreturn]] ~FatalLogger() noexcept(false) {
         ss << "\n" << "Check failed: " << expr_str << " at " << file << ":" << line;

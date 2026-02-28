@@ -95,7 +95,7 @@ public:
             << "Operator '" + name_ + "' has no description. Use .set_description() to provide one.";
 
         // Check op_category is set
-        INTERNAL_CHECK(op_category_.has_value())
+        INTERNAL_CHECK(opCategory_.has_value())
             << "Operator '" + name_ + "' has no category. Use .set_op_category() to provide one.";
 
         // Check arguments are defined (either with arguments or marked as no_argument)
@@ -104,7 +104,7 @@ public:
                    "' has no argument definition. Use .add_argument() or .no_argument() to define arguments.";
 
         // Check deduce_type is set
-        INTERNAL_CHECK(deduce_type_.has_value())
+        INTERNAL_CHECK(deduceType_.has_value())
             << "Operator '" + name_ + "' has no type deduction function. Use .f_deduce_type() to provide one.";
 
         return op_;
@@ -135,8 +135,8 @@ public:
      * \throws ValueError if category is not set
      */
     [[nodiscard]] inline const std::string &GetOpCategory() const {
-        INTERNAL_CHECK(op_category_.has_value()) << "Operator '" + name_ + "' has no category";
-        return *op_category_;
+        INTERNAL_CHECK(opCategory_.has_value()) << "Operator '" + name_ + "' has no category";
+        return *opCategory_;
     }
 
     /**
@@ -150,8 +150,8 @@ public:
     [[nodiscard]] inline const std::function<TypePtr(
         const std::vector<ExprPtr> &, const std::vector<std::pair<std::string, std::any>> &)> &
     GetDeduceType() const {
-        INTERNAL_CHECK(deduce_type_.has_value()) << "Operator '" + name_ + "' has no type deduction function";
-        return *deduce_type_;
+        INTERNAL_CHECK(deduceType_.has_value()) << "Operator '" + name_ + "' has no type deduction function";
+        return *deduceType_;
     }
 
     /**
@@ -179,8 +179,8 @@ public:
      * \return Reference to this entry for method chaining
      */
     inline OpRegistryEntry &set_op_category(std::string category) {
-        INTERNAL_CHECK(!op_category_.has_value()) << "Operator '" + name_ + "' category is already set";
-        op_category_ = std::move(category);
+        INTERNAL_CHECK(!opCategory_.has_value()) << "Operator '" + name_ + "' category is already set";
+        opCategory_ = std::move(category);
         return *this;
     }
 
@@ -241,8 +241,8 @@ public:
     inline OpRegistryEntry &f_deduce_type(
         std::function<TypePtr(const std::vector<ExprPtr> &, const std::vector<std::pair<std::string, std::any>> &)>
             dt) {
-        INTERNAL_CHECK(!deduce_type_.has_value()) << "Operator '" + name_ + "' type deduction function is already set";
-        deduce_type_ = std::move(dt);
+        INTERNAL_CHECK(!deduceType_.has_value()) << "Operator '" + name_ + "' type deduction function is already set";
+        deduceType_ = std::move(dt);
         return *this;
     }
 
@@ -304,8 +304,8 @@ public:
      * \return Reference to this entry for method chaining
      */
     inline OpRegistryEntry &f_codegen_cce(CCECodegenFunc func) {
-        INTERNAL_CHECK(!codegen_cce_.has_value()) << "Operator '" + name_ + "' CCE codegen already set";
-        codegen_cce_ = std::move(func);
+        INTERNAL_CHECK(!codegenCce_.has_value()) << "Operator '" + name_ + "' CCE codegen already set";
+        codegenCce_ = std::move(func);
         return *this;
     }
 
@@ -319,8 +319,8 @@ public:
      * \return Reference to this entry for method chaining
      */
     inline OpRegistryEntry &f_codegen_pto(PTOCodegenFunc func) {
-        INTERNAL_CHECK(!codegen_pto_.has_value()) << "Operator '" + name_ + "' PTO codegen already set";
-        codegen_pto_ = std::move(func);
+        INTERNAL_CHECK(!codegenPto_.has_value()) << "Operator '" + name_ + "' PTO codegen already set";
+        codegenPto_ = std::move(func);
         return *this;
     }
 
@@ -331,8 +331,8 @@ public:
      * \throws ValueError if CCE codegen is not set
      */
     [[nodiscard]] inline const CCECodegenFunc &GetCodegenCCE() const {
-        INTERNAL_CHECK(codegen_cce_.has_value()) << "Operator '" + name_ + "' does not support CCE codegen";
-        return *codegen_cce_;
+        INTERNAL_CHECK(codegenCce_.has_value()) << "Operator '" + name_ + "' does not support CCE codegen";
+        return *codegenCce_;
     }
 
     /**
@@ -342,8 +342,8 @@ public:
      * \throws ValueError if PTO codegen is not set
      */
     [[nodiscard]] inline const PTOCodegenFunc &GetCodegenPTO() const {
-        INTERNAL_CHECK(codegen_pto_.has_value()) << "Operator '" + name_ + "' does not support PTO codegen";
-        return *codegen_pto_;
+        INTERNAL_CHECK(codegenPto_.has_value()) << "Operator '" + name_ + "' does not support PTO codegen";
+        return *codegenPto_;
     }
 
     /**
@@ -351,14 +351,14 @@ public:
      *
      * \return true if CCE codegen function is registered
      */
-    [[nodiscard]] inline bool HasCCECodegen() const { return codegen_cce_.has_value(); }
+    [[nodiscard]] inline bool HasCCECodegen() const { return codegenCce_.has_value(); }
 
     /**
      * \brief Check if operator has PTO codegen support
      *
      * \return true if PTO codegen function is registered
      */
-    [[nodiscard]] inline bool HasPTOCodegen() const { return codegen_pto_.has_value(); }
+    [[nodiscard]] inline bool HasPTOCodegen() const { return codegenPto_.has_value(); }
 
 private:
     /**
@@ -379,14 +379,14 @@ private:
     OpPtr op_;                               ///< Operator instance
     std::string name_;                       ///< Operator name (unique identifier)
     std::optional<std::string> description_; ///< Human-readable description
-    std::optional<std::string> op_category_; ///< Operator category (e.g., "TensorOp", "BlockOp", "ScalarOp")
+    std::optional<std::string> opCategory_; ///< Operator category (e.g., "TensorOp", "BlockOp", "ScalarOp")
     std::optional<std::vector<std::pair<std::string, std::string>>>
         arguments_; ///< Argument specifications (name, description)
     std::optional<
         std::function<TypePtr(const std::vector<ExprPtr> &, const std::vector<std::pair<std::string, std::any>> &)>>
-        deduce_type_;                           ///< Type deduction function
-    std::optional<CCECodegenFunc> codegen_cce_; ///< CCE code generation function
-    std::optional<PTOCodegenFunc> codegen_pto_; ///< PTO code generation function
+        deduceType_;                           ///< Type deduction function
+    std::optional<CCECodegenFunc> codegenCce_; ///< CCE code generation function
+    std::optional<PTOCodegenFunc> codegenPto_; ///< PTO code generation function
 };
 
 /**

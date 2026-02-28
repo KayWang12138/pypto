@@ -636,7 +636,7 @@ TEST_F(IRMutatorTest, TestCOWIfStmtWithElseAndReturnVars) {
   // Verify the new IfStmt has else body
   auto new_if = As<IfStmt>(result);
   ASSERT_NE(new_if, nullptr);
-  ASSERT_TRUE(new_if->else_body_.has_value());
+  ASSERT_TRUE(new_if->elseBody_.has_value());
 }
 
 TEST_F(IRMutatorTest, TestCOWForStmt) {

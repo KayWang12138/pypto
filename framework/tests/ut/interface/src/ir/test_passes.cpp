@@ -147,7 +147,7 @@ TEST_F(IRPassTest, TestFunctionPassTransform) {
         // Transform: create a new function with modified body
         auto new_body_val = std::make_shared<ConstInt>(99, DataType::INT32, Span::unknown());
         auto new_body = std::make_shared<EvalStmt>(new_body_val, Span::unknown());
-        return std::make_shared<Function>(func->name_, func->params_, func->return_types_, new_body,
+        return std::make_shared<Function>(func->name_, func->params_, func->returnTypes_, new_body,
                                           func->span_);
       },
       "func_transform");

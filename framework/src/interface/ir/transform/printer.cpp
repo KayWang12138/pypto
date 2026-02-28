@@ -141,9 +141,9 @@ class IRPythonPrinter : public IRVisitor {
 
  private:
   std::ostringstream stream_;
-  int indent_level_ = 0;
+  int indentLevel_ = 0;
   std::string prefix_;                    // Prefix for type names (e.g., "pl" or "ir")
-  ProgramPtr current_program_ = nullptr;  // Track when printing within Program (for self.method() calls)
+  ProgramPtr currentProgram_ = nullptr;  // Track when printing within Program (for self.method() calls)
 
   // Helper methods
   std::string GetIndent() const;
@@ -218,7 +218,7 @@ std::string DataTypeToPythonString(DataType dtype, const std::string& prefix) {
 std::string IRPythonPrinter::Print(const IRNodePtr& node) {
   stream_.str("");
   stream_.clear();
-  indent_level_ = 0;
+  indentLevel_ = 0;
 
   // Try each type in order
   if (auto program = As<Program>(node)) {
@@ -280,8 +280,8 @@ std::string IRPythonPrinter::Print(const TypePtr& type) {
     }
 
     // Add optional tile_view parameter if present
-    if (tile_type->tile_view_.has_value()) {
-      oss << ", tile_view=" << PrintTileView(tile_type->tile_view_.value());
+    if (tile_type->tileView_.has_value()) {
+      oss << ", tile_view=" << PrintTileView(tile_type->tileView_.value());
     }
     oss << "]";
     return oss.str();
@@ -306,14 +306,14 @@ std::string IRPythonPrinter::Print(const TypePtr& type) {
 }
 
 std::string IRPythonPrinter::GetIndent() const {
-  return std::string(static_cast<size_t>(indent_level_ * 4), ' ');
+  return std::string(static_cast<size_t>(indentLevel_ * 4), ' ');
 }
 
-void IRPythonPrinter::IncreaseIndent() { indent_level_++; }
+void IRPythonPrinter::IncreaseIndent() { indentLevel_++; }
 
 void IRPythonPrinter::DecreaseIndent() {
-  if (indent_level_ > 0) {
-    indent_level_--;
+  if (indentLevel_ > 0) {
+    indentLevel_--;
   }
 }
 
@@ -335,7 +335,7 @@ void IRPythonPrinter::VisitExpr_(const CallPtr& op) {
   // Check if this is a GlobalVar call within a Program context
 
   if (auto gvar = As<GlobalVar>(op->op_)) {
-    if (current_program_) {
+    if (currentProgram_) {
       // This is a cross-function call - print as self.method_name()
       stream_ << "self." << gvar->name_ << "(";
 
@@ -583,13 +583,13 @@ void IRPythonPrinter::VisitStmt_(const IfStmtPtr& op) {
   stream_ << ":\n";
 
   IncreaseIndent();
-  VisitStmtBody(op->then_body_, op->return_vars_);
+  VisitStmtBody(op->thenBody_, op->returnVars_);
   DecreaseIndent();
 
-  if (op->else_body_.has_value()) {
+  if (op->elseBody_.has_value()) {
     stream_ << "\n" << GetIndent() << "else:\n";
     IncreaseIndent();
-    VisitStmtBody(*op->else_body_, op->return_vars_);
+    VisitStmtBody(*op->elseBody_, op->returnVars_);
     DecreaseIndent();
   }
 }
@@ -617,14 +617,14 @@ void IRPythonPrinter::VisitStmt_(const ReturnStmtPtr& op) {
 
 void IRPythonPrinter::VisitStmt_(const ForStmtPtr& op) {
   // SSA-style for with pl.range() - no inline type annotations in unpacking
-  stream_ << "for " << op->loop_var_->name_;
+  stream_ << "for " << op->loopVar_->name_;
 
   // If we have iter_args, add tuple unpacking without type annotations
-  if (!op->iter_args_.empty()) {
+  if (!op->iterArgs_.empty()) {
     stream_ << ", (";
-    for (size_t i = 0; i < op->iter_args_.size(); ++i) {
+    for (size_t i = 0; i < op->iterArgs_.size(); ++i) {
       if (i > 0) stream_ << ", ";
-      stream_ << op->iter_args_[i]->name_;
+      stream_ << op->iterArgs_[i]->name_;
     }
     stream_ << ") in " << prefix_ << ".range(";
   } else {
@@ -638,11 +638,11 @@ void IRPythonPrinter::VisitStmt_(const ForStmtPtr& op) {
   VisitExpr(op->step_);
 
   // Add init_values for iter_args
-  if (!op->iter_args_.empty()) {
+  if (!op->iterArgs_.empty()) {
     stream_ << ", init_values=[";
-    for (size_t i = 0; i < op->iter_args_.size(); ++i) {
+    for (size_t i = 0; i < op->iterArgs_.size(); ++i) {
       if (i > 0) stream_ << ", ";
-      VisitExpr(op->iter_args_[i]->initValue_);
+      VisitExpr(op->iterArgs_[i]->initValue_);
     }
     stream_ << "]";
   }
@@ -650,7 +650,7 @@ void IRPythonPrinter::VisitStmt_(const ForStmtPtr& op) {
   stream_ << "):\n";
 
   IncreaseIndent();
-  VisitStmtBody(op->body_, op->return_vars_);
+  VisitStmtBody(op->body_, op->returnVars_);
   DecreaseIndent();
 }
 
@@ -743,15 +743,15 @@ void IRPythonPrinter::VisitStmtBody(const StmtPtr& body, const std::vector<VarPt
 }
 
 void IRPythonPrinter::PrintReturnTypeAnnotation(const FunctionPtr& func) {
-  if (!func->return_types_.empty()) {
+  if (!func->returnTypes_.empty()) {
     stream_ << " -> ";
-    if (func->return_types_.size() == 1) {
-      stream_ << Print(func->return_types_[0]);
+    if (func->returnTypes_.size() == 1) {
+      stream_ << Print(func->returnTypes_[0]);
     } else {
       stream_ << "tuple[";
-      for (size_t i = 0; i < func->return_types_.size(); ++i) {
+      for (size_t i = 0; i < func->returnTypes_.size(); ++i) {
         if (i > 0) stream_ << ", ";
-        stream_ << Print(func->return_types_[i]);
+        stream_ << Print(func->returnTypes_[i]);
       }
       stream_ << "]";
     }
@@ -798,8 +798,8 @@ void IRPythonPrinter::PrintBodyWithYieldToReturn(const StmtPtr& body) {
 void IRPythonPrinter::VisitFunction(const FunctionPtr& func) {
   // Print decorator with type parameter if not opaque
   stream_ << "@" << prefix_ << ".function";
-  if (func->func_type_ != FunctionType::Opaque) {
-    stream_ << "(type=" << prefix_ << ".FunctionType." << FunctionTypeToString(func->func_type_) << ")";
+  if (func->funcType_ != FunctionType::Opaque) {
+    stream_ << "(type=" << prefix_ << ".FunctionType." << FunctionTypeToString(func->funcType_) << ")";
   }
   stream_ << "\n";
   stream_ << "def " << func->name_ << "(";
@@ -961,20 +961,20 @@ void IRPythonPrinter::VisitProgram(const ProgramPtr& program) {
 // Helper to visit statements in program context (for self.method() printing)
 void IRPythonPrinter::VisitStmtInProgramContext(const StmtPtr& stmt, const ProgramPtr& program) {
   // Save current program context
-  auto prev_program = current_program_;
-  current_program_ = program;
+  auto prev_program = currentProgram_;
+  currentProgram_ = program;
 
   // Visit statement (will affect how Call expressions are printed)
   PrintBodyWithYieldToReturn(stmt);
 
   // Restore previous context
-  current_program_ = prev_program;
+  currentProgram_ = prev_program;
 }
 
 // Helper methods for MemRef and TileView printing
 std::string IRPythonPrinter::PrintMemRef(const MemRef& memref) {
   std::ostringstream oss;
-  oss << prefix_ << ".MemRef(" << prefix_ << ".MemorySpace." << MemorySpaceToString(memref.memory_space_)
+  oss << prefix_ << ".MemRef(" << prefix_ << ".MemorySpace." << MemorySpaceToString(memref.memorySpace_)
       << ", ";
 
   // Print address expression
