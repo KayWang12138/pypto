@@ -95,19 +95,18 @@ using ShmemUbTile = pto::Tile<pto::TileType::Vec, T,
 // ---------------------------------------------------------------------------
 // Shmem clear / set
 // ---------------------------------------------------------------------------
-// Zero a shmem region; V→MTE3 sync ensures vector_dup completes before TSTORE.
+// Zero a shmem region; use PTO TEXPANDS instead of vector_dup for forward compatibility.
+// V→MTE3 sync ensures fill completes before TSTORE.
 template<typename T, uint32_t bufferEleNum, uint32_t shmemTensorRawShape1, uint32_t shmemTensorRawShape2, uint32_t shmemTensorRawShape3>
 TILEOP void ShmemClear(__ubuf__ T* buffer, __gm__ T* shmemTensorAddr)
 {
-    constexpr uint8_t repeat = sizeof(T) * bufferEleNum / VECTOR_INSTRUCTION_BYTE_SIZE;
-    vector_dup(buffer, static_cast<T>(0), repeat, 1, 0, 8, 0);
+    ShmemUbTile<T, 1, bufferEleNum> ubTile(1, bufferEleNum);
+    pto::TASSIGN(ubTile, reinterpret_cast<uintptr_t>(buffer));
+    pto::TEXPANDS(ubTile, static_cast<T>(0));
     PIPE_SYNC_EVENT(PIPE_V, PIPE_MTE3, EVENT_ID0);
 
     constexpr uint32_t shmemTensorEleNum = shmemTensorRawShape1 * shmemTensorRawShape2 * shmemTensorRawShape3;
     constexpr uint32_t fullChunkCount = shmemTensorEleNum / bufferEleNum;
-
-    ShmemUbTile<T, 1, bufferEleNum> ubTile(1, bufferEleNum);
-    pto::TASSIGN(ubTile, reinterpret_cast<uintptr_t>(buffer));
 
     for (int32_t i = 0; i < fullChunkCount; i++) {
         __gm__ T* dstAddr = shmemTensorAddr + bufferEleNum * i;

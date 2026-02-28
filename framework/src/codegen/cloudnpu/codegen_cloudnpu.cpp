@@ -507,7 +507,6 @@ void CodeGenCloudNPU::BuildIncludes(std::ostringstream &oss) const {
         << "-I" << includePath << "/tileop/arch32 "
         << "-I" << includePath << " ";
 
-    // Also try GetPtoTileLibPathByEnv for backward compatibility
     std::string ptoTileLibPath = GetPtoTileLibPathByEnv();
     if (!ptoTileLibPath.empty()) {
         oss << "-I" << ptoTileLibPath << " ";
