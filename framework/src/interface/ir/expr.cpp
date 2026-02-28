@@ -22,34 +22,33 @@
 namespace pypto {
 namespace ir {
 
-MakeTuple::MakeTuple(std::vector<ExprPtr> elements, Span span)
-    : Expr(std::move(span)), elements_(std::move(elements)) {
-  // Collect types from all element expressions
-  std::vector<TypePtr> elementTypes;
-  elementTypes.reserve(elements_.size());
-  for (const auto& elem : elements_) {
-    elementTypes.push_back(elem->GetType());
-  }
+MakeTuple::MakeTuple(std::vector<ExprPtr> elements, Span span) : Expr(std::move(span)), elements_(std::move(elements)) {
+    // Collect types from all element expressions
+    std::vector<TypePtr> elementTypes;
+    elementTypes.reserve(elements_.size());
+    for (const auto& elem : elements_) {
+        elementTypes.push_back(elem->GetType());
+    }
 
-  // Set result type to TupleType
-  type_ = std::make_shared<TupleType>(std::move(elementTypes));
+    // Set result type to TupleType
+    type_ = std::make_shared<TupleType>(std::move(elementTypes));
 }
 
 TupleGetItemExpr::TupleGetItemExpr(ExprPtr tuple, int index, Span span)
     : Expr(std::move(span)), tuple_(std::move(tuple)), index_(index) {
-  // Type checking: tuple must have TupleType
-  auto tupleType = As<TupleType>(tuple_->GetType());
-  INTERNAL_CHECK(tupleType) << "TupleGetItemExpr requires tuple to have TupleType, got "
-                             << tuple_->GetType()->TypeName();
+    // Type checking: tuple must have TupleType
+    auto tupleType = As<TupleType>(tuple_->GetType());
+    INTERNAL_CHECK(tupleType) << "TupleGetItemExpr requires tuple to have TupleType, got "
+                              << tuple_->GetType()->TypeName();
 
-  // Bounds checking
-  INTERNAL_CHECK(index >= 0 && index < static_cast<int>(tupleType->types_.size()))
-      << "TupleGetItemExpr index " << index << " out of bounds for tuple with " << tupleType->types_.size()
-      << " elements";
+    // Bounds checking
+    INTERNAL_CHECK(index >= 0 && index < static_cast<int>(tupleType->types_.size()))
+        << "TupleGetItemExpr index " << index << " out of bounds for tuple with " << tupleType->types_.size()
+        << " elements";
 
-  // Set result type to the accessed element's type
-  type_ = tupleType->types_[index];
+    // Set result type to the accessed element's type
+    type_ = tupleType->types_[index];
 }
 
-}  // namespace ir
-}  // namespace pypto
+} // namespace ir
+} // namespace pypto

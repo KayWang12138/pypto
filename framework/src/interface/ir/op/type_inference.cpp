@@ -26,241 +26,241 @@ namespace pypto {
 namespace ir {
 
 BroadcastResult BroadcastShapes(const std::vector<ExprPtr>& shape1, const std::vector<ExprPtr>& shape2) {
-  // Handle empty shapes
-  if (shape1.empty() && shape2.empty()) {
-    return BroadcastResult::Success({});
-  }
-  if (shape1.empty()) {
-    return BroadcastResult::Success(shape2);
-  }
-  if (shape2.empty()) {
-    return BroadcastResult::Success(shape1);
-  }
-
-  // Broadcast from right to left
-  size_t maxNdim = std::max(shape1.size(), shape2.size());
-  std::vector<ExprPtr> resultShape;
-  resultShape.reserve(maxNdim);
-
-  for (size_t i = 0; i < maxNdim; ++i) {
-    // Get dimensions from right to left
-    int64_t idx1 = static_cast<int64_t>(shape1.size()) - 1 - i;  // NOLINT
-    int64_t idx2 = static_cast<int64_t>(shape2.size()) - 1 - i;  // NOLINT
-
-    ExprPtr dim1 = (idx1 >= 0) ? shape1[idx1] : nullptr;
-    ExprPtr dim2 = (idx2 >= 0) ? shape2[idx2] : nullptr;
-
-    // If one dimension is missing, use the other
-    if (!dim1) {
-      resultShape.push_back(dim2);
-      continue;
+    // Handle empty shapes
+    if (shape1.empty() && shape2.empty()) {
+        return BroadcastResult::Success({});
     }
-    if (!dim2) {
-      resultShape.push_back(dim1);
-      continue;
+    if (shape1.empty()) {
+        return BroadcastResult::Success(shape2);
+    }
+    if (shape2.empty()) {
+        return BroadcastResult::Success(shape1);
     }
 
-    // Check if dimensions are equal
-    if (DimensionsEqual(dim1, dim2)) {
-      resultShape.push_back(dim1);
-      continue;
+    // Broadcast from right to left
+    size_t maxNdim = std::max(shape1.size(), shape2.size());
+    std::vector<ExprPtr> resultShape;
+    resultShape.reserve(maxNdim);
+
+    for (size_t i = 0; i < maxNdim; ++i) {
+        // Get dimensions from right to left
+        int64_t idx1 = static_cast<int64_t>(shape1.size()) - 1 - i; // NOLINT
+        int64_t idx2 = static_cast<int64_t>(shape2.size()) - 1 - i; // NOLINT
+
+        ExprPtr dim1 = (idx1 >= 0) ? shape1[idx1] : nullptr;
+        ExprPtr dim2 = (idx2 >= 0) ? shape2[idx2] : nullptr;
+
+        // If one dimension is missing, use the other
+        if (!dim1) {
+            resultShape.push_back(dim2);
+            continue;
+        }
+        if (!dim2) {
+            resultShape.push_back(dim1);
+            continue;
+        }
+
+        // Check if dimensions are equal
+        if (DimensionsEqual(dim1, dim2)) {
+            resultShape.push_back(dim1);
+            continue;
+        }
+
+        // Check if either dimension is 1 (broadcastable)
+        auto constDim1 = GetConstantDimension(dim1);
+        auto constDim2 = GetConstantDimension(dim2);
+
+        if (constDim1 && *constDim1 == 1) {
+            resultShape.push_back(dim2);
+            continue;
+        }
+        if (constDim2 && *constDim2 == 1) {
+            resultShape.push_back(dim1);
+            continue;
+        }
+
+        // Dimensions are incompatible for broadcasting
+        std::ostringstream oss;
+        oss << "Cannot broadcast shapes: dimension " << i << " mismatch";
+        return BroadcastResult::Failure(oss.str());
     }
 
-    // Check if either dimension is 1 (broadcastable)
-    auto constDim1 = GetConstantDimension(dim1);
-    auto constDim2 = GetConstantDimension(dim2);
-
-    if (constDim1 && *constDim1 == 1) {
-      resultShape.push_back(dim2);
-      continue;
-    }
-    if (constDim2 && *constDim2 == 1) {
-      resultShape.push_back(dim1);
-      continue;
-    }
-
-    // Dimensions are incompatible for broadcasting
-    std::ostringstream oss;
-    oss << "Cannot broadcast shapes: dimension " << i << " mismatch";
-    return BroadcastResult::Failure(oss.str());
-  }
-
-  // Reverse result since we built it from right to left
-  std::reverse(resultShape.begin(), resultShape.end());
-  return BroadcastResult::Success(std::move(resultShape));
+    // Reverse result since we built it from right to left
+    std::reverse(resultShape.begin(), resultShape.end());
+    return BroadcastResult::Success(std::move(resultShape));
 }
 
 std::optional<DataType> PromoteDataTypes(DataType dtype1, DataType dtype2) {
-  // If types are the same, return that type
-  if (dtype1 == dtype2) {
+    // If types are the same, return that type
+    if (dtype1 == dtype2) {
+        return dtype1;
+    }
+
+    // Float types take precedence
+    bool isFloat1 = dtype1.IsFloat();
+    bool isFloat2 = dtype2.IsFloat();
+
+    if (isFloat1 && !isFloat2) {
+        return dtype1;
+    }
+    if (isFloat2 && !isFloat1) {
+        return dtype2;
+    }
+
+    // Both are floats or both are integers
+    // Return the larger type
+    size_t bits1 = dtype1.GetBit();
+    size_t bits2 = dtype2.GetBit();
+
+    if (bits1 > bits2) {
+        return dtype1;
+    }
+    if (bits2 > bits1) {
+        return dtype2;
+    }
+
+    // Same size - prefer signed over unsigned for integers
+    if (!isFloat1 && dtype1.IsSignedInt()) {
+        return dtype1;
+    }
+    if (!isFloat2 && dtype2.IsSignedInt()) {
+        return dtype2;
+    }
+
+    // Default to first type
     return dtype1;
-  }
-
-  // Float types take precedence
-  bool isFloat1 = dtype1.IsFloat();
-  bool isFloat2 = dtype2.IsFloat();
-
-  if (isFloat1 && !isFloat2) {
-    return dtype1;
-  }
-  if (isFloat2 && !isFloat1) {
-    return dtype2;
-  }
-
-  // Both are floats or both are integers
-  // Return the larger type
-  size_t bits1 = dtype1.GetBit();
-  size_t bits2 = dtype2.GetBit();
-
-  if (bits1 > bits2) {
-    return dtype1;
-  }
-  if (bits2 > bits1) {
-    return dtype2;
-  }
-
-  // Same size - prefer signed over unsigned for integers
-  if (!isFloat1 && dtype1.IsSignedInt()) {
-    return dtype1;
-  }
-  if (!isFloat2 && dtype2.IsSignedInt()) {
-    return dtype2;
-  }
-
-  // Default to first type
-  return dtype1;
 }
 
 bool CheckTypeCompatibility(const TypePtr& type1, const TypePtr& type2) {
-  // Check if both are scalar types
-  auto scalar1 = As<ScalarType>(type1);
-  auto scalar2 = As<ScalarType>(type2);
-  if (scalar1 && scalar2) {
-    return true;
-  }
+    // Check if both are scalar types
+    auto scalar1 = As<ScalarType>(type1);
+    auto scalar2 = As<ScalarType>(type2);
+    if (scalar1 && scalar2) {
+        return true;
+    }
 
-  // Check if both are tensor types
-  auto tensor1 = As<TensorType>(type1);
-  auto tensor2 = As<TensorType>(type2);
-  if (tensor1 && tensor2) {
-    return true;
-  }
+    // Check if both are tensor types
+    auto tensor1 = As<TensorType>(type1);
+    auto tensor2 = As<TensorType>(type2);
+    if (tensor1 && tensor2) {
+        return true;
+    }
 
-  // Check if both are tile types
-  auto tile1 = As<TileType>(type1);
-  auto tile2 = As<TileType>(type2);
-  if (tile1 && tile2) {
-    return true;
-  }
+    // Check if both are tile types
+    auto tile1 = As<TileType>(type1);
+    auto tile2 = As<TileType>(type2);
+    if (tile1 && tile2) {
+        return true;
+    }
 
-  // Types are not compatible
-  return false;
+    // Types are not compatible
+    return false;
 }
 
 std::optional<DataType> ExtractDataType(const TypePtr& type) {
-  // Try ScalarType
-  if (auto scalar = As<ScalarType>(type)) {
-    return scalar->dtype_;
-  }
+    // Try ScalarType
+    if (auto scalar = As<ScalarType>(type)) {
+        return scalar->dtype_;
+    }
 
-  // Try TensorType
-  if (auto tensor = As<TensorType>(type)) {
-    return tensor->dtype_;
-  }
+    // Try TensorType
+    if (auto tensor = As<TensorType>(type)) {
+        return tensor->dtype_;
+    }
 
-  // Try TileType
-  if (auto tile = As<TileType>(type)) {
-    return tile->dtype_;
-  }
+    // Try TileType
+    if (auto tile = As<TileType>(type)) {
+        return tile->dtype_;
+    }
 
-  return std::nullopt;
+    return std::nullopt;
 }
 
 std::vector<ExprPtr> ExtractShape(const TypePtr& type) {
-  // Try TensorType
-  if (auto tensor = As<TensorType>(type)) {
-    return tensor->shape_;
-  }
+    // Try TensorType
+    if (auto tensor = As<TensorType>(type)) {
+        return tensor->shape_;
+    }
 
-  // Try TileType
-  if (auto tile = As<TileType>(type)) {
-    return tile->shape_;
-  }
+    // Try TileType
+    if (auto tile = As<TileType>(type)) {
+        return tile->shape_;
+    }
 
-  // Not a shaped type
-  return {};
+    // Not a shaped type
+    return {};
 }
 
 std::optional<int64_t> GetConstantDimension(const ExprPtr& dim) {
-  // Try to cast to ConstInt
-  if (auto constInt = As<ConstInt>(dim)) {
-    return constInt->value_;
-  }
+    // Try to cast to ConstInt
+    if (auto constInt = As<ConstInt>(dim)) {
+        return constInt->value_;
+    }
 
-  // Not a constant
-  return std::nullopt;
+    // Not a constant
+    return std::nullopt;
 }
 
 bool DimensionsEqual(const ExprPtr& dim1, const ExprPtr& dim2) {
-  // Pointer equality (same object)
-  if (dim1 == dim2) {
-    return true;
-  }
+    // Pointer equality (same object)
+    if (dim1 == dim2) {
+        return true;
+    }
 
-  // Try constant comparison
-  auto const1 = GetConstantDimension(dim1);
-  auto const2 = GetConstantDimension(dim2);
+    // Try constant comparison
+    auto const1 = GetConstantDimension(dim1);
+    auto const2 = GetConstantDimension(dim2);
 
-  if (const1 && const2) {
-    return *const1 == *const2;
-  }
+    if (const1 && const2) {
+        return *const1 == *const2;
+    }
 
-  // For symbolic dimensions, use pointer equality
-  return false;
+    // For symbolic dimensions, use pointer equality
+    return false;
 }
 
 bool IsBroadcastable(const ExprPtr& sourceDim, const ExprPtr& targetDim) {
-  // If dimensions are equal, they're broadcastable
-  if (DimensionsEqual(sourceDim, targetDim)) {
-    return true;
-  }
+    // If dimensions are equal, they're broadcastable
+    if (DimensionsEqual(sourceDim, targetDim)) {
+        return true;
+    }
 
-  // Check if source is constant 1
-  auto constSource = GetConstantDimension(sourceDim);
-  if (constSource && *constSource == 1) {
-    return true;
-  }
+    // Check if source is constant 1
+    auto constSource = GetConstantDimension(sourceDim);
+    if (constSource && *constSource == 1) {
+        return true;
+    }
 
-  // Check if target is constant 1
-  auto constTarget = GetConstantDimension(targetDim);
-  if (constTarget && *constTarget == 1) {
-    return true;
-  }
+    // Check if target is constant 1
+    auto constTarget = GetConstantDimension(targetDim);
+    if (constTarget && *constTarget == 1) {
+        return true;
+    }
 
-  return false;
+    return false;
 }
 
 std::string FormatShape(const std::vector<ExprPtr>& shape) {
-  if (shape.empty()) {
-    return "[]";
-  }
+    if (shape.empty()) {
+        return "[]";
+    }
 
-  std::ostringstream oss;
-  oss << "[";
-  for (size_t i = 0; i < shape.size(); ++i) {
-    if (i > 0) {
-      oss << ", ";
+    std::ostringstream oss;
+    oss << "[";
+    for (size_t i = 0; i < shape.size(); ++i) {
+        if (i > 0) {
+            oss << ", ";
+        }
+        auto constDim = GetConstantDimension(shape[i]);
+        if (constDim) {
+            oss << *constDim;
+        } else {
+            oss << "?";
+        }
     }
-    auto constDim = GetConstantDimension(shape[i]);
-    if (constDim) {
-      oss << *constDim;
-    } else {
-      oss << "?";
-    }
-  }
-  oss << "]";
-  return oss.str();
+    oss << "]";
+    return oss.str();
 }
 
-}  // namespace ir
-}  // namespace pypto
+} // namespace ir
+} // namespace pypto

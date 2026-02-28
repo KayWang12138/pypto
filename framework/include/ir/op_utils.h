@@ -36,9 +36,9 @@ namespace ir {
  * \throws ValueError if key is not found and no default_value is provided
  */
 template <typename T>
-T GetKwarg(const std::vector<std::pair<std::string, std::any>> &kwargs, const std::string &key,
-    const std::optional<T> &defaultValue = std::nullopt) {
-    for (const auto &entry : kwargs) {
+T GetKwarg(const std::vector<std::pair<std::string, std::any>>& kwargs, const std::string& key,
+    const std::optional<T>& defaultValue = std::nullopt) {
+    for (const auto& entry : kwargs) {
         if (entry.first == key) {
             return AnyCast<T>(entry.second, "kwarg key: " + key);
         }
@@ -73,9 +73,9 @@ inline int NormalizeAxis(int axis, size_t ndim) {
  * \param shape The shape dimensions
  * \return The product if all dimensions are ConstInt, -1 otherwise (dynamic shape)
  */
-inline int64_t ComputeShapeProduct(const std::vector<ExprPtr> &shape) {
+inline int64_t ComputeShapeProduct(const std::vector<ExprPtr>& shape) {
     int64_t product = 1;
-    for (const auto &dim : shape) {
+    for (const auto& dim : shape) {
         auto constDim = As<ConstInt>(dim);
         if (!constDim) {
             return -1; // Dynamic shape, cannot compute product
@@ -95,13 +95,12 @@ inline int64_t ComputeShapeProduct(const std::vector<ExprPtr> &shape) {
  * \param k_rhs The K dimension from the right-hand side
  * \param op_name Operator name for error messages
  */
-inline void VerifyKDimensionsMatch(const ExprPtr &kLhs, const ExprPtr &kRhs, const std::string &opName) {
+inline void VerifyKDimensionsMatch(const ExprPtr& kLhs, const ExprPtr& kRhs, const std::string& opName) {
     auto kLhsConst = As<ConstInt>(kLhs);
     auto kRhsConst = As<ConstInt>(kRhs);
     if (kLhsConst && kRhsConst) {
         INTERNAL_CHECK(kLhsConst->value_ == kRhsConst->value_)
-            << "The operator " << opName
-            << " requires matching inner dimensions, but got lhs K=" << kLhsConst->value_
+            << "The operator " << opName << " requires matching inner dimensions, but got lhs K=" << kLhsConst->value_
             << " and rhs K=" << kRhsConst->value_;
     }
 }

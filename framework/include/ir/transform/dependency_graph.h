@@ -28,7 +28,7 @@ struct BasicBlock {
     std::vector<StmtPtr> statements; // Statements in this block
     std::vector<int> predecessors;   // Predecessor block IDs
     std::vector<int> successors;     // Successor block IDs
-    bool isLoopBody = false;       // True if this block is a loop body
+    bool isLoopBody = false;         // True if this block is a loop body
 };
 
 /**
@@ -37,10 +37,10 @@ struct BasicBlock {
 struct DependencyEdge {
     enum Type { RAW, WAR, WAW }; // Read-After-Write, Write-After-Read, Write-After-Write
 
-    StmtPtr producer;          // Producer statement
-    StmtPtr consumer;          // Consumer statement
-    VarPtr variable;           // Variable creating the dependency
-    Type type;                 // Dependency type
+    StmtPtr producer;         // Producer statement
+    StmtPtr consumer;         // Consumer statement
+    VarPtr variable;          // Variable creating the dependency
+    Type type;                // Dependency type
     std::string producerPipe; // Pipe type of producer (e.g., "VECTOR")
     std::string consumerPipe; // Pipe type of consumer
 };

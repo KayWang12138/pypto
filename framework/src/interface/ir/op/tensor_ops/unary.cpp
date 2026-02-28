@@ -21,56 +21,56 @@
 namespace pypto {
 namespace ir {
 
-TypePtr DeduceTensorExpType(const std::vector<ExprPtr>& args,
-                            const std::vector<std::pair<std::string, std::any>>& /*kwargs*/) {
-  INTERNAL_CHECK(args.size() == 1) << "tensor.exp requires exactly 1 argument, but got " << args.size();
+TypePtr DeduceTensorExpType(
+    const std::vector<ExprPtr>& args, const std::vector<std::pair<std::string, std::any>>& /*kwargs*/) {
+    INTERNAL_CHECK(args.size() == 1) << "tensor.exp requires exactly 1 argument, but got " << args.size();
 
-  auto tensorType = As<TensorType>(args[0]->GetType());
-  INTERNAL_CHECK(tensorType) << "tensor.exp requires first argument to be a TensorType, but got "
-                     << args[0]->GetType()->TypeName();
+    auto tensorType = As<TensorType>(args[0]->GetType());
+    INTERNAL_CHECK(tensorType) << "tensor.exp requires first argument to be a TensorType, but got "
+                               << args[0]->GetType()->TypeName();
 
-  // exp should promote to float type if input is integer
-  // Exponential always produces floating-point output (e.g., exp(1) = 2.718...)
-  DataType outDtype = tensorType->dtype_;
-  if (!outDtype.IsFloat()) {
-    // Promote to default float type (FP32)
-    outDtype = DataType::FP32;
-  }
+    // exp should promote to float type if input is integer
+    // Exponential always produces floating-point output (e.g., exp(1) = 2.718...)
+    DataType outDtype = tensorType->dtype_;
+    if (!outDtype.IsFloat()) {
+        // Promote to default float type (FP32)
+        outDtype = DataType::FP32;
+    }
 
-  return std::make_shared<TensorType>(tensorType->shape_, outDtype);
+    return std::make_shared<TensorType>(tensorType->shape_, outDtype);
 }
 
-TypePtr DeduceTensorCastType(const std::vector<ExprPtr>& args,
-                             const std::vector<std::pair<std::string, std::any>>& kwargs) {
-  INTERNAL_CHECK(args.size() == 1) << "tensor.cast requires exactly 1 argument (input), but got " << args.size();
+TypePtr DeduceTensorCastType(
+    const std::vector<ExprPtr>& args, const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    INTERNAL_CHECK(args.size() == 1) << "tensor.cast requires exactly 1 argument (input), but got " << args.size();
 
-  auto tensorType = As<TensorType>(args[0]->GetType());
-  INTERNAL_CHECK(tensorType) << "tensor.cast requires first argument to be a TensorType, but got "
-                     << args[0]->GetType()->TypeName();
+    auto tensorType = As<TensorType>(args[0]->GetType());
+    INTERNAL_CHECK(tensorType) << "tensor.cast requires first argument to be a TensorType, but got "
+                               << args[0]->GetType()->TypeName();
 
-  // Read target_type from kwargs
-  bool foundTargetType = false;
-  DataType targetDtype;
-  for (const auto& [key, value] : kwargs) {
-    if (key == "target_type") {
-      // Handle both DataType and int for backward compatibility
-      if (value.type() == typeid(DataType)) {
-        targetDtype = AnyCast<DataType>(value, "kwarg key: target_type");
-      } else if (value.type() == typeid(int)) {
-        targetDtype = static_cast<DataType>(AnyCast<int>(value, "kwarg key: target_type"));
-      } else {
-        throw TypeError("target_type must be a DataType or int, but got " + std::string(value.type().name()));
-      }
-      foundTargetType = true;
-      break;
+    // Read target_type from kwargs
+    bool foundTargetType = false;
+    DataType targetDtype;
+    for (const auto& [key, value] : kwargs) {
+        if (key == "target_type") {
+            // Handle both DataType and int for backward compatibility
+            if (value.type() == typeid(DataType)) {
+                targetDtype = AnyCast<DataType>(value, "kwarg key: target_type");
+            } else if (value.type() == typeid(int)) {
+                targetDtype = static_cast<DataType>(AnyCast<int>(value, "kwarg key: target_type"));
+            } else {
+                throw TypeError("target_type must be a DataType or int, but got " + std::string(value.type().name()));
+            }
+            foundTargetType = true;
+            break;
+        }
     }
-  }
-  INTERNAL_CHECK(foundTargetType) << "tensor.cast requires 'target_type' kwarg";
+    INTERNAL_CHECK(foundTargetType) << "tensor.cast requires 'target_type' kwarg";
 
-  // mode kwarg is optional, not used in type deduction
+    // mode kwarg is optional, not used in type deduction
 
-  // Cast preserves shape but changes dtype
-  return std::make_shared<TensorType>(tensorType->shape_, targetDtype);
+    // Cast preserves shape but changes dtype
+    return std::make_shared<TensorType>(tensorType->shape_, targetDtype);
 }
 
 // ============================================================================
@@ -81,9 +81,8 @@ REGISTER_OP("tensor.exp")
     .SetOpCategory("TensorOp")
     .SetDescription("Element-wise exponential operation")
     .AddArgument("input", "Input tensor (TensorType)")
-    .SetDeduceType([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
-      return DeduceTensorExpType(args, kwargs);
+    .SetDeduceType([](const std::vector<ExprPtr>& args, const std::vector<std::pair<std::string, std::any>>& kwargs) {
+        return DeduceTensorExpType(args, kwargs);
     });
 
 REGISTER_OP("tensor.cast")
@@ -92,10 +91,9 @@ REGISTER_OP("tensor.cast")
     .AddArgument("input", "Input tensor (TensorType)")
     .set_attr<DataType>("target_type")
     .set_attr<int>("mode")
-    .SetDeduceType([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
-      return DeduceTensorCastType(args, kwargs);
+    .SetDeduceType([](const std::vector<ExprPtr>& args, const std::vector<std::pair<std::string, std::any>>& kwargs) {
+        return DeduceTensorCastType(args, kwargs);
     });
 
-}  // namespace ir
-}  // namespace pypto
+} // namespace ir
+} // namespace pypto

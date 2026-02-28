@@ -116,8 +116,8 @@ public:
     virtual ~IRNode() = default;
 
     // Disable copying and moving to enforce immutability
-    IRNode(IRNode &&) = delete;
-    IRNode &operator=(IRNode &&) = delete;
+    IRNode(IRNode&&) = delete;
+    IRNode& operator=(IRNode&&) = delete;
 
     /**
      * \brief Get the Kind of this IR node
@@ -151,7 +151,7 @@ using IRNodePtr = std::shared_ptr<const IRNode>;
  * \param rhs Right-hand side expression pointer
  * \return true if pointers reference the same object
  */
-inline bool operator==(const IRNodePtr &lhs, const IRNodePtr &rhs) {
+inline bool operator==(const IRNodePtr& lhs, const IRNodePtr& rhs) {
     return lhs.get() == rhs.get();
 }
 
@@ -162,7 +162,7 @@ inline bool operator==(const IRNodePtr &lhs, const IRNodePtr &rhs) {
  * \param rhs Right-hand side expression pointer
  * \return true if pointers reference different objects
  */
-inline bool operator!=(const IRNodePtr &lhs, const IRNodePtr &rhs) {
+inline bool operator!=(const IRNodePtr& lhs, const IRNodePtr& rhs) {
     return !(lhs == rhs);
 }
 
@@ -218,8 +218,8 @@ namespace std {
  */
 template <>
 struct hash<pypto::ir::IRNodePtr> {
-    size_t operator()(const pypto::ir::IRNodePtr &ptr) const noexcept {
-        return std::hash<const pypto::ir::IRNode *>{}(ptr.get());
+    size_t operator()(const pypto::ir::IRNodePtr& ptr) const noexcept {
+        return std::hash<const pypto::ir::IRNode*>{}(ptr.get());
     }
 };
 

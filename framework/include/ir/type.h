@@ -125,7 +125,7 @@ using ScalarTypePtr = std::shared_ptr<const ScalarType>;
  */
 struct TileView {
     std::vector<ExprPtr> validShape; ///< Valid shape dimensions
-    std::vector<ExprPtr> stride;      ///< Stride for each dimension
+    std::vector<ExprPtr> stride;     ///< Stride for each dimension
     ExprPtr startOffset;             ///< Starting offset
 
     /**
@@ -141,9 +141,7 @@ struct TileView {
      * \param startOffset Starting offset
      */
     TileView(std::vector<ExprPtr> validShapeIn, std::vector<ExprPtr> strideIn, ExprPtr startOffsetIn)
-        : validShape(std::move(validShapeIn)),
-          stride(std::move(strideIn)),
-          startOffset(std::move(startOffsetIn)) {}
+        : validShape(std::move(validShapeIn)), stride(std::move(strideIn)), startOffset(std::move(startOffsetIn)) {}
 
     /**
      * \brief Get field descriptors for reflection-based visitation
@@ -184,7 +182,7 @@ public:
      * \param dtype Element data type
      * \param shape Shape dimensions
      */
-    ShapedType(DataType dtype, const std::vector<int64_t> &shape, std::optional<MemRefPtr> memref);
+    ShapedType(DataType dtype, const std::vector<int64_t>& shape, std::optional<MemRefPtr> memref);
 
     /**
      * \brief Create a shaped type with memory reference (shared_ptr)
@@ -250,7 +248,7 @@ public:
      * \param shape Shape dimensions
      * \param dtype Element data type
      */
-    TensorType(const std::vector<int64_t> &shape, DataType dtype, std::optional<MemRefPtr> memref)
+    TensorType(const std::vector<int64_t>& shape, DataType dtype, std::optional<MemRefPtr> memref)
         : ShapedType(dtype, shape, std::move(memref)) {}
 
     /**
@@ -321,7 +319,7 @@ public:
      * \param memref Optional memory reference (shared pointer)
      * \param tile_view Optional tile view information
      */
-    TileType(const std::vector<int64_t> &shape, DataType dtype, std::optional<MemRefPtr> memref,
+    TileType(const std::vector<int64_t>& shape, DataType dtype, std::optional<MemRefPtr> memref,
         std::optional<TileView> tileView)
         : ShapedType(dtype, shape, std::move(memref)), tileView_(std::move(tileView)) {}
 

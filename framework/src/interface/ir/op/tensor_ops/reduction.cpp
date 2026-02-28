@@ -26,54 +26,53 @@ namespace pypto {
 namespace ir {
 
 TypePtr DeduceTensorReductionType(const std::vector<ExprPtr>& args,
-                                  const std::vector<std::pair<std::string, std::any>>& kwargs,
-                                  const std::string& opName) {
-  // Reduction operations require exactly 1 argument (input tensor)
-  INTERNAL_CHECK(args.size() == 1) << "The operator " << opName << " requires exactly 1 argument, but got "
-                          << args.size();
+    const std::vector<std::pair<std::string, std::any>>& kwargs, const std::string& opName) {
+    // Reduction operations require exactly 1 argument (input tensor)
+    INTERNAL_CHECK(args.size() == 1) << "The operator " << opName << " requires exactly 1 argument, but got "
+                                     << args.size();
 
-  // First argument must be TensorType
-  auto tensorType = As<TensorType>(args[0]->GetType());
-  INTERNAL_CHECK(tensorType) << "The operator " << opName << " requires first argument to be a TensorType, but got "
-                     << args[0]->GetType()->TypeName();
+    // First argument must be TensorType
+    auto tensorType = As<TensorType>(args[0]->GetType());
+    INTERNAL_CHECK(tensorType) << "The operator " << opName << " requires first argument to be a TensorType, but got "
+                               << args[0]->GetType()->TypeName();
 
-  const auto& inputShape = tensorType->shape_;
-  int64_t inputNdim = static_cast<int64_t>(inputShape.size());
+    const auto& inputShape = tensorType->shape_;
+    int64_t inputNdim = static_cast<int64_t>(inputShape.size());
 
-  // Extract axis from kwargs (default: -1, meaning last axis)
-  int axis = GetKwarg<int>(kwargs, "axis", -1);
+    // Extract axis from kwargs (default: -1, meaning last axis)
+    int axis = GetKwarg<int>(kwargs, "axis", -1);
 
-  // Normalize negative axis
-  if (axis < 0) {
-    axis = static_cast<int>(inputNdim) + axis;
-  }
-  INTERNAL_CHECK(axis >= 0 && static_cast<int64_t>(axis) < inputNdim)
-      << "The operator " << opName << " axis " << axis << " is out of range for shape with " << inputNdim
-      << " dimensions";
-
-  // Extract keep_dim flag from kwargs (default: true)
-  bool keepDim = GetKwarg<bool>(kwargs, "keep_dim", true);
-
-  // Build output shape
-  std::vector<ExprPtr> outputShape;
-  for (int64_t i = 0; i < inputNdim; ++i) {
-    if (i == axis) {
-      if (keepDim) {
-        // Keep dimension as 1
-        outputShape.push_back(std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown()));
-      }
-      // Otherwise, skip this dimension (reduce it out)
-    } else {
-      outputShape.push_back(inputShape[i]);
+    // Normalize negative axis
+    if (axis < 0) {
+        axis = static_cast<int>(inputNdim) + axis;
     }
-  }
+    INTERNAL_CHECK(axis >= 0 && static_cast<int64_t>(axis) < inputNdim)
+        << "The operator " << opName << " axis " << axis << " is out of range for shape with " << inputNdim
+        << " dimensions";
 
-  // If output shape is empty (all dimensions reduced and keep_dim=false), return ScalarType
-  if (outputShape.empty()) {
-    return std::make_shared<ScalarType>(tensorType->dtype_);
-  }
+    // Extract keep_dim flag from kwargs (default: true)
+    bool keepDim = GetKwarg<bool>(kwargs, "keep_dim", true);
 
-  return std::make_shared<TensorType>(outputShape, tensorType->dtype_);
+    // Build output shape
+    std::vector<ExprPtr> outputShape;
+    for (int64_t i = 0; i < inputNdim; ++i) {
+        if (i == axis) {
+            if (keepDim) {
+                // Keep dimension as 1
+                outputShape.push_back(std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown()));
+            }
+            // Otherwise, skip this dimension (reduce it out)
+        } else {
+            outputShape.push_back(inputShape[i]);
+        }
+    }
+
+    // If output shape is empty (all dimensions reduced and keep_dim=false), return ScalarType
+    if (outputShape.empty()) {
+        return std::make_shared<ScalarType>(tensorType->dtype_);
+    }
+
+    return std::make_shared<TensorType>(outputShape, tensorType->dtype_);
 }
 
 // ============================================================================
@@ -86,9 +85,8 @@ REGISTER_OP("tensor.row_max")
     .AddArgument("input", "Input tensor (TensorType)")
     .set_attr<int>("axis")
     .set_attr<bool>("keep_dim")
-    .SetDeduceType([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
-      return DeduceTensorReductionType(args, kwargs, "tensor.row_max");
+    .SetDeduceType([](const std::vector<ExprPtr>& args, const std::vector<std::pair<std::string, std::any>>& kwargs) {
+        return DeduceTensorReductionType(args, kwargs, "tensor.row_max");
     });
 
 REGISTER_OP("tensor.row_sum")
@@ -97,10 +95,9 @@ REGISTER_OP("tensor.row_sum")
     .AddArgument("input", "Input tensor (TensorType)")
     .set_attr<int>("axis")
     .set_attr<bool>("keep_dim")
-    .SetDeduceType([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
-      return DeduceTensorReductionType(args, kwargs, "tensor.row_sum");
+    .SetDeduceType([](const std::vector<ExprPtr>& args, const std::vector<std::pair<std::string, std::any>>& kwargs) {
+        return DeduceTensorReductionType(args, kwargs, "tensor.row_sum");
     });
 
-}  // namespace ir
-}  // namespace pypto
+} // namespace ir
+} // namespace pypto

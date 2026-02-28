@@ -37,7 +37,7 @@ namespace ir {
  *                            If false, variable names matter (default).
  * \return Structural hash value
  */
-uint64_t StructuralHash(const IRNodePtr &node, bool enableAutoMapping = false);
+uint64_t StructuralHash(const IRNodePtr& node, bool enableAutoMapping = false);
 
 /**
  * \brief Compute structural hash of a type
@@ -47,7 +47,7 @@ uint64_t StructuralHash(const IRNodePtr &node, bool enableAutoMapping = false);
  *                            If false, variable names matter (default).
  * \return Structural hash value
  */
-uint64_t StructuralHash(const TypePtr &type, bool enableAutoMapping = false);
+uint64_t StructuralHash(const TypePtr& type, bool enableAutoMapping = false);
 
 /**
  * \brief Check if two IR nodes are structurally equal
@@ -61,7 +61,7 @@ uint64_t StructuralHash(const TypePtr &type, bool enableAutoMapping = false);
  *                            If false, variable names must match exactly (default).
  * \return true if structurally equal, false otherwise
  */
-bool StructuralEqual(const IRNodePtr &lhs, const IRNodePtr &rhs, bool enableAutoMapping = false);
+bool StructuralEqual(const IRNodePtr& lhs, const IRNodePtr& rhs, bool enableAutoMapping = false);
 
 /**
  * \brief Check if two types are structurally equal
@@ -72,7 +72,7 @@ bool StructuralEqual(const IRNodePtr &lhs, const IRNodePtr &rhs, bool enableAuto
  *                            If false, variable names must match exactly (default).
  * \return true if structurally equal, false otherwise
  */
-bool StructuralEqual(const TypePtr &lhs, const TypePtr &rhs, bool enableAutoMapping = false);
+bool StructuralEqual(const TypePtr& lhs, const TypePtr& rhs, bool enableAutoMapping = false);
 
 /**
  * \brief Assert two IR nodes are structurally equal
@@ -87,7 +87,7 @@ bool StructuralEqual(const TypePtr &lhs, const TypePtr &rhs, bool enableAutoMapp
  *                            If false, variable names must match exactly (default).
  * \throws ValueError if nodes are not structurally equal, with detailed diagnostic message
  */
-void AssertStructuralEqual(const IRNodePtr &lhs, const IRNodePtr &rhs, bool enableAutoMapping = false);
+void AssertStructuralEqual(const IRNodePtr& lhs, const IRNodePtr& rhs, bool enableAutoMapping = false);
 
 /**
  * \brief Assert two types are structurally equal
@@ -100,6 +100,6 @@ void AssertStructuralEqual(const IRNodePtr &lhs, const IRNodePtr &rhs, bool enab
  *                            If false, variable names must match exactly (default).
  * \throws ValueError if types are not structurally equal, with detailed diagnostic message
  */
-void AssertStructuralEqual(const TypePtr &lhs, const TypePtr &rhs, bool enableAutoMapping = false);
+void AssertStructuralEqual(const TypePtr& lhs, const TypePtr& rhs, bool enableAutoMapping = false);
 } // namespace ir
 } // namespace pypto

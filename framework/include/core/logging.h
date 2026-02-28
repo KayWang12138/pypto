@@ -42,7 +42,7 @@ namespace pypto {
 
 // Forward declaration for vector streaming support
 template <typename T>
-std::ostream &operator<<(std::ostream &os, const std::vector<T> &vec);
+std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec);
 
 /**
  * \brief Stream operator for std::vector to enable logging of vectors
@@ -55,7 +55,7 @@ std::ostream &operator<<(std::ostream &os, const std::vector<T> &vec);
  * \return Reference to the output stream
  */
 template <typename T>
-std::ostream &operator<<(std::ostream &os, const std::vector<T> &vec) {
+std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec) {
     os << "[";
     for (size_t i = 0; i < vec.size(); ++i) {
         if (i > 0) {
@@ -129,7 +129,7 @@ public:
      * \param cmd TTY command to output
      * \return Reference to this logger for chaining
      */
-    StdLogger &Log(TTYCmd &&cmd) {
+    StdLogger& Log(TTYCmd&& cmd) {
         std::cerr << cmd.Str();
         return *this;
     }
@@ -141,14 +141,14 @@ public:
      * \return Reference to this logger for chaining
      */
     template <typename T>
-    StdLogger &Log(T &&t) {
+    StdLogger& Log(T&& t) {
         std::cerr << (std::forward<T>(t));
         return *this;
     }
 
     StdLogger() = default;
-    StdLogger(const StdLogger &) = delete;
-    StdLogger &operator=(const StdLogger &) = delete;
+    StdLogger(const StdLogger&) = delete;
+    StdLogger& operator=(const StdLogger&) = delete;
 };
 
 /**
@@ -166,7 +166,7 @@ public:
      * \param filepath Path to the log file
      * \param append If true, append to existing file; otherwise overwrite
      */
-    FileLogger(const std::string &filepath, bool append) {
+    FileLogger(const std::string& filepath, bool append) {
         if (append) {
             ofs.open(filepath, std::ios_base::app);
         } else {
@@ -179,7 +179,7 @@ public:
      * \param cmd TTY command (ignored)
      * \return Reference to this logger for chaining
      */
-    FileLogger &Log([[maybe_unused]] TTYCmd &&cmd) { return *this; }
+    FileLogger& Log([[maybe_unused]] TTYCmd&& cmd) { return *this; }
 
     /**
      * \brief Log a value to the file
@@ -188,12 +188,12 @@ public:
      * \return Reference to this logger for chaining
      */
     template <typename T>
-    FileLogger &Log(T &&t) {
+    FileLogger& Log(T&& t) {
         ofs << (std::forward<T>(t));
         return *this;
     }
-    FileLogger(const FileLogger &) = delete;
-    FileLogger &operator=(const FileLogger &) = delete;
+    FileLogger(const FileLogger&) = delete;
+    FileLogger& operator=(const FileLogger&) = delete;
 };
 
 /**
@@ -209,14 +209,14 @@ public:
      * \param cmd TTY command (ignored)
      * \return Reference to this logger for chaining
      */
-    LineLogger &Log([[maybe_unused]] TTYCmd &&cmd) { return *this; }
+    LineLogger& Log([[maybe_unused]] TTYCmd&& cmd) { return *this; }
 
     /**
      * \brief Log a string value
      * \param t String to store
      * \return Reference to this logger for chaining
      */
-    LineLogger &Log(std::string &&t) {
+    LineLogger& Log(std::string&& t) {
         this->emplace_back(t);
         return *this;
     }
@@ -256,18 +256,18 @@ public:
      * \param t_rich Rich message with formatting (for std logger)
      */
     template <typename T>
-    void Log(LogLevel l, T &&t, T &&tRich) {
+    void Log(LogLevel l, T&& t, T&& tRich) {
         std::scoped_lock lock(logMtx);
         if (l >= level) {
             if (stdEnabled) {
                 stdLogger.Log(std::forward<T>(tRich));
             }
         }
-        for (auto &[filepath, logger] : fileLoggerDict) {
+        for (auto& [filepath, logger] : fileLoggerDict) {
             (void)filepath;
             logger->Log(std::forward<T>(t));
         }
-        for (auto &[name, logger] : lineLoggerDict) {
+        for (auto& [name, logger] : lineLoggerDict) {
             (void)name;
             logger->Log(std::forward<T>(t));
         }
@@ -290,7 +290,7 @@ public:
      * \param filepath Path to the log file
      * \param append If true, append to existing file; otherwise overwrite
      */
-    static void FileLoggerRegister(const std::string &filepath, bool append) {
+    static void FileLoggerRegister(const std::string& filepath, bool append) {
         GetManager().fileLoggerDict.try_emplace(filepath, std::make_unique<FileLogger>(filepath, append));
     }
 
@@ -298,7 +298,7 @@ public:
      * \brief Unregister and close a file logger
      * \param filepath Path to the log file to unregister
      */
-    static void FileLoggerUnregister(const std::string &filepath) { GetManager().fileLoggerDict.erase(filepath); }
+    static void FileLoggerUnregister(const std::string& filepath) { GetManager().fileLoggerDict.erase(filepath); }
 
     /**
      * \brief Replace one file logger with another
@@ -306,7 +306,7 @@ public:
      * \param new_filepath Path to the new log file
      * \param append If true, append to new file; otherwise overwrite
      */
-    static void FileLoggerReplace(const std::string &oldFilepath, const std::string &newFilepath, bool append) {
+    static void FileLoggerReplace(const std::string& oldFilepath, const std::string& newFilepath, bool append) {
         FileLoggerUnregister(oldFilepath);
         FileLoggerRegister(newFilepath, append);
     }
@@ -316,8 +316,8 @@ public:
      * \param name Name identifier for the logger
      * \return Shared pointer to the line logger for access to stored lines
      */
-    static std::shared_ptr<LineLogger> LineLoggerRegister(const std::string &name) {
-        auto &dict = GetManager().lineLoggerDict;
+    static std::shared_ptr<LineLogger> LineLoggerRegister(const std::string& name) {
+        auto& dict = GetManager().lineLoggerDict;
         auto it = dict.find(name);
         if (it != dict.end()) {
             return it->second;
@@ -331,7 +331,7 @@ public:
      * \brief Unregister an in-memory line logger
      * \param name Name identifier of the logger to unregister
      */
-    static void LineLoggerUnregister(const std::string &name) { GetManager().lineLoggerDict.erase(name); }
+    static void LineLoggerUnregister(const std::string& name) { GetManager().lineLoggerDict.erase(name); }
 
     friend class Logger;
 
@@ -339,7 +339,7 @@ public:
      * \brief Get the singleton LoggerManager instance
      * \return Reference to the singleton LoggerManager
      */
-    static LoggerManager &GetManager() {
+    static LoggerManager& GetManager() {
         static LoggerManager manager;
         return manager;
     }
@@ -380,7 +380,7 @@ public:
     Logger(LogLevel levelIn, [[maybe_unused]] int line) : level(levelIn) {
         enableLog = LoggerManager::GetManager().level <= level;
         if (enableLog) {
-            static const char *MSG = "DIWEFVN";
+            static const char* MSG = "DIWEFVN";
             auto now = std::chrono::system_clock::now();
             auto time = std::chrono::system_clock::to_time_t(now);
             auto tm = *std::localtime(&time);
@@ -415,7 +415,7 @@ public:
      * \param val TTY command
      * \return Reference to this logger for chaining
      */
-    Logger &Log(TTYCmd &&val) {
+    Logger& Log(TTYCmd&& val) {
         ssRich << val.Str();
         return *this;
     }
@@ -427,7 +427,7 @@ public:
      * \return Reference to this logger for chaining
      */
     template <typename T>
-    Logger &Log(T &&val) {
+    Logger& Log(T&& val) {
         ss << (std::forward<T>(val));
         ssRich << (std::forward<T>(val));
         return *this;
@@ -440,7 +440,7 @@ public:
      * \return Reference to this logger for chaining
      */
     template <typename T>
-    Logger &operator<<(T &&val) {
+    Logger& operator<<(T&& val) {
         if (enableLog) {
             return Log(std::forward<T>(val));
         } else {
@@ -455,7 +455,7 @@ public:
      * \return Reference to this logger for chaining
      */
     template <typename... Tys>
-    Logger &operator()(Tys &&...vals) {
+    Logger& operator()(Tys&&... vals) {
         if (enableLog) {
             if constexpr (sizeof...(Tys) > 0) {
                 (Log(std::forward<Tys>(vals)), ...);
@@ -480,7 +480,7 @@ public:
  * \param ... Variable arguments
  * \return Formatted string
  */
-inline std::string FormatLogMessage(const char *fmt, ...) {
+inline std::string FormatLogMessage(const char* fmt, ...) {
     constexpr int defaultBufSize = 1024;
     std::string buf(defaultBufSize, '\0');
 
@@ -536,12 +536,12 @@ template <typename ExceptionType>
 class FatalLogger {
 private:
     std::stringstream ss;
-    const char *file;
+    const char* file;
     int line;
-    const char *exprStr;
+    const char* exprStr;
 
 public:
-    FatalLogger(const char *exprStr_, const char *file_, int line_) : file(file_), line(line_), exprStr(exprStr_) {}
+    FatalLogger(const char* exprStr_, const char* file_, int line_) : file(file_), line(line_), exprStr(exprStr_) {}
 
     [[noreturn]] ~FatalLogger() noexcept(false) {
         ss << "\n" << "Check failed: " << exprStr << " at " << file << ":" << line;
@@ -549,17 +549,17 @@ public:
     }
 
     template <typename T>
-    FatalLogger &operator<<(T &&val) {
+    FatalLogger& operator<<(T&& val) {
         ss << std::forward<T>(val);
         return *this;
     }
 
-    std::stringstream &GetStream() { return ss; }
+    std::stringstream& GetStream() { return ss; }
 
-    FatalLogger(const FatalLogger &) = delete;
-    FatalLogger &operator=(const FatalLogger &) = delete;
-    FatalLogger(FatalLogger &&) = delete;
-    FatalLogger &operator=(FatalLogger &&) = delete;
+    FatalLogger(const FatalLogger&) = delete;
+    FatalLogger& operator=(const FatalLogger&) = delete;
+    FatalLogger(FatalLogger&&) = delete;
+    FatalLogger& operator=(FatalLogger&&) = delete;
 };
 
 /**
