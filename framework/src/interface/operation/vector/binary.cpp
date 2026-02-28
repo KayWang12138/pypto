@@ -335,8 +335,8 @@ Tensor Remainder(const Element &self, const Tensor &other) {
     } else {
         self_ = Element(otherDtype, self.Cast<float>());
     }
-    RETURN_CALL(BinaryOperationScalar<BinaryOpType::REMR>, *Program::GetInstance().GetCurrentFunction(),
-        castOther.GetStorage(), self_);
+    RETURN_CALL(BinaryOperationAllScalar<BinaryOpType::REMR>, *Program::GetInstance().GetCurrentFunction(),
+        castOther.GetStorage(), self_, true);
 }
 
 Tensor BitwiseAnd(const Tensor &self, const Element &other) {
@@ -571,6 +571,14 @@ void BinaryOperationScalarTileFunc(Function &function, const TileShape &tileShap
         function, tileShape, iOperand[0], op.GetElementAttribute(OpAttributeKey::scalar), oOperand[0]);
 }
 
+template <BinaryOpType T>
+void BinaryOperationScalarResTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    [[maybe_unused]] const Operation &op) {
+    TiledBinaryOperationScalar<T>(function, tileShape, iOperand[0], op.GetElementAttribute(OpAttributeKey::scalar),
+        oOperand[0], op.GetBoolAttribute(OP_ATTR_PREFIX + "reverseOperand"));
+}
+
 // OP_S_ADDS OP_S_SUBS OP_S_MULS OP_S_DIVS OP_S_MAXS
 template <BinaryOpType T>
 void BinaryOperationAllScalarResTileFunc(Function &function, const TileShape &tileShape,
@@ -614,7 +622,7 @@ REGISTER_OPERATION_TILED_FUNC(OP_BITWISEANDS, Opcode::OP_BITWISEANDS, BinaryOper
 REGISTER_OPERATION_TILED_FUNC(OP_BITWISEORS, Opcode::OP_BITWISEORS, BinaryOperationScalarTileFunc<BinaryOpType::BITWISEOR>);
 REGISTER_OPERATION_TILED_FUNC(OP_BITWISEXORS, Opcode::OP_BITWISEXORS, BinaryOperationScalarTileFunc<BinaryOpType::BITWISEXOR>);
 REGISTER_OPERATION_TILED_FUNC(OP_REMS, Opcode::OP_REMS, BinaryOperationScalarTileFunc<BinaryOpType::REM>);
-REGISTER_OPERATION_TILED_FUNC(OP_REMRS, Opcode::OP_REMRS, BinaryOperationScalarTileFunc<BinaryOpType::REMR>);
+REGISTER_OPERATION_TILED_FUNC(OP_REMRS, Opcode::OP_REMRS, BinaryOperationScalarResTileFunc<BinaryOpType::REMR>);
 
 REGISTER_OPERATION_TILED_FUNC(OP_S_ADDS, Opcode::OP_S_ADDS, BinaryOperationAllScalarResTileFunc<BinaryOpType::S_ADD>);
 REGISTER_OPERATION_TILED_FUNC(OP_S_SUBS, Opcode::OP_S_SUBS, BinaryOperationAllScalarResTileFunc<BinaryOpType::S_SUB>);
