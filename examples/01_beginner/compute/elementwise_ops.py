@@ -562,14 +562,14 @@ def create_exp2_op_kernel(x_shape: tuple, run_mode: str = "npu", dynamic: bool =
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def exp_kernel(
+    def exp2_kernel(
         x: pypto.Tensor(x_shape, pypto.DT_FP32),
     ) -> pypto.Tensor(x_shape, pypto.DT_FP32):
         pypto.set_vec_tile_shapes(2, 8)
         out = pypto.exp2(x)
         return out
 
-    return exp_kernel
+    return exp2_kernel
 
 
 def test_exp2_basic(device_id: int = None, run_mode: str = "npu"):
@@ -584,7 +584,7 @@ def test_exp2_basic(device_id: int = None, run_mode: str = "npu"):
     x = torch.tensor([0, 1, 2], dtype=dtype, device=device)
     expected = torch.tensor([1.0000, 2.0000, 4.0000], dtype=dtype, device=device)
 
-    out = create_exp_op_kernel(x.shape, run_mode)(x)
+    out = create_exp2_op_kernel(x.shape, run_mode)(x)
     if run_mode == "npu":
         assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
     print(f"Output: {out}")
