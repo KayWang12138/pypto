@@ -21,7 +21,7 @@
 #include <memory>
 #include <fstream>
 
-#include "tilefwk/tilefwk_log.h"
+#include "tilefwk/pypto_fwk_log.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/tensor.h"
 #include "interface/inner/element.h"

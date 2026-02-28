@@ -12,7 +12,7 @@
 #include <dlfcn.h>
 
 #include "tilefwk/error.h"
-#include "tilefwk/tilefwk_log.h"
+#include "tilefwk/pypto_fwk_log.h"
 #include "interface/utils/file_utils.h"
 
 namespace npu::tile_fwk::calc {
