@@ -14,7 +14,6 @@ import os
 from typing import List, Optional
 
 import pytest
-import torch_npu
 
 
 def duration_estimate(seconds: float):
@@ -128,6 +127,7 @@ def _get_soc_version():
     从torch_npu获取soc version
     """
     try:
+        import torch_npu
         soc_version = torch_npu.npu.get_soc_version()
         return soc_version
     except Exception as e:
