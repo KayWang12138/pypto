@@ -958,7 +958,7 @@ std::string CodeGenOpCloudNPU::GenCumOperationOp() const {
     if (isSupportLayout) {
         return PrintCumOperationTileTensor(axis, isSum);
     } else {
-        return PrintCumSumDynamicUnaligned({axis, flag, dstVar, inputVar, inputRawShape, dataTypeExpr});
+        return PrintCumSumDynamicUnaligned({axis, isSum, dstVar, inputVar, inputRawShape, dataTypeExpr});
     }
 }
 
