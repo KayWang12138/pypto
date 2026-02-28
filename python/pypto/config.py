@@ -611,8 +611,8 @@ class ConvTile:
             - tileWout: Output weight tile size
             - tileCinFmap: Input channel tile size for feature map
             - tileCinWeight: Input channel tile size for weight
-            - tileCout: Output channel tile size
-            - tileN: Batch dimension tile size
+            - tileN: Output channel tile size
+            - tileBatch: Batch dimension tile size
         tileL0Info: pypto_impl.TileL0Info, optional
             Tile configuration for L0 Cache (H/W/K/N dimensions):
             - tileH: H dimension tile size
