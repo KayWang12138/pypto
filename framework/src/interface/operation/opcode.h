@@ -145,6 +145,8 @@ enum class Opcode {
     OP_BITWISEAND,
     OP_BITWISEOR,
     OP_BITWISEXOR,
+    OP_CEILDIV,
+    OP_CEILDIVS,
     // Cube
     OP_A_MUL_B,
     OP_A_MULACC_B,

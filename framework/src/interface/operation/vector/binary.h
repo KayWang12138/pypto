@@ -55,6 +55,7 @@ enum class BinaryOpType {
     BITWISEXOR,
     COPYSIGN,
     GCD,
+    CEILDIV,
 };
 
 template <BinaryOpType T>
@@ -83,6 +84,7 @@ std::string GetBinaryOpName() {
         case BinaryOpType::BITWISEXOR: return "BITWISEXOR";
         case BinaryOpType::COPYSIGN: return "COPYSIGN";
         case BinaryOpType::GCD: return "GCD";
+        case BinaryOpType::CEILDIV: return "CEILDIV";
         default: ASSERT(false && "unknown binary op type"); return "";
     }
 }
@@ -110,6 +112,7 @@ Opcode GetBinaryOpNameCode() {
             CASE(BITWISEOR);
             CASE(BITWISEXOR);
             CASE(GCD);
+            CASE(CEILDIV);
             case BinaryOpType::LRELU: return Opcode::OP_LRELU;
             default: ASSERT(false && "unknown binary op type");
         }
@@ -127,6 +130,7 @@ Opcode GetBinaryOpNameCode() {
             CASE(MAX);
             CASE(MIN);
             CASE(GCD);
+            CASE(CEILDIV);
             default: ASSERT(false && "unknown binary op type");
         }
 #undef CASE
@@ -155,6 +159,7 @@ Opcode GetBinaryOpNameCode() {
         CASE(BITWISEXOR);
         CASE(COPYSIGN);
         CASE(GCD);
+        CASE(CEILDIV);
         default: ASSERT(false && "unknown binary op type");
     }
 #undef CASE
