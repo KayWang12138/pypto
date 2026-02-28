@@ -8,9 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_OP_UTILS_H_
-#define PYPTO_IR_OP_UTILS_H_
-
+#pragma once
 #include <any>
 #include <cstdint>
 #include <optional>
@@ -110,5 +108,3 @@ inline void VerifyKDimensionsMatch(const ExprPtr& k_lhs, const ExprPtr& k_rhs, c
 
 }  // namespace ir
 }  // namespace pypto
-
-#endif  // PYPTO_IR_OP_UTILS_H_

@@ -8,9 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_BUILDER_H_
-#define PYPTO_IR_BUILDER_H_
-
+#pragma once
 #include <map>
 #include <memory>
 #include <string>
@@ -584,5 +582,3 @@ class ProgramContext : public BuildContext {
 
 }  // namespace ir
 }  // namespace pypto
-
-#endif  // PYPTO_IR_BUILDER_H_

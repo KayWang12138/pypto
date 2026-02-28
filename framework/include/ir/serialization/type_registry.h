@@ -8,9 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_SERIALIZATION_TYPE_REGISTRY_H_
-#define PYPTO_IR_SERIALIZATION_TYPE_REGISTRY_H_
-
+#pragma once
 #include <functional>
 #include <string>
 #include <unordered_map>
@@ -121,5 +119,3 @@ class TypeRegistrar {
 }  // namespace serialization
 }  // namespace ir
 }  // namespace pypto
-
-#endif  // PYPTO_IR_SERIALIZATION_TYPE_REGISTRY_H_

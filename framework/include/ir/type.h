@@ -8,9 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_TYPE_H_
-#define PYPTO_IR_TYPE_H_
-
+#pragma once
 #include <memory>
 #include <optional>
 #include <string>
@@ -422,5 +420,3 @@ inline MemRefTypePtr GetMemRefType() {
 
 }  // namespace ir
 }  // namespace pypto
-
-#endif  // PYPTO_IR_TYPE_H_

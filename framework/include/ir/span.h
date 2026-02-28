@@ -17,9 +17,7 @@
  * multiple IR nodes.
  */
 
-#ifndef PYPTO_IR_SPAN_H_
-#define PYPTO_IR_SPAN_H_
-
+#pragma once
 #include <string>
 
 namespace pypto {
@@ -79,5 +77,3 @@ class Span {
 
 }  // namespace ir
 }  // namespace pypto
-
-#endif  // PYPTO_IR_SPAN_H_

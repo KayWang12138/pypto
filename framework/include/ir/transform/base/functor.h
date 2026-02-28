@@ -8,9 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_TRANSFORMS_BASE_FUNCTOR_H_
-#define PYPTO_IR_TRANSFORMS_BASE_FUNCTOR_H_
-
+#pragma once
 #include <utility>
 
 #include "core/error.h"
@@ -302,5 +300,3 @@ class IRFunctor : public ExprFunctor<R, Args...>, public StmtFunctor<R, Args...>
 #define PYPTO_DECLARE_ALL_VISITOR_OVERRIDES \
   PYPTO_DECLARE_EXPR_VISITOR_OVERRIDES     \
   PYPTO_DECLARE_STMT_VISITOR_OVERRIDES
-
-#endif  // PYPTO_IR_TRANSFORMS_BASE_FUNCTOR_H_

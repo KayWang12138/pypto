@@ -8,9 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_TRANSFORMS_STRUCTURAL_COMPARISON_H_
-#define PYPTO_IR_TRANSFORMS_STRUCTURAL_COMPARISON_H_
-
+#pragma once
 #include <cstdint>
 
 #include "ir/core.h"
@@ -105,5 +103,3 @@ void assert_structural_equal(const IRNodePtr& lhs, const IRNodePtr& rhs, bool en
 void assert_structural_equal(const TypePtr& lhs, const TypePtr& rhs, bool enable_auto_mapping = false);
 }  // namespace ir
 }  // namespace pypto
-
-#endif  // PYPTO_IR_TRANSFORMS_STRUCTURAL_COMPARISON_H_

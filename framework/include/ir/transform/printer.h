@@ -8,9 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_TRANSFORMS_PRINTER_H_
-#define PYPTO_IR_TRANSFORMS_PRINTER_H_
-
+#pragma once
 #include <string>
 
 #include "ir/core.h"
@@ -80,5 +78,3 @@ std::string PythonPrint(const TypePtr& type, const std::string& prefix = "pl");
 
 }  // namespace ir
 }  // namespace pypto
-
-#endif  // PYPTO_IR_TRANSFORMS_PRINTER_H_
