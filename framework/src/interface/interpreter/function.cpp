@@ -156,9 +156,9 @@ void FunctionInterpreter::DumpBinary(std::vector<int64_t> &shape, std::vector<in
         FILE *fdata, uint8_t *data, size_t dtypeSize) {
     if(shape.size() > 1) {
         for (int64_t k = 0; k < shape[0]; k++) {
-            auto newShape = std::vector<int64_t>(shape.begin() + 1, shape.end());
-            auto newStride = std::vector<int64_t>(stride.begin() + 1, stride.end());
             auto newOffset = std::vector<int64_t>(offset.begin() + 1, offset.end());
+            auto newStride = std::vector<int64_t>(stride.begin() + 1, stride.end());
+            auto newShape = std::vector<int64_t>(shape.begin() + 1, shape.end());
             auto newData = data + offset[0] * dtypeSize * stride[0] +  k * stride[0] * dtypeSize;
             DumpBinary(newShape, newStride, newOffset, fdata, newData, dtypeSize);
         }
