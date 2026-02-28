@@ -8,9 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_KIND_TRAITS_H_
-#define PYPTO_IR_KIND_TRAITS_H_
-
+#pragma once
 #include <memory>
 
 #include "ir/core.h"
@@ -234,5 +232,3 @@ std::shared_ptr<const T> As(const std::shared_ptr<const Base>& base) {
 
 }  // namespace ir
 }  // namespace pypto
-
-#endif  // PYPTO_IR_KIND_TRAITS_H_

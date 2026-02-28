@@ -21,9 +21,7 @@
  * - Stream-style and printf-style logging interfaces
  */
 
-#ifndef PYPTO_CORE_LOGGING_H_
-#define PYPTO_CORE_LOGGING_H_
-
+#pragma once
 #include <chrono>
 #include <cstdarg>
 #include <cstdio>
@@ -599,5 +597,3 @@ class FatalLogger {
 #define INTERNAL_UNREACHABLE pypto::FatalLogger<pypto::ir::InternalError>("unreachable", __FILE__, __LINE__)
 
 }  // namespace pypto
-
-#endif  // PYPTO_CORE_LOGGING_H_

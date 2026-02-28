@@ -8,9 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_TRANSFORMS_VERIFICATION_ERROR_H_
-#define PYPTO_IR_TRANSFORMS_VERIFICATION_ERROR_H_
-
+#pragma once
 #include <string>
 
 #include "ir/span.h"
@@ -66,5 +64,3 @@ std::string ErrorTypeToString(ErrorType type);
 
 }  // namespace ir
 }  // namespace pypto
-
-#endif  // PYPTO_IR_TRANSFORMS_VERIFICATION_ERROR_H_

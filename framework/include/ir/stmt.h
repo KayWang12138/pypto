@@ -8,9 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_STMT_H_
-#define PYPTO_IR_STMT_H_
-
+#pragma once
 #include <memory>
 #include <optional>
 #include <string>
@@ -418,5 +416,3 @@ using EvalStmtPtr = std::shared_ptr<const EvalStmt>;
 
 }  // namespace ir
 }  // namespace pypto
-
-#endif  // PYPTO_IR_STMT_H_

@@ -20,9 +20,7 @@
  * - nanobind module configuration
  */
 
-#ifndef PYPTO_CORE_COMMON_H_
-#define PYPTO_CORE_COMMON_H_
-
+#pragma once
 #include <cstdint>
 
 namespace pypto {
@@ -59,4 +57,3 @@ constexpr int64_t kDynamicDim = -1;
 #define PYPTO_STR_CONCAT_IMPL(__x, __y) __x##__y
 #define PYPTO_STR_CONCAT(__x, __y) PYPTO_STR_CONCAT_IMPL(__x, __y)
 }  // namespace pypto
-#endif  // PYPTO_CORE_COMMON_H_

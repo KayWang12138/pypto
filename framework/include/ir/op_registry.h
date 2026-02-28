@@ -8,9 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_OP_REGISTRY_H_
-#define PYPTO_IR_OP_REGISTRY_H_
-
+#pragma once
 #include <memory>
 #include <optional>
 #include <string>
@@ -521,5 +519,3 @@ void ValidateKwargs(const std::vector<std::pair<std::string, std::any>>& kwargs,
 
 }  // namespace ir
 }  // namespace pypto
-
-#endif  // PYPTO_IR_OP_REGISTRY_H_

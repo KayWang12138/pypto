@@ -8,9 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_TRANSFORMS_PASSES_H_
-#define PYPTO_IR_TRANSFORMS_PASSES_H_
-
+#pragma once
 #include <functional>
 #include <memory>
 #include <string>
@@ -149,5 +147,3 @@ Pass CreateProgramPass(std::function<ProgramPtr(const ProgramPtr&)> transform, c
 }  // namespace pass
 }  // namespace ir
 }  // namespace pypto
-
-#endif  // PYPTO_IR_TRANSFORMS_PASSES_H_

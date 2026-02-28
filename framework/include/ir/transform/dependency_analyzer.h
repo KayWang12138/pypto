@@ -8,9 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_TRANSFORMS_DEPENDENCY_ANALYZER_H_
-#define PYPTO_IR_TRANSFORMS_DEPENDENCY_ANALYZER_H_
-
+#pragma once
 #include <map>
 #include <memory>
 #include <set>
@@ -119,5 +117,3 @@ class DependencyAnalyzer : public IRMutator {
 
 }  // namespace ir
 }  // namespace pypto
-
-#endif  // PYPTO_IR_TRANSFORMS_DEPENDENCY_ANALYZER_H_
