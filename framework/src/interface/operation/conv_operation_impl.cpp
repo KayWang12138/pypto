@@ -266,10 +266,11 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
     int64_t tileCinWeight = convTile.tileL1Info.tileCinWeight;
     int64_t tileCout = convTile.tileL1Info.tileCout;
     int64_t tileBatch = convTile.tileL1Info.tileN;
+    int64_t groups = attrParam.groups;
 
     uint32_t indexH = attrParam.isConv3D ? NCDHW_H_IDX : NCHW_H_IDX;
     uint32_t indexW = attrParam.isConv3D ? NCDHW_W_IDX : (attrParam.isConv1D ? NCHW_H_IDX : NCHW_W_IDX);
-    int64_t cin = inputTensor.GetShape()[NCHW_C_IDX];
+    int64_t cin = weightTensor.GetShape()[NCHW_C_IDX];
     int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
     int64_t hin = attrParam.isConv1D ? 1 : inputTensor.GetShape()[indexH];
     int64_t win = inputTensor.GetShape()[indexW];
@@ -277,7 +278,7 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
     CheckValueRange(tileHin, "tileHin", NUM1, hin);
     CheckValueRange(tileBatch, "tileN", NUM1, NUM1);
     CheckValueRange(tileWin, "tileWin", NUM1, win);
-    CheckValueRange(tileCout, "tileCout", NUM1, cOut);
+    CheckValueRange(tileCout, "tileCout", NUM1, cOut/groups);
 
     CheckHowoTile(inputTensor, weightTensor, attrParam);
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
