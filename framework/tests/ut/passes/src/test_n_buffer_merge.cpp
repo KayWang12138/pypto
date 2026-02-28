@@ -246,9 +246,7 @@ Status NBufferMergeTest::TestNBufferMergeWithDifferentVecBufferSetting(std::map<
     function->paramConfigs_.mgVecParallelLb = mgVecParallelLb;
     function->SetTotalSubGraphCount(subGraphNum);
     NBufferMerge NBM;
-    function->DumpJsonFile("/mnt/workspace/gitCode/zhangxiangjie/pypto/framework/tests/ut/passes/src/TestNBufferMergeWithDifferentVecBufferSetting_before.json");
     NBM.RunOnFunction(*function);
-    function->DumpJsonFile("/mnt/workspace/gitCode/zhangxiangjie/pypto/framework/tests/ut/passes/src/TestNBufferMergeWithDifferentVecBufferSetting_after.json");
     return SUCCESS;
 }
 }
