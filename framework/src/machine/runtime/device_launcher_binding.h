@@ -256,13 +256,11 @@ private:
                     return RawSymbolicExpression::GetSymbolicCalcBinary(opcode)(
                         Evaluate(iops[0]), Evaluate(iops[1]));
                 } else if (opcode == SymbolicOpcode::T_MOP_MAX || opcode == SymbolicOpcode::T_MOP_MIN) {
-                    auto bop = (opcode == SymbolicOpcode::T_MOP_MIN)
-                        ? RawSymbolicExpression::CalcBopMin : RawSymbolicExpression::CalcBopMax;
-                    auto result = Evaluate(iops[0]);
-                    for (size_t i = 1; i < iops.size(); ++i) {
-                        result = bop(result, Evaluate(iops[i]));
+                    std::vector<ScalarImmediateType> immediateList;
+                    for (size_t i = 0; i < iops.size(); i++) {
+                        immediateList.emplace_back(Evaluate(iops[i]));
                     }
-                    return result;
+                    return RawSymbolicExpression::GetSymbolicCalcMultiple(opcode)(immediateList);
                 } else {
                     ASSERT(false);
                     return 0;

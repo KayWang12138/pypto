@@ -156,7 +156,7 @@ void SymbolicExpressionTable::BuildExtremaExpressionCode(const RawSymbolicExpPtr
     const size_t operandSize = operands.size();
 
     // 写前operandSize-2层: fn(op_i,
-    for (size_t i = 0; i + 2 < operandSize; ++i) {
+    for (size_t i = 0; i < operandSize - 2; ++i) {
         oss << funcName << "("
             << BuildExpressionByRaw(operands[i], exprDict)
             << ", ";
@@ -170,7 +170,7 @@ void SymbolicExpressionTable::BuildExtremaExpressionCode(const RawSymbolicExpPtr
         << ")";
 
     // 补齐右括号
-    for (size_t i = 0; i + 2 < operandSize; ++i) {
+    for (size_t i = 0; i < operandSize - 2; ++i) {
         oss << ")";
     }
 }
@@ -604,12 +604,14 @@ std::vector<RawSymbolicScalarPtr> LookupExpressionByOpcode(const RawSymbolicScal
     return exprList;
 }
 void RawSymbolicExpression::DumpRuntimeExtrema(std::ostream& out) const {
-    ASSERT(operandList_.size() >= 2);
+    ASSERT(operandList_.size() >= 2)
+        << "DumpRuntimeExtrema expects at least 2 operands, but got "
+        << operandList_.size();
     const char* funcName =
         (opcode_ == SymbolicOpcode::T_MOP_MAX) ? "RUNTIME_Max" : "RUNTIME_Min";
 
     const size_t n = operandList_.size();
-    for (size_t i = 0; i + 2 < n; ++i) {
+    for (size_t i = 0; i < n - 2; ++i) {
         out << funcName << "(";
         operandList_[i]->DumpBuffer(out);
         out << ", ";
@@ -621,7 +623,7 @@ void RawSymbolicExpression::DumpRuntimeExtrema(std::ostream& out) const {
     operandList_[n - 1]->DumpBuffer(out);
     out << ")";
 
-    for (size_t i = 0; i + 2 < n; ++i) {
+    for (size_t i = 0; i < n - 2; ++i) {
         out << ")";
     }
 }
