@@ -586,12 +586,15 @@ public:
         args->kArgs.parameter.globalRound = ++sequence;
 
         bool debugEnable = !isCaptureMode && isDebugMode;
-
+        if (isDebugMode) {
+            AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
+            DeviceRunner::Get().SetDebugEnable();
+        }
 #if ENABALE_VERBOSE_LOG
         ALOG_ERROR_F("triple stream %d sequence %ld workspace %p cfgcache %p", tripleStream, sequence.load(), workspace,
             ctrlFlowCache);
 #endif
-        int ret = DeviceLauncher::LaunchAicpuKernel(rtAicpuArgs, tripleStream, debugEnable, kernel->GetFunction());
+        int ret = DeviceLauncher::LaunchAicpuKernel(rtAicpuArgs, tripleStream, kernel->GetFunction());
         ASSERT(ret == RT_ERROR_NONE) << "launch aicpu failed: " << ret;
 
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata

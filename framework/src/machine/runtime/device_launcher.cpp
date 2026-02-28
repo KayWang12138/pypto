@@ -593,15 +593,12 @@ void DeviceLauncher::UnregisterKernelBin(void *hdl) {
 }
 
 int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream,
-                                      bool debugEnable, [[maybe_unused]]Function *function) {
+                                      [[maybe_unused]]Function *function) {
 #ifdef BUILD_WITH_CANN
     auto ctrlStream = (aclrtStream)machine::GetRA()->GetCtrlStream();
     auto schedStream = (aclrtStream)machine::GetRA()->GetScheStream();
     auto &devRunner = DeviceRunner::Get();
     devRunner.GetHostProfInstance().SetProfFunction(function);
-    if (debugEnable) {
-        devRunner.SetDebugEnable();
-    }
     int ret = 0;
     auto args = (AiCpuArgs *)rtArgs.args;
     const int nrAicpu = DeviceLauncher::GetDevProg(function)->devArgs.nrAicpu;
@@ -631,7 +628,6 @@ int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream
 #else
     (void)rtArgs;
     (void)tripleStream;
-    (void)debugEnable;
     return 0;
 #endif
 }
