@@ -150,6 +150,7 @@ void RecordFunc::EndFunction() {
         Program::GetInstance().SetLastFunction(dynFunc_);
         if (dynFunc_->IsDyndev()) {
             Program::GetInstance().ClearEmptyHiddenFunction();
+            std::cout << "=======================before cleanRedundantOutCast=======================\n";
             dynFunc_->CleanRedundantOutCast();
             // Destructor GetTensorData small Tensor
             auto attr = dynFunc_->GetDyndevAttribute();
