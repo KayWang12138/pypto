@@ -1836,10 +1836,11 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
     std::vector<std::string> tileOpParamList = 
         {dstTensor, srcTensor, std::to_string(offsetN), std::to_string(offsetC), std::to_string(offsetD),
         std::to_string(offsetH), std::to_string(offsetW), std::to_string(srcShapeN), std::to_string(srcShapeC),
-        std::to_string(srcShapeD), std::to_string(srcShapeH), std::to_string(srcShapeW), std::to_string(isFmap)};
+        std::to_string(srcShapeD), std::to_string(srcShapeH), std::to_string(srcShapeW)};
 
     std::ostringstream oss;
-    oss << tileOpName << "<" << copyInModeStr << ", " << std::to_string(isConv3D) << ">";
+    oss << tileOpName;
+    oss << "<" << copyInModeStr << ", " << std::to_string(isConv3D) << ", " << std::to_string(isFmap) << ">";
     oss << PrintParams({"(", ")"}, tileOpParamList, ", ");
     oss << STMT_END;
     return oss.str();
@@ -1921,7 +1922,6 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
 
     std::vector<int64_t> fmapL1Shape = this->rawShape[ID1];
     ALOG_INFO_F("GenMemL1ToL0Load3D %s, fmapL1Shape is %s", tileOpName.c_str(), IntVecToStr(fmapL1Shape).c_str());
-    ASSERT(fmapL1Shape.size() == SHAPE_DIM5) << "GenMemL1ToL0Load3D fmap only support 5-dim!";
 
     int64_t padLeft = 0, padRight = 0, padTop = 0, padBottom = 0, padValue = 0;
     GetAttr(Conv::L12L0ConvOpAttributeKey::paddingLeft, padLeft);
