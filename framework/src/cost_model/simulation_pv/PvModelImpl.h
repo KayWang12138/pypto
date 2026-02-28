@@ -279,7 +279,8 @@ private:
         }
     };
     std::vector<PvModelCceBin> cceBin;
-    uint64_t subcoreId = 0;
+    uint64_t subcoreId_ = 0;
+    uint64_t coreId_ = 0;
 
 public:
     using PvInitFunc = void (*)(
