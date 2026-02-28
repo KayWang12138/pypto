@@ -37,7 +37,7 @@ void BindPass(py::module_ &m) {
 
   py::class_<Diagnostic>(passes, "Diagnostic")
       .def_readonly("severity", &Diagnostic::severity)
-      .def_readonly("rule_name", &Diagnostic::rule_name)
+      .def_readonly("rule_name", &Diagnostic::ruleName)
       .def_readonly("error_code", &Diagnostic::error_code)
       .def_readonly("message", &Diagnostic::message)
       .def_readonly("span", &Diagnostic::span);

@@ -97,7 +97,7 @@ TEST_F(TypeInferenceTest, TestBroadcastIncompatible) {
   std::vector<ExprPtr> s2 = {d5};
   auto result = BroadcastShapes(s1, s2);
   ASSERT_FALSE(result.success);
-  ASSERT_FALSE(result.error_message.empty());
+  ASSERT_FALSE(result.errorMessage.empty());
 }
 
 // ============================================================================
@@ -213,8 +213,8 @@ TEST_F(TypeInferenceTest, TestGetConstantDimension) {
 }
 
 TEST_F(TypeInferenceTest, TestGetConstantDimensionNonConst) {
-  auto int_type = std::make_shared<ScalarType>(DataType::INT64);
-  auto dim = std::make_shared<Var>("N", int_type, Span::unknown());
+  auto intType = std::make_shared<ScalarType>(DataType::INT64);
+  auto dim = std::make_shared<Var>("N", intType, Span::unknown());
   auto val = GetConstantDimension(dim);
   ASSERT_FALSE(val.has_value());
 }
@@ -241,9 +241,9 @@ TEST_F(TypeInferenceTest, TestDimensionsEqualDifferentValue) {
 }
 
 TEST_F(TypeInferenceTest, TestDimensionsEqualSymbolic) {
-  auto int_type = std::make_shared<ScalarType>(DataType::INT64);
-  auto d1 = std::make_shared<Var>("N", int_type, Span::unknown());
-  auto d2 = std::make_shared<Var>("M", int_type, Span::unknown());
+  auto intType = std::make_shared<ScalarType>(DataType::INT64);
+  auto d1 = std::make_shared<Var>("N", intType, Span::unknown());
+  auto d2 = std::make_shared<Var>("M", intType, Span::unknown());
   ASSERT_FALSE(DimensionsEqual(d1, d2));
 }
 
@@ -291,9 +291,9 @@ TEST_F(TypeInferenceTest, TestFormatShapeConstants) {
 }
 
 TEST_F(TypeInferenceTest, TestFormatShapeSymbolic) {
-  auto int_type = std::make_shared<ScalarType>(DataType::INT64);
+  auto intType = std::make_shared<ScalarType>(DataType::INT64);
   auto d4 = std::make_shared<ConstInt>(4, DataType::INT64, Span::unknown());
-  auto dN = std::make_shared<Var>("N", int_type, Span::unknown());
+  auto dN = std::make_shared<Var>("N", intType, Span::unknown());
   std::string result = FormatShape({d4, dN});
   ASSERT_EQ(result, "[4, ?]");
 }

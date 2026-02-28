@@ -110,13 +110,13 @@ public:
      * \param return_vars Return variables (can be empty)
      * \param span Source location
      */
-    IfStmt(ExprPtr condition, StmtPtr then_body, std::optional<StmtPtr> else_body, std::vector<VarPtr> return_vars,
+    IfStmt(ExprPtr condition, StmtPtr thenBody, std::optional<StmtPtr> elseBody, std::vector<VarPtr> returnVars,
         Span span)
         : Stmt(std::move(span)),
           condition_(std::move(condition)),
-          then_body_(std::move(then_body)),
-          else_body_(std::move(else_body)),
-          return_vars_(std::move(return_vars)) {}
+          thenBody_(std::move(thenBody)),
+          elseBody_(std::move(elseBody)),
+          returnVars_(std::move(returnVars)) {}
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::IfStmt; }
     [[nodiscard]] std::string TypeName() const override { return "IfStmt"; }
@@ -129,16 +129,16 @@ public:
     static constexpr auto GetFieldDescriptors() {
         return std::tuple_cat(
             Stmt::GetFieldDescriptors(), std::make_tuple(reflection::UsualField(&IfStmt::condition_, "condition"),
-                                             reflection::UsualField(&IfStmt::then_body_, "then_body"),
-                                             reflection::UsualField(&IfStmt::else_body_, "else_body"),
-                                             reflection::DefField(&IfStmt::return_vars_, "return_vars")));
+                                             reflection::UsualField(&IfStmt::thenBody_, "then_body"),
+                                             reflection::UsualField(&IfStmt::elseBody_, "else_body"),
+                                             reflection::DefField(&IfStmt::returnVars_, "return_vars")));
     }
 
 public:
     ExprPtr condition_;                // Condition expression
-    StmtPtr then_body_;                // Then branch statement
-    std::optional<StmtPtr> else_body_; // Else branch statement (optional)
-    std::vector<VarPtr> return_vars_;  // Return variables (can be empty)
+    StmtPtr thenBody_;                // Then branch statement
+    std::optional<StmtPtr> elseBody_; // Else branch statement (optional)
+    std::vector<VarPtr> returnVars_;  // Return variables (can be empty)
 };
 
 using IfStmtPtr = std::shared_ptr<const IfStmt>;
@@ -261,16 +261,16 @@ public:
      * \param return_vars Return variables (capture final values, accessible after loop)
      * \param span Source location
      */
-    ForStmt(VarPtr loop_var, ExprPtr start, ExprPtr stop, ExprPtr step, std::vector<IterArgPtr> iter_args, StmtPtr body,
-        std::vector<VarPtr> return_vars, Span span)
+    ForStmt(VarPtr loopVar, ExprPtr start, ExprPtr stop, ExprPtr step, std::vector<IterArgPtr> iterArgs, StmtPtr body,
+        std::vector<VarPtr> returnVars, Span span)
         : Stmt(std::move(span)),
-          loop_var_(std::move(loop_var)),
+          loopVar_(std::move(loopVar)),
           start_(std::move(start)),
           stop_(std::move(stop)),
           step_(std::move(step)),
-          iter_args_(std::move(iter_args)),
+          iterArgs_(std::move(iterArgs)),
           body_(std::move(body)),
-          return_vars_(std::move(return_vars)) {}
+          returnVars_(std::move(returnVars)) {}
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::ForStmt; }
     [[nodiscard]] std::string TypeName() const override { return "ForStmt"; }
@@ -282,22 +282,22 @@ public:
      */
     static constexpr auto GetFieldDescriptors() {
         return std::tuple_cat(Stmt::GetFieldDescriptors(),
-            std::make_tuple(reflection::DefField(&ForStmt::loop_var_, "loop_var"),
+            std::make_tuple(reflection::DefField(&ForStmt::loopVar_, "loop_var"),
                 reflection::UsualField(&ForStmt::start_, "start"), reflection::UsualField(&ForStmt::stop_, "stop"),
                 reflection::UsualField(&ForStmt::step_, "step"),
-                reflection::DefField(&ForStmt::iter_args_, "iter_args"),
+                reflection::DefField(&ForStmt::iterArgs_, "iter_args"),
                 reflection::UsualField(&ForStmt::body_, "body"),
-                reflection::DefField(&ForStmt::return_vars_, "return_vars")));
+                reflection::DefField(&ForStmt::returnVars_, "return_vars")));
     }
 
 public:
-    VarPtr loop_var_;                   // Loop variable (e.g., i in "for i in range(...)")
+    VarPtr loopVar_;                   // Loop variable (e.g., i in "for i in range(...)")
     ExprPtr start_;                     // Start value expression
     ExprPtr stop_;                      // Stop value expression
     ExprPtr step_;                      // Step value expression
-    std::vector<IterArgPtr> iter_args_; // Loop-carried values (scoped to loop body)
+    std::vector<IterArgPtr> iterArgs_; // Loop-carried values (scoped to loop body)
     StmtPtr body_;                      // Loop body statement (must yield if iter_args non-empty)
-    std::vector<VarPtr> return_vars_;   // Variables capturing final iteration values (accessible after loop)
+    std::vector<VarPtr> returnVars_;   // Variables capturing final iteration values (accessible after loop)
 };
 
 using ForStmtPtr = std::shared_ptr<const ForStmt>;

@@ -50,18 +50,18 @@ static TypePtr Int32Type() { return std::make_shared<ScalarType>(DataType::INT32
 // Helper: build a simple function with body "y = x + 1; return y"
 static FunctionPtr BuildSimpleFunction(const std::string& name = "test_func") {
   auto span = TestSpan();
-  auto int_type = Int32Type();
+  auto intType = Int32Type();
 
-  auto x = std::make_shared<Var>("x", int_type, span);
-  auto y = std::make_shared<Var>("y", int_type, span);
+  auto x = std::make_shared<Var>("x", intType, span);
+  auto y = std::make_shared<Var>("y", intType, span);
   auto one = std::make_shared<ConstInt>(1, DataType::INT32, span);
-  auto add_expr = std::make_shared<Add>(x, one, DataType::INT32, span);
+  auto addExpr = std::make_shared<Add>(x, one, DataType::INT32, span);
 
-  auto assign = std::make_shared<AssignStmt>(y, add_expr, span);
+  auto assign = std::make_shared<AssignStmt>(y, addExpr, span);
   auto ret = std::make_shared<ReturnStmt>(std::vector<ExprPtr>{y}, span);
   auto body = std::make_shared<SeqStmts>(std::vector<StmtPtr>{assign, ret}, span);
 
-  return std::make_shared<Function>(name, std::vector<VarPtr>{x}, std::vector<TypePtr>{int_type}, body, span);
+  return std::make_shared<Function>(name, std::vector<VarPtr>{x}, std::vector<TypePtr>{intType}, body, span);
 }
 
 // Helper: build a simple program with one function
@@ -127,8 +127,8 @@ TEST(PrinterTest, PrintProgram) {
 }
 
 TEST(PrinterTest, PrintType) {
-  auto int_type = Int32Type();
-  auto result = PythonPrint(int_type);
+  auto intType = Int32Type();
+  auto result = PythonPrint(intType);
   ASSERT_FALSE(result.empty());
 }
 
@@ -173,16 +173,16 @@ TEST(PrinterTest, PrintWithCustomPrefix) {
 // Custom visitor that counts nodes
 class NodeCounter : public IRVisitor {
  public:
-  int expr_count = 0;
-  int stmt_count = 0;
+  int exprCount = 0;
+  int stmtCount = 0;
 
   void VisitExpr(const ExprPtr& expr) override {
-    expr_count++;
+    exprCount++;
     IRVisitor::VisitExpr(expr);
   }
 
   void VisitStmt(const StmtPtr& stmt) override {
-    stmt_count++;
+    stmtCount++;
     IRVisitor::VisitStmt(stmt);
   }
 };
@@ -195,7 +195,7 @@ TEST(VisitorTest, VisitSimpleExpr) {
 
   NodeCounter counter;
   counter.VisitExpr(add);
-  ASSERT_GE(counter.expr_count, 3);  // add, x, one
+  ASSERT_GE(counter.exprCount, 3);  // add, x, one
 }
 
 TEST(VisitorTest, VisitStatement) {
@@ -206,7 +206,7 @@ TEST(VisitorTest, VisitStatement) {
 
   NodeCounter counter;
   counter.VisitStmt(assign);
-  ASSERT_GE(counter.stmt_count, 1);
+  ASSERT_GE(counter.stmtCount, 1);
 }
 
 TEST(VisitorTest, VisitSeqStmts) {
@@ -219,7 +219,7 @@ TEST(VisitorTest, VisitSeqStmts) {
 
   NodeCounter counter;
   counter.VisitStmt(seq);
-  ASSERT_GE(counter.stmt_count, 3);  // seq + 2 assigns
+  ASSERT_GE(counter.stmtCount, 3);  // seq + 2 assigns
 }
 
 TEST(VisitorTest, VisitForStmt) {
@@ -229,12 +229,12 @@ TEST(VisitorTest, VisitForStmt) {
   auto stop = std::make_shared<ConstInt>(10, DataType::INT32, span);
   auto step = std::make_shared<ConstInt>(1, DataType::INT32, span);
   auto body = std::make_shared<SeqStmts>(std::vector<StmtPtr>{}, span);
-  auto for_stmt = std::make_shared<ForStmt>(i, start, stop, step, std::vector<IterArgPtr>{}, body,
+  auto forStmt = std::make_shared<ForStmt>(i, start, stop, step, std::vector<IterArgPtr>{}, body,
                                             std::vector<VarPtr>{}, span);
 
   NodeCounter counter;
-  counter.VisitStmt(for_stmt);
-  ASSERT_GE(counter.stmt_count, 1);
+  counter.VisitStmt(forStmt);
+  ASSERT_GE(counter.stmtCount, 1);
 }
 
 // ============================================================================
@@ -287,22 +287,22 @@ TEST(MutatorTest, IdentityMutateForStmt) {
   auto stop = std::make_shared<ConstInt>(10, DataType::INT32, span);
   auto step = std::make_shared<ConstInt>(1, DataType::INT32, span);
   auto body = std::make_shared<SeqStmts>(std::vector<StmtPtr>{}, span);
-  auto for_stmt = std::make_shared<ForStmt>(i, start, stop, step, std::vector<IterArgPtr>{}, body,
+  auto forStmt = std::make_shared<ForStmt>(i, start, stop, step, std::vector<IterArgPtr>{}, body,
                                             std::vector<VarPtr>{}, span);
 
   IRMutator mutator;
-  auto result = mutator.VisitStmt(for_stmt);
+  auto result = mutator.VisitStmt(forStmt);
   ASSERT_NE(result, nullptr);
 }
 
 TEST(MutatorTest, IdentityMutateIfStmt) {
   auto span = TestSpan();
   auto cond = std::make_shared<ConstBool>(true, span);
-  auto then_body = std::make_shared<SeqStmts>(std::vector<StmtPtr>{}, span);
-  auto if_stmt = std::make_shared<IfStmt>(cond, then_body, std::nullopt, std::vector<VarPtr>{}, span);
+  auto thenBody = std::make_shared<SeqStmts>(std::vector<StmtPtr>{}, span);
+  auto ifStmt = std::make_shared<IfStmt>(cond, thenBody, std::nullopt, std::vector<VarPtr>{}, span);
 
   IRMutator mutator;
-  auto result = mutator.VisitStmt(if_stmt);
+  auto result = mutator.VisitStmt(ifStmt);
   ASSERT_NE(result, nullptr);
 }
 
@@ -320,7 +320,7 @@ TEST(MutatorTest, MutateUnaryExpr) {
 TEST(MutatorTest, MutateCastExpr) {
   auto span = TestSpan();
   auto x = std::make_shared<Var>("x", Int32Type(), span);
-  auto float_type = std::make_shared<ScalarType>(DataType::FP32);
+  auto floatType = std::make_shared<ScalarType>(DataType::FP32);
   auto cast = std::make_shared<Cast>(x, DataType::FP32, span);
 
   IRMutator mutator;
@@ -371,7 +371,7 @@ TEST(StructuralEqualExtraTest, SameExprEqual) {
 
   IRNodePtr n1 = add1;
   IRNodePtr n2 = add2;
-  ASSERT_TRUE(structural_equal(n1, n2));
+  ASSERT_TRUE(StructuralEqual(n1, n2));
 }
 
 TEST(StructuralEqualExtraTest, DifferentExprNotEqual) {
@@ -384,7 +384,7 @@ TEST(StructuralEqualExtraTest, DifferentExprNotEqual) {
 
   IRNodePtr n1 = add1;
   IRNodePtr n2 = add2;
-  ASSERT_FALSE(structural_equal(n1, n2));
+  ASSERT_FALSE(StructuralEqual(n1, n2));
 }
 
 TEST(StructuralEqualExtraTest, AutoMappingVariables) {
@@ -398,21 +398,21 @@ TEST(StructuralEqualExtraTest, AutoMappingVariables) {
   IRNodePtr n1 = add1;
   IRNodePtr n2 = add2;
   // Without auto mapping, different var names → not equal
-  ASSERT_FALSE(structural_equal(n1, n2, false));
+  ASSERT_FALSE(StructuralEqual(n1, n2, false));
   // With auto mapping, x maps to y → equal
-  ASSERT_TRUE(structural_equal(n1, n2, true));
+  ASSERT_TRUE(StructuralEqual(n1, n2, true));
 }
 
 TEST(StructuralEqualExtraTest, TypeEqual) {
   auto t1 = Int32Type();
   auto t2 = Int32Type();
-  ASSERT_TRUE(structural_equal(t1, t2));
+  ASSERT_TRUE(StructuralEqual(t1, t2));
 }
 
 TEST(StructuralEqualExtraTest, TypeNotEqual) {
   auto t1 = Int32Type();
   auto t2 = std::make_shared<ScalarType>(DataType::FP32);
-  ASSERT_FALSE(structural_equal(t1, t2));
+  ASSERT_FALSE(StructuralEqual(t1, t2));
 }
 
 TEST(StructuralEqualExtraTest, AssertStructuralEqualPass) {
@@ -420,7 +420,7 @@ TEST(StructuralEqualExtraTest, AssertStructuralEqualPass) {
   auto x = std::make_shared<Var>("x", Int32Type(), span);
   IRNodePtr n1 = x;
   IRNodePtr n2 = x;
-  ASSERT_NO_THROW(assert_structural_equal(n1, n2));
+  ASSERT_NO_THROW(AssertStructuralEqual(n1, n2));
 }
 
 TEST(StructuralEqualExtraTest, AssertStructuralEqualFail) {
@@ -429,7 +429,7 @@ TEST(StructuralEqualExtraTest, AssertStructuralEqualFail) {
   auto y = std::make_shared<Var>("y", Int32Type(), span);
   IRNodePtr n1 = x;
   IRNodePtr n2 = y;
-  ASSERT_THROW(assert_structural_equal(n1, n2), ValueError);
+  ASSERT_THROW(AssertStructuralEqual(n1, n2), ValueError);
 }
 
 // ============================================================================
@@ -445,7 +445,7 @@ TEST(StructuralHashExtraTest, SameExprSameHash) {
 
   IRNodePtr n1 = add1;
   IRNodePtr n2 = add2;
-  ASSERT_EQ(structural_hash(n1), structural_hash(n2));
+  ASSERT_EQ(StructuralHash(n1), StructuralHash(n2));
 }
 
 TEST(StructuralHashExtraTest, DifferentExprDifferentHash) {
@@ -458,7 +458,7 @@ TEST(StructuralHashExtraTest, DifferentExprDifferentHash) {
 
   IRNodePtr n1 = add1;
   IRNodePtr n2 = add2;
-  ASSERT_NE(structural_hash(n1), structural_hash(n2));
+  ASSERT_NE(StructuralHash(n1), StructuralHash(n2));
 }
 
 TEST(StructuralHashExtraTest, AutoMappingHash) {
@@ -472,19 +472,19 @@ TEST(StructuralHashExtraTest, AutoMappingHash) {
   IRNodePtr n1 = add1;
   IRNodePtr n2 = add2;
   // With auto mapping, x and y should hash the same
-  ASSERT_EQ(structural_hash(n1, true), structural_hash(n2, true));
+  ASSERT_EQ(StructuralHash(n1, true), StructuralHash(n2, true));
 }
 
 TEST(StructuralHashExtraTest, TypeHash) {
   auto t1 = Int32Type();
   auto t2 = Int32Type();
-  ASSERT_EQ(structural_hash(t1), structural_hash(t2));
+  ASSERT_EQ(StructuralHash(t1), StructuralHash(t2));
 }
 
 TEST(StructuralHashExtraTest, DifferentTypeHash) {
   auto t1 = Int32Type();
   auto t2 = std::make_shared<ScalarType>(DataType::FP32);
-  ASSERT_NE(structural_hash(t1), structural_hash(t2));
+  ASSERT_NE(StructuralHash(t1), StructuralHash(t2));
 }
 
 // ============================================================================
@@ -510,13 +510,13 @@ TEST(VerifierTest, VerifyValidProgram) {
   auto verifier = IRVerifier::CreateDefault();
   auto diagnostics = verifier.Verify(prog);
   // A simple valid program should have no errors
-  int error_count = 0;
+  int errorCount = 0;
   for (const auto& d : diagnostics) {
     if (d.severity == DiagnosticSeverity::Error) {
-      error_count++;
+      errorCount++;
     }
   }
-  ASSERT_EQ(error_count, 0);
+  ASSERT_EQ(errorCount, 0);
 }
 
 TEST(VerifierTest, VerifyOrThrowValid) {
@@ -543,31 +543,31 @@ TEST(VerifierTest, EmptyVerifier) {
 // ============================================================================
 
 TEST(PassTest, CreateFunctionPass) {
-  auto my_pass = pass::CreateFunctionPass(
+  auto myPass = pass::CreateFunctionPass(
       [](const FunctionPtr& func) { return func; },  // identity pass
       "IdentityPass");
 
   auto prog = BuildSimpleProgram();
-  auto result = my_pass(prog);
+  auto result = myPass(prog);
   ASSERT_NE(result, nullptr);
 }
 
 TEST(PassTest, PassRunMethod) {
-  auto my_pass = pass::CreateFunctionPass(
+  auto myPass = pass::CreateFunctionPass(
       [](const FunctionPtr& func) { return func; }, "IdentityPass");
 
   auto prog = BuildSimpleProgram();
-  auto result = my_pass.run(prog);
+  auto result = myPass.run(prog);
   ASSERT_NE(result, nullptr);
 }
 
 TEST(PassTest, CreateProgramPass) {
-  auto my_pass = pass::CreateProgramPass(
+  auto myPass = pass::CreateProgramPass(
       [](const ProgramPtr& prog) { return prog; },  // identity pass
       "IdentityProgramPass");
 
   auto prog = BuildSimpleProgram();
-  auto result = my_pass(prog);
+  auto result = myPass(prog);
   ASSERT_NE(result, nullptr);
 }
 
@@ -581,10 +581,10 @@ TEST(PassTest, DefaultPass) {
 }
 
 TEST(PassTest, PassCopyAndMove) {
-  auto my_pass = pass::CreateFunctionPass(
+  auto myPass = pass::CreateFunctionPass(
       [](const FunctionPtr& func) { return func; }, "CopyTest");
 
-  Pass copy = my_pass;
+  Pass copy = myPass;
   auto prog = BuildSimpleProgram();
   auto result = copy(prog);
   ASSERT_NE(result, nullptr);
@@ -608,14 +608,14 @@ TEST(DependencyAnalyzerExtraTest, AnalyzeSimpleFunction) {
 
 TEST(DependencyAnalyzerExtraTest, AnalyzeFunctionWithLoop) {
   auto span = TestSpan();
-  auto int_type = Int32Type();
+  auto intType = Int32Type();
 
   IRBuilder builder;
   builder.BeginFunction("loop_func", span);
-  auto x = builder.FuncArg("x", int_type, span);
-  builder.ReturnType(int_type);
+  auto x = builder.FuncArg("x", intType, span);
+  builder.ReturnType(intType);
 
-  auto i = std::make_shared<Var>("i", int_type, span);
+  auto i = std::make_shared<Var>("i", intType, span);
   auto start = std::make_shared<ConstInt>(0, DataType::INT32, span);
   auto stop = std::make_shared<ConstInt>(10, DataType::INT32, span);
   auto step = std::make_shared<ConstInt>(1, DataType::INT32, span);

@@ -179,7 +179,7 @@ public:
 
 private:
     std::vector<VerifyRulePtr> rules_;               ///< All registered verification rules
-    std::unordered_set<std::string> disabled_rules_; ///< Names of disabled rules
+    std::unordered_set<std::string> disabledRules_; ///< Names of disabled rules
 };
 
 } // namespace ir

@@ -103,7 +103,7 @@ private:
      * \param call_expr Call expression
      * \return Pipe type string
      */
-    std::string GetPipeType(const CallPtr &call_expr);
+    std::string GetPipeType(const CallPtr &callExpr);
 
     /**
      * \brief Merge dependencies from multiple control flow paths
@@ -111,7 +111,7 @@ private:
      * \param path_dependencies Dependencies from each path
      * \return Merged dependencies (union)
      */
-    std::vector<DependencyEdge> MergeDependencies(const std::vector<std::vector<DependencyEdge>> &path_dependencies);
+    std::vector<DependencyEdge> MergeDependencies(const std::vector<std::vector<DependencyEdge>> &pathDependencies);
 };
 
 } // namespace ir

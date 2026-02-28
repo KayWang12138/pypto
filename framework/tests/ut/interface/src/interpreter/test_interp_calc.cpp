@@ -98,8 +98,8 @@ TEST_F(TorchAdaptorTest, Compare) {
     auto self = makeTensorData(DT_FP32, {16, 16}, 4.0f);
     auto other = makeTensorData(DT_FP32, {16, 16}, 4.0f);
     auto out = makeTensorData(DT_BOOL, {16, 16}, false);
-    auto golden_true = makeTensorData(DT_BOOL, {16, 16}, true);
-    auto golden_false = makeTensorData(DT_BOOL, {16, 16}, false);
+    auto goldenTrue = makeTensorData(DT_BOOL, {16, 16}, true);
+    auto goldenFalse = makeTensorData(DT_BOOL, {16, 16}, false);
 
     struct {
         CmpOperationType type;
@@ -116,9 +116,9 @@ TEST_F(TorchAdaptorTest, Compare) {
     for (const auto &test : cases) {
         calc::Compare(out, self, other, test.type, test.mode);
         if (test.expect) {
-            ASSERT_ALLCLOSE(out, golden_true);
+            ASSERT_ALLCLOSE(out, goldenTrue);
         } else {
-            ASSERT_ALLCLOSE(out, golden_false);
+            ASSERT_ALLCLOSE(out, goldenFalse);
         }
     }
 }
@@ -156,8 +156,8 @@ TEST_F(TorchAdaptorTest, Cmps) {
     auto self = makeTensorData(DT_FP32, {16, 16}, 4.0f);
     auto elem = Element(DT_FP32, 4.0f);
     auto out = makeTensorData(DT_BOOL, {16, 16}, false);
-    auto golden_true = makeTensorData(DT_BOOL, {16, 16}, true);
-    auto golden_false = makeTensorData(DT_BOOL, {16, 16}, false);
+    auto goldenTrue = makeTensorData(DT_BOOL, {16, 16}, true);
+    auto goldenFalse = makeTensorData(DT_BOOL, {16, 16}, false);
     struct {
         CmpOperationType type;
         CmpModeType mode;
@@ -173,9 +173,9 @@ TEST_F(TorchAdaptorTest, Cmps) {
     for (const auto &test : cases) {
         calc::Cmps(out, self, elem, test.type, test.mode);
         if (test.expect) {
-            ASSERT_ALLCLOSE(out, golden_true);
+            ASSERT_ALLCLOSE(out, goldenTrue);
         } else {
-            ASSERT_ALLCLOSE(out, golden_false);
+            ASSERT_ALLCLOSE(out, goldenFalse);
         }
     }
 }
@@ -385,10 +385,10 @@ TEST_F(TorchAdaptorTest, UnaryOps) {
                                         2.0f, 2.0f, 2.0f,
                                         3.0f, 3.0f, 3.0f,
                                         4.0f, 4.0f, 4.0f};
-            auto self_brcb = makeTensorData(DT_FP32, {4, 1}, sdata);
+            auto selfBrcb = makeTensorData(DT_FP32, {4, 1}, sdata);
             auto out = makeTensorData(DT_FP32, {4, 3}, 0.0f);
             auto golden = makeTensorData(DT_FP32, {4, 3}, gdata);
-            calc::Brcb(out, self_brcb);
+            calc::Brcb(out, selfBrcb);
             ASSERT_ALLCLOSE(out, golden);
         }
     }

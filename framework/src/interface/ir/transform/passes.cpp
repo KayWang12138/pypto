@@ -80,16 +80,16 @@ class FunctionPassImpl : public PassImpl {
     INTERNAL_CHECK(program) << "FunctionPass cannot run on null program";
 
     // Apply the function transform to each function in the program
-    std::vector<FunctionPtr> transformed_functions;
-    transformed_functions.reserve(program->functions_.size());
+    std::vector<FunctionPtr> transformedFunctions;
+    transformedFunctions.reserve(program->functions_.size());
 
     for (const auto& entry : program->functions_) {
-      FunctionPtr transformed_func = transform_(entry.second);
-      transformed_functions.push_back(transformed_func);
+      FunctionPtr transformedFunc = transform_(entry.second);
+      transformedFunctions.push_back(transformedFunc);
     }
 
     // Create a new program with the transformed functions
-    return std::make_shared<const Program>(transformed_functions, program->name_, program->span_);
+    return std::make_shared<const Program>(transformedFunctions, program->name_, program->span_);
   }
 
   [[nodiscard]] std::string GetName() const override { return name_.empty() ? "FunctionPass" : name_; }

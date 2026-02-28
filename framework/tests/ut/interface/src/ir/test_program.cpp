@@ -33,11 +33,11 @@ namespace ir {
 
 // Helper to create a simple function
 static FunctionPtr MakeSimpleFunction(const std::string& name) {
-  auto body_val = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
-  auto body = std::make_shared<EvalStmt>(body_val, Span::unknown());
+  auto bodyVal = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
+  auto body = std::make_shared<EvalStmt>(bodyVal, Span::unknown());
   std::vector<VarPtr> params;
-  std::vector<TypePtr> return_types;
-  return std::make_shared<Function>(name, params, return_types, body, Span::unknown());
+  std::vector<TypePtr> returnTypes;
+  return std::make_shared<Function>(name, params, returnTypes, body, Span::unknown());
 }
 
 class IRProgramTest : public testing::Test {};

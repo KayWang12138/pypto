@@ -71,10 +71,10 @@ TEST_F(OpRegistryTest, TestCreateTensorAdd) {
   auto& registry = OpRegistry::GetInstance();
 
   std::vector<ExprPtr> shape = {std::make_shared<ConstInt>(10, DataType::INT64, Span::unknown())};
-  auto tensor_type = std::make_shared<TensorType>(shape, DataType::FP32);
+  auto tensorType = std::make_shared<TensorType>(shape, DataType::FP32);
 
-  auto arg1 = std::make_shared<Var>("a", tensor_type, Span::unknown());
-  auto arg2 = std::make_shared<Var>("b", tensor_type, Span::unknown());
+  auto arg1 = std::make_shared<Var>("a", tensorType, Span::unknown());
+  auto arg2 = std::make_shared<Var>("b", tensorType, Span::unknown());
 
   std::vector<ExprPtr> args = {arg1, arg2};
   auto call = registry.Create("tensor.add", args, Span::unknown());

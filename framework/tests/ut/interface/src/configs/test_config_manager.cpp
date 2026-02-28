@@ -234,22 +234,22 @@ TEST_F(TestConfigManager, GlobalConfig) {
     EXPECT_EQ(res, "test");
 
     ConfigManagerNg::SetGlobalConfig("simulation.timeout_threshold", 10);
-    long res_int = ConfigManagerNg::GetGlobalConfig<long>("simulation.timeout_threshold");
-    EXPECT_EQ(res_int, 10);
+    long resInt = ConfigManagerNg::GetGlobalConfig<long>("simulation.timeout_threshold");
+    EXPECT_EQ(resInt, 10);
 
     ConfigManagerNg::SetGlobalConfig("codegen.codegen_support_tile_tensor", true);
-    bool res_bool = ConfigManagerNg::GetGlobalConfig<bool>("codegen.codegen_support_tile_tensor");
-    EXPECT_EQ(res_bool, true);
+    bool resBool = ConfigManagerNg::GetGlobalConfig<bool>("codegen.codegen_support_tile_tensor");
+    EXPECT_EQ(resBool, true);
 
     // // add code for coverage, python pybind interface
-    std::map<std::string, Any> config_values = {
+    std::map<std::string, Any> configValues = {
         {"simulation.timeout_threshold", 10}
     };
-    ConfigManagerNg::GetInstance().SetGlobalConfig(std::move(config_values), "default", 1);
+    ConfigManagerNg::GetInstance().SetGlobalConfig(std::move(configValues), "default", 1);
     ConfigManagerNg::GetInstance().GlobalScope();
 
-    std::map<std::string, Any> empty_values = {};
-    ConfigManagerNg::GetInstance().SetGlobalConfig(std::move(empty_values), "default", 1);
+    std::map<std::string, Any> emptyValues = {};
+    ConfigManagerNg::GetInstance().SetGlobalConfig(std::move(emptyValues), "default", 1);
 
     PrintOptions p = config::GetPrintOptions();
 

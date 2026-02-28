@@ -130,8 +130,8 @@ TEST_F(IRPrinterTest, TestPrintAssignStmt) {
 // ============================================================================
 
 TEST_F(IRPrinterTest, TestPrintFunction) {
-  auto body_val = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
-  auto body = std::make_shared<EvalStmt>(body_val, Span::unknown());
+  auto bodyVal = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
+  auto body = std::make_shared<EvalStmt>(bodyVal, Span::unknown());
   auto func = std::make_shared<Function>("my_func", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body,
                                          Span::unknown());
   std::string result = PythonPrint(func);
@@ -144,8 +144,8 @@ TEST_F(IRPrinterTest, TestPrintFunction) {
 // ============================================================================
 
 TEST_F(IRPrinterTest, TestPrintProgram) {
-  auto body_val = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
-  auto body = std::make_shared<EvalStmt>(body_val, Span::unknown());
+  auto bodyVal = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
+  auto body = std::make_shared<EvalStmt>(bodyVal, Span::unknown());
   auto func = std::make_shared<Function>("main", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body,
                                          Span::unknown());
   auto program = std::make_shared<Program>(std::vector<FunctionPtr>{func}, "test_prog", Span::unknown());
@@ -391,7 +391,7 @@ TEST_F(IRPrinterTest, TestPrintReturnStmt) {
 
 TEST_F(IRPrinterTest, TestPrintForStmt) {
   Span sp = Span::unknown();
-  auto loop_var = std::make_shared<Var>(
+  auto loopVar = std::make_shared<Var>(
       "i",
       std::make_shared<ScalarType>(DataType::INT32),
       sp);
@@ -402,28 +402,28 @@ TEST_F(IRPrinterTest, TestPrintForStmt) {
   auto step = std::make_shared<ConstInt>(
       1, DataType::INT32, sp);
   auto body = std::make_shared<EvalStmt>(start, sp);
-  auto for_stmt = std::make_shared<ForStmt>(
-      loop_var, start, stop, step,
+  auto forStmt = std::make_shared<ForStmt>(
+      loopVar, start, stop, step,
       std::vector<IterArgPtr>{}, body,
       std::vector<VarPtr>{}, sp);
-  std::string result = PythonPrint(for_stmt);
+  std::string result = PythonPrint(forStmt);
   ASSERT_NE(result.find("for"), std::string::npos);
 }
 
 TEST_F(IRPrinterTest, TestPrintIfStmt) {
   Span sp = Span::unknown();
   auto cond = std::make_shared<ConstBool>(true, sp);
-  auto then_body = std::make_shared<EvalStmt>(
+  auto thenBody = std::make_shared<EvalStmt>(
       std::make_shared<ConstInt>(
           1, DataType::INT32, sp), sp);
-  auto else_body = std::make_shared<EvalStmt>(
+  auto elseBody = std::make_shared<EvalStmt>(
       std::make_shared<ConstInt>(
           2, DataType::INT32, sp), sp);
-  auto if_stmt = std::make_shared<IfStmt>(
-      cond, then_body,
-      std::optional<StmtPtr>(else_body),
+  auto ifStmt = std::make_shared<IfStmt>(
+      cond, thenBody,
+      std::optional<StmtPtr>(elseBody),
       std::vector<VarPtr>{}, sp);
-  std::string result = PythonPrint(if_stmt);
+  std::string result = PythonPrint(ifStmt);
   ASSERT_NE(result.find("if"), std::string::npos);
 }
 
@@ -473,12 +473,12 @@ TEST_F(IRPrinterTest, TestPrintDataTypes) {
       DataType::INT64);
   auto int32 = std::make_shared<ScalarType>(
       DataType::INT32);
-  auto bool_t = std::make_shared<ScalarType>(
+  auto boolT = std::make_shared<ScalarType>(
       DataType::BOOL);
   ASSERT_FALSE(PythonPrint(fp16).empty());
   ASSERT_FALSE(PythonPrint(int64).empty());
   ASSERT_FALSE(PythonPrint(int32).empty());
-  ASSERT_FALSE(PythonPrint(bool_t).empty());
+  ASSERT_FALSE(PythonPrint(boolT).empty());
 }
 
 TEST_F(IRPrinterTest, TestPrintFuncWithParams) {
@@ -493,7 +493,7 @@ TEST_F(IRPrinterTest, TestPrintFuncWithParams) {
       sp);
   auto body = std::make_shared<ReturnStmt>(
       std::vector<ExprPtr>{param}, sp);
-  auto ret_type = std::make_shared<TensorType>(
+  auto retType = std::make_shared<TensorType>(
       std::vector<ExprPtr>{
           std::make_shared<ConstInt>(
               4, DataType::INT64, sp)},
@@ -501,7 +501,7 @@ TEST_F(IRPrinterTest, TestPrintFuncWithParams) {
   auto func = std::make_shared<Function>(
       "identity",
       std::vector<VarPtr>{param},
-      std::vector<TypePtr>{ret_type},
+      std::vector<TypePtr>{retType},
       body, sp);
   std::string result = PythonPrint(func);
   ASSERT_NE(result.find("identity"), std::string::npos);
@@ -630,25 +630,25 @@ TEST_F(IRPrinterTest, TestPrintUnknownType) {
 // ============================================================================
 
 TEST_F(IRPrinterTest, TestPrintAllDataTypes) {
-  auto check_dtype = [](DataType dt, const std::string& expected) {
+  auto checkDtype = [](DataType dt, const std::string& expected) {
     auto type = std::make_shared<ScalarType>(dt);
     std::string result = PythonPrint(type);
     ASSERT_NE(result.find(expected), std::string::npos) << "Failed for " << expected;
   };
-  check_dtype(DataType::INT4, "INT4");
-  check_dtype(DataType::INT8, "INT8");
-  check_dtype(DataType::INT16, "INT16");
-  check_dtype(DataType::UINT4, "UINT4");
-  check_dtype(DataType::UINT8, "UINT8");
-  check_dtype(DataType::UINT16, "UINT16");
-  check_dtype(DataType::UINT32, "UINT32");
-  check_dtype(DataType::UINT64, "UINT64");
-  check_dtype(DataType::FP4, "FP4");
-  check_dtype(DataType::FP8E4M3FN, "FP8E4M3FN");
-  check_dtype(DataType::FP8E5M2, "FP8E5M2");
-  check_dtype(DataType::BF16, "BFLOAT16");
-  check_dtype(DataType::HF4, "HF4");
-  check_dtype(DataType::HF8, "HF8");
+  checkDtype(DataType::INT4, "INT4");
+  checkDtype(DataType::INT8, "INT8");
+  checkDtype(DataType::INT16, "INT16");
+  checkDtype(DataType::UINT4, "UINT4");
+  checkDtype(DataType::UINT8, "UINT8");
+  checkDtype(DataType::UINT16, "UINT16");
+  checkDtype(DataType::UINT32, "UINT32");
+  checkDtype(DataType::UINT64, "UINT64");
+  checkDtype(DataType::FP4, "FP4");
+  checkDtype(DataType::FP8E4M3FN, "FP8E4M3FN");
+  checkDtype(DataType::FP8E5M2, "FP8E5M2");
+  checkDtype(DataType::BF16, "BFLOAT16");
+  checkDtype(DataType::HF4, "HF4");
+  checkDtype(DataType::HF8, "HF8");
 }
 
 // ============================================================================
@@ -657,28 +657,28 @@ TEST_F(IRPrinterTest, TestPrintAllDataTypes) {
 
 TEST_F(IRPrinterTest, TestPrintForStmtWithIterArgs) {
   Span sp = Span::unknown();
-  auto loop_var = std::make_shared<Var>(
+  auto loopVar = std::make_shared<Var>(
       "i", std::make_shared<ScalarType>(DataType::INT32), sp);
   auto start = std::make_shared<ConstInt>(0, DataType::INT32, sp);
   auto stop = std::make_shared<ConstInt>(10, DataType::INT32, sp);
   auto step = std::make_shared<ConstInt>(1, DataType::INT32, sp);
 
-  auto init_val = std::make_shared<ConstInt>(0, DataType::INT32, sp);
-  auto iter_arg = std::make_shared<IterArg>(
-      "acc", std::make_shared<ScalarType>(DataType::INT32), init_val, sp);
+  auto initVal = std::make_shared<ConstInt>(0, DataType::INT32, sp);
+  auto iterArg = std::make_shared<IterArg>(
+      "acc", std::make_shared<ScalarType>(DataType::INT32), initVal, sp);
 
   auto rv = std::make_shared<Var>(
       "result", std::make_shared<ScalarType>(DataType::INT32), sp);
 
-  auto yield_val = std::make_shared<Add>(iter_arg, loop_var, DataType::INT32, sp);
-  auto body = std::make_shared<YieldStmt>(std::vector<ExprPtr>{yield_val}, sp);
+  auto yieldVal = std::make_shared<Add>(iterArg, loopVar, DataType::INT32, sp);
+  auto body = std::make_shared<YieldStmt>(std::vector<ExprPtr>{yieldVal}, sp);
 
-  auto for_stmt = std::make_shared<ForStmt>(
-      loop_var, start, stop, step,
-      std::vector<IterArgPtr>{iter_arg}, body,
+  auto forStmt = std::make_shared<ForStmt>(
+      loopVar, start, stop, step,
+      std::vector<IterArgPtr>{iterArg}, body,
       std::vector<VarPtr>{rv}, sp);
 
-  std::string result = PythonPrint(for_stmt);
+  std::string result = PythonPrint(forStmt);
   ASSERT_NE(result.find("pl.range"), std::string::npos);
   ASSERT_NE(result.find("init_values"), std::string::npos);
   ASSERT_NE(result.find("acc"), std::string::npos);
@@ -694,17 +694,17 @@ TEST_F(IRPrinterTest, TestPrintIfStmtWithReturnVarsYield) {
   auto rv = std::make_shared<Var>(
       "out", std::make_shared<ScalarType>(DataType::INT32), sp);
 
-  auto then_val = std::make_shared<ConstInt>(1, DataType::INT32, sp);
-  auto then_yield = std::make_shared<YieldStmt>(std::vector<ExprPtr>{then_val}, sp);
+  auto thenVal = std::make_shared<ConstInt>(1, DataType::INT32, sp);
+  auto thenYield = std::make_shared<YieldStmt>(std::vector<ExprPtr>{thenVal}, sp);
 
-  auto else_val = std::make_shared<ConstInt>(2, DataType::INT32, sp);
-  auto else_yield = std::make_shared<YieldStmt>(std::vector<ExprPtr>{else_val}, sp);
+  auto elseVal = std::make_shared<ConstInt>(2, DataType::INT32, sp);
+  auto elseYield = std::make_shared<YieldStmt>(std::vector<ExprPtr>{elseVal}, sp);
 
-  auto if_stmt = std::make_shared<IfStmt>(
-      cond, then_yield, std::optional<StmtPtr>(else_yield),
+  auto ifStmt = std::make_shared<IfStmt>(
+      cond, thenYield, std::optional<StmtPtr>(elseYield),
       std::vector<VarPtr>{rv}, sp);
 
-  std::string result = PythonPrint(if_stmt);
+  std::string result = PythonPrint(ifStmt);
   ASSERT_NE(result.find("out"), std::string::npos);
   ASSERT_NE(result.find("pl.yield_"), std::string::npos);
 }
@@ -718,23 +718,23 @@ TEST_F(IRPrinterTest, TestPrintSeqStmtsWithYieldAndReturnVars) {
   auto rv = std::make_shared<Var>(
       "out", std::make_shared<ScalarType>(DataType::INT32), sp);
 
-  auto assign_var = std::make_shared<Var>(
+  auto assignVar = std::make_shared<Var>(
       "x", std::make_shared<ScalarType>(DataType::INT32), sp);
-  auto assign_val = std::make_shared<ConstInt>(10, DataType::INT32, sp);
-  auto assign_stmt = std::make_shared<AssignStmt>(assign_var, assign_val, sp);
+  auto assignVal = std::make_shared<ConstInt>(10, DataType::INT32, sp);
+  auto assignStmt = std::make_shared<AssignStmt>(assignVar, assignVal, sp);
 
-  auto yield_val = std::make_shared<ConstInt>(42, DataType::INT32, sp);
-  auto yield_stmt = std::make_shared<YieldStmt>(std::vector<ExprPtr>{yield_val}, sp);
+  auto yieldVal = std::make_shared<ConstInt>(42, DataType::INT32, sp);
+  auto yieldStmt = std::make_shared<YieldStmt>(std::vector<ExprPtr>{yieldVal}, sp);
 
   auto seq = std::make_shared<SeqStmts>(
-      std::vector<StmtPtr>{assign_stmt, yield_stmt}, sp);
+      std::vector<StmtPtr>{assignStmt, yieldStmt}, sp);
 
   auto cond = std::make_shared<ConstBool>(true, sp);
-  auto if_stmt = std::make_shared<IfStmt>(
+  auto ifStmt = std::make_shared<IfStmt>(
       cond, seq, std::nullopt,
       std::vector<VarPtr>{rv}, sp);
 
-  std::string result = PythonPrint(if_stmt);
+  std::string result = PythonPrint(ifStmt);
   ASSERT_NE(result.find("out"), std::string::npos);
   ASSERT_NE(result.find("pl.yield_"), std::string::npos);
 }
@@ -774,11 +774,11 @@ TEST_F(IRPrinterTest, TestPrintFunctionMultipleReturnTypes) {
   auto v1 = std::make_shared<ConstInt>(1, DataType::INT32, sp);
   auto v2 = std::make_shared<ConstFloat>(2.0, DataType::FP32, sp);
   auto body = std::make_shared<YieldStmt>(std::vector<ExprPtr>{v1, v2}, sp);
-  auto ret_t1 = std::make_shared<ScalarType>(DataType::INT32);
-  auto ret_t2 = std::make_shared<ScalarType>(DataType::FP32);
+  auto retT1 = std::make_shared<ScalarType>(DataType::INT32);
+  auto retT2 = std::make_shared<ScalarType>(DataType::FP32);
   auto func = std::make_shared<Function>(
       "multi_ret", std::vector<VarPtr>{},
-      std::vector<TypePtr>{ret_t1, ret_t2}, body, sp);
+      std::vector<TypePtr>{retT1, retT2}, body, sp);
   std::string result = PythonPrint(func);
   ASSERT_NE(result.find("tuple["), std::string::npos);
   ASSERT_NE(result.find("return"), std::string::npos);
@@ -790,21 +790,21 @@ TEST_F(IRPrinterTest, TestPrintFunctionMultipleReturnTypes) {
 
 TEST_F(IRPrinterTest, TestPrintFunctionYieldToReturn) {
   Span sp = Span::unknown();
-  auto assign_var = std::make_shared<Var>(
+  auto assignVar = std::make_shared<Var>(
       "x", std::make_shared<ScalarType>(DataType::INT32), sp);
-  auto assign_val = std::make_shared<ConstInt>(10, DataType::INT32, sp);
-  auto assign_stmt = std::make_shared<AssignStmt>(assign_var, assign_val, sp);
+  auto assignVal = std::make_shared<ConstInt>(10, DataType::INT32, sp);
+  auto assignStmt = std::make_shared<AssignStmt>(assignVar, assignVal, sp);
 
-  auto yield_stmt = std::make_shared<YieldStmt>(
-      std::vector<ExprPtr>{assign_var}, sp);
+  auto yieldStmt = std::make_shared<YieldStmt>(
+      std::vector<ExprPtr>{assignVar}, sp);
 
   auto body = std::make_shared<SeqStmts>(
-      std::vector<StmtPtr>{assign_stmt, yield_stmt}, sp);
+      std::vector<StmtPtr>{assignStmt, yieldStmt}, sp);
 
-  auto ret_type = std::make_shared<ScalarType>(DataType::INT32);
+  auto retType = std::make_shared<ScalarType>(DataType::INT32);
   auto func = std::make_shared<Function>(
       "func_with_yield", std::vector<VarPtr>{},
-      std::vector<TypePtr>{ret_type}, body, sp);
+      std::vector<TypePtr>{retType}, body, sp);
 
   std::string result = PythonPrint(func);
   ASSERT_NE(result.find("return"), std::string::npos);
@@ -819,32 +819,32 @@ TEST_F(IRPrinterTest, TestPrintProgramWithCrossFunctionCall) {
   Span sp = Span::unknown();
 
   // Helper function
-  auto helper_param = std::make_shared<Var>(
+  auto helperParam = std::make_shared<Var>(
       "a", std::make_shared<ScalarType>(DataType::INT32), sp);
-  auto helper_body = std::make_shared<YieldStmt>(
-      std::vector<ExprPtr>{helper_param}, sp);
-  auto helper_ret = std::make_shared<ScalarType>(DataType::INT32);
+  auto helperBody = std::make_shared<YieldStmt>(
+      std::vector<ExprPtr>{helperParam}, sp);
+  auto helperRet = std::make_shared<ScalarType>(DataType::INT32);
   auto helper = std::make_shared<Function>(
-      "helper", std::vector<VarPtr>{helper_param},
-      std::vector<TypePtr>{helper_ret}, helper_body, sp);
+      "helper", std::vector<VarPtr>{helperParam},
+      std::vector<TypePtr>{helperRet}, helperBody, sp);
 
   // Main function calls helper via GlobalVar
-  auto main_param = std::make_shared<Var>(
+  auto mainParam = std::make_shared<Var>(
       "x", std::make_shared<ScalarType>(DataType::INT32), sp);
   auto gvar = std::make_shared<GlobalVar>("helper");
   auto call = std::make_shared<Call>(
-      gvar, std::vector<ExprPtr>{main_param},
+      gvar, std::vector<ExprPtr>{mainParam},
       std::vector<std::pair<std::string, std::any>>{},
       std::make_shared<ScalarType>(DataType::INT32), sp);
-  auto main_body = std::make_shared<YieldStmt>(
+  auto mainBody = std::make_shared<YieldStmt>(
       std::vector<ExprPtr>{call}, sp);
-  auto main_ret = std::make_shared<ScalarType>(DataType::INT32);
-  auto main_func = std::make_shared<Function>(
-      "main", std::vector<VarPtr>{main_param},
-      std::vector<TypePtr>{main_ret}, main_body, sp);
+  auto mainRet = std::make_shared<ScalarType>(DataType::INT32);
+  auto mainFunc = std::make_shared<Function>(
+      "main", std::vector<VarPtr>{mainParam},
+      std::vector<TypePtr>{mainRet}, mainBody, sp);
 
   auto program = std::make_shared<Program>(
-      std::vector<FunctionPtr>{helper, main_func}, "test_prog", sp);
+      std::vector<FunctionPtr>{helper, mainFunc}, "test_prog", sp);
 
   std::string result = PythonPrint(program);
   ASSERT_NE(result.find("# pypto.program: test_prog"), std::string::npos);
@@ -937,9 +937,9 @@ TEST_F(IRPrinterTest, TestPrintNestedExprPrecedence) {
 TEST_F(IRPrinterTest, TestPrintIterArg) {
   Span sp = Span::unknown();
   auto init = std::make_shared<ConstInt>(0, DataType::INT32, sp);
-  auto iter_arg = std::make_shared<IterArg>(
+  auto iterArg = std::make_shared<IterArg>(
       "acc", std::make_shared<ScalarType>(DataType::INT32), init, sp);
-  std::string result = PythonPrint(iter_arg);
+  std::string result = PythonPrint(iterArg);
   ASSERT_EQ(result, "acc");
 }
 
