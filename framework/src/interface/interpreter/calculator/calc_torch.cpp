@@ -1348,6 +1348,13 @@ void CumSum(const TensorData &out, const TensorData &in, int axis) {
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
+void CumProd(const TensorData &out, const TensorData &in, int axis) {
+    auto tout = From(out);
+    auto input = From(in);
+    torch::cumprod_out(tout.second, input.second, axis);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
 void IndexPut(const TensorData &out, const TensorData &self, const std::vector<TensorData> &indices, const TensorData &values, bool accumulate) {
     c10::List<c10::optional<at::Tensor>> indicesList;
     for (auto idx : indices) {
@@ -2123,6 +2130,7 @@ static struct CalcOps calcOps = {
     .TriU = TriU,
     .TriL = TriL,
     .CumSum = CumSum,
+    .CumProd = CumProd,
     .IndexPut = IndexPut,
     .Reshape = Reshape,
     .Permute = Permute,
