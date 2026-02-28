@@ -179,9 +179,9 @@ def _torch_dtype_from(dtype: DataType) -> "torch.dtype":
         DataType.DT_INT64: torch.int64,
         DataType.DT_UINT64: torch.uint64,
         DataType.DT_BOOL: torch.bool,
-        # DataType.DT_FP8E4M3: torch.float8_e4m3fn,
-        # DataType.DT_FP8E5M2: torch.float8_e5m2,
-        # DataType.DT_FP8E8M0: torch.float8_e8m0fnu,
+        DataType.DT_FP8E4M3: torch.float8_e4m3fn,
+        DataType.DT_FP8E5M2: torch.float8_e5m2,
+        DataType.DT_FP8E8M0: torch.float8_e8m0fnu,
     }
 
     torch_dtype = _torch_dtype_dict.get(dtype)
