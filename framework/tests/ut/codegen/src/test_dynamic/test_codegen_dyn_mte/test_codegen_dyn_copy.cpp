@@ -88,10 +88,10 @@ std::string TestL0COutBody(bool isDynamicAligned) {
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {}, true);
+    CodeGenOpCloudNPU cop(opCtx);
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
 
-    cop.Init(op);
     cop.originShape[0] = shape;
     cop.originShape[1] = shape;
     return cop.GenOpCode();
@@ -122,11 +122,15 @@ TEST_F(TestCodegenDynCopy, L1ToFB) {
     Tensor input1(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
 
-    std::string funcName = "ADD";
+    std::string funcName = "L1ToFB";
     FUNCTION(funcName, {input0, input1, output}) {
-        output = Add(input0, input1);
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Add(input0, input1);
+        }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetUnderDynamicFunction(true);
     const std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localInTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L1, shape, dynValidShape});
@@ -144,11 +148,10 @@ TEST_F(TestCodegenDynCopy, L1ToFB) {
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {}, true);
+    CodeGenOpCloudNPU cop(opCtx);
     function->GetTensorMap().inverseMap_[localInTensor->GetMagic()] = localInTensor;
     function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
-
-    cop.Init(op);
     std::string res = cop.GenOpCode();
     std::string expect =
         R"!!!(TileOp::DynL1ToFB<float, 0>((__fbuf__ float*)FIXBUF_S0_E0, (__cbuf__ float*)L1_S0_E0, 64);
@@ -302,11 +305,11 @@ TEST_F(TestCodegenDynCopy, TestGatherInL1TileTensor) {
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(gatherL1Op, symbolManager);
-    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], gatherL1Op, {}, true);
+    CodeGenOpCloudNPU cop(opCtx);
     function->GetTensorMap().inverseMap_[gatherTensor->GetMagic()] = gatherTensor;
     function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
 
-    cop.Init(gatherL1Op);
     cop.UpdateTileTensorInfo();
     std::string res = cop.GenOpCode();
     std::string expect =
@@ -345,11 +348,10 @@ TEST_F(TestCodegenDynCopy, L1ToBt) {
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {}, true);
+    CodeGenOpCloudNPU cop(opCtx);
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
     function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
-
-    cop.Init(op);
     std::string res = cop.GenOpCode();
     std::string expect =
         R"!!!(TileOp::DynL1ToBT<float, float, 0>((uint64_t)BIAS_S0_E0, (__cbuf__ float*)L1_S0_E0, 64);
@@ -524,11 +526,11 @@ std::string TestCopyL1Body(Opcode opcode, MemoryType inputType, MemoryType outpu
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {}, true);
+    CodeGenOpCloudNPU cop(opCtx);
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
     function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
 
-    cop.Init(op);
     cop.UpdateTileTensorInfo();
     return cop.GenOpCode();
 }
@@ -584,10 +586,10 @@ void TestUBCopyInBody(const std::string funcName, const std::string &expect) {
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {}, true);
+    CodeGenOpCloudNPU cop(opCtx);
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
 
-    cop.Init(op);
     cop.originShape[0] = shape;
     cop.originShape[1] = shape;
 
@@ -642,11 +644,10 @@ TEST_F(TestCodegenDynCopy, L0CToL1) {
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {}, true);
+    CodeGenOpCloudNPU cop(opCtx);
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
     function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
-
-    cop.Init(op);
     std::string res = cop.GenOpCode();
     std::string expect =
         R"!!!(TileOp::DynL0CToL1<float, float, 0>((__cbuf__ float*)L1_S0_E0, (__cc__ float*)L0C_S0_E0, 64, 64, 64, 64, 0, 0, 64, 64, 0, 0, 0);
