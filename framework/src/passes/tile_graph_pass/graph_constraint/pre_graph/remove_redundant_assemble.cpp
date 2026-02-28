@@ -561,6 +561,11 @@ Status RemoveRedundantAssemble::DeleteRedundantAssemble(Function &function) cons
             if (HanldeForSingleAssemble(function, input, output, op) != SUCCESS) return FAILED;
         }
     }
+    function.EraseOperations(false);
+    return SUCCESS;
+}
+
+Status RemoveRedundantAssemble::DeleteRedundantView(Function &function) const {
     if (RemoveViewMultiReshape(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "RemoveViewMultiReshape failed.");
         return FAILED;
@@ -570,7 +575,6 @@ Status RemoveRedundantAssemble::DeleteRedundantAssemble(Function &function) cons
         return FAILED;
     }
     function.EraseOperations(false);
-    HandleForReshapeToOutcast(function);
     return SUCCESS;
 }
 } // namespace npu::tile_fwk
