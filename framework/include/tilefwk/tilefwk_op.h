@@ -387,11 +387,12 @@ struct MatmulExtendParam {
     ReLuType reluType{ReLuType::NoReLu};
     TF32Mode tf32Mode{TF32Mode::CAST_NONE};
 
-    MatmulExtendParam(Tensor bias, Tensor scale, float scaleVal, ReLuType relu)
+    MatmulExtendParam(Tensor bias, Tensor scale, float scaleVal, ReLuType relu, TF32Mode mode = TF32Mode::CAST_NONE)
         : biasTensor(std::move(bias)),
           scaleTensor(std::move(scale)),
           scaleValue(scaleVal),
-          reluType(relu) {}
+          reluType(relu),
+          tf32Mode(mode) {}
 
     MatmulExtendParam() = default;
 };

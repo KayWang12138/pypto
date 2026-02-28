@@ -365,8 +365,8 @@ void bind_operation(py::module &m) {
 
     py::class_<Matrix::MatmulExtendParam>(m, "MatmulExtendParam")
         .def(py::init<>())
-        .def(py::init<Tensor, Tensor, float, Matrix::ReLuType>(), py::arg("bias_tensor"), py::arg("scale_tensor"),
-            py::arg("scale"), py::arg("relu_type"), "Matrix extend params.");
+        .def(py::init<Tensor, Tensor, float, Matrix::ReLuType, Matrix::TF32Mode>(), py::arg("bias_tensor"), py::arg("scale_tensor"),
+            py::arg("scale"), py::arg("relu_type"), py::arg("tf32_mode"), "Matrix extend params.");
 
     m.def(
         "Matmul",

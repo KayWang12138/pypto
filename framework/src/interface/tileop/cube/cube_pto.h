@@ -571,7 +571,7 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord, int16_t subblockId) {
 }
 
 template <bool isZeroC, typename T, typename U, typename V>
-TILEOP void TMatmul(T &c, U &a, V &b, uint8_t tf32Mode) {
+TILEOP void TMatmul(T &c, U &a, V &b, const int64_t tf32Mode) {
     constexpr auto shapeSizeA = Std::tuple_size<typename U::Shape>::value;
     constexpr auto shapeSizeB = Std::tuple_size<typename V::Shape>::value;
     constexpr auto shapeSizeC = Std::tuple_size<typename T::Shape>::value;
@@ -616,10 +616,11 @@ TILEOP void TMatmul(T &c, U &a, V &b, uint8_t tf32Mode) {
     } else {
         pto::TMATMUL_ACC(l0c, l0c, l0a, l0b);
     }
+    l0a.ResetMadMode();
 }
 
 template <typename T0, typename T1, typename T2, typename T3>
-TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, uint8_t tf32Mode, T3 &bias) {
+TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, const int64_t tf32Mode, T3 &bias) {
     constexpr auto shapeSizeA = Std::tuple_size<typename T1::Shape>::value;
     constexpr auto shapeSizeB = Std::tuple_size<typename T2::Shape>::value;
     constexpr auto shapeSizeC = Std::tuple_size<typename T0::Shape>::value;
@@ -660,6 +661,7 @@ TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, uint8_t tf32Mode, T3 &bias) {
     pto::TASSIGN(l0c, (uint64_t)c.GetAddr());
     pto::TASSIGN(biasT, (uint64_t)bias.GetAddr());
     pto::TMATMUL_BIAS(l0c, l0a, l0b, biasT);
+    l0a.ResetMadMode();
 }
 
 #if __NPU_ARCH__ == 3101
