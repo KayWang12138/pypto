@@ -18,24 +18,24 @@
 using namespace tile_fwk::test_operation;
 namespace {
 struct CumSumOpFuncArgs : public OpFuncArgs {
-    CumSumOpFuncArgs(int axis, const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape, bool flag)
-        : axis_(axis), viewShape_(viewShape), tileShape_(tileShape), flag_(flag) {}
+    CumSumOpFuncArgs(int axis, const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape, bool isSum)
+        : axis_(axis), viewShape_(viewShape), tileShape_(tileShape), isSum_(isSum) {}
 
     int axis_;
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
-    bool flag_;
+    bool isSum_;
 };
 
-struct CumSumOpMetaData {
-    explicit CumSumOpMetaData(const OpFunc &opFunc, const nlohmann::json &test_data)
+struct CumOpMetaData {
+    explicit CumOpMetaData(const OpFunc &opFunc, const nlohmann::json &test_data)
         : opFunc_(opFunc), test_data_(test_data) {}
 
     OpFunc opFunc_;
     nlohmann::json test_data_;
 };
 
-static std::vector<int64_t> GetCumSumViewShape(Tensor tensor, const std::vector<int64_t> &viewShape, int axis) {
+static std::vector<int64_t> GetCumOperationViewShape(Tensor tensor, const std::vector<int64_t> &viewShape, int axis) {
     std::vector<int64_t> resultViewShape = {};
     for (size_t i = 0; i < viewShape.size(); i++) {
         if (static_cast<int>(i) != axis) {
@@ -69,7 +69,7 @@ static std::vector<int64_t> GetNoAxisViewShapes(const std::vector<int64_t> &view
     return shapes;
 }
 
-static void CumSumOperationExeFuncDoubleCut(
+static void CumOperationExeFuncDoubleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     auto args = static_cast<const CumSumOpFuncArgs *>(opArgs);
 
@@ -82,7 +82,11 @@ static void CumSumOperationExeFuncDoubleCut(
                 auto tileTensor = View(inputs[0], {validShape0}, {validShape0}, {0});
 
                 TileShape::Current().SetVecTile({validShape0});
-                auto res = CumSum(tileTensor, axis);
+                if (args->isSum_) {
+                    auto res = CumSum(tileTensor, axis);
+                } else {
+                    auto res = CumProd(tileTensor, axis);
+                }
                 Assemble(res, {0}, outputs[0]);
             }
         } else {
@@ -93,7 +97,7 @@ static void CumSumOperationExeFuncDoubleCut(
             LOOP("LOOP_L1_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
                 std::vector<SymbolicScalar> indices = {bIdx};
                 indices.insert(indices.begin() + axis, 0);
-                const std::vector<int64_t> tensorViewShape = GetCumSumViewShape(inputs[0], args->viewShape_, axis);
+                const std::vector<int64_t> tensorViewShape = GetCumOperationViewShape(inputs[0], args->viewShape_, axis);
 
                 SymbolicScalar validShape0 = std::min(
                     SymbolicScalar(inputs[0].GetShape()[0]) - indices[0] * tensorViewShape[0], tensorViewShape[0]);
@@ -103,14 +107,18 @@ static void CumSumOperationExeFuncDoubleCut(
                     {indices[0] * tensorViewShape[0], indices[1] * tensorViewShape[1]});
 
                 TileShape::Current().SetVecTile(args->tileShape_);
-                auto res = CumSum(tileTensor, axis);
+                if (args->isSum_) {
+                    auto res = CumSum(tileTensor, axis);
+                } else {
+                    auto res = CumProd(tileTensor, axis);
+                }
                 Assemble(res, {indices[0] * args->viewShape_[0], indices[1] * args->viewShape_[1]}, outputs[0]);
             }
         }
     }
 }
 
-static void CumSumOperationExeFuncTripleCut(
+static void CumOperationExeFuncTripleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     auto args = static_cast<const CumSumOpFuncArgs *>(opArgs);
 
@@ -125,7 +133,7 @@ static void CumSumOperationExeFuncTripleCut(
                 std::vector<SymbolicScalar> indices = {bIdx, sIdx};
                 indices.insert(indices.begin() + axis, 0);
 
-                const std::vector<int64_t> tensorViewShape = GetCumSumViewShape(inputs[0], args->viewShape_, axis);
+                const std::vector<int64_t> tensorViewShape = GetCumOperationViewShape(inputs[0], args->viewShape_, axis);
                 SymbolicScalar validShape0 = std::min(
                     SymbolicScalar(inputs[0].GetShape()[0]) - indices[0] * tensorViewShape[0], tensorViewShape[0]);
                 SymbolicScalar validShape1 = std::min(
@@ -140,7 +148,11 @@ static void CumSumOperationExeFuncTripleCut(
                     });
 
                 TileShape::Current().SetVecTile(args->tileShape_);
-                auto res = CumSum(tileTensor, axis);
+                if (args->isSum_) {
+                    auto res = CumSum(tileTensor, axis);
+                } else {
+                    auto res = CumProd(tileTensor, axis);
+                }
                 Assemble(res,
                     {
                         indices[0] * args->viewShape_[0],
@@ -153,7 +165,7 @@ static void CumSumOperationExeFuncTripleCut(
     }
 }
 
-static void CumSumOperationExeFuncQuadraticCut(
+static void CumOperationExeFuncQuadraticCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     auto args = static_cast<const CumSumOpFuncArgs *>(opArgs);
 
@@ -170,7 +182,7 @@ static void CumSumOperationExeFuncQuadraticCut(
                     std::vector<SymbolicScalar> indices = {bIdx, sIdx, kIdx};
                     indices.insert(indices.begin() + axis, 0);
 
-                    const std::vector<int64_t> tensorViewShape = GetCumSumViewShape(inputs[0], args->viewShape_, axis);
+                    const std::vector<int64_t> tensorViewShape = GetCumOperationViewShape(inputs[0], args->viewShape_, axis);
                     SymbolicScalar validShape0 = std::min(
                         SymbolicScalar(inputs[0].GetShape()[0]) - indices[0] * tensorViewShape[0], tensorViewShape[0]);
                     SymbolicScalar validShape1 = std::min(
@@ -189,7 +201,11 @@ static void CumSumOperationExeFuncQuadraticCut(
                             });
 
                     TileShape::Current().SetVecTile(args->tileShape_);
-                    auto res = CumSum(tileTensor, axis);
+                    if (args->isSum_) {
+                        auto res = CumSum(tileTensor, axis);
+                    } else {
+                        auto res = CumProd(tileTensor, axis);
+                    }
                     Assemble(res,
                         {
                             indices[0] * args->viewShape_[0],
@@ -204,7 +220,7 @@ static void CumSumOperationExeFuncQuadraticCut(
     }
 }
 
-static void CumSumOperationExeFuncPentaCut(
+static void CumOperationExeFuncPentaCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     auto args = static_cast<const CumSumOpFuncArgs *>(opArgs);
 
@@ -223,7 +239,7 @@ static void CumSumOperationExeFuncPentaCut(
                         std::vector<SymbolicScalar> tmpIndices = {bIdx, sIdx, kIdx, mIdx};
                         tmpIndices.insert(tmpIndices.begin() + axis, 0);
 
-                        const std::vector<int64_t> tensorViewShape = GetCumSumViewShape(inputs[0], args->viewShape_, axis);
+                        const std::vector<int64_t> tensorViewShape = GetCumOperationViewShape(inputs[0], args->viewShape_, axis);
                         SymbolicScalar validShape0 = std::min(
                             SymbolicScalar(inputs[0].GetShape()[0]) - tmpIndices[0] * tensorViewShape[0], tensorViewShape[0]);
                         SymbolicScalar validShape1 = std::min(
@@ -245,7 +261,11 @@ static void CumSumOperationExeFuncPentaCut(
                                 });
 
                         TileShape::Current().SetVecTile(args->tileShape_);
-                        auto res = CumSum(tileTensor, axis);
+                        if (args->isSum_) {
+                            auto res = CumSum(tileTensor, axis);
+                        } else {
+                            auto res = CumProd(tileTensor, axis);
+                        }
                         Assemble(res,
                             {
                                 tmpIndices[0] * args->viewShape_[0],
@@ -262,25 +282,35 @@ static void CumSumOperationExeFuncPentaCut(
     }
 }
 
-class CumSumOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<CumSumOpMetaData> {};
+class CumSumOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<CumOpMetaData> {};
 
 INSTANTIATE_TEST_SUITE_P(TestCumSum, CumSumOperationTest,
-    ::testing::ValuesIn(GetOpMetaData<CumSumOpMetaData>(
-        {CumSumOperationExeFuncDoubleCut, CumSumOperationExeFuncTripleCut, CumSumOperationExeFuncQuadraticCut, CumSumOperationExeFuncPentaCut},
+    ::testing::ValuesIn(GetOpMetaData<CumOpMetaData>(
+        {CumOperationExeFuncDoubleCut, CumOperationExeFuncTripleCut, CumOperationExeFuncQuadraticCut, CumOperationExeFuncPentaCut},
         "CumSum")));
 
 TEST_P(CumSumOperationTest, TestCumSum) {
-    TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
-    testCase.inputTensors = GetInputTensors(test_data);
-    testCase.outputTensors = GetOutputTensors(test_data);
-    bool flag = false;
+    bool isSum = true;
     int axis = GetValueByName<int>(test_data, "axis");
-    auto args = CumSumOpFuncArgs(axis, GetViewShape(test_data), GetTileShape(test_data), flag);
-    testCase.args = &args;
-    testCase.opFunc = GetParam().opFunc_;
-    testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin"};
-    testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
+    auto args = CumSumOpFuncArgs(axis, GetViewShape(test_data), GetTileShape(test_data), isSum);
+    TestCaseDesc testCase = CreateTestCaseDesc<TriOpMetaData>(GetParam(), &args);
+    TestExecutor::runTest(testCase);
+}
+
+class CumProdOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<CumOpMetaData> {};
+
+INSTANTIATE_TEST_SUITE_P(TestCumProd, CumProdOperationTest,
+    ::testing::ValuesIn(GetOpMetaData<CumOpMetaData>(
+        {CumOperationExeFuncDoubleCut, CumOperationExeFuncTripleCut, CumOperationExeFuncQuadraticCut, CumOperationExeFuncPentaCut},
+        "CumProd")));
+
+TEST_P(CumProdOperationTest, TestCumProd) {
+    auto test_data = GetParam().test_data_;
+    bool isSum = false;
+    int axis = GetValueByName<int>(test_data, "axis");
+    auto args = CumProdOpFuncArgs(axis, GetViewShape(test_data), GetTileShape(test_data), isSum);
+    TestCaseDesc testCase = CreateTestCaseDesc<TriOpMetaData>(GetParam(), &args);
     TestExecutor::runTest(testCase);
 }
 } // namespace
