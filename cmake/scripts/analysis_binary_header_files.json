@@ -2,7 +2,7 @@
   "libtile_fwk_platform.so": {
     "Source-Header": {
       "Self": [
-        "framework/src/platform/platform_utils/"
+        "framework/src/platform/"
       ],
       "Area": [
       ],
