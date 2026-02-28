@@ -1335,7 +1335,7 @@ unsigned long Function::ComputeHashOrderless() const {
         if (leafFuncAttr_->mixId != -1) {
             ss << " MIX_ID:" << leafFuncAttr_->mixId;
         }   
-        if (leafAttr_->aivCore != AIVCore::UNSPECIFIED) {
+        if (leafFuncAttr_->aivCore != AIVCore::UNSPECIFIED) {
             ss << " AIV_CORE:" << static_cast<int>(leafAttr_->aivCore);
         }
     }
