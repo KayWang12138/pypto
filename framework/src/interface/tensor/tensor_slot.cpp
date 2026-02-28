@@ -171,9 +171,12 @@ void TensorSlotScope::BuildIncastOutcastSlot(const std::unordered_map<TensorSlot
         std::sort(ioslot.outcastSlot[idx].begin(), ioslot.outcastSlot[idx].end());
 
         auto outcast = tensorFunc->GetOutcast()[idx];
+        std::cout << "outcast: " << outcast->GetMagic() << std::endl;
         auto itor = partialUpdateOutcastDict.find(outcast);
         if (itor != partialUpdateOutcastDict.end()) {
+            std::cout << "outcast: " << outcast->GetMagic() << " find in partialUpdateOutcastDict." << std::endl;
             ioslot.partialUpdateOutcastList.push_back(idx);
+            std::cout << "idx " << idx << "push in partialUpdateOutcastList." << std::endl;
             ioslot.partialUpdateCount.push_back(itor->second);
         }
     }

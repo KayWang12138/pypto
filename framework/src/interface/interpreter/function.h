@@ -768,6 +768,8 @@ struct FunctionInterpreter {
                 }
 
                 ASSERT(func->GetOutcast().size() == outcastSlot.size());
+                std::cout << "func name in interpreter" << func->GetMagicName() << std::endl;
+                std::cout << "func outcast size: " << func->GetOutcast().size() << std::endl;
                 for (size_t i = 0; i < func->GetOutcast().size(); i++) {
                     int outputSlot = getOutputSlot(outcastSlot[i]);
                     std::shared_ptr<LogicalTensorData> outcastView;
