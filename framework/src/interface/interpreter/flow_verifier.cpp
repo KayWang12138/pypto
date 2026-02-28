@@ -49,30 +49,6 @@ FlowVerifier::CompareResult FlowVerifier::VerifyResult(
 }
 
 bool FlowVerifier::VerifyResult(const std::string &key,
-    const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
-    const std::vector<std::shared_ptr<LogicalTensorData>> &outputDataViewList, float rtol, float atol) {
-    ASSERT(goldenDataViewList.size() == outputDataViewList.size());
-    for (size_t k = 0; k < goldenDataViewList.size(); k++) {
-        auto &goldenView = goldenDataViewList[k];
-        auto &outputView = outputDataViewList[k];
-        if (goldenView == nullptr || outputView == nullptr) {
-            continue;
-        }
-        auto result = VerifyResult(goldenView, outputView, rtol, atol);
-        if (!result.Check()) {
-            VERIFY_LOGE("%s:\n    Verify for %zu data view list index %zu result FAILED", key.c_str(), goldenDataViewList.size(), k);
-            auto dumpVec = result.Dump();
-            VERIFY_LOGE("%s maxAbsDiff=%s maxRelDiff=%s errorCount=%s errorRatio=%s", 
-                key.c_str(), dumpVec[0].c_str(), dumpVec[1].c_str(), dumpVec[2].c_str(), dumpVec[3].c_str());
-            return false;
-        } else {
-            VERIFY_LOGI("%s: Verify for data %zu result SUCCEED", key.c_str(), k);
-        }
-    }
-    return true;
-}
-
-bool FlowVerifier::VerifyResult(const std::string &key,
     const std::string tensorName,
     const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
     const std::vector<std::shared_ptr<LogicalTensorData>> &tensorDataViewList, float rtol, float atol) {

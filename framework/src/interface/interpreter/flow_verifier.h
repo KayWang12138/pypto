@@ -220,9 +220,6 @@ public:
     static CompareResult VerifyResult(
             const std::shared_ptr<LogicalTensorData> &goldenDataView,
             const std::shared_ptr<LogicalTensorData> &outputDataView, float rtol, float atol);
-    static bool VerifyResult(const std::string &key,
-        const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
-        const std::vector<std::shared_ptr<LogicalTensorData>> &outputDataViewList, float rtol, float atol);
     bool VerifyResult(const std::string &key, const std::string tensorNameList,
         const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
         const std::vector<std::shared_ptr<LogicalTensorData>> &tensorDataViewList, float rtol, float atol);
