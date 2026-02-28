@@ -1425,7 +1425,7 @@ def gen_bitwise_xors_op_golden(case_name: str, output: Path, case_index: int = N
     return gen_op_golden("BitwiseXors", golden_func, output, case_index)
 
 
-@TestCaseLoader.reg_params_handler(ops=["Sum", "Amax", "Amin"])
+@TestCaseLoader.reg_params_handler(ops=["Sum", "Amax", "Amin", "Prod"])
 def params_dims_func(params: dict):
     params["dims"] = parse_list_str(params.get("dims"))
     params["keepDim"] = params.get("keepDim", True)
@@ -1490,6 +1490,26 @@ def gen_reduce_min_op_golden(
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Amin", golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestProd/ProdOperationTest.TestProd",
+    ]
+)
+def gen_reduce_prod_op_golden(
+    case_name: str, output: Path, case_index: int = None
+) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params")
+        x = inputs[0]
+        dims = params["dims"]
+        keepdim = params.get("keepDim", True)
+        return [x.prod(axis=dims[0], keepdims=keepdim)]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Prod", golden_func, output, case_index)
 
 
 @TestCaseLoader.reg_params_handler(ops=["Transpose"])
