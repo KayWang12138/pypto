@@ -80,7 +80,6 @@ def lightning_indexer_decode_compute(
     """
 
     # graph fuse/split thresold
-    pypto.set_pass_options(mg_copyin_upper_bound=configs.mg_copy_in_upper_bound)
     pypto.set_pass_options(pg_upper_bound=configs.pg_upper_bound)
 
     # vector graph fuse optimization
