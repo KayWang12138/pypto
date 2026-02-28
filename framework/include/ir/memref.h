@@ -31,7 +31,7 @@ class MemRef;
 using MemRefPtr = std::shared_ptr<const MemRef>;
 
 /**
- * @brief Memory space enumeration
+ * \brief Memory space enumeration
  *
  * Defines the available memory spaces in the hardware hierarchy:
  * - DDR: Double Data Rate memory (off-chip)
@@ -42,21 +42,21 @@ using MemRefPtr = std::shared_ptr<const MemRef>;
  * - L0C: L0C buffer (matrix C/result)
  */
 enum class MemorySpace {
-  DDR,  ///< DDR memory (off-chip)
-  UB,   ///< Unified Buffer (on-chip)
-  L1,   ///< L1 cache
-  L0A,  ///< L0A buffer
-  L0B,  ///< L0B buffer
-  L0C   ///< L0C buffer
+    DDR, ///< DDR memory (off-chip)
+    UB,  ///< Unified Buffer (on-chip)
+    L1,  ///< L1 cache
+    L0A, ///< L0A buffer
+    L0B, ///< L0B buffer
+    L0C  ///< L0C buffer
 };
 
 /**
- * @brief Convert MemorySpace enum to string
+ * \brief Convert MemorySpace enum to string
  *
- * @param space Memory space enum value
- * @return String representation
+ * \param space Memory space enum value
+ * \return String representation
  */
 std::string MemorySpaceToString(MemorySpace space);
 
-}  // namespace ir
-}  // namespace pypto
+} // namespace ir
+} // namespace pypto
