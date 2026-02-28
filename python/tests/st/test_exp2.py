@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@ def test_vector_operation_exp2():
     shape = (n, m)
     view_shape = (16, 16)
     tile_shape = (8, 8)
-    decimals = 2
     pypto.runtime._device_init()
     a = pypto.tensor(shape, dtype, "EXP2_TENSOR_a")
     b = pypto.tensor(shape, dtype, "EXP2_TENSOR_b")
@@ -43,16 +42,16 @@ def test_vector_operation_exp2():
                                                  (pypto.symbolic_scalar(m) - s_idx * view_shape[1]).min(
                                                      pypto.symbolic_scalar(view_shape[1]))])
                 pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
-                tile_a.move(pypto.exp2(tile_a, decimals=decimals))
+                tile_a.move(pypto.exp2(tile_a))
                 pypto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
 
-    a_tensor = (torch.rand(n, m, dtype=torch.float32) * 100 - 50) * 0.123
+    a_tensor = (torch.rand(n, m, dtype=torch.float32) * 4 - 2)
     b_tensor = torch.zeros(n, m, dtype=torch.float32)
 
     pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
     pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
     pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor)
 
-    expected = torch.exp2(a_tensor, decimals=decimals)
+    expected = torch.exp2(a_tensor)
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
     pypto.runtime._device_fini()
