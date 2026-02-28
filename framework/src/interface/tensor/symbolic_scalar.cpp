@@ -23,6 +23,7 @@ constexpr uint64_t IMMEDIATE = 0;
 constexpr uint64_t SYMBOL = 1;
 constexpr uint64_t EXPRESSION = 2;
 constexpr int OPERAND_NUM = 2;
+constexpr size_t MIN_EXTREMA_OPERANDS = 2;
 namespace npu::tile_fwk {
 
 std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::string &sourceFilePath,
@@ -151,12 +152,12 @@ std::string SymbolicExpressionTable::BuildExpressionByRaw(const RawSymbolicScala
 void SymbolicExpressionTable::BuildExtremaExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict,
         std::ostringstream &oss) {
     const auto& operands = expr->OperandList();
-    ASSERT(operands.size() >= 2) << "Extrema expression must have at least 2 operands";
+    ASSERT(operands.size() >= MIN_EXTREMA_OPERANDS) << "Extrema expression must have at least 2 operands";
     std::string funcName = (expr->Opcode() == SymbolicOpcode::T_MOP_MAX) ? "RUNTIME_Max" : "RUNTIME_Min";
     const size_t operandSize = operands.size();
 
     // 写前operandSize-2层: fn(op_i,
-    for (size_t i = 0; i + 2 < operandSize; ++i) {
+    for (size_t i = 0; i < operandSize - 2; ++i) {
         oss << funcName << "("
             << BuildExpressionByRaw(operands[i], exprDict)
             << ", ";
@@ -170,7 +171,7 @@ void SymbolicExpressionTable::BuildExtremaExpressionCode(const RawSymbolicExpPtr
         << ")";
 
     // 补齐右括号
-    for (size_t i = 0; i + 2 < operandSize; ++i) {
+    for (size_t i = 0; i < operandSize - 2; ++i) {
         oss << ")";
     }
 }
@@ -604,12 +605,14 @@ std::vector<RawSymbolicScalarPtr> LookupExpressionByOpcode(const RawSymbolicScal
     return exprList;
 }
 void RawSymbolicExpression::DumpRuntimeExtrema(std::ostream& out) const {
-    ASSERT(operandList_.size() >= 2);
+    ASSERT(operandList_.size() >= MIN_EXTREMA_OPERANDS)
+        << "DumpRuntimeExtrema expects at least 2 operands, but got "
+        << operandList_.size();
     const char* funcName =
         (opcode_ == SymbolicOpcode::T_MOP_MAX) ? "RUNTIME_Max" : "RUNTIME_Min";
 
     const size_t n = operandList_.size();
-    for (size_t i = 0; i + 2 < n; ++i) {
+    for (size_t i = 0; i < n - 2; ++i) {
         out << funcName << "(";
         operandList_[i]->DumpBuffer(out);
         out << ", ";
@@ -621,7 +624,7 @@ void RawSymbolicExpression::DumpRuntimeExtrema(std::ostream& out) const {
     operandList_[n - 1]->DumpBuffer(out);
     out << ")";
 
-    for (size_t i = 0; i + 2 < n; ++i) {
+    for (size_t i = 0; i < n - 2; ++i) {
         out << ")";
     }
 }
