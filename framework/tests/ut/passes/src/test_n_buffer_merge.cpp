@@ -246,8 +246,7 @@ Status NBufferMergeTest::TestNBufferMergeWithDifferentVecBufferSetting(std::map<
     function->paramConfigs_.mgVecParallelLb = mgVecParallelLb;
     function->SetTotalSubGraphCount(subGraphNum);
     NBufferMerge NBM;
-    NBM.RunOnFunction(*function);
-    return SUCCESS;
+    return NBM.RunOnFunction(*function);
 }
 }
 }
