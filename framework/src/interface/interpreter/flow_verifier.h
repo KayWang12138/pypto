@@ -15,7 +15,7 @@
 
 #pragma once
 
-#include "tilefwk/tilefwk_log.h"
+#include "tilefwk/pypto_fwk_log.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/tensor/tensor_slot.h"
 #include "interface/operation/attribute.h"

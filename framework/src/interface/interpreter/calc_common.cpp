@@ -16,7 +16,7 @@
 #include "utils/string_utils.h"
 #include "interface/interpreter/function.h"
 #include "interface/utils/common.h"
-#include "tilefwk/tilefwk_log.h"
+#include "tilefwk/pypto_fwk_log.h"
 #include "interface/interpreter/operation.h"
 #include "interface/operation/operation_impl.h"
 

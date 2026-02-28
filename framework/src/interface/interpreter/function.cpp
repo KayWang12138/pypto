@@ -15,7 +15,7 @@
 
 #include "interface/interpreter/function.h"
 #include "interface/interpreter/flow_verifier.h"
-#include "tilefwk/tilefwk_log.h"
+#include "tilefwk/pypto_fwk_log.h"
 #include "interface/configs/config_manager.h"
 #include "interface/utils/file_utils.h"
 
