@@ -299,6 +299,34 @@ public:
         return CALC_LIST[static_cast<size_t>(opcode) - static_cast<size_t>(SymbolicOpcode::T_BOP_BEGIN)];
     }
 
+    using SymbolicCalcMop = ScalarImmediateType (*)(const std::vector<ScalarImmediateType> &);
+
+    static ScalarImmediateType CalcMopMin(const std::vector<ScalarImmediateType>& immediateList) {
+        ASSERT(!immediateList.empty());
+        return std::accumulate(immediateList.begin() + 1, immediateList.end(), immediateList[0],
+            [](const ScalarImmediateType& lhs, const ScalarImmediateType& rhs) {
+                return RawSymbolicExpression::CalcBopMin(lhs, rhs);
+            });
+    }
+
+    static ScalarImmediateType CalcMopMax(const std::vector<ScalarImmediateType>& immediateList) {
+        ASSERT(!immediateList.empty());
+        return std::accumulate(immediateList.begin() + 1, immediateList.end(), immediateList[0],
+            [](const ScalarImmediateType& lhs, const ScalarImmediateType& rhs) {
+                return RawSymbolicExpression::CalcBopMax(lhs, rhs);
+            });
+    }
+
+    static SymbolicCalcMop GetSymbolicCalcMultiple(SymbolicOpcode opcode) {
+        switch (opcode) {
+            case SymbolicOpcode::T_MOP_MIN: return &RawSymbolicExpression::CalcMopMin;
+            case SymbolicOpcode::T_MOP_MAX: return &RawSymbolicExpression::CalcMopMax;
+            default:
+                ASSERT(false) << "Not a MOP extrema opcode: " << static_cast<size_t>(opcode);
+                return nullptr;
+        }
+    }
+
     static std::string GetSymbolicCalcOpcode(SymbolicOpcode opcode) {
         static const std::string OPCODE_NAME_LIST[] = {
             "+",
@@ -458,12 +486,7 @@ public:
                     return RawSymbolicExpression::GetSymbolicCalcBinary(opcode)(lhs, rhs);
                 });
         } else if (opcode == SymbolicOpcode::T_MOP_MAX || opcode == SymbolicOpcode::T_MOP_MIN) {
-            auto bop = (opcode == SymbolicOpcode::T_MOP_MIN)
-                        ? RawSymbolicExpression::CalcBopMin : RawSymbolicExpression::CalcBopMax;
-            return std::accumulate(immediateList.begin() + 1, immediateList.end(), immediateList[0],
-                    [bop](const ScalarImmediateType &lhs, const ScalarImmediateType &rhs) {
-                        return bop(lhs, rhs);
-                    });
+            return RawSymbolicExpression::GetSymbolicCalcMultiple(opcode)(immediateList);
         } else if (opcode == SymbolicOpcode::T_MOP_CALL) {
             return CalcMopCall(immediateList);
         }
@@ -635,12 +658,7 @@ private:
                 result = RawSymbolicExpression::GetSymbolicCalcBinary(expr->Opcode())(result, dataList[i]);
             }
         } else if (expr->Opcode() == SymbolicOpcode::T_MOP_MAX || expr->Opcode() == SymbolicOpcode::T_MOP_MIN) {
-            auto bop = (expr->Opcode() == SymbolicOpcode::T_MOP_MIN)
-                        ? RawSymbolicExpression::CalcBopMin : RawSymbolicExpression::CalcBopMax;
-            result = dataList[0];
-            for (size_t i = 1; i < dataList.size(); ++i) {
-                result = bop(result, dataList[i]);
-            }
+            return RawSymbolicExpression::GetSymbolicCalcMultiple(expr->Opcode())(dataList);
         }
         return result;
     }
