@@ -19,62 +19,62 @@ namespace pypto {
 namespace ir {
 
 /**
- * @brief Operator precedence levels
+ * \brief Operator precedence levels
  *
  * Based on Python operator precedence.
  * Higher value = tighter binding (higher precedence).
  */
 enum class Precedence : int {
-  kOr = 1,          // or
-  kXor = 2,         // xor
-  kAnd = 3,         // and
-  kNot = 4,         // not (unary)
-  kComparison = 5,  // ==, !=, <, <=, >, >=
-  kBitOr = 6,       // |
-  kBitXor = 7,      // ^
-  kBitAnd = 8,      // &
-  kBitShift = 9,    // <<, >>
-  kAddSub = 10,     // +, -
-  kMulDivMod = 11,  // *, /, //, %
-  kUnary = 12,      // -(unary), ~
-  kPow = 13,        // ** (right-associative!)
-  kCall = 14,       // function calls, min(), max(), abs()
-  kAtom = 15        // variables, constants
+    kOr = 1,         // or
+    kXor = 2,        // xor
+    kAnd = 3,        // and
+    kNot = 4,        // not (unary)
+    kComparison = 5, // ==, !=, <, <=, >, >=
+    kBitOr = 6,      // |
+    kBitXor = 7,     // ^
+    kBitAnd = 8,     // &
+    kBitShift = 9,   // <<, >>
+    kAddSub = 10,    // +, -
+    kMulDivMod = 11, // *, /, //, %
+    kUnary = 12,     // -(unary), ~
+    kPow = 13,       // ** (right-associative!)
+    kCall = 14,      // function calls, min(), max(), abs()
+    kAtom = 15       // variables, constants
 };
 
 /**
- * @brief Get operator precedence for an expression
+ * \brief Get operator precedence for an expression
  *
- * @param expr Expression to get precedence for
- * @return Precedence level
+ * \param expr Expression to get precedence for
+ * \return Precedence level
  */
-Precedence GetPrecedence(const ExprPtr& expr);
+Precedence GetPrecedence(const ExprPtr &expr);
 
 /**
- * @brief Check if operator is right-associative
+ * \brief Check if operator is right-associative
  *
- * @param expr Expression to check
- * @return true if right-associative, false if left-associative
+ * \param expr Expression to check
+ * \return true if right-associative, false if left-associative
  */
-bool IsRightAssociative(const ExprPtr& expr);
+bool IsRightAssociative(const ExprPtr &expr);
 
 /**
- * @brief Print an IR node in Python syntax
+ * \brief Print an IR node in Python syntax
  *
- * @param node IR node to print (Expr, Stmt, Function, or Program)
- * @param prefix Module prefix to use (default: "pl", can be "ir" for legacy)
- * @return Python-style string representation
+ * \param node IR node to print (Expr, Stmt, Function, or Program)
+ * \param prefix Module prefix to use (default: "pl", can be "ir" for legacy)
+ * \return Python-style string representation
  */
-std::string PythonPrint(const IRNodePtr& node, const std::string& prefix = "pl");
+std::string PythonPrint(const IRNodePtr &node, const std::string &prefix = "pl");
 
 /**
- * @brief Print a type in Python syntax
+ * \brief Print a type in Python syntax
  *
- * @param type Type to print (ScalarType, TensorType, TupleType, etc.)
- * @param prefix Module prefix to use (default: "pl", can be "ir" for legacy)
- * @return Python-style string representation
+ * \param type Type to print (ScalarType, TensorType, TupleType, etc.)
+ * \param prefix Module prefix to use (default: "pl", can be "ir" for legacy)
+ * \return Python-style string representation
  */
-std::string PythonPrint(const TypePtr& type, const std::string& prefix = "pl");
+std::string PythonPrint(const TypePtr &type, const std::string &prefix = "pl");
 
-}  // namespace ir
-}  // namespace pypto
+} // namespace ir
+} // namespace pypto

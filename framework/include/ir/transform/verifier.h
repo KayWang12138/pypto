@@ -22,7 +22,7 @@ namespace pypto {
 namespace ir {
 
 /**
- * @brief Base class for verification rules
+ * \brief Base class for verification rules
  *
  * Each verification rule implements a specific check on IR functions.
  * Rules can detect errors or warnings and add them to a diagnostics vector.
@@ -33,7 +33,7 @@ namespace ir {
  * 3. Implement Verify() to perform the verification logic
  *
  * Example:
- * @code
+ * \code
  *   class MyCustomRule : public VerifyRule {
  *    public:
  *     std::string GetName() const override { return "MyCustomRule"; }
@@ -41,35 +41,35 @@ namespace ir {
  *       // Verification logic
  *     }
  *   };
- * @endcode
+ * \endcode
  */
 class VerifyRule {
- public:
-  virtual ~VerifyRule() = default;
+public:
+    virtual ~VerifyRule() = default;
 
-  /**
-   * @brief Get the name of this verification rule
-   * @return Unique name for this rule (e.g., "SSAVerify", "TypeCheck")
-   */
-  virtual std::string GetName() const = 0;
+    /**
+     * \brief Get the name of this verification rule
+     * \return Unique name for this rule (e.g., "SSAVerify", "TypeCheck")
+     */
+    virtual std::string GetName() const = 0;
 
-  /**
-   * @brief Verify a function and collect diagnostics
-   * @param func Function to verify
-   * @param diagnostics Vector to append diagnostics to
-   *
-   * This method should examine the function and add any detected issues
-   * to the diagnostics vector. It should not throw exceptions - all issues
-   * should be reported through diagnostics.
-   */
-  virtual void Verify(const FunctionPtr& func, std::vector<Diagnostic>& diagnostics) = 0;
+    /**
+     * \brief Verify a function and collect diagnostics
+     * \param func Function to verify
+     * \param diagnostics Vector to append diagnostics to
+     *
+     * This method should examine the function and add any detected issues
+     * to the diagnostics vector. It should not throw exceptions - all issues
+     * should be reported through diagnostics.
+     */
+    virtual void Verify(const FunctionPtr &func, std::vector<Diagnostic> &diagnostics) = 0;
 };
 
 /// Shared pointer to a verification rule
 using VerifyRulePtr = std::shared_ptr<VerifyRule>;
 
 /**
- * @brief IR verification system
+ * \brief IR verification system
  *
  * IRVerifier manages a collection of verification rules and applies them to programs.
  * Rules can be enabled/disabled individually, and the verifier can operate in two modes:
@@ -77,7 +77,7 @@ using VerifyRulePtr = std::shared_ptr<VerifyRule>;
  * - VerifyOrThrow(): Collects diagnostics and throws if errors are found
  *
  * Usage:
- * @code
+ * \code
  *   // Create default verifier with all built-in rules
  *   auto verifier = IRVerifier::CreateDefault();
  *
@@ -94,93 +94,93 @@ using VerifyRulePtr = std::shared_ptr<VerifyRule>;
  *
  *   // Or throw on errors
  *   verifier.VerifyOrThrow(program);
- * @endcode
+ * \endcode
  */
 class IRVerifier {
- public:
-  /**
-   * @brief Construct an empty verifier with no rules
-   */
-  IRVerifier();
+public:
+    /**
+     * \brief Construct an empty verifier with no rules
+     */
+    IRVerifier();
 
-  /**
-   * @brief Add a verification rule to this verifier
-   * @param rule Shared pointer to the rule to add
-   *
-   * Rules are executed in the order they are added.
-   * If a rule with the same name already exists, it will not be added again.
-   */
-  void AddRule(VerifyRulePtr rule);
+    /**
+     * \brief Add a verification rule to this verifier
+     * \param rule Shared pointer to the rule to add
+     *
+     * Rules are executed in the order they are added.
+     * If a rule with the same name already exists, it will not be added again.
+     */
+    void AddRule(VerifyRulePtr rule);
 
-  /**
-   * @brief Enable a previously disabled rule
-   * @param name Name of the rule to enable
-   *
-   * If the rule is not found or is already enabled, this is a no-op.
-   */
-  void EnableRule(const std::string& name);
+    /**
+     * \brief Enable a previously disabled rule
+     * \param name Name of the rule to enable
+     *
+     * If the rule is not found or is already enabled, this is a no-op.
+     */
+    void EnableRule(const std::string &name);
 
-  /**
-   * @brief Disable a rule
-   * @param name Name of the rule to disable
-   *
-   * Disabled rules will be skipped during verification.
-   */
-  void DisableRule(const std::string& name);
+    /**
+     * \brief Disable a rule
+     * \param name Name of the rule to disable
+     *
+     * Disabled rules will be skipped during verification.
+     */
+    void DisableRule(const std::string &name);
 
-  /**
-   * @brief Check if a rule is currently enabled
-   * @param name Name of the rule to check
-   * @return true if the rule is enabled, false if disabled or not found
-   */
-  bool IsRuleEnabled(const std::string& name) const;
+    /**
+     * \brief Check if a rule is currently enabled
+     * \param name Name of the rule to check
+     * \return true if the rule is enabled, false if disabled or not found
+     */
+    bool IsRuleEnabled(const std::string &name) const;
 
-  /**
-   * @brief Verify a program and collect diagnostics
-   * @param program Program to verify
-   * @return Vector of all diagnostics (errors and warnings)
-   *
-   * This method runs all enabled rules on all functions in the program
-   * and collects diagnostics. It does not throw exceptions even if errors
-   * are found - use VerifyOrThrow() if you want exception-based error handling.
-   */
-  std::vector<Diagnostic> Verify(const ProgramPtr& program) const;
+    /**
+     * \brief Verify a program and collect diagnostics
+     * \param program Program to verify
+     * \return Vector of all diagnostics (errors and warnings)
+     *
+     * This method runs all enabled rules on all functions in the program
+     * and collects diagnostics. It does not throw exceptions even if errors
+     * are found - use VerifyOrThrow() if you want exception-based error handling.
+     */
+    std::vector<Diagnostic> Verify(const ProgramPtr &program) const;
 
-  /**
-   * @brief Verify a program and throw on errors
-   * @param program Program to verify
-   * @throws VerificationError if any errors are found
-   *
-   * This method runs verification and throws a VerificationError if any
-   * diagnostics with severity Error are found. Warnings do not cause an exception.
-   */
-  void VerifyOrThrow(const ProgramPtr& program) const;
+    /**
+     * \brief Verify a program and throw on errors
+     * \param program Program to verify
+     * \throws VerificationError if any errors are found
+     *
+     * This method runs verification and throws a VerificationError if any
+     * diagnostics with severity Error are found. Warnings do not cause an exception.
+     */
+    void VerifyOrThrow(const ProgramPtr &program) const;
 
-  /**
-   * @brief Generate a formatted report from diagnostics
-   * @param diagnostics Vector of diagnostics to format
-   * @return Formatted report string
-   *
-   * The report includes:
-   * - Total count of errors and warnings
-   * - Details for each diagnostic (severity, rule name, message, location)
-   * - Overall verification status
-   */
-  static std::string GenerateReport(const std::vector<Diagnostic>& diagnostics);
+    /**
+     * \brief Generate a formatted report from diagnostics
+     * \param diagnostics Vector of diagnostics to format
+     * \return Formatted report string
+     *
+     * The report includes:
+     * - Total count of errors and warnings
+     * - Details for each diagnostic (severity, rule name, message, location)
+     * - Overall verification status
+     */
+    static std::string GenerateReport(const std::vector<Diagnostic> &diagnostics);
 
-  /**
-   * @brief Create a verifier with default built-in rules
-   * @return IRVerifier with SSAVerify and TypeCheck rules
-   *
-   * This factory method creates a verifier pre-configured with all
-   * standard verification rules enabled.
-   */
-  static IRVerifier CreateDefault();
+    /**
+     * \brief Create a verifier with default built-in rules
+     * \return IRVerifier with SSAVerify and TypeCheck rules
+     *
+     * This factory method creates a verifier pre-configured with all
+     * standard verification rules enabled.
+     */
+    static IRVerifier CreateDefault();
 
- private:
-  std::vector<VerifyRulePtr> rules_;                ///< All registered verification rules
-  std::unordered_set<std::string> disabled_rules_;  ///< Names of disabled rules
+private:
+    std::vector<VerifyRulePtr> rules_;               ///< All registered verification rules
+    std::unordered_set<std::string> disabled_rules_; ///< Names of disabled rules
 };
 
-}  // namespace ir
-}  // namespace pypto
+} // namespace ir
+} // namespace pypto

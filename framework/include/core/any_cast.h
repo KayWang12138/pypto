@@ -8,9 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/**
- * @file any_cast.h
- * @brief Enhanced any_cast utilities with better error reporting
+/*!
+ * \file any_cast.h
+ * \brief Enhanced any_cast utilities with better error reporting
  *
  * This header provides wrapper functions around std::any_cast that offer
  * improved error messages when type casting fails. Instead of generic
@@ -30,114 +30,114 @@
 namespace pypto {
 
 /**
- * @brief Demangle C++ type names for better error messages
+ * \brief Demangle C++ type names for better error messages
  *
  * Converts mangled C++ type names (from typeid().name()) into human-readable
  * format using abi::__cxa_demangle. Also simplifies common pypto types by
  * removing the "pypto::" prefix for brevity.
  *
- * @param mangled_name The mangled type name from typeid().name()
- * @return Human-readable type name string
+ * \param mangled_name The mangled type name from typeid().name()
+ * \return Human-readable type name string
  *
- * @example
+ * \example
  *   DemangleTypeName(typeid(int).name()) -> "int"
  *   DemangleTypeName(typeid(pypto::DataType).name()) -> "DataType"
  */
-inline std::string DemangleTypeName(const char* mangled_name) {
-  int status = 0;
-  char* demangled = abi::__cxa_demangle(mangled_name, nullptr, nullptr, &status);
-  if (status == 0 && demangled) {
-    std::string result(demangled);
-    free(demangled);
+inline std::string DemangleTypeName(const char *mangled_name) {
+    int status = 0;
+    char *demangled = abi::__cxa_demangle(mangled_name, nullptr, nullptr, &status);
+    if (status == 0 && demangled) {
+        std::string result(demangled);
+        free(demangled);
 
-    // Simplify common pypto types for readability
-    size_t pos = result.find("pypto::");
-    if (pos != std::string::npos) {
-      result = result.substr(pos + 7);  // Remove "pypto::" prefix
+        // Simplify common pypto types for readability
+        size_t pos = result.find("pypto::");
+        if (pos != std::string::npos) {
+            result = result.substr(pos + 7); // Remove "pypto::" prefix
+        }
+
+        return result;
     }
-
-    return result;
-  }
-  // If demangling fails, return the original mangled name
-  return mangled_name;
+    // If demangling fails, return the original mangled name
+    return mangled_name;
 }
 
 /**
- * @brief Build a type mismatch error message and throw TypeError
+ * \brief Build a type mismatch error message and throw TypeError
  *
- * @param expected_type_name Mangled name of the expected type (from typeid().name())
- * @param actual_type_name Mangled name of the actual type (from value.type().name())
- * @param context Optional context string for error messages
- * @throws TypeError with detailed type information
+ * \param expected_type_name Mangled name of the expected type (from typeid().name())
+ * \param actual_type_name Mangled name of the actual type (from value.type().name())
+ * \param context Optional context string for error messages
+ * \throws TypeError with detailed type information
  */
-[[noreturn]] inline void ThrowAnyCastError(const char* expected_type_name, const char* actual_type_name,
-                                           const std::string& context) {
-  std::string expected_type = DemangleTypeName(expected_type_name);
-  std::string actual_type = DemangleTypeName(actual_type_name);
-  std::string error_msg = "Invalid type";
-  if (!context.empty()) {
-    error_msg += " for ";
-    error_msg += context;
-  }
-  error_msg += ", expected ";
-  error_msg += expected_type;
-  error_msg += ", but got ";
-  error_msg += actual_type;
-  throw ir::TypeError(error_msg);
+[[noreturn]] inline void ThrowAnyCastError(
+    const char *expected_type_name, const char *actual_type_name, const std::string &context) {
+    std::string expected_type = DemangleTypeName(expected_type_name);
+    std::string actual_type = DemangleTypeName(actual_type_name);
+    std::string error_msg = "Invalid type";
+    if (!context.empty()) {
+        error_msg += " for ";
+        error_msg += context;
+    }
+    error_msg += ", expected ";
+    error_msg += expected_type;
+    error_msg += ", but got ";
+    error_msg += actual_type;
+    throw ir::TypeError(error_msg);
 }
 
 /**
- * @brief Cast std::any to type T with enhanced error reporting
+ * \brief Cast std::any to type T with enhanced error reporting
  *
  * This function wraps std::any_cast and provides detailed error messages
  * when the cast fails, including the expected type, actual type (both
  * demangled), and optional context information.
  *
- * @tparam T The target type to cast to
- * @param value The std::any value to cast
- * @param context Optional context string for error messages (e.g., "kwarg key: out_dtype")
- * @return The value cast to type T
- * @throws TypeError if the cast fails, with detailed type information
+ * \tparam T The target type to cast to
+ * \param value The std::any value to cast
+ * \param context Optional context string for error messages (e.g., "kwarg key: out_dtype")
+ * \return The value cast to type T
+ * \throws TypeError if the cast fails, with detailed type information
  *
- * @example
+ * \example
  *   std::any val = 42;
  *   int x = AnyCast<int>(val, "kwarg key: value");
  *   // If val contains wrong type, throws:
  *   // "Invalid type for kwarg key: value, expected int, but got std::string"
  */
 template <typename T>
-T AnyCast(const std::any& value, [[maybe_unused]] const std::string& context = "") {
-  try {
-    return std::any_cast<T>(value);
-  } catch (const std::bad_any_cast&) {
-    ThrowAnyCastError(typeid(T).name(), value.type().name(), context);
-  }
+T AnyCast(const std::any &value, [[maybe_unused]] const std::string &context = "") {
+    try {
+        return std::any_cast<T>(value);
+    } catch (const std::bad_any_cast &) {
+        ThrowAnyCastError(typeid(T).name(), value.type().name(), context);
+    }
 }
 
 /**
- * @brief Cast std::any to const reference of type T with enhanced error reporting
+ * \brief Cast std::any to const reference of type T with enhanced error reporting
  *
  * This function wraps std::any_cast<const T&> and provides detailed error
  * messages when the cast fails. Use this variant when you need a const
  * reference to avoid copying large objects.
  *
- * @tparam T The target type to cast to (will be cast as const T&)
- * @param value The std::any value to cast
- * @param context Optional context string for error messages
- * @return Const reference to the value cast to type T
- * @throws TypeError if the cast fails, with detailed type information
+ * \tparam T The target type to cast to (will be cast as const T&)
+ * \param value The std::any value to cast
+ * \param context Optional context string for error messages
+ * \return Const reference to the value cast to type T
+ * \throws TypeError if the cast fails, with detailed type information
  *
- * @example
+ * \example
  *   std::any val = std::string("hello");
  *   const std::string& str = AnyCastRef<std::string>(val);
  */
 template <typename T>
-const T& AnyCastRef(const std::any& value, [[maybe_unused]] const std::string& context = "") {
-  try {
-    return std::any_cast<const T&>(value);
-  } catch (const std::bad_any_cast&) {
-    ThrowAnyCastError(typeid(T).name(), value.type().name(), context);
-  }
+const T &AnyCastRef(const std::any &value, [[maybe_unused]] const std::string &context = "") {
+    try {
+        return std::any_cast<const T &>(value);
+    } catch (const std::bad_any_cast &) {
+        ThrowAnyCastError(typeid(T).name(), value.type().name(), context);
+    }
 }
 
-}  // namespace pypto
+} // namespace pypto

@@ -23,11 +23,11 @@ namespace pypto {
 namespace ir {
 
 // Macro to define KindTrait specialization
-#define DEFINE_KIND_TRAIT(TypeName, KindValue)    \
-  template <>                                     \
-  struct KindTrait<TypeName> {                    \
-    static constexpr ObjectKind kind = KindValue; \
-  };
+#define DEFINE_KIND_TRAIT(TypeName, KindValue)        \
+    template <>                                       \
+    struct KindTrait<TypeName> {                      \
+        static constexpr ObjectKind kind = KindValue; \
+    };
 
 // KindTrait specializations for all concrete IR node types
 // These enable compile-time type-to-Kind mapping for IsA<T>() and As<T>()
@@ -110,78 +110,72 @@ DEFINE_KIND_TRAIT(GlobalVar, ObjectKind::GlobalVar)
 // Stmt base class - matches any statement kind
 template <>
 struct KindTrait<Stmt> {
-  static constexpr ObjectKind kinds[] = {ObjectKind::AssignStmt, ObjectKind::IfStmt,  ObjectKind::YieldStmt,
-                                         ObjectKind::ReturnStmt, ObjectKind::ForStmt, ObjectKind::SeqStmts,
-                                         ObjectKind::OpStmts,    ObjectKind::EvalStmt};
-  static constexpr size_t count = 8;
+    static constexpr ObjectKind kinds[] = {ObjectKind::AssignStmt, ObjectKind::IfStmt, ObjectKind::YieldStmt,
+        ObjectKind::ReturnStmt, ObjectKind::ForStmt, ObjectKind::SeqStmts, ObjectKind::OpStmts, ObjectKind::EvalStmt};
+    static constexpr size_t count = 8;
 };
 
 // Expr base class - matches any expression kind
 template <>
 struct KindTrait<Expr> {
-  static constexpr ObjectKind kinds[] = {
-      // Direct expression types
-      ObjectKind::Var, ObjectKind::IterArg, ObjectKind::MemRef, ObjectKind::Call, ObjectKind::MakeTuple,
-      ObjectKind::TupleGetItemExpr, ObjectKind::ConstInt, ObjectKind::ConstFloat, ObjectKind::ConstBool,
-      // Binary expressions (22 kinds)
-      ObjectKind::Add, ObjectKind::Sub, ObjectKind::Mul, ObjectKind::FloorDiv, ObjectKind::FloorMod,
-      ObjectKind::FloatDiv, ObjectKind::Min, ObjectKind::Max, ObjectKind::Pow, ObjectKind::Eq, ObjectKind::Ne,
-      ObjectKind::Lt, ObjectKind::Le, ObjectKind::Gt, ObjectKind::Ge, ObjectKind::And, ObjectKind::Or,
-      ObjectKind::Xor, ObjectKind::BitAnd, ObjectKind::BitOr, ObjectKind::BitXor, ObjectKind::BitShiftLeft,
-      ObjectKind::BitShiftRight,
-      // Unary expressions (5 kinds)
-      ObjectKind::Abs, ObjectKind::Neg, ObjectKind::Not, ObjectKind::BitNot, ObjectKind::Cast};
-  static constexpr size_t count = 37;
+    static constexpr ObjectKind kinds[] = {// Direct expression types
+        ObjectKind::Var, ObjectKind::IterArg, ObjectKind::MemRef, ObjectKind::Call, ObjectKind::MakeTuple,
+        ObjectKind::TupleGetItemExpr, ObjectKind::ConstInt, ObjectKind::ConstFloat, ObjectKind::ConstBool,
+        // Binary expressions (22 kinds)
+        ObjectKind::Add, ObjectKind::Sub, ObjectKind::Mul, ObjectKind::FloorDiv, ObjectKind::FloorMod,
+        ObjectKind::FloatDiv, ObjectKind::Min, ObjectKind::Max, ObjectKind::Pow, ObjectKind::Eq, ObjectKind::Ne,
+        ObjectKind::Lt, ObjectKind::Le, ObjectKind::Gt, ObjectKind::Ge, ObjectKind::And, ObjectKind::Or,
+        ObjectKind::Xor, ObjectKind::BitAnd, ObjectKind::BitOr, ObjectKind::BitXor, ObjectKind::BitShiftLeft,
+        ObjectKind::BitShiftRight,
+        // Unary expressions (5 kinds)
+        ObjectKind::Abs, ObjectKind::Neg, ObjectKind::Not, ObjectKind::BitNot, ObjectKind::Cast};
+    static constexpr size_t count = 37;
 };
 
 // BinaryExpr base class - matches any binary expression kind
 template <>
 struct KindTrait<BinaryExpr> {
-  static constexpr ObjectKind kinds[] = {
-      ObjectKind::Add,      ObjectKind::Sub,          ObjectKind::Mul,          ObjectKind::FloorDiv,
-      ObjectKind::FloorMod, ObjectKind::FloatDiv,     ObjectKind::Min,          ObjectKind::Max,
-      ObjectKind::Pow,      ObjectKind::Eq,           ObjectKind::Ne,           ObjectKind::Lt,
-      ObjectKind::Le,       ObjectKind::Gt,           ObjectKind::Ge,           ObjectKind::And,
-      ObjectKind::Or,       ObjectKind::Xor,          ObjectKind::BitAnd,       ObjectKind::BitOr,
-      ObjectKind::BitXor,   ObjectKind::BitShiftLeft, ObjectKind::BitShiftRight};
-  static constexpr size_t count = sizeof(kinds) / sizeof(ObjectKind);
+    static constexpr ObjectKind kinds[] = {ObjectKind::Add, ObjectKind::Sub, ObjectKind::Mul, ObjectKind::FloorDiv,
+        ObjectKind::FloorMod, ObjectKind::FloatDiv, ObjectKind::Min, ObjectKind::Max, ObjectKind::Pow, ObjectKind::Eq,
+        ObjectKind::Ne, ObjectKind::Lt, ObjectKind::Le, ObjectKind::Gt, ObjectKind::Ge, ObjectKind::And, ObjectKind::Or,
+        ObjectKind::Xor, ObjectKind::BitAnd, ObjectKind::BitOr, ObjectKind::BitXor, ObjectKind::BitShiftLeft,
+        ObjectKind::BitShiftRight};
+    static constexpr size_t count = sizeof(kinds) / sizeof(ObjectKind);
 };
 
 // UnaryExpr base class - matches any unary expression kind
 template <>
 struct KindTrait<UnaryExpr> {
-  static constexpr ObjectKind kinds[] = {ObjectKind::Abs, ObjectKind::Neg, ObjectKind::Not,
-                                         ObjectKind::BitNot, ObjectKind::Cast};
-  static constexpr size_t count = sizeof(kinds) / sizeof(ObjectKind);
+    static constexpr ObjectKind kinds[] = {
+        ObjectKind::Abs, ObjectKind::Neg, ObjectKind::Not, ObjectKind::BitNot, ObjectKind::Cast};
+    static constexpr size_t count = sizeof(kinds) / sizeof(ObjectKind);
 };
 
 // Type base class - matches any type kind
 template <>
 struct KindTrait<Type> {
-  static constexpr ObjectKind kinds[] = {ObjectKind::UnknownType, ObjectKind::ScalarType,
-                                         ObjectKind::ShapedType,  ObjectKind::TensorType,
-                                         ObjectKind::TileType,    ObjectKind::TupleType};
-  static constexpr size_t count = sizeof(kinds) / sizeof(ObjectKind);
+    static constexpr ObjectKind kinds[] = {ObjectKind::UnknownType, ObjectKind::ScalarType, ObjectKind::ShapedType,
+        ObjectKind::TensorType, ObjectKind::TileType, ObjectKind::TupleType};
+    static constexpr size_t count = sizeof(kinds) / sizeof(ObjectKind);
 };
 
 // ShapedType can be used as both a concrete type and a base class
 // It matches itself, TensorType, and TileType
 template <>
 struct KindTrait<ShapedType> {
-  // For base class matching: includes ShapedType, TensorType, TileType
-  static constexpr ObjectKind kinds[] = {ObjectKind::ShapedType, ObjectKind::TensorType,
-                                         ObjectKind::TileType};
-  static constexpr size_t count = sizeof(kinds) / sizeof(ObjectKind);
+    // For base class matching: includes ShapedType, TensorType, TileType
+    static constexpr ObjectKind kinds[] = {ObjectKind::ShapedType, ObjectKind::TensorType, ObjectKind::TileType};
+    static constexpr size_t count = sizeof(kinds) / sizeof(ObjectKind);
 };
 
 /**
- * @brief Check if an IR node is of a specific type (supports inheritance)
+ * \brief Check if an IR node is of a specific type (supports inheritance)
  *
- * @tparam T The target type (concrete or base class)
- * @param node The IR node pointer to check
- * @return true if node is of type T or inherits from T
+ * \tparam T The target type (concrete or base class)
+ * \param node The IR node pointer to check
+ * \return true if node is of type T or inherits from T
  *
- * @example
+ * \example
  * // Concrete type check
  * if (IsA<Var>(expr)) {
  *   // expr is a Var
@@ -192,29 +186,30 @@ struct KindTrait<ShapedType> {
  * if (IsA<BinaryExpr>(expr)) { ... }  // True for Add, Sub, Mul, etc.
  */
 template <typename T, typename Base, typename = std::enable_if_t<std::is_base_of_v<Base, T>>>
-bool IsA(const std::shared_ptr<const Base>& base) {
-  if (!base) return false;
+bool IsA(const std::shared_ptr<const Base> &base) {
+    if (!base)
+        return false;
 
-  if constexpr (detail::HasSingleKind<T>::value) {
-    // Concrete type: exact match
-    return base->GetKind() == KindTrait<T>::kind;
-  } else if constexpr (detail::HasKindArray<T>::value) {
-    // Base class: check if kind is in array
-    return detail::IsKindInArray<T>(base->GetKind());
-  }
-  return false;
+    if constexpr (detail::HasSingleKind<T>::value) {
+        // Concrete type: exact match
+        return base->GetKind() == KindTrait<T>::kind;
+    } else if constexpr (detail::HasKindArray<T>::value) {
+        // Base class: check if kind is in array
+        return detail::IsKindInArray<T>(base->GetKind());
+    }
+    return false;
 }
 
 /**
- * @brief Safely cast an IR node to a specific type (supports inheritance)
+ * \brief Safely cast an IR node to a specific type (supports inheritance)
  *
  * Uses static_pointer_cast for zero runtime overhead after Kind check.
  *
- * @tparam T The target type (concrete or base class)
- * @param node The IR node pointer to cast
- * @return Shared pointer to T if cast succeeds, nullptr otherwise
+ * \tparam T The target type (concrete or base class)
+ * \param node The IR node pointer to cast
+ * \return Shared pointer to T if cast succeeds, nullptr otherwise
  *
- * @example
+ * \example
  * // Concrete cast
  * if (auto var = As<Var>(expr)) {
  *   // Use var safely
@@ -226,9 +221,9 @@ bool IsA(const std::shared_ptr<const Base>& base) {
  * if (auto binop = As<BinaryExpr>(expr)) { ... }  // Cast any binary op
  */
 template <typename T, typename Base, typename = std::enable_if_t<std::is_base_of_v<Base, T>>>
-std::shared_ptr<const T> As(const std::shared_ptr<const Base>& base) {
-  return IsA<T>(base) ? std::static_pointer_cast<const T>(base) : nullptr;
+std::shared_ptr<const T> As(const std::shared_ptr<const Base> &base) {
+    return IsA<T>(base) ? std::static_pointer_cast<const T>(base) : nullptr;
 }
 
-}  // namespace ir
-}  // namespace pypto
+} // namespace ir
+} // namespace pypto
