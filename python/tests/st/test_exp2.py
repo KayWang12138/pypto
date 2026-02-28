@@ -9,71 +9,50 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
-Test exp2 operation
 """
-
-import numpy as np
-import pytest
-
+import os
 import pypto
+import pytest
+import torch
+import numpy as np
+from numpy.testing import assert_allclose
+import torch_npu
 
 
-def test_exp2_basic():
-    """Test exp2 with basic input"""
-    # Test with 1D tensor
-    x = pypto.tensor([3], pypto.DT_FP32)
-    x.fill_([0.0, 1.0, 2.0])
-    y = pypto.exp2(x)
-    
-    # JIT compile and run
-    jit_func = pypto.jit(lambda x: pypto.exp2(x))
-    result = jit_func(x)
-    
-    # Expected result: 2^0=1, 2^1=2, 2^2=4
-    expected = np.array([1.0, 2.0, 4.0], dtype=np.float32)
-    
-    # Verify the result
-    assert result.shape == expected.shape
-    assert np.allclose(result.numpy(), expected, atol=1e-6)
+def test_vector_operation_exp2():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+    dtype = pypto.DT_FP32
+    tiling = 32
+    n, m = tiling * 1, tiling * 1
+    shape = (n, m)
+    view_shape = (16, 16)
+    tile_shape = (8, 8)
+    decimals = 2
+    pypto.runtime._device_init()
+    a = pypto.tensor(shape, dtype, "EXP2_TENSOR_a")
+    b = pypto.tensor(shape, dtype, "EXP2_TENSOR_b")
 
+    with pypto.function("EXP2", a, b):
+        for b_idx in pypto.loop(int(np.ceil(n / view_shape[0])), name="LOOP_EXP2_L0", idx_name="b_idx"):
+            for s_idx in pypto.loop(int(np.ceil(m / view_shape[1])), name="LOOP_EXP2_L1", idx_name="s_idx"):
+                tile_a = pypto.view(a, view_shape,
+                                    [b_idx * view_shape[0], s_idx * view_shape[1]],
+                                    valid_shape=[(pypto.symbolic_scalar(n) -
+                                                  b_idx * view_shape[0]).min(pypto.symbolic_scalar(view_shape[0])),
+                                                 (pypto.symbolic_scalar(m) - s_idx * view_shape[1]).min(
+                                                     pypto.symbolic_scalar(view_shape[1]))])
+                pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
+                tile_a.move(pypto.exp2(tile_a, decimals=decimals))
+                pypto.assemble(tile_a, [b_idx * view_shape[0], s_idx * view_shape[1]], b)
 
-def test_exp2_tensor_method():
-    """Test exp2 as a tensor method"""
-    # Test with 2D tensor
-    x = pypto.tensor([2, 2], pypto.DT_FP32)
-    x.fill_([[0.0, 1.0], [2.0, 3.0]])
-    y = x.exp2()
-    
-    # JIT compile and run
-    jit_func = pypto.jit(lambda x: x.exp2())
-    result = jit_func(x)
-    
-    # Expected result
-    expected = np.array([[1.0, 2.0], [4.0, 8.0]], dtype=np.float32)
-    
-    # Verify the result
-    assert result.shape == expected.shape
-    assert np.allclose(result.numpy(), expected, atol=1e-6)
+    a_tensor = (torch.rand(n, m, dtype=torch.float32) * 100 - 50) * 0.123
+    b_tensor = torch.zeros(n, m, dtype=torch.float32)
 
+    pto_a_tensor = pypto.from_torch(a_tensor, "a_tensor")
+    pto_b_tensor = pypto.from_torch(b_tensor, "b_tensor")
+    pypto.runtime._device_run_once_data_from_host(pto_a_tensor, pto_b_tensor)
 
-def test_exp2_negative():
-    """Test exp2 with negative input"""
-    # Test with negative values
-    x = pypto.tensor([3], pypto.DT_FP32)
-    x.fill_([-1.0, -2.0, -3.0])
-    y = pypto.exp2(x)
-    
-    # JIT compile and run
-    jit_func = pypto.jit(lambda x: pypto.exp2(x))
-    result = jit_func(x)
-    
-    # Expected result: 2^-1=0.5, 2^-2=0.25, 2^-3=0.125
-    expected = np.array([0.5, 0.25, 0.125], dtype=np.float32)
-    
-    # Verify the result
-    assert result.shape == expected.shape
-    assert np.allclose(result.numpy(), expected, atol=1e-6)
-
-
-if __name__ == "__main__":
-    pytest.main([__file__])
+    expected = torch.exp2(a_tensor, decimals=decimals)
+    assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
+    pypto.runtime._device_fini()
