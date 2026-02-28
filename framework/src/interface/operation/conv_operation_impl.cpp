@@ -211,7 +211,7 @@ void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const T
     int64_t tileK = convTile.tileL0Info.tileK;
     int64_t tileHout = convTile.tileL1Info.tileHout;
     int64_t tileWout = convTile.tileL1Info.tileWout;
-    int64_t tileCout = convTile.tileL1Info.tileCout;
+    int64_t tileCout = convTile.tileL1Info.tileN;
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
     int64_t tileCinFmap = convTile.tileL1Info.tileCinFmap;
     int64_t tileCinWeight = convTile.tileL1Info.tileCinWeight;
@@ -264,8 +264,8 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
     int64_t tileWin = convTile.tileL1Info.tileWin;
     int64_t tileCinFmap = convTile.tileL1Info.tileCinFmap;
     int64_t tileCinWeight = convTile.tileL1Info.tileCinWeight;
-    int64_t tileCout = convTile.tileL1Info.tileCout;
-    int64_t tileBatch = convTile.tileL1Info.tileN;
+    int64_t tileCout = convTile.tileL1Info.tileN;
+    int64_t tileBatch = convTile.tileL1Info.tileBatch;
     int64_t groups = attrParam.groups;
 
     uint32_t indexH = attrParam.isConv3D ? NCDHW_H_IDX : NCHW_H_IDX;
@@ -276,9 +276,9 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
     int64_t win = inputTensor.GetShape()[indexW];
 
     CheckValueRange(tileHin, "tileHin", NUM1, hin);
-    CheckValueRange(tileBatch, "tileN", NUM1, NUM1);
+    CheckValueRange(tileBatch, "tileBatch", NUM1, NUM1);
     CheckValueRange(tileWin, "tileWin", NUM1, win);
-    CheckValueRange(tileCout, "tileCout", NUM1, cOut/groups);
+    CheckValueRange(tileCout, "tileN", NUM1, cOut/groups);
 
     CheckHowoTile(inputTensor, weightTensor, attrParam);
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
@@ -640,7 +640,7 @@ void SetConvShapeInfo(const TileShape &tileShape, const ConvGraphNodes &tensorGr
     auto &convTile = tileShape.GetConvTile();
     convTileInfo.kAL1 = convTile.tileL1Info.tileCinFmap * convTileInfo.orgKh * convTileInfo.orgKw;
     convTileInfo.kBL1 = convTile.tileL1Info.tileCinWeight * convTileInfo.orgKh * convTileInfo.orgKw;
-    convTileInfo.nBL1 = convTile.tileL1Info.tileCout;
+    convTileInfo.nBL1 = convTile.tileL1Info.tileN;
     convTileInfo.hAL1In = convTile.tileL1Info.tileHin;
     convTileInfo.wAL1In = convTile.tileL1Info.tileWin;
     convTileInfo.hAL1Out = convTile.tileL1Info.tileHout;
