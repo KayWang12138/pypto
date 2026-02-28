@@ -30,15 +30,15 @@ Program::Program(const std::vector<FunctionPtr>& functions, std::string name, Sp
     : IRNode(std::move(span)), name_(std::move(name)) {
   // Create a map and populate it with GlobalVar -> Function mappings
   // The map automatically sorts by GlobalVar name via the GlobalVarPtrLess comparator
-  std::set<std::string> function_names;
+  std::set<std::string> functionNames;
   for (const auto& func : functions) {
     INTERNAL_CHECK(func) << "Program constructor encountered null function";
-    auto func_name = func->name_;
-    INTERNAL_CHECK(!func_name.empty()) << "Program constructor encountered empty function name";
-    INTERNAL_CHECK(function_names.find(func_name) == function_names.end()) << "Duplicate function name \"" << func_name << "\"";
-    function_names.insert(func_name);
-    auto global_var = std::make_shared<const GlobalVar>(func_name);
-    functions_.emplace(global_var, func);
+    auto funcName = func->name_;
+    INTERNAL_CHECK(!funcName.empty()) << "Program constructor encountered empty function name";
+    INTERNAL_CHECK(functionNames.find(funcName) == functionNames.end()) << "Duplicate function name \"" << funcName << "\"";
+    functionNames.insert(funcName);
+    auto globalVar = std::make_shared<const GlobalVar>(funcName);
+    functions_.emplace(globalVar, func);
   }
 }
 

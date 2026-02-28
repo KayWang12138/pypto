@@ -37,11 +37,11 @@ struct IgnoreFieldTag {}; // Skip in comparisons (e.g., span)
  */
 template <typename NodeType, typename FieldType, typename KindTag>
 struct FieldDescriptor {
-    using node_type = NodeType;
-    using field_type = FieldType;
-    using kind_tag = KindTag;
+    using nodeType = NodeType;
+    using fieldType = FieldType;
+    using kindTag = KindTag;
 
-    FieldType NodeType::*field_ptr; // Pointer-to-member for type-safe field access
+    FieldType NodeType::*fieldPtr; // Pointer-to-member for type-safe field access
     const char *name;               // Field name for debugging
 
     /**
@@ -50,7 +50,7 @@ struct FieldDescriptor {
      * \param ptr Pointer-to-member for the field
      * \param n Field name (string literal)
      */
-    constexpr FieldDescriptor(FieldType NodeType::*ptr, const char *n) : field_ptr(ptr), name(n) {}
+    constexpr FieldDescriptor(FieldType NodeType::*ptr, const char *n) : fieldPtr(ptr), name(n) {}
 
     /**
      * \brief Access field value from a node instance
@@ -58,7 +58,7 @@ struct FieldDescriptor {
      * \param node The node instance to access the field from
      * \return const reference to the field value
      */
-    const FieldType &Get(const NodeType &node) const { return node.*field_ptr; }
+    const FieldType &Get(const NodeType &node) const { return node.*fieldPtr; }
 };
 
 /**

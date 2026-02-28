@@ -109,41 +109,41 @@ TEST_F(IRMutatorTest, TestIdentityMutatorYieldStmt) {
   IRMutator mutator;
   auto val = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
   std::vector<ExprPtr> values = {val};
-  auto yield_stmt = std::make_shared<YieldStmt>(values, Span::unknown());
+  auto yieldStmt = std::make_shared<YieldStmt>(values, Span::unknown());
 
-  auto result = mutator.VisitStmt(yield_stmt);
-  ASSERT_EQ(result.get(), yield_stmt.get());
+  auto result = mutator.VisitStmt(yieldStmt);
+  ASSERT_EQ(result.get(), yieldStmt.get());
 }
 
 TEST_F(IRMutatorTest, TestIdentityMutatorForStmt) {
   IRMutator mutator;
-  auto loop_var = std::make_shared<Var>("i", std::make_shared<ScalarType>(DataType::INT32), Span::unknown());
+  auto loopVar = std::make_shared<Var>("i", std::make_shared<ScalarType>(DataType::INT32), Span::unknown());
   auto start = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
   auto stop = std::make_shared<ConstInt>(10, DataType::INT32, Span::unknown());
   auto step = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
-  auto body_expr = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
-  auto body = std::make_shared<EvalStmt>(body_expr, Span::unknown());
+  auto bodyExpr = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
+  auto body = std::make_shared<EvalStmt>(bodyExpr, Span::unknown());
 
-  std::vector<IterArgPtr> iter_args;
-  std::vector<VarPtr> return_vars;
-  auto for_stmt = std::make_shared<ForStmt>(loop_var, start, stop, step, iter_args, body, return_vars,
+  std::vector<IterArgPtr> iterArgs;
+  std::vector<VarPtr> returnVars;
+  auto forStmt = std::make_shared<ForStmt>(loopVar, start, stop, step, iterArgs, body, returnVars,
                                             Span::unknown());
 
-  auto result = mutator.VisitStmt(for_stmt);
-  ASSERT_EQ(result.get(), for_stmt.get());
+  auto result = mutator.VisitStmt(forStmt);
+  ASSERT_EQ(result.get(), forStmt.get());
 }
 
 TEST_F(IRMutatorTest, TestIdentityMutatorIfStmt) {
   IRMutator mutator;
   auto cond = std::make_shared<ConstBool>(true, Span::unknown());
-  auto then_expr = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
-  auto then_body = std::make_shared<EvalStmt>(then_expr, Span::unknown());
+  auto thenExpr = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
+  auto thenBody = std::make_shared<EvalStmt>(thenExpr, Span::unknown());
 
-  std::vector<VarPtr> return_vars;
-  auto if_stmt = std::make_shared<IfStmt>(cond, then_body, std::nullopt, return_vars, Span::unknown());
+  std::vector<VarPtr> returnVars;
+  auto ifStmt = std::make_shared<IfStmt>(cond, thenBody, std::nullopt, returnVars, Span::unknown());
 
-  auto result = mutator.VisitStmt(if_stmt);
-  ASSERT_EQ(result.get(), if_stmt.get());
+  auto result = mutator.VisitStmt(ifStmt);
+  ASSERT_EQ(result.get(), ifStmt.get());
 }
 
 // ============================================================================
@@ -211,10 +211,10 @@ TEST_F(IRMutatorTest, TestIdentityMutatorOpStmts) {
   auto assign = std::make_shared<AssignStmt>(var, val, Span::unknown());
 
   std::vector<StmtPtr> stmts = {assign};
-  auto op_stmts = std::make_shared<OpStmts>(stmts, Span::unknown());
+  auto opStmts = std::make_shared<OpStmts>(stmts, Span::unknown());
 
-  auto result = mutator.VisitStmt(op_stmts);
-  ASSERT_EQ(result.get(), op_stmts.get());
+  auto result = mutator.VisitStmt(opStmts);
+  ASSERT_EQ(result.get(), opStmts.get());
 }
 
 // ============================================================================
@@ -349,22 +349,22 @@ TEST_F(IRMutatorTest, TestIdentityUnaryOps) {
   IRMutator mutator;
   auto v = std::make_shared<ConstInt>(
       5, DataType::INT32, Span::unknown());
-  auto abs_e = std::make_shared<Abs>(
+  auto absE = std::make_shared<Abs>(
       v, DataType::INT32, Span::unknown());
-  auto not_e = std::make_shared<Not>(
+  auto notE = std::make_shared<Not>(
       std::make_shared<ConstBool>(true, Span::unknown()),
       DataType::BOOL, Span::unknown());
   auto bn = std::make_shared<BitNot>(
       v, DataType::INT32, Span::unknown());
-  auto cast_e = std::make_shared<Cast>(
+  auto castE = std::make_shared<Cast>(
       v, DataType::FP32, Span::unknown());
   ASSERT_EQ(
-      mutator.VisitExpr(abs_e).get(), abs_e.get());
+      mutator.VisitExpr(absE).get(), absE.get());
   ASSERT_EQ(
-      mutator.VisitExpr(not_e).get(), not_e.get());
+      mutator.VisitExpr(notE).get(), notE.get());
   ASSERT_EQ(mutator.VisitExpr(bn).get(), bn.get());
   ASSERT_EQ(
-      mutator.VisitExpr(cast_e).get(), cast_e.get());
+      mutator.VisitExpr(castE).get(), castE.get());
 }
 
 TEST_F(IRMutatorTest, TestIdentityTupleGetItem) {
@@ -416,18 +416,18 @@ TEST_F(IRMutatorTest, TestIdentityIfStmtWithElse) {
   IRMutator mutator;
   Span sp = Span::unknown();
   auto cond = std::make_shared<ConstBool>(true, sp);
-  auto then_body = std::make_shared<EvalStmt>(
+  auto thenBody = std::make_shared<EvalStmt>(
       std::make_shared<ConstInt>(1, DataType::INT32, sp),
       sp);
-  auto else_body = std::make_shared<EvalStmt>(
+  auto elseBody = std::make_shared<EvalStmt>(
       std::make_shared<ConstInt>(2, DataType::INT32, sp),
       sp);
-  auto if_stmt = std::make_shared<IfStmt>(
-      cond, then_body,
-      std::optional<StmtPtr>(else_body),
+  auto ifStmt = std::make_shared<IfStmt>(
+      cond, thenBody,
+      std::optional<StmtPtr>(elseBody),
       std::vector<VarPtr>{}, sp);
   ASSERT_EQ(
-      mutator.VisitStmt(if_stmt).get(), if_stmt.get());
+      mutator.VisitStmt(ifStmt).get(), ifStmt.get());
 }
 
 // ============================================================================
@@ -442,8 +442,8 @@ class CopyOnWriteTestMutator : public IRMutator {
  protected:
   ExprPtr VisitExpr_(const ConstIntPtr& op) override {
     if (op->value_ == 42) {
-      auto scalar_type = As<ScalarType>(op->GetType());
-      return std::make_shared<ConstInt>(99, scalar_type->dtype_, op->span_);
+      auto scalarType = As<ScalarType>(op->GetType());
+      return std::make_shared<ConstInt>(99, scalarType->dtype_, op->span_);
     }
     return op;
   }
@@ -493,10 +493,10 @@ TEST_F(IRMutatorTest, TestCOWAddBinary) {
   auto add = std::make_shared<Add>(left, right, DataType::INT32, Span::unknown());
   auto result = mutator.VisitExpr(add);
   ASSERT_NE(result.get(), add.get());
-  auto new_add = As<Add>(result);
-  ASSERT_NE(new_add, nullptr);
-  auto new_left = As<ConstInt>(new_add->left_);
-  ASSERT_EQ(new_left->value_, 99);
+  auto newAdd = As<Add>(result);
+  ASSERT_NE(newAdd, nullptr);
+  auto newLeft = As<ConstInt>(newAdd->left_);
+  ASSERT_EQ(newLeft->value_, 99);
 }
 
 TEST_F(IRMutatorTest, TestCOWNegUnary) {
@@ -505,10 +505,10 @@ TEST_F(IRMutatorTest, TestCOWNegUnary) {
   auto neg = std::make_shared<Neg>(operand, DataType::INT32, Span::unknown());
   auto result = mutator.VisitExpr(neg);
   ASSERT_NE(result.get(), neg.get());
-  auto new_neg = As<Neg>(result);
-  ASSERT_NE(new_neg, nullptr);
-  auto new_op = As<ConstInt>(new_neg->operand_);
-  ASSERT_EQ(new_op->value_, 99);
+  auto newNeg = As<Neg>(result);
+  ASSERT_NE(newNeg, nullptr);
+  auto newOp = As<ConstInt>(newNeg->operand_);
+  ASSERT_EQ(newOp->value_, 99);
 }
 
 TEST_F(IRMutatorTest, TestCOWMakeTuple) {
@@ -532,10 +532,10 @@ TEST_F(IRMutatorTest, TestCOWTupleGetItemExpr) {
 TEST_F(IRMutatorTest, TestCOWIterArg) {
   CopyOnWriteTestMutator mutator;
   auto init = std::make_shared<ConstInt>(42, DataType::INT32, Span::unknown());
-  auto iter_arg = std::make_shared<IterArg>(
+  auto iterArg = std::make_shared<IterArg>(
       "acc", std::make_shared<ScalarType>(DataType::INT32), init, Span::unknown());
-  auto result = mutator.VisitExpr(iter_arg);
-  ASSERT_NE(result.get(), iter_arg.get());
+  auto result = mutator.VisitExpr(iterArg);
+  ASSERT_NE(result.get(), iterArg.get());
 }
 
 TEST_F(IRMutatorTest, TestCOWCall) {
@@ -575,118 +575,118 @@ TEST_F(IRMutatorTest, TestCOWReturnStmt) {
 TEST_F(IRMutatorTest, TestCOWYieldStmt) {
   CopyOnWriteTestMutator mutator;
   auto val = std::make_shared<ConstInt>(42, DataType::INT32, Span::unknown());
-  auto yield_stmt = std::make_shared<YieldStmt>(std::vector<ExprPtr>{val}, Span::unknown());
-  auto result = mutator.VisitStmt(yield_stmt);
-  ASSERT_NE(result.get(), yield_stmt.get());
+  auto yieldStmt = std::make_shared<YieldStmt>(std::vector<ExprPtr>{val}, Span::unknown());
+  auto result = mutator.VisitStmt(yieldStmt);
+  ASSERT_NE(result.get(), yieldStmt.get());
 }
 
 TEST_F(IRMutatorTest, TestCOWIfStmtThenChanged) {
   CopyOnWriteTestMutator mutator;
   auto cond = std::make_shared<ConstBool>(true, Span::unknown());
-  auto then_expr = std::make_shared<ConstInt>(42, DataType::INT32, Span::unknown());
-  auto then_body = std::make_shared<EvalStmt>(then_expr, Span::unknown());
-  auto if_stmt = std::make_shared<IfStmt>(cond, then_body, std::nullopt,
+  auto thenExpr = std::make_shared<ConstInt>(42, DataType::INT32, Span::unknown());
+  auto thenBody = std::make_shared<EvalStmt>(thenExpr, Span::unknown());
+  auto ifStmt = std::make_shared<IfStmt>(cond, thenBody, std::nullopt,
                                           std::vector<VarPtr>{}, Span::unknown());
-  auto result = mutator.VisitStmt(if_stmt);
-  ASSERT_NE(result.get(), if_stmt.get());
+  auto result = mutator.VisitStmt(ifStmt);
+  ASSERT_NE(result.get(), ifStmt.get());
 }
 
 TEST_F(IRMutatorTest, TestCOWIfStmtElseChanged) {
   CopyOnWriteTestMutator mutator;
   Span sp = Span::unknown();
   auto cond = std::make_shared<ConstBool>(true, sp);
-  auto then_body = std::make_shared<EvalStmt>(
+  auto thenBody = std::make_shared<EvalStmt>(
       std::make_shared<ConstInt>(1, DataType::INT32, sp), sp);
-  auto else_expr = std::make_shared<ConstInt>(42, DataType::INT32, sp);
-  auto else_body = std::make_shared<EvalStmt>(else_expr, sp);
-  auto if_stmt = std::make_shared<IfStmt>(cond, then_body,
-      std::optional<StmtPtr>(else_body), std::vector<VarPtr>{}, sp);
-  auto result = mutator.VisitStmt(if_stmt);
-  ASSERT_NE(result.get(), if_stmt.get());
+  auto elseExpr = std::make_shared<ConstInt>(42, DataType::INT32, sp);
+  auto elseBody = std::make_shared<EvalStmt>(elseExpr, sp);
+  auto ifStmt = std::make_shared<IfStmt>(cond, thenBody,
+      std::optional<StmtPtr>(elseBody), std::vector<VarPtr>{}, sp);
+  auto result = mutator.VisitStmt(ifStmt);
+  ASSERT_NE(result.get(), ifStmt.get());
 }
 
 TEST_F(IRMutatorTest, TestCOWIfStmtReturnVarsChanged) {
   CopyOnWriteTestMutator mutator;
   Span sp = Span::unknown();
   auto cond = std::make_shared<ConstBool>(true, sp);
-  auto then_body = std::make_shared<EvalStmt>(
+  auto thenBody = std::make_shared<EvalStmt>(
       std::make_shared<ConstInt>(1, DataType::INT32, sp), sp);
-  auto return_var = std::make_shared<Var>("replace_me",
+  auto returnVar = std::make_shared<Var>("replace_me",
       std::make_shared<ScalarType>(DataType::INT32), sp);
-  auto if_stmt = std::make_shared<IfStmt>(cond, then_body, std::nullopt,
-      std::vector<VarPtr>{return_var}, sp);
-  auto result = mutator.VisitStmt(if_stmt);
-  ASSERT_NE(result.get(), if_stmt.get());
+  auto ifStmt = std::make_shared<IfStmt>(cond, thenBody, std::nullopt,
+      std::vector<VarPtr>{returnVar}, sp);
+  auto result = mutator.VisitStmt(ifStmt);
+  ASSERT_NE(result.get(), ifStmt.get());
 }
 
 TEST_F(IRMutatorTest, TestCOWIfStmtWithElseAndReturnVars) {
   CopyOnWriteTestMutator mutator;
   Span sp = Span::unknown();
   auto cond = std::make_shared<ConstBool>(true, sp);
-  auto then_body = std::make_shared<EvalStmt>(
+  auto thenBody = std::make_shared<EvalStmt>(
       std::make_shared<ConstInt>(42, DataType::INT32, sp), sp);
-  auto else_body = std::make_shared<EvalStmt>(
+  auto elseBody = std::make_shared<EvalStmt>(
       std::make_shared<ConstInt>(42, DataType::INT32, sp), sp);
-  auto return_var = std::make_shared<Var>("replace_me",
+  auto returnVar = std::make_shared<Var>("replace_me",
       std::make_shared<ScalarType>(DataType::INT32), sp);
-  auto if_stmt = std::make_shared<IfStmt>(cond, then_body,
-      std::optional<StmtPtr>(else_body), std::vector<VarPtr>{return_var}, sp);
-  auto result = mutator.VisitStmt(if_stmt);
-  ASSERT_NE(result.get(), if_stmt.get());
+  auto ifStmt = std::make_shared<IfStmt>(cond, thenBody,
+      std::optional<StmtPtr>(elseBody), std::vector<VarPtr>{returnVar}, sp);
+  auto result = mutator.VisitStmt(ifStmt);
+  ASSERT_NE(result.get(), ifStmt.get());
   // Verify the new IfStmt has else body
-  auto new_if = As<IfStmt>(result);
-  ASSERT_NE(new_if, nullptr);
-  ASSERT_TRUE(new_if->else_body_.has_value());
+  auto newIf = As<IfStmt>(result);
+  ASSERT_NE(newIf, nullptr);
+  ASSERT_TRUE(newIf->elseBody_.has_value());
 }
 
 TEST_F(IRMutatorTest, TestCOWForStmt) {
   CopyOnWriteTestMutator mutator;
   Span sp = Span::unknown();
-  auto loop_var = std::make_shared<Var>("i", std::make_shared<ScalarType>(DataType::INT32), sp);
+  auto loopVar = std::make_shared<Var>("i", std::make_shared<ScalarType>(DataType::INT32), sp);
   auto start = std::make_shared<ConstInt>(42, DataType::INT32, sp);
   auto stop = std::make_shared<ConstInt>(10, DataType::INT32, sp);
   auto step = std::make_shared<ConstInt>(1, DataType::INT32, sp);
   auto body = std::make_shared<EvalStmt>(
       std::make_shared<ConstInt>(0, DataType::INT32, sp), sp);
-  auto for_stmt = std::make_shared<ForStmt>(loop_var, start, stop, step,
+  auto forStmt = std::make_shared<ForStmt>(loopVar, start, stop, step,
       std::vector<IterArgPtr>{}, body, std::vector<VarPtr>{}, sp);
-  auto result = mutator.VisitStmt(for_stmt);
-  ASSERT_NE(result.get(), for_stmt.get());
+  auto result = mutator.VisitStmt(forStmt);
+  ASSERT_NE(result.get(), forStmt.get());
 }
 
 TEST_F(IRMutatorTest, TestCOWForStmtIterArgsChanged) {
   CopyOnWriteTestMutator mutator;
   Span sp = Span::unknown();
-  auto loop_var = std::make_shared<Var>("i", std::make_shared<ScalarType>(DataType::INT32), sp);
+  auto loopVar = std::make_shared<Var>("i", std::make_shared<ScalarType>(DataType::INT32), sp);
   auto start = std::make_shared<ConstInt>(0, DataType::INT32, sp);
   auto stop = std::make_shared<ConstInt>(10, DataType::INT32, sp);
   auto step = std::make_shared<ConstInt>(1, DataType::INT32, sp);
   auto init = std::make_shared<ConstInt>(42, DataType::INT32, sp);
-  auto iter_arg = std::make_shared<IterArg>(
+  auto iterArg = std::make_shared<IterArg>(
       "acc", std::make_shared<ScalarType>(DataType::INT32), init, sp);
   auto body = std::make_shared<EvalStmt>(
       std::make_shared<ConstInt>(0, DataType::INT32, sp), sp);
-  auto for_stmt = std::make_shared<ForStmt>(loop_var, start, stop, step,
-      std::vector<IterArgPtr>{iter_arg}, body, std::vector<VarPtr>{}, sp);
-  auto result = mutator.VisitStmt(for_stmt);
-  ASSERT_NE(result.get(), for_stmt.get());
+  auto forStmt = std::make_shared<ForStmt>(loopVar, start, stop, step,
+      std::vector<IterArgPtr>{iterArg}, body, std::vector<VarPtr>{}, sp);
+  auto result = mutator.VisitStmt(forStmt);
+  ASSERT_NE(result.get(), forStmt.get());
 }
 
 TEST_F(IRMutatorTest, TestCOWForStmtReturnVarsChanged) {
   CopyOnWriteTestMutator mutator;
   Span sp = Span::unknown();
-  auto loop_var = std::make_shared<Var>("i", std::make_shared<ScalarType>(DataType::INT32), sp);
+  auto loopVar = std::make_shared<Var>("i", std::make_shared<ScalarType>(DataType::INT32), sp);
   auto start = std::make_shared<ConstInt>(0, DataType::INT32, sp);
   auto stop = std::make_shared<ConstInt>(10, DataType::INT32, sp);
   auto step = std::make_shared<ConstInt>(1, DataType::INT32, sp);
   auto body = std::make_shared<EvalStmt>(
       std::make_shared<ConstInt>(0, DataType::INT32, sp), sp);
-  auto return_var = std::make_shared<Var>("replace_me",
+  auto returnVar = std::make_shared<Var>("replace_me",
       std::make_shared<ScalarType>(DataType::INT32), sp);
-  auto for_stmt = std::make_shared<ForStmt>(loop_var, start, stop, step,
-      std::vector<IterArgPtr>{}, body, std::vector<VarPtr>{return_var}, sp);
-  auto result = mutator.VisitStmt(for_stmt);
-  ASSERT_NE(result.get(), for_stmt.get());
+  auto forStmt = std::make_shared<ForStmt>(loopVar, start, stop, step,
+      std::vector<IterArgPtr>{}, body, std::vector<VarPtr>{returnVar}, sp);
+  auto result = mutator.VisitStmt(forStmt);
+  ASSERT_NE(result.get(), forStmt.get());
 }
 
 TEST_F(IRMutatorTest, TestCOWOpStmts) {
@@ -695,9 +695,9 @@ TEST_F(IRMutatorTest, TestCOWOpStmts) {
   auto var = std::make_shared<Var>("x", std::make_shared<ScalarType>(DataType::INT32), sp);
   auto val = std::make_shared<ConstInt>(42, DataType::INT32, sp);
   auto assign = std::make_shared<AssignStmt>(var, val, sp);
-  auto op_stmts = std::make_shared<OpStmts>(std::vector<StmtPtr>{assign}, sp);
-  auto result = mutator.VisitStmt(op_stmts);
-  ASSERT_NE(result.get(), op_stmts.get());
+  auto opStmts = std::make_shared<OpStmts>(std::vector<StmtPtr>{assign}, sp);
+  auto result = mutator.VisitStmt(opStmts);
+  ASSERT_NE(result.get(), opStmts.get());
 }
 
 }  // namespace ir

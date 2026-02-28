@@ -65,10 +65,10 @@ static std::string ReadSourceLine(const std::string& filename, int lineno) {
     }
 
     std::string line;
-    int current_line = 0;
+    int currentLine = 0;
     while (std::getline(file, line)) {
-        current_line++;
-        if (current_line == lineno) {
+        currentLine++;
+        if (currentLine == lineno) {
             // Trim leading whitespace for display
             size_t start = line.find_first_not_of(" \t");
             if (start != std::string::npos) {
@@ -213,9 +213,9 @@ static std::string CleanupFilePath(const std::string& path) {
   // Look for "/./", which indicates where the relative path begins
   // (this is created by -fdebug-prefix-map=${CMAKE_SOURCE_DIR}=.)
   // Replace the prefix up to "/./" with "./"
-  size_t marker_pos = path.find("/./");
-  if (marker_pos != std::string::npos) {
-    return "./" + path.substr(marker_pos + 3);
+  size_t markerPos = path.find("/./");
+  if (markerPos != std::string::npos) {
+    return "./" + path.substr(markerPos + 3);
   }
 
   // If path already starts with "./", keep it as-is
@@ -261,9 +261,9 @@ std::vector<StackFrame> Backtrace::CaptureStackTrace(int skip) {
     // Parse the symbol string to get function name, library name, and offset
     // Format: "path/libname(function+offset) [address]"
     std::string symbol_str(symbols[i]);
-    std::string func_name;
-    std::string lib_name;
-    std::string func_offset;
+    std::string funcNameStr;
+    std::string libName;
+    std::string funcOffsetStr;
 
     // Try to demangle the function name and extract library/offset
     char* funcName = strchr(symbols[i], '(');
@@ -273,8 +273,8 @@ std::vector<StackFrame> Backtrace::CaptureStackTrace(int skip) {
     if (funcName != nullptr && funcOffset != nullptr && closeParen != nullptr) {
       // Extract library name (everything before '(')
       *funcName = '\0';
-      char* libname_start = strrchr(symbols[i], '/');
-      lib_name = (libname_start != nullptr) ? (libname_start + 1) : symbols[i];
+      char* libnameStart = strrchr(symbols[i], '/');
+      libName = (libnameStart != nullptr) ? (libnameStart + 1) : symbols[i];
 
       // Extract function name (between '(' and '+')
       funcName++;
@@ -283,7 +283,7 @@ std::vector<StackFrame> Backtrace::CaptureStackTrace(int skip) {
       // Extract offset (between '+' and ')')
       funcOffset++;
       *closeParen = '\0';
-      func_offset = std::string("+") + funcOffset;
+      funcOffsetStr = std::string("+") + funcOffset;
 
       // Demangle function name
       int status = 0;
@@ -291,9 +291,9 @@ std::vector<StackFrame> Backtrace::CaptureStackTrace(int skip) {
           abi::__cxa_demangle(funcName, nullptr, nullptr, &status),
           free);
       if (status == 0 && demangled) {
-        func_name = demangled.get();
+        funcNameStr = demangled.get();
       } else {
-        func_name = funcName;
+        funcNameStr = funcName;
       }
     }
 
@@ -305,9 +305,9 @@ std::vector<StackFrame> Backtrace::CaptureStackTrace(int skip) {
     }
 
     // Create frame with all information
-    StackFrame frame(func_name, loc.filename, loc.lineno, reinterpret_cast<uintptr_t>(addr));
-    frame.libname = lib_name;
-    frame.offset = func_offset;
+    StackFrame frame(funcNameStr, loc.filename, loc.lineno, reinterpret_cast<uintptr_t>(addr));
+    frame.libname = libName;
+    frame.offset = funcOffsetStr;
     frames.push_back(frame);
   }
 
@@ -323,9 +323,9 @@ std::string Backtrace::FormatStackTrace(const std::vector<StackFrame>& frames) {
   std::ostringstream oss;
 
   // Reverse the frames to show most recent last (like Python)
-  std::vector<StackFrame> reversed_frames(frames.rbegin(), frames.rend());
+  std::vector<StackFrame> reversedFrames(frames.rbegin(), frames.rend());
 
-  auto is_file_name_filtered = [](const std::string& filename) {
+  auto isFileNameFiltered = [](const std::string& filename) {
     return std::any_of(
         kFileNameFilter.begin(), kFileNameFilter.end(),
         [&filename](const std::string& filter) { return filename.find(filter) != std::string::npos; });
@@ -335,30 +335,30 @@ std::string Backtrace::FormatStackTrace(const std::vector<StackFrame>& frames) {
   // When Clang generates DWARF info for inlined functions/templates, it may
   // report multiple "virtual" frames for the same PC with incorrect source
   // locations. We keep only the first frame for each unique PC.
-  std::vector<StackFrame> deduplicated_frames;
-  for (const auto& frame : reversed_frames) {
+  std::vector<StackFrame> deduplicatedFrames;
+  for (const auto& frame : reversedFrames) {
     // Filter out infrastructure frames before deduplication.
     // This prevents filtered frames from being used in duplicate PC checks.
-    if (!frame.filename.empty() && is_file_name_filtered(frame.filename)) {
+    if (!frame.filename.empty() && isFileNameFiltered(frame.filename)) {
       continue;
-    } else if (frame.pc != 0 && !deduplicated_frames.empty() && deduplicated_frames.back().pc == frame.pc) {
+    } else if (frame.pc != 0 && !deduplicatedFrames.empty() && deduplicatedFrames.back().pc == frame.pc) {
       // Same PC as the previous frame - this is likely a spurious inline frame.
       // Skip it to keep only the first frame for each unique PC.
       continue;
     } else {
-      deduplicated_frames.push_back(frame);
+      deduplicatedFrames.push_back(frame);
     }
   }
 
-  for (const auto& frame : deduplicated_frames) {
+  for (const auto& frame : deduplicatedFrames) {
     // Format: File "filename", line X in function_name
     if (!frame.filename.empty() && frame.lineno > 0) {
       oss << " File \"" << frame.filename << "\", line " << frame.lineno << "\n";
 
       // Try to read and display the source line
-      std::string source_line = ReadSourceLine(frame.filename, frame.lineno);
-      if (!source_line.empty()) {
-        oss << "   " << source_line << "\n";
+      std::string sourceLine = ReadSourceLine(frame.filename, frame.lineno);
+      if (!sourceLine.empty()) {
+        oss << "   " << sourceLine << "\n";
       }
     } else if (!frame.function.empty() && frame.pc != 0) {
       // Fallback to traditional format if we don't have file/line info (Release mode)

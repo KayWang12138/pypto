@@ -37,53 +37,53 @@ TypePtr DeduceUnknownType([[maybe_unused]] const std::vector<ExprPtr>& args,
 // Register system.sync_src (Set Flag)
 // Attributes: set_pipe, wait_pipe, event_id
 REGISTER_OP("system.sync_src")
-    .set_description("Send a synchronization signal (Set Flag)")
-    .set_op_category("SyncOp")
-    .set_pipe(PipeType::S)
-    .no_argument()
+    .SetDescription("Send a synchronization signal (Set Flag)")
+    .SetOpCategory("SyncOp")
+    .SetPipe(PipeType::S)
+    .NoArgument()
     .set_attr<int>("set_pipe")
     .set_attr<int>("wait_pipe")
     .set_attr<int>("event_id")
-    .f_deduce_type(DeduceUnknownType);
+    .SetDeduceType(DeduceUnknownType);
 
 // Register system.sync_dst (Wait Flag)
 // Attributes: set_pipe, wait_pipe, event_id
 REGISTER_OP("system.sync_dst")
-    .set_description("Wait for a synchronization signal (Wait Flag)")
-    .set_op_category("SyncOp")
-    .set_pipe(PipeType::S)
-    .no_argument()
+    .SetDescription("Wait for a synchronization signal (Wait Flag)")
+    .SetOpCategory("SyncOp")
+    .SetPipe(PipeType::S)
+    .NoArgument()
     .set_attr<int>("set_pipe")
     .set_attr<int>("wait_pipe")
     .set_attr<int>("event_id")
-    .f_deduce_type(DeduceUnknownType);
+    .SetDeduceType(DeduceUnknownType);
 
 // Register system.bar_v (Vector Barrier)
 // Attributes: None
 REGISTER_OP("system.bar_v")
-    .set_description("Vector unit barrier")
-    .set_op_category("SyncOp")
-    .set_pipe(PipeType::S)
-    .no_argument()
-    .f_deduce_type(DeduceUnknownType);
+    .SetDescription("Vector unit barrier")
+    .SetOpCategory("SyncOp")
+    .SetPipe(PipeType::S)
+    .NoArgument()
+    .SetDeduceType(DeduceUnknownType);
 
 // Register system.bar_m (Matrix Barrier)
 // Attributes: None
 REGISTER_OP("system.bar_m")
-    .set_description("Matrix unit barrier")
-    .set_op_category("SyncOp")
-    .set_pipe(PipeType::S)
-    .no_argument()
-    .f_deduce_type(DeduceUnknownType);
+    .SetDescription("Matrix unit barrier")
+    .SetOpCategory("SyncOp")
+    .SetPipe(PipeType::S)
+    .NoArgument()
+    .SetDeduceType(DeduceUnknownType);
 
 // Register system.bar_all (Global Barrier)
 // Attributes: None
 REGISTER_OP("system.bar_all")
-    .set_description("Global barrier synchronization")
-    .set_op_category("SyncOp")
-    .set_pipe(PipeType::S)
-    .no_argument()
-    .f_deduce_type(DeduceUnknownType);
+    .SetDescription("Global barrier synchronization")
+    .SetOpCategory("SyncOp")
+    .SetPipe(PipeType::S)
+    .NoArgument()
+    .SetDeduceType(DeduceUnknownType);
 
 }  // namespace ir
 }  // namespace pypto

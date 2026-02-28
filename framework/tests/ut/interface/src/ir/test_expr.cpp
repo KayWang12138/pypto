@@ -41,9 +41,9 @@ TEST_F(IRExprTest, TestMakeTupleBasic) {
   auto tuple = std::make_shared<MakeTuple>(elements, Span::unknown());
 
   ASSERT_EQ(tuple->elements_.size(), 2);
-  auto tuple_type = As<TupleType>(tuple->GetType());
-  ASSERT_NE(tuple_type, nullptr);
-  ASSERT_EQ(tuple_type->types_.size(), 2);
+  auto tupleType = As<TupleType>(tuple->GetType());
+  ASSERT_NE(tupleType, nullptr);
+  ASSERT_EQ(tupleType->types_.size(), 2);
 }
 
 TEST_F(IRExprTest, TestMakeTupleSingleElement) {
@@ -53,9 +53,9 @@ TEST_F(IRExprTest, TestMakeTupleSingleElement) {
   auto tuple = std::make_shared<MakeTuple>(elements, Span::unknown());
 
   ASSERT_EQ(tuple->elements_.size(), 1);
-  auto tuple_type = As<TupleType>(tuple->GetType());
-  ASSERT_NE(tuple_type, nullptr);
-  ASSERT_EQ(tuple_type->types_.size(), 1);
+  auto tupleType = As<TupleType>(tuple->GetType());
+  ASSERT_NE(tupleType, nullptr);
+  ASSERT_EQ(tupleType->types_.size(), 1);
 }
 
 // ============================================================================

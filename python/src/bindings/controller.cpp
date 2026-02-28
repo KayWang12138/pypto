@@ -20,7 +20,7 @@
 #include <string>
 
 using namespace npu::tile_fwk;
-using ref_tensors = std::vector<std::reference_wrapper<const Tensor>>;
+using refTensors = std::vector<std::reference_wrapper<const Tensor>>;
 
 namespace pypto {
 void bind_controller_config(py::module &m) {
@@ -114,7 +114,7 @@ void bind_controller_function(py::module &m) {
         .def(py::init<const std::string &, const std::vector<std::reference_wrapper<const Tensor>> &>(), py::arg("name"),
             py::arg("explicit_op_args"))
         .def(
-            py::init<const std::string &, const ref_tensors &, const ref_tensors &,
+            py::init<const std::string &, const refTensors &, const refTensors &,
                 const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>>
                     &>(),
             py::arg("name"), py::arg("inputs"), py::arg("outputs"),
@@ -172,52 +172,52 @@ void bind_controller_utils(py::module &m) {
 
 
 std::map<std::string, npu::tile_fwk::Any> ConvertPyDictToCppMap(const py::dict &values) {
-    std::map<std::string, npu::tile_fwk::Any> cpp_values;
+    std::map<std::string, npu::tile_fwk::Any> cppValues;
     for (auto item : values) {
         std::string key = py::str(item.first);
         py::object value = py::reinterpret_borrow<py::object>(item.second);
 
         if (py::isinstance<py::bool_>(value)) {
-            cpp_values[key] = value.cast<bool>();
+            cppValues[key] = value.cast<bool>();
         } else if (py::isinstance<py::int_>(value)) {
-            cpp_values[key] = value.cast<int64_t>();
+            cppValues[key] = value.cast<int64_t>();
         } else if (py::isinstance<py::float_>(value)) {
-            cpp_values[key] = value.cast<double>();
+            cppValues[key] = value.cast<double>();
         } else if (py::isinstance<py::str>(value)) {
-            cpp_values[key] = value.cast<std::string>();
+            cppValues[key] = value.cast<std::string>();
         } else if (py::isinstance<CubeTile>(value)) {
-            cpp_values[key] = value.cast<CubeTile>();
+            cppValues[key] = value.cast<CubeTile>();
         } else if (py::isinstance<py::list>(value) || py::isinstance<py::tuple>(value)) {
             py::list lst = py::cast<py::list>(value);
             if (lst.size() > 0) {
                 if (py::isinstance<py::int_>(lst[0])) {
-                    cpp_values[key] = value.cast<std::vector<int64_t>>();
+                    cppValues[key] = value.cast<std::vector<int64_t>>();
                 } else if (py::isinstance<py::str>(lst[0])) {
-                    cpp_values[key] = value.cast<std::vector<std::string>>();
+                    cppValues[key] = value.cast<std::vector<std::string>>();
                 } else if (py::isinstance<py::float_>(lst[0])) {
-                    cpp_values[key] = value.cast<std::vector<double>>();
+                    cppValues[key] = value.cast<std::vector<double>>();
                 } else {
                     throw py::type_error("Unsupported list element type for key: " + key);
                 }
             } else {
-                cpp_values[key] = std::vector<int64_t>();
+                cppValues[key] = std::vector<int64_t>();
             }
         } else if (py::isinstance<py::dict>(value)) {
-            cpp_values[key] = value.cast<std::map<int64_t, int64_t>>();
+            cppValues[key] = value.cast<std::map<int64_t, int64_t>>();
         } else {
             throw py::type_error("Unsupported value type for key: " + key);
         }
     }
 
-    return cpp_values;
+    return cppValues;
 }
 
 void bind_controller_scope(py::module &m) {
     m.def("BeginScope",
         [](const std::string &name, const py::dict &values,
         const std::string &filename, int lineno) {
-            auto cpp_values = ConvertPyDictToCppMap(values);
-            ConfigManagerNg::GetInstance().BeginScope(name, std::move(cpp_values), filename.c_str(), lineno);
+            auto cppValues = ConvertPyDictToCppMap(values);
+            ConfigManagerNg::GetInstance().BeginScope(name, std::move(cppValues), filename.c_str(), lineno);
         },
         py::arg("name"),
         py::arg("values"),
@@ -235,8 +235,8 @@ void bind_controller_scope(py::module &m) {
 
     m.def("SetScope",
         [](const py::dict &values, const std::string &filename, int lineno) {
-            auto cpp_values = ConvertPyDictToCppMap(values);
-            ConfigManagerNg::GetInstance().SetScope(std::move(cpp_values), filename.c_str(), lineno);
+            auto cppValues = ConvertPyDictToCppMap(values);
+            ConfigManagerNg::GetInstance().SetScope(std::move(cppValues), filename.c_str(), lineno);
         },
         py::arg("values"),
         py::arg("filename") = "default",
@@ -245,8 +245,8 @@ void bind_controller_scope(py::module &m) {
 
     m.def("SetGlobalConfig",
         [](const py::dict &values, const std::string &filename, int lineno) {
-            auto cpp_values = ConvertPyDictToCppMap(values);
-            ConfigManagerNg::GetInstance().SetGlobalConfig(std::move(cpp_values), filename.c_str(), lineno);
+            auto cppValues = ConvertPyDictToCppMap(values);
+            ConfigManagerNg::GetInstance().SetGlobalConfig(std::move(cppValues), filename.c_str(), lineno);
         },
         py::arg("values"),
         py::arg("filename") = "default",
@@ -294,9 +294,9 @@ void bind_controller_scope_classes(py::module &m) {
         .def("GetAllConfig",
             [](const ConfigScope &scope) -> py::dict {
                 py::dict result;
-                auto config_map = scope.GetAllConfig();
+                auto configMap = scope.GetAllConfig();
                 
-                for (const auto &[key, val] : config_map) {
+                for (const auto &[key, val] : configMap) {
                     try {
                         result[py::str(key)] = AnyToPyObject(val);
                     } catch (const py::type_error &e) {

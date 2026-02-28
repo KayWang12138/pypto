@@ -15,7 +15,7 @@
 namespace pypto {
 namespace ir {
 
-std::string Error::GetFormattedStackTrace() const { return Backtrace::FormatStackTrace(stack_trace_); }
+std::string Error::GetFormattedStackTrace() const { return Backtrace::FormatStackTrace(stackTrace_); }
 
 std::string Error::GetFullMessage() const {
   std::ostringstream oss;
@@ -23,10 +23,10 @@ std::string Error::GetFullMessage() const {
   oss << what();
 
   // Append C++ stack trace
-  std::string stack_trace = GetFormattedStackTrace();
-  if (!stack_trace.empty()) {
+  std::string stackTrace = GetFormattedStackTrace();
+  if (!stackTrace.empty()) {
     oss << "\n\nC++ Traceback (most recent call last):\n";
-    oss << stack_trace;
+    oss << stackTrace;
   } else {
     oss << "\n\nNo stack trace available. \n"
            "(Tip: Build with CMake in Debug or RelWithDebInfo mode to enable stack trace support.)";

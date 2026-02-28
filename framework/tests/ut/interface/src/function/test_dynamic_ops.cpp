@@ -833,7 +833,7 @@ TEST_F(DynamicOpsTest, GatherInL1) {
     auto out0 = Random(DT_FP16, out.GetShape());
     auto golden = Random(DT_FP16, out.GetShape());
     int64_t blockSize = 2;
-    int hidden_dim = 16;
+    int hiddenDim = 16;
  	calc::GatherInL1(golden, paramData, indicesData, pageTableData, blockSize);
     ProgramData::GetInstance().PrepareData({paramData->GetData(), indicesData->GetData(),
         pageTableData->GetData()}, {out0->GetData()}, {golden->GetData()});
@@ -847,7 +847,7 @@ TEST_F(DynamicOpsTest, GatherInL1) {
             Tensor dynSrc = View(param, param.GetShape(), srcValidShape, {0, 0});
             std::vector<SymbolicScalar> offsetsValidShape = {indices.GetShape()[0], indices.GetShape()[1]};
             Tensor dynOffsets = View(indices, indices.GetShape(), offsetsValidShape, {0, 0});
-            out = experimental::GatherInL1<false, false>(dynSrc, dynOffsets, pageTable, blockSize, hidden_dim);
+            out = experimental::GatherInL1<false, false>(dynSrc, dynOffsets, pageTable, blockSize, hiddenDim);
         }
     }
 }
@@ -1622,9 +1622,9 @@ TEST_F(DynamicOpsTest, Range) {
         RawTensorData::CreateConstantTensor<int32_t>(out, 0),
     });
 
-    std::vector<int32_t> expected_data = {1, 3, 5, 7, 9};
+    std::vector<int32_t> expectedData = {1, 3, 5, 7, 9};
     ProgramData::GetInstance().AppendGoldens({
-        RawTensorData::CreateTensor<int32_t>(out, expected_data),
+        RawTensorData::CreateTensor<int32_t>(out, expectedData),
     });
 
     FUNCTION("main", {}, {out}) {

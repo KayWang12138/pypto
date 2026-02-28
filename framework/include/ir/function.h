@@ -88,13 +88,13 @@ public:
      * \param span Source location
      * \param type Function type (default: Opaque)
      */
-    Function(std::string name, std::vector<VarPtr> params, std::vector<TypePtr> return_types, StmtPtr body, Span span,
+    Function(std::string name, std::vector<VarPtr> params, std::vector<TypePtr> returnTypes, StmtPtr body, Span span,
         FunctionType type = FunctionType::Opaque)
         : IRNode(std::move(span)),
           name_(std::move(name)),
-          func_type_(type),
+          funcType_(type),
           params_(std::move(params)),
-          return_types_(std::move(return_types)),
+          returnTypes_(std::move(returnTypes)),
           body_(std::move(body)) {}
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::Function; }
@@ -109,16 +109,16 @@ public:
     static constexpr auto GetFieldDescriptors() {
         return std::tuple_cat(IRNode::GetFieldDescriptors(),
             std::make_tuple(reflection::DefField(&Function::params_, "params"),
-                reflection::UsualField(&Function::func_type_, "func_type"),
-                reflection::UsualField(&Function::return_types_, "return_types"),
+                reflection::UsualField(&Function::funcType_, "func_type"),
+                reflection::UsualField(&Function::returnTypes_, "return_types"),
                 reflection::UsualField(&Function::body_, "body"), reflection::IgnoreField(&Function::name_, "name")));
     }
 
 public:
     std::string name_;                  // Function name
-    FunctionType func_type_;            // Function type (orchestration, incore, or opaque)
+    FunctionType funcType_;            // Function type (orchestration, incore, or opaque)
     std::vector<VarPtr> params_;        // Parameter variables
-    std::vector<TypePtr> return_types_; // Return types
+    std::vector<TypePtr> returnTypes_; // Return types
     StmtPtr body_;                      // Function body statement
 };
 

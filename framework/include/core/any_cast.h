@@ -43,9 +43,9 @@ namespace pypto {
  *   DemangleTypeName(typeid(int).name()) -> "int"
  *   DemangleTypeName(typeid(pypto::DataType).name()) -> "DataType"
  */
-inline std::string DemangleTypeName(const char *mangled_name) {
+inline std::string DemangleTypeName(const char *mangledName) {
     int status = 0;
-    char *demangled = abi::__cxa_demangle(mangled_name, nullptr, nullptr, &status);
+    char *demangled = abi::__cxa_demangle(mangledName, nullptr, nullptr, &status);
     if (status == 0 && demangled) {
         std::string result(demangled);
         free(demangled);
@@ -59,7 +59,7 @@ inline std::string DemangleTypeName(const char *mangled_name) {
         return result;
     }
     // If demangling fails, return the original mangled name
-    return mangled_name;
+    return mangledName;
 }
 
 /**
@@ -71,19 +71,19 @@ inline std::string DemangleTypeName(const char *mangled_name) {
  * \throws TypeError with detailed type information
  */
 [[noreturn]] inline void ThrowAnyCastError(
-    const char *expected_type_name, const char *actual_type_name, const std::string &context) {
-    std::string expected_type = DemangleTypeName(expected_type_name);
-    std::string actual_type = DemangleTypeName(actual_type_name);
-    std::string error_msg = "Invalid type";
+    const char *expectedTypeName, const char *actualTypeName, const std::string &context) {
+    std::string expectedType = DemangleTypeName(expectedTypeName);
+    std::string actualType = DemangleTypeName(actualTypeName);
+    std::string errorMsg = "Invalid type";
     if (!context.empty()) {
-        error_msg += " for ";
-        error_msg += context;
+        errorMsg += " for ";
+        errorMsg += context;
     }
-    error_msg += ", expected ";
-    error_msg += expected_type;
-    error_msg += ", but got ";
-    error_msg += actual_type;
-    throw ir::TypeError(error_msg);
+    errorMsg += ", expected ";
+    errorMsg += expectedType;
+    errorMsg += ", but got ";
+    errorMsg += actualType;
+    throw ir::TypeError(errorMsg);
 }
 
 /**

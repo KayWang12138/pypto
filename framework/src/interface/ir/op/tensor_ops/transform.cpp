@@ -37,53 +37,53 @@ TypePtr DeduceTensorReshapeType(const std::vector<ExprPtr>& args,
                           << args.size();
 
   // First argument must be TensorType
-  auto tensor_type = As<TensorType>(args[0]->GetType());
-  INTERNAL_CHECK(tensor_type) << "tensor.reshape requires first argument to be a TensorType, but got "
+  auto tensorType = As<TensorType>(args[0]->GetType());
+  INTERNAL_CHECK(tensorType) << "tensor.reshape requires first argument to be a TensorType, but got "
                      << args[0]->GetType()->TypeName();
 
   // Second argument must be TupleType (shape)
-  auto shape_tuple_type = As<TupleType>(args[1]->GetType());
-  INTERNAL_CHECK(shape_tuple_type) << "tensor.reshape requires shape to be TupleType, but got "
+  auto shapeTupleType = As<TupleType>(args[1]->GetType());
+  INTERNAL_CHECK(shapeTupleType) << "tensor.reshape requires shape to be TupleType, but got "
                           << args[1]->GetType()->TypeName();
 
   // Validate all shape elements are ScalarType(INT64 or UINT64)
-  for (size_t i = 0; i < shape_tuple_type->types_.size(); ++i) {
-    auto scalar_type = As<ScalarType>(shape_tuple_type->types_[i]);
-    INTERNAL_CHECK(scalar_type) << "tensor.reshape shape tuple element " << i << " must be ScalarType, but got "
-                       << shape_tuple_type->types_[i]->TypeName();
-    INTERNAL_CHECK(scalar_type->dtype_ == DataType::INT64 || scalar_type->dtype_ == DataType::UINT64)
+  for (size_t i = 0; i < shapeTupleType->types_.size(); ++i) {
+    auto scalarType = As<ScalarType>(shapeTupleType->types_[i]);
+    INTERNAL_CHECK(scalarType) << "tensor.reshape shape tuple element " << i << " must be ScalarType, but got "
+                       << shapeTupleType->types_[i]->TypeName();
+    INTERNAL_CHECK(scalarType->dtype_ == DataType::INT64 || scalarType->dtype_ == DataType::UINT64)
         << "tensor.reshape shape tuple element " << i << " must have dtype INT64 or UINT64, but got "
-        << scalar_type->dtype_.ToString();
+        << scalarType->dtype_.ToString();
   }
 
   // Extract new shape dimensions
   // If args[1] is MakeTuple, extract elements directly to preserve constants
   // Otherwise use TupleGetItemExpr for runtime tuples
-  std::vector<ExprPtr> new_shape;
-  new_shape.reserve(shape_tuple_type->types_.size());
+  std::vector<ExprPtr> newShape;
+  newShape.reserve(shapeTupleType->types_.size());
 
   if (auto make_tuple = As<MakeTuple>(args[1])) {
     // MakeTuple: extract elements directly to preserve ConstInt
-    new_shape = make_tuple->elements_;
+    newShape = make_tuple->elements_;
   } else {
     // Runtime tuple: use TupleGetItemExpr
-    for (size_t i = 0; i < shape_tuple_type->types_.size(); ++i) {
-      new_shape.emplace_back(
+    for (size_t i = 0; i < shapeTupleType->types_.size(); ++i) {
+      newShape.emplace_back(
           std::make_shared<TupleGetItemExpr>(args[1], static_cast<int>(i), args[1]->span_));
     }
   }
 
   // For static shapes, verify that the total number of elements matches
-  int64_t old_product = ComputeShapeProduct(tensor_type->shape_);
-  int64_t new_product = ComputeShapeProduct(new_shape);
+  int64_t oldProduct = ComputeShapeProduct(tensorType->shape_);
+  int64_t newProduct = ComputeShapeProduct(newShape);
 
-  if (old_product > 0 && new_product > 0) {
-    INTERNAL_CHECK(old_product == new_product) << "tensor.reshape: cannot reshape tensor of size " << old_product
-                                      << " into shape with size " << new_product;
+  if (oldProduct > 0 && newProduct > 0) {
+    INTERNAL_CHECK(oldProduct == newProduct) << "tensor.reshape: cannot reshape tensor of size " << oldProduct
+                                      << " into shape with size " << newProduct;
   }
 
   // Return new TensorType with reshaped dimensions and same dtype
-  return std::make_shared<TensorType>(new_shape, tensor_type->dtype_);
+  return std::make_shared<TensorType>(newShape, tensorType->dtype_);
 }
 
 TypePtr DeduceTensorTransposeType(const std::vector<ExprPtr>& args,
@@ -93,36 +93,36 @@ TypePtr DeduceTensorTransposeType(const std::vector<ExprPtr>& args,
                           << args.size();
 
   // First argument must be TensorType
-  auto tensor_type = As<TensorType>(args[0]->GetType());
-  INTERNAL_CHECK(tensor_type) << "tensor.transpose requires first argument to be a TensorType, but got "
+  auto tensorType = As<TensorType>(args[0]->GetType());
+  INTERNAL_CHECK(tensorType) << "tensor.transpose requires first argument to be a TensorType, but got "
                      << args[0]->GetType()->TypeName();
 
-  const auto& input_shape = tensor_type->shape_;
-  size_t ndim = input_shape.size();
+  const auto& inputShape = tensorType->shape_;
+  size_t ndim = inputShape.size();
 
   INTERNAL_CHECK(ndim >= 2) << "tensor.transpose requires at least 2 dimensions, but got " << ndim;
 
   // Second argument is axis1 (ConstInt)
-  auto axis1_const = As<ConstInt>(args[1]);
-  INTERNAL_CHECK(axis1_const) << "tensor.transpose requires second argument (axis1) to be a ConstInt";
+  auto axis1Const = As<ConstInt>(args[1]);
+  INTERNAL_CHECK(axis1Const) << "tensor.transpose requires second argument (axis1) to be a ConstInt";
 
   // Third argument is axis2 (ConstInt)
-  auto axis2_const = As<ConstInt>(args[2]);
-  INTERNAL_CHECK(axis2_const) << "tensor.transpose requires third argument (axis2) to be a ConstInt";
+  auto axis2Const = As<ConstInt>(args[2]);
+  INTERNAL_CHECK(axis2Const) << "tensor.transpose requires third argument (axis2) to be a ConstInt";
 
   // Normalize axes (handle negative indexing)
-  int axis1 = NormalizeAxis(static_cast<int>(axis1_const->value_), ndim);
-  int axis2 = NormalizeAxis(static_cast<int>(axis2_const->value_), ndim);
+  int axis1 = NormalizeAxis(static_cast<int>(axis1Const->value_), ndim);
+  int axis2 = NormalizeAxis(static_cast<int>(axis2Const->value_), ndim);
 
   INTERNAL_CHECK(axis1 != axis2) << "tensor.transpose: axis1 and axis2 must be different, but got axis1=" << axis1
                         << ", axis2=" << axis2;
 
   // Create new shape by swapping the specified dimensions
-  std::vector<ExprPtr> new_shape = input_shape;
-  std::swap(new_shape[axis1], new_shape[axis2]);
+  std::vector<ExprPtr> newShape = inputShape;
+  std::swap(newShape[axis1], newShape[axis2]);
 
   // Return new TensorType with transposed shape and same dtype
-  return std::make_shared<TensorType>(new_shape, tensor_type->dtype_);
+  return std::make_shared<TensorType>(newShape, tensorType->dtype_);
 }
 
 // ============================================================================
@@ -130,22 +130,22 @@ TypePtr DeduceTensorTransposeType(const std::vector<ExprPtr>& args,
 // ============================================================================
 
 REGISTER_OP("tensor.reshape")
-    .set_op_category("TensorOp")
-    .set_description("Reshape tensor to new shape")
-    .add_argument("input", "Input tensor (TensorType)")
-    .add_argument("shape", "New shape dimensions (TupleType of ScalarType(UINT64))")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
+    .SetOpCategory("TensorOp")
+    .SetDescription("Reshape tensor to new shape")
+    .AddArgument("input", "Input tensor (TensorType)")
+    .AddArgument("shape", "New shape dimensions (TupleType of ScalarType(UINT64))")
+    .SetDeduceType([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceTensorReshapeType(args, kwargs);
     });
 
 REGISTER_OP("tensor.transpose")
-    .set_op_category("TensorOp")
-    .set_description("Transpose tensor by swapping two axes")
-    .add_argument("input", "Input tensor (TensorType)")
-    .add_argument("axis1", "First axis to swap (ConstInt)")
-    .add_argument("axis2", "Second axis to swap (ConstInt)")
-    .f_deduce_type([](const std::vector<ExprPtr>& args,
+    .SetOpCategory("TensorOp")
+    .SetDescription("Transpose tensor by swapping two axes")
+    .AddArgument("input", "Input tensor (TensorType)")
+    .AddArgument("axis1", "First axis to swap (ConstInt)")
+    .AddArgument("axis2", "Second axis to swap (ConstInt)")
+    .SetDeduceType([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceTensorTransposeType(args, kwargs);
     });

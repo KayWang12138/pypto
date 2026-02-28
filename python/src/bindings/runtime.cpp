@@ -722,9 +722,9 @@ static int GetInputTensors(py::args &args, std::vector<DeviceTensorData> &tensor
         auto base = py::getattr(pt, "_base", py::none());
         if (py::isinstance<Tensor>(base)) {
             auto &t = base.cast<Tensor &>();
-            auto data_ptr = py::cast<int64_t>(py::getattr(pt, "data_ptr"));
+            auto dataPtr = py::cast<int64_t>(py::getattr(pt, "data_ptr"));
             auto shape = py::cast<std::vector<int64_t>>(py::getattr(pt, "ori_shape"));
-            tensors.emplace_back(t.GetDataType(), data_ptr, shape, t.Format());
+            tensors.emplace_back(t.GetDataType(), dataPtr, shape, t.Format());
             if (device.is_none()) {
                 device = py::getattr(pt, "device");
             } else if (!device.equal(py::getattr(pt, "device"))) {

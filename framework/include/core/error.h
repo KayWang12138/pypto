@@ -60,8 +60,8 @@ struct StackFrame {
      * \param line Line number in source file
      * \param program_counter Program counter value at this frame
      */
-    StackFrame(std::string func, std::string file, int line, uintptr_t program_counter)
-        : function(std::move(func)), filename(std::move(file)), lineno(line), pc(program_counter) {}
+    StackFrame(std::string func, std::string file, int line, uintptr_t programCounter)
+        : function(std::move(func)), filename(std::move(file)), lineno(line), pc(programCounter) {}
 
     /**
      * \brief Formats the stack frame as a human-readable string
@@ -147,14 +147,14 @@ public:
      * \param message Error message describing what went wrong
      */
     PYPTO_ALWAYS_INLINE explicit Error(const std::string &message) : std::runtime_error(message) {
-        stack_trace_ = Backtrace::GetInstance().CaptureStackTrace();
+        stackTrace_ = Backtrace::GetInstance().CaptureStackTrace();
     }
 
     /**
      * \brief Get the raw stack trace frames
      * \return Const reference to the vector of captured stack frames
      */
-    [[nodiscard]] const std::vector<StackFrame> &GetStackTrace() const { return stack_trace_; }
+    [[nodiscard]] const std::vector<StackFrame> &GetStackTrace() const { return stackTrace_; }
 
     /**
      * \brief Get a formatted string representation of the stack trace
@@ -169,7 +169,7 @@ public:
     [[nodiscard]] std::string GetFullMessage() const;
 
 private:
-    std::vector<StackFrame> stack_trace_; ///< Captured stack frames at error creation
+    std::vector<StackFrame> stackTrace_; ///< Captured stack frames at error creation
 };
 
 /**
@@ -301,7 +301,7 @@ enum class DiagnosticSeverity {
  */
 struct Diagnostic {
     DiagnosticSeverity severity; ///< Severity level (Error or Warning)
-    std::string rule_name;       ///< Name of the verification rule (e.g., "SSAVerify", "TypeCheck")
+    std::string ruleName;       ///< Name of the verification rule (e.g., "SSAVerify", "TypeCheck")
     int error_code;              ///< Specific error code from the rule's error type enum
     std::string message;         ///< Human-readable error message
     ir::Span span;               ///< Source location of the issue
@@ -315,7 +315,7 @@ struct Diagnostic {
      * \brief Construct a diagnostic with all fields
      */
     Diagnostic(DiagnosticSeverity sev, std::string rule, int code, std::string msg, ir::Span s)
-        : severity(sev), rule_name(std::move(rule)), error_code(code), message(std::move(msg)), span(std::move(s)) {}
+        : severity(sev), ruleName(std::move(rule)), error_code(code), message(std::move(msg)), span(std::move(s)) {}
 };
 
 /**

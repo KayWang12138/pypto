@@ -29,10 +29,10 @@ void BindErrors(py::module_ &m) {
                                                                           PyExc_NotImplementedError);
   static py::exception<ir::IndexError> exc_index_error(m, "IndexError", PyExc_IndexError);
   static py::exception<ir::AssertionError> exc_assertion_error(m, "AssertionError", PyExc_AssertionError);
-  static py::exception<ir::InternalError> exc_internal_error(m, "InternalError", PyExc_RuntimeError);
+  static py::exception<ir::InternalError> excInternalError(m, "InternalError", PyExc_RuntimeError);
 
-  PyObject *internal_error_type = exc_internal_error.ptr();
-  PyObject_SetAttrString(internal_error_type, "__module__", PyUnicode_FromString("pypto"));
+  PyObject *internalErrorType = excInternalError.ptr();
+  PyObject_SetAttrString(internalErrorType, "__module__", PyUnicode_FromString("pypto"));
 
   py::register_exception_translator([](std::exception_ptr p) {
     try {
@@ -50,7 +50,7 @@ void BindErrors(py::module_ &m) {
     } catch (const ir::AssertionError &e) {
       PyErr_SetString(PyExc_AssertionError, e.GetFullMessage().c_str());
     } catch (const ir::InternalError &e) {
-      PyErr_SetString(exc_internal_error.ptr(), e.GetFullMessage().c_str());
+      PyErr_SetString(excInternalError.ptr(), e.GetFullMessage().c_str());
     } catch (const ir::Error &e) {
       PyErr_SetString(PyExc_Exception, e.GetFullMessage().c_str());
     }
