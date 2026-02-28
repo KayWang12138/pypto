@@ -185,7 +185,7 @@ bool ReduceNeedCombineAxis(const Operation &op) {
 void CodegenPreproc::ProcessExpand(Operation &op, int dimSize) const {
     if (op.GetOpcode() == Opcode::OP_EXPAND) {
         int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM");
-        if (axis == dimSize - 2) {
+        if (axis == dimSize - NUM2) {
             op.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", axis + 1);
         }
     }
