@@ -285,7 +285,6 @@ MachineTask *HostMachine::Compile(MachineTask *task) const {
         MACHINE_ASSERT(curTask != nullptr);
         compileTask = curTask;
     }
-    MonitorManager::Instance().TryEndPythonStage();
     std::string jsonPath;
     auto &backend = Backend::GetBackend();
     if (backend.getResumePath) {

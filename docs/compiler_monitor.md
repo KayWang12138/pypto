@@ -58,7 +58,7 @@ Compiler Monitor 提供编译过程的实时进度监控和超时检测功能。
                         │
 ┌───────────────────────▼─────────────────────────────────────────┐
 │                   编译阶段集成点（触发点）                        │
-│  1. Python 阶段：Python 侧代码执行与进入 C++ 编译前的准备工作    │
+│  1. Prepare 阶段：从 pypto init 到进入 Program::UpdateCompileTask() 之前 │
 │  2. Pass 阶段：CompileFunction 内 runPass(PVC2_OOO) 前后         │
 │  3. CodeGen 阶段：backend Execute → GenCode() 整段（见下文定义） │
 └─────────────────────────────────────────────────────────────────┘
@@ -158,7 +158,7 @@ Compiler Monitor 提供编译过程的实时进度监控和超时检测功能。
 
 | 检查点 | 位置说明 | 调用时机 |
 |--------|----------|----------|
-| Python 阶段 | Python 侧代码执行与进入 C++ 编译前的准备工作 | 进入 C++ 编译前、阶段边界 |
+| Prepare 阶段 | 从 pypto init 到 Program::UpdateCompileTask() 之前（所有 function 共享，不区分） | Program::UpdateCompileTask() 入口 |
 | Pass 阶段 | CompileFunction 内 runPass(program, func, PVC2_OOO) | runPass 调用前、调用后（host_machine.cpp） |
 | CodeGen 阶段 | backend Execute 内 GenCode() 整段（含代码生成与二进制生成） | GenCode 调用前、调用后（backend.cpp） |
 
@@ -224,7 +224,7 @@ pto_result = pypto.matmul(a, b)
 
 **输出示例**：
 ```
-[Compiler Monitor] Stage: Python | Stage elapsed: 30s | Total elapsed: 30s
+[Compiler Monitor] Stage: Prepare | Stage elapsed: 30s | Total elapsed: 30s
 [Compiler Monitor] Stage: Pass | Stage elapsed: 30s | Total elapsed: 3min (180s)
 [Compiler Monitor] Stage: CodeGen | Stage elapsed: 45s | Total elapsed: 4min 15s (255s)
 ...
@@ -445,7 +445,7 @@ framework/src/passes/pass_mgr/
 ```
 [Compiler Monitor] Compilation finished | Total functions: 3
 [Compiler Monitor] Stage timing (aggregated by stage):
-  Python:  1.2s
+  Prepare: 1.2s
   Pass:    12.5s   (sum over 3 functions)
   CodeGen: 8.1s    (sum over 3 functions)
 [Compiler Monitor] Monitoring stopped | Total elapsed: 22.0s
@@ -453,7 +453,7 @@ framework/src/passes/pass_mgr/
 
 | 阶段名称 | 说明 | 对应代码位置 |
 |----------|------|--------------|
-| `Python` | Python 执行阶段（监控启动时默认阶段，从 pypto init 到进入 C++ 编译流程） | 进入 C++ 前 |
+| `Prepare` | Prepare 阶段（从 pypto init 到 Program::UpdateCompileTask() 之前，所有 function 共享） | program.cpp UpdateCompileTask() 入口 |
 | `Pass` | CompileFunction 阶段：对**每个**待编译 function 执行 runPass(program, func, PVC2_OOO)（Tensor→Tile→Block 整条链） | host_machine.cpp CompileFunction 内 runPass 前后 |
 | `CodeGen` | 对**每个** function 的 GenCode() 整段（含源码生成与二进制生成，含 host 控制流、aicpu 控制流、AICore kernel 的生成与编译）；不单独拆“二进制生成”阶段 | backend.cpp Execute 内 GenCode() 前后 |
 

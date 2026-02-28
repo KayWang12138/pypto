@@ -153,6 +153,8 @@ void Program::RefillCompileQueue(Function* func) {
 }
 
 void Program::UpdateCompileTask() {
+    // End Prepare stage - it starts at pypto import and ends here
+    MonitorManager::Instance().TryEndPrepareStage();
     MonitorManager::Instance().SetTotalFunctionCount(static_cast<int>(functionSequence_.size()));
     for (auto func : functionSequence_) {
         HostMachine::GetInstance().StashTask(func);

@@ -63,7 +63,10 @@ def _load_shared_libs():
 _load_shared_libs()
 
 from . import pypto_impl  # noqa: F401
-# Monitor is initialized on first compile (lazy) so set_compiler_monitor_options() takes effect
+
+# Initialize compiler monitor when pypto is imported
+# Prepare stage starts here and ends at Program::UpdateCompileTask()
+pypto_impl.InitializeMonitor()
 
 from . import experimental
 

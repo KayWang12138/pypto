@@ -33,13 +33,15 @@ void MonitorManager::Initialize() {
         return;
     }
     impl_ = new MonitorImpl(this);
-    current_stage_ = "Python";
+    current_stage_ = "Prepare";
     total_start_ = std::chrono::steady_clock::now();
     stage_start_ = total_start_;
     last_print_time_ = total_start_;
     next_function_index_ = 1;
     impl_->Start();
     initialized_ = true;
+    // Mark that Prepare stage has started (use env var for cross-.so communication)
+    (void)setenv("PYPTO_COMPILER_MONITOR_PREPARE_STARTED", "1", 1);
 }
 
 void MonitorManager::Shutdown() {
@@ -88,11 +90,14 @@ void MonitorManager::SetTotalFunctionCount(int n) {
     MonitorImpl* to_start = nullptr;
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        if (!initialized_ && enable_) {
+        // Check if Prepare stage was started via Python (env var indicates this)
+        bool prepare_started = (std::getenv("PYPTO_COMPILER_MONITOR_PREPARE_STARTED") != nullptr);
+        if (!initialized_ && enable_ && !prepare_started) {
+            // First time initialization (no Prepare stage from Python)
             if (!impl_) {
                 impl_ = new MonitorImpl(this);
             }
-            current_stage_ = "Python";
+            current_stage_ = "Prepare";
             total_start_ = std::chrono::steady_clock::now();
             stage_start_ = total_start_;
             last_print_time_ = total_start_;
@@ -124,15 +129,44 @@ void MonitorManager::SetCurrentFunctionIndex(int k) {
     (void)setenv("PYPTO_COMPILER_MONITOR_CURRENT", val.c_str(), 1);
 }
 
-void MonitorManager::TryEndPythonStage() {
+void MonitorManager::TryEndPrepareStage() {
     std::lock_guard<std::mutex> lock(mutex_);
+    // If not initialized but Prepare was started (env var set), initialize now
+    if (!initialized_) {
+        const char* prepare_started = std::getenv("PYPTO_COMPILER_MONITOR_PREPARE_STARTED");
+        if (prepare_started != nullptr && prepare_started[0] == '1') {
+            // Python side Initialize was called, initialize this instance
+            if (enable_ && !impl_) {
+                impl_ = new MonitorImpl(this);
+            }
+
+            // Try to get prepare start time from environment (set by Python)
+            const char* prepare_start_time_str = std::getenv("PYPTO_COMPILER_MONITOR_PREPARE_START_TIME");
+            if (prepare_start_time_str != nullptr) {
+                // Python side recorded start time, use current time as end time
+                // Elapsed = now - Python start time
+                double prepare_start_time = std::atof(prepare_start_time_str);
+                double now_time = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+                double elapsed = now_time - prepare_start_time;
+                initialized_ = true;
+                python_stage_ended_ = true;
+                stage_elapsed_totals_["Prepare"] += elapsed;
+                return;
+            }
+
+            current_stage_ = "Prepare";
+            total_start_ = std::chrono::steady_clock::now();
+            stage_start_ = total_start_;
+            initialized_ = true;
+        }
+    }
     if (!initialized_ || python_stage_ended_) {
         return;
     }
     python_stage_ended_ = true;
     auto now = std::chrono::steady_clock::now();
     double elapsed = std::chrono::duration<double>(now - stage_start_).count();
-    stage_elapsed_totals_["Python"] += elapsed;
+    stage_elapsed_totals_["Prepare"] += elapsed;
 }
 
 void MonitorManager::NotifyCompilationFinished() {
@@ -152,6 +186,17 @@ void MonitorManager::NotifyCompilationFinished() {
 void MonitorManager::PrintCompilationFinished() {
     auto now = std::chrono::steady_clock::now();
     double total_elapsed = std::chrono::duration<double>(now - total_start_).count();
+    // Calculate total from all stage elapsed totals (sum of all stages)
+    // This ensures Total elapsed includes Prepare time from Python side
+    double stage_total = 0.0;
+    for (const auto& [stage, sec] : stage_elapsed_totals_) {
+        stage_total += sec;
+    }
+    // Use the larger of: clock-based total vs sum of stages
+    // (sum of stages may be more accurate when Prepare was tracked via Python)
+    if (stage_total > total_elapsed) {
+        total_elapsed = stage_total;
+    }
     (void)fprintf(stderr, "[Compiler Monitor] Compilation finished | Total functions: %d\n",
                   total_function_count_ > 0 ? total_function_count_ : 1);
     (void)fprintf(stderr, "[Compiler Monitor] Stage timing (aggregated by stage):\n");

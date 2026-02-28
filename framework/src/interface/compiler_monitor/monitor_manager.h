@@ -36,7 +36,7 @@ public:
     int GetAndIncrementNextFunctionIndex();
     void SetCurrentFunctionIndex(int k);
 
-    void TryEndPythonStage();
+    void TryEndPrepareStage();
 
     void NotifyCompilationFinished();
 
