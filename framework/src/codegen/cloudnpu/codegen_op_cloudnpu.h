@@ -91,7 +91,6 @@ public:
     std::string GenVectorScalarOp() const;
     std::string GenBinaryOpWithTmp() const;
     std::string GenVectorScalarOpWithTmp() const;
-    std::string PrintVectorReverseScalarTileTensor() const;
     std::string GenCubeOpMatmul() const;
     std::string GenCubeOpMatmulAcc() const;
 

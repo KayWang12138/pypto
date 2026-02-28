@@ -500,13 +500,17 @@ static void Fmod(const TensorData &out, const TensorData &self, const TensorData
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
-static void Remainder(const TensorData &out, const TensorData &self, const TensorData &other) {
-    auto tout = From(out);
-    auto tself = From(self);
-    auto tother = From(other);
-    torch::remainder_out(tout.second, tself.second, tother.second);
-    ToOperand(tout.second, tout.first, out.dtype);
-}
+#define DEFINE_BINARY_OPS(Name, op_out)                                                        \
+    static void Name(const TensorData &out, const TensorData &self, const TensorData &other) { \
+        auto tout = From(out);                                                                 \
+        auto tself = From(self);                                                               \
+        auto tother = From(other);                                                             \
+        torch::op_out(tout.second, tself.second, tother.second);                               \                                                                           \
+        ToOperand(tout.second, tout.first, out.dtype);                                         \
+    }
+
+DEFINE_BINARY_OPS(Remainder, remainder_out)
+DEFINE_BINARY_OPS(Gcd, gcd_out)
 
 static void Pow(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tout = From(out);
@@ -589,14 +593,6 @@ static void SBitwiseLeftShift(const TensorData &out, const Element &scalar, cons
     auto tout = From(out);
     auto tother = From(other);
     torch::bitwise_left_shift_out(tout.second, From(scalar), tother.second);
-    ToOperand(tout.second, tout.first, out.dtype);
-}
-
-static void Gcd(const TensorData &out, const TensorData &self, const TensorData &other) {
-    auto tout = From(out);
-    auto tself = From(self);
-    auto tother = From(other);
-    torch::gcd_out(tout.second, tself.second, tother.second);
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
