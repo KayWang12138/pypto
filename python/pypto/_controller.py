@@ -261,8 +261,8 @@ def get_conv_tile_shapes() -> Tuple[pypto_impl.TileL1Info, pypto_impl.TileL0Info
             tileWout=8,
             tileCinFmap=16,
             tileCinWeight=32,
-            tileCout=16,
-            tileN=1)
+            tileN=16,
+            tileBatch=1)
     >>> l0_tile = pypto_impl.TileL0Info(
             tileH=2,
             tileW=8,

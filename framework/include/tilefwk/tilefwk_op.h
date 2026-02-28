@@ -419,13 +419,13 @@ struct TileL1Info {
     int64_t tileWout{0};
     int64_t tileCinFmap{0};
     int64_t tileCinWeight{0};
-    int64_t tileCout{0};
     int64_t tileN{0};
+    int64_t tileBatch{0};
 
     TileL1Info(int64_t hin, int64_t hout, int64_t win, int64_t wout, 
                 int64_t cinFmap, int64_t cinWeight, int64_t cout, int64_t n)
         : tileHin(hin), tileHout(hout), tileWin(win), tileWout(wout), 
-            tileCinFmap(cinFmap), tileCinWeight(cinWeight), tileCout(cout), tileN(n) {}
+            tileCinFmap(cinFmap), tileCinWeight(cinWeight), tileN(cout), tileBatch(n) {}
     
     TileL1Info() = default;
 };
