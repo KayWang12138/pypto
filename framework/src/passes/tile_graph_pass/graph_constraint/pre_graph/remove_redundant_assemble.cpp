@@ -273,7 +273,7 @@ Status RemoveRedundantAssemble::DuplicateReshape(
                 firstReshape->GetIOperands().front(), firstReshape->GetOOperands().front())) {
             continue;
         }
-        auto consumer = firstReshape->GetOOperands().front()->GetConsumers(); // 可能多个
+        auto consumer = firstReshape->GetOOperands().front()->GetConsumers();
         for (auto consumerOp : consumer) {
             if (consumerOp->GetOpcode() != Opcode::OP_VIEW) {
                 continue;
@@ -300,7 +300,7 @@ Status RemoveRedundantAssemble::DuplicateReshape(
 
 Status RemoveRedundantAssemble::ProcessReshape(Function &function, Operation *&operation,
     std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const {
-    auto iOperand = operation->iOperand[0]; // firstreshape input
+    auto iOperand = operation->iOperand[0];
     auto oOperand = operation->oOperand[0];
     if (oOperand == nullptr) {
         APASS_LOG_ERROR_F(Elements::Operation,
@@ -318,8 +318,7 @@ Status RemoveRedundantAssemble::ProcessReshape(Function &function, Operation *&o
     for (auto &consumer : consumers) {
         if (consumer == nullptr) {
             APASS_LOG_ERROR_F(Elements::Tensor,
-                "Null consumer detected while iterating over the consumers of the output operand [%d].",
-                oOperand->magic);
+                "Null consumer detected while iterating over the consumers of the output operand [%d].", oOperand->magic);
             return FAILED;
         }
         if (consumer->GetOpcode() == Opcode::OP_COPY_IN) {
@@ -336,14 +335,13 @@ Status RemoveRedundantAssemble::ProcessReshape(Function &function, Operation *&o
         if (oriReshapeAttr != nullptr) {
             newReshapeOp.SetOpAttribute(oriReshapeAttr);
         }
-        // newreshape consumer
         multiReshapeVector.emplace_back(&newReshapeOp, consumer);
     }
     return SUCCESS;
 }
 
 /*
-拷贝一个RESHAPE和删除冗余RESHAPE
+删除冗余RESHAPE
 Before:
 input --> RESHAPE1 -> VIEW -> RESHAPE2 -> XXX
 
@@ -354,7 +352,6 @@ input --> RESHAPE2 -> XXX
 Status RemoveRedundantAssemble::RemoveViewMultiReshape(
     std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const {
     for (auto pair : multiReshapeVector) {
-        // viewConsumerOp = secondReshape;
         auto firstReshape = pair.first;
         auto viewOp = pair.second;
         auto secondReshape = *(viewOp->GetOutputOperand(0)->GetConsumers().begin());
