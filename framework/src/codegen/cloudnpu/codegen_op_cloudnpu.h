@@ -278,6 +278,8 @@ private:
     std::string GenCubeOp(bool zeroC) const;
     std::string GenCmpOp() const;
     std::string GenHypotOp() const;
+    std::string GenRemainderSOp() const;
+    std::string GenRemainderRSOp() const;
 
     std::string PrintDupOp(const PrintDupOpParam &param) const;
     std::string PrintDupOpDynUnaligned(const PrintDupOpParam &param) const;
@@ -416,7 +418,7 @@ private:
     std::string PrintCastDynamicUnaligned(const PrintUnaryParam &param) const;
     std::string PrintCastTileTensor() const;
     std::string PrintReduceCombine(const PrintUnaryTmpBuffParam &param) const;
-    std::string PrintVectorScalarTileTensor() const;
+    std::string PrintVectorScalarTileTensor(const PrintUnaryParam &param) const;
     std::string PrintVectorScalarOpDynamicUnalign(const PrintUnaryParam &param) const;
     std::string PrintMemL1ToL0TileTensor() const;
     std::string PrintMatmulTileTensor(bool isAcc) const;

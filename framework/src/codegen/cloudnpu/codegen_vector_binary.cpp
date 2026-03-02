@@ -226,10 +226,22 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpWithTmp() const {
     std::string srcScalar;
     if (extOperandVal.IsFloat()) {
         srcScalar = FormatFloat(extOperandVal.Cast<float>());
-    } else if (extOperandVal.IsUnsigned() || extOperandVal.IsSigned()) {
-        srcScalar = std::visit(
-            [](const auto &val) -> std::string { return std::to_string(val); }, extOperandVal.GetVariantData());
+    } else if (extOperandVal.IsUnsigned()||extOperandVal.IsSigned()) {
+        srcScalar = std::visit([](const auto& val) -> std::string {
+            return std::to_string(val);},extOperandVal.GetVariantData());
     }
+    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, srcScalar, tmpTensor};
+
+    std::ostringstream oss;
+    oss << tileOpName << WrapParamByParentheses(tileOpParamList) << STMT_END;
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenRemainderRSOp() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
+    std::string srcScalar = FormatFloat(extOperandVal.Cast<float>());
     std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, srcScalar, tmpTensor};
     std::string scalarDtypeStr = DataType2CCEStr(extOperandVal.GetDataType());
     std::vector<std::string> templateParamList = {scalarDtypeStr};
@@ -470,8 +482,8 @@ std::string CodeGenOpCloudNPU::PrintBinaryScalarDynamicUnaligned(const PrintBina
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintVectorScalarTileTensor() const {
-    const std::string &scalarDtypeStr = DataType2CCEStr(extOperandVal.GetDataType());
+std::string CodeGenOpCloudNPU::PrintVectorScalarTileTensor(const PrintUnaryParam &param) const {
+    const std::string &dstDtypeStr = param.dstDtypeStr;
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
     std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
@@ -483,7 +495,7 @@ std::string CodeGenOpCloudNPU::PrintVectorScalarTileTensor() const {
     if (!lastUse.empty()) {
         templateParamList.emplace_back(lastUse);
     }
-    templateParamList.emplace_back(scalarDtypeStr);
+    templateParamList.emplace_back(dstDtypeStr);
     oss << tileOpName;
     oss << WrapParamByAngleBrackets(templateParamList);
     oss << WrapParamByParentheses(tileOpParamList);
@@ -539,16 +551,29 @@ std::string CodeGenOpCloudNPU::PrintVectorScalarOpDynamicUnalign(const PrintUnar
     return oss.str();
 }
 
+std::string CodeGenOpCloudNPU::GenRemainderSOp() const {
+    const std::string &scalarDtypeStr = DataType2CCEStr(extOperandVal.GetDataType());
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
+
+    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, scalarTmpBuffer};
+    std::vector<std::string> templateParamList;
+    std::ostringstream oss;
+    templateParamList.emplace_back(scalarDtypeStr);
+    oss << tileOpName;
+    oss << WrapParamByAngleBrackets(templateParamList);
+    oss << WrapParamByParentheses(tileOpParamList);
+    oss << STMT_END;
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
     char buffer[BUFFER_SIZE_512] = "CG_ERROR";
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
-
-    if (isSupportLayout) {
-        return PrintVectorScalarTileTensor();
-    }
 
     AppendLocalBufVarOffsetInOrder(dVar, s0Var);
 
@@ -574,6 +599,10 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
                              << ret;
             return buffer;
         }
+    }
+
+    if (isSupportLayout) {
+        return PrintVectorScalarTileTensor({s0Var, dVar, dstDtypeStr, dstDtypeStr});
     }
 
     if (isDynamicFunction) {
