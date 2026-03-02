@@ -592,14 +592,17 @@ void DeviceLauncher::UnregisterKernelBin(void *hdl) {
 #endif
 }
 
-int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream,
-                                      bool debugEnable, [[maybe_unused]]Function *function) {
+int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream, bool isDebugMode,
+                                      bool isCaptureMode, [[maybe_unused]]Function *function) {
 #ifdef BUILD_WITH_CANN
     auto ctrlStream = (aclrtStream)machine::GetRA()->GetCtrlStream();
     auto schedStream = (aclrtStream)machine::GetRA()->GetScheStream();
     auto &devRunner = DeviceRunner::Get();
     devRunner.GetHostProfInstance().SetProfFunction(function);
-    if (debugEnable) {
+    if (isCaptureMode) {
+        ChangeCaptureModeRelax();
+    }
+    if (isDebugMode) {
         devRunner.SetDebugEnable();
     }
     int ret = 0;
@@ -631,7 +634,8 @@ int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream
 #else
     (void)rtArgs;
     (void)tripleStream;
-    (void)debugEnable;
+    (void)isCaptureMode;
+    (void)isDebugMode;
     return 0;
 #endif
 }
