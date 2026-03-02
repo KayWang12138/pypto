@@ -25,11 +25,12 @@
 
 using namespace npu::tile_fwk;
 
-RawTensor::RawTensor(DataType t, std::vector<int64_t> tshape, TileOpFormat tformat, std::string tname, int trawmagic)
+RawTensor::RawTensor(DataType t, std::vector<int64_t> tshape, TileOpFormat tformat, std::string tname, int trawmagic, bool tconst)
     : rawmagic((trawmagic == -1) ? IdGen<IdType::RAW_TENSOR>::Inst().NewId() : trawmagic),
       rawshape(std::move(tshape)),
       datatype(t),
       format(tformat),
+      dependConst(tconst),
       symbol(std::move(tname)) {
     dynRawShape = SymbolicScalar::FromConcrete(rawshape);
     memoryId = rawmagic;

@@ -209,7 +209,6 @@ def attention(
 @pypto.frontend.jit(
     runtime_options={"stitch_function_max_num": 128
                     },
-    debug_options={"runtime_debug_mode": 2}
 )
 def ifa_func_kernel(
     block_table: pypto.Tensor(),
@@ -242,6 +241,7 @@ def ifa_func_kernel(
 ):
     bs_tile = 8
     pypto.experimental.set_operation_options(combine_axis=True)
+    kv_act_seqs.SetDependConst(True)
     # 4. 得到动态tensor的shape
     bs = x.shape[0]
     hidden_size = x.shape[1]
