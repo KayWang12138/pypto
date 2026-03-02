@@ -564,8 +564,9 @@ void ExecuteOpTri(ExecuteOperationContext *ctx) {
     auto &output = ctx->ooperandInplaceDataViewList->at(0);
     auto &input = ctx->ioperandDataViewList->at(0);
 
-    auto dia = ctx->op->GetElementAttribute(OpAttributeKey::dynScalar);
-    int diagonal = static_cast<int32_t>(dia.GetSignedData());
+    // dynScalar 存的是 SymbolicScalar，需用 GetSymbolicScalarAttribute + EvaluateSymbolicScalar 取整型值
+    SymbolicScalar diaSym = ctx->op->GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
+    int diagonal = static_cast<int>(ctx->opInter->EvaluateSymbolicScalar(diaSym));
     bool isUpper = ctx->op->GetBoolAttribute(OpAttributeKey::isUpper);
     isUpper ? calc::TriU(output, input, diagonal) : calc::TriL(output, input, diagonal);
 }
