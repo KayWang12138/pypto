@@ -1159,6 +1159,42 @@ void GatherElements(const TensorData &out, const TensorData &params, const Tenso
     ToOperand(ret.second, ret.first, out.dtype);
 }
 
+void GatherMask(const TensorData &out, const TensorData &self, int patternMode) {
+    auto ret = From(out);
+    auto src = From(self);
+    auto last_dim = src.sizes(-1);
+    auto indices = torch::arange(last_dim, torch::kInt64);
+    if (pattern_mode == 7){
+        ret = src;
+    } else {
+        torch::Tensor selected_indices;
+        switch(pattern_mode) {
+            case 1:
+            selected_indices = indices[torch::index({torch::slice(0, indices.size(0), 2)})];
+            break;
+            case 2:
+            selected_indices = indices[torch::index({torch::slice(1, indices.size(0), 2)})];
+            break;
+            case 3:
+            selected_indices = indices[torch::index({torch::slice(0, indices.size(0), 4)})];
+            break;
+            case 4:
+            selected_indices = indices[torch::index({torch::slice(1, indices.size(0), 4)})];
+            break;
+            case 5:
+            selected_indices = indices[torch::index({torch::slice(2, indices.size(0), 4)})];
+            break;
+            case 6:
+            selected_indices = indices[torch::index({torch::slice(3, indices.size(0), 4)})];
+            break;
+            default:
+            ASSERT(0 < patternMode <= 7) << "Invalid patternMode";
+        }
+        ret = self.index_select(-1, selected_indices);
+    }
+    ToOperand(ret.second, ret.first, out.dtype);
+}
+
 void IndexAdd(const TensorData &out, const TensorData &self, const TensorData &src, const TensorData &indices, int axis, const Element &alpha) {
     auto tout = From(out);
     auto inputSelf = From(self);
@@ -1931,6 +1967,7 @@ static struct CalcOps calcOps = {
     .ExpandS = ExpandS,
     .Expand = Expand,
     .GatherElements = GatherElements,
+    .GatherMask = GatherMask,
     .IndexAdd = IndexAdd,
     .TriU = TriU,
     .TriL = TriL,
