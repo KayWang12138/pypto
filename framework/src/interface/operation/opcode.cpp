@@ -446,6 +446,9 @@ void OpcodeManager::RegisterVector() {
     RegisterInfo(Opcode::OP_LOG1P, OpCoreType::AIV, "Log1p", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Log1p", PIPE_V, PIPE_V, CoreType::AIV},
         OpCalcType::BROADCAST);
+    RegisterInfo(Opcode::OP_PRELU, OpCoreType::AIV, "PRELU", {MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::PReLU", PIPE_V, PIPE_V, CoreType::AIV},
+        OpCalcType::OTHER, {OP_ATTR_PREFIX + "axis", OpAttributeKey::excludeBufferReuse}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_SCATTER_ELEMENT, OpCoreType::AIV, "SCATTER_ELEMENT",
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::TscatterElementS", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::OTHER,
@@ -890,7 +893,8 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {           Opcode::OP_WHERE_SS,       "TWhereSS"},
     {                Opcode::OP_CMP,       "TCompare"},
  	{               Opcode::OP_CMPS,       "TCompare"},
-    {               Opcode::OP_HYPOT,        "THypot"},  
+    {               Opcode::OP_HYPOT,        "THypot"},
+    {               Opcode::OP_PRELU,        "TPRelu"}, 
     {               Opcode::OP_ADDS,          "TAddS"},
     {               Opcode::OP_MODS,          "TModS"},
     {               Opcode::OP_SUBS,          "TSubS"},

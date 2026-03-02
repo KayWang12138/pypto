@@ -608,5 +608,7 @@ void bind_operation(py::module &m) {
         },
         py::arg("in_tensors")
     );
+    m.def(
+        "PReLU", [](const Tensor &self, const Tensor &weight) { return npu::tile_fwk::PReLU(self, weight); }, "Tensor prelu.");
 }
 } // namespace pypto

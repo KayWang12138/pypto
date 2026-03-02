@@ -512,6 +512,16 @@ static void Fmod(const TensorData &out, const TensorData &self, const TensorData
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
+static void PReLU(const TensorData &out, const TensorData &self, const TensorData &weight) {
+    auto tout = From(out);
+    auto tself = From(self);
+    auto tweight = From(weight);
+    
+    auto result = torch::where(tself.second >= 0, tself.second, tweight.second * tself.second);
+    tout.second.copy_(result);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
 static void Pow(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tout = From(out);
     auto tself = From(self);
@@ -1899,6 +1909,7 @@ static struct CalcOps calcOps = {
     .Compare = Compare,
     .Cmps = Cmps,
     .Hypot = Hypot,
+    .PReLU = PReLU,
     .LogicalAnd = LogicalAnd,
     .AddS = AddS,
     .SubS = SubS,

@@ -513,6 +513,15 @@ TEST_F(TorchAdaptorTest, BinaryOps) {
         ASSERT_ALLCLOSE(out, golden);
     }
     {
+        // prelu
+        auto self = makeTensorData(DT_FP32, {16, 16}, -2.0f);
+        auto weight = makeTensorData(DT_FP32, {16}, 0.25f);
+        auto out = makeTensorData(DT_FP32, {16, 16}, 0.0f);
+        auto golden = makeTensorData(DT_FP32, {16, 16}, -0.5f);
+        calc::PReLU(out, self, weight);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+    {
         // fmod
         auto self = makeTensorData(DT_FP32, {16, 16}, 5.0f);
         auto other = makeTensorData(DT_FP32, {16, 16}, 2.0f);

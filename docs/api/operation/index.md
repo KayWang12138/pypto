@@ -62,6 +62,7 @@ pypto-ne
 pypto-neg
 pypto-one_hot
 pypto-pow
+pypto-prelu
 pypto-reciprocal
 pypto-relu
 pypto-reshape
