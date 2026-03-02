@@ -59,7 +59,8 @@ public:
      * \param format : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
      * \attention : The parameters dataType and shape are required parameters.
      */
-    Tensor(DataType dataType, const Shape &shape, std::string name = "", TileOpFormat format = TileOpFormat::TILEOP_ND);
+    Tensor(DataType dataType, const Shape &shape, std::string name = "", TileOpFormat format = TileOpFormat::TILEOP_ND,
+           TensorType type = TensorType::DEPEND_AICORE);
 
     /**
      * \brief Construct a new Tensor object with 6 input parameters
@@ -72,8 +73,8 @@ public:
      * \attention : The parameters dataType,shape,dataPtr and name are required parameters.
      */
     Tensor(DataType dataType, const Shape &shape, uint8_t *dataPtr, std::string name,
-        TileOpFormat format = TileOpFormat::TILEOP_ND)
-        : Tensor(dataType, shape, name, format) {
+        TileOpFormat format = TileOpFormat::TILEOP_ND, TensorType type = TensorType::DEPEND_AICORE)
+        : Tensor(dataType, shape, name, format, type) {
         SetData(dataPtr);
     }
 
@@ -86,7 +87,7 @@ public:
      * \param format : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
      */
     Tensor(DataType dataType, std::vector<SymbolicScalar> shape, std::string name = "",
-        TileOpFormat format = TileOpFormat::TILEOP_ND);
+        TileOpFormat format = TileOpFormat::TILEOP_ND, TensorType type = TensorType::DEPEND_AICORE);
 
     /**
      * \brief Construct a new Tensor object
@@ -102,8 +103,8 @@ public:
      * \endcode
      */
     Tensor(DataType t, std::initializer_list<SymbolicScalar> shape, std::string name = "",
-        TileOpFormat format = TileOpFormat::TILEOP_ND)
-        : Tensor(t, std::vector<SymbolicScalar>(shape), name, format) {}
+        TileOpFormat format = TileOpFormat::TILEOP_ND, TensorType type = TensorType::DEPEND_AICORE)
+        : Tensor(t, std::vector<SymbolicScalar>(shape), name, format, type) {}
 
     /**
      * \brief Overload the assignment operator to assign the value of another Tensor object to the current Tensor

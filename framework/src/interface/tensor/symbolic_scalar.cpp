@@ -32,7 +32,9 @@ std::string CompileSourceCode(const std::string &sourceFilePath, const std::stri
     std::string objectFilePath = sourceFilePath + "_t.o";
     std::string LD_PRELOAD = "LD_PRELOAD= ";
     std::string includePath = GetCurrentSharedLibPath() + "/../include/tile_fwk";
+    std::string macro = extraCflag.empty() ? "-D__DEVICE__" : "";
     std::string cmdGcc = LD_PRELOAD + gcc + " -fPIC -fno-stack-protector -O2 " + extraCflag +
+        " " + macro + " " +
         " -I" + includePath + " " +
         " -I" + GetCurrentSharedLibPath() + "/include/" +
         " -I" + includePath + "/tilefwk " +
@@ -144,6 +146,52 @@ std::string SymbolicExpressionTable::BuildExpression(const SymbolicScalar &ss) {
 std::string SymbolicExpressionTable::BuildExpression(const RawSymbolicScalarPtr &ss) {
     std::string expr = BuildExpressionByRaw(ss, {});
     return expr;
+}
+
+bool SymbolicExpressionTable::CheckDependAicore(const std::string &expr, const std::function<TensorType(const std::string&)> &getTensorTypeFunc) {
+    size_t pos = 0;
+    static const std::string valueDepCall = "RUNTIME_GetInputDataInt32Dim";
+    while (pos < expr.size()) {
+        size_t start = expr.find(valueDepCall, pos);
+        if (start == std::string::npos) {
+            break;
+        }
+        
+        // Find RUNTIME_GetInputDataInt32Dim 1 ~ 4
+        size_t next = start + valueDepCall.size();
+        if (next >= expr.size() || !isdigit(expr[next])) {
+            pos = start + 1;
+            continue;
+        }
+        char digit = expr[next];
+        if (digit < '1' || digit > '4') {
+            pos = next + 1;
+            continue;
+        }
+        next++;
+        if (next < expr.size() && expr[next] == '(') {
+            size_t leftParen = next;
+            size_t rightParen = expr.find(')', leftParen);
+            ASSERT(rightParen != std::string::npos) << "RUNTIME_GetInputDataInt32Dim missing closing parenthesis";
+            std::string args = expr.substr(leftParen + 1, rightParen - leftParen - 1);
+            
+            // Get TENSOR_ID
+            size_t comma = args.find(',');
+            std::string tensorId;
+            if (comma != std::string::npos) {
+                tensorId = args.substr(0, comma);
+            } else {
+                tensorId = args;
+            }
+            StringUtils::Trim(tensorId);
+            TensorType tensorType = getTensorTypeFunc(tensorId);
+            if (tensorType == TensorType::DEPEND_AICORE) {
+                return true;
+            }
+            return false;
+        }
+    }
+    return false;
 }
 
 std::string SymbolicExpressionTable::BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict) {

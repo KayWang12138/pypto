@@ -30,6 +30,7 @@ ReLuType = pypto_impl.ReLuType
 TransMode = pypto_impl.TransMode
 ScatterMode = pypto_impl.ScatterMode
 AtomicType = pypto_impl.AtomicType
+TensorType = pypto_impl.TensorType
 
 DataType.__repr__ = _enum_repr
 TileOpFormat.__repr__ = _enum_repr
@@ -38,6 +39,7 @@ ReduceMode.__repr__ = _enum_repr
 CastMode.__repr__ = _enum_repr
 OpType.__repr__ = _enum_repr
 OutType.__repr__ = _enum_repr
+TensorType.__repr__ = _enum_repr
 
 DT_INT4 = pypto_impl.DataType.DT_INT4
 DT_INT8 = pypto_impl.DataType.DT_INT8

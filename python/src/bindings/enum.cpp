@@ -55,6 +55,12 @@ void bind_enum(py::module &m){
         .value("TILEOP_FORMAT_NUM", TileOpFormat::TILEOP_FORMAT_NUM)
         .export_values();
 
+    py::enum_<TensorType>(m, "TensorType")
+        .value("DEPEND_AICORE", TensorType::DEPEND_AICORE)
+        .value("DEPEND_CONST", TensorType::DEPEND_CONST)
+        .value("TILEOP_FORMAT_NUM", TensorType::TILEOP_FORMAT_NUM)
+        .export_values();
+
     py::enum_<CachePolicy>(m, "CachePolicy")
         .value("NONE_CACHEABLE", CachePolicy::NONE_CACHEABLE)
         .value("MAX_NUM", CachePolicy::MAX_NUM)
