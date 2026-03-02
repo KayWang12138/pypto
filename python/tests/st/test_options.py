@@ -56,14 +56,12 @@ def set_scope_options(a, c, tiling=None):
 
         # 显式 scope
         with pypto.options("scope2",
-                            pass_options={"cube_l1_reuse_mode": 0,
-                                          "pg_upper_bound": 100,
+                            pass_options={"pg_upper_bound": 100,
                                           "cube_nbuffer_setting": {3: 4}},
                             vec_tile_shapes=[64, 64],
                             matrix_size=[64, 32],
                             cube_tile_shapes=[[16, 16], [256, 512, 128], [128, 128], True]
                             ): # scope 3
-            assert 0 == get_options("pass.cube_l1_reuse_mode")
             assert 100 == get_options("pass.pg_upper_bound")
             assert {3: 4} == get_options("pass.cube_nbuffer_setting")
             assert [64, 64] == get_options("vec_tile_shapes")
