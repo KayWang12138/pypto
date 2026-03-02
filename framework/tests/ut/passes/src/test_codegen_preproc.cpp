@@ -163,7 +163,7 @@ TEST_F(CodegenPreprocTest, TestForceCombineAxis) {
     EXPECT_EQ(tensor2->tensor->rawshape, combinedShape);
 }
 
-TEST_F(CodegenPreprocTest, TestCombineAxis) {
+TEST_F(CodegenPreprocTest, TestCombineAxisRowSumLine) {
     ComputationalGraphBuilder graph;
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4, 12, 1}, MemoryType::MEM_UB, "in"), true);
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {1, 12, 1}, MemoryType::MEM_UB, "out"), true);
@@ -211,6 +211,44 @@ TEST_F(CodegenPreprocTest, TestCombineAxis) {
     EXPECT_TRUE(sumline->HasAttr(OpAttributeKey::outputCombineAxis));
     sumline->GetAttr(OpAttributeKey::outputCombineAxis, attr);
     EXPECT_EQ(attr, (std::vector<bool>{true, false}));
+}
+
+TEST_F(CodegenPreprocTest, TestCombineAxisExpand) {
+    ComputationalGraphBuilder graph;
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {128, 1}, MemoryType::MEM_DEVICE_DDR, "in1"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {1, 1}, MemoryType::MEM_UB, "t1"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {64, 1}, MemoryType::MEM_UB, "t2"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {64, 1}, MemoryType::MEM_UB, "t3"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {64, 1}, MemoryType::MEM_UB, "t4"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"in1"}, {"t1"}, "c1", true), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_EXPAND, {"t1"}, {"t2"}, "expand", true), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"in1"}, {"t3"}, "c2", true), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_SUB, {"t2", "t3"}, {"t4"}, "sub", true), true);
+    auto expand = graph.GetOp("expand");
+    expand->SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", 0);
+
+    auto funcPtr = graph.GetFunction();
+    funcPtr->paramConfigs_.combineAxis = true;
+    PadLocalBuffer padLocalBufferTest;
+    EXPECT_EQ(padLocalBufferTest.RunOnFunction(*funcPtr), SUCCESS);
+
+    auto rootFuncPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestCombineAxis", "TestCombineAxis", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestCombineAxisLeaf", "TestCombineAxisLeaf", graph.GetFunction());
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), graph.GetFunction());
+    rootFuncPtr->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
+    rootFuncPtr->SetUnderDynamicFunction(true);
+    rootFuncPtr->paramConfigs_.combineAxis = true;
+
+    CodegenPreproc codegenPreprocPass;
+    EXPECT_EQ(codegenPreprocPass.RunOnFunction(*rootFuncPtr), SUCCESS);
+    // Verify CodegenPreproc
+    auto afterExpand = graph.GetOp("expand");
+    int axis = afterExpand->GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM");
+    EXPECT_EQ(axis, 1);
 }
 
 } // namespace tile_fwk
