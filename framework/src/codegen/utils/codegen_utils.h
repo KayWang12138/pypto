@@ -30,6 +30,18 @@
 namespace npu::tile_fwk {
 constexpr int COMMENT_PREFIX_LENGTH = 2;
 
+enum class FloatSpecValType : uint8_t {
+    INF_POS = 0,
+    INF_NEG = 1,
+    NAN = 2,
+};
+
+const std::map<FloatSpecValType, std::string> FLOAT_SPEC_VAL_TYPE_TO_STR = {
+    {FloatSpecValType::INF_POS, "inf_pos"},
+    {FloatSpecValType::INF_NEG, "inf_neg"},
+    {    FloatSpecValType::NAN,     "nan"},
+};
+
 template <typename T>
 inline void FillIntVecWithDummyInHead(std::vector<T> &input, unsigned padNum, T dummy) {
     for (unsigned i = 0; i < padNum; ++i) {
@@ -94,7 +106,8 @@ std::string WrapParamByAngleBrackets(const std::vector<T> &params) {
 }
 
 std::vector<int64_t> NormalizeShape(const std::vector<int64_t> &shapeVec, unsigned dim);
-std::string FormatFloat(const std::variant<int64_t, uint64_t, double> &v, int precision = 9);
+std::string FormatFloat(
+    const std::variant<int64_t, uint64_t, double> &v, DataType dtype = DataType::DT_FP32, int precision = 9);
 
 std::string GetTypeForB16B32(const DataType &dtype);
 
@@ -121,6 +134,45 @@ void FillParamWithInput(std::vector<std::string> &paramList, const std::vector<T
 }
 
 void PrintIndent(std::ostringstream &os, int scopeLevel);
+
+struct FloatSpecVal {
+    DataType dtype; // fp32 or fp16
+    FloatSpecValType fsType;
+
+    bool operator<(const FloatSpecVal &other) const {
+        if (dtype != other.dtype) {
+            return ToUnderlying(dtype) < ToUnderlying(other.dtype);
+        }
+        return ToUnderlying(fsType) < ToUnderlying(other.fsType);
+    }
+
+    std::string GetFsTypeStr() const {
+        auto iter = FLOAT_SPEC_VAL_TYPE_TO_STR.find(fsType);
+        if (iter != FLOAT_SPEC_VAL_TYPE_TO_STR.end()) {
+            return iter->second;
+        }
+        ASSERT(false) << "FloatSpecValType not found: " << ToUnderlying(fsType);
+    }
+
+    std::string GetFsValStr() const {
+        auto iter = FLOAT_SPEC_VAL_STR.find(*this);
+        if (iter != FLOAT_SPEC_VAL_STR.end()) {
+            return iter->second;
+        }
+        ASSERT(false) << "FloatSpecVal not found, dtype: " << ToUnderlying(dtype)
+                      << ", fsType: " << ToUnderlying(fsType);
+    }
+
+private:
+    const std::unordered_map<FloatSpecVal, std::string> FLOAT_SPEC_VAL_STR = {
+        {{DataType::DT_FP16, FloatSpecValType::INF_POS}, FP16_INF_POS},
+        {{DataType::DT_FP16, FloatSpecValType::INF_NEG}, FP16_INF_NEG},
+        {    {DataType::DT_FP16, FloatSpecValType::NAN},     FP16_NAN},
+        {{DataType::DT_FP32, FloatSpecValType::INF_POS}, FP32_INF_POS},
+        {{DataType::DT_FP32, FloatSpecValType::INF_NEG}, FP32_INF_NEG},
+        {    {DataType::DT_FP32, FloatSpecValType::NAN},     FP32_NAN},
+    };
+};
 
 } // namespace npu::tile_fwk
 #endif

@@ -119,7 +119,7 @@ std::string CodeGenCloudNPU::GenLimitValue(FloatSaturateStatus &fs) const {
 void CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc, std::ostringstream &oss) const {
     OperationsViewer operationList = subFunc.Operations(false);
     if (operationList.IsEmpty()) {
-        ALOG_ERROR("operationList from PASS is empty, func magic name: %s, func hash: %s",
+        CODEGEN_LOGW("operationList from PASS is empty, func magic name: %s, func hash: %s",
             subFunc.GetMagicName().c_str(), subFunc.GetFunctionHash().c_str());
     }
 
@@ -322,7 +322,7 @@ void CodeGenCloudNPU::DumpCCE(const std::string &fileName, std::ostringstream &o
         cceFile.flush();
         cceFile.close();
     } catch (const std::ofstream::failure &e) {
-        ALOG_ERROR_F("CCE file operation failed: %s, error: %s, errno: %d", fileName.c_str(), e.what(), errno);
+        CODEGEN_LOGE("CCE file operation failed: %s, error: %s, errno: %d", fileName.c_str(), e.what(), errno);
         cceFile.close();
         std::remove(fileName.c_str());
         return;
@@ -410,7 +410,7 @@ int CheckInjectStr(const char cmdStr[], size_t strLen) {
 
 void CodeGenCloudNPU::DoCompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const {
     if (config::GetHostOption<int64_t>(COMPILE_STAGE) == CS_CODEGEN_INSTRUCTION) {
-        ALOG_INFO("Compile stage terminates after codegen instruction.");
+        CODEGEN_LOGI("Compile stage terminates after codegen instruction.");
         return;
     }
     auto [ret, ccecCmd] = CompileCCE(compileInfo, compileOptions);
@@ -632,6 +632,48 @@ bool CodeGenCloudNPU::HandleForAICpuSubFunc(Function &subFunc) {
     attr->aicpuLeafCode = std::move(code);
     subFunc.SetLeafFuncAttribute(attr);
     return true;
+}
+
+void FloatSpecValMgr::UpdateByOp(const Operation &op) {
+    std::vector<Element> eles;
+    if (op.HasAttr(OpAttributeKey::scalar)) {
+        eles.emplace_back(op.GetElementAttribute(OpAttributeKey::scalar));
+    }
+    if (op.HasAttr(OpAttributeKey::vectorScalar)) {
+        auto vecScalars = op.GetVectorElementAttribute(OpAttributeKey::vectorScalar);
+        eles.insert(eles.end(), vecScalars.begin(), vecScalars.end());
+    }
+
+    if (eles.empty()) {
+        return;
+    }
+
+    for (const auto &e : eles) {
+        if (e.GetDataType() != DataType::DT_FP16 && e.GetDataType() != DataType::DT_FP32) {
+            continue;
+        }
+        float value = e.Cast<float>();
+        FloatSpecValType fsType;
+        if (std::isinf(value)) {
+            fsType =
+                value == std::numeric_limits<float>::infinity() ? FloatSpecValType::INF_POS : FloatSpecValType::INF_NEG;
+        } else if (std::isnan(value)) {
+            fsType = FloatSpecValType::NAN;
+        } else {
+            continue;
+        }
+
+        floatSpecVals_.insert({e.GetDataType(), fsType});
+    }
+}
+
+void FloatSpecValMgr::PrintFloatSpecVal(std::ostringstream &oss) {
+    // e.g. union FP32Int{float f; uint32_t u;} float_inf = {.u = 0x7F800000};
+    for (const auto &fs : floatSpecVals_) {
+        std::string dtypeCCE = DataType2CCEStr(fs.dtype);
+        oss << "union " << BriefDataType2String(fs.dtype) << "Int" << "{" << dtypeCCE << " f;" << dtypeCCE << " u;} "
+            << dtypeCCE << "_" << fs.GetFsTypeStr() << " = {.u = " << fs.GetFsValStr() << "}; " << "\n";
+    }
 }
 
 } // namespace npu::tile_fwk
