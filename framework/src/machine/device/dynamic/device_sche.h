@@ -132,7 +132,6 @@ public:
 
     void ResetRegAll() {
       sleep(1);
-      DEV_ERROR("ResetRegAll");
       for (uint32_t i = 0; i < schAicpuNum_; ++i) {
         aicoreManager_[i]->ResetRegAll();
       }
@@ -290,7 +289,6 @@ struct DynMachineManager {
         UNUSED(entry);
 
         DeviceArgs *devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
-        DEV_INFO("ThreadScheEnter idx=%d", threadIdx);
 
         DEV_INFO("TaskType %d threadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum %u .",
             static_cast<int>(devArgs->taskType), threadIdx, devArgs->nrAic,
