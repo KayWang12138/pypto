@@ -772,11 +772,13 @@ struct SymbolicExpressionTable {
     static std::string GetExprNameCalc(const std::string &exprKey, int index) { return exprKey + "_" + std::to_string(index) + "_CALC"; }
     static std::string GetExprNameUse(const std::string &exprKey, int index) { return exprKey + "_" + std::to_string(index) + "_USE"; }
 
-    static std::string BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
-    static std::string BuildExpression(const SymbolicScalar &ss);
-    static std::string BuildExpression(const RawSymbolicScalarPtr &ss);
+    static std::string BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict,
+        std::vector<std::set> *dependArgs = nullptr);
+    static std::string BuildExpression(const SymbolicScalar &ss, std::vector<std::set> *dependArgs = nullptr);
+    static std::string BuildExpression(const RawSymbolicScalarPtr &ss, std::vector<std::set> *dependArgs = nullptr);
 private:
-    static std::string BuildExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
+    static std::string BuildExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict,
+        std::vector<std::string> *set);
 
     void AddExpression(const RawSymbolicScalarPtr &raw) {
         switch (raw->Kind()) {

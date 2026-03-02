@@ -89,16 +89,17 @@ void SymbolicExpressionTable::SetTitleOnce(const std::string &title) {
     }
 }
 
-std::string SymbolicExpressionTable::BuildExpression(const SymbolicScalar &ss) {
-    return BuildExpression(ss.Raw());
+std::string SymbolicExpressionTable::BuildExpression(const SymbolicScalar &ss, std::vector<std::set> *dependArgs) {
+    return BuildExpression(ss.Raw(), dependArgs);
 }
 
-std::string SymbolicExpressionTable::BuildExpression(const RawSymbolicScalarPtr &ss) {
-    std::string expr = BuildExpressionByRaw(ss, {});
+std::string SymbolicExpressionTable::BuildExpression(const RawSymbolicScalarPtr &ss, std::vector<std::set> *dependArgs) {
+    std::string expr = BuildExpressionByRaw(ss, {}, dependArgs);
     return expr;
 }
 
-std::string SymbolicExpressionTable::BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict) {
+std::string SymbolicExpressionTable::BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict,
+    std::vector<std::set> *dependArgs) {
     if (exprDict.count(raw)) {
         return exprDict.find(raw)->second;
     }
@@ -114,11 +115,18 @@ std::string SymbolicExpressionTable::BuildExpressionByRaw(const RawSymbolicScala
                 result = symbol->Name();
             } else if (CheckArgPrefix(symbol->Name())) {
                 result = symbol->Name();
+                if (dependArgs != nullptr) {
+                    dependArgs->insert(result);
+                }
             } else {
-                if (symbol->Name().rfind("sym_", 0) == 0)
+                if (symbol->Name().rfind("sym_", 0) == 0) {
                     result = symbol->Name();
-                else
+                } else {
                     result = "VALUE_" + symbol->Name();
+                    if (dependArgs != nullptr) {
+                        dependArgs->insert(result);
+                    }
+                }
             }
         } break;
         case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION: {
@@ -130,35 +138,36 @@ std::string SymbolicExpressionTable::BuildExpressionByRaw(const RawSymbolicScala
     return result;
 }
 
-std::string SymbolicExpressionTable::BuildExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict) {
+std::string SymbolicExpressionTable::BuildExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict,
+    std::vector<std::set> *dependArgs) {
     std::ostringstream oss;
     oss << "(";
     if (SymbolicOpcode::T_UOP_BEGIN <= expr->Opcode() && expr->Opcode() < SymbolicOpcode::T_UOP_END) {
         oss << RawSymbolicExpression::GetSymbolicCalcOpcode(expr->Opcode());
-        oss << BuildExpressionByRaw(expr->OperandList()[0], exprDict);
+        oss << BuildExpressionByRaw(expr->OperandList()[0], exprDict, dependArgs);
     } else if (SymbolicOpcode::T_BOP_BEGIN <= expr->Opcode() && expr->Opcode() < SymbolicOpcode::T_BOP_END) {
         if (expr->Opcode() == SymbolicOpcode::T_BOP_MAX) {
             oss << "RUNTIME_Max(";
-            oss << BuildExpressionByRaw(expr->OperandList()[0], exprDict);
+            oss << BuildExpressionByRaw(expr->OperandList()[0], exprDict, dependArgs);
             oss << ", ";
-            oss << BuildExpressionByRaw(expr->OperandList()[1], exprDict);
+            oss << BuildExpressionByRaw(expr->OperandList()[1], exprDict, dependArgs);
             oss << ")";
         } else if (expr->Opcode() == SymbolicOpcode::T_BOP_MIN) {
             oss << "RUNTIME_Min(";
-            oss << BuildExpressionByRaw(expr->OperandList()[0], exprDict);
+            oss << BuildExpressionByRaw(expr->OperandList()[0], exprDict, dependArgs);
             oss << ", ";
-            oss << BuildExpressionByRaw(expr->OperandList()[1], exprDict);
+            oss << BuildExpressionByRaw(expr->OperandList()[1], exprDict, dependArgs);
             oss << ")";
         } else {
             for (size_t idx = 0; idx < expr->OperandList().size(); idx++) {
                 if (idx != 0) {
                     oss << " " + RawSymbolicExpression::GetSymbolicCalcOpcode(expr->Opcode()) + " ";
                 }
-                oss << BuildExpressionByRaw(expr->OperandList()[idx], exprDict);
+                oss << BuildExpressionByRaw(expr->OperandList()[idx], exprDict, dependArgs);
             }
         }
     } else if (expr->Opcode() == SymbolicOpcode::T_MOP_CALL) {
-        std::string callee = BuildExpressionByRaw(expr->OperandList()[0], exprDict);
+        std::string callee = BuildExpressionByRaw(expr->OperandList()[0], exprDict, dependArgs);
         if (CheckRuntimePrefix(callee)) {
             oss << callee;
         } else {
@@ -167,7 +176,7 @@ std::string SymbolicExpressionTable::BuildExpressionCode(const RawSymbolicExpPtr
         oss << "(";
         for (size_t idx = 1; idx < expr->OperandList().size(); idx++) {
             oss << (idx == 1 ? "" : ", ");
-            oss << BuildExpressionByRaw(expr->OperandList()[idx], exprDict);
+            oss << BuildExpressionByRaw(expr->OperandList()[idx], exprDict, dependArgs);
         }
         oss << ")";
     }
