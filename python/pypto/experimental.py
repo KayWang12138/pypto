@@ -210,8 +210,8 @@ def shmem_store(
         pred,
     )
     """
-    dummy = pred[0] if len(pred) == 1 else pypto_impl.Nop(pred)
-    dst_tile = pypto_impl.View(dst, [1, 1] + src.shape, to_syms([dst_pe] + offsets))
+    dummy = None if not pred else (pred[0] if len(pred) == 1 else pypto_impl.Nop(pred))
+    dst_tile = pypto_impl.View(dst, [1, 1] + src.shape, [dst_pe] + offsets)
     return pypto_impl.ShmemPutUb2Gm(src, dst_tile, dummy, AtomicType.SET)
 
 
@@ -253,13 +253,14 @@ def shmem_load(
     --------
     Load a [64, 128] tile from pe 1 into UB
     shmem_tile = pypto.view(shmem_tensor, shape=[64, 128], offset=[0, 0])
-    pre_token = pypto.distributed.waituntil(
-        shmem_signal, 
-        shapes, 
-        offsets,
+    dummy = pypto.distributed.shmem_wait_until(
+        shmem_signal,
+        cmp,
         cmp_value,
-        pred,
-        clear_flag,
+        shape,
+        offset,
+        clear_signal=True,
+        pred=None,
     )
     tile = pypto.experimental.shmem_load(
         shmem_tile,
@@ -272,9 +273,9 @@ def shmem_load(
     The tile is now in UB and can be used directly for computation
     result = pypto.exp(tile)
     """
-    dummy = pred[0] if len(pred) == 1 else pypto_impl.Nop(pred)
+    dummy = None if not pred else (pred[0] if len(pred) == 1 else pypto_impl.Nop(pred))
     if valid_shape is None:
-        src_tile = pypto_impl.View(src, [1] + shape, to_syms([src_pe] + offset))
+        src_tile = pypto_impl.View(src, [1] + shape, [src_pe] + offset)
     else:
         src_tile = pypto_impl.View(src, [1] + shape, to_syms(valid_shape), to_syms([src_pe] + offset))
     return pypto_impl.ShmemGetGm2Ub(dummy, src_tile)
