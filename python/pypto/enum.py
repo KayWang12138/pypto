@@ -30,7 +30,6 @@ ReLuType = pypto_impl.ReLuType
 TransMode = pypto_impl.TransMode
 ScatterMode = pypto_impl.ScatterMode
 AtomicType = pypto_impl.AtomicType
-
 DataType.__repr__ = _enum_repr
 TileOpFormat.__repr__ = _enum_repr
 CachePolicy.__repr__ = _enum_repr

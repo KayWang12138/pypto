@@ -25,7 +25,7 @@
 #include <unordered_set>
 
 #include <tilefwk/symbolic_scalar.h>
-
+#include "tilefwk/data_type.h"
 #include "tilefwk/error.h"
 #include "interface/inner/hash_buffer.h"
 #include "symbol_handler.h"
@@ -817,7 +817,8 @@ struct SymbolicExpressionTable {
     std::string elementKey_;
     std::string title_;
     SymbolicScalar mainBlockScalar_;
-
+    bool needSync_ = false;
+    std::unordered_map<std::string, bool> *tensorNameToDependConst_ = nullptr;
     void SetElementKeyOnce(const std::string &key);
     void SetTitleOnce(const std::string &title);
 
@@ -891,13 +892,14 @@ struct SymbolicExpressionTable {
     static std::string GetExprNameTempVarInit(const std::string &exprKey, int index) { return exprKey + "_" + std::to_string(index) + "_TEMP_INIT"; }
     static std::string GetExprNameCalc(const std::string &exprKey, int index) { return exprKey + "_" + std::to_string(index) + "_CALC"; }
     static std::string GetExprNameUse(const std::string &exprKey, int index) { return exprKey + "_" + std::to_string(index) + "_USE"; }
-
-    static std::string BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
-    static std::string BuildExpression(const SymbolicScalar &ss);
-    static std::string BuildExpression(const RawSymbolicScalarPtr &ss);
+    
+    using CheckTensorDependCallback = std::function<void (const std::string &)>;
+    static std::string BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict, CheckTensorDependCallback callback = nullptr);
+    static std::string BuildExpression(const SymbolicScalar &ss, CheckTensorDependCallback callback = nullptr);
+    static std::string BuildExpression(const RawSymbolicScalarPtr &ss, CheckTensorDependCallback callback = nullptr);
 private:
-    static void BuildExtremaExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict, std::ostringstream &oss);
-    static std::string BuildExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
+    static void BuildExtremaExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict, std::ostringstream &oss, CheckTensorDependCallback callback = nullptr);
+    static std::string BuildExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict, CheckTensorDependCallback callback = nullptr);
 
     void AddExpression(const RawSymbolicScalarPtr &raw) {
         switch (raw->Kind()) {
