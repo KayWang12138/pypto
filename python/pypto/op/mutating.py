@@ -57,7 +57,7 @@ def transpose(input: Tensor, dim0: int, dim1: int) -> Tensor:
 
 @op_wrapper
 def cast(input: Tensor, dtype: DataType, mode: CastMode = CastMode.CAST_NONE, 
-         sat_mode: SaturationMode = SaturationMode.OFF) -> Tensor:
+         satmode: SaturationMode = SaturationMode.OFF) -> Tensor:
     """Casting the operand to the specified type.
 
     Parameters
@@ -68,7 +68,7 @@ def cast(input: Tensor, dtype: DataType, mode: CastMode = CastMode.CAST_NONE,
         The desired type.
     mode : CastMode, optional
         The rounding mode for the cast operation. Default is CAST_NONE.
-    sat_mode : SaturationMode, optional
+    satmode : SaturationMode, optional
         The saturation mode for float to integer conversions. 
         Default is OFF (truncation behavior). Use ON for saturation (clamping).
 
@@ -90,16 +90,16 @@ def cast(input: Tensor, dtype: DataType, mode: CastMode = CastMode.CAST_NONE,
 
     # With saturation mode
     x = pypto.tensor([300.0, -300.0, 50.0], pypto.DT_FP16)
-    y = pypto.cast(x, pypto.DT_INT8, sat_mode=pypto.SaturationMode.ON)
+    y = pypto.cast(x, pypto.DT_INT8, satmode=pypto.SaturationMode.ON)
     # Values will be clamped to [-128, 127] range
 
     Input  x: [2.0, 3.0] x.dtype: pypto.DT_FP32
     Output y: [2.0, 3.0] y.dtype: pypto.DT_FP16
     """
-    if dtype == input.dtype and mode == CastMode.CAST_NONE and sat_mode == SaturationMode.OFF:
+    if dtype == input.dtype and mode == CastMode.CAST_NONE and satmode == SaturationMode.OFF:
         return input
     else:
-        return pypto_impl.Cast(input, dtype, mode, sat_mode)
+        return pypto_impl.Cast(input, dtype, mode, satmode)
 
 
 @op_wrapper
