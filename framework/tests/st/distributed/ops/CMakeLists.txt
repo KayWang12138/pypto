@@ -39,7 +39,6 @@ target_link_libraries(${_Target}
         PRIVATE
             ${PTO_Fwk_STestNamePrefix}_utils
             Dist_GTest_Inc
-            cann_host_runtime
             tile_fwk_utils
             tile_fwk_interface
             tile_fwk_compiler
