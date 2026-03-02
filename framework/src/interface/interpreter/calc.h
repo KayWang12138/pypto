@@ -165,6 +165,9 @@ inline void Cmps(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Elem
 inline void Hypot(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     GetCalcOps()->Hypot(Trans(out), Trans(self), Trans(other));
 }
+inline void PReLU(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr weight) {
+    GetCalcOps()->PReLU(Trans(out), Trans(self), Trans(weight));
+}
 inline void LogicalAnd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     GetCalcOps()->LogicalAnd(Trans(out), Trans(self), Trans(other));
 }
