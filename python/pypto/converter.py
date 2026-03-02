@@ -227,6 +227,7 @@ def _torch_dtype_from(dtype: DataType) -> "torch.dtype":
             
     return torch_dtype
 
+
 def _gen_pto_tensor(input_tensors):
     import torch
 
