@@ -13,9 +13,6 @@
  * \brief
  */
 
-#ifdef BUILD_WITH_CANN
-#define STRINGIFY(x) #x
-#endif
 #include "tilefwk/cann_host_runtime.h"
 
 namespace npu {
@@ -25,9 +22,13 @@ const std::string version = "version";
 #ifdef BUILD_WITH_CANN
 void *GetSymbol(const std::string &sym) {
     void *ptr = nullptr;
-    const char* CannPath = STRINGIFY(ASCEND_CANN_PACKAGE_PATH);
-    std::string LibPathDir = std::string(CannPath) + "/lib64/libruntime.so";
-    std::string soPath = RealPath(LibPathDir);
+    std::string LibPathDir = std::string(ASCEND_CANN_PACKAGE_PATH) + "/lib64/";
+    std::string soDepPath = RealPath(LibPathDir + "libapiprof.so");
+    void* handleDep = dlopen(soDepPath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+    if (handleDep == nullptr) {
+        return ptr;
+    }
+    std::string soPath = RealPath(LibPathDir + "libruntime.so");
     void* handle = dlopen(soPath.c_str(), RTLD_LAZY);
     if (handle != nullptr) {
         ptr = dlsym(handle, sym.c_str());
