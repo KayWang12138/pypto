@@ -15,6 +15,7 @@
 
 #include "interface/tensor/symbolic_scalar.h"
 #include <sys/mman.h>
+#include <thread>
 #include <sstream>
 #include "interface/utils/file_utils.h"
 #include "tilefwk/pypto_fwk_log.h"
@@ -25,17 +26,9 @@ constexpr uint64_t EXPRESSION = 2;
 constexpr int OPERAND_NUM = 2;
 namespace npu::tile_fwk {
 
-std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::string &sourceFilePath,
-    const std::string &gcc, const std::string &objcopy, const std::string &sectionName, bool needDump, const std::string &extraCflag) {
-    if (needDump) {
-        FILE *fsrc = fopen(sourceFilePath.c_str(), "w");
-        fprintf(fsrc, "%s", code.c_str());
-        fclose(fsrc);
-    }
-
+std::string CompileSourceCode(const std::string &sourceFilePath, const std::string &gcc, const std::string &extraCflag) {
     std::string assembleFilePath = sourceFilePath + ".s";
-    std::string objectFilePath = sourceFilePath + ".o";
-    std::string binaryFilePath = sourceFilePath + ".bin";
+    std::string objectFilePath = sourceFilePath + "_t.o";
     std::string LD_PRELOAD = "LD_PRELOAD= ";
     std::string includePath = GetCurrentSharedLibPath() + "/../include/tile_fwk";
     std::string cmdGcc = LD_PRELOAD + gcc + " -fPIC -O2 " + extraCflag +
@@ -49,7 +42,52 @@ std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::s
     std::string cmdAs = LD_PRELOAD + gcc + " -O2 -c " + assembleFilePath + " -o " + objectFilePath;
     FUNCTION_LOGI("[RunCmd] %s", cmdAs.c_str());
     ASSERT(system(cmdAs.c_str()) == 0);
+    return objectFilePath;
+}
 
+std::vector<std::string> ParallelCompile(const std::vector<std::string> &sourceFiles, const std::string &gcc, const std::string &extraCflag) {
+    std::vector<std::string> objs(sourceFiles.size());
+    std::vector<std::thread> threads;
+    
+    for (size_t i = 0; i < sourceFiles.size(); ++i) {
+        threads.emplace_back([&sourceFiles, &objs, &gcc, &extraCflag, i]() {
+            objs[i] = CompileSourceCode(sourceFiles[i], gcc, extraCflag);
+        });
+    }
+    for (auto &thread : threads) {
+        thread.join();
+    }
+    
+    return objs;
+}
+
+std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::string &sourceFilePath, const std::string &aicpuPath,
+    std::vector<std::string> &exprSrcFiles, const std::string &gcc, const std::string &ld, const std::string &objcopy,
+    const std::string &sectionName, bool needDump, const std::string &extraCflag) {
+    if (needDump) {
+        FILE *fsrc = fopen(sourceFilePath.c_str(), "w");
+        fprintf(fsrc, "%s", code.c_str());
+        fclose(fsrc);
+    }
+    std::string LD_PRELOAD = "LD_PRELOAD= ";
+    std::string objectFilePath;
+    if (exprSrcFiles.empty()) {
+        objectFilePath = CompileSourceCode(sourceFilePath, gcc, extraCflag);
+    } else {
+        std::vector<std::string> allSourceFiles;
+        allSourceFiles.push_back(sourceFilePath);
+        allSourceFiles.insert(allSourceFiles.end(), exprSrcFiles.begin(), exprSrcFiles.end());
+        std::vector<std::string> objs = ParallelCompile(allSourceFiles, gcc, extraCflag);
+        objectFilePath = sourceFilePath + ".o";
+        std::string cmdAs = LD_PRELOAD + ld;
+        for (const auto &obj : objs) {
+            cmdAs += " " + obj;
+        }
+        cmdAs += " -o " + objectFilePath + " -O2 -T " + aicpuPath + "/merge.link";
+        FUNCTION_LOGE("[RunCmd] %s", cmdAs.c_str());
+        ASSERT(system(cmdAs.c_str()) == 0);
+    }
+    std::string binaryFilePath = sourceFilePath + ".bin";
     std::string cmdObjcopy = LD_PRELOAD + objcopy + " --dump-section " + sectionName + "=" + binaryFilePath + " " + objectFilePath;
     FUNCTION_LOGI("[RunCmd] %s", cmdObjcopy.c_str());
     ASSERT(system(cmdObjcopy.c_str()) == 0);
