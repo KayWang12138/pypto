@@ -14,6 +14,7 @@
  */
 
 #include "machine/host/backend.h"
+#include "machine/host/expression_generator.h"
 #include "tilefwk/tilefwk.h"
 #include "codegen/codegen.h"
 #include "interface/inner/tilefwk.h"
@@ -450,7 +451,8 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
             << "#include \"" << expName << "\"\n"
             << "#include \"tilefwk/aikernel_data.h\"\n"
             << "#include \"tilefwk/aicpu_runtime.h\"\n"
-            << "#include \"tilefwk/aicpu_distributed.h\"\n";
+            << "#include \"tilefwk/aicpu_distributed.h\"\n"
+            << "#include \"batch_expr.h\"\n";
         expressionOss
             << "\n/* Symbol table list */\n"
             << linker.GetSymbolTable()->BuildSymbolList();
@@ -579,11 +581,34 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "uint64_t *exprList" << devRootKey << " = (uint64_t *)RUNTIME_RootAlloc(" << devRootKey << "ULL);\n";
 
         SymbolicExpressionTable *exprTable = linker.LookupDevRootCoa(func);
+        std::vector<std::string> exprFiles;
         if (exprTable != nullptr) {
-            for (auto &expr : exprTable->GetPrimaryExpressionSet()) {
-                auto index = exprTable->GetPrimaryExpressionSet().GetIndex(expr);
-                auto exprStr = exprTable->BuildExpression(expr);
-                controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_SetExpr(exprList" << devRootKey << ", " << index << ", " << exprStr << ");\n";
+            const auto &primaryExprs = exprTable->GetPrimaryExpressionSet();
+            size_t totalExprs = primaryExprs.size();
+            
+            if (totalExprs <= EXPRS_PER_BATCH) {
+                // Small number of expressions, generate inline
+                for (auto &expr : primaryExprs) {
+                    auto index = primaryExprs.GetIndex(expr);
+                    auto exprStr = exprTable->BuildExpression(expr);
+                    controlFlowOss << std::setw(indent * TABSIZE) << ' ' 
+                        << "RUNTIME_SetExpr(exprList" << devRootKey << ", " << index << ", " << exprStr << ");\n";
+                }
+            } else {
+                // Large number of expressions, use batchdevRootKeytions
+                std::string outputDir = GetEmitPath("kernel_aicpu");
+                ExprBatchGenerator generator(outputDir, devRootKey, totalExprs);
+                
+                // Generate batch files and add function calls
+                auto& batches = generator.GetBatches();
+                for (auto& batch : batches) {
+                    const auto file = generator.GenerateBatchFile(batch, expName, primaryExprs,
+                        [&exprTable](const auto& expr) { return exprTable->BuildExpression(expr); });
+                    exprFiles.emplace_back(file);
+                    controlFlowOss << std::setw(indent * TABSIZE) << ' ' 
+                        << batch.functionName << "(ctx, symbolTable, runtimeCallList, startArgs, exprList" << devRootKey <<");\n";
+                }
+                generator.GenerateHeaderFile();
             }
         }
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_RootStitch(" << devRootKey << "ULL);\n";
@@ -864,6 +889,8 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
     uint64_t tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
     const std::string expName = "expression_" + std::to_string(tilingKey) + ".h";
     std::unordered_map<int, int> slotIdxMapping;
+    std::string aicpuDirPath = GetEmitPath("kernel_aicpu");
+    npu::tile_fwk::CreateMultiLevelDir(aicpuDirPath);
     BuildControlFlow(cache, linker, "ast2", function, slotIdxMapping, attr->funcGroup, attr->rootTileDict, controlFlowOss,
                      expressionOss, 0, expName);
     expressionOss << "#endif/*TILE_FWK_EXPRESSION_H*/" << "\n";
@@ -879,8 +906,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
     std::string cflags = "-mgeneral-regs-only";
 #endif
 
-    std::string aicpuDirPath = GetEmitPath("kernel_aicpu");
-    npu::tile_fwk::CreateMultiLevelDir(aicpuDirPath);
+
 
     std::string expressionFilePath = aicpuDirPath + "/" + expName;
     if (IsNeedDumpAicpuKernel(expressionFilePath)) {
