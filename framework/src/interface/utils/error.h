@@ -18,6 +18,7 @@
 
 #include "tilefwk/error.h"
 #include "tilefwk/pypto_fwk_log.h"
+#include "interface/utils/log.h"
 
 namespace npu::tile_fwk {
 struct TerminateHandler {
@@ -35,7 +36,7 @@ struct TerminateHandler {
                     std::rethrow_exception(eptr);
                 }
             } catch (const std::exception &e) {
-                FUNCTION_LOGE("Caught exception: %s", e.what());
+                ALOG_ERROR("Caught exception: ", e.what());
                 std::cerr << "Caught exception: '" << e.what() << "'\n";
             }
             fflush(nullptr);
@@ -46,7 +47,7 @@ struct TerminateHandler {
     static void SigAction(int signo) {
         (void)signo;
         auto &backtrace = GetBacktrace(0x2, 0x10)->Get();
-        FUNCTION_LOGE("segment fault!!!\n%s", backtrace);
+        ALOG_ERROR("segment fault!!!\n", backtrace);
         std::cerr << "segment fault!!!\n" << backtrace << std::endl;
         fflush(nullptr);
         _Exit(1);
