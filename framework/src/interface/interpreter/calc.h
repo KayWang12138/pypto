@@ -78,6 +78,12 @@ inline void QuantPreCompute(LogicalTensorDataPtr out, LogicalTensorDataPtr self,
 inline void Exp(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Exp(Trans(out), Trans(self));
 }
+inline void Exp2(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    GetCalcOps()->Exp2(Trans(out), Trans(self));
+}
+inline void Expm1(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    GetCalcOps()->Expm1(Trans(out), Trans(self));
+}
 inline void Neg(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Neg(Trans(out), Trans(self));
 }
@@ -133,11 +139,17 @@ inline void WhereSS(
     LogicalTensorDataPtr out, LogicalTensorDataPtr condition, const Element &input, const Element &other) {
     GetCalcOps()->WhereSS(Trans(out), Trans(condition), input, other);
 }
+inline void LReLU(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &alpha) {
+    GetCalcOps()->LReLU(Trans(out), Trans(self), alpha);
+}
 inline void Ln(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Ln(Trans(out), Trans(self));
 }
 inline void IsFinite(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->IsFinite(Trans(out), Trans(self));
+}
+inline void Log1p(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    GetCalcOps()->Log1p(Trans(out), Trans(self));
 }
 inline void LogicalNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->LogicalNot(Trans(out), Trans(self));
@@ -155,6 +167,9 @@ inline void Cmps(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Elem
 }
 inline void Hypot(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     GetCalcOps()->Hypot(Trans(out), Trans(self), Trans(other));
+}
+inline void PReLU(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr weight) {
+    GetCalcOps()->PReLU(Trans(out), Trans(self), Trans(weight));
 }
 inline void LogicalAnd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     GetCalcOps()->LogicalAnd(Trans(out), Trans(self), Trans(other));
@@ -174,6 +189,9 @@ inline void DivS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Elem
 }
 inline void FmodS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
     GetCalcOps()->FmodS(Trans(out), Trans(self), scalar, reverse);
+}
+inline void GcdS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar) {
+    GetCalcOps()->GcdS(Trans(out), Trans(self), scalar);
 }
 inline void BitwiseAndS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
     GetCalcOps()->BitwiseAndS(Trans(out), Trans(self), scalar, reverse);
@@ -201,6 +219,9 @@ inline void Fmod(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTen
 }
 inline void Pow(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     GetCalcOps()->Pow(Trans(out), Trans(self), Trans(other));
+}
+inline void Gcd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    GetCalcOps()->Gcd(Trans(out), Trans(self), Trans(other));
 }
 inline void Min(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     GetCalcOps()->Min(Trans(out), Trans(self), Trans(other));

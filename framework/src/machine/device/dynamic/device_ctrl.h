@@ -18,7 +18,6 @@
 #include "device_common.h"
 #include <cstdint>
 #include <cstdlib>
-#include "tilefwk/tilefwk_log.h"
 #include "device_utils.h"
 #include "device_perf.h"
 #include "machine/device/dynamic/context/device_execute_context.h"
@@ -249,7 +248,8 @@ public:
 
         devStartArgs->inputSymbolList = nullptr;
         devStartArgs->inputSymbolSize = 0;
-        devStartArgs->hcclContextAddr = (uint64_t*)&devProg->hcclContext[0];
+        devStartArgs->commGroupNum = (kargs->commContexts == nullptr) ? 0 : static_cast<uint64_t>(*kargs->commContexts);
+        devStartArgs->commContexts = (devStartArgs->commGroupNum == 0) ? nullptr : kargs->commContexts + 1;
 
         DevControlFlowCache *ctrlFlowCacheBase = reinterpret_cast<DevControlFlowCache *>(kargs->ctrlFlowCache);
         DevControlFlowCache *ctrlFlowCache;

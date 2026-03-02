@@ -140,6 +140,20 @@ static void Exp(const TensorData &out, const TensorData &self) {
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
+static void Exp2(const TensorData &out, const TensorData &self) {
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::exp2_out(tout.second, tself.second);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
+static void Expm1(const TensorData &out, const TensorData &self) {
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::expm1_out(tout.second, tself.second);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
 static void Neg(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     auto tself = From(self);
@@ -158,6 +172,13 @@ static void Ceil(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     auto tself = From(self);
     torch::ceil_out(tout.second, tself.second);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
+static void Log1p(const TensorData &out, const TensorData &self) {
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::log1p_out(tout.second, tself.second);
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
@@ -491,6 +512,16 @@ static void Fmod(const TensorData &out, const TensorData &self, const TensorData
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
+static void PReLU(const TensorData &out, const TensorData &self, const TensorData &weight) {
+    auto tout = From(out);
+    auto tself = From(self);
+    auto tweight = From(weight);
+    
+    auto result = torch::where(tself.second >= 0, tself.second, tweight.second * tself.second);
+    tout.second.copy_(result);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
 static void Pow(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tout = From(out);
     auto tself = From(self);
@@ -572,6 +603,27 @@ static void SBitwiseLeftShift(const TensorData &out, const Element &scalar, cons
     auto tout = From(out);
     auto tother = From(other);
     torch::bitwise_left_shift_out(tout.second, From(scalar), tother.second);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
+static void Gcd(const TensorData &out, const TensorData &self, const TensorData &other) {
+    auto tout = From(out);
+    auto tself = From(self);
+    auto tother = From(other);
+    torch::gcd_out(tout.second, tself.second, tother.second);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
+static void GcdS(const TensorData &out, const TensorData &self, const Element &scalar) {
+    auto tout = From(out);
+    auto tself = From(self);
+    auto tdata = torch::tensor(0);
+    if (out.dtype == DataType::DT_UINT8) {
+        tdata = torch::tensor(static_cast<uint8_t>(scalar.GetUnsignedData()), torch::dtype(torch::kUInt8));
+    } else {
+        tdata = torch::tensor(scalar.GetSignedData());
+    }
+    torch::gcd_out(tout.second, tself.second, tdata);
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
@@ -666,6 +718,13 @@ static void MaxS(const TensorData &out, const TensorData &self, const Element &e
     auto tout = From(out);
     auto tself = From(self);
     torch::clamp_min_out(tout.second, tself.second, From(elem));
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
+static void LReLU(const TensorData &out, const TensorData &self, const Element &negative_slope = Element(DataType::DT_FP32, 0.01)) {
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::leaky_relu_out(tout.second, tself.second, From(negative_slope));
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
@@ -1830,6 +1889,8 @@ static struct CalcOps calcOps = {
     .AllClose = AllClose,
     .Cast = Cast,
     .Exp = Exp,
+    .Exp2 = Exp2,
+    .Expm1 = Expm1,
     .Neg = Neg,
     .Rsqrt = Rsqrt,
     .Sign = Sign,
@@ -1840,6 +1901,7 @@ static struct CalcOps calcOps = {
     .Round = Round,
     .Reciprocal = Reciprocal,
     .Relu = Relu,
+    .Log1p = Log1p,
     .BitwiseNot = BitwiseNot,
     .Abs = Abs,
     .Brcb = Brcb,
@@ -1847,6 +1909,7 @@ static struct CalcOps calcOps = {
     .WhereTS = WhereTS,
     .WhereST = WhereST,
     .WhereSS = WhereSS,
+    .LReLU = LReLU,
     .Ln = Ln,
     .IsFinite = IsFinite,
     .LogicalNot = LogicalNot,
@@ -1854,6 +1917,7 @@ static struct CalcOps calcOps = {
     .Compare = Compare,
     .Cmps = Cmps,
     .Hypot = Hypot,
+    .PReLU = PReLU,
     .LogicalAnd = LogicalAnd,
     .AddS = AddS,
     .SubS = SubS,
@@ -1863,6 +1927,7 @@ static struct CalcOps calcOps = {
     .BitwiseAndS = BitwiseAndS,
     .BitwiseOrS = BitwiseOrS,
     .BitwiseXorS = BitwiseXorS,
+    .GcdS = GcdS,
     .Add = Add,
     .Sub = Sub,
     .Mul = Mul,
@@ -1873,6 +1938,7 @@ static struct CalcOps calcOps = {
     .BitwiseOr = BitwiseOr,
     .BitwiseXor = BitwiseXor,
     .CopySign = CopySign,
+    .Gcd = Gcd,
     .PairSum = PairSum,
     .PairMax = PairMax,
     .PairMin = PairMin,

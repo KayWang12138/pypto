@@ -47,12 +47,14 @@ enum class BinaryOpType {
     S_MIN,
     MAXIMUM,
     MINIMUM,
+    LRELU,
     CMP,
     MOD,
     BITWISEAND,
     BITWISEOR,
     BITWISEXOR,
     COPYSIGN,
+    GCD,
 };
 
 template <BinaryOpType T>
@@ -66,6 +68,7 @@ std::string GetBinaryOpName() {
         case BinaryOpType::MIN: return "MIN";
         case BinaryOpType::MAXIMUM: return "MAXIMUM";
         case BinaryOpType::MINIMUM: return "MINIMUM";
+        case BinaryOpType::LRELU: return "LRELU";
         case BinaryOpType::POW: return "POW";
         case BinaryOpType::MOD:return "MOD";
         case BinaryOpType::CMP:return "CMP";
@@ -79,6 +82,7 @@ std::string GetBinaryOpName() {
         case BinaryOpType::BITWISEOR: return "BITWISEOR";
         case BinaryOpType::BITWISEXOR: return "BITWISEXOR";
         case BinaryOpType::COPYSIGN: return "COPYSIGN";
+        case BinaryOpType::GCD: return "GCD";
         default: ASSERT(false && "unknown binary op type"); return "";
     }
 }
@@ -105,6 +109,8 @@ Opcode GetBinaryOpNameCode() {
             CASE(BITWISEAND);
             CASE(BITWISEOR);
             CASE(BITWISEXOR);
+            CASE(GCD);
+            case BinaryOpType::LRELU: return Opcode::OP_LRELU;
             default: ASSERT(false && "unknown binary op type");
         }
 #undef CASE
@@ -120,6 +126,7 @@ Opcode GetBinaryOpNameCode() {
             CASE(DIV);
             CASE(MAX);
             CASE(MIN);
+            CASE(GCD);
             default: ASSERT(false && "unknown binary op type");
         }
 #undef CASE
@@ -140,12 +147,14 @@ Opcode GetBinaryOpNameCode() {
         CASE(S_MIN);
         CASE(MAXIMUM);
         CASE(MINIMUM);
+        CASE(LRELU);
         CASE(POW);
         CASE(MOD);
         CASE(BITWISEAND);
         CASE(BITWISEOR);
         CASE(BITWISEXOR);
         CASE(COPYSIGN);
+        CASE(GCD);
         default: ASSERT(false && "unknown binary op type");
     }
 #undef CASE

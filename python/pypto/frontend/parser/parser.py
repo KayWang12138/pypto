@@ -18,7 +18,7 @@ import re
 from typing import Any, Optional, Union, Callable
 
 import pypto
-from pypto.symbolic_scalar import SymbolicScalar
+from pypto.symbolic_scalar import SymbolicScalar, SymInt
 from .context import Context
 from .diagnostics import DiagnosticLevel, Diagnostics, Source
 from .error import ParserError, RenderedParserError
@@ -117,8 +117,10 @@ class Parser(ast.NodeVisitor):
         Cached function signature (inputs, outputs) to avoid re-parsing.
     _lowered_signature_cache: Optional[tuple[list[pypto.Tensor], list[pypto.Tensor]]]
         Cached function signature (inputs, outputs) with symbolic dimensions lowered to concrete values.
-    _bound_dim_values : Optional[dict[str, int]]
-        Mapping from symbolic dimension names to their concrete values.
+    _bound_dim_values : Optional[dict[str, SymInt]]
+        Mapping from symbolic dimension names to bound values. The bound values can be
+        concrete integers (static specialization) or runtime symbolic expressions
+        (e.g., input shape-derived SymbolicScalar).
 
     Examples
     --------
@@ -153,7 +155,7 @@ class Parser(ast.NodeVisitor):
         self._result = None
         self._signature_cache = None
         self._lowered_signature_cache = None
-        self._bound_dim_values: Optional[dict[str, int]] = None
+        self._bound_dim_values: Optional[dict[str, SymInt]] = None
 
 
     @staticmethod
@@ -245,6 +247,50 @@ class Parser(ast.NodeVisitor):
 
 
     @_catch_parser_errors
+    def bind_dynamic_dims_to_input_tensors(
+        self,
+        input_tensor_defs: Optional[list[pypto.Tensor]] = None,
+    ) -> None:
+        """Bind symbolic dimensions to runtime input shape expressions.
+
+        Instead of specializing symbolic dimensions to concrete integers, this method
+        binds each symbolic dimension to the corresponding runtime shape of the input
+        tensor. This keeps dynamic axes truly dynamic across invocations.
+
+        Parameters
+        ----------
+        input_tensor_defs : Optional[list[pypto.Tensor]]
+            Tensor definitions from the signature. If None, the signature is parsed
+            from the function annotations.
+        """
+        if input_tensor_defs is None:
+            input_tensor_defs, _ = self.get_signature()
+
+        lowered_input_defs, _ = self.get_signature(lower_symbolic_dims=True)
+
+        dim_value_map: dict[str, SymInt] = {}
+
+        def _assign_dim_value(dim: pypto.SymbolicScalar, actual_value: SymInt) -> None:
+            key = str(dim)
+            if key in dim_value_map:
+                # Allow a dynamic symbol to appear in multiple input tensors.
+                # Keep the first binding so the symbol is usable in expressions.
+                # Concrete shape equality is still enforced at call time via
+                # match_input_shapes() when outputs are allocated.
+                if str(dim_value_map[key]) != str(actual_value):
+                    return
+            dim_value_map[key] = actual_value
+
+        for tensor_def, lowered_tensor in zip(input_tensor_defs, lowered_input_defs):
+            for axis, dim in enumerate(tensor_def.shape):
+                if isinstance(dim, pypto.SymbolicScalar):
+                    runtime_dim = lowered_tensor.shape[axis]
+                    _assign_dim_value(dim, runtime_dim)
+
+        self._bound_dim_values = dim_value_map
+
+
+    @_catch_parser_errors
     def get_signature(
         self,
         lower_symbolic_dims: bool = False,
@@ -268,18 +314,7 @@ class Parser(ast.NodeVisitor):
         elif self._lowered_signature_cache is not None and lower_symbolic_dims:
             return self._lowered_signature_cache
 
-        node = self.diag.source.as_ast()
-
-        # Find the function definition node
-        if isinstance(node, ast.Module):
-            for item in node.body:
-                if isinstance(item, ast.FunctionDef):
-                    function_node = item
-                    break
-            else:
-                raise RuntimeError("No function definition found in parsed AST")
-        else:
-            raise RuntimeError("Expected Module AST node")
+        function_node = self.diag.source.as_ast()
 
         # Temporarily set up context to parse signature
         with self.context.with_frame():
@@ -427,7 +462,7 @@ class Parser(ast.NodeVisitor):
     # ==========================================================================================
     # Private APIs (implementation details)
     # ==========================================================================================
-    def _get_function_def_from_func(self, func: Any) -> Optional[ast.FunctionDef]:
+    def _get_function_def_from_func(self, func: Any) -> ast.FunctionDef:
         """Get FunctionDef AST node from a function object.
 
         Parameters
@@ -444,27 +479,8 @@ class Parser(ast.NodeVisitor):
         # Check for _original_func attribute to identify NestedFunctionMarker instances
         if hasattr(func, "_original_func"):
             func = func._original_func
+        return Source(func).as_ast()
 
-        # Get the function source code
-        try:
-            source = Source(func)
-            ast_node = source.as_ast()
-
-            # Find the FunctionDef node in the AST
-            if isinstance(ast_node, ast.Module):
-                for stmt in ast_node.body:
-                    if isinstance(stmt, ast.FunctionDef):
-                        # Check if this is the function we're looking for
-                        if stmt.name == func.__name__:
-                            return stmt
-            elif isinstance(ast_node, ast.FunctionDef):
-                if ast_node.name == func.__name__:
-                    return ast_node
-        except Exception:  # pylint: disable=broad-except
-            # If we can't get the AST, return None
-            return None
-
-        return None
 
     def _collect_function_environment(self, func: Any) -> dict[str, Any]:
         """Extract globals and nonlocals referenced by the function."""
@@ -572,16 +588,14 @@ class Parser(ast.NodeVisitor):
                 var_values[k] = v
         return ExprEvaluator.eval(node, var_values, self.diag)
 
+
     def _apply_bound_dim_values_to_context_frame(self) -> None:
-        """Replace symbolic scalars in the current frame with bound concrete values.
-
-        This method is called after bind_dynamic_dims_from_inputs() to concretize
-        symbolic dimensions in the current context frame. It iterates through all
-        variables in the current frame and replaces SymbolicScalar instances with
-        their concrete integer values when available.
-
-        This enables the parser to work with concrete shapes during IR generation
-        while maintaining symbolic dimensions in the function signature.
+        """Replace symbolic scalars in the current frame with bound values.
+        This method is called after bind_dynamic_dims_to_input_tensors() or
+        bind_dynamic_dims_to_input_tensors(). It iterates through all variables in
+        the current frame and replaces SymbolicScalar instances with their bound
+        values when available. The bound values can be concrete integers or runtime
+        symbolic expressions.
         """
         if not self._bound_dim_values:
             return
@@ -598,8 +612,9 @@ class Parser(ast.NodeVisitor):
                 isinstance(current_value, SymbolicScalar)
                 and str(current_value) in self._bound_dim_values
             ):
-                concrete_value = self._bound_dim_values[str(current_value)]
-                self.context.add(var_name, concrete_value)
+                bound_value = self._bound_dim_values[str(current_value)]
+                self.context.add(var_name, bound_value)
+
 
     def _normalize_output_annotation(
         self, output_expr: Any, node: ast.AST
@@ -784,12 +799,7 @@ class Parser(ast.NodeVisitor):
             return names
         else:
             # Return contains an expression, not just variable names
-            raise ParserError(
-                node,
-                ValueError(
-                    "Return value must be a variable name or a tuple/list of variable names."
-                ),
-            )
+            return None
 
     def _validate_output_args(
         self, output_args: list[pypto.Tensor], node: ast.FunctionDef
@@ -929,8 +939,64 @@ class Parser(ast.NodeVisitor):
                 output_var_mapping[name] = output_tensor
                 # Add to context so the variable refers to the pre-defined tensor
                 self.context.add(name, output_tensor)
+        elif output_args:
+            # Expression return: store pre-allocated signature outputs for writeback in _visit_return
+            self.context.add("__signature_output_args__", output_args)
 
         return output_var_mapping
+
+    def _finalize_return_outputs(
+        self, node: ast.Return, returned: list[pypto.Tensor], func_name: str
+    ) -> Optional[Any]:
+        """Finalize return values and optionally write them into preallocated outputs.
+
+        Parameters
+        ----------
+        node : ast.Return
+            The return AST node (used for error reporting).
+        returned : list[pypto.Tensor]
+            Normalized and validated list of returned tensors.
+        func_name : str
+            Function name (used for stable output naming).
+
+        Returns
+        -------
+        res : Optional[Any]
+            The preallocated output(s) to return if writeback happened, otherwise None.
+
+        Notes
+        -----
+        Writes into __func_output_args__ (nested inline call) if present, otherwise into
+        __signature_output_args__ (top-level implicit outputs for `return foo()`).
+        """
+        outputs = self.context.get().get("__func_output_args__")
+        kind = "nested"
+        if outputs is None:
+            outputs = self.context.get().get("__signature_output_args__")
+            kind = "signature"
+        if outputs is None:
+            return None
+
+        if len(returned) != len(outputs):
+            msg = (
+                f"Return value count {len(returned)} does not match expected {len(outputs)}."
+                if kind == "nested"
+                else f"Return value count {len(returned)} does not match function signature "
+                    f"({len(outputs)} outputs)."
+            )
+            raise ParserError(node, ValueError(msg))
+
+        for i, tensor in enumerate(returned):
+            if kind == "signature" and not getattr(outputs[i], "name", ""):
+                outputs[i].name = (
+                    f"output_{func_name}" if len(outputs) == 1 else f"output_{func_name}_{i}"
+                )
+            if isinstance(outputs[i], pypto.Tensor) and isinstance(tensor, pypto.Tensor):
+                outputs[i][:] = tensor
+            else:
+                outputs[i] = tensor
+
+        return outputs if len(outputs) > 1 else outputs[0]
 
     def _add_metadata_to_context(
         self, func_name: str, output_var_mapping: dict[str, pypto.Tensor]
@@ -1841,16 +1907,14 @@ class Parser(ast.NodeVisitor):
         if expr is None:
             return None
 
-        # Get function name and output variable mapping from context
         func_name = self.context.get().get("__func_name__", "")
 
-        # Case 3: return a single tensor
+        # Normalize expr to a validated list of tensors
         if isinstance(expr, pypto.Tensor):
             expr.name = f"output_{func_name}"
-            result = expr
-        # Case 4: return a tuple or list of tensors
+            returned = [expr]
         elif isinstance(expr, (list, tuple)):
-            result = []
+            returned = []
             for idx, elem in enumerate(expr):
                 if not isinstance(elem, pypto.Tensor):
                     raise ParserError(
@@ -1860,11 +1924,9 @@ class Parser(ast.NodeVisitor):
                             f"but got {type(elem).__name__}."
                         ),
                     )
-                # Name each tensor in the list for better traceability
                 if elem.name is None or elem.name == "":
                     elem.name = f"output_{func_name}_{idx}"
-                result.append(elem)
-        # Case 5: invalid return type
+                returned.append(elem)
         else:
             raise ParserError(
                 node,
@@ -1874,29 +1936,10 @@ class Parser(ast.NodeVisitor):
                 ),
             )
 
-        # If this return belongs to an inlined nested function, write back
-        nested_outputs = self.context.get().get("__func_output_args__")
-        if nested_outputs is not None:
-            # Write results into the preallocated output tensors so callers reuse them.
-            result_list = result if isinstance(result, list) else [result]
-            if len(result_list) != len(nested_outputs):
-                raise ParserError(
-                    node,
-                    ValueError(
-                        f"Return value count {len(result_list)} does not match expected "
-                        f"{len(nested_outputs)}."
-                    ),
-                )
-            for i, tensor in enumerate(result_list):
-                if isinstance(nested_outputs[i], pypto.Tensor) and isinstance(
-                    tensor, pypto.Tensor
-                ):
-                    nested_outputs[i][:] = tensor
-                else:
-                    nested_outputs[i] = tensor
-            return nested_outputs if len(nested_outputs) > 1 else nested_outputs[0]
-
-        return result
+        finalized = self._finalize_return_outputs(node, returned, func_name)
+        if finalized is not None:
+            return finalized
+        return returned[0] if len(returned) == 1 else returned
 
     def _visit_delete(self, node: ast.Delete) -> None:
         """The general delete visiting method.

@@ -37,6 +37,7 @@
 #include "interface/configs/config_manager.h"
 #include "tilefwk/platform.h"
 #include "machine/runtime/distributed/distributed_context.h"
+#include "tilefwk/pypto_fwk_log.h"
 
 #ifndef BUILD_WITH_CANN
 enum aclmdlRICaptureMode {};
@@ -133,7 +134,7 @@ public:
     }
 
     template<typename DeviceMemoryTy>
-    static void AssignMetaAddr(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, DevAscendProgram *devProg, CachedOperator *cachedOperator) {
+    static void AssignMetaAddr(DeviceMemoryTy& devMem, DeviceKernelArgs &kArgs, DevAscendProgram *devProg, CachedOperator *cachedOperator) {
         (void)kArgs;
 
         FillDeviceRuntimeOffset(devProg, DEFAULT_RUNTIME_DATA_RING_BUFFER_COUNT);
@@ -145,9 +146,18 @@ public:
 
         uint64_t generalSize = devProg->memBudget.metadata.general;
         uint64_t stitchPoolSize = devProg->memBudget.metadata.stitchPool;
-        ALOG_DEBUG_F("generalSize:%lu stitchPoolSize:%lu generalOffset:%lx stitchPoolOffset:%lx.", generalSize, stitchPoolSize,
+        MACHINE_LOGD("generalSize:%lu stitchPoolSize:%lu generalOffset:%lx stitchPoolOffset:%lx.", generalSize, stitchPoolSize,
             devProg->deviceRuntimeOffset.generalOffset, devProg->deviceRuntimeOffset.stitchPoolOffset);
         return;
+    }
+
+    static uint32_t GetAiCpuNumForDav3510(uint32_t aiCpuNum, uint32_t scheCpuNum) {
+        uint32_t oneDieMinCpuNum = aiCpuNum >> 1;
+        uint32_t oneDieMaxCpuNum = oneDieMinCpuNum + (aiCpuNum - (oneDieMinCpuNum << 1));
+        uint32_t oneDieMinScheCpuNum = scheCpuNum >> 1;
+        uint32_t lunchMinCpuNum = oneDieMaxCpuNum + oneDieMinScheCpuNum;
+
+        return lunchMinCpuNum < aiCpuNum ? lunchMinCpuNum : aiCpuNum;
     }
 
     // Prepare device program scheduling and memory budget related args (keeps <= 50 lines)
@@ -163,19 +173,25 @@ public:
 
         int aiCpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum()) - 1;
         devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, aiCpuNum, devProg->devArgs.archInfo);
+        devProg->devArgs.maxAicpuNum = aiCpuNum;
         config.aicpuNum = devProg->devArgs.scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM;
-        devProg->devArgs.nrAicpu = config.aicpuNum;
+        if (devProg->devArgs.archInfo == ArchInfo::DAV_3510) {
+            devProg->devArgs.nrAicpu = GetAiCpuNumForDav3510(static_cast<uint32_t>(aiCpuNum), devProg->devArgs.scheCpuNum);
+        } else {
+            devProg->devArgs.nrAicpu = config.aicpuNum;
+        }
+
 #ifdef BUILD_WITH_CANN
         if (isDevice) {
             devProg->devArgs.validGetPgMask = DeviceRunner::Get().GetValidGetPgMask();
         }
 #endif
         devProg->devArgs.disableSync = config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_NO_DEVICE_TENSOR_DEPEND ? 1 : 0;
-        ALOG_DEBUG_F("Set aicore blockdim:%d aicpu blockdim:%d.", config.blockdim, config.aicpuNum);
+        MACHINE_LOGD("Set aicore blockdim:%d aicpu blockdim:%d.", config.blockdim, config.aicpuNum);
 
         devProg->devArgs.enableCtrl = 1; // need set 0 if use custom cpu launch ctrl cpu
         if (config.dynWorkspaceSize != 0) {
-            ALOG_ERROR_F("[Deprecated] User provided dynamic workspace: %" PRId64, config.dynWorkspaceSize);
+            MACHINE_LOGE("[Deprecated] User provided dynamic workspace: %" PRId64, config.dynWorkspaceSize);
             devProg->memBudget.tensor.maxDynamicAssembleOutcastMem = std::max(
                 static_cast<int64_t>(devProg->memBudget.tensor.maxDynamicAssembleOutcastMem),
                 AlignUp(config.dynWorkspaceSize, TENSOR_ADDR_ALIGNMENT));
@@ -186,10 +202,10 @@ public:
         }
 #endif
         devProg->workspaceSize = devProg->memBudget.Total();
-        ALOG_INFO_F("workspaceSize=%lu, tensor=%lu, metadata=%lu, aicoreSpillen=%lu, debug.DumpTensor=%lu",
+        MACHINE_LOGI("workspaceSize=%lu, tensor=%lu, metadata=%lu, aicoreSpillen=%lu, debug.DumpTensor=%lu",
             devProg->workspaceSize, devProg->memBudget.tensor.Total(), devProg->memBudget.metadata.Total(),
             devProg->memBudget.aicoreSpilled, devProg->memBudget.debug.dumpTensor);
-        ALOG_INFO_F("Tensor:rootInner=%lu, devTaskInnerOutCasts=%lu, slotted=%lux%lu(slots).",
+        MACHINE_LOGI("Tensor:rootInner=%lu, devTaskInnerOutCasts=%lu, slotted=%lux%lu(slots).",
             devProg->memBudget.tensor.rootInner,
             devProg->memBudget.tensor.devTaskInnerExclusiveOutcasts, devProg->memBudget.tensor.MaxOutcastMem(),
             devProg->memBudget.tensor.devTaskBoundaryOutcastNum);
@@ -197,7 +213,7 @@ public:
 
     // Fill metadata and kArgs (templated because it uses DeviceMemoryTy) (keeps <= 50 lines)
     template<typename DeviceMemoryTy>
-    static void FillKernelMeta(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, DevAscendProgram *devProg,
+    static void FillKernelMeta(DeviceMemoryTy& devMem, DeviceKernelArgs &kArgs, DevAscendProgram *devProg,
             const std::vector<uint8_t> &devProgData, bool isCtrlCacheRecording, const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
         AssignMetaAddr(devMem, kArgs, devProg, cachedOperator);
         devProg->l2CacheOffset = devMem.GetL2Offset();
@@ -227,37 +243,27 @@ public:
         devProg->devArgs.toSubMachineConfig = kArgs.toSubMachineConfig;
     }
 
-    static void PrepareHcclContext(const std::vector<uint64_t> &hcclContext, DevAscendProgram *devProg) {
-        ASSERT(devProg->commGroupNum == hcclContext.size())
-            << "commGroupNum mismatch. commGroupNum = "
-            <<devProg->commGroupNum << ", hcclContext size = " << hcclContext.size();
-        ASSERT(devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t)))
-            << "commGroupNum exceeds array size. commGroupNum = "
-            << devProg->commGroupNum << ", max allowed = " << sizeof(devProg->hcclContext) / sizeof(uint64_t);
-        for (size_t i = 0; i < devProg->commGroupNum; i++) {
-            devProg->hcclContext[i] = hcclContext[i];
-        }
-    }
-
-     static void DeviceInitDistributedContextToHost(const std::vector<std::string> &groupNames, DevAscendProgram *devProg) {
-        if (devProg->hcclContext[0] != 0) {
+    template<typename DeviceMemoryTy>
+    static void DeviceInitDistributedContext(DeviceMemoryTy& devMem, const std::vector<std::string> &groupNames,
+        DeviceKernelArgs &kArgs) {
+        using groupsKey = std::vector<std::string>;
+        static std::map<groupsKey, int64_t*> hostCommContextsMap;
+        static std::map<groupsKey, int64_t*> deviceCommContextsMap;
+        auto &commContextsMap = devMem.IsDevice() ? deviceCommContextsMap : hostCommContextsMap;
+        auto it = commContextsMap.find(groupNames);
+        if (it != commContextsMap.end()) {
+            kArgs.commContexts = it->second;
             return;
         }
-        auto hcclContext = DistributedContext::GetCommContextToHost(groupNames);
-        PrepareHcclContext(hcclContext, devProg);
-    }
-
-    static void DeviceInitDistributedContext(const std::vector<std::string> &groupNames,
-        DevAscendProgram *devProg) {
-        auto hcclContext = DistributedContext::GetCommContext(groupNames);
-        if ((hcclContext.size() == 0) || (devProg->hcclContext[0] == hcclContext[0])) {
-            return;
-        }
-        PrepareHcclContext(hcclContext, devProg);
+        std::vector<uint64_t> commContexts = devMem.IsDevice() ? DistributedContext::GetCommContext(groupNames) :
+            DistributedContext::GetCommContextToHost(groupNames);
+        commContexts.insert(commContexts.begin(), commContexts.size());
+        kArgs.commContexts = reinterpret_cast<int64_t*>(devMem.CopyToDev(commContexts, nullptr));
+        commContextsMap[groupNames] = kArgs.commContexts;
     }
 
     template<typename DeviceMemoryTy>
-    static void DeviceInitTilingData(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
+    static void DeviceInitTilingData(DeviceMemoryTy& devMem, DeviceKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
             DevControlFlowCache* ctrlFlowCache, const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
         auto &mutableConfig = const_cast<DeviceLauncherConfig &>(config);
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
@@ -291,7 +297,7 @@ public:
      *                  |     ...     |
      */
     template<typename DeviceMemoryTy>
-    static void DeviceInitKernelInOuts(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs,
+    static void DeviceInitKernelInOuts(DeviceMemoryTy& devMem, DeviceKernelArgs &kArgs,
             const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
             const std::vector<uint8_t>& disableL2List) {
         size_t l2InfoSize = disableL2List.size();
@@ -301,7 +307,7 @@ public:
                 auto &tensorData = tensorDataList[k];
                 uint64_t addr = reinterpret_cast<uint64_t>(tensorData.GetAddr());
                 if (unlikely(addr != 0 && tensorIdx < l2InfoSize && disableL2List[tensorIdx] == 1)) {
-                    ALOG_INFO_F("Tneosr[%zu] ori:%lx, l2offset[%lu].", tensorIdx, addr, devMem.GetL2Offset());
+                    MACHINE_LOGI("Tneosr[%zu] ori:%lx, l2offset[%lu].", tensorIdx, addr, devMem.GetL2Offset());
                     addr += devMem.GetL2Offset();
                 }
                 DevAscendTensorDataCreator::Init(data, addr, tensorData.GetShape().data(), tensorData.GetShape().size());
@@ -335,13 +341,13 @@ public:
             kArgs.inputs = reinterpret_cast<int64_t*>(tensorInfo_.data() + sizeof(AiCpuArgs));
             kArgs.outputs = kArgs.inputs + 1;
         }
-        ALOG_DEBUG_F("Inputs %p outputs %p workspace %p cfgdata %p tensorSize %zu", kArgs.inputs, kArgs.outputs, kArgs.workspace,
+        MACHINE_LOGD("Inputs %p outputs %p workspace %p cfgdata %p tensorSize %zu", kArgs.inputs, kArgs.outputs, kArgs.workspace,
             kArgs.cfgdata, tensorSize);
     }
 
     template<typename DeviceMemoryTy>
     static std::pair<std::vector<DeviceTensorData>, std::vector<DeviceTensorData>> BuildInputOutputFromHost(
-            DeviceMemoryTy devMem,
+            DeviceMemoryTy& devMem,
             const std::vector<RawTensorDataPtr> &inputDataList,
             const std::vector<RawTensorDataPtr> &outputDataList) {
         std::vector<DeviceTensorData> inputDeviceDataList;
@@ -412,7 +418,8 @@ public:
     }
     static int DeviceSynchronize(rtStream_t, rtStream_t) { return 0; }
 #endif
-    static void FillDeviceKernelArgs(std::vector<uint8_t> &devProgData, DeviceKernelArgs &kargs);
+    static void FillDeviceKernelArgs(std::vector<uint8_t> &devProgData, DeviceKernelArgs &kargs,
+        const std::vector<std::string> &groupNames);
     static int64_t GetL2Offset();
     static uint8_t *CopyControlFlowCache(DevControlFlowCache *ctrlCache);
     static void FreeControlFlowCache(uint8_t *ctrlCache);
