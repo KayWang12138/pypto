@@ -19,25 +19,7 @@ namespace npu {
 namespace tile_fwk {
 const uint32_t kMaxLength = 50;
 const std::string version = "version";
-#ifdef BUILD_WITH_CANN
-void *GetSymbol(const std::string &sym) {
-    void *ptr = nullptr;
-    std::string LibPathDir = std::string(ASCEND_CANN_PACKAGE_PATH) + "/lib64/";
-    std::string soDepPath = RealPath(LibPathDir + "libprofapi.so");
-    void* handleDep = dlopen(soDepPath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
-    if (handleDep == nullptr) {
-        return ptr;
-    }
-    std::string soPath = RealPath(LibPathDir + "libruntime.so");
-    void* handle = dlopen(soPath.c_str(), RTLD_LAZY);
-    if (handle != nullptr) {
-        ptr = dlsym(handle, sym.c_str());
-    }
-    return ptr;
-}
-#endif
-
-bool GetSocVersion(std::string& socVersion) {
+bool CannHostRuntime::GetSocVersion(std::string& socVersion) {
 #ifdef BUILD_WITH_CANN
     int ret = 1;
     char socVer[kMaxLength] = {0x00};

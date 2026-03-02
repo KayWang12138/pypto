@@ -360,7 +360,8 @@ void Platform::ObtainPlatformInfo() {
 
     std::string srcPath;
     std::string socVersion;
-    if (GetSocVersion(socVersion)) {
+    auto &cannHostObj = CannHostRuntime::GetObj();
+    if (cannHostObj.GetSocVersion(socVersion)) {
 #ifdef BUILD_WITH_CANN
         srcPath = GetPlatformFile(socVersion);
 #endif

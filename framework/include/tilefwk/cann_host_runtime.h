@@ -20,6 +20,42 @@
 
 namespace npu {
 namespace tile_fwk {
-bool GetSocVersion(std::string& socVersion);
+struct CannHostRuntime {
+    static CannHostRuntime &GetObj() {
+        static CannHostRuntime cannHostRuntime;
+        return cannHostRuntime;
+    }
+
+    ~CannHostRuntime() {
+        if (handle != nullptr) {
+            dlclose(handle);
+        }
+        if (handleDep != nullptr) {
+            dlclose(handleDep);
+        }
+    }
+    bool GetSocVersion(std::string& socVersion);
+private:
+    CannHostRuntime() {
+#ifdef BUILD_WITH_CANN
+        std::string LibPathDir = std::string(ASCEND_CANN_PACKAGE_PATH) + "/lib64/";
+        std::string soDepPath = RealPath(LibPathDir + "libprofapi.so");
+        void* handleDep = dlopen(soDepPath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+        std::string soPath = RealPath(LibPathDir + "libruntime.so");
+        void* handle = dlopen(soPath.c_str(), RTLD_LAZY);
+#endif
+    }
+#ifdef BUILD_WITH_CANN
+    void *GetSymbol(const std::string &sym) {
+        void *ptr = nullptr;
+        if (handleDep != nullptr && handle != nullptr) {
+            ptr = dlsym(handle, sym.c_str());
+        }
+        return ptr;
+    }
+#endif
+    void *handleDep = nullptr;
+    void *handle = nullptr;
+};
 }
 }
