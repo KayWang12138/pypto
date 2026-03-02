@@ -94,7 +94,8 @@ std::string WrapParamByAngleBrackets(const std::vector<T> &params) {
 }
 
 std::vector<int64_t> NormalizeShape(const std::vector<int64_t> &shapeVec, unsigned dim);
-std::string FormatFloat(const std::variant<int64_t, uint64_t, double> &v, int precision = 9);
+std::string FormatFloat(
+    const std::variant<int64_t, uint64_t, double> &v, DataType dtype = DataType::DT_FP32, int precision = 9);
 
 std::string GetTypeForB16B32(const DataType &dtype);
 
@@ -121,6 +122,59 @@ void FillParamWithInput(std::vector<std::string> &paramList, const std::vector<T
 }
 
 void PrintIndent(std::ostringstream &os, int scopeLevel);
+
+struct FloatSpecVal {
+    DataType dtype; // fp32 or fp16
+    double value;
+
+    bool operator<(const FloatSpecVal &other) const {
+        if (dtype != other.dtype) {
+            return ToUnderlying(dtype) < ToUnderlying(other.dtype);
+        }
+        // NaN 比较特殊处理
+        if (std::isnan(value) && std::isnan(other.value))
+            return false;
+        if (std::isnan(value))
+            return true;
+        if (std::isnan(other.value))
+            return false;
+        return value < other.value;
+    }
+
+    std::string GetFsVarName() const {
+        std::string fsType = std::isinf(value) ? (std::signbit(value) ? "inf_neg" : "inf_pos") : "nan";
+        std::string fsVarName = DataType2CCEStr(dtype) + "_" + fsType;
+        return fsVarName;
+    }
+
+    std::string GetFsValueStr() const {
+        static const std::map<std::pair<DataType, bool>, std::string> infMap = {
+            {{DataType::DT_FP16, false}, FP16_INF_POS},
+            { {DataType::DT_FP16, true}, FP16_INF_NEG},
+            {{DataType::DT_FP32, false}, FP32_INF_POS},
+            { {DataType::DT_FP32, true}, FP32_INF_NEG}
+        };
+        static const std::map<DataType, std::string> nanMap = {
+            {DataType::DT_FP16, FP16_NAN},
+            {DataType::DT_FP32, FP32_NAN}
+        };
+
+        if (std::isinf(value)) {
+            auto key = std::make_pair(dtype, std::signbit(value));
+            auto iter = infMap.find(key);
+            if (iter != infMap.end()) {
+                return iter->second;
+            }
+        } else if (std::isnan(value)) {
+            auto iter = nanMap.find(dtype);
+            if (iter != nanMap.end()) {
+                return iter->second;
+            }
+        }
+        ASSERT(false) << "FloatSpecVal not found, dtype: " << ToUnderlying(dtype) << ", value: " << value;
+        return "";
+    }
+};
 
 } // namespace npu::tile_fwk
 #endif
