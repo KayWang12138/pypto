@@ -357,8 +357,8 @@ Status L1CopyInReuseRunner::L1MergeProcess(OperationsViewer &opOriList, std::vec
         mergedNum[i] = 0;
         mergedNum[tmpColor] += 1;
         hashMap_[hashColor[i]].erase(std::find(hashMap_[hashColor[i]].begin(), hashMap_[hashColor[i]].end(), i));
-        hashMap_[hashColor[tmpColor]].erase(std::find(hashMap_[hashColor[tmpColor]].begin(), 
-                                                        hashMap_[hashColor[tmpColor]].end(), 
+        hashMap_[hashColor[tmpColor]].erase(std::find(hashMap_[hashColor[tmpColor]].begin(),
+                                                        hashMap_[hashColor[tmpColor]].end(),
                                                         tmpColor));
         hashColor[tmpColor] += hashColor[i];
         hashColor[i] = 0;
@@ -576,7 +576,7 @@ Status L1CopyInReuseRunner::Run(Function &func, int color, std::vector<std::vect
         }
         HashUpdate(hashMap_, hashOrder_, color, hashColor);
     }
-    std::vector<int> hashMergeNum(hashMap_.size(), 1);  
+    std::vector<int> hashMergeNum(hashMap_.size(), 1);
     //NBuffer参数设置
     if (SetNumDB(hashMergeNum) == FAILED) {
         APASS_LOG_ERROR_F(Elements::Config, "Invalid configuration: %s.", "cubeNBufferSetting");
