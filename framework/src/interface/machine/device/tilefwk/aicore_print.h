@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <type_traits>
+#include <cstring>
 
 #include "aikernel_data.h"
 
@@ -39,6 +40,58 @@ struct LogContext {
     void (*Print)(LogContext *ctx, __gm__ const char *fmt);
 };
 
+// forward declarations for bf16 / half types used in logging;
+// concrete definitions are provided in other headers.
+struct bfloat16_t;
+struct half;
+
+INLINE float DecodeBf16(uint16_t bits)
+{
+    uint32_t u = static_cast<uint32_t>(bits) << 16;
+    float f;
+    std::memcpy(&f, &u, sizeof(f));
+    return f;
+}
+
+INLINE float DecodeF16(uint16_t bits)
+{
+    uint16_t sign = static_cast<uint16_t>((bits & 0x8000u) >> 15);
+    uint16_t exp = static_cast<uint16_t>((bits & 0x7C00u) >> 10);
+    uint16_t mant = static_cast<uint16_t>(bits & 0x03FFu);
+
+    uint32_t sign32 = static_cast<uint32_t>(sign) << 31;
+    uint32_t exp32;
+    uint32_t mant32;
+
+    if (exp == 0) {
+        if (mant == 0) {
+            exp32 = 0;
+            mant32 = 0;
+        } else {
+            // subnormal
+            exp32 = 127 - 14;
+            while ((mant & 0x0400u) == 0) { // normalize mantissa
+                mant <<= 1;
+                --exp32;
+            }
+            mant &= 0x03FFu;
+            mant32 = static_cast<uint32_t>(mant) << 13;
+        }
+    } else if (exp == 0x1Fu) { // Inf/NaN
+        exp32 = 0xFFu;
+        mant32 = static_cast<uint32_t>(mant) << 13;
+    } else {
+        // normalized
+        exp32 = static_cast<uint32_t>(exp) - 15 + 127;
+        mant32 = static_cast<uint32_t>(mant) << 13;
+    }
+
+    uint32_t u = sign32 | (exp32 << 23) | mant32;
+    float f;
+    std::memcpy(&f, &u, sizeof(f));
+    return f;
+}
+
 template <typename T>
 INLINE void __AiCorePrint(LogContext *ctx, __gm__ const char **fmt, T val) {
     if constexpr (std::is_integral_v<T>) {
@@ -47,6 +100,21 @@ INLINE void __AiCorePrint(LogContext *ctx, __gm__ const char **fmt, T val) {
         ctx->PrintFloat(ctx, fmt, static_cast<float>(val));
     } else if constexpr (std::is_pointer_v<T>) {
         ctx->PrintInt(ctx, fmt, reinterpret_cast<int64_t>(val));
+    } else if constexpr (sizeof(T) == 2 && std::is_trivially_copyable_v<T>) {
+        uint16_t bits = 0;
+        std::memcpy(&bits, &val, sizeof(bits));
+
+        float f = 0.0f;
+        if constexpr (std::is_same_v<T, bfloat16_t>) {
+            f = DecodeBf16(bits);
+        } else if constexpr (std::is_same_v<T, half>) {
+            f = DecodeF16(bits);
+        } else {
+            f = DecodeF16(bits);
+        }
+        ctx->PrintFloat(ctx, fmt, f);
+    } else {
+        ctx->PrintInt(ctx, fmt, reinterpret_cast<int64_t>(&val));
     }
 }
 
@@ -160,7 +228,12 @@ struct AicoreLogger {
         if (n) {
             Encode(NORMAL, reinterpret_cast<const __gm__ uint8_t *>(str), n, str, n);
         }
-        Encode(END);
+        // encode END as a standalone node without payload
+        uint16_t nodeLen = static_cast<uint16_t>(sizeof(uint16_t) + sizeof(uint8_t));
+        auto lenBytes = reinterpret_cast<uint8_t *>(&nodeLen);
+        Encode(lenBytes[0]);
+        Encode(lenBytes[1]);
+        Encode(static_cast<uint8_t>(END));
         Sync();
     }
 
@@ -194,13 +267,18 @@ struct AicoreLogger {
             tail_ = remote_->tail_;
         }
         while (tail_ != head_) {
+            int64_t nodeStart = tail_;
+            uint16_t nodeLen = Read<uint16_t>(tail_);
+            tail_ += sizeof(uint16_t);
             auto type = Read<uint8_t>(tail_++);
             if (type == END) {
+                tail_ = nodeStart + nodeLen;
                 if (size == 0)
                     continue;
                 else
                     return size;
             } else if (maxSize == 0) {
+                tail_ = nodeStart + nodeLen;
                 continue;
             }
 
@@ -222,6 +300,7 @@ struct AicoreLogger {
             buf += n;
             size += n;
             maxSize -= n;
+            tail_ = nodeStart + nodeLen;
         }
         return 0;
     }
@@ -305,12 +384,12 @@ private:
 
     __aicore__ void Encode(uint8_t val) {
         if (head_ == tail_ + size_) {
-            while (Read<uint8_t>(tail_) != END) {
-                tail_++;
-                tail_ += Read<short>(tail_) + sizeof(short);
-                tail_ += Read<short>(tail_) + sizeof(short);
+            uint16_t nodeLen = Read<uint16_t>(tail_);
+            if (nodeLen == 0 || nodeLen > size_) {
+                tail_ = head_;
+            } else {
+                tail_ += nodeLen;
             }
-            tail_++;
         }
         volatile __gm__ uint8_t *p = &data_[head_++ % size_];
         *p = val;
@@ -318,7 +397,22 @@ private:
 
     template<typename T>
     __aicore__ void Encode(NodeTy ty, const T *val, short valLen, __gm__ const char *fmt, int fmtLen) {
-        Encode(ty);
+        // total node length including nodeLen field itself
+        int fmtLenPlus1 = fmtLen + 1;
+        uint16_t nodeLen = static_cast<uint16_t>(
+            sizeof(uint16_t) +               // nodeLen field
+            sizeof(uint8_t) +                // type
+            sizeof(short) +                  // valLen field
+            static_cast<int>(valLen) +       // val bytes
+            sizeof(short) +                  // fmtLenPlus1 field
+            fmtLenPlus1                      // fmt bytes + '\0'
+        );
+
+        auto lenBytes = reinterpret_cast<uint8_t *>(&nodeLen);
+        Encode(lenBytes[0]);
+        Encode(lenBytes[1]);
+
+        Encode(static_cast<uint8_t>(ty));
 
         auto bytes = reinterpret_cast<uint8_t *>(&valLen);
         Encode(bytes[0]);
@@ -327,11 +421,10 @@ private:
             Encode(val[i]);
         }
 
-        fmtLen += 1; // pad '\0'
-        bytes = reinterpret_cast<uint8_t *>(&fmtLen);
-        Encode(bytes[0]);
-        Encode(bytes[1]);
-        for (auto i = 0; i < fmtLen - 1; i++) {
+        auto fmtLenBytes = reinterpret_cast<uint8_t *>(&fmtLenPlus1);
+        Encode(fmtLenBytes[0]);
+        Encode(fmtLenBytes[1]);
+        for (auto i = 0; i < fmtLen; i++) {
             Encode(fmt[i]);
         }
         Encode('\0');
@@ -357,3 +450,90 @@ private:
     volatile __gm__ Remote *remote_;
     __gm__ uint8_t *data_;
 };
+
+constexpr int64_t AICORE_PRINT_ARRAY_MAX_ELEMS  = 64;
+constexpr int64_t AICORE_PRINT_ARRAY_GROUP_SIZE = 8;
+
+template <typename T>
+INLINE void AiCorePrintList(LogContext *ctx,
+                            __gm__ const T *data,
+                            int64_t size,
+                            int64_t offset = 0)
+{
+    if (ctx == nullptr || data == nullptr || size <= 0) {
+        return;
+    }
+
+    int64_t begin = offset < 0 ? 0 : offset;
+    if (begin >= size) {
+        return;
+    }
+
+    int64_t end = begin + AICORE_PRINT_ARRAY_MAX_ELEMS;
+    if (end > size) {
+        end = size;
+    }
+
+    AiCoreLogF(ctx, "size=%ld, range=[%ld, %ld), elements=\n", size, begin, end);
+
+    AiCoreLogF(ctx, "[");
+    for (int64_t i = begin; i < end; ++i) {
+        if constexpr (std::is_floating_point_v<T> ||
+                      (sizeof(T) == 2 && std::is_trivially_copyable_v<T>)) {
+            AiCoreLogF(ctx, "%f", data[i]);
+        } else {
+            AiCoreLogF(ctx, "%ld", static_cast<int64_t>(data[i]));
+        }
+
+        bool isLastInRange = (i + 1 == end);
+        bool hasMoreGlobal = (end < size);
+        bool needComma     = !isLastInRange || hasMoreGlobal;
+
+        if (needComma) {
+            AiCoreLogF(ctx, ", ");
+        }
+
+        if (((i - begin + 1) % AICORE_PRINT_ARRAY_GROUP_SIZE == 0) && !isLastInRange) {
+            AiCoreLogF(ctx, "\n ");
+        }
+    }
+
+    if (end < size) {
+        AiCoreLogF(ctx, "... ");
+    }
+
+    AiCoreLogF(ctx, "]\n");
+}
+
+template <typename T>
+INLINE void AiCorePrintArray(LogContext *ctx,
+                             const char *name,
+                             __gm__ const T *data,
+                             int64_t size,
+                             int64_t offset = 0)
+{
+    if (ctx == nullptr) {
+        return;
+    }
+
+    AiCoreLogF(ctx, "%s: ", name);
+    AiCorePrintList(ctx, data, size, offset);
+}
+
+INLINE void AiCorePrintShape(LogContext *ctx,
+                             const char *name,
+                             const npu::tile_fwk::DevShape &shape)
+{
+    if (ctx == nullptr) {
+        return;
+    }
+    AiCoreLogF(ctx, "%s: dimSize=%d, shape elements=\n", name, shape.dimSize);
+    AiCorePrintList(ctx, shape.dim, shape.dimSize, 0);
+}
+
+INLINE void AiCorePrintShape(LogContext *ctx,
+                             const char *name,
+                             const npu::tile_fwk::DevTensorData &tensor)
+{
+    AiCorePrintShape(ctx, name, tensor.shape);
+}
