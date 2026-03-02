@@ -40,7 +40,7 @@
                 8192
             ],
             "params": {
-                "world_size": 4,
+                "world_size": 2,
                 "on_board": true,
                 "func_id": -1
             },

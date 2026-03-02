@@ -159,10 +159,10 @@ void MoeDistributedCombineValidateGroup(const char* group)
 
 void MoeDistributedCombineValidateMoeEpWorldSize(int32_t epWorldSize)
 {
-    int32_t supportedEpWorldSize1 = 4;
-    int32_t supportedEpWorldSize2 = 8;
-    CHECK((epWorldSize == supportedEpWorldSize1) || (epWorldSize == supportedEpWorldSize2)) << "epWorldSize only "
-        << "supports " << supportedEpWorldSize1 << " or " << supportedEpWorldSize2 << ", but got " << epWorldSize;
+    std::vector<int32_t> supportedEpWorldSizes = {2, 4, 8};
+    bool isSupported = std::find(supportedEpWorldSizes.begin(), supportedEpWorldSizes.end(), epWorldSize) !=
+        supportedEpWorldSizes.end();
+    CHECK(isSupported) << "epWorldSize only supports in supportedEpWorldSizes array, but got " << epWorldSize;
 }
 
 void MoeDistributedCombineValidateMoeExpertNum(int32_t moeExpertNum)

@@ -45,7 +45,7 @@
                 "kv_lora_rank": 256,
                 "value_head_dim": 128,
                 "output_hidden_size": 128,
-                "world_size": 4,
+                "world_size": 2,
                 "on_board": true,
                 "func_id": -1
             },
