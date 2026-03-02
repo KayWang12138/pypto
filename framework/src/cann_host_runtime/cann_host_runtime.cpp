@@ -13,7 +13,9 @@
  * \brief
  */
 
+#ifdef BUILD_WITH_CANN
 #define STRINGIFY(x) #x
+#endif
 #include "tilefwk/cann_host_runtime.h"
 
 namespace npu {
