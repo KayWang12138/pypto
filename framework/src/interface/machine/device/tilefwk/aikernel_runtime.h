@@ -19,6 +19,15 @@
 #include "tilefwk/aikernel_data.h"
 
 constexpr int MAIN_BLOCK_INDEX = 1;
+constexpr uint64_t SYNC_TIMEOUT = 48000000000;
+
+#if defined(__aarch64__) && defined(__DEVICE__)
+inline uint64_t GetCycles() {
+    uint64_t cycles;
+    asm volatile("mrs %0, cntvct_el0" : "=r"(cycles));
+    return cycles;
+}
+#endif
 
 #ifdef __TILE_FWK_AICPU__
 
