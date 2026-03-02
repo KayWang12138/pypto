@@ -61,6 +61,7 @@ struct AiCpuArgs {
 
 int GetCfgBlockdim();
 int GetMaxBlockdim();
+uint32_t GetProcessId();
 
 class DeviceLauncherContext {
 public:
@@ -183,6 +184,9 @@ public:
         }
 
 #ifdef BUILD_WITH_CANN
+        if (config::GetVerifyOption<bool>(KEY_ENABLE_CALL_TASK_DUMP)) {  // dump tensor
+            devProg->devArgs.hostPid = GetProcessId();
+        }
         if (isDevice) {
             devProg->devArgs.validGetPgMask = DeviceRunner::Get().GetValidGetPgMask();
         }
@@ -203,9 +207,9 @@ public:
         }
 #endif
         devProg->workspaceSize = devProg->memBudget.Total();
-        MACHINE_LOGI("workspaceSize=%lu, tensor=%lu, metadata=%lu, aicoreSpillen=%lu, debug.DumpTensor=%lu",
+        MACHINE_LOGI("workspaceSize=%lu, tensor=%lu, metadata=%lu, aicoreSpillen=%lu, debug.DumpTensor=%lu, leafDumpWorkspace=%lu",
             devProg->workspaceSize, devProg->memBudget.tensor.Total(), devProg->memBudget.metadata.Total(),
-            devProg->memBudget.aicoreSpilled, devProg->memBudget.debug.dumpTensor);
+            devProg->memBudget.aicoreSpilled, devProg->memBudget.debug.dumpTensor, devProg->memBudget.debug.leafDump);
         MACHINE_LOGI("Tensor:rootInner=%lu, devTaskInnerOutCasts=%lu, slotted=%lux%lu(slots).",
             devProg->memBudget.tensor.rootInner,
             devProg->memBudget.tensor.devTaskInnerExclusiveOutcasts, devProg->memBudget.tensor.MaxOutcastMem(),
