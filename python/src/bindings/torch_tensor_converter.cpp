@@ -70,27 +70,26 @@ bool TryParseDlpack(py::object &torchTensor, uintptr_t &dataPtr, std::vector<int
     return ParseDlpackCapsule(cap, dataPtr, shape, deviceId, dtypeOut);
 }
 
-void TorchTensorConverter::Convert(py::sequence &tensors, py::sequence &tensor_defs,
-    std::vector<npu::tile_fwk::dynamic::DeviceTensorData> &tensors_data,
-    std::vector<int> &device_ids) {
+int TorchTensorConverter::Convert(py::sequence &tensors, py::sequence &tensor_defs,
+    std::vector<npu::tile_fwk::dynamic::DeviceTensorData> &tensors_data) {
     using namespace npu::tile_fwk;
     using namespace npu::tile_fwk::dynamic;
 
     const size_t n = static_cast<size_t>(py::len(tensors));
     tensors_data.reserve(n);
-    device_ids.reserve(n);
 
     py::object toDlpack = GetTorchToDlpack();
+    py::object device = py::none();
 
     for (size_t i = 0; i < n; i++) {
         py::object torchTensor = tensors[py::int_(i)];
         py::object tensorDef = tensor_defs[py::int_(i)];
         std::vector<int64_t> shape;
         uintptr_t dataPtr = 0;
-        int deviceId = -1;
+        int unusedDeviceId = -1;
         DataType dtype = DataType::DT_BOTTOM;
 
-        if (!TryParseDlpack(torchTensor, dataPtr, shape, deviceId, dtype, toDlpack)) {
+        if (!TryParseDlpack(torchTensor, dataPtr, shape, unusedDeviceId, dtype, toDlpack)) {
             try {
                 dataPtr = static_cast<uintptr_t>(py::cast<int64_t>(torchTensor.attr("data_ptr")()));
                 for (auto dim : torchTensor.attr("shape")) {
@@ -113,7 +112,8 @@ void TorchTensorConverter::Convert(py::sequence &tensors, py::sequence &tensor_d
         // Get format from torch tensor, it takes 10~15 us per tensor
         // If you get format from tensorDef, you need to mark format in the kernel parameters
         TileOpFormat format = TileOpFormat::TILEOP_ND;
-        std::string device_type = py::cast<std::string>(torchTensor.attr("device").attr("type"));
+        py::object tensorDevice = torchTensor.attr("device");
+        std::string device_type = py::cast<std::string>(tensorDevice.attr("type"));
         if (device_type == "npu") {
             py::module torch_npu = py::module::import("torch_npu");
             int npu_format = py::cast<int>(torch_npu.attr("get_npu_format")(torchTensor));
@@ -123,31 +123,19 @@ void TorchTensorConverter::Convert(py::sequence &tensors, py::sequence &tensor_d
         }
         tensors_data.emplace_back(dtype, dataPtr, shape, format);
 
-        device_ids.push_back(deviceId);
-    }
-}
-
-int ValidateAndGetDeviceId(std::vector<int> &deviceIds) {
-    int deviceId = -1;
-    for (size_t i = 0; i < deviceIds.size(); i++) {
-        if (deviceIds[i] < 0) continue;
-
-        if (deviceId < 0) {
-            deviceId = deviceIds[i];
-        } else if (deviceIds[i] != deviceId) {
-            throw std::runtime_error(
-                "Tensor at index " + std::to_string(i) +
-                " is on device " + std::to_string(deviceIds[i]) +
-                ", expected device " + std::to_string(deviceId));
+        // Device is obtained from torch tensor, not from TryParseDlpack
+        if (device.is_none()) {
+            device = tensorDevice;
+        } else if (!device.equal(tensorDevice)) {
+            throw std::runtime_error("All input tensors must be on the same device");
         }
     }
-
-    if (deviceId < 0) {
-        throw std::runtime_error(
-            "Unable to determine device ID: ensure all tensors support DLPack");
+    if (py::getattr(device, "type").cast<std::string>() != "npu") {
+        throw std::runtime_error("Not npu device");
     }
-    return deviceId;
+    return py::getattr(device, "index").cast<int>();
 }
+
 
 size_t ValidateInputs(py::sequence &tensors, py::sequence &tensorDefs) {
     size_t n = static_cast<size_t>(py::len(tensors));

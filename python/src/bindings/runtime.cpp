@@ -799,11 +799,7 @@ void LaunchKernelTorch(py::object &module, int64_t stream, py::sequence &torchTe
     ValidateInputs(torchTensors, tensorDefs);
 
     std::vector<DeviceTensorData> tensors;
-    std::vector<int> deviceIds;
-
-    TorchTensorConverter::Convert(torchTensors, tensorDefs, tensors, deviceIds);
-
-    int devId = ValidateAndGetDeviceId(deviceIds);
+    int devId = TorchTensorConverter::Convert(torchTensors, tensorDefs, tensors);
 
     DoLaunch(module, aicoreStream, devId, tensors,
         [&](KernelModulePtr km) { return km->CompileFromTorch(module, torchTensors, tensorDefs); });

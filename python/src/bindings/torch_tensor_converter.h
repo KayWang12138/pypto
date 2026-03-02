@@ -33,12 +33,10 @@ bool TryParseDlpack(py::object &torchTensor, uintptr_t &dataPtr, std::vector<int
 
 class TorchTensorConverter {
 public:
-    static void Convert(py::sequence &tensors, py::sequence &tensor_defs,
-        std::vector<npu::tile_fwk::dynamic::DeviceTensorData> &tensors_data,
-        std::vector<int> &device_ids);
+    static int Convert(py::sequence &tensors, py::sequence &tensor_defs,
+        std::vector<npu::tile_fwk::dynamic::DeviceTensorData> &tensors_data);
 };
 
-int ValidateAndGetDeviceId(std::vector<int> &deviceIds);
 size_t ValidateInputs(py::sequence &tensors, py::sequence &tensorDefs);
 
 }  // namespace pypto
