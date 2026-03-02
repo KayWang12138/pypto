@@ -19,6 +19,16 @@ namespace npu {
 namespace tile_fwk {
 const uint32_t kMaxLength = 50;
 const std::string version = "version";
+CannHostRuntime::CannHostRuntime() {
+#ifdef BUILD_WITH_CANN
+    std::string LibPathDir = std::string(ASCEND_CANN_PACKAGE_PATH) + "/lib64/";
+    std::string soDepPath = RealPath(LibPathDir + "libprofapi.so");
+    handleDep = dlopen(soDepPath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+    std::string soPath = RealPath(LibPathDir + "libruntime.so");
+    handle = dlopen(soPath.c_str(), RTLD_LAZY);
+#endif
+}
+
 bool CannHostRuntime::GetSocVersion(std::string& socVersion) {
 #ifdef BUILD_WITH_CANN
     int ret = 1;

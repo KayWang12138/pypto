@@ -36,15 +36,7 @@ struct CannHostRuntime {
     }
     bool GetSocVersion(std::string& socVersion);
 private:
-    CannHostRuntime() {
-#ifdef BUILD_WITH_CANN
-        std::string LibPathDir = std::string(ASCEND_CANN_PACKAGE_PATH) + "/lib64/";
-        std::string soDepPath = RealPath(LibPathDir + "libprofapi.so");
-        handleDep = dlopen(soDepPath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
-        std::string soPath = RealPath(LibPathDir + "libruntime.so");
-        handle = dlopen(soPath.c_str(), RTLD_LAZY);
-#endif
-    }
+    CannHostRuntime();
 #ifdef BUILD_WITH_CANN
     void *GetSymbol(const std::string &sym) {
         void *ptr = nullptr;

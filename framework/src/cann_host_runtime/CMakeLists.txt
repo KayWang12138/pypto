@@ -23,6 +23,12 @@ target_link_libraries(cann_host_runtime
             dl
             c_sec
 )
+target_compile_definitions(cann_host_runtime
+        PRIVATE
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:ASCEND_CANN_PACKAGE_PATH="${ASCEND_CANN_PACKAGE_PATH}">>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:PROCESSOR_SUBPATH="${CMAKE_SYSTEM_PROCESSOR}-linux">>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>>
+)
 
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET cann_host_runtime)
 PTO_Fwk_AnalysisTargetSymbols(TARGET cann_host_runtime)

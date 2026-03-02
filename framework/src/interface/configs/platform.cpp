@@ -92,7 +92,6 @@ std::string ToJsonString(const std::string& s) {
     return escaped_s;
 }
 
-#ifdef BUILD_WITH_CANN
 std::string GetPlatformFile(const std::string &socVersion) {
     if (socVersion.empty()) {
         return "";
@@ -113,7 +112,6 @@ std::string GetPlatformFile(const std::string &socVersion) {
     }
     return platformFile;
 }
-#endif
 
 size_t Core::GetMemorySize(MemoryType type) const {
     auto it = memories_.find(type);
@@ -357,9 +355,7 @@ void Platform::ObtainPlatformInfo() {
     std::string socVersion;
     auto &cannHostObj = CannHostRuntime::GetObj();
     if (cannHostObj.GetSocVersion(socVersion)) {
-#ifdef BUILD_WITH_CANN
         srcPath = GetPlatformFile(socVersion);
-#endif
     }
     if (srcPath.empty()) {
         FUNCTION_LOGW("Cannot obtain ini from the device, using default ini file.");
