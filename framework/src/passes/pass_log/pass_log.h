@@ -21,7 +21,7 @@
 #include "interface/operation/operation.h"
 #include "interface/function/function.h"
 #include <chrono>
-#include "tilefwk/tilefwk_log.h"
+#include "tilefwk/pypto_fwk_log.h"
 
 #define APASS_LOG_F(lvl, MODULE_NAME, opName, fmt, args...)                        \
     do {                                                                        \
