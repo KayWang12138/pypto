@@ -21,7 +21,7 @@
 #include <cstdio>
 #include <unistd.h>
 
-#include "capture_stdout.h"
+#include "interpreter_log_test_utils.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/inner/pre_def.h"
 #include "interface/configs/config_manager.h"
@@ -32,24 +32,6 @@
 #include "interface/interpreter/operation.h"
 
 namespace npu::tile_fwk {
-
-// 仅检查 [VERIFY] 日志行中是否出现 FAILED，其他模块日志不参与判断
-static bool VerifyLogContainsFailed(const std::string& logOutput) {
-    size_t pos = 0;
-    while (pos < logOutput.size()) {
-        size_t lineEnd = logOutput.find('\n', pos);
-        size_t lineLen = (lineEnd == std::string::npos) ? logOutput.size() - pos : lineEnd - pos;
-        std::string line = logOutput.substr(pos, lineLen);
-        if (line.find("[VERIFY]") != std::string::npos && line.find("FAILED") != std::string::npos) {
-            return true;
-        }
-        if (lineEnd == std::string::npos) {
-            break;
-        }
-        pos = lineEnd + 1;
-    }
-    return false;
-}
 
 class InterpreterLogTest : public testing::Test {
 public:
