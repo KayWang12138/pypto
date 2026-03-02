@@ -32,7 +32,9 @@ std::string CompileSourceCode(const std::string &sourceFilePath, const std::stri
     std::string objectFilePath = sourceFilePath + "_t.o";
     std::string LD_PRELOAD = "LD_PRELOAD= ";
     std::string includePath = GetCurrentSharedLibPath() + "/../include/tile_fwk";
+    std::string macro = extraCflag.empty() ? "-D__DEVICE__" : "";
     std::string cmdGcc = LD_PRELOAD + gcc + " -fPIC -fno-stack-protector -O2 " + extraCflag +
+        " " + macro + " " +
         " -I" + includePath + " " +
         " -I" + GetCurrentSharedLibPath() + "/include/" +
         " -I" + includePath + "/tilefwk " +
@@ -222,6 +224,16 @@ std::string SymbolicExpressionTable::BuildExpressionCode(const RawSymbolicExpPtr
         BuildExtremaExpressionCode(expr, exprDict, oss);
     } else if (expr->Opcode() == SymbolicOpcode::T_MOP_CALL) {
         std::string callee = BuildExpressionByRaw(expr->OperandList()[0], exprDict);
+        if (CallIsGetInputData(callee)) {
+            ASSERT(expr->OperandList().size() > 2);
+            const auto &argName = std::dynamic_pointer_cast<RawSymbolicSymbol>(expr->OperandList()[1])->Name();
+            auto it = tensorNameToDependConst_->find(argName);
+            ASSERT(it != tensorNameToDependConst_->end())<<"Tensor "<<argName<<" not found in tensorNameToDependConst";
+            FUNCTION_LOGE("===TEST=== argName:%s depend:%d.", argName.c_str(), it->second);
+            if (!it->second) {
+                needSync_ = true;
+            }
+        }
         if (CheckRuntimePrefix(callee)) {
             oss << callee;
         } else {

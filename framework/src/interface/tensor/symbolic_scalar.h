@@ -25,7 +25,7 @@
 #include <unordered_set>
 
 #include <tilefwk/symbolic_scalar.h>
-
+#include "tilefwk/data_type.h"
 #include "tilefwk/error.h"
 #include "interface/inner/hash_buffer.h"
 #include "symbol_handler.h"
@@ -817,7 +817,8 @@ struct SymbolicExpressionTable {
     std::string elementKey_;
     std::string title_;
     SymbolicScalar mainBlockScalar_;
-
+    bool needSync_ = false;
+    std::unordered_map<std::string, bool> *tensorNameToDependConst_ = nullptr;
     void SetElementKeyOnce(const std::string &key);
     void SetTitleOnce(const std::string &title);
 
