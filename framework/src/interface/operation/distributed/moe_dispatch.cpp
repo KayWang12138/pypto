@@ -606,16 +606,16 @@ Tensor DispatchCalcOccurrences(Tensor& expertIds, SymbolicScalar expertId, int32
 {
     Tensor expertIdsDup = Full(expertId, DT_INT32, {1, expertIds.GetShape(1)});
     Tensor subResult = Sub(expertIdsDup, expertIds);
-    Tensor subResultFp32 = Cast(subResult, DT_FP32, CAST_TRUNC);
+    Tensor subResultFp32 = Cast(subResult, DT_FP32, CAST_TRUNC, SaturationMode::OFF);
     Tensor absSubResult = Abs(subResultFp32);
-    Tensor subResultInt32 = Cast(absSubResult, DT_INT32, CAST_TRUNC);
+    Tensor subResultInt32 = Cast(absSubResult, DT_INT32, CAST_TRUNC, SaturationMode::OFF);
     Tensor countOfEquals = Clip(subResultInt32, Element(DT_INT32, 0), Element(DT_INT32, 1));
     Tensor cumSumOffset = CumSum(countOfEquals, 1);
-    Tensor cumSumOffsetInt32 = Cast(cumSumOffset, DT_INT32, CAST_TRUNC);
+    Tensor cumSumOffsetInt32 = Cast(cumSumOffset, DT_INT32, CAST_TRUNC, SaturationMode::OFF);
     Tensor expertOffsetResult = ScalarSubS(cumSumOffsetInt32, Element(DT_INT32, calcIndex));
-    Tensor expertOffsetResultFp32 = Cast(expertOffsetResult, DT_FP32, CAST_TRUNC);
+    Tensor expertOffsetResultFp32 = Cast(expertOffsetResult, DT_FP32, CAST_TRUNC, SaturationMode::OFF);
     Tensor expertOffsetAbsFp32 = Abs(expertOffsetResultFp32);
-    Tensor expertOffset = Cast(expertOffsetAbsFp32, DT_INT32, CAST_TRUNC);
+    Tensor expertOffset = Cast(expertOffsetAbsFp32, DT_INT32, CAST_TRUNC, SaturationMode::OFF);
     return expertOffset;
 }
 
