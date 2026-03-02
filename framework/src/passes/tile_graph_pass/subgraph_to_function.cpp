@@ -411,18 +411,27 @@ void SubgraphToFunction::SymbolizeFunction(Function &rootFunc, std::vector<Funct
 
 void SubgraphToFunction::InsertParameter(size_t i, Function& leafFunc) {
     for (auto &in : subFuncInvokeInfos[i].GetIncastTensorParamList()) {
-        leafFunc.AppendIncast(in.tensor, in.opMagic, in.operandIdx);
+        if (std::find(leafFunc.inCasts_.begin(), leafFunc.inCasts_.end(), in.tensor) == leafFunc.inCasts_.end()) {
+            leafFunc.AppendIncast(in.tensor, in.opMagic, in.operandIdx);
+        }  
     }
     for (auto &out : subFuncInvokeInfos[i].GetOutcastTensorParamList()) {
-        leafFunc.AppendOutcast(out.tensor, out.opMagic, out.operandIdx);
+        if (std::find(leafFunc.outCasts_.begin(), leafFunc.outCasts_.end(), out.tensor) == leafFunc.outCasts_.end()) {
+            leafFunc.AppendOutcast(out.tensor, out.opMagic, out.operandIdx);
+        }
     }
     for (auto &tensor : subFuncInvokeInfos[i].GetTensorParamList()) {
-        leafFunc.AddGlobalTensor(tensor.tensor);
         if (tensor.isOutputToGM) {
-            leafFunc.AppendOutcast(tensor.tensor, tensor.opMagic, tensor.operandIdx);
+            if (std::find(leafFunc.outCasts_.begin(), leafFunc.outCasts_.end(), tensor.tensor) == leafFunc.outCasts_.end()) {
+                leafFunc.AppendOutcast(tensor.tensor, tensor.opMagic, tensor.operandIdx);
+                leafFunc.AddGlobalTensor(tensor.tensor);
+            }
             continue;
         }
-        leafFunc.AppendIncast(tensor.tensor, tensor.opMagic, tensor.operandIdx);
+        if (std::find(leafFunc.inCasts_.begin(), leafFunc.inCasts_.end(), tensor.tensor) == leafFunc.inCasts_.end()) {
+            leafFunc.AppendIncast(tensor.tensor, tensor.opMagic, tensor.operandIdx);
+            leafFunc.AddGlobalTensor(tensor.tensor);
+        }
     }
 }
 
