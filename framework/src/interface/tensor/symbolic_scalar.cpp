@@ -89,16 +89,17 @@ void SymbolicExpressionTable::SetTitleOnce(const std::string &title) {
     }
 }
 
-std::string SymbolicExpressionTable::BuildExpression(const SymbolicScalar &ss) {
-    return BuildExpression(ss.Raw());
+std::string SymbolicExpressionTable::BuildExpression(const SymbolicScalar &ss, std::vector<std::string> *dependArgs) {
+    return BuildExpression(ss.Raw(), dependArgs);
 }
 
-std::string SymbolicExpressionTable::BuildExpression(const RawSymbolicScalarPtr &ss) {
-    std::string expr = BuildExpressionByRaw(ss, {});
+std::string SymbolicExpressionTable::BuildExpression(const RawSymbolicScalarPtr &ss, std::vector<std::string> *dependArgs) {
+    std::string expr = BuildExpressionByRaw(ss, {}, dependArgs);
     return expr;
 }
 
-std::string SymbolicExpressionTable::BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict) {
+std::string SymbolicExpressionTable::BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict,
+    std::vector<std::string> *dependArgs) {
     if (exprDict.count(raw)) {
         return exprDict.find(raw)->second;
     }
@@ -114,11 +115,18 @@ std::string SymbolicExpressionTable::BuildExpressionByRaw(const RawSymbolicScala
                 result = symbol->Name();
             } else if (CheckArgPrefix(symbol->Name())) {
                 result = symbol->Name();
+                if (dependArgs != nullptr) {
+                    dependArgs->emplace_back(result);
+                }
             } else {
-                if (symbol->Name().rfind("sym_", 0) == 0)
+                if (symbol->Name().rfind("sym_", 0) == 0) {
                     result = symbol->Name();
-                else
+                } else {
                     result = "VALUE_" + symbol->Name();
+                    if (dependArgs != nullptr) {
+                        dependArgs->emplace_back(result);
+                    }
+                }
             }
         } break;
         case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION: {
