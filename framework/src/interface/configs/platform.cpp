@@ -94,12 +94,6 @@ std::string ToJsonString(const std::string& s) {
 
 #ifdef BUILD_WITH_CANN
 std::string GetPlatformFile(const std::string &socVersion) {
-    #ifdef PROCESSOR_SUBPATH
-        const char *configSubpath = PROCESSOR_SUBPATH;
-    #else
-        const char *configSubpath = "";
-    #endif
-    const char *configRelativePath = "data/platform_config/";
     if (socVersion.empty()) {
         return "";
     }
@@ -108,7 +102,8 @@ std::string GetPlatformFile(const std::string &socVersion) {
     if (envPath == nullptr) {
         return "";
     }
-    std::string platformConfDir = std::string(envPath) + "/" + std::string(configSubpath) + "/" + configRelativePath;
+    std::string configRelativePath = "data/platform_config/";
+    std::string platformConfDir = std::string(envPath) + "/" + std::string(PROCESSOR_SUBPATH) + "/" + configRelativePath;
     if (RealPath(platformConfDir).empty()) {
         platformConfDir = std::string(envPath) + "/" + configRelativePath;
     }
