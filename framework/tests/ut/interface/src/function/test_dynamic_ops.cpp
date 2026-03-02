@@ -19,7 +19,7 @@
 #include <cmath>
 #include <unistd.h>
 
-#include "../interpreter/capture_stdout.h"
+#include "../interpreter/interpreter_log_test_utils.h"
 #include "test_cost_macro.h"
 #include "interface/configs/config_manager.h"
 #include "interface/interpreter/raw_tensor_data.h"
@@ -50,48 +50,9 @@ public:
     }
 };
 
-// 仅检查 [VERIFY] 日志行中是否出现 FAILED，其他模块日志不参与判断
-static bool VerifyLogContainsFailed(const std::string& logOutput) {
-    size_t pos = 0;
-    while (pos < logOutput.size()) {
-        size_t lineEnd = logOutput.find('\n', pos);
-        size_t lineLen = (lineEnd == std::string::npos) ? logOutput.size() - pos : lineEnd - pos;
-        std::string line = logOutput.substr(pos, lineLen);
-        if (line.find("[VERIFY]") != std::string::npos && line.find("FAILED") != std::string::npos) {
-            return true;
-        }
-        if (lineEnd == std::string::npos) {
-            break;
-        }
-        pos = lineEnd + 1;
-    }
-    return false;
-}
-
 #define EXPECT_NO_VERIFY_FAILED(logOutput) \
     EXPECT_FALSE(VerifyLogContainsFailed(logOutput)) \
         << "Expected no FAILED in verify log, captured: " << (logOutput)
-
-// 仅检查 [VERIFY] 日志行中 index 0 是否出现 FAILED，用于 Topk 用例
-static bool VerifyLogContainsIndex0Failed(const std::string& logOutput) {
-    size_t pos = 0;
-    while (pos < logOutput.size()) {
-        size_t lineEnd = logOutput.find('\n', pos);
-        size_t lineLen = (lineEnd == std::string::npos) ? logOutput.size() - pos : lineEnd - pos;
-        std::string line = logOutput.substr(pos, lineLen);
-        // 只关心 flow_verifier 打印的 index 0 结果行：
-        // "... [VERIFY]: ... Verify for ... index 0 result FAILED"
-        if (line.find("[VERIFY]") != std::string::npos &&
-            line.find("index 0 result FAILED") != std::string::npos) {
-            return true;
-        }
-        if (lineEnd == std::string::npos) {
-            break;
-        }
-        pos = lineEnd + 1;
-    }
-    return false;
-}
 
 TEST_F(DynamicOpsTest, FmodFp32) {
     std::string logOutput = CaptureStdout([]() {
