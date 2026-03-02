@@ -50,7 +50,6 @@ bool CannHostRuntime::GetSocVersion(std::string& socVersion) {
 
 std::string CannHostRuntime::GetPlatformFile(const std::string &socVersion) {
     std::string platformFile;
-#ifdef BUILD_WITH_CANN
     if (socVersion.empty()) {
         return "";
     }
@@ -68,8 +67,6 @@ std::string CannHostRuntime::GetPlatformFile(const std::string &socVersion) {
     if (RealPath(platformFile).empty()) {
         return "";
     }
-#endif
-    (void)socVersion;
     return platformFile;
 }
 }  // namespace tile_fwk

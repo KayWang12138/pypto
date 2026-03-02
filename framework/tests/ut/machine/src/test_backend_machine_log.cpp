@@ -35,20 +35,10 @@ using namespace npu::tile_fwk;
 
 extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache);
 
-namespace {
-const std::string TEST_TMP_DIR = "/tmp/test_backend_ml";
-}
-
 class TestBackendMachineLog : public testing::Test {
 public:
-    static void SetUpTestCase() {
-        CreateMultiLevelDir(TEST_TMP_DIR);
-    }
-
-    static void TearDownTestCase() {
-        std::string cmd = "rm -rf " + TEST_TMP_DIR;
-        [[maybe_unused]]int ret = system(cmd.c_str());
-    }
+    static void SetUpTestCase() {}
+    static void TearDownTestCase() {}
 
     void SetUp() override {}
     void TearDown() override {}
