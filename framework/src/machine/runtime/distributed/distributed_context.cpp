@@ -36,6 +36,16 @@ constexpr uint64_t WIN_EXP_SIZE = 1024UL * 1024UL;
 std::unordered_map<std::string, std::pair<uint64_t, uint64_t>> g_context; //key: groupname; value: deviceCommContext,hostCommContext
 
 namespace npu::tile_fwk::dynamic {
+uint8_t* AllocHostAddr(size_t size) {
+    if (size == 0 || size > 0x7FFFFFFF) {
+        DISTRIBUTED_LOGE("AllocHostAddr failed size %zu", size);
+        return nullptr;
+    }
+    auto hostPtr = (uint8_t*)malloc(size);
+    memset_s(hostPtr, size, 0, size);
+    return hostPtr;
+}
+
 template<typename T>
 void DistributedContext::FillCommCtxAttr(TileOp::CommContext *ctxHost, T *hcclParamhost) {
     (void)ctxHost;
@@ -135,8 +145,7 @@ uint64_t AllocateAndSetupCommContext(void* paramHost, uint32_t rankNum, const st
     std::function<void(uint32_t, TileOp::CommContext*, void*)> fillWinArrFunc) {
     size_t commCtxSize = sizeof(TileOp::CommContext) + sizeof(uint64_t) * rankNum * WIN_TYPE_NUM;
 
-    TileOp::CommContext* ctxHost = static_cast<TileOp::CommContext*>(
-        static_cast<void*>(machine::GetRuntimeHostAgent()->AllocHostAddr(commCtxSize)));
+    TileOp::CommContext* ctxHost = static_cast<TileOp::CommContext*>(static_cast<void*>(AllocHostAddr(commCtxSize)));
     ASSERT(ctxHost != nullptr) << "ctxHost malloc failed";
 
     fillAttrFunc(ctxHost, paramHost);
@@ -161,8 +170,7 @@ uint64_t DistributedContext::AllocCommContext<ResType::MESH_A5>(
 #ifdef BUILD_WITH_CANN
     npu::tile_fwk::HcclCombinOpParamA5 *hcclParamDevice = (npu::tile_fwk::HcclCombinOpParamA5 *)ctxAddr;
     npu::tile_fwk::HcclCombinOpParamA5 *hcclParamhost =
-        (npu::tile_fwk::HcclCombinOpParamA5 *)machine::GetRuntimeHostAgent()->AllocHostAddr(
-            sizeof(npu::tile_fwk::HcclCombinOpParamA5));
+        (npu::tile_fwk::HcclCombinOpParamA5 *)AllocHostAddr(sizeof(npu::tile_fwk::HcclCombinOpParamA5));
     ASSERT(hcclParamhost != nullptr) << "hcclParamhost malloc failed";
     size_t offsetRankId = offsetof(npu::tile_fwk::HcclCombinOpParamA5, rankId);
     size_t offsetXnAddr = offsetof(npu::tile_fwk::HcclCombinOpParamA5, xnAddr);
@@ -189,8 +197,7 @@ uint64_t DistributedContext::AllocCommContext<ResType::MESH_A3>(
 #ifdef BUILD_WITH_CANN
     npu::tile_fwk::HcclCombinOpParam *hcclParamDevice = (npu::tile_fwk::HcclCombinOpParam *)ctxAddr;
     npu::tile_fwk::HcclCombinOpParam *hcclParamhost =
-        (npu::tile_fwk::HcclCombinOpParam *)machine::GetRuntimeHostAgent()->AllocHostAddr(
-            sizeof(npu::tile_fwk::HcclCombinOpParam));
+        (npu::tile_fwk::HcclCombinOpParam *)AllocHostAddr(sizeof(npu::tile_fwk::HcclCombinOpParam));
     ASSERT(hcclParamhost != nullptr) << "hcclParamhost malloc failed";
     size_t offsetRankId = offsetof(npu::tile_fwk::HcclCombinOpParam, rankId);
     size_t offsetHcomId = offsetof(npu::tile_fwk::HcclCombinOpParam, hcomId);
@@ -223,8 +230,7 @@ uint64_t DistributedContext::AllocCommContext<ResType::RING_A2>([[maybe_unused]]
 #ifdef BUILD_WITH_CANN
     npu::tile_fwk::HcclOpResParam *hcclParam = (npu::tile_fwk::HcclOpResParam *)ctxAddr;
     npu::tile_fwk::HcclOpResParamHead *hcclParamhost =
-        (npu::tile_fwk::HcclOpResParamHead *)machine::GetRuntimeHostAgent()->AllocHostAddr(
-            sizeof(npu::tile_fwk::HcclOpResParamHead));
+        (npu::tile_fwk::HcclOpResParamHead *)AllocHostAddr(sizeof(npu::tile_fwk::HcclOpResParamHead));
     ASSERT(hcclParamhost != nullptr) << "hcclParamhost malloc failed";
     size_t offsetLocalUsrRankId = offsetof(npu::tile_fwk::HcclOpResParam, localUsrRankId);
     size_t offsetRWinStart = offsetof(npu::tile_fwk::HcclOpResParam, rWinStart);
@@ -233,14 +239,13 @@ uint64_t DistributedContext::AllocCommContext<ResType::RING_A2>([[maybe_unused]]
     ASSERT(ret == 0) << "aclrtMemcpy failed, error: " << ret;
 
     size_t remoteResSize = hcclParamhost->rankSize * sizeof(npu::tile_fwk::RemoteResPtr);
-    npu::tile_fwk::RemoteResPtr *remoteResPtr =
-            (npu::tile_fwk::RemoteResPtr *)machine::GetRuntimeHostAgent()->AllocHostAddr(remoteResSize);
+    npu::tile_fwk::RemoteResPtr *remoteResPtr = (npu::tile_fwk::RemoteResPtr *)AllocHostAddr(remoteResSize);
     ASSERT(remoteResPtr != nullptr) << "remoteResPtr malloc failed";
     ret = aclrtMemcpy(remoteResPtr, remoteResSize, &(hcclParam->remoteRes), remoteResSize, ACL_MEMCPY_DEVICE_TO_HOST);
     ASSERT(ret == 0) << "aclrtMemcpy failed, error: " << ret;
 
     size_t commCtxSize = sizeof(TileOp::CommContext) + sizeof(uint64_t) * hcclParamhost->rankSize * WIN_TYPE_NUM;
-    TileOp::CommContext *ctxHost = (TileOp::CommContext *)machine::GetRuntimeHostAgent()->AllocHostAddr(commCtxSize);
+    TileOp::CommContext *ctxHost = (TileOp::CommContext *)AllocHostAddr(commCtxSize);
     ASSERT(ctxHost != nullptr) << "ctxHost malloc failed";
     FillCommCtxAttr<npu::tile_fwk::HcclOpResParamHead>(ctxHost, hcclParamhost);
     for (uint64_t i = 0; i < hcclParamhost->rankSize; i++) {
