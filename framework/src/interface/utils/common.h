@@ -561,7 +561,7 @@ inline int Max(int a, int b) {
 
 inline std::set<int> PowersOf2(int n) {
     std::set<int> result;
-    ASSERT(n > 0) << "n: " << n;
+    ASSERT(n > 0);
     int power = 0;
     while (true) {
         int current = 1 << power;  // 计算 2^power

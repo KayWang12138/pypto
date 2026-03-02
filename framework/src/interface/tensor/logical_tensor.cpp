@@ -74,7 +74,7 @@ LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawT
       function_(&function) {
     // Initialize other members if necessary
     isSubGraphBoundary = false;
-    ASSERT(shape.size() == offset.size()) << "shape.size(): " << shape.size() << ", offset.size(): " << offset.size();
+    ASSERT(shape.size() == offset.size());
 }
 
 LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawTensor, Offset toffset, Shape tshape,
@@ -92,7 +92,7 @@ LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawT
     // Initialize other members if necessary
     isSubGraphBoundary = false;
 
-    ASSERT(shape.size() == offset.size()) << "shape.size(): " << shape.size() << ", offset.size(): " << offset.size();
+    ASSERT(shape.size() == offset.size());
 }
 
 std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc, bool create) const {
@@ -205,8 +205,7 @@ Json LogicalTensor::DumpJson(bool dumpRawTensor) const {
 
 std::shared_ptr<LogicalTensor> LogicalTensor::LoadJson(Function &function,
             const std::unordered_map<int, std::shared_ptr<RawTensor>> &rawTensorDict, const Json &tensorDump) {
-    ASSERT(tensorDump[T_FIELD_KIND].get<int>() == static_cast<int>(Kind::T_KIND_TENSOR))
-        << "[tensorDump]json field<" << T_FIELD_KIND << "> doesn't match T_KIND_TENSOR.";
+    ASSERT(tensorDump[T_FIELD_KIND].get<int>() == static_cast<int>(Kind::T_KIND_TENSOR));
 
     Offset toffset = tensorDump["offset"].get<std::vector<int64_t>>();
     Shape tshape = tensorDump["shape"].get<std::vector<int64_t>>();
@@ -215,7 +214,7 @@ std::shared_ptr<LogicalTensor> LogicalTensor::LoadJson(Function &function,
     std::shared_ptr<RawTensor> rawTensor;
     if (tensorDump[T_FIELD_RAWTENSOR].is_number()) {
         int rawTensorMagic = tensorDump[T_FIELD_RAWTENSOR].get<int>();
-        ASSERT(rawTensorDict.count(rawTensorMagic)) << "rawTensorDict doesn't have magic " << rawTensorMagic;
+        ASSERT(rawTensorDict.count(rawTensorMagic));
         rawTensor = rawTensorDict.find(rawTensorMagic)->second;
     } else {
         rawTensor = RawTensor::LoadJson(tensorDump[T_FIELD_RAWTENSOR]);
@@ -350,9 +349,7 @@ std::shared_ptr<LogicalTensor> LogicalTensor::View(
     auto view = std::make_shared<LogicalTensor>(
         function, this->tensor, this->offset, this->shape, this->nodetype);
     for (size_t i = 0; i < shape.size(); i++) {
-        ASSERT(shape[i] >= (newShape[i] + newOffset[i]))
-            << "i: " << i << ", shape[i]: " << shape[i]
-            << ", newShape[i]: " << newShape[i] << ", newOffset[i]: " << newOffset[i];
+        ASSERT(shape[i] >= (newShape[i] + newOffset[i]));
     }
 
     view->shape = newShape;
@@ -462,7 +459,6 @@ bool LogicalTensor::Overlap(const std::shared_ptr<LogicalTensor> &other) const {
 
 int64_t LogicalTensor::GetDataSize() const {
     if (HasNegativeNum<int64_t>(shape)) {
-        FUNCTION_LOGD("Logical tensor shape has negative. It has dynamic axis.");
         return INT64_MAX;
     }
     int64_t shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
@@ -523,8 +519,7 @@ std::vector<SymbolicScalar> npu::tile_fwk::GetViewValidShape(const std::vector<S
     if (validShape.size() == 0) {
         return {};
     }
-    ASSERT(validShape.size() == viewShape.size())
-        << "Their size actually are " << validShape.size() << "and " << viewShape.size();
+    ASSERT(validShape.size() == viewShape.size());
 
     std::vector<SymbolicScalar> result;
     for (size_t i = 0; i < validShape.size(); i++) {
@@ -582,8 +577,7 @@ void GetTensorDataSetCoaIndex(Operation *op, int index) {
 }
 
 Tensor TensorExtract(const Tensor &src, const std::vector<SymbolicScalar> &offset) {
-    ASSERT(src.GetShape().size() == offset.size())
-        << "src.GetShape().size(): " << src.GetShape().size() << ", offset.size(): " << offset.size();
+    ASSERT(src.GetShape().size() == offset.size()) << "dim mismatch";
     auto currFunc = Program::GetInstance().GetCurrentFunction();
 
     Shape dstShape(src.GetShape().size(), 1);
@@ -610,12 +604,9 @@ Tensor TensorExtract(const Tensor &src, const std::vector<SymbolicScalar> &offse
 }
 
 void TensorInsert(const Tensor &src, const std::vector<SymbolicScalar> &offset, Tensor &dst) {
-    ASSERT(src.GetShape() == Shape(src.GetShape().size(), 1))
-        << "src.GetShape(): " << src.GetShape() << ", Shape(src.GetShape().size(), 1): " << Shape(src.GetShape().size(), 1);
-    ASSERT(src.GetShape().size() == dst.GetShape().size())
-        << "src.GetShape().size(): " << src.GetShape().size() << ", dst.GetShape().size(): " << dst.GetShape().size();
-    ASSERT(src.GetShape().size() == offset.size())
-        << "src.GetShape().size(): " << src.GetShape().size() << ", offset.size(): " << offset.size();
+    ASSERT(src.GetShape() == Shape(src.GetShape().size(), 1));
+    ASSERT(src.GetShape().size() == dst.GetShape().size());
+    ASSERT(src.GetShape().size() == offset.size());
 
     // Force to UB
     Tensor mark = Add(src, Element(src.GetDataType(), (int64_t)0));
@@ -639,23 +630,20 @@ RawSymbolicScalarPtr ReplaceExpression(const RawSymbolicScalarPtr &expr, const R
             result = expr;
             break;
         case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION: {
-                std::vector<RawSymbolicScalarPtr> subexprList;
-                bool allreuse = true;
-                for (auto &subexpr : expr->GetExpressionOperandList()) {
-                    RawSymbolicScalarPtr sub = ReplaceExpression(subexpr, src, dst);
-                    subexprList.push_back(sub);
-                    allreuse = allreuse && (sub == subexpr);
-                }
-                if (allreuse) {
-                    result = expr;
-                } else {
-                    result = std::make_shared<RawSymbolicExpression>(expr->GetExpressionOpcode(), subexprList);
-                }
+            std::vector<RawSymbolicScalarPtr> subexprList;
+            bool allreuse = true;
+            for (auto &subexpr : expr->GetExpressionOperandList()) {
+                RawSymbolicScalarPtr sub = ReplaceExpression(subexpr, src, dst);
+                subexprList.push_back(sub);
+                allreuse = allreuse && (sub == subexpr);
             }
-            break;
-        default:
-            ASSERT(false) << "unexpected behavior.";
-            break;
+            if (allreuse) {
+                result = expr;
+            } else {
+                result = std::make_shared<RawSymbolicExpression>(expr->GetExpressionOpcode(), subexprList);
+            }
+        } break;
+        default: ASSERT(false); break;
     }
     return result;
 }
@@ -737,7 +725,7 @@ std::set<std::pair<int, int>> GetTensorDataUsage(const std::vector<std::referenc
 
 SymbolicScalar UpdateGetTensorDataIOIndex(size_t currOutcastIdx, size_t newOutcastIdx, const SymbolicScalar &scalar) {
     ASSERT(currOutcastIdx != newOutcastIdx) <<
-        "currOutcastIdx == currOutcastIdx, should not be updated. Their value are " << currOutcastIdx;
+        "UpdateGetTensorDataIOIndex currOutcastIdx == currOutcastIdx, should not be updated";
     RawSymbolicScalarPtr curr = scalar.Raw();
     // when updating multilple outcastIdx, should ensure the currOutcastIdx of multiple calls is in ascending order
     bool filledFound = true;
@@ -749,8 +737,8 @@ SymbolicScalar UpdateGetTensorDataIOIndex(size_t currOutcastIdx, size_t newOutca
                 std::vector<RawSymbolicScalarPtr> operandList = call->GetExpressionOperandList();
                 auto currIOType = operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE];
                 auto currIOTypeIndex = operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX];
-                ASSERT(currIOType->IsImmediate()) << "its' kind: " << SymbolicScalarKind2Name(currIOType->kind);
-                ASSERT(currIOTypeIndex->IsImmediate()) << "its' kind: " << SymbolicScalarKind2Name(currIOTypeIndex->kind);
+                ASSERT(currIOType->IsImmediate());
+                ASSERT(currIOTypeIndex->IsImmediate());
                 if (currIOType->GetImmediateValue() != GET_TENSOR_DATA_OPERAND_IOTYPE_OUTCAST) continue;
                 size_t outcastIndex = currIOTypeIndex->GetImmediateValue();
                 if (outcastIndex == newOutcastIdx|| outcastIndex != currOutcastIdx) continue;
@@ -783,8 +771,8 @@ SymbolicScalar GetTensorDataFillIO(const GetTensorDataIODescDict &iodescDict, co
                 std::vector<RawSymbolicScalarPtr> operandList = call->GetExpressionOperandList();
                 auto currIOType = operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE];
                 auto currIOTypeIndex = operandList[GET_TENSOR_DATA_OPERAND_INDEX_IOTYPE_INDEX];
-                ASSERT(currIOType->IsImmediate()) << "its' kind: " << SymbolicScalarKind2Name(currIOType->kind);
-                ASSERT(currIOTypeIndex->IsImmediate()) << "its' kind: " << SymbolicScalarKind2Name(currIOTypeIndex->kind);
+                ASSERT(currIOType->IsImmediate());
+                ASSERT(currIOTypeIndex->IsImmediate());
                 if (currIOType->GetImmediateValue() == ioTypeValue && currIOTypeIndex->GetImmediateValue() == ioTypeIndexValue) {
                     continue;
                 }
