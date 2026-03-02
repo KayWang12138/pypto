@@ -1274,7 +1274,7 @@ void Function::MagicLookup(const Function *function, const std::vector<LogicalTe
 unsigned long Function::ComputeHashOrderless() const {
     std::stringstream ss;
     ss << std::to_string(static_cast<int>(functionType_)) << " ";
-    ss << std::to_string(static_cast<int>(graphType_)) << " ";   
+    ss << std::to_string(static_cast<int>(graphType_)) << " ";
     if (!IsGraphType({GraphType::BLOCK_GRAPH, GraphType::LEAF_VF_GRAPH}) &&
         !IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TENSOR_GRAPH)) {
         ss << GetMagicName() << " ";
@@ -1332,7 +1332,7 @@ unsigned long Function::ComputeHashOrderless() const {
     }
     if (leafFuncAttr_ != nullptr) {
         // mixId标识同一次Mix拆出来的leafFunction组
-        if (leafFuncAttr_->mixId != -1) {
+        if (leafFuncAttr_->mixId != LeafFuncAttribute::INVALID_MIX_ID) {
             ss << " MIX_ID:" << leafFuncAttr_->mixId;
         }   
         if (leafFuncAttr_->aivCore != AIVCore::UNSPECIFIED) {
