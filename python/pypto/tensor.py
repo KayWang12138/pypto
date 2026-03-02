@@ -532,6 +532,14 @@ class Tensor:
     @source_location
     def topk(self, k: int, dim: Optional[int] = None, largest: bool = True) -> Tuple['Tensor', 'Tensor']:
         return pypto.topk(self, k, dim, largest)
+    
+    @source_location
+    def sort32(self, index: Optional[int] = None) -> 'Tensor':
+        return pypto.sort32(self, index)
+
+    @source_location
+    def mrgsort(self, mergesize: int) -> 'Tensor':
+        return pypto.mrgsort(self, mergesize)
 
     @source_location
     def exp(self) -> 'Tensor':
@@ -542,8 +550,28 @@ class Tensor:
         return pypto.sign(self)
 
     @source_location
+    def exp2(self) -> 'Tensor':
+        return pypto.exp2(self)
+
+    @source_location
+    def expm1(self) -> 'Tensor':
+        return pypto.expm1(self)
+
+    @source_location
     def log(self) -> 'Tensor':
         return pypto.log(self)
+
+    @source_location
+    def log1p(self) -> 'Tensor':
+        return pypto.log1p(self)
+
+    @source_location
+    def log10(self) -> 'Tensor':
+        return pypto.log10(self)
+        
+    @source_location
+    def log2(self) -> 'Tensor':
+        return pypto.log2(self)
 
     @source_location
     def logical_not(self) -> 'Tensor':
@@ -616,6 +644,10 @@ class Tensor:
         return pypto.cumsum(self, dim)
 
     @source_location
+    def gcd(self: 'Tensor', other: 'Tensor | int') -> 'Tensor':
+        return pypto.gcd(self, other)
+
+    @source_location
     def triu(self: 'Tensor', diagonal: 'int | SymbolicScalar' = 0) -> 'Tensor':
         return pypto.triu(self, diagonal)
 
@@ -653,6 +685,11 @@ class Tensor:
     def scatter(self, dim: int, index: 'Tensor',
                 src: Union[float, Element, 'Tensor'], *, reduce: str = None) -> 'Tensor':
         return pypto.scatter(self, dim, index, src, reduce=reduce)
+
+    @source_location
+    def var(self, dim: Union[int, List[int], Tuple[int]] = None, *,
+            correction: float = 1, keepdim: bool = False) -> 'Tensor':
+        return pypto.var(self, dim, correction=correction, keepdim=keepdim)
 
     def _is_empty_slice(self, key):
         if isinstance(key, slice):

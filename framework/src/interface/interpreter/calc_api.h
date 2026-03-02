@@ -61,6 +61,8 @@ struct CalcOps {
 
     void (*Cast)(const TensorData &, const TensorData &, CastMode);
     void (*Exp)(const TensorData &, const TensorData &);
+    void (*Exp2)(const TensorData &, const TensorData &);
+    void (*Expm1)(const TensorData &, const TensorData &);
     void (*Neg)(const TensorData &, const TensorData &);
     void (*Rsqrt)(const TensorData &, const TensorData &);
     void (*Sign)(const TensorData &, const TensorData &);
@@ -71,6 +73,7 @@ struct CalcOps {
     void (*Round)(const TensorData &, const TensorData &, int);
     void (*Reciprocal)(const TensorData &, const TensorData &);
     void (*Relu)(const TensorData &, const TensorData &);
+    void (*Log1p)(const TensorData &, const TensorData &);
     void (*BitwiseNot)(const TensorData &, const TensorData &);
     void (*Abs)(const TensorData &, const TensorData &);
     void (*Brcb)(const TensorData &, const TensorData &);  
@@ -95,6 +98,7 @@ struct CalcOps {
     void (*BitwiseAndS)(const TensorData &, const TensorData &, const Element &, bool);
     void (*BitwiseOrS)(const TensorData &, const TensorData &, const Element &, bool);
     void (*BitwiseXorS)(const TensorData &, const TensorData &, const Element &, bool);
+    void (*GcdS)(const TensorData &, const TensorData &, const Element &);
 
     void (*Add)(const TensorData &, const TensorData &, const TensorData &);
     void (*Sub)(const TensorData &, const TensorData &, const TensorData &);
@@ -106,6 +110,7 @@ struct CalcOps {
     void (*BitwiseOr)(const TensorData &, const TensorData &, const TensorData &);
     void (*BitwiseXor)(const TensorData &, const TensorData &, const TensorData &);
     void (*CopySign)(const TensorData &, const TensorData &, const TensorData &);
+    void (*Gcd)(const TensorData &, const TensorData &, const TensorData &);
 
     void (*PairSum)(const TensorData &, const TensorData &, const TensorData &);
     void (*PairMax)(const TensorData &, const TensorData &, const TensorData &);
