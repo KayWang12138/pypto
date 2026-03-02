@@ -601,16 +601,16 @@ def fp32_to_tf32_modes(x: torch.Tensor):
     sign = torch.sign(x)
     abs_x = torch.abs(x)
     bits = abs_x.view(torch.int32)
-    TRUNCATE_MASK = 0xFFFFE000
-    HALF_ULP_MASK = 0x00001000
-    LESS_THAN_HALF_MASK = 0x00000FFF
-    INCREMENT_MASK = 0x00002000
-    LAST_BIT_MASK = 0x00002000
-    t_trunc = torch.tensor(TRUNCATE_MASK, dtype=torch.int64)
-    t_half = torch.tensor(HALF_ULP_MASK, dtype=torch.int64)
-    t_less = torch.tensor(LESS_THAN_HALF_MASK, dtype=torch.int64)
-    t_inc = torch.tensor(INCREMENT_MASK, dtype=torch.int64)
-    t_last = torch.tensor(LAST_BIT_MASK, dtype=torch.int64)
+    truncate_mask = 0xFFFFE000
+    half_ulp_mask = 0x00001000
+    less_than_half_mask = 0x00000FFF
+    increment_mask = 0x00002000
+    last_bit_mask = 0x00002000
+    t_trunc = torch.tensor(truncate_mask, dtype=torch.int64)
+    t_half = torch.tensor(half_ulp_mask, dtype=torch.int64)
+    t_less = torch.tensor(less_than_half_mask, dtype=torch.int64)
+    t_inc = torch.tensor(increment_mask, dtype=torch.int64)
+    t_last = torch.tensor(last_bit_mask, dtype=torch.int64)
     truncated = bits & t_trunc
     round_part = bits & (t_half | t_less)
     greater_than_half = (round_part > t_half)
