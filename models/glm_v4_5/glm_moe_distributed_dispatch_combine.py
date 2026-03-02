@@ -701,13 +701,11 @@ def moe_distributed_combine_kernel(
 
             pypto.set_vec_tile_shapes(1, hidden_size)
             expand_x_tile = expand_x[row_index:row_index + 1, :hidden_size]
-            pred_token = pypto.tensor([1, 1], pypto.DT_INT32)
             shmem_put_out = pypto.distributed.shmem_put(
                 expand_x_tile,
                 [0, topk * token_id + k_offset, 0],
                 shmem_data,
                 logical_rank_id,
-                pred=[pred_token],
             )
 
             pypto.distributed.shmem_signal(
@@ -725,14 +723,12 @@ def moe_distributed_combine_kernel(
         my_pe = pypto.distributed.my_symbolic_pe(group_name)
         for token_id in range(batch_size):
             pypto.set_vec_tile_shapes(1, hidden_size)
-            pred_token = pypto.tensor([1, 1], pypto.DT_INT32)
             wait_until_out = pypto.distributed.shmem_wait_until(
                 shmem_signal,
                 pypto.OpType.EQ,
                 topk,
                 [1, 1, 1, 1, hidden_size],
                 [my_pe, 0, 0, token_id, 0],
-                pred=[pred_token],
             )
 
             pypto.set_vec_tile_shapes(topk, hidden_size)
