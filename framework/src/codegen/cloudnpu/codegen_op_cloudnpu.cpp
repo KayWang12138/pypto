@@ -143,6 +143,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_BITWISELEFTSHIFT, [this]() { return GenBinaryOpWithTmp(); }},
           {Opcode::OP_BITWISEXOR, [this]() { return GenBinaryOpWithTmp(); }},
           {Opcode::OP_COPYSIGN, [this]() { return GenBinaryOpWithTmp(); }},
+          {Opcode::OP_PRELU, [this]() { return GenPreluOp(); }},
 
           // binary op: broadcast associated vector
           {Opcode::OP_ADD_BRC, [this]() { return GenBinaryWithBrc(); }},

@@ -131,6 +131,7 @@ enum class Opcode {
     OP_CMP,
     OP_CMPS,
     OP_HYPOT,
+    OP_PRELU,
     OP_WHERE_TT,
     OP_WHERE_TS,
     OP_WHERE_ST,
@@ -597,7 +598,7 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE,
     Opcode::OP_ROWSUMLINE, Opcode::OP_ADD_BRC, Opcode::OP_ADD_BRC, Opcode::OP_SUB_BRC, Opcode::OP_MUL_BRC,
     Opcode::OP_DIV_BRC, Opcode::OP_MAX_BRC, Opcode::OP_MIN_BRC, Opcode::OP_GATHER, Opcode::OP_HYPOT, Opcode::OP_S_ADDS,
     Opcode::OP_S_SUBS, Opcode::OP_S_DIVS, Opcode::OP_S_MULS, Opcode::OP_S_MAXS, Opcode::OP_S_MINS, Opcode::OP_ROUND,
-    Opcode::OP_BITSORT, Opcode::OP_MRGSORT, Opcode::OP_CMP, Opcode::OP_CMPS, Opcode::OP_EXTRACT,
+    Opcode::OP_BITSORT, Opcode::OP_MRGSORT, Opcode::OP_CMP, Opcode::OP_CMPS, Opcode::OP_EXTRACT, Opcode::OP_PRELU,
     Opcode::OP_TILEDMRGSORT, Opcode::OP_ROWMAXLINE, Opcode::OP_PAIRMIN, Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWMINLINE,
     Opcode::OP_TOPK_SORT, Opcode::OP_TOPK_MERGE, Opcode::OP_TOPK_EXTRACT, Opcode::OP_SCATTER_ELEMENT, Opcode::OP_SIGN,
     Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_SORT, Opcode::OP_COMPARE_SWAP, Opcode::OP_MERGE, Opcode::OP_L0C_TO_L1,
@@ -616,7 +617,7 @@ const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{Opcode::OP_EXP, Opcode::OP_R
     Opcode::OP_S_MAXS, Opcode::OP_S_MINS, Opcode::OP_NEG, Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL, Opcode::OP_DIV,
     Opcode::OP_MAXIMUM, Opcode::OP_MINIMUM, Opcode::OP_ADD_BRC, Opcode::OP_SUB_BRC, Opcode::OP_MUL_BRC,
     Opcode::OP_DIV_BRC, Opcode::OP_MAX_BRC, Opcode::OP_MIN_BRC, Opcode::OP_S_ADD, Opcode::OP_S_SUB, Opcode::OP_S_MUL,
-    Opcode::OP_S_DIV, Opcode::OP_S_MAX, Opcode::OP_S_MIN,Opcode::OP_WHERE_TT, Opcode::OP_WHERE_TS,
+    Opcode::OP_S_DIV, Opcode::OP_S_MAX, Opcode::OP_S_MIN,Opcode::OP_WHERE_TT, Opcode::OP_WHERE_TS, Opcode::OP_PRELU,
     Opcode::OP_WHERE_ST, Opcode::OP_WHERE_SS, Opcode::OP_ROWMAX, Opcode::OP_ROWSUM, Opcode::OP_ROWEXPMAX,
     Opcode::OP_ROWEXPSUM, Opcode::OP_ROWSUMLINE, Opcode::OP_ROWMAXLINE, Opcode::OP_ROWMINLINE, Opcode::OP_ROWMAX_SINGLE,
     Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, Opcode::OP_SIGN,
@@ -628,7 +629,7 @@ const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{Opcode::OP_EXP, Opcode::OP_R
 const std::unordered_set<Opcode> UNSUPPORT_BF16_ARCH35_OPS{Opcode::OP_EXP, Opcode::OP_RSQRT, Opcode::OP_SQRT, Opcode::OP_RELU,
     Opcode::OP_ABS, Opcode::OP_LOGICALNOT,Opcode::OP_LOGICALAND, Opcode::OP_DIVS, Opcode::OP_DIV,
     Opcode::OP_ROWSUMLINE, Opcode::OP_ROWMAXLINE, Opcode::OP_ROWMINLINE, Opcode::OP_ROWMAX_SINGLE,
-    Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_MOD, Opcode::OP_MODS};
+    Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_MOD, Opcode::OP_MODS, Opcode::OP_PRELU};
 
 const std::unordered_set<Opcode> FIX_COPY_IN_OPS{Opcode::OP_L1_TO_FIX, Opcode::OP_L1_TO_FIX_QUANT_PRE,
     Opcode::OP_L1_TO_FIX_RELU_PRE, Opcode::OP_L1_TO_FIX_RELU_POST, Opcode::OP_L1_TO_FIX_QUANT_POST,
@@ -655,7 +656,7 @@ const std::unordered_set<Opcode> LASTUSE_OPS{Opcode::OP_ADD, Opcode::OP_SUB, Opc
     Opcode::OP_CONVERT, Opcode::OP_EXPAND, Opcode::OP_ROWEXPMAX, Opcode::OP_ROWMAX, Opcode::OP_ROWSUM, Opcode::OP_CAST,
     Opcode::OP_ROWSUM_SINGLE, Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWMIN_SINGLE, Opcode::OP_DIVS, Opcode::OP_ABS,
     Opcode::OP_MAXIMUM, Opcode::OP_MINIMUM, Opcode::OP_BITWISEAND, Opcode::OP_BITWISEOR, Opcode::OP_BITWISEANDS,
-    Opcode::OP_BITWISEORS, Opcode::OP_RELU, Opcode::OP_MODS, Opcode::OP_MOD, Opcode::OP_SIGN};
+    Opcode::OP_BITWISEORS, Opcode::OP_RELU, Opcode::OP_MODS, Opcode::OP_MOD, Opcode::OP_SIGN, Opcode::OP_PRELU};
 
 inline bool IsAllocOpCode(Opcode opCode) {
     return (ALLOC_OPCODE.count(opCode) != 0);
