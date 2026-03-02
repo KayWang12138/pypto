@@ -78,6 +78,7 @@ const std::string KEY_PASS_VERIFY_SAVE_TENSOR = "pass_verify_save_tensor";
 const std::string KEY_PASS_VERIFY_SAVE_TENSOR_DIR = "pass_verify_save_tensor_dir";
 const std::string KEY_PASS_VERIFY_FILTER = "pass_verify_pass_filter";
 const std::string KEY_PASS_VERIFY_ERROR_TOL = "pass_verify_error_tol";
+const std::string KEY_ENABLE_CALL_TASK_DUMP = "enable_call_task_dump";
 
 // debug
 constexpr const char *CFG_COMPILE_DBEUG_MODE = "compile_debug_mode";
