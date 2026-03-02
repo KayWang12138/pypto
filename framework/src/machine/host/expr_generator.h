@@ -49,28 +49,31 @@ public:
         CalculateBatches();
     }
 
-    void HeaderFileBegin(std::ostringstream &exprHeaderOss) const {
-        exprHeaderOss << "#pragma once\n"
-                       << "#include <cstdint>\n\n"
-                       << "namespace npu::tile_fwk {\n\n";
+    void HeaderFileBegin(std::ostringstream &out) const {
+        out << "#pragma once\n"
+            << "#include <cstdint>\n\n"
+            << "namespace npu::tile_fwk {\n\n";
         GenerateLinkScript();
     }
 
-    void HeaderFileEnd(std::ostringstream &exprHeaderOss) const {
+    void HeaderFileEnd(std::ostringstream &out) const {
         std::string headerPath = outputDir_ + "/control_flow_expr_table.h";
         std::ofstream header(headerPath);
         if (!header.is_open()) {
             ASSERT(false) << "File batch_expr.h open failed!";
             return;
         }
-        exprHeaderOss << "\n} // namespace npu::tile_fwk\n";
-        header << exprHeaderOss.str();
+        out << "\n} // namespace npu::tile_fwk\n";
+        header << out.str();
         header.close();
     }
 
-    template<typename ExpressionSet, typename BuildExpressionFunc>
+    template<typename ExpressionSet, typename BuildExpressionFunc, typename CheckSyncFunc>
     void GenerateBatchFile(std::ostringstream &controlFlowOss, std::ostringstream &exprHeaderOss, const std::string &expName,
-        const ExpressionSet& expressions, std::vector<std::string> &exprSrcFiles, int indent, int devRootKey, const BuildExpressionFunc& buildExpr) {
+        const ExpressionSet& expressions, std::vector<std::string> &exprSrcFiles, int indent, int devRootKey, const BuildExpressionFunc& buildExpr,
+        const CheckSyncFunc& checkNeedSync) {
+        bool insertSync = false;
+        std::ostringstream subCallOss;
         for (auto& batch : batches_) {
             std::string filePath = outputDir_ + "/" + batch.fileName;
             std::ofstream out(filePath);
@@ -92,17 +95,24 @@ public:
             for (size_t idx = batch.startExprIndex; idx < batch.endExprIndex; idx++) {
                 const auto& expr = expressions[idx];
                 auto exprStr = buildExpr(expr);
+                if (!insertSync && checkNeedSync(exprStr)) {
+                    insertSync = true;
+                }
                 out << "    RUNTIME_SetExpr(exprList, " << idx << ", " << exprStr << ");\n";
             }
             out << "}\n\n"
                 << "} // namespace npu::tile_fwk\n";
             out.close();
-            controlFlowOss << std::setw(indent * TABSIZE) << ' ' 
+            subCallOss << std::setw(indent * TABSIZE) << ' ' 
                 << batch.functionName << "(ctx, symbolTable, runtimeCallList, startArgs, exprList" << devRootKey <<");\n";
             exprSrcFiles.emplace_back(filePath);
             exprHeaderOss << "void " << batch.functionName
                 << "(void *ctx, int64_t *symbolTable, RuntimeCallEntryType runtimeCallList[], DevStartArgsBase *startArgs, uint64_t *exprList);\n";
         }
+        if (insertSync) {
+            controlFlowOss << std::setw(indent * TABSIZE) << ' '  << "WaitAicoreStart(startArgs);\n";
+        }
+        controlFlowOss << subCallOss.str();
         return;
     }
 

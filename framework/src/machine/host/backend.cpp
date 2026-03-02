@@ -369,25 +369,34 @@ static std::string BuildControlFlowCallee(Function *func, int ident) {
 }
 
 static void GenerateExpression(SymbolicExpressionTable *exprTable, int devRootKey, const std::string &expName,
-    std::vector<std::string> &exprSrcFiles, std::ostringstream &controlFlowOss, std::ostringstream &exprHeaderOss, int indent) {
+    std::vector<std::string> &exprSrcFiles, std::ostringstream &controlFlowOss, std::ostringstream &exprHeaderOss, int indent,
+    const std::unordered_map<std::string, bool> &tensorNameToDependConst) {
     const auto &primaryExprs = exprTable->GetPrimaryExpressionSet();
     size_t totalExprs = primaryExprs.size();
     std::string outputDir = GetEmitPath("kernel_aicpu");
     ExprBatchGenerator generator(outputDir, devRootKey, totalExprs);
+    
+    // 创建tensor类型查询函数，使用exprTable中存储的映射
+    auto getDependConstFunc = [tensorNameToDependConst](const std::string& inputName) -> bool {
+        auto it = tensorNameToDependConst.find(inputName);
+        ASSERT(it != tensorNameToDependConst.end())<<"Tensor "<<inputName<<" not found in tensorNameToDependConst";
+        return it->second;
+    };
+    
     generator.GenerateBatchFile(controlFlowOss, exprHeaderOss, expName, primaryExprs, exprSrcFiles, indent, devRootKey,
-            [&exprTable](const auto& expr) { return exprTable->BuildExpression(expr); });
+            [exprTable](const auto& expr) { return exprTable->BuildExpression(expr); },
+            [exprTable, getDependConstFunc](const std::string &expr) { 
+                return SymbolicExpressionTable::CheckDependAicore(expr, getDependConstFunc); 
+            });
 }
 
 static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::string &sectionName,
-    Function *func,
-    std::unordered_map<int, int> &slotIdxMapping,
-    DyndevFunctionAttribute::FunctionGroup &group,
-    std::unordered_map<Function *, Function *> &rootTileDict,
-    std::ostringstream &controlFlowOss,
-    std::ostringstream &expressionOss, std::ostringstream &exprHeaderOss,
-    int indent, const std::string &expName, std::vector<std::string> &exprSrcFiles) {
+    Function *func, std::unordered_map<int, int> &slotIdxMapping, DyndevFunctionAttribute::FunctionGroup &group,
+    std::unordered_map<Function *, Function *> &rootTileDict, std::ostringstream &controlFlowOss, std::ostringstream &expressionOss,
+    std::ostringstream &exprHeaderOss, int indent, const std::string &expName, std::vector<std::string> &exprSrcFiles,
+    std::unordered_map<std::string, bool> &tensorNameToDependConst) {
     auto funcType = func->GetFunctionType();
-        if (funcType == FunctionType::DYNAMIC) {
+    if (funcType == FunctionType::DYNAMIC) {
         controlFlowOss
             << "#define __TILE_FWK_AICPU__ 1\n"
             << "#include <stdint.h>\n"
@@ -405,13 +414,30 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         const std::vector<std::string> &outputNameList = Program::GetInstance().GetTensorSlotManager()->GetOutputNameList();
 
         expressionOss << "\n/* Input tensor list */\n";
+        auto tensorSlotManager = Program::GetInstance().GetTensorSlotManager();
         for (size_t idx = 0; idx < inputNameList.size(); idx++) {
-            expressionOss << "#define " << AddArgPrefix(inputNameList[idx]) << " " << idx << "\n";
+            const auto inputName = AddArgPrefix(inputNameList[idx]);
+            expressionOss << "#define " << inputName << " " << idx << "\n";
+            const auto &inputSlot = tensorSlotManager->inputSlotList[idx];
+            const auto *tensor = reinterpret_cast<const Tensor *>(inputSlot.GetSlot());
+            if (tensor && tensor->GetStorage(false)) {
+                tensorNameToDependConst[inputName] = tensor->GetStorage(false)->GetRawTensor()->GetDependConst();
+            } else {
+                tensorNameToDependConst[inputName] = true; // 默认为 DEPEND_CONST，对应 true
+            }
         }
 
         expressionOss << "\n/* Output tensor list */\n";
         for (size_t idx = 0; idx < outputNameList.size(); idx++) {
-            expressionOss << "#define " << AddArgPrefix(outputNameList[idx]) << " " << idx + inputNameList.size() << "\n";
+            const auto outputName = AddArgPrefix(outputNameList[idx]);
+            expressionOss << "#define " << outputName << " " << idx + inputNameList.size() << "\n";
+            const auto &outputSlot = tensorSlotManager->outputSlotList[idx];
+            const auto *tensor = reinterpret_cast<const Tensor *>(outputSlot.GetSlot());
+            if (tensor && tensor->GetStorage(false)) {
+                tensorNameToDependConst[outputName] = tensor->GetStorage(false)->GetRawTensor()->GetDependConst();
+            } else {
+                tensorNameToDependConst[outputName] = true; // 默认为 DEPEND_CONST，对应 true
+            }
         }
         controlFlowOss << "#define LOOP(idx, b, e, s) for (int64_t idx = (b), idxEnd = (e), idxStep = (s); idx < idxEnd; idx += idxStep)\n"
             << "namespace npu::tile_fwk {\n"
@@ -421,7 +447,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
             << "uint64_t ControlFlowEntry(void *ctx, int64_t *symbolTable, RuntimeCallEntryType runtimeCallList[], DevStartArgsBase *startArgs) {\n";
         for (auto &callee : GetCalleeList(cache, func)) {
             BuildControlFlow(cache, linker, sectionName, callee, slotIdxMapping, group, rootTileDict, controlFlowOss, expressionOss,
-                exprHeaderOss, indent + 1, expName, exprSrcFiles);
+                exprHeaderOss, indent + 1, expName, exprSrcFiles, tensorNameToDependConst);
         }
         controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_FINISH); // Notify finish \n";
         controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "return 0;\n";
@@ -431,10 +457,10 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
     } else if (func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC_LOOP, GraphType::TENSOR_GRAPH)) {
         std::function<void(const std::shared_ptr<DynloopFunctionPathNode> &, int)> condBuilder =
             [&cache, &linker, &sectionName, &slotIdxMapping, &group, &rootTileDict, &controlFlowOss, &expressionOss, &exprHeaderOss, &condBuilder,
-             &expName, &exprSrcFiles] (const std::shared_ptr<DynloopFunctionPathNode> &node, int condIndent) {
+             &expName, &exprSrcFiles, &tensorNameToDependConst] (const std::shared_ptr<DynloopFunctionPathNode> &node, int condIndent) {
                 if (!node->cond.IsValid()) {
                     BuildControlFlow(cache, linker, sectionName, node->root, slotIdxMapping, group, rootTileDict, controlFlowOss, expressionOss,
-                        exprHeaderOss, condIndent, expName, exprSrcFiles);
+                        exprHeaderOss, condIndent, expName, exprSrcFiles, tensorNameToDependConst);
                 } else {
                     std::string cond = SymbolicExpressionTable::BuildExpression(node->cond);
                     if (node->branchNodeList[1] != nullptr) {
@@ -502,14 +528,14 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         }
         for (auto &callee : GetCalleeList(cache, func)) {
             BuildControlFlow(cache, linker, sectionName, callee, slotIdxMapping, group, rootTileDict, controlFlowOss, expressionOss,
-                exprHeaderOss, indent + 1, expName, exprSrcFiles);
+                exprHeaderOss, indent + 1, expName, exprSrcFiles, tensorNameToDependConst);
         }
     } else if (func->GetGraphType() == GraphType::TILE_GRAPH) {
         controlFlowOss << BuildControlFlowCallee(func, indent * TABSIZE);
         Function *root = func->GetRootFunction();
         rootTileDict[root] = func;
         BuildControlFlow(cache, linker, sectionName, root, slotIdxMapping, group, rootTileDict, controlFlowOss, expressionOss,
-            exprHeaderOss, indent, expName, exprSrcFiles);
+            exprHeaderOss, indent, expName, exprSrcFiles, tensorNameToDependConst);
     } else if (func->GetGraphType() == GraphType::EXECUTE_GRAPH) {
         if (group.devRootList.count(func) <= 0) {
             return;
@@ -531,7 +557,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
 
         SymbolicExpressionTable *exprTable = linker.LookupDevRootCoa(func);
         if (exprTable != nullptr) {
-            GenerateExpression(exprTable, devRootKey, expName, exprSrcFiles, controlFlowOss, exprHeaderOss, indent);
+            GenerateExpression(exprTable, devRootKey, expName, exprSrcFiles, controlFlowOss, exprHeaderOss, indent, tensorNameToDependConst);
         }
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_RootStitch(" << devRootKey << "ULL);\n";
     } else {
@@ -815,8 +841,9 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
     npu::tile_fwk::CreateMultiLevelDir(aicpuDirPath);
     std::vector<std::string> exprSrcFiles;
     std::ostringstream exprHeaderOss;
+    std::unordered_map<std::string, bool> tensorNameToDependConst;
     BuildControlFlow(cache, linker, ".pypto", function, slotIdxMapping, attr->funcGroup, attr->rootTileDict, controlFlowOss,
-                     expressionOss, exprHeaderOss, 0, expName, exprSrcFiles);
+                     expressionOss, exprHeaderOss, 0, expName, exprSrcFiles, tensorNameToDependConst);
     expressionOss << "#endif/*TILE_FWK_EXPRESSION_H*/" << "\n";
     std::string controlFlowSource = controlFlowOss.str();
     std::string expressionSource = expressionOss.str();
