@@ -21,6 +21,7 @@
 #include <cstdio>
 #include <unistd.h>
 
+#include "capture_stdout.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/inner/pre_def.h"
 #include "interface/configs/config_manager.h"
@@ -31,53 +32,6 @@
 #include "interface/interpreter/operation.h"
 
 namespace npu::tile_fwk {
-
-// 捕获 stdout 输出，用于校验日志内容
-static std::string CaptureStdout(std::function<void()> func) {
-    int pipefd[2];
-    if (pipe(pipefd) != 0) {
-        return "";
-    }
-
-    int old_stdout = dup(STDOUT_FILENO);
-    if (old_stdout == -1) {
-        close(pipefd[0]);
-        close(pipefd[1]);
-        return "";
-    }
-
-    if (dup2(pipefd[1], STDOUT_FILENO) == -1) {
-        close(pipefd[0]);
-        close(pipefd[1]);
-        close(old_stdout);
-        return "";
-    }
-
-    close(pipefd[1]);
-    func();
-    fflush(stdout);
-
-    if (dup2(old_stdout, STDOUT_FILENO) == -1) {
-        close(pipefd[0]);
-        close(old_stdout);
-        return "";
-    }
-
-    char buffer[8192] = {0};
-    ssize_t len = read(pipefd[0], buffer, sizeof(buffer) - 1);
-    close(pipefd[0]);
-
-    std::string captured(len > 0 ? static_cast<size_t>(len) : 0, '\0');
-    if (len > 0) {
-        captured.assign(buffer, static_cast<size_t>(len));
-        // 同时打印到控制台，便于调试查看
-        ssize_t written = write(old_stdout, buffer, static_cast<size_t>(len));
-        (void)written;
-    }
-    close(old_stdout);
-
-    return captured;
-}
 
 // 仅检查 [VERIFY] 日志行中是否出现 FAILED，其他模块日志不参与判断
 static bool VerifyLogContainsFailed(const std::string& logOutput) {
