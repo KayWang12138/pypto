@@ -162,31 +162,6 @@ struct CodeGenCtx {
     bool IsIncludePathEmpty() const { return includePath.empty(); }
 };
 
-struct SortParam {
-    std::vector<int64_t> dstShape{4, 1};
-    std::vector<int64_t> tmpShape{4, 1};
-    std::vector<int64_t> srcShape{4, 1};
-    const std::string s0Var;
-    const std::string dVar;
-    const std::string tVar;
-    const std::string srcDtypeStr;
-    const std::string dstDtypeStr;
-    const std::string tmpDtypeStr;
-};
-
-struct TiledSortParam {
-    std::vector<int64_t> dstShape{4, 1};
-    std::vector<int64_t> srcShape{5, 1};
-    const std::string s0Var;
-    const std::string s1Var;
-    const std::string s2Var;
-    const std::string s3Var;
-    const std::string tmpVar;
-    const std::string dVar;
-    const std::string srcDtypeStr;
-    const std::string dstDtypeStr;
-};
-
 const std::map<MemoryType, OperandType> OPERAND_TYPE_TO_MEMORY_TYPE{
     {            MemoryType::MEM_UB,    BUF_UB},
     {            MemoryType::MEM_L1,    BUF_L1},
