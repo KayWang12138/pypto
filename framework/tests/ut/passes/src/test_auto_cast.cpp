@@ -83,5 +83,25 @@ TEST_F(AutoCastTest, AddCascadeBF16) {
     const int opNum5 = 5;
     EXPECT_EQ(function->Operations().size(), opNum5);
 }
+
+TEST_F(AutoCastTest, Int32ToFP16Cast) {
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
+    ComputationalGraphBuilder G;
+    EXPECT_EQ(G.AddTensor(DataType::DT_INT32, {16, 16}, "t1"), true);
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP16, {16, 16}, "t2"), true);
+    std::vector<Opcode> opCodes{Opcode::OP_CAST};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}};
+    std::vector<std::string> opNames{"Cast"};
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    EXPECT_EQ(G.SetInCast({"t1"}), true);
+    EXPECT_EQ(G.SetOutCast({"t2"}), true);
+    Function *function = G.GetFunction();
+    AutoCast autoCast;
+    autoCast.RunOnFunction(*function);
+    const int opNum2 = 2;
+    EXPECT_EQ(function->Operations().size(), opNum2);
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_UNKNOWN);
+}
 } // namespace tile_fwk
 } // namespace npu

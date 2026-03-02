@@ -27,7 +27,8 @@ public:
     ~AutoCast() override = default;
     Status RunOnFunction(Function &function) override;
     bool SupportBF16(Operation *op);
-    Status InsertCast(Function &function);
+    Status InsertBF16Cast(Function &function);
+    Status InsertInt32Fp16Cast(Function &function);
     bool IsLegalCast(DataType ds, DataType dt);
     std::vector<Operation *> GetCastChain(Operation *tailOp);
     Status ShortenChain(Function &function, const std::vector<Operation *> &castChain, Operation *tailOp);
@@ -36,6 +37,22 @@ public:
     Status PostCheck(Function &function) override;
     void InsertCastOp(Function &function, LogicalTensorPtr src, LogicalTensorPtr tgt, const TileShape &tileShape);
     Status GetInOutConnectedTensor(Function &function);
+    std::set<std::pair<DataType, DataType>> legalCastPair {
+        {DataType::DT_FP32, DataType::DT_FP16},
+        {DataType::DT_FP16, DataType::DT_FP32},
+        {DataType::DT_FP32, DataType::DT_BF16},
+        {DataType::DT_BF16, DataType::DT_FP32},
+        {DataType::DT_FP32, DataType::DT_BF16},
+        {DataType::DT_BF16, DataType::DT_FP32},
+        {DataType::DT_FP32, DataType::DT_INT16},
+        {DataType::DT_INT16, DataType::DT_FP32},
+        {DataType::DT_FP32, DataType::DT_INT32},
+        {DataType::DT_INT32, DataType::DT_FP32},
+        {DataType::DT_FP16, DataType::DT_INT8},
+        {DataType::DT_INT8, DataType::DT_FP16},
+        {DataType::DT_FP32, DataType::DT_FP32},
+        {DataType::DT_BF16, DataType::DT_INT32}
+    };
     std::unordered_set<int> inCastConnectedTensors_;
     std::unordered_set<int> outCastConnectedTensors_;
     std::unordered_set<Operation *> addedCast_;
