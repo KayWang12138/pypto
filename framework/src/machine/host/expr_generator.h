@@ -68,9 +68,22 @@ public:
         header.close();
     }
 
-    template<typename ExpressionSet, typename BuildExpressionFunc>
+    void InsertWaitSync(std::ofstream &out) const {
+        out << "#if defined(__aarch64__) && defined(__DEVICE__)\n"
+            << "        uint64_t start = GetCycles();\n"
+            << "        while (startArgs->syncFlag != 1) {\n"
+            << "            if (GetCycles() - start > SYNC_TIMEOUT) {\n"
+            << "                break; // need dfx\n"
+            << "            }\n"
+            << "        }\n"
+            << "#endif\n";
+    }
+
+    template<typename ExpressionSet, typename BuildExpressionFunc, typename CheckSyncFunc>
     void GenerateBatchFile(std::ostringstream &controlFlowOss, std::ostringstream &exprHeaderOss, const std::string &expName,
-        const ExpressionSet& expressions, std::vector<std::string> &exprSrcFiles, int indent, int devRootKey, const BuildExpressionFunc& buildExpr) {
+        const ExpressionSet& expressions, std::vector<std::string> &exprSrcFiles, int indent, int devRootKey, const BuildExpressionFunc& buildExpr,
+        const CheckSyncFunc& checkNeedSync) {
+        bool insertSync = false;
         for (auto& batch : batches_) {
             std::string filePath = outputDir_ + "/" + batch.fileName;
             std::ofstream out(filePath);
@@ -92,6 +105,10 @@ public:
             for (size_t idx = batch.startExprIndex; idx < batch.endExprIndex; idx++) {
                 const auto& expr = expressions[idx];
                 auto exprStr = buildExpr(expr);
+                if (!insertSync && checkNeedSync(exprStr)) {
+                    InsertWaitSync(out);
+                    insertSync = true;
+                }
                 out << "    RUNTIME_SetExpr(exprList, " << idx << ", " << exprStr << ");\n";
             }
             out << "}\n\n"
