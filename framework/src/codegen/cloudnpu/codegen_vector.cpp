@@ -688,7 +688,11 @@ std::string CodeGenOpCloudNPU::PrintIndexPutLayout(size_t indicesSize, bool accu
     std::string gmVarName = GenGmParamVar(ID0);
     std::string dstTensor = sm->QueryTileTensorByBufVarName(gmVarName);
     std::string valuesTensor = QueryTileTensorNameByIdx(ID2);
-    std::vector<std::string> paramList = {dstTensor, valuesTensor};
+    std::vector<std::string> gmOffsetExpr = GetGmOffsetForTileTensor(ID0);
+    std::string coordCp = WrapParamByParentheses(gmOffsetExpr);
+    int dim = static_cast<int>(rawShape[ID0].size());
+    std::string coord = "Coord" + std::to_string(dim) + DIM + coordCp;
+    std::vector<std::string> paramList = {dstTensor, coord, valuesTensor};
     for (size_t i = 0; i < SHAPE_DIM4; ++i) {
         if (i < indicesSize) {
             std::string indices = QueryTileTensorNameByIdx(ID3 + i);
