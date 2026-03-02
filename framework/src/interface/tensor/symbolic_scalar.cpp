@@ -25,17 +25,9 @@ constexpr uint64_t EXPRESSION = 2;
 constexpr int OPERAND_NUM = 2;
 namespace npu::tile_fwk {
 
-std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::string &sourceFilePath,
-    const std::string &gcc, const std::string &objcopy, const std::string &sectionName, bool needDump, const std::string &extraCflag) {
-    if (needDump) {
-        FILE *fsrc = fopen(sourceFilePath.c_str(), "w");
-        fprintf(fsrc, "%s", code.c_str());
-        fclose(fsrc);
-    }
-
+CompileSourceCode(const std::string &sourceFilePath, const std::string &gcc, const std::string &extraCflag) {
     std::string assembleFilePath = sourceFilePath + ".s";
     std::string objectFilePath = sourceFilePath + ".o";
-    std::string binaryFilePath = sourceFilePath + ".bin";
     std::string LD_PRELOAD = "LD_PRELOAD= ";
     std::string includePath = GetCurrentSharedLibPath() + "/../include/tile_fwk";
     std::string cmdGcc = LD_PRELOAD + gcc + " -fPIC -O2 " + extraCflag +
@@ -49,7 +41,31 @@ std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::s
     std::string cmdAs = LD_PRELOAD + gcc + " -O2 -c " + assembleFilePath + " -o " + objectFilePath;
     FUNCTION_LOGI("[RunCmd] %s", cmdAs.c_str());
     ASSERT(system(cmdAs.c_str()) == 0);
+}
 
+std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::string &sourceFilePath, std::vector<std::string> &exprSrcFiles,
+    const std::string &gcc, const std::string &objcopy, const std::string &sectionName, bool needDump, const std::string &extraCflag) {
+    if (needDump) {
+        FILE *fsrc = fopen(sourceFilePath.c_str(), "w");
+        fprintf(fsrc, "%s", code.c_str());
+        fclose(fsrc);
+    }
+    if (exprSrcFiles.empty()) {
+        CompileSourceCode(sourceFilePath, gcc, extraCflag);
+    } else {
+        exprSrcFiles.emplace_back(sourceFilePath);
+        std::vector<std::string> objs;
+        std::deque<std::function<void(void)>> tasks;
+        for (const auto &file : exprSrcFiles) {
+            tasks.push_back([file, gcc, extraCflag, &objs]() {
+                objs.emplace_back(CompileSourceCode(file, gcc, extraCflag));
+            });
+        }
+        ParallelExecuteAndWait(8, tasks);
+        
+    }
+    
+    std::string binaryFilePath = sourceFilePath + ".bin";
     std::string cmdObjcopy = LD_PRELOAD + objcopy + " --dump-section " + sectionName + "=" + binaryFilePath + " " + objectFilePath;
     FUNCTION_LOGI("[RunCmd] %s", cmdObjcopy.c_str());
     ASSERT(system(cmdObjcopy.c_str()) == 0);
