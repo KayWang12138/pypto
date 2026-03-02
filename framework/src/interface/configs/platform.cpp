@@ -92,6 +92,34 @@ std::string ToJsonString(const std::string& s) {
     return escaped_s;
 }
 
+#ifdef BUILD_WITH_CANN
+std::string GetPlatformFile(const std::string &socVersion) {
+    #ifdef PROCESSOR_SUBPATH
+        const char *configSubpath = PROCESSOR_SUBPATH;
+    #else
+        const char *configSubpath = "";
+    #endif
+    const char *configRelativePath = "data/platform_config/";
+    if (socVersion.empty()) {
+        return "";
+    }
+    // get platform file path
+    const char *envPath = std::getenv("ASCEND_HOME_PATH");
+    if (envPath == nullptr) {
+        return "";
+    }
+    std::string platformConfDir = std::string(envPath) + "/" + std::string(configSubpath) + "/" + configRelativePath;
+    if (RealPath(platformConfDir).empty()) {
+        platformConfDir = std::string(envPath) + "/" + configRelativePath;
+    }
+    std::string platformFile = platformConfDir + socVersion + ".ini";
+    if (RealPath(platformFile).empty()) {
+        return "";
+    }
+    return platformFile;
+}
+#endif
+
 size_t Core::GetMemorySize(MemoryType type) const {
     auto it = memories_.find(type);
     if (it != memories_.end()) {
@@ -331,7 +359,12 @@ void Platform::ObtainPlatformInfo() {
     }
 
     std::string srcPath;
-    srcPath = HostMachine::GetInstance().GetPlatformInfo();
+    std::string socVersion;
+#ifdef BUILD_WITH_CANN
+    if (GetSocVersion(socVersion)) {
+        srcPath = GetPlatformFile(socVersion);
+    }
+#endif
     if (srcPath.empty()) {
         FUNCTION_LOGW("Cannot obtain ini from the device, using default ini file.");
         CostModel::CostModelPlatform costModelPlatform;
