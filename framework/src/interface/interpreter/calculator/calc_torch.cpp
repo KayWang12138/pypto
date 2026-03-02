@@ -1926,6 +1926,7 @@ static struct CalcOps calcOps = {
     .TriU = TriU,
     .TriL = TriL,
     .CumSum = CumSum,
+    .CumProd = CumProd,
     .IndexPut = IndexPut,
     .Reshape = Reshape,
     .Permute = Permute,

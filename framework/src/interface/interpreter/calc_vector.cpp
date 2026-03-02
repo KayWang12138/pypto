@@ -553,7 +553,7 @@ void ExecuteOpCumProd(ExecuteOperationContext *ctx) {
     int axis = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "axis");
     calc::CumProd(output, input, axis);
 }
-REGISTER_CALC_OP(OP_CUM_SUM, Opcode::OP_CUM_SUM, ExecuteOpCumProd);
+REGISTER_CALC_OP(OP_CUM_PROD, Opcode::OP_CUM_PROD, ExecuteOpCumProd);
 
 void ExecuteOpIndexPut(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
