@@ -375,11 +375,11 @@ void RemoveRedundantOp::GenerateNewView(Function &function, Operation &op, Logic
     //新建一个view op
     auto &newViewOp = function.AddOperation(Opcode::OP_VIEW, {startTensor}, {newViewTensor});
     //获取view上的dynoffset属性
-    auto viewAttr = std::dynamic_pointer_cast<ViewOpAttribute>(op.GetOpAttribute());
-    std::shared_ptr<ViewOpAttribute> viewAttribute;
-    viewAttribute = std::make_shared<ViewOpAttribute>(
+    std::shared_ptr<ViewOpAttribute> viewAttribute = std::make_shared<ViewOpAttribute>(
             newoffset, newDynoffset, newViewTensor->GetDynValidShape());
-    viewAttribute->SetToType(endTensor->GetMemoryTypeToBe());
+    if (viewAttribute != nullptr) {
+        viewAttribute->SetToType(endTensor->GetMemoryTypeToBe());
+    }
     newViewOp.SetOpAttribute(viewAttribute);
     operationUpdated = true;
 }

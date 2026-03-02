@@ -1126,7 +1126,7 @@ TEST_F(TestRemoveRedundantOpPass, TestGenerateViewDynOffsetCase) {
     std::vector<int64_t> shape = {kNumEight, kNumExpFour};
     std::vector<int64_t> shape1 = {kNumFour, kNumExpFour};
     std::vector<int64_t> offset = {kNumZero, kNumZero};
-    std::vector<SymbolicScalar> newDynOffset(dynOffset,dynOffset);
+    std::vector<SymbolicScalar> newDynOffset{dynOffset,dynOffset};
 
     auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1,
@@ -1151,6 +1151,7 @@ TEST_F(TestRemoveRedundantOpPass, TestGenerateViewDynOffsetCase) {
 
     uint32_t viewNum = kNumZero;
     uint32_t assembleNum = kNumZero;
+    auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(viewOp.GetOpAttribute().get());
     for (const auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             ++viewNum;
@@ -1161,6 +1162,8 @@ TEST_F(TestRemoveRedundantOpPass, TestGenerateViewDynOffsetCase) {
     }
     EXPECT_EQ(viewNum, kNumOne);
     EXPECT_EQ(assembleNum, kNumZero);
+    EXPECT_EQ(viewOpAttribute->GetFromDynOffset()[0].Dump(), SymbolicScalar("0").Dump());
+    EXPECT_EQ(viewOpAttribute->GetFromDynOffset()[1].Dump(), SymbolicScalar("0").Dump());
 }
 }
 }
