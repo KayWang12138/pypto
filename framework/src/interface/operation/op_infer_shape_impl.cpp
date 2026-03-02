@@ -1052,4 +1052,28 @@ void ExtractSingleFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &
     outValidShapes.push_back(res);
 }
 REGISTER_INFER_SHAPE_FUNC(OP_EXTRACT_SINGLE, Opcode::OP_EXTRACT_SINGLE, ExtractSingleFunc);
+
+void PReLUInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    ASSERT(op->GetIOperands().size() == 2) << "PReLU input operand size should be 2";
+    ASSERT(op->GetOOperands().size() == 2) << "PReLU output operand size should be 2";
+    
+    auto input0 = op->GetIOperands()[0];
+    
+    std::vector<SymbolicScalar> output0ValidShape = input0->GetDynValidShape();
+    
+    std::vector<SymbolicScalar> output1ValidShape;
+    auto input0ShapeDim = input0->GetDynValidShape().size();
+    
+    if (input0ShapeDim == 2) {
+        output1ValidShape.emplace_back(input0->GetDynValidShape().back());
+    } else {
+        constexpr int64_t ALIGN_SIZE = 32;
+        int64_t elementCount = ALIGN_SIZE / BytesOf(input0->Datatype());
+        output1ValidShape.emplace_back(elementCount);
+    }
+    
+    outValidShapes.emplace_back(std::move(output0ValidShape));
+    outValidShapes.emplace_back(std::move(output1ValidShape));
+}
+REGISTER_INFER_SHAPE_FUNC(OP_PRELU, Opcode::OP_PRELU, PReLUInferFunc);
 }  // namespace npu::tile_fwk

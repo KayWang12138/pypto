@@ -88,6 +88,7 @@ struct CalcOps {
     void (*Compare)(const TensorData &, const TensorData &, const TensorData &, CmpOperationType, CmpModeType);
     void (*Cmps)(const TensorData &, const TensorData &, const Element &, CmpOperationType, CmpModeType);
     void (*Hypot)(const TensorData &, const TensorData &, const TensorData &);
+    void (*PReLU)(const TensorData &, const TensorData &, const TensorData &);
     void (*LogicalAnd)(const TensorData &, const TensorData &, const TensorData &);
 
     void (*AddS)(const TensorData &, const TensorData &, const Element &, bool);

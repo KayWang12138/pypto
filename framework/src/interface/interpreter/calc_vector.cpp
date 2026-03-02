@@ -503,6 +503,14 @@ void ExecuteOpHypot(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_HYPOT, Opcode::OP_HYPOT, ExecuteOpHypot);
 
+void ExecuteOpPReLU(ExecuteOperationContext *ctx) {
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+    auto iop_self = ctx->ioperandDataViewList->at(0);
+    auto iop_weight = ctx->ioperandDataViewList->at(1);
+    calc::PReLU(oop, iop_self, iop_weight);
+}
+REGISTER_CALC_OP(OP_PRELU, Opcode::OP_PRELU, ExecuteOpPReLU);
+
 void ExecuteOpExtract(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
