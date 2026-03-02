@@ -76,6 +76,7 @@ enum class MIMOIdx : unsigned {
     SRC1_IDX = 3,
 };
 
+// multi input latched output
 enum class MILOIdx : unsigned {
     DST_IDX = 0,
     TMP_IDX = 1,
