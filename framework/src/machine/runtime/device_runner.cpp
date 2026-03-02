@@ -503,9 +503,6 @@ void DeviceRunner::InitAiCpuSoBin(DeviceArgs &devArgs) {
     devArgs.aicpuSoBin = reinterpret_cast<uint64_t>(dAicpuData);
     devArgs.aicpuSoLen = buffer.size();
     devArgs.deviceId = GetLogDeviceId();
-    if (IsPtoDataDumpEnabled()) {
-       devArgs.hostPid = getpid();
-    }
     HOST_PERF_TRACE(TracePhase::RunDevKernelInitAicpuSo);
 }
 

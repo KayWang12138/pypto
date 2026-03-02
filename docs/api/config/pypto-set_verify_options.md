@@ -20,6 +20,7 @@ set_verify_options(*,
                    pass_verify_save_tensor_dir: Optional[str] = None,
                    pass_verify_pass_filter: Optional[List[str]] = None,
                    pass_verify_error_tol: Optional[List[float]] = None,
+                   enable_call_task_dump: Optional[bool] = None
                    ) -> None
 ```
 
@@ -33,6 +34,7 @@ set_verify_options(*,
 | pass_verify_save_tensor_dir     | 输入      | 含义：配置检测结果及数据的保存路径。 <br> 说明：设定绝对路径的字符串。 <br> 类型：str <br> 默认值：<br> "{RUNNING_DIR}/output/output_{TS}" |
 | pass_verify_pass_filter         | 输入      | 含义：配置待自检的Pass名称列表。 <br> 说明：合法的Pass名称。不指定则自检所有Pass；指定非法名称则忽略。 <br> 类型：List[str] <br> 默认值：空 |
 | pass_verify_error_tol           | 输入      | 含义：配置精度工具对比精度需要用到的rtol和atol。 <br> 说明：List中的第一个值是rtol，第二个值为atol；List长度不等于2时，使用默认值。 <br> 类型：List[float] <br> 默认值：[1e-3, 1e-3] |
+| enable_call_task_dump           | 输入      | 含义：配置是否使能上板执行call task输入输出tensor的dump功能。 <br> 说明：True：代表使能。 <br> 类型：bool <br> 取值范围：True/False <br> 默认值：False |
 
 ## 返回值说明
 
@@ -47,6 +49,7 @@ verify_options = {
         "enable_pass_verify": True,
         "pass_verify_save_tensor": True,
         "pass_verify_save_tensor_dir": "/LARGE/DRIVE/DIR",
+        "enable_call_task_dump": True,
         }
 pypto.set_verify_options(**verify_options)
 ```
