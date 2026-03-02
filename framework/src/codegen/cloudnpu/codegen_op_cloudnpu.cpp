@@ -108,6 +108,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
 
           // unary with temp buffer
           {Opcode::OP_COMPACT, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_EXP2, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROUND, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWSUMLINE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWSUM_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
@@ -132,6 +133,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_PAIRMIN, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_BITWISEAND, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_BITWISEOR, [this]() { return GenBinaryOp(); }},
+          {Opcode::OP_GCD, [this]() { return GenBinaryOp(); }},
 
           // binary op: vector operations with tmp
           {Opcode::OP_MOD, [this]() { return GenBinaryOp(); }},
@@ -148,6 +150,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_DIV_BRC, [this]() { return GenBinaryWithBrc(); }},
           {Opcode::OP_MAX_BRC, [this]() { return GenBinaryWithBrc(); }},
           {Opcode::OP_MIN_BRC, [this]() { return GenBinaryWithBrc(); }},
+          {Opcode::OP_GCD_BRC, [this]() { return GenBinaryWithBrc(); }},
 
           // binary op: vector scalar
           {Opcode::OP_ADDS, [this]() { return GenVectorScalarOp(); }},
@@ -160,6 +163,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_BITWISEORS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_BITWISERIGHTSHIFTS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_BITWISELEFTSHIFTS, [this]() { return GenVectorScalarOp(); }},
+          {Opcode::OP_GCDS, [this]() { return GenVectorScalarOp(); }},
 
           // binary op: vector scalar with tmp
           {Opcode::OP_MODS, [this]() { return GenVectorScalarOp(); }},

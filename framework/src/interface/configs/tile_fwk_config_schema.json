@@ -191,6 +191,15 @@
                     "minimum": 1,
                     "maximum": 128
                 },
+                "stitch_function_max_num": {
+                    "type": "integer",
+                    "label": {
+                        "zh": "设置运行时ctrlflow aicpu里stitch构建device task的rootfunction数量",
+                        "en": "Set the number of rootfunction generated for device task in ctrlflow AICPU"
+                    },
+                    "minimum": 1,
+                    "maximum": 128
+                },
                 "stitch_function_num_step": {
                     "type": "integer",
                     "label": {
@@ -377,7 +386,7 @@
                         "en": "Set debug mode during execution stage. 0: disabled; 1: enabled, one-click to enable execution-related configs (e.g. swimlane graph)."
                     },
                     "minimum": 0,
-                    "maximum": 2
+                    "maximum": 3
                 }
             }
         },

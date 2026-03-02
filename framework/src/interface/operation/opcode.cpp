@@ -61,6 +61,9 @@ void OpcodeManager::RegisterVectorBinary() {
     RegisterInfo(Opcode::OP_MIN_BRC, OpCoreType::AIV, "MIN_BRC", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Tminbrc", PIPE_V, PIPE_V, CoreType::AIV},
         OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis});
+    RegisterInfo(Opcode::OP_GCD_BRC, OpCoreType::AIV, "GCD_BRC", {MemoryType::MEM_UB, MemoryType::MEM_UB}, 
+        {MemoryType::MEM_UB}, {"TileOp::TGcdbrc", PIPE_V, PIPE_V, CoreType::AIV}, 
+        OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis});
     RegisterInfo(Opcode::OP_ADD, OpCoreType::AIV, "ADD", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tadd", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis},
         TileShapeVerifier::Verify);
@@ -96,6 +99,9 @@ void OpcodeManager::RegisterVectorBinary() {
         OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_COPYSIGN, OpCoreType::AIV, "COPYSIGN", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Tcopysign", PIPE_V, PIPE_V, CoreType::AIV},
+        OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_GCD, OpCoreType::AIV, "GCD", {MemoryType::MEM_UB, MemoryType::MEM_UB}, 
+        {MemoryType::MEM_UB}, {"TileOp::TGcd", PIPE_V, PIPE_V, CoreType::AIV}, 
         OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_S_ADD, OpCoreType::AIV, "S_ADD", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB}, {"TileOp::TSadd", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::BROADCAST,
@@ -178,6 +184,11 @@ void OpcodeManager::RegisterVectorBinary() {
         OpCalcType::ELMWISE, {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand",
             OpAttributeKey::excludeBufferReuse, OP_ATTR_PREFIX + "reverseOperand", OpAttributeKey::inputCombineAxis,
             OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_GCDS, OpCoreType::AIV, "GCDS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::TGcds", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
+        {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OP_ATTR_PREFIX + "reverseOperand",
+            OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis},
+        TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_S_ADDS, OpCoreType::AIV, "S_ADDS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::TSadds", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::ELMWISE,
         {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OpAttributeKey::inputCombineAxis,
@@ -265,12 +276,12 @@ void OpcodeManager::RegisterVectorSort() {
     RegisterInfo(Opcode::OP_TOPK, OpCoreType::ANY, "TOPK", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::MrgSort", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
         {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "order", OP_ATTR_PREFIX + "kvalue"}, TileShapeVerifier::Verify);
-    RegisterInfo(Opcode::OP_BITSORT, OpCoreType::ANY, "BITSORT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+    RegisterInfo(Opcode::OP_BITSORT, OpCoreType::ANY, "BITSORT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {"TileOp::BitSort", PIPE_S, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
         {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "order", OP_ATTR_PREFIX + "offset"}, TileShapeVerifier::Verify);
-    RegisterInfo(Opcode::OP_MRGSORT, OpCoreType::ANY, "MRGSORT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+    RegisterInfo(Opcode::OP_MRGSORT, OpCoreType::ANY, "MRGSORT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {"TileOp::MrgSort", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
-        {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "order", OP_ATTR_PREFIX + "kvalue"}, TileShapeVerifier::Verify);
+        {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "mergeSize", OP_ATTR_PREFIX + "kvalue"}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_ARGSORT, OpCoreType::ANY, "ARGSORT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::ArgSort", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
         {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "order", OP_ATTR_PREFIX + "kvalue"});
@@ -301,6 +312,10 @@ void OpcodeManager::RegisterVectorSort() {
         {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
         {"TileOp::CompareAndSwap", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
         {OpAttributeKey::inplaceInfo, OP_ATTR_PREFIX + "order"});
+    RegisterInfo(Opcode::OP_EXP2, OpCoreType::AIV, "EXP2", {MemoryType::MEM_UB},
+        {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Texp2", PIPE_V, PIPE_V, CoreType::AIV},
+        OpCalcType::ELMWISE, {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis},
+        TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_MERGE, OpCoreType::AIV, "MERGE", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Merge", PIPE_V, PIPE_V, CoreType::AIV},
         OpCalcType::OTHER, {OpAttributeKey::inplaceInfo, OP_ATTR_PREFIX + "order", OP_ATTR_PREFIX + "full_sort"});
@@ -423,6 +438,9 @@ void OpcodeManager::RegisterVector() {
         OpCalcType::BROADCAST, {OP_ATTR_PREFIX + "cmp_operation", OP_ATTR_PREFIX + "cmp_mode", OpAttributeKey::scalar});
     RegisterInfo(Opcode::OP_HYPOT, OpCoreType::AIV, "HYPOT", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Hypot", PIPE_V, PIPE_V, CoreType::AIV},
+        OpCalcType::BROADCAST);
+    RegisterInfo(Opcode::OP_LOG1P, OpCoreType::AIV, "Log1p", {MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Log1p", PIPE_V, PIPE_V, CoreType::AIV},
         OpCalcType::BROADCAST);
     RegisterInfo(Opcode::OP_SCATTER_ELEMENT, OpCoreType::AIV, "SCATTER_ELEMENT",
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB},
@@ -834,6 +852,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {   Opcode::OP_TRANSPOSE_MOVEIN,   "TTransMoveIn"},
     {  Opcode::OP_TRANSPOSE_MOVEOUT,  "TTransMoveOut"},
     {          Opcode::OP_INDEX_PUT,      "TIndexPut"},
+    {                Opcode::OP_GCD,           "TGcd"},
     {                Opcode::OP_ADD,           "TAdd"},
     {            Opcode::OP_CUM_SUM,        "TCumSum"},
     {                Opcode::OP_SUB,           "TSub"},
@@ -875,8 +894,10 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {               Opcode::OP_MINS,          "TMinS"},
     {               Opcode::OP_MULS,          "TMulS"},
     {               Opcode::OP_DIVS,          "TDivS"},
+    {               Opcode::OP_GCDS,          "TGcdS"},
     {              Opcode::OP_RSQRT,         "TRsqrt"},
     {              Opcode::OP_RELU,           "TRelu"},
+    {              Opcode::OP_LOG1P,         "TLog1p"},
     {               Opcode::OP_SQRT,          "TSqrt"},
     {               Opcode::OP_SIGN,          "TSign"},
     {               Opcode::OP_CEIL,          "TCeil"},
@@ -885,6 +906,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {              Opcode::OP_ROUND,         "TRound"},
     {         Opcode::OP_RECIPROCAL,    "TReciprocal"},
     {                Opcode::OP_EXP,           "TExp"},
+    {               Opcode::OP_EXP2,          "TExp2"},
     {                Opcode::OP_ABS,           "TAbs"},
     {         Opcode::OP_LOGICALNOT,    "TLogicalNot"},
     {            Opcode::OP_MAXIMUM,           "TMax"},
@@ -954,6 +976,8 @@ std::unordered_set<Opcode> SUPPORT_VF_FUSE_OPS{
     Opcode::OP_ROWMIN_SINGLE,
     Opcode::OP_CAST,
     Opcode::OP_EXPAND,
+    Opcode::OP_GCD,
+    Opcode::OP_GCDS,
 };
 
 std::unordered_set<Opcode> SKIP_OPCODE_FOR_CODEGEN = {

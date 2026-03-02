@@ -20,7 +20,7 @@
 
 #include "interface/utils/common.h"
 #include "tilefwk/data_type.h"
-#include "tilefwk/tilefwk_log.h"
+#include "tilefwk/pypto_fwk_log.h"
 
 namespace npu::tile_fwk {
 const std::string GM_TENSOR_PARAM_STR = "param";
@@ -74,6 +74,14 @@ enum class MIMOIdx : unsigned {
     TMP_IDX = 1,
     SRC0_IDX = 2,
     SRC1_IDX = 3,
+};
+
+// multi input latched output
+enum class MILOIdx : unsigned {
+    DST_IDX = 0,
+    TMP_IDX = 1,
+    TMP2_IDX = 2,
+    SRC0_IDX = 3,
 };
 
 const std::unordered_map<OperandType, std::string> OPERAND_TYPE_TO_ADDR_TYPE{
@@ -156,11 +164,14 @@ struct CodeGenCtx {
 
 struct SortParam {
     std::vector<int64_t> dstShape{4, 1};
+    std::vector<int64_t> tmpShape{4, 1};
     std::vector<int64_t> srcShape{4, 1};
     const std::string s0Var;
     const std::string dVar;
+    const std::string tVar;
     const std::string srcDtypeStr;
     const std::string dstDtypeStr;
+    const std::string tmpDtypeStr;
 };
 
 struct TiledSortParam {
