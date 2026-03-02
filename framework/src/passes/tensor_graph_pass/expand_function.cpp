@@ -199,7 +199,7 @@ Status ExpandFunction::Expandfunction(Function &function) const {
 }
 
 Status ExpandFunction::ExpandOperation(Function &function, Operation &op) const{
-    int scopeIdx = op.GetScopeId();
+    int64_t scopeIdx = op.GetScopeId();
     if (scopeIdx >= 0) { // scopeIdx < 0 means no need to merge
         scopeMap_[scopeIdx].insert(op.GetCoreType());
         if (!GraphUtils::IsCVMixPlatform() && scopeMap_[scopeIdx].find(CoreType::AIC) != scopeMap_[scopeIdx].end() && scopeMap_[scopeIdx].find(CoreType::AIV) != scopeMap_[scopeIdx].end()) {
@@ -207,9 +207,9 @@ Status ExpandFunction::ExpandOperation(Function &function, Operation &op) const{
             return FAILED;
         }
     }
-    config::SetPassOption(SG_SET_SCOPE, scopeIdx);
+    config::SetPassOption(SG_SET_SCOPE, std::pair<int64_t, int64_t>(scopeIdx, op.GetScopeConfig()));
     ExpandOperationInto(function, op.GetTileShape(), op.GetOpcode(), op.GetIOperands(), op.GetOOperands(), op);
-    config::SetPassOption(SG_SET_SCOPE, -1);
+    config::SetPassOption(SG_SET_SCOPE, std::pair<int64_t, int64_t>(-1, 0));
     return SUCCESS;
 }
 

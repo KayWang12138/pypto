@@ -180,14 +180,34 @@ std::map<std::string, npu::tile_fwk::Any> ConvertPyDictToCppMap(const py::dict &
         if (py::isinstance<py::bool_>(value)) {
             cpp_values[key] = value.cast<bool>();
         } else if (py::isinstance<py::int_>(value)) {
-            cpp_values[key] = value.cast<int64_t>();
+            if (key == "pass.sg_set_scope") {
+                int64_t val = value.cast<int64_t>();
+                cpp_values[key] = std::pair<int64_t, int64_t>(val, 0);
+            } else {
+                cpp_values[key] = value.cast<int64_t>();
+            }
         } else if (py::isinstance<py::float_>(value)) {
             cpp_values[key] = value.cast<double>();
         } else if (py::isinstance<py::str>(value)) {
             cpp_values[key] = value.cast<std::string>();
         } else if (py::isinstance<CubeTile>(value)) {
             cpp_values[key] = value.cast<CubeTile>();
-        } else if (py::isinstance<py::list>(value) || py::isinstance<py::tuple>(value)) {
+        } else if (py::isinstance<py::tuple>(value)) {
+            py::tuple tup = py::cast<py::tuple>(value);
+            if (key == "pass.sg_set_scope") {
+                if (tup.size() == 2 && py::isinstance<py::int_>(tup[0]) && py::isinstance<py::int_>(tup[1])) {
+                    cpp_values[key] = std::pair<int64_t, int64_t>(tup[0].cast<int64_t>(), tup[1].cast<int64_t>());
+                } else {
+                    throw py::type_error("sg_set_scope must be int or tuple of 2 int.");
+                }
+            } else  {
+                if (py::isinstance<py::int_>(tup[0])) {
+                    cpp_values[key] = value.cast<std::vector<int64_t>>();
+                } else {
+                    throw py::type_error("Unsupported tuple element type for key: " + key);
+                }
+            }
+        } else if (py::isinstance<py::list>(value)) {
             py::list lst = py::cast<py::list>(value);
             if (lst.size() > 0) {
                 if (py::isinstance<py::int_>(lst[0])) {
@@ -274,6 +294,7 @@ py::object AnyToPyObject(const Any &val) {
         {typeid(std::vector<std::string>), [](const Any& a){ return py::cast(AnyCast<std::vector<std::string>>(a)); }},
         {typeid(std::vector<double>), [](const Any& a){ return py::cast(AnyCast<std::vector<double>>(a)); }},
         {typeid(std::map<int64_t,int64_t>), [](const Any& a){ return py::cast(AnyCast<std::map<int64_t,int64_t>>(a)); }},
+        {typeid(std::pair<int64_t,int64_t>), [](const Any& a){ return py::cast(AnyCast<std::pair<int64_t,int64_t>>(a)); }},
         {typeid(CubeTile), [](const Any& a){ return py::cast(AnyCast<CubeTile>(a)); }},
         {typeid(DistTile), [](const Any& a){ return py::str(AnyCast<DistTile>(a).ToString()); }},
     };
