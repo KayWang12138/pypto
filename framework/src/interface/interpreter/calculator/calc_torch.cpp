@@ -512,6 +512,16 @@ static void Fmod(const TensorData &out, const TensorData &self, const TensorData
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
+static void PReLU(const TensorData &out, const TensorData &self, const TensorData &weight) {
+    auto tout = From(out);
+    auto tself = From(self);
+    auto tweight = From(weight);
+    
+    auto result = torch::where(tself.second >= 0, tself.second, tweight.second * tself.second);
+    tout.second.copy_(result);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
 static void Pow(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tout = From(out);
     auto tself = From(self);
@@ -708,6 +718,13 @@ static void MaxS(const TensorData &out, const TensorData &self, const Element &e
     auto tout = From(out);
     auto tself = From(self);
     torch::clamp_min_out(tout.second, tself.second, From(elem));
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
+static void LReLU(const TensorData &out, const TensorData &self, const Element &negative_slope = Element(DataType::DT_FP32, 0.01)) {
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::leaky_relu_out(tout.second, tself.second, From(negative_slope));
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
@@ -1892,6 +1909,7 @@ static struct CalcOps calcOps = {
     .WhereTS = WhereTS,
     .WhereST = WhereST,
     .WhereSS = WhereSS,
+    .LReLU = LReLU,
     .Ln = Ln,
     .IsFinite = IsFinite,
     .LogicalNot = LogicalNot,
@@ -1899,6 +1917,7 @@ static struct CalcOps calcOps = {
     .Compare = Compare,
     .Cmps = Cmps,
     .Hypot = Hypot,
+    .PReLU = PReLU,
     .LogicalAnd = LogicalAnd,
     .AddS = AddS,
     .SubS = SubS,

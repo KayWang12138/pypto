@@ -206,6 +206,7 @@ Tensor Compare(const Element &self, const Tensor &other, OpType op, OutType mode
 Tensor Pow(const Tensor &self, const Tensor &other);
 Tensor Pow(const Tensor &self, const Element &other);
 Tensor CopySign(const Tensor &self, const Tensor &other);
+Tensor PReLU(const Tensor &self, const Tensor &weight);
 
 Tensor BitwiseRightShift(const Tensor &self, const Tensor &other);
 Tensor BitwiseRightShift(const Tensor &self, const Element &other);
@@ -218,6 +219,8 @@ Tensor Where(const Tensor &condition, const Tensor &input, const Tensor &other);
 Tensor Where(const Tensor &condition, const Tensor &input, const Element &other);
 Tensor Where(const Tensor &condition, const Element &input, const Tensor &other);
 Tensor Where(const Tensor &condition, const Element &input, const Element &other);
+
+Tensor LReLU(const Tensor &self, const Element &negative_slope);
 
 Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum);
 Tensor Squeeze(const Tensor &input, const std::vector<int> &dim = {});

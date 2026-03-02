@@ -210,6 +210,28 @@ TEST_F(OperationImplTest, test_Hypot_FP16) {
     }
 }
 
+TEST_F(OperationImplTest, test_PReLU_FP32) {
+    TileShape::Current().SetVecTile({4, 4});
+    Tensor operand1(DT_FP32, {8, 8}, "operand1");
+    Tensor weight(DT_FP32, {8}, "weight");
+    std::vector<int64_t> dstShape = {8, 8};
+    Tensor result;
+    FUNCTION("TestPReLU") {
+        result = PReLU(operand1, weight);
+    }
+}
+
+TEST_F(OperationImplTest, test_PReLU_FP16) {
+    TileShape::Current().SetVecTile({4, 4});
+    Tensor operand1(DT_FP16, {8, 8}, "operand1");
+    Tensor weight(DT_FP16, {8}, "weight");
+    std::vector<int64_t> dstShape = {8, 8};
+    Tensor result;
+    FUNCTION("TestPReLU") {
+        result = PReLU(operand1, weight);
+    }
+}
+
 TEST_F(OperationImplTest, Test_IndexAdd_BF16) {
     float scalar = 1.2f;
     int axis = 0;
@@ -980,6 +1002,17 @@ TEST_F(OperationImplTest, test_FmodS) {
     Tensor result;
     FUNCTION("TestFmodS") {
         result = Fmod(input0, input1);
+    }
+}
+
+TEST_F(OperationImplTest, test_LReLU) {
+    TileShape::Current().SetVecTile({4, 4});
+    Tensor input0(DT_FP32, {8, 8}, "input0");
+    float scalar = 0.01f;
+    Element input1(DT_FP32, scalar);
+    Tensor result;
+    FUNCTION("TestLReLU") {
+        result = LReLU(input0, input1);
     }
 }
 

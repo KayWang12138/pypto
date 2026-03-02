@@ -317,6 +317,47 @@ def fmod(input: Tensor, other: Union[Tensor, float]) -> Tensor:
 
 
 @op_wrapper
+def lrelu(other: Tensor, negative_slope: Union[float, Element] = 0.01) -> Tensor:
+    """
+    Returns a new tensor with the Leaky Rectified Linear Unit (LReLU) function applied element-wise.
+    
+    The function is defined as:
+    y = x if x >= 0
+    y = negative_slope * x if x < 0
+    
+    Parameters
+    ----------
+    a : Tensor
+        The input tensor.
+    negative_slope : float, optional
+        Controls the angle of the negative slope (default is 0.0 impending small positive value, typically 0.01).
+        Must be non-negative.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise LReLU result.
+
+    Examples
+    --------
+    x = pypto.tensor([-1.0, 2.0, 0.0, -0.5], pypto.DT_FP32)
+    y = pypto.lrelu(x)
+
+    Input x:  [-1.0, 2.0, 0.0, -0.5]
+    Output y: [-0.01, 2.0, 0.0, -0.005]
+
+    # With custom slope
+    y2 = pypto.lrelu(x, negative_slope=0.1)
+    Output y2: [-0.1, 2.0, 0.0, -0.05]
+    """
+    if isinstance(negative_slope, pypto_impl.Element):
+        negative_slope_base = negative_slope
+    else:
+        negative_slope_base = pypto_impl.Element(pypto_impl.DT_FP32, negative_slope)
+    return pypto_impl.LReLU(other, negative_slope_base)
+
+
+@op_wrapper
 def bitwise_and(self: Tensor, other: Union[Tensor, int]) -> Tensor:
     """Computes the element-wise bitwise AND of `self` and `other`.
 
@@ -1625,3 +1666,37 @@ def var(
         raise TypeError(f"the type of dim is not supported. 'int' or 'Lise[int]' or 'Tuple[int]' is needed.")
 
     return pypto_impl.Var(input, inner_dim, correction, keepdim)
+
+
+@op_wrapper
+def prelu(self: Tensor, weight: Tensor) -> Tensor:
+    """
+    Applies the element-wise parametric rectified linear unit (PReLU) function.
+    
+    The function is defined as:
+    f(x) = max(0, x) + weight * min(0, x)
+    
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+    weight : Tensor
+        The learnable parameter tensor. For a 4D input tensor, weight should be a 1D tensor
+        with size equal to the number of channels (second dimension).
+    
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise PReLU activation results.
+    
+    Examples
+    --------
+    x = pypto.tensor([-1.0, 2.0, -0.5, 3.0], dtype="float32")
+    weight = pypto.tensor([0.25], dtype="float32")
+    y = pypto.prelu(x, weight)
+    
+    Input x:  [-1.0, 2.0, -0.5, 3.0]
+    Weight:   [0.25]
+    Output y: [-0.25, 2.0, -0.125, 3.0]
+    """
+    return pypto_impl.PReLU(self, weight)
