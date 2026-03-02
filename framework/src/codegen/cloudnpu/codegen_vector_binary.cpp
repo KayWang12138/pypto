@@ -153,7 +153,7 @@ std::string CodeGenOpCloudNPU::PrintBinaryTileTensor() const {
     std::vector<std::string> templateParamList;
     int64_t brcOperandIdx = 0;
     std::string lastUse = GetLastUse();
-    if(!lastUse.empty()){
+    if (!lastUse.empty()) {
         templateParamList.emplace_back(lastUse);
     }
     if (GetAttr(OpAttributeKey::brcbIdx, brcOperandIdx)) {
@@ -226,9 +226,9 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpWithTmp() const {
     std::string srcScalar;
     if (extOperandVal.IsFloat()) {
         srcScalar = FormatFloat(extOperandVal.Cast<float>());
-    } else if (extOperandVal.IsUnsigned()||extOperandVal.IsSigned()) {
-        srcScalar = std::visit([](const auto& val) -> std::string {
-            return std::to_string(val);},extOperandVal.GetVariantData());
+    } else if (extOperandVal.IsUnsigned() || extOperandVal.IsSigned()) {
+        srcScalar = std::visit(
+            [](const auto &val) -> std::string { return std::to_string(val); }, extOperandVal.GetVariantData());
     }
     std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, srcScalar, tmpTensor};
 
@@ -389,7 +389,7 @@ std::string CodeGenOpCloudNPU::GenBinaryWithBrc() const {
 
 std::string CodeGenOpCloudNPU::GenVectorScalarOp() const {
     return GenVectorScalarOpByMode(VecScalMode::VEC_MODE);
-} 
+}
 
 std::string CodeGenOpCloudNPU::GenVectorScalarOpScalarMode() const {
     return GenVectorScalarOpByMode(VecScalMode::SCALAR_MODE);
@@ -521,7 +521,7 @@ std::string CodeGenOpCloudNPU::PrintVectorScalarOpDynamicUnalign(const PrintUnar
     std::vector<int64_t> s0 = NormalizeShape(rawShape[1], SHAPE_DIM4);
     std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
     char scalarTmp[BUFFER_SIZE_256] = "CG_ERROR";
-    int ret = sprintf_s(scalarTmp, sizeof(scalarTmp), "%.9g", extOperandVal.Cast<float>());
+    int ret = sprintf_s(scalarTmp, sizeof(scalarTmp), "%s", FormatFloat(extOperandVal.Cast<float>()).c_str());
     ASSERT(ret >= 0) << "GenVectorScalarOpByMode sprintf_s failed ";
 
     std::ostringstream oss;
