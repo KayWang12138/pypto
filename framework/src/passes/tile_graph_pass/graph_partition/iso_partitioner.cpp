@@ -61,7 +61,6 @@ Status GraphPartition::PostCheck(Function &function)
 
 Status IsoPartitioner::PartitionGraph(Function &function)
 {
-    std::cout << function.GetRawName() << "skip partition" << skipPartition_ << std::endl;
     if (skipPartition_) {
         for (auto &op : function.Operations()) {
             op.UpdateSubgraphID(0);
