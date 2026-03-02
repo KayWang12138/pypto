@@ -33,7 +33,6 @@ TILEOP void TExpand(T0 dst, T1 src) {
     auto dstStride0 = dstLayout.template GetStrideDim<0, expectSize>();
     auto dstStride1 = dstLayout.template GetStrideDim<1, expectSize>();
     auto dstStride2 = dstLayout.template GetStrideDim<2, expectSize>();
-    auto dstStride3 = dstLayout.template GetStrideDim<3, expectSize>();
 
     const auto srcLayout = src.GetLayout();
     auto srcShape0 = srcLayout.template GetShapeDim<0, expectSize>();
@@ -44,7 +43,6 @@ TILEOP void TExpand(T0 dst, T1 src) {
     auto srcStride0 = srcLayout.template GetStrideDim<0, expectSize>();
     auto srcStride1 = srcLayout.template GetStrideDim<1, expectSize>();
     auto srcStride2 = srcLayout.template GetStrideDim<2, expectSize>();
-    auto srcStride3 = srcLayout.template GetStrideDim<3, expectSize>();
 
     using SrcDtype = std::conditional_t<std::is_same_v<typename T1::Type, bool>, uint8_t, typename T1::Type>;
     using DstDtype = std::conditional_t<std::is_same_v<typename T0::Type, bool>, uint8_t, typename T0::Type>;
@@ -63,29 +61,7 @@ TILEOP void TExpand(T0 dst, T1 src) {
     constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<T1, 3, 5>();
     constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<T1, 4, 5>();
 
-    if constexpr (axis == 4) {
-        for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
-            for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
-                for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
-                    for (LoopVar n3Index = 0; n3Index < dstShape3; ++n3Index) {
-                        using dstTileDefine =
-                            pto::Tile<pto::TileType::Vec, DstDtype, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
-                        using srcTileDefine =
-                            pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
-                        dstTileDefine dstTile(dstShape3, dstShape4);
-                        srcTileDefine srcTile(srcShape3, srcShape4);
-                        auto dstOffset =
-                            n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2 + n3Index * dstStride3;
-                        auto srcOffset =
-                            n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2 + n3Index * srcStride3;
-                        pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * typeSize));
-                        pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * typeSize));
-                        PTO_WITH_LAST_USE(pto::TROWEXPAND(dstTile, srcTile), n1, n2);
-                    }
-                }
-            }
-        }
-    } else if constexpr (axis == 3) {
+    if constexpr (axis == 3) {
         for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
             for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
                 for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
