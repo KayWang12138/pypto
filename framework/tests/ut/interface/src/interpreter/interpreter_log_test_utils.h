@@ -11,7 +11,7 @@
 /*!
  * \file interpreter_log_test_utils.h
  * \brief Common helpers for interpreter/log related unit tests:
- *        - CaptureStdout: capture and echo stdout
+ *        - CaptureStdoutAndEcho: capture and echo stdout
  *        - VerifyLogContainsFailed: check VERIFY log failures
  *        - VerifyLogContainsIndex0Failed: check VERIFY index 0 failures
  */
@@ -23,49 +23,41 @@
 #include <cstdio>
 #include <unistd.h>
 
-inline std::string CaptureStdout(std::function<void()> func) {
+static inline std::string CaptureStdoutAndEcho(std::function<void()> func) {
     int pipefd[2];
     if (pipe(pipefd) != 0) {
         return "";
     }
-
     int old_stdout = dup(STDOUT_FILENO);
     if (old_stdout == -1) {
         close(pipefd[0]);
         close(pipefd[1]);
         return "";
     }
-
     if (dup2(pipefd[1], STDOUT_FILENO) == -1) {
         close(pipefd[0]);
         close(pipefd[1]);
         close(old_stdout);
         return "";
     }
-
     close(pipefd[1]);
     func();
     fflush(stdout);
-
     if (dup2(old_stdout, STDOUT_FILENO) == -1) {
         close(pipefd[0]);
         close(old_stdout);
         return "";
     }
-
     char buffer[8192] = {0};
     ssize_t len = read(pipefd[0], buffer, sizeof(buffer) - 1);
     close(pipefd[0]);
-
     std::string captured(len > 0 ? static_cast<size_t>(len) : 0, '\0');
     if (len > 0) {
         captured.assign(buffer, static_cast<size_t>(len));
-        // Echo back to original stdout for debugging.
         ssize_t written = write(old_stdout, buffer, static_cast<size_t>(len));
         (void)written;
     }
     close(old_stdout);
-
     return captured;
 }
 
