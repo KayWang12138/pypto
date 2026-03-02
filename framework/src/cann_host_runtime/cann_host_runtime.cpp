@@ -69,6 +69,7 @@ std::string CannHostRuntime::GetPlatformFile(const std::string &socVersion) {
         return "";
     }
 #endif
+    (void)socVersion;
     return platformFile;
 }
 }  // namespace tile_fwk
