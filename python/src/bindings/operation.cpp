@@ -113,10 +113,10 @@ void bind_operation(py::module &m) {
         "Pow", [](const Tensor &self, const Element &other) { return npu::tile_fwk::Pow(self, other); }, "Tensor pow.");
     m.def(
         "Cast",
-        [](const Tensor &self, DataType dstDataType, CastMode mode, Saturation satmode) {
-            return npu::tile_fwk::Cast(self, dstDataType, mode, static_cast<int64_t>(satmode));
+        [](const Tensor &self, DataType dstDataType, CastMode mode, SaturationMode satmode) {
+            return npu::tile_fwk::Cast(self, dstDataType, mode, satmode);
         },
-        py::arg("operand"), py::arg("new_data_type"), py::arg("mode") = CAST_NONE, py::arg("satmode") = Saturation::OFF,
+        py::arg("operand"), py::arg("new_data_type"), py::arg("mode") = CAST_NONE, py::arg("satmode") = SaturationMode::OFF,
         "Tensor cast.");
 
     m.def(
@@ -343,6 +343,13 @@ void bind_operation(py::module &m) {
             return npu::tile_fwk::TopK(self, k, axis, islargest);
         },
         py::arg("operand"), py::arg("k"), py::arg("axis"), py::arg("islargest") = true, "Tensor topk.");
+    m.def(
+        "Var",
+        [](const Tensor &input, const std::vector<int> &dim, float correction, bool keepDim) {
+            return npu::tile_fwk::Var(input, dim, correction, keepDim);
+        },
+        py::arg("input"), py::arg("dim") = std::vector<int>{}, py::arg("correction") = 1.0f,
+        py::arg("keepDim") = false, "Tensor Var.");
     m.def(
         "ArgSort",
         [](const Tensor &self, int axis, bool descending) {
@@ -579,5 +586,13 @@ void bind_operation(py::module &m) {
 
     m.def(
         "isfinite", [](const Tensor &self) { return npu::tile_fwk::IsFinite(self); }, "Judge whether the value is inf/nan/-inf. If it is, the value will be false.");
+        
+    m.def(
+        "Nop",
+        [](const std::vector<Tensor> &inTensors) {
+            return npu::tile_fwk::Nop(inTensors);
+        },
+        py::arg("in_tensors")
+    );
 }
 } // namespace pypto
