@@ -1,6 +1,6 @@
 case_name,input_shape,input_dtype,input_format,input_datarange,output_shape,output_dtype,output_format,view_shape,tile_shape,axis
-CumProd_test_2,"[4, 10]","fp32","ND","[-10, 10]","[4, 10]",fp32,ND,"[2, 2]","[2, 1]",1
-CumProd_test_3,"[4, 10]","fp32","ND","[-10, 10]","[4, 10]",fp32,ND,"[2, 2]","[2, 2]",0
+CumProd_test_2,"[4096, 512]","fp32","ND","[-100, 100]","[4096, 512]",fp32,ND,"[471, 13]","[256, 64]",1
+CumProd_test_3,"[256, 7168]","fp32","ND","[-100, 100]","[256, 7168]",fp32,ND,"[75, 2534]","[32, 512]",-2
 CumProd_test_4,"[4, 10]","fp32","ND","[-10, 10]","[4, 10]",fp32,ND,"[2, 2]","[3, 4]",1
 CumProd_test_5,"[4, 10]","fp32","ND","[-10, 10]","[4, 10]",fp32,ND,"[2, 2]","[2, 6]",1
 CumProd_test_8,"[4, 8, 10]","fp32","ND","[-10, 10]","[4, 8, 10]",fp32,ND,"[2, 2, 2]","[1, 1, 2]",1
