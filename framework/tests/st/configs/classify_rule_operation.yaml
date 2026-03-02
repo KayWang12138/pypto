@@ -130,8 +130,9 @@ stest:
       - TestDivs/DivsOperationTest.TestDivs/2
       - TestExp/ExpOperationTest.TestExp/18
       - TestExp/ExpOperationTest.TestExp/19
-      - TestExp/ExpOperationTest.TestExp/0
-      - TestExp/ExpOperationTest.TestExp/5
+      - TestExp2/Exp2OperationTest.TestExp2/17
+      - TestExp2/Exp2OperationTest.TestExp2/18
+      - TestExp2/Exp2OperationTest.TestExp2/19
       - TestExpm1/Expm1OperationTest.TestExpm1/19
       - TestExpm1/Expm1OperationTest.TestExpm1/20
       - TestExpm1/Expm1OperationTest.TestExpm1/21
