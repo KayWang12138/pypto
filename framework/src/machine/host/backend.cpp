@@ -14,6 +14,7 @@
  */
 
 #include "machine/host/backend.h"
+#include "machine/host/backend_expr_generator.h"
 #include "tilefwk/tilefwk.h"
 #include "codegen/codegen.h"
 #include "interface/inner/tilefwk.h"
@@ -580,10 +581,42 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
 
         SymbolicExpressionTable *exprTable = linker.LookupDevRootCoa(func);
         if (exprTable != nullptr) {
-            for (auto &expr : exprTable->GetPrimaryExpressionSet()) {
-                auto index = exprTable->GetPrimaryExpressionSet().GetIndex(expr);
-                auto exprStr = exprTable->BuildExpression(expr);
-                controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_SetExpr(exprList" << devRootKey << ", " << index << ", " << exprStr << ");\n";
+            const auto &primaryExprs = exprTable->GetPrimaryExpressionSet();
+            size_t totalExprs = primaryExprs.size();
+            
+            if (totalExprs <= EXPRS_PER_BATCH) {
+                // Small number of expressions, generate inline
+                for (auto &expr : primaryExprs) {
+                    auto index = primaryExprs.GetIndex(expr);
+                    auto exprStr = exprTable->BuildExpression(expr);
+                    controlFlowOss << std::setw(indent * TABSIZE) << ' ' 
+                        << "RUNTIME_SetExpr(exprList" << devRootKey << ", " << index << ", " << exprStr << ");\n";
+                }
+            } else {
+                // Large number of expressions, use batched functions
+                std::string outputDir = config::LogTopFolder() + "/generated_exprs";
+                std::filesystem::create_directories(outputDir);
+                
+                ExprBatchGenerator generator(outputDir, devRootKey, totalExprs);
+                
+                // Generate header file
+                generator.GenerateHeaderFile();
+                
+                // Include the generated header
+                controlFlowOss << std::setw(indent * TABSIZE) << ' ' 
+                    << "#include \"" << outputDir << "/backend_expr_" << devRootKey << ".h\"\n";
+                
+                // Generate batch files and add function calls
+                const auto& batches = generator.GetBatches();
+                for (const auto& batch : batches) {
+                    // Generate the batch file
+                    generator.GenerateBatchFile(batch, primaryExprs,
+                        [&exprTable](const auto& expr, std::vector<std::string> *dependArgs) { return exprTable->BuildExpression(expr, dependArgs); });
+                    
+                    // Add function call to control flow
+                    controlFlowOss << std::setw(indent * TABSIZE) << ' ' 
+                        << batch.functionName << "(exprList" << devRootKey << ", " << devRootKey << ");\n";
+                }
             }
         }
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_RootStitch(" << devRootKey << "ULL);\n";
