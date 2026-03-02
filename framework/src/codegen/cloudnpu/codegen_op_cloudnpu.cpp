@@ -108,6 +108,8 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
 
           // unary with temp buffer
           {Opcode::OP_COMPACT, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_EXP2, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_EXPM1, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROUND, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWSUMLINE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWSUM_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
@@ -141,6 +143,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_BITWISELEFTSHIFT, [this]() { return GenBinaryOpWithTmp(); }},
           {Opcode::OP_BITWISEXOR, [this]() { return GenBinaryOpWithTmp(); }},
           {Opcode::OP_COPYSIGN, [this]() { return GenBinaryOpWithTmp(); }},
+          {Opcode::OP_PRELU, [this]() { return GenPreluOp(); }},
 
           // binary op: broadcast associated vector
           {Opcode::OP_ADD_BRC, [this]() { return GenBinaryWithBrc(); }},
@@ -158,6 +161,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_DIVS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_MAXS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_MINS, [this]() { return GenVectorScalarOp(); }},
+          {Opcode::OP_LRELU, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_BITWISEANDS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_BITWISEORS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_BITWISERIGHTSHIFTS, [this]() { return GenVectorScalarOp(); }},
@@ -274,6 +278,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_GATHER_ELEMENT, [this]() { return GenGatherElementOp(); }},
           {Opcode::OP_SCATTER_ELEMENT, [this]() { return GenScatterElementSOp(); }},
           {Opcode::OP_SCATTER, [this]() { return GenScatterOp(); }},
+          {Opcode::OP_GATHER_MASK, [this]() { return GenGatherMaskOp(); }},
       }),
       normalVecOps_({
           // vector dup

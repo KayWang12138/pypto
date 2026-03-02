@@ -71,9 +71,9 @@ private:
         Shape &current, std::vector<Shape> &result, size_t dim);
     void CollectLargeTensorToInfo(const LogicalTensorPtr &largeTensor);
     void CollectLargeTensorFromInfo(const LogicalTensorPtr &largeTensor);
-    void CollectOverlaps(Function &function, LogicalTensorPtr largeTensor, Shape lcmTileShape, Offset lcmTileOffset,
-        std::vector<std::pair<LogicalTensorPtr, Offset>> toTensorInfos,
-        std::vector<std::pair<LogicalTensorPtr, Offset>> fromTensorInfos,
+    void CollectOverlaps(const Shape &lcmTileShape, const Offset &lcmTileOffset,
+        const std::vector<std::pair<LogicalTensorPtr, Offset>> &toTensorInfos,
+        const std::vector<std::pair<LogicalTensorPtr, Offset>> &fromTensorInfos,
         LogicalTensors &overlaps, LogicalTensors &dualOverlaps);
     void CreateOpFor1toM(Function &function, LogicalTensorPtr largeTensor, Shape lcmTileShape, Offset lcmTileOffset,
         LogicalTensors overlaps, LogicalTensors dualOverlaps);
@@ -89,16 +89,17 @@ private:
     bool HasDuplicateToTile(std::vector<std::pair<LogicalTensorPtr, Offset>> toTensorInfos);
     void TryToSplitLargeTensor(Function &function, const Shape &lcmShape, const LogicalTensorPtr &largeTensor);
     void GetOffsets(std::set<Shape, ShapeDimComparator> &tileOffsets, const Shape &lcmShape, const LogicalTensorPtr &largeTensor);
-    std::unordered_map<int, std::vector<std::pair<LogicalTensorPtr, Offset>>> toInfoMap;
-    std::unordered_map<int, std::vector<std::pair<LogicalTensorPtr, Offset>>> fromInfoMap;
-    std::unordered_set<LogicalTensorPtr> largeTensors;
-    std::map<LogicalTensorPtr, std::set<Shape>> toShapes;
-    std::map<LogicalTensorPtr, std::set<Shape>> fromShapes;
-    bool enableMoreSplit = false;
+    void SetEnableMoreSplit(bool enableMoreSplit);
+    std::unordered_map<int, std::vector<std::pair<LogicalTensorPtr, Offset>>> toInfoMap_;
+    std::unordered_map<int, std::vector<std::pair<LogicalTensorPtr, Offset>>> fromInfoMap_;
+    std::unordered_set<LogicalTensorPtr> largeTensors_;
+    std::map<LogicalTensorPtr, std::set<Shape>> toShapes_;
+    std::map<LogicalTensorPtr, std::set<Shape>> fromShapes_;
+    bool enableMoreSplit_ = false;
 
     Status PreCheck(Function &function) override;
     Status PostCheck(Function &function) override;
-    SplitLargeFanoutTensorChecker checker;
+    SplitLargeFanoutTensorChecker checker_;
 };
 
 struct ShapeComparator {

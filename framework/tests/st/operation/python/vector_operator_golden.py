@@ -333,77 +333,6 @@ def gen_scatter_update_op_golden(
     return gen_op_golden("ScatterUpdate", golden_func, output, case_index)
 
 
-@GoldenRegister.reg_golden_func(
-    case_names=[
-        "TestTopK/TopK4DOperationTest.test_topk",
-        "TestTopK/TopK3DOperationTest.test_topk",
-        "TestTopK/TopKOperationTest.test_topk",
-    ]
-)
-def gen_topk_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
-    shape_list_i = []
-    dim_axis = []
-    k_list = []
-    largest_list = []
-    if "TopKOperationTest" in case_name:
-        shape_list_i = [[128, 32]]
-        dim_axis = [-1]
-        k_list = [8]
-        largest_list = [True]
-    elif "TopK3DOperationTest" in case_name:
-        shape_list_i = [[8, 2, 8]]
-        dim_axis = [-1]
-        k_list = [8]
-        largest_list = [True]
-    elif "TopK4DOperationTest" in case_name:
-        shape_list_i = [[2, 8, 2, 8]]
-        dim_axis = [-1]
-        k_list = [8]
-        largest_list = [True]
-    if case_index is None:
-        for index, arr in enumerate(shape_list_i):
-            output_path = Path(str(output) + "/" + str(index))
-            output_path.mkdir(parents=True, exist_ok=True)
-            x_path = Path(output_path, "x.bin")
-            o0_path = Path(output_path, "value.bin")
-            o1_path = Path(output_path, "index.bin")
-            complete = x_path.exists() and o0_path.exists()
-            if complete:
-                logging.debug("Case(%s), Golden complete.", case_name)
-                return True
-            else:
-                x = torch.randn(arr)
-                val, idx = x.topk(
-                    k_list[index],
-                    dim=dim_axis[index],
-                    largest=largest_list[index],
-                    sorted=True,
-                )
-                x.numpy().tofile(x_path)
-                val.numpy().tofile(o0_path)
-                idx.numpy().astype(np.int32).tofile(o1_path)
-    else:
-        x_path = Path(output, "x.bin")
-        o0_path = Path(output, "value.bin")
-        o1_path = Path(output, "index.bin")
-        complete = x_path.exists() and o0_path.exists()
-        if complete:
-            logging.debug("Case(%s), Golden complete.", case_name)
-            return True
-        else:
-            x = torch.randn(shape_list_i[case_index])
-            val, idx = x.topk(
-                k_list[case_index],
-                dim=dim_axis[case_index],
-                largest=largest_list[case_index],
-                sorted=True,
-            )
-            x.numpy().tofile(x_path)
-            val.numpy().tofile(o0_path)
-            idx.numpy().astype(np.int32).tofile(o1_path)
-    return True
-
-
 @TestCaseLoader.reg_params_handler(ops=["Matmul", "BatchMatmul", "MatmulVerify", "BatchMatmulVerify"])
 def matmul_params_func(params: dict):
     bias_params_func(params)
@@ -751,6 +680,41 @@ def gen_exp_op_golden(case_name: str, output: Path, case_index: int = None) -> b
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Exp", golden_func, output, case_index)
 
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestExpm1/Expm1OperationTest.TestExpm1",
+    ]
+)
+def gen_expm1_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs: list, _config: dict):
+        x = safe_tensor_conversion(inputs[0])
+        input_dtype = inputs[0].dtype
+        y = torch.expm1(x)
+        if input_dtype == bfloat16:
+            y = y.to(torch.float32).numpy().astype(bfloat16)
+        return [np.array(y)]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Expm1", golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestExp2/Exp2OperationTest.TestExp2",
+    ]
+)
+def gen_exp2_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs: list, _config: dict):
+        a = from_numpy(inputs[0])
+        c = torch.exp2(a)
+        return [to_numpy(c)]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Exp2", golden_func, output, case_index)
+
 @GoldenRegister.reg_golden_func(
     case_names=[
         "TestAbs/AbsOperationTest.TestAbs",
@@ -1039,6 +1003,32 @@ def gen_hypot_op_golden(case_name: str, output: Path, case_index: int = None) ->
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Hypot", golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestPReLU/PReLUOperationTest.TestPReLU",
+    ]
+)
+def gen_prelu_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    def golden_func(inputs: list, _config: dict):
+        x = inputs[0]
+        weight = inputs[1]
+        is_bfloat16 = x.dtype == bfloat16
+        
+        if is_bfloat16:
+            x_tensor = torch.from_numpy(x.astype(np.float32)).to(torch.bfloat16)
+            weight_tensor = torch.from_numpy(weight.astype(np.float32)).to(torch.bfloat16)
+        else:
+            x_tensor = torch.from_numpy(x)
+            weight_tensor = torch.from_numpy(weight)
+        
+        result_tensor = F.prelu(x_tensor, weight_tensor)
+
+        return [to_numpy(result_tensor)]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("PReLU", golden_func, output, case_index)
 
 
 @GoldenRegister.reg_golden_func(
@@ -1581,6 +1571,34 @@ def gen_where_op_golden(case_name: str, output: Path, case_index: int = None) ->
     return gen_op_golden("Where", golden_func, output, case_index)
 
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestLReLU/LReLUOperationTest.TestLReLU",
+    ]
+)
+def gen_leaky_relu_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+
+    def golden_func(inputs: list, config: dict):
+        assert len(inputs) == 1, "LReLU expects exactly one input tensor"
+        x = safe_tensor_conversion(inputs[0])
+
+        params = config.get("params", {})
+        scalar_val = params.get("scalar")
+        if scalar_val is None:
+            scalar_val = 0.01
+        alpha = float(scalar_val)
+
+        y = F.leaky_relu(x, negative_slope=alpha)
+        if y.dtype == torch.bfloat16:
+            y = y.to(torch.float32).numpy()
+        else:
+            y = y.numpy()
+        return [y]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("LReLU", golden_func, output, case_index)
+
+
 @TestCaseLoader.reg_params_handler(ops=["TopK"])
 def topk_params_func(params: dict):
     params["dims"] = parse_list_str(params.get("dims"))
@@ -1607,6 +1625,30 @@ def gen_topk_op_golden(case_name: str, output: Path, case_index: int = None) -> 
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("TopK", golden_func, output, case_index)
+
+
+@TestCaseLoader.reg_params_handler(ops=["Sort"])
+def sort_params_func(params: dict):
+    params["dims"] = parse_list_str(params.get("dims"))
+    return params
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestSort/SortOperationTest.TestSort",
+    ]
+)
+def gen_sort_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params")
+        x = torch.from_numpy(inputs[0])
+        dims = params["dims"]
+        val, idx = torch.sort(x, dim=dims[0], descending=True, stable=True)
+        return [val.numpy()]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Sort", golden_func, output, case_index)
 
 
 @GoldenRegister.reg_golden_func(
@@ -1817,6 +1859,54 @@ def gen_gcds_op_golden(case_name: str, output: Path, case_index: int = None) -> 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Gcds", gcds_golden_func, output, case_index)
 
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestGatherMask/GatherMaskOperationTest.TestGatherMask",
+    ]
+)
+def gen_gathermask_op_golden(
+    case_name: str, output: Path, case_index: int = None
+) -> bool:
+    def golden_func(inputs: list, config: dict):
+        input_tensor = torch.from_numpy(inputs[0])
+        params = config.get("params")
+        pattern_mode = int(params.get("patternMode"))
+        last_dim = input_tensor.shape[-1]
+        if last_dim % 2 != 0 and pattern_mode in [1, 2]:
+            raise ValueError("The last axis should be divisible by 2 when ptternMode is 1 or 2")
+        if last_dim % 4 != 0 and pattern_mode in [3, 4, 5, 6]:
+            raise ValueError("The last axis should be divisible by 4 when ptternMode is 3,4,5 or 6")
+        # 获取索引
+        indices = torch.arange(last_dim)
+
+        if pattern_mode == 7:
+            return [inputs[0]]
+        else:
+            if pattern_mode == 1:
+                # 每两个取第一个
+                selected_indices = indices[::2]
+            elif pattern_mode == 2:
+                # 每两个取第二个
+                selected_indices = indices[1::2]
+            elif pattern_mode == 3:
+                # 每四个取第一个
+                selected_indices = indices[::4]
+            elif pattern_mode == 4:
+                # 每四个取第二个
+                selected_indices = indices[1::4]
+            elif pattern_mode == 5:
+                # 每四个取第三个
+                selected_indices = indices[2::4]
+            elif pattern_mode == 6:
+                # 每四个取第四个
+                selected_indices = indices[3::4]
+            #使用索引选择元素
+            output = input_tensor.index_select(-1, selected_indices)
+            return [output.numpy()]
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("GatherMask", golden_func, output, case_index)
+        
 
 def cumsum_golden_func(inputs: list, config: dict):
     params = config.get("params")

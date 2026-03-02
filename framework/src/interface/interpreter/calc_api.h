@@ -61,6 +61,8 @@ struct CalcOps {
 
     void (*Cast)(const TensorData &, const TensorData &, CastMode);
     void (*Exp)(const TensorData &, const TensorData &);
+    void (*Exp2)(const TensorData &, const TensorData &);
+    void (*Expm1)(const TensorData &, const TensorData &);
     void (*Neg)(const TensorData &, const TensorData &);
     void (*Rsqrt)(const TensorData &, const TensorData &);
     void (*Sign)(const TensorData &, const TensorData &);
@@ -79,6 +81,7 @@ struct CalcOps {
     void (*WhereTS)(const TensorData &, const TensorData &, const TensorData &, const Element &);
     void (*WhereST)(const TensorData &, const TensorData &, const Element &, const TensorData &);
     void (*WhereSS)(const TensorData &, const TensorData &, const Element &, const Element &);
+    void (*LReLU)(const TensorData &, const TensorData &, const Element &);
     void (*Ln)(const TensorData &, const TensorData &);
     void (*IsFinite)(const TensorData &, const TensorData &);
     void (*LogicalNot)(const TensorData &, const TensorData &);
@@ -86,6 +89,7 @@ struct CalcOps {
     void (*Compare)(const TensorData &, const TensorData &, const TensorData &, CmpOperationType, CmpModeType);
     void (*Cmps)(const TensorData &, const TensorData &, const Element &, CmpOperationType, CmpModeType);
     void (*Hypot)(const TensorData &, const TensorData &, const TensorData &);
+    void (*PReLU)(const TensorData &, const TensorData &, const TensorData &);
     void (*LogicalAnd)(const TensorData &, const TensorData &, const TensorData &);
 
     void (*AddS)(const TensorData &, const TensorData &, const Element &, bool);

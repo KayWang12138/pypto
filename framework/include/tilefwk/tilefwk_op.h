@@ -126,6 +126,8 @@ Tensor Transpose(const Tensor &self, std::vector<int> perm);
 Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode = CAST_NONE);
 
 Tensor Exp(const Tensor &self);
+Tensor Exp2(const Tensor &self);
+Tensor Expm1(const Tensor &self);
 Tensor Neg(const Tensor &self);
 Tensor Round(const Tensor &self, const int &decimals = 0);
 Tensor Rsqrt(const Tensor &self);
@@ -144,6 +146,7 @@ Tensor Sign(const Tensor &operand);
 Tensor Duplicate(const Tensor &operand);
 Tensor Gather(const Tensor &params, const Tensor &indices, int axis);
 Tensor GatherElements(const Tensor &params, const Tensor &indices, int axis);
+Tensor GatherMask(const Tensor &self, const uint8_t patternMode);
 
 enum class ScatterMode {
     NONE,
@@ -204,6 +207,7 @@ Tensor Compare(const Element &self, const Tensor &other, OpType op, OutType mode
 Tensor Pow(const Tensor &self, const Tensor &other);
 Tensor Pow(const Tensor &self, const Element &other);
 Tensor CopySign(const Tensor &self, const Tensor &other);
+Tensor PReLU(const Tensor &self, const Tensor &weight);
 
 Tensor BitwiseRightShift(const Tensor &self, const Tensor &other);
 Tensor BitwiseRightShift(const Tensor &self, const Element &other);
@@ -216,6 +220,8 @@ Tensor Where(const Tensor &condition, const Tensor &input, const Tensor &other);
 Tensor Where(const Tensor &condition, const Tensor &input, const Element &other);
 Tensor Where(const Tensor &condition, const Element &input, const Tensor &other);
 Tensor Where(const Tensor &condition, const Element &input, const Element &other);
+
+Tensor LReLU(const Tensor &self, const Element &negative_slope);
 
 Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum);
 Tensor Squeeze(const Tensor &input, const std::vector<int> &dim = {});
@@ -247,6 +253,8 @@ Tensor Clip(const Tensor &self, const Element &min = {}, const Element &max = {}
 
 std::tuple<Tensor, Tensor> TopK(const Tensor &self, int k, int axis = -1, bool isLargest = true);
 Tensor ArgSort(const Tensor &self, int axis = -1, bool descending = false);
+Tensor Sort32(const Tensor &self, int idxStart = 0);
+Tensor MrgSort(const Tensor &self, int mergeSize);
 
 /**
  * @brief Sort a tensor with shape (1, n) along the last dimension, n must be orders of 2.
