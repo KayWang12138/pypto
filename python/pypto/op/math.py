@@ -9,7 +9,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """PyPTO"""
-from typing import Optional, Union
+from typing import Optional, Union, List, Tuple, overload
 
 from .. import pypto_impl
 from .._element import Element
@@ -949,6 +949,98 @@ def log(input: Tensor) -> Tensor:
 
 
 @op_wrapper
+def log2(input: Tensor) -> Tensor:
+    """Computes the element-wise base-2 logarithm of `input`.
+
+    This function calculates the formula: `out = log_2(input)`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor. Must be positive (input > 0).
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise base-2 logarithm.
+
+    See Also
+    --------
+    sqrt : Element-wise square-root.
+
+    Examples
+    --------
+    >>> x = pypto.tensor([1.0, 2.0, 4.0], pypto.DT_FP32)
+    >>> y = pypto.log2(x)
+    # Input x: [1.0     2.0     4.0]
+    # Output y: [0.0000 1.0000 2.0000]
+    """
+    return pypto_impl.Log(input, pypto_impl.LogBaseType.LOG_2)
+
+
+@op_wrapper
+def log10(input: Tensor) -> Tensor:
+    """Computes the element-wise base-10 logarithm of `input`.
+
+    This function calculates the formula: `out = log_10(input)`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor. Must be positive (input > 0).
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise base-10 logarithm.
+
+    See Also
+    --------
+    sqrt : Element-wise square-root.
+
+    Examples
+    --------
+    >>> x = pypto.tensor([1.0, 10.0, 100.0], pypto.DT_FP32)
+    >>> y = pypto.log10(x)
+    # Input x: [1.0      10.0     100.0]
+    # Output y: [0.0000   1.0000   2.0000]
+    """
+    return pypto_impl.Log(input, pypto_impl.LogBaseType.LOG_10)
+
+
+@op_wrapper
+def log1p(input: Tensor) -> Tensor:
+    """Computes the element-wise natural logarithm of (1 + input).
+
+    This function calculates the formula: `out = log(1 + input)`, where `log`
+    denotes the natural logarithm (base e).
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor. Must satisfy `input > -1`.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise natural logarithm of (1 + input).
+
+    See Also
+    --------
+    log : Element-wise natural logarithm.
+    add : Element-wise addition.
+
+    Examples
+    --------
+    >>> x = pypto.tensor([0.0, 1.0, 2.0], pypto.DT_FP32)
+    >>> y = pypto.log1p(x)
+    # Input x: [0.0     1.0     2.0]
+    # Output y: [0.0000 0.6931 1.0986]
+    """
+    return pypto_impl.Log1p(input)
+
+
+@op_wrapper
 def clip(
     input: Tensor,
     min: Optional[Union[Tensor, Element, float, int]] = None,
@@ -1340,3 +1432,133 @@ def gcd(
         return pypto_impl.Gcd(input, other)
     else:
         return pypto_impl.Gcd(input, pypto_impl.Element(input.dtype, other))
+
+
+@overload
+def var(
+    input: Tensor,
+    dim: List[int],
+    correction: float
+) -> Tensor:
+    """
+    Computes the variance  of 'input' over the dimensions.
+
+    This function calculates the formula: 'out = 1 / max(0, N - correction) * sum((x_i - (sum(x_i) / N))^2)'.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input Tensor to be calculated.
+    dim : List
+        Dimensions involved in calculating variance.
+    correction : float
+        The difference between sample size and sample degree if freedom. Usually take 0 or 1.
+
+    Returns
+    -------
+    Tensor
+        A tensor with the input shape of the dimensions after reduce
+
+    Examples
+    --------
+    x = pypto.tensor([[2, 3], pypto.DT_FP32)
+    y = pypto.var(x, [1], 0)
+
+    Input  x:[[1., 2., 3.],
+              [4., 5., 6.]]
+    Output y:[0.6667, 0.6667]
+    """
+    ...
+
+
+@overload
+def var(
+    input: Tensor, 
+    dim: Union[int, List[int], Tuple[int]] = None,
+    *, 
+    correction: float = 1,
+    keepdim: bool = False
+) -> Tensor:
+    """
+    Computes the variance  of 'input' over the dimensions.
+
+    This function calculates the formula: 'out = 1 / max(0, N - correction) * sum((x_i - (sum(x_i) / N))^2)'.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input Tensor to be calculated.
+    dim : Union[int, List[int], Tuple[int]]
+        Dimensions involved in calculating variance. Default is None, means all demensions.
+    correction : float, optional
+        The difference between sample size and sample degree if freedom. Default take 1.
+    keepdim : bool, optional
+        whether the output tensor has dim retained or not. Default: False.
+
+    Returns
+    -------
+    Tensor
+        A tensor with the input shape of the dimensions after reduce
+
+    Examples
+    --------
+    x = pypto.tensor([[2, 3], pypto.DT_FP32)
+    y = pypto.var(x, 1, correction=1, keepdim=True)
+
+    Input  x:[[1., 2., 3.],
+              [4., 5., 6.]]
+    Output y:[[1.], 
+              [1.]]
+    """
+    ...
+
+
+@op_wrapper
+def var(
+    input: Tensor, 
+    dim: Union[int, List[int], Tuple[int]] = None,
+    correction: float = 1,
+    keepdim: bool = False
+) -> Tensor:
+    """
+    Computes the variance  of 'input' over the dimensions.
+
+    This function calculates the formula: 'out = 1 / max(0, N - correction) * sum((x_i - (sum(x_i) / N))^2)'.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input Tensor to be calculated.
+    dim : Union[int, List[int], Tuple[int]]
+        Dimensions involved in calculating variance. Default is None, means all demensions.
+    correction : float, optional
+        The difference between sample size and sample degree if freedom. Default take 1.
+    keepdim : bool, optional
+        whether the output tensor has dim retained or not. Default: False.
+
+    Returns
+    -------
+    Tensor
+        A tensor with the input shape of the dimensions after reduce
+
+    Examples
+    --------
+    x = pypto.tensor([[2, 3], pypto.DT_FP32)
+    y = pypto.var(x, 1, correction=1, keepdim=True)
+
+    Input  x:[[1., 2., 3.],
+              [4., 5., 6.]]
+    Output y:[[1.], 
+              [1.]]
+    """
+    inner_dim = None
+    if isinstance(dim, int):
+        inner_dim = [dim]
+    elif dim is None or len(dim) == 0:
+        inner_dim = []
+    elif isinstance(dim, (list, tuple)):
+        inner_dim = list(dim)
+    else:
+        raise TypeError(f"the type of dim is not supported. 'int' or 'Lise[int]' or 'Tuple[int]' is needed.")
+
+    return pypto_impl.Var(input, inner_dim, correction, keepdim)

@@ -48,6 +48,9 @@ pypto-index_select
 pypto-indexput_
 pypto-le
 pypto-log
+pypto-log1p
+pypto-log2
+pypto-log10
 pypto-logical_and
 pypto-logical_not
 pypto-lt
@@ -73,6 +76,7 @@ pypto-sigmoid
 pypto-sign
 pypto-sin
 pypto-softmax
+pypto-var
 pypto-sqrt
 pypto-sub
 pypto-sum

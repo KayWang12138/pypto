@@ -237,6 +237,54 @@ Tensor Pow(const Tensor &self, const Tensor &other) {
     }
     return result;
 }
+Tensor Log1p(const Tensor &self) {
+    DECLARE_TRACER();
+    ASSERT(self.GetStorage()->tensor->datatype == DataType::DT_BF16 ||
+        self.GetStorage()->tensor->datatype == DataType::DT_FP16 ||
+        self.GetStorage()->tensor->datatype == DataType::DT_FP32)
+        << "The datatype is not supported";
+
+    auto operandCast = Tensor(DataType::DT_FP32, self.GetShape());
+    if (self.GetStorage()->tensor->datatype == DataType::DT_FP16 || self.GetStorage()->tensor->datatype == DataType::DT_BF16) {
+        operandCast = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            self.GetStorage(), DataType::DT_FP32, CastMode::CAST_NONE);
+    } else {
+        operandCast = self;
+    }
+
+    auto tAddOne = CALL(BinaryOperationScalar<BinaryOpType::ADD>, *Program::GetInstance().GetCurrentFunction(),
+                        operandCast.GetStorage(), Element(DataType::DT_FP32, 1.0f));
+  
+    auto dSubOne = CALL(BinaryOperationScalar<BinaryOpType::ADD>, *Program::GetInstance().GetCurrentFunction(),
+                        tAddOne, Element(DataType::DT_FP32, -1.0f));
+
+    auto rDivide = CALL(BinaryOperation<BinaryOpType::DIV>, *Program::GetInstance().GetCurrentFunction(),
+                        operandCast, dSubOne);
+
+    auto lLog = CALL(UnaryOperation<UnaryOpType::LN>, *Program::GetInstance().GetCurrentFunction(), tAddOne);
+
+    auto yRaw = CALL(BinaryOperation<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(),
+                    lLog, rDivide);
+
+    auto maskEqOne = Compare(tAddOne, Element(DataType::DT_FP32, 1.0f), OpType::EQ, OutType::BOOL);
+    auto maskEqInf = Compare(tAddOne, Element(DataType::DT_FP32, INFINITY), OpType::EQ, OutType::BOOL);
+
+    auto ySelect = Where(maskEqOne, operandCast, yRaw);
+
+    ySelect = Where(maskEqInf, Element(DataType::DT_FP32, INFINITY), ySelect);
+                
+    auto resTensorBeforeCast = Tensor(DataType::DT_FP32, self.GetShape());
+    resTensorBeforeCast = ySelect;
+
+    if (self.GetStorage()->tensor->datatype == DataType::DT_FP16) {
+        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            resTensorBeforeCast.GetStorage(), DataType::DT_FP16, CastMode::CAST_NONE);
+    } else if (self.GetStorage()->tensor->datatype == DataType::DT_BF16) {
+        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            resTensorBeforeCast.GetStorage(), DataType::DT_BF16, CastMode::CAST_NONE);
+    }
+    return resTensorBeforeCast;
+} 
 
 LogicalTensorPtr GenAllOneTensor(const Shape &shape, std::vector<SymbolicScalar> validShape, const DataType &dataType) {
     auto result = CALL(FullOperation, *Program::GetInstance().GetCurrentFunction(), Element(DataType::DT_FP32, 1.0),
@@ -819,6 +867,109 @@ void LogicAndOperationTileFunc(Function &function, const TileShape &tileShape,
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
     [[maybe_unused]] const Operation &op) {
     TiledLogicalAndOperation(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
+}
+
+static void VarParamVaildCheck(const Tensor &input, std::vector<int> &dim)
+{
+    DataType dtype = input.GetDataType();
+    Shape shape = input.GetShape();
+    uint64_t shapeSize = shape.size();
+
+    ASSERT(shapeSize <= SHAPE_DIM4 && shapeSize >= SHAPE_DIM2) << "The shape.size() only support 2~4. Cur dimension"
+        " is " << shapeSize;
+    ASSERT(dim.size() <= shapeSize) << "The dim.size() should <= input.size()";
+    ASSERT((dtype == DT_FP32) || (dtype == DT_FP16) || (dtype == DT_BF16)) << "The datatype is only support float";
+    for (uint64_t i = 0; i < shapeSize; i++) {
+        ASSERT(shape[i] > 0) << "The input shape should > 0";
+    }
+
+    if (dim.empty()) {
+        for (uint64_t i = 0; i < shapeSize; i++) {
+            dim.push_back(static_cast<int>(i));
+        }
+    }
+    std::set<int> dupDimSet(dim.begin(), dim.end());
+
+    ASSERT(dupDimSet.size() == dim.size()) << "There is duplicates elements in dim";
+    for (size_t i = 0; i < dim.size(); i++) {
+        ASSERT(dim[i] < static_cast<int>(shapeSize) && dim[i] >= -(static_cast<int>(shapeSize))) <<
+            "The value in dim is out of range";
+        if (dim[i] < 0) {
+            dim[i] = dim[i] + static_cast<int>(shapeSize);
+        }
+    }
+    std::sort(dim.begin(), dim.end());
+}
+
+static Tensor VarResSqueeze(const Tensor &res, const std::vector<int> &dim, const std::vector<int64_t> &oriVecTile,
+    DataType dtype)
+{
+    std::vector<int64_t> vecTile(oriVecTile.begin(), oriVecTile.end());
+    for (auto it = dim.rbegin(); it != dim.rend(); ++it) {
+        vecTile.erase(vecTile.begin() + *it);
+    }
+    int64_t algnedSize = BLOCK_SIZE / BytesOf(dtype);
+    if (vecTile.empty()) {
+        vecTile.push_back(algnedSize);
+    }
+    int64_t lastDimSize = vecTile.back();
+    if (lastDimSize % algnedSize != 0) {
+        vecTile.back() = CeilDiv(lastDimSize, algnedSize) * algnedSize;
+    }
+    TileShape::Current().SetVecTile(vecTile);
+    return Squeeze(res, dim);
+}
+
+Tensor Var(const Tensor &input, const std::vector<int> &dim, float correction, bool keepDim)
+{
+    std::vector<int> innerDim(dim.begin(), dim.end());
+    VarParamVaildCheck(input, innerDim);
+
+    DataType dtype = input.GetDataType();
+    Shape shape = input.GetShape();
+    auto castInput = Tensor(DT_FP32, shape);
+    if (dtype == DT_FP16 || dtype == DT_BF16) {
+        castInput = Cast(input, DT_FP32, CAST_NONE);
+    } else {
+        castInput = input;
+    }
+
+    int calcN = 1;
+    auto res = castInput;
+    for (size_t i = 0; i < innerDim.size(); i++) {
+        calcN *= static_cast<int>(shape[innerDim[i]]);
+    }
+    res = Mul(res, Element(DT_FP32, 1 / static_cast<float>(calcN)));
+    for (size_t i = 0; i < innerDim.size(); i++) {
+        res = Sum(res, innerDim[i], true);
+    }
+
+    Shape dstShape = res.GetShape();
+    for (size_t i = 0; i < innerDim.size(); i++) {
+        dstShape[innerDim[i]] = shape[innerDim[i]];
+        res = Expand(res, dstShape);
+    }
+
+    res = Sub(castInput, res);
+    res = Mul(res, res);
+    float count = 1.0f / std::max(0.0f, static_cast<float>(calcN) - correction);
+    res = Mul(res, Element(DT_FP32, count));
+    for (size_t i = 0; i < innerDim.size(); i++) {
+        res = Sum(res, innerDim[i], true);
+    }
+    auto oriVecTile = TileShape::Current().GetVecTile();
+    if (!keepDim) {
+        res = VarResSqueeze(res, innerDim, oriVecTile.tile, dtype);
+    }
+
+    if (dtype == DT_FP16 || dtype == DT_BF16) {
+        res = Cast(res, dtype, CAST_NONE);
+    }
+    if (!keepDim) {
+        TileShape::Current().SetVecTile(oriVecTile.tile);
+    }
+
+    return res;
 }
 
 Tensor TensorRound(Function &function, const LogicalTensorPtr &self, const int &decimals = 0) {

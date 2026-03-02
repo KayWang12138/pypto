@@ -546,6 +546,18 @@ class Tensor:
         return pypto.log(self)
 
     @source_location
+    def log1p(self) -> 'Tensor':
+        return pypto.log1p(self)
+
+    @source_location
+    def log10(self) -> 'Tensor':
+        return pypto.log10(self)
+        
+    @source_location
+    def log2(self) -> 'Tensor':
+        return pypto.log2(self)
+
+    @source_location
     def logical_not(self) -> 'Tensor':
         return pypto.logical_not(self)
 
@@ -657,6 +669,11 @@ class Tensor:
     def scatter(self, dim: int, index: 'Tensor',
                 src: Union[float, Element, 'Tensor'], *, reduce: str = None) -> 'Tensor':
         return pypto.scatter(self, dim, index, src, reduce=reduce)
+
+    @source_location
+    def var(self, dim: Union[int, List[int], Tuple[int]] = None, *,
+            correction: float = 1, keepdim: bool = False) -> 'Tensor':
+        return pypto.var(self, dim, correction=correction, keepdim=keepdim)
 
     def _is_empty_slice(self, key):
         if isinstance(key, slice):
