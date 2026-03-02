@@ -151,6 +151,9 @@ void OpcodeManager::RegisterVectorBinary() {
         {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OP_ATTR_PREFIX + "reverseOperand",
             OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis},
         TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_LRELU, OpCoreType::AIV, "LReLU", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::TLReLU", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,{OpAttributeKey::scalar},
+        TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_BITWISERIGHTSHIFTS, OpCoreType::AIV, "BITWISERIGHTSHIFTS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tbitwiserightshifts", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
         {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OP_ATTR_PREFIX + "reverseOperand",
@@ -312,6 +315,10 @@ void OpcodeManager::RegisterVectorSort() {
         {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
         {"TileOp::CompareAndSwap", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
         {OpAttributeKey::inplaceInfo, OP_ATTR_PREFIX + "order"});
+    RegisterInfo(Opcode::OP_EXP2, OpCoreType::AIV, "EXP2", {MemoryType::MEM_UB},
+        {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Texp2", PIPE_V, PIPE_V, CoreType::AIV},
+        OpCalcType::ELMWISE, {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis},
+        TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_MERGE, OpCoreType::AIV, "MERGE", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Merge", PIPE_V, PIPE_V, CoreType::AIV},
         OpCalcType::OTHER, {OpAttributeKey::inplaceInfo, OP_ATTR_PREFIX + "order", OP_ATTR_PREFIX + "full_sort"});
@@ -889,6 +896,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {               Opcode::OP_MAXS,          "TMaxS"},
     {               Opcode::OP_MINS,          "TMinS"},
     {               Opcode::OP_MULS,          "TMulS"},
+    {               Opcode::OP_LRELU,        "TLReLU"},
     {               Opcode::OP_DIVS,          "TDivS"},
     {               Opcode::OP_GCDS,          "TGcdS"},
     {              Opcode::OP_RSQRT,         "TRsqrt"},
@@ -902,6 +910,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {              Opcode::OP_ROUND,         "TRound"},
     {         Opcode::OP_RECIPROCAL,    "TReciprocal"},
     {                Opcode::OP_EXP,           "TExp"},
+    {               Opcode::OP_EXP2,          "TExp2"},
     {                Opcode::OP_ABS,           "TAbs"},
     {         Opcode::OP_LOGICALNOT,    "TLogicalNot"},
     {            Opcode::OP_MAXIMUM,           "TMax"},

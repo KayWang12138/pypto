@@ -78,6 +78,9 @@ inline void QuantPreCompute(LogicalTensorDataPtr out, LogicalTensorDataPtr self,
 inline void Exp(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Exp(Trans(out), Trans(self));
 }
+inline void Exp2(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    GetCalcOps()->Exp2(Trans(out), Trans(self));
+}
 inline void Neg(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Neg(Trans(out), Trans(self));
 }
@@ -132,6 +135,9 @@ inline void WhereST(
 inline void WhereSS(
     LogicalTensorDataPtr out, LogicalTensorDataPtr condition, const Element &input, const Element &other) {
     GetCalcOps()->WhereSS(Trans(out), Trans(condition), input, other);
+}
+inline void LReLU(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &alpha) {
+    GetCalcOps()->LReLU(Trans(out), Trans(self), alpha);
 }
 inline void Ln(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Ln(Trans(out), Trans(self));

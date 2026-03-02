@@ -100,6 +100,8 @@ stest:
       - TestAdd/AddOperationTest.TestAdd/11
       - TestFmod/FmodOperationTest.TestFmod/0
       - TestFmod/FmodOperationTest.TestFmod/1
+      - TestLReLU/LReLUOperationTest.TestLReLU/0
+      - TestLReLU/LReLUOperationTest.TestLReLU/1
       - TestConcat/ConcatOperationTest.TestConcat/0
       - TestConcat/ConcatOperationTest.TestConcat/1
       - TestGcd/GcdOperationTest.TestGcd/3
@@ -126,6 +128,8 @@ stest:
       - TestDivs/DivsOperationTest.TestDivs/2
       - TestExp/ExpOperationTest.TestExp/18
       - TestExp/ExpOperationTest.TestExp/19
+      - TestExp/ExpOperationTest.TestExp/0
+      - TestExp/ExpOperationTest.TestExp/5
       - TestMul/MulOperationTest.TestMul/21
       - TestMul/MulOperationTest.TestMul/22
       - TestMul/MulOperationTest.TestMul/25

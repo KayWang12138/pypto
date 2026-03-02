@@ -682,6 +682,21 @@ def gen_exp_op_golden(case_name: str, output: Path, case_index: int = None) -> b
 
 @GoldenRegister.reg_golden_func(
     case_names=[
+        "TestExp2/Exp2OperationTest.TestExp2",
+    ]
+)
+def gen_exp2_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs: list, _config: dict):
+        a = from_numpy(inputs[0])
+        c = torch.exp2(a)
+        return [to_numpy(c)]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Exp2", golden_func, output, case_index)
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
         "TestAbs/AbsOperationTest.TestAbs",
     ]
 )
@@ -1508,6 +1523,34 @@ def gen_where_op_golden(case_name: str, output: Path, case_index: int = None) ->
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Where", golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestLReLU/LReLUOperationTest.TestLReLU",
+    ]
+)
+def gen_leaky_relu_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+
+    def golden_func(inputs: list, config: dict):
+        assert len(inputs) == 1, "LReLU expects exactly one input tensor"
+        x = safe_tensor_conversion(inputs[0])
+
+        params = config.get("params", {})
+        scalar_val = params.get("scalar")
+        if scalar_val is None:
+            scalar_val = 0.01
+        alpha = float(scalar_val)
+
+        y = F.leaky_relu(x, negative_slope=alpha)
+        if y.dtype == torch.bfloat16:
+            y = y.to(torch.float32).numpy()
+        else:
+            y = y.numpy()
+        return [y]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("LReLU", golden_func, output, case_index)
 
 
 @TestCaseLoader.reg_params_handler(ops=["TopK"])

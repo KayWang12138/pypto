@@ -126,6 +126,7 @@ Tensor Transpose(const Tensor &self, std::vector<int> perm);
 Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode = CAST_NONE);
 
 Tensor Exp(const Tensor &self);
+Tensor Exp2(const Tensor &self);
 Tensor Neg(const Tensor &self);
 Tensor Round(const Tensor &self, const int &decimals = 0);
 Tensor Rsqrt(const Tensor &self);
@@ -216,6 +217,8 @@ Tensor Where(const Tensor &condition, const Tensor &input, const Tensor &other);
 Tensor Where(const Tensor &condition, const Tensor &input, const Element &other);
 Tensor Where(const Tensor &condition, const Element &input, const Tensor &other);
 Tensor Where(const Tensor &condition, const Element &input, const Element &other);
+
+Tensor LReLU(const Tensor &self, const Element &negative_slope);
 
 Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum);
 Tensor Squeeze(const Tensor &input, const std::vector<int> &dim = {});

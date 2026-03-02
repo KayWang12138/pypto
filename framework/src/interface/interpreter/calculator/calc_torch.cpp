@@ -140,6 +140,13 @@ static void Exp(const TensorData &out, const TensorData &self) {
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
+static void Exp2(const TensorData &out, const TensorData &self) {
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::exp2_out(tout.second, tself.second);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
 static void Neg(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     auto tself = From(self);
@@ -694,6 +701,13 @@ static void MaxS(const TensorData &out, const TensorData &self, const Element &e
     auto tout = From(out);
     auto tself = From(self);
     torch::clamp_min_out(tout.second, tself.second, From(elem));
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
+static void LReLU(const TensorData &out, const TensorData &self, const Element &negative_slope = Element(DataType::DT_FP32, 0.01)) {
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::leaky_relu_out(tout.second, tself.second, From(negative_slope));
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
@@ -1858,6 +1872,7 @@ static struct CalcOps calcOps = {
     .AllClose = AllClose,
     .Cast = Cast,
     .Exp = Exp,
+    .Exp2 = Exp2,
     .Neg = Neg,
     .Rsqrt = Rsqrt,
     .Sign = Sign,
@@ -1876,6 +1891,7 @@ static struct CalcOps calcOps = {
     .WhereTS = WhereTS,
     .WhereST = WhereST,
     .WhereSS = WhereSS,
+    .LReLU = LReLU,
     .Ln = Ln,
     .IsFinite = IsFinite,
     .LogicalNot = LogicalNot,

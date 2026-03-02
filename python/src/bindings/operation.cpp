@@ -85,6 +85,8 @@ void bind_operation(py::module &m) {
 
     m.def("Exp", [](const Tensor &self) { return npu::tile_fwk::Exp(self); }, "Tensor exp.");
 
+    m.def("Exp2", [](const Tensor &self) { return npu::tile_fwk::Exp2(self); }, "Tensor exp2.");
+
     m.def(
         "Transpose",
         [](const Tensor &self, const std::vector<int> &perm) { return npu::tile_fwk::Transpose(self, perm); },
@@ -136,6 +138,9 @@ void bind_operation(py::module &m) {
     m.def(
         "Gcd", [](const Tensor &self, const Element &other) { return npu::tile_fwk::Gcd(self, other); },
         "Tensor gcd scalar.");
+    m.def(
+        "LReLU", [](const Tensor &self, const Element &alpha) { return npu::tile_fwk::LReLU(self, alpha); },
+        "Tensor mod scalar.");
     m.def(
         "BitwiseRightShift", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::BitwiseRightShift(self, other); },
         "Tensor bitwise right shift.");
