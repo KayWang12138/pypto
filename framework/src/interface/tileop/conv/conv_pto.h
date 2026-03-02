@@ -106,7 +106,7 @@ INLINE int64_t CalLoadOffsetNCDHW(const ShapeInfo &shapeInfo, const OffsetInfo &
         offsetH = offsetInfo.offset3 > shapeInfo.shape2 ? shapeInfo.shape2 : offsetInfo.offset3;
         int64_t offsetW = offsetInfo.offset4 < 0 ? 0 : offsetInfo.offset4;
         offsetW = offsetInfo.offset4 > shapeInfo.shape3 ? shapeInfo.shape3 : offsetInfo.offset4;
-        return offsetInfo.offset0 * inputOneBatchSize + offsetC + offsetH * shapeInfo.shape3 + offsetW;
+        return offsetInfo.offset0 * inputOneBatchSize + offsetC + offsetD + offsetH * shapeInfo.shape3 + offsetW;
     } else {
         int64_t khxkw = shapeInfo.shape2 * shapeInfo.shape3;
         int64_t kdxkhxkw = shapeInfo.shape1 * khxkw;
@@ -146,7 +146,7 @@ INLINE int64_t CalStoreOffsetNCDHW(const ShapeInfo &shapeInfo, const OffsetInfo 
     int64_t outputOneBatchSize = shapeInfo.shape0 * shapeInfo.shape1 * shapeInfo.shape2 * shapeInfo.shape3;
     int64_t coutOffset = offsetInfo.offset1 * shapeInfo.shape1 * shapeInfo.shape2 * shapeInfo.shape3;
     int64_t doutOffset = offsetInfo.offset2 * shapeInfo.shape2 * shapeInfo.shape3;
-    return offsetInfo.offset0 * outputOneBatchSize + coutOffset + doutOffset + offsetInfo.offset3 * shapeInfo.shape2 +
+    return offsetInfo.offset0 * outputOneBatchSize + coutOffset + doutOffset + offsetInfo.offset3 * shapeInfo.shape3 +
            offsetInfo.offset4;
 }
 
@@ -253,7 +253,7 @@ INLINE void TLoadConv3DDN2NZ(
         constexpr auto bufferSize =
             stcDstShape0 * stcDstShape1 * stcDstShape2 * stcDstShape3 * stcDstShape4 * BLOCK_ALIGN_BYTE;
         using tileData = pto::ConvTile<pto::TileType::Mat, typename T::Type, bufferSize, pto::Layout::NDC1HWC0,
-            pto::ConvTileShape<-1, -1, -1, -1, -1>>;
+            pto::ConvTileShape<-1, -1, -1, -1, -1, c0Size>>;
         tileData dstL1(dstShape0, dstShape1, dstShape2, dstShape3, dstShape4);
         pto::TASSIGN(dstL1, (uint64_t)dst.GetAddr());
         pto::TLOAD(dstL1, srcGlobal);
