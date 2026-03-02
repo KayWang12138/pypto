@@ -80,6 +80,9 @@ class CastMode(enum.Enum):
     CAST_TRUNC = ...
     CAST_ODD = ...
 
+class SaturationMode(enum.Enum):
+    OFF = ...
+    ON = ...
 
 class LogBaseType(enum.Enum):
     LOG_E = ...
@@ -481,7 +484,7 @@ def Neg(a: Tensor) -> Tensor: ...
 def Log(a: Tensor, base: LogBaseType) -> Tensor: ...
 
 
-def Cast(a: Tensor, dtype: DataType, mode: CastMode, sat_mode: SaturationMode = SaturationMode.OFF) -> Tensor: ...
+def Cast(a: Tensor, dtype: DataType, mode: CastMode, satmode: SaturationMode = SaturationMode.OFF) -> Tensor: ...
 
 def index_select(src: Tensor,  dim: int,  indices: Tensor) -> Tensor: ...
 
@@ -615,3 +618,65 @@ def LogTopFolder() -> str: ...
 
 
 def ResetLog(path: str): ...
+
+
+# distributed
+class AtomicType(enum.Enum):
+    SET = ...      
+    ADD = ...      
+
+
+def CreateShmemData(
+    group: str, 
+    world_size: int, 
+    dtype: DataType, 
+    shape: List[int], 
+    shmem_tensor: Tensor, 
+    mem_type: int,
+) -> None:
+
+
+def CreateShmemSignal(group: str, shmem_data: Tensor, shmem_signal: Tensor) -> None:
+
+
+def ShmemBarrier(pred_token: Tensor, shmem_signal: Tensor, group: str, world_size: int) -> Tensor: ...
+
+
+def ShmemDataSet(pred_token: Tensor, shmem_data: Tensor) -> None:
+
+
+def ShmemSignalSet(pred_token: Tensor, shmem_signal: Tensor) -> None:
+
+
+def ShmemPut(pred_token: Tensor, in_tensor: Tensor, shmem_data: Tensor, atomic_type: AtomicType) -> Tensor: ...
+
+
+def ShmemPutUb2Gm(in_tensor: Tensor, shmem_data_tile: Tensor, pred_token: Tensor, atomic_type: AtomicType) -> Tensor: ...
+
+
+def ShmemGet(
+    pred_token: Tensor, 
+    shmem_data: Tensor, 
+    non_shmem_dtype: DataType.DT_BOTTOM, 
+    atomic_type: AtomicType = AtomicType.SET,
+) -> Tensor: ...
+
+
+def ShmemGetGm2Ub(
+    dummy: Tensor, 
+    shmem_data_tile: Tensor, 
+    non_shmem_dtype: DataType.DT_BOTTOM, 
+    atomic_type: AtomicType = AtomicType.SET,
+) -> Tensor: ...
+
+
+def ShmemSignal(pred_token: Tensor, shmem_signal: Tensor, atomic_type: AtomicType) -> Tensor: ...
+
+
+def WaitUntil(pred_token: Tensor, shmem_signal: Tensor, cmp_value: int, reset_signal: bool = False) -> Tensor: ...
+
+
+def GetSymbolicScalarPeId(group: str) -> SymbolicScalar: ...
+
+
+def Nop(in_tensors: List[Tensor]) -> Tensor: ...

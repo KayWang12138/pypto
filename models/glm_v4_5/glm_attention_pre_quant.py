@@ -191,7 +191,7 @@ def rms_norm_bias(tensor_value, gamma, bias, mean_coff, eps, tile_shape):
     input_dtype = tensor_value.dtype
     # cast
     pypto.set_vec_tile_shapes(*tile_shape)
-    tensor_value_fp32 = pypto.cast(tensor_value, pypto.DT_FP32)
+    tensor_value_fp32 = pypto.cast(tensor_value, pypto.DT_FP32, satmode = pypto.SaturationMode.ON)
 
     # square
     square = pypto.mul(tensor_value_fp32, tensor_value_fp32)
@@ -215,7 +215,7 @@ def rms_norm_bias(tensor_value, gamma, bias, mean_coff, eps, tile_shape):
     res_add = pypto.add(res, bias)
 
     # cast
-    y_bf16 = pypto.cast(res_add, input_dtype)
+    y_bf16 = pypto.cast(res_add, input_dtype, satmode = pypto.SaturationMode.ON)
 
     return y_bf16
 
@@ -228,7 +228,7 @@ def rope_data(x1, x2, cos, sin, tile_shape):
     res = pypto.concat([o1, o2], 2)
 
     # cast
-    y_bf16 = pypto.cast(res, pypto.DT_BF16)
+    y_bf16 = pypto.cast(res, pypto.DT_BF16, satmode = pypto.SaturationMode.ON)
     return y_bf16
 
 
@@ -332,10 +332,10 @@ def quant_attention_pre(bs, hidden_size, total_head_size, head_size, q_size, kv_
         k_bias_2d = pypto.reshape(k_bias, [1, 1, head_size], inplace=True)
 
         pypto.set_vec_tile_shapes(1, 1, head_size)
-        q_gamma_2d_fp32 = pypto.cast(q_gamma_2d, calc_dtype)
-        q_bias_2d_fp32 = pypto.cast(q_bias_2d, calc_dtype)
-        k_gamma_2d_fp32 = pypto.cast(k_gamma_2d, calc_dtype)
-        k_bias_2d_fp32 = pypto.cast(k_bias_2d, calc_dtype)
+        q_gamma_2d_fp32 = pypto.cast(q_gamma_2d, calc_dtype, satmode = pypto.SaturationMode.ON)
+        q_bias_2d_fp32 = pypto.cast(q_bias_2d, calc_dtype, satmode = pypto.SaturationMode.ON)
+        k_gamma_2d_fp32 = pypto.cast(k_gamma_2d, calc_dtype, satmode = pypto.SaturationMode.ON)
+        k_bias_2d_fp32 = pypto.cast(k_bias_2d, calc_dtype, satmode = pypto.SaturationMode.ON)
         q_gamma_expand = pypto.expand_clone(q_gamma_2d_fp32, [1, q_num_head, head_size])
         q_bias_expand = pypto.expand_clone(q_bias_2d_fp32, [1, q_num_head, head_size])
         k_gamma_expand = pypto.expand_clone(k_gamma_2d_fp32, [1, kv_num_head, head_size])
@@ -350,11 +350,11 @@ def quant_attention_pre(bs, hidden_size, total_head_size, head_size, q_size, kv_
                                     valid_shape=[act_bs_tile, hidden_size])
             # init
             pypto.set_vec_tile_shapes(1, vec_tile_value)
-            x_tile_fp32 = pypto.cast(x_tile, calc_dtype)
+            x_tile_fp32 = pypto.cast(x_tile, calc_dtype, satmode = pypto.SaturationMode.ON)
             # add
             residual_input_tile = pypto.view(residual_input, [bs_tile, hidden_size], [bs_idx * bs_tile, 0],
                 valid_shape=[act_bs_tile, hidden_size])
-            residual_input_tile_fp32 = pypto.cast(residual_input_tile, calc_dtype)
+            residual_input_tile_fp32 = pypto.cast(residual_input_tile, calc_dtype, satmode = pypto.SaturationMode.ON)
             x_f32 = pypto.add(residual_input_tile_fp32, x_tile_fp32) # tile_x
 
             square = pypto.mul(x_f32, x_f32) # square
@@ -363,38 +363,38 @@ def quant_attention_pre(bs, hidden_size, total_head_size, head_size, q_size, kv_
             reduce_sum = pypto.add(reduce_asum, eps) # reduce_sum = reduce_asum + eps
             reduce_sqrt = pypto.sqrt(reduce_sum) # reduce_sqrt = torch.sqrt(reduce_sum)
             res_div = pypto.div(x_f32, reduce_sqrt) # res_div = x_f32 / reduce_sqrt
-            residual_bf16 = pypto.cast(x_f32, input_dtype)
+            residual_bf16 = pypto.cast(x_f32, input_dtype, satmode = pypto.SaturationMode.ON)
             x_int8 = pypto.tensor([bs_tile, hidden_size], pypto.DT_INT8, "x_int8")
 
             for tmp_idx in range(bs_tile):
                 pypto.set_vec_tile_shapes(1, vec_tile_value)
-                x_gamma_2d_fp32 = pypto.cast(x_gamma_2d, calc_dtype)
-                x_bias_2d_fp32 = pypto.cast(x_bias_2d, calc_dtype)
-                x_scale_2d_fp32 = pypto.cast(x_scale_2d, calc_dtype)
-                x_offset_2d_fp32 = pypto.cast(x_offset_2d, calc_dtype)
+                x_gamma_2d_fp32 = pypto.cast(x_gamma_2d, calc_dtype, satmode = pypto.SaturationMode.ON)
+                x_bias_2d_fp32 = pypto.cast(x_bias_2d, calc_dtype, satmode = pypto.SaturationMode.ON)
+                x_scale_2d_fp32 = pypto.cast(x_scale_2d, calc_dtype, satmode = pypto.SaturationMode.ON)
+                x_offset_2d_fp32 = pypto.cast(x_offset_2d, calc_dtype, satmode = pypto.SaturationMode.ON)
 
                 res_div_single = pypto.view(res_div, [1, hidden_size], [tmp_idx, 0])
 
                 res = pypto.mul(res_div_single, x_gamma_2d_fp32) # res = res_div * weight
                 res_add = pypto.add(res, x_bias_2d_fp32)
-                x_norm = pypto.cast(res_add, input_dtype)
+                x_norm = pypto.cast(res_add, input_dtype, satmode = pypto.SaturationMode.ON)
 
                 # x quant
                 pypto.set_vec_tile_shapes(1, vec_tile_value)
-                x_norm_fp32 = pypto.cast(x_norm, calc_dtype) # bf16 -> fp32
+                x_norm_fp32 = pypto.cast(x_norm, calc_dtype, satmode = pypto.SaturationMode.ON) # bf16 -> fp32
                 x_mul = pypto.mul(x_norm_fp32, x_scale_2d_fp32)
                 x_add = pypto.add(x_mul, x_offset_2d_fp32)
-                x_int32 = pypto.cast(x_add, pypto.DT_INT32, pypto.CastMode.CAST_RINT) # Align ascendC
-                x_fp16 = pypto.cast(x_int32, pypto.DT_FP16)
-                x_int8[tmp_idx:tmp_idx + 1, 0:] = pypto.cast(x_fp16, pypto.DT_INT8)
+                x_int32 = pypto.cast(x_add, pypto.DT_INT32, pypto.CastMode.CAST_RINT, satmode = pypto.SaturationMode.ON) # Align ascendC
+                x_fp16 = pypto.cast(x_int32, pypto.DT_FP16, satmode = pypto.SaturationMode.ON)
+                x_int8[tmp_idx:tmp_idx + 1, 0:] = pypto.cast(x_fp16, pypto.DT_INT8, satmode = pypto.SaturationMode.ON)
 
             pypto.set_cube_tile_shapes([32, 32], [256, 512], [256, 256])
             tmp_c = pypto.matmul(x_int8, weight, pypto.DT_INT32)
             pypto.set_vec_tile_shapes(bs_tile, total_head_size)
             mm_add = pypto.add(tmp_c, quant_bias_2d)
-            mm_fp32 = pypto.cast(mm_add, calc_dtype) # int32 -> fp32
+            mm_fp32 = pypto.cast(mm_add, calc_dtype, satmode = pypto.SaturationMode.ON) # int32 -> fp32
             mm_deq_scale = pypto.mul(mm_fp32, deq_scale_2d)
-            mm_bf16 = pypto.cast(mm_deq_scale, input_dtype) # fp32 -> bf16
+            mm_bf16 = pypto.cast(mm_deq_scale, input_dtype, satmode = pypto.SaturationMode.ON) # fp32 -> bf16
 
             pypto.set_vec_tile_shapes(bs_tile, head_size)
             mm_3d = pypto.reshape(mm_bf16, [bs_tile, total_head_size // head_size, head_size],
@@ -432,10 +432,10 @@ def quant_attention_pre(bs, hidden_size, total_head_size, head_size, q_size, kv_
                 valid_shape=[act_bs_tile, 1, half_rotary_dim])
             sin_tile = pypto.view(sin, [bs_tile, 1, half_rotary_dim], [bs_idx * bs_tile, 0, 0],
                 valid_shape=[act_bs_tile, 1, half_rotary_dim])
-            q_fp32 = pypto.cast(q_rot, calc_dtype)
-            k_fp32 = pypto.cast(k_rot, calc_dtype)
-            cos_fp32 = pypto.cast(cos_tile, calc_dtype)
-            sin_fp32 = pypto.cast(sin_tile, calc_dtype)
+            q_fp32 = pypto.cast(q_rot, calc_dtype, satmode = pypto.SaturationMode.ON)
+            k_fp32 = pypto.cast(k_rot, calc_dtype, satmode = pypto.SaturationMode.ON)
+            cos_fp32 = pypto.cast(cos_tile, calc_dtype, satmode = pypto.SaturationMode.ON)
+            sin_fp32 = pypto.cast(sin_tile, calc_dtype, satmode = pypto.SaturationMode.ON)
 
             # q split
             q1 = pypto.view(q_fp32, [bs_tile, q_num_head, half_rotary_dim], [0, 0, 0],
