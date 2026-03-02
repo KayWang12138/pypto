@@ -26,27 +26,6 @@ def get_sematic(func_index, opmagic, func_data):
     return ""
 
 
-dt_mem_usage = {
-    0: 0.5,
-    1: 1,
-    2: 2,
-    3: 4,
-    4: 8,
-    5: 1,
-    6: 2,
-    7: 4,
-    8: 2,
-    9: 0.5,
-    10: 1,
-    11: 1,
-    12: 2,
-    13: 4,
-    14: 8,
-    15: 1,
-    16: 8
-}
-
-
 class DataType(Enum):
     INT4 = 0
     INT8 = 1
@@ -65,6 +44,10 @@ class DataType(Enum):
     UINT64 = 14
     BOOL = 15
     DOUBLE = 16
+    FP8E5M2 = 17
+    FP8E4M3 = 18
+    FP8E8M0 = 19
+    BOTTOM = 20
 
 
 class MemType(Enum):
@@ -164,10 +147,6 @@ def convert_operand_data(operand):
     tensor_info['shape'] = operand['shape']
     tensor_info['dtype'] = operand['rawtensor']['datatype']
     tensor_info['rawmagic'] = operand['rawtensor']['rawmagic']
-    mem = dt_mem_usage[tensor_info['dtype']]
-    for s in tensor_info['shape']:
-        mem *= s
-    tensor_info['mem_usage'] = mem
     res[operand['magic']] = tensor_info
     return res
 
@@ -177,36 +156,6 @@ def convert_operands_data(operands):
     for operand in operands:
         res.append(convert_operand_data(operand))
     return res
-
-
-def get_tensors_life_range(func_hash, func_hash_data):
-    tensors_life_range = dict()
-    tensors_life_data = dict()
-    if func_hash not in func_hash_data:
-        tensors_life_range['data'] = tensors_life_data
-        tensors_life_range['max_range'] = 0
-        return tensors_life_range
-    tensors = func_hash_data[func_hash]['tensors']
-    max_life_range = 0
-    tensors_life_range['data'] = tensors_life_data
-    tensors_life_range['max_range'] = max_life_range
-    if func_hash == '0':
-        return tensors_life_range
-    for tensor in tensors:
-        life_range = []
-        if 'life_range' not in tensor:
-            continue
-        it = tensor.get('life_range')
-        if it and it[0] == -1 and it[1] == -1:
-            continue
-        else:
-            life_range = it
-        tensors_life_data[tensor['magic']] = life_range
-        if len(life_range) > 0:
-            max_life_range = max(max_life_range, life_range[1])
-    tensors_life_range['data'] = tensors_life_data
-    tensors_life_range['max_range'] = max_life_range
-    return tensors_life_range
 
 
 def get_tensors(func_hash, func_hash_data):
