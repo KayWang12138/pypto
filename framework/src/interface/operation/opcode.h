@@ -479,6 +479,7 @@ public:
             opCode == Opcode::OP_SHMEM_PUT_UB2GM || opCode == Opcode::OP_SHMEM_GET_GM2UB ||
             opCode == Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND ||
             opCode == Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE ||
+            opCode == Opcode::OP_INDEX_PUT ||
             opCode == Opcode::OP_FFN_BATCHING || opCode == Opcode::OP_SEND_TO_ROUTING_EXPERT ||
             opCode == Opcode::OP_COPY_TO_LOCAL_EXPERT || opCode == Opcode::OP_DISPATCH_SET_FLAG ||
             opCode == Opcode::OP_FFN_SCHED || opCode == Opcode::OP_FFN_COMBINEINFO ||

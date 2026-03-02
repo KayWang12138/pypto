@@ -697,8 +697,12 @@ std::string CodeGenOpCloudNPU::PrintIndexPutLayout(size_t indicesSize, bool accu
             paramList.push_back(paramList.back());
         }
     }
+    auto startOffsetAttr = opAttrs.at(OpAttributeKey::startOffset);
+    ASSERT(startOffsetAttr.HasValue()) << "cannot get startOffset attr";
+    int64_t startOffset = AnyCast<int64_t>(startOffsetAttr);
     std::ostringstream oss;
-    oss << tileOpName << "<" << accumulate << ", " << indicesSize << ">" << WrapParamByParentheses(paramList)
+    oss << tileOpName << "<" << accumulate << ", " << indicesSize << ", " << startOffset << ">"
+        << WrapParamByParentheses(paramList)
         << STMT_END;
     return oss.str();
 }
