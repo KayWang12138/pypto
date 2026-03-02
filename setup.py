@@ -386,3 +386,4 @@ class SetupCtrl:
 if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s', level=logging.INFO)
     SetupCtrl.main()
+
