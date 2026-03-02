@@ -246,11 +246,6 @@ def generate_matmul_golden_files(golden_func, output_path: Path, config: dict):
         tensor = np.random.uniform(input_min, input_max, input_tensor["shape"]).astype(
             tensor_type
         )
-        if input_tensor["dtype"] == "tf32":
-            tensor_data = tensor.view(np.uint32)
-            mask = 0xFFFFE000
-            tensor_data = tensor_data & mask
-            tensor = tensor_data.view(np.float32)
         index += 1
         input_tensors.append(tensor)
 
@@ -600,6 +595,44 @@ def l0c2l_golden_generate(inputs: list, config: dict):
     return [tensor_out, tensor_l0c2l1_data]
 
 
+def fp32_to_tf32_modes(x: torch.Tensor):
+    if x.dtype != torch.float32:
+        x = x.to(torch.float32)
+    sign = torch.sign(x)
+    abs_x = torch.abs(x)
+    bits = abs_x.view(torch.int32)
+    TRUNCATE_MASK = 0xFFFFE000
+    HALF_ULP_MASK = 0x00001000
+    LESS_THAN_HALF_MASK = 0x00000FFF
+    INCREMENT_MASK = 0x00002000
+    LAST_BIT_MASK = 0x00002000
+    t_trunc = torch.tensor(TRUNCATE_MASK, dtype=torch.int64)
+    t_half = torch.tensor(HALF_ULP_MASK, dtype=torch.int64)
+    t_less = torch.tensor(LESS_THAN_HALF_MASK, dtype=torch.int64)
+    t_inc = torch.tensor(INCREMENT_MASK, dtype=torch.int64)
+    t_last = torch.tensor(LAST_BIT_MASK, dtype=torch.int64)
+    truncated = bits & t_trunc
+    round_part = bits & (t_half | t_less)
+    greater_than_half = (round_part > t_half)
+    equal_to_half = (round_part == t_half)
+    last_bit_is_one = (truncated & t_last) != 0
+    ties_need_increment = equal_to_half & last_bit_is_one
+    needs_increment_rne = greater_than_half | ties_need_increment
+    res_bits_rne = torch.where(needs_increment_rne, truncated + t_inc, truncated)
+    needs_increment_rafz = (round_part >= t_half)
+    res_bits_rafz = torch.where(needs_increment_rafz, truncated + t_inc, truncated)
+    res_abs_rne = res_bits_rne.view(torch.float32)
+    res_abs_rafz = res_bits_rafz.view(torch.float32)
+    is_special = ~torch.isfinite(x)
+    res_rne = sign * res_abs_rne
+    res_rafz = sign * res_abs_rafz
+    res_rne = torch.where(is_special, x, res_rne)
+    res_rafz = torch.where(is_special, x, res_rafz)
+    diff = (res_rafz[0][0] - res_rne[0][0]).item()
+
+    return res_rne, res_rafz
+
+
 def matmul_golden_func(inputs: list, config: dict):
     params = config.get("params")
     if params.get("l0c2l1_tensor"):
@@ -614,6 +647,9 @@ def matmul_golden_func(inputs: list, config: dict):
         if not params.get("transB")
         else np.swapaxes(inputs[1], inputs[1].ndim - 2, inputs[1].ndim - 1)
     )
+    if config["input_tensors"][0]["dtype"] == "tf32":
+        tensor_a = fp32_to_tf32_modes(torch.from_numpy(tensor_a.astype(np.float32)).to(torch.float32))[0].numpy()
+        tensor_b = fp32_to_tf32_modes(torch.from_numpy(tensor_b.astype(np.float32)).to(torch.float32))[0].numpy()
     assert params.get("outDtype") in ("fp32", "fp16", "bf16", "int32", "tf32")
     if params.get("outDtype") in ("fp32", "fp16", "bf16", "tf32"):
         tensor_c = torch.matmul(
