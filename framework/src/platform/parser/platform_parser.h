@@ -61,6 +61,6 @@ class CmdParser : public PlatformParser {
     bool GetStringVal(const std::string& column, const std::string& key, std::string& val) const override;
 };
 
-void *GetSymbol(const char *sym);
+void *GetSymbol(const std::string &sym);
 }
 }

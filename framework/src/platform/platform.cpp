@@ -169,7 +169,7 @@ size_t SoC::GetAICPUNum() const {
 #ifdef BUILD_WITH_CANN
     using GetAiCpuNumFunc = int (*)(uint32_t *);
     std::string AiCpuNumFuncName = "rtGetSocSpec";
-    auto aiCpuNumFunc = (GetAiCpuNumFunc)GetSymbol(AiCpuNumFuncName.c_str());
+    auto aiCpuNumFunc = (GetAiCpuNumFunc)GetSymbol(AiCpuNumFuncName);
     ret = aiCpuNumFunc(&cpuNum);
 #endif
     if (ret == 0) {
@@ -335,7 +335,7 @@ void Platform::ObtainPlatformInfo() {
     using GetSocVerFunc = int (*)(char *, const uint32_t);
     std::string socVerFuncName = "rtGetSocVersion";
     char socVer[kMaxLength] = {0x00};
-    auto socVerFunc = (GetSocVerFunc)GetSymbol(socVerFuncName.c_str());
+    auto socVerFunc = (GetSocVerFunc)GetSymbol(socVerFuncName);
     ret = socVerFunc(socVer, kMaxLength);
 #endif
     if (ret == 0) {

@@ -20,14 +20,14 @@ namespace npu {
 namespace tile_fwk {
 const uint32_t kMaxLength = 50;
 const std::string version = "version";
-void *GetSymbol(const char *sym) {
+void *GetSymbol(const std::string &sym) {
     void *ptr = nullptr;
     const char* CannPath = STRINGIFY(ASCEND_CANN_PACKAGE_PATH);
     std::string LibPathDir = std::string(CannPath) + "/lib64/libruntime.so";
     std::string soPath = RealPath(LibPathDir);
     void* handle = dlopen(soPath.c_str(), RTLD_LAZY);
     if (handle != nullptr) {
-        ptr = dlsym(handle, sym);
+        ptr = dlsym(handle, sym.c_str());
     }
     return ptr;
 }
@@ -96,7 +96,7 @@ bool CmdParser::GetStringVal(const std::string& column, const std::string& key, 
 #ifdef BUILD_WITH_CANN
     using GetSocSpecFunc = int (*)(const char *, const char *, char *, const uint32_t);
     std::string socSpecFuncName = "rtGetSocSpec";
-    auto socSpecFunc = (GetSocSpecFunc)GetSymbol(socSpecFuncName.c_str());
+    auto socSpecFunc = (GetSocSpecFunc)GetSymbol(socSpecFuncName);
     ret = socSpecFunc(column.c_str(), key.c_str(), charVal, kMaxLength);
 #endif
     if (ret == 0) {
