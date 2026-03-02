@@ -40,9 +40,9 @@ private:
 #ifdef BUILD_WITH_CANN
         std::string LibPathDir = std::string(ASCEND_CANN_PACKAGE_PATH) + "/lib64/";
         std::string soDepPath = RealPath(LibPathDir + "libprofapi.so");
-        void* handleDep = dlopen(soDepPath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+        handleDep = dlopen(soDepPath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
         std::string soPath = RealPath(LibPathDir + "libruntime.so");
-        void* handle = dlopen(soPath.c_str(), RTLD_LAZY);
+        handle = dlopen(soPath.c_str(), RTLD_LAZY);
 #endif
     }
 #ifdef BUILD_WITH_CANN
