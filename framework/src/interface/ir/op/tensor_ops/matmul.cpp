@@ -42,8 +42,8 @@ TypePtr DeduceTensorMatMulType(const std::vector<ExprPtr>& args,
                   << args[1]->GetType()->TypeName();
 
   // Extract shapes
-  const auto& lhsShape = lhsType->shape_;
-  const auto& rhsShape = rhsType->shape_;
+  const auto &lhsShape = lhsType->shape_;
+  const auto &rhsShape = rhsType->shape_;
 
   INTERNAL_CHECK(lhsShape.size() >= 1) << "tensor.matmul requires lhs to have at least 1 dimension";
   INTERNAL_CHECK(rhsShape.size() >= 1) << "tensor.matmul requires rhs to have at least 1 dimension";
@@ -52,11 +52,11 @@ TypePtr DeduceTensorMatMulType(const std::vector<ExprPtr>& args,
   DataType outDtype;
   try {
     outDtype = GetKwarg<DataType>(kwargs, "out_dtype");
-  } catch (const ValueError& e) {
+  } catch (const ValueError &e) {
     auto promoted = PromoteDataTypes(lhsType->dtype_, rhsType->dtype_);
     INTERNAL_CHECK(promoted) << "Cannot promote data types for tensor.matmul";
     outDtype = *promoted;
-  } catch (const TypeError& e) {
+  } catch (const TypeError &e) {
     throw TypeError("Invalid kwarg type for out_dtype: " + std::string(e.what()));
   }
 

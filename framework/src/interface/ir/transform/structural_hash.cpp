@@ -53,15 +53,15 @@ class StructuralHasher {
 
   explicit StructuralHasher(bool enableAutoMapping) : enableAutoMapping_(enableAutoMapping) {}
 
-  resultType operator()(const IRNodePtr& node) { return HashNode(node); }
+  resultType operator()(const IRNodePtr &node) { return HashNode(node); }
 
-  resultType operator()(const TypePtr& type) { return HashType(type); }
+  resultType operator()(const TypePtr &type) { return HashType(type); }
 
   // FieldVisitor interface methods
   [[nodiscard]] resultType InitResult() const { return 0; }
 
   template <typename IRNodePtrType>
-  resultType VisitIRNodeField(const IRNodePtrType& field) {
+  resultType VisitIRNodeField(const IRNodePtrType &field) {
     INTERNAL_CHECK(field) << "structural_hash encountered null IR node field";
     return HashNode(field);
   }
@@ -102,56 +102,56 @@ class StructuralHasher {
   }
 
   template <typename FVisitOp>
-  void VisitIgnoreField([[maybe_unused]] FVisitOp&& visitOp) {
+  void VisitIgnoreField([[maybe_unused]] FVisitOp &&visitOp) {
     // Ignore field, do nothing
   }
   template <typename FVisitOp>
-  void VisitDefField(FVisitOp&& visitOp) {
+  void VisitDefField(FVisitOp &&visitOp) {
     bool enableAutoMapping = true;
     std::swap(enableAutoMapping, enableAutoMapping_);
     visitOp();
     std::swap(enableAutoMapping, enableAutoMapping_);
   }
   template <typename FVisitOp>
-  void VisitUsualField(FVisitOp&& visitOp) {
+  void VisitUsualField(FVisitOp &&visitOp) {
     visitOp();
   }
 
-  resultType VisitLeafField(const int& field) { return static_cast<resultType>(std::hash<int>{}(field)); }
+  resultType VisitLeafField(const int &field) { return static_cast<resultType>(std::hash<int>{}(field)); }
 
-  resultType VisitLeafField(const int64_t& field) {
+  resultType VisitLeafField(const int64_t &field) {
     return static_cast<resultType>(std::hash<int64_t>{}(field));
   }
 
-  resultType VisitLeafField(const uint64_t& field) {
+  resultType VisitLeafField(const uint64_t &field) {
     return static_cast<resultType>(std::hash<uint64_t>{}(field));
   }
 
-  resultType VisitLeafField(const double& field) {
+  resultType VisitLeafField(const double &field) {
     return static_cast<resultType>(std::hash<double>{}(field));
   }
 
-  resultType VisitLeafField(const std::string& field) {
+  resultType VisitLeafField(const std::string &field) {
     return static_cast<resultType>(std::hash<std::string>{}(field));
   }
 
-  resultType VisitLeafField(const OpPtr& field) {
+  resultType VisitLeafField(const OpPtr &field) {
     return static_cast<resultType>(std::hash<std::string>{}(field->name_));
   }
 
-  resultType VisitLeafField(const DataType& field) {
+  resultType VisitLeafField(const DataType &field) {
     return static_cast<resultType>(std::hash<uint8_t>{}(field.Code()));
   }
 
-  resultType VisitLeafField(const FunctionType& field) {
+  resultType VisitLeafField(const FunctionType &field) {
     return static_cast<resultType>(std::hash<uint8_t>{}(static_cast<uint8_t>(field)));
   }
 
-  resultType VisitLeafField(const MemorySpace& field) {
+  resultType VisitLeafField(const MemorySpace &field) {
     return static_cast<resultType>(std::hash<int>{}(static_cast<int>(field)));
   }
 
-  resultType VisitLeafField(const TypePtr& field) {
+  resultType VisitLeafField(const TypePtr &field) {
     INTERNAL_CHECK(field) << "structural_hash encountered null TypePtr field";
     return HashType(field);
   }
@@ -200,17 +200,17 @@ class StructuralHasher {
   }
 
   template <typename Desc>
-  void CombineResult(resultType& accumulator, resultType fieldHash, const Desc& /*descriptor*/) {
+  void CombineResult(resultType &accumulator, resultType fieldHash, const Desc& /*descriptor*/) {
     accumulator = hash_combine(accumulator, fieldHash);
   }
 
  private:
-  resultType HashNode(const IRNodePtr& node);
-  resultType HashVar(const VarPtr& op);
-  resultType HashType(const TypePtr& type);
+  resultType HashNode(const IRNodePtr &node);
+  resultType HashVar(const VarPtr &op);
+  resultType HashType(const TypePtr &type);
 
   template <typename NodePtr>
-  resultType HashNodeImpl(const NodePtr& node);
+  resultType HashNodeImpl(const NodePtr &node);
 
   bool enableAutoMapping_;
   std::unordered_map<IRNodePtr, resultType> hashValueMap_;
@@ -218,7 +218,7 @@ class StructuralHasher {
 };
 
 template <typename NodePtr>
-StructuralHasher::resultType StructuralHasher::HashNodeImpl(const NodePtr& node) {
+StructuralHasher::resultType StructuralHasher::HashNodeImpl(const NodePtr &node) {
   using NodeType = typename NodePtr::element_type;
 
   // Start with type discriminator
@@ -237,7 +237,7 @@ StructuralHasher::resultType StructuralHasher::HashNodeImpl(const NodePtr& node)
   return hash_combine(h, fieldsHash);
 }
 
-StructuralHasher::resultType StructuralHasher::HashVar(const VarPtr& op) {
+StructuralHasher::resultType StructuralHasher::HashVar(const VarPtr &op) {
   resultType h = HashNodeImpl(op);
   if (enableAutoMapping_) {
     // Auto-mapping: map Var pointers to sequential IDs for structural comparison
@@ -249,7 +249,7 @@ StructuralHasher::resultType StructuralHasher::HashVar(const VarPtr& op) {
   return h;
 }
 
-StructuralHasher::resultType StructuralHasher::HashType(const TypePtr& type) {
+StructuralHasher::resultType StructuralHasher::HashType(const TypePtr &type) {
   INTERNAL_CHECK(type) << "structural_hash encountered null TypePtr";
   resultType h = static_cast<resultType>(std::hash<std::string>{}(type->TypeName()));
   if (auto scalarType = As<ScalarType>(type)) {
@@ -257,7 +257,7 @@ StructuralHasher::resultType StructuralHasher::HashType(const TypePtr& type) {
   } else if (auto tensorType = As<TensorType>(type)) {
     h = hash_combine(h, static_cast<resultType>(std::hash<uint8_t>{}(tensorType->dtype_.Code())));
     h = hash_combine(h, static_cast<resultType>(tensorType->shape_.size()));
-    for (const auto& dim : tensorType->shape_) {
+    for (const auto &dim : tensorType->shape_) {
       INTERNAL_CHECK(dim) << "structural_hash encountered null shape dimension in TypePtr";
       h = hash_combine(h, HashNode(dim));
     }
@@ -266,23 +266,23 @@ StructuralHasher::resultType StructuralHasher::HashType(const TypePtr& type) {
     h = hash_combine(h, static_cast<resultType>(std::hash<uint8_t>{}(tileType->dtype_.Code())));
     // Hash shape size and dimensions
     h = hash_combine(h, static_cast<resultType>(tileType->shape_.size()));
-    for (const auto& dim : tileType->shape_) {
+    for (const auto &dim : tileType->shape_) {
       INTERNAL_CHECK(dim) << "structural_hash encountered null shape dimension in TileType";
       h = hash_combine(h, HashNode(dim));
     }
     // Hash tile_view if present
     if (tileType->tileView_.has_value()) {
-      const auto& tv = tileType->tileView_.value();
+      const auto &tv = tileType->tileView_.value();
       h = hash_combine(h, static_cast<resultType>(1));  // indicate presence
       // Hash valid_shape
       h = hash_combine(h, static_cast<resultType>(tv.validShape.size()));
-      for (const auto& dim : tv.validShape) {
+      for (const auto &dim : tv.validShape) {
         INTERNAL_CHECK(dim) << "structural_hash encountered null valid_shape dimension in TileView";
         h = hash_combine(h, HashNode(dim));
       }
       // Hash stride
       h = hash_combine(h, static_cast<resultType>(tv.stride.size()));
-      for (const auto& dim : tv.stride) {
+      for (const auto &dim : tv.stride) {
         INTERNAL_CHECK(dim) << "structural_hash encountered null stride dimension in TileView";
         h = hash_combine(h, HashNode(dim));
       }
@@ -294,7 +294,7 @@ StructuralHasher::resultType StructuralHasher::HashType(const TypePtr& type) {
     }
   } else if (auto tupleType = As<TupleType>(type)) {
     h = hash_combine(h, static_cast<resultType>(tupleType->types_.size()));
-    for (const auto& t : tupleType->types_) {
+    for (const auto &t : tupleType->types_) {
       INTERNAL_CHECK(t) << "structural_hash encountered null type in TupleType";
       h = hash_combine(h, HashType(t));
     }
@@ -322,7 +322,7 @@ StructuralHasher::resultType StructuralHasher::HashType(const TypePtr& type) {
     dispatched = true;                                                                           \
   }
 
-StructuralHasher::resultType StructuralHasher::HashNode(const IRNodePtr& node) {
+StructuralHasher::resultType StructuralHasher::HashNode(const IRNodePtr &node) {
   INTERNAL_CHECK(node) << "structural_hash received null IR node";
 
   auto it = hashValueMap_.find(node);
@@ -388,12 +388,12 @@ StructuralHasher::resultType StructuralHasher::HashNode(const IRNodePtr& node) {
 #undef HASH_DISPATCH_BASE
 
 // Public API
-uint64_t StructuralHash(const IRNodePtr& node, bool enableAutoMapping) {
+uint64_t StructuralHash(const IRNodePtr &node, bool enableAutoMapping) {
   StructuralHasher hasher(enableAutoMapping);
   return hasher(node);
 }
 
-uint64_t StructuralHash(const TypePtr& type, bool enableAutoMapping) {
+uint64_t StructuralHash(const TypePtr &type, bool enableAutoMapping) {
   StructuralHasher hasher(enableAutoMapping);
   return hasher(type);
 }

@@ -30,37 +30,37 @@ IRBuilder::~IRBuilder() = default;
 
 // ========== Function Building ==========
 
-void IRBuilder::BeginFunction(const std::string& name, const Span& span, FunctionType type) {
+void IRBuilder::BeginFunction(const std::string &name, const Span &span, FunctionType type) {
   if (InFunction()) {
     throw RuntimeError("Cannot begin function '" + name + "': already inside function '" +
-                              static_cast<FunctionContext*>(CurrentContext())->GetName() + "' at " +
+                              static_cast<FunctionContext *>(CurrentContext())->GetName() + "' at " +
                               CurrentContext()->GetBeginSpan().to_string());
   }
 
   contextStack_.push_back(std::make_unique<FunctionContext>(name, span, type));
 }
 
-VarPtr IRBuilder::FuncArg(const std::string& name, const TypePtr& type, const Span& span) {
+VarPtr IRBuilder::FuncArg(const std::string &name, const TypePtr &type, const Span &span) {
   ValidateInFunction("FuncArg");
 
   auto var = std::make_shared<ir::Var>(name, type, span);
-  static_cast<FunctionContext*>(CurrentContext())->AddParam(var);
+  static_cast<FunctionContext *>(CurrentContext())->AddParam(var);
   return var;
 }
 
-void IRBuilder::ReturnType(const TypePtr& type) {
+void IRBuilder::ReturnType(const TypePtr &type) {
   ValidateInFunction("ReturnType");
-  static_cast<FunctionContext*>(CurrentContext())->AddReturnType(type);
+  static_cast<FunctionContext *>(CurrentContext())->AddReturnType(type);
 }
 
-FunctionPtr IRBuilder::EndFunction(const Span& endSpan) {
+FunctionPtr IRBuilder::EndFunction(const Span &endSpan) {
   ValidateInFunction("EndFunction");
 
-  auto* funcCtx = static_cast<FunctionContext*>(CurrentContext());
+  auto *funcCtx = static_cast<FunctionContext *>(CurrentContext());
 
   // Build body from accumulated statements
   StmtPtr body;
-  const auto& stmts = funcCtx->GetStmts();
+  const auto &stmts = funcCtx->GetStmts();
   if (stmts.empty()) {
     // Empty body - create empty SeqStmts
     body = std::make_shared<SeqStmts>(std::vector<StmtPtr>(), endSpan);
@@ -71,7 +71,7 @@ FunctionPtr IRBuilder::EndFunction(const Span& endSpan) {
   }
 
   // Combine begin and end spans
-  const Span& beginSpan = funcCtx->GetBeginSpan();
+  const Span &beginSpan = funcCtx->GetBeginSpan();
   Span combinedSpan(beginSpan.filename_, beginSpan.beginLine_, beginSpan.beginColumn_,
                      endSpan.beginLine_, endSpan.beginColumn_);
 
@@ -88,8 +88,8 @@ FunctionPtr IRBuilder::EndFunction(const Span& endSpan) {
 
 // ========== For Loop Building ==========
 
-void IRBuilder::BeginForLoop(const VarPtr& loopVar, const ExprPtr& start, const ExprPtr& stop,
-                             const ExprPtr& step, const Span& span) {
+void IRBuilder::BeginForLoop(const VarPtr &loopVar, const ExprPtr &start, const ExprPtr &stop,
+                             const ExprPtr &step, const Span &span) {
   if (contextStack_.empty()) {
     throw RuntimeError("Cannot begin for loop: not inside a function or another valid context at " +
                               span.to_string());
@@ -98,20 +98,20 @@ void IRBuilder::BeginForLoop(const VarPtr& loopVar, const ExprPtr& start, const 
   contextStack_.push_back(std::make_unique<ForLoopContext>(loopVar, start, stop, step, span));
 }
 
-void IRBuilder::AddIterArg(const IterArgPtr& iterArg) {
+void IRBuilder::AddIterArg(const IterArgPtr &iterArg) {
   ValidateInLoop("AddIterArg");
-  static_cast<ForLoopContext*>(CurrentContext())->AddIterArg(iterArg);
+  static_cast<ForLoopContext *>(CurrentContext())->AddIterArg(iterArg);
 }
 
-void IRBuilder::AddReturnVar(const VarPtr& var) {
+void IRBuilder::AddReturnVar(const VarPtr &var) {
   ValidateInLoop("AddReturnVar");
-  static_cast<ForLoopContext*>(CurrentContext())->AddReturnVar(var);
+  static_cast<ForLoopContext *>(CurrentContext())->AddReturnVar(var);
 }
 
-StmtPtr IRBuilder::EndForLoop(const Span& endSpan) {
+StmtPtr IRBuilder::EndForLoop(const Span &endSpan) {
   ValidateInLoop("EndForLoop");
 
-  auto* loopCtx = static_cast<ForLoopContext*>(CurrentContext());
+  auto *loopCtx = static_cast<ForLoopContext *>(CurrentContext());
 
   // Validate iter_args and return_vars match
   if (loopCtx->GetIterArgs().size() != loopCtx->GetReturnVars().size()) {
@@ -130,7 +130,7 @@ StmtPtr IRBuilder::EndForLoop(const Span& endSpan) {
 
   // Build body from accumulated statements
   StmtPtr body;
-  const auto& stmts = loopCtx->GetStmts();
+  const auto &stmts = loopCtx->GetStmts();
   if (stmts.empty()) {
     body = std::make_shared<SeqStmts>(std::vector<StmtPtr>(), endSpan);
   } else if (stmts.size() == 1) {
@@ -140,7 +140,7 @@ StmtPtr IRBuilder::EndForLoop(const Span& endSpan) {
   }
 
   // Combine begin and end spans
-  const Span& beginSpan = loopCtx->GetBeginSpan();
+  const Span &beginSpan = loopCtx->GetBeginSpan();
   Span combinedSpan(beginSpan.filename_, beginSpan.beginLine_, beginSpan.beginColumn_,
                      endSpan.beginLine_, endSpan.beginColumn_);
 
@@ -162,35 +162,35 @@ StmtPtr IRBuilder::EndForLoop(const Span& endSpan) {
 
 // ========== If Statement Building ==========
 
-void IRBuilder::BeginIf(const ExprPtr& condition, const Span& span) {
+void IRBuilder::BeginIf(const ExprPtr &condition, const Span &span) {
   INTERNAL_CHECK(!contextStack_.empty())
       << "Cannot begin if statement: not inside a function or another valid context at " << span.to_string();
   contextStack_.push_back(std::make_unique<IfStmtContext>(condition, span));
 }
 
-void IRBuilder::BeginElse(const Span& span) {
+void IRBuilder::BeginElse(const Span &span) {
   ValidateInIf("BeginElse");
 
-  auto* ifCtx = static_cast<IfStmtContext*>(CurrentContext());
+  auto *ifCtx = static_cast<IfStmtContext *>(CurrentContext());
   INTERNAL_CHECK(!ifCtx->InElseBranch()) << "Cannot begin else branch: already in else branch at "
                                  << span.to_string();
 
   ifCtx->BeginElseBranch();
 }
 
-void IRBuilder::AddIfReturnVar(const VarPtr& var) {
+void IRBuilder::AddIfReturnVar(const VarPtr &var) {
   ValidateInIf("AddIfReturnVar");
-  static_cast<IfStmtContext*>(CurrentContext())->AddReturnVar(var);
+  static_cast<IfStmtContext *>(CurrentContext())->AddReturnVar(var);
 }
 
-StmtPtr IRBuilder::EndIf(const Span& endSpan) {
+StmtPtr IRBuilder::EndIf(const Span &endSpan) {
   ValidateInIf("EndIf");
 
-  auto* ifCtx = static_cast<IfStmtContext*>(CurrentContext());
+  auto *ifCtx = static_cast<IfStmtContext *>(CurrentContext());
 
   // Build then body
   StmtPtr thenBody;
-  const auto& thenStmts = ifCtx->GetStmts();
+  const auto &thenStmts = ifCtx->GetStmts();
   if (thenStmts.empty()) {
     thenBody = std::make_shared<SeqStmts>(std::vector<StmtPtr>(), endSpan);
   } else if (thenStmts.size() == 1) {
@@ -202,7 +202,7 @@ StmtPtr IRBuilder::EndIf(const Span& endSpan) {
   // Build else body (optional)
   std::optional<StmtPtr> elseBody;
   if (ifCtx->InElseBranch()) {
-    const auto& elseStmts = ifCtx->GetElseStmts();
+    const auto &elseStmts = ifCtx->GetElseStmts();
     if (!elseStmts.empty()) {
       if (elseStmts.size() == 1) {
         elseBody = elseStmts[0];
@@ -213,7 +213,7 @@ StmtPtr IRBuilder::EndIf(const Span& endSpan) {
   }
 
   // Combine begin and end spans
-  const Span& beginSpan = ifCtx->GetBeginSpan();
+  const Span &beginSpan = ifCtx->GetBeginSpan();
   Span combinedSpan(beginSpan.filename_, beginSpan.beginLine_, beginSpan.beginColumn_,
                      endSpan.beginLine_, endSpan.beginColumn_);
 
@@ -234,42 +234,42 @@ StmtPtr IRBuilder::EndIf(const Span& endSpan) {
 
 // ========== Program Building ==========
 
-void IRBuilder::BeginProgram(const std::string& name, const Span& span) {
+void IRBuilder::BeginProgram(const std::string &name, const Span &span) {
   if (InProgram()) {
     throw RuntimeError("Cannot begin program '" + name + "': already inside program '" +
-                              static_cast<ProgramContext*>(CurrentContext())->GetName() + "' at " +
+                              static_cast<ProgramContext *>(CurrentContext())->GetName() + "' at " +
                               CurrentContext()->GetBeginSpan().to_string());
   }
 
   contextStack_.push_back(std::make_unique<ProgramContext>(name, span));
 }
 
-GlobalVarPtr IRBuilder::DeclareFunction(const std::string& funcName) {
+GlobalVarPtr IRBuilder::DeclareFunction(const std::string &funcName) {
   ValidateInProgram("DeclareFunction");
-  return static_cast<ProgramContext*>(CurrentContext())->DeclareFunction(funcName);
+  return static_cast<ProgramContext *>(CurrentContext())->DeclareFunction(funcName);
 }
 
-GlobalVarPtr IRBuilder::GetGlobalVar(const std::string& funcName) {
+GlobalVarPtr IRBuilder::GetGlobalVar(const std::string &funcName) {
   ValidateInProgram("GetGlobalVar");
-  auto gvar = static_cast<ProgramContext*>(CurrentContext())->GetGlobalVar(funcName);
+  auto gvar = static_cast<ProgramContext *>(CurrentContext())->GetGlobalVar(funcName);
   if (!gvar) {
     throw RuntimeError("Function '" + funcName + "' not declared in current program");
   }
   return gvar;
 }
 
-void IRBuilder::AddFunction(const FunctionPtr& func) {
+void IRBuilder::AddFunction(const FunctionPtr &func) {
   ValidateInProgram("AddFunction");
-  static_cast<ProgramContext*>(CurrentContext())->AddFunction(func);
+  static_cast<ProgramContext *>(CurrentContext())->AddFunction(func);
 }
 
-ProgramPtr IRBuilder::EndProgram(const Span& endSpan) {
+ProgramPtr IRBuilder::EndProgram(const Span &endSpan) {
   ValidateInProgram("EndProgram");
 
-  auto* progCtx = static_cast<ProgramContext*>(CurrentContext());
+  auto *progCtx = static_cast<ProgramContext *>(CurrentContext());
 
   // Combine begin and end spans
-  const Span& beginSpan = progCtx->GetBeginSpan();
+  const Span &beginSpan = progCtx->GetBeginSpan();
   Span combinedSpan(beginSpan.filename_, beginSpan.beginLine_, beginSpan.beginColumn_,
                      endSpan.beginLine_, endSpan.beginColumn_);
 
@@ -283,7 +283,7 @@ ProgramPtr IRBuilder::EndProgram(const Span& endSpan) {
 }
 
 bool IRBuilder::InProgram() const {
-  for (const auto& ctx : contextStack_) {
+  for (const auto &ctx : contextStack_) {
     if (ctx->GetType() == BuildContext::Type::PROGRAM) {
       return true;
     }
@@ -291,11 +291,11 @@ bool IRBuilder::InProgram() const {
   return false;
 }
 
-std::vector<TypePtr> IRBuilder::GetFunctionReturnTypes(const GlobalVarPtr& gvar) const {
+std::vector<TypePtr> IRBuilder::GetFunctionReturnTypes(const GlobalVarPtr &gvar) const {
   // Find the program context in the stack
-  for (const auto& ctx : contextStack_) {
+  for (const auto &ctx : contextStack_) {
     if (ctx->GetType() == BuildContext::Type::PROGRAM) {
-      auto* progCtx = static_cast<const ProgramContext*>(ctx.get());
+      auto *progCtx = static_cast<const ProgramContext *>(ctx.get());
       return progCtx->GetReturnTypes(gvar);
     }
   }
@@ -304,32 +304,32 @@ std::vector<TypePtr> IRBuilder::GetFunctionReturnTypes(const GlobalVarPtr& gvar)
 
 // ========== Statement Recording ==========
 
-void IRBuilder::Emit(const StmtPtr& stmt) {
+void IRBuilder::Emit(const StmtPtr &stmt) {
   if (contextStack_.empty()) {
     throw RuntimeError("Cannot emit statement: not inside any context");
   }
 
-  auto* ctx = CurrentContext();
+  auto *ctx = CurrentContext();
   ctx->AddStmt(stmt);
 }
 
-AssignStmtPtr IRBuilder::Assign(const VarPtr& var, const ExprPtr& value, const Span& span) {
+AssignStmtPtr IRBuilder::Assign(const VarPtr &var, const ExprPtr &value, const Span &span) {
   auto assign = std::make_shared<AssignStmt>(var, value, span);
   Emit(assign);
   return assign;
 }
 
-VarPtr IRBuilder::Var(const std::string& name, const TypePtr& type, const Span& span) {
+VarPtr IRBuilder::Var(const std::string &name, const TypePtr &type, const Span &span) {
   return std::make_shared<ir::Var>(name, type, span);
 }
 
-ReturnStmtPtr IRBuilder::Return(const std::vector<ExprPtr>& values, const Span& span) {
+ReturnStmtPtr IRBuilder::Return(const std::vector<ExprPtr>& values, const Span &span) {
   auto returnStmt = std::make_shared<ReturnStmt>(values, span);
   Emit(returnStmt);
   return returnStmt;
 }
 
-ReturnStmtPtr IRBuilder::Return(const Span& span) {
+ReturnStmtPtr IRBuilder::Return(const Span &span) {
   auto returnStmt = std::make_shared<ReturnStmt>(span);
   Emit(returnStmt);
   return returnStmt;
@@ -337,7 +337,7 @@ ReturnStmtPtr IRBuilder::Return(const Span& span) {
 
 // ========== Context State Queries ==========
 
-BuildContext* IRBuilder::CurrentContext() {
+BuildContext *IRBuilder::CurrentContext() {
   if (contextStack_.empty()) {
     return nullptr;
   }
@@ -345,7 +345,7 @@ BuildContext* IRBuilder::CurrentContext() {
 }
 
 bool IRBuilder::InFunction() const {
-  for (const auto& ctx : contextStack_) {
+  for (const auto &ctx : contextStack_) {
     if (ctx->GetType() == BuildContext::Type::FUNCTION) {
       return true;
     }
@@ -370,35 +370,35 @@ bool IRBuilder::InIf() const {
 // ========== Private Helpers ==========
 
 template <typename T>
-T* IRBuilder::GetCurrentContextAs() {
-  auto* ctx = CurrentContext();
+T *IRBuilder::GetCurrentContextAs() {
+  auto *ctx = CurrentContext();
   if (!ctx) {
     return nullptr;
   }
-  return dynamic_cast<T*>(ctx);
+  return dynamic_cast<T *>(ctx);
 }
 
-void IRBuilder::ValidateInFunction(const std::string& operation) {
+void IRBuilder::ValidateInFunction(const std::string &operation) {
   INTERNAL_CHECK(InFunction()) << operation << " can only be called inside a function context";
   INTERNAL_CHECK(CurrentContext()->GetType() == BuildContext::Type::FUNCTION)
       << operation << " must be called directly in function context, not nested";
 }
 
-void IRBuilder::ValidateInLoop(const std::string& operation) {
+void IRBuilder::ValidateInLoop(const std::string &operation) {
   INTERNAL_CHECK(InLoop()) << operation << " can only be called inside a for loop context";
 }
 
-void IRBuilder::ValidateInIf(const std::string& operation) {
+void IRBuilder::ValidateInIf(const std::string &operation) {
   INTERNAL_CHECK(InIf()) << operation << " can only be called inside an if statement context";
 }
 
-void IRBuilder::ValidateInProgram(const std::string& operation) {
+void IRBuilder::ValidateInProgram(const std::string &operation) {
   INTERNAL_CHECK(InProgram()) << operation << " can only be called inside a program context";
 }
 
 // ========== ProgramContext Implementation ==========
 
-GlobalVarPtr ProgramContext::DeclareFunction(const std::string& funcName) {
+GlobalVarPtr ProgramContext::DeclareFunction(const std::string &funcName) {
   // Check if already declared
   auto it = globalVars_.find(funcName);
   if (it != globalVars_.end()) {
@@ -411,7 +411,7 @@ GlobalVarPtr ProgramContext::DeclareFunction(const std::string& funcName) {
   return gvar;
 }
 
-GlobalVarPtr ProgramContext::GetGlobalVar(const std::string& funcName) const {
+GlobalVarPtr ProgramContext::GetGlobalVar(const std::string &funcName) const {
   auto it = globalVars_.find(funcName);
   if (it != globalVars_.end()) {
     return it->second;
@@ -419,7 +419,7 @@ GlobalVarPtr ProgramContext::GetGlobalVar(const std::string& funcName) const {
   return nullptr;
 }
 
-void ProgramContext::AddFunction(const FunctionPtr& func) {
+void ProgramContext::AddFunction(const FunctionPtr &func) {
   INTERNAL_CHECK(func) << "Cannot add null function to program";
 
   // Verify function was declared (if not, declare it automatically)
@@ -435,7 +435,7 @@ void ProgramContext::AddFunction(const FunctionPtr& func) {
   functions_.push_back(func);
 }
 
-std::vector<TypePtr> ProgramContext::GetReturnTypes(const GlobalVarPtr& gvar) const {
+std::vector<TypePtr> ProgramContext::GetReturnTypes(const GlobalVarPtr &gvar) const {
   auto it = returnTypes_.find(gvar->name_);
   if (it != returnTypes_.end()) {
     return it->second;

@@ -27,7 +27,7 @@ namespace ir {
 
 TypePtr DeduceTensorReductionType(const std::vector<ExprPtr>& args,
                                   const std::vector<std::pair<std::string, std::any>>& kwargs,
-                                  const std::string& opName) {
+                                  const std::string &opName) {
   // Reduction operations require exactly 1 argument (input tensor)
   INTERNAL_CHECK(args.size() == 1) << "The operator " << opName << " requires exactly 1 argument, but got "
                           << args.size();
@@ -37,7 +37,7 @@ TypePtr DeduceTensorReductionType(const std::vector<ExprPtr>& args,
   INTERNAL_CHECK(tensorType) << "The operator " << opName << " requires first argument to be a TensorType, but got "
                      << args[0]->GetType()->TypeName();
 
-  const auto& inputShape = tensorType->shape_;
+  const auto &inputShape = tensorType->shape_;
   int64_t inputNdim = static_cast<int64_t>(inputShape.size());
 
   // Extract axis from kwargs (default: -1, meaning last axis)

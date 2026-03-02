@@ -58,7 +58,7 @@ std::string StackFrame::to_string() const {
 }
 
 // Helper function to read a specific line from a source file
-static std::string ReadSourceLine(const std::string& filename, int lineno) {
+static std::string ReadSourceLine(const std::string &filename, int lineno) {
     std::ifstream file(filename);
     if (!file.is_open()) {
         return "";
@@ -88,10 +88,10 @@ struct FileLocation {
 
 // Cache for symbol resolution to avoid repeated addr2line calls
 static std::mutex locMapMutex;
-static std::unordered_map<void*, FileLocation> locMap;
+static std::unordered_map<void *, FileLocation> locMap;
 
 // Get file and line information from address using addr2line
-static FileLocation GetFileLineFromAddr2line(void* addr) {
+static FileLocation GetFileLineFromAddr2line(void *addr) {
     // Check cache first
     {
         std::lock_guard<std::mutex> lock(locMapMutex);
@@ -113,7 +113,7 @@ static FileLocation GetFileLineFromAddr2line(void* addr) {
     std::stringstream cmd;
     cmd << "addr2line -e " << info.dli_fname << " -f -C -p " << addr << " 2>/dev/null";
 
-    FILE* fp = popen(cmd.str().c_str(), "r");
+    FILE *fp = popen(cmd.str().c_str(), "r");
     if (fp == nullptr) {
         return loc;
     }
@@ -205,7 +205,7 @@ static FileLocation GetFileLineFromAddr2line(void* addr) {
 /// When building via pip in a temp directory, paths may look like:
 ///   /private/var/folders/.../build/./python/nanobind/modules/logging.cpp
 /// This function extracts just the relative path portion.
-static std::string CleanupFilePath(const std::string& path) {
+static std::string CleanupFilePath(const std::string &path) {
   if (path.empty()) {
     return path;
   }
@@ -226,7 +226,7 @@ static std::string CleanupFilePath(const std::string& path) {
   return path;
 }
 
-Backtrace& Backtrace::GetInstance() {
+Backtrace &Backtrace::GetInstance() {
   static Backtrace instance;
   return instance;
 }
@@ -240,7 +240,7 @@ std::vector<StackFrame> Backtrace::CaptureStackTrace(int skip) {
 
   // Capture raw stack frames using execinfo
   constexpr int kMaxFrames = 128;
-  void* callstack[kMaxFrames];
+  void *callstack[kMaxFrames];
   int nrFrames = ::backtrace(callstack, kMaxFrames);
 
   // Skip requested frames plus this function itself
@@ -250,13 +250,13 @@ std::vector<StackFrame> Backtrace::CaptureStackTrace(int skip) {
   }
 
   // Get symbol information
-  char** symbols = backtrace_symbols(callstack, nrFrames);
+  char **symbols = backtrace_symbols(callstack, nrFrames);
   if (symbols == nullptr) {
     return frames;
   }
 
   for (int i = startFrame; i < nrFrames; i++) {
-    void* addr = callstack[i];
+    void *addr = callstack[i];
 
     // Parse the symbol string to get function name, library name, and offset
     // Format: "path/libname(function+offset) [address]"
@@ -266,14 +266,14 @@ std::vector<StackFrame> Backtrace::CaptureStackTrace(int skip) {
     std::string funcOffsetStr;
 
     // Try to demangle the function name and extract library/offset
-    char* funcName = strchr(symbols[i], '(');
-    char* funcOffset = strchr(symbols[i], '+');
-    char* closeParen = strchr(symbols[i], ')');
+    char *funcName = strchr(symbols[i], '(');
+    char *funcOffset = strchr(symbols[i], '+');
+    char *closeParen = strchr(symbols[i], ')');
 
     if (funcName != nullptr && funcOffset != nullptr && closeParen != nullptr) {
       // Extract library name (everything before '(')
       *funcName = '\0';
-      char* libnameStart = strrchr(symbols[i], '/');
+      char *libnameStart = strrchr(symbols[i], '/');
       libName = (libnameStart != nullptr) ? (libnameStart + 1) : symbols[i];
 
       // Extract function name (between '(' and '+')
@@ -287,7 +287,7 @@ std::vector<StackFrame> Backtrace::CaptureStackTrace(int skip) {
 
       // Demangle function name
       int status = 0;
-      std::unique_ptr<char, std::function<void(char*)>> demangled(
+      std::unique_ptr<char, std::function<void(char *)>> demangled(
           abi::__cxa_demangle(funcName, nullptr, nullptr, &status),
           free);
       if (status == 0 && demangled) {
@@ -315,7 +315,7 @@ std::vector<StackFrame> Backtrace::CaptureStackTrace(int skip) {
   return frames;
 }
 
-std::string Backtrace::FormatStackTrace(const std::vector<StackFrame>& frames) {
+std::string Backtrace::FormatStackTrace(const std::vector<StackFrame> &frames) {
   if (frames.empty()) {
     return "";
   }
@@ -325,10 +325,10 @@ std::string Backtrace::FormatStackTrace(const std::vector<StackFrame>& frames) {
   // Reverse the frames to show most recent last (like Python)
   std::vector<StackFrame> reversedFrames(frames.rbegin(), frames.rend());
 
-  auto isFileNameFiltered = [](const std::string& filename) {
+  auto isFileNameFiltered = [](const std::string &filename) {
     return std::any_of(
         kFileNameFilter.begin(), kFileNameFilter.end(),
-        [&filename](const std::string& filter) { return filename.find(filter) != std::string::npos; });
+        [&filename](const std::string &filter) { return filename.find(filter) != std::string::npos; });
   };
 
   // Filter and deduplicate frames by PC address to handle Clang's debug info issues.
@@ -336,7 +336,7 @@ std::string Backtrace::FormatStackTrace(const std::vector<StackFrame>& frames) {
   // report multiple "virtual" frames for the same PC with incorrect source
   // locations. We keep only the first frame for each unique PC.
   std::vector<StackFrame> deduplicatedFrames;
-  for (const auto& frame : reversedFrames) {
+  for (const auto &frame : reversedFrames) {
     // Filter out infrastructure frames before deduplication.
     // This prevents filtered frames from being used in duplicate PC checks.
     if (!frame.filename.empty() && isFileNameFiltered(frame.filename)) {
@@ -350,7 +350,7 @@ std::string Backtrace::FormatStackTrace(const std::vector<StackFrame>& frames) {
     }
   }
 
-  for (const auto& frame : deduplicatedFrames) {
+  for (const auto &frame : deduplicatedFrames) {
     // Format: File "filename", line X in function_name
     if (!frame.filename.empty() && frame.lineno > 0) {
       oss << " File \"" << frame.filename << "\", line " << frame.lineno << "\n";

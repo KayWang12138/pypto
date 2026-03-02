@@ -20,20 +20,20 @@ namespace pypto {
 namespace ir {
 namespace serialization {
 
-TypeRegistry& TypeRegistry::Instance() {
+TypeRegistry &TypeRegistry::Instance() {
   static TypeRegistry instance;
   return instance;
 }
 
-void TypeRegistry::Register(const std::string& typeName, DeserializerFunc func) {
+void TypeRegistry::Register(const std::string &typeName, DeserializerFunc func) {
   auto result = registry_.insert({typeName, std::move(func)});
   if (!result.second) {
     throw RuntimeError("Type already registered: " + typeName);
   }
 }
 
-IRNodePtr TypeRegistry::Create(const std::string& typeName, const msgpack::object& obj, msgpack::zone& zone,
-                               detail::DeserializerContext& ctx) {
+IRNodePtr TypeRegistry::Create(const std::string &typeName, const msgpack::object &obj, msgpack::zone &zone,
+                               detail::DeserializerContext &ctx) {
   auto it = registry_.find(typeName);
   if (it == registry_.end()) {
     throw TypeError("Unknown IR node type in deserialization: " + typeName);
@@ -41,7 +41,7 @@ IRNodePtr TypeRegistry::Create(const std::string& typeName, const msgpack::objec
   return it->second(obj, zone, ctx);
 }
 
-bool TypeRegistry::IsRegistered(const std::string& typeName) const {
+bool TypeRegistry::IsRegistered(const std::string &typeName) const {
   return registry_.find(typeName) != registry_.end();
 }
 

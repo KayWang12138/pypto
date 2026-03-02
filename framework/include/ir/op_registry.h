@@ -62,7 +62,7 @@ using PTOCodegenFunc = std::function<std::string(const CallPtr &op, codegen::PTO
  *      .set_description("Element-wise addition of two tensors")
  *      .add_argument("lhs", "Left-hand side tensor")
  *      .add_argument("rhs", "Right-hand side tensor")
- *      .f_deduce_type([](const std::vector<ExprPtr>& args) {
+ *      .f_deduce_type([](const std::vector<ExprPtr> &args) {
  *          return args[0]->GetType();
  *      });
  * \endcode

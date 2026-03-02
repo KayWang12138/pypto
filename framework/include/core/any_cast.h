@@ -117,11 +117,11 @@ T AnyCast(const std::any &value, [[maybe_unused]] const std::string &context = "
 /**
  * \brief Cast std::any to const reference of type T with enhanced error reporting
  *
- * This function wraps std::any_cast<const T&> and provides detailed error
+ * This function wraps std::any_cast<const T &> and provides detailed error
  * messages when the cast fails. Use this variant when you need a const
  * reference to avoid copying large objects.
  *
- * \tparam T The target type to cast to (will be cast as const T&)
+ * \tparam T The target type to cast to (will be cast as const T &)
  * \param value The std::any value to cast
  * \param context Optional context string for error messages
  * \return Const reference to the value cast to type T
@@ -129,7 +129,7 @@ T AnyCast(const std::any &value, [[maybe_unused]] const std::string &context = "
  *
  * \example
  *   std::any val = std::string("hello");
- *   const std::string& str = AnyCastRef<std::string>(val);
+ *   const std::string &str = AnyCastRef<std::string>(val);
  */
 template <typename T>
 const T &AnyCastRef(const std::any &value, [[maybe_unused]] const std::string &context = "") {

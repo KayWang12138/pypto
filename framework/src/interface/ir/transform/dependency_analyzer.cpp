@@ -26,7 +26,7 @@
 namespace pypto {
 namespace ir {
 
-DependencyGraph DependencyAnalyzer::Analyze(const FunctionPtr& func) {
+DependencyGraph DependencyAnalyzer::Analyze(const FunctionPtr &func) {
   INTERNAL_CHECK(func) << "DependencyAnalyzer cannot analyze null function";
 
   // Step 1: Identify basic blocks from control flow
@@ -35,7 +35,7 @@ DependencyGraph DependencyAnalyzer::Analyze(const FunctionPtr& func) {
 
   // Step 2: Build dependency graph for each basic block
   std::vector<DependencyEdge> allDependencies;
-  for (const auto& block : blocks) {
+  for (const auto &block : blocks) {
     auto blockDeps = AnalyzeBlockDependencies(block);
     allDependencies.insert(allDependencies.end(), blockDeps.begin(), blockDeps.end());
   }
@@ -43,7 +43,7 @@ DependencyGraph DependencyAnalyzer::Analyze(const FunctionPtr& func) {
 
   // Step 3: Log dependency statistics
   int rawCount = 0, warCount = 0, wawCount = 0;
-  for (const auto& edge : allDependencies) {
+  for (const auto &edge : allDependencies) {
     switch (edge.type) {
       case DependencyEdge::RAW:
         rawCount++;
@@ -63,19 +63,19 @@ DependencyGraph DependencyAnalyzer::Analyze(const FunctionPtr& func) {
   return DependencyGraph(std::move(blocks), std::move(allDependencies));
 }
 
-std::vector<BasicBlock> DependencyAnalyzer::AnalyzeBasicBlocks(const FunctionPtr& func) {
+std::vector<BasicBlock> DependencyAnalyzer::AnalyzeBasicBlocks(const FunctionPtr &func) {
   INTERNAL_CHECK(func) << "DependencyAnalyzer cannot analyze null function";
   return IdentifyBasicBlocks(func->body_);
 }
 
-std::vector<DependencyEdge> DependencyAnalyzer::AnalyzeDependencies(const FunctionPtr& func) {
+std::vector<DependencyEdge> DependencyAnalyzer::AnalyzeDependencies(const FunctionPtr &func) {
   INTERNAL_CHECK(func) << "DependencyAnalyzer cannot analyze null function";
 
   // Create a single basic block containing all statements
   std::vector<BasicBlock> blocks = IdentifyBasicBlocks(func->body_);
 
   std::vector<DependencyEdge> allDependencies;
-  for (const auto& block : blocks) {
+  for (const auto &block : blocks) {
     auto blockDeps = AnalyzeBlockDependencies(block);
     allDependencies.insert(allDependencies.end(), blockDeps.begin(), blockDeps.end());
   }
@@ -83,18 +83,18 @@ std::vector<DependencyEdge> DependencyAnalyzer::AnalyzeDependencies(const Functi
   return allDependencies;
 }
 
-std::vector<BasicBlock> DependencyAnalyzer::IdentifyBasicBlocks(const StmtPtr& stmt) {
+std::vector<BasicBlock> DependencyAnalyzer::IdentifyBasicBlocks(const StmtPtr &stmt) {
   std::vector<BasicBlock> blocks;
   int nextId = 0;
 
   // Helper class to traverse statements and build basic blocks
   class BasicBlockBuilder {
    public:
-    explicit BasicBlockBuilder(std::vector<BasicBlock>& blocks, int& nextId)
+    explicit BasicBlockBuilder(std::vector<BasicBlock>& blocks, int &nextId)
         : blocks_(blocks), nextId_(nextId) {}
 
     // Process a statement and create basic blocks
-    int ProcessStmt(const StmtPtr& stmt, const std::vector<int>& predecessors) {
+    int ProcessStmt(const StmtPtr &stmt, const std::vector<int>& predecessors) {
       if (!stmt) {
         return -1;
       }
@@ -125,7 +125,7 @@ std::vector<BasicBlock> DependencyAnalyzer::IdentifyBasicBlocks(const StmtPtr& s
       int lastBlockId = -1;
       std::vector<StmtPtr> pendingStmts;  // Buffer for consecutive simple statements
 
-      for (const auto& subStmt : seq->stmts_) {
+      for (const auto &subStmt : seq->stmts_) {
         // Check if this is a control flow statement
         if (IsA<IfStmt>(subStmt) || IsA<ForStmt>(subStmt)) {
           // Flush pending simple statements as one basic block
@@ -209,7 +209,7 @@ std::vector<BasicBlock> DependencyAnalyzer::IdentifyBasicBlocks(const StmtPtr& s
       return loopBlock.id;
     }
 
-    int CreateSingleStmtBlock(const StmtPtr& stmt, const std::vector<int>& predecessors, bool isLoop) {
+    int CreateSingleStmtBlock(const StmtPtr &stmt, const std::vector<int>& predecessors, bool isLoop) {
       BasicBlock block;
       block.id = nextId_++;
       block.predecessors = predecessors;
@@ -230,7 +230,7 @@ std::vector<BasicBlock> DependencyAnalyzer::IdentifyBasicBlocks(const StmtPtr& s
       block.isLoopBody = false;
 
       // Add all statements directly to the block
-      for (const auto& stmt : stmts) {
+      for (const auto &stmt : stmts) {
         CollectStmtsInBlock(stmt, block.statements);
       }
 
@@ -239,14 +239,14 @@ std::vector<BasicBlock> DependencyAnalyzer::IdentifyBasicBlocks(const StmtPtr& s
       return block.id;
     }
 
-    void CollectStmtsInBlock(const StmtPtr& stmt, std::vector<StmtPtr>& statements) {
+    void CollectStmtsInBlock(const StmtPtr &stmt, std::vector<StmtPtr>& statements) {
       if (!stmt) {
         return;
       }
 
       // Recursively collect all non-control-flow statements
       if (auto seq = As<SeqStmts>(stmt)) {
-        for (const auto& subStmt : seq->stmts_) {
+        for (const auto &subStmt : seq->stmts_) {
           CollectStmtsInBlock(subStmt, statements);
         }
       } else if (IsA<IfStmt>(stmt) || IsA<ForStmt>(stmt)) {
@@ -259,7 +259,7 @@ std::vector<BasicBlock> DependencyAnalyzer::IdentifyBasicBlocks(const StmtPtr& s
     }
 
     std::vector<BasicBlock>& blocks_;
-    int& nextId_;
+    int &nextId_;
   };
 
   // Build basic blocks starting from the root statement
@@ -271,7 +271,7 @@ std::vector<BasicBlock> DependencyAnalyzer::IdentifyBasicBlocks(const StmtPtr& s
   return blocks;
 }
 
-std::vector<DependencyEdge> DependencyAnalyzer::AnalyzeBlockDependencies(const BasicBlock& block) {
+std::vector<DependencyEdge> DependencyAnalyzer::AnalyzeBlockDependencies(const BasicBlock &block) {
   std::vector<DependencyEdge> dependencies;
 
   // Track last write and last read for each variable
@@ -286,15 +286,15 @@ std::vector<DependencyEdge> DependencyAnalyzer::AnalyzeBlockDependencies(const B
     std::set<VarPtr> readVars;
     std::set<VarPtr> writeVars;
 
-    void VisitExpr_(const VarPtr& var) override {
+    void VisitExpr_(const VarPtr &var) override {
       readVars.insert(var);
       IRVisitor::VisitExpr_(var);
     }
   };
 
   // Helper: add RAW dependencies for all read variables
-  auto AddRAWDependencies = [&](const std::set<VarPtr>& readVars, const StmtPtr& consumerStmt) {
-    for (const auto& readVar : readVars) {
+  auto AddRAWDependencies = [&](const std::set<VarPtr>& readVars, const StmtPtr &consumerStmt) {
+    for (const auto &readVar : readVars) {
       std::string varName = readVar->name_;
       if (lastWrite.count(varName)) {
         DependencyEdge edge;
@@ -310,7 +310,7 @@ std::vector<DependencyEdge> DependencyAnalyzer::AnalyzeBlockDependencies(const B
   };
 
   // Process each statement in the block
-  for (const auto& stmt : block.statements) {
+  for (const auto &stmt : block.statements) {
     VarCollector collector;
 
     // Identify the defined (written) variable and used (read) variables
@@ -327,7 +327,7 @@ std::vector<DependencyEdge> DependencyAnalyzer::AnalyzeBlockDependencies(const B
       // Check for WAR dependencies (Write-After-Read)
       std::string defName = defVar->name_;
       if (lastReads.count(defName)) {
-        for (const auto& readStmt : lastReads[defName]) {
+        for (const auto &readStmt : lastReads[defName]) {
           DependencyEdge edge;
           edge.producer = readStmt;
           edge.consumer = stmt;
@@ -355,7 +355,7 @@ std::vector<DependencyEdge> DependencyAnalyzer::AnalyzeBlockDependencies(const B
       lastWrite[defName] = stmt;
 
       // Record reads for this statement
-      for (const auto& readVar : collector.readVars) {
+      for (const auto &readVar : collector.readVars) {
         lastReads[readVar->name_].push_back(stmt);
       }
 
@@ -367,7 +367,7 @@ std::vector<DependencyEdge> DependencyAnalyzer::AnalyzeBlockDependencies(const B
       AddRAWDependencies(collector.readVars, stmt);
 
       // Record reads
-      for (const auto& readVar : collector.readVars) {
+      for (const auto &readVar : collector.readVars) {
         lastReads[readVar->name_].push_back(stmt);
       }
     }
@@ -379,7 +379,7 @@ std::vector<DependencyEdge> DependencyAnalyzer::AnalyzeBlockDependencies(const B
 }
 
 // Helper method to extract pipe type from a statement
-std::string DependencyAnalyzer::GetPipeTypeFromStmt(const StmtPtr& stmt) {
+std::string DependencyAnalyzer::GetPipeTypeFromStmt(const StmtPtr &stmt) {
   if (!stmt) {
     return "UNKNOWN";
   }
@@ -406,8 +406,8 @@ std::vector<DependencyEdge> DependencyAnalyzer::MergeDependencies(
   // Use a set to track unique edges (by producer, consumer, variable, type)
   std::set<std::tuple<StmtPtr, StmtPtr, std::string, DependencyEdge::Type>> seen;
 
-  for (const auto& path : pathDependencies) {
-    for (const auto& edge : path) {
+  for (const auto &path : pathDependencies) {
+    for (const auto &edge : path) {
       auto key = std::make_tuple(edge.producer, edge.consumer, edge.variable->name_, edge.type);
       if (seen.find(key) == seen.end()) {
         seen.insert(key);
@@ -422,7 +422,7 @@ std::vector<DependencyEdge> DependencyAnalyzer::MergeDependencies(
   return merged;
 }
 
-std::string DependencyAnalyzer::GetPipeType(const CallPtr& callExpr) {
+std::string DependencyAnalyzer::GetPipeType(const CallPtr &callExpr) {
   if (!callExpr || !callExpr->op_) {
     return "UNKNOWN";
   }

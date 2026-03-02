@@ -26,12 +26,12 @@ namespace pypto {
 namespace ir {
 
 // Vector-based constructor: creates GlobalVars from function names
-Program::Program(const std::vector<FunctionPtr>& functions, std::string name, Span span)
+Program::Program(const std::vector<FunctionPtr> &functions, std::string name, Span span)
     : IRNode(std::move(span)), name_(std::move(name)) {
   // Create a map and populate it with GlobalVar -> Function mappings
   // The map automatically sorts by GlobalVar name via the GlobalVarPtrLess comparator
   std::set<std::string> functionNames;
-  for (const auto& func : functions) {
+  for (const auto &func : functions) {
     INTERNAL_CHECK(func) << "Program constructor encountered null function";
     auto funcName = func->name_;
     INTERNAL_CHECK(!funcName.empty()) << "Program constructor encountered empty function name";
@@ -42,7 +42,7 @@ Program::Program(const std::vector<FunctionPtr>& functions, std::string name, Sp
   }
 }
 
-FunctionPtr Program::GetFunction(const std::string& name) const {
+FunctionPtr Program::GetFunction(const std::string &name) const {
   auto it = functions_.find(std::make_shared<const GlobalVar>(name));
   if (it != functions_.end()) {
     return it->second;
@@ -50,7 +50,7 @@ FunctionPtr Program::GetFunction(const std::string& name) const {
   return nullptr;
 }
 
-GlobalVarPtr Program::GetGlobalVar(const std::string& name) const {
+GlobalVarPtr Program::GetGlobalVar(const std::string &name) const {
   auto it = functions_.find(std::make_shared<const GlobalVar>(name));
   if (it != functions_.end()) {
     return it->first;

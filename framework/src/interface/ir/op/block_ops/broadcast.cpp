@@ -23,9 +23,9 @@
 namespace pypto {
 namespace ir {
 
-TypePtr DeduceBlockRowExpandType(const std::vector<ExprPtr>& args,
-                                 const std::vector<std::pair<std::string, std::any>>& /*kwargs*/,
-                                 const std::string& opName) {
+TypePtr DeduceBlockRowExpandType(const std::vector<ExprPtr> &args,
+                                 const std::vector<std::pair<std::string, std::any>> &/*kwargs*/,
+                                 const std::string &opName) {
   CHECK(args.size() == 2) << "The operator " << opName << " requires exactly 2 arguments, but got "
                           << args.size();
 
@@ -40,8 +40,8 @@ TypePtr DeduceBlockRowExpandType(const std::vector<ExprPtr>& args,
                   << args[1]->GetType()->TypeName();
 
   // Get shapes
-  const auto& tileShape = tileType->shape_;
-  const auto& rowShape = rowType->shape_;
+  const auto &tileShape = tileType->shape_;
+  const auto &rowShape = rowType->shape_;
 
   // Both must have at least 2D (last 2 dimensions are used for broadcasting)
   CHECK(tileShape.size() >= 2) << "The operator " << opName
@@ -86,8 +86,8 @@ REGISTER_OP("block.row_expand_sub")
     .SetDescription("Row-wise broadcast subtraction: tile - row_vec (broadcasted)")
     .AddArgument("tile", "Input tile (TileType, 2D [M, N])")
     .AddArgument("row_vec", "Row vector (TileType, 2D [M, 1])")
-    .SetDeduceType([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .SetDeduceType([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceBlockRowExpandType(args, kwargs, "block.row_expand_sub");
     });
 
@@ -96,8 +96,8 @@ REGISTER_OP("block.row_expand_div")
     .SetDescription("Row-wise broadcast division: tile / row_vec (broadcasted)")
     .AddArgument("tile", "Input tile (TileType, 2D [M, N])")
     .AddArgument("row_vec", "Row vector (TileType, 2D [M, 1])")
-    .SetDeduceType([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .SetDeduceType([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceBlockRowExpandType(args, kwargs, "block.row_expand_div");
     });
 
@@ -106,8 +106,8 @@ REGISTER_OP("block.row_expand_mul")
     .SetDescription("Row-wise broadcast multiplication: tile * row_vec (broadcasted)")
     .AddArgument("tile", "Input tile (TileType, 2D [M, N])")
     .AddArgument("row_vec", "Row vector (TileType, 2D [M, 1])")
-    .SetDeduceType([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .SetDeduceType([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceBlockRowExpandType(args, kwargs, "block.row_expand_mul");
     });
 
@@ -117,8 +117,8 @@ REGISTER_OP("block.row_expand_add")
     .SetPipe(PipeType::V)
     .AddArgument("tile", "Input tile (TileType, 2D [M, N])")
     .AddArgument("row_vec", "Row vector (TileType, 2D [M, 1])")
-    .SetDeduceType([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .SetDeduceType([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceBlockRowExpandType(args, kwargs, "block.row_expand_add");
     });
 

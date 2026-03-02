@@ -24,10 +24,10 @@
 namespace pypto {
 namespace ir {
 
-void ValidateKwargs(const std::vector<std::pair<std::string, std::any>>& kwargs,
-                    const std::unordered_map<std::string, std::type_index>& allowedKwargs,
-                    const std::string& opName) {
-  for (const auto& [key, value] : kwargs) {
+void ValidateKwargs(const std::vector<std::pair<std::string, std::any>> &kwargs,
+                    const std::unordered_map<std::string, std::type_index> &allowedKwargs,
+                    const std::string &opName) {
+  for (const auto &[key, value] : kwargs) {
     auto it = allowedKwargs.find(key);
     if (it == allowedKwargs.end()) {
       throw ValueError("Unknown kwarg '" + key + "' for operator '" + opName + "'");
@@ -46,18 +46,18 @@ void ValidateKwargs(const std::vector<std::pair<std::string, std::any>>& kwargs,
   }
 }
 
-OpRegistry& OpRegistry::GetInstance() {
+OpRegistry &OpRegistry::GetInstance() {
   static OpRegistry instance;
   return instance;
 }
 
-OpRegistryEntry& OpRegistry::Register(const std::string& opName) {
+OpRegistryEntry &OpRegistry::Register(const std::string &opName) {
   // Check if operator is already registered
   INTERNAL_CHECK(registry_.find(opName) == registry_.end()) << "Operator '" + opName + "' is already registered";
 
   // Create and insert the entry into the registry
   auto result = registry_.emplace(opName, OpRegistryEntry());
-  auto& entry = result.first->second;
+  auto &entry = result.first->second;
   entry.SetName(opName);
 
   // Create the operator instance with the operator name
@@ -70,31 +70,31 @@ OpRegistryEntry& OpRegistry::Register(const std::string& opName) {
 // OpRegistry Implementation
 // ============================================================================
 
-CallPtr OpRegistry::Create(const std::string& opName, const std::vector<ExprPtr>& args, Span span) const {
+CallPtr OpRegistry::Create(const std::string &opName, const std::vector<ExprPtr> &args, Span span) const {
   // Call new version with empty kwargs for backward compatibility
   return Create(opName, args, {}, std::move(span));
 }
 
-CallPtr OpRegistry::Create(const std::string& opName, const std::vector<ExprPtr>& args,
-                           const std::vector<std::pair<std::string, std::any>>& kwargs, Span span) const {
+CallPtr OpRegistry::Create(const std::string &opName, const std::vector<ExprPtr> &args,
+                           const std::vector<std::pair<std::string, std::any>> &kwargs, Span span) const {
   // Look up operator in registry
   auto it = registry_.find(opName);
   INTERNAL_CHECK(it != registry_.end()) << "Operator '" + opName + "' not found in registry";
 
-  const auto& entry = it->second;
+  const auto &entry = it->second;
 
   // Get operator instance (shared definition)
   OpPtr op = entry.GetOp();
 
   // Validate kwargs against allowed attributes (stored in Op)
   if (!kwargs.empty()) {
-    const auto& allowedKwargs = op->GetAttrs();
+    const auto &allowedKwargs = op->GetAttrs();
     if (!allowedKwargs.empty()) {
       ValidateKwargs(kwargs, allowedKwargs, opName);
     }
   }
 
-  const auto& deduceTypeFn = entry.GetDeduceType();
+  const auto &deduceTypeFn = entry.GetDeduceType();
 
   // Deduce result type (pass args and kwargs separately)
   TypePtr resultType = deduceTypeFn(args, kwargs);
@@ -104,13 +104,13 @@ CallPtr OpRegistry::Create(const std::string& opName, const std::vector<ExprPtr>
   return std::make_shared<Call>(op, args, kwargs, resultType, std::move(span));
 }
 
-const OpRegistryEntry& OpRegistry::GetEntry(const std::string& opName) const {
+const OpRegistryEntry &OpRegistry::GetEntry(const std::string &opName) const {
   auto it = registry_.find(opName);
   INTERNAL_CHECK(it != registry_.end()) << "Operator '" + opName + "' not found in registry";
   return it->second;
 }
 
-OpPtr OpRegistry::GetOp(const std::string& opName) const {
+OpPtr OpRegistry::GetOp(const std::string &opName) const {
   auto it = registry_.find(opName);
   INTERNAL_CHECK(it != registry_.end()) << "Operator '" + opName + "' not found in registry";
   return it->second.GetOp();

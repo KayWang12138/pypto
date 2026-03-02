@@ -39,7 +39,7 @@ namespace pypto {
 namespace ir {
 
 // Precedence mapping for each expression type
-Precedence GetPrecedence(const ExprPtr& expr) {
+Precedence GetPrecedence(const ExprPtr &expr) {
   // Using a static map is more efficient and maintainable than a long chain of dynamic_casts.
   static const std::unordered_map<std::type_index, Precedence> kPrecedenceMap = {
       // Logical operators≥
@@ -91,7 +91,7 @@ Precedence GetPrecedence(const ExprPtr& expr) {
   };
 
   INTERNAL_CHECK(expr) << "Expression is null";
-  const Expr& exprRef = *expr;
+  const Expr &exprRef = *expr;
   const auto it = kPrecedenceMap.find(std::type_index(typeid(exprRef)));
   if (it != kPrecedenceMap.end()) {
     return it->second;
@@ -101,7 +101,7 @@ Precedence GetPrecedence(const ExprPtr& expr) {
   return Precedence::kAtom;
 }
 
-bool IsRightAssociative(const ExprPtr& expr) {
+bool IsRightAssociative(const ExprPtr &expr) {
   // Only ** (power) is right-associative in Python
   return IsA<Pow>(expr);
 }
@@ -129,15 +129,15 @@ class IRPythonPrinter : public IRVisitor {
    * @param node IR node to print (can be Expr, Stmt, Function, or Program)
    * @return Python-style string representation
    */
-  std::string Print(const IRNodePtr& node);
-  std::string Print(const TypePtr& type);
+  std::string Print(const IRNodePtr &node);
+  std::string Print(const TypePtr &type);
 
  protected:
   PYPTO_DECLARE_ALL_VISITOR_OVERRIDES
 
   // Function and program visitors
-  void VisitFunction(const FunctionPtr& func);
-  void VisitProgram(const ProgramPtr& program);
+  void VisitFunction(const FunctionPtr &func);
+  void VisitProgram(const ProgramPtr &program);
 
  private:
   std::ostringstream stream_;
@@ -151,26 +151,26 @@ class IRPythonPrinter : public IRVisitor {
   void DecreaseIndent();
 
   // Statement body visitor with SSA-style handling
-  void VisitStmtBody(const StmtPtr& body, const std::vector<VarPtr>& returnVars = {});
+  void VisitStmtBody(const StmtPtr &body, const std::vector<VarPtr>& returnVars = {});
 
   // Statement body visitor in program context (for self.method() call printing)
-  void VisitStmtInProgramContext(const StmtPtr& stmt, const ProgramPtr& program);
+  void VisitStmtInProgramContext(const StmtPtr &stmt, const ProgramPtr &program);
 
   // Print return type annotation for a function
-  void PrintReturnTypeAnnotation(const FunctionPtr& func);
+  void PrintReturnTypeAnnotation(const FunctionPtr &func);
 
   // Print function body with yield-to-return conversion
-  void PrintBodyWithYieldToReturn(const StmtPtr& body);
+  void PrintBodyWithYieldToReturn(const StmtPtr &body);
 
   // Binary/unary operator helpers (reuse precedence logic)
-  void PrintBinaryOp(const BinaryExprPtr& op, const char* opSymbol);
-  void PrintFunctionBinaryOp(const BinaryExprPtr& op, const char* funcName);
-  void PrintChild(const ExprPtr& parent, const ExprPtr& child, bool isLeft);
-  bool NeedsParens(const ExprPtr& parent, const ExprPtr& child, bool isLeft);
+  void PrintBinaryOp(const BinaryExprPtr &op, const char *opSymbol);
+  void PrintFunctionBinaryOp(const BinaryExprPtr &op, const char *funcName);
+  void PrintChild(const ExprPtr &parent, const ExprPtr &child, bool isLeft);
+  bool NeedsParens(const ExprPtr &parent, const ExprPtr &child, bool isLeft);
 
   // MemRef and TileView printing helpers
-  std::string PrintMemRef(const MemRef& memref);
-  std::string PrintTileView(const TileView& tileView);
+  std::string PrintMemRef(const MemRef &memref);
+  std::string PrintTileView(const TileView &tileView);
 };
 
 // Helper function to format float literals with decimal point
@@ -190,7 +190,7 @@ std::string FormatFloatLiteral(double value) {
 }
 
 // Helper function to convert DataType to Python IR string
-std::string DataTypeToPythonString(DataType dtype, const std::string& prefix) {
+std::string DataTypeToPythonString(DataType dtype, const std::string &prefix) {
   std::string p = prefix + ".";
   if (dtype == DataType::INT4) return p + "INT4";
   if (dtype == DataType::INT8) return p + "INT8";
@@ -215,7 +215,7 @@ std::string DataTypeToPythonString(DataType dtype, const std::string& prefix) {
 }
 
 // IRPythonPrinter implementation
-std::string IRPythonPrinter::Print(const IRNodePtr& node) {
+std::string IRPythonPrinter::Print(const IRNodePtr &node) {
   stream_.str("");
   stream_.clear();
   indentLevel_ = 0;
@@ -237,7 +237,7 @@ std::string IRPythonPrinter::Print(const IRNodePtr& node) {
   return stream_.str();
 }
 
-std::string IRPythonPrinter::Print(const TypePtr& type) {
+std::string IRPythonPrinter::Print(const TypePtr &type) {
   if (auto scalarType = As<ScalarType>(type)) {
     return DataTypeToPythonString(scalarType->dtype_, prefix_);
   }
@@ -318,19 +318,19 @@ void IRPythonPrinter::DecreaseIndent() {
 }
 
 // Expression visitors - reuse precedence logic from base printer
-void IRPythonPrinter::VisitExpr_(const VarPtr& op) { stream_ << op->name_; }
+void IRPythonPrinter::VisitExpr_(const VarPtr &op) { stream_ << op->name_; }
 
-void IRPythonPrinter::VisitExpr_(const IterArgPtr& op) { stream_ << op->name_; }
+void IRPythonPrinter::VisitExpr_(const IterArgPtr &op) { stream_ << op->name_; }
 
-void IRPythonPrinter::VisitExpr_(const MemRefPtr& op) { stream_ << op->name_; }
+void IRPythonPrinter::VisitExpr_(const MemRefPtr &op) { stream_ << op->name_; }
 
-void IRPythonPrinter::VisitExpr_(const ConstIntPtr& op) { stream_ << op->value_; }
+void IRPythonPrinter::VisitExpr_(const ConstIntPtr &op) { stream_ << op->value_; }
 
-void IRPythonPrinter::VisitExpr_(const ConstFloatPtr& op) { stream_ << FormatFloatLiteral(op->value_); }
+void IRPythonPrinter::VisitExpr_(const ConstFloatPtr &op) { stream_ << FormatFloatLiteral(op->value_); }
 
-void IRPythonPrinter::VisitExpr_(const ConstBoolPtr& op) { stream_ << (op->value_ ? "True" : "False"); }
+void IRPythonPrinter::VisitExpr_(const ConstBoolPtr &op) { stream_ << (op->value_ ? "True" : "False"); }
 
-void IRPythonPrinter::VisitExpr_(const CallPtr& op) {
+void IRPythonPrinter::VisitExpr_(const CallPtr &op) {
   INTERNAL_CHECK(op->op_) << "Call has null op";
   // Check if this is a GlobalVar call within a Program context
 
@@ -417,7 +417,7 @@ void IRPythonPrinter::VisitExpr_(const CallPtr& op) {
   stream_ << ")";
 }
 
-void IRPythonPrinter::VisitExpr_(const MakeTuplePtr& op) {
+void IRPythonPrinter::VisitExpr_(const MakeTuplePtr &op) {
   stream_ << "(";
   for (size_t i = 0; i < op->elements_.size(); ++i) {
     if (i > 0) stream_ << ", ";
@@ -430,13 +430,13 @@ void IRPythonPrinter::VisitExpr_(const MakeTuplePtr& op) {
   stream_ << ")";
 }
 
-void IRPythonPrinter::VisitExpr_(const TupleGetItemExprPtr& op) {
+void IRPythonPrinter::VisitExpr_(const TupleGetItemExprPtr &op) {
   VisitExpr(op->tuple_);
   stream_ << "[" << op->index_ << "]";
 }
 
 // Binary and unary operators - reuse from base printer logic
-void IRPythonPrinter::PrintChild(const ExprPtr& parent, const ExprPtr& child, bool isLeft) {
+void IRPythonPrinter::PrintChild(const ExprPtr &parent, const ExprPtr &child, bool isLeft) {
   bool needsParens = NeedsParens(parent, child, isLeft);
 
   if (needsParens) {
@@ -450,7 +450,7 @@ void IRPythonPrinter::PrintChild(const ExprPtr& parent, const ExprPtr& child, bo
   }
 }
 
-bool IRPythonPrinter::NeedsParens(const ExprPtr& parent, const ExprPtr& child, bool isLeft) {
+bool IRPythonPrinter::NeedsParens(const ExprPtr &parent, const ExprPtr &child, bool isLeft) {
   Precedence parentPrec = GetPrecedence(parent);
   Precedence childPrec = GetPrecedence(child);
 
@@ -469,13 +469,13 @@ bool IRPythonPrinter::NeedsParens(const ExprPtr& parent, const ExprPtr& child, b
   return false;
 }
 
-void IRPythonPrinter::PrintBinaryOp(const BinaryExprPtr& op, const char* opSymbol) {
+void IRPythonPrinter::PrintBinaryOp(const BinaryExprPtr &op, const char *opSymbol) {
   PrintChild(op, op->left_, true);
   stream_ << " " << opSymbol << " ";
   PrintChild(op, op->right_, false);
 }
 
-void IRPythonPrinter::PrintFunctionBinaryOp(const BinaryExprPtr& op, const char* funcName) {
+void IRPythonPrinter::PrintFunctionBinaryOp(const BinaryExprPtr &op, const char *funcName) {
   stream_ << funcName << "(";
   VisitExpr(op->left_);
   stream_ << ", ";
@@ -484,40 +484,40 @@ void IRPythonPrinter::PrintFunctionBinaryOp(const BinaryExprPtr& op, const char*
 }
 
 // Arithmetic binary operators
-void IRPythonPrinter::VisitExpr_(const AddPtr& op) { PrintBinaryOp(op, "+"); }
-void IRPythonPrinter::VisitExpr_(const SubPtr& op) { PrintBinaryOp(op, "-"); }
-void IRPythonPrinter::VisitExpr_(const MulPtr& op) { PrintBinaryOp(op, "*"); }
-void IRPythonPrinter::VisitExpr_(const FloorDivPtr& op) { PrintBinaryOp(op, "//"); }
-void IRPythonPrinter::VisitExpr_(const FloorModPtr& op) { PrintBinaryOp(op, "%"); }
-void IRPythonPrinter::VisitExpr_(const FloatDivPtr& op) { PrintBinaryOp(op, "/"); }
-void IRPythonPrinter::VisitExpr_(const PowPtr& op) { PrintBinaryOp(op, "**"); }
+void IRPythonPrinter::VisitExpr_(const AddPtr &op) { PrintBinaryOp(op, "+"); }
+void IRPythonPrinter::VisitExpr_(const SubPtr &op) { PrintBinaryOp(op, "-"); }
+void IRPythonPrinter::VisitExpr_(const MulPtr &op) { PrintBinaryOp(op, "*"); }
+void IRPythonPrinter::VisitExpr_(const FloorDivPtr &op) { PrintBinaryOp(op, "//"); }
+void IRPythonPrinter::VisitExpr_(const FloorModPtr &op) { PrintBinaryOp(op, "%"); }
+void IRPythonPrinter::VisitExpr_(const FloatDivPtr &op) { PrintBinaryOp(op, "/"); }
+void IRPythonPrinter::VisitExpr_(const PowPtr &op) { PrintBinaryOp(op, "**"); }
 
 // Function-style binary operators
-void IRPythonPrinter::VisitExpr_(const MinPtr& op) { PrintFunctionBinaryOp(op, "min"); }
-void IRPythonPrinter::VisitExpr_(const MaxPtr& op) { PrintFunctionBinaryOp(op, "max"); }
+void IRPythonPrinter::VisitExpr_(const MinPtr &op) { PrintFunctionBinaryOp(op, "min"); }
+void IRPythonPrinter::VisitExpr_(const MaxPtr &op) { PrintFunctionBinaryOp(op, "max"); }
 
 // Comparison operators
-void IRPythonPrinter::VisitExpr_(const EqPtr& op) { PrintBinaryOp(op, "=="); }
-void IRPythonPrinter::VisitExpr_(const NePtr& op) { PrintBinaryOp(op, "!="); }
-void IRPythonPrinter::VisitExpr_(const LtPtr& op) { PrintBinaryOp(op, "<"); }
-void IRPythonPrinter::VisitExpr_(const LePtr& op) { PrintBinaryOp(op, "<="); }
-void IRPythonPrinter::VisitExpr_(const GtPtr& op) { PrintBinaryOp(op, ">"); }
-void IRPythonPrinter::VisitExpr_(const GePtr& op) { PrintBinaryOp(op, ">="); }
+void IRPythonPrinter::VisitExpr_(const EqPtr &op) { PrintBinaryOp(op, "=="); }
+void IRPythonPrinter::VisitExpr_(const NePtr &op) { PrintBinaryOp(op, "!="); }
+void IRPythonPrinter::VisitExpr_(const LtPtr &op) { PrintBinaryOp(op, "<"); }
+void IRPythonPrinter::VisitExpr_(const LePtr &op) { PrintBinaryOp(op, "<="); }
+void IRPythonPrinter::VisitExpr_(const GtPtr &op) { PrintBinaryOp(op, ">"); }
+void IRPythonPrinter::VisitExpr_(const GePtr &op) { PrintBinaryOp(op, ">="); }
 
 // Logical operators
-void IRPythonPrinter::VisitExpr_(const AndPtr& op) { PrintBinaryOp(op, "and"); }
-void IRPythonPrinter::VisitExpr_(const OrPtr& op) { PrintBinaryOp(op, "or"); }
-void IRPythonPrinter::VisitExpr_(const XorPtr& op) { PrintBinaryOp(op, "xor"); }
+void IRPythonPrinter::VisitExpr_(const AndPtr &op) { PrintBinaryOp(op, "and"); }
+void IRPythonPrinter::VisitExpr_(const OrPtr &op) { PrintBinaryOp(op, "or"); }
+void IRPythonPrinter::VisitExpr_(const XorPtr &op) { PrintBinaryOp(op, "xor"); }
 
 // Bitwise operators
-void IRPythonPrinter::VisitExpr_(const BitAndPtr& op) { PrintBinaryOp(op, "&"); }
-void IRPythonPrinter::VisitExpr_(const BitOrPtr& op) { PrintBinaryOp(op, "|"); }
-void IRPythonPrinter::VisitExpr_(const BitXorPtr& op) { PrintBinaryOp(op, "^"); }
-void IRPythonPrinter::VisitExpr_(const BitShiftLeftPtr& op) { PrintBinaryOp(op, "<<"); }
-void IRPythonPrinter::VisitExpr_(const BitShiftRightPtr& op) { PrintBinaryOp(op, ">>"); }
+void IRPythonPrinter::VisitExpr_(const BitAndPtr &op) { PrintBinaryOp(op, "&"); }
+void IRPythonPrinter::VisitExpr_(const BitOrPtr &op) { PrintBinaryOp(op, "|"); }
+void IRPythonPrinter::VisitExpr_(const BitXorPtr &op) { PrintBinaryOp(op, "^"); }
+void IRPythonPrinter::VisitExpr_(const BitShiftLeftPtr &op) { PrintBinaryOp(op, "<<"); }
+void IRPythonPrinter::VisitExpr_(const BitShiftRightPtr &op) { PrintBinaryOp(op, ">>"); }
 
 // Unary operators
-void IRPythonPrinter::VisitExpr_(const NegPtr& op) {
+void IRPythonPrinter::VisitExpr_(const NegPtr &op) {
   stream_ << "-";
   Precedence operandPrec = GetPrecedence(op->operand_);
   if (operandPrec < Precedence::kUnary) {
@@ -529,13 +529,13 @@ void IRPythonPrinter::VisitExpr_(const NegPtr& op) {
   }
 }
 
-void IRPythonPrinter::VisitExpr_(const AbsPtr& op) {
+void IRPythonPrinter::VisitExpr_(const AbsPtr &op) {
   stream_ << "abs(";
   VisitExpr(op->operand_);
   stream_ << ")";
 }
 
-void IRPythonPrinter::VisitExpr_(const CastPtr& op) {
+void IRPythonPrinter::VisitExpr_(const CastPtr &op) {
   auto scalarType = As<ScalarType>(op->GetType());
   INTERNAL_CHECK(scalarType) << "Cast has non-scalar type";
   stream_ << prefix_ << ".cast(";
@@ -543,7 +543,7 @@ void IRPythonPrinter::VisitExpr_(const CastPtr& op) {
   stream_ << ", " << DataTypeToPythonString(scalarType->dtype_, prefix_) << ")";
 }
 
-void IRPythonPrinter::VisitExpr_(const NotPtr& op) {
+void IRPythonPrinter::VisitExpr_(const NotPtr &op) {
   stream_ << "not ";
   Precedence operandPrec = GetPrecedence(op->operand_);
   if (operandPrec < Precedence::kNot) {
@@ -555,7 +555,7 @@ void IRPythonPrinter::VisitExpr_(const NotPtr& op) {
   }
 }
 
-void IRPythonPrinter::VisitExpr_(const BitNotPtr& op) {
+void IRPythonPrinter::VisitExpr_(const BitNotPtr &op) {
   stream_ << "~";
   Precedence operandPrec = GetPrecedence(op->operand_);
   if (operandPrec < Precedence::kUnary) {
@@ -568,7 +568,7 @@ void IRPythonPrinter::VisitExpr_(const BitNotPtr& op) {
 }
 
 // Statement visitors with proper Python syntax
-void IRPythonPrinter::VisitStmt_(const AssignStmtPtr& op) {
+void IRPythonPrinter::VisitStmt_(const AssignStmtPtr &op) {
   // Print with type annotation: var: type = value
   // First print variable name
   VisitExpr(op->var_);
@@ -576,7 +576,7 @@ void IRPythonPrinter::VisitStmt_(const AssignStmtPtr& op) {
   VisitExpr(op->value_);
 }
 
-void IRPythonPrinter::VisitStmt_(const IfStmtPtr& op) {
+void IRPythonPrinter::VisitStmt_(const IfStmtPtr &op) {
   // SSA-style if with pl.yield_()
   stream_ << "if ";
   VisitExpr(op->condition_);
@@ -594,7 +594,7 @@ void IRPythonPrinter::VisitStmt_(const IfStmtPtr& op) {
   }
 }
 
-void IRPythonPrinter::VisitStmt_(const YieldStmtPtr& op) {
+void IRPythonPrinter::VisitStmt_(const YieldStmtPtr &op) {
   // Note: In function context, this will be changed to "return" by VisitFunction
   stream_ << prefix_ << ".yield_(";
   for (size_t i = 0; i < op->value_.size(); ++i) {
@@ -604,7 +604,7 @@ void IRPythonPrinter::VisitStmt_(const YieldStmtPtr& op) {
   stream_ << ")";
 }
 
-void IRPythonPrinter::VisitStmt_(const ReturnStmtPtr& op) {
+void IRPythonPrinter::VisitStmt_(const ReturnStmtPtr &op) {
   stream_ << "return";
   if (!op->value_.empty()) {
     stream_ << " ";
@@ -615,7 +615,7 @@ void IRPythonPrinter::VisitStmt_(const ReturnStmtPtr& op) {
   }
 }
 
-void IRPythonPrinter::VisitStmt_(const ForStmtPtr& op) {
+void IRPythonPrinter::VisitStmt_(const ForStmtPtr &op) {
   // SSA-style for with pl.range() - no inline type annotations in unpacking
   stream_ << "for " << op->loopVar_->name_;
 
@@ -654,7 +654,7 @@ void IRPythonPrinter::VisitStmt_(const ForStmtPtr& op) {
   DecreaseIndent();
 }
 
-void IRPythonPrinter::VisitStmt_(const SeqStmtsPtr& op) {
+void IRPythonPrinter::VisitStmt_(const SeqStmtsPtr &op) {
   for (size_t i = 0; i < op->stmts_.size(); ++i) {
     stream_ << GetIndent();
     VisitStmt(op->stmts_[i]);
@@ -664,7 +664,7 @@ void IRPythonPrinter::VisitStmt_(const SeqStmtsPtr& op) {
   }
 }
 
-void IRPythonPrinter::VisitStmt_(const OpStmtsPtr& op) {
+void IRPythonPrinter::VisitStmt_(const OpStmtsPtr &op) {
   for (size_t i = 0; i < op->stmts_.size(); ++i) {
     stream_ << GetIndent();
     VisitStmt(op->stmts_[i]);
@@ -674,14 +674,14 @@ void IRPythonPrinter::VisitStmt_(const OpStmtsPtr& op) {
   }
 }
 
-void IRPythonPrinter::VisitStmt_(const EvalStmtPtr& op) {
+void IRPythonPrinter::VisitStmt_(const EvalStmtPtr &op) {
   // Print expression statement: expr
   VisitExpr(op->expr_);
 }
 
-void IRPythonPrinter::VisitStmt_(const StmtPtr& op) { stream_ << op->TypeName(); }
+void IRPythonPrinter::VisitStmt_(const StmtPtr &op) { stream_ << op->TypeName(); }
 
-void IRPythonPrinter::VisitStmtBody(const StmtPtr& body, const std::vector<VarPtr>& returnVars) {
+void IRPythonPrinter::VisitStmtBody(const StmtPtr &body, const std::vector<VarPtr>& returnVars) {
   // Helper to visit statement body and wrap YieldStmt with assignment if needed
   if (auto yieldStmt = As<YieldStmt>(body)) {
     // If parent has return_vars, wrap yield as assignment (no inline type annotations)
@@ -742,7 +742,7 @@ void IRPythonPrinter::VisitStmtBody(const StmtPtr& body, const std::vector<VarPt
   }
 }
 
-void IRPythonPrinter::PrintReturnTypeAnnotation(const FunctionPtr& func) {
+void IRPythonPrinter::PrintReturnTypeAnnotation(const FunctionPtr &func) {
   if (!func->returnTypes_.empty()) {
     stream_ << " -> ";
     if (func->returnTypes_.size() == 1) {
@@ -758,7 +758,7 @@ void IRPythonPrinter::PrintReturnTypeAnnotation(const FunctionPtr& func) {
   }
 }
 
-void IRPythonPrinter::PrintBodyWithYieldToReturn(const StmtPtr& body) {
+void IRPythonPrinter::PrintBodyWithYieldToReturn(const StmtPtr &body) {
   if (!body) return;
   if (auto seqStmts = As<SeqStmts>(body)) {
     for (size_t i = 0; i < seqStmts->stmts_.size(); ++i) {
@@ -795,7 +795,7 @@ void IRPythonPrinter::PrintBodyWithYieldToReturn(const StmtPtr& body) {
   }
 }
 
-void IRPythonPrinter::VisitFunction(const FunctionPtr& func) {
+void IRPythonPrinter::VisitFunction(const FunctionPtr &func) {
   // Print decorator with type parameter if not opaque
   stream_ << "@" << prefix_ << ".function";
   if (func->funcType_ != FunctionType::Opaque) {
@@ -828,7 +828,7 @@ class GlobalVarCollector : public IRVisitor {
   using IRVisitor::VisitExpr_;
   std::set<GlobalVarPtr, GlobalVarPtrLess> collectedGvars;
 
-  void VisitExpr_(const CallPtr& op) override {
+  void VisitExpr_(const CallPtr &op) override {
     // Visit the op field (which may be a GlobalVar for cross-function calls)
     INTERNAL_CHECK(op->op_) << "Call has null op";
     if (auto gvar = As<GlobalVar>(op->op_)) {
@@ -855,7 +855,7 @@ static std::vector<std::pair<GlobalVarPtr, FunctionPtr>> TopologicalSortFunction
       collector.VisitStmt(func->body_);
     }
     // Only keep GlobalVars that are actually functions in this program
-    for (const auto& calledGvar : collector.collectedGvars) {
+    for (const auto &calledGvar : collector.collectedGvars) {
       if (functions.count(calledGvar) > 0) {
         dependencies[gvar].insert(calledGvar);
       }
@@ -867,7 +867,7 @@ static std::vector<std::pair<GlobalVarPtr, FunctionPtr>> TopologicalSortFunction
   std::set<GlobalVarPtr, GlobalVarPtrLess> visited;
   std::set<GlobalVarPtr, GlobalVarPtrLess> inProgress;  // For cycle detection
 
-  std::function<bool(const GlobalVarPtr&)> dfs = [&](const GlobalVarPtr& gvar) -> bool {
+  std::function<bool(const GlobalVarPtr &)> dfs = [&](const GlobalVarPtr &gvar) -> bool {
     if (visited.count(gvar)) return true;
     if (inProgress.count(gvar)) return false;  // Cycle detected
 
@@ -875,7 +875,7 @@ static std::vector<std::pair<GlobalVarPtr, FunctionPtr>> TopologicalSortFunction
 
     // Visit dependencies first (dependencies = functions this function calls)
     if (dependencies.count(gvar)) {
-      for (const auto& dep : dependencies[gvar]) {
+      for (const auto &dep : dependencies[gvar]) {
         if (!dfs(dep)) return false;  // Cycle detected
       }
     }
@@ -888,11 +888,11 @@ static std::vector<std::pair<GlobalVarPtr, FunctionPtr>> TopologicalSortFunction
   };
 
   // Visit all functions
-  for (const auto& entry : functions) {
+  for (const auto &entry : functions) {
     if (!dfs(entry.first)) {
       // Cycle detected, fall back to original order
       sorted.clear();
-      for (const auto& pair : functions) {
+      for (const auto &pair : functions) {
         sorted.emplace_back(pair);
       }
       return sorted;
@@ -902,7 +902,7 @@ static std::vector<std::pair<GlobalVarPtr, FunctionPtr>> TopologicalSortFunction
   return sorted;
 }
 
-void IRPythonPrinter::VisitProgram(const ProgramPtr& program) {
+void IRPythonPrinter::VisitProgram(const ProgramPtr &program) {
   // Print program header comment
   stream_ << "# pypto.program: " << (program->name_.empty() ? "Program" : program->name_) << "\n";
 
@@ -924,8 +924,8 @@ void IRPythonPrinter::VisitProgram(const ProgramPtr& program) {
 
   // Print each function as a method
   bool first = true;
-  for (const auto& sortedEntry : sortedFunctions) {
-    const auto& func = sortedEntry.second;
+  for (const auto &sortedEntry : sortedFunctions) {
+    const auto &func = sortedEntry.second;
     if (!first) {
       stream_ << "\n";  // Blank line between functions
     }
@@ -938,7 +938,7 @@ void IRPythonPrinter::VisitProgram(const ProgramPtr& program) {
     stream_ << "self";
 
     // Print remaining parameters with type annotations
-    for (const auto& param : func->params_) {
+    for (const auto &param : func->params_) {
       stream_ << ", ";  // Always add comma since self comes first
       stream_ << param->name_ << ": " << Print(param->GetType());
     }
@@ -959,7 +959,7 @@ void IRPythonPrinter::VisitProgram(const ProgramPtr& program) {
 }
 
 // Helper to visit statements in program context (for self.method() printing)
-void IRPythonPrinter::VisitStmtInProgramContext(const StmtPtr& stmt, const ProgramPtr& program) {
+void IRPythonPrinter::VisitStmtInProgramContext(const StmtPtr &stmt, const ProgramPtr &program) {
   // Save current program context
   auto prevProgram = currentProgram_;
   currentProgram_ = program;
@@ -972,7 +972,7 @@ void IRPythonPrinter::VisitStmtInProgramContext(const StmtPtr& stmt, const Progr
 }
 
 // Helper methods for MemRef and TileView printing
-std::string IRPythonPrinter::PrintMemRef(const MemRef& memref) {
+std::string IRPythonPrinter::PrintMemRef(const MemRef &memref) {
   std::ostringstream oss;
   oss << prefix_ << ".MemRef(" << prefix_ << ".MemorySpace." << MemorySpaceToString(memref.memorySpace_)
       << ", ";
@@ -986,7 +986,7 @@ std::string IRPythonPrinter::PrintMemRef(const MemRef& memref) {
   return oss.str();
 }
 
-std::string IRPythonPrinter::PrintTileView(const TileView& tileView) {
+std::string IRPythonPrinter::PrintTileView(const TileView &tileView) {
   std::ostringstream oss;
   oss << prefix_ << ".TileView(valid_shape=[";
 
@@ -1019,12 +1019,12 @@ std::string IRPythonPrinter::PrintTileView(const TileView& tileView) {
 // ================================
 // Public API
 // ================================
-std::string PythonPrint(const IRNodePtr& node, const std::string& prefix) {
+std::string PythonPrint(const IRNodePtr &node, const std::string &prefix) {
   IRPythonPrinter printer(prefix);
   return printer.Print(node);
 }
 
-std::string PythonPrint(const TypePtr& type, const std::string& prefix) {
+std::string PythonPrint(const TypePtr &type, const std::string &prefix) {
   IRPythonPrinter printer(prefix);
   return printer.Print(type);
 }

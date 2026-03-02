@@ -30,8 +30,8 @@ namespace ir {
 // Type Inference Functions
 // ============================================================================
 
-TypePtr DeduceTileViewType(const std::vector<ExprPtr>& args,
-                           const std::vector<std::pair<std::string, std::any>>& /*kwargs*/) {
+TypePtr DeduceTileViewType(const std::vector<ExprPtr> &args,
+                           const std::vector<std::pair<std::string, std::any>> &/*kwargs*/) {
   // tile.view requires exactly 3 arguments: input tile, shape tuple, and offset tuple
   CHECK(args.size() == 3) << "tile.view requires exactly 3 arguments (input, shape, offset), but got "
                           << args.size();
@@ -92,8 +92,8 @@ TypePtr DeduceTileViewType(const std::vector<ExprPtr>& args,
   return std::make_shared<TileType>(newShape, tileType->dtype_);
 }
 
-TypePtr DeduceTileReshapeType(const std::vector<ExprPtr>& args,
-                              const std::vector<std::pair<std::string, std::any>>& /*kwargs*/) {
+TypePtr DeduceTileReshapeType(const std::vector<ExprPtr> &args,
+                              const std::vector<std::pair<std::string, std::any>> &/*kwargs*/) {
   // tile.reshape requires exactly 2 arguments: input tile and shape tuple
   CHECK(args.size() == 2) << "tile.reshape requires exactly 2 arguments (input, shape), but got "
                           << args.size();
@@ -148,8 +148,8 @@ TypePtr DeduceTileReshapeType(const std::vector<ExprPtr>& args,
   return std::make_shared<TileType>(newShape, tileType->dtype_);
 }
 
-TypePtr DeduceTileTransposeType(const std::vector<ExprPtr>& args,
-                                const std::vector<std::pair<std::string, std::any>>& /*kwargs*/) {
+TypePtr DeduceTileTransposeType(const std::vector<ExprPtr> &args,
+                                const std::vector<std::pair<std::string, std::any>> &/*kwargs*/) {
   // tile.transpose requires exactly 3 arguments: input tile, axis1, axis2
   CHECK(args.size() == 3) << "tile.transpose requires exactly 3 arguments (input, axis1, axis2), but got "
                           << args.size();
@@ -159,7 +159,7 @@ TypePtr DeduceTileTransposeType(const std::vector<ExprPtr>& args,
   CHECK(tileType) << "tile.transpose requires first argument to be a TileType, but got "
                    << args[0]->GetType()->TypeName();
 
-  const auto& inputShape = tileType->shape_;
+  const auto &inputShape = tileType->shape_;
   size_t ndim = inputShape.size();
 
   CHECK(ndim >= 2) << "tile.transpose requires at least 2 dimensions, but got " << ndim;
@@ -198,8 +198,8 @@ REGISTER_OP("block.view")
     .AddArgument("input", "Input tile (TileType)")
     .AddArgument("shape", "New shape dimensions (TupleType of ScalarType(UINT64))")
     .AddArgument("offset", "Offset dimensions (TupleType of ScalarType(UINT64))")
-    .SetDeduceType([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .SetDeduceType([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceTileViewType(args, kwargs);
     });
 
@@ -209,8 +209,8 @@ REGISTER_OP("block.reshape")
     .SetPipe(PipeType::V)
     .AddArgument("input", "Input tile (TileType)")
     .AddArgument("shape", "New shape dimensions (TupleType of ScalarType(UINT64))")
-    .SetDeduceType([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .SetDeduceType([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceTileReshapeType(args, kwargs);
     });
 
@@ -221,8 +221,8 @@ REGISTER_OP("block.transpose")
     .AddArgument("input", "Input tile (TileType)")
     .AddArgument("axis1", "First axis to swap (ConstInt)")
     .AddArgument("axis2", "Second axis to swap (ConstInt)")
-    .SetDeduceType([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .SetDeduceType([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceTileTransposeType(args, kwargs);
     });
 

@@ -37,9 +37,9 @@ namespace ir {
  * @param op_name Operator name for error messages
  * @return TileType with output shape
  */
-TypePtr DeduceBlockBatchMatMulType(const std::vector<ExprPtr>& args,
-                                   const std::vector<std::pair<std::string, std::any>>& /*kwargs*/,
-                                   const std::string& opName) {
+TypePtr DeduceBlockBatchMatMulType(const std::vector<ExprPtr> &args,
+                                   const std::vector<std::pair<std::string, std::any>> &/*kwargs*/,
+                                   const std::string &opName) {
   INTERNAL_CHECK(args.size() == 2) << "The operator " << opName << " requires exactly 2 arguments, but got "
                           << args.size();
 
@@ -53,8 +53,8 @@ TypePtr DeduceBlockBatchMatMulType(const std::vector<ExprPtr>& args,
                   << args[1]->GetType()->TypeName();
 
   // Extract shapes
-  const auto& lhsShape = lhsType->shape_;
-  const auto& rhsShape = rhsType->shape_;
+  const auto &lhsShape = lhsType->shape_;
+  const auto &rhsShape = rhsType->shape_;
 
   // For batch matmul, we require at least 2D tiles
   INTERNAL_CHECK(lhsShape.size() >= 2) << "The operator " << opName
@@ -117,8 +117,8 @@ REGISTER_OP("block.batch_matmul")
     .SetPipe(PipeType::M)
     .AddArgument("lhs", "Left-hand side tile (TileType, at least 2D)")
     .AddArgument("rhs", "Right-hand side tile (TileType, at least 2D)")
-    .SetDeduceType([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .SetDeduceType([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceBlockBatchMatMulType(args, kwargs, "block.batch_matmul");
     });
 

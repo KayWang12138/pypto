@@ -24,23 +24,23 @@
 namespace pypto {
 namespace ir {
 
-ExprPtr IRMutator::VisitExpr(const ExprPtr& expr) {
+ExprPtr IRMutator::VisitExpr(const ExprPtr &expr) {
   // Call the base class VisitExpr which returns ExprPtr
   return ExprFunctor<ExprPtr>::VisitExpr(expr);
 }
 
-StmtPtr IRMutator::VisitStmt(const StmtPtr& stmt) {
+StmtPtr IRMutator::VisitStmt(const StmtPtr &stmt) {
   // Call the base class VisitStmt which returns StmtPtr
   return StmtFunctor<StmtPtr>::VisitStmt(stmt);
 }
 
 // Leaf nodes - return original shared_ptr (immutable)
-ExprPtr IRMutator::VisitExpr_(const VarPtr& op) {
+ExprPtr IRMutator::VisitExpr_(const VarPtr &op) {
   // Var is immutable, return original
   return op;
 }
 
-ExprPtr IRMutator::VisitExpr_(const IterArgPtr& op) {
+ExprPtr IRMutator::VisitExpr_(const IterArgPtr &op) {
   // Visit initValue as Expr
   INTERNAL_CHECK(op->initValue_) << "IterArg has null initValue";
   auto newInitValue = ExprFunctor<ExprPtr>::VisitExpr(op->initValue_);
@@ -53,27 +53,27 @@ ExprPtr IRMutator::VisitExpr_(const IterArgPtr& op) {
   }
 }
 
-ExprPtr IRMutator::VisitExpr_(const MemRefPtr& op) {
+ExprPtr IRMutator::VisitExpr_(const MemRefPtr &op) {
   // MemRef is immutable, return original
   return op;
 }
 
-ExprPtr IRMutator::VisitExpr_(const ConstIntPtr& op) {
+ExprPtr IRMutator::VisitExpr_(const ConstIntPtr &op) {
   // ConstInt is immutable, return original
   return op;
 }
 
-ExprPtr IRMutator::VisitExpr_(const ConstFloatPtr& op) {
+ExprPtr IRMutator::VisitExpr_(const ConstFloatPtr &op) {
   // ConstFloat is immutable, return original
   return op;
 }
 
-ExprPtr IRMutator::VisitExpr_(const ConstBoolPtr& op) {
+ExprPtr IRMutator::VisitExpr_(const ConstBoolPtr &op) {
   // ConstBool is immutable, return original
   return op;
 }
 
-ExprPtr IRMutator::VisitExpr_(const CallPtr& op) {
+ExprPtr IRMutator::VisitExpr_(const CallPtr &op) {
   // Visit all arguments
   std::vector<ExprPtr> newArgs;
   bool changed = false;
@@ -98,13 +98,13 @@ ExprPtr IRMutator::VisitExpr_(const CallPtr& op) {
   }
 }
 
-ExprPtr IRMutator::VisitExpr_(const MakeTuplePtr& op) {
+ExprPtr IRMutator::VisitExpr_(const MakeTuplePtr &op) {
   // Visit all element expressions
   std::vector<ExprPtr> newElements;
   newElements.reserve(op->elements_.size());
   bool changed = false;
 
-  for (const auto& elem : op->elements_) {
+  for (const auto &elem : op->elements_) {
     INTERNAL_CHECK(elem) << "MakeTuple has null element";
     auto newElem = ExprFunctor<ExprPtr>::VisitExpr(elem);
     INTERNAL_CHECK(newElem) << "MakeTuple element mutated to null";
@@ -122,7 +122,7 @@ ExprPtr IRMutator::VisitExpr_(const MakeTuplePtr& op) {
   }
 }
 
-ExprPtr IRMutator::VisitExpr_(const TupleGetItemExprPtr& op) {
+ExprPtr IRMutator::VisitExpr_(const TupleGetItemExprPtr &op) {
   // Visit the tuple expression
   INTERNAL_CHECK(op->tuple_) << "TupleGetItemExpr has null tuple";
   auto newTuple = ExprFunctor<ExprPtr>::VisitExpr(op->tuple_);
@@ -138,7 +138,7 @@ ExprPtr IRMutator::VisitExpr_(const TupleGetItemExprPtr& op) {
 
 // Macro to generate binary operation mutators with copy-on-write
 #define DEFINE_BINARY_MUTATOR(OpType)                                                                       \
-  ExprPtr IRMutator::VisitExpr_(const OpType##Ptr& op) {                                                    \
+  ExprPtr IRMutator::VisitExpr_(const OpType##Ptr &op) {                                                    \
     INTERNAL_CHECK(op->left_) << #OpType " has null left operand";                                          \
     INTERNAL_CHECK(op->right_) << #OpType " has null right operand";                                        \
     auto new_left = ExprFunctor<ExprPtr>::VisitExpr(op->left_);                                             \
@@ -184,7 +184,7 @@ DEFINE_BINARY_MUTATOR(BitShiftRight)
 
 // Macro to generate unary operation mutators with copy-on-write
 #define DEFINE_UNARY_MUTATOR(OpType)                                                                 \
-  ExprPtr IRMutator::VisitExpr_(const OpType##Ptr& op) {                                             \
+  ExprPtr IRMutator::VisitExpr_(const OpType##Ptr &op) {                                             \
     INTERNAL_CHECK(op->operand_) << #OpType " has null operand";                                     \
     auto new_operand = ExprFunctor<ExprPtr>::VisitExpr(op->operand_);                                \
     INTERNAL_CHECK(new_operand) << #OpType " operand mutated to null";                               \
@@ -207,7 +207,7 @@ DEFINE_UNARY_MUTATOR(Cast)
 #undef DEFINE_UNARY_MUTATOR
 
 // Statement types
-StmtPtr IRMutator::VisitStmt_(const AssignStmtPtr& op) {
+StmtPtr IRMutator::VisitStmt_(const AssignStmtPtr &op) {
   INTERNAL_CHECK(op->var_) << "AssignStmt has null var";
   INTERNAL_CHECK(op->value_) << "AssignStmt has null value";
   auto newVarExpr = ExprFunctor<ExprPtr>::VisitExpr(op->var_);
@@ -224,7 +224,7 @@ StmtPtr IRMutator::VisitStmt_(const AssignStmtPtr& op) {
   }
 }
 
-StmtPtr IRMutator::VisitStmt_(const IfStmtPtr& op) {
+StmtPtr IRMutator::VisitStmt_(const IfStmtPtr &op) {
   INTERNAL_CHECK(op->condition_) << "IfStmt has null condition";
   auto newCondition = ExprFunctor<ExprPtr>::VisitExpr(op->condition_);
   INTERNAL_CHECK(newCondition) << "IfStmt condition mutated to null";
@@ -275,7 +275,7 @@ StmtPtr IRMutator::VisitStmt_(const IfStmtPtr& op) {
   }
 }
 
-StmtPtr IRMutator::VisitStmt_(const YieldStmtPtr& op) {
+StmtPtr IRMutator::VisitStmt_(const YieldStmtPtr &op) {
   std::vector<ExprPtr> newValue;
   bool changed = false;
   newValue.reserve(op->value_.size());
@@ -297,7 +297,7 @@ StmtPtr IRMutator::VisitStmt_(const YieldStmtPtr& op) {
   }
 }
 
-StmtPtr IRMutator::VisitStmt_(const ReturnStmtPtr& op) {
+StmtPtr IRMutator::VisitStmt_(const ReturnStmtPtr &op) {
   std::vector<ExprPtr> newValue;
   bool changed = false;
   newValue.reserve(op->value_.size());
@@ -319,7 +319,7 @@ StmtPtr IRMutator::VisitStmt_(const ReturnStmtPtr& op) {
   }
 }
 
-StmtPtr IRMutator::VisitStmt_(const ForStmtPtr& op) {
+StmtPtr IRMutator::VisitStmt_(const ForStmtPtr &op) {
   INTERNAL_CHECK(op->loopVar_) << "ForStmt has null loop_var";
   INTERNAL_CHECK(op->start_) << "ForStmt has null start";
   INTERNAL_CHECK(op->stop_) << "ForStmt has null stop";
@@ -385,7 +385,7 @@ StmtPtr IRMutator::VisitStmt_(const ForStmtPtr& op) {
   }
 }
 
-StmtPtr IRMutator::VisitStmt_(const SeqStmtsPtr& op) {
+StmtPtr IRMutator::VisitStmt_(const SeqStmtsPtr &op) {
   std::vector<StmtPtr> newStmts;
   bool changed = false;
   newStmts.reserve(op->stmts_.size());
@@ -406,7 +406,7 @@ StmtPtr IRMutator::VisitStmt_(const SeqStmtsPtr& op) {
   }
 }
 
-StmtPtr IRMutator::VisitStmt_(const OpStmtsPtr& op) {
+StmtPtr IRMutator::VisitStmt_(const OpStmtsPtr &op) {
   std::vector<StmtPtr> newStmts;
   bool changed = false;
   newStmts.reserve(op->stmts_.size());
@@ -431,7 +431,7 @@ StmtPtr IRMutator::VisitStmt_(const OpStmtsPtr& op) {
   }
 }
 
-StmtPtr IRMutator::VisitStmt_(const EvalStmtPtr& op) {
+StmtPtr IRMutator::VisitStmt_(const EvalStmtPtr &op) {
   INTERNAL_CHECK(op->expr_) << "EvalStmt has null expr";
   auto newExpr = ExprFunctor<ExprPtr>::VisitExpr(op->expr_);
   INTERNAL_CHECK(newExpr) << "EvalStmt expr mutated to null";
@@ -443,7 +443,7 @@ StmtPtr IRMutator::VisitStmt_(const EvalStmtPtr& op) {
   }
 }
 
-StmtPtr IRMutator::VisitStmt_(const StmtPtr& op) {
+StmtPtr IRMutator::VisitStmt_(const StmtPtr &op) {
   // Base Stmt is immutable, return original
   return op;
 }

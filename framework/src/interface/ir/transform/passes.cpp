@@ -31,18 +31,18 @@ Pass::Pass(std::shared_ptr<PassImpl> impl) : impl_(std::move(impl)) {}
 
 Pass::~Pass() = default;
 
-Pass::Pass(const Pass& other) = default;
-Pass& Pass::operator=(const Pass& other) = default;
-Pass::Pass(Pass&& other) noexcept = default;
-Pass& Pass::operator=(Pass&& other) noexcept = default;
+Pass::Pass(const Pass &other) = default;
+Pass &Pass::operator=(const Pass &other) = default;
+Pass::Pass(Pass &&other) noexcept = default;
+Pass &Pass::operator=(Pass &&other) noexcept = default;
 
-ProgramPtr Pass::operator()(const ProgramPtr& program) const {
+ProgramPtr Pass::operator()(const ProgramPtr &program) const {
   INTERNAL_CHECK(impl_) << "Pass has null implementation";
   INTERNAL_CHECK(program) << "Pass cannot run on null program";
   return (*impl_)(program);
 }
 
-ProgramPtr Pass::run(const ProgramPtr& program) const { return (*this)(program); }
+ProgramPtr Pass::run(const ProgramPtr &program) const { return (*this)(program); }
 
 // Utility pass implementations
 
@@ -53,10 +53,10 @@ namespace {
  */
 class ProgramPassImpl : public PassImpl {
  public:
-  ProgramPassImpl(std::function<ProgramPtr(const ProgramPtr&)> transform, std::string name)
+  ProgramPassImpl(std::function<ProgramPtr(const ProgramPtr &)> transform, std::string name)
       : transform_(std::move(transform)), name_(std::move(name)) {}
 
-  ProgramPtr operator()(const ProgramPtr& program) override {
+  ProgramPtr operator()(const ProgramPtr &program) override {
     INTERNAL_CHECK(program) << "ProgramPass cannot run on null program";
     return transform_(program);
   }
@@ -64,7 +64,7 @@ class ProgramPassImpl : public PassImpl {
   [[nodiscard]] std::string GetName() const override { return name_.empty() ? "ProgramPass" : name_; }
 
  private:
-  std::function<ProgramPtr(const ProgramPtr&)> transform_;
+  std::function<ProgramPtr(const ProgramPtr &)> transform_;
   std::string name_;
 };
 
@@ -73,17 +73,17 @@ class ProgramPassImpl : public PassImpl {
  */
 class FunctionPassImpl : public PassImpl {
  public:
-  FunctionPassImpl(std::function<FunctionPtr(const FunctionPtr&)> transform, std::string name)
+  FunctionPassImpl(std::function<FunctionPtr(const FunctionPtr &)> transform, std::string name)
       : transform_(std::move(transform)), name_(std::move(name)) {}
 
-  ProgramPtr operator()(const ProgramPtr& program) override {
+  ProgramPtr operator()(const ProgramPtr &program) override {
     INTERNAL_CHECK(program) << "FunctionPass cannot run on null program";
 
     // Apply the function transform to each function in the program
     std::vector<FunctionPtr> transformedFunctions;
     transformedFunctions.reserve(program->functions_.size());
 
-    for (const auto& entry : program->functions_) {
+    for (const auto &entry : program->functions_) {
       FunctionPtr transformedFunc = transform_(entry.second);
       transformedFunctions.push_back(transformedFunc);
     }
@@ -95,7 +95,7 @@ class FunctionPassImpl : public PassImpl {
   [[nodiscard]] std::string GetName() const override { return name_.empty() ? "FunctionPass" : name_; }
 
  private:
-  std::function<FunctionPtr(const FunctionPtr&)> transform_;
+  std::function<FunctionPtr(const FunctionPtr &)> transform_;
   std::string name_;
 };
 
@@ -104,11 +104,11 @@ class FunctionPassImpl : public PassImpl {
 // Factory functions for utility passes
 namespace pass {
 
-Pass CreateProgramPass(std::function<ProgramPtr(const ProgramPtr&)> transform, const std::string& name) {
+Pass CreateProgramPass(std::function<ProgramPtr(const ProgramPtr &)> transform, const std::string &name) {
   return Pass(std::make_shared<ProgramPassImpl>(std::move(transform), name));
 }
 
-Pass CreateFunctionPass(std::function<FunctionPtr(const FunctionPtr&)> transform, const std::string& name) {
+Pass CreateFunctionPass(std::function<FunctionPtr(const FunctionPtr &)> transform, const std::string &name) {
   return Pass(std::make_shared<FunctionPassImpl>(std::move(transform), name));
 }
 
