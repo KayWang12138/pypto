@@ -477,7 +477,7 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::Run(DynFuncData *funcdata, int co
         return;
     }
 
-    this->coreId_ = coreId_;
+    this->coreId_ = 0;
     DynFuncData dupData;
     memset_s(&dupData, sizeof(dupData), 0, sizeof(dupData));
     SetUp(cce, data, static_cast<uint64_t>(data->opAtrrOffsets[taskId]), dir, &dupData);
@@ -599,6 +599,8 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::SetUp(PvModelCceBin *cce, DynFunc
     // AIC/AIV flag
     if (binName.find("aiv") != std::string::npos) {
         this->subcoreId_ = static_cast<uint64_t>(1);
+    } else {
+        this->subcoreId_ = static_cast<uint64_t>(0);
     }
     pv_set_toml_((dir + "/spec.toml").c_str());
     pv_init_(0, 0, 1, (dir + std::string("/../pvlog/")).c_str(), this->coreId_);
@@ -662,7 +664,7 @@ template <typename SystemConfig, typename CaseConfig>
 void DynPvModelImpl<SystemConfig, CaseConfig>::RunModel()
 {
     step_status_t step_status;
-    SIMULATION_LOGI("RunModel here");
+    SIMULATION_LOGI("subcoreId: %d , coreId: %d ", subcoreId_, this->coreId_);
     do {
         step_status = static_cast<step_status_t>(pv_step_(PV_STEP_PIPE_ID, subcoreId_, this->coreId_, 0));
     } while (step_status != step_status_t::END && step_status != step_status_t::TIME_OUT);
