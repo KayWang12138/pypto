@@ -146,6 +146,69 @@ std::string SymbolicExpressionTable::BuildExpression(const RawSymbolicScalarPtr 
     return expr;
 }
 
+bool SymbolicExpressionTable::ContainsRuntimeCall(const std::string &expr, const std::string &runtimeFuncName,
+    const std::function<TensorType(const std::string&)> &getTensorTypeFunc) {
+    if (expr.empty()) {
+        return false;
+    }
+    
+    // 查找包含 runtimeFuncName 开头的字符串
+    size_t pos = 0;
+    while (pos < expr.size()) {
+        // 查找 runtimeFuncName
+        size_t start = expr.find(runtimeFuncName, pos);
+        if (start == std::string::npos) {
+            break;
+        }
+        
+        // 检查是否是完整的函数名（后面跟着 1-4 的数字或括号）
+        size_t next = start + runtimeFuncName.size();
+        if (next < expr.size() && isdigit(expr[next]) {
+            char digit = expr[next];
+            if (digit < '1' || digit > '4') {
+                pos = next + 1;
+                continue;
+            }
+            next++;
+            if (next < expr.size() && expr[next] == '(') {
+                // 查找左括号
+                size_t leftParen = next;
+                // 查找右括号
+                size_t rightParen = expr.find(')', leftParen);
+                if (rightParen != std::string::npos) {
+                    // 提取括号内的内容
+                    std::string args = expr.substr(leftParen + 1, rightParen - leftParen - 1);
+                    
+                    // 提取第一个参数（TENSOR_ID）
+                    size_t comma = args.find(',');
+                    std::string tensorId;
+                    if (comma != std::string::npos) {
+                        tensorId = args.substr(0, comma);
+                    } else {
+                        tensorId = args;
+                    }
+                    
+                    // 去除空格
+                    tensorId = StringUtils::Trim(tensorId);
+                    
+                    // 如果提供了tensor类型查询函数，检查tensor类型
+                    if (getTensorTypeFunc) {
+                        TensorType tensorType = getTensorTypeFunc(tensorId);
+                        // 只有tensor类型为DEPEND_AICORE时才返回true
+                        if (tensorType == TensorType::DEPEND_AICORE) {
+                            return true;
+                        }
+                        return false;
+                    }
+                    return true;
+                }
+            }
+        }
+        pos = start + 1;
+    }
+    return false;
+}
+
 std::string SymbolicExpressionTable::BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict) {
     if (exprDict.count(raw)) {
         return exprDict.find(raw)->second;
