@@ -1463,7 +1463,7 @@ TEST_F(ScheduleOoOTest, TestHasEnoughBuffer) {
 
     OoOScheduler ooOScheduler(*function);
     bool res = ooOScheduler.HasEnoughBuffer(issue, MemoryType::MEM_UB);
-    EXPECT_EQ(res, false);
+    EXPECT_EQ(res, false); 
 }
 
 TEST_F(ScheduleOoOTest, TestHasEnoughBufferAddMemId) {
