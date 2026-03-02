@@ -45,7 +45,7 @@ private:
     void CombineLastAxis(std::vector<SymbolicScalar> &shape, size_t shapeSize) const;
     Status ProcessAxis(Operation &op, std::vector<bool> attr, bool isInput) const;
     void SetNeedAllocAttr(Function &function);
-    void ProcessExpand(Operation &op, int dimSize) const;
+    void FixExpandDimForAxisCombine(Operation &op, int dimSize) const;
     std::string DumpOpList(Function &function);
     bool combineAxis{false};
     bool forceCombineAxis{false};

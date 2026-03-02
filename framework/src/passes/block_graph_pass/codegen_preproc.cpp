@@ -182,7 +182,7 @@ bool ReduceNeedCombineAxis(const Operation &op) {
     return false;
 }
 
-void CodegenPreproc::ProcessExpand(Operation &op, int dimSize) const {
+void CodegenPreproc::FixExpandDimForAxisCombine(Operation &op, int dimSize) const {
     if (op.GetOpcode() == Opcode::OP_EXPAND) {
         int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM");
         if (axis == dimSize - NUM2) {
@@ -213,7 +213,8 @@ Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
             for (size_t i = 0; i < outputs.size(); ++i) {
                 if (outputs[i]->tensor->rawshape.back() == 1 && ReduceNeedCombineAxis(op)) {
                     outputCombineAxis.push_back(true);
-                    ProcessExpand(op, static_cast<int>(outputs[i]->tensor->rawshape.size()));
+                    // OP_EXPAND 只有单输出，此处只会执行一次
+                    FixExpandDimForAxisCombine(op, static_cast<int>(outputs[i]->tensor->rawshape.size()));
                 } else {
                     outputCombineAxis.push_back(false);
                 }

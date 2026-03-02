@@ -163,7 +163,7 @@ TEST_F(CodegenPreprocTest, TestForceCombineAxis) {
     EXPECT_EQ(tensor2->tensor->rawshape, combinedShape);
 }
 
-TEST_F(CodegenPreprocTest, TestCombineAxisROWSUMLINE) {
+TEST_F(CodegenPreprocTest, TestCombineAxisRowSumLine) {
     ComputationalGraphBuilder graph;
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4, 12, 1}, MemoryType::MEM_UB, "in"), true);
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {1, 12, 1}, MemoryType::MEM_UB, "out"), true);
@@ -213,7 +213,7 @@ TEST_F(CodegenPreprocTest, TestCombineAxisROWSUMLINE) {
     EXPECT_EQ(attr, (std::vector<bool>{true, false}));
 }
 
-TEST_F(CodegenPreprocTest, TestCombineAxisEXPAND) {
+TEST_F(CodegenPreprocTest, TestCombineAxisExpand) {
     ComputationalGraphBuilder graph;
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {128, 1}, MemoryType::MEM_DEVICE_DDR, "in1"), true);
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {1, 1}, MemoryType::MEM_UB, "t1"), true);
