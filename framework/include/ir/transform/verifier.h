@@ -37,7 +37,7 @@ namespace ir {
  *   class MyCustomRule : public VerifyRule {
  *    public:
  *     std::string GetName() const override { return "MyCustomRule"; }
- *     void Verify(const FunctionPtr& func, std::vector<Diagnostic>& diagnostics) override {
+ *     void Verify(const FunctionPtr &func, std::vector<Diagnostic> &diagnostics) override {
  *       // Verification logic
  *     }
  *   };
@@ -86,7 +86,7 @@ using VerifyRulePtr = std::shared_ptr<VerifyRule>;
  *
  *   // Run verification
  *   auto diagnostics = verifier.Verify(program);
- *   for (const auto& d : diagnostics) {
+ *   for (const auto &d : diagnostics) {
  *     if (d.severity == DiagnosticSeverity::Error) {
  *       LOG_ERROR << d.message;
  *     }

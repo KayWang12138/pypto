@@ -31,20 +31,20 @@ void IRVerifier::AddRule(VerifyRulePtr rule) {
 
   // Check if rule with same name already exists
   auto it = std::find_if(rules_.begin(), rules_.end(),
-                         [&rule](const VerifyRulePtr& r) { return r->GetName() == rule->GetName(); });
+                         [&rule](const VerifyRulePtr &r) { return r->GetName() == rule->GetName(); });
 
   if (it == rules_.end()) {
     rules_.push_back(rule);
   }
 }
 
-void IRVerifier::EnableRule(const std::string& name) { disabledRules_.erase(name); }
+void IRVerifier::EnableRule(const std::string &name) { disabledRules_.erase(name); }
 
-void IRVerifier::DisableRule(const std::string& name) { disabledRules_.insert(name); }
+void IRVerifier::DisableRule(const std::string &name) { disabledRules_.insert(name); }
 
-bool IRVerifier::IsRuleEnabled(const std::string& name) const { return disabledRules_.count(name) == 0; }
+bool IRVerifier::IsRuleEnabled(const std::string &name) const { return disabledRules_.count(name) == 0; }
 
-std::vector<Diagnostic> IRVerifier::Verify(const ProgramPtr& program) const {
+std::vector<Diagnostic> IRVerifier::Verify(const ProgramPtr &program) const {
   if (!program) {
     return {};
   }
@@ -53,13 +53,13 @@ std::vector<Diagnostic> IRVerifier::Verify(const ProgramPtr& program) const {
 
   // Run all enabled rules on all functions
   // program->functions_ is a map from GlobalVar to Function
-  for (const auto& entry : program->functions_) {
-    const auto& func = entry.second;
+  for (const auto &entry : program->functions_) {
+    const auto &func = entry.second;
     if (!func) {
       continue;
     }
 
-    for (const auto& rule : rules_) {
+    for (const auto &rule : rules_) {
       if (!rule) {
         continue;
       }
@@ -77,12 +77,12 @@ std::vector<Diagnostic> IRVerifier::Verify(const ProgramPtr& program) const {
   return allDiagnostics;
 }
 
-void IRVerifier::VerifyOrThrow(const ProgramPtr& program) const {
+void IRVerifier::VerifyOrThrow(const ProgramPtr &program) const {
   auto diagnostics = Verify(program);
 
   // Check if there are any errors (not just warnings)
   bool hasErrors = std::any_of(diagnostics.begin(), diagnostics.end(),
-                                [](const Diagnostic& d) { return d.severity == DiagnosticSeverity::Error; });
+                                [](const Diagnostic &d) { return d.severity == DiagnosticSeverity::Error; });
 
   if (hasErrors) {
     std::string report = GenerateReport(diagnostics);
@@ -96,7 +96,7 @@ std::string IRVerifier::GenerateReport(const std::vector<Diagnostic>& diagnostic
   // Count errors and warnings
   size_t errorCount = 0;
   size_t warningCount = 0;
-  for (const auto& d : diagnostics) {
+  for (const auto &d : diagnostics) {
     if (d.severity == DiagnosticSeverity::Error) {
       errorCount++;
     } else {
@@ -117,7 +117,7 @@ std::string IRVerifier::GenerateReport(const std::vector<Diagnostic>& diagnostic
 
   // List all diagnostics
   for (size_t i = 0; i < diagnostics.size(); ++i) {
-    const auto& d = diagnostics[i];
+    const auto &d = diagnostics[i];
 
     // Severity label
     std::string severityStr = (d.severity == DiagnosticSeverity::Error) ? "ERROR" : "WARNING";

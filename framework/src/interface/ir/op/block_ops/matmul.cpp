@@ -25,9 +25,9 @@
 namespace pypto {
 namespace ir {
 
-TypePtr DeduceBlockMatMulType(const std::vector<ExprPtr>& args,
-                              const std::vector<std::pair<std::string, std::any>>& kwargs,
-                              const std::string& opName) {
+TypePtr DeduceBlockMatMulType(const std::vector<ExprPtr> &args,
+                              const std::vector<std::pair<std::string, std::any>> &kwargs,
+                              const std::string &opName) {
   (void)kwargs;
   CHECK(args.size() == 2) << "The operator " << opName << " requires exactly 2 arguments, but got "
                           << args.size();
@@ -42,8 +42,8 @@ TypePtr DeduceBlockMatMulType(const std::vector<ExprPtr>& args,
                   << args[1]->GetType()->TypeName();
 
   // Extract shapes
-  const auto& lhsShape = lhsType->shape_;
-  const auto& rhsShape = rhsType->shape_;
+  const auto &lhsShape = lhsType->shape_;
+  const auto &rhsShape = rhsType->shape_;
 
   // For block matmul, we require 2D tiles
   CHECK(lhsShape.size() == 2) << "The operator " << opName << " requires lhs to be 2D, but got "
@@ -82,9 +82,9 @@ TypePtr DeduceBlockMatMulType(const std::vector<ExprPtr>& args,
   return std::make_shared<TileType>(outputShape, *resultDtype);
 }
 
-TypePtr DeduceBlockMatMulAccType(const std::vector<ExprPtr>& args,
-                                 const std::vector<std::pair<std::string, std::any>>& kwargs,
-                                 const std::string& opName) {
+TypePtr DeduceBlockMatMulAccType(const std::vector<ExprPtr> &args,
+                                 const std::vector<std::pair<std::string, std::any>> &kwargs,
+                                 const std::string &opName) {
   (void)kwargs;
   CHECK(args.size() == 3) << "The operator " << opName << " requires exactly 3 arguments, but got "
                           << args.size();
@@ -103,9 +103,9 @@ TypePtr DeduceBlockMatMulAccType(const std::vector<ExprPtr>& args,
                   << args[2]->GetType()->TypeName();
 
   // Extract shapes
-  const auto& accShape = accType->shape_;
-  const auto& lhsShape = lhsType->shape_;
-  const auto& rhsShape = rhsType->shape_;
+  const auto &accShape = accType->shape_;
+  const auto &lhsShape = lhsType->shape_;
+  const auto &rhsShape = rhsType->shape_;
 
   // For block matmul_acc, we require 2D tiles
   CHECK(accShape.size() == 2) << "The operator " << opName << " requires acc to be 2D, but got "
@@ -173,8 +173,8 @@ REGISTER_OP("block.matmul")
     .SetDescription("Matrix multiplication of two tiles")
     .AddArgument("lhs", "Left-hand side tile (TileType, 2D)")
     .AddArgument("rhs", "Right-hand side tile (TileType, 2D)")
-    .SetDeduceType([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .SetDeduceType([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceBlockMatMulType(args, kwargs, "block.matmul");
     });
 
@@ -184,8 +184,8 @@ REGISTER_OP("block.matmul_acc")
     .AddArgument("acc", "Accumulator tile (TileType, 2D)")
     .AddArgument("lhs", "Left-hand side tile (TileType, 2D)")
     .AddArgument("rhs", "Right-hand side tile (TileType, 2D)")
-    .SetDeduceType([](const std::vector<ExprPtr>& args,
-                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+    .SetDeduceType([](const std::vector<ExprPtr> &args,
+                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
       return DeduceBlockMatMulAccType(args, kwargs, "block.matmul_acc");
     });
 

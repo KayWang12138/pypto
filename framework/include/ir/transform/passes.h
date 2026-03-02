@@ -118,7 +118,7 @@ namespace pass {
  *
  * Example:
  *   Pass MyPass() {
- *     return CreateFunctionPass([](const FunctionPtr& func) {
+ *     return CreateFunctionPass([](const FunctionPtr &func) {
  *       // Transform the function
  *       return transformed_func;
  *     }, "MyPass");

@@ -49,14 +49,14 @@ class FieldSerializerVisitor {
  public:
   using resultType = msgpack::object;
 
-  explicit FieldSerializerVisitor(msgpack::zone& zone, class IRSerializer::Impl& ctx)
+  explicit FieldSerializerVisitor(msgpack::zone &zone, class IRSerializer::Impl &ctx)
       : zone_(zone), ctx_(ctx) {}
 
   [[nodiscard]] resultType InitResult() const;
 
   // Visit IRNode pointer fields
   template <typename IRNodePtrType>
-  resultType VisitIRNodeField(const IRNodePtrType& field);
+  resultType VisitIRNodeField(const IRNodePtrType &field);
 
   // Visit optional IRNode pointer fields
   template <typename IRNodePtrType>
@@ -71,44 +71,44 @@ class FieldSerializerVisitor {
   resultType VisitIRNodeMapField(const std::map<KeyType, ValueType, Compare>& field);
 
   // Visit leaf fields
-  resultType VisitLeafField(const int& field);
-  resultType VisitLeafField(const int64_t& field);
-  resultType VisitLeafField(const uint64_t& field);
-  resultType VisitLeafField(const double& field);
-  resultType VisitLeafField(const bool& field);
-  resultType VisitLeafField(const std::string& field);
-  resultType VisitLeafField(const DataType& field);
-  resultType VisitLeafField(const FunctionType& field);
-  resultType VisitLeafField(const MemorySpace& field);
-  resultType VisitLeafField(const TypePtr& field);
-  resultType VisitLeafField(const OpPtr& field);
-  resultType VisitLeafField(const Span& field);
+  resultType VisitLeafField(const int &field);
+  resultType VisitLeafField(const int64_t &field);
+  resultType VisitLeafField(const uint64_t &field);
+  resultType VisitLeafField(const double &field);
+  resultType VisitLeafField(const bool &field);
+  resultType VisitLeafField(const std::string &field);
+  resultType VisitLeafField(const DataType &field);
+  resultType VisitLeafField(const FunctionType &field);
+  resultType VisitLeafField(const MemorySpace &field);
+  resultType VisitLeafField(const TypePtr &field);
+  resultType VisitLeafField(const OpPtr &field);
+  resultType VisitLeafField(const Span &field);
   resultType VisitLeafField(const std::vector<TypePtr>& field);
   resultType VisitLeafField(const std::vector<std::pair<std::string, std::any>>& field);
 
   // Field kind hooks
   template <typename FVisitOp>
-  void VisitIgnoreField(FVisitOp&& visitOp) {
+  void VisitIgnoreField(FVisitOp &&visitOp) {
     visitOp();
   }
 
   template <typename FVisitOp>
-  void VisitDefField(FVisitOp&& visitOp) {
+  void VisitDefField(FVisitOp &&visitOp) {
     visitOp();
   }
 
   template <typename FVisitOp>
-  void VisitUsualField(FVisitOp&& visitOp) {
+  void VisitUsualField(FVisitOp &&visitOp) {
     visitOp();
   }
 
   // Combine field results into a map
   template <typename Desc>
-  void CombineResult(resultType& acc, resultType fieldResult, const Desc& desc);
+  void CombineResult(resultType &acc, resultType fieldResult, const Desc &desc);
 
  private:
-  msgpack::zone& zone_;
-  class IRSerializer::Impl& ctx_;
+  msgpack::zone &zone_;
+  class IRSerializer::Impl &ctx_;
   std::map<std::string, msgpack::object> fields_;
 };
 
@@ -119,7 +119,7 @@ class IRSerializer::Impl {
  public:
   Impl() = default;
 
-  std::vector<uint8_t> Serialize(const IRNodePtr& node) {
+  std::vector<uint8_t> Serialize(const IRNodePtr &node) {
     ptrToId_.clear();
     nextId_ = 0;
 
@@ -133,7 +133,7 @@ class IRSerializer::Impl {
     return std::vector<uint8_t>(buffer.data(), buffer.data() + buffer.size());
   }
 
-  msgpack::object SerializeNode(const IRNodePtr& node, msgpack::zone& zone) {
+  msgpack::object SerializeNode(const IRNodePtr &node, msgpack::zone &zone) {
     INTERNAL_CHECK(node) << "Cannot serialize null IR node";
 
     // Check if we've already serialized this pointer
@@ -160,7 +160,7 @@ class IRSerializer::Impl {
     return msgpack::object(nodeMap, zone);
   }
 
-  msgpack::object SerializeFields(const IRNodePtr& node, msgpack::zone& zone) {
+  msgpack::object SerializeFields(const IRNodePtr &node, msgpack::zone &zone) {
 #define SERIALIZE_FIELDS(Type)              \
   if (auto p = As<Type>(node)) {            \
     return SerializeFieldsGeneric(p, zone); \
@@ -203,7 +203,7 @@ class IRSerializer::Impl {
     return msgpack::object();  // Unreachable, but needed for compilation
   }
 
-  msgpack::object SerializeSpan(const Span& span, msgpack::zone& zone) {
+  msgpack::object SerializeSpan(const Span &span, msgpack::zone &zone) {
     std::map<std::string, msgpack::object> spanMap;
     spanMap["filename"] = msgpack::object(span.filename_, zone);
     spanMap["begin_line"] = msgpack::object(span.beginLine_, zone);
@@ -213,12 +213,12 @@ class IRSerializer::Impl {
     return msgpack::object(spanMap, zone);
   }
 
-  msgpack::object SerializeMemRef(const std::optional<MemRefPtr>& memrefOpt, msgpack::zone& zone) {
+  msgpack::object SerializeMemRef(const std::optional<MemRefPtr>& memrefOpt, msgpack::zone &zone) {
     if (!memrefOpt.has_value()) {
       return msgpack::object();  // null
     }
 
-    const auto& memref = *memrefOpt.value();
+    const auto &memref = *memrefOpt.value();
     std::map<std::string, msgpack::object> memrefMap;
     memrefMap["memory_space"] = msgpack::object(static_cast<uint8_t>(memref.memorySpace_), zone);
     memrefMap["addr"] = SerializeNode(memref.addr_, zone);
@@ -227,7 +227,7 @@ class IRSerializer::Impl {
     return msgpack::object(memrefMap, zone);
   }
 
-  msgpack::object SerializeTileView(const std::optional<TileView>& tileView, msgpack::zone& zone) {
+  msgpack::object SerializeTileView(const std::optional<TileView>& tileView, msgpack::zone &zone) {
     if (!tileView.has_value()) {
       return msgpack::object();  // null
     }
@@ -236,14 +236,14 @@ class IRSerializer::Impl {
 
     // Serialize valid_shape
     std::vector<msgpack::object> validShapeVec;
-    for (const auto& dim : tileView->validShape) {
+    for (const auto &dim : tileView->validShape) {
       validShapeVec.push_back(SerializeNode(dim, zone));
     }
     tvMap["valid_shape"] = msgpack::object(validShapeVec, zone);
 
     // Serialize stride
     std::vector<msgpack::object> strideVec;
-    for (const auto& dim : tileView->stride) {
+    for (const auto &dim : tileView->stride) {
       strideVec.push_back(SerializeNode(dim, zone));
     }
     tvMap["stride"] = msgpack::object(strideVec, zone);
@@ -254,7 +254,7 @@ class IRSerializer::Impl {
     return msgpack::object(tvMap, zone);
   }
 
-  msgpack::object SerializeType(const TypePtr& type, msgpack::zone& zone) {
+  msgpack::object SerializeType(const TypePtr &type, msgpack::zone &zone) {
     INTERNAL_CHECK(type) << "Cannot serialize null Type";
 
     std::map<std::string, msgpack::object> typeMap;
@@ -266,7 +266,7 @@ class IRSerializer::Impl {
       typeMap["dtype"] = msgpack::object(tensorType->dtype_.Code(), zone);
 
       std::vector<msgpack::object> shapeVec;
-      for (const auto& dim : tensorType->shape_) {
+      for (const auto &dim : tensorType->shape_) {
         shapeVec.push_back(SerializeNode(dim, zone));
       }
       typeMap["shape"] = msgpack::object(shapeVec, zone);
@@ -279,7 +279,7 @@ class IRSerializer::Impl {
       typeMap["dtype"] = msgpack::object(tileType->dtype_.Code(), zone);
 
       std::vector<msgpack::object> shapeVec;
-      for (const auto& dim : tileType->shape_) {
+      for (const auto &dim : tileType->shape_) {
         shapeVec.push_back(SerializeNode(dim, zone));
       }
       typeMap["shape"] = msgpack::object(shapeVec, zone);
@@ -295,7 +295,7 @@ class IRSerializer::Impl {
       }
     } else if (auto tupleType = As<TupleType>(type)) {
       std::vector<msgpack::object> typesVec;
-      for (const auto& t : tupleType->types_) {
+      for (const auto &t : tupleType->types_) {
         typesVec.push_back(SerializeType(t, zone));
       }
       typeMap["types"] = msgpack::object(typesVec, zone);
@@ -310,14 +310,14 @@ class IRSerializer::Impl {
     return msgpack::object(typeMap, zone);
   }
 
-  msgpack::object SerializeDataType(const DataType& dtype, msgpack::zone& zone) {
+  msgpack::object SerializeDataType(const DataType &dtype, msgpack::zone &zone) {
     std::map<std::string, msgpack::object> dtypeMap;
     dtypeMap["type"] = msgpack::object("DataType", zone);
     dtypeMap["code"] = msgpack::object(dtype.Code(), zone);
     return msgpack::object(dtypeMap, zone);
   }
 
-  msgpack::object SerializeOp(const OpPtr& op, msgpack::zone& zone) {
+  msgpack::object SerializeOp(const OpPtr &op, msgpack::zone &zone) {
     INTERNAL_CHECK(op) << "Cannot serialize null Op";
 
     std::map<std::string, msgpack::object> opMap;
@@ -334,7 +334,7 @@ class IRSerializer::Impl {
   }
 
   template <typename NodePtr>
-  msgpack::object SerializeFieldsGeneric(const NodePtr& node, msgpack::zone& zone) {
+  msgpack::object SerializeFieldsGeneric(const NodePtr &node, msgpack::zone &zone) {
     using NodeType = typename NodePtr::element_type;
     auto descriptors = NodeType::GetFieldDescriptors();
 
@@ -349,7 +349,7 @@ class IRSerializer::Impl {
 
  private:
   uint64_t nextId_;
-  std::unordered_map<const IRNode*, uint64_t> ptrToId_;
+  std::unordered_map<const IRNode *, uint64_t> ptrToId_;
 };
 
 // FieldSerializerVisitor implementation
@@ -357,7 +357,7 @@ class IRSerializer::Impl {
 msgpack::object FieldSerializerVisitor::InitResult() const { return msgpack::object(fields_, zone_); }
 
 template <typename IRNodePtrType>
-msgpack::object FieldSerializerVisitor::VisitIRNodeField(const IRNodePtrType& field) {
+msgpack::object FieldSerializerVisitor::VisitIRNodeField(const IRNodePtrType &field) {
   return ctx_.SerializeNode(field, zone_);
 }
 
@@ -375,7 +375,7 @@ msgpack::object FieldSerializerVisitor::VisitIRNodeField(const std::optional<IRN
 template <typename IRNodePtrType>
 msgpack::object FieldSerializerVisitor::VisitIRNodeVectorField(const std::vector<IRNodePtrType>& field) {
   std::vector<msgpack::object> vec;
-  for (const auto& item : field) {
+  for (const auto &item : field) {
     vec.push_back(ctx_.SerializeNode(item, zone_));
   }
   return msgpack::object(vec, zone_);
@@ -395,58 +395,58 @@ msgpack::object FieldSerializerVisitor::VisitIRNodeMapField(
   return msgpack::object(entries, zone_);
 }
 
-msgpack::object FieldSerializerVisitor::VisitLeafField(const int& field) {
+msgpack::object FieldSerializerVisitor::VisitLeafField(const int &field) {
   return msgpack::object(field, zone_);
 }
 
-msgpack::object FieldSerializerVisitor::VisitLeafField(const int64_t& field) {
+msgpack::object FieldSerializerVisitor::VisitLeafField(const int64_t &field) {
   return msgpack::object(field, zone_);
 }
 
-msgpack::object FieldSerializerVisitor::VisitLeafField(const uint64_t& field) {
+msgpack::object FieldSerializerVisitor::VisitLeafField(const uint64_t &field) {
   return msgpack::object(field, zone_);
 }
 
-msgpack::object FieldSerializerVisitor::VisitLeafField(const double& field) {
+msgpack::object FieldSerializerVisitor::VisitLeafField(const double &field) {
   return msgpack::object(field, zone_);
 }
 
-msgpack::object FieldSerializerVisitor::VisitLeafField(const bool& field) {
+msgpack::object FieldSerializerVisitor::VisitLeafField(const bool &field) {
   return msgpack::object(field, zone_);
 }
 
-msgpack::object FieldSerializerVisitor::VisitLeafField(const std::string& field) {
+msgpack::object FieldSerializerVisitor::VisitLeafField(const std::string &field) {
   return msgpack::object(field, zone_);
 }
 
-msgpack::object FieldSerializerVisitor::VisitLeafField(const DataType& field) {
+msgpack::object FieldSerializerVisitor::VisitLeafField(const DataType &field) {
   return ctx_.SerializeDataType(field, zone_);
 }
 
-msgpack::object FieldSerializerVisitor::VisitLeafField(const FunctionType& field) {
+msgpack::object FieldSerializerVisitor::VisitLeafField(const FunctionType &field) {
   return msgpack::object(static_cast<uint8_t>(field), zone_);
 }
 
-msgpack::object FieldSerializerVisitor::VisitLeafField(const MemorySpace& field) {
+msgpack::object FieldSerializerVisitor::VisitLeafField(const MemorySpace &field) {
   return msgpack::object(static_cast<uint8_t>(field), zone_);
 }
 
-msgpack::object FieldSerializerVisitor::VisitLeafField(const TypePtr& field) {
+msgpack::object FieldSerializerVisitor::VisitLeafField(const TypePtr &field) {
   return ctx_.SerializeType(field, zone_);
 }
 
-msgpack::object FieldSerializerVisitor::VisitLeafField(const OpPtr& field) {
+msgpack::object FieldSerializerVisitor::VisitLeafField(const OpPtr &field) {
   return ctx_.SerializeOp(field, zone_);
 }
 
-msgpack::object FieldSerializerVisitor::VisitLeafField(const Span& field) {
+msgpack::object FieldSerializerVisitor::VisitLeafField(const Span &field) {
   return ctx_.SerializeSpan(field, zone_);
 }
 
 msgpack::object FieldSerializerVisitor::VisitLeafField(const std::vector<TypePtr>& field) {
   std::vector<msgpack::object> vec;
   vec.reserve(field.size());
-  for (const auto& type : field) {
+  for (const auto &type : field) {
     vec.push_back(ctx_.SerializeType(type, zone_));
   }
   return msgpack::object(vec, zone_);
@@ -457,7 +457,7 @@ msgpack::object FieldSerializerVisitor::VisitLeafField(
   // Use vector to preserve order (msgpack will serialize as array of [key, value] pairs)
   std::vector<msgpack::object> kwargsMsgs;
 
-  auto make_pair = [this](const std::string& key, const msgpack::object& value) -> msgpack::object {
+  auto make_pair = [this](const std::string &key, const msgpack::object &value) -> msgpack::object {
     std::map<std::string, msgpack::object> pairMap;
     pairMap["key"] = msgpack::object(key, zone_);
     pairMap["value"] = value;
@@ -494,7 +494,7 @@ msgpack::object FieldSerializerVisitor::VisitLeafField(
 }
 
 template <typename Desc>
-void FieldSerializerVisitor::CombineResult(resultType& acc, resultType fieldResult, const Desc& desc) {
+void FieldSerializerVisitor::CombineResult(resultType &acc, resultType fieldResult, const Desc &desc) {
   fields_[desc.name] = fieldResult;
   acc = msgpack::object(fields_, zone_);
 }
@@ -505,20 +505,20 @@ IRSerializer::IRSerializer() : impl_(std::make_unique<Impl>()) {}
 
 IRSerializer::~IRSerializer() = default;
 
-std::vector<uint8_t> IRSerializer::Serialize(const IRNodePtr& node) { return impl_->Serialize(node); }
+std::vector<uint8_t> IRSerializer::Serialize(const IRNodePtr &node) { return impl_->Serialize(node); }
 
 // Public API functions
 
-std::vector<uint8_t> Serialize(const IRNodePtr& node) {
+std::vector<uint8_t> Serialize(const IRNodePtr &node) {
   IRSerializer serializer;
   return serializer.Serialize(node);
 }
 
-void SerializeToFile(const IRNodePtr& node, const std::string& path) {
+void SerializeToFile(const IRNodePtr &node, const std::string &path) {
   auto data = Serialize(node);
   std::ofstream file(path, std::ios::binary);
   INTERNAL_CHECK(file) << "Failed to open file for writing: " + path;
-  file.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
+  file.write(reinterpret_cast<const char *>(data.data()), static_cast<std::streamsize>(data.size()));
   INTERNAL_CHECK(file) << "Failed to write to file: " + path;
 }
 

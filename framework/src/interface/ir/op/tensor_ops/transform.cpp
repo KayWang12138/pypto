@@ -97,7 +97,7 @@ TypePtr DeduceTensorTransposeType(const std::vector<ExprPtr>& args,
   INTERNAL_CHECK(tensorType) << "tensor.transpose requires first argument to be a TensorType, but got "
                      << args[0]->GetType()->TypeName();
 
-  const auto& inputShape = tensorType->shape_;
+  const auto &inputShape = tensorType->shape_;
   size_t ndim = inputShape.size();
 
   INTERNAL_CHECK(ndim >= 2) << "tensor.transpose requires at least 2 dimensions, but got " << ndim;

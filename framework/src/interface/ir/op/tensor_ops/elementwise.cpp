@@ -25,7 +25,7 @@ namespace ir {
 
 TypePtr DeduceTensorOpElementwiseBinaryType(const std::vector<ExprPtr>& args,
                                             const std::vector<std::pair<std::string, std::any>>& /*kwargs*/,
-                                            const std::string& opName) {
+                                            const std::string &opName) {
   INTERNAL_CHECK(args.size() == 2) << "The operator " << opName << " requires exactly 2 arguments, but got "
                           << args.size();
 
@@ -53,7 +53,7 @@ TypePtr DeduceTensorOpElementwiseBinaryType(const std::vector<ExprPtr>& args,
 
 TypePtr DeduceTensorOpElementwiseScalarType(const std::vector<ExprPtr>& args,
                                             const std::vector<std::pair<std::string, std::any>>& /*kwargs*/,
-                                            const std::string& opName) {
+                                            const std::string &opName) {
   INTERNAL_CHECK(args.size() == 2) << "The operator " << opName << " requires exactly 2 arguments, but got "
                           << args.size();
 

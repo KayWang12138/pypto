@@ -45,21 +45,21 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
     idToPtr_.clear();
 
     try {
-      msgpack::object_handle oh = msgpack::unpack(reinterpret_cast<const char*>(data.data()), data.size());
+      msgpack::object_handle oh = msgpack::unpack(reinterpret_cast<const char *>(data.data()), data.size());
       msgpack::object obj = oh.get();
       return DeserializeNode(obj, *oh.zone());
-    } catch (const msgpack::parse_error& e) {
+    } catch (const msgpack::parse_error &e) {
       throw RuntimeError(std::string("MessagePack parse error: ") + e.what());
-    } catch (const msgpack::type_error& e) {
+    } catch (const msgpack::type_error &e) {
       throw RuntimeError(std::string("MessagePack type error: ") + e.what());
     }
   }
 
-  IRNodePtr DeserializeNode(const msgpack::object& obj, msgpack::zone& zone) override {
+  IRNodePtr DeserializeNode(const msgpack::object &obj, msgpack::zone &zone) override {
     INTERNAL_CHECK(obj.type == msgpack::type::MAP) << "Expected map for IR node";
 
-    msgpack::object_kv* p = obj.via.map.ptr;
-    msgpack::object_kv* const pend = obj.via.map.ptr + obj.via.map.size;
+    msgpack::object_kv *p = obj.via.map.ptr;
+    msgpack::object_kv *const pend = obj.via.map.ptr + obj.via.map.size;
 
     // Check if this is a reference
     for (; p < pend; ++p) {
@@ -110,13 +110,13 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
     return node;
   }
 
-  Span DeserializeSpan(const msgpack::object& obj) override {
+  Span DeserializeSpan(const msgpack::object &obj) override {
     INTERNAL_CHECK(obj.type == msgpack::type::MAP) << "Expected map for Span";
     std::string filename;
     int beginLine = -1, beginColumn = -1, endLine = -1, endColumn = -1;
 
-    msgpack::object_kv* p = obj.via.map.ptr;
-    msgpack::object_kv* const pend = obj.via.map.ptr + obj.via.map.size;
+    msgpack::object_kv *p = obj.via.map.ptr;
+    msgpack::object_kv *const pend = obj.via.map.ptr + obj.via.map.size;
     for (; p < pend; ++p) {
       std::string key;
       p->key.convert(key);
@@ -136,7 +136,7 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
     return Span(filename, beginLine, beginColumn, endLine, endColumn);
   }
 
-  std::optional<MemRefPtr> DeserializeMemRef(const msgpack::object& obj, msgpack::zone& zone) {
+  std::optional<MemRefPtr> DeserializeMemRef(const msgpack::object &obj, msgpack::zone &zone) {
     if (obj.is_nil()) {
       return std::nullopt;
     }
@@ -151,8 +151,8 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
     bool hasSize = false;
     bool hasId = false;
 
-    msgpack::object_kv* p = obj.via.map.ptr;
-    msgpack::object_kv* const pend = obj.via.map.ptr + obj.via.map.size;
+    msgpack::object_kv *p = obj.via.map.ptr;
+    msgpack::object_kv *const pend = obj.via.map.ptr + obj.via.map.size;
     for (; p < pend; ++p) {
       std::string key;
       p->key.convert(key);
@@ -177,7 +177,7 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
     return std::make_shared<MemRef>(memorySpace, addr, size, id);
   }
 
-  std::optional<TileView> DeserializeTileView(const msgpack::object& obj, msgpack::zone& zone) {
+  std::optional<TileView> DeserializeTileView(const msgpack::object &obj, msgpack::zone &zone) {
     if (obj.is_nil()) {
       return std::nullopt;
     }
@@ -186,8 +186,8 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
 
     TileView tileView;
 
-    msgpack::object_kv* p = obj.via.map.ptr;
-    msgpack::object_kv* const pend = obj.via.map.ptr + obj.via.map.size;
+    msgpack::object_kv *p = obj.via.map.ptr;
+    msgpack::object_kv *const pend = obj.via.map.ptr + obj.via.map.size;
     for (; p < pend; ++p) {
       std::string key;
       p->key.convert(key);
@@ -213,7 +213,7 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
     return tileView;
   }
 
-  TypePtr DeserializeType(const msgpack::object& obj, msgpack::zone& zone) override {
+  TypePtr DeserializeType(const msgpack::object &obj, msgpack::zone &zone) override {
     INTERNAL_CHECK(obj.type == msgpack::type::MAP) << "Expected map for Type";
 
     std::string typeKind;
@@ -225,8 +225,8 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
     bool hasMemref = false;
     bool hasTileView = false;
 
-    msgpack::object_kv* p = obj.via.map.ptr;
-    msgpack::object_kv* const pend = obj.via.map.ptr + obj.via.map.size;
+    msgpack::object_kv *p = obj.via.map.ptr;
+    msgpack::object_kv *const pend = obj.via.map.ptr + obj.via.map.size;
     for (; p < pend; ++p) {
       std::string key;
       p->key.convert(key);
@@ -292,14 +292,14 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
     }
   }
 
-  OpPtr DeserializeOp(const msgpack::object& obj) override {
+  OpPtr DeserializeOp(const msgpack::object &obj) override {
     INTERNAL_CHECK(obj.type == msgpack::type::MAP) << "Expected map for Op";
 
     std::string name;
     bool isGlobalVar = false;
 
-    msgpack::object_kv* p = obj.via.map.ptr;
-    msgpack::object_kv* const pend = obj.via.map.ptr + obj.via.map.size;
+    msgpack::object_kv *p = obj.via.map.ptr;
+    msgpack::object_kv *const pend = obj.via.map.ptr + obj.via.map.size;
     for (; p < pend; ++p) {
       std::string key;
       p->key.convert(key);
@@ -317,10 +317,10 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
     }
   }
 
-  msgpack::object GetFieldObj(const msgpack::object& fieldsObj, const std::string& fieldName) override {
+  msgpack::object GetFieldObj(const msgpack::object &fieldsObj, const std::string &fieldName) override {
     INTERNAL_CHECK(fieldsObj.type == msgpack::type::MAP) << "Expected map for fields";
-    msgpack::object_kv* p = fieldsObj.via.map.ptr;
-    msgpack::object_kv* const pend = fieldsObj.via.map.ptr + fieldsObj.via.map.size;
+    msgpack::object_kv *p = fieldsObj.via.map.ptr;
+    msgpack::object_kv *const pend = fieldsObj.via.map.ptr + fieldsObj.via.map.size;
     for (; p < pend; ++p) {
       std::string key;
       p->key.convert(key);
@@ -350,7 +350,7 @@ IRNodePtr Deserialize(const std::vector<uint8_t>& data) {
   return deserializer.Deserialize(data);
 }
 
-IRNodePtr DeserializeFromFile(const std::string& path) {
+IRNodePtr DeserializeFromFile(const std::string &path) {
   std::ifstream file(path, std::ios::binary);
   INTERNAL_CHECK(file.is_open()) << "Failed to open file for reading: " + path;
   std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
