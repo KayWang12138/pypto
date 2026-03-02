@@ -34,5 +34,12 @@ PYBIND11_MODULE(pypto_impl, m) {
     BindFunction(m);
     BindDistributed(m);
     BindPlatform(m);
+    // Then bind new0IR
+    BindCore(m);
+    BindTesting(m);
+    BindIR(m);
+    BindIRBuilder(m);
+    BindPass(m);
+    BindLogging(m);
 };
 } // namespace pypto

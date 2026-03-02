@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
+/**
  * \file test_dynamic_ops.cpp
  * \brief
  */
@@ -183,7 +183,7 @@ TEST_F(DynamicOpsTest, AssembleFp16) {
             auto t2a = Add(t0a, t1a);
             auto t2b = Add(t0b, t1b);
             ToFile(t2b, "t2b_%d.bin", {i});
-            PrintIf(i == 1,"t2b=", t2b);
+            PrintIf(i == 1, "t2b=", t2b);
             std::vector<std::pair<Tensor, std::vector<int64_t>>> data = {
                 {t2a, {0, 0}},
                 {t2b, {s, 0}},
@@ -199,14 +199,11 @@ TEST_F(DynamicOpsTest, Ceil) {
 
     int64_t b = 2;
     int64_t n = 4;
-    
+
     Tensor self(DT_FP32, {b, n}, "self");
     Tensor outValue(DT_FP32, {b, n}, "outValue");
 
-    std::vector<float> inputData = {
-        1.2f,  2.0f,  3.9f, -1.1f,
-        -2.9f, 5.5f, -0.1f, 7.0f
-    };
+    std::vector<float> inputData = {1.2f, 2.0f, 3.9f, -1.1f, -2.9f, 5.5f, -0.1f, 7.0f};
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor(self, inputData),
@@ -230,14 +227,11 @@ TEST_F(DynamicOpsTest, Floor) {
 
     int64_t b = 2;
     int64_t n = 4;
-    
+
     Tensor self(DT_FP32, {b, n}, "self");
     Tensor outValue(DT_FP32, {b, n}, "outValue");
 
-    std::vector<float> inputData = {
-        1.2f,  2.0f,  3.9f, -1.1f,
-        -2.9f, 5.5f, -0.1f, 7.0f
-    };
+    std::vector<float> inputData = {1.2f, 2.0f, 3.9f, -1.1f, -2.9f, 5.5f, -0.1f, 7.0f};
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor(self, inputData),
@@ -261,14 +255,11 @@ TEST_F(DynamicOpsTest, Trunc) {
 
     int64_t b = 2;
     int64_t n = 4;
-    
+
     Tensor self(DT_FP32, {b, n}, "self");
     Tensor outValue(DT_FP32, {b, n}, "outValue");
 
-    std::vector<float> inputData = {
-        1.2f,  2.0f,  3.9f, -1.1f,
-        -2.9f, 5.5f, -0.1f, 7.0f
-    };
+    std::vector<float> inputData = {1.2f, 2.0f, 3.9f, -1.1f, -2.9f, 5.5f, -0.1f, 7.0f};
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor(self, inputData),
@@ -313,7 +304,7 @@ TEST_F(DynamicOpsTest, PassVerifyWithoutGoldens) {
             auto t1b = View(t1, {s, s}, {s, 0});
             auto t2a = Add(t0a, t1a);
             auto t2b = Add(t0b, t1b);
-            PrintIf(i == 1,"t2b=", t2b);
+            PrintIf(i == 1, "t2b=", t2b);
             std::vector<std::pair<Tensor, std::vector<int64_t>>> data = {
                 {t2a, {0, 0}},
                 {t2b, {s, 0}},
@@ -356,7 +347,7 @@ TEST_F(DynamicOpsTest, OpsElementWise) {
     for (int i = 0; i < loopCount; i++) {
         if (i == 0) {
             r0Data = t0Data + t1Data;
-        }  else {
+        } else {
             r0Data = r0Data + t1Data; // +t0, +t1
             if (i < condThreshold) {
                 r0Data = r0Data + t2Data; // +t2 * 5
@@ -392,10 +383,12 @@ TEST_F(DynamicOpsTest, OpsElementWise) {
     });
 
     FUNCTION("main", {t0, t1, t2, t3, t4, t5}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(npu::tile_fwk::GetTensorData(t5, {n - 1, s - 1, m * s - 1}))) {
-            IF (i == 0) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i,
+            LoopRange(npu::tile_fwk::GetTensorData(t5, {n - 1, s - 1, m * s - 1}))) {
+            IF(i == 0) {
                 out = Add(t0, t1); // +t0, +t1
-            } ELSE {
+            }
+            ELSE {
                 out = Add(out, t1); // +t1 * 7
                 IF(i < condThreshold) {
                     out = Add(out, t2); // +t2 * 5
@@ -497,13 +490,10 @@ TEST_F(DynamicOpsTest, Cmps) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
             auto t0 = View(self, {b, s}, {0, 0});
-            out = Compare(t0, elem,
-                          static_cast<OpType>(CmpOperationType::EQ),
-                          static_cast<OutType>(CmpModeType::BOOL));
+            out = Compare(t0, elem, static_cast<OpType>(CmpOperationType::EQ), static_cast<OutType>(CmpModeType::BOOL));
         }
     }
 }
-
 
 TEST_F(DynamicOpsTest, ElementScalar) {
     auto floatElement = Element(DT_BF16, 2.0);
@@ -723,11 +713,10 @@ TEST_F(DynamicOpsTest, MatMulPertensor) {
     float scaleValue = 2.0;
     uint32_t scaleValueTmp = 0;
     memcpy_s(&scaleValueTmp, sizeof(scaleValueTmp), &scaleValue, sizeof(scaleValue));
-    calc::MatMul(golden, logicTensor0, logicTensor1,
-        {false, true, 0, scaleValueTmp, 1, nullptr, nullptr});
+    calc::MatMul(golden, logicTensor0, logicTensor1, {false, true, 0, scaleValueTmp, 1, nullptr, nullptr});
 
-    ProgramData::GetInstance().PrepareData({logicTensor0->GetData(), logicTensor1->GetData()},
-        {out0->GetData()}, {golden->GetData()});
+    ProgramData::GetInstance().PrepareData(
+        {logicTensor0->GetData(), logicTensor1->GetData()}, {out0->GetData()}, {golden->GetData()});
 
     TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64}, true, false);
     FUNCTION("main", {t0, t1}, {out}) {
@@ -757,15 +746,13 @@ TEST_F(DynamicOpsTest, MatMulPerchannel) {
     float scaleValue = 2.0;
     uint32_t scaleValueTmp = 0;
     memcpy_s(&scaleValueTmp, sizeof(scaleValueTmp), &scaleValue, sizeof(scaleValue));
-    auto scaleTensorRaw =
-        RawTensorData::CreateConstantTensor<uint64_t>(scaleTensor, scaleValueTmp);
+    auto scaleTensorRaw = RawTensorData::CreateConstantTensor<uint64_t>(scaleTensor, scaleValueTmp);
     auto logicScale = LogicalTensorData::Create(*scaleTensorRaw);
     auto logicScaleData = Trans(logicScale);
-    calc::MatMul(golden, logicTensor0, logicTensor1,
-        {false, true, 0, 0, 0, &logicScaleData, nullptr});
+    calc::MatMul(golden, logicTensor0, logicTensor1, {false, true, 0, 0, 0, &logicScaleData, nullptr});
 
-    ProgramData::GetInstance().PrepareData({logicTensor0->GetData(), logicTensor1->GetData(),
-        logicScale->GetData()}, {out0->GetData()}, {golden->GetData()});
+    ProgramData::GetInstance().PrepareData({logicTensor0->GetData(), logicTensor1->GetData(), logicScale->GetData()},
+        {out0->GetData()}, {golden->GetData()});
 
     FUNCTION("main", {t0, t1, scaleTensor}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
@@ -790,11 +777,10 @@ TEST_F(DynamicOpsTest, MatMulBias) {
     auto golden = Random(DT_FP16, out.GetShape());
     auto logicBias = Random(DT_FP16, biasTensor.GetShape());
     auto logicBiasData = Trans(logicBias);
-    calc::MatMul(golden, d0, d1,
-        {false, false, 0, 0, 0, nullptr, &logicBiasData});
+    calc::MatMul(golden, d0, d1, {false, false, 0, 0, 0, nullptr, &logicBiasData});
 
-    ProgramData::GetInstance().PrepareData({d0->GetData(), d1->GetData(),
-        logicBias->GetData()}, {out0->GetData()}, {golden->GetData()});
+    ProgramData::GetInstance().PrepareData(
+        {d0->GetData(), d1->GetData(), logicBias->GetData()}, {out0->GetData()}, {golden->GetData()});
 
     FUNCTION("main", {t0, t1, biasTensor}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
@@ -824,16 +810,15 @@ TEST_F(DynamicOpsTest, MatMulL0CToL1Fixpipe) {
     float scaleValue = 2.0;
     uint32_t scaleValueTmp = 0;
     memcpy_s(&scaleValueTmp, sizeof(scaleValueTmp), &scaleValue, sizeof(scaleValue));
-    auto scaleTensorRaw =
-        RawTensorData::CreateConstantTensor<uint64_t>(scaleTensor, scaleValueTmp);
+    auto scaleTensorRaw = RawTensorData::CreateConstantTensor<uint64_t>(scaleTensor, scaleValueTmp);
     auto logicScale = LogicalTensorData::Create(*scaleTensorRaw);
     auto logicScaleData = Trans(logicScale);
-    calc::MatMul(golden, logicTensor0, logicTensor1,
-        {false, false, 0, 0, 0, &logicScaleData, nullptr});
+    calc::MatMul(golden, logicTensor0, logicTensor1, {false, false, 0, 0, 0, &logicScaleData, nullptr});
     calc::MatMul(golden, golden, l0c2L1Data);
 
-    ProgramData::GetInstance().PrepareData({logicTensor0->GetData(), logicTensor1->GetData(),
-        l0c2L1Data->GetData(), logicScale->GetData()}, {out0->GetData()}, {golden->GetData()});
+    ProgramData::GetInstance().PrepareData(
+        {logicTensor0->GetData(), logicTensor1->GetData(), l0c2L1Data->GetData(), logicScale->GetData()},
+        {out0->GetData()}, {golden->GetData()});
 
     FUNCTION("main", {t0, t1, l0c2L1Tensor, scaleTensor}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
@@ -851,7 +836,7 @@ TEST_F(DynamicOpsTest, GatherInL1) {
     Tensor indices(DT_INT32, {1, 4}, "t1");
     Tensor pageTable(DT_INT32, {1, 2}, "t1");
     Tensor out(DT_FP16, {4, 16}, "t1");
- 	 
+
     auto paramData = Random(DT_FP16, param.GetShape());
     auto indicesRaw = RawTensorData::CreateTensor<int32_t>(indices, {0, 1, 1, 0});
     auto indicesData = LogicalTensorData::Create(*indicesRaw);
@@ -861,9 +846,9 @@ TEST_F(DynamicOpsTest, GatherInL1) {
     auto golden = Random(DT_FP16, out.GetShape());
     int64_t blockSize = 2;
     int hiddenDim = 16;
- 	calc::GatherInL1(golden, paramData, indicesData, pageTableData, blockSize);
-    ProgramData::GetInstance().PrepareData({paramData->GetData(), indicesData->GetData(),
-        pageTableData->GetData()}, {out0->GetData()}, {golden->GetData()});
+    calc::GatherInL1(golden, paramData, indicesData, pageTableData, blockSize);
+    ProgramData::GetInstance().PrepareData({paramData->GetData(), indicesData->GetData(), pageTableData->GetData()},
+        {out0->GetData()}, {golden->GetData()});
 
     FUNCTION("test", {param, indices, pageTable}, {out}) {
         LOOP("LOOP", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1)) {
@@ -1104,11 +1089,9 @@ TEST_F(DynamicOpsTest, IndexAdd) {
     Element alpha(DT_FP32, 2.0);
     Tensor out(DT_FP32, {b, s}, "out");
 
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateConstantTensor<float>(self, 1.0),
-        RawTensorData::CreateConstantTensor<float>(source, 1.0),
-        RawTensorData::CreateConstantTensor<int32_t>(index, 0)
-    });
+    ProgramData::GetInstance().AppendInputs(
+        {RawTensorData::CreateConstantTensor<float>(self, 1.0), RawTensorData::CreateConstantTensor<float>(source, 1.0),
+            RawTensorData::CreateConstantTensor<int32_t>(index, 0)});
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(out, 3.0),
     });
@@ -1383,15 +1366,71 @@ TEST_F(DynamicOpsTest, Topk) {
     Tensor outIndex(DT_INT32, {b, k}, "outIndex");
 
     std::vector<float> inputData = {
-        31.0f, 15.0f, 27.0f, 8.0f, 19.0f, 3.0f, 23.0f, 11.0f,
-        7.0f, 28.0f, 16.0f, 2.0f, 24.0f, 9.0f, 30.0f, 14.0f,
-        22.0f, 5.0f, 18.0f, 1.0f, 26.0f, 10.0f, 29.0f, 13.0f,
-        6.0f, 20.0f, 12.0f, 25.0f, 4.0f, 21.0f, 0.0f, 17.0f,
+        31.0f,
+        15.0f,
+        27.0f,
+        8.0f,
+        19.0f,
+        3.0f,
+        23.0f,
+        11.0f,
+        7.0f,
+        28.0f,
+        16.0f,
+        2.0f,
+        24.0f,
+        9.0f,
+        30.0f,
+        14.0f,
+        22.0f,
+        5.0f,
+        18.0f,
+        1.0f,
+        26.0f,
+        10.0f,
+        29.0f,
+        13.0f,
+        6.0f,
+        20.0f,
+        12.0f,
+        25.0f,
+        4.0f,
+        21.0f,
+        0.0f,
+        17.0f,
 
-        31.0f, 15.0f, 27.0f, 8.0f, 19.0f, 3.0f, 23.0f, 11.0f,
-        7.0f, 28.0f, 16.0f, 2.0f, 24.0f, 9.0f, 30.0f, 14.0f,
-        22.0f, 5.0f, 18.0f, 1.0f, 26.0f, 10.0f, 29.0f, 13.0f,
-        6.0f, 20.0f, 12.0f, 25.0f, 4.0f, 21.0f, 0.0f, 17.0f,
+        31.0f,
+        15.0f,
+        27.0f,
+        8.0f,
+        19.0f,
+        3.0f,
+        23.0f,
+        11.0f,
+        7.0f,
+        28.0f,
+        16.0f,
+        2.0f,
+        24.0f,
+        9.0f,
+        30.0f,
+        14.0f,
+        22.0f,
+        5.0f,
+        18.0f,
+        1.0f,
+        26.0f,
+        10.0f,
+        29.0f,
+        13.0f,
+        6.0f,
+        20.0f,
+        12.0f,
+        25.0f,
+        4.0f,
+        21.0f,
+        0.0f,
+        17.0f,
     };
 
     ProgramData::GetInstance().AppendInputs({
@@ -1421,12 +1460,9 @@ TEST_F(DynamicOpsTest, TopKSort) {
     Tensor outValue(DT_FP32, {b, n * 2}, "outValue");
     Tensor outTemp(DT_FP32, {b, n * 2}, "outTemp");
 
-    std::vector<float> inputData = {
-        31.0f, 15.0f, 27.0f, 8.0f, 19.0f, 3.0f, 23.0f, 11.0f,
-        7.0f, 28.0f, 16.0f, 2.0f, 24.0f, 9.0f, 30.0f, 14.0f,
-        22.0f, 5.0f, 18.0f, 1.0f, 26.0f, 10.0f, 29.0f, 13.0f,
-        6.0f, 20.0f, 12.0f, 25.0f, 4.0f, 21.0f, 0.0f, 17.0f
-    };
+    std::vector<float> inputData = {31.0f, 15.0f, 27.0f, 8.0f, 19.0f, 3.0f, 23.0f, 11.0f, 7.0f, 28.0f, 16.0f, 2.0f,
+        24.0f, 9.0f, 30.0f, 14.0f, 22.0f, 5.0f, 18.0f, 1.0f, 26.0f, 10.0f, 29.0f, 13.0f, 6.0f, 20.0f, 12.0f, 25.0f,
+        4.0f, 21.0f, 0.0f, 17.0f};
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor(self, inputData),
@@ -1450,19 +1486,15 @@ TEST_F(DynamicOpsTest, TopKMerge) {
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
     int64_t b = 1;
-    int64_t n = 32;  // 32 elements = 16 packs
+    int64_t n = 32; // 32 elements = 16 packs
     Tensor self(DT_FP32, {b, n}, "self");
     Tensor out(DT_FP32, {b, n}, "out");
 
     // Pre-sorted pack data: two groups of 8 packs each
-    std::vector<float> packData = {
-        // First 8 packs (sorted descending)
-        30.0f, 0.0f, 28.0f, 1.0f, 26.0f, 2.0f, 24.0f, 3.0f,
-        22.0f, 4.0f, 20.0f, 5.0f, 18.0f, 6.0f, 16.0f, 7.0f,
+    std::vector<float> packData = {// First 8 packs (sorted descending)
+        30.0f, 0.0f, 28.0f, 1.0f, 26.0f, 2.0f, 24.0f, 3.0f, 22.0f, 4.0f, 20.0f, 5.0f, 18.0f, 6.0f, 16.0f, 7.0f,
         // Second 8 packs (sorted descending)
-        31.0f, 8.0f, 29.0f, 9.0f, 27.0f, 10.0f, 25.0f, 11.0f,
-        23.0f, 12.0f, 21.0f, 13.0f, 19.0f, 14.0f, 17.0f, 15.0f
-    };
+        31.0f, 8.0f, 29.0f, 9.0f, 27.0f, 10.0f, 25.0f, 11.0f, 23.0f, 12.0f, 21.0f, 13.0f, 19.0f, 14.0f, 17.0f, 15.0f};
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor(self, packData),
@@ -1485,18 +1517,15 @@ TEST_F(DynamicOpsTest, TopKExtractValues) {
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
     int64_t b = 1;
-    int64_t n = 32;  // 16 packs
+    int64_t n = 32; // 16 packs
     int64_t k = 8;
     Tensor self(DT_FP32, {b, n}, "self");
     Tensor out(DT_FP32, {1, k}, "out");
 
     // Pack data with values and indices
-    std::vector<float> packData = {
-        100.0f, 5.0f, 95.0f, 12.0f, 90.0f, 3.0f, 85.0f, 18.0f,
-        80.0f, 7.0f, 75.0f, 21.0f, 70.0f, 1.0f, 65.0f, 14.0f,
-        60.0f, 9.0f, 55.0f, 25.0f, 50.0f, 2.0f, 45.0f, 16.0f,
-        40.0f, 11.0f, 35.0f, 28.0f, 30.0f, 4.0f, 25.0f, 19.0f
-    };
+    std::vector<float> packData = {100.0f, 5.0f, 95.0f, 12.0f, 90.0f, 3.0f, 85.0f, 18.0f, 80.0f, 7.0f, 75.0f, 21.0f,
+        70.0f, 1.0f, 65.0f, 14.0f, 60.0f, 9.0f, 55.0f, 25.0f, 50.0f, 2.0f, 45.0f, 16.0f, 40.0f, 11.0f, 35.0f, 28.0f,
+        30.0f, 4.0f, 25.0f, 19.0f};
 
     std::vector<float> expectedValues = {100.0f, 95.0f, 90.0f, 85.0f, 80.0f, 75.0f, 70.0f, 65.0f};
 
@@ -1524,18 +1553,15 @@ TEST_F(DynamicOpsTest, TopKExtractIndices) {
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
     int64_t b = 1;
-    int64_t n = 32;  // 16 packs
+    int64_t n = 32; // 16 packs
     int64_t k = 8;
     Tensor self(DT_FP32, {b, n}, "self");
     Tensor out(DT_INT32, {1, k}, "out");
 
     // Pack data with values and indices
-    std::vector<float> packData = {
-        100.0f, 5.0f, 95.0f, 12.0f, 90.0f, 3.0f, 85.0f, 18.0f,
-        80.0f, 7.0f, 75.0f, 21.0f, 70.0f, 1.0f, 65.0f, 14.0f,
-        60.0f, 9.0f, 55.0f, 25.0f, 50.0f, 2.0f, 45.0f, 16.0f,
-        40.0f, 11.0f, 35.0f, 28.0f, 30.0f, 4.0f, 25.0f, 19.0f
-    };
+    std::vector<float> packData = {100.0f, 5.0f, 95.0f, 12.0f, 90.0f, 3.0f, 85.0f, 18.0f, 80.0f, 7.0f, 75.0f, 21.0f,
+        70.0f, 1.0f, 65.0f, 14.0f, 60.0f, 9.0f, 55.0f, 25.0f, 50.0f, 2.0f, 45.0f, 16.0f, 40.0f, 11.0f, 35.0f, 28.0f,
+        30.0f, 4.0f, 25.0f, 19.0f};
 
     std::vector<int32_t> expectedIndices = {5, 12, 3, 18, 7, 21, 1, 14};
 
@@ -1761,11 +1787,11 @@ TEST_F(DynamicOpsTest, Range) {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
-    int64_t size = 5;  
+    int64_t size = 5;
     Element start(DT_INT32, 1);
     Element end(DT_INT32, 10);
     Element step(DT_INT32, 2);
-    
+
     Tensor out(DT_INT32, {size}, "out");
     ProgramData::GetInstance().AppendInputs({});
     ProgramData::GetInstance().AppendOutputs({

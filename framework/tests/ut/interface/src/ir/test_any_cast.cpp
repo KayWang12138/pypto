@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
+/**
  * \file test_any_cast.cpp
  * \brief Unit tests for AnyCast type conversion utilities
  */
@@ -89,7 +89,7 @@ TEST(CoreAnyCastTest, TestAnyCastRef) {
     std::any value = 42;
 
     try {
-        const int& result = AnyCastRef<int>(value);
+        const int &result = AnyCastRef<int>(value);
         ASSERT_EQ(result, 42);
     } catch (...) {
         FAIL() << "AnyCastRef should succeed for matching type";
@@ -131,7 +131,7 @@ TEST(CoreAnyCastTest, TestAnyCastPointer) {
     std::any value = &original;
 
     try {
-        int* result = AnyCast<int*>(value);
+        int *result = AnyCast<int *>(value);
         ASSERT_EQ(*result, 42);
     } catch (...) {
         FAIL() << "AnyCast should succeed for pointer type";
@@ -143,7 +143,7 @@ TEST(CoreAnyCastTest, TestAnyCastConstRef) {
     std::any value = std::string("test");
 
     try {
-        const std::string& result = AnyCastRef<std::string>(value);
+        const std::string &result = AnyCastRef<std::string>(value);
         ASSERT_EQ(result, "test");
     } catch (...) {
         FAIL() << "AnyCastRef should succeed for const reference";
@@ -167,4 +167,4 @@ TEST(CoreAnyCastTest, TestAnyCastErrorMessage) {
 }
 */
 
-}  // namespace pypto
+} // namespace pypto

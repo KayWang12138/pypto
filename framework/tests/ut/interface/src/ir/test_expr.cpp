@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
+/**
  * \file test_expr.cpp
  * \brief Unit tests for IR expression types (MakeTuple, TupleGetItemExpr)
  */
@@ -34,28 +34,28 @@ class IRExprTest : public testing::Test {};
 // ============================================================================
 
 TEST_F(IRExprTest, TestMakeTupleBasic) {
-  auto elem1 = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
-  auto elem2 = std::make_shared<ConstFloat>(2.0, DataType::FP32, Span::unknown());
-  std::vector<ExprPtr> elements = {elem1, elem2};
+    auto elem1 = std::make_shared<ConstInt>(1, DataType::INT32, Span::Unknown());
+    auto elem2 = std::make_shared<ConstFloat>(2.0, DataType::FP32, Span::Unknown());
+    std::vector<ExprPtr> elements = {elem1, elem2};
 
-  auto tuple = std::make_shared<MakeTuple>(elements, Span::unknown());
+    auto tuple = std::make_shared<MakeTuple>(elements, Span::Unknown());
 
-  ASSERT_EQ(tuple->elements_.size(), 2);
-  auto tupleType = As<TupleType>(tuple->GetType());
-  ASSERT_NE(tupleType, nullptr);
-  ASSERT_EQ(tupleType->types_.size(), 2);
+    ASSERT_EQ(tuple->elements_.size(), 2);
+    auto tupleType = As<TupleType>(tuple->GetType());
+    ASSERT_NE(tupleType, nullptr);
+    ASSERT_EQ(tupleType->types_.size(), 2);
 }
 
 TEST_F(IRExprTest, TestMakeTupleSingleElement) {
-  auto elem = std::make_shared<ConstInt>(42, DataType::INT32, Span::unknown());
-  std::vector<ExprPtr> elements = {elem};
+    auto elem = std::make_shared<ConstInt>(42, DataType::INT32, Span::Unknown());
+    std::vector<ExprPtr> elements = {elem};
 
-  auto tuple = std::make_shared<MakeTuple>(elements, Span::unknown());
+    auto tuple = std::make_shared<MakeTuple>(elements, Span::Unknown());
 
-  ASSERT_EQ(tuple->elements_.size(), 1);
-  auto tupleType = As<TupleType>(tuple->GetType());
-  ASSERT_NE(tupleType, nullptr);
-  ASSERT_EQ(tupleType->types_.size(), 1);
+    ASSERT_EQ(tuple->elements_.size(), 1);
+    auto tupleType = As<TupleType>(tuple->GetType());
+    ASSERT_NE(tupleType, nullptr);
+    ASSERT_EQ(tupleType->types_.size(), 1);
 }
 
 // ============================================================================
@@ -63,32 +63,32 @@ TEST_F(IRExprTest, TestMakeTupleSingleElement) {
 // ============================================================================
 
 TEST_F(IRExprTest, TestTupleGetItemBasic) {
-  auto elem1 = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
-  auto elem2 = std::make_shared<ConstFloat>(2.0, DataType::FP32, Span::unknown());
-  std::vector<ExprPtr> elements = {elem1, elem2};
-  auto tuple = std::make_shared<MakeTuple>(elements, Span::unknown());
+    auto elem1 = std::make_shared<ConstInt>(1, DataType::INT32, Span::Unknown());
+    auto elem2 = std::make_shared<ConstFloat>(2.0, DataType::FP32, Span::Unknown());
+    std::vector<ExprPtr> elements = {elem1, elem2};
+    auto tuple = std::make_shared<MakeTuple>(elements, Span::Unknown());
 
-  auto item0 = std::make_shared<TupleGetItemExpr>(tuple, 0, Span::unknown());
-  auto item1 = std::make_shared<TupleGetItemExpr>(tuple, 1, Span::unknown());
+    auto item0 = std::make_shared<TupleGetItemExpr>(tuple, 0, Span::Unknown());
+    auto item1 = std::make_shared<TupleGetItemExpr>(tuple, 1, Span::Unknown());
 
-  auto type0 = As<ScalarType>(item0->GetType());
-  auto type1 = As<ScalarType>(item1->GetType());
-  ASSERT_NE(type0, nullptr);
-  ASSERT_NE(type1, nullptr);
-  ASSERT_EQ(type0->dtype_, DataType::INT32);
-  ASSERT_EQ(type1->dtype_, DataType::FP32);
+    auto type0 = As<ScalarType>(item0->GetType());
+    auto type1 = As<ScalarType>(item1->GetType());
+    ASSERT_NE(type0, nullptr);
+    ASSERT_NE(type1, nullptr);
+    ASSERT_EQ(type0->dtype_, DataType::INT32);
+    ASSERT_EQ(type1->dtype_, DataType::FP32);
 }
 
 TEST_F(IRExprTest, TestTupleGetItemIndex) {
-  auto elem1 = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
-  auto elem2 = std::make_shared<ConstInt>(2, DataType::INT32, Span::unknown());
-  std::vector<ExprPtr> elements = {elem1, elem2};
-  auto tuple = std::make_shared<MakeTuple>(elements, Span::unknown());
+    auto elem1 = std::make_shared<ConstInt>(1, DataType::INT32, Span::Unknown());
+    auto elem2 = std::make_shared<ConstInt>(2, DataType::INT32, Span::Unknown());
+    std::vector<ExprPtr> elements = {elem1, elem2};
+    auto tuple = std::make_shared<MakeTuple>(elements, Span::Unknown());
 
-  auto item = std::make_shared<TupleGetItemExpr>(tuple, 1, Span::unknown());
-  ASSERT_EQ(item->index_, 1);
-  ASSERT_EQ(item->tuple_, tuple);
+    auto item = std::make_shared<TupleGetItemExpr>(tuple, 1, Span::Unknown());
+    ASSERT_EQ(item->index_, 1);
+    ASSERT_EQ(item->tuple_, tuple);
 }
 
-}  // namespace ir
-}  // namespace pypto
+} // namespace ir
+} // namespace pypto

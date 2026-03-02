@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
+/**
  * \file test_structural_hash.cpp
  * \brief Unit tests for IR structural hashing
  */
@@ -36,29 +36,29 @@ namespace pypto {
 namespace ir {
 
 class StructuralHashTest : public testing::Test {
- protected:
-  struct KwargsTestFixture {
-    Span sp;
-    VarPtr a;
-    VarPtr b;
-    CallPtr baseCall;
-  };
+protected:
+    struct KwargsTestFixture {
+        Span sp;
+        VarPtr a;
+        VarPtr b;
+        CallPtr baseCall;
+    };
 
-  // Common setup for kwargs hash tests: creates two tensor Vars and a base Call via registry
-  KwargsTestFixture MakeKwargsTestFixture() {
-    Span sp = Span::unknown();
-    auto& reg = OpRegistry::GetInstance();
-    auto a = std::make_shared<Var>("a",
-        std::make_shared<TensorType>(
-            std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
-            DataType::FP32), sp);
-    auto b = std::make_shared<Var>("b",
-        std::make_shared<TensorType>(
-            std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
-            DataType::FP32), sp);
-    auto baseCall = As<Call>(reg.Create("tensor.add", {a, b}, sp));
-    return {sp, a, b, baseCall};
-  }
+    // Common setup for kwargs hash tests: creates two tensor Vars and a base Call via registry
+    KwargsTestFixture MakeKwargsTestFixture() {
+        Span sp = Span::Unknown();
+        auto &reg = OpRegistry::GetInstance();
+        auto a = std::make_shared<Var>("a",
+            std::make_shared<TensorType>(
+                std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)}, DataType::FP32),
+            sp);
+        auto b = std::make_shared<Var>("b",
+            std::make_shared<TensorType>(
+                std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)}, DataType::FP32),
+            sp);
+        auto baseCall = As<Call>(reg.Create("tensor.add", {a, b}, sp));
+        return {sp, a, b, baseCall};
+    }
 };
 
 // ============================================================================
@@ -66,33 +66,33 @@ class StructuralHashTest : public testing::Test {
 // ============================================================================
 
 TEST_F(StructuralHashTest, TestConstIntHashConsistent) {
-  auto a = std::make_shared<ConstInt>(42, DataType::INT32, Span::unknown());
-  auto b = std::make_shared<ConstInt>(42, DataType::INT32, Span::unknown());
-  ASSERT_EQ(StructuralHash(a), StructuralHash(b));
+    auto a = std::make_shared<ConstInt>(42, DataType::INT32, Span::Unknown());
+    auto b = std::make_shared<ConstInt>(42, DataType::INT32, Span::Unknown());
+    ASSERT_EQ(StructuralHash(a), StructuralHash(b));
 }
 
 TEST_F(StructuralHashTest, TestConstIntHashDifferent) {
-  auto a = std::make_shared<ConstInt>(42, DataType::INT32, Span::unknown());
-  auto b = std::make_shared<ConstInt>(99, DataType::INT32, Span::unknown());
-  ASSERT_NE(StructuralHash(a), StructuralHash(b));
+    auto a = std::make_shared<ConstInt>(42, DataType::INT32, Span::Unknown());
+    auto b = std::make_shared<ConstInt>(99, DataType::INT32, Span::Unknown());
+    ASSERT_NE(StructuralHash(a), StructuralHash(b));
 }
 
 TEST_F(StructuralHashTest, TestConstFloatHashConsistent) {
-  auto a = std::make_shared<ConstFloat>(3.14, DataType::FP32, Span::unknown());
-  auto b = std::make_shared<ConstFloat>(3.14, DataType::FP32, Span::unknown());
-  ASSERT_EQ(StructuralHash(a), StructuralHash(b));
+    auto a = std::make_shared<ConstFloat>(3.14, DataType::FP32, Span::Unknown());
+    auto b = std::make_shared<ConstFloat>(3.14, DataType::FP32, Span::Unknown());
+    ASSERT_EQ(StructuralHash(a), StructuralHash(b));
 }
 
 TEST_F(StructuralHashTest, TestConstBoolHashConsistent) {
-  auto a = std::make_shared<ConstBool>(true, Span::unknown());
-  auto b = std::make_shared<ConstBool>(true, Span::unknown());
-  ASSERT_EQ(StructuralHash(a), StructuralHash(b));
+    auto a = std::make_shared<ConstBool>(true, Span::Unknown());
+    auto b = std::make_shared<ConstBool>(true, Span::Unknown());
+    ASSERT_EQ(StructuralHash(a), StructuralHash(b));
 }
 
 TEST_F(StructuralHashTest, TestConstBoolHashDifferent) {
-  auto a = std::make_shared<ConstBool>(true, Span::unknown());
-  auto b = std::make_shared<ConstBool>(false, Span::unknown());
-  ASSERT_NE(StructuralHash(a), StructuralHash(b));
+    auto a = std::make_shared<ConstBool>(true, Span::Unknown());
+    auto b = std::make_shared<ConstBool>(false, Span::Unknown());
+    ASSERT_NE(StructuralHash(a), StructuralHash(b));
 }
 
 // ============================================================================
@@ -100,27 +100,27 @@ TEST_F(StructuralHashTest, TestConstBoolHashDifferent) {
 // ============================================================================
 
 TEST_F(StructuralHashTest, TestAddHashConsistent) {
-  auto left1 = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
-  auto right1 = std::make_shared<ConstInt>(2, DataType::INT32, Span::unknown());
-  auto add1 = std::make_shared<Add>(left1, right1, DataType::INT32, Span::unknown());
+    auto left1 = std::make_shared<ConstInt>(1, DataType::INT32, Span::Unknown());
+    auto right1 = std::make_shared<ConstInt>(2, DataType::INT32, Span::Unknown());
+    auto add1 = std::make_shared<Add>(left1, right1, DataType::INT32, Span::Unknown());
 
-  auto left2 = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
-  auto right2 = std::make_shared<ConstInt>(2, DataType::INT32, Span::unknown());
-  auto add2 = std::make_shared<Add>(left2, right2, DataType::INT32, Span::unknown());
+    auto left2 = std::make_shared<ConstInt>(1, DataType::INT32, Span::Unknown());
+    auto right2 = std::make_shared<ConstInt>(2, DataType::INT32, Span::Unknown());
+    auto add2 = std::make_shared<Add>(left2, right2, DataType::INT32, Span::Unknown());
 
-  ASSERT_EQ(StructuralHash(add1), StructuralHash(add2));
+    ASSERT_EQ(StructuralHash(add1), StructuralHash(add2));
 }
 
 TEST_F(StructuralHashTest, TestDifferentOpsHashDifferent) {
-  auto left = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
-  auto right = std::make_shared<ConstInt>(2, DataType::INT32, Span::unknown());
-  auto add = std::make_shared<Add>(left, right, DataType::INT32, Span::unknown());
+    auto left = std::make_shared<ConstInt>(1, DataType::INT32, Span::Unknown());
+    auto right = std::make_shared<ConstInt>(2, DataType::INT32, Span::Unknown());
+    auto add = std::make_shared<Add>(left, right, DataType::INT32, Span::Unknown());
 
-  auto left2 = std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown());
-  auto right2 = std::make_shared<ConstInt>(2, DataType::INT32, Span::unknown());
-  auto sub = std::make_shared<Sub>(left2, right2, DataType::INT32, Span::unknown());
+    auto left2 = std::make_shared<ConstInt>(1, DataType::INT32, Span::Unknown());
+    auto right2 = std::make_shared<ConstInt>(2, DataType::INT32, Span::Unknown());
+    auto sub = std::make_shared<Sub>(left2, right2, DataType::INT32, Span::Unknown());
 
-  ASSERT_NE(StructuralHash(add), StructuralHash(sub));
+    ASSERT_NE(StructuralHash(add), StructuralHash(sub));
 }
 
 // ============================================================================
@@ -128,13 +128,13 @@ TEST_F(StructuralHashTest, TestDifferentOpsHashDifferent) {
 // ============================================================================
 
 TEST_F(StructuralHashTest, TestEvalStmtHashConsistent) {
-  auto expr1 = std::make_shared<ConstInt>(42, DataType::INT32, Span::unknown());
-  auto stmt1 = std::make_shared<EvalStmt>(expr1, Span::unknown());
+    auto expr1 = std::make_shared<ConstInt>(42, DataType::INT32, Span::Unknown());
+    auto stmt1 = std::make_shared<EvalStmt>(expr1, Span::Unknown());
 
-  auto expr2 = std::make_shared<ConstInt>(42, DataType::INT32, Span::unknown());
-  auto stmt2 = std::make_shared<EvalStmt>(expr2, Span::unknown());
+    auto expr2 = std::make_shared<ConstInt>(42, DataType::INT32, Span::Unknown());
+    auto stmt2 = std::make_shared<EvalStmt>(expr2, Span::Unknown());
 
-  ASSERT_EQ(StructuralHash(stmt1), StructuralHash(stmt2));
+    ASSERT_EQ(StructuralHash(stmt1), StructuralHash(stmt2));
 }
 
 // ============================================================================
@@ -142,15 +142,15 @@ TEST_F(StructuralHashTest, TestEvalStmtHashConsistent) {
 // ============================================================================
 
 TEST_F(StructuralHashTest, TestScalarTypeHashConsistent) {
-  auto t1 = std::make_shared<ScalarType>(DataType::FP32);
-  auto t2 = std::make_shared<ScalarType>(DataType::FP32);
-  ASSERT_EQ(StructuralHash(t1), StructuralHash(t2));
+    auto t1 = std::make_shared<ScalarType>(DataType::FP32);
+    auto t2 = std::make_shared<ScalarType>(DataType::FP32);
+    ASSERT_EQ(StructuralHash(t1), StructuralHash(t2));
 }
 
 TEST_F(StructuralHashTest, TestScalarTypeHashDifferent) {
-  auto t1 = std::make_shared<ScalarType>(DataType::FP32);
-  auto t2 = std::make_shared<ScalarType>(DataType::INT32);
-  ASSERT_NE(StructuralHash(t1), StructuralHash(t2));
+    auto t1 = std::make_shared<ScalarType>(DataType::FP32);
+    auto t2 = std::make_shared<ScalarType>(DataType::INT32);
+    ASSERT_NE(StructuralHash(t1), StructuralHash(t2));
 }
 
 // ============================================================================
@@ -158,17 +158,15 @@ TEST_F(StructuralHashTest, TestScalarTypeHashDifferent) {
 // ============================================================================
 
 TEST_F(StructuralHashTest, TestFunctionHashConsistent) {
-  auto body1 = std::make_shared<EvalStmt>(
-      std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown()), Span::unknown());
-  auto func1 = std::make_shared<Function>("f", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body1,
-                                          Span::unknown());
+    auto body1 =
+        std::make_shared<EvalStmt>(std::make_shared<ConstInt>(0, DataType::INT32, Span::Unknown()), Span::Unknown());
+    auto func1 = std::make_shared<Function>("f", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body1, Span::Unknown());
 
-  auto body2 = std::make_shared<EvalStmt>(
-      std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown()), Span::unknown());
-  auto func2 = std::make_shared<Function>("f", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body2,
-                                          Span::unknown());
+    auto body2 =
+        std::make_shared<EvalStmt>(std::make_shared<ConstInt>(0, DataType::INT32, Span::Unknown()), Span::Unknown());
+    auto func2 = std::make_shared<Function>("f", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body2, Span::Unknown());
 
-  ASSERT_EQ(StructuralHash(func1), StructuralHash(func2));
+    ASSERT_EQ(StructuralHash(func1), StructuralHash(func2));
 }
 
 // ============================================================================
@@ -176,21 +174,21 @@ TEST_F(StructuralHashTest, TestFunctionHashConsistent) {
 // ============================================================================
 
 TEST_F(StructuralHashTest, TestNegHashConsistent) {
-  Span sp = Span::unknown();
-  auto v1 = std::make_shared<ConstInt>(5, DataType::INT32, sp);
-  auto neg1 = std::make_shared<Neg>(v1, DataType::INT32, sp);
-  auto v2 = std::make_shared<ConstInt>(5, DataType::INT32, sp);
-  auto neg2 = std::make_shared<Neg>(v2, DataType::INT32, sp);
-  ASSERT_EQ(StructuralHash(neg1), StructuralHash(neg2));
+    Span sp = Span::Unknown();
+    auto v1 = std::make_shared<ConstInt>(5, DataType::INT32, sp);
+    auto neg1 = std::make_shared<Neg>(v1, DataType::INT32, sp);
+    auto v2 = std::make_shared<ConstInt>(5, DataType::INT32, sp);
+    auto neg2 = std::make_shared<Neg>(v2, DataType::INT32, sp);
+    ASSERT_EQ(StructuralHash(neg1), StructuralHash(neg2));
 }
 
 TEST_F(StructuralHashTest, TestCastHashConsistent) {
-  Span sp = Span::unknown();
-  auto v1 = std::make_shared<ConstInt>(5, DataType::INT32, sp);
-  auto c1 = std::make_shared<Cast>(v1, DataType::FP32, sp);
-  auto v2 = std::make_shared<ConstInt>(5, DataType::INT32, sp);
-  auto c2 = std::make_shared<Cast>(v2, DataType::FP32, sp);
-  ASSERT_EQ(StructuralHash(c1), StructuralHash(c2));
+    Span sp = Span::Unknown();
+    auto v1 = std::make_shared<ConstInt>(5, DataType::INT32, sp);
+    auto c1 = std::make_shared<Cast>(v1, DataType::FP32, sp);
+    auto v2 = std::make_shared<ConstInt>(5, DataType::INT32, sp);
+    auto c2 = std::make_shared<Cast>(v2, DataType::FP32, sp);
+    ASSERT_EQ(StructuralHash(c1), StructuralHash(c2));
 }
 
 // ============================================================================
@@ -198,27 +196,27 @@ TEST_F(StructuralHashTest, TestCastHashConsistent) {
 // ============================================================================
 
 TEST_F(StructuralHashTest, TestMakeTupleHashConsistent) {
-  Span sp = Span::unknown();
-  auto e1a = std::make_shared<ConstInt>(1, DataType::INT32, sp);
-  auto e2a = std::make_shared<ConstInt>(2, DataType::INT32, sp);
-  auto t1 = std::make_shared<MakeTuple>(std::vector<ExprPtr>{e1a, e2a}, sp);
+    Span sp = Span::Unknown();
+    auto e1a = std::make_shared<ConstInt>(1, DataType::INT32, sp);
+    auto e2a = std::make_shared<ConstInt>(2, DataType::INT32, sp);
+    auto t1 = std::make_shared<MakeTuple>(std::vector<ExprPtr>{e1a, e2a}, sp);
 
-  auto e1b = std::make_shared<ConstInt>(1, DataType::INT32, sp);
-  auto e2b = std::make_shared<ConstInt>(2, DataType::INT32, sp);
-  auto t2 = std::make_shared<MakeTuple>(std::vector<ExprPtr>{e1b, e2b}, sp);
-  ASSERT_EQ(StructuralHash(t1), StructuralHash(t2));
+    auto e1b = std::make_shared<ConstInt>(1, DataType::INT32, sp);
+    auto e2b = std::make_shared<ConstInt>(2, DataType::INT32, sp);
+    auto t2 = std::make_shared<MakeTuple>(std::vector<ExprPtr>{e1b, e2b}, sp);
+    ASSERT_EQ(StructuralHash(t1), StructuralHash(t2));
 }
 
 TEST_F(StructuralHashTest, TestTupleGetItemHashConsistent) {
-  Span sp = Span::unknown();
-  auto e1a = std::make_shared<ConstInt>(1, DataType::INT32, sp);
-  auto t1 = std::make_shared<MakeTuple>(std::vector<ExprPtr>{e1a}, sp);
-  auto g1 = std::make_shared<TupleGetItemExpr>(t1, 0, sp);
+    Span sp = Span::Unknown();
+    auto e1a = std::make_shared<ConstInt>(1, DataType::INT32, sp);
+    auto t1 = std::make_shared<MakeTuple>(std::vector<ExprPtr>{e1a}, sp);
+    auto g1 = std::make_shared<TupleGetItemExpr>(t1, 0, sp);
 
-  auto e1b = std::make_shared<ConstInt>(1, DataType::INT32, sp);
-  auto t2 = std::make_shared<MakeTuple>(std::vector<ExprPtr>{e1b}, sp);
-  auto g2 = std::make_shared<TupleGetItemExpr>(t2, 0, sp);
-  ASSERT_EQ(StructuralHash(g1), StructuralHash(g2));
+    auto e1b = std::make_shared<ConstInt>(1, DataType::INT32, sp);
+    auto t2 = std::make_shared<MakeTuple>(std::vector<ExprPtr>{e1b}, sp);
+    auto g2 = std::make_shared<TupleGetItemExpr>(t2, 0, sp);
+    ASSERT_EQ(StructuralHash(g1), StructuralHash(g2));
 }
 
 // ============================================================================
@@ -226,46 +224,45 @@ TEST_F(StructuralHashTest, TestTupleGetItemHashConsistent) {
 // ============================================================================
 
 TEST_F(StructuralHashTest, TestTensorTypeHashConsistent) {
-  Span sp = Span::unknown();
-  auto t1 = std::make_shared<TensorType>(
-      std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)}, DataType::FP32);
-  auto t2 = std::make_shared<TensorType>(
-      std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)}, DataType::FP32);
-  ASSERT_EQ(StructuralHash(t1), StructuralHash(t2));
+    Span sp = Span::Unknown();
+    auto t1 = std::make_shared<TensorType>(
+        std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)}, DataType::FP32);
+    auto t2 = std::make_shared<TensorType>(
+        std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)}, DataType::FP32);
+    ASSERT_EQ(StructuralHash(t1), StructuralHash(t2));
 }
 
 TEST_F(StructuralHashTest, TestTensorTypeHashDifferentDtype) {
-  Span sp = Span::unknown();
-  auto t1 = std::make_shared<TensorType>(
-      std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)}, DataType::FP32);
-  auto t2 = std::make_shared<TensorType>(
-      std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)}, DataType::FP16);
-  ASSERT_NE(StructuralHash(t1), StructuralHash(t2));
+    Span sp = Span::Unknown();
+    auto t1 = std::make_shared<TensorType>(
+        std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)}, DataType::FP32);
+    auto t2 = std::make_shared<TensorType>(
+        std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)}, DataType::FP16);
+    ASSERT_NE(StructuralHash(t1), StructuralHash(t2));
 }
 
 TEST_F(StructuralHashTest, TestTileTypeHashConsistent) {
-  Span sp = Span::unknown();
-  auto t1 = std::make_shared<TileType>(
-      std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)}, DataType::FP32);
-  auto t2 = std::make_shared<TileType>(
-      std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)}, DataType::FP32);
-  ASSERT_EQ(StructuralHash(t1), StructuralHash(t2));
+    Span sp = Span::Unknown();
+    auto t1 = std::make_shared<TileType>(
+        std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)}, DataType::FP32);
+    auto t2 = std::make_shared<TileType>(
+        std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)}, DataType::FP32);
+    ASSERT_EQ(StructuralHash(t1), StructuralHash(t2));
 }
 
 TEST_F(StructuralHashTest, TestTupleTypeHashConsistent) {
-  auto s1 = std::make_shared<ScalarType>(DataType::INT32);
-  auto s2 = std::make_shared<ScalarType>(DataType::FP32);
-  auto tt1 = std::make_shared<TupleType>(std::vector<TypePtr>{s1, s2});
-  auto tt2 = std::make_shared<TupleType>(
-      std::vector<TypePtr>{std::make_shared<ScalarType>(DataType::INT32),
-                           std::make_shared<ScalarType>(DataType::FP32)});
-  ASSERT_EQ(StructuralHash(tt1), StructuralHash(tt2));
+    auto s1 = std::make_shared<ScalarType>(DataType::INT32);
+    auto s2 = std::make_shared<ScalarType>(DataType::FP32);
+    auto tt1 = std::make_shared<TupleType>(std::vector<TypePtr>{s1, s2});
+    auto tt2 = std::make_shared<TupleType>(std::vector<TypePtr>{
+        std::make_shared<ScalarType>(DataType::INT32), std::make_shared<ScalarType>(DataType::FP32)});
+    ASSERT_EQ(StructuralHash(tt1), StructuralHash(tt2));
 }
 
 TEST_F(StructuralHashTest, TestUnknownTypeHash) {
-  auto t1 = GetUnknownType();
-  auto t2 = GetUnknownType();
-  ASSERT_EQ(StructuralHash(t1), StructuralHash(t2));
+    auto t1 = GetUnknownType();
+    auto t2 = GetUnknownType();
+    ASSERT_EQ(StructuralHash(t1), StructuralHash(t2));
 }
 
 // ============================================================================
@@ -273,19 +270,19 @@ TEST_F(StructuralHashTest, TestUnknownTypeHash) {
 // ============================================================================
 
 TEST_F(StructuralHashTest, TestVarHashAutoMapping) {
-  Span sp = Span::unknown();
-  auto v1 = std::make_shared<Var>("x", std::make_shared<ScalarType>(DataType::INT32), sp);
-  auto v2 = std::make_shared<Var>("y", std::make_shared<ScalarType>(DataType::INT32), sp);
-  // With auto-mapping, structurally equivalent vars should hash the same
-  ASSERT_EQ(StructuralHash(v1, true), StructuralHash(v2, true));
+    Span sp = Span::Unknown();
+    auto v1 = std::make_shared<Var>("x", std::make_shared<ScalarType>(DataType::INT32), sp);
+    auto v2 = std::make_shared<Var>("y", std::make_shared<ScalarType>(DataType::INT32), sp);
+    // With auto-mapping, structurally equivalent vars should hash the same
+    ASSERT_EQ(StructuralHash(v1, true), StructuralHash(v2, true));
 }
 
 TEST_F(StructuralHashTest, TestVarHashNoAutoMapping) {
-  Span sp = Span::unknown();
-  auto v1 = std::make_shared<Var>("x", std::make_shared<ScalarType>(DataType::INT32), sp);
-  auto v2 = std::make_shared<Var>("y", std::make_shared<ScalarType>(DataType::INT32), sp);
-  // Without auto-mapping, different pointers should hash differently
-  ASSERT_NE(StructuralHash(v1, false), StructuralHash(v2, false));
+    Span sp = Span::Unknown();
+    auto v1 = std::make_shared<Var>("x", std::make_shared<ScalarType>(DataType::INT32), sp);
+    auto v2 = std::make_shared<Var>("y", std::make_shared<ScalarType>(DataType::INT32), sp);
+    // Without auto-mapping, different pointers should hash differently
+    ASSERT_NE(StructuralHash(v1, false), StructuralHash(v2, false));
 }
 
 // ============================================================================
@@ -293,94 +290,88 @@ TEST_F(StructuralHashTest, TestVarHashNoAutoMapping) {
 // ============================================================================
 
 TEST_F(StructuralHashTest, TestAssignStmtHashConsistent) {
-  Span sp = Span::unknown();
-  auto var1 = std::make_shared<Var>("x", std::make_shared<ScalarType>(DataType::INT32), sp);
-  auto val1 = std::make_shared<ConstInt>(10, DataType::INT32, sp);
-  auto s1 = std::make_shared<AssignStmt>(var1, val1, sp);
+    Span sp = Span::Unknown();
+    auto var1 = std::make_shared<Var>("x", std::make_shared<ScalarType>(DataType::INT32), sp);
+    auto val1 = std::make_shared<ConstInt>(10, DataType::INT32, sp);
+    auto s1 = std::make_shared<AssignStmt>(var1, val1, sp);
 
-  auto var2 = std::make_shared<Var>("x", std::make_shared<ScalarType>(DataType::INT32), sp);
-  auto val2 = std::make_shared<ConstInt>(10, DataType::INT32, sp);
-  auto s2 = std::make_shared<AssignStmt>(var2, val2, sp);
-  ASSERT_EQ(StructuralHash(s1, true), StructuralHash(s2, true));
+    auto var2 = std::make_shared<Var>("x", std::make_shared<ScalarType>(DataType::INT32), sp);
+    auto val2 = std::make_shared<ConstInt>(10, DataType::INT32, sp);
+    auto s2 = std::make_shared<AssignStmt>(var2, val2, sp);
+    ASSERT_EQ(StructuralHash(s1, true), StructuralHash(s2, true));
 }
 
 TEST_F(StructuralHashTest, TestSeqStmtsHashConsistent) {
-  Span sp = Span::unknown();
-  auto e1 = std::make_shared<ConstInt>(1, DataType::INT32, sp);
-  auto e2 = std::make_shared<ConstInt>(2, DataType::INT32, sp);
-  auto s1 = std::make_shared<SeqStmts>(
-      std::vector<StmtPtr>{std::make_shared<EvalStmt>(e1, sp), std::make_shared<EvalStmt>(e2, sp)}, sp);
+    Span sp = Span::Unknown();
+    auto e1 = std::make_shared<ConstInt>(1, DataType::INT32, sp);
+    auto e2 = std::make_shared<ConstInt>(2, DataType::INT32, sp);
+    auto s1 = std::make_shared<SeqStmts>(
+        std::vector<StmtPtr>{std::make_shared<EvalStmt>(e1, sp), std::make_shared<EvalStmt>(e2, sp)}, sp);
 
-  auto e3 = std::make_shared<ConstInt>(1, DataType::INT32, sp);
-  auto e4 = std::make_shared<ConstInt>(2, DataType::INT32, sp);
-  auto s2 = std::make_shared<SeqStmts>(
-      std::vector<StmtPtr>{std::make_shared<EvalStmt>(e3, sp), std::make_shared<EvalStmt>(e4, sp)}, sp);
-  ASSERT_EQ(StructuralHash(s1), StructuralHash(s2));
+    auto e3 = std::make_shared<ConstInt>(1, DataType::INT32, sp);
+    auto e4 = std::make_shared<ConstInt>(2, DataType::INT32, sp);
+    auto s2 = std::make_shared<SeqStmts>(
+        std::vector<StmtPtr>{std::make_shared<EvalStmt>(e3, sp), std::make_shared<EvalStmt>(e4, sp)}, sp);
+    ASSERT_EQ(StructuralHash(s1), StructuralHash(s2));
 }
 
 TEST_F(StructuralHashTest, TestReturnStmtHash) {
-  Span sp = Span::unknown();
-  auto v1 = std::make_shared<ConstInt>(1, DataType::INT32, sp);
-  auto r1 = std::make_shared<ReturnStmt>(std::vector<ExprPtr>{v1}, sp);
-  auto v2 = std::make_shared<ConstInt>(1, DataType::INT32, sp);
-  auto r2 = std::make_shared<ReturnStmt>(std::vector<ExprPtr>{v2}, sp);
-  ASSERT_EQ(StructuralHash(r1), StructuralHash(r2));
+    Span sp = Span::Unknown();
+    auto v1 = std::make_shared<ConstInt>(1, DataType::INT32, sp);
+    auto r1 = std::make_shared<ReturnStmt>(std::vector<ExprPtr>{v1}, sp);
+    auto v2 = std::make_shared<ConstInt>(1, DataType::INT32, sp);
+    auto r2 = std::make_shared<ReturnStmt>(std::vector<ExprPtr>{v2}, sp);
+    ASSERT_EQ(StructuralHash(r1), StructuralHash(r2));
 }
 
 TEST_F(StructuralHashTest, TestYieldStmtHash) {
-  Span sp = Span::unknown();
-  auto v1 = std::make_shared<ConstInt>(1, DataType::INT32, sp);
-  auto y1 = std::make_shared<YieldStmt>(std::vector<ExprPtr>{v1}, sp);
-  auto v2 = std::make_shared<ConstInt>(1, DataType::INT32, sp);
-  auto y2 = std::make_shared<YieldStmt>(std::vector<ExprPtr>{v2}, sp);
-  ASSERT_EQ(StructuralHash(y1), StructuralHash(y2));
+    Span sp = Span::Unknown();
+    auto v1 = std::make_shared<ConstInt>(1, DataType::INT32, sp);
+    auto y1 = std::make_shared<YieldStmt>(std::vector<ExprPtr>{v1}, sp);
+    auto v2 = std::make_shared<ConstInt>(1, DataType::INT32, sp);
+    auto y2 = std::make_shared<YieldStmt>(std::vector<ExprPtr>{v2}, sp);
+    ASSERT_EQ(StructuralHash(y1), StructuralHash(y2));
 }
 
 TEST_F(StructuralHashTest, TestIfStmtHash) {
-  Span sp = Span::unknown();
-  auto cond = std::make_shared<ConstBool>(true, sp);
-  auto thenBody = std::make_shared<EvalStmt>(
-      std::make_shared<ConstInt>(1, DataType::INT32, sp), sp);
-  auto if1 = std::make_shared<IfStmt>(cond, thenBody, std::optional<StmtPtr>{},
-                                       std::vector<VarPtr>{}, sp);
+    Span sp = Span::Unknown();
+    auto cond = std::make_shared<ConstBool>(true, sp);
+    auto thenBody = std::make_shared<EvalStmt>(std::make_shared<ConstInt>(1, DataType::INT32, sp), sp);
+    auto if1 = std::make_shared<IfStmt>(cond, thenBody, std::optional<StmtPtr>{}, std::vector<VarPtr>{}, sp);
 
-  auto cond2 = std::make_shared<ConstBool>(true, sp);
-  auto thenBody2 = std::make_shared<EvalStmt>(
-      std::make_shared<ConstInt>(1, DataType::INT32, sp), sp);
-  auto if2 = std::make_shared<IfStmt>(cond2, thenBody2, std::optional<StmtPtr>{},
-                                       std::vector<VarPtr>{}, sp);
-  ASSERT_EQ(StructuralHash(if1), StructuralHash(if2));
+    auto cond2 = std::make_shared<ConstBool>(true, sp);
+    auto thenBody2 = std::make_shared<EvalStmt>(std::make_shared<ConstInt>(1, DataType::INT32, sp), sp);
+    auto if2 = std::make_shared<IfStmt>(cond2, thenBody2, std::optional<StmtPtr>{}, std::vector<VarPtr>{}, sp);
+    ASSERT_EQ(StructuralHash(if1), StructuralHash(if2));
 }
 
 TEST_F(StructuralHashTest, TestForStmtHash) {
-  Span sp = Span::unknown();
-  auto lv1 = std::make_shared<Var>("i", std::make_shared<ScalarType>(DataType::INT32), sp);
-  auto start1 = std::make_shared<ConstInt>(0, DataType::INT32, sp);
-  auto stop1 = std::make_shared<ConstInt>(10, DataType::INT32, sp);
-  auto step1 = std::make_shared<ConstInt>(1, DataType::INT32, sp);
-  auto body1 = std::make_shared<EvalStmt>(start1, sp);
-  auto for1 = std::make_shared<ForStmt>(lv1, start1, stop1, step1,
-      std::vector<IterArgPtr>{}, body1, std::vector<VarPtr>{}, sp);
+    Span sp = Span::Unknown();
+    auto lv1 = std::make_shared<Var>("i", std::make_shared<ScalarType>(DataType::INT32), sp);
+    auto start1 = std::make_shared<ConstInt>(0, DataType::INT32, sp);
+    auto stop1 = std::make_shared<ConstInt>(10, DataType::INT32, sp);
+    auto step1 = std::make_shared<ConstInt>(1, DataType::INT32, sp);
+    auto body1 = std::make_shared<EvalStmt>(start1, sp);
+    auto for1 = std::make_shared<ForStmt>(
+        lv1, start1, stop1, step1, std::vector<IterArgPtr>{}, body1, std::vector<VarPtr>{}, sp);
 
-  auto lv2 = std::make_shared<Var>("i", std::make_shared<ScalarType>(DataType::INT32), sp);
-  auto start2 = std::make_shared<ConstInt>(0, DataType::INT32, sp);
-  auto stop2 = std::make_shared<ConstInt>(10, DataType::INT32, sp);
-  auto step2 = std::make_shared<ConstInt>(1, DataType::INT32, sp);
-  auto body2 = std::make_shared<EvalStmt>(start2, sp);
-  auto for2 = std::make_shared<ForStmt>(lv2, start2, stop2, step2,
-      std::vector<IterArgPtr>{}, body2, std::vector<VarPtr>{}, sp);
-  ASSERT_EQ(StructuralHash(for1, true), StructuralHash(for2, true));
+    auto lv2 = std::make_shared<Var>("i", std::make_shared<ScalarType>(DataType::INT32), sp);
+    auto start2 = std::make_shared<ConstInt>(0, DataType::INT32, sp);
+    auto stop2 = std::make_shared<ConstInt>(10, DataType::INT32, sp);
+    auto step2 = std::make_shared<ConstInt>(1, DataType::INT32, sp);
+    auto body2 = std::make_shared<EvalStmt>(start2, sp);
+    auto for2 = std::make_shared<ForStmt>(
+        lv2, start2, stop2, step2, std::vector<IterArgPtr>{}, body2, std::vector<VarPtr>{}, sp);
+    ASSERT_EQ(StructuralHash(for1, true), StructuralHash(for2, true));
 }
 
 TEST_F(StructuralHashTest, TestOpStmtsHash) {
-  Span sp = Span::unknown();
-  auto e1 = std::make_shared<ConstInt>(1, DataType::INT32, sp);
-  auto s1 = std::make_shared<OpStmts>(
-      std::vector<StmtPtr>{std::make_shared<EvalStmt>(e1, sp)}, sp);
-  auto e2 = std::make_shared<ConstInt>(1, DataType::INT32, sp);
-  auto s2 = std::make_shared<OpStmts>(
-      std::vector<StmtPtr>{std::make_shared<EvalStmt>(e2, sp)}, sp);
-  ASSERT_EQ(StructuralHash(s1), StructuralHash(s2));
+    Span sp = Span::Unknown();
+    auto e1 = std::make_shared<ConstInt>(1, DataType::INT32, sp);
+    auto s1 = std::make_shared<OpStmts>(std::vector<StmtPtr>{std::make_shared<EvalStmt>(e1, sp)}, sp);
+    auto e2 = std::make_shared<ConstInt>(1, DataType::INT32, sp);
+    auto s2 = std::make_shared<OpStmts>(std::vector<StmtPtr>{std::make_shared<EvalStmt>(e2, sp)}, sp);
+    ASSERT_EQ(StructuralHash(s1), StructuralHash(s2));
 }
 
 // ============================================================================
@@ -388,21 +379,15 @@ TEST_F(StructuralHashTest, TestOpStmtsHash) {
 // ============================================================================
 
 TEST_F(StructuralHashTest, TestProgramHashConsistent) {
-  Span sp = Span::unknown();
-  auto body1 = std::make_shared<EvalStmt>(
-      std::make_shared<ConstInt>(0, DataType::INT32, sp), sp);
-  auto func1 = std::make_shared<Function>("main", std::vector<VarPtr>{},
-      std::vector<TypePtr>{}, body1, sp);
-  auto prog1 = std::make_shared<Program>(
-      std::vector<FunctionPtr>{func1}, "test", sp);
+    Span sp = Span::Unknown();
+    auto body1 = std::make_shared<EvalStmt>(std::make_shared<ConstInt>(0, DataType::INT32, sp), sp);
+    auto func1 = std::make_shared<Function>("main", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body1, sp);
+    auto prog1 = std::make_shared<Program>(std::vector<FunctionPtr>{func1}, "test", sp);
 
-  auto body2 = std::make_shared<EvalStmt>(
-      std::make_shared<ConstInt>(0, DataType::INT32, sp), sp);
-  auto func2 = std::make_shared<Function>("main", std::vector<VarPtr>{},
-      std::vector<TypePtr>{}, body2, sp);
-  auto prog2 = std::make_shared<Program>(
-      std::vector<FunctionPtr>{func2}, "test", sp);
-  ASSERT_EQ(StructuralHash(prog1, true), StructuralHash(prog2, true));
+    auto body2 = std::make_shared<EvalStmt>(std::make_shared<ConstInt>(0, DataType::INT32, sp), sp);
+    auto func2 = std::make_shared<Function>("main", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body2, sp);
+    auto prog2 = std::make_shared<Program>(std::vector<FunctionPtr>{func2}, "test", sp);
+    ASSERT_EQ(StructuralHash(prog1, true), StructuralHash(prog2, true));
 }
 
 // ============================================================================
@@ -410,53 +395,55 @@ TEST_F(StructuralHashTest, TestProgramHashConsistent) {
 // ============================================================================
 
 TEST_F(StructuralHashTest, TestCallHashConsistent) {
-  Span sp = Span::unknown();
-  auto& reg = OpRegistry::GetInstance();
-  auto a1 = std::make_shared<Var>("a",
-      std::make_shared<TensorType>(
-          std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
-          DataType::FP32), sp);
-  auto b1 = std::make_shared<Var>("b",
-      std::make_shared<TensorType>(
-          std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
-          DataType::FP32), sp);
-  auto call1 = reg.Create("tensor.add", {a1, b1}, sp);
+    Span sp = Span::Unknown();
+    auto &reg = OpRegistry::GetInstance();
+    auto a1 = std::make_shared<Var>("a",
+        std::make_shared<TensorType>(
+            std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)}, DataType::FP32),
+        sp);
+    auto b1 = std::make_shared<Var>("b",
+        std::make_shared<TensorType>(
+            std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)}, DataType::FP32),
+        sp);
+    auto call1 = reg.Create("tensor.add", {a1, b1}, sp);
 
-  auto a2 = std::make_shared<Var>("a",
-      std::make_shared<TensorType>(
-          std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
-          DataType::FP32), sp);
-  auto b2 = std::make_shared<Var>("b",
-      std::make_shared<TensorType>(
-          std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
-          DataType::FP32), sp);
-  auto call2 = reg.Create("tensor.add", {a2, b2}, sp);
-  ASSERT_EQ(StructuralHash(call1, true), StructuralHash(call2, true));
+    auto a2 = std::make_shared<Var>("a",
+        std::make_shared<TensorType>(
+            std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)}, DataType::FP32),
+        sp);
+    auto b2 = std::make_shared<Var>("b",
+        std::make_shared<TensorType>(
+            std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)}, DataType::FP32),
+        sp);
+    auto call2 = reg.Create("tensor.add", {a2, b2}, sp);
+    ASSERT_EQ(StructuralHash(call1, true), StructuralHash(call2, true));
 }
 
 TEST_F(StructuralHashTest, TestCallWithKwargsHash) {
-  Span sp = Span::unknown();
-  auto& reg = OpRegistry::GetInstance();
-  auto tile1 = std::make_shared<Var>("t",
-      std::make_shared<TileType>(
-          std::vector<ExprPtr>{
-              std::make_shared<ConstInt>(4, DataType::INT64, sp),
-              std::make_shared<ConstInt>(8, DataType::INT64, sp)},
-          DataType::FP32), sp);
-  std::vector<std::pair<std::string, std::any>> kwargs1 = {
-      {"axis", std::any(1)}, {"keepdim", std::any(true)}};
-  auto call1 = reg.Create("block.sum", {tile1}, kwargs1, sp);
+    Span sp = Span::Unknown();
+    auto &reg = OpRegistry::GetInstance();
+    auto tile1 = std::make_shared<Var>("t",
+        std::make_shared<TileType>(std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp),
+                                       std::make_shared<ConstInt>(8, DataType::INT64, sp)},
+            DataType::FP32),
+        sp);
+    std::vector<std::pair<std::string, std::any>> kwargs1 = {
+        {   "axis",    std::any(1)},
+        {"keepdim", std::any(true)}
+    };
+    auto call1 = reg.Create("block.sum", {tile1}, kwargs1, sp);
 
-  auto tile2 = std::make_shared<Var>("t",
-      std::make_shared<TileType>(
-          std::vector<ExprPtr>{
-              std::make_shared<ConstInt>(4, DataType::INT64, sp),
-              std::make_shared<ConstInt>(8, DataType::INT64, sp)},
-          DataType::FP32), sp);
-  std::vector<std::pair<std::string, std::any>> kwargs2 = {
-      {"axis", std::any(1)}, {"keepdim", std::any(true)}};
-  auto call2 = reg.Create("block.sum", {tile2}, kwargs2, sp);
-  ASSERT_EQ(StructuralHash(call1, true), StructuralHash(call2, true));
+    auto tile2 = std::make_shared<Var>("t",
+        std::make_shared<TileType>(std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp),
+                                       std::make_shared<ConstInt>(8, DataType::INT64, sp)},
+            DataType::FP32),
+        sp);
+    std::vector<std::pair<std::string, std::any>> kwargs2 = {
+        {   "axis",    std::any(1)},
+        {"keepdim", std::any(true)}
+    };
+    auto call2 = reg.Create("block.sum", {tile2}, kwargs2, sp);
+    ASSERT_EQ(StructuralHash(call1, true), StructuralHash(call2, true));
 }
 
 // ============================================================================
@@ -464,14 +451,12 @@ TEST_F(StructuralHashTest, TestCallWithKwargsHash) {
 // ============================================================================
 
 TEST_F(StructuralHashTest, TestIterArgHash) {
-  Span sp = Span::unknown();
-  auto init1 = std::make_shared<ConstInt>(0, DataType::INT32, sp);
-  auto ia1 = std::make_shared<IterArg>("acc",
-      std::make_shared<ScalarType>(DataType::INT32), init1, sp);
-  auto init2 = std::make_shared<ConstInt>(0, DataType::INT32, sp);
-  auto ia2 = std::make_shared<IterArg>("acc",
-      std::make_shared<ScalarType>(DataType::INT32), init2, sp);
-  ASSERT_EQ(StructuralHash(ia1, true), StructuralHash(ia2, true));
+    Span sp = Span::Unknown();
+    auto init1 = std::make_shared<ConstInt>(0, DataType::INT32, sp);
+    auto ia1 = std::make_shared<IterArg>("acc", std::make_shared<ScalarType>(DataType::INT32), init1, sp);
+    auto init2 = std::make_shared<ConstInt>(0, DataType::INT32, sp);
+    auto ia2 = std::make_shared<IterArg>("acc", std::make_shared<ScalarType>(DataType::INT32), init2, sp);
+    ASSERT_EQ(StructuralHash(ia1, true), StructuralHash(ia2, true));
 }
 
 // ============================================================================
@@ -479,76 +464,76 @@ TEST_F(StructuralHashTest, TestIterArgHash) {
 // ============================================================================
 
 TEST_F(StructuralHashTest, TestCallWithStringKwarg) {
-  auto [sp, a, b, baseCall] = MakeKwargsTestFixture();
-  ASSERT_NE(baseCall, nullptr);
+    auto [sp, a, b, baseCall] = MakeKwargsTestFixture();
+    ASSERT_NE(baseCall, nullptr);
 
-  std::vector<std::pair<std::string, std::any>> kwargs1 = {
-      {"label", std::any(std::string("test"))}};
-  auto call1 = std::make_shared<const Call>(
-      baseCall->op_, std::vector<ExprPtr>{a}, kwargs1,
-      std::make_shared<ScalarType>(DataType::INT32), sp);
+    std::vector<std::pair<std::string, std::any>> kwargs1 = {
+        {"label", std::any(std::string("test"))}
+    };
+    auto call1 = std::make_shared<const Call>(
+        baseCall->op_, std::vector<ExprPtr>{a}, kwargs1, std::make_shared<ScalarType>(DataType::INT32), sp);
 
-  std::vector<std::pair<std::string, std::any>> kwargs2 = {
-      {"label", std::any(std::string("test"))}};
-  auto call2 = std::make_shared<const Call>(
-      baseCall->op_, std::vector<ExprPtr>{a}, kwargs2,
-      std::make_shared<ScalarType>(DataType::INT32), sp);
+    std::vector<std::pair<std::string, std::any>> kwargs2 = {
+        {"label", std::any(std::string("test"))}
+    };
+    auto call2 = std::make_shared<const Call>(
+        baseCall->op_, std::vector<ExprPtr>{a}, kwargs2, std::make_shared<ScalarType>(DataType::INT32), sp);
 
-  ASSERT_EQ(StructuralHash(ExprPtr(call1), true), StructuralHash(ExprPtr(call2), true));
+    ASSERT_EQ(StructuralHash(ExprPtr(call1), true), StructuralHash(ExprPtr(call2), true));
 }
 
 TEST_F(StructuralHashTest, TestCallWithDoubleKwarg) {
-  auto [sp, a, b, baseCall] = MakeKwargsTestFixture();
+    auto [sp, a, b, baseCall] = MakeKwargsTestFixture();
 
-  std::vector<std::pair<std::string, std::any>> kwargs1 = {
-      {"scale", std::any(3.14)}};
-  auto call1 = std::make_shared<const Call>(
-      baseCall->op_, std::vector<ExprPtr>{a}, kwargs1,
-      std::make_shared<ScalarType>(DataType::FP32), sp);
+    std::vector<std::pair<std::string, std::any>> kwargs1 = {
+        {"scale", std::any(3.14)}
+    };
+    auto call1 = std::make_shared<const Call>(
+        baseCall->op_, std::vector<ExprPtr>{a}, kwargs1, std::make_shared<ScalarType>(DataType::FP32), sp);
 
-  std::vector<std::pair<std::string, std::any>> kwargs2 = {
-      {"scale", std::any(3.14)}};
-  auto call2 = std::make_shared<const Call>(
-      baseCall->op_, std::vector<ExprPtr>{a}, kwargs2,
-      std::make_shared<ScalarType>(DataType::FP32), sp);
+    std::vector<std::pair<std::string, std::any>> kwargs2 = {
+        {"scale", std::any(3.14)}
+    };
+    auto call2 = std::make_shared<const Call>(
+        baseCall->op_, std::vector<ExprPtr>{a}, kwargs2, std::make_shared<ScalarType>(DataType::FP32), sp);
 
-  ASSERT_EQ(StructuralHash(ExprPtr(call1), true), StructuralHash(ExprPtr(call2), true));
+    ASSERT_EQ(StructuralHash(ExprPtr(call1), true), StructuralHash(ExprPtr(call2), true));
 }
 
 TEST_F(StructuralHashTest, TestCallWithFloatKwarg) {
-  auto [sp, a, b, baseCall] = MakeKwargsTestFixture();
+    auto [sp, a, b, baseCall] = MakeKwargsTestFixture();
 
-  std::vector<std::pair<std::string, std::any>> kwargs1 = {
-      {"epsilon", std::any(1.0f)}};
-  auto call1 = std::make_shared<const Call>(
-      baseCall->op_, std::vector<ExprPtr>{a}, kwargs1,
-      std::make_shared<ScalarType>(DataType::FP32), sp);
+    std::vector<std::pair<std::string, std::any>> kwargs1 = {
+        {"epsilon", std::any(1.0f)}
+    };
+    auto call1 = std::make_shared<const Call>(
+        baseCall->op_, std::vector<ExprPtr>{a}, kwargs1, std::make_shared<ScalarType>(DataType::FP32), sp);
 
-  std::vector<std::pair<std::string, std::any>> kwargs2 = {
-      {"epsilon", std::any(1.0f)}};
-  auto call2 = std::make_shared<const Call>(
-      baseCall->op_, std::vector<ExprPtr>{a}, kwargs2,
-      std::make_shared<ScalarType>(DataType::FP32), sp);
+    std::vector<std::pair<std::string, std::any>> kwargs2 = {
+        {"epsilon", std::any(1.0f)}
+    };
+    auto call2 = std::make_shared<const Call>(
+        baseCall->op_, std::vector<ExprPtr>{a}, kwargs2, std::make_shared<ScalarType>(DataType::FP32), sp);
 
-  ASSERT_EQ(StructuralHash(ExprPtr(call1), true), StructuralHash(ExprPtr(call2), true));
+    ASSERT_EQ(StructuralHash(ExprPtr(call1), true), StructuralHash(ExprPtr(call2), true));
 }
 
 TEST_F(StructuralHashTest, TestCallWithDataTypeKwarg) {
-  auto [sp, a, b, baseCall] = MakeKwargsTestFixture();
+    auto [sp, a, b, baseCall] = MakeKwargsTestFixture();
 
-  std::vector<std::pair<std::string, std::any>> kwargs1 = {
-      {"dtype", std::any(DataType::FP16)}};
-  auto call1 = std::make_shared<const Call>(
-      baseCall->op_, std::vector<ExprPtr>{a}, kwargs1,
-      std::make_shared<ScalarType>(DataType::FP32), sp);
+    std::vector<std::pair<std::string, std::any>> kwargs1 = {
+        {"dtype", std::any(DataType::FP16)}
+    };
+    auto call1 = std::make_shared<const Call>(
+        baseCall->op_, std::vector<ExprPtr>{a}, kwargs1, std::make_shared<ScalarType>(DataType::FP32), sp);
 
-  std::vector<std::pair<std::string, std::any>> kwargs2 = {
-      {"dtype", std::any(DataType::FP16)}};
-  auto call2 = std::make_shared<const Call>(
-      baseCall->op_, std::vector<ExprPtr>{a}, kwargs2,
-      std::make_shared<ScalarType>(DataType::FP32), sp);
+    std::vector<std::pair<std::string, std::any>> kwargs2 = {
+        {"dtype", std::any(DataType::FP16)}
+    };
+    auto call2 = std::make_shared<const Call>(
+        baseCall->op_, std::vector<ExprPtr>{a}, kwargs2, std::make_shared<ScalarType>(DataType::FP32), sp);
 
-  ASSERT_EQ(StructuralHash(ExprPtr(call1), true), StructuralHash(ExprPtr(call2), true));
+    ASSERT_EQ(StructuralHash(ExprPtr(call1), true), StructuralHash(ExprPtr(call2), true));
 }
 
 // ============================================================================
@@ -556,38 +541,35 @@ TEST_F(StructuralHashTest, TestCallWithDataTypeKwarg) {
 // ============================================================================
 
 TEST_F(StructuralHashTest, TestTileTypeWithTileViewHash) {
-  Span sp = Span::unknown();
-  auto shape1 = std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)};
-  TileView tv1(
-      std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
-      std::vector<ExprPtr>{std::make_shared<ConstInt>(1, DataType::INT64, sp)},
-      std::make_shared<ConstInt>(0, DataType::INT64, sp));
-  auto t1 = std::make_shared<TileType>(shape1, DataType::FP32, std::nullopt, std::optional<TileView>(tv1));
+    Span sp = Span::Unknown();
+    auto shape1 = std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)};
+    TileView tv1(std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
+        std::vector<ExprPtr>{std::make_shared<ConstInt>(1, DataType::INT64, sp)},
+        std::make_shared<ConstInt>(0, DataType::INT64, sp));
+    auto t1 = std::make_shared<TileType>(shape1, DataType::FP32, std::nullopt, std::optional<TileView>(tv1));
 
-  auto shape2 = std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)};
-  TileView tv2(
-      std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
-      std::vector<ExprPtr>{std::make_shared<ConstInt>(1, DataType::INT64, sp)},
-      std::make_shared<ConstInt>(0, DataType::INT64, sp));
-  auto t2 = std::make_shared<TileType>(shape2, DataType::FP32, std::nullopt, std::optional<TileView>(tv2));
+    auto shape2 = std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)};
+    TileView tv2(std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
+        std::vector<ExprPtr>{std::make_shared<ConstInt>(1, DataType::INT64, sp)},
+        std::make_shared<ConstInt>(0, DataType::INT64, sp));
+    auto t2 = std::make_shared<TileType>(shape2, DataType::FP32, std::nullopt, std::optional<TileView>(tv2));
 
-  ASSERT_EQ(StructuralHash(t1), StructuralHash(t2));
+    ASSERT_EQ(StructuralHash(t1), StructuralHash(t2));
 }
 
 TEST_F(StructuralHashTest, TestTileTypeWithVsWithoutTileViewHash) {
-  Span sp = Span::unknown();
-  auto shape1 = std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)};
-  TileView tv(
-      std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
-      std::vector<ExprPtr>{std::make_shared<ConstInt>(1, DataType::INT64, sp)},
-      std::make_shared<ConstInt>(0, DataType::INT64, sp));
-  auto t1 = std::make_shared<TileType>(shape1, DataType::FP32, std::nullopt, std::optional<TileView>(tv));
+    Span sp = Span::Unknown();
+    auto shape1 = std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)};
+    TileView tv(std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)},
+        std::vector<ExprPtr>{std::make_shared<ConstInt>(1, DataType::INT64, sp)},
+        std::make_shared<ConstInt>(0, DataType::INT64, sp));
+    auto t1 = std::make_shared<TileType>(shape1, DataType::FP32, std::nullopt, std::optional<TileView>(tv));
 
-  auto shape2 = std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)};
-  auto t2 = std::make_shared<TileType>(shape2, DataType::FP32);
+    auto shape2 = std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)};
+    auto t2 = std::make_shared<TileType>(shape2, DataType::FP32);
 
-  // With TileView vs without should have different hashes
-  ASSERT_NE(StructuralHash(t1), StructuralHash(t2));
+    // With TileView vs without should have different hashes
+    ASSERT_NE(StructuralHash(t1), StructuralHash(t2));
 }
 
 // ============================================================================
@@ -595,18 +577,18 @@ TEST_F(StructuralHashTest, TestTileTypeWithVsWithoutTileViewHash) {
 // ============================================================================
 
 TEST_F(StructuralHashTest, TestTypeOverloadScalar) {
-  TypePtr t1 = std::make_shared<ScalarType>(DataType::FP32);
-  TypePtr t2 = std::make_shared<ScalarType>(DataType::FP32);
-  ASSERT_EQ(StructuralHash(t1), StructuralHash(t2));
+    TypePtr t1 = std::make_shared<ScalarType>(DataType::FP32);
+    TypePtr t2 = std::make_shared<ScalarType>(DataType::FP32);
+    ASSERT_EQ(StructuralHash(t1), StructuralHash(t2));
 }
 
 TEST_F(StructuralHashTest, TestTypeOverloadTensor) {
-  Span sp = Span::unknown();
-  TypePtr t1 = std::make_shared<TensorType>(
-      std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)}, DataType::FP32);
-  TypePtr t2 = std::make_shared<TensorType>(
-      std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)}, DataType::FP32);
-  ASSERT_EQ(StructuralHash(t1), StructuralHash(t2));
+    Span sp = Span::Unknown();
+    TypePtr t1 = std::make_shared<TensorType>(
+        std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)}, DataType::FP32);
+    TypePtr t2 = std::make_shared<TensorType>(
+        std::vector<ExprPtr>{std::make_shared<ConstInt>(4, DataType::INT64, sp)}, DataType::FP32);
+    ASSERT_EQ(StructuralHash(t1), StructuralHash(t2));
 }
 
 // ============================================================================
@@ -614,15 +596,13 @@ TEST_F(StructuralHashTest, TestTypeOverloadTensor) {
 // ============================================================================
 
 TEST_F(StructuralHashTest, TestIterArgHashNoAutoMapping) {
-  Span sp = Span::unknown();
-  auto init1 = std::make_shared<ConstInt>(0, DataType::INT32, sp);
-  auto ia1 = std::make_shared<IterArg>("acc",
-      std::make_shared<ScalarType>(DataType::INT32), init1, sp);
-  auto init2 = std::make_shared<ConstInt>(0, DataType::INT32, sp);
-  auto ia2 = std::make_shared<IterArg>("acc",
-      std::make_shared<ScalarType>(DataType::INT32), init2, sp);
-  // Without auto-mapping, different pointers should hash differently
-  ASSERT_NE(StructuralHash(ia1, false), StructuralHash(ia2, false));
+    Span sp = Span::Unknown();
+    auto init1 = std::make_shared<ConstInt>(0, DataType::INT32, sp);
+    auto ia1 = std::make_shared<IterArg>("acc", std::make_shared<ScalarType>(DataType::INT32), init1, sp);
+    auto init2 = std::make_shared<ConstInt>(0, DataType::INT32, sp);
+    auto ia2 = std::make_shared<IterArg>("acc", std::make_shared<ScalarType>(DataType::INT32), init2, sp);
+    // Without auto-mapping, different pointers should hash differently
+    ASSERT_NE(StructuralHash(ia1, false), StructuralHash(ia2, false));
 }
 
 // ============================================================================
@@ -630,15 +610,14 @@ TEST_F(StructuralHashTest, TestIterArgHashNoAutoMapping) {
 // ============================================================================
 
 TEST_F(StructuralHashTest, TestHashCachingWithSharedNode) {
-  Span sp = Span::unknown();
-  auto sharedVal = std::make_shared<ConstInt>(42, DataType::INT32, sp);
-  // Create a MakeTuple that references the same node twice
-  auto tuple = std::make_shared<MakeTuple>(
-      std::vector<ExprPtr>{sharedVal, sharedVal}, sp);
-  auto h1 = StructuralHash(tuple);
-  auto h2 = StructuralHash(tuple);
-  ASSERT_EQ(h1, h2);
+    Span sp = Span::Unknown();
+    auto sharedVal = std::make_shared<ConstInt>(42, DataType::INT32, sp);
+    // Create a MakeTuple that references the same node twice
+    auto tuple = std::make_shared<MakeTuple>(std::vector<ExprPtr>{sharedVal, sharedVal}, sp);
+    auto h1 = StructuralHash(tuple);
+    auto h2 = StructuralHash(tuple);
+    ASSERT_EQ(h1, h2);
 }
 
-}  // namespace ir
-}  // namespace pypto
+} // namespace ir
+} // namespace pypto

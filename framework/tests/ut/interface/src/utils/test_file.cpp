@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
+/**
  * \file test_file.cpp
  * \brief
  */
@@ -42,7 +42,7 @@ TEST(FileTest, NullptrTest) {
     EXPECT_EQ(LockAndOpenFile(""), nullptr);
 }
 
-constexpr const char* TEST_LOG_PATH = "/tmp/test_file.log";
+constexpr const char *TEST_LOG_PATH = "/tmp/test_file.log";
 TEST(FileTest, ReadBytesFromFileTest) {
     std::vector<char> data;
 

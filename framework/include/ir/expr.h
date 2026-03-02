@@ -330,13 +330,13 @@ public:
      * Generates a variable name from the ID (e.g., "mem_123") and creates
      * a MemRefType for the type. Calls Var constructor with these values.
      *
-     * \param memory_space Memory space (DDR, UB, L1, etc.)
+     * \param memorySpace Memory space (DDR, UB, L1, etc.)
      * \param addr Starting address expression
      * \param size Size in bytes
      * \param id Unique identifier (used to generate variable name)
-     * \param span Source location (defaults to Span::unknown())
+     * \param span Source location (defaults to Span::Unknown())
      */
-    MemRef(MemorySpace memorySpace, ExprPtr addr, uint64_t size, uint64_t id, Span span = Span::unknown());
+    MemRef(MemorySpace memorySpace, ExprPtr addr, uint64_t size, uint64_t id, Span span = Span::Unknown());
 
     [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::MemRef; }
     [[nodiscard]] std::string TypeName() const override { return "MemRef"; }
@@ -422,7 +422,7 @@ public:
      *
      * \tparam T Type of the kwarg value
      * \param key Kwarg key
-     * \param default_value Default value if key doesn't exist
+     * \param defaultValue Default value if key doesn't exist
      * \return The kwarg value or default
      */
     template <typename T>

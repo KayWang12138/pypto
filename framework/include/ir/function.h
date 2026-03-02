@@ -83,7 +83,7 @@ public:
      *
      * \param name Function name
      * \param params Parameter variables
-     * \param return_types Return types
+     * \param returnTypes Return types
      * \param body Function body statement (use SeqStmts for multiple statements)
      * \param span Source location
      * \param type Function type (default: Opaque)

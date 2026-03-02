@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
+/**
  * \file error.h
  * \brief Core error handling framework with stack trace support
  *
@@ -58,7 +58,7 @@ struct StackFrame {
      * \param func Function name
      * \param file Source file path
      * \param line Line number in source file
-     * \param program_counter Program counter value at this frame
+     * \param programCounter Program counter value at this frame
      */
     StackFrame(std::string func, std::string file, int line, uintptr_t programCounter)
         : function(std::move(func)), filename(std::move(file)), lineno(line), pc(programCounter) {}
@@ -67,7 +67,7 @@ struct StackFrame {
      * \brief Formats the stack frame as a human-readable string
      * \return String representation in the format "function (filename:lineno)"
      */
-    [[nodiscard]] std::string to_string() const;
+    [[nodiscard]] std::string ToString() const;
 };
 
 /**
@@ -302,20 +302,20 @@ enum class DiagnosticSeverity {
 struct Diagnostic {
     DiagnosticSeverity severity; ///< Severity level (Error or Warning)
     std::string ruleName;       ///< Name of the verification rule (e.g., "SSAVerify", "TypeCheck")
-    int error_code;              ///< Specific error code from the rule's error type enum
+    int errorCode;               ///< Specific error code from the rule's error type enum
     std::string message;         ///< Human-readable error message
     ir::Span span;               ///< Source location of the issue
 
     /**
      * \brief Default constructor
      */
-    Diagnostic() : severity(DiagnosticSeverity::Error), error_code(0), span(ir::Span::unknown()) {}
+    Diagnostic() : severity(DiagnosticSeverity::Error), errorCode(0), span(ir::Span::Unknown()) {}
 
     /**
      * \brief Construct a diagnostic with all fields
      */
     Diagnostic(DiagnosticSeverity sev, std::string rule, int code, std::string msg, ir::Span s)
-        : severity(sev), ruleName(std::move(rule)), error_code(code), message(std::move(msg)), span(std::move(s)) {}
+        : severity(sev), ruleName(std::move(rule)), errorCode(code), message(std::move(msg)), span(std::move(s)) {}
 };
 
 /**

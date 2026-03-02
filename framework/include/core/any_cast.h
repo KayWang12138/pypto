@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
+/**
  * \file any_cast.h
  * \brief Enhanced any_cast utilities with better error reporting
  *

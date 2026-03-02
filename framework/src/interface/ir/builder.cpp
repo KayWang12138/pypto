@@ -34,7 +34,7 @@ void IRBuilder::BeginFunction(const std::string &name, const Span &span, Functio
   if (InFunction()) {
     throw RuntimeError("Cannot begin function '" + name + "': already inside function '" +
                               static_cast<FunctionContext *>(CurrentContext())->GetName() + "' at " +
-                              CurrentContext()->GetBeginSpan().to_string());
+                              CurrentContext()->GetBeginSpan().ToString());
   }
 
   contextStack_.push_back(std::make_unique<FunctionContext>(name, span, type));
@@ -92,7 +92,7 @@ void IRBuilder::BeginForLoop(const VarPtr &loopVar, const ExprPtr &start, const 
                              const ExprPtr &step, const Span &span) {
   if (contextStack_.empty()) {
     throw RuntimeError("Cannot begin for loop: not inside a function or another valid context at " +
-                              span.to_string());
+                              span.ToString());
   }
 
   contextStack_.push_back(std::make_unique<ForLoopContext>(loopVar, start, stop, step, span));
@@ -164,7 +164,7 @@ StmtPtr IRBuilder::EndForLoop(const Span &endSpan) {
 
 void IRBuilder::BeginIf(const ExprPtr &condition, const Span &span) {
   INTERNAL_CHECK(!contextStack_.empty())
-      << "Cannot begin if statement: not inside a function or another valid context at " << span.to_string();
+      << "Cannot begin if statement: not inside a function or another valid context at " << span.ToString();
   contextStack_.push_back(std::make_unique<IfStmtContext>(condition, span));
 }
 
@@ -173,7 +173,7 @@ void IRBuilder::BeginElse(const Span &span) {
 
   auto *ifCtx = static_cast<IfStmtContext *>(CurrentContext());
   INTERNAL_CHECK(!ifCtx->InElseBranch()) << "Cannot begin else branch: already in else branch at "
-                                 << span.to_string();
+                                 << span.ToString();
 
   ifCtx->BeginElseBranch();
 }
@@ -238,7 +238,7 @@ void IRBuilder::BeginProgram(const std::string &name, const Span &span) {
   if (InProgram()) {
     throw RuntimeError("Cannot begin program '" + name + "': already inside program '" +
                               static_cast<ProgramContext *>(CurrentContext())->GetName() + "' at " +
-                              CurrentContext()->GetBeginSpan().to_string());
+                              CurrentContext()->GetBeginSpan().ToString());
   }
 
   contextStack_.push_back(std::make_unique<ProgramContext>(name, span));

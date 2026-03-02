@@ -71,7 +71,7 @@ TypePtr DeduceBlockReductionType(const std::vector<ExprPtr> &args,
     for (int64_t i = 0; i < inputNdim; ++i) {
       if (reduceAxes.find(i) != reduceAxes.end()) {
         // Reduced axis: set to 1
-        outputShape.push_back(std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown()));
+        outputShape.push_back(std::make_shared<ConstInt>(1, DataType::INT32, Span::Unknown()));
       } else {
         // Keep this dimension
         outputShape.push_back(inputShape[i]);
@@ -118,7 +118,7 @@ TypePtr DeduceBlockRowReductionType(const std::vector<ExprPtr> &args,
   // Output shape is [...batch_dims, rows, 1] - reduce along the last axis (columns) with keepdim=True
   std::vector<ExprPtr> outputShape(inputShape.begin(), inputShape.end() - 1);  // Keep all but last dim
   outputShape.push_back(
-      std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown()));  // Reduced last dim
+      std::make_shared<ConstInt>(1, DataType::INT32, Span::Unknown()));  // Reduced last dim
 
   return std::make_shared<TileType>(outputShape, tileType->dtype_);
 }
