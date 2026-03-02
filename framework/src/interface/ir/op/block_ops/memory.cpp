@@ -83,9 +83,9 @@ TypePtr DeduceBlockLoadType(const std::vector<ExprPtr> &args,
     // Use dynamic dimensions if shape is not provided
     // Create ConstInt expressions for dynamic dimensions
     auto dynamicDimHeight =
-        std::make_shared<ConstInt>(static_cast<int>(kDynamicDim), DataType::INT32, Span::unknown());
+        std::make_shared<ConstInt>(static_cast<int>(kDynamicDim), DataType::INT32, Span::Unknown());
     auto dynamicDimWidth =
-        std::make_shared<ConstInt>(static_cast<int>(kDynamicDim), DataType::INT32, Span::unknown());
+        std::make_shared<ConstInt>(static_cast<int>(kDynamicDim), DataType::INT32, Span::Unknown());
     tileShape.push_back(dynamicDimHeight);
     tileShape.push_back(dynamicDimWidth);
   }

@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
+/**
  * \file span.h
  * \brief Source location tracking for IR nodes
  *
@@ -46,10 +46,10 @@ public:
      * \brief Construct a source span
      *
      * \param file Source filename
-     * \param begin_line Begin line (1-indexed)
-     * \param begin_column Begin column (1-indexed)
-     * \param end_line End line (1-indexed), -1 means unknown
-     * \param end_column End column (1-indexed), -1 means unknown
+     * \param beginLine Begin line (1-indexed)
+     * \param beginColumn Begin column (1-indexed)
+     * \param endLine End line (1-indexed), -1 means unknown
+     * \param endColumn End column (1-indexed), -1 means unknown
      */
     Span(std::string file, int beginLine, int beginColumn, int endLine = -1, int endColumn = -1);
 
@@ -58,21 +58,21 @@ public:
      *
      * \return String in format "filename:begin_line:begin_column"
      */
-    [[nodiscard]] std::string to_string() const;
+    [[nodiscard]] std::string ToString() const;
 
     /**
      * \brief Check if the span is valid (has valid line/column numbers)
      *
      * \return true if all line/column numbers are positive
      */
-    [[nodiscard]] bool is_valid() const;
+    [[nodiscard]] bool IsValid() const;
 
     /**
      * \brief Create an unknown/invalid span
      *
      * \return Span with empty filename and invalid coordinates
      */
-    static Span unknown();
+    static Span Unknown();
 };
 
 } // namespace ir

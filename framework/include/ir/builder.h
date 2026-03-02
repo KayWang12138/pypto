@@ -109,7 +109,7 @@ public:
      *
      * Finalizes the function and pops the function context from the stack.
      *
-     * \param end_span Source location for end of function
+     * \param endSpan Source location for end of function
      * \return The built function
      * \throws RuntimeError if not inside a function context
      */
@@ -123,7 +123,7 @@ public:
      * Creates a new for loop context and pushes it onto the context stack.
      * Must be closed with EndForLoop().
      *
-     * \param loop_var Loop variable
+     * \param loopVar Loop variable
      * \param start Start value expression
      * \param stop Stop value expression
      * \param step Step value expression
@@ -138,7 +138,7 @@ public:
      *
      * Iteration arguments are loop-carried values (SSA-style).
      *
-     * \param iter_arg Iteration argument with initial value
+     * \param iterArg Iteration argument with initial value
      * \throws RuntimeError if not inside a for loop context
      */
     void AddIterArg(const IterArgPtr &iterArg);
@@ -159,7 +159,7 @@ public:
      *
      * Finalizes the loop and pops the loop context from the stack.
      *
-     * \param end_span Source location for end of loop
+     * \param endSpan Source location for end of loop
      * \return The built for statement
      * \throws RuntimeError if not inside a for loop context
      * \throws RuntimeError if number of return variables doesn't match iteration arguments
@@ -206,7 +206,7 @@ public:
      *
      * Finalizes the if statement and pops the context from the stack.
      *
-     * \param end_span Source location for end of if
+     * \param endSpan Source location for end of if
      * \return The built if statement
      * \throws RuntimeError if not inside an if context
      */
@@ -322,7 +322,7 @@ public:
      * Creates a GlobalVar for the function that can be used in Call expressions
      * before the function is fully built. This enables cross-function calls.
      *
-     * \param func_name Function name to declare
+     * \param funcName Function name to declare
      * \return GlobalVar that can be used in Call expressions
      * \throws RuntimeError if not inside a program context
      */
@@ -333,7 +333,7 @@ public:
      *
      * Retrieves a GlobalVar that was previously declared with DeclareFunction.
      *
-     * \param func_name Function name
+     * \param funcName Function name
      * \return GlobalVar for the function
      * \throws RuntimeError if not inside a program context or function not declared
      */
@@ -354,7 +354,7 @@ public:
      *
      * Finalizes the program and pops the program context from the stack.
      *
-     * \param end_span Source location for end of program
+     * \param endSpan Source location for end of program
      * \return The built program
      * \throws RuntimeError if not inside a program context
      */
@@ -519,7 +519,7 @@ public:
     /**
      * \brief Declare a function and get its GlobalVar
      *
-     * \param func_name Function name to declare
+     * \param funcName Function name to declare
      * \return GlobalVar for the function
      */
     GlobalVarPtr DeclareFunction(const std::string &funcName);
@@ -527,7 +527,7 @@ public:
     /**
      * \brief Get a GlobalVar for a declared function
      *
-     * \param func_name Function name
+     * \param funcName Function name
      * \return GlobalVar for the function, or nullptr if not found
      */
     [[nodiscard]] GlobalVarPtr GetGlobalVar(const std::string &funcName) const;

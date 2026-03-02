@@ -60,7 +60,7 @@ TypePtr DeduceTensorReductionType(const std::vector<ExprPtr>& args,
     if (i == axis) {
       if (keepDim) {
         // Keep dimension as 1
-        outputShape.push_back(std::make_shared<ConstInt>(1, DataType::INT32, Span::unknown()));
+        outputShape.push_back(std::make_shared<ConstInt>(1, DataType::INT32, Span::Unknown()));
       }
       // Otherwise, skip this dimension (reduce it out)
     } else {

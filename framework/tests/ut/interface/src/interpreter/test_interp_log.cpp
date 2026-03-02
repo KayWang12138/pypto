@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
+/**
  * \file test_interp_log.cpp
  * \brief Interpreter 日志相关测试用例综合文件
  */

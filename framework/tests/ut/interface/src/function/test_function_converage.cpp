@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
+/**
  * \file test_function_converage.cpp
  * \brief
  */
@@ -47,9 +47,7 @@ public:
         Program::GetInstance().Reset();
     }
 
-    void TearDown() override {
-        std::cout << "FunctionCoverageTest TearDown" << std::endl;
-    }
+    void TearDown() override { std::cout << "FunctionCoverageTest TearDown" << std::endl; }
 };
 
 TEST_F(FunctionCoverageTest, ConverageCase1) {
@@ -231,7 +229,7 @@ TEST_F(FunctionCoverageTest, TestReuseTensorCase1) {
     Operation *reOp = nullptr;
     Operation *sqrtOp = nullptr;
     for (auto &op : func->Operations()) {
-        std::cout << "Op:" << op.opmagic<< " " <<  op.GetOpcodeStr() << std::endl;
+        std::cout << "Op:" << op.opmagic << " " << op.GetOpcodeStr() << std::endl;
         std::cout << "input operation:";
         for (const std::shared_ptr<LogicalTensor> &inputTensor : op.GetIOperands()) {
             for (const auto &itemOp : inputTensor->GetProducers()) {

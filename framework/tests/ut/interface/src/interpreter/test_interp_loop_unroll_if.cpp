@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
+/**
  * \file test_interp_loop_unroll_if.cpp
  * \brief Test case for LOOP with UnrollList [2,1] and IF ELSE with IsLoopEnd condition
  */
@@ -42,7 +42,7 @@ public:
 
 TEST_F(LoopUnrollIfTest, TestLoopUnrollWithIsLoopEnd) {
     int s = 32;
-    int n = 5;  // Loop length
+    int n = 5; // Loop length
 
     Tensor accum(DT_FP32, {s, s}, "accum");
     Tensor output(DT_FP32, {s, s}, "output");
@@ -73,7 +73,8 @@ TEST_F(LoopUnrollIfTest, TestLoopUnrollWithIsLoopEnd) {
             IF(IsLoopEnd(i, len)) {
                 // IF branch: when loop ends, add 1.0
                 accum = Add(accum, Element(DataType::DT_FP32, 1.0f));
-            } ELSE {
+            }
+            ELSE {
                 // ELSE branch: when not loop end, add 2.0
                 accum = Add(accum, Element(DataType::DT_FP32, 2.0f));
             }

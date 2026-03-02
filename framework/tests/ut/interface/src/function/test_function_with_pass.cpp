@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
+/**
  * \file test_function_with_pass.cpp
  * \brief
  */
@@ -29,9 +29,9 @@ using namespace npu::tile_fwk;
 
 class FunctionWithPass : public testing::Test {
 public:
-    static void TearDownTestCase() { }
+    static void TearDownTestCase() {}
 
-    static void SetUpTestCase() { }
+    static void SetUpTestCase() {}
 
     void SetUp() override {
         std::cout << "-----------------------------SetUp-------------------------------" << std::endl;
@@ -149,7 +149,7 @@ TEST_F(FunctionWithPass, TestContinuous) {
         {{2, 2}, {2, 2}},
         {{4, 1}, {0, 4}},
         {{1, 4}, {4, 0}},
-        {{1, 1}, {4, 4}} // 添加一个 1x1 的矩形填补缝隙
+        {{1, 1}, {4, 4}}  // 添加一个 1x1 的矩形填补缝隙
     };
     EXPECT_EQ(TestContinuous(tensors_2d_irregular_fixed), true);
 
@@ -692,7 +692,6 @@ TEST_F(FunctionWithPass, AssignRoundingModes_int16) {
     fp = iVal;
     // 预期结果根据具体计算确定
     EXPECT_NE(fp.value, 0);
-
 }
 
 TEST_F(FunctionWithPass, AssignZero_uint16) {
@@ -792,8 +791,10 @@ TEST_F(FunctionWithPass, Constructor) {
 }
 
 TEST_F(FunctionWithPass, GetSymbolicCalcBinary) {
-    EXPECT_EQ(RawSymbolicExpression::GetSymbolicCalcBinary(SymbolicOpcode::T_BOP_ADD), &RawSymbolicExpression::CalcBopAdd);
-    EXPECT_EQ(RawSymbolicExpression::GetSymbolicCalcBinary(SymbolicOpcode::T_BOP_SUB), &RawSymbolicExpression::CalcBopSub);
+    EXPECT_EQ(
+        RawSymbolicExpression::GetSymbolicCalcBinary(SymbolicOpcode::T_BOP_ADD), &RawSymbolicExpression::CalcBopAdd);
+    EXPECT_EQ(
+        RawSymbolicExpression::GetSymbolicCalcBinary(SymbolicOpcode::T_BOP_SUB), &RawSymbolicExpression::CalcBopSub);
     // 类似地测试其他操作码
 }
 
@@ -1064,8 +1065,7 @@ TEST_F(FunctionWithPass, OperatorEquals2) {
 TEST_F(FunctionWithPass, CalculateHash3) {
     std::vector<int64_t> shape = {1, 2, 3};
     std::vector<RawExpectedInsertValueElement> elements = {
-        RawExpectedInsertValueElement({0, 0, 0}, {1, 1, 1}, ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"))
-    };
+        RawExpectedInsertValueElement({0, 0, 0}, {1, 1, 1}, ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"))};
     RawExpectedInsertValue insertValue(shape, elements);
 
     std::size_t hash = insertValue.CalculateHash();
@@ -1075,8 +1075,7 @@ TEST_F(FunctionWithPass, CalculateHash3) {
 TEST_F(FunctionWithPass, OperatorEquals3) {
     std::vector<int64_t> shape = {1, 2, 3};
     std::vector<RawExpectedInsertValueElement> elements = {
-        RawExpectedInsertValueElement({0, 0, 0}, {1, 1, 1}, ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"))
-    };
+        RawExpectedInsertValueElement({0, 0, 0}, {1, 1, 1}, ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"))};
     RawExpectedInsertValue insertValue1(shape, elements);
     RawExpectedInsertValue insertValue2(shape, elements);
 
@@ -1107,8 +1106,8 @@ TEST_F(FunctionWithPass, OperatorEquals4) {
 // 测试 ListExpectedValue
 TEST_F(FunctionWithPass, CalculateHash5) {
     std::vector<int64_t> shape = {1, 2, 3};
-    std::vector<ExpectedValue> elements = {ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"),
-        ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp2")};
+    std::vector<ExpectedValue> elements = {
+        ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"), ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp2")};
     ListExpectedValue listValue(elements);
 
     std::size_t hash = listValue.CalculateHash();
@@ -1117,8 +1116,8 @@ TEST_F(FunctionWithPass, CalculateHash5) {
 
 TEST_F(FunctionWithPass, OperatorEquals5) {
     std::vector<int64_t> shape = {1, 2, 3};
-    std::vector<ExpectedValue> elements = {ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"),
-        ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp2")};
+    std::vector<ExpectedValue> elements = {
+        ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"), ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp2")};
     ListExpectedValue listValue1(elements);
     ListExpectedValue listValue2(elements);
 
@@ -1144,8 +1143,8 @@ TEST_F(FunctionWithPass, IsOperationValue) {
     std::vector<int64_t> attr;
     ExpectedOperator oper = ExpectedOperator(Opcode::OP_ADD, attr);
     std::vector<int64_t> shape = {1, 2, 3};
-    std::vector<ExpectedValue> operands = {ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"),
-        ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp2")};
+    std::vector<ExpectedValue> operands = {
+        ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"), ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp2")};
     ExpectedValue value(oper, operands);
 
     EXPECT_TRUE(value.IsOperationValue());
@@ -1164,9 +1163,7 @@ TEST_F(FunctionWithPass, IsExtractValue) {
 TEST_F(FunctionWithPass, IsInsertValue) {
     std::vector<int64_t> shape = {1, 2, 3};
     std::vector<RawExpectedInsertValueElement> elements = {
-        RawExpectedInsertValueElement({0, 0, 0}, {1, 1, 1},
-        ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"))
-    };
+        RawExpectedInsertValueElement({0, 0, 0}, {1, 1, 1}, ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"))};
     ExpectedValue value(shape, elements);
 
     EXPECT_TRUE(value.IsInsertValue());
@@ -1199,7 +1196,6 @@ TEST_F(FunctionWithPass, CreateValueTest) {
     DataType dataType = npu::tile_fwk::DT_FP32;
     string name = "input1";
 
-
     ExpectedValue value = builder.CreateValue(shape, dataType, name);
     EXPECT_NE(value.Get(), nullptr);
 
@@ -1229,10 +1225,10 @@ TEST_F(FunctionWithPass, CreateOperationOOperandsTest) {
 TEST_F(FunctionWithPass, CreateListTest) {
     ExpectedValueBuilder builder;
     std::vector<int64_t> shape{2, 3};
-    std::vector<ExpectedValue> elements = {ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"),
-        ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp2")};
+    std::vector<ExpectedValue> elements = {
+        ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp1"), ExpectedValue(shape, npu::tile_fwk::DT_FP32, "exp2")};
 
     ListExpectedValue list1 = builder.CreateList(elements);
     EXPECT_EQ(list1.GetElements().size(), 2);
 }
-}  // namespace
+} // namespace

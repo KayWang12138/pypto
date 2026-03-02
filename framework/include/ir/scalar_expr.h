@@ -404,107 +404,107 @@ inline BinaryOperands PromoteIntBinaryOperands(
 
 // ========== Binary Operator Construction Functions ==========
 
-inline ExprPtr MakeCast(const ExprPtr &operand, DataType dtype, const Span &span = Span::unknown()) {
+inline ExprPtr MakeCast(const ExprPtr &operand, DataType dtype, const Span &span = Span::Unknown()) {
     return std::make_shared<Cast>(operand, dtype, span);
 }
 
-inline ExprPtr MakeAdd(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::unknown()) {
+inline ExprPtr MakeAdd(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::Unknown()) {
     auto operands = PromoteBinaryOperands(left, right, "add", span);
     return std::make_shared<Add>(operands.left, operands.right, operands.dtype, span);
 }
 
-inline ExprPtr MakeSub(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::unknown()) {
+inline ExprPtr MakeSub(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::Unknown()) {
     auto operands = PromoteBinaryOperands(left, right, "sub", span);
     return std::make_shared<Sub>(operands.left, operands.right, operands.dtype, span);
 }
 
-inline ExprPtr MakeMul(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::unknown()) {
+inline ExprPtr MakeMul(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::Unknown()) {
     auto operands = PromoteBinaryOperands(left, right, "mul", span);
     return std::make_shared<Mul>(operands.left, operands.right, operands.dtype, span);
 }
 
-inline ExprPtr MakeFloatDiv(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::unknown()) {
+inline ExprPtr MakeFloatDiv(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::Unknown()) {
     auto operands = PromoteBinaryOperands(left, right, "truediv", span);
     return std::make_shared<FloatDiv>(operands.left, operands.right, operands.dtype, span);
 }
 
-inline ExprPtr MakeFloorDiv(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::unknown()) {
+inline ExprPtr MakeFloorDiv(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::Unknown()) {
     auto operands = PromoteBinaryOperands(left, right, "floordiv", span);
     return std::make_shared<FloorDiv>(operands.left, operands.right, operands.dtype, span);
 }
 
-inline ExprPtr MakeFloorMod(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::unknown()) {
+inline ExprPtr MakeFloorMod(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::Unknown()) {
     auto operands = PromoteBinaryOperands(left, right, "mod", span);
     return std::make_shared<FloorMod>(operands.left, operands.right, operands.dtype, span);
 }
 
-inline ExprPtr MakePow(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::unknown()) {
+inline ExprPtr MakePow(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::Unknown()) {
     auto operands = PromoteBinaryOperands(left, right, "pow", span);
     return std::make_shared<Pow>(operands.left, operands.right, operands.dtype, span);
 }
 
-inline ExprPtr MakeEq(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::unknown()) {
+inline ExprPtr MakeEq(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::Unknown()) {
     auto operands = PromoteBinaryOperands(left, right, "eq", span);
     return std::make_shared<Eq>(operands.left, operands.right, DataType::BOOL, span);
 }
 
-inline ExprPtr MakeNe(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::unknown()) {
+inline ExprPtr MakeNe(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::Unknown()) {
     auto operands = PromoteBinaryOperands(left, right, "ne", span);
     return std::make_shared<Ne>(operands.left, operands.right, DataType::BOOL, span);
 }
 
-inline ExprPtr MakeLt(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::unknown()) {
+inline ExprPtr MakeLt(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::Unknown()) {
     auto operands = PromoteBinaryOperands(left, right, "lt", span);
     return std::make_shared<Lt>(operands.left, operands.right, DataType::BOOL, span);
 }
 
-inline ExprPtr MakeLe(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::unknown()) {
+inline ExprPtr MakeLe(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::Unknown()) {
     auto operands = PromoteBinaryOperands(left, right, "le", span);
     return std::make_shared<Le>(operands.left, operands.right, DataType::BOOL, span);
 }
 
-inline ExprPtr MakeGt(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::unknown()) {
+inline ExprPtr MakeGt(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::Unknown()) {
     auto operands = PromoteBinaryOperands(left, right, "gt", span);
     return std::make_shared<Gt>(operands.left, operands.right, DataType::BOOL, span);
 }
 
-inline ExprPtr MakeGe(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::unknown()) {
+inline ExprPtr MakeGe(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::Unknown()) {
     auto operands = PromoteBinaryOperands(left, right, "ge", span);
     return std::make_shared<Ge>(operands.left, operands.right, DataType::BOOL, span);
 }
 
-inline ExprPtr MakeBitAnd(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::unknown()) {
+inline ExprPtr MakeBitAnd(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::Unknown()) {
     auto operands = PromoteIntBinaryOperands(left, right, "bit_and", span);
     return std::make_shared<BitAnd>(operands.left, operands.right, operands.dtype, span);
 }
 
-inline ExprPtr MakeBitOr(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::unknown()) {
+inline ExprPtr MakeBitOr(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::Unknown()) {
     auto operands = PromoteIntBinaryOperands(left, right, "bit_or", span);
     return std::make_shared<BitOr>(operands.left, operands.right, operands.dtype, span);
 }
 
-inline ExprPtr MakeBitXor(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::unknown()) {
+inline ExprPtr MakeBitXor(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::Unknown()) {
     auto operands = PromoteIntBinaryOperands(left, right, "bit_xor", span);
     return std::make_shared<BitXor>(operands.left, operands.right, operands.dtype, span);
 }
 
-inline ExprPtr MakeBitShiftLeft(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::unknown()) {
+inline ExprPtr MakeBitShiftLeft(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::Unknown()) {
     auto operands = PromoteIntBinaryOperands(left, right, "bit_shift_left", span);
     return std::make_shared<BitShiftLeft>(operands.left, operands.right, operands.dtype, span);
 }
 
-inline ExprPtr MakeBitShiftRight(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::unknown()) {
+inline ExprPtr MakeBitShiftRight(const ExprPtr &left, const ExprPtr &right, const Span &span = Span::Unknown()) {
     auto operands = PromoteIntBinaryOperands(left, right, "bit_shift_right", span);
     return std::make_shared<BitShiftRight>(operands.left, operands.right, operands.dtype, span);
 }
 
 // ========== Unary Operator Construction Functions ==========
 
-inline ExprPtr MakeNeg(const ExprPtr &operand, const Span &span = Span::unknown()) {
+inline ExprPtr MakeNeg(const ExprPtr &operand, const Span &span = Span::Unknown()) {
     return std::make_shared<Neg>(operand, GetScalarDtype(operand), span);
 }
 
-inline ExprPtr MakeBitNot(const ExprPtr &operand, const Span &span = Span::unknown()) {
+inline ExprPtr MakeBitNot(const ExprPtr &operand, const Span &span = Span::Unknown()) {
     DataType dtype = GetScalarDtype(operand);
     if (!dtype.IsInt()) {
         throw TypeError("Operator 'bit_not' requires integer dtype, got " + dtype.ToString());

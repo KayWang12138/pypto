@@ -105,9 +105,9 @@ public:
      * \brief Create a conditional statement with then and else branches
      *
      * \param condition Condition expression
-     * \param then_body Then branch statement
-     * \param else_body Else branch statement (can be optional)
-     * \param return_vars Return variables (can be empty)
+     * \param thenBody Then branch statement
+     * \param elseBody Else branch statement (can be optional)
+     * \param returnVars Return variables (can be empty)
      * \param span Source location
      */
     IfStmt(ExprPtr condition, StmtPtr thenBody, std::optional<StmtPtr> elseBody, std::vector<VarPtr> returnVars,
@@ -252,13 +252,13 @@ public:
     /**
      * \brief Create a for loop statement
      *
-     * \param loop_var Loop variable
+     * \param loopVar Loop variable
      * \param start Start value expression
      * \param stop Stop value expression
      * \param step Step value expression
-     * \param iter_args Iteration arguments (loop-carried values, scoped to loop body)
+     * \param iterArgs Iteration arguments (loop-carried values, scoped to loop body)
      * \param body Loop body statement (must yield values matching iter_args if non-empty)
-     * \param return_vars Return variables (capture final values, accessible after loop)
+     * \param returnVars Return variables (capture final values, accessible after loop)
      * \param span Source location
      */
     ForStmt(VarPtr loopVar, ExprPtr start, ExprPtr stop, ExprPtr step, std::vector<IterArgPtr> iterArgs, StmtPtr body,

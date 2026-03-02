@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
+/**
  * \file test_config_manager.cpp
  * \brief
  */
@@ -26,7 +26,8 @@ public:
     static void SetUpTestCase() {}
     static void TearDownTestCase() {}
     void SetUp() override {
-        std::string src = GetCurRunningPath() + "/../../../framework/tests/ut/machine/stubs/compiler/data/platform_config/Ascend910_9572.ini";
+        std::string src = GetCurRunningPath() +
+                          "/../../../framework/tests/ut/machine/stubs/compiler/data/platform_config/Ascend910_9572.ini";
         std::string dst = RealPath(GetCurrentSharedLibPath() + "/configs") + "/Soc_version.ini";
         std::string command = "cp " + src + " " + dst;
         ASSERT(std::system(command.c_str()) == 0) << "Failed to copy config file: " << command;
@@ -158,5 +159,4 @@ TEST_F(TestINIParser, AbnormalTest) {
 
     size_t testSize;
     EXPECT_EQ(parser.GetSizeVal("none", "", testSize), FAILED);
-
 }

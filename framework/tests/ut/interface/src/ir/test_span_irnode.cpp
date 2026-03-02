@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
+/**
  * \file test_span_irnode.cpp
  * \brief Unit tests for IR core classes (Span and IRNode)
  */
@@ -38,31 +38,30 @@ TEST(IRCoreTest, TestSpanBasic) {
 TEST(IRCoreTest, TestSpanToString) {
     // Test Span to_string() method
     Span span("test.py", 10, 5, 10, 15);
-    std::string str = span.to_string();
+    std::string str = span.ToString();
 
     // Should contain meaningful location information
     ASSERT_TRUE(!str.empty());
-    ASSERT_TRUE(str.find("test.py") != std::string::npos ||
-                str.find("10") != std::string::npos);
+    ASSERT_TRUE(str.find("test.py") != std::string::npos || str.find("10") != std::string::npos);
 }
 
 TEST(IRCoreTest, TestSpanIsValid) {
     // Test Span is_valid() method
     Span validSpan("test.py", 10, 5, 10, 15);
-    ASSERT_TRUE(validSpan.is_valid());
+    ASSERT_TRUE(validSpan.IsValid());
 
     // Unknown span should be invalid
-    Span unknownSpan = Span::unknown();
-    ASSERT_FALSE(unknownSpan.is_valid());
+    Span unknownSpan = Span::Unknown();
+    ASSERT_FALSE(unknownSpan.IsValid());
 }
 
 TEST(IRCoreTest, TestSpanUnknown) {
-    // Test Span::unknown() creates an invalid span
-    Span span = Span::unknown();
-    ASSERT_FALSE(span.is_valid());
+    // Test Span::Unknown() creates an invalid span
+    Span span = Span::Unknown();
+    ASSERT_FALSE(span.IsValid());
 
     // Unknown span should have meaningful string representation
-    std::string str = span.to_string();
+    std::string str = span.ToString();
     ASSERT_TRUE(!str.empty());
 }
 
@@ -84,7 +83,7 @@ TEST(IRCoreTest, TestSpanSingleCharacter) {
     ASSERT_EQ(span.endLine_, 5);
     ASSERT_EQ(span.beginColumn_, 10);
     ASSERT_EQ(span.endColumn_, 11);
-    ASSERT_TRUE(span.is_valid());
+    ASSERT_TRUE(span.IsValid());
 }
 
 TEST(IRCoreTest, TestIRNodeBasic) {
@@ -107,9 +106,9 @@ TEST(IRCoreTest, TestIRNodeTypeName) {
 
 TEST(IRCoreTest, TestIRNodeWithUnknownSpan) {
     // Test IRNode with unknown span via ConstInt
-    auto node = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
+    auto node = std::make_shared<ConstInt>(0, DataType::INT32, Span::Unknown());
 
-    ASSERT_FALSE(node->span_.is_valid());
+    ASSERT_FALSE(node->span_.IsValid());
 }
 
 TEST(IRCoreTest, TestMultipleIRNodes) {
@@ -181,5 +180,5 @@ TEST(IRCoreTest, TestSpanLargePosition) {
     ASSERT_EQ(span.endColumn_, 600);
 }
 
-}  // namespace ir
-}  // namespace pypto
+} // namespace ir
+} // namespace pypto

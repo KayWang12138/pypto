@@ -126,7 +126,7 @@ std::string IRVerifier::GenerateReport(const std::vector<Diagnostic>& diagnostic
     oss << "  Message: " << d.message << "\n";
     oss << "  Location: " << d.span.filename_ << ":" << d.span.beginLine_ << ":" << d.span.beginColumn_
         << "\n";
-    oss << "  Error Code: " << d.error_code << "\n";
+    oss << "  Error Code: " << d.errorCode << "\n";
     oss << "\n";
   }
 

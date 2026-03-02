@@ -38,7 +38,7 @@ const std::vector<std::string> kFileNameFilter = {
     "error.h"        // exception throwing infrastructure
 };
 
-std::string StackFrame::to_string() const {
+std::string StackFrame::ToString() const {
   std::ostringstream oss;
 
   if (!function.empty()) {
