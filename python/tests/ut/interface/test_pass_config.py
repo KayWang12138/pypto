@@ -47,11 +47,8 @@ def test_pass_option():
         "pg_parallel_lower_bound": 4,
         "sg_set_scope": 5,
         "mg_vec_parallel_lb": 6,
-        "vec_nbuffer_mode": 2,
         "vec_nbuffer_setting": {1: 2},
         "cube_l1_reuse_setting": {-1: 6, 2: 3},
-        "cube_l1_reuse_mode": 0,
-        "cube_nbuffer_mode": 1,
         "cube_nbuffer_setting": {-1: 2},
         "mg_copyin_upper_bound": 7
     }

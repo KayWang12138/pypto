@@ -36,15 +36,6 @@
                     "minimum": 0,
                     "maximum": 2147483647
                 },
-                "cube_l1_reuse_mode": {
-                    "type": "integer",
-                    "label": {
-                        "zh": "合图参数，用于配置结构相同且重复搬运同一GM数据的子图合并策略。该参数适用于含有CUBE计算的子图，避免同一数据被重复搬运次数过多。",
-                        "en": "Graph merging parameter, used to configure the merging strategy for subgraphs with identical structures that repeatedly transfer the same GM data. This parameter is applicable to subgraphs involving CUBE computation, and avoids excessive transfers of the same data."
-                    },
-                    "minimum": 0,
-                    "maximum": 1
-                },
                 "cube_l1_reuse_setting": {
                     "type": "object",
                     "typeHints": "intmap",
@@ -56,15 +47,6 @@
                     "key_maximum": 2147483647,
                     "value_minimum": 0,
                     "value_maximum": 2147483647
-                },
-                "cube_nbuffer_mode": {
-                    "type": "integer",
-                    "label": {
-                        "zh": "合图参数，用于配置相同结构AIC子图合并策略。该参数适用于结构相同的AIC子图合并，避免同一结构子图数过大并增大核内流水调度可能性。",
-                        "en": "Graph merging parameter, used to configure the merging strategy for AIC subgraphs with identical structures. This parameter is applicable to the merging of AIC subgraphs that share the same structure, which prevents an excessive number of subgraphs of the same structure and increases the possibility of intra-core pipeline scheduling."
-                    },
-                    "minimum": 0,
-                    "maximum": 1
                 },
                 "cube_nbuffer_setting": {
                     "type": "object",
@@ -87,15 +69,6 @@
                     },
                     "minimum": 0,
                     "maximum": 2147483647
-                },
-                "vec_nbuffer_mode": {
-                    "type": "integer",
-                    "label": {
-                        "zh": "合图参数，用于配置相同结构AIV子图合并策略。该参数适用于结构相同的AIV子图合并，避免同一结构子图数过大并增大核内流水调度可能性。",
-                        "en": "Graph merging parameters, used to configure the merging strategy for AIV subgraphs with identical structures. This parameter applies to the merging of AIV subgraphs with identical structures, which prevents an excessive number of subgraphs of the same structure and increases the possibility of intra-core pipeline scheduling."
-                    },
-                    "minimum": 0,
-                    "maximum": 2
                 },
                 "vec_nbuffer_setting": {
                     "type": "object",
