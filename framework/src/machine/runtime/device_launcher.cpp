@@ -20,8 +20,14 @@
 #include "machine/host/perf_analysis.h"
 #include "interface/utils/op_info_manager.h"
 
+struct process_sign {
+    pid_t tgid;
+    char sign[49];   // 49 is PROCESS_SIGN_LENGTH
+    char resv[4];    // 4 is PROCESS_RESV_LENGTH
+};
 extern "C" __attribute__((weak)) int AdxDataDumpServerUnInit();
 extern "C" __attribute__((weak)) int AdxDataDumpServerInit();
+extern "C" __attribute__((weak)) int drvGetProcessSign(process_sign *sign);
 
 namespace npu::tile_fwk::dynamic {
 namespace {
@@ -387,7 +393,7 @@ void ExportedOperatorEnd(ExportedOperator *op) {
 }
 
 void DataDumpInit() {
-    if (IsPtoDataDumpEnabled()) {
+    if (config::GetVerifyOption<bool>(KEY_ENABLE_CALL_TASK_DUMP)) {
         if (!AdxDataDumpServerInit) {
             ALOG_ERROR_F("AdxDataDumpServerInit function not found.");
             return;
@@ -401,7 +407,7 @@ void DataDumpInit() {
 }
 
 void DataDumpUnInit() {
-    if (IsPtoDataDumpEnabled()) {
+    if (config::GetVerifyOption<bool>(KEY_ENABLE_CALL_TASK_DUMP)) {
         if (!AdxDataDumpServerUnInit) {
             ALOG_ERROR_F("AdxDataDumpServerUnInit function not found.");
             return;
@@ -412,6 +418,24 @@ void DataDumpUnInit() {
             ALOG_ERROR_F("AdxDataDumpServerUnInit is failed %d \n", sf);
         }
     }
+}
+
+uint32_t GetProcessId() {
+    if (drvGetProcessSign != nullptr) {
+        process_sign processSign;
+        auto ret = drvGetProcessSign(&processSign);
+        if (ret == 0) {
+            ALOG_DEBUG_F("Got process sign from drv: tgid=%d", processSign.tgid);
+            return static_cast<uint32_t>(processSign.tgid);
+        }
+        ALOG_WARN_F("drvGetProcessSign failed, ret=%d, falling back to getpid()", ret);
+    } else {
+        ALOG_WARN_F("drvGetProcessSign is nullptr, falling back to getpid()");
+    }
+    
+    uint32_t pid = static_cast<uint32_t>(getpid());
+    ALOG_DEBUG_F("Using getpid(): pid=%d", pid);
+    return pid;
 }
 
 void CopyDevToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTensor) {
