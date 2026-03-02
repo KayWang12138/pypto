@@ -61,6 +61,13 @@ std::string CodeGenOpCloudNPU::PrintCastTileTensor() const {
     if (mode.HasValue()) {
         modeEnum = AnyCast<int64_t>(mode);
     }
+
+    int64_t satModeEnum = 1; // 默认值 1 对应 SaturationMode::OFF
+    auto satModeIter = opAttrs.find(OP_ATTR_PREFIX + "satmode");
+    if (satModeIter != opAttrs.end() && satModeIter->second.HasValue()) {
+        satModeEnum = AnyCast<int64_t>(satModeIter->second);
+    }
+
     std::ostringstream oss;
     std::vector<std::string> templateParamList;
     std::string lastUse = GetLastUse();
@@ -70,7 +77,9 @@ std::string CodeGenOpCloudNPU::PrintCastTileTensor() const {
     }
     templateParamList.emplace_back(std::to_string(modeEnum));
     oss << WrapParamByAngleBrackets(templateParamList);
-    oss << WrapParamByParentheses({dstTensor, srcTensor});
+
+    std::string satModeParam = "static_cast<pto::SaturationMode>(" + std::to_string(satModeEnum) + ")";
+    oss << WrapParamByParentheses({dstTensor, srcTensor, satModeParam});
     oss << ";\n";
     return oss.str();
 }
