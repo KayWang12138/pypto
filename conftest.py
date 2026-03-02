@@ -164,15 +164,18 @@ def pytest_collection_modifyitems(items):
     """
     if not items:
         return
-    
-    # 先根据torch_npu接口获取soc version
-    target_soc = _get_soc_version()
+    first_item = items[0]
+    item_path = str(first_item.fspath)
+    has_ut = "ut" in item_path.lower()
 
-    # 确定筛选的soc version
-    filter_key = "950" if target_soc == 260 else "910"
+    if has_ut:
+        filtered_items = items
+    else:
+        # 先根据torch_npu接口获取soc version
+        target_soc = _get_soc_version()
 
-    # 筛选用例
-    filtered_items = [item for item in items if _is_case_match_soc(item, target_soc)]
+        # 筛选用例
+        filtered_items = [item for item in items if _is_case_match_soc(item, target_soc)]
 
     # 分离有耗时标识和无耗时标识的测试用例
     timed_tests = []
