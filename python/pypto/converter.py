@@ -15,7 +15,6 @@ from functools import wraps
 
 from .enum import DataType, TileOpFormat
 from .tensor import Tensor
-from .pypto_impl import ir
 
 
 def _count_calls(func):
@@ -31,6 +30,15 @@ def _count_calls(func):
         return func(tensor, name, dynamic_axis, tensor_format, dtype)
 
     return wrapper
+
+
+def _check_nz_format(tensor):
+    if tensor.dim() > 0:
+        block_align_bytes = 32
+        shape_back = tensor.shape[-1]
+        if shape_back != -1 and \
+            (shape_back * tensor.element_size()) % block_align_bytes != 0:
+            raise RuntimeError("NZ format inner axis must be aligned to 32B.")
 
 
 @_count_calls
@@ -96,6 +104,7 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
 
             if torch_npu.get_npu_format(tensor) == 29:
                 tensor_format = TileOpFormat.TILEOP_NZ
+                _check_nz_format(tensor)
 
     dtype = _dtype_from(tensor.dtype) if dtype is None else dtype
     if tensor.dim() == 0:
@@ -209,12 +218,3 @@ def _gen_pto_tensor(input_tensors):
     return pto_tensors, torch_tensors
 
 
-def ir_from_tensor(pto_tensor: Tensor):
-    tensor_shape = []
-    dim_num = 0
-    for ele in pto_tensor.shape:
-        dim = ir.Scalar(ir.DataType.int32, ele, "dim_" + str(dim_num))
-        tensor_shape.append(dim)
-        dim_num = dim_num + 1
-    return ir.Tensor(tensor_shape, ir.DataType(int(pto_tensor.dtype)), \
-        "_MACRO_" + pto_tensor.name, ir.Format((int(pto_tensor.format))))

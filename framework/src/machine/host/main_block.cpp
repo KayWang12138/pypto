@@ -16,6 +16,7 @@
 #include "main_block.h"
 #include "codegen/codegen.h"
 #include "tilefwk/platform.h"
+#include "tilefwk/pypto_fwk_log.h"
 
 namespace npu::tile_fwk {
 MainBlockCondBulider::MainBlockCondBulider() = default;
@@ -58,7 +59,7 @@ bool MainBlockCondBulider::GetValidShapeFromCoa(const std::vector<SymbolicScalar
         Shape &shape, std::vector<SymbolicScalar> &dynValidShape)
 {
     if (argList.empty()) {
-        ALOG_WARN_F("argList is empty!");
+        MACHINE_LOGW("argList is empty!");
         return false;
     }
 
@@ -94,7 +95,7 @@ void MainBlockCondBulider::CollectCallopMainBlockConds(Function *func)
     auto checkOperand = [&](auto &op, auto &shape, auto &validshape, const char* tag) -> bool {
         auto cond = CheckShapeEquality(shape, validshape);
         if (!cond) {
-            ALOG_WARN_F("get mainBlock flag false, op code %s, %s shape is %s, validShape is %s",
+            MACHINE_LOGW("get mainBlock flag false, op code %s, %s shape is %s, validShape is %s",
                op.GetOpcodeStr().c_str(),
                tag,
                IntVecToStr(shape).c_str(),
@@ -135,7 +136,7 @@ void MainBlockCondBulider::CollectCoaMainBlockConds(const std::vector<std::vecto
         }
         auto cond = CheckShapeEquality(shape, dynValidShape);
         if (!cond) {
-            ALOG_WARN_F("get mainBlock flag false, coa shape is %s, validShape is %s",
+            MACHINE_LOGW("get mainBlock flag false, coa shape is %s, validShape is %s",
                IntVecToStr(shape).c_str(),
                IntVecToStr(dynValidShape).c_str());
             return;

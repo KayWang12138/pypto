@@ -60,6 +60,8 @@ void ExecuteOpBinary(ExecuteOperationContext *ctx) {
         case Opcode::OP_BITWISEOR: calc::BitwiseOr(ret, lhs, rhs); break;
         case Opcode::OP_BITWISEXOR: calc::BitwiseXor(ret, lhs, rhs); break;
         case Opcode::OP_COPYSIGN: calc::CopySign(ret, lhs, rhs); break;
+        case Opcode::OP_GCD: calc::Gcd(ret, lhs, rhs); break;
+        case Opcode::OP_GCD_BRC: calc::Gcd(ret, lhs, rhs); break;
         default: ASSERT(false);
     }
 }
@@ -87,6 +89,8 @@ REGISTER_CALC_OP(OP_BITWISEAND, Opcode::OP_BITWISEAND, ExecuteOpBinary<Opcode::O
 REGISTER_CALC_OP(OP_BITWISEOR, Opcode::OP_BITWISEOR, ExecuteOpBinary<Opcode::OP_BITWISEOR>);
 REGISTER_CALC_OP(OP_BITWISEXOR, Opcode::OP_BITWISEXOR, ExecuteOpBinary<Opcode::OP_BITWISEXOR>);
 REGISTER_CALC_OP(OP_COPYSIGN, Opcode::OP_COPYSIGN, ExecuteOpBinary<Opcode::OP_COPYSIGN>);
+REGISTER_CALC_OP(OP_GCD, Opcode::OP_GCD, ExecuteOpBinary<Opcode::OP_GCD>);
+REGISTER_CALC_OP(OP_GCD_BRC, Opcode::OP_GCD_BRC, ExecuteOpBinary<Opcode::OP_GCD_BRC>);
 
 void ExecuteOpFmod(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
@@ -215,6 +219,7 @@ void ExecuteOpUnary(ExecuteOperationContext *ctx) {
         case Opcode::OP_ABS: calc::Abs(ret, iop); break;
         case Opcode::OP_BRCB: calc::Brcb(ret, iop); break;
         case Opcode::OP_LN: calc::Ln(ret, iop); break;
+        case Opcode::OP_ISFINITE: calc::IsFinite(ret, iop); break;
         default: ASSERT(false);
     }
 }
@@ -229,6 +234,7 @@ REGISTER_CALC_OP(OP_BITWISENOT, Opcode::OP_BITWISENOT, ExecuteOpUnary<Opcode::OP
 REGISTER_CALC_OP(OP_ABS, Opcode::OP_ABS, ExecuteOpUnary<Opcode::OP_ABS>);
 REGISTER_CALC_OP(OP_BRCB, Opcode::OP_BRCB, ExecuteOpUnary<Opcode::OP_BRCB>);
 REGISTER_CALC_OP(OP_LN, Opcode::OP_LN, ExecuteOpUnary<Opcode::OP_LN>);
+REGISTER_CALC_OP(OP_ISFINITE, Opcode::OP_ISFINITE, ExecuteOpUnary<Opcode::OP_ISFINITE>);
 
 void ExecuteOpCeil(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
@@ -256,6 +262,15 @@ void ExecuteOpTrunc(ExecuteOperationContext *ctx) {
     calc::Trunc(ret, iop);
 }
 REGISTER_CALC_OP(OP_TRUNC, Opcode::OP_TRUNC, ExecuteOpTrunc);
+
+void ExecuteOpExp2(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto &iop = ctx->ioperandDataViewList->at(0);
+    calc::Exp2(ret, iop);
+}
+REGISTER_CALC_OP(OP_EXP2, Opcode::OP_EXP2, ExecuteOpExp2);
 
 void ExecuteOpRound(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
@@ -428,6 +443,15 @@ void ExecuteOpRange(ExecuteOperationContext *ctx) {
     calc::Range(oop, curStart, end, step);
 }
 REGISTER_CALC_OP(OP_RANGE, Opcode::OP_RANGE, ExecuteOpRange);
+
+void ExecuteOpLog1p(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto &iop = ctx->ioperandDataViewList->at(0);
+    calc::Log1p(ret, iop);
+}
+REGISTER_CALC_OP(OP_LOG1P, Opcode::OP_LOG1P, ExecuteOpLog1p);
 
 void ExecuteOpCompare(ExecuteOperationContext *ctx) {
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
@@ -692,6 +716,7 @@ void ExecuteOpBinaryScalar(ExecuteOperationContext *ctx) {
         case Opcode::OP_BITWISEANDS: calc::BitwiseAndS(ret, lhs, element); break;
         case Opcode::OP_BITWISEORS: calc::BitwiseOrS(ret, lhs, element); break;
         case Opcode::OP_BITWISEXORS: calc::BitwiseXorS(ret, lhs, element); break;
+        case Opcode::OP_GCDS: calc::GcdS(ret, lhs, element); break;
         default: ASSERT(false);
     }
 }
@@ -704,6 +729,7 @@ REGISTER_CALC_OP(OP_MINS, Opcode::OP_MINS, ExecuteOpBinaryScalar<Opcode::OP_MINS
 REGISTER_CALC_OP(OP_BITWISEANDS, Opcode::OP_BITWISEANDS, ExecuteOpBinaryScalar<Opcode::OP_BITWISEANDS>);
 REGISTER_CALC_OP(OP_BITWISEORS, Opcode::OP_BITWISEORS, ExecuteOpBinaryScalar<Opcode::OP_BITWISEORS>);
 REGISTER_CALC_OP(OP_BITWISEXORS, Opcode::OP_BITWISEXORS, ExecuteOpBinaryScalar<Opcode::OP_BITWISEXORS>);
+REGISTER_CALC_OP(OP_GCDS, Opcode::OP_GCDS, ExecuteOpBinaryScalar<Opcode::OP_GCDS>);
 REGISTER_CALC_OP(OP_S_ADDS, Opcode::OP_S_ADDS, ExecuteOpBinaryScalar<Opcode::OP_ADDS>);
 REGISTER_CALC_OP(OP_S_SUBS, Opcode::OP_S_SUBS, ExecuteOpBinaryScalar<Opcode::OP_SUBS>);
 REGISTER_CALC_OP(OP_S_MULS, Opcode::OP_S_MULS, ExecuteOpBinaryScalar<Opcode::OP_MULS>);

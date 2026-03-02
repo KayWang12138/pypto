@@ -17,12 +17,14 @@ pypto-Tensor-dim
 pypto-Tensor-div
 pypto-Tensor-dtype
 pypto-Tensor-exp
+pypto-Tensor-exp2
 pypto-Tensor-expand_clone
 pypto-Tensor-id
 pypto-Tensor-index_add
 pypto-Tensor-index_add_
 pypto-Tensor-format
 pypto-Tensor-gather
+pypto-Tensor-gcd
 pypto-Tensor-get_cache_policy
 pypto-Tensor-log
 pypto-Tensor-logical_not

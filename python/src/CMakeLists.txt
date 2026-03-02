@@ -11,6 +11,7 @@
 pybind11_add_module(pypto_impl
         MODULE
             pybind11.cpp
+            bindings/torch_tensor_converter.cpp
             bindings/enum.cpp
             bindings/element.cpp
             bindings/tensor.cpp
@@ -21,7 +22,7 @@ pybind11_add_module(pypto_impl
             bindings/cost_model.cpp
             bindings/pass_config.cpp
             bindings/function.cpp
-            bindings/ir.cpp
+            bindings/distributed.cpp
 )
 target_include_directories(pypto_impl
         PRIVATE  # 使用 CANN 场景依赖

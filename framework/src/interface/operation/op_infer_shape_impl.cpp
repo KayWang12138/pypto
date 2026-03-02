@@ -100,18 +100,23 @@ REGISTER_INFER_SHAPE_FUNC(OP_S_DIVS, Opcode::OP_S_DIVS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_SUB, Opcode::OP_SUB, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_POW, Opcode::OP_POW, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_EXP, Opcode::OP_EXP, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_EXP2, Opcode::OP_EXP2, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_SIGN, Opcode::OP_SIGN, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_NEG, Opcode::OP_NEG, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_ROUND, Opcode::OP_ROUND, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_RSQRT, Opcode::OP_RSQRT, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_RELU, Opcode::OP_RELU, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_LOG1P, Opcode::OP_LOG1P, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_SQRT, Opcode::OP_SQRT, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_CEIL, Opcode::OP_CEIL, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_FLOOR, Opcode::OP_FLOOR, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_TRUNC, Opcode::OP_TRUNC, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_BITWISENOT, Opcode::OP_BITWISENOT, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_GCD, Opcode::OP_GCD, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_GCDS, Opcode::OP_GCDS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_ABS, Opcode::OP_ABS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_LN, Opcode::OP_LN, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_ISFINITE, Opcode::OP_ISFINITE, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_HUB, Opcode::OP_HUB, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_MAXIMUM, Opcode::OP_MAXIMUM, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_MINIMUM, Opcode::OP_MINIMUM, ElewiseInferFunc);
@@ -307,6 +312,7 @@ REGISTER_INFER_SHAPE_FUNC(OP_SUB_BRC, Opcode::OP_SUB_BRC, ElewiseBrcInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_MUL_BRC, Opcode::OP_MUL_BRC, ElewiseBrcInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_DIV_BRC, Opcode::OP_DIV_BRC, ElewiseBrcInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_MAX_BRC, Opcode::OP_MAX_BRC, ElewiseBrcInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_GCD_BRC, Opcode::OP_GCD_BRC, ElewiseBrcInferFunc);
 
 // broadcast infer shape func
 void BroadcastInferFunc(Operation* op,
@@ -924,8 +930,10 @@ void BitSortFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outVal
     std::vector<SymbolicScalar> res(inputValidShapes[0]);
     auto topk_axis = op->GetIntAttribute(TOPK_AXIS);
     res[topk_axis] = (res[topk_axis] + blockSize - 1) / blockSize * blockSize;
-    res[topk_axis] = res[topk_axis] * NUM2 + inputValidShapes[0][topk_axis];
-    outValidShapes.push_back(res);
+    res[topk_axis] = res[topk_axis] * NUM2;
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(res);
+    }
 }
 
 REGISTER_INFER_SHAPE_FUNC(OP_BITSORT, Opcode::OP_BITSORT, BitSortFunc);
@@ -943,9 +951,11 @@ void MrgSortFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outVal
     auto topk_axis = op->GetIntAttribute(TOPK_AXIS);
     auto topk_kvalue = op->GetIntAttribute(TOPK_KVALUE);
     SymbolicScalar tmp = (res[topk_axis] + blockSize - 1) / blockSize * blockSize;
-    res[topk_axis] = std::min(res[topk_axis] - tmp / NUM3 * NUM2,
+    res[topk_axis] = std::min(res[topk_axis],
      (topk_kvalue + kBlockFpNum - 1) / kBlockFpNum * kBlockFpNum) * NUM2;
-    outValidShapes.push_back(res);
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(res);
+    }
 }
 
 REGISTER_INFER_SHAPE_FUNC(OP_MRGSORT, Opcode::OP_MRGSORT, MrgSortFunc);
