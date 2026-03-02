@@ -116,6 +116,7 @@ class IndexerPrologQuantConfigs:
     block_size: int
     t_sub_tile: int
     chunk_size: int
+    vec_nbuffer_setting: dict[int, int]
 
 
 def quant_layer_norm(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, dim: int, epsilon: float):
