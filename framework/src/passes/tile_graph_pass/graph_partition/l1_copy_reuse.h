@@ -38,7 +38,7 @@
 namespace npu::tile_fwk {
 class L1CopyInReuseRunner {
   public:
-    explicit L1CopyInReuseRunner(const std::vector<std::vector<int>> &inGraph1) : inGraph(inGraph1) {}
+    explicit L1CopyInReuseRunner(const std::vector<std::vector<int>> &inGraph1) : inGraph_(inGraph1) {}
     ~L1CopyInReuseRunner() {}
     Status Run(Function &func, int color, std::vector<std::vector<int>> &colorNode);
   private:
@@ -68,7 +68,7 @@ class L1CopyInReuseRunner {
                           std::vector<int> &hashMergeNum, std::vector<int> &colorCopyIn);
     Status SetNumLR(std::vector<int> &numLRList);
     Status SetNumDB(std::vector<int> &numDBList);
-    const std::vector<std::vector<int>> &inGraph;
+    const std::vector<std::vector<int>> &inGraph_;
     std::unordered_map<int, int> replacedCopyMap_;
     std::unordered_map<int, int> tensormagic2Op_;
     std::unordered_map<uint64_t, std::vector<int>> hashMap_;

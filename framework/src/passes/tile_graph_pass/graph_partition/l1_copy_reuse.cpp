@@ -185,7 +185,7 @@ int L1CopyInReuseRunner::GetMaxInColor(const std::vector<int> &nodes,
                                        int curColor) {
     int maxInColor = -1;
     for (int j : nodes) {
-        for (int k : inGraph[j]) {
+        for (int k : inGraph_[j]) {
             auto opColor = opOriList[k].GetSubgraphID();
             if (opColor != curColor) {
                 maxInColor = std::max(maxInColor, opColor);
@@ -222,7 +222,7 @@ void L1CopyInReuseRunner::GetOpHash(std::vector<uint64_t> &hashList, const std::
     for (char c : op) {
         hash = (hash * p + static_cast<uint64_t>(c)) % mod;
     }
-    for (int j : inGraph[idx]) {
+    for (int j : inGraph_[idx]) {
         hash = (hash * p + (hashList[j] ^ a)) % mod;
     }
     hashList[idx] = hash;
