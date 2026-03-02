@@ -58,6 +58,7 @@ struct AiCpuArgs {
 };
 
 int GetCfgBlockdim();
+uint32_t GetProcessId();
 
 class DeviceLauncherContext {
 public:

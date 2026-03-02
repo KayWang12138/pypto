@@ -421,6 +421,7 @@ void DataDumpUnInit() {
 }
 
 uint32_t GetProcessId() {
+#ifdef BUILD_WITH_CANN
     if (drvGetProcessSign != nullptr) {
         process_sign processSign;
         auto ret = drvGetProcessSign(&processSign);
@@ -436,6 +437,9 @@ uint32_t GetProcessId() {
     uint32_t pid = static_cast<uint32_t>(getpid());
     ALOG_DEBUG_F("Using getpid(): pid=%d", pid);
     return pid;
+#else
+    return 0;
+#endif
 }
 
 void CopyDevToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTensor) {
