@@ -360,12 +360,11 @@ void Platform::ObtainPlatformInfo() {
 
     std::string srcPath;
     std::string socVersion;
-    auto ret = GetSocVersion(socVersion);
+    if (GetSocVersion(socVersion)) {
 #ifdef BUILD_WITH_CANN
-    if (ret) {
         srcPath = GetPlatformFile(socVersion);
-    }
 #endif
+    }
     if (srcPath.empty()) {
         FUNCTION_LOGW("Cannot obtain ini from the device, using default ini file.");
         CostModel::CostModelPlatform costModelPlatform;
