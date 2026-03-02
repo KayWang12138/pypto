@@ -19,6 +19,7 @@
 #include <cmath>
 #include <unistd.h>
 
+#include "../interpreter/capture_stdout.h"
 #include "test_cost_macro.h"
 #include "interface/configs/config_manager.h"
 #include "interface/interpreter/raw_tensor_data.h"
@@ -48,45 +49,6 @@ public:
         config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
     }
 };
-
-// 捕获 stdout 输出并回显，用于校验 verify 日志中不应出现 FAILED
-static std::string CaptureStdout(std::function<void()> func) {
-    int pipefd[2];
-    if (pipe(pipefd) != 0) {
-        return "";
-    }
-    int old_stdout = dup(STDOUT_FILENO);
-    if (old_stdout == -1) {
-        close(pipefd[0]);
-        close(pipefd[1]);
-        return "";
-    }
-    if (dup2(pipefd[1], STDOUT_FILENO) == -1) {
-        close(pipefd[0]);
-        close(pipefd[1]);
-        close(old_stdout);
-        return "";
-    }
-    close(pipefd[1]);
-    func();
-    fflush(stdout);
-    if (dup2(old_stdout, STDOUT_FILENO) == -1) {
-        close(pipefd[0]);
-        close(old_stdout);
-        return "";
-    }
-    char buffer[8192] = {0};
-    ssize_t len = read(pipefd[0], buffer, sizeof(buffer) - 1);
-    close(pipefd[0]);
-    std::string captured(len > 0 ? static_cast<size_t>(len) : 0, '\0');
-    if (len > 0) {
-        captured.assign(buffer, static_cast<size_t>(len));
-        ssize_t written = write(old_stdout, buffer, static_cast<size_t>(len));
-        (void)written;
-    }
-    close(old_stdout);
-    return captured;
-}
 
 // 仅检查 [VERIFY] 日志行中是否出现 FAILED，其他模块日志不参与判断
 static bool VerifyLogContainsFailed(const std::string& logOutput) {
