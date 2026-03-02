@@ -339,10 +339,12 @@ void RemoveRedundantOp::CalculateViewOffset(Operation &op, LogicalTensorPtr &sta
             }
             //只处理satrtTensor->view->tempTensor->assemble->endTensor
             auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(comsumerView->GetOpAttribute().get());
-            auto viewOffset = viewOpAttribute->GetFromOffset();
-            auto viewDynOffset = viewOpAttribute->GetFromDynOffset();
-            newoffset[m] = std::min(newoffset[m], viewOffset[m]);
-            newDynoffset[m] = std::min(newDynoffset[m], viewDynOffset[m]);
+            if (viewOpAttribute != nullptr) {
+                auto viewOffset = viewOpAttribute->GetFromOffset();
+                auto viewDynOffset = viewOpAttribute->GetFromDynOffset();
+                newoffset[m] = std::min(newoffset[m], viewOffset[m]);
+                newDynoffset[m] = std::min(newDynoffset[m], viewDynOffset[m]);
+            }
         }
     }
 }
