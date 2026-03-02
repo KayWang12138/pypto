@@ -92,6 +92,7 @@ std::string ToJsonString(const std::string& s) {
     return escaped_s;
 }
 
+#ifdef BUILD_WITH_CANN
 std::string GetPlatformFile(const std::string &socVersion) {
     #ifdef PROCESSOR_SUBPATH
         const char *configSubpath = PROCESSOR_SUBPATH;
@@ -117,6 +118,7 @@ std::string GetPlatformFile(const std::string &socVersion) {
     }
     return platformFile;
 }
+#endif
 
 size_t Core::GetMemorySize(MemoryType type) const {
     auto it = memories_.find(type);
@@ -353,9 +355,11 @@ void Platform::LoadFromIni(const std::string &filePath) {
 void Platform::ObtainPlatformInfo() {
     std::string srcPath;
     std::string socVersion;
+#ifdef BUILD_WITH_CANN
     if (GetSocVersion(socVersion)) {
         srcPath = GetPlatformFile(socVersion);
     }
+#endif
     if (srcPath.empty()) {
         FUNCTION_LOGW("Cannot obtain ini from the device, using default ini file.");
         CostModel::CostModelPlatform costModelPlatform;

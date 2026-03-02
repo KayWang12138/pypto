@@ -20,6 +20,7 @@ namespace npu {
 namespace tile_fwk {
 const uint32_t kMaxLength = 50;
 const std::string version = "version";
+#ifdef BUILD_WITH_CANN
 void *GetSymbol(const std::string &sym) {
     void *ptr = nullptr;
     const char* CannPath = STRINGIFY(ASCEND_CANN_PACKAGE_PATH);
@@ -31,6 +32,7 @@ void *GetSymbol(const std::string &sym) {
     }
     return ptr;
 }
+#endif
 
 bool GetSocVersion(std::string& socVersion) {
     int ret = 1;
