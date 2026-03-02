@@ -38,21 +38,21 @@ void *GetSymbol(const std::string &sym) {
 #endif
 
 bool GetSocVersion(std::string& socVersion) {
+#ifdef BUILD_WITH_CANN
     int ret = 1;
     char socVer[kMaxLength] = {0x00};
-#ifdef BUILD_WITH_CANN
     using GetSocVerFunc = int (*)(char *, const uint32_t);
     std::string socVerFuncName = "rtGetSocVersion";
     auto socVerFunc = (GetSocVerFunc)GetSymbol(socVerFuncName);
     if (socVerFunc != nullptr) {
         ret = socVerFunc(socVer, kMaxLength);
     }
-#endif
     if (ret == 0) {
         socVersion = std::string(socVer);
         return true;
     }
-    (void)socVersion;
+#endif
+    socVersion.clear();
     return false;
 }
 }  // namespace tile_fwk

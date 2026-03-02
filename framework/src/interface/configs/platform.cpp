@@ -360,8 +360,9 @@ void Platform::ObtainPlatformInfo() {
 
     std::string srcPath;
     std::string socVersion;
+    auto ret = GetSocVersion(socVersion);
 #ifdef BUILD_WITH_CANN
-    if (GetSocVersion(socVersion)) {
+    if (ret) {
         srcPath = GetPlatformFile(socVersion);
     }
 #endif
