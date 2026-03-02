@@ -104,10 +104,12 @@ unsigned long ComputeHash(const std::vector <Operation*>& producers, LogicalTens
 }
 
 Status CommonOperationEliminate::RunOnFunction(Function &function) {
-    auto tensorProducerMap = GetTensorProducers(function);
+    std::vector<LogicalTensorPtr> seq;
+    auto tensorProducerMap = GetTensorProducers(function, seq);
     std::unordered_set<Operation*> cacheProducers;
-    for (auto& tensorProducerPair: tensorProducerMap) {
-        auto& producerGroup = tensorProducerPair.second;
+    for (auto& orderedTensor: seq) {
+        auto& producerGroup = tensorProducerMap[orderedTensor];
+        auto tensorProducerPair = std::pair<LogicalTensorPtr, std::vector<Operation*>>(orderedTensor, producerGroup);
         if (producerGroup.empty() || !TensorProducersMerge(tensorProducerPair, cacheProducers)) {
             continue;
         }
@@ -133,7 +135,8 @@ Status CommonOperationEliminate::PreCheck(Function &function) {
     return checker.DoPreCheck(function);
 }
 
-std::unordered_map<LogicalTensorPtr, std::vector<Operation*>> CommonOperationEliminate::GetTensorProducers(Function &function) {
+std::unordered_map<LogicalTensorPtr, std::vector<Operation*>> CommonOperationEliminate::GetTensorProducers(
+        Function &function, std::vector<LogicalTensorPtr>& seq) {
     std::unordered_map<LogicalTensorPtr, std::vector<Operation*>> tensorProducerMap;
     std::unordered_set<int> visitedTensors;
     auto allOps = function.Operations(true).DuplicatedOpList();
@@ -148,9 +151,13 @@ std::unordered_map<LogicalTensorPtr, std::vector<Operation*>> CommonOperationEli
             }
             visitedTensors.insert(tensor->GetMagic());
             for (const auto& pro: tensor->GetProducers()) {
-                if (pro != nullptr) {
-                    tensorProducerMap[tensor].push_back(pro);
+                if (pro == nullptr) {
+                    continue;
                 }
+                if (tensorProducerMap.count(tensor) == 0) {
+                    seq.push_back(tensor);
+                }
+                tensorProducerMap[tensor].push_back(pro);
             }
         }
     }
