@@ -30,10 +30,10 @@
 using namespace npu::tile_fwk;
 
 LogicalTensor::LogicalTensor(
-    Function &function, DataType t, Shape tshape, TileOpFormat format, std::string tname, NodeType tnodetype)
+    Function &function, DataType t, Shape tshape, TileOpFormat format, std::string tname, NodeType tnodetype, TensorType type)
     : isSubGraphBoundary(false),
       subGraphID(NOT_IN_SUBGRAPH),
-      tensor(std::make_shared<RawTensor>(t, tshape, format, std::move(tname))),
+      tensor(std::make_shared<RawTensor>(t, tshape, format, std::move(tname), -1, type)),
       offset(Offset(tshape.size(), 0)),
       shape(tshape),
       oriShape(tshape),
@@ -42,10 +42,10 @@ LogicalTensor::LogicalTensor(
       function_(&function) {}
 
 LogicalTensor::LogicalTensor(Function &function, DataType t, Shape tshape, std::vector<SymbolicScalar> tValidShape,
-    TileOpFormat format, std::string tname, NodeType tnodetype)
+    TileOpFormat format, std::string tname, NodeType tnodetype, TensorType type)
     : isSubGraphBoundary(false),
       subGraphID(NOT_IN_SUBGRAPH),
-      tensor(std::make_shared<RawTensor>(t, tshape, format, std::move(tname))),
+      tensor(std::make_shared<RawTensor>(t, tshape, format, std::move(tname), -1, type)),
       offset(Offset(tshape.size(), 0)),
       shape(tshape),
       oriShape(tshape),

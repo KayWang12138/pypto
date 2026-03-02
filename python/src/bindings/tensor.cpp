@@ -21,7 +21,7 @@ namespace pypto {
 void BindTensor(py::module &m) {
     py::class_<Tensor>(m, "Tensor")
         .def(py::init<>())
-        .def(py::init([](DataType dtype, const py::sequence &shape, const std::string &name, TileOpFormat format) {
+        .def(py::init([](DataType dtype, const py::sequence &shape, const std::string &name, TileOpFormat format, TensorType type) {
             bool has_symbolic = false;
             for (const auto &item : shape) {
                 if (py::isinstance<SymbolicScalar>(item)) {
@@ -35,14 +35,14 @@ void BindTensor(py::module &m) {
                 for (const auto &item : shape) {
                     symbolic_shape.push_back(item.cast<SymbolicScalar>());
                 }
-                return std::make_unique<Tensor>(dtype, symbolic_shape, name, format);
+                return std::make_unique<Tensor>(dtype, symbolic_shape, name, format, type);
             } else {
                 std::vector<int64_t> int_shape;
                 int_shape.reserve(py::len(shape));
                 for (const auto &item : shape) {
                     int_shape.push_back(item.cast<int64_t>());
                 }
-                return std::make_unique<Tensor>(dtype, int_shape, name, format);
+                return std::make_unique<Tensor>(dtype, int_shape, name, format, type);
             }
         }),
             py::arg("dtype"), py::arg("shape"), py::arg("name") = "", py::arg("format") = TileOpFormat::TILEOP_ND)

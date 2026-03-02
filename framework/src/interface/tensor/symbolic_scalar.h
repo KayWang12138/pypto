@@ -25,7 +25,7 @@
 #include <unordered_set>
 
 #include <tilefwk/symbolic_scalar.h>
-
+#include "tilefwk/data_type.h"
 #include "tilefwk/error.h"
 #include "interface/inner/hash_buffer.h"
 #include "symbol_handler.h"
@@ -895,6 +895,8 @@ struct SymbolicExpressionTable {
     static std::string BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
     static std::string BuildExpression(const SymbolicScalar &ss);
     static std::string BuildExpression(const RawSymbolicScalarPtr &ss);
+    
+    static bool CheckDependAicore(const std::string &expr, const std::function<TensorType(const std::string&)> &getTensorTypeFunc = nullptr);
 private:
     static void BuildExtremaExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict, std::ostringstream &oss);
     static std::string BuildExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
