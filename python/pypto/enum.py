@@ -27,7 +27,11 @@ OpType = pypto_impl.OpType
 OutType = pypto_impl.OutType
 ReLuType = pypto_impl.ReLuType
 ScatterMode = pypto_impl.ScatterMode
+<<<<<<< HEAD
 SaturationMode = pypto_impl.SaturationMode
+=======
+AtomicType = pypto_impl.AtomicType
+>>>>>>> upstream/master
 
 DataType.__repr__ = _enum_repr
 TileOpFormat.__repr__ = _enum_repr
