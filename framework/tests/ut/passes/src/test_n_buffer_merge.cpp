@@ -180,7 +180,7 @@ TEST_F(NBufferMergeTest, TestMode4) {
     EXPECT_EQ(function->GetTotalSubGraphCount(), result);
 }
 
-TEST_F(NBufferMergeTest, TestNoMergeMode) { 
+TEST_F(NBufferMergeTest, TestNoMergeMode) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     const int vecParallelNum = 6;
