@@ -22,21 +22,21 @@ from ._element import Element
 
 class Tensor:
 
-    def __init__(self, shape=None, dtype: Union[DataType, None] = None,
-                 name: str = "", format: TileOpFormat = TileOpFormat.TILEOP_ND,
-                 data_ptr: Optional[int] = None, device=None, ori_shape=None):
+    def __init__(self, shape=None, dtype: Union[DataType, None] = None, name: str = "",
+                 format: TileOpFormat = TileOpFormat.TILEOP_ND, data_ptr: Optional[int] = None,
+                 device=None, ori_shape=None, type: TensorType = TensorType.DEPEND_AICORE):
         self.ori_shape = None
         if shape is None or dtype is None:
             self._base = pypto_impl.Tensor()
         elif all([isinstance(s, int) for s in shape]):
             nshape = typing.cast(List[int], shape)
-            self._base = pypto_impl.Tensor(dtype, nshape, name, format)
+            self._base = pypto_impl.Tensor(dtype, nshape, name, format, type)
             self.ori_shape = ori_shape
         else:
             sym_shape = to_syms(shape)
             assert isinstance(
                 sym_shape, list), "shape must be a list of int or SymbolicScalar"
-            self._base = pypto_impl.Tensor(dtype, sym_shape, name, format)
+            self._base = pypto_impl.Tensor(dtype, sym_shape, name, format, type)
         self.data_ptr = data_ptr
         self.device = device
 

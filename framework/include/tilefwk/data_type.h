@@ -67,6 +67,12 @@ enum class TileOpFormat {
     TILEOP_FORMAT_NUM [[maybe_unused]],
 };
 
+enum class TensorType {
+    DEPEND_AICORE = 0,
+    DEPEND_CONST = 1,
+    TILEOP_FORMAT_NUM [[maybe_unused]],
+};
+
 enum MemoryType {
     MEM_UB = 0,
     MEM_L1 = 1,

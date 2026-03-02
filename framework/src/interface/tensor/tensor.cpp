@@ -73,7 +73,7 @@ void CheckShapeValid(DataType &dataType, T &shape, TileOpFormat &format) {
     }
 }
 
-Tensor::Tensor(DataType dataType, const Shape &shape, std::string name, TileOpFormat format)
+Tensor::Tensor(DataType dataType, const Shape &shape, std::string name, TileOpFormat format, TensorType type)
     : index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId()) {
     CheckShapeValid(dataType, shape, format);
     auto dynShape = ToDynShape(name, shape);
@@ -87,7 +87,7 @@ Tensor::Tensor(DataType dataType, const Shape &shape, std::string name, TileOpFo
     Program::GetInstance().GetTensorSlotManager()->TensorSymbol(*this, name);
 }
 
-Tensor::Tensor(DataType dataType, std::vector<SymbolicScalar> shape, std::string name, TileOpFormat format)
+Tensor::Tensor(DataType dataType, std::vector<SymbolicScalar> shape, std::string name, TileOpFormat format, TensorType type)
     : Tensor(dataType, SymbolicScalar::Concrete(shape, -1), name, format) {
     CheckShapeValid(dataType, shape, format);
     auto rawTensor = storage_->GetRawTensor();

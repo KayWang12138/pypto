@@ -43,7 +43,8 @@ def _check_nz_format(tensor):
 
 @_count_calls
 def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
-               tensor_format: Optional[TileOpFormat] = None, dtype: Optional[DataType] = None):
+               tensor_format: Optional[TileOpFormat] = None, dtype: Optional[DataType] = None,
+               tensor_type: TensorType = TensorType.DEPEND_AICORE):
     """
     convert the input into a PyPTO Tensor
 
@@ -115,6 +116,7 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
             data_ptr=tensor.data_ptr(),
             format=tensor_format,
             device=tensor.device,
+            type = tensor_type
         )
     dyn_shape = list(tensor.shape)
     if dynamic_axis is not None:
@@ -128,6 +130,7 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
         format=tensor_format,
         device=tensor.device,
         ori_shape=list(tensor.shape),
+        type = tensor_type
     )
 
 
