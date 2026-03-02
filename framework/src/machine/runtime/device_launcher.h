@@ -58,6 +58,7 @@ struct AiCpuArgs {
 };
 
 int GetCfgBlockdim();
+uint32_t GetProcessId();
 
 class DeviceLauncherContext {
 public:
@@ -166,6 +167,9 @@ public:
         config.aicpuNum = devProg->devArgs.scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM;
         devProg->devArgs.nrAicpu = config.aicpuNum;
 #ifdef BUILD_WITH_CANN
+        if (config::GetVerifyOption<bool>(KEY_ENABLE_CALL_TASK_DUMP)) {  // dump tensor
+            devProg->devArgs.hostPid = GetProcessId();
+        }
         if (isDevice) {
             devProg->devArgs.validGetPgMask = DeviceRunner::Get().GetValidGetPgMask();
         }

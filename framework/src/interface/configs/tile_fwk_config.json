@@ -38,7 +38,8 @@
         "pass_verify_save_tensor": false,
         "pass_verify_save_tensor_dir": "",
         "pass_verify_pass_filter": [],
-        "pass_verify_error_tol": [1e-3, 1e-3]
+        "pass_verify_error_tol": [1e-3, 1e-3],
+        "enable_call_task_dump": false
     },
     "debug": {
         "compile_debug_mode": 0,
