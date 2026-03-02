@@ -61,6 +61,7 @@ std::string CodeGenOpCloudNPU::PrintCastTileTensor() const {
     if (mode.HasValue()) {
         modeEnum = AnyCast<int64_t>(mode);
     }
+
     std::ostringstream oss;
     std::vector<std::string> templateParamList;
     std::string lastUse = GetLastUse();
