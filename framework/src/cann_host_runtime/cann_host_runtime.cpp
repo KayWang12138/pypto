@@ -23,7 +23,7 @@ const std::string version = "version";
 void *GetSymbol(const std::string &sym) {
     void *ptr = nullptr;
     std::string LibPathDir = std::string(ASCEND_CANN_PACKAGE_PATH) + "/lib64/";
-    std::string soDepPath = RealPath(LibPathDir + "libapiprof.so");
+    std::string soDepPath = RealPath(LibPathDir + "libprofapi.so");
     void* handleDep = dlopen(soDepPath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
     if (handleDep == nullptr) {
         return ptr;
