@@ -109,7 +109,7 @@ TEST_F(TestCodegenDynBinary, TestAddsDynamic) {
     Tensor output(DataType::DT_FP32, shape, "C");
     ConfigManager::Instance();
 
-    std::string funcName = "ADD_S";
+    std::string funcName = "TestAddsDynamic";
     FUNCTION(funcName, {input_a, output}) {
         LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
@@ -121,22 +121,6 @@ TEST_F(TestCodegenDynBinary, TestAddsDynamic) {
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
-    for (auto &subFunc : function->rootFunc_->programs_) {
-        for (auto &op : subFunc.second->Operations()) {
-            if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
-                if (IsCopyIn(op.GetOpcode()))
-                    op.SetIOpAttrOffset(0, 0);
-                else
-                    op.SetOOpAttrOffset(0, 0);
-                op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
-            }
-        }
-        DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->dynParamTable_.emplace("sym_2_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_2_dim_1", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_4_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_4_dim_1", fakeParam);
-    }
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
