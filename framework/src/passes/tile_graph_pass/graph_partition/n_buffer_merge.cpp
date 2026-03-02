@@ -25,13 +25,13 @@
 namespace npu::tile_fwk {
 
 void NBufferMerge::GetOpHash(std::vector<uint64_t> &hashList, const std::string op, size_t idx) {
-    uint64_t a = 0x12345678;
     uint64_t p = 37;
     const uint64_t mod = 0xFFFFFFFFFFFFF;
     uint64_t hash = 0;
     for (char c : op) {
         hash = (hash * p + static_cast<uint64_t>(c)) % mod;
     }
+    uint64_t a = 0x12345678;
     for (int j : inGraph_[idx]) {
         hash = (hash * p + (hashList[j] ^ a)) % mod;
     }
