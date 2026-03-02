@@ -48,6 +48,7 @@ public:
     OpCoreType coreType_{OpCoreType::ANY};
     bool mergeable_{true};
     int32_t scopeId_{-1};
+    int32_t scopeConfig_{0};
 };
 
 class IsomorphismGraphGroup {
