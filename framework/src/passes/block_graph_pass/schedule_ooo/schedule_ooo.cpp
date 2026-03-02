@@ -247,6 +247,7 @@ Status OoOSchedule::RecordLastUseMemory(Function &function) {
     }
     for (auto &entry : opInputIdxMap) {
         auto op = entry.first;
+        std::fill(opInputIdxMap[op].begin(), opInputIdxMap[op].end(), 0); // disable LastUse
         op->SetAttribute(OpAttributeKey::lastUse, opInputIdxMap[op]);
     }
     APASS_LOG_INFO_F(Elements::Function, "===> End RecordLastUseMemory.");
