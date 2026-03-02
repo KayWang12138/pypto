@@ -187,10 +187,14 @@ int CalcOverlapSize(const std::shared_ptr<LogicalTensor> &pTensor,
     return std::accumulate(overlapEdge.begin(), overlapEdge.end(), 1, std::multiplies<>());
 }
 
+// Calculate overlap relationship between two N-D tensor regions described by (offset, shape).
+// For each dimension, treat it as a closed interval [offset, offset + shape - 1]. If any
+// dimension has no intersection, return NO_OVER_LAP; otherwise return PERFECTLY_MATCH,
+// COVERED (P covers Q), BE_COVERED (Q covers P), or PARTIAL_OVERLAP.
 OverlapStatus CalcOverlapByOffsetShape(const std::vector<int64_t>& pOffset,
                                        const std::vector<int64_t>& pShape,
                                        const std::vector<int64_t>& qOffset,
-                                       const std::vector<int64_t>& qShape)
+                                       const std::vector<int64_t>& qShape) noexcept
 {
     // Check if tensors have same number of dimensions
     if (pOffset.size() != qOffset.size() || pShape.size() != qShape.size() || pOffset.size() != pShape.size()) {

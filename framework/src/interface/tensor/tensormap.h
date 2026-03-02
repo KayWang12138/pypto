@@ -61,7 +61,7 @@ bool Overlap(const std::shared_ptr<LogicalTensor> &t0, const std::shared_ptr<Log
 OverlapStatus CalcOverlapByOffsetShape(const std::vector<int64_t>& pOffset,
                                        const std::vector<int64_t>& pShape,
                                        const std::vector<int64_t>& qOffset,
-                                       const std::vector<int64_t>& qShape);
+                                       const std::vector<int64_t>& qShape) noexcept;
 
 // Move the function declaration outside of the TensorMap class
 OverlapStatus CalcOverlap(

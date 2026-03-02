@@ -695,6 +695,10 @@ void SplitLargeFanoutTensor::EraseRedundantViewOp(Function &function) {
     }
 }
 
+void SplitLargeFanoutTensor::SetEnableMoreSplit(bool enableMoreSplit) {
+    enableMoreSplit_ = enableMoreSplit;
+}
+
 Status SplitLargeFanoutTensor::PreCheck(Function &function){
     return checker_.DoPreCheck(function);
 }

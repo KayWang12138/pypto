@@ -48,7 +48,7 @@ public:
 
     void ExecutePass(Function *function, bool enableMoreSplit) {
         npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
-        splitLargeFanoutTensor.enableMoreSplit_ = enableMoreSplit;
+        splitLargeFanoutTensor.SetEnableMoreSplit(enableMoreSplit);
         splitLargeFanoutTensor.PreCheck(*function);
         splitLargeFanoutTensor.RunOnFunction(*function);
         splitLargeFanoutTensor.PostCheck(*function);
