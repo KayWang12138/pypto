@@ -4,9 +4,24 @@
 
 - [ ] 确认本地仓库路径正确（`$PYPTO_REPO`）
 - [ ] `git remote -v` 确认 origin 指向用户 fork（非 `cann/pypto`）
-- [ ] 通过 `gitcode_get_repository` 确认 fork 链关系（parent.full_name == "cann/pypto"）
+- [ ] **添加 upstream remote**：`git remote add upstream https://gitcode.com/cann/pypto.git`（如不存在）
+- [ ] 通过 `gitcode_get_repository` 确认 fork 链关系（parent.full_name == "cann/pypto")
 - [ ] `git rev-parse --is-shallow-repository` 检测浅克隆
 - [ ] 若浅克隆 → `git fetch --unshallow origin`
+
+## Phase 2: Git 认证检查
+
+- [ ] **检测认证状态**：运行检测脚本（见 SKILL.md Phase 2.1）
+- [ ] 确认以下至少一项可用：
+  - [ ] GITCODE_TOKEN 环境变量已设置
+  - [ ] SSH Key 已配置（`~/.ssh/*.pub` 存在）
+  - [ ] credential.helper 已配置（`git config --global credential.helper`）
+  - [ ] .git-credentials 文件存在
+- [ ] **若无任何认证**：向用户展示选项并引导配置
+- [ ] 用户已选择认证方式并完成配置
+- [ ] 验证认证可用：`git push --dry-run origin <branch>`
+
+## Phase 3: 用户确认
 
 ## Phase 2: 用户确认
 
@@ -16,7 +31,9 @@
 
 ## Phase 3: 代码准备
 
-- [ ] Rebase 到最新 master 分支
+- [ ] **同步 upstream**：`git fetch upstream master`
+- [ ] **检查分支是否落后**：`git log --oneline HEAD..upstream/master`（输出为空则同步）
+- [ ] **若落后则 rebase**：`git rebase upstream/master && git push -f origin <branch>`
 - [ ] feat/fix 类型已添加测试用例
 - [ ] 代码变更已文档化
 - [ ] code-check 警告已修复（参考 `$PYPTO_REPO/docs/contribute/code-check-rule.yaml`）
@@ -48,3 +65,4 @@
 - [ ] 已获得用户确认后才执行
 - [ ] PR 创建/更新成功后输出结构化报告（含 PR 链接）
 - [ ] 若为更新 PR，确认 PR 编号正确
+- [ ] **若 MCP 创建失败**：使用 curl fallback（见 SKILL.md Phase 5.4）
