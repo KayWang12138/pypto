@@ -208,6 +208,7 @@ function(PTO_Fwk_STest_AddExe_RunExe)
     execute_process(COMMAND touch ${_Sources})
     list(REMOVE_DUPLICATES PTO_Fwk_STestCaseLibraries)
     set(PTO_Fwk_Libraries
+            cann_host_runtime
             tile_fwk_simulation_platform
             tile_fwk_utils
             tile_fwk_interface
