@@ -83,28 +83,28 @@ pip3 install -e /tmp/gitcode_mcp_server
 2. 创建 Personal Access Token（建议包含 `repo`、`read:user` 权限）
 3. 保存 Token（仅显示一次）
 
-## 验证（会列出仓库列表）
+## 验证
 
-运行验证脚本：
-
-```bash
-python3 "$SKILL_DIR/scripts/verify_install.py"
-```
-
-验证逻辑：
-- 先检测 `GITCODE_TOKEN/GITCODE_KEY` 是否仍为占位符
-- 若仍为占位符：脚本会轮询等待你手动修改 `~/.config/opencode/opencode.json`（**修改后需重启 OpenCode 才能生效**）
-- 检测到 token 已更新后：脚本会要求你输入 `y` 确认，再继续
-- 最终通过调用 `GET https://api.gitcode.com/api/v5/user/repos` 获取仓库列表来验证 token 可用，并打印前 10 个仓库
-
-**可选参数**（用于非交互式场景如 CI/CD）：
-- `--no-wait`：token 仍为占位符时不等待，直接退出
-- `--no-confirm`：检测到 token 更新后不要求用户输入 y 确认
+**手动验证**：
 
 ```bash
-# CI/CD 场景示例
-python3 "$SKILL_DIR/scripts/verify_install.py" --no-wait --no-confirm
+# 1. 检查命令是否存在
+which gitcode-mcp
+
+# 2. 检查配置文件
+cat ~/.config/opencode/opencode.json | grep -A5 gitcode
+
+# 3. 测试 API 连接（替换 <YOUR_TOKEN> 为真实 token）
+curl -s "https://api.gitcode.com/api/v5/user/repos?access_token=<YOUR_TOKEN>&per_page=5" | jq '.[].full_name'
 ```
+
+**验证要点**：
+- `which gitcode-mcp` 返回路径
+- 配置文件中 `GITCODE_TOKEN` 不是占位符
+- API 调用返回仓库名称列表
+
+> **注意**：修改 `~/.config/opencode/opencode.json` 后需重启 OpenCode 才能生效。
+
 ## 代理（可选）
 
 如需代理访问 GitCode API，把代理环境变量加入 OpenCode 的 `environment`：
@@ -123,9 +123,9 @@ python3 "$SKILL_DIR/scripts/verify_install.py" --no-wait --no-confirm
 | 问题 | 处理 |
 |------|------|
 | `gitcode-mcp: command not found` | 确认 PATH：`which gitcode-mcp` |
-| API 401/403 | token 无效/权限不足，更新 `~/.config/opencode/opencode.json` 后再验证 |
+| API 401/403 | token 无效/权限不足，更新 `~/.config/opencode/opencode.json` |
 | 连接超时 | 检查网络或配置代理 |
-| 配置文件不存在 | 运行验证脚本会自动创建 `~/.config/opencode/opencode.json` |
+| 配置文件不存在 | 手动创建 `~/.config/opencode/opencode.json` |
 
 ## 外部参考
 
