@@ -10,7 +10,6 @@
 
 #pragma once
 
-
 #include "ir/stmt.h"
 #include "ir/transform/base/functor.h"
 
@@ -26,26 +25,25 @@ namespace ir {
  */
 class IRVisitor : public IRFunctor<void> {
 public:
-  ~IRVisitor() override = default;
+    ~IRVisitor() override = default;
 
-  void VisitExpr(const ExprPtr &expr) override;
-  void VisitStmt(const StmtPtr &stmt) override;
+    void VisitExpr(const ExprPtr &expr) override;
+    void VisitStmt(const StmtPtr &stmt) override;
 
 protected:
-  PYPTO_DECLARE_ALL_VISITOR_OVERRIDES
+    PYPTO_DECLARE_ALL_VISITOR_OVERRIDES
 
 private:
-  /**
-   * \brief Helper to visit both children of a binary expression
-   */
-  void VisitBinaryOp_(const BinaryExprPtr &op);
+    /**
+     * \brief Helper to visit both children of a binary expression
+     */
+    void VisitBinaryOp_(const BinaryExprPtr &op);
 
-  /**
-   * \brief Helper to visit the operand of a unary expression
-   */
-  void VisitUnaryOp_(const UnaryExprPtr &op);
+    /**
+     * \brief Helper to visit the operand of a unary expression
+     */
+    void VisitUnaryOp_(const UnaryExprPtr &op);
 };
 
-}  // namespace ir
-}  // namespace pypto
-
+} // namespace ir
+} // namespace pypto

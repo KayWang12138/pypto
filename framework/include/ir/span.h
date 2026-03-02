@@ -19,7 +19,6 @@
  * multiple IR nodes.
  */
 
-
 #include <string>
 
 namespace pypto {
@@ -38,45 +37,44 @@ namespace ir {
  */
 class Span {
 public:
-  const std::string filename_;  ///< Source filename
-  const int beginLine_;        ///< Beginning line number (1-indexed)
-  const int beginColumn_;      ///< Beginning column number (1-indexed)
-  const int endLine_;          ///< Ending line number (1-indexed), -1 means unknown
-  const int endColumn_;        ///< Ending column number (1-indexed), -1 means unknown
+    const std::string filename_; ///< Source filename
+    const int beginLine_;        ///< Beginning line number (1-indexed)
+    const int beginColumn_;      ///< Beginning column number (1-indexed)
+    const int endLine_;          ///< Ending line number (1-indexed), -1 means unknown
+    const int endColumn_;        ///< Ending column number (1-indexed), -1 means unknown
 
-  /**
-   * \brief Construct a source span
-   *
-   * \param file Source filename
-   * \param beginLine Begin line (1-indexed)
-   * \param beginColumn Begin column (1-indexed)
-   * \param endLine End line (1-indexed), -1 means unknown
-   * \param endColumn End column (1-indexed), -1 means unknown
-   */
-  Span(std::string file, int beginLine, int beginColumn, int endLine = -1, int endColumn = -1);
+    /**
+     * \brief Construct a source span
+     *
+     * \param file Source filename
+     * \param beginLine Begin line (1-indexed)
+     * \param beginColumn Begin column (1-indexed)
+     * \param endLine End line (1-indexed), -1 means unknown
+     * \param endColumn End column (1-indexed), -1 means unknown
+     */
+    Span(std::string file, int beginLine, int beginColumn, int endLine = -1, int endColumn = -1);
 
-  /**
-   * \brief Convert span to string representation
-   *
-   * \return String in format "filename:beginLine:beginColumn"
-   */
-  [[nodiscard]] std::string to_string() const;
+    /**
+     * \brief Convert span to string representation
+     *
+     * \return String in format "filename:beginLine:beginColumn"
+     */
+    [[nodiscard]] std::string to_string() const;
 
-  /**
-   * \brief Check if the span is valid (has valid line/column numbers)
-   *
-   * \return true if all line/column numbers are positive
-   */
-  [[nodiscard]] bool is_valid() const;
+    /**
+     * \brief Check if the span is valid (has valid line/column numbers)
+     *
+     * \return true if all line/column numbers are positive
+     */
+    [[nodiscard]] bool is_valid() const;
 
-  /**
-   * \brief Create an unknown/invalid span
-   *
-   * \return Span with empty filename and invalid coordinates
-   */
-  static Span unknown();
+    /**
+     * \brief Create an unknown/invalid span
+     *
+     * \return Span with empty filename and invalid coordinates
+     */
+    static Span unknown();
 };
 
-}  // namespace ir
-}  // namespace pypto
-
+} // namespace ir
+} // namespace pypto

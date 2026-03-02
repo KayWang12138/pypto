@@ -10,7 +10,6 @@
 
 #pragma once
 
-
 #include <memory>
 #include <string>
 #include <tuple>
@@ -21,7 +20,7 @@
 #include "ir/expr.h"
 #include "ir/reflection/field_traits.h"
 #include "ir/stmt.h"
-#include "ir/type.h"                                                                                                                                                   
+#include "ir/type.h"
 
 namespace pypto {
 namespace ir {
@@ -35,9 +34,9 @@ namespace ir {
  * - InCore: Sub-graph on specific AICore
  */
 enum class FunctionType : uint8_t {
-  OPAQUE = 0,         ///< Default: unspecified function type
-  ORCHESTRATION = 1,  ///< Host/AICPU control and coordination
-  IN_CORE = 2          ///< AICore sub-graph execution
+    OPAQUE = 0,        ///< Default: unspecified function type
+    ORCHESTRATION = 1, ///< Host/AICPU control and coordination
+    IN_CORE = 2        ///< AICore sub-graph execution
 };
 
 /**
@@ -46,16 +45,12 @@ enum class FunctionType : uint8_t {
  * \return String representation ("OPAQUE", "ORCHESTRATION", or "IN_CORE")
  */
 inline std::string FunctionTypeToString(FunctionType type) {
-  switch (type) {
-    case FunctionType::OPAQUE:
-      return "Opaque";
-    case FunctionType::ORCHESTRATION:
-      return "Orchestration";
-    case FunctionType::IN_CORE:
-      return "InCore";
-    default:
-      return "Unknown";
-  }
+    switch (type) {
+        case FunctionType::OPAQUE: return "Opaque";
+        case FunctionType::ORCHESTRATION: return "Orchestration";
+        case FunctionType::IN_CORE: return "InCore";
+        default: return "Unknown";
+    }
 }
 
 /**
@@ -65,15 +60,15 @@ inline std::string FunctionTypeToString(FunctionType type) {
  * \throws std::invalid_argument if string is not recognized
  */
 inline FunctionType StringToFunctionType(const std::string &str) {
-  if (str == "Opaque") {
-    return FunctionType::OPAQUE;
-  } else if (str == "Orchestration") {
-    return FunctionType::ORCHESTRATION;
-  } else if (str == "InCore") {
-    return FunctionType::IN_CORE;
-  } else {
-    throw std::invalid_argument("Unknown FunctionType: " + str);
-  }
+    if (str == "Opaque") {
+        return FunctionType::OPAQUE;
+    } else if (str == "Orchestration") {
+        return FunctionType::ORCHESTRATION;
+    } else if (str == "InCore") {
+        return FunctionType::IN_CORE;
+    } else {
+        throw std::invalid_argument("Unknown FunctionType: " + str);
+    }
 }
 
 /**
@@ -84,53 +79,51 @@ inline FunctionType StringToFunctionType(const std::string &str) {
  */
 class Function : public IRNode {
 public:
-  /**
-   * \brief Create a function definition
-   *
-   * \param name Function name
-   * \param params Parameter variables
-   * \param returnTypes Return types
-   * \param body Function body statement (use SeqStmts for multiple statements)
-   * \param span Source location
-   * \param type Function type (default: Opaque)
-   */
-  Function(std::string name, std::vector<VarPtr> params, std::vector<TypePtr> returnTypes, StmtPtr body,
-           Span span, FunctionType type = FunctionType::OPAQUE)
-      : IRNode(std::move(span)),
-        name_(std::move(name)),
-        funcType_(type),
-        params_(std::move(params)),
-        returnTypes_(std::move(returnTypes)),
-        body_(std::move(body)) {}
+    /**
+     * \brief Create a function definition
+     *
+     * \param name Function name
+     * \param params Parameter variables
+     * \param returnTypes Return types
+     * \param body Function body statement (use SeqStmts for multiple statements)
+     * \param span Source location
+     * \param type Function type (default: Opaque)
+     */
+    Function(std::string name, std::vector<VarPtr> params, std::vector<TypePtr> returnTypes, StmtPtr body, Span span,
+        FunctionType type = FunctionType::OPAQUE)
+        : IRNode(std::move(span)),
+          name_(std::move(name)),
+          funcType_(type),
+          params_(std::move(params)),
+          returnTypes_(std::move(returnTypes)),
+          body_(std::move(body)) {}
 
-  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::Function; }
-  [[nodiscard]] std::string TypeName() const override { return "Function"; }
+    [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::Function; }
+    [[nodiscard]] std::string TypeName() const override { return "Function"; }
 
-  /**
-   * \brief Get field descriptors for reflection-based visitation
-   *
-   * \return Tuple of field descriptors (params as DEF field, funcType, returnTypes and body as USUAL
-   * fields, name as an IGNORE field)
-   */
-  static constexpr auto GetFieldDescriptors() {
-    return std::tuple_cat(IRNode::GetFieldDescriptors(),
-                          std::make_tuple(reflection::DefField(&Function::params_, "params"),
-                                          reflection::UsualField(&Function::funcType_, "func_type"),
-                                          reflection::UsualField(&Function::returnTypes_, "return_types"),
-                                          reflection::UsualField(&Function::body_, "body"),
-                                          reflection::IgnoreField(&Function::name_, "name")));
-  }
+    /**
+     * \brief Get field descriptors for reflection-based visitation
+     *
+     * \return Tuple of field descriptors (params as DEF field, funcType, returnTypes and body as USUAL
+     * fields, name as an IGNORE field)
+     */
+    static constexpr auto GetFieldDescriptors() {
+        return std::tuple_cat(IRNode::GetFieldDescriptors(),
+            std::make_tuple(reflection::DefField(&Function::params_, "params"),
+                reflection::UsualField(&Function::funcType_, "func_type"),
+                reflection::UsualField(&Function::returnTypes_, "return_types"),
+                reflection::UsualField(&Function::body_, "body"), reflection::IgnoreField(&Function::name_, "name")));
+    }
 
 public:
-  std::string name_;                   // Function name
-  FunctionType funcType_;             // Function type (orchestration, incore, or opaque)
-  std::vector<VarPtr> params_;         // Parameter variables
-  std::vector<TypePtr> returnTypes_;  // Return types
-  StmtPtr body_;                       // Function body statement
+    std::string name_;                 // Function name
+    FunctionType funcType_;            // Function type (orchestration, incore, or opaque)
+    std::vector<VarPtr> params_;       // Parameter variables
+    std::vector<TypePtr> returnTypes_; // Return types
+    StmtPtr body_;                     // Function body statement
 };
 
 using FunctionPtr = std::shared_ptr<const Function>;
 
-}  // namespace ir
-}  // namespace pypto
-
+} // namespace ir
+} // namespace pypto

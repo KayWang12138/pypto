@@ -10,7 +10,6 @@
 
 #pragma once
 
-
 namespace pypto {
 namespace ir {
 namespace reflection {
@@ -23,9 +22,9 @@ namespace reflection {
  * - USUAL: Normal fields to visit and compare
  * - IGNORE: Fields to skip in structural comparisons (e.g., source locations)
  */
-struct DefFieldTag {};     // For binding variables - enables auto-mapping
-struct UsualFieldTag {};   // Normal fields to visit/compare
-struct IgnoreFieldTag {};  // Skip in comparisons (e.g., span)
+struct DefFieldTag {};    // For binding variables - enables auto-mapping
+struct UsualFieldTag {};  // Normal fields to visit/compare
+struct IgnoreFieldTag {}; // Skip in comparisons (e.g., span)
 
 /**
  * \brief Field descriptor template
@@ -39,28 +38,28 @@ struct IgnoreFieldTag {};  // Skip in comparisons (e.g., span)
  */
 template <typename NodeType, typename FieldType, typename KindTag>
 struct FieldDescriptor {
-  using node_type = NodeType;
-  using field_type = FieldType;
-  using kind_tag = KindTag;
+    using node_type = NodeType;
+    using field_type = FieldType;
+    using kind_tag = KindTag;
 
-  FieldType NodeType::* field_ptr;  // Pointer-to-member for type-safe field access
-  const char *name;                 // Field name for debugging
+    FieldType NodeType::*field_ptr; // Pointer-to-member for type-safe field access
+    const char *name;               // Field name for debugging
 
-  /**
-   * \brief Construct a field descriptor
-   *
-   * \param ptr Pointer-to-member for the field
-   * \param n Field name (string literal)
-   */
-  constexpr FieldDescriptor(FieldType NodeType::* ptr, const char *n) : field_ptr(ptr), name(n) {}
+    /**
+     * \brief Construct a field descriptor
+     *
+     * \param ptr Pointer-to-member for the field
+     * \param n Field name (string literal)
+     */
+    constexpr FieldDescriptor(FieldType NodeType::*ptr, const char *n) : field_ptr(ptr), name(n) {}
 
-  /**
-   * \brief Access field value from a node instance
-   *
-   * \param node The node instance to access the field from
-   * \return const reference to the field value
-   */
-  const FieldType &Get(const NodeType &node) const { return node.*field_ptr; }
+    /**
+     * \brief Access field value from a node instance
+     *
+     * \param node The node instance to access the field from
+     * \return const reference to the field value
+     */
+    const FieldType &Get(const NodeType &node) const { return node.*field_ptr; }
 };
 
 /**
@@ -76,8 +75,8 @@ struct FieldDescriptor {
  * \return Field descriptor with DefFieldTag
  */
 template <typename NodeType, typename FieldType>
-constexpr auto DefField(FieldType NodeType::* ptr, const char *name) {
-  return FieldDescriptor<NodeType, FieldType, DefFieldTag>{ptr, name};
+constexpr auto DefField(FieldType NodeType::*ptr, const char *name) {
+    return FieldDescriptor<NodeType, FieldType, DefFieldTag>{ptr, name};
 }
 
 /**
@@ -93,8 +92,8 @@ constexpr auto DefField(FieldType NodeType::* ptr, const char *name) {
  * \return Field descriptor with UsualFieldTag
  */
 template <typename NodeType, typename FieldType>
-constexpr auto UsualField(FieldType NodeType::* ptr, const char *name) {
-  return FieldDescriptor<NodeType, FieldType, UsualFieldTag>{ptr, name};
+constexpr auto UsualField(FieldType NodeType::*ptr, const char *name) {
+    return FieldDescriptor<NodeType, FieldType, UsualFieldTag>{ptr, name};
 }
 
 /**
@@ -110,11 +109,10 @@ constexpr auto UsualField(FieldType NodeType::* ptr, const char *name) {
  * \return Field descriptor with IgnoreFieldTag
  */
 template <typename NodeType, typename FieldType>
-constexpr auto IgnoreField(FieldType NodeType::* ptr, const char *name) {
-  return FieldDescriptor<NodeType, FieldType, IgnoreFieldTag>{ptr, name};
+constexpr auto IgnoreField(FieldType NodeType::*ptr, const char *name) {
+    return FieldDescriptor<NodeType, FieldType, IgnoreFieldTag>{ptr, name};
 }
 
-}  // namespace reflection
-}  // namespace ir
-}  // namespace pypto
-
+} // namespace reflection
+} // namespace ir
+} // namespace pypto

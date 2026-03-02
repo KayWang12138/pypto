@@ -22,7 +22,6 @@
  * - nanobind module configuration
  */
 
-
 #include <cstdint>
 
 namespace pypto {
@@ -58,4 +57,4 @@ constexpr int64_t kDynamicDim = -1;
 #define PYPTO_UNUSED __attribute__((unused))
 #define PYPTO_STR_CONCAT_IMPL(__x, __y) __x##__y
 #define PYPTO_STR_CONCAT(__x, __y) PYPTO_STR_CONCAT_IMPL(__x, __y)
-}  // namespace pypto
+} // namespace pypto

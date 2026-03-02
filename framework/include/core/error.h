@@ -25,14 +25,13 @@
  * - Integration with standard C++ exception mechanisms
  */
 
-
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "core/common.h"
-#include "ir/span.h"  // For Span in Diagnostic
+#include "ir/span.h" // For Span in Diagnostic
 
 namespace pypto {
 namespace ir {
@@ -45,31 +44,31 @@ namespace ir {
  * and understanding the execution context when an error occurs.
  */
 struct StackFrame {
-  std::string function;  // Name of the function at this stack frame
-  std::string filename;  // Source file path where the function is defined
-  std::string libname;   // Library name (e.g., "libc.so.6" or executable name)
-  std::string offset;    // Offset within the function (e.g., "+0x30")
-  int lineno;            // Line number in the source file
-  uintptr_t pc;          // Program counter (instruction pointer) value
+    std::string function; // Name of the function at this stack frame
+    std::string filename; // Source file path where the function is defined
+    std::string libname;  // Library name (e.g., "libc.so.6" or executable name)
+    std::string offset;   // Offset within the function (e.g., "+0x30")
+    int lineno;           // Line number in the source file
+    uintptr_t pc;         // Program counter (instruction pointer) value
 
-  // Default constructor initializing numeric fields to zero
-  StackFrame() : lineno(0), pc(0) {}
+    // Default constructor initializing numeric fields to zero
+    StackFrame() : lineno(0), pc(0) {}
 
-  /**
-   * \brief Constructs a stack frame with complete information
-   * \param func Function name
-   * \param file Source file path
-   * \param line Line number in source file
-   * \param program_counter Program counter value at this frame
-   */
-  StackFrame(std::string func, std::string file, int line, uintptr_t program_counter)
-      : function(std::move(func)), filename(std::move(file)), lineno(line), pc(program_counter) {}
+    /**
+     * \brief Constructs a stack frame with complete information
+     * \param func Function name
+     * \param file Source file path
+     * \param line Line number in source file
+     * \param program_counter Program counter value at this frame
+     */
+    StackFrame(std::string func, std::string file, int line, uintptr_t program_counter)
+        : function(std::move(func)), filename(std::move(file)), lineno(line), pc(program_counter) {}
 
-  /**
-   * \brief Formats the stack frame as a human-readable string
-   * \return String representation in the format "function (filename:lineno)"
-   */
-  [[nodiscard]] std::string to_string() const;
+    /**
+     * \brief Formats the stack frame as a human-readable string
+     * \return String representation in the format "function (filename:lineno)"
+     */
+    [[nodiscard]] std::string to_string() const;
 };
 
 /**
@@ -84,43 +83,43 @@ struct StackFrame {
  */
 class Backtrace {
 public:
-  /**
-   * \brief Get the singleton instance of Backtrace
-   * \return Reference to the singleton Backtrace instance
-   */
-  static Backtrace &GetInstance();
+    /**
+     * \brief Get the singleton instance of Backtrace
+     * \return Reference to the singleton Backtrace instance
+     */
+    static Backtrace &GetInstance();
 
-  /**
-   * \brief Capture the current stack trace
-   *
-   * Walks the call stack and captures information about each frame,
-   * including function names, file names, and line numbers.
-   *
-   * \param skip Number of most recent frames to skip (useful for hiding
-   *             internal error handling frames from the trace)
-   * \return Vector of StackFrame objects representing the call stack,
-   *         ordered from most recent (top) to least recent (bottom)
-   */
-  std::vector<StackFrame> CaptureStackTrace(int skip = 0);
+    /**
+     * \brief Capture the current stack trace
+     *
+     * Walks the call stack and captures information about each frame,
+     * including function names, file names, and line numbers.
+     *
+     * \param skip Number of most recent frames to skip (useful for hiding
+     *             internal error handling frames from the trace)
+     * \return Vector of StackFrame objects representing the call stack,
+     *         ordered from most recent (top) to least recent (bottom)
+     */
+    std::vector<StackFrame> CaptureStackTrace(int skip = 0);
 
-  /**
-   * \brief Format a stack trace as a human-readable string
-   * \param frames Vector of stack frames to format
-   * \return Multi-line string representation of the stack trace, with
-   *         each frame on a separate line
-   */
-  static std::string FormatStackTrace(const std::vector<StackFrame> &frames);
+    /**
+     * \brief Format a stack trace as a human-readable string
+     * \param frames Vector of stack frames to format
+     * \return Multi-line string representation of the stack trace, with
+     *         each frame on a separate line
+     */
+    static std::string FormatStackTrace(const std::vector<StackFrame> &frames);
 
 public:
-  /// Constructor (no initialization needed for execinfo-based implementation)
-  Backtrace();
+    /// Constructor (no initialization needed for execinfo-based implementation)
+    Backtrace();
 
-  /// Destructor (default implementation)
-  ~Backtrace() = default;
+    /// Destructor (default implementation)
+    ~Backtrace() = default;
 
-  // Prevent copying to maintain singleton pattern
-  Backtrace(const Backtrace&) = delete;
-  Backtrace &operator=(const Backtrace&) = delete;
+    // Prevent copying to maintain singleton pattern
+    Backtrace(const Backtrace &) = delete;
+    Backtrace &operator=(const Backtrace &) = delete;
 };
 
 /**
@@ -144,34 +143,34 @@ public:
  */
 class Error : public std::runtime_error {
 public:
-  /**
-   * \brief Constructs an Error with a message and captures the stack trace
-   * \param message Error message describing what went wrong
-   */
-  PYPTO_ALWAYS_INLINE explicit Error(const std::string &message) : std::runtime_error(message) {
-    stackTrace_ = Backtrace::GetInstance().CaptureStackTrace();
-  }
+    /**
+     * \brief Constructs an Error with a message and captures the stack trace
+     * \param message Error message describing what went wrong
+     */
+    PYPTO_ALWAYS_INLINE explicit Error(const std::string &message) : std::runtime_error(message) {
+        stackTrace_ = Backtrace::GetInstance().CaptureStackTrace();
+    }
 
-  /**
-   * \brief Get the raw stack trace frames
-   * \return Const reference to the vector of captured stack frames
-   */
-  [[nodiscard]] const std::vector<StackFrame> &GetStackTrace() const { return stackTrace_; }
+    /**
+     * \brief Get the raw stack trace frames
+     * \return Const reference to the vector of captured stack frames
+     */
+    [[nodiscard]] const std::vector<StackFrame> &GetStackTrace() const { return stackTrace_; }
 
-  /**
-   * \brief Get a formatted string representation of the stack trace
-   * \return Multi-line string with each stack frame on a separate line
-   */
-  [[nodiscard]] std::string GetFormattedStackTrace() const;
+    /**
+     * \brief Get a formatted string representation of the stack trace
+     * \return Multi-line string with each stack frame on a separate line
+     */
+    [[nodiscard]] std::string GetFormattedStackTrace() const;
 
-  /**
-   * \brief Get the complete error message including the stack trace
-   * \return String containing both the error message and formatted stack trace
-   */
-  [[nodiscard]] std::string GetFullMessage() const;
+    /**
+     * \brief Get the complete error message including the stack trace
+     * \return String containing both the error message and formatted stack trace
+     */
+    [[nodiscard]] std::string GetFullMessage() const;
 
 private:
-  std::vector<StackFrame> stackTrace_;  ///< Captured stack frames at error creation
+    std::vector<StackFrame> stackTrace_; ///< Captured stack frames at error creation
 };
 
 /**
@@ -186,7 +185,7 @@ private:
  */
 class ValueError : public Error {
 public:
-  PYPTO_ALWAYS_INLINE explicit ValueError(const std::string &message) : Error(message) {}
+    PYPTO_ALWAYS_INLINE explicit ValueError(const std::string &message) : Error(message) {}
 };
 
 /**
@@ -201,7 +200,7 @@ public:
  */
 class TypeError : public Error {
 public:
-  PYPTO_ALWAYS_INLINE explicit TypeError(const std::string &message) : Error(message) {}
+    PYPTO_ALWAYS_INLINE explicit TypeError(const std::string &message) : Error(message) {}
 };
 
 /**
@@ -217,7 +216,7 @@ public:
  */
 class RuntimeError : public Error {
 public:
-  PYPTO_ALWAYS_INLINE explicit RuntimeError(const std::string &message) : Error(message) {}
+    PYPTO_ALWAYS_INLINE explicit RuntimeError(const std::string &message) : Error(message) {}
 };
 
 /**
@@ -232,7 +231,7 @@ public:
  */
 class NotImplementedError : public Error {
 public:
-  PYPTO_ALWAYS_INLINE explicit NotImplementedError(const std::string &message) : Error(message) {}
+    PYPTO_ALWAYS_INLINE explicit NotImplementedError(const std::string &message) : Error(message) {}
 };
 
 /**
@@ -247,7 +246,7 @@ public:
  */
 class IndexError : public Error {
 public:
-  PYPTO_ALWAYS_INLINE explicit IndexError(const std::string &message) : Error(message) {}
+    PYPTO_ALWAYS_INLINE explicit IndexError(const std::string &message) : Error(message) {}
 };
 
 /**
@@ -262,7 +261,7 @@ public:
  */
 class AssertionError : public Error {
 public:
-  PYPTO_ALWAYS_INLINE explicit AssertionError(const std::string &message) : Error(message) {}
+    PYPTO_ALWAYS_INLINE explicit AssertionError(const std::string &message) : Error(message) {}
 };
 
 /**
@@ -281,7 +280,7 @@ public:
  */
 class InternalError : public Error {
 public:
-  PYPTO_ALWAYS_INLINE explicit InternalError(const std::string &message) : Error(message) {}
+    PYPTO_ALWAYS_INLINE explicit InternalError(const std::string &message) : Error(message) {}
 };
 
 /**
@@ -290,8 +289,8 @@ public:
  * Diagnostics can be either errors (must be fixed) or warnings (should be reviewed).
  */
 enum class DiagnosticSeverity {
-  ERROR,    ///< Error that must be fixed
-  WARNING,  ///< Warning that should be reviewed
+    ERROR,   ///< Error that must be fixed
+    WARNING, ///< Warning that should be reviewed
 };
 
 /**
@@ -302,26 +301,22 @@ enum class DiagnosticSeverity {
  * message, and the source location where the issue was found.
  */
 struct Diagnostic {
-  DiagnosticSeverity severity;  ///< Severity level (Error or Warning)
-  std::string ruleName;        ///< Name of the verification rule (e.g., "SSAVerify", "TypeCheck")
-  int errorCode;               ///< Specific error code from the rule's error type enum
-  std::string message;          ///< Human-readable error message
-  ir::Span span;                ///< Source location of the issue
+    DiagnosticSeverity severity; ///< Severity level (Error or Warning)
+    std::string ruleName;        ///< Name of the verification rule (e.g., "SSAVerify", "TypeCheck")
+    int errorCode;               ///< Specific error code from the rule's error type enum
+    std::string message;         ///< Human-readable error message
+    ir::Span span;               ///< Source location of the issue
 
-  /**
-   * \brief Default constructor
-   */
-  Diagnostic() : severity(DiagnosticSeverity::ERROR), errorCode(0), span(ir::Span::unknown()) {}
+    /**
+     * \brief Default constructor
+     */
+    Diagnostic() : severity(DiagnosticSeverity::ERROR), errorCode(0), span(ir::Span::unknown()) {}
 
-  /**
-   * \brief Construct a diagnostic with all fields
-   */
-  Diagnostic(DiagnosticSeverity sev, std::string rule, int code, std::string msg, ir::Span s)
-      : severity(sev),
-        ruleName(std::move(rule)),
-        errorCode(code),
-        message(std::move(msg)),
-        span(std::move(s)) {}
+    /**
+     * \brief Construct a diagnostic with all fields
+     */
+    Diagnostic(DiagnosticSeverity sev, std::string rule, int code, std::string msg, ir::Span s)
+        : severity(sev), ruleName(std::move(rule)), errorCode(code), message(std::move(msg)), span(std::move(s)) {}
 };
 
 /**
@@ -338,25 +333,23 @@ struct Diagnostic {
  */
 class VerificationError : public Error {
 public:
-  /**
-   * \brief Construct a verification error with report and diagnostics
-   * \param report Formatted verification report
-   * \param diagnostics Vector of all diagnostics (errors and warnings)
-   */
-  PYPTO_ALWAYS_INLINE explicit VerificationError(const std::string &report,
-                                                 std::vector<Diagnostic> diagnostics)
-      : Error(report), diagnostics_(std::move(diagnostics)) {}
+    /**
+     * \brief Construct a verification error with report and diagnostics
+     * \param report Formatted verification report
+     * \param diagnostics Vector of all diagnostics (errors and warnings)
+     */
+    PYPTO_ALWAYS_INLINE explicit VerificationError(const std::string &report, std::vector<Diagnostic> diagnostics)
+        : Error(report), diagnostics_(std::move(diagnostics)) {}
 
-  /**
-   * \brief Get the diagnostics that caused this error
-   * \return Const reference to vector of diagnostics
-   */
-  [[nodiscard]] const std::vector<Diagnostic> &GetDiagnostics() const { return diagnostics_; }
+    /**
+     * \brief Get the diagnostics that caused this error
+     * \return Const reference to vector of diagnostics
+     */
+    [[nodiscard]] const std::vector<Diagnostic> &GetDiagnostics() const { return diagnostics_; }
 
 private:
-  std::vector<Diagnostic> diagnostics_;  ///< All diagnostics (errors and warnings)
+    std::vector<Diagnostic> diagnostics_; ///< All diagnostics (errors and warnings)
 };
 
-}  // namespace ir
-}  // namespace pypto
-
+} // namespace ir
+} // namespace pypto

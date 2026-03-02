@@ -33,74 +33,78 @@
 namespace pypto {
 namespace ir {
 
-static Span TestSpan() { return Span("test.py", 1, 0); }
-static TypePtr Int32Type() { return std::make_shared<ScalarType>(DataType::INT32); }
+static Span TestSpan() {
+    return Span("test.py", 1, 0);
+}
+static TypePtr Int32Type() {
+    return std::make_shared<ScalarType>(DataType::INT32);
+}
 
 // ============================================================================
 // Program Tests (program.cpp)
 // ============================================================================
 
 TEST(ProgramTest, ConstructFromFunctionVector) {
-  auto span = TestSpan();
-  auto intType = Int32Type();
-  auto x = std::make_shared<Var>("x", intType, span);
-  auto body = std::make_shared<SeqStmts>(std::vector<StmtPtr>{}, span);
-  auto func = std::make_shared<Function>("func1", std::vector<VarPtr>{x}, std::vector<TypePtr>{intType}, body, span);
+    auto span = TestSpan();
+    auto intType = Int32Type();
+    auto x = std::make_shared<Var>("x", intType, span);
+    auto body = std::make_shared<SeqStmts>(std::vector<StmtPtr>{}, span);
+    auto func = std::make_shared<Function>("func1", std::vector<VarPtr>{x}, std::vector<TypePtr>{intType}, body, span);
 
-  auto prog = std::make_shared<Program>(std::vector<FunctionPtr>{func}, "test_prog", span);
-  ASSERT_NE(prog, nullptr);
-  ASSERT_EQ(prog->name_, "test_prog");
-  ASSERT_EQ(prog->functions_.size(), 1u);
+    auto prog = std::make_shared<Program>(std::vector<FunctionPtr>{func}, "test_prog", span);
+    ASSERT_NE(prog, nullptr);
+    ASSERT_EQ(prog->name_, "test_prog");
+    ASSERT_EQ(prog->functions_.size(), 1u);
 }
 
 TEST(ProgramTest, ConstructFromMultipleFunctions) {
-  auto span = TestSpan();
-  auto intType = Int32Type();
-  auto body = std::make_shared<SeqStmts>(std::vector<StmtPtr>{}, span);
+    auto span = TestSpan();
+    auto intType = Int32Type();
+    auto body = std::make_shared<SeqStmts>(std::vector<StmtPtr>{}, span);
 
-  auto func1 = std::make_shared<Function>("func_a", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body, span);
-  auto func2 = std::make_shared<Function>("func_b", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body, span);
+    auto func1 = std::make_shared<Function>("func_a", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body, span);
+    auto func2 = std::make_shared<Function>("func_b", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body, span);
 
-  auto prog = std::make_shared<Program>(std::vector<FunctionPtr>{func1, func2}, "multi_prog", span);
-  ASSERT_EQ(prog->functions_.size(), 2u);
+    auto prog = std::make_shared<Program>(std::vector<FunctionPtr>{func1, func2}, "multi_prog", span);
+    ASSERT_EQ(prog->functions_.size(), 2u);
 }
 
 TEST(ProgramTest, GetFunctionByName) {
-  auto span = TestSpan();
-  auto body = std::make_shared<SeqStmts>(std::vector<StmtPtr>{}, span);
-  auto func = std::make_shared<Function>("my_func", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body, span);
-  auto prog = std::make_shared<Program>(std::vector<FunctionPtr>{func}, "prog", span);
+    auto span = TestSpan();
+    auto body = std::make_shared<SeqStmts>(std::vector<StmtPtr>{}, span);
+    auto func = std::make_shared<Function>("my_func", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body, span);
+    auto prog = std::make_shared<Program>(std::vector<FunctionPtr>{func}, "prog", span);
 
-  auto found = prog->GetFunction("my_func");
-  ASSERT_NE(found, nullptr);
-  ASSERT_EQ(found->name_, "my_func");
+    auto found = prog->GetFunction("my_func");
+    ASSERT_NE(found, nullptr);
+    ASSERT_EQ(found->name_, "my_func");
 
-  auto notFound = prog->GetFunction("nonexistent");
-  ASSERT_EQ(notFound, nullptr);
+    auto notFound = prog->GetFunction("nonexistent");
+    ASSERT_EQ(notFound, nullptr);
 }
 
 TEST(ProgramTest, GetGlobalVarByName) {
-  auto span = TestSpan();
-  auto body = std::make_shared<SeqStmts>(std::vector<StmtPtr>{}, span);
-  auto func = std::make_shared<Function>("my_func", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body, span);
-  auto prog = std::make_shared<Program>(std::vector<FunctionPtr>{func}, "prog", span);
+    auto span = TestSpan();
+    auto body = std::make_shared<SeqStmts>(std::vector<StmtPtr>{}, span);
+    auto func = std::make_shared<Function>("my_func", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body, span);
+    auto prog = std::make_shared<Program>(std::vector<FunctionPtr>{func}, "prog", span);
 
-  auto gvar = prog->GetGlobalVar("my_func");
-  ASSERT_NE(gvar, nullptr);
-  ASSERT_EQ(gvar->name_, "my_func");
+    auto gvar = prog->GetGlobalVar("my_func");
+    ASSERT_NE(gvar, nullptr);
+    ASSERT_EQ(gvar->name_, "my_func");
 
-  auto notFound = prog->GetGlobalVar("nonexistent");
-  ASSERT_EQ(notFound, nullptr);
+    auto notFound = prog->GetGlobalVar("nonexistent");
+    ASSERT_EQ(notFound, nullptr);
 }
 
 TEST(ProgramTest, ProgramKindAndTypeName) {
-  auto span = TestSpan();
-  auto body = std::make_shared<SeqStmts>(std::vector<StmtPtr>{}, span);
-  auto func = std::make_shared<Function>("f", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body, span);
-  auto prog = std::make_shared<Program>(std::vector<FunctionPtr>{func}, "p", span);
+    auto span = TestSpan();
+    auto body = std::make_shared<SeqStmts>(std::vector<StmtPtr>{}, span);
+    auto func = std::make_shared<Function>("f", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body, span);
+    auto prog = std::make_shared<Program>(std::vector<FunctionPtr>{func}, "p", span);
 
-  ASSERT_EQ(prog->GetKind(), ObjectKind::Program);
-  ASSERT_EQ(prog->TypeName(), "Program");
+    ASSERT_EQ(prog->GetKind(), ObjectKind::Program);
+    ASSERT_EQ(prog->TypeName(), "Program");
 }
 
 // ============================================================================
@@ -108,47 +112,47 @@ TEST(ProgramTest, ProgramKindAndTypeName) {
 // ============================================================================
 
 TEST(SpanTest, Construction) {
-  Span span("file.py", 10, 5);
-  ASSERT_EQ(span.filename_, "file.py");
-  ASSERT_EQ(span.beginLine_, 10);
-  ASSERT_EQ(span.beginColumn_, 5);
-  ASSERT_EQ(span.endLine_, -1);
-  ASSERT_EQ(span.endColumn_, -1);
+    Span span("file.py", 10, 5);
+    ASSERT_EQ(span.filename_, "file.py");
+    ASSERT_EQ(span.beginLine_, 10);
+    ASSERT_EQ(span.beginColumn_, 5);
+    ASSERT_EQ(span.endLine_, -1);
+    ASSERT_EQ(span.endColumn_, -1);
 }
 
 TEST(SpanTest, ConstructionWithEndPos) {
-  Span span("file.py", 10, 5, 20, 15);
-  ASSERT_EQ(span.endLine_, 20);
-  ASSERT_EQ(span.endColumn_, 15);
+    Span span("file.py", 10, 5, 20, 15);
+    ASSERT_EQ(span.endLine_, 20);
+    ASSERT_EQ(span.endColumn_, 15);
 }
 
 TEST(SpanTest, ToString) {
-  Span span("file.py", 10, 5);
-  auto str = span.to_string();
-  ASSERT_NE(str.find("file.py"), std::string::npos);
-  ASSERT_NE(str.find("10"), std::string::npos);
-  ASSERT_NE(str.find("5"), std::string::npos);
+    Span span("file.py", 10, 5);
+    auto str = span.to_string();
+    ASSERT_NE(str.find("file.py"), std::string::npos);
+    ASSERT_NE(str.find("10"), std::string::npos);
+    ASSERT_NE(str.find("5"), std::string::npos);
 }
 
 TEST(SpanTest, IsValidTrue) {
-  Span span("file.py", 1, 1);
-  ASSERT_TRUE(span.is_valid());
+    Span span("file.py", 1, 1);
+    ASSERT_TRUE(span.is_valid());
 }
 
 TEST(SpanTest, IsValidWithEndPos) {
-  Span span("file.py", 1, 1, 5, 10);
-  ASSERT_TRUE(span.is_valid());
+    Span span("file.py", 1, 1, 5, 10);
+    ASSERT_TRUE(span.is_valid());
 }
 
 TEST(SpanTest, IsValidFalseNegativeLine) {
-  Span span("file.py", -1, -1, -1, -1);
-  ASSERT_FALSE(span.is_valid());
+    Span span("file.py", -1, -1, -1, -1);
+    ASSERT_FALSE(span.is_valid());
 }
 
 TEST(SpanTest, UnknownSpan) {
-  auto span = Span::unknown();
-  ASSERT_FALSE(span.is_valid());
-  ASSERT_TRUE(span.filename_.empty());
+    auto span = Span::unknown();
+    ASSERT_FALSE(span.is_valid());
+    ASSERT_TRUE(span.filename_.empty());
 }
 
 // ============================================================================
@@ -156,52 +160,52 @@ TEST(SpanTest, UnknownSpan) {
 // ============================================================================
 
 TEST(ExprTest, MakeTupleConstruction) {
-  auto span = TestSpan();
-  auto intType = Int32Type();
-  auto x = std::make_shared<Var>("x", intType, span);
-  auto y = std::make_shared<Var>("y", intType, span);
+    auto span = TestSpan();
+    auto intType = Int32Type();
+    auto x = std::make_shared<Var>("x", intType, span);
+    auto y = std::make_shared<Var>("y", intType, span);
 
-  auto tuple = std::make_shared<MakeTuple>(std::vector<ExprPtr>{x, y}, span);
-  ASSERT_NE(tuple, nullptr);
-  ASSERT_EQ(tuple->elements_.size(), 2u);
+    auto tuple = std::make_shared<MakeTuple>(std::vector<ExprPtr>{x, y}, span);
+    ASSERT_NE(tuple, nullptr);
+    ASSERT_EQ(tuple->elements_.size(), 2u);
 
-  // Type should be TupleType
-  auto tupleType = As<TupleType>(tuple->GetType());
-  ASSERT_NE(tupleType, nullptr);
-  ASSERT_EQ(tupleType->types_.size(), 2u);
+    // Type should be TupleType
+    auto tupleType = As<TupleType>(tuple->GetType());
+    ASSERT_NE(tupleType, nullptr);
+    ASSERT_EQ(tupleType->types_.size(), 2u);
 }
 
 TEST(ExprTest, TupleGetItemExpr) {
-  auto span = TestSpan();
-  auto intType = Int32Type();
-  auto floatType = std::make_shared<ScalarType>(DataType::FP32);
-  auto x = std::make_shared<Var>("x", intType, span);
-  auto y = std::make_shared<Var>("y", floatType, span);
+    auto span = TestSpan();
+    auto intType = Int32Type();
+    auto floatType = std::make_shared<ScalarType>(DataType::FP32);
+    auto x = std::make_shared<Var>("x", intType, span);
+    auto y = std::make_shared<Var>("y", floatType, span);
 
-  auto tuple = std::make_shared<MakeTuple>(std::vector<ExprPtr>{x, y}, span);
-  auto getItem = std::make_shared<TupleGetItemExpr>(tuple, 0, span);
+    auto tuple = std::make_shared<MakeTuple>(std::vector<ExprPtr>{x, y}, span);
+    auto getItem = std::make_shared<TupleGetItemExpr>(tuple, 0, span);
 
-  ASSERT_NE(getItem, nullptr);
-  ASSERT_EQ(getItem->index_, 0);
-  // Type should be the first element's type (INT32)
-  auto resultType = As<ScalarType>(getItem->GetType());
-  ASSERT_NE(resultType, nullptr);
-  ASSERT_EQ(resultType->dtype_, DataType::INT32);
+    ASSERT_NE(getItem, nullptr);
+    ASSERT_EQ(getItem->index_, 0);
+    // Type should be the first element's type (INT32)
+    auto resultType = As<ScalarType>(getItem->GetType());
+    ASSERT_NE(resultType, nullptr);
+    ASSERT_EQ(resultType->dtype_, DataType::INT32);
 }
 
 TEST(ExprTest, TupleGetItemSecondElement) {
-  auto span = TestSpan();
-  auto intType = Int32Type();
-  auto floatType = std::make_shared<ScalarType>(DataType::FP32);
-  auto x = std::make_shared<Var>("x", intType, span);
-  auto y = std::make_shared<Var>("y", floatType, span);
+    auto span = TestSpan();
+    auto intType = Int32Type();
+    auto floatType = std::make_shared<ScalarType>(DataType::FP32);
+    auto x = std::make_shared<Var>("x", intType, span);
+    auto y = std::make_shared<Var>("y", floatType, span);
 
-  auto tuple = std::make_shared<MakeTuple>(std::vector<ExprPtr>{x, y}, span);
-  auto getItem = std::make_shared<TupleGetItemExpr>(tuple, 1, span);
+    auto tuple = std::make_shared<MakeTuple>(std::vector<ExprPtr>{x, y}, span);
+    auto getItem = std::make_shared<TupleGetItemExpr>(tuple, 1, span);
 
-  auto resultType = As<ScalarType>(getItem->GetType());
-  ASSERT_NE(resultType, nullptr);
-  ASSERT_EQ(resultType->dtype_, DataType::FP32);
+    auto resultType = As<ScalarType>(getItem->GetType());
+    ASSERT_NE(resultType, nullptr);
+    ASSERT_EQ(resultType->dtype_, DataType::FP32);
 }
 
 // ============================================================================
@@ -209,31 +213,31 @@ TEST(ExprTest, TupleGetItemSecondElement) {
 // ============================================================================
 
 TEST(StmtTest, OpStmtsWithAssignAndEval) {
-  auto span = TestSpan();
-  auto x = std::make_shared<Var>("x", Int32Type(), span);
-  auto one = std::make_shared<ConstInt>(1, DataType::INT32, span);
-  auto assign = std::make_shared<AssignStmt>(x, one, span);
-  auto eval = std::make_shared<EvalStmt>(one, span);
+    auto span = TestSpan();
+    auto x = std::make_shared<Var>("x", Int32Type(), span);
+    auto one = std::make_shared<ConstInt>(1, DataType::INT32, span);
+    auto assign = std::make_shared<AssignStmt>(x, one, span);
+    auto eval = std::make_shared<EvalStmt>(one, span);
 
-  auto opStmts = std::make_shared<OpStmts>(std::vector<StmtPtr>{assign, eval}, span);
-  ASSERT_NE(opStmts, nullptr);
-  ASSERT_EQ(opStmts->stmts_.size(), 2u);
-  ASSERT_EQ(opStmts->GetKind(), ObjectKind::OpStmts);
-  ASSERT_EQ(opStmts->TypeName(), "OpStmts");
+    auto opStmts = std::make_shared<OpStmts>(std::vector<StmtPtr>{assign, eval}, span);
+    ASSERT_NE(opStmts, nullptr);
+    ASSERT_EQ(opStmts->stmts_.size(), 2u);
+    ASSERT_EQ(opStmts->GetKind(), ObjectKind::OpStmts);
+    ASSERT_EQ(opStmts->TypeName(), "OpStmts");
 }
 
 TEST(StmtTest, OpStmtsRejectsInvalidStmt) {
-  auto span = TestSpan();
-  auto ret = std::make_shared<ReturnStmt>(span);
-  // ReturnStmt is not AssignStmt or EvalStmt, should throw
-  ASSERT_THROW(std::make_shared<OpStmts>(std::vector<StmtPtr>{ret}, span), InternalError);
+    auto span = TestSpan();
+    auto ret = std::make_shared<ReturnStmt>(span);
+    // ReturnStmt is not AssignStmt or EvalStmt, should throw
+    ASSERT_THROW(std::make_shared<OpStmts>(std::vector<StmtPtr>{ret}, span), InternalError);
 }
 
 TEST(StmtTest, OpStmtsEmpty) {
-  auto span = TestSpan();
-  auto opStmts = std::make_shared<OpStmts>(std::vector<StmtPtr>{}, span);
-  ASSERT_NE(opStmts, nullptr);
-  ASSERT_TRUE(opStmts->stmts_.empty());
+    auto span = TestSpan();
+    auto opStmts = std::make_shared<OpStmts>(std::vector<StmtPtr>{}, span);
+    ASSERT_NE(opStmts, nullptr);
+    ASSERT_TRUE(opStmts->stmts_.empty());
 }
 
 // ============================================================================
@@ -241,50 +245,50 @@ TEST(StmtTest, OpStmtsEmpty) {
 // ============================================================================
 
 TEST(ErrorTest, RuntimeErrorConstruction) {
-  try {
-    throw RuntimeError("test error message");
-  } catch (const RuntimeError &e) {
-    std::string msg = e.what();
-    ASSERT_NE(msg.find("test error message"), std::string::npos);
-  }
+    try {
+        throw RuntimeError("test error message");
+    } catch (const RuntimeError &e) {
+        std::string msg = e.what();
+        ASSERT_NE(msg.find("test error message"), std::string::npos);
+    }
 }
 
 TEST(ErrorTest, ValueErrorConstruction) {
-  try {
-    throw ValueError("value error");
-  } catch (const ValueError &e) {
-    std::string msg = e.what();
-    ASSERT_NE(msg.find("value error"), std::string::npos);
-  }
+    try {
+        throw ValueError("value error");
+    } catch (const ValueError &e) {
+        std::string msg = e.what();
+        ASSERT_NE(msg.find("value error"), std::string::npos);
+    }
 }
 
 TEST(ErrorTest, InternalErrorConstruction) {
-  try {
-    throw InternalError("internal error");
-  } catch (const InternalError &e) {
-    std::string msg = e.what();
-    ASSERT_NE(msg.find("internal error"), std::string::npos);
-  }
+    try {
+        throw InternalError("internal error");
+    } catch (const InternalError &e) {
+        std::string msg = e.what();
+        ASSERT_NE(msg.find("internal error"), std::string::npos);
+    }
 }
 
 TEST(ErrorTest, ErrorGetFullMessage) {
-  try {
-    throw RuntimeError("test full message");
-  } catch (const Error &e) {
-    auto fullMsg = e.GetFullMessage();
-    ASSERT_NE(fullMsg.find("test full message"), std::string::npos);
-  }
+    try {
+        throw RuntimeError("test full message");
+    } catch (const Error &e) {
+        auto fullMsg = e.GetFullMessage();
+        ASSERT_NE(fullMsg.find("test full message"), std::string::npos);
+    }
 }
 
 TEST(ErrorTest, ErrorGetFormattedStackTrace) {
-  try {
-    throw RuntimeError("stack trace test");
-  } catch (const Error &e) {
-    // GetFormattedStackTrace should not crash
-    auto trace = e.GetFormattedStackTrace();
-    // trace may be empty in release builds
-    ASSERT_TRUE(true);
-  }
+    try {
+        throw RuntimeError("stack trace test");
+    } catch (const Error &e) {
+        // GetFormattedStackTrace should not crash
+        auto trace = e.GetFormattedStackTrace();
+        // trace may be empty in release builds
+        ASSERT_TRUE(true);
+    }
 }
 
 // ============================================================================
@@ -292,45 +296,45 @@ TEST(ErrorTest, ErrorGetFormattedStackTrace) {
 // ============================================================================
 
 TEST(MemRefTest, Construction) {
-  auto span = TestSpan();
-  auto addr = std::make_shared<ConstInt>(0, DataType::INT64, span);
-  auto memref = std::make_shared<MemRef>(MemorySpace::UB, addr, 1024, 0, span);
+    auto span = TestSpan();
+    auto addr = std::make_shared<ConstInt>(0, DataType::INT64, span);
+    auto memref = std::make_shared<MemRef>(MemorySpace::UB, addr, 1024, 0, span);
 
-  ASSERT_NE(memref, nullptr);
-  ASSERT_EQ(memref->memorySpace_, MemorySpace::UB);
-  ASSERT_EQ(memref->size_, 1024u);
-  ASSERT_EQ(memref->id_, 0u);
-  ASSERT_EQ(memref->GetKind(), ObjectKind::MemRef);
+    ASSERT_NE(memref, nullptr);
+    ASSERT_EQ(memref->memorySpace_, MemorySpace::UB);
+    ASSERT_EQ(memref->size_, 1024u);
+    ASSERT_EQ(memref->id_, 0u);
+    ASSERT_EQ(memref->GetKind(), ObjectKind::MemRef);
 }
 
 TEST(MemRefTest, MemorySpaceToString) {
-  ASSERT_EQ(MemorySpaceToString(MemorySpace::DDR), "DDR");
-  ASSERT_EQ(MemorySpaceToString(MemorySpace::UB), "UB");
-  ASSERT_EQ(MemorySpaceToString(MemorySpace::L1), "L1");
-  ASSERT_EQ(MemorySpaceToString(MemorySpace::L0A), "L0A");
-  ASSERT_EQ(MemorySpaceToString(MemorySpace::L0B), "L0B");
-  ASSERT_EQ(MemorySpaceToString(MemorySpace::L0C), "L0C");
+    ASSERT_EQ(MemorySpaceToString(MemorySpace::DDR), "DDR");
+    ASSERT_EQ(MemorySpaceToString(MemorySpace::UB), "UB");
+    ASSERT_EQ(MemorySpaceToString(MemorySpace::L1), "L1");
+    ASSERT_EQ(MemorySpaceToString(MemorySpace::L0A), "L0A");
+    ASSERT_EQ(MemorySpaceToString(MemorySpace::L0B), "L0B");
+    ASSERT_EQ(MemorySpaceToString(MemorySpace::L0C), "L0C");
 }
 
 TEST(MemRefTest, NameContainsMemorySpace) {
-  auto span = TestSpan();
-  auto addr = std::make_shared<ConstInt>(0, DataType::INT64, span);
-  auto memref = std::make_shared<MemRef>(MemorySpace::L1, addr, 512, 1, span);
-  // Name should contain lowercase memory space
-  ASSERT_NE(memref->name_.find("l1"), std::string::npos);
+    auto span = TestSpan();
+    auto addr = std::make_shared<ConstInt>(0, DataType::INT64, span);
+    auto memref = std::make_shared<MemRef>(MemorySpace::L1, addr, 512, 1, span);
+    // Name should contain lowercase memory space
+    ASSERT_NE(memref->name_.find("l1"), std::string::npos);
 }
 
 TEST(MemRefTest, DifferentMemorySpaces) {
-  auto span = TestSpan();
-  auto addr = std::make_shared<ConstInt>(0, DataType::INT64, span);
+    auto span = TestSpan();
+    auto addr = std::make_shared<ConstInt>(0, DataType::INT64, span);
 
-  auto ub = std::make_shared<MemRef>(MemorySpace::UB, addr, 1024, 0, span);
-  auto l0a = std::make_shared<MemRef>(MemorySpace::L0A, addr, 1024, 1, span);
-  auto l0b = std::make_shared<MemRef>(MemorySpace::L0B, addr, 1024, 2, span);
+    auto ub = std::make_shared<MemRef>(MemorySpace::UB, addr, 1024, 0, span);
+    auto l0a = std::make_shared<MemRef>(MemorySpace::L0A, addr, 1024, 1, span);
+    auto l0b = std::make_shared<MemRef>(MemorySpace::L0B, addr, 1024, 2, span);
 
-  ASSERT_NE(ub->name_, l0a->name_);
-  ASSERT_NE(l0a->name_, l0b->name_);
+    ASSERT_NE(ub->name_, l0a->name_);
+    ASSERT_NE(l0a->name_, l0b->name_);
 }
 
-}  // namespace ir
-}  // namespace pypto
+} // namespace ir
+} // namespace pypto

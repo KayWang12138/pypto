@@ -183,5 +183,5 @@ TEST(CoreDTypeTest, TestDefaultConstructor) {
     ASSERT_EQ(dt.Code(), DataType::kBoolCode);
 }
 
-}  // namespace ir
-}  // namespace pypto
+} // namespace ir
+} // namespace pypto

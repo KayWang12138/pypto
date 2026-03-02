@@ -10,7 +10,6 @@
 
 #pragma once
 
-
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -31,20 +30,20 @@ namespace serialization {
  */
 class IRDeserializer {
 public:
-  IRDeserializer();
-  ~IRDeserializer();
+    IRDeserializer();
+    ~IRDeserializer();
 
-  /**
-   * \brief Deserialize an IR node from MessagePack bytes
-   *
-   * \param data Vector of bytes containing the MessagePack-encoded data
-   * \return The deserialized IR node
-   */
-  IRNodePtr Deserialize(const std::vector<uint8_t> &data);
+    /**
+     * \brief Deserialize an IR node from MessagePack bytes
+     *
+     * \param data Vector of bytes containing the MessagePack-encoded data
+     * \return The deserialized IR node
+     */
+    IRNodePtr Deserialize(const std::vector<uint8_t> &data);
 
 private:
-  class Impl;
-  std::unique_ptr<Impl> impl_;
+    class Impl;
+    std::unique_ptr<Impl> impl_;
 };
 
 /**
@@ -65,7 +64,6 @@ IRNodePtr Deserialize(const std::vector<uint8_t> &data);
  */
 IRNodePtr DeserializeFromFile(const std::string &path);
 
-}  // namespace serialization
-}  // namespace ir
-}  // namespace pypto
-
+} // namespace serialization
+} // namespace ir
+} // namespace pypto

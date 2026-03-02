@@ -42,9 +42,7 @@ protected:
         std::cout << std::string(80, '=') << "\n";
     }
 
-    void TearDown() override {
-        std::cout << std::string(80, '=') << "\n\n";
-    }
+    void TearDown() override { std::cout << std::string(80, '=') << "\n\n"; }
 };
 
 /**
@@ -82,11 +80,11 @@ void Level3Function() {
 }
 
 void Level2Function() {
-    Level3Function();  // Call next level
+    Level3Function(); // Call next level
 }
 
 void Level1Function() {
-    Level2Function();  // Call next level
+    Level2Function(); // Call next level
 }
 
 TEST_F(BacktraceTest, NestedCallTest) {
@@ -94,7 +92,7 @@ TEST_F(BacktraceTest, NestedCallTest) {
     std::cout << std::string(40, '-') << "\n\n";
 
     try {
-        Level1Function();  // Start the call chain
+        Level1Function(); // Start the call chain
     } catch (const Error &e) {
         std::cout << "Caught Error from Nested Calls:\n";
         std::cout << e.GetFullMessage() << "\n";

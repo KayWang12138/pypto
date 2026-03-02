@@ -10,7 +10,6 @@
 
 #pragma once
 
-
 #include <map>
 #include <memory>
 #include <set>
@@ -40,83 +39,81 @@ namespace ir {
  */
 class DependencyAnalyzer : public IRMutator {
 public:
-  DependencyAnalyzer() = default;
-  ~DependencyAnalyzer() override = default;
+    DependencyAnalyzer() = default;
+    ~DependencyAnalyzer() override = default;
 
-  /**
-   * \brief Analyze a function and return its dependency graph
-   *
-   * This is the main entry point. Call this to get complete dependency
-   * analysis results for a function.
-   *
-   * \param func Function to analyze
-   * \return Complete dependency graph (blocks + edges)
-   */
-  DependencyGraph Analyze(const FunctionPtr &func);
+    /**
+     * \brief Analyze a function and return its dependency graph
+     *
+     * This is the main entry point. Call this to get complete dependency
+     * analysis results for a function.
+     *
+     * \param func Function to analyze
+     * \return Complete dependency graph (blocks + edges)
+     */
+    DependencyGraph Analyze(const FunctionPtr &func);
 
-  /**
-   * \brief Analyze only basic blocks (without dependency edges)
-   *
-   * Useful when you only need CFG structure.
-   *
-   * \param func Function to analyze
-   * \return Vector of basic blocks
-   */
-  std::vector<BasicBlock> AnalyzeBasicBlocks(const FunctionPtr &func);
+    /**
+     * \brief Analyze only basic blocks (without dependency edges)
+     *
+     * Useful when you only need CFG structure.
+     *
+     * \param func Function to analyze
+     * \return Vector of basic blocks
+     */
+    std::vector<BasicBlock> AnalyzeBasicBlocks(const FunctionPtr &func);
 
-  /**
-   * \brief Analyze only dependencies (without basic blocks)
-   *
-   * Analyzes dependencies assuming a single basic block.
-   *
-   * \param func Function to analyze
-   * \return Vector of dependency edges
-   */
-  std::vector<DependencyEdge> AnalyzeDependencies(const FunctionPtr &func);
+    /**
+     * \brief Analyze only dependencies (without basic blocks)
+     *
+     * Analyzes dependencies assuming a single basic block.
+     *
+     * \param func Function to analyze
+     * \return Vector of dependency edges
+     */
+    std::vector<DependencyEdge> AnalyzeDependencies(const FunctionPtr &func);
 
 private:
-  /**
-   * \brief Identify basic blocks from control flow
-   *
-   * \param stmt Function body
-   * \return Vector of basic blocks
-   */
-  std::vector<BasicBlock> IdentifyBasicBlocks(const StmtPtr &stmt);
+    /**
+     * \brief Identify basic blocks from control flow
+     *
+     * \param stmt Function body
+     * \return Vector of basic blocks
+     */
+    std::vector<BasicBlock> IdentifyBasicBlocks(const StmtPtr &stmt);
 
-  /**
-   * \brief Build dependency graph for a basic block
-   *
-   * \param block Basic block to analyze
-   * \return Vector of dependency edges
-   */
-  std::vector<DependencyEdge> AnalyzeBlockDependencies(const BasicBlock &block);
+    /**
+     * \brief Build dependency graph for a basic block
+     *
+     * \param block Basic block to analyze
+     * \return Vector of dependency edges
+     */
+    std::vector<DependencyEdge> AnalyzeBlockDependencies(const BasicBlock &block);
 
-  /**
-   * \brief Extract pipe type from a statement
-   *
-   * \param stmt Statement to analyze
-   * \return Pipe type string (CUBE, VECTOR, MTE1, etc.)
-   */
-  std::string GetPipeTypeFromStmt(const StmtPtr &stmt);
+    /**
+     * \brief Extract pipe type from a statement
+     *
+     * \param stmt Statement to analyze
+     * \return Pipe type string (CUBE, VECTOR, MTE1, etc.)
+     */
+    std::string GetPipeTypeFromStmt(const StmtPtr &stmt);
 
-  /**
-   * \brief Extract pipe type from a Call expression
-   *
-   * \param callExpr Call expression
-   * \return Pipe type string
-   */
-  std::string GetPipeType(const CallPtr &callExpr);
+    /**
+     * \brief Extract pipe type from a Call expression
+     *
+     * \param callExpr Call expression
+     * \return Pipe type string
+     */
+    std::string GetPipeType(const CallPtr &callExpr);
 
-  /**
-   * \brief Merge dependencies from multiple control flow paths
-   *
-   * \param pathDependencies Dependencies from each path
-   * \return Merged dependencies (union)
-   */
-  std::vector<DependencyEdge> MergeDependencies(
-      const std::vector<std::vector<DependencyEdge>> &pathDependencies);
+    /**
+     * \brief Merge dependencies from multiple control flow paths
+     *
+     * \param pathDependencies Dependencies from each path
+     * \return Merged dependencies (union)
+     */
+    std::vector<DependencyEdge> MergeDependencies(const std::vector<std::vector<DependencyEdge>> &pathDependencies);
 };
 
-}  // namespace ir
-}  // namespace pypto
-
+} // namespace ir
+} // namespace pypto

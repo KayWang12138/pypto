@@ -10,7 +10,6 @@
 
 #pragma once
 
-
 #include <any>
 #include <cstdint>
 #include <optional>
@@ -39,16 +38,16 @@ namespace ir {
  */
 template <typename T>
 T GetKwarg(const std::vector<std::pair<std::string, std::any>> &kwargs, const std::string &key,
-           const std::optional<T> &default_value = std::nullopt) {
-  for (const auto &entry : kwargs) {
-    if (entry.first == key) {
-      return AnyCast<T>(entry.second, "kwarg key: " + key);
+    const std::optional<T> &default_value = std::nullopt) {
+    for (const auto &entry : kwargs) {
+        if (entry.first == key) {
+            return AnyCast<T>(entry.second, "kwarg key: " + key);
+        }
     }
-  }
-  if (default_value) {
-    return *default_value;
-  }
-  throw ValueError("Missing kwarg: " + key);
+    if (default_value) {
+        return *default_value;
+    }
+    throw ValueError("Missing kwarg: " + key);
 }
 
 /**
@@ -61,12 +60,12 @@ T GetKwarg(const std::vector<std::pair<std::string, std::any>> &kwargs, const st
  * \return The normalized (non-negative) axis index
  */
 inline int NormalizeAxis(int axis, size_t ndim) {
-  if (axis < 0) {
-    axis += static_cast<int>(ndim);
-  }
-  INTERNAL_CHECK(axis >= 0 && axis < static_cast<int>(ndim))
-      << "Axis " << axis << " is out of range for " << ndim << "D shape";
-  return axis;
+    if (axis < 0) {
+        axis += static_cast<int>(ndim);
+    }
+    INTERNAL_CHECK(axis >= 0 && axis < static_cast<int>(ndim))
+        << "Axis " << axis << " is out of range for " << ndim << "D shape";
+    return axis;
 }
 
 /**
@@ -76,15 +75,15 @@ inline int NormalizeAxis(int axis, size_t ndim) {
  * \return The product if all dimensions are ConstInt, -1 otherwise (dynamic shape)
  */
 inline int64_t ComputeShapeProduct(const std::vector<ExprPtr> &shape) {
-  int64_t product = 1;
-  for (const auto &dim : shape) {
-    auto const_dim = As<ConstInt>(dim);
-    if (!const_dim) {
-      return -1;  // Dynamic shape, cannot compute product
+    int64_t product = 1;
+    for (const auto &dim : shape) {
+        auto const_dim = As<ConstInt>(dim);
+        if (!const_dim) {
+            return -1; // Dynamic shape, cannot compute product
+        }
+        product *= const_dim->value_;
     }
-    product *= const_dim->value_;
-  }
-  return product;
+    return product;
 }
 
 /**
@@ -98,16 +97,14 @@ inline int64_t ComputeShapeProduct(const std::vector<ExprPtr> &shape) {
  * \param opName Operator name for error messages
  */
 inline void VerifyKDimensionsMatch(const ExprPtr &k_lhs, const ExprPtr &k_rhs, const std::string &opName) {
-  auto k_lhs_const = As<ConstInt>(k_lhs);
-  auto k_rhs_const = As<ConstInt>(k_rhs);
-  if (k_lhs_const && k_rhs_const) {
-    INTERNAL_CHECK(k_lhs_const->value_ == k_rhs_const->value_)
-        << "The operator " << opName
-        << " requires matching inner dimensions, but got lhs K=" << k_lhs_const->value_
-        << " and rhs K=" << k_rhs_const->value_;
-  }
+    auto k_lhs_const = As<ConstInt>(k_lhs);
+    auto k_rhs_const = As<ConstInt>(k_rhs);
+    if (k_lhs_const && k_rhs_const) {
+        INTERNAL_CHECK(k_lhs_const->value_ == k_rhs_const->value_)
+            << "The operator " << opName << " requires matching inner dimensions, but got lhs K=" << k_lhs_const->value_
+            << " and rhs K=" << k_rhs_const->value_;
+    }
 }
 
-}  // namespace ir
-}  // namespace pypto
-
+} // namespace ir
+} // namespace pypto

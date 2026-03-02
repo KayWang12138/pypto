@@ -38,73 +38,72 @@ namespace ir {
  * \return TileType with output shape
  */
 TypePtr DeduceBlockBatchMatMulType(const std::vector<ExprPtr> &args,
-                                   const std::vector<std::pair<std::string, std::any>>& /*kwargs*/,
-                                   const std::string &opName) {
-  INTERNAL_CHECK(args.size() == 2) << "The operator " << opName << " requires exactly 2 arguments, but got "
-                          << args.size();
+    const std::vector<std::pair<std::string, std::any>> & /*kwargs*/, const std::string &opName) {
+    INTERNAL_CHECK(args.size() == 2) << "The operator " << opName << " requires exactly 2 arguments, but got "
+                                     << args.size();
 
-  // Both arguments must be TileType
-  auto lhs_type = As<TileType>(args[0]->GetType());
-  auto rhs_type = As<TileType>(args[1]->GetType());
+    // Both arguments must be TileType
+    auto lhs_type = As<TileType>(args[0]->GetType());
+    auto rhs_type = As<TileType>(args[1]->GetType());
 
-  INTERNAL_CHECK(lhs_type) << "The operator " << opName << " requires first argument to be a TileType, but got "
-                  << args[0]->GetType()->TypeName();
-  INTERNAL_CHECK(rhs_type) << "The operator " << opName << " requires second argument to be a TileType, but got "
-                  << args[1]->GetType()->TypeName();
+    INTERNAL_CHECK(lhs_type) << "The operator " << opName << " requires first argument to be a TileType, but got "
+                             << args[0]->GetType()->TypeName();
+    INTERNAL_CHECK(rhs_type) << "The operator " << opName << " requires second argument to be a TileType, but got "
+                             << args[1]->GetType()->TypeName();
 
-  // Extract shapes
-  const auto &lhs_shape = lhs_type->shape_;
-  const auto &rhs_shape = rhs_type->shape_;
+    // Extract shapes
+    const auto &lhs_shape = lhs_type->shape_;
+    const auto &rhs_shape = rhs_type->shape_;
 
-  // For batch matmul, we require at least 2D tiles
-  INTERNAL_CHECK(lhs_shape.size() >= 2) << "The operator " << opName
-                               << " requires lhs to have at least 2 dimensions, but got " << lhs_shape.size()
-                               << " dimensions";
-  INTERNAL_CHECK(rhs_shape.size() >= 2) << "The operator " << opName
-                               << " requires rhs to have at least 2 dimensions, but got " << rhs_shape.size()
-                               << " dimensions";
+    // For batch matmul, we require at least 2D tiles
+    INTERNAL_CHECK(lhs_shape.size() >= 2)
+        << "The operator " << opName << " requires lhs to have at least 2 dimensions, but got " << lhs_shape.size()
+        << " dimensions";
+    INTERNAL_CHECK(rhs_shape.size() >= 2)
+        << "The operator " << opName << " requires rhs to have at least 2 dimensions, but got " << rhs_shape.size()
+        << " dimensions";
 
-  size_t lhs_ndim = lhs_shape.size();
-  size_t rhs_ndim = rhs_shape.size();
+    size_t lhs_ndim = lhs_shape.size();
+    size_t rhs_ndim = rhs_shape.size();
 
-  // Extract matrix dimensions (last 2 dimensions)
-  ExprPtr m_dim = lhs_shape[lhs_ndim - 2];
-  ExprPtr k_dim_lhs = lhs_shape[lhs_ndim - 1];
-  ExprPtr k_dim_rhs = rhs_shape[rhs_ndim - 2];
-  ExprPtr n_dim = rhs_shape[rhs_ndim - 1];
+    // Extract matrix dimensions (last 2 dimensions)
+    ExprPtr m_dim = lhs_shape[lhs_ndim - 2];
+    ExprPtr k_dim_lhs = lhs_shape[lhs_ndim - 1];
+    ExprPtr k_dim_rhs = rhs_shape[rhs_ndim - 2];
+    ExprPtr n_dim = rhs_shape[rhs_ndim - 1];
 
-  // Try to verify K dimensions match if they are constant
-  VerifyKDimensionsMatch(k_dim_lhs, k_dim_rhs, opName);
+    // Try to verify K dimensions match if they are constant
+    VerifyKDimensionsMatch(k_dim_lhs, k_dim_rhs, opName);
 
-  // Handle batch dimensions
-  std::vector<ExprPtr> output_shape;
+    // Handle batch dimensions
+    std::vector<ExprPtr> output_shape;
 
-  if (lhs_ndim == 2 && rhs_ndim == 2) {
-    // Simple 2D x 2D matrix multiplication: [M, K] @ [K, N] -> [M, N]
-    output_shape = {m_dim, n_dim};
-  } else {
-    // Batch matrix multiplication
-    // Extract batch dimensions (all except last 2)
-    std::vector<ExprPtr> lhs_batch(lhs_shape.begin(), lhs_shape.end() - 2);
-    std::vector<ExprPtr> rhs_batch(rhs_shape.begin(), rhs_shape.end() - 2);
+    if (lhs_ndim == 2 && rhs_ndim == 2) {
+        // Simple 2D x 2D matrix multiplication: [M, K] @ [K, N] -> [M, N]
+        output_shape = {m_dim, n_dim};
+    } else {
+        // Batch matrix multiplication
+        // Extract batch dimensions (all except last 2)
+        std::vector<ExprPtr> lhs_batch(lhs_shape.begin(), lhs_shape.end() - 2);
+        std::vector<ExprPtr> rhs_batch(rhs_shape.begin(), rhs_shape.end() - 2);
 
-    // Broadcast batch dimensions
-    auto broadcast_result = BroadcastShapes(lhs_batch, rhs_batch);
-    INTERNAL_CHECK(broadcast_result.success) << "Cannot broadcast batch dimensions for " << opName;
+        // Broadcast batch dimensions
+        auto broadcast_result = BroadcastShapes(lhs_batch, rhs_batch);
+        INTERNAL_CHECK(broadcast_result.success) << "Cannot broadcast batch dimensions for " << opName;
 
-    output_shape = broadcast_result.shape;
+        output_shape = broadcast_result.shape;
 
-    // Append matrix dimensions: [M, N]
-    output_shape.push_back(m_dim);
-    output_shape.push_back(n_dim);
-  }
+        // Append matrix dimensions: [M, N]
+        output_shape.push_back(m_dim);
+        output_shape.push_back(n_dim);
+    }
 
-  // Promote data types
-  auto result_dtype = PromoteDataTypes(lhs_type->dtype_, rhs_type->dtype_);
-  INTERNAL_CHECK(result_dtype) << "The operator " << opName << " requires compatible data types, but got "
-                      << lhs_type->dtype_.ToString() << " and " << rhs_type->dtype_.ToString();
+    // Promote data types
+    auto result_dtype = PromoteDataTypes(lhs_type->dtype_, rhs_type->dtype_);
+    INTERNAL_CHECK(result_dtype) << "The operator " << opName << " requires compatible data types, but got "
+                                 << lhs_type->dtype_.ToString() << " and " << rhs_type->dtype_.ToString();
 
-  return std::make_shared<TileType>(output_shape, *result_dtype);
+    return std::make_shared<TileType>(output_shape, *result_dtype);
 }
 
 // ============================================================================
@@ -117,10 +116,9 @@ REGISTER_OP("block.batch_matmul")
     .set_pipe(PipeType::M)
     .add_argument("lhs", "Left-hand side tile (TileType, at least 2D)")
     .add_argument("rhs", "Right-hand side tile (TileType, at least 2D)")
-    .f_deduce_type([](const std::vector<ExprPtr> &args,
-                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
-      return DeduceBlockBatchMatMulType(args, kwargs, "block.batch_matmul");
+    .f_deduce_type([](const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs) {
+        return DeduceBlockBatchMatMulType(args, kwargs, "block.batch_matmul");
     });
 
-}  // namespace ir
-}  // namespace pypto
+} // namespace ir
+} // namespace pypto

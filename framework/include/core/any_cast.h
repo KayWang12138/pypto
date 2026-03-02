@@ -20,7 +20,6 @@
  * about expected vs. actual types using demangled type names.
  */
 
-
 #include <cxxabi.h>
 
 #include <any>
@@ -46,22 +45,22 @@ namespace pypto {
  *   DemangleTypeName(typeid(pypto::DataType).name()) -> "DataType"
  */
 inline std::string DemangleTypeName(const char *mangled_name) {
-  int status = 0;
-  char *demangled = abi::__cxa_demangle(mangled_name, nullptr, nullptr, &status);
-  if (status == 0 && demangled) {
-    std::string result(demangled);
-    free(demangled);
+    int status = 0;
+    char *demangled = abi::__cxa_demangle(mangled_name, nullptr, nullptr, &status);
+    if (status == 0 && demangled) {
+        std::string result(demangled);
+        free(demangled);
 
-    // Simplify common pypto types for readability
-    size_t pos = result.find("pypto::");
-    if (pos != std::string::npos) {
-      result = result.substr(pos + 7);  // Remove "pypto::" prefix
+        // Simplify common pypto types for readability
+        size_t pos = result.find("pypto::");
+        if (pos != std::string::npos) {
+            result = result.substr(pos + 7); // Remove "pypto::" prefix
+        }
+
+        return result;
     }
-
-    return result;
-  }
-  // If demangling fails, return the original mangled name
-  return mangled_name;
+    // If demangling fails, return the original mangled name
+    return mangled_name;
 }
 
 /**
@@ -72,20 +71,20 @@ inline std::string DemangleTypeName(const char *mangled_name) {
  * \param context Optional context string for error messages
  * \throws TypeError with detailed type information
  */
-[[noreturn]] inline void ThrowAnyCastError(const char *expected_type_name, const char *actual_type_name,
-                                           const std::string &context) {
-  std::string expected_type = DemangleTypeName(expected_type_name);
-  std::string actual_type = DemangleTypeName(actual_type_name);
-  std::string error_msg = "Invalid type";
-  if (!context.empty()) {
-    error_msg += " for ";
-    error_msg += context;
-  }
-  error_msg += ", expected ";
-  error_msg += expected_type;
-  error_msg += ", but got ";
-  error_msg += actual_type;
-  throw ir::TypeError(error_msg);
+[[noreturn]] inline void ThrowAnyCastError(
+    const char *expected_type_name, const char *actual_type_name, const std::string &context) {
+    std::string expected_type = DemangleTypeName(expected_type_name);
+    std::string actual_type = DemangleTypeName(actual_type_name);
+    std::string error_msg = "Invalid type";
+    if (!context.empty()) {
+        error_msg += " for ";
+        error_msg += context;
+    }
+    error_msg += ", expected ";
+    error_msg += expected_type;
+    error_msg += ", but got ";
+    error_msg += actual_type;
+    throw ir::TypeError(error_msg);
 }
 
 /**
@@ -109,11 +108,11 @@ inline std::string DemangleTypeName(const char *mangled_name) {
  */
 template <typename T>
 T AnyCast(const std::any &value, [[maybe_unused]] const std::string &context = "") {
-  try {
-    return std::any_cast<T>(value);
-  } catch (const std::bad_any_cast&) {
-    ThrowAnyCastError(typeid(T).name(), value.type().name(), context);
-  }
+    try {
+        return std::any_cast<T>(value);
+    } catch (const std::bad_any_cast &) {
+        ThrowAnyCastError(typeid(T).name(), value.type().name(), context);
+    }
 }
 
 /**
@@ -135,12 +134,11 @@ T AnyCast(const std::any &value, [[maybe_unused]] const std::string &context = "
  */
 template <typename T>
 const T &AnyCastRef(const std::any &value, [[maybe_unused]] const std::string &context = "") {
-  try {
-    return std::any_cast<const T&>(value);
-  } catch (const std::bad_any_cast&) {
-    ThrowAnyCastError(typeid(T).name(), value.type().name(), context);
-  }
+    try {
+        return std::any_cast<const T &>(value);
+    } catch (const std::bad_any_cast &) {
+        ThrowAnyCastError(typeid(T).name(), value.type().name(), context);
+    }
 }
 
-}  // namespace pypto
-
+} // namespace pypto

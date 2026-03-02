@@ -131,7 +131,7 @@ TEST(CoreAnyCastTest, TestAnyCastPointer) {
     std::any value = &original;
 
     try {
-        int *result = AnyCast<int*>(value);
+        int *result = AnyCast<int *>(value);
         ASSERT_EQ(*result, 42);
     } catch (...) {
         FAIL() << "AnyCast should succeed for pointer type";
@@ -167,4 +167,4 @@ TEST(CoreAnyCastTest, TestAnyCastErrorMessage) {
 }
 */
 
-}  // namespace pypto
+} // namespace pypto

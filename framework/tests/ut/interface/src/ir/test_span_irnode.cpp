@@ -42,8 +42,7 @@ TEST(IRCoreTest, TestSpanToString) {
 
     // Should contain meaningful location information
     ASSERT_TRUE(!str.empty());
-    ASSERT_TRUE(str.find("test.py") != std::string::npos ||
-                str.find("10") != std::string::npos);
+    ASSERT_TRUE(str.find("test.py") != std::string::npos || str.find("10") != std::string::npos);
 }
 
 TEST(IRCoreTest, TestSpanIsValid) {
@@ -181,5 +180,5 @@ TEST(IRCoreTest, TestSpanLargePosition) {
     ASSERT_EQ(span.endColumn_, 600);
 }
 
-}  // namespace ir
-}  // namespace pypto
+} // namespace ir
+} // namespace pypto

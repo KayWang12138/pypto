@@ -31,30 +31,30 @@ namespace ir {
 
 /// Patterns to filter out from backtraces (internal/infrastructure frames)
 const std::vector<std::string> kFileNameFilter = {
-    "nanobind",      // Python binding layer
-    "__libc_",       // C library internals
-    "include/c++/",  // C++ standard library
-    "object.h",      // Python object.h
-    "error.h"        // exception throwing infrastructure
+    "nanobind",     // Python binding layer
+    "__libc_",      // C library internals
+    "include/c++/", // C++ standard library
+    "object.h",     // Python object.h
+    "error.h"       // exception throwing infrastructure
 };
 
 std::string StackFrame::to_string() const {
-  std::ostringstream oss;
+    std::ostringstream oss;
 
-  if (!function.empty()) {
-    oss << function;
-  } else {
-    oss << "0x" << std::hex << pc;
-  }
-
-  if (!filename.empty()) {
-    oss << " at " << filename;
-    if (lineno > 0) {
-      oss << ":" << std::dec << lineno;
+    if (!function.empty()) {
+        oss << function;
+    } else {
+        oss << "0x" << std::hex << pc;
     }
-  }
 
-  return oss.str();
+    if (!filename.empty()) {
+        oss << " at " << filename;
+        if (lineno > 0) {
+            oss << ":" << std::dec << lineno;
+        }
+    }
+
+    return oss.str();
 }
 
 // Helper function to read a specific line from a source file
@@ -88,7 +88,7 @@ struct FileLocation {
 
 // Cache for symbol resolution to avoid repeated addr2line calls
 static std::mutex locMapMutex;
-static std::unordered_map<void*, FileLocation> locMap;
+static std::unordered_map<void *, FileLocation> locMap;
 
 // Get file and line information from address using addr2line
 static FileLocation GetFileLineFromAddr2line(void *addr) {
@@ -135,7 +135,7 @@ static FileLocation GetFileLineFromAddr2line(void *addr) {
 
             // Skip if location is "??" or "??:?" or "?? ??" (unknown location)
             if (location == "??" || location.find("??:") == 0 || location.find("?? ??") == 0) {
-                return loc;  // Return empty location
+                return loc; // Return empty location
             }
 
             // Find the last colon for line number
@@ -172,7 +172,7 @@ static FileLocation GetFileLineFromAddr2line(void *addr) {
             // Try alternate format: "filename:lineno" or "?? ??:0"
             // Skip if output starts with "??" or "?? ??"
             if (output == "??" || output.find("??:") == 0 || output.find("?? ??") == 0) {
-                return loc;  // Return empty location
+                return loc; // Return empty location
             }
 
             size_t colonPos = output.rfind(':');
@@ -180,7 +180,7 @@ static FileLocation GetFileLineFromAddr2line(void *addr) {
                 loc.filename = output.substr(0, colonPos);
                 // Filter out "??" and "?? ??" filenames
                 if (loc.filename == "??" || loc.filename == "?? ??") {
-                    return loc;  // Return empty location
+                    return loc; // Return empty location
                 }
                 try {
                     loc.lineno = std::stoi(output.substr(colonPos + 1));
@@ -206,177 +206,175 @@ static FileLocation GetFileLineFromAddr2line(void *addr) {
 ///   /private/var/folders/.../build/./python/nanobind/modules/logging.cpp
 /// This function extracts just the relative path portion.
 static std::string CleanupFilePath(const std::string &path) {
-  if (path.empty()) {
+    if (path.empty()) {
+        return path;
+    }
+
+    // Look for "/./", which indicates where the relative path begins
+    // (this is created by -fdebug-prefix-map=${CMAKE_SOURCE_DIR}=.)
+    // Replace the prefix up to "/./" with "./"
+    size_t marker_pos = path.find("/./");
+    if (marker_pos != std::string::npos) {
+        return "./" + path.substr(marker_pos + 3);
+    }
+
+    // If path already starts with "./", keep it as-is
+    if (path.size() >= 2 && path[0] == '.' && path[1] == '/') {
+        return path;
+    }
+
     return path;
-  }
-
-  // Look for "/./", which indicates where the relative path begins
-  // (this is created by -fdebug-prefix-map=${CMAKE_SOURCE_DIR}=.)
-  // Replace the prefix up to "/./" with "./"
-  size_t marker_pos = path.find("/./");
-  if (marker_pos != std::string::npos) {
-    return "./" + path.substr(marker_pos + 3);
-  }
-
-  // If path already starts with "./", keep it as-is
-  if (path.size() >= 2 && path[0] == '.' && path[1] == '/') {
-    return path;
-  }
-
-  return path;
 }
 
 Backtrace &Backtrace::GetInstance() {
-  static Backtrace instance;
-  return instance;
+    static Backtrace instance;
+    return instance;
 }
 
 Backtrace::Backtrace() {
-  // No initialization needed for execinfo-based implementation
+    // No initialization needed for execinfo-based implementation
 }
 
 std::vector<StackFrame> Backtrace::CaptureStackTrace(int skip) {
-  std::vector<StackFrame> frames;
+    std::vector<StackFrame> frames;
 
-  // Capture raw stack frames using execinfo
-  constexpr int kMaxFrames = 128;
-  void *callstack[kMaxFrames];
-  int nrFrames = ::backtrace(callstack, kMaxFrames);
+    // Capture raw stack frames using execinfo
+    constexpr int kMaxFrames = 128;
+    void *callstack[kMaxFrames];
+    int nrFrames = ::backtrace(callstack, kMaxFrames);
 
-  // Skip requested frames plus this function itself
-  int startFrame = skip + 1;
-  if (startFrame >= nrFrames) {
-    return frames;
-  }
-
-  // Get symbol information
-  char** symbols = backtrace_symbols(callstack, nrFrames);
-  if (symbols == nullptr) {
-    return frames;
-  }
-
-  for (int i = startFrame; i < nrFrames; i++) {
-    void *addr = callstack[i];
-
-    // Parse the symbol string to get function name, library name, and offset
-    // Format: "path/libname(function+offset) [address]"
-    std::string symbol_str(symbols[i]);
-    std::string func_name;
-    std::string lib_name;
-    std::string func_offset;
-
-    // Try to demangle the function name and extract library/offset
-    char *funcName = strchr(symbols[i], '(');
-    char *funcOffset = strchr(symbols[i], '+');
-    char *closeParen = strchr(symbols[i], ')');
-
-    if (funcName != nullptr && funcOffset != nullptr && closeParen != nullptr) {
-      // Extract library name (everything before '(')
-      *funcName = '\0';
-      char *libname_start = strrchr(symbols[i], '/');
-      lib_name = (libname_start != nullptr) ? (libname_start + 1) : symbols[i];
-
-      // Extract function name (between '(' and '+')
-      funcName++;
-      *funcOffset = '\0';
-
-      // Extract offset (between '+' and ')')
-      funcOffset++;
-      *closeParen = '\0';
-      func_offset = std::string("+") + funcOffset;
-
-      // Demangle function name
-      int status = 0;
-      std::unique_ptr<char, std::function<void(char*)>> demangled(
-          abi::__cxa_demangle(funcName, nullptr, nullptr, &status),
-          free);
-      if (status == 0 && demangled) {
-        func_name = demangled.get();
-      } else {
-        func_name = funcName;
-      }
+    // Skip requested frames plus this function itself
+    int startFrame = skip + 1;
+    if (startFrame >= nrFrames) {
+        return frames;
     }
 
-    // Try to get file and line information using addr2line
-    FileLocation loc = GetFileLineFromAddr2line(addr);
-
-    if (!loc.filename.empty()) {
-      loc.filename = CleanupFilePath(loc.filename);
+    // Get symbol information
+    char **symbols = backtrace_symbols(callstack, nrFrames);
+    if (symbols == nullptr) {
+        return frames;
     }
 
-    // Create frame with all information
-    StackFrame frame(func_name, loc.filename, loc.lineno, reinterpret_cast<uintptr_t>(addr));
-    frame.libname = lib_name;
-    frame.offset = func_offset;
-    frames.push_back(frame);
-  }
+    for (int i = startFrame; i < nrFrames; i++) {
+        void *addr = callstack[i];
 
-  free(symbols);
-  return frames;
+        // Parse the symbol string to get function name, library name, and offset
+        // Format: "path/libname(function+offset) [address]"
+        std::string symbol_str(symbols[i]);
+        std::string func_name;
+        std::string lib_name;
+        std::string func_offset;
+
+        // Try to demangle the function name and extract library/offset
+        char *funcName = strchr(symbols[i], '(');
+        char *funcOffset = strchr(symbols[i], '+');
+        char *closeParen = strchr(symbols[i], ')');
+
+        if (funcName != nullptr && funcOffset != nullptr && closeParen != nullptr) {
+            // Extract library name (everything before '(')
+            *funcName = '\0';
+            char *libname_start = strrchr(symbols[i], '/');
+            lib_name = (libname_start != nullptr) ? (libname_start + 1) : symbols[i];
+
+            // Extract function name (between '(' and '+')
+            funcName++;
+            *funcOffset = '\0';
+
+            // Extract offset (between '+' and ')')
+            funcOffset++;
+            *closeParen = '\0';
+            func_offset = std::string("+") + funcOffset;
+
+            // Demangle function name
+            int status = 0;
+            std::unique_ptr<char, std::function<void(char *)>> demangled(
+                abi::__cxa_demangle(funcName, nullptr, nullptr, &status), free);
+            if (status == 0 && demangled) {
+                func_name = demangled.get();
+            } else {
+                func_name = funcName;
+            }
+        }
+
+        // Try to get file and line information using addr2line
+        FileLocation loc = GetFileLineFromAddr2line(addr);
+
+        if (!loc.filename.empty()) {
+            loc.filename = CleanupFilePath(loc.filename);
+        }
+
+        // Create frame with all information
+        StackFrame frame(func_name, loc.filename, loc.lineno, reinterpret_cast<uintptr_t>(addr));
+        frame.libname = lib_name;
+        frame.offset = func_offset;
+        frames.push_back(frame);
+    }
+
+    free(symbols);
+    return frames;
 }
 
 std::string Backtrace::FormatStackTrace(const std::vector<StackFrame> &frames) {
-  if (frames.empty()) {
-    return "";
-  }
-
-  std::ostringstream oss;
-
-  // Reverse the frames to show most recent last (like Python)
-  std::vector<StackFrame> reversed_frames(frames.rbegin(), frames.rend());
-
-  auto is_file_name_filtered = [](const std::string &filename) {
-    return std::any_of(
-        kFileNameFilter.begin(), kFileNameFilter.end(),
-        [&filename](const std::string &filter) { return filename.find(filter) != std::string::npos; });
-  };
-
-  // Filter and deduplicate frames by PC address to handle Clang's debug info issues.
-  // When Clang generates DWARF info for inlined functions/templates, it may
-  // report multiple "virtual" frames for the same PC with incorrect source
-  // locations. We keep only the first frame for each unique PC.
-  std::vector<StackFrame> deduplicated_frames;
-  for (const auto &frame : reversed_frames) {
-    // Filter out infrastructure frames before deduplication.
-    // This prevents filtered frames from being used in duplicate PC checks.
-    if (!frame.filename.empty() && is_file_name_filtered(frame.filename)) {
-      continue;
-    } else if (frame.pc != 0 && !deduplicated_frames.empty() && deduplicated_frames.back().pc == frame.pc) {
-      // Same PC as the previous frame - this is likely a spurious inline frame.
-      // Skip it to keep only the first frame for each unique PC.
-      continue;
-    } else {
-      deduplicated_frames.push_back(frame);
+    if (frames.empty()) {
+        return "";
     }
-  }
 
-  for (const auto &frame : deduplicated_frames) {
-    // Format: File "filename", line X in function_name
-    if (!frame.filename.empty() && frame.lineno > 0) {
-      oss << " File \"" << frame.filename << "\", line " << frame.lineno << "\n";
+    std::ostringstream oss;
 
-      // Try to read and display the source line
-      std::string source_line = ReadSourceLine(frame.filename, frame.lineno);
-      if (!source_line.empty()) {
-        oss << "   " << source_line << "\n";
-      }
-    } else if (!frame.function.empty() && frame.pc != 0) {
-      // Fallback to traditional format if we don't have file/line info (Release mode)
-      // Format: libname(function+offset) [0xaddress]
-      if (!frame.libname.empty() && !frame.offset.empty()) {
-        oss << " " << frame.libname << "(" << frame.function << frame.offset << ") [0x"
-            << std::hex << frame.pc << std::dec << "]\n";
-      } else if (!frame.libname.empty()) {
-        oss << " " << frame.libname << "(" << frame.function << ") [0x"
-            << std::hex << frame.pc << std::dec << "]\n";
-      } else {
-        oss << " " << frame.function << " [0x" << std::hex << frame.pc << std::dec << "]\n";
-      }
+    // Reverse the frames to show most recent last (like Python)
+    std::vector<StackFrame> reversed_frames(frames.rbegin(), frames.rend());
+
+    auto is_file_name_filtered = [](const std::string &filename) {
+        return std::any_of(kFileNameFilter.begin(), kFileNameFilter.end(),
+            [&filename](const std::string &filter) { return filename.find(filter) != std::string::npos; });
+    };
+
+    // Filter and deduplicate frames by PC address to handle Clang's debug info issues.
+    // When Clang generates DWARF info for inlined functions/templates, it may
+    // report multiple "virtual" frames for the same PC with incorrect source
+    // locations. We keep only the first frame for each unique PC.
+    std::vector<StackFrame> deduplicated_frames;
+    for (const auto &frame : reversed_frames) {
+        // Filter out infrastructure frames before deduplication.
+        // This prevents filtered frames from being used in duplicate PC checks.
+        if (!frame.filename.empty() && is_file_name_filtered(frame.filename)) {
+            continue;
+        } else if (frame.pc != 0 && !deduplicated_frames.empty() && deduplicated_frames.back().pc == frame.pc) {
+            // Same PC as the previous frame - this is likely a spurious inline frame.
+            // Skip it to keep only the first frame for each unique PC.
+            continue;
+        } else {
+            deduplicated_frames.push_back(frame);
+        }
     }
-  }
 
-  return oss.str();
+    for (const auto &frame : deduplicated_frames) {
+        // Format: File "filename", line X in function_name
+        if (!frame.filename.empty() && frame.lineno > 0) {
+            oss << " File \"" << frame.filename << "\", line " << frame.lineno << "\n";
+
+            // Try to read and display the source line
+            std::string source_line = ReadSourceLine(frame.filename, frame.lineno);
+            if (!source_line.empty()) {
+                oss << "   " << source_line << "\n";
+            }
+        } else if (!frame.function.empty() && frame.pc != 0) {
+            // Fallback to traditional format if we don't have file/line info (Release mode)
+            // Format: libname(function+offset) [0xaddress]
+            if (!frame.libname.empty() && !frame.offset.empty()) {
+                oss << " " << frame.libname << "(" << frame.function << frame.offset << ") [0x" << std::hex << frame.pc
+                    << std::dec << "]\n";
+            } else if (!frame.libname.empty()) {
+                oss << " " << frame.libname << "(" << frame.function << ") [0x" << std::hex << frame.pc << std::dec
+                    << "]\n";
+            } else {
+                oss << " " << frame.function << " [0x" << std::hex << frame.pc << std::dec << "]\n";
+            }
+        }
+    }
+
+    return oss.str();
 }
 
-}  // namespace ir
-}  // namespace pypto
+} // namespace ir
+} // namespace pypto

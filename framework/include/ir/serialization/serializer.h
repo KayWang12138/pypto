@@ -10,7 +10,6 @@
 
 #pragma once
 
-
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -46,23 +45,23 @@ namespace serialization {
  */
 class IRSerializer {
 public:
-  IRSerializer();
-  ~IRSerializer();
+    IRSerializer();
+    ~IRSerializer();
 
-  // Allow internal field visitor helper to access Impl
-  friend class FieldSerializerVisitor;
+    // Allow internal field visitor helper to access Impl
+    friend class FieldSerializerVisitor;
 
-  /**
-   * \brief Serialize an IR node to MessagePack bytes
-   *
-   * \param node The IR node to serialize
-   * \return Vector of bytes containing the MessagePack-encoded data
-   */
-  std::vector<uint8_t> Serialize(const IRNodePtr &node);
+    /**
+     * \brief Serialize an IR node to MessagePack bytes
+     *
+     * \param node The IR node to serialize
+     * \return Vector of bytes containing the MessagePack-encoded data
+     */
+    std::vector<uint8_t> Serialize(const IRNodePtr &node);
 
 private:
-  class Impl;
-  std::unique_ptr<Impl> impl_;
+    class Impl;
+    std::unique_ptr<Impl> impl_;
 };
 
 /**
@@ -83,7 +82,6 @@ std::vector<uint8_t> Serialize(const IRNodePtr &node);
  */
 void SerializeToFile(const IRNodePtr &node, const std::string &path);
 
-}  // namespace serialization
-}  // namespace ir
-}  // namespace pypto
-
+} // namespace serialization
+} // namespace ir
+} // namespace pypto

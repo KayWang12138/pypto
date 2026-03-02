@@ -20,37 +20,52 @@ namespace py = pybind11;
 
 namespace pypto {
 
-static void log_debug(const std::string &message) { LOG_DEBUG << message; }
-static void log_info(const std::string &message) { LOG_INFO << message; }
-static void log_warn(const std::string &message) { LOG_WARN << message; }
-static void log_error(const std::string &message) { LOG_ERROR << message; }
-static void log_fatal(const std::string &message) { LOG_FATAL << message; }
-static void log_event(const std::string &message) { LOG_EVENT << message; }
-static void check(bool condition, const std::string &message) {
-  if (!condition) throw pypto::ir::ValueError(message);
+static void log_debug(const std::string &message) {
+    LOG_DEBUG << message;
 }
-static void internal_check(bool condition, const std::string &message) { INTERNAL_CHECK(condition) << message; }
+static void log_info(const std::string &message) {
+    LOG_INFO << message;
+}
+static void log_warn(const std::string &message) {
+    LOG_WARN << message;
+}
+static void log_error(const std::string &message) {
+    LOG_ERROR << message;
+}
+static void log_fatal(const std::string &message) {
+    LOG_FATAL << message;
+}
+static void log_event(const std::string &message) {
+    LOG_EVENT << message;
+}
+static void check(bool condition, const std::string &message) {
+    if (!condition)
+        throw pypto::ir::ValueError(message);
+}
+static void internal_check(bool condition, const std::string &message) {
+    INTERNAL_CHECK(condition) << message;
+}
 
 void BindLogging(py::module_ &m) {
-  py::enum_<LogLevel>(m, "LogLevel", py::arithmetic())
-      .value("DEBUG", LogLevel::DEBUG)
-      .value("INFO", LogLevel::INFO)
-      .value("WARN", LogLevel::WARN)
-      .value("ERROR", LogLevel::ERROR)
-      .value("FATAL", LogLevel::FATAL)
-      .value("EVENT", LogLevel::EVENT)
-      .value("NONE", LogLevel::NONE)
-      .export_values();
+    py::enum_<LogLevel>(m, "LogLevel", py::arithmetic())
+        .value("DEBUG", LogLevel::DEBUG)
+        .value("INFO", LogLevel::INFO)
+        .value("WARN", LogLevel::WARN)
+        .value("ERROR", LogLevel::ERROR)
+        .value("FATAL", LogLevel::FATAL)
+        .value("EVENT", LogLevel::EVENT)
+        .value("NONE", LogLevel::NONE)
+        .export_values();
 
-  m.def("set_log_level", &LoggerManager::ResetLevel, py::arg("level"));
-  m.def("log_debug", &log_debug, py::arg("message"));
-  m.def("log_info", &log_info, py::arg("message"));
-  m.def("log_warn", &log_warn, py::arg("message"));
-  m.def("log_error", &log_error, py::arg("message"));
-  m.def("log_fatal", &log_fatal, py::arg("message"));
-  m.def("log_event", &log_event, py::arg("message"));
-  m.def("check", &check, py::arg("condition"), py::arg("message"));
-  m.def("internal_check", &internal_check, py::arg("condition"), py::arg("message"));
+    m.def("set_log_level", &LoggerManager::ResetLevel, py::arg("level"));
+    m.def("log_debug", &log_debug, py::arg("message"));
+    m.def("log_info", &log_info, py::arg("message"));
+    m.def("log_warn", &log_warn, py::arg("message"));
+    m.def("log_error", &log_error, py::arg("message"));
+    m.def("log_fatal", &log_fatal, py::arg("message"));
+    m.def("log_event", &log_event, py::arg("message"));
+    m.def("check", &check, py::arg("condition"), py::arg("message"));
+    m.def("internal_check", &internal_check, py::arg("condition"), py::arg("message"));
 }
 
 } // namespace pypto

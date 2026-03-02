@@ -31,25 +31,25 @@ namespace ir {
 // ============================================================================
 
 TEST(ExprBasicTest, TestExprBasicConstructor) {
-  // Test basic Expr construction via ConstInt (Expr is abstract with pure virtual GetKind)
-  auto expr = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
-  ASSERT_NE(expr, nullptr);
-  ASSERT_EQ(expr->TypeName(), "ConstInt");
+    // Test basic Expr construction via ConstInt (Expr is abstract with pure virtual GetKind)
+    auto expr = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
+    ASSERT_NE(expr, nullptr);
+    ASSERT_EQ(expr->TypeName(), "ConstInt");
 }
 
 TEST(ExprBasicTest, TestExprWithType) {
-  // Test Expr with explicit type via ConstInt
-  auto expr = std::make_shared<ConstInt>(42, DataType::INT32, Span::unknown());
-  ASSERT_NE(expr, nullptr);
-  ASSERT_EQ(expr->GetType()->TypeName(), "ScalarType");
+    // Test Expr with explicit type via ConstInt
+    auto expr = std::make_shared<ConstInt>(42, DataType::INT32, Span::unknown());
+    ASSERT_NE(expr, nullptr);
+    ASSERT_EQ(expr->GetType()->TypeName(), "ScalarType");
 }
 
 TEST(ExprBasicTest, TestExprGetType) {
-  // Test Expr GetType method via ConstFloat
-  auto expr = std::make_shared<ConstFloat>(3.14, DataType::FP32, Span::unknown());
-  auto type = expr->GetType();
-  ASSERT_NE(type, nullptr);
-  ASSERT_EQ(type->TypeName(), "ScalarType");
+    // Test Expr GetType method via ConstFloat
+    auto expr = std::make_shared<ConstFloat>(3.14, DataType::FP32, Span::unknown());
+    auto type = expr->GetType();
+    ASSERT_NE(type, nullptr);
+    ASSERT_EQ(type->TypeName(), "ScalarType");
 }
 
 // ============================================================================
@@ -57,99 +57,99 @@ TEST(ExprBasicTest, TestExprGetType) {
 // ============================================================================
 
 TEST(ExprBasicTest, TestOpBasicConstructor) {
-  // Test basic Op construction
-  auto op = std::make_shared<Op>("test_op");
-  ASSERT_NE(op, nullptr);
-  ASSERT_EQ(op->name_, "test_op");
+    // Test basic Op construction
+    auto op = std::make_shared<Op>("test_op");
+    ASSERT_NE(op, nullptr);
+    ASSERT_EQ(op->name_, "test_op");
 }
 
 TEST(ExprBasicTest, TestOpEmptyName) {
-  // Test Op with empty name
-  auto op = std::make_shared<Op>("");
-  ASSERT_NE(op, nullptr);
-  ASSERT_EQ(op->name_, "");
+    // Test Op with empty name
+    auto op = std::make_shared<Op>("");
+    ASSERT_NE(op, nullptr);
+    ASSERT_EQ(op->name_, "");
 }
 
 TEST(ExprBasicTest, TestOpSetAttrTypeBool) {
-  // Test Op SetAttrType with bool
-  auto op = std::make_shared<Op>("test_op");
-  op->SetAttrType<bool>("flag");
-  ASSERT_TRUE(op->HasAttr("flag"));
+    // Test Op SetAttrType with bool
+    auto op = std::make_shared<Op>("test_op");
+    op->SetAttrType<bool>("flag");
+    ASSERT_TRUE(op->HasAttr("flag"));
 }
 
 TEST(ExprBasicTest, TestOpSetAttrTypeInt) {
-  // Test Op SetAttrType with int
-  auto op = std::make_shared<Op>("test_op");
-  op->SetAttrType<int>("count");
-  ASSERT_TRUE(op->HasAttr("count"));
+    // Test Op SetAttrType with int
+    auto op = std::make_shared<Op>("test_op");
+    op->SetAttrType<int>("count");
+    ASSERT_TRUE(op->HasAttr("count"));
 }
 
 TEST(ExprBasicTest, TestOpSetAttrTypeString) {
-  // Test Op SetAttrType with string
-  auto op = std::make_shared<Op>("test_op");
-  op->SetAttrType<std::string>("name");
-  ASSERT_TRUE(op->HasAttr("name"));
+    // Test Op SetAttrType with string
+    auto op = std::make_shared<Op>("test_op");
+    op->SetAttrType<std::string>("name");
+    ASSERT_TRUE(op->HasAttr("name"));
 }
 
 TEST(ExprBasicTest, TestOpSetAttrTypeDouble) {
-  // Test Op SetAttrType with double
-  auto op = std::make_shared<Op>("test_op");
-  op->SetAttrType<double>("value");
-  ASSERT_TRUE(op->HasAttr("value"));
+    // Test Op SetAttrType with double
+    auto op = std::make_shared<Op>("test_op");
+    op->SetAttrType<double>("value");
+    ASSERT_TRUE(op->HasAttr("value"));
 }
 
 TEST(ExprBasicTest, TestOpSetAttrTypeDataType) {
-  // Test Op SetAttrType with DataType
-  auto op = std::make_shared<Op>("test_op");
-  op->SetAttrType<DataType>("dtype");
-  ASSERT_TRUE(op->HasAttr("dtype"));
+    // Test Op SetAttrType with DataType
+    auto op = std::make_shared<Op>("test_op");
+    op->SetAttrType<DataType>("dtype");
+    ASSERT_TRUE(op->HasAttr("dtype"));
 }
 
 TEST(ExprBasicTest, TestOpHasAttr) {
-  // Test Op HasAttr method
-  auto op = std::make_shared<Op>("test_op");
-  ASSERT_FALSE(op->HasAttr("nonexistent"));
+    // Test Op HasAttr method
+    auto op = std::make_shared<Op>("test_op");
+    ASSERT_FALSE(op->HasAttr("nonexistent"));
 
-  op->SetAttrType<int>("count");
-  ASSERT_TRUE(op->HasAttr("count"));
-  ASSERT_FALSE(op->HasAttr("other"));
+    op->SetAttrType<int>("count");
+    ASSERT_TRUE(op->HasAttr("count"));
+    ASSERT_FALSE(op->HasAttr("other"));
 }
 
 TEST(ExprBasicTest, TestOpGetAttrKeys) {
-  // Test Op GetAttrKeys method
-  auto op = std::make_shared<Op>("test_op");
-  op->SetAttrType<int>("count");
-  op->SetAttrType<bool>("flag");
+    // Test Op GetAttrKeys method
+    auto op = std::make_shared<Op>("test_op");
+    op->SetAttrType<int>("count");
+    op->SetAttrType<bool>("flag");
 
-  auto keys = op->GetAttrKeys();
-  ASSERT_EQ(keys.size(), 2);
+    auto keys = op->GetAttrKeys();
+    ASSERT_EQ(keys.size(), 2);
 }
 
 TEST(ExprBasicTest, TestOpGetAttrs) {
-  // Test Op GetAttrs method
-  auto op = std::make_shared<Op>("test_op");
-  op->SetAttrType<int>("count");
-  op->SetAttrType<bool>("flag");
+    // Test Op GetAttrs method
+    auto op = std::make_shared<Op>("test_op");
+    op->SetAttrType<int>("count");
+    op->SetAttrType<bool>("flag");
 
-  const auto &attrs = op->GetAttrs();
-  ASSERT_EQ(attrs.size(), 2);
+    const auto &attrs = op->GetAttrs();
+    ASSERT_EQ(attrs.size(), 2);
 }
 
 TEST(ExprBasicTest, TestOpMultipleAttrs) {
-  // Test Op with multiple attributes
-  auto op = std::make_shared<Op>("complex_op");
-  op->SetAttrType<bool>("flag1");
-  op->SetAttrType<int>("count");
-  op->SetAttrType<std::string>("name");
-  op->SetAttrType<double>("value");
-  op->SetAttrType<DataType>("dtype");
+    // Test Op with multiple attributes
+    auto op = std::make_shared<Op>("complex_op");
+    op->SetAttrType<bool>("flag1");
+    op->SetAttrType<int>("count");
+    op->SetAttrType<std::string>("name");
+    op->SetAttrType<double>("value");
+    op->SetAttrType<DataType>("dtype");
 
-  ASSERT_TRUE(op->HasAttr("flag1"));
-  ASSERT_TRUE(op->HasAttr("count"));
-  ASSERT_TRUE(op->HasAttr("name"));
-  ASSERT_TRUE(op->HasAttr("value"));
-  ASSERT_TRUE(op->HasAttr("dtype"));
-  ASSERT_EQ(op->GetAttrKeys().size(), 5);
+    ASSERT_TRUE(op->HasAttr("flag1"));
+    ASSERT_TRUE(op->HasAttr("count"));
+    ASSERT_TRUE(op->HasAttr("name"));
+    ASSERT_TRUE(op->HasAttr("value"));
+    ASSERT_TRUE(op->HasAttr("dtype"));
+    ASSERT_EQ(op->GetAttrKeys().size(), 5);
 }
 
 // ============================================================================
@@ -157,32 +157,32 @@ TEST(ExprBasicTest, TestOpMultipleAttrs) {
 // ============================================================================
 
 TEST(ExprBasicTest, TestGlobalVarBasicConstructor) {
-  // Test basic GlobalVar construction
-  auto globalVar = std::make_shared<GlobalVar>("my_function");
-  ASSERT_NE(globalVar, nullptr);
-  ASSERT_EQ(globalVar->name_, "my_function");
+    // Test basic GlobalVar construction
+    auto globalVar = std::make_shared<GlobalVar>("my_function");
+    ASSERT_NE(globalVar, nullptr);
+    ASSERT_EQ(globalVar->name_, "my_function");
 }
 
 TEST(ExprBasicTest, TestGlobalVarEmptyName) {
-  // Test GlobalVar with empty name
-  auto globalVar = std::make_shared<GlobalVar>("");
-  ASSERT_NE(globalVar, nullptr);
-  ASSERT_EQ(globalVar->name_, "");
+    // Test GlobalVar with empty name
+    auto globalVar = std::make_shared<GlobalVar>("");
+    ASSERT_NE(globalVar, nullptr);
+    ASSERT_EQ(globalVar->name_, "");
 }
 
 TEST(ExprBasicTest, TestGlobalVarInheritance) {
-  // Test that GlobalVar inherits from Op
-  auto globalVar = std::make_shared<GlobalVar>("my_function");
-  OpPtr op = globalVar;  // Should be able to assign to OpPtr
-  ASSERT_NE(op, nullptr);
-  ASSERT_EQ(op->name_, "my_function");
+    // Test that GlobalVar inherits from Op
+    auto globalVar = std::make_shared<GlobalVar>("my_function");
+    OpPtr op = globalVar; // Should be able to assign to OpPtr
+    ASSERT_NE(op, nullptr);
+    ASSERT_EQ(op->name_, "my_function");
 }
 
 TEST(ExprBasicTest, TestGlobalVarWithAttrs) {
-  // Test GlobalVar with attributes
-  auto globalVar = std::make_shared<GlobalVar>("my_function");
-  globalVar->SetAttrType<bool>("inline");
-  ASSERT_TRUE(globalVar->HasAttr("inline"));
+    // Test GlobalVar with attributes
+    auto globalVar = std::make_shared<GlobalVar>("my_function");
+    globalVar->SetAttrType<bool>("inline");
+    ASSERT_TRUE(globalVar->HasAttr("inline"));
 }
 
 // ============================================================================
@@ -190,24 +190,24 @@ TEST(ExprBasicTest, TestGlobalVarWithAttrs) {
 // ============================================================================
 
 TEST(ExprBasicTest, TestGlobalVarPtrLess) {
-  // Test GlobalVarPtrLess comparator
-  auto var1 = std::make_shared<GlobalVar>("aaa");
-  auto var2 = std::make_shared<GlobalVar>("bbb");
+    // Test GlobalVarPtrLess comparator
+    auto var1 = std::make_shared<GlobalVar>("aaa");
+    auto var2 = std::make_shared<GlobalVar>("bbb");
 
-  GlobalVarPtrLess less;
-  ASSERT_TRUE(less(var1, var2));
-  ASSERT_FALSE(less(var2, var1));
+    GlobalVarPtrLess less;
+    ASSERT_TRUE(less(var1, var2));
+    ASSERT_FALSE(less(var2, var1));
 }
 
 TEST(ExprBasicTest, TestGlobalVarPtrLessEqual) {
-  // Test GlobalVarPtrLess with equal names
-  auto var1 = std::make_shared<GlobalVar>("same");
-  auto var2 = std::make_shared<GlobalVar>("same");
+    // Test GlobalVarPtrLess with equal names
+    auto var1 = std::make_shared<GlobalVar>("same");
+    auto var2 = std::make_shared<GlobalVar>("same");
 
-  GlobalVarPtrLess less;
-  ASSERT_FALSE(less(var1, var2));
-  ASSERT_FALSE(less(var2, var1));
+    GlobalVarPtrLess less;
+    ASSERT_FALSE(less(var1, var2));
+    ASSERT_FALSE(less(var2, var1));
 }
 
-}  // namespace ir
-}  // namespace pypto
+} // namespace ir
+} // namespace pypto

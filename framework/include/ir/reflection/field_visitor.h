@@ -10,7 +10,6 @@
 
 #pragma once
 
-
 #include <map>
 #include <memory>
 #include <optional>
@@ -40,8 +39,8 @@ struct IsIRNodeField : std::false_type {};
 
 // Generic specialization for any shared_ptr<const T> where T derives from IRNode
 template <typename IRNodeType>
-struct IsIRNodeField<std::shared_ptr<const IRNodeType>,
-                     std::enable_if_t<std::is_base_of_v<IRNode, IRNodeType>>> : std::true_type {};
+struct IsIRNodeField<std::shared_ptr<const IRNodeType>, std::enable_if_t<std::is_base_of_v<IRNode, IRNodeType>>>
+    : std::true_type {};
 
 /**
  * \brief Type trait to check if a type is std::vector of IRNode pointers
@@ -105,110 +104,108 @@ struct IsIRNodeMapField<std::map<std::shared_ptr<const KeyType>, std::shared_ptr
 template <typename NodeType, typename Visitor, typename... Descriptors>
 class FieldIterator {
 public:
-  using result_type = typename Visitor::result_type;
+    using result_type = typename Visitor::result_type;
 
-  /**
-   * \brief Visit all fields of a single node
-   *
-   * Visitor methods are called with single field arguments:
-   *   - VisitIRNodeField(field)
-   *   - VisitIRNodeVectorField(field)
-   *   - VisitIRNodeMapField(field)
-   *   - VisitLeafField(field)
-   *
-   * \param node The node instance to visit
-   * \param visitor The visitor instance
-   * \param descriptors Field descriptor instances
-   * \return Accumulated result from visiting all fields
-   */
-  static result_type Visit(const NodeType &node, Visitor &visitor, const Descriptors&... descriptors) {
-    result_type result = visitor.InitResult();
-    (VisitField(visitor, descriptors, result, node), ...);
-    return result;
-  }
+    /**
+     * \brief Visit all fields of a single node
+     *
+     * Visitor methods are called with single field arguments:
+     *   - VisitIRNodeField(field)
+     *   - VisitIRNodeVectorField(field)
+     *   - VisitIRNodeMapField(field)
+     *   - VisitLeafField(field)
+     *
+     * \param node The node instance to visit
+     * \param visitor The visitor instance
+     * \param descriptors Field descriptor instances
+     * \return Accumulated result from visiting all fields
+     */
+    static result_type Visit(const NodeType &node, Visitor &visitor, const Descriptors &...descriptors) {
+        result_type result = visitor.InitResult();
+        (VisitField(visitor, descriptors, result, node), ...);
+        return result;
+    }
 
-  /**
-   * \brief Visit all fields of two nodes pairwise
-   *
-   * Visitor methods are called with two field arguments:
-   *   - VisitIRNodeField(lhs_field, rhs_field)
-   *   - VisitIRNodeVectorField(lhs_field, rhs_field)
-   *   - VisitIRNodeMapField(lhs_field, rhs_field)
-   *   - VisitLeafField(lhs_field, rhs_field)
-   *
-   * \param lhs Left-hand side node
-   * \param rhs Right-hand side node
-   * \param visitor The visitor instance
-   * \param descriptors Field descriptor instances
-   * \return Accumulated result from visiting all field pairs
-   */
-  static result_type Visit(const NodeType &lhs, const NodeType &rhs, Visitor &visitor,
-                           const Descriptors&... descriptors) {
-    result_type result = visitor.InitResult();
-    (VisitField(visitor, descriptors, result, lhs, rhs), ...);
-    return result;
-  }
+    /**
+     * \brief Visit all fields of two nodes pairwise
+     *
+     * Visitor methods are called with two field arguments:
+     *   - VisitIRNodeField(lhs_field, rhs_field)
+     *   - VisitIRNodeVectorField(lhs_field, rhs_field)
+     *   - VisitIRNodeMapField(lhs_field, rhs_field)
+     *   - VisitLeafField(lhs_field, rhs_field)
+     *
+     * \param lhs Left-hand side node
+     * \param rhs Right-hand side node
+     * \param visitor The visitor instance
+     * \param descriptors Field descriptor instances
+     * \return Accumulated result from visiting all field pairs
+     */
+    static result_type Visit(
+        const NodeType &lhs, const NodeType &rhs, Visitor &visitor, const Descriptors &...descriptors) {
+        result_type result = visitor.InitResult();
+        (VisitField(visitor, descriptors, result, lhs, rhs), ...);
+        return result;
+    }
 
 private:
-  /**
-   * \brief Visit a single field from N nodes using its descriptor
-   *
-   * Dispatches based on field kind (IGNORE/DEF/USUAL).
-   *
-   * \tparam Desc The field descriptor type
-   * \tparam Nodes Parameter pack of node types (all must be NodeType)
-   */
-  template <typename Desc, typename... Nodes>
-  static void VisitField(Visitor &visitor, const Desc &desc, result_type &result, const Nodes&... nodes) {
-    using KindTag = typename Desc::kind_tag;
+    /**
+     * \brief Visit a single field from N nodes using its descriptor
+     *
+     * Dispatches based on field kind (IGNORE/DEF/USUAL).
+     *
+     * \tparam Desc The field descriptor type
+     * \tparam Nodes Parameter pack of node types (all must be NodeType)
+     */
+    template <typename Desc, typename... Nodes>
+    static void VisitField(Visitor &visitor, const Desc &desc, result_type &result, const Nodes &...nodes) {
+        using KindTag = typename Desc::kind_tag;
 
-    if constexpr (std::is_same_v<KindTag, IgnoreFieldTag>) {
-      visitor.VisitIgnoreField([&]() { VisitFieldImpl(visitor, desc, result, nodes...); });
-    } else if constexpr (std::is_same_v<KindTag, DefFieldTag>) {
-      visitor.VisitDefField([&]() { VisitFieldImpl(visitor, desc, result, nodes...); });
-    } else if constexpr (std::is_same_v<KindTag, UsualFieldTag>) {
-      visitor.VisitUsualField([&]() { VisitFieldImpl(visitor, desc, result, nodes...); });
-    } else {
-      INTERNAL_UNREACHABLE << "Invalid field kind tag: " << typeid(KindTag).name() << " for field "
-                           << desc.name;
+        if constexpr (std::is_same_v<KindTag, IgnoreFieldTag>) {
+            visitor.VisitIgnoreField([&]() { VisitFieldImpl(visitor, desc, result, nodes...); });
+        } else if constexpr (std::is_same_v<KindTag, DefFieldTag>) {
+            visitor.VisitDefField([&]() { VisitFieldImpl(visitor, desc, result, nodes...); });
+        } else if constexpr (std::is_same_v<KindTag, UsualFieldTag>) {
+            visitor.VisitUsualField([&]() { VisitFieldImpl(visitor, desc, result, nodes...); });
+        } else {
+            INTERNAL_UNREACHABLE << "Invalid field kind tag: " << typeid(KindTag).name() << " for field " << desc.name;
+        }
     }
-  }
 
-  /**
-   * \brief Implementation of field visitation
-   *
-   * Dispatches based on field type (IRNode/vector/map/scalar) and calls
-   * the appropriate visitor method with fields from all nodes.
-   */
-  template <typename Desc, typename... Nodes>
-  static void VisitFieldImpl(Visitor &visitor, const Desc &desc, result_type &result, const Nodes&... nodes) {
-    using FieldType = typename Desc::field_type;
+    /**
+     * \brief Implementation of field visitation
+     *
+     * Dispatches based on field type (IRNode/vector/map/scalar) and calls
+     * the appropriate visitor method with fields from all nodes.
+     */
+    template <typename Desc, typename... Nodes>
+    static void VisitFieldImpl(Visitor &visitor, const Desc &desc, result_type &result, const Nodes &...nodes) {
+        using FieldType = typename Desc::field_type;
 
-    if constexpr (IsIRNodeOptionalField<FieldType>::value) {
-      // Optional IRNodePtr field - treat as IRNode field
-      auto fieldResult = visitor.VisitIRNodeField(desc.Get(nodes)...);
-      visitor.CombineResult(result, fieldResult, desc);
-    } else if constexpr (IsIRNodeField<FieldType>::value) {
-      // Single IRNodePtr field - expand to visitor.VisitIRNodeField(desc.Get(node1), desc.Get(node2), ...)
-      auto fieldResult = visitor.VisitIRNodeField(desc.Get(nodes)...);
-      visitor.CombineResult(result, fieldResult, desc);
-    } else if constexpr (IsIRNodeVectorField<FieldType>::value) {
-      // Vector of IRNodePtr
-      auto fieldResult = visitor.VisitIRNodeVectorField(desc.Get(nodes)...);
-      visitor.CombineResult(result, fieldResult, desc);
-    } else if constexpr (IsIRNodeMapField<FieldType>::value) {
-      // Map of IRNodePtr to IRNodePtr
-      auto fieldResult = visitor.VisitIRNodeMapField(desc.Get(nodes)...);
-      visitor.CombineResult(result, fieldResult, desc);
-    } else {
-      // Scalar field (int, string, OpPtr, etc.)
-      auto fieldResult = visitor.VisitLeafField(desc.Get(nodes)...);
-      visitor.CombineResult(result, fieldResult, desc);
+        if constexpr (IsIRNodeOptionalField<FieldType>::value) {
+            // Optional IRNodePtr field - treat as IRNode field
+            auto fieldResult = visitor.VisitIRNodeField(desc.Get(nodes)...);
+            visitor.CombineResult(result, fieldResult, desc);
+        } else if constexpr (IsIRNodeField<FieldType>::value) {
+            // Single IRNodePtr field - expand to visitor.VisitIRNodeField(desc.Get(node1), desc.Get(node2), ...)
+            auto fieldResult = visitor.VisitIRNodeField(desc.Get(nodes)...);
+            visitor.CombineResult(result, fieldResult, desc);
+        } else if constexpr (IsIRNodeVectorField<FieldType>::value) {
+            // Vector of IRNodePtr
+            auto fieldResult = visitor.VisitIRNodeVectorField(desc.Get(nodes)...);
+            visitor.CombineResult(result, fieldResult, desc);
+        } else if constexpr (IsIRNodeMapField<FieldType>::value) {
+            // Map of IRNodePtr to IRNodePtr
+            auto fieldResult = visitor.VisitIRNodeMapField(desc.Get(nodes)...);
+            visitor.CombineResult(result, fieldResult, desc);
+        } else {
+            // Scalar field (int, string, OpPtr, etc.)
+            auto fieldResult = visitor.VisitLeafField(desc.Get(nodes)...);
+            visitor.CombineResult(result, fieldResult, desc);
+        }
     }
-  }
 };
 
-}  // namespace reflection
-}  // namespace ir
-}  // namespace pypto
-
+} // namespace reflection
+} // namespace ir
+} // namespace pypto

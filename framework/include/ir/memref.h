@@ -10,7 +10,6 @@
 
 #pragma once
 
-
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -44,12 +43,12 @@ using MemRefPtr = std::shared_ptr<const MemRef>;
  * - L0C: L0C buffer (matrix C/result)
  */
 enum class MemorySpace {
-  DDR,  ///< DDR memory (off-chip)
-  UB,   ///< Unified Buffer (on-chip)
-  L1,   ///< L1 cache
-  L0A,  ///< L0A buffer
-  L0B,  ///< L0B buffer
-  L0C   ///< L0C buffer
+    DDR, ///< DDR memory (off-chip)
+    UB,  ///< Unified Buffer (on-chip)
+    L1,  ///< L1 cache
+    L0A, ///< L0A buffer
+    L0B, ///< L0B buffer
+    L0C  ///< L0C buffer
 };
 
 /**
@@ -60,6 +59,5 @@ enum class MemorySpace {
  */
 std::string MemorySpaceToString(MemorySpace space);
 
-}  // namespace ir
-}  // namespace pypto
-
+} // namespace ir
+} // namespace pypto

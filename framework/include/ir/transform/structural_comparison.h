@@ -10,7 +10,6 @@
 
 #pragma once
 
-
 #include <cstdint>
 
 #include "ir/core.h"
@@ -103,6 +102,5 @@ void assert_structural_equal(const IRNodePtr &lhs, const IRNodePtr &rhs, bool en
  * \throws ValueError if types are not structurally equal, with detailed diagnostic message
  */
 void assert_structural_equal(const TypePtr &lhs, const TypePtr &rhs, bool enableAutoMapping = false);
-}  // namespace ir
-}  // namespace pypto
-
+} // namespace ir
+} // namespace pypto

@@ -10,7 +10,6 @@
 
 #pragma once
 
-
 #include <memory>
 #include <optional>
 #include <string>
@@ -30,23 +29,21 @@ namespace ir {
  * Contains the broadcast result shape or an error message if broadcasting fails.
  */
 struct BroadcastResult {
-  bool success;                // Whether broadcasting succeeded
-  std::vector<ExprPtr> shape;  // Resulting broadcast shape (empty if failed)
-  std::string error_message;   // Error message if broadcasting failed
+    bool success;               // Whether broadcasting succeeded
+    std::vector<ExprPtr> shape; // Resulting broadcast shape (empty if failed)
+    std::string error_message;  // Error message if broadcasting failed
 
-  /**
-   * \brief Create a successful broadcast result
-   */
-  static BroadcastResult Success(std::vector<ExprPtr> result_shape) {
-    return BroadcastResult{true, std::move(result_shape), ""};
-  }
+    /**
+     * \brief Create a successful broadcast result
+     */
+    static BroadcastResult Success(std::vector<ExprPtr> result_shape) {
+        return BroadcastResult{true, std::move(result_shape), ""};
+    }
 
-  /**
-   * \brief Create a failed broadcast result with error message
-   */
-  static BroadcastResult Failure(std::string message) {
-    return BroadcastResult{false, {}, std::move(message)};
-  }
+    /**
+     * \brief Create a failed broadcast result with error message
+     */
+    static BroadcastResult Failure(std::string message) { return BroadcastResult{false, {}, std::move(message)}; }
 };
 
 /**
@@ -174,6 +171,5 @@ bool IsBroadcastable(const ExprPtr &source_dim, const ExprPtr &target_dim);
  */
 std::string FormatShape(const std::vector<ExprPtr> &shape);
 
-}  // namespace ir
-}  // namespace pypto
-
+} // namespace ir
+} // namespace pypto

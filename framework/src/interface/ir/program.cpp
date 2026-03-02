@@ -28,35 +28,36 @@ namespace ir {
 // Vector-based constructor: creates GlobalVars from function names
 Program::Program(const std::vector<FunctionPtr> &functions, std::string name, Span span)
     : IRNode(std::move(span)), name_(std::move(name)) {
-  // Create a map and populate it with GlobalVar -> Function mappings
-  // The map automatically sorts by GlobalVar name via the GlobalVarPtrLess comparator
-  std::set<std::string> function_names;
-  for (const auto &func : functions) {
-    INTERNAL_CHECK(func) << "Program constructor encountered null function";
-    auto funcName = func->name_;
-    INTERNAL_CHECK(!funcName.empty()) << "Program constructor encountered empty function name";
-    INTERNAL_CHECK(function_names.find(funcName) == function_names.end()) << "Duplicate function name \"" << funcName << "\"";
-    function_names.insert(funcName);
-    auto globalVar = std::make_shared<const GlobalVar>(funcName);
-    functions_.emplace(globalVar, func);
-  }
+    // Create a map and populate it with GlobalVar -> Function mappings
+    // The map automatically sorts by GlobalVar name via the GlobalVarPtrLess comparator
+    std::set<std::string> function_names;
+    for (const auto &func : functions) {
+        INTERNAL_CHECK(func) << "Program constructor encountered null function";
+        auto funcName = func->name_;
+        INTERNAL_CHECK(!funcName.empty()) << "Program constructor encountered empty function name";
+        INTERNAL_CHECK(function_names.find(funcName) == function_names.end())
+            << "Duplicate function name \"" << funcName << "\"";
+        function_names.insert(funcName);
+        auto globalVar = std::make_shared<const GlobalVar>(funcName);
+        functions_.emplace(globalVar, func);
+    }
 }
 
 FunctionPtr Program::GetFunction(const std::string &name) const {
-  auto it = functions_.find(std::make_shared<const GlobalVar>(name));
-  if (it != functions_.end()) {
-    return it->second;
-  }
-  return nullptr;
+    auto it = functions_.find(std::make_shared<const GlobalVar>(name));
+    if (it != functions_.end()) {
+        return it->second;
+    }
+    return nullptr;
 }
 
 GlobalVarPtr Program::GetGlobalVar(const std::string &name) const {
-  auto it = functions_.find(std::make_shared<const GlobalVar>(name));
-  if (it != functions_.end()) {
-    return it->first;
-  }
-  return nullptr;
+    auto it = functions_.find(std::make_shared<const GlobalVar>(name));
+    if (it != functions_.end()) {
+        return it->first;
+    }
+    return nullptr;
 }
 
-}  // namespace ir
-}  // namespace pypto
+} // namespace ir
+} // namespace pypto

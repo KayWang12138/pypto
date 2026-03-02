@@ -10,7 +10,6 @@
 
 #pragma once
 
-
 #include <string>
 
 #include "ir/span.h"
@@ -27,9 +26,9 @@ namespace ssa {
  * \brief Error types for SSA verification
  */
 enum class ErrorType : int {
-  MULTIPLE_ASSIGNMENT = 1,  // Variable assigned more than once
-  NAME_SHADOWING = 2,       // Variable name shadows outer scope variable
-  MISSING_YIELD = 3         // ForStmt or IfStmt missing required YieldStmt
+    MULTIPLE_ASSIGNMENT = 1, // Variable assigned more than once
+    NAME_SHADOWING = 2,      // Variable name shadows outer scope variable
+    MISSING_YIELD = 3        // ForStmt or IfStmt missing required YieldStmt
 };
 
 /**
@@ -37,7 +36,7 @@ enum class ErrorType : int {
  */
 std::string ErrorTypeToString(ErrorType type);
 
-}  // namespace ssa
+} // namespace ssa
 
 /**
  * \brief Type checking error types and utilities
@@ -48,13 +47,13 @@ namespace typecheck {
  * \brief Error types for type checking
  */
 enum class ErrorType : int {
-  TYPE_KIND_MISMATCH = 101,           // Type kind mismatch (e.g., ScalarType vs TensorType)
-  DTYPE_MISMATCH = 102,               // Data type mismatch
-  SHAPE_DIMENSION_MISMATCH = 103,     // Shape dimension count mismatch
-  SHAPE_VALUE_MISMATCH = 104,         // Shape dimension value mismatch
-  SIZE_MISMATCH = 105,                // Vector size mismatch in control flow
-  IF_CONDITION_MUST_BE_SCALAR = 106,  // IfStmt condition must be ScalarType
-  FOR_RANGE_MUST_BE_SCALAR = 107      // ForStmt range must be ScalarType
+    TYPE_KIND_MISMATCH = 101,          // Type kind mismatch (e.g., ScalarType vs TensorType)
+    DTYPE_MISMATCH = 102,              // Data type mismatch
+    SHAPE_DIMENSION_MISMATCH = 103,    // Shape dimension count mismatch
+    SHAPE_VALUE_MISMATCH = 104,        // Shape dimension value mismatch
+    SIZE_MISMATCH = 105,               // Vector size mismatch in control flow
+    IF_CONDITION_MUST_BE_SCALAR = 106, // IfStmt condition must be ScalarType
+    FOR_RANGE_MUST_BE_SCALAR = 107     // ForStmt range must be ScalarType
 };
 
 /**
@@ -62,8 +61,7 @@ enum class ErrorType : int {
  */
 std::string ErrorTypeToString(ErrorType type);
 
-}  // namespace typecheck
+} // namespace typecheck
 
-}  // namespace ir
-}  // namespace pypto
-
+} // namespace ir
+} // namespace pypto

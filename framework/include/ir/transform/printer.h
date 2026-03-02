@@ -10,7 +10,6 @@
 
 #pragma once
 
-
 #include <string>
 
 #include "ir/core.h"
@@ -27,21 +26,21 @@ namespace ir {
  * Higher value = tighter binding (higher precedence).
  */
 enum class Precedence : int {
-  OR = 1,          // or
-  XOR = 2,         // xor
-  AND = 3,         // and
-  NOT = 4,         // not (unary)
-  COMPARISON = 5,  // ==, !=, <, <=, >, >=
-  BIT_OR = 6,       // |
-  BIT_XOR = 7,      // ^
-  BIT_AND = 8,      // &
-  BIT_SHIFT = 9,    // <<, >>
-  ADD_SUB = 10,     // +, -
-  MUL_DIV_MOD = 11,  // *, /, //, %
-  UNARY = 12,      // -(unary), ~
-  POW = 13,        // ** (right-associative!)
-  CALL = 14,       // function calls, min(), max(), abs()
-  ATOM = 15        // variables, constants
+    OR = 1,           // or
+    XOR = 2,          // xor
+    AND = 3,          // and
+    NOT = 4,          // not (unary)
+    COMPARISON = 5,   // ==, !=, <, <=, >, >=
+    BIT_OR = 6,       // |
+    BIT_XOR = 7,      // ^
+    BIT_AND = 8,      // &
+    BIT_SHIFT = 9,    // <<, >>
+    ADD_SUB = 10,     // +, -
+    MUL_DIV_MOD = 11, // *, /, //, %
+    UNARY = 12,       // -(unary), ~
+    POW = 13,         // ** (right-associative!)
+    CALL = 14,        // function calls, min(), max(), abs()
+    ATOM = 15         // variables, constants
 };
 
 /**
@@ -78,6 +77,5 @@ std::string PythonPrint(const IRNodePtr &node, const std::string &prefix = "pl")
  */
 std::string PythonPrint(const TypePtr &type, const std::string &prefix = "pl");
 
-}  // namespace ir
-}  // namespace pypto
-
+} // namespace ir
+} // namespace pypto

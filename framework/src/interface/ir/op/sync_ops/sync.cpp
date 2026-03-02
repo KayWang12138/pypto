@@ -24,11 +24,11 @@ namespace {
 
 // Helper to deduce UnknownType (for ops with no return value)
 TypePtr DeduceUnknownType([[maybe_unused]] const std::vector<ExprPtr> &args,
-                          [[maybe_unused]] const std::vector<std::pair<std::string, std::any>> &kwargs) {
-  return GetUnknownType();
+    [[maybe_unused]] const std::vector<std::pair<std::string, std::any>> &kwargs) {
+    return GetUnknownType();
 }
 
-}  // namespace
+} // namespace
 
 // ============================================================================
 // Registration Function for Sync Operations
@@ -85,5 +85,5 @@ REGISTER_OP("system.bar_all")
     .no_argument()
     .f_deduce_type(DeduceUnknownType);
 
-}  // namespace ir
-}  // namespace pypto
+} // namespace ir
+} // namespace pypto

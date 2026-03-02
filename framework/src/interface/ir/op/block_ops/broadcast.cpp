@@ -24,57 +24,55 @@ namespace pypto {
 namespace ir {
 
 TypePtr DeduceBlockRowExpandType(const std::vector<ExprPtr> &args,
-                                 const std::vector<std::pair<std::string, std::any>>& /*kwargs*/,
-                                 const std::string &opName) {
-  CHECK(args.size() == 2) << "The operator " << opName << " requires exactly 2 arguments, but got "
-                          << args.size();
+    const std::vector<std::pair<std::string, std::any>> & /*kwargs*/, const std::string &opName) {
+    CHECK(args.size() == 2) << "The operator " << opName << " requires exactly 2 arguments, but got " << args.size();
 
-  // First argument must be TileType (the main tile)
-  auto tileType = As<TileType>(args[0]->GetType());
-  CHECK(tileType) << "The operator " << opName << " requires first argument to be a TileType, but got "
-                   << args[0]->GetType()->TypeName();
+    // First argument must be TileType (the main tile)
+    auto tileType = As<TileType>(args[0]->GetType());
+    CHECK(tileType) << "The operator " << opName << " requires first argument to be a TileType, but got "
+                    << args[0]->GetType()->TypeName();
 
-  // Second argument must be TileType (the row vector)
-  auto row_type = As<TileType>(args[1]->GetType());
-  CHECK(row_type) << "The operator " << opName << " requires second argument to be a TileType, but got "
-                  << args[1]->GetType()->TypeName();
+    // Second argument must be TileType (the row vector)
+    auto row_type = As<TileType>(args[1]->GetType());
+    CHECK(row_type) << "The operator " << opName << " requires second argument to be a TileType, but got "
+                    << args[1]->GetType()->TypeName();
 
-  // Get shapes
-  const auto &tile_shape = tileType->shape_;
-  const auto &row_shape = row_type->shape_;
+    // Get shapes
+    const auto &tile_shape = tileType->shape_;
+    const auto &row_shape = row_type->shape_;
 
-  // Both must have at least 2D (last 2 dimensions are used for broadcasting)
-  CHECK(tile_shape.size() >= 2) << "The operator " << opName
-                                << " requires first argument to have at least 2 dimensions, but got "
-                                << tile_shape.size() << " dimensions";
-  CHECK(row_shape.size() >= 2) << "The operator " << opName
-                               << " requires second argument to have at least 2 dimensions, but got "
-                               << row_shape.size() << " dimensions";
+    // Both must have at least 2D (last 2 dimensions are used for broadcasting)
+    CHECK(tile_shape.size() >= 2) << "The operator " << opName
+                                  << " requires first argument to have at least 2 dimensions, but got "
+                                  << tile_shape.size() << " dimensions";
+    CHECK(row_shape.size() >= 2) << "The operator " << opName
+                                 << " requires second argument to have at least 2 dimensions, but got "
+                                 << row_shape.size() << " dimensions";
 
-  // Last dimension of row vector must be 1
-  auto row_col_const = As<ConstInt>(row_shape[row_shape.size() - 1]);
-  CHECK(row_col_const && row_col_const->value_ == 1)
-      << "The operator " << opName << " requires second argument's last dimension to be 1, but got "
-      << (row_col_const ? std::to_string(row_col_const->value_) : "?");
+    // Last dimension of row vector must be 1
+    auto row_col_const = As<ConstInt>(row_shape[row_shape.size() - 1]);
+    CHECK(row_col_const && row_col_const->value_ == 1)
+        << "The operator " << opName << " requires second argument's last dimension to be 1, but got "
+        << (row_col_const ? std::to_string(row_col_const->value_) : "?");
 
-  // Second-to-last dimension (rows) must match
-  auto tile_rows_const = As<ConstInt>(tile_shape[tile_shape.size() - 2]);
-  auto row_rows_const = As<ConstInt>(row_shape[row_shape.size() - 2]);
+    // Second-to-last dimension (rows) must match
+    auto tile_rows_const = As<ConstInt>(tile_shape[tile_shape.size() - 2]);
+    auto row_rows_const = As<ConstInt>(row_shape[row_shape.size() - 2]);
 
-  if (tile_rows_const && row_rows_const) {
-    CHECK(tile_rows_const->value_ == row_rows_const->value_)
-        << "The operator " << opName
-        << " requires matching row dimensions, but got tile rows=" << tile_rows_const->value_
-        << " and rowVec rows=" << row_rows_const->value_;
-  }
+    if (tile_rows_const && row_rows_const) {
+        CHECK(tile_rows_const->value_ == row_rows_const->value_)
+            << "The operator " << opName
+            << " requires matching row dimensions, but got tile rows=" << tile_rows_const->value_
+            << " and rowVec rows=" << row_rows_const->value_;
+    }
 
-  // Promote data types
-  auto result_dtype = PromoteDataTypes(tileType->dtype_, row_type->dtype_);
-  CHECK(result_dtype) << "The operator " << opName << " requires compatible data types, but got "
-                      << tileType->dtype_.ToString() << " and " << row_type->dtype_.ToString();
+    // Promote data types
+    auto result_dtype = PromoteDataTypes(tileType->dtype_, row_type->dtype_);
+    CHECK(result_dtype) << "The operator " << opName << " requires compatible data types, but got "
+                        << tileType->dtype_.ToString() << " and " << row_type->dtype_.ToString();
 
-  // Output has the same shape as the main tile
-  return std::make_shared<TileType>(tile_shape, *result_dtype);
+    // Output has the same shape as the main tile
+    return std::make_shared<TileType>(tile_shape, *result_dtype);
 }
 
 // ============================================================================
@@ -86,9 +84,8 @@ REGISTER_OP("block.row_expand_sub")
     .set_description("Row-wise broadcast subtraction: tile - rowVec (broadcasted)")
     .add_argument("tile", "Input tile (TileType, 2D [M, N])")
     .add_argument("rowVec", "Row vector (TileType, 2D [M, 1])")
-    .f_deduce_type([](const std::vector<ExprPtr> &args,
-                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
-      return DeduceBlockRowExpandType(args, kwargs, "block.row_expand_sub");
+    .f_deduce_type([](const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs) {
+        return DeduceBlockRowExpandType(args, kwargs, "block.row_expand_sub");
     });
 
 REGISTER_OP("block.row_expand_div")
@@ -96,9 +93,8 @@ REGISTER_OP("block.row_expand_div")
     .set_description("Row-wise broadcast division: tile / rowVec (broadcasted)")
     .add_argument("tile", "Input tile (TileType, 2D [M, N])")
     .add_argument("rowVec", "Row vector (TileType, 2D [M, 1])")
-    .f_deduce_type([](const std::vector<ExprPtr> &args,
-                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
-      return DeduceBlockRowExpandType(args, kwargs, "block.row_expand_div");
+    .f_deduce_type([](const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs) {
+        return DeduceBlockRowExpandType(args, kwargs, "block.row_expand_div");
     });
 
 REGISTER_OP("block.row_expand_mul")
@@ -106,9 +102,8 @@ REGISTER_OP("block.row_expand_mul")
     .set_description("Row-wise broadcast multiplication: tile * rowVec (broadcasted)")
     .add_argument("tile", "Input tile (TileType, 2D [M, N])")
     .add_argument("rowVec", "Row vector (TileType, 2D [M, 1])")
-    .f_deduce_type([](const std::vector<ExprPtr> &args,
-                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
-      return DeduceBlockRowExpandType(args, kwargs, "block.row_expand_mul");
+    .f_deduce_type([](const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs) {
+        return DeduceBlockRowExpandType(args, kwargs, "block.row_expand_mul");
     });
 
 REGISTER_OP("block.row_expand_add")
@@ -117,10 +112,9 @@ REGISTER_OP("block.row_expand_add")
     .set_pipe(PipeType::V)
     .add_argument("tile", "Input tile (TileType, 2D [M, N])")
     .add_argument("rowVec", "Row vector (TileType, 2D [M, 1])")
-    .f_deduce_type([](const std::vector<ExprPtr> &args,
-                      const std::vector<std::pair<std::string, std::any>> &kwargs) {
-      return DeduceBlockRowExpandType(args, kwargs, "block.row_expand_add");
+    .f_deduce_type([](const std::vector<ExprPtr> &args, const std::vector<std::pair<std::string, std::any>> &kwargs) {
+        return DeduceBlockRowExpandType(args, kwargs, "block.row_expand_add");
     });
 
-}  // namespace ir
-}  // namespace pypto
+} // namespace ir
+} // namespace pypto

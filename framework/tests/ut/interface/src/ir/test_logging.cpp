@@ -40,7 +40,7 @@ TEST(CoreLoggingTest, TestFileLogger) {
     {
         auto logger = std::make_unique<FileLogger>(testFile, false);
         logger->Log("File test message").Log("\n");
-    }  // Logger should flush and close on destruction
+    } // Logger should flush and close on destruction
 
     // Read back and verify
     std::ifstream ifs(testFile);
@@ -71,7 +71,7 @@ TEST(CoreLoggingTest, TestLineLogger) {
 
     // Should be able to retrieve the logger
     auto logger2 = LoggerManager::LineLoggerRegister("test_logger");
-    ASSERT_EQ(logger, logger2);  // Same instance
+    ASSERT_EQ(logger, logger2); // Same instance
 }
 
 TEST(CoreLoggingTest, TestLogLevels) {
@@ -101,7 +101,7 @@ TEST(CoreLoggingTest, TestLoggerManagerRegister) {
 
     ASSERT_NE(logger1, nullptr);
     ASSERT_NE(logger2, nullptr);
-    ASSERT_NE(logger1, logger2);  // Different loggers
+    ASSERT_NE(logger1, logger2); // Different loggers
 
     // Registering same name should return same instance
     auto logger1Again = LoggerManager::LineLoggerRegister("logger1");
@@ -149,4 +149,4 @@ TEST(CoreLoggingTest, TestLoggerNotNull) {
     ASSERT_NE(lineLogger, nullptr);
 }
 
-}  // namespace pypto
+} // namespace pypto
