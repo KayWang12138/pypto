@@ -586,7 +586,20 @@ public:
         args->kArgs.parameter.globalRound = ++sequence;
 
         bool debugEnable = !isCaptureMode && isDebugMode;
-
+        if (isCaptureMode) {
+#ifdef BUILD_WITH_CANN
+            DeviceLauncher::DisableCaptureProfiling(args->kArgs);
+            auto *devProg = DeviceLauncher::GetDevProg(kernel->GetFunction());
+            devProg->devArgs.toSubMachineConfig = args->kArgs.toSubMachineConfig;
+            DevDfxArgs devDfxArgs;
+            devDfxArgs.isOpenSwim = 0;
+            ChangeCaptureModeRelax();
+            rtMemcpy(reinterpret_cast<void *>(devProg->devArgs.devDfxArgAddr), sizeof(DevDfxArgs), &devDfxArgs,
+                sizeof(DevDfxArgs), RT_MEMCPY_HOST_TO_DEVICE);
+            ChangeCaptureModeGlobal();
+#endif
+            MACHINE_LOGW("Aclgraph mode does not support profiling.");
+        }
 #if ENABALE_VERBOSE_LOG
         ALOG_ERROR_F("triple stream %d sequence %ld workspace %p cfgcache %p", tripleStream, sequence.load(), workspace,
             ctrlFlowCache);
