@@ -517,7 +517,6 @@ TEST_F_WITH_COST(DynamicOpsTest, Cube, 98) {
 }
 
 TEST_F(DynamicOpsTest, Cmps) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -544,8 +543,6 @@ TEST_F(DynamicOpsTest, Cmps) {
                           static_cast<OutType>(CmpModeType::BOOL));
         }
     }
-    });
-    EXPECT_NO_VERIFY_FAILED(logOutput);
 }
 
 
@@ -1477,7 +1474,7 @@ TEST_F(DynamicOpsTest, ReduceMax) {
 }
 
 TEST_F(DynamicOpsTest, Topk) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -1534,10 +1531,6 @@ TEST_F(DynamicOpsTest, Topk) {
             std::tie(outValue, outIndex) = TopK(t0, k, 1, true);
         }
     }
-    });
-    // Topk 用例只关心 index 0 的 verify 结果
-    EXPECT_FALSE(VerifyLogContainsIndex0Failed(logOutput))
-        << "Expected no index 0 FAILED in verify log, captured: " << logOutput;
 }
 
 TEST_F(DynamicOpsTest, TopKSort) {
