@@ -25,6 +25,7 @@
 #include <memory>
 #include <unordered_map>
 #include "data_type.h"
+#include "pypto_fwk_log.h"
 #include "cann_host_runtime.h"
 
 namespace npu::tile_fwk {
