@@ -48,6 +48,7 @@ def device_run(is_run_add):
     # def inputs and outputs
     inputs = [a_data, b_data]
     outputs = [c_data]
+    
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     if is_run_add:
