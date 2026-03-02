@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -17,18 +17,13 @@
 #define __DISTRIBUTED_SHMEM__
 
 #include "common.h"
+#include "tileop_shmem_reduce.h"
 #include <type_traits>
 
 #ifdef SUPPORT_TILE_TENSOR
 #include "pto/pto-inst.hpp"
 #include "pto/comm/pto_comm_inst.hpp"
 #endif
-
-#define PIPE_SYNC_EVENT(from, to, eventId) \
-    do { \
-        set_flag((from), (to), (eventId)); \
-        wait_flag((from), (to), (eventId)); \
-    } while (0)
 
 namespace TileOp::Distributed {
 
@@ -44,32 +39,6 @@ TILEOP inline uint32_t ToggleEvent(uint32_t eventId) { return eventId == EVENT_I
 
 template<typename T>
 TILEOP constexpr T CeilDiv(T x, T y) { return (x + y - 1) / y; }
-
-template<typename T>
-TILEOP __gm__ T* Offset2D(__gm__ T* base, uint32_t offset0, uint32_t offset1, uint32_t rawShape1)
-{
-    return base + offset0 * rawShape1 + offset1;
-}
-
-template<typename T>
-TILEOP __ubuf__ T* Offset2D(__ubuf__ T* base, uint32_t offset0, uint32_t offset1, uint32_t rawShape1)
-{
-    return base + offset0 * rawShape1 + offset1;
-}
-
-template<typename T>
-TILEOP __gm__ T* OffsetShmem3D(__gm__ T* base, uint32_t offset1, uint32_t offset2, uint32_t offset3, uint32_t rawShape2,
-    uint32_t rawShape3)
-{
-    return base + offset1 * rawShape2 * rawShape3 + offset2 * rawShape3 + offset3;
-}
-
-template<typename T>
-TILEOP __gm__ T* MapAndOffsetShmem3D(__gm__ int64_t* hcclContext, __gm__ T* shmemBase, uint32_t rankOffset,
-    uint32_t offset1, uint32_t offset2, uint32_t offset3, uint32_t rawShape2, uint32_t rawShape3)
-{
-    return OffsetShmem3D(MapVirtualAddr<T>(hcclContext, shmemBase, rankOffset), offset1, offset2, offset3, rawShape2, rawShape3);
-}
 
 template<AtomicType atomicType, typename TileType, typename GlobalType>
 TILEOP void AtomicStore(GlobalType& global, TileType& tile)
@@ -442,8 +411,8 @@ TILEOP void ShmemPut(__ubuf__ NonShmemType* buffer, __gm__ NonShmemType* nonShme
     if (shmemGetTensorDataOffset != -1) {
         shmemDataOffset2 = shmemGetTensorDataOffset;
     }
-    __gm__ NonShmemType* srcAddr = Offset2D(nonShmemDataBaseAddr, nonShmemDataOffset0, nonShmemDataOffset1,
-        nonShmemDataRawShape1);
+    __gm__ NonShmemType* srcAddr = nonShmemDataBaseAddr + TileOp::CalcLinearOffset(nonShmemDataRawShape1,
+        nonShmemDataOffset0, nonShmemDataOffset1);
     __gm__ ShmemType* dstAddr = MapAndOffsetShmem3D(
         hcclContext, shmemDataBaseAddr, shmemDataOffset0, shmemDataOffset1, shmemDataOffset2, shmemDataOffset3,
         shmemDataRawShape2, shmemDataRawShape3);
@@ -491,7 +460,7 @@ TILEOP void ShmemPutUb2Gm(__ubuf__ UBType* UBDataBaseAddr, __gm__ ShmemType* shm
     (void)UBDataRawShape0;
     (void)shmemDataRawShape0;
     
-    __ubuf__ UBType* UBDataAddr = Offset2D(UBDataBaseAddr, UBDataOffset0, UBDataOffset1, UBDataRawShape1);
+    __ubuf__ UBType* UBDataAddr = UBDataBaseAddr + TileOp::CalcLinearOffset(UBDataRawShape1, UBDataOffset0, UBDataOffset1);
     __gm__ ShmemType* shmemDataAddr = MapAndOffsetShmem3D(
         hcclContext, shmemDataBaseAddr, shmemDataOffset0, shmemDataOffset1, shmemDataOffset2, shmemDataOffset3,
         shmemDataRawShape2, shmemDataRawShape3);
@@ -548,8 +517,8 @@ TILEOP void ShmemGet(__gm__ NonShmemType* nonShmemDataBaseAddr, __ubuf__ NonShme
     (void)nonShmemDataRawShape0;
     (void)shmemDataRawShape0;
     
-    __gm__ NonShmemType* nonShmemDataAddr = Offset2D(nonShmemDataBaseAddr, nonShmemDataOffset0, nonShmemDataOffset1,
-        nonShmemDataRawShape1);
+    __gm__ NonShmemType* nonShmemDataAddr = nonShmemDataBaseAddr + TileOp::CalcLinearOffset(nonShmemDataRawShape1,
+        nonShmemDataOffset0, nonShmemDataOffset1);
     __gm__ ShmemType* shmemDataAddr = MapAndOffsetShmem3D(
         hcclContext, shmemDataBaseAddr, shmemDataOffset0, shmemDataOffset1, shmemDataOffset2, shmemDataOffset3,
         shmemDataRawShape2, shmemDataRawShape3);
@@ -578,7 +547,7 @@ TILEOP void ShmemGetGm2Ub(__ubuf__ UBType* UBDataBaseAddr, __ubuf__ UBType* buff
     (void)UBDataRawShape0;
     (void)shmemDataRawShape0;
     
-    __ubuf__ UBType* UBDataAddr = Offset2D(UBDataBaseAddr, UBDataOffset0, UBDataOffset1, UBDataRawShape1);
+    __ubuf__ UBType* UBDataAddr = UBDataBaseAddr + TileOp::CalcLinearOffset(UBDataRawShape1, UBDataOffset0, UBDataOffset1);
     __gm__ ShmemType* shmemDataAddr = MapAndOffsetShmem3D(
         hcclContext, shmemDataBaseAddr, shmemDataOffset0, shmemDataOffset1, shmemDataOffset2, shmemDataOffset3,
         shmemDataRawShape2, shmemDataRawShape3);
@@ -587,6 +556,5 @@ TILEOP void ShmemGetGm2Ub(__ubuf__ UBType* UBDataBaseAddr, __ubuf__ UBType* buff
 }
 
 } // namespace TileOp::Distributed
-#include "shmem_reduce.h"
-#undef PIPE_SYNC_EVENT
+
 #endif
