@@ -71,9 +71,6 @@ public:
 
     virtual std::string GenOpCode() const = 0;
 
-    bool hasNan{false};
-    bool hasInf{false};
-
 protected:
     std::string GenOpAttr(bool hasExistingParam = true) const;
 
