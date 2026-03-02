@@ -14,8 +14,13 @@ ASCEND_INSTALL_PATH=${ASCEND_INSTALL_PATH:-/usr/local/Ascend}
 
 - `PYPTO_REPO`：由诊断脚本自动检测（依次尝试 `$HOME/pypto` → 当前目录下 find）。若未找到，尝试从 GitCode 克隆；克隆失败则请用户手动提供路径或设置 `GITCODE_TOKEN`。
 - CANN 路径检测优先级：`ASCEND_HOME_PATH` → `ASCEND_TOOLKIT_HOME` → `ASCEND_OPP_PATH` 反推 → Fallback 扫描 `cann-*`（详见 `references/prepare_environment.md`）。
-- `$SKILL_DIR`：由 agent 运行时自动注入的环境变量，指向当前 skill 的根目录（即本 `pypto-environment-setup/` 目录）。文档中所有 `$SKILL_DIR/scripts/...` 的引用均依赖此变量。手动执行时需自行设置，例如：`export SKILL_DIR=/path/to/pypto-environment-setup`。
+- `$SKILL_DIR`：由 agent 运行时自动注入的环境变量。指向当前 skill 的根目录（即本 `pypto-environment-setup/` 目录）。文档中所有 `$SKILL_DIR/scripts/...` 的引用均依赖此变量。手动执行时需自行设置，例如：`export SKILL_DIR=/path/to/pypto-environment-setup`。
 
+## ⛔ 隐私保护
+
+> ⚠️ **禁止在屏幕、日志、错误信息中打印 `GITCODE_TOKEN` 或 `GITCODE_KEY` 环境变量**
+
+克隆私有仓库时使用 Token 认证，请确保 Token 仅存储在安全位置（环境变量或配置文件），不要在终端输出中暴露。
 ## 工作流程
 
 > 💡 **网络前提**：只要网络连接正常，本技能即具备完整安装 PyPTO 环境的能力（包括 CANN、torch_npu、编译工具链、第三方依赖等）。

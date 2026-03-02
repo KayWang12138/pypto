@@ -39,10 +39,10 @@ description: "PyPTO 项目 Pull Request 创建全流程指南。当需要为 can
 | **Cross-Fork PR** | PR 目标必须是 `cann/pypto`，不是用户 fork |
 | **远程操作** | 所有远程操作必须通过 GitCode MCP，禁止直接使用 `GITCODE_TOKEN` |
 | **Origin 配置** | `origin` 必须指向用户 fork（如 `<username>/pypto`），不能是 `cann/pypto` |
-| **隐私保护** | 禁止在屏幕、日志、错误信息中打印或暴露 `GITCODE_TOKEN` |
+| **隐私保护** | ⚠️ **禁止在屏幕、日志、错误信息中打印或暴露 `GITCODE_TOKEN`，示例代码仅作演示用途** |
 | **用户确认** | 创建分支、commit、push、创建/更新 PR 前必须获得用户明确确认 |
 | **文件路径** | 使用 `$PYPTO_REPO` 指代用户的 pypto 本地仓库根目录 |
-|| **Commit 信息** | 必须使用英文，不超过 10 行 |
+| **Commit 信息** | 必须使用英文，不超过 10 行 |
 ### GitCode MCP 工具
 
 - PR 操作：`gitcode_create_pull_request`, `gitcode_update_pull_request`, `gitcode_list_pull_requests`
@@ -52,7 +52,7 @@ description: "PyPTO 项目 Pull Request 创建全流程指南。当需要为 can
 
 ---
 
-## 完整工作流（7 Phase）
+## 完整工作流（8 Phase）
 
 ### Phase 1: 仓库发现与验证
 
@@ -174,7 +174,7 @@ result = gitcode_get_repository(owner="<username>", repo="pypto")
 # 验证: result.parent.full_name == "cann/pypto"
 ```
 
-### Phase 2: 用户确认（强制阻塞）
+### Phase 3: 用户确认（强制阻塞）
 
 > **在获得用户明确确认之前，禁止执行任何 git 操作。**
 
@@ -188,7 +188,7 @@ result = gitcode_get_repository(owner="<username>", repo="pypto")
 - PR 目标（`cann/pypto` → `master`）
 - PR 标题与 Body 预览
 
-### Phase 3: 预检修复
+### Phase 4: 预检修复
 
 用户确认后执行：
 
@@ -234,7 +234,7 @@ git rebase upstream/master
 # Force push 更新 fork 分支
 git push -f origin <branch_name>
 ```
-### Phase 4: 创建分支、Commit、Push
+### Phase 5: 创建分支、Commit、Push
 
 ```bash
 git -C "$PYPTO_REPO" checkout -b <branch_name>
@@ -284,7 +284,7 @@ GIT_CURL_VERBOSE=1 git push origin <branch_name> 2>&1 | grep -i authorization
 # 正确: Authorization: Basic <base64>
 # 错误: Authorization: Bearer <token>
 ```
-### Phase 5: 创建或更新 PR
+### Phase 6: 创建或更新 PR
 
 #### 5.1 判断创建还是更新
 
@@ -357,7 +357,7 @@ curl -s -X POST "https://api.gitcode.com/api/v5/repos/cann/pypto/pulls" \
 
 > 注意：此 fallback 仅在 MCP 工具失败时使用，正常情况优先使用 MCP。
 
-### Phase 6: Post-PR 报告
+### Phase 7: Post-PR 报告
 
 PR 操作成功后，向用户展示结构化报告，包含：
 
@@ -376,7 +376,7 @@ pr_url = result["html_url"]
 assert "cann/pypto" in pr_url, f"PR 链接错误：{pr_url}，应为 cann/pypto"
 ```
 
-### Phase 7: 追加修改（可选）
+### Phase 8: 追加修改（可选）
 
 若需修改已有 PR：在同一分支追加 commit 并 push，PR 自动更新。如需修改标题/描述，用 `gitcode_update_pull_request`。
 

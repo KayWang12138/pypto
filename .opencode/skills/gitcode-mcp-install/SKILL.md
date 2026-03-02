@@ -19,9 +19,10 @@ source_url: https://gitcode.com/gitcode-ai/gitcode_mcp_server
 | 禁止项 | 说明 |
 |--------|------|
 | 明文显示 | 输出必须遮罩（如 `abcd****efgh`），仅保留首尾各4位 |
-| 非配置存储 | Token 只能存于 `~/.config/opencode/opencode.json` |
+| 非配置存储 | Token 只能存于 `~/.config/opencode/opencode.json` 或环境变量 |
 | 询问用户 | 不得要求用户提供 Token，由用户自行编辑配置文件 |
 | 硬编码 | 文档/代码示例必须用占位符 `<YOUR_GITCODE_TOKEN>` |
+| **打印环境变量** | ⚠️ 禁止在任何输出中打印 `GITCODE_TOKEN` 或 `GITCODE_KEY`，包括调试信息 |
 
 ---
 
