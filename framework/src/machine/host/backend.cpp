@@ -369,13 +369,25 @@ static std::string BuildControlFlowCallee(Function *func, int ident) {
 }
 
 static void GenerateExpression(SymbolicExpressionTable *exprTable, int devRootKey, const std::string &expName,
-    std::vector<std::string> &exprSrcFiles, std::ostringstream &controlFlowOss, std::ostringstream &exprHeaderOss, int indent) {
+    std::vector<std::string> &exprSrcFiles, std::ostringstream &controlFlowOss, std::ostringstream &exprHeaderOss, int indent,
+    const std::unordered_map<std::string, TensorType> &tensorNameToType) {
     const auto &primaryExprs = exprTable->GetPrimaryExpressionSet();
     size_t totalExprs = primaryExprs.size();
     std::string outputDir = GetEmitPath("kernel_aicpu");
     ExprBatchGenerator generator(outputDir, devRootKey, totalExprs);
+    
+    // 创建tensor类型查询函数，使用exprTable中存储的映射
+    auto getTensorTypeFunc = [exprTable](const std::string& inputName) -> TensorType {
+        auto it = tensorNameToType.find(inputName);
+        ASSERT(it != tensorNameToType.end())<<"Tensor "<<inputName<<" not found in tensorNameToType";
+        return it->second;
+    };
+    
     generator.GenerateBatchFile(controlFlowOss, exprHeaderOss, expName, primaryExprs, exprSrcFiles, indent, devRootKey,
-            [&exprTable](const auto& expr) { return exprTable->BuildExpression(expr); });
+            [exprTable](const auto& expr) { return exprTable->BuildExpression(expr); },
+            [exprTable, getTensorTypeFunc](const std::string &expr) { 
+                return SymbolicExpressionTable::ContainsRuntimeCall(expr, "RUNTIME_GetInputDataInt32Dim", getTensorTypeFunc); 
+            });
 }
 
 static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::string &sectionName,
@@ -387,7 +399,8 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
     std::ostringstream &expressionOss, std::ostringstream &exprHeaderOss,
     int indent, const std::string &expName, std::vector<std::string> &exprSrcFiles) {
     auto funcType = func->GetFunctionType();
-        if (funcType == FunctionType::DYNAMIC) {
+    std::unordered_map<std::string, TensorType> tensorNameToType;
+    if (funcType == FunctionType::DYNAMIC) {
         controlFlowOss
             << "#define __TILE_FWK_AICPU__ 1\n"
             << "#include <stdint.h>\n"
@@ -405,14 +418,32 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         const std::vector<std::string> &outputNameList = Program::GetInstance().GetTensorSlotManager()->GetOutputNameList();
 
         expressionOss << "\n/* Input tensor list */\n";
+        auto tensorSlotManager = Program::GetInstance().GetTensorSlotManager();
         for (size_t idx = 0; idx < inputNameList.size(); idx++) {
             expressionOss << "#define " << AddArgPrefix(inputNameList[idx]) << " " << idx << "\n";
+            // 从 inputSlotList 中获取对应的 TensorSlot，然后获取 TensorType
+            const auto &inputSlot = tensorSlotManager->inputSlotList[idx];
+            const auto *tensor = reinterpret_cast<const Tensor *>(inputSlot.GetSlot());
+            if (tensor && tensor->GetStorage(false)) {
+                tensorNameToType[inputNameList[idx]] = tensor->GetStorage(false)->GetRawTensor()->GetTensorType();
+            } else {
+                tensorNameToType[inputNameList[idx]] = TensorType::DEPEND_CONST;
+            }
         }
 
         expressionOss << "\n/* Output tensor list */\n";
         for (size_t idx = 0; idx < outputNameList.size(); idx++) {
             expressionOss << "#define " << AddArgPrefix(outputNameList[idx]) << " " << idx + inputNameList.size() << "\n";
+            // 从 outputSlotList 中获取对应的 TensorSlot，然后获取 TensorType
+            const auto &outputSlot = tensorSlotManager->outputSlotList[idx];
+            const auto *tensor = reinterpret_cast<const Tensor *>(outputSlot.GetSlot());
+            if (tensor && tensor->GetStorage(false)) {
+                tensorNameToType[outputNameList[idx]] = tensor->GetStorage(false)->GetRawTensor()->GetTensorType();
+            } else {
+                tensorNameToType[outputNameList[idx]] = TensorType::DEPEND_CONST;
+            }
         }
+        expressionOss << "#define SYNC_TIMEOUT 48000000000\n";
         controlFlowOss << "#define LOOP(idx, b, e, s) for (int64_t idx = (b), idxEnd = (e), idxStep = (s); idx < idxEnd; idx += idxStep)\n"
             << "namespace npu::tile_fwk {\n"
             << BuildControlFlowCallee(func, 0)
@@ -531,7 +562,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
 
         SymbolicExpressionTable *exprTable = linker.LookupDevRootCoa(func);
         if (exprTable != nullptr) {
-            GenerateExpression(exprTable, devRootKey, expName, exprSrcFiles, controlFlowOss, exprHeaderOss, indent);
+            GenerateExpression(exprTable, devRootKey, expName, exprSrcFiles, controlFlowOss, exprHeaderOss, indent, tensorNameToType);
         }
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_RootStitch(" << devRootKey << "ULL);\n";
     } else {

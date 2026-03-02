@@ -817,6 +817,8 @@ struct SymbolicExpressionTable {
     std::string elementKey_;
     std::string title_;
     SymbolicScalar mainBlockScalar_;
+    // 存储inputName到TensorType的映射
+    std::unordered_map<std::string, TensorType> inputNameToTensorTypeMap_;
 
     void SetElementKeyOnce(const std::string &key);
     void SetTitleOnce(const std::string &title);
@@ -895,6 +897,9 @@ struct SymbolicExpressionTable {
     static std::string BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
     static std::string BuildExpression(const SymbolicScalar &ss);
     static std::string BuildExpression(const RawSymbolicScalarPtr &ss);
+    
+    static bool ContainsRuntimeCall(const std::string &expr, const std::string &runtimeFuncName,
+        const std::function<TensorType(const std::string&)> &getTensorTypeFunc = nullptr);
 private:
     static void BuildExtremaExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict, std::ostringstream &oss);
     static std::string BuildExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
