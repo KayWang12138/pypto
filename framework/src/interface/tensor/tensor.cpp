@@ -72,12 +72,12 @@ void CheckShapeValid(DataType &dataType, const Shape &shape, TileOpFormat &forma
     }
 }
 
-Tensor::Tensor(DataType dataType, const Shape &shape, std::string name, TileOpFormat format)
+Tensor::Tensor(DataType dataType, const Shape &shape, std::string name, TileOpFormat format, bool dependConst)
     : index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId()) {
     CheckShapeValid(dataType, shape, format);
     auto dynShape = ToDynShape(name, shape);
     storage_ = std::make_shared<LogicalTensor>(
-        *Program::GetInstance().GetCurrentFunction(), dataType, shape, dynShape, format, name, NodeType::LOCAL);
+        *Program::GetInstance().GetCurrentFunction(), dataType, shape, dynShape, format, name, NodeType::LOCAL, dependConst);
     storage_->tensor->AddRefCount(1);
     Program::GetInstance().GetTensorSlotManager()->TensorConstruct(*this);
 
@@ -86,8 +86,8 @@ Tensor::Tensor(DataType dataType, const Shape &shape, std::string name, TileOpFo
     Program::GetInstance().GetTensorSlotManager()->TensorSymbol(*this, name);
 }
 
-Tensor::Tensor(DataType dataType, std::vector<SymbolicScalar> shape, std::string name, TileOpFormat format)
-    : Tensor(dataType, SymbolicScalar::Concrete(shape, -1), name, format) {
+Tensor::Tensor(DataType dataType, std::vector<SymbolicScalar> shape, std::string name, TileOpFormat format, bool dependConst)
+    : Tensor(dataType, SymbolicScalar::Concrete(shape, -1), name, format, dependConst) {
     auto rawTensor = storage_->GetRawTensor();
     for (size_t axis = 0; axis < shape.size(); axis++) {
         if (shape[axis].ConcreteValid() && shape[axis].Concrete() == -1) {
@@ -267,6 +267,16 @@ void Tensor::SetName(const std::string &name) const {
 
 std::string Tensor::GetName() const {
     return storage_ ? storage_->tensor->GetSymbol() : "";
+}
+
+void Tensor::SetDependConst(bool dependConst) {
+    if (storage_) {
+        storage_->tensor->dependConst = dependConst;
+    }
+}
+
+bool Tensor::GetDependType() const {
+    return storage_ ? storage_->tensor->dependConst : false;
 }
 
 SymbolicScalar npu::tile_fwk::GetInputShape(const Tensor &t, int n) {

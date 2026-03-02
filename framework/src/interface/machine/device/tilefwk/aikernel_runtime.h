@@ -19,6 +19,29 @@
 #include "tilefwk/aikernel_data.h"
 
 constexpr int MAIN_BLOCK_INDEX = 1;
+constexpr uint64_t SYNC_TIMEOUT = 48000000000;
+
+inline uint64_t GetCycles() {
+#if defined(__aarch64__) && defined(__DEVICE__)
+    uint64_t cycles;
+    asm volatile("mrs %0, cntvct_el0" : "=r"(cycles));
+    return cycles;
+#else
+    return 0U;
+#endif
+}
+
+inline void WaitAicoreStart([[maybe_unused]]npu::tile_fwk::DevStartArgsBase *startArgs) {
+#if defined(__aarch64__) && defined(__DEVICE__)
+    uint64_t start = GetCycles();
+    while (startArgs->syncFlag != 1) {
+        if (GetCycles() - start > SYNC_TIMEOUT) {
+            break;
+        }
+    }
+#endif
+}
+
 
 #ifdef __TILE_FWK_AICPU__
 

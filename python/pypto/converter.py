@@ -22,12 +22,13 @@ def _count_calls(func):
 
     @wraps(func)
     def wrapper(tensor, name: str = "", *, dynamic_axis: Optional[List[int]] = None,
-                tensor_format: Optional[TileOpFormat] = None, dtype: Optional[DataType] = None):
+                tensor_format: Optional[TileOpFormat] = None, dtype: Optional[DataType] = None,
+                dependConst: bool = False):
         nonlocal count
         count += 1
         if name == "":
             name = f"TENSOR_{count}"
-        return func(tensor, name, dynamic_axis, tensor_format, dtype)
+        return func(tensor, name, dynamic_axis, tensor_format, dtype, dependConst)
 
     return wrapper
 
@@ -43,7 +44,8 @@ def _check_nz_format(tensor):
 
 @_count_calls
 def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
-               tensor_format: Optional[TileOpFormat] = None, dtype: Optional[DataType] = None):
+               tensor_format: Optional[TileOpFormat] = None, dtype: Optional[DataType] = None,
+               dependConst: bool = False):
     """
     convert the input into a PyPTO Tensor
 
@@ -105,7 +107,6 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
             if torch_npu.get_npu_format(tensor) == 29:
                 tensor_format = TileOpFormat.TILEOP_NZ
                 _check_nz_format(tensor)
-
     dtype = _dtype_from(tensor.dtype) if dtype is None else dtype
     if tensor.dim() == 0:
         return Tensor(
@@ -115,6 +116,7 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
             data_ptr=tensor.data_ptr(),
             format=tensor_format,
             device=tensor.device,
+            dependConst = dependConst
         )
     dyn_shape = list(tensor.shape)
     if dynamic_axis is not None:
@@ -128,6 +130,7 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
         format=tensor_format,
         device=tensor.device,
         ori_shape=list(tensor.shape),
+        dependConst = dependConst
     )
 
 

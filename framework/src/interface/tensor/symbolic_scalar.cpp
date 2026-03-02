@@ -32,7 +32,9 @@ std::string CompileSourceCode(const std::string &sourceFilePath, const std::stri
     std::string objectFilePath = sourceFilePath + "_t.o";
     std::string LD_PRELOAD = "LD_PRELOAD= ";
     std::string includePath = GetCurrentSharedLibPath() + "/../include/tile_fwk";
+    std::string macro = extraCflag.empty() ? "-D__DEVICE__" : "";
     std::string cmdGcc = LD_PRELOAD + gcc + " -fPIC -fno-stack-protector -O2 " + extraCflag +
+        " " + macro + " " +
         " -I" + includePath + " " +
         " -I" + GetCurrentSharedLibPath() + "/include/" +
         " -I" + includePath + "/tilefwk " +
@@ -137,16 +139,17 @@ void SymbolicExpressionTable::SetTitleOnce(const std::string &title) {
     }
 }
 
-std::string SymbolicExpressionTable::BuildExpression(const SymbolicScalar &ss) {
+std::string SymbolicExpressionTable::BuildExpression(const SymbolicScalar &ss, CheckTensorDependCallback callback) {
     return BuildExpression(ss.Raw());
 }
 
-std::string SymbolicExpressionTable::BuildExpression(const RawSymbolicScalarPtr &ss) {
+std::string SymbolicExpressionTable::BuildExpression(const RawSymbolicScalarPtr &ss, CheckTensorDependCallback callback) {
     std::string expr = BuildExpressionByRaw(ss, {});
     return expr;
 }
 
-std::string SymbolicExpressionTable::BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict) {
+std::string SymbolicExpressionTable::BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict,
+    CheckTensorDependCallback callback) {
     if (exprDict.count(raw)) {
         return exprDict.find(raw)->second;
     }
@@ -205,7 +208,8 @@ void SymbolicExpressionTable::BuildExtremaExpressionCode(const RawSymbolicExpPtr
     }
 }
 
-std::string SymbolicExpressionTable::BuildExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict) {
+std::string SymbolicExpressionTable::BuildExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict,
+    CheckTensorDependCallback callback) {
     std::ostringstream oss;
     oss << "(";
     if (SymbolicOpcode::T_UOP_BEGIN <= expr->Opcode() && expr->Opcode() < SymbolicOpcode::T_UOP_END) {
@@ -222,6 +226,11 @@ std::string SymbolicExpressionTable::BuildExpressionCode(const RawSymbolicExpPtr
         BuildExtremaExpressionCode(expr, exprDict, oss);
     } else if (expr->Opcode() == SymbolicOpcode::T_MOP_CALL) {
         std::string callee = BuildExpressionByRaw(expr->OperandList()[0], exprDict);
+        if (CallIsGetInputData(callee)) {
+            ASSERT(expr->OperandList().size() > 2);
+            const auto &argName = std::dynamic_pointer_cast<RawSymbolicSymbol>(expr->OperandList()[1])->Name();
+            callback(argName);
+        }
         if (CheckRuntimePrefix(callee)) {
             oss << callee;
         } else {

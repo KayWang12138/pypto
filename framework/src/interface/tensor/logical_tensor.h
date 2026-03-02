@@ -72,9 +72,9 @@ public:
     TileRange memoryrange;
 
     LogicalTensor(Function &function, DataType t, Shape tshape, TileOpFormat tformat = TileOpFormat::TILEOP_ND, std::string tname = "",
-        NodeType tnodetype = NodeType::LOCAL);
+        NodeType tnodetype = NodeType::LOCAL, bool dependConst = false);
     LogicalTensor(Function &function, DataType t, Shape tshape, std::vector<SymbolicScalar> tValidShape,
-        TileOpFormat tformat = TileOpFormat::TILEOP_ND, std::string tname = "", NodeType tnodetype = NodeType::LOCAL);
+        TileOpFormat tformat = TileOpFormat::TILEOP_ND, std::string tname = "", NodeType tnodetype = NodeType::LOCAL, bool dependConst = false);
     LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawTensor, Offset toffset, Shape tshape,
         NodeType tnodetype = NodeType::LOCAL);
     LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawTensor, Offset toffset, Shape tshape,
