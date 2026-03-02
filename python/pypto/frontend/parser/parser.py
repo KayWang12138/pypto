@@ -586,6 +586,14 @@ class Parser(ast.NodeVisitor):
         if not self.context.frames:
             return
 
+        def get_tuple_runtime_value(current_value: tuple):
+            current_value_list = list(current_value)
+            for axis, dim in enumerate(current_value):
+                if isinstance(dim, pypto.SymbolicScalar):
+                    dim = self._bound_dim_values[str(dim)]
+                    current_value_list[axis] = dim
+            return current_value_list
+
         current_frame = self.context.frames[-1]
         for var_name in list(current_frame.vars):
             values_stack = self.context.name2value.get(var_name, [])
@@ -595,12 +603,7 @@ class Parser(ast.NodeVisitor):
             if (
                 isinstance(current_value, tuple)
             ):
-                current_value_list = list(current_value)
-                for axis, dim in enumerate(current_value):
-                    if isinstance(dim, pypto.SymbolicScalar):
-                        dim = self._bound_dim_values[str(dim)]
-                        current_value_list[axis] = dim
-                self.context.add(var_name, tuple(current_value_list))
+                self.context.add(var_name, tuple(get_tuple_runtime_value(current_value)))
             elif (
                 isinstance(current_value, SymbolicScalar)
                 and str(current_value) in self._bound_dim_values
