@@ -33,15 +33,35 @@ std::vector<int64_t> NormalizeShape(const std::vector<int64_t> &shapeVec, unsign
     return normalizedVec;
 }
 
-std::string FormatFloat(const std::variant<int64_t, uint64_t, double> &v, int precision) {
-    return std::visit(
-        [&](auto &&val) -> std::string {
-            std::ostringstream oss;
+// 提取为静态模板函数
+class FloatFormatter {
+public:
+    std::string Format(
+        const std::variant<int64_t, uint64_t, double> &v, DataType dtype = DataType::DT_FP32, int precision = 6) {
+        return std::visit([&](auto &&val) -> std::string { return FormatImpl(val, dtype, precision); }, v);
+    }
+
+private:
+    // 模板实现函数
+    template <typename T>
+    static std::string FormatImpl(T val, [[maybe_unused]] DataType dtype, int precision) {
+        std::ostringstream oss;
+        oss << std::setprecision(precision) << val;
+        return oss.str();
+    }
+
+    // double 类型的特化版本
+    static std::string FormatImpl(double val, DataType dtype, int precision) {
+        std::ostringstream oss;
+        if (std::isinf(val) || std::isnan(val)) {
+            FloatSpecVal fsv = {dtype, val};
+            oss << fsv.GetFsValStr();
+        } else {
             oss << std::setprecision(precision) << val;
-            return oss.str();
-        },
-        v);
-}
+        }
+        return oss.str();
+    }
+};
 
 std::string GetTypeForB16B32(const DataType &dtype) {
     if (BytesOf(dtype) == K_BYTES_OF16_BIT) {
