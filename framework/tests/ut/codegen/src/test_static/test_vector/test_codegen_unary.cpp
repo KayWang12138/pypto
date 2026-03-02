@@ -160,7 +160,7 @@ Function &TestFullBody(
     TileShape::Current().SetVecTile(tileShape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, shape, "C");
-    Element value(DataType::DT_FP32, 2.0);
+    Element value(DataType::DT_FP32, 2.0f);
     config::SetBuildStatic(true);
     FUNCTION(name, {input_a, output}) {
         output = Full(value, DT_FP32, shape, {});
@@ -175,8 +175,7 @@ Function &TestFullBody(
 TEST_F(TestCodegenUnary, FullDim2TileTensor) {
     Function &func = TestFullBody({32, 32}, {16, 16}, "FULL_DIM2_TILETENSOR", true);
     std::string res = GetResultFromCpp(func);
-    std::string expect = R"!!!(TVecDup<float>(ubTensor_1, 2.000000);
-)!!!";
+    std::string expect = R"!!!(TVecDup<float>(ubTensor_1, 2);)!!!";
     CheckStringExist(expect, res);
 }
 
