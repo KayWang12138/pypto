@@ -191,7 +191,7 @@ def rms_norm_bias(tensor_value, gamma, bias, mean_coff, eps, tile_shape):
     input_dtype = tensor_value.dtype
     # cast
     pypto.set_vec_tile_shapes(*tile_shape)
-    tensor_value_fp32 = pypto.cast(tensor_value, pypto.DT_FP32)
+    tensor_value_fp32 = pypto.cast(tensor_value, pypto.DT_FP32, )
 
     # square
     square = pypto.mul(tensor_value_fp32, tensor_value_fp32)
