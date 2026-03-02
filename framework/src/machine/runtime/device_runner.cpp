@@ -394,14 +394,11 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     args.tracrData = reinterpret_cast<uint64_t>(DevAlloc(size));
 
     int rc = rtMemset(reinterpret_cast<void *>(args.tracrData), size, 0, size);
-    if (rc != 0) {
-        ALOG_INFO_F("rtMemset sync failed");
-        return -1;
-    }
 
     args.tracrDataSizes = reinterpret_cast<uint64_t>(DevAlloc(MAX_STATIC_SCHEDULE_AICPU_NUM * sizeof(size_t)));
 
-    if (args.tracrData == 0 || args.tracrDataSizes == 0) {
+    if (args.tracrData == 0 || args.tracrDataSizes == 0 || rc != 0) {
+        ALOG_ERROR_F("TraCR enabled allocating device memory failed");
         return -1;
     }
 #endif
