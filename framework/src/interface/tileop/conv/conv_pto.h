@@ -348,7 +348,6 @@ template <typename T, typename U>
 INLINE void TStoreConv3DNZ2DN(T &dst, U &src, const OffsetInfo &offsetInfo, const int64_t &realM, const int64_t &realN) {
     constexpr auto srcM = Std::tuple_element<CONV_IDX_0, typename U::TileShape>::type::value;
     constexpr auto srcN = Std::tuple_element<CONV_IDX_1, typename U::TileShape>::type::value;
-    int64_t dstN = GetConvShape<CONV_IDX_0>(dst);
     int64_t dstC = GetConvShape<CONV_IDX_1>(dst);
     int64_t dstD = GetConvShape<CONV_IDX_2>(dst);
     int64_t dstH = GetConvShape<CONV_IDX_3>(dst);
@@ -361,11 +360,11 @@ INLINE void TStoreConv3DNZ2DN(T &dst, U &src, const OffsetInfo &offsetInfo, cons
 
     ShapeInfo shapeInfo{dstC, dstD, dstH, dstW};
     int64_t gmOffset = CalStoreOffsetNCDHW(shapeInfo, offsetInfo);
-    using shapeDim5 = pto::Shape<-1, -1, -1, -1, -1>;
+    using shapeDim5 = pto::Shape<1, -1, -1, -1, -1>;
     using strideDim5 = pto::Stride<-1, -1, -1, -1, -1>;
     using globalData = pto::GlobalTensor<typename T::Type, shapeDim5, strideDim5, pto::Layout::NCDHW>;
     globalData dstGlobal((__gm__ typename T::Type *)(dst.GetAddr() + gmOffset),
-        shapeDim5(dstN, dstC, dstD, dstH, dstW),
+        shapeDim5(dstC, dstD, dstH, dstW),
         strideDim5(dstStrideN, dstStrideC, dstStrideD, dstStrideH, dstStrideW));
     using tileData = pto::Tile<pto::TileType::Acc, typename U::Type, srcM, srcN, pto::BLayout::ColMajor, -1, -1,
         pto::SLayout::RowMajor, pto::TileConfig::fractalCSize, pto::PadValue::Null, pto::CompactMode::Normal>;
