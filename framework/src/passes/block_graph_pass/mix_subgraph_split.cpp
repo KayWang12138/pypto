@@ -335,7 +335,7 @@ Status MixSubgraphSplit::GenNewFunctions(Function& rootFunc, Function* originalM
         auto newFunc = functionClone.CloneFunctionByComponent(components[i], newProgramIDs[i], i);
         if (newFunc == nullptr) {
             ALOG_ERROR_F("CloneFunctionByComponent failed for function: %s",
-                        originalFunc->GetRawName().c_str());
+                        originalMixFunc->GetRawName().c_str());
             return FAILED;  // 或者适当的错误处理
         }
         subgraphToFunction.InsertParameter(i, *newFunc);
