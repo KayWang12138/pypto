@@ -35,6 +35,7 @@ struct CannHostRuntime {
         }
     }
     bool GetSocVersion(std::string& socVersion);
+    std::string GetPlatformFile(const std::string &socVersion);
 private:
     CannHostRuntime();
 #ifdef BUILD_WITH_CANN

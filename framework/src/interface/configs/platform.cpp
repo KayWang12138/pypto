@@ -92,27 +92,6 @@ std::string ToJsonString(const std::string& s) {
     return escaped_s;
 }
 
-std::string GetPlatformFile(const std::string &socVersion) {
-    if (socVersion.empty()) {
-        return "";
-    }
-    // get platform file path
-    const char *envPath = std::getenv("ASCEND_HOME_PATH");
-    if (envPath == nullptr) {
-        return "";
-    }
-    std::string configRelativePath = "data/platform_config/";
-    std::string platformConfDir = std::string(envPath) + "/" + std::string(PROCESSOR_SUBPATH) + "/" + configRelativePath;
-    if (RealPath(platformConfDir).empty()) {
-        platformConfDir = std::string(envPath) + "/" + configRelativePath;
-    }
-    std::string platformFile = platformConfDir + socVersion + ".ini";
-    if (RealPath(platformFile).empty()) {
-        return "";
-    }
-    return platformFile;
-}
-
 size_t Core::GetMemorySize(MemoryType type) const {
     auto it = memories_.find(type);
     if (it != memories_.end()) {
@@ -355,7 +334,7 @@ void Platform::ObtainPlatformInfo() {
     std::string socVersion;
     auto &cannHostObj = CannHostRuntime::GetObj();
     if (cannHostObj.GetSocVersion(socVersion)) {
-        srcPath = GetPlatformFile(socVersion);
+        srcPath = cannHostObj.GetPlatformFile(socVersion);
     }
     if (srcPath.empty()) {
         FUNCTION_LOGW("Cannot obtain ini from the device, using default ini file.");
