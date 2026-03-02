@@ -22,9 +22,9 @@ from ._element import Element
 
 class Tensor:
 
-    def __init__(self, shape=None, dtype: Union[DataType, None] = None,
-                 name: str = "", format: TileOpFormat = TileOpFormat.TILEOP_ND,
-                 data_ptr: Optional[int] = None, device=None, ori_shape=None):
+    def __init__(self, shape=None, dtype: Union[DataType, None] = None, name: str = "",
+                 format: TileOpFormat = TileOpFormat.TILEOP_ND, data_ptr: Optional[int] = None,
+                 device=None, ori_shape=None, dependConst: bool = False):
         self.ori_shape = None
         self.status_shape = None
         if shape is None or dtype is None:
@@ -34,7 +34,7 @@ class Tensor:
             self._base = pypto_impl.Tensor(ndtype, nshape, name, format)
         elif shape and all([isinstance(s, int) for s in shape]):
             nshape = typing.cast(List[int], shape)
-            self._base = pypto_impl.Tensor(dtype, nshape, name, format)
+            self._base = pypto_impl.Tensor(dtype, nshape, name, format, dependConst)
             self.ori_shape = ori_shape
         elif isinstance(shape, list) and self._validate_status_shape(shape):
             nshape = []
@@ -44,7 +44,7 @@ class Tensor:
             sym_shape = to_syms(shape)
             assert isinstance(
                 sym_shape, list), "shape must be a list of int or SymbolicScalar"
-            self._base = pypto_impl.Tensor(dtype, sym_shape, name, format)
+            self._base = pypto_impl.Tensor(dtype, sym_shape, name, format, dependConst)
         self.data_ptr = data_ptr
         self.device = device
 
@@ -324,6 +324,28 @@ class Tensor:
     @name.setter
     def name(self, value: str) -> None:
         self._base.SetName(value)
+
+    def SetDependConst(self, dependConst: bool) -> None:
+        """
+        Set the depend type of Tensor.
+
+        Parameters
+        ----------
+        dependConst : bool
+            Whether the tensor depends on const.
+        """
+        self._base.SetDependConst(dependConst)
+
+    def GetDependType(self) -> bool:
+        """
+        Get the depend type of Tensor.
+
+        Returns
+        -------
+        bool
+            Whether the tensor depends on const.
+        """
+        return self._base.GetDependType()
 
     @staticmethod
     def _validate_status_shape(lst):
