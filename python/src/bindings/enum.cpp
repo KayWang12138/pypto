@@ -114,6 +114,11 @@ void bind_enum(py::module &m){
         .value("CAST_ODD", CastMode::CAST_ODD)
         .export_values();
 
+    py::enum_<SaturationMode>(m, "SaturationMode")
+        .value("OFF", SaturationMode::OFF)
+        .value("ON", SaturationMode::ON)
+        .export_values();
+
     py::enum_<TileType>(m, "TileType")
         .value("VEC", TileType::VEC)
         .value("CUBE", TileType::CUBE)
@@ -144,6 +149,11 @@ void bind_enum(py::module &m){
         .value("LOG_E", LogBaseType::LOG_E)
         .value("LOG_2", LogBaseType::LOG_2)
         .value("LOG_10", LogBaseType::LOG_10)
+        .export_values();
+
+    py::enum_<Distributed::AtomicType>(m, "AtomicType")
+        .value("SET", Distributed::AtomicType::SET)
+        .value("ADD", Distributed::AtomicType::ADD)
         .export_values();
 }
 }
