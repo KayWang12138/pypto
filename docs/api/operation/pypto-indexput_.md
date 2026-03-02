@@ -43,7 +43,7 @@ index_put_(input: Tensor, indices: tuple, values: Tensor, accumulate: bool = Fal
 
 5. viewshape为一维，针对indices中的每个一维Tensor和values的第0维进行切分，values的其它维度不做切分。
 
-6. TileShape为一维，针对indices中的每个一维Tensor和values的第0维进行切分，values的其它维度不做切分。indices和values的TileShape大小总和不能超过UB内存的大小。
+6. TileShape的维度不超过values的维度，针对input的除第一维外的其他维度、indices中的每个一维Tensor和values进行切分。indices和values的TileShape大小总和不能超过UB内存的大小。
 
 ## 调用示例
 
@@ -51,13 +51,13 @@ index_put_(input: Tensor, indices: tuple, values: Tensor, accumulate: bool = Fal
 
 调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
 
-TileShape维度应为一维。
+TileShape的维度不超过values的维度，若TileShape的维度小于values的维度，则TileShape在切分时会自动补全后续维度与values的shape一致。
 
-输入input和输出均在gm上，不涉及tile切分。输入indices和输入values需要搬入ub，涉及tile切分。
+如输入input为[m, n, p]，输入indices为([t])，输入values为[t, n, p]，输出为[m, n, p], TileShape设置为[t1, n1, p1]，则t1用于切分t轴，n1用于切分n轴，p1用于切分p轴，m轴不切。
 
-如输入input为[m, n, p]，输入indices为([t])，输入values为[t, n, p]，输出为[m, n, p], TileShape设置为[t1], 则t1用于切分t轴。输入values的n轴和p轴不可切，必须保证n轴p轴全载。
+如输入input为[m, n, p]，输入indices为([t])，输入values为[t, n, p]，输出为[m, n, p], TileShape设置为[t1, n1]，则TileShape会自动补全为[t1, n1, p]，t1用于切分t轴，n1用于切分n轴，m轴和p轴不切。
 
-如输入input为[m, n, p]，输入indices为([t], [t])，输入values为[t, p]，输出为[m, n, p], TileShape设置为[t1], 则t1用于切分t轴。输入values的p轴不可切，必须保证p轴全载。
+如输入input为[m, n, p]，输入indices为([t], [t])，输入values为[t, p]，输出为[m, n, p], TileShape设置为[t1, p1], 则t1用于切分t轴，p1用于切分p轴，m轴和n轴不切。
 
 ```python
 pypto.set_vec_tile_shapes(16)
