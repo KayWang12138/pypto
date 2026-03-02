@@ -119,7 +119,7 @@ std::string CodeGenCloudNPU::GenLimitValue(FloatSaturateStatus &fs) const {
 void CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc, std::ostringstream &oss) const {
     OperationsViewer operationList = subFunc.Operations(false);
     if (operationList.IsEmpty()) {
-        ALOG_ERROR("operationList from PASS is empty, func magic name: %s, func hash: %s",
+        CODEGEN_LOGW("operationList from PASS is empty, func magic name: %s, func hash: %s",
             subFunc.GetMagicName().c_str(), subFunc.GetFunctionHash().c_str());
     }
 
@@ -322,7 +322,7 @@ void CodeGenCloudNPU::DumpCCE(const std::string &fileName, std::ostringstream &o
         cceFile.flush();
         cceFile.close();
     } catch (const std::ofstream::failure &e) {
-        ALOG_ERROR_F("CCE file operation failed: %s, error: %s, errno: %d", fileName.c_str(), e.what(), errno);
+        CODEGEN_LOGE("CCE file operation failed: %s, error: %s, errno: %d", fileName.c_str(), e.what(), errno);
         cceFile.close();
         std::remove(fileName.c_str());
         return;
@@ -410,7 +410,7 @@ int CheckInjectStr(const char cmdStr[], size_t strLen) {
 
 void CodeGenCloudNPU::DoCompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const {
     if (config::GetHostOption<int64_t>(COMPILE_STAGE) == CS_CODEGEN_INSTRUCTION) {
-        ALOG_INFO("Compile stage terminates after codegen instruction.");
+        CODEGEN_LOGI("Compile stage terminates after codegen instruction.");
         return;
     }
     auto [ret, ccecCmd] = CompileCCE(compileInfo, compileOptions);
