@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -194,7 +194,7 @@ TILEOP __gm__ T* MapVirtualAddr(__gm__ int64_t *hcclContext, __gm__ T* vAddr, ui
 }
 
 template<typename T>
-TILEOP __gm__ T* MapAndOffsetShmem3D(__gm__ int64_t* hcclContext, __gm__ T* shmemBase, uint32_t rankOffset,
+TILEOP __gm__ T* MapAndOffsetShmem(__gm__ int64_t* hcclContext, __gm__ T* shmemBase, uint32_t rankOffset,
     uint32_t offset1, uint32_t offset2, uint32_t offset3, uint32_t rawShape2, uint32_t rawShape3)
 {
     uint32_t linearOffset = TileOp::CalcLinearOffset(rawShape2, rawShape3, offset1, offset2, offset3);

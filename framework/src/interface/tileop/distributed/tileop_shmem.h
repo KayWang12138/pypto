@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -102,7 +102,7 @@ template<typename T, uint32_t shmemTensorRawShape1, uint32_t shmemTensorRawShape
 TILEOP void ShmemSet(__ubuf__ T* buffer, __gm__ T* shmemTensorBaseAddr, uint32_t shmemTensorOffset0,
     uint32_t shmemTensorOffset1, uint32_t shmemTensorOffset2, uint32_t shmemTensorOffset3, __gm__ int64_t *hcclContext)
 {
-    __gm__ T* shmemTensorAddr = MapAndOffsetShmem3D(
+    __gm__ T* shmemTensorAddr = MapAndOffsetShmem(
         hcclContext, shmemTensorBaseAddr, shmemTensorOffset0, shmemTensorOffset1, shmemTensorOffset2, shmemTensorOffset3,
         shmemTensorRawShape2, shmemTensorRawShape3);
     ShmemClear<T, bufferEleNum, shmemTensorRawShape1, shmemTensorRawShape2, shmemTensorRawShape3>(buffer, shmemTensorAddr);
@@ -413,7 +413,7 @@ TILEOP void ShmemPut(__ubuf__ NonShmemType* buffer, __gm__ NonShmemType* nonShme
     }
     __gm__ NonShmemType* srcAddr = nonShmemDataBaseAddr + TileOp::CalcLinearOffset(nonShmemDataRawShape1,
         nonShmemDataOffset0, nonShmemDataOffset1);
-    __gm__ ShmemType* dstAddr = MapAndOffsetShmem3D(
+    __gm__ ShmemType* dstAddr = MapAndOffsetShmem(
         hcclContext, shmemDataBaseAddr, shmemDataOffset0, shmemDataOffset1, shmemDataOffset2, shmemDataOffset3,
         shmemDataRawShape2, shmemDataRawShape3);
     
@@ -439,10 +439,10 @@ TILEOP void ShmemPut(__ubuf__ InShmemType* buffer, __gm__ InShmemType* inShmemDa
     (void)inShmemDataRawShape0;
     (void)shmemDataRawShape0;
     
-    __gm__ InShmemType* inShmemDataAddr = MapAndOffsetShmem3D(
+    __gm__ InShmemType* inShmemDataAddr = MapAndOffsetShmem(
         hcclContext, inShmemDataBaseAddr, inShmemDataOffset0, inShmemDataOffset1, inShmemDataOffset2, inShmemDataOffset3,
         inShmemDataRawShape2, inShmemDataRawShape3);
-    __gm__ OutShmemType* shmemDataAddr = MapAndOffsetShmem3D(
+    __gm__ OutShmemType* shmemDataAddr = MapAndOffsetShmem(
         hcclContext, shmemDataBaseAddr, shmemDataOffset0, shmemDataOffset1, shmemDataOffset2, shmemDataOffset3,
         shmemDataRawShape2, shmemDataRawShape3);
     
@@ -461,7 +461,7 @@ TILEOP void ShmemPutUb2Gm(__ubuf__ UBType* UBDataBaseAddr, __gm__ ShmemType* shm
     (void)shmemDataRawShape0;
     
     __ubuf__ UBType* UBDataAddr = UBDataBaseAddr + TileOp::CalcLinearOffset(UBDataRawShape1, UBDataOffset0, UBDataOffset1);
-    __gm__ ShmemType* shmemDataAddr = MapAndOffsetShmem3D(
+    __gm__ ShmemType* shmemDataAddr = MapAndOffsetShmem(
         hcclContext, shmemDataBaseAddr, shmemDataOffset0, shmemDataOffset1, shmemDataOffset2, shmemDataOffset3,
         shmemDataRawShape2, shmemDataRawShape3);
     
@@ -519,7 +519,7 @@ TILEOP void ShmemGet(__gm__ NonShmemType* nonShmemDataBaseAddr, __ubuf__ NonShme
     
     __gm__ NonShmemType* nonShmemDataAddr = nonShmemDataBaseAddr + TileOp::CalcLinearOffset(nonShmemDataRawShape1,
         nonShmemDataOffset0, nonShmemDataOffset1);
-    __gm__ ShmemType* shmemDataAddr = MapAndOffsetShmem3D(
+    __gm__ ShmemType* shmemDataAddr = MapAndOffsetShmem(
         hcclContext, shmemDataBaseAddr, shmemDataOffset0, shmemDataOffset1, shmemDataOffset2, shmemDataOffset3,
         shmemDataRawShape2, shmemDataRawShape3);
 
@@ -548,7 +548,7 @@ TILEOP void ShmemGetGm2Ub(__ubuf__ UBType* UBDataBaseAddr, __ubuf__ UBType* buff
     (void)shmemDataRawShape0;
     
     __ubuf__ UBType* UBDataAddr = UBDataBaseAddr + TileOp::CalcLinearOffset(UBDataRawShape1, UBDataOffset0, UBDataOffset1);
-    __gm__ ShmemType* shmemDataAddr = MapAndOffsetShmem3D(
+    __gm__ ShmemType* shmemDataAddr = MapAndOffsetShmem(
         hcclContext, shmemDataBaseAddr, shmemDataOffset0, shmemDataOffset1, shmemDataOffset2, shmemDataOffset3,
         shmemDataRawShape2, shmemDataRawShape3);
     
