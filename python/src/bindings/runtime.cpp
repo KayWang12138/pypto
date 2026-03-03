@@ -323,14 +323,15 @@ struct ControlFlowCache {
 
 class KernelBinary {
 public:
-    KernelBinary(std::shared_ptr<Function> func) : dynFunc(func) {
+    KernelBinary(std::shared_ptr<Function> func, bool isCaptureMode) : dynFunc(func) {
         dynAttr = dynFunc->GetDyndevAttribute().get();
         devProg = (DevAscendProgram *)dynAttr->devProgBinary.data();
         kernelBin = DeviceLauncher::RegisterKernelBin(dynAttr->kernelBinary);
         workspaceSize = devProg->memBudget.Total();
         InitCachedArgs();
         auto aicpuArgs = (AiCpuArgs *)aicpuArgBuf.data();
-        DeviceLauncher::FillDeviceKernelArgs(dynAttr->devProgBinary, aicpuArgs->kArgs, dynAttr->commGroupNames);
+        DeviceLauncher::FillDeviceKernelArgs(
+            dynAttr->devProgBinary, aicpuArgs->kArgs, dynAttr->commGroupNames, isCaptureMode);
     }
 
     uint8_t *FindCtrlFlowCache(std::vector<std::vector<int64_t>> &inputs, bool isOriginShape) {
@@ -556,21 +557,22 @@ public:
         return devCache;
     }
 
-    KernelBinary *Compile(py::object &module, py::args &args) {
+    KernelBinary *Compile(py::object &module, py::args &args, bool isCaptureMode) {
         auto compile = py::getattr(module, "compile");
         compile(args);
-        return RegisterLastCompiledKernel(module);
+        return RegisterLastCompiledKernel(module, isCaptureMode);
     }
 
-    KernelBinary *CompileFromTorch(py::object &module, py::sequence &torch_tensors, py::sequence tensor_defs) {
+    KernelBinary *CompileFromTorch(
+        py::object &module, py::sequence &torch_tensors, py::sequence tensor_defs, bool isCaptureMode) {
         auto compile = py::getattr(module, "compile");
         compile(torch_tensors, tensor_defs);
-        return RegisterLastCompiledKernel(module);
+        return RegisterLastCompiledKernel(module, isCaptureMode);
     }
 
-    KernelBinary *RegisterLastCompiledKernel(py::object &module) {
+    KernelBinary *RegisterLastCompiledKernel(py::object &module, bool isCaptureMode) {
         auto func = Program::GetInstance().GetLastFunction();
-        auto kernel = new KernelBinary(Program::GetInstance().GetFunctionSharedPtr(func));
+        auto kernel = new KernelBinary(Program::GetInstance().GetFunctionSharedPtr(func), isCaptureMode);
         kernels.push_back(kernel);
         if (inferCacheShape) {
 #if ENABALE_VERBOSE_LOG
@@ -749,10 +751,12 @@ static int GetInputTensors(py::args &args, std::vector<DeviceTensorData> &tensor
 
 static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
     std::vector<DeviceTensorData> &tensors,
-    std::function<KernelBinary *(KernelModulePtr)> compile_fn) {
+    std::function<KernelBinary *(KernelModulePtr, bool)> compile_fn) {
     DeviceGuard devGuard(devId);
 
     auto kmodule = py::getattr(module, "kmodule").cast<KernelModulePtr>();
+    bool isCaptureMode = DeviceLauncher::IsCaptureMode(aicoreStream);
+
     HOST_PERF_TRACE(TracePhase::LaunchInit);
 
     auto kbinary = kmodule->GetKernelBinary(tensors);
@@ -762,7 +766,7 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
 #if ENABALE_VERBOSE_LOG
         ALOG_ERROR("compile kernel");
 #endif
-        kbinary = compile_fn(kmodule);
+        kbinary = compile_fn(kmodule, isCaptureMode);
     }
 
     kmodule->EmulationLaunch(kbinary, tensors);
@@ -778,10 +782,10 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
         wsAddr = (int64_t *)pyalloc(wsSize).cast<int64_t>();
     }
     HOST_PERF_TRACE(TracePhase::LaunchAllocWorkSpace);
-
-    bool isCaptureMode = DeviceLauncher::AddAicpuStream(aicoreStream, kmodule->IsTripleStream());
-    HOST_PERF_TRACE(TracePhase::LaunchAttachStream);
     
+    (void)DeviceLauncher::AddAicpuStream(aicoreStream, kmodule->IsTripleStream());
+    HOST_PERF_TRACE(TracePhase::LaunchAttachStream);
+
     uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors, isCaptureMode);
     HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
     
@@ -802,7 +806,9 @@ void LaunchKernelTorch(py::object &module, int64_t stream, py::sequence &torchTe
     int devId = TorchTensorConverter::Convert(torchTensors, tensorDefs, tensors);
 
     DoLaunch(module, aicoreStream, devId, tensors,
-        [&](KernelModulePtr km) { return km->CompileFromTorch(module, torchTensors, tensorDefs); });
+        [&](KernelModulePtr km, bool isCaptureMode) {
+            return km->CompileFromTorch(module, torchTensors, tensorDefs, isCaptureMode);
+        });
 }
 
 void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
@@ -814,7 +820,7 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
     auto devId = GetInputTensors(args, tensors);
 
     DoLaunch(module, aicoreStream, devId, tensors,
-        [&](KernelModulePtr km) { return km->Compile(module, args); });
+        [&](KernelModulePtr km, bool isCaptureMode) { return km->Compile(module, args, isCaptureMode); });
 }
 #else
 void LaunchKernel(py::object &, int64_t, py::args &) { }
