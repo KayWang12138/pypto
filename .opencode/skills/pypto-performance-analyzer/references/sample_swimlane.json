@@ -1,0 +1,19 @@
+{
+  "traceEvents": [
+    {"ph": "M", "name": "process_name", "pid": 1, "args": {"name": "Machine View"}},
+    {"ph": "M", "name": "thread_name", "pid": 1, "tid": 1, "args": {"name": "AIC_0"}},
+    {"ph": "M", "name": "thread_name", "pid": 1, "tid": 2, "args": {"name": "AIC_1"}},
+    {"ph": "M", "name": "thread_name", "pid": 1, "tid": 3, "args": {"name": "AIV_0"}},
+    {"ph": "M", "name": "thread_name", "pid": 1, "tid": 4, "args": {"name": "AIV_1"}},
+    {"ph": "X", "name": "0-0-0-0-0(MatMul)", "ts": 1000, "dur": 5000, "pid": 1, "tid": 1, "cat": "event", "args": {"event-hint": "rootHash:0xabc123,callOpMagic:0x1,leafHash:0xdef456", "taskId": 100, "seqNo": 0}},
+    {"ph": "X", "name": "0-1-0-1-0(Add)", "ts": 6000, "dur": 2000, "pid": 1, "tid": 3, "cat": "event", "args": {"event-hint": "rootHash:0xabc123,callOpMagic:0x2,leafHash:0xdef789", "taskId": 101, "seqNo": 0}},
+    {"ph": "X", "name": "0-2-0-2-0(Mul)", "ts": 8000, "dur": 3000, "pid": 1, "tid": 3, "cat": "event", "args": {"event-hint": "rootHash:0xabc123,callOpMagic:0x3,leafHash:0xdefabc", "taskId": 102, "seqNo": 0}},
+    {"ph": "X", "name": "1-0-0-0-0(MatMul)", "ts": 7000, "dur": 4500, "pid": 1, "tid": 2, "cat": "event", "args": {"event-hint": "rootHash:0xabc456,callOpMagic:0x4,leafHash:0xdef123", "taskId": 200, "seqNo": 1}},
+    {"ph": "X", "name": "1-1-0-1-0(Exp)", "ts": 12000, "dur": 1500, "pid": 1, "tid": 4, "cat": "event", "args": {"event-hint": "rootHash:0xabc456,callOpMagic:0x5,leafHash:0xdef456", "taskId": 201, "seqNo": 1}},
+    {"ph": "X", "name": "1-2-0-2-0(Reduce)", "ts": 14000, "dur": 4000, "pid": 1, "tid": 4, "cat": "event", "args": {"event-hint": "rootHash:0xabc456,callOpMagic:0x6,leafHash:0xdef789", "taskId": 202, "seqNo": 1}},
+    {"ph": "X", "name": "2-0-0-0-0(MatMul)", "ts": 15000, "dur": 5500, "pid": 1, "tid": 1, "cat": "event", "args": {"event-hint": "rootHash:0xabc789,callOpMagic:0x7,leafHash:0xdefabc", "taskId": 300, "seqNo": 2}},
+    {"ph": "C", "name": "ReadyCount_AIC", "ts": 5000, "pid": 1, "args": {"value": 2}},
+    {"ph": "C", "name": "ReadyCount_AIV", "ts": 5000, "pid": 1, "args": {"value": 1}},
+    {"ph": "C", "name": "ReadyCount_Total", "ts": 5000, "pid": 1, "args": {"value": 3}}
+  ]
+}
