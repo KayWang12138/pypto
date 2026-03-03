@@ -43,7 +43,7 @@ struct MemoryH {
         if (isTest_)
             memcpy_s(devPtr, size, data, size);
         else
-            rtMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
+            RuntimeMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
         return devPtr;
     }
 
@@ -52,7 +52,7 @@ struct MemoryH {
         if (isTest_)
             memcpy_s(data, size, devPtr, size);
         else
-            rtMemcpy(data, size, devPtr, size, RT_MEMCPY_DEVICE_TO_HOST);
+            RuntimeMemcpy(data, size, devPtr, size, RT_MEMCPY_DEVICE_TO_HOST);
     }
 
     template <typename T>
@@ -76,7 +76,7 @@ struct MemoryH {
         if (isTest_)
             memset(devPtr, 0, size);
         else
-            rtMemset(devPtr, size, 0, size);
+            RuntimeMemset(devPtr, size, 0, size);
         return devPtr;
     }
 

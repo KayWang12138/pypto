@@ -14,8 +14,8 @@
  */
 
 #pragma once
+
 #include <vector>
-#include <utility>
 #include <string>
 #include "hccl_context.h"
 #include "tilefwk/platform.h"

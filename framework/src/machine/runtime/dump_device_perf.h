@@ -20,6 +20,7 @@
 #include <vector>
 #include "tilefwk/aicpu_common.h"
 #include "nlohmann/json.hpp"
+
 using json = nlohmann::json;
 
 constexpr uint32_t AICPU_NUM_OF_RUN_AICPU_TASKS = 1;
