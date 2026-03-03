@@ -182,9 +182,11 @@ def process_main_loop_interation(
 def select_experts_kernel(router_logits_shape, e_score_bias_shape, bs_top_k_frist, bs_top_k_second,
                                          renormalize, topk_group, num_expert_group):
 
-    router_logits_shape = (pypto.frontend.dynamic("bs"), router_logits_shape[1])
-    topk_weights_shape = (pypto.frontend.dynamic("bs"), bs_top_k_frist[1])
-    topk_ids_shape = (pypto.frontend.dynamic("bs"), bs_top_k_second[1])
+    # router_logits_shape = (pypto.frontend.dynamic("bs"), router_logits_shape[1])  # (-1, 12)
+    # topk_weights_shape = (pypto.frontend.dynamic("bs"), bs_top_k_frist[1])
+    # topk_ids_shape = (pypto.frontend.dynamic("bs"), bs_top_k_second[1])
+
+    print(f"zjr123 ----- dyn shape: {router_logits_shape}")
 
     @pypto.frontend.jit(
         runtime_options={"stitch_function_num_initial": 128,
@@ -192,20 +194,29 @@ def select_experts_kernel(router_logits_shape, e_score_bias_shape, bs_top_k_fris
         "stitch_function_inner_memory": 128,
         "stitch_cfgcache_size": 2500000}
     )
+    # def kernel(
+    #     logits: pypto.tensor(router_logits_shape, pypto.DT_FP32),
+    #     e_score_bias_input: pypto.tensor(e_score_bias_shape, pypto.DT_BF16),
+    #     weight_k: pypto.tensor(topk_weights_shape, pypto.DT_FP32),
+    #     index_k: pypto.tensor(topk_ids_shape, pypto.DT_INT32)
+    # ):
     def kernel(
-        logits: pypto.tensor(router_logits_shape, pypto.DT_FP32),
-        e_score_bias_input: pypto.tensor(e_score_bias_shape, pypto.DT_BF16),
-        weight_k: pypto.tensor(topk_weights_shape, pypto.DT_FP32),
-        index_k: pypto.tensor(topk_ids_shape, pypto.DT_INT32)
+        logits: pypto.tensor([pypto.StatusType.DYNAMIC, pypto.StatusType.STATIC], pypto.DT_FP32),
+        e_score_bias_input: pypto.tensor([...], pypto.DT_BF16),
+        weight_k: pypto.tensor([pypto.StatusType.DYNAMIC, pypto.StatusType.STATIC], pypto.DT_FP32),
+        index_k: pypto.tensor([pypto.StatusType.DYN, ...], pypto.DT_INT32)
     ):
         batch_size = logits.shape[0]
         number_experts = logits.shape[1]
-        idx_k_shape = topk_ids_shape
+        idx_k_shape = index_k.shape
         topk = idx_k_shape[1]
         view_shape = (1, number_experts)
         view_first = 1
         bs_loop = (batch_size + view_shape[0] - 1) // view_shape[0]
 
+
+        print(f"zjr123 ----- view_shape[0]: {view_shape[0]}")
+        print(f"zjr123 ----- number_experts: {number_experts}")
         pypto.set_vec_tile_shapes(number_experts)
         e_score_bias_2d = pypto.reshape(e_score_bias_input, [1, number_experts], inplace=True)  # (160) -> (1,160)
 
@@ -249,7 +260,7 @@ def test_select_experts():
     torch.npu.set_device(device_id)
 
     # 2. 构造多种shape，测试动态case
-    for i in range(0, 2):
+    for i in range(0, 1):
         if i == 1:
             bs = 1026
         # 3. 准备测试数据
