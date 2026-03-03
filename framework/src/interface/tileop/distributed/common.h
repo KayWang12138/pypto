@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -17,6 +17,13 @@
 #define DISTRIBUTED_COMMON_H
 
 #include "comm_context.h"
+#include "../tileop_common.h"
+
+#define PIPE_SYNC_EVENT(from, to, eventId) \
+    do { \
+        set_flag((from), (to), (eventId)); \
+        wait_flag((from), (to), (eventId)); \
+    } while (0)
 
 namespace TileOp::Distributed {
 enum class AtomicType {
@@ -184,6 +191,14 @@ TILEOP __gm__ T* MapVirtualAddr(__gm__ int64_t *hcclContext, __gm__ T* vAddr, ui
     } else {
         return (__gm__ T*)(commCtxParam->winAddr[commCtxParam->statusIndex + dstRankId] + offset);
     }
+}
+
+template<typename T>
+TILEOP __gm__ T* MapAndOffsetShmem(__gm__ int64_t* hcclContext, __gm__ T* shmemBase, uint32_t rankOffset,
+    uint32_t offset1, uint32_t offset2, uint32_t offset3, uint32_t rawShape2, uint32_t rawShape3)
+{
+    uint32_t linearOffset = TileOp::CalcLinearOffset(rawShape2, rawShape3, offset1, offset2, offset3);
+    return MapVirtualAddr<T>(hcclContext, shmemBase, rankOffset) + linearOffset;
 }
 
 /* UB 清 0 */
