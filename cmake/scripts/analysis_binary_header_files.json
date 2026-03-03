@@ -5,6 +5,7 @@
         "framework/src/platform/"
       ],
       "Area": [
+ 	      "framework/src/cann_host_runtime"
       ],
       "Include": [
         "framework/include/"
@@ -15,6 +16,23 @@
       ]
     }
   },
+  "libtile_fwk_cann_host_runtime.so": {
+ 	    "Source-Header": {
+ 	    "Self": [
+ 	      "framework/src/cann_host_runtime/"
+ 	    ],
+ 	    "Area": [
+ 	      "framework/src/utils"
+ 	    ],
+ 	    "Include": [
+ 	      "framework/include/"
+ 	    ],
+ 	    "WhiteList": [
+ 	    ],
+ 	    "BlackList": [
+ 	    ]
+ 	  }
+ 	},
   "libtile_fwk_operator.so": {
     "Source-Header": {
       "Self": [

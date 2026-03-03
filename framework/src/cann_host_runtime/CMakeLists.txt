@@ -8,26 +8,27 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-file(GLOB _Platform_Srcs
-        *.cpp
-        parser/*.cpp
-        simulation_platform/*.cpp
-)
-add_library(tile_fwk_platform SHARED)
-target_sources(tile_fwk_platform PRIVATE ${_Platform_Srcs})
-target_compile_definitions(tile_fwk_platform
+file(GLOB _Cann_Host_Runtime_Srcs *.cpp)
+add_library(tile_fwk_cann_host_runtime SHARED)
+target_sources(tile_fwk_cann_host_runtime PRIVATE ${_Cann_Host_Runtime_Srcs})
+target_compile_definitions(tile_fwk_cann_host_runtime
         PUBLIC
             $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_STEST_INTERPRETER_CONFIG}>:ENABLE_STEST_INTERPRETER_CONFIG>>
 )
-target_link_libraries(tile_fwk_platform
+target_link_libraries(tile_fwk_cann_host_runtime
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub
             $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:kernel_tiling_headers>
             dl
             c_sec
-            tile_fwk_cann_host_runtime
+            tile_fwk_utils
+)
+target_compile_definitions(tile_fwk_cann_host_runtime
+        PRIVATE
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:ASCEND_CANN_PACKAGE_PATH="${ASCEND_CANN_PACKAGE_PATH}">>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>>
 )
 
-PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_platform)
-PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_platform)
+PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_cann_host_runtime)
+PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_cann_host_runtime)

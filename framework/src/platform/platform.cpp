@@ -164,16 +164,9 @@ void SoC::SetNPUArch(const std::string& versionStr) {
 }
 
 size_t SoC::GetAICPUNum() const {
-    int ret = 1;
-    uint32_t cpuNum = 0;
-#ifdef BUILD_WITH_CANN
-    using GetAiCpuNumFunc = int (*)(uint32_t *);
-    std::string AiCpuNumFuncName = "rtGetSocSpec";
-    auto aiCpuNumFunc = (GetAiCpuNumFunc)GetSymbol(AiCpuNumFuncName);
-    ret = aiCpuNumFunc(&cpuNum);
-#endif
-    if (ret == 0) {
-        return static_cast<size_t>(cpuNum);
+    size_t aiCpuNum = 0;
+    if (CannHostRuntime::Instance().GetAICPUNum(aiCpuNum) == 0) {
+        return static_cast<size_t>(aiCpuNum);
     }
     return ai_cpu_cnt_;
 }
@@ -330,15 +323,8 @@ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
 }
 
 void Platform::ObtainPlatformInfo() {
-    int ret = 1;
-#ifdef BUILD_WITH_CANN
-    using GetSocVerFunc = int (*)(char *, const uint32_t);
-    std::string socVerFuncName = "rtGetSocVersion";
-    char socVer[kMaxLength] = {0x00};
-    auto socVerFunc = (GetSocVerFunc)GetSymbol(socVerFuncName);
-    ret = socVerFunc(socVer, kMaxLength);
-#endif
-    if (ret == 0) {
+    std::string socVersion;
+    if (CannHostRuntime::Instance().GetSocVersion(socVersion)) {
         npu::tile_fwk::CmdParser cmdparser;
         LoadPlatformInfo(cmdparser);
     } else {

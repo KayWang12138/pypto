@@ -14,9 +14,11 @@
  */
 
 #pragma once
+#include <string>
 #include <limits.h>
 #include <dlfcn.h>
 #include <sys/stat.h>
+#include "pypto_fwk_log.h"
 
 namespace npu {
 namespace tile_fwk {
@@ -24,6 +26,10 @@ inline std::string RealPath(const std::string &path) {
     std::string res;
     if (path.empty()) {	
         return res;	
+    }
+    if (path.size() >= PATH_MAX) {
+        FUNCTION_LOGI("File path %s is too long.", path.c_str());
+        return "";
     }
     char resolvedPath[PATH_MAX] = {0x00};
     if (realpath(path.c_str(), resolvedPath) == nullptr) {
@@ -44,12 +50,27 @@ inline bool IsPathExist(const std::string& path) {
     return (stat(path.c_str(), &buffer) == 0);
 }
 
-inline std::string trim(const std::string& s) {
+inline std::string TrimLine(const std::string& s) {
     size_t start = s.find_first_not_of(" \t\n\r");
     size_t end = s.find_last_not_of(" \t\n\r");
     return (start == std::string::npos) ? "" : s.substr(start, end - start + 1);
 }
 
-std::string GetCurrentSharedLibPath();
+inline std::string GetCurrentSharedLibPath() {
+    static std::string currentLibPath;
+    if (!currentLibPath.empty()) {
+        return currentLibPath;
+    }
+
+    Dl_info info;
+    if (dladdr(reinterpret_cast<void*>(GetCurrentSharedLibPath), &info)) {
+        currentLibPath = std::string(info.dli_fname);
+        int32_t pos = currentLibPath.rfind('/');
+        if (pos >= 0) {
+            currentLibPath = currentLibPath.substr(0, pos);
+        }
+    }
+    return currentLibPath;
+}
 }
 }
