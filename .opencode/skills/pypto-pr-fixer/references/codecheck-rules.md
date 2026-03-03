@@ -141,7 +141,47 @@ def fetch_codecheck_violations(url: str) -> list[dict]:
 | G.CMT.01 | minor | 模块 docstring 位置 | 调整位置 |
 | G.CMT.04 | minor | 注释位置和格式一致 | 调整格式 |
 | G.CMT.05 | minor | 避免 TODO/FIXME 注释 | 删除或转为 issue |
-| G.CMT.06 | minor | 文件头包含版权声明 | 添加版权头 |
+| G.CMT.06 | minor | 文件头包含版权声明 | 添加版权头（见下方详细说明） |
+
+**G.CMT.06 版权声明详细说明：**
+
+添加文件头版权声明时，必须参考项目中已有的其他 Python 文件，保持格式一致。
+
+**PyPTO 项目标准版权头格式：**
+
+```python
+#!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+```
+
+**修复步骤：**
+
+1. 在项目中搜索已有的版权声明格式：
+   ```bash
+   grep -r "Copyright.*Huawei" --include="*.py" | head -5
+   ```
+
+2. 参考主要文件的版权头（如 `setup.py`、`build_ci.py`、`examples/` 目录下的文件）
+
+3. 注意事项：
+   - **年份**：使用当前年份或创建文件的年份
+   - **许可证**：PyPTO 使用 **CANN Open Software License v2.0**，不是 BSD/MIT/Apache
+   - **格式**：保持与项目现有文件完全一致的格式和换行
+   - **编码声明**：Python 文件需包含 `# coding: utf-8`
+
+4. 常见错误：
+   - ❌ 使用错误的许可证（如 BSD 3-Clause、MIT、Apache）
+   - ❌ 只保留一行版权声明而省略许可证信息
+   - ❌ 格式与项目不一致
+
 
 #### 运算符规范 (G.OPR)
 
