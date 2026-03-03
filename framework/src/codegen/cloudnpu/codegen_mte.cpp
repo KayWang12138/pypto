@@ -1959,7 +1959,7 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
 
     std::string tiloOpCallParam = JoinString(paramList, ", ");
 
-    bool isConv3D = true;
+    bool isConv3D = false;
     GetAttr(Conv::LoadStoreConvOpAttributeKey::isConv3D, isConv3D);
 
     std::ostringstream oss;
