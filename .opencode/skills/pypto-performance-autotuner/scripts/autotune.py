@@ -602,34 +602,6 @@ class CandidateGenerator:
             candidates.append(item)
         return candidates
 
-    def random_search(self, params: Dict[str, Any], n_trials: int) -> List[Dict[str, Any]]:
-        """Generate random unique samples from parameter space."""
-        if n_trials <= 0:
-            return []
-
-        names = sorted(params.keys())
-        options: Dict[str, List[Any]] = {}
-        for name in names:
-            options[name] = self.loader.expand_param_values(params[name])
-
-        seen = set()
-        candidates: List[Dict[str, Any]] = []
-        max_attempts = max(n_trials * 25, 50)
-
-        for _ in range(max_attempts):
-            if len(candidates) >= n_trials:
-                break
-            candidate: Dict[str, Any] = {}
-            for name in names:
-                candidate[name] = copy.deepcopy(self.rng.choice(options[name]))
-            marker = canonical_json(candidate)
-            if marker in seen:
-                continue
-            seen.add(marker)
-            candidates.append(candidate)
-
-        return candidates
-
     def bayesian_suggest(
         self,
         params: Dict[str, Any],
@@ -674,6 +646,61 @@ class CandidateGenerator:
             return self.random_search(params, n_trials)
         return suggestions
 
+    def _bayesian_build_candidate(
+        self,
+        names: List[str],
+        value_cache: Dict[str, List[Any]],
+        good: Sequence[Dict[str, Any]],
+        bad: Sequence[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Build one TPE-weighted candidate from parameter space."""
+        candidate: Dict[str, Any] = {}
+        for name in names:
+            options = value_cache[name]
+            weights = _compute_tpe_weights(options, name, good, bad)
+            candidate[name] = copy.deepcopy(self._weighted_choice(options, weights))
+        return candidate
+
+    def _weighted_choice(self, options: Sequence[Any], weights: Sequence[float]) -> Any:
+        total = sum(max(w, 0.0) for w in weights)
+        if total <= 0.0:
+            return options[self.rng.randrange(0, len(options))]
+        pivot = self.rng.random() * total
+        cumulative = 0.0
+        for idx, value in enumerate(options):
+            cumulative += max(weights[idx], 0.0)
+            if cumulative >= pivot:
+                return value
+        return options[-1]
+
+    def random_search(self, params: Dict[str, Any], n_trials: int) -> List[Dict[str, Any]]:
+        """Generate random unique samples from parameter space."""
+        if n_trials <= 0:
+            return []
+
+        names = sorted(params.keys())
+        options: Dict[str, List[Any]] = {}
+        for name in names:
+            options[name] = self.loader.expand_param_values(params[name])
+
+        seen = set()
+        candidates: List[Dict[str, Any]] = []
+        max_attempts = max(n_trials * 25, 50)
+
+        for _ in range(max_attempts):
+            if len(candidates) >= n_trials:
+                break
+            candidate: Dict[str, Any] = {}
+            for name in names:
+                candidate[name] = copy.deepcopy(self.rng.choice(options[name]))
+            marker = canonical_json(candidate)
+            if marker in seen:
+                continue
+            seen.add(marker)
+            candidates.append(candidate)
+
+        return candidates
+
     def apply_guidance(
         self,
         layer_name: str,
@@ -696,44 +723,6 @@ class CandidateGenerator:
         scored.sort(key=lambda pair: pair[0], reverse=True)
         return [x[1] for x in scored]
 
-    def build_refinement_grid(
-        self,
-        params: Dict[str, Any],
-        base_configs: Sequence[Dict[str, Any]],
-        max_candidates: int,
-    ) -> List[Dict[str, Any]]:
-        """Build local grid around top random candidates."""
-        if max_candidates <= 0 or not base_configs:
-            return []
-
-        all_candidates: List[Dict[str, Any]] = []
-        seen: set = set()
-
-        for base in base_configs:
-            ctx = LocalComboContext(seen=seen, all_candidates=all_candidates, max_candidates=max_candidates)
-            reached = _generate_local_combos(
-                base, params, self.loader, ctx
-            )
-            if reached:
-                break
-
-        return all_candidates
-
-    def _bayesian_build_candidate(
-        self,
-        names: List[str],
-        value_cache: Dict[str, List[Any]],
-        good: Sequence[Dict[str, Any]],
-        bad: Sequence[Dict[str, Any]],
-    ) -> Dict[str, Any]:
-        """Build one TPE-weighted candidate from parameter space."""
-        candidate: Dict[str, Any] = {}
-        for name in names:
-            options = value_cache[name]
-            weights = _compute_tpe_weights(options, name, good, bad)
-            candidate[name] = copy.deepcopy(self._weighted_choice(options, weights))
-        return candidate
-
     def _score_candidate(
         self,
         layer_name: str,
@@ -742,26 +731,15 @@ class CandidateGenerator:
         top_ops: List[str],
     ) -> float:
         """Compute guidance score for a candidate using layer-specific scorer."""
-        scorers: Dict[str, Callable[..., float]] = {
-            "stitch": lambda: self._score_stitch(item, labels),
-            "matmul": lambda: self._score_matmul(item, labels, top_ops),
-            "vector": lambda: self._score_vector(item, labels, top_ops),
-            "scheduling": lambda: self._score_scheduling(item),
-        }
-        scorer = scorers.get(layer_name)
-        return scorer() if scorer else 0.0
-
-    def _weighted_choice(self, options: Sequence[Any], weights: Sequence[float]) -> Any:
-        total = sum(max(w, 0.0) for w in weights)
-        if total <= 0.0:
-            return options[self.rng.randrange(0, len(options))]
-        pivot = self.rng.random() * total
-        cumulative = 0.0
-        for idx, value in enumerate(options):
-            cumulative += max(weights[idx], 0.0)
-            if cumulative >= pivot:
-                return value
-        return options[-1]
+        if layer_name == "stitch":
+            return self._score_stitch(item, labels)
+        if layer_name == "matmul":
+            return self._score_matmul(item, labels, top_ops)
+        if layer_name == "vector":
+            return self._score_vector(item, labels, top_ops)
+        if layer_name == "scheduling":
+            return self._score_scheduling(item)
+        return 0.0
 
     @staticmethod
     def _score_stitch(item: Dict[str, Any], labels: List[str]) -> float:
@@ -807,6 +785,29 @@ class CandidateGenerator:
         if item.get("device_sched_mode") == 1:
             return 1.0
         return 0.0
+
+    def build_refinement_grid(
+        self,
+        params: Dict[str, Any],
+        base_configs: Sequence[Dict[str, Any]],
+        max_candidates: int,
+    ) -> List[Dict[str, Any]]:
+        """Build local grid around top random candidates."""
+        if max_candidates <= 0 or not base_configs:
+            return []
+
+        all_candidates: List[Dict[str, Any]] = []
+        seen: set = set()
+
+        for base in base_configs:
+            ctx = LocalComboContext(seen=seen, all_candidates=all_candidates, max_candidates=max_candidates)
+            reached = _generate_local_combos(
+                base, params, self.loader, ctx
+            )
+            if reached:
+                break
+
+        return all_candidates
 
 
 def _check_prune_cube_reuse(flat: Dict[str, Any]) -> Optional[str]:
@@ -912,15 +913,14 @@ def _apply_knob_multipliers(flat: Dict[str, Any], latency: float) -> float:
     elif isinstance(stitch_num, (int, float)) and float(stitch_num) > 128:
         latency *= 1.05
 
-    knob_multipliers: List[Tuple[Callable[[], bool], float]] = [
-        (lambda: flat.get("enable_multi_data_load") is True, 0.94),
-        (lambda: flat.get("cube_l1_reuse_mode") == 1, 0.92),
-        (lambda: flat.get("vec_nbuffer_mode") in (1, 2), 0.95),
-        (lambda: flat.get("device_sched_mode") == 1, 0.97),
-    ]
-    for check, mult in knob_multipliers:
-        if check():
-            latency *= mult
+    if flat.get("enable_multi_data_load") is True:
+        latency *= 0.94
+    if flat.get("cube_l1_reuse_mode") == 1:
+        latency *= 0.92
+    if flat.get("vec_nbuffer_mode") in (1, 2):
+        latency *= 0.95
+    if flat.get("device_sched_mode") == 1:
+        latency *= 0.97
 
     if flat.get("enable_split_k") is True:
         k_tile = flat.get("cube_tile_k")

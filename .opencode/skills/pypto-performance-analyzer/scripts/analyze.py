@@ -185,6 +185,33 @@ class SwimlaneAnalyzer:
         self.counter_events: List[Dict[str, Any]] = []  # ph == "C" events
         self._parse_events()
 
+    def _parse_events(self):
+        """Parse and categorize trace events."""
+        for event in self.events:
+            ph = event.get("ph", "")
+            if ph == "M" and event.get("name") == "thread_name":
+                tid = event.get("tid")
+                name = event.get("args", {}).get("name", "")
+                if tid is not None:
+                    self.thread_names[tid] = name
+            elif ph == "X":
+                self.task_events.append(event)
+            elif ph == "C":
+                self.counter_events.append(event)
+
+    @staticmethod
+    def _extract_structured_entries(hint: str) -> Optional[List[Dict]]:
+        """Parse hint string via ast.literal_eval and return list of dict entries."""
+        try:
+            structured = ast.literal_eval(hint)
+        except (SyntaxError, ValueError):
+            return None
+        if isinstance(structured, dict):
+            return [structured]
+        if isinstance(structured, list):
+            return [e for e in structured if isinstance(e, dict)]
+        return None
+
     @staticmethod
     def extract_value(text: str, key: str) -> float:
         """Extract a numeric value associated with a key from multi-line text."""
@@ -263,54 +290,6 @@ class SwimlaneAnalyzer:
             result.update(structured)
             result["format"] = "structured"
         return result
-
-    def get_core_type(self, tid: int) -> str:
-        """Determine core type (AIC/AIV) from thread name."""
-        name = self.thread_names.get(tid, "")
-        if name.startswith("AIC"):
-            return "AIC"
-        if name.startswith("AIV"):
-            return "AIV"
-        return "UNKNOWN"
-
-    def calculate_timeline_length(self) -> int:
-        """Calculate timeline length from task events (in microseconds)."""
-        if not self.task_events:
-            return 0
-
-        min_ts = min(e.get("ts", 0) for e in self.task_events)
-        max_end = max(e.get("ts", 0) + e.get("dur", 0) for e in self.task_events)
-        return max_end - min_ts
-
-    def calculate_per_core_stats(self) -> Dict[int, Dict[str, Any]]:
-        """Calculate per-core statistics including bubble ratio."""
-        timeline_length = self.calculate_timeline_length()
-        if timeline_length == 0:
-            return {}
-
-        core_stats: Dict[int, Dict[str, Any]] = defaultdict(lambda: {
-            "total_dur": 0,
-            "task_count": 0,
-            "tasks": [],
-            "core_type": "UNKNOWN",
-            "bubble": 0.0,
-            "utilization": 0.0
-        })
-
-        for event in self.task_events:
-            tid = event.get("tid")
-            dur = event.get("dur", 0)
-            if tid is not None:
-                core_stats[tid]["total_dur"] += dur
-                core_stats[tid]["task_count"] += 1
-                core_stats[tid]["tasks"].append(event)
-                core_stats[tid]["core_type"] = self.get_core_type(tid)
-
-        for _, stats in core_stats.items():
-            stats["bubble"] = 1.0 - (stats["total_dur"] / timeline_length) if timeline_length > 0 else 0.0
-            stats["utilization"] = stats["total_dur"] / timeline_length if timeline_length > 0 else 0.0
-
-        return dict(core_stats)
 
     def calculate_aicore_utilization(self) -> Tuple[float, int]:
         """Calculate overall AICore utilization."""
@@ -401,6 +380,54 @@ class SwimlaneAnalyzer:
 
         return sorted(gaps, key=lambda x: x["gap_us"], reverse=True)[:top_k]
 
+    def calculate_per_core_stats(self) -> Dict[int, Dict[str, Any]]:
+        """Calculate per-core statistics including bubble ratio."""
+        timeline_length = self.calculate_timeline_length()
+        if timeline_length == 0:
+            return {}
+
+        core_stats: Dict[int, Dict[str, Any]] = defaultdict(lambda: {
+            "total_dur": 0,
+            "task_count": 0,
+            "tasks": [],
+            "core_type": "UNKNOWN",
+            "bubble": 0.0,
+            "utilization": 0.0
+        })
+
+        for event in self.task_events:
+            tid = event.get("tid")
+            dur = event.get("dur", 0)
+            if tid is not None:
+                core_stats[tid]["total_dur"] += dur
+                core_stats[tid]["task_count"] += 1
+                core_stats[tid]["tasks"].append(event)
+                core_stats[tid]["core_type"] = self.get_core_type(tid)
+
+        for _, stats in core_stats.items():
+            stats["bubble"] = 1.0 - (stats["total_dur"] / timeline_length) if timeline_length > 0 else 0.0
+            stats["utilization"] = stats["total_dur"] / timeline_length if timeline_length > 0 else 0.0
+
+        return dict(core_stats)
+
+    def get_core_type(self, tid: int) -> str:
+        """Determine core type (AIC/AIV) from thread name."""
+        name = self.thread_names.get(tid, "")
+        if name.startswith("AIC"):
+            return "AIC"
+        if name.startswith("AIV"):
+            return "AIV"
+        return "UNKNOWN"
+
+    def calculate_timeline_length(self) -> int:
+        """Calculate timeline length from task events (in microseconds)."""
+        if not self.task_events:
+            return 0
+
+        min_ts = min(e.get("ts", 0) for e in self.task_events)
+        max_end = max(e.get("ts", 0) + e.get("dur", 0) for e in self.task_events)
+        return max_end - min_ts
+
     def analyze_execution_time_stats(self) -> Dict[str, Any]:
         """Aggregate execution time statistics from swimlane execution hints."""
         records: List[Dict[str, Any]] = []
@@ -470,33 +497,6 @@ class SwimlaneAnalyzer:
             memory_info["memory_efficiency"] = efficiency
 
         return memory_info
-
-    def _parse_events(self):
-        """Parse and categorize trace events."""
-        for event in self.events:
-            ph = event.get("ph", "")
-            if ph == "M" and event.get("name") == "thread_name":
-                tid = event.get("tid")
-                name = event.get("args", {}).get("name", "")
-                if tid is not None:
-                    self.thread_names[tid] = name
-            elif ph == "X":
-                self.task_events.append(event)
-            elif ph == "C":
-                self.counter_events.append(event)
-
-    @staticmethod
-    def _extract_structured_entries(hint: str) -> Optional[List[Dict]]:
-        """Parse hint string via ast.literal_eval and return list of dict entries."""
-        try:
-            structured = ast.literal_eval(hint)
-        except (SyntaxError, ValueError):
-            return None
-        if isinstance(structured, dict):
-            return [structured]
-        if isinstance(structured, list):
-            return [e for e in structured if isinstance(e, dict)]
-        return None
 
     def _collect_operand_memory(
         self, memory_info: Dict[str, Any]
@@ -684,6 +684,24 @@ class TraceAnalyzer:
                     break
 
     @staticmethod
+    def _parse_aicpu_block_tasks(
+        tasks: List, result: Dict[str, Any]
+    ) -> None:
+        """Parse tasks from a single AICPU-CTRL block."""
+        prev_end: Optional[float] = None
+        for task in tasks:
+            if not isinstance(task, dict):
+                continue
+            name = str(task.get("name", "UNKNOWN"))
+            end_value = extract_first_float(str(task.get("end", 0)))
+            if end_value is None:
+                continue
+            dur = DEFAULT_AICPU_STAGE_DURATION if prev_end is None else max(end_value - prev_end, 0.0)
+            prev_end = end_value
+            result["stages"][name] = result["stages"].get(name, 0.0) + dur
+            result["total_time"] += dur
+
+    @staticmethod
     def analyze_perfetto_trace(trace_path: Path) -> Dict[str, Any]:
         """Analyze a Perfetto trace JSON for AICPU-CTRL stage durations."""
         with open(trace_path, "r", encoding="utf-8") as f:
@@ -765,24 +783,6 @@ class TraceAnalyzer:
         result["stage_ratios"] = stage_ratios
         return result
 
-    @staticmethod
-    def _parse_aicpu_block_tasks(
-        tasks: List, result: Dict[str, Any]
-    ) -> None:
-        """Parse tasks from a single AICPU-CTRL block."""
-        prev_end: Optional[float] = None
-        for task in tasks:
-            if not isinstance(task, dict):
-                continue
-            name = str(task.get("name", "UNKNOWN"))
-            end_value = extract_first_float(str(task.get("end", 0)))
-            if end_value is None:
-                continue
-            dur = DEFAULT_AICPU_STAGE_DURATION if prev_end is None else max(end_value - prev_end, 0.0)
-            prev_end = end_value
-            result["stages"][name] = result["stages"].get(name, 0.0) + dur
-            result["total_time"] += dur
-
 
 class OutputArtifactsAnalyzer:
     """Analyzes output artifacts (execute, pipe_usage, topo, program, tilefwk)."""
@@ -790,6 +790,53 @@ class OutputArtifactsAnalyzer:
     def __init__(self, output_dir: Optional[str]):
         """Initialize OutputArtifactsAnalyzer with output directory path."""
         self.output_dir = Path(output_dir) if output_dir else None
+
+    @staticmethod
+    def _parse_pipe_header_line(
+        line: str,
+    ) -> Optional[Tuple[str, int]]:
+        """Parse a pipe_usage header line (core counts). Returns (key, value) or None."""
+        for prefix, key in PIPE_USAGE_PREFIX_HANDLERS.items():
+            if line.startswith(prefix):
+                return key, int(extract_first_float(line) or 0)
+        return None
+
+    @staticmethod
+    def _parse_pipe_data_line(line: str) -> Optional[Tuple[str, Dict[str, float]]]:
+        """Parse a single pipe data line. Returns (pipe_name, stats) or None."""
+        if line.startswith("Pipe,") or "," not in line:
+            return None
+        cols = [c.strip() for c in line.split(",")]
+        if len(cols) < 4:
+            return None
+        return cols[0], {
+            "avg_time": extract_first_float(cols[1]) or 0.0,
+            "total_execute_time": extract_first_float(cols[2]) or 0.0,
+            "usage_percent": extract_first_float(cols[3]) or 0.0,
+        }
+
+    @staticmethod
+    def _process_topo_dict(
+        node: dict, stack: List[Any]
+    ) -> Tuple[int, int]:
+        """Process a single dict node in topo traversal. Returns (tasks, edges)."""
+        tasks = 1 if "taskId" in node else 0
+        successors = node.get("successors")
+        edges = len(successors) if isinstance(successors, list) else 0
+        for value in node.values():
+            if isinstance(value, (dict, list)):
+                stack.append(value)
+        return tasks, edges
+
+    def analyze_all(self) -> Dict[str, Any]:
+        """Run all artifact analyses and return combined results."""
+        return {
+            "execute": self.analyze_execute_json(),
+            "pipe_usage": self.analyze_pipe_usage_csv(),
+            "topo": self.analyze_topo_json(),
+            "program": self.analyze_program_json(),
+            "tilefwk": self.analyze_tilefwk_l1_prof_data(),
+        }
 
     def analyze_execute_json(self) -> Dict[str, Any]:
         """Parse execute.json for task execution time and core type statistics."""
@@ -842,6 +889,29 @@ class OutputArtifactsAnalyzer:
             "total_pipe_usage": pipe_usage,
         }
 
+    @staticmethod
+    def _parse_pipe_usage_lines(
+        lines: List[str],
+    ) -> Tuple[Optional[int], Optional[int], Optional[int], Dict[str, Any]]:
+        """Parse pipe_usage.csv lines into core counts and pipe usage dict."""
+        counts = {"total_core_num": None, "aic_num": None, "aiv_num": None}
+        pipe_usage: Dict[str, Any] = {}
+        in_total_pipe = False
+        for line in lines:
+            header = OutputArtifactsAnalyzer._parse_pipe_header_line(line)
+            if header is not None:
+                counts[header[0]] = header[1]
+                continue
+            if line == "Total Pipe Usage":
+                in_total_pipe = True
+                continue
+            if not in_total_pipe:
+                continue
+            entry = OutputArtifactsAnalyzer._parse_pipe_data_line(line)
+            if entry is not None:
+                pipe_usage[entry[0]] = entry[1]
+        return counts["total_core_num"], counts["aic_num"], counts["aiv_num"], pipe_usage
+
     def analyze_topo_json(self) -> Dict[str, Any]:
         """Parse topo.json for task node and dependency edge counts."""
         topo_file = self._find_file(["topo.json", "*topo*.json"])
@@ -858,6 +928,22 @@ class OutputArtifactsAnalyzer:
             "task_like_nodes": task_nodes,
             "edge_count": edge_count,
         }
+
+    @staticmethod
+    def _count_topo_elements(data: Any) -> Tuple[int, int]:
+        """Count task-like nodes and dependency edges via iterative traversal."""
+        task_nodes = 0
+        edges = 0
+        stack: List[Any] = [data]
+        while stack:
+            current = stack.pop()
+            if isinstance(current, dict):
+                t, e = OutputArtifactsAnalyzer._process_topo_dict(current, stack)
+                task_nodes += t
+                edges += e
+            elif isinstance(current, list):
+                stack.extend(v for v in current if isinstance(v, (dict, list)))
+        return task_nodes, edges
 
     def analyze_program_json(self) -> Dict[str, Any]:
         """Parse program.json for function and tensor counts."""
@@ -914,16 +1000,6 @@ class OutputArtifactsAnalyzer:
             "core_type_counts": core_type_counts,
         }
 
-    def analyze_all(self) -> Dict[str, Any]:
-        """Run all artifact analyses and return combined results."""
-        return {
-            "execute": self.analyze_execute_json(),
-            "pipe_usage": self.analyze_pipe_usage_csv(),
-            "topo": self.analyze_topo_json(),
-            "program": self.analyze_program_json(),
-            "tilefwk": self.analyze_tilefwk_l1_prof_data(),
-        }
-
     def _find_file(self, patterns: List[str]) -> Optional[Path]:
         """Find the first matching file by glob patterns."""
         if not self.output_dir:
@@ -933,82 +1009,6 @@ class OutputArtifactsAnalyzer:
             if candidates:
                 return candidates[0]
         return None
-
-    @staticmethod
-    def _parse_pipe_header_line(
-        line: str,
-    ) -> Optional[Tuple[str, int]]:
-        """Parse a pipe_usage header line (core counts). Returns (key, value) or None."""
-        for prefix, key in PIPE_USAGE_PREFIX_HANDLERS.items():
-            if line.startswith(prefix):
-                return key, int(extract_first_float(line) or 0)
-        return None
-
-    @staticmethod
-    def _parse_pipe_usage_lines(
-        lines: List[str],
-    ) -> Tuple[Optional[int], Optional[int], Optional[int], Dict[str, Any]]:
-        """Parse pipe_usage.csv lines into core counts and pipe usage dict."""
-        counts = {"total_core_num": None, "aic_num": None, "aiv_num": None}
-        pipe_usage: Dict[str, Any] = {}
-        in_total_pipe = False
-        for line in lines:
-            header = OutputArtifactsAnalyzer._parse_pipe_header_line(line)
-            if header is not None:
-                counts[header[0]] = header[1]
-                continue
-            if line == "Total Pipe Usage":
-                in_total_pipe = True
-                continue
-            if not in_total_pipe:
-                continue
-            entry = OutputArtifactsAnalyzer._parse_pipe_data_line(line)
-            if entry is not None:
-                pipe_usage[entry[0]] = entry[1]
-        return counts["total_core_num"], counts["aic_num"], counts["aiv_num"], pipe_usage
-
-    @staticmethod
-    def _parse_pipe_data_line(line: str) -> Optional[Tuple[str, Dict[str, float]]]:
-        """Parse a single pipe data line. Returns (pipe_name, stats) or None."""
-        if line.startswith("Pipe,") or "," not in line:
-            return None
-        cols = [c.strip() for c in line.split(",")]
-        if len(cols) < 4:
-            return None
-        return cols[0], {
-            "avg_time": extract_first_float(cols[1]) or 0.0,
-            "total_execute_time": extract_first_float(cols[2]) or 0.0,
-            "usage_percent": extract_first_float(cols[3]) or 0.0,
-        }
-
-    @staticmethod
-    def _process_topo_dict(
-        node: dict, stack: List[Any]
-    ) -> Tuple[int, int]:
-        """Process a single dict node in topo traversal. Returns (tasks, edges)."""
-        tasks = 1 if "taskId" in node else 0
-        successors = node.get("successors")
-        edges = len(successors) if isinstance(successors, list) else 0
-        for value in node.values():
-            if isinstance(value, (dict, list)):
-                stack.append(value)
-        return tasks, edges
-
-    @staticmethod
-    def _count_topo_elements(data: Any) -> Tuple[int, int]:
-        """Count task-like nodes and dependency edges via iterative traversal."""
-        task_nodes = 0
-        edges = 0
-        stack: List[Any] = [data]
-        while stack:
-            current = stack.pop()
-            if isinstance(current, dict):
-                t, e = OutputArtifactsAnalyzer._process_topo_dict(current, stack)
-                task_nodes += t
-                edges += e
-            elif isinstance(current, list):
-                stack.extend(v for v in current if isinstance(v, (dict, list)))
-        return task_nodes, edges
 
     @staticmethod
     def _parse_tilefwk_block(
@@ -1029,10 +1029,10 @@ class OutputArtifactsAnalyzer:
                 max_cycles = max(max_cycles, end - start, 0.0)
         return len(tasks), max_cycles, core_type
 
-
 # ---------------------------------------------------------------------------
 # Rating computation helpers
 # ---------------------------------------------------------------------------
+
 
 def _compute_metric_values(
     perf_data: PerformanceData,
@@ -1142,6 +1142,7 @@ def calculate_performance_rating(perf_data: PerformanceData) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Recommendation helpers
 # ---------------------------------------------------------------------------
+
 
 def _check_utilization_recs(rec_data: RecommendationData) -> List[Dict[str, str]]:
     """Check utilization and return recommendations for low AIC/AIV."""
@@ -1301,6 +1302,7 @@ def find_latest_output_dir(pypto_repo: str) -> Optional[str]:
 # ---------------------------------------------------------------------------
 # Report section builders
 # ---------------------------------------------------------------------------
+
 
 def _report_bubble_section(bubble_stats: Optional[Dict[str, Any]]) -> List[str]:
     """Build the bubble analysis section of the report."""
@@ -1515,6 +1517,7 @@ def _report_artifact_section(artifact_stats: Dict[str, Any]) -> List[str]:
 # ---------------------------------------------------------------------------
 # Report generation - orchestrator + section builders
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class _AnalysisResults:
@@ -1746,6 +1749,7 @@ def generate_report(
 # Summary and bottleneck helpers
 # ---------------------------------------------------------------------------
 
+
 def _compute_bottleneck_labels(
     summary_input: AnalysisSummaryInput, avg_bubble_ratio: Optional[float]
 ) -> List[str]:
@@ -1831,6 +1835,7 @@ def write_analysis_summary(summary_input: AnalysisSummaryInput) -> str:
 # ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
+
 
 def _build_argument_parser() -> argparse.ArgumentParser:
     """Build CLI argument parser."""
