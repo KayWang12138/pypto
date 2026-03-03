@@ -33,7 +33,6 @@
 #include "tilefwk/pypto_fwk_log.h"
 
 namespace npu::tile_fwk::dynamic {
-
 struct EmulationMemoryUtils {
 
     EmulationMemoryUtils() {}
@@ -124,7 +123,5 @@ public:
     static int BuildControlFlowCache(Function *function, DevControlFlowCache **outCtrlFlowCache, EmulationMemoryUtils& memUtils,
                                      const DeviceLauncherConfig &config = DeviceLauncherConfig());
 };
-
 }
-
 #endif//SRC_MACHINE_EMULATION_LAUNCHER_H
