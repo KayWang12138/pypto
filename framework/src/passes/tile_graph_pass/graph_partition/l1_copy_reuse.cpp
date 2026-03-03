@@ -60,7 +60,7 @@ inline bool CanReuse(const Operation &op) {
     return false;
 }
 
-inline int GetModeBySetting(std::map<int64_t, int64_t>& setting) {
+inline int GetModeBySetting(const std::map<int64_t, int64_t>& setting) {
     std::map<int64_t, int64_t> skipSetting = {{-1, 1}};
     if (setting == skipSetting) {
         return 0;
