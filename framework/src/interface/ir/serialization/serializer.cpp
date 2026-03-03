@@ -47,43 +47,43 @@ namespace serialization {
  */
 class FieldSerializerVisitor {
 public:
-    using resultType = msgpack::object;
+    using ResultType = msgpack::object;
 
     explicit FieldSerializerVisitor(msgpack::zone &zone, class IRSerializer::Impl &ctx) : zone_(zone), ctx_(ctx) {}
 
-    [[nodiscard]] resultType InitResult() const;
+    [[nodiscard]] ResultType InitResult() const;
 
     // Visit IRNode pointer fields
     template <typename IRNodePtrType>
-    resultType VisitIRNodeField(const IRNodePtrType &field);
+    ResultType VisitIRNodeField(const IRNodePtrType &field);
 
     // Visit optional IRNode pointer fields
     template <typename IRNodePtrType>
-    resultType VisitIRNodeField(const std::optional<IRNodePtrType> &field);
+    ResultType VisitIRNodeField(const std::optional<IRNodePtrType> &field);
 
     // Visit vector of IRNode pointers
     template <typename IRNodePtrType>
-    resultType VisitIRNodeVectorField(const std::vector<IRNodePtrType> &field);
+    ResultType VisitIRNodeVectorField(const std::vector<IRNodePtrType> &field);
 
     // Visit map of IRNode pointers
     template <typename KeyType, typename ValueType, typename Compare>
-    resultType VisitIRNodeMapField(const std::map<KeyType, ValueType, Compare> &field);
+    ResultType VisitIRNodeMapField(const std::map<KeyType, ValueType, Compare> &field);
 
     // Visit leaf fields
-    resultType VisitLeafField(const int &field);
-    resultType VisitLeafField(const int64_t &field);
-    resultType VisitLeafField(const uint64_t &field);
-    resultType VisitLeafField(const double &field);
-    resultType VisitLeafField(const bool &field);
-    resultType VisitLeafField(const std::string &field);
-    resultType VisitLeafField(const DataType &field);
-    resultType VisitLeafField(const FunctionType &field);
-    resultType VisitLeafField(const MemorySpace &field);
-    resultType VisitLeafField(const TypePtr &field);
-    resultType VisitLeafField(const OpPtr &field);
-    resultType VisitLeafField(const Span &field);
-    resultType VisitLeafField(const std::vector<TypePtr> &field);
-    resultType VisitLeafField(const std::vector<std::pair<std::string, std::any>> &field);
+    ResultType VisitLeafField(const int &field);
+    ResultType VisitLeafField(const int64_t &field);
+    ResultType VisitLeafField(const uint64_t &field);
+    ResultType VisitLeafField(const double &field);
+    ResultType VisitLeafField(const bool &field);
+    ResultType VisitLeafField(const std::string &field);
+    ResultType VisitLeafField(const DataType &field);
+    ResultType VisitLeafField(const FunctionType &field);
+    ResultType VisitLeafField(const MemorySpace &field);
+    ResultType VisitLeafField(const TypePtr &field);
+    ResultType VisitLeafField(const OpPtr &field);
+    ResultType VisitLeafField(const Span &field);
+    ResultType VisitLeafField(const std::vector<TypePtr> &field);
+    ResultType VisitLeafField(const std::vector<std::pair<std::string, std::any>> &field);
 
     // Field kind hooks
     template <typename FVisitOp>
@@ -103,7 +103,7 @@ public:
 
     // Combine field results into a map
     template <typename Desc>
-    void CombineResult(resultType &acc, resultType fieldResult, const Desc &desc);
+    void CombineResult(ResultType &acc, ResultType fieldResult, const Desc &desc);
 
 private:
     msgpack::zone &zone_;
@@ -489,7 +489,7 @@ msgpack::object FieldSerializerVisitor::VisitLeafField(const std::vector<std::pa
 }
 
 template <typename Desc>
-void FieldSerializerVisitor::CombineResult(resultType &acc, resultType fieldResult, const Desc &desc) {
+void FieldSerializerVisitor::CombineResult(ResultType &acc, ResultType fieldResult, const Desc &desc) {
     fields_[desc.name] = fieldResult;
     acc = msgpack::object(fields_, zone_);
 }

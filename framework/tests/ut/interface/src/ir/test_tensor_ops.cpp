@@ -13,7 +13,7 @@
  * text of the License.
  */
 
-/**
+/*!
  * \file test_tensor_ops.cpp
  * \brief Unit tests for tensor operator type deduction via OpRegistry
  */

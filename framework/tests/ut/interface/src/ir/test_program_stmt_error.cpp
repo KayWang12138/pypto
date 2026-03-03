@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/**
+/*!
  * \file test_program_stmt_error.cpp
  * \brief Unit tests for program.cpp, core.cpp, expr.cpp, stmt.cpp, error.cpp, memref.cpp
  */
@@ -188,9 +188,9 @@ TEST(ExprTest, TupleGetItemExpr) {
     ASSERT_NE(getItem, nullptr);
     ASSERT_EQ(getItem->index_, 0);
     // Type should be the first element's type (INT32)
-    auto resultType = As<ScalarType>(getItem->GetType());
-    ASSERT_NE(resultType, nullptr);
-    ASSERT_EQ(resultType->dtype_, DataType::INT32);
+    auto ResultType = As<ScalarType>(getItem->GetType());
+    ASSERT_NE(ResultType, nullptr);
+    ASSERT_EQ(ResultType->dtype_, DataType::INT32);
 }
 
 TEST(ExprTest, TupleGetItemSecondElement) {
@@ -203,9 +203,9 @@ TEST(ExprTest, TupleGetItemSecondElement) {
     auto tuple = std::make_shared<MakeTuple>(std::vector<ExprPtr>{x, y}, span);
     auto getItem = std::make_shared<TupleGetItemExpr>(tuple, 1, span);
 
-    auto resultType = As<ScalarType>(getItem->GetType());
-    ASSERT_NE(resultType, nullptr);
-    ASSERT_EQ(resultType->dtype_, DataType::FP32);
+    auto ResultType = As<ScalarType>(getItem->GetType());
+    ASSERT_NE(ResultType, nullptr);
+    ASSERT_EQ(ResultType->dtype_, DataType::FP32);
 }
 
 // ============================================================================

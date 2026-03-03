@@ -429,13 +429,13 @@ static IRNodePtr DeserializeFunction(const msgpack::object &fieldsObj, msgpack::
     std::string name = GET_FIELD(std::string, "name");
 
     // Deserialize func_type field (default to Opaque for backward compatibility)
-    FunctionType funcType = FunctionType::Opaque;
+    FunctionType funcType = FunctionType::OPAQUE;
     try {
         uint8_t typeCode = GET_FIELD(uint8_t, "func_type");
         funcType = static_cast<FunctionType>(typeCode);
     } catch (...) {
         // Field doesn't exist in old serialized data, use default
-        funcType = FunctionType::Opaque;
+        funcType = FunctionType::OPAQUE;
     }
 
     std::vector<VarPtr> params;

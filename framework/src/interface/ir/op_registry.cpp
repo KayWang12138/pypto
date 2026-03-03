@@ -96,11 +96,11 @@ CallPtr OpRegistry::Create(const std::string &opName, const std::vector<ExprPtr>
     const auto &deduceTypeFn = entry.GetDeduceType();
 
     // Deduce result type (pass args and kwargs separately)
-    TypePtr resultType = deduceTypeFn(args, kwargs);
-    INTERNAL_CHECK(resultType) << "Type deduction failed for '" + opName + "'";
+    TypePtr ResultType = deduceTypeFn(args, kwargs);
+    INTERNAL_CHECK(ResultType) << "Type deduction failed for '" + opName + "'";
 
     // Create Call with deduced type
-    return std::make_shared<Call>(op, args, kwargs, resultType, std::move(span));
+    return std::make_shared<Call>(op, args, kwargs, ResultType, std::move(span));
 }
 
 const OpRegistryEntry &OpRegistry::GetEntry(const std::string &opName) const {

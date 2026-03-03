@@ -13,7 +13,7 @@
  * text of the License.
  */
 
-/**
+/*!
  * \file test_block_ops.cpp
  * \brief Unit tests for block operator type deduction via OpRegistry
  */

@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/**
+/*!
  * \file test_expr_basic.cpp
  * \brief Unit tests for basic expression classes
  */

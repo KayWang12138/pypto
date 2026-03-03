@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/**
+/*!
  * \file error.h
  * \brief Core error handling framework with stack trace support
  *
@@ -288,8 +288,8 @@ public:
  * Diagnostics can be either errors (must be fixed) or warnings (should be reviewed).
  */
 enum class DiagnosticSeverity {
-    Error,   ///< Error that must be fixed
-    Warning, ///< Warning that should be reviewed
+    ERROR,   ///< Error that must be fixed
+    WARNING, ///< Warning that should be reviewed
 };
 
 /**
@@ -309,7 +309,7 @@ struct Diagnostic {
     /**
      * \brief Default constructor
      */
-    Diagnostic() : severity(DiagnosticSeverity::Error), errorCode(0), span(ir::Span::Unknown()) {}
+    Diagnostic() : severity(DiagnosticSeverity::ERROR), errorCode(0), span(ir::Span::Unknown()) {}
 
     /**
      * \brief Construct a diagnostic with all fields

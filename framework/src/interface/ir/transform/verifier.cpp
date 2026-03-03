@@ -88,7 +88,7 @@ void IRVerifier::VerifyOrThrow(const ProgramPtr &program) const {
 
     // Check if there are any errors (not just warnings)
     bool hasErrors = std::any_of(diagnostics.begin(), diagnostics.end(),
-        [](const Diagnostic &d) { return d.severity == DiagnosticSeverity::Error; });
+        [](const Diagnostic &d) { return d.severity == DiagnosticSeverity::ERROR; });
 
     if (hasErrors) {
         std::string report = GenerateReport(diagnostics);
@@ -103,7 +103,7 @@ std::string IRVerifier::GenerateReport(const std::vector<Diagnostic> &diagnostic
     size_t errorCount = 0;
     size_t warningCount = 0;
     for (const auto &d : diagnostics) {
-        if (d.severity == DiagnosticSeverity::Error) {
+        if (d.severity == DiagnosticSeverity::ERROR) {
             errorCount++;
         } else {
             warningCount++;
@@ -126,7 +126,7 @@ std::string IRVerifier::GenerateReport(const std::vector<Diagnostic> &diagnostic
         const auto &d = diagnostics[i];
 
         // Severity label
-        std::string severityStr = (d.severity == DiagnosticSeverity::Error) ? "ERROR" : "WARNING";
+        std::string severityStr = (d.severity == DiagnosticSeverity::ERROR) ? "ERROR" : "WARNING";
 
         oss << "[" << (i + 1) << "] " << severityStr << " - " << d.ruleName << "\n";
         oss << "  Message: " << d.message << "\n";

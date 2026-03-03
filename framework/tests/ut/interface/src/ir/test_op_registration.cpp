@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/**
+/*!
  * \file test_op_registration.cpp
  * \brief Unit tests for operator registration (block_ops, tensor_ops, sync_ops,
  *        op_registry, type_inference)

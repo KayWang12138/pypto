@@ -43,51 +43,51 @@ Precedence GetPrecedence(const ExprPtr &expr) {
     // Using a static map is more efficient and maintainable than a long chain of dynamic_casts.
     static const std::unordered_map<std::type_index, Precedence> kPrecedenceMap = {
         // Logical operators≥
-        {              std::type_index(typeid(Or)),         Precedence::kOr},
-        {             std::type_index(typeid(Xor)),        Precedence::kXor},
-        {             std::type_index(typeid(And)),        Precedence::kAnd},
-        {             std::type_index(typeid(Not)),        Precedence::kNot},
+        {              std::type_index(typeid(Or)),          Precedence::OR},
+        {             std::type_index(typeid(Xor)),         Precedence::XOR},
+        {             std::type_index(typeid(And)),         Precedence::AND},
+        {             std::type_index(typeid(Not)),         Precedence::NOT},
 
         // Comparison operators
-        {              std::type_index(typeid(Eq)), Precedence::kComparison},
-        {              std::type_index(typeid(Ne)), Precedence::kComparison},
-        {              std::type_index(typeid(Lt)), Precedence::kComparison},
-        {              std::type_index(typeid(Le)), Precedence::kComparison},
-        {              std::type_index(typeid(Gt)), Precedence::kComparison},
-        {              std::type_index(typeid(Ge)), Precedence::kComparison},
+        {              std::type_index(typeid(Eq)),  Precedence::COMPARISON},
+        {              std::type_index(typeid(Ne)),  Precedence::COMPARISON},
+        {              std::type_index(typeid(Lt)),  Precedence::COMPARISON},
+        {              std::type_index(typeid(Le)),  Precedence::COMPARISON},
+        {              std::type_index(typeid(Gt)),  Precedence::COMPARISON},
+        {              std::type_index(typeid(Ge)),  Precedence::COMPARISON},
 
         // Bitwise operators
-        {           std::type_index(typeid(BitOr)),      Precedence::kBitOr},
-        {          std::type_index(typeid(BitXor)),     Precedence::kBitXor},
-        {          std::type_index(typeid(BitAnd)),     Precedence::kBitAnd},
-        {    std::type_index(typeid(BitShiftLeft)),   Precedence::kBitShift},
-        {   std::type_index(typeid(BitShiftRight)),   Precedence::kBitShift},
+        {           std::type_index(typeid(BitOr)),      Precedence::BIT_OR},
+        {          std::type_index(typeid(BitXor)),     Precedence::BIT_XOR},
+        {          std::type_index(typeid(BitAnd)),     Precedence::BIT_AND},
+        {    std::type_index(typeid(BitShiftLeft)),   Precedence::BIT_SHIFT},
+        {   std::type_index(typeid(BitShiftRight)),   Precedence::BIT_SHIFT},
 
         // Arithmetic operators
-        {             std::type_index(typeid(Add)),     Precedence::kAddSub},
-        {             std::type_index(typeid(Sub)),     Precedence::kAddSub},
-        {             std::type_index(typeid(Mul)),  Precedence::kMulDivMod},
-        {        std::type_index(typeid(FloorDiv)),  Precedence::kMulDivMod},
-        {        std::type_index(typeid(FloatDiv)),  Precedence::kMulDivMod},
-        {        std::type_index(typeid(FloorMod)),  Precedence::kMulDivMod},
-        {             std::type_index(typeid(Pow)),        Precedence::kPow},
+        {             std::type_index(typeid(Add)),     Precedence::ADD_SUB},
+        {             std::type_index(typeid(Sub)),     Precedence::ADD_SUB},
+        {             std::type_index(typeid(Mul)), Precedence::MUL_DIV_MOD},
+        {        std::type_index(typeid(FloorDiv)), Precedence::MUL_DIV_MOD},
+        {        std::type_index(typeid(FloatDiv)), Precedence::MUL_DIV_MOD},
+        {        std::type_index(typeid(FloorMod)), Precedence::MUL_DIV_MOD},
+        {             std::type_index(typeid(Pow)),         Precedence::POW},
 
         // Unary operators
-        {             std::type_index(typeid(Neg)),      Precedence::kUnary},
-        {          std::type_index(typeid(BitNot)),      Precedence::kUnary},
+        {             std::type_index(typeid(Neg)),       Precedence::UNARY},
+        {          std::type_index(typeid(BitNot)),       Precedence::UNARY},
 
         // Function-like operators and atoms
-        {             std::type_index(typeid(Abs)),       Precedence::kCall},
-        {            std::type_index(typeid(Cast)),       Precedence::kCall},
-        {             std::type_index(typeid(Min)),       Precedence::kCall},
-        {             std::type_index(typeid(Max)),       Precedence::kCall},
-        {            std::type_index(typeid(Call)),       Precedence::kCall},
-        {             std::type_index(typeid(Var)),       Precedence::kAtom},
-        {         std::type_index(typeid(IterArg)),       Precedence::kAtom},
-        {        std::type_index(typeid(ConstInt)),       Precedence::kAtom},
-        {      std::type_index(typeid(ConstFloat)),       Precedence::kAtom},
-        {       std::type_index(typeid(ConstBool)),       Precedence::kAtom},
-        {std::type_index(typeid(TupleGetItemExpr)),       Precedence::kAtom},
+        {             std::type_index(typeid(Abs)),        Precedence::CALL},
+        {            std::type_index(typeid(Cast)),        Precedence::CALL},
+        {             std::type_index(typeid(Min)),        Precedence::CALL},
+        {             std::type_index(typeid(Max)),        Precedence::CALL},
+        {            std::type_index(typeid(Call)),        Precedence::CALL},
+        {             std::type_index(typeid(Var)),        Precedence::ATOM},
+        {         std::type_index(typeid(IterArg)),        Precedence::ATOM},
+        {        std::type_index(typeid(ConstInt)),        Precedence::ATOM},
+        {      std::type_index(typeid(ConstFloat)),        Precedence::ATOM},
+        {       std::type_index(typeid(ConstBool)),        Precedence::ATOM},
+        {std::type_index(typeid(TupleGetItemExpr)),        Precedence::ATOM},
     };
 
     INTERNAL_CHECK(expr) << "Expression is null";
@@ -98,7 +98,7 @@ Precedence GetPrecedence(const ExprPtr &expr) {
     }
 
     // Default for any other expression types.
-    return Precedence::kAtom;
+    return Precedence::ATOM;
 }
 
 bool IsRightAssociative(const ExprPtr &expr) {
@@ -605,7 +605,7 @@ void IRPythonPrinter::VisitExpr_(const BitShiftRightPtr &op) {
 void IRPythonPrinter::VisitExpr_(const NegPtr &op) {
     stream_ << "-";
     Precedence operandPrec = GetPrecedence(op->operand_);
-    if (operandPrec < Precedence::kUnary) {
+    if (operandPrec < Precedence::UNARY) {
         stream_ << "(";
         VisitExpr(op->operand_);
         stream_ << ")";
@@ -631,7 +631,7 @@ void IRPythonPrinter::VisitExpr_(const CastPtr &op) {
 void IRPythonPrinter::VisitExpr_(const NotPtr &op) {
     stream_ << "not ";
     Precedence operandPrec = GetPrecedence(op->operand_);
-    if (operandPrec < Precedence::kNot) {
+    if (operandPrec < Precedence::NOT) {
         stream_ << "(";
         VisitExpr(op->operand_);
         stream_ << ")";
@@ -643,7 +643,7 @@ void IRPythonPrinter::VisitExpr_(const NotPtr &op) {
 void IRPythonPrinter::VisitExpr_(const BitNotPtr &op) {
     stream_ << "~";
     Precedence operandPrec = GetPrecedence(op->operand_);
-    if (operandPrec < Precedence::kUnary) {
+    if (operandPrec < Precedence::UNARY) {
         stream_ << "(";
         VisitExpr(op->operand_);
         stream_ << ")";
@@ -897,7 +897,7 @@ void IRPythonPrinter::PrintBodyWithYieldToReturn(const StmtPtr &body) {
 void IRPythonPrinter::VisitFunction(const FunctionPtr &func) {
     // Print decorator with type parameter if not opaque
     stream_ << "@" << prefix_ << ".function";
-    if (func->funcType_ != FunctionType::Opaque) {
+    if (func->funcType_ != FunctionType::OPAQUE) {
         stream_ << "(type=" << prefix_ << ".FunctionType." << FunctionTypeToString(func->funcType_) << ")";
     }
     stream_ << "\n";

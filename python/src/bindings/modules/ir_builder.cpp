@@ -45,7 +45,7 @@ void BindIRBuilder(py::module_ &m) {
 
         // Function building
         .def("begin_function", &IRBuilder::BeginFunction, py::arg("name"), py::arg("span"),
-            py::arg("type") = FunctionType::Opaque,
+            py::arg("type") = FunctionType::OPAQUE,
             "Begin building a function.\n\n"
             "Creates a new function context. Must be closed with end_function().\n\n"
             "Args:\n"

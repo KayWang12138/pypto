@@ -332,16 +332,16 @@ inline bool IsBoolDtype(const DataType &dtype) {
 }
 
 enum class ScalarCategory {
-    kInt,
-    kFloat,
+    INT,
+    FLOAT,
 };
 
 inline ScalarCategory GetNumericCategory(const DataType &dtype, const std::string &opName) {
     if (dtype.IsFloat()) {
-        return ScalarCategory::kFloat;
+        return ScalarCategory::FLOAT;
     }
     if (dtype.IsInt()) {
-        return ScalarCategory::kInt;
+        return ScalarCategory::INT;
     }
     throw TypeError("Operator '" + opName + "' requires numeric scalar dtype, got " + dtype.ToString());
 }

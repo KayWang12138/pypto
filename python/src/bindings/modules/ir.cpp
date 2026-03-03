@@ -491,9 +491,9 @@ void BindIR(py::module_ &m) {
 
     // FunctionType enum
     py::enum_<FunctionType>(ir, "FunctionType")
-        .value("Opaque", FunctionType::Opaque)
-        .value("Orchestration", FunctionType::Orchestration)
-        .value("InCore", FunctionType::InCore)
+        .value("Opaque", FunctionType::OPAQUE)
+        .value("Orchestration", FunctionType::ORCHESTRATION)
+        .value("InCore", FunctionType::IN_CORE)
         .export_values();
 
     // Function
@@ -501,7 +501,7 @@ void BindIR(py::module_ &m) {
     functionClass.def(py::init<const std::string &, const std::vector<VarPtr> &, const std::vector<TypePtr> &,
                           const StmtPtr &, const Span &, FunctionType>(),
         py::arg("name"), py::arg("params"), py::arg("return_types"), py::arg("body"), py::arg("span"),
-        py::arg("type") = FunctionType::Opaque);
+        py::arg("type") = FunctionType::OPAQUE);
     BindFields<Function>(functionClass);
 
     // Program

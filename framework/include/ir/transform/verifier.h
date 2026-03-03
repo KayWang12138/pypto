@@ -87,7 +87,7 @@ using VerifyRulePtr = std::shared_ptr<VerifyRule>;
  *   // Run verification
  *   auto diagnostics = verifier.Verify(program);
  *   for (const auto &d : diagnostics) {
- *     if (d.severity == DiagnosticSeverity::Error) {
+ *     if (d.severity == DiagnosticSeverity::ERROR) {
  *       LOG_ERROR << d.message;
  *     }
  *   }

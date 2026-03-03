@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/**
+/*!
  * \file test_transform.cpp
  * \brief Unit tests for IR transform module (printer, visitor, mutator,
  *        structural_equal/hash, verifier, passes, dependency_analyzer)
@@ -141,7 +141,7 @@ TEST(PrinterTest, GetPrecedenceVar) {
     auto var = std::make_shared<Var>("x", Int32Type(), span);
     ExprPtr expr = var;
     auto prec = GetPrecedence(expr);
-    ASSERT_EQ(prec, Precedence::kAtom);
+    ASSERT_EQ(prec, Precedence::ATOM);
 }
 
 TEST(PrinterTest, GetPrecedenceAdd) {
@@ -151,7 +151,7 @@ TEST(PrinterTest, GetPrecedenceAdd) {
     auto add = std::make_shared<Add>(x, y, DataType::INT32, span);
     ExprPtr expr = add;
     auto prec = GetPrecedence(expr);
-    ASSERT_EQ(prec, Precedence::kAddSub);
+    ASSERT_EQ(prec, Precedence::ADD_SUB);
 }
 
 TEST(PrinterTest, IsRightAssociativeAdd) {
@@ -516,7 +516,7 @@ TEST(VerifierTest, VerifyValidProgram) {
     // A simple valid program should have no errors
     int errorCount = 0;
     for (const auto &d : diagnostics) {
-        if (d.severity == DiagnosticSeverity::Error) {
+        if (d.severity == DiagnosticSeverity::ERROR) {
             errorCount++;
         }
     }

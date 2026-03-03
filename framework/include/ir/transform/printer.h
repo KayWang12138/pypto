@@ -25,21 +25,21 @@ namespace ir {
  * Higher value = tighter binding (higher precedence).
  */
 enum class Precedence : int {
-    kOr = 1,         // or
-    kXor = 2,        // xor
-    kAnd = 3,        // and
-    kNot = 4,        // not (unary)
-    kComparison = 5, // ==, !=, <, <=, >, >=
-    kBitOr = 6,      // |
-    kBitXor = 7,     // ^
-    kBitAnd = 8,     // &
-    kBitShift = 9,   // <<, >>
-    kAddSub = 10,    // +, -
-    kMulDivMod = 11, // *, /, //, %
-    kUnary = 12,     // -(unary), ~
-    kPow = 13,       // ** (right-associative!)
-    kCall = 14,      // function calls, min(), max(), abs()
-    kAtom = 15       // variables, constants
+    OR = 1,           // or
+    XOR = 2,          // xor
+    AND = 3,          // and
+    NOT = 4,          // not (unary)
+    COMPARISON = 5,   // ==, !=, <, <=, >, >=
+    BIT_OR = 6,       // |
+    BIT_XOR = 7,      // ^
+    BIT_AND = 8,      // &
+    BIT_SHIFT = 9,    // <<, >>
+    ADD_SUB = 10,     // +, -
+    MUL_DIV_MOD = 11, // *, /, //, %
+    UNARY = 12,       // -(unary), ~
+    POW = 13,         // ** (right-associative!)
+    CALL = 14,        // function calls, min(), max(), abs()
+    ATOM = 15         // variables, constants
 };
 
 /**

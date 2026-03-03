@@ -51,7 +51,7 @@ namespace ir {
 template <bool AssertMode>
 class StructuralEqualImpl {
 public:
-    using resultType = bool;
+    using ResultType = bool;
 
     explicit StructuralEqualImpl(bool enableAutoMapping) : enableAutoMapping_(enableAutoMapping) {}
 
@@ -75,10 +75,10 @@ public:
     }
 
     // FieldIterator visitor interface (dual-node version - methods receive two fields)
-    [[nodiscard]] resultType InitResult() const { return true; }
+    [[nodiscard]] ResultType InitResult() const { return true; }
 
     template <typename IRNodePtrType>
-    resultType VisitIRNodeField(const IRNodePtrType &lhs, const IRNodePtrType &rhs) {
+    ResultType VisitIRNodeField(const IRNodePtrType &lhs, const IRNodePtrType &rhs) {
         INTERNAL_CHECK(lhs) << "structural_equal encountered null lhs IR node field";
         INTERNAL_CHECK(rhs) << "structural_equal encountered null rhs IR node field";
         return Equal(lhs, rhs);
@@ -86,7 +86,7 @@ public:
 
     // Specialization for std::optional<IRNodePtr>
     template <typename IRNodePtrType>
-    resultType VisitIRNodeField(const std::optional<IRNodePtrType> &lhs, const std::optional<IRNodePtrType> &rhs) {
+    ResultType VisitIRNodeField(const std::optional<IRNodePtrType> &lhs, const std::optional<IRNodePtrType> &rhs) {
         if (!lhs.has_value() && !rhs.has_value()) {
             return true;
         }
@@ -112,7 +112,7 @@ public:
     }
 
     template <typename IRNodePtrType>
-    resultType VisitIRNodeVectorField(const std::vector<IRNodePtrType> &lhs, const std::vector<IRNodePtrType> &rhs) {
+    ResultType VisitIRNodeVectorField(const std::vector<IRNodePtrType> &lhs, const std::vector<IRNodePtrType> &rhs) {
         if (lhs.size() != rhs.size()) {
             if constexpr (AssertMode) {
                 std::ostringstream msg;
@@ -146,7 +146,7 @@ public:
     }
 
     template <typename KeyType, typename ValueType, typename Compare>
-    resultType VisitIRNodeMapField(
+    ResultType VisitIRNodeMapField(
         const std::map<KeyType, ValueType, Compare> &lhs, const std::map<KeyType, ValueType, Compare> &rhs) {
         if (lhs.size() != rhs.size()) {
             if constexpr (AssertMode) {
@@ -196,7 +196,7 @@ public:
     }
 
     // Leaf field comparisons (dual-node version)
-    resultType VisitLeafField(const int &lhs, const int &rhs) {
+    ResultType VisitLeafField(const int &lhs, const int &rhs) {
         if (lhs != rhs) {
             if constexpr (AssertMode) {
                 std::ostringstream msg;
@@ -208,7 +208,7 @@ public:
         return true;
     }
 
-    resultType VisitLeafField(const int64_t &lhs, const int64_t &rhs) {
+    ResultType VisitLeafField(const int64_t &lhs, const int64_t &rhs) {
         if (lhs != rhs) {
             if constexpr (AssertMode) {
                 std::ostringstream msg;
@@ -220,7 +220,7 @@ public:
         return true;
     }
 
-    resultType VisitLeafField(const uint64_t &lhs, const uint64_t &rhs) {
+    ResultType VisitLeafField(const uint64_t &lhs, const uint64_t &rhs) {
         if (lhs != rhs) {
             if constexpr (AssertMode) {
                 std::ostringstream msg;
@@ -232,7 +232,7 @@ public:
         return true;
     }
 
-    resultType VisitLeafField(const double &lhs, const double &rhs) {
+    ResultType VisitLeafField(const double &lhs, const double &rhs) {
         if (std::memcmp(&lhs, &rhs, sizeof(double)) != 0) {
             if constexpr (AssertMode) {
                 std::ostringstream msg;
@@ -244,7 +244,7 @@ public:
         return true;
     }
 
-    resultType VisitLeafField(const std::string &lhs, const std::string &rhs) {
+    ResultType VisitLeafField(const std::string &lhs, const std::string &rhs) {
         if (lhs != rhs) {
             if constexpr (AssertMode) {
                 std::ostringstream msg;
@@ -256,7 +256,7 @@ public:
         return true;
     }
 
-    resultType VisitLeafField(const OpPtr &lhs, const OpPtr &rhs) {
+    ResultType VisitLeafField(const OpPtr &lhs, const OpPtr &rhs) {
         if (lhs->name_ != rhs->name_) {
             if constexpr (AssertMode) {
                 std::ostringstream msg;
@@ -268,7 +268,7 @@ public:
         return true;
     }
 
-    resultType VisitLeafField(const DataType &lhs, const DataType &rhs) {
+    ResultType VisitLeafField(const DataType &lhs, const DataType &rhs) {
         if (lhs != rhs) {
             if constexpr (AssertMode) {
                 std::ostringstream msg;
@@ -280,7 +280,7 @@ public:
         return true;
     }
 
-    resultType VisitLeafField(const FunctionType &lhs, const FunctionType &rhs) {
+    ResultType VisitLeafField(const FunctionType &lhs, const FunctionType &rhs) {
         if (lhs != rhs) {
             if constexpr (AssertMode) {
                 std::ostringstream msg;
@@ -294,7 +294,7 @@ public:
     }
 
     // Compare kwargs (vector of pairs to preserve order)
-    resultType VisitLeafField(const std::vector<std::pair<std::string, std::any>> &lhs,
+    ResultType VisitLeafField(const std::vector<std::pair<std::string, std::any>> &lhs,
         const std::vector<std::pair<std::string, std::any>> &rhs) {
         if (lhs.size() != rhs.size()) {
             if constexpr (AssertMode) {
@@ -356,7 +356,7 @@ public:
         return true;
     }
 
-    resultType VisitLeafField(const MemorySpace &lhs, const MemorySpace &rhs) {
+    ResultType VisitLeafField(const MemorySpace &lhs, const MemorySpace &rhs) {
         if (lhs != rhs) {
             if constexpr (AssertMode) {
                 std::ostringstream msg;
@@ -369,9 +369,9 @@ public:
         return true;
     }
 
-    resultType VisitLeafField(const TypePtr &lhs, const TypePtr &rhs) { return EqualType(lhs, rhs); }
+    ResultType VisitLeafField(const TypePtr &lhs, const TypePtr &rhs) { return EqualType(lhs, rhs); }
 
-    resultType VisitLeafField(const std::vector<TypePtr> &lhs, const std::vector<TypePtr> &rhs) {
+    ResultType VisitLeafField(const std::vector<TypePtr> &lhs, const std::vector<TypePtr> &rhs) {
         if (lhs.size() != rhs.size()) {
             if constexpr (AssertMode) {
                 std::ostringstream msg;
@@ -389,7 +389,7 @@ public:
         return true;
     }
 
-    resultType VisitLeafField(const Span & /*lhs*/, const Span & /*rhs*/) const {
+    ResultType VisitLeafField(const Span & /*lhs*/, const Span & /*rhs*/) const {
         INTERNAL_UNREACHABLE << "structural_equal should not visit Span field";
         return true; // Never reached
     }
@@ -415,7 +415,7 @@ public:
 
     // Combine results (AND logic)
     template <typename Desc>
-    void CombineResult(resultType &accumulator, resultType fieldResult, [[maybe_unused]] const Desc &desc) {
+    void CombineResult(ResultType &accumulator, ResultType fieldResult, [[maybe_unused]] const Desc &desc) {
         accumulator = accumulator && fieldResult;
     }
 

@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/**
+/*!
  * \file test_dependency_analyzer.cpp
  * \brief Unit tests for IR dependency analyzer
  */

@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/**
+/*!
  * \file test_scalar_expr_basic.cpp
  * \brief Unit tests for basic scalar expressions (constants only)
  */
@@ -226,13 +226,13 @@ TEST(ScalarExprBasicTest, TestIsBoolDtype) {
 TEST(ScalarExprBasicTest, TestGetNumericCategoryInt) {
     // Test GetNumericCategory for integer types
     auto category = GetNumericCategory(DataType::INT32, "test");
-    ASSERT_EQ(category, ScalarCategory::kInt);
+    ASSERT_EQ(category, ScalarCategory::INT);
 }
 
 TEST(ScalarExprBasicTest, TestGetNumericCategoryFloat) {
     // Test GetNumericCategory for float types
     auto category = GetNumericCategory(DataType::FP32, "test");
-    ASSERT_EQ(category, ScalarCategory::kFloat);
+    ASSERT_EQ(category, ScalarCategory::FLOAT);
 }
 
 } // namespace ir

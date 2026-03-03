@@ -31,18 +31,18 @@ struct IgnoreFieldTag {}; // Skip in comparisons (e.g., span)
  * Captures metadata about a field in an IR node using pointer-to-member.
  * Field descriptors are stored at compile-time and enable generic field visitation.
  *
- * \tparam NodeType The IR node class containing this field
- * \tparam FieldType The type of the field
- * \tparam KindTag The field kind tag (DefFieldTag, UsualFieldTag, or IgnoreFieldTag)
+ * \tparam NodeT The IR node class containing this field
+ * \tparam FieldT The type of the field
+ * \tparam KindTagT The field kind tag (DefFieldTag, UsualFieldTag, or IgnoreFieldTag)
  */
-template <typename NodeType, typename FieldType, typename KindTag>
+template <typename NodeT, typename FieldT, typename KindTagT>
 struct FieldDescriptor {
-    using nodeType = NodeType;
-    using fieldType = FieldType;
-    using kindTag = KindTag;
+    using NodeType = NodeT;
+    using FieldType = FieldT;
+    using KindTag = KindTagT;
 
-    FieldType NodeType::*fieldPtr; // Pointer-to-member for type-safe field access
-    const char *name;              // Field name for debugging
+    FieldT NodeT::*fieldPtr; // Pointer-to-member for type-safe field access
+    const char *name;        // Field name for debugging
 
     /**
      * \brief Construct a field descriptor
@@ -50,7 +50,7 @@ struct FieldDescriptor {
      * \param ptr Pointer-to-member for the field
      * \param n Field name (string literal)
      */
-    constexpr FieldDescriptor(FieldType NodeType::*ptr, const char *n) : fieldPtr(ptr), name(n) {}
+    constexpr FieldDescriptor(FieldT NodeT::*ptr, const char *n) : fieldPtr(ptr), name(n) {}
 
     /**
      * \brief Access field value from a node instance
@@ -58,7 +58,7 @@ struct FieldDescriptor {
      * \param node The node instance to access the field from
      * \return const reference to the field value
      */
-    const FieldType &Get(const NodeType &node) const { return node.*fieldPtr; }
+    const FieldT &Get(const NodeT &node) const { return node.*fieldPtr; }
 };
 
 /**

@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/**
+/*!
  * \file test_structural_equal.cpp
  * \brief Unit tests for IR structural equality comparison
  */
@@ -1086,11 +1086,11 @@ TEST_F(StructuralEqualTest, TestFunctionTypeMismatch) {
     Span sp = Span::Unknown();
     auto body1 = std::make_shared<EvalStmt>(std::make_shared<ConstInt>(0, DataType::INT32, sp), sp);
     auto func1 =
-        std::make_shared<Function>("f", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body1, sp, FunctionType::Opaque);
+        std::make_shared<Function>("f", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body1, sp, FunctionType::OPAQUE);
 
     auto body2 = std::make_shared<EvalStmt>(std::make_shared<ConstInt>(0, DataType::INT32, sp), sp);
-    auto func2 =
-        std::make_shared<Function>("f", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body2, sp, FunctionType::InCore);
+    auto func2 = std::make_shared<Function>(
+        "f", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body2, sp, FunctionType::IN_CORE);
 
     ASSERT_FALSE(StructuralEqual(func1, func2));
 }

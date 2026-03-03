@@ -36,8 +36,8 @@ void BindPass(py::module_ &m) {
     py::class_<Pass>(passes, "Pass").def("__call__", &Pass::operator(), py::arg("program"));
 
     py::enum_<DiagnosticSeverity>(passes, "DiagnosticSeverity")
-        .value("Error", DiagnosticSeverity::Error)
-        .value("Warning", DiagnosticSeverity::Warning);
+        .value("Error", DiagnosticSeverity::ERROR)
+        .value("Warning", DiagnosticSeverity::WARNING);
 
     py::class_<Diagnostic>(passes, "Diagnostic")
         .def_readonly("severity", &Diagnostic::severity)

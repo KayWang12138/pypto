@@ -79,7 +79,7 @@ public:
      * \param type Function type (default: Opaque)
      * \throws RuntimeError if already inside a function (no nested functions allowed)
      */
-    void BeginFunction(const std::string &name, const Span &span, FunctionType type = FunctionType::Opaque);
+    void BeginFunction(const std::string &name, const Span &span, FunctionType type = FunctionType::OPAQUE);
 
     /**
      * \brief Add a function parameter
@@ -423,7 +423,7 @@ protected:
  */
 class FunctionContext : public BuildContext {
 public:
-    FunctionContext(std::string name, Span span, FunctionType funcType = FunctionType::Opaque)
+    FunctionContext(std::string name, Span span, FunctionType funcType = FunctionType::OPAQUE)
         : BuildContext(Type::FUNCTION, std::move(span)), name_(std::move(name)), funcType_(funcType) {}
 
     void AddParam(const VarPtr &param) { params_.push_back(param); }

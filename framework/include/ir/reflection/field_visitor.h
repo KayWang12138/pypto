@@ -97,13 +97,13 @@ struct IsIRNodeMapField<std::map<std::shared_ptr<const KeyType>, std::shared_ptr
  * Uses C++17 fold expressions for compile-time iteration.
  *
  * \tparam NodeType The IR node type being visited
- * \tparam Visitor The visitor type (must have result_type and visit methods)
+ * \tparam Visitor The visitor type (must have ResultType and visit methods)
  * \tparam Descriptors Parameter pack of field descriptors
  */
 template <typename NodeType, typename Visitor, typename... Descriptors>
 class FieldIterator {
 public:
-    using resultType = typename Visitor::resultType;
+    using ResultType = typename Visitor::ResultType;
 
     /**
      * \brief Visit all fields of a single node
@@ -119,8 +119,8 @@ public:
      * \param descriptors Field descriptor instances
      * \return Accumulated result from visiting all fields
      */
-    static resultType Visit(const NodeType &node, Visitor &visitor, const Descriptors &...descriptors) {
-        resultType result = visitor.InitResult();
+    static ResultType Visit(const NodeType &node, Visitor &visitor, const Descriptors &...descriptors) {
+        ResultType result = visitor.InitResult();
         (VisitField(visitor, descriptors, result, node), ...);
         return result;
     }
@@ -140,9 +140,9 @@ public:
      * \param descriptors Field descriptor instances
      * \return Accumulated result from visiting all field pairs
      */
-    static resultType Visit(
+    static ResultType Visit(
         const NodeType &lhs, const NodeType &rhs, Visitor &visitor, const Descriptors &...descriptors) {
-        resultType result = visitor.InitResult();
+        ResultType result = visitor.InitResult();
         (VisitField(visitor, descriptors, result, lhs, rhs), ...);
         return result;
     }
@@ -157,8 +157,8 @@ private:
      * \tparam Nodes Parameter pack of node types (all must be NodeType)
      */
     template <typename Desc, typename... Nodes>
-    static void VisitField(Visitor &visitor, const Desc &desc, resultType &result, const Nodes &...nodes) {
-        using KindTag = typename Desc::kindTag;
+    static void VisitField(Visitor &visitor, const Desc &desc, ResultType &result, const Nodes &...nodes) {
+        using KindTag = typename Desc::KindTag;
 
         if constexpr (std::is_same_v<KindTag, IgnoreFieldTag>) {
             visitor.VisitIgnoreField([&]() { VisitFieldImpl(visitor, desc, result, nodes...); });
@@ -178,8 +178,8 @@ private:
      * the appropriate visitor method with fields from all nodes.
      */
     template <typename Desc, typename... Nodes>
-    static void VisitFieldImpl(Visitor &visitor, const Desc &desc, resultType &result, const Nodes &...nodes) {
-        using FieldType = typename Desc::fieldType;
+    static void VisitFieldImpl(Visitor &visitor, const Desc &desc, ResultType &result, const Nodes &...nodes) {
+        using FieldType = typename Desc::FieldType;
 
         if constexpr (IsIRNodeOptionalField<FieldType>::value) {
             // Optional IRNodePtr field - treat as IRNode field

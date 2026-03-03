@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/**
+/*!
  * \file test_printer.cpp
  * \brief Unit tests for IR Python printer
  */
@@ -621,7 +621,7 @@ TEST_F(IRPrinterTest, TestPrintFunctionOrchestration) {
     Span sp = Span::Unknown();
     auto body = std::make_shared<EvalStmt>(std::make_shared<ConstInt>(0, DataType::INT32, sp), sp);
     auto func = std::make_shared<Function>(
-        "my_orch", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body, sp, FunctionType::Orchestration);
+        "my_orch", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body, sp, FunctionType::ORCHESTRATION);
     std::string result = PythonPrint(func);
     ASSERT_NE(result.find("type=pl.FunctionType.Orchestration"), std::string::npos);
 }
@@ -630,7 +630,7 @@ TEST_F(IRPrinterTest, TestPrintFunctionInCore) {
     Span sp = Span::Unknown();
     auto body = std::make_shared<EvalStmt>(std::make_shared<ConstInt>(0, DataType::INT32, sp), sp);
     auto func = std::make_shared<Function>(
-        "my_incore", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body, sp, FunctionType::InCore);
+        "my_incore", std::vector<VarPtr>{}, std::vector<TypePtr>{}, body, sp, FunctionType::IN_CORE);
     std::string result = PythonPrint(func);
     ASSERT_NE(result.find("type=pl.FunctionType.InCore"), std::string::npos);
 }

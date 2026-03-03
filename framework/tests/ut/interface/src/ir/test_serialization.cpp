@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/**
+/*!
  * \file test_serialization.cpp
  * \brief Unit tests for IR serialization and deserialization round-trip
  */

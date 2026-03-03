@@ -33,9 +33,9 @@ namespace ir {
  * - InCore: Sub-graph on specific AICore
  */
 enum class FunctionType : uint8_t {
-    Opaque = 0,        ///< Default: unspecified function type
-    Orchestration = 1, ///< Host/AICPU control and coordination
-    InCore = 2         ///< AICore sub-graph execution
+    OPAQUE = 0,        ///< Default: unspecified function type
+    ORCHESTRATION = 1, ///< Host/AICPU control and coordination
+    IN_CORE = 2        ///< AICore sub-graph execution
 };
 
 /**
@@ -45,9 +45,9 @@ enum class FunctionType : uint8_t {
  */
 inline std::string FunctionTypeToString(FunctionType type) {
     switch (type) {
-        case FunctionType::Opaque: return "Opaque";
-        case FunctionType::Orchestration: return "Orchestration";
-        case FunctionType::InCore: return "InCore";
+        case FunctionType::OPAQUE: return "Opaque";
+        case FunctionType::ORCHESTRATION: return "Orchestration";
+        case FunctionType::IN_CORE: return "InCore";
         default: return "Unknown";
     }
 }
@@ -60,11 +60,11 @@ inline std::string FunctionTypeToString(FunctionType type) {
  */
 inline FunctionType StringToFunctionType(const std::string &str) {
     if (str == "Opaque") {
-        return FunctionType::Opaque;
+        return FunctionType::OPAQUE;
     } else if (str == "Orchestration") {
-        return FunctionType::Orchestration;
+        return FunctionType::ORCHESTRATION;
     } else if (str == "InCore") {
-        return FunctionType::InCore;
+        return FunctionType::IN_CORE;
     } else {
         throw std::invalid_argument("Unknown FunctionType: " + str);
     }
@@ -89,7 +89,7 @@ public:
      * \param type Function type (default: Opaque)
      */
     Function(std::string name, std::vector<VarPtr> params, std::vector<TypePtr> returnTypes, StmtPtr body, Span span,
-        FunctionType type = FunctionType::Opaque)
+        FunctionType type = FunctionType::OPAQUE)
         : IRNode(std::move(span)),
           name_(std::move(name)),
           funcType_(type),
