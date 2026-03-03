@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include <cinttypes>
+#include <atomic>
 
 #ifdef BUILD_WITH_CANN
 #include "machine/runtime/device_runner.h"
@@ -199,7 +200,7 @@ public:
         }
 #ifdef BUILD_WITH_CANN
         if (isDevice) {
-            DeviceRunner::Get().InitMetaData(devProg->devArgs);
+            DeviceRunner::Get().InitMetaData(devProg->devArgs, IsCaptureMode());
         }
 #endif
         devProg->workspaceSize = devProg->memBudget.Total();
@@ -215,7 +216,8 @@ public:
     // Fill metadata and kArgs (templated because it uses DeviceMemoryTy) (keeps <= 50 lines)
     template<typename DeviceMemoryTy>
     static void FillKernelMeta(DeviceMemoryTy& devMem, DeviceKernelArgs &kArgs, DevAscendProgram *devProg,
-            const std::vector<uint8_t> &devProgData, bool isCtrlCacheRecording, const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
+            const std::vector<uint8_t> &devProgData, bool isCtrlCacheRecording, const DeviceLauncherConfig &config,
+            CachedOperator *cachedOperator) {
         AssignMetaAddr(devMem, kArgs, devProg, cachedOperator);
         devProg->l2CacheOffset = devMem.GetL2Offset();
         if (config.workspaceAddr) {
@@ -232,14 +234,17 @@ public:
             kArgs.cfgdata = (int64_t *)devMem.CopyToDev(devProgData, CachedOperator::GetCfgDataDevAddrHolder(cachedOperator));
         }
         kArgs.machineConfig = devProg->devArgs.machineConfig;
-        if (config::GetPlatformConfig(KEY_ENABLE_PROF_FUNC, false)) {
-            kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICPU_FUNC);
-        }
-        if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_TIME, false) || config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL)  {
-            kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_TIME);
-        }
-        if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_PMU, false)) {
-            kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_PMU);
+        if (!IsCaptureMode()) {
+            if (config::GetPlatformConfig(KEY_ENABLE_PROF_FUNC, false)) {
+                kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICPU_FUNC);
+            }
+            if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_TIME, false) ||
+                config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
+                kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_TIME);
+            }
+            if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_PMU, false)) {
+                kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_PMU);
+            }
         }
         devProg->devArgs.toSubMachineConfig = kArgs.toSubMachineConfig;
     }
@@ -426,7 +431,10 @@ public:
     static void FreeControlFlowCache(uint8_t *ctrlCache);
     static void *RegisterKernelBin(const std::vector<uint8_t> &kernelBinary);
     static void UnregisterKernelBin(void *hdl);
-    static bool AddAicpuStream(aclrtStream aicoreStream, bool tripleStream);
+    static void SetCaptureMode(bool captureMode);
+    static bool IsCaptureMode();
+    static bool IsCaptureMode(aclrtStream aicoreStream);
+    static void AddAicpuStream(aclrtStream aicoreStream, bool tripleStream);
     static int LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream, bool debugEnable, [[maybe_unused]]Function *function);
     static int LaunchAicoreKernel(
         aclrtStream aicoreStream, void *kernel, rtArgsEx_t &rtArgs, rtTaskCfgInfo_t &rtTaskCfg, bool debugEnable);
