@@ -571,7 +571,7 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord, int16_t subblockId) {
 }
 
 template <bool isZeroC, typename T, typename U, typename V>
-TILEOP void TMatmul(T &c, U &a, V &b) {
+TILEOP void TMatmul(T &c, U &a, V &b, const int64_t transMode) {
     constexpr auto shapeSizeA = Std::tuple_size<typename U::Shape>::value;
     constexpr auto shapeSizeB = Std::tuple_size<typename V::Shape>::value;
     constexpr auto shapeSizeC = Std::tuple_size<typename T::Shape>::value;
@@ -598,6 +598,9 @@ TILEOP void TMatmul(T &c, U &a, V &b) {
 
     validM = (validM + BLOCK_CUBE_M_N - 1) / BLOCK_CUBE_M_N * BLOCK_CUBE_M_N;
     tileL0ATensor l0a(validM, validK);
+    if (transMode != 0) {
+        l0a.SetMadTF32Mode(static_cast<pto::RoundMode>(transMode));
+    }
     tileL0BTensor l0b(validK, validN);
     tileL0CTensor l0c(validM, validN);
     if (std::is_same<typename tileL0ATensor::DType, float>::value) {
@@ -613,10 +616,13 @@ TILEOP void TMatmul(T &c, U &a, V &b) {
     } else {
         pto::TMATMUL_ACC(l0c, l0c, l0a, l0b);
     }
+    if (transMode != 0) {
+        l0a.ResetMadMode();
+    }
 }
 
 template <typename T0, typename T1, typename T2, typename T3>
-TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, T3 &bias) {
+TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, const int64_t transMode, T3 &bias) {
     constexpr auto shapeSizeA = Std::tuple_size<typename T1::Shape>::value;
     constexpr auto shapeSizeB = Std::tuple_size<typename T2::Shape>::value;
     constexpr auto shapeSizeC = Std::tuple_size<typename T0::Shape>::value;
@@ -645,6 +651,9 @@ TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, T3 &bias) {
 
     validM = (validM + BLOCK_CUBE_M_N - 1) / BLOCK_CUBE_M_N * BLOCK_CUBE_M_N;
     tileL0ATensor l0a(validM, validK);
+    if (transMode != 0) {
+        l0a.SetMadTF32Mode(static_cast<pto::RoundMode>(transMode));
+    }
     tileL0BTensor l0b(validK, validN);
     tileL0CTensor l0c(validM, validN);
     tileBiasTensor biasT(1, validN);
@@ -654,6 +663,9 @@ TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, T3 &bias) {
     pto::TASSIGN(l0c, (uint64_t)c.GetAddr());
     pto::TASSIGN(biasT, (uint64_t)bias.GetAddr());
     pto::TMATMUL_BIAS(l0c, l0a, l0b, biasT);
+    if (transMode != 0) {
+        l0a.ResetMadMode();
+    }
 }
 
 #if __NPU_ARCH__ == 3101
@@ -792,7 +804,8 @@ INLINE void TStoreExecute(globalData dstGlobal, tileData srcL0C, V &fixbuf, uint
                 dstGlobal, srcL0C, fpData);
         }
     } else {
-        pto::TSTORE<tileData, globalData, config::kIsAcc ? pto::AtomicType::AtomicAdd : pto::AtomicType::AtomicNone>(
+        pto::TSTORE<tileData, globalData, config::kIsAcc ? pto::AtomicType::AtomicAdd : pto::AtomicType::AtomicNone,
+            config::kReluMode == 0 ? pto::ReluPreMode::NoRelu : pto::ReluPreMode::NormalRelu>(
             dstGlobal, srcL0C);
     }
 }
