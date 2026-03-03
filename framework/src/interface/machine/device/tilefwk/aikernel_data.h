@@ -29,6 +29,12 @@ const uint32_t RAW_TENSOR_LOCATION_OUTCAST = 2;
 constexpr int32_t DEV_SHAPE_DIM_MAX = 5;
 constexpr uint32_t TENSOR_INFO_OFFSET = 2;
 
+struct DevShmemAddrDesc {
+    uint64_t memType{0};
+    uint64_t offset{0};
+    uint64_t contextAddr{0};
+};
+
 struct DevShape {
     int dimSize{0};
     int dim[DEV_SHAPE_DIM_MAX];

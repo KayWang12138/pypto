@@ -21,6 +21,7 @@
 #include "machine/device/dynamic/context/device_stitch_context.h"
 #include "machine/device/dynamic/context/device_task_context.h"
 #include "machine/device/dynamic/costmodel_utils.h"
+#include "interface/tileop/distributed/comm_context.h"
 
 namespace npu::tile_fwk::dynamic {
 
@@ -33,6 +34,7 @@ struct DeviceExecuteContext {
     DevStartArgs *args{nullptr};
     uint64_t taskId{0};
     bool isFirstTaskSend{true};
+    uint64_t shmemDescIdx;
 
     DevAscendProgram *devProg{nullptr};
     DeviceExecuteProgram execProg;
