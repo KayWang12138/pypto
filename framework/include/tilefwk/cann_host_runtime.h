@@ -33,7 +33,7 @@ private:
     CannHostRuntime();
     ~CannHostRuntime();
     void *GetSymbol(const std::string &sym);
-    GetSocVerFunc socVerFunc;
+    GetSocVerFunc socVerFunc_;
 };
 }
 }

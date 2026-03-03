@@ -40,7 +40,7 @@ CannHostRuntime::CannHostRuntime() {
     std::string soPath = RealPath(LibPathDir + "libruntime.so");
     FUNCTION_LOGW("soPath = %s", soPath.c_str());
     handle = dlopen(soPath.c_str(), RTLD_LAZY);
-    socVerFunc = (GetSocVerFunc)GetSymbol(socVerFuncName);
+    socVerFunc_ = (GetSocVerFunc)GetSymbol(socVerFuncName);
     if (handle != nullptr) {
         dlclose(handle);
     }
@@ -59,8 +59,8 @@ bool CannHostRuntime::GetSocVersion(std::string& socVersion) {
 #ifdef BUILD_WITH_CANN
     int ret = 1;
     char socVer[kMaxLength] = {0x00};
-    if (socVerFunc != nullptr) {
-        ret = socVerFunc(socVer, kMaxLength);
+    if (socVerFunc_ != nullptr) {
+        ret = socVerFunc_(socVer, kMaxLength);
     }
     if (ret == 0) {
         socVersion = std::string(socVer);
