@@ -20,6 +20,7 @@
 #include <string>
 #include <cstdint>
 #include "tilefwk/file.h"
+#include "tilefwk/cann_host_runtime.h"
 
 namespace npu {
 namespace tile_fwk {
