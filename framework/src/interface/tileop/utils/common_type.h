@@ -42,7 +42,8 @@ enum class UnaryOp : uint8_t {
     ISFINITE,
     SIGNBIT,
     SINH,
-    COSH
+    COSH,
+    TANH
 };
 
 enum class BinaryOp : uint8_t {
