@@ -124,7 +124,7 @@ void *DeviceRunner::DevAlloc(int size) {
     return devPtr;
 }
 
-void DeviceRunner::GetModuleLogLevel(DeviceArgs &args) {
+void DeviceRunner::GetModuleLogLevel(DeviceArgs &args, bool isCaptureMode) {
     int logLevel= -1;
     if (dlog_getlevel != nullptr) {
         int32_t enableLog = -1;
@@ -134,6 +134,9 @@ void DeviceRunner::GetModuleLogLevel(DeviceArgs &args) {
     devDfxArg.logLevel = logLevel;
     if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
         devDfxArg.isOpenSwim = PRO_LEVEL2;
+    }
+    if (isCaptureMode) {
+        devDfxArg.isOpenSwim = 0;
     }
     MACHINE_LOGI("Get PYPTO log level is: %d, openSwimLevel: %d", logLevel, devDfxArg.isOpenSwim);
     auto size = sizeof(DevDfxArgs);
@@ -164,7 +167,7 @@ void DeviceRunner::ResetPerData() {
     }
 }
 
-void DeviceRunner::InitMetaData(DeviceArgs &devArgs) {
+void DeviceRunner::InitMetaData(DeviceArgs &devArgs, bool isCaptureMode) {
     auto shmAddr = args_.runtimeDataRingBufferAddr;
     devArgs.runtimeDataRingBufferAddr = shmAddr;
     devArgs.sharedBuffer = args_.sharedBuffer;
@@ -182,7 +185,7 @@ void DeviceRunner::InitMetaData(DeviceArgs &devArgs) {
         }
     }
     devArgs.aicpuPerfAddr = args_.aicpuPerfAddr;
-    GetModuleLogLevel(devArgs);
+    GetModuleLogLevel(devArgs, isCaptureMode);
 }
 
 int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t> &regs, const std::vector<int64_t> &regsPmu) {
@@ -818,8 +821,9 @@ DeviceRunner &DeviceRunner::Get() {
     static DeviceRunner runner;
     return runner;
 }
-void DeviceRunner::InitMetaData(DeviceArgs &devArgs) {
+void DeviceRunner::InitMetaData(DeviceArgs &devArgs, bool isCaptureMode) {
     (void)devArgs;
+    (void)isCaptureMode;
 }
 bool DeviceRunner::GetValidGetPgMask() const {
     return true;

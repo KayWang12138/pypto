@@ -506,18 +506,19 @@ AclModeGuard::~AclModeGuard() {
 }
 
 void DeviceLauncher::FillDeviceKernelArgs(std::vector<uint8_t> &devProgData, DeviceKernelArgs &kargs,
-    const std::vector<std::string> &groupNames) {
+    const std::vector<std::string> &groupNames, bool isCaptureMode) {
 #ifdef BUILD_WITH_CANN
     DeviceLauncherConfig config;
     CachedOperator cache;
     DeviceLauncherConfigFillDeviceInfo(config);
     DeviceMemoryUtils deviceMemoryUtils;
-    DeviceInitTilingData(deviceMemoryUtils, kargs, devProgData, nullptr, config, &cache);
+    DeviceInitTilingData(deviceMemoryUtils, kargs, devProgData, nullptr, config, &cache, isCaptureMode);
     DeviceInitDistributedContext(deviceMemoryUtils, groupNames, kargs);
 #else
     (void)devProgData;
     (void)kargs;
     (void)groupNames;
+    (void)isCaptureMode;
 #endif
 }
 
@@ -590,6 +591,24 @@ bool DeviceLauncher::AddAicpuStream(aclrtStream aicoreStream, bool tripleStream)
 #else
     (void)aicoreStream;
     (void)tripleStream;
+    return false;
+#endif
+}
+
+bool DeviceLauncher::IsCaptureMode(aclrtStream aicoreStream) {
+#ifdef BUILD_WITH_CANN
+    aclmdlRI rtModel;
+    aclmdlRICaptureStatus status = aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE;
+    auto ret = aclmdlRICaptureGetInfo(aicoreStream, &status, &rtModel);
+    if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
+        return false;
+    } else if (ret != ACL_SUCCESS) {
+        MACHINE_LOGE("get capture info failed: %d", ret);
+        return false;
+    }
+    return status == aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_ACTIVE;
+#else
+    (void)aicoreStream;
     return false;
 #endif
 }
