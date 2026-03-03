@@ -19,6 +19,8 @@ from pypto._utils import to_syms
 from pypto.enum import AtomicType, DataType, OpType
 from pypto.symbolic_scalar import SymbolicScalar
 from pypto.tensor import Tensor
+import torch
+import torch_npu
 
 
 class ShmemMemType(Enum):
@@ -36,9 +38,26 @@ class CommConfig:
 comm_configs: dict[str, CommConfig] = {}
 shmem_id_to_group: dict[int, str] = {}
 
+@op_wrapper
+def create_comm_tensor(group, device):
+    nbytes, ctx_addr = pypto_impl.GetCommContext(group)
+    metadata = {
+        "data_ptr": ctx_addr,
+        "device": device,
+        "nbytes": nbytes,
+        "dtype": torch.int8,
+        "size": (1, nbytes),
+        "stride": (nbytes, 1),
+        "storage_offset": 0
+    }
+    storage = torch_npu._C._construct_storage_from_data_pointer(
+        metadata["data_ptr"], torch.device(metadata["device"]), metadata["nbytes"]
+    )
+    return torch_npu._C._construct_NPU_Tensor_From_Storage_And_Metadata(metadata, storage)
 
 @op_wrapper
 def create_shmem_tensor(
+    comm_tensor: Tensor,
     group_name: str, 
     n_pes: int,
     dtype: DataType,
@@ -77,11 +96,11 @@ def create_shmem_tensor(
     signal = Tensor([n_pes, n_pes] + shape, DataType.DT_INT32)
 
     for _ in loop(1, name="CREATE_SHMEM_TENSOR", idx_name="_"):
-        pypto_impl.CreateShmemData(group_name, n_pes, dtype, shape, data.base(), ShmemMemType.WIN_IN.value)
-        pypto_impl.CreateShmemSignal(group_name, data.base(), signal.base())
+        pypto_impl.CreateShmemData(comm_tensor, group_name, n_pes, dtype, shape, data.base(), ShmemMemType.WIN_IN.value)
+        pypto_impl.CreateShmemSignal(comm_tensor, group_name, data.base(), signal.base())
     
     if group_name not in comm_configs:
-        comm_configs[group_name] = CommConfig(group_name, n_pes, pypto_impl.GetSymbolicScalarPeId(group_name))
+        comm_configs[group_name] = CommConfig(group_name, n_pes, pypto_impl.GetSymbolicScalarPeId(comm_tensor))
     
     shmem_id_to_group[data.base().Id()] = group_name
     shmem_id_to_group[signal.base().Id()] = group_name
@@ -90,7 +109,11 @@ def create_shmem_tensor(
 
 
 @op_wrapper
-def create_shmem_signal(group_name: str, n_pes: int) -> Tensor:
+def create_shmem_signal(
+    comm_tensor: Tensor, 
+    group_name: str, 
+    n_pes: int
+) -> Tensor:
     """Creates a barrier signal tensor in shared memory.
 
     Parameters
@@ -114,11 +137,11 @@ def create_shmem_signal(group_name: str, n_pes: int) -> Tensor:
     shmem_barrier_signal = Tensor([n_pes] + shmem_barrier_signal_shape, DataType.DT_INT32)
 
     for _ in loop(1, name="CREATE_SHMEM_BARRIER_SIGNAL", idx_name="_"):
-        pypto_impl.CreateShmemData(group_name, n_pes, DataType.DT_INT32, shmem_barrier_signal_shape,
+        pypto_impl.CreateShmemData(comm_tensor, group_name, n_pes, DataType.DT_INT32, shmem_barrier_signal_shape,
             shmem_barrier_signal.base(), ShmemMemType.WIN_EXP.value)
     
     if group_name not in comm_configs:
-        comm_configs[group_name] = CommConfig(group_name, n_pes, pypto_impl.GetSymbolicScalarPeId(group_name))
+        comm_configs[group_name] = CommConfig(group_name, n_pes, pypto_impl.GetSymbolicScalarPeId(comm_tensor))
     
     shmem_id_to_group[shmem_barrier_signal.base().Id()] = group_name
         
@@ -432,7 +455,7 @@ def shmem_clear(
 
 
 @op_wrapper
-def my_symbolic_pe(group_name: str) -> SymbolicScalar:
+def my_symbolic_pe(comm_tensor: Tensor) -> SymbolicScalar:
     """Gets the symbolic PE.
 
     Parameters
@@ -449,4 +472,4 @@ def my_symbolic_pe(group_name: str) -> SymbolicScalar:
     --------
        my_pe = pypto.distributed.my_symbolic_pe(group_name) 
     """
-    return SymbolicScalar.from_base(pypto_impl.GetSymbolicScalarPeId(group_name))
+    return SymbolicScalar.from_base(pypto_impl.GetSymbolicScalarPeId(comm_tensor))

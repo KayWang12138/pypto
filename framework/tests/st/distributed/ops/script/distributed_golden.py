@@ -565,8 +565,10 @@ def generate_all_gather_golden(config: dict, output: Path) -> bool:
     gen_tensor_case = GenTensorCase(
         dtype=case.dtype, shape=case.shape, world_size=case.world_size, value_range=case.value_range
     )
-    inputs = generate_random_tensor_list_and_save(gen_tensor_case, output, 'input')
-    all_gather_and_save(inputs, case.world_size, output, 'output')
+    inputs_odd = generate_random_tensor_list_and_save(gen_tensor_case, output, 'input_odd')
+    inputs_even = generate_random_tensor_list_and_save(gen_tensor_case, output, 'input_even')
+    all_gather_and_save(inputs_odd, case.world_size, output, 'output_odd')
+    all_gather_and_save(inputs_even, case.world_size, output, 'output_even')
 
 
 def generate_reduce_scatter_golden(config: dict, output: Path) -> bool:

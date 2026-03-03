@@ -56,6 +56,7 @@ def matmul_allreduce_add_rmsnorm_kernel(batch_size, attn_dim_per_tp, hidden_size
     
     @pypto.frontend.jit()
     def kernel(
+        comm_tensor: pypto.Tensor((1, ), pypto.INT8),
         in_tensor: pypto.Tensor((batch_size, attn_dim_per_tp), pypto.DT_BF16),
         matmul_weight: pypto.Tensor((hidden_size, attn_dim_per_tp), pypto.DT_BF16),
         residual: pypto.Tensor((batch_size, hidden_size), pypto.DT_BF16),
@@ -76,9 +77,9 @@ def matmul_allreduce_add_rmsnorm_kernel(batch_size, attn_dim_per_tp, hidden_size
             # 1. create shmem tesnor
             shmem_shape = [1, view_row_shape, hidden_size]
             shmem_data, shmem_signal = pypto.distributed.create_shmem_tensor(
-                group_name, WORLD_SIZE, pypto.DT_FP32, shmem_shape)
-            shmem_barrier_signal = pypto.distributed.create_shmem_signal(group_name, WORLD_SIZE)
-            my_pe = pypto.distributed.my_symbolic_pe(group_name)
+                comm_tensor, group_name, WORLD_SIZE, pypto.DT_FP32, shmem_shape)
+            shmem_barrier_signal = pypto.distributed.create_shmem_signal(comm_tensor, group_name, WORLD_SIZE)
+            my_pe = pypto.distributed.my_symbolic_pe(comm_tensor)
             for _ in pypto.loop(1, name="LOOP_MM_AR_ARMS_L0", idx_name="_"):
                 tile_in_tensor = pypto.view(
                     in_tensor, (view_row_shape, in_tensor.shape[1]), [bs_idx * view_row_shape, 0],
@@ -205,7 +206,7 @@ def matmul_allreduce_add_rmsnorm_worker(intput_data, output_data, rank):
 
     out_tensor = torch.empty(residual.shape, dtype=torch.bfloat16, device=device)
     residual_out = torch.empty(residual.shape, dtype=torch.bfloat16, device=device)
-
+    comm_tensor = pypto.creat_comm_tensor
     inputs = [in_tensor.to(device), matmul_weight.to(device), residual.to(device), gamma.to(device), 
         bias.to(device), out_tensor, residual_out]
 

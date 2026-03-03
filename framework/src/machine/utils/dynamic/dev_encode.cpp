@@ -1767,6 +1767,11 @@ void DevAscendProgram::InitDisableL2List(uintdevptr_t &initOffset, const std::ve
   return;
 }
 
+void DevAscendProgram::InitShmemDescList(uintdevptr_t &initOffset, const IncastOutcastLink &inoutLink) {
+    initOffset = AlignUp(initOffset, alignof(DevShmemAddrDesc));
+    shmemDescList.HostInitDataSizeOffset(initOffset, inoutLink.shmemTensorSlotIndexList.size() * sizeof(DevShmemAddrDesc));
+}
+
 void DevAscendProgram::InitStartArgsABIParamList(
         uintdevptr_t &initOffset,
         const std::vector<int> &tStartArgsInputTensorSlotIndexList,
@@ -1997,7 +2002,7 @@ struct EncodeDevAscendProgramInfo {
                 fillContent);
         devProg->InitPrefetchInfoList(initOffset, dyndevAttr->l2InfoList, fillContent);
         devProg->InitDisableL2List(initOffset, dyndevAttr->disableL2List, fillContent);
-
+        devProg->InitShmemDescList(initOffset, dyndevAttr->inoutLink);
         // control flow cache is always at the back of the program. So it should be the last.
         devProg->InitControlFlowCache(initOffset, dyndevAttr, fillContent);
         devProg->dataSize = initOffset - reinterpret_cast<uintdevptr_t>(devProg->data);

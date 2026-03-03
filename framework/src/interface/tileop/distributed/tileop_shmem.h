@@ -121,7 +121,7 @@ TILEOP void ShmemSet(__ubuf__ T* buffer, __gm__ T* shmemTensorBaseAddr, uint32_t
     uint32_t tileIndex = (shmemTensorOffset3 / shmemTensorShape3) * colTileNum + (shmemTensorOffset4 / shmemTensorShape4);
     int32_t totalTileNum = rowTileNum * colTileNum;
 
-    __gm__ T* shmemTensorAddr = MapVirtualAddr<T>(hcclContext, shmemTensorBaseAddr, shmemTensorOffset0) +
+    __gm__ T* shmemTensorAddr = MapVirtualAddrV2<T>(hcclContext, shmemTensorBaseAddr, shmemTensorOffset0) +
         shmemTensorOffset1 * shmemTensorRawShape2 * totalTileNum * stride + (shmemTensorOffset2 * totalTileNum + tileIndex) * stride;
 
     ShmemClear<T, bufferEleNum, worldSize, signalMaxTileNum, stride>(buffer, shmemTensorAddr);
@@ -497,7 +497,7 @@ TILEOP void ShmemSignal(__ubuf__ int32_t* buffer, __gm__ int32_t* shmemSignalBas
     ShapeDyn signalShape = MakeShape(1, 1);
     StrideDyn signalStride = MakeStride(1, 1);
     for (uint32_t rankId = shmemSignalOffset0; rankId < shmemSignalOffset0 + shmemSignalShape0; rankId++) {
-        __gm__ int32_t* shmemSignalAddr = MapVirtualAddr<int32_t>(hcclContext, shmemSignalBaseAddr, rankId) +
+        __gm__ int32_t* shmemSignalAddr = MapVirtualAddrV2<int32_t>(hcclContext, shmemSignalBaseAddr, rankId) +
             static_cast<int32_t>(shmemSignalOffset1) * static_cast<int32_t>(shmemSignalRawShape2) * totalTileNum * stride +
             (static_cast<int32_t>(shmemSignalOffset2) * totalTileNum + tileIndex) * stride;
         ShmemGlobalTensor<int32_t, 1, signalColShape> signalGlobal(shmemSignalAddr, signalShape, signalStride);
