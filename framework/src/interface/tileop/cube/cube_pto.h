@@ -616,7 +616,7 @@ TILEOP void TMatmul(T &c, U &a, V &b) {
     } else {
         pto::TMATMUL_ACC(l0c, l0c, l0a, l0b);
     }
-    if (transMode != 0) {
+    if constexpr (transMode != 0) {
         l0a.ResetMadMode();
     }
 }
@@ -663,7 +663,7 @@ TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, T3 &bias) {
     pto::TASSIGN(l0c, (uint64_t)c.GetAddr());
     pto::TASSIGN(biasT, (uint64_t)bias.GetAddr());
     pto::TMATMUL_BIAS(l0c, l0a, l0b, biasT);
-    if (transMode != 0) {
+    if constexpr (transMode != 0) {
         l0a.ResetMadMode();
     }
 }
