@@ -82,9 +82,12 @@ Tensor LogicalNot(const Tensor &self) {
     RETURN_CALL(LogicalNotOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
 }
 
-int64_t MultiplyLastTwoElements(const std::vector<int64_t>& vec) {
-    constexpr auto ALIGN32HALF = 16;
-    int64_t axis2 = (vec[vec.size() - 1] + ALIGN32HALF - 1) / ALIGN32HALF * ALIGN32HALF;
+template <typename T>
+int64_t MultiplyLastTwoDims(const std::vector<int64_t>& vec) {
+    constexpr size_t ALIGN_SIZE = 32;
+    constexpr size_t ELEMENT_SIZE = sizeof(T);
+    constexpr size_t ALIGN_ELEMENTS = ALIGN_SIZE / ELEMENT_SIZE;
+    int64_t axis2 = (vec[vec.size() - 1] + ALIGN_ELEMENTS - 1) / ALIGN_ELEMENTS * ALIGN_ELEMENTS;
     return axis2 * vec[vec.size() - 2];
 }
 
@@ -97,7 +100,7 @@ void TiledSignOperation(
         constexpr size_t ALIGN_SIZE = 32;
         int64_t tmpSize = ALIGN_SIZE / BytesOf(DT_FP16);
         if (input.tensor.GetDataType() == DT_INT8) {
-            tmpSize = MultiplyLastTwoElements(input.tileInfo.shape);
+            tmpSize = MultiplyLastTwoDims<float16>(input.tileInfo.shape);
         }
 
         std::vector<int64_t> tmpShape({tmpSize});
@@ -133,6 +136,52 @@ Tensor Sign(const Tensor &self) {
     DECLARE_TRACER();
 
     RETURN_CALL(SignOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
+}
+
+void TiledTanhOperation(
+    Function &function, const TileShape &tileShape, size_t cur, Input &input, const LogicalTensorPtr &result) {
+    if (cur == input.tensor.GetShape().size()) {
+        auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        
+        int64_t tmpSize = MultiplyLastTwoDims<float>(input.tileInfo.shape);
+        if (input.tensor.GetDataType() != DT_FP32) {
+            tmpSize = 3 * tmpSize;
+        }
+
+        std::vector<int64_t> tmpShape({tmpSize});
+        auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_FP32, tmpShape);
+        function.AddOperation(Opcode::OP_TANH, {tile}, {resultTile, tmpTensor});
+
+        return;
+    }
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
+        input.tileInfo.offset[cur] = i;
+        TiledTanhOperation(function, tileShape, cur + 1, input, result);
+    }
+}
+
+void TiledTanhOperation(
+    Function &function, const TileShape &tileShape, const LogicalTensorPtr &self, const LogicalTensorPtr &result) {
+    ASSERT(self->shape.size() == self->offset.size()) << "Shape size and offset size should be equal";
+
+    TileInfo tileInfo(result->shape.size(), result->offset.size());
+    auto input = Input{self, tileInfo};
+    TiledTanhOperation(function, tileShape, 0, input, result);
+}
+
+LogicalTensorPtr TensorTanhOperation(Function &function, LogicalTensorPtr self) {
+    auto result = std::make_shared<LogicalTensor>(function, self->tensor->datatype, self->shape, self->GetDynValidShape());
+    function.AddOperation(Opcode::OP_TANH, {self}, {result});
+    return result;
+}
+
+Tensor Tanh(const Tensor &self) {
+    DECLARE_TRACER();
+
+    RETURN_CALL(TanhOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
 }
 
 Tensor Neg(const Tensor &self) {
@@ -521,6 +570,12 @@ void SignOperationTileFunc(Function &function, const TileShape &tileShape,
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
     [[maybe_unused]] const Operation &op) {
     TiledSignOperation(function, tileShape, iOperand[0], oOperand[0]);
+}
+
+void TanhOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    [[maybe_unused]] const Operation &op) {
+    TiledTanhOperation(function, tileShape, iOperand[0], oOperand[0]);
 }
 
 void OneHotOperationTileFunc(Function &function, const TileShape &tileShape,
@@ -1203,4 +1258,5 @@ REGISTER_OPERATION_TILED_FUNC(OP_LOGICALAND, Opcode::OP_LOGICALAND, LogicAndOper
 REGISTER_OPERATION_TILED_FUNC(OP_CUM_SUM, Opcode::OP_CUM_SUM, CumSumOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_TRIUL, Opcode::OP_TRIUL, TriULOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_SIGN, Opcode::OP_SIGN, SignOperationTileFunc);
+REGISTER_OPERATION_TILED_FUNC(OP_TANH, Opcode::OP_TANH, TanhOperationTileFunc);
 } // namespace npu::tile_fwk
