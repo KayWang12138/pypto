@@ -55,22 +55,5 @@ inline std::string TrimLine(const std::string& s) {
     size_t end = s.find_last_not_of(" \t\n\r");
     return (start == std::string::npos) ? "" : s.substr(start, end - start + 1);
 }
-
-inline std::string GetCurrentSharedLibPath() {
-    static std::string currentLibPath;
-    if (!currentLibPath.empty()) {
-        return currentLibPath;
-    }
-
-    Dl_info info;
-    if (dladdr(reinterpret_cast<void*>(GetCurrentSharedLibPath), &info)) {
-        currentLibPath = std::string(info.dli_fname);
-        int32_t pos = currentLibPath.rfind('/');
-        if (pos >= 0) {
-            currentLibPath = currentLibPath.substr(0, pos);
-        }
-    }
-    return currentLibPath;
-}
 }
 }
