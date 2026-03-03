@@ -211,7 +211,8 @@ void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const T
     int64_t tileK = convTile.tileL0Info.tileK;
     int64_t tileHout = convTile.tileL1Info.tileHout;
     int64_t tileWout = convTile.tileL1Info.tileWout;
-    int64_t tileCout = convTile.tileL1Info.tileCout;
+    int64_t tileCout = convTile.tileL1Info.tileN;
+    int64_t tileCout = convTile.tileL1Info.tileN;
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
     int64_t tileCinFmap = convTile.tileL1Info.tileCinFmap;
     int64_t tileCinWeight = convTile.tileL1Info.tileCinWeight;
@@ -231,9 +232,11 @@ void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const T
     CheckValueRange(tileH, "tileH" , NUM1, tileHout);
     CheckValueRange(tileW, "tileW" , NUM1, tileWout);
     CheckValueRange(tileK, "tileK" , NUM1, minKL1);
-    CheckAlignment(tileN, NUM16, "tileN");
+    CheckAlignment(tileN, NUM16, "tileL0Info.tileN");
+    CheckAlignment(tileN, NUM16, "tileL0Info.tileN");
     CheckAlignment(tileW, NUM16, "tileW");
-    CheckValueRange(tileN, "tileN" , NUM1, ConvAlignB(tileCout, NUM16));
+    CheckValueRange(tileN, "tileL1Info.tileN" , NUM1, ConvAlignB(tileCout, NUM16));
+    CheckValueRange(tileN, "tileL1Info.tileN" , NUM1, ConvAlignB(tileCout, NUM16));
 
     Platform& platform = Platform::Instance();
     platform.ObtainPlatformInfo();
@@ -264,8 +267,10 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
     int64_t tileWin = convTile.tileL1Info.tileWin;
     int64_t tileCinFmap = convTile.tileL1Info.tileCinFmap;
     int64_t tileCinWeight = convTile.tileL1Info.tileCinWeight;
-    int64_t tileCout = convTile.tileL1Info.tileCout;
-    int64_t tileBatch = convTile.tileL1Info.tileN;
+    int64_t tileN = convTile.tileL1Info.tileN;
+    int64_t tileBatch = convTile.tileL1Info.tileBatch;
+    int64_t tileN = convTile.tileL1Info.tileN;
+    int64_t tileBatch = convTile.tileL1Info.tileBatch;
     int64_t groups = attrParam.groups;
 
     uint32_t indexH = attrParam.isConv3D ? NCDHW_H_IDX : NCHW_H_IDX;
@@ -276,16 +281,22 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
     int64_t win = inputTensor.GetShape()[indexW];
 
     CheckValueRange(tileHin, "tileHin", NUM1, hin);
-    CheckValueRange(tileBatch, "tileN", NUM1, NUM1);
+    CheckValueRange(tileBatch, "tileBatch", NUM1, NUM1);
+    CheckValueRange(tileBatch, "tileBatch", NUM1, NUM1);
     CheckValueRange(tileWin, "tileWin", NUM1, win);
-    CheckValueRange(tileCout, "tileCout", NUM1, cOut/groups);
+    CheckValueRange(tileN, "tileL1Info.tileN", NUM1, cOut/groups);
+    CheckAlignment(tileN, NUM16, "tileL1Info.tileN");
+    CheckValueRange(tileN, "tileL1Info.tileN", NUM1, cOut/groups);
+    CheckAlignment(tileN, NUM16, "tileL1Info.tileN");
 
     CheckHowoTile(inputTensor, weightTensor, attrParam);
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
     CheckDivisible(ConvAlignB(cin, k0), tileCinFmap, "ceil(Cin / C0) × C0", "tileCinFmap");
     CheckDivisible(ConvAlignB(cin, k0), tileCinWeight, "ceil(Cin / C0) × C0", "tileCinWeight");
-    CheckAlignment(tileCinFmap, NUM16, "tileCinFmap");
-    CheckAlignment(tileCinWeight, NUM16, "tileCinWeight");
+    CheckAlignment(tileCinFmap, k0, "tileCinFmap");
+    CheckAlignment(tileCinWeight, k0, "tileCinWeight");
+    CheckAlignment(tileCinFmap, k0, "tileCinFmap");
+    CheckAlignment(tileCinWeight, k0, "tileCinWeight");
     if (convTile.setL0Tile){
         CheckL0TileTiling(outType, attrParam, weightTensor);
     }
@@ -640,7 +651,7 @@ void SetConvShapeInfo(const TileShape &tileShape, const ConvGraphNodes &tensorGr
     auto &convTile = tileShape.GetConvTile();
     convTileInfo.kAL1 = convTile.tileL1Info.tileCinFmap * convTileInfo.orgKh * convTileInfo.orgKw;
     convTileInfo.kBL1 = convTile.tileL1Info.tileCinWeight * convTileInfo.orgKh * convTileInfo.orgKw;
-    convTileInfo.nBL1 = convTile.tileL1Info.tileCout;
+    convTileInfo.nBL1 = convTile.tileL1Info.tileN;
     convTileInfo.hAL1In = convTile.tileL1Info.tileHin;
     convTileInfo.wAL1In = convTile.tileL1Info.tileWin;
     convTileInfo.hAL1Out = convTile.tileL1Info.tileHout;

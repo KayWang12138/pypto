@@ -44,7 +44,7 @@ bool ConvTile::valid() const {
     if (tileL1Info.tileHin <= 0 || tileL1Info.tileHout <= 0 ||
         tileL1Info.tileWin <= 0 || tileL1Info.tileWout <= 0 ||
         tileL1Info.tileCinFmap <= 0 || tileL1Info.tileCinWeight <= 0 ||
-        tileL1Info.tileCout <= 0 || tileL1Info.tileN <= 0) {
+        tileL1Info.tileN <= 0 || tileL1Info.tileBatch <= 0) {
         return false;
     }
 
@@ -67,8 +67,8 @@ std::string ConvTile::ToString() const {
        << "tileWout: " << tileL1Info.tileWout << ", "
        << "tileCinFmap: " << tileL1Info.tileCinFmap << ", "
        << "tileCinWeight: " << tileL1Info.tileCinWeight << ", "
-       << "tileCout: " << tileL1Info.tileCout << ", "
-       << "tileN: " << tileL1Info.tileN
+       << "tileN: " << tileL1Info.tileN << ", "
+       << "tileBatch: " << tileL1Info.tileBatch
        << "}, "
        << "tileL0Info: {"
        << "tileH: " << tileL0Info.tileH << ", "

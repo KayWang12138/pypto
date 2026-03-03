@@ -55,8 +55,8 @@ def create_conv_kernel(fmap_shape, weight_shape, bias_shape, out_shape, run_mode
                 tileWout=16,
                 tileCinFmap=16,
                 tileCinWeight=16,
-                tileCout=16,
-                tileN=1
+                tileN=16,
+                tileBatch=1
             ),
             pypto_impl.TileL0Info(
                 tileH=1,
@@ -67,10 +67,10 @@ def create_conv_kernel(fmap_shape, weight_shape, bias_shape, out_shape, run_mode
         )
         conv_tile = pypto.get_conv_tile_shapes()
         print(conv_tile)
-        print(f"TileL1Info: Hin={conv_tile[0].tileHin}, Hout={conv_tile[0].tileHout}," 
+        print(f"TileL1Info: Hin={conv_tile[0].tileHin}, Hout={conv_tile[0].tileHout},"
             f" Win={conv_tile[0].tileWin}, Wout={conv_tile[0].tileWout},"
             f" CinFmap={conv_tile[0].tileCinFmap}, CinWeight={conv_tile[0].tileCinWeight},"
-            f" Cout={conv_tile[0].tileCout}, N={conv_tile[0].tileN}")
+            f" N={conv_tile[0].tileN}, Batch={conv_tile[0].tileBatch}")
         print(f"TileL0Info: H={conv_tile[1].tileH}, W={conv_tile[1].tileW}, K={conv_tile[1].tileK}, N={conv_tile[1].tileN}")
         print(f"SetL0Tile flag: {conv_tile[2]}")
         # d = pypto.conv(a, b, pypto.DT_FP16, [1], [0,0], [1], extend_params = {})
