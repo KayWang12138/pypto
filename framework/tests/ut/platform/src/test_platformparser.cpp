@@ -35,14 +35,14 @@ const std::string l1Size = "l1_size";
 const std::string ubSize = "ub_size";
 const std::string aic = "AIC";
 const std::string aiv = "AIV";
+const std::string TEST_TMP_DIR = "/tmp/";
 
 class TestPlatformParser : public testing::Test {
 public:
     static void SetUpTestCase() {
         std::string src = RealPath(GetCurrentSharedLibPath() + "/../../../framework/tests/ut/machine/stubs/compiler/data/platform_config/Ascend910_9572.ini");
-        std::string dstDir = RealPath(GetCurrentSharedLibPath()) + "/configs/";
-        CreateMultiLevelDir(dstDir);
-        std::string dst = dstDir + "A5.ini";
+        CreateMultiLevelDir(TEST_TMP_DIR);
+        std::string dst = TEST_TMP_DIR + "A5.ini";
         std::string command = "cp " + src + " " + dst;
         int ret = std::system(command.c_str());
         if (ret != 0) {
@@ -69,7 +69,7 @@ TEST_F(TestPlatformParser, TestParser) {
     const size_t expectubSize = 253952UL;
 
     INIParser parser;
-    std::string iniPath = RealPath(GetCurrentSharedLibPath() + "/configs/A5.ini");
+    std::string iniPath = TEST_TMP_DIR + "A5.ini";
     EXPECT_TRUE(parser.Initialize(iniPath));
 
     std::string socVersion;
