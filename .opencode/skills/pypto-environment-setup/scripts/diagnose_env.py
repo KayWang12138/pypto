@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
 """PyPTO/PyTorch/CANN/NPU 环境诊断。输出结构化报告供排查使用。"""
 from __future__ import annotations
 
@@ -7,6 +8,7 @@ import shutil
 import textwrap
 import glob
 import json
+import logging
 import os
 import pathlib
 import platform
@@ -17,8 +19,15 @@ from typing import Any
 
 # 深度 NPU 检测模块（同目录，作为独立脚本运行时需 sys.path 保证）
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from detect_npu import NPUDetectionResult as _NPUDetectionResult  # noqa: E402  # pyright: ignore[reportImplicitRelativeImport, reportMissingImports]
-from detect_npu import detect_npu as _deep_detect_npu  # noqa: E402  # pyright: ignore[reportImplicitRelativeImport, reportMissingImports]
+from detect_npu import (  # noqa: E402  # pyright: ignore[reportImplicitRelativeImport, reportMissingImports]
+    NPUDetectionResult as _NPUDetectionResult,
+)
+from detect_npu import (  # noqa: E402  # pyright: ignore[reportImplicitRelativeImport, reportMissingImports]
+    detect_npu as _deep_detect_npu,
+)
+
+logging.basicConfig(level=logging.INFO, format='%(message)s')
+
 
 def _parse_timeout_env() -> int:
     raw = os.environ.get('DIAG_TIMEOUT', '10')
@@ -30,6 +39,8 @@ def _parse_timeout_env() -> int:
 
 
 _DEFAULT_TIMEOUT_S: int = _parse_timeout_env()
+
+
 def _run(cmd: list[str], timeout_s: int = _DEFAULT_TIMEOUT_S) -> dict[str, Any]:
     try:
         p = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=timeout_s)
@@ -51,7 +62,8 @@ def _safe_import(name: str) -> dict[str, Any]:
         f"name = {name!r}\n"
         "try:\n"
         "    mod = importlib.import_module(name)\n"
-        "    print(json.dumps({'ok': True, 'version': getattr(mod, '__version__', None), 'file': getattr(mod, '__file__', None)}, ensure_ascii=False))\n"
+        "    print(json.dumps({'ok': True, 'version': getattr(mod, '__version__', None), "
+        "'file': getattr(mod, '__file__', None)}, ensure_ascii=False))\n"
         "except Exception as e:\n"
         "    print(json.dumps({'ok': False, 'error': f'{type(e).__name__}: {e}'}, ensure_ascii=False))\n"
     )
@@ -192,7 +204,9 @@ def _detect_cann(ascend_root: str, cann_hint: str | None = None) -> dict[str, An
             if m:
                 result["version"] = m.group(1)
         # toolkit / ops
-        result["toolkit_exists"] = os.path.isdir(os.path.join(cann_dir, "toolkit")) or os.path.isfile(os.path.join(cann_dir, "set_env.sh"))
+        result["toolkit_exists"] = os.path.isdir(
+            os.path.join(cann_dir, "toolkit")
+        ) or os.path.isfile(os.path.join(cann_dir, "set_env.sh"))
         result["ops_exists"] = os.path.isdir(os.path.join(cann_dir, "opp"))
 
     # set_env.sh 候选
@@ -200,6 +214,8 @@ def _detect_cann(ascend_root: str, cann_hint: str | None = None) -> dict[str, An
                         | set(glob.glob(os.path.join(ascend_root, "*/*/set_env.sh"))))
     result["set_env_candidates"] = candidates[:10]
     return result
+
+
 
 def _detect_pypto_repo() -> dict[str, Any]:
     """自动检测 PyPTO 仓库路径。"""
@@ -293,12 +309,22 @@ def _detect_build_tools() -> dict[str, Any]:
 
 def _detect_third_party_deps(pypto_repo_path: str | None) -> dict[str, Any]:
     """检测第三方编译依赖（源码包）：nlohmann/json v3.11.3、libboundscheck v1.1.16。"""
-    JSON_URL = 'https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/third_party_deps/json-3.11.3.tar.gz'
-    SECUREC_URL = 'https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/third_party_deps/libboundscheck-v1.1.16.tar.gz'
+    json_url = (
+        'https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/third_party_deps/'
+        'json-3.11.3.tar.gz'
+    )
+    securec_url = (
+        'https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/third_party_deps/'
+        'libboundscheck-v1.1.16.tar.gz'
+    )
 
     result: dict[str, Any] = {
-        'json': {'found': False, 'version': 'v3.11.3', 'download_url': JSON_URL},
-        'libboundscheck': {'found': False, 'version': 'v1.1.16', 'download_url': SECUREC_URL},
+        'json': {'found': False, 'version': 'v3.11.3', 'download_url': json_url},
+        'libboundscheck': {
+            'found': False,
+            'version': 'v1.1.16',
+            'download_url': securec_url,
+        },
     }
 
     if not pypto_repo_path:
@@ -482,6 +508,8 @@ def _detect_npu_env(ascend_root: str) -> dict[str, Any]:
         'firmware_path': firmware_dir if firmware_exists else None,
     }
 
+
+
 def _collect_issues(
     *,
     npu_env: dict[str, Any],
@@ -502,7 +530,15 @@ def _collect_issues(
 
     # 编译工具链（--fast 模式跳过）
     if not fast:
-        for name, min_ver in [('cmake', '3.16.3'), ('gcc', '7.3.1'), ('make', None), ('g++', '7.3.1'), ('ninja', None), ('pip3', None), ('python3', '3.9.5')]:
+        for name, min_ver in [
+            ('cmake', '3.16.3'),
+            ('gcc', '7.3.1'),
+            ('make', None),
+            ('g++', '7.3.1'),
+            ('ninja', None),
+            ('pip3', None),
+            ('python3', '3.9.5'),
+        ]:
             info = build_tools.get(name, {})
             if not info.get('found'):
                 issues.append({'component': f'build:{name}', 'severity': 'error',
@@ -528,18 +564,27 @@ def _collect_issues(
         for pkg in python_deps.get('packages', []):
             if pkg['status'] == 'missing':
                 issues.append({'component': f"python_dep:{pkg['name']}", 'severity': 'warning',
-                               'message': f"Python 包 {pkg['name']} 未安装{(' (需 ' + pkg['required'] + ')') if pkg.get('required') else ''}",
+                               'message': (
+                                   f"Python 包 {pkg['name']} 未安装"
+                                   f"{(' (需 ' + pkg['required'] + ')') if pkg.get('required') else ''}"
+                               ),
                                'fix_hint': 'pip3 install -r $PYPTO_REPO/python/requirements.txt'})
             elif pkg['status'] == 'outdated':
                 issues.append({'component': f"python_dep:{pkg['name']}", 'severity': 'warning',
-                               'message': f"Python 包 {pkg['name']} {pkg.get('installed_version', '')} 版本过低（需 {pkg['required']}）",
+                               'message': (
+                                   f"Python 包 {pkg['name']} "
+                                   f"{pkg.get('installed_version', '')} 版本过低（需 {pkg['required']}）"
+                               ),
                                'fix_hint': 'pip3 install -r $PYPTO_REPO/python/requirements.txt'})
 
     # NPU 环境 + CANN 缺失 → 需要安装 CANN
     if is_npu_env and not cann.get('install_path'):
         issues.append({'component': 'cann', 'severity': 'error',
                        'message': '检测到 NPU 环境但 CANN 未安装，需通过 prepare_env.sh --type=all 安装 CANN',
-                       'fix_hint': 'cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=all --device-type=<a2|a3>'})
+                       'fix_hint': (
+                           'cd $PYPTO_REPO && bash tools/prepare_env.sh '
+                           '--quiet --type=all --device-type=<a2|a3>'
+                       )})
     elif not cann.get('install_path'):
         issues.append({'component': 'cann', 'severity': 'warning', 'message': 'CANN 未安装',
                        'fix_hint': '见 references/prepare_environment.md § "使用 prepare_env.sh 完整安装"'})
@@ -565,7 +610,11 @@ def _collect_issues(
     if not pto_path:
         issues.append({'component': 'pto-isa', 'severity': 'warning',
                        'message': 'PTO_TILE_LIB_CODE_PATH 未设置',
-                       'fix_hint': 'export PTO_TILE_LIB_CODE_PATH=$PWD/pto-isa && git clone https://gitcode.com/cann/pto-isa.git $PTO_TILE_LIB_CODE_PATH'})
+                       'fix_hint': (
+                           'export PTO_TILE_LIB_CODE_PATH=$PWD/pto-isa && '
+                           'git clone https://gitcode.com/cann/pto-isa.git '
+                           '$PTO_TILE_LIB_CODE_PATH'
+                       )})
     elif not pto_isa.get('include_pto_exists'):
         issues.append({'component': 'pto-isa', 'severity': 'warning',
                        'message': f'PTO_TILE_LIB_CODE_PATH={pto_path} 下缺少 include/pto',
@@ -764,7 +813,15 @@ def _print_checklist(report: dict[str, Any], *, fast: bool = False) -> None:
 
     # ── 编译工具链（--fast 模式跳过）──
     if not fast:
-        for name, min_ver in [('cmake', '>= 3.16.3'), ('gcc', '>= 7.3.1'), ('make', ''), ('g++', '>= 7.3.1'), ('ninja', ''), ('pip3', ''), ('python3', '>= 3.9.5')]:
+        for name, min_ver in [
+            ('cmake', '>= 3.16.3'),
+            ('gcc', '>= 7.3.1'),
+            ('make', ''),
+            ('g++', '>= 7.3.1'),
+            ('ninja', ''),
+            ('pip3', ''),
+            ('python3', '>= 3.9.5'),
+        ]:
             info = build_tools.get(name, {})
             found = info.get('found', False)
             ver = info.get('version', '未知')
@@ -806,32 +863,60 @@ def _print_checklist(report: dict[str, Any], *, fast: bool = False) -> None:
                 if pkg['status'] != 'ok':
                     comp = f"python_dep:{pkg['name']}"
                     if pkg['status'] == 'missing':
-                        rows.append((f"  {pkg['name']}", _status(comp, False), f"未安装{(' (需 ' + pkg['required'] + ')') if pkg.get('required') else ''}"))
+                        rows.append(
+                            (
+                                f"  {pkg['name']}",
+                                _status(comp, False),
+                                (
+                                    f"未安装"
+                                    f"{(' (需 ' + pkg['required'] + ')') if pkg.get('required') else ''}"
+                                ),
+                            )
+                        )
                     elif pkg['status'] == 'outdated':
-                        rows.append((f"  {pkg['name']}", _status(comp, False), f"{pkg.get('installed_version', '?')} → 需 {pkg['required']}"))
+                        rows.append(
+                            (
+                                f"  {pkg['name']}",
+                                _status(comp, False),
+                                f"{pkg.get('installed_version', '?')} → 需 {pkg['required']}",
+                            )
+                        )
         elif python_deps.get('requirements_file') is None:
             rows.append(('Python 依赖', '─', 'requirements.txt 未找到'))
 
     # ── 输出 ──
-    print('=== PyPTO 环境检测结果 ===\n')
+    logging.info('=== PyPTO 环境检测结果 ===\n')
     for line in _format_check_rows({'rows': rows}):
-        print(line)
+        logging.info(line)
     for line in _format_summary(report, issues):
-        print(line)
+        logging.info(line)
     for line in _format_issues(issues):
-        print(line)
+        logging.info(line)
+
 
 def main() -> int:
     ap = argparse.ArgumentParser(description='Diagnose PyPTO/PyTorch/CANN/NPU environment')
     ap.add_argument('--json', action='store_true', help='JSON output')
     ap.add_argument('--pretty', action='store_true', help='Pretty-print JSON')
     ap.add_argument('--checklist', action='store_true', help='Human-readable confirmation checklist')
-    ap.add_argument('--fast', action='store_true', help='Fast mode: skip slow checks (build tools, third-party deps, python deps)')
+    ap.add_argument(
+        '--fast',
+        action='store_true',
+        help='Fast mode: skip slow checks (build tools, third-party deps, python deps)',
+    )
     args = ap.parse_args()
 
     # 环境变量（仅 Ascend 相关条目）
     env: dict[str, Any] = {}
-    for k in ('ASCEND_HOME_PATH', 'ASCEND_TOOLKIT_HOME', 'ASCEND_OPP_PATH', 'LD_LIBRARY_PATH', 'PATH', 'PTO_TILE_LIB_CODE_PATH', 'PYTHONPATH'):
+    for k in (
+        'ASCEND_HOME_PATH',
+        'ASCEND_TOOLKIT_HOME',
+        'ASCEND_OPP_PATH',
+        'LD_LIBRARY_PATH',
+        'PATH',
+        'PTO_TILE_LIB_CODE_PATH',
+        'PYTHONPATH',
+    ):
         raw = os.environ.get(k)
         if raw is None:
             env[k] = None
@@ -867,7 +952,11 @@ def main() -> int:
     third_party_deps = {} if args.fast else _detect_third_party_deps(pypto_repo.get('path'))
 
     # Python 依赖检测（requirements.txt）（--fast 模式跳过）
-    python_deps = {'requirements_file': None, 'packages': [], 'missing': [], 'outdated': []} if args.fast else _detect_python_deps(pypto_repo.get('path'))
+    python_deps = (
+        {'requirements_file': None, 'packages': [], 'missing': [], 'outdated': []}
+        if args.fast
+        else _detect_python_deps(pypto_repo.get('path'))
+    )
 
     # NPU 环境检测（优先 npu-smi info，fallback driver/firmware）
     npu_env = _detect_npu_env(ascend_root)
@@ -921,11 +1010,27 @@ def main() -> int:
     if args.checklist:
         _print_checklist(report, fast=args.fast)
     elif args.json or args.pretty:
-        print(json.dumps(report, ensure_ascii=False, indent=2 if args.pretty else None, sort_keys=True))
+        logging.info(
+            json.dumps(
+                report,
+                ensure_ascii=False,
+                indent=2 if args.pretty else None,
+                sort_keys=True,
+            )
+        )
     else:
-        print(f"cann: {cann.get('version') or 'not found'} (path={cann.get('install_path')})")
+        logging.info(
+            f"cann: {cann.get('version') or 'not found'} (path={cann.get('install_path')})"
+        )
         method = npu_env.get('detection_method', 'none')
-        print(f"npu_env: {'yes' if npu_env.get('is_npu_env') else 'no'} (method={method}, npu-smi={'ok' if npu_env.get('npu_smi_ok') else 'fail' if npu_env.get('npu_smi_found') else 'missing'}, driver={'yes' if npu_env.get('driver_exists') else 'no'}, firmware={'yes' if npu_env.get('firmware_exists') else 'no'})")
+        npu_env_line = (
+            f"npu_env: {'yes' if npu_env.get('is_npu_env') else 'no'} "
+            f"(method={method}, "
+            f"npu-smi={'ok' if npu_env.get('npu_smi_ok') else 'fail' if npu_env.get('npu_smi_found') else 'missing'}, "
+            f"driver={'yes' if npu_env.get('driver_exists') else 'no'}, "
+            f"firmware={'yes' if npu_env.get('firmware_exists') else 'no'})"
+        )
+        logging.info(npu_env_line)
         # 芯片信息（深度检测）
         cn = npu_env.get('chip_name')
         dt = npu_env.get('device_type')
@@ -933,40 +1038,67 @@ def main() -> int:
         gen = npu_env.get('generation', 'unknown')
         soc_int = npu_env.get('soc_version_int')
         dev_count = npu_env.get('device_count', 0)
-        print(f"npu_chip: {cn or 'unknown'} (family={family}, gen={gen}, soc={soc_int}, devices={dev_count})")
-        print(f"device_type: {dt or 'unknown'}")
-        print(f"npu-smi: {'found' if npu_smi else 'missing'}")
-        print(f"torch.npu.is_available: {npu.get('is_available')}")
-        print(f"torch.npu.device_count: {npu.get('device_count')}")
+        logging.info(
+            f"npu_chip: {cn or 'unknown'} "
+            f"(family={family}, gen={gen}, soc={soc_int}, devices={dev_count})"
+        )
+        logging.info(f"device_type: {dt or 'unknown'}")
+        logging.info(f"npu-smi: {'found' if npu_smi else 'missing'}")
+        logging.info(f"torch.npu.is_available: {npu.get('is_available')}")
+        logging.info(f"torch.npu.device_count: {npu.get('device_count')}")
         # 其他
-        print(f"python: {platform.python_version()} ({sys.executable})")
-        print(f"torch: {torch_info.get('version') if torch_info.get('ok') else torch_info.get('error')}")
-        print(f"torch_npu: {torch_npu_info.get('version') if torch_npu_info.get('ok') else torch_npu_info.get('error')}")
-        print(f"pypto: {pypto_info.get('version') or pypto_info.get('file') if pypto_info.get('ok') else pypto_info.get('error')}")
-        print(f"pypto_repo: {pypto_repo.get('path') or 'not found'} ({'valid' if pypto_repo.get('valid') else 'invalid'})")
-        print(f"pto-isa: {pto_isa_path or 'not set'} ({'valid' if pto_isa.get('include_pto_exists') else 'invalid/missing'})")
+        logging.info(f"python: {platform.python_version()} ({sys.executable})")
+        logging.info(
+            f"torch: {torch_info.get('version') if torch_info.get('ok') else torch_info.get('error')}"
+        )
+        logging.info(
+            f"torch_npu: {torch_npu_info.get('version') if torch_npu_info.get('ok') else torch_npu_info.get('error')}"
+        )
+        pypto_status = (
+            pypto_info.get('version') or pypto_info.get('file')
+            if pypto_info.get('ok')
+            else pypto_info.get('error')
+        )
+        logging.info(f"pypto: {pypto_status}")
+        logging.info(
+            f"pypto_repo: {pypto_repo.get('path') or 'not found'} "
+            f"({'valid' if pypto_repo.get('valid') else 'invalid'})"
+        )
+        logging.info(
+            f"pto-isa: {pto_isa_path or 'not set'} "
+            f"({'valid' if pto_isa.get('include_pto_exists') else 'invalid/missing'})"
+        )
         # 编译工具链（--fast 模式跳过）
         if not args.fast:
             for name in ('cmake', 'gcc', 'make', 'g++', 'ninja', 'pip3', 'python3'):
                 info = build_tools.get(name, {})
                 ver = info.get('version', 'missing') if info.get('found') else 'missing'
                 ok = '✓' if info.get('meets_minimum') else '✗'
-                print(f"{name}: {ver} ({ok})")
+                logging.info(f"{name}: {ver} ({ok})")
         # 第三方依赖（--fast 模式跳过）
         if not args.fast:
             for dep_name, dep_info in third_party_deps.items():
-                print(f"{dep_name}: {'found' if dep_info.get('found') else 'not found'} ({dep_info.get('version', '')})")
+                logging.info(
+                    f"{dep_name}: {'found' if dep_info.get('found') else 'not found'} "
+                    f"({dep_info.get('version', '')})"
+                )
         # Python 依赖（--fast 模式跳过）
         if not args.fast:
-            missing = python_deps.get('missing', [])
-            outdated = python_deps.get('outdated', [])
-            total_pkgs = len(python_deps.get('packages', []))
-            print(f"python_deps: {total_pkgs - len(missing) - len(outdated)}/{total_pkgs} ok ({len(missing)} missing, {len(outdated)} outdated)")
+            missing_raw = python_deps.get('missing', [])
+            outdated_raw = python_deps.get('outdated', [])
+            packages_raw = python_deps.get('packages', [])
+            missing = missing_raw if isinstance(missing_raw, list) else []
+            outdated = outdated_raw if isinstance(outdated_raw, list) else []
+            total_pkgs = len(packages_raw) if isinstance(packages_raw, list) else 0
+            logging.info(
+                f"python_deps: {total_pkgs - len(missing) - len(outdated)}/{total_pkgs} ok "
+                f"({len(missing)} missing, {len(outdated)} outdated)"
+            )
         if issues:
-            print(f"\nissues ({len(issues)}):")
+            logging.info(f"\nissues ({len(issues)}):")
             for i in issues:
                 icon = 'ERR' if i['severity'] == 'error' else 'WARN'
-                print(f"  [{icon}] {i['component']}: {i['message']}")
+                logging.info(f"  [{icon}] {i['component']}: {i['message']}")
 
     return 0
 
@@ -974,5 +1106,5 @@ def main() -> int:
 if __name__ == '__main__':
     try:
         raise SystemExit(main())
-    except BrokenPipeError:
-        raise SystemExit(0)
+    except BrokenPipeError as e:
+        raise SystemExit(0) from e

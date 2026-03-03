@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
 #!/usr/bin/env python3
 """Ascend NPU 硬件深度检测模块。
 
@@ -21,6 +22,7 @@ from __future__ import annotations
 import ctypes
 import glob
 import json
+import logging
 import os
 import re
 import subprocess
@@ -29,6 +31,9 @@ import argparse
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Optional
+
+
+logging.basicConfig(level=logging.INFO)
 
 
 # ---------------------------------------------------------------------------
@@ -116,17 +121,25 @@ class NPUDetectionResult:
     errors: list[str] = field(default_factory=list)
     _device_count_confidence: int = 0  # 内部字段：0=无, 1=pci, 2=davinci, 3=npu-smi, 4=acl, 5=torch_npu
 
-    def to_dict(self) -> dict[str, object]:
-        d = asdict(self)
-        d.pop("_device_count_confidence", None)
-        return d
-
     @property
     def device_type(self) -> Optional[str]:
         """将 generation 映射为 PyPTO 的 device_type（a1/a2/a3/a3+）。"""
         if self.generation:
             return self.generation.lower().replace("+", "+")
         return None
+
+    def to_dict(self) -> dict[str, object]:
+        d = asdict(self)
+        d.pop("_device_count_confidence", None)
+        return d
+
+    def update_device_count(self, count: int, confidence: int, use_max: bool = False) -> None:
+        if confidence > self._device_count_confidence:
+            self.device_count = max(self.device_count, count) if use_max else count
+            self._device_count_confidence = confidence
+            return
+        if use_max:
+            self.device_count = max(self.device_count, count)
 
     def summary(self) -> str:
         if not self.npu_present:
@@ -168,7 +181,7 @@ def _detect_lspci(result: NPUDetectionResult) -> None:
     """
     try:
         out = subprocess.run(
-            ["lspci", "-n", "-D"],
+            ["/usr/bin/lspci", "-n", "-D"],
             capture_output=True, text=True, timeout=10,
         )
         if out.returncode != 0 or not out.stdout.strip():
@@ -198,16 +211,14 @@ def _detect_lspci(result: NPUDetectionResult) -> None:
         if result.chip_family is None:
             result.chip_family = family
         # 从 family 推断 primary_use
-        for _, fam, gen, use in CHIP_FAMILIES:
+        for _, fam, _, use in CHIP_FAMILIES:
             if fam == family:
                 if result.primary_use is None:
                     result.primary_use = use
                 break
 
     # 更新设备计数（低置信度，但比无检测好）
-    if result._device_count_confidence < 1:
-        result.device_count = len(npu_lines)
-        result._device_count_confidence = 1
+    result.update_device_count(len(npu_lines), confidence=1)
 
     # 填充设备列表
     for bus_id, dev_id_hex in npu_lines:
@@ -216,6 +227,7 @@ def _detect_lspci(result: NPUDetectionResult) -> None:
             pci_bus_id=bus_id,
             pci_device_id=f"0x{dev_id_hex}",
         ))
+
 
 def _detect_pci_sysfs(result: NPUDetectionResult) -> None:
     """Level 0a: 扫描 /sys/bus/pci/devices/ 中的华为 NPU PCI 设备。"""
@@ -246,9 +258,7 @@ def _detect_pci_sysfs(result: NPUDetectionResult) -> None:
     if npu_pci_devices:
         result.npu_present = True
         result.detection_methods.append("pci_sysfs")
-        if result._device_count_confidence < 1:
-            result.device_count = len(npu_pci_devices)
-            result._device_count_confidence = 1
+        result.update_device_count(len(npu_pci_devices), confidence=1)
         first_dev_id = npu_pci_devices[0]["device_id"]
         if first_dev_id in KNOWN_PCI_DEVICE_IDS:
             gen_label, family = KNOWN_PCI_DEVICE_IDS[first_dev_id]
@@ -256,7 +266,7 @@ def _detect_pci_sysfs(result: NPUDetectionResult) -> None:
                 result.generation = gen_label
             if result.chip_family is None:
                 result.chip_family = family
-            for _, fam, gen, use in CHIP_FAMILIES:
+            for _, fam, _, use in CHIP_FAMILIES:
                 if fam == family:
                     if result.primary_use is None:
                         result.primary_use = use
@@ -281,9 +291,8 @@ def _detect_dev_davinci(result: NPUDetectionResult) -> None:
     if davinci_devs or has_manager or has_hisi_hdc:
         result.npu_present = True
         result.detection_methods.append("dev_davinci")
-        if davinci_devs and result._device_count_confidence < 2:
-            result.device_count = len(davinci_devs)
-            result._device_count_confidence = 2
+        if davinci_devs:
+            result.update_device_count(len(davinci_devs), confidence=2)
 
 
 def _detect_driver_version(result: NPUDetectionResult) -> None:
@@ -377,9 +386,8 @@ def _detect_npu_smi(result: NPUDetectionResult) -> None:
         m = re.match(r"\s*(\d+)\s+\d+\s+", line)
         if m:
             npu_ids.add(int(m.group(1)))
-    if npu_ids and result._device_count_confidence < 3:
-        result.device_count = len(npu_ids)
-        result._device_count_confidence = 3
+    if npu_ids:
+        result.update_device_count(len(npu_ids), confidence=3)
 
     # 如果前面的方法尚未确定代际，通过 npu-smi info -t board -i 0 解析 PCI Device ID
     if result.generation is None:
@@ -400,6 +408,7 @@ def _detect_npu_smi(result: NPUDetectionResult) -> None:
                                     result.primary_use = use
                                 break
                     break
+
 
 def _detect_acl_ctypes(result: NPUDetectionResult) -> None:
     """Level 2: 通过 ctypes 加载 libascendcl.so 检测。"""
@@ -447,9 +456,7 @@ def _detect_acl_ctypes(result: NPUDetectionResult) -> None:
             acl.aclrtGetDeviceCount.argtypes = [ctypes.POINTER(ctypes.c_uint32)]
             ret = acl.aclrtGetDeviceCount(ctypes.byref(count))
             if ret == 0 and count.value > 0:
-                result.device_count = max(result.device_count, int(count.value))
-                if result._device_count_confidence < 4:
-                    result._device_count_confidence = 4
+                result.update_device_count(int(count.value), confidence=4, use_max=True)
                 acl_detected = True
         except Exception as e:
             result.errors.append(f"aclrtGetDeviceCount failed: {e}")
@@ -501,7 +508,8 @@ def _detect_torch_npu(result: NPUDetectionResult) -> None:
             text=True,
             timeout=20,
         )
-    except Exception:
+    except Exception as e:
+        result.errors.append(f"torch_npu probe process failed: {e}")
         return
 
     if p.returncode != 0 or not p.stdout.strip():
@@ -509,7 +517,8 @@ def _detect_torch_npu(result: NPUDetectionResult) -> None:
 
     try:
         probe = json.loads(p.stdout.strip())
-    except Exception:
+    except Exception as e:
+        result.errors.append(f"torch_npu probe output parse failed: {e}")
         return
 
     if not isinstance(probe, dict) or not probe.get("ok"):
@@ -521,8 +530,7 @@ def _detect_torch_npu(result: NPUDetectionResult) -> None:
         return
 
     result.npu_present = True
-    result.device_count = dev_count
-    result._device_count_confidence = 5
+    result.update_device_count(dev_count, confidence=5)
     result.detection_methods.append("torch_npu")
 
     chip_name_raw = probe.get("chip_name")
@@ -559,9 +567,7 @@ def _detect_python_acl(result: NPUDetectionResult) -> None:
         device_count, ret = acl.rt.get_device_count()
         if ret == 0 and device_count > 0:
             result.npu_present = True
-            result.device_count = max(result.device_count, device_count)
-            if result._device_count_confidence < 4:
-                result._device_count_confidence = 4
+            result.update_device_count(device_count, confidence=4, use_max=True)
             python_acl_detected = True
 
         soc_name = acl.get_soc_name()
@@ -636,6 +642,7 @@ def detect_npu() -> NPUDetectionResult:
 
     return result
 
+
 def main() -> int:
     parser = argparse.ArgumentParser(description='Ascend NPU hardware detection')
     parser.add_argument('--json', action='store_true', help='JSON output')
@@ -643,9 +650,9 @@ def main() -> int:
     args = parser.parse_args()
     result = detect_npu()
     if args.json:
-        print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
+        _ = logging.info(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
     else:
-        print(result.summary())
+        _ = logging.info(result.summary())
     return 0
 
 if __name__ == '__main__':
