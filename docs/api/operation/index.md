@@ -90,6 +90,6 @@ pypto-remainder
 pypto-trunc
 pypto-unsqueeze
 pypto-view
-pypto-LReLU
+pypto-lrelu
 pypto-where
 ```
