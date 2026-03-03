@@ -45,6 +45,8 @@ Task Progress:
 - [ ] Step 4: Run parameter sweep loop (small -> large)
 - [ ] Step 5: Apply stop criteria and choose best config
 - [ ] Step 6: Re-validate correctness and report before/after
+- [ ] Step 7: Enable loop_unroll optimization
+- [ ] Step 8: Configure stitch parameters
 ```
 
 ## Step 1: Fixed Benchmark Setup
@@ -151,7 +153,120 @@ Mandatory report format:
 - Rounds per config: [N]
 - Key profile signals: [AIC/AIV utilization, bubble, control overhead]
 - Correctness check: [pass/fail + method]
+
+
+## Step 7: Enable loop_unroll Optimization
+
+Replace `pypto.loop` with `pypto.loop_unroll` to reduce loop overhead through loop unrolling.
+
+### Implementation
+
+**Before**:
+```python
+for idx in pypto.loop(m_loop):
+    m_offset = idx * tile_m
+    m_offset_end = pypto.min(m_offset + tile_m, M)
+    # ... processing logic
 ```
+
+**After**:
+```python
+for m_offset, tile_m_unroll in pypto.loop_unroll(
+    0, M, 1,
+    name="LOOP_M_TILE",
+    idx_name="m_offset",
+    unroll_list=[1, 2, 4, 8, 16]
+):
+    m_offset_end = pypto.min(m_offset + tile_m_unroll, M)
+    # ... processing logic with tile_m_unroll
+```
+
+### Key Parameters
+
+- `unroll_list=[1, 2, 4, 8, 16]`: Multiple unroll factors for different code paths
+- Use returned `tile_m_unroll` as actual tile size instead of fixed `tile_m`
+
+### Best Practices
+
+1. Set `unroll_list=[1, 2, 4, 8, 16]` for dynamic axis loops
+2. Use dynamic tile size from loop_unroll return value
+3. Keep `set_cube_tile_shapes` outside of loop for better performance
+
+### Expected Gain
+
+- **Performance**: 5-15% improvement
+- **Trade-off**: Slightly increased compile time due to multiple code paths
+
+### Verification
+
+Re-run all test cases (Level 0-3) to verify correctness after optimization.
+
+### Reference
+
+- API: `docs/api/controlflow/pypto-loop_unroll.md`
+- Example: `examples/02_intermediate/controlflow/others/dynamic.py`
+
+## Step 8: Configure Stitch Parameters
+
+Add stitch parameters to `runtime_options` to optimize memory pool and task scheduling.
+
+### Implementation
+
+**Before**:
+```python
+@pypto.frontend.jit(runtime_options={
+    "run_mode": mode,
+    "stitch_function_max_num": 128,
+    "stitch_function_num_step": 20
+})
+```
+
+**After**:
+```python
+@pypto.frontend.jit(runtime_options={
+    "run_mode": mode,
+    "stitch_function_inner_memory": 512,
+    "stitch_function_outcast_memory": 512,
+    "stitch_function_num_initial": 128,
+    "stitch_function_max_num": 128,
+    "stitch_function_num_step": 20
+})
+```
+
+### Parameter Summary
+
+| Parameter | Value | Description |
+|-----------|--------|-------------|
+| `stitch_function_inner_memory` | 512 | Memory pool for root function intermediate results |
+| `stitch_function_outcast_memory` | 512 | Memory pool for devicetask intermediate results |
+| `stitch_function_num_initial` | 128 | Task count for first device task submission |
+| `stitch_function_max_num` | 128 | Maximum task count per device task submission |
+| `stitch_function_num_step` | 20 | Non-first device task count for smooth scaling |
+
+### Recommended Configurations
+
+**For matmul operators**:
+```python
+"stitch_function_inner_memory": 512,
+"stitch_function_outcast_memory": 512,
+"stitch_function_num_initial": 128,
+"stitch_function_max_num": 128,
+"stitch_function_num_step": 20
+```
+
+### Expected Gain
+
+- **Performance**: 3-10% improvement
+- **Trade-off**: Increased memory usage
+
+### Verification
+
+Re-run all test cases (Level 0-3) and compare performance with Step 7 baseline.
+
+### Reference
+
+- API: `docs/api/config/pypto-set_runtime_options.md`
+- Example: `models/glm_v4_5/glm_attention.py`
 
 ## Guardrails
 
