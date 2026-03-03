@@ -16,8 +16,7 @@
 #pragma once
 
 #include "distributed_op_test_suite.h"
-#include "hccl/hccl.h"
-#include "hccl/hccl_types.h"
+#include "adapter/api/hccl_define.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
