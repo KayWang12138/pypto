@@ -356,7 +356,7 @@ void RemoveRedundantOp::GenerateNewView(Function &function, Operation &op, Logic
         return; 
     }
     std::vector<long> newoffset(op.iOperand[0]->offset.size(),INT_MAX);
-    std::vector<SymbolicScalar> newDynoffset();
+    std::vector<SymbolicScalar> newDynoffset(op.iOperand[0]->offset.size(),INT_MAX);
     CalculateViewOffset(op, startTensor, endTensor, newoffset, newDynoffset);
     //新建一个logical tensor并更新图链接关系:清除endTensor的消费者，清除endTensor，将assemble的消费者连接到newView
     LogicalTensorPtr newViewTensor;
