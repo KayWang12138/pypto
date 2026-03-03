@@ -51,27 +51,34 @@ from numpy.testing import assert_allclose
 
 2.  实现Softmax Kernel函数。
 
-    为了使计算逻辑能够在硬件上高效运行，需要实现Softmax Kernel函数，并通过@pypto.jit装饰器将计算图转换为硬件指令，并在其中定义数据切分和循环处理等策略。
+    为了使计算逻辑能够在硬件上高效运行，需要实现Softmax Kernel函数，并通过@pypto.frontend.jit装饰器将计算图转换为硬件指令，并在其中定义数据切分和循环处理等策略。
 
     ```python
-    @pypto.jit
-    def softmax_kernel(x: pypto.Tensor, y: pypto.Tensor) -> None:
-        # after the dynamic axis of tensor is marked, get the tensor shape accordingly
+    B = pypto.frontend.dynamic("B")
+
+    @pypto.frontend.jit
+    def softmax_kernel(
+        x: pypto.Tensor((B, 32, 1, 256), pypto.DT_FP32)
+    ) -> pypto.Tensor((B, 32, 1, 256), pypto.DT_FP32):
         tensor_shape = x.shape
         b = tensor_shape[0] # dynamic: symbolic_scalar; static: immediate number
         n1, n2, dim = tensor_shape[1:]
         tile_b = 1
-        b_loop = b / tile_b
-    
+        b_loop = b // tile_b
+
         # tiling shape setting
         pypto.set_vec_tile_shapes(1, 4, 1, 64)
-    
+
+        y = pypto.tensor((B, 32, 1, 256), pypto.DT_FP32)
+
         for idx in pypto.loop(b_loop):
             b_offset = idx * tile_b
             b_offset_end = (idx + 1) * tile_b
             x_view = x[b_offset:b_offset_end, :n1, :n2, :dim]
             softmax_out = softmax_core(x_view)
             y[b_offset:, ...] = softmax_out
+
+        return y
     ```
 
     其中，为了提高算子的计算效率，可以通过set\_vec\_tile\_shapes或set\_cube\_tile\_shapes接口，指定操作的分块（Tiling）方式。这种Tiling配置将计算分解为硬件友好的Tile粒度（如64），可优化内存访问和并行计算效率。
@@ -175,10 +182,10 @@ PyPTO程序在编译过程中，会自动生成由Tensor和Operation组合而成
 
 泳道图用于直观展示计算图的实际调度与执行过程，清晰呈现任务的执行顺序和耗时信息，帮助开发者分析算子性能瓶颈。下面将介绍如何采集泳道图数据，并通过PyPTO Toolkit查看泳道图。
 
-1.  通过pypto.set\_debug\_options接口启动性能数据采集功能。
+1.  通过给@pypto.frontend.jit装饰器的入参debug\_options配置图执行阶段调试开关启动性能数据采集功能。
 
     ```python
-    @pypto.jit(
+    @pypto.frontend.jit(
         debug_options={"runtime_debug_mode": 1}
     )
     ```
