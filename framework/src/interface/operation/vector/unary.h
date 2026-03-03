@@ -39,6 +39,7 @@ enum class UnaryOpType {
     BITWISENOT,
     SIGN,
     SIGNBIT,
+    TANH,
     ISFINITE,
 };
 
@@ -78,6 +79,8 @@ std::string GetUnaryOpName()
             return "SIGN";
         case UnaryOpType::SIGNBIT:
             return "SIGNBIT";
+        case UnaryOpType::TANH:
+            return "TANH";
         default:
             ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "unknown unary op type";
             return "";
@@ -107,6 +110,7 @@ Opcode GetUnaryOpNameCode()
         CASE(BITWISENOT);
         CASE(SIGN);
         CASE(SIGNBIT);
+        CASE(TANH);
         default:
             ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "unknown unary op type";
     }
