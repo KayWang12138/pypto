@@ -35,5 +35,5 @@ private:
 
     GetSocVerFunc socVerFunc_;
 };
-}
-}
+}  // namespace tile_fwk
+}  // namespace npu
