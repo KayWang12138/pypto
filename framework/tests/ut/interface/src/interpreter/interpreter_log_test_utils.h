@@ -11,7 +11,7 @@
 /*!
  * \file interpreter_log_test_utils.h
  * \brief Common helpers for interpreter/log related unit tests:
- *        - CaptureStdoutAndEcho: capture and echo stdout
+ *        - CaptureStdoutAndEcho: capture log output from log files (落盘形式，与 LogManager 路径一致)
  *        - VerifyLogContainsFailed: check VERIFY log failures
  *        - VerifyLogContainsIndex0Failed: check VERIFY index 0 failures
  */
@@ -23,42 +23,83 @@
 #include <cstdio>
 #include <unistd.h>
 #include <regex>
+#include <cstdlib>
+#include <cstring>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <fstream>
+#include <map>
 
+// 与 LogManager 落盘路径一致（仅本头文件内使用）
+static constexpr const char *kInterpLogTestEnvProcessLogPath = "ASCEND_PROCESS_LOG_PATH";
+static constexpr const char *kInterpLogTestHostLogFilePrefix = "pypto-log-";
+static constexpr const char *kInterpLogTestLogFileSuffix = ".log";
+static constexpr const char *kInterpLogTestHostLogSubDir = "/debug/plog";
+static constexpr const char *kInterpLogTestDefaultLogSubDir = "/ascend/log";
+
+static inline std::string InterpLogTestGetHostLogDir() {
+    const char *envPath = std::getenv(kInterpLogTestEnvProcessLogPath);
+    if (envPath != nullptr && envPath[0] != '\0') {
+        return std::string(envPath) + kInterpLogTestHostLogSubDir;
+    }
+    const char *home = std::getenv("HOME");
+    std::string base = (home != nullptr && home[0] != '\0') ? std::string(home) : ".";
+    return base + kInterpLogTestDefaultLogSubDir + kInterpLogTestHostLogSubDir;
+}
+
+static inline std::map<std::string, size_t> InterpLogTestListHostLogFilesWithSize(const std::string &dir) {
+    std::map<std::string, size_t> result;
+    DIR *d = opendir(dir.c_str());
+    if (d == nullptr) {
+        return result;
+    }
+    struct dirent *dp = nullptr;
+    while ((dp = readdir(d)) != nullptr) {
+        if (dp->d_name[0] == '.') {
+            continue;
+        }
+        std::string name = dp->d_name;
+        if (name.find(kInterpLogTestHostLogFilePrefix) != 0 ||
+            name.rfind(kInterpLogTestLogFileSuffix) != name.size() - std::strlen(kInterpLogTestLogFileSuffix)) {
+            continue;
+        }
+        std::string path = dir + "/" + name;
+        struct stat st;
+        if (stat(path.c_str(), &st) == 0 && S_ISREG(st.st_mode)) {
+            result[path] = static_cast<size_t>(st.st_size);
+        }
+    }
+    closedir(d);
+    return result;
+}
+
+// 从日志落盘目录捕获本次 func() 执行产生的新增日志内容（与 LogManager 落盘路径一致）
 static inline std::string CaptureStdoutAndEcho(std::function<void()> func) {
-    int pipefd[2];
-    if (pipe(pipefd) != 0) {
-        return "";
-    }
-    int old_stdout = dup(STDOUT_FILENO);
-    if (old_stdout == -1) {
-        close(pipefd[0]);
-        close(pipefd[1]);
-        return "";
-    }
-    if (dup2(pipefd[1], STDOUT_FILENO) == -1) {
-        close(pipefd[0]);
-        close(pipefd[1]);
-        close(old_stdout);
-        return "";
-    }
-    close(pipefd[1]);
+    std::string logDir = InterpLogTestGetHostLogDir();
+    std::map<std::string, size_t> before = InterpLogTestListHostLogFilesWithSize(logDir);
+
     func();
-    fflush(stdout);
-    if (dup2(old_stdout, STDOUT_FILENO) == -1) {
-        close(pipefd[0]);
-        close(old_stdout);
-        return "";
+
+    std::map<std::string, size_t> after = InterpLogTestListHostLogFilesWithSize(logDir);
+    std::string captured;
+    for (const auto &p : after) {
+        const std::string &path = p.first;
+        size_t newSize = p.second;
+        size_t oldSize = 0;
+        auto it = before.find(path);
+        if (it != before.end()) {
+            oldSize = it->second;
+            if (newSize <= oldSize) {
+                continue;
+            }
+        }
+        std::ifstream ifs(path, std::ios::binary);
+        if (!ifs) {
+            continue;
+        }
+        ifs.seekg(static_cast<std::streamoff>(oldSize));
+        captured.append(std::istreambuf_iterator<char>(ifs), std::istreambuf_iterator<char>());
     }
-    char buffer[8192] = {0};
-    ssize_t len = read(pipefd[0], buffer, sizeof(buffer) - 1);
-    close(pipefd[0]);
-    std::string captured(len > 0 ? static_cast<size_t>(len) : 0, '\0');
-    if (len > 0) {
-        captured.assign(buffer, static_cast<size_t>(len));
-        ssize_t written = write(old_stdout, buffer, static_cast<size_t>(len));
-        (void)written;
-    }
-    close(old_stdout);
     return captured;
 }
 
