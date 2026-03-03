@@ -5,6 +5,7 @@
         "framework/src/cann_host_runtime/"
       ],
       "Area": [
+        "framework/src/utils"
       ],
       "Include": [
         "framework/include/"

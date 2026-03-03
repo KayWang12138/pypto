@@ -22,6 +22,7 @@ target_link_libraries(cann_host_runtime
             $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:kernel_tiling_headers>
             dl
             c_sec
+            tile_fwk_utils
 )
 target_compile_definitions(cann_host_runtime
         PRIVATE
