@@ -16,7 +16,7 @@
 #include <iostream>
 #ifdef BUILD_WITH_CANN
 #include "acl/acl_rt.h"
-#include "runtime/base.h"
+#include "adapter/api/runtime_define.h"
 
 namespace npu::tile_fwk {
 const char* getExceptionTypeName(rtExceptionExpandType_t type)

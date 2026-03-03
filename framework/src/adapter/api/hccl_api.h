@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+* Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -9,26 +9,24 @@
  */
 
 /*!
- * \file distributed_test_framework.h
+ * \file hccl_api.h
  * \brief
  */
 
 #pragma once
 
-#include "distributed_op_test_suite.h"
+#include "adapter/api/hccl_define.h"
 
 namespace npu::tile_fwk {
-namespace Distributed {
+HcclResult HcommGetCommName(HcclComm comm, char* commName);
 
-struct HcomTestParam {
-    HcclComm hcclComm;
-    int32_t rootRank;
-    HcclRootInfo rootInfo;
-};
+HcclResult HcommGetL0TopoTypeEx(const char *group, CommTopo *topoType, uint32_t flag);
 
-void TestFrameworkInit(OpTestParam &testParam, HcomTestParam &hcomTestParam, int &physicalDeviceId);
-void TestFrameworkDestroy(int32_t timeout);
-std::string getTimeStamp() ;
+HcclResult HcommGetCommHandleByGroup(const char *group, HcclComm *commHandle);
 
-} // namespace Distributed
-} // namespace npu::tile_fwk
+HcclResult HcommGetRootInfo(HcclRootInfo *rootInfo) ;
+
+HcclResult HcommCommInitRootInfo(uint32_t nRanks, const HcclRootInfo *rootInfo, uint32_t rank, HcclComm *comm);
+
+HcclResult HcommAllocComResourceByTiling(HcclComm comm, void *stream, void *Mc2Tiling, void **commContext);
+}

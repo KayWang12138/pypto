@@ -40,6 +40,7 @@
 #include "machine/runtime/distributed/distributed_context.h"
 #include "machine/utils/machine_error.h"
 #include "tilefwk/pypto_fwk_log.h"
+#include "adapter/api/runtime_define.h"
 
 #ifndef BUILD_WITH_CANN
 enum aclmdlRICaptureMode {};
