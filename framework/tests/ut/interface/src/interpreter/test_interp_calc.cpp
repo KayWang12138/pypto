@@ -975,6 +975,14 @@ TEST_F(TorchAdaptorTest, BinaryPairOps) {
         calc::PairMin(out, self, other);
         ASSERT_ALLCLOSE(out, golden);
     }
+    {
+        auto self = makeTensorData(DT_FP32, {n, n}, 4.0f);
+        auto other = makeTensorData(DT_FP32, {n, p}, 3.0f);
+        auto out = makeTensorData(DT_FP32, {n, n}, 0.0f);
+        auto golden = makePartialGolden(n, p, 12.0, 4.0);
+        calc::PairProd(out, self, other);
+        ASSERT_ALLCLOSE(out, golden);
+    }
 }
 
 TEST_F(TorchAdaptorTest, MatMul) {
@@ -1085,7 +1093,6 @@ TEST_F(TorchAdaptorTest, Reduce) {
         calc::RowSumExpand(out, self, -1);
         ASSERT_ALLCLOSE(out, golden);
     }
-
     {
         // sum
         auto self = makeTensorData(DT_FP32, {16, 16}, 1.0f);
@@ -1148,6 +1155,22 @@ TEST_F(TorchAdaptorTest, Reduce) {
         auto out = makeTensorData(DT_FP32, {1, 16}, 0.0f);
         auto golden = makeTensorData(DT_FP32, {1, 16}, 1.0f);
         calc::RowMaxLine(out, self, 0);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+    {
+        // prodsingle
+        auto self = makeTensorData(DT_FP32, {16, 16}, 1.0f);
+        auto out = makeTensorData(DT_FP32, {16, 1}, 0.0f);
+        auto golden = makeTensorData(DT_FP32, {16, 1}, 1.0f);
+        calc::RowProdSingle(out, self, -1);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+    {
+        // prodline
+        auto self = makeTensorData(DT_FP32, {16, 16}, 1.0f);
+        auto out = makeTensorData(DT_FP32, {1, 16}, 0.0f);
+        auto golden = makeTensorData(DT_FP32, {1, 16}, 1.0f);
+        calc::RowProdLine(out, self, 0);
         ASSERT_ALLCLOSE(out, golden);
     }
     {
