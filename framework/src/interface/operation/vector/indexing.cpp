@@ -1073,20 +1073,21 @@ void TiledIndexPut(Function &function, const TileShape &tileShape, Input &inputS
         newOp.SetAttribute(OpAttributeKey::indicesSize, static_cast<int>(inputIndices.size()));
         return;
     }
-    const auto &vecTile = tileShape.GetVecTile()[0];
-    for (int i = 0; i < inputValues.tensor.GetShape()[cur]; i += vecTile[cur]) {
+    const auto &vecTile = tileShape.GetVecTile();
+    int64_t tileSize = vecTile[cur];
+    for (int64_t i = 0; i < inputValues.tensor.GetShape()[cur]; i += tileSize) {
         if (cur >= inputSelf.tensor.GetShape().size() - selfTiledCount) {
-            inputSelf.tileInfo.shape[cur] = std::min(inputSelf.tensor.GetShape()[cur] - i, vecTile[cur]);
+            inputSelf.tileInfo.shape[cur] = std::min(inputSelf.tensor.GetShape()[cur] - i, tileSize);
             inputSelf.tileInfo.offset[cur] = i;
         } else {
             inputSelf.tileInfo.shape[cur] = inputSelf.tensor.GetShape()[cur];
             inputSelf.tileInfo.offset[cur] = 0;
         }
-        inputValues.tileInfo.shape[cur] = std::min(inputValues.tensor.GetShape()[cur] - i, vecTile[cur]);
+        inputValues.tileInfo.shape[cur] = std::min(inputValues.tensor.GetShape()[cur] - i, tileSize);
         inputValues.tileInfo.offset[cur] = i;
         if (cur == 0) {
             for (size_t j = 0; j < inputIndices.size(); j++) {
-                inputIndices[j].tileInfo.shape[cur] = std::min(inputIndices[j].tensor.GetShape()[cur] - i, vecTile[cur]);
+                inputIndices[j].tileInfo.shape[cur] = std::min(inputIndices[j].tensor.GetShape()[cur] - i, tileSize);
                 inputIndices[j].tileInfo.offset[cur] = i;
             }
         }
@@ -1112,7 +1113,7 @@ void TiledIndexPut(Function &function, const TileShape &tileShape, const Logical
         inputIndices.push_back(inputIndicesTemp);
     }
     size_t selfTiledCount = values->GetShape().size() - indices.size();
-    TiledIndexPut(function, tileShape, inputSelf, inputValues, inputIndices, result, accumulate, selfTiledCount, cur);
+    TiledIndexPut(function, tileShape, inputSelf, inputValues, inputIndices, result, accumulate, selfTiledCount, 0);
 }
 
 void TensorIndexPut(Function &function, const LogicalTensorPtr &self, const LogicalTensors &indices, const LogicalTensorPtr &values,
