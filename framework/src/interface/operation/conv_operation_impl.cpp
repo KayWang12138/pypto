@@ -153,12 +153,12 @@ void CheckOutputShape(const Tensor &inputTensor, const Tensor &weightTensor, con
     }
 }
 
-void CheckAlignment(int64_t value, int64_t alignment, const std::string& valueName, bool isByte = false)
+void CheckAlignment(int64_t value, int64_t alignment, const std::string& valueName)
 {
     OP_CHECK(true, {
         ASSERT(value % alignment == 0)
             << "Invalid " << valueName << ":" << value
-            << ", requires " << alignment << (isByte ? "-byte alignment." : "-element alignment.") << std::endl;
+            << ", requires " << alignment << "-element alignment." << std::endl;
     });
 }
 
@@ -227,7 +227,7 @@ void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const T
         kBL1 *= kd;
     }
     int64_t minKL1 = std::min(kAL1, kBL1);
-    CheckAlignment(tileK , ALIGN_SIZE_32, "tileK", true);
+    CheckAlignment(tileK , k0, "tileK");
     CheckValueRange(tileH, "tileH" , NUM1, tileHout);
     CheckValueRange(tileW, "tileW" , NUM1, tileWout);
     CheckValueRange(tileK, "tileK" , NUM1, minKL1);
