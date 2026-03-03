@@ -165,7 +165,7 @@ void SoC::SetNPUArch(const std::string& versionStr) {
 
 size_t SoC::GetAICPUNum() const {
     size_t aiCpuNum = 0;
-    if (CannHostRuntime::Instance().GetAICPUNum(aiCpuNum) == 0) {
+    if (CannHostRuntime::Instance().GetAICPUNum(aiCpuNum)) {
         return static_cast<size_t>(aiCpuNum);
     }
     return ai_cpu_cnt_;

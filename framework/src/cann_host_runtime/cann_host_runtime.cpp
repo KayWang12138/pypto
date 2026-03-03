@@ -109,6 +109,7 @@ bool CannHostRuntime::GetAICPUNum(size_t &aiCpuNum) {
         return true;
     }
 #endif
+    (void)aiCpuNum;
     return false;
 }
 }  // namespace tile_fwk

@@ -35,10 +35,6 @@
 #include "tilefwk/file.h"
 #include "tilefwk/platform.h"
 
-#ifdef BUILD_WITH_CANN
-#include "runtime/rt.h"
-#endif
-
 namespace npu {
 namespace tile_fwk {
 class INIParser : public PlatformParser {
