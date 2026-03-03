@@ -1,0 +1,44 @@
+{
+  "name": "softmax_npu",
+  "description": "Softmax 算子 NPU 性能调优搜索空间示例",
+  "layers": [
+    {
+      "name": "stitch",
+      "priority": 1,
+      "strategy": "grid",
+      "params": {
+        "stitch_function_num_initial": {"type": "choice", "values": [16, 32, 64, 128]},
+        "stitch_function_outcast_memory": {"type": "choice", "values": [256, 512, 1024]},
+        "stitch_function_inner_memory": {"type": "choice", "values": [256, 512]}
+      }
+    },
+    {
+      "name": "vector",
+      "priority": 2,
+      "strategy": "bayesian",
+      "max_trials": 60,
+      "params": {
+        "vec_tile_shapes": {
+          "type": "choice",
+          "values": [[64, 512], [32, 256], [128, 1024], [64, 1024], [128, 512]]
+        },
+        "sg_set_scope": {"type": "choice", "values": [-1, 0, 1, 2]},
+        "pg_upper_bound": {"type": "choice", "values": [200, 500, 1000]},
+        "pg_lower_bound": {"type": "choice", "values": [128, 256, 512]},
+        "pg_parallel_lower_bound": {"type": "choice", "values": [8, 16, 20, 24, 32]},
+        "vec_nbuffer_mode": {"type": "choice", "values": [0, 1, 2]}
+      },
+      "pruning_rules": [
+        "vec_nbuffer_mode==0 → vec_nbuffer_setting is ignored"
+      ]
+    },
+    {
+      "name": "scheduling",
+      "priority": 3,
+      "strategy": "grid",
+      "params": {
+        "device_sched_mode": {"type": "choice", "values": [0, 1, 2]}
+      }
+    }
+  ]
+}
