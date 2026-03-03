@@ -48,8 +48,7 @@ TEST_F(TestCannHostRuntime, GetPlatformFile_NoAscendHomePath) {
     } 
     unsetenv("ASCEND_HOME_PATH"); 
     
-    auto &cannHostObj = CannHostRuntime::GetObj();
-    std::string result = cannHostObj.GetPlatformFile("Ascend910B1"); 
+    std::string result = CannHostRuntime::Instance().GetPlatformFile("Ascend910B1"); 
     EXPECT_EQ(result, ""); 
 
     if (!savedEnv.empty()) { 
@@ -58,8 +57,7 @@ TEST_F(TestCannHostRuntime, GetPlatformFile_NoAscendHomePath) {
 } 
 
 TEST_F(TestCannHostRuntime, GetPlatformFile_EmptySocVersion) { 
-    auto &cannHostObj = CannHostRuntime::GetObj();
-    std::string result = cannHostObj.GetPlatformFile(""); 
+    std::string result = CannHostRuntime::Instance().GetPlatformFile(""); 
     EXPECT_EQ(result, ""); 
 } 
 
@@ -71,8 +69,7 @@ TEST_F(TestCannHostRuntime, GetPlatformFile_NonExistentPlatformFile) {
     } 
     setenv("ASCEND_HOME_PATH", TEST_TMP_DIR.c_str(), 1); 
     
-    auto &cannHostObj = CannHostRuntime::GetObj();
-    std::string result = cannHostObj.GetPlatformFile("NonExistentSocVersion"); 
+    std::string result = CannHostRuntime::Instance().GetPlatformFile("NonExistentSocVersion"); 
     EXPECT_EQ(result, ""); 
 
 

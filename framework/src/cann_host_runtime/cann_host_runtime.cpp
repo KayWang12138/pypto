@@ -19,6 +19,16 @@ namespace npu {
 namespace tile_fwk {
 const uint32_t kMaxLength = 50;
 const std::string version = "version";
+void *CannHostRuntime::GetSymbol(const std::string &sym) {
+#ifdef BUILD_WITH_CANN
+    if (handleDep != nullptr && handle != nullptr) {
+        return dlsym(handle, sym.c_str());
+    }
+#endif
+    (void)sym;
+    return nullptr;
+}
+
 CannHostRuntime::CannHostRuntime() {
 #ifdef BUILD_WITH_CANN
     std::string LibPathDir = std::string(ASCEND_CANN_PACKAGE_PATH) + "/lib64/";
@@ -38,9 +48,9 @@ CannHostRuntime::~CannHostRuntime() {
     }
 }
 
-CannHostRuntime &CannHostRuntime::GetObj() {
-    static CannHostRuntime cannHostRuntime;
-    return cannHostRuntime;
+CannHostRuntime &CannHostRuntime::Instance() {
+    static CannHostRuntime instance;
+    return instance;
 }
 
 bool CannHostRuntime::GetSocVersion(std::string& socVersion) {

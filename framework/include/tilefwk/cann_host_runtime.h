@@ -20,22 +20,16 @@
 
 namespace npu {
 namespace tile_fwk {
-struct CannHostRuntime {
-    static CannHostRuntime &GetObj();
-    ~CannHostRuntime();
+class CannHostRuntime {
+    static CannHostRuntime& Instance();
     bool GetSocVersion(std::string& socVersion);
     std::string GetPlatformFile(const std::string &socVersion);
+    CannHostRuntime(const CannHostRuntime&) = delete;
+    CannHostRuntime& operator=(const CannHostRuntime&) = delete;
 private:
     CannHostRuntime();
-#ifdef BUILD_WITH_CANN
-    void *GetSymbol(const std::string &sym) {
-        void *ptr = nullptr;
-        if (handleDep != nullptr && handle != nullptr) {
-            ptr = dlsym(handle, sym.c_str());
-        }
-        return ptr;
-    }
-#endif
+    ~CannHostRuntime();
+    void *GetSymbol(const std::string &sym);
     void *handleDep = nullptr;
     void *handle = nullptr;
 };
