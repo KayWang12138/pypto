@@ -871,7 +871,6 @@ def setup_lightning_indexer_topk_config():
                          pg_lower_bound=NUM_1024,
                          pg_upper_bound=NUM_1024 * NUM_1024,
                          cube_l1_reuse_setting={-1: NUM_32},
-                         vec_nbuffer_mode=NUM_2,
                          vec_nbuffer_setting={NUM_NEG1: NUM_16})
     pypto.set_runtime_options(device_sched_mode=NUM_3,
                             stitch_function_inner_memory=NUM_128,

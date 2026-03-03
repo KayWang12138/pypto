@@ -115,7 +115,7 @@ class IndexerPrologQuantConfigs:
     block_size: int
     t_sub_tile: int
     chunk_size: int
-    vec_nbuffer_mode: int
+    vec_nbuffer_setting: dict[int, int]
 
 
 def quant_layer_norm(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, dim: int, epsilon: float):
@@ -374,8 +374,7 @@ def lightning_indexer_prolog_quant(x_shape, q_norm_shape, q_norm_scale_shape, w_
     weights_shape = (b, weights_shape[1])
 
     @pypto.frontend.jit(
-        pass_options={"vec_nbuffer_mode": configs.vec_nbuffer_mode,
-                      "cube_l1_reuse_setting": configs.cube_l1_reuse_setting,
+        pass_options={"cube_l1_reuse_setting": configs.cube_l1_reuse_setting,
                       "pg_upper_bound": configs.pg_upper_bound},
         runtime_options={"stitch_function_inner_memory": 512,
                         "stitch_function_outcast_memory": 512,
