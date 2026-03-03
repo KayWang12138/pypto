@@ -9,13 +9,13 @@
 # -----------------------------------------------------------------------------------------------------------
 
 file(GLOB _Cann_Host_Runtime_Srcs *.cpp)
-add_library(cann_host_runtime SHARED)
-target_sources(cann_host_runtime PRIVATE ${_Cann_Host_Runtime_Srcs})
-target_compile_definitions(cann_host_runtime
+add_library(tile_fwk_cann_host_runtime SHARED)
+target_sources(tile_fwk_cann_host_runtime PRIVATE ${_Cann_Host_Runtime_Srcs})
+target_compile_definitions(tile_fwk_cann_host_runtime
         PUBLIC
             $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_STEST_INTERPRETER_CONFIG}>:ENABLE_STEST_INTERPRETER_CONFIG>>
 )
-target_link_libraries(cann_host_runtime
+target_link_libraries(tile_fwk_cann_host_runtime
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub
@@ -24,12 +24,12 @@ target_link_libraries(cann_host_runtime
             c_sec
             tile_fwk_utils
 )
-target_compile_definitions(cann_host_runtime
+target_compile_definitions(tile_fwk_cann_host_runtime
         PRIVATE
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:ASCEND_CANN_PACKAGE_PATH="${ASCEND_CANN_PACKAGE_PATH}">>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:PROCESSOR_SUBPATH="${CMAKE_SYSTEM_PROCESSOR}-linux">>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>>
 )
 
-PTO_Fwk_AnalysisTargetHeaderFiles(TARGET cann_host_runtime)
-PTO_Fwk_AnalysisTargetSymbols(TARGET cann_host_runtime)
+PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_cann_host_runtime)
+PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_cann_host_runtime)

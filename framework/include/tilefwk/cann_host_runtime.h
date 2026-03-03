@@ -20,6 +20,8 @@
 
 namespace npu {
 namespace tile_fwk {
+using GetSocVerFunc = int (*)(char *, const uint32_t);
+
 class CannHostRuntime {
 public:
     static CannHostRuntime& Instance();
@@ -31,8 +33,7 @@ private:
     CannHostRuntime();
     ~CannHostRuntime();
     void *GetSymbol(const std::string &sym);
-    void *handleDep = nullptr;
-    void *handle = nullptr;
+    GetSocVerFunc socVerFunc;
 };
 }
 }

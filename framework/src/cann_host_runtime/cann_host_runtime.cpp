@@ -19,6 +19,8 @@
 namespace npu {
 namespace tile_fwk {
 const uint32_t kMaxLength = 50;
+const std::string socVerFuncName = "rtGetSocVersion";
+    
 void *CannHostRuntime::GetSymbol(const std::string &sym) {
 #ifdef BUILD_WITH_CANN
     if (handleDep != nullptr && handle != nullptr) {
@@ -38,19 +40,14 @@ CannHostRuntime::CannHostRuntime() {
     std::string soPath = RealPath(LibPathDir + "libruntime.so");
     FUNCTION_LOGW("soPath = %s", soPath.c_str());
     handle = dlopen(soPath.c_str(), RTLD_LAZY);
-#endif
-    if (handleDep == nullptr || handle == nullptr) {
-        FUNCTION_LOGW("Cannot obtain so file through dlopen.");
-    }
-}
-
-CannHostRuntime::~CannHostRuntime() {
+    socVerFunc = (GetSocVerFunc)GetSymbol(socVerFuncName);
     if (handle != nullptr) {
         dlclose(handle);
     }
     if (handleDep != nullptr) {
         dlclose(handleDep);
     }
+#endif
 }
 
 CannHostRuntime &CannHostRuntime::Instance() {
@@ -62,9 +59,6 @@ bool CannHostRuntime::GetSocVersion(std::string& socVersion) {
 #ifdef BUILD_WITH_CANN
     int ret = 1;
     char socVer[kMaxLength] = {0x00};
-    using GetSocVerFunc = int (*)(char *, const uint32_t);
-    std::string socVerFuncName = "rtGetSocVersion";
-    auto socVerFunc = (GetSocVerFunc)GetSymbol(socVerFuncName);
     if (socVerFunc != nullptr) {
         ret = socVerFunc(socVer, kMaxLength);
     }
