@@ -367,7 +367,7 @@ def lightning_indexer_prolog_quant_hif8_meta(x, q_norm, q_norm_scale, w_qb, w_qb
     return q_hif8, q_scale, k_hif8, k_scale, weights
 
 
-@torch.library.impl(pyptolib, "lightning_indexer_prolog_quant_hif8", "NPU")
+# @torch.library.impl(pyptolib, "lightning_indexer_prolog_quant_hif8", "NPU")
 @allow_in_graph
 def lightning_indexer_prolog_quant_hif8_npu(x, q_norm, q_norm_scale, w_qb, w_qb_scale, wk, w_proj,
                                            ln_gamma_k, ln_beta_k, cos_idx_rope, sin_idx_rope, hadamard_q,
