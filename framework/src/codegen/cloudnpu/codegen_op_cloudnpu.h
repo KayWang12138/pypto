@@ -102,6 +102,7 @@ public:
     std::string GenTransposeDataMove() const;
 
     std::string GenGatherElementOp() const;
+    std::string GenGatherMaskOp() const;
 
     std::string GenRangeOp() const;
     std::string PrintRangeTileTensor(
@@ -276,8 +277,11 @@ private:
     std::string GenVectorScalarOpByMode(VecScalMode mode) const;
     std::string GenVectorScalarOpScalarMode() const;
     std::string GenCubeOp(bool zeroC) const;
+    std::string GenRemainderSOp() const;
+    std::string GenRemainderRSOp() const;
     std::string GenCmpOp() const;
     std::string GenHypotOp() const;
+    std::string GenPreluOp() const;
 
     std::string PrintDupOp(const PrintDupOpParam &param) const;
     std::string PrintDupOpDynUnaligned(const PrintDupOpParam &param) const;
@@ -392,8 +396,12 @@ private:
         const std::string &dstDtypeStr) const;
     std::string PrintOneHot(const PrintUnaryParam &param) const;
     std::string PrintOneHotLayout() const;
+    std::string PrintExpm1() const;
+    std::string PrintExpm1Layout() const;
     std::string PrintRound() const;
     std::string PrintRoundLayout() const;
+    std::string PrintExp2() const;
+    std::string PrintExp2Layout() const;
 
     DynamicParamPackMTE PrepareDynamicShapeInfoForMTE(
         int dynShapeIdx, int ShapeDim = SHAPE_DIM4, bool isGmSpill = false) const;
@@ -406,6 +414,8 @@ private:
     std::string PrintRowSumlineTileTensor() const;
     std::string PrintRowSumlineDynamicUnaligned(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintRowSumlineStatic(const PrintUnaryTmpBuffParam &param) const;
+
+    std::string PrintIsFinite([[maybe_unused]] const PrintUnaryTmpBuffParam &param) const;
 
     std::string PrintExtractStatic() const;
     std::string PrintExtractDynamicUnaligned() const;
@@ -448,6 +458,7 @@ private:
 
     std::string PrintCmpTileTensor() const;
     std::string PrintHypotTileTensor() const;
+    std::string PrintPreluTileTensor() const;
     std::string PrintLogicalAndTileTensor() const;
     std::string PrintLogicalNotTileTensor() const;
 

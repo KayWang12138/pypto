@@ -126,6 +126,8 @@ Tensor Transpose(const Tensor &self, std::vector<int> perm);
 Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode = CAST_NONE);
 
 Tensor Exp(const Tensor &self);
+Tensor Exp2(const Tensor &self);
+Tensor Expm1(const Tensor &self);
 Tensor Neg(const Tensor &self);
 Tensor Round(const Tensor &self, const int &decimals = 0);
 Tensor Rsqrt(const Tensor &self);
@@ -144,6 +146,7 @@ Tensor Sign(const Tensor &operand);
 Tensor Duplicate(const Tensor &operand);
 Tensor Gather(const Tensor &params, const Tensor &indices, int axis);
 Tensor GatherElements(const Tensor &params, const Tensor &indices, int axis);
+Tensor GatherMask(const Tensor &self, const uint8_t patternMode);
 
 enum class ScatterMode {
     NONE,
@@ -203,7 +206,11 @@ Tensor Compare(const Tensor &self, const Element &other, OpType op, OutType mode
 Tensor Compare(const Element &self, const Tensor &other, OpType op, OutType mode);
 Tensor Pow(const Tensor &self, const Tensor &other);
 Tensor Pow(const Tensor &self, const Element &other);
+Tensor Remainder(const Tensor &self, const Tensor &other);
+Tensor Remainder(const Tensor &self, const Element &other);
+Tensor Remainder(const Element &self, const Tensor &other);
 Tensor CopySign(const Tensor &self, const Tensor &other);
+Tensor PReLU(const Tensor &self, const Tensor &weight);
 
 Tensor BitwiseRightShift(const Tensor &self, const Tensor &other);
 Tensor BitwiseRightShift(const Tensor &self, const Element &other);
@@ -217,7 +224,10 @@ Tensor Where(const Tensor &condition, const Tensor &input, const Element &other)
 Tensor Where(const Tensor &condition, const Element &input, const Tensor &other);
 Tensor Where(const Tensor &condition, const Element &input, const Element &other);
 
+Tensor LReLU(const Tensor &self, const Element &negative_slope);
+
 Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum);
+Tensor Squeeze(const Tensor &input, const std::vector<int> &dim = {});
 
 Tensor TensorIndex(const Tensor &params, const Tensor &indices);
 Tensor ScatterUpdate(const Tensor &dst, const Tensor &index, const Tensor &src, int axis = -2,
@@ -227,6 +237,7 @@ Tensor Expand(const Tensor &self, const std::vector<int64_t> &dstShape, std::vec
 
 Tensor Sin(Tensor operand);
 Tensor Cos(Tensor operand);
+Tensor Var(const Tensor &input, const std::vector<int> &dim = {}, float correction = 1.0f, bool keepDim = false);
 Tensor Softmax(const Tensor &operand);
 Tensor RmsNorm(const Tensor &operand);
 Tensor RmsNorm(const Tensor &operand, const Tensor &gamma, float epsilon = 1e-05f);
@@ -236,7 +247,7 @@ Tensor Pad(const Tensor &old, const std::vector<int64_t> &newShape);
 Tensor LogicalNot(const Tensor &self);
 Tensor Range(const Element &start, const Element &end, const Element &step);
 Tensor LogicalAnd(const Tensor &self, const Tensor &other);
-
+Tensor IsFinite(const Tensor &self);
 Tensor Assign(const Tensor &operand);
 
 // Implementation of `Tensor` type should be placed at first, so that it can be routed when only single input.
@@ -245,6 +256,8 @@ Tensor Clip(const Tensor &self, const Element &min = {}, const Element &max = {}
 
 std::tuple<Tensor, Tensor> TopK(const Tensor &self, int k, int axis = -1, bool isLargest = true);
 Tensor ArgSort(const Tensor &self, int axis = -1, bool descending = false);
+Tensor Sort32(const Tensor &self, int idxStart = 0);
+Tensor MrgSort(const Tensor &self, int mergeSize);
 
 /**
  * @brief Sort a tensor with shape (1, n) along the last dimension, n must be orders of 2.
@@ -289,6 +302,8 @@ Tensor ScalarMulS(const Tensor &operand, const Element &value, bool reverseOpera
 Tensor ScalarSub(const Tensor &operand1, const Tensor &operand2);
 Tensor ScalarDiv(const Tensor &operand1, const Tensor &operand2);
 Tensor CumSum(const Tensor &input, const int &axis);
+Tensor Gcd(const Tensor &input, const Tensor &other);
+Tensor Gcd(const Tensor &input, const Element &other);
 Tensor TriU(const Tensor &input, const SymbolicScalar &diagonal);
 Tensor TriL(const Tensor &input, const SymbolicScalar &diagonal);
 struct PaTileShapeConfig {
@@ -315,6 +330,7 @@ enum class LogBaseType {
     LOG_10,
 };
 Tensor Log(const Tensor &self, LogBaseType base = LogBaseType::LOG_E);
+Tensor Log1p(const Tensor &self);
 
 Tensor OneHot(const Tensor &self, int numClasses);
 

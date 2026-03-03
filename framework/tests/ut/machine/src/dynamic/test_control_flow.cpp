@@ -57,6 +57,7 @@ TEST_F(ControlFlowTest, RunDeviceContext) {
 
     struct Inspector {
         int count{0};
+        std::vector<std::string> nameList;
         std::vector<DevAscendFunction *> rootList;
         static void Entry(void *inspector_, DeviceExecuteContext *execCtx, DynDeviceTask *task) {
             Inspector *inspector = reinterpret_cast<Inspector *>(inspector_);
@@ -65,6 +66,8 @@ TEST_F(ControlFlowTest, RunDeviceContext) {
             DynFuncDataCache *cacheList = task->GetDynFuncDataCacheList();
             for (size_t k = 0; k < task->dynFuncDataCacheListSize; k++) {
                 inspector->rootList.push_back(cacheList->At(k).devFunc);
+                std::string currName = GetDeclName(cacheList->At(k).devFunc->GetRawName());
+                inspector->nameList.push_back(currName);
             }
         }
     };
@@ -76,9 +79,9 @@ TEST_F(ControlFlowTest, RunDeviceContext) {
     EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), nullptr, config));
     EXPECT_EQ(0x10, inspector.count);
     EXPECT_EQ(0x40, inspector.rootList.size());
-    EXPECT_EQ("s0", GetDeclName(inspector.rootList[0]->GetRawName()));
+    EXPECT_EQ("s0", inspector.nameList[0]);
     for (size_t k = 1; k < 0x40; k++) {
-        EXPECT_EQ("s1", GetDeclName(inspector.rootList[k]->GetRawName()));
+        EXPECT_EQ("s1", inspector.nameList[k]);
     }
 }
 
@@ -176,30 +179,47 @@ TEST_F(ControlFlowTest, TensorRecycleDestruct) {
         }
     }
 
+    struct CapturedTaskData {
+        bool isAddr0Valid;
+        bool isAddr1Valid;
+        uint64_t addr0Value;
+        uint64_t addr1Value;
+    };
+
     struct Inspector {
-        std::vector<DynDeviceTask *> taskList;
+        std::vector<CapturedTaskData> dataList;
 
         static void Entry(void *inspector_, DeviceExecuteContext *execCtx, DynDeviceTask *task) {
             (void)execCtx;
             Inspector *inspector = reinterpret_cast<Inspector *>(inspector_);
-            inspector->taskList.push_back(task);
+            
+            DynFuncDataCache *cacheList = task->GetDynFuncDataCacheList();
+            DevAscendFunctionDuppedData *dup0 = cacheList->At(0).duppedData;
+            DevAscendFunctionDuppedData *dup1 = cacheList->At(0x4 * 0x4 + 0x1).duppedData;
+            
+            CapturedTaskData data;
+            data.isAddr0Valid = dup0->GetOutcastAddress(0).IsAddress();
+            data.isAddr1Valid = dup1->GetOutcastAddress(0).IsAddress();
+            data.addr0Value = dup0->GetOutcastAddress(0).GetAddressValue();
+            data.addr1Value = dup1->GetOutcastAddress(0).GetAddressValue();
+            
+            inspector->dataList.push_back(data);
         }
     };
+
     Inspector inspector;
     PyptoKernelCtrlServerRegisterTaskInspector(Inspector::Entry, &inspector);
 
     DeviceLauncherConfig config;
     config.blockdim = 25;
     EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), nullptr, config));
-    EXPECT_EQ(1, inspector.taskList.size());
-
-    DynDeviceTask *task = inspector.taskList[0];
-    DynFuncDataCache *cacheList = task->GetDynFuncDataCacheList();
-    DevAscendFunctionDuppedData *dup0 = cacheList->At(0).duppedData;
-    DevAscendFunctionDuppedData *dup1 = cacheList->At(0x4 * 0x4 + 0x1).duppedData;
-    EXPECT_TRUE(dup0->GetOutcastAddress(0).IsAddress());
-    EXPECT_TRUE(dup1->GetOutcastAddress(0).IsAddress());
-    EXPECT_NE(dup0->GetOutcastAddress(0).GetAddressValue(), dup1->GetOutcastAddress(0).GetAddressValue());
+    
+    EXPECT_EQ(1, inspector.dataList.size());
+    
+    const auto& data = inspector.dataList[0];
+    EXPECT_TRUE(data.isAddr0Valid);
+    EXPECT_TRUE(data.isAddr1Valid);
+    EXPECT_NE(data.addr0Value, data.addr1Value);
 }
 
 static DeviceTensorData toTensorData(const std::shared_ptr<LogicalTensor> &t) {
@@ -241,8 +261,9 @@ TEST_F(ControlFlowTest, CtrlFlowPartialCache) {
     std::vector<DeviceTensorData> outputList = {toTensorData(output.GetStorage())};
     DeviceLauncherConfig config;
     config.blockdim = 24; // 24:max aicore num
+    EmulationMemoryUtils memUtils;
     DevControlFlowCache* ctrolCache = nullptr;
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), inputList, outputList, &ctrolCache, config));
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), memUtils, inputList, outputList, &ctrolCache, config));
     DevAscendProgram *devProg = DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction());
 
     EXPECT_EQ(0x3, ctrolCache->deviceTaskCount);
@@ -264,11 +285,6 @@ TEST_F(ControlFlowTest, CtrlFlowPartialCache) {
     EXPECT_EQ(true, ctrolCache->isActivated);
 
     EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), ctrolCache, config));
-
-    if (ctrolCache != nullptr) {
-        free(ctrolCache);
-        ctrolCache = nullptr;
-    }
 }
 
 TEST_F(ControlFlowTest, TestMainBlock) {

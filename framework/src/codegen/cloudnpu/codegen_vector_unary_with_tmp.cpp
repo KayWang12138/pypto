@@ -286,6 +286,23 @@ std::string CodeGenOpCloudNPU::PrintCompact(const PrintUnaryTmpBuffParam &param)
     return PrintCompactStatic(param);
 }
 
+std::string CodeGenOpCloudNPU::PrintExp2Layout() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::DST_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::TMP_IDX));
+    std::string tmpTensorNext = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::TMP2_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::SRC0_IDX));
+
+    std::ostringstream oss;
+    oss << tileOpName.c_str() << "(" << dstTensor << ", " << tmpTensor << ", " << tmpTensorNext << ", "
+        << srcTensor << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintExp2() const {
+    ASSERT(isSupportLayout) << "Exp2 only support tile tensor";
+    return PrintExp2Layout();
+}
+
 std::string CodeGenOpCloudNPU::PrintRoundLayout() const {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
     std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
@@ -302,6 +319,23 @@ std::string CodeGenOpCloudNPU::PrintRoundLayout() const {
 std::string CodeGenOpCloudNPU::PrintRound() const {
     ASSERT(isSupportLayout) << "Round only support tile tensor";
     return PrintRoundLayout();
+}
+
+std::string CodeGenOpCloudNPU::PrintExpm1Layout() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
+
+    std::ostringstream oss;
+    oss << tileOpName;
+    oss << WrapParamByParentheses({dstTensor, tmpTensor, srcTensor});
+    oss << STMT_END;
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintExpm1() const {
+    ASSERT(isSupportLayout) << "Expm1 only support tile tensor";
+    return PrintExpm1Layout();
 }
 
 std::string CodeGenOpCloudNPU::PrintRowSumlineStatic(const PrintUnaryTmpBuffParam &param) const {
@@ -426,6 +460,16 @@ std::string CodeGenOpCloudNPU::PrintRowSumline(const PrintUnaryTmpBuffParam &par
     return PrintRowSumlineStatic(param);
 }
 
+std::string CodeGenOpCloudNPU::PrintIsFinite([[maybe_unused]] const PrintUnaryTmpBuffParam &param) const {
+    ASSERT(isSupportLayout) << "`IsFinite` only supports `codegen_support_tile_tensor`==true! Please modify `tile_fwk_config.json`!";
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
+    std::ostringstream oss;
+    oss << tileOpName << "(" << JoinString({dstTensor, srcTensor, tmpTensor}, CONN_COMMA) << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
     // In this scenario, frontend set tmp buffer in output to optimize ooo schedule result.
     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
@@ -453,8 +497,16 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
         return PrintUnaryWithTmpTileTensor();
     }
 
+    if (opCode == Opcode::OP_EXP2) {
+        return PrintExp2();
+    }
+
     if (opCode == Opcode::OP_ROUND) {
         return PrintRound();
+    }
+
+    if (opCode == Opcode::OP_EXPM1) {
+        return PrintExpm1();
     }
 
     if (opCode == Opcode::OP_ROWSUMLINE) {
@@ -471,6 +523,10 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
 
     if (opCode == Opcode::OP_COMPACT) {
         return PrintCompact({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
+    }
+
+    if (opCode == Opcode::OP_ISFINITE) {
+        return PrintIsFinite({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
 
     std::string ostring(buffer);

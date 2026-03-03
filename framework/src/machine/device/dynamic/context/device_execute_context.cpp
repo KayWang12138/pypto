@@ -550,9 +550,6 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallRootStitch(void *ctx_, uint6
 void *DeviceExecuteContext::DeviceExecuteRuntimeCallLog(void *ctx_, uint64_t value) {
     (void)ctx_;
     DEV_DEBUG("DeviceExecuteRuntimeCallLog -> Value: %lu", value);
-#if DEBUG_PLOG
-    (void)value;
-#endif
     return nullptr;
 }
 
@@ -569,7 +566,8 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, u
     constexpr uint64_t FILL_SHIFT = MEMTYPE_SHIFT + MEMTYPE_BITS;
     DEV_ASSERT(memType < memTypeCount);
     DeviceExecuteContext* ctx = (DeviceExecuteContext*)ctx_;
-    auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(ctx->args->hcclContextAddr[groupIndex]);
+    DEV_ASSERT(groupIndex < ctx->args->commGroupNum);
+    auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(ctx->args->commContexts[groupIndex]);
     uint64_t winSize = memType == 0 ? hcclOpParam->winDataSize : hcclOpParam->winStatusSize;
     if (ctx->shmemAddrOffset[memType] + size > winSize) {
         ctx->shmemAddrOffset[memType] = 0UL;

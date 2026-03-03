@@ -31,7 +31,6 @@
 #include "interface/cache/hash.h"
 #include "passes/pass_utils/pass_utils.h"
 
-#include "ir/program.h"
 namespace npu::tile_fwk {
 constexpr int FUNCTION_MAX_INCASTS = 10000;
 
@@ -169,6 +168,7 @@ private:
 };
 
 struct LeafFuncAttribute {
+    static constexpr int32_t INVALID_MIX_ID = -1;
     std::string kernelName;    // 异构子图kernel函数名
     std::string kernelNameMainBlock;    // 异构子图kernel函数名(运行时选择主尾块场景中的主块)
     std::string binPath;                // 异构子图二进制文件路径
@@ -177,7 +177,7 @@ struct LeafFuncAttribute {
     std::string kernelDeclareMainBlock; // 异构子图代码的kernel声明，用于后续整体调用(运行时选择主尾块场景中的主块)
     CoreType coreType{CoreType::INVALID};
     AIVCore aivCore{AIVCore::UNSPECIFIED};  // 表示Mix子图切完的vector子图放在AIV0核还是AIV1核，0=AIV0, 1=AIV1, -1=未指定
-    int32_t mixId{-1};  // 表示哪些切完的leafFunction是从一个Mix子图切出来的
+    int32_t mixId{INVALID_MIX_ID};  // 表示哪些切完的leafFunction是从一个Mix子图切出来的
     MixResourceType mixResourceType{MixResourceType::UNKNOWN};  // mix任务资源诉求是1c2v还是1c1v
     std::vector<int32_t> aicpuLeafCode;
     std::vector<int> outcastCopyOutResolveCounterList;
@@ -492,7 +492,6 @@ public:
     int opSeed_{FUNCTION_MAX_INCASTS};
     SubfuncTopologyInfoTy topoInfo_; // root function持有，对应1.0的SubgraphTopologyInfoTy
     std::map<uint64_t, Function*> programs_; // root function持有，所有异构的leaf function
-    pto::ProgramModulePtr programModule_ = nullptr;
     Function *rootFunc_ = nullptr; // TileGraph和RootGraph都需要保留，且需要映射关系
     ParamConfigs paramConfigs_;
     // vf融合适配需要pass间传递的参数
