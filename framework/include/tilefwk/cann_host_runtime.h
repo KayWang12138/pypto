@@ -31,8 +31,8 @@ public:
     CannHostRuntime& operator=(const CannHostRuntime&) = delete;
 private:
     CannHostRuntime();
-    ~CannHostRuntime();
-    
+    ~CannHostRuntime() = default;
+
     GetSocVerFunc socVerFunc_;
 };
 }
