@@ -350,3 +350,81 @@ def test_scatter_tensor_add_onboard():
 
     assert torch.equal(c_tensor, result)
     pypto.runtime._device_fini()
+
+
+def test_scatter_tensor_dyn_onboard():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+    pypto.runtime._device_init()
+    self_shape = (24, 913)
+    indices_shape = (150, 205)
+    src_shape = (400, 301)
+    tile_shape = (150, 16)
+
+    self_tensor = pypto.tensor(self_shape, pypto.DT_FP32, "PTO_TENSOR_SELF")
+    indices_tensor = pypto.tensor(indices_shape, pypto.DT_INT64, "PTO_TENSOR_INDEX")
+    src_tensor = pypto.tensor(src_shape, pypto.DT_FP32, "PTO_TENSOR_SRC")
+    dst_tensor = pypto.tensor(self_shape, pypto.DT_FP32, "PTO_TENSOR_DST")
+    axis = 0
+
+    with pypto.function("MAIN", self_tensor, indices_tensor, src_tensor, dst_tensor):
+        for _ in pypto.loop(1, name="b0", idx_name="bidx"):
+            pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
+            dst_tensor.move(pypto.scatter(self_tensor, axis, indices_tensor, src_tensor))
+
+    assert isinstance(dst_tensor, pypto.tensor)
+
+    input0_tensor = torch.rand(*self_shape, dtype=torch.float32)
+    input1_tensor = torch.randint(0, self_shape[axis], indices_shape, dtype=torch.int64)
+    input2_tensor = torch.rand(*src_shape, dtype=torch.float32) * 10 - 1
+    c_tensor = torch.zeros_like(input0_tensor)
+
+    pto_input0_tensor = pypto.from_torch(input0_tensor, "input0_tensor")
+    pto_input1_tensor = pypto.from_torch(input1_tensor, "input1_tensor")
+    pto_input2_tensor = pypto.from_torch(input2_tensor, "input2_tensor")
+    pto_c_tensor = pypto.from_torch(c_tensor, "c_tensor")
+
+    pypto.runtime._device_run_once_data_from_host(pto_input0_tensor, pto_input1_tensor, pto_input2_tensor, pto_c_tensor)
+
+    result = input0_tensor.scatter(axis, input1_tensor, input2_tensor)
+
+    assert torch.equal(c_tensor, result)
+    pypto.runtime._device_fini()
+
+
+def test_scatter_dyn_onboard():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+    pypto.runtime._device_init()
+    self_shape = (24, 913)
+    indices_shape = (150, 205)
+    tile_shape = (150, 16)
+
+    self_tensor = pypto.tensor(self_shape, pypto.DT_FP16, "PTO_TENSOR_SELF")
+    indices_tensor = pypto.tensor(indices_shape, pypto.DT_INT64, "PTO_TENSOR_INDEX")
+    dst_tensor = pypto.tensor(self_shape, pypto.DT_FP16, "PTO_TENSOR_DST")
+    axis = 0
+    scalar = 1.0
+    reduce = 'add'
+
+    with pypto.function("MAIN", self_tensor, indices_tensor, dst_tensor):
+        for _ in pypto.loop(1, name="b0", idx_name="bidx"):
+            pypto.set_vec_tile_shapes(tile_shape[0], tile_shape[1])
+            dst_tensor.move(pypto.scatter(self_tensor, axis, indices_tensor, scalar, reduce=reduce))
+
+    assert isinstance(dst_tensor, pypto.tensor)
+
+    input0_tensor = torch.rand(*self_shape, dtype=torch.float16)
+    input1_tensor = torch.randint(0, self_shape[axis], indices_shape, dtype=torch.int64)
+    c_tensor = torch.zeros_like(input0_tensor)
+
+    pto_input0_tensor = pypto.from_torch(input0_tensor, "input0_tensor")
+    pto_input1_tensor = pypto.from_torch(input1_tensor, "input1_tensor")
+    pto_c_tensor = pypto.from_torch(c_tensor, "c_tensor")
+
+    pypto.runtime._device_run_once_data_from_host(pto_input0_tensor, pto_input1_tensor, pto_c_tensor)
+
+    result = input0_tensor.scatter(axis, input1_tensor, scalar, reduce=reduce)
+
+    assert torch.equal(c_tensor, result)
+    pypto.runtime._device_fini()
