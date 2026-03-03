@@ -376,10 +376,124 @@ pr_url = result["html_url"]
 assert "cann/pypto" in pr_url, f"PR 链接错误：{pr_url}，应为 cann/pypto"
 ```
 
-### Phase 8: 追加修改（可选）
+### Phase 8: CLA 检查（关键）
+
+> ⚠️ **CLA (Contributor License Agreement) 检查是 PR 合并的前置条件**
+
+#### 8.1 检查 CLA 状态
+
+PR 创建/更新后，必须检查 CLA 是否通过：
+
+```python
+# 获取 PR 详情，检查 labels
+pr = gitcode_get_pull_request(owner="cann", repo="pypto", pull_number=<pr_number>)
+
+# 检查 CLA 标签
+labels = pr.get("labels", [])
+cla_labels = [l for l in labels if "cla" in l.get("name", "").lower()]
+
+# 判断 CLA 状态
+if any("cla/no" in l.get("name", "") for l in cla_labels):
+    # CLA 未通过
+    cla_passed = False
+elif any("cla/yes" in l.get("name", "") or "cla/pass" in l.get("name", "") for l in cla_labels):
+    # CLA 已通过
+    cla_passed = True
+else:
+    # 无 CLA 标签，可能需要等待或手动触发
+    cla_passed = None
+```
+
+#### 8.2 CLA 失败处理
+
+若 CLA 检查失败（标签含 `cann-cla/no` 或类似），执行以下诊断和修复步骤：
+
+**Step 1: 检查本地 Git 配置**
+
+```bash
+# 检查当前 commit 作者信息
+git log -1 --format='Author: %an <%ae>'
+
+# 检查全局配置
+git config --global user.name
+git config --global user.email
+```
+
+**Step 2: 验证邮箱与 GitCode 账户一致**
+
+> ⚠️ **CLA 检查基于 commit 作者邮箱，必须与 GitCode 账户主邮箱一致**
+
+常见失败原因：
+- Git 本地配置的邮箱与 GitCode 账户邮箱不一致
+- 使用了公司邮箱（如 `@hisilicon.com`）但 GitCode 账户未添加该邮箱
+- Commit 由多人协作，存在不同作者的 commit
+
+**Step 3: 修复邮箱配置**
+
+```bash
+# 方式 1: 修改全局配置（推荐）
+git config --global user.name "your_username"
+git config --global user.email "your_email@example.com"
+
+# 方式 2: 修改最近一次 commit 的作者（已 push 需 force push）
+git commit --amend --author="Your Name <your_email@example.com>"
+git push -f origin <branch_name>
+
+# 方式 3: 在 GitCode 添加邮箱
+# 访问 GitCode → Settings → Emails → Add email
+# 添加 commit 中使用的邮箱并验证
+```
+
+**Step 4: 重新触发 CLA 检查**
+
+```bash
+# 修改作者信息后，添加空 commit 触发重新检查
+git commit --allow-empty -m "docs: trigger CLA check"
+git push origin <branch_name>
+```
+
+#### 8.3 CLA 检查提示模板
+
+```
+📋 CLA 检查结果: ❌ 未通过
+
+检测到 PR 标签包含 "cann-cla/no"，表示 CLA 验证失败。
+
+请检查以下配置：
+1. 本地 Git 邮箱: $(git config --global user.email)
+2. GitCode 账户邮箱: 请在 GitCode → Settings → Emails 中确认
+
+修复步骤：
+- 确保两个邮箱一致，或在 GitCode 添加本地邮箱
+- 修改后执行: git commit --amend --reset-author --no-edit && git push -f
+
+参考文档: https://gitcode.com/help/user/cla
+```
+
+#### 8.4 用户确认
+
+CLA 失败时，向用户展示诊断信息并询问：
+
+```
+检测到 CLA 检查未通过（标签: cann-cla/no）。
+
+当前 Git 配置:
+- user.name: <当前值>
+- user.email: <当前值>
+
+可能原因:
+1. 邮箱与 GitCode 账户不一致
+2. GitCode 账户未添加该邮箱
+
+请选择操作:
+1. 修改 Git 配置（输入正确的用户名和邮箱）
+2. 在 GitCode 添加邮箱（手动操作）
+3. 跳过，稍后处理
+```
+
+### Phase 9: 追加修改（可选）
 
 若需修改已有 PR：在同一分支追加 commit 并 push，PR 自动更新。如需修改标题/描述，用 `gitcode_update_pull_request`。
-
 ---
 
 ## PR 标题与 Body 规范
@@ -440,7 +554,9 @@ assert "cann/pypto" in pr_url, f"PR 链接错误：{pr_url}，应为 cann/pypto"
 | **Token 权限不足** | 创建 Token 时勾选 `repo`、`read:user` 权限 |
 | **credential.helper 未生效** | 检查 `git config --global credential.helper` 输出 |
 | **cache 超时失效** | 重新 push 输入凭证，或增大 `--timeout` |
----
+|| **CLA 检查失败 (cann-cla/no)** | 检查 `git config user.email` 是否与 GitCode 账户邮箱一致，见 Phase 8 |
+|| **Git 邮箱与 GitCode 不一致** | 修改 `git config
+--global user.email` 或在 GitCode → Settings → Emails 添加邮箱 |
 
 ## 相关文件
 
