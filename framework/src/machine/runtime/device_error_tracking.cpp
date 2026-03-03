@@ -14,9 +14,7 @@
  */
 
 #include <iostream>
-#ifdef BUILD_WITH_CANN
-#include "acl/acl_rt.h"
-#include "runtime/base.h"
+#include "adapter/api/acl_api.h"
 
 namespace npu::tile_fwk {
 const char* getExceptionTypeName(rtExceptionExpandType_t type)
@@ -49,10 +47,9 @@ void AicpuErrorCallBack(aclrtExceptionInfo *exceptionInfo)
 
 void InitializeErrorCallback()
 {
-    aclError ret = aclrtSetExceptionInfoCallback(&AicpuErrorCallBack);
+    aclError ret = AclRtSetExceptionInfoCallback(&AicpuErrorCallBack);
     if (ret != ACL_SUCCESS) {
         printf("Failed to set exception callback: %d\n", ret);
     }
 }
 }
-#endif
