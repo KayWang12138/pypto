@@ -19,15 +19,20 @@
 #include "utils/tile_tensor.h"
 #include <type_traits>
 
+TILEOP void SyncPipeBarrier()
+{
+#ifdef __DAV_V220
+    pipe_barrier(PIPE_V);
+#endif
+}
+
 template <typename LastUse, typename T, typename DstTile, typename SrcTile>
 TILEOP void SignInt(DstTile dstTile, SrcTile srcTile)
 {
     constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
     constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
     pto::TMINS(srcTile, srcTile, static_cast<T>(1));
-#ifdef __DAV_V220
-    pipe_barrier(PIPE_V);
-#endif
+    SyncPipeBarrier();
     pto::TMAXS(dstTile, srcTile, static_cast<T>(-1));
 }
 
@@ -37,17 +42,11 @@ TILEOP void SignHalf(DstTile dstTile, SrcTile srcTile)
     constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
     constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
     pto::TMINS(srcTile, srcTile, static_cast<T>(5.960464e-08f));
-#ifdef __DAV_V220
-    pipe_barrier(PIPE_V);
-#endif
+    SyncPipeBarrier();
     pto::TMAXS(srcTile, srcTile, static_cast<T>(-5.960464e-08f));
-#ifdef __DAV_V220
-    pipe_barrier(PIPE_V);
-#endif
+    SyncPipeBarrier();
     pto::TMULS(srcTile, srcTile, static_cast<T>(4.096000e+03f));
-#ifdef __DAV_V220
-    pipe_barrier(PIPE_V);
-#endif
+    SyncPipeBarrier();
     pto::TMULS(dstTile, srcTile, static_cast<T>(4.096000e+03f));
 }
 
@@ -57,25 +56,15 @@ TILEOP void SignIntCast(DstTile dstTile, SrcTile srcTile, TmpTile tmpTile)
     constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
     constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
     pto::TCVT(tmpTile, srcTile, pto::RoundMode::CAST_NONE);
-#ifdef __DAV_V220
-    pipe_barrier(PIPE_V);
-#endif
+    SyncPipeBarrier();
     pto::TMINS(tmpTile, tmpTile, static_cast<half>(5.960464e-08f));
-#ifdef __DAV_V220
-    pipe_barrier(PIPE_V);
-#endif
+    SyncPipeBarrier();
     pto::TMAXS(tmpTile, tmpTile, static_cast<half>(-5.960464e-08f));
-#ifdef __DAV_V220
-    pipe_barrier(PIPE_V);
-#endif
+    SyncPipeBarrier();
     pto::TMULS(tmpTile, tmpTile, static_cast<half>(4.096000e+03f));
-#ifdef __DAV_V220
-    pipe_barrier(PIPE_V);
-#endif
+    SyncPipeBarrier();
     pto::TMULS(tmpTile, tmpTile, static_cast<half>(4.096000e+03f));
-#ifdef __DAV_V220
-    pipe_barrier(PIPE_V);
-#endif
+    SyncPipeBarrier();
     pto::TCVT(dstTile, tmpTile, pto::RoundMode::CAST_NONE);
 }
 
@@ -85,21 +74,13 @@ TILEOP void SignFloat(DstTile dstTile, SrcTile srcTile)
     constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
     constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
     pto::TMINS(srcTile, srcTile, static_cast<T>(1.1754943508222875e-38f));
-#ifdef __DAV_V220
-    pipe_barrier(PIPE_V);
-#endif
+    SyncPipeBarrier();
     pto::TMAXS(srcTile, srcTile, static_cast<T>(-1.1754943508222875e-38f));
-#ifdef __DAV_V220
-    pipe_barrier(PIPE_V);
-#endif
+    SyncPipeBarrier();
     pto::TMULS(srcTile, srcTile, static_cast<T>(4.6116860184273879e+18f));
-#ifdef __DAV_V220
-    pipe_barrier(PIPE_V);
-#endif
+    SyncPipeBarrier();
     pto::TMULS(srcTile, srcTile, static_cast<T>(4.6116860184273879e+18f));
-#ifdef __DAV_V220
-    pipe_barrier(PIPE_V);
-#endif
+    SyncPipeBarrier();
     pto::TMULS(dstTile, srcTile, static_cast<T>(4.0000000000000000e+00f));
 }
 
