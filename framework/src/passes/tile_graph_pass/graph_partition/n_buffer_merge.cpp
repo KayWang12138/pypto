@@ -484,6 +484,7 @@ Status NBufferMerge::NBufferMergeProcess(Function &func) {
     auto opOriList = func.Operations();
     std::vector<uint64_t> hashColor(color_, 0);
     std::map<uint64_t, std::vector<int>> hashMap;
+    hashOrder_.clear();
     GetColorHash(opOriList, hashColor, hashMap);
     std::map<uint64_t, size_t> hashMergeNum;
     if (vecNBuffermode_ == autoMerge || vecNBuffermode_ == autoMulityInOutMerge) {
@@ -556,7 +557,7 @@ Status NBufferMerge::InitVecNBufferModeBySetting() {
     auto it = vecNBufferSetting_.find(MULITY_IN_OUT_MERGE_KEY);
     if (it != vecNBufferSetting_.end()) {
         if (it->second != 1) {
-            APASS_LOG_ERROR_F(Elements::Config, "The VEC_NBUFFER_SETTING key is -2, in manualMulityInOutMerge mode the value should be 1.");
+            APASS_LOG_ERROR_F(Elements::Config, "key=-2 is the multi-input/output merge control: use {-2: 0} for auto multi-in/out merge, or {-2: 1} for manual multi-in/out merge. Got invalid value=%ld for key=-2.", it->second);
             return FAILED;
         }
         vecNBufferSetting_.erase(it);

@@ -60,7 +60,7 @@ inline bool CanReuse(const Operation &op) {
     return false;
 }
 
-inline int GetModeBySetting(std::map<int64_t, int64_t> setting) {
+inline int GetModeBySetting(std::map<int64_t, int64_t>& setting) {
     std::map<int64_t, int64_t> skipSetting = {{-1, 1}};
     if (setting == skipSetting) {
         return 0;
@@ -557,6 +557,7 @@ void L1CopyInReuseRunner::CubeMergeProcess(std::vector<std::vector<int>> &colorN
 Status L1CopyInReuseRunner::Run(Function &func, int color, std::vector<std::vector<int>> &colorNode) {
     auto opOriList = func.Operations();
     std::vector<uint64_t> hashColor(color, 0);
+    hashOrder_.clear();
     GetColorHash(opOriList, hashColor);   // 计算子图哈希，识别同构子图
     auto colorCopyIn = GetCopyIn(opOriList, color, colorNode);   // 记录各子图的大小
     mgCopyInUpperBound_ = func.paramConfigs_.sgMgCopyInUpperBound;
