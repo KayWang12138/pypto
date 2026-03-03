@@ -125,7 +125,7 @@ using ScalarTypePtr = std::shared_ptr<const ScalarType>;
  */
 struct TileView {
     std::vector<ExprPtr> validShape; ///< Valid shape dimensions
-    std::vector<ExprPtr> stride;      ///< Stride for each dimension
+    std::vector<ExprPtr> stride;     ///< Stride for each dimension
     ExprPtr startOffset;             ///< Starting offset
 
     /**
@@ -141,9 +141,7 @@ struct TileView {
      * \param startOffset Starting offset
      */
     TileView(std::vector<ExprPtr> validShapeIn, std::vector<ExprPtr> strideIn, ExprPtr startOffsetIn)
-        : validShape(std::move(validShapeIn)),
-          stride(std::move(strideIn)),
-          startOffset(std::move(startOffsetIn)) {}
+        : validShape(std::move(validShapeIn)), stride(std::move(strideIn)), startOffset(std::move(startOffsetIn)) {}
 
     /**
      * \brief Get field descriptors for reflection-based visitation
@@ -319,7 +317,7 @@ public:
      * \param shape Shape dimensions (supports multi-dimensional tensors)
      * \param dtype Element data type
      * \param memref Optional memory reference (shared pointer)
-     * \param tile_view Optional tile view information
+     * \param tileView Optional tile view information
      */
     TileType(const std::vector<int64_t> &shape, DataType dtype, std::optional<MemRefPtr> memref,
         std::optional<TileView> tileView)
@@ -331,7 +329,7 @@ public:
      * \param shape Shape dimensions (supports multi-dimensional tensors)
      * \param dtype Element data type
      * \param memref Memory reference (shared pointer)
-     * \param tile_view Tile view information
+     * \param tileView Tile view information
      */
     TileType(std::vector<ExprPtr> shape, DataType dtype, MemRefPtr memref, std::optional<TileView> tileView)
         : ShapedType(dtype, std::move(shape), std::move(memref)), tileView_(std::move(tileView)) {}
@@ -342,7 +340,7 @@ public:
      * \param shape Shape dimensions (supports multi-dimensional tensors)
      * \param dtype Element data type
      * \param memref Optional memory reference (shared pointer)
-     * \param tile_view Tile view information
+     * \param tileView Tile view information
      */
     TileType(
         std::vector<ExprPtr> shape, DataType dtype, std::optional<MemRefPtr> memref, std::optional<TileView> tileView)

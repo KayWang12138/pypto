@@ -31,7 +31,7 @@ namespace ir {
  * \tparam T The expected value type
  * \param kwargs The keyword arguments vector
  * \param key The key to look up
- * \param default_value Optional default value if key is not found
+ * \param defaultValue Optional default value if key is not found
  * \return The value associated with the key, or default_value if not found
  * \throws ValueError if key is not found and no default_value is provided
  */
@@ -91,17 +91,16 @@ inline int64_t ComputeShapeProduct(const std::vector<ExprPtr> &shape) {
  * If both dimensions are ConstInt, checks that their values are equal.
  * If either is dynamic, the check is skipped (deferred to runtime).
  *
- * \param k_lhs The K dimension from the left-hand side
- * \param k_rhs The K dimension from the right-hand side
- * \param op_name Operator name for error messages
+ * \param kLhs The K dimension from the left-hand side
+ * \param kRhs The K dimension from the right-hand side
+ * \param opName Operator name for error messages
  */
 inline void VerifyKDimensionsMatch(const ExprPtr &kLhs, const ExprPtr &kRhs, const std::string &opName) {
     auto kLhsConst = As<ConstInt>(kLhs);
     auto kRhsConst = As<ConstInt>(kRhs);
     if (kLhsConst && kRhsConst) {
         INTERNAL_CHECK(kLhsConst->value_ == kRhsConst->value_)
-            << "The operator " << opName
-            << " requires matching inner dimensions, but got lhs K=" << kLhsConst->value_
+            << "The operator " << opName << " requires matching inner dimensions, but got lhs K=" << kLhsConst->value_
             << " and rhs K=" << kRhsConst->value_;
     }
 }

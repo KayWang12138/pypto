@@ -145,7 +145,7 @@ public:
         // the TypePtr overload of As<> is defined in kind_traits.h
         auto scalarType = std::dynamic_pointer_cast<const ScalarType>(GetType());
         INTERNAL_CHECK(scalarType) << "ConstFloat is expected to have ScalarType type, but got " +
-                                           GetType()->TypeName();
+                                          GetType()->TypeName();
         return scalarType->dtype_;
     }
 };
@@ -354,8 +354,8 @@ inline DataType PromoteSameCategoryDtype(
     auto leftCategory = GetNumericCategory(leftDtype, opName);
     auto rightCategory = GetNumericCategory(rightDtype, opName);
     if (leftCategory != rightCategory) {
-        throw TypeError("Operator '" + opName + "' requires same numeric dtype category, got " +
-                        leftDtype.ToString() + " and " + rightDtype.ToString());
+        throw TypeError("Operator '" + opName + "' requires same numeric dtype category, got " + leftDtype.ToString() +
+                        " and " + rightDtype.ToString());
     }
     size_t leftBits = leftDtype.GetBit();
     size_t rightBits = rightDtype.GetBit();

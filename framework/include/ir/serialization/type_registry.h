@@ -70,7 +70,7 @@ public:
     /**
      * \brief Register a deserializer function for a type name
      *
-     * \param type_name The type name (e.g., "Add", "Var", "Function")
+     * \param typeName The type name (e.g., "Add", "Var", "Function")
      * \param func The deserializer function
      */
     void Register(const std::string &typeName, DeserializerFunc func);
@@ -78,19 +78,19 @@ public:
     /**
      * \brief Create an IR node from serialized data
      *
-     * \param type_name The type name
+     * \param typeName The type name
      * \param obj The MessagePack object containing the node data
      * \param zone MessagePack zone for memory management
      * \param ctx Deserializer context
      * \return The deserialized IR node
      */
-    IRNodePtr Create(const std::string &typeName, const msgpack::object &obj, msgpack::zone &zone,
-        detail::DeserializerContext &ctx);
+    IRNodePtr Create(
+        const std::string &typeName, const msgpack::object &obj, msgpack::zone &zone, detail::DeserializerContext &ctx);
 
     /**
      * \brief Check if a type is registered
      *
-     * \param type_name The type name to check
+     * \param typeName The type name to check
      * \return true if the type is registered
      */
     bool IsRegistered(const std::string &typeName) const;

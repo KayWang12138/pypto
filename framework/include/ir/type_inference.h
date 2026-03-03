@@ -30,7 +30,7 @@ namespace ir {
 struct BroadcastResult {
     bool success;               // Whether broadcasting succeeded
     std::vector<ExprPtr> shape; // Resulting broadcast shape (empty if failed)
-    std::string errorMessage;  // Error message if broadcasting failed
+    std::string errorMessage;   // Error message if broadcasting failed
 
     /**
      * \brief Create a successful broadcast result
@@ -148,8 +148,8 @@ bool DimensionsEqual(const ExprPtr &dim1, const ExprPtr &dim2);
  * - It's a constant 1
  * - The target dimension is a constant 1
  *
- * \param source_dim Source dimension
- * \param target_dim Target dimension
+ * \param sourceDim Source dimension
+ * \param targetDim Target dimension
  * \return true if source can be broadcast to target
  */
 bool IsBroadcastable(const ExprPtr &sourceDim, const ExprPtr &targetDim);

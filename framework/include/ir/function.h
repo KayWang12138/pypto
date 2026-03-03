@@ -115,11 +115,11 @@ public:
     }
 
 public:
-    std::string name_;                  // Function name
+    std::string name_;                 // Function name
     FunctionType funcType_;            // Function type (orchestration, incore, or opaque)
-    std::vector<VarPtr> params_;        // Parameter variables
+    std::vector<VarPtr> params_;       // Parameter variables
     std::vector<TypePtr> returnTypes_; // Return types
-    StmtPtr body_;                      // Function body statement
+    StmtPtr body_;                     // Function body statement
 };
 
 using FunctionPtr = std::shared_ptr<const Function>;

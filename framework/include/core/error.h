@@ -301,7 +301,7 @@ enum class DiagnosticSeverity {
  */
 struct Diagnostic {
     DiagnosticSeverity severity; ///< Severity level (Error or Warning)
-    std::string ruleName;       ///< Name of the verification rule (e.g., "SSAVerify", "TypeCheck")
+    std::string ruleName;        ///< Name of the verification rule (e.g., "SSAVerify", "TypeCheck")
     int errorCode;               ///< Specific error code from the rule's error type enum
     std::string message;         ///< Human-readable error message
     ir::Span span;               ///< Source location of the issue

@@ -36,7 +36,7 @@ namespace pypto {
  * format using abi::__cxa_demangle. Also simplifies common pypto types by
  * removing the "pypto::" prefix for brevity.
  *
- * \param mangled_name The mangled type name from typeid().name()
+ * \param mangledName The mangled type name from typeid().name()
  * \return Human-readable type name string
  *
  * \example
@@ -65,8 +65,8 @@ inline std::string DemangleTypeName(const char *mangledName) {
 /**
  * \brief Build a type mismatch error message and throw TypeError
  *
- * \param expected_type_name Mangled name of the expected type (from typeid().name())
- * \param actual_type_name Mangled name of the actual type (from value.type().name())
+ * \param expectedTypeName Mangled name of the expected type (from typeid().name())
+ * \param actualTypeName Mangled name of the actual type (from value.type().name())
  * \param context Optional context string for error messages
  * \throws TypeError with detailed type information
  */

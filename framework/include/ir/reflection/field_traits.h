@@ -42,7 +42,7 @@ struct FieldDescriptor {
     using kindTag = KindTag;
 
     FieldType NodeType::*fieldPtr; // Pointer-to-member for type-safe field access
-    const char *name;               // Field name for debugging
+    const char *name;              // Field name for debugging
 
     /**
      * \brief Construct a field descriptor

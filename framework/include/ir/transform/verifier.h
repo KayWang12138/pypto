@@ -178,7 +178,7 @@ public:
     static IRVerifier CreateDefault();
 
 private:
-    std::vector<VerifyRulePtr> rules_;               ///< All registered verification rules
+    std::vector<VerifyRulePtr> rules_;              ///< All registered verification rules
     std::unordered_set<std::string> disabledRules_; ///< Names of disabled rules
 };
 

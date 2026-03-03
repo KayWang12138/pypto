@@ -253,7 +253,7 @@ public:
      * \tparam T Type of the log message
      * \param l Log level
      * \param t Plain message (for file/line loggers)
-     * \param t_rich Rich message with formatting (for std logger)
+     * \param tRich Rich message with formatting (for std logger)
      */
     template <typename T>
     void Log(LogLevel l, T &&t, T &&tRich) {
@@ -302,8 +302,8 @@ public:
 
     /**
      * \brief Replace one file logger with another
-     * \param old_filepath Path to the old log file
-     * \param new_filepath Path to the new log file
+     * \param oldFilepath Path to the old log file
+     * \param newFilepath Path to the new log file
      * \param append If true, append to new file; otherwise overwrite
      */
     static void FileLoggerReplace(const std::string &oldFilepath, const std::string &newFilepath, bool append) {
@@ -373,7 +373,7 @@ private:
 public:
     /**
      * \brief Construct a logger for a single log message
-     * \param level_in Log level for this message
+     * \param levelIn Log level for this message
      * \param func Function name (currently unused but available for future use)
      * \param line Line number (currently unused but available for future use)
      */

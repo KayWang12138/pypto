@@ -25,28 +25,30 @@ Span::Span(std::string filename, int beginLine, int beginColumn, int endLine, in
       endColumn_(endColumn) {}
 
 std::string Span::ToString() const {
-  std::ostringstream oss;
-  oss << filename_ << ":" << beginLine_ << ":" << beginColumn_;
-  return oss.str();
+    std::ostringstream oss;
+    oss << filename_ << ":" << beginLine_ << ":" << beginColumn_;
+    return oss.str();
 }
 
 bool Span::IsValid() const {
-  if (beginLine_ <= 0 || (beginColumn_ <= 0 && beginColumn_ != -1)) {
-    return false;
-  }
-  if (endLine_ == -1 || endColumn_ == -1) {
-    return true;
-  }
-  if (endLine_ <= 0 || (endColumn_ <= 0 && endColumn_ != -1)) {
-    return false;
-  }
-  if (beginColumn_ == -1 || endColumn_ == -1) {
-    return endLine_ >= beginLine_;
-  }
-  return endLine_ >= beginLine_ && (endLine_ > beginLine_ || endColumn_ >= beginColumn_);
+    if (beginLine_ <= 0 || (beginColumn_ <= 0 && beginColumn_ != -1)) {
+        return false;
+    }
+    if (endLine_ == -1 || endColumn_ == -1) {
+        return true;
+    }
+    if (endLine_ <= 0 || (endColumn_ <= 0 && endColumn_ != -1)) {
+        return false;
+    }
+    if (beginColumn_ == -1 || endColumn_ == -1) {
+        return endLine_ >= beginLine_;
+    }
+    return endLine_ >= beginLine_ && (endLine_ > beginLine_ || endColumn_ >= beginColumn_);
 }
 
-Span Span::Unknown() { return Span("", -1, -1, -1, -1); }
+Span Span::Unknown() {
+    return Span("", -1, -1, -1, -1);
+}
 
-}  // namespace ir
-}  // namespace pypto
+} // namespace ir
+} // namespace pypto

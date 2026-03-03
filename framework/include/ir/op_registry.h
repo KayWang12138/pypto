@@ -379,7 +379,7 @@ private:
     OpPtr op_;                               ///< Operator instance
     std::string name_;                       ///< Operator name (unique identifier)
     std::optional<std::string> description_; ///< Human-readable description
-    std::optional<std::string> opCategory_; ///< Operator category (e.g., "TensorOp", "BlockOp", "ScalarOp")
+    std::optional<std::string> opCategory_;  ///< Operator category (e.g., "TensorOp", "BlockOp", "ScalarOp")
     std::optional<std::vector<std::pair<std::string, std::string>>>
         arguments_; ///< Argument specifications (name, description)
     std::optional<
@@ -420,7 +420,7 @@ public:
      * Creates a new operator registry entry that can be configured using
      * the fluent API (set_description, add_argument, f_deduce_type, etc.).
      *
-     * \param op_name Name of the operator (e.g., "tensor.add", "block.mul")
+     * \param opName Name of the operator (e.g., "tensor.add", "block.mul")
      * \throws ValueError if operator is already registered
      */
     OpRegistryEntry &Register(const std::string &opName);
@@ -431,7 +431,7 @@ public:
      * Looks up the operator by name, validates arguments, deduces the result type,
      * and creates a Call expression with proper typing.
      *
-     * \param op_name Name of the operator to call
+     * \param opName Name of the operator to call
      * \param args Arguments to pass to the operator
      * \param span Source location information
      * \return Shared pointer to Call expression with deduced type
@@ -445,7 +445,7 @@ public:
      * Looks up the operator by name, validates arguments, deduces the result type
      * using both args and kwargs, and creates a Call expression with proper typing.
      *
-     * \param op_name Name of the operator to call
+     * \param opName Name of the operator to call
      * \param args Positional Expr arguments
      * \param kwargs Keyword arguments (metadata)
      * \param span Source location information
@@ -458,7 +458,7 @@ public:
     /**
      * \brief Check if an operator is registered
      *
-     * \param op_name Name of the operator
+     * \param opName Name of the operator
      * \return true if the operator is registered
      */
     bool IsRegistered(const std::string &opName) const { return registry_.find(opName) != registry_.end(); }
@@ -466,7 +466,7 @@ public:
     /**
      * \brief Get the operator registry entry by name
      *
-     * \param op_name Name of the operator
+     * \param opName Name of the operator
      * \return Const reference to the operator registry entry
      * \throws ValueError if operator not found
      */
@@ -475,7 +475,7 @@ public:
     /**
      * \brief Get the operator instance by name
      *
-     * \param op_name Name of the operator
+     * \param opName Name of the operator
      * \return Shared pointer to the operator instance
      * \throws ValueError if operator not found
      */
@@ -495,8 +495,8 @@ private:
  * For DataType kwargs, accepts both DataType and int types for backward compatibility.
  *
  * \param kwargs The kwargs to validate
- * \param allowed_kwargs Map of allowed kwarg keys to expected types
- * \param op_name Operator name for error messages
+ * \param allowedKwargs Map of allowed kwarg keys to expected types
+ * \param opName Operator name for error messages
  * \throws ValueError if unknown kwarg
  * \throws TypeError if type mismatch
  */

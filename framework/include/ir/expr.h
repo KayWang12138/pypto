@@ -320,9 +320,9 @@ using IterArgPtr = std::shared_ptr<const IterArg>;
 class MemRef : public Var {
 public:
     MemorySpace memorySpace_; ///< Memory space (DDR, UB, L1, etc.)
-    ExprPtr addr_;             ///< Starting address expression
-    uint64_t size_;            ///< Size in bytes (64-bit unsigned)
-    uint64_t id_;              ///< Unique identifier (used for name generation)
+    ExprPtr addr_;            ///< Starting address expression
+    uint64_t size_;           ///< Size in bytes (64-bit unsigned)
+    uint64_t id_;             ///< Unique identifier (used for name generation)
 
     /**
      * \brief Constructor with all parameters including explicit ID
