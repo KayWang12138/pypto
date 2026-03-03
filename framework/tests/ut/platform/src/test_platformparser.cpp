@@ -40,7 +40,7 @@ const std::string TEST_TMP_DIR = "/tmp/";
 class TestPlatformParser : public testing::Test {
 public:
     static void SetUpTestCase() {
-        std::string src = RealPath(GetCurrentSharedLibPath() + "/../../../framework/tests/ut/machine/stubs/compiler/data/platform_config/Ascend910_9572.ini");
+        std::string src = RealPath(GetCurSharedLibPath() + "/../../../framework/tests/ut/machine/stubs/compiler/data/platform_config/Ascend910_9572.ini");
         CreateMultiLevelDir(TEST_TMP_DIR);
         std::string dst = TEST_TMP_DIR + "A5.ini";
         std::string command = "cp " + src + " " + dst;
