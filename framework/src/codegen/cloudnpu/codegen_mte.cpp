@@ -1932,8 +1932,13 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
 
     std::string tiloOpCallParam = JoinString(paramList, ", ");
 
+    bool isConv3D = true;
+    GetAttr(Conv::LoadStoreConvOpAttributeKey::isConv3D, isConv3D);
+
     std::ostringstream oss;
-    oss << tileOpName.c_str() <<  "(" << tiloOpCallParam << ");\n";
+    oss << tileOpName.c_str() 
+    << "<" << std::to_string(isConv3D) << ">"
+    << "(" << tiloOpCallParam << ");\n";
     return oss.str();
 }
 
