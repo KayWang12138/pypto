@@ -9,7 +9,6 @@
  */
 
 #include "machine/runtime/host_prof.h"
-
 #include "interface/tensor/logical_tensor.h"
 #ifdef BUILD_WITH_CANN
 #include <array>
@@ -17,7 +16,6 @@
 #include "tilefwk/pypto_fwk_log.h"
 #include "toolchain/prof_api.h"
 #include "toolchain/log_types.h"
-#include "runtime/base.h"
 #include "acl/acl_rt.h"
 
 namespace npu::tile_fwk {
