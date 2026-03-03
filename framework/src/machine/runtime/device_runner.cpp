@@ -209,7 +209,7 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     args.devDfxArgAddr = reinterpret_cast<uint64_t>(DevAlloc(sizeof(DevDfxArgs)));
 
     if (args.devDfxArgAddr == 0) {
-        ALOG_ERROR_F("Alloc devDfx info failed");
+        MACHINE_LOGE("Alloc devDfx info failed");
         return -1;
     }
 
