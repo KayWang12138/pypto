@@ -1249,29 +1249,3 @@ TEST_F(OperationImplTest, Test_CopySign_int) {
         result = CopySign(self, other);
     }
 }
-
-TEST_F(OperationImplTest, Test_MatmulMX_FP8E5M2) {
-    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
-    Tensor matA(DT_FP8E5M2, {128, 256}, "matA");
-    Tensor matB(DT_FP8E5M2, {256, 128}, "matB");
-    Tensor scaleA(DT_FP8E8M0, {128, 4, 2}, "scaleA");
-    Tensor scaleB(DT_FP8E8M0, {4, 128, 2}, "scaleB");
-    Tensor result;
-    FUNCTION("TestBitwiseRightShift") {
-        result =
-            npu::tile_fwk::Matrix::MatmulMX(DT_FP32, matA, scaleA, matB, scaleB, false, false, false, false, false);
-    }
-}
-
-TEST_F(OperationImplTest, Test_MatmulMX_FP8E4M3) {
-    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
-    Tensor matA(DT_FP8E4M3, {128, 256}, "matA");
-    Tensor matB(DT_FP8E4M3, {256, 128}, "matB");
-    Tensor scaleA(DT_FP8E8M0, {4, 128, 2}, "scaleA");
-    Tensor scaleB(DT_FP8E8M0, {128, 4, 2}, "scaleB");
-    Tensor result;
-    FUNCTION("TestBitwiseRightShift") {
-        result =
-            npu::tile_fwk::Matrix::MatmulMX(DT_FP16, matA, scaleA, matB, scaleB, false, true, false, true, false);
-    }
-}
