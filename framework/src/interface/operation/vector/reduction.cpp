@@ -163,7 +163,9 @@ void TileReduceNew(Function &function, const TileShape &tileShape, const std::st
             if (op == "SUM" || (static_cast<size_t>(axis) == (in->shape.size() - 1))) {
                 if (static_cast<size_t>(axis) == (in->shape.size() - 1)) {
                     tmpShape[0] = sourceReg->shape[axis - 1];
-                    if (static_cast<size_t>(sourceReg->shape[axis]) <= REPEAT_BYTE / BytesOf(in->Datatype())) {
+                    if (op == "PROD") {
+ 	                    tmpShape = sourceReg->shape;
+ 	                } else if (static_cast<size_t>(sourceReg->shape[axis]) <= REPEAT_BYTE / BytesOf(in->Datatype())) {
                         tmpShape[0] = 1;
                     } else if (static_cast<size_t>(sourceReg->shape[axis]) <=
                             NUM2 * REPEAT_BYTE / BytesOf(in->Datatype())) {
@@ -222,7 +224,7 @@ void ReduceSingle(size_t cur, const std::string &op, Input &input, const Logical
 
 void TiledReduceSingle(Function &function, const TileShape &tileShape, const std::string &op,
     const LogicalTensorPtr &operand, const LogicalTensorPtr &result, int axis) {
-    ASSERT(op == "MAX" || op == "MIN" || op == "SUM" || op == "MAX_COMBINE_AXIS" || op == "SUM_COMBINE_AXIS")
+    ASSERT(op == "MAX" || op == "MIN" || op == "SUM" || op == "PROD" || op == "MAX_COMBINE_AXIS" || op == "SUM_COMBINE_AXIS")
         << "Not support op:" << op;
     ASSERT(operand->shape.size() == operand->offset.size()) << "The shape size of operand and offset should be equal";
 
@@ -243,7 +245,7 @@ void TiledReduceSingle(Function &function, const TileShape &tileShape, const std
 
 [[maybe_unused]] void TensorReduceSingle(
     Function &function, const std::string &op, const Tensor &operand, Tensor &result, int axis) {
-    ASSERT(op == "MAX" || op == "MIN" || op == "SUM" || op == "MAX_COMBINE_AXIS" || op == "SUM_COMBINE_AXIS")
+    ASSERT(op == "MAX" || op == "MIN" || op == "SUM" || op == "PROD" || op == "MAX_COMBINE_AXIS" || op == "SUM_COMBINE_AXIS")
         << "Not support op:" << op;
     ASSERT(operand.GetShape().size() == operand.GetStorage()->offset.size())
         << "The shape size of operand and offset should be equal";
@@ -254,6 +256,8 @@ void TiledReduceSingle(Function &function, const TileShape &tileShape, const std
         opCode = Opcode::OP_ROWMIN_SINGLE;
     } else if (op == "SUM") {
         opCode = Opcode::OP_ROWSUM_SINGLE;
+    } else if (op == "PROD") {
+ 	    opCode = Opcode::OP_ROWPROD_SINGLE;
     } else if (op == "MAX_COMBINE_AXIS") {
         opCode = Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE;
     } else { // SUM_COMBINE_AXIS
@@ -371,6 +375,30 @@ Tensor Sum(const Tensor &self, int axis, bool keepDim) {
     return ProcessResultShape(result, self, axis, keepDim);
 }
 
+Tensor Prod(const Tensor &self, int axis, bool keepDim) {
+    DECLARE_TRACER();
+    Tensor castSelf = self;
+    if (self.GetDataType() == DataType::DT_FP16 || self.GetDataType() == DataType::DT_BF16) {
+        castSelf = Cast(self, DataType::DT_FP32, CastMode::CAST_NONE);
+    }
+
+    axis = axis < 0 ? castSelf.GetShape().size() + axis : axis;
+    ValidateReductionAxis(castSelf, axis);
+
+    auto resultShape = castSelf.GetShape();
+    resultShape[axis] = 1;
+
+    Tensor result(castSelf.GetStorage()->tensor->datatype, resultShape);
+    CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "PROD", castSelf, result, axis);
+
+    Tensor castResult = result;
+    if (self.GetDataType() == DataType::DT_FP16 || self.GetDataType() == DataType::DT_BF16) {
+        castResult = Cast(result, self.GetDataType(), CastMode::CAST_NONE);
+    }
+
+    return ProcessResultShape(castResult, self, axis, keepDim);
+}
+
 void TiledReduceExpand(Function &function, const TileShape &tileShape, const std::string &op,
     const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
     ASSERT(op == "MAX" || op == "SUM") << "Not support op:" << op;
@@ -464,6 +492,13 @@ void RowSumSingleOperationTileFunc(Function &function, const TileShape &tileShap
     TiledReduceSingle(function, tileShape, "SUM", iOperand[0], oOperand[0], axis);
 }
 
+void RowProdSingleOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+    UnaryOperationOperandCheck(iOperand, oOperand);
+    auto axis = op.GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
+    TiledReduceSingle(function, tileShape, "PROD", iOperand[0], oOperand[0], axis);
+}
+
 void RowMaxCombineOperationTileFunc(Function &function, const TileShape &tileShape,
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
     UnaryOperationOperandCheck(iOperand, oOperand);
@@ -495,6 +530,7 @@ void RowExpSumSingleOperationTileFunc(Function &function, const TileShape &tileS
 REGISTER_OPERATION_TILED_FUNC(OP_ROWMAX_SINGLE, Opcode::OP_ROWMAX_SINGLE, RowMaxSingleOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_ROWMIN_SINGLE, Opcode::OP_ROWMIN_SINGLE, RowMinSingleOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_ROWSUM_SINGLE, Opcode::OP_ROWSUM_SINGLE, RowSumSingleOperationTileFunc);
+REGISTER_OPERATION_TILED_FUNC(OP_ROWPROD_SINGLE, Opcode::OP_ROWPROD_SINGLE, RowProdSingleOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(
     OP_ROWMAX_COMBINE_AXIS_SINGLE, Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, RowMaxCombineOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(

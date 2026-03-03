@@ -16,6 +16,7 @@
 #include <torch/torch.h>
 #include <limits>
 #include "tilefwk/error.h"
+#include "tilefwk/pypto_fwk_log.h"
 #include "../calc_api.h"
 #include "interpreter/calculator/fp8_convert.h"
 #include "interface/utils/log.h"
@@ -835,6 +836,7 @@ static void Cmps(const TensorData &out, const TensorData &self, const Element &e
 DEFINE_BINARY_PAIR_OPS(Sum, add_out)
 DEFINE_BINARY_PAIR_OPS(Max, max_out)
 DEFINE_BINARY_PAIR_OPS(Min, min_out)
+DEFINE_BINARY_PAIR_OPS(Prod, mul_out)
 
 std::vector<int64_t> GenAxesForTranspose(const int64_t offset, const std::vector<int64_t>& base) {
     std::vector<int64_t> axes;
@@ -1296,6 +1298,20 @@ static void RowMaxLine(const TensorData &out, const TensorData &self, int dim) {
     auto tout = From(out);
     auto ret = torch::max(tself.second, dim, true);
     ToOperand(std::get<0>(ret), tout.first, out.dtype);
+}
+
+static void RowProdSingle(const TensorData &out, const TensorData &self, int dim) {
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::prod_out(tout.second, tself.second, {dim}, true);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
+static void RowProdLine(const TensorData &out, const TensorData &self, int dim) {
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::prod_out(tout.second, tself.second, {dim}, true);
+    ToOperand(tout.second, tout.first, out.dtype);
 }
 
 static void Reshape(const TensorData &out, const TensorData &self) {
@@ -1951,6 +1967,7 @@ static struct CalcOps calcOps = {
     .PairSum = PairSum,
     .PairMax = PairMax,
     .PairMin = PairMin,
+    .PairProd = PairProd,
     .Min = Min,
     .Max = Max,
     .MinS = MinS,
@@ -1961,8 +1978,10 @@ static struct CalcOps calcOps = {
     .RowSumSingle = RowSumSingle,
     .RowMinSingle = RowMinSingle,
     .RowMaxSingle = RowMaxSingle,
+    .RowProdSingle = RowProdSingle,
     .RowMinLine = RowMinLine,
     .RowMaxLine = RowMaxLine,
+    .RowProdLine = RowProdLine,
     .OneHot = OneHot,
     .ExpandS = ExpandS,
     .Expand = Expand,
