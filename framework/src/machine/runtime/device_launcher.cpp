@@ -48,22 +48,28 @@ int GetCfgBlockdim() {
 
 int GetMaxBlockdim() {
 #ifdef BUILD_WITH_CANN
-    uint32_t cubeBlockDim = 0;
-    uint32_t vectorBlockDim = 0;
-    // 若未进行控核，aclrtGetResInCurrentThread返回的是满核
-    aclrtGetResInCurrentThread(ACL_RT_DEV_RES_CUBE_CORE, &cubeBlockDim);
-    aclrtGetResInCurrentThread(ACL_RT_DEV_RES_VECTOR_CORE, &vectorBlockDim);
-    // 若不满足AIC和AIV的比例，手动处理成为符合AIC和AIV的比例最大值
-    if (vectorBlockDim != cubeBlockDim * AICAIVRATIO) {
-        auto rtsMaxBlockDim = std::min(cubeBlockDim, vectorBlockDim / AICAIVRATIO);
-        ALOG_WARN_F(
-            "The cubeBlockDim[%d] and vectorBlockDim[%d] do not conform to the 1: %d ratio of AIC and AIV, "
-            "and will be set to values that conform to the ratio of AIC and AIV. "
-            "The cubeBlockDim and vectorBlockDim are set at %d and %d", 
-            cubeBlockDim, vectorBlockDim, AICAIVRATIO, rtsMaxBlockDim, rtsMaxBlockDim * AICAIVRATIO);
-        return rtsMaxBlockDim;
+    auto runtimeOptionsMaxBlockDim = config::GetRuntimeOption<int>(MAX_CUBE_BLOCKDIM);
+    if (runtimeOptionsMaxBlockDim != 0) {
+        // runtime options控核的优先级要比set_stream_limit优先级高
+        return runtimeOptionsMaxBlockDim;
     } else {
-        return cubeBlockDim;
+        uint32_t cubeBlockDim = 0;
+        uint32_t vectorBlockDim = 0;
+        // 若未进行控核，aclrtGetResInCurrentThread返回的是满核
+        aclrtGetResInCurrentThread(ACL_RT_DEV_RES_CUBE_CORE, &cubeBlockDim);
+        aclrtGetResInCurrentThread(ACL_RT_DEV_RES_VECTOR_CORE, &vectorBlockDim);
+        // 若不满足AIC和AIV的比例，手动处理成为符合AIC和AIV的比例最大值
+        if (vectorBlockDim != cubeBlockDim * AICAIVRATIO) {
+            auto rtsMaxBlockDim = std::min(cubeBlockDim, vectorBlockDim / AICAIVRATIO);
+            ALOG_WARN_F(
+                "The cubeBlockDim[%d] and vectorBlockDim[%d] do not conform to the 1: %d ratio of AIC and AIV, "
+                "and will be set to values that conform to the ratio of AIC and AIV. "
+                "The cubeBlockDim and vectorBlockDim are set at %d and %d", 
+                cubeBlockDim, vectorBlockDim, AICAIVRATIO, rtsMaxBlockDim, rtsMaxBlockDim * AICAIVRATIO);
+            return rtsMaxBlockDim;
+        } else {
+            return cubeBlockDim;
+        }
     }
 #else
     return kMinDefaultDim;
