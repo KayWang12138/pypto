@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <dlfcn.h>
 #include <cstdint>
 #include "file.h"
 
