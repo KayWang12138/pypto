@@ -21,8 +21,8 @@ using namespace npu::tile_fwk;
 class ExpandOnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 TEST_F(ExpandOnBoardTest, test_expand_32_1_to_32_32) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     int S0 = 32;
     int S1 = 1;
     int D0 = 32;
@@ -62,8 +62,8 @@ TEST_F(ExpandOnBoardTest, test_expand_32_1_to_32_32) {
 }
 
 TEST_F(ExpandOnBoardTest, test_expand_32_8_1_to_32_8_32) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     int S0 = 32;
     int S1 = 8;
     int S2 = 1;
@@ -102,8 +102,8 @@ TEST_F(ExpandOnBoardTest, test_expand_32_8_1_to_32_8_32) {
 }
 
 TEST_F(ExpandOnBoardTest, test_expand_32_1_to_32_23) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     int S0 = 32;
     int S1 = 1;
     int D0 = 32;
@@ -139,8 +139,8 @@ TEST_F(ExpandOnBoardTest, test_expand_32_1_to_32_23) {
 }
 
 TEST_F(ExpandOnBoardTest, test_expand_32_8_1_to_32_8_23) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     int S0 = 32;
     int S1 = 8;
     int S2 = 1;
@@ -179,8 +179,8 @@ TEST_F(ExpandOnBoardTest, test_expand_32_8_1_to_32_8_23) {
 }
 
 TEST_F(ExpandOnBoardTest, test_expand_for_4_dim) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     std::vector<int64_t> srcShape = {1, 32, 400, 23};
     std::vector<int64_t> dstShape = {8, 32, 400, 23};
 
@@ -213,8 +213,8 @@ TEST_F(ExpandOnBoardTest, test_expand_for_4_dim) {
 }
 
 TEST_F(ExpandOnBoardTest, test_expand_1_1_to_1_16384) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     int S0 = 1;
     int S1 = 1;
     int D0 = 1;

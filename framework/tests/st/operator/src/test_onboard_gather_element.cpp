@@ -34,8 +34,8 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_70_8_40_1) {
     int capacity1 = shape1[0] * shape1[1];
     int capacity2 = shape2[0] * shape2[1];
 
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("GatherElement") {
@@ -77,8 +77,8 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_8_32_1) {
     int capacity1 = shape1[0] * shape1[1];
     int capacity2 = shape2[0] * shape2[1];
 
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("GatherElement") {
@@ -121,8 +121,8 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_7_32_1) {
     int capacity1 = shape1[0] * shape1[1];
     int capacity2 = shape2[0] * shape2[1];
 
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("GatherElement") {
@@ -165,8 +165,8 @@ TEST_F(GatherElementOnBoardTest, test_gather_element_float_16_64_7_32_0) {
     int capacity1 = shape1[0] * shape1[1];
     int capacity2 = shape2[0] * shape2[1];
 
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("GatherElement") {

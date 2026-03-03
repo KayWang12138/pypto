@@ -227,7 +227,7 @@ void gather_golden(const std::vector<typename Config::IndexType> &topk_indices,
 class GatherInUBTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
     void SetUp() override {
         TestSuite_STest_Ops_Aihac::SetUp();
-        rtSetDevice(GetDeviceIdByEnvVar());
+        RuntimeSetDevice(GetDeviceIdByEnvVar());
     }
     void TearDown() override {
         config::SetHostOption(COMPILE_STAGE, 0);

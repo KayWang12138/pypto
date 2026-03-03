@@ -71,11 +71,11 @@ void CompileTestCCE(const std::string &cceFileName) {
 }
 
 TEST_F(TestTileOpAdd, TestAddDim2) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     rtStream_t stream;
-    rtStreamCreate(&stream, 0);
+    RuntimeStreamCreate(&stream, 0);
 
     std::vector<int> shape = {64, 64};
     int capacity = shape[0] * shape[1];
