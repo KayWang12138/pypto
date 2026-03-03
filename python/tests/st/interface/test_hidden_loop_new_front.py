@@ -22,7 +22,8 @@ def create_cust_hidden_loop_func(shape: tuple, tiling=None):
     @pypto.frontend.jit()
     def cust_hidden_loop_func(t0: pypto.Tensor(shape, pypto.DT_FP32),
                               t1: pypto.Tensor(shape, pypto.DT_FP32),
-                              ) -> pypto.Tensor(shape, pypto.DT_FP32):
+                              out: pypto.Tensor(shape, pypto.DT_FP32)
+                              ):
         """
         实现隐藏循环带条件分支的逻辑
         参考C++案例: DynamicBasicTest.HiddenLoopWithIf
@@ -32,18 +33,16 @@ def create_cust_hidden_loop_func(shape: tuple, tiling=None):
         k = 0
         # for _ in pypto.loop(1, name="L0", idx_name="i"):
         # for _ in pypto.loop(1, name="L01", idx_name="j"):
-        out = pypto.tensor(shape, pypto.DT_FP32)
-        out = pypto.add(t0, t1)
+        out.move(pypto.add(t0, t1))
 
-        if k < CONDITION_THRESHOLD:
-            for _ in pypto.loop(2, name="L02", idx_name="idx3"):
-                t0.move(pypto.add(t0, t1))
-                out.move(pypto.add(t0, out))
-        else:
-            for _ in pypto.loop(2, name="L03", idx_name="idx4"):
-                t0 = t0 + t1
-                out = t0 + out
-        return out
+        # if k < CONDITION_THRESHOLD:
+        for _ in pypto.loop(2, name="L02", idx_name="idx3"):
+            t0.move(pypto.add(t0, t1))
+            out.move(pypto.add(t0, out))
+        # else:
+        #     for _ in pypto.loop(2, name="L03", idx_name="idx4"):
+        #         t0 = t0 + t1
+        #         out = t0 + out
 
     return cust_hidden_loop_func
 
@@ -62,14 +61,14 @@ def test_hidden_loop_with_if_jit_function():
 
     t0_data = torch.full(shape, 11.0, dtype=torch.float32, device=f"npu:{device_id}")
     t1_data = torch.full(shape, 20.0, dtype=torch.float32, device=f"npu:{device_id}")
-
+    out_data = torch.zeros(shape, dtype=torch.float32, device=f"npu:{device_id}")
     kernal = create_cust_hidden_loop_func(shape, tiling=tiling)
-    res = kernal(t0_data, t1_data)
+    kernal(t0_data, t1_data, out_data)
 
     torch_npu.npu.synchronize()
     # 获取结果并验证
     golden = torch.full(shape, 113.0, dtype=torch.float32)
-    assert torch.allclose(golden, res.cpu(), atol=1e-5)
+    assert torch.allclose(golden, out_data.cpu(), atol=1e-5)
 
 
 def test_hidden_loop_with_if_multiple_shapes():
@@ -86,7 +85,6 @@ def test_hidden_loop_with_if_multiple_shapes():
     ]
 
     all_passed = True
-
     for _, config in enumerate(test_cases):
         tiling = config["tiling"]
         n, m, s = config["n"], config["m"], config["s"]
@@ -99,17 +97,16 @@ def test_hidden_loop_with_if_multiple_shapes():
             shape, 20.0, dtype=torch.float32, device=f"npu:{device_id}"
         )
 
-        kernal = create_cust_hidden_loop_func(shape, tiling=tiling)
+        out_data = torch.zeros(shape, dtype=torch.float32, device=f"npu:{device_id}")
 
-        out_data = kernal(t0_data, t1_data)
+        kernal = create_cust_hidden_loop_func(shape, tiling=tiling)
+        kernal(t0_data, t1_data, out_data)
 
         torch_npu.npu.synchronize()
 
         out_cpu = out_data.cpu()
         golden = torch.full(shape, 113.0, dtype=torch.float32)
-
-        passed = torch.allclose(golden, out_cpu, atol=1e-5)
-        all_passed = all_passed and passed
+        assert torch.allclose(golden, out_cpu, atol=1e-5)
     return all_passed
 
 

@@ -63,6 +63,7 @@ def add(
     Output out: [[3.0 5.0 7.0]]
     """
     if isinstance(other, pypto_impl.Tensor):
+        print(f"zjr123 -------- add 1:{input.shape} 2:{other.shape}")
         if alpha == 1 or alpha == 1.0:
             return pypto_impl.Add(input, other)
         else:
