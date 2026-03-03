@@ -227,14 +227,12 @@ void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const T
         kBL1 *= kd;
     }
     int64_t minKL1 = std::min(kAL1, kBL1);
-    CheckAlignment(tileK , k0, "tileK", true);
+    CheckAlignment(tileK , ALIGN_SIZE_32, "tileK", true);
     CheckValueRange(tileH, "tileH" , NUM1, tileHout);
     CheckValueRange(tileW, "tileW" , NUM1, tileWout);
     CheckValueRange(tileK, "tileK" , NUM1, minKL1);
     CheckAlignment(tileN, NUM16, "tileL0Info.tileN");
-    CheckAlignment(tileN, NUM16, "tileL0Info.tileN");
     CheckAlignment(tileW, NUM16, "tileW");
-    CheckValueRange(tileN, "tileL1Info.tileN" , NUM1, ConvAlignB(tileCout, NUM16));
     CheckValueRange(tileN, "tileL1Info.tileN" , NUM1, ConvAlignB(tileCout, NUM16));
 
     Platform& platform = Platform::Instance();
@@ -279,10 +277,7 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
 
     CheckValueRange(tileHin, "tileHin", NUM1, hin);
     CheckValueRange(tileBatch, "tileBatch", NUM1, NUM1);
-    CheckValueRange(tileBatch, "tileBatch", NUM1, NUM1);
     CheckValueRange(tileWin, "tileWin", NUM1, win);
-    CheckValueRange(tileN, "tileL1Info.tileN", NUM1, cOut/groups);
-    CheckAlignment(tileN, NUM16, "tileL1Info.tileN");
     CheckValueRange(tileN, "tileL1Info.tileN", NUM1, cOut/groups);
     CheckAlignment(tileN, NUM16, "tileL1Info.tileN");
 
@@ -292,8 +287,7 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
     CheckDivisible(ConvAlignB(cin, k0), tileCinWeight, "ceil(Cin / C0) × C0", "tileCinWeight");
     CheckAlignment(tileCinFmap, k0, "tileCinFmap");
     CheckAlignment(tileCinWeight, k0, "tileCinWeight");
-    CheckAlignment(tileCinFmap, k0, "tileCinFmap");
-    CheckAlignment(tileCinWeight, k0, "tileCinWeight");
+
     if (convTile.setL0Tile){
         CheckL0TileTiling(outType, attrParam, weightTensor);
     }
