@@ -23,14 +23,14 @@ const std::string paths = "PATHS";
 const std::string comma = ",";
 const std::string direction = "->";
 
-std::string GetCurSharedLibPath() {
+std::string GetCurrentSharedLibPath() {
     static std::string currentLibPath;
     if (!currentLibPath.empty()) {
         return currentLibPath;
     }
 
     Dl_info info;
-    if (dladdr(reinterpret_cast<void*>(GetCurSharedLibPath), &info)) {
+    if (dladdr(reinterpret_cast<void*>(GetCurrentSharedLibPath), &info)) {
         currentLibPath = std::string(info.dli_fname);
         int32_t pos = currentLibPath.rfind('/');
         if (pos >= 0) {
@@ -72,7 +72,7 @@ MemoryType StringToMemoryType(const std::string& memType) {
 }
 
 bool InternalParser::LoadInternalInfo() {
-    std::string internalFile = RealPath(GetCurSharedLibPath() + iniFile);
+    std::string internalFile = RealPath(GetCurrentSharedLibPath() + iniFile);
     if (!IsPathExist(internalFile)) {
         return false;
     }
