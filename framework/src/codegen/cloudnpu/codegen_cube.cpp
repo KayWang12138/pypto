@@ -24,7 +24,7 @@ std::string CodeGenOpCloudNPU::PrintMatmulTileTensor(
     std::ostringstream oss;
     bool hasBias = tensorWithMemType.count(OperandType::BUF_BT);
     int64_t transMode = 0;
-    GetAttr(OP_ATTR_PREFIX + "trans_mode", transMode);
+    GetAttr(OpAttributeKey::transMode, transMode);
     std::vector<std::string> paramList = {tensorWithMemType[OperandType::BUF_L0C],
         tensorWithMemType[OperandType::BUF_L0A], tensorWithMemType[OperandType::BUF_L0B]};
     oss << tileOpName;
