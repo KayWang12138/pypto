@@ -526,6 +526,44 @@ def l0c2l_golden_generate(inputs: list, config: dict):
     return [tensor_out, tensor_l0c2l1_data]
 
 
+def fp32_to_tf32_modes(x: torch.Tensor):
+    if x.dtype != torch.float32:
+        x = x.to(torch.float32)
+    sign = torch.sign(x)
+    abs_x = torch.abs(x)
+    bits = abs_x.view(torch.int32)
+    truncate_mask = 0xFFFFE000
+    half_ulp_mask = 0x00001000
+    less_than_half_mask = 0x00000FFF
+    increment_mask = 0x00002000
+    last_bit_mask = 0x00002000
+    t_trunc = torch.tensor(truncate_mask, dtype=torch.int64)
+    t_half = torch.tensor(half_ulp_mask, dtype=torch.int64)
+    t_less = torch.tensor(less_than_half_mask, dtype=torch.int64)
+    t_inc = torch.tensor(increment_mask, dtype=torch.int64)
+    t_last = torch.tensor(last_bit_mask, dtype=torch.int64)
+    truncated = bits & t_trunc
+    round_part = bits & (t_half | t_less)
+    greater_than_half = (round_part > t_half)
+    equal_to_half = (round_part == t_half)
+    last_bit_is_one = (truncated & t_last) != 0
+    ties_need_increment = equal_to_half & last_bit_is_one
+    needs_increment_rne = greater_than_half | ties_need_increment
+    res_bits_rne = torch.where(needs_increment_rne, truncated + t_inc, truncated)
+    needs_increment_rafz = (round_part >= t_half)
+    res_bits_rafz = torch.where(needs_increment_rafz, truncated + t_inc, truncated)
+    res_abs_rne = res_bits_rne.view(torch.float32)
+    res_abs_rafz = res_bits_rafz.view(torch.float32)
+    is_special = ~torch.isfinite(x)
+    res_rne = sign * res_abs_rne
+    res_rafz = sign * res_abs_rafz
+    res_rne = torch.where(is_special, x, res_rne)
+    res_rafz = torch.where(is_special, x, res_rafz)
+    diff = (res_rafz[0][0] - res_rne[0][0]).item()
+
+    return res_rne, res_rafz
+
+
 def matmul_golden_func(inputs: list, config: dict):
     params = config.get("params")
     if params.get("l0c2l1_tensor"):
@@ -540,8 +578,13 @@ def matmul_golden_func(inputs: list, config: dict):
         if not params.get("transB")
         else np.swapaxes(inputs[1], inputs[1].ndim - 2, inputs[1].ndim - 1)
     )
-    assert params.get("outDtype") in ("fp32", "fp16", "bf16", "int32")
-    if params.get("outDtype") in ("fp32", "fp16", "bf16"):
+    if params.get("trans_mode") is not None and params.get("trans_mode") != 0:
+        tensor_a = fp32_to_tf32_modes(torch.from_numpy(tensor_a.astype(np.float32)).to(torch.float32)
+            )[int(params.get("trans_mode")) - 1].numpy()
+        tensor_b = fp32_to_tf32_modes(torch.from_numpy(tensor_b.astype(np.float32)).to(torch.float32)
+            )[int(params.get("trans_mode")) - 1].numpy()
+    assert params.get("outDtype") in ("fp32", "fp16", "bf16", "int32", "tf32")
+    if params.get("outDtype") in ("fp32", "fp16", "bf16", "tf32"):
         tensor_c = torch.matmul(
             torch.from_numpy(tensor_a.astype(np.float32)).to(torch.float32),
             torch.from_numpy(tensor_b.astype(np.float32)).to(torch.float32)
