@@ -22,6 +22,7 @@
 #include <string>
 #include <cstdio>
 #include <unistd.h>
+#include <regex>
 
 static inline std::string CaptureStdoutAndEcho(std::function<void()> func) {
     int pipefd[2];
@@ -63,40 +64,16 @@ static inline std::string CaptureStdoutAndEcho(std::function<void()> func) {
 
 // 仅检查 [VERIFY] 日志行中是否出现 FAILED，其他模块日志不参与判断
 inline bool VerifyLogContainsFailed(const std::string& logOutput) {
-    size_t pos = 0;
-    while (pos < logOutput.size()) {
-        size_t lineEnd = logOutput.find('\n', pos);
-        size_t lineLen = (lineEnd == std::string::npos) ? logOutput.size() - pos : lineEnd - pos;
-        std::string line = logOutput.substr(pos, lineLen);
-        if (line.find("[VERIFY]") != std::string::npos && line.find("FAILED") != std::string::npos) {
-            return true;
-        }
-        if (lineEnd == std::string::npos) {
-            break;
-        }
-        pos = lineEnd + 1;
-    }
-    return false;
+    // 匹配形如："...[VERIFY]...FAILED..."，且 [VERIFY] 与 FAILED 必须在同一行（中间不允许换行）
+    static const std::regex kVerifyFailedPattern(R"(\[VERIFY][^\n]*FAILED)");
+    return std::regex_search(logOutput, kVerifyFailedPattern);
 }
 
 // 仅检查 [VERIFY] 日志行中 index 0 是否出现 FAILED，用于 Topk 用例
 inline bool VerifyLogContainsIndex0Failed(const std::string& logOutput) {
-    size_t pos = 0;
-    while (pos < logOutput.size()) {
-        size_t lineEnd = logOutput.find('\n', pos);
-        size_t lineLen = (lineEnd == std::string::npos) ? logOutput.size() - pos : lineEnd - pos;
-        std::string line = logOutput.substr(pos, lineLen);
-        // 只关心 flow_verifier 打印的 index 0 结果行：
-        // "... [VERIFY]: ... Verify for ... index 0 result FAILED"
-        if (line.find("[VERIFY]") != std::string::npos &&
-            line.find("index 0 result FAILED") != std::string::npos) {
-            return true;
-        }
-        if (lineEnd == std::string::npos) {
-            break;
-        }
-        pos = lineEnd + 1;
-    }
-    return false;
+    // 只关心 flow_verifier 打印的 index 0 结果行：
+    // "... [VERIFY]: ... Verify for ... index 0 result FAILED"
+    static const std::regex kVerifyIndex0FailedPattern(R"(\[VERIFY][^\n]*index 0 result FAILED)");
+    return std::regex_search(logOutput, kVerifyIndex0FailedPattern);
 }
 
