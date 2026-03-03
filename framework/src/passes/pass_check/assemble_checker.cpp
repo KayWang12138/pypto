@@ -22,6 +22,16 @@
 
 namespace npu {
 namespace tile_fwk {
+// Check if the dynValidShape contains actual symbolic expressions (not just concrete immediates)
+static bool HasDynamicSymbolicShape(const std::vector<SymbolicScalar> &dynValidShape) {
+    for (const auto &dim : dynValidShape) {
+        if (!dim.IsImmediate()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // assemble存在dynOffset和输入存在dynValidShape场景暂不判断。
 Status CheckDynSkip(const LogicalTensorPtr &outputTensor, bool &needSkip) {
     for (const auto &producerOp : outputTensor->GetProducers()){
@@ -41,7 +51,7 @@ Status CheckDynSkip(const LogicalTensorPtr &outputTensor, bool &needSkip) {
             return FAILED;
         }
         auto input = producerOp->iOperand.front();
-        if (input->GetDynValidShape().size() != 0) {
+        if (HasDynamicSymbolicShape(input->GetDynValidShape())) {
             needSkip = true;
             return SUCCESS;
         }
