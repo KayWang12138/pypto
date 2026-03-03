@@ -30,6 +30,13 @@ struct CommContext {
     uint64_t winDebugSize = 0; 
     uint64_t totalWinNum = 0; 
     uint64_t winAddr[0]; // size大小rankNum*3，内存排布windata[0~rankNum-1], winStatus[0~rankNum-1], winDebug[0~rankNum-1]
+    uint64_t offset[3];
+};
+
+struct  ShmemAddrDesc {
+    uint64_t memType{0};
+    uint64_t offset{0};
+    uint64_t contextAddr{0};
 };
 } // namespace TileOp
 

@@ -194,11 +194,24 @@ TILEOP __gm__ T* MapVirtualAddr(__gm__ int64_t *hcclContext, __gm__ T* vAddr, ui
 }
 
 template<typename T>
+TILEOP __gm__ T* MapVirtualAddrV2(__gm__ T* vAddr, uint32_t dstRankId)
+{
+    __gm__ TileOp::CommContext *commCtxParam = (__gm__ TileOp::CommContext *)(((__gm__ CommContext *)vAddr)->contextAddr);
+    auto offset = (((__gm__ TileOp::ShmemAddrDesc *)vAddr)->offset);
+    auto memType = (((__gm__ TileOp::ShmemAddrDesc *)vAddr)->memType);
+    if(memType == 0) {
+        return (__gm__ T*)(commCtxParam->winAddr[dstRankId] + offset);
+    } else {
+        return (__gm__ T*)(commCtxParam->winAddr[commCtxParam->statusIndex + dstRankId] + offset);
+    }
+}
+
+template<typename T>
 TILEOP __gm__ T* MapAndOffsetShmem(__gm__ int64_t* hcclContext, __gm__ T* shmemBase, uint32_t rankOffset,
     uint32_t offset1, uint32_t offset2, uint32_t offset3, uint32_t rawShape2, uint32_t rawShape3)
 {
     uint32_t linearOffset = TileOp::CalcLinearOffset(rawShape2, rawShape3, offset1, offset2, offset3);
-    return MapVirtualAddr<T>(hcclContext, shmemBase, rankOffset) + linearOffset;
+    return MapVirtualAddrV2<T>(hcclContext, shmemBase, rankOffset) + linearOffset;
 }
 
 /* UB 清 0 */
