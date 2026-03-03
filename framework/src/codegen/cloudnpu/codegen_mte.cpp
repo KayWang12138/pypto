@@ -1907,7 +1907,7 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
     std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID1]);
 
-    std::vector<std::variant<std::string, uint8_t, uint16_t, int, int64_t>> paramList;
+    std::vector<std::variant<std::string, uint8_t, uint16_t, int, int64_t, bool>> paramList;
 
     std::string dstVar = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcVar = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
@@ -1959,8 +1959,13 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
 
     std::string tiloOpCallParam = JoinString(paramList, ", ");
 
+    bool isConv3D = true;
+    GetAttr(Conv::LoadStoreConvOpAttributeKey::isConv3D, isConv3D);
+
     std::ostringstream oss;
-    oss << tileOpName.c_str() <<  "(" << tiloOpCallParam << ");\n";
+    oss << tileOpName.c_str() 
+    << "<" << std::to_string(isConv3D) << ">"
+    << "(" << tiloOpCallParam << ");\n";
     return oss.str();
 }
 

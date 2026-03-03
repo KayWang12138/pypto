@@ -400,24 +400,48 @@ TILEOP void TStoreConv(T &dst, U &src, const int64_t &offset0, const int64_t &of
     return;
 }
 
+template<bool isConv3D, typename U, int64_t elements, int64_t c0Size>
+using select_srcTensor = std::conditional_t<isConv3D,
+    pto::ConvTile<pto::TileType::Mat, 
+                    typename U::Type, 
+                    elements * c0Size * sizeof(typename U::Type), 
+                    pto::Layout::NDC1HWC0, 
+                    pto::ConvTileShape<-1, -1, -1, -1, -1, c0Size>>,
+    pto::ConvTile<pto::TileType::Mat, 
+                    typename U::Type, 
+                    elements * sizeof(typename U::Type), 
+                    pto::Layout::NC1HWC0, 
+                    pto::ConvTileShape<-1, -1, -1, -1, -1>>
+>;
+
 template <typename T, typename U>
 TILEOP void TLoad3D(T &dst, U &src, const int64_t &mPos, const int64_t &kPos, 
                     const int64_t &padLeft, const int64_t &padRight, const int64_t &padTop, const int64_t &padBottom, const int64_t &padValue, 
                     const int64_t &filterH, const int64_t &filterW, const int64_t &dilationH, const int64_t &dilationW, 
                     const int64_t &strideH, const int64_t &strideW) {
-    constexpr auto staticN = Std::tuple_element<CONV_IDX_0, typename U::TileShape>::type::value;
-    constexpr auto staticC1 = Std::tuple_element<CONV_IDX_1, typename U::TileShape>::type::value;
-    constexpr auto staticH = Std::tuple_element<CONV_IDX_2, typename U::TileShape>::type::value;
-    constexpr auto staticW = Std::tuple_element<CONV_IDX_3, typename U::TileShape>::type::value;
-    constexpr auto staticC0 = Std::tuple_element<CONV_IDX_4, typename U::TileShape>::type::value;
-    constexpr auto bufferSize = staticN * staticC1 * staticH * staticW * staticC0;
-    int64_t n = GetConvShape<CONV_IDX_0>(src);
-    int64_t c1 = GetConvShape<CONV_IDX_1>(src);
-    int64_t h = GetConvShape<CONV_IDX_2>(src);
-    int64_t w = GetConvShape<CONV_IDX_3>(src);
-    int64_t c0 = GetConvShape<CONV_IDX_4>(src);
-    using srcTensor = pto::ConvTile<pto::TileType::Mat, typename U::Type, bufferSize, pto::Layout::NC1HWC0, pto::ConvTileShape<-1, -1, -1, -1, -1>>;
-    srcTensor l1(n, c1, h, w, c0);
+    // 2D： n c1 h w c0
+    // 3D： n d c1 h w
+    constexpr auto static0 = Std::tuple_element<CONV_IDX_0, typename U::TileShape>::type::value;
+    constexpr auto static1 = Std::tuple_element<CONV_IDX_1, typename U::TileShape>::type::value;
+    constexpr auto static2 = Std::tuple_element<CONV_IDX_2, typename U::TileShape>::type::value;
+    constexpr auto static3 = Std::tuple_element<CONV_IDX_3, typename U::TileShape>::type::value;
+    constexpr auto static4 = Std::tuple_element<CONV_IDX_4, typename U::TileShape>::type::value;
+    constexpr auto elements = static0 * static1 * static2 * static3 * static4;
+    int64_t shape0 = GetConvShape<CONV_IDX_0>(src);
+    int64_t shape1 = GetConvShape<CONV_IDX_1>(src);
+    int64_t shape2 = GetConvShape<CONV_IDX_2>(src);
+    int64_t shape3 = GetConvShape<CONV_IDX_3>(src);
+    int64_t shape4 = GetConvShape<CONV_IDX_4>(src);
+    using srcTensor = select_srcTensor<isConv3D, U, elements, c0Size>;
+    srcTensor l1(shape0, shape1, shape2, shape3, shape4);
+
+    constexpr auto staticML0 = Std::tuple_element<CONV_IDX_0, typename T::TileShape>::type::value;
+    constexpr auto staticKL0 = Std::tuple_element<CONV_IDX_1, typename T::TileShape>::type::value;
+    int64_t mL0 = GetConvShape<CONV_IDX_0>(dst);
+    int64_t kL0 = GetConvShape<CONV_IDX_1>(dst);
+    using dstTensor = pto::TileLeft<typename T::Type, staticML0, staticKL0, -1, -1>;
+    dstTensor l0(mL0, kL0);
+
     l1.SetFmapH(static_cast<uint16_t>(h));
     l1.SetFmapW(static_cast<uint16_t>(w));
     uint8_t values[4] = {static_cast<uint8_t>(padLeft), static_cast<uint8_t>(padRight), static_cast<uint8_t>(padTop), static_cast<uint8_t>(padBottom)};
@@ -429,19 +453,25 @@ TILEOP void TLoad3D(T &dst, U &src, const int64_t &mPos, const int64_t &kPos,
     l1.SetStrideH(strideH);
     l1.SetStrideW(strideW);
     l1.SetPadValue(padValue);
-    l1.SetChannelSize(c1 * c0);
 
-    constexpr auto staticML0 = Std::tuple_element<CONV_IDX_0, typename T::TileShape>::type::value;
-    constexpr auto staticKL0 = Std::tuple_element<CONV_IDX_1, typename T::TileShape>::type::value;
-    int64_t mL0 = GetConvShape<CONV_IDX_0>(dst);
-    int64_t kL0 = GetConvShape<CONV_IDX_1>(dst);
-    using dstTensor = pto::TileLeft<typename T::Type, staticML0, staticKL0, -1, -1>;
-    dstTensor l0(mL0, kL0);
+    l1.SetRepeatTime(1);
+    l1.SetRepeatMode(1);
+    l1.SetDstStride(mL0 / 16);
+    l1.SetDstMposition(0);
+    l1.SetPadValue(0);
+
+    if constexpr (isConv3D) {
+        l1.SetChannelSize(shape2 * c0Size);
+        l1.SetRepeatStride(kL0 / c0Size);
+    } else {
+        l1.SetChannelSize(shape1 * shape4); // c1 * c0
+        l1.SetRepeatStride(kL0 / shape4);
+    }
 
     pto::TASSIGN(l1, static_cast<uint64_t>(src.GetAddr()));
     pto::TASSIGN(l0, static_cast<uint64_t>(dst.GetAddr()));
     pto::TSETFMATRIX(l1);
-    pto::TIMG2COL(l0, l1, mPos, kPos);
+    pto::TIMG2COL<dstTensor, srcTensor, SetFmatrixMode::FMATRIX_A_AUTO>(l0, l1, mPos, kPos);
 }
 
 template <typename T, typename U>
@@ -455,8 +485,8 @@ TILEOP void TLoad2D(T &dst, U &src, const int64_t &indexRow, const int64_t &inde
     int64_t n1 = GetConvShape<CONV_IDX_1>(src);
     int64_t n0 = GetConvShape<CONV_IDX_2>(src);
     int64_t c0 = GetConvShape<CONV_IDX_3>(src);
-    using srcTensor = pto::ConvTile<pto::TileType::Mat, typename U::Type, bufferSize, pto::Layout::FRACTAL_Z, pto::ConvTileShape<-1, -1, -1, -1>>;
-    srcTensor l1(c1hw, n1, n0, c0);
+    using srcTensor = pto::ConvTile<pto::TileType::Mat, typename U::Type, bufferSize, pto::Layout::FRACTAL_Z, pto::ConvTileShape<-1, -1, staticN0, staticC0>>;
+    srcTensor l1(c1hw, n1);
 
     constexpr auto staticKL0 = Std::tuple_element<CONV_IDX_0, typename T::TileShape>::type::value;
     constexpr auto staticNL0 = Std::tuple_element<CONV_IDX_1, typename T::TileShape>::type::value;
