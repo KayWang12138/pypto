@@ -125,17 +125,29 @@ def moe_fusion_kernel(hidden_states_shape, mm_weight_shape, e_score_bias_shape, 
                         "stitch_cfgcache_size": 7700000},
         pass_options={"cube_l1_reuse_setting": {-1: 2}}
     )
+    # def kernel(
+    #     hidden_states: pypto.tensor(hidden_states_shape, dtype=pypto.DT_BF16),
+    #     mm_weight: pypto.tensor(mm_weight_shape, dtype=pypto.DT_FP32),
+    #     e_score_bias_input: pypto.tensor(e_score_bias_shape, dtype=pypto.DT_BF16),
+    #     w13: pypto.tensor(w13_shape, dtype=pypto.DT_INT8, format=pypto.TileOpFormat.TILEOP_NZ),
+    #     w13_scale: pypto.tensor(w13_scale_shape, dtype=pypto.DT_BF16),
+    #     w2: pypto.tensor(w2_shape, dtype=pypto.DT_INT8, format=pypto.TileOpFormat.TILEOP_NZ),
+    #     w2_scale: pypto.tensor(w2_scale_shape, dtype=pypto.DT_BF16),
+    #     weight_k: pypto.tensor(topk_weights_shape, dtype=pypto.DT_FP32),
+    #     ids_k: pypto.tensor(topk_ids_shape, dtype=pypto.DT_INT32),
+    #     ffn_res: pypto.tensor(ffn_res_shape, dtype=pypto.DT_BF16)
+    # ):
     def kernel(
-        hidden_states: pypto.tensor(hidden_states_shape, dtype=pypto.DT_BF16),
-        mm_weight: pypto.tensor(mm_weight_shape, dtype=pypto.DT_FP32),
-        e_score_bias_input: pypto.tensor(e_score_bias_shape, dtype=pypto.DT_BF16),
-        w13: pypto.tensor(w13_shape, dtype=pypto.DT_INT8, format=pypto.TileOpFormat.TILEOP_NZ),
-        w13_scale: pypto.tensor(w13_scale_shape, dtype=pypto.DT_BF16),
-        w2: pypto.tensor(w2_shape, dtype=pypto.DT_INT8, format=pypto.TileOpFormat.TILEOP_NZ),
-        w2_scale: pypto.tensor(w2_scale_shape, dtype=pypto.DT_BF16),
-        weight_k: pypto.tensor(topk_weights_shape, dtype=pypto.DT_FP32),
-        ids_k: pypto.tensor(topk_ids_shape, dtype=pypto.DT_INT32),
-        ffn_res: pypto.tensor(ffn_res_shape, dtype=pypto.DT_BF16)
+        hidden_states: pypto.tensor([pypto.StatusType.DYNAMIC, pypto.StatusType.STATIC], dtype=pypto.DT_BF16),
+        mm_weight: pypto.tensor([...], dtype=pypto.DT_FP32),
+        e_score_bias_input: pypto.tensor([...], dtype=pypto.DT_BF16),
+        w13: pypto.tensor([...], dtype=pypto.DT_INT8),
+        w13_scale: pypto.tensor([...], dtype=pypto.DT_BF16),
+        w2: pypto.tensor([...], dtype=pypto.DT_INT8),
+        w2_scale: pypto.tensor([...], dtype=pypto.DT_BF16),
+        weight_k: pypto.tensor([pypto.StatusType.DYNAMIC, pypto.StatusType.STATIC], dtype=pypto.DT_FP32),
+        ids_k: pypto.tensor([pypto.StatusType.DYNAMIC, pypto.StatusType.STATIC], dtype=pypto.DT_INT32),
+        ffn_res: pypto.tensor([pypto.StatusType.DYNAMIC, pypto.StatusType.STATIC], dtype=pypto.DT_BF16)
     ):
         # 3. 得到动态tensor的shape
         bs = hidden_states.shape[0]

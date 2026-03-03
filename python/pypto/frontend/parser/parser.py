@@ -15,7 +15,7 @@ import ast
 import inspect
 import functools
 import re
-from typing import Any, Optional, Union, Callable
+from typing import Any, List, Optional, Union, Callable
 
 import pypto
 from pypto.symbolic_scalar import SymbolicScalar, SymInt
@@ -156,8 +156,9 @@ class Parser(ast.NodeVisitor):
         self._signature_cache = None
         self._lowered_signature_cache = None
         self._bound_dim_values: Optional[dict[str, SymInt]] = None
+        self.input_pto_tensor: Optional[list[pypto.Tensor]] = None
 
-
+    # TODO delete
     @staticmethod
     def match_input_shapes(
         input_shapes: list[list[int]],
@@ -188,7 +189,7 @@ class Parser(ast.NodeVisitor):
         def _assign_dim_value(dim: pypto.SymbolicScalar, actual_value: int) -> None:
             if dim_value_map.get(str(dim), actual_value) != actual_value:
                 raise ValueError(
-                    f"Symbolic scalar {dim} has multiple concrete values: {dim_value_map[dim]} and {actual_value}"
+                    f"Symbolic scalar {dim} has multiple concrete values: {dim_value_map[str(dim)]} and {actual_value}"
                 )
             dim_value_map[str(dim)] = actual_value
 
@@ -198,7 +199,7 @@ class Parser(ast.NodeVisitor):
                 # For Tensor inputs, map each symbolic dimension to its concrete shape value
                 for axis, dim in enumerate(tensor_def.shape):
                     if isinstance(dim, pypto.SymbolicScalar):
-                        # Extract the actual shape value from the input tensor
+                    # if dim in (pypto.StatusType.DYN, pypto.StatusType.DYNAMIC):
                         actual_value = actual_input_shape[axis]
                         if isinstance(actual_value, int):
                             _assign_dim_value(dim, actual_value)
@@ -230,6 +231,7 @@ class Parser(ast.NodeVisitor):
         return self
 
 
+    # TODO delete
     @_catch_parser_errors
     def bind_dynamic_dims_to_input_tensors(
         self,
@@ -270,7 +272,7 @@ class Parser(ast.NodeVisitor):
                 if isinstance(dim, pypto.SymbolicScalar):
                     runtime_dim = lowered_tensor.shape[axis]
                     _assign_dim_value(dim, runtime_dim)
-
+        print(f"zjr123 ------- dim_value_map: {dim_value_map}")
         self._bound_dim_values = dim_value_map
 
 
@@ -300,15 +302,31 @@ class Parser(ast.NodeVisitor):
 
         function_node = self.diag.source.as_ast()
 
+        def __is_enum_dyn(tensor_input_args: List[pypto.Tensor]) -> bool:
+            return any(
+                len(tensor_def.shape) == 0 or
+                any(isinstance(dim, pypto.StatusType) for dim in tensor_def.shape)
+                for tensor_def in tensor_input_args
+            )
+
         # Temporarily set up context to parse signature
         with self.context.with_frame():
             for k, v in self._parsed_extra_vars.items():
                 self.context.add(k, v)
             # If sample inputs were provided, use them to concretize symbolic dims.
+
+            # TODO _bound_dim_values 为None
             self._apply_bound_dim_values_to_context_frame()
 
             # Get input arguments (only tensors allowed)
             tensor_input_args = self._visit_arguments(function_node.args)
+
+            if __is_enum_dyn(tensor_input_args):
+                tensor_input_args_def = self._visit_arguments(function_node.args)
+                tensor_input_args = self.input_pto_tensor[:len(tensor_input_args_def)]  # ensure len equal
+                
+                for in_obj, def_obj in zip(tensor_input_args, tensor_input_args_def):
+                    in_obj.name = def_obj.name
 
             # Get and validate output arguments
             if function_node.returns is None:
@@ -394,7 +412,10 @@ class Parser(ast.NodeVisitor):
             for k, v in self._parsed_extra_vars.items():
                 self.context.add(k, v)
             # Apply any concrete bindings for symbolic dimensions
+            
+            # TODO 先Delete
             self._apply_bound_dim_values_to_context_frame()
+
             self._result = self.visit(self._parsed_node)
         return self._result
 
@@ -573,6 +594,7 @@ class Parser(ast.NodeVisitor):
         return ExprEvaluator.eval(node, var_values, self.diag)
 
 
+    # TODO delete
     def _apply_bound_dim_values_to_context_frame(self) -> None:
         """Replace symbolic scalars in the current frame with bound values.
         This method is called after bind_dynamic_dims_to_input_tensors() or
@@ -1060,6 +1082,9 @@ class Parser(ast.NodeVisitor):
                 # For nested functions, we don't create a pypto.Function; body will be inlined on call.
                 return None
             else:
+                print(f"----_visit_function_def tensor_input_args: {tensor_input_args}")
+
+                print(f"----_visit_function_def output_args: {output_args}")
                 with pypto.function(node.name, *tensor_input_args, *output_args):
                     for _ in pypto.loop(1):
                         self._visit_body(node.body)
@@ -1209,6 +1234,7 @@ class Parser(ast.NodeVisitor):
 
         for idx, arg in enumerate(node.args):
             result = self._visit_arg(arg, default_values[idx])
+            print(f"zjr123 -------- result {result}")
             if isinstance(result, pypto.Tensor):
                 if idx >= first_default_idx:
                     self._raise_if_tensor_has_default(arg)
