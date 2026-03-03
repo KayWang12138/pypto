@@ -64,8 +64,8 @@ SOC_VERSION_MAP: dict[int, str] = {
     # Ascend 910_93xx (A3)
     250: "Ascend910_9391", 251: "Ascend910_9392", 252: "Ascend910_9381",
     253: "Ascend910_9382", 254: "Ascend910_9372", 255: "Ascend910_9362",
-    # Ascend 910_95 / 950 (A3+)
-    260: "Ascend910_95",
+    # Ascend 950 (A3+)
+    260: "Ascend950",
 }
 
 CHIP_NAME_TO_SOC_VERSION: dict[str, int] = {v: k for k, v in SOC_VERSION_MAP.items()}
@@ -78,7 +78,7 @@ CHIP_FAMILIES: list[tuple[str, str, str, str]] = [
     (r"^Ascend910B[1-4]", "Ascend910B", "A2", "Training"),
     (r"^Ascend310B", "Ascend310B", "A2", "Inference"),
     (r"^Ascend910_93", "Ascend910_93", "A3", "Training"),
-    (r"^Ascend910_95|^Ascend950", "Ascend950", "A3+", "Training"),
+    (r"^Ascend950", "Ascend950", "A3+", "Training"),
 ]
 
 # 已知华为 PCI 设备 ID → (代际标签, 芯片家族前缀)
