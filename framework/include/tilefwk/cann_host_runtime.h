@@ -31,9 +31,12 @@ public:
     CannHostRuntime& operator=(const CannHostRuntime&) = delete;
 private:
     CannHostRuntime();
-    ~CannHostRuntime() = default;
+    ~CannHostRuntime();
+    void *GetSymbol(const std::string &sym);
 
     GetSocVerFunc socVerFunc_;
+    void *handleDep_ = nullptr;	 
+    void *handle_ = nullptr;
 };
 }  // namespace tile_fwk
 }  // namespace npu

@@ -21,25 +21,41 @@ namespace tile_fwk {
 const uint32_t kMaxLength = 50;
 const std::string socVerFuncName = "rtGetSocVersion";
 
+void *CannHostRuntime::GetSymbol(const std::string &sym) {	 
+ #ifdef BUILD_WITH_CANN	 
+     if (handleDep_ != nullptr && handle_ != nullptr) {	 
+         return dlsym(handle, sym.c_str());	 
+     }	 
+ #endif	 
+     (void)sym;	 
+     return nullptr;	 
+ }	 
+
 CannHostRuntime::CannHostRuntime() {
 #ifdef BUILD_WITH_CANN
     std::string LibPathDir = std::string(ASCEND_CANN_PACKAGE_PATH) + "/lib64/";
     std::string soDepPath = RealPath(LibPathDir + "libprofapi.so");
     FUNCTION_LOGW("soDepPath = %s", soDepPath.c_str());
-    void *handleDep = dlopen(soDepPath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+    void *handleDep_ = dlopen(soDepPath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
     std::string soPath = RealPath(LibPathDir + "libruntime.so");
     FUNCTION_LOGW("soPath = %s", soPath.c_str());
-    void *handle = dlopen(soPath.c_str(), RTLD_LAZY);
-    if (handleDep != nullptr && handle != nullptr) {
-        socVerFunc_ = (GetSocVerFunc)dlsym(handle, socVerFuncName.c_str());
-    }
-    if (handle != nullptr) {
-        dlclose(handle);
-    }
-    if (handleDep != nullptr) {
-        dlclose(handleDep);
+    void *handle_ = dlopen(soPath.c_str(), RTLD_LAZY);
+    if (handleDep_ != nullptr && handle_ != nullptr) {
+        socVerFunc_ = (GetSocVerFunc)GetSymbol(socVerFuncName);
     }
 #endif
+    if (handleDep_ == nullptr || handle_ == nullptr) { 
+        FUNCTION_LOGW("Cannot obtain so file through dlopen."); 
+    }
+}
+
+CannHostRuntime::~CannHostRuntime() { 
+    if (handle_ != nullptr) {
+        dlclose(handle_);	 
+    }
+    if (handleDep_ != nullptr) {	 
+        dlclose(handleDep_);	 
+    }
 }
 
 CannHostRuntime &CannHostRuntime::Instance() {
