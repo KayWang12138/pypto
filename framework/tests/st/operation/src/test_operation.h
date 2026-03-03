@@ -377,16 +377,16 @@ static std::vector<Tensor> GetTensors(const nlohmann::json &json_data, bool is_i
     std::cout << "Create Matmul Tensors For " << json_data << std::endl;
     std::vector<Tensor> tensors;
     for (const auto &tensor_config : json_data.at(key)) {
-        auto shape = tensor_config.at("shape").get<std::vector<int64_t>>();	 
-        auto dtype = GetDataType(tensor_config.at("dtype").get<std::string>()); 
-        auto name = tensor_config.at("name").get<std::string>(); 
-        auto format = tensor_config.at("format").get<std::string>(); 
-        if (format == "ND") { 
-            std::cout << "Create ND Tensors" << std::endl; 
-            tensors.push_back(Tensor(dtype, shape, name)); 
-        } else { 
-            std::cout << "Create NZ Tensors" << std::endl; 
-            tensors.push_back(Tensor(dtype, shape, name, TileOpFormat::TILEOP_NZ)); 
+        auto shape = tensor_config.at("shape").get<std::vector<int64_t>>();
+        auto dtype = GetDataType(tensor_config.at("dtype").get<std::string>());
+        auto name = tensor_config.at("name").get<std::string>();
+        auto format = tensor_config.at("format").get<std::string>();
+        if (format == "ND") {
+            std::cout << "Create ND Tensors" << std::endl;
+            tensors.push_back(Tensor(dtype, shape, name));
+        } else {
+            std::cout << "Create NZ Tensors" << std::endl;
+            tensors.push_back(Tensor(dtype, shape, name, TileOpFormat::TILEOP_NZ));
         }
     }
     return tensors;
@@ -398,16 +398,16 @@ static std::vector<Tensor> GetTensors(const nlohmann::json &json_data, bool is_i
         return Tensor();
     }
     const auto &tensor_config = json_data.at("params").at(key);
-    auto format = tensor_config.at("format").get<std::string>();	 
-    auto name = tensor_config.at("name").get<std::string>(); 
-    auto dtype = GetDataType(tensor_config.at("dtype").get<std::string>()); 
-    auto shape = tensor_config.at("shape").get<std::vector<int64_t>>(); 
-    if (format == "NZ") { 
-        std::cout << "Create NZ Tensors" << std::endl; 
-        return Tensor(dtype, shape, name, TileOpFormat::TILEOP_NZ); 
-    } else { 
-        std::cout << "Create ND Tensors" << std::endl; 
-        return Tensor(dtype, shape, name); 
+    auto format = tensor_config.at("format").get<std::string>();
+    auto name = tensor_config.at("name").get<std::string>();
+    auto dtype = GetDataType(tensor_config.at("dtype").get<std::string>());
+    auto shape = tensor_config.at("shape").get<std::vector<int64_t>>();
+    if (format == "NZ") {
+        std::cout << "Create NZ Tensors" << std::endl;
+        return Tensor(dtype, shape, name, TileOpFormat::TILEOP_NZ);
+    } else {
+        std::cout << "Create ND Tensors" << std::endl;
+        return Tensor(dtype, shape, name);
     }
 }
 
@@ -504,10 +504,6 @@ T2 GetMapValByName(const std::map<T1, T2> &map_data, const T1 &name) {
                 json_data.at("params").at("l0c2l1_params").end()) {
             param.l0c2l1AsLeftMatrix = GetValueByNameWithKey<bool>(json_data, "is_as_left_matrix", "l0c2l1_params");
         }
-    }
-    if (json_data.at("params").find("trans_mode") != json_data.at("params").end() &&
-        !json_data.at("params").find("trans_mode")->is_null()) {
-        param.transMode = GetValueByName<int>(json_data, "trans_mode");
     }
 
     return param;
