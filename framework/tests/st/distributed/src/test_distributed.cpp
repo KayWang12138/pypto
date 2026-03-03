@@ -30,7 +30,8 @@ public:
 
     void SetUp() override
     {
-        Distributed::TestFrameworkInit(testParam, hcomTestParam, physicalDeviceId);
+        //Distributed::TestFrameworkInit(testParam, hcomTestParam, physicalDeviceId);
+        Distributed::TestFrameworkInitMulti(testParam, hcomTestParam, physicalDeviceId);
         std::string outputDir = "output";
         bool res = CreateDir(outputDir);
         CHECK(res) << "Failed to create directory: " << outputDir;

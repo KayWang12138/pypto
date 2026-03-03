@@ -33,6 +33,7 @@ from utils.distributed_config import DistributedConfig
 
 @pypto.frontend.jit()
 def matmul_allreduce_add_rmsnorm_kernel(
+    comm_tensor: pypto.Tensor(),
     in_tensor: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
     matmul_weight: pypto.Tensor(),
     residual: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
@@ -58,9 +59,9 @@ def matmul_allreduce_add_rmsnorm_kernel(
         # 1. create shmem tesnor
         shmem_shape = [1, view_row_shape, hidden_size]
         shmem_data, shmem_signal = pypto.distributed.create_shmem_tensor(
-            group_name, world_size, pypto.DT_FP32, shmem_shape)
-        shmem_barrier_signal = pypto.distributed.create_shmem_signal(group_name, world_size)
-        my_pe = pypto.distributed.my_symbolic_pe(group_name)
+            comm_tensor, group_name, world_size, pypto.DT_FP32, shmem_shape)
+        shmem_barrier_signal = pypto.distributed.create_shmem_signal(comm_tensor, group_name, world_size)
+        my_pe = pypto.distributed.my_symbolic_pe(comm_tensor)
         for _ in pypto.loop(1, name="LOOP_MM_AR_ARMS_L0", idx_name="_"):
             in_tensor_tile = pypto.view(
                 in_tensor, (view_row_shape, in_tensor.shape[1]), [bs_idx * view_row_shape, 0],
@@ -193,8 +194,8 @@ def matmul_allreduce_add_rmsnorm_worker(
 
     out_tensor = torch.empty(residual.shape, dtype=torch.bfloat16, device=device)
     residual_out = torch.empty(residual.shape, dtype=torch.bfloat16, device=device)
-
-    inputs = [in_tensor.to(device), matmul_weight.to(device), residual.to(device), gamma.to(device),
+    comm_tensor = pypto.creat_comm_tensor
+    inputs = [comm_tensor, in_tensor.to(device), matmul_weight.to(device), residual.to(device), gamma.to(device),
         bias.to(device), out_tensor, residual_out]
 
     batch_size, _ = in_tensor.shape
