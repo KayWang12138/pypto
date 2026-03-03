@@ -483,7 +483,7 @@ void SetAMulBAttr(const MatmulGraphNodes &tensorGraphNodes, const MatmulAttrPara
         });
     OP_CHECK(true, {
         ASSERT(attrParam.transMode == 0 || Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510)
-            << "TF32 is only supported on A5 platform."
+            << "TF32 is only supported on Ascend 950PR/Ascend 950DT platform."
             << std::endl;
     });
 

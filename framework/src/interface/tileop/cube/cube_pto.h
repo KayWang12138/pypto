@@ -570,8 +570,8 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord, int16_t subblockId) {
     }
 }
 
-template <bool isZeroC, typename T, typename U, typename V>
-TILEOP void TMatmul(T &c, U &a, V &b, const int64_t transMode) {
+template <bool isZeroC, uint8_t transMode, typename T, typename U, typename V>
+TILEOP void TMatmul(T &c, U &a, V &b) {
     constexpr auto shapeSizeA = Std::tuple_size<typename U::Shape>::value;
     constexpr auto shapeSizeB = Std::tuple_size<typename V::Shape>::value;
     constexpr auto shapeSizeC = Std::tuple_size<typename T::Shape>::value;
@@ -598,7 +598,7 @@ TILEOP void TMatmul(T &c, U &a, V &b, const int64_t transMode) {
 
     validM = (validM + BLOCK_CUBE_M_N - 1) / BLOCK_CUBE_M_N * BLOCK_CUBE_M_N;
     tileL0ATensor l0a(validM, validK);
-    if (transMode != 0) {
+    if constexpr (transMode != 0) {
         l0a.SetMadTF32Mode(static_cast<pto::RoundMode>(transMode));
     }
     tileL0BTensor l0b(validK, validN);
@@ -621,8 +621,8 @@ TILEOP void TMatmul(T &c, U &a, V &b, const int64_t transMode) {
     }
 }
 
-template <typename T0, typename T1, typename T2, typename T3>
-TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, const int64_t transMode, T3 &bias) {
+template <uint8_t transMode, typename T0, typename T1, typename T2, typename T3>
+TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, T3 &bias) {
     constexpr auto shapeSizeA = Std::tuple_size<typename T1::Shape>::value;
     constexpr auto shapeSizeB = Std::tuple_size<typename T2::Shape>::value;
     constexpr auto shapeSizeC = Std::tuple_size<typename T0::Shape>::value;
@@ -651,7 +651,7 @@ TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, const int64_t transMode, T3 &bias) {
 
     validM = (validM + BLOCK_CUBE_M_N - 1) / BLOCK_CUBE_M_N * BLOCK_CUBE_M_N;
     tileL0ATensor l0a(validM, validK);
-    if (transMode != 0) {
+    if constexpr (transMode != 0) {
         l0a.SetMadTF32Mode(static_cast<pto::RoundMode>(transMode));
     }
     tileL0BTensor l0b(validK, validN);
