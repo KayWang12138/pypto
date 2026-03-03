@@ -15,7 +15,8 @@
 
 #include "utils/string_utils.h"
 #include "interface/interpreter/function.h"
-#include "interface/utils/log.h"
+#include "interface/utils/common.h"
+#include "tilefwk/pypto_fwk_log.h"
 #include "interface/interpreter/operation.h"
 #include "interface/operation/operation_impl.h"
 
@@ -246,13 +247,13 @@ void ExecutePrint(ExecuteOperationContext *ctx) {
             csv << "element_count," << oop->GetData()->GetDataSize() / oop->GetData()->GetElementSize() << "\n";
             csv.close();
         } else {
-            std::cerr << "open csv file " << csvPath << " failed!!!!\n";
+            VERIFY_LOGE("open csv file %s failed!!!!", csvPath.c_str());
         }
     }
 
     std::string format;
     if (ctx->op->GetAttr(OP_ATTR_PREFIX + "format", format)) {
-        std::cout << FormatString(format, ctx->opInter, ctx->ioperandDataViewList, scalars) << std::endl;
+        VERIFY_LOGI("%s", FormatString(format, ctx->opInter, ctx->ioperandDataViewList, scalars).c_str());
     }
 }
 REGISTER_CALC_OP(OP_PRINT, Opcode::OP_PRINT, ExecutePrint);
@@ -264,9 +265,9 @@ void ExecuteOpReshape(ExecuteOperationContext *ctx) {
     auto &iop = ctx->ioperandDataViewList->at(0);
     auto actualIop = std::make_shared<LogicalTensorData>(iop->GetData());
     if (oop->GetSize() > iop->GetSize()) {
-        ALOG_EVENT(ctx->op->Dump());
-        ALOG_EVENT("iop validShape: ", iop->GetShape(), " ---> oop validShape: ", oop->GetShape());
-        ALOG_EVENT("Reshape: input tensor is not enough to reshape to output tensor");
+        VERIFY_EVENT("%s", ctx->op->Dump().c_str());
+        VERIFY_EVENT("iop validShape: %s ---> oop validShape: %s", IntVecToStr(iop->GetShape()).c_str(), IntVecToStr(oop->GetShape()).c_str());
+        VERIFY_EVENT("Reshape: input tensor is not enough to reshape to output tensor");
         calc::Reshape(oop, actualIop);
     } else {
         calc::Reshape(oop, iop);
