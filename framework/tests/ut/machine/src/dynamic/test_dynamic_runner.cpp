@@ -169,7 +169,8 @@ TEST_F(TestDynamicDeviceRunner, test_dump_device_perf) {
     devKernelArgs.nrValidAic = 1;
     devKernelArgs.nrAicpu = 3;
     config::SetOptionsNg<int64_t>("debug.runtime_debug_mode", 1);
-    npu::tile_fwk::DeviceRunner::Get().InitMetaData(devKernelArgs);
+    bool isCaptureMode = false;
+    npu::tile_fwk::DeviceRunner::Get().InitMetaData(devKernelArgs, isCaptureMode);
     EXPECT_NE(devKernelArgs.aicpuPerfAddr, 0);
     std::vector<void *> perfData;
     Metrics *metr = static_cast<Metrics*>(malloc(sizeof(Metrics) + sizeof(TaskStat)));

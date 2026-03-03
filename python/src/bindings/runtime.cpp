@@ -323,14 +323,15 @@ struct ControlFlowCache {
 
 class KernelBinary {
 public:
-    KernelBinary(std::shared_ptr<Function> func) : dynFunc(func) {
+    KernelBinary(std::shared_ptr<Function> func, bool isCaptureMode) : dynFunc(func) {
         dynAttr = dynFunc->GetDyndevAttribute().get();
         devProg = (DevAscendProgram *)dynAttr->devProgBinary.data();
         kernelBin = DeviceLauncher::RegisterKernelBin(dynAttr->kernelBinary);
         workspaceSize = devProg->memBudget.Total();
         InitCachedArgs();
         auto aicpuArgs = (AiCpuArgs *)aicpuArgBuf.data();
-        DeviceLauncher::FillDeviceKernelArgs(dynAttr->devProgBinary, aicpuArgs->kArgs, dynAttr->commGroupNames);
+        DeviceLauncher::FillDeviceKernelArgs(
+            dynAttr->devProgBinary, aicpuArgs->kArgs, dynAttr->commGroupNames, isCaptureMode);
     }
 
     uint8_t *FindCtrlFlowCache(std::vector<std::vector<int64_t>> &inputs, bool isOriginShape) {
@@ -515,6 +516,7 @@ public:
     }
 
     bool IsTripleStream() { return tripleStream; }
+    void SetCaptureMode(bool captureMode) { isCaptureMode = captureMode; }
 
     KernelBinary *GetKernelBinary(std::vector<DeviceTensorData> &tensors) {
         for (auto &k : kernels) {
@@ -525,8 +527,7 @@ public:
         return nullptr;
     }
 
-    uint8_t *FindCtrlFlowCache(KernelBinary *kernel, py::object &module,
-        std::vector<DeviceTensorData> &tensors, bool isCaptureMode) {
+    uint8_t *FindCtrlFlowCache(KernelBinary *kernel, py::object &module, std::vector<DeviceTensorData> &tensors) {
         if (!IsCacheEnabled()) {
             return nullptr;
         }
@@ -570,7 +571,7 @@ public:
 
     KernelBinary *RegisterLastCompiledKernel(py::object &module) {
         auto func = Program::GetInstance().GetLastFunction();
-        auto kernel = new KernelBinary(Program::GetInstance().GetFunctionSharedPtr(func));
+        auto kernel = new KernelBinary(Program::GetInstance().GetFunctionSharedPtr(func), isCaptureMode);
         kernels.push_back(kernel);
         if (inferCacheShape) {
 #if ENABALE_VERBOSE_LOG
@@ -585,8 +586,8 @@ public:
         return kernel->GetWorkspaceSize(tensors);
     }
 
-    void Launch(KernelBinary *kernel, bool isCaptureMode, aclrtStream aicoreStream,
-        std::vector<DeviceTensorData> &tensors, uint8_t *ctrlFlowCache, int64_t *workspace) {
+    void Launch(KernelBinary *kernel, aclrtStream aicoreStream, std::vector<DeviceTensorData> &tensors,
+        uint8_t *ctrlFlowCache, int64_t *workspace) {
         auto [args, argsSize] = kernel->BuildKernelArgs(tensors);
         rtAicpuArgs.args = args;
         rtAicpuArgs.argsSize = argsSize;
@@ -708,6 +709,7 @@ private:
     bool inferCacheShape{false};
     bool tripleStream{true};
     bool isDebugMode{false};
+    bool isCaptureMode{false};
     int64_t stitchCfgCacheSize{0};
 
     rtHostInputInfo_t hostInfo;
@@ -753,6 +755,8 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
     DeviceGuard devGuard(devId);
 
     auto kmodule = py::getattr(module, "kmodule").cast<KernelModulePtr>();
+    kmodule->SetCaptureMode(DeviceLauncher::IsCaptureMode(aicoreStream));
+
     HOST_PERF_TRACE(TracePhase::LaunchInit);
 
     auto kbinary = kmodule->GetKernelBinary(tensors);
@@ -778,14 +782,14 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
         wsAddr = (int64_t *)pyalloc(wsSize).cast<int64_t>();
     }
     HOST_PERF_TRACE(TracePhase::LaunchAllocWorkSpace);
-
-    bool isCaptureMode = DeviceLauncher::AddAicpuStream(aicoreStream, kmodule->IsTripleStream());
+    
+    kmodule->SetCaptureMode(DeviceLauncher::AddAicpuStream(aicoreStream, kmodule->IsTripleStream()));
     HOST_PERF_TRACE(TracePhase::LaunchAttachStream);
     
-    uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors, isCaptureMode);
+    uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors);
     HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
-    
-    kmodule->Launch(kbinary, isCaptureMode, aicoreStream, tensors, ctrlFlowCache, wsAddr);
+
+    kmodule->Launch(kbinary, aicoreStream, tensors, ctrlFlowCache, wsAddr);
     HOST_PERF_TRACE(TracePhase::Launch);
     HOST_PERF_EVT_END(EventPhase::LaunchKernel);
 }
