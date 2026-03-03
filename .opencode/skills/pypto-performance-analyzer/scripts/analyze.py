@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
-# -*- coding: utf-8 -*-
+# coding: utf-8
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 """
 PyPTO Performance Analyzer - Swimlane & Computation Graph Analysis
 

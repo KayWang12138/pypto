@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
-# -*- coding: utf-8 -*-
+# coding: utf-8
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 """
 PyPTO Performance Autotuner - Iterative Search Strategy
 
@@ -173,7 +173,8 @@ class SearchSpaceLoader:
     def __init__(self, search_space_path: Path):
         self.search_space_path = search_space_path
 
-    def _normalize_layer(self, layer: Dict[str, Any]) -> Dict[str, Any]:
+    @staticmethod
+    def _normalize_layer(layer: Dict[str, Any]) -> Dict[str, Any]:
         """Normalize one layer and enforce stitch max-num primary knob."""
         name = layer.get("name")
         params = layer.get("params")
@@ -187,16 +188,17 @@ class SearchSpaceLoader:
         normalized.setdefault("max_trials", DEFAULT_BUDGET)
 
         if name == "stitch":
-            normalized["params"] = self._normalize_stitch_params(params)
+            normalized["params"] = SearchSpaceLoader._normalize_stitch_params(params)
 
         for param_name, spec in normalized["params"].items():
             if not isinstance(param_name, str) or not param_name:
                 raise ValueError(f"invalid param name in layer '{name}'")
-            type(self).expand_param_values(spec)
+            SearchSpaceLoader.expand_param_values(spec)
 
         return normalized
 
-    def _normalize_stitch_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    @staticmethod
+    def _normalize_stitch_params(params: Dict[str, Any]) -> Dict[str, Any]:
         """Use stitch_function_max_num as the primary stitch knob."""
         deprecated = {
             "stitch_function_num_initial",
@@ -212,7 +214,7 @@ class SearchSpaceLoader:
             legacy_initial = params.get("stitch_function_num_initial")
             if isinstance(legacy_initial, dict):
                 try:
-                    values = type(self).expand_param_values(legacy_initial)
+                    values = SearchSpaceLoader.expand_param_values(legacy_initial)
                     clean_values = [int(v) for v in values if isinstance(v, (int, float))]
                     clean_values = [v for v in clean_values if 1 <= v <= 256]
                     if clean_values:
@@ -242,12 +244,13 @@ class SearchSpaceLoader:
         for idx, layer in enumerate(layers):
             if not isinstance(layer, dict):
                 raise ValueError(f"layer at index {idx} must be object")
-            normalized_layers.append(self._normalize_layer(layer))
+            normalized_layers.append(SearchSpaceLoader._normalize_layer(layer))
 
         raw["layers"] = normalized_layers
         return raw
 
-    def estimate_layer_size(self, layer: Dict[str, Any]) -> int:
+    @staticmethod
+    def estimate_layer_size(layer: Dict[str, Any]) -> int:
         """Estimate Cartesian size for one layer."""
         params = layer.get("params", {})
         if not isinstance(params, dict) or not params:
@@ -255,7 +258,7 @@ class SearchSpaceLoader:
 
         size = 1
         for _, spec in params.items():
-            values = type(self).expand_param_values(spec)
+            values = SearchSpaceLoader.expand_param_values(spec)
             if not values:
                 continue
             size *= len(values)
@@ -553,7 +556,8 @@ class PruningEngine:
             return False
         return max(numeric) <= 64
 
-    def should_prune(self, flat_config: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+    @staticmethod
+    def should_prune(flat_config: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
         """Return (should_prune, reason)."""
         cube_l1_reuse_mode = flat_config.get("cube_l1_reuse_mode")
         cube_nbuffer_mode = flat_config.get("cube_nbuffer_mode", 0)
@@ -562,7 +566,7 @@ class PruningEngine:
 
         if flat_config.get("enable_split_k") is True:
             k_tile = flat_config.get("cube_tile_k")
-            if type(self)._is_small_k_tile(k_tile):
+            if PruningEngine._is_small_k_tile(k_tile):
                 return True, "enable_split_k=True but cube_tile_k is too small"
 
         if flat_config.get("pg_skip_partition") is True:
@@ -673,7 +677,8 @@ class BenchmarkRunner:
                 return maybe_path
         return None
 
-    def _extract_metrics(self, summary: Dict[str, Any]) -> Dict[str, float]:
+    @staticmethod
+    def _extract_metrics(summary: Dict[str, Any]) -> Dict[str, float]:
         """Extract required metrics from analysis_summary.json."""
         pools: List[Dict[str, Any]] = [summary]
         for key in ("metrics", "performance", "summary", "stats"):
@@ -681,21 +686,21 @@ class BenchmarkRunner:
             if isinstance(value, dict):
                 pools.append(value)
 
-        latency = type(self)._first_float(
+        latency = BenchmarkRunner._first_float(
             pools,
             ["total_latency_ms", "latency_ms", "end_to_end_latency_ms", "total_time_ms"],
         )
-        kernel = type(self)._first_float(
+        kernel = BenchmarkRunner._first_float(
             pools,
             ["kernel_time_ms", "kernel_total_ms", "kernel_total_time_ms"],
         )
-        idle = type(self)._first_float(
+        idle = BenchmarkRunner._first_float(
             pools,
             ["idle_ratio", "npu_idle_ratio", "bubble_ratio"],
         )
 
         if latency is None:
-            timeline_us = type(self)._first_float(pools, ["timeline_us", "timeline_length_us"])
+            timeline_us = BenchmarkRunner._first_float(pools, ["timeline_us", "timeline_length_us"])
             if timeline_us is not None:
                 latency = timeline_us / 1000.0
 
@@ -807,7 +812,7 @@ class BenchmarkRunner:
             try:
                 self._execute_benchmark(full_config)
                 summary = self._run_analyzer(output_dir, trial_id)
-                metrics = self._extract_metrics(summary)
+                metrics = BenchmarkRunner._extract_metrics(summary)
                 return TrialOutcome(
                     trial_id=trial_id,
                     layer=layer_name,
@@ -1056,7 +1061,7 @@ def run_autotune(args: argparse.Namespace) -> int:
             if not isinstance(params, dict):
                 continue
 
-            space_size = search_loader.estimate_layer_size(layer)
+            space_size = SearchSpaceLoader.estimate_layer_size(layer)
             strategy = generator.select_strategy(space_size)
 
             remain_budget = max(0, int(args.budget) - total_trials)
@@ -1118,7 +1123,7 @@ def run_autotune(args: argparse.Namespace) -> int:
 
                 full_config = merge_layer_config(fixed_best_layers, layer_name, candidate)
                 flat_cfg = flatten_layers(full_config)
-                should_prune, reason = pruning.should_prune(flat_cfg)
+                should_prune, reason = PruningEngine.should_prune(flat_cfg)
                 if should_prune:
                     pruned_count += 1
                     if reason:
