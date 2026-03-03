@@ -647,9 +647,11 @@ def matmul_golden_func(inputs: list, config: dict):
         if not params.get("transB")
         else np.swapaxes(inputs[1], inputs[1].ndim - 2, inputs[1].ndim - 1)
     )
-    if config["input_tensors"][0]["dtype"] == "tf32":
-        tensor_a = fp32_to_tf32_modes(torch.from_numpy(tensor_a.astype(np.float32)).to(torch.float32))[0].numpy()
-        tensor_b = fp32_to_tf32_modes(torch.from_numpy(tensor_b.astype(np.float32)).to(torch.float32))[0].numpy()
+    if params.get("trans_mode", 0) != 0:
+        tensor_a = fp32_to_tf32_modes(torch.from_numpy(tensor_a.astype(np.float32)).to(torch.float32)
+            )[int(params.get("trans_mode"))-1].numpy()
+        tensor_b = fp32_to_tf32_modes(torch.from_numpy(tensor_b.astype(np.float32)).to(torch.float32)
+            )[int(params.get("trans_mode"))-1].numpy()
     assert params.get("outDtype") in ("fp32", "fp16", "bf16", "int32", "tf32")
     if params.get("outDtype") in ("fp32", "fp16", "bf16", "tf32"):
         tensor_c = torch.matmul(

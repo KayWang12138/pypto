@@ -75,6 +75,7 @@ struct MatmulTestCaseParam {
     bool l0c2l1IsNz = false;
     bool l0c2l1TmpIsTrans = false;
     bool enable_l0c2l1 = false;
+    int transMode = 0;
 };
 
 class TestExecutor {
@@ -504,6 +505,9 @@ T2 GetMapValByName(const std::map<T1, T2> &map_data, const T1 &name) {
                 json_data.at("params").at("l0c2l1_params").end()) {
             param.l0c2l1AsLeftMatrix = GetValueByNameWithKey<bool>(json_data, "is_as_left_matrix", "l0c2l1_params");
         }
+    }
+    if (json_data.at("params").find("trans_mode") != json_data.at("params").end()) {
+        param.transMode = GetValueByName<int>(json_data, "trans_mode");
     }
 
     return param;
