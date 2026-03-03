@@ -294,16 +294,27 @@ def __validate_inputs(input_tensor1, input_tensor2, out_dtype, optional_param) -
     __validate_type(extend_params, dict, "extend_params")
     __validate_shape(input_tensor1, input_tensor2, a_trans, b_trans)
 
+    input1_dtype = input_tensor1.GetDataType()
+    input2_dtype = input_tensor2.GetDataType()
+    input1_format = input_tensor1.Format()
+    input2_format = input_tensor2.Format()
+    fp8_dtype = (pypto_impl.DataType.DT_FP8E5M2, pypto_impl.DataType.DT_FP8E4M3)
     if is_out_nz:
         raise ValueError("Output tensor do not support NZ currently.")
-    input1_valid = input_tensor1.GetDataType() == pypto_impl.DataType.DT_FP32 \
-        and input_tensor1.Format() == pypto_impl.TileOpFormat.TILEOP_NZ
-    input2_valid = input_tensor2.GetDataType() == pypto_impl.DataType.DT_FP32 \
-        and input_tensor2.Format() == pypto_impl.TileOpFormat.TILEOP_NZ
-    if input1_valid or input2_valid:
+    input1_fp32_valid = input1_dtype == pypto_impl.DataType.DT_FP32 \
+        and input1_format == pypto_impl.TileOpFormat.TILEOP_NZ
+    input2_fp32_valid = input2_dtype == pypto_impl.DataType.DT_FP32 \
+        and input2_format == pypto_impl.TileOpFormat.TILEOP_NZ
+    input1_fp8_valid = input1_dtype == pypto_impl.DataType.DT_FP8E5M2 \
+        and input1_format == pypto_impl.TileOpFormat.TILEOP_NZ
+    input2_fp8_valid = input2_dtype == pypto_impl.DataType.DT_FP8E5M2 \
+        and input2_format == pypto_impl.TileOpFormat.TILEOP_NZ
+    if (input1_fp32_valid or input2_fp32_valid):
         raise ValueError("Input tensor with DT_FP32 must use ND format, NZ format is not support currently.")
-    if input_tensor1.GetDataType() != input_tensor2.GetDataType():
-        raise ValueError("All input tensors must have the same data type")
+    if (input1_fp8_valid or input2_fp8_valid):
+        raise ValueError("Input tensor with DT_FP8E5M2 must use ND format, NZ format is not support currently.")
+    if not ((input1_dtype in fp8_dtype and input2_dtype in fp8_dtype) or (input1_dtype == input2_dtype)):
+        raise ValueError("Non-FP8 inputs require identical dtypes.")
     if input_tensor1.Dim() != 2 and extend_params is not None:
         raise RuntimeError(
             "extend_params is not supported for batched matrix multiplication."
