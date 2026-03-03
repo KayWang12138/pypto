@@ -1320,6 +1320,20 @@ def run_autotune(args: argparse.Namespace) -> int:
                 trial_id=total_trials,
                 layer_name="final",
             )
+        else:
+            payload = {
+                "target_metric": args.target_metric,
+                "best_metric": None,
+                "metrics": {},
+                "trial_id": total_trials,
+                "layer": "final",
+                "updated_at": now_iso(),
+                "best_config": global_best_config,
+            }
+            recorder.best_path.write_text(
+                json.dumps(payload, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
 
         logger.info("[autotune] done. results: %s", recorder.results_path)
         logger.info("[autotune] best: %s", recorder.best_path)
