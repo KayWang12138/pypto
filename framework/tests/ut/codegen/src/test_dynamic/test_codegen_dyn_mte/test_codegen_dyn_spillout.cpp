@@ -160,6 +160,7 @@ TEST_F(TestCodegenDynSpillOut, L1SpillTileTensor) {
     auto &op2 = function->rootFunc_->programs_[0]->AddOperation(Opcode::OP_COPY_IN, {ddrTensor}, {l1Tensor});
     op2.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_L1, shapeImme, shapeImme));
     op2.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op2.SetAttribute(OP_ATTR_PREFIX + "copy_in_mode", 0);
 
     CodeGenCtx ctx;
     CodeGenCloudNPU codegen(ctx);
