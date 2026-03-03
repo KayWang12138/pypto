@@ -623,20 +623,6 @@ class BubbleAnalyzer:
 
         return result
 
-    @staticmethod
-    def _parse_thread_field(
-        line: str, thread: Dict[str, Any], result: Dict[str, Any]
-    ) -> None:
-        """Parse a single bubble field line and update thread/result dicts."""
-        for field_key, (thread_key, total_key) in BUBBLE_FIELD_PATTERNS.items():
-            if field_key not in line:
-                continue
-            value = float(line.split(":", 1)[1].strip().rstrip("us").strip())
-            thread[thread_key] = value
-            if total_key is not None:
-                result[total_key] += value
-            return
-
     def _parse_bubble_lines(
         self, lines: List[str], result: Dict[str, Any]
     ) -> None:
@@ -657,6 +643,20 @@ class BubbleAnalyzer:
                 )
             elif result["threads"]:
                 self._parse_thread_field(line, result["threads"][-1], result)
+
+    @staticmethod
+    def _parse_thread_field(
+        line: str, thread: Dict[str, Any], result: Dict[str, Any]
+    ) -> None:
+        """Parse a single bubble field line and update thread/result dicts."""
+        for field_key, (thread_key, total_key) in BUBBLE_FIELD_PATTERNS.items():
+            if field_key not in line:
+                continue
+            value = float(line.split(":", 1)[1].strip().rstrip("us").strip())
+            thread[thread_key] = value
+            if total_key is not None:
+                result[total_key] += value
+            return
 
 
 class TraceAnalyzer:

@@ -719,18 +719,6 @@ class CandidateGenerator:
 
         return all_candidates
 
-    def _weighted_choice(self, options: Sequence[Any], weights: Sequence[float]) -> Any:
-        total = sum(max(w, 0.0) for w in weights)
-        if total <= 0.0:
-            return options[self.rng.randrange(0, len(options))]
-        pivot = self.rng.random() * total
-        cumulative = 0.0
-        for idx, value in enumerate(options):
-            cumulative += max(weights[idx], 0.0)
-            if cumulative >= pivot:
-                return value
-        return options[-1]
-
     def _bayesian_build_candidate(
         self,
         names: List[str],
@@ -745,6 +733,35 @@ class CandidateGenerator:
             weights = _compute_tpe_weights(options, name, good, bad)
             candidate[name] = copy.deepcopy(self._weighted_choice(options, weights))
         return candidate
+
+    def _score_candidate(
+        self,
+        layer_name: str,
+        item: Dict[str, Any],
+        labels: List[str],
+        top_ops: List[str],
+    ) -> float:
+        """Compute guidance score for a candidate using layer-specific scorer."""
+        scorers: Dict[str, Callable[..., float]] = {
+            "stitch": lambda: self._score_stitch(item, labels),
+            "matmul": lambda: self._score_matmul(item, labels, top_ops),
+            "vector": lambda: self._score_vector(item, labels, top_ops),
+            "scheduling": lambda: self._score_scheduling(item),
+        }
+        scorer = scorers.get(layer_name)
+        return scorer() if scorer else 0.0
+
+    def _weighted_choice(self, options: Sequence[Any], weights: Sequence[float]) -> Any:
+        total = sum(max(w, 0.0) for w in weights)
+        if total <= 0.0:
+            return options[self.rng.randrange(0, len(options))]
+        pivot = self.rng.random() * total
+        cumulative = 0.0
+        for idx, value in enumerate(options):
+            cumulative += max(weights[idx], 0.0)
+            if cumulative >= pivot:
+                return value
+        return options[-1]
 
     @staticmethod
     def _score_stitch(item: Dict[str, Any], labels: List[str]) -> float:
@@ -790,23 +807,6 @@ class CandidateGenerator:
         if item.get("device_sched_mode") == 1:
             return 1.0
         return 0.0
-
-    def _score_candidate(
-        self,
-        layer_name: str,
-        item: Dict[str, Any],
-        labels: List[str],
-        top_ops: List[str],
-    ) -> float:
-        """Compute guidance score for a candidate using layer-specific scorer."""
-        scorers: Dict[str, Callable[..., float]] = {
-            "stitch": lambda: self._score_stitch(item, labels),
-            "matmul": lambda: self._score_matmul(item, labels, top_ops),
-            "vector": lambda: self._score_vector(item, labels, top_ops),
-            "scheduling": lambda: self._score_scheduling(item),
-        }
-        scorer = scorers.get(layer_name)
-        return scorer() if scorer else 0.0
 
 
 def _check_prune_cube_reuse(flat: Dict[str, Any]) -> Optional[str]:
@@ -1036,6 +1036,80 @@ class BenchmarkRunner:
 
         return self._run_trial_with_retries(inp)
 
+    def _simulate_metrics(self, full_config: Dict[str, Dict[str, Any]]) -> Dict[str, float]:
+        """Simulate benchmark metrics for dry-run mode."""
+        flat = flatten_layers(full_config)
+        latency = self._simulate_latency(flat, self.rng)
+        kernel = latency * (0.68 + self.rng.uniform(-0.05, 0.05))
+        idle = self._simulate_idle(flat, self.rng)
+
+        return {
+            "total_latency_ms": round(latency, 6),
+            "kernel_time_ms": round(max(0.1, kernel), 6),
+            "idle_ratio": round(clamp(idle, 0.01, 0.95), 6),
+        }
+
+    @staticmethod
+    def _simulate_latency(flat: Dict[str, Any], rng: random.Random) -> float:
+        """Compute simulated latency from flattened config."""
+        latency = 12.5 * (1.0 + rng.uniform(-0.30, 0.30))
+        latency = _apply_knob_multipliers(flat, latency)
+        latency += rng.uniform(-0.20, 0.20)
+        return max(3.0, latency)
+
+    @staticmethod
+    def _simulate_idle(flat: Dict[str, Any], rng: random.Random) -> float:
+        """Compute simulated idle ratio from flattened config."""
+        idle = 0.35 + rng.uniform(-0.08, 0.08)
+        if flat.get("stitch_function_max_num") == 64:
+            idle -= 0.18
+        if flat.get("device_sched_mode") == 1:
+            idle -= 0.03
+        if flat.get("vec_nbuffer_mode") in (1, 2):
+            idle -= 0.02
+        return idle
+
+    def _build_env_payload(self) -> Dict[str, Any]:
+        return {
+            "seed": self.seed,
+            "timestamp": now_iso(),
+            "hostname": socket.gethostname(),
+            "python_version": platform.python_version(),
+            "argv": shlex.join(sys.argv),
+        }
+
+    def _run_trial_with_retries(
+        self,
+        inp: TrialRetryInput,
+    ) -> TrialOutcome:
+        """Execute benchmark with retries and return outcome."""
+        full_config = inp.full_config
+        output_dir = inp.output_dir
+        trial_id = inp.trial_id
+        last_error: Optional[str] = None
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                self._execute_benchmark(full_config)
+                summary = self._run_analyzer(output_dir, trial_id)
+                metrics = BenchmarkRunner.extract_metrics(summary)
+                return _make_trial_outcome(
+                    inp, metrics, "success", None
+                )
+            except subprocess.TimeoutExpired:
+                last_error = f"timeout after {self.benchmark_timeout}s (attempt {attempt}/{MAX_RETRIES})"
+            except (
+                RuntimeError, ValueError, KeyError, TypeError, OSError,
+                subprocess.SubprocessError,
+            ) as exc:
+                last_error = f"{str(exc)} (attempt {attempt}/{MAX_RETRIES})"
+
+            if attempt < MAX_RETRIES:
+                time.sleep(1.0)
+
+        return _make_trial_outcome(
+            inp, {}, "failed", last_error
+        )
+
     def _execute_benchmark(self, full_config: Dict[str, Dict[str, Any]]) -> None:
         if not self.benchmark_cmd:
             raise RuntimeError("benchmark command is required when not in dry-run")
@@ -1102,80 +1176,6 @@ class BenchmarkRunner:
             if maybe_path is not None and maybe_path.exists():
                 return maybe_path
         return None
-
-    @staticmethod
-    def _simulate_latency(flat: Dict[str, Any], rng: random.Random) -> float:
-        """Compute simulated latency from flattened config."""
-        latency = 12.5 * (1.0 + rng.uniform(-0.30, 0.30))
-        latency = _apply_knob_multipliers(flat, latency)
-        latency += rng.uniform(-0.20, 0.20)
-        return max(3.0, latency)
-
-    @staticmethod
-    def _simulate_idle(flat: Dict[str, Any], rng: random.Random) -> float:
-        """Compute simulated idle ratio from flattened config."""
-        idle = 0.35 + rng.uniform(-0.08, 0.08)
-        if flat.get("stitch_function_max_num") == 64:
-            idle -= 0.18
-        if flat.get("device_sched_mode") == 1:
-            idle -= 0.03
-        if flat.get("vec_nbuffer_mode") in (1, 2):
-            idle -= 0.02
-        return idle
-
-    def _simulate_metrics(self, full_config: Dict[str, Dict[str, Any]]) -> Dict[str, float]:
-        """Simulate benchmark metrics for dry-run mode."""
-        flat = flatten_layers(full_config)
-        latency = self._simulate_latency(flat, self.rng)
-        kernel = latency * (0.68 + self.rng.uniform(-0.05, 0.05))
-        idle = self._simulate_idle(flat, self.rng)
-
-        return {
-            "total_latency_ms": round(latency, 6),
-            "kernel_time_ms": round(max(0.1, kernel), 6),
-            "idle_ratio": round(clamp(idle, 0.01, 0.95), 6),
-        }
-
-    def _build_env_payload(self) -> Dict[str, Any]:
-        return {
-            "seed": self.seed,
-            "timestamp": now_iso(),
-            "hostname": socket.gethostname(),
-            "python_version": platform.python_version(),
-            "argv": shlex.join(sys.argv),
-        }
-
-    def _run_trial_with_retries(
-        self,
-        inp: TrialRetryInput,
-    ) -> TrialOutcome:
-        """Execute benchmark with retries and return outcome."""
-        full_config = inp.full_config
-        output_dir = inp.output_dir
-        trial_id = inp.trial_id
-        last_error: Optional[str] = None
-        for attempt in range(1, MAX_RETRIES + 1):
-            try:
-                self._execute_benchmark(full_config)
-                summary = self._run_analyzer(output_dir, trial_id)
-                metrics = BenchmarkRunner.extract_metrics(summary)
-                return _make_trial_outcome(
-                    inp, metrics, "success", None
-                )
-            except subprocess.TimeoutExpired:
-                last_error = f"timeout after {self.benchmark_timeout}s (attempt {attempt}/{MAX_RETRIES})"
-            except (
-                RuntimeError, ValueError, KeyError, TypeError, OSError,
-                subprocess.SubprocessError,
-            ) as exc:
-                last_error = f"{str(exc)} (attempt {attempt}/{MAX_RETRIES})"
-
-            if attempt < MAX_RETRIES:
-                time.sleep(1.0)
-
-        return _make_trial_outcome(
-            inp, {}, "failed", last_error
-        )
 
 
 class ResultRecorder:
@@ -1590,6 +1590,7 @@ def _check_candidate_eligible(
 
     return True, 0
 
+
 def _handle_successful_trial(inp: TrialSuccessInput) -> Tuple[float, Optional[Dict[str, Any]], int]:
     """Process a successful trial outcome. Return (new_best_metric, new_best_candidate, no_improve_delta)."""
     inp.layer_history_local.append({"config": copy.deepcopy(inp.candidate), "metric": inp.value})
@@ -1711,8 +1712,11 @@ def _search_one_layer(
         pruned_count=0, layer_trial_count=0, layer_stop_reason=None,
     )
 
-    eval_fn = lambda c: _evaluate_one_candidate(c, ctx, ms, state)
-    batch_fn = lambda cs: _run_candidate_batch(cs, ctx, ms, state)
+    def eval_fn(candidate: Dict[str, Any]) -> str:
+        return _evaluate_one_candidate(candidate, ctx, ms, state)
+
+    def batch_fn(candidates: List[Dict[str, Any]]) -> Optional[str]:
+        return _run_candidate_batch(candidates, ctx, ms, state)
 
     global_stop_reason = _dispatch_strategy(
         ctx.strategy,
