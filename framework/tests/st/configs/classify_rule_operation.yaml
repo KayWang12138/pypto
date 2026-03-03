@@ -130,8 +130,9 @@ stest:
       - TestDivs/DivsOperationTest.TestDivs/2
       - TestExp/ExpOperationTest.TestExp/18
       - TestExp/ExpOperationTest.TestExp/19
-      - TestExp/ExpOperationTest.TestExp/0
-      - TestExp/ExpOperationTest.TestExp/5
+      - TestExp2/Exp2OperationTest.TestExp2/17
+      - TestExp2/Exp2OperationTest.TestExp2/18
+      - TestExp2/Exp2OperationTest.TestExp2/19
       - TestExpm1/Expm1OperationTest.TestExpm1/19
       - TestExpm1/Expm1OperationTest.TestExpm1/20
       - TestExpm1/Expm1OperationTest.TestExpm1/21
@@ -229,6 +230,10 @@ stest:
       - TestTriU/TriUOperationTest.TestTriU/8
       - TestTriU/TriUOperationTest.TestTriU/10
       - TestTriL/TriLOperationTest.TestTriL/1
+      - TestRemainder/RemainderOperationTest.TestRemainder/1
+      - TestRemainder/RemainderOperationTest.TestRemainder/4
+      - TestRemainderS/RemainderSOperationTest.TestRemainderS/0
+      - TestRemainderRS/RemainderRSOperationTest.TestRemainderRS/10
       - TestIndexAdd/IndexAddOperationTest.TestIndexAdd/20
       - TestIndexAdd/IndexAddOperationTest.TestIndexAdd/21
       - TestLogicalAnd/LogicalAndOperationTest.TestLogicalAnd/0

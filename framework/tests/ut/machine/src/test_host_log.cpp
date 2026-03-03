@@ -9,13 +9,15 @@
  */
 
 /*!
- * \file test_log_manager.cpp
+ * \file test_host_log.cpp
  * \brief
  */
 
 #include <gtest/gtest.h>
 #include <dirent.h>
 #include <sys/syscall.h>
+#include <regex>
+#include <iostream>
 #define private public
 #include "utils/host_log/log_manager.h"
 #undef private
@@ -70,14 +72,33 @@ public:
         log_manager.Record(logLevel, fmt, list);
         va_end(list);
     }
-    void CheckLogContent(LogManager &log_manager, const LogLevel logLevel, const std::string &expectedStr, const char *fmt, ...) {
+    void CheckLogContent(const std::string &expectedStr, const char *fmt, ...) {
         va_list list;
         va_start(list, fmt);
         LogMsg logMsg{};
-        log_manager.ConstructMessage(logLevel, fmt, list, logMsg);
+        LogManager::Instance().ConstructMessage(LogLevel::INFO, fmt, list, logMsg);
         va_end(list);
         std::string retStr(logMsg.msg);
-        EXPECT_EQ(retStr.find(expectedStr), retStr.size() - expectedStr.size() - 1);
+        bool ret = retStr.find(expectedStr) == retStr.size() - expectedStr.size() - 1;
+        if (!ret) {
+            std::cout << retStr << "|" << expectedStr << std::endl;
+        }
+        EXPECT_TRUE(ret);
+
+        std::string expectStr = expectedStr;
+        size_t pos = expectStr.find("+");
+        while (pos != std::string::npos) {
+            expectStr.replace(pos, 1, "\\+");
+            pos = expectStr.find("+", pos + 2);
+        }
+
+        std::string regexStr = "\\[INFO \\] PYPTO\\(\\d+\\):\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}.\\d{3} " + expectStr + "\n";
+        std::regex logMsgRegex(regexStr);
+        ret = std::regex_match(retStr, logMsgRegex);
+        if (!ret) {
+            std::cout << retStr << "|" << regexStr << std::endl;
+        }
+        EXPECT_TRUE(ret);
     }
 };
 
@@ -86,7 +107,18 @@ TEST_F(TestHostLog, test_tilefwk_log) {
     PYPTO_HOST_LOG(DLOG_ERROR, "TEST", "And I aiming it right at you, right at you %f", 3.14f);
     PYPTO_HOST_LOG(DLOG_ERROR, "TEST", "%d miles on a clear night in %s", 250000, "June");
     PYPTO_HOST_LOG(DLOG_ERROR, "TEST", "And I'm so lost without you, without you %x", 626);
+    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, "TEST", "I'm a space-bound %s and your heart's the moon", "rocketship");
+    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, "TEST", "And I aiming it right at you, right at you %f", 3.14f);
+    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, "TEST", "%d miles on a clear night in %s", 250000, "June");
+    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, "TEST", "And I'm so lost without you, without you");
+
+    std::ostringstream oss;
+    for (size_t i = 0; i < 200; i++) {
+        oss << "0123456789";
+    }
+    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, "TEST", "Hello %s", oss.str().c_str());
 }
+
 TEST_F(TestHostLog, test_log_manager_case0) {
     EXPECT_EQ(LogManager::Instance().CheckLevel(LogLevel::ERROR), true);
     EXPECT_EQ(LogManager::Instance().CheckLevel(LogLevel::WARN), false);
@@ -169,36 +201,45 @@ TEST_F(TestHostLog, test_log_manager_case5) {
 }
 
 TEST_F(TestHostLog, test_log_construct_case0) {
-    LogManager log_manager;
     int32_t int32_val = -234;
+    int32_t int32_val2 = 567;
     uint32_t uint32_val = 432;
+    CheckLogContent("-234,-234,+567,432", "%d,%+d,%+d,%u", int32_val, int32_val, int32_val2, uint32_val);
+    CheckLogContent("37777777426,0660,ffffff16,1B0,0xffffff16,0X1B0", "%o,%#o,%x,%X,%#x,%#X", int32_val, uint32_val, int32_val, uint32_val, int32_val, uint32_val);
+
     std::ostringstream oss1;
-    oss1 << "[-234][432][" << std::hex << &int32_val << "][" << &uint32_val << "]";
-    CheckLogContent(log_manager, LogLevel::INFO, oss1.str(), "[%d][%u][%p][%p]", int32_val, uint32_val, &int32_val, &uint32_val);
+    oss1 << std::hex << &int32_val << "," << &uint32_val;
+    CheckLogContent(oss1.str(), "%p,%p", &int32_val, &uint32_val);
 
     int64_t int64_val = -789;
     uint64_t uint64_val = 987;
-    CheckLogContent(log_manager, LogLevel::INFO, "[-789][987][fffffceb][3DB][0xfffffceb][0X3DB]", "[%ld][%lu][%x][%X][%#x][%#X]", int64_val, uint64_val, int64_val, uint64_val, int64_val, uint64_val);
+    CheckLogContent("-789,987,fffffffffffffceb,3DB,0xfffffffffffffceb,0X3DB", "%ld,%lu,%lx,%lX,%#lx,%#lX", int64_val, uint64_val, int64_val, uint64_val, int64_val, uint64_val);
 
     float float_val = 123.456f;
-    std::ostringstream oss2;
-    oss2 << "[123.456001][123.46][" << std::hex << &float_val << "]";
-    CheckLogContent(log_manager, LogLevel::INFO, oss2.str(), "[%f][%.2f][%p]", float_val, float_val, &float_val);
+    CheckLogContent("123.456001,123.46, 123.45600", "%f,%.2f,%10.5f", float_val, float_val, float_val);
+    CheckLogContent("1.234560e+02,1.235e+02,1.234560E+02", "%e,%.3e,%E", float_val, float_val, float_val);
 
-    CheckLogContent(log_manager, LogLevel::INFO, "[Hello world]", "[%c%s]", 'H', "ello world");
+    double double_val = -456.987321;
+    CheckLogContent("-456.987321,-456.99,-456.98732", "%f,%.2f,%10.5f", double_val, double_val, double_val);
+    CheckLogContent("-4.569873e+02,-4.570e+02,-4.569873E+02", "%e,%.3e,%E", double_val, double_val, double_val);
+
+    CheckLogContent("Hello", "%.5s", "Hello world");
+    CheckLogContent("     Hello", "%10s", "Hello");
+    CheckLogContent("Hello     ", "%-10s", "Hello");
+    CheckLogContent("Hello world", "%c%s%c", 'H', "ello worl", 100);
 }
 
 TEST_F(TestHostLog, test_log_construct_case1) {
-    LogManager log_manager;
-    CheckLogContent(log_manager, LogLevel::INFO, "Hello world!", "Hello world!", 123, "morgan");
-    CheckLogContent(log_manager, LogLevel::INFO, "[4294967173][18446744073709551160]", "[%u][%lu]", -123, -456);
-    CheckLogContent(log_manager, LogLevel::INFO, "[3.140000][4294967173]", "[%f][%lu]", -123, 3.14f);
+    CheckLogContent("Hello world!", "Hello world!", 123, "morgan");
+    CheckLogContent("4294967173,4294966840", "%u,%lu", -123, -456);
+    CheckLogContent("3.140000,4294967173", "%f,%lu", -123, 3.14f);
 
     std::ostringstream oss;
     for (size_t i = 0; i < 100; i++) {
         oss << "0123456789";
     }
-    RecoreLog(log_manager, LogLevel::INFO, oss.str().c_str());
+    LogManager log_manager;
+    RecoreLog(log_manager, LogLevel::INFO, "%s", oss.str().c_str());
 }
 
 TEST_F(TestHostLog, test_dlog_handler_case0) {
