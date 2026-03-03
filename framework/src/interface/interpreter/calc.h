@@ -108,6 +108,9 @@ inline void Trunc(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 inline void Sign(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Sign(Trans(out), Trans(self));
 }
+inline void Tanh(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    GetCalcOps()->Tanh(Trans(out), Trans(self));
+}
 inline void Reciprocal(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Reciprocal(Trans(out), Trans(self));
 }

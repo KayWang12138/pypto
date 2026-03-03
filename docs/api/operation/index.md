@@ -81,6 +81,7 @@ pypto-var
 pypto-sqrt
 pypto-sub
 pypto-sum
+pypto-tanh
 pypto-topk
 pypto-transpose
 pypto-tril
