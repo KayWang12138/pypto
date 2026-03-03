@@ -417,7 +417,7 @@ using select_srcTensor = std::conditional_t<isConv3D,
                     pto::ConvTileShape<-1, -1, -1, -1, -1>>
 >;
 
-template <typename T, typename U>
+template <bool isConv3D, typename T, typename U>
 TILEOP void TLoad3D(T &dst, U &src, const int64_t &mPos, const int64_t &kPos, 
                     const int64_t &padLeft, const int64_t &padRight, const int64_t &padTop, const int64_t &padBottom, const int64_t &padValue, 
                     const int64_t &filterH, const int64_t &filterW, const int64_t &dilationH, const int64_t &dilationW, 
@@ -429,6 +429,7 @@ TILEOP void TLoad3D(T &dst, U &src, const int64_t &mPos, const int64_t &kPos,
     constexpr auto static2 = Std::tuple_element<CONV_IDX_2, typename U::TileShape>::type::value;
     constexpr auto static3 = Std::tuple_element<CONV_IDX_3, typename U::TileShape>::type::value;
     constexpr auto static4 = Std::tuple_element<CONV_IDX_4, typename U::TileShape>::type::value;
+    constexpr int64_t c0Size = BLOCK_ALIGN_BYTE / sizeof(typename U::Type);
     constexpr auto elements = static0 * static1 * static2 * static3 * static4;
     int64_t shape0 = GetConvShape<CONV_IDX_0>(src);
     int64_t shape1 = GetConvShape<CONV_IDX_1>(src);
@@ -445,8 +446,6 @@ TILEOP void TLoad3D(T &dst, U &src, const int64_t &mPos, const int64_t &kPos,
     using dstTensor = pto::TileLeft<typename T::Type, staticML0, staticKL0, -1, -1>;
     dstTensor l0(mL0, kL0);
 
-    l1.SetFmapH(static_cast<uint16_t>(h));
-    l1.SetFmapW(static_cast<uint16_t>(w));
     uint8_t values[4] = {static_cast<uint8_t>(padLeft), static_cast<uint8_t>(padRight), static_cast<uint8_t>(padTop), static_cast<uint8_t>(padBottom)};
     l1.SetPadListArray(values);
     l1.SetFilterH(filterH);
@@ -463,9 +462,13 @@ TILEOP void TLoad3D(T &dst, U &src, const int64_t &mPos, const int64_t &kPos,
     l1.SetDstMposition(NUM0);
 
     if constexpr (isConv3D) {
+        l1.SetFmapH(static_cast<uint16_t>(shape3));
+        l1.SetFmapW(static_cast<uint16_t>(shape4));
         l1.SetChannelSize(shape2 * c0Size);
         l1.SetRepeatStride(kL0 / c0Size);
     } else {
+        l1.SetFmapH(static_cast<uint16_t>(shape2));
+        l1.SetFmapW(static_cast<uint16_t>(shape3));
         l1.SetChannelSize(shape1 * shape4); // c1 * c0
         l1.SetRepeatStride(kL0 / shape4);
     }
