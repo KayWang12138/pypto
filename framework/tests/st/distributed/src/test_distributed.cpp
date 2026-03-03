@@ -12,9 +12,12 @@
  * \file test_distributed.cpp
  * \brief
  */
+
 #include <gtest/gtest.h>
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
+#include "adapter/api/hccl_api.h"
+#include "adapter/api/runtime_api.h"
 #include "distributed_test_framework.h"
 #include "test_distributed.h"
 
@@ -66,11 +69,11 @@ protected:
     void DistributedTestDestroy()
     {
         // 销毁集合通信域
-        CHECK(HcclCommDestroy(hcomTestParam.hcclComm) == 0) << "HcclCommDestroy failed";
+        CHECK(HcommCommDestroy(hcomTestParam.hcclComm) == 0) << "HcommCommDestroy failed";
         // 重置设备
-        CHECK(aclrtResetDevice(physicalDeviceId) == 0) << "aclResetDevice failed";
+        CHECK(AclRtResetDevice(physicalDeviceId) == 0) << "AclRtResetDevice failed";
         // 设备去初始化
-        CHECK(aclFinalize() == 0) << "aclFinalize failed";
+        CHECK(AclFinalize() == 0) << "AclFinalize failed";
     }
 
     Distributed::OpTestParam testParam;
