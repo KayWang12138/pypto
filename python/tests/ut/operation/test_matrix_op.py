@@ -11,6 +11,7 @@
 """
 """
 import pypto
+import pytest
 
 
 def test_matrix_matmul():
@@ -78,3 +79,37 @@ def test_matrix_matmul_with_tensor_interface():
     assert isinstance(c, pypto.tensor)
     assert c.dtype == pypto.DT_INT32
     assert c.shape == [3, 32, 32]
+
+
+@pytest.mark.soc("950")
+def test_matrix_matmul_with_fp8e4m3():
+    input_dtype = pypto.DT_FP8E4M3
+    out_dtype = pypto.DT_FP16
+    a = pypto.tensor((64, 32), input_dtype, "A")
+    b = pypto.tensor((32, 64), input_dtype, "B")
+    c = None
+
+    with pypto.function("MATMUL", a, b):
+        pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
+        c = a.matmul(b, out_dtype, a_trans=True, b_trans=True)
+
+    assert isinstance(c, pypto.tensor)
+    assert c.dtype == pypto.DT_FP16
+    assert c.shape == [32, 32]
+
+
+@pytest.mark.soc("950")
+def test_matrix_matmul_with_fp8e5m2():
+    input_dtype = pypto.DT_FP8E5M2
+    out_dtype = pypto.DT_FP32
+    a = pypto.tensor((64, 32), input_dtype, "A")
+    b = pypto.tensor((32, 64), input_dtype, "B")
+    c = None
+
+    with pypto.function("MATMUL", a, b):
+        pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
+        c = a.matmul(b, out_dtype, a_trans=True, b_trans=True)
+
+    assert isinstance(c, pypto.tensor)
+    assert c.dtype == pypto.DT_FP32
+    assert c.shape == [32, 32]
