@@ -254,6 +254,16 @@
                     "minimum": 1,
                     "maximum": 65535
                 },
+                "max_cube_blockdim": {
+                    "type": "integer",
+                    "label": {
+                        "zh": "能够使用最大的cube核数",
+                        "en": "maximum number of cube cores used"
+                    },
+                    "minimum": 0,
+                    "maximum": 36
+
+                },
                 "run_mode": {
                     "type": "integer",
                     "label": {

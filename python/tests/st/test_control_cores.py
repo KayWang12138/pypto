@@ -138,3 +138,26 @@ def test_rts_device_stream_control_cores():
     aic_count, aiv_count = kernel_func(device_id)
     assert aic_count == 14
     assert aiv_count == 28
+
+
+@pytest.mark.forked
+ def test_runtime_options_control_cores():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+    pypto.set_runtime_options(max_cube_blockdim=6)
+    aic_count, aiv_count = kernel_func(device_id)
+    assert aic_count == 6
+    assert aiv_count == 12
+
+
+@pytest.mark.forked
+def test_rts_runtime_options_control_cores():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+    stream1 = torch.npu.current_stream()
+    torch.npu.set_stream_limit(stream1, 15, 27)
+    
+    pypto.set_runtime_options(max_cube_blockdim=8)
+    aic_count, aiv_count = kernel_func(device_id)
+    assert aic_count == 8
+    assert aiv_count == 16

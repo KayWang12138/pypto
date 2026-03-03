@@ -23,6 +23,7 @@ set_runtime_options(*,
                     stitch_function_num_step : int = None,
                     stitch_function_size : int = None,
                     stitch_cfgcache_size: int = None,
+                    max_cube_blockdim: Optional[int] = None,
                     run_mode : int = None,
                     valid_shape_optimize : int = None,
                     ) -> None
@@ -41,6 +42,7 @@ set_runtime_options(*,
 | stitch_function_num_step       | 输入      | 含义：machine运行时ctrlflow aicpu里控制非首次device task的计算任务量 <br> 说明：为了后续stitch task处理计算量平滑增加，可以通过设置此配置项进行控制。如设置为n，则每次stitch task里处理的loop次数分别base+n， base+2n 。。。 <br> 类型：int <br> 取值范围:0 ~ 128 <br> 默认值：0 <br> 影响pass范围：NA |
 | stitch_function_size           | 输入      | 含义：machine运行时ctrlflow aicpu里控制stitch生成的device task处理最大Callop计算量 <br> 说明：为了保障stitch task处理单次loop时的性能，需通过设置该配置项进行控制，该配置项设置的过大会带来额外的性能和内存开销，需根据算子最大Callop数量调整该配置项。若Callop数量超过该配置会报错提示：ASSERT FAILED：CallOpSize&lt;=CallOpmaxSize."loopFunction:&lt;function name&gt; ,CallopSize:&lt;当前Callop数量&gt;，CallOpmaxSize：&lt;配置项大小&gt;" <br> 类型：int <br> 取值范围:1 ~ 65535 <br> 默认值：20000 <br> 影响pass范围：NA |
 | stitch_cfgcache_size           | 输入      | 含义：指定生成控制流缓存的大小，单位是字节 <br>说明：如果该值是0，则表示不使能控制流缓存。由于控制流缓存是按照任务大小来缓存，如果设置比较小，例如小于一个任务，那么无法缓存。<br>类型：int<br>取值范围：0~100000000<br>默认值：0<br>影响pass范围：NA |
+| max_cube_blockdim              | 输入      | 含义：设置cube核最大使用核数 <br> 说明：限制CUBE核使用的最大核数，VECTOR核使用最大核数默认为CUBE核最大核数的2倍，即可以限制device使用的最大核数 类型：int <br> 取值范围：0 ~ 36（兼容多款芯片，设置为0时或超出芯片物理核数时，限制核数功能不生效，即使用满核） <br> 默认值：0 <br> 影响pass范围：NA |
 | run_mode                       | 输入      | 含义：设置计算子图的执行设备 <br> 说明：<br> 0：表示在NPU上执行 <br> 1：表示在模拟器上执行 <br> 类型：int <br> 取值范围：0或者1 <br> 默认值：根据是否设置cann的环境变量来决定。如果设置了环境变量，则在NPU上执行；否则在模拟器上执行 <br> 影响pass范围：NA |
 | valid_shape_optimize           | 输入      | 含义：动态shape场景，validshape编译优化选项，打开该选项后，动态轴的Loop循环中，主块（shape与validshape相等）采用静态shape编译，尾块采用动态shape编译 <br> 说明：<br> 0：默认值，表示关闭validshape编译优化选项，所有Loop循环均采用动态shape进行编译 <br> 1：表示打开validshape编译优化选项 <br> 类型：int <br> 取值范围：0或者1 <br> 默认值：0 <br> 影响pass范围：NA |
 
