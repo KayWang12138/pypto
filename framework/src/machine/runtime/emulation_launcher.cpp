@@ -16,9 +16,9 @@
 #include "machine/runtime/emulation_launcher.h"
 
 #include <thread>
-#include "machine/host/backend.h"
 #include "machine/runtime/device_launcher.h"
 #include "machine/utils/machine_error.h"
+#include "adapter/api/runtime_api.h"
 
 extern "C" int DynTileFwkBackendKernelServer(void *targ);
 
@@ -213,7 +213,7 @@ static std::vector<DeviceTensorData> toHostTensorData(const std::vector<DeviceTe
         void *ptr = malloc(size);
         if (isInput) {
 #ifdef BUILD_WITH_CANN
-            rtMemcpy(ptr, size, devData.GetAddr(), size, RT_MEMCPY_DEVICE_TO_HOST);
+            RuntimeMemcpy(ptr, size, devData.GetAddr(), size, RT_MEMCPY_DEVICE_TO_HOST);
 #endif
         }
         hostDataList.emplace_back(devData.GetDataType(), ptr, devData.GetShape());

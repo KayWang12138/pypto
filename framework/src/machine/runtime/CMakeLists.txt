@@ -17,14 +17,12 @@ target_include_directories(tile_fwk_runtime
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/base>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment>>
-            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/runtime>>
-            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/runtime/runtime>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/msprof>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/msprof/toolchain>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/runtime>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/runtime/runtime>>
-            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hccl>>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/experiment/runtime>>
         PRIVATE
             ${PTO_FWK_SRC_ROOT}/framework/src/cost_model
 )
@@ -42,14 +40,12 @@ target_link_directories(tile_fwk_runtime
 target_link_libraries(tile_fwk_runtime
         PUBLIC
             $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_utils>>
+            $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_adapter>>
             $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_interface>>
             $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_compiler>>
             $<BUILD_INTERFACE:json>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:ascendcl>>
-            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:runtime>>
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:profapi>>
-            $<BUILD_INTERFACE:$<$<AND:$<NOT:$<BOOL:${ENABLE_UTEST}>>,$<BOOL:${BUILD_WITH_CANN}>>:hcomm>>
-            $<BUILD_INTERFACE:$<$<AND:$<BOOL:${ENABLE_UTEST}>,$<BOOL:${BUILD_WITH_CANN}>>:hccl_stubs>>
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub

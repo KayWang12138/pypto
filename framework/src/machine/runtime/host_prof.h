@@ -11,10 +11,10 @@
 #pragma once
 
 #include "interface/function/function.h"
+#include "interface/interpreter/raw_tensor_data.h"
 #ifdef BUILD_WITH_CANN
 #include "profiling/aprof_pub.h"
 #include "acl/acl_base_rt.h"
-#include "interface/interpreter/raw_tensor_data.h"
 
 namespace npu::tile_fwk{
 struct CacheTaskInfo {

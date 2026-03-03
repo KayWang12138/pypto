@@ -20,12 +20,7 @@
 #include "machine/runtime/runtime.h"
 #include "machine/device/dynamic/device_utils.h"
 #include "tilefwk/pypto_fwk_log.h"
-
-#ifdef BUILD_WITH_CANN
-#include "hcom.h"
-#include "acl/acl.h"
-extern "C" HcclResult HcclAllocComResourceByTiling(HcclComm comm, void* stream, void* MC2Tiling, void** commContext);
-#endif
+#include "adapter/api/hccl_api.h"
 
 constexpr uint32_t COMM_IS_NOT_SET_DEVICE = 0;
 constexpr uint32_t COMM_MESH = 0b1u;
@@ -284,7 +279,7 @@ std::vector<uint64_t> DistributedContext::GetCommContext([[maybe_unused]] const 
     }
     CommTopo topoRet;
     const char *group = groupNames[0].c_str();
-    ASSERT(HcomGetL0TopoTypeEx(group, &topoRet, COMM_IS_NOT_SET_DEVICE) == HCCL_SUCCESS) << "Get hcom topo failed";
+    ASSERT(HcommGetL0TopoTypeEx(group, &topoRet, COMM_IS_NOT_SET_DEVICE) == HCCL_SUCCESS) << "Get hcom topo failed";
     uint32_t topoType = static_cast<uint32_t>(topoRet);
     std::shared_ptr<TilingStructBase> tilingStruct;
     if (topoType == COMM_MESH) {
@@ -301,9 +296,9 @@ std::vector<uint64_t> DistributedContext::GetCommContext([[maybe_unused]] const 
             continue;
         }
         HcclComm commHandle = nullptr;
-        ASSERT(HcomGetCommHandleByGroup(groupName.c_str(), &commHandle) == 0) << "Get hcom handle failed";
+        ASSERT(HcommGetCommHandleByGroup(groupName.c_str(), &commHandle) == 0) << "Get hcom handle failed";
         tilingStruct->MakeMc2TilingStruct(groupName);
-        auto ret = HcclAllocComResourceByTiling(commHandle, machine::GetRA()->GetStream(),
+        auto ret = HcommAllocComResourceByTiling(commHandle, machine::GetRA()->GetStream(),
             tilingStruct->GetMc2CommConfig(), reinterpret_cast<void **>(&commContext[groupIndex]));
         ASSERT((ret == 0) && (commContext[groupIndex] != 0UL)) << "Hccl alloc resource failed";
         DISTRIBUTED_LOGI("groupIndex=%zu, groupName=%s, commContext=%lu", groupIndex, groupName.c_str(),
