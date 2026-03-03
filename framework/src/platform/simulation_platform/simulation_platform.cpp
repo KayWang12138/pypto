@@ -20,7 +20,7 @@ namespace tile_fwk {
 const std::string PLATFORM_INFO_RELATIVE_PATH = "/configs/A2A3.ini";
 
 bool SimulationPlatform::GetSimulationPlatformRealPath(std::string &realPath) {
-    realPath = RealPath(GetCurSharedLibPath() + PLATFORM_INFO_RELATIVE_PATH);
+    realPath = RealPath(GetCurrentSharedLibPath() + PLATFORM_INFO_RELATIVE_PATH);
     if (realPath.empty()) {
         return false;
     }
