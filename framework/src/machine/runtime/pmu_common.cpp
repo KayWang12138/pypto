@@ -15,11 +15,10 @@
 
 #include "machine/runtime/pmu_common.h"
 #include <string>
-#include "interface/utils/common.h"
 #include "tilefwk/pypto_fwk_log.h"
+#include "interface/utils/common.h"
 
 namespace npu::tile_fwk {
-
 namespace {
 void SetPmuEventTypeDAV2201(int32_t profPmuType, std::vector<int64_t> &pmuEvtType) {
     // 按照环境变量设置的数值，获取pmu事件类型
@@ -103,5 +102,4 @@ void PmuCommon::InitPmuEventType(const ArchInfo& archInfo, std::vector<int64_t>&
         SetPmuEventTypeDAV3510(profPmuType, pmuEvtType);
     }
 }
-
 } // namespace npu::tile_fwk

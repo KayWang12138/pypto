@@ -16,7 +16,7 @@
 #include "machine/runtime/emulation_launcher.h"
 
 #include <thread>
-#include "machine/host/backend.h"
+#include "adapter/api/runtime_api.h"
 #include "machine/runtime/device_launcher.h"
 #include "machine/utils/machine_error.h"
 
@@ -212,9 +212,7 @@ static std::vector<DeviceTensorData> toHostTensorData(const std::vector<DeviceTe
         auto size = devData.GetDataSize();
         void *ptr = malloc(size);
         if (isInput) {
-#ifdef BUILD_WITH_CANN
-            rtMemcpy(ptr, size, devData.GetAddr(), size, RT_MEMCPY_DEVICE_TO_HOST);
-#endif
+            RuntimeMemcpy(ptr, size, devData.GetAddr(), size, RT_MEMCPY_DEVICE_TO_HOST);
         }
         hostDataList.emplace_back(devData.GetDataType(), ptr, devData.GetShape());
     }

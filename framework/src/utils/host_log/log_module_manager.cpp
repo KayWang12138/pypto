@@ -34,6 +34,7 @@ const std::map<std::string, LogModule> kLogModuleMap = {
     {"SIMULATION", LogModule::SIMULATION},
     {"VERIFY", LogModule::VERIFY},
     {"COMPILER_MONITOR", LogModule::COMPILER_MONITOR},
+    {"ADAPTER", LogModule::ADAPTER},
     {"PLATFORM", LogModule::PLATFORM}
 };
 
