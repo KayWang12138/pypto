@@ -302,13 +302,16 @@ Status NodeGraphInfo::Build(const std::shared_ptr<OperationGraphInfo> operationG
     nodeCycles_.resize(opList.size());
     std::vector<int32_t> nodeScopeTmp(node2Op_.size(), -1);
     nodeScope_.swap(nodeScopeTmp);
+    std::vector<int32_t> nodeScopeConfigTmp(node2Op_.size(), 0);
+    nodeScopeConfig_.swap(nodeScopeConfigTmp);
     for (size_t nodeIdx = 0; nodeIdx < node2Op_.size(); nodeIdx++) {
         nodeCycles_[nodeIdx] = 0;
         for (size_t opNodeIdx = 0; opNodeIdx < node2Op_[nodeIdx].size(); opNodeIdx++) {
             int32_t opIdx = node2Op_[nodeIdx][opNodeIdx];
             op2Node_[opIdx] = nodeIdx;
             nodeCycles_[nodeIdx] += operationGraphInfo->opList_[opIdx]->GetLatency();
-            int32_t scopeId = operationGraphInfo->opList_[opIdx]->GetScopeId();
+            int64_t scopeId = operationGraphInfo->opList_[opIdx]->GetScopeId();
+            nodeScopeConfig_[nodeIdx] = operationGraphInfo->opList_[opIdx]->GetScopeConfig();
             if (scopeId != -1) {
                 nodeScope_[nodeIdx] = scopeId;
             }
@@ -328,7 +331,10 @@ bool NodeGraphInfo::GetNodeMergeable(const std::shared_ptr<OperationGraphInfo> o
                          );
     for (auto opIdx : node2Op_[nodeIdx]) {
         if (operationGraphInfo->opList_[opIdx]->GetScopeId() != -1) {
-            isMergeable = false;
+            // 检查scopeConfig的bit 1，如果为1则允许supernode合并
+            if (!(nodeScopeConfig_[nodeIdx] & SCOPE_CONFIG_ENABLE_SUPERNODE)) {
+                isMergeable = false;
+            }
         }
     }
     return isMergeable;
@@ -625,17 +631,29 @@ Status SuperNodeGraphBuilder::BuildSuperNodeGraph()
     }
     std::vector<std::pair<int32_t, int32_t>> mergePair;
     UpdateScopeId(opList);
+
+    // 根据scopeConfig的bit 0决定合并策略
+    std::unordered_map<int, int> scope2merge;
     for (size_t i = 0; i < opList.size(); i++) {
         auto targetScope = opList[i]->GetScopeId();
         if (targetScope == -1) {
             continue;
         }
+        auto mergeTarget = i;
+        if (opList[i]->GetScopeConfig() & SCOPE_CONFIG_MERGE_NO_CONNECTION) {
+            if (scope2merge.find(targetScope) != scope2merge.end()) {
+                mergeTarget = scope2merge[targetScope];
+            } else {
+                scope2merge[targetScope] = i;
+            }
+        }
         for (auto outputNode : operationInfo_->outGraph_[i]) {
             if (opList[outputNode]->GetScopeId() == targetScope) {
-                mergePair.emplace_back(outputNode, i);
+                mergePair.emplace_back(outputNode, mergeTarget);
             }
         }
     }
+
     for (size_t i = 0; i < opList.size(); i++) {
         if (ConvertCombine(operationInfo_, opList, i, mergePair)) {
             continue;

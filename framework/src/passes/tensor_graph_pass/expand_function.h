@@ -32,7 +32,7 @@ private:
     Status ExpandOperation(Function &function, Operation &op) const;
     void DoHealthCheckBefore(Function &function, const std::string &folderPath) override;
 
-    mutable std::unordered_map<int, std::unordered_set<CoreType>> scopeMap_;
+    mutable std::unordered_map<int64_t, std::unordered_set<CoreType>> scopeMap_;
 };
 }
 #endif // PASS_EXPAND_FUNCTION_H_

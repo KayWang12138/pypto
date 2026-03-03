@@ -1491,7 +1491,9 @@ Operation &Function::AddRawOperation(const Opcode opCode, const LogicalTensors &
     auto &op =
         operations_.emplace_back(std::make_shared<Operation>(*this, opCode, iOperands, oOperands, updateTensorMap));
     opPosition_.emplace(op.get(), operations_.size() - 1);
-    operations_.back()->SetScopeId(config::GetPassOption<int>(SG_SET_SCOPE));
+    auto scopeInfo = config::GetPassOption<std::pair<int64_t, int64_t>>(SG_SET_SCOPE);
+    operations_.back()->SetScopeId(scopeInfo.first);
+    operations_.back()->SetScopeConfig(scopeInfo.second);
     return *operations_.back();
 }
 

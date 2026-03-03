@@ -66,7 +66,7 @@ def set_pass_options(*,
                      cube_nbuffer_mode: Optional[int] = None,
                      cube_nbuffer_setting: Optional[Dict[int, int]] = None,
                      mg_copyin_upper_bound: Optional[int] = None,
-                     sg_set_scope: Optional[int] = None,
+                     sg_set_scope: Optional[Union[int, tuple[int, int]]] = None,
                      ) -> None:
     """
     Set pass options.

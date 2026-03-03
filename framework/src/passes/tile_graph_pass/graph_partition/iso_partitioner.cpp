@@ -176,6 +176,7 @@ Status IsomorphismGraphGroup::BuildGraphGroup(std::shared_ptr<OperationGraphInfo
         }
         sgPtr->AddNode(nodeIdx);
         sgPtr->scopeId_ = superNodeInfo->nodeScope_[nodeIdx];
+        sgPtr->scopeConfig_ = superNodeInfo->nodeScopeConfig_[nodeIdx];
         isoGraphs_.push_back(sgPtr);
     }
     mergeable_ = superNodeInfo_->nodeMergeable_[expandCandidate[0]];
@@ -490,6 +491,7 @@ std::vector<int32_t> IsoPartitioner::GetCandidateMergeColors(int32_t currColor,
 
 bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor, bool nonIsoGraphsMerge) const
 {
+    // 原有逻辑：检查scopeId，如果scopeId != -1则不允许合并group
     for (auto graphPtr : isoSubGroups_[currColor]->isoGraphs_) {
         if (graphPtr->scopeId_ != -1) {
             return false;
@@ -500,6 +502,7 @@ bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor
             return false;
         }
     }
+
     std::set<OpCoreType> opcoreTypes{isoSubGroups_[currColor]->GetSubGraph(0)->coreType_,
                                      isoSubGroups_[mergeColor]->GetSubGraph(0)->coreType_};
     bool coreTypeMergable = operationInfo_->CoreTypeMergeable(opcoreTypes);
@@ -521,7 +524,7 @@ bool IsoPartitioner::SuitableForMergeCheck(int32_t currColor, int32_t mergeColor
                      currColor, isoSubGroups_[currColor]->GetSubGraph(0)->DumpStr().c_str(),
                      mergeColor, isoSubGroups_[mergeColor]->GetSubGraph(0)->DumpStr().c_str(), shouldMerge);
         return shouldMerge;
-    } 
+    }
     bool isSuitableForMerge = (currColorSize == mergeColorSize);
     isSuitableForMerge = isSuitableForMerge || (std::min(currColorSize, mergeColorSize) >= parallelNum_);
     isSuitableForMerge = isSuitableForMerge ||

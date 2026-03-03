@@ -20,6 +20,11 @@
 #include "passes/pass_utils/pass_utils.h"
 
 namespace npu::tile_fwk {
+
+// scopeConfig bit位定义
+#define SCOPE_CONFIG_MERGE_NO_CONNECTION   1  // bit 0: 1-进行基于scope的合并(只合并有上下游连接关系), 0-不进行scope强制合并
+#define SCOPE_CONFIG_ENABLE_SUPERNODE      2  // bit 1: 1-进行supernode合并, 0-不进行supernode合并
+
 class OperationGraphInfo {
 public:
     uint64_t GetHash(const Operation *op) const;
@@ -48,6 +53,7 @@ public:
     bool GetNodeMergeable(const std::shared_ptr<OperationGraphInfo> operationGraphInfo, int32_t nodeIdx);
     std::vector<std::vector<int32_t>> node2Op_;
     std::vector<int32_t> nodeScope_;
+    std::vector<int32_t> nodeScopeConfig_;
     std::vector<int32_t> op2Node_;
     std::vector<std::set<int32_t>> nodeInGraph_;
     std::vector<std::set<int32_t>> nodeOutGraph_;

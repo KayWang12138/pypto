@@ -329,9 +329,12 @@ public:
 
     void ClearOutCtrlOperations() { outputCtrlOps.clear(); }
 
-    int scopeId_{-1};
-    void SetScopeId(int scopeId) {scopeId_ = scopeId; };
-    int GetScopeId() const { return scopeId_; };
+    std::pair<int64_t, int64_t> scopeInfo_{-1, 0};
+    void SetScopeId(int64_t scopeId) {scopeInfo_.first = scopeId; };
+    void SetScopeId(const std::pair<int64_t, int64_t> &scope) {scopeInfo_ = scope; };
+    void SetScopeConfig(int64_t config) {scopeInfo_.second = config; };
+    int64_t GetScopeId() const { return scopeInfo_.first; };
+    int64_t GetScopeConfig() const { return scopeInfo_.second; };
 
     void AddInCtrlOperation(Operation &operation);
 
