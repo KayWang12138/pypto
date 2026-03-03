@@ -15,6 +15,7 @@
 
 #include "gtest/gtest.h"
 #include "tilefwk/platform.h"
+#include "interface/file_utils.h"
 #include "platform/parser/platform_parser.h"
 
 using namespace npu::tile_fwk;
@@ -37,17 +38,22 @@ const std::string aiv = "AIV";
 
 class TestPlatformParser : public testing::Test {
 public:
-    static void SetUpTestCase() {}
-    static void TearDownTestCase() {}
-    void SetUp() override {
+    static void SetUpTestCase() {
         std::string src = RealPath(GetCurrentSharedLibPath() + "/../../../framework/tests/ut/machine/stubs/compiler/data/platform_config/Ascend910_9572.ini");
-        std::string dst = RealPath(GetCurrentSharedLibPath()) + "/configs/A5.ini";
+        std::string dstDir = RealPath(GetCurrentSharedLibPath()) + "/configs/";
+        CreateMultiLevelDir(dstDir);
+        std::string dst = dstDir + "A5.ini";
         std::string command = "cp " + src + " " + dst;
         int ret = std::system(command.c_str());
         if (ret != 0) {
             std::cout << "cmd[" << command <<"] failed " << std::endl;
         }
     }
+    static void TearDownTestCase() {
+        std::string cmd = "rm -rf " + TEST_TMP_DIR;
+        [[maybe_unused]]int ret = system(cmd.c_str());
+    }
+    void SetUp() override {}
     void TearDown() override {}
 };
 
