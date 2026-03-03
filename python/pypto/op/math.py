@@ -649,6 +649,35 @@ def sign(a: Tensor) -> Tensor:
 
 
 @op_wrapper
+def tanh(a: Tensor) -> Tensor:
+    """Applies the hyperbolic tangent function element-wise.
+
+    The function is defined as:
+    tanh(x) = (exp(x) - exp(-x)) / (exp(x) + exp(-x))
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise hyperbolic tangent results.
+        Output values are in the range (-1, 1).
+
+    Examples
+    --------
+    x = pypto.tensor([-3.0, -1.0, 0.0, 1.0, 3.0], dtype="float32")
+    y = pypto.tanh(x)
+
+    Input x:  [-3.0, -1.0, 0.0, 1.0, 3.0]
+    Output y: [-0.9951, -0.7616, 0.0, 0.7616, 0.9951]
+    """
+    return pypto_impl.Tanh(a)
+
+
+@op_wrapper
 def abs(a: Tensor) -> Tensor:
     """
     Computes the absolute value of each element in input.

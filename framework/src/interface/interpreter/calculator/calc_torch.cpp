@@ -168,6 +168,13 @@ static void Sign(const TensorData &out, const TensorData &self) {
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
+static void Tanh(const TensorData &out, const TensorData &self) {
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::tanh_out(tout.second, tself.second);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
 static void Ceil(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     auto tself = From(self);
@@ -1894,6 +1901,7 @@ static struct CalcOps calcOps = {
     .Neg = Neg,
     .Rsqrt = Rsqrt,
     .Sign = Sign,
+    .Tanh = Tanh,
     .Sqrt = Sqrt,
     .Ceil = Ceil,
     .Floor = Floor,
