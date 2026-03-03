@@ -144,10 +144,25 @@ rtError_t rtStreamSynchronize(rtStream_t stream)
     return RT_ERROR_NONE;
 }
 
+rtError_t rtGetAiCpuCount(uint32_t *aiCpuCnt)
+{
+    (void)aiCpuCnt;
+    return 1;
+}
+
 rtError_t rtGetSocVersion(char* version, const uint32_t maxlen)
 {
     (void)version;
     (void)maxlen;
+    return 1;
+}
+
+rtError_t rtGetSocSpec(const char* label, const char* key, char* val, const uint32_t maxLen)
+{
+    (void)label;
+    (void)key;
+    (void)val;
+    (void)maxLen;
     return 1;
 }
 

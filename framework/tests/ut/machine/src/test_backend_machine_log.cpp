@@ -33,8 +33,6 @@
 
 using namespace npu::tile_fwk;
 
-extern "C" std::string GetPlatformFile(const std::string &socVersion);
-extern "C" std::string GetPlatformInfo();
 extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache);
 
 namespace {
@@ -55,45 +53,6 @@ public:
     void SetUp() override {}
     void TearDown() override {}
 };
-
-TEST_F(TestBackendMachineLog, GetPlatformFile_NoAscendHomePath) {
-    std::string savedEnv;
-    const char *env = std::getenv("ASCEND_HOME_PATH");
-    if (env != nullptr) {
-        savedEnv = env;
-    }
-    unsetenv("ASCEND_HOME_PATH");
-
-    std::string result = GetPlatformFile("Ascend910B1");
-    EXPECT_EQ(result, "");
-
-    if (!savedEnv.empty()) {
-        setenv("ASCEND_HOME_PATH", savedEnv.c_str(), 1);
-    }
-}
-
-TEST_F(TestBackendMachineLog, GetPlatformFile_EmptySocVersion) {
-    std::string result = GetPlatformFile("");
-    EXPECT_EQ(result, "");
-}
-
-TEST_F(TestBackendMachineLog, GetPlatformFile_NonExistentPlatformFile) {
-    std::string savedEnv;
-    const char *env = std::getenv("ASCEND_HOME_PATH");
-    if (env != nullptr) {
-        savedEnv = env;
-    }
-    setenv("ASCEND_HOME_PATH", TEST_TMP_DIR.c_str(), 1);
-
-    std::string result = GetPlatformFile("NonExistentSocVersion");
-    EXPECT_EQ(result, "");
-
-    if (!savedEnv.empty()) {
-        setenv("ASCEND_HOME_PATH", savedEnv.c_str(), 1);
-    } else {
-        unsetenv("ASCEND_HOME_PATH");
-    }
-}
 
 TEST_F(TestBackendMachineLog, Execute_CacheRecoverFails) {
     Program::GetInstance().Reset();
