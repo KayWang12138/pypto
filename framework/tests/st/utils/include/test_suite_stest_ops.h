@@ -20,6 +20,7 @@
 #include "interface/inner/tilefwk.h"
 #include "test_common.h"
 #include "tilefwk/data_type.h"
+#include "adapter/api/runtime_api.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/configs/config_manager.h"
 
@@ -45,7 +46,7 @@ public:
         config::GetPassConfig(KEY_PRINT_GRAPH, true);
 #endif
         // Reset Program
-        rtSetDevice(GetDeviceIdByEnvVar());
+        RuntimeSetDevice(GetDeviceIdByEnvVar());
         Program::GetInstance().Reset();
         ProgramData::GetInstance().Reset();
     }

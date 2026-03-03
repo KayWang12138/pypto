@@ -21,8 +21,8 @@ using namespace npu::tile_fwk;
 class AbsOnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 TEST_F(AbsOnBoardTest, test_abs_8_4608) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     int S0 = 8;
     int S1 = 4608;
     int D0 = 8;
@@ -62,8 +62,8 @@ TEST_F(AbsOnBoardTest, test_abs_8_4608) {
 }
 
 TEST_F(AbsOnBoardTest, test_abs_8_4609) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     int S0 = 8;
     int S1 = 4609;
     int D0 = 8;
@@ -103,8 +103,8 @@ TEST_F(AbsOnBoardTest, test_abs_8_4609) {
 }
 
 TEST_F(AbsOnBoardTest, test_abs_1_16384) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     int S0 = 1;
     int S1 = 16384;
     int D0 = 1;

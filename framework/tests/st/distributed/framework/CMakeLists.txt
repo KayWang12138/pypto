@@ -24,6 +24,7 @@ target_include_directories(${_Target}
 target_link_libraries(${_Target}
         PRIVATE
             ${PTO_Fwk_STestNamePrefix}_utils
+            tile_fwk_adapter
             tile_fwk_compiler
             tile_fwk_runtime
 )

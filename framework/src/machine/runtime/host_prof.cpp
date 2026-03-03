@@ -9,17 +9,20 @@
  */
 
 #include "machine/runtime/host_prof.h"
-
 #include "interface/tensor/logical_tensor.h"
-#ifdef BUILD_WITH_CANN
+
+
 #include <array>
 #include <sys/syscall.h>
 #include "tilefwk/pypto_fwk_log.h"
-#include "toolchain/prof_api.h"
+#include "adapter/api/acl_api.h"
+#include "adapter/api/msprof_api.h"
+#include "adapter/api/runtime_define.h"
+#ifdef BUILD_WITH_CANN
 #include "toolchain/log_types.h"
-#include "runtime/base.h"
-#include "acl/acl_rt.h"
-
+#else
+#define CCECPU 25
+#endif
 namespace npu::tile_fwk {
 namespace {
 const std::string kOpType = "PyPTO";
@@ -60,7 +63,7 @@ int32_t HostProf::HostProfInit(uint32_t type, void *data, uint32_t len) {
 }
 
 void HostProf::RegHostProf() {
-  MsprofRegisterCallback(CCECPU, HostProfInit);
+  MspfRegisterCallback(CCECPU, HostProfInit);
 }
 
 bool HostProf::HostProfReportApi(const uint64_t &startTime, const uint64_t &endTime) const {
@@ -69,9 +72,9 @@ bool HostProf::HostProfReportApi(const uint64_t &startTime, const uint64_t &endT
   apiInfo.type = MSPROF_REPORT_NODE_LAUNCH_TYPE;
   apiInfo.beginTime = startTime;
   apiInfo.endTime = endTime;
-  apiInfo.itemId = MsprofGetHashId(opName_.c_str(), opName_.length());
+  apiInfo.itemId = MspfGetHashId(opName_.c_str(), opName_.length());
   apiInfo.threadId = syscall(SYS_gettid);
-  auto ret = MsprofReportApi(true, &apiInfo);
+  auto ret = MspfReportApi(true, &apiInfo);
   if (ret != 0) {
     MACHINE_LOGW("Report Api not success");
     return false;
@@ -91,12 +94,12 @@ void HostProf::HostProfReportBasicInfo(const uint64_t &endTime, const uint32_t b
   nodeBasicInfo.type = MSPROF_REPORT_NODE_BASIC_INFO_TYPE;
   nodeBasicInfo.timeStamp = endTime;
   nodeBasicInfo.threadId = syscall(SYS_gettid);
-  nodeBasicInfo.data.nodeBasicInfo.opName = MsprofGetHashId(opName_.c_str(), opName_.length());
-  nodeBasicInfo.data.nodeBasicInfo.opType = MsprofGetHashId(kOpType.c_str(), kOpType.length());
+  nodeBasicInfo.data.nodeBasicInfo.opName = MspfGetHashId(opName_.c_str(), opName_.length());
+  nodeBasicInfo.data.nodeBasicInfo.opType = MspfGetHashId(kOpType.c_str(), kOpType.length());
   nodeBasicInfo.data.nodeBasicInfo.taskType = taskType;
   nodeBasicInfo.data.nodeBasicInfo.blockDim = blockDim;
   nodeBasicInfo.data.nodeBasicInfo.opFlag = true;
-  auto ret = MsprofReportCompactInfo(static_cast<uint32_t>(true), &nodeBasicInfo,
+  auto ret = MspfReportCompactInfo(static_cast<uint32_t>(true), &nodeBasicInfo,
                           static_cast<uint32_t>(sizeof(MsprofCompactInfo)));
   if (ret != 0) {
     MACHINE_LOGW("Compact node[%s] basic info failed", opName_.c_str());
@@ -110,11 +113,11 @@ void HostProf::HostProfReportContextInfo(const uint64_t &endTime) const {
   contextInfo.threadId = syscall(SYS_gettid);
   contextInfo.timeStamp = endTime;
   struct MsprofContextIdInfo ctxId;
-  ctxId.opName = MsprofGetHashId(opName_.c_str(), opName_.length());
+  ctxId.opName = MspfGetHashId(opName_.c_str(), opName_.length());
   ctxId.ctxIdNum = 1;
   ctxId.ctxIds[0] = 0;
   memcpy_s(contextInfo.data, MSPROF_ADDTIONAL_INFO_DATA_LENGTH, &ctxId, sizeof(MsprofContextIdInfo));
-  auto ret = MsprofReportAdditionalInfo(false,reinterpret_cast<void*>(&contextInfo), sizeof(MsprofAdditionalInfo));
+  auto ret = MspfReportAdditionalInfo(false,reinterpret_cast<void*>(&contextInfo), sizeof(MsprofAdditionalInfo));
   if (ret != 0) {
     MACHINE_LOGW("Op[%s] Msprof report context info not success", opName_.c_str());
   }
@@ -146,12 +149,12 @@ void HostProf::ReportTensoInfo(const uint32_t &groupId, const uint32_t mods, con
   tensorInfo.threadId = syscall(SYS_gettid);
   tensorInfo.timeStamp = endTime;
   auto profTensorData = reinterpret_cast<MsprofTensorInfo*>(tensorInfo.data);
-  profTensorData->opName = MsprofGetHashId(opName_.c_str(), opName_.length());
+  profTensorData->opName = MspfGetHashId(opName_.c_str(), opName_.length());
   profTensorData->tensorNum = mods;
   for (uint32_t j = 0; j < mods; j++) {
     PackTensorInfo(profTensorData, groupId, j);
   }
-  auto ret = MsprofReportAdditionalInfo(false, reinterpret_cast<void*>(&tensorInfo), sizeof(MsprofAdditionalInfo));
+  auto ret = MspfReportAdditionalInfo(false, reinterpret_cast<void*>(&tensorInfo), sizeof(MsprofAdditionalInfo));
   if (ret != 0) {
     MACHINE_LOGW("Op[%s] Msprof report tensor info not success", opName_.c_str());
   }
@@ -230,7 +233,7 @@ bool HostProf::IsCacheOpInfoEnable(const aclrtStream stream) {
     }
     aclrtStreamAttrValue value = {};
     value.cacheOpInfoSwitch = 0;
-    aclError ret = aclrtGetStreamAttribute(stream, ACL_STREAM_ATTR_CACHE_OP_INFO, &value);
+    aclError ret = AclRtGetStreamAttribute(stream, ACL_STREAM_ATTR_CACHE_OP_INFO, &value);
     if (ret != ACL_SUCCESS) {
         MACHINE_LOGW("Get stream attribute failed, ret is [%d]", ret);
         return false;
@@ -260,8 +263,8 @@ void HostProf::HostProfReportCacheTaskInfo(const aclrtStream stream, const uint3
     CacheTaskInfo *taskInfo = reinterpret_cast<CacheTaskInfo*>(buffer);
     taskInfo->taskType = taskType;
     taskInfo->numBlocks = numBlocks;
-    taskInfo->nodeId = MsprofGetHashId(opName_.c_str(), opName_.length());
-    taskInfo->opType = MsprofGetHashId(kOpType.c_str(), kOpType.length());
+    taskInfo->nodeId = MspfGetHashId(opName_.c_str(), opName_.length());
+    taskInfo->opType = MspfGetHashId(kOpType.c_str(), kOpType.length());
     taskInfo->attrId = 0;
     taskInfo->opFlag = 0;
     taskInfo->tensorNum = tensorSize;
@@ -270,7 +273,7 @@ void HostProf::HostProfReportCacheTaskInfo(const aclrtStream stream, const uint3
         BuildCacheTensorInfo(taskInfo);
     }
 
-    if (aclrtCacheLastTaskOpInfo(buffer, bufferSize) != ACL_SUCCESS) {
+    if (AclRtCacheLastTaskOpInfo(buffer, bufferSize) != ACL_SUCCESS) {
         MACHINE_LOGW("Report op info cache failed for op[%s, %s].", opName_.c_str(), kOpType.c_str());
     } else {
         MACHINE_LOGI("Report op[%s, %s] info cache, task type[%u], numBlocks[%u], attrId[%lu] size[%zu]",
@@ -291,4 +294,3 @@ void HostProf::SetProfFunction(Function *function)
   inputsSize_ = profFunction_->inCasts_.size();
 }
 }
-#endif
