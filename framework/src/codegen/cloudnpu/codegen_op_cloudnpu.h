@@ -248,7 +248,7 @@ private:
         int paramIdx, TileTensor &tileTensor, bool isSpillToGm, const ShapeInLoop &shapeInLoop = {});
     std::vector<std::string> BuildStride(const std::vector<int64_t> &input);
 
-    std::string GenMemCopyVar(bool isCopyLocalToGM, unsigned uf = 0) const;
+    std::string GenMemCopyVar(bool isCopyLocalToGM, bool isSpillToGm = false, unsigned uf = 0) const;
 
     std::string GenGMAddrExprWithOffset(const std::string &addrExpr, unsigned gmIdx) const;
 
@@ -273,7 +273,6 @@ private:
     std::vector<std::string> GenSymbolicArgument(const std::vector<SymbolicScalar> &exprList) const;
 
     std::string GenMemUBTransfer(bool isCopyUBToGM) const;
-    std::string GenMemUBSpillToGM(bool isCopyUBToGM) const;
     std::string GenVectorScalarOpByMode(VecScalMode mode) const;
     std::string GenVectorScalarOpScalarMode() const;
     std::string GenCubeOp(bool zeroC) const;
@@ -310,7 +309,8 @@ private:
     std::string PrintCompact(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintCompactStatic(const PrintUnaryTmpBuffParam &param) const;
 
-    std::vector<std::string> GeTileOpParamForNormalCopyTileTensor(unsigned gmIdx, bool isSpillingToGM) const;
+    std::vector<std::string> GeTileOpParamForNormalCopyTileTensor(
+        unsigned gmIdx, const std::string &gmVarName, bool isSpillingToGM) const;
     std::string PrintMemCopyWithL0C(const PrintMemCopyWithL0CParam &param) const;
     std::string PrintMemCopyWithL0CStatic(const PrintMemCopyWithL0CParam &param) const;
     std::string PrintMemCopyWithL0CDynamic(const PrintMemCopyWithL0CParam &param) const;
