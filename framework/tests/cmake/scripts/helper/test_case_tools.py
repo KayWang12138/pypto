@@ -90,7 +90,6 @@ def get_dtype_by_name(name: str, is_torch: bool = False, check: bool = True):
         "complex64": [np.complex64, torch.complex64],
         "complex128": [np.complex128, torch.complex64],
         "bf16": [bfloat16, torch.bfloat16],
-        "tf32": [np.float32, torch.float32],
     }
     return str_to_dtype.get(name, [np.float32, torch.float32])[is_torch]
 

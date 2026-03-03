@@ -75,7 +75,6 @@ struct MatmulTestCaseParam {
     bool l0c2l1IsNz = false;
     bool l0c2l1TmpIsTrans = false;
     bool enable_l0c2l1 = false;
-    int transMode = 0;
 };
 
 class TestExecutor {
@@ -374,25 +373,21 @@ static std::vector<Tensor> GetTensors(const nlohmann::json &json_data, bool is_i
     return GetTensors(json_data, true);
 }
 
-[[maybe_unused]] inline Tensor ConfigCreateTensor(const nlohmann::json &tensor_config) {
-    auto shape = tensor_config.at("shape").get<std::vector<int64_t>>();
-    auto dtype = GetDataType(tensor_config.at("dtype").get<std::string>());
-    auto name = tensor_config.at("name").get<std::string>();
-    auto format = tensor_config.at("format").get<std::string>();
-    if (format == "ND") {
-        std::cout << "Create ND Tensors" << std::endl;
-        return Tensor(dtype, shape, name);
-    } else {
-        std::cout << "Create NZ Tensors" << std::endl;
-        return Tensor(dtype, shape, name, TileOpFormat::TILEOP_NZ);
-    }
-}
-
 [[maybe_unused]] static std::vector<Tensor> GetMatmulTensors(const nlohmann::json &json_data, const std::string key) {
     std::cout << "Create Matmul Tensors For " << json_data << std::endl;
     std::vector<Tensor> tensors;
     for (const auto &tensor_config : json_data.at(key)) {
-        tensors.push_back(ConfigCreateTensor(tensor_config));
+        auto shape = tensor_config.at("shape").get<std::vector<int64_t>>();	 
+        auto dtype = GetDataType(tensor_config.at("dtype").get<std::string>()); 
+        auto name = tensor_config.at("name").get<std::string>(); 
+        auto format = tensor_config.at("format").get<std::string>(); 
+        if (format == "ND") { 
+            std::cout << "Create ND Tensors" << std::endl; 
+            tensors.push_back(Tensor(dtype, shape, name)); 
+        } else { 
+            std::cout << "Create NZ Tensors" << std::endl; 
+            tensors.push_back(Tensor(dtype, shape, name, TileOpFormat::TILEOP_NZ)); 
+        }
     }
     return tensors;
 }
@@ -403,7 +398,17 @@ static std::vector<Tensor> GetTensors(const nlohmann::json &json_data, bool is_i
         return Tensor();
     }
     const auto &tensor_config = json_data.at("params").at(key);
-    return ConfigCreateTensor(tensor_config);
+    auto format = tensor_config.at("format").get<std::string>();	 
+    auto name = tensor_config.at("name").get<std::string>(); 
+    auto dtype = GetDataType(tensor_config.at("dtype").get<std::string>()); 
+    auto shape = tensor_config.at("shape").get<std::vector<int64_t>>(); 
+    if (format == "NZ") { 
+        std::cout << "Create NZ Tensors" << std::endl; 
+        return Tensor(dtype, shape, name, TileOpFormat::TILEOP_NZ); 
+    } else { 
+        std::cout << "Create ND Tensors" << std::endl; 
+        return Tensor(dtype, shape, name); 
+    }
 }
 
 [[maybe_unused]] static std::vector<Tensor> GetOutputTensors(const nlohmann::json &json_data) {

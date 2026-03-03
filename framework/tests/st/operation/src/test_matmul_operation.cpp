@@ -149,7 +149,6 @@ static void MatmulOperationExeFuncNoSplit(
             if (args->param_.hasBias) {
                 param.biasTensor = View(inputs[biasIndex], {1, nDim}, {1, nDim}, {0, 0});
             }
-            param.transMode = static_cast<Matrix::TransMode>(args->param_.transMode);
             outputs[0] = CallMatmulOp(tensorA, tensorB, args->param_, param);
         }
     }
@@ -193,7 +192,6 @@ static void MatmulOperationExeFuncSplitM(
             }
             param.reluType = reluType;
             param.scaleValue = scaleValue;
-            param.transMode = static_cast<Matrix::TransMode>(args->param_.transMode);
             Tensor tensorC = CallMatmulOp(tensorA, tensorB, args->param_, param);
             Assemble(tensorC, {mIdx * mView, 0}, outputs[0]);
         }
@@ -240,7 +238,6 @@ static void MatmulOperationExeFuncSplitN(
                 param.scaleTensor =
                     View(inputs[scaleIndex], {1, nView}, {1, std::min(nDim - nIdx * nView, nView)}, {0, nIdx * nView});
             }
-            param.transMode = static_cast<Matrix::TransMode>(args->param_.transMode);
             Tensor tensorC = CallMatmulOp(tensorA, tensorB, args->param_, param);
             Assemble(tensorC, {0, nIdx * nView}, outputs[0]);
         }
@@ -291,7 +288,6 @@ static void MatmulOperationExeFuncSplitMN(
                 }
                 param.reluType = reluType;
                 param.scaleValue = scaleValue;
-                param.transMode = static_cast<Matrix::TransMode>(args->param_.transMode);
                 Tensor tensorC = CallMatmulOp(tensorA, tensorB, args->param_, param);
                 Assemble(tensorC, {mIdx * mView, nIdx * nView}, outputs[0]);
             }
