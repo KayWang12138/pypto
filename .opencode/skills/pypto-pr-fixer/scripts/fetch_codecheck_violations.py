@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
+#
+# This software is licensed under the BSD 3-Clause License.
+# See the LICENSE file in the project root for full license text.
+
 """
 CodeCheck 违规提取脚本
 
@@ -12,11 +17,13 @@ CodeCheck 违规提取脚本
     --output: 输出格式，json 或 text (默认: json)
 
 示例:
-    python fetch_codecheck_violations.py "https://www.openlibing.com/apps/entryCheckDashCode/MR_xxx/yyy?projectId=300033"
+    python fetch_codecheck_violations.py \
+        "https://www.openlibing.com/apps/entryCheckDashCode/MR_xxx/yyy?projectId=300033"
 """
 
 import argparse
 import json
+import logging
 import re
 import sys
 from typing import Any
@@ -110,6 +117,8 @@ def group_by_rule(violations: list[dict[str, Any]]) -> dict[str, list[dict[str, 
 
 
 def main():
+    logging.basicConfig(level=logging.INFO, format='%(message)s')
+
     parser = argparse.ArgumentParser(description="从 openlibing.com 提取 CodeCheck 违规列表")
     parser.add_argument("url", help="CodeCheck 报告 URL")
     parser.add_argument("--output", "-o", choices=["json", "text"], default="json", help="输出格式")
@@ -121,35 +130,35 @@ def main():
         violations = extract_violations_with_playwright(args.url)
         
         if args.output == "json":
-            result = {
+            result: dict[str, Any] = {
                 "total": len(violations),
                 "by_rule": {k: len(v) for k, v in group_by_rule(violations).items()},
                 "violations": violations
             }
             if args.group:
                 result["grouped"] = group_by_rule(violations)
-            print(json.dumps(result, indent=2, ensure_ascii=False))
+            logging.info(json.dumps(result, indent=2, ensure_ascii=False))
         else:
-            print(f"Total violations: {len(violations)}\n")
+            logging.info(f"Total violations: {len(violations)}\n")
             
             if args.group:
                 by_rule = group_by_rule(violations)
                 for rule, items in sorted(by_rule.items(), key=lambda x: -len(x[1])):
                     desc = items[0]['rule_description'] if items else ''
-                    print(f"## {rule}: {len(items)} violations")
-                    print(f"   {desc}\n")
+                    logging.info(f"## {rule}: {len(items)} violations")
+                    logging.info(f"   {desc}\n")
                     for v in items:
-                        print(f"   - {v['file']}:{v['line']}")
-                        print(f"     {v['description']}\n")
+                        logging.info(f"   - {v['file']}:{v['line']}")
+                        logging.info(f"     {v['description']}\n")
             else:
                 for v in violations:
-                    print(f"{v['rule_id']} | {v['file']}:{v['line']}")
-                    print(f"  {v['description']}\n")
+                    logging.info(f"{v['rule_id']} | {v['file']}:{v['line']}")
+                    logging.info(f"  {v['description']}\n")
         
         return 0
         
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+        logging.error(f"Error: {e}")
         return 1
 
 
