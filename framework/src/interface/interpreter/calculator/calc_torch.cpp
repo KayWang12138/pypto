@@ -328,6 +328,8 @@ DEFINE_BINARY_S_OPS(SubS, sub_out)
 DEFINE_BINARY_S_OPS(MulS, mul_out)
 DEFINE_BINARY_S_OPS(DivS, div_out)
 DEFINE_BINARY_S_OPS(FmodS, fmod_out)
+DEFINE_BINARY_S_OPS(RemainderS, remainder_out)
+DEFINE_BINARY_S_OPS(RemainderRS, remainder_out)
 DEFINE_BINARY_S_OPS(BitwiseAndS, bitwise_and_out)
 DEFINE_BINARY_S_OPS(BitwiseOrS, bitwise_or_out)
 DEFINE_BINARY_S_OPS(BitwiseXorS, bitwise_xor_out)
@@ -522,6 +524,18 @@ static void PReLU(const TensorData &out, const TensorData &self, const TensorDat
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
+#define DEFINE_BINARY_OPS(Name, op_out)                                                        \
+    static void Name(const TensorData &out, const TensorData &self, const TensorData &other) { \
+        auto tout = From(out);                                                                 \
+        auto tself = From(self);                                                               \
+        auto tother = From(other);                                                             \
+        torch::op_out(tout.second, tself.second, tother.second);                               \
+        ToOperand(tout.second, tout.first, out.dtype);                                         \
+    }
+
+DEFINE_BINARY_OPS(Remainder, remainder_out)
+DEFINE_BINARY_OPS(Gcd, gcd_out)
+
 static void Pow(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tout = From(out);
     auto tself = From(self);
@@ -603,14 +617,6 @@ static void SBitwiseLeftShift(const TensorData &out, const Element &scalar, cons
     auto tout = From(out);
     auto tother = From(other);
     torch::bitwise_left_shift_out(tout.second, From(scalar), tother.second);
-    ToOperand(tout.second, tout.first, out.dtype);
-}
-
-static void Gcd(const TensorData &out, const TensorData &self, const TensorData &other) {
-    auto tout = From(out);
-    auto tself = From(self);
-    auto tother = From(other);
-    torch::gcd_out(tout.second, tself.second, tother.second);
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
@@ -1924,6 +1930,8 @@ static struct CalcOps calcOps = {
     .MulS = MulS,
     .DivS = DivS,
     .FmodS = FmodS,
+    .RemainderS = RemainderS,
+    .RemainderRS = RemainderRS,
     .BitwiseAndS = BitwiseAndS,
     .BitwiseOrS = BitwiseOrS,
     .BitwiseXorS = BitwiseXorS,
@@ -1933,6 +1941,7 @@ static struct CalcOps calcOps = {
     .Mul = Mul,
     .Div = Div,
     .Fmod = Fmod,
+    .Remainder = Remainder,
     .Pow = Pow,
     .BitwiseAnd = BitwiseAnd,
     .BitwiseOr = BitwiseOr,
