@@ -1,12 +1,14 @@
 ---
 name: pypto-performance-autotuner
-description: PyPTO 性能自动调优技能 — 搜索最优 NPU 性能配置。完整覆盖 tile/pass/runtime/stitch 全部调优旋钮，按 PR#1263 优先级排序（stitch → matmul → vector → scheduling），结合泳道图性能数据驱动分层搜索策略。触发词：性能调优、自动调优、autotune、set_pass_options、set_runtime_options、tile shapes、搜索最优配置、性能搜索
+description: PyPTO 性能自动调优技能 — 搜索最优 NPU 性能配置。完整覆盖 tile/pass/runtime/stitch 全部调优旋钮，按 PR#1263 优先级排序（stitch → matmul → vector → scheduling），结合程序化解析的性能数据驱动分层搜索策略。触发词：性能调优、自动调优、autotune、set_pass_options、set_runtime_options、tile shapes、搜索最优配置、性能搜索
 license: Apache-2.0
 ---
 
+> ⚠️ 本 skill 假设代理**无多模态能力**：禁止要求打开/查看图形界面；只能读取 JSON/CSV/log 并进行程序化分析。
+
 # PyPTO Performance Autotuner
 
-搜索最优 NPU 性能调优配置的知识技能。覆盖 PyPTO 全部调优 API，按影响度排序，结合泳道图性能数据驱动分层搜索。
+搜索最优 NPU 性能调优配置。覆盖 PyPTO 全部调优 API，按影响度排序，结合程序化解析的性能数据驱动分层搜索。内置 `scripts/autotune.py` 实现可执行的迭代搜索策略。
 
 ## 触发场景
 
@@ -78,7 +80,7 @@ pypto.set_vec_tile_shapes(*args: int)  # 变长参数，对应张量各维度的
 - **16-64 KB 原则**: 单次搬运数据量在 16-64 KB 范围内效率最高
 - **上下游对齐**: Vector tile 应与上游 Cube 输出 tile 或下游算子输入 tile 对齐
 - **归约轴不切分**: 如果某轴是归约轴，tile size 应等于该轴完整大小
-- **泳道图观察**: 看并行度是否充分，若核间负载不均则需调整 tile
+- **泳道图 JSON 解析**: 程序化分析 merged_swimlane.json 中的并行度与核间负载均衡性
 
 ### 1.3 Pass Options（编译优化选项）
 
@@ -156,10 +158,11 @@ pypto.set_runtime_options(
 
 | 参数 | 典型值 | 语义 | 调优方向 |
 |------|--------|------|----------|
-| `stitch_function_num_initial` | 16, 32, 64, 128 | 初始并发 stitch task 数 | 增大→更多并发→可能争抢资源 |
-| `stitch_function_outcast_memory` | 256, 512, 1024 | workspace 内存 | 增大→更多临时缓存 |
-| `stitch_function_inner_memory` | 256, 512 | 非 outcast 内存 | 与 outcast_memory 配合 |
+| `stitch_function_max_num` | 16, 32, 64, 128 | 每次 stitch 最大 loop 数 | **推荐** — 统一替代下方三个废弃参数 |
 | `device_sched_mode` | 0, 1 | 调度模式 | 1=L2亲和调度，通常优于默认 |
+| ~~`stitch_function_num_initial`~~ | 16, 32, 64 | (废弃) 初始并发 task 数 | 已由 max_num 替代 |
+| ~~`stitch_function_outcast_memory`~~ | 256, 512 | (废弃) workspace 内存 | 已由 max_num 替代 |
+| ~~`stitch_function_inner_memory`~~ | 256, 512 | (废弃) 非 outcast 内存 | 已由 max_num 替代 |
 
 > ⚠️ **已规划替换**: `stitch_function_inner_memory`、`stitch_function_outcast_memory`、`stitch_function_num_initial` 三个参数未来将统一为 `stitch_function_max_num`。当前两套 API 并存。
 
@@ -206,10 +209,9 @@ pypto.experimental.set_operation_options(
 ```
 优先级 1: Stitch 调优 ← 影响最大，控制并行任务调度
     │
-    ├── stitch_function_num_initial
-    ├── stitch_function_outcast_memory
-    ├── stitch_function_inner_memory
-    └── submit_before_loop (loop_unroll)
+    ├── stitch_function_max_num ← 推荐（替代已废弃的三参数）
+    ├── submit_before_loop (loop_unroll)
+    └── (legacy) stitch_function_num_initial / outcast_memory / inner_memory
     │
 优先级 2: Matmul 调优 ← Cube 算子性能核心
     │
@@ -240,44 +242,13 @@ pypto.experimental.set_operation_options(
 
 ### 3.1 采集方式
 
-**方式 A: torch_npu.profiler（推荐）**
+> 性能数据采集由 `pypto-performance-analyzer` skill 负责。请参考该 skill 的使用说明完成数据采集和解析。
 
-```python
-import torch_npu
-from torch_npu import profiler
-
-with profiler.profile(
-    activities=[profiler.ProfilerActivity.CPU, profiler.ProfilerActivity.NPU],
-    schedule=profiler.schedule(wait=1, warmup=5, active=3, repeat=1),
-    on_trace_ready=profiler.tensorboard_trace_handler("./profiler_output"),
-    profile_memory=True,
-) as prof:
-    for step in range(total_steps):
-        run_operator(input_data)
-        prof.step()
-```
-
-**方式 B: MindSpore Profiler**
-
-```python
-from mindspore.profiler import Profiler, ProfilerActivity
-
-with mindspore.profiler.profile(
-    activities=[ProfilerActivity.CPU, ProfilerActivity.NPU],
-    on_trace_ready=mindspore.profiler.tensorboard_trace_handler("./data"),
-) as prof:
-    run_operator(input_data)
-    prof.step()
-```
-
-**方式 C: PyPTO 内置 profiling**
-
-```python
-# 通过 machine 模块配置
-# enable_prof_func=True        # Function 级别
-# enable_prof_aicore_time=True  # AI Core 时间
-# enable_prof_aicore_pmu=True   # AI Core PMU
-```
+**快速流程**:
+1. 在算子代码中设置 `runtime_debug_mode=1` 启用泳道图采集
+2. 运行算子，在 `{work_dir}/output/output_*/` 下生成产物
+3. 调用 `analyze.py` 生成 Markdown 报告和 `analysis_summary.json`
+4. autotuner 消费 `analysis_summary.json` 确定瓶颈方向和搜索起点
 
 ### 3.2 输出数据结构
 
@@ -341,8 +312,8 @@ def extract_metrics(profiler_output_dir: str) -> dict:
 }
 ```
 
-**泳道图核心观察点**:
-1. **NPU 空闲间隙** → Stitch 调优不够，增大 `stitch_function_num_initial`
+**性能数据核心观察点（程序化解析）**:
+1. **NPU 空闲间隙** → Stitch 调优不够，增大 `stitch_function_max_num`
 2. **核间负载不均** → Tile size 不合理，调整切块使各核负载均衡
 3. **数据搬运瓶颈** → 开启 `enable_multi_data_load`，调大 `mg_copyin_upper_bound`
 4. **算子串行执行** → 检查 `sg_set_scope` 是否正确融合，调整 `vec_nbuffer_mode`
@@ -371,12 +342,11 @@ def extract_metrics(profiler_output_dir: str) -> dict:
 │ 第 1 层: Stitch 调优 (最高影响)                       │
 │                                                       │
 │   搜索空间:                                           │
-│     stitch_function_num_initial: [16, 32, 64, 128]   │
-│     stitch_function_outcast_memory: [256, 512, 1024] │
-│     stitch_function_inner_memory: [256, 512]         │
-│     ⚠️ 以上三参数将统一为 stitch_function_max_num      │
-│   策略: Grid Search (空间小，≤24 组合)                │
-│   评估: 泳道图 total_latency_ms + idle_ratio          │
+│     stitch_function_max_num: [16, 32, 64, 128]       │
+│     （兼容模式可选废弃参数，详见 knobs.md）            │
+│   策略: Grid Search (空间小，≤4 组合)                 │
+│   评估: 解析 analysis_summary.json 的                 │
+│         total_latency_ms + idle_ratio                 │
 │   输出: best_stitch_config                            │
 ├─────────────────────────────────────────────────────┤
 │ 第 2 层: Matmul Tile + L1 策略 (次高影响)             │
@@ -448,7 +418,7 @@ def extract_metrics(profiler_output_dir: str) -> dict:
 2. `enable_split_k=True` 且 K 轴 tile 很小 → **无意义**，split_k 需要 K 轴足够长
 3. `pg_skip_partition=True` 且设置了 `pg_upper_bound/pg_lower_bound` → **冲突**，skip 后 bound 无效
 4. `vec_nbuffer_mode=0` 且设置了 `vec_nbuffer_setting` → **无效**，mode=0 关闭合并
-5. `stitch_function_num_initial` 过大（>256）→ **资源争抢**，通常 16-128 范围
+5. `stitch_function_max_num` 过大（>256）→ **资源争抢**，通常 16-128 范围
 
 ### 4.4 Early Stopping
 
@@ -471,9 +441,7 @@ def extract_metrics(profiler_output_dir: str) -> dict:
       "priority": 1,
       "strategy": "grid",
       "params": {
-        "stitch_function_num_initial": {"type": "choice", "values": [16, 32, 64, 128]},
-        "stitch_function_outcast_memory": {"type": "choice", "values": [256, 512, 1024]},
-        "stitch_function_inner_memory": {"type": "choice", "values": [256, 512]}
+        "stitch_function_max_num": {"type": "choice", "values": [16, 32, 64, 128]}
       }
     },
     {
@@ -530,9 +498,7 @@ def apply_config(config: dict):
     if "stitch" in config:
         sc = config["stitch"]
         pypto.set_runtime_options(
-            stitch_function_num_initial=sc.get("stitch_function_num_initial"),
-            stitch_function_outcast_memory=sc.get("stitch_function_outcast_memory"),
-            stitch_function_inner_memory=sc.get("stitch_function_inner_memory"),
+            stitch_function_max_num=sc.get("stitch_function_max_num", 64),
         )
 
     # Matmul 层
@@ -583,14 +549,14 @@ baseline_metrics = run_and_profile(operator, input_data)
 print(f"Baseline latency: {baseline_metrics['total_latency_ms']:.2f} ms")
 ```
 
-### Step 2: 分析泳道图确定瓶颈
+### Step 2: 程序化分析性能数据确定瓶颈
 
-1. 用 Perfetto (https://ui.perfetto.dev/) 打开 `trace_view.json`
-2. 观察泳道图，识别瓶颈类型:
+1. 调用 `pypto-performance-analyzer` 的 `analyze.py` 解析 output 产物
+2. 读取 `analysis_summary.json`，根据 `bottleneck_labels` 确定瓶颈类型:
 
 | 现象 | 瓶颈类型 | 首选调优方向 |
 |------|----------|-------------|
-| 大段 NPU 空闲 | Stitch 不足 | 调大 `stitch_function_num_initial` |
+| 大段 NPU 空闲 | Stitch 不足 | 调大 `stitch_function_max_num` |
 | 核间负载不均 | Tile 不合理 | 调整 tile shapes |
 | Cube 算子耗时长 | Matmul 效率低 | L1 Reuse + 大包搬运 |
 | Vector 算子串行 | 融合不足 | `sg_set_scope` + `vec_nbuffer` |
@@ -631,8 +597,7 @@ print(f"Final: {verified_latency:.2f} ms, Speedup: {speedup:.2f}x")
   "speedup": "1.51x",
   "best_config": {
     "stitch": {
-      "stitch_function_num_initial": 64,
-      "stitch_function_outcast_memory": 512
+      "stitch_function_max_num": 64
     },
     "matmul": {
       "cube_tile_m": [16, 128],
@@ -700,6 +665,34 @@ pypto.set_pass_options(
 ```
 
 ---
+
+## 与现有技能的关系
+
+| 技能 | 关系 | 说明 |
+|------|------|------|
+| `pypto-performance-analyzer` | 下游依赖 | 本技能消费 analyzer 输出的 `analysis_summary.json` 来确定搜索起点和瓶颈方向 |
+| `pypto-operator-perf-autotune` | 升级替代 | 该技能提供基础的性能分析和调优指导；本技能增加自动化迭代搜索能力 |
+| `pypto-perf-tuning-loop` | 升级替代 | 该技能定义调优循环框架但无脚本；本技能提供 `autotune.py` 实现可执行的迭代搜索 |
+
+## 交接协议 (Handoff Protocol)
+
+### analyzer → autotuner 数据流
+
+```
+analyzer (analyze.py)
+    ├── 输入: merged_swimlane.json + 其他 output 产物
+    ├── 输出: performance_report.md (人类可读)
+    └── 输出: analysis_summary.json (机器可读) ← autotuner 消费
+              │
+autotuner (autotune.py)
+    ├── 输入: analysis_summary.json + search_space.json + budget
+    ├── 每轮: 生成候选 → 执行 benchmark → 调用 analyzer → 记录结果
+    ├── 输出: tuning_results.jsonl (每轮记录)
+    └── 输出: best_config.json (最优配置)
+```
+
+### analysis_summary.json Schema
+参见 `pypto-performance-analyzer` SKILL.md 中的"分析摘要输出"章节。
 
 ## 八、参考资料
 

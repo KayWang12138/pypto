@@ -7,9 +7,7 @@
       "priority": 1,
       "strategy": "grid",
       "params": {
-        "stitch_function_num_initial": {"type": "choice", "values": [16, 32, 64, 128]},
-        "stitch_function_outcast_memory": {"type": "choice", "values": [256, 512, 1024]},
-        "stitch_function_inner_memory": {"type": "choice", "values": [256, 512]}
+        "stitch_function_max_num": {"type": "choice", "values": [16, 32, 64, 128]}
       }
     },
     {

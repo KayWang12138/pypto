@@ -4,13 +4,15 @@ description: PyPTO 性能分析技能 - 解析泳道图(merged_swimlane.json)及
 license: Apache-2.0
 ---
 
+> ⚠️ 本 skill 假设代理**无多模态能力**：禁止要求打开/查看图形界面；只能读取 JSON/CSV/log 并进行程序化分析。
+
 # PyPTO Performance Analyzer
 
-分析 PyPTO 算子的泳道图和计算图，识别性能瓶颈，生成可操作的调优建议。
+程序化解析 PyPTO 算子的 merged_swimlane.json（Chrome Trace Format）及多种 output 产物，识别性能瓶颈并生成评级与调优建议。
 
 ## 触发场景
 
-- "分析泳道图" / "查看性能数据" / "swimlane 分析"
+- "解析泳道图 JSON" / "查看性能数据" / "swimlane 分析"
 - "AICore 利用率低" / "性能瓶颈在哪里"
 - "生成性能报告" / "pypto 性能分析"
 - "计算图分析" / "子图合并问题"
@@ -92,6 +94,42 @@ python3 -m py_compile .opencode/skills/pypto-performance-analyzer/scripts/analyz
 # Dry-run 测试
 python3 .opencode/skills/pypto-performance-analyzer/scripts/analyze.py --dry-run
 ```
+
+## 与现有技能的关系
+
+| 技能 | 关系 | 说明 |
+|------|------|------|
+| `pypto-operator-perf-autotune` | 补充 | 该技能侧重于 operator 级别的性能统计与调优指导；本技能提供更深入的泳道图 JSON 程序化解析和多维度产物分析 |
+| `pypto-performance-autotuner` | 上游 | 本技能的 `analysis_summary.json` 输出是 autotuner 的输入，用于确定搜索起点和瓶颈方向 |
+| `pypto-perf-tuning-loop` | 互补 | 该技能定义迭代调优的工作流框架；本技能提供每轮迭代中的分析能力 |
+
+## 分析摘要输出 (analysis_summary.json)
+
+`analyze.py` 在生成 Markdown 报告的同时，会在相同目录下输出 `analysis_summary.json`，供 autotuner 等下游工具程序化消费。
+
+**Schema**:
+```json
+{
+  "timestamp": "2026-03-03T12:00:00",
+  "key_metrics": {
+    "aic_utilization": 0.75,
+    "aiv_utilization": 0.60,
+    "timeline_length_us": 50000,
+    "bubble_ratio": 0.15
+  },
+  "bottleneck_labels": ["compute", "scheduling"],
+  "suggested_knobs": [
+    {"knob": "cube_l1_reuse_mode", "suggestion": "启用 L1 复用"},
+    {"knob": "device_sched_mode", "suggestion": "尝试 L2 亲和调度"}
+  ],
+  "rating": {
+    "stars": 3,
+    "label": "⭐⭐⭐"
+  }
+}
+```
+
+**瓶颈标签体系**: `compute` | `memory` | `scheduling` | `communication` | `stitch` | `control_overhead`
 
 ## References
 

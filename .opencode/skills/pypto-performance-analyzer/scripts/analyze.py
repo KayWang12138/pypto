@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -14,10 +15,12 @@ Usage:
 import argparse
 import ast
 import json
+import logging
 import re
 import sys
 from collections import defaultdict
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -29,6 +32,31 @@ REFERENCES_DIR = SKILL_DIR / "references"
 # Default paths
 DEFAULT_PYPTO_REPO = "/workspace/code/pypto"
 DEFAULT_REPORT_OUT = "/workspace/code/.sisyphus/evidence/pypto-performance-report.md"
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class PerformanceData:
+    aic_util: float
+    aiv_util: float
+    core_stats: Dict[int, Dict[str, Any]]
+    bubble_result: Dict[str, Any]
+    memory_result: Dict[str, Any]
+    trace_result: Dict[str, Any]
+    timeline_length: int
+
+
+@dataclass
+class RecommendationData:
+    aic_util: float
+    aiv_util: float
+    top_gaps: List[Dict[str, Any]]
+    core_stats: Dict[int, Dict[str, Any]]
+    rating_result: Optional[Dict[str, Any]] = None
+    memory_result: Optional[Dict[str, Any]] = None
+    trace_result: Optional[Dict[str, Any]] = None
+    execution_result: Optional[Dict[str, Any]] = None
 
 
 def extract_first_float(text: str) -> Optional[float]:
@@ -51,20 +79,6 @@ class SwimlaneAnalyzer:
         self.task_events: List[Dict[str, Any]] = []  # ph == "X" events
         self.counter_events: List[Dict[str, Any]] = []  # ph == "C" events
         self._parse_events()
-    
-    def _parse_events(self):
-        """Parse and categorize trace events."""
-        for event in self.events:
-            ph = event.get("ph", "")
-            if ph == "M" and event.get("name") == "thread_name":
-                tid = event.get("tid")
-                name = event.get("args", {}).get("name", "")
-                if tid is not None:
-                    self.thread_names[tid] = name
-            elif ph == "X":
-                self.task_events.append(event)
-            elif ph == "C":
-                self.counter_events.append(event)
     
     def get_core_type(self, tid: int) -> str:
         """Determine core type (AIC/AIV) from thread name."""
@@ -108,7 +122,7 @@ class SwimlaneAnalyzer:
                 core_stats[tid]["tasks"].append(event)
                 core_stats[tid]["core_type"] = self.get_core_type(tid)
         
-        for tid, stats in core_stats.items():
+        for _, stats in core_stats.items():
             stats["bubble"] = 1.0 - (stats["total_dur"] / timeline_length) if timeline_length > 0 else 0.0
             stats["utilization"] = stats["total_dur"] / timeline_length if timeline_length > 0 else 0.0
         
@@ -203,17 +217,6 @@ class SwimlaneAnalyzer:
         
         return sorted(gaps, key=lambda x: x["gap_us"], reverse=True)[:top_k]
 
-    def _extract_value(self, text: str, key: str) -> float:
-        for line in text.split("\n"):
-            if key in line:
-                try:
-                    value_text = line.split(":", 1)[1].strip()
-                except IndexError:
-                    return 0.0
-                value = extract_first_float(value_text)
-                return value if value is not None else 0.0
-        return 0.0
-
     def analyze_execution_time_stats(self) -> Dict[str, Any]:
         records: List[Dict[str, Any]] = []
         stats = {
@@ -235,9 +238,9 @@ class SwimlaneAnalyzer:
             if not isinstance(hint, str) or not hint.strip():
                 continue
 
-            avg_time = self._extract_value(hint, "Average Execution Time")
-            max_time = self._extract_value(hint, "Max Execution Time")
-            min_time = self._extract_value(hint, "Min Execution Time")
+            avg_time = SwimlaneAnalyzer._extract_value(hint, "Average Execution Time")
+            max_time = SwimlaneAnalyzer._extract_value(hint, "Max Execution Time")
+            min_time = SwimlaneAnalyzer._extract_value(hint, "Min Execution Time")
 
             avg_values.append(avg_time)
             max_values.append(max_time)
@@ -261,7 +264,100 @@ class SwimlaneAnalyzer:
         stats["min_time_min"] = min(min_values)
         return stats
 
-    def _parse_operand_hint(self, hint: str) -> Dict[str, Any]:
+    def analyze_memory(self) -> Dict[str, Any]:
+        memory_info: Dict[str, Any] = {
+            "peak_ub_bytes": 0,
+            "ub_events": [],
+            "operand_hints": [],
+            "total_operand_mem_usage": 0,
+            "peak_operand_mem_usage": 0,
+            "memory_efficiency": None,
+        }
+
+        for event in self.task_events:
+            args = event.get("args", {})
+            if not isinstance(args, dict):
+                continue
+
+            task_mem_sum = 0
+
+            for hint_key in ("ioperand-hint", "ooperand-hint"):
+                hint_value = args.get(hint_key)
+                if not isinstance(hint_value, str) or not hint_value.strip():
+                    continue
+                parsed_hint = SwimlaneAnalyzer._parse_operand_hint(hint_value)
+                memory_info["operand_hints"].append(
+                    {
+                        "task": event.get("name", "Unknown"),
+                        "tid": event.get("tid"),
+                        "hint_type": hint_key,
+                        "shape": parsed_hint["shape"],
+                        "dtype": parsed_hint["dtype"],
+                        "mem_usage": parsed_hint["mem_usage"],
+                        "format": parsed_hint["format"],
+                    }
+                )
+                memory_info["total_operand_mem_usage"] += parsed_hint["mem_usage"]
+                task_mem_sum += parsed_hint["mem_usage"]
+
+            memory_info["peak_operand_mem_usage"] = max(memory_info["peak_operand_mem_usage"], task_mem_sum)
+
+        for event in self.events:
+            name = str(event.get("name", ""))
+            if "OOO_Mem_Usage(UB)" not in name:
+                continue
+            args = event.get("args", {})
+            if not isinstance(args, dict) or "/byte" not in args:
+                continue
+            try:
+                ub_bytes = int(args.get("/byte", 0))
+            except (TypeError, ValueError):
+                ub_bytes = 0
+            memory_info["peak_ub_bytes"] = max(memory_info["peak_ub_bytes"], ub_bytes)
+            memory_info["ub_events"].append(
+                {
+                    "name": name,
+                    "ts": event.get("ts", 0),
+                    "ub_bytes": ub_bytes,
+                }
+            )
+
+        peak = memory_info["peak_ub_bytes"]
+        peak_operand = memory_info["peak_operand_mem_usage"]
+        if peak > 0 and peak_operand > 0:
+            efficiency = min(peak_operand / peak, 1.0)
+            memory_info["memory_efficiency"] = efficiency
+
+        return memory_info
+
+    def _parse_events(self):
+        """Parse and categorize trace events."""
+        for event in self.events:
+            ph = event.get("ph", "")
+            if ph == "M" and event.get("name") == "thread_name":
+                tid = event.get("tid")
+                name = event.get("args", {}).get("name", "")
+                if tid is not None:
+                    self.thread_names[tid] = name
+            elif ph == "X":
+                self.task_events.append(event)
+            elif ph == "C":
+                self.counter_events.append(event)
+
+    @staticmethod
+    def _extract_value(text: str, key: str) -> float:
+        for line in text.split("\n"):
+            if key in line:
+                try:
+                    value_text = line.split(":", 1)[1].strip()
+                except IndexError:
+                    return 0.0
+                value = extract_first_float(value_text)
+                return value if value is not None else 0.0
+        return 0.0
+
+    @staticmethod
+    def _parse_operand_hint(hint: str) -> Dict[str, Any]:
         parsed: Dict[str, Any] = {
             "shape": "",
             "dtype": "",
@@ -280,16 +376,16 @@ class SwimlaneAnalyzer:
                 shape_end = min(shape_end, dtype_start)
             elif mem_usage_start > shape_start:
                 shape_end = min(shape_end, mem_usage_start)
-            parsed["shape"] = hint[shape_start + len("shape:"):shape_end].strip().rstrip(",")
+            parsed["shape"] = hint[shape_start + len("shape:") : shape_end].strip().rstrip(",")
 
         if dtype_start >= 0:
             dtype_end = len(hint)
             if mem_usage_start > dtype_start:
                 dtype_end = mem_usage_start
-            parsed["dtype"] = hint[dtype_start + len("dtype:"):dtype_end].strip().rstrip(",")
+            parsed["dtype"] = hint[dtype_start + len("dtype:") : dtype_end].strip().rstrip(",")
 
         if mem_usage_start >= 0:
-            mem_text = hint[mem_usage_start + len("mem_usage:"):].strip().rstrip(",")
+            mem_text = hint[mem_usage_start + len("mem_usage:") :].strip().rstrip(",")
             mem_token = mem_text.split(",", 1)[0].strip()
             try:
                 parsed["mem_usage"] = int(mem_token)
@@ -342,72 +438,6 @@ class SwimlaneAnalyzer:
             parsed["mem_usage"] = sum(mem_candidates)
         parsed["format"] = "structured"
         return parsed
-
-    def analyze_memory(self) -> Dict[str, Any]:
-        memory_info: Dict[str, Any] = {
-            "peak_ub_bytes": 0,
-            "ub_events": [],
-            "operand_hints": [],
-            "total_operand_mem_usage": 0,
-            "peak_operand_mem_usage": 0,
-            "memory_efficiency": None,
-        }
-
-        for event in self.task_events:
-            args = event.get("args", {})
-            if not isinstance(args, dict):
-                continue
-
-            task_mem_sum = 0
-
-            for hint_key in ("ioperand-hint", "ooperand-hint"):
-                hint_value = args.get(hint_key)
-                if not isinstance(hint_value, str) or not hint_value.strip():
-                    continue
-                parsed_hint = self._parse_operand_hint(hint_value)
-                memory_info["operand_hints"].append(
-                    {
-                        "task": event.get("name", "Unknown"),
-                        "tid": event.get("tid"),
-                        "hint_type": hint_key,
-                        "shape": parsed_hint["shape"],
-                        "dtype": parsed_hint["dtype"],
-                        "mem_usage": parsed_hint["mem_usage"],
-                        "format": parsed_hint["format"],
-                    }
-                )
-                memory_info["total_operand_mem_usage"] += parsed_hint["mem_usage"]
-                task_mem_sum += parsed_hint["mem_usage"]
-
-            memory_info["peak_operand_mem_usage"] = max(memory_info["peak_operand_mem_usage"], task_mem_sum)
-
-        for event in self.events:
-            name = str(event.get("name", ""))
-            if "OOO_Mem_Usage(UB)" not in name:
-                continue
-            args = event.get("args", {})
-            if not isinstance(args, dict) or "/byte" not in args:
-                continue
-            try:
-                ub_bytes = int(args.get("/byte", 0))
-            except (TypeError, ValueError):
-                ub_bytes = 0
-            memory_info["peak_ub_bytes"] = max(memory_info["peak_ub_bytes"], ub_bytes)
-            memory_info["ub_events"].append(
-                {
-                    "name": name,
-                    "ts": event.get("ts", 0),
-                    "ub_bytes": ub_bytes,
-                }
-            )
-
-        peak = memory_info["peak_ub_bytes"]
-        peak_operand = memory_info["peak_operand_mem_usage"]
-        if peak > 0 and peak_operand > 0:
-            efficiency = min(peak_operand / peak, 1.0)
-            memory_info["memory_efficiency"] = efficiency
-
-        return memory_info
 
 
 class BubbleAnalyzer:
@@ -500,7 +530,28 @@ class TraceAnalyzer:
                     self.aicpu_perf_file = candidates[0]
                     break
 
-    def _analyze_perfetto_trace(self, trace_path: Path) -> Dict[str, Any]:
+    def analyze(self) -> Dict[str, Any]:
+        result: Dict[str, Any] = {}
+        if self.trace_file and self.trace_file.exists():
+            result = TraceAnalyzer._analyze_perfetto_trace(self.trace_file)
+
+        has_valid_result = bool(result) and result.get("total_time", 0.0) > 0.0
+        if not has_valid_result and self.aicpu_perf_file and self.aicpu_perf_file.exists():
+            result = TraceAnalyzer._analyze_aicpu_pref(self.aicpu_perf_file)
+
+        if not result:
+            return {}
+
+        total_time = float(result.get("total_time", 0.0))
+        stage_ratios: Dict[str, float] = {}
+        if total_time > 0:
+            for stage_name, stage_dur in result.get("stages", {}).items():
+                stage_ratios[stage_name] = float(stage_dur) / total_time
+        result["stage_ratios"] = stage_ratios
+        return result
+
+    @staticmethod
+    def _analyze_perfetto_trace(trace_path: Path) -> Dict[str, Any]:
         with open(trace_path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
@@ -532,7 +583,8 @@ class TraceAnalyzer:
 
         return result
 
-    def _analyze_aicpu_pref(self, pref_path: Path) -> Dict[str, Any]:
+    @staticmethod
+    def _analyze_aicpu_pref(pref_path: Path) -> Dict[str, Any]:
         with open(pref_path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
@@ -572,38 +624,10 @@ class TraceAnalyzer:
 
         return result
 
-    def analyze(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {}
-        if self.trace_file and self.trace_file.exists():
-            result = self._analyze_perfetto_trace(self.trace_file)
-
-        if (not result or result.get("total_time", 0.0) <= 0.0) and self.aicpu_perf_file and self.aicpu_perf_file.exists():
-            result = self._analyze_aicpu_pref(self.aicpu_perf_file)
-
-        if not result:
-            return {}
-
-        total_time = float(result.get("total_time", 0.0))
-        stage_ratios: Dict[str, float] = {}
-        if total_time > 0:
-            for stage_name, stage_dur in result.get("stages", {}).items():
-                stage_ratios[stage_name] = float(stage_dur) / total_time
-        result["stage_ratios"] = stage_ratios
-        return result
-
 
 class OutputArtifactsAnalyzer:
     def __init__(self, output_dir: Optional[str]):
         self.output_dir = Path(output_dir) if output_dir else None
-
-    def _find_file(self, patterns: List[str]) -> Optional[Path]:
-        if not self.output_dir:
-            return None
-        for pattern in patterns:
-            candidates = list(self.output_dir.rglob(pattern))
-            if candidates:
-                return candidates[0]
-        return None
 
     def analyze_execute_json(self) -> Dict[str, Any]:
         execute_file = self._find_file(["execute.json", "*execute*.json"])
@@ -793,21 +817,22 @@ class OutputArtifactsAnalyzer:
             "tilefwk": self.analyze_tilefwk_l1_prof_data(),
         }
 
+    def _find_file(self, patterns: List[str]) -> Optional[Path]:
+        if not self.output_dir:
+            return None
+        for pattern in patterns:
+            candidates = list(self.output_dir.rglob(pattern))
+            if candidates:
+                return candidates[0]
+        return None
 
-def calculate_performance_rating(
-    aic_util: float,
-    aiv_util: float,
-    core_stats: Dict[int, Dict[str, Any]],
-    bubble_result: Dict[str, Any],
-    memory_result: Dict[str, Any],
-    trace_result: Dict[str, Any],
-    timeline_length: int,
-) -> Dict[str, Any]:
+
+def calculate_performance_rating(perf_data: PerformanceData) -> Dict[str, Any]:
     utilization_candidates: List[float] = []
-    if aic_util > 0:
-        utilization_candidates.append(aic_util)
-    if aiv_util > 0:
-        utilization_candidates.append(aiv_util)
+    if perf_data.aic_util > 0:
+        utilization_candidates.append(perf_data.aic_util)
+    if perf_data.aiv_util > 0:
+        utilization_candidates.append(perf_data.aiv_util)
     utilization = (
         sum(utilization_candidates) / len(utilization_candidates)
         if utilization_candidates
@@ -815,18 +840,20 @@ def calculate_performance_rating(
     )
 
     bubble_ratio: Optional[float] = None
-    total_span = float(bubble_result.get("total_span_time", 0.0)) if bubble_result else 0.0
-    total_wait = float(bubble_result.get("total_wait_time", 0.0)) if bubble_result else 0.0
+    total_span = float(perf_data.bubble_result.get("total_span_time", 0.0)) if perf_data.bubble_result else 0.0
+    total_wait = float(perf_data.bubble_result.get("total_wait_time", 0.0)) if perf_data.bubble_result else 0.0
     if total_span > 0:
         bubble_ratio = total_wait / total_span
-    elif core_stats:
-        bubble_ratio = sum(stats.get("bubble", 0.0) for stats in core_stats.values()) / len(core_stats)
+    elif perf_data.core_stats:
+        bubble_ratio = sum(stats.get("bubble", 0.0) for stats in perf_data.core_stats.values()) / len(
+            perf_data.core_stats
+        )
 
-    memory_eff = memory_result.get("memory_efficiency") if memory_result else None
+    memory_eff = perf_data.memory_result.get("memory_efficiency") if perf_data.memory_result else None
 
     control_overhead: Optional[float] = None
-    if trace_result and timeline_length > 0:
-        control_overhead = float(trace_result.get("total_time", 0.0)) / float(timeline_length)
+    if perf_data.trace_result and perf_data.timeline_length > 0:
+        control_overhead = float(perf_data.trace_result.get("total_time", 0.0)) / float(perf_data.timeline_length)
 
     metric_values = {
         "utilization": utilization,
@@ -911,48 +938,43 @@ def calculate_performance_rating(
     }
 
 
-def generate_recommendations(
-    aic_util: float,
-    aiv_util: float,
-    top_gaps: List[Dict[str, Any]],
-    core_stats: Dict[int, Dict[str, Any]],
-    rating_result: Optional[Dict[str, Any]] = None,
-    memory_result: Optional[Dict[str, Any]] = None,
-    trace_result: Optional[Dict[str, Any]] = None,
-    execution_result: Optional[Dict[str, Any]] = None,
-) -> List[Dict[str, str]]:
+def generate_recommendations(rec_data: RecommendationData) -> List[Dict[str, str]]:
     """Generate optimization recommendations based on analysis."""
     recommendations = []
     
     # Low AIC utilization recommendation
-    if aic_util < 0.6:
+    if rec_data.aic_util < 0.6:
         recommendations.append({
-            "issue": f"低 AICore 利用率 ({aic_util*100:.1f}%)",
+            "issue": f"低 AICore 利用率 ({rec_data.aic_util * 100:.1f}%)",
             "knob": "cube_l1_reuse_mode / cube_nbuffer_mode",
             "suggestion": "启用 cube_l1_reuse_mode=1 或 cube_nbuffer_mode=1 增加子图合并",
             "doc_ref": "/workspace/code/pypto/docs/api/config/pypto-set_pass_options.md"
         })
     
     # Low AIV utilization recommendation
-    if aiv_util < 0.6:
+    if rec_data.aiv_util < 0.6:
         recommendations.append({
-            "issue": f"低 AIVector 利用率 ({aiv_util*100:.1f}%)",
+            "issue": f"低 AIVector 利用率 ({rec_data.aiv_util * 100:.1f}%)",
             "knob": "vec_nbuffer_mode / mg_vec_parallel_lb",
             "suggestion": "启用 vec_nbuffer_mode=1 或降低 mg_vec_parallel_lb 阈值",
             "doc_ref": "/workspace/code/pypto/docs/api/config/pypto-set_pass_options.md"
         })
     
     # Large gaps recommendation
-    if top_gaps and top_gaps[0]["gap_us"] > 1000:
+    if rec_data.top_gaps and rec_data.top_gaps[0]["gap_us"] > 1000:
         recommendations.append({
-            "issue": f"存在较大空闲间隔 ({top_gaps[0]['gap_us']}us)",
+            "issue": f"存在较大空闲间隔 ({rec_data.top_gaps[0]['gap_us']}us)",
             "knob": "device_sched_mode",
             "suggestion": "尝试 device_sched_mode=1 (L2亲和调度) 或 device_sched_mode=2 (公平调度)",
             "doc_ref": "/workspace/code/pypto/docs/api/config/pypto-set_runtime_options.md"
         })
     
     # High bubble recommendation
-    high_bubble_cores = [(tid, stats) for tid, stats in core_stats.items() if stats["bubble"] > 0.4]
+    high_bubble_cores = [
+        (tid, stats)
+        for tid, stats in rec_data.core_stats.items()
+        if stats["bubble"] > 0.4
+    ]
     if high_bubble_cores:
         recommendations.append({
             "issue": f"存在 {len(high_bubble_cores)} 个核心 bubble > 40%",
@@ -961,7 +983,7 @@ def generate_recommendations(
             "doc_ref": "/workspace/code/pypto/docs/api/config/pypto-set_pass_options.md"
         })
 
-    if trace_result and trace_result.get("total_time", 0) > 0:
+    if rec_data.trace_result and rec_data.trace_result.get("total_time", 0) > 0:
         recommendations.append({
             "issue": "存在控制链路开销，可优化调度与控制流",
             "knob": "device_sched_mode / runtime_debug_mode",
@@ -969,30 +991,33 @@ def generate_recommendations(
             "doc_ref": "/workspace/code/pypto/docs/api/config/pypto-set_runtime_options.md"
         })
 
-    if memory_result and memory_result.get("peak_ub_bytes", 0) > 0:
-        memory_eff = memory_result.get("memory_efficiency")
+    if rec_data.memory_result and rec_data.memory_result.get("peak_ub_bytes", 0) > 0:
+        memory_eff = rec_data.memory_result.get("memory_efficiency")
         if memory_eff is not None and memory_eff < 0.3:
             recommendations.append({
-                "issue": f"UB 内存效率偏低 ({memory_eff*100:.1f}%)",
+                "issue": f"UB 内存效率偏低 ({memory_eff * 100:.1f}%)",
                 "knob": "set_vec_tile_shapes / set_cube_tile_shapes",
                 "suggestion": "调整 tile 形状提升数据复用，避免 UB 峰值高但有效载荷低",
                 "doc_ref": "/workspace/code/pypto/docs/tutorials/debug/performance.md"
             })
 
-    if execution_result and execution_result.get("count", 0) > 0:
-        max_time = execution_result.get("max_time_max", 0.0)
-        min_time = execution_result.get("min_time_min", 0.0)
+    if rec_data.execution_result and rec_data.execution_result.get("count", 0) > 0:
+        max_time = rec_data.execution_result.get("max_time_max", 0.0)
+        min_time = rec_data.execution_result.get("min_time_min", 0.0)
         if max_time > 0 and min_time > 0 and (max_time / min_time) > 1.5:
             recommendations.append({
                 "issue": "执行时间抖动较大",
                 "knob": "device_sched_mode / vec_nbuffer_mode",
-                "suggestion": "关注长尾算子并调整并行策略，降低最大执行时间与最小执行时间比值",
+                "suggestion": (
+                    "关注长尾算子并调整并行策略，"
+                    "降低最大执行时间与最小执行时间比值"
+                ),
                 "doc_ref": "/workspace/code/pypto/docs/tutorials/debug/performance.md"
             })
 
-    if rating_result and rating_result.get("stars", 0) <= 2:
+    if rec_data.rating_result and rec_data.rating_result.get("stars", 0) <= 2:
         recommendations.append({
-            "issue": f"综合性能评级偏低 ({rating_result.get('label', '⭐')})",
+            "issue": f"综合性能评级偏低 ({rec_data.rating_result.get('label', '⭐')})",
             "knob": "组合调优",
             "suggestion": "优先处理利用率和 bubble 指标，再逐步优化控制开销与内存效率",
             "doc_ref": "/workspace/code/pypto/docs/tutorials/debug/performance.md"
@@ -1002,7 +1027,10 @@ def generate_recommendations(
     recommendations.append({
         "issue": "通用优化建议",
         "knob": "set_vec_tile_shapes / set_cube_tile_shapes",
-        "suggestion": "Vector: pypto.set_vec_tile_shapes(64, 512); Cube: pypto.set_cube_tile_shapes([128,128], [128,128], [128,128])",
+        "suggestion": (
+            "Vector: pypto.set_vec_tile_shapes(64, 512); "
+            "Cube: pypto.set_cube_tile_shapes([128,128], [128,128], [128,128])"
+        ),
         "doc_ref": "/workspace/code/pypto/docs/tutorials/debug/performance.md"
     })
     
@@ -1041,31 +1069,42 @@ def generate_report(
     trace_stats = TraceAnalyzer(output_dir).analyze()
     artifact_stats = OutputArtifactsAnalyzer(output_dir).analyze_all()
     rating = calculate_performance_rating(
-        aic_util,
-        aiv_util,
-        core_stats,
-        bubble_stats,
-        memory_stats,
-        trace_stats,
-        timeline_length,
+        PerformanceData(
+            aic_util=aic_util,
+            aiv_util=aiv_util,
+            core_stats=core_stats,
+            bubble_result=bubble_stats,
+            memory_result=memory_stats,
+            trace_result=trace_stats,
+            timeline_length=timeline_length,
+        )
     )
     top_tasks = analyzer.get_top_hot_tasks(10)
     agg_tasks = analyzer.get_aggregated_hot_tasks(10)
     top_gaps = analyzer.get_top_gaps(10)
     recommendations = generate_recommendations(
-        aic_util,
-        aiv_util,
-        top_gaps,
-        core_stats,
-        rating_result=rating,
-        memory_result=memory_stats,
-        trace_result=trace_stats,
-        execution_result=execution_stats,
+        RecommendationData(
+            aic_util=aic_util,
+            aiv_util=aiv_util,
+            top_gaps=top_gaps,
+            core_stats=core_stats,
+            rating_result=rating,
+            memory_result=memory_stats,
+            trace_result=trace_stats,
+            execution_result=execution_stats,
+        )
     )
+
+    bubble_ratio = rating["metrics"]["bubble_ratio"]
+    memory_efficiency = rating["metrics"]["memory_efficiency"]
+    control_overhead = rating["metrics"]["control_overhead"]
+    bubble_suffix = "(降级:缺失)" if bubble_ratio is None else ""
+    memory_suffix = "(降级:缺失)" if memory_efficiency is None else ""
+    control_suffix = "(降级:缺失)" if control_overhead is None else ""
     
     report_lines = [
         "# PyPTO 性能分析报告",
-        f"\n**生成时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"\n**生成时间**: {datetime.now(tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S %Z')}",
         f"**PyPTO 仓库**: `{pypto_repo}`",
         f"**输出目录**: `{output_dir or 'N/A'}`",
         "",
@@ -1076,8 +1115,8 @@ def generate_report(
         f"| Timeline 长度 | {timeline_length:,} µs ({timeline_length/1000:.2f} ms) |",
         f"| AICore 数量 | {aic_count} |",
         f"| AIVector 数量 | {aiv_count} |",
-        f"| AICore 利用率 | {aic_util*100:.1f}% |",
-        f"| AIVector 利用率 | {aiv_util*100:.1f}% |",
+        f"| AICore 利用率 | {aic_util * 100:.1f}% |",
+        f"| AIVector 利用率 | {aiv_util * 100:.1f}% |",
         "",
         "## 性能评级",
         "",
@@ -1085,10 +1124,13 @@ def generate_report(
         "",
         "| 维度 | 指标值 |",
         "|------|--------|",
-        f"| 利用率 | {rating['metrics']['utilization']*100:.1f}% |",
-        f"| 气泡率 | {(rating['metrics']['bubble_ratio']*100 if rating['metrics']['bubble_ratio'] is not None else 0):.1f}% {'(降级:缺失)' if rating['metrics']['bubble_ratio'] is None else ''} |",
-        f"| 内存效率 | {(rating['metrics']['memory_efficiency']*100 if rating['metrics']['memory_efficiency'] is not None else 0):.1f}% {'(降级:缺失)' if rating['metrics']['memory_efficiency'] is None else ''} |",
-        f"| 控制开销 | {(rating['metrics']['control_overhead']*100 if rating['metrics']['control_overhead'] is not None else 0):.1f}% {'(降级:缺失)' if rating['metrics']['control_overhead'] is None else ''} |",
+        f"| 利用率 | {rating['metrics']['utilization'] * 100:.1f}% |",
+        f"| 气泡率 | {(bubble_ratio * 100 if bubble_ratio is not None else 0):.1f}% {bubble_suffix} |",
+        (
+            f"| 内存效率 | {(memory_efficiency * 100 if memory_efficiency is not None else 0):.1f}% "
+            f"{memory_suffix} |"
+        ),
+        f"| 控制开销 | {(control_overhead * 100 if control_overhead is not None else 0):.1f}% {control_suffix} |",
         f"| 星级上限(缺失修正) | {rating.get('max_star_cap', 5)}/5 |",
         "",
         "## 核心级统计",
@@ -1101,7 +1143,7 @@ def generate_report(
         core_name = analyzer.thread_names.get(tid, f"tid_{tid}")
         report_lines.append(
             f"| {core_name} | {stats['core_type']} | {stats['task_count']} | "
-            f"{stats['total_dur']:,} | {stats['bubble']*100:.1f}% | {stats['utilization']*100:.1f}% |"
+            f"{stats['total_dur']:,} | {stats['bubble'] * 100:.1f}% | {stats['utilization'] * 100:.1f}% |"
         )
 
     report_lines.extend([
@@ -1123,8 +1165,10 @@ def generate_report(
         ])
         for thread in bubble_stats.get("threads", []):
             report_lines.append(
-                f"| {thread['name']} | {thread['span_time']:.2f} | {thread['busy_time']:.2f} | {thread['wait_time']:.2f} | "
-                f"{thread['wait_schedule']:.2f} | {thread['wait_predecessor']:.2f} | {thread['utilization']*100:.1f}% |"
+                f"| {thread['name']} | {thread['span_time']:.2f} | {thread['busy_time']:.2f} | "
+                f"{thread['wait_time']:.2f} | "
+                f"{thread['wait_schedule']:.2f} | {thread['wait_predecessor']:.2f} | "
+                f"{thread['utilization'] * 100:.1f}% |"
             )
     else:
         report_lines.append("- 未找到 bubble_analysis.log，跳过该章节。")
@@ -1164,14 +1208,19 @@ def generate_report(
             f"- UB 峰值: {memory_stats.get('peak_ub_bytes', 0)} bytes",
             f"- Operand Mem Usage 总和: {memory_stats.get('total_operand_mem_usage', 0)} bytes",
             f"- Operand 单任务峰值: {memory_stats.get('peak_operand_mem_usage', 0)} bytes",
-            f"- 内存效率: {(mem_eff*100):.1f}%" if mem_eff is not None else "- 内存效率: N/A (缺少足够数据)",
+            (
+                f"- 内存效率: {(mem_eff * 100):.1f}%"
+                if mem_eff is not None
+                else "- 内存效率: N/A (缺少足够数据)"
+            ),
             "",
             "| 任务 | Hint类型 | Shape | DType | MemUsage(bytes) | 解析格式 |",
             "|------|----------|-------|-------|-----------------|----------|",
         ])
         for hint in memory_stats.get("operand_hints", [])[:6]:
             report_lines.append(
-                f"| `{hint['task']}` | {hint['hint_type']} | {hint['shape'] or 'N/A'} | {hint['dtype'] or 'N/A'} | {hint['mem_usage']} | {hint.get('format', 'unknown')} |"
+                f"| `{hint['task']}` | {hint['hint_type']} | {hint['shape'] or 'N/A'} | "
+                f"{hint['dtype'] or 'N/A'} | {hint['mem_usage']} | {hint.get('format', 'unknown')} |"
             )
     else:
         report_lines.append("- 未找到 UB 内存与 operand hint 数据，跳过该章节。")
@@ -1188,7 +1237,7 @@ def generate_report(
             f"数据源: `{trace_stats.get('source', 'N/A')}`",
             "",
             f"- AICPU-CTRL 总时长: {trace_stats.get('total_time', 0.0):.2f} (同源单位)",
-            f"- 控制开销占比: {control_ratio*100:.2f}%",
+            f"- 控制开销占比: {control_ratio * 100:.2f}%",
             f"- 数据来源类型: {trace_stats.get('source_type', 'unknown')}",
             "",
             "| Stage | 时长(us) | 占比 |",
@@ -1197,7 +1246,7 @@ def generate_report(
         sorted_stages = sorted(trace_stats.get("stages", {}).items(), key=lambda x: x[1], reverse=True)
         for stage_name, stage_dur in sorted_stages[:8]:
             ratio = trace_stats.get("stage_ratios", {}).get(stage_name, 0.0)
-            report_lines.append(f"| `{stage_name}` | {stage_dur:.2f} | {ratio*100:.2f}% |")
+            report_lines.append(f"| `{stage_name}` | {stage_dur:.2f} | {ratio * 100:.2f}% |")
     else:
         report_lines.append("- 未找到 machine_runtime_operator_trace.json，跳过该章节。")
 
@@ -1209,7 +1258,10 @@ def generate_report(
 
     has_artifact_data = any(bool(v) for v in artifact_stats.values())
     if not has_artifact_data:
-        report_lines.append("- 未检测到可解析的额外产物（execute.json / pipe_usage.csv / topo.json / program.json / tilefwk_L1_prof_data.json）。")
+        report_lines.append(
+            "- 未检测到可解析的额外产物（execute.json / pipe_usage.csv / topo.json / program.json / "
+            "tilefwk_L1_prof_data.json）。"
+        )
     else:
         execute_stats = artifact_stats.get("execute", {})
         if execute_stats:
@@ -1227,12 +1279,16 @@ def generate_report(
                 "",
                 "### pipe_usage.csv",
                 f"- 数据源: `{pipe_stats.get('source', 'N/A')}`",
-                f"- Core 数: {pipe_stats.get('total_core_num', 'N/A')} (AIC={pipe_stats.get('aic_num', 'N/A')}, AIV={pipe_stats.get('aiv_num', 'N/A')})",
+                (
+                    f"- Core 数: {pipe_stats.get('total_core_num', 'N/A')} "
+                    f"(AIC={pipe_stats.get('aic_num', 'N/A')}, AIV={pipe_stats.get('aiv_num', 'N/A')})"
+                ),
                 "- Total Pipe Usage:",
             ])
             for pipe_name, pipe_value in sorted(pipe_stats.get("total_pipe_usage", {}).items()):
                 report_lines.append(
-                    f"  - {pipe_name}: avg={pipe_value.get('avg_time', 0.0):.2f}, usage={pipe_value.get('usage_percent', 0.0):.2f}%"
+                    f"  - {pipe_name}: avg={pipe_value.get('avg_time', 0.0):.2f}, "
+                    f"usage={pipe_value.get('usage_percent', 0.0):.2f}%"
                 )
 
         topo_stats = artifact_stats.get("topo", {})
@@ -1335,6 +1391,102 @@ def generate_report(
     return report_content
 
 
+def write_analysis_summary(
+    output_path: str,
+    aic_util: float,
+    aiv_util: float,
+    timeline_length: int,
+    core_stats: Dict[int, Dict[str, Any]],
+    rating: Dict[str, Any],
+    recommendations: List[Dict[str, str]],
+    bubble_stats: Optional[Dict[str, Any]] = None,
+    memory_stats: Optional[Dict[str, Any]] = None,
+    trace_stats: Optional[Dict[str, Any]] = None,
+) -> str:
+    """Write machine-readable analysis summary JSON for downstream tools (e.g., autotuner).
+
+    Args:
+        output_path: Path to write the JSON file (typically next to the .md report).
+        aic_util: AICore utilization (0-1).
+        aiv_util: AIVector utilization (0-1).
+        timeline_length: Timeline length in microseconds.
+        core_stats: Per-core statistics dict.
+        rating: Rating result from calculate_performance_rating().
+        recommendations: List of recommendation dicts.
+        bubble_stats: Optional bubble analysis results.
+        memory_stats: Optional memory analysis results.
+        trace_stats: Optional trace analysis results.
+
+    Returns:
+        Path to the written JSON file.
+    """
+    # Calculate bubble ratio from core stats
+    bubble_ratios = [s["bubble"] for s in core_stats.values() if s.get("bubble") is not None]
+    avg_bubble_ratio = sum(bubble_ratios) / len(bubble_ratios) if bubble_ratios else None
+
+    # Determine bottleneck labels
+    bottleneck_labels = []
+    if aic_util < 0.6:
+        bottleneck_labels.append("compute")
+    if aiv_util < 0.6:
+        bottleneck_labels.append("compute")
+    if avg_bubble_ratio is not None and avg_bubble_ratio > 0.3:
+        bottleneck_labels.append("scheduling")
+    if memory_stats and memory_stats.get("memory_efficiency") is not None:
+        if memory_stats["memory_efficiency"] < 0.3:
+            bottleneck_labels.append("memory")
+    if trace_stats and trace_stats.get("total_time", 0) > 0:
+        control_ratio = trace_stats["total_time"] / timeline_length if timeline_length > 0 else 0
+        if control_ratio > 0.1:
+            bottleneck_labels.append("control_overhead")
+    if bubble_stats and bubble_stats.get("total_wait_time", 0) > 0:
+        wait_ratio = bubble_stats["total_wait_time"] / bubble_stats.get("total_span_time", 1)
+        if wait_ratio > 0.3:
+            bottleneck_labels.append("stitch")
+    # Deduplicate while preserving order
+    seen = set()
+    unique_labels = []
+    for label in bottleneck_labels:
+        if label not in seen:
+            seen.add(label)
+            unique_labels.append(label)
+    bottleneck_labels = unique_labels
+
+    # Extract suggested knobs from recommendations
+    suggested_knobs = []
+    for rec in recommendations:
+        if rec.get("knob") and rec.get("suggestion"):
+            # Skip the generic "通用优化建议"
+            if rec.get("issue") == "通用优化建议":
+                continue
+            suggested_knobs.append({
+                "knob": rec["knob"],
+                "suggestion": rec["suggestion"],
+            })
+
+    summary = {
+        "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+        "key_metrics": {
+            "aic_utilization": round(aic_util, 4),
+            "aiv_utilization": round(aiv_util, 4),
+            "timeline_length_us": timeline_length,
+            "bubble_ratio": round(avg_bubble_ratio, 4) if avg_bubble_ratio is not None else None,
+        },
+        "bottleneck_labels": bottleneck_labels,
+        "suggested_knobs": suggested_knobs,
+        "rating": {
+            "stars": rating.get("stars", 0),
+            "label": rating.get("label", ""),
+        },
+    }
+
+    summary_path = Path(output_path)
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    summary_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    return str(summary_path)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="PyPTO Performance Analyzer - Swimlane & Graph Analysis"
@@ -1372,8 +1524,8 @@ def main():
             output_dir = find_latest_output_dir(args.pypto_repo)
         
         if not output_dir:
-            print(f"ERROR: No output directory found in {args.pypto_repo}", file=sys.stderr)
-            print("Hint: Run a PyPTO example first or specify --output-dir", file=sys.stderr)
+            logger.error("No output directory found in %s", args.pypto_repo)
+            logger.error("Hint: Run a PyPTO example first or specify --output-dir")
             sys.exit(1)
         
         swimlane_path = Path(output_dir) / "merged_swimlane.json"
@@ -1385,41 +1537,79 @@ def main():
                 swimlane_path = swimlane_files[0]
     
     if not swimlane_path.exists():
-        print(f"ERROR: Swimlane file not found: {swimlane_path}", file=sys.stderr)
+        logger.error("Swimlane file not found: %s", swimlane_path)
         sys.exit(1)
-    
-    print(f"Loading swimlane: {swimlane_path}")
+
+    logger.info("Loading swimlane: %s", swimlane_path)
     
     try:
         with open(swimlane_path, "r", encoding="utf-8") as f:
             trace_data = json.load(f)
     except json.JSONDecodeError as e:
-        print(f"ERROR: Invalid JSON in swimlane file: {e}", file=sys.stderr)
+        logger.error("Invalid JSON in swimlane file: %s", e)
         sys.exit(1)
     
     # Analyze
     analyzer = SwimlaneAnalyzer(trace_data)
     
     # Generate report
-    report = generate_report(
+    generate_report(
         analyzer,
         args.report_out,
         args.pypto_repo,
         output_dir
     )
-    
-    print(f"\n{'='*60}")
-    print("PERFORMANCE ANALYSIS SUMMARY")
-    print('='*60)
-    print(f"Timeline: {analyzer.calculate_timeline_length():,} µs")
+
     aic_util, aic_count = analyzer.calculate_aicore_utilization()
     aiv_util, aiv_count = analyzer.calculate_aivector_utilization()
-    print(f"AICore: {aic_count} cores, {aic_util*100:.1f}% utilization")
-    print(f"AIVector: {aiv_count} cores, {aiv_util*100:.1f}% utilization")
-    print(f"\nReport saved to: {args.report_out}")
+    core_stats = analyzer.calculate_per_core_stats()
+    bubble_stats = BubbleAnalyzer(output_dir).analyze()
+    trace_stats = TraceAnalyzer(output_dir).analyze()
+    memory_stats = analyzer.analyze_memory()
+    rating = calculate_performance_rating(
+        PerformanceData(
+            aic_util=aic_util,
+            aiv_util=aiv_util,
+            core_stats=core_stats,
+            bubble_result=bubble_stats,
+            memory_result=memory_stats,
+            trace_result=trace_stats,
+            timeline_length=analyzer.calculate_timeline_length(),
+        )
+    )
+    recommendations = generate_recommendations(
+        RecommendationData(
+            aic_util=aic_util,
+            aiv_util=aiv_util,
+            top_gaps=analyzer.get_top_gaps(10),
+            core_stats=core_stats,
+            rating_result=rating,
+            memory_result=memory_stats,
+            trace_result=trace_stats,
+            execution_result=analyzer.analyze_execution_time_stats(),
+        )
+    )
+
+    summary_path = Path(args.report_out).parent / "analysis_summary.json"
+    write_analysis_summary(
+        str(summary_path),
+        aic_util, aiv_util, analyzer.calculate_timeline_length(),
+        core_stats, rating, recommendations,
+        bubble_stats=bubble_stats, memory_stats=memory_stats, trace_stats=trace_stats,
+    )
+    logger.info("Analysis summary saved to: %s", summary_path)
+
+    logger.info("\n%s", "=" * 60)
+    logger.info("PERFORMANCE ANALYSIS SUMMARY")
+    logger.info("%s", "=" * 60)
+    logger.info("Timeline: %s µs", f"{analyzer.calculate_timeline_length():,}")
+    logger.info("AICore: %d cores, %.1f%% utilization", aic_count, aic_util * 100)
+    logger.info("AIVector: %d cores, %.1f%% utilization", aiv_count, aiv_util * 100)
+    logger.info("\nReport saved to: %s", args.report_out)
     
     return 0
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     sys.exit(main())
