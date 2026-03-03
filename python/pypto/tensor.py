@@ -26,13 +26,22 @@ class Tensor:
                  name: str = "", format: TileOpFormat = TileOpFormat.TILEOP_ND,
                  data_ptr: Optional[int] = None, device=None, ori_shape=None):
         self.ori_shape = None
+        self.status_shape = None
         if shape is None or dtype is None:
-            self._base = pypto_impl.Tensor()
+            # init default
+            nshape = shape if shape is not None else []
+            ndtype = dtype if dtype is not None else pypto.DT_FP32
+            self._base = pypto_impl.Tensor(ndtype, nshape, name, format)
         elif all([isinstance(s, int) for s in shape]):
             nshape = typing.cast(List[int], shape)
             self._base = pypto_impl.Tensor(dtype, nshape, name, format)
             self.ori_shape = ori_shape
+        elif isinstance(shape, list) and self._validate_status_shape(shape):
+            nshape = []
+            self.status_shape = shape
+            self._base = pypto_impl.Tensor(dtype, nshape, name, format)
         else:
+            print(f"zjr123 -------- scalar shepe: {shape}")
             sym_shape = to_syms(shape)
             assert isinstance(
                 sym_shape, list), "shape must be a list of int or SymbolicScalar"
@@ -275,7 +284,12 @@ class Tensor:
 
     @property
     def shape(self) -> List[SymInt]:
+        if getattr(self, "status_shape", None) is not None:
+            return self.status_shape
+
         out = []
+        if self._base.IsEmpty():
+            return out
         for i, n in enumerate(self._base.GetShape()):
             if n == -1:
                 out.append(SymbolicScalar.from_base(
@@ -416,6 +430,7 @@ class Tensor:
 
     @source_location
     def add(self, other: 'Tensor | int | float') -> 'Tensor':
+        print(f"zjr123 -------- tesnsor add")
         return pypto.add(self, other)
 
     @source_location
@@ -747,3 +762,42 @@ class Tensor:
         assert self.dim == len(key), f"rank not match, expect {self.dim}, but got {len(key)}"
         key = self._negative_index_to_positive(key, self.shape)
         return key
+
+    def _validate_status_shape(self, lst):
+        """
+        校验列表元素类型：
+        - 非最后一个元素：仅允许 pypto.StatusType 枚举类型 / int 类型
+        - 最后一个元素：允许 pypto.StatusType / int / ...（Ellipsis）
+        :param lst: 待校验的列表
+        :return: (bool, str) → (是否通过校验, 校验信息)
+        """
+
+        # 边界1：空列表
+        if not isinstance(lst, list):
+            return False
+        if len(lst) == 0:
+            return True
+
+        for idx, elem in enumerate(lst):
+            # 判断是否是最后一个元素
+            is_last = idx == len(lst) - 1
+
+            # Case1：最后一个元素 → 允许 enum/int/...
+            if is_last:
+                # 检查是否为允许的类型
+                if (isinstance(elem, pypto.StatusType) or  # pypto.enum 枚举类型
+                    isinstance(elem, int) or             # int 类型
+                    elem is ...):                        # ... 省略号
+                    continue
+                else:
+                    return False
+
+            # Case2：非最后一个元素 → 仅允许 enum/int
+            else:
+                if isinstance(elem, pypto.StatusType) or isinstance(elem, int):
+                    continue
+                else:
+                    return False
+
+        # 所有元素校验通过
+        return True

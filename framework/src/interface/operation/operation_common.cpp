@@ -36,6 +36,7 @@ void CheckTensorShape(const LogicalTensorPtr &tensor, const std::string &op) {
     auto shape = tensor->shape;
     // valid input dims must in [1, 4]
     auto shape_len_limit = GetShapeLenLimit(op);
+    TILEFWK_ERROR() << "zjr123 -------- " << shape.size() << " : " << shape_len_limit[0] << " : " << shape_len_limit[1];
     if (shape.size() < shape_len_limit[0] || shape.size() > shape_len_limit[1]) {
         ASSERT(false && "The dims of tensor out of range.");
     }
