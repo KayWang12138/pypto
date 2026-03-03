@@ -66,6 +66,12 @@ static std::vector<SymbolicScalar> ToDynShape(const std::string &tname, const Sh
 
 template <typename T>
 void CheckShapeValid(DataType &dataType, T &shape, TileOpFormat &format) {
+    if constexpr (std::is_same<T, std::vector<SymbolicScalar>>::value || 
+                  std::is_same<T, const std::vector<SymbolicScalar>>::value) {
+        if (!shape.back().ConcreteValid()) {
+            return;
+        }
+    }
     if (format == TileOpFormat::TILEOP_NZ && shape.back() != -1) {
         ASSERT(shape.back() * BytesOf(dataType) % ALIGN_SIZE_32 == 0)
             << "Current inner axis: " << shape.back() << ", when input "
