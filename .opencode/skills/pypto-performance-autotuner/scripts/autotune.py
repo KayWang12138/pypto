@@ -955,7 +955,6 @@ class BenchmarkRunner:
                 KeyError,
                 TypeError,
                 OSError,
-                json.JSONDecodeError,
                 subprocess.SubprocessError,
             ) as exc:
                 last_error = f"{str(exc)} (attempt {attempt}/{MAX_RETRIES})"
@@ -1094,7 +1093,7 @@ def load_guidance_summary(
 
     try:
         summary = load_json_file(summary_path)
-    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+    except (OSError, ValueError, TypeError):
         return {}
 
     labels: List[str] = []
@@ -1504,7 +1503,7 @@ def run_autotune(args: argparse.Namespace) -> int:
 
     logger.info("[autotune] layers=%d, target_metric=%s, dry_run=%s", len(layers), args.target_metric, args.dry_run)
     if guidance.get("source"):
-        logger.info("[autotune] guidance summary: %s", guidance["source"])
+        logger.info("[autotune] guidance summary: %s", guidance.get("source", ""))
 
     fixed_best_layers: Dict[str, Dict[str, Any]] = {}
     services = AutotuneServices(generator=generator, stopper=stopper, runner=runner, recorder=recorder)
