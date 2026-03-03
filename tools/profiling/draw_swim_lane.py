@@ -15,6 +15,8 @@ import json
 import argparse
 import sys
 import os
+import time as time_module
+from datetime import datetime, timezone
 import function_json_convert as fcvt
 import parse_pipe_time_trace as pipe_time
 
@@ -53,7 +55,6 @@ class TaskInfo:
         self.leaf_pipe_exec_cycles = {}
         self.leaf_pipe_exec_time = {}
         self.func_hash = 0
-        self.tensors_life_range = {}
         self.tensors = {}
         self.rawtensors = {}
 
@@ -417,7 +418,6 @@ def build_swim_info(swim_data, topo_data, label_type: int = 0):
             entry.in_operands = topo_task.get('in_operands') if topo_task.get('in_operands') else []
             entry.out_operands = topo_task.get('out_operands') if topo_task.get('out_operands') else []
             entry.func_hash = topo_task.get('funcHash')
-            entry.tensors_life_range = topo_task.get('tensors_life_range')
             entry.tensors = topo_task.get('tensors')
             entry.rawtensors = topo_task.get('rawtensors')
 
@@ -482,144 +482,6 @@ def get_flow_dst(event_id, pid, tid, time):
     res["tid"] = tid
     res["ts"] = time
     return res
-
-
-def get_tensor_timestamp(operand, task, tensors_timestamp):
-    for t_magic, t_info in operand.items():
-        if t_magic not in tensors_timestamp:
-            t_mem_timestamp_info = dict()
-            t_mem_timestamp_info['apply'] = task.exec_start
-            t_mem_timestamp_info['release'] = task.exec_end
-            t_mem_timestamp_info['mem_usage'] = t_info['mem_usage']
-            tensors_timestamp[t_magic] = t_mem_timestamp_info
-        else:
-            tensors_timestamp[t_magic]['apply'] = min(tensors_timestamp[t_magic]['apply'], task.exec_start)
-            tensors_timestamp[t_magic]['release'] = max(tensors_timestamp[t_magic]['release'], task.exec_end)
-
-
-def process_mem_usage(outjson):
-    global total_tasks
-    tensors_timestamp = {}
-    tensors_without_predecessor = set()
-    for _, task in total_tasks.items():
-        for operand in task.in_operands:
-            # 没有依赖的task输入tensor不计入内存统计
-            if len(task.predecessors_taskid) == 0:
-                tensors_without_predecessor.update(operand.keys())
-            get_tensor_timestamp(operand, task, tensors_timestamp)
-        for operand in task.out_operands:
-            get_tensor_timestamp(operand, task, tensors_timestamp)
-    time_events = {}
-    for t_magic, t_info in tensors_timestamp.items():
-        if t_magic in tensors_without_predecessor:
-            continue
-        if t_info['apply'] not in time_events:
-            time_events[t_info['apply']] = {}
-            time_events[t_info['apply']]['apply'] = []
-            time_events[t_info['apply']]['release'] = []
-        if t_info['release'] not in time_events:
-            time_events[t_info['release']] = {}
-            time_events[t_info['release']]['apply'] = []
-            time_events[t_info['release']]['release'] = []
-        time_events[t_info['apply']]['apply'].append(t_info['mem_usage'])
-        time_events[t_info['release']]['release'].append(t_info['mem_usage'])
-    mem_size = 0
-    outjson["traceEvents"].append(
-        {
-            "name": "Ideal_Mem_Usage(Task)",
-            "pid": 1,
-            "tid": 1,
-            "ph": "C",
-            "ts": mininum_start_time,
-            "args": {
-                "/byte": 0,
-            },
-        })
-    for t, event in sorted(time_events.items()):
-        for mem_usage in event['apply']:
-            mem_size += mem_usage
-        for mem_usage in event['release']:
-            mem_size -= mem_usage
-        outjson["traceEvents"].append(
-            {
-                "name": "Ideal_Mem_Usage(Task)",
-                "pid": 1,
-                "tid": 1,
-                "ph": "C",
-                "ts": t,
-                "args": {
-                    "/byte": mem_size,
-                },
-            })
-
-
-def process_ooo_mem_usage(outjson):
-    global total_tasks
-    time_events = dict()
-    for i in range(21):
-        time_events[i] = dict()
-
-    for _, task in total_tasks.items():
-        if 'max_range' not in task.tensors_life_range:
-            continue
-        if task.tensors_life_range['max_range'] == 0:
-            continue
-        time_unit = (task.exec_end - task.exec_start) / task.tensors_life_range['max_range']
-        for t_magic, t_life_range in task.tensors_life_range['data'].items():
-            if len(t_life_range) == 0:
-                continue
-            t_dtype = task.rawtensors[task.tensors[t_magic]['rawtensor']]['datatype']
-            t_mem_type = task.tensors[t_magic]['mem_type']['asis']
-            t_shape = task.tensors[t_magic]['shape']
-            t_mem_usage = fcvt.dt_mem_usage[t_dtype]
-            for s in t_shape:
-                t_mem_usage *= s
-            apply_time = task.exec_start + time_unit * t_life_range[0]
-            release_time = task.exec_start + time_unit * t_life_range[1]
-            if apply_time not in time_events[t_mem_type]:
-                time_events[t_mem_type][apply_time] = dict()
-                time_events[t_mem_type][apply_time]['apply'] = t_mem_usage
-                time_events[t_mem_type][apply_time]['release'] = 0
-            else:
-                time_events[t_mem_type][apply_time]['apply'] += t_mem_usage
-            if release_time not in time_events[t_mem_type]:
-                time_events[t_mem_type][release_time] = dict()
-                time_events[t_mem_type][release_time]['apply'] = 0
-                time_events[t_mem_type][release_time]['release'] = t_mem_usage
-            else:
-                time_events[t_mem_type][release_time]['release'] += t_mem_usage
-
-    for mem_type, events in time_events.items():
-        if len(events) == 0:
-            continue
-
-        total_mem_usage = 0
-        bar_name = f'OOO_Mem_Usage({fcvt.mem_type_dict[mem_type]})'
-        outjson["traceEvents"].append(
-            {
-                "name": bar_name,
-                "pid": 1,
-                "tid": 1,
-                "ph": "C",
-                "ts": mininum_start_time,
-                "args": {
-                    "/byte": 0,
-                },
-            })
-        for time_stamp, mem_events in sorted(events.items()):
-            total_mem_usage += mem_events['apply']
-            total_mem_usage -= mem_events['release']
-            outjson["traceEvents"].append(
-                {
-                    "name": bar_name,
-                    "pid": 1,
-                    "tid": 1,
-                    "ph": "C",
-                    "ts": time_stamp,
-                    "args": {
-                        "/byte": total_mem_usage,
-                    },
-                })
 
 
 def process_ready_count(outjson):
@@ -797,9 +659,6 @@ def convert_to_chrome_trace_json(out_path, is_dyn):
 
     # add readycount & dpd solving events
     process_ready_count(res)
-    if is_dyn:
-        process_mem_usage(res)
-        process_ooo_mem_usage(res)
 
     # 构建chrome trace json 文件
     # 写入到JSON文件
@@ -913,7 +772,6 @@ def load_dyn_topo(file_path, func_data):
                     "out_operands": fcvt.get_in_out_operands_data(
                         False, root_index, opmagic, func_data
                     ),
-                    "tensors_life_range": fcvt.get_tensors_life_range(str(func_hash), func_hash_data),
                     "tensors": fcvt.get_tensors(str(func_hash), func_hash_data),
                     "rawtensors": fcvt.get_rawtensors(str(func_hash), func_hash_data),
                 }
@@ -1103,6 +961,10 @@ def calculate_pipe_usage(path):
 
 
 if __name__ == "__main__":
+    start_time = time_module.time()
+    start_str = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+    print(f"Start time: {start_str}")
+
     args = parse_arguments()
     input_swim_data = load_json(args.swim_json_file)
 
@@ -1133,3 +995,10 @@ if __name__ == "__main__":
     output_path = os.path.join(dir_name, "merged_swimlane.json")
     convert_to_chrome_trace_json(output_path, is_dyn)
     print("Open the trace at https://ui.perfetto.dev/ \nOutput: ", output_path)
+
+    end_time = time_module.time()
+    end_str = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+    print(f"End time: {end_str}")
+
+    duration = int(end_time - start_time)
+    print(f"Time taken: {duration} secs")

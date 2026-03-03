@@ -325,6 +325,11 @@ void Platform::LoadFromIni(const std::string &filePath) {
 }
 
 void Platform::ObtainPlatformInfo() {
+    static bool initialized = false;
+    if (initialized) {
+        return;
+    }
+
     std::string srcPath;
     srcPath = HostMachine::GetInstance().GetPlatformInfo();
     if (srcPath.empty()) {
@@ -333,5 +338,6 @@ void Platform::ObtainPlatformInfo() {
         costModelPlatform.GetCostModelPlatformRealPath(srcPath);
     }
     LoadFromIni(srcPath);
+    initialized = true;
 }
 }

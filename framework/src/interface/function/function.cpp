@@ -1305,16 +1305,16 @@ unsigned long Function::ComputeHashOrderless() const {
             MagicLookup(this, operations_[i]->GetIOperands(), operations_[0]->GetSubgraphID(), index, magic2index, ss);
         }
     }
-    index = 0;
+
     for (auto &i : inCasts_) {
-        ss << "(i" << index++ << ")";
+        ss << "(i" << magic2index[i->GetMagic()] << ")";
         bool isGlobal = (globalTensors_.count(i) != 0);
         if (isGlobal) {
             ss << "(Global)";
         }
     }
     for (auto &o : outCasts_) {
-        ss << "(o" << index++ << ")";
+        ss << "(o" << magic2index[o->GetMagic()] << ")";
         bool isGlobal = (globalTensors_.count(o) != 0);
         if (isGlobal) {
             ss << "(Global)";
@@ -1329,6 +1329,15 @@ unsigned long Function::ComputeHashOrderless() const {
     // temporary avoidance, switch SUPPORT_DYNAMIC_ALIGNED has an unexpected effect on dynamic binary reuse
     if (functionType_ == FunctionType::DYNAMIC) {
         ss << "dynamic unaligned:" << config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_ALIGNED);
+    }
+    if (leafFuncAttr_ != nullptr) {
+        // mixId标识同一次Mix拆出来的leafFunction组
+        if (leafFuncAttr_->mixId != LeafFuncAttribute::INVALID_MIX_ID) {
+            ss << " MIX_ID:" << leafFuncAttr_->mixId;
+        }   
+        if (leafFuncAttr_->aivCore != AIVCore::UNSPECIFIED) {
+            ss << " AIV_CORE:" << static_cast<int>(leafFuncAttr_->aivCore);
+        }
     }
     std::hash<std::string> hasher;
     auto result = hasher(ss.str());

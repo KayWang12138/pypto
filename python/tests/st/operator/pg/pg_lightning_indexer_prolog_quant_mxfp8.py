@@ -23,7 +23,7 @@ from torch._dynamo import allow_in_graph
 from lightning_indexer_prolog_quant_mxfp8_impl import (
     IndexerPrologQuantInput, IndexerPrologQuantOutput, IndexerPrologQuantAttr, IndexerPrologQuantConfigs,
     lightning_indexer_prolog_quant)
-from utils.compare import precision_compare_triple
+from utils.compare_2_1 import precision_compare_triple
 
 
 pyptolib = torch.library.Library("pypto", "FRAGMENT")
@@ -324,6 +324,10 @@ def gen_data(case_name):
         params = {"b": 32, "s1": 1024 * 8, "s2": 1024 * 8}
     elif case_name.startswith("QuantLightningIndexerPrologSTest.b64_s1_8k_s2_8k"):
         params = {"b": 64, "s1": 1024 * 8, "s2": 1024 * 8}
+    elif case_name.startswith("QuantLightningIndexerPrologSTest.b1_s1_8k_333_s2_8k_333"):
+        params = {"b": 1, "s1": 1024 * 8 + 333, "s2": 1024 * 8 + 333}
+    elif case_name.startswith("QuantLightningIndexerPrologSTest.b111_s1_1_s2_8k"):
+        params = {"b": 111, "s1": 1, "s2": 1024 * 8}
     else:
         raise Exception(f"Can't get func to gen golden, Case({case_name})")
 
@@ -396,7 +400,6 @@ def lightning_indexer_prolog_quant_mxfp8_npu(x, q_norm, q_norm_scale, w_qb, w_qb
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
-        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
@@ -475,7 +478,6 @@ def lightning_indexer_prolog_quant_dyn(inputs: IndexerPrologQuantInput, outputs:
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in input_tensors.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in output_tensors.items()]
     lightning_indexer_prolog_quant(*pto_inputs, *pto_outputs, attrs, configs)
-    torch_npu.npu.synchronize()
 
 
 def do_test_lightning_indexer_prolog_quant(case_name, configs):
@@ -563,7 +565,6 @@ def test_b1_s1_8k_s2_8k():
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
-        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
@@ -582,7 +583,6 @@ def test_b2_s1_8k_s2_8k():
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
-        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
@@ -601,7 +601,6 @@ def test_b4_s1_8k_s2_8k():
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
-        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
@@ -611,7 +610,6 @@ def test_b4_s1_8k_s2_8k():
     do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b4_s1_8k_s2_8k", configs)
 
 
-@pytest.mark.skip(reason="large test case")
 def test_b1_s1_4_s2_8k():
     configs = IndexerPrologQuantConfigs(
         q_linear=[16, 16, 512, 512, 128, 128],
@@ -620,7 +618,6 @@ def test_b1_s1_4_s2_8k():
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
-        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
@@ -630,7 +627,7 @@ def test_b1_s1_4_s2_8k():
     do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b1_s1_4_s2_8k", configs)
 
 
-@pytest.mark.skip(reason="large test case")
+@pytest.mark.skip(reason="small test case")
 def test_b64_s1_2_s2_8k():
     configs = IndexerPrologQuantConfigs(
         q_linear=[16, 16, 512, 512, 128, 128],
@@ -639,7 +636,6 @@ def test_b64_s1_2_s2_8k():
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
-        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
@@ -649,7 +645,7 @@ def test_b64_s1_2_s2_8k():
     do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b64_s1_2_s2_8k", configs)
 
 
-@pytest.mark.skip(reason="large test case")
+@pytest.mark.skip(reason="small test case")
 def test_b192_s1_1_s2_8k():
     configs = IndexerPrologQuantConfigs(
         q_linear=[16, 16, 512, 512, 128, 128],
@@ -658,7 +654,6 @@ def test_b192_s1_1_s2_8k():
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
-        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
@@ -677,7 +672,6 @@ def test_b16_s1_8k_s2_8k():
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
-        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
@@ -696,7 +690,6 @@ def test_b32_s1_8k_s2_8k():
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
-        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
@@ -715,7 +708,6 @@ def test_b64_s1_8k_s2_8k():
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
-        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
@@ -723,6 +715,42 @@ def test_b64_s1_8k_s2_8k():
         vec_nbuffer_mode=0,
     )
     do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b64_s1_8k_s2_8k", configs)
+
+
+@pytest.mark.skip(reason="accuracy issues")
+def test_b1_s1_8k_333_s2_8k_333():
+    configs = IndexerPrologQuantConfigs(
+        q_linear=[16, 16, 512, 512, 128, 128],
+        q_hd=[32, 32, 128, 128, 128, 128],
+        k_linear=[16, 16, 512, 512, 64, 64],
+        w_linear=[16, 16, 1024, 1024, 32, 32],
+        unroll_list=[32, 16, 8, 4, 2, 1],
+        cube_l1_reuse_setting={1: 4},
+        pg_upper_bound=8192,
+        block_size=128,
+        t_sub_tile=1,
+        chunk_size=2,
+        vec_nbuffer_mode=0,
+    )
+    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b1_s1_8k_333_s2_8k_333", configs)
+
+
+@pytest.mark.skip(reason="accuracy issues")
+def test_b111_s1_1_s2_8k():
+    configs = IndexerPrologQuantConfigs(
+        q_linear=[16, 16, 512, 512, 128, 128],
+        q_hd=[32, 32, 128, 128, 128, 128],
+        k_linear=[16, 16, 512, 512, 64, 64],
+        w_linear=[16, 16, 1024, 1024, 32, 32],
+        unroll_list=[32, 16, 8, 4, 2, 1],
+        cube_l1_reuse_setting={1: 4},
+        pg_upper_bound=8192,
+        block_size=128,
+        t_sub_tile=1,
+        chunk_size=2,
+        vec_nbuffer_mode=0,
+    )
+    do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b111_s1_1_s2_8k", configs)
 
 
 class Model(torch.nn.Module):

@@ -48,6 +48,9 @@ pypto-index_select
 pypto-indexput_
 pypto-le
 pypto-log
+pypto-log1p
+pypto-log2
+pypto-log10
 pypto-logical_and
 pypto-logical_not
 pypto-lt
@@ -59,12 +62,14 @@ pypto-ne
 pypto-neg
 pypto-one_hot
 pypto-pow
+pypto-prelu
 pypto-reciprocal
 pypto-relu
 pypto-reshape
 pypto-rms_norm
 pypto-round
 pypto-rsqrt
+pypto-scaled_mm
 pypto-scatter
 pypto-scatter_
 pypto-scatter_update
@@ -72,6 +77,7 @@ pypto-sigmoid
 pypto-sign
 pypto-sin
 pypto-softmax
+pypto-var
 pypto-sqrt
 pypto-sub
 pypto-sum
@@ -79,8 +85,10 @@ pypto-topk
 pypto-transpose
 pypto-tril
 pypto-triu
+pypto-remainder
 pypto-trunc
 pypto-unsqueeze
 pypto-view
+pypto-LReLU
 pypto-where
 ```

@@ -288,7 +288,7 @@ TEST_F(TestCodegenDynBinary, AddUnalignTileTensor) {
 #if ENABLE_HIDDENLOOP
     std::string expect = R"!!!(#include "TileOpImpl.h"
 
-// funcHash: 13526864639772037405
+// funcHash: 15254125042380441882
 
 extern "C" [aicore] void TENSOR_L0_TILETENSOR_Unroll1_PATH0_hiddenfunc0_7_0_4503599627370496(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
 float __ubuf__ *UB_S0_E16384 = (float __ubuf__ *)get_imm(0x0); // size: 0x4000
@@ -314,7 +314,7 @@ TLoad(ubTensor_3, gmTensor_4, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 1, 0)),
 SUBKERNEL_PHASE2
 set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
 wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-TAdd<LastUse3Dim<0, 1, 1>>(ubTensor_1, ubTensor_1, ubTensor_3);
+TAdd<LastUse3Dim<0, 0, 0>>(ubTensor_1, ubTensor_1, ubTensor_3);
 set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
 wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
 TStore(gmTensor_8, ubTensor_1, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 1))));
@@ -349,7 +349,7 @@ TLoad(ubTensor_3, gmTensor_4, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 1, 0)),
 SUBKERNEL_PHASE2
 set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
 wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-TAdd<LastUse3Dim<0, 1, 1>>(ubTensor_1, ubTensor_1, ubTensor_3);
+TAdd<LastUse3Dim<0, 0, 0>>(ubTensor_1, ubTensor_1, ubTensor_3);
 set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
 wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
 TStore(gmTensor_8, ubTensor_1, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 19, 1))));
