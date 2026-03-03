@@ -762,6 +762,7 @@ class Model(torch.nn.Module):
         return q_hif8, q_scale, k_hif8, k_scale, weights
 
 
+@pytest.mark.soc("950")
 def test_acl():
     params = {"b": 1, "s1": 1024 * 8, "s2": 1024 * 8}
     dims = gen_dims(params)
