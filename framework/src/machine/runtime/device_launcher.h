@@ -164,7 +164,7 @@ public:
 
     // Prepare device program scheduling and memory budget related args (keeps <= 50 lines)
     static void PrepareDevProgArgs(DevAscendProgram *devProg, DeviceLauncherConfig &config,
-                                  [[maybe_unused]]bool isDevice) {
+                                  [[maybe_unused]]bool isDevice, [[maybe_unused]]bool isCaptureMode) {
         devProg->devArgs.taskId = 0;
         devProg->devArgs.nrAic = kDefaultAicNum;
         devProg->devArgs.nrAiv = kDefaultAivNum;
@@ -199,7 +199,7 @@ public:
         }
 #ifdef BUILD_WITH_CANN
         if (isDevice) {
-            DeviceRunner::Get().InitMetaData(devProg->devArgs);
+            DeviceRunner::Get().InitMetaData(devProg->devArgs, isCaptureMode);
         }
 #endif
         devProg->workspaceSize = devProg->memBudget.Total();
@@ -215,7 +215,8 @@ public:
     // Fill metadata and kArgs (templated because it uses DeviceMemoryTy) (keeps <= 50 lines)
     template<typename DeviceMemoryTy>
     static void FillKernelMeta(DeviceMemoryTy& devMem, DeviceKernelArgs &kArgs, DevAscendProgram *devProg,
-            const std::vector<uint8_t> &devProgData, bool isCtrlCacheRecording, const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
+            const std::vector<uint8_t> &devProgData, bool isCtrlCacheRecording, const DeviceLauncherConfig &config,
+            CachedOperator *cachedOperator, bool isCaptureMode) {
         AssignMetaAddr(devMem, kArgs, devProg, cachedOperator);
         devProg->l2CacheOffset = devMem.GetL2Offset();
         if (config.workspaceAddr) {
@@ -232,14 +233,17 @@ public:
             kArgs.cfgdata = (int64_t *)devMem.CopyToDev(devProgData, CachedOperator::GetCfgDataDevAddrHolder(cachedOperator));
         }
         kArgs.machineConfig = devProg->devArgs.machineConfig;
-        if (config::GetPlatformConfig(KEY_ENABLE_PROF_FUNC, false)) {
-            kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICPU_FUNC);
-        }
-        if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_TIME, false) || config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL)  {
-            kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_TIME);
-        }
-        if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_PMU, false)) {
-            kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_PMU);
+        if (!isCaptureMode) {
+            if (config::GetPlatformConfig(KEY_ENABLE_PROF_FUNC, false)) {
+                kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICPU_FUNC);
+            }
+            if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_TIME, false) ||
+                config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
+                kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_TIME);
+            }
+            if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_PMU, false)) {
+                kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_PMU);
+            }
         }
         devProg->devArgs.toSubMachineConfig = kArgs.toSubMachineConfig;
     }
@@ -265,16 +269,17 @@ public:
 
     template<typename DeviceMemoryTy>
     static void DeviceInitTilingData(DeviceMemoryTy& devMem, DeviceKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
-            DevControlFlowCache* ctrlFlowCache, const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
+            DevControlFlowCache* ctrlFlowCache, const DeviceLauncherConfig &config, CachedOperator *cachedOperator,
+            bool isCaptureMode = false) {
         auto &mutableConfig = const_cast<DeviceLauncherConfig &>(config);
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
-        PrepareDevProgArgs(devProg, mutableConfig, devMem.IsDevice());
+        PrepareDevProgArgs(devProg, mutableConfig, devMem.IsDevice(), isCaptureMode);
         // Fill all metadata and kernel args
         bool isCtrlCacheRecording  = false;
         if (!devMem.IsDevice()) {
             isCtrlCacheRecording =  ctrlFlowCache != nullptr ? ctrlFlowCache->IsRecording() : devProg->controlFlowCache.IsRecording();
         }
-        FillKernelMeta(devMem, kArgs, devProg, devProgData, isCtrlCacheRecording, config, cachedOperator);
+        FillKernelMeta(devMem, kArgs, devProg, devProgData, isCtrlCacheRecording, config, cachedOperator, isCaptureMode);
         kArgs.ctrlFlowCache = reinterpret_cast<int64_t*>(ctrlFlowCache);
     }
 
@@ -420,12 +425,13 @@ public:
     static int DeviceSynchronize(rtStream_t, rtStream_t) { return 0; }
 #endif
     static void FillDeviceKernelArgs(std::vector<uint8_t> &devProgData, DeviceKernelArgs &kargs,
-        const std::vector<std::string> &groupNames);
+        const std::vector<std::string> &groupNames, bool isCaptureMode);
     static int64_t GetL2Offset();
     static uint8_t *CopyControlFlowCache(DevControlFlowCache *ctrlCache);
     static void FreeControlFlowCache(uint8_t *ctrlCache);
     static void *RegisterKernelBin(const std::vector<uint8_t> &kernelBinary);
     static void UnregisterKernelBin(void *hdl);
+    static bool IsCaptureMode(aclrtStream aicoreStream);
     static bool AddAicpuStream(aclrtStream aicoreStream, bool tripleStream);
     static int LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream, bool debugEnable, [[maybe_unused]]Function *function);
     static int LaunchAicoreKernel(
