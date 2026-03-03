@@ -302,6 +302,7 @@ class CandidateGenerator:
 
     @staticmethod
     def value_count(rows: Sequence[Dict[str, Any]], name: str, value: Any) -> int:
+        """Count distinct values for a parameter key in search space."""
         marker = canonical_json(value)
         count = 0
         for row in rows:
@@ -326,6 +327,7 @@ class CandidateGenerator:
 
     @staticmethod
     def local_neighbors(values: List[Any], center: Any) -> List[Any]:
+        """Generate neighbor candidates around a base configuration."""
         if not values:
             return []
         if len(values) <= 3:
@@ -454,6 +456,51 @@ class CandidateGenerator:
             return self.random_search(params, n_trials)
         return suggestions
 
+    @staticmethod
+    def _score_stitch(item: Dict[str, Any], labels: List[str]) -> float:
+        """Score a stitch-layer candidate based on guidance labels."""
+        score = 0.0
+        max_num = item.get("stitch_function_max_num")
+        has_idle_or_bubble = any("idle" in s or "bubble" in s for s in labels)
+        if has_idle_or_bubble:
+            if max_num == 64:
+                score += 3.0
+            elif max_num in (32, 128):
+                score += 1.0
+        if isinstance(max_num, (int, float)) and float(max_num) > 128:
+            score -= 1.0
+        return score
+
+    @staticmethod
+    def _score_matmul(item: Dict[str, Any], labels: List[str], top_ops: List[str]) -> float:
+        """Score a matmul-layer candidate based on guidance."""
+        score = 0.0
+        if any("matmul" in s or "cube" in s for s in labels + top_ops):
+            if item.get("enable_multi_data_load") is True:
+                score += 1.5
+            if item.get("cube_l1_reuse_mode") == 1:
+                score += 1.5
+        return score
+
+    @staticmethod
+    def _score_vector(item: Dict[str, Any], labels: List[str], top_ops: List[str]) -> float:
+        """Score a vector-layer candidate based on guidance."""
+        score = 0.0
+        if any("vector" in s or "parallel" in s for s in labels + top_ops):
+            if item.get("vec_nbuffer_mode") in (1, 2):
+                score += 1.2
+            sg_scope = item.get("sg_set_scope")
+            if isinstance(sg_scope, int) and sg_scope >= 0:
+                score += 0.8
+        return score
+
+    @staticmethod
+    def _score_scheduling(item: Dict[str, Any]) -> float:
+        """Score a scheduling-layer candidate."""
+        if item.get("device_sched_mode") == 1:
+            return 1.0
+        return 0.0
+
     def apply_guidance(
         self,
         layer_name: str,
@@ -471,32 +518,16 @@ class CandidateGenerator:
 
         scored: List[Tuple[float, Dict[str, Any]]] = []
         for item in candidates:
-            score = 0.0
             if layer_name == "stitch":
-                max_num = item.get("stitch_function_max_num")
-                if any("idle" in s or "bubble" in s for s in labels):
-                    if max_num == 64:
-                        score += 3.0
-                    elif max_num in (32, 128):
-                        score += 1.0
-                if isinstance(max_num, (int, float)) and float(max_num) > 128:
-                    score -= 1.0
+                score = self._score_stitch(item, labels)
             elif layer_name == "matmul":
-                if any("matmul" in s or "cube" in s for s in labels + top_ops):
-                    if item.get("enable_multi_data_load") is True:
-                        score += 1.5
-                    if item.get("cube_l1_reuse_mode") == 1:
-                        score += 1.5
+                score = self._score_matmul(item, labels, top_ops)
             elif layer_name == "vector":
-                if any("vector" in s or "parallel" in s for s in labels + top_ops):
-                    if item.get("vec_nbuffer_mode") in (1, 2):
-                        score += 1.2
-                    sg_scope = item.get("sg_set_scope")
-                    if isinstance(sg_scope, int) and sg_scope >= 0:
-                        score += 0.8
+                score = self._score_vector(item, labels, top_ops)
             elif layer_name == "scheduling":
-                if item.get("device_sched_mode") == 1:
-                    score += 1.0
+                score = self._score_scheduling(item)
+            else:
+                score = 0.0
 
             tie_breaker = self.rng.random() * 0.001
             scored.append((score + tie_breaker, item))
@@ -549,6 +580,7 @@ class PruningEngine:
 
     @staticmethod
     def is_small_k_tile(value: Any) -> bool:
+        """Check whether cube_tile_k values are all below the given threshold."""
         if not isinstance(value, (list, tuple)):
             return False
         numeric = [int(x) for x in value if isinstance(x, (int, float))]
@@ -587,6 +619,8 @@ class PruningEngine:
 
 @dataclass
 class BenchmarkConfig:
+    """Configuration for benchmark execution."""
+
     benchmark_cmd: Optional[str]
     baseline_dir: Optional[Path]
     analyzer_script: Optional[Path]
@@ -618,8 +652,8 @@ class BenchmarkRunner:
         env["PYPTO_AUTOTUNE_CONFIG"] = canonical_json(full_config)
 
         completed = subprocess.run(
-            self.benchmark_cmd,
-            shell=True,
+            shlex.split(self.benchmark_cmd),
+            shell=False,
             capture_output=True,
             text=True,
             timeout=self.benchmark_timeout,
@@ -719,6 +753,7 @@ class BenchmarkRunner:
 
     @staticmethod
     def first_float(pools: Iterable[Dict[str, Any]], keys: Sequence[str]) -> Optional[float]:
+        """Extract the first float-like value from a metrics dictionary."""
         for pool in pools:
             for key in keys:
                 if key in pool:
@@ -727,46 +762,55 @@ class BenchmarkRunner:
                         return value
         return None
 
-    def _simulate_metrics(self, full_config: Dict[str, Dict[str, Any]]) -> Dict[str, float]:
-        flat = flatten_layers(full_config)
-        latency = 12.5 * (1.0 + self.rng.uniform(-0.30, 0.30))
-
+    @staticmethod
+    def _simulate_latency(flat: Dict[str, Any], rng: random.Random) -> float:
+        """Compute simulated latency from flattened config."""
+        latency = 12.5 * (1.0 + rng.uniform(-0.30, 0.30))
         stitch_num = flat.get("stitch_function_max_num")
-        if stitch_num == 64:
-            latency *= 0.72
-        elif stitch_num == 32:
-            latency *= 0.84
-        elif stitch_num == 128:
-            latency *= 0.90
-        elif isinstance(stitch_num, (int, float)) and stitch_num > 128:
+        stitch_multiplier = {64: 0.72, 32: 0.84, 128: 0.90}
+        if stitch_num in stitch_multiplier:
+            latency *= stitch_multiplier[stitch_num]
+        if (
+            isinstance(stitch_num, (int, float))
+            and stitch_num not in stitch_multiplier
+            and float(stitch_num) > 128
+        ):
             latency *= 1.05
-
         if flat.get("enable_multi_data_load") is True:
             latency *= 0.94
         if flat.get("cube_l1_reuse_mode") == 1:
             latency *= 0.92
         if flat.get("enable_split_k") is True:
             k_tile = flat.get("cube_tile_k")
-            if isinstance(k_tile, (list, tuple)) and any(isinstance(v, (int, float)) and v >= 128 for v in k_tile):
-                latency *= 0.97
-            else:
-                latency *= 1.03
+            has_large_k = isinstance(k_tile, (list, tuple)) and any(
+                isinstance(v, (int, float)) and v >= 128 for v in k_tile
+            )
+            latency *= 0.97 if has_large_k else 1.03
         if flat.get("vec_nbuffer_mode") in (1, 2):
             latency *= 0.95
         if flat.get("device_sched_mode") == 1:
             latency *= 0.97
+        latency += rng.uniform(-0.20, 0.20)
+        return max(3.0, latency)
 
-        latency += self.rng.uniform(-0.20, 0.20)
-        latency = max(3.0, latency)
-
-        kernel = latency * (0.68 + self.rng.uniform(-0.05, 0.05))
-        idle = 0.35 + self.rng.uniform(-0.08, 0.08)
-        if stitch_num == 64:
+    @staticmethod
+    def _simulate_idle(flat: Dict[str, Any], rng: random.Random) -> float:
+        """Compute simulated idle ratio from flattened config."""
+        idle = 0.35 + rng.uniform(-0.08, 0.08)
+        if flat.get("stitch_function_max_num") == 64:
             idle -= 0.18
         if flat.get("device_sched_mode") == 1:
             idle -= 0.03
         if flat.get("vec_nbuffer_mode") in (1, 2):
             idle -= 0.02
+        return idle
+
+    def _simulate_metrics(self, full_config: Dict[str, Dict[str, Any]]) -> Dict[str, float]:
+        """Simulate benchmark metrics for dry-run mode."""
+        flat = flatten_layers(full_config)
+        latency = self._simulate_latency(flat, self.rng)
+        kernel = latency * (0.68 + self.rng.uniform(-0.05, 0.05))
+        idle = self._simulate_idle(flat, self.rng)
 
         return {
             "total_latency_ms": round(latency, 6),
@@ -999,6 +1043,316 @@ def metric_of(metrics: Dict[str, float], target: str) -> float:
     return float(value)
 
 
+def _build_autotune_summary(
+    target_metric: str,
+    dry_run: bool,
+    total_trials: int,
+    start_time: float,
+    global_best_metric: float,
+    global_stop_reason: Optional[str],
+    layer_reports: List[LayerResult],
+    global_best_config: Dict[str, Dict[str, Any]],
+) -> str:
+    """Build the markdown summary for an autotune run."""
+    lines: List[str] = []
+    lines.append("# Autotune Summary")
+    lines.append("")
+    lines.append(f"- Generated at: `{now_iso()}`")
+    lines.append(f"- Target metric: `{target_metric}` (lower is better)")
+    lines.append(f"- Dry run: `{dry_run}`")
+    lines.append(f"- Total trials: `{total_trials}`")
+    elapsed_min = (time.time() - start_time) / 60.0
+    lines.append(f"- Elapsed time: `{elapsed_min:.2f}` min")
+    if global_best_metric != float("inf"):
+        lines.append(f"- Best {target_metric}: `{global_best_metric:.6f}`")
+    else:
+        lines.append(f"- Best {target_metric}: `N/A`")
+    if global_stop_reason:
+        lines.append(f"- Global stop reason: `{global_stop_reason}`")
+
+    lines.append("")
+    lines.append("## Layer Results")
+    lines.append("")
+    lines.append("| Layer | Strategy | Space | Budget | Success | Failed | Pruned | Best Metric | Stop |")
+    lines.append("|---|---|---:|---:|---:|---:|---:|---:|---|")
+    for row in layer_reports:
+        best_text = "N/A" if row.best_metric is None else f"{row.best_metric:.6f}"
+        stop_text = row.stop_reason if row.stop_reason else "-"
+        lines.append(
+            f"| {row.layer_name} | {row.strategy} | {row.space_size} | {row.trial_budget} | "
+            f"{row.success_count} | {row.fail_count} | {row.pruned_count} | {best_text} | {stop_text} |"
+        )
+
+    lines.append("")
+    lines.append("## Final Best Config")
+    lines.append("")
+    lines.append("```json")
+    lines.append(json.dumps(global_best_config, indent=2, ensure_ascii=False))
+    lines.append("```")
+    return "\n".join(lines) + "\n"
+
+
+def _finalize_autotune_results(
+    recorder: ResultRecorder,
+    target_metric: str,
+    global_best_config: Dict[str, Dict[str, Any]],
+    global_best_metric: float,
+    total_trials: int,
+    summary_text: str,
+) -> None:
+    """Write final summary and best-config files."""
+    recorder.write_summary(summary_text)
+    if global_best_metric != float("inf"):
+        recorder.update_best(
+            best_config=global_best_config,
+            best_metric=global_best_metric,
+            metrics={target_metric: global_best_metric},
+            trial_id=total_trials,
+            layer_name="final",
+        )
+    else:
+        payload = {
+            "target_metric": target_metric,
+            "best_metric": None,
+            "metrics": {},
+            "trial_id": total_trials,
+            "layer": "final",
+            "updated_at": now_iso(),
+            "best_config": global_best_config,
+        }
+        recorder.best_path.write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+
+def _search_one_layer(
+    layer: Dict[str, Any],
+    args: argparse.Namespace,
+    generator: CandidateGenerator,
+    stopper: EarlyStopChecker,
+    runner: BenchmarkRunner,
+    recorder: ResultRecorder,
+    guidance: Dict[str, Any],
+    fixed_best_layers: Dict[str, Dict[str, Any]],
+    output_dir: Path,
+    total_trials: int,
+    start_time: float,
+    global_best_metric: float,
+    global_best_config: Dict[str, Dict[str, Any]],
+) -> Tuple[LayerResult, int, float, Dict[str, Dict[str, Any]], Optional[str]]:
+    """Run autotune search for one layer and return updated global state."""
+    layer_name = str(layer.get("name"))
+    params = layer.get("params", {})
+    if not isinstance(params, dict):
+        return (
+            LayerResult(layer_name, "grid", 0, 0, 0, 0, 0, None, "invalid params"),
+            total_trials,
+            global_best_metric,
+            global_best_config,
+            None,
+        )
+
+    space_size = SearchSpaceLoader.estimate_layer_size(layer)
+    strategy = generator.select_strategy(space_size)
+
+    remain_budget = max(0, int(args.budget) - total_trials)
+    if remain_budget <= 0:
+        row = LayerResult(layer_name, strategy, space_size, 0, 0, 0, 0, None, "trial budget exceeded")
+        return row, total_trials, global_best_metric, global_best_config, "trial budget exceeded"
+
+    layer_max_trials = int(layer.get("max_trials", remain_budget))
+    layer_budget = min(layer_max_trials, remain_budget)
+    if args.dry_run:
+        layer_budget = min(layer_budget, 3)
+    if layer_budget <= 0:
+        row = LayerResult(layer_name, strategy, space_size, layer_budget, 0, 0, 0, None, "budget=0")
+        return row, total_trials, global_best_metric, global_best_config, None
+
+    logger.info(
+        "[layer:%s] priority=%s strategy=%s space=%d budget=%d",
+        layer_name,
+        layer.get("priority"),
+        strategy,
+        space_size,
+        layer_budget,
+    )
+
+    layer_history: List[Dict[str, Any]] = []
+    seen_candidates = set()
+    layer_best_metric = float("inf")
+    layer_best_candidate: Optional[Dict[str, Any]] = None
+    no_improve_count = 0
+    success_count = 0
+    fail_count = 0
+    pruned_count = 0
+    layer_trial_count = 0
+    layer_stop_reason: Optional[str] = None
+
+    def evaluate_candidate(
+        candidate: Dict[str, Any],
+        seen_candidates_box: Tuple[set] = (seen_candidates,),
+        layer_name: str = layer_name,
+        layer_history_box: Tuple[List[Dict[str, Any]]] = (layer_history,),
+    ) -> str:
+        """Evaluate a single candidate configuration and update tracking state."""
+        nonlocal total_trials
+        nonlocal layer_trial_count
+        nonlocal layer_best_metric
+        nonlocal layer_best_candidate
+        nonlocal global_best_metric
+        nonlocal global_best_config
+        nonlocal no_improve_count
+        nonlocal success_count
+        nonlocal fail_count
+        nonlocal pruned_count
+
+        seen_candidates_local = seen_candidates_box[0]
+        layer_history_local = layer_history_box[0]
+
+        marker = canonical_json(candidate)
+        if marker in seen_candidates_local:
+            return "continue"
+        seen_candidates_local.add(marker)
+
+        full_config = merge_layer_config(fixed_best_layers, layer_name, candidate)
+        flat_cfg = flatten_layers(full_config)
+        should_prune, reason = PruningEngine.should_prune(flat_cfg)
+        if should_prune:
+            pruned_count += 1
+            if reason:
+                logger.info("  [prune] %s", reason)
+            return "continue"
+
+        global_reason = stopper.check_global(total_trials, start_time)
+        if global_reason:
+            return "stop_all"
+
+        total_trials += 1
+        layer_trial_count += 1
+        trial_id = total_trials
+
+        logger.info("  [trial %03d] layer=%s config=%s", trial_id, layer_name, canonical_json(candidate))
+        outcome = runner.run_trial(trial_id, layer_name, full_config, output_dir)
+        recorder.record_trial(outcome)
+
+        if outcome.status == "success":
+            success_count += 1
+            value = metric_of(outcome.metrics, args.target_metric)
+            layer_history_local.append({"config": copy.deepcopy(candidate), "metric": value})
+            if stopper.is_improvement(value, layer_best_metric):
+                layer_best_metric = value
+                layer_best_candidate = copy.deepcopy(candidate)
+                no_improve_count = 0
+            else:
+                no_improve_count += 1
+
+            if stopper.is_improvement(value, global_best_metric):
+                global_best_metric = value
+                global_best_config = copy.deepcopy(full_config)
+                recorder.update_best(
+                    best_config=global_best_config,
+                    best_metric=global_best_metric,
+                    metrics=outcome.metrics,
+                    trial_id=trial_id,
+                    layer_name=layer_name,
+                )
+                logger.info(
+                    "  [best] trial=%d %s=%.6f",
+                    trial_id,
+                    args.target_metric,
+                    global_best_metric,
+                )
+        else:
+            fail_count += 1
+            no_improve_count += 1
+            logger.warning("  [failed] trial=%d error=%s", trial_id, outcome.error)
+
+        global_reason = stopper.check_global(total_trials, start_time)
+        if global_reason:
+            return "stop_all"
+        layer_reason = stopper.check_layer(no_improve_count)
+        if layer_reason:
+            return "stop_layer"
+        return "continue"
+
+    def run_candidates(candidates: List[Dict[str, Any]]) -> Optional[str]:
+        nonlocal layer_stop_reason
+        for candidate in candidates:
+            if layer_trial_count >= layer_budget:
+                break
+            action = evaluate_candidate(candidate)
+            if action == "stop_all":
+                return stopper.check_global(total_trials, start_time)
+            if action == "stop_layer":
+                layer_stop_reason = stopper.check_layer(no_improve_count)
+                return None
+        return None
+
+    if strategy == "grid":
+        candidates = generator.grid_search(params)
+        candidates = generator.apply_guidance(layer_name, candidates, guidance)
+        global_stop_reason = run_candidates(candidates)
+    elif strategy == "random+grid":
+        random_budget = max(1, int(layer_budget * 0.7))
+        random_candidates = generator.random_search(params, random_budget)
+        random_candidates = generator.apply_guidance(layer_name, random_candidates, guidance)
+        global_stop_reason = run_candidates(random_candidates)
+        has_budget = layer_trial_count < layer_budget
+        if global_stop_reason is None and layer_stop_reason is None and layer_history and has_budget:
+            top_sorted = sorted(layer_history, key=lambda item: float(item.get("metric", float("inf"))))
+            top_configs = [item["config"] for item in top_sorted[:3] if isinstance(item.get("config"), dict)]
+            refine_budget = layer_budget - layer_trial_count
+            max_cands = max(10, refine_budget * 3)
+            refine_candidates = generator.build_refinement_grid(params, top_configs, max_candidates=max_cands)
+            refine_candidates = generator.apply_guidance(layer_name, refine_candidates, guidance)
+            global_stop_reason = run_candidates(refine_candidates)
+    else:
+        init_count = min(10, layer_budget)
+        init_candidates = generator.random_search(params, init_count)
+        init_candidates = generator.apply_guidance(layer_name, init_candidates, guidance)
+        global_stop_reason = run_candidates(init_candidates)
+
+        while (
+            global_stop_reason is None
+            and layer_stop_reason is None
+            and layer_trial_count < layer_budget
+        ):
+            suggestions = generator.bayesian_suggest(params, layer_history, n_trials=1)
+            if not suggestions:
+                break
+            action = evaluate_candidate(suggestions[0])
+            if action == "stop_all":
+                global_stop_reason = stopper.check_global(total_trials, start_time)
+                break
+            if action == "stop_layer":
+                layer_stop_reason = stopper.check_layer(no_improve_count)
+                break
+
+    if layer_history:
+        top_row = min(layer_history, key=lambda item: float(item.get("metric", float("inf"))))
+        top_cfg = top_row.get("config")
+        if isinstance(top_cfg, dict):
+            layer_best_candidate = copy.deepcopy(top_cfg)
+            layer_best_metric = float(top_row.get("metric", float("inf")))
+            fixed_best_layers[layer_name] = copy.deepcopy(layer_best_candidate)
+    elif success_count == 0:
+        logger.warning("[layer:%s] warning: all trials failed, skip to next layer", layer_name)
+
+    row = LayerResult(
+        layer_name=layer_name,
+        strategy=strategy,
+        space_size=space_size,
+        trial_budget=layer_budget,
+        success_count=success_count,
+        fail_count=fail_count,
+        pruned_count=pruned_count,
+        best_metric=None if layer_best_metric == float("inf") else layer_best_metric,
+        stop_reason=layer_stop_reason,
+    )
+    return row, total_trials, global_best_metric, global_best_config, global_stop_reason
+
+
 def run_autotune(args: argparse.Namespace) -> int:
     """Main iterative layered search loop."""
     rng = random.Random(args.seed)
@@ -1022,7 +1376,6 @@ def run_autotune(args: argparse.Namespace) -> int:
 
     recorder = ResultRecorder(output_dir, args.target_metric)
     generator = CandidateGenerator(search_loader, rng)
-    pruning = PruningEngine()
     stopper = EarlyStopChecker(
         patience=args.early_stop_patience,
         threshold=args.improvement_threshold,
@@ -1056,305 +1409,47 @@ def run_autotune(args: argparse.Namespace) -> int:
 
     try:
         for layer in layers:
-            layer_name = str(layer.get("name"))
-            params = layer.get("params", {})
-            if not isinstance(params, dict):
-                continue
-
-            space_size = SearchSpaceLoader.estimate_layer_size(layer)
-            strategy = generator.select_strategy(space_size)
-
-            remain_budget = max(0, int(args.budget) - total_trials)
-            if remain_budget <= 0:
-                global_stop_reason = "trial budget exceeded"
-                break
-
-            layer_max_trials = int(layer.get("max_trials", remain_budget))
-            layer_budget = min(layer_max_trials, remain_budget)
-            if args.dry_run:
-                layer_budget = min(layer_budget, 3)
-            if layer_budget <= 0:
-                continue
-
-            logger.info(
-                "[layer:%s] priority=%s strategy=%s space=%d budget=%d",
-                layer_name,
-                layer.get("priority"),
-                strategy,
-                space_size,
-                layer_budget,
+            row, total_trials, global_best_metric, global_best_config, layer_stop = _search_one_layer(
+                layer=layer,
+                args=args,
+                generator=generator,
+                stopper=stopper,
+                runner=runner,
+                recorder=recorder,
+                guidance=guidance,
+                fixed_best_layers=fixed_best_layers,
+                output_dir=output_dir,
+                total_trials=total_trials,
+                start_time=start_time,
+                global_best_metric=global_best_metric,
+                global_best_config=global_best_config,
             )
-
-            layer_history: List[Dict[str, Any]] = []
-            seen_candidates = set()
-            layer_best_metric = float("inf")
-            layer_best_candidate: Optional[Dict[str, Any]] = None
-            no_improve_count = 0
-            success_count = 0
-            fail_count = 0
-            pruned_count = 0
-            layer_trial_count = 0
-            layer_stop_reason: Optional[str] = None
-
-            def evaluate_candidate(
-                candidate: Dict[str, Any],
-                seen_candidates_box: Tuple[set] = (seen_candidates,),
-                layer_name: str = layer_name,
-                layer_history_box: Tuple[List[Dict[str, Any]]] = (layer_history,),
-            ) -> str:
-                nonlocal total_trials
-                nonlocal layer_trial_count
-                nonlocal layer_best_metric
-                nonlocal layer_best_candidate
-                nonlocal global_best_metric
-                nonlocal global_best_config
-                nonlocal no_improve_count
-                nonlocal success_count
-                nonlocal fail_count
-                nonlocal pruned_count
-
-                seen_candidates = seen_candidates_box[0]
-                layer_history = layer_history_box[0]
-
-                marker = canonical_json(candidate)
-                if marker in seen_candidates:
-                    return "continue"
-                seen_candidates.add(marker)
-
-                full_config = merge_layer_config(fixed_best_layers, layer_name, candidate)
-                flat_cfg = flatten_layers(full_config)
-                should_prune, reason = PruningEngine.should_prune(flat_cfg)
-                if should_prune:
-                    pruned_count += 1
-                    if reason:
-                        logger.info("  [prune] %s", reason)
-                    return "continue"
-
-                global_reason = stopper.check_global(total_trials, start_time)
-                if global_reason:
-                    return "stop_all"
-
-                total_trials += 1
-                layer_trial_count += 1
-                trial_id = total_trials
-
-                logger.info("  [trial %03d] layer=%s config=%s", trial_id, layer_name, canonical_json(candidate))
-                outcome = runner.run_trial(trial_id, layer_name, full_config, output_dir)
-                recorder.record_trial(outcome)
-
-                if outcome.status == "success":
-                    success_count += 1
-                    value = metric_of(outcome.metrics, args.target_metric)
-                    layer_history.append({"config": copy.deepcopy(candidate), "metric": value})
-                    if stopper.is_improvement(value, layer_best_metric):
-                        layer_best_metric = value
-                        layer_best_candidate = copy.deepcopy(candidate)
-                        no_improve_count = 0
-                    else:
-                        no_improve_count += 1
-
-                    if stopper.is_improvement(value, global_best_metric):
-                        global_best_metric = value
-                        global_best_config = copy.deepcopy(full_config)
-                        recorder.update_best(
-                            best_config=global_best_config,
-                            best_metric=global_best_metric,
-                            metrics=outcome.metrics,
-                            trial_id=trial_id,
-                            layer_name=layer_name,
-                        )
-                        logger.info(
-                            "  [best] trial=%d %s=%.6f",
-                            trial_id,
-                            args.target_metric,
-                            global_best_metric,
-                        )
-                else:
-                    fail_count += 1
-                    no_improve_count += 1
-                    logger.warning("  [failed] trial=%d error=%s", trial_id, outcome.error)
-
-                global_reason = stopper.check_global(total_trials, start_time)
-                if global_reason:
-                    return "stop_all"
-                layer_reason = stopper.check_layer(no_improve_count)
-                if layer_reason:
-                    return "stop_layer"
-                return "continue"
-
-            if strategy == "grid":
-                candidates = generator.grid_search(params)
-                candidates = generator.apply_guidance(layer_name, candidates, guidance)
-                for candidate in candidates:
-                    if layer_trial_count >= layer_budget:
-                        break
-                    action = evaluate_candidate(candidate)
-                    if action == "stop_all":
-                        global_stop_reason = stopper.check_global(total_trials, start_time)
-                        layer_stop_reason = global_stop_reason
-                        break
-                    if action == "stop_layer":
-                        layer_stop_reason = stopper.check_layer(no_improve_count)
-                        break
-
-            elif strategy == "random+grid":
-                random_budget = max(1, int(layer_budget * 0.7))
-                random_candidates = generator.random_search(params, random_budget)
-                random_candidates = generator.apply_guidance(layer_name, random_candidates, guidance)
-
-                for candidate in random_candidates:
-                    if layer_trial_count >= layer_budget:
-                        break
-                    action = evaluate_candidate(candidate)
-                    if action == "stop_all":
-                        global_stop_reason = stopper.check_global(total_trials, start_time)
-                        layer_stop_reason = global_stop_reason
-                        break
-                    if action == "stop_layer":
-                        layer_stop_reason = stopper.check_layer(no_improve_count)
-                        break
-
-                if layer_stop_reason is None and layer_history and layer_trial_count < layer_budget:
-                    top_sorted = sorted(layer_history, key=lambda item: float(item.get("metric", float("inf"))))
-                    top_configs = [item["config"] for item in top_sorted[:3] if isinstance(item.get("config"), dict)]
-                    refine_budget = layer_budget - layer_trial_count
-                    max_cands = max(10, refine_budget * 3)
-                    refine_candidates = generator.build_refinement_grid(
-                        params, top_configs, max_candidates=max_cands
-                    )
-                    refine_candidates = generator.apply_guidance(layer_name, refine_candidates, guidance)
-                    for candidate in refine_candidates:
-                        if layer_trial_count >= layer_budget:
-                            break
-                        action = evaluate_candidate(candidate)
-                        if action == "stop_all":
-                            global_stop_reason = stopper.check_global(total_trials, start_time)
-                            layer_stop_reason = global_stop_reason
-                            break
-                        if action == "stop_layer":
-                            layer_stop_reason = stopper.check_layer(no_improve_count)
-                            break
-
-            else:
-                init_count = min(10, layer_budget)
-                init_candidates = generator.random_search(params, init_count)
-                init_candidates = generator.apply_guidance(layer_name, init_candidates, guidance)
-
-                for candidate in init_candidates:
-                    if layer_trial_count >= layer_budget:
-                        break
-                    action = evaluate_candidate(candidate)
-                    if action == "stop_all":
-                        global_stop_reason = stopper.check_global(total_trials, start_time)
-                        layer_stop_reason = global_stop_reason
-                        break
-                    if action == "stop_layer":
-                        layer_stop_reason = stopper.check_layer(no_improve_count)
-                        break
-
-                while layer_stop_reason is None and layer_trial_count < layer_budget:
-                    suggestions = generator.bayesian_suggest(params, layer_history, n_trials=1)
-                    if not suggestions:
-                        break
-                    action = evaluate_candidate(suggestions[0])
-                    if action == "stop_all":
-                        global_stop_reason = stopper.check_global(total_trials, start_time)
-                        layer_stop_reason = global_stop_reason
-                        break
-                    if action == "stop_layer":
-                        layer_stop_reason = stopper.check_layer(no_improve_count)
-                        break
-
-            if layer_history:
-                top_row = min(layer_history, key=lambda item: float(item.get("metric", float("inf"))))
-                top_cfg = top_row.get("config")
-                if isinstance(top_cfg, dict):
-                    layer_best_candidate = copy.deepcopy(top_cfg)
-                    layer_best_metric = float(top_row.get("metric", float("inf")))
-                    fixed_best_layers[layer_name] = copy.deepcopy(layer_best_candidate)
-            elif success_count == 0:
-                logger.warning("[layer:%s] warning: all trials failed, skip to next layer", layer_name)
-
-            layer_reports.append(
-                LayerResult(
-                    layer_name=layer_name,
-                    strategy=strategy,
-                    space_size=space_size,
-                    trial_budget=layer_budget,
-                    success_count=success_count,
-                    fail_count=fail_count,
-                    pruned_count=pruned_count,
-                    best_metric=None if layer_best_metric == float("inf") else layer_best_metric,
-                    stop_reason=layer_stop_reason,
-                )
-            )
-
-            if global_stop_reason is not None:
+            layer_reports.append(row)
+            if layer_stop is not None:
+                global_stop_reason = layer_stop
                 break
 
         if not global_best_config:
             global_best_config = copy.deepcopy(fixed_best_layers)
 
-        summary_lines: List[str] = []
-        summary_lines.append("# Autotune Summary")
-        summary_lines.append("")
-        summary_lines.append(f"- Generated at: `{now_iso()}`")
-        summary_lines.append(f"- Target metric: `{args.target_metric}` (lower is better)")
-        summary_lines.append(f"- Dry run: `{args.dry_run}`")
-        summary_lines.append(f"- Total trials: `{total_trials}`")
-        elapsed_min = (time.time() - start_time) / 60.0
-        summary_lines.append(f"- Elapsed time: `{elapsed_min:.2f}` min")
-        if global_best_metric != float("inf"):
-            summary_lines.append(f"- Best {args.target_metric}: `{global_best_metric:.6f}`")
-        else:
-            summary_lines.append(f"- Best {args.target_metric}: `N/A`")
-        if global_stop_reason:
-            summary_lines.append(f"- Global stop reason: `{global_stop_reason}`")
-
-        summary_lines.append("")
-        summary_lines.append("## Layer Results")
-        summary_lines.append("")
-        summary_lines.append("| Layer | Strategy | Space | Budget | Success | Failed | Pruned | Best Metric | Stop |")
-        summary_lines.append("|---|---|---:|---:|---:|---:|---:|---:|---|")
-        for row in layer_reports:
-            best_text = "N/A" if row.best_metric is None else f"{row.best_metric:.6f}"
-            stop_text = row.stop_reason if row.stop_reason else "-"
-            summary_lines.append(
-                f"| {row.layer_name} | {row.strategy} | {row.space_size} | {row.trial_budget} | "
-                f"{row.success_count} | {row.fail_count} | {row.pruned_count} | {best_text} | {stop_text} |"
-            )
-
-        summary_lines.append("")
-        summary_lines.append("## Final Best Config")
-        summary_lines.append("")
-        summary_lines.append("```json")
-        summary_lines.append(json.dumps(global_best_config, indent=2, ensure_ascii=False))
-        summary_lines.append("```")
-
-        recorder.write_summary("\n".join(summary_lines) + "\n")
-
-        if global_best_metric != float("inf"):
-            recorder.update_best(
-                best_config=global_best_config,
-                best_metric=global_best_metric,
-                metrics={args.target_metric: global_best_metric},
-                trial_id=total_trials,
-                layer_name="final",
-            )
-        else:
-            payload = {
-                "target_metric": args.target_metric,
-                "best_metric": None,
-                "metrics": {},
-                "trial_id": total_trials,
-                "layer": "final",
-                "updated_at": now_iso(),
-                "best_config": global_best_config,
-            }
-            recorder.best_path.write_text(
-                json.dumps(payload, indent=2, ensure_ascii=False),
-                encoding="utf-8",
-            )
+        summary_text = _build_autotune_summary(
+            target_metric=args.target_metric,
+            dry_run=args.dry_run,
+            total_trials=total_trials,
+            start_time=start_time,
+            global_best_metric=global_best_metric,
+            global_stop_reason=global_stop_reason,
+            layer_reports=layer_reports,
+            global_best_config=global_best_config,
+        )
+        _finalize_autotune_results(
+            recorder=recorder,
+            target_metric=args.target_metric,
+            global_best_config=global_best_config,
+            global_best_metric=global_best_metric,
+            total_trials=total_trials,
+            summary_text=summary_text,
+        )
 
         logger.info("[autotune] done. results: %s", recorder.results_path)
         logger.info("[autotune] best: %s", recorder.best_path)
