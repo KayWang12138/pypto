@@ -21,7 +21,6 @@
 #include <functional>
 #include <string>
 #include <cstdio>
-#include <unistd.h>
 #include <regex>
 #include <cstdlib>
 #include <cstring>
@@ -29,6 +28,8 @@
 #include <sys/stat.h>
 #include <fstream>
 #include <map>
+#include <sys/syscall.h>
+#include <unistd.h>
 
 // 与 LogManager 落盘路径一致（仅本头文件内使用）
 static constexpr const char *kInterpLogTestEnvProcessLogPath = "ASCEND_PROCESS_LOG_PATH";
@@ -47,7 +48,18 @@ static inline std::string InterpLogTestGetHostLogDir() {
     return base + kInterpLogTestDefaultLogSubDir + kInterpLogTestHostLogSubDir;
 }
 
-static inline std::map<std::string, size_t> InterpLogTestListHostLogFilesWithSize(const std::string &dir) {
+// 与 LogManager 一致：日志文件名形如 pypto-log-<tid>-<timestamp>.log，这里按当前线程 tid 过滤
+static inline std::string InterpLogTestGetThreadLogPrefix() {
+#ifdef __NR_gettid
+    long tid = syscall(__NR_gettid);
+#else
+    long tid = getpid();
+#endif
+    return std::string(kInterpLogTestHostLogFilePrefix) + std::to_string(tid) + "-";
+}
+
+static inline std::map<std::string, size_t> InterpLogTestListHostLogFilesWithSize(const std::string &dir,
+                                                                                  const std::string &threadPrefix) {
     std::map<std::string, size_t> result;
     DIR *d = opendir(dir.c_str());
     if (d == nullptr) {
@@ -59,7 +71,7 @@ static inline std::map<std::string, size_t> InterpLogTestListHostLogFilesWithSiz
             continue;
         }
         std::string name = dp->d_name;
-        if (name.find(kInterpLogTestHostLogFilePrefix) != 0 ||
+        if (name.find(threadPrefix) != 0 ||
             name.rfind(kInterpLogTestLogFileSuffix) != name.size() - std::strlen(kInterpLogTestLogFileSuffix)) {
             continue;
         }
@@ -76,12 +88,17 @@ static inline std::map<std::string, size_t> InterpLogTestListHostLogFilesWithSiz
 // 从日志落盘目录捕获本次 func() 执行产生的新增日志内容（与 LogManager 落盘路径一致）
 static inline std::string CaptureStdoutAndEcho(std::function<void()> func) {
     std::string logDir = InterpLogTestGetHostLogDir();
-    std::map<std::string, size_t> before = InterpLogTestListHostLogFilesWithSize(logDir);
+    std::string threadPrefix = InterpLogTestGetThreadLogPrefix();
+    std::map<std::string, size_t> before = InterpLogTestListHostLogFilesWithSize(logDir, threadPrefix);
 
     func();
 
-    std::map<std::string, size_t> after = InterpLogTestListHostLogFilesWithSize(logDir);
-    std::string captured;
+    std::map<std::string, size_t> after = InterpLogTestListHostLogFilesWithSize(logDir, threadPrefix);
+
+    // 一个用例的日志只会落在单个文件中：这里选择“本次增长字节数最大”的那个文件，仅读它的增量部分
+    std::string targetPath;
+    size_t targetOldSize = 0;
+    size_t targetDelta = 0;
     for (const auto &p : after) {
         const std::string &path = p.first;
         size_t newSize = p.second;
@@ -89,17 +106,29 @@ static inline std::string CaptureStdoutAndEcho(std::function<void()> func) {
         auto it = before.find(path);
         if (it != before.end()) {
             oldSize = it->second;
-            if (newSize <= oldSize) {
-                continue;
-            }
         }
-        std::ifstream ifs(path, std::ios::binary);
-        if (!ifs) {
+        if (newSize <= oldSize) {
             continue;
         }
-        ifs.seekg(static_cast<std::streamoff>(oldSize));
-        captured.append(std::istreambuf_iterator<char>(ifs), std::istreambuf_iterator<char>());
+        size_t delta = newSize - oldSize;
+        if (delta > targetDelta) {
+            targetDelta = delta;
+            targetOldSize = oldSize;
+            targetPath = path;
+        }
     }
+
+    if (targetPath.empty()) {
+        return "";
+    }
+
+    std::ifstream ifs(targetPath, std::ios::binary);
+    if (!ifs) {
+        return "";
+    }
+    ifs.seekg(static_cast<std::streamoff>(targetOldSize));
+    std::string captured;
+    captured.append(std::istreambuf_iterator<char>(ifs), std::istreambuf_iterator<char>());
     return captured;
 }
 
