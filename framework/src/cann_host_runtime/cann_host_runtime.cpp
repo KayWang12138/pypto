@@ -36,11 +36,13 @@ CannHostRuntime::CannHostRuntime() {
     std::string LibPathDir = std::string(ASCEND_CANN_PACKAGE_PATH) + "/lib64/";
     std::string soDepPath = RealPath(LibPathDir + "libprofapi.so");
     FUNCTION_LOGW("soDepPath = %s", soDepPath.c_str());
-    handleDep = dlopen(soDepPath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+    void *handleDep = dlopen(soDepPath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
     std::string soPath = RealPath(LibPathDir + "libruntime.so");
     FUNCTION_LOGW("soPath = %s", soPath.c_str());
-    handle = dlopen(soPath.c_str(), RTLD_LAZY);
-    socVerFunc_ = (GetSocVerFunc)GetSymbol(socVerFuncName);
+    void *handle = dlopen(soPath.c_str(), RTLD_LAZY);
+    if (handleDep != nullptr && handle != nullptr) {
+        socVerFunc_ = (GetSocVerFunc)GetSymbol(socVerFuncName);
+    }
     if (handle != nullptr) {
         dlclose(handle);
     }
