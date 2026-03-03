@@ -1239,53 +1239,6 @@ def _dispatch_bayesian(
     return global_stop_reason
 
 
-def _dispatch_bayesian(
-    generator: "CandidateGenerator",
-    params: Dict[str, Any],
-    layer_name: str,
-    guidance: Dict[str, Any],
-    layer_budget: int,
-    layer_trial_count_ref: List[int],
-    layer_history: List[Dict[str, Any]],
-    layer_stop_reason_ref: List[Optional[str]],
-    run_candidates: Any,
-    evaluate_candidate: Any,
-    stopper: "EarlyStopChecker",
-    total_trials_ref: List[int],
-    start_time: float,
-    no_improve_count_ref: List[int],
-) -> Optional[str]:
-    """Run bayesian search strategy with initial random seed."""
-    init_count = min(10, layer_budget)
-    init_candidates = generator.random_search(params, init_count)
-    init_candidates = generator.apply_guidance(
-        layer_name, init_candidates, guidance
-    )
-    global_stop_reason = run_candidates(init_candidates)
-    while (
-        global_stop_reason is None
-        and layer_stop_reason_ref[0] is None
-        and layer_trial_count_ref[0] < layer_budget
-    ):
-        suggestions = generator.bayesian_suggest(
-            params, layer_history, n_trials=1
-        )
-        if not suggestions:
-            break
-        action = evaluate_candidate(suggestions[0])
-        if action == "stop_all":
-            global_stop_reason = stopper.check_global(
-                total_trials_ref[0], start_time
-            )
-            break
-        if action == "stop_layer":
-            layer_stop_reason_ref[0] = stopper.check_layer(
-                no_improve_count_ref[0]
-            )
-            break
-    return global_stop_reason
-
-
 def _search_one_layer(
     layer: Dict[str, Any],
     args: argparse.Namespace,
