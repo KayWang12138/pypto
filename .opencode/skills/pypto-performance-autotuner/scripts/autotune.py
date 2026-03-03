@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
 # -*- coding: utf-8 -*-
 """
 PyPTO Performance Autotuner - Iterative Search Strategy
@@ -172,10 +173,65 @@ class SearchSpaceLoader:
     def __init__(self, search_space_path: Path):
         self.search_space_path = search_space_path
 
+    def _normalize_layer(self, layer: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize one layer and enforce stitch max-num primary knob."""
+        name = layer.get("name")
+        params = layer.get("params")
+        if not isinstance(name, str) or not name:
+            raise ValueError("layer requires non-empty name")
+        if not isinstance(params, dict) or not params:
+            raise ValueError(f"layer '{name}' requires non-empty params")
+
+        normalized = copy.deepcopy(layer)
+        normalized.setdefault("priority", 999)
+        normalized.setdefault("max_trials", DEFAULT_BUDGET)
+
+        if name == "stitch":
+            normalized["params"] = self._normalize_stitch_params(params)
+
+        for param_name, spec in normalized["params"].items():
+            if not isinstance(param_name, str) or not param_name:
+                raise ValueError(f"invalid param name in layer '{name}'")
+            type(self).expand_param_values(spec)
+
+        return normalized
+
+    def _normalize_stitch_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Use stitch_function_max_num as the primary stitch knob."""
+        deprecated = {
+            "stitch_function_num_initial",
+            "stitch_function_outcast_memory",
+            "stitch_function_inner_memory",
+        }
+        normalized: Dict[str, Any] = {}
+
+        if "stitch_function_max_num" in params:
+            normalized["stitch_function_max_num"] = copy.deepcopy(params["stitch_function_max_num"])
+        else:
+            derived = [16, 32, 64, 128]
+            legacy_initial = params.get("stitch_function_num_initial")
+            if isinstance(legacy_initial, dict):
+                try:
+                    values = type(self).expand_param_values(legacy_initial)
+                    clean_values = [int(v) for v in values if isinstance(v, (int, float))]
+                    clean_values = [v for v in clean_values if 1 <= v <= 256]
+                    if clean_values:
+                        derived = sorted(set(clean_values))
+                except (ValueError, TypeError, KeyError):
+                    derived = [16, 32, 64, 128]
+            normalized["stitch_function_max_num"] = {"type": "choice", "values": derived}
+
+        for key, value in params.items():
+            if key in deprecated or key == "stitch_function_max_num":
+                continue
+            normalized[key] = copy.deepcopy(value)
+
+        return normalized
+
     def load(self) -> Dict[str, Any]:
         """Load search space JSON and normalize layers."""
         if not self.search_space_path.exists():
-            raise FileNotFoundError("search space not found: {}".format(self.search_space_path))
+            raise FileNotFoundError(f"search space not found: {self.search_space_path}")
 
         raw = load_json_file(self.search_space_path)
         layers = raw.get("layers")
@@ -185,7 +241,7 @@ class SearchSpaceLoader:
         normalized_layers: List[Dict[str, Any]] = []
         for idx, layer in enumerate(layers):
             if not isinstance(layer, dict):
-                raise ValueError("layer at index {} must be object".format(idx))
+                raise ValueError(f"layer at index {idx} must be object")
             normalized_layers.append(self._normalize_layer(layer))
 
         raw["layers"] = normalized_layers
@@ -199,13 +255,14 @@ class SearchSpaceLoader:
 
         size = 1
         for _, spec in params.items():
-            values = self.expand_param_values(spec)
+            values = type(self).expand_param_values(spec)
             if not values:
                 continue
             size *= len(values)
         return max(size, 1)
 
-    def expand_param_values(self, spec: Dict[str, Any]) -> List[Any]:
+    @staticmethod
+    def expand_param_values(spec: Dict[str, Any]) -> List[Any]:
         """Expand schema entry into concrete candidate values."""
         spec_type = str(spec.get("type", "choice"))
         if spec_type == "bool":
@@ -230,62 +287,7 @@ class SearchSpaceLoader:
                 current += step_v
             return values
 
-        raise ValueError("unsupported param type: {}".format(spec_type))
-
-    def _normalize_layer(self, layer: Dict[str, Any]) -> Dict[str, Any]:
-        """Normalize one layer and enforce stitch max-num primary knob."""
-        name = layer.get("name")
-        params = layer.get("params")
-        if not isinstance(name, str) or not name:
-            raise ValueError("layer requires non-empty name")
-        if not isinstance(params, dict) or not params:
-            raise ValueError("layer '{}' requires non-empty params".format(name))
-
-        normalized = copy.deepcopy(layer)
-        normalized.setdefault("priority", 999)
-        normalized.setdefault("max_trials", DEFAULT_BUDGET)
-
-        if name == "stitch":
-            normalized["params"] = self._normalize_stitch_params(params)
-
-        for param_name, spec in normalized["params"].items():
-            if not isinstance(param_name, str) or not param_name:
-                raise ValueError("invalid param name in layer '{}'".format(name))
-            self.expand_param_values(spec)
-
-        return normalized
-
-    def _normalize_stitch_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Use stitch_function_max_num as the primary stitch knob."""
-        deprecated = {
-            "stitch_function_num_initial",
-            "stitch_function_outcast_memory",
-            "stitch_function_inner_memory",
-        }
-        normalized: Dict[str, Any] = {}
-
-        if "stitch_function_max_num" in params:
-            normalized["stitch_function_max_num"] = copy.deepcopy(params["stitch_function_max_num"])
-        else:
-            derived = [16, 32, 64, 128]
-            legacy_initial = params.get("stitch_function_num_initial")
-            if isinstance(legacy_initial, dict):
-                try:
-                    values = self.expand_param_values(legacy_initial)
-                    clean_values = [int(v) for v in values if isinstance(v, (int, float))]
-                    clean_values = [v for v in clean_values if 1 <= v <= 256]
-                    if clean_values:
-                        derived = sorted(set(clean_values))
-                except Exception:
-                    derived = [16, 32, 64, 128]
-            normalized["stitch_function_max_num"] = {"type": "choice", "values": derived}
-
-        for key, value in params.items():
-            if key in deprecated or key == "stitch_function_max_num":
-                continue
-            normalized[key] = copy.deepcopy(value)
-
-        return normalized
+        raise ValueError(f"unsupported param type: {spec_type}")
 
 
 class CandidateGenerator:
@@ -295,7 +297,52 @@ class CandidateGenerator:
         self.loader = loader
         self.rng = rng
 
-    def select_strategy(self, space_size: int) -> str:
+    @staticmethod
+    def _value_count(rows: Sequence[Dict[str, Any]], name: str, value: Any) -> int:
+        marker = canonical_json(value)
+        count = 0
+        for row in rows:
+            cfg = row.get("config")
+            if not isinstance(cfg, dict):
+                continue
+            if canonical_json(cfg.get(name)) == marker:
+                count += 1
+        return count
+
+    def _weighted_choice(self, options: Sequence[Any], weights: Sequence[float]) -> Any:
+        total = sum(max(w, 0.0) for w in weights)
+        if total <= 0.0:
+            return options[self.rng.randrange(0, len(options))]
+        pivot = self.rng.random() * total
+        cumulative = 0.0
+        for idx, value in enumerate(options):
+            cumulative += max(weights[idx], 0.0)
+            if cumulative >= pivot:
+                return value
+        return options[-1]
+
+    @staticmethod
+    def _local_neighbors(values: List[Any], center: Any) -> List[Any]:
+        if not values:
+            return []
+        if len(values) <= 3:
+            return values
+
+        marker = canonical_json(center)
+        center_index: Optional[int] = None
+        for idx, value in enumerate(values):
+            if canonical_json(value) == marker:
+                center_index = idx
+                break
+        if center_index is None:
+            return values[:3]
+
+        start = max(0, center_index - 1)
+        end = min(len(values), center_index + 2)
+        return values[start:end]
+
+    @staticmethod
+    def select_strategy(space_size: int) -> str:
         """Auto-select strategy from search-space size."""
         if space_size < 50:
             return "grid"
@@ -387,8 +434,8 @@ class CandidateGenerator:
                 options = value_cache[name]
                 weights: List[float] = []
                 for value in options:
-                    g_cnt = self._value_count(good, name, value)
-                    b_cnt = self._value_count(bad, name, value)
+                    g_cnt = CandidateGenerator._value_count(good, name, value)
+                    b_cnt = CandidateGenerator._value_count(bad, name, value)
                     g_score = float(g_cnt + 1) / float(len(good) + len(options))
                     b_score = float(b_cnt + 1) / float(len(bad) + len(options))
                     weights.append(max(g_score / b_score, 1e-6))
@@ -473,7 +520,7 @@ class CandidateGenerator:
             local_options: Dict[str, List[Any]] = {}
             for name, spec in params.items():
                 values = self.loader.expand_param_values(spec)
-                local_options[name] = self._local_neighbors(values, base.get(name))
+                local_options[name] = CandidateGenerator._local_neighbors(values, base.get(name))
 
             names = sorted(local_options.keys())
             if not names:
@@ -493,51 +540,18 @@ class CandidateGenerator:
 
         return all_candidates
 
-    def _value_count(self, rows: Sequence[Dict[str, Any]], name: str, value: Any) -> int:
-        marker = canonical_json(value)
-        count = 0
-        for row in rows:
-            cfg = row.get("config")
-            if not isinstance(cfg, dict):
-                continue
-            if canonical_json(cfg.get(name)) == marker:
-                count += 1
-        return count
-
-    def _weighted_choice(self, options: Sequence[Any], weights: Sequence[float]) -> Any:
-        total = sum(max(w, 0.0) for w in weights)
-        if total <= 0.0:
-            return options[self.rng.randrange(0, len(options))]
-        pivot = self.rng.random() * total
-        cumulative = 0.0
-        for idx, value in enumerate(options):
-            cumulative += max(weights[idx], 0.0)
-            if cumulative >= pivot:
-                return value
-        return options[-1]
-
-    def _local_neighbors(self, values: List[Any], center: Any) -> List[Any]:
-        if not values:
-            return []
-        if len(values) <= 3:
-            return values
-
-        marker = canonical_json(center)
-        center_index: Optional[int] = None
-        for idx, value in enumerate(values):
-            if canonical_json(value) == marker:
-                center_index = idx
-                break
-        if center_index is None:
-            return values[:3]
-
-        start = max(0, center_index - 1)
-        end = min(len(values), center_index + 2)
-        return values[start:end]
-
 
 class PruningEngine:
     """Domain-specific pruning rules for invalid/low-value combinations."""
+
+    @staticmethod
+    def _is_small_k_tile(value: Any) -> bool:
+        if not isinstance(value, (list, tuple)):
+            return False
+        numeric = [int(x) for x in value if isinstance(x, (int, float))]
+        if not numeric:
+            return False
+        return max(numeric) <= 64
 
     def should_prune(self, flat_config: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
         """Return (should_prune, reason)."""
@@ -548,7 +562,7 @@ class PruningEngine:
 
         if flat_config.get("enable_split_k") is True:
             k_tile = flat_config.get("cube_tile_k")
-            if self._is_small_k_tile(k_tile):
+            if type(self)._is_small_k_tile(k_tile):
                 return True, "enable_split_k=True but cube_tile_k is too small"
 
         if flat_config.get("pg_skip_partition") is True:
@@ -566,100 +580,31 @@ class PruningEngine:
 
         return False, None
 
-    def _is_small_k_tile(self, value: Any) -> bool:
-        if not isinstance(value, (list, tuple)):
-            return False
-        numeric = [int(x) for x in value if isinstance(x, (int, float))]
-        if not numeric:
-            return False
-        return max(numeric) <= 64
+
+@dataclass
+class BenchmarkConfig:
+    benchmark_cmd: Optional[str]
+    baseline_dir: Optional[Path]
+    analyzer_script: Optional[Path]
+    dry_run: bool
+    benchmark_timeout: int
+    target_metric: str
+    rng: random.Random
+    seed: int
 
 
 class BenchmarkRunner:
     """Run benchmark + analyzer, then parse metrics for each trial."""
 
-    def __init__(
-        self,
-        benchmark_cmd: Optional[str],
-        baseline_dir: Optional[Path],
-        analyzer_script: Optional[Path],
-        dry_run: bool,
-        benchmark_timeout: int,
-        target_metric: str,
-        rng: random.Random,
-        seed: int,
-    ):
-        self.benchmark_cmd = benchmark_cmd
-        self.baseline_dir = baseline_dir
-        self.analyzer_script = analyzer_script
-        self.dry_run = dry_run
-        self.benchmark_timeout = benchmark_timeout
-        self.target_metric = target_metric
-        self.rng = rng
-        self.seed = seed
-
-    def run_trial(
-        self,
-        trial_id: int,
-        layer_name: str,
-        full_config: Dict[str, Dict[str, Any]],
-        output_dir: Path,
-    ) -> TrialOutcome:
-        """Execute one trial and return structured outcome."""
-        env = self._build_env_payload()
-        timestamp = now_iso()
-
-        if self.dry_run:
-            metrics = self._simulate_metrics(full_config)
-            return TrialOutcome(
-                trial_id=trial_id,
-                layer=layer_name,
-                config=copy.deepcopy(full_config),
-                metrics=metrics,
-                status="success",
-                error=None,
-                timestamp=timestamp,
-                env=env,
-            )
-
-        last_error: Optional[str] = None
-        for attempt in range(1, MAX_RETRIES + 1):
-            try:
-                self._execute_benchmark(full_config)
-                summary = self._run_analyzer(output_dir, trial_id)
-                metrics = self._extract_metrics(summary)
-                return TrialOutcome(
-                    trial_id=trial_id,
-                    layer=layer_name,
-                    config=copy.deepcopy(full_config),
-                    metrics=metrics,
-                    status="success",
-                    error=None,
-                    timestamp=timestamp,
-                    env=env,
-                )
-            except subprocess.TimeoutExpired:
-                last_error = "timeout after {}s (attempt {}/{})".format(
-                    self.benchmark_timeout,
-                    attempt,
-                    MAX_RETRIES,
-                )
-            except Exception as exc:
-                last_error = "{} (attempt {}/{})".format(str(exc), attempt, MAX_RETRIES)
-
-            if attempt < MAX_RETRIES:
-                time.sleep(1.0)
-
-        return TrialOutcome(
-            trial_id=trial_id,
-            layer=layer_name,
-            config=copy.deepcopy(full_config),
-            metrics={},
-            status="failed",
-            error=last_error,
-            timestamp=timestamp,
-            env=env,
-        )
+    def __init__(self, config: BenchmarkConfig):
+        self.benchmark_cmd = config.benchmark_cmd
+        self.baseline_dir = config.baseline_dir
+        self.analyzer_script = config.analyzer_script
+        self.dry_run = config.dry_run
+        self.benchmark_timeout = config.benchmark_timeout
+        self.target_metric = config.target_metric
+        self.rng = config.rng
+        self.seed = config.seed
 
     def _execute_benchmark(self, full_config: Dict[str, Dict[str, Any]]) -> None:
         if not self.benchmark_cmd:
@@ -675,12 +620,13 @@ class BenchmarkRunner:
             text=True,
             timeout=self.benchmark_timeout,
             env=env,
+            check=False,
         )
         if completed.returncode != 0:
             stderr_text = (completed.stderr or "").strip().splitlines()
             stderr_tail = stderr_text[-3:] if stderr_text else []
             detail = " | ".join(stderr_tail)
-            raise RuntimeError("benchmark crash (exit={}): {}".format(completed.returncode, detail))
+            raise RuntimeError(f"benchmark crash (exit={completed.returncode}): {detail}")
 
     def _run_analyzer(self, output_dir: Path, trial_id: int) -> Dict[str, Any]:
         if self.analyzer_script is None or not self.analyzer_script.exists():
@@ -688,7 +634,7 @@ class BenchmarkRunner:
 
         report_dir = output_dir / "reports"
         report_dir.mkdir(parents=True, exist_ok=True)
-        report_path = report_dir / "analysis_trial_{}.md".format(trial_id)
+        report_path = report_dir / f"analysis_trial_{trial_id}.md"
 
         cmd: List[str] = [
             sys.executable,
@@ -704,12 +650,13 @@ class BenchmarkRunner:
             capture_output=True,
             text=True,
             timeout=self.benchmark_timeout,
+            check=False,
         )
         if completed.returncode != 0:
             stderr_text = (completed.stderr or "").strip().splitlines()
             stderr_tail = stderr_text[-3:] if stderr_text else []
             detail = " | ".join(stderr_tail)
-            raise RuntimeError("analyzer failed (exit={}): {}".format(completed.returncode, detail))
+            raise RuntimeError(f"analyzer failed (exit={completed.returncode}): {detail}")
 
         summary_path = self._resolve_summary_path(output_dir)
         if summary_path is None:
@@ -734,21 +681,21 @@ class BenchmarkRunner:
             if isinstance(value, dict):
                 pools.append(value)
 
-        latency = self._first_float(
+        latency = type(self)._first_float(
             pools,
             ["total_latency_ms", "latency_ms", "end_to_end_latency_ms", "total_time_ms"],
         )
-        kernel = self._first_float(
+        kernel = type(self)._first_float(
             pools,
             ["kernel_time_ms", "kernel_total_ms", "kernel_total_time_ms"],
         )
-        idle = self._first_float(
+        idle = type(self)._first_float(
             pools,
             ["idle_ratio", "npu_idle_ratio", "bubble_ratio"],
         )
 
         if latency is None:
-            timeline_us = self._first_float(pools, ["timeline_us", "timeline_length_us"])
+            timeline_us = type(self)._first_float(pools, ["timeline_us", "timeline_length_us"])
             if timeline_us is not None:
                 latency = timeline_us / 1000.0
 
@@ -765,7 +712,8 @@ class BenchmarkRunner:
             "idle_ratio": clamp(float(idle), 0.0, 1.0),
         }
 
-    def _first_float(self, pools: Iterable[Dict[str, Any]], keys: Sequence[str]) -> Optional[float]:
+    @staticmethod
+    def _first_float(pools: Iterable[Dict[str, Any]], keys: Sequence[str]) -> Optional[float]:
         for pool in pools:
             for key in keys:
                 if key in pool:
@@ -829,6 +777,73 @@ class BenchmarkRunner:
             "python_version": platform.python_version(),
             "argv": shlex.join(sys.argv),
         }
+
+    def run_trial(
+        self,
+        trial_id: int,
+        layer_name: str,
+        full_config: Dict[str, Dict[str, Any]],
+        output_dir: Path,
+    ) -> TrialOutcome:
+        """Execute one trial and return structured outcome."""
+        env = self._build_env_payload()
+        timestamp = now_iso()
+
+        if self.dry_run:
+            metrics = self._simulate_metrics(full_config)
+            return TrialOutcome(
+                trial_id=trial_id,
+                layer=layer_name,
+                config=copy.deepcopy(full_config),
+                metrics=metrics,
+                status="success",
+                error=None,
+                timestamp=timestamp,
+                env=env,
+            )
+
+        last_error: Optional[str] = None
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                self._execute_benchmark(full_config)
+                summary = self._run_analyzer(output_dir, trial_id)
+                metrics = self._extract_metrics(summary)
+                return TrialOutcome(
+                    trial_id=trial_id,
+                    layer=layer_name,
+                    config=copy.deepcopy(full_config),
+                    metrics=metrics,
+                    status="success",
+                    error=None,
+                    timestamp=timestamp,
+                    env=env,
+                )
+            except subprocess.TimeoutExpired:
+                last_error = f"timeout after {self.benchmark_timeout}s (attempt {attempt}/{MAX_RETRIES})"
+            except (
+                RuntimeError,
+                ValueError,
+                KeyError,
+                TypeError,
+                OSError,
+                json.JSONDecodeError,
+                subprocess.SubprocessError,
+            ) as exc:
+                last_error = f"{str(exc)} (attempt {attempt}/{MAX_RETRIES})"
+
+            if attempt < MAX_RETRIES:
+                time.sleep(1.0)
+
+        return TrialOutcome(
+            trial_id=trial_id,
+            layer=layer_name,
+            config=copy.deepcopy(full_config),
+            metrics={},
+            status="failed",
+            error=last_error,
+            timestamp=timestamp,
+            env=env,
+        )
 
 
 class ResultRecorder:
@@ -914,7 +929,7 @@ class EarlyStopChecker:
     def check_layer(self, no_improve_count: int) -> Optional[str]:
         """Check layer-level patience stopping condition."""
         if no_improve_count >= self.patience:
-            return "no improvement for {} consecutive trials".format(self.patience)
+            return f"no improvement for {self.patience} consecutive trials"
         return None
 
 
@@ -939,7 +954,7 @@ def load_guidance_summary(
         ]
         try:
             subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_sec, check=False)
-        except Exception:
+        except (OSError, ValueError, TypeError, subprocess.SubprocessError):
             pass
         summary_path = find_analysis_summary(baseline_dir)
 
@@ -948,7 +963,7 @@ def load_guidance_summary(
 
     try:
         summary = load_json_file(summary_path)
-    except Exception:
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
         return {}
 
     labels: List[str] = []
@@ -1010,14 +1025,16 @@ def run_autotune(args: argparse.Namespace) -> int:
         time_budget_min=args.time_budget,
     )
     runner = BenchmarkRunner(
-        benchmark_cmd=args.benchmark_cmd,
-        baseline_dir=baseline_dir,
-        analyzer_script=analyzer_script,
-        dry_run=args.dry_run,
-        benchmark_timeout=args.benchmark_timeout,
-        target_metric=args.target_metric,
-        rng=rng,
-        seed=args.seed,
+        BenchmarkConfig(
+            benchmark_cmd=args.benchmark_cmd,
+            baseline_dir=baseline_dir,
+            analyzer_script=analyzer_script,
+            dry_run=args.dry_run,
+            benchmark_timeout=args.benchmark_timeout,
+            target_metric=args.target_metric,
+            rng=rng,
+            seed=args.seed,
+        )
     )
 
     logger.info("[autotune] layers=%d, target_metric=%s, dry_run=%s", len(layers), args.target_metric, args.dry_run)
@@ -1074,7 +1091,12 @@ def run_autotune(args: argparse.Namespace) -> int:
             layer_trial_count = 0
             layer_stop_reason: Optional[str] = None
 
-            def evaluate_candidate(candidate: Dict[str, Any]) -> str:
+            def evaluate_candidate(
+                candidate: Dict[str, Any],
+                seen_candidates_box: Tuple[set] = (seen_candidates,),
+                layer_name: str = layer_name,
+                layer_history_box: Tuple[List[Dict[str, Any]]] = (layer_history,),
+            ) -> str:
                 nonlocal total_trials
                 nonlocal layer_trial_count
                 nonlocal layer_best_metric
@@ -1085,6 +1107,9 @@ def run_autotune(args: argparse.Namespace) -> int:
                 nonlocal success_count
                 nonlocal fail_count
                 nonlocal pruned_count
+
+                seen_candidates = seen_candidates_box[0]
+                layer_history = layer_history_box[0]
 
                 marker = canonical_json(candidate)
                 if marker in seen_candidates:
@@ -1268,18 +1293,18 @@ def run_autotune(args: argparse.Namespace) -> int:
         summary_lines: List[str] = []
         summary_lines.append("# Autotune Summary")
         summary_lines.append("")
-        summary_lines.append("- Generated at: `{}`".format(now_iso()))
-        summary_lines.append("- Target metric: `{}` (lower is better)".format(args.target_metric))
-        summary_lines.append("- Dry run: `{}`".format(args.dry_run))
-        summary_lines.append("- Total trials: `{}`".format(total_trials))
+        summary_lines.append(f"- Generated at: `{now_iso()}`")
+        summary_lines.append(f"- Target metric: `{args.target_metric}` (lower is better)")
+        summary_lines.append(f"- Dry run: `{args.dry_run}`")
+        summary_lines.append(f"- Total trials: `{total_trials}`")
         elapsed_min = (time.time() - start_time) / 60.0
-        summary_lines.append("- Elapsed time: `{:.2f}` min".format(elapsed_min))
+        summary_lines.append(f"- Elapsed time: `{elapsed_min:.2f}` min")
         if global_best_metric != float("inf"):
-            summary_lines.append("- Best {}: `{:.6f}`".format(args.target_metric, global_best_metric))
+            summary_lines.append(f"- Best {args.target_metric}: `{global_best_metric:.6f}`")
         else:
-            summary_lines.append("- Best {}: `N/A`".format(args.target_metric))
+            summary_lines.append(f"- Best {args.target_metric}: `N/A`")
         if global_stop_reason:
-            summary_lines.append("- Global stop reason: `{}`".format(global_stop_reason))
+            summary_lines.append(f"- Global stop reason: `{global_stop_reason}`")
 
         summary_lines.append("")
         summary_lines.append("## Layer Results")
@@ -1287,20 +1312,11 @@ def run_autotune(args: argparse.Namespace) -> int:
         summary_lines.append("| Layer | Strategy | Space | Budget | Success | Failed | Pruned | Best Metric | Stop |")
         summary_lines.append("|---|---|---:|---:|---:|---:|---:|---:|---|")
         for row in layer_reports:
-            best_text = "N/A" if row.best_metric is None else "{:.6f}".format(row.best_metric)
+            best_text = "N/A" if row.best_metric is None else f"{row.best_metric:.6f}"
             stop_text = row.stop_reason if row.stop_reason else "-"
             summary_lines.append(
-                "| {} | {} | {} | {} | {} | {} | {} | {} | {} |".format(
-                    row.layer_name,
-                    row.strategy,
-                    row.space_size,
-                    row.trial_budget,
-                    row.success_count,
-                    row.fail_count,
-                    row.pruned_count,
-                    best_text,
-                    stop_text,
-                )
+                f"| {row.layer_name} | {row.strategy} | {row.space_size} | {row.trial_budget} | "
+                f"{row.success_count} | {row.fail_count} | {row.pruned_count} | {best_text} | {stop_text} |"
             )
 
         summary_lines.append("")
