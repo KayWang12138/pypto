@@ -109,7 +109,7 @@ class SwimlaneAnalyzer:
                 self.counter_events.append(event)
 
     @staticmethod
-    def _extract_value(text: str, key: str) -> float:
+    def extract_value(text: str, key: str) -> float:
         for line in text.split("\n"):
             if key in line:
                 try:
@@ -121,7 +121,7 @@ class SwimlaneAnalyzer:
         return 0.0
 
     @staticmethod
-    def _parse_operand_hint(hint: str) -> Dict[str, Any]:
+    def parse_operand_hint(hint: str) -> Dict[str, Any]:
         parsed: Dict[str, Any] = {
             "shape": "",
             "dtype": "",
@@ -361,9 +361,9 @@ class SwimlaneAnalyzer:
             if not isinstance(hint, str) or not hint.strip():
                 continue
 
-            avg_time = SwimlaneAnalyzer._extract_value(hint, "Average Execution Time")
-            max_time = SwimlaneAnalyzer._extract_value(hint, "Max Execution Time")
-            min_time = SwimlaneAnalyzer._extract_value(hint, "Min Execution Time")
+            avg_time = SwimlaneAnalyzer.extract_value(hint, "Average Execution Time")
+            max_time = SwimlaneAnalyzer.extract_value(hint, "Max Execution Time")
+            min_time = SwimlaneAnalyzer.extract_value(hint, "Min Execution Time")
 
             avg_values.append(avg_time)
             max_values.append(max_time)
@@ -408,7 +408,7 @@ class SwimlaneAnalyzer:
                 hint_value = args.get(hint_key)
                 if not isinstance(hint_value, str) or not hint_value.strip():
                     continue
-                parsed_hint = SwimlaneAnalyzer._parse_operand_hint(hint_value)
+                parsed_hint = SwimlaneAnalyzer.parse_operand_hint(hint_value)
                 memory_info["operand_hints"].append(
                     {
                         "task": event.get("name", "Unknown"),
@@ -545,7 +545,7 @@ class TraceAnalyzer:
                     break
 
     @staticmethod
-    def _analyze_perfetto_trace(trace_path: Path) -> Dict[str, Any]:
+    def analyze_perfetto_trace(trace_path: Path) -> Dict[str, Any]:
         with open(trace_path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
@@ -578,7 +578,7 @@ class TraceAnalyzer:
         return result
 
     @staticmethod
-    def _analyze_aicpu_pref(pref_path: Path) -> Dict[str, Any]:
+    def analyze_aicpu_pref(pref_path: Path) -> Dict[str, Any]:
         with open(pref_path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
@@ -621,11 +621,11 @@ class TraceAnalyzer:
     def analyze(self) -> Dict[str, Any]:
         result: Dict[str, Any] = {}
         if self.trace_file and self.trace_file.exists():
-            result = TraceAnalyzer._analyze_perfetto_trace(self.trace_file)
+            result = TraceAnalyzer.analyze_perfetto_trace(self.trace_file)
 
         has_valid_result = bool(result) and result.get("total_time", 0.0) > 0.0
         if not has_valid_result and self.aicpu_perf_file and self.aicpu_perf_file.exists():
-            result = TraceAnalyzer._analyze_aicpu_pref(self.aicpu_perf_file)
+            result = TraceAnalyzer.analyze_aicpu_pref(self.aicpu_perf_file)
 
         if not result:
             return {}

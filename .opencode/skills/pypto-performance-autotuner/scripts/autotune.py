@@ -174,7 +174,7 @@ class SearchSpaceLoader:
         self.search_space_path = search_space_path
 
     @staticmethod
-    def _normalize_layer(layer: Dict[str, Any]) -> Dict[str, Any]:
+    def normalize_layer(layer: Dict[str, Any]) -> Dict[str, Any]:
         """Normalize one layer and enforce stitch max-num primary knob."""
         name = layer.get("name")
         params = layer.get("params")
@@ -188,7 +188,7 @@ class SearchSpaceLoader:
         normalized.setdefault("max_trials", DEFAULT_BUDGET)
 
         if name == "stitch":
-            normalized["params"] = SearchSpaceLoader._normalize_stitch_params(params)
+            normalized["params"] = SearchSpaceLoader.normalize_stitch_params(params)
 
         for param_name, spec in normalized["params"].items():
             if not isinstance(param_name, str) or not param_name:
@@ -198,7 +198,7 @@ class SearchSpaceLoader:
         return normalized
 
     @staticmethod
-    def _normalize_stitch_params(params: Dict[str, Any]) -> Dict[str, Any]:
+    def normalize_stitch_params(params: Dict[str, Any]) -> Dict[str, Any]:
         """Use stitch_function_max_num as the primary stitch knob."""
         deprecated = {
             "stitch_function_num_initial",
@@ -244,7 +244,7 @@ class SearchSpaceLoader:
         for idx, layer in enumerate(layers):
             if not isinstance(layer, dict):
                 raise ValueError(f"layer at index {idx} must be object")
-            normalized_layers.append(SearchSpaceLoader._normalize_layer(layer))
+            normalized_layers.append(SearchSpaceLoader.normalize_layer(layer))
 
         raw["layers"] = normalized_layers
         return raw
@@ -301,7 +301,7 @@ class CandidateGenerator:
         self.rng = rng
 
     @staticmethod
-    def _value_count(rows: Sequence[Dict[str, Any]], name: str, value: Any) -> int:
+    def value_count(rows: Sequence[Dict[str, Any]], name: str, value: Any) -> int:
         marker = canonical_json(value)
         count = 0
         for row in rows:
@@ -325,7 +325,7 @@ class CandidateGenerator:
         return options[-1]
 
     @staticmethod
-    def _local_neighbors(values: List[Any], center: Any) -> List[Any]:
+    def local_neighbors(values: List[Any], center: Any) -> List[Any]:
         if not values:
             return []
         if len(values) <= 3:
@@ -437,8 +437,8 @@ class CandidateGenerator:
                 options = value_cache[name]
                 weights: List[float] = []
                 for value in options:
-                    g_cnt = CandidateGenerator._value_count(good, name, value)
-                    b_cnt = CandidateGenerator._value_count(bad, name, value)
+                    g_cnt = CandidateGenerator.value_count(good, name, value)
+                    b_cnt = CandidateGenerator.value_count(bad, name, value)
                     g_score = float(g_cnt + 1) / float(len(good) + len(options))
                     b_score = float(b_cnt + 1) / float(len(bad) + len(options))
                     weights.append(max(g_score / b_score, 1e-6))
@@ -523,7 +523,7 @@ class CandidateGenerator:
             local_options: Dict[str, List[Any]] = {}
             for name, spec in params.items():
                 values = self.loader.expand_param_values(spec)
-                local_options[name] = CandidateGenerator._local_neighbors(values, base.get(name))
+                local_options[name] = CandidateGenerator.local_neighbors(values, base.get(name))
 
             names = sorted(local_options.keys())
             if not names:
@@ -548,7 +548,7 @@ class PruningEngine:
     """Domain-specific pruning rules for invalid/low-value combinations."""
 
     @staticmethod
-    def _is_small_k_tile(value: Any) -> bool:
+    def is_small_k_tile(value: Any) -> bool:
         if not isinstance(value, (list, tuple)):
             return False
         numeric = [int(x) for x in value if isinstance(x, (int, float))]
@@ -566,7 +566,7 @@ class PruningEngine:
 
         if flat_config.get("enable_split_k") is True:
             k_tile = flat_config.get("cube_tile_k")
-            if PruningEngine._is_small_k_tile(k_tile):
+            if PruningEngine.is_small_k_tile(k_tile):
                 return True, "enable_split_k=True but cube_tile_k is too small"
 
         if flat_config.get("pg_skip_partition") is True:
@@ -678,7 +678,7 @@ class BenchmarkRunner:
         return None
 
     @staticmethod
-    def _extract_metrics(summary: Dict[str, Any]) -> Dict[str, float]:
+    def extract_metrics(summary: Dict[str, Any]) -> Dict[str, float]:
         """Extract required metrics from analysis_summary.json."""
         pools: List[Dict[str, Any]] = [summary]
         for key in ("metrics", "performance", "summary", "stats"):
@@ -686,21 +686,21 @@ class BenchmarkRunner:
             if isinstance(value, dict):
                 pools.append(value)
 
-        latency = BenchmarkRunner._first_float(
+        latency = BenchmarkRunner.first_float(
             pools,
             ["total_latency_ms", "latency_ms", "end_to_end_latency_ms", "total_time_ms"],
         )
-        kernel = BenchmarkRunner._first_float(
+        kernel = BenchmarkRunner.first_float(
             pools,
             ["kernel_time_ms", "kernel_total_ms", "kernel_total_time_ms"],
         )
-        idle = BenchmarkRunner._first_float(
+        idle = BenchmarkRunner.first_float(
             pools,
             ["idle_ratio", "npu_idle_ratio", "bubble_ratio"],
         )
 
         if latency is None:
-            timeline_us = BenchmarkRunner._first_float(pools, ["timeline_us", "timeline_length_us"])
+            timeline_us = BenchmarkRunner.first_float(pools, ["timeline_us", "timeline_length_us"])
             if timeline_us is not None:
                 latency = timeline_us / 1000.0
 
@@ -718,7 +718,7 @@ class BenchmarkRunner:
         }
 
     @staticmethod
-    def _first_float(pools: Iterable[Dict[str, Any]], keys: Sequence[str]) -> Optional[float]:
+    def first_float(pools: Iterable[Dict[str, Any]], keys: Sequence[str]) -> Optional[float]:
         for pool in pools:
             for key in keys:
                 if key in pool:
@@ -812,7 +812,7 @@ class BenchmarkRunner:
             try:
                 self._execute_benchmark(full_config)
                 summary = self._run_analyzer(output_dir, trial_id)
-                metrics = BenchmarkRunner._extract_metrics(summary)
+                metrics = BenchmarkRunner.extract_metrics(summary)
                 return TrialOutcome(
                     trial_id=trial_id,
                     layer=layer_name,
