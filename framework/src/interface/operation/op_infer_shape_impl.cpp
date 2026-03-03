@@ -101,6 +101,7 @@ REGISTER_INFER_SHAPE_FUNC(OP_SUB, Opcode::OP_SUB, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_POW, Opcode::OP_POW, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_EXP, Opcode::OP_EXP, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_EXP2, Opcode::OP_EXP2, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_EXPM1, Opcode::OP_EXPM1, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_SIGN, Opcode::OP_SIGN, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_NEG, Opcode::OP_NEG, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_ROUND, Opcode::OP_ROUND, ElewiseInferFunc);
@@ -136,6 +137,7 @@ REGISTER_INFER_SHAPE_FUNC(OP_S_SUBS, Opcode::OP_S_SUBS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_MULS, Opcode::OP_S_MULS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_MAXS, Opcode::OP_S_MAXS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_MINS, Opcode::OP_S_MINS, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_LRELU, Opcode::OP_LRELU, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_ADD, Opcode::OP_S_ADD, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_SUB, Opcode::OP_S_SUB, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_MUL, Opcode::OP_S_MUL, ElewiseInferFunc);
@@ -150,6 +152,9 @@ REGISTER_INFER_SHAPE_FUNC(OP_CMPS, Opcode::OP_CMPS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_HYPOT, Opcode::OP_HYPOT, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_MOD, Opcode::OP_MOD, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_MODS, Opcode::OP_MODS, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_REM, Opcode::OP_REM, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_REMS, Opcode::OP_REMS, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_REMRS, Opcode::OP_REMRS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_BITWISERIGHTSHIFT, Opcode::OP_BITWISERIGHTSHIFT, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_BITWISELEFTSHIFT, Opcode::OP_BITWISELEFTSHIFT, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_BITWISERIGHTSHIFTS, Opcode::OP_BITWISERIGHTSHIFTS, ElewiseInferFunc);
@@ -192,6 +197,25 @@ void GatherElementInferFunc(Operation* op,
     }
 }
 REGISTER_INFER_SHAPE_FUNC(OP_GATHER_ELEMENT, Opcode::OP_GATHER_ELEMENT, GatherElementInferFunc);
+
+void GatherMaskFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
+    std::vector<std::vector<SymbolicScalar>> inputValidShapes;
+    for (auto inputTensor : op->GetIOperands()) {
+        inputValidShapes.push_back(inputTensor->GetDynValidShape());
+    }
+    if (inputValidShapes.empty()) {
+        return;
+    }
+    std::vector<SymbolicScalar> res(inputValidShapes[0]);
+    uint8_t patternMode = op->GetIntAttribute(OP_ATTR_PREFIX + "patternMode");
+    if (patternMode == 1 || patternMode == 2) {
+        res.back() = res.back() / 2;
+    } else if (patternMode == 3 || patternMode == 4 || patternMode == 5 || patternMode == 6) {
+        res.back() = res.back() / 4;
+    }
+    outValidShapes.push_back(res);
+}
+REGISTER_INFER_SHAPE_FUNC(OP_GATHER_MASK, Opcode::OP_GATHER_MASK, GatherMaskFunc);
 
 void ScatterInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     std::vector<SymbolicScalar> outValidShape;
@@ -1051,4 +1075,28 @@ void ExtractSingleFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &
     outValidShapes.push_back(res);
 }
 REGISTER_INFER_SHAPE_FUNC(OP_EXTRACT_SINGLE, Opcode::OP_EXTRACT_SINGLE, ExtractSingleFunc);
+
+void PReLUInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    ASSERT(op->GetIOperands().size() == 2) << "PReLU input operand size should be 2";
+    ASSERT(op->GetOOperands().size() == 2) << "PReLU output operand size should be 2";
+    
+    auto input0 = op->GetIOperands()[0];
+    
+    std::vector<SymbolicScalar> output0ValidShape = input0->GetDynValidShape();
+    
+    std::vector<SymbolicScalar> output1ValidShape;
+    auto input0ShapeDim = input0->GetDynValidShape().size();
+    
+    if (input0ShapeDim == 2) {
+        output1ValidShape.emplace_back(input0->GetDynValidShape().back());
+    } else {
+        constexpr int64_t ALIGN_SIZE = 32;
+        int64_t elementCount = ALIGN_SIZE / BytesOf(input0->Datatype());
+        output1ValidShape.emplace_back(elementCount);
+    }
+    
+    outValidShapes.emplace_back(std::move(output0ValidShape));
+    outValidShapes.emplace_back(std::move(output1ValidShape));
+}
+REGISTER_INFER_SHAPE_FUNC(OP_PRELU, Opcode::OP_PRELU, PReLUInferFunc);
 }  // namespace npu::tile_fwk

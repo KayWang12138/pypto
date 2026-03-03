@@ -112,6 +112,92 @@ TEST_F(DynamicOpsTest, FmodSFp32) {
     }
 }
 
+TEST_F(DynamicOpsTest, RemainderFp32) {
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+    int m = 32;
+    int n = 32;
+    Tensor t0(DT_FP32, {m, n}, "t0");
+    Tensor t1(DT_FP32, {m, n}, "t1");
+    Tensor out(DT_FP32, {m, n}, "out");
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(t0, 3.0),
+        RawTensorData::CreateConstantTensor<float>(t1, 2.0),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 0.0),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateConstantTensor<float>(out, 1.0),
+    });
+
+    FUNCTION("main", {t0, t1}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            auto t0a = View(t0, {m, n}, {0, 0});
+            auto t1a = View(t1, {m, n}, {0, 0});
+            out = Remainder(t0a, t1a);
+        }
+    }
+}
+
+TEST_F(DynamicOpsTest, RemainderSFp32) {
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+    int m = 32;
+    int n = 32;
+    Tensor t0(DT_FP32, {m, n}, "t0");
+    Element src(DT_FP32, 2.0);
+    Tensor out(DT_FP32, {m, n}, "out");
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(t0, 3.0),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 0.0),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateConstantTensor<float>(out, 1.0),
+    });
+
+    FUNCTION("main", {t0}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            auto t0a = View(t0, {m, n}, {0, 0});
+            out = Remainder(t0a, src);
+        }
+    }
+}
+
+TEST_F(DynamicOpsTest, RemainderRSFp32) {
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+    int m = 32;
+    int n = 32;
+    Tensor t0(DT_FP32, {m, n}, "t0");
+    Element src(DT_FP32, 4.0);
+    Tensor out(DT_FP32, {m, n}, "out");
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(t0, 3.0),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 0.0),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateConstantTensor<float>(out, 1.0),
+    });
+
+    FUNCTION("main", {t0}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            auto t0a = View(t0, {m, n}, {0, 0});
+            out = Remainder(src, t0a);
+        }
+    }
+}
+
 TEST_F(DynamicOpsTest, Assemble) {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
@@ -577,6 +663,33 @@ TEST_F(DynamicOpsTest, ElementScalar) {
 
     BoolRes = intElement >= intElement;
     EXPECT_EQ(BoolRes, true);
+}
+
+TEST_F(DynamicOpsTest, Expm1) {
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+
+    int64_t b = 2;
+    int64_t n = 2;
+    Tensor self(DT_FP32, {b, n}, "self");
+    Tensor outValue(DT_FP32, {b, n}, "outValue");
+
+    std::vector<float> inputData = {1.0f, 2.0f, 3.0f, 4.0f};
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor(self, inputData),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(outValue, 0.0f),
+    });
+
+    FUNCTION("main", {self}, {outValue}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            auto t0 = View(self, {b, n}, {0, 0});
+            outValue = Expm1(t0);
+        }
+    }
 }
 
 TEST_F(DynamicOpsTest, MatmulAcc) {

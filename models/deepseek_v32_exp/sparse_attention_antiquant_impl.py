@@ -260,10 +260,8 @@ def sparse_attention_antiquant_d(block_num, max_kv, kv_lora_rank, qk_rope_dim, n
 
     @pypto.frontend.jit(
         pass_options={
-            "mg_copyin_upper_bound": 2 * 1024 * 1024,
             "pg_upper_bound": 50000,
             "pg_lower_bound": 512,
-            "pg_parallel_lower_bound": 20,
             "vec_nbuffer_setting": {-1: 2, 0: 4},
             "cube_l1_reuse_setting": {-1: 2},
         },
@@ -313,8 +311,7 @@ def sparse_attention_antiquant_d(block_num, max_kv, kv_lora_rank, qk_rope_dim, n
         """
         pypto.experimental.set_operation_options(combine_axis=True)
 
-        attention_out_shape0 = query_nope.shape[0]
-        attention_out = pypto.Tensor((attention_out_shape0, kv_lora_rank), pypto.DT_BF16)
+        attention_out = pypto.Tensor(attention_out_shape, pypto.DT_BF16)
 
         sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_indices,
                                                 block_table, kv_act_seqs, attention_out,
@@ -342,10 +339,8 @@ def sparse_attention_antiquant_p(block_num, max_kv, kv_lora_rank, qk_rope_dim, n
 
     @pypto.frontend.jit(
         pass_options={
-            "mg_copyin_upper_bound": 2 * 1024 * 1024,
             "pg_upper_bound": 50000,
             "pg_lower_bound": 512,
-            "pg_parallel_lower_bound": 20,
             "vec_nbuffer_setting": {-1: 4, 0: 4},
             "cube_l1_reuse_setting": {-1: 4},
         },
@@ -395,8 +390,7 @@ def sparse_attention_antiquant_p(block_num, max_kv, kv_lora_rank, qk_rope_dim, n
         """
         pypto.experimental.set_operation_options(combine_axis=True)
     
-        attention_out_shape0 = query_nope.shape[0]
-        attention_out = pypto.Tensor((attention_out_shape0, kv_lora_rank), pypto.DT_BF16)
+        attention_out = pypto.Tensor(attention_out_shape, pypto.DT_BF16)
 
         sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_indices, 
                                                 block_table, kv_act_seqs, attention_out, 

@@ -37,6 +37,12 @@ void bind_operation(py::module &m) {
     m.def(
         "Gcd", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::Gcd(self, other); }, "Tensor gcd.");
     m.def(
+        "Remainder", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::Remainder(self, other); }, "Tensor remainder.");
+    m.def(
+        "Remainder", [](const Tensor &self, const Element &other) { return npu::tile_fwk::Remainder(self, other); }, "Tensor remainder scalar.");
+    m.def(
+        "Remainder", [](const Element &self, const Tensor &other) { return npu::tile_fwk::Remainder(self, other); }, "Scalar remainder tensor.");
+    m.def(
         "BitwiseAnd", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::BitwiseAnd(self, other); }, "Tensor bitwise and.");
     m.def(
         "BitwiseOr", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::BitwiseOr(self, other); }, "Tensor bitwise or.");
@@ -84,6 +90,7 @@ void bind_operation(py::module &m) {
         py::arg("operand"), py::arg("dstDataType"), "Tensor view_type.");
 
     m.def("Exp", [](const Tensor &self) { return npu::tile_fwk::Exp(self); }, "Tensor exp.");
+    m.def("Expm1", [](const Tensor &self) { return npu::tile_fwk::Expm1(self); }, "Tensor expm1.");
 
     m.def("Exp2", [](const Tensor &self) { return npu::tile_fwk::Exp2(self); }, "Tensor exp2.");
 
@@ -138,6 +145,9 @@ void bind_operation(py::module &m) {
     m.def(
         "Gcd", [](const Tensor &self, const Element &other) { return npu::tile_fwk::Gcd(self, other); },
         "Tensor gcd scalar.");
+    m.def(
+        "LReLU", [](const Tensor &self, const Element &alpha) { return npu::tile_fwk::LReLU(self, alpha); },
+        "Tensor mod scalar.");
     m.def(
         "BitwiseRightShift", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::BitwiseRightShift(self, other); },
         "Tensor bitwise right shift.");
@@ -229,6 +239,9 @@ void bind_operation(py::module &m) {
             return npu::tile_fwk::Gather(params, indices, axis);
         },
         "Tensor gather.");
+    m.def("GatherMask", 
+        [](const Tensor &self, int patternMode) { return npu::tile_fwk::GatherMask(self, patternMode); },
+        "Tensor gather Mask.");
     m.def("Duplicate", [](const Tensor &operand) { return npu::tile_fwk::Duplicate(operand); }, "Tensor duplicate.");
     m.def(
         "Full",
@@ -607,5 +620,7 @@ void bind_operation(py::module &m) {
         },
         py::arg("in_tensors")
     );
+    m.def(
+        "PReLU", [](const Tensor &self, const Tensor &weight) { return npu::tile_fwk::PReLU(self, weight); }, "Tensor prelu.");
 }
 } // namespace pypto

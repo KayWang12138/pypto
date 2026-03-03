@@ -562,7 +562,6 @@ def setup_codegen_passes():
     pypto.set_pass_options(
         cube_l1_reuse_setting={-1: NUM_4},
         cube_nbuffer_setting={NUM_3: NUM_4},
-        mg_copyin_upper_bound=NUM_2 * NUM_1024 * NUM_1024,
     )
 
 

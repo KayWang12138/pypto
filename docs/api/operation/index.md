@@ -62,6 +62,7 @@ pypto-ne
 pypto-neg
 pypto-one_hot
 pypto-pow
+pypto-prelu
 pypto-reciprocal
 pypto-relu
 pypto-reshape
@@ -84,8 +85,10 @@ pypto-topk
 pypto-transpose
 pypto-tril
 pypto-triu
+pypto-remainder
 pypto-trunc
 pypto-unsqueeze
 pypto-view
+pypto-LReLU
 pypto-where
 ```

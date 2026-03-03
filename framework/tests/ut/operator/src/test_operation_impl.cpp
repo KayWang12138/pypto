@@ -210,6 +210,28 @@ TEST_F(OperationImplTest, test_Hypot_FP16) {
     }
 }
 
+TEST_F(OperationImplTest, test_PReLU_FP32) {
+    TileShape::Current().SetVecTile({4, 4});
+    Tensor operand1(DT_FP32, {8, 8}, "operand1");
+    Tensor weight(DT_FP32, {8}, "weight");
+    std::vector<int64_t> dstShape = {8, 8};
+    Tensor result;
+    FUNCTION("TestPReLU") {
+        result = PReLU(operand1, weight);
+    }
+}
+
+TEST_F(OperationImplTest, test_PReLU_FP16) {
+    TileShape::Current().SetVecTile({4, 4});
+    Tensor operand1(DT_FP16, {8, 8}, "operand1");
+    Tensor weight(DT_FP16, {8}, "weight");
+    std::vector<int64_t> dstShape = {8, 8};
+    Tensor result;
+    FUNCTION("TestPReLU") {
+        result = PReLU(operand1, weight);
+    }
+}
+
 TEST_F(OperationImplTest, Test_IndexAdd_BF16) {
     float scalar = 1.2f;
     int axis = 0;
@@ -367,6 +389,32 @@ TEST_F(OperationImplTest, Test_LogicalNot_BF16) {
         config::SetBuildStatic(true);
         FUNCTION("LogicalNot_BF16") {
             output = LogicalNot(input_a);
+        }
+    }
+}
+
+TEST_F(OperationImplTest, Test_Expm1_FP16) {
+    PROGRAM("Expm1") {
+        std::vector<int64_t> shape = {128, 32};
+        TileShape::Current().SetVecTile({128, 32});
+        Tensor input_a(DT_FP16, shape, "operand1");
+        auto output = Tensor(DT_FP16, shape, "res");
+        config::SetBuildStatic(true);
+        FUNCTION("Expm1_FP16") {
+            output = Expm1(input_a);
+        }
+    }
+}
+
+TEST_F(OperationImplTest, Test_Expm1_FP32) {
+    PROGRAM("Expm1") {
+        std::vector<int64_t> shape = {128, 32};
+        TileShape::Current().SetVecTile({128, 32});
+        Tensor input_a(DT_FP32, shape, "operand1");
+        auto output = Tensor(DT_FP32, shape, "res");
+        config::SetBuildStatic(true);
+        FUNCTION("Expm1_FP32") {
+            output = Expm1(input_a);
         }
     }
 }
@@ -871,6 +919,24 @@ TEST_F(OperationImplTest, test_Gather) {
     }
 }
 
+TEST_F(OperationImplTest, test_GatherMask_1) {
+    TileShape::Current().SetVecTile(8, 8);
+    Tensor operand1(DT_FP16, {8, 16}, "operand1");
+    Tensor result;
+    FUNCTION("TestGatherMask") {
+        result = GatherMask(operand1, 1);
+    }
+}
+
+TEST_F(OperationImplTest, test_GatherMask_3) {
+    TileShape::Current().SetVecTile(8, 8);
+    Tensor operand1(DT_FP16, {8, 16}, "operand1");
+    Tensor result;
+    FUNCTION("TestGatherMask") {
+        result = GatherMask(operand1, 3);
+    }
+}
+
 TEST_F(OperationImplTest, test_Scatter_FP16) {
     TileShape::Current().SetVecTile(8, 16);
     Tensor operand1(DT_FP16, {8, 16}, "operand1");
@@ -954,6 +1020,17 @@ TEST_F(OperationImplTest, test_FmodS) {
     Tensor result;
     FUNCTION("TestFmodS") {
         result = Fmod(input0, input1);
+    }
+}
+
+TEST_F(OperationImplTest, test_LReLU) {
+    TileShape::Current().SetVecTile({4, 4});
+    Tensor input0(DT_FP32, {8, 8}, "input0");
+    float scalar = 0.01f;
+    Element input1(DT_FP32, scalar);
+    Tensor result;
+    FUNCTION("TestLReLU") {
+        result = LReLU(input0, input1);
     }
 }
 
