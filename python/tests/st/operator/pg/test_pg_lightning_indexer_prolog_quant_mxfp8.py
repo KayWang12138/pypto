@@ -557,7 +557,7 @@ def do_test_lightning_indexer_prolog_quant(case_name, configs):
     logging.info(f"=== {case_name}: PASS ===")
 
 
-@pytest.mark.soc("950", "910")
+@pytest.mark.soc("950")
 def test_b1_s1_8k_s2_8k():
     configs = IndexerPrologQuantConfigs(
         q_linear=[16, 16, 512, 512, 128, 128],
@@ -611,7 +611,7 @@ def test_b4_s1_8k_s2_8k():
     do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b4_s1_8k_s2_8k", configs)
 
 
-@pytest.mark.soc("950", "910")
+@pytest.mark.soc("950")
 def test_b1_s1_4_s2_8k():
     configs = IndexerPrologQuantConfigs(
         q_linear=[16, 16, 512, 512, 128, 128],
