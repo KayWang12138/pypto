@@ -206,7 +206,7 @@ def main():
     parser = argparse.ArgumentParser(description="Embedding Head Quantization Operator Tests")
     parser.add_argument('--run_mode', type=str, default="npu", choices=["npu", "sim"],
                         help="Execution mode: npu (hardware) or sim (simulation)")
-    parser.add_argument('--test_level', type=int, default=0,
+    parser.add_argument('--test_level', type=int, default=-1,
                         help="Test level: 0=basic, 1=typical, 2=edge, 3=large, -1=all")
     args = parser.parse_args()
 
