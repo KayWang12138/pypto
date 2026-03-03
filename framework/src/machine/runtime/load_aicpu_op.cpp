@@ -18,13 +18,14 @@
 #include <limits.h>
 #ifdef BUILD_WITH_CANN
 #include "load_aicpu_op.h"
-#include "runtime/mem.h"
 #include "interface/utils/file_utils.h"
 #include "interface/utils/op_info_manager.h"
 #include "runtime.h"
 #include "machine/utils/machine_utils.h"
 #include "tilefwk/pypto_fwk_log.h"
 #include "machine/utils/machine_error.h"
+#include "adapter/api/runtime_api.h"
+
 using Json = nlohmann::json;
 
 namespace {
@@ -90,7 +91,7 @@ void LoadAicpuOp::CustomAiCpuSoLoad() {
     if (customBinHandle_ != nullptr) {
         return;
     }
-    auto ret = rtsBinaryLoadFromFile(customOpJsonPath.c_str(), &optionCfg, reinterpret_cast<void**>(&customBinHandle_));
+    auto ret = RuntimeBinaryLoadFromFile(customOpJsonPath.c_str(), &optionCfg, reinterpret_cast<void**>(&customBinHandle_));
     if (ret != 0) {
         MACHINE_LOGE(RtErr::RT_LOAD_FAILED, "Load aicpu json failed ret is %d", ret);
     }
@@ -113,7 +114,7 @@ int LoadAicpuOp::AicpuKernelLaunch([[maybe_unused]]void* funcHandle, [[maybe_unu
     rtKernelLaunchCfg_t kernelLaunchCfg = {nullptr, 0U};
     auto launchKernelAttr = std::make_unique<rtLaunchKernelAttr_t>();
     kernelLaunchCfg.attrs = launchKernelAttr.get();
-    return rtsLaunchCpuKernel(aicpuFuncHandle, blockDim, stream, &kernelLaunchCfg, &argInfo);
+    return RuntimeLaunchCpuKernel(aicpuFuncHandle, blockDim, stream, &kernelLaunchCfg, &argInfo);
 #else
     return 0;
 #endif
@@ -123,7 +124,7 @@ int LoadAicpuOp::LaunchCustomOp([[maybe_unused]]rtStream_t stream, [[maybe_unuse
 #ifdef BUILD_WITH_NEW_CANN
     ASSERT(customBinHandle_ != nullptr) << "customBinHandle cannot be null";
     rtFuncHandle custFuncHandle;
-    auto ret = rtsFuncGetByName(customBinHandle_, OpType.c_str(), &custFuncHandle);
+    auto ret = RuntimeFuncGetByName(customBinHandle_, OpType.c_str(), &custFuncHandle);
     if (ret != 0) {
         MACHINE_LOGE(RtErr::RT_GET_FUNC_FAILED, "Get OpType[%s] funcHandle failed ret[%d]",
                        OpType.c_str(), ret);
@@ -149,7 +150,7 @@ int LoadAicpuOp::GetBuiltInOpBinHandle() {
     optionCfg.options->value.cpuKernelMode = 0;
     optionCfg.numOpt = 1;
     void *binHandle;
-    auto ret = rtsBinaryLoadFromFile(builtInOpJsonPath_.c_str(), &optionCfg, reinterpret_cast<void**>(&binHandle));
+    auto ret = RuntimeBinaryLoadFromFile(builtInOpJsonPath_.c_str(), &optionCfg, reinterpret_cast<void**>(&binHandle));
     if (ret != 0) {
         MACHINE_LOGE(RtErr::RT_LOAD_FAILED, "Get built in bin handle failed");
         return -1;
@@ -157,7 +158,7 @@ int LoadAicpuOp::GetBuiltInOpBinHandle() {
 
     for (int i = 0; i < BuiltInOpNum; i++) {
         rtFuncHandle funcHandle;
-        ret = rtsFuncGetByName(binHandle, BuiltInFunName[i].c_str(), &funcHandle);
+        ret = RuntimeFuncGetByName(binHandle, BuiltInFunName[i].c_str(), &funcHandle);
         if (ret != 0) {
             MACHINE_LOGE(RtErr::RT_GET_FUNC_FAILED,
                            "Get BuiltIn FuncName[%s] funcHandle failed ret[%d]", BuiltInFunName[i].c_str(), ret);

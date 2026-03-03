@@ -9,16 +9,16 @@
  */
 
 #include "machine/runtime/host_prof.h"
-
 #include "interface/tensor/logical_tensor.h"
+
 #ifdef BUILD_WITH_CANN
 #include <array>
 #include <sys/syscall.h>
 #include "tilefwk/pypto_fwk_log.h"
 #include "toolchain/prof_api.h"
 #include "toolchain/log_types.h"
-#include "runtime/base.h"
 #include "acl/acl_rt.h"
+#include "adapter/api/runtime_define.h"
 
 namespace npu::tile_fwk {
 namespace {
