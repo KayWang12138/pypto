@@ -296,13 +296,26 @@ def __validate_inputs(input_tensor1, input_tensor2, out_dtype, optional_param) -
 
     if is_out_nz:
         raise ValueError("Output tensor do not support NZ currently.")
-    input1_valid = input_tensor1.GetDataType() == pypto_impl.DataType.DT_FP32 \
+    input1_dtype = input_tensor1.GetDataType()
+    input2_dtype = input_tensor2.GetDataType()
+    input1_fp32_valid = input1_dtype == pypto_impl.DataType.DT_FP32 \
         and input_tensor1.Format() == pypto_impl.TileOpFormat.TILEOP_NZ
-    input2_valid = input_tensor2.GetDataType() == pypto_impl.DataType.DT_FP32 \
+    input2_fp32_valid = input2_dtype == pypto_impl.DataType.DT_FP32 \
         and input_tensor2.Format() == pypto_impl.TileOpFormat.TILEOP_NZ
-    if input1_valid or input2_valid:
+    input1_fp8_invalid = input1_dtype == pypto_impl.DataType.DT_FP8E5M2 \
+        and input_tensor1.Format() != pypto_impl.TileOpFormat.TILEOP_ND
+    input2_fp8_invalid = input2_dtype == pypto_impl.DataType.DT_FP8E5M2 \
+        and input_tensor2.Format() != pypto_impl.TileOpFormat.TILEOP_ND
+    if input1_fp32_valid or input2_fp32_valid:
         raise ValueError("Input tensor with DT_FP32 must use ND format, NZ format is not support currently.")
-    if input_tensor1.GetDataType() != input_tensor2.GetDataType():
+    if input1_fp8_invalid or input2_fp8_invalid:
+        raise ValueError("Input tensor with DT_FP8E5M2 must use ND format, NZ format is not support currently.")
+    if input1_dtype in {pypto_impl.DataType.DT_FP8E5M2, pypto_impl.DataType.DT_FT_FP8E4M3} \
+            and input2_dtype not in {pypto_impl.DataType.DT_FP8E5M2, pypto_impl.DataType.DT_FP8E4M3}:
+        raise ValueError(
+            "When operand1 is of type DT_FP8E5M2 or DT_FP8E4M3, operand2 must be DT_FP8E5M2 or DT_FP8E4M3."
+        )
+    elif input_tensor1.GetDataType() != input_tensor2.GetDataType():
         raise ValueError("All input tensors must have the same data type")
     if input_tensor1.Dim() != 2 and extend_params is not None:
         raise RuntimeError(
