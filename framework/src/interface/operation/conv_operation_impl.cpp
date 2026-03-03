@@ -1040,7 +1040,7 @@ void UpdateL1IterInfo(const ConvTileInfo &convTileInfo, ConvIterInfo &iterInfo, 
 void UpdateL0IterInfo(const ConvTileInfo &convTileInfo, ConvIterInfo &iterInfo)
 {
     // update iterInfo
-    iterInfo.kL0Size = convTileInfo.kL0;
+    iterInfo.kL0Size = std::min(convTileInfo.kPerGroup * iterInfo.dkL1Size - iterInfo.kL0Offset, convTileInfo.kL0);
     iterInfo.isFirstK = iterInfo.kL0Offset == 0 ? true : false;
     iterInfo.isLastK =
         iterInfo.kL0Offset + convTileInfo.kL0 >= convTileInfo.kPerGroup * iterInfo.dkL1Size ? true : false;
