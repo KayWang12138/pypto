@@ -1,5 +1,5 @@
 {
-  "libcann_host_runtime.so": {
+  "libtile_fwk_cann_host_runtime.so": {
     "Source-Header": {
       "Self": [
         "framework/src/cann_host_runtime/"
