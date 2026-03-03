@@ -392,6 +392,7 @@ class JitCallableWrapper:
         non_tensor_param_names: list[str] = []
         seen_non_tensor = False
 
+        print(f"zjr123 ---------- annotations: {annotations}")
         for param_name in param_names:
             if param_name == "return":
                 continue
@@ -474,15 +475,19 @@ class JitCallableWrapper:
             dynamic_axis = [
                 i
                 for i, dim in enumerate(tensor_def.shape)
-                if isinstance(dim, pypto.SymbolicScalar)
+                if isinstance(dim, pypto.SymbolicScalar) or dim in (pypto.StatusType.DYN, pypto.StatusType.DYNAMIC)
             ]
+
+            # dynamic_axis = [
+            #     i
+            #     for i, dim in enumerate(tensor_def.shape)
+            #     if dim in (pypto.StatusType.DYN, pypto.StatusType.DYNAMIC)
+            # ]
             pto_tensors.append(
                 pypto.from_torch(
                     torch_tensor,
                     name=tensor_def.name,
-                    dynamic_axis=dynamic_axis if dynamic_axis else None,
-                    tensor_format=tensor_def.format,
-                    dtype=tensor_def.dtype,
+                    dynamic_axis=dynamic_axis if dynamic_axis else None
                 )
             )
         return pto_tensors
@@ -536,9 +541,12 @@ class JitCallableWrapper:
         else:
             args = tensors
 
+        print(f"zjr123 -------- compile")
+
         # Re-create parser for compilation
         self._parser = self._create_parser()
         self._parser.parse()
+        self._parser.input_pto_tensor = args
 
         # Initialize backend for compilation
         self._setup_verify_data(args)
@@ -548,6 +556,10 @@ class JitCallableWrapper:
 
         # Bind dynamic dimensions from concrete inputs
         self._parser.bind_dynamic_dims_to_input_tensors()
+
+        # concrete_input_shapes = [list(in_tensor.ori_shape) for in_tensor in args]
+        # if concrete_input_shapes:
+        #     self._parser.bind_dynamic_dims_from_inputs(concrete_input_shapes)
 
         # Execute the deferred parsing (happens on first __call__)
         self._pto_function = self._parser.execute()
@@ -682,6 +694,23 @@ class JitCallableWrapper:
             if debug_mode is not None:
                 if debug_mode == DebugMode.CHECKATTR:
                     self._check_input_defs_match_tensors(in_tensors, input_tensor_defs)
+
+
+        # self._check_input_defs_match_tensors(in_tensors, input_tensor_defs)
+	
+        # 不使用 out_tensor 了
+        # def int
+        # in  int
+        # ---->
+        # dyn DYN
+        # static STATIC
+        # 固定 int
+
+        # 1、DYN 转成 SymbolicScalar
+        # 2、STATIC 转成 IN 的 shape
+        # 3、固定轴不变
+
+        # TODO delete
         symbolic_dim_value_map = None
         out_tensors = []
         for out_tensor_def in output_tensor_defs:
@@ -698,6 +727,7 @@ class JitCallableWrapper:
         torch_tensors: list,
         tensor_defs: list,
     ) -> None:
+
         """Run kernel on NPU or CPU (SIM)."""
         if self._runtime_options.get("run_mode", None) == RunMode.NPU:
             pypto_impl.LaunchKernelTorch(
@@ -735,8 +765,18 @@ class JitCallableWrapper:
         idx = 0
         for in_tensor, input_tensor_def in zip(in_tensors, input_tensor_defs):
             idx += 1
+
+            # Skip checking if the input tensor definition is a placeholder (e.g. *args)
+            if input_tensor_def.shape is None or len(input_tensor_def.shape) == 0:
+                continue
+
+            # 根据属性input_tensor_def.status_shape做判断, def的shape len 小于等于 tensor的shape len
+            is_diff_shape = len(in_tensor.shape) != len(input_tensor_def.shape) \
+                if input_tensor_def.status_shape is None \
+                else len(in_tensor.shape) < len(input_tensor_def.shape)
+
             # Check the shape of input tensors and input tensor definitions
-            if len(in_tensor.shape) != len(input_tensor_def.shape):
+            if is_diff_shape:
                 raise ValueError(f"The number of dimensions of {ordinal(idx)} input tensor {in_tensor.shape} \
                     does not match the number of dimensions of input tensor definition {input_tensor_def.shape}.")
             for i, dim in enumerate(input_tensor_def.shape):
@@ -748,7 +788,6 @@ class JitCallableWrapper:
             if self._dtype_dict[str(in_tensor.dtype)] != input_tensor_def.dtype:
                 raise ValueError(f"The dtype of {ordinal(idx)} input tensor {in_tensor.dtype} \
                     does not match the dtype of input tensor definition {input_tensor_def.dtype}.")
-
             if in_tensor.device == "npu":
                 if self._format_dict[get_format(in_tensor)] != input_tensor_def.format:
                     raise ValueError(f"The format of {ordinal(idx)} input tensor {get_format(in_tensor)} \
