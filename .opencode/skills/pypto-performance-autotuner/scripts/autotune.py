@@ -1095,13 +1095,17 @@ class BenchmarkRunner:
                 return _make_trial_outcome(
                     inp, metrics, "success", None
                 )
-            except subprocess.TimeoutExpired:
-                last_error = f"timeout after {self.benchmark_timeout}s (attempt {attempt}/{MAX_RETRIES})"
             except (
                 RuntimeError, ValueError, KeyError, TypeError, OSError,
                 subprocess.SubprocessError,
             ) as exc:
-                last_error = f"{str(exc)} (attempt {attempt}/{MAX_RETRIES})"
+                if isinstance(exc, subprocess.TimeoutExpired):
+                    last_error = (
+                        f"timeout after {self.benchmark_timeout}s"
+                        f" (attempt {attempt}/{MAX_RETRIES})"
+                    )
+                else:
+                    last_error = f"{exc!s} (attempt {attempt}/{MAX_RETRIES})"
 
             if attempt < MAX_RETRIES:
                 time.sleep(1.0)
