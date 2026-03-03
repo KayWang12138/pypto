@@ -29,6 +29,20 @@ CannHostRuntime::CannHostRuntime() {
 #endif
 }
 
+CannHostRuntime::~CannHostRuntime() {
+    if (handle != nullptr) {
+        dlclose(handle);
+    }
+    if (handleDep != nullptr) {
+        dlclose(handleDep);
+    }
+}
+
+CannHostRuntime &CannHostRuntime::GetObj() {
+    static CannHostRuntime cannHostRuntime;
+    return cannHostRuntime;
+}
+
 bool CannHostRuntime::GetSocVersion(std::string& socVersion) {
 #ifdef BUILD_WITH_CANN
     int ret = 1;

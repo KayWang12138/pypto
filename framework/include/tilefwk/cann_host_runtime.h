@@ -21,19 +21,8 @@
 namespace npu {
 namespace tile_fwk {
 struct CannHostRuntime {
-    static CannHostRuntime &GetObj() {
-        static CannHostRuntime cannHostRuntime;
-        return cannHostRuntime;
-    }
-
-    ~CannHostRuntime() {
-        if (handle != nullptr) {
-            dlclose(handle);
-        }
-        if (handleDep != nullptr) {
-            dlclose(handleDep);
-        }
-    }
+    static CannHostRuntime &GetObj();
+    ~CannHostRuntime();
     bool GetSocVersion(std::string& socVersion);
     std::string GetPlatformFile(const std::string &socVersion);
 private:
