@@ -227,7 +227,7 @@ void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const T
         kBL1 *= kd;
     }
     int64_t minKL1 = std::min(kAL1, kBL1);
-    CheckAlignment(tileK , k0, "tileK", true);
+    CheckAlignment(tileK , ALIGN_SIZE_32, "tileK", true);
     CheckValueRange(tileH, "tileH" , NUM1, tileHout);
     CheckValueRange(tileW, "tileW" , NUM1, tileWout);
     CheckValueRange(tileK, "tileK" , NUM1, minKL1);
