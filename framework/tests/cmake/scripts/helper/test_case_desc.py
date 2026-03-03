@@ -36,6 +36,7 @@ class TensorDesc:
         data_range: list,
         tensor_format: str,
         need_trans: bool = False,
+        need_scale_trans: bool = False,
     ):
         self._name = name
         self._shape = shape
@@ -45,6 +46,7 @@ class TensorDesc:
         )
         self._tensor_format = tensor_format
         self._need_trans = need_trans
+        self._need_scale_trans = need_scale_trans
 
     @classmethod
     def from_dict(cls, params: dict):
@@ -61,6 +63,7 @@ class TensorDesc:
             data_range,
             params.get("format", "ND"),
             params.get("need_trans", False),
+            params.get("need_scale_trans", False),
         )
 
     @property
@@ -87,6 +90,10 @@ class TensorDesc:
     def need_trans(self) -> bool:
         return self._need_trans
 
+    @property
+    def need_scale_trans(self) -> bool:
+        return self._need_scale_trans
+
     def dump_to_json(self) -> dict:
         json_content = {
             "name": self._name,
@@ -94,6 +101,7 @@ class TensorDesc:
             "dtype": self._dtype,
             "format": self._tensor_format,
             "need_trans": self._need_trans,
+            "need_scale_trans": self._need_scale_trans,
         }
         if self._data_range is not None:
             json_content["data_range"] = self._data_range.dump_to_json()
