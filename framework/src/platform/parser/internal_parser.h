@@ -22,6 +22,7 @@
 #include <sys/stat.h>
 #include "tilefwk/file.h"
 #include "tilefwk/data_type.h"
+#include "tilefwk/cann_host_runtime.h"
 
 namespace npu {
 namespace tile_fwk {

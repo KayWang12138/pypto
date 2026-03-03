@@ -43,5 +43,7 @@ private:
     void *handleDep_ = nullptr;	 
     void *handle_ = nullptr;
 };
+
+std::string GetCurrentSharedLibPath();
 }  // namespace tile_fwk
 }  // namespace npu
