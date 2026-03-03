@@ -1,0 +1,32 @@
+/**
+* Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file hccl_api.h
+ * \brief
+ */
+
+#pragma once
+
+#include "adapter/api/hccl_define.h"
+
+namespace npu::tile_fwk {
+HcclResult HcommGetCommName(HcclComm comm, char* commName);
+
+HcclResult HcommGetL0TopoTypeEx(const char *group, CommTopo *topoType, uint32_t flag);
+
+HcclResult HcommGetCommHandleByGroup(const char *group, HcclComm *commHandle);
+
+HcclResult HcommGetRootInfo(HcclRootInfo *rootInfo) ;
+
+HcclResult HcommCommInitRootInfo(uint32_t nRanks, const HcclRootInfo *rootInfo, uint32_t rank, HcclComm *comm);
+
+HcclResult HcommAllocComResourceByTiling(HcclComm comm, void *stream, void *Mc2Tiling, void **commContext);
+}
