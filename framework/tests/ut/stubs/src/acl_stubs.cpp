@@ -18,6 +18,11 @@
 #include <acl/acl_rt.h>
 
 extern "C" {
+aclError aclInit(const char *configPath)
+{
+    (void)configPath;
+    return 0;
+}
 
 aclError aclFinalize()
 {
@@ -58,25 +63,9 @@ aclError aclrtCreateEventExWithFlag(aclrtEvent *event, uint32_t flag)
     return 0;
 }
 
-aclError aclInit(const char *configPath)
-{
-    (void)configPath;
-    return 0;
-}
-
-
-
 aclError aclrtSetDevice(int32_t deviceId)
 {
     (void)deviceId;
-    return 0;
-}
-
-aclError aclrtMalloc(void **devPtr, size_t size, aclrtMemMallocPolicy policy)
-{
-    (void)devPtr;
-    (void)size;
-    (void)policy;
     return 0;
 }
 
@@ -124,5 +113,15 @@ aclError aclrtCacheLastTaskOpInfo(const void * const infoPtr, size_t infoSize)
     (void)infoPtr;
     (void)infoSize;
     return 0;
+}
+
+aclError aclrtMemcpy(void *dst, size_t destMax, const void *src, size_t count, aclrtMemcpyKind kind)
+{
+    (void)dst;
+    (void)destMax;
+    (void)src;
+    (void)count;
+    (void)kind;
+    return ACL_SUCCESS;
 }
 }

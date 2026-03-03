@@ -18,22 +18,15 @@
 
 #include <cstdint>
 #include <vector>
-
-#include "machine/runtime/device_launcher_binding.h"
-#include "interface/configs/config_manager.h"
-#include "interface/function/function.h"
-#include "machine/runtime/runtime.h"
-#include "tilefwk/tilefwk.h"
-#include "interface/inner/tilefwk.h"
-#include "tilefwk/data_type.h"
-#include "interface/interpreter/raw_tensor_data.h"
-#include "interface/configs/config_manager.h"
-#include "machine/runtime/device_launcher.h"
-#include "machine/utils/machine_error.h"
 #include "tilefwk/pypto_fwk_log.h"
+#include "interface/configs/config_manager.h"
+#include "interface/interpreter/raw_tensor_data.h"
+#include "machine/utils/machine_error.h"
+#include "machine/runtime/runtime.h"
+#include "machine/runtime/device_launcher.h"
+#include "machine/runtime/device_launcher_binding.h"
 
 namespace npu::tile_fwk::dynamic {
-
 struct EmulationMemoryUtils {
 
     EmulationMemoryUtils() {}
@@ -124,7 +117,5 @@ public:
     static int BuildControlFlowCache(Function *function, DevControlFlowCache **outCtrlFlowCache, EmulationMemoryUtils& memUtils,
                                      const DeviceLauncherConfig &config = DeviceLauncherConfig());
 };
-
 }
-
 #endif//SRC_MACHINE_EMULATION_LAUNCHER_H

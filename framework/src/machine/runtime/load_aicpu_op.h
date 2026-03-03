@@ -16,18 +16,11 @@
 
 #ifndef LOAD_AICPU_OP_H
 #define LOAD_AICPU_OP_H
-#include <string>
-#include <vector>
-#include <memory>
 
-#ifdef BUILD_WITH_NEW_CANN
-#include "rts/rts_kernel.h"
-#endif
-#ifdef BUILD_WITH_CANN
-#include "runtime/mem.h"
-#include "machine/utils/machine_ws_intf.h"
-#endif
+#include <string>
 #include <unordered_map>
+#include "adapter/api/runtime_define.h"
+#include "machine/utils/machine_ws_intf.h"
 
 namespace npu::tile_fwk {
 class LoadAicpuOp
@@ -52,6 +45,5 @@ public:
       return loadCustomAicpuOp;
     }
 };
-
 } // namespace
 #endif
