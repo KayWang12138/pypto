@@ -8,8 +8,8 @@
                 {
                     "name": "input0",
                     "shape": [
-                        128,
-                        256
+                        8,
+                        16
                     ],
                     "dtype": "int32",
                     "format": "ND",
@@ -24,8 +24,8 @@
                 {
                     "name": "output0",
                     "shape": [
-                        512,
-                        256
+                        8,
+                        16
                     ],
                     "dtype": "int32",
                     "format": "ND",
@@ -36,11 +36,11 @@
                 ""
             ],
             "tile_shape": [
-                16,
-                32
+                8,
+                16
             ],
             "params": {
-                "world_size": 4,
+                "world_size": 2,
                 "on_board": true,
                 "func_id": -1
             },
