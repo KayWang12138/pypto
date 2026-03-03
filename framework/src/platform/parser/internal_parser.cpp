@@ -23,6 +23,23 @@ const std::string paths = "PATHS";
 const std::string comma = ",";
 const std::string direction = "->";
 
+std::string GetCurrentSharedLibPath() {
+    static std::string currentLibPath;
+    if (!currentLibPath.empty()) {
+        return currentLibPath;
+    }
+
+    Dl_info info;
+    if (dladdr(reinterpret_cast<void*>(GetCurrentSharedLibPath), &info)) {
+        currentLibPath = std::string(info.dli_fname);
+        int32_t pos = currentLibPath.rfind('/');
+        if (pos >= 0) {
+            currentLibPath = currentLibPath.substr(0, pos);
+        }
+    }
+    return currentLibPath;
+}
+
 std::vector<std::string> SplitByDelimiter(const std::string& str, const std::string& delimiter) {
     std::vector<std::string> res;
     size_t start = 0;
