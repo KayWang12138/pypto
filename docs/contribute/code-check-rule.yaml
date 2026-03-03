@@ -299,3 +299,27 @@ rules:
     屏蔽选项: 规范例外的场景
     屏蔽理由: .opencode/skills/目录下的AI辅助脚本已通过.get()或isinstance守卫确保key存在后再使用dict[key]进行访问, 不存在KeyError风险; 屏蔽此规则避免工具误报
     备注: 屏蔽范围限定为.opencode/skills/相关代码
+
+  - 屏蔽规则编号: 39
+    语言: Python
+    告警来源: G.EXP.04
+    告警理由: 推导式和生成器表达式仅用于简单的逻辑表达
+    屏蔽选项: 误报
+    屏蔽理由: .opencode/skills/目录下的AI辅助脚本中被误报为复杂推导式的代码实际为普通函数调用, 不包含嵌套推导式或复杂生成器; 屏蔽此规则避免工具对非推导式代码的误判
+    备注: 屏蔽范围限定为.opencode/skills/相关代码
+
+  - 屏蔽规则编号: 40
+    语言: Python
+    告警来源: G.CTL.03
+    告警理由: 避免在条件/循环控制语句中包含过多的条件
+    屏蔽选项: 规范例外的场景
+    屏蔽理由: .opencode/skills/目录下的AI辅助脚本的调优循环需要同时检查全局停止条件、层级停止条件和预算限制, 将相关条件拆分会降低循环控制逻辑的可读性和原子性
+    备注: 屏蔽范围限定为.opencode/skills/相关代码
+
+  - 屏蔽规则编号: 41
+    语言: Python
+    告警来源: G.ERR.11
+    告警理由: 避免使用SystemExit和sys.exit()
+    屏蔽选项: 规范例外的场景
+    屏蔽理由: .opencode/skills/目录下的AI辅助脚本作为独立命令行工具运行, 在入口函数中使用sys.exit()是Python CLI的标准做法; 已确保仅在main入口使用, 非main函数已替换为raise RuntimeError
+    备注: 屏蔽范围限定为.opencode/skills/相关代码
