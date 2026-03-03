@@ -563,6 +563,10 @@ class Tensor:
         return pypto.sign(self)
 
     @source_location
+    def tanh(self) -> 'Tensor':
+        return pypto.tanh(self)
+
+    @source_location
     def exp2(self) -> 'Tensor':
         return pypto.exp2(self)
 
