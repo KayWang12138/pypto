@@ -1262,39 +1262,33 @@ def _dispatch_bayesian(ctx: SearchDispatchContext) -> Optional[str]:
 
 
 def _search_one_layer(
-    layer: Dict[str, Any],
-    args: argparse.Namespace,
-    generator: CandidateGenerator,
-    stopper: EarlyStopChecker,
-    runner: BenchmarkRunner,
-    recorder: ResultRecorder,
-    guidance: Dict[str, Any],
-    fixed_best_layers: Dict[str, Dict[str, Any]],
-    output_dir: Path,
-    total_trials: int,
-    start_time: float,
-    global_best_metric: float,
-    global_best_config: Dict[str, Dict[str, Any]],
-) -> Tuple[LayerResult, int, float, Dict[str, Dict[str, Any]], Optional[str]]:
-    """Run autotune search for one layer and return updated global state."""
+    params: LayerSearchParams,
+    services: AutotuneServices,
+    state: AutotuneGlobalState,
+) -> Tuple[LayerResult, Optional[str]]:
+    """Run autotune search for one layer and return layer result and global stop reason."""
+    layer = params.layer
+    args = params.args
+    generator = services.generator
+    stopper = services.stopper
+    runner = services.runner
+    recorder = services.recorder
+    guidance = params.guidance
+    fixed_best_layers = params.fixed_best_layers
+    output_dir = params.output_dir
+
     layer_name = str(layer.get("name"))
-    params = layer.get("params", {})
-    if not isinstance(params, dict):
-        return (
-            LayerResult(layer_name, "grid", 0, 0, 0, 0, 0, None, "invalid params"),
-            total_trials,
-            global_best_metric,
-            global_best_config,
-            None,
-        )
+    layer_params = layer.get("params", {})
+    if not isinstance(layer_params, dict):
+        return LayerResult(layer_name, "grid", 0, 0, 0, 0, 0, None, "invalid params"), None
 
     space_size = SearchSpaceLoader.estimate_layer_size(layer)
     strategy = generator.select_strategy(space_size)
 
-    remain_budget = max(0, int(args.budget) - total_trials)
+    remain_budget = max(0, int(args.budget) - state.total_trials)
     if remain_budget <= 0:
         row = LayerResult(layer_name, strategy, space_size, 0, 0, 0, 0, None, "trial budget exceeded")
-        return row, total_trials, global_best_metric, global_best_config, "trial budget exceeded"
+        return row, "trial budget exceeded"
 
     layer_max_trials = int(layer.get("max_trials", remain_budget))
     layer_budget = min(layer_max_trials, remain_budget)
@@ -1302,7 +1296,7 @@ def _search_one_layer(
         layer_budget = min(layer_budget, 3)
     if layer_budget <= 0:
         row = LayerResult(layer_name, strategy, space_size, layer_budget, 0, 0, 0, None, "budget=0")
-        return row, total_trials, global_best_metric, global_best_config, None
+        return row, None
 
     logger.info(
         "[layer:%s] priority=%s strategy=%s space=%d budget=%d",
@@ -1331,12 +1325,9 @@ def _search_one_layer(
         layer_history_box: Tuple[List[Dict[str, Any]]] = (layer_history,),
     ) -> str:
         """Evaluate a single candidate configuration and update tracking state."""
-        nonlocal total_trials
         nonlocal layer_trial_count
         nonlocal layer_best_metric
         nonlocal layer_best_candidate
-        nonlocal global_best_metric
-        nonlocal global_best_config
         nonlocal no_improve_count
         nonlocal success_count
         nonlocal fail_count
@@ -1359,13 +1350,13 @@ def _search_one_layer(
                 logger.info("  [prune] %s", reason)
             return "continue"
 
-        global_reason = stopper.check_global(total_trials, start_time)
+        global_reason = stopper.check_global(state.total_trials, state.start_time)
         if global_reason:
             return "stop_all"
 
-        total_trials += 1
+        state.total_trials += 1
         layer_trial_count += 1
-        trial_id = total_trials
+        trial_id = state.total_trials
 
         logger.info("  [trial %03d] layer=%s config=%s", trial_id, layer_name, canonical_json(candidate))
         outcome = runner.run_trial(trial_id, layer_name, full_config, output_dir)
@@ -1382,12 +1373,12 @@ def _search_one_layer(
             else:
                 no_improve_count += 1
 
-            if stopper.is_improvement(value, global_best_metric):
-                global_best_metric = value
-                global_best_config = copy.deepcopy(full_config)
+            if stopper.is_improvement(value, state.global_best_metric):
+                state.global_best_metric = value
+                state.global_best_config = copy.deepcopy(full_config)
                 recorder.update_best(
-                    best_config=global_best_config,
-                    best_metric=global_best_metric,
+                    best_config=state.global_best_config,
+                    best_metric=state.global_best_metric,
                     metrics=outcome.metrics,
                     trial_id=trial_id,
                     layer_name=layer_name,
@@ -1396,14 +1387,14 @@ def _search_one_layer(
                     "  [best] trial=%d %s=%.6f",
                     trial_id,
                     args.target_metric,
-                    global_best_metric,
+                    state.global_best_metric,
                 )
         else:
             fail_count += 1
             no_improve_count += 1
             logger.warning("  [failed] trial=%d error=%s", trial_id, outcome.error)
 
-        global_reason = stopper.check_global(total_trials, start_time)
+        global_reason = stopper.check_global(state.total_trials, state.start_time)
         if global_reason:
             return "stop_all"
         layer_reason = stopper.check_layer(no_improve_count)
@@ -1419,19 +1410,30 @@ def _search_one_layer(
                 break
             action = evaluate_candidate(candidate)
             if action == "stop_all":
-                return stopper.check_global(total_trials, start_time)
+                return stopper.check_global(state.total_trials, state.start_time)
             if action == "stop_layer":
                 layer_stop_reason = stopper.check_layer(no_improve_count)
                 return None
         return None
 
     global_stop_reason = _dispatch_strategy(
-        strategy, generator, params, layer_name, guidance,
-        layer_budget, lambda: layer_trial_count,
-        layer_history, lambda: layer_stop_reason,
-        run_candidates, evaluate_candidate, stopper,
-        lambda: total_trials, start_time,
-        lambda: no_improve_count,
+        strategy,
+        SearchDispatchContext(
+            generator=generator,
+            params=layer_params,
+            layer_name=layer_name,
+            guidance=guidance,
+            layer_budget=layer_budget,
+            get_layer_trial_count=lambda: layer_trial_count,
+            layer_history=layer_history,
+            get_layer_stop_reason=lambda: layer_stop_reason,
+            run_candidates=run_candidates,
+            evaluate_candidate=evaluate_candidate,
+            stopper=stopper,
+            get_total_trials=lambda: state.total_trials,
+            start_time=state.start_time,
+            get_no_improve_count=lambda: no_improve_count,
+        ),
     )
 
     if layer_history:
@@ -1455,7 +1457,7 @@ def _search_one_layer(
         best_metric=None if layer_best_metric == float("inf") else layer_best_metric,
         stop_reason=layer_stop_reason,
     )
-    return row, total_trials, global_best_metric, global_best_config, global_stop_reason
+    return row, global_stop_reason
 
 
 def run_autotune(args: argparse.Namespace) -> int:
@@ -1505,55 +1507,58 @@ def run_autotune(args: argparse.Namespace) -> int:
         logger.info("[autotune] guidance summary: %s", guidance["source"])
 
     fixed_best_layers: Dict[str, Dict[str, Any]] = {}
-    global_best_metric = float("inf")
-    global_best_config: Dict[str, Dict[str, Any]] = {}
-    total_trials = 0
-    start_time = time.time()
+    services = AutotuneServices(generator=generator, stopper=stopper, runner=runner, recorder=recorder)
+    state = AutotuneGlobalState(
+        total_trials=0,
+        start_time=time.time(),
+        global_best_metric=float("inf"),
+        global_best_config={},
+    )
     layer_reports: List[LayerResult] = []
     global_stop_reason: Optional[str] = None
 
     try:
         for layer in layers:
-            row, total_trials, global_best_metric, global_best_config, layer_stop = _search_one_layer(
-                layer=layer,
-                args=args,
-                generator=generator,
-                stopper=stopper,
-                runner=runner,
-                recorder=recorder,
-                guidance=guidance,
-                fixed_best_layers=fixed_best_layers,
-                output_dir=output_dir,
-                total_trials=total_trials,
-                start_time=start_time,
-                global_best_metric=global_best_metric,
-                global_best_config=global_best_config,
+            row, layer_stop = _search_one_layer(
+                params=LayerSearchParams(
+                    layer=layer,
+                    args=args,
+                    guidance=guidance,
+                    fixed_best_layers=fixed_best_layers,
+                    output_dir=output_dir,
+                ),
+                services=services,
+                state=state,
             )
             layer_reports.append(row)
             if layer_stop is not None:
                 global_stop_reason = layer_stop
                 break
 
-        if not global_best_config:
-            global_best_config = copy.deepcopy(fixed_best_layers)
+        if not state.global_best_config:
+            state.global_best_config = copy.deepcopy(fixed_best_layers)
 
         summary_text = _build_autotune_summary(
-            target_metric=args.target_metric,
-            dry_run=args.dry_run,
-            total_trials=total_trials,
-            start_time=start_time,
-            global_best_metric=global_best_metric,
-            global_stop_reason=global_stop_reason,
-            layer_reports=layer_reports,
-            global_best_config=global_best_config,
+            AutotuneSummaryParams(
+                target_metric=args.target_metric,
+                dry_run=args.dry_run,
+                total_trials=state.total_trials,
+                start_time=state.start_time,
+                global_best_metric=state.global_best_metric,
+                global_stop_reason=global_stop_reason,
+                layer_reports=layer_reports,
+                global_best_config=state.global_best_config,
+            )
         )
         _finalize_autotune_results(
-            recorder=recorder,
-            target_metric=args.target_metric,
-            global_best_config=global_best_config,
-            global_best_metric=global_best_metric,
-            total_trials=total_trials,
-            summary_text=summary_text,
+            AutotuneFinalizationParams(
+                recorder=recorder,
+                target_metric=args.target_metric,
+                global_best_config=state.global_best_config,
+                global_best_metric=state.global_best_metric,
+                total_trials=state.total_trials,
+                summary_text=summary_text,
+            )
         )
 
         logger.info("[autotune] done. results: %s", recorder.results_path)
