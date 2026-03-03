@@ -83,7 +83,6 @@ def lightning_indexer_decode_compute(
     pypto.set_pass_options(pg_upper_bound=configs.pg_upper_bound)
 
     # vector graph fuse optimization
-    pypto.set_pass_options(vec_nbuffer_mode=configs.vec_merge_mode)
     pypto.set_pass_options(vec_nbuffer_setting=configs.vec_nbuffer_setting)
 
     # cube graph fuse optimization

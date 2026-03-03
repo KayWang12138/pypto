@@ -458,9 +458,6 @@ struct ParamConfigs {
     std::map<int64_t, int64_t> cubeL1ReuseSetting;
     std::map<int64_t, int64_t> cubeNBufferSetting;
     std::string OoOPreScheduleMethod{"PriorDFS"};
-    int vecNBuffermode{1};
-    int L1ReuseMode{0};
-    int cubeNBufferMode{0};
     int mgVecParallelLb{48};
     bool pgSkipPartition{false};
     std::map<int64_t, int64_t> vecNBufferSetting;

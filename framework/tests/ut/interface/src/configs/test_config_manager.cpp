@@ -180,10 +180,7 @@ TEST_F(TestConfigManager, NormalPassTest) {
         {SG_PARALLEL_NUM, {0, INT_MAX}},
         {SG_PG_UPPER_BOUND, {0, INT_MAX}},
         {SG_PG_LOWER_BOUND, {0, INT_MAX}},
-        {CUBE_L1_REUSE_MODE, {0, 2}},
-        {CUBE_NBUFFER_MODE, {0, 2}},
         {MG_COPYIN_UPPER_BOUND, {0, INT_MAX}},
-        {VEC_NBUFFER_MODE, {0, 2}},
         {MG_VEC_PARALLEL_LB, {1, 48}},
         {COPYOUT_RESOLVE_COALESCING, {0, 1000000}}
     };
@@ -206,10 +203,7 @@ TEST_F(TestConfigManager, AbnormalPassTest) {
         {SG_PARALLEL_NUM, {-1, outVal}},
         {SG_PG_UPPER_BOUND, {-1, outVal}},
         {SG_PG_LOWER_BOUND, {-1, outVal}},
-        {CUBE_L1_REUSE_MODE, {-1, 3}},
-        {CUBE_NBUFFER_MODE, {-1, 3}},
         {MG_COPYIN_UPPER_BOUND, {-1, outVal}},
-        {VEC_NBUFFER_MODE, {-1, 3}},
         {MG_VEC_PARALLEL_LB, {0, 49}},
         {COPYOUT_RESOLVE_COALESCING, {-1, 1000001}}
     };
