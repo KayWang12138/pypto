@@ -45,6 +45,7 @@ void ExecuteOpBinary(ExecuteOperationContext *ctx) {
         case Opcode::OP_ADD: calc::Add(ret, lhs, rhs); break;
         case Opcode::OP_ADD_BRC: calc::Add(ret, lhs, rhs); break;
         case Opcode::OP_PAIRSUM: calc::PairSum(ret, lhs, rhs); break;
+        case Opcode::OP_PAIRPROD: calc::PairProd(ret, lhs, rhs); break;
         case Opcode::OP_SUB: calc::Sub(ret, lhs, rhs); break;
         case Opcode::OP_SUB_BRC: calc::Sub(ret, lhs, rhs); break;
         case Opcode::OP_MUL: calc::Mul(ret, lhs, rhs); break;
@@ -83,6 +84,7 @@ REGISTER_CALC_OP(OP_S_DIV, Opcode::OP_S_DIV, ExecuteOpBinary<Opcode::OP_DIV>);
 REGISTER_CALC_OP(OP_PAIRMAX, Opcode::OP_PAIRMAX, ExecuteOpBinary<Opcode::OP_PAIRMAX>);
 REGISTER_CALC_OP(OP_PAIRMIN, Opcode::OP_PAIRMIN, ExecuteOpBinary<Opcode::OP_PAIRMIN>);
 REGISTER_CALC_OP(OP_PAIRSUM, Opcode::OP_PAIRSUM, ExecuteOpBinary<Opcode::OP_PAIRSUM>);
+REGISTER_CALC_OP(OP_PAIRPROD, Opcode::OP_PAIRPROD, ExecuteOpBinary<Opcode::OP_PAIRPROD>);
 REGISTER_CALC_OP(OP_S_MAX, Opcode::OP_S_MAX, ExecuteOpBinary<Opcode::OP_S_MAX>);
 REGISTER_CALC_OP(OP_S_MIN, Opcode::OP_S_MIN, ExecuteOpBinary<Opcode::OP_S_MIN>);
 REGISTER_CALC_OP(OP_MAXIMUM, Opcode::OP_MAXIMUM, ExecuteOpBinary<Opcode::OP_S_MAX>);
@@ -180,9 +182,11 @@ void ExecuteOpReduce(ExecuteOperationContext *ctx) {
         case Opcode::OP_ROWSUM_SINGLE: calc::RowSumSingle(oop, iop, axis); break;
         case Opcode::OP_ROWMAX_SINGLE: calc::RowMaxSingle(oop, iop, axis); break;
         case Opcode::OP_ROWMIN_SINGLE: calc::RowMinSingle(oop, iop, axis); break;
+        case Opcode::OP_ROWPROD_SINGLE: calc::RowProdSingle(oop, iop, axis); break;
         case Opcode::OP_ROWSUMLINE: calc::RowSumExpand(oop, iop, axis); break;
         case Opcode::OP_ROWMAXLINE: calc::RowMaxLine(oop, iop, axis); break;
         case Opcode::OP_ROWMINLINE: calc::RowMinLine(oop, iop, axis); break;
+        case Opcode::OP_ROWPRODLINE: calc::RowProdLine(oop, iop, axis); break;
         default: ASSERT(false) << "opcode not support" << ctx->op->GetOpcodeStr();
     }
 }
@@ -192,6 +196,8 @@ REGISTER_CALC_OP(OP_ROWMAX_SINGLE, Opcode::OP_ROWMAX_SINGLE, ExecuteOpReduce<Opc
 REGISTER_CALC_OP(OP_ROWMAXLINE, Opcode::OP_ROWMAXLINE, ExecuteOpReduce<Opcode::OP_ROWMAXLINE>);
 REGISTER_CALC_OP(OP_ROWMIN_SINGLE, Opcode::OP_ROWMIN_SINGLE, ExecuteOpReduce<Opcode::OP_ROWMIN_SINGLE>);
 REGISTER_CALC_OP(OP_ROWMINLINE, Opcode::OP_ROWMINLINE, ExecuteOpReduce<Opcode::OP_ROWMINLINE>);
+REGISTER_CALC_OP(OP_ROWPROD_SINGLE, Opcode::OP_ROWPROD_SINGLE, ExecuteOpReduce<Opcode::OP_ROWPROD_SINGLE>);
+REGISTER_CALC_OP(OP_ROWPRODLINE, Opcode::OP_ROWPRODLINE, ExecuteOpReduce<Opcode::OP_ROWPRODLINE>);
 
 void ExecuteOpCast(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);

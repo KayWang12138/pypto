@@ -98,6 +98,10 @@ TILEOP void PairBinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
         pto::TPARTMIN(dst, src0, src1);
         return;
     }
+    if constexpr (op == PairBinaryOp::MUL) {
+        pto::TPARTMUL(dst, src0, src1);
+        return;
+    }
 }
 
 template <PairBinaryOp op, int reduceAxisIndex, typename T0, typename T1, typename T2>
@@ -228,6 +232,12 @@ TILEOP void TPairMax(T0 dst, T1 src0, T2 src1) {
 template <typename T0, typename T1, typename T2>
 TILEOP void TPairMin(T0 dst, T1 src0, T2 src1) {
     PairBinaryCompute<PairBinaryOp::MIN>(dst, src0, src1);
+}
+
+#define OP_TILE_OP_PAIRPROD TPairProd
+template <typename T0, typename T1, typename T2>
+TILEOP void TPairProd(T0 dst, T1 src0, T2 src1) {
+    PairBinaryCompute<PairBinaryOp::MUL>(dst, src0, src1);
 }
 
 #endif

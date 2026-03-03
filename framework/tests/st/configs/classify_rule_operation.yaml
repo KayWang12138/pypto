@@ -253,6 +253,8 @@ stest:
       - TestCopySign/CopySignOperationTest.TestCopySign/1
       - TestCopySign/CopySignOperationTest.TestCopySign/4
       - TestCopySign/CopySignOperationTest.TestCopySign/5
+      - TestProd/ProdOperationTest.TestProd/1
+      - TestProd/ProdOperationTest.TestProd/9
       - TestRelu/ReluOperationTest.TestRelu/0
       - TestRelu/ReluOperationTest.TestRelu/3
       - TestHypot/HypotOperationTest.TestHypot/0

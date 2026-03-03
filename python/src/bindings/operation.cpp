@@ -194,6 +194,9 @@ void bind_operation(py::module &m) {
         [](const Tensor &operand, int axis, bool keepDim) { return npu::tile_fwk::Amin(operand, axis, keepDim); },
         py::arg("operand"), py::arg("axis") = -1, py::arg("keepDim") = false, "Tensor row min single.");
     m.def(
+        "Prod", [](const Tensor &operand, int axis, bool keepDim) { return npu::tile_fwk::Prod(operand, axis, keepDim); },
+        py::arg("operand"), py::arg("axis") = -1, py::arg("keepDim") = false, "Tensor row prod single.");
+    m.def(
         "RowSumExpand", [](const Tensor &operand) { return npu::tile_fwk::RowSumExpand(operand); },
         "Tensor row sum expand.");
     m.def(

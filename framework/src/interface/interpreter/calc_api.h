@@ -120,6 +120,7 @@ struct CalcOps {
     void (*PairSum)(const TensorData &, const TensorData &, const TensorData &);
     void (*PairMax)(const TensorData &, const TensorData &, const TensorData &);
     void (*PairMin)(const TensorData &, const TensorData &, const TensorData &);
+    void (*PairProd)(const TensorData &, const TensorData &, const TensorData &);
 
     void (*Min)(const TensorData &, const TensorData &, const TensorData &);
     void (*Max)(const TensorData &, const TensorData &, const TensorData &);
@@ -133,9 +134,11 @@ struct CalcOps {
     void (*RowSumSingle)(const TensorData &, const TensorData &, int);
     void (*RowMinSingle)(const TensorData &, const TensorData &, int);
     void (*RowMaxSingle)(const TensorData &, const TensorData &, int);
+    void (*RowProdSingle)(const TensorData &, const TensorData &, int);
 
     void (*RowMinLine)(const TensorData &, const TensorData &, int);
     void (*RowMaxLine)(const TensorData &, const TensorData &, int);
+    void (*RowProdLine)(const TensorData &, const TensorData &, int);
 
     void (*OneHot)(const TensorData &, const TensorData &, int);
     void (*ExpandS)(const TensorData &, const Element &);
