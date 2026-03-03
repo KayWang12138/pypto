@@ -285,8 +285,8 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
     CheckDivisible(ConvAlignB(cin, k0), tileCinFmap, "ceil(Cin / C0) × C0", "tileCinFmap");
     CheckDivisible(ConvAlignB(cin, k0), tileCinWeight, "ceil(Cin / C0) × C0", "tileCinWeight");
-    CheckAlignment(tileCinFmap, NUM16, "tileCinFmap");
-    CheckAlignment(tileCinWeight, NUM16, "tileCinWeight");
+    CheckAlignment(tileCinFmap, k0, "tileCinFmap");
+    CheckAlignment(tileCinWeight, k0, "tileCinWeight");
     if (convTile.setL0Tile){
         CheckL0TileTiling(outType, attrParam, weightTensor);
     }
