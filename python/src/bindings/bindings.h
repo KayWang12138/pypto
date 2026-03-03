@@ -19,6 +19,16 @@
 
 namespace py = pybind11;
 namespace pypto {
+
+void BindErrors(py::module_ &m);
+void BindCore(py::module_ &m);
+void BindTesting(py::module_ &m);
+void BindIR(py::module_ &m);
+void BindIRBuilder(py::module_ &m);
+void BindPass(py::module_ &m);
+void BindLogging(py::module_ &m);
+
+// Tilefwk bindings
 void bind_enum(py::module &m);
 void BindElement(py::module &m);
 void BindTensor(py::module &m);

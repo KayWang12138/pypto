@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
+/**
  * \file test_tensor.cpp
  * \brief
  */
@@ -82,9 +82,7 @@ TEST_F(TestTensor, AssignWithData2) {
     auto ptr1 = std::make_unique<uint8_t>(0);
     auto ptr2 = std::make_unique<uint8_t>(0);
 
-    auto reset = [&b]() {
-        b.SetData(nullptr);
-    };
+    auto reset = [&b]() { b.SetData(nullptr); };
 
     {
         Tensor a(DT_FP32, tshape, "A");

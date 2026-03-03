@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
+/**
  * \file test_execute_calc.cpp
  * \brief
  */
@@ -38,10 +38,11 @@ public:
     void TearDown() override {}
 };
 
-//測試帶有髒數據的Reshape操作
+// 測試帶有髒數據的Reshape操作
 TEST_F(CalcCommonTest, UnalignedReshape) {
     // 创建 Function 和 Operation,構造一個虛擬的ExecuteOperationContext
-    auto func = std::make_shared<Function>(Program::GetInstance(), "TestUnalignedReshape", "TestUnalignedReshape", nullptr);
+    auto func =
+        std::make_shared<Function>(Program::GetInstance(), "TestUnalignedReshape", "TestUnalignedReshape", nullptr);
     std::vector<int64_t> inputShape = {2, 2};
     std::vector<int64_t> outputShape = {3, 3};
     auto inputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, inputShape);
@@ -59,23 +60,16 @@ TEST_F(CalcCommonTest, UnalignedReshape) {
     std::vector<LogicalTensorDataPtr> ioperandDataViewList = {inputDataView};
     std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputDataView};
     ExecuteOperationContext ctx = {
-        &frame,
-        &opInter,
-        &reshapeOp,
-        &ioperandDataViewList,
-        nullptr,
-        &ooperandInplaceDataViewList
-    };
+        &frame, &opInter, &reshapeOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
     ASSERT_GT(outputDataView->GetSize(), inputDataView->GetSize())
         << "Output size should be greater than input size to trigger the new branch";
     opInter.ExecuteOperation(&ctx);
-
 }
 
 // 測試 OP_VEC_DUP 在 scalar 為極大 double 時對 FP32 類型輸出進行 32 位飽和截斷
 TEST_F(CalcCommonTest, VecDupClampFp32FromLargeDouble) {
-    auto func = std::make_shared<Function>(Program::GetInstance(), "TestVecDupClampFp32",
-        "TestVecDupClampFp32", nullptr);
+    auto func =
+        std::make_shared<Function>(Program::GetInstance(), "TestVecDupClampFp32", "TestVecDupClampFp32", nullptr);
 
     std::vector<int64_t> outputShape = {2, 2};
     auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, outputShape);
@@ -89,17 +83,11 @@ TEST_F(CalcCommonTest, VecDupClampFp32FromLargeDouble) {
     auto inoutDataPair = std::make_shared<FunctionIODataPair>();
     FunctionFrame frame(func.get(), nullptr, nullptr, inoutDataPair, 0);
     OperationInterpreter opInter;
-    std::vector<LogicalTensorDataPtr> ioperandDataViewList; 
+    std::vector<LogicalTensorDataPtr> ioperandDataViewList;
     std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputDataView};
 
     ExecuteOperationContext ctx = {
-        &frame,
-        &opInter,
-        &vecDupOp,
-        &ioperandDataViewList,
-        nullptr,
-        &ooperandInplaceDataViewList
-    };
+        &frame, &opInter, &vecDupOp, &ioperandDataViewList, nullptr, &ooperandInplaceDataViewList};
 
     opInter.ExecuteOperation(&ctx);
 
