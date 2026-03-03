@@ -331,6 +331,22 @@ class LayerContext:
     args: Any  # argparse.Namespace
 
 
+@dataclass
+class LayerSearchMutableState:
+    """Mutable counters and results tracked during one layer's search."""
+
+    layer_history: List[Dict[str, Any]]
+    seen_candidates: set
+    layer_best_metric: float
+    layer_best_candidate: Optional[Dict[str, Any]]
+    no_improve_count: int
+    success_count: int
+    fail_count: int
+    pruned_count: int
+    layer_trial_count: int
+    layer_stop_reason: Optional[str]
+
+
 def _derive_stitch_from_legacy(params: Dict[str, Any]) -> List[int]:
     """Derive stitch_function_max_num values from legacy initial param."""
     derived = [16, 32, 64, 128]
@@ -1517,6 +1533,63 @@ def _finalize_layer_result(inp: LayerFinalizationInput) -> LayerResult:
     )
 
 
+def _prepare_layer_context(
+    params: LayerSearchParams,
+    services: AutotuneServices,
+    state: AutotuneGlobalState,
+) -> LayerContext:
+    """Unpack layer search parameters into a LayerContext for the search loop."""
+    layer = params.layer
+    args = params.args
+    layer_name = str(layer.get("name"))
+    layer_params = layer.get("params", {})
+    space_size = SearchSpaceLoader.estimate_layer_size(layer)
+    strategy = services.generator.select_strategy(space_size)
+
+    remain_budget = max(0, int(args.budget) - state.total_trials)
+    layer_max_trials = int(layer.get("max_trials", remain_budget))
+    layer_budget = min(layer_max_trials, remain_budget)
+    if args.dry_run:
+        layer_budget = min(layer_budget, 3)
+
+    logger.info(
+        "[layer:%s] priority=%s strategy=%s space=%d budget=%d",
+        layer_name, layer.get("priority"), strategy, space_size, layer_budget,
+    )
+
+    return LayerContext(
+        layer_name=layer_name, layer_params=layer_params,
+        space_size=space_size, strategy=strategy, layer_budget=layer_budget,
+        generator=services.generator, stopper=services.stopper,
+        runner=services.runner, recorder=services.recorder,
+        guidance=params.guidance,
+        fixed_best_layers=params.fixed_best_layers,
+        output_dir=params.output_dir, args=args,
+    )
+
+
+def _check_candidate_eligible(
+    candidate: Dict[str, Any],
+    seen_candidates: set,
+    fixed_best_layers: Dict[str, Dict[str, Any]],
+    layer_name: str,
+) -> Tuple[bool, int]:
+    """Check dedup and pruning for a candidate. Return (eligible, pruned_delta)."""
+    marker = canonical_json(candidate)
+    if marker in seen_candidates:
+        return False, 0
+    seen_candidates.add(marker)
+
+    full_config = merge_layer_config(fixed_best_layers, layer_name, candidate)
+    flat_cfg = flatten_layers(full_config)
+    do_prune, reason = PruningEngine.should_prune(flat_cfg)
+    if do_prune:
+        if reason:
+            logger.info("  [prune] %s", reason)
+        return False, 1
+
+    return True, 0
+
 def _handle_successful_trial(inp: TrialSuccessInput) -> Tuple[float, Optional[Dict[str, Any]], int]:
     """Process a successful trial outcome. Return (new_best_metric, new_best_candidate, no_improve_delta)."""
     inp.layer_history_local.append({"config": copy.deepcopy(inp.candidate), "metric": inp.value})
@@ -1549,6 +1622,77 @@ def _handle_successful_trial(inp: TrialSuccessInput) -> Tuple[float, Optional[Di
     return new_best, new_candidate, no_improve_delta
 
 
+def _evaluate_one_candidate(
+    candidate: Dict[str, Any],
+    ctx: LayerContext,
+    ms: LayerSearchMutableState,
+    state: AutotuneGlobalState,
+) -> str:
+    """Evaluate one candidate: dedup, prune, run trial, update mutable state. Return action."""
+    eligible, pruned_delta = _check_candidate_eligible(
+        candidate, ms.seen_candidates, ctx.fixed_best_layers, ctx.layer_name,
+    )
+    if not eligible:
+        ms.pruned_count += pruned_delta
+        return "continue"
+    global_reason = ctx.stopper.check_global(state.total_trials, state.start_time)
+    if global_reason:
+        return "stop_all"
+    state.total_trials += 1
+    ms.layer_trial_count += 1
+    trial_id = state.total_trials
+    full_config = merge_layer_config(ctx.fixed_best_layers, ctx.layer_name, candidate)
+    logger.info("  [trial %03d] layer=%s config=%s", trial_id, ctx.layer_name, canonical_json(candidate))
+    outcome = ctx.runner.run_trial(trial_id, ctx.layer_name, full_config, ctx.output_dir)
+    ctx.recorder.record_trial(outcome)
+    if outcome.status == "success":
+        ms.success_count += 1
+        value = metric_of(outcome.metrics, ctx.args.target_metric)
+        new_best, new_cand, delta = _handle_successful_trial(TrialSuccessInput(
+            value=value, candidate=candidate, full_config=full_config,
+            outcome=outcome, trial_id=trial_id, layer_name=ctx.layer_name,
+            layer_history_local=ms.layer_history, stopper=ctx.stopper,
+            state=state, recorder=ctx.recorder, args=ctx.args,
+            layer_best_metric=ms.layer_best_metric,
+        ))
+        if delta == 0:
+            ms.layer_best_metric = new_best
+            ms.layer_best_candidate = new_cand
+            ms.no_improve_count = 0
+        else:
+            ms.no_improve_count += 1
+    else:
+        ms.fail_count += 1
+        ms.no_improve_count += 1
+        logger.warning("  [failed] trial=%d error=%s", trial_id, outcome.error)
+    global_reason = ctx.stopper.check_global(state.total_trials, state.start_time)
+    if global_reason:
+        return "stop_all"
+    layer_reason = ctx.stopper.check_layer(ms.no_improve_count)
+    if layer_reason:
+        return "stop_layer"
+    return "continue"
+
+
+def _run_candidate_batch(
+    candidates: List[Dict[str, Any]],
+    ctx: LayerContext,
+    ms: LayerSearchMutableState,
+    state: AutotuneGlobalState,
+) -> Optional[str]:
+    """Run evaluate loop over candidates and return global stop reason."""
+    for candidate in candidates:
+        if ms.layer_trial_count >= ctx.layer_budget:
+            break
+        action = _evaluate_one_candidate(candidate, ctx, ms, state)
+        if action == "stop_all":
+            return ctx.stopper.check_global(state.total_trials, state.start_time)
+        if action == "stop_layer":
+            ms.layer_stop_reason = ctx.stopper.check_layer(ms.no_improve_count)
+            return None
+    return None
+
+
 def _search_one_layer(
     params: LayerSearchParams,
     services: AutotuneServices,
@@ -1559,143 +1703,43 @@ def _search_one_layer(
     if early is not None:
         return early
 
-    layer = params.layer
-    args = params.args
-    generator = services.generator
-    stopper = services.stopper
-    runner = services.runner
-    recorder = services.recorder
-    guidance = params.guidance
-    fixed_best_layers = params.fixed_best_layers
-    output_dir = params.output_dir
-
-    layer_name = str(layer.get("name"))
-    layer_params = layer.get("params", {})
-    space_size = SearchSpaceLoader.estimate_layer_size(layer)
-    strategy = generator.select_strategy(space_size)
-
-    remain_budget = max(0, int(args.budget) - state.total_trials)
-    layer_max_trials = int(layer.get("max_trials", remain_budget))
-    layer_budget = min(layer_max_trials, remain_budget)
-    if args.dry_run:
-        layer_budget = min(layer_budget, 3)
-
-    logger.info(
-        "[layer:%s] priority=%s strategy=%s space=%d budget=%d",
-        layer_name, layer.get("priority"), strategy, space_size, layer_budget,
+    ctx = _prepare_layer_context(params, services, state)
+    ms = LayerSearchMutableState(
+        layer_history=[], seen_candidates=set(),
+        layer_best_metric=float("inf"), layer_best_candidate=None,
+        no_improve_count=0, success_count=0, fail_count=0,
+        pruned_count=0, layer_trial_count=0, layer_stop_reason=None,
     )
 
-    layer_history: List[Dict[str, Any]] = []
-    seen_candidates: set = set()
-    layer_best_metric = float("inf")
-    layer_best_candidate: Optional[Dict[str, Any]] = None
-    no_improve_count = 0
-    success_count = 0
-    fail_count = 0
-    pruned_count = 0
-    layer_trial_count = 0
-    layer_stop_reason: Optional[str] = None
-
-    def evaluate_candidate(candidate: Dict[str, Any]) -> str:
-        """Evaluate a single candidate configuration and update tracking state."""
-        nonlocal layer_trial_count, layer_best_metric, layer_best_candidate
-        nonlocal no_improve_count, success_count, fail_count, pruned_count
-
-        marker = canonical_json(candidate)
-        if marker in seen_candidates:
-            return "continue"
-        seen_candidates.add(marker)
-
-        full_config = merge_layer_config(fixed_best_layers, layer_name, candidate)
-        flat_cfg = flatten_layers(full_config)
-        do_prune, reason = PruningEngine.should_prune(flat_cfg)
-        if do_prune:
-            pruned_count += 1
-            if reason:
-                logger.info("  [prune] %s", reason)
-            return "continue"
-
-        global_reason = stopper.check_global(state.total_trials, state.start_time)
-        if global_reason:
-            return "stop_all"
-
-        state.total_trials += 1
-        layer_trial_count += 1
-        trial_id = state.total_trials
-
-        logger.info("  [trial %03d] layer=%s config=%s", trial_id, layer_name, canonical_json(candidate))
-        outcome = runner.run_trial(trial_id, layer_name, full_config, output_dir)
-        recorder.record_trial(outcome)
-
-        if outcome.status == "success":
-            success_count += 1
-            value = metric_of(outcome.metrics, args.target_metric)
-            new_best, new_cand, delta = _handle_successful_trial(TrialSuccessInput(
-                value=value, candidate=candidate, full_config=full_config,
-                outcome=outcome, trial_id=trial_id, layer_name=layer_name,
-                layer_history_local=layer_history, stopper=stopper,
-                state=state, recorder=recorder, args=args,
-                layer_best_metric=layer_best_metric,
-            ))
-            if delta == 0:
-                layer_best_metric = new_best
-                layer_best_candidate = new_cand
-                no_improve_count = 0
-            else:
-                no_improve_count += 1
-        else:
-            fail_count += 1
-            no_improve_count += 1
-            logger.warning("  [failed] trial=%d error=%s", trial_id, outcome.error)
-
-        global_reason = stopper.check_global(state.total_trials, state.start_time)
-        if global_reason:
-            return "stop_all"
-        layer_reason = stopper.check_layer(no_improve_count)
-        if layer_reason:
-            return "stop_layer"
-        return "continue"
-
-    def run_candidates(candidates: List[Dict[str, Any]]) -> Optional[str]:
-        """Run evaluate loop over candidates and return global stop reason."""
-        nonlocal layer_stop_reason
-        for candidate in candidates:
-            if layer_trial_count >= layer_budget:
-                break
-            action = evaluate_candidate(candidate)
-            if action == "stop_all":
-                return stopper.check_global(state.total_trials, state.start_time)
-            if action == "stop_layer":
-                layer_stop_reason = stopper.check_layer(no_improve_count)
-                return None
-        return None
+    eval_fn = lambda c: _evaluate_one_candidate(c, ctx, ms, state)
+    batch_fn = lambda cs: _run_candidate_batch(cs, ctx, ms, state)
 
     global_stop_reason = _dispatch_strategy(
-        strategy,
+        ctx.strategy,
         SearchDispatchContext(
-            generator=generator,
-            params=layer_params,
-            layer_name=layer_name,
-            guidance=guidance,
-            layer_budget=layer_budget,
-            get_layer_trial_count=lambda: layer_trial_count,
-            layer_history=layer_history,
-            get_layer_stop_reason=lambda: layer_stop_reason,
-            run_candidates=run_candidates,
-            evaluate_candidate=evaluate_candidate,
-            stopper=stopper,
+            generator=ctx.generator, params=ctx.layer_params,
+            layer_name=ctx.layer_name, guidance=ctx.guidance,
+            layer_budget=ctx.layer_budget,
+            get_layer_trial_count=lambda: ms.layer_trial_count,
+            layer_history=ms.layer_history,
+            get_layer_stop_reason=lambda: ms.layer_stop_reason,
+            run_candidates=batch_fn,
+            evaluate_candidate=eval_fn,
+            stopper=ctx.stopper,
             get_total_trials=lambda: state.total_trials,
             start_time=state.start_time,
-            get_no_improve_count=lambda: no_improve_count,
+            get_no_improve_count=lambda: ms.no_improve_count,
         ),
     )
 
     row = _finalize_layer_result(LayerFinalizationInput(
-        layer_name=layer_name, strategy=strategy, space_size=space_size,
-        layer_budget=layer_budget, layer_history=layer_history,
-        success_count=success_count, fail_count=fail_count,
-        pruned_count=pruned_count, layer_best_metric=layer_best_metric,
-        layer_stop_reason=layer_stop_reason, fixed_best_layers=fixed_best_layers,
+        layer_name=ctx.layer_name, strategy=ctx.strategy,
+        space_size=ctx.space_size,
+        layer_budget=ctx.layer_budget, layer_history=ms.layer_history,
+        success_count=ms.success_count, fail_count=ms.fail_count,
+        pruned_count=ms.pruned_count, layer_best_metric=ms.layer_best_metric,
+        layer_stop_reason=ms.layer_stop_reason,
+        fixed_best_layers=ctx.fixed_best_layers,
     ))
     return row, global_stop_reason
 
