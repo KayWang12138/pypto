@@ -38,6 +38,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PerformanceData:
+    """Aggregated performance metrics for rating calculation."""
     aic_util: float
     aiv_util: float
     core_stats: Dict[int, Dict[str, Any]]
@@ -49,6 +50,7 @@ class PerformanceData:
 
 @dataclass
 class RecommendationData:
+    """Input data for generating optimization recommendations."""
     aic_util: float
     aiv_util: float
     top_gaps: List[Dict[str, Any]]
@@ -61,6 +63,7 @@ class RecommendationData:
 
 @dataclass
 class AnalysisSummaryInput:
+    """Input data for writing the analysis summary JSON."""
     output_path: str
     aic_util: float
     aiv_util: float
@@ -74,6 +77,7 @@ class AnalysisSummaryInput:
 
 
 def extract_first_float(text: str) -> Optional[float]:
+    """Extract the first floating-point number from a text string."""
     match = re.search(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?", text)
     if not match:
         return None
@@ -110,6 +114,7 @@ class SwimlaneAnalyzer:
 
     @staticmethod
     def extract_value(text: str, key: str) -> float:
+        """Extract a numeric value associated with a key from multi-line text."""
         for line in text.split("\n"):
             if key in line:
                 try:
@@ -121,19 +126,11 @@ class SwimlaneAnalyzer:
         return 0.0
 
     @staticmethod
-    def parse_operand_hint(hint: str) -> Dict[str, Any]:
-        parsed: Dict[str, Any] = {
-            "shape": "",
-            "dtype": "",
-            "mem_usage": 0,
-            "raw": hint,
-            "format": "unknown",
-        }
-
-        shape_start = hint.find("shape:")
-        dtype_start = hint.find("dtype:")
-        mem_usage_start = hint.find("mem_usage:")
-
+    def _parse_kv_hint(
+        hint: str, shape_start: int, dtype_start: int, mem_usage_start: int
+    ) -> Dict[str, Any]:
+        """Parse key-value style operand hint."""
+        parsed: Dict[str, Any] = {"shape": "", "dtype": "", "mem_usage": 0}
         if shape_start >= 0:
             shape_end = len(hint)
             if dtype_start > shape_start:
@@ -141,13 +138,11 @@ class SwimlaneAnalyzer:
             elif mem_usage_start > shape_start:
                 shape_end = min(shape_end, mem_usage_start)
             parsed["shape"] = hint[shape_start + len("shape:"):shape_end].strip().rstrip(",")
-
         if dtype_start >= 0:
             dtype_end = len(hint)
             if mem_usage_start > dtype_start:
                 dtype_end = mem_usage_start
             parsed["dtype"] = hint[dtype_start + len("dtype:"):dtype_end].strip().rstrip(",")
-
         if mem_usage_start >= 0:
             mem_text = hint[mem_usage_start + len("mem_usage:"):].strip().rstrip(",")
             mem_token = mem_text.split(",", 1)[0].strip()
@@ -155,53 +150,80 @@ class SwimlaneAnalyzer:
                 parsed["mem_usage"] = int(mem_token)
             except ValueError:
                 parsed["mem_usage"] = 0
-        if parsed["shape"] or parsed["dtype"] or parsed["mem_usage"] > 0:
-            parsed["format"] = "kv"
-            return parsed
+        return parsed
 
+    @staticmethod
+    def _parse_structured_hint(hint: str) -> Dict[str, Any]:
+        """Parse structured (dict/list) operand hint via ast.literal_eval."""
+        parsed: Dict[str, Any] = {"shape": "", "dtype": "", "mem_usage": 0}
         try:
             structured = ast.literal_eval(hint)
         except (SyntaxError, ValueError):
             return parsed
-
-        entries: List[Any]
-        if isinstance(structured, list):
+        if isinstance(structured, dict):
+            entries: List[Any] = [structured]
+        elif isinstance(structured, list):
             entries = structured
-        elif isinstance(structured, dict):
-            entries = [structured]
         else:
             return parsed
-
-        dtype_candidates: List[str] = []
-        shape_candidates: List[str] = []
-        mem_candidates: List[int] = []
-        for entry in entries:
-            if not isinstance(entry, dict):
-                continue
-            dtype_val = entry.get("dtype") or entry.get("dataType") or entry.get("type")
-            if dtype_val is not None:
-                dtype_candidates.append(str(dtype_val))
-
-            shape_val = entry.get("shape") or entry.get("dims") or entry.get("originShape")
-            if shape_val is not None:
-                shape_candidates.append(str(shape_val))
-
-            for mem_key in ("mem_usage", "bytes", "nbytes", "byteSize", "size"):
-                if mem_key not in entry:
-                    continue
-                value = extract_first_float(str(entry.get(mem_key)))
-                if value is not None and value > 0:
-                    mem_candidates.append(int(value))
-                    break
-
-        if dtype_candidates:
-            parsed["dtype"] = ",".join(dtype_candidates[:2])
-        if shape_candidates:
-            parsed["shape"] = "; ".join(shape_candidates[:2])
-        if mem_candidates:
-            parsed["mem_usage"] = sum(mem_candidates)
-        parsed["format"] = "structured"
+        dict_entries = [entry for entry in entries if isinstance(entry, dict)]
+        dtype_candidates = [
+            str(dtype_val)
+            for entry in dict_entries
+            for dtype_val in [
+                entry.get("dtype") or entry.get("dataType") or entry.get("type")
+            ]
+            if dtype_val is not None
+        ]
+        shape_candidates = [
+            str(shape_val)
+            for entry in dict_entries
+            for shape_val in [
+                entry.get("shape") or entry.get("dims") or entry.get("originShape")
+            ]
+            if shape_val is not None
+        ]
+        mem_candidates = [
+            int(value)
+            for entry in dict_entries
+            for value in [
+                next(
+                    (
+                        parsed_value
+                        for mem_key in ("mem_usage", "bytes", "nbytes", "byteSize", "size")
+                        if mem_key in entry
+                        for parsed_value in [extract_first_float(str(entry.get(mem_key)))]
+                        if parsed_value is not None and parsed_value > 0
+                    ),
+                    None,
+                )
+            ]
+            if value is not None
+        ]
+        parsed["dtype"] = ",".join(dtype_candidates[:2]) if dtype_candidates else ""
+        parsed["shape"] = "; ".join(shape_candidates[:2]) if shape_candidates else ""
+        parsed["mem_usage"] = sum(mem_candidates) if mem_candidates else 0
         return parsed
+
+    @staticmethod
+    def parse_operand_hint(hint: str) -> Dict[str, Any]:
+        """Parse an operand hint string into structured shape, dtype, and memory info."""
+        result: Dict[str, Any] = {
+            "shape": "", "dtype": "", "mem_usage": 0, "raw": hint, "format": "unknown",
+        }
+        shape_start = hint.find("shape:")
+        dtype_start = hint.find("dtype:")
+        mem_usage_start = hint.find("mem_usage:")
+        kv = SwimlaneAnalyzer._parse_kv_hint(hint, shape_start, dtype_start, mem_usage_start)
+        if kv["shape"] or kv["dtype"] or kv["mem_usage"] > 0:
+            result.update(kv)
+            result["format"] = "kv"
+            return result
+        structured = SwimlaneAnalyzer._parse_structured_hint(hint)
+        if structured["shape"] or structured["dtype"] or structured["mem_usage"] > 0:
+            result.update(structured)
+            result["format"] = "structured"
+        return result
 
     def get_core_type(self, tid: int) -> str:
         """Determine core type (AIC/AIV) from thread name."""
@@ -341,6 +363,7 @@ class SwimlaneAnalyzer:
         return sorted(gaps, key=lambda x: x["gap_us"], reverse=True)[:top_k]
 
     def analyze_execution_time_stats(self) -> Dict[str, Any]:
+        """Aggregate execution time statistics from swimlane execution hints."""
         records: List[Dict[str, Any]] = []
         stats = {
             "count": 0,
@@ -388,6 +411,7 @@ class SwimlaneAnalyzer:
         return stats
 
     def analyze_memory(self) -> Dict[str, Any]:
+        """Analyze UB memory usage and operand hints from swimlane events."""
         memory_info: Dict[str, Any] = {
             "peak_ub_bytes": 0,
             "ub_events": [],
@@ -455,6 +479,7 @@ class SwimlaneAnalyzer:
 
 
 class BubbleAnalyzer:
+    """Analyzes bubble_analysis.log for thread wait-time statistics."""
     def __init__(self, output_dir: Optional[str]):
         self.output_dir = Path(output_dir) if output_dir else None
         self.bubble_file: Optional[Path] = None
@@ -468,6 +493,7 @@ class BubbleAnalyzer:
                     self.bubble_file = candidates[0]
 
     def analyze(self) -> Dict[str, Any]:
+        """Parse bubble_analysis.log and return thread-level wait statistics."""
         if not self.bubble_file or not self.bubble_file.exists():
             return {}
 
@@ -524,6 +550,7 @@ class BubbleAnalyzer:
 
 
 class TraceAnalyzer:
+    """Analyzes trace data for AICPU control overhead."""
     def __init__(self, output_dir: Optional[str]):
         self.output_dir = Path(output_dir) if output_dir else None
         self.trace_file: Optional[Path] = None
@@ -546,6 +573,7 @@ class TraceAnalyzer:
 
     @staticmethod
     def analyze_perfetto_trace(trace_path: Path) -> Dict[str, Any]:
+        """Analyze a Perfetto trace JSON for AICPU-CTRL stage durations."""
         with open(trace_path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
@@ -579,6 +607,7 @@ class TraceAnalyzer:
 
     @staticmethod
     def analyze_aicpu_pref(pref_path: Path) -> Dict[str, Any]:
+        """Analyze aicpu_dev_pref.json for AICPU-CTRL task durations."""
         with open(pref_path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
@@ -619,6 +648,7 @@ class TraceAnalyzer:
         return result
 
     def analyze(self) -> Dict[str, Any]:
+        """Analyze available trace data and return control overhead statistics."""
         result: Dict[str, Any] = {}
         if self.trace_file and self.trace_file.exists():
             result = TraceAnalyzer.analyze_perfetto_trace(self.trace_file)
@@ -640,6 +670,7 @@ class TraceAnalyzer:
 
 
 class OutputArtifactsAnalyzer:
+    """Analyzes output artifacts (execute, pipe_usage, topo, program, tilefwk)."""
     def __init__(self, output_dir: Optional[str]):
         self.output_dir = Path(output_dir) if output_dir else None
 
@@ -653,6 +684,7 @@ class OutputArtifactsAnalyzer:
         return None
 
     def analyze_execute_json(self) -> Dict[str, Any]:
+        """Parse execute.json for task execution time and core type statistics."""
         execute_file = self._find_file(["execute.json", "*execute*.json"])
         if not execute_file:
             return {}
@@ -683,75 +715,70 @@ class OutputArtifactsAnalyzer:
             "core_type_counts": core_type_counts,
         }
 
+    @staticmethod
+    def _parse_pipe_usage_lines(
+        lines: List[str],
+    ) -> Tuple[Optional[int], Optional[int], Optional[int], Dict[str, Any]]:
+        """Parse pipe_usage.csv lines into core counts and pipe usage dict."""
+        total_core_num: Optional[int] = None
+        aic_num: Optional[int] = None
+        aiv_num: Optional[int] = None
+        pipe_usage: Dict[str, Any] = {}
+        in_total_pipe = False
+        for line in lines:
+            if line.startswith("Total Core Num:"):
+                total_core_num = int(extract_first_float(line) or 0)
+            elif line.startswith("AIC:"):
+                aic_num = int(extract_first_float(line) or 0)
+            elif line.startswith("AIV:"):
+                aiv_num = int(extract_first_float(line) or 0)
+            elif line == "Total Pipe Usage":
+                in_total_pipe = True
+            elif in_total_pipe and line.startswith("Pipe,"):
+                continue
+            elif in_total_pipe and "," in line:
+                cols = [c.strip() for c in line.split(",")]
+                if len(cols) >= 4:
+                    pipe_usage[cols[0]] = {
+                        "avg_time": extract_first_float(cols[1]) or 0.0,
+                        "total_execute_time": extract_first_float(cols[2]) or 0.0,
+                        "usage_percent": extract_first_float(cols[3]) or 0.0,
+                    }
+        return total_core_num, aic_num, aiv_num, pipe_usage
+
     def analyze_pipe_usage_csv(self) -> Dict[str, Any]:
+        """Parse pipe_usage.csv for core counts and pipe utilization data."""
         pipe_file = self._find_file(["pipe_usage.csv", "*pipe_usage*.csv"])
         if not pipe_file:
             return {}
-
-        result: Dict[str, Any] = {
-            "source": str(pipe_file),
-            "total_core_num": None,
-            "aic_num": None,
-            "aiv_num": None,
-            "total_pipe_usage": {},
-        }
-
         with open(pipe_file, "r", encoding="utf-8") as f:
             lines = [line.strip() for line in f if line.strip()]
 
-        in_total_pipe_usage = False
-        for line in lines:
-            if line.startswith("Total Core Num:"):
-                result["total_core_num"] = int(extract_first_float(line) or 0)
-                continue
-            if line.startswith("AIC:"):
-                result["aic_num"] = int(extract_first_float(line) or 0)
-                continue
-            if line.startswith("AIV:"):
-                result["aiv_num"] = int(extract_first_float(line) or 0)
-                continue
-            if line == "Total Pipe Usage":
-                in_total_pipe_usage = True
-                continue
-            if in_total_pipe_usage and line.startswith("Pipe,"):
-                continue
-            if in_total_pipe_usage and "," in line:
-                cols = [c.strip() for c in line.split(",")]
-                if len(cols) < 4:
-                    continue
-                pipe_name = cols[0]
-                avg_time = extract_first_float(cols[1]) or 0.0
-                total_execute = extract_first_float(cols[2]) or 0.0
-                usage = extract_first_float(cols[3]) or 0.0
-                result["total_pipe_usage"][pipe_name] = {
-                    "avg_time": avg_time,
-                    "total_execute_time": total_execute,
-                    "usage_percent": usage,
-                }
-
-        if not result["total_pipe_usage"]:
+        total_core, aic, aiv, pipe_usage = self._parse_pipe_usage_lines(lines)
+        if not pipe_usage:
             return {}
-        return result
+        return {
+            "source": str(pipe_file),
+            "total_core_num": total_core,
+            "aic_num": aic,
+            "aiv_num": aiv,
+            "total_pipe_usage": pipe_usage,
+        }
 
-    def analyze_topo_json(self) -> Dict[str, Any]:
-        topo_file = self._find_file(["topo.json", "*topo*.json"])
-        if not topo_file:
-            return {}
-        with open(topo_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-        task_like_nodes = 0
-        edge_count = 0
-
+    @staticmethod
+    def _count_topo_elements(data: Any) -> Tuple[int, int]:
+        """Count task-like nodes and dependency edges via iterative traversal."""
+        task_nodes = 0
+        edges = 0
         stack: List[Any] = [data]
         while stack:
             current = stack.pop()
             if isinstance(current, dict):
                 if "taskId" in current:
-                    task_like_nodes += 1
+                    task_nodes += 1
                 successors = current.get("successors")
                 if isinstance(successors, list):
-                    edge_count += len(successors)
+                    edges += len(successors)
                 for value in current.values():
                     if isinstance(value, (dict, list)):
                         stack.append(value)
@@ -759,16 +786,27 @@ class OutputArtifactsAnalyzer:
                 for value in current:
                     if isinstance(value, (dict, list)):
                         stack.append(value)
+        return task_nodes, edges
 
-        if task_like_nodes == 0 and edge_count == 0:
+    def analyze_topo_json(self) -> Dict[str, Any]:
+        """Parse topo.json for task node and dependency edge counts."""
+        topo_file = self._find_file(["topo.json", "*topo*.json"])
+        if not topo_file:
+            return {}
+        with open(topo_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        task_nodes, edge_count = self._count_topo_elements(data)
+        if task_nodes == 0 and edge_count == 0:
             return {}
         return {
             "source": str(topo_file),
-            "task_like_nodes": task_like_nodes,
+            "task_like_nodes": task_nodes,
             "edge_count": edge_count,
         }
 
     def analyze_program_json(self) -> Dict[str, Any]:
+        """Parse program.json for function and tensor counts."""
         program_file = self._find_file(["program.json", "*program*.json"])
         if not program_file:
             return {}
@@ -792,6 +830,7 @@ class OutputArtifactsAnalyzer:
         return result
 
     def analyze_tilefwk_l1_prof_data(self) -> Dict[str, Any]:
+        """Parse tilefwk_L1_prof_data.json for block and task cycle statistics."""
         tile_file = self._find_file(["tilefwk_L1_prof_data.json", "*tilefwk*prof*.json"])
         if not tile_file:
             return {}
@@ -832,6 +871,7 @@ class OutputArtifactsAnalyzer:
         }
 
     def analyze_all(self) -> Dict[str, Any]:
+        """Run all artifact analyses and return combined results."""
         return {
             "execute": self.analyze_execute_json(),
             "pipe_usage": self.analyze_pipe_usage_csv(),
@@ -842,6 +882,7 @@ class OutputArtifactsAnalyzer:
 
 
 def calculate_performance_rating(perf_data: PerformanceData) -> Dict[str, Any]:
+    """Calculate a star-based performance rating from aggregated metrics."""
     utilization_candidates: List[float] = []
     if perf_data.aic_util > 0:
         utilization_candidates.append(perf_data.aic_util)
@@ -1065,6 +1106,190 @@ def find_latest_output_dir(pypto_repo: str) -> Optional[str]:
     return str(latest)
 
 
+def _report_bubble_section(bubble_stats: Optional[Dict[str, Any]]) -> List[str]:
+    """Build the bubble analysis section of the report."""
+    lines: List[str] = ["", "## 气泡分析", ""]
+    if not bubble_stats or not bubble_stats.get("threads"):
+        lines.append("- 未找到 bubble_analysis.log，跳过该章节。")
+        return lines
+    lines.extend([
+        f"数据源: `{bubble_stats.get('source', 'N/A')}`",
+        "",
+        f"- 总 Span Time: {bubble_stats.get('total_span_time', 0.0):.2f} us",
+        f"- 总 Busy Time: {bubble_stats.get('total_busy_time', 0.0):.2f} us",
+        f"- 总 Wait Time: {bubble_stats.get('total_wait_time', 0.0):.2f} us",
+        "",
+        "| 线程 | Span(us) | Busy(us) | Wait(us) | WaitSchedule(us) | WaitPred(us) | 利用率 |",
+        "|------|----------|----------|----------|------------------|--------------|--------|",
+    ])
+    for thread in bubble_stats.get("threads", []):
+        lines.append(
+            f"| {thread['name']} | {thread['span_time']:.2f} | "
+            f"{thread['busy_time']:.2f} | {thread['wait_time']:.2f} | "
+            f"{thread['wait_schedule']:.2f} | "
+            f"{thread['wait_predecessor']:.2f} | "
+            f"{thread['utilization'] * 100:.1f}% |"
+        )
+    return lines
+
+
+def _report_execution_section(execution_stats: Dict[str, Any]) -> List[str]:
+    """Build the execution time statistics section of the report."""
+    lines: List[str] = ["", "## 执行时间统计", ""]
+    if execution_stats.get("count", 0) <= 0:
+        lines.append("- swimlane 中未包含 execution-hint，跳过该章节。")
+        return lines
+    lines.extend([
+        f"- 样本数: {execution_stats['count']}",
+        f"- Average Execution Time(均值): {execution_stats['avg_time_mean']:.2f} us",
+        f"- Max Execution Time(最大): {execution_stats['max_time_max']:.2f} us",
+        f"- Min Execution Time(最小): {execution_stats['min_time_min']:.2f} us",
+        "",
+        "| 任务 | Avg(us) | Max(us) | Min(us) |",
+        "|------|---------|---------|---------|",
+    ])
+    for row in execution_stats.get("records", [])[:5]:
+        lines.append(
+            f"| `{row['task']}` | {row['avg_time']:.2f} | "
+            f"{row['max_time']:.2f} | {row['min_time']:.2f} |"
+        )
+    return lines
+
+
+def _report_memory_section(memory_stats: Dict[str, Any]) -> List[str]:
+    """Build the memory analysis section of the report."""
+    lines: List[str] = ["", "## 内存分析", ""]
+    has_data = (
+        memory_stats.get("peak_ub_bytes", 0) > 0
+        or memory_stats.get("operand_hints")
+    )
+    if not has_data:
+        lines.append("- 未找到 UB 内存与 operand hint 数据，跳过该章节。")
+        return lines
+    mem_eff = memory_stats.get("memory_efficiency")
+    lines.extend([
+        f"- UB 峰值: {memory_stats.get('peak_ub_bytes', 0)} bytes",
+        f"- Operand Mem Usage 总和: {memory_stats.get('total_operand_mem_usage', 0)} bytes",
+        f"- Operand 单任务峰值: {memory_stats.get('peak_operand_mem_usage', 0)} bytes",
+        (
+            f"- 内存效率: {(mem_eff * 100):.1f}%"
+            if mem_eff is not None
+            else "- 内存效率: N/A (缺少足够数据)"
+        ),
+        "",
+        "| 任务 | Hint类型 | Shape | DType | MemUsage(bytes) | 解析格式 |",
+        "|------|----------|-------|-------|-----------------|----------|",
+    ])
+    for hint in memory_stats.get("operand_hints", [])[:6]:
+        lines.append(
+            f"| `{hint['task']}` | {hint['hint_type']} | "
+            f"{hint['shape'] or 'N/A'} | {hint['dtype'] or 'N/A'} | "
+            f"{hint['mem_usage']} | {hint.get('format', 'unknown')} |"
+        )
+    return lines
+
+
+def _report_trace_section(
+    trace_stats: Optional[Dict[str, Any]], timeline_length: int
+) -> List[str]:
+    """Build the control overhead section of the report."""
+    lines: List[str] = ["", "## 控制开销分析", ""]
+    if not trace_stats or trace_stats.get("total_time", 0) <= 0:
+        lines.append(
+            "- 未找到 machine_runtime_operator_trace.json，跳过该章节。"
+        )
+        return lines
+    control_ratio = (
+        (trace_stats.get("total_time", 0.0) / timeline_length)
+        if timeline_length > 0 else 0.0
+    )
+    lines.extend([
+        f"数据源: `{trace_stats.get('source', 'N/A')}`",
+        "",
+        f"- AICPU-CTRL 总时长: {trace_stats.get('total_time', 0.0):.2f} (同源单位)",
+        f"- 控制开销占比: {control_ratio * 100:.2f}%",
+        f"- 数据来源类型: {trace_stats.get('source_type', 'unknown')}",
+        "",
+        "| Stage | 时长(us) | 占比 |",
+        "|-------|----------|------|",
+    ])
+    sorted_stages = sorted(
+        trace_stats.get("stages", {}).items(),
+        key=lambda x: x[1], reverse=True,
+    )
+    for stage_name, stage_dur in sorted_stages[:8]:
+        ratio = trace_stats.get("stage_ratios", {}).get(stage_name, 0.0)
+        lines.append(
+            f"| `{stage_name}` | {stage_dur:.2f} | {ratio * 100:.2f}% |"
+        )
+    return lines
+
+
+def _report_artifact_section(artifact_stats: Dict[str, Any]) -> List[str]:
+    """Build the output artifacts section of the report."""
+    lines: List[str] = ["", "## 其他产物分析", ""]
+    has_data = any(bool(v) for v in artifact_stats.values())
+    if not has_data:
+        lines.append(
+            "- 未检测到可解析的额外产物（execute.json / pipe_usage.csv / "
+            "topo.json / program.json / tilefwk_L1_prof_data.json）。"
+        )
+        return lines
+    execute_stats = artifact_stats.get("execute", {})
+    if execute_stats:
+        lines.extend([
+            "### execute.json",
+            f"- 数据源: `{execute_stats.get('source', 'N/A')}`",
+            f"- 任务数: {execute_stats.get('task_count', 0)}",
+            f"- 平均执行时长: {execute_stats.get('avg_exec_time', 0.0):.2f} us",
+            f"- 最大执行时长: {execute_stats.get('max_exec_time', 0.0):.2f} us",
+        ])
+    pipe_stats = artifact_stats.get("pipe_usage", {})
+    if pipe_stats:
+        lines.extend([
+            "", "### pipe_usage.csv",
+            f"- 数据源: `{pipe_stats.get('source', 'N/A')}`",
+            (
+                f"- Core 数: {pipe_stats.get('total_core_num', 'N/A')} "
+                f"(AIC={pipe_stats.get('aic_num', 'N/A')}, "
+                f"AIV={pipe_stats.get('aiv_num', 'N/A')})"
+            ),
+            "- Total Pipe Usage:",
+        ])
+        for pn, pv in sorted(pipe_stats.get("total_pipe_usage", {}).items()):
+            lines.append(
+                f"  - {pn}: avg={pv.get('avg_time', 0.0):.2f}, "
+                f"usage={pv.get('usage_percent', 0.0):.2f}%"
+            )
+    topo_stats = artifact_stats.get("topo", {})
+    if topo_stats:
+        lines.extend([
+            "", "### topo.json",
+            f"- 数据源: `{topo_stats.get('source', 'N/A')}`",
+            f"- 任务节点数(近似): {topo_stats.get('task_like_nodes', 0)}",
+            f"- 依赖边数(近似): {topo_stats.get('edge_count', 0)}",
+        ])
+    program_stats = artifact_stats.get("program", {})
+    if program_stats:
+        lines.extend([
+            "", "### program.json",
+            f"- 数据源: `{program_stats.get('source', 'N/A')}`",
+            f"- functions 数量: {program_stats.get('function_count', 0)}",
+            f"- tensors 数量: {program_stats.get('tensor_count', 0)}",
+        ])
+    tilefwk_stats = artifact_stats.get("tilefwk", {})
+    if tilefwk_stats:
+        lines.extend([
+            "", "### tilefwk_L1_prof_data.json",
+            f"- 数据源: `{tilefwk_stats.get('source', 'N/A')}`",
+            f"- Block 数: {tilefwk_stats.get('block_count', 0)}",
+            f"- Task 数: {tilefwk_stats.get('task_count', 0)}",
+            f"- 单 Task 最大 cycles: "
+            f"{tilefwk_stats.get('max_task_cycles', 0.0):.2f}",
+        ])
+    return lines
+
+
 def generate_report(
     analyzer: SwimlaneAnalyzer,
     output_path: str,
@@ -1160,181 +1385,11 @@ def generate_report(
             f"{stats['total_dur']:,} | {stats['bubble'] * 100:.1f}% | {stats['utilization'] * 100:.1f}% |"
         )
 
-    report_lines.extend([
-        "",
-        "## 气泡分析",
-        "",
-    ])
-
-    if bubble_stats and bubble_stats.get("threads"):
-        report_lines.extend([
-            f"数据源: `{bubble_stats.get('source', 'N/A')}`",
-            "",
-            f"- 总 Span Time: {bubble_stats.get('total_span_time', 0.0):.2f} us",
-            f"- 总 Busy Time: {bubble_stats.get('total_busy_time', 0.0):.2f} us",
-            f"- 总 Wait Time: {bubble_stats.get('total_wait_time', 0.0):.2f} us",
-            "",
-            "| 线程 | Span(us) | Busy(us) | Wait(us) | WaitSchedule(us) | WaitPred(us) | 利用率 |",
-            "|------|----------|----------|----------|------------------|--------------|--------|",
-        ])
-        for thread in bubble_stats.get("threads", []):
-            report_lines.append(
-                f"| {thread['name']} | {thread['span_time']:.2f} | {thread['busy_time']:.2f} | "
-                f"{thread['wait_time']:.2f} | "
-                f"{thread['wait_schedule']:.2f} | {thread['wait_predecessor']:.2f} | "
-                f"{thread['utilization'] * 100:.1f}% |"
-            )
-    else:
-        report_lines.append("- 未找到 bubble_analysis.log，跳过该章节。")
-
-    report_lines.extend([
-        "",
-        "## 执行时间统计",
-        "",
-    ])
-
-    if execution_stats.get("count", 0) > 0:
-        report_lines.extend([
-            f"- 样本数: {execution_stats['count']}",
-            f"- Average Execution Time(均值): {execution_stats['avg_time_mean']:.2f} us",
-            f"- Max Execution Time(最大): {execution_stats['max_time_max']:.2f} us",
-            f"- Min Execution Time(最小): {execution_stats['min_time_min']:.2f} us",
-            "",
-            "| 任务 | Avg(us) | Max(us) | Min(us) |",
-            "|------|---------|---------|---------|",
-        ])
-        for row in execution_stats.get("records", [])[:5]:
-            report_lines.append(
-                f"| `{row['task']}` | {row['avg_time']:.2f} | {row['max_time']:.2f} | {row['min_time']:.2f} |"
-            )
-    else:
-        report_lines.append("- swimlane 中未包含 execution-hint，跳过该章节。")
-
-    report_lines.extend([
-        "",
-        "## 内存分析",
-        "",
-    ])
-
-    if memory_stats.get("peak_ub_bytes", 0) > 0 or memory_stats.get("operand_hints"):
-        mem_eff = memory_stats.get("memory_efficiency")
-        report_lines.extend([
-            f"- UB 峰值: {memory_stats.get('peak_ub_bytes', 0)} bytes",
-            f"- Operand Mem Usage 总和: {memory_stats.get('total_operand_mem_usage', 0)} bytes",
-            f"- Operand 单任务峰值: {memory_stats.get('peak_operand_mem_usage', 0)} bytes",
-            (
-                f"- 内存效率: {(mem_eff * 100):.1f}%"
-                if mem_eff is not None
-                else "- 内存效率: N/A (缺少足够数据)"
-            ),
-            "",
-            "| 任务 | Hint类型 | Shape | DType | MemUsage(bytes) | 解析格式 |",
-            "|------|----------|-------|-------|-----------------|----------|",
-        ])
-        for hint in memory_stats.get("operand_hints", [])[:6]:
-            report_lines.append(
-                f"| `{hint['task']}` | {hint['hint_type']} | {hint['shape'] or 'N/A'} | "
-                f"{hint['dtype'] or 'N/A'} | {hint['mem_usage']} | {hint.get('format', 'unknown')} |"
-            )
-    else:
-        report_lines.append("- 未找到 UB 内存与 operand hint 数据，跳过该章节。")
-
-    report_lines.extend([
-        "",
-        "## 控制开销分析",
-        "",
-    ])
-
-    if trace_stats and trace_stats.get("total_time", 0) > 0:
-        control_ratio = (trace_stats.get("total_time", 0.0) / timeline_length) if timeline_length > 0 else 0.0
-        report_lines.extend([
-            f"数据源: `{trace_stats.get('source', 'N/A')}`",
-            "",
-            f"- AICPU-CTRL 总时长: {trace_stats.get('total_time', 0.0):.2f} (同源单位)",
-            f"- 控制开销占比: {control_ratio * 100:.2f}%",
-            f"- 数据来源类型: {trace_stats.get('source_type', 'unknown')}",
-            "",
-            "| Stage | 时长(us) | 占比 |",
-            "|-------|----------|------|",
-        ])
-        sorted_stages = sorted(trace_stats.get("stages", {}).items(), key=lambda x: x[1], reverse=True)
-        for stage_name, stage_dur in sorted_stages[:8]:
-            ratio = trace_stats.get("stage_ratios", {}).get(stage_name, 0.0)
-            report_lines.append(f"| `{stage_name}` | {stage_dur:.2f} | {ratio * 100:.2f}% |")
-    else:
-        report_lines.append("- 未找到 machine_runtime_operator_trace.json，跳过该章节。")
-
-    report_lines.extend([
-        "",
-        "## 其他产物分析",
-        "",
-    ])
-
-    has_artifact_data = any(bool(v) for v in artifact_stats.values())
-    if not has_artifact_data:
-        report_lines.append(
-            "- 未检测到可解析的额外产物（execute.json / pipe_usage.csv / topo.json / program.json / "
-            "tilefwk_L1_prof_data.json）。"
-        )
-    else:
-        execute_stats = artifact_stats.get("execute", {})
-        if execute_stats:
-            report_lines.extend([
-                "### execute.json",
-                f"- 数据源: `{execute_stats.get('source', 'N/A')}`",
-                f"- 任务数: {execute_stats.get('task_count', 0)}",
-                f"- 平均执行时长: {execute_stats.get('avg_exec_time', 0.0):.2f} us",
-                f"- 最大执行时长: {execute_stats.get('max_exec_time', 0.0):.2f} us",
-            ])
-
-        pipe_stats = artifact_stats.get("pipe_usage", {})
-        if pipe_stats:
-            report_lines.extend([
-                "",
-                "### pipe_usage.csv",
-                f"- 数据源: `{pipe_stats.get('source', 'N/A')}`",
-                (
-                    f"- Core 数: {pipe_stats.get('total_core_num', 'N/A')} "
-                    f"(AIC={pipe_stats.get('aic_num', 'N/A')}, AIV={pipe_stats.get('aiv_num', 'N/A')})"
-                ),
-                "- Total Pipe Usage:",
-            ])
-            for pipe_name, pipe_value in sorted(pipe_stats.get("total_pipe_usage", {}).items()):
-                report_lines.append(
-                    f"  - {pipe_name}: avg={pipe_value.get('avg_time', 0.0):.2f}, "
-                    f"usage={pipe_value.get('usage_percent', 0.0):.2f}%"
-                )
-
-        topo_stats = artifact_stats.get("topo", {})
-        if topo_stats:
-            report_lines.extend([
-                "",
-                "### topo.json",
-                f"- 数据源: `{topo_stats.get('source', 'N/A')}`",
-                f"- 任务节点数(近似): {topo_stats.get('task_like_nodes', 0)}",
-                f"- 依赖边数(近似): {topo_stats.get('edge_count', 0)}",
-            ])
-
-        program_stats = artifact_stats.get("program", {})
-        if program_stats:
-            report_lines.extend([
-                "",
-                "### program.json",
-                f"- 数据源: `{program_stats.get('source', 'N/A')}`",
-                f"- functions 数量: {program_stats.get('function_count', 0)}",
-                f"- tensors 数量: {program_stats.get('tensor_count', 0)}",
-            ])
-
-        tilefwk_stats = artifact_stats.get("tilefwk", {})
-        if tilefwk_stats:
-            report_lines.extend([
-                "",
-                "### tilefwk_L1_prof_data.json",
-                f"- 数据源: `{tilefwk_stats.get('source', 'N/A')}`",
-                f"- Block 数: {tilefwk_stats.get('block_count', 0)}",
-                f"- Task 数: {tilefwk_stats.get('task_count', 0)}",
-                f"- 单 Task 最大 cycles: {tilefwk_stats.get('max_task_cycles', 0.0):.2f}",
-            ])
+    report_lines.extend(_report_bubble_section(bubble_stats))
+    report_lines.extend(_report_execution_section(execution_stats))
+    report_lines.extend(_report_memory_section(memory_stats))
+    report_lines.extend(_report_trace_section(trace_stats, timeline_length))
+    report_lines.extend(_report_artifact_section(artifact_stats))
 
     report_lines.extend([
         "",
@@ -1349,7 +1404,9 @@ def generate_report(
         dur = task.get("dur", 0)
         tid = task.get("tid", 0)
         core_type = analyzer.get_core_type(tid)
-        report_lines.append(f"| {i} | `{name}` | {dur:,} | {core_type} |")
+        report_lines.append(
+            f"| {i} | `{name}` | {dur:,} | {core_type} |"
+        )
 
     report_lines.extend([
         "",
@@ -1375,7 +1432,8 @@ def generate_report(
 
     for gap in top_gaps[:5]:
         report_lines.append(
-            f"| {gap['core_name']} | {gap['gap_us']:,} | `{gap['prev_task']}` | `{gap['next_task']}` |"
+            f"| {gap['core_name']} | {gap['gap_us']:,} | "
+            f"`{gap['prev_task']}` | `{gap['next_task']}` |"
         )
 
     report_lines.extend([
@@ -1392,7 +1450,8 @@ def generate_report(
         )
 
     report_lines.extend([
-        "", "---", "*报告由 pypto-performance-analyzer 生成*"
+        "", "---",
+        "*报告由 pypto-performance-analyzer 生成*",
     ])
 
     report_content = "\n".join(report_lines)
@@ -1405,59 +1464,58 @@ def generate_report(
     return report_content
 
 
-def write_analysis_summary(summary_input: AnalysisSummaryInput) -> str:
-    # Calculate bubble ratio from core stats
-    bubble_ratios = [s["bubble"] for s in summary_input.core_stats.values() if s.get("bubble") is not None]
-    avg_bubble_ratio = sum(bubble_ratios) / len(bubble_ratios) if bubble_ratios else None
+def _compute_bottleneck_labels(
+    summary_input: AnalysisSummaryInput, avg_bubble_ratio: Optional[float]
+) -> List[str]:
+    """Identify bottleneck labels from summary metrics."""
+    mem_stats = summary_input.memory_stats or {}
+    mem_eff = mem_stats.get("memory_efficiency")
+    trace = summary_input.trace_stats or {}
+    trace_ratio = (
+        (trace.get("total_time", 0) / summary_input.timeline_length)
+        if summary_input.timeline_length > 0
+        else 0
+    )
+    bubble = summary_input.bubble_stats or {}
+    wait_ratio = bubble.get("total_wait_time", 0) / bubble.get("total_span_time", 1)
+    labels = (
+        ["compute"] * int(summary_input.aic_util < 0.6)
+        + ["compute"] * int(summary_input.aiv_util < 0.6)
+        + ["scheduling"] * int(avg_bubble_ratio is not None and avg_bubble_ratio > 0.3)
+        + ["memory"] * int(mem_eff is not None and mem_eff < 0.3)
+        + ["control_overhead"] * int(trace_ratio > 0.1)
+        + ["stitch"] * int(wait_ratio > 0.3)
+    )
+    return list(dict.fromkeys(labels))
 
-    # Determine bottleneck labels
-    bottleneck_labels = []
-    if summary_input.aic_util < 0.6:
-        bottleneck_labels.append("compute")
-    if summary_input.aiv_util < 0.6:
-        bottleneck_labels.append("compute")
-    if avg_bubble_ratio is not None and avg_bubble_ratio > 0.3:
-        bottleneck_labels.append("scheduling")
-    if summary_input.memory_stats and summary_input.memory_stats.get("memory_efficiency") is not None:
-        if summary_input.memory_stats["memory_efficiency"] < 0.3:
-            bottleneck_labels.append("memory")
-    if summary_input.trace_stats and summary_input.trace_stats.get("total_time", 0) > 0:
-        control_ratio = (
-            summary_input.trace_stats["total_time"] / summary_input.timeline_length
-            if summary_input.timeline_length > 0
-            else 0
-        )
-        if control_ratio > 0.1:
-            bottleneck_labels.append("control_overhead")
-    if summary_input.bubble_stats and summary_input.bubble_stats.get("total_wait_time", 0) > 0:
-        wait_ratio = (
-            summary_input.bubble_stats["total_wait_time"]
-            / summary_input.bubble_stats.get("total_span_time", 1)
-        )
-        if wait_ratio > 0.3:
-            bottleneck_labels.append("stitch")
-    # Deduplicate while preserving order
-    seen = set()
-    unique_labels = []
-    for label in bottleneck_labels:
-        if label not in seen:
-            seen.add(label)
-            unique_labels.append(label)
-    bottleneck_labels = unique_labels
 
-    # Extract suggested knobs from recommendations
-    suggested_knobs = []
-    for rec in summary_input.recommendations:
+def _extract_suggested_knobs(
+    recommendations: List[Dict[str, str]],
+) -> List[Dict[str, str]]:
+    """Extract suggested knobs from recommendation list."""
+    knobs: List[Dict[str, str]] = []
+    for rec in recommendations:
         if rec.get("knob") and rec.get("suggestion"):
-            # Skip the generic "通用优化建议"
             if rec.get("issue") == "通用优化建议":
                 continue
-            suggested_knobs.append(
-                {
-                    "knob": rec["knob"],
-                    "suggestion": rec["suggestion"],
-                }
-            )
+            knobs.append({"knob": rec["knob"], "suggestion": rec["suggestion"]})
+    return knobs
+
+
+def write_analysis_summary(summary_input: AnalysisSummaryInput) -> str:
+    """Write analysis summary JSON with key metrics and bottleneck labels."""
+    bubble_ratios = [
+        s["bubble"]
+        for s in summary_input.core_stats.values()
+        if s.get("bubble") is not None
+    ]
+    avg_bubble_ratio = (
+        sum(bubble_ratios) / len(bubble_ratios) if bubble_ratios else None
+    )
+    bottleneck_labels = _compute_bottleneck_labels(
+        summary_input, avg_bubble_ratio
+    )
+    suggested_knobs = _extract_suggested_knobs(summary_input.recommendations)
 
     summary = {
         "timestamp": datetime.now(tz=timezone.utc).isoformat(),
@@ -1465,7 +1523,10 @@ def write_analysis_summary(summary_input: AnalysisSummaryInput) -> str:
             "aic_utilization": round(summary_input.aic_util, 4),
             "aiv_utilization": round(summary_input.aiv_util, 4),
             "timeline_length_us": summary_input.timeline_length,
-            "bubble_ratio": round(avg_bubble_ratio, 4) if avg_bubble_ratio is not None else None,
+            "bubble_ratio": (
+                round(avg_bubble_ratio, 4)
+                if avg_bubble_ratio is not None else None
+            ),
         },
         "bottleneck_labels": bottleneck_labels,
         "suggested_knobs": suggested_knobs,
@@ -1477,12 +1538,16 @@ def write_analysis_summary(summary_input: AnalysisSummaryInput) -> str:
 
     summary_path = Path(summary_input.output_path)
     summary_path.parent.mkdir(parents=True, exist_ok=True)
-    summary_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+    summary_path.write_text(
+        json.dumps(summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
 
     return str(summary_path)
 
 
 def main():
+    """CLI entry point for the performance analyzer."""
     parser = argparse.ArgumentParser(
         description="PyPTO Performance Analyzer - Swimlane & Graph Analysis"
     )

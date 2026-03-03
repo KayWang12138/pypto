@@ -1126,6 +1126,166 @@ def _finalize_autotune_results(
         )
 
 
+def _dispatch_strategy(
+    strategy: str,
+    generator: "CandidateGenerator",
+    params: Dict[str, Any],
+    layer_name: str,
+    guidance: Dict[str, Any],
+    layer_budget: int,
+    get_layer_trial_count: Any,
+    layer_history: List[Dict[str, Any]],
+    get_layer_stop_reason: Any,
+    run_candidates: Any,
+    evaluate_candidate: Any,
+    stopper: "EarlyStopChecker",
+    get_total_trials: Any,
+    start_time: float,
+    get_no_improve_count: Any,
+) -> Optional[str]:
+    """Dispatch strategy-specific search logic and return global stop reason."""
+    global_stop_reason: Optional[str] = None
+    if strategy == "grid":
+        candidates = generator.grid_search(params)
+        candidates = generator.apply_guidance(layer_name, candidates, guidance)
+        global_stop_reason = run_candidates(candidates)
+    elif strategy == "random+grid":
+        random_budget = max(1, int(layer_budget * 0.7))
+        random_candidates = generator.random_search(params, random_budget)
+        random_candidates = generator.apply_guidance(
+            layer_name, random_candidates, guidance
+        )
+        global_stop_reason = run_candidates(random_candidates)
+        has_budget = get_layer_trial_count() < layer_budget
+        if (
+            global_stop_reason is None
+            and get_layer_stop_reason() is None
+            and layer_history
+            and has_budget
+        ):
+            top_sorted = sorted(
+                layer_history,
+                key=lambda item: float(item.get("metric", float("inf"))),
+            )
+            top_configs = [
+                item["config"]
+                for item in top_sorted[:3]
+                if isinstance(item.get("config"), dict)
+            ]
+            refine_budget = (
+                layer_budget - get_layer_trial_count()
+            )
+            max_cands = max(10, refine_budget * 3)
+            refine_candidates = generator.build_refinement_grid(
+                params, top_configs, max_candidates=max_cands
+            )
+            refine_candidates = generator.apply_guidance(
+                layer_name, refine_candidates, guidance
+            )
+            global_stop_reason = run_candidates(refine_candidates)
+    else:
+        global_stop_reason = _dispatch_bayesian(
+            generator, params, layer_name, guidance,
+            layer_budget, get_layer_trial_count,
+            layer_history, get_layer_stop_reason,
+            run_candidates, evaluate_candidate, stopper,
+            get_total_trials, start_time,
+            get_no_improve_count,
+        )
+    return global_stop_reason
+
+
+def _dispatch_bayesian(
+    generator: "CandidateGenerator",
+    params: Dict[str, Any],
+    layer_name: str,
+    guidance: Dict[str, Any],
+    layer_budget: int,
+    get_layer_trial_count: Any,
+    layer_history: List[Dict[str, Any]],
+    get_layer_stop_reason: Any,
+    run_candidates: Any,
+    evaluate_candidate: Any,
+    stopper: "EarlyStopChecker",
+    get_total_trials: Any,
+    start_time: float,
+    get_no_improve_count: Any,
+) -> Optional[str]:
+    """Run bayesian search strategy with initial random seed."""
+    init_count = min(10, layer_budget)
+    init_candidates = generator.random_search(params, init_count)
+    init_candidates = generator.apply_guidance(
+        layer_name, init_candidates, guidance
+    )
+    global_stop_reason = run_candidates(init_candidates)
+    while (
+        global_stop_reason is None
+        and get_layer_stop_reason() is None
+        and get_layer_trial_count() < layer_budget
+    ):
+        suggestions = generator.bayesian_suggest(
+            params, layer_history, n_trials=1
+        )
+        if not suggestions:
+            break
+        action = evaluate_candidate(suggestions[0])
+        if action == "stop_all":
+            global_stop_reason = stopper.check_global(
+                get_total_trials(), start_time
+            )
+            break
+        if action == "stop_layer":
+            break
+    return global_stop_reason
+
+
+def _dispatch_bayesian(
+    generator: "CandidateGenerator",
+    params: Dict[str, Any],
+    layer_name: str,
+    guidance: Dict[str, Any],
+    layer_budget: int,
+    layer_trial_count_ref: List[int],
+    layer_history: List[Dict[str, Any]],
+    layer_stop_reason_ref: List[Optional[str]],
+    run_candidates: Any,
+    evaluate_candidate: Any,
+    stopper: "EarlyStopChecker",
+    total_trials_ref: List[int],
+    start_time: float,
+    no_improve_count_ref: List[int],
+) -> Optional[str]:
+    """Run bayesian search strategy with initial random seed."""
+    init_count = min(10, layer_budget)
+    init_candidates = generator.random_search(params, init_count)
+    init_candidates = generator.apply_guidance(
+        layer_name, init_candidates, guidance
+    )
+    global_stop_reason = run_candidates(init_candidates)
+    while (
+        global_stop_reason is None
+        and layer_stop_reason_ref[0] is None
+        and layer_trial_count_ref[0] < layer_budget
+    ):
+        suggestions = generator.bayesian_suggest(
+            params, layer_history, n_trials=1
+        )
+        if not suggestions:
+            break
+        action = evaluate_candidate(suggestions[0])
+        if action == "stop_all":
+            global_stop_reason = stopper.check_global(
+                total_trials_ref[0], start_time
+            )
+            break
+        if action == "stop_layer":
+            layer_stop_reason_ref[0] = stopper.check_layer(
+                no_improve_count_ref[0]
+            )
+            break
+    return global_stop_reason
+
+
 def _search_one_layer(
     layer: Dict[str, Any],
     args: argparse.Namespace,
@@ -1277,6 +1437,7 @@ def _search_one_layer(
         return "continue"
 
     def run_candidates(candidates: List[Dict[str, Any]]) -> Optional[str]:
+        """Run evaluate loop over candidates and return global stop reason."""
         nonlocal layer_stop_reason
         for candidate in candidates:
             if layer_trial_count >= layer_budget:
@@ -1289,45 +1450,14 @@ def _search_one_layer(
                 return None
         return None
 
-    if strategy == "grid":
-        candidates = generator.grid_search(params)
-        candidates = generator.apply_guidance(layer_name, candidates, guidance)
-        global_stop_reason = run_candidates(candidates)
-    elif strategy == "random+grid":
-        random_budget = max(1, int(layer_budget * 0.7))
-        random_candidates = generator.random_search(params, random_budget)
-        random_candidates = generator.apply_guidance(layer_name, random_candidates, guidance)
-        global_stop_reason = run_candidates(random_candidates)
-        has_budget = layer_trial_count < layer_budget
-        if global_stop_reason is None and layer_stop_reason is None and layer_history and has_budget:
-            top_sorted = sorted(layer_history, key=lambda item: float(item.get("metric", float("inf"))))
-            top_configs = [item["config"] for item in top_sorted[:3] if isinstance(item.get("config"), dict)]
-            refine_budget = layer_budget - layer_trial_count
-            max_cands = max(10, refine_budget * 3)
-            refine_candidates = generator.build_refinement_grid(params, top_configs, max_candidates=max_cands)
-            refine_candidates = generator.apply_guidance(layer_name, refine_candidates, guidance)
-            global_stop_reason = run_candidates(refine_candidates)
-    else:
-        init_count = min(10, layer_budget)
-        init_candidates = generator.random_search(params, init_count)
-        init_candidates = generator.apply_guidance(layer_name, init_candidates, guidance)
-        global_stop_reason = run_candidates(init_candidates)
-
-        while (
-            global_stop_reason is None
-            and layer_stop_reason is None
-            and layer_trial_count < layer_budget
-        ):
-            suggestions = generator.bayesian_suggest(params, layer_history, n_trials=1)
-            if not suggestions:
-                break
-            action = evaluate_candidate(suggestions[0])
-            if action == "stop_all":
-                global_stop_reason = stopper.check_global(total_trials, start_time)
-                break
-            if action == "stop_layer":
-                layer_stop_reason = stopper.check_layer(no_improve_count)
-                break
+    global_stop_reason = _dispatch_strategy(
+        strategy, generator, params, layer_name, guidance,
+        layer_budget, lambda: layer_trial_count,
+        layer_history, lambda: layer_stop_reason,
+        run_candidates, evaluate_candidate, stopper,
+        lambda: total_trials, start_time,
+        lambda: no_improve_count,
+    )
 
     if layer_history:
         top_row = min(layer_history, key=lambda item: float(item.get("metric", float("inf"))))
