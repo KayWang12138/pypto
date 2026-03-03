@@ -58,13 +58,23 @@ int32_t ShmemWaitUntil::PollCompleted(npu::tile_fwk::dynamic::AiCoreManager *aic
     });
 }
 
+// uint64_t ShmemWaitUntil::GetRawAddr(const uint64_t addr, const uint64_t dstRankId)
+// {
+//     uint64_t groupIndex = npu::tile_fwk::Distributed::GetVirtualAddrGroupIndex(addr);
+//     DEV_ASSERT(groupIndex < commGroupNum_);
+//     uint64_t offset = npu::tile_fwk::Distributed::GetVirtualAddrOffset(addr);
+//     uint64_t memType = npu::tile_fwk::Distributed::GetVirtualAddrMemType(addr);
+//     auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(hcclContextAddr_[groupIndex]);
+//     auto winAddrOffset = (memType == 0) ? dstRankId : hcclOpParam->statusIndex + dstRankId;
+//     uint64_t rawAddr = hcclOpParam->winAddr[winAddrOffset] + offset;
+//     return rawAddr;
+// }
+
 uint64_t ShmemWaitUntil::GetRawAddr(const uint64_t addr, const uint64_t dstRankId)
 {
-    uint64_t groupIndex = npu::tile_fwk::Distributed::GetVirtualAddrGroupIndex(addr);
-    DEV_ASSERT(groupIndex < commGroupNum_);
-    uint64_t offset = npu::tile_fwk::Distributed::GetVirtualAddrOffset(addr);
-    uint64_t memType = npu::tile_fwk::Distributed::GetVirtualAddrMemType(addr);
-    auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(hcclContextAddr_[groupIndex]);
+    TileOp::CommContext *hcclOpParam = (TileOp::CommContext*)(((TileOp::ShmemAddrDesc*)addr)->contextAddr);
+    uint64_t offset = (((TileOp::ShmemAddrDesc*)addr)->offset);
+    uint64_t memType = (((TileOp::ShmemAddrDesc*)addr)->memType);
     auto winAddrOffset = (memType == 0) ? dstRankId : hcclOpParam->statusIndex + dstRankId;
     uint64_t rawAddr = hcclOpParam->winAddr[winAddrOffset] + offset;
     return rawAddr;
