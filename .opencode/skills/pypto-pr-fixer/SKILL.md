@@ -113,7 +113,7 @@ def is_robot_comment(comment):
 
 GitCode MCP 的 `diff_comment` 包含 `diff_position`（`start_new_line`/`end_new_line`），但**不包含文件 `path`**。定位文件时需结合 grep 搜索评论提及的代码内容。
 
-详见 [references/review-guide.md](references/review-guide.md)。
+详见 @references/review-guide.md。
 
 ## 能力二：CodeCheck CI 修复
 
@@ -138,8 +138,8 @@ cann-robot 评论中包含 codecheck 失败的 HTML 表格：
    python ${UNIFIED_SKILLS_ROOT}/library/shared/gitcode-pr-review-fixer/scripts/fetch_codecheck_violations.py "$CODECHECK_URL" --output json
    ```
    
-   **注意**：openlibing.com 是 SPA，受 WAF 保护，Playwright MCP 不支持 ARM64，必须使用 Playwright Python。详见 [references/codecheck-rules.md](references/codecheck-rules.md)。
-3. **匹配规则** — 根据规则 ID 在 [references/codecheck-rules.md](references/codecheck-rules.md) 中查找修复方案
+   **注意**：openlibing.com 是 SPA，受 WAF 保护，Playwright MCP 不支持 ARM64，必须使用 Playwright Python。详见 @references/codecheck-rules.md。
+3. **匹配规则** — 根据规则 ID 在 @references/codecheck-rules.md 中查找修复方案
 4. **分类处理**：
    - 可自动修复（格式类 G.FMT、命名类 G.NAM、日志类 G.LOG 等）→ 直接修复
    - 需人工判断（安全类 G.EDV、业务逻辑类 G.CTL 等）→ 生成修复建议
@@ -172,7 +172,7 @@ cann-robot 评论中包含 codecheck 失败的 HTML 表格：
 
 ### CodeCheck 规则参考
 
-完整规则映射见 [references/codecheck-rules.md](references/codecheck-rules.md)，包含 111 条 Python 规则的修复方案分类。
+完整规则映射见 @references/codecheck-rules.md，包含 111 条 Python 规则的修复方案分类。
 
 ## PR 策略选择
 
@@ -230,7 +230,7 @@ PR 创建成功后检查 CLA 和 LGTM 状态：
 | 分支同步状态 | `git log HEAD..origin/<target> --oneline` | `git pull --rebase` |
 | 提交者身份 | `git log -1 --format="%ae"` | 配置 `git user.email` |
 
-详见 [references/error-handling.md](references/error-handling.md)。
+详见 @references/error-handling.md。
 
 ## 限制说明
 
@@ -240,7 +240,7 @@ PR 创建成功后检查 CLA 和 LGTM 状态：
 
 ## 参考文档
 
-- [通用修复指南](references/review-guide.md) — 评论理解与修复策略
-- [CodeCheck 规则参考](references/codecheck-rules.md) — CodeArts-Check 规则映射与修复方案
-- [错误处理参考](references/error-handling.md) — MCP 错误、平台错误、pre-receive hook 诊断
-- [pypto-pr-creator](${UNIFIED_SKILLS_ROOT}/library/shared/pypto-pr-creator/SKILL.md) — PR 创建委托
+- 通用修复指南 (@references/review-guide.md) — 评论理解与修复策略
+- CodeCheck 规则参考 (@references/codecheck-rules.md) — CodeArts-Check 规则映射与修复方案
+- 错误处理参考 (@references/error-handling.md) — MCP 错误、平台错误、pre-receive hook 诊断
+- pypto-pr-creator (@${UNIFIED_SKILLS_ROOT}/library/shared/pypto-pr-creator/SKILL.md) — PR 创建委托

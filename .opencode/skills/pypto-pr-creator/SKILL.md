@@ -315,7 +315,7 @@ gitcode_create_pull_request(
 - `owner`/`repo` 指向**上游仓库**（`cann/pypto`），不是 fork
 - 所有参数名必须**小写**
 
-> 完整参数说明和示例见 [references/pr-spec.md](references/pr-spec.md)。
+> 完整参数说明和示例见 @references/pr-spec.md。
 
 #### 5.3 更新现有 PR
 
@@ -498,7 +498,7 @@ CLA 失败时，向用户展示诊断信息并询问：
 
 ## PR 标题与 Body 规范
 
-详见 [references/pr-spec.md](references/pr-spec.md)。
+详见 @references/pr-spec.md。
 
 ### 速查
 
@@ -528,7 +528,7 @@ CLA 失败时，向用户展示诊断信息并询问：
 
 ## 提交前检查清单
 
-详见 [references/checklist.md](references/checklist.md)。
+详见 @references/checklist.md。
 
 ---
 
