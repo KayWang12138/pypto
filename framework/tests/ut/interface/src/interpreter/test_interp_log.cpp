@@ -16,7 +16,12 @@
 #include <gtest/gtest.h>
 #include <vector>
 #include <memory>
+#include <string>
+#include <functional>
+#include <cstdio>
+#include <unistd.h>
 
+#include "interpreter_log_test_utils.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/inner/pre_def.h"
 #include "interface/configs/config_manager.h"
@@ -48,57 +53,104 @@ public:
 };
 
 TEST_F(InterpreterLogTest, ReshapeMismatchElementCount) {
-    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
-    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+    std::string logOutput = CaptureStdoutAndEcho([]() {
+        config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+        config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
-    Tensor input(DT_FP32, {256, 1, 128}, "input");
-    Tensor output(DT_FP32, {1, 128, 128}, "output");
+        Tensor input(DT_FP32, {256, 1, 128}, "input");
+        Tensor output(DT_FP32, {1, 128, 128}, "output");
 
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateConstantTensor<float>(input, 1.0f),
-    });
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<float>(output, 0.0f),
-    });
+        ProgramData::GetInstance().AppendInputs({
+            RawTensorData::CreateConstantTensor<float>(input, 1.0f),
+        });
+        ProgramData::GetInstance().AppendOutputs({
+            RawTensorData::CreateConstantTensor<float>(output, 0.0f),
+        });
 
-    FUNCTION("main", {input}, {output}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            TileShape::Current().SetVecTile(128, 128, 128);
-            auto t1 = View(input, {128, 1, 128}, {30, 1, 128}, {0, 0, 0});
-            auto t2 = Reshape(t1, {128, 128}, {30, 128});
-            auto t3 = Reshape(t2, {1, 128, 128}, {1, 30, 128});
-            Assemble(t3, {0, 0, 0}, output);
+        FUNCTION("main", {input}, {output}) {
+            LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+                (void)i;
+                TileShape::Current().SetVecTile(128, 128, 128);
+                auto t1 = View(input, {128, 1, 128}, {30, 1, 128}, {0, 0, 0});
+                auto t2 = Reshape(t1, {128, 128}, {30, 128});
+                auto t3 = Reshape(t2, {1, 128, 128}, {1, 30, 128});
+                Assemble(t3, {0, 0, 0}, output);
+            }
         }
-    }
+    });
+
+    // 仅校验 verify 日志：不应出现 FAILED
+    EXPECT_FALSE(VerifyLogContainsFailed(logOutput))
+        << "Expected no FAILED in verify log, captured: " << logOutput;
+}
+
+// 测试精度对比失败场景能否正确输出错误日志，并捕获日志进行校验
+TEST_F(InterpreterLogTest, PrecisionMismatchErrorLog) {
+    std::string logOutput = CaptureStdoutAndEcho([]() {
+        config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+        config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+
+        int s = 16;
+        Tensor input(DT_FP32, {s, s}, "input");
+        Tensor output(DT_FP32, {s, s}, "output");
+
+        ProgramData::GetInstance().AppendInputs({
+            RawTensorData::CreateConstantTensor<float>(input, 1.0f),
+        });
+        ProgramData::GetInstance().AppendOutputs({
+            RawTensorData::CreateConstantTensor<float>(output, 0.0f),
+        });
+        // 故意构造与实际输出不一致的 golden，触发精度错误日志
+        ProgramData::GetInstance().AppendGoldens({
+            RawTensorData::CreateConstantTensor<float>(output, 10.0f),
+        });
+
+        FUNCTION("main", {input}, {output}) {
+            LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+                (void)i;
+                auto t = View(input, {s, s}, {0, 0});
+                Assemble(t, {0, 0}, output);
+            }
+        }
+    });
+
+    // 仅校验 verify 日志：应出现 FAILED（精度校验失败）
+    EXPECT_TRUE(VerifyLogContainsFailed(logOutput))
+        << "Expected FAILED in verify log for precision mismatch, captured: " << logOutput;
 }
 
 // 测试空 loop (start=0, end=0) 能否触发 interpreter 的 "skip execute due to idx range = 0" 日志
 TEST_F(InterpreterLogTest, EmptyLoopStartEndZero) {
-    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
-    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+    std::string logOutput = CaptureStdoutAndEcho([]() {
+        config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+        config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
-    int s = 32;
-    Tensor input(DT_FP32, {s, s}, "input");
-    Tensor output(DT_FP32, {s, s}, "output");
+        int s = 32;
+        Tensor input(DT_FP32, {s, s}, "input");
+        Tensor output(DT_FP32, {s, s}, "output");
 
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateConstantTensor<float>(input, 1.0f),
-    });
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<float>(output, 0.0f),
-    });
-    ProgramData::GetInstance().AppendGoldens({
-        RawTensorData::CreateConstantTensor<float>(output, 0.0f),
-    });
+        ProgramData::GetInstance().AppendInputs({
+            RawTensorData::CreateConstantTensor<float>(input, 1.0f),
+        });
+        ProgramData::GetInstance().AppendOutputs({
+            RawTensorData::CreateConstantTensor<float>(output, 0.0f),
+        });
+        ProgramData::GetInstance().AppendGoldens({
+            RawTensorData::CreateConstantTensor<float>(output, 0.0f),
+        });
 
-    FUNCTION("main", {input}, {output}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(0, 0, 1)) {
-            (void)i;
-            auto t = View(input, {s, s}, {0, 0});
-            Assemble(t, {0, 0}, output);
+        FUNCTION("main", {input}, {output}) {
+            LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(0, 0, 1)) {
+                (void)i;
+                auto t = View(input, {s, s}, {0, 0});
+                Assemble(t, {0, 0}, output);
+            }
         }
-    }
+    });
+
+    // 仅校验 verify 日志：不应出现 FAILED
+    EXPECT_FALSE(VerifyLogContainsFailed(logOutput))
+        << "Expected no FAILED in verify log, captured: " << logOutput;
 }
 
 } // namespace npu::tile_fwk

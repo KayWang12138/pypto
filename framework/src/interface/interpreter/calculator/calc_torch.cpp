@@ -16,6 +16,7 @@
 #include <torch/torch.h>
 #include <limits>
 #include "tilefwk/error.h"
+#include "tilefwk/pypto_fwk_log.h"
 #include "../calc_api.h"
 #include "interpreter/calculator/fp8_convert.h"
 #include "interface/utils/log.h"

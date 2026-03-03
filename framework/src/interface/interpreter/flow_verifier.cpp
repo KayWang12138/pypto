@@ -15,6 +15,7 @@
 
 #include "flow_verifier.h"
 #include "tilefwk/tilefwk.h"
+#include "tilefwk/pypto_fwk_log.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
@@ -48,39 +49,17 @@ FlowVerifier::CompareResult FlowVerifier::VerifyResult(
 }
 
 bool FlowVerifier::VerifyResult(const std::string &key,
-    const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
-    const std::vector<std::shared_ptr<LogicalTensorData>> &outputDataViewList, float rtol, float atol) {
-    ASSERT(goldenDataViewList.size() == outputDataViewList.size());
-    for (size_t k = 0; k < goldenDataViewList.size(); k++) {
-        auto &goldenView = goldenDataViewList[k];
-        auto &outputView = outputDataViewList[k];
-        if (goldenView == nullptr || outputView == nullptr) {
-            continue;
-        }
-        auto result = VerifyResult(goldenView, outputView, rtol, atol);
-        if (!result.Check()) {
-            ALOG_ERROR(key, ":\n    Verify for ", goldenDataViewList.size(), " data view list index ", k, " result FAILED");
-            ALOG_ERROR(key, result.Dump());
-            return false;
-        } else {
-            ALOG_INFO(key, ": Verify for data ", k, " result SUCCEED");
-        }
-    }
-    return true;
-}
-
-bool FlowVerifier::VerifyResult(const std::string &key,
     const std::string tensorName,
     const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
     const std::vector<std::shared_ptr<LogicalTensorData>> &tensorDataViewList, float rtol, float atol) {
     bool result = true;
     if (goldenDataViewList.size() != tensorDataViewList.size()) {
-        ALOG_EVENT(key, " Verify NO_COMPARE");
+        VERIFY_EVENT("%s Verify NO_COMPARE", key.c_str());
         return result;
     }
     for (size_t k = 0; k < tensorDataViewList.size(); k++) {
         if (!goldenDataViewList[k]){
-            ALOG_EVENT(key, " Verify for ", goldenDataViewList.size(), " data view list index ", k, " result NO_COMPARE");
+            VERIFY_EVENT("%s Verify for %zu data view list index %zu result NO_COMPARE", key.c_str(), goldenDataViewList.size(), k);
             continue;
         }
         struct timeval tv;
@@ -101,11 +80,11 @@ bool FlowVerifier::VerifyResult(const std::string &key,
 
         auto tensorGraphResult = VerifyResult(goldenDataViewList[k], tensorDataViewList[k], rtol, atol);
         if (!tensorGraphResult.Check()) {
-            ALOG_ERROR(key, " Verify for ", goldenDataViewList.size(), " data view list index ", k, " result FAILED");
+            VERIFY_LOGE("%s Verify for %zu data view list index %zu result FAILED", key.c_str(), goldenDataViewList.size(), k);
             opInfo[toIndex(OpInfoCsvHeader::verifyResult)] = "FAILED";
             result = false;
         } else {
-            ALOG_EVENT(key, " Verify for ", goldenDataViewList.size(), " data view list index ", k, " result PASS");
+            VERIFY_EVENT("%s Verify for %zu data view list index %zu result PASS", key.c_str(), goldenDataViewList.size(), k);
         }
         auto res = tensorGraphResult.Dump();
         std::copy(res.begin(), res.end(), opInfo.begin() + toIndex(OpInfoCsvHeader::maxAbsDiff));
@@ -254,7 +233,7 @@ void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &
     }
     for (size_t captureIndex = 0; captureIndex < captureList.size(); captureIndex++) {
         const std::string key = functionInterpreter_->execDumpFunPath + "_" + functionInterpreter_->execDumpPassName;
-        ALOG_INFO(key, ": Verify");
+        VERIFY_LOGI("%s: Verify", key.c_str());
         functionInterpreter_->captureIndex = captureIndex;
 
         std::shared_ptr<FunctionCaptureExecution> capture = nullptr;
@@ -264,8 +243,8 @@ void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &
         try {
             captureExecution = functionInterpreter_->RunForPass(functionInterpreter_->execDumpPassName, func, capture);
         } catch (std::exception &e) {
-            ALOG_ERROR_F("VerifyPass failed for function %s, pass %s (passIndex: %d, captureIndex: %zu): %s",
-                         func->GetMagicName().c_str(), passIdentifier.c_str(), passIndex, captureIndex, e.what());
+            VERIFY_LOGE("VerifyPass failed for function %s, pass %s (passIndex: %d, captureIndex: %zu): %s",
+                        func->GetMagicName().c_str(), passIdentifier.c_str(), passIndex, captureIndex, e.what());
             checkResult = false;
             continue;
         }
