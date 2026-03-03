@@ -185,7 +185,7 @@ TEST_F(GenerateMoveOpPassTest, ConvertToCopy) {
         // ================== Verify Pass Effect ==================
         auto updatedOperations = Program::GetInstance().GetFunctionByRawName("TENSOR_ADD")->Operations();
         constexpr int expectedOperations = 6;
-        EXPECT_EQ(updatedOperations.size(), expectedOperations) << "8 operations should remain View + Convert + Add + Assemble";
+        EXPECT_EQ(updatedOperations.size(), expectedOperations) << "6 operations should remain View + Convert + Add + Assemble";
         int assemble_num = 0;
         int view_num = 0;
         int copy_in_num = 0;

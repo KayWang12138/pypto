@@ -1116,7 +1116,7 @@ TEST_F(TestRemoveRedundantOpPass, TestGenerateViewSpecialCase) {
 TestGenerateViewDynOffsetCase
 inCast{8,16}->view->Tensor1{4,16}->assemble->Tensor2{4,16}->exp->outCast{4,16}
   
-inCast{8,16}->view->Tensor1{4,16}->assemble->Tensor2{4,16}->exp->outCast{4,16}
+inCast{8,16}->view->Tensor1{4,16}->exp->outCast{4,16}
 */
 TEST_F(TestRemoveRedundantOpPass, TestGenerateViewDynOffsetCase) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestRemoveRedundantOp", "TestRemoveRedundantOp", nullptr);
