@@ -432,7 +432,12 @@ public:
         aclrtStream aicoreStream, void *kernel, rtArgsEx_t &rtArgs, rtTaskCfgInfo_t &rtTaskCfg, bool debugEnable);
     static int DeviceRunOnce(Function *function, DevControlFlowCache* hostCtrlCache = nullptr,
         const DeviceLauncherConfig &config = DeviceLauncherConfig());
-
+    static void DisableCaptureProfiling(DeviceKernelArgs &kArgs) {
+        auto &profConfig = kArgs.toSubMachineConfig.profConfig;
+        profConfig.Remove(ProfConfig::AICORE_TIME);
+        profConfig.Remove(ProfConfig::AICPU_FUNC);
+    }
+    
     static void DeviceRunCacheKernelEnable(Function *func, bool enabled);
     static bool DeviceRunCacheKernelEnable(Function *func);
     static void DeviceRunCacheKernelSet(Function *func, uint8_t *devProg);
