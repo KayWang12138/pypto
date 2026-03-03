@@ -212,7 +212,6 @@ void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const T
     int64_t tileHout = convTile.tileL1Info.tileHout;
     int64_t tileWout = convTile.tileL1Info.tileWout;
     int64_t tileCout = convTile.tileL1Info.tileN;
-    int64_t tileCout = convTile.tileL1Info.tileN;
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
     int64_t tileCinFmap = convTile.tileL1Info.tileCinFmap;
     int64_t tileCinWeight = convTile.tileL1Info.tileCinWeight;
