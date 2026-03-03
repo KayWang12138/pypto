@@ -22,7 +22,7 @@ class RowMaxSumSingleOnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 257;
     int shape1 = 128;
@@ -60,7 +60,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single) {
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 257;
     int shape1 = 128;
@@ -98,7 +98,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single) {
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_3dim) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 8;
     int shape1 = 4;
@@ -137,7 +137,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_3dim) {
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_mla_rmsNorm) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     // rmsNorm:[B,S,qLoraRank]
     int shape0 = 16;
@@ -177,7 +177,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_mla_rmsNor
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     // softmax rowmax: [B,N,1,S2]
     int shape0 = 2;
@@ -218,7 +218,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax) {
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax_unalign) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     // softmax rowmax: [B,N,1,S2]
     int shape0 = 1;
@@ -259,7 +259,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_max_single_4dim_softmax_un
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_4dim_softmax) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     // softmax rowsum: [B,N,1,S2]
     int shape0 = 32;
@@ -301,7 +301,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_4dim_softmax) {
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_moe) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 6;
     int shape1 = 1;
@@ -339,7 +339,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_moe) {
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_big_moe) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int B = 8;
     int S = 1;
@@ -378,7 +378,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_3dim_big_moe) {
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_2dim_moe) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int B = 8;
     int S = 1;
@@ -415,7 +415,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_operation_row_sum_single_2dim_moe) {
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis0_unalign) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 6;
     int shape1 = 2;
@@ -453,7 +453,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis0_unalign) {
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis1_unalign) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 4;
     int shape1 = 2;
@@ -490,7 +490,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis1_unalign) {
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis2_unalign) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 3;
     int shape1 = 2;
@@ -527,7 +527,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_4dim_axis2_unalign) {
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 4;
     int shape1 = 530;
@@ -565,7 +565,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign) {
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4_93) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 4;
     int shape1 = 93;
@@ -603,7 +603,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4_93) {
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4d) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 3;
     int shape1 = 3;
@@ -643,7 +643,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_sum_single_unalign_4d) {
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 4;
     int shape1 = 93;
@@ -681,7 +681,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign) {
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4_93) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 4;
     int shape1 = 93;
@@ -719,7 +719,7 @@ TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4_93) {
 
 TEST_F(RowMaxSumSingleOnBoardTest, test_row_max_single_unalign_4d) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 3;
     int shape1 = 3;

@@ -13,9 +13,9 @@
  * \brief
  */
 
-#ifdef BUILD_WITH_CANN
-
 #include "machine/runtime/runtime.h"
+#include <dlfcn.h>
+
 namespace {
 const int32_t MODULE_TYPE_AI_CORE = 4;
 const int32_t INFO_TYPE_OCCUPY = 8;
@@ -170,9 +170,9 @@ void *RuntimeAgentMemory::MapAiCoreReg() {
         return nullptr;
     }
 
-    int rc = rtMemcpy(devAddr, regAddrSize, regAddr.data(), regAddrSize, RT_MEMCPY_HOST_TO_DEVICE);
+    int rc = RuntimeMemcpy(devAddr, regAddrSize, regAddr.data(), regAddrSize, RT_MEMCPY_HOST_TO_DEVICE);
     if (rc != 0) {
-        MACHINE_LOGE(RtErr::RT_MEMCPY_FAILED, "rtMemcpy failed. size: %zu", regAddrSize);
+        MACHINE_LOGE(RtErr::RT_MEMCPY_FAILED, "RuntimeMemcpy failed. size: %zu", regAddrSize);
         FreeDevAddr((uint8_t*)devAddr);
         return nullptr;
     }
@@ -180,7 +180,4 @@ void *RuntimeAgentMemory::MapAiCoreReg() {
     MACHINE_LOGI("All AiCore Reg mapped: %p. size: %zu", devAddr, regAddrSize);
     return devAddr;
 }
-
 } // namespace npu::tile_fwk
-
-#endif // BUILD_WITH_CANN

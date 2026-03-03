@@ -24,7 +24,7 @@ class OnBoardIFATest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {}
 // Sub (32, 128), (32, 1)
 TEST_F(OnBoardIFATest, test_32_128_sub_32_1) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     int outCap = 32 * 128;
     uint64_t outputSize = outCap * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
@@ -57,7 +57,7 @@ TEST_F(OnBoardIFATest, test_32_128_sub_32_1) {
 // Sub (32, 1), (32, 1)
 TEST_F(OnBoardIFATest, test_32_1_sub_32_1) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     int outCap = 32 * 1;
     uint64_t outputSize = outCap * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
@@ -90,7 +90,7 @@ TEST_F(OnBoardIFATest, test_32_1_sub_32_1) {
 // add (32, 512), (32, 1)
 TEST_F(OnBoardIFATest, test_32_512_add_32_1) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     int outCap = 32 * 512;
     uint64_t outputSize = outCap * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
@@ -124,7 +124,7 @@ TEST_F(OnBoardIFATest, test_32_512_add_32_1) {
 // mul (32, 1), (32, 1)
 TEST_F(OnBoardIFATest, test_32_1_mul_32_1) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     int outCap = 32 * 1;
     uint64_t outputSize = outCap * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
@@ -157,7 +157,7 @@ TEST_F(OnBoardIFATest, test_32_1_mul_32_1) {
 // mul (32, 512), (32, 1)
 TEST_F(OnBoardIFATest, test_32_512_mul_32_1) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     int outCap = 32 * 512;
     uint64_t outputSize = outCap * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
@@ -192,7 +192,7 @@ TEST_F(OnBoardIFATest, test_32_512_mul_32_1) {
 // exp (32, 128)
 TEST_F(OnBoardIFATest, test_32_128_tileop_exp) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     int outCap = 32 * 128;
     uint64_t outputSize = outCap * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
@@ -222,7 +222,7 @@ TEST_F(OnBoardIFATest, test_32_128_tileop_exp) {
 // exp (32, 1)
 TEST_F(OnBoardIFATest, test_32_1_tileop_exp) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     int outCap = 32 * 1;
     uint64_t outputSize = outCap * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
@@ -251,7 +251,7 @@ TEST_F(OnBoardIFATest, test_32_1_tileop_exp) {
 // LOG1P (32, 1)
 TEST_F(OnBoardIFATest, test_32_1_tileop_log1p) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     int outCap = 32 * 1;
     uint64_t outputSize = outCap * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
@@ -281,7 +281,7 @@ TEST_F(OnBoardIFATest, test_32_1_tileop_log1p) {
 // MAX (32, 1)
 TEST_F(OnBoardIFATest, test_32_1_maximum) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     int outCap = 32 * 1;
     uint64_t outputSize = outCap * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
@@ -314,7 +314,7 @@ TEST_F(OnBoardIFATest, test_32_1_maximum) {
 // RECIP (32, 1)
 TEST_F(OnBoardIFATest, test_32_1_reciprocal) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     int outCap = 32 * 1;
     uint64_t outputSize = outCap * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
@@ -344,7 +344,7 @@ TEST_F(OnBoardIFATest, test_32_1_reciprocal) {
 // RELU (32, 1)
 TEST_F(OnBoardIFATest, test_32_1_relu) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     int outCap = 32 * 1;
     uint64_t outputSize = outCap * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
@@ -375,7 +375,7 @@ TEST_F(OnBoardIFATest, test_32_1_relu) {
 // rowmaxsingle (32, 128)
 TEST_F(OnBoardIFATest, test_operation_32_128_row_max_single) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 32;
     int shape1 = 128;
@@ -412,7 +412,7 @@ TEST_F(OnBoardIFATest, test_operation_32_128_row_max_single) {
 
 TEST_F(OnBoardIFATest, test_operation_32_128_row_sum_single) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     int shape0 = 32;
     int shape1 = 128;
@@ -450,7 +450,7 @@ TEST_F(OnBoardIFATest, test_operation_32_128_row_sum_single) {
 // SIGN (32, 1)
 TEST_F(OnBoardIFATest, test_32_1_sign) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     int outCapa = 32 * 1;
     uint64_t outputSize = outCapa * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
@@ -481,7 +481,7 @@ TEST_F(OnBoardIFATest, test_32_1_sign) {
 // SIGNBIT (32, 1)
 TEST_F(OnBoardIFATest, test_32_1_signbit) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     int outCapa = 32 * 1;
     uint64_t outputSize = outCapa * sizeof(bool);
     uint8_t* out_ptr = allocDevAddr(outputSize);
@@ -512,7 +512,7 @@ TEST_F(OnBoardIFATest, test_32_1_signbit) {
 // concat ((32, 512), (32, 64))
 TEST_F(OnBoardIFATest, test_concat_32_512_32_64) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     int outCap = 32 * (512 + 64);
     int shape1Cap = 32 * 512;
     int shape2Cap = 32 * 64;
@@ -550,7 +550,7 @@ TEST_F(OnBoardIFATest, test_concat_32_512_32_64) {
 
 TEST_F(OnBoardIFATest, test_concat_32_tensor) {
     aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     int outCap = 32 * 32 * 512;
     int shapeCap = 32 * 512;
     int tensorNum = 32;

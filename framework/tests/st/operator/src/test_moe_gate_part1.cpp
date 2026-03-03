@@ -27,7 +27,7 @@ TEST_F(MoEGatePart1OnBoardTest, test_moe_gate_part1) {
     constexpr int32_t B = 16;
     constexpr int32_t nRoutedExperts = 256;
 
-    rtSetDevice(GetDeviceIdByEnvVar());
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
 
     // set input data
     uint64_t input_e_score_bias_size = nRoutedExperts;
