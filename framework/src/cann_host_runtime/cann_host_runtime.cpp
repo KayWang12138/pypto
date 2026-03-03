@@ -24,7 +24,7 @@ const std::string socVerFuncName = "rtGetSocVersion";
 void *CannHostRuntime::GetSymbol(const std::string &sym) {	 
  #ifdef BUILD_WITH_CANN	 
      if (handleDep_ != nullptr && handle_ != nullptr) {	 
-         return dlsym(handle, sym.c_str());	 
+         return dlsym(handle_, sym.c_str());	 
      }	 
  #endif	 
      (void)sym;	 
@@ -36,10 +36,10 @@ CannHostRuntime::CannHostRuntime() {
     std::string LibPathDir = std::string(ASCEND_CANN_PACKAGE_PATH) + "/lib64/";
     std::string soDepPath = RealPath(LibPathDir + "libprofapi.so");
     FUNCTION_LOGW("soDepPath = %s", soDepPath.c_str());
-    void *handleDep_ = dlopen(soDepPath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+    handleDep_ = dlopen(soDepPath.c_str(), RTLD_LAZY | RTLD_GLOBAL);
     std::string soPath = RealPath(LibPathDir + "libruntime.so");
     FUNCTION_LOGW("soPath = %s", soPath.c_str());
-    void *handle_ = dlopen(soPath.c_str(), RTLD_LAZY);
+    handle_ = dlopen(soPath.c_str(), RTLD_LAZY);
     if (handleDep_ != nullptr && handle_ != nullptr) {
         socVerFunc_ = (GetSocVerFunc)GetSymbol(socVerFuncName);
     }
