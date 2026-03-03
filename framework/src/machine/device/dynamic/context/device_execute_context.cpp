@@ -553,28 +553,49 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallLog(void *ctx_, uint64_t val
     return nullptr;
 }
 
+// void *DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, uint64_t value) {
+//     uint64_t groupIndex = (reinterpret_cast<uint64_t*>(value))[0];
+//     uint64_t memType = (reinterpret_cast<uint64_t*>(value))[1];
+//     uint64_t size = (reinterpret_cast<uint64_t*>(value))[2];
+//     constexpr uint64_t memTypeCount = 2;
+//     constexpr uint64_t OFFSET_BITS = 58UL;
+//     constexpr uint64_t GROUP_BITS = 2UL;
+//     constexpr uint64_t MEMTYPE_BITS = 2UL;
+//     constexpr uint64_t GROUP_SHIFT = OFFSET_BITS;
+//     constexpr uint64_t MEMTYPE_SHIFT = GROUP_SHIFT + GROUP_BITS;
+//     constexpr uint64_t FILL_SHIFT = MEMTYPE_SHIFT + MEMTYPE_BITS;
+//     DEV_ASSERT(memType < memTypeCount);
+//     DeviceExecuteContext* ctx = (DeviceExecuteContext*)ctx_;
+//     DEV_ASSERT(groupIndex < ctx->args->commGroupNum);
+//     auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(ctx->args->commContexts[groupIndex]);
+//     uint64_t winSize = memType == 0 ? hcclOpParam->winDataSize : hcclOpParam->winStatusSize;
+//     if (ctx->shmemAddrOffset[memType] + size > winSize) {
+//         ctx->shmemAddrOffset[memType] = 0UL;
+//     }
+//     uint64_t vaddr = ctx->shmemAddrOffset[memType] | (groupIndex << GROUP_SHIFT) | (memType << MEMTYPE_SHIFT) | (1UL << FILL_SHIFT);
+//     ctx->shmemAddrOffset[memType] += size;
+//     return reinterpret_cast<void*>(vaddr);
+// }
+
 void *DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, uint64_t value) {
-    uint64_t groupIndex = (reinterpret_cast<uint64_t*>(value))[0];
+    uint64_t addr = (reinterpret_cast<uint64_t*>(value))[0];
     uint64_t memType = (reinterpret_cast<uint64_t*>(value))[1];
     uint64_t size = (reinterpret_cast<uint64_t*>(value))[2];
-    constexpr uint64_t memTypeCount = 2;
-    constexpr uint64_t OFFSET_BITS = 58UL;
-    constexpr uint64_t GROUP_BITS = 2UL;
-    constexpr uint64_t MEMTYPE_BITS = 2UL;
-    constexpr uint64_t GROUP_SHIFT = OFFSET_BITS;
-    constexpr uint64_t MEMTYPE_SHIFT = GROUP_SHIFT + GROUP_BITS;
-    constexpr uint64_t FILL_SHIFT = MEMTYPE_SHIFT + MEMTYPE_BITS;
+    constexpr uint64_t memTypeCount = 2;  
     DEV_ASSERT(memType < memTypeCount);
     DeviceExecuteContext* ctx = (DeviceExecuteContext*)ctx_;
-    DEV_ASSERT(groupIndex < ctx->args->commGroupNum);
-    auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(ctx->args->commContexts[groupIndex]);
+    DevShmemAddrDesc* desc = ctx->devProg->GetShmemDesc(ctx->shmemDescIdx);
+    auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(addr);
     uint64_t winSize = memType == 0 ? hcclOpParam->winDataSize : hcclOpParam->winStatusSize;
     if (ctx->shmemAddrOffset[memType] + size > winSize) {
         ctx->shmemAddrOffset[memType] = 0UL;
     }
-    uint64_t vaddr = ctx->shmemAddrOffset[memType] | (groupIndex << GROUP_SHIFT) | (memType << MEMTYPE_SHIFT) | (1UL << FILL_SHIFT);
-    ctx->shmemAddrOffset[memType] += size;
-    return reinterpret_cast<void*>(vaddr);
+    desc->offset = hcclOpParam->offset[memType];
+    desc->memType = memType;
+    desc->contextAddr = addr;
+    hcclOpParam->offset[memType] += size;
+    ctx->shmemDescIdx++;
+    return reinterpret_cast<void*>(desc);
 }
 
 void *DeviceExecuteContext::DeviceExecuteRuntimeCallSlotMarkNeedAlloc(void *ctx_, uint64_t slotIndex) {

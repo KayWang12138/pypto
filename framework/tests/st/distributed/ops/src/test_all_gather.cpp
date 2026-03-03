@@ -19,6 +19,7 @@
 #include "interface/configs/config_manager.h"
 #include "tilefwk/data_type.h"
 #include "test_dev_func_runner.h"
+#include "machine/runtime/distributed/distributed_context.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
