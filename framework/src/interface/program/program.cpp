@@ -177,8 +177,6 @@ void Program::ClearEmptyHiddenFunction() {
 
 void SetParamConfig(Function* currentFuncPtr) {
     std::shared_ptr<ConfigScope> currentScope = ConfigManagerNg::GetInstance().CurrentScope();
-    currentFuncPtr->paramConfigs_.L1ReuseMode = currentScope->GetPassConfig<int>(CUBE_L1_REUSE_MODE);
-    currentFuncPtr->paramConfigs_.cubeNBufferMode = currentScope->GetPassConfig<int>(CUBE_NBUFFER_MODE);
     currentFuncPtr->paramConfigs_.sgPgUpperBound = currentScope->GetPassConfig<int>(SG_PG_UPPER_BOUND);
     currentFuncPtr->paramConfigs_.sgPgLowerBound = currentScope->GetPassConfig<int>(SG_PG_LOWER_BOUND);
     currentFuncPtr->paramConfigs_.sgParallelNum = currentScope->GetPassConfig<int>(SG_PARALLEL_NUM);
@@ -189,7 +187,6 @@ void SetParamConfig(Function* currentFuncPtr) {
     currentFuncPtr->paramConfigs_.cubeL1ReuseSetting = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_L1_REUSE_SETTING);
     currentFuncPtr->paramConfigs_.cubeNBufferSetting = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_NBUFFER_SETTING);
     currentFuncPtr->paramConfigs_.vecNBufferSetting = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(VEC_NBUFFER_SETTING);
-    currentFuncPtr->paramConfigs_.vecNBuffermode = currentScope->GetPassConfig<int>(VEC_NBUFFER_MODE);
     currentFuncPtr->paramConfigs_.mgVecParallelLb = currentScope->GetPassConfig<int>(MG_VEC_PARALLEL_LB);
     currentFuncPtr->paramConfigs_.pgSkipPartition = currentScope->GetPassConfig<bool>(PG_SKIP_PARTITION);
     currentFuncPtr->paramConfigs_.copyOutResolveCoalescing = currentScope->GetPassConfig<int>(COPYOUT_RESOLVE_COALESCING);
