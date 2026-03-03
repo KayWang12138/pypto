@@ -25,6 +25,7 @@
 #include "operation_impl.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/tile_shape.h"
+#include "tilefwk/platform.h"
 
 namespace npu {
 namespace tile_fwk {
@@ -952,19 +953,47 @@ void CheckGmAccumulationParam(DataType outType, const Tensor &aMatrix, const Ten
     });
 }
 
-void CheckMatmulOperands(DataType outType, const Tensor &operand1, const Tensor &operand2,
-    const MatmulAttrParam &attrParam, const MatmulExtendParam &param = {}) {
+
+void CheckOperandDtype(DataType outType, const Tensor &operand1, const Tensor &operand2) {
     OP_CHECK(true, {
         ASSERT(outType == DataType::DT_FP32 || outType == DataType::DT_FP16 || outType == DataType::DT_BF16 ||
                outType == DataType::DT_INT32)
             << "Unsupported output data type. Only DT_FP32, DT_FP16, DT_BF16, DT_INT32 are supported.";
     });
+    const DataType operand1Dtype = operand1.GetDataType();
+    const DataType operand2Dtype = operand2.GetDataType();
+    const bool isOperand1Fp8 = (operand1Dtype == DataType::DT_FP8E5M2 || operand1Dtype == DataType::DT_FP8E4M3);
     OP_CHECK(true, {
-        ASSERT(operand1.GetDataType() == operand2.GetDataType())
-            << "input dataType must be consistent. "
-            << "operand1 dataType: " << DataType2String(operand1.GetDataType())
-            << ", operand2 dataType: " << DataType2String(operand2.GetDataType()) << std::endl;
+        ASSERT(!isOperand1Fp8 || Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510)
+            << "Float8 is only supported on 950PR and 950DT platform.";
     });
+    OP_CHECK(true, {
+        ASSERT(!isOperand1Fp8 || (operand2Dtype == DataType::DT_FP8E5M2 || operand2Dtype == DataType::DT_FP8E4M3))
+            << "When operand1 is of type DT_FP8E4M3 or DT_FP8E5M2, operand2 must be DT_FP8E4M3 or DT_FP8E5M2. "
+            << "operand1 dataType: " << DataType2String(operand1Dtype)
+            << ", operand2 dataType: " << DataType2String(operand2Dtype);
+    });
+    OP_CHECK(true, {
+        ASSERT(operand1Dtype != DataType::DT_FP8E5M2 || operand1.Format() == TileOpFormat::TILEOP_ND)
+            << "When operand1 data type is DT_FP8E5M2, format must be ND.";
+    });
+    OP_CHECK(true, {
+        ASSERT(operand2Dtype != DataType::DT_FP8E5M2 || operand2.Format() == TileOpFormat::TILEOP_ND)
+            << "When operand2 data type is DT_FP8E5M2, format must be ND.";
+    });
+
+    OP_CHECK(true, {
+        ASSERT(isOperand1Fp8 || (operand1Dtype == operand2Dtype))
+            << "input dataType must be consistent. "
+            << "operand1 dataType: " << DataType2String(operand1Dtype)
+            << ", operand2 dataType: " << DataType2String(operand2Dtype);
+    });
+}
+
+void CheckMatmulOperands(DataType outType, const Tensor &operand1, const Tensor &operand2,
+    const MatmulAttrParam &attrParam, const MatmulExtendParam &param = {}) {
+    // dtype valid check
+    CheckOperandDtype(outType, operand1, operand2);
     // GM Acc valid check
     CheckGmAccumulationParam(outType, operand1, operand2, attrParam, param);
     // shape valid check
