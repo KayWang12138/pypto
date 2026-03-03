@@ -451,7 +451,6 @@ def sparse_flash_attention_quant_d(
         pass_options={
             "pg_upper_bound": 50000,
             "pg_lower_bound": 512,
-            "vec_nbuffer_mode": 2,
             "vec_nbuffer_setting": {-1: 2, 0: 8},
             "cube_l1_reuse_setting": {-1: 2},
         },
@@ -551,7 +550,6 @@ def sparse_flash_attention_quant_p(
         pass_options={
             "pg_upper_bound": 50000,
             "pg_lower_bound": 512,
-            "vec_nbuffer_mode": 2,
             "vec_nbuffer_setting": {-1: 4, 0: 16},
             "cube_l1_reuse_setting": {-1: 4},
         },
