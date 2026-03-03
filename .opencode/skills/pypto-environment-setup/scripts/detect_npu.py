@@ -1,5 +1,5 @@
-# Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
 #!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
 """Ascend NPU 硬件深度检测模块。
 
 瀑布式多级检测策略，从零依赖到高级运行时逐级探测：
@@ -650,9 +650,9 @@ def main() -> int:
     args = parser.parse_args()
     result = detect_npu()
     if args.json:
-        _ = logging.info(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
+        logging.info(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
     else:
-        _ = logging.info(result.summary())
+        logging.info(result.summary())
     return 0
 
 if __name__ == '__main__':
