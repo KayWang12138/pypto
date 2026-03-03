@@ -21,6 +21,7 @@
 #include "interface/utils/op_info_manager.h"
 #include "tilefwk/pypto_fwk_log.h"
 #include "machine/utils/machine_error.h"
+#include "adapter/api/runtime_api.h"
 
 struct process_sign {
     pid_t tgid;
@@ -147,10 +148,10 @@ int DeviceLauncher::SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuSt
             MACHINE_LOGE(DevCommonErr::NULLPTR, "rtModel is null!");
             return -1;;
         }
-        rtError_t ret = rtStreamAddToModel(aicpuStream, rtModel);
+        rtError_t ret = RuntimeStreamAddToModel(aicpuStream, rtModel);
         if (ret != 0) {
             MACHINE_LOGE(RtErr::RT_LAUNCH_FAILED,
-                           "rtStreamAddToModel failed, return[%d]", ret);
+                           "RuntimeStreamAddToModel failed, return[%d]", ret);
             return -1;
         }
     }
@@ -511,20 +512,16 @@ uint8_t* CopyHostToDev(uint8_t* data, uint64_t size) {
 }
 
 DeviceGuard::DeviceGuard(int32_t devId) : nDevId(devId) {
-#ifdef BUILD_WITH_CANN
-    (void)rtGetDevice(&oDevId);
+    RuntimeGetDevice(&oDevId);
     if (nDevId != oDevId) {
-        rtSetDevice(nDevId);
+        RuntimeSetDevice(nDevId);
     }
-#endif
 }
 
 DeviceGuard::~DeviceGuard() {
-#ifdef BUILD_WITH_CANN
     if (nDevId != oDevId) {
-        rtSetDevice(oDevId);
+        RuntimeSetDevice(oDevId);
     }
-#endif
 }
 
 AclModeGuard::AclModeGuard(aclmdlRICaptureMode tmode) : mode(tmode) {
@@ -569,18 +566,18 @@ uint8_t *DeviceLauncher::CopyControlFlowCache(DevControlFlowCache *ctrlCache) {
     auto cacheSize = ctrlCache->usedCacheSize;
     auto bufNum = DEFAULT_RUNTIME_DATA_RING_BUFFER_COUNT;
 
-    int ret = rtMalloc((void **)&devCache, cacheSize * bufNum, RT_MEMORY_HBM, 0);
+    int ret = RuntimeMalloc((void **)&devCache, cacheSize * bufNum, RT_MEMORY_HBM, 0);
     if (devCache == nullptr) {
         MACHINE_LOGE(RtErr::RT_MALLOC_FAILED, "control flow cache malloc failed");
         return nullptr;
     }
 
     for (int i = 0; i < bufNum; ++i) {
-        ret = rtMemcpy(devCache + i * cacheSize, cacheSize, ctrlCache, cacheSize, RT_MEMCPY_HOST_TO_DEVICE);
+        ret = RuntimeMemcpy(devCache + i * cacheSize, cacheSize, ctrlCache, cacheSize, RT_MEMCPY_HOST_TO_DEVICE);
         if (ret != 0) {
             MACHINE_LOGE(RtErr::RT_MEMCPY_FAILED,
                            "control flow cache memcpy failed, ret: %d", ret);
-            rtFree(devCache);
+            RuntimeFree(devCache);
             return nullptr;
         }
     }
@@ -594,7 +591,7 @@ uint8_t *DeviceLauncher::CopyControlFlowCache(DevControlFlowCache *ctrlCache) {
 void DeviceLauncher::FreeControlFlowCache(uint8_t *ctrlCache) {
 #ifdef BUILD_WITH_CANN
     if (ctrlCache != nullptr) {
-        rtFree(ctrlCache);
+        RuntimeFree(ctrlCache);
     }
 #else
     (void)ctrlCache;
@@ -608,9 +605,9 @@ void DeviceLauncher::AddAicpuStream(aclmdlRI &rtModel, bool tripleStream) {
     
     if (IsCaptureMode()) {
         if (tripleStream) {
-            rtStreamAddToModel(ctrlStream, rtModel);
+            RuntimeStreamAddToModel(ctrlStream, rtModel);
         }
-        rtStreamAddToModel(schedtream, rtModel);
+        RuntimeStreamAddToModel(schedtream, rtModel);
     }
 #else
     (void)rtModel;
@@ -668,7 +665,7 @@ void *DeviceLauncher::RegisterKernelBin(const std::vector<uint8_t> &kernelBinary
         .length = kernelBinary.size(),
     };
 
-    int ret = rtRegisterAllKernel(&binary, &hdl);
+    int ret = RuntimeRegisterAllKernel(&binary, &hdl);
     if (ret != RT_ERROR_NONE) {
         MACHINE_LOGE(HostLauncherErr::REGISTER_KERNEL_FAILED, "register kernel failed, ret: %d", ret);
     }
@@ -681,7 +678,7 @@ void *DeviceLauncher::RegisterKernelBin(const std::vector<uint8_t> &kernelBinary
 
 void DeviceLauncher::UnregisterKernelBin(void *hdl) {
 #ifdef BUILD_WITH_CANN
-    int ret = rtDevBinaryUnRegister(hdl);
+    int ret = RuntimeDevBinaryUnRegister(hdl);
     if (ret != RT_ERROR_NONE) {
         MACHINE_LOGE(RtErr::RT_REGISTER_FAILED, "unregister kernel failed, ret: %d", ret);
     }
@@ -732,7 +729,7 @@ int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream
     if (tripleStream) {
         auto startTime = MsprofSysCycleTime();
         args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_CTRL;
-        ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 2, &rtArgs,
+        ret = RuntimeAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 2, &rtArgs,
             nullptr, ctrlStream, RT_KERNEL_USE_SPECIAL_TIMEOUT);
         devRunner.ReportHostProfInfo(ctrlStream, startTime, 2, MSPROF_GE_TASK_TYPE_AI_CPU, false);
         if (ret != RT_ERROR_NONE) {
@@ -741,14 +738,14 @@ int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream
         args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_SCHE;
         startTime = MsprofSysCycleTime();
         const int scheCpuNum = static_cast<int>(DeviceLauncher::GetDevProg(function)->devArgs.scheCpuNum);
-        ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", nrAicpu, &rtArgs,
+        ret = RuntimeAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", nrAicpu, &rtArgs,
             nullptr, schedStream, RT_KERNEL_USE_SPECIAL_TIMEOUT);
         devRunner.ReportHostProfInfo(schedStream, startTime, scheCpuNum, MSPROF_GE_TASK_TYPE_AI_CPU, false);
         return ret;
     } else {
         args->kArgs.parameter.runMode = RUN_UNIFIED_STREAM;
         auto startTime = MsprofSysCycleTime();
-        ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", nrAicpu, &rtArgs,
+        ret = RuntimeAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", nrAicpu, &rtArgs,
             nullptr, schedStream, RT_KERNEL_USE_SPECIAL_TIMEOUT);
         devRunner.ReportHostProfInfo(schedStream, startTime, nrAicpu, MSPROF_GE_TASK_TYPE_AI_CPU, false);
         return ret;
@@ -768,7 +765,7 @@ int DeviceLauncher::LaunchAicoreKernel(
     auto tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
     auto blockDim = dynamic::GetCfgBlockdim();
     auto startTime = MsprofSysCycleTime();
-    auto ret = rtKernelLaunchWithHandleV2(kernel, tilingKey, blockDim, &rtArgs, nullptr, aicoreStream, &rtTaskCfg);
+    auto ret = RuntimeKernelLaunchWithHandleV2(kernel, tilingKey, blockDim, &rtArgs, nullptr, aicoreStream, &rtTaskCfg);
     devRunner.ReportHostProfInfo(aicoreStream, startTime, blockDim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
     if (debugEnable) {
         auto scheStream = (aclrtStream)machine::GetRA()->GetScheStream();

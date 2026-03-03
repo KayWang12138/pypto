@@ -28,9 +28,9 @@
 #include "tilefwk/platform.h"
 #include "machine/runtime/host_prof.h"
 #include "machine/utils/machine_ws_intf.h"
+#include "adapter/api/runtime_define.h"
 
 #ifdef BUILD_WITH_CANN
-#include <runtime/rt.h>
 #include <acl/acl_rt.h>
 #include "machine/runtime/pmu_common.h"
 
