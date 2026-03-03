@@ -13,7 +13,6 @@
  * \brief
  */
 
-#define STRINGIFY(x) #x
 #include "platform_parser.h"
 
 namespace npu {
