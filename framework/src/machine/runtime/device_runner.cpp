@@ -135,6 +135,9 @@ void DeviceRunner::GetModuleLogLevel(DeviceArgs &args) {
     if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
         devDfxArg.isOpenSwim = PRO_LEVEL2;
     }
+    if (dynamic::DeviceLauncher::IsCaptureMode()) {
+        devDfxArg.isOpenSwim = 0;
+    }
     MACHINE_LOGI("Get PYPTO log level is: %d, openSwimLevel: %d", logLevel, devDfxArg.isOpenSwim);
     auto size = sizeof(DevDfxArgs);
     args.devDfxArgAddr = args_.devDfxArgAddr;

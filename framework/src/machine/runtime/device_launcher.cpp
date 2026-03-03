@@ -78,6 +78,7 @@ DeviceLauncherContext &DeviceLauncherContext::Get() {
 }
 
 std::vector<uint8_t> DeviceLauncher::tensorInfo_(kDefaultTensorinfoSize);
+bool DeviceLauncher::captureMode_ = false;
 
 #ifdef BUILD_WITH_CANN
 static const std::unordered_map<int, std::function<void(bool&)>> captureStatusHandlers = {
@@ -566,10 +567,42 @@ void DeviceLauncher::FreeControlFlowCache(uint8_t *ctrlCache) {
 #endif
 }
 
-bool DeviceLauncher::AddAicpuStream(aclrtStream aicoreStream, bool tripleStream) {
+void DeviceLauncher::AddAicpuStream(aclrtStream aicoreStream, bool tripleStream) {
 #ifdef BUILD_WITH_CANN
     auto ctrlStream = (aclrtStream)machine::GetRA()->GetCtrlStream();
     auto schedtream = (aclrtStream)machine::GetRA()->GetScheStream();
+    aclmdlRI rtModel;
+    aclmdlRICaptureStatus status = aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE;
+    auto ret = aclmdlRICaptureGetInfo(aicoreStream, &status, &rtModel);
+    if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
+        return;
+    } else if (ret != ACL_SUCCESS) {
+        MACHINE_LOGE("get capture info failed: %d", ret);
+        return;
+    }
+    if (status == aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_ACTIVE) {
+        if (tripleStream) {
+            rtStreamAddToModel(ctrlStream, rtModel);
+        }
+        rtStreamAddToModel(schedtream, rtModel);
+    }
+#else
+    (void)aicoreStream;
+    (void)tripleStream;
+    return;
+#endif
+}
+
+void DeviceLauncher::SetCaptureMode(bool captureMode) {
+    captureMode_ = captureMode;
+}
+
+bool DeviceLauncher::IsCaptureMode() {
+    return captureMode_;
+}
+
+bool DeviceLauncher::IsCaptureMode(aclrtStream aicoreStream) {
+#ifdef BUILD_WITH_CANN
     aclmdlRI rtModel;
     aclmdlRICaptureStatus status = aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE;
     auto ret = aclmdlRICaptureGetInfo(aicoreStream, &status, &rtModel);
@@ -579,17 +612,9 @@ bool DeviceLauncher::AddAicpuStream(aclrtStream aicoreStream, bool tripleStream)
         MACHINE_LOGE("get capture info failed: %d", ret);
         return false;
     }
-    if (status == aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_ACTIVE) {
-        if (tripleStream) {
-            rtStreamAddToModel(ctrlStream, rtModel);
-        }
-        rtStreamAddToModel(schedtream, rtModel);
-        return true;
-    }
-    return false;
+    return status == aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_ACTIVE;
 #else
     (void)aicoreStream;
-    (void)tripleStream;
     return false;
 #endif
 }
