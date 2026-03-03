@@ -91,6 +91,7 @@ class SwimlaneAnalyzer:
     """Analyzes Chrome Trace Format swimlane JSON for performance bottlenecks."""
 
     def __init__(self, trace_data: Dict[str, Any]):
+        """Initialize SwimlaneAnalyzer with trace data."""
         self.trace_data = trace_data
         self.events = trace_data.get("traceEvents", [])
         self.thread_names: Dict[int, str] = {}  # tid -> name
@@ -126,7 +127,7 @@ class SwimlaneAnalyzer:
         return 0.0
 
     @staticmethod
-    def _parse_kv_hint(
+    def parse_kv_hint(
         hint: str, shape_start: int, dtype_start: int, mem_usage_start: int
     ) -> Dict[str, Any]:
         """Parse key-value style operand hint."""
@@ -153,7 +154,7 @@ class SwimlaneAnalyzer:
         return parsed
 
     @staticmethod
-    def _parse_structured_hint(hint: str) -> Dict[str, Any]:
+    def parse_structured_hint(hint: str) -> Dict[str, Any]:
         """Parse structured (dict/list) operand hint via ast.literal_eval."""
         parsed: Dict[str, Any] = {"shape": "", "dtype": "", "mem_usage": 0}
         try:
@@ -214,12 +215,12 @@ class SwimlaneAnalyzer:
         shape_start = hint.find("shape:")
         dtype_start = hint.find("dtype:")
         mem_usage_start = hint.find("mem_usage:")
-        kv = SwimlaneAnalyzer._parse_kv_hint(hint, shape_start, dtype_start, mem_usage_start)
+        kv = SwimlaneAnalyzer.parse_kv_hint(hint, shape_start, dtype_start, mem_usage_start)
         if kv["shape"] or kv["dtype"] or kv["mem_usage"] > 0:
             result.update(kv)
             result["format"] = "kv"
             return result
-        structured = SwimlaneAnalyzer._parse_structured_hint(hint)
+        structured = SwimlaneAnalyzer.parse_structured_hint(hint)
         if structured["shape"] or structured["dtype"] or structured["mem_usage"] > 0:
             result.update(structured)
             result["format"] = "structured"
@@ -481,6 +482,7 @@ class SwimlaneAnalyzer:
 class BubbleAnalyzer:
     """Analyzes bubble_analysis.log for thread wait-time statistics."""
     def __init__(self, output_dir: Optional[str]):
+        """Initialize BubbleAnalyzer with output directory path."""
         self.output_dir = Path(output_dir) if output_dir else None
         self.bubble_file: Optional[Path] = None
         if self.output_dir:
@@ -552,6 +554,7 @@ class BubbleAnalyzer:
 class TraceAnalyzer:
     """Analyzes trace data for AICPU control overhead."""
     def __init__(self, output_dir: Optional[str]):
+        """Initialize TraceAnalyzer with output directory path."""
         self.output_dir = Path(output_dir) if output_dir else None
         self.trace_file: Optional[Path] = None
         self.aicpu_perf_file: Optional[Path] = None
@@ -672,6 +675,7 @@ class TraceAnalyzer:
 class OutputArtifactsAnalyzer:
     """Analyzes output artifacts (execute, pipe_usage, topo, program, tilefwk)."""
     def __init__(self, output_dir: Optional[str]):
+        """Initialize OutputArtifactsAnalyzer with output directory path."""
         self.output_dir = Path(output_dir) if output_dir else None
 
     def _find_file(self, patterns: List[str]) -> Optional[Path]:

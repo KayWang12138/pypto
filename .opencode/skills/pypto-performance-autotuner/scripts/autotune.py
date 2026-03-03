@@ -167,10 +167,88 @@ class LayerResult:
     stop_reason: Optional[str]
 
 
+@dataclass
+class AutotuneSummaryParams:
+    """Parameters for building autotune summary report."""
+
+    target_metric: str
+    dry_run: bool
+    total_trials: int
+    start_time: float
+    global_best_metric: float
+    global_stop_reason: Optional[str]
+    layer_reports: List[LayerResult]
+    global_best_config: Dict[str, Dict[str, Any]]
+
+
+@dataclass
+class AutotuneFinalizationParams:
+    """Parameters for finalizing autotune results."""
+
+    recorder: Any  # ResultRecorder
+    target_metric: str
+    global_best_config: Dict[str, Dict[str, Any]]
+    global_best_metric: float
+    total_trials: int
+    summary_text: str
+
+
+@dataclass
+class SearchDispatchContext:
+    """Shared context for strategy dispatch functions."""
+
+    generator: Any  # CandidateGenerator
+    params: Dict[str, Any]
+    layer_name: str
+    guidance: Dict[str, Any]
+    layer_budget: int
+    get_layer_trial_count: Any  # Callable
+    layer_history: List[Dict[str, Any]]
+    get_layer_stop_reason: Any  # Callable
+    run_candidates: Any  # Callable
+    evaluate_candidate: Any  # Callable
+    stopper: Any  # EarlyStopChecker
+    get_total_trials: Any  # Callable
+    start_time: float
+    get_no_improve_count: Any  # Callable
+
+
+@dataclass
+class AutotuneServices:
+    """Service objects for autotune search."""
+
+    generator: "CandidateGenerator"
+    stopper: "EarlyStopChecker"
+    runner: "BenchmarkRunner"
+    recorder: "ResultRecorder"
+
+
+@dataclass
+class AutotuneGlobalState:
+    """Mutable global state across autotune search layers."""
+
+    total_trials: int
+    start_time: float
+    global_best_metric: float
+    global_best_config: Dict[str, Dict[str, Any]]
+
+
+@dataclass
+class LayerSearchParams:
+    """Parameters for searching one layer."""
+
+    layer: Dict[str, Any]
+    args: Any  # argparse.Namespace
+    guidance: Dict[str, Any]
+    fixed_best_layers: Dict[str, Dict[str, Any]]
+    output_dir: Any  # Path
+
+
 class SearchSpaceLoader:
     """Load and validate search space definitions."""
 
     def __init__(self, search_space_path: Path):
+        """Initialize search space loader with file path."""
         self.search_space_path = search_space_path
 
     @staticmethod
@@ -297,6 +375,7 @@ class CandidateGenerator:
     """Generate candidates by grid/random/Bayesian strategies."""
 
     def __init__(self, loader: SearchSpaceLoader, rng: random.Random):
+        """Initialize candidate generator with loader and RNG."""
         self.loader = loader
         self.rng = rng
 
@@ -635,6 +714,7 @@ class BenchmarkRunner:
     """Run benchmark + analyzer, then parse metrics for each trial."""
 
     def __init__(self, config: BenchmarkConfig):
+        """Initialize benchmark runner from config."""
         self.benchmark_cmd = config.benchmark_cmd
         self.baseline_dir = config.baseline_dir
         self.analyzer_script = config.analyzer_script
@@ -899,6 +979,7 @@ class ResultRecorder:
     """Persist trial stream and best configuration artifacts."""
 
     def __init__(self, output_dir: Path, target_metric: str):
+        """Initialize result recorder with output directory."""
         self.output_dir = output_dir
         self.target_metric = target_metric
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -955,6 +1036,7 @@ class EarlyStopChecker:
     """Evaluate global and per-layer early stopping conditions."""
 
     def __init__(self, patience: int, threshold: float, trial_budget: int, time_budget_min: int):
+        """Initialize early stop checker with stopping criteria."""
         self.patience = max(1, patience)
         self.threshold = max(0.0, threshold)
         self.trial_budget = max(1, trial_budget)
@@ -1043,39 +1125,30 @@ def metric_of(metrics: Dict[str, float], target: str) -> float:
     return float(value)
 
 
-def _build_autotune_summary(
-    target_metric: str,
-    dry_run: bool,
-    total_trials: int,
-    start_time: float,
-    global_best_metric: float,
-    global_stop_reason: Optional[str],
-    layer_reports: List[LayerResult],
-    global_best_config: Dict[str, Dict[str, Any]],
-) -> str:
+def _build_autotune_summary(params: AutotuneSummaryParams) -> str:
     """Build the markdown summary for an autotune run."""
     lines: List[str] = []
     lines.append("# Autotune Summary")
     lines.append("")
     lines.append(f"- Generated at: `{now_iso()}`")
-    lines.append(f"- Target metric: `{target_metric}` (lower is better)")
-    lines.append(f"- Dry run: `{dry_run}`")
-    lines.append(f"- Total trials: `{total_trials}`")
-    elapsed_min = (time.time() - start_time) / 60.0
+    lines.append(f"- Target metric: `{params.target_metric}` (lower is better)")
+    lines.append(f"- Dry run: `{params.dry_run}`")
+    lines.append(f"- Total trials: `{params.total_trials}`")
+    elapsed_min = (time.time() - params.start_time) / 60.0
     lines.append(f"- Elapsed time: `{elapsed_min:.2f}` min")
-    if global_best_metric != float("inf"):
-        lines.append(f"- Best {target_metric}: `{global_best_metric:.6f}`")
+    if params.global_best_metric != float("inf"):
+        lines.append(f"- Best {params.target_metric}: `{params.global_best_metric:.6f}`")
     else:
-        lines.append(f"- Best {target_metric}: `N/A`")
-    if global_stop_reason:
-        lines.append(f"- Global stop reason: `{global_stop_reason}`")
+        lines.append(f"- Best {params.target_metric}: `N/A`")
+    if params.global_stop_reason:
+        lines.append(f"- Global stop reason: `{params.global_stop_reason}`")
 
     lines.append("")
     lines.append("## Layer Results")
     lines.append("")
     lines.append("| Layer | Strategy | Space | Budget | Success | Failed | Pruned | Best Metric | Stop |")
     lines.append("|---|---|---:|---:|---:|---:|---:|---:|---|")
-    for row in layer_reports:
+    for row in params.layer_reports:
         best_text = "N/A" if row.best_metric is None else f"{row.best_metric:.6f}"
         stop_text = row.stop_reason if row.stop_reason else "-"
         lines.append(
@@ -1087,84 +1160,61 @@ def _build_autotune_summary(
     lines.append("## Final Best Config")
     lines.append("")
     lines.append("```json")
-    lines.append(json.dumps(global_best_config, indent=2, ensure_ascii=False))
+    lines.append(json.dumps(params.global_best_config, indent=2, ensure_ascii=False))
     lines.append("```")
     return "\n".join(lines) + "\n"
 
 
-def _finalize_autotune_results(
-    recorder: ResultRecorder,
-    target_metric: str,
-    global_best_config: Dict[str, Dict[str, Any]],
-    global_best_metric: float,
-    total_trials: int,
-    summary_text: str,
-) -> None:
+def _finalize_autotune_results(params: AutotuneFinalizationParams) -> None:
     """Write final summary and best-config files."""
-    recorder.write_summary(summary_text)
-    if global_best_metric != float("inf"):
-        recorder.update_best(
-            best_config=global_best_config,
-            best_metric=global_best_metric,
-            metrics={target_metric: global_best_metric},
-            trial_id=total_trials,
+    params.recorder.write_summary(params.summary_text)
+    if params.global_best_metric != float("inf"):
+        params.recorder.update_best(
+            best_config=params.global_best_config,
+            best_metric=params.global_best_metric,
+            metrics={params.target_metric: params.global_best_metric},
+            trial_id=params.total_trials,
             layer_name="final",
         )
     else:
         payload = {
-            "target_metric": target_metric,
+            "target_metric": params.target_metric,
             "best_metric": None,
             "metrics": {},
-            "trial_id": total_trials,
+            "trial_id": params.total_trials,
             "layer": "final",
             "updated_at": now_iso(),
-            "best_config": global_best_config,
+            "best_config": params.global_best_config,
         }
-        recorder.best_path.write_text(
+        params.recorder.best_path.write_text(
             json.dumps(payload, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
 
 
-def _dispatch_strategy(
-    strategy: str,
-    generator: "CandidateGenerator",
-    params: Dict[str, Any],
-    layer_name: str,
-    guidance: Dict[str, Any],
-    layer_budget: int,
-    get_layer_trial_count: Any,
-    layer_history: List[Dict[str, Any]],
-    get_layer_stop_reason: Any,
-    run_candidates: Any,
-    evaluate_candidate: Any,
-    stopper: "EarlyStopChecker",
-    get_total_trials: Any,
-    start_time: float,
-    get_no_improve_count: Any,
-) -> Optional[str]:
+def _dispatch_strategy(strategy: str, ctx: SearchDispatchContext) -> Optional[str]:
     """Dispatch strategy-specific search logic and return global stop reason."""
     global_stop_reason: Optional[str] = None
     if strategy == "grid":
-        candidates = generator.grid_search(params)
-        candidates = generator.apply_guidance(layer_name, candidates, guidance)
-        global_stop_reason = run_candidates(candidates)
+        candidates = ctx.generator.grid_search(ctx.params)
+        candidates = ctx.generator.apply_guidance(ctx.layer_name, candidates, ctx.guidance)
+        global_stop_reason = ctx.run_candidates(candidates)
     elif strategy == "random+grid":
-        random_budget = max(1, int(layer_budget * 0.7))
-        random_candidates = generator.random_search(params, random_budget)
-        random_candidates = generator.apply_guidance(
-            layer_name, random_candidates, guidance
+        random_budget = max(1, int(ctx.layer_budget * 0.7))
+        random_candidates = ctx.generator.random_search(ctx.params, random_budget)
+        random_candidates = ctx.generator.apply_guidance(
+            ctx.layer_name, random_candidates, ctx.guidance
         )
-        global_stop_reason = run_candidates(random_candidates)
-        has_budget = get_layer_trial_count() < layer_budget
+        global_stop_reason = ctx.run_candidates(random_candidates)
+        has_budget = ctx.get_layer_trial_count() < ctx.layer_budget
         if (
             global_stop_reason is None
-            and get_layer_stop_reason() is None
-            and layer_history
+            and ctx.get_layer_stop_reason() is None
+            and ctx.layer_history
             and has_budget
         ):
             top_sorted = sorted(
-                layer_history,
+                ctx.layer_history,
                 key=lambda item: float(item.get("metric", float("inf"))),
             )
             top_configs = [
@@ -1173,66 +1223,38 @@ def _dispatch_strategy(
                 if isinstance(item.get("config"), dict)
             ]
             refine_budget = (
-                layer_budget - get_layer_trial_count()
+                ctx.layer_budget - ctx.get_layer_trial_count()
             )
             max_cands = max(10, refine_budget * 3)
-            refine_candidates = generator.build_refinement_grid(
-                params, top_configs, max_candidates=max_cands
+            refine_candidates = ctx.generator.build_refinement_grid(
+                ctx.params, top_configs, max_candidates=max_cands
             )
-            refine_candidates = generator.apply_guidance(
-                layer_name, refine_candidates, guidance
+            refine_candidates = ctx.generator.apply_guidance(
+                ctx.layer_name, refine_candidates, ctx.guidance
             )
-            global_stop_reason = run_candidates(refine_candidates)
+            global_stop_reason = ctx.run_candidates(refine_candidates)
     else:
-        global_stop_reason = _dispatch_bayesian(
-            generator, params, layer_name, guidance,
-            layer_budget, get_layer_trial_count,
-            layer_history, get_layer_stop_reason,
-            run_candidates, evaluate_candidate, stopper,
-            get_total_trials, start_time,
-            get_no_improve_count,
-        )
+        global_stop_reason = _dispatch_bayesian(ctx)
     return global_stop_reason
 
 
-def _dispatch_bayesian(
-    generator: "CandidateGenerator",
-    params: Dict[str, Any],
-    layer_name: str,
-    guidance: Dict[str, Any],
-    layer_budget: int,
-    get_layer_trial_count: Any,
-    layer_history: List[Dict[str, Any]],
-    get_layer_stop_reason: Any,
-    run_candidates: Any,
-    evaluate_candidate: Any,
-    stopper: "EarlyStopChecker",
-    get_total_trials: Any,
-    start_time: float,
-    get_no_improve_count: Any,
-) -> Optional[str]:
+def _dispatch_bayesian(ctx: SearchDispatchContext) -> Optional[str]:
     """Run bayesian search strategy with initial random seed."""
-    init_count = min(10, layer_budget)
-    init_candidates = generator.random_search(params, init_count)
-    init_candidates = generator.apply_guidance(
-        layer_name, init_candidates, guidance
-    )
-    global_stop_reason = run_candidates(init_candidates)
+    init_count = min(10, ctx.layer_budget)
+    init_candidates = ctx.generator.random_search(ctx.params, init_count)
+    init_candidates = ctx.generator.apply_guidance(ctx.layer_name, init_candidates, ctx.guidance)
+    global_stop_reason = ctx.run_candidates(init_candidates)
     while (
         global_stop_reason is None
-        and get_layer_stop_reason() is None
-        and get_layer_trial_count() < layer_budget
+        and ctx.get_layer_stop_reason() is None
+        and ctx.get_layer_trial_count() < ctx.layer_budget
     ):
-        suggestions = generator.bayesian_suggest(
-            params, layer_history, n_trials=1
-        )
+        suggestions = ctx.generator.bayesian_suggest(ctx.params, ctx.layer_history, n_trials=1)
         if not suggestions:
             break
-        action = evaluate_candidate(suggestions[0])
+        action = ctx.evaluate_candidate(suggestions[0])
         if action == "stop_all":
-            global_stop_reason = stopper.check_global(
-                get_total_trials(), start_time
-            )
+            global_stop_reason = ctx.stopper.check_global(ctx.get_total_trials(), ctx.start_time)
             break
         if action == "stop_layer":
             break
