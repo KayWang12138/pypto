@@ -481,11 +481,6 @@ void SetAMulBAttr(const MatmulGraphNodes &tensorGraphNodes, const MatmulAttrPara
            tensorGraphNodes.outTensorPtr != nullptr)
         << "Expected aTensorPtr, bTensorPtr, and outTensorPtr to be non-nullptr." << std::endl;
         });
-    OP_CHECK(true, {
-        ASSERT(attrParam.transMode == 0 || Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510)
-            << "TF32 is only supported on Ascend 950PR/Ascend 950DT platform."
-            << std::endl;
-    });
 
     int64_t nzAttr = (static_cast<int64_t>(tensorGraphNodes.aTensorPtr->Format())) |
                      (static_cast<int64_t>(tensorGraphNodes.bTensorPtr->Format()) << 1) |

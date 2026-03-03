@@ -72,6 +72,11 @@ def matmul(
             For dequantization with a per-channel scale: C = DEQF16(ReLU(A @ B)) * scale_tensor.
         - 'relu_type': ReLuType
             Type of ReLU activation to apply before dequantization (e.g., ReLuType.RELU).
+        - 'trans_mode': TransMode
+            TF32 round mode:
+            CAST_NONE: not to use tf32 calculation.
+            CAST_RINT: FP32 will be rounded to TF32 by rounding to the nearest tie to even.
+            CAST_ROUND: FP32 will be rounded to TF32 by rounding to the nearest tie away from zero.
 
     Returns
     -------
@@ -125,6 +130,12 @@ def matmul(
     scale_tensor = pypto.tensor((1, 64), pypto.DT_UINT64, "tensor_scale")
     extend_params = {'scale_tensor': scale_tensor, 'relu_type': pypto.ReLuType.RELU}
     pypto.matmul(a, b, pypto.DT_BF16, extend_params=extend_params)
+
+    # TF32 matrix multiplication
+    a = pypto.tensor((16, 32), pypto.DT_FP32, "tensor_a")
+    b = pypto.tensor((32, 64), pypto.DT_FP32, "tensor_b")
+    extend_params = {'trans_mode': pypto.TransMode.CAST_ROUND}
+    pypto.matmul(a, b, pypto.DT_FP32, extend_params=extend_params)
     """
     __validate_inputs(input, mat2, out_dtype, [a_trans, b_trans, c_matrix_nz, extend_params])
     if input.Dim() == 2:
