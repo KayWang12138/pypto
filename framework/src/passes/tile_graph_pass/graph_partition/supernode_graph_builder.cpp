@@ -632,34 +632,24 @@ Status SuperNodeGraphBuilder::BuildSuperNodeGraph()
     std::vector<std::pair<int32_t, int32_t>> mergePair;
     UpdateScopeId(opList);
 
-    // bit 0 = 1：使用新合并逻辑（使用scope2merge，统一合并到第一个）
+    // 根据scopeConfig的bit 0决定合并策略
     std::unordered_map<int, int> scope2merge;
     for (size_t i = 0; i < opList.size(); i++) {
         auto targetScope = opList[i]->GetScopeId();
         if (targetScope == -1) {
             continue;
         }
-
-        // 根据scopeConfig的bit 0决定合并策略
+        auto mergeTarget = i;
         if (opList[i]->GetScopeConfig() & SCOPE_CONFIG_MERGE_NO_CONNECTION) {
-            // bit 0 = 1：使用新合并逻辑（使用scope2merge，统一合并到第一个）
-            auto mergeTarget = i;
             if (scope2merge.find(targetScope) != scope2merge.end()) {
                 mergeTarget = scope2merge[targetScope];
             } else {
                 scope2merge[targetScope] = i;
             }
-            for (auto outputNode : operationInfo_->outGraph_[i]) {
-                if (opList[outputNode]->GetScopeId() == targetScope) {
-                    mergePair.emplace_back(outputNode, mergeTarget);
-                }
-            }
-        } else {
-            // bit 0 = 0：使用旧合并逻辑（每个操作作为独立的mergeTarget）
-            for (auto outputNode : operationInfo_->outGraph_[i]) {
-                if (opList[outputNode]->GetScopeId() == targetScope) {
-                    mergePair.emplace_back(outputNode, i);
-                }
+        }
+        for (auto outputNode : operationInfo_->outGraph_[i]) {
+            if (opList[outputNode]->GetScopeId() == targetScope) {
+                mergePair.emplace_back(outputNode, mergeTarget);
             }
         }
     }
