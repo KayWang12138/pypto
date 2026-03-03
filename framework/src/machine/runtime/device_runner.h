@@ -76,7 +76,7 @@ public:
     void DumpAiCoreExecutionTimeData();
     void DumpAiCorePmuData();
     void SynchronizeDeviceToHostProfData();
-    void InitMetaData(DeviceArgs &devArgs);
+    void InitMetaData(DeviceArgs &devArgs, bool isCaptureMode = false);
     void InitAiCpuSoBin(DeviceArgs &devArgs);
     bool GetValidGetPgMask() const;
     void ReportHostProfInfo(uint64_t startTime, uint32_t blockDim, uint16_t taskType, bool isCore = false);
@@ -84,7 +84,7 @@ public:
 private:
     DeviceRunner() = default;
     void *DevAlloc(int size);
-    void GetModuleLogLevel(DeviceArgs &args);
+    void GetModuleLogLevel(DeviceArgs &args, bool isCaptureMode = false);
     int InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t> &regs, const std::vector<int64_t> &regsPmu);
     int InitDeviceArgs(DeviceArgs &args);
     int Init();
@@ -139,7 +139,7 @@ public:
         (void)taskData;
         return 0;
     }
-    void InitMetaData(DeviceArgs &devArgs);
+    void InitMetaData(DeviceArgs &devArgs, bool isCaptureMode = false);
     bool GetValidGetPgMask() const;
     HostProf &GetHostProfInstance() {
         return hostProf_;
