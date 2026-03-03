@@ -402,7 +402,7 @@ def lightning_indexer_prolog_quant_hif8_npu(x, q_norm, q_norm_scale, w_qb, w_qb_
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
 
     input_tensors = {
@@ -563,7 +563,7 @@ def test_b1_s1_8k_s2_8k():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
     do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b1_s1_8k_s2_8k", configs)
 
@@ -581,7 +581,7 @@ def test_b2_s1_8k_s2_8k():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
     do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b2_s1_8k_s2_8k", configs)
 
@@ -599,7 +599,7 @@ def test_b4_s1_8k_s2_8k():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
     do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b4_s1_8k_s2_8k", configs)
 
@@ -616,7 +616,7 @@ def test_b1_s1_4_s2_8k():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
     do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b1_s1_4_s2_8k", configs)
 
@@ -634,7 +634,7 @@ def test_b64_s1_2_s2_8k():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
     do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b64_s1_2_s2_8k", configs)
 
@@ -652,7 +652,7 @@ def test_b192_s1_1_s2_8k():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
     do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b192_s1_1_s2_8k", configs)
 
@@ -670,7 +670,7 @@ def test_b16_s1_8k_s2_8k():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
     do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b16_s1_8k_s2_8k", configs)
 
@@ -688,7 +688,7 @@ def test_b32_s1_8k_s2_8k():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
     do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b32_s1_8k_s2_8k", configs)
 
@@ -706,7 +706,7 @@ def test_b64_s1_8k_s2_8k():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
     do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b64_s1_8k_s2_8k", configs)
 
@@ -724,7 +724,7 @@ def test_b1_s1_8k_333_s2_8k_333():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
     do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b1_s1_8k_333_s2_8k_333", configs)
 
@@ -742,7 +742,7 @@ def test_b111_s1_1_s2_8k():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
     do_test_lightning_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b111_s1_1_s2_8k", configs)
 

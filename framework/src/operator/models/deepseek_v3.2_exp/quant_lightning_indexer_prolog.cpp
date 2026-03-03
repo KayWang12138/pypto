@@ -132,7 +132,7 @@ Tensor QuantRope2D(const Tensor &x, const Tensor &cos, const Tensor &sin) {
 
 void QuantLightningIndexerPrologCompute(const QuantIndexerPrologInput &inputs, QuantIndexerPrologOutput &outputs,
     QuantIndexerPrologAttr &attrs, const QuantIndexerConfigs &configs) {
-    config::SetPassOption("vec_nbuffer_mode", 0);
+    config::SetPassOption("vec_nbuffer_setting", std::map<int64_t, int64_t>{{-1, 1}});
     config::SetPassOption("cube_l1_reuse_setting", configs.l1ReuseParam);
     config::SetPassOption("mg_copyin_upper_bound", configs.mgCopyInUpperBound);
     config::SetPassOption("pg_upper_bound", configs.pgUpperBound);

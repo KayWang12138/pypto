@@ -71,7 +71,6 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
         {postOut}, {{kvCacheOut, kvCache}, {krCacheOut, krCache}}) {
         /******** mla_prolog ********/
         SymbolicScalar bLoop = b / tileB;
-        config::SetPassOption(VEC_NBUFFER_MODE, 1);
         config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, NUM_4}}); //CubeL1reusemode合并的左矩阵或者右矩阵数量
         config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{NUM_3, NUM_4}});   //从NUM_3个mm开始设置CubeNBuffer数量为NUM_4；CubeNBuffer：设置同构的mm计算合并入一个图
         config::SetPassOption(MG_COPYIN_UPPER_BOUND, NUM_2 * NUM_1024 * NUM_1024);   // CubeNBuffer、CubeL1reusemode合并时copyin的cycle上限
