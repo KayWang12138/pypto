@@ -15,7 +15,6 @@
 #include "machine/runtime/host_prof.h"
 #include "interface/tensor/logical_tensor.h"
 #ifdef BUILD_WITH_CANN
-#include "runtime/base.h"
 #include "toolchain/prof_api.h"
 #include "log_types.h"
 #include "prof_common.h"
