@@ -374,7 +374,7 @@ def extract_metrics(profiler_output_dir: str) -> dict:
 │     stitch_function_num_initial: [16, 32, 64, 128]   │
 │     stitch_function_outcast_memory: [256, 512, 1024] │
 │     stitch_function_inner_memory: [256, 512]         │
-│                                                       │
+│     ⚠️ 以上三参数将统一为 stitch_function_max_num      │
 │   策略: Grid Search (空间小，≤24 组合)                │
 │   评估: 泳道图 total_latency_ms + idle_ratio          │
 │   输出: best_stitch_config                            │

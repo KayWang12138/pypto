@@ -28,17 +28,17 @@ license: Apache-2.0
 ### Dry-run 模式（无需 NPU）
 
 ```bash
-python3 /workspace/code/skills/library/shared/pypto-performance-analyzer/scripts/analyze.py --dry-run
+python3 .opencode/skills/pypto-performance-analyzer/scripts/analyze.py --dry-run
 ```
 
 ### 分析真实产物
 
 ```bash
 # 自动检测最新 output 目录
-python3 /workspace/code/skills/library/shared/pypto-performance-analyzer/scripts/analyze.py --pypto-repo /workspace/code/pypto
+python3 .opencode/skills/pypto-performance-analyzer/scripts/analyze.py --pypto-repo /workspace/code/pypto
 
 # 指定输出目录
-python3 /workspace/code/skills/library/shared/pypto-performance-analyzer/scripts/analyze.py --output-dir /path/to/output --report-out /path/to/report.md
+python3 .opencode/skills/pypto-performance-analyzer/scripts/analyze.py --output-dir /path/to/output --report-out /path/to/report.md
 ```
 
 ## 前置条件
@@ -87,10 +87,10 @@ def my_kernel(...):
 
 ```bash
 # 验证脚本语法
-python3 -m py_compile /workspace/code/skills/library/shared/pypto-performance-analyzer/scripts/analyze.py
+python3 -m py_compile .opencode/skills/pypto-performance-analyzer/scripts/analyze.py
 
 # Dry-run 测试
-python3 /workspace/code/skills/library/shared/pypto-performance-analyzer/scripts/analyze.py --dry-run
+python3 .opencode/skills/pypto-performance-analyzer/scripts/analyze.py --dry-run
 ```
 
 ## References

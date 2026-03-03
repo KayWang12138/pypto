@@ -20,6 +20,8 @@
 | pypto-skill-creator  | 接收到用户生成skill指令时  | 根据用户需求，自动创建skill，并将其添加到skills中 |
 | pypto-operator-develop-workflow  | 接收到算子开发任务时  | 详细开发流程及环境准备、运行测试等 |
 | pypto-operator-perf-autotune  | 接收到算子性能统计及调优指令时  | 性能统计及性能调优指导 |
+| pypto-performance-analyzer  | 接收到性能分析、泳道图分析、swimlane 分析等指令时  | 解析泳道图及多种 output 产物，识别性能瓶颈并生成评级与优化建议 |
+| pypto-performance-autotuner  | 接收到自动调优、性能搜索、搜索最优配置等指令时  | 搜索最优 NPU 性能调优配置，覆盖 stitch/matmul/vector/scheduling 全部旋钮 |
 ---
 
 ## 核心原则 ⭐⭐⭐

@@ -13,8 +13,26 @@
       }
     },
     {
-      "name": "vector",
+      "name": "matmul",
       "priority": 2,
+      "strategy": "random+grid",
+      "max_trials": 50,
+      "params": {
+        "cube_tile_m": {"type": "choice", "values": [[16,64], [16,128], [16,256]]},
+        "cube_tile_k": {"type": "choice", "values": [[16,64], [16,128]]},
+        "cube_tile_n": {"type": "choice", "values": [[16,64], [16,128], [16,256]]},
+        "enable_multi_data_load": {"type": "bool"},
+        "enable_split_k": {"type": "bool"},
+        "cube_l1_reuse_mode": {"type": "choice", "values": [0, 1]},
+        "cube_l1_reuse_setting": {"type": "choice", "values": [null, {"0": 2}, {"0": 4}]}
+      },
+      "pruning_rules": [
+        "cube_l1_reuse_mode==1 → cube_nbuffer_mode must be 0"
+      ]
+    },
+    {
+      "name": "vector",
+      "priority": 3,
       "strategy": "bayesian",
       "max_trials": 60,
       "params": {
@@ -34,7 +52,7 @@
     },
     {
       "name": "scheduling",
-      "priority": 3,
+      "priority": 4,
       "strategy": "grid",
       "params": {
         "device_sched_mode": {"type": "choice", "values": [0, 1, 2]}
