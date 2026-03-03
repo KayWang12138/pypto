@@ -584,6 +584,51 @@ class CandidateGenerator:
             return "random+grid"
         return "bayesian"
 
+    @staticmethod
+    def _score_stitch(item: Dict[str, Any], labels: List[str]) -> float:
+        """Score a stitch-layer candidate based on guidance labels."""
+        score = 0.0
+        max_num = item.get("stitch_function_max_num")
+        has_idle_or_bubble = any("idle" in s or "bubble" in s for s in labels)
+        if has_idle_or_bubble:
+            if max_num == 64:
+                score += 3.0
+            elif max_num in (32, 128):
+                score += 1.0
+        if isinstance(max_num, (int, float)) and float(max_num) > 128:
+            score -= 1.0
+        return score
+
+    @staticmethod
+    def _score_matmul(item: Dict[str, Any], labels: List[str], top_ops: List[str]) -> float:
+        """Score a matmul-layer candidate based on guidance."""
+        score = 0.0
+        if any("matmul" in s or "cube" in s for s in labels + top_ops):
+            if item.get("enable_multi_data_load") is True:
+                score += 1.5
+            if item.get("cube_l1_reuse_mode") == 1:
+                score += 1.5
+        return score
+
+    @staticmethod
+    def _score_vector(item: Dict[str, Any], labels: List[str], top_ops: List[str]) -> float:
+        """Score a vector-layer candidate based on guidance."""
+        score = 0.0
+        if any("vector" in s or "parallel" in s for s in labels + top_ops):
+            if item.get("vec_nbuffer_mode") in (1, 2):
+                score += 1.2
+            sg_scope = item.get("sg_set_scope")
+            if isinstance(sg_scope, int) and sg_scope >= 0:
+                score += 0.8
+        return score
+
+    @staticmethod
+    def _score_scheduling(item: Dict[str, Any]) -> float:
+        """Score a scheduling-layer candidate."""
+        if item.get("device_sched_mode") == 1:
+            return 1.0
+        return 0.0
+
     def grid_search(self, params: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Enumerate all combinations in Cartesian product."""
         names = sorted(params.keys())
@@ -762,51 +807,6 @@ class CandidateGenerator:
             return self._score_vector(item, labels, top_ops)
         if layer_name == "scheduling":
             return self._score_scheduling(item)
-        return 0.0
-
-    @staticmethod
-    def _score_stitch(item: Dict[str, Any], labels: List[str]) -> float:
-        """Score a stitch-layer candidate based on guidance labels."""
-        score = 0.0
-        max_num = item.get("stitch_function_max_num")
-        has_idle_or_bubble = any("idle" in s or "bubble" in s for s in labels)
-        if has_idle_or_bubble:
-            if max_num == 64:
-                score += 3.0
-            elif max_num in (32, 128):
-                score += 1.0
-        if isinstance(max_num, (int, float)) and float(max_num) > 128:
-            score -= 1.0
-        return score
-
-    @staticmethod
-    def _score_matmul(item: Dict[str, Any], labels: List[str], top_ops: List[str]) -> float:
-        """Score a matmul-layer candidate based on guidance."""
-        score = 0.0
-        if any("matmul" in s or "cube" in s for s in labels + top_ops):
-            if item.get("enable_multi_data_load") is True:
-                score += 1.5
-            if item.get("cube_l1_reuse_mode") == 1:
-                score += 1.5
-        return score
-
-    @staticmethod
-    def _score_vector(item: Dict[str, Any], labels: List[str], top_ops: List[str]) -> float:
-        """Score a vector-layer candidate based on guidance."""
-        score = 0.0
-        if any("vector" in s or "parallel" in s for s in labels + top_ops):
-            if item.get("vec_nbuffer_mode") in (1, 2):
-                score += 1.2
-            sg_scope = item.get("sg_set_scope")
-            if isinstance(sg_scope, int) and sg_scope >= 0:
-                score += 0.8
-        return score
-
-    @staticmethod
-    def _score_scheduling(item: Dict[str, Any]) -> float:
-        """Score a scheduling-layer candidate."""
-        if item.get("device_sched_mode") == 1:
-            return 1.0
         return 0.0
 
 
@@ -1014,6 +1014,26 @@ class BenchmarkRunner:
                         return value
         return None
 
+    @staticmethod
+    def _simulate_latency(flat: Dict[str, Any], rng: random.Random) -> float:
+        """Compute simulated latency from flattened config."""
+        latency = 12.5 * (1.0 + rng.uniform(-0.30, 0.30))
+        latency = _apply_knob_multipliers(flat, latency)
+        latency += rng.uniform(-0.20, 0.20)
+        return max(3.0, latency)
+
+    @staticmethod
+    def _simulate_idle(flat: Dict[str, Any], rng: random.Random) -> float:
+        """Compute simulated idle ratio from flattened config."""
+        idle = 0.35 + rng.uniform(-0.08, 0.08)
+        if flat.get("stitch_function_max_num") == 64:
+            idle -= 0.18
+        if flat.get("device_sched_mode") == 1:
+            idle -= 0.03
+        if flat.get("vec_nbuffer_mode") in (1, 2):
+            idle -= 0.02
+        return idle
+
     def run_trial(
         self,
         trial_id: int,
@@ -1048,26 +1068,6 @@ class BenchmarkRunner:
             "kernel_time_ms": round(max(0.1, kernel), 6),
             "idle_ratio": round(clamp(idle, 0.01, 0.95), 6),
         }
-
-    @staticmethod
-    def _simulate_latency(flat: Dict[str, Any], rng: random.Random) -> float:
-        """Compute simulated latency from flattened config."""
-        latency = 12.5 * (1.0 + rng.uniform(-0.30, 0.30))
-        latency = _apply_knob_multipliers(flat, latency)
-        latency += rng.uniform(-0.20, 0.20)
-        return max(3.0, latency)
-
-    @staticmethod
-    def _simulate_idle(flat: Dict[str, Any], rng: random.Random) -> float:
-        """Compute simulated idle ratio from flattened config."""
-        idle = 0.35 + rng.uniform(-0.08, 0.08)
-        if flat.get("stitch_function_max_num") == 64:
-            idle -= 0.18
-        if flat.get("device_sched_mode") == 1:
-            idle -= 0.03
-        if flat.get("vec_nbuffer_mode") in (1, 2):
-            idle -= 0.02
-        return idle
 
     def _build_env_payload(self) -> Dict[str, Any]:
         return {
