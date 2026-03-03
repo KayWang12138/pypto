@@ -10,7 +10,9 @@
 
 set(_Target ${PTO_Fwk_UTestNamePrefix}_cann_host_runtime)
 
-file(GLOB_RECURSE _Sources src/*.cpp)
+file(GLOB_RECURSE _Sources
+        src/*.cpp
+)
 
 set(LinkLibraries)
 

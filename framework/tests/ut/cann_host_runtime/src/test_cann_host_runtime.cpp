@@ -14,9 +14,9 @@
 * \brief	 
 */	 
 
-#include <gtest/gtest.h>	 
-#include <fstream>	 
-#include <cstdlib>	 
+#include <gtest/gtest.h>
+#include <fstream>
+#include <cstdlib>
 
 #include "tilefwk/cann_host_runtime.h" 
 #include "interface/utils/file_utils.h"
@@ -28,7 +28,6 @@ const std::string TEST_TMP_DIR = "/tmp/test_cann_host_runtime";
 
 class TestCannHostRuntime : public testing::Test {	 
 public:	 
-    
     static void SetUpTestCase() {
         CreateMultiLevelDir(TEST_TMP_DIR);
     }
