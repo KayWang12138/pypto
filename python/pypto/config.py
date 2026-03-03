@@ -58,11 +58,8 @@ def set_pass_options(*,
                      pg_upper_bound: Optional[int] = None,
                      pg_lower_bound: Optional[int] = None,
                      mg_vec_parallel_lb: Optional[int] = None,
-                     vec_nbuffer_mode: Optional[int] = None,
                      vec_nbuffer_setting: Optional[Dict[int, int]] = None,
-                     cube_l1_reuse_mode: Optional[int] = None,
                      cube_l1_reuse_setting: Optional[Dict[int, int]] = None,
-                     cube_nbuffer_mode: Optional[int] = None,
                      cube_nbuffer_setting: Optional[Dict[int, int]] = None,
                      sg_set_scope: Optional[int] = None,
                      ) -> None:
@@ -86,27 +83,14 @@ def set_pass_options(*,
         Merged graph parameter, used to configure
         the minimum parallelism of AIV subgraphs with the same structure.
 
-    vec_nbuffer_mode : int
-        Merged graph parameter, used to configure
-        the merging strategy for AIV subgraphs with the same structure.
-
     vec_nbuffer_setting : Dict[int, int]
         Merged graph parameter, used to configure
         the merging quantity of AIV subgraphs with the same structure.
-
-    cube_l1_reuse_mode : int
-        Merged graph parameter, used to configure
-        the merging strategy for subgraphs with the same structure
-        and repeated transfer of the same GM data.
 
     cube_l1_reuse_setting : Dict[int, int]
         Merged graph parameter, used to configure
         the merging quantity of subgraphs with the same structure
         and repeated transfer of the same GM data.
-
-    cube_nbuffer_mode : int
-        Merged graph parameter, used to configure
-        the merging strategy for AIC subgraphs with the same structure.
 
     cube_nbuffer_setting : Dict[int, int]
         Merged graph parameter, used to configure

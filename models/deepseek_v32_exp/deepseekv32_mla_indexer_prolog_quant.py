@@ -956,7 +956,7 @@ def test_b_4_s1_2_tilebs_8_d():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
 
     do_test("mla_prolog_indexer_prolog_quant.test_b_4_s1_2_tilebs_8",
@@ -1029,7 +1029,7 @@ def test_t_32_tilebs_16_p():
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
 
     do_test("mla_prolog_indexer_prolog_prefill.test_t_32_tilebs_16",
@@ -1101,7 +1101,7 @@ def test_t_512_tilebs_128_p():
         block_size=128,
         t_sub_tile=2,
         chunk_size=1,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
 
     do_test("mla_prolog_indexer_prolog_prefill.test_t_512_tilebs_128", params, mla_epsilon_cq, mla_epsilon_ckv,
