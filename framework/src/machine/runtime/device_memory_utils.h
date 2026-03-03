@@ -15,12 +15,10 @@
 
 #pragma once
 
-#ifdef BUILD_WITH_CANN
-
+#include "adapter/api/runtime_api.h"
+#include "interface/interpreter/raw_tensor_data.h"
 #include "machine/runtime/runtime.h"
 #include "machine/runtime/device_runner.h"
-#include "machine/platform/platform_manager.h"
-#include "interface/interpreter/raw_tensor_data.h"
 
 namespace npu::tile_fwk::dynamic {
 struct DeviceMemoryUtils {
@@ -32,13 +30,13 @@ struct DeviceMemoryUtils {
             if (isUseHugePage_) {
                 machine::GetRA()->AllocDevAddr(&devPtr, size);
             } else {
-                rtMalloc((void**)&devPtr, size, RT_MEMORY_HBM, 0);
+                RuntimeMalloc((void**)&devPtr, size, RT_MEMORY_HBM, 0);
             }
         } else if (*cachedDevAddrHolder == nullptr) {
             if (isUseHugePage_) {
                 machine::GetRA()->AllocDevAddr(&devPtr, size);
             } else {
-                rtMalloc((void**)&devPtr, size, RT_MEMORY_HBM, 0);
+                RuntimeMalloc((void**)&devPtr, size, RT_MEMORY_HBM, 0);
             }
             *cachedDevAddrHolder = devPtr;
         } else {
@@ -49,18 +47,18 @@ struct DeviceMemoryUtils {
 
     uint8_t *AllocZero(uint64_t size, uint8_t **cachedDevAddrHolder) {
         uint8_t *devPtr = AllocDev(size, cachedDevAddrHolder);
-        (void)rtMemset(devPtr, size, 0, size);
+        (void)RuntimeMemset(devPtr, size, 0, size);
         return devPtr;
     }
 
     uint8_t *CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder) {
         uint8_t *devPtr = AllocDev(size, cachedDevAddrHolder);
-        rtMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
+        RuntimeMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
         return devPtr;
     }
 
     void CopyToDev(uint8_t *devPtr, uint8_t *data, uint64_t size) {
-        rtMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
+        RuntimeMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
     }
 
     template <typename T>
@@ -69,7 +67,7 @@ struct DeviceMemoryUtils {
     }
 
     void CopyFromDev(uint8_t *data, uint8_t *devPtr, uint64_t size) {
-        rtMemcpy(data, size, devPtr, size, RT_MEMCPY_DEVICE_TO_HOST);
+        RuntimeMemcpy(data, size, devPtr, size, RT_MEMCPY_DEVICE_TO_HOST);
     }
 
     uint8_t *CopyToDev(RawTensorData &data) {
@@ -79,7 +77,7 @@ struct DeviceMemoryUtils {
             if (devPtr == nullptr) {
                 return nullptr;
             }
-            rtMemcpy(devPtr, data.size(), (uint8_t *)data.data(), data.size(), RT_MEMCPY_HOST_TO_DEVICE);
+            RuntimeMemcpy(devPtr, data.size(), (uint8_t *)data.data(), data.size(), RT_MEMCPY_HOST_TO_DEVICE);
             data.SetDevPtr(devPtr);
         }
         return data.GetDevPtr();
@@ -91,7 +89,7 @@ struct DeviceMemoryUtils {
 
     void Free(uint8_t* mem) {
         if (mem && (!isUseHugePage_)) {
-            rtFree(mem);
+            RuntimeFree(mem);
         }
     }
 
@@ -102,4 +100,3 @@ struct DeviceMemoryUtils {
     bool isUseHugePage_{true};
 };
 }
-#endif

@@ -40,6 +40,7 @@ target_link_libraries(${_Target}
             ${PTO_Fwk_STestNamePrefix}_utils
             Dist_GTest_Inc
             tile_fwk_utils
+            tile_fwk_adapter
             tile_fwk_interface
             tile_fwk_compiler
             tile_fwk_runtime
