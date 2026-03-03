@@ -18,13 +18,14 @@
 #include <gtest/gtest.h>
 #include <thread>
 #include <cstdint>
+#include "tilefwk/pypto_fwk_log.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/configs/config_manager.h"
 #include "interface/function/function.h"
-#include "machine/device/dynamic/costmodel_utils.h"
-#include "machine/runtime/device_launcher.h"
-#include "tilefwk/pypto_fwk_log.h"
 #include "machine/utils/machine_error.h"
+#include "machine/device/dynamic/costmodel_utils.h"
+#include "machine/runtime/runtime.h"
+#include "machine/runtime/device_launcher.h"
 #include "cost_model/simulation/backend.h"
 
 using namespace npu::tile_fwk::dynamic;
@@ -39,18 +40,20 @@ struct MemoryHelper {
 
     uint8_t *CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder) {
         uint8_t *devPtr = AllocDev(size, cachedDevAddrHolder);
-        if (isTest_)
+        if (isTest_) {
             memcpy_s(devPtr, size, data, size);
-        else
-            rtMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
+        } else {
+            RuntimeMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
+        }
         return devPtr;
     }
 
     void CopyFromDev(uint8_t *data, uint8_t *devPtr, uint64_t size) {
-        if (isTest_)
+        if (isTest_) {
             memcpy_s(data, size, devPtr, size);
-        else
-            rtMemcpy(data, size, devPtr, size, RT_MEMCPY_DEVICE_TO_HOST);
+        } else {
+            RuntimeMemcpy(data, size, devPtr, size, RT_MEMCPY_DEVICE_TO_HOST);
+        }
     }
 
     uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
@@ -87,7 +90,7 @@ struct MemoryHelper {
         if (isTest_)
             memset(devPtr, 0, size);
         else
-            rtMemset(devPtr, size, 0, size);
+            RuntimeMemset(devPtr, size, 0, size);
         return devPtr;
     }
 
@@ -224,7 +227,7 @@ private:
             buf.reserve(std::min(THROUGHPUT, size));
             for (uint64_t offset = 0; offset < size; offset += THROUGHPUT) {
                 uint64_t blockSize = std::min(THROUGHPUT, size - offset);
-                rtMemcpy(buf.data(), buf.capacity(), devptr + offset, blockSize, RT_MEMCPY_DEVICE_TO_HOST);
+                RuntimeMemcpy(buf.data(), buf.capacity(), devptr + offset, blockSize, RT_MEMCPY_DEVICE_TO_HOST);
                 os.write(reinterpret_cast<const char *>(buf.data()), blockSize);
             }
         }
@@ -236,7 +239,7 @@ private:
         auto *devProg = GetDevProg(function_);
         uint8_t *dumpTensorWsPtr = reinterpret_cast<uint8_t *>(kArgs.workspace) + devProg->memBudget.Total() - devProg->memBudget.debug.dumpTensor;
         uint64_t dumpTensorWsUsed = 0;
-        rtMemcpy(&dumpTensorWsUsed, sizeof(uint64_t), dumpTensorWsPtr, sizeof(uint64_t), RT_MEMCPY_DEVICE_TO_HOST);
+        RuntimeMemcpy(&dumpTensorWsUsed, sizeof(uint64_t), dumpTensorWsPtr, sizeof(uint64_t), RT_MEMCPY_DEVICE_TO_HOST);
         MACHINE_LOGE(RtErr::RT_MEMCPY_FAILED,
                        "[DumpTensor] dumpTensorWsPtr=%p, memory used=%lu\n", dumpTensorWsPtr, dumpTensorWsUsed);
 
@@ -276,7 +279,7 @@ private:
 
     void RunOnBoard(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {
         std::cout << "!!! Kernel Launch " << "\n";
-        int rc = aclInit(nullptr);
+        int rc = AclInit(nullptr);
         if (rc != 0 && rc != ACL_ERROR_REPEAT_INITIALIZE) {
             MACHINE_LOGE(RtErr::RT_INIT_FAILED, "Acl init failed!!!");
             return;

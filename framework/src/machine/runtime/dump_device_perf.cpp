@@ -13,16 +13,16 @@
  * \brief
  */
 #include "dump_device_perf.h"
-#ifdef BUILD_WITH_CANN
 
 #include <cstdlib>
-#include "interface/machine/device/tilefwk/aicpu_common.h"
-#include "runtime/mem.h"
-#include "interface/utils/file_utils.h"
-#include "machine/device/dynamic/device_utils.h"
-#include "interface/configs/config_manager.h"
-#include "machine/device/distributed/common.h"
 #include "tilefwk/pypto_fwk_log.h"
+#include "adapter/api/runtime_api.h"
+#include "interface/utils/file_utils.h"
+#include "interface/configs/config_manager.h"
+#include "interface/machine/device/tilefwk/aicpu_common.h"
+#include "machine/device/distributed/common.h"
+#include "machine/device/dynamic/device_utils.h"
+
 namespace npu::tile_fwk::dynamic {
 constexpr int DUMP_LEVEL_FOUR = 4;
 uint32_t g_last_turn_num = 0;
@@ -39,7 +39,7 @@ void ConstructTaskInfo(const uint32_t &index, json &rootTaskStats, const std::ve
     void* devPtr = perfData[index];
     size_t dataSize = MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics);
     std::vector<uint8_t> hostBuffer(dataSize);
-    rtMemcpy(hostBuffer.data(), dataSize, devPtr, dataSize, RT_MEMCPY_DEVICE_TO_HOST);
+    RuntimeMemcpy(hostBuffer.data(), dataSize, devPtr, dataSize, RT_MEMCPY_DEVICE_TO_HOST);
     Metrics *aicpuMetric = reinterpret_cast<Metrics*>(hostBuffer.data());
     if (aicpuMetric->taskCount > MAX_DFX_TASK_NUM_PER_CORE) {
         aicpuMetric->taskCount = MAX_DFX_TASK_NUM_PER_CORE;
@@ -66,7 +66,7 @@ void ConstructTaskInfo(const uint32_t &index, json &rootTaskStats, const std::ve
         rootTaskStats.push_back(coreObj);
     }
     aicpuMetric->taskCount = 0;
-    rtMemcpy(perfData[index], sizeof(Metrics), aicpuMetric, sizeof(Metrics), RT_MEMCPY_HOST_TO_DEVICE);
+    RuntimeMemcpy(perfData[index], sizeof(Metrics), aicpuMetric, sizeof(Metrics), RT_MEMCPY_HOST_TO_DEVICE);
 }
 
 void DumpAicoreTaskExectInfo(DeviceArgs &args, const std::vector<void *> &perfData) {
@@ -124,6 +124,9 @@ inline void DevTaskPerfFormat(uint32_t tid, uint32_t type, json &devTaskJson, co
 }
 
 inline void SparateCore(int total, int idx, int part, const int &offset, std::vector<int> &coreArray) {
+    if (part == 0) {
+        return;
+    }
     int perCpu = total / part;
     int remain = total % part;
     int start = idx * perCpu + ((idx < remain) ? idx : remain);
@@ -169,7 +172,7 @@ inline void DumpAicoreDevTask(DeviceArgs &args, json &aicpuPrefArray,
         void* devPtr = perfData[i];
         size_t dataSize = MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics);
         std::vector<uint8_t> hostBuffer(dataSize);
-        rtMemcpy(hostBuffer.data(), dataSize, devPtr, dataSize, RT_MEMCPY_DEVICE_TO_HOST);
+        RuntimeMemcpy(hostBuffer.data(), dataSize, devPtr, dataSize, RT_MEMCPY_DEVICE_TO_HOST);
         Metrics *aicoreMetric = reinterpret_cast<Metrics*>(hostBuffer.data());
         std::string coreType = (i < args.nrValidAic) ? "AIC" : "AIV";
         json aicoreTask;
@@ -191,7 +194,7 @@ inline MetricPerf GetAicpuPrefAddr(const DeviceArgs &args, const uint32_t &turnI
         return aicpuMetric;
     }
     
-    auto ret = rtMemcpy(PtrToPtr<MetricPerf, void>(&aicpuMetric), sizeof(MetricPerf), aicpuPer,
+    auto ret = RuntimeMemcpy(PtrToPtr<MetricPerf, void>(&aicpuMetric), sizeof(MetricPerf), aicpuPer,
                         sizeof(MetricPerf), RT_MEMCPY_DEVICE_TO_HOST);
     if (ret != 0) {
         MACHINE_LOGW("aicpu meter copy failed ret: %d", ret);
@@ -239,7 +242,7 @@ void DumpAicpuPerfInfo(DeviceArgs &args, const std::vector<void *> &perfData, ui
     void* devPtr = perfData[0];
     size_t dataSize = MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics);
     std::vector<uint8_t> hostBuffer(dataSize);
-    rtMemcpy(hostBuffer.data(), dataSize, devPtr, dataSize, RT_MEMCPY_DEVICE_TO_HOST);
+    RuntimeMemcpy(hostBuffer.data(), dataSize, devPtr, dataSize, RT_MEMCPY_DEVICE_TO_HOST);
     Metrics *aicoreMetric = reinterpret_cast<Metrics*>(hostBuffer.data());
     auto sumTurnNum = aicoreMetric->turnNum;
     MACHINE_LOGD("CoreId 0 devAddr: %p, sumTurnNum: %ld", devPtr, sumTurnNum);
@@ -280,4 +283,3 @@ void DumpAicpuPerfInfo(DeviceArgs &args, const std::vector<void *> &perfData, ui
             "/machine_runtime_operator_trace_" + std::to_string(g_last_turn_num) + ".json");
 }
 } // namespce
-#endif

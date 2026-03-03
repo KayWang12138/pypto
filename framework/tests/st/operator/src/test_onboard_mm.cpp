@@ -22,6 +22,9 @@ class MatmulOnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac
 
 template<typename InputT, typename OnputT>
 void TestMatmul(int m, int k, int n, string dataPath) {
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
+
     std::vector<int64_t> shape_a = {m, k};
     std::vector<int64_t> shape_b = {k, n};
     std::vector<int64_t> shape_c = {m, n};
@@ -29,8 +32,6 @@ void TestMatmul(int m, int k, int n, string dataPath) {
     const int capacity_b = k * n;
     const int capacity_c = m * n;
 
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_c * sizeof(OnputT);
     uint8_t* c_ptr = allocDevAddr(outputSize);
     auto InputAstDtype = GetAstDtype<InputT>();
@@ -63,20 +64,19 @@ void TestMatmul(int m, int k, int n, string dataPath) {
 
 template<typename InputT, typename OnputT>
 void TestMatmulTrans(int m, int k, int n, string dataPath) {
-    std::vector<int64_t> shape_a = {m, k};
-    std::vector<int64_t> shape_b = {n, k};
-    std::vector<int64_t> shape_c = {m, n};
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     const int capacity_a = m * k;
     const int capacity_b = k * n;
     const int capacity_c = m * n;
+    std::vector<int64_t> shape_a = {m, k};
+    std::vector<int64_t> shape_b = {n, k};
+    std::vector<int64_t> shape_c = {m, n};
 
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_c * sizeof(OnputT);
     uint8_t* c_ptr = allocDevAddr(outputSize);
     auto InputAstDtype = GetAstDtype<InputT>();
     auto OutputAstDtype = GetAstDtype<OnputT>();
-
 
     PROGRAM("Matmul") {
         void *a_ptr = readToDev<InputT>(dataPath + "/a.bin", capacity_a);
@@ -109,8 +109,8 @@ void TestMatmulACC(int m, int k, int n, string dataPath) {
     const int capacity_b = k * n;
     const int capacity_c = m * n;
 
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity_c * sizeof(OnputT);
     uint8_t* c_ptr = allocDevAddr(outputSize);
     // uint8_t* c_ptr2 = allocDevAddr(outputSize);

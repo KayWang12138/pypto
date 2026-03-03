@@ -32,7 +32,7 @@ public:
 
     void SetUp() override {
         DeviceLauncherContext::Get().DeviceInit();
-        rtSetDevice(GetDeviceIdByEnvVar());
+        RuntimeSetDevice(GetDeviceIdByEnvVar());
      }
 
     void TearDown() override {

@@ -21,6 +21,9 @@ using namespace npu::tile_fwk;
 class TensorIndexOnBoardTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 TEST_F(TensorIndexOnBoardTest, test_tensorindex_float_32_64_1_32) {
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
+
     int S2 = 32;
     int D = 64;
     int B = 1;
@@ -33,8 +36,6 @@ TEST_F(TensorIndexOnBoardTest, test_tensorindex_float_32_64_1_32) {
     int capacity1 = shape1[0] * shape1[1];
     int capacity2 = shape2[0] * shape2[1] * shape2[2];
 
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("TensorIndex") {
@@ -79,8 +80,8 @@ TEST_F(TensorIndexOnBoardTest, test_tensorindex_float_64_256_1_64) {
     int capacity1 = shape1[0] * shape1[1];
     int capacity2 = shape2[0] * shape2[1] * shape2[2];
 
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("TensorIndex") {
@@ -124,8 +125,8 @@ TEST_F(TensorIndexOnBoardTest, test_tensorindex_float_1_64_32_1) {
     int capacity1 = shape1[0] * shape1[1];
     int capacity2 = shape2[0] * shape2[1] * shape2[2];
 
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("TensorIndex") {
@@ -172,8 +173,8 @@ TEST_F(TensorIndexOnBoardTest, test_tensorindex_float_64_512_16_64) {
     int capacity1 = shape1[0] * shape1[1];
     int capacity2 = shape2[0] * shape2[1] * shape2[2];
 
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("TensorIndex") {
@@ -217,8 +218,8 @@ TEST_F(TensorIndexOnBoardTest, test_tensorindex_float_8_7168_64_moe) {
     int capacity1 = shape1[0];
     int capacity2 = shape2[0] * shape2[1];
 
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
+    AclInit(nullptr);
+    RuntimeSetDevice(GetDeviceIdByEnvVar());
     uint64_t outputSize = capacity2 * sizeof(float);
     uint8_t* out_ptr = allocDevAddr(outputSize);
     PROGRAM("TensorIndex") {
