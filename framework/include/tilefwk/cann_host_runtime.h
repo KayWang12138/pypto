@@ -21,6 +21,7 @@
 namespace npu {
 namespace tile_fwk {
 class CannHostRuntime {
+public:
     static CannHostRuntime& Instance();
     bool GetSocVersion(std::string& socVersion);
     std::string GetPlatformFile(const std::string &socVersion);
