@@ -468,36 +468,76 @@ Tensor GatherElements(const Tensor &params, const Tensor &indices, int axis) {
         indices.GetStorage(), axis);
 }
 
-struct ScatterElementSPara {
+struct ScatterCommonPara {
     const LogicalTensorPtr &dstTensor;
-    const LogicalTensorPtr &srcInput;
+    const LogicalTensorPtr &selfInput;
     const LogicalTensorPtr &idxInput;
-    const Element &scalar;
     const int axis;
     const int scatterMode;
 };
 
-struct ScatterElementSTileInfoPara {
-    TileInfo srcTileInfo;
-    TileInfo idxTileInfo;
-    TileInfo dstTileInfo;
+struct ScatterTileInfoCommonPara {
+    TileInfo self;
+    TileInfo idx;
+    TileInfo dst;
 };
 
-void InnerTiledScatterElementS(size_t cur, Function &function, const TileShape &tileShape,
-    const ScatterElementSPara &scatterPara, ScatterElementSTileInfoPara &scatterTileInfo) {
+struct ScatterElementSPara {
+    ScatterCommonPara comm;
+    const Element &scalar;
+};
+
+struct ScatterElementSTileInfoPara {
+    ScatterTileInfoCommonPara comm;
+};
+
+static void InnerTiledCopy(size_t cur, Function &function, const TileShape &tileShape, 
+    const ScatterCommonPara &scatterPara, ScatterTileInfoCommonPara &tileInfo) {
     const LogicalTensorPtr &dstTensor = scatterPara.dstTensor;
-    const LogicalTensorPtr &srcInput = scatterPara.srcInput;
-    const LogicalTensorPtr &idxInput = scatterPara.idxInput;
-    const Element &scalar = scatterPara.scalar;
+    const LogicalTensorPtr &selfInput = scatterPara.selfInput;
     const int axis = scatterPara.axis;
-    const int mode = scatterPara.scatterMode;
 
     if (cur == dstTensor->shape.size()) {
         // add Operation
-        auto srcTile = srcInput->View(function, scatterTileInfo.srcTileInfo.shape, scatterTileInfo.srcTileInfo.offset);
-        auto idxTile = idxInput->View(function, scatterTileInfo.idxTileInfo.shape, scatterTileInfo.idxTileInfo.offset);
-        auto dstTile = dstTensor->View(function, scatterTileInfo.dstTileInfo.shape, scatterTileInfo.dstTileInfo.offset);
-        auto &op = function.AddOperation(Opcode::OP_SCATTER_ELEMENT, {srcTile, idxTile}, {dstTile});
+        auto selfTile = selfInput->View(function, tileInfo.self.shape, tileInfo.self.offset);
+        auto dstTile = dstTensor->View(function, tileInfo.dst.shape, tileInfo.dst.offset);
+        function.AddOperation(Opcode::OP_REGISTER_COPY, {selfTile}, {dstTile});
+        return;
+    }
+
+    // 按照dstShape进行切分
+    auto &vecTile = tileShape.GetVecTile();
+    int64_t tmpTile = (static_cast<int>(cur) == axis) ? dstTensor->shape[cur] : vecTile[cur];
+    int64_t start = (static_cast<int>(cur) == axis) ? 0 :
+        tileInfo.dstInfo.offset[cur] + tileInfo.dstInfo.shape[cur];
+    for (int64_t i = start; i < dstTensor->shape[cur]; i += tmpTile) {
+        if (static_cast<int>(cur) != axis) {
+            tileInfo.dst.offset[cur] = i;
+            tileInfo.dst.shape[cur] =
+                std::min(dstTensor->shape[cur] - tileInfo.dst.offset[cur], tmpTile);
+            tileInfo.self.offset[cur] = i;
+            tileInfo.self.shape[cur] =
+                std::min(selfInput->shape[cur] - tileInfo.self.offset[cur], tmpTile);
+        }
+        InnerTiledCopy(cur + 1, function, tileShape, scatterPara, tileInfo);
+    }
+}
+
+void InnerTiledScatterElementS(size_t cur, Function &function, const TileShape &tileShape,
+    const ScatterElementSPara &scatterPara, ScatterElementSTileInfoPara &tileInfo) {
+    const LogicalTensorPtr &dstTensor = scatterPara.comm.dstTensor;
+    const LogicalTensorPtr &selfInput = scatterPara.comm.selfInput;
+    const LogicalTensorPtr &idxInput = scatterPara.comm.idxInput;
+    const Element &scalar = scatterPara.scalar;
+    const int axis = scatterPara.comm.axis;
+    const int mode = scatterPara.comm.scatterMode;
+
+    if (cur == dstTensor->shape.size()) {
+        // add Operation
+        auto selfTile = selfInput->View(function, tileInfo.comm.self.shape, tileInfo.comm.src.offset);
+        auto idxTile = idxInput->View(function, tileInfo.comm.idx.shape, tileInfo.comm.idx.offset);
+        auto dstTile = dstTensor->View(function, tileInfo.comm.dst.shape, tileInfo.comm.dst.offset);
+        auto &op = function.AddOperation(Opcode::OP_SCATTER_ELEMENT, {selfTile, idxTile}, {dstTile});
         op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
         op.SetAttribute(OpAttributeKey::scalar, scalar);
         op.SetAttribute(OP_ATTR_PREFIX + "scatter_mode", mode);
@@ -518,42 +558,45 @@ void InnerTiledScatterElementS(size_t cur, Function &function, const TileShape &
     }
     for (int i = 0; i < idxInput->shape[cur]; i += tmpTile) {
         if (static_cast<int>(cur) == axis) {
-            scatterTileInfo.idxTileInfo.offset[cur] = 0;
-            scatterTileInfo.idxTileInfo.shape[cur] = idxInput->shape[cur];
-            scatterTileInfo.dstTileInfo.offset[cur] = 0;
-            scatterTileInfo.dstTileInfo.shape[cur] = dstTensor->shape[cur];
-            scatterTileInfo.srcTileInfo.offset[cur] = 0;
-            scatterTileInfo.srcTileInfo.shape[cur] = srcInput->shape[cur];
+            tileInfo.comm.idxTileInfo.offset[cur] = 0;
+            tileInfo.comm.idxTileInfo.shape[cur] = idxInput->shape[cur];
+            tileInfo.comm.dstTileInfo.offset[cur] = 0;
+            tileInfo.comm.dstTileInfo.shape[cur] = dstTensor->shape[cur];
+            tileInfo.comm.srcTileInfo.offset[cur] = 0;
+            tileInfo.comm.srcTileInfo.shape[cur] = selfInput->shape[cur];
         } else {
-            scatterTileInfo.idxTileInfo.offset[cur] = i % idxInput->shape[cur];
-            scatterTileInfo.idxTileInfo.shape[cur] =
-                std::min(idxInput->shape[cur] - scatterTileInfo.idxTileInfo.offset[cur], tmpTile);
-            scatterTileInfo.dstTileInfo.offset[cur] = i;
-            scatterTileInfo.dstTileInfo.shape[cur] =
-                std::min(idxInput->shape[cur] - scatterTileInfo.idxTileInfo.offset[cur], tmpTile);
-            scatterTileInfo.srcTileInfo.offset[cur] = i;
-            scatterTileInfo.srcTileInfo.shape[cur] =
-                std::min(idxInput->shape[cur] - scatterTileInfo.idxTileInfo.offset[cur], tmpTile);
+            tileInfo.comm.idxTileInfo.offset[cur] = i % idxInput->shape[cur];
+            tileInfo.comm.idxTileInfo.shape[cur] =
+                std::min(idxInput->shape[cur] - tileInfo.comm.idxTileInfo.offset[cur], tmpTile);
+            tileInfo.comm.dstTileInfo.offset[cur] = i;
+            tileInfo.comm.dstTileInfo.shape[cur] =
+                std::min(idxInput->shape[cur] - tileInfo.comm.idxTileInfo.offset[cur], tmpTile);
+            tileInfo.comm.srcTileInfo.offset[cur] = i;
+            tileInfo.comm.srcTileInfo.shape[cur] =
+                std::min(idxInput->shape[cur] - tileInfo.comm.idxTileInfo.offset[cur], tmpTile);
         }
-        InnerTiledScatterElementS(cur + 1, function, tileShape, scatterPara, scatterTileInfo);
+        InnerTiledScatterElementS(cur + 1, function, tileShape, scatterPara, tileInfo);
     }
 }
 
 void TiledScatterElementS(Function &function, const TileShape &tileShape, const ScatterElementSPara &scatterPara) {
     // Check Operands Valid
-    ASSERT(scatterPara.srcInput->shape.size() == scatterPara.srcInput->offset.size())
-        << "The size of srcInput shape and offset should be equal";
-    ASSERT(scatterPara.idxInput->shape.size() == scatterPara.idxInput->offset.size())
+    ASSERT(scatterPara.comm.selfInput->shape.size() == scatterPara.comm.selfInput->offset.size())
+        << "The size of selfInput shape and offset should be equal";
+    ASSERT(scatterPara.comm.idxInput->shape.size() == scatterPara.comm.idxInput->offset.size())
         << "The size of idxInput shape and offset should be equal";
-    ASSERT(scatterPara.dstTensor->shape.size() == scatterPara.dstTensor->offset.size())
+    ASSERT(scatterPara.comm.dstTensor->shape.size() == scatterPara.comm.dstTensor->offset.size())
         << "The size of dst shape and offset should be equal";
 
-    ScatterElementSTileInfoPara scatterTileInfo{
-        TileInfo(scatterPara.srcInput->shape.size(), scatterPara.srcInput->offset.size()),
-        TileInfo(scatterPara.idxInput->shape.size(), scatterPara.idxInput->offset.size()),
-        TileInfo(scatterPara.dstTensor->shape.size(), scatterPara.dstTensor->offset.size()),
+    ScatterElementSTileInfoPara tileInfo{
+        {
+            TileInfo(scatterPara.comm.selfInput->shape.size(), scatterPara.comm.selfInput->offset.size()),
+            TileInfo(scatterPara.comm.idxInput->shape.size(), scatterPara.comm.idxInput->offset.size()),
+            TileInfo(scatterPara.comm.dstTensor->shape.size(), scatterPara.comm.dstTensor->offset.size()),
+        }
     };
-    InnerTiledScatterElementS(0, function, tileShape, scatterPara, scatterTileInfo);
+    InnerTiledScatterElementS(0, function, tileShape, scatterPara, tileInfo);
+    InnerTiledCopy(0, function, tileShape, scatterPara, tileInfo);
 }
 
 void TensorScatterElementS(Function &function, const ScatterElementSPara &scatterPara) {
@@ -606,36 +649,31 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, in
 }
 
 struct ScatterPara {
-    const LogicalTensorPtr &dstTensor;
-    const LogicalTensorPtr &selfInput;
-    const LogicalTensorPtr &idxInput;
+    ScatterCommonPara comm;
     const LogicalTensorPtr &srcInput;
-    const int axis;
-    const int scatterMode;
 };
 
+
 struct ScatterTileInfoPara {
-    TileInfo srcInfo;
-    TileInfo idxInfo;
-    TileInfo dstInfo;
-    TileInfo selfInfo;
+    ScatterTileInfoCommonPara comm;
+    TileInfo src;
 };
 
 void InnerTiledScatter(size_t cur, Function &function, const TileShape &tileShape, const ScatterPara &scatterPara,
-    ScatterTileInfoPara &scatterTileInfo) {
-    const LogicalTensorPtr &dstTensor = scatterPara.dstTensor;
-    const LogicalTensorPtr &selfInput = scatterPara.selfInput;
-    const LogicalTensorPtr &idxInput = scatterPara.idxInput;
+    ScatterTileInfoPara &tileInfo) {
+    const LogicalTensorPtr &dstTensor = scatterPara.comm.dstTensor;
+    const LogicalTensorPtr &selfInput = scatterPara.comm.selfInput;
+    const LogicalTensorPtr &idxInput = scatterPara.comm.idxInput;
     const LogicalTensorPtr &srcInput = scatterPara.srcInput;
-    const int axis = scatterPara.axis;
-    const int mode = scatterPara.scatterMode;
+    const int axis = scatterPara.comm.axis;
+    const int mode = scatterPara.comm.scatterMode;
 
     if (cur == dstTensor->shape.size()) {
         // add Operation
-        auto selfTile = selfInput->View(function, scatterTileInfo.selfInfo.shape, scatterTileInfo.selfInfo.offset);
-        auto idxTile = idxInput->View(function, scatterTileInfo.idxInfo.shape, scatterTileInfo.idxInfo.offset);
-        auto srcTile = srcInput->View(function, scatterTileInfo.srcInfo.shape, scatterTileInfo.srcInfo.offset);
-        auto dstTile = dstTensor->View(function, scatterTileInfo.dstInfo.shape, scatterTileInfo.dstInfo.offset);
+        auto selfTile = selfInput->View(function, tileInfo.comm.self.shape, tileInfo.comm.self.offset);
+        auto idxTile = idxInput->View(function, tileInfo.comm.idx.shape, tileInfo.comm.idx.offset);
+        auto srcTile = srcInput->View(function, tileInfo.src.shape, tileInfo.src.offset);
+        auto dstTile = dstTensor->View(function, tileInfo.comm.dst.shape, tileInfo.comm.dst.offset);
         Shape tmpShape({idxTile->GetShape()[idxTile->GetShape().size() - 1]});
         auto tmpBuffer = std::make_shared<LogicalTensor>(function, idxTile->Datatype(), tmpShape);
         auto &op = function.AddOperation(Opcode::OP_SCATTER, {selfTile, idxTile, srcTile}, {dstTile, tmpBuffer});
@@ -658,29 +696,29 @@ void InnerTiledScatter(size_t cur, Function &function, const TileShape &tileShap
     }
     for (int i = 0; i < idxInput->shape[cur]; i += tmpTile) {
         if (static_cast<int>(cur) == axis) {
-            scatterTileInfo.idxInfo.offset[cur] = 0;
-            scatterTileInfo.idxInfo.shape[cur] = idxInput->shape[cur];
-            scatterTileInfo.dstInfo.offset[cur] = 0;
-            scatterTileInfo.dstInfo.shape[cur] = dstTensor->shape[cur];
-            scatterTileInfo.srcInfo.offset[cur] = 0;
-            scatterTileInfo.srcInfo.shape[cur] = idxInput->shape[cur];
-            scatterTileInfo.selfInfo.offset[cur] = 0;
-            scatterTileInfo.selfInfo.shape[cur] = selfInput->shape[cur];
+            tileInfo.comm.idx.offset[cur] = 0;
+            tileInfo.comm.idx.shape[cur] = idxInput->shape[cur];
+            tileInfo.comm.dst.offset[cur] = 0;
+            tileInfo.comm.dst.shape[cur] = dstTensor->shape[cur];
+            tileInfo.src.offset[cur] = 0;
+            tileInfo.src.shape[cur] = idxInput->shape[cur];
+            tileInfo.comm.self.offset[cur] = 0;
+            tileInfo.comm.self.shape[cur] = selfInput->shape[cur];
         } else {
-            scatterTileInfo.idxInfo.offset[cur] = i % idxInput->shape[cur];
-            scatterTileInfo.idxInfo.shape[cur] =
-                std::min(idxInput->shape[cur] - scatterTileInfo.idxInfo.offset[cur], tmpTile);
-            scatterTileInfo.dstInfo.offset[cur] = i;
-            scatterTileInfo.dstInfo.shape[cur] =
-                std::min(idxInput->shape[cur] - scatterTileInfo.idxInfo.offset[cur], tmpTile);
-            scatterTileInfo.srcInfo.offset[cur] = i;
-            scatterTileInfo.srcInfo.shape[cur] =
-                std::min(idxInput->shape[cur] - scatterTileInfo.idxInfo.offset[cur], tmpTile);
-            scatterTileInfo.selfInfo.offset[cur] = i;
-            scatterTileInfo.selfInfo.shape[cur] =
-                std::min(idxInput->shape[cur] - scatterTileInfo.idxInfo.offset[cur], tmpTile);
+            tileInfo.comm.idx.offset[cur] = i % idxInput->shape[cur];
+            tileInfo.comm.idx.shape[cur] =
+                std::min(idxInput->shape[cur] - tileInfo.comm.idx.offset[cur], tmpTile);
+            tileInfo.comm.dst.offset[cur] = i;
+            tileInfo.comm.dst.shape[cur] =
+                std::min(idxInput->shape[cur] - tileInfo.comm.idx.offset[cur], tmpTile);
+            tileInfo.srcInfo.offset[cur] = i;
+            tileInfo.srcInfo.shape[cur] =
+                std::min(idxInput->shape[cur] - tileInfo.comm.idx.offset[cur], tmpTile);
+            tileInfo.comm.self.offset[cur] = i;
+            tileInfo.comm.self.shape[cur] =
+                std::min(idxInput->shape[cur] - tileInfo.comm.idx.offset[cur], tmpTile);
         }
-        InnerTiledScatter(cur + 1, function, tileShape, scatterPara, scatterTileInfo);
+        InnerTiledScatter(cur + 1, function, tileShape, scatterPara, tileInfo);
     }
 }
 
@@ -688,20 +726,23 @@ void TiledScatter(Function &function, const TileShape &tileShape, const ScatterP
     // Check Operands Valid
     ASSERT(scatterPara.srcInput->shape.size() == scatterPara.srcInput->offset.size())
         << "The shape size of srcInput and offset should be equal";
-    ASSERT(scatterPara.idxInput->shape.size() == scatterPara.idxInput->offset.size())
+    ASSERT(scatterPara.comm.idxInput->shape.size() == scatterPara.comm.idxInput->offset.size())
         << "The shape size of idxInput and offset should be equal";
-    ASSERT(scatterPara.dstTensor->shape.size() == scatterPara.dstTensor->offset.size())
+    ASSERT(scatterPara.comm.dstTensor->shape.size() == scatterPara.comm.dstTensor->offset.size())
         << "The shape size of dst and offset should be equal";
-    ASSERT(scatterPara.selfInput->shape.size() == scatterPara.selfInput->offset.size())
+    ASSERT(scatterPara.comm.selfInput->shape.size() == scatterPara.comm.selfInput->offset.size())
         << "The shape size of selfInput and offset should be equal";
 
-    ScatterTileInfoPara scatterTileInfo{
+    ScatterTileInfoPara tileInfo{
+        {
+            TileInfo(scatterPara.selfInput->shape.size(), scatterPara.selfInput->offset.size()),
+            TileInfo(scatterPara.idxInput->shape.size(), scatterPara.idxInput->offset.size()),
+            TileInfo(scatterPara.dstTensor->shape.size(), scatterPara.dstTensor->offset.size()),
+        },
         TileInfo(scatterPara.srcInput->shape.size(), scatterPara.srcInput->offset.size()),
-        TileInfo(scatterPara.idxInput->shape.size(), scatterPara.idxInput->offset.size()),
-        TileInfo(scatterPara.dstTensor->shape.size(), scatterPara.dstTensor->offset.size()),
-        TileInfo(scatterPara.selfInput->shape.size(), scatterPara.selfInput->offset.size()),
     };
-    InnerTiledScatter(0, function, tileShape, scatterPara, scatterTileInfo);
+    InnerTiledScatter(0, function, tileShape, scatterPara.comm, tileInfo.comm);
+    InnerTiledCopy(0, function, tileShape, scatterPara.comm, tileInfo.comm);
 }
 
 void TensorScatter(Function &function, const ScatterPara &scatterPara) {
