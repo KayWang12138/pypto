@@ -158,7 +158,7 @@ void CheckAlignment(int64_t value, int64_t alignment, const std::string& valueNa
     OP_CHECK(true, {
         ASSERT(value % alignment == 0)
             << "Invalid " << valueName << ":" << value
-            << ", requires " << alignment << (isByte ? "-byte alignment." : "-element alignment.") << std::endl;
+            << ", requires " << alignment << "-element alignment." << std::endl;
     });
 }
 
