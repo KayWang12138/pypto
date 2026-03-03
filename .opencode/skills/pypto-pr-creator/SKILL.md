@@ -39,7 +39,7 @@ description: "PyPTO 项目 Pull Request 创建全流程指南。当需要为 can
 | **Cross-Fork PR** | PR 目标必须是 `cann/pypto`，不是用户 fork |
 | **远程操作** | 所有远程操作必须通过 GitCode MCP，禁止直接使用 `GITCODE_TOKEN` |
 | **Origin 配置** | `origin` 必须指向用户 fork（如 `<username>/pypto`），不能是 `cann/pypto` |
-| **隐私保护** | ⚠️ **禁止在屏幕、日志、错误信息中打印或暴露 `GITCODE_TOKEN`，示例代码仅作演示用途** |
+| **隐私保护** | ⚠️ **禁止打印 `GITCODE_TOKEN`，包括屏幕、日志、调试信息** |
 | **用户确认** | 创建分支、commit、push、创建/更新 PR 前必须获得用户明确确认 |
 | **文件路径** | 使用 `$PYPTO_REPO` 指代用户的 pypto 本地仓库根目录 |
 | **Commit 信息** | 必须使用英文，不超过 10 行 |

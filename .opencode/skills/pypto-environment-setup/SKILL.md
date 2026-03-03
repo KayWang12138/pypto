@@ -18,7 +18,7 @@ ASCEND_INSTALL_PATH=${ASCEND_INSTALL_PATH:-/usr/local/Ascend}
 
 ## ⛔ 隐私保护
 
-> ⚠️ **禁止在屏幕、日志、错误信息中打印 `GITCODE_TOKEN` 或 `GITCODE_KEY` 环境变量**
+> ⚠️ **禁止在屏幕、日志、错误信息中打印 `GITCODE_TOKEN` 环境变量**
 
 克隆私有仓库时使用 Token 认证，请确保 Token 仅存储在安全位置（环境变量或配置文件），不要在终端输出中暴露。
 ## 工作流程
@@ -174,18 +174,14 @@ export TILE_FWK_DEVICE_ID=1  # 可选，NPU 模式需要
 ## 诊断工具
 
 ```bash
-# 快速确认清单（推荐，跳过编译相关检查，~15s）
+# 快速检查（推荐，~15s）
 python3 "$SKILL_DIR/scripts/diagnose_env.py" --fast --checklist
 
-# 深度确认清单（完整检查所有项目，~50s）
+# 完整检查（~50s）
 python3 "$SKILL_DIR/scripts/diagnose_env.py" --checklist
-
-# 结构化 JSON（供程序解析）
-python3 "$SKILL_DIR/scripts/diagnose_env.py" --fast --pretty
-
-# 简洁文本
-python3 "$SKILL_DIR/scripts/diagnose_env.py" --fast
 ```
+
+> 更多输出格式和选项请运行 `python3 "$SKILL_DIR/scripts/diagnose_env.py" --help` 查看。
 
 > `--fast` 模式适用于已安装 PyPTO 的环境快速验证；首次安装或遇到编译问题时使用不带 `--fast` 的完整模式。
 

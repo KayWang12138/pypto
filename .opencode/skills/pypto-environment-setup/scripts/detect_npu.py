@@ -69,9 +69,9 @@ SOC_VERSION_MAP: dict[int, str] = {
 }
 
 CHIP_NAME_TO_SOC_VERSION: dict[str, int] = {v: k for k, v in SOC_VERSION_MAP.items()}
-CHIP_NAME_TO_SOC_VERSION["Ascend950"] = 260  # 别名
+CHIP_NAME_TO_SOC_VERSION["Ascend950"] = 260  # alias
 
-# 芯片家族分类：(正则, family, generation, primary_use)
+# Chip family classification: (regex, family, generation, primary_use)
 CHIP_FAMILIES: list[tuple[str, str, str, str]] = [
     (r"^Ascend910Premium|^Ascend910Pro[AB]|^Ascend910[AB]$", "Ascend910", "A1", "Training"),
     (r"^Ascend310P", "Ascend310P", "A1+", "Inference"),
@@ -81,16 +81,13 @@ CHIP_FAMILIES: list[tuple[str, str, str, str]] = [
     (r"^Ascend950", "Ascend950", "A3+", "Training"),
 ]
 
-# 已知华为 PCI 设备 ID → (代际标签, 芯片家族前缀)
-# 0xd802 经 910B (A2) 实机确认，0xd803 经 910C/910_93 (A3) 实机确认
+# Known Huawei PCI device IDs -> (generation, chip family prefix)
 KNOWN_PCI_DEVICE_IDS: dict[str, tuple[str, str]] = {
-    "0xd802": ("A2", "Ascend910B"),
-    "0xd803": ("A3", "Ascend910_93"),
-}
 
 
 # ---------------------------------------------------------------------------
-# 数据类
+# Data Classes
+# ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 
 @dataclass

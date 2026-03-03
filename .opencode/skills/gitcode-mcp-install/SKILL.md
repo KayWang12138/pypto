@@ -12,19 +12,12 @@ description: >-
 
 - `$SKILL_DIR`：由 agent 运行时自动注入的环境变量，指向当前 skill 的根目录（即本 `gitcode-mcp-install/` 目录）。手动执行时需自行设置，例如：`export SKILL_DIR=/path/to/gitcode-mcp-install`。
 
-## ⛔ 隐私保护（强制）
+## ⛔ 隐私保护
 
-**Token 相关行为绝对禁止：**
+> ⚠️ **禁止在屏幕、日志、错误信息中打印 `GITCODE_TOKEN` 环境变量**
 
-| 禁止项 | 说明 |
-|--------|------|
-| 明文显示 | 输出必须遮罩（如 `abcd****efgh`），仅保留首尾各4位 |
-| 非配置存储 | Token 只能存于 `~/.config/opencode/opencode.json` 或环境变量 |
-| 询问用户 | 不得要求用户提供 Token，由用户自行编辑配置文件 |
-| 硬编码 | 文档/代码示例必须用占位符 `<YOUR_GITCODE_TOKEN>` |
-| **打印环境变量** | ⚠️ 禁止在任何输出中打印 `GITCODE_TOKEN` 或 `GITCODE_KEY`，包括调试信息 |
+Token 仅存储在安全位置（环境变量或配置文件），不要在终端输出中暴露。文档/代码示例必须用占位符 `<YOUR_GITCODE_TOKEN>`。
 
----
 
 ## 安装
 
@@ -39,17 +32,34 @@ go install gitcode.com/gitcode-ai/gitcode_mcp_server@latest
 > **注意**：Go 二进制方式在国内网络可能失败（GitCode 不支持 Go module 代理）。
 > 若失败请使用 Python 方式。
 
-### 方式二：Python 源码安装
+### 方式二：Python 源码安装（推荐）
 
+**标准安装**：
 ```bash
 git clone https://gitcode.com/gitcode-ai/gitcode_mcp_server.git /tmp/gitcode_mcp_server
 pip3 install -e /tmp/gitcode_mcp_server
 ```
 
+**安装 PR #3 版本（推荐，修复分页截断问题）**：
+
+> PR #3 修复了 `list_pull_request_comments` 分页截断问题，新增评论类型过滤、回复评论等功能。
+
+```bash
+# 克隆仓库
+git clone https://gitcode.com/gitcode-ai/gitcode_mcp_server.git /tmp/gitcode_mcp_server
+cd /tmp/gitcode_mcp_server
+
+# 获取并切换到 PR #3
+git fetch origin +refs/merge-requests/3/head:pr_3
+git checkout pr_3
+
+# 安装
+pip3 install -e .
+```
+
 > Python >= 3.8
 > 
 > **重要**：Python 安装方式会自动注册 `gitcode-mcp` 命令，配置方式与 Go 二进制相同。
-
 ## OpenCode 配置（不存在会自动创建）
 
 脚本会在 `~/.config/opencode/opencode.json` 不存在时创建默认配置，并把 token 写成占位符。

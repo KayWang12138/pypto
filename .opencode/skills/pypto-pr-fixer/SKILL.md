@@ -236,7 +236,7 @@ PR 创建成功后检查 CLA 和 LGTM 状态：
 
 1. **diff_comment 不含文件路径** — 通过 grep 定位，可能存在误匹配
 2. **openlibing.com 为 SPA** — 必须使用 Playwright 渲染，无法 HTTP 直接获取
-3. **隐私保护** — 绝不直接打印或记录 `GITCODE_TOKEN`
+3. **隐私保护** — 禁止打印 `GITCODE_TOKEN`（屏幕、日志、调试信息均禁止）
 
 ## 参考文档
 
