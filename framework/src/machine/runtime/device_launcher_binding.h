@@ -16,7 +16,6 @@
 #ifndef SRC_RUNTIME_DEVICE_LAUNCHER_BINDING_H
 #define SRC_RUNTIME_DEVICE_LAUNCHER_BINDING_H
 
-#include <cstdint>
 #include <vector>
 
 #include "interface/function/function.h"
