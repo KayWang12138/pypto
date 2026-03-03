@@ -382,8 +382,8 @@ TEST_F(InferShapeTest, TestFailCopyOut) {
     std::vector<int64_t> outshape = {8, 8};
     auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
     auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outshape);
-    incast.UpdateDynValidShape(std::vector<SymbolicScalar>());
-    outcast.UpdateDynValidShape(std::vector<SymbolicScalar>());
+    incast->UpdateDynValidShape(std::vector<SymbolicScalar>());
+    outcast->UpdateDynValidShape(std::vector<SymbolicScalar>());
 
     auto &copyout_op = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {incast}, {outcast});
     (void) copyout_op;
