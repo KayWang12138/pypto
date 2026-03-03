@@ -268,8 +268,6 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
     int64_t tileCinWeight = convTile.tileL1Info.tileCinWeight;
     int64_t tileN = convTile.tileL1Info.tileN;
     int64_t tileBatch = convTile.tileL1Info.tileBatch;
-    int64_t tileN = convTile.tileL1Info.tileN;
-    int64_t tileBatch = convTile.tileL1Info.tileBatch;
     int64_t groups = attrParam.groups;
 
     uint32_t indexH = attrParam.isConv3D ? NCDHW_H_IDX : NCHW_H_IDX;
