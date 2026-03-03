@@ -541,96 +541,6 @@ class CandidateGenerator:
         self.loader = loader
         self.rng = rng
 
-    def _bayesian_build_candidate(
-        self,
-        names: List[str],
-        value_cache: Dict[str, List[Any]],
-        good: Sequence[Dict[str, Any]],
-        bad: Sequence[Dict[str, Any]],
-    ) -> Dict[str, Any]:
-        """Build one TPE-weighted candidate from parameter space."""
-        candidate: Dict[str, Any] = {}
-        for name in names:
-            options = value_cache[name]
-            weights = _compute_tpe_weights(options, name, good, bad)
-            candidate[name] = copy.deepcopy(self._weighted_choice(options, weights))
-        return candidate
-
-    def _weighted_choice(self, options: Sequence[Any], weights: Sequence[float]) -> Any:
-        total = sum(max(w, 0.0) for w in weights)
-        if total <= 0.0:
-            return options[self.rng.randrange(0, len(options))]
-        pivot = self.rng.random() * total
-        cumulative = 0.0
-        for idx, value in enumerate(options):
-            cumulative += max(weights[idx], 0.0)
-            if cumulative >= pivot:
-                return value
-        return options[-1]
-
-    def _score_candidate(
-        self,
-        layer_name: str,
-        item: Dict[str, Any],
-        labels: List[str],
-        top_ops: List[str],
-    ) -> float:
-        """Compute guidance score for a candidate using layer-specific scorer."""
-        if layer_name == "stitch":
-            return self._score_stitch(item, labels)
-        if layer_name == "matmul":
-            return self._score_matmul(item, labels, top_ops)
-        if layer_name == "vector":
-            return self._score_vector(item, labels, top_ops)
-        if layer_name == "scheduling":
-            return self._score_scheduling(item)
-        return 0.0
-
-    @staticmethod
-    def _score_stitch(item: Dict[str, Any], labels: List[str]) -> float:
-        """Score a stitch-layer candidate based on guidance labels."""
-        score = 0.0
-        max_num = item.get("stitch_function_max_num")
-        has_idle_or_bubble = any("idle" in s or "bubble" in s for s in labels)
-        if has_idle_or_bubble:
-            if max_num == 64:
-                score += 3.0
-            elif max_num in (32, 128):
-                score += 1.0
-        if isinstance(max_num, (int, float)) and float(max_num) > 128:
-            score -= 1.0
-        return score
-
-    @staticmethod
-    def _score_matmul(item: Dict[str, Any], labels: List[str], top_ops: List[str]) -> float:
-        """Score a matmul-layer candidate based on guidance."""
-        score = 0.0
-        if any("matmul" in s or "cube" in s for s in labels + top_ops):
-            if item.get("enable_multi_data_load") is True:
-                score += 1.5
-            if item.get("cube_l1_reuse_mode") == 1:
-                score += 1.5
-        return score
-
-    @staticmethod
-    def _score_vector(item: Dict[str, Any], labels: List[str], top_ops: List[str]) -> float:
-        """Score a vector-layer candidate based on guidance."""
-        score = 0.0
-        if any("vector" in s or "parallel" in s for s in labels + top_ops):
-            if item.get("vec_nbuffer_mode") in (1, 2):
-                score += 1.2
-            sg_scope = item.get("sg_set_scope")
-            if isinstance(sg_scope, int) and sg_scope >= 0:
-                score += 0.8
-        return score
-
-    @staticmethod
-    def _score_scheduling(item: Dict[str, Any]) -> float:
-        """Score a scheduling-layer candidate."""
-        if item.get("device_sched_mode") == 1:
-            return 1.0
-        return 0.0
-
     @staticmethod
     def value_count(rows: Sequence[Dict[str, Any]], name: str, value: Any) -> int:
         """Count distinct values for a parameter key in search space."""
@@ -809,6 +719,96 @@ class CandidateGenerator:
 
         return all_candidates
 
+    def _bayesian_build_candidate(
+        self,
+        names: List[str],
+        value_cache: Dict[str, List[Any]],
+        good: Sequence[Dict[str, Any]],
+        bad: Sequence[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Build one TPE-weighted candidate from parameter space."""
+        candidate: Dict[str, Any] = {}
+        for name in names:
+            options = value_cache[name]
+            weights = _compute_tpe_weights(options, name, good, bad)
+            candidate[name] = copy.deepcopy(self._weighted_choice(options, weights))
+        return candidate
+
+    def _weighted_choice(self, options: Sequence[Any], weights: Sequence[float]) -> Any:
+        total = sum(max(w, 0.0) for w in weights)
+        if total <= 0.0:
+            return options[self.rng.randrange(0, len(options))]
+        pivot = self.rng.random() * total
+        cumulative = 0.0
+        for idx, value in enumerate(options):
+            cumulative += max(weights[idx], 0.0)
+            if cumulative >= pivot:
+                return value
+        return options[-1]
+
+    def _score_candidate(
+        self,
+        layer_name: str,
+        item: Dict[str, Any],
+        labels: List[str],
+        top_ops: List[str],
+    ) -> float:
+        """Compute guidance score for a candidate using layer-specific scorer."""
+        if layer_name == "stitch":
+            return self._score_stitch(item, labels)
+        if layer_name == "matmul":
+            return self._score_matmul(item, labels, top_ops)
+        if layer_name == "vector":
+            return self._score_vector(item, labels, top_ops)
+        if layer_name == "scheduling":
+            return self._score_scheduling(item)
+        return 0.0
+
+    @staticmethod
+    def _score_stitch(item: Dict[str, Any], labels: List[str]) -> float:
+        """Score a stitch-layer candidate based on guidance labels."""
+        score = 0.0
+        max_num = item.get("stitch_function_max_num")
+        has_idle_or_bubble = any("idle" in s or "bubble" in s for s in labels)
+        if has_idle_or_bubble:
+            if max_num == 64:
+                score += 3.0
+            elif max_num in (32, 128):
+                score += 1.0
+        if isinstance(max_num, (int, float)) and float(max_num) > 128:
+            score -= 1.0
+        return score
+
+    @staticmethod
+    def _score_matmul(item: Dict[str, Any], labels: List[str], top_ops: List[str]) -> float:
+        """Score a matmul-layer candidate based on guidance."""
+        score = 0.0
+        if any("matmul" in s or "cube" in s for s in labels + top_ops):
+            if item.get("enable_multi_data_load") is True:
+                score += 1.5
+            if item.get("cube_l1_reuse_mode") == 1:
+                score += 1.5
+        return score
+
+    @staticmethod
+    def _score_vector(item: Dict[str, Any], labels: List[str], top_ops: List[str]) -> float:
+        """Score a vector-layer candidate based on guidance."""
+        score = 0.0
+        if any("vector" in s or "parallel" in s for s in labels + top_ops):
+            if item.get("vec_nbuffer_mode") in (1, 2):
+                score += 1.2
+            sg_scope = item.get("sg_set_scope")
+            if isinstance(sg_scope, int) and sg_scope >= 0:
+                score += 0.8
+        return score
+
+    @staticmethod
+    def _score_scheduling(item: Dict[str, Any]) -> float:
+        """Score a scheduling-layer candidate."""
+        if item.get("device_sched_mode") == 1:
+            return 1.0
+        return 0.0
+
 
 def _check_prune_cube_reuse(flat: Dict[str, Any]) -> Optional[str]:
     """Check cube L1 reuse mode pruning rule."""
@@ -963,6 +963,79 @@ class BenchmarkRunner:
         self.rng = config.rng
         self.seed = config.seed
 
+    @staticmethod
+    def extract_metrics(summary: Dict[str, Any]) -> Dict[str, float]:
+        """Extract required metrics from analysis_summary.json."""
+        pools: List[Dict[str, Any]] = [summary]
+        for key in ("metrics", "performance", "summary", "stats"):
+            value = summary.get(key)
+            if isinstance(value, dict):
+                pools.append(value)
+
+        latency = BenchmarkRunner.first_float(
+            pools,
+            ["total_latency_ms", "latency_ms", "end_to_end_latency_ms", "total_time_ms"],
+        )
+        kernel = BenchmarkRunner.first_float(
+            pools,
+            ["kernel_time_ms", "kernel_total_ms", "kernel_total_time_ms"],
+        )
+        idle = BenchmarkRunner.first_float(
+            pools,
+            ["idle_ratio", "npu_idle_ratio", "bubble_ratio"],
+        )
+
+        if latency is None:
+            timeline_us = BenchmarkRunner.first_float(pools, ["timeline_us", "timeline_length_us"])
+            if timeline_us is not None:
+                latency = timeline_us / 1000.0
+
+        if latency is None:
+            raise RuntimeError("analysis_summary missing total_latency_ms")
+        if kernel is None:
+            kernel = latency * 0.75
+        if idle is None:
+            idle = 0.2
+
+        return {
+            "total_latency_ms": float(latency),
+            "kernel_time_ms": float(kernel),
+            "idle_ratio": clamp(float(idle), 0.0, 1.0),
+        }
+
+    @staticmethod
+    def first_float(pools: Iterable[Dict[str, Any]], keys: Sequence[str]) -> Optional[float]:
+        """Extract the first float-like value from a metrics dictionary."""
+        for pool in pools:
+            for key in keys:
+                if key in pool:
+                    value = safe_float(pool.get(key))
+                    if value is not None:
+                        return value
+        return None
+
+    def run_trial(
+        self,
+        trial_id: int,
+        layer_name: str,
+        full_config: Dict[str, Dict[str, Any]],
+        output_dir: Path,
+    ) -> TrialOutcome:
+        """Execute one trial and return structured outcome."""
+        timestamp = now_iso()
+        env = self._build_env_payload()
+        inp = TrialRetryInput(
+            trial_id=trial_id, layer_name=layer_name,
+            full_config=full_config, output_dir=output_dir,
+            timestamp=timestamp, env=env,
+        )
+
+        if self.dry_run:
+            metrics = self._simulate_metrics(full_config)
+            return _make_trial_outcome(inp, metrics, "success", None)
+
+        return self._run_trial_with_retries(inp)
+
     def _simulate_metrics(self, full_config: Dict[str, Dict[str, Any]]) -> Dict[str, float]:
         """Simulate benchmark metrics for dry-run mode."""
         flat = flatten_layers(full_config)
@@ -1103,79 +1176,6 @@ class BenchmarkRunner:
             if maybe_path is not None and maybe_path.exists():
                 return maybe_path
         return None
-
-    @staticmethod
-    def extract_metrics(summary: Dict[str, Any]) -> Dict[str, float]:
-        """Extract required metrics from analysis_summary.json."""
-        pools: List[Dict[str, Any]] = [summary]
-        for key in ("metrics", "performance", "summary", "stats"):
-            value = summary.get(key)
-            if isinstance(value, dict):
-                pools.append(value)
-
-        latency = BenchmarkRunner.first_float(
-            pools,
-            ["total_latency_ms", "latency_ms", "end_to_end_latency_ms", "total_time_ms"],
-        )
-        kernel = BenchmarkRunner.first_float(
-            pools,
-            ["kernel_time_ms", "kernel_total_ms", "kernel_total_time_ms"],
-        )
-        idle = BenchmarkRunner.first_float(
-            pools,
-            ["idle_ratio", "npu_idle_ratio", "bubble_ratio"],
-        )
-
-        if latency is None:
-            timeline_us = BenchmarkRunner.first_float(pools, ["timeline_us", "timeline_length_us"])
-            if timeline_us is not None:
-                latency = timeline_us / 1000.0
-
-        if latency is None:
-            raise RuntimeError("analysis_summary missing total_latency_ms")
-        if kernel is None:
-            kernel = latency * 0.75
-        if idle is None:
-            idle = 0.2
-
-        return {
-            "total_latency_ms": float(latency),
-            "kernel_time_ms": float(kernel),
-            "idle_ratio": clamp(float(idle), 0.0, 1.0),
-        }
-
-    @staticmethod
-    def first_float(pools: Iterable[Dict[str, Any]], keys: Sequence[str]) -> Optional[float]:
-        """Extract the first float-like value from a metrics dictionary."""
-        for pool in pools:
-            for key in keys:
-                if key in pool:
-                    value = safe_float(pool.get(key))
-                    if value is not None:
-                        return value
-        return None
-
-    def run_trial(
-        self,
-        trial_id: int,
-        layer_name: str,
-        full_config: Dict[str, Dict[str, Any]],
-        output_dir: Path,
-    ) -> TrialOutcome:
-        """Execute one trial and return structured outcome."""
-        timestamp = now_iso()
-        env = self._build_env_payload()
-        inp = TrialRetryInput(
-            trial_id=trial_id, layer_name=layer_name,
-            full_config=full_config, output_dir=output_dir,
-            timestamp=timestamp, env=env,
-        )
-
-        if self.dry_run:
-            metrics = self._simulate_metrics(full_config)
-            return _make_trial_outcome(inp, metrics, "success", None)
-
-        return self._run_trial_with_retries(inp)
 
 
 class ResultRecorder:
