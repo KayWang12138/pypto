@@ -448,6 +448,8 @@ void MoeDistributedDispatchV2(const Tensor& x, const Tensor& expertIds, const ch
     Tensor& assistInfoForCombine, Tensor& expertTokenNums, Tensor& recvCounts);
 void MoeDistributedDispatch(const Tensor& tokenTensor, const Tensor& tokenExpertTable, Tensor& expandX, Tensor& validCnt,
     Tensor& combineInfo, const char *group, const MoeConfig& moeConfig);
+void AllGather(const Tensor& predToken, const Tensor& in, const Tensor& commContext, const char* group, Tensor& shmemData,
+    Tensor& shmemSignal, Tensor& out);
 void AllGather(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
 void AllGather(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
     Tensor& shmemSignal, Tensor& out);
@@ -473,6 +475,9 @@ void MoeDistributedCombineV2(const Tensor& expandX, const Tensor& assistInfoForC
 void CreateShmemData(const char* group, int64_t worldSize, DataType dataType,
     const Shape& shape, Tensor& shmemTensor, uint64_t memType = 0);
 void CreateShmemSignal(const char* group, Tensor& shmemData, Tensor& shmemSignal);
+void CreateShmemData(const Tensor& commContext, const char* group, int64_t worldSize, DataType dataType,
+    const Shape& shape, Tensor& shmemTensor, uint64_t memType = 0);
+void CreateShmemSignal(const Tensor& commContext, const char* group, Tensor& shmemData, Tensor& shmemSignal);
 Tensor ShmemPut(const Tensor& predToken, const Tensor& in, const Tensor& shmemData,
     AtomicType atomicType = AtomicType::SET);
 Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy,
