@@ -19,7 +19,8 @@
 #include "interface/configs/config_manager.h"
 #include "tilefwk/data_type.h"
 #include "test_dev_func_runner.h"
-
+#include "machine/runtime/distributed/distributed_context.h"
+using namespace TileOp;
 namespace npu::tile_fwk {
 namespace Distributed {
 
@@ -38,23 +39,30 @@ void TestAllGather(OpTestParam& testParam, std::string& goldenDir)
     Tensor in(dType, shape, "in");
     Tensor out(dType, outShape, "out");
 
+    std::vector<uint64_t> hcclContexts = DistributedContext::GetCommContextToHost(std::vector<std::string>{testParam.group});
+    auto hcclOpParam = (TileOp::CommContext*)hcclContexts[0];
+    auto rankNum = hcclOpParam->rankNum;
+    int64_t ctxSize = static_cast<int64_t>(sizeof(TileOp::CommContext)) + 
+        static_cast<int64_t>(sizeof(uint64_t)) * rankNum * WIN_TYPE_NUM;
+    Tensor commTensor(DT_INT8, Shape{1, ctxSize}, "commTensor");
     std::vector<T> inPtr = ReadToVector<T>(goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
     
     Shape shmemDataShape{testParam.rankSize, row, col};
-    FUNCTION("ALLGATHER", {in}, {out}) {
+    FUNCTION("ALLGATHER", {in, commTensor}, {out}) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
         Tensor shmemData;
         Tensor shmemSignal;
         LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
-            CreateShmemData(testParam.group, testParam.rankSize, dType, shmemDataShape, shmemData);
-            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
+            CreateShmemData(commTensor, testParam.group, testParam.rankSize, dType, shmemDataShape, shmemData);
+            CreateShmemSignal(commTensor, testParam.group, shmemData, shmemSignal);
         }
-        AllGather(in, in, testParam.group, shmemData, shmemSignal, out);
+        AllGather(in, in, commTensor, testParam.group, shmemData, shmemSignal, out);
     }
 
     ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<T>(in, inPtr)
+        RawTensorData::CreateTensor<T>(in, inPtr),
+        RawTensorData::CreateTensor(DT_INT8, Shape{1, ctxSize}, (uint8_t *)(hcclOpParam))
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateTensorZero(out)
