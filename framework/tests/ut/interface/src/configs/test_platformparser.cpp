@@ -139,19 +139,18 @@ TEST_F(TestPlatformParser, TestObtainPlatformInfo) {
 
 TEST_F(TestPlatformParser, AbnormalTest) { 
     INIParser parser; 
-    const std::string version = "version"; 
     EXPECT_FALSE(parser.Initialize("")); 
 
     std::unordered_map<std::string, std::string> ccecVersion; 
     EXPECT_FALSE(parser.GetCCECVersion(ccecVersion)); 
     EXPECT_FALSE(parser.GetCoreVersion(ccecVersion)); 
 
-    std::string iniPath = RealPath(GetCurrentSharedLibPath() + "/configs/Soc_version.ini"); 
+    std::string iniPath = RealPath(TEST_TMP_DIR + "A5.ini"); 
     EXPECT_TRUE(parser.Initialize(iniPath)); 
 
     std::string test; 
     EXPECT_FALSE(parser.GetStringVal("none", "", test)); 
-    EXPECT_TRUE(parser.GetStringVal(version, "none_other", test)); 
+    EXPECT_FALSE(parser.GetStringVal(version, "none_other", test)); 
 
     size_t testSize; 
     EXPECT_FALSE(parser.GetSizeVal("none", "", testSize)); 
