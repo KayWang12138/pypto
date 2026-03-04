@@ -8,10 +8,6 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-if (NOT BUILD_OPEN_PROJECT)
-    return()
-endif ()
-
 if (BUILD_WITH_CANN AND DEFINED ENV{LD_LIBRARY_PATH})
     set(LD_LIBRARY_PATH $ENV{LD_LIBRARY_PATH})
     string(REPLACE ":" ";" LIBRARY_PATHS "${LD_LIBRARY_PATH}")
@@ -37,6 +33,10 @@ if (BUILD_WITH_CANN AND DEFINED ENV{LD_LIBRARY_PATH})
     set_target_properties(c_sec_shared PROPERTIES
             IMPORTED_LOCATION ${c_sec_LIBRARY}
     )
+    add_library(c_sec_include INTERFACE IMPORTED)
+    set_target_properties(c_sec_include PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "${ASCEND_CANN_PACKAGE_PATH}/include"
+    )
     message(STATUS "Use c_sec from binary, c_sec_shared: ${c_sec_LIBRARY}")
     return()
 endif ()
@@ -59,6 +59,10 @@ function(TryAdd_c_sec)
         set_target_properties(c_sec PROPERTIES
                 INTERFACE_INCLUDE_DIRECTORIES "${ARG_PREFIX}/include"
                 INTERFACE_LINK_LIBRARIES "c_sec_shared"
+        )
+        add_library(c_sec_include INTERFACE IMPORTED)
+        set_target_properties(c_sec_include PROPERTIES
+                INTERFACE_INCLUDE_DIRECTORIES "${ARG_PREFIX}/include"
         )
         if (ARG_DEPENDS)
             add_dependencies(c_sec ${ARG_DEPENDS})
