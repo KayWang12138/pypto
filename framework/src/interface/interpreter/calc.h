@@ -108,6 +108,9 @@ inline void Trunc(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 inline void Sign(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Sign(Trans(out), Trans(self));
 }
+inline void Signbit(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    GetCalcOps()->Signbit(Trans(out), Trans(self));
+}
 inline void Reciprocal(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Reciprocal(Trans(out), Trans(self));
 }
@@ -332,6 +335,10 @@ inline void Expand(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 inline void GatherElements(
     LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices, int axis) {
     GetCalcOps()->GatherElements(Trans(out), Trans(params), Trans(indices), axis);
+}
+inline void GatherMask(
+    LogicalTensorDataPtr out, LogicalTensorDataPtr self, int patternMode) {
+    GetCalcOps()->GatherMask(Trans(out), Trans(self), patternMode);
 }
 inline void IndexAdd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr src,
     LogicalTensorDataPtr indices, int axis, const Element &alpha = Element(DT_FP32, 1.0)) {

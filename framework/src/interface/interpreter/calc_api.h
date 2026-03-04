@@ -66,6 +66,7 @@ struct CalcOps {
     void (*Neg)(const TensorData &, const TensorData &);
     void (*Rsqrt)(const TensorData &, const TensorData &);
     void (*Sign)(const TensorData &, const TensorData &);
+    void (*Signbit)(const TensorData &, const TensorData &);
     void (*Sqrt)(const TensorData &, const TensorData &);
     void (*Ceil)(const TensorData &, const TensorData &);
     void (*Floor)(const TensorData &, const TensorData &);
@@ -145,6 +146,7 @@ struct CalcOps {
     void (*ExpandS)(const TensorData &, const Element &);
     void (*Expand)(const TensorData &, const TensorData &);
     void (*GatherElements)(const TensorData &, const TensorData &, const TensorData &, int);
+    void (*GatherMask)(const TensorData &, const TensorData &, int);
     void (*IndexAdd)(const TensorData &, const TensorData &, const TensorData &, const TensorData &, int, const Element &);
     void (*TriU)(const TensorData &, const TensorData &, int);
     void (*TriL)(const TensorData &, const TensorData &, int);

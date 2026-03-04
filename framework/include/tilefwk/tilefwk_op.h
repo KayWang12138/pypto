@@ -135,6 +135,8 @@ Tensor Relu(const Tensor &self);
 Tensor BitwiseNot(const Tensor &self);
 Tensor Sqrt(const Tensor &self);
 Tensor Ceil(const Tensor &self);
+Tensor CeilDiv(const Tensor &self, const Tensor &other);
+Tensor CeilDiv(const Tensor &self, const Element &other);
 Tensor Floor(const Tensor &self);
 Tensor Trunc(const Tensor &self);
 Tensor Reciprocal(const Tensor &operand);
@@ -142,6 +144,7 @@ Tensor Abs(const Tensor &self);
 Tensor Ln(const Tensor &operand);
 Tensor Hub(const Tensor &operand);
 Tensor Sign(const Tensor &operand);
+Tensor Signbit(const Tensor &operand);
 
 Tensor Duplicate(const Tensor &operand);
 Tensor Gather(const Tensor &params, const Tensor &indices, int axis);

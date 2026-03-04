@@ -105,6 +105,26 @@ TEST_F(OperationImplTest, test_IsFinite_int32) {
     }
 }
 
+TEST_F(OperationImplTest, test_CeilDivs_int32) {
+    TileShape::Current().SetVecTile(4, 32);
+    Tensor self(DT_INT32, {11, 32}, "self");
+    Element other(DT_INT32, 2);
+    Tensor result;
+    FUNCTION("TestCeilDiv") {
+        result = CeilDiv(self, other);
+    }
+}
+
+TEST_F(OperationImplTest, test_CeilDiv_int32) {
+    TileShape::Current().SetVecTile(4, 32);
+    Tensor self(DT_INT32, {11, 32}, "self");
+    Tensor other(DT_INT32, {11, 32}, "other");
+    Tensor result;
+    FUNCTION("TestCeilDiv") {
+        result = CeilDiv(self, other);
+    }
+}
+
 TEST_F(OperationImplTest, test_Compare_BOOL) {
     TileShape::Current().SetVecTile({4, 4});
     Tensor operand1(DT_FP32, {8, 8}, "operand1");
@@ -454,6 +474,32 @@ TEST_F(OperationImplTest, Test_Sign_INT16) {
         config::SetBuildStatic(true);
         FUNCTION("Sign_INT16") {
             output = Sign(input_a);
+        }
+    }
+}
+
+TEST_F(OperationImplTest, Test_Signbit_FP16) {
+    PROGRAM("Signbit") {
+        std::vector<int64_t> shape = {128, 32};
+        TileShape::Current().SetVecTile({128, 32});
+        Tensor input_a(DT_FP16, shape, "A");
+        auto output = Tensor(DT_BOOL, shape, "res");
+        config::SetBuildStatic(true);
+        FUNCTION("Signbit_FP16") {
+            output = Signbit(input_a);
+        }
+    }
+}
+
+TEST_F(OperationImplTest, Test_Signbit_FP32) {
+    PROGRAM("Signbit") {
+        std::vector<int64_t> shape = {128, 32};
+        TileShape::Current().SetVecTile({128, 32});
+        Tensor input_a(DT_FP32, shape, "A");
+        auto output = Tensor(DT_BOOL, shape, "res");
+        config::SetBuildStatic(true);
+        FUNCTION("Signbit_FP32") {
+            output = Signbit(input_a);
         }
     }
 }
