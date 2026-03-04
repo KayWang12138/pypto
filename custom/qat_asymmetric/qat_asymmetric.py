@@ -40,52 +40,47 @@ from numpy.testing import assert_allclose
 
 # ===== Golden Function (PyTorch Reference) =====
 def qat_asymmetric_golden(weight, scale, offset, group_size, bit, eps=1e-4, clip_val=0.99):
-    """PyTorch reference implementation for Enhanced LSQ+ asymmetric quantization."""
-    eps_tensor = torch.tensor(eps, device=scale.device).float()
-    scale = torch.where(scale > eps_tensor, scale, eps_tensor)
+    """PyTorch reference implementation for Enhanced LSQ+ asymmetric quantization (BF16 I/O, FP32 compute)."""
+    # Convert to FP32 for computation
+    weight_fp32 = weight.float()
+    scale_fp32 = scale.float()
+    offset_fp32 = offset.float()
+    
+    eps_tensor = torch.tensor(eps, device=scale_fp32.device, dtype=torch.float32)
+    protected_scale = torch.where(scale_fp32 > eps_tensor, scale_fp32, eps_tensor)
     
     orig_shape = weight.shape
     num_groups = weight.numel() // group_size
     
-    weight = weight.view(num_groups, group_size)
+    weight_2d = weight_fp32.view(num_groups, group_size)
     
     n_levels = 2 ** (bit - 1)
     shift = 0.5
 
-    offset_expanded = offset.unsqueeze(1)
-    weight = weight - offset_expanded
-    alpha = scale * n_levels
+    offset_expanded = offset_fp32.unsqueeze(1)
+    weight_shifted = weight_2d - offset_expanded
+    alpha = protected_scale * n_levels
     alpha_expanded = alpha.unsqueeze(1)
 
     # Quantization and de-quantize with STE
-    weight = torch.clamp(weight / alpha_expanded, -clip_val, clip_val) * n_levels - shift
-    weight = (weight.round() - weight).detach() + weight
-    weight = (weight + shift) / n_levels
-    weight = weight * alpha_expanded + offset_expanded
+    weight_clipped = torch.clamp(weight_shifted / alpha_expanded, -clip_val, clip_val) * n_levels - shift
+    weight_rounded = (weight_clipped.round() - weight_clipped).detach() + weight_clipped
+    weight_unshifted = weight_rounded + shift
+    weight_denorm = weight_unshifted / n_levels
+    output_2d = weight_denorm * alpha_expanded + offset_expanded
     
     # Reshape back to original shape
-    weight = weight.view(orig_shape)
+    output = output_2d.view(orig_shape)
+    weight_denorm_out = weight_denorm.view(orig_shape)
+    alpha_expanded_out = alpha_expanded.expand(-1, group_size).contiguous().view(orig_shape)
     
-    return weight
+    # Convert back to BF16
+    return output.to(torch.bfloat16), weight_denorm_out.to(torch.bfloat16), alpha_expanded_out.to(torch.bfloat16)
 
 
 # ===== JIT Kernel Implementation =====
 def create_qat_asymmetric_kernel(weight_shape, num_groups, group_size, bit=4, 
                                   eps=1e-4, clip_val=0.99, run_mode="npu"):
-    """Create JIT-compiled QAT asymmetric quantization kernel.
-
-    Args:
-        weight_shape: Original weight tensor shape (will be flattened internally)
-        num_groups: Number of quantization groups
-        group_size: Number of elements per group
-        bit: Quantization bit-width (default: 4)
-        eps: Minimum scale threshold (default: 1e-4)
-        clip_val: Clipping value (default: 0.99)
-        run_mode: Execution mode - "npu" or "sim" (default: "npu")
-
-    Returns:
-        JIT-compiled kernel function
-    """
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
     elif run_mode == "sim":
@@ -93,77 +88,87 @@ def create_qat_asymmetric_kernel(weight_shape, num_groups, group_size, bit=4,
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}")
 
-    # Compute total elements
     total_elements = num_groups * group_size
-    
-    # Pre-compute constants
     n_levels = 2 ** (bit - 1)
     shift = 0.5
     neg_clip_val = -clip_val
 
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
+    runtime_opts = {"run_mode": mode}
+    if run_mode == "npu":
+        runtime_opts.update({
+            "stitch_function_inner_memory": 512,
+            "stitch_function_outcast_memory": 512,
+            "stitch_function_num_initial": 128,
+            "stitch_function_max_num": 128,
+            "stitch_function_num_step": 20
+        })
+
+    @pypto.frontend.jit(runtime_options=runtime_opts)
     def qat_asymmetric_kernel(
-        weight: pypto.Tensor((total_elements,), pypto.DT_FP32),
-        scale: pypto.Tensor((num_groups,), pypto.DT_FP32),
-        offset: pypto.Tensor((num_groups,), pypto.DT_FP32),
-    ) -> pypto.Tensor((total_elements,), pypto.DT_FP32):
-        """
-        QAT Asymmetric Quantization Kernel
+        weight: pypto.Tensor((total_elements,), pypto.DT_BF16),
+        scale: pypto.Tensor((num_groups,), pypto.DT_BF16),
+        offset: pypto.Tensor((num_groups,), pypto.DT_BF16),
+    ) -> (
+        pypto.Tensor((total_elements,), pypto.DT_BF16),
+        pypto.Tensor((total_elements,), pypto.DT_BF16),
+        pypto.Tensor((total_elements,), pypto.DT_BF16),
+    ):
+        pypto.set_vec_tile_shapes(64, 64)
         
-        Process:
-        1. Protect scale from being too small
-        2. Reshape weight to (num_groups, group_size)
-        3. Apply asymmetric quantization
-        4. Reshape back to original shape
-        """
-        # Set tile shapes for vector operations
-        # Using larger tile for better NPU utilization
-        pypto.set_vec_tile_shapes(32, 32)
+        # Convert BF16 inputs to FP32 for computation
+        weight_fp32 = pypto.cast(weight, pypto.DT_FP32)
+        scale_fp32 = pypto.cast(scale, pypto.DT_FP32)
+        offset_fp32 = pypto.cast(offset, pypto.DT_FP32)
         
-        # Step 1: Scale protection (avoid scale <= eps)
-        protected_scale = pypto.maximum(scale, eps)
+        # Scale protection
+        protected_scale = pypto.maximum(scale_fp32, eps)
         
-        # Step 2: Compute alpha = scale * n_levels
+        # Compute alpha = scale * n_levels
         alpha = pypto.mul(protected_scale, n_levels)
         
-        # Step 3: Reshape weight to (num_groups, group_size) for group-wise operations
-        weight_2d = pypto.reshape(weight, [num_groups, group_size])
+        # Reshape weight to (num_groups, group_size)
+        weight_2d = pypto.reshape(weight_fp32, [num_groups, group_size])
         
-        # Step 4: Expand offset and alpha for broadcasting
-        # offset: (num_groups,) -> (num_groups, 1) -> (num_groups, group_size)
-        offset_2d = pypto.reshape(offset, [num_groups, 1])
+        # Expand offset and alpha for broadcasting
+        offset_2d = pypto.reshape(offset_fp32, [num_groups, 1])
         offset_expanded = pypto.expand_clone(offset_2d, [num_groups, group_size])
         
-        # alpha: (num_groups,) -> (num_groups, 1) -> (num_groups, group_size)
         alpha_2d = pypto.reshape(alpha, [num_groups, 1])
         alpha_expanded = pypto.expand_clone(alpha_2d, [num_groups, group_size])
         
-        # Step 5: Subtract offset
+        # Subtract offset
         weight_shifted = pypto.sub(weight_2d, offset_expanded)
         
-        # Step 6: Normalize by alpha and apply clipping
+        # Normalize by alpha and apply clipping
         weight_norm = pypto.div(weight_shifted, alpha_expanded)
         weight_clipped = pypto.clip(weight_norm, neg_clip_val, clip_val)
         
-        # Step 7: Scale to quantization levels and apply shift
+        # Scale to quantization levels and apply shift
         weight_scaled = pypto.mul(weight_clipped, n_levels)
         weight_shifted2 = pypto.sub(weight_scaled, shift)
         
-        # Step 8: Round (STE forward pass - just rounding)
+        # Round (STE forward pass)
         weight_rounded = pypto.round(weight_shifted2, decimals=0)
         
-        # Step 9: De-quantize
+        # De-quantize
         weight_unshifted = pypto.add(weight_rounded, shift)
         weight_denorm = pypto.div(weight_unshifted, n_levels)
         
-        # Step 10: Rescale by alpha and add offset back
+        # Rescale by alpha and add offset back
         weight_rescaled = pypto.mul(weight_denorm, alpha_expanded)
         output_2d = pypto.add(weight_rescaled, offset_expanded)
         
-        # Step 10: Reshape back to original shape
+        # Reshape outputs back to 1D
         output = pypto.reshape(output_2d, [total_elements])
+        weight_denorm_out = pypto.reshape(weight_denorm, [total_elements])
+        alpha_expanded_out = pypto.reshape(alpha_expanded, [total_elements])
         
-        return output
+        # Convert outputs back to BF16
+        output_bf16 = pypto.cast(output, pypto.DT_BF16)
+        weight_denorm_bf16 = pypto.cast(weight_denorm_out, pypto.DT_BF16)
+        alpha_expanded_bf16 = pypto.cast(alpha_expanded_out, pypto.DT_BF16)
+        
+        return output_bf16, weight_denorm_bf16, alpha_expanded_bf16
 
     return qat_asymmetric_kernel
 
@@ -175,33 +180,28 @@ def test_qat_asymmetric_basic(device_id=None, run_mode="npu"):
 
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
-    # Test parameters
-    orig_shape = (16, 16)  # 256 elements
+    orig_shape = (16, 16)
     group_size = 32
     bit = 4
-    num_groups = 256 // 32  # 8 groups
+    num_groups = 256 // 32
     
-    # Generate test data
-    weight_torch = torch.randn(orig_shape, dtype=torch.float32, device=device)
-    scale_torch = torch.rand(num_groups, dtype=torch.float32, device=device) * 0.1 + 0.01
-    offset_torch = torch.randn(num_groups, dtype=torch.float32, device=device) * 0.1
+    # Generate test data in BF16
+    weight_torch = (torch.randn(orig_shape, dtype=torch.float32, device=device)).to(torch.bfloat16)
+    scale_torch = (torch.rand(num_groups, dtype=torch.float32, device=device) * 0.1 + 0.01).to(torch.bfloat16)
+    offset_torch = (torch.randn(num_groups, dtype=torch.float32, device=device) * 0.1).to(torch.bfloat16)
     
-    # Flatten weight for kernel
     weight_flat = weight_torch.view(-1)
     
-    # Run PyPTO kernel
     kernel = create_qat_asymmetric_kernel(orig_shape, num_groups, group_size, bit, run_mode=run_mode)
-    output_flat = kernel(weight_flat, scale_torch, offset_torch)
+    output_flat, weight_denorm_flat, alpha_expanded_flat = kernel(weight_flat, scale_torch, offset_torch)
     output_torch = output_flat.view(orig_shape)
     
-    # Run golden reference
-    expected = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, group_size, bit)
+    expected_out, expected_denorm, expected_alpha = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, group_size, bit)
     
-    # Verify
-    max_diff = (output_torch - expected).abs().max().item()
+    max_diff = (output_torch - expected_out).abs().max().item()
     print(f"  Max difference: {max_diff:.6f}")
     print(f"  Output shape: {output_torch.shape}")
-    assert_allclose(output_torch.cpu().numpy(), expected.cpu().numpy(), rtol=1e-2, atol=1e-2)
+    assert_allclose(output_torch.float().cpu().numpy(), expected_out.float().cpu().numpy(), rtol=1e-2, atol=1e-2)
     print("  PASSED")
 
 
@@ -211,32 +211,26 @@ def test_qat_asymmetric_level1(device_id=None, run_mode="npu"):
 
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
-    # Test parameters - typical weight size
-    orig_shape = (128, 64)  # 8192 elements
+    orig_shape = (128, 64)
     group_size = 128
     bit = 4
-    num_groups = 8192 // 128  # 64 groups
+    num_groups = 8192 // 128
     
-    # Generate test data
-    weight_torch = torch.randn(orig_shape, dtype=torch.float32, device=device)
-    scale_torch = torch.rand(num_groups, dtype=torch.float32, device=device) * 0.1 + 0.01
-    offset_torch = torch.randn(num_groups, dtype=torch.float32, device=device) * 0.1
+    weight_torch = (torch.randn(orig_shape, dtype=torch.float32, device=device)).to(torch.bfloat16)
+    scale_torch = (torch.rand(num_groups, dtype=torch.float32, device=device) * 0.1 + 0.01).to(torch.bfloat16)
+    offset_torch = (torch.randn(num_groups, dtype=torch.float32, device=device) * 0.1).to(torch.bfloat16)
     
-    # Flatten weight for kernel
     weight_flat = weight_torch.view(-1)
     
-    # Run PyPTO kernel
     kernel = create_qat_asymmetric_kernel(orig_shape, num_groups, group_size, bit, run_mode=run_mode)
-    output_flat = kernel(weight_flat, scale_torch, offset_torch)
+    output_flat, _, _ = kernel(weight_flat, scale_torch, offset_torch)
     output_torch = output_flat.view(orig_shape)
     
-    # Run golden reference
-    expected = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, group_size, bit)
+    expected_out, _, _ = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, group_size, bit)
     
-    # Verify
-    max_diff = (output_torch - expected).abs().max().item()
+    max_diff = (output_torch - expected_out).abs().max().item()
     print(f"  Max difference: {max_diff:.6f}")
-    assert_allclose(output_torch.cpu().numpy(), expected.cpu().numpy(), rtol=1e-2, atol=1e-2)
+    assert_allclose(output_torch.float().cpu().numpy(), expected_out.float().cpu().numpy(), rtol=1e-2, atol=1e-2)
     print("  PASSED")
 
 
@@ -246,80 +240,80 @@ def test_qat_asymmetric_edge_cases(device_id=None, run_mode="npu"):
 
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
-    orig_shape = (8, 8)  # 64 elements
+    orig_shape = (8, 8)
     group_size = 16
     bit = 4
-    num_groups = 64 // 16  # 4 groups
+    num_groups = 64 // 16
 
-    # Test case 1: Very small scale (should be protected by eps)
+    # Test case 1: Very small scale
     print("  Test case 1: Very small scale")
-    weight_torch = torch.randn(orig_shape, dtype=torch.float32, device=device)
-    scale_torch = torch.full((num_groups,), 1e-6, dtype=torch.float32, device=device)
-    offset_torch = torch.zeros(num_groups, dtype=torch.float32, device=device)
+    weight_torch = (torch.randn(orig_shape, dtype=torch.float32, device=device)).to(torch.bfloat16)
+    scale_torch = torch.full((num_groups,), 1e-6, dtype=torch.bfloat16, device=device)
+    offset_torch = torch.zeros(num_groups, dtype=torch.bfloat16, device=device)
     
     weight_flat = weight_torch.view(-1)
     kernel = create_qat_asymmetric_kernel(orig_shape, num_groups, group_size, bit, run_mode=run_mode)
-    output_flat = kernel(weight_flat, scale_torch, offset_torch)
+    output_flat, _, _ = kernel(weight_flat, scale_torch, offset_torch)
     output_torch = output_flat.view(orig_shape)
     
-    expected = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, group_size, bit)
+    expected_out, _, _ = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, group_size, bit)
     
-    max_diff = (output_torch - expected).abs().max().item()
+    max_diff = (output_torch - expected_out).abs().max().item()
     print(f"    Max difference: {max_diff:.6f}")
-    assert_allclose(output_torch.cpu().numpy(), expected.cpu().numpy(), rtol=1e-2, atol=1e-2)
+    assert_allclose(output_torch.float().cpu().numpy(), expected_out.float().cpu().numpy(), rtol=1e-2, atol=1e-2)
     print("    PASSED: Small scale case")
 
     # Test case 2: Zero offset
     print("  Test case 2: Zero offset")
-    weight_torch = torch.randn(orig_shape, dtype=torch.float32, device=device)
-    scale_torch = torch.rand(num_groups, dtype=torch.float32, device=device) * 0.1 + 0.01
-    offset_torch = torch.zeros(num_groups, dtype=torch.float32, device=device)
+    weight_torch = (torch.randn(orig_shape, dtype=torch.float32, device=device)).to(torch.bfloat16)
+    scale_torch = (torch.rand(num_groups, dtype=torch.float32, device=device) * 0.1 + 0.01).to(torch.bfloat16)
+    offset_torch = torch.zeros(num_groups, dtype=torch.bfloat16, device=device)
     
     weight_flat = weight_torch.view(-1)
-    output_flat = kernel(weight_flat, scale_torch, offset_torch)
+    output_flat, _, _ = kernel(weight_flat, scale_torch, offset_torch)
     output_torch = output_flat.view(orig_shape)
     
-    expected = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, group_size, bit)
+    expected_out, _, _ = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, group_size, bit)
     
-    max_diff = (output_torch - expected).abs().max().item()
+    max_diff = (output_torch - expected_out).abs().max().item()
     print(f"    Max difference: {max_diff:.6f}")
-    assert_allclose(output_torch.cpu().numpy(), expected.cpu().numpy(), rtol=1e-2, atol=1e-2)
+    assert_allclose(output_torch.float().cpu().numpy(), expected_out.float().cpu().numpy(), rtol=1e-2, atol=1e-2)
     print("    PASSED: Zero offset case")
 
     # Test case 3: Zero weight
     print("  Test case 3: Zero weight")
-    weight_torch = torch.zeros(orig_shape, dtype=torch.float32, device=device)
-    scale_torch = torch.rand(num_groups, dtype=torch.float32, device=device) * 0.1 + 0.01
-    offset_torch = torch.randn(num_groups, dtype=torch.float32, device=device) * 0.1
+    weight_torch = torch.zeros(orig_shape, dtype=torch.bfloat16, device=device)
+    scale_torch = (torch.rand(num_groups, dtype=torch.float32, device=device) * 0.1 + 0.01).to(torch.bfloat16)
+    offset_torch = (torch.randn(num_groups, dtype=torch.float32, device=device) * 0.1).to(torch.bfloat16)
     
     weight_flat = weight_torch.view(-1)
-    output_flat = kernel(weight_flat, scale_torch, offset_torch)
+    output_flat, _, _ = kernel(weight_flat, scale_torch, offset_torch)
     output_torch = output_flat.view(orig_shape)
     
-    expected = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, group_size, bit)
+    expected_out, _, _ = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, group_size, bit)
     
-    max_diff = (output_torch - expected).abs().max().item()
+    max_diff = (output_torch - expected_out).abs().max().item()
     print(f"    Max difference: {max_diff:.6f}")
-    assert_allclose(output_torch.cpu().numpy(), expected.cpu().numpy(), rtol=1e-2, atol=1e-2)
+    assert_allclose(output_torch.float().cpu().numpy(), expected_out.float().cpu().numpy(), rtol=1e-2, atol=1e-2)
     print("    PASSED: Zero weight case")
 
     # Test case 4: Different bit-widths
     print("  Test case 4: Different bit-widths (8-bit)")
-    weight_torch = torch.randn(orig_shape, dtype=torch.float32, device=device)
-    scale_torch = torch.rand(num_groups, dtype=torch.float32, device=device) * 0.1 + 0.01
-    offset_torch = torch.randn(num_groups, dtype=torch.float32, device=device) * 0.1
+    weight_torch = (torch.randn(orig_shape, dtype=torch.float32, device=device)).to(torch.bfloat16)
+    scale_torch = (torch.rand(num_groups, dtype=torch.float32, device=device) * 0.1 + 0.01).to(torch.bfloat16)
+    offset_torch = (torch.randn(num_groups, dtype=torch.float32, device=device) * 0.1).to(torch.bfloat16)
     
     bit_8 = 8
     weight_flat = weight_torch.view(-1)
     kernel_8bit = create_qat_asymmetric_kernel(orig_shape, num_groups, group_size, bit_8, run_mode=run_mode)
-    output_flat = kernel_8bit(weight_flat, scale_torch, offset_torch)
+    output_flat, _, _ = kernel_8bit(weight_flat, scale_torch, offset_torch)
     output_torch = output_flat.view(orig_shape)
     
-    expected = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, group_size, bit_8)
+    expected_out, _, _ = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, group_size, bit_8)
     
-    max_diff = (output_torch - expected).abs().max().item()
+    max_diff = (output_torch - expected_out).abs().max().item()
     print(f"    Max difference: {max_diff:.6f}")
-    assert_allclose(output_torch.cpu().numpy(), expected.cpu().numpy(), rtol=1e-2, atol=1e-2)
+    assert_allclose(output_torch.float().cpu().numpy(), expected_out.float().cpu().numpy(), rtol=1e-2, atol=1e-2)
     print("    PASSED: 8-bit quantization case")
 
 
@@ -329,33 +323,27 @@ def test_qat_asymmetric_large(device_id=None, run_mode="npu"):
 
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
-    # Large tensor for performance test
-    orig_shape = (1024, 1024)  # 1M elements
+    orig_shape = (1024, 1024)
     group_size = 128
     bit = 4
-    num_groups = 1024 * 1024 // 128  # 8192 groups
+    num_groups = 1024 * 1024 // 128
     
-    # Generate test data
-    weight_torch = torch.randn(orig_shape, dtype=torch.float32, device=device)
-    scale_torch = torch.rand(num_groups, dtype=torch.float32, device=device) * 0.1 + 0.01
-    offset_torch = torch.randn(num_groups, dtype=torch.float32, device=device) * 0.1
+    weight_torch = (torch.randn(orig_shape, dtype=torch.float32, device=device)).to(torch.bfloat16)
+    scale_torch = (torch.rand(num_groups, dtype=torch.float32, device=device) * 0.1 + 0.01).to(torch.bfloat16)
+    offset_torch = (torch.randn(num_groups, dtype=torch.float32, device=device) * 0.1).to(torch.bfloat16)
     
-    # Flatten weight for kernel
     weight_flat = weight_torch.view(-1)
     
-    # Run PyPTO kernel
     kernel = create_qat_asymmetric_kernel(orig_shape, num_groups, group_size, bit, run_mode=run_mode)
-    output_flat = kernel(weight_flat, scale_torch, offset_torch)
+    output_flat, weight_denorm_flat, alpha_expanded_flat = kernel(weight_flat, scale_torch, offset_torch)
     output_torch = output_flat.view(orig_shape)
     
-    # Run golden reference
-    expected = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, group_size, bit)
+    expected_out, _, _ = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, group_size, bit)
     
-    # Verify
-    max_diff = (output_torch - expected).abs().max().item()
+    max_diff = (output_torch - expected_out).abs().max().item()
     print(f"  Max difference: {max_diff:.6f}")
     print(f"  Total elements: {orig_shape[0] * orig_shape[1]}")
-    assert_allclose(output_torch.cpu().numpy(), expected.cpu().numpy(), rtol=1e-2, atol=1e-2)
+    assert_allclose(output_torch.float().cpu().numpy(), expected_out.float().cpu().numpy(), rtol=1e-2, atol=1e-2)
     print("  PASSED")
 
 
@@ -365,12 +353,11 @@ def test_qat_asymmetric_various_shapes(device_id=None, run_mode="npu"):
 
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     
-    # Test different shapes
     test_cases = [
-        ((128,), 32, 4),      # 1D tensor
-        ((64, 64), 64, 4),    # 2D square
-        ((32, 128), 32, 4),   # 2D rectangular
-        ((16, 32, 64), 64, 4), # 3D tensor
+        ((128,), 32, 4),
+        ((64, 64), 64, 4),
+        ((32, 128), 32, 4),
+        ((16, 32, 64), 64, 4),
     ]
     
     for orig_shape, group_size, bit in test_cases:
@@ -381,20 +368,20 @@ def test_qat_asymmetric_various_shapes(device_id=None, run_mode="npu"):
         
         print(f"  Shape: {orig_shape}, group_size: {group_size}, num_groups: {num_groups}")
         
-        weight_torch = torch.randn(orig_shape, dtype=torch.float32, device=device)
-        scale_torch = torch.rand(num_groups, dtype=torch.float32, device=device) * 0.1 + 0.01
-        offset_torch = torch.randn(num_groups, dtype=torch.float32, device=device) * 0.1
+        weight_torch = (torch.randn(orig_shape, dtype=torch.float32, device=device)).to(torch.bfloat16)
+        scale_torch = (torch.rand(num_groups, dtype=torch.float32, device=device) * 0.1 + 0.01).to(torch.bfloat16)
+        offset_torch = (torch.randn(num_groups, dtype=torch.float32, device=device) * 0.1).to(torch.bfloat16)
         
         weight_flat = weight_torch.view(-1)
         kernel = create_qat_asymmetric_kernel(orig_shape, num_groups, group_size, bit, run_mode=run_mode)
-        output_flat = kernel(weight_flat, scale_torch, offset_torch)
+        output_flat, _, _ = kernel(weight_flat, scale_torch, offset_torch)
         output_torch = output_flat.view(orig_shape)
         
-        expected = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, group_size, bit)
+        expected_out, _, _ = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, group_size, bit)
         
-        max_diff = (output_torch - expected).abs().max().item()
+        max_diff = (output_torch - expected_out).abs().max().item()
         print(f"    Max difference: {max_diff:.6f}")
-        assert_allclose(output_torch.cpu().numpy(), expected.cpu().numpy(), rtol=1e-2, atol=1e-2)
+        assert_allclose(output_torch.float().cpu().numpy(), expected_out.float().cpu().numpy(), rtol=1e-2, atol=1e-2)
         print(f"    PASSED")
 
 

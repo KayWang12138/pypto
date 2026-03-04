@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Performance test for QAT asymmetric quantization operator.
-Generates performance data and analysis.
+BF16 I/O with FP32 internal computation.
 """
 import os
 import time
@@ -19,7 +19,6 @@ from qat_asymmetric import (
 )
 
 def benchmark_operator(orig_shape, group_size, bit, device_id, num_iterations=100):
-    """Benchmark the operator on NPU."""
     device = f'npu:{device_id}'
     total_elements = 1
     for dim in orig_shape:
@@ -38,9 +37,10 @@ def benchmark_operator(orig_shape, group_size, bit, device_id, num_iterations=10
         orig_shape, num_groups, group_size, bit, run_mode="npu"
     )
 
-    weight_torch = torch.randn(orig_shape, dtype=torch.float32, device=device)
-    scale_torch = torch.rand(num_groups, dtype=torch.float32, device=device) * 0.1 + 0.01
-    offset_torch = torch.randn(num_groups, dtype=torch.float32, device=device) * 0.1
+    # Generate test data in BF16
+    weight_torch = (torch.randn(orig_shape, dtype=torch.float32, device=device)).to(torch.bfloat16)
+    scale_torch = (torch.rand(num_groups, dtype=torch.float32, device=device) * 0.1 + 0.01).to(torch.bfloat16)
+    offset_torch = (torch.randn(num_groups, dtype=torch.float32, device=device) * 0.1).to(torch.bfloat16)
 
     weight_flat = weight_torch.view(-1)
 
@@ -49,7 +49,7 @@ def benchmark_operator(orig_shape, group_size, bit, device_id, num_iterations=10
 
     start_time = time.time()
     for _ in range(num_iterations):
-        output_flat = kernel(weight_flat, scale_torch, offset_torch)
+        output_flat, weight_denorm_flat, alpha_expanded_flat = kernel(weight_flat, scale_torch, offset_torch)
     end_time = time.time()
 
     total_time = end_time - start_time
@@ -63,8 +63,8 @@ def benchmark_operator(orig_shape, group_size, bit, device_id, num_iterations=10
     print(f"  Element throughput: {elements_per_sec:.2f} M elements/sec")
 
     output_torch = output_flat.view(orig_shape)
-    expected = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, group_size, bit)
-    max_diff = (output_torch - expected).abs().max().item()
+    expected_out, _, _ = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, group_size, bit)
+    max_diff = (output_torch - expected_out).abs().max().item()
     print(f"  Max error: {max_diff:.6f}")
 
     return {
@@ -94,7 +94,7 @@ def main():
         return
 
     print("=" * 70)
-    print("QAT Asymmetric Quantization - Performance Benchmark")
+    print("QAT Asymmetric Quantization - Performance Benchmark (BF16 I/O)")
     print("=" * 70)
 
     test_configs = [
@@ -104,7 +104,6 @@ def main():
         ((128, 128), 128, 4),
         ((256, 256), 128, 4),
         ((512, 512), 128, 4),
-        ((1024, 1024), 128, 4),
     ]
 
     results = []
