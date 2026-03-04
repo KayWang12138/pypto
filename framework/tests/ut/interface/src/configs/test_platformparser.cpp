@@ -17,6 +17,7 @@
 #include "tilefwk/platform.h"
 #include "interface/utils/file_utils.h"
 #include "platform/parser/platform_parser.h"
+#include "platform/parser/internal_parser.h"
 
 using namespace npu::tile_fwk;
 const std::string archInfo = "ArchInfo";
@@ -35,7 +36,7 @@ const std::string l1Size = "l1_size";
 const std::string ubSize = "ub_size";
 const std::string aic = "AIC";
 const std::string aiv = "AIV";
-const std::string TEST_TMP_DIR = "/TestPlatform/";
+const std::string TEST_TMP_DIR = "/tmp/TestPlatform/";
 
 class TestPlatformParser : public testing::Test {
 public:
@@ -45,9 +46,7 @@ public:
         std::string dst = TEST_TMP_DIR + "A5.ini";
         std::string command = "cp " + src + " " + dst;
         int ret = std::system(command.c_str());
-        if (ret != 0) {
-            std::cout << "cmd[" << command <<"] failed " << std::endl;
-        }
+        ASSERT_EQ(ret, 0) << "Failed to copy config file: " << command;
     }
     static void TearDownTestCase() {
         std::string cmd = "rm -rf " + TEST_TMP_DIR;
@@ -136,4 +135,28 @@ TEST_F(TestPlatformParser, TestObtainPlatformInfo) {
     std::vector<MemoryType> paths;
     EXPECT_TRUE(Platform::Instance().GetDie().FindNearestPath(MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1, paths));
     EXPECT_EQ(paths.size(), 2UL);
+}
+
+TEST_F(TestPlatformParser, AbnormalTest) { 
+    INIParser parser; 
+    const std::string version = "version"; 
+    EXPECT_FALSE(parser.Initialize("")); 
+
+    std::unordered_map<std::string, std::string> ccecVersion; 
+    EXPECT_FALSE(parser.GetCCECVersion(ccecVersion)); 
+    EXPECT_FALSE(parser.GetCoreVersion(ccecVersion)); 
+
+    std::string iniPath = RealPath(GetCurrentSharedLibPath() + "/configs/Soc_version.ini"); 
+    EXPECT_TRUE(parser.Initialize(iniPath)); 
+
+    std::string test; 
+    EXPECT_FALSE(parser.GetStringVal("none", "", test)); 
+    EXPECT_TRUE(parser.GetStringVal(version, "none_other", test)); 
+
+    size_t testSize; 
+    EXPECT_FALSE(parser.GetSizeVal("none", "", testSize)); 
+
+    InternalParser internalParser = InternalParser(""); 
+    std::vector<std::pair<MemoryType, MemoryType>> dataPath; 
+    EXPECT_FALSE(internalParser.GetDataPath(dataPath)); 
 }

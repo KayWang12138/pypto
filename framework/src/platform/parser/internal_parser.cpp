@@ -13,7 +13,6 @@
  * \brief
  */
 
-#include <iostream>
 #include "internal_parser.h"
 
 namespace npu {
@@ -32,8 +31,8 @@ std::string GetCurrentSharedLibPath() {
     Dl_info info;
     if (dladdr(reinterpret_cast<void*>(GetCurrentSharedLibPath), &info)) {
         currentLibPath = std::string(info.dli_fname);
-        int32_t pos = currentLibPath.rfind('/');
-        if (pos >= 0) {
+        auto pos = currentLibPath.rfind('/');
+        if (pos != std::string::npos) {
             currentLibPath = currentLibPath.substr(0, pos);
         }
     }
@@ -55,7 +54,7 @@ std::vector<std::string> SplitByDelimiter(const std::string& str, const std::str
 
 // helper function
 MemoryType StringToMemoryType(const std::string& memType) {
-    const std::unordered_map<std::string, MemoryType> memTypeMap = {
+    static const std::unordered_map<std::string, MemoryType> memTypeMap = {
         {"MEM_DEVICE_DDR", MemoryType::MEM_DEVICE_DDR},
         {"MEM_L1", MemoryType::MEM_L1},
         {"MEM_L0A", MemoryType::MEM_L0A},
@@ -110,7 +109,11 @@ bool InternalParser::LoadInternalInfo() {
 }
 
 bool InternalParser::GetDataPath(std::vector<std::pair<MemoryType, MemoryType>> &dataPath) {
-    std::string currentPath = data_[paths];
+    auto it = data_.find(paths);
+    if (it == data_.end() || it->second.empty()) {
+        return false;
+    }
+    const std::string& currentPath = it->second;
     if (currentPath.empty()) {
         return false;
     }
