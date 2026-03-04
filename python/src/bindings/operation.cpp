@@ -561,6 +561,10 @@ void bind_operation(py::module &m) {
         [](const Tensor &self, const Tensor &min, const Tensor &max) { return npu::tile_fwk::Clip(self, min, max); });
     m.def("Clip",
         [](const Tensor &self, const Element &min, const Element &max) { return npu::tile_fwk::Clip(self, min, max); });
+    m.def("CeilDiv",
+        [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::CeilDiv(self, other); });
+    m.def("CeilDiv",
+        [](const Tensor &self, const Element &other) { return npu::tile_fwk::CeilDiv(self, other); });
     m.def(
         "OneHot", [](const Tensor &self, int numClasses) { return npu::tile_fwk::OneHot(self, numClasses); },
         "Tensor one hot.");
