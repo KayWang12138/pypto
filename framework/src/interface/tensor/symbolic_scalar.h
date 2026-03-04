@@ -99,8 +99,6 @@ enum class SymbolicOpcode {
     T_BOP_END = T_BOP_MAX + 1
 };
 
-void FlattenOperands(const std::vector<RawSymbolicScalarPtr> &inOperandList, SymbolicOpcode objOpcode, std::vector<RawSymbolicScalarPtr> &outOperandList);
-
 class RawSymbolicScalar {
 public:
     SymbolicScalarKind kind;
@@ -126,6 +124,8 @@ public:
     virtual ~RawSymbolicScalar() = default;
 
     std::string Dump() const;
+
+    static void FlattenOperands(const std::vector<RawSymbolicScalarPtr> &inOperandList, SymbolicOpcode objOpcode, std::vector<RawSymbolicScalarPtr> &outOperandList);
 
 private:
     friend class SymbolicScalar;
@@ -559,9 +559,6 @@ public:
     RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP(CreateBopLe, SymbolicOpcode::T_BOP_LE)
     RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP(CreateBopGt, SymbolicOpcode::T_BOP_GT)
     RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP(CreateBopGe, SymbolicOpcode::T_BOP_GE)
-
-    RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP(CreateBopMin, SymbolicOpcode::T_BOP_MIN)
-    RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP(CreateBopMax, SymbolicOpcode::T_BOP_MAX)
 #undef  RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP
 #define RAW_SYMBOLIC_EXPRESSION_DEFINE_MOP(name, mop) \
     static RawSymbolicScalarPtr name(const std::vector<RawSymbolicScalarPtr> &operands) { \
@@ -591,7 +588,7 @@ public:
     }
 
 private:
-    void DumpRuntimeExtrema(std::ostream& buffer) const ;
+    void DumpRuntimeExtrema(std::ostream &buffer) const;
     void DumpBuffer(std::ostream &buffer) const override;
 
     SymbolicOpcode opcode_;
