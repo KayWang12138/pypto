@@ -261,6 +261,7 @@ Status InferMemoryConflict::UpdateForwardTensor(Function &function, const Logica
         if (consumer->GetOpcode() == Opcode::OP_RESHAPE) {
             auto reshapeInput = consumer->GetIOperands().front();
             bool isInplace = consumer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
+            std::cout << "UpdateForwardTensor:" << memoryInfo[curTensor].GetMagic() << ":" << reshapeInput->GetMagic() << std::endl;
             if (!isInplace && CheckRawShapeConflict(memoryInfo[curTensor], outputTensor, false, reshapeInput)) {
                 preregcopys.insert(consumer);
                 continue;
@@ -292,6 +293,7 @@ Status InferMemoryConflict::UpdateBackwardTensor(const LogicalTensorPtr &curTens
         auto reshapeOutput = producer->GetOOperands().front();
         if (producer->GetOpcode() == Opcode::OP_RESHAPE) {
             bool isInplace = producer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
+            std::cout << "UpdateForwardTensor:" << memoryInfo[curTensor].GetMagic() << ":" << reshapeInput->GetMagic() << std::endl;
             if (!isInplace && CheckRawShapeConflict(inputTensor, memoryInfo[curTensor], true, reshapeOutput)) {
                 postregcopys.insert(producer);
                 continue;
