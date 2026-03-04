@@ -183,4 +183,24 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
                 TARGETS             ${InstallTargets}
         )
     endif ()
+
+    # 安装 在线编译 calculator 二进制必需的头文件
+    install(FILES
+                    framework/include/tilefwk/data_type.h
+                    framework/include/tilefwk/error.h
+                    framework/include/tilefwk/lazy.h
+                    # TODO: securec.h
+            DESTINATION ${PyPTO_WhlName}/lib/calculator/include/tilefwk
+    )
+    install(DIRECTORY framework/src/interface/interpreter/calculator/
+            DESTINATION ${PyPTO_WhlName}/lib/calculator/src
+            PATTERN "*.h"
+            PATTERN "*.cpp"
+            PATTERN ".svn" EXCLUDE
+            PATTERN ".git" EXCLUDE
+    )
+    install(FILES
+                    framework/src/interface/interpreter/calculator/CMakeLists.txt
+            DESTINATION ${PyPTO_WhlName}/lib/calculator
+    )
 endif ()
