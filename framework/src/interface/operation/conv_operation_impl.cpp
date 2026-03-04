@@ -1194,6 +1194,9 @@ Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTen
     std::vector<int64_t> resTensorShape{batchOut, cOut, hOut, wOut};
     if (convAttrParam.isConv1D) {
         resTensorShape = {batchOut, cOut, wOut};
+        attrParam.paddings.insert(attrParam.paddings.begin(), 2, 0);
+        attrParam.strides.insert(attrParam.strides.begin(), 1);
+        attrParam.dilations.insert(attrParam.dilations.begin(), 1);
     }
     if (convAttrParam.isConv3D) {
         int64_t dOut = ConvComputeDo(inputTensor, weightTensor, convAttrParam);
