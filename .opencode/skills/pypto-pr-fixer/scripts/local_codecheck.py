@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
 
 from __future__ import annotations
 
 import argparse
 import ast
 import json
+import logging
 import re
 import shutil
 import subprocess
@@ -12,7 +14,9 @@ import sys
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TypeGuard, TypedDict, cast
+from typing import TypedDict, TypeGuard, cast
+
+logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)
 
 RULE_ORDER = [
     "__new__",
@@ -495,7 +499,7 @@ def apply_edits(source: str, edits: list[TextEdit]) -> str:
         current_end = edit.end
     result = source
     for edit in reversed(cleaned):
-        result = result[:edit.start] + edit.replacement + result[edit.end :]
+        result = result[:edit.start] + edit.replacement + result[edit.end:]
     return result
 
 
@@ -563,7 +567,7 @@ def build_ast_fixes(
             if not is_print_call(node):
                 continue
             start = to_offset(offsets, node.lineno, node.col_offset)
-            if source[start : start + 5] != "print":
+            if source[start:start + 5] != "print":
                 continue
             edits.append(TextEdit(start=start, end=start + 5, replacement="logging.info"))
             replaced_print = True
@@ -695,16 +699,16 @@ def build_result(violations: list[Violation]) -> ResultRecord:
 
 
 def print_text(result: ResultRecord) -> None:
-    print(f"Total violations: {result['total']}")
+    logging.info(f"Total violations: {result['total']}")
     if not result["violations"]:
         return
     grouped: dict[str, list[ViolationRecord]] = {}
     for item in result["violations"]:
         grouped.setdefault(item["rule_id"], []).append(item)
     for rule_id, items in sorted(grouped.items(), key=lambda kv: (-len(kv[1]), kv[0])):
-        print(f"\n## {rule_id}: {len(items)}")
+        logging.info(f"\n## {rule_id}: {len(items)}")
         for item in items:
-            print(f"- {item['file']}:{item['line']} {item['description']}")
+            logging.info(f"- {item['file']}:{item['line']} {item['description']}")
 
 
 def parse_args() -> Args:
@@ -722,7 +726,7 @@ def main() -> int:
     args = parse_args()
     target = Path(args.path).expanduser().resolve()
     if not target.exists():
-        print(f"Error: path not found: {target}", file=sys.stderr)
+        logging.error(f"Error: path not found: {target}")
         return 2
 
     enabled_rules = parse_rule_filter(args.rules)
@@ -733,14 +737,14 @@ def main() -> int:
         if should_run_ruff(enabled_rules):
             violations.extend(run_ruff_violations(target, base_dir, enabled_rules, args.fix))
     except RuntimeError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        logging.error(f"Error: {exc}")
         return 2
 
     violations.extend(run_ast_checks(target, base_dir, enabled_rules, args.fix))
 
     result = build_result(violations)
     if args.output == "json":
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+        logging.info(json.dumps(result, indent=2, ensure_ascii=False))
     else:
         print_text(result)
 

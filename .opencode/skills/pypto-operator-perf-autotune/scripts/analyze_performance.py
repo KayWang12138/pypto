@@ -12,10 +12,13 @@ PyPTO 算子性能分析脚本
 """
 
 import json
+import logging
 import os
 import sys
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any
+
+logging.basicConfig(level=logging.INFO, format='%(message)s')
 
 
 class PerformanceAnalyzer:
@@ -27,7 +30,7 @@ class PerformanceAnalyzer:
         self.trace_file = self.output_dir / "machine_runtime_operator_trace.json"
         self.bubble_file = self.output_dir / "bubble_analysis.log"
         
-    def analyze_bubble_log(self) -> Dict[str, Any]:
+    def analyze_bubble_log(self) -> dict[str, Any]:
         """分析气泡日志"""
         if not self.bubble_file.exists():
             return {}
@@ -35,7 +38,7 @@ class PerformanceAnalyzer:
         with open(self.bubble_file, 'r') as f:
             content = f.read()
         
-        result = {
+        result: dict[str, Any] = {
             'threads': [],
             'total_wait_time': 0.0,
             'total_work_time': 0.0
@@ -65,7 +68,7 @@ class PerformanceAnalyzer:
         
         return result
 
-    def analyze_swimlane(self) -> Dict[str, Any]:
+    def analyze_swimlane(self) -> dict[str, Any]:
         """分析泳道图数据"""
         if not self.swimlane_file.exists():
             return {}
@@ -73,7 +76,7 @@ class PerformanceAnalyzer:
         with open(self.swimlane_file, 'r') as f:
             data = json.load(f)
         
-        result = {
+        result: dict[str, Any] = {
             'tasks': [],
             'total_duration': 0.0,
             'peak_memory': 0,
@@ -111,7 +114,7 @@ class PerformanceAnalyzer:
         
         return result
     
-    def analyze_trace(self) -> Dict[str, Any]:
+    def analyze_trace(self) -> dict[str, Any]:
         """分析性能追踪数据"""
         if not self.trace_file.exists():
             return {}
@@ -119,7 +122,7 @@ class PerformanceAnalyzer:
         with open(self.trace_file, 'r') as f:
             data = json.load(f)
         
-        result = {
+        result: dict[str, Any] = {
             'stages': {},
             'total_time': 0.0
         }
@@ -138,23 +141,13 @@ class PerformanceAnalyzer:
         
         return result
     
-    def _extract_value(self, text: str, key: str) -> float:
-        """从文本中提取数值"""
-        for line in text.split('\n'):
-            if key in line:
-                try:
-                    return float(line.split(':')[1].strip())
-                except:
-                    pass
-        return 0.0
-    
     def generate_report(self) -> str:
         """生成性能报告"""
         bubble_data = self.analyze_bubble_log()
         swimlane_data = self.analyze_swimlane()
         trace_data = self.analyze_trace()
         
-        report = []
+        report: list[str] = []
         report.append("=" * 80)
         report.append("PyPTO 算子性能分析报告")
         report.append("=" * 80)
@@ -169,8 +162,10 @@ class PerformanceAnalyzer:
             for thread in bubble_data['threads']:
                 total_time = thread['work_time'] + thread['wait_time']
                 utilization = (thread['work_time'] / total_time * 100) if total_time > 0 else 0
-                report.append(f"| {thread['name']} | {thread['work_time']:.2f}us | {thread['wait_time']:.2f}us |"
-                    f" {thread['wait_schedule']:.2f}us | {thread['wait_predecessor']:.2f}us | {utilization:.1f}% |")
+                report.append(
+                    f"| {thread['name']} | {thread['work_time']:.2f}us | {thread['wait_time']:.2f}us |"
+                    + f" {thread['wait_schedule']:.2f}us | {thread['wait_predecessor']:.2f}us | {utilization:.1f}% |"
+                )
             report.append("")
         
         # 任务执行
@@ -208,8 +203,11 @@ class PerformanceAnalyzer:
         if swimlane_data.get('tasks') and trace_data.get('total_time'):
             compute_time = swimlane_data['total_duration']
             control_time = trace_data['total_time']
-            control_ratio = (control_time / (compute_time + control_time) * 100)
-                if (compute_time + control_time) > 0 else 0
+            control_ratio = (
+                (control_time / (compute_time + control_time) * 100)
+                if (compute_time + control_time) > 0
+                else 0
+            )
             report.append(f"- 控制开销占比: {control_ratio:.1f}%")
         
         report.append("")
@@ -217,22 +215,32 @@ class PerformanceAnalyzer:
         
         return '\n'.join(report)
 
+    def _extract_value(self, text: str, key: str) -> float:
+        """从文本中提取数值"""
+        for line in text.split('\n'):
+            if key in line:
+                try:
+                    return float(line.split(':')[1].strip())
+                except (IndexError, ValueError):
+                    return 0.0
+        return 0.0
+
 
 def main():
     if len(sys.argv) < 2:
-        print("使用方法: python3 analyze_performance.py <output_dir>")
-        print("示例: python3 analyze_performance.py output/output_20260214_152549_401503_511667")
+        logging.info("使用方法: python3 analyze_performance.py <output_dir>")
+        logging.info("示例: python3 analyze_performance.py output/output_20260214_152549_401503_511667")
         sys.exit(1)
     
     output_dir = sys.argv[1]
     
     if not os.path.exists(output_dir):
-        print(f"错误: 目录不存在: {output_dir}")
+        logging.info(f"错误: 目录不存在: {output_dir}")
         sys.exit(1)
     
     analyzer = PerformanceAnalyzer(output_dir)
     report = analyzer.generate_report()
-    print(report)
+    logging.info(report)
 
 
 if __name__ == "__main__":

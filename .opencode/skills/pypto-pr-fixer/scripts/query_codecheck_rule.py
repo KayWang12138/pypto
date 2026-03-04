@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
 
 from __future__ import annotations
 
 import argparse
 import json
+import logging
 import re
 import sys
 import time
@@ -11,6 +13,8 @@ import urllib.request
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any, TypedDict
+
+logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)
 
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
@@ -51,7 +55,7 @@ class RuleRow(TypedDict, total=False):
 
 
 def eprint(msg: str) -> None:
-    print(msg, file=sys.stderr)
+    logging.error(msg)
 
 
 def normalize_rule_id(value: str) -> str:
@@ -354,7 +358,7 @@ def main() -> int:
     if args.list:
         items = sorted(rows, key=lambda r: (r.get("language", ""), r.get("id", "")))
         if args.format == "json":
-            print(
+            logging.info(
                 json.dumps(
                     {
                         "source": args.download_url,
@@ -372,12 +376,12 @@ def main() -> int:
                 lang = str(r.get("language", ""))
                 rid = str(r.get("id", ""))
                 by_lang.setdefault(lang, []).append(f"{rid} {r.get('title','')}")
-            print(f"# CodeCheck 规则列表\n\n> 官方来源: {args.download_url}\n")
+            logging.info(f"# CodeCheck 规则列表\n\n> 官方来源: {args.download_url}\n")
             for lang, xs in by_lang.items():
-                print(f"## {lang}\n")
+                logging.info(f"## {lang}\n")
                 for x in xs:
-                    print(f"- {x}".rstrip())
-                print("")
+                    logging.info(f"- {x}".rstrip())
+                logging.info("")
         eprint(f"Found {len(items)} rules")
         return 0
 
@@ -386,7 +390,7 @@ def main() -> int:
         items = [r for r in rows if r.get("id", "").startswith(f"G.{cat}.")]
         items.sort(key=lambda r: (r.get("id", ""), r.get("language", "")))
         if args.format == "json":
-            print(
+            logging.info(
                 json.dumps(
                     {
                         "source": args.download_url,
@@ -405,7 +409,7 @@ def main() -> int:
                 rule_id = str(r.get("id", ""))
                 if rule_id:
                     by_id.setdefault(rule_id, []).append(r)
-            print(format_markdown(by_id, args.download_url))
+            logging.info(format_markdown(by_id, args.download_url))
         eprint(f"Found {len(items)} rules")
         return 0
 
@@ -447,7 +451,7 @@ def main() -> int:
     by_id: dict[str, list[RuleRow]] = {rid: idx.get(rid, []) for rid in rule_ids}
 
     if args.format == "json":
-        print(
+        logging.info(
             json.dumps(
                 {
                     "source": args.download_url,
@@ -461,7 +465,7 @@ def main() -> int:
             )
         )
     else:
-        print(format_markdown(by_id, args.download_url))
+        logging.info(format_markdown(by_id, args.download_url))
 
     missing = [rid for rid, items in by_id.items() if not items]
     eprint(f"Queried {len(rule_ids)} rule ids, missing {len(missing)}")

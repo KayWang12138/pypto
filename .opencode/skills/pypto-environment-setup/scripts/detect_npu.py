@@ -19,6 +19,7 @@ SoC 版本映射数据来源：
 """
 from __future__ import annotations
 
+import argparse
 import ctypes
 import glob
 import json
@@ -27,11 +28,9 @@ import os
 import re
 import subprocess
 import sys
-import argparse
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Optional
-
 
 logging.basicConfig(level=logging.INFO)
 

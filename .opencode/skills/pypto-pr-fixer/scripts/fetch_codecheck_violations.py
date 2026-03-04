@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
 """从 openlibing.com CodeCheck 页面提取违规项。"""
 
 from __future__ import annotations
 
 import argparse
 import json
+import logging
 import re
 import sys
 import time
 from dataclasses import dataclass
+
+logging.basicConfig(level=logging.INFO, format='%(message)s', stream=sys.stdout)
 
 VIOLATION_RE = re.compile(r"文件路径:([^\n:]+):(\d+)\s*问题描述[：:]([^\n]+)\s*规则[：:]([^\n]+)")
 
@@ -98,8 +102,8 @@ def extract_violations_with_playwright(url: str) -> list[Violation]:
                 if largest_opt is not None:
                     largest_opt.click()
                     page.wait_for_timeout(2000)
-            except Exception:
-                pass
+            except Exception as exc:  # noqa: PERF203
+                logging.info(f"Pagination size adjustment skipped: {exc}")
 
             body_text = page.inner_text("body")
             return parse_violations_from_text(body_text)
@@ -111,14 +115,14 @@ def extract_with_retry(url: str, max_retries: int = 3) -> list[Violation]:
     last_error: Exception | None = None
     for attempt in range(1, max_retries + 1):
         try:
-            print(f"Attempt {attempt}/{max_retries}...", file=sys.stderr)
+            logging.info(f"Attempt {attempt}/{max_retries}...")
             return extract_violations_with_playwright(url)
         except Exception as exc:  # noqa: PERF203
             last_error = exc
             if attempt < max_retries:
                 wait_s = 2 ** (attempt - 1)
-                print(f"  Failed: {exc}", file=sys.stderr)
-                print(f"  Waiting {wait_s}s before retry...", file=sys.stderr)
+                logging.info(f"  Failed: {exc}")
+                logging.info(f"  Waiting {wait_s}s before retry...")
                 time.sleep(wait_s)
 
     raise RuntimeError(f"Failed after {max_retries} attempts: {last_error}")
@@ -156,26 +160,26 @@ def main() -> int:
             }
             if args.group:
                 result["grouped"] = {rule: [item.to_dict() for item in items] for rule, items in grouped.items()}
-            print(json.dumps(result, indent=2, ensure_ascii=False))
+            logging.info(json.dumps(result, indent=2, ensure_ascii=False))
         else:
-            print(f"Total violations: {len(violations)}\n")
+            logging.info(f"Total violations: {len(violations)}\n")
             if args.group:
                 grouped = group_by_rule(violations)
                 for rule, items in sorted(grouped.items(), key=lambda kv: (-len(kv[1]), kv[0])):
                     desc = items[0].rule_description if items else ""
-                    print(f"## {rule}: {len(items)} violations")
-                    print(f"   {desc}\n")
+                    logging.info(f"## {rule}: {len(items)} violations")
+                    logging.info(f"   {desc}\n")
                     for item in items:
-                        print(f"   - {item.file}:{item.line}")
-                        print(f"     {item.description}\n")
+                        logging.info(f"   - {item.file}:{item.line}")
+                        logging.info(f"     {item.description}\n")
             else:
                 for item in violations:
-                    print(f"{item.rule_id} | {item.file}:{item.line}")
-                    print(f"  {item.description}\n")
+                    logging.info(f"{item.rule_id} | {item.file}:{item.line}")
+                    logging.info(f"  {item.description}\n")
 
         return 0
     except Exception as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        logging.error(f"Error: {exc}")
         return 1
 
 
