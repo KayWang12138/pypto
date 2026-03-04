@@ -598,7 +598,7 @@ TILEOP void TMatmul(T &c, U &a, V &b) {
 
     validM = (validM + BLOCK_CUBE_M_N - 1) / BLOCK_CUBE_M_N * BLOCK_CUBE_M_N;
     tileL0ATensor l0a(validM, validK);
-    if constexpr (transMode != 0) {
+    if constexpr (transMode != TransMode::CAST_NONE) {
         l0a.SetMadTF32Mode(static_cast<pto::RoundMode>(transMode));
     }
     tileL0BTensor l0b(validK, validN);
@@ -616,7 +616,7 @@ TILEOP void TMatmul(T &c, U &a, V &b) {
     } else {
         pto::TMATMUL_ACC(l0c, l0c, l0a, l0b);
     }
-    if constexpr (transMode != 0) {
+    if constexpr (transMode != TransMode::CAST_NONE) {
         l0a.ResetMadMode();
     }
 }
@@ -651,7 +651,7 @@ TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, T3 &bias) {
 
     validM = (validM + BLOCK_CUBE_M_N - 1) / BLOCK_CUBE_M_N * BLOCK_CUBE_M_N;
     tileL0ATensor l0a(validM, validK);
-    if constexpr (transMode != 0) {
+    if constexpr (transMode != TransMode::CAST_NONE) {
         l0a.SetMadTF32Mode(static_cast<pto::RoundMode>(transMode));
     }
     tileL0BTensor l0b(validK, validN);
@@ -663,7 +663,7 @@ TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, T3 &bias) {
     pto::TASSIGN(l0c, (uint64_t)c.GetAddr());
     pto::TASSIGN(biasT, (uint64_t)bias.GetAddr());
     pto::TMATMUL_BIAS(l0c, l0a, l0b, biasT);
-    if constexpr (transMode != 0) {
+    if constexpr (transMode != TransMode::CAST_NONE) {
         l0a.ResetMadMode();
     }
 }
