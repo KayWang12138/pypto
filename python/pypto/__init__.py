@@ -70,6 +70,7 @@ def _load_shared_libs():
     desc_lst: List[List[Any]] = [
         ["libtile_fwk_simulation_platform.so", True, ],
         ["libtile_fwk_utils.so", True, ],
+        ["libtile_fwk_cann_host_runtime.so", True, ],
         ["libtile_fwk_interface.so", True, ],
         ["libtile_fwk_codegen.so", True, ],
         ["libtile_fwk_compiler.so", True, ],
@@ -91,14 +92,15 @@ from . import distributed
 from .config import *  # noqa
 from ._controller import *  # noqa
 from .converter import from_torch
-from .converter import ir_from_tensor
 from .enum import *  # noqa
 from .op import *  # noqa
+from . import distributed as distributed
 from .operation import *  # noqa
 from .operator import *  # noqa
 from .pass_config import *  # noqa
 from .cost_model import *  # noqa
 from ._utils import ceildiv, bytes_of
+from .platform import platform
 from .runtime import jit, verify, set_verify_golden_data, RunMode
 from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor
@@ -106,6 +108,11 @@ from .functions import Function, get_last_function, get_current_function
 
 # Import frontend after all other imports to avoid circular imports
 from . import frontend
+
+# Keep top-level distributed API bound to pypto.distributed instead of pypto.op.distributed.
+from importlib import import_module as _import_module
+distributed = _import_module(__name__ + ".distributed")
+del _import_module
 
 
 tensor = Tensor

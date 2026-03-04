@@ -425,6 +425,14 @@ class Tensor:
     @source_location
     def mul(self, other: 'Tensor | int | float') -> 'Tensor':
         return pypto.mul(self, other)
+    
+    @source_location
+    def hypot(self, other: 'Tensor') -> 'Tensor':
+        return pypto.hypot(self, other)
+
+    @source_location
+    def prelu(self, weight: 'Tensor') -> 'Tensor':
+        return pypto.prelu(self, weight)
 
     @source_location
     def div(self, other: 'Tensor | int | float') -> 'Tensor':
@@ -522,20 +530,61 @@ class Tensor:
         return pypto.maximum(self, other)
 
     @source_location
-    def where(self, condition: 'Tensor', y: Union['Tensor', float]) -> 'Tensor':
-        return pypto.where(condition, self, y)
+    def where(
+        self,
+        condition: 'Tensor',
+        x: Union['Tensor', Element, float],
+        y: Union['Tensor', Element, float]
+    ) -> 'Tensor':
+        return pypto.where(self, condition, x, y)
+
+    @source_location
+    def lrelu(self, other: 'Tensor', negative_slope: Union[float, Element] = 0.01) -> 'Tensor':
+        return pypto.lrelu(self, other, negative_slope)
 
     @source_location
     def topk(self, k: int, dim: Optional[int] = None, largest: bool = True) -> Tuple['Tensor', 'Tensor']:
         return pypto.topk(self, k, dim, largest)
+    
+    @source_location
+    def sort32(self, index: Optional[int] = None) -> 'Tensor':
+        return pypto.sort32(self, index)
+
+    @source_location
+    def mrgsort(self, mergesize: int) -> 'Tensor':
+        return pypto.mrgsort(self, mergesize)
 
     @source_location
     def exp(self) -> 'Tensor':
         return pypto.exp(self)
+    
+    @source_location
+    def sign(self) -> 'Tensor':
+        return pypto.sign(self)
+
+    @source_location
+    def exp2(self) -> 'Tensor':
+        return pypto.exp2(self)
+
+    @source_location
+    def expm1(self) -> 'Tensor':
+        return pypto.expm1(self)
 
     @source_location
     def log(self) -> 'Tensor':
         return pypto.log(self)
+
+    @source_location
+    def log1p(self) -> 'Tensor':
+        return pypto.log1p(self)
+
+    @source_location
+    def log10(self) -> 'Tensor':
+        return pypto.log10(self)
+        
+    @source_location
+    def log2(self) -> 'Tensor':
+        return pypto.log2(self)
 
     @source_location
     def logical_not(self) -> 'Tensor':
@@ -594,6 +643,10 @@ class Tensor:
         return pypto.gather(self, dim, index)
 
     @source_location
+    def gathermask(self, pattern_mode: int) -> 'Tensor':
+        return pypto.gathermask(self, pattern_mode)
+
+    @source_location
     def index_add_(self, dim: int, index: 'Tensor', source: 'Tensor', *,
                     alpha: Union[int, float] = 1) -> 'Tensor':
         return pypto.index_add_(self, dim, index, source, alpha=alpha)
@@ -606,6 +659,10 @@ class Tensor:
     @source_location
     def cumsum(self: 'Tensor', dim: int) -> 'Tensor':
         return pypto.cumsum(self, dim)
+
+    @source_location
+    def gcd(self: 'Tensor', other: 'Tensor | int') -> 'Tensor':
+        return pypto.gcd(self, other)
 
     @source_location
     def triu(self: 'Tensor', diagonal: 'int | SymbolicScalar' = 0) -> 'Tensor':
@@ -655,6 +712,11 @@ class Tensor:
     def scatter_tensor(self, dim: int, index: 'Tensor',
                        src: Union[float, Element, 'Tensor'], *, reduce: str = None) -> 'Tensor':
         return pypto.scatter_tensor(self, dim, index, src, reduce=reduce)
+
+    @source_location
+    def var(self, dim: Union[int, List[int], Tuple[int]] = None, *,
+            correction: float = 1, keepdim: bool = False) -> 'Tensor':
+        return pypto.var(self, dim, correction=correction, keepdim=keepdim)
 
     def _is_empty_slice(self, key):
         if isinstance(key, slice):

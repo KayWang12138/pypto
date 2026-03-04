@@ -19,7 +19,7 @@
 
 #include "aicore_emulation.h"
 #include "test_machine_common.h"
-
+#include "machine/device/tilefwk/aicpu_common.h"
 struct AicoreTest : UnitTestBase {};
 
 TEST_F(AicoreTest, InitGoodbye) {
@@ -31,6 +31,8 @@ TEST_F(AicoreTest, InitGoodbye) {
     DeviceArgs devArgs;
     memset_s(&devArgs, sizeof(devArgs), 0, sizeof(devArgs));
     devArgs.sharedBuffer = (uint64_t)(uintptr_t)&sharedBuffer;
+    std::unique_ptr<DevDfxArgs> devDfxArgs = std::make_unique<DevDfxArgs>();
+    devArgs.devDfxArgAddr = (uint64_t)(uintptr_t)devDfxArgs.get();
 
     KernelEntry(0, 0, 0, 0, 0, (uint64_t)(uintptr_t)&devArgs);
     // Use AICORE_SAY_GOODBYE to exit
@@ -65,6 +67,8 @@ struct MultipleCore : ThreadAicoreEmulation {
         : memory(memory_) {
         memset_s(&devArgs, sizeof(devArgs), 0, sizeof(devArgs));
         devArgs.sharedBuffer = (uint64_t)(uintptr_t)memory->GetSharedBuffer();
+        devDfxArgs = std::make_unique<DevDfxArgs>();
+        devArgs.devDfxArgAddr = (uint64_t)(uintptr_t)devDfxArgs.get();
     }
 
     void WaitAndStartKernelEntry() {
@@ -106,6 +110,7 @@ struct MultipleCore : ThreadAicoreEmulation {
         for (size_t k = 0; k < dataList->funcNum; k++) {
             dataList->At(k).opAttrs = devFuncAttrList.data();
             dataList->At(k).opAtrrOffsets = devFuncAttrOffsetList.data();
+            dataList->At(k).startArgs = &startArgs;
             dataList->At(k).exprTbl = reinterpret_cast<uint64_t*>(devFuncExprTbl.data());
         }
 
@@ -137,10 +142,12 @@ struct MultipleCore : ThreadAicoreEmulation {
 public:
     std::shared_ptr<MemoryEmulation> memory;
     DeviceArgs devArgs;
+    std::unique_ptr<DevDfxArgs> devDfxArgs;
     std::vector<uint8_t> dynFuncDataList;
     std::vector<uint64_t> devFuncAttrList;
     std::vector<int32_t> devFuncAttrOffsetList;
     std::vector<uint64_t> devFuncExprTbl;
+    DevStartArgsBase startArgs;
 
     std::mutex traceMutex;
     struct Trace {

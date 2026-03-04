@@ -307,7 +307,7 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
     CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl, taskId, nullptr};
 #endif
     CallSubFuncTask(opAttrs[0] + funcData->exprTbl[0], &param, funcData->stackWorkSpaceAddr + ctx->blockIdx * funcData->stackWorkSpaceSize,
-                    (__gm__ int64_t *)funcData->hcclContext);
+                    (__gm__ int64_t *)funcData->startArgs->commContexts);
     SetStatus(ctx->args, STAGE_FINISH_EXEC_COREFUNC_KERNEL);
     PipeSync();
     SetStatus(ctx->args, STAGE_FINISH_PIPE_SYNC);
@@ -374,6 +374,7 @@ INLINE void KernelEntry(int64_t ffts_addr, int64_t inputs,
     auto devArgs = (DeviceArgs*)cfgdata;
     __gm__ KernelArgs *args = (__gm__ KernelArgs *)(devArgs->sharedBuffer + blockIdx * SHARED_BUFFER_SIZE);
     __gm__ Metrics* metric = (__gm__ Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+    args->taskEntry.reserved[0] = ((__gm__ DevDfxArgs*)devArgs->devDfxArgAddr)->isOpenSwim | args->taskEntry.reserved[0];
     PerfTraceRecord(INVALID_DEV_TASK_ID, metric, PERF_TRACE_CORE_BEGIN, args);
     bool isFirstTask = true;
     SetStatus(args, STAGE_HANDSHAKE_START);

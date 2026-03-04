@@ -10,10 +10,9 @@
 
 #include <mutex>
 #include <dlfcn.h>
-#include <iostream>
 
 #include "tilefwk/error.h"
-
+#include "tilefwk/pypto_fwk_log.h"
 #include "interface/utils/file_utils.h"
 
 namespace npu::tile_fwk::calc {
@@ -31,7 +30,7 @@ struct CalcOps *GetCalcOps() {
         }
         auto handle = dlopen(path.c_str(), RTLD_LAZY);
         if (handle == nullptr) {
-            std::cout << "torch not found please check the library path or import torch first" << std::endl;
+            VERIFY_LOGI("torch not found please check the library path or import torch first");
             return;
         }
         auto func = dlsym(handle, "GetCalcOps");

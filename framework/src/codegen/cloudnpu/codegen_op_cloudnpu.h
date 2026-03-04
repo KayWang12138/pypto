@@ -102,6 +102,7 @@ public:
     std::string GenTransposeDataMove() const;
 
     std::string GenGatherElementOp() const;
+    std::string GenGatherMaskOp() const;
 
     std::string GenRangeOp() const;
     std::string PrintRangeTileTensor(
@@ -249,7 +250,7 @@ private:
         int paramIdx, TileTensor &tileTensor, bool isSpillToGm, const ShapeInLoop &shapeInLoop = {});
     std::vector<std::string> BuildStride(const std::vector<int64_t> &input);
 
-    std::string GenMemCopyVar(bool isCopyLocalToGM, unsigned uf = 0) const;
+    std::string GenMemCopyVar(bool isCopyLocalToGM, bool isSpillToGm = false, unsigned uf = 0) const;
 
     std::string GenGMAddrExprWithOffset(const std::string &addrExpr, unsigned gmIdx) const;
 
@@ -274,11 +275,14 @@ private:
     std::vector<std::string> GenSymbolicArgument(const std::vector<SymbolicScalar> &exprList) const;
 
     std::string GenMemUBTransfer(bool isCopyUBToGM) const;
-    std::string GenMemUBSpillToGM(bool isCopyUBToGM) const;
     std::string GenVectorScalarOpByMode(VecScalMode mode) const;
     std::string GenVectorScalarOpScalarMode() const;
     std::string GenCubeOp(bool zeroC) const;
+    std::string GenRemainderSOp() const;
+    std::string GenRemainderRSOp() const;
     std::string GenCmpOp() const;
+    std::string GenHypotOp() const;
+    std::string GenPreluOp() const;
 
     std::string PrintDupOp(const PrintDupOpParam &param) const;
     std::string PrintDupOpDynUnaligned(const PrintDupOpParam &param) const;
@@ -302,12 +306,13 @@ private:
     std::string PrintVnchwconv(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintVnchwconvDynUnaligned(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintVnchwconvStatic(const PrintUnaryTmpBuffParam &param) const;
-    std::string PrintVnchwconvTileTensor() const;
+    std::string PrintUnaryWithTmpTileTensor() const;
 
     std::string PrintCompact(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintCompactStatic(const PrintUnaryTmpBuffParam &param) const;
 
-    std::vector<std::string> GeTileOpParamForNormalCopyTileTensor(unsigned gmIdx, bool isSpillingToGM) const;
+    std::vector<std::string> GeTileOpParamForNormalCopyTileTensor(
+        unsigned gmIdx, const std::string &gmVarName, bool isSpillingToGM) const;
     std::string PrintMemCopyWithL0C(const PrintMemCopyWithL0CParam &param) const;
     std::string PrintMemCopyWithL0CStatic(const PrintMemCopyWithL0CParam &param) const;
     std::string PrintMemCopyWithL0CDynamic(const PrintMemCopyWithL0CParam &param) const;
@@ -393,8 +398,12 @@ private:
         const std::string &dstDtypeStr) const;
     std::string PrintOneHot(const PrintUnaryParam &param) const;
     std::string PrintOneHotLayout() const;
+    std::string PrintExpm1() const;
+    std::string PrintExpm1Layout() const;
     std::string PrintRound() const;
     std::string PrintRoundLayout() const;
+    std::string PrintExp2() const;
+    std::string PrintExp2Layout() const;
 
     DynamicParamPackMTE PrepareDynamicShapeInfoForMTE(
         int dynShapeIdx, int ShapeDim = SHAPE_DIM4, bool isGmSpill = false) const;
@@ -407,6 +416,8 @@ private:
     std::string PrintRowSumlineTileTensor() const;
     std::string PrintRowSumlineDynamicUnaligned(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintRowSumlineStatic(const PrintUnaryTmpBuffParam &param) const;
+
+    std::string PrintIsFinite([[maybe_unused]] const PrintUnaryTmpBuffParam &param) const;
 
     std::string PrintExtractStatic() const;
     std::string PrintExtractDynamicUnaligned() const;
@@ -448,6 +459,8 @@ private:
     std::string PrintWhereOpTileTensor(const WhereParam &param) const;
 
     std::string PrintCmpTileTensor() const;
+    std::string PrintHypotTileTensor() const;
+    std::string PrintPreluTileTensor() const;
     std::string PrintLogicalAndTileTensor() const;
     std::string PrintLogicalNotTileTensor() const;
 

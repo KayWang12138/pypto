@@ -17,7 +17,7 @@
 #include <sys/mman.h>
 #include <sstream>
 #include "interface/utils/file_utils.h"
-#include "tilefwk/tilefwk_log.h"
+#include "tilefwk/pypto_fwk_log.h"
 
 constexpr uint64_t IMMEDIATE = 0;
 constexpr uint64_t SYMBOL = 1;
@@ -455,7 +455,7 @@ SymbolicScalar SymbolicScalar::operator()(const std::vector<SymbolicScalar> &arg
         args.push_back(a.raw_);
     }
     auto raw = RawSymbolicExpression::CreateMopCall(args);
-    if (AllConcreteValid({*this}) && AllConcreteValid(argList)) {
+    if (this->ConcreteValid() && AllConcreteValid(argList)) {
         std::vector<ScalarImmediateType> calcArgList = {Concrete()};
         for (auto &a : argList) {
             calcArgList.push_back(a.Concrete());

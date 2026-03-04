@@ -161,7 +161,6 @@ TEST_F(DynamicGatherSlcFlashAttnDSASTest, SFA_b4_s2_seq64K_int8_perf) {
     config::SetRuntimeOption(STITCH_FUNCTION_OUTCAST_MEMORY, 128);
 
     config::SetPassOption(SG_PARALLEL_NUM, 20);
-    config::SetPassOption(VEC_NBUFFER_MODE, 2);
     config::SetPassOption(VEC_NBUFFER_SETTING, std::map<int64_t, int64_t>{{-1, 2}});
 
     SaTileShapeConfig tileConfig = GetPerfSaTileShapeConfig(128, 2048);
