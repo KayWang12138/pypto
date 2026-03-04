@@ -21,6 +21,7 @@
 
 #include "interface/configs/config_manager.h"
 #include "opcode.h"
+#include "tilefwk/platform.h"
 #include "tilefwk/tensor.h"
 #include "tilefwk/tile_shape.h"
 
@@ -58,6 +59,69 @@ const std::string A_MUL_B_SCALE_ATTR = OP_ATTR_PREFIX + "scale_value";
 const std::string A_MUL_B_RELU_ATTR = OP_ATTR_PREFIX + "relu_type";
 const std::string A_MUL_B_TRANS_MODE_ATTR = OP_ATTR_PREFIX + "trans_mode";
 const std::string A_MUL_B_VECTOR_QUANT_FLAG = OP_ATTR_PREFIX + "vector_quant_flag";
+
+const std::unordered_map<NPUArch, uint64_t> ubSizeMap = {
+    {NPUArch::DAV_1001, 262144},
+    {NPUArch::DAV_2201, 196608},
+    {NPUArch::DAV_3510, 253952},
+};
+
+const std::unordered_map<std::string, NPUArch> socVersionToNpuArchMap = {
+    // DAV_1001 架构
+    {       "Ascend910A", NPUArch::DAV_1001},
+    {       "Ascend910B", NPUArch::DAV_1001},
+    {"Ascend910PremiumA", NPUArch::DAV_1001},
+    {    "Ascend910ProA", NPUArch::DAV_1001},
+    {    "Ascend910ProB", NPUArch::DAV_1001},
+
+    // DAV_2201 架构
+    {   "Ascend910_9362", NPUArch::DAV_2201},
+    {   "Ascend910_9372", NPUArch::DAV_2201},
+    {   "Ascend910_9381", NPUArch::DAV_2201},
+    {   "Ascend910_9382", NPUArch::DAV_2201},
+    {   "Ascend910_9391", NPUArch::DAV_2201},
+    {   "Ascend910_9392", NPUArch::DAV_2201},
+    {      "Ascend910B1", NPUArch::DAV_2201},
+    {     "Ascend910B2C", NPUArch::DAV_2201},
+    {      "Ascend910B2", NPUArch::DAV_2201},
+    {      "Ascend910B3", NPUArch::DAV_2201},
+    {    "Ascend910B4-1", NPUArch::DAV_2201},
+    {      "Ascend910B4", NPUArch::DAV_2201},
+
+    // DAV_3510 架构
+    { "Ascend950DT_950x", NPUArch::DAV_3510},
+    { "Ascend950DT_950y", NPUArch::DAV_3510},
+    { "Ascend950DT_9571", NPUArch::DAV_3510},
+    { "Ascend950DT_9572", NPUArch::DAV_3510},
+    { "Ascend950DT_9573", NPUArch::DAV_3510},
+    { "Ascend950DT_9574", NPUArch::DAV_3510},
+    { "Ascend950DT_9575", NPUArch::DAV_3510},
+    { "Ascend950DT_9576", NPUArch::DAV_3510},
+    { "Ascend950DT_9577", NPUArch::DAV_3510},
+    { "Ascend950DT_9578", NPUArch::DAV_3510},
+    { "Ascend950DT_9581", NPUArch::DAV_3510},
+    { "Ascend950DT_9582", NPUArch::DAV_3510},
+    { "Ascend950DT_9583", NPUArch::DAV_3510},
+    { "Ascend950DT_9584", NPUArch::DAV_3510},
+    { "Ascend950DT_9585", NPUArch::DAV_3510},
+    { "Ascend950DT_9586", NPUArch::DAV_3510},
+    { "Ascend950DT_9587", NPUArch::DAV_3510},
+    { "Ascend950DT_9588", NPUArch::DAV_3510},
+    { "Ascend950DT_9591", NPUArch::DAV_3510},
+    { "Ascend950DT_9592", NPUArch::DAV_3510},
+    { "Ascend950DT_9595", NPUArch::DAV_3510},
+    { "Ascend950DT_9596", NPUArch::DAV_3510},
+    { "Ascend950DT_95A1", NPUArch::DAV_3510},
+    { "Ascend950DT_95A2", NPUArch::DAV_3510},
+    { "Ascend950PR_950z", NPUArch::DAV_3510},
+    { "Ascend950PR_9579", NPUArch::DAV_3510},
+    { "Ascend950PR_957b", NPUArch::DAV_3510},
+    { "Ascend950PR_957c", NPUArch::DAV_3510},
+    { "Ascend950PR_957d", NPUArch::DAV_3510},
+    { "Ascend950PR_9589", NPUArch::DAV_3510},
+    { "Ascend950PR_958b", NPUArch::DAV_3510},
+    { "Ascend950PR_9599", NPUArch::DAV_3510},
+};
 
 struct MatmulTensorInfo {
     std::string name;
