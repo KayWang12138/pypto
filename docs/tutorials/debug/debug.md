@@ -54,7 +54,7 @@
 1.  开启图编译阶段调试模式开关。
 
     ```python
-    @pypto.jit(
+    @pypto.frontend.jit(
         debug_options={"compile_debug_mode": 1}
     )
     ```
@@ -133,7 +133,7 @@
 
 -   手动指定仿真模式：
 
-    在算子代码中显式调用`@pypto.jit(runtime_options={"run_mode": 1})`，强制启用CPU仿真模式执行算子程序。
+    在算子代码中显式调用`@pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})`，强制启用CPU仿真模式执行算子程序。
     pypto先执行性能仿真，性能仿真执行完成后，若检测到CANN软件包，则继续执行精度仿真。
 
 -   自动识别模式（仅支持性能仿真，不支持精度仿真）：
@@ -145,7 +145,7 @@
 1.  指定运行参数run\_mode。
 
     ```python
-    @pypto.jit(runtime_options={"run_mode": 1})
+    @pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
     ```
 
 2.  执行算子，自动触发仿真运行

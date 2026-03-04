@@ -40,14 +40,13 @@ public:
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
-        config::SetPassOption(VEC_NBUFFER_MODE, 2);
         config::SetPassOption(VEC_NBUFFER_SETTING, std::map<int64_t, int64_t>{{-1, 2}});
         Platform::Instance().ObtainPlatformInfo();
     }
 
     void TearDown() override {}
 
-    Status TestNBufferMergeWithDifferentVecBufferMap(std::map<int64_t, int64_t> vecNBufferSetting);
+    Status TestNBufferMergeWithDifferentVecBufferSetting(std::map<int64_t, int64_t> vecNBufferSetting);
 };
 
 TEST_F(NBufferMergeTest, TestNBufferMerge) {
@@ -98,7 +97,6 @@ TEST_F(NBufferMergeTest, TestMulityInputOutputMode3) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     const int vecParallelNum = 2;
-    const int manualMode = 3;
     std::vector<int64_t> shape = {8, 16};
 
     auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
@@ -140,7 +138,7 @@ TEST_F(NBufferMergeTest, TestMulityInputOutputMode3) {
     // Call the pass
     NBufferMerge NBM;
     currFunctionPtr->paramConfigs_.mgVecParallelLb = vecParallelNum;
-    currFunctionPtr->paramConfigs_.vecNBuffermode = manualMode;
+    currFunctionPtr->paramConfigs_.vecNBufferSetting = {{-2, 0}};
     currFunctionPtr->DumpJsonFile("./config/pass/json/nBufferMerge_mulity_input_before.json");
     size_t subGraphCount = 4;
     currFunctionPtr->SetTotalSubGraphCount(subGraphCount);
@@ -154,7 +152,6 @@ TEST_F(NBufferMergeTest, TestMode4) {
     std::vector<int64_t> tileShape{16, 16};
     const int vecParallelNum = 6;
     const int result = 11;
-    const int manualMode = 4;
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"incast0", "incast1", "outcast"}), true);
     EXPECT_EQ(G.AddOps({Opcode::OP_COPY_IN}, {{"incast0"}}, {{"incast1"}}, {"copy_in"}, true), true);
     G.GetOp("copy_in")->UpdateSubgraphID(0);
@@ -175,8 +172,7 @@ TEST_F(NBufferMergeTest, TestMode4) {
     EXPECT_EQ(G.SetInCast({"incast0"}), true);
     EXPECT_EQ(G.SetOutCast({"outcast"}), true);
     Function *function = G.GetFunction();
-    function->paramConfigs_.vecNBuffermode = manualMode;
-    function->paramConfigs_.vecNBufferSetting = {{-1, 4}, {1, 2}};
+    function->paramConfigs_.vecNBufferSetting = {{-2, 1}, {-1, 4}, {1, 2}};
     function->paramConfigs_.mgVecParallelLb = vecParallelNum;
     function->SetTotalSubGraphCount(subGraphNum);
     NBufferMerge NBM;
@@ -184,22 +180,72 @@ TEST_F(NBufferMergeTest, TestMode4) {
     EXPECT_EQ(function->GetTotalSubGraphCount(), result);
 }
 
-TEST_F(NBufferMergeTest, TestInvalidMode) {
+TEST_F(NBufferMergeTest, TestNoMergeMode) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     const int vecParallelNum = 6;
-    const int noneMode = 999;
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"incast0", "incast1", "outcast"}), true);
     EXPECT_EQ(G.AddOps({Opcode::OP_COPY_IN}, {{"incast0"}}, {{"incast1"}}, {"copy_in"}, true), true);
     G.GetOp("copy_in")->UpdateSubgraphID(0);
     EXPECT_EQ(G.SetInCast({"incast0"}), true);
     EXPECT_EQ(G.SetOutCast({"outcast"}), true);
     Function *function = G.GetFunction();
-    function->paramConfigs_.vecNBuffermode = noneMode;
+    function->paramConfigs_.vecNBufferSetting = {{-1, 1}};
     function->paramConfigs_.mgVecParallelLb = vecParallelNum;
     function->SetTotalSubGraphCount(1);
     NBufferMerge NBM;
-    EXPECT_EQ(NBM.RunOnFunction(*function), FAILED);
+    EXPECT_EQ(NBM.RunOnFunction(*function), SUCCESS);
+}
+
+TEST_F(NBufferMergeTest, TestInvalidMode) {
+    EXPECT_EQ(TestNBufferMergeWithDifferentVecBufferSetting({{-2, 4}, {1, 2}}), FAILED);
+}
+
+TEST_F(NBufferMergeTest, TestMode2AndVecNBufferSettingKeyMoreThanMaxValue) {
+    EXPECT_EQ(TestNBufferMergeWithDifferentVecBufferSetting({{-1, 4}, {100, 2}}), FAILED);
+}
+
+TEST_F(NBufferMergeTest, TestMode2AndVecNBufferSettingValueLessThanMinValue) {
+    EXPECT_EQ(TestNBufferMergeWithDifferentVecBufferSetting({{-1, 4}, {1, 0}}), FAILED);
+}
+
+TEST_F(NBufferMergeTest, TestMode2AndVecNBufferSettingValueMoreThanMaxValue) {
+    EXPECT_EQ(TestNBufferMergeWithDifferentVecBufferSetting({{-1, 4}, {1, INT64_MAX}}), FAILED);
+}
+
+TEST_F(NBufferMergeTest, TestMode2AndNoDefaultValue) {
+    EXPECT_EQ(TestNBufferMergeWithDifferentVecBufferSetting({{0, 2}}), SUCCESS);
+}
+
+Status NBufferMergeTest::TestNBufferMergeWithDifferentVecBufferSetting(std::map<int64_t, int64_t> vecNBufferSetting) {
+    std::vector<int64_t> tileShape{16, 16};
+    const int mgVecParallelLb = 3;
+    ComputationalGraphBuilder G;
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"incast0", "incast1", "outcast"}), true);
+    EXPECT_EQ(G.AddOps({Opcode::OP_COPY_IN}, {{"incast0"}}, {{"incast1"}}, {"copy_in"}, true), true);
+    G.GetOp("copy_in")->UpdateSubgraphID(0);
+    const int subGraphNum = 10;
+    for (int i = 1; i < subGraphNum; i++) {
+        std::string strID = std::to_string(i);
+        EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"tensor1" + strID, "tensor2" + strID, "tensor3" + strID}), true);
+        std::vector<std::vector<std::string>> iOperands{{"incast1"}, {"tensor1" + strID}, {"tensor2" + strID}, {"tensor3" + strID}};
+        std::vector<std::vector<std::string>> oOperands{{"tensor1" + strID}, {"tensor2" + strID}, {"tensor3" + strID}, {"outcast"}};
+        std::vector<std::string> opNames{"ABS_" + strID, "EXP_" + strID, "ADDS_" + strID, "ASSEMBLE_" + strID};
+        std::vector<Opcode> opLists{Opcode::OP_ABS, Opcode::OP_EXP, Opcode::OP_ADDS, Opcode::OP_ASSEMBLE};
+        EXPECT_EQ(G.AddOps(opLists, iOperands, oOperands, opNames, true), true);
+        G.GetOp("EXP_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("ADDS_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("ASSEMBLE_" + strID)->UpdateSubgraphID(i);
+        G.GetOp("ABS_" + strID)->UpdateSubgraphID(i);
+    }
+    EXPECT_EQ(G.SetInCast({"incast0"}), true);
+    EXPECT_EQ(G.SetOutCast({"outcast"}), true);
+    Function *function = G.GetFunction();
+    function->paramConfigs_.vecNBufferSetting = vecNBufferSetting;
+    function->paramConfigs_.mgVecParallelLb = mgVecParallelLb;
+    function->SetTotalSubGraphCount(subGraphNum);
+    NBufferMerge NBM;
+    return NBM.RunOnFunction(*function);
 }
 }
 }

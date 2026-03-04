@@ -95,7 +95,7 @@ class IndexerPrologQuantConfigs:
     block_size: int
     t_sub_tile: int
     chunk_size: int
-    vec_nbuffer_mode: int
+    vec_nbuffer_setting: dict[int, int]
 
 
 def quant_layer_norm(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, dim: int, epsilon: float):
@@ -515,7 +515,7 @@ def lightning_indexer_prolog_quant(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
         It configures pass options for memory optimization and calls the core
         computation function.
     """
-    pypto.set_pass_options(vec_nbuffer_mode=configs.vec_nbuffer_mode)
+    pypto.set_pass_options(vec_nbuffer_setting=configs.vec_nbuffer_setting)
     pypto.set_pass_options(cube_l1_reuse_setting=configs.cube_l1_reuse_setting)
     pypto.set_pass_options(pg_upper_bound=configs.pg_upper_bound)
 
