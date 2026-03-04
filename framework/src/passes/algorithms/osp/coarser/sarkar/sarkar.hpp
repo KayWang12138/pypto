@@ -26,9 +26,9 @@
 #include <cmath>
 #include <type_traits>
 
-#include "passes/algorithms/osp/auxiliary/datastructures/union_find.hpp"
-#include "passes/algorithms/osp/coarser/coarser.hpp"
-#include "passes/algorithms/osp/graph_algorithms/directed_graph_path_util.hpp"
+#include "passes/algorithms/osp/auxiliary/datastructures/union_find.h"
+#include "passes/algorithms/osp/coarser/coarser.h"
+#include "passes/algorithms/osp/graph_algorithms/directed_graph_path_util.h"
 
 #include "interface/utils/common.h"
 

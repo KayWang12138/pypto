@@ -9,17 +9,17 @@
  */
 
 /*!
- * \file CostModelHelpers.hpp
+ * \file CostModelHelpers.h
  * \brief
  */
 
-#ifndef OSP_COSTMODELHELPERS_HPP
-#define OSP_COSTMODELHELPERS_HPP
+#ifndef OSP_COSTMODELHELPERS_H
+#define OSP_COSTMODELHELPERS_H
 
 #include <algorithm>
 #include <vector>
 
-#include "passes/algorithms/osp/bsp/model/BspInstance.hpp"
+#include "passes/algorithms/osp/bsp/model/BspInstance.h"
 
 namespace npu::tile_fwk {
 namespace osp {
@@ -112,4 +112,4 @@ VWorkwT<GraphT> ComputeWorkCosts(const BspSchedule<GraphT> &schedule) {
 }    // namespace cost_helpers
 }    // namespace osp
 } // namespace npu::tile_fwk
-#endif // OSP_COSTMODELHELPERS_HPP
+#endif // OSP_COSTMODELHELPERS_H

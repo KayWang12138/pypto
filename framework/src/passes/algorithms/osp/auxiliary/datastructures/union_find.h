@@ -9,12 +9,12 @@
  */
 
 /*!
- * \file union_find.hpp
+ * \file union_find.h
  * \brief
  */
 
-#ifndef PASS_OSP_UNION_FIND_HPP
-#define PASS_OSP_UNION_FIND_HPP
+#ifndef PASS_OSP_UNION_FIND_H
+#define PASS_OSP_UNION_FIND_H
 
 #include <algorithm>
 #include <set>
@@ -23,7 +23,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "passes/algorithms/osp/concepts/graph_traits.hpp"
+#include "passes/algorithms/osp/concepts/graph_traits.h"
 
 namespace npu::tile_fwk {
 namespace osp {
@@ -257,4 +257,4 @@ void UnionFindUniverse<T, IndexT, WorkwT>::AddObject(const T &name, const WorkwT
 
 } // namespace osp
 } // namespace npu::tile_fwk
-#endif // PASS_OSP_UNION_FIND_HPP
+#endif // PASS_OSP_UNION_FIND_H

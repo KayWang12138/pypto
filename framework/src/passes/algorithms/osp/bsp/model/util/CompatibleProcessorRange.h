@@ -8,12 +8,12 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef OSP_COMPATIBLEPROCESSORRANGE_HPP
-#define OSP_COMPATIBLEPROCESSORRANGE_HPP
+#ifndef OSP_COMPATIBLEPROCESSORRANGE_H
+#define OSP_COMPATIBLEPROCESSORRANGE_H
 
 #include <vector>
 
-#include "passes/algorithms/osp/bsp/model/BspInstance.hpp"
+#include "passes/algorithms/osp/bsp/model/BspInstance.h"
 
 namespace npu::tile_fwk {
 namespace osp {
@@ -86,4 +86,4 @@ class CompatibleProcessorRange {
 
 }    // namespace osp
 } // namespace npu::tile_fwk
-#endif // OSP_COMPATIBLEPROCESSORRANGE_HPP
+#endif // OSP_COMPATIBLEPROCESSORRANGE_H

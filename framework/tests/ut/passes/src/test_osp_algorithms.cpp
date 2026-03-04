@@ -21,16 +21,16 @@
 #include <string>
 #include "gtest/gtest.h"
 
-#include "passes/algorithms/osp/auxiliary/datastructures/union_find.hpp"
+#include "passes/algorithms/osp/auxiliary/datastructures/union_find.h"
 #include "passes/algorithms/osp/auxiliary/balanced_coin_flips.h"
-#include "passes/algorithms/osp/bsp/model/BspArchitecture.hpp"
-#include "passes/algorithms/osp/graph_algorithms/directed_graph_path_util.hpp"
-#include "passes/algorithms/osp/coarser/coarser_util.hpp"
-#include "passes/algorithms/osp/coarser/sarkar/sarkar.hpp"
-#include "passes/algorithms/osp/coarser/sarkar/sarkar_mul.hpp"
-#include "passes/algorithms/osp/graph_implementations/adj_list_impl/compact_sparse_graph.hpp"
-#include "passes/algorithms/osp/graph_implementations/adj_list_impl/dag_vector_adapter.hpp"
-#include "passes/algorithms/osp/graph_implementations/integral_range.hpp"
+#include "passes/algorithms/osp/bsp/model/BspArchitecture.h"
+#include "passes/algorithms/osp/graph_algorithms/directed_graph_path_util.h"
+#include "passes/algorithms/osp/coarser/coarser_util.h"
+#include "passes/algorithms/osp/coarser/sarkar/sarkar.h"
+#include "passes/algorithms/osp/coarser/sarkar/sarkar_mul.h"
+#include "passes/algorithms/osp/graph_implementations/adj_list_impl/compact_sparse_graph.h"
+#include "passes/algorithms/osp/graph_implementations/adj_list_impl/dag_vector_adapter.h"
+#include "passes/algorithms/osp/graph_implementations/integral_range.h"
 
 namespace npu::tile_fwk {
 namespace osp {

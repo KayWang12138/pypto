@@ -9,17 +9,17 @@
  */
 
 /*!
- * \file LazyCommunicationCost.hpp
+ * \file LazyCommunicationCost.h
  * \brief
  */
 
-#ifndef OSP_LAZYCOMMUNICATIONCOST_HPP
-#define OSP_LAZYCOMMUNICATIONCOST_HPP
+#ifndef OSP_LAZYCOMMUNICATIONCOST_H
+#define OSP_LAZYCOMMUNICATIONCOST_H
 
 #include <algorithm>
 #include <vector>
 
-#include "passes/algorithms/osp/bsp/model/cost/CostModelHelpers.hpp"
+#include "passes/algorithms/osp/bsp/model/cost/CostModelHelpers.h"
 
 namespace npu::tile_fwk {
 namespace osp {
@@ -100,4 +100,4 @@ struct LazyCommunicationCost {
 
 }    // namespace osp
 } // namespace npu::tile_fwk
-#endif // OSP_LAZYCOMMUNICATIONCOST_HPP
+#endif // OSP_LAZYCOMMUNICATIONCOST_H

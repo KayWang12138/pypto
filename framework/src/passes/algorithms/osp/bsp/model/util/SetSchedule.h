@@ -8,13 +8,13 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef OSP_SETSCHEDULE_HPP
-#define OSP_SETSCHEDULE_HPP
+#ifndef OSP_SETSCHEDULE_H
+#define OSP_SETSCHEDULE_H
 
 #include <unordered_set>
 #include <vector>
 
-#include "passes/algorithms/osp/bsp/model/BspSchedule.hpp"
+#include "passes/algorithms/osp/bsp/model/BspSchedule.h"
 
 namespace npu::tile_fwk {
 namespace osp {
@@ -79,4 +79,4 @@ class SetSchedule {
 
 }    // namespace osp
 } // namespace npu::tile_fwk
-#endif // OSP_SETSCHEDULE_HPP
+#endif // OSP_SETSCHEDULE_H

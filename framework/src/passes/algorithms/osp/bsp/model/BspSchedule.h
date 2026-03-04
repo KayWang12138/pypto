@@ -9,19 +9,19 @@
  */
 
 /*!
- * \file BspSchedule.hpp
+ * \file BspSchedule.h
  * \brief
  */
 
-#ifndef OSP_BSPSCHEDULE_HPP
-#define OSP_BSPSCHEDULE_HPP
+#ifndef OSP_BSPSCHEDULE_H
+#define OSP_BSPSCHEDULE_H
 
 #include <algorithm>
 #include <stdexcept>
 #include <unordered_set>
 #include <vector>
 
-#include "passes/algorithms/osp/bsp/model/cost/LazyCommunicationCost.hpp"
+#include "passes/algorithms/osp/bsp/model/cost/LazyCommunicationCost.h"
 
 namespace npu::tile_fwk {
 namespace osp {
@@ -358,4 +358,4 @@ class BspSchedule {
 
 }    // namespace osp
 } // namespace npu::tile_fwk
-#endif // OSP_BSPSCHEDULE_HPP
+#endif // OSP_BSPSCHEDULE_H

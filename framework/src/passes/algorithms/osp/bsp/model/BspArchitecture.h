@@ -9,12 +9,12 @@
  */
 
 /*!
-* \file BspArchitecture.hpp
+* \file BspArchitecture.h
 * \brief
 */
 
-#ifndef OSP_BSP_ARCHITECTURE_HPP
-#define OSP_BSP_ARCHITECTURE_HPP
+#ifndef OSP_BSP_ARCHITECTURE_H
+#define OSP_BSP_ARCHITECTURE_H
 
 #include <algorithm>
 #include <cmath>
@@ -23,8 +23,8 @@
 #include <stdexcept>
 #include <vector>
 
-#include "passes/algorithms/osp/concepts/graph_traits.hpp"
-#include "passes/algorithms/osp/graph_implementations/integral_range.hpp"
+#include "passes/algorithms/osp/concepts/graph_traits.h"
+#include "passes/algorithms/osp/graph_implementations/integral_range.h"
 
 namespace npu::tile_fwk {
 namespace osp {
@@ -477,4 +477,4 @@ class BspArchitecture {
 
 }    // namespace osp
 }    // namespace npu::tile_fwk
-#endif // OSP_BSP_ARCHITECTURE_HPP
+#endif // OSP_BSP_ARCHITECTURE_H

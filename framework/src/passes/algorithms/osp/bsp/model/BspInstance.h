@@ -9,18 +9,18 @@
  */
 
 /*!
-* \file BspInstance.hpp
+* \file BspInstance.h
 * \brief
 */
 
-#ifndef OSP_BSP_INSTANCE_HPP
-#define OSP_BSP_INSTANCE_HPP
+#ifndef OSP_BSP_INSTANCE_H
+#define OSP_BSP_INSTANCE_H
 
 #include <iostream>
 
-#include "BspArchitecture.hpp"
-#include "passes/algorithms/osp/graph_algorithms/computational_dag_construction_util.hpp"
-#include "passes/algorithms/osp/graph_algorithms/directed_graph_util.hpp"
+#include "BspArchitecture.h"
+#include "passes/algorithms/osp/graph_algorithms/computational_dag_construction_util.h"
+#include "passes/algorithms/osp/graph_algorithms/directed_graph_util.h"
 
 namespace npu::tile_fwk {
 namespace osp {
@@ -305,4 +305,4 @@ class BspInstance {
 
 }    // namespace osp
 }    // namespace npu::tile_fwk
-#endif // OSP_BSP_INSTANCE_HPP
+#endif // OSP_BSP_INSTANCE_H

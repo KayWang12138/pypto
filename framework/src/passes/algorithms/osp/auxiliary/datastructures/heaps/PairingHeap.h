@@ -9,12 +9,12 @@
  */
 
 /*!
- * \file PairingHeap.hpp
+ * \file PairingHeap.h
  * \brief
  */
 
-#ifndef OSP_PAIRINGHEAP_HPP
-#define OSP_PAIRINGHEAP_HPP
+#ifndef OSP_PAIRINGHEAP_H
+#define OSP_PAIRINGHEAP_H
 
 #include <algorithm>
 #include <functional>
@@ -450,4 +450,4 @@ using MaxPairingHeap = PairingHeap<Key, Value, std::greater<Value>>;
 
 }    // namespace osp
 } // namespace npu::tile_fwk
-#endif // OSP_PAIRINGHEAP_HPP
+#endif // OSP_PAIRINGHEAP_H
