@@ -29,12 +29,14 @@ class TestHostLog : public testing::Test {
 public:
     void SetUp() override {
         unsetenv("ASCEND_GLOBAL_LOG_LEVEL");
+        unsetenv("ASCEND_SLOG_PRINT_TO_STDOUT");
         unsetenv("ASCEND_MODULE_LOG_LEVEL");
         unsetenv("ASCEND_GLOBAL_EVENT_ENABLE");
         unsetenv("ASCEND_PROCESS_LOG_PATH");
     }
     void TearDown() override {
         unsetenv("ASCEND_GLOBAL_LOG_LEVEL");
+        unsetenv("ASCEND_SLOG_PRINT_TO_STDOUT");
         unsetenv("ASCEND_MODULE_LOG_LEVEL");
         unsetenv("ASCEND_GLOBAL_EVENT_ENABLE");
         unsetenv("ASCEND_PROCESS_LOG_PATH");
@@ -102,7 +104,7 @@ public:
     }
 };
 
-TEST_F(TestHostLog, test_tilefwk_log) {
+TEST_F(TestHostLog, test_tilefwk_log_case0) {
     PYPTO_HOST_LOG(DLOG_ERROR, "TEST", "I'm a space-bound %s and your heart's the moon", "rocketship");
     PYPTO_HOST_LOG(DLOG_ERROR, "TEST", "And I aiming it right at you, right at you %f", 3.14f);
     PYPTO_HOST_LOG(DLOG_ERROR, "TEST", "%d miles on a clear night in %s", 250000, "June");
@@ -117,6 +119,35 @@ TEST_F(TestHostLog, test_tilefwk_log) {
         oss << "0123456789";
     }
     PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, "TEST", "Hello %s", oss.str().c_str());
+}
+
+namespace {
+void FunctionWithNoReturn() {
+    PYPTO_HOST_LOG(DLOG_ERROR, "TEST", "In the year of %d assembled here the volunteers in the days when lands were few", 39);
+    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, "TEST", "In the year of %d assembled here the volunteers in the days when lands were few", 39);
+    PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, "TEST", "In the year of %d assembled here the volunteers in the days when lands were few", 39);
+    std::ostringstream oss;
+    for (size_t i = 0; i < 200; i++) {
+        oss << "0123456789";
+    }
+    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, "TEST", "Hello %s", oss.str().c_str());
+}
+int FunctionWithReturn() {
+    PYPTO_HOST_LOG(DLOG_ERROR, "TEST", "In the year of %d assembled here the volunteers in the days when lands were few", 39);
+    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, "TEST", "In the year of %d assembled here the volunteers in the days when lands were few", 39);
+    PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, "TEST", "In the year of %d assembled here the volunteers in the days when lands were few", 39);
+    std::ostringstream oss;
+    for (size_t i = 0; i < 200; i++) {
+        oss << "0123456789";
+    }
+    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, "TEST", "Hello %s", oss.str().c_str());
+    return 0;
+}
+}
+TEST_F(TestHostLog, test_tilefwk_log_case1) {
+    setenv("ASCEND_SLOG_PRINT_TO_STDOUT", "1", 1);
+    FunctionWithNoReturn();
+    FunctionWithReturn();
 }
 
 TEST_F(TestHostLog, test_log_manager_case0) {
