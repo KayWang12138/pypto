@@ -1,5 +1,5 @@
 ---
-name: Pass-Ut-Generate
+name: pass-ut-generate
 description: 根据Pass业务描述，生成单元测试用例（UT）。当用户输入业务情况时，能根据业务，生成对应Pass的Ut用例。
 license: 完整条款见 LICENSE.txt
 ---
@@ -12,16 +12,17 @@ license: 完整条款见 LICENSE.txt
 
 ## 触发机制
  	 
- 	 当用户输入包含以下关键字或者相关内容时，自动触发此技能：
+ 	当用户输入包含以下关键字或者相关内容时，自动触发此技能：
  	 
- 	 - **设计Pass模块XXX的UT用例**：设计指定 Pass 模块的功能的UT用例
- 	 - **设计Pass模块XXX的XXX功能**：设计指定 Pass 模块的指定功能的UT用例
- 	 - **设计XXX功能的相关Pass模块的UT用例**：设计与XXX功能相关Pass的UT用例
+ 	 （1）设计Pass模块XXX的UT用例**：设计指定 Pass 模块的功能的UT用例
+ 	 （2）设计Pass模块XXX的XXX功能**：设计指定 Pass 模块的指定功能的UT用例
+ 	 （3）设计XXX功能的相关Pass模块的UT用例**：设计与XXX功能相关Pass的UT用例
  
- 	 **触发示例**：
- 	 - "设计Pass模块AutoCast的UT用例"
- 	 - "设计Pass模块AutoCast的对于不支持BF16 OP插入Cast的功能"
- 	 - "设计删除冗余Op功能的相关Pass的UT用例"
+ 	触发示例：
+
+ 	 （1）"设计Pass模块AutoCast的UT用例"
+ 	 （2）"设计Pass模块AutoCast的对于不支持BF16 OP插入Cast的功能"
+ 	 （3）"设计删除冗余Op功能的相关Pass的UT用例"
 
 ## 使用场景
  	 
