@@ -33,7 +33,7 @@ bash tools/prepare_env.sh --quiet --type=cann --device-type=a2 --install-path=${
 | --install-path | str | 否 | CANN 安装路径 |
 | --download-path | str | 否 | 下载路径 |
 | --with-install-driver | bool | 否 | 是否下载驱动固件，默认 false |
-| --quiet | bool | 否 | 静默模式，减少输出（执行prepare_env.sh脚本时必须加上此参数） |
+| --quiet | bool | 否 | 静默模式，自动回答交互提示；强烈建议始终加上（避免部分 .run 包在非交互环境卡住） |
 
 ## 手动安装 CANN
 
@@ -95,11 +95,10 @@ CANN 安装完成后，`source set_env.sh` 会导出以下关键变量：
 ### source 命令
 
 ```bash
-# 默认路径（root 用户）
-source "${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/set_env.sh"
-
-# 指定路径
-source "${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/cann/set_env.sh"
+# 自动探测并加载 CANN 环境（推荐）
+ASCEND_INSTALL_PATH=${ASCEND_INSTALL_PATH:-/usr/local/Ascend}
+CANN_ENV_SH=${CANN_ENV_SH:-$(ls -1 ${ASCEND_INSTALL_PATH}/*/set_env.sh ${ASCEND_INSTALL_PATH}/*/*/set_env.sh 2>/dev/null | head -1)}
+test -n "$CANN_ENV_SH" && source "$CANN_ENV_SH" || echo "CANN set_env.sh not found"
 ```
 
 ```bash
@@ -116,13 +115,15 @@ test -n "$CANN_ENV_SH" && source "$CANN_ENV_SH" || echo "CANN set_env.sh not fou
 
 | CANN 版本 | torch | torch_npu | Python | 芯片 |
 |-----------|-------|-----------|--------|------|
-| 8.5.0 | 2.5.1 | 2.5.1.post1 | 3.10 | A2(910B) / A3(910C) |
+| 8.5.0 | 2.5.1 | 2.5.1 | 3.10 | A2(910B) / A3(910C) |
 | 8.5.0 | 2.4.0 | 2.4.0.post2 | 3.10 | A2(910B) / A3(910C) |
 | 8.5.0 | 2.3.1 | 2.3.1.post1 | 3.9/3.10 | A2(910B) / A3(910C) |
 
 > ⚠️ 此快照可能滞后于上游。**安装前务必核对权威源**：
 > - PyPTO 官方矩阵：`$PYPTO_REPO/docs/install/prepare_environment.md` § "安装驱动与固件"
 > - torch/torch_npu 配对：https://github.com/Ascend/pytorch
+
+补充：如选择 `torch_npu` 的 `.post*` 版本（补丁/快照），更容易触发对 CANN ops/pto-isa 等组件的依赖；若环境未完整安装对应 ops 包或未正确加载 `set_env.sh`，常见报错为 `ImportError: libhccl.so ...`。
 
 ### 验证当前版本
 
