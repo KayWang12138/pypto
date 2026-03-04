@@ -69,6 +69,7 @@ bool CannHostRuntime::GetSocVersion(std::string& socVersion) {
     char socVer[kMaxLength] = {0x00};
     if (socVerFunc_ != nullptr) {
         ret = socVerFunc_(socVer, kMaxLength);
+        socVer[kMaxLength - 1] = '\0';
     }
     if (ret == 0) {
         socVersion = std::string(socVer);
