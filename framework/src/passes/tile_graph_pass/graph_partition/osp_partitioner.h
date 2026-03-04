@@ -40,6 +40,15 @@ enum class OspMode {
 };
 
 class OspPartitioner : public SuperNodeGraphBuilder {
+public:    
+    OspPartitioner(OspMode mode) : ospMode_(mode) { useCVMixPartition_ = GraphUtils::IsCVMixPlatform(); };
+    OspPartitioner(OspMode mode, bool useCVMixPartition) : ospMode_(mode) { useCVMixPartition_ =  useCVMixPartition; };
+    ~OspPartitioner() = default;
+
+    Status SetParameter(const Function &function);
+    Status PartitionGraph(Function &function);
+
+private:    
     using VertType = int32_t;
     using WorkType = int32_t;
     using VTypeType = unsigned;
@@ -100,14 +109,6 @@ class OspPartitioner : public SuperNodeGraphBuilder {
                                    const std::vector<uint64_t> &hashSource);
     void BuildNodeHashValues(const std::vector<uint64_t> &opHashList);
     Status BuildHashValues() override;
-
-public:    
-    OspPartitioner(OspMode mode) : ospMode_(mode) { useCVMixPartition_ = GraphUtils::IsCVMixPlatform(); };
-    OspPartitioner(OspMode mode, bool useCVMixPartition) : ospMode_(mode) { useCVMixPartition_ =  useCVMixPartition; };
-    ~OspPartitioner() = default;
-
-    Status SetParameter(const Function &function);
-    Status PartitionGraph(Function &function);
 };
 
 }  // namespace npu::tile_fwk
