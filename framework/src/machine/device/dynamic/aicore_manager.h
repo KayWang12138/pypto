@@ -679,9 +679,20 @@ private:
         }
         return DEVICE_MACHINE_OK;
     }
-
+    //检查是否进入了尾批，当剩余任务数小于等于管理核心数时，认为进入了尾批
+    inline bool CheckIsTailBatch(CoreType type, uint64_t remaining) {
+        if (curTaskCtrl_ == nullptr || aicpuNum_ <= 1) {
+            return false;
+        }
+        remaining = curDevTask_->coreFunctionCnt - curTaskCtrl_->finishedFunctionCnt.load(std::memory_order_relaxed);
+        uint32_t mngCoreNum = (type == CoreType::AIC) ? static_cast<uint32_t>(aicEnd_ - aicStart_) : static_cast<uint32_t>(aivEnd_ - aivStart_);
+        return (remaining > 0 && remaining <= static_cast<uint64_t>(mngCoreNum));
+    }
+    //当进入尾批时，也选择保守策略，只分配完全空闲的核心
     inline uint32_t GetReadyCoreNum(CoreType type) {
-        if (enableFairSch_ && IsExistOtherAicpuIdle(type))  {
+        uint64_t remaining = 0;
+        bool isTail = CheckIsTailBatch(type, remaining);
+        if ((enableFairSch_ || isTail) && IsExistOtherAicpuIdle(type))  {
             return context_->coreRunReadyCnt_[static_cast<int>(type)];
         }
         return context_->corePendReadyCnt_[static_cast<int>(type)];
@@ -705,6 +716,14 @@ private:
         uint32_t head = __atomic_load_n(&readyQue->head, __ATOMIC_RELAXED);
         uint32_t tail = __atomic_load_n(&readyQue->tail, __ATOMIC_RELAXED);
         uint32_t taskCount = std::min(ready, tail - head);
+
+        //尾批时公平调度
+        uint64_t remaining = 0;
+        if (CheckIsTailBatch(type, remaining)) {
+            uint32_t fairShare = static_cast<uint32_t>((remaining + aicpuNum_ - 1) / aicpuNum_);
+            taskCount = std::min(taskCount, std::max(1U, fairShare));
+        }
+
         if (taskCount == 0) {
             DEV_VERBOSE_DEBUG("AiCpud:%u, taskCount is zero", head);
             ReadyQueueUnLock(readyQue);
