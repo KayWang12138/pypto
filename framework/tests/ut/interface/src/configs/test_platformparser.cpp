@@ -35,7 +35,7 @@ const std::string l1Size = "l1_size";
 const std::string ubSize = "ub_size";
 const std::string aic = "AIC";
 const std::string aiv = "AIV";
-const std::string TEST_TMP_DIR = "/tmp/";
+const std::string TEST_TMP_DIR = "/TestPlatform/";
 
 class TestPlatformParser : public testing::Test {
 public:
