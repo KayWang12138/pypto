@@ -12,7 +12,6 @@ ASCEND_INSTALL_PATH=${ASCEND_INSTALL_PATH:-/usr/local/Ascend}
 ```
 
 - `PYPTO_REPO`：由诊断脚本自动检测（`$HOME/pypto` → 当前目录 find）。未找到则尝试 GitCode 克隆；失败请用户手动提供路径或设置 `GITCODE_TOKEN`。
-- `$SKILL_DIR`：agent 运行时自动注入，指向本 skill 目录。手动执行时需自行 `export SKILL_DIR=<path>`。
 - **默认版本**：CANN 8.5.0 + PyTorch 2.6.0 + torch_npu 2.6.0
 
 ## ⛔ 隐私保护
@@ -27,10 +26,10 @@ ASCEND_INSTALL_PATH=${ASCEND_INSTALL_PATH:-/usr/local/Ascend}
 
 ```bash
 # 快速诊断（推荐，跳过编译工具链等检查）
-python3 "$SKILL_DIR/scripts/diagnose_env.py" --fast --checklist
+python3 scripts/diagnose_env.py --fast --checklist
 
 # 深度诊断（完整检查，首次安装或编译问题时使用）
-python3 "$SKILL_DIR/scripts/diagnose_env.py" --checklist
+python3 scripts/diagnose_env.py --checklist
 ```
 
 脚本会输出确认清单（每项标注 ✅ OK / ⚠️ 缺失 / ❌ 异常）。**将清单完整展示给用户，获得确认后继续。**
@@ -58,13 +57,13 @@ git clone https://${GITCODE_TOKEN}@gitcode.com/cann/pypto.git "${PYPTO_REPO:-$PW
 | 编译工具链缺失 | `bash tools/prepare_env.sh --quiet --type=deps` |
 | 第三方源码包缺失 | `bash tools/prepare_env.sh --quiet --type=third_party` |
 | Python 依赖缺失 | `pip3 install -r $PYPTO_REPO/python/requirements.txt` |
-| torch/torch_npu 失败 | 见 `references/prepare_environment.md` § torch_npu 安装 |
+| torch/torch_npu 失败 | 见 [📋 prepare_environment.md](references/prepare_environment.md) § torch_npu 安装 |
 | pypto 未安装 | `cd $PYPTO_REPO && pip install -e .` |
-| pto-isa 缺失 | 见 `references/prepare_environment.md` § pto-isa 获取 |
+| pto-isa 缺失 | 见 [📋 prepare_environment.md](references/prepare_environment.md) § pto-isa 获取 |
 
 > `--device-type` 由 Step 1 检测自动确定（910B→a2，910C→a3）。
-> 手动安装/编译细节见 `references/prepare_environment.md`。
-> 遇到报错见 `references/troubleshooting.md`。
+> 手动安装/编译细节见 [📋 prepare_environment.md](references/prepare_environment.md)。
+> 遇到报错见 [🔧 troubleshooting.md](references/troubleshooting.md)。
 
 ### Step 4: 验证（必须执行）
 
@@ -93,15 +92,14 @@ python3 "${PYPTO_REPO:-$PWD/pypto}/examples/02_intermediate/operators/softmax/so
 
 通过标准：退出码 `0`，输出 `Softmax test passed`，`Max difference` ≤ `3e-3`。
 
-失败时：重新运行 Step 1 诊断 → 对照 `references/troubleshooting.md` 排查。
+失败时：重新运行 Step 1 诊断 → 对照 [🔧 troubleshooting.md](references/troubleshooting.md) 排查。
 
-## 参考文件
+## 📚 参考文件
 
-| 文件 | 何时读取 |
+| File | Contents |
 |------|----------|
-| `references/prepare_environment.md` | 安装 CANN/torch_npu/pto-isa、编译 PyPTO |
-| `references/troubleshooting.md` | 安装/导入/运行报错 |
-
+| [📋 prepare_environment.md](references/prepare_environment.md) | 安装 CANN/torch_npu/pto-isa、编译 PyPTO |
+| [🔧 troubleshooting.md](references/troubleshooting.md) | 安装/导入/运行报错 |
 ## 外部参考
 
 - PyPTO: https://gitcode.com/cann/pypto
