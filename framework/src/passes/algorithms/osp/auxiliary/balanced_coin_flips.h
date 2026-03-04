@@ -13,8 +13,8 @@
  * \brief
  */
 
-#ifndef PASS_OSP_BALANCED_COIN_FLIPS_H
-#define PASS_OSP_BALANCED_COIN_FLIPS_H
+#ifndef OSP_BALANCED_COIN_FLIPS_H
+#define OSP_BALANCED_COIN_FLIPS_H
 
 #include <random>
 #include <vector>
@@ -50,4 +50,4 @@ class ThueMorseSequence {
 
 }    // namespace osp
 }    // namespace npu::tile_fwk
-#endif    // PASS_OSP_BALANCED_COIN_FLIPS_H
+#endif    // OSP_BALANCED_COIN_FLIPS_H

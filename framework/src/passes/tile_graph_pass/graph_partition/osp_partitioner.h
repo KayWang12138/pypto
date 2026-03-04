@@ -11,10 +11,10 @@
 #ifndef PASS_OSP_PARTITIONER_H
 #define PASS_OSP_PARTITIONER_H
 
-#include "passes/algorithms/osp/graph_implementations/adj_list_impl/dag_vector_adapter.hpp"
-#include "passes/algorithms/osp/graph_implementations/adj_list_impl/compact_sparse_graph.hpp"
-#include "passes/algorithms/osp/graph_implementations/adj_list_impl/computational_dag_vector_impl.hpp"
-#include "passes/algorithms/osp/bsp/model/BspInstance.hpp"
+#include "passes/algorithms/osp/graph_implementations/adj_list_impl/dag_vector_adapter.h"
+#include "passes/algorithms/osp/graph_implementations/adj_list_impl/compact_sparse_graph.h"
+#include "passes/algorithms/osp/graph_implementations/adj_list_impl/computational_dag_vector_impl.h"
+#include "passes/algorithms/osp/bsp/model/bsp_instance.h"
 #include "passes/pass_utils/graph_utils.h"
 
 #include "tilefwk/platform.h"

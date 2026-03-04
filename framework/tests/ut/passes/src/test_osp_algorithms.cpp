@@ -23,7 +23,7 @@
 
 #include "passes/algorithms/osp/auxiliary/datastructures/union_find.h"
 #include "passes/algorithms/osp/auxiliary/balanced_coin_flips.h"
-#include "passes/algorithms/osp/bsp/model/BspArchitecture.h"
+#include "passes/algorithms/osp/bsp/model/bsp_architecture.h"
 #include "passes/algorithms/osp/graph_algorithms/directed_graph_path_util.h"
 #include "passes/algorithms/osp/coarser/coarser_util.h"
 #include "passes/algorithms/osp/coarser/sarkar/sarkar.h"
