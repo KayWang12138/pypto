@@ -245,6 +245,8 @@ git -C "$PYPTO_REPO" push origin <branch_name>
 
 > **认证说明**：push 依赖 git credential helper 或 `.gitconfig` 中已配置的凭据。
 
+> **⚠️ Commit Message 格式（Pre-receive Hook 强制验证）**：`^(feat|fix|docs|style|refactor|perf|test)(.*): [A-Z].{10,200}` — Tag 必须是这 7 种之一，冒号后必须有空格，Summary 首字母必须大写且长度 10-200 字符。验证：`git log -1 --format="%s" | grep -E '^(feat|fix|docs|style|refactor|perf|test)(.*): [A-Z].{10,200}'`
+
 #### Push 失败诊断与修复
 
 若 push 报认证错误（401/403），按以下步骤排查：
@@ -315,7 +317,7 @@ gitcode_create_pull_request(
 - `owner`/`repo` 指向**上游仓库**（`cann/pypto`），不是 fork
 - 所有参数名必须**小写**
 
-> 完整参数说明和示例见 @references/pr-spec.md。
+> 完整参数说明和示例见 [references/pr-spec.md](references/pr-spec.md)。
 
 #### 5.3 更新现有 PR
 
@@ -498,7 +500,7 @@ CLA 失败时，向用户展示诊断信息并询问：
 
 ## PR 标题与 Body 规范
 
-详见 @references/pr-spec.md。
+详见 [references/pr-spec.md](references/pr-spec.md)。
 
 ### 速查
 
@@ -524,11 +526,12 @@ CLA 失败时，向用户展示诊断信息并询问：
 - 整个 commit message 控制在 **10 行以内**
 - 格式：`tag(scope): Summary` + Body（可选多行）
 
+
 ---
 
 ## 提交前检查清单
 
-详见 @references/checklist.md。
+详见 [references/checklist.md](references/checklist.md)。
 
 ---
 
@@ -549,6 +552,7 @@ CLA 失败时，向用户展示诊断信息并询问：
 || MCP 创建 PR 返回 400 但参数正确 | 使用 curl fallback（见 Phase 5.4） |
 | commit message 超过 10 行 | 精简内容，控制在 10 行以内 |
 | commit message 使用中文 | **必须使用英文** |
+| **Commit message 不符合正则** `^(feat|fix|docs|style|refactor|perf|test)(.*): [A-Z].{10,200}` | 检查：(1) Tag 是否正确（feat/fix/docs/style/refactor/perf/test）；(2) 冒号后是否有空格；(3) Summary 首字母是否大写；(4) Summary 长度是否在 10-200 字符之间。修复：`git commit --amend -m "tag(scope): Summary"` |
 | **无 Git 认证配置** | 按 Phase 2 配置 credential.helper 或 SSH Key |
 | **SSH Key 未添加到 GitCode** | 将公钥添加到 GitCode → Settings → SSH Keys |
 | **Token 权限不足** | 创建 Token 时勾选 `repo`、`read:user` 权限 |

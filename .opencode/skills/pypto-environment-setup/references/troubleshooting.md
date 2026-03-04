@@ -11,6 +11,7 @@
 - 🔥 [pypto 导入失败：DT_FP8E8M0 缺失](#pypto-导入失败dt_fp8e8m0-缺失)
 - ⚡ [PTO ISA 编译/头文件错误](#pto-isa-编译头文件错误)
 - ⚡ [pto-isa 版本不匹配](#pto-isa-版本不匹配缺少-ptotrowexpandadd--ptotrowexpandmax)
+- ⚡ [PyPTO 编译失败：std::regex](#pypto-编译失败regex-in-namespace-std-does-not-name-a-type)
 
 **🔄 版本/依赖冲突**
 - ⚡ [undefined symbol / ABI 不匹配](#undefined-symbol--abi-不匹配)
@@ -184,3 +185,30 @@ which python3
 unset PYTHONPATH
 python3 -c "import pypto; print(pypto.__file__)"
 ```
+
+## PyPTO 编译失败：'regex' in namespace 'std' does not name a type
+
+现象（示例）：
+- `error: 'regex' in namespace 'std' does not name a type` in `framework/src/machine/host/backend.cpp`
+- 可能伴随 `#include <regex>` 相关错误
+
+原因：CANN 自带的 HCC 交叉编译器（基于 GCC 7.3.0）不完整支持 `<regex>` 头文件。PyPTO C++ 源码中使用了 `std::regex`，但 HCC 的 libstdc++ 缺少该实现。
+
+修复：
+
+```bash
+# 方法一：确认系统 GCC >= 7.3.1 且 HCC 能找到系统 libstdc++
+gcc --version
+# 若系统 GCC 足够新，设置 CMake 使用系统编译器而非 HCC
+export CMAKE_CXX_COMPILER=/usr/bin/g++
+
+# 方法二：升级 CANN 到最新补丁版本（HCC 工具链可能已修复）
+# 参考 https://www.hiascend.com/
+
+# 清理后重新编译
+cd "$PYPTO_REPO"
+rm -rf build/ temp.linux-* 2>/dev/null || true
+python3 -m pip install -e . --no-build-isolation --verbose
+```
+
+仍失败：检查 `$ASCEND_HOME_PATH/toolkit/tools/hcc/bin/aarch64-target-linux-gnu-g++ --version`，确认 HCC 版本是否已知存在此问题。也可在 PyPTO Issue 中搜索 `std::regex` 相关讨论。

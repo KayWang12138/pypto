@@ -40,7 +40,8 @@ pull_number: 1276
 5. 对 codecheck 失败：提取报告 URL → 获取违规详情 → 匹配规则修复
 6. 用户确认修复方案
 7. 应用修复 + 验证
-8. 委托 pypto-pr-creator 完成 push + PR 创建
+8. 同步 upstream（检查 + rebase）
+9. 委托 pypto-pr-creator 完成 push + PR 创建
 ```
 
 ## 评论获取与分类
@@ -113,7 +114,7 @@ def is_robot_comment(comment):
 
 GitCode MCP 的 `diff_comment` 包含 `diff_position`（`start_new_line`/`end_new_line`），但**不包含文件 `path`**。定位文件时需结合 grep 搜索评论提及的代码内容。
 
-详见 @references/review-guide.md。
+详见 [references/review-guide.md](references/review-guide.md)。
 
 ## 能力二：CodeCheck CI 修复
 
@@ -131,15 +132,29 @@ cann-robot 评论中包含 codecheck 失败的 HTML 表格：
 
 ### 处理流程
 
+0. **本地预检（可选但推荐）** — 在提交前先做本地规则筛查，提前拦截高频问题：
+   ```bash
+   python ${UNIFIED_SKILLS_ROOT}/library/shared/pypto-pr-fixer/scripts/local_codecheck.py <repo_path> --output json
+   ```
+   可配合 `--rules G.CLS.06,G.LOG.02,G.ERR.04` 聚焦高频规则，`--fix` 自动修复部分问题。
+
 1. **提取报告 URL** — 从 cann-robot 评论 HTML 中解析 `href`
 2. **获取违规详情** — 使用 Playwright Python 提取违规列表：
    ```bash
    # 方法一：使用内置脚本（推荐）
-   python ${UNIFIED_SKILLS_ROOT}/library/shared/gitcode-pr-review-fixer/scripts/fetch_codecheck_violations.py "$CODECHECK_URL" --output json
+   python ${UNIFIED_SKILLS_ROOT}/library/shared/pypto-pr-fixer/scripts/fetch_codecheck_violations.py "$CODECHECK_URL" --output json
    ```
    
-   **注意**：openlibing.com 是 SPA，受 WAF 保护，Playwright MCP 不支持 ARM64，必须使用 Playwright Python。详见 @references/codecheck-rules.md。
-3. **匹配规则** — 根据规则 ID 在 @references/codecheck-rules.md 中查找修复方案
+   **注意**：openlibing.com 是 SPA，受 WAF 保护，Playwright MCP 不支持 ARM64，必须使用 Playwright Python。详见 [references/codecheck-rules.md](references/codecheck-rules.md)。
+3. **匹配规则** — 一次 codecheck 通常暴露多个规则，建议批量查询官方定义：
+   ```bash
+   # violations.json 为上一步脚本输出
+   python ${UNIFIED_SKILLS_ROOT}/library/shared/pypto-pr-fixer/scripts/query_codecheck_rule.py \
+     --from-violations-json violations.json \
+     --language python \
+     --format markdown
+   ```
+   自动修复/人工确认的落地策略仍参考 [references/codecheck-rules.md](references/codecheck-rules.md)。
 4. **分类处理**：
    - 可自动修复（格式类 G.FMT、命名类 G.NAM、日志类 G.LOG 等）→ 直接修复
    - 需人工判断（安全类 G.EDV、业务逻辑类 G.CTL 等）→ 生成修复建议
@@ -147,7 +162,11 @@ cann-robot 评论中包含 codecheck 失败的 HTML 表格：
 
 ### 提取脚本
 
-内置脚本：`scripts/fetch_codecheck_violations.py`
+内置脚本：`scripts/fetch_codecheck_violations.py`（支持 `--retries`）
+
+规则查询：`scripts/query_codecheck_rule.py`（支持多规则/从 violations.json 批量查询）
+
+本地预检：`scripts/local_codecheck.py`（ruff + AST 混合检查，支持 `--rules` / `--fix`）
 
 输出示例：
 ```json
@@ -172,7 +191,7 @@ cann-robot 评论中包含 codecheck 失败的 HTML 表格：
 
 ### CodeCheck 规则参考
 
-完整规则映射见 @references/codecheck-rules.md，包含 111 条 Python 规则的修复方案分类。
+完整规则映射见 [references/codecheck-rules.md](references/codecheck-rules.md)，包含 111 条 Python 规则的修复方案分类。
 
 ## PR 策略选择
 
@@ -207,6 +226,27 @@ fix(skills): <summary>
 - <change 2>
 ```
 
+> **⚠️ Commit Message 格式（Pre-receive Hook 强制验证）**：`^(feat|fix|docs|style|refactor|perf|test)(.*): [A-Z].{10,200}` — Tag 必须是这 7 种之一，冒号后必须有空格，Summary 首字母必须大写且长度 10-200 字符。验证：`git log -1 --format="%s" | grep -E '^(feat|fix|docs|style|refactor|perf|test)(.*): [A-Z].{10,200}'`
+
+### 同步 Upstream（关键步骤）
+
+**在委托 pypto-pr-creator 之前，必须确保分支与 upstream 同步**，否则 push 会因 "pre receive hook check failed" 失败。
+
+```bash
+# Step 1: 获取 upstream 最新状态
+git fetch upstream master
+
+# Step 2: 检查分支是否落后
+git log --oneline HEAD..upstream/master | wc -l
+# 若输出 > 0，说明分支落后，需要 rebase
+
+# Step 3: Rebase（如落后）
+git rebase upstream/master
+git push -f origin <branch_name>
+```
+
+> **注意**：此步骤与 `pypto-pr-creator` Phase 4 完全一致，确保修复提交基于最新 upstream。
+
 ### 委托 pypto-pr-creator
 
 PR 创建逻辑**完全委托给 pypto-pr-creator 技能**，传递：
@@ -214,6 +254,7 @@ PR 创建逻辑**完全委托给 pypto-pr-creator 技能**，传递：
 - commit 信息
 - PR 标题和描述
 
+> **委托时已同步 upstream**，pypto-pr-creator 可直接执行 commit + push。
 ### PR 创建后检查
 
 PR 创建成功后检查 CLA 和 LGTM 状态：
@@ -226,11 +267,11 @@ PR 创建成功后检查 CLA 和 LGTM 状态：
 
 | 检查项 | 诊断命令 | 修复建议 |
 |--------|----------|----------|
-| Commit message 格式 | `git log -1 --format="%s"` | 必须匹配 `tag(scope): Summary` |
+| Commit message 格式 | `git log -1 --format="%s"` | 必须匹配正则 `^(feat|fix|docs|style|refactor|perf|test)(.*): [A-Z].{10,200}` |
 | 分支同步状态 | `git log HEAD..origin/<target> --oneline` | `git pull --rebase` |
 | 提交者身份 | `git log -1 --format="%ae"` | 配置 `git user.email` |
 
-详见 @references/error-handling.md。
+
 
 ## 限制说明
 
@@ -240,7 +281,7 @@ PR 创建成功后检查 CLA 和 LGTM 状态：
 
 ## 参考文档
 
-- 通用修复指南 (@references/review-guide.md) — 评论理解与修复策略
-- CodeCheck 规则参考 (@references/codecheck-rules.md) — CodeArts-Check 规则映射与修复方案
-- 错误处理参考 (@references/error-handling.md) — MCP 错误、平台错误、pre-receive hook 诊断
-- pypto-pr-creator (@${UNIFIED_SKILLS_ROOT}/library/shared/pypto-pr-creator/SKILL.md) — PR 创建委托
+- [通用修复指南](references/review-guide.md) — 评论理解与修复策略
+- [CodeCheck 规则参考](references/codecheck-rules.md) — CodeArts-Check 规则映射与修复方案
+- [错误处理参考](references/error-handling.md) — MCP 错误、平台错误、pre-receive hook 诊断
+- [pypto-pr-creator](${UNIFIED_SKILLS_ROOT}/library/shared/pypto-pr-creator/SKILL.md) — PR 创建委托
