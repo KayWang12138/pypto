@@ -23,9 +23,9 @@
 #include "interface/utils/log.h"
 #include "interface/utils/operator_tracer.h"
 #include "operation_impl.h"
+#include "tilefwk/cann_host_runtime.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/tile_shape.h"
-#include "tilefwk/platform.h"
 
 namespace npu {
 namespace tile_fwk {
@@ -38,6 +38,25 @@ const float EPSILON = 1e-6f;
             exec_expr; \
         } \
     } while (0)
+
+inline uint64_t GetUbSize(NPUArch npuArch) {
+    auto it = ubSizeMap.find(npuArch);
+    if (it != ubSizeMap.end()) {
+        return it->second;
+    }
+    return 0;
+}
+
+inline NPUArch GetNPUArch() {
+    std::string socVersion;
+    if (CannHostRuntime::Instance().GetSocVersion(socVersion)) {
+        auto it = socVersionToNpuArchMap.find(socVersion);
+        if (it != socVersionToNpuArchMap.end()) {
+            return it->second;
+        }
+    }
+    return NPUArch::DAV_UNKNOWN;
+}
 
 template <typename T>
 auto CeilAlign(T num_1, T num_2) -> T
@@ -606,7 +625,6 @@ void CheckGmAccumulationParam(DataType outType, const Tensor &aMatrix, const Ten
     });
 }
 
-
 void CheckOperandDtype(DataType outType, const Tensor &operand1, const Tensor &operand2) {
     OP_CHECK(true, {
         ASSERT(outType == DataType::DT_FP32 || outType == DataType::DT_FP16 || outType == DataType::DT_BF16 ||
@@ -621,6 +639,10 @@ void CheckOperandDtype(DataType outType, const Tensor &operand1, const Tensor &o
             << "When operand1 is of type DT_FP8E4M3 or DT_FP8E5M2, operand2 must be DT_FP8E4M3 or DT_FP8E5M2. "
             << "operand1 dataType: " << DataType2String(operand1Dtype)
             << ", operand2 dataType: " << DataType2String(operand2Dtype);
+    });
+    OP_CHECK(true, {
+        ASSERT(!isOperand1Fp8 || GetNPUArch() == NPUArch::DAV_3510)
+            << "When operand1 data type is DT_FP8E5M2, format must be ND.";
     });
     OP_CHECK(true, {
         ASSERT(operand1Dtype != DataType::DT_FP8E5M2 || operand1.Format() == TileOpFormat::TILEOP_ND)
@@ -1183,6 +1205,59 @@ Tensor ConstructTensorGraph(DataType dataType, MatmulGraphNodes &tensorGraphNode
     return cMatrix;
 }
 
+// 根据UB大小设置VecTile
+static void SetVecTileBasedOnUbSize(DataType outType, const CubeTile &cubeTile) {
+    NPUArch npuArch = GetNPUArch();
+    if (npuArch != NPUArch::DAV_UNKNOWN) {
+        uint64_t ubSize = GetUbSize(npuArch);
+        // Add的两个输入矩阵总大小不能超过UB大小限制
+        if (cubeTile.m[0] * cubeTile.n[0] * BytesOf(outType) * 2 <= ubSize) {
+            TileShape::Current().SetVecTile({cubeTile.m[0], cubeTile.n[0]});
+            return;
+        }
+    }
+    TileShape::Current().SetVecTile({128, 128});
+}
+
+static Tensor AssembleGmAccumulationTensor(DataType outType, const Tensor gmAccumulationTensor,
+    std::vector<int64_t> outSize, std::vector<SymbolicScalar> validShape, bool isCMatrixNZ) {
+    OP_CHECK(true, {
+        ASSERT(outSize.size() == SHAPE_DIM2 && validShape.size() == SHAPE_DIM2)
+            << "Both outSize and validShape must be 2-element vectors" << std::endl;
+    });
+    OP_CHECK(true, { ASSERT(outSize[0] != 0 && outSize[1] != 0) << "Matrix size cannot be 0 " << std::endl; });
+    Tensor assembleTensor(
+        outType, {outSize[0], outSize[1]}, "", isCMatrixNZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND);
+    OP_CHECK(true,
+        { ASSERT(assembleTensor.GetStorage() != nullptr) << "Can not get assembleTensor's storage" << std::endl; });
+    OP_CHECK(true, {
+        ASSERT(gmAccumulationTensor.GetStorage() != nullptr)
+            << "Can not get gmAccumulationTensor's storage" << std::endl;
+    });
+    gmAccumulationTensor.GetStorage()->UpdateDynValidShape({validShape[0], validShape[1]});
+    assembleTensor.GetStorage()->UpdateDynValidShape({validShape[0], validShape[1]});
+    Assemble(gmAccumulationTensor, {0, 0}, assembleTensor);
+    return assembleTensor;
+}
+
+static Tensor GetGmEnsureAccumulationTensor(std::vector<Tensor> gmPartialSums, int64_t kLoop) {
+    OP_CHECK(true, {
+        ASSERT(gmPartialSums.size() == static_cast<uint64_t>(kLoop))
+            << "GmPartialSums' size mismatch kLoop." << std::endl;
+    });
+    for (int64_t kIdx = 1; kIdx < kLoop; ++kIdx) {
+        gmPartialSums[0] = npu::tile_fwk::Add(gmPartialSums[0], gmPartialSums[kIdx]);
+    }
+    return gmPartialSums[0];
+}
+
+static Tensor GetGmAtomicAccumulationTensor(DataType outType, Tensor gmAccumulationTensor,
+    std::vector<Tensor> gmPartialSums, std::vector<int64_t> outSize, std::vector<SymbolicScalar> validShape,
+    bool isCMatrixNZ) {
+    gmAccumulationTensor = npu::tile_fwk::Reduce(gmPartialSums, ReduceMode::ATOMIC_ADD);
+    return AssembleGmAccumulationTensor(outType, gmAccumulationTensor, outSize, validShape, isCMatrixNZ);
+}
+
 static Tensor ConstructGmAccumulationTensorGraph(
     DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const MatmulAttrParam &attrParam) {
     auto &cubeTile = TileShape::Current().GetCubeTile();
@@ -1198,7 +1273,11 @@ static Tensor ConstructGmAccumulationTensorGraph(
     int64_t mSize = attrParam.transA ? aMatrix.GetShape()[1] : aMatrix.GetShape()[0];
     int64_t kSize = attrParam.transA ? aMatrix.GetShape()[0] : aMatrix.GetShape()[1];
     int64_t nSize = attrParam.transB ? bMatrix.GetShape()[0] : bMatrix.GetShape()[1];
-    TileShape::Current().SetVecTile({128, 128});
+
+    SetVecTileBasedOnUbSize(outType, cubeTile);
+    Tensor gmAccumulationTensor = (outType == DT_INT32) ? Full(Element(outType, static_cast<int64_t>(0)), outType,
+                                                              {mSize, nSize}, {mValidShape, nValidShape}) :
+                                                          Tensor{};
     std::vector<Tensor> gmPartialSums;
     OP_CHECK(true, { ASSERT(kL1TileShape != 0) << "kL1TileShape can not be 0" << std::endl; });
     const int64_t kLoop = (kSize + kL1TileShape - 1) / kL1TileShape;
@@ -1218,13 +1297,16 @@ static Tensor ConstructGmAccumulationTensorGraph(
             tensorB = View(bMatrix, {kL1Size, nSize}, {kValidshape, nValidShape}, {kL1Size * kIdx, 0});
         }
         MatmulGraphNodes tensorGraphNodes(tensorA.GetStorage(), tensorB.GetStorage());
+        tensorGraphNodes.gmAccumulationTensorPtr = gmAccumulationTensor.GetStorage();
         Tensor gmPartialSum = ConstructTensorGraph(outType, tensorGraphNodes, attrParam);
         gmPartialSums.emplace_back(gmPartialSum);
     }
-    for (int64_t kIdx = 1; kIdx < kLoop; ++kIdx) {
-        gmPartialSums[0] = npu::tile_fwk::Add(gmPartialSums[0], gmPartialSums[kIdx]);
+    if (outType == DT_INT32) {
+        return GetGmAtomicAccumulationTensor(outType, gmAccumulationTensor, gmPartialSums, {mSize, nSize},
+            {mValidShape, nValidShape}, attrParam.isCMatrixNZ);
+    } else {
+        return GetGmEnsureAccumulationTensor(gmPartialSums, kLoop);
     }
-    return gmPartialSums[0];
 }
 
 Tensor Matmul(
