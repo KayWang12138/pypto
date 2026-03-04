@@ -52,9 +52,18 @@ public:
     Status RemarkInternalSubgraphID(Function &func);
     void BuildGraph(const OperationsViewer opOriList);
     void BuildGraphInner(const OperationsViewer &opOriList, int opIdx, int opColor);
+    
+private:
+    std::set<int> CollectBoundaryTensors(int uRoot, int vRoot);
+    std::set<int> CollectAllSubgraphsToMerge(const std::set<int>& boundaryTensors, int uRoot, int vRoot);
+    bool CanMergeAllSubgraphs(const std::set<int>& subgraphs, const std::pair<double, double> &thres, 
+                             const std::map<int, int> &rootToDense);
+    void PerformMerge(const std::set<int>& subgraphsToMerge, const std::map<int, int> &rootToDense);
+    bool CheckLoopAfterMerge(const std::set<int>& subgraphs, const std::map<int, int> &rootToDense);
+    
+public:
     std::map<int, size_t> magic2Size;
     std::map<std::pair<int, int>, std::set<int>> originalEdges;
-    std::set<std::pair<int, int>> crossEdges;
     std::vector<std::set<int>> superNodeInGraph;
     std::vector<std::set<int>> superNodeOutGraph;
     std::vector<bool> isReshape;
@@ -65,7 +74,9 @@ public:
     std::unordered_set<int> currMergedGraphId;
     DSU dsu;
     int upperBound{10000};
+    int mixLatencyUpperBound{10000};
     int color;
+    std::map<int, std::set<int>> tensor2Subgraphs;
 };
 
 class ReduceCopyMerge : public Pass {

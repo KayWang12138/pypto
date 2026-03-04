@@ -42,6 +42,7 @@ Status ReduceCopyMerge::RunOnFunction(Function &function) {
     const double upperBound = 10.0;
     runner.mergeThresholds = {{lowerBound, upperBound}};
     runner.upperBound = function.paramConfigs_.sgPgUpperBound;
+    runner.mixLatencyUpperBound = function.paramConfigs_.sgPgUpperBound;
     if (runner.ReduceCopy(function) != SUCCESS) {
         return FAILED;
     }
@@ -122,11 +123,15 @@ void DSU::ResetLink(int i) {
     AICSupernodeWeights[i] = AICSingleWeights[i];
 }
 
+static bool ShouldSkipNeighbor(int uDense, int vDense, int startNodeDense, int ignoredNeighbor) {
+    return uDense == startNodeDense && vDense == ignoredNeighbor;
+}
+
 inline bool PathExistsDFS(int uDense, int targetDense, const std::vector<std::set<int>> &adj,
         std::vector<bool> &visited, int startNodeDense, int ignoredNeighbor) {
     visited[uDense] = true;
     for (int vDense : adj[uDense]) {
-        if (uDense == startNodeDense && vDense == ignoredNeighbor) {
+        if (ShouldSkipNeighbor(uDense, vDense, startNodeDense, ignoredNeighbor)) {
             continue;
         }
         if (vDense == targetDense) {
@@ -161,34 +166,6 @@ inline bool IsValidMixGraph(int AIVLatency, int AICLatency, double aivFactorLowe
         double aivFactor = static_cast<double>(AIVLatency) / AICLatency;
         return aivFactor >= aivFactorLowerbound && aivFactor <= aivFactorUpperbound;
     }
-}
-
-inline bool IsPairMergeable(DSU &dsu, int uRoot, int vRoot, int upperBound, double thresLower, double thresUpper) {
-    if (dsu.coreType[uRoot] == OpCoreType::AICPU || dsu.coreType[vRoot] == OpCoreType::AICPU) {
-        return false;
-    }
-    std::pair<int, int> uWeight = dsu.GetWeight(uRoot);
-    std::pair<int, int> vWeight = dsu.GetWeight(vRoot);
-    int AIVbefore1 = uWeight.first;
-    int AIVbefore2 = vWeight.first;
-    int AICbefore1 = uWeight.second;
-    int AICbefore2 = vWeight.second;
-    int AIVafter = AIVbefore1 + AIVbefore2;
-    int AICafter = AICbefore1 + AICbefore2;
-    if (AICbefore1 == 0 && AICbefore2 == 0) {
-        return false;
-    }
-    if (AICbefore1 > 0 && AICbefore2 > 0) {
-        return false;
-    }
-    if (AIVafter > upperBound || AICafter > upperBound) {
-        return false;
-    }
-    if ((IsValidMixGraph(AIVbefore1, AICbefore1, thresLower, thresUpper) || IsValidMixGraph(AIVbefore2, AICbefore2, thresLower, thresUpper)) &&
-            !IsValidMixGraph(AIVafter, AICafter, thresLower, thresUpper)) {
-        return false;            
-    }
-    return true;
 }
 
 inline void UpdateDSUForLowerBound(DSU &dsu, std::unordered_set<int> &updatedGraphId, const std::pair<double, double> &thres) {
@@ -226,23 +203,6 @@ inline void UpdateDSUForLowerBound(DSU &dsu, std::unordered_set<int> &updatedGra
     }
 }
 
-inline bool isCrossTensor(LogicalTensorPtr tensor) {
-    std::unordered_set<int> inOutSubgraph;
-    for (auto &parentOpPtr : tensor->GetProducers()) {
-        auto producerColor = parentOpPtr->GetSubgraphID();
-        inOutSubgraph.insert(producerColor);
-    }
-    for (auto &childOpPtr : tensor->GetConsumers()) {
-        auto consumerColor = childOpPtr->GetSubgraphID();
-        inOutSubgraph.insert(consumerColor);
-    }
-    const int singleLinkNum = 2;
-    if (inOutSubgraph.size() > singleLinkNum) {
-        return true;
-    }
-    return false;
-}
-
 void ReduceCopyRunner::BuildGraphInner(const OperationsViewer &opOriList, int opIdx, int opColor) {
     for (auto tensor : opOriList[opIdx].GetIOperands()) {
         for (auto &parentOpPtr : tensor->GetProducers()) {
@@ -250,11 +210,13 @@ void ReduceCopyRunner::BuildGraphInner(const OperationsViewer &opOriList, int op
             if (producerColor == opColor || producerColor == -1) {
                 continue;
             }
+            if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+                continue;
+            }
             originalEdges[std::make_pair(producerColor, opColor)].insert(tensor->magic);
             magic2Size[tensor->magic] = tensor->MemorySize();
-            if (isCrossTensor(tensor)) {
-                crossEdges.insert(std::make_pair(producerColor, opColor));
-            }
+            tensor2Subgraphs[tensor->magic].insert(producerColor);
+            tensor2Subgraphs[tensor->magic].insert(opColor);
         }
     }
 }
@@ -370,8 +332,6 @@ Status ReduceCopyRunner::MergePrepare(std::vector<std::tuple<int, int, size_t>> 
             int vDense = rootToDense[vRoot];
             superNodeOutGraph[uDense].insert(vDense);
             superNodeInGraph[vDense].insert(uDense);
-        }
-        if (uRoot != vRoot && crossEdges.count(edge.first) == 0) {
             superGraphEdges[{uRoot, vRoot}].insert(edge.second.begin(), edge.second.end());
         }
     }
@@ -392,44 +352,195 @@ Status ReduceCopyRunner::MergePrepare(std::vector<std::tuple<int, int, size_t>> 
     return SUCCESS;
 }
 
+std::set<int> ReduceCopyRunner::CollectBoundaryTensors(int uRoot, int vRoot) {
+    std::set<int> boundaryTensors;
+    for (const auto& edge : originalEdges) {
+        int edgeURoot = dsu.Find(std::get<0>(edge.first));
+        int edgeVRoot = dsu.Find(std::get<1>(edge.first));
+        if ((edgeURoot == uRoot && edgeVRoot == vRoot) || (edgeURoot == vRoot && edgeVRoot == uRoot)) {
+            boundaryTensors.insert(edge.second.begin(), edge.second.end());
+        }
+    }
+    return boundaryTensors;
+}
+
+std::set<int> ReduceCopyRunner::CollectAllSubgraphsToMerge(const std::set<int>& boundaryTensors, int uRoot, int vRoot) {
+    std::set<int> allSubgraphsToMerge;
+    allSubgraphsToMerge.insert(uRoot);
+    allSubgraphsToMerge.insert(vRoot);
+    
+    for (int tensorMagic : boundaryTensors) {
+        auto it = tensor2Subgraphs.find(tensorMagic);
+        if (it != tensor2Subgraphs.end()) {
+            for (int subgraph : it->second) {
+                allSubgraphsToMerge.insert(dsu.Find(subgraph));
+            }
+        }
+    }
+    return allSubgraphsToMerge;
+}
+
+bool ReduceCopyRunner::CanMergeAllSubgraphs(const std::set<int>& subgraphs, const std::pair<double, double> &thres, 
+                                            const std::map<int, int> &rootToDense) {
+    int totalAIV = 0;
+    int totalAIC = 0;
+    bool hasAICPU = false;
+    bool hasValidMixBefore = false;
+    
+    for (int subgraph : subgraphs) {
+        int root = dsu.Find(subgraph);
+        
+        if (dsu.coreType[root] == OpCoreType::AICPU) {
+            hasAICPU = true;
+        }
+        
+        std::pair<int, int> weight = dsu.GetWeight(root);
+        totalAIV += weight.first;
+        totalAIC += weight.second;
+        
+        if (IsValidMixGraph(weight.first, weight.second, thres.first, thres.second)) {
+            hasValidMixBefore = true;
+        }
+    }
+    
+    if (hasAICPU) {
+        return false;
+    }
+    
+    if (totalAIC == 0) {
+        return false;
+    }
+    
+    if (totalAIV > upperBound || totalAIC > upperBound) {
+        return false;
+    }
+    
+    int totalLatency = totalAIV + totalAIC;
+    if (totalLatency > mixLatencyUpperBound) {
+        return false;
+    }
+    
+    if (hasValidMixBefore && !IsValidMixGraph(totalAIV, totalAIC, thres.first, thres.second)) {
+        return false;
+    }
+    
+    if (!CheckLoopAfterMerge(subgraphs, rootToDense)) {
+        return false;
+    }
+    
+    return true;
+}
+
+void ReduceCopyRunner::PerformMerge(const std::set<int>& subgraphsToMerge, const std::map<int, int> &rootToDense) {
+    std::vector<int> subgraphList(subgraphsToMerge.begin(), subgraphsToMerge.end());
+    int finalRoot = *std::min_element(subgraphList.begin(), subgraphList.end());
+    
+    for (int subgraph : subgraphList) {
+        if (subgraph != finalRoot) {
+            dsu.Union(finalRoot, subgraph);
+            currMergedGraphId.insert(subgraph);
+        }
+    }
+    currMergedGraphId.insert(finalRoot);
+    
+    int finalDense = rootToDense.at(finalRoot);
+    for (int subgraph : subgraphList) {
+        int denseIdx = rootToDense.at(subgraph);
+        if (denseIdx != finalDense) {
+            superNodeOutGraph[finalDense].insert(superNodeOutGraph[denseIdx].begin(), superNodeOutGraph[denseIdx].end());
+            superNodeOutGraph[finalDense].erase(denseIdx);
+            superNodeInGraph[finalDense].insert(superNodeInGraph[denseIdx].begin(), superNodeInGraph[denseIdx].end());
+            superNodeInGraph[finalDense].erase(denseIdx);
+        }
+    }
+    superNodeOutGraph[finalDense].erase(finalDense);
+    superNodeInGraph[finalDense].erase(finalDense);
+    
+    for (int i : superNodeOutGraph[finalDense]) {
+        superNodeInGraph[i].insert(finalDense);
+    }
+    for (int i : superNodeInGraph[finalDense]) {
+        superNodeOutGraph[i].insert(finalDense);
+    }
+}
+
+static bool CheckLoopDFS(int u, const std::set<int>& mergeSetDense, const std::vector<std::set<int>>& graph,
+                         std::set<int>& visited, std::set<int>& path) {
+    visited.insert(u);
+    path.insert(u);
+    
+    for (int v : graph[u]) {
+        if (mergeSetDense.count(v) == 0) {
+            continue;
+        }
+        
+        if (path.count(v) > 0) {
+            return true;
+        }
+        
+        if (visited.count(v) == 0 && CheckLoopDFS(v, mergeSetDense, graph, visited, path)) {
+            return true;
+        }
+    }
+    
+    path.erase(u);
+    return false;
+}
+
+bool ReduceCopyRunner::CheckLoopAfterMerge(const std::set<int>& subgraphs, const std::map<int, int> &rootToDense) {
+    std::set<int> mergeSetDense;
+    for (int subgraph : subgraphs) {
+        mergeSetDense.insert(rootToDense.at(subgraph));
+    }
+    
+    if (mergeSetDense.size() < 2) {
+        return false;
+    }
+    
+    for (int startNode : mergeSetDense) {
+        std::set<int> visited;
+        std::set<int> path;
+        
+        if (CheckLoopDFS(startNode, mergeSetDense, superNodeOutGraph, visited, path)) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
 Status ReduceCopyRunner::MergeLoop(std::vector<std::tuple<int, int, size_t>> &candidates, const std::pair<double, double> &thres,
     bool &mergedInLoop, std::map<int, int> &rootToDense) {
     for (const auto& candidate : candidates) {
         int uRoot = dsu.Find(std::get<0>(candidate));
         int vRoot = dsu.Find(std::get<1>(candidate));
+        
         if (uRoot == vRoot) {
             continue;
         }
-        std::set<OpCoreType> coreTypes{colorCoreType[uRoot], colorCoreType[vRoot]};
+        
         if (isReshape[uRoot] || isReshape[vRoot]) {
             continue;
         }
+        
         int uDense = rootToDense[uRoot];
         int vDense = rootToDense[vRoot];
         if (mergedGraphId.count(uDense) > 0 || mergedGraphId.count(vDense) > 0) {
             continue;
         }
-        if (!IsPairMergeable(dsu, uRoot, vRoot, upperBound, thres.first, thres.second)) {
+        
+        std::set<int> boundaryTensors = CollectBoundaryTensors(uRoot, vRoot);
+        std::set<int> allSubgraphsToMerge = CollectAllSubgraphsToMerge(boundaryTensors, uRoot, vRoot);
+        
+        if (allSubgraphsToMerge.size() < 2) {
             continue;
         }
-        if (!NoLoopDetected(uDense, vDense, superNodeOutGraph)) {
+        
+        if (!CanMergeAllSubgraphs(allSubgraphsToMerge, thres, rootToDense)) {
             continue;
         }
-        dsu.Union(uRoot, vRoot);
-        currMergedGraphId.insert(uRoot);
-        currMergedGraphId.insert(vRoot);
-        uDense = rootToDense[std::min(uRoot, vRoot)];
-        vDense = rootToDense[std::max(uRoot, vRoot)];
-        superNodeOutGraph[uDense].insert(superNodeOutGraph[vDense].begin(), superNodeOutGraph[vDense].end());
-        superNodeOutGraph[uDense].erase(vDense);
-        superNodeInGraph[uDense].insert(superNodeInGraph[vDense].begin(), superNodeInGraph[vDense].end());
-        superNodeInGraph[uDense].erase(vDense);
-        for (int i : superNodeOutGraph[uDense]) {
-            superNodeInGraph[i].insert(uDense);
-        }
-        for (int i : superNodeInGraph[uDense]) {
-            superNodeOutGraph[i].insert(uDense);
-        }
+        
+        PerformMerge(allSubgraphsToMerge, rootToDense);
         mergedInLoop = true;
     }
     return SUCCESS;
