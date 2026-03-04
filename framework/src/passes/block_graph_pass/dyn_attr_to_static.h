@@ -251,6 +251,9 @@ private:
         std::reference_wrapper<SymbolicScalar>& dynScalar,
         std::vector<std::vector<SymbolicScalar>>& callopArglistOneDim);
     Status TryRemoveDynAttr(Function* leafFunc, std::vector<Operation*> callList);
+    Status GetTileFunction(Function* function, std::vector<Function*> &tileFunctionVec);
+    Status DumpFunctionJson(Function& function, const std::string &logFolder, bool beforeFunction = true);
+    Status PrintFunction(Function& function, const std::string &logFolder, bool beforeFunction = true);
 };
 } // namespace tile_fwk
 } // namespace npu
