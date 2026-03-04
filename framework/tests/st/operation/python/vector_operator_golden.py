@@ -878,6 +878,22 @@ def gen_sign_op_golden(case_name: str, output: Path, case_index: int = None) -> 
 
 @GoldenRegister.reg_golden_func(
     case_names=[
+        "TestSignbit/SignbitOperationTest.TestSignbit",
+    ]
+)
+def gen_signbit_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs: list, _config: dict):
+        x = safe_tensor_conversion(inputs[0])
+        x = torch.signbit(x)
+        return [to_numpy(x)]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Signbit", golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
         "TestRelu/ReluOperationTest.TestRelu",
     ]
 )
@@ -1262,6 +1278,20 @@ def gen_div_op_golden(case_name: str, output: Path, case_index: int = None) -> b
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Div", golden_func, output, case_index)
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestExpandExpDif/ExpandExpDifOperationTest.TestExpandExpDif",
+    ]
+)
+def gen_expand_exp_dif_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs: list, _config: dict):
+        dtype_out = inputs[0].dtype
+        dtype_in = np.float32 if dtype_out == bfloat16 else dtype_out
+        return [np.exp(inputs[0].astype(dtype_in) - inputs[1].astype(dtype_in)).astype(dtype_out)]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("ExpandExpDif", golden_func, output, case_index)
 
 @GoldenRegister.reg_golden_func(
     case_names=[
@@ -1425,7 +1455,7 @@ def gen_bitwise_xors_op_golden(case_name: str, output: Path, case_index: int = N
     return gen_op_golden("BitwiseXors", golden_func, output, case_index)
 
 
-@TestCaseLoader.reg_params_handler(ops=["Sum", "Amax", "Amin"])
+@TestCaseLoader.reg_params_handler(ops=["Sum", "Amax", "Amin", "Prod"])
 def params_dims_func(params: dict):
     params["dims"] = parse_list_str(params.get("dims"))
     params["keepDim"] = params.get("keepDim", True)
@@ -1490,6 +1520,26 @@ def gen_reduce_min_op_golden(
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Amin", golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestProd/ProdOperationTest.TestProd",
+    ]
+)
+def gen_reduce_prod_op_golden(
+    case_name: str, output: Path, case_index: int = None
+) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params")
+        x = inputs[0]
+        dims = params["dims"]
+        keepdim = params.get("keepDim", True)
+        return [x.prod(axis=dims[0], keepdims=keepdim)]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Prod", golden_func, output, case_index)
 
 
 @TestCaseLoader.reg_params_handler(ops=["Transpose"])
@@ -2009,6 +2059,62 @@ def gen_indexadd_op_golden(
 ) -> bool:
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("IndexAdd", indexadd_golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestRemainder/RemainderOperationTest.TestRemainder"
+    ]
+)
+def gen_remainder_op_golden(
+    case_name: str, output: Path, case_index: int = None
+) -> bool:
+    logging.debug("Case(%s), Golden creating...", case_name)
+
+    def remainder_golden_func(inputs: list, config: dict):
+        self = from_numpy(inputs[0])
+        other = from_numpy(inputs[1])
+        res = torch.remainder(self, other)
+        return [to_numpy(res)]
+    return gen_op_golden("Remainder", remainder_golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestRemainderS/RemainderSOperationTest.TestRemainderS"
+    ]
+)
+def gen_remainders_op_golden(
+    case_name: str, output: Path, case_index: int = None
+) -> bool:
+    logging.debug("Case(%s), Golden creating...", case_name)
+
+    def remainders_golden_func(inputs: list, config: dict):
+        params = config.get("params")
+        other = params["scalar"]
+        self = from_numpy(inputs[0])
+        res = torch.remainder(self, other)
+        return [to_numpy(res)]
+    return gen_op_golden("RemainderS", remainders_golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestRemainderRS/RemainderRSOperationTest.TestRemainderRS"
+    ]
+)
+def gen_remainderrs_op_golden(
+    case_name: str, output: Path, case_index: int = None
+) -> bool:
+    logging.debug("Case(%s), Golden creating...", case_name)
+
+    def remainders_golden_func(inputs: list, config: dict):
+        params = config.get("params")
+        self = params["scalar"]
+        other = from_numpy(inputs[0])
+        res = torch.remainder(self, other)
+        return [to_numpy(res)]
+    return gen_op_golden("RemainderRS", remainders_golden_func, output, case_index)
 
 
 def indexput_dfs(indices_range, deep, max_count, cur_indices, all_indices):

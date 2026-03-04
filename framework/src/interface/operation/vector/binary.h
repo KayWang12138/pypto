@@ -50,9 +50,12 @@ enum class BinaryOpType {
     LRELU,
     CMP,
     MOD,
+    REM,
+    REMR,
     BITWISEAND,
     BITWISEOR,
     BITWISEXOR,
+    EXPANDEXPDIF,
     COPYSIGN,
     GCD,
     CEILDIV,
@@ -72,6 +75,8 @@ std::string GetBinaryOpName() {
         case BinaryOpType::LRELU: return "LRELU";
         case BinaryOpType::POW: return "POW";
         case BinaryOpType::MOD:return "MOD";
+        case BinaryOpType::REM: return "REM";
+        case BinaryOpType::REMR:return "REMR";
         case BinaryOpType::CMP:return "CMP";
         case BinaryOpType::S_ADD: return "S_ADD";
         case BinaryOpType::S_SUB: return "S_SUB";
@@ -82,6 +87,7 @@ std::string GetBinaryOpName() {
         case BinaryOpType::BITWISEAND: return "BITWISEAND";
         case BinaryOpType::BITWISEOR: return "BITWISEOR";
         case BinaryOpType::BITWISEXOR: return "BITWISEXOR";
+        case BinaryOpType::EXPANDEXPDIF: return "EXPANDEXPDIF";
         case BinaryOpType::COPYSIGN: return "COPYSIGN";
         case BinaryOpType::GCD: return "GCD";
         case BinaryOpType::CEILDIV: return "CEILDIV";
@@ -102,6 +108,8 @@ Opcode GetBinaryOpNameCode() {
             CASE(MAX);
             CASE(MIN);
             CASE(MOD);
+            CASE(REM);
+            CASE(REMR);
             CASE(S_ADD);
             CASE(S_SUB);
             CASE(S_MUL);
@@ -154,9 +162,11 @@ Opcode GetBinaryOpNameCode() {
         CASE(LRELU);
         CASE(POW);
         CASE(MOD);
+        CASE(REM);
         CASE(BITWISEAND);
         CASE(BITWISEOR);
         CASE(BITWISEXOR);
+        CASE(EXPANDEXPDIF);
         CASE(COPYSIGN);
         CASE(GCD);
         CASE(CEILDIV);

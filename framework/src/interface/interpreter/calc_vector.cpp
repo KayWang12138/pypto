@@ -45,6 +45,7 @@ void ExecuteOpBinary(ExecuteOperationContext *ctx) {
         case Opcode::OP_ADD: calc::Add(ret, lhs, rhs); break;
         case Opcode::OP_ADD_BRC: calc::Add(ret, lhs, rhs); break;
         case Opcode::OP_PAIRSUM: calc::PairSum(ret, lhs, rhs); break;
+        case Opcode::OP_PAIRPROD: calc::PairProd(ret, lhs, rhs); break;
         case Opcode::OP_SUB: calc::Sub(ret, lhs, rhs); break;
         case Opcode::OP_SUB_BRC: calc::Sub(ret, lhs, rhs); break;
         case Opcode::OP_MUL: calc::Mul(ret, lhs, rhs); break;
@@ -52,6 +53,7 @@ void ExecuteOpBinary(ExecuteOperationContext *ctx) {
         case Opcode::OP_DIV: calc::Div(ret, lhs, rhs); break;
         case Opcode::OP_DIV_BRC: calc::Div(ret, lhs, rhs); break;
         case Opcode::OP_POW: calc::Pow(ret, lhs, rhs); break;
+        case Opcode::OP_REM: calc::Remainder(ret, lhs, rhs); break;
         case Opcode::OP_S_MAX: calc::Max(ret, lhs, rhs); break;
         case Opcode::OP_PAIRMAX: calc::PairMax(ret, lhs, rhs); break;
         case Opcode::OP_PAIRMIN: calc::PairMin(ret, lhs, rhs); break;
@@ -59,6 +61,7 @@ void ExecuteOpBinary(ExecuteOperationContext *ctx) {
         case Opcode::OP_BITWISEAND: calc::BitwiseAnd(ret, lhs, rhs); break;
         case Opcode::OP_BITWISEOR: calc::BitwiseOr(ret, lhs, rhs); break;
         case Opcode::OP_BITWISEXOR: calc::BitwiseXor(ret, lhs, rhs); break;
+        case Opcode::OP_EXPANDEXPDIF: calc::ExpandExpDif(ret, lhs, rhs); break;
         case Opcode::OP_COPYSIGN: calc::CopySign(ret, lhs, rhs); break;
         case Opcode::OP_GCD: calc::Gcd(ret, lhs, rhs); break;
         case Opcode::OP_GCD_BRC: calc::Gcd(ret, lhs, rhs); break;
@@ -74,6 +77,7 @@ REGISTER_CALC_OP(OP_MUL_BRC, Opcode::OP_MUL_BRC, ExecuteOpBinary<Opcode::OP_MUL_
 REGISTER_CALC_OP(OP_DIV, Opcode::OP_DIV, ExecuteOpBinary<Opcode::OP_DIV>);
 REGISTER_CALC_OP(OP_DIV_BRC, Opcode::OP_DIV_BRC, ExecuteOpBinary<Opcode::OP_DIV_BRC>);
 REGISTER_CALC_OP(OP_POW, Opcode::OP_POW, ExecuteOpBinary<Opcode::OP_POW>);
+REGISTER_CALC_OP(OP_REM, Opcode::OP_REM, ExecuteOpBinary<Opcode::OP_REM>);
 REGISTER_CALC_OP(OP_S_ADD, Opcode::OP_S_ADD, ExecuteOpBinary<Opcode::OP_ADD>);
 REGISTER_CALC_OP(OP_S_SUB, Opcode::OP_S_SUB, ExecuteOpBinary<Opcode::OP_SUB>);
 REGISTER_CALC_OP(OP_S_MUL, Opcode::OP_S_MUL, ExecuteOpBinary<Opcode::OP_MUL>);
@@ -81,6 +85,7 @@ REGISTER_CALC_OP(OP_S_DIV, Opcode::OP_S_DIV, ExecuteOpBinary<Opcode::OP_DIV>);
 REGISTER_CALC_OP(OP_PAIRMAX, Opcode::OP_PAIRMAX, ExecuteOpBinary<Opcode::OP_PAIRMAX>);
 REGISTER_CALC_OP(OP_PAIRMIN, Opcode::OP_PAIRMIN, ExecuteOpBinary<Opcode::OP_PAIRMIN>);
 REGISTER_CALC_OP(OP_PAIRSUM, Opcode::OP_PAIRSUM, ExecuteOpBinary<Opcode::OP_PAIRSUM>);
+REGISTER_CALC_OP(OP_PAIRPROD, Opcode::OP_PAIRPROD, ExecuteOpBinary<Opcode::OP_PAIRPROD>);
 REGISTER_CALC_OP(OP_S_MAX, Opcode::OP_S_MAX, ExecuteOpBinary<Opcode::OP_S_MAX>);
 REGISTER_CALC_OP(OP_S_MIN, Opcode::OP_S_MIN, ExecuteOpBinary<Opcode::OP_S_MIN>);
 REGISTER_CALC_OP(OP_MAXIMUM, Opcode::OP_MAXIMUM, ExecuteOpBinary<Opcode::OP_S_MAX>);
@@ -88,6 +93,7 @@ REGISTER_CALC_OP(OP_MINIMUM, Opcode::OP_MINIMUM, ExecuteOpBinary<Opcode::OP_S_MI
 REGISTER_CALC_OP(OP_BITWISEAND, Opcode::OP_BITWISEAND, ExecuteOpBinary<Opcode::OP_BITWISEAND>);
 REGISTER_CALC_OP(OP_BITWISEOR, Opcode::OP_BITWISEOR, ExecuteOpBinary<Opcode::OP_BITWISEOR>);
 REGISTER_CALC_OP(OP_BITWISEXOR, Opcode::OP_BITWISEXOR, ExecuteOpBinary<Opcode::OP_BITWISEXOR>);
+REGISTER_CALC_OP(OP_EXPANDEXPDIF, Opcode::OP_EXPANDEXPDIF, ExecuteOpBinary<Opcode::OP_EXPANDEXPDIF>);
 REGISTER_CALC_OP(OP_COPYSIGN, Opcode::OP_COPYSIGN, ExecuteOpBinary<Opcode::OP_COPYSIGN>);
 REGISTER_CALC_OP(OP_GCD, Opcode::OP_GCD, ExecuteOpBinary<Opcode::OP_GCD>);
 REGISTER_CALC_OP(OP_GCD_BRC, Opcode::OP_GCD_BRC, ExecuteOpBinary<Opcode::OP_GCD_BRC>);
@@ -178,9 +184,11 @@ void ExecuteOpReduce(ExecuteOperationContext *ctx) {
         case Opcode::OP_ROWSUM_SINGLE: calc::RowSumSingle(oop, iop, axis); break;
         case Opcode::OP_ROWMAX_SINGLE: calc::RowMaxSingle(oop, iop, axis); break;
         case Opcode::OP_ROWMIN_SINGLE: calc::RowMinSingle(oop, iop, axis); break;
+        case Opcode::OP_ROWPROD_SINGLE: calc::RowProdSingle(oop, iop, axis); break;
         case Opcode::OP_ROWSUMLINE: calc::RowSumExpand(oop, iop, axis); break;
         case Opcode::OP_ROWMAXLINE: calc::RowMaxLine(oop, iop, axis); break;
         case Opcode::OP_ROWMINLINE: calc::RowMinLine(oop, iop, axis); break;
+        case Opcode::OP_ROWPRODLINE: calc::RowProdLine(oop, iop, axis); break;
         default: ASSERT(false) << "opcode not support" << ctx->op->GetOpcodeStr();
     }
 }
@@ -190,6 +198,8 @@ REGISTER_CALC_OP(OP_ROWMAX_SINGLE, Opcode::OP_ROWMAX_SINGLE, ExecuteOpReduce<Opc
 REGISTER_CALC_OP(OP_ROWMAXLINE, Opcode::OP_ROWMAXLINE, ExecuteOpReduce<Opcode::OP_ROWMAXLINE>);
 REGISTER_CALC_OP(OP_ROWMIN_SINGLE, Opcode::OP_ROWMIN_SINGLE, ExecuteOpReduce<Opcode::OP_ROWMIN_SINGLE>);
 REGISTER_CALC_OP(OP_ROWMINLINE, Opcode::OP_ROWMINLINE, ExecuteOpReduce<Opcode::OP_ROWMINLINE>);
+REGISTER_CALC_OP(OP_ROWPROD_SINGLE, Opcode::OP_ROWPROD_SINGLE, ExecuteOpReduce<Opcode::OP_ROWPROD_SINGLE>);
+REGISTER_CALC_OP(OP_ROWPRODLINE, Opcode::OP_ROWPRODLINE, ExecuteOpReduce<Opcode::OP_ROWPRODLINE>);
 
 void ExecuteOpCast(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
@@ -211,6 +221,7 @@ void ExecuteOpUnary(ExecuteOperationContext *ctx) {
         case Opcode::OP_EXP: calc::Exp(ret, iop); break;
         case Opcode::OP_NEG: calc::Neg(ret, iop); break;
         case Opcode::OP_SIGN: calc::Sign(ret, iop); break;
+        case Opcode::OP_SIGNBIT: calc::Signbit(ret, iop); break;
         case Opcode::OP_RSQRT: calc::Rsqrt(ret, iop); break;
         case Opcode::OP_SQRT: calc::Sqrt(ret, iop); break;
         case Opcode::OP_RECIPROCAL: calc::Reciprocal(ret, iop); break;
@@ -226,6 +237,7 @@ void ExecuteOpUnary(ExecuteOperationContext *ctx) {
 REGISTER_CALC_OP(OP_EXP, Opcode::OP_EXP, ExecuteOpUnary<Opcode::OP_EXP>);
 REGISTER_CALC_OP(OP_NEG, Opcode::OP_NEG, ExecuteOpUnary<Opcode::OP_NEG>);
 REGISTER_CALC_OP(OP_SIGN, Opcode::OP_SIGN, ExecuteOpUnary<Opcode::OP_SIGN>);
+REGISTER_CALC_OP(OP_SIGNBIT, Opcode::OP_SIGNBIT, ExecuteOpUnary<Opcode::OP_SIGNBIT>);
 REGISTER_CALC_OP(OP_RSQRT, Opcode::OP_RSQRT, ExecuteOpUnary<Opcode::OP_RSQRT>);
 REGISTER_CALC_OP(OP_SQRT, Opcode::OP_SQRT, ExecuteOpUnary<Opcode::OP_SQRT>);
 REGISTER_CALC_OP(OP_RECIPROCAL, Opcode::OP_RECIPROCAL, ExecuteOpUnary<Opcode::OP_RECIPROCAL>);
@@ -562,8 +574,9 @@ void ExecuteOpTri(ExecuteOperationContext *ctx) {
     auto &output = ctx->ooperandInplaceDataViewList->at(0);
     auto &input = ctx->ioperandDataViewList->at(0);
 
-    auto dia = ctx->op->GetElementAttribute(OpAttributeKey::dynScalar);
-    int diagonal = static_cast<int32_t>(dia.GetSignedData());
+    // dynScalar 存的是 SymbolicScalar，需用 GetSymbolicScalarAttribute + EvaluateSymbolicScalar 取整型值
+    SymbolicScalar diaSym = ctx->op->GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
+    int diagonal = static_cast<int>(ctx->opInter->EvaluateSymbolicScalar(diaSym));
     bool isUpper = ctx->op->GetBoolAttribute(OpAttributeKey::isUpper);
     isUpper ? calc::TriU(output, input, diagonal) : calc::TriL(output, input, diagonal);
 }
@@ -710,7 +723,7 @@ REGISTER_CALC_OP(OP_REDUCE_ACC, Opcode::OP_REDUCE_ACC, ExecuteOpReduceAcc);
 
 template <Opcode opcode>
 void ExecuteOpBinaryScalar(ExecuteOperationContext *ctx) {
-    if (opcode == Opcode::OP_BITWISEXOR) {
+    if (opcode == Opcode::OP_BITWISEXOR || opcode == Opcode::OP_REMRS) {
         ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
     } else {
         ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
@@ -729,6 +742,8 @@ void ExecuteOpBinaryScalar(ExecuteOperationContext *ctx) {
         case Opcode::OP_MAXS: calc::MaxS(ret, lhs, element); break;
         case Opcode::OP_MINS: calc::MinS(ret, lhs, element); break;
         case Opcode::OP_DIVS: calc::DivS(ret, lhs, element, reverse); break;
+        case Opcode::OP_REMS: calc::RemainderS(ret, lhs, element, reverse); break;
+        case Opcode::OP_REMRS: calc::RemainderRS(ret, lhs, element, reverse); break;
         case Opcode::OP_S_MAXS: calc::MaxS(ret, lhs, element); break;
         case Opcode::OP_S_MINS: calc::MinS(ret, lhs, element);  break;
         case Opcode::OP_LRELU: calc::LReLU(ret, lhs, element); break;
@@ -750,6 +765,8 @@ REGISTER_CALC_OP(OP_BITWISEANDS, Opcode::OP_BITWISEANDS, ExecuteOpBinaryScalar<O
 REGISTER_CALC_OP(OP_BITWISEORS, Opcode::OP_BITWISEORS, ExecuteOpBinaryScalar<Opcode::OP_BITWISEORS>);
 REGISTER_CALC_OP(OP_BITWISEXORS, Opcode::OP_BITWISEXORS, ExecuteOpBinaryScalar<Opcode::OP_BITWISEXORS>);
 REGISTER_CALC_OP(OP_GCDS, Opcode::OP_GCDS, ExecuteOpBinaryScalar<Opcode::OP_GCDS>);
+REGISTER_CALC_OP(OP_REMS, Opcode::OP_REMS, ExecuteOpBinaryScalar<Opcode::OP_REMS>);
+REGISTER_CALC_OP(OP_REMRS, Opcode::OP_REMRS, ExecuteOpBinaryScalar<Opcode::OP_REMRS>);
 REGISTER_CALC_OP(OP_S_ADDS, Opcode::OP_S_ADDS, ExecuteOpBinaryScalar<Opcode::OP_ADDS>);
 REGISTER_CALC_OP(OP_S_SUBS, Opcode::OP_S_SUBS, ExecuteOpBinaryScalar<Opcode::OP_SUBS>);
 REGISTER_CALC_OP(OP_S_MULS, Opcode::OP_S_MULS, ExecuteOpBinaryScalar<Opcode::OP_MULS>);

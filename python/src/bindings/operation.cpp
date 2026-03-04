@@ -37,11 +37,21 @@ void bind_operation(py::module &m) {
     m.def(
         "Gcd", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::Gcd(self, other); }, "Tensor gcd.");
     m.def(
+        "Remainder", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::Remainder(self, other); }, "Tensor remainder.");
+    m.def(
+        "Remainder", [](const Tensor &self, const Element &other) { return npu::tile_fwk::Remainder(self, other); }, "Tensor remainder scalar.");
+    m.def(
+        "Remainder", [](const Element &self, const Tensor &other) { return npu::tile_fwk::Remainder(self, other); }, "Scalar remainder tensor.");
+    m.def(
         "BitwiseAnd", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::BitwiseAnd(self, other); }, "Tensor bitwise and.");
     m.def(
         "BitwiseOr", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::BitwiseOr(self, other); }, "Tensor bitwise or.");
     m.def(
         "BitwiseXor", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::BitwiseXor(self, other); }, "Tensor bitwise xor.");
+    m.def(
+        "ExpandExpDif",
+        [](const Tensor &input, const Tensor &other) { return npu::tile_fwk::ExpandExpDif(input, other); },
+        "Tensor expand exp dif.");
     m.def(
         "View",
         [](const Tensor &operand, const std::vector<int64_t> &shapes, const py::sequence &offsets) {
@@ -101,6 +111,7 @@ void bind_operation(py::module &m) {
     m.def("Rsqrt", [](const Tensor &self) { return npu::tile_fwk::Rsqrt(self); }, "Tensor rsqrt.");
     m.def("Sqrt", [](const Tensor &self) { return npu::tile_fwk::Sqrt(self); }, "Tensor sqrt.");
     m.def("Sign", [](const Tensor &self) { return npu::tile_fwk::Sign(self); }, "Tensor sign.");
+    m.def("Signbit", [](const Tensor &self) { return npu::tile_fwk::Signbit(self); }, "Tensor signbit.");
     m.def("Ceil", [](const Tensor &self) { return npu::tile_fwk::Ceil(self); }, "Tensor ceil.");
     m.def("Floor", [](const Tensor &self) { return npu::tile_fwk::Floor(self); }, "Tensor floor.");
     m.def("Trunc", [](const Tensor &self) { return npu::tile_fwk::Trunc(self); }, "Tensor trunc.");
@@ -187,6 +198,9 @@ void bind_operation(py::module &m) {
         "Amin",
         [](const Tensor &operand, int axis, bool keepDim) { return npu::tile_fwk::Amin(operand, axis, keepDim); },
         py::arg("operand"), py::arg("axis") = -1, py::arg("keepDim") = false, "Tensor row min single.");
+    m.def(
+        "Prod", [](const Tensor &operand, int axis, bool keepDim) { return npu::tile_fwk::Prod(operand, axis, keepDim); },
+        py::arg("operand"), py::arg("axis") = -1, py::arg("keepDim") = false, "Tensor row prod single.");
     m.def(
         "RowSumExpand", [](const Tensor &operand) { return npu::tile_fwk::RowSumExpand(operand); },
         "Tensor row sum expand.");

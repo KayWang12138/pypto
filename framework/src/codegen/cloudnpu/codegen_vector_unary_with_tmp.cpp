@@ -493,7 +493,7 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
         return PrintVnchwconv({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
 
-    if (opCode == Opcode::OP_SIGN) {
+    if (opCode == Opcode::OP_SIGN || opCode == Opcode::OP_SIGNBIT) {
         return PrintUnaryWithTmpTileTensor();
     }
 
@@ -513,7 +513,7 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
         return PrintRowSumline({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
     if (opCode == Opcode::OP_ROWSUM_SINGLE || opCode == Opcode::OP_ROWMAX_SINGLE ||
-        opCode == Opcode::OP_ROWMIN_SINGLE) {
+        opCode == Opcode::OP_ROWMIN_SINGLE || opCode == Opcode::OP_ROWPROD_SINGLE) {
         return PrintReduceLastAxis({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
 

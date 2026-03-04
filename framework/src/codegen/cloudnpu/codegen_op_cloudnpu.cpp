@@ -102,6 +102,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_COPY_UB_TO_UB, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_ROWMAXLINE, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_ROWMINLINE, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_ROWPRODLINE, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_ABS, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_LN, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_BRCB, [this]() { return GenUnaryOp(); }},
@@ -116,10 +117,12 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_ROWMAX_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWMIN_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ISFINITE, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_ROWPROD_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_TRANSPOSE_VNCHWCONV, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_SIGN, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_SIGNBIT, [this]() { return GenUnaryOpWithTmpBuff(); }},
       }),
       binaryOps_({
           // binary op: vector operations
@@ -127,13 +130,16 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_SUB, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_MUL, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_DIV, [this]() { return GenBinaryOp(); }},
+          {Opcode::OP_REM, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_MAXIMUM, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_MINIMUM, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_PAIRSUM, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_PAIRMAX, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_PAIRMIN, [this]() { return GenBinaryOp(); }},
+          {Opcode::OP_PAIRPROD, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_BITWISEAND, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_BITWISEOR, [this]() { return GenBinaryOp(); }},
+          {Opcode::OP_EXPANDEXPDIF, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_GCD, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_CEILDIV, [this]() { return GenBinaryOp(); }},
 
@@ -161,6 +167,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_SUBS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_MULS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_DIVS, [this]() { return GenVectorScalarOp(); }},
+          {Opcode::OP_REMS, [this]() { return GenRemainderSOp(); }},         
           {Opcode::OP_MAXS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_MINS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_LRELU, [this]() { return GenVectorScalarOp(); }},
@@ -173,6 +180,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
 
           // binary op: vector scalar with tmp
           {Opcode::OP_MODS, [this]() { return GenVectorScalarOp(); }},
+          {Opcode::OP_REMRS, [this]() { return GenRemainderRSOp(); }}, 
           {Opcode::OP_SBITWISERIGHTSHIFT, [this]() { return GenVectorScalarOpWithTmp(); }},
           {Opcode::OP_SBITWISELEFTSHIFT, [this]() { return GenVectorScalarOpWithTmp(); }},
           {Opcode::OP_BITWISEXORS, [this]() { return GenVectorScalarOpWithTmp(); }},

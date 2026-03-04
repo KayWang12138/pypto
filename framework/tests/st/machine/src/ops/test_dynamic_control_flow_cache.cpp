@@ -384,7 +384,6 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress) {
     config::SetPassOption(SG_PG_UPPER_BOUND, 1024);
     config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 32}});
     config::SetPassOption(SG_PARALLEL_NUM, 2);
-    config::SetPassOption(VEC_NBUFFER_MODE, 2);
     config::SetPassOption<std::map<int64_t, int64_t>>(VEC_NBUFFER_SETTING, {{-1, 16}});
 
     // cache at most 3 task

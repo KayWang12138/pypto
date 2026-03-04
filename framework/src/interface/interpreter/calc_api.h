@@ -66,6 +66,7 @@ struct CalcOps {
     void (*Neg)(const TensorData &, const TensorData &);
     void (*Rsqrt)(const TensorData &, const TensorData &);
     void (*Sign)(const TensorData &, const TensorData &);
+    void (*Signbit)(const TensorData &, const TensorData &);
     void (*Sqrt)(const TensorData &, const TensorData &);
     void (*Ceil)(const TensorData &, const TensorData &);
     void (*Floor)(const TensorData &, const TensorData &);
@@ -97,6 +98,8 @@ struct CalcOps {
     void (*MulS)(const TensorData &, const TensorData &, const Element &, bool);
     void (*DivS)(const TensorData &, const TensorData &, const Element &, bool);
     void (*FmodS)(const TensorData &, const TensorData &, const Element &, bool);
+    void (*RemainderS)(const TensorData &, const TensorData &, const Element &, bool);
+    void (*RemainderRS)(const TensorData &, const TensorData &, const Element &, bool);
     void (*BitwiseAndS)(const TensorData &, const TensorData &, const Element &, bool);
     void (*BitwiseOrS)(const TensorData &, const TensorData &, const Element &, bool);
     void (*BitwiseXorS)(const TensorData &, const TensorData &, const Element &, bool);
@@ -107,16 +110,19 @@ struct CalcOps {
     void (*Mul)(const TensorData &, const TensorData &, const TensorData &);
     void (*Div)(const TensorData &, const TensorData &, const TensorData &);
     void (*Fmod)(const TensorData &, const TensorData &, const TensorData &);
+    void (*Remainder)(const TensorData &, const TensorData &, const TensorData &);
     void (*Pow)(const TensorData &, const TensorData &, const TensorData &);
     void (*BitwiseAnd)(const TensorData &, const TensorData &, const TensorData &);
     void (*BitwiseOr)(const TensorData &, const TensorData &, const TensorData &);
     void (*BitwiseXor)(const TensorData &, const TensorData &, const TensorData &);
+    void (*ExpandExpDif)(const TensorData &, const TensorData &, const TensorData &);
     void (*CopySign)(const TensorData &, const TensorData &, const TensorData &);
     void (*Gcd)(const TensorData &, const TensorData &, const TensorData &);
 
     void (*PairSum)(const TensorData &, const TensorData &, const TensorData &);
     void (*PairMax)(const TensorData &, const TensorData &, const TensorData &);
     void (*PairMin)(const TensorData &, const TensorData &, const TensorData &);
+    void (*PairProd)(const TensorData &, const TensorData &, const TensorData &);
 
     void (*Min)(const TensorData &, const TensorData &, const TensorData &);
     void (*Max)(const TensorData &, const TensorData &, const TensorData &);
@@ -130,9 +136,11 @@ struct CalcOps {
     void (*RowSumSingle)(const TensorData &, const TensorData &, int);
     void (*RowMinSingle)(const TensorData &, const TensorData &, int);
     void (*RowMaxSingle)(const TensorData &, const TensorData &, int);
+    void (*RowProdSingle)(const TensorData &, const TensorData &, int);
 
     void (*RowMinLine)(const TensorData &, const TensorData &, int);
     void (*RowMaxLine)(const TensorData &, const TensorData &, int);
+    void (*RowProdLine)(const TensorData &, const TensorData &, int);
 
     void (*OneHot)(const TensorData &, const TensorData &, int);
     void (*ExpandS)(const TensorData &, const Element &);

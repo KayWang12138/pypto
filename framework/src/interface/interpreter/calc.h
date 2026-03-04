@@ -108,6 +108,9 @@ inline void Trunc(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 inline void Sign(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Sign(Trans(out), Trans(self));
 }
+inline void Signbit(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    GetCalcOps()->Signbit(Trans(out), Trans(self));
+}
 inline void Reciprocal(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Reciprocal(Trans(out), Trans(self));
 }
@@ -193,6 +196,12 @@ inline void FmodS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Ele
 inline void GcdS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar) {
     GetCalcOps()->GcdS(Trans(out), Trans(self), scalar);
 }
+inline void RemainderS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
+    GetCalcOps()->RemainderS(Trans(out), Trans(self), scalar, reverse);
+}
+inline void RemainderRS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = true) {
+    GetCalcOps()->RemainderRS(Trans(out), Trans(self), scalar, reverse);
+}
 inline void BitwiseAndS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
     GetCalcOps()->BitwiseAndS(Trans(out), Trans(self), scalar, reverse);
 }
@@ -216,6 +225,9 @@ inline void Div(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTens
 }
 inline void Fmod(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     GetCalcOps()->Fmod(Trans(out), Trans(self), Trans(other));
+}
+inline void Remainder(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    GetCalcOps()->Remainder(Trans(out), Trans(self), Trans(other));
 }
 inline void Pow(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     GetCalcOps()->Pow(Trans(out), Trans(self), Trans(other));
@@ -262,6 +274,9 @@ inline void BitwiseOr(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logic
 inline void BitwiseXor(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     GetCalcOps()->BitwiseXor(Trans(out), Trans(self), Trans(other));
 }
+inline void ExpandExpDif(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    GetCalcOps()->ExpandExpDif(Trans(out), Trans(self), Trans(other));
+}
 inline void CopySign(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     GetCalcOps()->CopySign(Trans(out), Trans(self), Trans(other));
 }
@@ -274,6 +289,9 @@ inline void PairMax(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
 }
 inline void PairMin(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     GetCalcOps()->PairMin(Trans(out), Trans(self), Trans(other));
+}
+inline void PairProd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    GetCalcOps()->PairProd(Trans(out), Trans(self), Trans(other));
 }
 inline void RowSumExpand(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
     GetCalcOps()->RowSumExpand(Trans(out), Trans(self), dim);
@@ -299,7 +317,12 @@ inline void RowMaxSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, in
 inline void RowMaxLine(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
     GetCalcOps()->RowMaxLine(Trans(out), Trans(self), dim);
 }
-
+inline void RowProdSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+    GetCalcOps()->RowProdSingle(Trans(out), Trans(self), dim);
+}
+inline void RowProdLine(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+    GetCalcOps()->RowProdLine(Trans(out), Trans(self), dim);
+}
 inline void OneHot(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int numClasses) {
     GetCalcOps()->OneHot(Trans(out), Trans(self), numClasses);
 }

@@ -21,6 +21,7 @@
 
 #ifdef BUILD_WITH_CANN
 #include "machine/runtime/device_runner.h"
+#include "acl/acl_rt.h"
 #endif
 
 #include "machine/runtime/device_launcher_binding.h"
@@ -59,6 +60,7 @@ struct AiCpuArgs {
 };
 
 int GetCfgBlockdim();
+int GetMaxBlockdim();
 
 class DeviceLauncherContext {
 public:
@@ -152,6 +154,10 @@ public:
     }
 
     static uint32_t GetAiCpuNumForDav3510(uint32_t aiCpuNum, uint32_t scheCpuNum) {
+        if (scheCpuNum == 1) {
+            return 1;   // sche num is 1, no need lauch more aicpu
+        }
+
         uint32_t oneDieMinCpuNum = aiCpuNum >> 1;
         uint32_t oneDieMaxCpuNum = oneDieMinCpuNum + (aiCpuNum - (oneDieMinCpuNum << 1));
         uint32_t oneDieMinScheCpuNum = scheCpuNum >> 1;
@@ -163,7 +169,6 @@ public:
     // Prepare device program scheduling and memory budget related args (keeps <= 50 lines)
     static void PrepareDevProgArgs(DevAscendProgram *devProg, DeviceLauncherConfig &config,
                                   [[maybe_unused]]bool isDevice) {
-        ASSERT(config.blockdim != 0) << "Invalid blockdim: " << config.blockdim << ", must not be zero";
         devProg->devArgs.taskId = 0;
         devProg->devArgs.nrAic = kDefaultAicNum;
         devProg->devArgs.nrAiv = kDefaultAivNum;

@@ -23,6 +23,7 @@ inline const std::vector<size_t> &GetShapeLenLimit(const std::string &op) {
         {    "ADD", {1, 4}},
         {   "CAST", {1, 4}},
         {"ISFINITE", {1, 5}},
+        {    "REMR", {1, 5}},
         {"DEFAULT", {1, 4}}
     };
     if (op_shape_len_limit.find(op) == op_shape_len_limit.end()) {

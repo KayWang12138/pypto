@@ -16,6 +16,7 @@
 #include <torch/torch.h>
 #include <limits>
 #include "tilefwk/error.h"
+#include "tilefwk/pypto_fwk_log.h"
 #include "../calc_api.h"
 #include "interpreter/calculator/fp8_convert.h"
 #include "interface/utils/log.h"
@@ -165,6 +166,13 @@ static void Sign(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     auto tself = From(self);
     torch::sign_out(tout.second, tself.second);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
+static void Signbit(const TensorData &out, const TensorData &self) {
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::signbit_out(tout.second, tself.second);
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
@@ -328,6 +336,8 @@ DEFINE_BINARY_S_OPS(SubS, sub_out)
 DEFINE_BINARY_S_OPS(MulS, mul_out)
 DEFINE_BINARY_S_OPS(DivS, div_out)
 DEFINE_BINARY_S_OPS(FmodS, fmod_out)
+DEFINE_BINARY_S_OPS(RemainderS, remainder_out)
+DEFINE_BINARY_S_OPS(RemainderRS, remainder_out)
 DEFINE_BINARY_S_OPS(BitwiseAndS, bitwise_and_out)
 DEFINE_BINARY_S_OPS(BitwiseOrS, bitwise_or_out)
 DEFINE_BINARY_S_OPS(BitwiseXorS, bitwise_xor_out)
@@ -522,6 +532,18 @@ static void PReLU(const TensorData &out, const TensorData &self, const TensorDat
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
+#define DEFINE_BINARY_OPS(Name, op_out)                                                        \
+    static void Name(const TensorData &out, const TensorData &self, const TensorData &other) { \
+        auto tout = From(out);                                                                 \
+        auto tself = From(self);                                                               \
+        auto tother = From(other);                                                             \
+        torch::op_out(tout.second, tself.second, tother.second);                               \
+        ToOperand(tout.second, tout.first, out.dtype);                                         \
+    }
+
+DEFINE_BINARY_OPS(Remainder, remainder_out)
+DEFINE_BINARY_OPS(Gcd, gcd_out)
+
 static void Pow(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tout = From(out);
     auto tself = From(self);
@@ -551,6 +573,19 @@ static void BitwiseXor(const TensorData &out, const TensorData &self, const Tens
     auto tself = From(self);
     auto tother = From(other);
     torch::bitwise_xor_out(tout.second, tself.second, tother.second);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
+static void ExpandExpDif(const TensorData &out, const TensorData &self, const TensorData &other) {
+    auto tself = From(self);
+    auto tother = From(other);
+    auto tout = From(out);
+    
+    auto shape = tself.second.sizes().vec();
+    auto expand = tother.second.expand(torch::IntArrayRef(shape));
+
+    torch::sub_out(tout.second, tself.second, expand);
+    torch::exp_out(tout.second, tout.second);
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
@@ -603,14 +638,6 @@ static void SBitwiseLeftShift(const TensorData &out, const Element &scalar, cons
     auto tout = From(out);
     auto tother = From(other);
     torch::bitwise_left_shift_out(tout.second, From(scalar), tother.second);
-    ToOperand(tout.second, tout.first, out.dtype);
-}
-
-static void Gcd(const TensorData &out, const TensorData &self, const TensorData &other) {
-    auto tout = From(out);
-    auto tself = From(self);
-    auto tother = From(other);
-    torch::gcd_out(tout.second, tself.second, tother.second);
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
@@ -829,6 +856,7 @@ static void Cmps(const TensorData &out, const TensorData &self, const Element &e
 DEFINE_BINARY_PAIR_OPS(Sum, add_out)
 DEFINE_BINARY_PAIR_OPS(Max, max_out)
 DEFINE_BINARY_PAIR_OPS(Min, min_out)
+DEFINE_BINARY_PAIR_OPS(Prod, mul_out)
 
 std::vector<int64_t> GenAxesForTranspose(const int64_t offset, const std::vector<int64_t>& base) {
     std::vector<int64_t> axes;
@@ -1290,6 +1318,20 @@ static void RowMaxLine(const TensorData &out, const TensorData &self, int dim) {
     auto tout = From(out);
     auto ret = torch::max(tself.second, dim, true);
     ToOperand(std::get<0>(ret), tout.first, out.dtype);
+}
+
+static void RowProdSingle(const TensorData &out, const TensorData &self, int dim) {
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::prod_out(tout.second, tself.second, {dim}, true);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
+static void RowProdLine(const TensorData &out, const TensorData &self, int dim) {
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::prod_out(tout.second, tself.second, {dim}, true);
+    ToOperand(tout.second, tout.first, out.dtype);
 }
 
 static void Reshape(const TensorData &out, const TensorData &self) {
@@ -1894,6 +1936,7 @@ static struct CalcOps calcOps = {
     .Neg = Neg,
     .Rsqrt = Rsqrt,
     .Sign = Sign,
+    .Signbit = Signbit,
     .Sqrt = Sqrt,
     .Ceil = Ceil,
     .Floor = Floor,
@@ -1924,6 +1967,8 @@ static struct CalcOps calcOps = {
     .MulS = MulS,
     .DivS = DivS,
     .FmodS = FmodS,
+    .RemainderS = RemainderS,
+    .RemainderRS = RemainderRS,
     .BitwiseAndS = BitwiseAndS,
     .BitwiseOrS = BitwiseOrS,
     .BitwiseXorS = BitwiseXorS,
@@ -1933,15 +1978,18 @@ static struct CalcOps calcOps = {
     .Mul = Mul,
     .Div = Div,
     .Fmod = Fmod,
+    .Remainder = Remainder,
     .Pow = Pow,
     .BitwiseAnd = BitwiseAnd,
     .BitwiseOr = BitwiseOr,
     .BitwiseXor = BitwiseXor,
+    .ExpandExpDif = ExpandExpDif,
     .CopySign = CopySign,
     .Gcd = Gcd,
     .PairSum = PairSum,
     .PairMax = PairMax,
     .PairMin = PairMin,
+    .PairProd = PairProd,
     .Min = Min,
     .Max = Max,
     .MinS = MinS,
@@ -1952,8 +2000,10 @@ static struct CalcOps calcOps = {
     .RowSumSingle = RowSumSingle,
     .RowMinSingle = RowMinSingle,
     .RowMaxSingle = RowMaxSingle,
+    .RowProdSingle = RowProdSingle,
     .RowMinLine = RowMinLine,
     .RowMaxLine = RowMaxLine,
+    .RowProdLine = RowProdLine,
     .OneHot = OneHot,
     .ExpandS = ExpandS,
     .Expand = Expand,

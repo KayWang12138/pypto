@@ -32,6 +32,7 @@ namespace {
 constexpr const char *kEnvGlobalLogLevel = "ASCEND_GLOBAL_LOG_LEVEL";
 constexpr const char *kEnvModuleLogLevel = "ASCEND_MODULE_LOG_LEVEL";
 constexpr const char *kEnvGlobalLogEvent = "ASCEND_GLOBAL_EVENT_ENABLE";
+constexpr const char *kEnvPrintToStdout = "ASCEND_SLOG_PRINT_TO_STDOUT";
 constexpr const char *kEnvProcessLogPath = "ASCEND_PROCESS_LOG_PATH";
 constexpr const char *kModuleName = "PYPTO";
 constexpr const char *kModulePrefix = "PYPTO=";
@@ -135,19 +136,32 @@ LogManager::LogManager() {
         enableEvent_ = ParseStrToInt(envGlobalEvent) != 0;
     }
 
+    std::string envPrintToStdout;
+    if (GetEnvStr(kEnvPrintToStdout, envPrintToStdout)) {
+        enableStdOut_ = ParseStrToInt(envPrintToStdout) != 0;
+    }
+
+    if (enableStdOut_) {
+        return;
+    }
+
     std::string envProcessLogPath;
-    if (GetEnvStr(kEnvProcessLogPath, envProcessLogPath)) {
-        hostLogDir_ = envProcessLogPath + "/plog";
-        deviceLogDir_ = envProcessLogPath + "/device-" + std::to_string(attr_.deviceId);
-        if (CreateMultiLevelDirectory(hostLogDir_) && CreateMultiLevelDirectory(deviceLogDir_)) {
-            hostLogDir_ = GetRealPath(hostLogDir_);
-            deviceLogDir_ = GetRealPath(deviceLogDir_);
-            LoadFileFromDir(hostLogDir_, kHostLogFilePrefix, kLogFileSuffix, hostLogFiles_);
-            LoadFileFromDir(deviceLogDir_, kDevLogFilePrefix, kLogFileSuffix, devLogFiles_);
-            enableStdOut_ = false;
-        } else {
-            std::cerr << "Fail to create directory: " << envProcessLogPath << ", still using stdout." << std::endl;
+    if (!GetEnvStr(kEnvProcessLogPath, envProcessLogPath)) {
+        if (!GetEnvStr("HOME", envProcessLogPath)) {
+            envProcessLogPath = ".";
         }
+        envProcessLogPath += "/ascend/log";
+    }
+
+    hostLogDir_ = envProcessLogPath + "/debug/plog";
+    deviceLogDir_ = envProcessLogPath + "/debug/device-" + std::to_string(attr_.deviceId);
+    if (CreateMultiLevelDirectory(hostLogDir_) && CreateMultiLevelDirectory(deviceLogDir_)) {
+        hostLogDir_ = GetRealPath(hostLogDir_);
+        deviceLogDir_ = GetRealPath(deviceLogDir_);
+        LoadFileFromDir(hostLogDir_, kHostLogFilePrefix, kLogFileSuffix, hostLogFiles_);
+        LoadFileFromDir(deviceLogDir_, kDevLogFilePrefix, kLogFileSuffix, devLogFiles_);
+    } else {
+        std::cerr << "Fail to create directory: " << envProcessLogPath << std::endl;
     }
 }
 

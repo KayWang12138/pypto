@@ -144,6 +144,7 @@ Tensor Abs(const Tensor &self);
 Tensor Ln(const Tensor &operand);
 Tensor Hub(const Tensor &operand);
 Tensor Sign(const Tensor &operand);
+Tensor Signbit(const Tensor &operand);
 
 Tensor Duplicate(const Tensor &operand);
 Tensor Gather(const Tensor &params, const Tensor &indices, int axis);
@@ -179,6 +180,7 @@ Tensor RowMaxExpand(const Tensor &operand);
 Tensor Sum(const Tensor &self, int axis = -1, bool keepDim=false);
 Tensor Amax(const Tensor &self, int axis = -1, bool keepDim=false);
 Tensor Amin(const Tensor &self, int axis = -1, bool keepDim=false);
+Tensor Prod(const Tensor &self, int axis = -1, bool keepDim=false);
 
 Tensor Compact(const Tensor &operand);
 
@@ -193,6 +195,7 @@ Tensor Minimum(const Tensor &operand1, const Tensor &operand2);
 Tensor BitwiseAnd(const Tensor &self, const Tensor &other);
 Tensor BitwiseOr(const Tensor &self, const Tensor &other);
 Tensor BitwiseXor(const Tensor &self, const Tensor &other);
+Tensor ExpandExpDif(const Tensor &input, const Tensor &other);
 Tensor Add(const Tensor &self, const Element &other);
 Tensor Sub(const Tensor &self, const Element &other);
 Tensor Div(const Tensor &self, const Element &other);
@@ -208,6 +211,9 @@ Tensor Compare(const Tensor &self, const Element &other, OpType op, OutType mode
 Tensor Compare(const Element &self, const Tensor &other, OpType op, OutType mode);
 Tensor Pow(const Tensor &self, const Tensor &other);
 Tensor Pow(const Tensor &self, const Element &other);
+Tensor Remainder(const Tensor &self, const Tensor &other);
+Tensor Remainder(const Tensor &self, const Element &other);
+Tensor Remainder(const Element &self, const Tensor &other);
 Tensor CopySign(const Tensor &self, const Tensor &other);
 Tensor PReLU(const Tensor &self, const Tensor &weight);
 
