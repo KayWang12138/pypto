@@ -1066,11 +1066,11 @@ Status OoOScheduler::SelectSpillBuffers(LocalBufferPtr allocBuffer, IssueEntryPt
     return SUCCESS;
 }
 
-Status OoOScheduler::RearrangeBuffer(MemoryType memType, std::pair<OpCoreType, int> corePair) {
+Status OoOScheduler::RearrangeBuffer(IssueEntryPtr allocIssue, MemoryType memType, std::pair<OpCoreType, int> corePair, bool isGenSpill) {
     std::vector<int> memIds = bufferManagerMap[corePair.first][corePair.second][memType].GetAddrSortedBufs();
     for (auto memId : memIds) {
-        auto allocIssue = tensorOccupyMap[memType][memId];
-        if (allocIssue->tileOp.GetOpcodeStr().find("ALLOC") == std::string::npos) {
+        auto issue = GetSpillIssue(allocIssue, memId, isGenSpill)
+        if (issue->tileOp.GetOpcodeStr().find("ALLOC") == std::string::npos) {
             return FAILED;
         }
     }
@@ -1107,7 +1107,7 @@ Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
             }
         }
         // Alloc内存整理
-        if (RearrangeBuffer(memType, corePair) != SUCCESS) {
+        if (RearrangeBuffer(allocIssue, memType, corePair, false) != SUCCESS) {
             APASS_LOG_WARN_F(Elements::Operation, "RearrangeBuffer failed at GenBufferSpill. %s", GetFormatBacktrace(allocIssue->tileOp).c_str());
         }
         if (!HasEnoughBuffer(allocIssue, memType)) {
@@ -1158,6 +1158,10 @@ Status OoOScheduler::GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx) {
                 APASS_LOG_ERROR_F(Elements::Operation, "SpillBuffer[%d] failed.", memId);
                 return FAILED;
             }
+        }
+        // Alloc内存整理
+        if (RearrangeBuffer(issueEntries[pcIdx], memType, corePair, false) != SUCCESS) {
+            APASS_LOG_WARN_F(Elements::Operation, "RearrangeBuffer failed at GenBufferSpill. %s", GetFormatBacktrace(issueEntries[pcIdx]->tileOp).c_str());
         }
         if (!HasEnoughBuffer(issueEntries[pcIdx], memType)) {
             APASS_LOG_ERROR_F(Elements::Operation, "Spill all buffer failed!");
