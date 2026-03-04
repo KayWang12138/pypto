@@ -3659,7 +3659,7 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
             std::vector<int64_t> maximumShape;
             CalcShapeAndOffsetOfGroup(matches, minimumOffset, maximumShape);
 
-            auto assembleResult = std::make_shared<LogicalTensor>(*this, matches[0]->Datatype(), maximumShape,
+            auto assembleResult = std::make_shared<LogicalTensor>(*this, matches[0]->Datatype(), maximumShape, SymbolicScalar::FromConcrete(maximumShape),
                 iOperand->Format(), "Assemble_" + matches[0]->Symbol(), iOperand->nodetype);
             ASSERT(assembleResult->GetProducers().empty()) "Assemble result should have no producers";
             for (size_t idx = 0; idx < matches.size(); idx++) {
@@ -3667,7 +3667,7 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
                 assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(offsetOfOverlaps[idx], SymbolicScalar::FromConcrete(offsetOfOverlaps[idx])));
             }
 
-            auto viewResult = std::make_shared<LogicalTensor>(*this, assembleResult->Datatype(), iOperand->shape,
+            auto viewResult = std::make_shared<LogicalTensor>(*this, assembleResult->Datatype(), iOperand->shape, SymbolicScalar::FromConcrete(iOperand->shape),
                 iOperand->Format(), "View_" + assembleResult->Symbol(), assembleResult->nodetype);
             auto &viewOp = AddRawOperation(Opcode::OP_VIEW, {assembleResult}, {viewResult});
             std::vector<int64_t> newOffset = TensorOffset::Sub(iOperand->GetOffset(), minimumOffset);
