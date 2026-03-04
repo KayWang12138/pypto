@@ -634,6 +634,7 @@ IncastOutcastLink TensorSlotManager::BuildIncastOutcastLink([[maybe_unused]]cons
     }
 
     for (auto &slotIndex : partialUpdateSlotIndexSet) {
+        std::cout << slotIndex << " insert partialUpdateSlotIdexList" << std::endl;
         link.partialUpdateSlotIdexList.push_back(slotIndex);
     }
 
