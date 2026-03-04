@@ -20,6 +20,7 @@
 #include <iostream>
 #define private public
 #include "utils/host_log/log_manager.h"
+#include "utils/host_log/log_module_manager.h"
 #undef private
 #include "tilefwk/pypto_fwk_log.h"
 #include "utils/host_log/dlog_handler.h"
@@ -105,42 +106,42 @@ public:
 };
 
 TEST_F(TestHostLog, test_tilefwk_log_case0) {
-    PYPTO_HOST_LOG(DLOG_ERROR, "TEST", "I'm a space-bound %s and your heart's the moon", "rocketship");
-    PYPTO_HOST_LOG(DLOG_ERROR, "TEST", "And I aiming it right at you, right at you %f", 3.14f);
-    PYPTO_HOST_LOG(DLOG_ERROR, "TEST", "%d miles on a clear night in %s", 250000, "June");
-    PYPTO_HOST_LOG(DLOG_ERROR, "TEST", "And I'm so lost without you, without you %x", 626);
-    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, "TEST", "I'm a space-bound %s and your heart's the moon", "rocketship");
-    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, "TEST", "And I aiming it right at you, right at you %f", 3.14f);
-    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, "TEST", "%d miles on a clear night in %s", 250000, "June");
-    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, "TEST", "And I'm so lost without you, without you");
+    PYPTO_HOST_LOG(DLOG_ERROR, LogModule::MACHINE, "I'm a space-bound %s and your heart's the moon", "rocketship");
+    PYPTO_HOST_LOG(DLOG_ERROR, LogModule::MACHINE, "And I aiming it right at you, right at you %f", 3.14f);
+    PYPTO_HOST_LOG(DLOG_ERROR, LogModule::MACHINE, "%d miles on a clear night in %s", 250000, "June");
+    PYPTO_HOST_LOG(DLOG_ERROR, LogModule::MACHINE, "And I'm so lost without you, without you %x", 626);
+    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, LogModule::MACHINE, "I'm a space-bound %s and your heart's the moon", "rocketship");
+    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, LogModule::MACHINE, "And I aiming it right at you, right at you %f", 3.14f);
+    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, LogModule::MACHINE, "%d miles on a clear night in %s", 250000, "June");
+    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, LogModule::MACHINE, "And I'm so lost without you, without you");
 
     std::ostringstream oss;
     for (size_t i = 0; i < 200; i++) {
         oss << "0123456789";
     }
-    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, "TEST", "Hello %s", oss.str().c_str());
+    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, LogModule::MACHINE, "Hello %s", oss.str().c_str());
 }
 
 namespace {
 void FunctionWithNoReturn() {
-    PYPTO_HOST_LOG(DLOG_ERROR, "TEST", "In the year of %d assembled here the volunteers in the days when lands were few", 39);
-    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, "TEST", "In the year of %d assembled here the volunteers in the days when lands were few", 39);
-    PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, "TEST", "In the year of %d assembled here the volunteers in the days when lands were few", 39);
+    PYPTO_HOST_LOG(DLOG_ERROR, LogModule::MACHINE, "In the year of %d assembled here the volunteers in the days when lands were few", 39);
+    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, LogModule::MACHINE, "In the year of %d assembled here the volunteers in the days when lands were few", 39);
+    PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, LogModule::MACHINE, "In the year of %d assembled here the volunteers in the days when lands were few", 39);
     std::ostringstream oss;
     for (size_t i = 0; i < 200; i++) {
         oss << "0123456789";
     }
-    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, "TEST", "Hello %s", oss.str().c_str());
+    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, LogModule::MACHINE, "Hello %s", oss.str().c_str());
 }
 int FunctionWithReturn() {
-    PYPTO_HOST_LOG(DLOG_ERROR, "TEST", "In the year of %d assembled here the volunteers in the days when lands were few", 39);
-    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, "TEST", "In the year of %d assembled here the volunteers in the days when lands were few", 39);
-    PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, "TEST", "In the year of %d assembled here the volunteers in the days when lands were few", 39);
+    PYPTO_HOST_LOG(DLOG_ERROR, LogModule::MACHINE, "In the year of %d assembled here the volunteers in the days when lands were few", 39);
+    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, LogModule::MACHINE, "In the year of %d assembled here the volunteers in the days when lands were few", 39);
+    PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, LogModule::MACHINE, "In the year of %d assembled here the volunteers in the days when lands were few", 39);
     std::ostringstream oss;
     for (size_t i = 0; i < 200; i++) {
         oss << "0123456789";
     }
-    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, "TEST", "Hello %s", oss.str().c_str());
+    PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, LogModule::MACHINE, "Hello %s", oss.str().c_str());
     return 0;
 }
 }
@@ -275,12 +276,83 @@ TEST_F(TestHostLog, test_log_construct_case1) {
 
 TEST_F(TestHostLog, test_dlog_handler_case0) {
     DLogHandler log_handler;
-    EXPECT_EQ(log_handler.IsAvailable(), true);
     EXPECT_NE(log_handler.checkLevelFunc_, nullptr);
     EXPECT_NE(log_handler.logRecordFunc_, nullptr);
+    EXPECT_NE(log_handler.getLevelFunc_, nullptr);
+    EXPECT_NE(log_handler.setLevelFunc_, nullptr);
+
+    EXPECT_EQ(log_handler.IsAvailable(), true);
+    EXPECT_EQ(log_handler.CheckLogLevel(PYPTO, DLOG_ERROR), 1);
+    EXPECT_EQ(log_handler.CheckLogLevel(PYPTO, DLOG_WARN), 0);
+    int32_t enableEvent = 0;
+    EXPECT_EQ(log_handler.GetLogLevel(PYPTO, &enableEvent), DLOG_ERROR);
+    EXPECT_EQ(enableEvent, 1);
+    EXPECT_EQ(log_handler.SetLogLevel(PYPTO, DLOG_WARN, enableEvent), 0);
+    EXPECT_EQ(log_handler.CheckLogLevel(PYPTO, DLOG_WARN), 1);
 
     EXPECT_EQ(DLogHandler::Instance().IsAvailable(), true);
     EXPECT_NE(DLogHandler::Instance().checkLevelFunc_, nullptr);
     EXPECT_NE(DLogHandler::Instance().logRecordFunc_, nullptr);
+    EXPECT_NE(DLogHandler::Instance().getLevelFunc_, nullptr);
+    EXPECT_NE(DLogHandler::Instance().setLevelFunc_, nullptr);
+}
+
+TEST_F(TestHostLog, test_log_module_manager_case0) {
+    LogModuleManager log_module_manager;
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::FUNCTION), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::PASS), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::CODEGEN), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::MACHINE), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::DISTRIBUTED), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::SIMULATION), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::VERIFY), -1);
+}
+
+TEST_F(TestHostLog, test_log_module_manager_case1) {
+    setenv("ASCEND_MODULE_LOG_LEVEL", "MACHINE=2", 1);
+    LogModuleManager log_module_manager;
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::FUNCTION), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::PASS), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::CODEGEN), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::MACHINE), 2);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::DISTRIBUTED), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::SIMULATION), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::VERIFY), -1);
+}
+
+TEST_F(TestHostLog, test_log_module_manager_case2) {
+    setenv("ASCEND_MODULE_LOG_LEVEL", " MACHINE = 0 : PASS =1", 1);
+    LogModuleManager log_module_manager;
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::FUNCTION), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::PASS), 1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::CODEGEN), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::MACHINE), 0);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::DISTRIBUTED), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::SIMULATION), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::VERIFY), -1);
+}
+
+TEST_F(TestHostLog, test_log_module_manager_case3) {
+    setenv("ASCEND_MODULE_LOG_LEVEL", " MACHINE =  : CODEGEN =3", 1);
+    LogModuleManager log_module_manager;
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::FUNCTION), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::PASS), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::CODEGEN), 3);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::MACHINE), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::DISTRIBUTED), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::SIMULATION), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::VERIFY), -1);
+}
+
+TEST_F(TestHostLog, test_log_module_manager_case4) {
+    setenv("ASCEND_MODULE_LOG_LEVEL", " MACHINE: CODEGEN =3", 1);
+    LogModuleManager log_module_manager;
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::FUNCTION), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::PASS), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::CODEGEN), 3);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::MACHINE), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::DISTRIBUTED), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::SIMULATION), -1);
+    EXPECT_EQ(log_module_manager.GetModuleLogLevel(LogModule::VERIFY), -1);
 }
 }
