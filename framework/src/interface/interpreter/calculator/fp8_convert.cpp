@@ -17,7 +17,7 @@
 #include <limits>
 #include <torch/torch.h>
 #include "tilefwk/data_type.h"
-#include "interpreter/calculator/fp8_convert.h"
+#include "fp8_convert.h"
 
 namespace npu::tile_fwk {
 
