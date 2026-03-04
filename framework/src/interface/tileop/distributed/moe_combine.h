@@ -34,9 +34,14 @@ TILEOP void MoeDistributedCombineSend(
     uint64_t expandXOffset1,
     __gm__ int64_t* hcclContext)
 {
-    (void)recvCounts;
     (void)expandXOffset1;
-    for (uint64_t row = expandXOffset0; row < expandXOffset0 + rowShape; row++) {
+    int32_t validRows = recvCounts[0];
+    if (validRows <= 0) {
+        return;
+    }
+    uint64_t maxRow = ((expandXOffset0 + rowShape) < static_cast<uint64_t>(validRows)) ?
+        (expandXOffset0 + rowShape) : static_cast<uint64_t>(validRows);
+    for (uint64_t row = expandXOffset0; row < maxRow; row++) {
         set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
         wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
         TileOp::UBCopyIn<int32_t, 1, 3, 8, 3>(assistInfoForCombineBuffer, assistInfoForCombine + MOE_COMBINE_INFO_NUM * row);

@@ -378,14 +378,28 @@ void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCom
     LOOP("MoeDistributedCombine", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
 
+        // recvCounts from dispatch may be a scalar (shape={1}) that stores total received rows.
+        // Receive kernel indexes by tokenId, so use per-token topK counts for v1 receive.
+        Tensor recvCountsForReceive = recvCounts;
+        if (recvCounts.GetShape(0) == 1) {
+            TileShape::Current().SetVecTile({batchSize});
+            recvCountsForReceive = Full(topK, DT_INT32, {batchSize});
+        }
+
         int32_t expandXRow = expandX.GetShape(0);
         int32_t aivNum = AIV_NUM;
         TileShape::Current().SetDistTile({expandXRow / aivNum, aivNum, expandXRow % aivNum}, {hiddenSize, 1, 0},
             {0, 0, 0});
+
+        Tensor recvRowsForSend = recvCounts;
+        if (recvCounts.GetShape(0) != 1) {
+            TileShape::Current().SetVecTile({1});
+            recvRowsForSend = Full(expandXRow, DT_INT32, {1});
+        }
         auto sendOut = MoeDistributedCombineSend(
             expandX,
             assistInfoForCombine,
-            recvCounts,
+            recvRowsForSend,
             shmemData,
             shmemSignal,
             topK);
@@ -397,7 +411,8 @@ void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCom
             std::vector<SymbolicScalar>{thisRank, 0, 0, 0});
         TileShape::Current().SetDistTile(
             {batchSize / aivNum, aivNum, batchSize % aivNum}, {hiddenSize, 1, 0}, {0, 0, 0});
-        out = MoeDistributedCombineReceive(sendOut, expertScales, recvCounts, shmemDataThisRank, shmemSignalThisRank);
+        out = MoeDistributedCombineReceive(sendOut, expertScales, recvCountsForReceive, shmemDataThisRank,
+            shmemSignalThisRank);
     }
 }
 

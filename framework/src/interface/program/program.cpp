@@ -29,6 +29,7 @@
 #include "interface/machine/host/host_machine.h"
 #include "interface/program/program.h"
 #include "interface/configs/config_manager_ng.h"
+#include "tilefwk/comm_group_recorder.h"
 
 namespace npu::tile_fwk {
 const std::string PROGRAM_ENTRY_FUNCTION_NAME = "PROGRAM_ENTRY";
@@ -81,6 +82,7 @@ void Program::Reset() {
     functionMagicNameStack_.clear();
     currentFunctionMagicName_ = PROGRAM_ENTRY_FUNCTION_NAME;
     config::Reset();
+    Distributed::CommGroupRecorder::GetInstance().Reset();
     IdGen<IdType::LOGICAL_TENSOR>::Inst().Reset();
     aliveTensors_.clear();
     functionCache_.Reset();
