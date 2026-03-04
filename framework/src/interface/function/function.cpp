@@ -1305,16 +1305,16 @@ unsigned long Function::ComputeHashOrderless() const {
             MagicLookup(this, operations_[i]->GetIOperands(), operations_[0]->GetSubgraphID(), index, magic2index, ss);
         }
     }
-    index = 0;
+
     for (auto &i : inCasts_) {
-        ss << "(i" << index++ << ")";
+        ss << "(i" << magic2index[i->GetMagic()] << ")";
         bool isGlobal = (globalTensors_.count(i) != 0);
         if (isGlobal) {
             ss << "(Global)";
         }
     }
     for (auto &o : outCasts_) {
-        ss << "(o" << index++ << ")";
+        ss << "(o" << magic2index[o->GetMagic()] << ")";
         bool isGlobal = (globalTensors_.count(o) != 0);
         if (isGlobal) {
             ss << "(Global)";
@@ -1329,6 +1329,15 @@ unsigned long Function::ComputeHashOrderless() const {
     // temporary avoidance, switch SUPPORT_DYNAMIC_ALIGNED has an unexpected effect on dynamic binary reuse
     if (functionType_ == FunctionType::DYNAMIC) {
         ss << "dynamic unaligned:" << config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_ALIGNED);
+    }
+    if (leafFuncAttr_ != nullptr) {
+        // mixId标识同一次Mix拆出来的leafFunction组
+        if (leafFuncAttr_->mixId != LeafFuncAttribute::INVALID_MIX_ID) {
+            ss << " MIX_ID:" << leafFuncAttr_->mixId;
+        }   
+        if (leafFuncAttr_->aivCore != AIVCore::UNSPECIFIED) {
+            ss << " AIV_CORE:" << static_cast<int>(leafFuncAttr_->aivCore);
+        }
     }
     std::hash<std::string> hasher;
     auto result = hasher(ss.str());
@@ -2068,13 +2077,10 @@ Json Function::DumpJson(bool useTable) {
     funcJson["_opseed"] = opSeed_;
     funcJson["_rawid"] = IdGen<IdType::RAW_TENSOR>::Inst().CurId();
     funcJson["_funcid"] = IdGen<IdType::FUNCTION>::Inst().CurId();
-    funcJson["_l1_reuse_mode"] = paramConfigs_.L1ReuseMode;
-    funcJson["_cube_nbuffer_mode"] = paramConfigs_.cubeNBufferMode;
     funcJson["_sg_pg_upperbound"] = paramConfigs_.sgPgUpperBound;
     funcJson["_sg_pg_lowerbound"] = paramConfigs_.sgPgLowerBound;
     funcJson["_sg_parallel_num"] = paramConfigs_.sgParallelNum;
     funcJson["_sg_mg_copyin_upper_bound"] = paramConfigs_.sgMgCopyInUpperBound;
-    funcJson["_vec_nbuffer_mode"] = paramConfigs_.vecNBuffermode;
     funcJson["_mg_vec_parallel_lb"] = paramConfigs_.mgVecParallelLb;
     funcJson["_pg_skip_partition"] = paramConfigs_.pgSkipPartition;
     funcJson["_total_subgraph_count"] = totalSubGraphCount_;
@@ -2388,13 +2394,10 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     IdGen<IdType::RAW_TENSOR>::Inst().SetId(rawid);
     int funcid = funcJson["_funcid"].get<int>();
     IdGen<IdType::FUNCTION>::Inst().SetId(funcid);
-    func->paramConfigs_.L1ReuseMode = funcJson["_l1_reuse_mode"].get<int>();
-    func->paramConfigs_.cubeNBufferMode = funcJson["_cube_nbuffer_mode"].get<int>();
     func->paramConfigs_.sgPgUpperBound = funcJson["_sg_pg_upperbound"].get<int>();
     func->paramConfigs_.sgPgLowerBound = funcJson["_sg_pg_lowerbound"].get<int>();
     func->paramConfigs_.sgParallelNum = funcJson["_sg_parallel_num"].get<int>();
     func->paramConfigs_.sgMgCopyInUpperBound = funcJson["_sg_mg_copyin_upper_bound"].get<int>();
-    func->paramConfigs_.vecNBuffermode = funcJson["_vec_nbuffer_mode"].get<int>();
     func->paramConfigs_.mgVecParallelLb = funcJson["_mg_vec_parallel_lb"].get<int>();
     func->paramConfigs_.pgSkipPartition = funcJson["_pg_skip_partition"].get<bool>();
     auto subGraphCount = funcJson["_total_subgraph_count"].get<size_t>();

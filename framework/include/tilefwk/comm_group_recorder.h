@@ -34,6 +34,9 @@ public:
     // 注册组，返回对应的 groupIndex（自动去重）
     uint32_t Input(const std::string &hcclGroupName);
 
+    // 清空所有 group 记录
+    void Reset();
+
     // 获取所有 groupName 的列表（按 index 顺序）
     const std::vector<std::string> &Output() const;
 

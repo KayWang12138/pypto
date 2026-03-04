@@ -15,7 +15,7 @@
 
 #include "ini_parser.h"
 #include "interface/utils/file_utils.h"
-#include "tilefwk/tilefwk_log.h"
+#include "tilefwk/pypto_fwk_log.h"
 namespace npu {
 namespace tile_fwk {
 const std::string platformConfigEnv = "PLATFORM_CONFIG_PATH";
@@ -25,15 +25,6 @@ const std::string aic = "AIC";
 const std::string aiv = "AIV";
 const std::string aicVersion = "AIC_version";
 const std::string aivVersion = "AIV_version";
-
-inline void trim(std::string& str) {
-    size_t lastPos = str.find_last_not_of(" \t\r\n");
-    if (lastPos != std::string::npos) {
-        str.erase(lastPos + 1);
-    } else {
-        str.clear();
-    }
-}
 
 Status INIParser::Initialize(const std::string& iniFilePath) {
     FUNCTION_LOGI("Start to parse ini_file %s.", iniFilePath.c_str());
@@ -54,7 +45,7 @@ Status INIParser::ReadINIFile(const std::string& filepath) {
     std::string line;
     std::string section;
     while (std::getline(file, line)) {
-        trim(line);
+        TrimLine(line);
         if (line.empty()) {
             continue;
         }
