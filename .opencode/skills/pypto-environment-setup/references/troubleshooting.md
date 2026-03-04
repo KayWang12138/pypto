@@ -54,8 +54,11 @@ wget --progress=bar --timeout=600 --tries=10 -O <file.run> <url>
 
 ## torch_npu 导入失败：共享库找不到 (libhccl.so / libatb.so / libascend_hal.so)
 
-原因：CANN toolkit 或相关组件的 `set_env.sh` 未加载，导致 `LD_LIBRARY_PATH` 缺失。
-其中，`libhccl.so` 属于 CANN toolkit 链路，`libatb.so` 属于 NNAL/ATB 组件，但症状和排查入口一致。
+原因通常分两类：
+1) `set_env.sh` 未加载，导致 `LD_LIBRARY_PATH` 缺失
+2) CANN 安装不完整（最常见：未安装对应芯片的 ops 包），即使 `source set_env.sh` 仍缺少 `libhccl.so`
+
+说明：`libhccl.so` 属于 CANN 的 HCCL/集合通信链路，通常随 CANN ops 包落盘；`libatb.so` 属于 NNAL/ATB 组件。
 
 ```bash
 # 检查 CANN 是否安装
@@ -65,6 +68,12 @@ ls ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/cann-*/set_env.sh 2>/dev/null || ec
 CANN_ENV_SH=${CANN_ENV_SH:-$(ls -1 ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/*/set_env.sh ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/*/*/set_env.sh 2>/dev/null | head -1)}
 test -n "$CANN_ENV_SH" && source "$CANN_ENV_SH" || echo "CANN not found"
 
+# 若报 libhccl.so，先确认文件是否存在（存在则说明是 LD_LIBRARY_PATH/加载问题）
+test -n "${ASCEND_HOME_PATH:-}" && ls -la "${ASCEND_HOME_PATH}/aarch64-linux/lib64/libhccl.so" 2>/dev/null || true
+
+# 若文件不存在：说明 ops 包缺失/安装不完整，按芯片型号重装 ops（A2=910B, A3=910C）
+cd "$PYPTO_REPO" && bash tools/prepare_env.sh --quiet --type=cann --device-type=<a2|a3> --install-path=${ASCEND_INSTALL_PATH:-/usr/local/Ascend}
+
 # 若仍缺 libatb.so，额外加载 NNAL/ATB 组件
 test -f "${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/nnal/atb/set_env.sh" && source "${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/nnal/atb/set_env.sh"
 
@@ -72,6 +81,24 @@ python3 -c "import torch_npu; print('torch_npu ok')"
 ```
 
 若未安装，见 `references/prepare_environment.md`。
+
+## prepare_env.sh 使用 --quiet 仍卡住：反复提示 Input error (please input y or n)
+
+现象（示例）：
+- `Directory has file existed, do you want to continue? [y/n]`
+- 然后刷屏：`[WARNING]: Input error, please input y or n to choose!`
+
+原因：交互提示来自 `.run` 安装包（常见于 pto-isa 升级/覆盖安装确认）。在部分 PyPTO 版本中，`tools/prepare_env.sh` 对 pto-isa 的安装命令未传递 `--quiet`，导致在非交互场景反复读不到输入。
+
+修复（推荐）：给 pto-isa 安装命令补上 `--quiet`。
+
+临时绕过（无需改脚本）：直接使用 `.run` 自带的 `--quiet` 参数重装 pto-isa：
+
+```bash
+PTO_RUN=${PTO_RUN:-$PYPTO_REPO/../pypto_download/cann_packages/cann-pto-isa_linux-aarch64.run}
+chmod +x "$PTO_RUN"
+"$PTO_RUN" --quiet --full --install-path=${ASCEND_INSTALL_PATH:-/usr/local/Ascend}
+```
 
 ## undefined symbol / ABI 不匹配
 
