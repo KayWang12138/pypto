@@ -363,6 +363,7 @@ struct ConvIterInfo {
     int64_t nL1Size = 0;
     int64_t nL0Size = 0;
     int64_t kL0Size = 0;
+    int64_t dkBL1SrcOffset = 0;
     bool aL1UpadateFlag = false;
     bool bL1UpadateFlag = false;
     bool isFirstK = false;
