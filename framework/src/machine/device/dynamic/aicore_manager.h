@@ -451,7 +451,7 @@ private:
     }
 
     inline bool CheckStopTaskCanBeSent(int coreIdx) {
-        if (pendingIds_[coreIdx] == AICORE_TASK_INIT && runningIds_[coreIdx] == AICORE_TASK_INIT) {
+        if ((pendingIds_[coreIdx] == AICORE_TASK_INIT || pendingIds_[coreIdx] == AICORE_TASK_STOP) && runningIds_[coreIdx] == AICORE_TASK_INIT) {
             return true;
         }
 
@@ -923,11 +923,17 @@ private:
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
-            pendingIds_[coreIdx] = AICORE_TASK_INIT;
-            pendingResolveIndexList_[coreIdx] = 0;
-            context_->corePendReadyCnt_[static_cast<int>(type)]++;
-            context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
+            if (wrapManager_.GetWrapCoreAvailable(coreIdx)) {
+                pendingIds_[coreIdx] = AICORE_TASK_INIT;
+                pendingResolveIndexList_[coreIdx] = 0;
+                context_->corePendReadyCnt_[static_cast<int>(type)]++;
+                context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
+            } else {
+                pendingIds_[coreIdx] = AICORE_TASK_STOP;
+            }
+            wrapManager_.UpdateFinishIdForMixCore(finTaskId, coreIdx);
         }
+
         return ret;
     }
 
@@ -942,6 +948,9 @@ private:
         uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
         uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
         DEV_VERBOSE_DEBUG("reslove task core index: %d, finishtaskid:%x, finishstate: %u.", coreIdx, finTaskId, finTaskState);
+        if (wrapManager_.isSupportMixSche) {
+            return ResolveWhenSyncMode(type, finTaskId, finTaskState, coreIdx);
+        }
 #if SCHEDULE_USE_PENDING_AND_RUNING_SWITCH
         auto &pendingIdRef = pendingIds_[coreIdx];
         auto &pendingResolveIndexBaseRef = pendingResolveIndexList_[coreIdx];
@@ -1205,7 +1214,6 @@ private:
         auto funcId = FuncID(finishId);
         auto opIndex = TaskID(finishId);
 
-        wrapManager_.UpdateFinishIdForMixCore(finishId, coreIdx);
         auto cceBinary = dyntask->cceBinary;
         auto func = dyntask->dynFuncDataCacheList[funcId].devFunc;
         auto predCounts =  dyntask->dynFuncDataCacheList[funcId].predCount;
