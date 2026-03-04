@@ -26,7 +26,6 @@ set_cube_tile_shapes(m: List[int], k: List[int], n: List[int], enable_multi_data
 | m                      | 输入      | m维度在L0和L1上的TileShape（切片形状）的切分大小，分别对应mL0和mL1的切分大小 |
 | k                      | 输入      | k维度在L0和L1上的TileShape（切片形状）的切分大小，分别对应kL0和kL1的切分大小 |
 | n                      | 输入      | n维度在L0和L1上的TileShape（切片形状）的切分大小，分别对应nL0和nL1的切分大小 |
-| enable_multi_data_load | 输入      | 设置True表示使能matmul的L1大包搬运功能，False表示未使能L1的大包搬运，默认为False |
 | enable_split_k         | 输入      | 设置True表示使能matmul的多核切K功能，False表示未使能多核切K，默认为False |
 
 ## 返回值说明
