@@ -78,3 +78,18 @@ def test_matrix_matmul_with_tensor_interface():
     assert isinstance(c, pypto.tensor)
     assert c.dtype == pypto.DT_INT32
     assert c.shape == [3, 32, 32]
+
+
+def test_matrix_matmul_with_ksplit_int8():
+    dtype = pypto.DT_INT8
+    a = pypto.tensor((64, 32), dtype, "A")
+    b = pypto.tensor((64, 32), dtype, "B")
+    c = None
+
+    with pypto.function("MATMUL", a, b):
+        pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64], True)
+        c = pypto.matmul(a, b, pypto.DT_INT32, a_trans=True, b_trans=False)
+
+    assert isinstance(c, pypto.tensor)
+    assert c.dtype == pypto.DT_INT32
+    assert c.shape == [32, 32]
