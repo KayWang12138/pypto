@@ -270,7 +270,7 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
 
     uint32_t indexH = attrParam.isConv3D ? NCDHW_H_IDX : NCHW_H_IDX;
     uint32_t indexW = attrParam.isConv3D ? NCDHW_W_IDX : (attrParam.isConv1D ? NCHW_H_IDX : NCHW_W_IDX);
-    int64_t cin = inputTensor.GetShape()[NCHW_C_IDX];
+    int64_t cin = weightTensor.GetShape()[NCHW_C_IDX];
     int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
     int64_t hin = attrParam.isConv1D ? 1 : inputTensor.GetShape()[indexH];
     int64_t win = inputTensor.GetShape()[indexW];
@@ -283,7 +283,7 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
 
     CheckHowoTile(inputTensor, weightTensor, attrParam);
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
-    CheckDivisible(ConvAlignB(cin, k0), tileCinFmap, "ceil(Cin / C0) × C0", "tileCinFmap");
+    CheckDivisible(ConvAlignB(cin, k0), tileCinFmap / groups, "ceil(Cin / C0) × C0", "tileCinFmap");
     CheckDivisible(ConvAlignB(cin, k0), tileCinWeight, "ceil(Cin / C0) × C0", "tileCinWeight");
     CheckAlignment(tileCinFmap, k0, "tileCinFmap");
     CheckAlignment(tileCinWeight, k0, "tileCinWeight");
