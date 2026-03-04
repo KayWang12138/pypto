@@ -574,8 +574,7 @@ void PaPostNewOnlyMm5NdK(Tensor &quant0In, Tensor &weightO, Tensor &mm5Out) {
             // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // int8 @ int8 = int32
             TileShape::Current().SetCubeTile({std::min(32, bTile * S), std::min(32, bTile * S)},
-                {std::min(128, N * vHeadDim), std::min(128, N * vHeadDim)}, {std::min(512, H), std::min(512, H)}, 
-                false, true);                                                                            // raw  16  2048  128
+                {std::min(128, N * vHeadDim), std::min(128, N * vHeadDim)}, {std::min(512, H), std::min(512, H)}, true); // raw  16  2048  128
             Tensor res = npu::tile_fwk::Matrix::Matmul(DT_INT32, quant0InUnit, weightO); // (bTile*S, H)
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile * S, 0};
@@ -646,7 +645,7 @@ void PaPostNewMm5NdkUnquantR3(Tensor &quant0In, Tensor &weightO, Tensor &weightO
             // int8 @ int8 = int32
             TileShape::Current().SetCubeTile({std::min(32, bTile * S), std::min(32, bTile * S)},
                 {std::min(128, N * vHeadDim), std::min(128, N * vHeadDim)},
-                {std::min(512, H), std::min(512, H)}, false, true); // raw  16  2048  128
+                {std::min(512, H), std::min(512, H)}, true); // raw  16  2048  128
             Tensor res = npu::tile_fwk::Matrix::Matmul(DT_INT32, quant0InUnit, weightO);  // (bTile*S, H)
 
             TileShape::Current().SetVecTile(std::min(8, bTile * S), std::min(1024, H)); // raw (8, 7168)
@@ -800,7 +799,7 @@ void PaPostNewOnlyMm5NzK(Tensor &quant0In, Tensor &weightO, Tensor &mm5Out) {
             // int8 @ int8 = int32
             TileShape::Current().SetCubeTile({std::min(32, bTile * S), std::min(32, bTile * S)},
                 {std::min(128, N * vHeadDim), std::min(128, N * vHeadDim)},
-                {std::min(512, H), std::min(512, H)}, false, true); // raw  16  2048  128
+                {std::min(512, H), std::min(512, H)}, true); // raw  16  2048  128
             Tensor res = npu::tile_fwk::Matrix::Matmul(DT_INT32, quant0InUnit, weightO);  // (bTile*S, H)
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile * S, 0};
@@ -1584,7 +1583,7 @@ void PaPostDebugCastFirstCrtb4trQMM5NDk(Tensor &postIn, Tensor &weightUV, Tensor
             // int8 @ int8 = int32
             TileShape::Current().SetCubeTile({std::min(32, bTile * S), std::min(32, bTile * S)},
                 {std::min(128L, N * vHeadDim), std::min(128L, N * vHeadDim)},
-                {std::min(512L, H), std::min(512L, H)}, false, true); // raw  16  2048  128
+                {std::min(512L, H), std::min(512L, H)}, true); // raw  16  2048  128
             Tensor res = npu::tile_fwk::Matrix::Matmul(DT_INT32, quantizedA, weightO);
 
             std::vector<SymbolicScalar> dynOffset = {bIdx * bTile * S, 0};
@@ -1978,8 +1977,7 @@ void PaPostDebugCastFirstMm5SplitK(Tensor &postIn, Tensor &weightUV, Tensor &wei
             config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{0, 4}});
             config::SetSemanticLabel("BMM4");
             TileShape::Current().SetCubeTile({std::min(32, bTile * S), std::min(32, bTile * S)},
-                {std::min(256L, kvLoraRank), std::min(512L, kvLoraRank)}, {vHeadDim, vHeadDim},
-                true);                                                 // raw bTile*1  512   128   // 128/4个
+                {std::min(256L, kvLoraRank), std::min(512L, kvLoraRank)}, {vHeadDim, vHeadDim}); // raw bTile*1  512   128   // 128/4个
             auto bmmRes = Matrix::BatchMatmul(dtype, t1Res, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
 
             config::SetSemanticLabel("TRANSPOSE3");
@@ -1998,7 +1996,7 @@ void PaPostDebugCastFirstMm5SplitK(Tensor &postIn, Tensor &weightUV, Tensor &wei
             // // int8 @ int8 = int32
             TileShape::Current().SetCubeTile({std::min(32, bTile * S), std::min(32, bTile * S)},
                 {std::min(128L, N * vHeadDim), std::min(128L, N * vHeadDim)},
-                {std::min(512L, H), std::min(512L, H)}, false, true); // 14个
+                {std::min(512L, H), std::min(512L, H)}, true); // 14个
             Tensor res = npu::tile_fwk::Matrix::Matmul(DT_INT32, quantizedA, weightO);
 
             config::SetSemanticLabel("CMMC");
@@ -2042,8 +2040,7 @@ void PaPostDebugCastFirstMm5NormalUnSplitK(Tensor &postIn, Tensor &weightUV, Ten
             config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{0, 4}});
             config::SetSemanticLabel("BMM4");
             TileShape::Current().SetCubeTile({std::min(32, bTile * S), std::min(32, bTile * S)},
-                {std::min(256L, kvLoraRank), std::min(512L, kvLoraRank)}, {vHeadDim, vHeadDim},
-                true);                                                 // raw bTile*1  512   128   // 128/4个
+                {std::min(256L, kvLoraRank), std::min(512L, kvLoraRank)}, {vHeadDim, vHeadDim}); // raw bTile*1  512   128   // 128/4个
             auto bmmRes = Matrix::BatchMatmul(dtype, t1Res, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
 
             config::SetSemanticLabel("TRANSPOSE3");
@@ -2061,8 +2058,7 @@ void PaPostDebugCastFirstMm5NormalUnSplitK(Tensor &postIn, Tensor &weightUV, Ten
             // // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
             // // int8 @ int8 = int32
             TileShape::Current().SetCubeTile({std::min(32, bTile * S), std::min(32, bTile * S)},
-                {std::min(512L, N * vHeadDim), std::min(512L, N * vHeadDim)}, {std::min(64L, H), std::min(64L, H)},
-                true); // raw  bTile*1  16k  7168
+                {std::min(512L, N * vHeadDim), std::min(512L, N * vHeadDim)}, {std::min(64L, H), std::min(64L, H)}); // raw  bTile*1  16k  7168
             Tensor res = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT32, quantizedA, weightO);
 
             config::SetSemanticLabel("CMMC");
@@ -2270,7 +2266,7 @@ void PaPostDebugCastFirstMm5SplitKLow(Tensor &postIn, Tensor &weightUV, Tensor &
             // int8 @ int8 = int32
             TileShape::Current().SetCubeTile({std::min(32, bTile * S), std::min(32, bTile * S)},
                 {std::min(128L, N * vHeadDim), std::min(128L, N * vHeadDim)},
-                {std::min(512L, H), std::min(512L, H)}, false, true); // raw  16  2048  128
+                {std::min(512L, H), std::min(512L, H)}, true); // raw  16  2048  128
             Tensor res = npu::tile_fwk::Matrix::Matmul(DT_INT32, quantizedA, weightO);  // (bTile*S, H)
 
             TileShape::Current().SetVecTile(std::min(8, bTile * S), std::min(1024L, H)); // raw (2, 7168)
@@ -2387,174 +2383,6 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_new_mm5nd_splitk_low) {
     EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.0001f));
 }
 
-// ================Pa+PaPost bf16 b48
-void PageAttentionPostBf16(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &qRope, Tensor &kRopeCache,
-    Tensor &blockTable, Tensor &actSeqs, int blockSize, float softmaxScale, Tensor &postIn, Tensor &weightUV, Tensor &weightO,
-    Tensor &weightOScaleW, Tensor &attentionOut, Tensor &postOut,
-    PaTileShapeConfig &tileConfig, int maxUnrollTimes, int bTile) {
-    auto dtype = qNope.GetStorage()->Datatype();
-    // 入参B*S*N合轴
-    int dN = qNope.GetShape()[1];
-    int dR = qRope.GetShape()[1];
-
-    int nTile = tileConfig.headNumQTile;
-    auto c1Tile = tileConfig.c1TileShape;
-    auto v1Tile = tileConfig.v1TileShape;
-    auto c2Tile = tileConfig.c2TileShape;
-    auto v2Tile = tileConfig.v2TileShape;
-    int batchSize = blockTable.GetShape()[0];
-    int nQ = qNope.GetShape()[0] / batchSize; // B*1*N
-
-    auto N = weightUV.GetShape()[0];;
-    auto kvLoraRank = weightUV.GetShape()[1];
-    auto vHeadDim = weightUV.GetShape()[2];
-    auto H = weightO.GetShape()[1];
-    int S = 1;
-
-    FUNCTION("main",
-        {qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, postIn, weightUV, weightO, weightOScaleW},
-        {attentionOut, postOut}) {
-        SymbolicScalar nLoop = nQ / nTile;
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSize, 1)) {
-            SymbolicScalar curSeq = GetTensorData(actSeqs, {bIdx});
-            SymbolicScalar bnPerBatch = curSeq / blockSize; // 暂时仅考虑curSeq是blockSize对齐
-            bnPerBatch.AsIntermediateVariable();
-            LOOP("LOOP_L1_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nLoop, 1)) {
-                int curNTile = nTile;
-                Tensor oiUpdate(DT_FP32, {nTile, dN}, "oiUpdate");
-                Tensor liUpdate(DT_FP32, {nTile, 1}, "liUpdate");
-                Tensor miUpdate(DT_FP32, {nTile, 1}, "miUpdate");
-                // 当前curOffset没放到更内层循环，避免重复bnPerBatch次的Assemble操作
-                SymbolicScalar curOffset = bIdx * nQ + nIdx * nTile;
-                std::vector<SymbolicScalar> oiOffset = {curOffset, 0}; // (B*N*S, d)
-
-                LOOP("LOOP_L2_bn", FunctionType::DYNAMIC_LOOP, bn, LoopRange(0, bnPerBatch, 1),
-                     PowersOf2(maxUnrollTimes)) {
-                    // 当前qn，qr和qi放入内层Loop，避免Concat单独切成一个小图
-                    int curS2Tile = blockSize;
-                    auto qn = View(qNope, {curNTile, dN}, {curOffset, 0});
-                    auto qr = View(qRope, {curNTile, dR}, {curOffset, 0});
-                    Tensor qi(dtype, {curNTile, dN + dR}, "qi");
-                    Assemble(qn, {0, 0}, qi);
-                    Assemble(qr, {0, dN}, qi);
-
-                    SymbolicScalar curBlockIdx = GetTensorData(blockTable, {bIdx, bn});
-                    curBlockIdx.AsIntermediateVariable();
-                    auto kn = View(kNopeCache, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
-                                                  {curBlockIdx * blockSize, 0});
-                    auto kr = View(kRopeCache, {curS2Tile, dR}, {std::min(curSeq - bn * blockSize, blockSize), dR},
-                                                  {curBlockIdx * blockSize, 0});
-                    Tensor kj(dtype, {curS2Tile, dN + dR}, "kj");
-                    Assemble(kn, {0, 0}, kj);
-                    Assemble(kr, {0, dN}, kj);
-                    auto vj = View(vNopeCache, {curS2Tile, dN}, {std::min(curSeq - bn * blockSize, blockSize), dN},
-                                                  {curBlockIdx * blockSize, 0});
-
-                    TileShape::Current().SetCubeTile(
-                        {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]});
-                    auto sij = Matrix::Matmul(DataType::DT_FP32, qi, kj, false, true); // (curNTile, dN+dR), (curS2Tile, dN+dR) -> (curNTile, curS2Tile)
-                    TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
-                    auto sijScale = Mul(sij, Element(DataType::DT_FP32, softmaxScale)); // (curNTile, curS2Tile)
-
-                    auto tildaMij = Amax(sijScale, -1, true); // (curNTile, curS2Tile) -> (curNTile, 1)
-                    auto tsub =
-                        Sub(sijScale, tildaMij); // (curNTile, curS2Tile) - (curNTile, 1) -> (curNTile, curS2Tile)
-                    auto tildaPij = Exp(tsub);
-                    auto tildaPijF16 = Cast(tildaPij, dtype);
-                    auto tildaLij = Sum(tildaPij, -1, true); // (nTileCur, s2TileCur) -> (nTileCur, 1)
-
-                    IF (IsLoopBegin(bn, 0)) {
-                        TileShape::Current().SetCubeTile(
-                            {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
-                        auto oiTmp = Matrix::Matmul(DataType::DT_FP32, tildaPijF16, vj, false, false);; // (curNTile, curS2Tile), (curS2Tile, dN) -> (curNTile, dN)
-                        TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
-                        IF (IsLoopEnd(bn, bnPerBatch)) {
-                            oiUpdate = Div(oiTmp, tildaLij); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                            Assemble(oiUpdate, oiOffset, attentionOut);
-                        } ELSE {
-                            oiUpdate = oiTmp;
-                        }
-                        liUpdate = tildaLij;
-                        miUpdate = tildaMij;
-                    } ELSE {
-                        auto oi = oiUpdate;
-                        auto li = liUpdate;
-                        auto mi = miUpdate;
-
-                        auto miNew = Maximum(mi, tildaMij); // (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                        auto t1 = Sub(mi, miNew);           // (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                        auto t2 = Exp(t1);
-                        auto t3 = Sub(tildaMij, miNew); // (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                        auto t4 = Exp(t3);
-                        auto t5 = Mul(t4, tildaLij); // (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                        auto t6 = Mul(t2, li);       // (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-                        auto liNew = Add(t6, t5);    // (curNTile, 1), (curNTile, 1) -> (curNTile, 1)
-
-                        auto q3 = Mul(oi, t2); // (curNTile, dN), (curNTile, 1) -> (curNTile, dN)
-                        TileShape::Current().SetCubeTile(
-                            {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]});
-                        auto q1 = Matrix::Matmul(DataType::DT_FP32, tildaPijF16, vj, false, false); // (curNTile, curS2Tile), (curS2Tile, dN) -> (curNTile, dN)
-                        TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
-                        auto q2 = Mul(q1, t4);    // (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
-                        auto oiTmp = Add(q3, q2); // (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
-                        IF (IsLoopEnd(bn, bnPerBatch)) {
-                            oiUpdate = Div(oiTmp, liNew); // (nTileCur, dN) / (nTileCur, 1) -> (nTileCur, dN)
-                            Assemble(oiUpdate, oiOffset, attentionOut);
-                        } ELSE {
-                            oiUpdate = oiTmp;
-                        }
-                        liUpdate = liNew;
-                        miUpdate = miNew;
-                    }
-                }
-            }
-        }
-
-        SymbolicScalar B = attentionOut.GetShape()[0] / N; // S=1
-        config::SetPassOption(SG_PG_UPPER_BOUND, NUM_500000);
-        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, B / (bTile <= 0 ? 1 : bTile), 1), PowersOf2(maxUnrollTimes), true) {
-            auto postInUnit = View(attentionOut, {bTile * S * N, kvLoraRank}, {bIdx * bTile * S * N, 0});
-            TileShape::Current().SetVecTile({std::min(32L, bTile * S * N), kvLoraRank});
-
-            auto r1Res = Reshape(postInUnit, {bTile*S, N, kvLoraRank}); // 128个
-            TileShape::Current().SetVecTile({std::min(NUM_32, bTile * S), 2, kvLoraRank}); // raw (bTile*1, 128, 512)
-            auto cast1 = Cast(r1Res, DT_BF16);
-            auto t1Res = Transpose(cast1, {0, 1}); // (N, bTile * S, kvLoraRank)    // 128个
-
-            TileShape::Current().SetCubeTile({std::min(NUM_32, bTile * S), std::min(NUM_32, bTile * S)},
-                {std::min(256L, kvLoraRank), std::min(5L, kvLoraRank)}, {vHeadDim, vHeadDim},
-                true);                                                 // raw bTile*1  512   128   // 128/4个
-            auto bmmRes = Matrix::BatchMatmul(dtype, t1Res, weightUV); // (N, bTile, kvLoraRank) * (N, kvLoraRank, vHeadDim) -> (N, bTile, vHeadDim)
-
-            TileShape::Current().SetVecTile(1, std::min(NUM_32, bTile * S), vHeadDim); // raw (128, bTile*1, 128)
-            auto t3Res = Transpose(bmmRes, {0, 1}); // (N, bTile, vHeadDim) -> (bTile, N, vHeadDim) // 128个
-            auto r2Res = Reshape(t3Res, {bTile * S, N * vHeadDim}); // (bTile * S, N, vHeadDim) -> (bTile * S, N*vHeadDim)
-
-            TileShape::Current().SetVecTile(1, N * vHeadDim); // raw (bTile*1, 128*128)
-            auto quantA = Quant(r2Res);
-            auto quantizedA = std::get<0>(quantA); //(bTile * S, N*vHeadDim)
-            auto dequantScaleA = std::get<1>(quantA); //(bTile * S, 1)
-
-            // // (bTile*S, N*vHeadDim) @ (N*vHeadDim, H) = (bTile*S, H)
-            // // int8 @ int8 = int32
-            TileShape::Current().SetCubeTile({std::min(NUM_32, bTile * S), std::min(NUM_32, bTile * S)},
-                {std::min(512L, N * vHeadDim), std::min(512L, N * vHeadDim)}, {std::min(64L, H), std::min(64L, H)},
-                true); // raw  bTile*1  16k  7168
-            Tensor res = npu::tile_fwk::Matrix::Matmul(DataType::DT_INT32, quantizedA, weightO);
-
-            TileShape::Current().SetVecTile(std::min(NUM_32, bTile * S), std::min(32L, H)); // raw (bTile*1, 7168)
-            res = Cast(res, DataType::DT_FP32);
-            res = Mul(res, dequantScaleA);   // (B*S, 1)
-            Tensor weightOScaleW2Dim = Reshape(weightOScaleW, {1, H});
-            res = Mul(res, weightOScaleW2Dim);   // (1, H)  // 224个
-            Tensor bmm5Res = Cast(res, DataType::DT_BF16, CAST_RINT);
-            auto postOutTmp = Reshape(bmm5Res, {bTile, S, H});
-
-            std::vector<SymbolicScalar> dynOffset = {bIdx * bTile, 0, 0};
-            Assemble(postOutTmp, dynOffset, postOut);
-        }
-    }
-}
 void testPaPostBf16(PaTileShapeConfig& tileConfig, int maxUnrollTimes, int bTile) {
 
     std::vector<uint8_t> devProgBinary;
@@ -2663,26 +2491,4 @@ void testPaPostBf16(PaTileShapeConfig& tileConfig, int maxUnrollTimes, int bTile
     auto outs1 = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(1);
     EXPECT_TRUE(resultCmp(paPostgolden, (npu::tile_fwk::bfloat16 *)outs1->data(), 0.04f));
 }
-
-TEST_F(DynamicAttentionPostTest, dynamic_pa_papost_bf16_b48) {
-    PaTileShapeConfig tileConfig;
-    const int nTile = 128;
-    tileConfig.headNumQTile = nTile;
-    tileConfig.c1TileShape = {nTile, nTile, 64, 64, 128, 128};
-    tileConfig.v1TileShape = {16, 256};
-    tileConfig.c2TileShape = {nTile, nTile, 64, 64, 128, 128};
-    tileConfig.v2TileShape = {16, 256};
-    /*
-                     powersOf  tileB
-                         2      24   ok
-                         2      16   ok
-                         2      12   ok
-                         4      12   ok
-                         8      6    ok
-                         4      1    nok
-                         4      2    ok
-    */
-    testPaPostBf16(tileConfig, 2, 16);
-}
-
 }
