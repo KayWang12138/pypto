@@ -21,7 +21,7 @@ namespace tile_fwk {
 const uint32_t kMaxLength = 50;
 const std::string socVerFuncName = "rtGetSocVersion";
 const std::string socSpecFuncName = "rtGetSocSpec";
-const std::string AiCpuNumFuncName = "rtGetSocSpec";
+const std::string AiCpuNumFuncName = "rtGetAiCpuCount";
 
 void *CannHostRuntime::GetSymbol(const std::string &sym) {	 
  #ifdef BUILD_WITH_CANN	 
