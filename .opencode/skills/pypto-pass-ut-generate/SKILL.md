@@ -51,11 +51,11 @@ license: 完整条款见 LICENSE.txt
                     void SetUp() override {
                         Program::GetInstance().Reset();
                         config::Reset();
-                        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH); //其中 pypto/framework/src/interface/configs/config_manager_ng.h中的COMPILE_STAGE策略，通过pass所在目录，得到所处的编译策略
-                        config::SetHostConfig(KEY_STRATEGY, "XXXTestStrategy"); //其中xxx未pass名字
-                        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-                        TileShape::Current().SetVecTile({64, 64}); 
-                        TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
+                        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH); // 其中 pypto/framework/src/interface/configs/config_manager_ng.h中的COMPILE_STAGE策略，通过pass所在文件夹目录，得到所处的编译策略
+                        config::SetHostConfig(KEY_STRATEGY, "XXXTestStrategy"); // 其中xxx为pass名字，表示host侧KEY_STRATEGY
+                        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false); // 其中 pypto/framework/src/interface/configs/config_manager.h中的Platform KEYs表示平台策略，需要根据用户传入的进行修改，若未传入，则采用该默认方式
+                        TileShape::Current().SetVecTile({64, 64}); // 设置vector的tile块大小
+                        TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64}); // 设置cube的tile块大小
                     }
 ```
                 4.每个测试用例执行后的清理测试环境函数--void TearDown() override {}，若为明确指定内容，则为空实现。
