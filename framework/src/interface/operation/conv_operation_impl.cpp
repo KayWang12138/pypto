@@ -706,9 +706,9 @@ void SetImg2ColAttr(Operation &load3dOpAl0, const ConvAttrParam &convAttrParam, 
     }
     int64_t hinAL1Used = (iterInfo.houtL1Size - 1) * strideH + dilatedKernelH;
     int64_t hinBottomPadOffset = iterInfo.hL1InOffset + hinAL1Used;
-    if (hinBottomPadOffset > convAttrParam.oriFmapShape[NCHW_H_IDX]) {
+    if (hinBottomPadOffset > convTileInfo.orgHin) {
         load3dOpAl0.SetAttribute(L12L0ConvOpAttributeKey::paddingBottom,
-                                 hinBottomPadOffset - convAttrParam.oriFmapShape[NCHW_H_IDX]);
+                                 hinBottomPadOffset - convTileInfo.orgHin);
     } else {
         load3dOpAl0.SetAttribute(L12L0ConvOpAttributeKey::paddingBottom, 0);
     }
@@ -720,9 +720,9 @@ void SetImg2ColAttr(Operation &load3dOpAl0, const ConvAttrParam &convAttrParam, 
     }
     int64_t winAL1Used = (iterInfo.woutL1Size - 1) * strideW + dilatedKernelW;
     int64_t winRightPadOffset = iterInfo.wL1InOffset + winAL1Used;
-    if (winRightPadOffset > convAttrParam.oriFmapShape[NCHW_W_IDX]) {
+    if (winRightPadOffset > convTileInfo.orgWin) {
         load3dOpAl0.SetAttribute(L12L0ConvOpAttributeKey::paddingRight,
-                                 winRightPadOffset - convAttrParam.oriFmapShape[NCHW_W_IDX]);
+                                 winRightPadOffset - convTileInfo.orgWin);
     } else {
         load3dOpAl0.SetAttribute(L12L0ConvOpAttributeKey::paddingRight, 0);
     }
@@ -733,6 +733,8 @@ void SetImg2ColAttr(Operation &load3dOpAl0, const ConvAttrParam &convAttrParam, 
     load3dOpAl0.SetAttribute(L12L0ConvOpAttributeKey::postK, kStartPt);
     // set pad value
     load3dOpAl0.SetAttribute(L12L0ConvOpAttributeKey::padValue, 0);
+    // set conv3d flag
+    load3dOpAl0.SetAttribute(Conv::LoadStoreConvOpAttributeKey::isConv3D, convAttrParam.isConv3D);
 }
 
 LogicalTensorPtr ConstructFmapTile(Function &function, const ConvGraphNodes &tensorGraphNodes,
@@ -767,7 +769,7 @@ LogicalTensorPtr ConstructFmapTile(Function &function, const ConvGraphNodes &ten
             dstAL1Shape = std::vector<int64_t>{1, iterInfo.dkAL1Size, cin1AL1Size,
                                                iterInfo.hinL1Size, iterInfo.winL1Size, convTileInfo.cin0};
             srcGmValidShape =
-                std::vector<int64_t>{1, srcGmCin, iterInfo.dkL1Size, iterInfo.hinL1Size, iterInfo.winL1Size};
+                std::vector<int64_t>{1, srcGmCin, iterInfo.dkAL1Size, iterInfo.hinL1Size, iterInfo.winL1Size};
         }
         dstAL1TensorPtr =
             std::make_shared<LogicalTensor>(function, tensorGraphNodes.fmapTensorPtr->Datatype(), dstAL1Shape,
@@ -847,7 +849,7 @@ LogicalTensorPtr ConstructWeightTile(Function &function, const ConvGraphNodes &t
                                      MKN_N_VALUE, convTileInfo.cin0};
             srcGmValidShape =
                 std::vector<int64_t>{iterInfo.nL1Size, srcGmCin,
-                                     convTileInfo.orgKd, convTileInfo.orgKh, convTileInfo.orgKw};
+                                     iterInfo.dkBL1Size, convTileInfo.orgKh, convTileInfo.orgKw};
         }
         dstBL1TensorPtr =
             std::make_shared<LogicalTensor>(function, tensorGraphNodes.weightTensorPtr->Datatype(), dstBL1Shape,
@@ -861,7 +863,9 @@ LogicalTensorPtr ConstructWeightTile(Function &function, const ConvGraphNodes &t
         copyInOpBl1.SetAttribute(LoadStoreConvOpAttributeKey::copyInMode, static_cast<int64_t>(CopyInMode::COPY_MOD_DN2NZ));
         int64_t src_n_offset = iterInfo.groupOffset * convTileInfo.coutPerGroup + iterInfo.nL1Offset;
         int64_t src_c_offset = srcCinOffset;
-        int64_t src_d_offset = convTileInfo.orgKd - iterInfo.dkL1Size + (iterInfo.kL0Offset / convTileInfo.kPerGroup);
+        int64_t src_d_offset = (iterInfo.doL1Offset * convAttrParam.strides[2] - convAttrParam.paddings[4]) < 0 ?
+            (convTileInfo.orgKd - iterInfo.dkBL1SrcOffset + (iterInfo.kL0Offset / convTileInfo.kPerGroup)) :
+            (iterInfo.kL0Offset / convTileInfo.kPerGroup);
         int64_t src_h_offset = 0;
         int64_t src_w_offset = 0;
         std::vector<int64_t> srcWeightGmOffset = {src_n_offset, src_c_offset, src_h_offset, src_w_offset};
@@ -967,6 +971,7 @@ void Cal3DDkL1Size(const ConvTileInfo &convTileInfo, ConvIterInfo &iterInfo, con
         if (iterInfo.dinL1Offset < 0) {
             int64_t tmpKd = CeilDiv(-iterInfo.dinL1Offset, convAttrParam.dilations[2]);
             iterInfo.dkL1Size -= tmpKd;
+            iterInfo.dkBL1SrcOffset = iterInfo.dkL1Size;
             srcDkOffset = iterInfo.dinL1Offset + tmpKd * convAttrParam.dilations[2];
         }
         int64_t kdL1EndOffset = iterInfo.dinL1Offset + (convTileInfo.orgKd - 1) * convAttrParam.dilations[2] + 1;
