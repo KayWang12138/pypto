@@ -2,11 +2,10 @@
 
 ## 通用排查步骤
 
-1. 运行诊断：`python3 "$SKILL_DIR/scripts/diagnose_env.py" --pretty`
+1. 运行诊断：`python3 scripts/diagnose_env.py --pretty`
 2. 确认 Python：`which python3`
-3. 确认 CANN：`echo $ASCEND_HOME_PATH`（为空则需加载，见 `prepare_environment.md` § "CANN 环境加载"）
+3. 确认 CANN：`echo $ASCEND_HOME_PATH`（为空则需加载，见 [prepare_environment.md](prepare_environment.md) § "CANN 环境加载"）
 4. conda 用户确认已激活正确 env
-
 ---
 
 ## 🔧 环境加载/变量问题
@@ -15,8 +14,7 @@
 
 原因：未加载 CANN 环境变量。
 
-修复：加载 CANN 环境后重试（见 `prepare_environment.md` § "CANN 环境加载"），然后 `npu-smi info`。
-
+修复：加载 CANN 环境后重试（见 [prepare_environment.md](prepare_environment.md) § "CANN 环境加载"），然后 `npu-smi info`。
 ### torch_npu 导入失败：libhccl.so / libatb.so / libascend_hal.so
 
 原因分两类：
@@ -79,8 +77,7 @@ test -d "$PTO_TILE_LIB_CODE_PATH/include/pto" && echo OK
 
 原因：pto-isa 头文件过旧或与 PyPTO 分支不匹配。
 
-修复：切换到源码方式（见 `prepare_environment.md` § "pto-isa 获取"），然后清理重编译：
-
+修复：切换到源码方式（见 [prepare_environment.md](prepare_environment.md) § "pto-isa 获取"），然后清理重编译：
 ```bash
 cd "${PYPTO_REPO}/examples/02_intermediate/operators/softmax"
 rm -rf output/ 2>/dev/null || true
@@ -107,8 +104,7 @@ cd "$PYPTO_REPO" && rm -rf build/ temp.linux-* && pip install -e . --no-build-is
 
 原因：torch 与 torch_npu 版本组合不在兼容矩阵内。
 
-修复：按兼容矩阵重装（见 `prepare_environment.md` § "版本兼容"）。
-
+修复：按兼容矩阵重装（见 [prepare_environment.md](prepare_environment.md) § "版本兼容"）。
 ### pip 依赖冲突：ResolutionImpossible
 
 原因：torch 版本冲突。以兼容矩阵为准，必要时创建新 venv 重装。
