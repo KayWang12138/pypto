@@ -193,7 +193,7 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
                         )
 
                         pypto.set_cube_tile_shapes(
-                            c1_tile[0], c1_tile[1], c1_tile[2], False
+                            c1_tile[0], c1_tile[1], c1_tile[2]
                         )
 
                         mm_res = pypto.matmul(
@@ -268,7 +268,7 @@ def lightning_indexer_topk_impl(args: LightningIndexerInputs):
                         )
 
                         pypto.set_cube_tile_shapes(
-                            c1_tile[0], c1_tile[1], c1_tile[2], False
+                            c1_tile[0], c1_tile[1], c1_tile[2]
                         )
 
                         mm_res = pypto.matmul(

@@ -678,7 +678,7 @@ void SetHeuristicCubeTiles(Function &function, std::unordered_set<Operation *> c
         n[1] = n[0];
 
         // Set new tiles for each operation (M = m, N = n, K = k, enableMultiDataLoad = true)
-        op->GetTileShapeForSetting().SetCubeTile(m, k, n, true);
+        op->GetTileShapeForSetting().SetCubeTile(m, k, n);
     }
 }
 

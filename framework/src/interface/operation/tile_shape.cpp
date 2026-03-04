@@ -87,7 +87,7 @@ void TileShape::SetVecTile(const VecTile &tile) {
 void TileShape::SetCubeTile(const std::array<int64_t, MAX_M_DIM_SIZE> &m,
                             const std::array<int64_t, MAX_K_DIM_SIZE> &k,
                             const std::array<int64_t, MAX_N_DIM_SIZE> &n,
-                            bool enableMultiDataLoad, bool enableSplitK) {
+                            bool enableSplitK) {
     auto nk = k;
     if (nk[2] == 0) {
         nk[2] = nk[1];
