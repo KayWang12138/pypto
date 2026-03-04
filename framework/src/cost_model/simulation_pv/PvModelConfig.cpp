@@ -16,9 +16,10 @@
 #include <iostream>
 #include <fstream>
 #include "PvModelConfig.h"
+#include "tilefwk/pypto_fwk_log.h"
 
 namespace CostModel {
-void PvModelSystemConfigA2A3::Dump(std::string path) {
+void PvModelSystemConfig::Dump(std::string path) {
     std::ofstream outFile(path);
 
     // 检查文件是否成功打开
@@ -120,6 +121,11 @@ void PvModelCaseConfigBase::SetCoreType(uint64_t coreType)
     subcoreId_ = coreType;
 }
 
+std::uint64_t PvModelCaseConfigBase::GetCoreType() 
+{
+    return subcoreId_;
+}
+
 void PvModelCaseConfigBase::SetBin(uint64_t addr, std::string path) {
     binAddr_ = addr;
     binPath_ = path;
@@ -133,11 +139,11 @@ void PvModelCaseConfigBase::AddOutputArg(uint64_t addr, uint64_t size, std::stri
     outputArgs_.emplace_back(std::make_tuple(addr, size, path));
 }
 
-void PvModelCaseConfigA2A3::Dump(std::string path) {
+void PvModelCaseConfig::Dump(std::string path) {
     std::fstream file(path, std::ios::out);
 
     if (!file.is_open()) {
-        std::cerr << "[PVMODEL]open config file error: " << path << std::endl;
+        SIMULATION_LOGE("[PVMODEL]open config file error: %s", path.c_str());
         return;
     }
 

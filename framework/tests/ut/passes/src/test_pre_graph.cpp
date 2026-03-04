@@ -32,8 +32,12 @@ using namespace npu::tile_fwk;
 
 namespace npu {
 namespace tile_fwk {
+constexpr int SUBGRAPHID0 = 0;
+constexpr int SUBGRAPHID1 = 1;
+constexpr int SUBGRAPHID2 = 2;
+constexpr int NUM3 = 3;
 constexpr int NUM10 = 10;
-
+constexpr int NUM128 = 128;
 void PrintGraphInfoPreGraph(Function* func, std::set<int>& tensorMagicWithColorSet) {
     std::cout << "func->Operations().size() = "  << func->Operations().size() << std::endl;
     for (auto &op : func->Operations()) {
@@ -109,7 +113,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetHostConfig(KEY_STRATEGY, "PreGraphTestStrategy");
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
@@ -328,7 +332,7 @@ TEST_F(PreGraphTest, TestAssemble) {
 }
 
 TEST_F(PreGraphTest, TestView) {
-config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     std::vector<int64_t> shape1{128, 128};
     std::vector<int64_t> shape2{64, 64};
@@ -474,7 +478,7 @@ TEST_F(PreGraphTest, TestTransposeDatamoveExp) {
     outInnerTemp->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
 
     G.SetInCast({"input"});
-    G.SetOutCast({"output"});
+    G.SetOutCast({"output", "output2"});
     Function *function = G.GetFunction();
     const int SUBGRAPH_NUM = 8;
     function->SetTotalSubGraphCount(SUBGRAPH_NUM);
@@ -656,6 +660,444 @@ TEST_F(PreGraphTest, TestFixPipeReconnectGraph) {
     EXPECT_EQ(scaleValue, Element(DataType::DT_UINT64, NUM10));
     EXPECT_EQ(reluType, 1);
 }
+
+void ConstructRemoveRedundantView(ComputationalGraphBuilder &G, bool multi) {
+    // add tensor
+    G.AddTensor(DataType::DT_FP16, {16, 64, 64}, "t1");
+    G.AddTensor(DataType::DT_FP16, {1, 64, 64}, "t2");
+    G.AddTensor(DataType::DT_FP16, {64, 64}, "t3");
+    G.AddTensor(DataType::DT_FP16, {64, 64}, "t4");
+    G.AddTensor(DataType::DT_FP16, {64, 64}, "t41");
+ 	G.AddTensor(DataType::DT_FP16, {64, 64}, "t42");
+ 	G.AddTensor(DataType::DT_FP16, {64, 64}, "t43");
+    // add op
+    G.AddOp(Opcode::OP_VIEW, {"t1"}, {"t2"}, "VIEW");
+    G.AddOp(Opcode::OP_RESHAPE, {"t2"}, {"t3"}, "RESHAPE");
+    G.AddOp(Opcode::OP_COPY_IN, {"t3"}, {"t4"}, "COPYIN");
+    G.AddOp(Opcode::OP_ABS, {"t4"}, {"t42"}, "ABS1");
+    std::vector<int64_t> offset = {2, 0, 0};
+    auto view = G.GetOp("VIEW");
+    auto attrA = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{2, 0, 0}, MemoryType::MEM_UNKNOWN,
+        OpImmediate::ToSpecified(OpImmediate::Specified(std::vector<int64_t>{2, 0, 0})));
+    view->SetOpAttribute(attrA);
+    // set incast and outcast
+    G.SetInCast({"t1"});
+    G.SetOutCast({"t42","t43"});
+
+    // another copyin
+    if (multi) {
+        G.AddTensor(DataType::DT_FP32, {64, 64}, "t41");
+        G.SetOutCast({"t41"});
+        G.AddOp(Opcode::OP_COPY_IN, {"t3"}, {"t41"}, "COPYIN2");
+        auto copyIn2 = G.GetOp("COPYIN2");
+        auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(copyIn2->GetOpAttribute());
+        copyAttr->SetFromOffset(OpImmediate::Specified(std::vector<int64_t>{32, 0}));
+        G.AddOp(Opcode::OP_ABS, {"t41"}, {"t43"}, "ABS2");
+    }
+}
+
+TEST_F(PreGraphTest, TestRemoveRedundantView) {
+    ComputationalGraphBuilder G;
+    ConstructRemoveRedundantView(G, false);
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    PreGraphProcess passLocal;
+    EXPECT_EQ(passLocal.Run(*function, "", "", 0), SUCCESS);
+    // check after pass
+    auto opList = function->Operations();
+    int64_t viewCnt = 0;
+    for (const auto &op : opList) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            ++viewCnt;
+        }
+    }
+    EXPECT_EQ(viewCnt, 0);
+
+    auto copyIn = G.GetOp("COPYIN");
+    std::shared_ptr<CopyOpAttribute> copyAttr = std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
+    auto newDynOffset = copyAttr->GetFromOffset();
+    EXPECT_EQ(newDynOffset[0].Dump(), "128");
+    EXPECT_EQ(newDynOffset[1].Dump(), "0");
+
+    auto newRawShape = copyAttr->GetRawShape();
+    EXPECT_EQ(newRawShape[0].Dump(), "1024");
+    EXPECT_EQ(newRawShape[1].Dump(), "64");
+    auto t = G.GetTensor("t3");
+    EXPECT_EQ(t->GetShape(), (std::vector<int64_t>{1024, 64}));
+}
+
+TEST_F(PreGraphTest, TestRemoveRedundantViewMultiCopyIn) {
+    ComputationalGraphBuilder G;
+    ConstructRemoveRedundantView(G, true);
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    PreGraphProcess passLocal;
+    EXPECT_EQ(passLocal.Run(*function, "", "", 0), SUCCESS);
+    // check after pass
+    auto opList = function->Operations();
+    int64_t viewCnt = 0;
+    for (const auto &op : opList) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            ++viewCnt;
+        }
+    }
+    EXPECT_EQ(viewCnt, 0);
+    auto copyIn = G.GetOp("COPYIN2");
+    auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
+    auto newDynOffset = copyAttr->GetFromOffset();
+    EXPECT_EQ(newDynOffset[0].Dump(), "160");
+}
+
+TEST_F(PreGraphTest, TestRemoveRedundantViewMultiReshape) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    G.AddTensor(DataType::DT_FP16, {4, 6144}, "t1");
+    G.AddTensor(DataType::DT_FP16, {4, 1, 32, 192}, "t2");
+    G.AddTensor(DataType::DT_FP16, {4, 1, 32, 128}, "t3");
+    auto inputTensor2 = G.GetTensor("t2");
+    auto inputTensor3 = G.GetTensor("t3");
+    inputTensor3->tensor = inputTensor2->tensor;
+    inputTensor3->tensor->UpdateRawShape({4, 1, 32, 192});
+
+    G.AddTensor(DataType::DT_FP16, {4, 32, 128}, "t4");
+
+    // add op
+    G.AddOp(Opcode::OP_RESHAPE, {"t1"}, {"t2"}, "RESHAPE1");
+    G.AddOp(Opcode::OP_VIEW, {"t2"}, {"t3"}, "VIEW");
+    auto view = G.GetOp("VIEW");
+    auto attrA = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0, 0}, MemoryType::MEM_UNKNOWN,
+        OpImmediate::ToSpecified(OpImmediate::Specified(std::vector<int64_t>{0, 0, 0})));
+    view->SetOpAttribute(attrA);
+    G.AddOp(Opcode::OP_RESHAPE, {"t3"}, {"t4"}, "RESHAPE2");
+    for (size_t i = 0; i < 32; ++i) {
+        std::string tensorName = "t5-" + std::to_string(i);
+        G.AddTensor(DataType::DT_FP16, {4, 1, 128}, tensorName);
+        std::string copyInName = "COPYIN" + tensorName;
+        G.AddOp(Opcode::OP_COPY_IN, {"t4"}, {tensorName}, copyInName);
+        auto copyIn = G.GetOp(copyInName);
+        auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
+        copyAttr->SetFromOffset(OpImmediate::Specified(std::vector<int64_t>{0, static_cast<int64_t>(i), 0}));
+        copyAttr->SetShape(OpImmediate::Specified({4, 1, 128}));
+    }
+
+    // set incast and outcast
+    G.SetInCast({"t1"});
+
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    PreGraphProcess passLocal;
+    EXPECT_EQ(passLocal.Run(*function, "", "", 0), SUCCESS);
+    // check after pass
+    auto opList = function->Operations();
+    int64_t viewCnt = 0;
+    for (const auto &op : opList) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            ++viewCnt;
+        }
+    }
+    EXPECT_EQ(viewCnt, 0);
+}
+
+void CompareOpImmediateVector(const std::vector<OpImmediate> &result, const std::vector<int64_t> &expect) {
+    EXPECT_EQ(result.size(), expect.size());
+    for (size_t idx = 0; idx < result.size(); ++idx) {
+        EXPECT_EQ(result[idx].Dump(), std::to_string(expect[idx]));
+    }
+}
+
+TEST_F(PreGraphTest, TestRemoveRedundantAssemble) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    G.AddTensor(DataType::DT_FP16, {128, 256}, "t2");
+    std::vector<std::vector<int64_t>> offsets = {
+        { 0,   0},
+        { 0, 128},
+        {64,   0},
+        {64, 128}
+    };
+    for (size_t i = 0; i < 4; i++) {
+        std::string tensorName = "t1" + std::to_string(i);
+        std::string copyName = "COPYOUT" + std::to_string(i);
+        G.AddTensor(DataType::DT_FP16, {64, 128}, tensorName);
+        G.AddOp(Opcode::OP_COPY_OUT, {tensorName}, {"t2"}, copyName);
+        auto copy = G.GetOp(copyName);
+        auto copyAttr = std::make_shared<CopyOpAttribute>(MemoryType::MEM_L0C, OpImmediate::Specified(offsets[i]),
+            OpImmediate::Specified(std::vector<int64_t>{64, 128}),
+            OpImmediate::Specified(std::vector<int64_t>{64, 128}));
+        copy->SetOpAttribute(copyAttr);
+    }
+
+    G.AddTensor(DataType::DT_FP16, {1, 128, 256}, "t3");
+    G.AddTensor(DataType::DT_FP16, {3, 128, 256}, MemoryType::MEM_DEVICE_DDR, "t4");
+    auto tensor3 = G.GetTensor("t3");
+    auto tensor4 = G.GetTensor("t4");
+    tensor3->tensor = tensor4->tensor;
+    // add op
+
+    G.AddOp(Opcode::OP_RESHAPE, {"t2"}, {"t3"}, "RESHAPE");
+    G.AddOp(Opcode::OP_ASSEMBLE, {"t3"}, {"t4"}, "ASSEMBLE");
+    std::vector<int64_t> offset = {0, 0, 0};
+    auto assemble = G.GetOp("ASSEMBLE");
+    auto assembleAttr = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, std::vector<int64_t>{2, 0, 0},
+        OpImmediate::ToSpecified(OpImmediate::Specified(std::vector<int64_t>{2, 0, 0})));
+    assemble->SetOpAttribute(assembleAttr);
+    // set incast and outcast
+    G.SetOutCast({"t4"});
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    PreGraphProcess passLocal;
+    EXPECT_EQ(passLocal.Run(*function, "", "", 0), SUCCESS);
+}
+
+//vec_in0 - CopyIn - L1_TO_L0A - A_MUL_B[isCube = true] - CopyOut[no isCube] - vec_out
+//vec_in1 - CopyIn - L1_TO_L0B |/
+//to
+//vec_in0 - CopyIn - L1_TO_L0A - A_MUL_B[isCube = true] - CopyOut[isCube = true] - vec_out
+//vec_in1 - CopyIn - L1_TO_L0B |/
+TEST_F(PreGraphTest, TestAmulbWithIsCubeCopyOut) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    DataType inputAstDtype = DataType::DT_FP16;
+    DataType outputAstDtype = DataType::DT_FP16;
+    std::vector<int64_t> shape = {16, 16};
+    G.AddTensor(inputAstDtype, shape, MemoryType::MEM_DEVICE_DDR, "vec_in0");
+    auto vec_in0 = G.GetTensor("vec_in0");
+    G.AddTensor(inputAstDtype, shape, MemoryType::MEM_DEVICE_DDR, "vec_in1");
+    auto vec_in1 = G.GetTensor("vec_in1");
+    G.AddTensor(inputAstDtype, shape, MemoryType::MEM_L1, "copy_in0");
+    auto copy_in0 = G.GetTensor("copy_in0");
+    G.AddTensor(inputAstDtype, shape, MemoryType::MEM_L1, "copy_in1");
+    auto copy_in1 = G.GetTensor("copy_in1");
+    G.AddTensor(inputAstDtype, shape, MemoryType::MEM_L0A, "l1_to_l0a");
+    auto l1_to_l0a = G.GetTensor("l1_to_l0a");
+    G.AddTensor(inputAstDtype, shape, MemoryType::MEM_L0B, "l1_to_l0b");
+    auto l1_to_l0b = G.GetTensor("l1_to_l0b");
+    G.AddTensor(inputAstDtype, shape, MemoryType::MEM_L0C, "a_mul_b");
+    auto a_mul_b = G.GetTensor("a_mul_b");
+    G.AddTensor(outputAstDtype, shape, MemoryType::MEM_DEVICE_DDR, "vec_out");
+    auto vec_out = G.GetTensor("vec_out");
+    // add op
+    G.AddOp(Opcode::OP_COPY_IN, {"vec_in0"}, {"copy_in0"}, "copyin0");
+    G.AddOp(Opcode::OP_COPY_IN, {"vec_in1"}, {"copy_in1"}, "copyin1");
+    G.AddOp(Opcode::OP_L1_TO_L0A, {"copy_in0"}, {"l1_to_l0a"}, "l1tol0a");
+    G.AddOp(Opcode::OP_L1_TO_L0B, {"copy_in1"}, {"l1_to_l0b"}, "l1tol0b");
+    G.AddOp(Opcode::OP_A_MUL_B, {"l1_to_l0a", "l1_to_l0b"}, {"a_mul_b"}, "amulb");
+    auto amulb = G.GetOp("amulb");
+    amulb->SetAttribute(MATMUL_NZ_ATTR, 0);
+    amulb->SetAttribute(A_MUL_B_SCALE_ATTR, Element(DataType::DT_UINT64, NUM10));
+    amulb->SetAttribute(A_MUL_B_RELU_ATTR, 1);
+    amulb->SetAttribute(A_MUL_B_ACT_M, 1);
+    amulb->SetAttribute(A_MUL_B_ACT_K, 1);
+    amulb->SetAttribute(A_MUL_B_ACT_N, 1);
+    amulb->SetAttribute(OpAttributeKey::isCube, true);
+    G.AddOp(Opcode::OP_COPY_OUT, {"a_mul_b"}, {"vec_out"}, "copyout");
+    auto copyout = G.GetOp("copyout");
+    // set incast and outcast
+    G.SetInCast({"vec_in0"});
+    G.SetInCast({"vec_in1"});
+    G.SetOutCast({"vec_out"});
+    
+    //before
+    EXPECT_EQ(amulb->HasAttr(OpAttributeKey::isCube), true);
+    EXPECT_EQ(amulb->GetBoolAttribute(OpAttributeKey::isCube), true);
+    EXPECT_EQ(copyout->HasAttr(OpAttributeKey::isCube), false);
+    //after
+    Function *function = G.GetFunction();
+    PreGraphProcess preGraph;
+    preGraph.PreCheck(*function);
+    preGraph.Run(*function, "", "", 0);
+    preGraph.PostCheck(*function);
+    EXPECT_EQ(copyout->HasAttr(OpAttributeKey::isCube), true);
+    EXPECT_EQ(copyout->GetBoolAttribute(OpAttributeKey::isCube), true);
+}
+
+// vec_in1 - CopyIn - copy_in1 - L1_TO_L0A[16] 
+//                                             A_MUL_B - l0c - CopyOut - vec_out[16]应该被重置为32
+// vec_in2 - CopyIn - copy_in2 - L1_TO_L0B[16] 
+TEST_F(PreGraphTest, TestAmulbInputDT_FP16) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    DataType inputAstDtype1 = DataType::DT_FP16;
+    DataType inputAstDtype2 = DataType::DT_FP16;
+    // wrong type
+    DataType outputAstDtype = DataType::DT_FP16;
+    std::vector<int64_t> shape = {16, 16};
+    G.AddTensor(inputAstDtype1, shape, MemoryType::MEM_DEVICE_DDR, "vec_in1");
+    auto vec_in1 = G.GetTensor("vec_in1");
+    G.AddTensor(inputAstDtype2, shape, MemoryType::MEM_DEVICE_DDR, "vec_in2");
+    auto vec_in2 = G.GetTensor("vec_in2");
+    G.AddTensor(inputAstDtype1, shape, MemoryType::MEM_L1, "copy_in1");
+    auto copy_in1 = G.GetTensor("copy_in1");
+    G.AddTensor(inputAstDtype2, shape, MemoryType::MEM_L1, "copy_in2");
+    auto copy_in2 = G.GetTensor("copy_in2");
+    G.AddTensor(inputAstDtype1, shape, MemoryType::MEM_L0A, "l0a");
+    auto l0a = G.GetTensor("l0a");
+    G.AddTensor(inputAstDtype2, shape, MemoryType::MEM_L0B, "l0b");
+    auto l0b = G.GetTensor("l0b");
+    G.AddTensor(outputAstDtype, shape, MemoryType::MEM_L0C, "l0c");
+    auto l0c = G.GetTensor("l0c");
+    G.AddTensor(outputAstDtype, shape, MemoryType::MEM_DEVICE_DDR, "vec_out");
+    auto vec_out = G.GetTensor("vec_out");
+    // add op
+    G.AddOp(Opcode::OP_COPY_IN, {"vec_in1"}, {"copy_in1"}, "copyin1");
+    G.AddOp(Opcode::OP_COPY_IN, {"vec_in2"}, {"copy_in2"}, "copyin2");
+    G.AddOp(Opcode::OP_L1_TO_L0A, {"copy_in1"}, {"l0a"}, "l1_to_l0a");
+    G.AddOp(Opcode::OP_L1_TO_L0B, {"copy_in2"}, {"l0b"}, "l1_to_l0b");
+    G.AddOp(Opcode::OP_A_MUL_B, {"l0a", "l0b"}, {"l0c"}, "a_mul_b");
+    auto aMulb = G.GetOp("a_mul_b");
+    aMulb->SetAttribute(MATMUL_NZ_ATTR, 0);
+    aMulb->SetAttribute(A_MUL_B_SCALE_ATTR, Element(DataType::DT_UINT64, NUM10));
+    aMulb->SetAttribute(A_MUL_B_RELU_ATTR, 1);
+    aMulb->SetAttribute(A_MUL_B_ACT_M, 1);
+    aMulb->SetAttribute(A_MUL_B_ACT_K, 1);
+    aMulb->SetAttribute(A_MUL_B_ACT_N, 1);
+    G.AddOp(Opcode::OP_COPY_OUT, {"l0c"}, {"vec_out"}, "copyout");
+    
+    // set incast and outcast
+    G.SetInCast({"vec_in1"});
+    G.SetInCast({"vec_in2"});
+    G.SetOutCast({"vec_out"});
+
+    //before
+    EXPECT_EQ(l0c->tensor->GetDataType() == outputAstDtype, true);
+    //after
+    Function *function = G.GetFunction();
+    PreGraphProcess preGraph;
+    preGraph.PreCheck(*function);
+    preGraph.Run(*function, "", "", 0);
+    preGraph.PostCheck(*function);
+    DataType outDtype = supportDtypeMap.at(std::make_pair(inputAstDtype1, inputAstDtype2));
+    EXPECT_EQ(l0c->tensor->GetDataType() == outDtype, true);
+}
+
+// vec_in - CopyIn - copy_in - TransposeMoveout - vec_out
+TEST_F(PreGraphTest, TestTransposeMoveout) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    DataType inputAstDtype = DataType::DT_FP32;
+
+    std::vector<int64_t> shape = {16, 16};
+    G.AddTensor(inputAstDtype, shape, MemoryType::MEM_DEVICE_DDR, "vec_in");
+    auto vec_in = G.GetTensor("vec_in");
+    G.AddTensor(inputAstDtype, shape, MemoryType::MEM_UB, "copy_in");
+    auto copy_in = G.GetTensor("copy_in");
+    G.AddTensor(inputAstDtype, shape, MemoryType::MEM_DEVICE_DDR, "vec_out");
+    auto vec_out = G.GetTensor("vec_out");
+    vec_out->offset = {8, 8};
+    // add op
+    G.AddOp(Opcode::OP_COPY_IN, {"vec_in"}, {"copy_in"}, "copyin");
+    G.AddOp(Opcode::OP_TRANSPOSE_MOVEOUT, {"copy_in"}, {"vec_out"}, "transpose_moveout");
+    auto transpose_moveout = G.GetOp("transpose_moveout");
+    SymbolicScalar a = SymbolicScalar(8);
+    // set incast and outcast
+    G.SetInCast({"vec_in"});
+    G.SetOutCast({"vec_out"});
+    //before
+    EXPECT_EQ(IsCopyOut(transpose_moveout->GetOpcode()), true);
+    //run
+    Function *function = G.GetFunction();
+    PreGraphProcess preGraph;
+    preGraph.PreCheck(*function);
+    preGraph.Run(*function, "", "", 0);
+    preGraph.PostCheck(*function);
+    //after validate transpose_moveout_attr
+    auto transpose_moveout_attr = dynamic_cast<CopyOpAttribute *>(transpose_moveout->GetOpAttribute().get());
+    EXPECT_EQ(transpose_moveout_attr->from_, MemoryType::MEM_UB);
+    EXPECT_EQ(transpose_moveout_attr->GetToOffset().size(), vec_out->GetOffset().size());
+    for (size_t i = 0; i < vec_out->GetOffset().size(); i++) {
+        EXPECT_EQ(transpose_moveout_attr->GetToOffset()[i].Dump(), std::to_string(vec_out->GetOffset()[i]));
+    }
+    EXPECT_EQ(transpose_moveout_attr->GetShape().size(), vec_out->GetShape().size());
+    for (size_t i = 0; i < vec_out->GetShape().size(); i++) {
+        EXPECT_EQ(transpose_moveout_attr->GetShape()[i].Dump(), std::to_string(vec_out->GetShape()[i]));
+    }
+    EXPECT_EQ(transpose_moveout_attr->GetRawShape().size(), vec_out->tensor->GetDynRawShape().size());
+    for (size_t i = 0; i < vec_out->tensor->GetDynRawShape().size(); i++) {
+        EXPECT_EQ(transpose_moveout_attr->GetRawShape()[i].Dump(), std::to_string(vec_out->tensor->GetRawShape()[i]));
+    }
+}
+
+void RunSetTensorBoundary(ComputationalGraphBuilder &G) {
+    // set incast and outcast
+    G.SetInCast({"vec_in"});
+    G.SetOutCast({"vec_out"});
+    Function *function = G.GetFunction();
+    function->SetTotalSubGraphCount(NUM3);
+    PreGraphProcess preGraph;
+    preGraph.PreCheck(*function);
+    preGraph.Run(*function, "", "", 0);
+    preGraph.PostCheck(*function);
+    auto vec_in = G.GetTensor("vec_in");
+    auto copy_out = G.GetTensor("copy_out");
+    auto reshape_out = G.GetTensor("reshape_out");
+    auto vec_out = G.GetTensor("vec_out");
+    EXPECT_EQ(vec_in->isSubGraphBoundary, true);
+    EXPECT_EQ(copy_out->isSubGraphBoundary, true);
+    EXPECT_EQ(reshape_out->isSubGraphBoundary, true);
+    EXPECT_EQ(vec_out->isSubGraphBoundary, true);
+}
+
+//        CopyIn[0] - copy_in1 - Exp[0] - e1 - CopyOut[0]                       
+//vec_in                                                 copy_out - Reshape[2] - reshape_out - CopyOut[2] -vec_out
+//        COPYIN[1] - copy_in2 - exp[1] - e2 - CopyOut[1]
+TEST_F(PreGraphTest, TestSetTensorBoundary) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    G.AddTensor(DataType::DT_FP16, {64, 64}, MemoryType::MEM_DEVICE_DDR, "vec_in");
+    auto vec_in = G.GetTensor("vec_in");
+    G.AddTensor(DataType::DT_FP16, {32, 64}, MemoryType::MEM_UB, "copy_in1");
+    auto copy_in1 = G.GetTensor("copy_in1");
+    G.AddTensor(DataType::DT_FP16, {32, 64}, MemoryType::MEM_UB, "copy_in2");
+    auto copy_in2 = G.GetTensor("copy_in2");
+    G.AddTensor(DataType::DT_FP16, {32, 64}, MemoryType::MEM_UB, "e1");
+    auto e1 = G.GetTensor("e1");
+    G.AddTensor(DataType::DT_FP16, {32, 64}, MemoryType::MEM_UB, "e2");
+    auto e2 = G.GetTensor("e2");
+    G.AddTensor(DataType::DT_FP16, {64, 64}, MemoryType::MEM_DEVICE_DDR, "copy_out");
+    auto copy_out = G.GetTensor("copy_out");
+    G.AddTensor(DataType::DT_FP16, {32, 128}, MemoryType::MEM_DEVICE_DDR, "reshape_out");
+    auto reshape_out = G.GetTensor("reshape_out");
+    G.AddTensor(DataType::DT_FP16, {32, 128}, MemoryType::MEM_DEVICE_DDR, "vec_out");
+    auto vec_out = G.GetTensor("vec_out");
+    // add copyin
+    G.AddOp(Opcode::OP_COPY_IN, {"vec_in"}, {"copy_in1"}, "op_copy_in1");
+    auto attrCopyIn1 = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MemoryType::MEM_DEVICE_DDR,
+        OpImmediate::Specified(copy_in1->GetShape()), OpImmediate::Specified(vec_in->tensor->GetRawShape()));
+    G.GetOp("op_copy_in1")->SetOpAttribute(attrCopyIn1);
+    G.GetOp("op_copy_in1")->UpdateSubgraphID(SUBGRAPHID0);
+    G.AddOp(Opcode::OP_COPY_IN, {"vec_in"}, {"copy_in2"}, "op_copy_in2");
+    auto attrCopyIn2 = std::make_shared<CopyOpAttribute>(OpImmediate::Specified({32, 0}), MemoryType::MEM_DEVICE_DDR,
+        OpImmediate::Specified(copy_in2->GetShape()), OpImmediate::Specified(vec_in->tensor->GetRawShape()));
+    G.GetOp("op_copy_in2")->SetOpAttribute(attrCopyIn2);
+    G.GetOp("op_copy_in2")->UpdateSubgraphID(SUBGRAPHID1);
+    // add exp
+    G.AddOp(Opcode::OP_EXP, {"copy_in1"}, {"e1"}, "exp1");
+    G.GetOp("exp1")->UpdateSubgraphID(SUBGRAPHID0);
+    G.AddOp(Opcode::OP_EXP, {"copy_in2"}, {"e2"}, "exp2");
+    G.GetOp("exp2")->UpdateSubgraphID(SUBGRAPHID1);
+    // add copyout
+    G.AddOp(Opcode::OP_COPY_OUT, {"e1"}, {"copy_out"}, "op_copy_out1");
+    auto attrCopyOut1 = std::make_shared<CopyOpAttribute>(MemoryType::MEM_DEVICE_DDR, OpImmediate::Specified({0, 0}), 
+        OpImmediate::Specified(copy_out->GetShape()), OpImmediate::Specified(copy_out->tensor->GetRawShape()));
+    G.GetOp("op_copy_out1")->SetOpAttribute(attrCopyOut1);
+    G.GetOp("op_copy_out1")->UpdateSubgraphID(SUBGRAPHID0);
+    G.AddOp(Opcode::OP_COPY_OUT, {"e2"}, {"copy_out"}, "op_copy_out2");
+    auto attrCopyOut2 = std::make_shared<CopyOpAttribute>(MemoryType::MEM_DEVICE_DDR, OpImmediate::Specified({32, 0}), 
+        OpImmediate::Specified(copy_out->GetShape()), OpImmediate::Specified(copy_out->tensor->GetRawShape()));
+    G.GetOp("op_copy_out2")->SetOpAttribute(attrCopyOut2);
+    G.GetOp("op_copy_out2")->UpdateSubgraphID(SUBGRAPHID1);
+    //add reshape and copyout
+    G.AddOp(Opcode::OP_RESHAPE, {"copy_out"}, {"reshape_out"}, "op_reshape");
+    G.GetOp("op_reshape")->UpdateSubgraphID(SUBGRAPHID2);
+    G.AddOp(Opcode::OP_COPY_OUT, {"reshape_out"}, {"vec_out"}, "op_copy_out3");
+    G.GetOp("op_copy_out3")->UpdateSubgraphID(SUBGRAPHID2);
+    RunSetTensorBoundary(G);
+}// namespace tile_fwk
+
 } // namespace tile_fwk
 } // namespace npu
 #undef private

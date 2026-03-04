@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "tilefwk/pypto_fwk_log.h"
 #include "interface/tensor/tensor_slot.h"
 #include "interface/interpreter/operation.h"
 #include "interface/tensor/symbolic_scalar_evaluate.h"
@@ -26,7 +27,6 @@ namespace npu::tile_fwk {
 struct FunctionIODataPair {
     std::vector<std::shared_ptr<LogicalTensorData>> incastDataViewList;
     std::vector<std::shared_ptr<LogicalTensorData>> outcastDataViewList;
-    std::shared_ptr<FunctionIODataPair> rootInoutDataPair;
 
     FunctionIODataPair() {}
     FunctionIODataPair(std::vector<std::shared_ptr<LogicalTensorData>> incastDataViewList_,
@@ -83,6 +83,7 @@ struct FunctionFrame {
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::shared_ptr<RawTensor>> spillRawTensorDict;
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::shared_ptr<LogicalTensorData>> tensorDataViewDict;
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::string> tensorDataBinDict;
+    std::unordered_map<std::shared_ptr<LogicalTensorData>, std::shared_ptr<LogicalTensor>> callopDataViewTensorDict;  // Record the relationship between the callop data view and the tensor
     int frameIndex;
     int funcIndex;
     int rootFuncIndex{-1};
@@ -111,6 +112,7 @@ struct FunctionFrame {
             for (size_t i = 0; i < inoutDataPair->outcastDataViewList.size(); i++) {
                 AddDataView(func->GetOutcast()[i], inoutDataPair->outcastDataViewList[i]);
             }
+            DoAddCallopInOutDataView();
         }
     }
 
@@ -155,6 +157,7 @@ struct FunctionFrame {
         const std::vector<int64_t> &rawShape, DataType dtype,
         const std::shared_ptr<LogicalTensor> &inplaceTensor = nullptr) {
         if (tensorDataViewDict.count(tensor)) {
+            tensorDataViewDict[tensor]->UpdateValidShape(validShape);
             return tensorDataViewDict[tensor];
         }
 
@@ -203,6 +206,17 @@ private:
         const std::shared_ptr<LogicalTensor> &tensor, const std::shared_ptr<RawTensor> &rawtensor) {
         ASSERT(!spillRawTensorDict.count(tensor));
         spillRawTensorDict[tensor] = rawtensor;
+    }
+    void DoAddCallopInOutDataView() {
+        if (callop == nullptr) {
+            return;
+        }
+        for (size_t i = 0; i < inoutDataPair->incastDataViewList.size(); i++) {
+            callopDataViewTensorDict[inoutDataPair->incastDataViewList[i]] = callop->GetIOperands()[i];
+        }
+        for (size_t i = 0; i < inoutDataPair->outcastDataViewList.size(); i++) {
+            callopDataViewTensorDict[inoutDataPair->outcastDataViewList[i]] = callop->GetOOperands()[i];
+        }
     }
 };
 
@@ -259,18 +273,22 @@ enum class OpInfoCsvHeader {
     num = 0,
     rootFuncID,
     funcID,
+    passName,
     verifyType,
+    callopMagic,
     loopInfo,
     opMagic,
     opCode,
     rawTensorMagic,
     tensorMagic,
+    callopRawMagic,
     offset,
     inputShape,
     inputValidShape,
     inputDtype,
     inputTensors,
     outputShape,
+    tensorOffset,
     outputValidShape,
     outputDynValidShape,
     outputDtype,
@@ -304,9 +322,9 @@ struct FunctionInterpreter {
 
         std::string dumpFilePath = dumpPath + "verify_result.csv";
         execResultFile = fopen(dumpFilePath.c_str(), "w");
-        std::vector<std::string> csvHeader = {"No.", "rootFuncID", "funcID", "verifyType", "LoopInfo", "opMagic", "opCode", 
-            "rawTensorMagic", "tensorMagic", "offset", "inputShape", "inputValidShape", "inputDtype", "inputTensors", 
-            "outputShape", "outputValidShape", "outputDynValidShape", "outputDtype",
+        std::vector<std::string> csvHeader = {"No.", "rootFuncID", "funcID", "passName", "verifyType", "callopMagic", "loopInfo", "opMagic",
+            "opCode", "rawTensorMagic", "tensorMagic", "callopRawMagic", "offset", "inputShape", "inputValidShape", "inputDtype", "inputTensors", 
+            "outputShape", "tensorOffset", "outputValidShape", "outputDynValidShape", "outputDtype",
             "outputTensor", "verifyResult", "maxAbsDiff", "maxRelDiff", "errorCount", "errorRatio"};
         WriteCsvRow(csvHeader);
     }
@@ -331,6 +349,8 @@ struct FunctionInterpreter {
     FILE *execResultFile{nullptr};
     FILE *execDumpStyleFile{nullptr};
     std::string execDumpFuncKey;
+    std::string execDumpPassName;
+    std::string execDumpFunPath;
     std::vector<ElementDump> execDumpElementList;
     std::vector<std::shared_ptr<FunctionFrame>> execDumpStack;
     int frameCount{0};
@@ -459,11 +479,10 @@ struct FunctionInterpreter {
         return AllocateDataView(frame, tensor, tensor->GetRawTensor()->GetDataType(), inplaceTensor);
     }
 
-    void ExecuteOpCallLeaf(ExecuteOperationContext *ctx, std::shared_ptr<FunctionIODataPair> &rootInoutDataPair) {
+    void ExecuteOpCallLeaf(ExecuteOperationContext *ctx) {
         Function *callee = GetCallee(ctx->op);
         auto inoutDataPair =
             std::make_shared<FunctionIODataPair>(*ctx->ioperandDataViewList, *ctx->ooperandInplaceDataViewList);
-        inoutDataPair->rootInoutDataPair = rootInoutDataPair;
         ExecuteFunctionFrame(callee, ctx->op, inoutDataPair);
     }
 
@@ -488,34 +507,16 @@ struct FunctionInterpreter {
         return -1;
     }
 
-    void UpdateOutcastDataViewList(FunctionFrame &frame, 
-        const std::shared_ptr<LogicalTensor> &oop,
-        const std::shared_ptr<LogicalTensor> &iop,
-        std::shared_ptr<FunctionIODataPair> &inoutDataPair) {
-        auto it = std::find(frame.func->outCasts_.begin(), frame.func->outCasts_.end(), oop);
-        if (it == frame.func->outCasts_.end()) {
-            return;
+    bool IsViewInplace(const std::shared_ptr<LogicalTensor> &iOp, const std::shared_ptr<LogicalTensor> &oOp) {
+        if (iOp->GetRawTensor()->GetRawMagic() == oOp->GetRawTensor()->GetRawMagic()) {
+            return true;
         }
-        ASSERT(frame.tensorDataViewDict.count(oop) != 0);
-        auto oopDataView = frame.tensorDataViewDict[oop]; 
-        ASSERT(frame.tensorDataViewDict.count(iop) != 0);
-        auto newPtr = frame.tensorDataViewDict[iop]; 
-        auto targetPair = inoutDataPair->rootInoutDataPair ? inoutDataPair->rootInoutDataPair : inoutDataPair;
-        bool updated = false;
-        for (auto& ptr : targetPair->outcastDataViewList) {
-            if (ptr.get() == oopDataView.get()) {
-                ptr = newPtr;
-                updated = true;
-                break;
-            }
-        }      
-        ASSERT(updated); 
+        return false;
     }
 
     void ExecuteInplaceOperation(FunctionFrame &frame, Operation &op, int oOperandIdx,
         const std::vector<std::shared_ptr<LogicalTensorData>> &iOpDataList,
-        std::vector<std::shared_ptr<LogicalTensorData>> &oOpDataList,
-        std::shared_ptr<FunctionIODataPair> &inoutDataPair) {
+        std::vector<std::shared_ptr<LogicalTensorData>> &oOpDataList) {
         auto oop = op.GetOOperands()[oOperandIdx];
         auto index = GetInplaceIndex(&op, oOperandIdx);
         ASSERT(index != -1);
@@ -526,16 +527,10 @@ struct FunctionInterpreter {
             ASSERT(opAttr != nullptr);
             Offset iopOffsets = iOpDataList[index]->GetOffset();
             Offset viewOffsets = EvaluateOffset(opAttr->GetFromOffset(), opAttr->GetFromDynOffset());
-            Offset actualOffsets = viewOffsets;
-            if (std::all_of(viewOffsets.begin(), viewOffsets.end(),
-                    [](const int64_t& val) {return val == static_cast<int64_t>(0);})) {
-                actualOffsets = iopOffsets;
-            }
-            auto validShape = EvaluateValidShape(oop->GetDynValidShape());
-            auto rawShape = EvaluateValidShape(oop->GetRawTensor()->GetDynRawShape());
+            auto validShape = EvaluateValidShape(oop->GetDynValidShape(), (frame.callopAttr != nullptr) ? frame.callopAttr->GetLinearArgList() : std::vector<SymbolicScalar>{});
+            auto rawShape = EvaluateValidShape(oop->GetRawTensor()->GetDynRawShape(), (frame.callopAttr != nullptr) ? frame.callopAttr->GetLinearArgList() : std::vector<SymbolicScalar>{});
             std::shared_ptr<LogicalTensorData> ret;
-            // ExpandFunction passIndex : 4
-            if (frame.passIndex > 4) {
+            if (IsViewInplace(iop, oop)) {
                 ret = frame.AllocateDataView(oop, viewOffsets, validShape, rawShape, oop->GetRawTensor()->GetDataType(), iop);
             } else {
                 ret = AllocateDataView(frame, oop);
@@ -543,7 +538,6 @@ struct FunctionInterpreter {
             oOpDataList.emplace_back(ret);
         } else {
             oOpDataList.emplace_back(AllocateDataView(frame, oop, iop));
-            UpdateOutcastDataViewList(frame, oop, iop, inoutDataPair);
         }
     }
 
@@ -557,7 +551,7 @@ struct FunctionInterpreter {
         return false;
     }
 
-    void ExecuteOperation(FunctionFrame &frame, Operation *op, std::shared_ptr<FunctionIODataPair> &inoutDataPair) {
+    void ExecuteOperation(FunctionFrame &frame, Operation *op) {
         auto iOpDataList = frame.GetDataViewList(op->GetIOperands());
         for (size_t index = 0; index < iOpDataList.size(); index++) {
             if (iOpDataList[index] == nullptr) {
@@ -570,7 +564,7 @@ struct FunctionInterpreter {
         for (size_t i = 0; i < op->GetOOperands().size(); i++) {
             auto oop = op->GetOOperands()[i];
             if (auto index = GetInplaceIndex(op, i); index != -1) {
-                ExecuteInplaceOperation(frame, *op, i, iOpDataList, oOpDataList, inoutDataPair);
+                ExecuteInplaceOperation(frame, *op, i, iOpDataList, oOpDataList);
             } else {
                 if (isConsumerAccMatmul(op)) {
                     auto dtype = oop->GetRawTensor()->GetDataType();
@@ -588,7 +582,7 @@ struct FunctionInterpreter {
         ExecuteOperationContext ctx = {&frame, {}, op, &iOpDataList, {}, &oOpDataList};
 
         if (op->GetOpcode() == Opcode::OP_CALL) {
-            ExecuteOpCallLeaf(&ctx, inoutDataPair);
+            ExecuteOpCallLeaf(&ctx);
         } else {
             TimeStamp ts;
             operationInterpreter->ExecuteOperation(&ctx);
@@ -607,7 +601,8 @@ struct FunctionInterpreter {
         DumpFunctionHead(func);
         if (frame->inoutDataPair != nullptr) {
             for (size_t k = 0; k < func->GetIncast().size(); k++) {
-                std::string fileName = "tensor_Incast_" + std::to_string(k) + ".data";
+                auto rawMagic = func->GetIncast()[k]->GetRawTensor()->GetRawMagic();
+                std::string fileName = "tensor_Incast_" + std::to_string(rawMagic) + ".data";
                 DumpTensorBinary(frame->inoutDataPair->incastDataViewList[k], fileName);
                 frame->tensorDataBinDict[func->GetIncast()[k]] = fileName;
             }
@@ -649,7 +644,7 @@ struct FunctionInterpreter {
             if (op.GetOpcode() == Opcode::OP_PRINT && verifyType != VerifyType::TENSOR_GRAPH)
                 continue;
             ExecuteHandleOperationBegin(&op);
-            ExecuteOperation(*frame, &op, inoutDataPair);
+            ExecuteOperation(*frame, &op);
             ExecuteHandleOperationEnd();
         }
         ExecuteHandleFunctionEnd();
@@ -721,10 +716,16 @@ struct FunctionInterpreter {
         ScalarImmediateType begin = EvaluateSymbolicScalar(loop->Begin());
         ScalarImmediateType end = EvaluateSymbolicScalar(loop->End());
         ScalarImmediateType step = EvaluateSymbolicScalar(loop->Step());
+        if (begin == end) {
+            VERIFY_EVENT("Function %s skip execute due to idx range = 0", func->GetMagicName().c_str());
+        }
         for (ScalarImmediateType idx = begin; idx < end; idx += step) {
             UpdateSymbolDict(loop->IterSymbolName(), idx);
             loopSymbolDict[loop->IterSymbolName()] = idx;
             Operation *callop = ExecuteFunctionLoopLookupSat(loop);
+            if (callop == nullptr) {
+                continue;
+            }
             Function *callee = GetCallee(callop);
 
             ExecuteHandleOperationBegin(callop);
@@ -749,6 +750,7 @@ struct FunctionInterpreter {
             if (callopList.size() != 0) {
                 ExecuteFunctionDynamic(func, controlFlowExecution);
             } else {
+                execDumpFunPath = "function_" + func->GetMagicName();
                 auto &incastSlot = func->GetSlotScope()->ioslot.incastSlot;
                 auto &outcastSlot = func->GetSlotScope()->ioslot.outcastSlot;
                 auto &partialSlot = func->GetSlotScope()->ioslot.partialUpdateOutcastList;
@@ -881,17 +883,21 @@ public:
         gettimeofday(&tv, nullptr);
         auto ts =  tv.tv_sec * 1000000 + tv.tv_usec; // 1000000 is us per sec
  
-        std::string fileName = std::to_string(frame->rootFuncIndex) + "~" + callopMagic  + GetLoopSymbolString() + "~" + std::to_string(frame->funcIndex) + "~" 
+        std::string fileName = std::to_string(frame->rootFuncIndex) + "~" + callopMagic  + GetLoopSymbolString(false) + "~" + std::to_string(frame->funcIndex) + "~" 
                         + std::to_string(op->GetOpMagic()) + "~" + op->GetOpcodeStr() + "~" + std::to_string(tensor->GetRawTensor()->GetRawMagic()) + "~" + 
                         std::to_string(tensor->GetMagic()) + "~" + std::to_string(ts) + ".data";
         return fileName;
     }
-    std::string GetLoopSymbolString() const {
+    std::string GetLoopSymbolString(bool withName=true) const {
         std::ostringstream loop;
         size_t loopCount = loopSymbolDict.size();
         size_t count = 0;
         for (auto &[name, value] : loopSymbolDict) {
-            loop << name << "=" << value;
+            if (withName) {
+                loop << name << "=" << value;
+            } else {
+                loop << value;
+            }
             if(++count < loopCount) {
                 loop << "@";
             } 
@@ -1017,7 +1023,7 @@ public:
         slotDataViewDict_ = slotDataViewDict;
         outputSlotSet_ = outputSlotSet;
         for (auto &[slot, tileOpFormat]: slotTileOpFormatDict) {
-            if (tileOpFormat == TileOpFormat::TILEOP_NZ && !outputSlotSet_.count(slot)) {
+            if (tileOpFormat == TileOpFormat::TILEOP_NZ) {
                 ASSERT(slotDataViewDict_.count(slot));
                 auto dataView = slotDataViewDict_[slot];
                 auto inputIndex = findInputIndex(dataView);
@@ -1043,7 +1049,7 @@ public:
     }
 
     std::shared_ptr<FunctionCaptureExecution> RunForPass(
-            const std::string &funcKey,
+            std::string &funcKey,
             Function *func,
             const std::shared_ptr<FunctionCaptureExecution> &capture) {
         execDumpFuncKey = funcKey;

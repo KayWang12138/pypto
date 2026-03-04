@@ -31,6 +31,9 @@ void bind_enum(py::module &m){
         .value("DT_BF16", DataType::DT_BF16)
         .value("DT_HF4", DataType::DT_HF4)
         .value("DT_HF8", DataType::DT_HF8)
+        .value("DT_FP8E4M3", DataType::DT_FP8E4M3)
+        .value("DT_FP8E5M2", DataType::DT_FP8E5M2)
+        .value("DT_FP8E8M0", DataType::DT_FP8E8M0)
         .value("DT_UINT8", DataType::DT_UINT8)
         .value("DT_UINT16", DataType::DT_UINT16)
         .value("DT_UINT32", DataType::DT_UINT32)
@@ -141,6 +144,11 @@ void bind_enum(py::module &m){
         .value("LOG_E", LogBaseType::LOG_E)
         .value("LOG_2", LogBaseType::LOG_2)
         .value("LOG_10", LogBaseType::LOG_10)
+        .export_values();
+
+    py::enum_<Distributed::AtomicType>(m, "AtomicType")
+        .value("SET", Distributed::AtomicType::SET)
+        .value("ADD", Distributed::AtomicType::ADD)
         .export_values();
 }
 }

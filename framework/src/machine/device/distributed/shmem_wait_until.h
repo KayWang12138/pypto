@@ -21,8 +21,12 @@
 #include "common.h"
 #include "machine/utils/dynamic/dev_workspace.h"
 #include "machine/utils/dynamic/device_task.h"
+#include "machine/device/dynamic/device_utils.h"
 
 namespace npu::tile_fwk::Distributed {
+constexpr int32_t ATTR_STRIDE_OFFSET = 1;
+constexpr int32_t ATTR_TILEROW_OFFSET = 3;
+constexpr int32_t ATTR_TILECOL_OFFSET = 4;
 struct SignalTileOp {
     void Init(uint64_t taskId, int32_t* addr, int32_t expectedSum, bool resetSignal) {
         taskId_ = taskId;
@@ -33,10 +37,11 @@ struct SignalTileOp {
     bool PollCompleted() const;
 
     SignalTileOp* next{nullptr};
-    uint64_t taskId_;
-    int32_t* addr_;
-    int32_t expectedSum_;
-    bool resetSignal_;
+    uint64_t taskId_{0};
+    int32_t* addr_{nullptr};
+    int32_t expectedSum_{0};
+    bool resetSignal_{false};
+    TaskStat* profData_{nullptr};
 };
 
 class HashMap {
@@ -140,6 +145,9 @@ public:
             uint16_t actualIndex = i & AICPU_TASK_ARRAY_SIZE_MOD;
             SignalTileOp* task = queue_[actualIndex];
             if (task->PollCompleted()) {
+                if (task->profData_ != nullptr) {
+                    task->profData_->execEnd = dynamic::GetCycles();
+                }
                 int32_t ret = processor(task);
                 if (ret != dynamic::DEVICE_MACHINE_OK) {
                     return ret;
@@ -164,15 +172,21 @@ public:
     inline void Init(npu::tile_fwk::dynamic::DynDeviceTask *dynDeviceTask) {
         dynDeviceTask_ = dynDeviceTask;
         funcDataList_ = reinterpret_cast<DynFuncData*>(&dynDeviceTask->GetDynFuncDataList()->At(0));
-        hcclContextAddr_ = funcDataList_->hcclContext;
+        hcclContextAddr_ = funcDataList_->startArgs->commContexts;
+        commGroupNum_ = funcDataList_->startArgs->commGroupNum;
         hashMap_.Init();
     }
 
-    inline int32_t EnqueueOp(uint64_t taskId) {
+    inline int32_t EnqueueOp(uint64_t taskId, TaskStat* taskStat) {
         SignalTileOp* task = hashMap_.FindTask(taskId);
         if (task == nullptr) {
             DEV_ERROR("There is no this taskId: %lu", taskId);
             return dynamic::DEVICE_MACHINE_ERROR;
+        }
+        if (taskStat != nullptr) {
+            task->profData_ = taskStat;
+            task->profData_->taskId = static_cast<int32_t>(taskId);
+            task->profData_->execStart = dynamic::GetCycles();
         }
         return runingTaskQueue_.Enqueue(task);
     }
@@ -182,14 +196,19 @@ public:
         TensorInfo info = ShmemWaitUntil::GetTensorInfo(taskId, aicpuCode);
         const int32_t expectedSum = info.expectedSum;
         const bool resetSignal = info.resetSignal;
-        int32_t stride = aicpuCode[paramInfo_.attrIndex + 1];
-        int32_t tileIndex = (info.offset[SHMEM_DIM_ROW] / paramInfo_.tileShapeRow) * 
-            ((paramInfo_.rawShapeCol + paramInfo_.tileShapeCol - 1) / paramInfo_.tileShapeCol) +
-            (info.offset[SHMEM_DIM_COL] / paramInfo_.tileShapeCol);
-        int32_t totalTileNum = ((paramInfo_.rawShapeRow - 1) / paramInfo_.tileShapeRow + 1) * ((paramInfo_.rawShapeCol - 1) / paramInfo_.tileShapeCol + 1);
+        int32_t stride = aicpuCode[paramInfo_.attrIndex + ATTR_STRIDE_OFFSET];
+        int32_t tileRowShape = aicpuCode[paramInfo_.attrIndex + ATTR_TILEROW_OFFSET];
+        int32_t tileColShape = aicpuCode[paramInfo_.attrIndex + ATTR_TILECOL_OFFSET];
+
+        int32_t tileCols = (paramInfo_.rawShapeCol + tileColShape - 1) / tileColShape;
+        int32_t tileRows = (paramInfo_.rawShapeRow + tileRowShape - 1) / tileRowShape;
+        int32_t tileRow = info.offset[SHMEM_DIM_ROW] / tileRowShape;
+        int32_t tileCol = info.offset[SHMEM_DIM_COL] / tileColShape;
+        int32_t tileIndex = tileRow * tileCols + tileCol;
+        int32_t totalTileNum = tileRows * tileCols;
 
         // info.offset[1]代表src的rankId=offset[1]的shmemSignal版图, info.offset[2]代表srcRankId, info.offset[3]代表row offset, info.offset[4]代表col offset
-        DEV_DEBUG("ShmemWaitUntil::EnqueueOp offset1=%u, offset2=%u, offset3=%u,  offset4=%u, shape3=%u, shape4=%u, rawShape3=%u, rawShape4=%u, tileIndex=%d, totalTileNum=%d", 
+        DEV_DEBUG("ShmemWaitUntil::EnqueueOp offset1=%u, offset2=%u, offset3=%u,  offset4=%u, shape3=%u, shape4=%u, rawShape3=%u, rawShape4=%u, tileIndex=%d, totalTileNum=%d",
             info.offset[SRC_SHMEM_SIGNAL_ID], info.offset[SRC_RANK_ID], info.offset[SHMEM_DIM_ROW], info.offset[SHMEM_DIM_COL],
             paramInfo_.tileShapeRow, paramInfo_.tileShapeCol, paramInfo_.rawShapeRow, paramInfo_.rawShapeCol, tileIndex, totalTileNum);
 
@@ -198,7 +217,7 @@ public:
         return hashMap_.InsertTask(taskId, addr, expectedSum, resetSignal);
     }
 
-    int32_t PollCompleted(npu::tile_fwk::dynamic::AiCoreManager &aiCoreManager);
+    int32_t PollCompleted(npu::tile_fwk::dynamic::AiCoreManager *aiCoreManager);
 
     CircularQueue runingTaskQueue_;
 
@@ -208,7 +227,8 @@ private:
 
     npu::tile_fwk::dynamic::DynDeviceTask *dynDeviceTask_;
     npu::tile_fwk::DynFuncData *funcDataList_;
-    uint64_t *hcclContextAddr_;
+    int64_t *hcclContextAddr_;
+    uint64_t commGroupNum_{0};
     AicpuParamInfo paramInfo_;
 
     uint64_t GetRawAddr(const uint64_t addr, const uint64_t dstRankId);

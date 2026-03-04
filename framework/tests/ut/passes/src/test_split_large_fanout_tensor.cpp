@@ -40,11 +40,20 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetHostConfig(KEY_STRATEGY, "SplitLargeFanoutTensorTestStrategy");
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
     void TearDown() override {}
+
+    void ExecutePass(Function *function, bool enableMoreSplit) {
+        npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
+        splitLargeFanoutTensor.SetEnableMoreSplit(enableMoreSplit);
+        splitLargeFanoutTensor.PreCheck(*function);
+        splitLargeFanoutTensor.RunOnFunction(*function);
+        splitLargeFanoutTensor.PostCheck(*function);
+        std::cout << "Run Pass Done." << std::endl;
+    }
 
     std::vector<int64_t> CountViewAssemble(Function &func) {
         std::vector<int64_t> result = {0, 0};
@@ -547,7 +556,7 @@ TEST_F(SplitLargeFanoutTensorTest, MtoM) {
             auto input = op.GetIOperands().front();
             auto inputDynShape = input->GetDynValidShape();
             EXPECT_EQ(inputDynShape.size(), NUM_2);
-            EXPECT_EQ(inputDynShape[0].Dump(), "RUNTIME_Max(RUNTIME_Max(0, (c*RUNTIME_Ne(c, 0))), ((c+64)*RUNTIME_Ne(c, 0)))");
+            EXPECT_EQ(inputDynShape[0].Dump(), "RUNTIME_Max(c, RUNTIME_Max(((c+64)*RUNTIME_Ne(c, 0)), 0))");
         }
     }
 }
@@ -579,7 +588,7 @@ TEST_F(SplitLargeFanoutTensorTest, MtoMtoMoreSplit) {
     */
     // 单独执行pass
     npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
-    splitLargeFanoutTensor.enableMoreSplit = true;
+    splitLargeFanoutTensor.enableMoreSplit_ = true;
     splitLargeFanoutTensor.PreCheck(*function);
     splitLargeFanoutTensor.RunOnFunction(*function);
     splitLargeFanoutTensor.PostCheck(*function);
@@ -598,6 +607,83 @@ TEST_F(SplitLargeFanoutTensorTest, MtoMtoMoreSplit) {
     EXPECT_EQ(function->Operations().size(), opNumAfter) << opNumAfter << " operations after pass";
     EXPECT_EQ(viewNumCount, viewNumAfter) << viewNumAfter << " OP_VIEW after pass";
     EXPECT_EQ(assembleNumCount, assembleNumAfter) << assembleNumAfter << " OP_ASSEMBLE after pass";
+}
+
+TEST_F(SplitLargeFanoutTensorTest, MtoMGetCorrectAssemble) {
+    ComputationalGraphBuilder G;
+    BuildGraphForMToM(G, true);
+    Function *function = G.GetFunction();
+
+    std::cout << "Build Graph Done" << std::endl;
+    // 执行pass, 不发生segmentFault即为获取assemble正常
+    npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
+    splitLargeFanoutTensor.enableMoreSplit_ = true;
+    EXPECT_EQ(SUCCESS, splitLargeFanoutTensor.PreCheck(*function));
+    EXPECT_EQ(SUCCESS, splitLargeFanoutTensor.RunOnFunction(*function));
+    EXPECT_EQ(SUCCESS, splitLargeFanoutTensor.PostCheck(*function));
+    std::cout << "Run Pass Done" << std::endl;
+}
+
+void Build1ToMMultiConsumers(ComputationalGraphBuilder &G){
+    int NUM_16 = 16;
+    int NUM_32 = 32;
+
+    // 定义所有张量的形状和名称并添加
+    std::map<std::string, std::vector<int64_t>> tensors = {
+        {"incast0", {NUM_16, NUM_32}}, {"incast1", {NUM_16, NUM_32}},
+        {"outcast0", {NUM_16, NUM_16}}, {"outcast1", {NUM_16, NUM_16}},
+        {"outcast2", {NUM_16, NUM_16}}, {"outcast3", {NUM_16, NUM_16}},
+        {"largeTensor", {NUM_32, NUM_32}}, {"outcast", {NUM_16, NUM_16}}
+    };
+    for (const auto& [name, shape] : tensors) {
+        G.AddTensor(DataType::DT_FP32, shape, name);
+        auto tensor = G.GetTensor(name);
+        tensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    }
+
+    G.AddOp(Opcode::OP_VIEW, {"incast0"}, {"outcast"}, "view");
+    auto viewEX = G.GetOp("view");
+    Offset offsetEX = {0, 0};
+    viewEX->SetOpAttribute(std::make_shared<ViewOpAttribute>(offsetEX, MemoryType::MEM_DEVICE_DDR));
+
+    // 定义所有ASSEMBLE操作并添加
+    std::vector<std::tuple<std::string, std::string, std::vector<int64_t>>> assembleOps = {
+        {"incast0", "assemble0", {0, 0}}, {"incast1", "assemble1", {16, 0}}
+    };
+    for (const auto& [input, opName, offset] : assembleOps) {
+        G.AddOp(Opcode::OP_ASSEMBLE, {input}, {"largeTensor"}, opName);
+        auto assembleOp = G.GetOp(opName);
+        assembleOp->SetOpAttribute(std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offset));
+    }
+
+    // 定义所有VIEW操作并添加
+    std::vector<std::tuple<std::string, std::string, std::vector<int64_t>>> viewOps = {
+        {"outcast0", "view0", {0, 0}}, {"outcast1", "view1", {0, 16}},
+        {"outcast2", "view2", {16, 0}}, {"outcast3", "view3", {16, 16}}
+    };
+    for (const auto& [output, opName, offset] : viewOps) {
+        G.AddOp(Opcode::OP_VIEW, {"largeTensor"}, {output}, opName);
+        auto viewOp = G.GetOp(opName);
+        viewOp->SetOpAttribute(std::make_shared<ViewOpAttribute>(offset, MemoryType::MEM_DEVICE_DDR));
+    }
+
+    G.SetInCast({"incast0", "incast1"});
+    G.SetOutCast({"outcast0", "outcast1", "outcast2", "outcast3", "outcast"});
+}
+
+TEST_F(SplitLargeFanoutTensorTest, 1ToMGetCorrectAssemble) {
+    ComputationalGraphBuilder G;
+    Build1ToMMultiConsumers(G);
+    Function *function = G.GetFunction();
+
+    std::cout << "Build Graph Done." << std::endl;
+    // 单独执行pass, 不发生segmentFault即为获取assemble正常
+    npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
+    splitLargeFanoutTensor.enableMoreSplit_ = false;
+    EXPECT_EQ(SUCCESS, splitLargeFanoutTensor.PreCheck(*function));
+    EXPECT_EQ(SUCCESS, splitLargeFanoutTensor.RunOnFunction(*function));
+    EXPECT_EQ(SUCCESS, splitLargeFanoutTensor.PostCheck(*function));
+    std::cout << "Run Pass Done." << std::endl;
 }
 
 TEST_F(SplitLargeFanoutTensorTest, Unmatched) {
@@ -788,7 +874,7 @@ TEST_F(SplitLargeFanoutTensorTest, PerfectlyMatchWithAll_Full) {
             auto input = op.GetIOperands().front();
             auto inputDynShape = input->GetDynValidShape();
             EXPECT_EQ(inputDynShape.size(), NUM_2);
-            EXPECT_EQ(inputDynShape[0].Dump(), "RUNTIME_Max(RUNTIME_Max(0, (a*RUNTIME_Ne(a, 0))), ((a+8)*RUNTIME_Ne(a, 0)))");
+            EXPECT_EQ(inputDynShape[0].Dump(), "RUNTIME_Max(a, RUNTIME_Max(((a+8)*RUNTIME_Ne(a, 0)), 0))");
         }
     }
 }
@@ -1280,15 +1366,16 @@ TEST_F(SplitLargeFanoutTensorTest, ComplexOverlap) {
     std::cout << "Build Graph Done." << std::endl;
     // 单独执行pass
     npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
-    splitLargeFanoutTensor.enableMoreSplit = false;
+    splitLargeFanoutTensor.enableMoreSplit_ = false;
     splitLargeFanoutTensor.PreCheck(*function);
     splitLargeFanoutTensor.RunOnFunction(*function);
     splitLargeFanoutTensor.PostCheck(*function);
     std::cout << "Run Pass Done." << std::endl;
 
     // 验证：
-    // 拆分后除了两个incast分别各cover一个outcast的场景会被单独拆出以外
-    // 其余场景均不会被拆分，依旧走原largeTensor
+    // 拆分后除了两个incast分别各cover一个outcast的场景会被单独拆出
+    // 中间的[16, 32]会被拆除形成对两个[8, 32]的多对多 
+    // 剩余两个会被保留
     std::unordered_map<int, int> recordAssemble;
     std::unordered_map<int, int> recordView;
     for (auto &op: function->Operations()) {
@@ -1300,7 +1387,8 @@ TEST_F(SplitLargeFanoutTensorTest, ComplexOverlap) {
         }
     }
     for (auto &[k, v]: recordAssemble) {
-        EXPECT_EQ(recordView[k], (v == 1) ? 1 : 4); //6个output，排除两个被input包含的，剩余4个
+        //6个output，两个1对1，两个被拆成合到[16, 32]的4对2，两个保留不动。
+        EXPECT_EQ(recordView[k], (v == 1) ? 1 : 2);
     }
 }
 
@@ -1368,7 +1456,7 @@ TEST_F(SplitLargeFanoutTensorTest, TestPartialInputUnused) {
     std::cout << "Build Graph Done." << std::endl;
     // 单独执行pass
     npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
-    splitLargeFanoutTensor.enableMoreSplit = false;
+    splitLargeFanoutTensor.enableMoreSplit_ = false;
     splitLargeFanoutTensor.PreCheck(*function);
     splitLargeFanoutTensor.RunOnFunction(*function);
     splitLargeFanoutTensor.PostCheck(*function);
@@ -1447,13 +1535,7 @@ TEST_F(SplitLargeFanoutTensorTest, OneDimShouldSplit) {
     Function *function = G.GetFunction();
 
     std::cout << "Build Graph Done." << std::endl;
-    // 单独执行pass
-    npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
-    splitLargeFanoutTensor.enableMoreSplit = false;
-    splitLargeFanoutTensor.PreCheck(*function);
-    splitLargeFanoutTensor.RunOnFunction(*function);
-    splitLargeFanoutTensor.PostCheck(*function);
-    std::cout << "Run Pass Done." << std::endl;
+    ExecutePass(function, false);
 
     // 验证：
     // 依据UT注释展示，共会出现2个view和2个assemble
@@ -1474,7 +1556,7 @@ TEST_F(SplitLargeFanoutTensorTest, OneDimNotSplit) {
     auto countResultBefore = CountViewAssemble(*function);
     // 单独执行pass
     npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
-    splitLargeFanoutTensor.enableMoreSplit = false;
+    splitLargeFanoutTensor.enableMoreSplit_ = false;
     splitLargeFanoutTensor.PreCheck(*function);
     splitLargeFanoutTensor.RunOnFunction(*function);
     splitLargeFanoutTensor.PostCheck(*function);
@@ -1545,16 +1627,8 @@ TEST_F(SplitLargeFanoutTensorTest, SplitSmallTileFirst) {
     Function *function = G.GetFunction();
 
     std::cout << "Build Graph Done." << std::endl;
-    // 单独执行pass
-    npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
-    splitLargeFanoutTensor.enableMoreSplit = false;
-    splitLargeFanoutTensor.PreCheck(*function);
-    splitLargeFanoutTensor.RunOnFunction(*function);
-    splitLargeFanoutTensor.PostCheck(*function);
-    std::cout << "Run Pass Done." << std::endl;
+    ExecutePass(function, false);
 
-    // 验证：
-    // 依据UT注释展示，共会出现2个view和2个assemble
     auto countResultAfter = CountViewAssemble(*function);
     const int viewAssembleNum = 2;
     EXPECT_EQ(viewAssembleNum, countResultAfter[0]) << countResultAfter[0] << " OP_VIEW after pass, should be 2";
@@ -1621,7 +1695,7 @@ TEST_F(SplitLargeFanoutTensorTest, NoSplitLcmLargerThanLargeTensor) {
 
     // 单独执行pass
     npu::tile_fwk::SplitLargeFanoutTensor splitLargeFanoutTensor;
-    splitLargeFanoutTensor.enableMoreSplit = false;
+    splitLargeFanoutTensor.enableMoreSplit_ = false;
     splitLargeFanoutTensor.PreCheck(*function);
     splitLargeFanoutTensor.RunOnFunction(*function);
     splitLargeFanoutTensor.PostCheck(*function);

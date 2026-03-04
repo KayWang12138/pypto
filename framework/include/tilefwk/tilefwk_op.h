@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -126,17 +126,30 @@ Tensor Transpose(const Tensor &self, std::vector<int> perm);
 Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode = CAST_NONE);
 
 Tensor Exp(const Tensor &self);
+Tensor Exp2(const Tensor &self);
+Tensor Expm1(const Tensor &self);
 Tensor Neg(const Tensor &self);
+Tensor Round(const Tensor &self, const int &decimals = 0);
 Tensor Rsqrt(const Tensor &self);
+Tensor Relu(const Tensor &self);
+Tensor BitwiseNot(const Tensor &self);
 Tensor Sqrt(const Tensor &self);
+Tensor Ceil(const Tensor &self);
+Tensor CeilDiv(const Tensor &self, const Tensor &other);
+Tensor CeilDiv(const Tensor &self, const Element &other);
+Tensor Floor(const Tensor &self);
+Tensor Trunc(const Tensor &self);
 Tensor Reciprocal(const Tensor &operand);
 Tensor Abs(const Tensor &self);
 Tensor Ln(const Tensor &operand);
 Tensor Hub(const Tensor &operand);
+Tensor Sign(const Tensor &operand);
+Tensor Signbit(const Tensor &operand);
 
 Tensor Duplicate(const Tensor &operand);
 Tensor Gather(const Tensor &params, const Tensor &indices, int axis);
 Tensor GatherElements(const Tensor &params, const Tensor &indices, int axis);
+Tensor GatherMask(const Tensor &self, const uint8_t patternMode);
 
 enum class ScatterMode {
     NONE,
@@ -159,30 +172,15 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, in
     ScatterMode reduce = ScatterMode::NONE);
 Tensor Scatter(const Tensor &self, const Tensor &indices, const Tensor &src, int axis,
     ScatterMode reduce = ScatterMode::NONE);
-/**
- * \brief Write the scalar value of src into self Tensor, with the write position specified by the indices Tensor. It is
- * the inplace version of Scatter
- *
- * \param self : Tensor to write into.
- * \param indices : the index Tensor of element to be dispersed.
- * \param src : scalar value or tensor to be dispersed.
- * \param axis : axis to be indexed.
- * \param reduce : scatter reduction mode to be applied. Support NONE, ADD, MULTIPLY. NONE is default.
- * \return Tensor
- */
-Tensor Scatter_(const Tensor &self, const Tensor &indices, const Element &src, int axis,
-    ScatterMode reduce = ScatterMode::NONE);
-Tensor Scatter_(const Tensor &self, const Tensor &indices, const Tensor &src, int axis,
-    ScatterMode reduce = ScatterMode::NONE);
-Tensor IndexPut(const Tensor &src, std::vector<Tensor> indices, const Tensor &values);
-Tensor IndexAdd(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha = Element{DT_FP32, 1.0});
-Tensor IndexAdd_(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha = Element{DT_FP32, 1.0});
+void IndexPut_(Tensor &self, const std::vector<Tensor> &indices, const Tensor &values, bool accumulate = false);
+Tensor IndexAdd(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha = Element(DT_FP32, 1.0f));
 Tensor RowSumExpand(const Tensor &operand);
 Tensor RowMaxExpand(const Tensor &operand);
 
 Tensor Sum(const Tensor &self, int axis = -1, bool keepDim=false);
 Tensor Amax(const Tensor &self, int axis = -1, bool keepDim=false);
 Tensor Amin(const Tensor &self, int axis = -1, bool keepDim=false);
+Tensor Prod(const Tensor &self, int axis = -1, bool keepDim=false);
 
 Tensor Compact(const Tensor &operand);
 
@@ -190,25 +188,51 @@ Tensor Add(const Tensor &self, const Tensor &other);
 Tensor Sub(const Tensor &self, const Tensor &other);
 Tensor Div(const Tensor &self, const Tensor &other);
 Tensor Mul(const Tensor &self, const Tensor &other);
+Tensor Hypot(const Tensor &self, const Tensor &other);
+Tensor Fmod(const Tensor &self, const Tensor &other);
 Tensor Maximum(const Tensor &operand1, const Tensor &operand2);
 Tensor Minimum(const Tensor &operand1, const Tensor &operand2);
+Tensor BitwiseAnd(const Tensor &self, const Tensor &other);
+Tensor BitwiseOr(const Tensor &self, const Tensor &other);
+Tensor BitwiseXor(const Tensor &self, const Tensor &other);
+Tensor ExpandExpDif(const Tensor &input, const Tensor &other);
 Tensor Add(const Tensor &self, const Element &other);
 Tensor Sub(const Tensor &self, const Element &other);
 Tensor Div(const Tensor &self, const Element &other);
 Tensor Mul(const Tensor &self, const Element &other);
+Tensor Fmod(const Tensor &self, const Element &other);
+Tensor BitwiseAnd(const Tensor &self, const Element &other);
+Tensor BitwiseOr(const Tensor &self, const Element &other);
+Tensor BitwiseXor(const Tensor &self, const Element &other);
 Tensor Minimum(const Tensor &operand1, const Element &operand2);
 Tensor Maximum(const Tensor &operand1, const Element &operand2);
 Tensor Compare(const Tensor &self, const Tensor &other, OpType op, OutType mode);
 Tensor Compare(const Tensor &self, const Element &other, OpType op, OutType mode);
 Tensor Compare(const Element &self, const Tensor &other, OpType op, OutType mode);
+Tensor Pow(const Tensor &self, const Tensor &other);
 Tensor Pow(const Tensor &self, const Element &other);
+Tensor Remainder(const Tensor &self, const Tensor &other);
+Tensor Remainder(const Tensor &self, const Element &other);
+Tensor Remainder(const Element &self, const Tensor &other);
+Tensor CopySign(const Tensor &self, const Tensor &other);
+Tensor PReLU(const Tensor &self, const Tensor &weight);
+
+Tensor BitwiseRightShift(const Tensor &self, const Tensor &other);
+Tensor BitwiseRightShift(const Tensor &self, const Element &other);
+Tensor BitwiseRightShift(const Element &self, const Tensor &other);
+Tensor BitwiseLeftShift(const Tensor &self, const Tensor &other);
+Tensor BitwiseLeftShift(const Tensor &self, const Element &other);
+Tensor BitwiseLeftShift(const Element &self, const Tensor &other);
 
 Tensor Where(const Tensor &condition, const Tensor &input, const Tensor &other);
 Tensor Where(const Tensor &condition, const Tensor &input, const Element &other);
 Tensor Where(const Tensor &condition, const Element &input, const Tensor &other);
 Tensor Where(const Tensor &condition, const Element &input, const Element &other);
 
+Tensor LReLU(const Tensor &self, const Element &negative_slope);
+
 Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum);
+Tensor Squeeze(const Tensor &input, const std::vector<int> &dim = {});
 
 Tensor TensorIndex(const Tensor &params, const Tensor &indices);
 Tensor ScatterUpdate(const Tensor &dst, const Tensor &index, const Tensor &src, int axis = -2,
@@ -218,6 +242,7 @@ Tensor Expand(const Tensor &self, const std::vector<int64_t> &dstShape, std::vec
 
 Tensor Sin(Tensor operand);
 Tensor Cos(Tensor operand);
+Tensor Var(const Tensor &input, const std::vector<int> &dim = {}, float correction = 1.0f, bool keepDim = false);
 Tensor Softmax(const Tensor &operand);
 Tensor RmsNorm(const Tensor &operand);
 Tensor RmsNorm(const Tensor &operand, const Tensor &gamma, float epsilon = 1e-05f);
@@ -227,7 +252,7 @@ Tensor Pad(const Tensor &old, const std::vector<int64_t> &newShape);
 Tensor LogicalNot(const Tensor &self);
 Tensor Range(const Element &start, const Element &end, const Element &step);
 Tensor LogicalAnd(const Tensor &self, const Tensor &other);
-
+Tensor IsFinite(const Tensor &self);
 Tensor Assign(const Tensor &operand);
 
 // Implementation of `Tensor` type should be placed at first, so that it can be routed when only single input.
@@ -235,7 +260,9 @@ Tensor Clip(const Tensor &self, const Tensor &min = {}, const Tensor &max = {});
 Tensor Clip(const Tensor &self, const Element &min = {}, const Element &max = {});
 
 std::tuple<Tensor, Tensor> TopK(const Tensor &self, int k, int axis = -1, bool isLargest = true);
-Tensor ArgSort(const Tensor &operand, int axis, bool isLargest = true);
+Tensor ArgSort(const Tensor &self, int axis = -1, bool descending = false);
+Tensor Sort32(const Tensor &self, int idxStart = 0);
+Tensor MrgSort(const Tensor &self, int mergeSize);
 
 /**
  * @brief Sort a tensor with shape (1, n) along the last dimension, n must be orders of 2.
@@ -280,6 +307,10 @@ Tensor ScalarMulS(const Tensor &operand, const Element &value, bool reverseOpera
 Tensor ScalarSub(const Tensor &operand1, const Tensor &operand2);
 Tensor ScalarDiv(const Tensor &operand1, const Tensor &operand2);
 Tensor CumSum(const Tensor &input, const int &axis);
+Tensor Gcd(const Tensor &input, const Tensor &other);
+Tensor Gcd(const Tensor &input, const Element &other);
+Tensor TriU(const Tensor &input, const SymbolicScalar &diagonal);
+Tensor TriL(const Tensor &input, const SymbolicScalar &diagonal);
 struct PaTileShapeConfig {
     int headNumQTile;
     std::array<int, TILE_VEC_DIMS> v0TileShape;
@@ -304,6 +335,7 @@ enum class LogBaseType {
     LOG_10,
 };
 Tensor Log(const Tensor &self, LogBaseType base = LogBaseType::LOG_E);
+Tensor Log1p(const Tensor &self);
 
 Tensor OneHot(const Tensor &self, int numClasses);
 
@@ -377,17 +409,24 @@ struct MatmulExtendParam {
     MatmulExtendParam() = default;
 };
 
-template <bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false>
-Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix);
+Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, bool isATrans = false,
+    bool isBTrans = false, bool isCMatrixNZ = false);
 
-template <bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false>
-Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const Tensor &cMatrix);
+Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const MatmulExtendParam &extendParam,
+    bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false);
 
-template <bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false>
-Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const MatmulExtendParam &extendParam);
+Tensor MatmulMX(DataType outType, const Tensor &aMatrix, const Tensor &aScale, const Tensor &bMatrix,
+    const Tensor &bScale, bool isATrans = false, bool isAScaleTrans = false, bool isBTrans = false,
+    bool isBScaleTrans = false, bool isCMatrixNZ = false);
 
-template <bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false>
-Tensor BatchMatmul(DataType dataType, const Tensor &aMatrix, const Tensor &bMatrix);
+Tensor MatmulMX(DataType outType, const Tensor &aMatrix, const Tensor &aScale, const Tensor &bMatrix,
+    const Tensor &bScale, const MatmulExtendParam &extendParam, bool isATrans = false, bool isAScaleTrans = false,
+    bool isBTrans = false, bool isBScaleTrans = false, bool isCMatrixNZ = false);
+
+Tensor BatchMatmul(DataType dataType, const Tensor &aMatrix, const Tensor &bMatrix, bool isATrans = false,
+    bool isBTrans = false, bool isCMatrixNZ = false);
+
+Tensor TransposedBatchMatmul(DataType dataType, const Tensor &aMatrix, const Tensor &bMatrix);
 
 Tensor QuantMM(const Tensor &operand1, const Tensor &operand2, const Tensor &dequantScaleW);
 } // namespace Matrix
@@ -399,30 +438,60 @@ enum class DistReduceType {
     DIST_REDUCE_MIN,
 };
 
+enum class AtomicType {
+    SET,
+    ADD
+};
+
 struct MoeConfig {
     int32_t routedExpertNum{0};
     int32_t expertNumPerRank{0};
     int32_t rankNum{0};
 };
-
-void MoeDispatch(const Tensor& tokenTensor, const Tensor& tokenExpertTable, Tensor& expandX, Tensor& validCnt,
+void MoeDistributedDispatchV2(const Tensor& x, const Tensor& expertIds, const char* group,
+    uint32_t epWorldSize, uint32_t moeExpertNum, uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& expandX,
+    Tensor& assistInfoForCombine, Tensor& expertTokenNums, Tensor& recvCounts);
+void MoeDistributedDispatch(const Tensor& tokenTensor, const Tensor& tokenExpertTable, Tensor& expandX, Tensor& validCnt,
     Tensor& combineInfo, const char *group, const MoeConfig& moeConfig);
 void AllGather(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
-void ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* group, Tensor& out);
-Tensor ShmemSet(const Tensor& predToken, const Tensor& shmemTensor);
-void ReduceScatter(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, DistReduceType reduceType, Tensor& out);
+void AllGather(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
+    Tensor& shmemSignal, Tensor& out);
+Tensor ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* group, uint32_t worldSize);
+Tensor ShmemDataSet(const Tensor& predToken, const Tensor& shmemData);
+Tensor ShmemSignalSet(const Tensor& predToken, const Tensor& shmemSignal);
+void ReduceScatter(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize,
+    DistReduceType reduceType, Tensor& out);
+void ReduceScatter(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData, Tensor& shmemSignal,
+    DistReduceType reduceType, Tensor& out);
 void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
-void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const Tensor& shmemData, const Tensor& shmemSignal,
-    const char* group, uint32_t worldSize, Tensor& out);
+void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
+    Tensor& shmemSignal, Tensor& out);
 void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
-void ShmemMoeCombine(const Tensor& in, const Tensor& combineInfo, const Tensor& scale, const char* group,
-    int32_t rankSize, int32_t totalExpertNum, Tensor& out);
-void CreateShmemData(const char *group, int64_t worldSize, DataType dataType,
-    const Shape &shape, Tensor &shmemTensor, uint64_t memType = 0);
-void CreateShmemSignal(const char *group, Tensor &shmemData, Tensor &shmemSignal);
+void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
+    Tensor& shmemSignal, Tensor& out);
+void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
+    const Tensor& expertScales, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,
+    uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& out);
+void MoeDistributedCombineV2(const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
+    const Tensor& expertScales, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,
+    uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& out);
+void CreateShmemData(const char* group, int64_t worldSize, DataType dataType,
+    const Shape& shape, Tensor& shmemTensor, uint64_t memType = 0);
+void CreateShmemSignal(const char* group, Tensor& shmemData, Tensor& shmemSignal);
+Tensor ShmemPut(const Tensor& predToken, const Tensor& in, const Tensor& shmemData,
+    AtomicType atomicType = AtomicType::SET);
+Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy,
+ 	AtomicType atomicType = AtomicType::SET);
+Tensor ShmemSignal(const Tensor& predToken, const Tensor& shmemSignal, AtomicType atomicType = AtomicType::SET);
+Tensor WaitUntil(const Tensor& predToken, const Tensor& shmemSignal, int32_t expectedSum, bool resetSignal = false);
+Tensor ShmemGet(const Tensor& predToken, const Tensor& shmemData, DataType nonShmemDataType = DataType::DT_BOTTOM,
+    AtomicType atomicType = AtomicType::SET);
+Tensor ShmemGetGm2Ub(const Tensor &dummy, const Tensor &shmemDataTile, DataType nonShmemDataType = DataType::DT_BOTTOM,
+    AtomicType atomicType = AtomicType::SET);
 } // namespace Distributed
 std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, int idxStart);
-std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, const SymbolicScalar &idxStart); 
+std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, const SymbolicScalar &idxStart);
 Tensor TopKExtract(const Tensor &x, int k, bool isIndex);
 Tensor TopKMerge(const Tensor &x, int mergeSize);
+Tensor Nop(const std::vector<Tensor> &inTensors);
 } // namespace npu::tile_fwk

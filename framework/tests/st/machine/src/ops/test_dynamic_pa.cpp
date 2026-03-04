@@ -56,7 +56,6 @@ struct PaConfig {
 
 void testPa(PaTileShapeConfig& tileConfig, PaConfig config) {
     SetInterpreterConfig();
-    config::SetHostOption(ONLY_CODEGEN, true);
 
     std::vector<uint8_t> devProgBinary;
     int paramsSize = 8;

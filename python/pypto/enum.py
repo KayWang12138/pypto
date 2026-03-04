@@ -27,6 +27,7 @@ OpType = pypto_impl.OpType
 OutType = pypto_impl.OutType
 ReLuType = pypto_impl.ReLuType
 ScatterMode = pypto_impl.ScatterMode
+AtomicType = pypto_impl.AtomicType
 
 DataType.__repr__ = _enum_repr
 TileOpFormat.__repr__ = _enum_repr
@@ -47,6 +48,9 @@ DT_FP32 = pypto_impl.DataType.DT_FP32
 DT_BF16 = pypto_impl.DataType.DT_BF16
 DT_HF4 = pypto_impl.DataType.DT_HF4
 DT_HF8 = pypto_impl.DataType.DT_HF8
+DT_FP8E4M3 = pypto_impl.DataType.DT_FP8E4M3
+DT_FP8E5M2 = pypto_impl.DataType.DT_FP8E5M2
+DT_FP8E8M0 = pypto_impl.DataType.DT_FP8E8M0
 DT_UINT8 = pypto_impl.DataType.DT_UINT8
 DT_UINT16 = pypto_impl.DataType.DT_UINT16
 DT_UINT32 = pypto_impl.DataType.DT_UINT32

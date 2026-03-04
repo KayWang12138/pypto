@@ -41,7 +41,6 @@ struct StaticReadyCoreFunctionQueue {
   size_t lock;
 };
 
-#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
 struct WrapInfo {
     uint32_t wrapId;
     uint32_t aicCoreIdx;
@@ -60,7 +59,6 @@ struct WrapInfoQueue {
   size_t lock;
   uint64_t Size() { return tail - head;}
 };
-#endif
 
 inline void ReadyQueueLock(ReadyCoreFunctionQueue* rq) {
   while (!__sync_bool_compare_and_swap(&rq->lock, 0, 1)) {
@@ -99,20 +97,21 @@ struct DeviceTaskBin {
 constexpr int64_t DEVICE_QUEUE_SIZE = 512;
 #define DEVICE_TASK_STOP 0x7FFFFFFE
 
-struct AstKernelArgs {
-    int64_t *syncaddr{nullptr}; // not used
+struct DeviceKernelArgs {
+    int64_t *ctrlFlowCache{nullptr};
     int64_t *inputs{nullptr};
     int64_t *outputs{nullptr};
     int64_t *workspace{nullptr};
     int64_t *tilingdata{nullptr};
     int64_t *cfgdata{nullptr};
+    int64_t *commContexts{nullptr};
     // following 4 paras need remove to binary
     void *costmodeldata{nullptr};
     void *aicoreModel{nullptr};
     uint64_t taskWastTime{0};
     uint8_t machineConfig;
     ToSubMachineConfig toSubMachineConfig;
-    OpMetaAddrs opMetaAddrs;
+    DeviceKernelArgsParameter parameter;
 };
 
 struct LogHead {

@@ -36,9 +36,18 @@ using namespace npu::tile_fwk;
 namespace {
 
 void CheckFwkOpTileShape(const VecTile &vecTile, const std::shared_ptr<LogicalTensor> &tensor) {
-    ASSERT(vecTile.size() >= tensor->GetShape().size()) << "FwkOp tile shape's dim is less than  input's dim. ";
+    const auto& tensorShape = tensor->GetShape();
+    ASSERT(vecTile.size() >= tensorShape.size()) << "FwkOp tile shape dimension mismatch! "
+                                                    << "Tile dims: " << vecTile.size() << ", "
+                                                    << "Tensor dims: " << tensorShape.size() << ", "
+                                                    << "Dump tensor: " << tensor->Dump();
+
     DataType dataType = tensor->Datatype();
-    ASSERT(vecTile[vecTile.size() - 1] * BytesOf(dataType) % BLOCK_SIZE == 0) << "FwkOp tile shape's last dim is not align.";
+    size_t lastDimBytes = vecTile[vecTile.size() - 1] * BytesOf(dataType);
+    ASSERT(lastDimBytes % BLOCK_SIZE == 0) << "FwkOp tile shape's last dim is not aligned. "
+                                            << "Last dim bytes: " << lastDimBytes << ", "
+                                            << "BLOCK_SIZE: " << BLOCK_SIZE << ", "
+                                            << "Dump tensor: " << tensor->Dump();
 }
 
 void TiledAssemble(Function &function, const TileShape &tileShape, size_t cur, Input &input,
@@ -254,7 +263,76 @@ Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum) {
     }
     std::vector<int64_t> newShape(old.GetStorage()->shape);
     newShape.insert(newShape.begin() + unsqueezeDim, 1);
-    return Reshape(old, newShape);
+    auto validShape = old.GetStorage()->GetDynValidShape();
+    ASSERT(!validShape.empty());
+    validShape.insert(validShape.begin() + unsqueezeDim, 1);
+    return Reshape(old, newShape, validShape);
+}
+
+static void SqueezeParamsValidCheck(const Tensor &input, std::vector<int> &dim)
+{
+    Shape oriShape = input.GetShape();
+    size_t shapeSize = oriShape.size();
+    ASSERT(shapeSize <= SHAPE_DIM4) << "The input dimension only support 1~4. Cur dimension is " << shapeSize;
+
+    if (dim.empty()) {
+        for (size_t i = 0; i < shapeSize; i++) {
+            dim.push_back(static_cast<int>(i));
+        }
+    }
+    ASSERT(dim.size() <= shapeSize) << "The dim.size <= input.dim is not matched. dim.size is " << dim.size()
+        << ", input.dim is " << shapeSize;
+    std::set<int> dupDimSet(dim.begin(), dim.end());
+    ASSERT(dupDimSet.size() == dim.size()) << "There is duplicates elements in dim";
+    for (size_t i = 0; i < dim.size(); i++) {
+        ASSERT(dim[i] < static_cast<int>(shapeSize) && dim[i] >= -(static_cast<int>(shapeSize))) << "dim " << i <<
+            " in dim is out of range";
+        if (dim[i] < 0) {
+            dim[i] = dim[i] + static_cast<int>(shapeSize);
+        }
+    }
+    std::sort(dim.begin(), dim.end());
+}
+
+Tensor Squeeze(const Tensor &input, const std::vector<int> &dim)
+{
+    DECLARE_TRACER();
+
+    Shape oriShape = input.GetShape();
+    Shape dstShape(oriShape.begin(), oriShape.end());
+    size_t shapeSize = oriShape.size();
+    std::vector<SymbolicScalar> validShape;
+    std::vector<int> innerDim(dim.begin(), dim.end());
+
+    if (shapeSize == 1) {
+        return input;
+    }
+    SqueezeParamsValidCheck(input, innerDim);
+    for (auto shape : input.GetStorage()->GetDynValidShape()){
+        validShape.push_back(shape);
+    }
+
+    ASSERT(!validShape.empty()) << "The input validshape should not be empty.";
+
+    for (auto it = innerDim.rbegin(); it != innerDim.rend(); ++it) {
+        int axis = *it;
+        if (oriShape[axis] == 1) {
+            dstShape.erase(dstShape.begin() + axis);
+            validShape.erase(validShape.begin() + axis);
+        }
+    }
+    if (dstShape.empty()) {
+        dstShape.push_back(1);
+    }
+    if (validShape.empty()) {
+        validShape.push_back(1);
+    }
+
+    if (dstShape.size() == shapeSize) {
+        return input;
+    } else {
+        return Reshape(input, dstShape, validShape);
+    }
 }
 
 void TensorInnerAssign(Function &function, const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
@@ -842,13 +920,6 @@ void TiledTopKExtract(Function &function, const LogicalTensorPtr &x, const Logic
     op.SetAttribute(TOPK_INDEX, static_cast<int>(isIndex));
 }
 
-Tensor TopKExtract(const Tensor &x, int k, bool isIndex) {
-    DataType dType = isIndex ? DataType::DT_INT32 : x.GetStorage()->tensor->datatype;
-    auto y = Tensor(dType, {1, k});
-    TiledTopKExtract(*Program::GetInstance().GetCurrentFunction(), x.GetStorage(), y.GetStorage(), k, isIndex);
-    return y;
-}
-
 // view op
 Tensor View(const Tensor &operand, const std::vector<int64_t> &shapes, const std::vector<int64_t> &offsets) {
     DECLARE_TRACER();
@@ -1278,6 +1349,40 @@ static std::vector<int64_t> CheckAndInferShape(const std::vector<int64_t> &oriSh
     return newShape;
 }
 
+// batch MatMul优化pattern，不插入register copy
+bool MatchBatchMatMulPattern(const std::vector<int64_t> &inputShape, const std::vector<int64_t> &outputShape) {
+    constexpr size_t DIMENSIONS_2D = 2;
+    constexpr size_t DIMENSIONS_3D = 3;
+    constexpr size_t DIMENSIONS_4D = 4;
+    // 定义所有有效的模式：{input_size, output_size, 验证函数}
+    using Validator = std::function<bool(const std::vector<int64_t>&, const std::vector<int64_t>&)>;
+
+    static const std::vector<std::pair<std::pair<size_t, size_t>, Validator>> patterns = {
+        {{DIMENSIONS_3D, DIMENSIONS_2D}, [](const auto& in, const auto& out) {
+            return in[0] == 1 && in[1] == out[0] && in[2] == out[1];
+        }},
+        {{DIMENSIONS_2D, DIMENSIONS_3D}, [](const auto& in, const auto& out) {
+            return out[0] == 1 && in[0] == out[1] && in[1] == out[2];
+        }},
+        {{DIMENSIONS_4D, DIMENSIONS_2D}, [](const auto& in, const auto& out) {
+            return in[0] == 1 && in[1] == 1 && in[2] == out[0] && in[3] == out[1];
+        }},
+        {{DIMENSIONS_2D, DIMENSIONS_4D}, [](const auto& in, const auto& out) {
+            return out[0] == 1 && out[1] == 1 && in[0] == out[2] && in[1] == out[3];
+        }}
+    };
+
+    for (const auto& [sizes, validator] : patterns) {
+        if (inputShape.size() == sizes.first &&
+            outputShape.size() == sizes.second &&
+            validator(inputShape, outputShape)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static bool ReshapeNeedCopy(const Tensor &operand) {
     if (operand.GetShape() != operand.GetStorage()->tensor->rawshape) {
         return true;
@@ -1302,16 +1407,23 @@ static bool ReshapeNeedCopy(const Tensor &operand) {
 
 Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, const std::vector<SymbolicScalar> &validShape, const bool inplace, const void *lr) {
     DECLARE_TRACERX(lr);
-    ASSERT(!inplace) << "The 'inplace' parameter muster be false !!!";
+    ASSERT(!inplace) << "The 'inplace' parameter must be false !!!";
     if (operand.GetShape() == dstshape) {
         return operand;
     }
     std::vector<SymbolicScalar> validShapeDefault = validShape;
-    if (validShape.empty()) {
-        validShapeDefault = SymbolicScalar::FromConcrete(dstshape);
-    }
     auto newShape = CheckAndInferShape(operand.GetShape(), dstshape);
-    if (ReshapeNeedCopy(operand)) {
+    if (validShape.empty()) {
+        validShapeDefault = SymbolicScalar::FromConcrete(newShape);
+    } else {
+        for (auto validShapeItem : validShape) {
+            if (validShapeItem.IsImmediate() && validShapeItem == -1) {
+                ASSERT(false) << "Not supported: validShape contains -1";
+            }
+        }
+    }
+
+    if (ReshapeNeedCopy(operand) && !MatchBatchMatMulPattern(operand.GetShape(), dstshape)) {
         Tensor copyOperand(operand.GetStorage()->Datatype(), operand.GetShape(), "", operand.Format());
         copyOperand.GetStorage()->UpdateDynValidShape(operand.GetStorage()->GetDynValidShape());
         CALL(InnerAssign, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(),
@@ -1327,16 +1439,18 @@ Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, cons
     }
 }
 
-Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, const std::vector<SymbolicScalar> &validShape, const bool inplace) {
+Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape,
+    const std::vector<SymbolicScalar> &validShape, const bool inplace) {
     return Reshape(operand, dstshape, validShape, inplace, __builtin_return_address(0));
 }
 
-Tensor Reshape(const Tensor &operand, const std::initializer_list<int64_t> &dstshape, const std::initializer_list<SymbolicScalar> &validShape, const bool inplace) {
+Tensor Reshape(const Tensor &operand, const std::initializer_list<int64_t> &dstshape,
+    const std::initializer_list<SymbolicScalar> &validShape, const bool inplace) {
     return Reshape(operand, std::vector<int64_t>(dstshape), std::vector<SymbolicScalar>(validShape), inplace, __builtin_return_address(0));
 }
 
-Tensor Reshape( const Tensor &operand, const std::vector<SymbolicScalar> &dstShape, const bool inplace) {
-    ASSERT(inplace) << "The 'inplace' parameter muster be true !!!";
+Tensor Reshape(const Tensor &operand, const std::vector<SymbolicScalar> &dstShape, const bool inplace) {
+    ASSERT(inplace) << "The 'inplace' parameter must be true !!!";
     Tensor dst(operand.GetStorage()->Datatype(), dstShape, "", operand.Format());
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
     auto &operation = Program::GetInstance().GetCurrentFunction()->AddOperation(Opcode::OP_RESHAPE, {operand.GetStorage()}, {dst.GetStorage()});
@@ -1366,7 +1480,7 @@ void TiledGatherInUB(Function &function, const TileShape &tileShape, const Logic
             auto resultTile = result->View(function, {shape0, shape1}, {i, j});
             auto &op =
                 function.AddOperation(Opcode::OP_GATHER_IN_UB, {paramTile, indicesTile, blockTableTile}, {resultTile});
-            op.SetAttribute(OP_ATTR_PREFIX + "blocksize", blockSize);
+            op.SetAttribute(OpAttributeKey::blockSize, blockSize);
             (void)op;
         }
     }
@@ -1392,7 +1506,7 @@ Tensor experimental::GatherInUB(
     }
     auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(Opcode::OP_GATHER_IN_UB,
         {params.GetStorage(), indices.GetStorage(), blockTable.GetStorage()}, {result.GetStorage()});
-    op.SetAttribute(OP_ATTR_PREFIX + "blocksize", blockSize);
+    op.SetAttribute(OpAttributeKey::blockSize, blockSize);
     (void)op;
     return result;
 }
@@ -1438,7 +1552,7 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             break;
         }
         case Opcode::OP_GATHER_IN_UB: {
-            int blocksize = op.GetIntAttribute(OP_ATTR_PREFIX + "blocksize");
+            int blocksize = op.GetIntAttribute(OpAttributeKey::blockSize);
             TiledGatherInUB(function, tileShape, iOperand[0], iOperand[1], iOperand[2], oOperand[0], blocksize);
             break;
         }
@@ -1583,22 +1697,41 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             npu::tile_fwk::Distributed::TiledShmemSet(function, tileShape, iOperand, oOperand, op);
             break;
         }
-        case Opcode::OP_SHMEM_MOE_COMBINE_SEND: {
-            npu::tile_fwk::Distributed::TiledShmemMoeCombineSend(function, tileShape, iOperand, oOperand, op);
+        case Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND: {
+            npu::tile_fwk::Distributed::TiledMoeDistributedCombineSend(function, tileShape, iOperand, oOperand, op);
             break;
         }
-        case Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE: {
-            npu::tile_fwk::Distributed::TiledShmemMoeCombineReceive(function, tileShape, iOperand, oOperand, op);
+        case Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE: {
+            npu::tile_fwk::Distributed::TiledMoeDistributedCombineReceive(function, tileShape, iOperand, oOperand, op);
             break;
         }
         case Opcode::OP_VIEW_TYPE: {
             TiledViewTypeOperation(function, tileShape, iOperand[0], oOperand[0]);
             break;
         }
+        case Opcode::OP_BLOCK_CALL: {
+            auto &newOp = function.AddRawOperation(Opcode::OP_BLOCK_CALL, iOperand, oOperand, true);
+            newOp.SetOpAttribute(op.GetOpAttribute());
+            newOp.SetAttr(OpAttributeKey::dontTouch, true);
+            newOp.SetOpOffset(op.GetIOpAttrOffsets(), op.GetOOpAttrOffsets());
+            break;
+        }
         default: {
-            ASLOGE("Unsupported opcode %d, opmagic is %d", static_cast<int>(opCode), op.GetOpMagic());
+            ALOG_ERROR_F("Unsupported opcode %d, opmagic is %d", static_cast<int>(opCode), op.GetOpMagic());
             ASSERT(false) << "Unsupported opcode " << static_cast<int>(opCode) << ", opmagic is " << op.GetOpMagic();
         }
     }
+}
+
+Tensor Nop(const std::vector<Tensor>& inTensors)
+{
+    auto& function = *Program::GetInstance().GetCurrentFunction();
+    auto out = std::make_shared<LogicalTensor>(function, DT_INT32, Shape{1, 1});
+    LogicalTensors iOperands;
+    for (const Tensor& inTensor : inTensors) {
+        iOperands.emplace_back(inTensor.GetStorage());
+    }
+    function.AddOperation(Opcode::OP_NOP, iOperands, {out});
+    return out;
 }
 } // namespace npu::tile_fwk

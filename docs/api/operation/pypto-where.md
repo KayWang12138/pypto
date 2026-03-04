@@ -51,8 +51,8 @@ where(
 | 参数名      | 输入/输出 | 说明                                                                 |
 |-------------|-----------|----------------------------------------------------------------------|
 | condition   | 输入      | 支持的类型为：Tensor。<br> Tensor支持的数据类型为：DT_BOOL。<br> 不支持空Tensor；Shape仅支持2-4维；Shape Size不大于2147483647（即INT32_MAX）。<br> 作为条件选择input或者other的元素。 |
-| input       | 输入      | 支持的类型为 float\Element\Tensor类型。<br> 当为float类型时会自动转换为 Element 类型，float 对应 DT_FP32。当需要使用其他数据类型时，可以通过 Element 构建。<br> Tensor和Element支持的数据类型为：DT_FP32\DT_FP16。<br> 不支持空Tensor；Shape仅支持2-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
-| other       | 输入      | 支持的类型为 float\Element\Tensor类型。<br> 当为float类型时会自动转换为 Element 类型，float 对应 DT_FP32。当需要使用其他数据类型时，可以通过 Element 构建。<br> Tensor和Element支持的数据类型为：DT_FP32\DT_FP16。<br> 不支持空Tensor；Shape仅支持2-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+| input       | 输入      | 支持的类型为 float\Element\Tensor类型。<br> 当为float类型时会自动转换为 Element 类型，float 对应 DT_FP32。当需要使用其他数据类型时，可以通过 Element 构建。<br> Tensor和Element支持的数据类型为：DT_FP32，DT_FP16，DT_BF16。<br> 不支持空Tensor；Shape仅支持2-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+| other       | 输入      | 支持的类型为 float\Element\Tensor类型。<br> 当为float类型时会自动转换为 Element 类型，float 对应 DT_FP32。当需要使用其他数据类型时，可以通过 Element 构建。<br> Tensor和Element支持的数据类型为：DT_FP32，DT_FP16，DT_BF16。<br> 不支持空Tensor；Shape仅支持2-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
 
 ## 返回值说明
 
@@ -63,6 +63,26 @@ result ：Tensor，Shape由输入的广播得到，详细广播场景可看上�
 1. 建议优先使用 Element，传入 float 标量对于 fp16 场景，不保证正确性。
 
 ## 调用示例
+
+### TileShape设置示例
+
+说明：调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
+
+TileShape维度应和输出一致。
+
+示例1：非广播场景，输入condition为[m, n]，input为[m, n]，other为[m, n]，输出为[m, n]，TileShape设置为[m1, n1], 则m1, n1分别用于切分m, n轴。
+
+```python
+pypto.set_vec_tile_shapes(4, 16)
+```
+
+示例2：广播场景，输入condition为[m, 1]，input为[m, n]，other为[m, n]，输出为[m, n]，TileShape设置为[m1, n1], 则m1, n1分别用于切分m, n轴。
+
+```python
+pypto.set_vec_tile_shapes(4, 16)
+```
+
+### 接口调用示例
 
 ```python
 cond1 = pypto.tensor([4], pypto.DT_BOOL)

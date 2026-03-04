@@ -17,9 +17,17 @@
 #define PASS_LOG_H
 
 #include <string>
+#include <chrono>
 #include "interface/utils/log.h"
 #include "interface/operation/operation.h"
 #include "interface/function/function.h"
+#include "tilefwk/pypto_fwk_log.h"
+
+#define APASS_LOG_F(lvl, MODULE_NAME, opName, fmt, args...)                        \
+    do {                                                                        \
+        ALOG_F(lvl, \
+        "[%s][%s][" #lvl "]: " fmt, MODULE_NAME, opName, ##args);       \
+    } while (false)
 
 namespace npu::tile_fwk {
 
@@ -51,19 +59,59 @@ inline const char* toString(Elements elem) {
     auto it = passElementName.find(elem);
     return (it != passElementName.end()) ? it->second : "Unknown";
 }
+
+class ScopeTimer {
+public:
+    ScopeTimer(const char* moduleName, Elements opEnum, const char* tag)
+        : module_(moduleName), opEnum_(opEnum), tag_(tag) {}
+
+    void Start() {
+        started_ = true;
+        ended_ = false;
+        start_ = std::chrono::steady_clock::now();
+        APASS_LOG_F(INFO, module_, toString(opEnum_), "==========> start %s.", tag_);
+    }
+
+    void End() {
+        if (!started_ || ended_) {
+            return;
+        }
+        ended_ = true;
+        auto us = std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::steady_clock::now() - start_).count();
+        APASS_LOG_F(INFO, module_, toString(opEnum_), "<========== end %s, cost time=%lld us.", tag_, (long long)us);
+    }
+
+    ~ScopeTimer() {
+        if (started_ && !ended_) {
+            End();
+        }
+    }
+
+private:
+    const char* module_;
+    Elements opEnum_;
+    const char* tag_;
+
+    bool started_{false};
+    bool ended_{false};
+    std::chrono::steady_clock::time_point start_;
+};
+
 }
 
-#define APASS_LOG_F(lvl, MODULE_NAME, opName, fmt, args...)                        \
-    do {                                                                        \
-        ALOG_F(lvl, \
-        "[%s][%s][" #lvl "]: " fmt, MODULE_NAME, opName, ##args);       \
-    } while (false)
+#define LOG_SCOPE_BEGIN(timerVar, opEnum, tag) \
+    ScopeTimer timerVar(MODULE_NAME, opEnum, tag); \
+    timerVar.Start()
 
+#define LOG_SCOPE_END(timerVar) \
+    timerVar.End()
 
-#define APASS_LOG_DEBUG_F(opEnum, fmt, args...)   APASS_LOG_F(DEBUG, MODULE_NAME, toString(opEnum), fmt, ##args)
-#define APASS_LOG_INFO_F(opEnum, fmt, args...)    APASS_LOG_F(INFO, MODULE_NAME, toString(opEnum), fmt, ##args)
-#define APASS_LOG_WARN_F(opEnum, fmt, args...)    APASS_LOG_F(WARN, MODULE_NAME, toString(opEnum), fmt, ##args)
-#define APASS_LOG_ERROR_F(opEnum, fmt, args...)   APASS_LOG_F(ERROR, MODULE_NAME, toString(opEnum), fmt, ##args)
-#define APASS_LOG_EVENT_F(opEnum, fmt, args...)   APASS_LOG_F(EVENT, MODULE_NAME, toString(opEnum), fmt, ##args)
+static const std::string PASS_LOG_PREFIX = "PASS.";
+#define APASS_LOG_DEBUG_F(opEnum, ...)   PYPTO_HOST_LOG(DLOG_DEBUG, (PASS_LOG_PREFIX + MODULE_NAME "." + toString(opEnum)).c_str(), __VA_ARGS__)
+#define APASS_LOG_INFO_F(opEnum, ...)    PYPTO_HOST_LOG(DLOG_INFO, (PASS_LOG_PREFIX + MODULE_NAME "." + toString(opEnum)).c_str(), __VA_ARGS__)
+#define APASS_LOG_WARN_F(opEnum, ...)    PYPTO_HOST_LOG(DLOG_WARN, (PASS_LOG_PREFIX + MODULE_NAME "." + toString(opEnum)).c_str(), __VA_ARGS__)
+#define APASS_LOG_ERROR_F(opEnum, ...)   PYPTO_HOST_LOG(DLOG_ERROR, (PASS_LOG_PREFIX + MODULE_NAME "." + toString(opEnum)).c_str(), __VA_ARGS__)
+#define APASS_LOG_EVENT_F(opEnum, ...)   PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, (PASS_LOG_PREFIX + MODULE_NAME "." + toString(opEnum)).c_str(), __VA_ARGS__)
 
 #endif // PASSES_LOG_H

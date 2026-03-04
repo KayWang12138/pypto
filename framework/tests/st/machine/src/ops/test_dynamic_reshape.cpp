@@ -25,7 +25,6 @@ class DynamicReshapeTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aiha
 public:
     void SetUp() override {
         npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac::SetUp();
-        config::SetHostOption(ONLY_CODEGEN, true);
         rtSetDevice(GetDeviceIdByEnvVar());
     }
 };
@@ -433,7 +432,7 @@ TEST_F(DynamicReshapeTest, test_assemble_diff_tile) {
             TileShape::Current().SetVecTile(128, 64);
             Tensor bFp16 = Cast(bView, DataType::DT_FP16);
 
-            auto tmpO = Matrix::Matmul<false, false>(DataType::DT_FP32, aFp16, bFp16);     // {s1, actS2} @ {actS2, d}
+            auto tmpO = Matrix::Matmul(DataType::DT_FP32, aFp16, bFp16, false, false);     // {s1, actS2} @ {actS2, d}
             Assemble(tmpO, {bIdx*s1, 0}, out);
         }
     }

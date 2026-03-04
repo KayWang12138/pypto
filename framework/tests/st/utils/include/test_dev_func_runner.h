@@ -27,6 +27,7 @@
 #include "machine/runtime/device_launcher.h"
 #include "cost_model/simulation/backend.h"
 #include "machine/runtime/host_prof.h"
+#include "machine/runtime/distributed/distributed_context.h"
 
 using namespace npu::tile_fwk::dynamic;
 
@@ -34,11 +35,12 @@ namespace npu::tile_fwk {
 
 struct MemoryHelper {
     MemoryHelper(bool isTest) : isTest_(isTest) {}
+    ~MemoryHelper() = default;
 
     bool IsDevice() { return !isTest_; }
 
-    uint8_t *CopyToDev(uint8_t *data, uint64_t size) {
-        uint8_t *devPtr = AllocDev(size, nullptr);
+    uint8_t *CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder) {
+        uint8_t *devPtr = AllocDev(size, cachedDevAddrHolder);
         if (isTest_)
             memcpy_s(devPtr, size, data, size);
         else
@@ -56,10 +58,27 @@ struct MemoryHelper {
     uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
         (void)cachedDevAddrHolder;
         uint8_t *devPtr = nullptr;
-        if (isTest_)
-            devPtr = machine::GetRuntimeHostAgent()->AllocHostAddr(size);
-        else
+        if (isTest_) {
+            size_t alignSize = 512;
+            size_t totalSize = size + alignSize;
+
+            if (totalSize < size || totalSize > 0x7FFFFFFF) {
+                return nullptr;
+            }
+
+            uint8_t * rawPtr = (uint8_t*)malloc(totalSize);
+            if (rawPtr == nullptr) {
+                ALOG_ERROR_F("[AllocDev] malloc totalSize %zu failed", totalSize);
+                return nullptr;
+            }
+            std::shared_ptr<uint8_t> ptr(rawPtr, free);
+            memset_s(rawPtr, totalSize, 0, totalSize);
+            
+            devPtr = (uint8_t *)((((uint64_t)rawPtr) + alignSize - 1) / alignSize * alignSize);
+            testAllocatePtrs_.push_back(ptr);
+        } else {
             machine::GetRA()->AllocDevAddr(&devPtr, size);
+        }
         return devPtr;
     }
 
@@ -74,21 +93,21 @@ struct MemoryHelper {
     }
 
     template <typename T>
-    T *CopyToDev(std::vector<T> data, uint8_t **cachedDevAddrHolder) {
-        (void)cachedDevAddrHolder;
-        return (T *)CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T));
+    T *CopyToDev(std::vector<T> data, uint8_t **cachedHolder) {
+        (void)cachedHolder;
+        return (T *)CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T), nullptr);
     }
 
     uint8_t *CopyToDev(RawTensorData &data) {
         if (data.GetDevPtr() == nullptr) {
-            auto devPtr = CopyToDev((uint8_t *)data.data(), data.size());
+            auto devPtr = CopyToDev((uint8_t *)data.data(), data.size(), nullptr);
             data.SetDevPtr(devPtr);
         }
         return data.GetDevPtr();
     }
 
-    void CopyFromDev(RawTensorData &t) {
-        CopyFromDev(t.data(), t.GetDevPtr(), t.size());
+    void CopyFromDev(RawTensorData &tensorData) {
+        CopyFromDev(tensorData.data(), tensorData.GetDevPtr(), tensorData.size());
     }
 
     uint64_t GetL2Offset() {
@@ -96,10 +115,10 @@ struct MemoryHelper {
     }
 
     bool isTest_{true};
+    std::vector<std::shared_ptr<uint8_t>> testAllocatePtrs_;
 };
 
 extern "C" int DynTileFwkBackendKernelServer(void *targ);
-extern "C" int DynTileFwkBackendKernelServerInit(void *targ);
 extern "C" int PyptoKernelCtrlServer(void *targ);
 
 class DevFuncRunner : public DeviceLauncher {
@@ -147,7 +166,8 @@ private:
             functionDevProg->controlFlowCache.RuntimeAddrRelocWorkspace(contextWorkspaceAddr, 0, nullptr, nullptr, nullptr);
             functionDevProg->controlFlowCache.RuntimeAddrRelocProgram(reinterpret_cast<uint64_t>(functionDevProg), 0);
             functionDevProg->controlFlowCache.TaskAddrRelocWorkspace(contextWorkspaceAddr, 0, nullptr);
-            functionDevProg->controlFlowCache.TaskAddrRelocProgram(reinterpret_cast<uint64_t>(functionDevProg), 0);
+            functionDevProg->controlFlowCache.TaskAddrRelocProgramAndCtrlCache(reinterpret_cast<uint64_t>(functionDevProg),
+                reinterpret_cast<uint64_t>(&functionDevProg->controlFlowCache), 0, 0);
             functionDevProg->ResetFromLaunch();
             functionDevProg->controlFlowCache.isActivated = true;
         }
@@ -168,22 +188,29 @@ private:
         if (!config_.runModel) {
             return;
         }
-        AstKernelArgs kArgs;
+        DeviceKernelArgs kArgs;
+        auto dynAttr = function_->GetDyndevAttribute();
         DeviceLauncherConfigFillDeviceInfo(config_);
-        DeviceInitTilingData(MemoryHelper(true), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
+        MemoryHelper memoryHelper(true);
+        DeviceInitDistributedContext(memoryHelper, dynAttr->commGroupNames, kArgs);
+        DeviceInitTilingData(memoryHelper, kArgs, dynAttr->devProgBinary, nullptr, config_, nullptr);
         for (int i = 0; i < (config_.controlFlowCache ? 1 : config_.repeatNum); i++) {
-            InitKernelInOuts(kArgs, inputs, outputs, true, {}, false);
+            InitKernelInOuts(memoryHelper, kArgs, inputs, outputs, true, {});
             std::cout << "!!! Run CostModel " << i << "\n";
             RunCostModel(&kArgs);
             std::cout << "!!! Run TestModel " << i << "\n";
             RunTestMode(&kArgs);
         }
+
+        CopyFromDev(memoryHelper, outputs);
+        if (outputs.size() == 0 || HasInplaceArgs(function_)) {
+            CopyFromDev(memoryHelper, inputs);
+        }
         RunDynCostModel();
     }
 
     bool IsDumpTensorEnable() const {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function_).data()));
-        return devProg->memBudget.debug.dumpTensor != 0;
+        return GetDevProg(function_)->memBudget.debug.dumpTensor != 0;
     }
 
     static void DumpDevDataBinary(std::ostream &os, const uint8_t *hostData, uint64_t size, const uint8_t *devptr) {
@@ -212,10 +239,10 @@ private:
         }
     }
 
-    void DumpTensorContents(const AstKernelArgs &kArgs,
+    void DumpTensorContents(const DeviceKernelArgs &kArgs,
                             const std::vector<RawTensorDataPtr> &inputs,
                             const std::vector<RawTensorDataPtr> &outputs) {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function_).data()));
+        auto *devProg = GetDevProg(function_);
         uint8_t *dumpTensorWsPtr = reinterpret_cast<uint8_t *>(kArgs.workspace) + devProg->memBudget.Total() - devProg->memBudget.debug.dumpTensor;
         uint64_t dumpTensorWsUsed = 0;
         rtMemcpy(&dumpTensorWsUsed, sizeof(uint64_t), dumpTensorWsPtr, sizeof(uint64_t), RT_MEMCPY_DEVICE_TO_HOST);
@@ -257,36 +284,37 @@ private:
 
     void RunOnBoard(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {
         std::cout << "!!! Kernel Launch " << "\n";
-        config::SetRunDataOption(KEY_RUNTYPE, "npu");
         int rc = aclInit(nullptr);
         if (rc != 0 && rc != ACL_ERROR_REPEAT_INITIALIZE) {
             ALOG_ERROR_F("Acl init failed!!!");
             return;
         }
         CheckDeviceId();
-        AstKernelArgs kArgs;
+        MemoryHelper memoryHelper(false);
+        DeviceKernelArgs kArgs;
+        auto dynAttr = function_->GetDyndevAttribute();
         DeviceLauncherConfigFillDeviceInfo(config_);
-        DeviceInitTilingData(MemoryHelper(false), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
+        DeviceInitDistributedContext(memoryHelper, dynAttr->commGroupNames, kArgs);
+        DeviceInitTilingData(memoryHelper, kArgs, dynAttr->devProgBinary, nullptr, config_, nullptr);
         auto aicpuStream = machine::GetRA()->GetScheStream();
         auto aicoreStream = machine::GetRA()->GetStream();
         auto ctrlStream = config_.cpuSeparate ? machine::GetRA()->GetCtrlStream() : nullptr;
         for (int i = 0; i < config_.repeatNum; i++) {
-            InitKernelInOuts(kArgs, inputs, outputs, false, function_->GetDyndevAttribute()->disableL2List,
-                config_.isGETensorList);
+            InitKernelInOuts(memoryHelper, kArgs, inputs, outputs, false, dynAttr->disableL2List);
             rc = DeviceRunner::Get().DynamicRun(aicpuStream, ctrlStream, aicoreStream, 0, &kArgs, config_.blockdim, config_.aicpuNum);
             EXPECT_EQ(rc, 0);
             DeviceRunner::Get().SynchronizeDeviceToHostProfData();
         }
-        CopyFromDev(MemoryHelper(false), outputs);
+        CopyFromDev(memoryHelper, outputs);
         if (outputs.size() == 0 || HasInplaceArgs(function_)) {
-            CopyFromDev(MemoryHelper(false), inputs);
+            CopyFromDev(memoryHelper, inputs);
         }
         if (IsDumpTensorEnable()) {
             DumpTensorContents(kArgs, inputs, outputs);
         }
     }
 
-    void RunCostModel(AstKernelArgs *kArgs) {
+    void RunCostModel(DeviceKernelArgs *kArgs) {
         if (!config::GetPlatformConfig(KEY_ENABLE_DYN_COST_MODEL, true)) {
             return;
         }
@@ -323,28 +351,30 @@ private:
         costModelAgent.SubmitLeafFunctionsToCostModel();
         costModelAgent.RunCostModel();
         costModelAgent.TerminateCostModel();
+        ALOG_DEBUG_F("Finish Run DynCostMode which topo path is: %s", path.c_str());
     }
 
-    void RunTestMode(AstKernelArgs *kArgs) {
+    void RunTestMode(DeviceKernelArgs *kArgs) {
         (void) kArgs;
         std::thread aicpus[DEVICE_MAX_AICPU_NUM];
         std::atomic<int> idx{0};
         auto *devProg = (DevAscendProgram *)(kArgs->cfgdata);
-        auto rc0 = DynTileFwkBackendKernelServerInit(kArgs);
-        EXPECT_EQ(rc0, 0);
-        int threadNum = static_cast<int>(devProg->devArgs.nrAicpu);
+        size_t shmSize = DEVICE_TASK_CTRL_POOL_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
+        auto deviceTaskCtrlPoolAddr = devProg->GetRuntimeDataList()->GetRuntimeData() + DEV_ARGS_SIZE;
+        (void)memset_s(reinterpret_cast<void*>(deviceTaskCtrlPoolAddr), shmSize, 0, shmSize);
+        auto threadNum = static_cast<int>(devProg->devArgs.nrAicpu);
         threadNum = (devProg->devArgs.enableCtrl == 1) ? threadNum : threadNum + 1;
         for (int i = 0; i < threadNum; i++) {
             aicpus[i] = std::thread([&]() {
                 int tidx = idx++;
-                cpu_set_t cpuset;
-                CPU_ZERO(&cpuset);
-                CPU_SET(tidx, &cpuset);
+                cpu_set_t cpuSet;
+                CPU_ZERO(&cpuSet);
+                CPU_SET(tidx, &cpuSet);
                 char name[64];
                 sprintf(name, "aicput%d", tidx);
                 std::cout << "start thread: " << name << std::endl;
                 pthread_setname_np(pthread_self(), name);
-                pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+                pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuSet);
                 auto rc = 0;
                 if ((devProg->devArgs.enableCtrl == 0) && (uint32_t)tidx == devProg->devArgs.scheCpuNum) {
                     rc = PyptoKernelCtrlServer(kArgs);
@@ -362,13 +392,12 @@ private:
         }
     }
 
-    void InitKernelInOuts(AstKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputTensors,
-        const std::vector<RawTensorDataPtr> &outputTensors, bool isTest, const std::vector<uint8_t>& disableL2List,
-        bool isGETensorList) {
+    void InitKernelInOuts(MemoryHelper &memoryHelper, DeviceKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputTensors,
+        const std::vector<RawTensorDataPtr> &outputTensors, [[maybe_unused]]bool isTest, const std::vector<uint8_t>& disableL2List) {
         std::vector<DeviceTensorData> inputList;
         std::vector<DeviceTensorData> outputList;
-        std::tie(inputList, outputList) = BuildInputOutputFromHost(MemoryHelper(isTest), inputTensors, outputTensors);
-        DeviceInitKernelInOuts(MemoryHelper(isTest), kArgs, inputList, outputList, disableL2List, isGETensorList);
+        std::tie(inputList, outputList) = BuildInputOutputFromHost(memoryHelper, inputTensors, outputTensors);
+        DeviceInitKernelInOuts(memoryHelper, kArgs, inputList, outputList, disableL2List);
         ALOG_INFO_F("Inputs %p outputs %p workspace %p cfgdata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
             kArgs.cfgdata);
         return;

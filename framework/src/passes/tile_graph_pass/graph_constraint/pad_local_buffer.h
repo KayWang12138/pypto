@@ -23,6 +23,7 @@
 #include "interface/program/program.h"
 #include "passes/pass_interface/pass.h"
 #include "passes/pass_utils/pass_utils.h"
+#include "axis_combine_marker.h"
 
 namespace npu::tile_fwk {
 /*
@@ -53,13 +54,16 @@ private:
     void ProcessCopyIn(Function &function, Operation &op);
     Status ProcessTranspose(Function &function);
     void PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in, std::unordered_set<std::shared_ptr<RawTensor>> &visitedRaw);
-    int64_t ProcessBroadcastForAxisCombine(Operation &op, size_t blockPadding);
+    int64_t ProcessBroadcastForAxisCombine(LogicalTensorPtr &inTensor);
     bool IsMatmul(const LogicalTensorPtr &tensor) const;
     bool IsVector(const LogicalTensorPtr &tensor);
     void DoPadding(Function &function);
     bool IsInputInt8(const Operation &op, const LogicalTensorPtr &in) const;
     bool processTranspose_;
     std::unordered_map<int64_t, int64_t> broadcastLastAxis_;
+    bool combineAxis{false};
+    bool forceCombineAxis{false};
+    AxisCombineMarker axisCombineMarker;
 };
 } // namespace
 #endif  // PAD_LOCAL_BUFFER_H

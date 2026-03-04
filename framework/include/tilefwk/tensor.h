@@ -211,6 +211,14 @@ public:
      */
     int32_t GetShape(int axis) const;
 
+
+    /**
+     * \brief Get the valid shape of the tensor.
+     *
+     * \return std::vector<SymbolicScalar> : The valid shape of the tensor.
+     */
+    std::vector<SymbolicScalar> &GetValidShape() const;
+
     /**
      * \brief Get the format of the tensor.
      *
@@ -291,14 +299,6 @@ const std::vector<SymbolicScalar> &GetInputShape(const Tensor &tensor);
  * @return SymbolicScalar
  */
 SymbolicScalar GetTensorData(const Tensor &t, const std::vector<SymbolicScalar> &offset);
-
-/**
- * \brief Mark the tensor axis as dynamic.
- *
- * \param t input tensor
- * \param axis axis to mark as dynamic
- */
-void MarkDynamic(Tensor &t, int axis);
 
 /**
  * @brief Determines if the current iteration is the start of loop

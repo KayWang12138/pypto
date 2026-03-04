@@ -16,6 +16,7 @@
 #pragma once
 #include <cstdint>
 #include <optional>
+#include <variant>
 #include <mutex>
 #include <unordered_map>
 #include "interface/function/function.h"
@@ -61,7 +62,14 @@ struct CacheValue {
     std::shared_ptr<CoreFunctionTopoCache> topoCache = nullptr;
     std::shared_ptr<CoreFunctionBinCache> binCache = nullptr;
     std::shared_ptr<ReadyCoreFunctionCache> readyListCache = nullptr;
-    Function* cacheFunction = nullptr;
+
+    Function* GetFunction() {
+        return cacheFunction;
+    }
+
+    void SetCacheFunction(Function* func) {
+        cacheFunction = func;
+    }
  public:
     template<typename T>
     static std::shared_ptr<T> CreateCache(size_t size) {
@@ -71,6 +79,8 @@ struct CacheValue {
         });
         return ptr;
     }
+private:
+    Function* cacheFunction = nullptr;
 };
 #pragma pack()
 
@@ -91,6 +101,7 @@ public:
     virtual ~FunctionCache();
 
     Function *GetCacheFunction(const HashKey &key);
+
     void BuildHashDict(Function *func, std::unordered_map<FunctionHash, Function *> &hashDict) {
         std::vector<std::shared_ptr<CallOpAttribute>> callopAttrList = func->GetCallopAttrList();
         for (auto &callopAttr : callopAttrList) {

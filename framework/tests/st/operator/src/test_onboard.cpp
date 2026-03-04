@@ -32,6 +32,7 @@ const int capacity_2_1_8_8 = 2 * 1 * 8 * 8;
 const int capacity_4_4_16_16 = 4 * 4 * 16 * 16;
 const int capacity_4_1_16_16 = 4 * 1 * 16 * 16;
 const int capacity_16_16_64_64 = 16 * 16 * 64 * 64;
+const int capacity_16_8_64_64 = 16 * 8 * 64 * 64;
 const int capacity_8_32_32 = 8 * 32 * 32;
 const int capacity_8_8_32_32 = 8 * 8 * 32 * 32;
 const int capacity_4_4_4_16_16 = 4 * 4 * 4 * 16 * 16;
@@ -82,6 +83,37 @@ TEST_F(OnBoardTest, test_sin_dim2_float32) {
     std::vector<float> res(cap);
     machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/sin_golden_fp32.bin", golden);
+    readInput(GetGoldenDir() + "/x_dim2_fp32.bin", x);
+    int ret = resultCmpUnary(x, golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_sign_dim2_float32) {
+    aclInit(nullptr);
+    rtSetDevice(GetDeviceIdByEnvVar());
+    std::vector<int64_t> shape = {64, 64};
+    DataType dtype = DataType::DT_FP32;
+    int cap = shape[0] * shape[1];
+    uint64_t outputSize = cap * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("Sign") {
+        void *x_ptr = readToDev(GetGoldenDir() + "/x_dim2_fp32.bin", cap); // true means no cut
+        TileShape::Current().SetVecTile({32, 32});
+        Tensor input_x(dtype, shape, (uint8_t *)x_ptr, "x");
+        Tensor output(dtype, shape, out_ptr, "sign");
+
+        config::SetBuildStatic(true);
+        FUNCTION("SIGN_T", {input_x, output}) {
+            output = Sign(input_x);
+        }
+    }
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+
+    std::vector<float> x(cap);
+    std::vector<float> golden(cap);
+    std::vector<float> res(cap);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/sign_golden_fp32.bin", golden);
     readInput(GetGoldenDir() + "/x_dim2_fp32.bin", x);
     int ret = resultCmpUnary(x, golden, res, 0.001f);
     EXPECT_EQ(ret, true);
@@ -313,6 +345,34 @@ TEST_F(OnBoardTest, test_gather_float_case4) {
     readInput(inputDir + "y_golden.bin", golden);
     std::cout << "====== output size:" << capacity2 << std::endl;
     int ret = resultCmp(golden, dev_res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_unary_operation_16_8_64_64_tileop_log1p) {
+    aclInit(nullptr);
+    rtSetDevice(GetDeviceIdByEnvVar());
+    uint64_t outputSize = capacity_16_8_64_64 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("LOG1P") {
+        std::vector<int64_t> shape = {16, 8, 64, 64};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_8_64_64);
+        TileShape::Current().SetVecTile({2, 8, 16, 16});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+
+        config::SetBuildStatic(true);
+        FUNCTION("LOG1P_T", {input_a, output}) {
+            output = Log1p(input_a);
+        }
+    }
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+
+    std::vector<float> golden(capacity_16_8_64_64);
+    std::vector<float> res(capacity_16_8_64_64);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+
+    int ret = resultCmp(golden, res, 0.003f);
     EXPECT_EQ(ret, true);
 }
 
@@ -1873,7 +1933,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_16_64_64_tileop_reciprocal) {
     PROGRAM("RECIPROCAL") {
         std::vector<int64_t> shape = {16, 16, 64, 64};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_16_64_64);
-        TileShape::Current().SetVecTile({8, 8, 16, 32});
+        TileShape::Current().SetVecTile({2, 8, 16, 16});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
@@ -1886,6 +1946,34 @@ TEST_F(OnBoardTest, test_unary_operation_16_16_64_64_tileop_reciprocal) {
 
     std::vector<float> golden(capacity_16_16_64_64);
     std::vector<float> res(capacity_16_16_64_64);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/res.bin", golden);
+
+    int ret = resultCmp(golden, res, 0.003f);
+    EXPECT_EQ(ret, true);
+}
+
+TEST_F(OnBoardTest, test_unary_operation_16_8_64_64_tileop_relu) {
+    aclInit(nullptr);
+    rtSetDevice(GetDeviceIdByEnvVar());
+    uint64_t outputSize = capacity_16_8_64_64 * sizeof(float);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("RELU") {
+        std::vector<int64_t> shape = {16, 8, 64, 64};
+        void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_8_64_64);
+        TileShape::Current().SetVecTile({2, 8, 16, 16});
+        Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
+        Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
+
+        config::SetBuildStatic(true);
+        FUNCTION("RELU_T", {input_a, output}) {
+            output = Relu(input_a);
+        }
+    }
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+
+    std::vector<float> golden(capacity_16_8_64_64);
+    std::vector<float> res(capacity_16_8_64_64);
     machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
     readInput(GetGoldenDir() + "/res.bin", golden);
 
@@ -2558,7 +2646,6 @@ TEST_F(OnBoardTest, test_matmul_add_dynamic) {
     const int k = 256;
     const int n = 512;
     SetInterpreterConfig();
-    config::SetHostOption(ONLY_CODEGEN, true);
 
     Tensor tensor_a = Tensor(DataType::DT_FP16, {m, k}, "tensor_a", TileOpFormat::TILEOP_ND);
     Tensor tensor_b = Tensor(DataType::DT_FP16, {k, n}, "tensor_b", TileOpFormat::TILEOP_ND);
@@ -2596,7 +2683,7 @@ TEST_F(OnBoardTest, test_matmul_add_dynamic) {
     FUNCTION("matmul_add", {tensor_a, tensor_b, tensor_c, tensor_d}, {tensor_o}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1)) {
             (void)mIdx;
-            Tensor tmp1 = npu::tile_fwk::Matrix::Matmul<false, false, false>(DataType::DT_FP16, tensor_a, tensor_b);
+            Tensor tmp1 = npu::tile_fwk::Matrix::Matmul(DataType::DT_FP16, tensor_a, tensor_b, false, false, false);
             Tensor tmp2 = Add(tmp1, tensor_c);
             tensor_o = Add(tmp2, tensor_d);
         }

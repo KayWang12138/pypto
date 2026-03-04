@@ -17,12 +17,10 @@ import torch_npu
 import pypto
 import numpy as np
 
-verify_options = {"enable_pass_verify": True,
-                  "pass_verify_save_tensor": True,
-                 }
 
-
-@pypto.jit(verify_options=verify_options)
+@pypto.jit(verify_options={"enable_pass_verify": True,
+                           "pass_verify_save_tensor": True,
+                    })
 def add(a, b, c):
     for _ in pypto.loop(1):
         pypto.set_vec_tile_shapes(16, 16)
@@ -41,7 +39,7 @@ def test_verify_full_options():
     inputs = [a, b]
     outputs = [c]
 
-    inputs = [a.to(f"npu:{device_id}"), a.to(f"npu:{device_id}")]
+    inputs = [a.to(f"npu:{device_id}"), b.to(f"npu:{device_id}")]
     outputs = [c.to(f"npu:{device_id}")]
     pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]

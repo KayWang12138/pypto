@@ -29,7 +29,7 @@ public:
         std::string src = GetCurRunningPath() + "/../../../framework/tests/ut/machine/stubs/compiler/data/platform_config/Ascend910_9572.ini";
         std::string dst = RealPath(GetCurrentSharedLibPath() + "/configs") + "/Soc_version.ini";
         std::string command = "cp " + src + " " + dst;
-        std::system(command.c_str());
+        ASSERT(std::system(command.c_str()) == 0) << "Failed to copy config file: " << command;
     }
     void TearDown() override {}
 };
@@ -125,14 +125,38 @@ TEST_F(TestINIParser, TestObtainPlatformInfo) {
     EXPECT_EQ(Platform::Instance().GetSoc().GetAICCoreNum(), expectCubeCoreCnt);
     EXPECT_EQ(Platform::Instance().GetSoc().GetAIVCoreNum(), expectVectorCoreCnt);
     EXPECT_EQ(Platform::Instance().GetSoc().GetAICPUNum(), expectAICpuCnt);
-    
+
     EXPECT_EQ(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L0A), expectl0aSize);
     EXPECT_EQ(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L0B), expectl0bSize);
     EXPECT_EQ(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L0C), expectl0cSize);
     EXPECT_EQ(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L1), expectl1Size);
     EXPECT_EQ(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB), expectubSize);
-    
+
     std::vector<MemoryType> paths;
     EXPECT_TRUE(Platform::Instance().GetDie().FindNearestPath(MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1, paths));
     EXPECT_EQ(paths.size(), 2UL);
+}
+
+TEST_F(TestINIParser, AbnormalTest) {
+    INIParser parser;
+    const std::string version = "version";
+    EXPECT_EQ(parser.Initialize(""), FAILED);
+
+    std::unordered_map<std::string, std::string> ccecVersion;
+    EXPECT_EQ(parser.GetCCECVersion(ccecVersion), FAILED);
+    EXPECT_EQ(parser.GetCoreVersion(ccecVersion), FAILED);
+
+    std::vector<std::vector<std::string>> dataPath;
+    EXPECT_EQ(parser.GetDataPath(dataPath), FAILED);
+
+    std::string iniPath = RealPath(GetCurrentSharedLibPath() + "/configs/Soc_version.ini");
+    EXPECT_EQ(parser.Initialize(iniPath), SUCCESS);
+
+    std::string test;
+    EXPECT_EQ(parser.GetStringVal("none", "", test), FAILED);
+    EXPECT_EQ(parser.GetStringVal(version, "none_other", test), SUCCESS);
+
+    size_t testSize;
+    EXPECT_EQ(parser.GetSizeVal("none", "", testSize), FAILED);
+
 }

@@ -171,9 +171,8 @@ void DeepSeekIndexerAttentionQuant(
         config::SetPassOption(MG_COPYIN_UPPER_BOUND, NUM_100 * NUM_1024 * NUM_1024);
         config::SetPassOption(SG_PG_LOWER_BOUND, NUM_1024);
         config::SetPassOption(SG_PG_UPPER_BOUND, NUM_1024 * NUM_1024);
-        config::SetPassOption(CUBE_L1_REUSE_MODE, NUM_32);
+        config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, NUM_32}});
         config::SetPassOption(SG_PARALLEL_NUM, NUM_2);
-        config::SetPassOption(VEC_NBUFFER_MODE, NUM_2);
         config::SetPassOption(VEC_NBUFFER_SETTING, std::map<int64_t, int64_t>{
             {-1, 16}
         });
@@ -215,14 +214,12 @@ void DeepSeekIndexerAttentionQuant(
 
         // reset the previous config
         config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{});
-        config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{});
+        config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 0}});
         config::SetPassOption(SG_PARALLEL_NUM, NUM_20);
         config::SetPassOption(MG_COPYIN_UPPER_BOUND, 1 * NUM_1024 * NUM_1024);
         config::SetPassOption(SG_PG_UPPER_BOUND, NUM_20000);
         config::SetPassOption(SG_PG_LOWER_BOUND, NUM_512);
-        config::SetPassOption(CUBE_L1_REUSE_MODE, 0);
         // set config for attention
-        config::SetPassOption(VEC_NBUFFER_MODE, NUM_2);
         config::SetPassOption(VEC_NBUFFER_SETTING, std::map<int64_t, int64_t>{{-1, 2}});
 
         config::SetRuntimeOption<uint8_t>(

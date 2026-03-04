@@ -37,13 +37,21 @@
 
 namespace npu::tile_fwk {
 using Status = uint32_t;
+
+#ifdef __clang__
+#define __NO_UBSAN __attribute__((no_sanitize("unsigned-integer-overflow")))
+#else
+#define __NO_UBSAN
+#endif
+
 #define SUCCESS 0
 #define FAILED 1
 #define CACHELINE_SIZE_FOR_B64 64
 
-inline constexpr uint32_t DIST_COMM_GROUP_NUM = 8;
+constexpr uint32_t DIST_COMM_GROUP_NUM = 2;
 
 constexpr const int NUM2 = 2;
+constexpr const int NUM4 = 4;
 constexpr const int NUM150 = 150;
 constexpr const int NUM16 = 16;
 
@@ -70,6 +78,7 @@ constexpr const int SHAPE_DIM3 = 3;
 constexpr const int SHAPE_DIM4 = 4;
 constexpr const int SHAPE_DIM5 = 5;
 constexpr const int ALIGN_SIZE_512 = 512;
+constexpr const int ALIGN_SIZE_64 = 64;
 constexpr const int ALIGN_SIZE_32 = 32;
 constexpr const int ALIGN_SIZE_16 = 16;
 constexpr const int VNCHWCONV_REPEAT = 16;
@@ -85,6 +94,8 @@ inline constexpr uint64_t KIBI = 1024;
 inline constexpr uint64_t MEBI = UINT64_C(1024) * 1024;
 inline constexpr uint64_t GIBI = UINT64_C(1024) * 1024 * 1024;
 
+constexpr const int INVALID_LOOP_GROUPID = -1;
+
 inline int64_t AlignUp(int64_t value, int64_t alignment) {
     if (alignment == 0) {
         return value;
@@ -98,7 +109,7 @@ inline constexpr std::underlying_type_t<T> ToUnderlying(T value) {
 }
 
 template <typename T>
-inline void HashCombine(std::size_t &seed, const T &val) {
+inline void HashCombine(std::size_t &seed, const T &val) __NO_UBSAN {
     seed ^= std::hash<T>()(val) + 0x9e3779b9 + (seed << 0x6) + (seed >> 0x2);
 }
 
@@ -130,7 +141,9 @@ enum OperandType {
     BUF_DDR = 7,
     BUF_REG = 8,
     SCALAR = 9,
-    TOTAL_BUF_TYPE = 9
+    BUF_L0AMX = 10,
+    BUF_L0BMX = 11,
+    TOTAL_BUF_TYPE,
 };
 
 inline std::string OperandTypeToStr(OperandType t) {
@@ -145,6 +158,8 @@ inline std::string OperandTypeToStr(OperandType t) {
         {BUF_REG,    "REG"},
         { SCALAR, "SCALAR"},
         { BUF_BT, "BiasTable"},
+        {BUF_L0AMX,"L0A_MX"},
+        {BUF_L0BMX,"L0B_MX"},
     };
 
     if (strMap.count(t)) {
@@ -514,10 +529,14 @@ inline std::string GetEnvVar(const std::string &varName, bool trim = true, bool 
     return value;
 }
 
-// 判断环境变量 AST_DATADUMP_PATH 是否为 true
-inline bool IsAstDataDumpEnabled() {
-    std::string value = GetEnvVar("AST_DATADUMP_PATH", true, true);
-    return (value == "true");
+// 判断环境变量 PTO_DATADUMP_ENABLE 是否为 true
+inline bool IsPtoDataDumpEnabled() {
+    static const bool result = []() {
+        std::string value = GetEnvVar("PTO_DATADUMP_ENABLE", true, true);
+        return (value == "true");
+    }();
+
+    return result;
 }
 
 // 向上取整除法
@@ -542,7 +561,7 @@ inline int Max(int a, int b) {
 
 inline std::set<int> PowersOf2(int n) {
     std::set<int> result;
-    ASSERT(n > 0);
+    ASSERT(n > 0) << "n: " << n;
     int power = 0;
     while (true) {
         int current = 1 << power;  // 计算 2^power
@@ -579,4 +598,28 @@ private:
     uint64_t startTime;
 };
 
+template <typename T>
+inline bool HasNegativeNum(const std::vector<T> &vec) {
+    return std::any_of(vec.begin(), vec.end(), [](T num) { return num < 0; });
+}
+
+namespace Matrix {
+const std::string OP_ATTR_PREFIX = "op_attr_";
+const std::string L1_TO_L0_OFFSET = OP_ATTR_PREFIX + "l1_to_l0_offset";
+const std::string L1_TO_L0_TILE = OP_ATTR_PREFIX + "l1_to_l0_tile";
+const std::string A_MUL_B_COPY_IN_MODE = OP_ATTR_PREFIX + "copy_in_mode";
+
+enum class CopyInMode : int64_t {
+    ND2ND = 0,
+    ND2NZ = 1,
+    NZ2NZ = 2,
+    DN2NZ = 3
+};
+
+enum class PaddingMode : int64_t {
+    NO_PADDING = 0,
+    PADDING_OUTER = 1,
+    PADDING_INNER = 2
+};
+} // namespace Matrix
 } // namespace npu::tile_fwk

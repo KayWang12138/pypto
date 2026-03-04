@@ -128,7 +128,8 @@ public:
     const Offset &GetOffset() const { return offset; }
     const Shape &GetShape() const { return shape; }
     void UpdateOffset(const Offset &newOffset) {
-        ASSERT(newOffset.size() == shape.size());
+        ASSERT(newOffset.size() == shape.size())
+            << "newOffset.size(): " << newOffset.size() << ", shape.size(): " << shape.size();
         offset = newOffset;
     }
     void UpdateOffset(const TensorOffset &tensorOffset) {
@@ -173,7 +174,7 @@ public:
 
     void operator<<(LogicalTensor &right);
 
-    int GetDataSize() const;
+    int64_t GetDataSize() const;
 
     bool IsOffsetAllZero() const {
         return std::all_of(offset.begin(), offset.end(), [](int value) { return value == 0; });

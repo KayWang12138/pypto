@@ -12,7 +12,11 @@
 from typing import List, Union, Dict, Optional
 from . import pypto_impl
 from ._op_wrapper import op_wrapper
+from ._utils import to_syms
 from .tensor import Tensor
+from .config import get_current_scope, set_options
+from .symbolic_scalar import SymbolicScalar
+from .enum import AtomicType
 
 
 @op_wrapper
@@ -89,11 +93,50 @@ def gather_in_ub(param: Tensor, indices: Tensor, block_table: Tensor,
     return pypto_impl.gather_in_ub(param, indices, block_table, block_size, axis)
 
 
-def set_operation_config(*, force_combine_axis: Optional[bool] = None,
+@op_wrapper
+def transposed_batchmatmul(tensor_a: Tensor, tensor_b: Tensor, out_dtype) -> Tensor:
+    """
+    Performs a transposed batch matrix multiplication.
+
+    This operator computes:
+        1. Transpose tensor_a from shape (M, B, K) to (B, M, K).
+        2. Perform a batch matrix multiplication between the transposed tensor_a
+           (B, M, K) and tensor_b (B, K, N), yielding an intermediate result of
+           shape (B, M, N).
+        3. Transpose the intermediate result back to shape (M, B, N).
+
+    Parameters
+    ----------
+    tensor_a : Tensor
+        The left-hand input tensor with shape (M, B, K).
+        Supported data types: DT_FP16, DT_BF16.
+
+    tensor_b : Tensor
+        The right-hand input tensor with shape (B, K, N).
+        Supported data types: DT_FP16, DT_BF16.
+
+    out_dtype : dtype
+        The data type for the output tensor.
+
+    Returns
+    -------
+    Tensor
+        The output tensor of shape (M, B, N).
+
+    Examples
+    --------
+    a = pypto.tensor((16, 2, 32), pypto.DT_FP16, "tensor_a")
+    b = pypto.tensor((2, 32, 64), pypto.DT_FP16, "tensor_b")
+    c = pypto.experimental.transposed_batchmatmul(a, b, pypto.DT_FP16)
+    """
+    return pypto_impl.TransposedBatchMatmul(out_dtype, tensor_a, tensor_b)
+
+
+def set_operation_options(*, force_combine_axis: Optional[bool] = None,
                          combine_axis: Optional[bool] = None):
 
     """
-    Set operation config.
+    Set operation options.
 
     Parameters
     ---------
@@ -102,22 +145,136 @@ def set_operation_config(*, force_combine_axis: Optional[bool] = None,
     combine_axis : bool
         Codegen forced axis fusion optimization.
     """
-    if force_combine_axis is not None:
-        pypto_impl.SetOperationConfig("force_combine_axis", force_combine_axis)
-    if combine_axis is not None:
-        pypto_impl.SetOperationConfig("combine_axis", combine_axis)
+
+    options_dict = {k: v for k, v in locals().items() if v is not None}
+    set_options(operation_options=options_dict)
 
 
-def get_operation_config() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
+def get_operation_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
     """
-    Get operation config.
+    Get operation options.
 
     Returns
     -------
     Dict[str, Union[str, int, List[int], Dict[int, int]]]
-        All operation config
+        All operation options
     """
-    return {
-        "force_combine_axis": pypto_impl.GetOperationConfig("force_combine_axis", False),
-        "combine_axis": pypto_impl.GetOperationConfig("combine_axis", False),
-    }
+
+    scope = get_current_scope()
+    return scope.get_operation_options()
+
+
+@op_wrapper
+def nop(in_tensors: List[Tensor]) -> Tensor:
+    return pypto_impl.Nop(in_tensors)
+
+
+@op_wrapper
+def shmem_store(
+    src: Tensor,
+    offsets: List[Union[int, SymbolicScalar]],
+    dst: Tensor,
+    dst_pe: Union[int, SymbolicScalar],
+    *,
+    pred: List[Tensor] = None,
+) -> Tensor:
+    """Stores local UB data to remote device Global Memory.
+
+    Parameters
+    ----------
+    src : Tensor
+        The source tensor in local UB.
+    offsets : list of int
+        The offsets in the destination tensor.
+    dst : Tensor
+        The destination tensor on the remote device (symmetric memory).
+    dst_pe : int
+        The pe of the destination device.
+    pred : Tensor
+        Predicate tokens used as control dependencies.
+
+    Returns
+    -------
+    Tensor
+        Output predicate tokens.
+
+    Examples
+    --------
+    Store the computation result from UB to pe 2
+    result = pypto.matmul(A_tile, B_tile, pypto.DT_FP16)
+    dummy = pypto.experimental.shmem_store(
+        result,
+        offsets=[m_offset, n_offset],
+        sym_buffer,
+        dst_pe2,
+        pred,
+    )
+    """
+    dummy = pred[0] if len(pred) == 1 else pypto_impl.Nop(pred)
+    dst_tile = pypto_impl.View(dst, [1, 1] + src.shape, to_syms([dst_pe] + offsets))
+    return pypto_impl.ShmemPutUb2Gm(src, dst_tile, dummy, AtomicType.SET)
+
+
+@op_wrapper
+def shmem_load(
+    src: Tensor,
+    src_pe: Union[int, SymbolicScalar],
+    shape: List[int] = None,
+    offset: List[Union[int, SymbolicScalar]] = None,
+    *,
+    pred: List[Tensor] = None,
+    valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None,
+) -> Tensor:
+    """
+    Loads data from remote device Global Memory to local UB.
+
+    Parameters
+    ----------
+    src : Tensor
+        The source tensor on the remote device (symmetric memory).
+    src_pe : int
+        The pe of the source device.
+    shape : list of int
+        The shape of the source tensor.
+    offset : list of int
+        The offset of the source tensor.
+    pred : Tensor
+        Predicate token used as a control dependency.
+    valid_shape: List[int] = None
+        Optional parameter to retrieve the effective data size of the schematic block.
+        It is required that the valid_shape is smaller than the shape of the input.
+
+    Returns
+    -------
+    Tensor
+        The tensor in local UB (can be used directly for computation).
+
+    Examples
+    --------
+    Load a [64, 128] tile from pe 1 into UB
+    shmem_tile = pypto.view(shmem_tensor, shape=[64, 128], offset=[0, 0])
+    pre_token = pypto.distributed.waituntil(
+        shmem_signal, 
+        shapes, 
+        offsets,
+        cmp_value,
+        pred,
+        clear_flag,
+    )
+    tile = pypto.experimental.shmem_load(
+        shmem_tile,
+        src_pe=1,
+        shape,
+        offset,
+        pred,
+        valid_shape
+    )
+    The tile is now in UB and can be used directly for computation
+    result = pypto.exp(tile)
+    """
+    dummy = pred[0] if len(pred) == 1 else pypto_impl.Nop(pred)
+    if valid_shape is None:
+        src_tile = pypto_impl.View(src, [1] + shape, to_syms([src_pe] + offset))
+    else:
+        src_tile = pypto_impl.View(src, [1] + shape, to_syms(valid_shape), to_syms([src_pe] + offset))
+    return pypto_impl.ShmemGetGm2Ub(dummy, src_tile)

@@ -28,7 +28,6 @@ using namespace npu::tile_fwk::dynamic;
 class AssembleTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
     void SetUp() override {
         npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac::SetUp();
-        config::SetHostOption(ONLY_CODEGEN, true);
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
         // 测试精度工具功能支持时，打开下面的注释
         // config::SetVerifyOption(KEY_VERIFY_TENSOR_GRAPH, true);
@@ -2012,7 +2011,7 @@ void TestInnerAssembleMultiView() {
         ASSERT(false);
     }
 
-    constexpr int N = 5;
+    constexpr int N = 20;
     constexpr int M = 1032;
 
     ASSERT(N % 5 == 0);

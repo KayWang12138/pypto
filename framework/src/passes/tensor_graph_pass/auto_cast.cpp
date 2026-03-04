@@ -65,12 +65,19 @@ Status AutoCast::GetInOutConnectedTensor(Function &function) {
 
 Status AutoCast::RunOnFunction(Function &function) {
     ALOG_INFO_F("===> Start AutoCast for function [%s].", function.GetRawName().c_str());
+    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510) {
+        legalCastPair.insert({DataType::DT_INT32, DataType::DT_FP16});
+    }
     if (GetInOutConnectedTensor(function) != SUCCESS) {
         ALOG_ERROR_F("Failed to get InOutCast-connected tensor.");
         return FAILED;
     }
-    if (InsertCast(function) != SUCCESS) {
+    if (InsertBF16Cast(function) != SUCCESS) {
         ALOG_ERROR_F("Failed to insert CAST for BF16 unsupported Operations.");
+        return FAILED;
+    }
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && InsertInt32Fp16Cast(function) != SUCCESS) {
+        ALOG_ERROR_F("Failed to insert fp32 between int32 to fp16 cast.");
         return FAILED;
     }
     if (RemoveRedundantCastChain(function) != SUCCESS) {
@@ -81,9 +88,41 @@ Status AutoCast::RunOnFunction(Function &function) {
     return SUCCESS;
 }
 
+Status AutoCast::InsertInt32Fp16Cast(Function &function) {
+    std::vector<Operation *> opList = function.Operations().DuplicatedOpList();
+    for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
+        Operation *op = opList[opIdx];
+        if (op->GetOpcode() != Opcode::OP_CAST) {
+            continue;
+        }
+        auto iOperands = op->GetIOperands();
+        auto oOperands = op->GetOOperands();
+        if (iOperands.empty() || oOperands.empty()) {
+            continue;
+        }
+        LogicalTensorPtr srcTensor = iOperands[0];
+        LogicalTensorPtr tgtTensor = oOperands[0];
+
+        if (srcTensor->Datatype() != DataType::DT_INT32 || 
+            tgtTensor->Datatype() != DataType::DT_FP16) {
+            continue;
+        }
+        ALOG_INFO_F("Cast[%d] is cast between int32 and fp16.", op->GetOpMagic());
+        auto fp32Tensor = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, tgtTensor->shape, tgtTensor->GetDynValidShape(), tgtTensor->Format());
+        InsertCastOp(function, srcTensor, fp32Tensor, op->GetTileShape());
+        op->ReplaceInput(fp32Tensor, srcTensor);
+    }
+    return SUCCESS;
+}
+
 bool AutoCast::SupportBF16(Operation *op) {
-    if (UNSUPPORT_BF16_OPS.count(op->GetOpcode()) > 0) {
-        return false;
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+        if (UNSUPPORT_BF16_ARCH35_OPS.count(op->GetOpcode()) > 0) return false;
+    } else {
+        if (UNSUPPORT_BF16_OPS.count(op->GetOpcode()) > 0) {
+            ALOG_INFO_F("Op[%d] can find in UNSUPPORT_BF16_OPS.", op->GetOpMagic());
+            return false;
+        }
     }
     return true;
 }
@@ -96,7 +135,7 @@ void AutoCast::InsertCastOp(Function &function, LogicalTensorPtr src, LogicalTen
     addedCast_.insert(&newCast);
 }
 
-Status AutoCast::InsertCast(Function &function) {
+Status AutoCast::InsertBF16Cast(Function &function) {
     std::vector<Operation *> opList = function.Operations().DuplicatedOpList();
     std::unordered_map<int, std::shared_ptr<LogicalTensor>> oldMagic2Input;
     for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
@@ -145,24 +184,7 @@ Status AutoCast::InsertCast(Function &function) {
     return SUCCESS;
 }
 
-bool AutoCast::IsLegalCast(DataType ds, DataType dt) {
-    const std::set<std::pair<DataType, DataType>> legalCastPair {
-        {DataType::DT_FP32, DataType::DT_FP16},
-        {DataType::DT_FP16, DataType::DT_FP32},
-        {DataType::DT_FP32, DataType::DT_BF16},
-        {DataType::DT_BF16, DataType::DT_FP32},
-        {DataType::DT_FP32, DataType::DT_BF16},
-        {DataType::DT_BF16, DataType::DT_FP32},
-        {DataType::DT_FP32, DataType::DT_INT16},
-        {DataType::DT_INT16, DataType::DT_FP32},
-        {DataType::DT_FP32, DataType::DT_INT32},
-        {DataType::DT_INT32, DataType::DT_FP32},
-        {DataType::DT_INT32, DataType::DT_FP16},
-        {DataType::DT_FP16, DataType::DT_INT8},
-        {DataType::DT_INT8, DataType::DT_FP16},
-        {DataType::DT_FP32, DataType::DT_FP32},
-        {DataType::DT_BF16, DataType::DT_INT32}
-    };
+bool AutoCast::IsLegalCast(DataType ds, DataType dt) {    
     if (legalCastPair.count(std::make_pair(ds, dt)) > 0) {
         return true;
     }

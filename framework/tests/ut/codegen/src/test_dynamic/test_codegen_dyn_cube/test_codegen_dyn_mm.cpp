@@ -37,7 +37,6 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
         IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
@@ -48,9 +47,6 @@ public:
 };
 
 TEST_F(TestCodegenDynMM, TestDynMatmulTileTensor) {
-    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
-
     std::vector<int64_t> shape = {64, 64};
     std::vector<int64_t> tileShape = {64, 64};
     std::vector<int64_t> shapeBias = {1, 64};
@@ -71,14 +67,12 @@ TEST_F(TestCodegenDynMM, TestDynMatmulTileTensor) {
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetUnderDynamicFunction(true);
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
-    auto localTensorA = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L0A, shape});
-    auto localTensorB = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L0B, shape});
-    auto localTensorBias = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_BT, shapeBias});
-    auto localOutTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L0C, shape});
-    localTensorA->UpdateDynValidShape(dynValidShape);
-    localTensorB->UpdateDynValidShape(dynValidShape);
-    localTensorBias->UpdateDynValidShape(dynValidShape);
-    localOutTensor->UpdateDynValidShape(dynValidShape);
+    auto localTensorA = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L0A, shape, dynValidShape});
+    auto localTensorB = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L0B, shape, dynValidShape});
+    auto localTensorBias =
+        CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_BT, shapeBias, dynValidShape});
+    auto localOutTensor =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L0C, shape, dynValidShape});
 
     auto &op =
         function->AddOperation(Opcode::OP_A_MUL_B, {localTensorA, localTensorB, localTensorBias}, {localOutTensor});
@@ -98,8 +92,62 @@ TEST_F(TestCodegenDynMM, TestDynMatmulTileTensor) {
 
     std::string res = cop.GenOpCode();
     std::string expect =
-        R"!!!(Matmul(l0cTensor_1, l0aTensor_2, l0bTensor_3, btTensor_4);
+        R"!!!(TMatmul(l0cTensor_10, l0aTensor_11, l0bTensor_12, btTensor_13);
 )!!!";
+    EXPECT_EQ(res, expect);
+}
+
+TEST_F(TestCodegenDynMM, TestMatmulMXTileTensor) {
+    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
+
+    std::vector<int64_t> mxShape = {64, 64};
+    std::vector<int64_t> shapeBias = {1, 64};
+    TileShape::Current().SetVecTile(mxShape);
+    TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64});
+    Tensor inputA(DT_FP16, mxShape, "A");
+    Tensor inputB(DT_FP16, mxShape, "B");
+    Tensor output(DT_FP16, mxShape, "C");
+
+    std::string funcNameMx = "TestMatmulMXTileTensor";
+    FUNCTION(funcNameMx, {inputA, inputB, output}) {
+        LOOP(funcNameMx, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Add(inputA, inputB);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(
+        FUNCTION_PREFIX + funcNameMx + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    function->SetUnderDynamicFunction(true);
+    std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    auto localTensorAMX =
+        CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L0AMX, mxShape, dynValidShape});
+    auto localTensorBMX =
+        CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L0BMX, mxShape, dynValidShape});
+    auto localTensorBias =
+        CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_BT, shapeBias, dynValidShape});
+    auto localOutTensor =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L0C, mxShape, dynValidShape});
+
+    auto &op =
+        function->AddOperation(Opcode::OP_A_MUL_B, {localTensorAMX, localTensorBMX, localTensorBias}, {localOutTensor});
+    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OP_ATTR_PREFIX + "has_bias", true);
+
+    function->GetTensorMap().inverseMap_[localTensorAMX->GetMagic()] = localTensorAMX;
+    function->GetTensorMap().inverseMap_[localTensorBMX->GetMagic()] = localTensorBMX;
+    function->GetTensorMap().inverseMap_[localTensorBias->GetMagic()] = localTensorBias;
+    function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
+
+    std::shared_ptr<SymbolManager> symbolManagerMX = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManagerMX);
+    CodeGenOpCloudNPU cop({symbolManagerMX, *function, *function->rootFunc_->programs_[0], op, {}});
+
+    std::string res = cop.GenOpCode();
+    std::string expect = R"!!!(MatmulMX(l0cTensor_10, l0a_mxTensor_11, l0b_mxTensor_12, btTensor_13);
+)!!!";
+    EXPECT_EQ(res, expect);
 }
 
 } // namespace npu::tile_fwk

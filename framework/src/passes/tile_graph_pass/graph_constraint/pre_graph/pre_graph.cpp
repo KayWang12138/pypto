@@ -15,6 +15,7 @@
 
 #include "pre_graph.h"
 #include "passes/pass_check/pre_graph_checker.h"
+#include "passes/pass_utils/merge_view_assemble_utils.h"
 #include "passes/pass_log/pass_log.h"
 
 #define MODULE_NAME "PreGraphProcess"
@@ -67,7 +68,7 @@ Status PreGraphProcess::RunOnFunction(Function &function) {
         if (IsCopyOut(op.GetOpcode()) && op.GetOpcode() != Opcode::OP_COPY_OUT) {
             setCopyAttr.ProcessSpecialMTEOperation(op);
         }
-        if (IsCopyIn(op.GetOpcode()) && op.GetOpcode() != Opcode::OP_COPY_IN) {
+        if (IsCopyIn(op.GetOpcode()) && op.GetOpcode() != Opcode::OP_COPY_IN && op.GetOpcode() != Opcode::OP_SHMEM_GET_GM2UB) {
             setCopyAttr.ProcessMoveInOperation(op);
         }
     }
@@ -77,6 +78,11 @@ Status PreGraphProcess::RunOnFunction(Function &function) {
     if (cubeProcess.UpdateCubeOp(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Update Cube attr failed.");
         return FAILED;
+    }
+    Status status = MergeViewAssembleUtils::MergeViewAssemble(function);
+    if (status != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "Merge assemble and view failed.");
+        return status;
     }
     APASS_LOG_INFO_F(Elements::Operation, "===> End PreGraph.");
     return SUCCESS;

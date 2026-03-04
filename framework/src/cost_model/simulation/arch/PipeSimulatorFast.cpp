@@ -21,12 +21,13 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "cost_model/simulation/base/ModelLogger.h"
 #include "cost_model/simulation/arch/A2A3/PostSimulatorA2A3.h"
+#include "cost_model/simulation/arch/A5/PostSimulatorA5.h"
 
 namespace CostModel
 {
     template class PipeSimulatorFast<PostSimulatorA2A3>;
+    template class PipeSimulatorFast<PostSimulatorA5>;
     static const std::unordered_map<std::string, std::unordered_map<DataType, int>> INHERENT_LATENCY_IN_OP{
         // Vector
         {"UB_ADD",
@@ -314,7 +315,7 @@ namespace CostModel
             shape.emplace_back(dstTile->shape);
         }
 
-        ASSERT(!shape.empty() && !shape[0].empty() && "shape is invalid");
+        ASSERT(!shape.empty() && !shape[0].empty()) << "[SIMULATION]: " << "shape is invalid";
 
         int shapeSize = GetMinShapeSize(shape);
         int shapeCnt = GetShapeCntSize(shape);

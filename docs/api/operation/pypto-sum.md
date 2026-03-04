@@ -14,10 +14,10 @@
 定义指定计算的维度（Reduce轴）为R轴，非指定维度（Normal轴）为A轴。如下图所示，对Shape为\(2, 3\)的二维矩阵进行运算，指定在第一维计算数据的累加，输出结果为\[5, 7, 9\]；指定在第二维计算数据的累加，输出结果为\[6, 15\]。
 
 **图 1**  sum按第一个维度计算示例  
-![](../figures/sum按第一个维度计算示例.png "sum按第一个维度计算示例")
+![](../figures/pypto.sum_1.png)
 
 **图 2**  sum按最后一个维度计算示例  
-![](../figures/sum按最后一个维度计算示例.png "sum按最后一个维度计算示例")
+![](../figures/pypto.sum_2.png)
 
 ## 函数原型
 
@@ -40,17 +40,31 @@ sum(input: Tensor,  dim: int, keepdim: bool = False) -> Tensor:
 
 若keepdim参数为 True，则在执行归约操作后保留被归约的维度。输出Tensor在除dim指定的维度外，其他维度的Shape与输入Tensor的Shape一致，而在dim指定的维度上的大小为 1。
 
-若keepdim参数为 False（默认），则被归约的维度会从输出Tensor中移除。
+若keepdim参数为 False（默认），则被归约的维度会从输出Tensor中移除，而tileshape中对应的维度不变, 所以建议在调其他operation前重设tileshape。
 
 ## 约束说明
 
 1. TileShape大小不超过 64KB；
 
-2. 尾轴要 32bytes 对齐;
+2. 尾轴要 32bytes 对齐；
 
 3. TileShape次尾轴要小于等于255，即 TileShape\[-2\]<=255.
 
 ## 调用示例
+
+### TileShape设置示例
+
+说明：调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
+
+TileShape维度应和输入input一致。
+
+示例1：输入intput shape为[m, n]，输出为[m, 1]，TileShape设置为[m1, n1], 则m1, n1分别用于切分m, n轴。
+
+```python
+pypto.set_vec_tile_shapes(4, 16)
+```
+
+### 接口调用示例
 
 ```python
 x = pypto.tensor([2, 3], pypto.DT_FP32)

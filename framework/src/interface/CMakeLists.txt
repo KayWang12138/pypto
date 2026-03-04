@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------------------------------------
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -17,8 +17,7 @@ file(GLOB _Interface_Srcs
         function/*.cpp
         interpreter/*.cpp
         utils/*.cpp
-        ir/*.cpp
-        ir/builder/*.cpp
+        plugin/*.cpp
 
         # Operation
         operation/*.cpp
@@ -48,12 +47,13 @@ target_link_libraries(tile_fwk_interface
         PUBLIC
             $<BUILD_INTERFACE:json>
             $<BUILD_INTERFACE:c_sec>
+            $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_utils>>
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub
-
             dl
             Threads::Threads
+            tile_fwk_cann_host_runtime
             tile_fwk_simulation_platform
 )
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_interface)
@@ -64,6 +64,7 @@ if (ENABLE_TORCH_VERIFIER)
     target_sources(tile_fwk_calculator
             PRIVATE
                 interpreter/calculator/calc_torch.cpp
+                interpreter/calculator/fp8_convert.cpp
     )
     target_compile_options(tile_fwk_calculator
             PRIVATE

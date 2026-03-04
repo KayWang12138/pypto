@@ -47,6 +47,8 @@ def _load_shared_libs():
     # name, load
     desc_lst: List[List[Any]] = [
         ["libtile_fwk_simulation_platform.so", True, ],
+        ["libtile_fwk_utils.so", True, ],
+        ["libtile_fwk_cann_host_runtime.so", True, ],
         ["libtile_fwk_interface.so", True, ],
         ["libtile_fwk_codegen.so", True, ],
         ["libtile_fwk_compiler.so", True, ],
@@ -54,6 +56,7 @@ def _load_shared_libs():
         ["libtile_fwk_runtime_stub.so", not use_cann, ],
         ["libtile_fwk_simulation.so", True, ],
         ["libtile_fwk_simulation_ca.so", True, ],
+        ["libtile_fwk_simulation_pv.so", use_cann, ],
     ]
     for desc in desc_lst:
         _load_shared_lib(_desc=desc)
@@ -72,7 +75,8 @@ from .operation import *  # noqa
 from .operator import *  # noqa
 from .pass_config import *  # noqa
 from .cost_model import *  # noqa
-from ._utils import ceil, bytes_of
+from ._utils import ceildiv, bytes_of
+from .platform import platform
 from .runtime import jit, verify, set_verify_golden_data, RunMode
 from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor

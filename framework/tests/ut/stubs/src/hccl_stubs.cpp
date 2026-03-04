@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * \brief
  */
 
-#include "hccl/hccl.h"
 #include "hcom.h"
 
 extern "C" {
@@ -45,6 +44,24 @@ HcclResult HcclCommInitAll(uint32_t ndev, int32_t *devices, HcclComm *comms)
     (void)ndev;
     (void)devices;
     (void)comms;
+    return HCCL_SUCCESS;
+}
+
+aclError aclrtMemcpy(void *dst, size_t destMax, const void *src, size_t count, aclrtMemcpyKind kind)
+{
+    (void)dst;
+    (void)destMax;
+    (void)src;
+    (void)count;
+    (void)kind;
+    return ACL_SUCCESS;
+}
+
+HcclResult HcomGetL0TopoTypeEx(const char *group, CommTopo *topoType, uint32_t flag)
+{
+    (void)group;
+    (void)topoType;
+    (void)flag;
     return HCCL_SUCCESS;
 }
 

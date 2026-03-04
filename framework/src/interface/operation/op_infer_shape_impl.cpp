@@ -30,13 +30,19 @@ void ElewiseInferFunc(Operation* op,
     std::vector<std::vector<SymbolicScalar>> dimValidShape(shapeDimNum, std::vector<SymbolicScalar>(inputNum, SymbolicScalar()));
     std::vector<std::vector<int64_t>> dimShape(shapeDimNum, std::vector<int64_t>(inputNum, 0));
     for (size_t i = 0; i < op->GetIOperands().size(); ++i) {
+        auto iOperand = op->GetInputOperand(i);
         auto validShape = op->GetIOperands()[i]->GetDynValidShape();
         for (size_t dimIdx = 0; dimIdx < validShape.size(); ++dimIdx) {
             dimValidShape[dimIdx][i] = validShape[dimIdx];
         }
         auto shape = op->GetIOperands()[i]->GetShape();
         for (size_t dimIdx = 0; dimIdx < shape.size() && dimIdx < shapeDimNum; ++dimIdx) {
-            dimShape[dimIdx][i] = shape[dimIdx];
+            if (dimIdx == shape.size() - 1 && iOperand->GetProducers().size() == 1 &&
+                (*iOperand->GetProducers().begin())->GetOpcode() == Opcode::OP_BRCB) {
+                dimShape[dimIdx][i] = 1;
+            } else {
+                dimShape[dimIdx][i] = shape[dimIdx];
+            }
         }
     }
     std::vector<SymbolicScalar> inputValidShape;
@@ -94,11 +100,25 @@ REGISTER_INFER_SHAPE_FUNC(OP_S_DIVS, Opcode::OP_S_DIVS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_SUB, Opcode::OP_SUB, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_POW, Opcode::OP_POW, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_EXP, Opcode::OP_EXP, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_EXP2, Opcode::OP_EXP2, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_EXPM1, Opcode::OP_EXPM1, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_SIGN, Opcode::OP_SIGN, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_SIGNBIT, Opcode::OP_SIGNBIT, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_NEG, Opcode::OP_NEG, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_ROUND, Opcode::OP_ROUND, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_RSQRT, Opcode::OP_RSQRT, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_RELU, Opcode::OP_RELU, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_LOG1P, Opcode::OP_LOG1P, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_SQRT, Opcode::OP_SQRT, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_CEIL, Opcode::OP_CEIL, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_FLOOR, Opcode::OP_FLOOR, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_TRUNC, Opcode::OP_TRUNC, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_BITWISENOT, Opcode::OP_BITWISENOT, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_GCD, Opcode::OP_GCD, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_GCDS, Opcode::OP_GCDS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_ABS, Opcode::OP_ABS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_LN, Opcode::OP_LN, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_ISFINITE, Opcode::OP_ISFINITE, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_HUB, Opcode::OP_HUB, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_MAXIMUM, Opcode::OP_MAXIMUM, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_MINIMUM, Opcode::OP_MINIMUM, ElewiseInferFunc);
@@ -110,11 +130,15 @@ REGISTER_INFER_SHAPE_FUNC(OP_RECIPROCAL, Opcode::OP_RECIPROCAL, ElewiseInferFunc
 REGISTER_INFER_SHAPE_FUNC(OP_SUBS, Opcode::OP_SUBS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_MAXS, Opcode::OP_MAXS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_MINS, Opcode::OP_MINS, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_BITWISEANDS, Opcode::OP_BITWISEANDS, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_BITWISEORS, Opcode::OP_BITWISEORS, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_BITWISEXORS, Opcode::OP_BITWISEXORS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_ADDS, Opcode::OP_S_ADDS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_SUBS, Opcode::OP_S_SUBS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_MULS, Opcode::OP_S_MULS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_MAXS, Opcode::OP_S_MAXS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_MINS, Opcode::OP_S_MINS, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_LRELU, Opcode::OP_LRELU, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_ADD, Opcode::OP_S_ADD, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_SUB, Opcode::OP_S_SUB, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_MUL, Opcode::OP_S_MUL, ElewiseInferFunc);
@@ -122,11 +146,28 @@ REGISTER_INFER_SHAPE_FUNC(OP_S_DIV, Opcode::OP_S_DIV, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_MAX, Opcode::OP_S_MAX, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_S_MIN, Opcode::OP_S_MIN, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_CUM_SUM, Opcode::OP_CUM_SUM, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_TRIUL, Opcode::OP_TRIUL, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_REGISTER_COPY, Opcode::OP_REGISTER_COPY, ElewiseInferFunc);
-REGISTER_INFER_SHAPE_FUNC(OP_SCATTER_ELEMENT, Opcode::OP_SCATTER_ELEMENT, ElewiseInferFunc);
-REGISTER_INFER_SHAPE_FUNC(OP_SCATTER, Opcode::OP_SCATTER, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_CMP, Opcode::OP_CMP, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_CMPS, Opcode::OP_CMPS, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_HYPOT, Opcode::OP_HYPOT, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_MOD, Opcode::OP_MOD, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_MODS, Opcode::OP_MODS, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_REM, Opcode::OP_REM, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_REMS, Opcode::OP_REMS, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_REMRS, Opcode::OP_REMRS, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_BITWISERIGHTSHIFT, Opcode::OP_BITWISERIGHTSHIFT, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_BITWISELEFTSHIFT, Opcode::OP_BITWISELEFTSHIFT, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_BITWISERIGHTSHIFTS, Opcode::OP_BITWISERIGHTSHIFTS, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_BITWISELEFTSHIFTS, Opcode::OP_BITWISELEFTSHIFTS, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_SBITWISERIGHTSHIFT, Opcode::OP_SBITWISERIGHTSHIFT, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_SBITWISELEFTSHIFT, Opcode::OP_SBITWISELEFTSHIFT, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_BITWISEAND, Opcode::OP_BITWISEAND, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_BITWISEOR, Opcode::OP_BITWISEOR, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_BITWISEXOR, Opcode::OP_BITWISEXOR, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_EXPANDEXPDIF, Opcode::OP_EXPANDEXPDIF, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_COPYSIGN, Opcode::OP_COPYSIGN, ElewiseInferFunc);
+
 void IndexOutCastInferFunc(Operation* op,
                       std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     std::vector<SymbolicScalar> outValidShape;
@@ -158,6 +199,40 @@ void GatherElementInferFunc(Operation* op,
     }
 }
 REGISTER_INFER_SHAPE_FUNC(OP_GATHER_ELEMENT, Opcode::OP_GATHER_ELEMENT, GatherElementInferFunc);
+
+void GatherMaskFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
+    std::vector<std::vector<SymbolicScalar>> inputValidShapes;
+    for (auto inputTensor : op->GetIOperands()) {
+        inputValidShapes.push_back(inputTensor->GetDynValidShape());
+    }
+    if (inputValidShapes.empty()) {
+        return;
+    }
+    std::vector<SymbolicScalar> res(inputValidShapes[0]);
+    uint8_t patternMode = op->GetIntAttribute(OP_ATTR_PREFIX + "patternMode");
+    if (patternMode == 1 || patternMode == 2) {
+        res.back() = res.back() / 2;
+    } else if (patternMode == 3 || patternMode == 4 || patternMode == 5 || patternMode == 6) {
+        res.back() = res.back() / 4;
+    }
+    outValidShapes.push_back(res);
+}
+REGISTER_INFER_SHAPE_FUNC(OP_GATHER_MASK, Opcode::OP_GATHER_MASK, GatherMaskFunc);
+
+void ScatterInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    std::vector<SymbolicScalar> outValidShape;
+    auto inValidShape = op->GetIOperands()[0]->GetDynValidShape();
+
+    for (size_t i = 0; i < inValidShape.size(); ++i) {
+        outValidShape.push_back(inValidShape[i]);
+    }
+
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(outValidShape);
+    }
+}
+REGISTER_INFER_SHAPE_FUNC(OP_SCATTER_ELEMENT, Opcode::OP_SCATTER_ELEMENT, ScatterInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_SCATTER, Opcode::OP_SCATTER, ScatterInferFunc);
 
 void IndexAddInferFunc(Operation* op,
                       std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
@@ -218,6 +293,12 @@ void ViewTypeInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& 
 }
 REGISTER_INFER_SHAPE_FUNC(OP_VIEW_TYPE, Opcode::OP_VIEW_TYPE, ViewTypeInferFunc);
 
+void IndexPutInferFunc(Operation* op,
+                        std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    outValidShapes.push_back(op->GetIOperands()[0]->GetDynValidShape());
+}
+REGISTER_INFER_SHAPE_FUNC(OP_INDEX_PUT, Opcode::OP_INDEX_PUT, IndexPutInferFunc);
+
 void PairReduceInferFunc(Operation* op,
                         std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     auto dimSize = op->GetIOperands()[0]->GetDynValidShape().size();
@@ -233,6 +314,7 @@ void PairReduceInferFunc(Operation* op,
 REGISTER_INFER_SHAPE_FUNC(OP_PAIRMAX, Opcode::OP_PAIRMAX, PairReduceInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_PAIRMIN, Opcode::OP_PAIRMIN, PairReduceInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_PAIRSUM, Opcode::OP_PAIRSUM, PairReduceInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_PAIRPROD, Opcode::OP_PAIRPROD, PairReduceInferFunc);
 
 // elewise brc infer shape func
 void ElewiseBrcInferFunc(Operation* op,
@@ -257,6 +339,7 @@ REGISTER_INFER_SHAPE_FUNC(OP_SUB_BRC, Opcode::OP_SUB_BRC, ElewiseBrcInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_MUL_BRC, Opcode::OP_MUL_BRC, ElewiseBrcInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_DIV_BRC, Opcode::OP_DIV_BRC, ElewiseBrcInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_MAX_BRC, Opcode::OP_MAX_BRC, ElewiseBrcInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_GCD_BRC, Opcode::OP_GCD_BRC, ElewiseBrcInferFunc);
 
 // broadcast infer shape func
 void BroadcastInferFunc(Operation* op,
@@ -333,9 +416,11 @@ void ReduceInferFunc(Operation* op,
 REGISTER_INFER_SHAPE_FUNC(OP_ROWSUMLINE, Opcode::OP_ROWSUMLINE, ReduceInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_ROWMAXLINE, Opcode::OP_ROWMAXLINE, ReduceInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_ROWMINLINE, Opcode::OP_ROWMINLINE, ReduceInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_ROWPRODLINE, Opcode::OP_ROWPRODLINE, ReduceInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_ROWMAX_SINGLE, Opcode::OP_ROWMAX_SINGLE, ReduceInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_ROWMIN_SINGLE, Opcode::OP_ROWMIN_SINGLE, ReduceInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_ROWSUM_SINGLE, Opcode::OP_ROWSUM_SINGLE, ReduceInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_ROWPROD_SINGLE, Opcode::OP_ROWPROD_SINGLE, ReduceInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_ROWMAX_COMBINE_AXIS_SINGLE, Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, ReduceInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_ROWSUM_COMBINE_AXIS_SINGLE, Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, ReduceInferFunc);
 
@@ -458,6 +543,37 @@ void MatmulACCInferFunc(Operation* op,
 REGISTER_INFER_SHAPE_FUNC(OP_A_MULACC_B, Opcode::OP_A_MULACC_B, MatmulACCInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_A_MULACC_BT, Opcode::OP_A_MULACC_BT, MatmulACCInferFunc);
 
+void LoadL0C2L1InferFunc(Operation* op,
+                        std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    auto copyAttr = std::dynamic_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
+    if (copyAttr != nullptr) {
+        auto fromValidShape = op->GetIOperands()[0]->GetDynValidShape();
+        copyAttr->SetFromDynValidShape(OpImmediate::Specified(fromValidShape));
+    } else {
+        ALOG_WARN_F("%s[%d] has no copy out attr, set output valid shape same as input.",
+            op->GetOpcodeStr().c_str(), op->GetOpMagic());
+        outValidShapes.emplace_back(op->GetIOperands()[0]->GetDynValidShape());
+        return;
+    }
+    auto offsets = copyAttr->GetToOffset();
+    auto inputShapes = copyAttr->GetToDynValidShape();
+    std::vector<SymbolicScalar> outDynShape = op->GetOOperands()[0]->GetDynValidShape();
+    if (outDynShape.empty()) {
+        outDynShape.resize(op->GetOOperands()[0]->GetShape().size(), SymbolicScalar(0));
+    }
+    std::vector<SymbolicScalar> outShape;
+    for (size_t i = 0; i < inputShapes.size(); i++) {
+        auto inputShape = inputShapes[i].GetSpecifiedValue();
+        auto offset = offsets[i].GetSpecifiedValue();
+        SymbolicScalar actualDim = std::max(outDynShape[i], (inputShape + offset) * (inputShape != 0));
+        outShape.emplace_back(actualDim);
+    }
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.emplace_back(outShape);
+    }
+}
+REGISTER_INFER_SHAPE_FUNC(OP_L0C_TO_L1, Opcode::OP_L0C_TO_L1, LoadL0C2L1InferFunc);
+
 void Load2L1InferFunc(Operation* op,
                         std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     std::vector<std::vector<SymbolicScalar>> inputValidShapes;
@@ -472,23 +588,39 @@ void Load2L1InferFunc(Operation* op,
         outValidShapes.push_back(inputValidShapes[0]);
     }
 }
-REGISTER_INFER_SHAPE_FUNC(OP_L0C_TO_L1, Opcode::OP_L0C_TO_L1, Load2L1InferFunc);
-REGISTER_INFER_SHAPE_FUNC(UB_COPY_L1, Opcode::OP_UB_COPY_L1, Load2L1InferFunc);
-REGISTER_INFER_SHAPE_FUNC(UB_COPY_ND2NZ, Opcode::OP_UB_COPY_ND2NZ, Load2L1InferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_UB_COPY_L1, Opcode::OP_UB_COPY_L1, Load2L1InferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_UB_COPY_ND2NZ, Opcode::OP_UB_COPY_ND2NZ, Load2L1InferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_L0C_COPY_UB, Opcode::OP_L0C_COPY_UB, Load2L1InferFunc);
+
+void Load2L1MXScaleInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes)
+{
+    ASSERT(!op->GetIOperands().empty() && op->GetIOperands()[0] != nullptr &&
+           op->GetIOperands()[0]->GetDynValidShape().size() == SHAPE_DIM3);
+    std::vector<SymbolicScalar> srcValidShape = op->GetIOperands()[0]->GetDynValidShape();
+    int64_t copyInMod = static_cast<int64_t>(Matrix::CopyInMode::ND2NZ);
+    op->GetAttr(Matrix::A_MUL_B_COPY_IN_MODE, copyInMod);
+    for (auto output : op->GetOOperands()) {
+        if (copyInMod == static_cast<int64_t>(Matrix::CopyInMode::DN2NZ)) {
+            outValidShapes.push_back({srcValidShape[1], srcValidShape[0], srcValidShape[SHAPE_DIM2]});
+        } else {
+            outValidShapes.push_back({srcValidShape[0], srcValidShape[1], srcValidShape[SHAPE_DIM2]});
+        }
+    }
+}
+REGISTER_INFER_SHAPE_FUNC(OP_L1_COPY_IN_B_SCALE, Opcode::OP_L1_COPY_IN_B_SCALE, Load2L1MXScaleInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_L1_COPY_IN_A_SCALE, Opcode::OP_L1_COPY_IN_A_SCALE, Load2L1MXScaleInferFunc);
 
 // MTE infer shape func
 template <bool isTrans = false>
 void LoadL0InferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes)
 {
     ASSERT(op != nullptr);
-    const std::string L1_TO_L0_OFFSET = OP_ATTR_PREFIX + "l1_to_l0_offset";
-    const std::string L1_TO_L0_TILE = OP_ATTR_PREFIX + "l1_to_l0_tile";
-    if (op->HasAttr(L1_TO_L0_OFFSET) && op->HasAttr(L1_TO_L0_TILE)) {
+    if (op->HasAttr(Matrix::L1_TO_L0_OFFSET) && op->HasAttr(Matrix::L1_TO_L0_TILE)) {
         // 大包搬运分支，无法直接从srcValidShape推导至输出dstValidShape，需要获取offset、tile信息
         std::vector<SymbolicScalar> offset;
         std::vector<SymbolicScalar> tile;
-        op->GetAttr(L1_TO_L0_OFFSET, offset);
-        op->GetAttr(L1_TO_L0_TILE, tile);
+        op->GetAttr(Matrix::L1_TO_L0_OFFSET, offset);
+        op->GetAttr(Matrix::L1_TO_L0_TILE, tile);
         ASSERT(offset.size() == SHAPE_DIM2);
         ASSERT(tile.size() == SHAPE_DIM2);
         ASSERT(!op->GetIOperands().empty() && op->GetIOperands()[0] != nullptr &&
@@ -523,11 +655,34 @@ void LoadL0InferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &ou
         }
     }
 }
-
 REGISTER_INFER_SHAPE_FUNC(OP_L1_TO_L0A, Opcode::OP_L1_TO_L0A, LoadL0InferFunc<false>);
 REGISTER_INFER_SHAPE_FUNC(OP_L1_TO_L0B, Opcode::OP_L1_TO_L0B, LoadL0InferFunc<false>);
 REGISTER_INFER_SHAPE_FUNC(OP_L1_TO_L0_AT, Opcode::OP_L1_TO_L0_AT, LoadL0InferFunc<true>);
 REGISTER_INFER_SHAPE_FUNC(OP_L1_TO_L0_BT, Opcode::OP_L1_TO_L0_BT, LoadL0InferFunc<true>);
+
+// MTE infer shape func
+void LoadL0MXInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
+    ASSERT(op != nullptr);
+    // 大包搬运分支，无法直接从srcValidShape推导至输出dstValidShape，需要获取offset、tile信息
+    std::vector<SymbolicScalar> offset;
+    std::vector<SymbolicScalar> tile;
+    op->GetAttr(Matrix::L1_TO_L0_OFFSET, offset);
+    op->GetAttr(Matrix::L1_TO_L0_TILE, tile);
+    ASSERT(offset.size() == SHAPE_DIM3);
+    ASSERT(tile.size() == SHAPE_DIM3);
+    ASSERT(!op->GetIOperands().empty() && op->GetIOperands()[0] != nullptr &&
+           op->GetIOperands()[0]->GetDynValidShape().size() == SHAPE_DIM3);
+    std::vector<SymbolicScalar> srcValidShape = op->GetIOperands()[0]->GetDynValidShape();
+    std::vector<SymbolicScalar> dstValidShape = GetViewValidShape(
+        srcValidShape, SymbolicScalar::Concrete(offset, 0), offset, SymbolicScalar::Concrete(tile, 0));
+    ASSERT(dstValidShape.size() == SHAPE_DIM3);
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(dstValidShape);
+    }
+    return;
+}
+REGISTER_INFER_SHAPE_FUNC(OP_L1_TO_L0A_SCALE, Opcode::OP_L1_TO_L0A_SCALE, LoadL0MXInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_L1_TO_L0B_SCALE, Opcode::OP_L1_TO_L0B_SCALE, LoadL0MXInferFunc);
 
 void CopyInInferFunc(Operation* op,
                      std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
@@ -599,6 +754,18 @@ void CopyInInferFunc(Operation* op,
     copyOpAttribute->SetToDynValidShape(toDynShape);
 }
 REGISTER_INFER_SHAPE_FUNC(OP_COPY_IN, Opcode::OP_COPY_IN, CopyInInferFunc);
+
+void ShmemGetGm2UBInferFunc(Operation* op,
+                      std::vector<std::vector<SymbolicScalar>>& outValidShapes)
+{
+    auto copyOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
+    std::vector<SymbolicScalar> toValidShapeSym(copyOpAttribute->GetToDynValidShape().size());
+    OpImmediate::NormalizeValue(toValidShapeSym, 0, copyOpAttribute->GetToDynValidShape(), 0, false);
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(toValidShapeSym);
+    }
+}
+REGISTER_INFER_SHAPE_FUNC(OP_SHMEM_GET_GM2UB, Opcode::OP_SHMEM_GET_GM2UB, ShmemGetGm2UBInferFunc);
 
 void CopyOutInferFunc(Operation* op,
                       std::vector<std::vector<SymbolicScalar>>& outValidShapes)
@@ -727,7 +894,7 @@ void ViewInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outV
             OpImmediate::NormalizeValue(inputValidShape, 0, shapeImm, 0, false);
         }
         auto newDynValidShape = GetViewValidShape(inputValidShape, viewOpAttribute->GetFromOffset(),
-                                                    viewOpAttribute->GetFromDynOffset(), op->GetOOperands()[0]->GetShape());
+                                                    viewOpAttribute->GetFromDynOffset(), op->GetOOperands()[0]->oriShape);
         for (auto output : op->GetOOperands()) {
             outValidShapes.push_back(newDynValidShape);
         }
@@ -756,7 +923,12 @@ void AssembleInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& 
     }
     std::vector<SymbolicScalar> outShape;
     for (size_t i = 0U; i < inputShapes.size(); i++) {
-        SymbolicScalar actualDim = std::max(outDynShape[i], (inputShapes[i] + offset[i]) * (inputShapes[i] != 0));
+        SymbolicScalar actualDim;
+        if (offset[i] == 0) {
+            actualDim = std::max(outDynShape[i], inputShapes[i]);
+        } else {
+            actualDim = std::max(outDynShape[i], (inputShapes[i] + offset[i]) * (inputShapes[i] != 0));
+        }
         outShape.push_back(actualDim);
     }
     for (auto output : op->GetOOperands()) {
@@ -769,6 +941,7 @@ const std::string TOPK_AXIS = OP_ATTR_PREFIX + "axis";
 const std::string TOPK_ORDER = OP_ATTR_PREFIX + "order";
 const std::string TOPK_KVALUE = OP_ATTR_PREFIX + "kvalue";
 const std::string EXTRACT_MASKMODE = OP_ATTR_PREFIX + "makeMode";
+const std::string SORT_AXIS = OP_ATTR_PREFIX + "axis";
 constexpr int32_t blockSize = 32;
 constexpr int32_t kFactorSize = 4;
 constexpr int32_t NUM3 = 3;
@@ -786,8 +959,10 @@ void BitSortFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outVal
     std::vector<SymbolicScalar> res(inputValidShapes[0]);
     auto topk_axis = op->GetIntAttribute(TOPK_AXIS);
     res[topk_axis] = (res[topk_axis] + blockSize - 1) / blockSize * blockSize;
-    res[topk_axis] = res[topk_axis] * NUM2 + inputValidShapes[0][topk_axis];
-    outValidShapes.push_back(res);
+    res[topk_axis] = res[topk_axis] * NUM2;
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(res);
+    }
 }
 
 REGISTER_INFER_SHAPE_FUNC(OP_BITSORT, Opcode::OP_BITSORT, BitSortFunc);
@@ -805,9 +980,11 @@ void MrgSortFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outVal
     auto topk_axis = op->GetIntAttribute(TOPK_AXIS);
     auto topk_kvalue = op->GetIntAttribute(TOPK_KVALUE);
     SymbolicScalar tmp = (res[topk_axis] + blockSize - 1) / blockSize * blockSize;
-    res[topk_axis] = std::min(res[topk_axis] - tmp / NUM3 * NUM2,
+    res[topk_axis] = std::min(res[topk_axis],
      (topk_kvalue + kBlockFpNum - 1) / kBlockFpNum * kBlockFpNum) * NUM2;
-    outValidShapes.push_back(res);
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(res);
+    }
 }
 
 REGISTER_INFER_SHAPE_FUNC(OP_MRGSORT, Opcode::OP_MRGSORT, MrgSortFunc);
@@ -875,4 +1052,56 @@ void BrcbInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outV
     }
 }
 REGISTER_INFER_SHAPE_FUNC(OP_BRCB, Opcode::OP_BRCB, BrcbInferFunc);
+
+void TwoTileMrgSortFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
+    std::vector<std::vector<SymbolicScalar>> inputValidShapes;
+    for (auto inputTensor : op->GetIOperands()) {
+        inputValidShapes.push_back(inputTensor->GetDynValidShape());
+    }
+    if (inputValidShapes.empty()) {
+        return;
+    }
+
+    std::vector<SymbolicScalar> res(inputValidShapes[0]);
+    outValidShapes.push_back(res);
+}
+REGISTER_INFER_SHAPE_FUNC(OP_TWOTILEMRGSORT, Opcode::OP_TWOTILEMRGSORT, TwoTileMrgSortFunc);
+
+void ExtractSingleFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
+    std::vector<std::vector<SymbolicScalar>> inputValidShapes;
+    for (auto inputTensor : op->GetIOperands()) {
+        inputValidShapes.push_back(inputTensor->GetDynValidShape());
+    }
+    if (inputValidShapes.empty()) {
+        return;
+    }
+    std::vector<SymbolicScalar> res(inputValidShapes[0]);
+    res.back() = res.back() / 2;
+    outValidShapes.push_back(res);
+}
+REGISTER_INFER_SHAPE_FUNC(OP_EXTRACT_SINGLE, Opcode::OP_EXTRACT_SINGLE, ExtractSingleFunc);
+
+void PReLUInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    ASSERT(op->GetIOperands().size() == 2) << "PReLU input operand size should be 2";
+    ASSERT(op->GetOOperands().size() == 2) << "PReLU output operand size should be 2";
+    
+    auto input0 = op->GetIOperands()[0];
+    
+    std::vector<SymbolicScalar> output0ValidShape = input0->GetDynValidShape();
+    
+    std::vector<SymbolicScalar> output1ValidShape;
+    auto input0ShapeDim = input0->GetDynValidShape().size();
+    
+    if (input0ShapeDim == 2) {
+        output1ValidShape.emplace_back(input0->GetDynValidShape().back());
+    } else {
+        constexpr int64_t ALIGN_SIZE = 32;
+        int64_t elementCount = ALIGN_SIZE / BytesOf(input0->Datatype());
+        output1ValidShape.emplace_back(elementCount);
+    }
+    
+    outValidShapes.emplace_back(std::move(output0ValidShape));
+    outValidShapes.emplace_back(std::move(output1ValidShape));
+}
+REGISTER_INFER_SHAPE_FUNC(OP_PRELU, Opcode::OP_PRELU, PReLUInferFunc);
 }  // namespace npu::tile_fwk

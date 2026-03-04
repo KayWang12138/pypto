@@ -41,6 +41,9 @@ def get_pto_dtype_by_name(name: str):
         "fp32": pypto.DT_FP32,
         "hf4": pypto.DT_HF4,
         "hf8": pypto.DT_HF8,
+        "fp8e4m3": pypto.DT_FP8E4M3,
+        "fp8e5m2": pypto.DT_FP8E5M2,
+        "fp8e8m0": pypto.DT_FP8E8M0,
         "uint8": pypto.DT_UINT8,
         "uint16": pypto.DT_UINT16,
         "uint32": pypto.DT_UINT32,
@@ -160,9 +163,19 @@ class PTOTestCaseRunner(TestCaseRunner):
             f"index_{index} * {self._view_shape[index]}"
             for index, _ in enumerate(loop_range_tuple)
         ]
-        for index, _ in enumerate(input_tensors):
+        for index, tensor in enumerate(input_tensors):
             function += prefix
-            function += f"input_{index} = pypto.view(input_tensors[{index}], {self._view_shape}, ["
+            view_shape = [
+                min(dim, view_dim)
+                for dim, view_dim in zip(tensor.shape, self._view_shape)
+            ]
+            view_offset = [
+                "0" if dim == 1 else offset
+                for dim, offset in zip(tensor.shape, view_offset)
+            ]
+            function += (
+                f"input_{index} = pypto.view(input_tensors[{index}], {view_shape}, ["
+            )
             for offset in view_offset:
                 function += offset + ", "
             function += "])\n"
@@ -196,7 +209,6 @@ class PTOTestCaseRunner(TestCaseRunner):
         function += prefix + "for tmp in res:\n"
         function += prefix + "    del tmp\n"
         logging.info(function)
-        pypto.set_host_options(only_codegen=True)
         pypto.set_vec_tile_shapes(*self.tile_shape)
         exec(
             function,

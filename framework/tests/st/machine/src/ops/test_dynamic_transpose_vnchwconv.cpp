@@ -26,7 +26,6 @@ using namespace npu::tile_fwk::dynamic;
 class DynamicTransposeTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 TEST_F(DynamicTransposeTest, TestDynamicVnchwconv) {
     SetInterpreterConfig();
-    config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(64, 64);
 
     int b = 1;

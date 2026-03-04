@@ -27,7 +27,7 @@
 #include "passes/pass_utils/parallel_tool.h"
 
 namespace npu{
-    namespace tile_fwk {
+namespace tile_fwk {
 
 struct ConvertOpInfo {
     MemoryType from;
@@ -74,6 +74,8 @@ public:
 
     // 提取指定tensor的指定consumer op所需的mem类型
     MemoryType GetMemoryTypeFromTensorTobeMap(LogicalTensorPtr &tensor, Operation &operation) const;
+    // 提取指定tensor的所有consumer op和所需的mem类型
+    std::map<Operation *, MemoryType> GetMemoryTypeFromTensorTobeMap(LogicalTensorPtr &tensor) const;
 
     // 将 tensor tobe map初始化当前tensor的memory type original
     void RefreshTensorTobeMap(Function &function);
@@ -128,6 +130,9 @@ public:
     //cube级联场景
     bool IsNotValidDataType(const std::shared_ptr<LogicalTensor> &firstCVOutput) const;
 
+    // l0c2l1场景，限制数据类型和数据对齐
+    bool FitL0C2L1(const LogicalTensorPtr &tensor);
+
     //特殊场景处理：生成者均为Assemble或者消费者均为View/Assemble，且mem路径中经过DDR
     void ProcessSpecialProducersOrConsumers(const Operation &op, const std::shared_ptr<LogicalTensor> &oOperand,
         std::set<Operation *> &consumers, MemoryType &requiredMemoryType);
@@ -136,6 +141,9 @@ public:
     Status ProcessConvertPath(const Operation &op, const std::shared_ptr<LogicalTensor> &oOperand,
         MemoryType requiredMemoryType, std::vector<MemoryType> &paths);
 };
+static constexpr int MATMUL_DIM_NUM = 2;
+static constexpr int L0C2L1_DIM1_SHAPE_RESTICT = 16; // l0c2l1要求输入的外轴（第一轴）元素数量必须是16的倍数
+static constexpr int L0C2L1_DIM2_BYTE_RESTICT = 32; // l0c2l1要求输入的内轴（第二轴）必须是32Byte对齐
 } 
 }// namespace npu::tile_fwk
 #endif // PASS_CONVERT_OP_INSERTER_H_

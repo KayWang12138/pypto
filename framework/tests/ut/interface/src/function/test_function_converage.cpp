@@ -26,6 +26,7 @@
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
+#include "interface/utils/id_gen.h"
 
 using namespace npu::tile_fwk;
 
@@ -52,7 +53,7 @@ public:
 };
 
 TEST_F(FunctionCoverageTest, ConverageCase1) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     TileShape::Current().SetVecTile({32, 32});
     std::vector<int64_t> shape{32, 32};
@@ -95,7 +96,7 @@ TEST_F(FunctionCoverageTest, ConverageCase1) {
 }
 
 TEST_F(FunctionCoverageTest, ConverageCase2) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     TileShape::Current().SetVecTile({32, 32});
     std::vector<int64_t> shape{32, 32};
@@ -126,7 +127,7 @@ TEST_F(FunctionCoverageTest, ConverageCase2) {
 }
 
 TEST_F(FunctionCoverageTest, ConverageCase3) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     TileShape::Current().SetVecTile({32, 32});
     std::vector<int64_t> shape{32, 32};
@@ -157,7 +158,7 @@ TEST_F(FunctionCoverageTest, ConverageCase3) {
 }
 
 TEST_F(FunctionCoverageTest, ConverageCase4) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     TileShape::Current().SetVecTile(16, 16);
 
     std::vector<int64_t> shape{16, 64};
@@ -190,8 +191,24 @@ TEST_F(FunctionCoverageTest, ConverageCase4) {
     }
 }
 
+TEST_F(FunctionCoverageTest, ConverageCase5) {
+    config::SetHostOption(COMPILE_STAGE, CS_TENSOR_GRAPH);
+
+    // duplicate funcname
+    config::SetBuildStatic(true);
+    FUNCTION("ConverageFunc") {
+        IdGen<IdType::FUNCTION>::Inst().SetId(2);
+        Program::GetInstance().BeginFunction(
+            "TENSOR_ConverageFunc", FunctionType::DYNAMIC, GraphType::TENSOR_GRAPH, {}, false);
+    }
+    EXPECT_EQ(Program::GetInstance().GetFunctionMap().size(), 2);
+    Program::GetInstance().GetCurrentFunction()->SetFunctionType(FunctionType::STATIC);
+    auto ret = Program::GetInstance().EndFunction("TENSOR_ConverageFunc1", false);
+    EXPECT_EQ(ret, std::make_tuple(nullptr, nullptr, false));
+}
+
 TEST_F(FunctionCoverageTest, TestReuseTensorCase1) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     TileShape::Current().SetVecTile(16, 16);
     std::vector<int64_t> shape{32, 32};
     Tensor input(DT_FP32, shape, "input");
@@ -250,7 +267,7 @@ TEST_F(FunctionCoverageTest, TestReuseTensorCase1) {
 }
 
 TEST_F(FunctionCoverageTest, TestFunctionHash) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     TileShape::Current().SetVecTile(16, 16);
     std::vector<int64_t> shape{32, 32};
     Tensor input(DT_FP32, shape, "input");

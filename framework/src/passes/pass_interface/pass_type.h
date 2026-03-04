@@ -40,6 +40,7 @@ enum class PassName {
     ASSIGN_MEMORY_TYPE,
     INFER_DISCONTINUOUS_INPUT,
     REMOVE_REDUNDANT_OP,
+    INSERT_OP_FOR_VIEWASSEMBLE,
     SPLIT_K,
     GRAPH_PARTITION,
     REDUCE_COPY_MERGE,
@@ -66,6 +67,9 @@ enum class PassName {
     MIX_SUBGRAPH_SPLIT,
     CODEGEN_PREPROC,
     DYN_ATTR_TO_STATIC,
+    LOOPAXES_PROC,
+    TUNE_TILEOP_SEQ_FOR_VF,
+    TUNE_SYNC_FOR_VF,
     NOT_DEFINED
 };
 
@@ -85,6 +89,7 @@ inline constexpr const char *PassNameStr(PassName name){
         case PassName::ASSIGN_MEMORY_TYPE: return "AssignMemoryType";
         case PassName::INFER_DISCONTINUOUS_INPUT: return "InferDiscontinuousInput";
         case PassName::REMOVE_REDUNDANT_OP: return "RemoveRedundantOp";
+        case PassName::INSERT_OP_FOR_VIEWASSEMBLE: return "InsertOpForViewAssemble";
         case PassName::SPLIT_K: return "SplitK";
         case PassName::GRAPH_PARTITION: return "GraphPartition";
         case PassName::REDUCE_COPY_MERGE: return "ReduceCopyMerge";
@@ -111,6 +116,9 @@ inline constexpr const char *PassNameStr(PassName name){
         case PassName::MIX_SUBGRAPH_SPLIT: return "MixSubgraphSplit";
         case PassName::CODEGEN_PREPROC: return "CodegenPreproc";
         case PassName::DYN_ATTR_TO_STATIC: return "DynAttrToStatic";
+        case PassName::LOOPAXES_PROC: return "LoopaxesProc";
+        case PassName::TUNE_TILEOP_SEQ_FOR_VF: return "TuneTileOpSeqForVF";
+        case PassName::TUNE_SYNC_FOR_VF: return "TuneSyncForVF";
         case PassName::NOT_DEFINED: return "NotDefined";
         default: 
             ASSERT(false) << "[PassDependency][Manager][ERROR]: PassName not defined.";

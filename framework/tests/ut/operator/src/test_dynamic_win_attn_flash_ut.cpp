@@ -35,7 +35,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
 
@@ -52,7 +52,6 @@ constexpr int NUM_1024 = 1024;
 
 template <typename T = npu::tile_fwk::float16>
 void TestWinAttenFlashUt(WinAttenTileShapeConfig& tileConfig) {
-    config::SetHostOption(ONLY_CODEGEN, true);
 
     DataType dType = DT_FP32;
     if (std::is_same<T, npu::tile_fwk::float16>::value) {

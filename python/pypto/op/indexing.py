@@ -15,6 +15,7 @@ from ..enum import ScatterMode
 from .._op_wrapper import op_wrapper
 from ..tensor import Tensor
 from .._element import Element
+from ..tensor import Tensor
 
 
 @op_wrapper
@@ -84,10 +85,9 @@ def index_add_(
     Output y:  [[2 2 2],
                 [1 1 1]]               # shape (2, 3)
     """
-    if alpha == 1 or alpha == 1.0:
-        return pypto_impl.IndexAdd_(input, source, index, dim)
-    else:
-        return pypto_impl.IndexAdd_(input, source, index, dim, pypto_impl.Element(input.dtype, alpha))
+
+    input.Move(pypto_impl.IndexAdd(input, source, index, dim, pypto_impl.Element(input.dtype, alpha)))
+    return input
 
 
 @op_wrapper
@@ -97,10 +97,73 @@ def index_add(
     """
     The out-of-place version of index_add_()
     """
-    if alpha == 1 or alpha == 1.0:
-        return pypto_impl.IndexAdd(input, source, index, dim)
-    else:
-        return pypto_impl.IndexAdd(input, source, index, dim, pypto_impl.Element(input.dtype, alpha))
+
+    return pypto_impl.IndexAdd(input, source, index, dim, pypto_impl.Element(input.dtype, alpha))
+
+
+@op_wrapper
+def index_put_(
+    input: Tensor, indices: tuple, values: Tensor, accumulate: bool = False
+    ) -> None:
+    """
+    Puts values from the tensor `values` into the tensor `input` using the 
+    indices specified in `indices`(which is a tuple of Tensors).
+
+    With different numbers of tensors in indices, this function specified output as:
+    input[indices[0][i], ...] = values[i, ...]                      # with 1 tensor in indices
+    input[indices[0][i], indices[1][i], ...] = values[i, ...]       # with 2 tensors in indices
+    input[indices[0][i], ..., indices[k][i], ...] = values[i, ...]  # with k tensors in indices
+
+    Parameters
+    ----------
+    input : Tensor
+        Source tensor that needs to be updated in place.
+    indices : a tuple of 1-dimensional Tensor(s)
+        The i-th 1-dimensional tensor represents the index along the 
+        i-th dimension in `input`, with a dtype of either int64 or int32. 
+        Broadcasting is not currently supported, and each 1-dimensional
+        tensor must have the same length.
+    values : Tensor
+        Tensor of the same dtype as self. Broadcasting is not currently 
+        supported. The size of the first dimension of `values` must be
+        the same as the length of the 1-dimensional tensors in `indices`.
+        All other dimensions must match `input`.
+    accumulate : bool
+        Specify whether to accumulate into `input`. Specifically, when
+        `indices` contain duplicate elements, the behavior is undefined.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    RuntimeError
+        If any value in the i-th 1-dimensional tensor of `indices` exceed
+        the range [0, input.shape[i - 1]].
+
+    Examples
+    --------
+    x = pypto.tensor([4, 2], pypto.DT_FP32)
+    indices = (pypto.tensor([3], pypto.DT_INT32), )
+    values = pypto.tensor([3, 2], pypto.DT_FP32)
+
+    input x:  [[0 0],
+               [0 0],
+               [0 0],
+               [0 0]]
+      indices: [0 1 3]
+       values: [[1 1],
+               [2 2],
+               [3 3]]
+
+    updated x: [[1 1],
+               [2 2],
+               [0 0],
+               [3 3]]
+    """
+    indices_list = list(indices)
+    pypto_impl.IndexPut_(input, indices_list, values, accumulate)
 
 
 @op_wrapper
@@ -349,7 +412,8 @@ def get_scatter_mode(reduce: str):
 
 
 @op_wrapper
-def scatter_(input: Tensor, dim: int, index: Tensor, src: Union[float, Element], *, reduce: str = None) -> Tensor:
+def scatter_(
+    input: Tensor, dim: int, index: Tensor, src: Union[float, Element, Tensor], *, reduce: str = None) -> Tensor:
     """Write all values from the value 'src' into 'input' at the indices specified in the 'index' tensor.
 
     This function calculates the formula:
@@ -366,8 +430,8 @@ def scatter_(input: Tensor, dim: int, index: Tensor, src: Union[float, Element],
         The axis along which to index.
     index : Tensor
         The indices of elements to scatter.
-    src : float
-        The scalar value to scatter.
+    src : Tensor or Element
+        The Tensor or Element to scatter.
 
     Returns
     -------
@@ -379,6 +443,7 @@ def scatter_(input: Tensor, dim: int, index: Tensor, src: Union[float, Element],
     RuntimeError
         If the dimension of 'index' is not equal to the dimension of 'input'.
         If the index.size(d) > input.size(d)
+        If the index.size(d) > src.size(d) when src is Tensor and d != dim 
         If the value of 'input[i][j][k]' is bigger than the shape size of the dimension of 'input'.
 
     See Also
@@ -403,14 +468,76 @@ def scatter_(input: Tensor, dim: int, index: Tensor, src: Union[float, Element],
     """
     scatter_mode = get_scatter_mode(reduce)
     if isinstance(src, float):
-        return pypto_impl.Scatter_(input, index, pypto_impl.Element(input.dtype, src), dim, scatter_mode)
-    return pypto_impl.Scatter_(input, index, src, dim, scatter_mode)
+        input.Move(pypto_impl.Scatter(input, index, pypto_impl.Element(input.dtype, src), dim, scatter_mode))
+        return input
+    input.Move(pypto_impl.Scatter(input, index, src, dim, scatter_mode))
+    return input
 
 
 @op_wrapper
-def scatter(input: Tensor, dim: int, index: Tensor, src: Union[float, Element], *, reduce: str = None) -> Tensor:
+def scatter(
+    input: Tensor, dim: int, index: Tensor, src: Union[float, Element, Tensor], *, reduce: str = None) -> Tensor:
     """Out-of-place version of 'scatter_'."""
     scatter_mode = get_scatter_mode(reduce)
     if isinstance(src, float):
         return pypto_impl.Scatter(input, index, pypto_impl.Element(input.dtype, src), dim, scatter_mode)
     return pypto_impl.Scatter(input, index, src, dim, scatter_mode)
+
+
+@op_wrapper
+def gathermask(self: Tensor, pattern_mode: int) -> Tensor:
+    """
+    Based on the built-in Mask selected by PatternMode, 
+    the positions in the self Tensor where the corresponding Bit is 1 form the output Tensor, 
+    and the values where the Bit is 0 are directly discarded. 
+    There are 7 modes for PatternMode:
+    - PatternMode=1: Take the first element of every two elements in the last axis.
+    - PatternMode=2: Take the second element of every two elements in the last axis.
+    - PatternMode=3: Take the first element of every four elements in the last axis.
+    - PatternMode=4: Take the second element of every four elements in the last axis.
+    - PatternMode=5: Take the third element of every four elements in the last axis.
+    - PatternMode=6: Take the fourth element of every four elements in the last axis.
+    - PatternMode=7: Take all elements in the last axis.
+
+    Parameters
+    ----------
+    self : Tensor
+        Source tensor from which to gather values.
+    pattern_mode : int
+        Only supports 1 to 7.
+
+    Returns
+    -------
+    Tensor
+        A new tensor, with the same dtype as `self`, and the Shape of the output Tensor is as follows: 
+        - pattern_mode <= 2, the output shape's trailing axis is self.shape's trailing axis / 2, 
+            while other axes match the self shape.
+        - When 2 < pattern_mode < 7, the output shape's trailing axis is self.shape's trailing axis divided by 4, 
+            while other axes remain consistent with the self shape.
+        - pattern_mode = 7, output shape = self shape.
+    Raises
+    ------
+    patterModeError
+        If any value in `pattern_mode` is outside the inclusive range [1, 7].
+    RuntimeError
+        If 1 <= pattern_mode <= 2, self.shape[self.shape.size()-1] % 2 == 0.
+        If 3 <= pattern_mode <= 6, self.shape[self.shape.size()-1] % 4 == 0.
+
+    Examples
+    --------
+    x = pypto.tensor([3, 6], pypto.DT_INT32)        # shape (3, 6)
+    pattern_mode = 1
+    y = pypto.gathermask(x, pattern_mode)
+
+    Self x:  [[0 1 2 3 4 5],
+               [6 7 8 9 10 11],
+               [12 13 14 15 16 17]]
+    pattern_mode:  1,
+
+    Output y: [[0 2 4],
+               [6 8 10],
+               [12 14 16]]               # shape (3, 3)
+
+    """
+
+    return pypto_impl.GatherMask(self, pattern_mode)

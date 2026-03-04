@@ -19,7 +19,7 @@
 #include "machine/utils/dynamic/dev_encode.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/tilefwk_op.h"
-#include "interface/inner/config.h"
+#include "interface/configs/config_manager.h"
 #include "interface/configs/config_manager.h"
 #include "interface/program/program.h"
 
@@ -40,8 +40,8 @@ TEST_F(TestDevEncode, DevSymShape) {
 }
 
 TEST_F(TestDevEncode, test_dev_encode_program) {
+    config::SetRuntimeOption(STITCH_FUNCTION_MAX_NUM, 64);
     config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
-    config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(32, 32);
     TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     constexpr int LOOP_COUNT_INNER = 4;
@@ -71,6 +71,7 @@ TEST_F(TestDevEncode, test_dev_encode_program) {
     ASSERT_NE(funcDynDev, nullptr);
     DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(funcDynDev->devProgBinary.data());
     ASSERT_NE(devProg, nullptr);
+    EXPECT_EQ(devProg->stitchFunctionNumInitial, 64);
     devProg->RelocProgram(0, reinterpret_cast<uint64_t>(devProg), true);
     devProg->controlFlowCache.isRecording = false;
     uint64_t contextWorkspaceAddr = devProg->controlFlowCache.contextWorkspaceAddr;
@@ -78,10 +79,11 @@ TEST_F(TestDevEncode, test_dev_encode_program) {
     devProg->controlFlowCache.RuntimeAddrRelocWorkspace(contextWorkspaceAddr, 0, nullptr, nullptr, nullptr);
     devProg->controlFlowCache.RuntimeAddrRelocProgram(reinterpret_cast<uint64_t>(devProg), 0);
     devProg->controlFlowCache.TaskAddrRelocWorkspace(contextWorkspaceAddr, 0, nullptr);
-    devProg->controlFlowCache.TaskAddrRelocProgram(reinterpret_cast<uint64_t>(devProg), 0);
+    devProg->controlFlowCache.TaskAddrRelocProgramAndCtrlCache(reinterpret_cast<uint64_t>(devProg), reinterpret_cast<uint64_t>(&devProg->controlFlowCache), 0, 0);
     devProg->controlFlowCache.isActivated = true;
 
     devProg->Dump(0, true);
+    devProg->DumpFile("./dum_dev_program.txt");
     devProg->ResetRerun();
     devProg->RuntimeVerify(0, 0);
     EXPECT_NE(devProg->GetInputTensorSlotIndexList().empty(), true);
@@ -107,5 +109,18 @@ TEST_F(TestDevEncode, test_dev_encode_program) {
         devFunc->LookupConnectionSlotIndexFrom(devFunc1);
     }
 
+    DevAscendFunctionDuppedData *devFuncDuppedData = devFunc->GetDuppedData();
+    ASSERT_NE(devFuncDuppedData, nullptr);
+    devFuncDuppedData->source_ = devFunc;
+    (void)devFuncDuppedData->Dump();
+
     devProg->ResetFromLaunch();
+}
+
+TEST_F(TestDevEncode, test_dev_func_dupped) {
+    DevAscendRawTensor rawTensor;
+    std::vector<std::string> lines;
+    std::stringstream oss;
+    DevAscendFunctionDupped funcDuppped;
+    funcDuppped.DumpRawShape(&rawTensor, 0, lines, oss);
 }

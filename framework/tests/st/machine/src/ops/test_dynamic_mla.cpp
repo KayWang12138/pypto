@@ -24,13 +24,11 @@ class DyMla : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 namespace {
 
 void pre() {
-    config::SetHostOption(ONLY_CODEGEN, true);
 
 }
 
 void performanceConfig() {
-    config::SetPassOption(VEC_NBUFFER_MODE, 1);
-    config::SetPassOption(CUBE_L1_REUSE_MODE, 4);
+    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 4}});
     config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{3, 4}});
     config::SetPassOption(MG_COPYIN_UPPER_BOUND, 2 * 1024 * 1024);
 }

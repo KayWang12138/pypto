@@ -28,6 +28,7 @@
 
 namespace npu {
 namespace tile_fwk {
+const std::string REDUCE_AXIS = OP_ATTR_PREFIX + "AXIS";
 // only save general gm input/output, not contain spill-out scene
 bool CodegenPreproc::IsNeedSave(const Operation &op) const {
     return OpcodeManager::Inst().IsCopyInOrOut(op.GetOpcode()) && (!op.IsNeedStackGM());
@@ -105,7 +106,7 @@ Status CodegenPreproc::ProcessAxis(Operation &op, std::vector<bool> attr, bool i
             CombineTailAxis(operands[i]->shape, shapeSize);
             CombineTailAxis(operands[i]->oriShape, shapeSize);
             CombineTailAxis(operands[i]->tensor->rawshape, shapeSize);
-            if (ConfigManager::Instance().GetOperationConfig(KEY_FORCE_COMBINE_AXIS, false)) {
+            if (forceCombineAxis) {
                 CombineLastAxis(operands[i]->dynValidShape_, shapeSize);
             }
         }
@@ -165,6 +166,31 @@ inline bool IsUBCopy(Operation& op) {
     return false;
 }
 
+bool ReduceNeedCombineAxis(const Operation &op) {
+    if (OpcodeManager::Inst().GetOpCalcType(op.GetOpcode()) != OpCalcType::REDUCE) {
+        return true;
+    }
+    if (op.GetOpcode() == Opcode::OP_ROWSUMLINE) {
+        auto inputs = op.GetIOperands();
+        if (op.GetIOperands().size() != 1 || !op.HasAttr(REDUCE_AXIS)) {
+            return false;
+        }
+        auto axis = op.GetIntAttribute(REDUCE_AXIS);
+        int64_t shapeSize = static_cast<int64_t>(inputs.front()->shape.size());
+        return shapeSize != 1 && axis != (shapeSize - 2);
+    }
+    return false;
+}
+
+void CodegenPreproc::FixExpandDimForAxisCombine(Operation &op, int dimSize) const {
+    if (op.GetOpcode() == Opcode::OP_EXPAND) {
+        int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM");
+        if (axis == dimSize - NUM2) {
+            op.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", axis + 1);
+        }
+    }
+}
+
 Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
     const std::set<Opcode> skipInputCombineOps = {Opcode::OP_BRCB, Opcode::OP_EXPAND};
     for (auto &subProgram : func.rootFunc_->programs_) {
@@ -173,9 +199,9 @@ Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
                 continue;
             }
             std::vector<bool> inputCombineAxis;
-            for (size_t i = 0; i < op.GetIOperands().size(); ++i) {
-                LogicalTensors operands = op.GetIOperands();
-                if (operands[i]->tensor->rawshape.back() == 1 && skipInputCombineOps.count(op.GetOpcode()) == 0) {
+            LogicalTensors inputs = op.GetIOperands();
+            for (size_t i = 0; i < inputs.size(); ++i) {
+                if (inputs[i]->tensor->rawshape.back() == 1 && skipInputCombineOps.count(op.GetOpcode()) == 0) {
                     inputCombineAxis.push_back(true);
                 } else {
                     inputCombineAxis.push_back(false);
@@ -183,10 +209,12 @@ Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
             }
             op.SetAttr(OpAttributeKey::inputCombineAxis, inputCombineAxis);
             std::vector<bool> outputCombineAxis;
-            for (size_t i = 0; i < op.GetOOperands().size(); ++i) {
-                LogicalTensors operands = op.GetOOperands();
-                if (operands[i]->tensor->rawshape.back() == 1 && OpcodeManager::Inst().GetOpCalcType(op.GetOpcode()) != OpCalcType::REDUCE) {
+            auto outputs = op.GetOOperands();
+            for (size_t i = 0; i < outputs.size(); ++i) {
+                if (outputs[i]->tensor->rawshape.back() == 1 && ReduceNeedCombineAxis(op)) {
                     outputCombineAxis.push_back(true);
+                    // OP_EXPAND 只有单输出，此处只会执行一次
+                    FixExpandDimForAxisCombine(op, static_cast<int>(outputs[i]->tensor->rawshape.size()));
                 } else {
                     outputCombineAxis.push_back(false);
                 }
@@ -237,6 +265,12 @@ void CodegenPreproc::SetNeedAllocAttr(Function &function) {
 }
 
 Status CodegenPreproc::RunOnFunction(Function &function) {
+    if (config::GetPassGlobalConfig(KEY_ENABLE_VF, false)) {
+        config::SetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE, 1);
+        APASS_LOG_INFO_F(Elements::Operation, "Set valid_shape_optimize as 1 for vf is enabled.");
+    }
+    combineAxis = function.paramConfigs_.combineAxis;
+    forceCombineAxis = function.paramConfigs_.forceCombineAxis;
     APASS_LOG_INFO_F(Elements::Operation, "===============================================================> Start CodegenPreproc.");
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_VIEW_TYPE) {
@@ -248,7 +282,7 @@ Status CodegenPreproc::RunOnFunction(Function &function) {
         return FAILED;
     }
 
-    if (ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false)) {
+    if (combineAxis) {
         if (ForceCombineAxisForAxisCombine(function) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "CodegenPreproc RunOnFunction failed at function ForceCombineAxisForAxisCombine.");
             return FAILED;

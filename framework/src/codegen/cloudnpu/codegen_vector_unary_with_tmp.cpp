@@ -18,7 +18,6 @@
 #include "codegen_op_cloudnpu.h"
 #include "securec.h"
 #include "codegen/utils/codegen_utils.h"
-#include "codegen/symbol_mgr/codegen_symbol.h"
 
 namespace npu::tile_fwk {
 std::string CodeGenOpCloudNPU::PrintVnchwconvStatic(const PrintUnaryTmpBuffParam &param) const {
@@ -95,10 +94,10 @@ std::string CodeGenOpCloudNPU::PrintVnchwconvDynUnaligned(const PrintUnaryTmpBuf
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintVnchwconvTileTensor() const {
-    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
-    std::string srcTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC1_IDX)]);
-    std::string tmpTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
+std::string CodeGenOpCloudNPU::PrintUnaryWithTmpTileTensor() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC1_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
     std::ostringstream oss;
     oss << tileOpName << "(" << dstTensor << ", " << srcTensor << "," << tmpTensor << ");\n";
     return oss.str();
@@ -106,7 +105,7 @@ std::string CodeGenOpCloudNPU::PrintVnchwconvTileTensor() const {
 
 std::string CodeGenOpCloudNPU::PrintVnchwconv(const PrintUnaryTmpBuffParam &param) const {
     if (isSupportLayout) {
-        return PrintVnchwconvTileTensor();
+        return PrintUnaryWithTmpTileTensor();
     }
     if (isDynamicFunction) {
         return PrintVnchwconvDynUnaligned(param);
@@ -130,7 +129,7 @@ std::string CodeGenOpCloudNPU::PrintReduceLastAxis(const PrintUnaryTmpBuffParam 
     std::vector<int64_t> srcRawShape = NormalizeShape(rawShape[ID2], SHAPE_DIM4);
     std::vector<int64_t> dstRawShape = NormalizeShape(rawShape[ID0], SHAPE_DIM4);
     std::vector<int64_t> tmpRawShape = NormalizeShape(rawShape[ID1], SHAPE_DIM4);
-    ALOG_INFO_F("rawShape[2] is %s", IntVecToStr(rawShape[ID2]).c_str());
+    CODEGEN_LOGI("rawShape[2] is %s", IntVecToStr(rawShape[ID2]).c_str());
 
     if (isSupportLayout) {
         return PrintReduceLastAxisTileTensor();
@@ -153,11 +152,18 @@ std::string CodeGenOpCloudNPU::PrintReduceLastAxis(const PrintUnaryTmpBuffParam 
 }
 
 std::string CodeGenOpCloudNPU::PrintReduceLastAxisTileTensor() const {
-    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
-    std::string tmpTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
-    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC1_IDX)]);
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC1_IDX));
     std::ostringstream oss;
-    oss << tileOpName << "(" << dstTensor << ", " << src0Tensor << ", " << tmpTensor << ");\n";
+    std::vector<std::string> templateParamList;
+    std::string lastUse = GetLastUse();
+    oss << tileOpName;
+    if (!lastUse.empty()) {
+        oss << WrapParamByAngleBrackets({lastUse});
+    }
+    oss << WrapParamByParentheses({dstTensor, src0Tensor, tmpTensor});
+    oss << STMT_END;
     return oss.str();
 }
 
@@ -280,11 +286,63 @@ std::string CodeGenOpCloudNPU::PrintCompact(const PrintUnaryTmpBuffParam &param)
     return PrintCompactStatic(param);
 }
 
+std::string CodeGenOpCloudNPU::PrintExp2Layout() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::DST_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::TMP_IDX));
+    std::string tmpTensorNext = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::TMP2_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MILOIdx::SRC0_IDX));
+
+    std::ostringstream oss;
+    oss << tileOpName.c_str() << "(" << dstTensor << ", " << tmpTensor << ", " << tmpTensorNext << ", "
+        << srcTensor << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintExp2() const {
+    ASSERT(isSupportLayout) << "Exp2 only support tile tensor";
+    return PrintExp2Layout();
+}
+
+std::string CodeGenOpCloudNPU::PrintRoundLayout() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
+    std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
+
+    std::ostringstream oss;
+    oss << tileOpName << "<float>";
+    oss << WrapParamByParentheses({dstTensor, tmpTensor, srcTensor, scalarTmpBuffer});
+    oss << STMT_END;
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintRound() const {
+    ASSERT(isSupportLayout) << "Round only support tile tensor";
+    return PrintRoundLayout();
+}
+
+std::string CodeGenOpCloudNPU::PrintExpm1Layout() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
+
+    std::ostringstream oss;
+    oss << tileOpName;
+    oss << WrapParamByParentheses({dstTensor, tmpTensor, srcTensor});
+    oss << STMT_END;
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintExpm1() const {
+    ASSERT(isSupportLayout) << "Expm1 only support tile tensor";
+    return PrintExpm1Layout();
+}
+
 std::string CodeGenOpCloudNPU::PrintRowSumlineStatic(const PrintUnaryTmpBuffParam &param) const {
     int reduceAxis{-1};
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
     if (axis.HasValue()) {
-        reduceAxis = npu::tile_fwk::AnyCast<int64_t>(axis);
+        reduceAxis = AnyCast<int64_t>(axis);
     }
     ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(rawShape[ID2].size()) - 1))))
         << "unsupported reduce axis" << reduceAxis;
@@ -321,7 +379,7 @@ std::string CodeGenOpCloudNPU::PrintRowSumlineDynamicUnaligned(const PrintUnaryT
     int reduceAxis{-1};
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
     if (axis.HasValue()) {
-        reduceAxis = npu::tile_fwk::AnyCast<int64_t>(axis);
+        reduceAxis = AnyCast<int64_t>(axis);
     }
     ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(rawShape[ID2].size()) - 1))))
         << "unsupported reduce axis" << reduceAxis;
@@ -374,19 +432,21 @@ std::string CodeGenOpCloudNPU::PrintRowSumlineDynamicUnaligned(const PrintUnaryT
 }
 
 std::string CodeGenOpCloudNPU::PrintRowSumlineTileTensor() const {
-    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ID0]);
-    std::string tmpTensor = sm->QueryTileTensorByMagic(operandWithMagic[ID1]);
-    std::string src0Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ID2]);
+    std::string dstTensor = QueryTileTensorNameByIdx(ID0);
+    std::string tmpTensor = QueryTileTensorNameByIdx(ID1);
+    std::string src0Tensor = QueryTileTensorNameByIdx(ID2);
     int reduceAxis{-1};
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
     if (axis.HasValue()) {
-        reduceAxis = npu::tile_fwk::AnyCast<int64_t>(axis);
+        reduceAxis = AnyCast<int64_t>(axis);
     }
     ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(rawShape[ID2].size()) - 1)))) << "unsupported reduce axis";
     reduceAxis += SHAPE_DIM5 - rawShape[0].size();
     std::ostringstream oss;
-    oss << tileOpName << "<" << reduceAxis << ">"
-        << "(" << dstTensor << ", " << src0Tensor << ", " << tmpTensor << ");\n";
+    oss << tileOpName;
+    oss << WrapParamByAngleBrackets({std::to_string(reduceAxis)});
+    oss << WrapParamByParentheses({dstTensor, src0Tensor, tmpTensor});
+    oss << STMT_END;
     return oss.str();
 }
 
@@ -400,6 +460,16 @@ std::string CodeGenOpCloudNPU::PrintRowSumline(const PrintUnaryTmpBuffParam &par
     return PrintRowSumlineStatic(param);
 }
 
+std::string CodeGenOpCloudNPU::PrintIsFinite([[maybe_unused]] const PrintUnaryTmpBuffParam &param) const {
+    ASSERT(isSupportLayout) << "`IsFinite` only supports `codegen_support_tile_tensor`==true! Please modify `tile_fwk_config.json`!";
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
+    std::ostringstream oss;
+    oss << tileOpName << "(" << JoinString({dstTensor, srcTensor, tmpTensor}, CONN_COMMA) << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
     // In this scenario, frontend set tmp buffer in output to optimize ooo schedule result.
     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
@@ -407,10 +477,10 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
     std::vector srcShape = this->rawShape[2];
-    ALOG_INFO_F("GenUnaryOpWithTmpBuff %s src raw shape: %s", tileOpName.c_str(), IntVecToStr(srcShape).c_str());
+    CODEGEN_LOGI("GenUnaryOpWithTmpBuff %s src raw shape: %s", tileOpName.c_str(), IntVecToStr(srcShape).c_str());
 
     std::vector dstShape = this->rawShape[0];
-    ALOG_INFO_F("GenUnaryOpWithTmpBuff %s dst raw shape: %s", tileOpName.c_str(), IntVecToStr(dstShape).c_str());
+    CODEGEN_LOGI("GenUnaryOpWithTmpBuff %s dst raw shape: %s", tileOpName.c_str(), IntVecToStr(dstShape).c_str());
 
     std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID2]);
     std::string tmpDtypeStr = DataType2CCEStr(operandDtype[ID1]);
@@ -423,11 +493,27 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
         return PrintVnchwconv({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
 
+    if (opCode == Opcode::OP_SIGN || opCode == Opcode::OP_SIGNBIT) {
+        return PrintUnaryWithTmpTileTensor();
+    }
+
+    if (opCode == Opcode::OP_EXP2) {
+        return PrintExp2();
+    }
+
+    if (opCode == Opcode::OP_ROUND) {
+        return PrintRound();
+    }
+
+    if (opCode == Opcode::OP_EXPM1) {
+        return PrintExpm1();
+    }
+
     if (opCode == Opcode::OP_ROWSUMLINE) {
         return PrintRowSumline({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
     if (opCode == Opcode::OP_ROWSUM_SINGLE || opCode == Opcode::OP_ROWMAX_SINGLE ||
-        opCode == Opcode::OP_ROWMIN_SINGLE) {
+        opCode == Opcode::OP_ROWMIN_SINGLE || opCode == Opcode::OP_ROWPROD_SINGLE) {
         return PrintReduceLastAxis({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
 
@@ -437,6 +523,10 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
 
     if (opCode == Opcode::OP_COMPACT) {
         return PrintCompact({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
+    }
+
+    if (opCode == Opcode::OP_ISFINITE) {
+        return PrintIsFinite({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
 
     std::string ostring(buffer);

@@ -11,41 +11,20 @@
 """
 """
 import sys
+import enum
 from typing import List, Union, Dict, Optional
-from enum import IntEnum
 from functools import wraps
 
 from . import pypto_impl
 
 
-class _CachedOptions:
-
-    def __init__(self):
-        self._options = pypto_impl.GetOptions()
-
-    def reset(self):
-        self._options = pypto_impl.GetOptions()
-
-    def set_options(self, prefix, options):
-        for name, value in options.items():
-            key = f"{prefix}.{name}"
-            if key in self._options and value is not None:
-                pypto_impl.SetOption(key, value)
-                self._options[key] = value
-
-    def __getitem__(self, key):
-        return self._options[key]
-
-    def __setitem__(self, key, value):
-        self._options[key] = value
-        pypto_impl.SetOption(key, value)
-
-    def get_options(self, prefix):
-        prefix = f"{prefix}."
-        return {k[len(prefix):]: v for k, v in self._options.items() if k.startswith(prefix)}
-
-
-_pto_options = _CachedOptions()
+class CompStage(enum.Enum):
+    ALL_COMPLETE = 0
+    TENSOR_GRAPH = 1
+    TILE_GRAPH = 2
+    EXECUTE_GRAPH = 3
+    CODEGEN_INSTRUCTION = 4
+    CODEGEN_BINARY = 5
 
 
 def set_print_options(*,
@@ -78,15 +57,10 @@ def set_pass_options(*,
                      pg_skip_partition: Optional[bool] = None,
                      pg_upper_bound: Optional[int] = None,
                      pg_lower_bound: Optional[int] = None,
-                     pg_parallel_lower_bound: Optional[int] = None,
                      mg_vec_parallel_lb: Optional[int] = None,
-                     vec_nbuffer_mode: Optional[int] = None,
                      vec_nbuffer_setting: Optional[Dict[int, int]] = None,
-                     cube_l1_reuse_mode: Optional[int] = None,
                      cube_l1_reuse_setting: Optional[Dict[int, int]] = None,
-                     cube_nbuffer_mode: Optional[int] = None,
                      cube_nbuffer_setting: Optional[Dict[int, int]] = None,
-                     mg_copyin_upper_bound: Optional[int] = None,
                      sg_set_scope: Optional[int] = None,
                      ) -> None:
     """
@@ -105,42 +79,22 @@ def set_pass_options(*,
         Merged graph parameter, used to configure
         the lower bound of subgraph size.
 
-    pg_parallel_lower_bound : int
-        Merged graph parameter, used to configure
-        the minimum parallelism of subgraphs with the same structure.
-
     mg_vec_parallel_lb : int
         Merged graph parameter, used to configure
         the minimum parallelism of AIV subgraphs with the same structure.
 
-    vec_nbuffer_mode : int
-        Merged graph parameter, used to configure
-        the merging strategy for AIV subgraphs with the same structure.
-
     vec_nbuffer_setting : Dict[int, int]
         Merged graph parameter, used to configure
         the merging quantity of AIV subgraphs with the same structure.
-
-    cube_l1_reuse_mode : int
-        Merged graph parameter, used to configure
-        the merging strategy for subgraphs with the same structure
-        and repeated transfer of the same GM data.
 
     cube_l1_reuse_setting : Dict[int, int]
         Merged graph parameter, used to configure
         the merging quantity of subgraphs with the same structure
         and repeated transfer of the same GM data.
 
-    cube_nbuffer_mode : int
-        Merged graph parameter, used to configure
-        the merging strategy for AIC subgraphs with the same structure.
-
     cube_nbuffer_setting : Dict[int, int]
         Merged graph parameter, used to configure
         the merging quantity of AIC subgraphs with the same structure.
-
-    mg_copyin_upper_bound : int
-        Merged graph parameter, used to configure the merged graph size.
     """
     options_dict = {k: v for k, v in locals().items() if v is not None}
     set_options(pass_options=options_dict)
@@ -160,16 +114,16 @@ def get_pass_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
 
 
 
-def set_host_options(*, only_codegen: Optional[bool] = None) -> None:
+def set_host_options(*, compile_stage: Optional[CompStage] = None) -> None:
     """
     Set host options.
 
     Parameters
     ---------
-    only_codegen : bool
-        Shield the static on-board process.
+    compile_stage : CompStage
+        Control the compilation phase.
     """
-    options_dict = {k: v for k, v in locals().items() if v is not None}
+    options_dict = {k: v.value for k, v in locals().items() if v is not None}
     set_options(host_options=options_dict)
 
 
@@ -218,10 +172,13 @@ def set_runtime_options(*,
                         stitch_function_inner_memory: Optional[int] = None,
                         stitch_function_outcast_memory: Optional[int] = None,
                         stitch_function_num_initial: Optional[int] = None,
+                        stitch_function_max_num: Optional[int] = None,
                         stitch_function_num_step: Optional[int] = None,
                         stitch_function_size: int = None,
                         stitch_cfgcache_size: Optional[int] = None,
-                        run_mode: Optional[int] = None
+                        triple_stream_sched: Optional[bool] = None,
+                        run_mode: Optional[int] = None,
+                        valid_shape_optimize: Optional[int] = None
                         ) -> None:
     """
     Set runtime options.
@@ -245,6 +202,11 @@ def set_runtime_options(*,
         the scheduling AICPU for processing, controlled in the ctrlflow AICPU
         during machine runtime.
 
+    stitch_function_max_num : int
+        The amount of computation tasks for the stitch task submitted to
+        the scheduling AICPU for processing, controlled in the ctrlflow AICPU
+        during machine runtime.
+
     stitch_function_num_step : int
         The computation amount of the processing loop for non-initial
         stitch tasks, controlled in the ctrlflow AICPU during machine runtime.
@@ -255,6 +217,9 @@ def set_runtime_options(*,
 
     stitch_cfgcache_size: int
         The size of the control flow cache, in bytes.
+
+    valid_shape_optimize: int
+        Dynamic validShape compilation optimization option.
     """
     options_dict = {k: v for k, v in locals().items() if v is not None}
     set_options(runtime_options=options_dict)
@@ -278,6 +243,7 @@ def set_verify_options(*,
                        pass_verify_save_tensor: Optional[bool] = None,
                        pass_verify_save_tensor_dir: Optional[str] = None,
                        pass_verify_pass_filter: Optional[List[str]] = None,
+                       pass_verify_error_tol: Optional[List[float]] = None,
                        ) -> None:
     """
     Set verify options.
@@ -295,9 +261,15 @@ def set_verify_options(*,
 
     pass_verify_pass_filter : List
         Filting pass to verify.
+
+    pass_verify_error_tol : List
+        Customize atol and rtol.
     """
     if pass_verify_pass_filter == []:
         pass_verify_pass_filter = None
+    if pass_verify_error_tol is None or len(pass_verify_error_tol) != 2:
+        pass_verify_error_tol = [1e-3, 1e-3]
+    pass_verify_error_tol = [float(x) for x in pass_verify_error_tol]
     options_dict = {k: v for k, v in locals().items() if v is not None}
     set_options(verify_options=options_dict)
 
@@ -312,7 +284,7 @@ def get_verify_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]
         All verify options
     """
     scope = get_current_scope()
-    return scope.get_runtime_options()
+    return scope.get_verify_options()
 
 
 def set_debug_options(*,
@@ -362,45 +334,11 @@ def set_semantic_label(label: str) -> None:
     pypto_impl.SetSemanticLabel(label, frame.f_code.co_filename, frame.f_lineno)
 
 
-def set_option(key: str, value: Union[str, int, List[int], Dict[int, int]]) -> None:
-    """
-    Set global options.
-
-    Parameters
-    ---------
-    key: str
-        Config option key.
-
-    value : Union[str, int, List[int], Dict[int, int]]
-        Config option value.
-    """
-    _pto_options[key] = value
-
-
-def get_option(key: str) -> Union[str, int, List[int], Dict[int, int]]:
-    """
-    Get global options.
-
-    Parameters
-    ---------
-    key: str
-        Config option key.
-
-    Returns
-    -------
-    Union[str, int, List[int], Dict[int, int]]
-        Config option value.
-    """
-
-    return _pto_options[key]
-
-
 def reset_options() -> None:
     """
         Reset all configuration items to their default values.
     """
-    pypto_impl.Reset()
-    _pto_options.reset()
+    pypto_impl.ResetOptions()
 
 
 class _Options:
@@ -408,7 +346,8 @@ class _Options:
     INIT_FIELDS = [
         "name", "codegen_options", "host_options", "pass_options",
         "runtime_options", "verify_options", "debug_options",
-        "vec_tile_shapes", "cube_tile_shapes", "matrix_size"
+        "vec_tile_shapes", "cube_tile_shapes", "matrix_size",
+        "operation_options"
     ]
 
     PREFIX_MAP = {
@@ -418,6 +357,7 @@ class _Options:
         "runtime_options": "runtime.",
         "verify_options": "verify.",
         "debug_options": "debug.",
+        "operation_options": "operation."
     }
 
     def __init__(self, **kwargs):
@@ -431,7 +371,8 @@ class _Options:
         for attr, prefix in self.PREFIX_MAP.items():
             value = getattr(self, attr)
             if isinstance(value, dict):
-                opts.update({f"{prefix}{k}": v for k, v in value.items()})
+                opts.update(
+                    {f"{prefix}{k}": v.value if isinstance(v, enum.Enum) else v for k, v in value.items()})
 
         if self.vec_tile_shapes is not None:
             opts["vec_tile_shapes"] = self.vec_tile_shapes
@@ -485,6 +426,7 @@ def options(
     pass_options=None,
     runtime_options=None,
     verify_options=None,
+    operation_options=None,
     debug_options=None,
     vec_tile_shapes=None,
     cube_tile_shapes=None,
@@ -502,6 +444,7 @@ def options(
     runtime_options: Runtime options (dict)
     verify_options: Verify options (dict)
     debug_options: Debug options (dict)
+    operation_options: Operation options (dict)
     vec_tile_shapes: Vector tile shapes (list)
     cube_tile_shapes: Cube tile shapes (CubeTile instance or list)
     matrix_size: Matrix size (list)
@@ -513,7 +456,7 @@ def options(
     Examples:
     -------
     # As decorator
-    @pypto.options(pass_options={"cube_l1_reuse_mode": 4})
+    @pypto.options(pass_options={"cube_l1_reuse_setting": {-1: 4}})
     def func():
         pass
 
@@ -550,6 +493,7 @@ def set_options(
     runtime_options=None,
     verify_options=None,
     debug_options=None,
+    operation_options=None,
     vec_tile_shapes=None,
     cube_tile_shapes=None,
     matrix_size=None,
@@ -565,13 +509,14 @@ def set_options(
     runtime_options: Runtime options (dict)
     verify_options: Verify options (dict)
     debug_options: Debug options (dict)
+    operation_options: Operation options (dict)
     vec_tile_shapes: Vector tile shapes (list)
     cube_tile_shapes: Cube tile shapes (CubeTile instance or list)
     matrix_size: Matrix size (list)
 
     Examples:
     ---------
-    set_options(pass_options={"cube_l1_reuse_mode": 4})
+    set_options(pass_options={"cube_l1_reuse_setting": {-1: 4}})
     set_options(cube_tile_shapes=[[16, 16], [256, 512, 128], [128, 128], True])
     """
     temp_opts = options(**locals())
@@ -681,6 +626,9 @@ class ConfigScope:
 
     def get_verify_options(self):
         return self.get_options("verify")
+
+    def get_operation_options(self):
+        return self.get_options("operation")
 
     def get_vec_tile_shapes(self):
         return self._options.get("vec_tile_shapes")

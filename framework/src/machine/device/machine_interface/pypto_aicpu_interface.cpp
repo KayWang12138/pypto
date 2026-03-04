@@ -52,16 +52,16 @@ __attribute__((visibility("default"))) uint32_t StaticPyptoKernelServer(void *ar
 }
 
 __attribute__((visibility("default"))) uint32_t DynPyptoKernelServerNull(void *args) {
-#if DEBUG_PLOG && defined(__DEVICE__)
+#ifdef __DEVICE__
     InitLogSwitch();
 #endif
     if (args == nullptr) {
         DEV_ERROR("Server init input args is null");
         return 1;
     }
-    auto kargs = (AstKernelArgs *)args;
+    auto kargs = (DeviceKernelArgs *)args;
     if (kargs == nullptr) {
-        DEV_ERROR("Server init AstKernelArgs is null");
+        DEV_ERROR("Server init DeviceKernelArgs is null");
         return 1;
     }
     auto devArgs = reinterpret_cast<DeviceArgs*>(kargs->cfgdata);

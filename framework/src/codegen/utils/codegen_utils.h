@@ -23,6 +23,7 @@
 
 #include "codegen/codegen_common.h"
 #include "tilefwk/data_type.h"
+#include "interface/tensor/symbolic_scalar.h"
 #include "interface/utils/common.h"
 #include "interface/operation/opcode.h"
 
@@ -46,6 +47,10 @@ std::enable_if_t<std::is_arithmetic_v<T>, std::string> ToStringHelper(const T &v
 }
 inline std::string ToStringHelper(const std::string &value) {
     return value;
+}
+
+inline std::string ToStringHelper(const SymbolicScalar &value) {
+    return SymbolicExpressionTable::BuildExpression(value);
 }
 
 template <typename T = std::string>
@@ -95,7 +100,8 @@ std::string GetTypeForB16B32(const DataType &dtype);
 
 inline std::string GetPipeId(PipeType queue) {
     auto res = PIPE_ID.find(queue);
-    return res == PIPE_ID.end() ? "" : res->second;
+    ASSERT(res != PIPE_ID.end()) << "can not find pipe id: " << ToUnderlying(queue);
+    return res->second;
 }
 
 inline std::string GetTileOpName(Opcode opCode) {
@@ -113,6 +119,8 @@ void FillParamWithInput(std::vector<std::string> &paramList, const std::vector<T
         paramList.emplace_back(ToStringHelper(input[i]));
     }
 }
+
+void PrintIndent(std::ostringstream &os, int scopeLevel);
 
 } // namespace npu::tile_fwk
 #endif

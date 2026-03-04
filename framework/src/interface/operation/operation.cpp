@@ -65,8 +65,17 @@ const std::string OpAttributeKey::bindTensor = "BIND_TENSOR";
 const std::string OpAttributeKey::startOffset = "start_offset";
 const std::string OpAttributeKey::distOpAttr = "DIST_OP_ATTR";
 const std::string OpAttributeKey::subBlockIdx = "SUB_BLOCK_IDX";
+const std::string OpAttributeKey::accumulate = "accumulate";
+const std::string OpAttributeKey::indicesSize = "indicesSize";
 const std::string OpAttributeKey::brcbIdx = "brcb_idx";
 const std::string OpAttributeKey::quantFlag = "op_attr_vector_quant_flag";
+const std::string OpAttributeKey::loopGroup = "LOOP_GROUP";
+const std::string OpAttributeKey::loopAxes = "LOOP_AXES";
+const std::string OpAttributeKey::loopGroupStart = "LOOP_GROUP_START";
+const std::string OpAttributeKey::loopGroupEnd = "LOOP_GROUP_END";
+const std::string OpAttributeKey::lastUse = "last_use";
+const std::string OpAttributeKey::isUpper = "is_upper";
+const std::string OpAttributeKey::blockSize = "block_size";
 
 const std::string ConvOpAttributeKey::cin = "CIN";
 const std::string ConvOpAttributeKey::cout = "COUT";
@@ -161,11 +170,6 @@ Operation::Operation(
         if (coreType_ == CoreType::AIV && calcType != OpCalcType::DISTRIBUTED) {
             auto &vecTile = tileShape_.GetVecTile();
             ASSERT(vecTile.valid()) << "op [" << OpcodeManager::Inst().GetOpcodeStr(opcode) << "]tile shape not set";
-            if (iOperands.size()) {
-                auto dataType = iOperands[0]->Datatype();
-                auto lastAxis = vecTile.tile.back();
-                ASSERT((lastAxis * BytesOf(dataType)) % BLOCK_SIZE == 0) << "vec tile should be 32B align";
-            }
         }
         SetSemanticLabel(config::GetSemanticLabel());
         location_ = SourceLocation::GetLocation();
@@ -507,6 +511,7 @@ std::shared_ptr<Operation> Operation::LoadJson(
             case Opcode::OP_COPY_OUT: opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson); break;
             case Opcode::OP_TRANSPOSE_MOVEIN: opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson); break;
             case Opcode::OP_TRANSPOSE_MOVEOUT: opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson); break;
+            case Opcode::OP_INDEX_PUT: opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson); break;
             case Opcode::OP_INDEX_OUTCAST: opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson); break;
             default: break;
         }
@@ -1005,6 +1010,19 @@ std::vector<std::reference_wrapper<SymbolicScalar>> Operation::GetDynamicAttribu
                     for (auto &arg : callAttr->GetLinearArgList()) {
                         dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(arg));
                     }
+                }
+            } break;
+        case Opcode::OP_SHMEM_GET_GM2UB:
+            {
+                auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(GetOpAttribute());
+                if (copyAttr == nullptr) {
+                    break;
+                }
+                for (auto &shape : copyAttr->GetToDynValidShape()) {
+                    if (!shape.IsSpecified()) {
+                        continue;
+                    }
+                    dynamicAttributeList.push_back(std::reference_wrapper<SymbolicScalar>(shape.GetSpecifiedValue()));
                 }
             } break;
         default:

@@ -41,7 +41,7 @@ struct MachineManager {
         int cpuoff = 0;
         for (int i = 0; i < static_cast<int>(sizeof(uint64_t)); i++) {
             int mask = (maskval >> cpuoff) & 0xF;
-            if (__builtin_popcount(static_cast<uint32_t>(mask)) >= static_cast<int>(MAX_SCHEDULE_AICPU_NUM)) {
+            if (__builtin_popcount(static_cast<uint32_t>(mask)) >= static_cast<int>(MAX_STATIC_SCHEDULE_AICPU_NUM)) {
                 threadIdx = threadIdx_++;
                 break;
             }
@@ -58,19 +58,15 @@ struct MachineManager {
 
         int threadIdx = allocThreadIdx(args->nrAicpu);
         if (threadIdx != -1) {
-            CreateLogFile(LogType::LOG_TYPE_SCHEDULER, threadIdx);
             DEV_INFO("ThreadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum%u \n", threadIdx, args->nrAic,
                 args->nrAiv, args->nrAicpu, args->nrValidAic);
             DEV_INFO("SharedBuffer %lx coreRegAddr %lx corePmuAdr %lx\n",
                 args->sharedBuffer, args->coreRegAddr, args->corePmuAddr);
             ret = machine.Run(threadIdx, args);
             DEV_INFO("threadIdx %d finished, ret %d\n", threadIdx, ret);
-            GetLogger().Flush();
         } else {
-            CreateLogFile(LogType::LOG_TYPE_PREFETCH, 0);
             auto devTask = reinterpret_cast<DeviceTask *>(args->taskData);
             SdmaPrefetch(devTask);
-            GetLogger().Flush();
         }
         if (++finished == static_cast<std::atomic<int>>(args->nrAicpu)) {
             return DEVICE_MACHINE_FINISHED;
@@ -81,7 +77,7 @@ struct MachineManager {
     void GetTaskTotalWastTime(volatile uint64_t *totalWastTime) {
         uint64_t min_task_start_time = UINT64_MAX;
         uint64_t max_task_end_time = 0;
-        for (uint32_t i = 0; i < MAX_SCHEDULE_AICPU_NUM; i++) {
+        for (uint32_t i = 0; i < MAX_STATIC_SCHEDULE_AICPU_NUM; i++) {
             min_task_start_time = std::min(machine.GetMinTaskTime(i), min_task_start_time);
             max_task_end_time = std::max(machine.GetMaxTaskTime(i), max_task_end_time);
         }
@@ -116,9 +112,6 @@ extern "C" __attribute__((visibility("default"))) int StaticTileFwkBackendKernel
         machine->GetTaskTotalWastTime((uint64_t *)args->taskWastTime);
         wmb();
         DEV_INFO("Total wast time is %lu\n", *(uint64_t *)args->taskWastTime);
-#if !DEBUG_PLOG
-        GetLogger().Flush();
-#endif
         delete machine;
         return 0;
     }

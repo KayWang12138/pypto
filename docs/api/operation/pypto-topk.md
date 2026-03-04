@@ -43,6 +43,20 @@ topk(input: Tensor, k: int, dim: Optional[int]=None, largest: bool=True) -> Tupl
 
 ## 调用示例
 
+### TileShape设置示例
+
+说明：调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
+
+TileShape维度应和输入input一致。
+
+示例1：输入intput shape为[m, n, p]，dim为2，largest为True，输出为[m, n, k], TileShape设置为[m1, n1, p1], 则m1, n1, p1分别用于切分m, n, p轴。p1必须大于等于k，k轴不支持切分，必须保证全载。
+
+```python
+pypto.set_vec_tile_shapes(4, 16, 32)
+```
+
+### 接口调用示例
+
 ```python
 x = pypto.tensor([2, 3], pypto.DT_FP32)
 y = pypto.topk(x, 2, -1, True)

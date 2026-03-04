@@ -29,15 +29,16 @@ from numpy.testing import assert_allclose
 from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
 from utils.get_format import get_format
+from conftest import duration_estimate
 
 
 def symmetric_quantization_per_token(input_tensor):
     """
     Perform symmetric quantization per token (per row).
-    
+
     Args:
         input_tensor: Input tensor to quantize
-        
+
     Returns:
         Tuple of (quantized_int8_tensor, dequantization_scale)
     """
@@ -57,12 +58,12 @@ def symmetric_quantization_per_token(input_tensor):
 def dequant_dynamic(in_tensor, scale_1, scale_2):
     """
     Perform dynamic dequantization using two scale factors.
-    
+
     Args:
         in_tensor: Quantized input tensor
         scale_1: First scale factor
         scale_2: Second scale factor
-        
+
     Returns:
         Dequantized tensor
     """
@@ -77,10 +78,10 @@ def dequant_dynamic(in_tensor, scale_1, scale_2):
 def swiglu(up_proj):
     """
     Apply SwiGLU activation function: x * sigmoid(x) * right_half.
-    
+
     Args:
         up_proj: Input tensor with shape [batch, intermediate_size * 2]
-        
+
     Returns:
         SwiGLU activated tensor with shape [batch, intermediate_size]
     """
@@ -374,9 +375,8 @@ def expert_infer_base(
 
 
 @pypto.jit(
-    host_options={"only_codegen": True},
     runtime_options={"device_sched_mode": 1},
-    pass_options={"cube_l1_reuse_mode": 2}
+    pass_options={"cube_l1_reuse_setting": {-1: 2}}
 )
 def moe_router_expert_main(hidden_states, hidden_states_scale,
                            group_list, group_list_cumsum, w13,
@@ -403,7 +403,7 @@ def moe_router_expert_main(hidden_states, hidden_states_scale,
         This function uses cube L1 reuse mode 2 for better memory efficiency.
         Each expert processes tokens in tiles of size 8.
     """
-    pypto.experimental.set_operation_config(combine_axis=True)
+    pypto.experimental.set_operation_options(combine_axis=True)
 
     # tiling config
     mm1_cube_tile_shape = (8, 256, 256)
@@ -497,6 +497,7 @@ def ffn_router_expert_quant(hidden_states: torch.Tensor,
         pypto.runtime._device_synchronize()#内部接口，不推荐使用
 
 
+@duration_estimate(23)
 def test_ffn_router() -> None:
     dtype = torch.bfloat16
     # parameter config

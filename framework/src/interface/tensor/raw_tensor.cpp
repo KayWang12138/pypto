@@ -21,8 +21,10 @@
 #include "interface/utils/serialization.h"
 #include "raw_tensor.h"
 #include <string>
+#include <cstdint>
 
 using namespace npu::tile_fwk;
+
 RawTensor::RawTensor(DataType t, std::vector<int64_t> tshape, TileOpFormat tformat, std::string tname, int trawmagic)
     : rawmagic((trawmagic == -1) ? IdGen<IdType::RAW_TENSOR>::Inst().NewId() : trawmagic),
       rawshape(std::move(tshape)),
@@ -34,25 +36,26 @@ RawTensor::RawTensor(DataType t, std::vector<int64_t> tshape, TileOpFormat tform
 }
 
 Json RawTensor::DumpJson() const {
-    Json rawTensorDump;
-    rawTensorDump[T_FIELD_KIND] = static_cast<int>(Kind::T_KIND_RAW_TENSOR);
-    rawTensorDump["datatype"] = datatype;
-    rawTensorDump["format"] = format;
-    rawTensorDump["rawshape"] = rawshape;
-    rawTensorDump["ori_rawshape"] = oriRawshape;
-    rawTensorDump["rawmagic"] = rawmagic;
+    Json result;
+    result[T_FIELD_KIND] = static_cast<int>(Kind::T_KIND_RAW_TENSOR);
+    result["datatype"] = datatype;
+    result["format"] = format;
+    result["rawshape"] = rawshape;
+    result["ori_rawshape"] = oriRawshape;
+    result["rawmagic"] = rawmagic;
     if (actualRawmagic != -1) {
-        rawTensorDump["actual_rawmagic"] = actualRawmagic;
+        result["actual_rawmagic"] = actualRawmagic;
     }
 
     if (symbol != "") {
-        rawTensorDump["symbol"] = symbol;
+        result["symbol"] = symbol;
     }
-    return rawTensorDump;
+    return result;
 }
 
 std::shared_ptr<RawTensor> RawTensor::LoadJson(const Json &rawTensorDump) {
-    ASSERT(rawTensorDump[T_FIELD_KIND].get<int>() == static_cast<int>(Kind::T_KIND_RAW_TENSOR));
+    ASSERT(rawTensorDump[T_FIELD_KIND].get<int>() == static_cast<int>(Kind::T_KIND_RAW_TENSOR))
+        << rawTensorDump[T_FIELD_KIND].get<int>() << " != " << static_cast<int>(Kind::T_KIND_RAW_TENSOR);
     DataType dtype = static_cast<DataType>(rawTensorDump["datatype"].get<int>());
     TileOpFormat format = static_cast<TileOpFormat>(rawTensorDump["format"].get<int>());
     std::vector<int64_t> rawshapeJson = rawTensorDump["rawshape"].get<std::vector<int64_t>>();
@@ -109,17 +112,20 @@ void RawTensor::SetIsDummy(bool dummy) {
 }
 
 void RawTensor::AddRefCount(int value) {
-    ASSERT(value == 1 || value == -1);
+    ASSERT(value == 1 || value == -1) << "value: " << value;
     refCount_ += value;
     if (refCount_ < 0) {
-        ALOG_INFO("rawmagic = ", rawmagic, " refCount_ is negative: ", refCount_);
+        FUNCTION_LOGI("rawmagic = %d, refCount_ is negative: %d", rawmagic, refCount_);
     }
 }
 
 int64_t RawTensor::GetRawDataSize() const {
+    if (HasNegativeNum<int64_t>(rawshape)) {
+        FUNCTION_LOGD("Raw tensor shape has negative. It has dynamic axis.");
+        return INT64_MAX;
+    }
     return GetRawShapeSize() * BytesOf(datatype);
 }
-
 
 int64_t RawTensor::GetRawShapeSize() const {
     return std::accumulate(rawshape.begin(), rawshape.end(), INT64_C(1), std::multiplies<int64_t>());

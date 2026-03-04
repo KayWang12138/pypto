@@ -22,6 +22,7 @@
 #include "passes/tile_graph_pass/data_path/convert_op_inserter.h"
 #include "tilefwk/platform.h"
 #include "tilefwk/data_type.h"
+#include "passes/pass_check/assign_memory_type_checker.h"
 
 namespace npu::tile_fwk {
 class AssignMemoryType : public Pass {
@@ -31,7 +32,8 @@ public:
         RunOnFunction(function);
     }
 private:
-    Status PreCheck(Function &function) override;    
+    Status PreCheck(Function &function) override;  
+    Status PostCheck(Function &function) override;  
     Status RunOnFunction(Function &function) override;
     void AssignMoveOp(Operation &operation);
     void AssignMoveOpForAssemble(Operation &operation);
@@ -39,6 +41,7 @@ private:
     void RunOnOperation(Operation &operation);
     void AssignMemUnknown(Function &function);
     void ProcessAmulBInput(Operation &operation,LogicalTensorPtr &tensor);
+    void ProcessAssemblewithSpecificMem(Operation &operation);
     void ProcessViewwithSpecificMem(Operation &operation);
     void AssignSpecialOpMemtype(Operation &op, bool &infoBufferSize);
     void AssignOpReshapeMemtype(Operation &op);
@@ -48,9 +51,14 @@ private:
     void UpdateOverSizedLocalBuffer(Operation &operation);
     void ProcesSmallTileToLargeTile(Function &function);
     void ProcessLargeTileToSamllTile(Function &function);
+    bool IsDimMultiple(const Shape &shape1, const Shape &shape2);
+    int64_t CalcLineOffset(const Shape &shape, const Offset &offset);
     std::string PrintTensorMem(std::shared_ptr<LogicalTensor>& tensor) const;
     ConvertInserter inserter;
+    AssignMemoryTypeChecker checker;
 };
+static constexpr double UB_THRESHOLD = 0.35;
+static constexpr double L1_THRESHOLD = 0.5;
 } // namespace npu::tile_fwk
 
 #endif // TILE_FWK_ASSIGN_MEMORY_TYPE_H

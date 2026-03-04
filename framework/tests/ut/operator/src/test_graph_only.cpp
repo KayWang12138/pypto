@@ -37,7 +37,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetHostConfig(KEY_STRATEGY, "PVC2_OOO");
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetSimConfig(KEY_BUILD_TASK_BASED_TOPO, false);
@@ -127,7 +127,7 @@ TEST_F(GraphTest, deepseek_qkvPre) {
 }
 
 TEST_F(GraphTest, TestAttentionPost) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     int b = 1;
     int n = 2;
     int s = 128;
@@ -165,7 +165,7 @@ TEST_F(GraphTest, TestAttentionPost) {
 }
 
 TEST_F(GraphTest, Test_deepseekAttention_s_1) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     int b = 2; //  32
     int s = 1;
@@ -211,7 +211,7 @@ TEST_F(GraphTest, Test_deepseekAttention_s_1) {
 }
 
 TEST_F(GraphTest, Test_deepseekAttention_pre) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     int b = 2; //  32
     int s = 1;
@@ -526,7 +526,6 @@ void TestMlaProlog(std::vector<int> &params) {
 }
 
 TEST_F(GraphTest, test_attention_bf16_4_1024_1024_32_256) {  // b_n_s_s2_h_q_lora_rank
-    config::SetPassOption(VEC_NBUFFER_MODE, 2);
     config::SetPassOption(VEC_NBUFFER_SETTING, std::map<int64_t, int64_t>{{-1, 2}});
     int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
     int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);

@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------------------------------------
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -31,10 +31,10 @@ message(STATUS "PTO_FWK_BIN_ROOT=${PTO_FWK_BIN_ROOT}")
 # 公开编译开关(build)
 option(BUILD_OPEN_PROJECT "Build in open scenario." ON)
 option(BUILD_WITH_CANN "Build with CANN." ON)  # Need to install CANN package and set corresponding environment variables.
-option(BUILD_WITH_CANN_SUB "Build with CANN Sub package" OFF)
 option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
 option(ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
 option(ENABLE_GCOV "Enable GNU Coverage Instrumentation Tool" OFF)
+option(ENABLE_COMPILE_DEPENDENCY_CHECK "Enable compile dependency relation check" OFF)
 
 # 公开编译开关(Feature 特性级开关)
 option(ENABLE_FEATURE_PYTHON_FRONT_END "Enable Python Front-end" ON)
@@ -44,7 +44,6 @@ option(ENABLE_TORCH_VERIFIER "Flow verify with libtorch" OFF)
 # 公开编译开关(tests)
 option(ENABLE_TESTS_EXECUTE "Enable auto execute tests executable" OFF)
 option(ENABLE_TESTS_EXECUTE_PARALLEL "Auto execute tests executable parallel" OFF)
-option(ENABLE_TESTS_EXECUTE_PARALLEL_TIMEOUT "Auto execute tests executable parallel timeout" OFF)
 option(ENABLE_TESTS_EXECUTE_CHANGED_FILE "Specify tests changed file" OFF)
 option(ENABLE_UTEST "Enable UTest" OFF)
 option(ENABLE_UTEST_MODULE "Enable UTest Module compile and execute" OFF)
@@ -57,16 +56,6 @@ option(ENABLE_STEST_BINARY_CACHE "Enable STest Binary Cache" OFF)
 option(ENABLE_STEST "Enable STest" OFF)
 option(ENABLE_STEST_GROUP "Enable STest Group" OFF)
 option(ENABLE_STEST_DISTRIBUTED "Enable STest(Distributed)" OFF)
-
-# 公开编译开关(stest.tools)
-option(ENABLE_STEST_TOOLS_CASE_FILE "Specify STest Tools Case file path" OFF)
-option(ENABLE_STEST_TOOLS_INTERCEPT "Enable STest Tools Intercept if has any failed case" OFF)
-option(ENABLE_STEST_TOOLS_OUTPUT_CLEAN "Clean STest Tools Output Directory" OFF)
-option(ENABLE_STEST_TOOLS_PROF "Enable STest Tools(Profiling)" OFF)
-option(ENABLE_STEST_TOOLS_PROF_LEVEL "Specify STest Tools Profiling Level" OFF)
-option(ENABLE_STEST_TOOLS_PROF_WARN_UP_CNT "Specify STest Tools Profiling Warn-up cnt" OFF)
-option(ENABLE_STEST_TOOLS_PROF_TRY_CNT "Specify STest Tools Profiling Try cnt" OFF)
-option(ENABLE_STEST_TOOLS_PROF_MAX_CNT "Specify STest Tools Profiling Max cnt" OFF)
 
 # 缺省编译配置, 编译函数
 find_package(Threads REQUIRED)
@@ -100,7 +89,9 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
     # 安装 二进制文件
     set(InstallExport ${PROJECT_NAME}Targets)
     set(InstallTargets
+            tile_fwk_cann_host_runtime
             tile_fwk_simulation_platform
+            tile_fwk_utils
             tile_fwk_interface
             tile_fwk_codegen
             tile_fwk_compiler
@@ -108,6 +99,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
             tile_fwk_runtime_stub
             tile_fwk_simulation
             tile_fwk_simulation_ca
+            tile_fwk_simulation_pv
     )
     if (BUILD_WITH_CANN)
         install(TARGETS tile_fwk_server LIBRARY DESTINATION "${PyPTO_WhlName}/lib")
@@ -146,6 +138,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
                 framework/src/cost_model/simulation/scripts/draw_pipe_swim_lane.py
                 tools/profiling/function_json_convert.py
                 tools/profiling/parse_pipe_time_trace.py
+                tools/scripts/machine_perf_trace.py
             DESTINATION ${PyPTO_WhlName}/lib/scripts
     )
 

@@ -22,6 +22,7 @@
 #include "interface/function/function.h"
 #include "interface/program/program.h"
 #include "machine/utils/dynamic/dev_encode_program.h"
+#include "machine/utils/dynamic/dev_tensor_creator.h"
 
 namespace npu::tile_fwk::dynamic {
 using DeviceStream = unsigned long long;
@@ -31,16 +32,20 @@ DeviceStream DeviceGetAicoreStream();
 class DeviceTensorData {
 public:
     DeviceTensorData() = default;
-    DeviceTensorData(DataType dtype, void *addr, const std::vector<int64_t> &shape)
-        : dtype_(dtype), addr_(addr), shape_(shape) {}
-    DeviceTensorData(DataType dtype, uintptr_t addr, const std::vector<int64_t> &shape)
-        : dtype_(dtype), addr_((void *)addr), shape_(shape) {}
+    DeviceTensorData(DataType dtype, void *addr, const std::vector<int64_t> &shape,
+        TileOpFormat format = TileOpFormat::TILEOP_ND)
+        : dtype_(dtype), addr_(addr), shape_(shape), format_(format) {}
+    DeviceTensorData(DataType dtype, uintptr_t addr, const std::vector<int64_t> &shape,
+        TileOpFormat format = TileOpFormat::TILEOP_ND)
+        : dtype_(dtype), addr_((void *)addr), shape_(shape), format_(format) {}
 
     void *GetAddr() const { return addr_; }
 
     const std::vector<int64_t> &GetShape() const { return shape_; }
 
     DataType GetDataType() const { return dtype_; }
+
+    TileOpFormat Format() const { return format_; }
 
     int64_t GetDataSize() const {
         return std::accumulate(shape_.begin(), shape_.end(), BytesOf(dtype_), std::multiplies<>());
@@ -50,6 +55,7 @@ private:
     DataType dtype_;
     void *addr_;
     std::vector<int64_t> shape_;
+    TileOpFormat format_;
 };
 
 struct DeviceLauncherConfig {
@@ -62,8 +68,8 @@ struct DeviceLauncherConfig {
     std::vector<uint64_t> hcclContext;
     bool controlFlowCache{false};
     bool cpuSeparate{false};
-    bool isGETensorList{false};
     uint64_t workspaceAddr{0};
+    bool isCacheOriginShape{true}; // infer cache shape or origin shape
 
     DeviceLauncherConfig() = default;
     DeviceLauncherConfig(bool onboard, int tblockdim, int taicpunum)
@@ -80,6 +86,59 @@ struct DeviceLauncherConfig {
     }
 };
 
+struct OperatorTensorPara {
+    std::vector<DevTensorData> inputTensorParaList;
+    std::vector<DevTensorData> outputTensorParaList;
+    bool operator==(const OperatorTensorPara &other) const {
+        if (inputTensorParaList.size() != other.inputTensorParaList.size()) {
+            return false;
+        }
+        for (size_t i = 0; i < inputTensorParaList.size(); i++) {
+            if (!inputTensorParaList[i].shape.Equal(other.inputTensorParaList[i].shape)) {
+                return false;
+            }
+        }
+
+        if (outputTensorParaList.size() != other.outputTensorParaList.size()) {
+            return false;
+        }
+        for (size_t i = 0; i < outputTensorParaList.size(); i++) {
+            if (!outputTensorParaList[i].shape.Equal(other.outputTensorParaList[i].shape)) {
+                return false;
+            }
+        }
+        return true;
+    }
+};
+
+struct OperatorTensorParaHash {
+    std::size_t operator()(const OperatorTensorPara& para) const {
+        std::size_t hash = 0;
+        hash_combine(hash, para.inputTensorParaList.size());
+        for (const auto& tensor : para.inputTensorParaList) {
+            hash_combine(hash, tensor.shape.dimSize);
+            for (int i = 0; i < tensor.shape.dimSize; i++) {
+                hash_combine(hash, tensor.shape.dim[i]);
+            }
+        }
+        hash_combine(hash, para.outputTensorParaList.size());
+        for (const auto& tensor : para.outputTensorParaList) {
+            hash_combine(hash, tensor.shape.dimSize);
+            for (int i = 0; i < tensor.shape.dimSize; i++) {
+                hash_combine(hash, tensor.shape.dim[i]);
+            }
+        }
+        return hash;
+    }
+
+private:
+    template <class T>
+    static void hash_combine(std::size_t& seed, const T& v) {
+        std::hash<T> hasher;
+        seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    }
+};
+
 class CachedOperator {
 public:
     static uint8_t **GetWorkspaceDevAddrHolder(CachedOperator *cachedOperator) {
@@ -91,9 +150,38 @@ public:
     static uint8_t **GetMetaDataDevAddrHolder(CachedOperator *cachedOperator) {
         return cachedOperator == nullptr ? nullptr : &cachedOperator->metaDataDevAddr_;
     }
-
     static void *GetBinHandleHolder(CachedOperator *cachedOperator) {
         return cachedOperator == nullptr ? nullptr : &cachedOperator->binHandle_;
+    }
+
+    uint8_t* FindCtrlFlowCache(
+            const std::vector<DeviceTensorData> &inputList,
+            const std::vector<DeviceTensorData> &outputList) {
+        auto it = devCtrlFlowCacheMap_.find(BuildOperatorTensorPara(inputList, outputList));
+        if (it != devCtrlFlowCacheMap_.end()) {
+            return it->second;
+        }
+        return nullptr;
+    }
+
+    void InsertCtrlFlowCache(const std::vector<DeviceTensorData> &inputList,
+            const std::vector<DeviceTensorData> &outputList, uint8_t* cache) {
+        devCtrlFlowCacheMap_[BuildOperatorTensorPara(inputList, outputList)] = cache;
+    }
+
+private:
+    OperatorTensorPara BuildOperatorTensorPara(
+            const std::vector<DeviceTensorData> &inputList,
+            const std::vector<DeviceTensorData> &outputList) {
+        OperatorTensorPara para; 
+        for (const auto& input : inputList) {
+            para.inputTensorParaList.emplace_back(DevAscendTensorDataCreator::Create(0, input.GetShape()));
+        }
+
+        for (const auto& output : outputList) {
+            para.outputTensorParaList.emplace_back(DevAscendTensorDataCreator::Create(0, output.GetShape()));
+        }
+        return para;
     }
 
 private:
@@ -101,6 +189,7 @@ private:
     uint8_t *cfgDataDevAddr_{nullptr};
     uint8_t *metaDataDevAddr_{nullptr};
     void *binHandle_{nullptr};
+    std::unordered_map<OperatorTensorPara, uint8_t*, OperatorTensorParaHash> devCtrlFlowCacheMap_;
 };
 
 struct Evaluator {
@@ -166,6 +255,12 @@ private:
                 } else if (SymbolicOpcode::T_BOP_BEGIN <= opcode && opcode< SymbolicOpcode::T_BOP_END) {
                     return RawSymbolicExpression::GetSymbolicCalcBinary(opcode)(
                         Evaluate(iops[0]), Evaluate(iops[1]));
+                } else if (opcode == SymbolicOpcode::T_MOP_MAX || opcode == SymbolicOpcode::T_MOP_MIN) {
+                    std::vector<ScalarImmediateType> immediateList;
+                    for (size_t i = 0; i < iops.size(); i++) {
+                        immediateList.emplace_back(Evaluate(iops[i]));
+                    }
+                    return RawSymbolicExpression::GetSymbolicCalcMultiple(opcode)(immediateList);
                 } else {
                     ASSERT(false);
                     return 0;
@@ -193,6 +288,9 @@ public:
         std::vector<uint8_t> &devProgData = dynAttr->devProgBinary;
         auto *devProg = reinterpret_cast<DevAscendProgram *>(devProgData.data());
         Evaluator eval{dynAttr->inputSymbolDict, inputs, outputs};
+        if (devProg == nullptr) {
+            return 0;
+        }
         devProg->memBudget.tensor.maxDynamicAssembleOutcastMem = eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem);
         return devProg->memBudget.Total();
     }
@@ -203,12 +301,12 @@ private:
 
 int ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(ExportedOperator *op,
     const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
-    DeviceStream aicpuStream, DeviceStream aicoreStream, bool streamSynchronize,
+    DeviceStream aicpuStream, DeviceStream aicoreStream, bool streamSynchronize, uint8_t* devCtrlCache = nullptr,
     const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
 int DeviceSynchronize(DeviceStream aicpuStream, DeviceStream aicoreStream);
 
-int DeviceRunOnce(Function *function, const DeviceLauncherConfig &config = DeviceLauncherConfig());
+int DeviceRunOnce(Function *function, uint8_t* hostCtrlCache = nullptr, const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
 int HasInplaceArgs(Function *function);
 
@@ -221,6 +319,12 @@ ExportedOperator *ExportedOperatorBegin();
 void ExportedOperatorEnd(ExportedOperator *op);
 
 void CopyDevToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTensor);
+
+void CopyHostToDev(const DeviceTensorData &devTensor, DeviceTensorData &hostTensor);
+
+uint8_t* CopyHostToDev(uint8_t* data, uint64_t size);
+void ChangeCaptureModeRelax();
+void ChangeCaptureModeGlobal();
 
 } // namespace npu::tile_fwk::dynamic
 

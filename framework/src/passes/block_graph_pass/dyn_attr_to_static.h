@@ -65,11 +65,6 @@ constexpr int INPUT_PARAM_POS_ONE = 1;
 constexpr int INPUT_PARAM_POS_TWO = 2;
 constexpr int INPUT_PARAM_POS_THREE = 3;
 
-struct ValWithIdxs {
-    SymbolicScalar val;                    // 存储的值
-    std::vector<size_t> idxs; // 该值对应的索引列表
-};
-
 /**
  * @brief 校验vector形参调用时，是否存在索引组满足「每次调用内组内索引值相同」
  */
@@ -84,41 +79,36 @@ public:
         if (args.empty()) return false; // 空vector无意义
         
         // 首次调用：记录vector长度，后续调用需保持长度一致
-        if (m_callCount == 0) {
-            m_vecLen = args.size();
-        } else if (args.size() != m_vecLen) {
-            m_isValid = false; // 长度不一致，直接标记无效
+        if (callCount_ == 0) {
+            vecLen_ = args.size();
+        } else if (args.size() != vecLen_) {
+            isValid_ = false; // 长度不一致，直接标记无效
             return false;
         }
 
         // 步骤1：生成本次调用的「值-索引列表」（仅用operator==，线性遍历）
-        std::vector<ValWithIdxs> currValIdxs;
+        std::unordered_map<std::string, std::set<size_t>> currValIdxs;
         for (size_t idx = 0; idx < args.size(); ++idx) {
-            // 查找当前值是否已存在于currValIdxs中（仅用==匹配）
-            auto it = FindValInList(currValIdxs, args[idx]);
-            if (it != currValIdxs.end()) {
-                it->idxs.push_back(idx); // 已存在，追加索引
-            } else {
-                currValIdxs.push_back({args[idx], {idx}});
-            }
+            currValIdxs[args[idx].Dump()].insert(idx);
         }
 
         // 步骤2：更新候选索引组（首次调用初始化，后续调用筛选）
-        if (m_callCount == 0) {
+        if (callCount_ == 0) {
             // 首次调用：所有非空索引列表都作为候选组（去重+排序）
-            for (auto& entry : currValIdxs) {
-                if (!entry.idxs.empty()) {
+            for (auto& pair : currValIdxs) {
+                const auto& values = pair.second;
+                if (!values.empty()) {
                     // 索引组排序（保证相同索引组合的一致性，避免重复）
-                    std::sort(entry.idxs.begin(), entry.idxs.end());
-                    m_candidateGroups.push_back(entry.idxs);
+                    std::vector<size_t> vec{values.begin(), values.end()};
+                    candidateGroups_.push_back(std::move(vec));
                 }
             }
             // 对候选组去重（避免首次调用就有重复的索引组）
-            DeduplicateGroups(m_candidateGroups);
+            DeduplicateGroups(candidateGroups_);
         } else {
             // 非首次调用：筛选候选组（仅保留在本次调用中值相同的索引组）
             std::vector<std::vector<size_t>> newCandidates;
-            for (const auto& candidate : m_candidateGroups) {
+            for (const auto& candidate : candidateGroups_) {
                 // 检查候选组是否在本次调用的某值索引列表中（子集判断）
                 if (IsCandidateValidInCurrCall(candidate, currValIdxs)) {
                     newCandidates.push_back(candidate);
@@ -126,10 +116,10 @@ public:
             }
             // 去重后替换候选组
             DeduplicateGroups(newCandidates);
-            m_candidateGroups.swap(newCandidates);
+            candidateGroups_.swap(newCandidates);
         }
 
-        m_callCount++;
+        callCount_++;
         return true;
     }
 
@@ -138,10 +128,10 @@ public:
      * @return 第一个满足条件的索引组（空则无）
      */
     std::vector<size_t> GetConsistentIndexGroup() const {
-        if (!m_isValid || m_candidateGroups.empty()) {
+        if (!isValid_ || candidateGroups_.empty()) {
             return {};
         }
-        return m_candidateGroups.front();
+        return candidateGroups_.front();
     }
 
     /**
@@ -149,16 +139,16 @@ public:
      * @return 所有符合条件的索引组（空则无）
      */
     std::vector<std::vector<size_t>> GetAllConsistentIndexGroups() const {
-        if (!m_isValid || m_candidateGroups.empty()) {
+        if (!isValid_ || candidateGroups_.empty()) {
             return {};
         }
         // 返回完整的候选组列表（已去重、有序）
-        return m_candidateGroups;
+        return candidateGroups_;
     }
 
     std::string PrintIndexGroups(const std::vector<std::vector<size_t>>& groups) const {
         std::stringstream ss;
-        ss << "ALL Consistent Index Group:  {";
+        ss << std::endl << "ALL Consistent Index Group:  {" << std::endl;
         if (groups.empty()) {
             ss << "}";
         }
@@ -177,27 +167,13 @@ public:
      * @brief 重置校验器（清空所有调用记录）
      */
     void Reset()  {
-        m_callCount = 0;
-        m_vecLen = 0;
-        m_isValid = true;
-        m_candidateGroups.clear();
+        callCount_ = 0;
+        vecLen_ = 0;
+        isValid_ = true;
+        candidateGroups_.clear();
     }
 
 private:
-    /**
-     * @brief 查找值是否在ValWithIdxs列表中
-     * @param list 「值-索引列表」
-     * @param val 要查找的值
-     * @return 找到则返回迭代器，否则返回end()
-     */
-    typename std::vector<ValWithIdxs>::iterator FindValInList(std::vector<ValWithIdxs>& list, const SymbolicScalar& val) {
-        for (auto it = list.begin(); it != list.end(); ++it) {
-            if (it->val.Dump() == val.Dump()) { // 仅依赖operator==
-                return it;
-            }
-        }
-        return list.end();
-    }
     /**
      * @brief 检查候选索引组是否在本次调用中有效（组内索引值相同）
      * @param candidate 候选索引组
@@ -205,37 +181,23 @@ private:
      * @return 是否有效
      */
     bool IsCandidateValidInCurrCall(
-        const std::vector<size_t>& candidate, const std::vector<ValWithIdxs>& currValIdxs) const {
-        // 步骤1：获取候选组第一个索引在本次调用中对应的值
+        const std::vector<size_t>& candidate, const std::unordered_map<std::string, std::set<size_t>>& currValIdxs) const {
+        // 步骤1：查找第一个索引在当前args所在的索引组
         if (candidate.empty()) return false;
         size_t firstIdx = candidate[0];
-        const SymbolicScalar* targetVal = nullptr;
-        // 查找第一个索引对应的value（线性遍历）
-        for (const auto& entry : currValIdxs) {
-            if (std::find(entry.idxs.begin(), entry.idxs.end(), firstIdx) != entry.idxs.end()) {
-                targetVal = &entry.val;
-                break;
-            }
-        }
-        if (!targetVal) return false; // 索引不存在（理论上不会发生）
-
-        // 步骤2：检查候选组所有索引是否都对应该值（仅用==）
-        for (size_t idx : candidate) {
-            bool isIdxMatch = false;
-            for (const auto& entry : currValIdxs) {
-                if (entry.val.Dump() == targetVal->Dump()) { // 仅依赖operator==
-                    // 检查当前索引是否在该值的索引列表中
-                    if (std::find(entry.idxs.begin(), entry.idxs.end(), idx) != entry.idxs.end()) {
-                        isIdxMatch = true;
-                        break;
+        for (const auto& pair : currValIdxs) {
+            const auto& values = pair.second;
+            if (values.count(firstIdx)) {
+                // 步骤2：校验候选组中的索引在新的索引组中是否全部存在
+                for (size_t idx : candidate) {
+                    if (!values.count(idx)) {
+                        return false;
                     }
                 }
-            }
-            if (!isIdxMatch) {
-                return false; // 有索引不匹配，候选组无效
+                return true;
             }
         }
-        return true;
+        return false;
     }
 
     /**
@@ -249,7 +211,7 @@ private:
             std::sort(group.begin(), group.end());
         }
         // 步骤2：对索引组列表排序，便于去重
-        std::sort(groups.begin(), groups.end(), 
+        std::sort(groups.begin(), groups.end(),
             [](const std::vector<size_t>& a, const std::vector<size_t>& b) {
                 if (a.size() != b.size()) return a.size() < b.size();
                 for (size_t i = 0; i < a.size(); ++i) {
@@ -263,11 +225,11 @@ private:
         groups.erase(last, groups.end());
     }
 
-    size_t m_callCount = 0; // 调用次数
-    size_t m_vecLen = 0;    // vector固定长度
-    bool m_isValid = true;  // 是否有效（长度一致）
+    size_t callCount_ = 0; // 调用次数
+    size_t vecLen_ = 0;    // vector固定长度
+    bool isValid_ = true;  // 是否有效（长度一致）
     // 候选索引组：用普通vector存储，无需排序/哈希（已去重）
-    std::vector<std::vector<size_t>> m_candidateGroups;
+    std::vector<std::vector<size_t>> candidateGroups_;
 };
 
 class DynAttrToStatic : public Pass {

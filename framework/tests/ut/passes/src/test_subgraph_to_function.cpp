@@ -44,7 +44,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     }
 
     void TearDown() override {}
@@ -391,7 +391,7 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load)
     FUNCTION("BATCHMATMUL", {matA, matB, matC})
     {
         config::SetPassConfig("PVC2_OOO", "OoOSchedule", KEY_DISABLE_PASS, true);
-        matC = npu::tile_fwk::Matrix::BatchMatmul<false, false>(DT_FP32, matA, matB);
+        matC = npu::tile_fwk::Matrix::BatchMatmul(DT_FP32, matA, matB, false, false);
     }
     config::SetPassConfig("PVC2_OOO", "OoOSchedule", KEY_DISABLE_PASS, false);
     auto programJson = Program::GetInstance().DumpJson();
@@ -550,7 +550,7 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1) {
     #ifndef PRIOR_SCHEDULING
     EXPECT_EQ(programJsonNew.dump(), programJsonNewNew.dump());
     #endif
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, false);
+    config::SetHostOption(COMPILE_STAGE, CS_ALL_COMPLETE);
 }
 
 TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1_cov) {
@@ -580,7 +580,7 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1_cov) {
     Program::GetInstance().LoadJson(programJsonNew);
     Json programJsonNewNew = Program::GetInstance().DumpJson();
 
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, false);
+    config::SetHostOption(COMPILE_STAGE, CS_ALL_COMPLETE);
 }
 
 TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_2) {
@@ -613,7 +613,7 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_2) {
     for (auto s : actSeqs) {
         blockNum += CeilDiv(s, blockSize);
     }
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     PROGRAM("PageAttentionStatic") {
         Tensor qNope(DT_BF16, {b * sq * nq, dn}, (uint8_t *)nullptr, "qNope");
@@ -648,7 +648,7 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_2) {
     #ifndef PRIOR_SCHEDULING
     EXPECT_EQ(programJsonNew.dump(), programJsonNewNew.dump());
     #endif
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, false);
+    config::SetHostOption(COMPILE_STAGE, CS_ALL_COMPLETE);
 }
 
 /*

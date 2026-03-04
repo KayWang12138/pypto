@@ -22,6 +22,8 @@ inline const std::vector<size_t> &GetShapeLenLimit(const std::string &op) {
     static std::unordered_map<std::string, const std::vector<size_t>> op_shape_len_limit = {
         {    "ADD", {1, 4}},
         {   "CAST", {1, 4}},
+        {"ISFINITE", {1, 5}},
+        {    "REMR", {1, 5}},
         {"DEFAULT", {1, 4}}
     };
     if (op_shape_len_limit.find(op) == op_shape_len_limit.end()) {
@@ -82,5 +84,13 @@ std::vector<int> GetBroadcastAxes(const Shape &shape1, const Shape &shape2) {
         }
     }
     return result;
+}
+
+void CheckAxisRange(const Tensor &tensor, int &axis) {
+    int shapeSize = tensor.GetShape().size();
+    if (axis < 0) {
+        axis += shapeSize;
+    }
+    ASSERT(axis >= 0 && axis < shapeSize) << "Axis is not in the reasonable range!";
 }
 }

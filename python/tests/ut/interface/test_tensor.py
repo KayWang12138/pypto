@@ -98,7 +98,6 @@ def test_tensor_sub_op():
     assert c.dtype == dtype
 
 
-@pytest.mark.skip(reason="Static not supported")
 def test_tensor_subs_tensor_element():
     dtype = pypto.DT_FP16
     shape = [8, 8]
@@ -107,6 +106,7 @@ def test_tensor_subs_tensor_element():
     with pypto.function("SUBS", a):
         pypto.set_vec_tile_shapes(8, 8)
         c = a - 3.14
+        assert [x.concrete() for x in c.valid_shape] == shape
 
     assert c.shape == shape
     assert c.dtype == dtype

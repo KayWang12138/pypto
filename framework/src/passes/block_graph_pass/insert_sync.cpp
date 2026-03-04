@@ -513,7 +513,8 @@ void PipeSync::InitIssueQueue() {
 
 void PipeSync::EnqueueOp(DepOp &op, const std::vector<Operation *> opLogPtr, std::vector<IndexOp> &syncedOpLog) {
    if (opLogPtr[op.idx]->GetOpcode() == Opcode::OP_ASSEMBLE || opLogPtr[op.idx]->GetOpcode() == Opcode::OP_VIEW ||
-        opLogPtr[op.idx]->GetOpcode() == Opcode::OP_NOP || opLogPtr[op.idx]->GetOpcode() == Opcode::OP_HUB) {
+        opLogPtr[op.idx]->GetOpcode() == Opcode::OP_NOP || opLogPtr[op.idx]->GetOpcode() == Opcode::OP_HUB ||
+        opLogPtr[op.idx]->GetOpcode() == Opcode::OP_VIEW_TYPE) {
         syncedOpLog.emplace_back(std::make_pair(op.idx * SEQUENCE_IDX, std::ref(*opLogPtr[op.idx])));
         return;
     }
@@ -698,7 +699,7 @@ Status PipeSync::PopFromQueue(IssueQueue &issueQ, std::vector<size_t> &poped, bo
 Status PipeSync::InjectWaitFlag(Function &function, size_t idx, std::vector<IndexOp> &syncedOpLog) {
     PipeCore currPipe = depOps_[idx].selfPipeCore;
     // serch the waitpipe of current op
-    uint64_t waitIdx = idx * SEQUENCE_IDX - HALF_SEQUENCE_IDX;
+    uint64_t waitIdx = idx == 0 ? 0 : idx * SEQUENCE_IDX - HALF_SEQUENCE_IDX;
     for (const auto &ele : depOps_[idx].waitPipe) {
         PipeCore setPipe = depOps_[ele].selfPipeCore;
         PipeCoreReal setPipeReal(setPipe.pipeEnd, setPipe.core);
@@ -722,6 +723,8 @@ Status PipeSync::InjectWaitFlag(Function &function, size_t idx, std::vector<Inde
         if (setPipeReal.core != currPipeReal.core) {
             crossCoreFreeEventId_[{setWaitCoreType.second, setWaitCoreType.first}].push_back(eventId);
         }
+        // 记录 set op 和 waitflag的对应关系
+        waitOpMap.emplace(&syncOp, oriOpList_[ele]);
     }
     return SUCCESS;
 }
@@ -749,6 +752,8 @@ Status PipeSync::InjectSetFlag(Function &function, size_t idx, std::vector<Index
                 syncOp.GetOpMagic(), syncOp.GetOpcodeStr().c_str(), GetPipeTypeDict().Find(syncOp.syncQueue_.pipeId_).c_str(),
                 GetPipeTypeDict().Find(syncOp.syncQueue_.trigPipeId_).c_str(), syncOp.syncQueue_.eventId_);
             setWaitPairMap_[{idx, ele}] = eventId;
+            // 记录wait op 和 setflag的对应关系
+            setOpMap.emplace(&syncOp, oriOpList_[ele]);
             continue;
         }
         syncOp.SetAsDeleted();
@@ -1312,6 +1317,7 @@ bool PipeSync::IgnorableIntraPipeDep(size_t prev, size_t curr, const std::vector
     // true表示依赖关系可忽略，false表示依赖关系不可忽略
     // VIEW or ASSEMBLE data dependency can be ignored
     if (opLogPtr[prev]->GetOpcode() == Opcode::OP_VIEW || opLogPtr[curr]->GetOpcode() == Opcode::OP_VIEW ||
+        opLogPtr[prev]->GetOpcode() == Opcode::OP_VIEW_TYPE || opLogPtr[curr]->GetOpcode() == Opcode::OP_VIEW_TYPE ||
         opLogPtr[prev]->GetOpcode() == Opcode::OP_ASSEMBLE || opLogPtr[curr]->GetOpcode() == Opcode::OP_ASSEMBLE ||
         opLogPtr[prev]->GetOpcode() == Opcode::OP_NOP || opLogPtr[curr]->GetOpcode() == Opcode::OP_NOP ||
         opLogPtr[prev]->GetOpcode() == Opcode::OP_HUB || opLogPtr[curr]->GetOpcode() == Opcode::OP_HUB) {
@@ -1605,7 +1611,8 @@ void InsertSync::InsertPipeAll(Function *subGraphFunc) {
     std::vector<Operation*> newOpList;
     for (auto op : oriOpList) {
         newOpList.push_back(op);
-        if (op->GetOpcode() == Opcode::OP_RESHAPE || op->GetOpcode() == Opcode::OP_VIEW || op->GetOpcode() == Opcode::OP_ASSEMBLE) {
+        if (op->GetOpcode() == Opcode::OP_RESHAPE || op->GetOpcode() == Opcode::OP_VIEW ||
+            op->GetOpcode() == Opcode::OP_VIEW_TYPE || op->GetOpcode() == Opcode::OP_ASSEMBLE) {
             continue;
         }
         std::vector<std::shared_ptr<LogicalTensor>> input;
@@ -1615,6 +1622,7 @@ void InsertSync::InsertPipeAll(Function *subGraphFunc) {
         newOpList.push_back(&syncOp);
     }
     subGraphFunc->ScheduleBy(newOpList, true);
+    subGraphFunc->oriOpList = oriOpList;
 }
 
 Status InsertSync::CheckNewOpListSeq(const std::vector<Operation *> &oriOpList, const std::vector<Operation *> &opListNew) {
@@ -1652,6 +1660,9 @@ Status InsertSync::GenNewOpList(Function *subGraphFunc, std::vector<Operation *>
         APASS_LOG_ERROR_F(Elements::Operation, "GenNewOpList failed at function CheckNewOpListSeq.");
         return FAILED;
     }
+    subGraphFunc->setOpMap = ps.setOpMap;
+    subGraphFunc->waitOpMap = ps.waitOpMap;
+    subGraphFunc->oriOpList = ps.GetOriOpList();
     return SUCCESS;
 }
 

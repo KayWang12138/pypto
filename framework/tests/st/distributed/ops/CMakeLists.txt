@@ -35,14 +35,11 @@ target_include_directories(${_Target}
         PUBLIC
             include
 )
-target_compile_definitions(${_Target}
-        PRIVATE
-            $<$<BOOL:${BUILD_WITH_CANN_SUB}>:BUILD_WITH_CANN_SUB>
-)
 target_link_libraries(${_Target}
         PRIVATE
             ${PTO_Fwk_STestNamePrefix}_utils
             Dist_GTest_Inc
+            tile_fwk_utils
             tile_fwk_interface
             tile_fwk_compiler
             tile_fwk_runtime

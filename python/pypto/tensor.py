@@ -11,10 +11,11 @@
 import typing
 from typing import Union, List, Optional, Tuple
 
+import sympy
 import pypto
 
 from .enum import *  # noqa
-from ._utils import to_syms, to_sym
+from ._utils import to_syms, to_sym, source_location
 from .symbolic_scalar import SymbolicScalar, SymInt
 from ._element import Element
 
@@ -39,6 +40,7 @@ class Tensor:
         self.data_ptr = data_ptr
         self.device = device
 
+    @source_location
     def __setitem__(self, key, value):
         """
         Set tensor data by index or slice.
@@ -79,7 +81,7 @@ class Tensor:
 
         # Negative index
         a = pypto.tensor((4, 4), pypto.DT_FP32)
-        b = pypto.tensor(2), pypto.DT_FP32)
+        b = pypto.tensor((2), pypto.DT_FP32)
         a[-1, -3:-1] = b # equivalent to a[3, 1:3]
 
         # Ellipsis index
@@ -120,6 +122,7 @@ class Tensor:
 
         raise ValueError("tuple key must be int, SymbolicScalar or slice")
 
+    @source_location
     def __getitem__(self, key, *, valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None):
         """
         Get tensor data by index, supporting integer indices, slices, ellipsis,
@@ -216,36 +219,47 @@ class Tensor:
 
         raise ValueError("tuple key must be int, SymbolicScalar or slice")
 
+    @source_location
     def __add__(self, other: 'Tensor | int | float') -> 'Tensor':
         return self.add(other)
 
+    @source_location
     def __radd__(self, other: 'Tensor | int | float') -> 'Tensor':
         return self.add(other)
 
+    @source_location
     def __iadd__(self, other: 'Tensor | int | float') -> 'Tensor':
         return self.add(other)
 
+    @source_location
     def __sub__(self, other: 'Tensor | int | float') -> 'Tensor':
         return self.sub(other)
 
+    @source_location
     def __isub__(self, other: 'Tensor | int | float') -> 'Tensor':
         return self.sub(other)
 
+    @source_location
     def __mul__(self, other: 'Tensor | int | float') -> 'Tensor':
         return self.mul(other)
 
+    @source_location
     def __imul__(self, other: 'Tensor | int | float') -> 'Tensor':
         return self.mul(other)
 
+    @source_location
     def __truediv__(self, other: 'Tensor | int | float') -> 'Tensor':
         return self.div(other)
 
+    @source_location
     def __itruediv__(self, other: 'Tensor | int | float') -> 'Tensor':
         return self.div(other)
 
+    @source_location
     def __gt__(self, other: 'Tensor') -> 'Tensor':
         return self.greater(other)
 
+    @source_location
     def __matmul__(self, other: 'Tensor') -> 'Tensor':
         if other.dtype in {pypto.DT_FP16, pypto.DT_BF16, pypto.DT_FP32}:
             out_dtype = other.dtype
@@ -269,6 +283,13 @@ class Tensor:
             else:
                 out.append(n)
         return out
+
+    @property
+    def valid_shape(self) -> List[SymInt]:
+        """
+        Return the valid shape of the tensor, debug purpose only.
+        """
+        return [SymbolicScalar.from_base(n) for n in self._base.GetValidShape()]
 
     @property
     def dim(self) -> int:
@@ -366,7 +387,10 @@ class Tensor:
             if stop is None:
                 stop = shape[axis]
             offsets.append(start)
-            shapes.append(int(stop - start))  # shape should be concrete
+            tshape = stop - start
+            if isinstance(tshape, SymbolicScalar):
+                tshape = int(sympy.sympify(str(tshape)))
+            shapes.append(tshape)  # shape should be concrete
         return offsets, shapes
 
     @classmethod
@@ -390,22 +414,44 @@ class Tensor:
     def base(self) -> pypto_impl.Tensor:
         return self._base
 
+    @source_location
     def add(self, other: 'Tensor | int | float') -> 'Tensor':
         return pypto.add(self, other)
 
+    @source_location
     def sub(self, other: 'Tensor | int | float') -> 'Tensor':
         return pypto.sub(self, other)
 
+    @source_location
     def mul(self, other: 'Tensor | int | float') -> 'Tensor':
         return pypto.mul(self, other)
+    
+    @source_location
+    def hypot(self, other: 'Tensor') -> 'Tensor':
+        return pypto.hypot(self, other)
 
+    @source_location
+    def prelu(self, weight: 'Tensor') -> 'Tensor':
+        return pypto.prelu(self, weight)
+
+    @source_location
     def div(self, other: 'Tensor | int | float') -> 'Tensor':
-
         return pypto.div(self, other)
 
+    @source_location
+    def fmod(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.fmod(self, other)
+
+    @source_location
     def greater(self, other: 'Tensor'):
         return pypto.greater(self, other)
 
+    @source_location
+    def fill_(self, other: 'int | float') -> 'Tensor':
+        self.move(pypto.full(self.shape, other, self.dtype))
+        return self
+
+    @source_location
     def matmul(
             self,
             mat2,
@@ -426,6 +472,7 @@ class Tensor:
             extend_params=extend_params
         )
 
+    @source_location
     def assemble(self, input: 'Tensor', offsets: List[Union[int, SymbolicScalar]]) -> None:
         """
         Assemble a small Tensor into a larger Tensor based on specified offsets.
@@ -441,6 +488,7 @@ class Tensor:
         """
         pypto.assemble(input, offsets, self)
 
+    @source_location
     def reshape(self, shape: List[int], *, valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None,
                 inplace: bool = False) -> 'Tensor':
         if inplace:
@@ -448,92 +496,221 @@ class Tensor:
         else:
             return pypto.reshape(self, shape, valid_shape=valid_shape, inplace=inplace)
 
+    @source_location
     def unsqueeze(self, dim: int) -> 'Tensor':
         return pypto.unsqueeze(self, dim)
 
+    @source_location
     def view(self, shape: List[int], offsets: List[Union[int, SymbolicScalar]],
              *, valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None) -> 'Tensor':
         return pypto.view(self, shape, offsets, valid_shape=valid_shape)
 
+    @source_location
     def clone(self) -> 'Tensor':
         return pypto.clone(self)
 
+    @source_location
     def sin(self) -> 'Tensor':
         return pypto.sin(self)
 
+    @source_location
     def cos(self) -> 'Tensor':
         return pypto.cos(self)
 
+    @source_location
     def sigmoid(self) -> 'Tensor':
         return pypto.sigmoid(self)
 
+    @source_location
     def softmax(self, dim: int) -> 'Tensor':
         return pypto.softmax(self, dim)
 
+    @source_location
     def maximum(self, other: 'Tensor') -> 'Tensor':
         return pypto.maximum(self, other)
 
-    def where(self, condition: 'Tensor', y: Union['Tensor', float]) -> 'Tensor':
-        return pypto.where(condition, self, y)
+    @source_location
+    def where(
+        self,
+        condition: 'Tensor',
+        x: Union['Tensor', Element, float],
+        y: Union['Tensor', Element, float]
+    ) -> 'Tensor':
+        return pypto.where(self, condition, x, y)
 
+    @source_location
+    def lrelu(self, other: 'Tensor', negative_slope: Union[float, Element] = 0.01) -> 'Tensor':
+        return pypto.lrelu(self, other, negative_slope)
+
+    @source_location
     def topk(self, k: int, dim: Optional[int] = None, largest: bool = True) -> Tuple['Tensor', 'Tensor']:
         return pypto.topk(self, k, dim, largest)
+    
+    @source_location
+    def sort32(self, index: Optional[int] = None) -> 'Tensor':
+        return pypto.sort32(self, index)
 
+    @source_location
+    def mrgsort(self, mergesize: int) -> 'Tensor':
+        return pypto.mrgsort(self, mergesize)
+
+    @source_location
     def exp(self) -> 'Tensor':
         return pypto.exp(self)
+    
+    @source_location
+    def sign(self) -> 'Tensor':
+        return pypto.sign(self)
 
+    @source_location
+    def signbit(self) -> 'Tensor':
+        return pypto.signbit(self)
+
+    @source_location
+    def exp2(self) -> 'Tensor':
+        return pypto.exp2(self)
+
+    @source_location
+    def expm1(self) -> 'Tensor':
+        return pypto.expm1(self)
+
+    @source_location
     def log(self) -> 'Tensor':
         return pypto.log(self)
 
+    @source_location
+    def log1p(self) -> 'Tensor':
+        return pypto.log1p(self)
+
+    @source_location
+    def log10(self) -> 'Tensor':
+        return pypto.log10(self)
+        
+    @source_location
+    def log2(self) -> 'Tensor':
+        return pypto.log2(self)
+
+    @source_location
     def logical_not(self) -> 'Tensor':
         return pypto.logical_not(self)
 
+    @source_location
     def amax(self, dim: int, keepdim: bool = False) -> 'Tensor':
         return pypto.amax(self, dim, keepdim)
 
+    @source_location
     def amin(self, dim: int, keepdim: bool = False) -> 'Tensor':
         return pypto.amin(self, dim, keepdim)
 
+    @source_location
     def sum(self, dim: int, keepdim: bool = False) -> 'Tensor':
         return pypto.sum(self, dim, keepdim)
 
+    @source_location
+    def round(self, decimals: int = 0) -> 'Tensor':
+        return pypto.round(self, decimals)
+
+    @source_location
     def rsqrt(self) -> 'Tensor':
         return pypto.rsqrt(self)
 
+    @source_location
     def sqrt(self) -> 'Tensor':
         return pypto.sqrt(self)
 
+    @source_location
+    def ceil(self) -> 'Tensor':
+        return pypto.ceil(self)
+
+    @source_location
+    def floor(self) -> 'Tensor':
+        return pypto.floor(self)
+
+    @source_location
+    def trunc(self) -> 'Tensor':
+        return pypto.trunc(self)
+
+    @source_location
+    def reciprocal(self) -> 'Tensor':
+        return pypto.reciprocal(self)
+
+    @source_location
+    def relu(self) -> 'Tensor':
+        return pypto.relu(self)
+
+    @source_location
     def transpose(self, dim0: int, dim1: int) -> 'Tensor':
         return pypto.transpose(self, dim0, dim1)
 
+    @source_location
     def gather(self, dim: int, index: 'Tensor') -> 'Tensor':
         return pypto.gather(self, dim, index)
 
+    @source_location
+    def gathermask(self, pattern_mode: int) -> 'Tensor':
+        return pypto.gathermask(self, pattern_mode)
+
+    @source_location
     def index_add_(self, dim: int, index: 'Tensor', source: 'Tensor', *,
-                    alpha: Optional[List[Union[int, float]]] = 1) -> 'Tensor':
+                    alpha: Union[int, float] = 1) -> 'Tensor':
         return pypto.index_add_(self, dim, index, source, alpha=alpha)
 
+    @source_location
     def index_add(self, dim: int, index: 'Tensor', source: 'Tensor', *,
-                    alpha: Optional[List[Union[int, float]]] = 1) -> 'Tensor':
+                    alpha: Union[int, float] = 1) -> 'Tensor':
         return pypto.index_add(self, dim, index, source, alpha=alpha)
 
+    @source_location
     def cumsum(self: 'Tensor', dim: int) -> 'Tensor':
         return pypto.cumsum(self, dim)
 
+    @source_location
+    def gcd(self: 'Tensor', other: 'Tensor | int') -> 'Tensor':
+        return pypto.gcd(self, other)
+
+    @source_location
+    def triu(self: 'Tensor', diagonal: 'int | SymbolicScalar' = 0) -> 'Tensor':
+        return pypto.triu(self, diagonal)
+
+    @source_location
+    def triu_(self: 'Tensor', diagonal: 'int | SymbolicScalar' = 0) -> 'Tensor':
+        self.move(pypto.triu(self, diagonal))
+        return self
+
+    @source_location
+    def tril(self: 'Tensor', diagonal: 'int | SymbolicScalar' = 0) -> 'Tensor':
+        return pypto.tril(self, diagonal)
+
+    @source_location
+    def tril_(self: 'Tensor', diagonal: 'int | SymbolicScalar' = 0) -> 'Tensor':
+        self.move(pypto.tril(self, diagonal))
+        return self
+
+    @source_location
     def expand_clone(self, shape: List[int], *,
                      valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None) -> 'Tensor':
         if valid_shape is None:
             valid_shape = []
         return pypto.expand_clone(self, shape, valid_shape=valid_shape)
 
+    @source_location
     def scatter_update(self, dim: int, index: 'Tensor', src: 'Tensor') -> 'Tensor':
         return pypto.scatter_update(self, dim, index, src)
 
-    def scatter_(self, dim: int, index: 'Tensor', src: Union[float, Element], *, reduce: str = None) -> 'Tensor':
+    @source_location
+    def scatter_(self, dim: int, index: 'Tensor',
+                 src: Union[float, Element, 'Tensor'], *, reduce: str = None) -> 'Tensor':
         return pypto.scatter_(self, dim, index, src, reduce=reduce)
 
-    def scatter(self, dim: int, index: 'Tensor', src: Union[float, Element], *, reduce: str = None) -> 'Tensor':
+    @source_location
+    def scatter(self, dim: int, index: 'Tensor',
+                src: Union[float, Element, 'Tensor'], *, reduce: str = None) -> 'Tensor':
         return pypto.scatter(self, dim, index, src, reduce=reduce)
+
+    @source_location
+    def var(self, dim: Union[int, List[int], Tuple[int]] = None, *,
+            correction: float = 1, keepdim: bool = False) -> 'Tensor':
+        return pypto.var(self, dim, correction=correction, keepdim=keepdim)
 
     def _is_empty_slice(self, key):
         if isinstance(key, slice):

@@ -40,7 +40,7 @@ public:
         Program::GetInstance().Reset();
         config::Reset();
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-        config::SetPlatformConfig(KEY_ONLY_TENSOR_GRAPH, true);
+        config::SetHostOption(COMPILE_STAGE, CS_TENSOR_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
 
@@ -114,10 +114,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetBuildStatic(true);
-        config::SetHostOption(ONLY_CODEGEN, true);
-        config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
 
@@ -133,10 +130,15 @@ TEST_F(TestCodegenLayoutTransposeDataMove, TransposeDataMoveLayout) {
     TileShape::Current().SetVecTile(shape);
     Tensor input(DataType::DT_FP32, shape, "input");
     Tensor output(DataType::DT_FP32, shape, "output");
-    FUNCTION("TRANSPOSE", {input, output}) {
-        output = Transpose(input, {dim0, dim1});
+    std::string funcName = "TransposeDataMoveLayout";
+    FUNCTION(funcName, {input}, {output}) {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Transpose(input, {dim0, dim1});
+        }
     }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "TRANSPOSE");
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     CodeGenCtx ctx;
     CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});

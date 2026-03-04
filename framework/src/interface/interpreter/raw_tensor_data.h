@@ -21,16 +21,39 @@
 #include <memory>
 #include <fstream>
 
+#include "tilefwk/pypto_fwk_log.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/tensor.h"
 #include "interface/inner/element.h"
-#include "interface/inner/config.h"
+#include "interface/configs/config_manager.h"
 #include "interface/tensor/tensor_offset.h"
 
 
 namespace npu::tile_fwk {
 
-struct RawTensorData : public std::vector<uint8_t> {
+template <typename T, std::size_t Align>
+class AlignedAllocator {
+public:
+    using value_type = T;
+
+    template <class U>
+    struct rebind { using other = AlignedAllocator<U, Align>; };
+
+    AlignedAllocator() = default;
+    template <class U>
+    AlignedAllocator(const AlignedAllocator<U, Align>&) noexcept {}
+
+    T* allocate(std::size_t n) {
+        if (n > std::size_t(-1) / sizeof(T)) throw std::bad_alloc();
+        void* p = nullptr;
+        if (::posix_memalign(&p, Align, n * sizeof(T)) != 0)
+            throw std::bad_alloc();
+        return static_cast<T*>(p);
+    }
+    void deallocate(T* p, std::size_t) noexcept { std::free(p); }
+};
+
+struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>> {
     static int GetDataSize(DataType dataType) {
         int result = 0;
         constexpr int DATA_SIZE_HALF = -1;
@@ -50,6 +73,9 @@ struct RawTensorData : public std::vector<uint8_t> {
             case DT_BF16: result = DATA_SIZE_SHORT; break;
             case DT_HF4: result = DATA_SIZE_HALF; break;
             case DT_HF8: result = DATA_SIZE_BYTE; break;
+            case DT_FP8E4M3: result = DATA_SIZE_BYTE; break;
+            case DT_FP8E5M2: result = DATA_SIZE_BYTE; break;
+            case DT_FP8E8M0: result = DATA_SIZE_BYTE; break;
             case DT_UINT8: result = DATA_SIZE_BYTE; break;
             case DT_UINT16: result = DATA_SIZE_SHORT; break;
             case DT_UINT32: result = DATA_SIZE_INT; break;
@@ -218,7 +244,7 @@ struct RawTensorData : public std::vector<uint8_t> {
     void ToFile(const std::string &path) const {
         std::ofstream ofile(path, std::ios::out | std::ios::binary);
         if (!ofile) {
-            std::cerr << "open file " << path << " failed!!!!\n";
+            VERIFY_LOGE("open file %s failed!!!!", path.c_str());
         }
         ofile.write(reinterpret_cast<const char *>(data()), size());
         ofile.close();
@@ -282,6 +308,7 @@ struct LogicalTensorData {
     int GetSize() const { return size_; }
     DataType GetDataType() const { return GetData()->GetDataType(); }
 
+    void UpdateValidShape(std::vector<int64_t> shape) {validShape_ = shape;}
     int64_t GetStorageOffset() const {
         auto &strides = data_->GetStride();
         int64_t offset = 0;

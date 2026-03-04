@@ -37,7 +37,8 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetBuildStatic(true);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
         IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
@@ -53,7 +54,6 @@ void TestAddBody(std::vector<int64_t> shape, std::vector<int64_t> tile_shape, st
     Tensor input_b(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
 
-    config::SetBuildStatic(true);
     FUNCTION(name, {input_a, input_b, output}) {
         output = Add(input_a, input_b);
     }
@@ -75,7 +75,6 @@ void TestAddBody(std::vector<int64_t> shape, std::vector<int64_t> tile_shape, st
 }
 
 TEST_F(TestCodegenBinary, TestCodegenAddDim2) {
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE,false);
     TestAddBody({64, 64}, {64, 64}, "ADD_DIM2", true);
 }
 
@@ -92,7 +91,7 @@ void TestAddSBody(std::vector<int64_t> shape, std::vector<int64_t> tile_shape, s
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, shape, "C");
     Element value(DataType::DT_FP32, 1.5);
-    config::SetBuildStatic(true);
+
     FUNCTION(name, {input_a, output}) {
         output = Add(input_a, value);
     }
@@ -116,14 +115,13 @@ TEST_F(TestCodegenBinary, TestCodegenAddSDim4) {
 
 TEST_F(TestCodegenBinary, TestCodegenAddMulDim4TileTensor) {
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+
     TileShape::Current().SetVecTile(1, 1, 16, 16);
     std::vector<int64_t> shape = {1, 1, 16, 16};
     Tensor input_a(DT_FP32, shape, "A");
     Tensor input_b(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "OUT");
 
-    config::SetBuildStatic(true);
     std::string name = "AddMulDim4_TILETENSOR";
     FUNCTION(name, {input_a, input_b, output}) {
         Tensor tmp_c(DT_FP32, shape, "TEMP_C");
@@ -138,7 +136,7 @@ TEST_F(TestCodegenBinary, TestCodegenAddMulDim4TileTensor) {
     std::string res = GetResultFromCpp(*function);
     std::string expect = R"!!!(#include "TileOpImpl.h"
 
-// funcHash: 16047418710607905819
+// funcHash: 11664662471222470415
 
 extern "C" [aicore] void TENSOR_AddMulDim4_TILETENSOR_2_0_4503599627370496(__gm__ GMTensorInfo* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
 float __ubuf__ *UB_S0_E1024 = (float __ubuf__ *)get_imm(0x0); // size: 0x400
@@ -158,9 +156,9 @@ TLoad(ubTensor_3, gmTensor_4, Coord4Dim(0, 0, 0, 0));
 SUBKERNEL_PHASE2
 set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
 wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-TAdd(ubTensor_3, ubTensor_1, ubTensor_3);
+TAdd<LastUse3Dim<0, 0, 0>>(ubTensor_3, ubTensor_1, ubTensor_3);
 pipe_barrier(PIPE_V);
-TMul(ubTensor_3, ubTensor_1, ubTensor_3);
+TMul<LastUse3Dim<0, 0, 0>>(ubTensor_3, ubTensor_1, ubTensor_3);
 set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
 wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
 TStore(gmTensor_11, ubTensor_3, Coord4Dim(0, 0, 0, 0));

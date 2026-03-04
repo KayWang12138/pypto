@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------------------------------------
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -15,18 +15,19 @@ target_include_directories(tile_fwk_intf_pub
             ${PTO_FWK_SRC_ROOT}/framework/src
             ${PTO_FWK_SRC_ROOT}/framework/src/interface
             ${PTO_FWK_SRC_ROOT}/framework/src/interface/machine/device
-            $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/include>
+            $<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include>
 )
 target_compile_options(tile_fwk_intf_pub
         INTERFACE
             # 安全编译选项
             $<$<CONFIG:Release>:-O2 -D_FORTIFY_SOURCE=2>
+            $<$<OR:$<BOOL:${ENABLE_ASAN}>,$<BOOL:${ENABLE_UBSAN}>,$<BOOL:${ENABLE_GCOV}>>:-Og>
             # 基础要求选项
             $<$<CONFIG:Debug>:-g>
             # 告警增强选项
             -Wextra
             -Wundef
-            $<$<BOOL:${BUILD_WITH_CANN}>:-Wunused>
+            -Wunused
             -Wcast-qual
             -Wpointer-arith
             -Wdate-time
@@ -44,7 +45,7 @@ target_compile_options(tile_fwk_intf_pub
             -Wtype-limits
             -Wshift-negative-value
             -Wswitch-default
-            $<$<CXX_COMPILER_ID:GNU>:$<$<OR:$<BOOL:${ENABLE_ASAN}>,$<BOOL:${ENABLE_UBSAN}>>:--param max-gcse-memory=1000000000>>
+            $<$<CXX_COMPILER_ID:GNU>:$<$<OR:$<BOOL:${ENABLE_ASAN}>,$<BOOL:${ENABLE_UBSAN}>,$<BOOL:${ENABLE_GCOV}>>:--param max-gcse-memory=1000000000>>
             -Wframe-larger-than=$<IF:$<OR:$<BOOL:${ENABLE_ASAN}>,$<BOOL:${ENABLE_UBSAN}>>,131072,32768>
             -Woverloaded-virtual
             -Wnon-virtual-dtor
@@ -70,13 +71,13 @@ target_compile_options(tile_fwk_intf_pub
             -fno-common
             -fno-strict-aliasing
             # 放在最后
-            $<$<CONFIG:Release>:-Wno-return-type>
-            $<$<CONFIG:Release>:-Wno-array-bounds>
+            -Wreturn-type
+            -Warray-bounds
             $<$<CXX_COMPILER_ID:GNU>:-Wno-maybe-uninitialized>
             $<$<CXX_COMPILER_ID:GNU>:-Wno-unused-but-set-variable>
-            $<$<CONFIG:Release>:-Wno-unused-variable>
-            $<$<CONFIG:Release>:-Wno-unused-parameter>
-            -Wno-unused-result
+            -Wunused-variable
+            -Wunused-parameter
+            -Wunused-result
             # Clang
             $<$<CXX_COMPILER_ID:Clang>:-Wno-mismatched-tags>
             $<$<CXX_COMPILER_ID:Clang>:-Wno-non-pod-varargs>
@@ -95,7 +96,7 @@ target_compile_options(tile_fwk_intf_pub
             $<$<CXX_COMPILER_ID:Clang>:-Wno-return-type-c-linkage>
             -Werror
             # 依赖分析选项
-            $<$<CXX_COMPILER_ID:GNU>:$<$<OR:$<BOOL:${ENABLE_UTEST}>,$<BOOL:${ENABLE_STEST}>,$<BOOL:${ENABLE_STEST_DISTRIBUTED}>>:-MMD>>
+            $<$<CXX_COMPILER_ID:GNU>:$<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:-MMD>>
 )
 target_link_directories(tile_fwk_intf_pub
         INTERFACE

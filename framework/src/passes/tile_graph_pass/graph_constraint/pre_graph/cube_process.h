@@ -48,9 +48,16 @@ const std::map<std::pair<DataType, DataType>, DataType> supportDtypeMap = {
     {  {DataType::DT_FP32, DataType::DT_BF16},  DataType::DT_FP32},
     {  {DataType::DT_FP16, DataType::DT_FP32},  DataType::DT_FP32},
     {  {DataType::DT_BF16, DataType::DT_FP32},  DataType::DT_FP32},
+    {  {DataType::DT_HF8,  DataType::DT_HF8},   DataType::DT_FP32},
     {  {DataType::DT_INT8, DataType::DT_INT8}, DataType::DT_INT32},
     {  {DataType::DT_INT4, DataType::DT_INT4}, DataType::DT_INT32},
     {{DataType::DT_INT16, DataType::DT_INT16}, DataType::DT_INT32},
+    {{DataType::DT_FP8E5M2, DataType::DT_FP8E5M2}, DataType::DT_FP32},
+    {{DataType::DT_FP8E4M3, DataType::DT_FP8E4M3}, DataType::DT_FP32},
+    {{DataType::DT_FP8E5M2, DataType::DT_FP8E5M2}, DataType::DT_FP16},
+    {{DataType::DT_FP8E4M3, DataType::DT_FP8E4M3}, DataType::DT_FP16},
+    {{DataType::DT_FP8E5M2, DataType::DT_FP8E5M2}, DataType::DT_BF16},
+    {{DataType::DT_FP8E4M3, DataType::DT_FP8E4M3}, DataType::DT_BF16},
 };
 
 class CubeProcess {
@@ -73,4 +80,4 @@ public:
 };
 } // namespace npu::tile_fwk
 #endif // PASS_CUBE_PROCESS_H
-    
+

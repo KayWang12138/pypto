@@ -9,7 +9,8 @@
 
 ## 功能说明
 
-设置cube计算中的TileShape大小。
+在调用`pypto.matmul`前必须调用本接口设置矩阵运算的切分大小，具体切分配置可参考[Matmul高性能编程](https://gitcode.com/cann/pypto/blob/master/docs/tutorials/debug/matmul_performance_guide.md)。
+
 
 ## 函数原型
 
@@ -37,7 +38,7 @@ void
 TileShape需要满足以下约束条件：
 
 -   对齐约束：
-    -   要求kL0、kL1、nL0、nL1均满足32字节对齐。例如，输入矩阵的数据类型为DT\_FP16时，kL0 \* sizeof\(DT\_FP16\) % 32 == 0。
+    -   要求kL0、kL1、nL0、nL1均满足32字节对齐（DT\_FP32输入场景要求满足16元素对齐）。例如：输入矩阵的数据类型为DT\_FP16时，kL0 \* sizeof\(DT\_FP16\) % 32 == 0。
     -   A矩阵在format为ND且转置场景时（即数据排布为\(K, M\)），要求mL0满足32字节对齐。
     -   A、B矩阵在format为NZ场景时，要求外轴切分大小满足16元素对齐，内轴切分大小满足32字节对齐。例如，在A矩阵非转置场景，外轴为M、内轴为K，要求mL0、mL1满足16元素对齐，kL0、kL1满足32字节对齐。
     -   0 < mL0 <= mL1 且 mL1 % mL0 == 0

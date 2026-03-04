@@ -15,6 +15,7 @@
 
 #include "flow_verifier.h"
 #include "tilefwk/tilefwk.h"
+#include "tilefwk/pypto_fwk_log.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
@@ -23,63 +24,42 @@ namespace npu::tile_fwk {
 
 FlowVerifier::CompareResult FlowVerifier::VerifyResult(
         const std::shared_ptr<LogicalTensorData> &goldenDataView,
-        const std::shared_ptr<LogicalTensorData> &outputDataView, float eps) {
+        const std::shared_ptr<LogicalTensorData> &outputDataView, float rtol, float atol) {
     // tensor maybe padded during PadLocalBuffer Pass, tensor shape maybe changed, just check the valid data
+    goldenDataView->UpdateValidShape(outputDataView->GetValidShape());
     ASSERT(goldenDataView->GetValidShape() == outputDataView->GetValidShape());
-
+    ASSERT(goldenDataView->GetDataType() == outputDataView->GetDataType());
     switch (goldenDataView->GetDataType()) {
-        case DT_INT8: return CompareData<int8_t>(goldenDataView, outputDataView, eps);
-        case DT_INT16: return CompareData<int16_t>(goldenDataView, outputDataView, eps);
-        case DT_INT32: return CompareData<int32_t>(goldenDataView, outputDataView, eps);
-        case DT_INT64: return CompareData<int64_t>(goldenDataView, outputDataView, eps);
-        case DT_FP16: return CompareData<npu::tile_fwk::float16>(goldenDataView, outputDataView, eps);
-        case DT_FP32: return CompareData<float>(goldenDataView, outputDataView, eps);
-        case DT_BF16: return CompareData<npu::tile_fwk::bfloat16>(goldenDataView, outputDataView, eps);
-        case DT_UINT8: return CompareData<uint8_t>(goldenDataView, outputDataView, eps);
-        case DT_UINT16: return CompareData<uint16_t>(goldenDataView, outputDataView, eps);
-        case DT_UINT32: return CompareData<uint32_t>(goldenDataView, outputDataView, eps);
-        case DT_UINT64: return CompareData<uint64_t>(goldenDataView, outputDataView, eps);
-        case DT_DOUBLE: return CompareData<double>(goldenDataView, outputDataView, eps);
-        case DT_BOOL: return CompareData<uint8_t>(goldenDataView, outputDataView, eps);
+        case DT_INT8: return CompareData<int8_t, double>(goldenDataView, outputDataView, rtol, atol);
+        case DT_INT16: return CompareData<int16_t, double>(goldenDataView, outputDataView, rtol, atol);
+        case DT_INT32: return CompareData<int32_t, double>(goldenDataView, outputDataView, rtol, atol);
+        case DT_INT64: return CompareData<int64_t, double>(goldenDataView, outputDataView, rtol, atol);
+        case DT_FP16: return CompareData<npu::tile_fwk::float16, float>(goldenDataView, outputDataView, rtol, atol);
+        case DT_FP32: return CompareData<float, double>(goldenDataView, outputDataView, rtol, atol);
+        case DT_BF16: return CompareData<npu::tile_fwk::bfloat16, float>(goldenDataView, outputDataView, rtol, atol);
+        case DT_UINT8: return CompareData<uint8_t, double>(goldenDataView, outputDataView, rtol, atol);
+        case DT_UINT16: return CompareData<uint16_t, double>(goldenDataView, outputDataView, rtol, atol);
+        case DT_UINT32: return CompareData<uint32_t, double>(goldenDataView, outputDataView, rtol, atol);
+        case DT_UINT64: return CompareData<uint64_t, double>(goldenDataView, outputDataView, rtol, atol);
+        case DT_DOUBLE: return CompareData<double, double>(goldenDataView, outputDataView, rtol, atol);
+        case DT_BOOL: return CompareData<uint8_t, double>(goldenDataView, outputDataView, rtol, atol);
         default: ASSERT(false); break;
     }
     return CompareResult();
 }
 
 bool FlowVerifier::VerifyResult(const std::string &key,
-    const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
-    const std::vector<std::shared_ptr<LogicalTensorData>> &outputDataViewList, float eps) {
-    ASSERT(goldenDataViewList.size() == outputDataViewList.size());
-    for (size_t k = 0; k < goldenDataViewList.size(); k++) {
-        auto &goldenView = goldenDataViewList[k];
-        auto &outputView = outputDataViewList[k];
-        if (goldenView == nullptr || outputView == nullptr) {
-            continue;
-        }
-        auto result = VerifyResult(goldenView, outputView, eps);
-        if (!result.Check()) {
-            ALOG_ERROR(key, ":\n    Verify for ", goldenDataViewList.size(), " data view list index ", k, " result ", TTY_RED("FAILED"));
-            ALOG_ERROR(key, result.Dump());
-            return false;
-        } else {
-            ALOG_INFO(key, ": Verify for data ", k, " result ", TTY_GREEN("SUCCEED"));
-        }
-    }
-    return true;
-}
-
-bool FlowVerifier::VerifyResult(const std::string &key,
     const std::string tensorName,
     const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
-    const std::vector<std::shared_ptr<LogicalTensorData>> &tensorDataViewList, float eps) {
+    const std::vector<std::shared_ptr<LogicalTensorData>> &tensorDataViewList, float rtol, float atol) {
     bool result = true;
     if (goldenDataViewList.size() != tensorDataViewList.size()) {
-        ALOG_EVENT(key, " Verify NO_COMPARE");
+        VERIFY_EVENT("%s Verify NO_COMPARE", key.c_str());
         return result;
     }
     for (size_t k = 0; k < tensorDataViewList.size(); k++) {
         if (!goldenDataViewList[k]){
-            ALOG_EVENT(key, " Verify for ", goldenDataViewList.size(), " data view list index ", k, " result NO_COMPARE");
+            VERIFY_EVENT("%s Verify for %zu data view list index %zu result NO_COMPARE", key.c_str(), goldenDataViewList.size(), k);
             continue;
         }
         struct timeval tv;
@@ -94,17 +74,17 @@ bool FlowVerifier::VerifyResult(const std::string &key,
         opInfo[toIndex(OpInfoCsvHeader::verifyType)] = key;
         opInfo[toIndex(OpInfoCsvHeader::outputShape)] = functionInterpreter_->ShapeToString(tensorDataViewList[k]->GetShape());
         opInfo[toIndex(OpInfoCsvHeader::outputValidShape)] = functionInterpreter_->ShapeToString(tensorDataViewList[k]->GetValidShape());
-        opInfo[toIndex(OpInfoCsvHeader::outputDtype)] = DataType2String(tensorDataViewList[k]->GetDataType()); 
+        opInfo[toIndex(OpInfoCsvHeader::outputDtype)] = DataType2String(tensorDataViewList[k]->GetDataType());
         opInfo[toIndex(OpInfoCsvHeader::outputTensor)] = fileName;
         opInfo[toIndex(OpInfoCsvHeader::verifyResult)] = "PASS";
 
-        auto tensorGraphResult = VerifyResult(goldenDataViewList[k], tensorDataViewList[k], eps);
+        auto tensorGraphResult = VerifyResult(goldenDataViewList[k], tensorDataViewList[k], rtol, atol);
         if (!tensorGraphResult.Check()) {
-            ALOG_ERROR(key, " Verify for ", goldenDataViewList.size(), " data view list index ", k, " result ", TTY_RED("FAILED"));
+            VERIFY_LOGE("%s Verify for %zu data view list index %zu result FAILED", key.c_str(), goldenDataViewList.size(), k);
             opInfo[toIndex(OpInfoCsvHeader::verifyResult)] = "FAILED";
             result = false;
         } else {
-            ALOG_EVENT(key, " Verify for ", goldenDataViewList.size(), " data view list index ", k, " result PASS");
+            VERIFY_EVENT("%s Verify for %zu data view list index %zu result PASS", key.c_str(), goldenDataViewList.size(), k);
         }
         auto res = tensorGraphResult.Dump();
         std::copy(res.begin(), res.end(), opInfo.begin() + toIndex(OpInfoCsvHeader::maxAbsDiff));
@@ -186,6 +166,7 @@ void FlowVerifier::VerifyTensorGraph(Function *entry,
     functionInterpreter_ = std::make_shared<FunctionInterpreter>();
     functionInterpreter_->Initialize(entry, inoutDataViewList);
     functionInterpreter_->verifyType = VerifyType::TENSOR_GRAPH;
+    functionInterpreter_->execDumpPassName = "tensor_graph";
     UpdateInterpreterCache();
 
     if (config::GetVerifyOption<bool>(KEY_PASS_VERIFY_SAVE_TENSOR)) {
@@ -201,10 +182,13 @@ void FlowVerifier::VerifyTensorGraph(Function *entry,
     functionInterpreter_->DumpReset();
     bool res = true;
 
+    std::vector<double> tolerance = config::GetVerifyOption<std::vector<double>>(KEY_PASS_VERIFY_ERROR_TOL);
+    float rtol = static_cast<float>(tolerance[0]);
+    float atol = static_cast<float>(tolerance[1]);
     if (outputDataViewList.size() == 0){
-        res = VerifyResult("tensor_graph", "tensor_graph", goldenDataViewList_, inputDataViewList_, static_cast<float>(1e-2));
+        res = VerifyResult("tensor_graph", "tensor_graph", goldenDataViewList_, inputDataViewList_, rtol, atol);
     } else {
-        res = VerifyResult("tensor_graph", "tensor_graph", goldenDataViewList_, outputDataViewList_, static_cast<float>(1e-2));
+        res = VerifyResult("tensor_graph", "tensor_graph", goldenDataViewList_, outputDataViewList_, rtol, atol);
     }
     if (!res) {
         checkResult = false;
@@ -224,6 +208,8 @@ static std::string ToString(const T &val, size_t totalSize) {
 void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &passIdentifier) {
     functionInterpreter_->verifyType = VerifyType::PASS;
     functionInterpreter_->passIndex = passIndex;
+    functionInterpreter_->execDumpPassName = "pass_" + ToString(passIndex, 2) + "_" + passIdentifier;
+    functionInterpreter_->execDumpFunPath = "function_" + func->GetMagicName();
     UpdateInterpreterCache();
     if (controlFlowExecution_->executionListDict.count(func) == 0) {
         return;
@@ -236,35 +222,40 @@ void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &
             return;
         }
     }
+    std::vector<double> tolerance = config::GetVerifyOption<std::vector<double>>(KEY_PASS_VERIFY_ERROR_TOL);
+    float rtol = static_cast<float>(tolerance[0]);
+    float atol = static_cast<float>(tolerance[1]);
 
     auto &captureList = controlFlowExecution_->executionListDict.find(func)->second;
-    if (!lastCaptureExecution_.count(func)) {
-        lastCaptureExecution_[func].resize(captureList.size());
-    }
 
     if (config::GetVerifyOption<bool>(KEY_PASS_VERIFY_SAVE_TENSOR)) {
         functionInterpreter_->DumpSetLevelTensor();
     }
     for (size_t captureIndex = 0; captureIndex < captureList.size(); captureIndex++) {
-        const std::string key = "function_" + func->GetMagicName() + ".pass_" + ToString(passIndex, 2) + "_" +
-                                passIdentifier;
-        ALOG_INFO(key, ": Verify");
+        const std::string key = functionInterpreter_->execDumpFunPath + "_" + functionInterpreter_->execDumpPassName;
+        VERIFY_LOGI("%s: Verify", key.c_str());
         functionInterpreter_->captureIndex = captureIndex;
 
         std::shared_ptr<FunctionCaptureExecution> capture = nullptr;
-        float eps = static_cast<float>(1e-3);
         capture = captureList[captureIndex];
 
-        auto captureExecution = functionInterpreter_->RunForPass(key, func, capture);
+        std::shared_ptr<FunctionCaptureExecution> captureExecution = nullptr;
+        try {
+            captureExecution = functionInterpreter_->RunForPass(functionInterpreter_->execDumpPassName, func, capture);
+        } catch (std::exception &e) {
+            VERIFY_LOGE("VerifyPass failed for function %s, pass %s (passIndex: %d, captureIndex: %zu): %s",
+                        func->GetMagicName().c_str(), passIdentifier.c_str(), passIndex, captureIndex, e.what());
+            checkResult = false;
+            continue;
+        }
+
         auto goldenDataViewList = capture->golden->outcastDataViewList;
         auto executeDataViewList = captureExecution->golden->outcastDataViewList;
-        /* record it */
-        lastCaptureExecution_[func][captureIndex] = captureExecution;
 
         std::string tensorName = "tensor~" + func->GetMagicName() + "~" + passIdentifier +
-                    "~" + functionInterpreter_->GetLoopSymbolString();
+                    "~" + functionInterpreter_->GetLoopSymbolString(false);
 
-        auto res = VerifyResult(key, tensorName, goldenDataViewList, executeDataViewList, eps);
+        auto res = VerifyResult(key, tensorName, goldenDataViewList, executeDataViewList, rtol, atol);
         if (!res) {
             checkResult = false;
         }

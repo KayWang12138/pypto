@@ -21,7 +21,7 @@
 
 #include "test_cost_model.h"
 #include "test_suite_stest_ops.h"
-#include "interface/inner/config.h"
+#include "interface/configs/config_manager.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "test_dev_func_runner.h"
@@ -90,7 +90,6 @@ public:
 private:
     static inline bool gmClearFlag = true;
     static void init() {
-        config::SetHostOption(ONLY_CODEGEN, true);
     }
 
     static void verifyOpResults(const TestCaseDesc& testCase) {
@@ -190,6 +189,18 @@ private:
                 case DataType::DT_UINT64:
                     readGoldenCmp<uint64_t>(tensor, testCase.goldenPaths[i], i, 0);
                     break;
+                case DataType::DT_HF8:
+                    readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    break;
+                case DataType::DT_FP8E4M3:
+                    readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    break;
+                case DataType::DT_FP8E5M2:
+                    readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    break;
+                case DataType::DT_FP8E8M0:
+                    readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    break;
                 default:
                     ASSERT_TRUE(false) << "no support dtype " << tensor.GetDataType();
                     break;
@@ -223,8 +234,6 @@ private:
     static void init() {
         config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
         config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
-
-        config::SetHostOption(ONLY_CODEGEN, true);
     }
 
     static void verifyOpResults(const TestCaseDesc& testCase) {
@@ -337,6 +346,8 @@ static DataType GetDataType(const std::string &name) {
         {"uint64", DataType::DT_UINT64},
         {  "bool",   DataType::DT_BOOL},
         {"double", DataType::DT_DOUBLE},
+        {"fp8e4m3", DataType::DT_FP8E4M3},
+        {"fp8e5m2", DataType::DT_FP8E5M2},
     };
     if (name_to_dtype.find(name) == name_to_dtype.end()) {
         ALOG_ERROR << "Not support type " << name << " yet, return fp32 as default.";
@@ -498,7 +509,7 @@ T2 GetMapValByName(const std::map<T1, T2> &map_data, const T1 &name) {
     return param;
 }
 
-template <typename T>
+template <typename T, size_t func_offset = 2>
 std::vector<T> GetOpMetaData(const std::vector<OpFunc> &opFuncs, const std::string &op) {
     auto case_file = "../../../framework/tests/st/operation/test_case/" + op + "_st_test_cases.json";
     std::ifstream json_file(case_file);
@@ -517,7 +528,7 @@ std::vector<T> GetOpMetaData(const std::vector<OpFunc> &opFuncs, const std::stri
             if (GetViewShape(test_case).size() < 2) { // cut function start from 2 dim
                 func_id = 0;
             } else {
-                func_id = GetViewShape(test_case).size() - 2;
+                func_id = GetViewShape(test_case).size() - func_offset;
             }
         }
         test_case_list.push_back(T(opFuncs[func_id], test_case));

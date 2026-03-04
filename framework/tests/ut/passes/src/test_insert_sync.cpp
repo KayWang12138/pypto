@@ -108,7 +108,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         Platform::Instance().ObtainPlatformInfo();
     }
@@ -245,6 +245,7 @@ void CheckDependencyForTestFindDep(PipeSync &ps, std::set<int> dataDependencySet
 }
 
 void ProcessOpList(PipeSync &ps, DataDependencySearcher &dataDependencySearcher, std::vector<Operation *> &opLogPtr) {
+    ps.oriOpList_ = opLogPtr;
     for (auto &op : opLogPtr) {
         bool isCubeComponent = op->HasAttr(OpAttributeKey::isCube) && op->GetAttr<bool>(OpAttributeKey::isCube);
         if (!isCubeComponent) {
