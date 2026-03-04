@@ -341,63 +341,6 @@ void DoAMulB(Function &function, const AggregationMap &aggregations, const Matmu
         }
     }
 }
-
-template <bool isTransA, bool isTransB>
-void TiledInnerAMulB(Function &function, const TileShape &tileShape, const std::vector<LogicalTensorPtr> &operandVec,
-    const LogicalTensorPtr &cTensorPtr, const MatmulAttrParam &params) {
-    MatmulInputs matmulInputs;
-    ExtendTileOprandInputs(operandVec, matmulInputs, params);
-    const auto operand1 = matmulInputs.aTensorPtr;
-    const auto operand2 = matmulInputs.bTensorPtr;
-
-    // 2为shape的维度，当前只支持2维
-    OP_CHECK(operand1->shape.size() != 2, { ASSERT(false && "only supported two dimension"); });
-    const int64_t orgM = isTransA ? operand1->shape[1] : operand1->shape[0];
-    const int64_t orgKa = isTransA ? operand1->shape[0] : operand1->shape[1];
-    const int64_t orgKb = isTransB ? operand2->shape[1] : operand2->shape[0];
-    const int64_t orgN = isTransB ? operand2->shape[0] : operand2->shape[1];
-    OP_CHECK(true, {
-        ASSERT(orgKa == orgKb) << "K-axis mismatch: "
-                                 << "orgKa: " << orgKa << ", orgKb: " << orgKb << std::endl;
-    });
-
-    const int32_t kBL1Idx = 2;
-    auto &cubeTile = tileShape.GetCubeTile();
-    const int64_t stepK = std::gcd(cubeTile.k[1], cubeTile.k[kBL1Idx]);
-
-    AggregationMap aggregations;
-    // 增加计算尾块的逻辑
-    for (int64_t mL1Idx = 0; mL1Idx < orgM; mL1Idx += cubeTile.m[1]) {
-        for (int64_t nL0Idx = 0; nL0Idx < orgN; nL0Idx += cubeTile.n[0]) {
-            auto mL1Size = std::min(orgM - mL1Idx, cubeTile.m[1]);
-            auto nL1Size = std::min(orgN - nL0Idx, cubeTile.n[0]);
-
-            auto cTilePtr = cTensorPtr->View(function, {mL1Size, nL1Size}, {mL1Idx, nL0Idx});
-            L1NormalLoad<isTransA, isTransB>(function, matmulInputs,
-                {cTilePtr, mL1Idx, nL0Idx, stepK, mL1Size, nL1Size, orgKa}, tileShape, aggregations);
-        }
-    }
-
-    if (matmulInputs.cTensorPtr != nullptr) {
-        DoAMulB<true>(function, aggregations, matmulInputs, {tileShape, cTensorPtr}, params);
-    } else {
-        DoAMulB<false>(function, aggregations, matmulInputs, {tileShape, cTensorPtr}, params);
-    }
-}
-
-void TiledInnerAMulB(Function &function, const TileShape &tileShape, const std::vector<LogicalTensorPtr> &operandVec,
-    const LogicalTensorPtr &cTensorPtr, const MatmulAttrParam &params)
-{
-    if (params.transA && params.transB) {
-        TiledInnerAMulB<true, true>(function, tileShape, operandVec, cTensorPtr, params);
-    } else if (params.transA && !params.transB) {
-        TiledInnerAMulB<true, false>(function, tileShape, operandVec, cTensorPtr, params);
-    } else if (!params.transA && params.transB) {
-        TiledInnerAMulB<false, true>(function, tileShape, operandVec, cTensorPtr, params);
-    } else {
-        TiledInnerAMulB<false, false>(function, tileShape, operandVec, cTensorPtr, params);
-    }
-}
 } // namespace Deprecate
 
 const int32_t MATRIX_SHAPE_DIM = 2;
@@ -1384,13 +1327,6 @@ void ConstructTileGraph(Function &function, const TileShape &tileShape, const st
     MatmulIterInfo iterInfo;
     // tile graph中的数据节点
     MatmulGraphNodes tileGraphNodes;
-
-    auto &cubeTile = tileShape.GetCubeTile();
-    // 非MultiDataLoad并且非MX Matmul场景分支
-    if (!cubeTile.enableMultiDataLoad && !attrParam.hasMXScale) {
-        Deprecate::TiledInnerAMulB(function, tileShape, operandVec, cTensorPtr, attrParam);
-        return;
-    }
 
     for (iterInfo.nOffset = 0; iterInfo.nOffset < tileInfo.nView; iterInfo.nOffset += tileInfo.tileNL0) {
         iterInfo.nL0Size = std::min(tileInfo.nView - iterInfo.nOffset, tileInfo.tileNL0);
