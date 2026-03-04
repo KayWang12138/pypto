@@ -255,7 +255,7 @@ def matmul_allreduce_add_rmsnorm(
     return out_tensor, residual_out
 
 
-def run_matmul_allreduce_add_rmsnorm():
+def test_matmul_allreduce_add_rmsnorm():
     mp.set_start_method('spawn', force=True)
     processes = []
     input_datas, output_datas = generate_golden_data()
@@ -268,7 +268,7 @@ def run_matmul_allreduce_add_rmsnorm():
 
 
 def main():
-    run_matmul_allreduce_add_rmsnorm()
+    test_matmul_allreduce_add_rmsnorm()
 
 
 if __name__ == '__main__':

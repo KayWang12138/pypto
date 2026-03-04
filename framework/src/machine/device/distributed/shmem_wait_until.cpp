@@ -36,7 +36,7 @@ constexpr int32_t AICPU_ATTR_RAW_INDEX = 3;
 inline bool SignalTileOp::PollCompleted() const
 {
     if constexpr (!npu::tile_fwk::dynamic::IsDeviceMode()) {
-        return true;
+        return false;
     }
     if (addr_[0] != expectedSum_) {
         return false;
@@ -44,7 +44,7 @@ inline bool SignalTileOp::PollCompleted() const
     if (resetSignal_) {
         addr_[0] = 0;
     }
-    return true;
+    return false;
 }
 
 int32_t ShmemWaitUntil::PollCompleted(npu::tile_fwk::dynamic::AiCoreManager *aicoreManager)
