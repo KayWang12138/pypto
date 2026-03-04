@@ -274,10 +274,7 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
         spillCopyInOp.SetIOpAttrOffset(0, spillIssue->tileOp.GetIOpAttrOffset(0));
     }
     int64_t base = 0;
-    if (GetWorkspaceBaseOffset(spillOutTensor, base) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "Workspace base offset not found for tensor[%d]", spillOutTensor->memoryrange.memId);
-        return FAILED;
-    }
+    GetWorkspaceBaseOffset(spillOutTensor, base);
     // 设置ODO copy_in op offset
     UpdateOpAttr(spillAllocOp, 1, localTensor, {}, spillIssue, 0);
     UpdateOpAttr(spillCopyInOp, DEFAULT_LATENCY, localTensor, spillOutTensor->GetOffset(), spillIssue, base);
@@ -375,10 +372,7 @@ Status OoOScheduler::SpillReshapeParticalBuffer(SpillInfo &spillInfo, IssueEntry
         spillCopyInOp.SetIOpAttrOffset(0, preIssue->tileOp.GetIOpAttrOffset(0));
     }
     int64_t base = 0;
-    if (GetWorkspaceBaseOffset(spillInfo.ddrTensor_, base) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "Workspace base offset not found for tensor[%d]", spillInfo.ddrTensor_->memoryrange.memId);
-        return FAILED;
-    }
+    GetWorkspaceBaseOffset(spillInfo.ddrTensor_, base);
     UpdateOpAttr(spillCopyInOp, DEFAULT_LATENCY, newTensor, spillInfo.ddrTensor_->GetOffset(), preIssue, base);
     auto spillCopyInIssue = UpdateIssueAttr(spillCopyInOp, {reshapeTensor->memoryrange.memId}, allocIssue, bufNextUseOrder, isGenSpill);
     // 创建 reshape
@@ -468,7 +462,7 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
         APASS_LOG_ERROR_F(Elements::Tensor, "Create DDR raw tensor failed!");
         return FAILED;
     }
-    std::vector<int64_t> offset(spillTensor->GetShape().size(), 0);
+    std::vector<int64_t> offset = spillTensor->GetOffset();
 
     LogicalTensorPtr ddrTensor = std::make_shared<LogicalTensor>(function_, ddrRawTensor, offset, spillTensor->GetShape());
     if (ddrTensor == nullptr) {
@@ -681,15 +675,12 @@ int64_t OoOScheduler::CalcWorkspaceOffset(std::vector<int64_t> shape, std::vecto
     return result;
 }
 
-Status OoOScheduler::GetWorkspaceBaseOffset(LogicalTensorPtr ddrTensor, int64_t &base) {
+void OoOScheduler::GetWorkspaceBaseOffset(LogicalTensorPtr ddrTensor, int64_t &base) {
     for (auto* producer : ddrTensor->GetProducers()) {
         if (producer->GetOpcode() == Opcode::OP_COPY_OUT) {
-            if (producer->GetAttr(OpAttributeKey::workspaceBaseOffset, base)) {
-                return SUCCESS;
-            }
+            producer->GetAttr(OpAttributeKey::workspaceBaseOffset, base);
         }
     }
-    return FAILED;
 }
 
 LogicalTensorPtr OoOScheduler::CreateAssemblePartTensor(LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor,
@@ -742,7 +733,7 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
         numTotalIssues++;
     }
     // copyin
-    std::vector<int64_t> offset(iOperand->GetShape().size(), 0);
+    std::vector<int64_t> offset = assembleAttr->GetToOffset();
     int64_t gmRelatOffset = CalcWorkspaceOffset(assembleTensor->GetShape(), assembleAttr->GetToOffset());
     if (gmRelatOffset == -1) {
         APASS_LOG_ERROR_F(Elements::Operation, "CalcWorkspaceOffset failed.");
@@ -750,10 +741,7 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
     }
     auto &spillCopyInOp = function_.AddRawOperation(Opcode::OP_COPY_IN, {spillInfo.ddrTensor_}, {localTensor});
     int64_t base = 0;
-    if (GetWorkspaceBaseOffset(spillInfo.ddrTensor_, base) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "Workspace base offset not found for tensor[%d]", spillInfo.ddrTensor_->memoryrange.memId);
-        return FAILED;
-    }
+    GetWorkspaceBaseOffset(spillInfo.ddrTensor_, base);
     spillCopyInOp.SetAttr(OpAttributeKey::workspaceBaseOffset, gmRelatOffset + base);
     spillCopyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(offset),
                 iOperand->GetMemoryTypeOriginal(), OpImmediate::Specified(iOperand->GetShape()),
