@@ -48,7 +48,7 @@ def create_conv_kernel(fmap_shape, weight_shape, bias_shape, out_shape, run_mode
         # c: pypto.Tensor(bias_shape, pypto.DT_FP16)
     ) -> pypto.Tensor(out_shape, pypto.DT_FP16):
         pypto.set_conv_tile_shapes(
-            pypto_impl.TileL1Info(
+            tile_l1_info=pypto_impl.TileL1Info(
                 tileHin=1,
                 tileHout=1,
                 tileWin=16,
@@ -58,7 +58,7 @@ def create_conv_kernel(fmap_shape, weight_shape, bias_shape, out_shape, run_mode
                 tileN=16,
                 tileBatch=1
             ),
-            pypto_impl.TileL0Info(
+            tile_l0_info=pypto_impl.TileL0Info(
                 tileH=1,
                 tileW=16,
                 tileK=16,

@@ -366,7 +366,7 @@ class _Options:
         "name", "codegen_options", "host_options", "pass_options",
         "runtime_options", "verify_options", "debug_options",
         "vec_tile_shapes", "cube_tile_shapes", "conv_tile_shapes",
-        "matrix_size","operation_options"
+        "matrix_size", "operation_options"
     ]
 
     PREFIX_MAP = {
@@ -404,7 +404,7 @@ class _Options:
         
                         
         if self.conv_tile_shapes is not None:
-            if isinstance(self.conv_tile_shapes,ConvTile):
+            if isinstance(self.conv_tile_shapes, ConvTile):
                 opts["conv_tile_shapes"] = self.conv_tile_shapes._impl
             else:
                 opts["conv_tile_shapes"] = ConvTile(*self.conv_tile_shapes)._impl
@@ -616,13 +616,13 @@ class CubeTile:
 
 class ConvTile:
     """ConvTile"""
-    def __init__(self, tileL1Info: pypto_impl.TileL1Info, tileL0Info: pypto_impl.TileL0Info, setL0Tile: bool = False):
+    def __init__(self, tile_l1_info: pypto_impl.TileL1Info, tile_l0_info: pypto_impl.TileL0Info, set_l0_tile: bool = False):
         """
-        ConvTile tile for convolution operation, tileL1Info for L1 Cache configuration, tileL0Info for L0 Cache configuration
+        ConvTile tile for convolution operation, tile_l1_info for L1 Cache configuration, tile_l0_info for L0 Cache configuration
 
         Parameters
         ---------
-        tileL1Info: pypto_impl.TileL1Info
+        tile_l1_info: pypto_impl.TileL1Info
             Tile configuration for L1 Cache (convolution dimensions):
             - tileHin: Input height tile size
             - tileHout: Output height tile size
@@ -632,20 +632,26 @@ class ConvTile:
             - tileCinWeight: Input channel tile size for weight
             - tileN: Output channel tile size
             - tileBatch: Batch dimension tile size
-        tileL0Info: pypto_impl.TileL0Info, optional
+        tile_l0_info: pypto_impl.TileL0Info, optional
             Tile configuration for L0 Cache (H/W/K/N dimensions):
             - tileH: H dimension tile size
             - tileW: W dimension tile size
             - tileK: K dimension tile size
             - tileN: N dimension tile size
-        setL0Tile: bool, optional
+        set_l0_tile: bool, optional
             Flag to enable L0 Tile configuration, default False.
         """
 
-        self._impl = pypto_impl.ConvTile(tileL1Info, tileL0Info, setL0Tile)
+        self._impl = pypto_impl.ConvTile(tile_l1_info, tile_l0_info, set_l0_tile)
 
     def __getattr__(self, name):
-        return getattr(self._impl, name)
+        attr_map = {
+            'tile_l1_info': 'tileL1Info',
+            'tile_l0_info': 'tileL0Info',
+            'set_l0_tile': 'setL0Tile',
+        }
+        impl_name = attr_map.get(name, name)
+        return getattr(self._impl, impl_name)
 
     def __repr__(self):
         return repr(self._impl)

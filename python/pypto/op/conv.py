@@ -18,6 +18,12 @@ from ..enum import DataType
 from ..symbolic_scalar import SymbolicScalar
 from ..tensor import Tensor
 
+_VALID_DATA_TYPES = (
+    pypto_impl.DataType.DT_BF16,
+    pypto_impl.DataType.DT_FP16,
+    pypto_impl.DataType.DT_FP32
+)
+
 
 @op_wrapper
 def conv(
@@ -28,10 +34,10 @@ def conv(
     paddings,
     dilations,
     *,
-    groups = 1,
-    transposed = False,
-    output_paddings = [],
-    extend_params = None
+    groups=1,
+       transposed=False,
+    output_paddings=[],
+    extend_params=None
 ) -> Tensor:
     """
     Performs convolution operation with support for 1D/2D/3D convolution, grouped convolution, transposed convolution
@@ -141,17 +147,19 @@ def conv(
     pypto.conv(input, weight, pypto.DT_FP16, strides=[1,1], paddings=[0,0,0,0], dilations=[1,1], extend_params=extend_params)
     """
     __validate_inputs(
-        out_dtype, input, weight, strides, paddings, dilations, extend_params, groups, transposed, output_paddings
+        out_dtype, input, weight, strides, paddings, dilations,
+        extend_params, groups, transposed, output_paddings
     )
-    
+
     if extend_params is not None:
-            extend_params = pypto_impl.ConvExtendParam(
-                **__convert_conv_extend_params(extend_params)
-            )
+        extend_params = pypto_impl.ConvExtendParam(
+            **__convert_conv_extend_params(extend_params)
+        )
 
     if not transposed:
         return pypto_impl.Conv(
-            out_dtype, input, weight, strides, paddings, dilations, extend_params, groups
+            out_dtype, input, weight, strides, paddings, dilations, 
+            extend_params, groups
         )
     else:
         raise RuntimeError(
@@ -164,21 +172,23 @@ def __validate_type(value: Any, expect_type: Type, arg_name: str = "input") -> N
         return
     if not isinstance(value, expect_type):
         raise TypeError(
-            f"Argument '{arg_name}' must be of type {expect_type.__name__}, but got {type(value).__name__}."
+            f"Argument '{arg_name}' must be of type {expect_type.__name__}, "
+            f"but got {type(value).__name__}."
         )
 
 
 def __validate_shape(input: Tensor, weight: Tensor, transposed: bool) -> None:
     input_dim = input.Dim()
     weight_dim = weight.Dim()
-    if input_dim != weight_dim or input_dim not in {3, 4 ,5}:
+    if input_dim != weight_dim or input_dim not in {3, 4, 5}:
         raise RuntimeError(
             "Tensor dimension mismatch. Expect input_dim == weight_dim and both in [3, 4, 5], "
             f"got input_dim: {input_dim}, weight_dim: {weight_dim}."
         )
 
 
-def __validate_inputs(out_dtype, input, weight, strides, paddings, dilations, extend_params, groups, transposed, output_paddings) -> None:
+def __validate_inputs(out_dtype, input, weight, strides, paddings, dilations, 
+                      extend_params, groups, transposed, output_paddings) -> None:
     __validate_type(input, pypto_impl.Tensor, "input")
     __validate_type(weight, pypto_impl.Tensor, "weight")
     __validate_type(out_dtype, DataType, "out_dtype")
@@ -196,13 +206,13 @@ def __validate_inputs(out_dtype, input, weight, strides, paddings, dilations, ex
         if bias is not None:
             __validate_type(bias, pypto_impl.Tensor, "bias_tensor")
 
-    if input.GetDataType() not in (pypto_impl.DataType.DT_BF16, pypto_impl.DataType.DT_FP16, pypto_impl.DataType.DT_FP32):
+    if input.GetDataType() not in _VALID_DATA_TYPES:
         raise ValueError(
             "Input tensor data type must in [bf16, fp16, fp32],"
             f"but Input tensor got {input.GetDataType()}"
         )
-    
-    if weight.GetDataType() not in (pypto_impl.DataType.DT_BF16, pypto_impl.DataType.DT_FP16, pypto_impl.DataType.DT_FP32):
+
+    if weight.GetDataType() not in _VALID_DATA_TYPES:
         raise ValueError(
             "Weight tensor data type must in [bf16, fp16, fp32],"
             f"but Weight tensor got {weight.GetDataType()}"

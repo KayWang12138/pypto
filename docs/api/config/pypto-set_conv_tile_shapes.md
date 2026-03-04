@@ -4,8 +4,9 @@
 
 | 产品             | 是否支持 |
 |:-----------------|:--------:|
-| Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
-| Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
+| Ascend 950PR/Ascend 950DT/ |    √     |
+| Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    ×     |
+| Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    ×     |
 
 ## 功能说明
 
@@ -14,15 +15,15 @@
 ## 函数原型
 
 ```python
-def set_conv_tile_shapes(tileL1Info: pypto_impl.TileL1Info, tileL0Info: pypto_impl.TileL0Info = None) -> None
+def set_conv_tile_shapes(tile_l1_info: pypto_impl.TileL1Info, tile_l0_info: pypto_impl.TileL0Info = None) -> None
 ```
 
 ## 参数说明
 
 | 参数名       | 输入/输出 | 说明                                   |
 |--------------|-----------|--------------------------------------|
-| tileL1Info   | 输入      | L1缓存层级下卷积计算的TileShape配置信息 |
-| tileL0Info   | 输入      | L0缓存层级下卷积计算的TileShape配置信息 |
+| tile_l1_info | 输入      | L1缓存层级下卷积计算的TileShape配置信息 |
+| tile_l0_info | 输入      | L0缓存层级下卷积计算的TileShape配置信息 |
 
 ## 返回值说明
 
@@ -133,8 +134,8 @@ l0_tile = pypto_impl.TileL0Info(
 )
 
 # 设置卷积TileShape（开启L0TileInfo）
-pypto.set_conv_tile_shapes(l1_tile, l0_tile)
+pypto.set_conv_tile_shapes(tile_l1_info=l1_tile, tile_l0_info=l0_tile)
 
 # 仅设置L1 TileShape（关闭L0TileInfo）
-pypto.set_conv_tile_shapes(l1_tile)
+pypto.set_conv_tile_shapes(tile_l1_info=l1_tile)
 ```
