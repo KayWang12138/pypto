@@ -191,6 +191,11 @@ def __validate_inputs(out_dtype, input, weight, strides, paddings, dilations, ex
     __validate_type(extend_params, dict, "extend_params")
     __validate_shape(input, weight, False)
 
+    if extend_params is not None and 'bias_tensor' in extend_params:
+        bias = extend_params['bias_tensor']
+        if bias is not None:
+            __validate_type(bias, pypto_impl.Tensor, "bias_tensor")
+
     if input.GetDataType() not in (pypto_impl.DataType.DT_BF16, pypto_impl.DataType.DT_FP16, pypto_impl.DataType.DT_FP32):
         raise ValueError(
             "Input tensor data type must in [bf16, fp16, fp32],"
@@ -200,8 +205,32 @@ def __validate_inputs(out_dtype, input, weight, strides, paddings, dilations, ex
     if weight.GetDataType() not in (pypto_impl.DataType.DT_BF16, pypto_impl.DataType.DT_FP16, pypto_impl.DataType.DT_FP32):
         raise ValueError(
             "Weight tensor data type must in [bf16, fp16, fp32],"
-            f"but Weight tensor got {input.GetDataType()}"
+            f"but Weight tensor got {weight.GetDataType()}"
         )
+
+    __validate_data_type_consistency(input, weight, out_dtype, extend_params)
+
+
+def __validate_data_type_consistency(input, weight, out_dtype, extend_params) -> None:
+    if input.GetDataType() != weight.GetDataType():
+        raise ValueError(
+            f"Input and weight data types must be consistent, "
+            f"but got input: {input.GetDataType()}, weight: {weight.GetDataType()}"
+        )
+
+    if out_dtype != input.GetDataType():
+        raise ValueError(
+            f"Output data type must be consistent with input, "
+            f"but got out_dtype: {out_dtype}, input: {input.GetDataType()}"
+        )
+
+    if extend_params is not None and 'bias_tensor' in extend_params:
+        bias = extend_params['bias_tensor']
+        if bias is not None and hasattr(bias, 'GetDataType') and bias.GetDataType() != input.GetDataType():
+            raise ValueError(
+                f"Bias data type must be consistent with input, "
+                f"but got bias: {bias.GetDataType()}, input: {input.GetDataType()}"
+            )
 
 
 def __convert_conv_extend_params(extend_params) -> dict:
