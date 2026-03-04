@@ -64,15 +64,15 @@ private:
             npu::tile_fwk::LogFuncInfo::Instance().setAttr(false);                                                                               \
         }                                                                                                                                        \
         if (npu::tile_fwk::LogFuncInfo::Instance().checkLevel == nullptr || npu::tile_fwk::LogFuncInfo::Instance().record == nullptr) {          \
-            return;                                                                                                                              \
+            break;                                                                                                                              \
         }                                                                                                                                        \
         if  (!npu::tile_fwk::LogFuncInfo::Instance().checkLevel(PYPTO, level)) {                                                                 \
-            return;                                                                                                                              \
+            break;                                                                                                                              \
         }                                                                                                                                        \
         char *formatStr = nullptr;                                                                                                               \
         int len = asprintf(&formatStr, fmt, ##__VA_ARGS__);                                                                                      \
         if (len <= 0 || formatStr == nullptr) {                                                                                                  \
-            return;                                                                                                                              \
+            break;                                                                                                                              \
         }                                                                                                                                        \
         if (len < MAX_LOG_LENGTH) {                                                                                                              \
             npu::tile_fwk::LogFuncInfo::Instance().record(PYPTO, level, "[%s:%d][%s]:%s", __FILE_NAME__, __LINE__, module, formatStr);           \
