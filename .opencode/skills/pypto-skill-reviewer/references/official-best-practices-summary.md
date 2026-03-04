@@ -180,3 +180,40 @@ skill-name/
 - 全部小写+连字符
 - 描述性名称（`best-practices-checklist.md` 而非 `ref1.md`）
 - SKILL.md 必须记录所有可用文件（资源表）
+
+## 11. 文件引用规范
+
+### ✅ 推荐做法
+
+| 类型 | 格式 | 示例 |
+|------|------|------|
+| 参考文档 | Markdown 链接 | `[editing.md](editing.md)` |
+| 子目录文档 | 相对路径链接 | `[MCP Best Practices](./reference/mcp.md)` |
+| 脚本/命令 | 反引号包裹 | `python scripts/helper.py` |
+| 多文件 | 表格组织 | 见下方模板 |
+
+### ❌ 不推荐
+
+| 反模式 | 修复 |
+|--------|------|
+| `@file.md` 引用同目录文件 | 使用 `[file.md](file.md)` |
+| `` `file.md` - Description `` | 使用表格或链接列表 |
+
+### 模板示例
+
+```markdown
+## Scripts
+
+Run with `--help` first:
+```bash
+python scripts/helper.py --help
+python scripts/processor.py input.txt output.txt
+```
+
+## Reference Files
+
+| File | Contents |
+|------|----------|
+| [references/pattern-a.md](references/pattern-a.md) | Pattern A |
+| [references/pattern-b.md](references/pattern-b.md) | Pattern B |
+```
