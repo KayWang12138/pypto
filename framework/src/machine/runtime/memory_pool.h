@@ -41,6 +41,7 @@ inline constexpr uint32_t TWO_MB_HUGE_PAGE_FLAGS = RT_MEMORY_HBM | RT_MEMORY_POL
 static constexpr uint64_t SENTINEL_VALUE = 0xDEADBEEFDEADBEEF;
 static constexpr uint32_t SENTINEL_NUM = 64;
 static constexpr uint32_t SENTINEL_MEM_SIZE = 512;
+
 inline uint64_t MemSizeAlign(const uint64_t bytes, const uint32_t aligns = 512U) {
     const uint64_t alignSize = (aligns == 0U) ? sizeof(uintptr_t) : aligns;
     return (((bytes + alignSize) - 1U) / alignSize) * alignSize;
@@ -138,7 +139,7 @@ public:
     }
     ~DevMemoryPool() { 
         CheckAllSentinels();
-        DestroyPool(); 
+        DestroyPool();
     }
 
     bool AllocDevAddrInPool(uint8_t **devAddr, uint64_t size) {
