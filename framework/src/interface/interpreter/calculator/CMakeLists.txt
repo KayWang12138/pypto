@@ -1,0 +1,77 @@
+# -----------------------------------------------------------------------------------------------------------
+# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+
+cmake_minimum_required(VERSION 3.16.3)
+
+project(PTO_Framework_Calculator LANGUAGES C CXX)
+
+# 预定义变量检查
+if (NOT DEFINED PY3_MOD_TORCH_ROOT_PATH)
+    message(FATAL_ERROR "PY3_MOD_TORCH_ROOT_PATH is not defined")
+endif()
+if (NOT DEFINED PY3_MOD_TORCH_C_GLIBCXX_USE_CXX11_ABI)
+    message(FATAL_ERROR "PY3_MOD_TORCH_C_GLIBCXX_USE_CXX11_ABI is not defined")
+endif()
+
+if (NOT DEFINED PTO_FWK_SRC_ROOT)
+    # 构建阶段(Build)
+    #   语言标准
+    set(CMAKE_C_STANDARD 11)  # 指定 C 语言使用 ISO C11 标准
+    set(CMAKE_C_STANDARD_REQUIRED ON)  # 要求严格支持 C11 标准
+    set(CMAKE_C_EXTENSIONS OFF)  # 禁用 C 编译器扩展, 使用纯 ISO C 标准
+    set(CMAKE_CXX_STANDARD 17)  # 指定 C++ 语言使用 ISO C++17 标准
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)  # 要求严格支持 C++17 标准
+    set(CMAKE_CXX_EXTENSIONS OFF)  # 禁用 C 编译器扩展, 使用纯 ISO C++17 标准
+    include(intf.cmake)
+    file(GLOB_RECURSE _Calculator_Srcs src/*.cpp)
+else ()
+    file(GLOB_RECURSE _Calculator_Srcs *.cpp)
+endif ()
+message(STATUS "_Calculator_Srcs=${_Calculator_Srcs}")
+
+# 编译流程
+
+add_library(tile_fwk_calculator SHARED)
+target_sources(tile_fwk_calculator PRIVATE ${_Calculator_Srcs})
+target_compile_options(tile_fwk_calculator
+        PRIVATE
+            -D_GLIBCXX_USE_CXX11_ABI=${PY3_MOD_TORCH_C_GLIBCXX_USE_CXX11_ABI}
+            -D__DEVICE__
+)
+target_include_directories(tile_fwk_calculator
+        SYSTEM PRIVATE
+            ${PY3_MOD_TORCH_ROOT_PATH}/include
+            ${PY3_MOD_TORCH_ROOT_PATH}/include/torch/csrc/api/include
+            $<$<BOOL:${PTO_FWK_SRC_ROOT}>:${PTO_FWK_SRC_ROOT}/framework/include>
+            $<$<BOOL:${PTO_FWK_SRC_ROOT}>:${PTO_FWK_SRC_ROOT}/framework/src/>
+            $<$<BOOL:${PTO_FWK_SRC_ROOT}>:${PTO_FWK_SRC_ROOT}/framework/src/interface>
+            $<$<NOT:$<BOOL:${PTO_FWK_SRC_ROOT}>>:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
+target_link_directories(tile_fwk_calculator
+        PUBLIC
+            ${PY3_MOD_TORCH_ROOT_PATH}/lib
+            ${PY3_MOD_TORCH_ROOT_PATH}/../torch.libs
+            $<$<NOT:$<BOOL:${PTO_FWK_SRC_ROOT}>>:${CMAKE_CURRENT_SOURCE_DIR}/../>
+)
+target_link_libraries(tile_fwk_calculator
+        PRIVATE
+            c_sec
+            torch
+            tile_fwk_intf_pub
+)
+target_link_options(tile_fwk_calculator
+        PRIVATE
+            -Wl,-no-as-needed,${PY3_MOD_TORCH_ROOT_PATH}/lib/libtorch_cpu.so -Wl,-as-needed
+            -Wl,-no-as-needed,${PY3_MOD_TORCH_ROOT_PATH}/lib/libc10.so -Wl,-as-needed
+)
+
+if (NOT DEFINED PTO_FWK_SRC_ROOT)
+    install(TARGETS tile_fwk_calculator LIBRARY DESTINATION "lib")
+endif ()
