@@ -14,6 +14,7 @@
  */
 
 #include "host_log/log_manager.h"
+
 #include <cstdlib>
 #include <cstdio>
 #include <unistd.h>
@@ -50,6 +51,10 @@ const std::array<std::string, static_cast<size_t>(LogLevel::NONE)> kLogLevelStrA
 uint64_t GetTid() {
     thread_local uint64_t tid = static_cast<uint64_t>(syscall(__NR_gettid));
     return tid;
+}
+
+int64_t GetPid() {
+    return getpid();
 }
 
 const std::string& GetLogLevelStr(const LogLevel logLevel) {
@@ -280,7 +285,7 @@ void LogManager::WriteToFile(const LogMsg &logMsg) {
 void LogManager::CreateAndOpenNewLogFile() {
     std::ostringstream oss;
     const std::string &logFilePrefix = attr_.isDevice ? kDevLogFilePrefix : kHostLogFilePrefix;
-    oss << GetLogDir() << "/" << logFilePrefix << GetTid() << "-" << GetCurrentTimeStr() << kLogFileSuffix;
+    oss << GetLogDir() << "/" << logFilePrefix << GetPid() << "-" << GetCurrentTimeStr() << kLogFileSuffix;
     std::string newLogFileName =  oss.str();
     GetCurrentFileStream().open(newLogFileName);
     GetLogFilesQueue().push(newLogFileName);
