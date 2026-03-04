@@ -219,11 +219,17 @@ public:
         runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]++] = coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_;
         corePendReadyCnt_[CORE_IDX_AIC]++;
         corePendReadyCnt_[CORE_IDX_AIV]++;
+        pendingIds_[coreIdx] = AICORE_TASK_INIT;
+        runningIds_[coreIdx] = AICORE_TASK_INIT;
+        pendingIds_[coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_] = AICORE_TASK_INIT;
+        runningIds_[coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_] = AICORE_TASK_INIT;
         if (mixType != MixResourceType::MIX_1C1V) {
             runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]++] = coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_ + 1;
             DEV_VERBOSE_DEBUG("add coreIdx %u  %u  %u", coreIdx, coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_,
                 coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_ + 1);
             corePendReadyCnt_[CORE_IDX_AIV]++;
+            pendingIds_[coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_ + 1] = AICORE_TASK_INIT;
+            runningIds_[coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_ + 1] = AICORE_TASK_INIT;
         } else {
             DEV_VERBOSE_DEBUG("add coreIdx %u  %u", coreIdx, coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_);
         }
