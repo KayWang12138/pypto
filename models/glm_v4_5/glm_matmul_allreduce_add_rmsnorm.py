@@ -95,7 +95,7 @@ def matmul_allreduce_add_rmsnorm_kernel(batch_size, attn_dim_per_tp, hidden_size
                     shmem_barrier_signal, [data_clear_dummy, signal_clear_dummy])
 
                 # 3. matmul
-                pypto.set_cube_tile_shapes([8, 8], [128, 256], [256, 512], True)
+                pypto.set_cube_tile_shapes([8, 8], [128, 256], [256, 512])
                 matmul_result = pypto.matmul(tile_in_tensor, matmul_weight, in_tensor.dtype, b_trans=True)
 
                 # 4. allreduce
