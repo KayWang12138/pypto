@@ -955,11 +955,11 @@ private:
             int runningResolveIndexBaseValue = runningResolveIndexBaseRef;
             uint32_t pendingIdValue = pendingIdRef;
             int pendingResolveIndexBaseValue = pendingResolveIndexBaseRef;
-            runningIdRef = AICORE_TASK_INIT;
             runningResolveIndexBaseRef = 0;
-            pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
             pendingResolveIndexBaseRef = 0;
             if (isWrapCoreAvailable) { // wrapcore doesnt support pending & running yet
+                runningIdRef = AICORE_TASK_INIT;
+                pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
                 context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
                 context_->corePendReadyCnt_[static_cast<int>(type)]++;
             }
@@ -983,9 +983,9 @@ private:
             int pendingResolveIndexBaseValue = pendingResolveIndexBaseRef;
             runningIdRef = pendingIdRef;
             runningResolveIndexBaseRef = copyOutResolveCounter + 1;
-            pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
             pendingResolveIndexBaseRef = 0;
             if (isWrapCoreAvailable) {
+                pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
                 context_->corePendReadyCnt_[static_cast<int>(type)]++;
             }
             if (runningIdValueCopyout != AICORE_TASK_INIT) {
@@ -1008,9 +1008,9 @@ private:
             int runningResolveIndexBaseValueAck = runningResolveIndexBaseRef;
             runningIdRef = finTaskId;
             runningResolveIndexBaseRef = pendingResolveIndexBaseRef;
-            pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
             pendingResolveIndexBaseRef = 0;
             if (isWrapCoreAvailable) {
+                pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
                 context_->corePendReadyCnt_[static_cast<int>(type)]++;
             }
             if (runningIdValueAck != AICORE_TASK_INIT) {
@@ -1024,9 +1024,9 @@ private:
             DEV_VERBOSE_DEBUG("Running finished: core:%d pending:%x,%d running:%x,%d", coreIdx, pendingIdRef, pendingResolveIndexBaseRef, runningIdRef, runningResolveIndexBaseRef);
             uint32_t runningIdValue = runningIdRef;
             int runningResolveIndexBaseValue = runningResolveIndexBaseRef;
-            runningIdRef = AICORE_TASK_INIT;
             runningResolveIndexBaseRef = 0;
             if (isWrapCoreAvailable && pendingIdRef == AICORE_TASK_INIT) {
+                runningIdRef = AICORE_TASK_INIT;
                 context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
             }
             ret = ResolveDepWithDfx(type, coreIdx, runningIdValue, runningResolveIndexBaseValue);
