@@ -1385,13 +1385,6 @@ void ConstructTileGraph(Function &function, const TileShape &tileShape, const st
     // tile graph中的数据节点
     MatmulGraphNodes tileGraphNodes;
 
-    auto &cubeTile = tileShape.GetCubeTile();
-    // 非MultiDataLoad并且非MX Matmul场景分支
-    if (!cubeTile.enableMultiDataLoad && !attrParam.hasMXScale) {
-        Deprecate::TiledInnerAMulB(function, tileShape, operandVec, cTensorPtr, attrParam);
-        return;
-    }
-
     for (iterInfo.nOffset = 0; iterInfo.nOffset < tileInfo.nView; iterInfo.nOffset += tileInfo.tileNL0) {
         iterInfo.nL0Size = std::min(tileInfo.nView - iterInfo.nOffset, tileInfo.tileNL0);
         tileGraphNodes.biasTensorPtr =
