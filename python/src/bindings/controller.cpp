@@ -86,7 +86,7 @@ void bind_controller_set_tile(py::module &m) {
             std::copy(mvec.begin(), mvec.end(), marr.begin());
             std::copy(kvec.begin(), kvec.end(), karr.begin());
             std::copy(nvec.begin(), nvec.end(), narr.begin());
-            TileShape::Current().SetCubeTile(marr, karr, narr, enableMultiDataLoad, enableSplitK);
+            TileShape::Current().SetCubeTile(marr, karr, narr, enableSplitK);
         },
         py::arg("m"), py::arg("k"), py::arg("n"), py::arg("enable_multi_data_load"), py::arg("enable_split_k"), 
         "Set cube tile shapes with specified dimensions");
