@@ -248,6 +248,7 @@ void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const T
 void CheckDivisible(int64_t value, int64_t divisor, const std::string& valueName, const std::string& divisorName)
 {
     OP_CHECK(true, {
+        ASSERT(divisor != 0) << divisorName << " cannot be zero.";
         ASSERT(value % divisor == 0)
             << "The value of " << divisorName << " (" << divisor
             << ") does not divide "<< valueName
@@ -441,18 +442,17 @@ void CheckAttrShape(DataType outType, const Tensor &inputTensor, const Tensor &w
         paddings = rotateVector(paddings, 4);
     }
     const std::vector<std::string> dimNames = 
-            attrParam.isConv1D ? std::vector<std::string>{"L"} :
-                attrParam.isConv3D ? std::vector<std::string>{"D", "H", "W"} :
-                                    std::vector<std::string>{"H", "W"};
+        attrParam.isConv1D ? std::vector<std::string>{"L"} :
+        attrParam.isConv3D ? std::vector<std::string>{"D", "H", "W"} :
+        std::vector<std::string>{"H", "W"};
     for (size_t i = 0; i < paddings.size() / 2; ++i) {
         int weightVal = weightTensor.GetShape()[i + 2];
         int paddingLeft = paddings[i * 2];
         int paddingRight = paddings[i * 2 + 1];
-        std::string dimName = i + 2 < dimNames.size() ? dimNames[i] : std::to_string(i + 2);
         OP_CHECK(true, {
             ASSERT(paddingLeft < weightVal && paddingRight < weightVal)
-                << "The value of the " << dimName
-                << "-th dimension of weight must be >= padding.Current weight value:" << weightVal
+                << "The value of the " << dimNames[i]
+                << " dimension of weight must be >= padding.Current weight value:" << weightVal
                 << ",padding value:" << paddingLeft
                 << " and " << paddingRight
                 << "." << std::endl;
