@@ -106,9 +106,26 @@ unsigned long ComputeHash(const std::vector <Operation*>& producers, LogicalTens
 Status CommonOperationEliminate::RunOnFunction(Function &function) {
     auto tensorProducerMap = GetTensorProducers(function);
     std::unordered_set<Operation*> cacheProducers;
-    for (auto& tensorProducerPair: tensorProducerMap) {
-        auto& producerGroup = tensorProducerPair.second;
-        if (producerGroup.empty() || !TensorProducersMerge(tensorProducerPair, cacheProducers)) {
+    for (auto& tensorMagicProducersPair: tensorProducerMap) {
+        auto tensorMagic = tensorMagicProducersPair.first;
+        auto& producerGroup = tensorMagicProducersPair.second;
+        if (producerGroup.empty()) {
+            continue;
+        }
+        LogicalTensorPtr tensor = nullptr;
+        for (auto op: producerGroup) {
+            if (op != nullptr && !op->GetOOperands().empty()) {
+                tensor = op->GetOOperands().front();
+                if (tensor != nullptr) {
+                    break;
+                }
+            }
+        }
+        if (tensor == nullptr) {
+            continue;
+        }
+        std::pair<LogicalTensorPtr, std::vector<Operation*>> tensorProducerPair(tensor, producerGroup);
+        if (!TensorProducersMerge(tensorProducerPair, cacheProducers)) {
             continue;
         }
         for (auto op: producerGroup) {
@@ -133,8 +150,8 @@ Status CommonOperationEliminate::PreCheck(Function &function) {
     return checker.DoPreCheck(function);
 }
 
-std::unordered_map<LogicalTensorPtr, std::vector<Operation*>> CommonOperationEliminate::GetTensorProducers(Function &function) {
-    std::unordered_map<LogicalTensorPtr, std::vector<Operation*>> tensorProducerMap;
+std::unordered_map<int, std::vector<Operation*>> CommonOperationEliminate::GetTensorProducers(Function &function) {
+    std::unordered_map<int, std::vector<Operation*>> tensorProducerMap;
     std::unordered_set<int> visitedTensors;
     auto allOps = function.Operations(true).DuplicatedOpList();
     for (const auto& op: allOps) {
@@ -149,7 +166,7 @@ std::unordered_map<LogicalTensorPtr, std::vector<Operation*>> CommonOperationEli
             visitedTensors.insert(tensor->GetMagic());
             for (const auto& pro: tensor->GetProducers()) {
                 if (pro != nullptr) {
-                    tensorProducerMap[tensor].push_back(pro);
+                    tensorProducerMap[tensor->GetMagic()].push_back(pro);
                 }
             }
         }

@@ -92,9 +92,10 @@ private:
     void SetEnableMoreSplit(bool enableMoreSplit);
     std::unordered_map<int, std::vector<std::pair<LogicalTensorPtr, Offset>>> toInfoMap_;
     std::unordered_map<int, std::vector<std::pair<LogicalTensorPtr, Offset>>> fromInfoMap_;
-    std::unordered_set<LogicalTensorPtr> largeTensors_;
-    std::map<LogicalTensorPtr, std::set<Shape>> toShapes_;
-    std::map<LogicalTensorPtr, std::set<Shape>> fromShapes_;
+    std::unordered_set<int> largeTensorsMagic_;
+    std::map<int, std::set<Shape>> toShapes_;
+    std::map<int, std::set<Shape>> fromShapes_;
+    std::unordered_map<int, LogicalTensorPtr> magicToTensorMap_;
     bool enableMoreSplit_ = false;
 
     Status PreCheck(Function &function) override;

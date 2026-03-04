@@ -60,14 +60,16 @@ class UnionFind {
 public:
     explicit UnionFind(std::unordered_map<LogicalTensorPtr, int> &tensorToOrderIndex) {
         for (auto it = tensorToOrderIndex.begin(); it != tensorToOrderIndex.end(); it++) {
-            parentMap[it->first] = it->first;
-            rankMap[it->first] = 1;
+            int magic = it->first->GetMagic();
+            magicToTensorMap_[magic] = it->first;
+            parentMap[magic] = magic;
+            rankMap[magic] = 1;
         }
     }
 
     void Unite(const LogicalTensorPtr x, const LogicalTensorPtr y) {
-        LogicalTensorPtr xRoot = Find(x);
-        LogicalTensorPtr yRoot = Find(y);
+        int xRoot = Find(x->GetMagic());
+        int yRoot = Find(y->GetMagic());
         if (xRoot == yRoot) {
             return;
         }
@@ -82,11 +84,11 @@ public:
     }
 
     std::vector<LogicalTensors> GetGroups() const {
-        std::unordered_map<LogicalTensorPtr, LogicalTensors> rootToGroup;
+        std::unordered_map<int, LogicalTensors> rootToGroup;
         for (const auto &pair : parentMap) {
-            LogicalTensorPtr obj = pair.first;
-            LogicalTensorPtr root = Find(obj);
-            rootToGroup[root].push_back(obj);
+            int obj = pair.first;
+            int root = Find(obj);
+            rootToGroup[root].push_back(magicToTensorMap_.at(obj));
         }
         std::vector<LogicalTensors> groups;
         for (const auto& pair : rootToGroup) {
@@ -95,14 +97,15 @@ public:
         return groups;
     }
 private:
-    LogicalTensorPtr Find(const LogicalTensorPtr &x) const {
+    int Find(int x) const {
         if (parentMap[x] != x) {
             parentMap[x] = Find(parentMap[x]);
         }
         return parentMap[x];
     }
-    mutable std::unordered_map<LogicalTensorPtr, LogicalTensorPtr> parentMap;
-    std::unordered_map<LogicalTensorPtr, int> rankMap;
+    mutable std::unordered_map<int, int> parentMap;
+    std::unordered_map<int, int> rankMap;
+    std::unordered_map<int, LogicalTensorPtr> magicToTensorMap_;
 };
 
 class ReplaceTensor : public Pass {
@@ -128,8 +131,8 @@ private:
     Status InplaceCheck(Function &function);
     bool CheckInplace(const Operation &op);
 
-    std::unordered_map<LogicalTensorPtr, int> BuildTensorOrderIndexMap(Function &function);
-    Status FindBaseTensor(Function &function, const std::unordered_map<LogicalTensorPtr, int> &tensorToOderIndex, LogicalTensors &group, LogicalTensorPtr &baseTensor);
+    std::unordered_map<int, int> BuildTensorOrderIndexMap(Function &function);
+    Status FindBaseTensor(Function &function, const std::unordered_map<int, int> &tensorToOrderIndex, LogicalTensors &group, LogicalTensorPtr &baseTensor);
     Status ProcessHubOp(Function &function);
     void ProcessHubAssembleOp(Function &function, Operation &hubOp, Operation &assembleOp, 
                              std::shared_ptr<LogicalTensor> hubInput, std::shared_ptr<LogicalTensor> hubOutput);
@@ -169,6 +172,7 @@ private:
     void InsertAssembleCopy(Function &function);
 
     std::unordered_map<DataType, int> viewTypeTable = {{DT_INT8, 1}, {DT_BF16, 2}, {DT_FP16, 2}, {DT_FP32, 4}};
+    std::unordered_map<int, LogicalTensorPtr> magicToTensorMap_;
     std::queue<LogicalTensorPtr> backRoots;
     std::queue<LogicalTensorPtr> forRoots;
     std::unordered_set<int> processedOp;

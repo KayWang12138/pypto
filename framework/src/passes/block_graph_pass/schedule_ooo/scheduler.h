@@ -176,7 +176,8 @@ private:
     std::unordered_map<OpCoreType, std::map<int, std::map<PipeType, IssueQueue>>> issueQueues;
 
     std::unordered_map<MemoryType, int64_t> localMemorySize;
-    std::unordered_map<LogicalTensorPtr, LogicalTensorPtr> l02L0MXMap_;
+    std::unordered_map<int, LogicalTensorPtr> l02L0MXMap_;
+    std::unordered_map<int, LogicalTensorPtr> l0MX2L0Map_;
 
     Function &function_;
     int issueId{0};

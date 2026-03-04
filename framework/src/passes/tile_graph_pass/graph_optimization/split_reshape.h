@@ -202,16 +202,15 @@ private:
     std::vector<AssembleOp> assembles_;
     std::unordered_map<unsigned long, std::shared_ptr<ReshapeOp>> reshapes_;
     std::unordered_map<std::shared_ptr<ReshapeOp>, std::vector<int64_t>> viewOffset_;
-    std::unordered_map<LogicalTensorPtr, std::vector<int64_t>> reshapeOffset_;
+    std::unordered_map<int, std::vector<int64_t>> reshapeOffset_;
+    std::unordered_map<int, std::shared_ptr<LogicalTensor>> magicToTensorMap_;
     std::unordered_set<Operation *> redundantViewops_;
     std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>> reshapeRawOutputs_;
     std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>> reshapeRawInputs_;
-    // 记录所有op_reshape的指针，键值为reshape的输出Operand的magic。
     std::unordered_map<int, const Operation *> reshapeOpPtrs_;
-    // 记录满足后续op为reshape的op_assemble的指针，第一个map的键值为assemble输入Operand的magic, 第二个map的键值为后续op_reshape的输出Operand的magic。
     std::unordered_map<int, std::unordered_map<int, const Operation *>> assembleOpPtrs_;
     std::unordered_map<std::pair<int, int>, AlignResult, PairHash> rawToAlignCache_;
-    std::unordered_map<LogicalTensorPtr, bool> sameRawInputCache_;
+    std::unordered_map<int, bool> sameRawInputCache_;
 };
 
 } // namespace npu::tile_fwk
