@@ -23,18 +23,25 @@ std::string CodeGenOpCloudNPU::PrintMatmulTileTensor(
     bool isAcc, std::unordered_map<OperandType, std::string> &tensorWithMemType) const {
     std::ostringstream oss;
     bool hasBias = tensorWithMemType.count(OperandType::BUF_BT);
-    int64_t transMode = 0;
-    GetAttr(OpAttributeKey::transMode, transMode);
+    int64_t transModeNum = 0;
+    GetAttr(OpAttributeKey::transMode, transModeNum);
+    TransMode transMode = static_cast<TransMode>(transModeNum);
+    std::string transModeStr = "TransMode::CAST_NONE";
+    if (transMode == TransMode::CAST_RINT) {
+        transModeStr = "TransMode::CAST_RINT";
+    } else if (transMode == TransMode::CAST_ROUND) {
+        transModeStr = "TransMode::CAST_ROUND";
+    }
     std::vector<std::string> paramList = {tensorWithMemType[OperandType::BUF_L0C],
         tensorWithMemType[OperandType::BUF_L0A], tensorWithMemType[OperandType::BUF_L0B]};
     oss << tileOpName;
     if (hasBias) {
         paramList.emplace_back(tensorWithMemType[OperandType::BUF_BT]);
-        oss << WrapParamByAngleBrackets({std::to_string(transMode)});
+        oss << WrapParamByAngleBrackets({transModeStr});
         oss << WrapParamByParentheses(paramList) << ";\n";
         return oss.str();
     }
-    oss << WrapParamByAngleBrackets({std::to_string(isAcc), std::to_string(transMode)});
+    oss << WrapParamByAngleBrackets({std::to_string(isAcc), transModeStr});
     oss << WrapParamByParentheses(paramList) << ";\n";
     return oss.str();
 }

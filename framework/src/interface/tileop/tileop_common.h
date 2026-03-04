@@ -89,6 +89,13 @@ enum class ReLuType : int64_t
     ReLu = 1
 };
 
+enum class TransMode : int64_t
+{
+    CAST_NONE = 0,
+    CAST_RINT = 1,
+    CAST_ROUND = 2
+}
+
 namespace TileOp {
 enum CastMode {
     CAST_NONE = 0,

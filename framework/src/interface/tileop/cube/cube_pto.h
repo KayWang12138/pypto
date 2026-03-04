@@ -570,7 +570,7 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord, int16_t subblockId) {
     }
 }
 
-template <bool isZeroC, uint8_t transMode, typename T, typename U, typename V>
+template <bool isZeroC, TransMode transMode, typename T, typename U, typename V>
 TILEOP void TMatmul(T &c, U &a, V &b) {
     constexpr auto shapeSizeA = Std::tuple_size<typename U::Shape>::value;
     constexpr auto shapeSizeB = Std::tuple_size<typename V::Shape>::value;
@@ -621,7 +621,7 @@ TILEOP void TMatmul(T &c, U &a, V &b) {
     }
 }
 
-template <uint8_t transMode, typename T0, typename T1, typename T2, typename T3>
+template <TransMode transMode, typename T0, typename T1, typename T2, typename T3>
 TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, T3 &bias) {
     constexpr auto shapeSizeA = Std::tuple_size<typename T1::Shape>::value;
     constexpr auto shapeSizeB = Std::tuple_size<typename T2::Shape>::value;
