@@ -30,7 +30,7 @@ namespace npu::tile_fwk {
 #else
 #define PERF_PMU_TEST_SWITCH 0 // PMU test switch
 // whether to use the pending and running async task mode(set macro 1) or just use running sync mode(set macro 0)
-#define SCHEDULE_USE_PENDING_AND_RUNING_SWITCH 1
+#define SCHEDULE_USE_PENDING_AND_RUNING_SWITCH 0
 /* The DFX swimlane performance statistics use host pre-allocated memory mode, which avoids data collection during
    AICPU scheduling to minimize scheduling interference. However, each AICore only supports tracking up to
    MAX_DFX_TASK_NUM_PER_CORE tasks, with excess tasks being discarded.
