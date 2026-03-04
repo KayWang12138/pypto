@@ -14,7 +14,6 @@
  */
 
 #include "interface/configs/config_manager.h"
-#include "interface/utils/log.h"
 #include "passes/pass_mgr/pass_manager.h"
 
 namespace npu::tile_fwk {

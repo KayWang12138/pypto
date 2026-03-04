@@ -18,7 +18,6 @@
 #include <fstream>
 #include <unordered_set>
 
-#include "interface/utils/log.h"
 #include "interface/utils/id_gen.h"
 #include "interface/utils/serialization.h"
 #include "interface/configs/config_manager.h"
@@ -47,23 +46,6 @@ Program::Program() : currentFunctionPtr_(nullptr) {
     CreateInitFunction();
 
     HostMachine::GetInstance().Init(HostMachineMode::SERVER);
-    std::string envLogLevel;
-    GetEnv("GLOBAL_LOG_LEVEL", envLogLevel);
-    if (envLogLevel.empty()) {
-        return;
-    }
-    int32_t logLevel = 0;
-    try {
-        logLevel = std::stoi(envLogLevel);
-    } catch (...) {
-        return;
-    }
-    if (logLevel < 0 || logLevel > static_cast<int32_t>(LoggerLevel::NONE)) {
-        printf("Log level %d is not valid.\n", logLevel);
-        return;
-    }
-    LoggerManager::GetManager().ResetLevel(static_cast<LoggerLevel>(logLevel));
-    printf("Set global log level as %d\n", logLevel);
 }
 
 Program::~Program() {
@@ -103,7 +85,6 @@ void Program::SetCurrentFunction(Function *function) {
     if (function != nullptr) {
         currentFunctionPtr_ = function;
         currentFunctionMagicName_ = function->GetMagicName();
-        FUNCTION_LOGD("Set current function successfully.");
     }
     FUNCTION_LOGW("Failed to set current function.");
 }
@@ -335,7 +316,6 @@ void Program::HandleTaskSubmission(Function *result) {
 // End the current function and pop the function index from the stack
 std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string &funcName,
                                                                           bool generateCall) {
-    FUNCTION_LOGD("EndFunction start.");
 #if ENABLE_HIDDENLOOP
     // End child hidden loop
     EndHiddenLoop(currentFunctionPtr_, generateCall);
