@@ -119,6 +119,7 @@ TEST_F(TestCodegenSpillOut, UBSpillOutTileTensor) {
     auto &op = function->AddOperation(Opcode::OP_COPY_OUT, {ubTensor}, {ddrTensor});
     op.SetOpAttribute(
         std::make_shared<CopyOpAttribute>(MEM_UB, OpImmediate::Specified({16, 16}), shapeImme, shapeImme));
+    op.SetAttr(OpAttributeKey::workspaceBaseOffset, static_cast<int64_t>(16));
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
