@@ -221,15 +221,24 @@ Status OoOSchedule::RecordLastUseMemory(Function &function) {
             op->SetAttribute(OpAttributeKey::lastUse, initVec);
             for (size_t inputIdx = 0; inputIdx < op->GetIOperands().size(); inputIdx++) {
                 auto inTensor = op->GetInputOperand(inputIdx);
-                lastUseMap_[inTensor] = op;
+                lastUseMap_[inTensor->GetMagic()] = op;
             }
         }
     }
     std::unordered_map<Operation*, std::vector<int>> opInputIdxMap;
     std::unordered_set<Opcode> reduceOp = {Opcode::OP_ROWSUM_SINGLE, Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWMIN_SINGLE};
+    std::unordered_map<int, LogicalTensorPtr> magicToTensorMap;
+    for (auto &program : function.rootFunc_->programs_) {
+        for (auto &tensor : program.second->GetTensorMap().tensorMap_) {
+            for (auto &t : tensor.second) {
+                magicToTensorMap[t->GetMagic()] = t;
+            }
+        }
+    }
     for (auto &entry : lastUseMap_) {
         auto lastUseOp = entry.second;
-        auto lastUseTensor = entry.first;
+        auto tensorMagic = entry.first;
+        auto lastUseTensor = magicToTensorMap[tensorMagic];
         if (opInputIdxMap.find(lastUseOp) == opInputIdxMap.end()) {
             int tensorSize = lastUseOp->GetIOperands().size() + lastUseOp->GetOOperands().size();
             std::vector<int> tensorIdxVec(tensorSize, false);

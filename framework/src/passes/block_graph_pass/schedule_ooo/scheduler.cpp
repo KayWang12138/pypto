@@ -1258,13 +1258,15 @@ Status OoOScheduler::Schedule(const std::vector<Operation *> &operations, const 
                     l0BMXTensor = l0Tensor;
                 }
             }
-            l02L0MXMap_[l0ATensor] = l0AMXTensor;
-            l02L0MXMap_[l0BTensor] = l0BMXTensor;
+            l02L0MXMap_[l0ATensor->GetMagic()] = l0AMXTensor;
+            l0MX2L0Map_[l0AMXTensor->GetMagic()] = l0ATensor;
+            l02L0MXMap_[l0BTensor->GetMagic()] = l0BMXTensor;
+            l0MX2L0Map_[l0BMXTensor->GetMagic()] = l0BTensor;
         }
     }
     for (auto &entry : l02L0MXMap_) {
-        auto l0Tensor = entry.first;
         auto l0MXTensor = entry.second;
+        auto l0Tensor = l0MX2L0Map_[l0MXTensor->GetMagic()];
         int l0MemID = l0Tensor->memoryrange.memId;
         int l0MemMXID = l0MXTensor->memoryrange.memId;
         l0MXTensor->memoryrange = TileRange(localBufferMap[l0MemID]->start >> 4, localBufferMap[l0MemID]->end >> 4, l0MemMXID);

@@ -1104,9 +1104,10 @@ Status SplitReshape::GetAssembleDynShape(const LogicalTensorPtr &input, const Lo
 Status SplitReshape::AddAssembleOp(const MemoryType &memoryType, const std::vector<int64_t> &outputOffset,
     const LogicalTensorPtr &input, const LogicalTensorPtr &output, const Operation *originOp) {
     assembles_.emplace_back(AssembleOp{memoryType, outputOffset, input, output, originOp});
-    auto iter = reshapeOffset_.find(output);
+    magicToTensorMap_[output->GetMagic()] = output;
+    auto iter = reshapeOffset_.find(output->GetMagic());
     if (iter == reshapeOffset_.end()) {
-        reshapeOffset_[output] = outputOffset;
+        reshapeOffset_[output->GetMagic()] = outputOffset;
         return SUCCESS;
     }
     auto curReshapeOffset = iter->second;
@@ -1118,7 +1119,7 @@ Status SplitReshape::AddAssembleOp(const MemoryType &memoryType, const std::vect
     for (size_t i = 0; i < outputOffset.size(); ++i) {
         upperleftIdx[i] = std::min(curReshapeOffset[i], outputOffset[i]);
     }
-    reshapeOffset_[output] = upperleftIdx;
+    reshapeOffset_[output->GetMagic()] = upperleftIdx;
     return SUCCESS;
 }
 

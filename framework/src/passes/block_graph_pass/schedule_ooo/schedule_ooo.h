@@ -61,7 +61,7 @@ private:
     Status UpdateOpCoreMap(const TaskNode &taskNode, std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap);
     std::vector<Function *> oriFunctions;
     std::map<uint64_t, OoOScheduler> schedulerMap;
-    std::unordered_map<LogicalTensorPtr, Operation *> lastUseMap_;
+    std::unordered_map<int, Operation *> lastUseMap_;
     OoOScheduleChecker checker;
 };
 } // namespace npu::tile_fwk

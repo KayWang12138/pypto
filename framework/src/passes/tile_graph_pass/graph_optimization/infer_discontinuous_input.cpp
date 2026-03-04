@@ -228,6 +228,7 @@ void InferDiscontinuousInput::Init(Function &function) {
         opInputDegree_.emplace(opList[i], opList[i]->ProducerOps().size());
         for (auto outTensor : opList[i]->GetOOperands()) {
             tensorProducers_[outTensor] = outTensor->GetProducers().size();
+            magicToTensorMap_[outTensor->GetMagic()] = outTensor;
         }
     }
 }
@@ -239,6 +240,30 @@ Status InferDiscontinuousInput::InferFromIncast() {
         if (opInputDegree.second == 0) {
             procOpQueue.push(opInputDegree.first);
         }
+    }
+    std::set<Operation *> visitedOps;
+    while (!procOpQueue.empty()) {
+        auto currentOp = procOpQueue.front();
+        procOpQueue.pop();
+        visitedOps.insert(currentOp);
+        for (auto outOp : currentOp->ConsumerOps()) {
+            opInputDegree_[outOp]--;
+            if (opInputDegree_[outOp] == 0) {
+                procOpQueue.push(outOp);
+            }
+        }
+        for (auto &outputTensor : currentOp->GetOOperands()) {
+            tensorProducers_[outputTensor]--;
+            if (tensorProducers_[outputTensor] != 0) {
+                continue;
+            }
+            auto inplacedTensor = GetInplacedTileTensors(outputTensor);
+            auto filterdTensor = FilterCopyScenes(inplacedTensor);
+            insertCopys_.emplace(outputTensor->GetMagic(), filterdTensor);
+        }
+    }
+    return SUCCESS;
+}
     }
     std::set<Operation *> visitedOps;
     while (!procOpQueue.empty()) {
@@ -353,9 +378,10 @@ Status InferDiscontinuousInput::InsertTensorCopy(Function &function) {
     std::map<LogicalTensorPtr, std::set<Operation *>> insertedNodes;
     DDRTensorAssignUB(function, insertedNodes);
     for (auto &copyInserts : insertCopys_) {
+        auto tensorMagic = copyInserts.first;
         auto &inplaceNodes = copyInserts.second;
+        auto inputTensor = magicToTensorMap_[tensorMagic];
         for (auto &inplaceNode : inplaceNodes) {
-            auto &inputTensor = inplaceNode.first;
             if (insertedNodes.find(inputTensor) != insertedNodes.end()) {
                 if (insertedNodes[inputTensor].count(inplaceNode.second) != 0U) {
                     continue;

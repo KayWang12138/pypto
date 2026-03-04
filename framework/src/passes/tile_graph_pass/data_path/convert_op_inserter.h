@@ -43,12 +43,9 @@ public:
 
     std::vector<ConvertOpInfo> converts;
     std::unordered_map<int, std::shared_ptr<RawTensor>> oldRawToNewRaw;
+    std::unordered_map<int, std::shared_ptr<LogicalTensor>> magicToTensorMap_;
 
-    /*
-        key: Tensor 指针
-        value: consumer op的指针到该op所需内存类型的映射map
-    */
-    std::unordered_map<LogicalTensorPtr, std::map<Operation *, MemoryType>> tensorTobeMap;
+    std::unordered_map<int, std::map<Operation *, MemoryType>> tensorTobeMap;
     std::unordered_map<int, std::map<MemoryType, std::set<Operation *>>> conflictMap;
 
     // 设置指定tensor的指定consumer op所需的mem tobe 类型

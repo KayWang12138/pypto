@@ -41,7 +41,8 @@ private:
     void Init(Function& function);
     std::vector<std::pair<LogicalTensorPtr, Operation *>> FilterCopyScenes(
         const std::vector<std::pair<LogicalTensorPtr, Operation *>> &);
-    std::map<LogicalTensorPtr, std::vector<std::pair<LogicalTensorPtr, Operation *>>> insertCopys_;
+    std::map<int, std::vector<std::pair<LogicalTensorPtr, Operation *>>> insertCopys_;
+    std::unordered_map<int, LogicalTensorPtr> magicToTensorMap_;
     std::map<Operation *, size_t> opInputDegree_;
     std::map<LogicalTensorPtr, size_t> tensorProducers_;
 };
