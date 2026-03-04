@@ -2319,7 +2319,7 @@ static uint64_t DumpTensorWorkspace() {
 }
 
 static uint64_t LeafDumpWorkspace() {
-    if (IsPtoDataDumpEnabled()) {
+    if (config::GetVerifyOption<bool>(KEY_ENABLE_CALL_TASK_DUMP)) {
         static constexpr uint64_t LEAFDUMP_WORKSPACE = 12 * MEBI;
         return LEAFDUMP_WORKSPACE;
     } else {

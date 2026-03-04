@@ -188,7 +188,11 @@ public:
         }
 
 #ifdef BUILD_WITH_CANN
+<<<<<<< HEAD
         if (IsPtoDataDumpEnabled()) {  // dump tensor
+=======
+        if (config::GetVerifyOption<bool>(KEY_ENABLE_CALL_TASK_DUMP)) {  // dump tensor
+>>>>>>> feat(interpreter): Precision tool supports mix subgraph
             devProg->devArgs.hostPid = GetProcessId();
         }
         if (isDevice) {
