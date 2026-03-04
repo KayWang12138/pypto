@@ -504,6 +504,36 @@ Tensor LReLU(const Tensor &self, const Element &other) {
         self.GetStorage(), other);
 }
 
+Tensor CeilDiv(const Tensor &self, const Tensor &other) {
+    std::vector<DataType> CEILDIV_SUPPORT_TYPES = {DataType::DT_INT32};
+    ASSERT(
+        self.GetDataType() == other.GetDataType() && 
+        std::find(CEILDIV_SUPPORT_TYPES.begin(), CEILDIV_SUPPORT_TYPES.end(), self.GetDataType()) != CEILDIV_SUPPORT_TYPES.end())
+        << "CeilDiv only supports same data type for self and other! And it should be in DT_INT32.";
+
+    Tensor selfFp32 = Cast(self, DataType::DT_FP32);
+    Tensor otherFp32 = Cast(other, DataType::DT_FP32);
+    Tensor resultFp32 = Div(selfFp32, otherFp32);
+    resultFp32 = Ceil(resultFp32);
+    Tensor result = Cast(resultFp32, DT_INT32);
+    return result;
+}
+
+Tensor CeilDiv(const Tensor &self, const Element &other) {
+    std::vector<DataType> CEILDIV_SUPPORT_TYPES = {DataType::DT_INT32};
+    ASSERT(
+        self.GetDataType() == other.GetDataType() && 
+        std::find(CEILDIV_SUPPORT_TYPES.begin(), CEILDIV_SUPPORT_TYPES.end(), self.GetDataType()) != CEILDIV_SUPPORT_TYPES.end())
+        << "CeilDiv only supports same data type for self and other! And it should be in DT_INT32.";
+
+    Tensor selfFp32 = Cast(self, DataType::DT_FP32);
+    Element otherFp32(DT_FP32, other.Cast<float>());
+    Tensor resultFp32 = Div(selfFp32, otherFp32);
+    resultFp32 = Ceil(resultFp32);
+    Tensor result = Cast(resultFp32, DT_INT32);
+    return result;
+}
+
 template <BinaryOpType T>
 void TiledBinaryOperationAllScalar(Function &function, const TileShape &tileShape, size_t cur, LogicalInput &input1,
     Element &value, const LogicalTensorPtr &result, TileInfo &resultTileInfo, bool reverseOperand) {
