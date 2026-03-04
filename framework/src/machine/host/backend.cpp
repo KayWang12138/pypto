@@ -35,6 +35,7 @@
 #include "tilefwk/op_registry.h"
 #include "main_block.h"
 #include <dlfcn.h>
+#include <regex>
 #include "tilefwk/pypto_fwk_log.h"
 
 using namespace npu::tile_fwk::dynamic;
@@ -368,6 +369,28 @@ static std::string BuildControlFlowCallee(Function *func, int ident) {
     return oss.str();
 }
 
+static bool CheckAndInsertTargetExpression(std::ostringstream &controlFlowOss, 
+                                             const std::string &exprStr,
+                                             int indent,
+                                             bool &foundTargetExpr) {
+    static std::regex targetPattern(R"(RUNTIME_GetTensorDataInt32Dim[1-4])");
+    
+    if (!foundTargetExpr && std::regex_search(exprStr, targetPattern)) {
+        foundTargetExpr = true;
+        
+        controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "{\n";
+        controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "static bool __once_flag__ = false;\n";
+        controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "if (!__once_flag__) {\n";
+        controlFlowOss << std::setw((indent + 2) * TABSIZE) << ' ' << "WaitForSyncFlag(startArgs);\n";
+        controlFlowOss << std::setw((indent + 2) * TABSIZE) << ' ' << "__once_flag__ = true;\n";
+        controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "}\n";
+        controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "}\n";
+        
+        return true;
+    }
+    return false;
+}
+
 static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::string &sectionName,
     Function *func,
     std::unordered_map<int, int> &slotIdxMapping,
@@ -401,8 +424,19 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
             expressionOss << "#define " << AddArgPrefix(outputNameList[idx]) << " " << idx + inputNameList.size() << "\n";
         }
 
-        controlFlowOss << "#define LOOP(idx, b, e, s) for (int64_t idx = (b), idxEnd = (e), idxStep = (s); idx < idxEnd; idx += idxStep)\n"
-            << "namespace npu::tile_fwk {\n"
+        controlFlowOss << "#define LOOP(idx, b, e, s) for (int64_t idx = (b), idxEnd = (e), (idxStep) = (s); idx < idxEnd; idx += idxStep)\n"
+             << "namespace npu::tile_fwk {\n"
+             << "static inline void WaitForSyncFlag(DevStartArgsBase *startArgs) {\n"
+             << "    DEV_IF_DEVICE {\n"
+             << "        uint64_t start = GetCycles();\n"
+             << "        while ((startArgs->devProg->devArgs.disableSync == 0) && startArgs->syncFlag != 1) {\n"
+             << "            if (GetCycles() - start > HAND_SHAKE_TIMEOUT) {\n"
+             << "                DEV_ERROR(\"Wait sync flag timeout.\");\n"
+             << "                break;\n"
+             << "            }\n"
+             << "        }\n"
+             << "    }\n"
+             << "}\n"
             << BuildControlFlowCallee(func, 0)
             << "__attribute__((section(\"" << sectionName
             << "\")))\n"
@@ -514,9 +548,14 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
 
         SymbolicExpressionTable *exprTable = linker.LookupDevRootCoa(func);
         if (exprTable != nullptr) {
+            static bool foundTargetExpr = false;
+            
             for (auto &expr : exprTable->GetPrimaryExpressionSet()) {
                 auto index = exprTable->GetPrimaryExpressionSet().GetIndex(expr);
                 auto exprStr = exprTable->BuildExpression(expr);
+                
+                CheckAndInsertTargetExpression(controlFlowOss, exprStr, indent, foundTargetExpr);
+                
                 controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_SetExpr(exprList" << devRootKey << ", " << index << ", " << exprStr << ");\n";
             }
         }
