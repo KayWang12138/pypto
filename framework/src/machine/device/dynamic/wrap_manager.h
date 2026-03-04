@@ -135,9 +135,18 @@ public:
         }
     }
 
-    inline bool GetWrapCoreAvailable(int coreIdx) {
+    inline bool GetWrapCoreAvailable(uint32_t coreIdx) {
         RETURN_RET_IF_NOT(isSupportMixSche, true);
-        return wrapCoreStatus_[coreIdx] == 0;
+        for (uint32_t idx = wrapQueueForThread_.head; idx < wrapQueueForThread_.tail; idx++) {
+            WrapInfo *wrapInfo = reinterpret_cast<WrapInfo *>(wrapQueueForThread_.elem[idx]);
+            if (wrapInfo->taskCnt == 0) {
+                continue;
+            }
+            if (coreIdx == wrapInfo->aicCoreIdx || coreIdx == wrapInfo->aivCoreIdxZero || coreIdx == wrapInfo->aivCoreIdxOne) {
+                return false;
+            }
+        }
+        return true;
     }
 
     inline uint32_t GetAvailableCoreIdx(MixResourceType mixType = MixResourceType::MIX_UNKNOWN) {
@@ -219,11 +228,17 @@ public:
         runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]++] = coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_;
         corePendReadyCnt_[CORE_IDX_AIC]++;
         corePendReadyCnt_[CORE_IDX_AIV]++;
+        pendingIds_[coreIdx] = AICORE_TASK_INIT;
+        runningIds_[coreIdx] = AICORE_TASK_INIT;
+        pendingIds_[coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_] = AICORE_TASK_INIT;
+        runningIds_[coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_] = AICORE_TASK_INIT;
         if (mixType != MixResourceType::MIX_1C1V) {
             runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]++] = coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_ + 1;
             DEV_VERBOSE_DEBUG("add coreIdx %u  %u  %u", coreIdx, coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_,
                 coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_ + 1);
             corePendReadyCnt_[CORE_IDX_AIV]++;
+            pendingIds_[coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_ + 1] = AICORE_TASK_INIT;
+            runningIds_[coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_ + 1] = AICORE_TASK_INIT;
         } else {
             DEV_VERBOSE_DEBUG("add coreIdx %u  %u", coreIdx, coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_);
         }
@@ -425,7 +440,7 @@ public:
             return;
         }
 
-        bool isCubeCoreAvail = wrapCoreStatus_[wrapInfo->aicCoreIdx] == 0 || pendingIds_[wrapInfo->aicCoreIdx] == AICORE_TASK_INIT;
+        bool isCubeCoreAvail = wrapCoreStatus_[wrapInfo->aicCoreIdx] == 0;
         // if the wrap is in this thread, try to send task directly
         if (GetCoreType(taskId) == CoreType::AIC && isCubeCoreAvail) {
             DEV_VERBOSE_DEBUG("directly send taskId %u to cubecore", taskId);
@@ -436,8 +451,8 @@ public:
 
         if (GetCoreType(taskId) == CoreType::AIV) {
             int32_t wrapVecId = GetWrapVecId(taskId);
-            bool isVecZeroAvail = wrapCoreStatus_[wrapInfo->aivCoreIdxZero] == 0 || pendingIds_[wrapInfo->aivCoreIdxZero] == AICORE_TASK_INIT;
-            bool isVecOneAvail = wrapCoreStatus_[wrapInfo->aivCoreIdxOne] == 0 || pendingIds_[wrapInfo->aivCoreIdxOne] == AICORE_TASK_INIT;
+            bool isVecZeroAvail = wrapCoreStatus_[wrapInfo->aivCoreIdxZero] == 0;
+            bool isVecOneAvail = wrapCoreStatus_[wrapInfo->aivCoreIdxOne] == 0;
             if (isVecZeroAvail && (wrapVecId == 0 || wrapVecId == -1)) {
                 DEV_VERBOSE_DEBUG("directly send taskId %u to veccore0", taskId);
                 SendTaskToAiCore(CoreType::AIV, wrapInfo->aivCoreIdxZero, taskId);
@@ -483,10 +498,8 @@ public:
             wrapCoreStatus_[wrapInfo->aivCoreIdxOne] = 0;
             std::swap(wrapQueueForThread_.elem[wrapIdx], wrapQueueForThread_.elem[--wrapQueueForThread_.tail]);
         } else {
-            if (runningIds_[coreIdx] == AICORE_TASK_INIT && pendingIds_[coreIdx] == AICORE_TASK_INIT) {
-                DEV_VERBOSE_DEBUG("wrapId %u 's all tasks not finish yet, only set coreIdx[%d] status to 0", wrapId, coreIdx);
-                wrapCoreStatus_[coreIdx] = 0;
-            }
+            DEV_VERBOSE_DEBUG("wrapId %u 's all tasks not finish yet, only set coreIdx[%d] status to 0", wrapId, coreIdx);
+            wrapCoreStatus_[coreIdx] = 0;
         }
     }
 };
