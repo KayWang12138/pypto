@@ -203,7 +203,6 @@ def selected_attention_compute(args: SAInputs):
                                 c1_tile[0],
                                 c1_tile[1],
                                 c1_tile[2],
-                                False,
                             )
                             pypto.set_semantic_label("Sa_QkMM")
                             pypto.set_matrix_size(
@@ -236,7 +235,6 @@ def selected_attention_compute(args: SAInputs):
                                     c2_tile[0],
                                     c2_tile[1],
                                     c2_tile[2],
-                                    False,
                                 )
                                 pypto.set_semantic_label(
                                     "Sa_KvMm"
@@ -318,7 +316,6 @@ def selected_attention_compute(args: SAInputs):
                                     c2_tile[0],
                                     c2_tile[1],
                                     c2_tile[2],
-                                    False,
                                 )
                                 pypto.set_semantic_label(
                                     "Sa_UpdateMM2"
