@@ -43,7 +43,7 @@ target_compile_options(pypto_ctrl_server
             -Wextra
             -std=gnu++17
             -rdynamic
-            -O3	
+            -O3
             -shared
             -fPIC
             -D__DEVICE__
@@ -57,7 +57,7 @@ target_include_directories(pypto_ctrl_server
             ${PTO_FWK_SRC_ROOT}/framework/src/include
             ${PTO_FWK_SRC_ROOT}/framework/src/interface
             ${PTO_FWK_SRC_ROOT}/framework/src/interface/machine/device
-        PRIVATE  # 使用 CANN 场景依赖
+        PRIVATE
             $<BUILD_INTERFACE:$<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include>>
             $<BUILD_INTERFACE:$<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/toolchain>>
             $<BUILD_INTERFACE:$<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/base>>
