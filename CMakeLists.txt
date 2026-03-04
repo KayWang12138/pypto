@@ -151,6 +151,15 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
                 PATTERN ".svn" EXCLUDE
                 PATTERN ".git" EXCLUDE
         )
+    else ()
+        # 仅安装在线编译二进制必需的头文件
+        install(FILES
+                        framework/include/tilefwk/data_type.h
+                        framework/include/tilefwk/error.h
+                        framework/include/tilefwk/lazy.h
+                        # TODO: securec.h
+                DESTINATION ${PyPTO_WhlName}/include
+        )
     endif ()
     install(DIRECTORY framework/src/interface/tileop/
             DESTINATION ${PyPTO_WhlName}/lib/include/tileop
