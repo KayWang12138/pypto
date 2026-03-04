@@ -127,7 +127,7 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
             || (*consumers.begin())->GetOpcode() == Opcode::OP_L1_TO_BT || (*consumers.begin())->GetOpcode() == Opcode::OP_L1_TO_FIX_QUANT_PRE);
     const bool isInt8Input = IsInputInt8(op, in);
     int64_t padModeValue = 0;
-    if (*producers.begin()->HasAttribute("op_attr_copy_in_l1_padding_mode")) {
+    if ((*producers.begin())->HasAttribute("op_attr_copy_in_l1_padding_mode")) {
         op.GetAttr<int64_t>("op_attr_copy_in_l1_padding_mode", padModeValue);
     }
     const bool isMatmulMX = (padModeValue != 0); 
