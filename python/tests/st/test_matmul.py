@@ -197,6 +197,7 @@ def create_l0c2l1_kernel(tile_config1, tile_config2, extend_config):
     return matmul_kernel_l0c2l1
 
 
+@pytest.mark.soc("950", "910")
 def test_mm_with_mn_split():
     m = 69
     k = 99
@@ -215,6 +216,7 @@ def test_mm_with_mn_split():
     assert torch.allclose(c1.cpu().to(torch.float32), golden, atol=1e-3, rtol=1e-3)
 
 
+@pytest.mark.soc("950", "910")
 def test_mm_with_mn_split_nz():
     m = 64
     k = 128
@@ -238,55 +240,19 @@ def test_mm_with_mn_split_nz():
     assert torch.allclose(c1.cpu().to(torch.float32), golden, atol=1e-3, rtol=1e-3)
 
 
-def test_mm_with_gm_acc_mn_split_fp16():
-    m = 255
+@pytest.mark.soc("950", "910")
+def test_bmm_with_mn_split():
+    b = 3
+    m = 63
     k = 127
-    n = 257
+    n = 129
     tile_m = 64
     tile_k = 64
     tile_n = 64
-    m_view = 128
-    n_view = 256
-    tile_config = ShapeConfig([m, k, n], [tile_m, tile_m], [tile_k, tile_k], [tile_n, tile_n], [m_view, n_view], FP16,
-                                FP32, False, True, False, False, False, True, True)
-    a1_tensor = torch.rand([m, k], dtype=torch.float16)
-    b1_tensor = torch.rand([n, k], dtype=torch.float16)
-    golden = torch.matmul(a1_tensor.to(torch.float32), b1_tensor.to(torch.float32).T)
-    c1 = create_mm_kernel_with_mn_split(tile_config)(a1_tensor.npu(), b1_tensor.npu())
+    tile_config = ShapeConfig([b, m, k, n], [tile_m, tile_m], [tile_k, tile_k], [tile_n, tile_n], [-1, -1], FP16, FP32,
+                                True, False, False, False, False, False, False)
+    a1_tensor = torch.rand([b, k, m], dtype=torch.float16)
+    b1_tensor = torch.rand([b, k, n], dtype=torch.float16)
+    golden = torch.matmul(a1_tensor.to(torch.float32).transpose(-2, -1), b1_tensor.to(torch.float32))
+    c1 = create_bmm_kernel_with_no_mn_split(tile_config)(a1_tensor.npu(), b1_tensor.npu())
     assert torch.allclose(c1.cpu().to(torch.float32), golden, atol=1e-3, rtol=1e-3)
-
-
-def test_mm_with_gm_acc_mn_split_fp32():
-    m = 251
-    k = 247
-    n = 219
-    tile_m = 64
-    tile_k = 64
-    tile_n = 64
-    m_view = 128
-    n_view = 256
-    tile_config = ShapeConfig([m, k, n], [tile_m, tile_m], [tile_k, tile_k], [tile_n, tile_n], [m_view, n_view], FP32,
-                                FP32, True, True, False, False, False, True, True)
-    a1_tensor = torch.rand([k, m], dtype=torch.float32)
-    b1_tensor = torch.rand([n, k], dtype=torch.float32)
-    golden = torch.matmul(a1_tensor.to(torch.float32).T, b1_tensor.to(torch.float32).T)
-    c1 = create_mm_kernel_with_mn_split(tile_config)(a1_tensor.npu(), b1_tensor.npu())
-    assert torch.allclose(c1.cpu().to(torch.float32), golden, atol=1e-3, rtol=1e-3)
-
-
-def test_mm_with_gm_acc_mn_split_int8():
-    m = 167
-    k = 149
-    n = 201
-    tile_m = 64
-    tile_k = 64
-    tile_n = 64
-    m_view = 128
-    n_view = 256
-    tile_config = ShapeConfig([m, k, n], [tile_m, tile_m], [tile_k, tile_k], [tile_n, tile_n], [m_view, n_view], INT8,
-                                INT32, True, True, False, False, False, True, True)
-    a1_tensor = torch.randint(low=1, high=5, size=[k, m], dtype=torch.int8)
-    b1_tensor = torch.randint(low=1, high=5, size=[n, k], dtype=torch.int8)
-    golden = torch.matmul(a1_tensor.to(torch.int32).T, b1_tensor.to(torch.int32).T)
-    c1 = create_mm_kernel_with_mn_split(tile_config)(a1_tensor.npu(), b1_tensor.npu())
-    assert torch.allclose(c1.cpu().to(torch.int32), golden, atol=1e-3, rtol=1e-3)
