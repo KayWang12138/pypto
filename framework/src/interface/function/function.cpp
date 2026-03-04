@@ -3644,7 +3644,7 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
             return matches.front();
         }
         case OverlapStatus::BE_COVERED: {
-            auto viewResult = std::make_shared<LogicalTensor>(*this, matches.front()->tensor->datatype, iOperand->shape,
+            auto viewResult = std::make_shared<LogicalTensor>(*this, matches.front()->tensor->datatype, iOperand->shape, SymbolicScalar::FromConcrete(iOperand->shape),
                 iOperand->Format(), "View_" + matches.front()->tensor->symbol, matches.front()->nodetype);
             auto &viewOp = AddRawOperation(Opcode::OP_VIEW, {matches.front()}, {viewResult});
             viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(
