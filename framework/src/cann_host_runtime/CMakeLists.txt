@@ -19,7 +19,6 @@ target_link_libraries(tile_fwk_cann_host_runtime
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub
-            $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:kernel_tiling_headers>
             dl
             c_sec
             tile_fwk_utils
