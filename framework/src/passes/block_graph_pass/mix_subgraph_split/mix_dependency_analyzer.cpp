@@ -18,42 +18,6 @@
 
 namespace npu {
 namespace tile_fwk {
-void MixDependencyAnalyzer::InitSubgraphToFunction(const std::vector<InternalComponentInfo>& components) {
-    subgraphToFunction.nLIST.resize(components.size());
-    subgraphToFunction.subFuncInvokeInfos.resize(components.size());
-    // 初始化nList
-    for (size_t compIndex = 0; compIndex < components.size(); compIndex++) {
-        const auto& component = components[compIndex];
-        // 将 Operation* 转换为 std::shared_ptr<Operation>
-        std::vector<std::shared_ptr<Operation>> sharedOperations;
-        for (auto* op : component.operations) {
-            sharedOperations.push_back(op->shared_from_this());
-        }
-        subgraphToFunction.nLIST[compIndex] = sharedOperations;
-        subgraphToFunction.subFuncInvokeInfos[compIndex] = SubfuncInvokeInfoTy();
-    }
-}
-
-void MixDependencyAnalyzer::InOutCastRecord(Function* originalMixFunc) {
-    for (int i = 0; i < static_cast<int>(subgraphToFunction.nLIST.size()); i++) {
-        for (size_t j = 0; j < subgraphToFunction.nLIST[i].size(); j++) {
-            for (size_t k = 0; k < subgraphToFunction.nLIST[i][j]->GetIOperands().size(); k++) {
-                subgraphToFunction.RecordEsgIncast(*originalMixFunc, i, j, k);
-            }
-            for (size_t k = 0; k < subgraphToFunction.nLIST[i][j]->GetOOperands().size(); k++) {
-                subgraphToFunction.RecordEsgOutcast(*originalMixFunc, i, j, k);
-            }
-        }
-    }
-    // 完成所有记录
-    for (auto& invokeInfo : subgraphToFunction.subFuncInvokeInfos) {
-        invokeInfo.DoFinishRecord();
-    }
-    for (size_t i = 0; i < subgraphToFunction.subFuncInvokeInfos.size(); i++) {
-        subgraphToFunction.subFuncInvokeInfos[i].ConstructActualInvokeParam(i);
-    }
-}
-
 std::unordered_map<int, std::set<int>> MixDependencyAnalyzer::AnalyzeComponentDependencies(Function &mixFunc,
     std::map<std::pair<int, int>, std::vector<LogicalTensorPtr>>& crossComponentTensors) {
     std::unordered_map<int, std::set<int>> dependencies;
@@ -90,7 +54,7 @@ std::unordered_map<int, std::set<int>> MixDependencyAnalyzer::AnalyzeComponentDe
                 }
             }
         }
-    }
+    }dependencies
     // 用于记录mixsplit间的依赖关系
     return dependencies;
 }
@@ -151,72 +115,39 @@ void MixDependencyAnalyzer::ComputeDependencyClosure(std::unordered_map<int, std
     UpdateDependencies(dependencies);
 }
 
-void MixDependencyAnalyzer::ExtractExternalDependencies(const std::vector<SubfuncInvokeInfoTy> &subFuncInvokeInfos) {
-    for (size_t i = 0; i < subFuncInvokeInfos.size(); i++) {
-        const auto& invokeInfo = subFuncInvokeInfos[i];
-        // 提取incast
-        for (const auto& incast : invokeInfo.GetIncastTensorParamList()) {
-            allIncasts[i].emplace_back(incast.tensor, incast.opMagic, incast.operandIdx);
-        }
-        // 提取outcast
-        for (const auto& outcast : invokeInfo.GetOutcastTensorParamList()) {
-            allOutcasts[i].emplace_back(outcast.tensor, outcast.opMagic, outcast.operandIdx);
-        }
-        // 提取global tensor作为输入输出
-        for (const auto& tensorParam : invokeInfo.GetTensorParamList()) {
-            if (tensorParam.isOutputToGM) {
-                allOutcasts[i].emplace_back(tensorParam.tensor, tensorParam.opMagic, tensorParam.operandIdx);
-            } else {
-                allIncasts[i].emplace_back(tensorParam.tensor, tensorParam.opMagic, tensorParam.operandIdx);
-            }
+void MixDependencyAnalyzer::ExtractExternalDependencies() {
+    if (!leafFunction_) {
+        ALOG_ERROR_F("originalMixFunc_ is null, cannot extract external dependencies");
+        return;
+    }
+    ALOG_INFO_F("Extracting external dependencies from originalMixFunc: %s", 
+            leafFunction_->GetName().c_str());
+    // 从 leafFunction 提取 incasts - 这些 incast 应该分配给所有scope
+    const auto& incastTensors = leafFunction_->GetIncast();
+    ALOG_INFO_F("Original mix function has %zu incast tensors", incastTensors.size());
+    // 为每个scope分配相同的 incast tensors
+    for (int compId = 0; compId <= maxComponent; compId++) {
+        for (const auto& tensor : incastTensors) {
+            allIncasts[compId].push_back(tensor);
+            ALOG_DEBUG_F("Assigned incast tensor %d to component %d", 
+                    tensor->GetRawMagic(), compId);
         }
     }
-}
-
-// 检查incast列表中是否包含指定的tensor
-bool MixDependencyAnalyzer::ContainsTensor(const std::vector<SimpleTensorParam> &tensors, const LogicalTensorPtr &tensor) const {
-    for (const auto& incast : tensors) {
-        if (incast.tensor == tensor) {
-            return true;
+    // 从 leafFunction 获取 outcasts - 这些 outcast 应该分配给所有scope
+    const auto& outcastTensors = leafFunction_->GetOutcast();
+    ALOG_INFO_F("Original mix function has %zu outcast tensors", outcastTensors.size());
+    
+    // 为每个scope分配相同的 outcast tensors    
+    for (int compId = 0; compId <= maxComponent; compId++) {
+        for (const auto& tensor : outcastTensors) {
+            allOutcasts[compId].push_back(tensor);
+            ALOG_DEBUG_F("Assigned outcast tensor %d to component %d", 
+                        tensor->GetRawMagic(), compId);
         }
     }
-    return false;
-}
-
-void MixDependencyAnalyzer::PropagateIncastDependencies(const std::set<int> &targets, const std::vector<SimpleTensorParam> &tensorParams) {
-    for (int targetComp : targets) {
-        for (const auto& incastParam : tensorParams) {
-            if (!ContainsTensor(allIncasts[targetComp], incastParam.tensor)) {
-                allIncasts[targetComp].push_back(incastParam);
-            }
-        }
-    }
-}
-
-void MixDependencyAnalyzer::PropagateOutcastDependencies(int targetComp, int sourceComp) {
-    auto outcastIt = allOutcasts.find(targetComp);
-    if (outcastIt != allOutcasts.end()) {
-        for (const auto& outcastParam : outcastIt->second) {
-            if (!ContainsTensor(allOutcasts[sourceComp], outcastParam.tensor)) {
-                allOutcasts[sourceComp].push_back(outcastParam);
-            }
-        }
-    }
-}
-
-void MixDependencyAnalyzer::PropagateExternalDependenciesWithClosure(const std::unordered_map<int, std::set<int>> &dependencyClosure) {
-    // 基于传递闭包传播依赖
-    for (const auto &[sourceComp, targets] : dependencyClosure) {
-        // 传播incast：source的incast传播给所有依赖它的target
-        auto incastIt = allIncasts.find(sourceComp);
-        if (incastIt != allIncasts.end()) {
-            PropagateIncastDependencies(targets, incastIt->second);
-        }
-        // 传播outcast：target的outcast反向传播给所有source
-        for (int targetComp : targets) {
-            PropagateOutcastDependencies(targetComp, sourceComp);
-        }
-    }
+    
+    ALOG_INFO_F("Extracted external dependencies: %zu incasts per component, %zu outcasts per component, total components=%d", 
+                incastTensors.size(), outcastTensors.size(), maxComponent + 1);
 }
 
 void MixDependencyAnalyzer::CollectInternalDependencies(const std::unordered_map<int, std::set<int>> &dependencyClosure,
@@ -270,58 +201,6 @@ void MixDependencyAnalyzer::ObtainMinAdjMatrix(std::vector<std::vector<bool>> &m
     }
 }
 
-void MixDependencyAnalyzer::EliminateRedundantOuterDeps(const std::vector<std::vector<bool>> &innerDeps,
-                                                        std::unordered_map<int, std::vector<SimpleTensorParam>> &allTensors) {
-    // 初始化，构造tensor到compId的映射
-    std::set<int> isRedundant;
-    std::vector<bool> outerDeps(maxComponent + 1, false);
-    std::unordered_map<LogicalTensorPtr, std::set<int>> tensorToComponents;
-    for (const auto &[compId, incasts] : allTensors) {
-        for (const auto& incast : incasts) {
-            if (incast.tensor) {
-                tensorToComponents[incast.tensor].insert(compId);
-            }
-        }
-    }
-    for (const auto &pair : tensorToComponents) {
-        isRedundant.clear();
-        // 用于记录当前的连接关系
-        for (int i = 0; i <= maxComponent; ++i) {
-            outerDeps[i] = false;
-        }
-        for (const auto &compId : pair.second) {
-            outerDeps[compId] = true;
-        }
-        // 若tensor可达i且i可达j，则移除tensor到j的可达关系
-        for (int i = 0; i <= maxComponent; ++i) {
-            if (!outerDeps[i]) {
-                continue;
-            }
-            for (int j = 0; j <= maxComponent; ++j) {
-                if (i == j) {
-                    continue;
-                }
-                // 可以证明，若j可达k且i可达j，则必然有i可达k，所以可以原地移除
-                if (outerDeps[j] && innerDeps[i][j]) {
-                    outerDeps[j] = false;
-                    isRedundant.insert(j);
-                }
-            }
-        }
-        // 删除冗余incast
-        for (const auto &compId : isRedundant) {
-            auto& tensors = allTensors[compId];       
-            auto newEnd = std::remove_if(tensors.begin(), tensors.end(),
-                [&](const SimpleTensorParam& param) {
-                    return param.tensor == pair.first;
-                });
-            tensors.erase(newEnd, tensors.end());
-            ALOG_DEBUG_F("Removed redundant incast for tensor %d from component %d",
-                        pair.first->GetRawMagic(), compId);
-        }
-    }
-}
-
 std::vector<std::vector<bool>> MixDependencyAnalyzer::Transpose(const std::vector<std::vector<bool>> &matrix) {
     size_t n = matrix.size();
     std::vector<std::vector<bool>> ret(n, std::vector<bool>(n));
@@ -333,40 +212,12 @@ std::vector<std::vector<bool>> MixDependencyAnalyzer::Transpose(const std::vecto
     return ret;
 }
 
-void MixDependencyAnalyzer::EliminateRedundantInnerDeps(std::vector<std::vector<bool>> &innerDeps) {
-    ObtainMinAdjMatrix(innerDeps);
-    std::vector<InternalDependencyInfo> internalDepsCopy = internalDeps;
-    internalDeps.clear();
-    for (const auto &dep : internalDepsCopy) {
-        if (innerDeps[dep.srcComp][dep.dstComp]) {
-            internalDeps.push_back(dep);
-        }
-    }
-}
-
-void MixDependencyAnalyzer::EliminateRedundantDependencies() {
-    ALOG_INFO_F("Eliminating redundant dependencies...");
-    // 生成内部依赖的可达阵
-    std::vector<std::vector<bool>> innerDeps(maxComponent + 1, std::vector<bool>(maxComponent + 1, false));
-    for (const auto& dep : internalDeps) {
-        innerDeps[dep.srcComp][dep.dstComp] = true;
-    }
-    // 消除冗余incast
-    EliminateRedundantOuterDeps(innerDeps, allIncasts);
-    // 消除冗余outcast
-    EliminateRedundantOuterDeps(Transpose(innerDeps), allOutcasts);
-    // 消除冗余内部依赖
-    EliminateRedundantInnerDeps(innerDeps);
-}
-
 Status MixDependencyAnalyzer::ProcessDependencyAnalyzer(const AnalyzerInput &input, AnalyzerOutput &output) {
     Reset();
-    InitSubgraphToFunction(input.components);
-    // 步骤1：记录直接的incast/outcast(Mix子图整体与外部的依赖)
-    ALOG_INFO_F("Step 1: Recording direct incast/outcast...");
-    InOutCastRecord(input.originalMixFunc);
-    // 步骤2：分析组件间直接依赖（scope与scope之间的依赖）
-    ALOG_INFO_F("Step 2: Analyzing inter-component dependencies and recording cross-component tensors...");
+    // 设置原始MixFunc
+    SetOriginalMixFunc(input.originalMixFunc);
+    // 分析组件间直接依赖（scope与scope之间的依赖）
+    ALOG_INFO_F("Analyzing inter-component dependencies and recording cross-component tensors...");
     std::map<std::pair<int, int>, std::vector<LogicalTensorPtr>> crossComponentTensors;
     auto directDeps = AnalyzeComponentDependencies(*input.originalMixFunc, crossComponentTensors);
     ALOG_INFO_F("Found %zu cross-component tensor dependencies:", crossComponentTensors.size());
@@ -374,30 +225,28 @@ Status MixDependencyAnalyzer::ProcessDependencyAnalyzer(const AnalyzerInput &inp
         ALOG_INFO_F("  Component %d -> %d: %zu tensor(s)", 
                    edge.first, edge.second, tensors.size());
     }   
-    // 步骤3：计算依赖传递闭包
-    ALOG_INFO_F("Step 3: Computing dependency closure...");
+    // 计算依赖传递闭包
+    ALOG_INFO_F("Computing dependency closure...");
     ComputeDependencyClosure(directDeps);    
-    // 步骤4：计算所有依赖（包括外部依赖和内部依赖）
-    ALOG_INFO_F("Step 4: Computing all dependencies...");
-    // 4.1：提取外部依赖（从subgraphToFunction）
-    ExtractExternalDependencies(subgraphToFunction.subFuncInvokeInfos);
+    // 计算所有依赖（包括外部依赖和内部依赖）
+    ALOG_INFO_F("Computing all dependencies...");
+    // 提取外部依赖（直接从 originalMixFunc）
+    ExtractExternalDependencies();
     // 验证循环依赖是否合法
     Status validationStatus = ValidateCrossComponentDependencies(input, directDeps, crossComponentTensors);
     if (validationStatus != SUCCESS) {
         ALOG_ERROR_F("Cross-component dependency validation failed, aborting ProcessDependencyAnalyzer...");
         return FAILED;  // 立即返回，不继续执行
     }
-    // 4.2：基于传递闭包传播外部依赖到内部scope
-    PropagateExternalDependenciesWithClosure(directDeps);
-    // 4.3：添加内部同类型scope之间的依赖（只收集C-C、V-V的依赖）
+    // 添加内部同类型scope之间的依赖（只收集C-C、V-V的依赖）
     CollectInternalDependencies(directDeps, input.components);
-    // 步骤5：消除冗余依赖
-    ALOG_INFO_F("Step 5: Eliminating redundant dependencies...");
-    EliminateRedundantDependencies();
-    output.subgraphToFunction = subgraphToFunction;
     output.internalDeps = internalDeps;
     output.allIncasts = allIncasts;
     output.allOutcasts = allOutcasts;
+    ALOG_INFO_F("Final state: all %d components share %zu incasts and %zu outcasts",
+                maxComponent + 1, 
+                allIncasts[0].size(), 
+                allOutcasts[0].size());
     return SUCCESS;
 }
 
@@ -449,15 +298,6 @@ Status MixDependencyAnalyzer::ValidateCrossComponentDependencies(
     }
     ALOG_INFO_F("=== VALIDATION PASSED ===");   
     return SUCCESS; 
-}
-
-bool MixDependencyAnalyzer::IsTensorInComponentIncasts(int compId, const LogicalTensorPtr& tensor) const {
-    auto incastIt = allIncasts.find(compId);
-    if (incastIt == allIncasts.end()) return false;
-    for (const auto& param : incastIt->second) {
-        if (param.tensor == tensor) return true;
-    }
-    return false;
 }
 
 bool MixDependencyAnalyzer::CheckDirectionAndCollectValid(

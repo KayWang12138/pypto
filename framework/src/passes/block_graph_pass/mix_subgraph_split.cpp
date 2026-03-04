@@ -326,10 +326,18 @@ void MixSubgraphSplit::DisplayComponents(const std::vector<InternalComponentInfo
 Status MixSubgraphSplit::GenNewFunctions(Function& rootFunc, Function* originalMixFunc,
                                         const std::vector<InternalComponentInfo>& components,
                                         const std::vector<uint64_t>& newProgramIDs,
-                                        SubgraphToFunction& subgraphToFunction,
                                         std::vector<Function*>& newFunctions,
                                         uint64_t mixId,
                                         MixResourceType resourceType) {
+    // 直接从 originalMixFunc 获取完整的 incast/outcast
+    const auto& originalIncasts = originalMixFunc->GetIncast();
+    const auto& originalOutcasts = originalMixFunc->GetOutcast();
+    const auto& originalIncastPos = originalMixFunc->incastPosition;
+    const auto& originalOutcastPos = originalMixFunc->outcastPosition;
+    
+    ALOG_INFO_F("Original mix function %s has %zu incasts and %zu outcasts",
+                originalMixFunc->GetRawName().c_str(),
+                originalIncasts.size(), originalOutcasts.size());
     for (size_t i = 0; i < components.size(); i++) {
         FunctionClone functionClone(rootFunc, originalMixFunc);
         auto newFunc = functionClone.CloneFunctionByComponent(components[i], newProgramIDs[i], i);
@@ -338,7 +346,37 @@ Status MixSubgraphSplit::GenNewFunctions(Function& rootFunc, Function* originalM
                         originalMixFunc->GetRawName().c_str());
             return FAILED;  // 或者适当的错误处理
         }
-        subgraphToFunction.InsertParameter(i, *newFunc);
+        // 清空可能存在的默认值
+        newFunc->inCasts_.clear();
+        newFunc->incastPosition.clear();
+        newFunc->outCasts_.clear();
+        newFunc->outcastPosition.clear();
+        
+        for (size_t j = 0; j < originalIncasts.size(); j++) {
+            newFunc->inCasts_.push_back(originalIncasts[j]);
+            if (j < originalIncastPos.size()) {
+                newFunc->incastPosition.push_back(originalIncastPos[j]);
+            } else {
+                newFunc->incastPosition.emplace_back(-1, -1);
+            }
+            ALOG_DEBUG_F("Component %d: Set incast tensor %d (opMagic=%d, operandIdx=%d)",
+                        i, originalIncasts[j]->GetRawMagic(),
+                        newFunc->incastPosition.back().first,
+                        newFunc->incastPosition.back().second);
+        }
+        
+        for (size_t j = 0; j < originalOutcasts.size(); j++) {
+            newFunc->outCasts_.push_back(originalOutcasts[j]);
+            if (j < originalOutcastPos.size()) {
+                newFunc->outcastPosition.push_back(originalOutcastPos[j]);
+            } else {
+                newFunc->outcastPosition.emplace_back(-1, -1);
+            }
+            ALOG_DEBUG_F("Component %d: Set outcast tensor %d (opMagic=%d, operandIdx=%d)",
+                        i, originalOutcasts[j]->GetRawMagic(),
+                        newFunc->outcastPosition.back().first,
+                        newFunc->outcastPosition.back().second);
+        }
         // 在ComputeHash之前设置mixId和resourceType
         auto leafAttr = newFunc->GetLeafFuncAttribute();
         if (leafAttr == nullptr) {
@@ -378,11 +416,9 @@ Status MixSubgraphSplit::ProcessLeafFunction(Function& rootFunc,
     // 1. 准备分析器输出和子leafFunction列表
     std::shared_ptr<AnalyzerOutput> analyzerOutput = nullptr;
     std::vector<Function*> newFunctions;
-    SubgraphToFunction subgraphToFunction;
     if (isLocalFunction) {
         AnalyzerInput analyzerInput(components, originalMixFunc);
         analyzerOutput = std::make_shared<AnalyzerOutput>(
-            SubgraphToFunction{},
             std::vector<InternalDependencyInfo>(),
             std::unordered_map<int, std::vector<SimpleTensorParam>>(),
             std::unordered_map<int, std::vector<SimpleTensorParam>>()
@@ -399,17 +435,11 @@ Status MixSubgraphSplit::ProcessLeafFunction(Function& rootFunc,
         ALOG_DEBUG_F("Mix resource type: %d for programID=%d", static_cast<int>(resourceType), programID);
         // 为每个scope创建leaf function
         if (GenNewFunctions(rootFunc, originalMixFunc, components, newProgramIDs,
-                            analyzerOutput->subgraphToFunction, newFunctions,
-                            mixId, resourceType) != SUCCESS) {
+                            newFunctions, mixId, resourceType) != SUCCESS) {
             return FAILED;
         }
-
-        // 应用最终的依赖到leaf functions（外部依赖）
-        ALOG_INFO_F("Applying final dependencies to leaf functions...");
-        ApplyFinalDependencies(newFunctions, analyzerOutput->allIncasts, analyzerOutput->allOutcasts);
         // 记录到全局（仅本地function）
         RecordSplitResult(originalMixFunc, newFunctions, newProgramIDs, components, mixId, analyzerOutput);
-        subgraphToFunction = analyzerOutput->subgraphToFunction;
     } else {
         // 非本地function：从全局记录获取
         // 2.1 从全局记录获取
@@ -422,9 +452,6 @@ Status MixSubgraphSplit::ProcessLeafFunction(Function& rootFunc,
         const auto& splitRecord = it->second;
         newFunctions = splitRecord.splitFunctions;
         analyzerOutput = splitRecord.analyzerOutput;
-        if (analyzerOutput) {
-            subgraphToFunction = analyzerOutput->subgraphToFunction;
-        }
     }
     std::vector<InternalDependencyInfo> internalDeps;
     if (analyzerOutput) {
@@ -432,7 +459,7 @@ Status MixSubgraphSplit::ProcessLeafFunction(Function& rootFunc,
     }
     // 为每个原始CallOp创建一组新的callOp, 每个原始callOp使用不同的wrapId（包含dummyTensor依赖）
     ALOG_DEBUG_F("Creating call operations for %zu components", components.size());
-    if (callOpBuilder_.CreateCallOps(rootFunc, originalCallOps, originalMixFunc, components, newProgramIDs, subgraphToFunction, newFunctions, internalDeps) != SUCCESS) {
+    if (callOpBuilder_.CreateCallOps(rootFunc, originalCallOps, originalMixFunc, components, newProgramIDs, newFunctions, internalDeps) != SUCCESS) {
         ALOG_ERROR_F("Failed to create call ops for function %s",
                 originalMixFunc->GetRawName().c_str());
         return FAILED;
@@ -512,100 +539,6 @@ void MixSubgraphSplit::RecordSplitResult(Function* leafFunc,
         ALOG_DEBUG_F("  Component[%zu]: internalID=%d, aivCore=%d, ops=%zu",
                     i, component.internalSubgraphID,
                     static_cast<int>(component.aivCore), component.operations.size());
-    }
-}
-
-void MixSubgraphSplit::ApplyFinalDependencies(
-    const std::vector<Function*>& newFunctions,
-    const std::unordered_map<int, std::vector<SimpleTensorParam>>& allIncasts,
-    const std::unordered_map<int, std::vector<SimpleTensorParam>>& allOutcasts) const {
-    ALOG_INFO_F("Applying final dependencies to %zu leaf functions", newFunctions.size());
-    for (size_t i = 0; i < newFunctions.size(); i++) {
-        Function* leafFunc = newFunctions[i];
-        if (!leafFunc) continue;
-        // 应用incast依赖
-        auto incastIt = allIncasts.find(i);
-        if (incastIt != allIncasts.end()) {
-            ApplyIncastDependencies(leafFunc, i, incastIt->second);
-        }
-        // 应用outcast依赖
-        auto outcastIt = allOutcasts.find(i);
-        if (outcastIt != allOutcasts.end()) {
-            ApplyOutcastDependencies(leafFunc, i, outcastIt->second);
-        }
-    }
-}
-
-// 应用incast依赖
-void MixSubgraphSplit::ApplyIncastDependencies(
-    Function* leafFunc,
-    int componentId,
-    const std::vector<SimpleTensorParam>& incastParams) const {
-    if (!leafFunc) return;
-    // 获取当前已有的incast，用于去重
-    const auto& existingIncasts = leafFunc->GetIncast();
-    std::unordered_set<uint32_t> existingMagicSet;
-
-    for (const auto& tensor : existingIncasts) {
-        if (tensor) {
-            existingMagicSet.insert(tensor->magic);
-        }
-    }
-    for (const auto& param : incastParams) {
-        if (!param.tensor) {
-            ALOG_WARN_F("Component %d: Null tensor in incast params, skipping", componentId);
-            continue;
-        }
-        // 检查是否已经存在相同tensor（按magic）
-        if (existingMagicSet.find(param.tensor->magic) != existingMagicSet.end()) {
-            ALOG_DEBUG_F("Component %d: Tensor %d already in incast list, skipping",
-                        componentId, param.tensor->GetRawMagic());
-            continue;
-        }
-        // 添加新的incast
-        leafFunc->AppendIncast(param.tensor, param.opMagic, param.operandIdx);
-        existingMagicSet.insert(param.tensor->magic);
-        ALOG_DEBUG_F("Component %d: Added incast - tensor %d (opMagic=%d, operandIdx=%d)",
-                    componentId, param.tensor->GetRawMagic(),
-                    param.opMagic, param.operandIdx);
-    }
-}
-
-// 应用outcast依赖
-void MixSubgraphSplit::ApplyOutcastDependencies(
-    Function* leafFunc,
-    int componentId,
-    const std::vector<SimpleTensorParam>& outcastParams) const {
-
-    if (!leafFunc) return;
-    // 获取当前已有的outcast，用于去重
-    const auto& existingOutcasts = leafFunc->GetOutcast();
-    std::unordered_set<uint32_t> existingMagicSet;
-
-    for (const auto& tensor : existingOutcasts) {
-        if (tensor) {
-            existingMagicSet.insert(tensor->magic);
-        }
-    }
-    for (const auto& param : outcastParams) {
-        if (!param.tensor) {
-            ALOG_WARN_F("Component %d: Null tensor in outcast params, skipping", componentId);
-             continue;
-        }
-
-        // 检查是否已经存在相同tensor（按magic）
-        if (existingMagicSet.find(param.tensor->magic) != existingMagicSet.end()) {
-            ALOG_DEBUG_F("Component %d: Tensor %d already in outcast list, skipping",
-                        componentId, param.tensor->GetRawMagic());
-            continue;
-        }
-
-        // 添加新的outcast
-        leafFunc->AppendOutcast(param.tensor, param.opMagic, param.operandIdx);
-        existingMagicSet.insert(param.tensor->magic);
-        ALOG_DEBUG_F("Component %d: Added outcast - tensor %d (opMagic=%d, operandIdx=%d)",
-                    componentId, param.tensor->GetRawMagic(),
-                    param.opMagic, param.operandIdx);
     }
 }
 
