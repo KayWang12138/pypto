@@ -35,6 +35,8 @@ public:
         MemoryType toType = MemoryType::MEM_UNKNOWN;
         bool hasCopyInMode;     // 是否有copy_in_mode属性
         npu::tile_fwk::Any copyInModeValue;    // copy_in_mode属性值
+        bool hasPadMode;
+        int64_t padModeValue;
     };
     struct AssembleOp {
         std::shared_ptr<LogicalTensor> input;

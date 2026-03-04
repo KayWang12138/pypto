@@ -95,7 +95,10 @@ Status MergeViewAssembleUtils::AppendMergedViewOperations(Function &function) {
         // 继承op_attr_copy_in_mode属性
         if (viewOp.hasCopyInMode) {
             mergedViewOp.SetAttr("op_attr_copy_in_mode", viewOp.copyInModeValue); 
-        }   
+        }
+        if (viewOp.hasPadMode) {
+            mergedViewOp.SetAttr("op_attr_copy_in_l1_padding_mode", viewOp.padModeValue);
+        }
         viewOp.output->UpdateDynValidShape(viewOp.dynValidShape);    
     }
     return SUCCESS;
@@ -289,10 +292,12 @@ void MergeViewAssembleUtils::RecordMergedViewOperation(Operation* lastViewOp, co
     // 获取特定的 op_attr_copy_in_mode 属性
     int64_t copyInModeValue = 0;
     bool hasCopyInMode = lastViewOp->GetAttr<int64_t>("op_attr_copy_in_mode", copyInModeValue);
+    int64_t padModeValue = 0;
+    bool hasPadMode = lastViewOp->GetAttr<int64_t>("op_attr_copy_in_l1_padding_mode", padModeValue);
     // 清理消费者关系
     endTensor->GetProducers().clear();
     // 记录合并op
-    viewOpToAppend_.emplace_back(ViewOp{startTensor, endTensor, newOffset, newDynOffset, newDynValidShape, lastViewAttr->GetTo(), hasCopyInMode, std::move(copyInModeValue)});
+    viewOpToAppend_.emplace_back(ViewOp{startTensor, endTensor, newOffset, newDynOffset, newDynValidShape, lastViewAttr->GetTo(), hasCopyInMode, std::move(copyInModeValue), hasPadMode, padModeValue});
 }
 
 Status MergeViewAssembleUtils::MergeAssembleChain(Function &function, Operation &operation, std::vector<Operation *> &chain) {

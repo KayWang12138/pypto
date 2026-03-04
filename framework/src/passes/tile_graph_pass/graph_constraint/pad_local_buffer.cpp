@@ -126,6 +126,11 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
         && ((*producers.begin())->GetOpcode() == Opcode::OP_L1_TO_FIX_QUANT_PRE || (*producers.begin())->GetOpcode() == Opcode::OP_L1_TO_BT
             || (*consumers.begin())->GetOpcode() == Opcode::OP_L1_TO_BT || (*consumers.begin())->GetOpcode() == Opcode::OP_L1_TO_FIX_QUANT_PRE);
     const bool isInt8Input = IsInputInt8(op, in);
+    int64_t padModeValue = 0;
+    if ((*producers.begin())->HasAttribute("op_attr_copy_in_l1_padding_mode")) {
+        op.GetAttr<int64_t>("op_attr_copy_in_l1_padding_mode", padModeValue);
+    }
+    const bool isMatmulMX = (padModeValue != 0); 
     /*
     首先，可以通过in的数据类型是否为int8来判断是否要做32B对齐。
     再者，存在两种情况
@@ -157,6 +162,9 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
         L1_TO_L0B --> L0B (shape:[400, 16])  -->   /
         */
         PadMatmulL1ConvertScene(op, in, lowIndex, false);
+    } else if (isMatmulMX) {
+        in->shape[highIndex] = Pad(in->shape[highIndex], BT_PAD_BASE);
+        in->shape[lowIndex] = Pad(in->shape[lowIndex], BT_PAD_BASE);
     } else if (isInt8Input) {
         in->shape[highIndex] = Pad(in->shape[highIndex], CUBE_PAD_INT8_VALUE);
         in->shape[lowIndex] = Pad(in->shape[lowIndex], CUBE_PAD_INT8_VALUE);
@@ -173,6 +181,9 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
     in->tensor->oriRawshape = in->tensor->rawshape;
     if (isL1ConvertScene) {
         PadMatmulL1ConvertScene(op, in, lowIndex, true);
+    } else if (isMatmulMX) {
+        in->tensor->rawshape[highIndex] = Pad(in->tensor->oriRawshape[highIndex], BT_PAD_BASE);
+        in->tensor->rawshape[lowIndex] = Pad(in->tensor->oriRawshape[lowIndex], BT_PAD_BASE);
     } else if (isInt8Input) {
         in->tensor->rawshape[highIndex] = Pad(in->tensor->oriRawshape[highIndex], CUBE_PAD_INT8_VALUE);
         in->tensor->rawshape[lowIndex] = Pad(in->tensor->oriRawshape[lowIndex], CUBE_PAD_INT8_VALUE);
