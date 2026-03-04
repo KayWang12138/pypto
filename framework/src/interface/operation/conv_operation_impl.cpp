@@ -278,7 +278,7 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
     CheckValueRange(tileHin, "tileHin", NUM1, hin);
     CheckValueRange(tileBatch, "tileBatch", NUM1, NUM1);
     CheckValueRange(tileWin, "tileWin", NUM1, win);
-    CheckValueRange(tileN, "tileL1Info.tileN", NUM1, cOut/groups);
+    CheckValueRange(tileN, "tileL1Info.tileN", NUM1, ConvAlignB(cOut/groups, NUM16));
     CheckAlignment(tileN, NUM16, "tileL1Info.tileN");
 
     CheckHowoTile(inputTensor, weightTensor, attrParam);
