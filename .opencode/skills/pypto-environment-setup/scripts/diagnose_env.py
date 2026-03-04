@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
 """PyPTO/PyTorch/CANN/NPU 环境诊断。输出结构化报告供排查使用。"""
 from __future__ import annotations
 
@@ -978,10 +979,17 @@ def main() -> int:
                 print(f"{dep_name}: {'found' if dep_info.get('found') else 'not found'} ({dep_info.get('version', '')})")
         # Python 依赖（--fast 模式跳过）
         if not args.fast:
-            missing = python_deps.get('missing', [])
-            outdated = python_deps.get('outdated', [])
-            total_pkgs = len(python_deps.get('packages', []))
-            print(f"python_deps: {total_pkgs - len(missing) - len(outdated)}/{total_pkgs} ok ({len(missing)} missing, {len(outdated)} outdated)")
+            packages = python_deps.get('packages')
+            missing = python_deps.get('missing')
+            outdated = python_deps.get('outdated')
+
+            packages_list = packages if isinstance(packages, list) else []
+            missing_list = missing if isinstance(missing, list) else []
+            outdated_list = outdated if isinstance(outdated, list) else []
+
+            total_pkgs = len(packages_list)
+            ok_count = total_pkgs - len(missing_list) - len(outdated_list)
+            print(f"python_deps: {ok_count}/{total_pkgs} ok ({len(missing_list)} missing, {len(outdated_list)} outdated)")
         if issues:
             print(f"\nissues ({len(issues)}):")
             for i in issues:
