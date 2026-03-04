@@ -504,6 +504,27 @@ Tensor LReLU(const Tensor &self, const Element &other) {
         self.GetStorage(), other);
 }
 
+Tensor CeilDiv(const Tensor &self, const Tensor &other) {
+    std::vector<DataType> CEILDIV_SUPPORT_TYPES = {DataType::DT_INT32};
+    ASSERT(
+        self.GetDataType() == other.GetDataType() && 
+        std::find(CEILDIV_SUPPORT_TYPES.begin(), CEILDIV_SUPPORT_TYPES.end(), self.GetDataType()) != CEILDIV_SUPPORT_TYPES.end())
+        << "CeilDiv only supports same data type for self and other! And it should be in DT_INT32.";
+    RETURN_CALL(BinaryOperationScalar<BinaryOpType::CEILDIV>, *Program::GetInstance().GetCurrentFunction(),
+        self.GetStorage(), other.GetStorage());
+}
+
+Tensor CeilDiv(const Tensor &self, const Element &other) {
+    std::vector<DataType> CEILDIV_SUPPORT_TYPES = {DataType::DT_INT32};
+    ASSERT(
+        self.GetDataType() == other.GetDataType() && 
+        std::find(CEILDIV_SUPPORT_TYPES.begin(), CEILDIV_SUPPORT_TYPES.end(), self.GetDataType()) != CEILDIV_SUPPORT_TYPES.end())
+        << "CeilDiv only supports same data type for self and other! And it should be in DT_INT32.";
+
+    RETURN_CALL(BinaryOperationScalar<BinaryOpType::CEILDIV>, *Program::GetInstance().GetCurrentFunction(),
+        self.GetStorage(), other);
+}
+
 template <BinaryOpType T>
 void TiledBinaryOperationAllScalar(Function &function, const TileShape &tileShape, size_t cur, LogicalInput &input1,
     Element &value, const LogicalTensorPtr &result, TileInfo &resultTileInfo, bool reverseOperand) {
@@ -734,6 +755,7 @@ REGISTER_OPERATION_TILED_FUNC(OP_BITWISEOR, Opcode::OP_BITWISEOR, BinaryOperatio
 REGISTER_OPERATION_TILED_FUNC(OP_BITWISEXOR, Opcode::OP_BITWISEXOR, BinaryOperationTileFunc<BinaryOpType::BITWISEXOR>);
 REGISTER_OPERATION_TILED_FUNC(OP_COPYSIGN, Opcode::OP_COPYSIGN, BinaryOperationTileFunc<BinaryOpType::COPYSIGN>);
 REGISTER_OPERATION_TILED_FUNC(OP_GCD, Opcode::OP_GCD, BinaryOperationTileFunc<BinaryOpType::GCD>);
+REGISTER_OPERATION_TILED_FUNC(OP_CEILDIV, Opcode::OP_CEILDIV, BinaryOperationTileFunc<BinaryOpType::CEILDIV>);
 REGISTER_OPERATION_TILED_FUNC(OP_PRELU, Opcode::OP_PRELU, PReLUOperationTileFunc);
 
 REGISTER_OPERATION_TILED_FUNC(OP_ADDS, Opcode::OP_ADDS, BinaryOperationScalarTileFunc<BinaryOpType::ADD>);
@@ -750,6 +772,7 @@ REGISTER_OPERATION_TILED_FUNC(OP_BITWISEXORS, Opcode::OP_BITWISEXORS, BinaryOper
 REGISTER_OPERATION_TILED_FUNC(OP_GCDS, Opcode::OP_GCDS, BinaryOperationScalarTileFunc<BinaryOpType::GCD>);
 REGISTER_OPERATION_TILED_FUNC(OP_REMS, Opcode::OP_REMS, BinaryOperationScalarTileFunc<BinaryOpType::REM>);
 REGISTER_OPERATION_TILED_FUNC(OP_REMRS, Opcode::OP_REMRS, BinaryOperationScalarResTileFunc<BinaryOpType::REMR>);
+REGISTER_OPERATION_TILED_FUNC(OP_CEILDIVS, Opcode::OP_CEILDIVS, BinaryOperationScalarTileFunc<BinaryOpType::CEILDIV>);
 
 REGISTER_OPERATION_TILED_FUNC(OP_S_ADDS, Opcode::OP_S_ADDS, BinaryOperationAllScalarResTileFunc<BinaryOpType::S_ADD>);
 REGISTER_OPERATION_TILED_FUNC(OP_S_SUBS, Opcode::OP_S_SUBS, BinaryOperationAllScalarResTileFunc<BinaryOpType::S_SUB>);

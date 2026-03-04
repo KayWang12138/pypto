@@ -105,6 +105,26 @@ TEST_F(OperationImplTest, test_IsFinite_int32) {
     }
 }
 
+TEST_F(OperationImplTest, test_CeilDivs_int32) {
+    TileShape::Current().SetVecTile(4, 32);
+    Tensor self(DT_INT32, {11, 32}, "self");
+    Element other(DT_INT32, 2);
+    Tensor result;
+    FUNCTION("TestCeilDiv") {
+        result = CeilDiv(self, other);
+    }
+}
+
+TEST_F(OperationImplTest, test_CeilDiv_int32) {
+    TileShape::Current().SetVecTile(4, 32);
+    Tensor self(DT_INT32, {11, 32}, "self");
+    Tensor other(DT_INT32, {11, 32}, "other");
+    Tensor result;
+    FUNCTION("TestCeilDiv") {
+        result = CeilDiv(self, other);
+    }
+}
+
 TEST_F(OperationImplTest, test_Compare_BOOL) {
     TileShape::Current().SetVecTile({4, 4});
     Tensor operand1(DT_FP32, {8, 8}, "operand1");
