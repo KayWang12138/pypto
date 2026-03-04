@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Performance test for embedding_head_quant operator.
-Generates performance data and analysis.
+BF16 input/output with FP32 internal computation.
 """
 import os
 import time
@@ -11,7 +11,6 @@ import torch_npu
 import numpy as np
 from numpy.testing import assert_allclose
 
-# Import the operator
 import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from embedding_head_quant import (
@@ -20,18 +19,16 @@ from embedding_head_quant import (
 )
 
 def benchmark_operator(shape, device_id, num_iterations=100):
-    """Benchmark the operator on NPU."""
     device = f'npu:{device_id}'
     print(f"\nBenchmarking shape: {shape}")
     print(f"Device: {device}")
     print(f"Iterations: {num_iterations}")
 
-    # Create kernel
     kernel = create_embedding_head_quant_kernel(shape, run_mode="npu")
 
-    # Generate test data
-    weight_torch = torch.randn(shape, dtype=torch.float32, device=device)
-    scale_torch = torch.rand(shape, dtype=torch.float32, device=device) * 2 + 0.1
+    # Generate test data in BF16
+    weight_torch = (torch.randn(shape, dtype=torch.float32, device=device) * 50).to(torch.bfloat16)
+    scale_torch = (torch.rand(shape, dtype=torch.float32, device=device) * 3 + 0.5).to(torch.bfloat16)
 
     # Warmup
     for _ in range(10):
@@ -40,7 +37,7 @@ def benchmark_operator(shape, device_id, num_iterations=100):
     # Benchmark
     start_time = time.time()
     for _ in range(num_iterations):
-        output_torch = kernel(weight_torch, scale_torch)
+        output_torch, clamped_torch, protected_scale_torch = kernel(weight_torch, scale_torch)
     end_time = time.time()
 
     # Calculate metrics
@@ -48,7 +45,7 @@ def benchmark_operator(shape, device_id, num_iterations=100):
     avg_time = total_time / num_iterations
     throughput = num_iterations / total_time
     elements = np.prod(shape)
-    elements_per_sec = elements * throughput / 1e6  # Million elements per second
+    elements_per_sec = elements * throughput / 1e6
 
     print(f"  Total time: {total_time:.4f}s")
     print(f"  Average time: {avg_time*1000:.4f}ms")
@@ -56,8 +53,8 @@ def benchmark_operator(shape, device_id, num_iterations=100):
     print(f"  Element throughput: {elements_per_sec:.2f} M elements/sec")
 
     # Verify correctness
-    expected = embedding_head_quant_golden(weight_torch, scale_torch)
-    max_diff = (output_torch - expected).abs().max().item()
+    expected_out, expected_clamped, expected_scale = embedding_head_quant_golden(weight_torch, scale_torch)
+    max_diff = (output_torch - expected_out).abs().max().item()
     print(f"  Max error: {max_diff:.6f}")
 
     return {
@@ -71,7 +68,6 @@ def benchmark_operator(shape, device_id, num_iterations=100):
     }
 
 def main():
-    # Get device ID
     if 'TILE_FWK_DEVICE_ID' not in os.environ:
         print("ERROR: TILE_FWK_DEVICE_ID not set")
         return
@@ -79,17 +75,16 @@ def main():
     torch.npu.set_device(device_id)
 
     print("=" * 70)
-    print("Embedding Head Quantization - Performance Benchmark")
+    print("Embedding Head Quantization - Performance Benchmark (BF16 I/O)")
     print("=" * 70)
 
-    # Test different shapes
     test_shapes = [
-        (8, 8),        # 64 elements
-        (32, 32),      # 1K elements
-        (64, 64),      # 4K elements
-        (128, 128),    # 16K elements
-        (256, 256),    # 64K elements
-        (512, 512),    # 256K elements
+        (8, 8),
+        (32, 32),
+        (64, 64),
+        (128, 128),
+        (256, 256),
+        (512, 512),
     ]
 
     results = []
@@ -97,7 +92,6 @@ def main():
         result = benchmark_operator(shape, device_id, num_iterations=100)
         results.append(result)
 
-    # Generate report
     print("\n" + "=" * 70)
     print("Performance Summary")
     print("=" * 70)
@@ -109,17 +103,14 @@ def main():
               f"{r['avg_time_ms']:<12.4f} {r['throughput_M_elements_per_sec']:<20.2f} "
               f"{r['max_error']:<10.6f}")
 
-    # Calculate efficiency
     print("\n" + "=" * 70)
     print("Performance Analysis")
     print("=" * 70)
 
-    # Find best throughput
     best_result = max(results, key=lambda x: x['throughput_M_elements_per_sec'])
     print(f"Best throughput achieved: {best_result['throughput_M_elements_per_sec']:.2f} M elements/sec")
     print(f"  at shape: {best_result['shape']}")
 
-    # Check if throughput scales with size
     if len(results) >= 2:
         small_throughput = results[0]['throughput_M_elements_per_sec']
         large_throughput = results[-1]['throughput_M_elements_per_sec']
@@ -128,15 +119,14 @@ def main():
         print(f"  Small shape throughput: {small_throughput:.2f} M elements/sec")
         print(f"  Large shape throughput: {large_throughput:.2f} M elements/sec")
 
-    # Accuracy check
     max_error = max(r['max_error'] for r in results)
     print(f"\nMaximum error across all tests: {max_error:.6f}")
     if max_error < 1e-3:
-        print("✓ Accuracy: Excellent (error < 1e-3)")
+        print("Accuracy: Excellent (error < 1e-3)")
     elif max_error < 1e-2:
-        print("✓ Accuracy: Good (error < 1e-2)")
+        print("Accuracy: Good (error < 1e-2)")
     else:
-        print("⚠ Accuracy: Needs improvement")
+        print("Accuracy: Needs improvement")
 
     print("\n" + "=" * 70)
     print("Benchmark completed successfully!")

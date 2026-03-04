@@ -4,42 +4,38 @@ import torch
 import torch_npu
 import numpy as np
 from numpy.testing import assert_allclose
+from typing import Tuple
 
-# ===== Golden Function (PyTorch Reference) =====
+# ===== Golden Function (PyTorch Reference - BF16 version) =====
 def embedding_head_quant_golden(weight, scale, eps=1e-4, min_v=-128.0, max_v=127.0):
-    """PyTorch reference implementation for embedding head quantization.
+    """PyTorch reference implementation for embedding head quantization (BF16 I/O, FP32 compute).
 
     Args:
-        weight: Input weight tensor
-        scale: Quantization scale tensor
-        eps: Minimum scale threshold (default: 1e-4)
-        min_v: Quantization lower bound (default: -128.0)
-        min_v: Quantization upper bound (default: 127.0)
-
-    Returns:
-        Quantized and rescaled weight tensor
-    """
-    eps_tensor = torch.tensor(eps, device=scale.device).float()
-    scale = torch.where(scale > eps_tensor, scale, eps_tensor)
-    weight = weight / scale
-    weight = (weight.round() - weight).detach() + weight
-    weight = torch.clamp(weight, min_v, max_v) * scale
-    return weight
-
-# ===== JIT Kernel Implementation =====
-def create_embedding_head_quant_kernel(shape, eps=1e-4, min_v=-128.0, max_v=127.0, run_mode="npu"):
-    """Create JIT-compiled quantization kernel.
-
-    Args:
-        shape: Tensor shape
+        weight: Input weight tensor (BF16)
+        scale: Quantization scale tensor (BF16)
         eps: Minimum scale threshold (default: 1e-4)
         min_v: Quantization lower bound (default: -128.0)
         max_v: Quantization upper bound (default: 127.0)
-        run_mode: Execution mode - "npu" or "sim" (default: "npu")
 
     Returns:
-        JIT-compiled kernel function
+        Tuple of (quantized_weight, clamped, protected_scale) all in BF16
     """
+    # Convert to FP32 for computation
+    weight_fp32 = weight.float()
+    scale_fp32 = scale.float()
+    
+    eps_tensor = torch.tensor(eps, device=scale_fp32.device, dtype=torch.float32)
+    protected_scale = torch.where(scale_fp32 > eps_tensor, scale_fp32, eps_tensor)
+    weight_normalized = weight_fp32 / protected_scale
+    weight_rounded = (weight_normalized.round() - weight_normalized).detach() + weight_normalized
+    clamped = torch.clamp(weight_rounded, min_v, max_v)
+    output = clamped * protected_scale
+    
+    # Convert back to BF16
+    return output.to(torch.bfloat16), clamped.to(torch.bfloat16), protected_scale.to(torch.bfloat16)
+
+# ===== JIT Kernel Implementation =====
+def create_embedding_head_quant_kernel(shape, eps=1e-4, min_v=-128.0, max_v=127.0, run_mode="npu"):
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
     elif run_mode == "sim":
@@ -47,11 +43,8 @@ def create_embedding_head_quant_kernel(shape, eps=1e-4, min_v=-128.0, max_v=127.
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}")
 
-    # Optimized tile shapes (tuned on 2026-03-03)
-    # Best config: vec_tile=(64, 64) provides +6.84% throughput improvement
     runtime_opts = {"run_mode": mode}
 
-    # Add stitch parameters for better memory pool and task scheduling
     if run_mode == "npu":
         runtime_opts.update({
             "stitch_function_inner_memory": 512,
@@ -63,29 +56,32 @@ def create_embedding_head_quant_kernel(shape, eps=1e-4, min_v=-128.0, max_v=127.
 
     @pypto.frontend.jit(runtime_options=runtime_opts)
     def embedding_head_quant_kernel(
-        weight: pypto.Tensor(shape, pypto.DT_FP32),
-        scale: pypto.Tensor(shape, pypto.DT_FP32),
-    ) -> pypto.Tensor(shape, pypto.DT_FP32):
-        # Set tile shapes for vector operations - optimized to (64, 64)
+        weight: pypto.Tensor(shape, pypto.DT_BF16),
+        scale: pypto.Tensor(shape, pypto.DT_BF16),
+    ) -> (
+        pypto.Tensor(shape, pypto.DT_BF16),
+        pypto.Tensor(shape, pypto.DT_BF16),
+        pypto.Tensor(shape, pypto.DT_BF16),
+    ):
         pypto.set_vec_tile_shapes(64, 64)
 
-        # Step 1: Scale protection (avoid scale <= eps)
-        # Using maximum instead of where for cleaner implementation
-        protected_scale = pypto.maximum(scale, eps)
+        # Convert BF16 inputs to FP32 for precision-critical computation
+        weight_fp32 = pypto.cast(weight, pypto.DT_FP32)
+        scale_fp32 = pypto.cast(scale, pypto.DT_FP32)
 
-        # Step 2: Normalize weight by scale
-        normalized = pypto.div(weight, protected_scale)
-
-        # Step 3: Round to nearest integer (STE forward pass)
+        # Quantization computation in FP32
+        protected_scale = pypto.maximum(scale_fp32, eps)
+        normalized = pypto.div(weight_fp32, protected_scale)
         rounded = pypto.round(normalized, decimals=0)
-
-        # Step 4: Clamp to quantization range
         clamped = pypto.clip(rounded, min_v, max_v)
-
-        # Step 5: Rescale back
         output = pypto.mul(clamped, protected_scale)
 
-        return output
+        # Convert outputs back to BF16
+        output_bf16 = pypto.cast(output, pypto.DT_BF16)
+        clamped_bf16 = pypto.cast(clamped, pypto.DT_BF16)
+        protected_scale_bf16 = pypto.cast(protected_scale, pypto.DT_BF16)
+
+        return output_bf16, clamped_bf16, protected_scale_bf16
 
     return embedding_head_quant_kernel
 
@@ -97,21 +93,29 @@ def test_embedding_head_quant_basic(device_id=None, run_mode="npu"):
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     shape = (8, 8)
 
-    # Generate test data
-    weight_torch = torch.randn(shape, dtype=torch.float32, device=device) * 10
-    scale_torch = torch.rand(shape, dtype=torch.float32, device=device) * 2 + 0.1
+    # Generate test data in BF16
+    weight_torch = (torch.randn(shape, dtype=torch.float32, device=device) * 10).to(torch.bfloat16)
+    scale_torch = (torch.rand(shape, dtype=torch.float32, device=device) * 2 + 0.1).to(torch.bfloat16)
 
     # Run PyPTO kernel
     kernel = create_embedding_head_quant_kernel(shape, run_mode=run_mode)
-    output_torch = kernel(weight_torch, scale_torch)
+    output_torch, clamped_torch, protected_scale_torch = kernel(weight_torch, scale_torch)
 
     # Run golden reference
-    expected = embedding_head_quant_golden(weight_torch, scale_torch)
+    expected_out, expected_clamped, expected_scale = embedding_head_quant_golden(weight_torch, scale_torch)
 
-    # Verify
-    max_diff = (output_torch - expected).abs().max().item()
-    print(f"  Max difference: {max_diff:.6f}")
-    assert_allclose(output_torch.cpu().numpy(), expected.cpu().numpy(), rtol=3e-3, atol=3e-3)
+    # Verify outputs
+    max_diff_out = (output_torch - expected_out).abs().max().item()
+    max_diff_clamped = (clamped_torch - expected_clamped).abs().max().item()
+    max_diff_scale = (protected_scale_torch - expected_scale).abs().max().item()
+    
+    print(f"  Output max diff: {max_diff_out:.6f}")
+    print(f"  Clamped max diff: {max_diff_clamped:.6f}")
+    print(f"  Protected scale max diff: {max_diff_scale:.6f}")
+    
+    assert_allclose(output_torch.float().cpu().numpy(), expected_out.float().cpu().numpy(), rtol=3e-3, atol=3e-3)
+    assert_allclose(clamped_torch.float().cpu().numpy(), expected_clamped.float().cpu().numpy(), rtol=3e-3, atol=3e-3)
+    assert_allclose(protected_scale_torch.float().cpu().numpy(), expected_scale.float().cpu().numpy(), rtol=3e-3, atol=3e-3)
     print("  ✓ Passed")
 
 def test_embedding_head_quant_level1(device_id=None, run_mode="npu"):
@@ -121,16 +125,16 @@ def test_embedding_head_quant_level1(device_id=None, run_mode="npu"):
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     shape = (32, 32)
 
-    weight_torch = torch.randn(shape, dtype=torch.float32, device=device) * 100
-    scale_torch = torch.rand(shape, dtype=torch.float32, device=device) * 5 + 0.5
+    weight_torch = (torch.randn(shape, dtype=torch.float32, device=device) * 100).to(torch.bfloat16)
+    scale_torch = (torch.rand(shape, dtype=torch.float32, device=device) * 5 + 0.5).to(torch.bfloat16)
 
     kernel = create_embedding_head_quant_kernel(shape, run_mode=run_mode)
-    output_torch = kernel(weight_torch, scale_torch)
-    expected = embedding_head_quant_golden(weight_torch, scale_torch)
+    output_torch, clamped_torch, protected_scale_torch = kernel(weight_torch, scale_torch)
+    expected_out, expected_clamped, expected_scale = embedding_head_quant_golden(weight_torch, scale_torch)
 
-    max_diff = (output_torch - expected).abs().max().item()
+    max_diff = (output_torch - expected_out).abs().max().item()
     print(f"  Max difference: {max_diff:.6f}")
-    assert_allclose(output_torch.cpu().numpy(), expected.cpu().numpy(), rtol=3e-3, atol=3e-3)
+    assert_allclose(output_torch.float().cpu().numpy(), expected_out.float().cpu().numpy(), rtol=3e-3, atol=3e-3)
     print("  ✓ Passed")
 
 def test_embedding_head_quant_edge_cases(device_id=None, run_mode="npu"):
@@ -142,55 +146,55 @@ def test_embedding_head_quant_edge_cases(device_id=None, run_mode="npu"):
 
     # Test case 1: Very small scale (should be protected by eps)
     print("  Test case 1: Very small scale")
-    weight_torch = torch.randn(shape, dtype=torch.float32, device=device) * 10
-    scale_torch = torch.full(shape, 1e-6, dtype=torch.float32, device=device)
+    weight_torch = (torch.randn(shape, dtype=torch.float32, device=device) * 10).to(torch.bfloat16)
+    scale_torch = torch.full(shape, 1e-6, dtype=torch.bfloat16, device=device)
 
     kernel = create_embedding_head_quant_kernel(shape, run_mode=run_mode)
-    output_torch = kernel(weight_torch, scale_torch)
-    expected = embedding_head_quant_golden(weight_torch, scale_torch)
+    output_torch, _, protected_scale_torch = kernel(weight_torch, scale_torch)
+    expected_out, _, expected_scale = embedding_head_quant_golden(weight_torch, scale_torch)
 
-    max_diff = (output_torch - expected).abs().max().item()
+    max_diff = (output_torch - expected_out).abs().max().item()
     print(f"    Max difference: {max_diff:.6f}")
-    assert_allclose(output_torch.cpu().numpy(), expected.cpu().numpy(), rtol=3e-3, atol=3e-3)
+    assert_allclose(output_torch.float().cpu().numpy(), expected_out.float().cpu().numpy(), rtol=3e-3, atol=3e-3)
     print("    ✓ Small scale case passed")
 
     # Test case 2: Values exceeding quantization range
     print("  Test case 2: Large values exceeding quantization range")
-    weight_torch = torch.randn(shape, dtype=torch.float32, device=device) * 1000
-    scale_torch = torch.ones(shape, dtype=torch.float32, device=device)
+    weight_torch = (torch.randn(shape, dtype=torch.float32, device=device) * 1000).to(torch.bfloat16)
+    scale_torch = torch.ones(shape, dtype=torch.bfloat16, device=device)
 
-    output_torch = kernel(weight_torch, scale_torch)
-    expected = embedding_head_quant_golden(weight_torch, scale_torch)
+    output_torch, clamped_torch, _ = kernel(weight_torch, scale_torch)
+    expected_out, expected_clamped, _ = embedding_head_quant_golden(weight_torch, scale_torch)
 
-    max_diff = (output_torch - expected).abs().max().item()
+    max_diff = (output_torch - expected_out).abs().max().item()
     print(f"    Max difference: {max_diff:.6f}")
-    assert_allclose(output_torch.cpu().numpy(), expected.cpu().numpy(), rtol=3e-3, atol=3e-3)
+    assert_allclose(output_torch.float().cpu().numpy(), expected_out.float().cpu().numpy(), rtol=3e-3, atol=3e-3)
     print("    ✓ Large value clamping passed")
 
     # Test case 3: Zero weight
     print("  Test case 3: Zero weight")
-    weight_torch = torch.zeros(shape, dtype=torch.float32, device=device)
-    scale_torch = torch.rand(shape, dtype=torch.float32, device=device) * 2 + 0.5
+    weight_torch = torch.zeros(shape, dtype=torch.bfloat16, device=device)
+    scale_torch = (torch.rand(shape, dtype=torch.float32, device=device) * 2 + 0.5).to(torch.bfloat16)
 
-    output_torch = kernel(weight_torch, scale_torch)
-    expected = embedding_head_quant_golden(weight_torch, scale_torch)
+    output_torch, _, _ = kernel(weight_torch, scale_torch)
+    expected_out, _, _ = embedding_head_quant_golden(weight_torch, scale_torch)
 
-    max_diff = (output_torch - expected).abs().max().item()
+    max_diff = (output_torch - expected_out).abs().max().item()
     print(f"    Max difference: {max_diff:.6f}")
-    assert_allclose(output_torch.cpu().numpy(), expected.cpu().numpy(), rtol=3e-3, atol=3e-3)
+    assert_allclose(output_torch.float().cpu().numpy(), expected_out.float().cpu().numpy(), rtol=3e-3, atol=3e-3)
     print("    ✓ Zero weight case passed")
 
     # Test case 4: Uniform scale
     print("  Test case 4: Uniform scale")
-    weight_torch = torch.randn(shape, dtype=torch.float32, device=device) * 50
-    scale_torch = torch.full(shape, 2.0, dtype=torch.float32, device=device)
+    weight_torch = (torch.randn(shape, dtype=torch.float32, device=device) * 50).to(torch.bfloat16)
+    scale_torch = torch.full(shape, 2.0, dtype=torch.bfloat16, device=device)
 
-    output_torch = kernel(weight_torch, scale_torch)
-    expected = embedding_head_quant_golden(weight_torch, scale_torch)
+    output_torch, _, _ = kernel(weight_torch, scale_torch)
+    expected_out, _, _ = embedding_head_quant_golden(weight_torch, scale_torch)
 
-    max_diff = (output_torch - expected).abs().max().item()
+    max_diff = (output_torch - expected_out).abs().max().item()
     print(f"    Max difference: {max_diff:.6f}")
-    assert_allclose(output_torch.cpu().numpy(), expected.cpu().numpy(), rtol=3e-3, atol=3e-3)
+    assert_allclose(output_torch.float().cpu().numpy(), expected_out.float().cpu().numpy(), rtol=3e-3, atol=3e-3)
     print("    ✓ Uniform scale case passed")
 
 def test_embedding_head_quant_large(device_id=None, run_mode="npu"):
@@ -200,16 +204,16 @@ def test_embedding_head_quant_large(device_id=None, run_mode="npu"):
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     shape = (256, 256)
 
-    weight_torch = torch.randn(shape, dtype=torch.float32, device=device) * 50
-    scale_torch = torch.rand(shape, dtype=torch.float32, device=device) * 3 + 0.5
+    weight_torch = (torch.randn(shape, dtype=torch.float32, device=device) * 50).to(torch.bfloat16)
+    scale_torch = (torch.rand(shape, dtype=torch.float32, device=device) * 3 + 0.5).to(torch.bfloat16)
 
     kernel = create_embedding_head_quant_kernel(shape, run_mode=run_mode)
-    output_torch = kernel(weight_torch, scale_torch)
-    expected = embedding_head_quant_golden(weight_torch, scale_torch)
+    output_torch, clamped_torch, protected_scale_torch = kernel(weight_torch, scale_torch)
+    expected_out, expected_clamped, expected_scale = embedding_head_quant_golden(weight_torch, scale_torch)
 
-    max_diff = (output_torch - expected).abs().max().item()
+    max_diff = (output_torch - expected_out).abs().max().item()
     print(f"  Max difference: {max_diff:.6f}")
-    assert_allclose(output_torch.cpu().numpy(), expected.cpu().numpy(), rtol=3e-3, atol=3e-3)
+    assert_allclose(output_torch.float().cpu().numpy(), expected_out.float().cpu().numpy(), rtol=3e-3, atol=3e-3)
     print("  ✓ Passed")
 
 # ===== Main Test Runner =====

@@ -7,27 +7,42 @@
 
 ### 数学公式
 ```
-# Scale 保护（避免除零）
-scale = max(scale, eps)
+# BF16 输入转 FP32 进行计算
+weight_fp32 = cast(weight_bf16, FP32)
+scale_fp32 = cast(scale_bf16, FP32)
 
-# 量化过程
-weight = weight / scale           # 归一化
-weight = round(weight)            # 四舍五入到整数
-weight = clip(weight, min_v, max_v)  # 限制在量化范围内
-weight = weight * scale           # 重新缩放
+# Scale 保护（避免除零）
+protected_scale = max(scale_fp32, eps)
+
+# 量化过程（FP32 精度）
+normalized = weight_fp32 / protected_scale
+rounded = round(normalized)
+clamped = clip(rounded, min_v, max_v)
+output_fp32 = clamped * protected_scale
+
+# 转回 BF16 输出
+output_bf16 = cast(output_fp32, BF16)
+clamped_bf16 = cast(clamped, BF16)
+protected_scale_bf16 = cast(protected_scale, BF16)
 ```
 
 ### 参数说明
 | 参数 | 类型 | 说明 | 默认值 |
 |------|------|------|---------|
-| **weight** | Tensor | 输入权重张量，数据类型 FP32 | - |
-| **scale** | Tensor | 量化缩放因子张量，数据类型 FP32 | - |
+| **weight** | Tensor[BF16] | 输入权重张量 | - |
+| **scale** | Tensor[BF16] | 量化缩放因子张量 | - |
 | **eps** | float | 最小缩放因子阈值，用于保护 scale 不为 0 | 1e-4 |
 | **min_v** | float | 量化下限（对应 int8 范围） | -128.0 |
 | **max_v** | float | 量化上限（对应 int8 范围） | 127.0 |
 
 ### 输出说明
-输出张量与输入 weight 具有相同的 shape 和数据类型（FP32），包含量化后的权重值。
+返回三元组 `(output, clamped, protected_scale)`：
+
+| 输出 | 类型 | 说明 |
+|------|------|------|
+| **output** | Tensor[BF16] | 量化后的权重，与输入 weight 相同 shape |
+| **clamped** | Tensor[BF16] | 截断后的量化值，用于反向传播 |
+| **protected_scale** | Tensor[BF16] | 保护后的缩放因子，用于反向传播 |
 
 ## 编译运行指南
 
@@ -110,26 +125,38 @@ python3 embedding_head_quant.py --run_mode sim --test_level 0
 
 ## 实现细节
 
-### STE (Straight-Through Estimator) 处理
-PyPTO 是前向计算内核框架，不包含自动微分功能。原始 PyTorch 实现中的 STE 模式：
-```python
-weight = (weight.round() - weight).detach() + weight
-```
-该模式的作用是：
-- **前向传播**：使用量化后的整数值
-- **反向传播**：直接传递原始权重的梯度（跳过量化操作）
+### BF16 I/O + FP32 计算模式
 
-在 PyPTO 实现中，由于只关注前向计算，因此简化为直接使用四舍五入后的值：
+为确保量化精度，算子采用 **BF16 输入/输出 + FP32 内部计算** 模式：
+
 ```python
-weight = pypto.round(weight, decimals=0)
+# 1. BF16 → FP32 类型转换
+weight_fp32 = pypto.cast(weight, pypto.DT_FP32)
+scale_fp32 = pypto.cast(scale, pypto.DT_FP32)
+
+# 2. FP32 精度量化计算
+protected_scale = pypto.maximum(scale_fp32, eps)
+normalized = pypto.div(weight_fp32, protected_scale)
+rounded = pypto.round(normalized, decimals=0)
+clamped = pypto.clip(rounded, min_v, max_v)
+output = pypto.mul(clamped, protected_scale)
+
+# 3. FP32 → BF16 类型转换
+output_bf16 = pypto.cast(output, pypto.DT_BF16)
+clamped_bf16 = pypto.cast(clamped, pypto.DT_BF16)
+protected_scale_bf16 = pypto.cast(protected_scale, pypto.DT_BF16)
 ```
-如果需要训练时的梯度传递，STE 的梯度处理需要在更高层框架（如 PyTorch）中实现。
+
+### STE (Straight-Through Estimator) 处理
+
+PyPTO 是前向计算内核框架，不包含自动微分功能。输出 `clamped` 和 `protected_scale` 用于反向传播计算。
 
 ### PyPTO API 映射
 
 | 操作 | PyTorch | PyPTO API | 说明 |
 |------|----------|------------|------|
-| Scale 保护 | `torch.where(scale > eps, scale, eps)` | `pypto.maximum(scale, eps)` | 使用 maximum 替代 where，更简洁 |
+| 类型转换 | `.float()` / `.bfloat16()` | `pypto.cast(x, dtype)` | BF16 ↔ FP32 |
+| Scale 保护 | `torch.where(scale > eps, scale, eps)` | `pypto.maximum(scale, eps)` | 使用 maximum 更简洁 |
 | 除法 | `weight / scale` | `pypto.div(weight, scale)` | 逐元素除法 |
 | 四舍五入 | `weight.round()` | `pypto.round(weight, decimals=0)` | 银行家舍入法 |
 | 截断 | `torch.clamp(weight, min_v, max_v)` | `pypto.clip(weight, min_v, max_v)` | 限制在范围内 |
@@ -137,72 +164,80 @@ weight = pypto.round(weight, decimals=0)
 
 ### TileShape 设置
 ```python
-pypto.set_vec_tile_shapes(32, 32)
+pypto.set_vec_tile_shapes(64, 64)
 ```
-设置向量化计算的 Tile 形状，用于优化 NPU 上的并行计算。
+优化后的向量化计算 Tile 形状（性能调优结果）。
 
 ## 已知限制
 
 1. **STE 梯度处理**：PyPTO 算子仅负责前向计算，不包含自动微分功能。STE 的梯度传递需要在更高层框架（如 PyTorch）中实现。
 
-2. **数据类型支持**：当前仅支持 FP32 数据类型。FP16/BF16 支持待后续版本添加。
+2. **数据类型**：输入/输出为 BF16，内部计算为 FP32。
 
-3. **维度限制**：当前实现支持 2D 张量输入。1D 和 3D/4D 支持待扩展。
+3. **维度限制**：当前实现支持 2D 张量输入。
 
-4. **量化范围**：默认使用 int8 范围 [-128, 127]。如需其他范围（如 uint8 [0, 255]），需要修改参数。
+4. **量化范围**：默认使用 int8 范围 [-128, 127]。如需其他范围，需修改参数。
 
 ## 常见问题
 
+### Q: 为什么使用 BF16 I/O + FP32 计算？
+**A**: BF16 节省内存带宽和存储空间，FP32 保证量化计算精度。这是训练场景的常见实践。
+
 ### Q: 如何处理训练时的梯度传递？
-**A**: STE 的梯度传递需要在 PyTorch 层实现。PyPTO 算子仅负责前向计算。在 PyTorch 中实现自定义 autograd 函数即可。
+**A**: 使用返回的 `clamped` 和 `protected_scale` 在 PyTorch 中实现自定义 autograd 函数。
 
 ### Q: 支持哪些数据类型？
-**A**: 当前仅支持 FP32。FP16/BF16 支持待后续版本添加。
+**A**: 输入/输出为 BF16，不支持其他数据类型。
 
 ### Q: 如何调整量化范围？
-**A**: 修改 `embedding_head_quant.py` 中的 `min_v` 和 `max_v` 参数。例如，使用 uint8 范围：
+**A**: 修改 `create_embedding_head_quant_kernel` 调用时的 `min_v` 和 `max_v` 参数：
 ```python
-min_v=0.0, max_v=255.0
+kernel = create_embedding_head_quant_kernel(shape, min_v=0.0, max_v=255.0)  # uint8 范围
 ```
-
-### Q: 如何支持其他维度的张量？
-**A**: 当前实现使用固定的 TileShape 设置 `pypto.set_vec_tile_shapes(32, 32)`。支持其他维度需要：
-1. 修改 `create_embedding_head_quant_kernel` 函数中的 TileShape 设置
-2. 确保输入 shape 与 TileShape 兼容
 
 ### Q: NPU 模式下报错 "Invalid Device" 怎么办？
 **A**: 检查并设置正确的 NPU 设备 ID：
 ```bash
-# 查看可用的 NPU 设备
 npu-smi info
-
-# 设置正确的设备 ID
-export TILE_FWK_DEVICE_ID=0  # 或其他可用的设备号
+export TILE_FWK_DEVICE_ID=0
 ```
 
 ### Q: 如何在仿真模式下调试？
-**A**: 使用 `--run_mode sim` 参数在 CPU 上运行，无需 NPU 硬件：
+**A**: 使用 `--run_mode sim` 参数在 CPU 上运行：
 ```bash
 python3 embedding_head_quant.py --run_mode sim --test_level 0
 ```
 
-## 性能优化建议
+## 性能数据
 
-1. **TileShape 调优**：根据实际输入 shape 调整 `set_vec_tile_shapes` 的参数以获得最佳 NPU 性能。
+### 优化后性能 (BF16 I/O)
 
-2. **批处理**：对于大规模 embedding，建议将多个 embedding 的量化操作合并为一个批处理操作。
+| Shape | 元素数 | 延迟 (ms) | 吞吐量 (M/s) | 误差 |
+|-------|--------|-----------|-------------|------|
+| (8, 8) | 64 | 0.62 | 0.10 | 0.000000 |
+| (32, 32) | 1,024 | 0.68 | 1.51 | 0.000000 |
+| (64, 64) | 4,096 | 0.63 | 6.54 | 0.000000 |
+| (128, 128) | 16,384 | 0.62 | 26.55 | 0.000000 |
+| (256, 256) | 65,536 | 0.63 | 103.46 | 0.000000 |
+| (512, 512) | 262,144 | 0.63 | 418.10 | 0.000000 |
 
-3. **内存对齐**：确保输入张量的内存对齐（32 字节对齐）以获得最佳性能。
+- **最佳吞吐量**: 418.10 M elements/sec @ (512, 512)
+- **扩展性**: 4,028x (从 64 到 262,144 元素)
 
 ## 参考实现
 
-- **原始 PyTorch 实现**：`/workspace/sher/pypto/qat.py` 中的 `Embedding_Head_Quant_new` 函数
-- **PyPTO API 文档**：`/workspace/sher/pypto/docs/api/operation/` 目录
-- **类似算子示例**：
-  - `models/deepseek_v32_exp/sparse_attention_antiquant_impl.py` - DeepSeek V32 量化实现
-  - `models/glm_v4_5/glm_attention_pre_quant.py` - GLM V4.5 量化实现
+- **PyPTO API 文档**: `docs/api/operation/` 目录
+- **类似算子示例**:
+  - `models/deepseek_v32_exp/sparse_attention_antiquant_impl.py`
+  - `models/glm_v4_5/glm_attention_pre_quant.py`
 
 ## 版本历史
+
+- **v2.0** (2026-03-03): BF16 I/O + 多输出
+  - 输入/输出改为 BF16，内部计算保持 FP32 精度
+  - 返回三元组 `(output, clamped, protected_scale)` 用于反向传播
+  - 性能调优: vec_tile=(64, 64)
+  - 添加 stitch 参数优化
 
 - **v1.0** (2026-03-03): 初始版本
   - 支持 FP32 数据类型
