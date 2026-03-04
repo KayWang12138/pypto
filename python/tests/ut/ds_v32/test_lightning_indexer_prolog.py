@@ -317,7 +317,6 @@ def lightning_indexer_prolog_impl(args: LightningIndexerPrologArgs):
             tile_cfg.c1_tile[0],
             tile_cfg.c1_tile[1],
             tile_cfg.c1_tile[2],
-            True,
         )
 
         qr_block = pypto.view(
@@ -367,7 +366,6 @@ def lightning_indexer_prolog_impl(args: LightningIndexerPrologArgs):
             tile_cfg.c2_tile[0],
             tile_cfg.c2_tile[1],
             tile_cfg.c2_tile[2],
-            True,
         )
 
         pypto.set_vec_tile_shapes(
