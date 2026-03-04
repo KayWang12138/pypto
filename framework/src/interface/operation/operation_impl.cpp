@@ -1717,7 +1717,7 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             break;
         }
         default: {
-            ALOG_ERROR_F("Unsupported opcode %d, opmagic is %d", static_cast<int>(opCode), op.GetOpMagic());
+            FUNCTION_LOGE("Unsupported opcode %d, opmagic is %d", static_cast<int>(opCode), op.GetOpMagic());
             ASSERT(false) << "Unsupported opcode " << static_cast<int>(opCode) << ", opmagic is " << op.GetOpMagic();
         }
     }

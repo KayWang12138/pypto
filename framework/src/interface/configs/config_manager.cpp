@@ -141,7 +141,7 @@ static std::string CreateLogTopFolder() {
 
     folderPath = folderPath + "/output_" + timestamp.str() + "_" + std::to_string(getpid());
     ret = CreateDir(folderPath);
-    ASSERT(ret) << "Failed to create dir: " << folderPath << ", ensure its parent dir exists.";;
+    ASSERT(ret) << "Failed to create dir: " << folderPath << ", ensure its parent dir exists.";
     config::SetRunDataOption(KEY_COMPUTE_GRAPH_PATH, RealPath(folderPath));
 
     return folderPath;

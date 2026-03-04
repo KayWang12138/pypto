@@ -103,7 +103,6 @@ void Program::SetCurrentFunction(Function *function) {
     if (function != nullptr) {
         currentFunctionPtr_ = function;
         currentFunctionMagicName_ = function->GetMagicName();
-        FUNCTION_LOGD("Set current function successfully.");
     }
     FUNCTION_LOGW("Failed to set current function.");
 }
@@ -335,7 +334,6 @@ void Program::HandleTaskSubmission(Function *result) {
 // End the current function and pop the function index from the stack
 std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string &funcName,
                                                                           bool generateCall) {
-    FUNCTION_LOGD("EndFunction start.");
 #if ENABLE_HIDDENLOOP
     // End child hidden loop
     EndHiddenLoop(currentFunctionPtr_, generateCall);
