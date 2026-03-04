@@ -108,10 +108,10 @@ private:
     timerVar.End()
 
 static const std::string PASS_LOG_PREFIX = "PASS.";
-#define APASS_LOG_DEBUG_F(opEnum, ...)   PYPTO_HOST_LOG(DLOG_DEBUG, (PASS_LOG_PREFIX + MODULE_NAME "." + toString(opEnum)).c_str(), __VA_ARGS__)
-#define APASS_LOG_INFO_F(opEnum, ...)    PYPTO_HOST_LOG(DLOG_INFO, (PASS_LOG_PREFIX + MODULE_NAME "." + toString(opEnum)).c_str(), __VA_ARGS__)
-#define APASS_LOG_WARN_F(opEnum, ...)    PYPTO_HOST_LOG(DLOG_WARN, (PASS_LOG_PREFIX + MODULE_NAME "." + toString(opEnum)).c_str(), __VA_ARGS__)
-#define APASS_LOG_ERROR_F(opEnum, ...)   PYPTO_HOST_LOG(DLOG_ERROR, (PASS_LOG_PREFIX + MODULE_NAME "." + toString(opEnum)).c_str(), __VA_ARGS__)
-#define APASS_LOG_EVENT_F(opEnum, ...)   PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, (PASS_LOG_PREFIX + MODULE_NAME "." + toString(opEnum)).c_str(), __VA_ARGS__)
+#define APASS_LOG_DEBUG_F(opEnum, fmt, ...)   PYPTO_HOST_LOG(DLOG_DEBUG, npu::tile_fwk::LogModule::PASS, (PASS_LOG_PREFIX + MODULE_NAME "." + toString(opEnum)).c_str(), ##__VA_ARGS__)
+#define APASS_LOG_INFO_F(opEnum, fmt, ...)    PYPTO_HOST_LOG(DLOG_INFO, npu::tile_fwk::LogModule::PASS, (PASS_LOG_PREFIX + MODULE_NAME "." + toString(opEnum)).c_str(), ##__VA_ARGS__)
+#define APASS_LOG_WARN_F(opEnum, fmt, ...)    PYPTO_HOST_LOG(DLOG_WARN, npu::tile_fwk::LogModule::PASS, (PASS_LOG_PREFIX + MODULE_NAME "." + toString(opEnum)).c_str(), ##__VA_ARGS__)
+#define APASS_LOG_ERROR_F(opEnum, fmt, ...)   PYPTO_HOST_LOG(DLOG_ERROR, npu::tile_fwk::LogModule::PASS, (PASS_LOG_PREFIX + MODULE_NAME "." + toString(opEnum)).c_str(), ##__VA_ARGS__)
+#define APASS_LOG_EVENT_F(opEnum, fmt, ...)   PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, npu::tile_fwk::LogModule::PASS, (PASS_LOG_PREFIX + MODULE_NAME "." + toString(opEnum)).c_str(), ##__VA_ARGS__)
 
 #endif // PASSES_LOG_H
