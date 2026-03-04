@@ -119,9 +119,7 @@ def moe_fusion_kernel(hidden_states_shape, mm_weight_shape, e_score_bias_shape, 
 
     @pypto.frontend.jit(
         runtime_options={"device_sched_mode": 1,
-                        "stitch_function_num_initial": 128,
-                        "stitch_function_outcast_memory": 128,
-                        "stitch_function_inner_memory": 128,
+                        "stitch_function_max_num": 128,
                         "stitch_cfgcache_size": 7700000},
         pass_options={"cube_l1_reuse_setting": {-1: 2}}
     )
