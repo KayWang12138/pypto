@@ -270,7 +270,7 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
 
     uint32_t indexH = attrParam.isConv3D ? NCDHW_H_IDX : NCHW_H_IDX;
     uint32_t indexW = attrParam.isConv3D ? NCDHW_W_IDX : (attrParam.isConv1D ? NCHW_H_IDX : NCHW_W_IDX);
-    int64_t cin = inputTensor.GetShape()[NCHW_C_IDX];
+    int64_t cin = weightTensor.GetShape()[NCHW_C_IDX];
     int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
     int64_t hin = attrParam.isConv1D ? 1 : inputTensor.GetShape()[indexH];
     int64_t win = inputTensor.GetShape()[indexW];
@@ -440,13 +440,18 @@ void CheckAttrShape(DataType outType, const Tensor &inputTensor, const Tensor &w
     if (attrParam.isConv3D) {
         paddings = rotateVector(paddings, 4);
     }
+    const std::vector<std::string> dimNames = 
+            attrParam.isConv1D ? std::vector<std::string>{"L"} :
+                attrParam.isConv3D ? std::vector<std::string>{"D", "H", "W"} :
+                                    std::vector<std::string>{"H", "W"};
     for (size_t i = 0; i < paddings.size() / 2; ++i) {
         int weightVal = weightTensor.GetShape()[i + 2];
         int paddingLeft = paddings[i * 2];
         int paddingRight = paddings[i * 2 + 1];
+        std::string dimName = i + 2 < dimNames.size() ? dimNames[i] : std::to_string(i + 2);
         OP_CHECK(true, {
             ASSERT(paddingLeft < weightVal && paddingRight < weightVal)
-                << "The value of the " << i + 2
+                << "The value of the " << dimName
                 << "-th dimension of weight must be >= padding.Current weight value:" << weightVal
                 << ",padding value:" << paddingLeft
                 << " and " << paddingRight
