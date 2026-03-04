@@ -31,7 +31,7 @@ public:
 
 private:
     Status RunOnFunction(Function &function) override;
-    std::unordered_map<LogicalTensorPtr, std::vector<Operation*>> GetTensorProducers(Function &function);
+    std::unordered_map<LogicalTensorPtr, std::vector<Operation*>> GetTensorProducers(Function &function, std::vector<LogicalTensorPtr>& sequence);
     void UpdateConnection(LogicalTensorPtr oldtensors,  LogicalTensorPtr newtensors);
     std::pair<LogicalTensorPtr, std::vector<Operation*>> TensorHashExist(const std::pair<LogicalTensorPtr, std::vector<Operation*>>& tensorProducersPair, std::unordered_set<Operation*>& cacheProducers);
     bool TensorProducersMerge(const std::pair<LogicalTensorPtr, std::vector<Operation*>>& tensorProducerPair, std::unordered_set<Operation*>& cacheProducers);
