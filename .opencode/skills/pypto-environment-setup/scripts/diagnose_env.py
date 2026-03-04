@@ -565,11 +565,15 @@ def _collect_issues(
     if not pto_path:
         issues.append({'component': 'pto-isa', 'severity': 'warning',
                        'message': 'PTO_TILE_LIB_CODE_PATH 未设置',
-                       'fix_hint': 'export PTO_TILE_LIB_CODE_PATH=$PWD/pto-isa && git clone https://gitcode.com/cann/pto-isa.git $PTO_TILE_LIB_CODE_PATH'})
+                       'fix_hint': '优先：export PTO_TILE_LIB_CODE_PATH="$ASCEND_HOME_PATH/aarch64-linux"；备用：export PTO_TILE_LIB_CODE_PATH=$PWD/pto-isa && git clone https://gitcode.com/cann/pto-isa.git $PTO_TILE_LIB_CODE_PATH'})
     elif not pto_isa.get('include_pto_exists'):
         issues.append({'component': 'pto-isa', 'severity': 'warning',
                        'message': f'PTO_TILE_LIB_CODE_PATH={pto_path} 下缺少 include/pto',
-                       'fix_hint': '见 troubleshooting.md § "pto-isa 版本不匹配"'})
+                       'fix_hint': '见 troubleshooting.md § "PTO ISA 编译/头文件错误"'})
+    elif not pto_isa.get('include_comm_exists'):
+        issues.append({'component': 'pto-isa', 'severity': 'warning',
+                       'message': f'PTO_TILE_LIB_CODE_PATH={pto_path} 下缺少 include/pto/comm/pto_comm_inst.hpp（源码 pto-isa 可能不包含 comm）',
+                       'fix_hint': '设置 PTO_TILE_LIB_CODE_PATH="$ASCEND_HOME_PATH/aarch64-linux"（确保已安装 pto-isa .run 包），或见 troubleshooting.md § "prepare_env.sh 使用 --quiet 仍卡住"'})
 
     if not pypto_repo.get('valid'):
         issues.append({'component': 'pypto_repo', 'severity': 'warning', 'message': 'PyPTO 仓库未找到',
@@ -850,6 +854,7 @@ def main() -> int:
     pto_isa: dict[str, Any] = {'path': pto_isa_path}
     if pto_isa_path:
         pto_isa['include_pto_exists'] = os.path.isdir(os.path.join(pto_isa_path, 'include', 'pto'))
+        pto_isa['include_comm_exists'] = os.path.isfile(os.path.join(pto_isa_path, 'include', 'pto', 'comm', 'pto_comm_inst.hpp'))
 
     # CANN 路径推导（优先环境变量，fallback 目录扫描）
     cann_hint, ascend_root = _resolve_cann_path()
