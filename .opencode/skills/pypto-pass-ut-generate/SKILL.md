@@ -8,7 +8,7 @@ license: 完整条款见 LICENSE.txt
 
 ## 概述
 
-本文档描述如何根据用户输入生成对应的单元测试用例（UT）。当用户描述内容为具体Pass业务时，根据描述的业务设计相关Pass的UT。当用户描述为设计某个Pass UT时，首先需要查找相关Pass，获取业务信息，再根据业务信息设计对应的UT用例。
+本技能用于分析如何根据用户描述生成对应的Pass侧单元测试用例（UT），结合pypto-pass-module-analyzer/SKILL.md技能分析Pass业务，帮助设计相关单元测试用例（UT）。
 
 ## 触发机制
  	 
@@ -20,7 +20,7 @@ license: 完整条款见 LICENSE.txt
  
  	 **触发示例**：
  	 - "设计Pass模块AutoCast的UT用例"
- 	 - "设计Pass模块AutoCast的对于不支持bf16 OP插入Cast的功能"
+ 	 - "设计Pass模块AutoCast的对于不支持BF16 OP插入Cast的功能"
  	 - "设计删除冗余Op功能的相关Pass的UT用例"
 
 ## 使用场景
@@ -96,8 +96,8 @@ license: 完整条款见 LICENSE.txt
             return sProgram;
         }
 ```
-`
-        详细代码可以参考：`pypto/framework/src/interface/program/program.cpp`和`pypto/framework/src/interface/function/function.h`
+
+        详细代码可以参考：pypto/framework/src/interface/program/program.cpp和pypto/framework/src/interface/function/function.h
 
 ### 步骤 5：创建Tensor
 
@@ -106,8 +106,8 @@ license: 完整条款见 LICENSE.txt
     LogicalTensor类常用构造函数：
         LogicalTensor(Function &function, DataType t, Shape tshape, TileOpFormat tformat = TileOpFormat::TILEOP_ND, std::string tname = "",
         NodeType tnodetype = NodeType::LOCAL);
- `   
-    详细LogicalTensor类信息，参考`pypto/framework/src/interface/tensor/logical_tensor.h`
+    
+    详细LogicalTensor类信息，请参考：pypto/framework/src/interface/tensor/logical_tensor.h
 
 ### 步骤 6：创建Operation及绑定function输入输出
 
@@ -126,10 +126,10 @@ license: 完整条款见 LICENSE.txt
         return currentFunctionPtr_->AddOperation(opCode, iOperand, oOperand);
     }
 ```
-`
-    详细创建Operation及绑定function函数信息，参考`pypto/framework/src/interface/program/program.cpp`
-`
-    Opcode信息，请参考：`pypto/framework/src/interface/operation/opcode.h和pypto/framework/src/interface/operation/opcode.cpp`
+
+    详细创建Operation及绑定function函数信息，请参考：pypto/framework/src/interface/program/program.cpp
+
+    Opcode信息，请参考：pypto/framework/src/interface/operation/opcode.h和pypto/framework/src/interface/operation/opcode.cpp
 
 ### 步骤 7：对业务功能进行校验
 
@@ -181,12 +181,12 @@ license: 完整条款见 LICENSE.txt
 
     利用ComputationalGraphBuilder类来构建function，通过调用AddTensor()和AddTensors()来实现function中Tensor的构建，调用AddOp()和AddOps()来实现function中Op的构建。
     通过调用SetInCast()和SetOutCast()来实现对function的输入输出构建。
-`
-    ComputationalGraphBuilder类信息，请参考：`pypto/framework/tests/ut/passes/src/computational_graph_builder.h`
-    Opcode信息，请参考：`pypto/framework/src/interface/operation/opcode.h和pypto/framework/src/interface/operation/opcode.cpp`
-    Operation信息，请参考: `pypto/framework/src/interface/operation/operation.cpp`
-    详细LogicalTensor类信息，请参考: `pypto/framework/src/interface/tensor/logical_tensor.h`
-    Tensor创建过程中DataType信息，请参考：`pypto/framework/include/tilefwk/data_type.h`
+
+    ComputationalGraphBuilder类信息，请参考：pypto/framework/tests/ut/passes/src/computational_graph_builder.h
+    Opcode信息，请参考：pypto/framework/src/interface/operation/opcode.h和pypto/framework/src/interface/operation/opcode.cpp
+    Operation信息，请参考: pypto/framework/src/interface/operation/operation.cpp
+    详细LogicalTensor类信息，请参考: pypto/framework/src/interface/tensor/logical_tensor.h
+    Tensor创建过程中DataType信息，请参考：pypto/framework/include/tilefwk/data_type.h
 
 ### 步骤 5：对业务功能进行校验
 
