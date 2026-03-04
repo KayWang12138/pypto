@@ -315,9 +315,9 @@ def main() -> int:
     parser.add_argument("--rules-file", type=Path, help="从文件读取规则 ID（每行一个，支持 # 注释）")
     parser.add_argument("--stdin", action="store_true", help="从 stdin 读取规则 ID（每行一个）")
     parser.add_argument(
-        "--from-violations-json",
-        metavar="PATH|-",
-        help="从违规提取脚本输出的 JSON 读取并提取 rule_id（支持 - 表示 stdin）",
+        "--rules",
+        metavar="RULES",
+        help="Comma-separated rule IDs or path to violations JSON (e.g., G.CLS.06,G.LOG.02 or violations.json)",
     )
     parser.add_argument("--category", "-c", help="按类别查询，如 CLS/FMT/ERR")
     parser.add_argument("--list", action="store_true", help="列出规则（包含标题）")

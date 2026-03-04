@@ -552,7 +552,7 @@ CLA 失败时，向用户展示诊断信息并询问：
 || MCP 创建 PR 返回 400 但参数正确 | 使用 curl fallback（见 Phase 5.4） |
 | commit message 超过 10 行 | 精简内容，控制在 10 行以内 |
 | commit message 使用中文 | **必须使用英文** |
-| **Commit message 不符合正则** `^(feat|fix|docs|style|refactor|perf|test)(.*): [A-Z].{10,200}` | 检查：(1) Tag 是否正确（feat/fix/docs/style/refactor/perf/test）；(2) 冒号后是否有空格；(3) Summary 首字母是否大写；(4) Summary 长度是否在 10-200 字符之间。修复：`git commit --amend -m "tag(scope): Summary"` |
+
 | **无 Git 认证配置** | 按 Phase 2 配置 credential.helper 或 SSH Key |
 | **SSH Key 未添加到 GitCode** | 将公钥添加到 GitCode → Settings → SSH Keys |
 | **Token 权限不足** | 创建 Token 时勾选 `repo`、`read:user` 权限 |

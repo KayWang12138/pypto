@@ -25,7 +25,7 @@ test -n "$CANN_ENV_SH" && source "$CANN_ENV_SH" || echo "CANN set_env.sh not fou
 |------|------|
 | `ASCEND_HOME_PATH` | CANN 版本根目录（PyPTO 主要依赖此变量） |
 | `ASCEND_OPP_PATH` | OPP 算子包路径 |
-| `TOOLCHAIN_HOME` | 工具链路径 |
+
 
 > 诊断脚本路径探测优先级：`ASCEND_HOME_PATH` → `ASCEND_TOOLKIT_HOME` → `ASCEND_OPP_PATH` 反推 → Fallback 扫描 `cann-*`
 
@@ -33,6 +33,8 @@ test -n "$CANN_ENV_SH" && source "$CANN_ENV_SH" || echo "CANN set_env.sh not fou
 
 ```bash
 cd "$PYPTO_REPO"
+
+> ⏱️ **Note**: This script takes approximately 15 minutes to execute.
 
 # 完整安装（CANN + 第三方依赖）
 bash tools/prepare_env.sh --quiet --type=all --device-type=<a2|a3> --install-path=$ASCEND_INSTALL_PATH

@@ -19,15 +19,11 @@ SoC 版本映射数据来源：
 """
 from __future__ import annotations
 
-import ctypes
-import glob
-import json
-import logging
-import os
-import re
-import subprocess
 import sys
 import argparse
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Optional
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Optional

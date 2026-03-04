@@ -160,7 +160,7 @@ def fetch_codecheck_violations(url: str) -> list[dict]:
 | G.CMT.01 | minor | 模块 docstring 位置 | 调整位置 |
 | G.CMT.04 | minor | 注释位置和格式一致 | 调整格式 |
 | G.CMT.05 | minor | 避免 TODO/FIXME 注释 | 删除或转为 issue |
-| G.CMT.06 | minor | 文件头包含版权声明 | 添加版权头 |
+| G.CMT.06 | minor | File header must include copyright statement | **Important**: File header must follow the format of other PyPTO repository files - not just copyright header, but the complete header structure. Refer to existing files in the repo for the correct format. |
 
 #### 运算符规范 (G.OPR)
 

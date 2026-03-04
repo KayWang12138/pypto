@@ -84,17 +84,6 @@ rm -rf output/ 2>/dev/null || true
 python3 softmax.py  # 或 --run_mode sim
 ```
 
-### PyPTO 编译失败：std::regex
-
-原因：CANN 自带 HCC 编译器不完整支持 `<regex>`。
-
-```bash
-# 方法一：使用系统编译器
-export CMAKE_CXX_COMPILER=/usr/bin/g++
-cd "$PYPTO_REPO" && rm -rf build/ temp.linux-* && pip install -e . --no-build-isolation --verbose
-
-# 方法二：升级 CANN 到最新补丁版本
-```
 
 ---
 

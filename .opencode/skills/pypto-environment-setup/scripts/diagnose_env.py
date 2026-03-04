@@ -7,6 +7,7 @@ import shutil
 import textwrap
 import glob
 import json
+import logging
 import os
 import pathlib
 import platform
@@ -17,8 +18,14 @@ from typing import Any
 
 # 深度 NPU 检测模块（同目录，作为独立脚本运行时需 sys.path 保证）
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from detect_npu import NPUDetectionResult as _NPUDetectionResult  # noqa: E402  # pyright: ignore[reportImplicitRelativeImport, reportMissingImports]
-from detect_npu import detect_npu as _deep_detect_npu  # noqa: E402  # pyright: ignore[reportImplicitRelativeImport, reportMissingImports]
+from detect_npu import (  # noqa: E402  # pyright: ignore[reportImplicitRelativeImport, reportMissingImports]
+    NPUDetectionResult as _NPUDetectionResult,
+)
+from detect_npu import (  # noqa: E402  # pyright: ignore[reportImplicitRelativeImport, reportMissingImports]
+    detect_npu as _deep_detect_npu,
+)
+
+logging.basicConfig(level=logging.INFO, format='%(message)s')
 
 def _parse_timeout_env() -> int:
     raw = os.environ.get('DIAG_TIMEOUT', '10')
@@ -528,11 +535,11 @@ def _collect_issues(
         for pkg in python_deps.get('packages', []):
             if pkg['status'] == 'missing':
                 issues.append({'component': f"python_dep:{pkg['name']}", 'severity': 'warning',
-                               'message': f"Python 包 {pkg['name']} 未安装{(' (需 ' + pkg['required'] + ')') if pkg.get('required') else ''}",
+                               'message': f"Python package {pkg['name']} not installed{(' (requires ' + pkg['required'] + ')') if pkg.get('required') else ''}",
                                'fix_hint': 'pip3 install -r $PYPTO_REPO/python/requirements.txt'})
             elif pkg['status'] == 'outdated':
                 issues.append({'component': f"python_dep:{pkg['name']}", 'severity': 'warning',
-                               'message': f"Python 包 {pkg['name']} {pkg.get('installed_version', '')} 版本过低（需 {pkg['required']}）",
+                               'message': f"Python package {pkg['name']} {pkg.get('installed_version', '')} version too low (requires {pkg['required']})",
                                'fix_hint': 'pip3 install -r $PYPTO_REPO/python/requirements.txt'})
 
     # NPU 环境 + CANN 缺失 → 需要安装 CANN
@@ -565,15 +572,15 @@ def _collect_issues(
     if not pto_path:
         issues.append({'component': 'pto-isa', 'severity': 'warning',
                        'message': 'PTO_TILE_LIB_CODE_PATH 未设置',
-                       'fix_hint': '优先：export PTO_TILE_LIB_CODE_PATH="$ASCEND_HOME_PATH/aarch64-linux"；备用：export PTO_TILE_LIB_CODE_PATH=$PWD/pto-isa && git clone https://gitcode.com/cann/pto-isa.git $PTO_TILE_LIB_CODE_PATH'})
+                       'fix_hint': (
+                           'export PTO_TILE_LIB_CODE_PATH=$PWD/pto-isa && '
+                           'git clone https://gitcode.com/cann/pto-isa.git '
+                           '$PTO_TILE_LIB_CODE_PATH'
+                       )})
     elif not pto_isa.get('include_pto_exists'):
         issues.append({'component': 'pto-isa', 'severity': 'warning',
                        'message': f'PTO_TILE_LIB_CODE_PATH={pto_path} 下缺少 include/pto',
-                       'fix_hint': '见 troubleshooting.md § "PTO ISA 编译/头文件错误"'})
-    elif not pto_isa.get('include_comm_exists'):
-        issues.append({'component': 'pto-isa', 'severity': 'warning',
-                       'message': f'PTO_TILE_LIB_CODE_PATH={pto_path} 下缺少 include/pto/comm/pto_comm_inst.hpp（源码 pto-isa 可能不包含 comm）',
-                       'fix_hint': '设置 PTO_TILE_LIB_CODE_PATH="$ASCEND_HOME_PATH/aarch64-linux"（确保已安装 pto-isa .run 包），或见 troubleshooting.md § "prepare_env.sh 使用 --quiet 仍卡住"'})
+                       'fix_hint': '见 troubleshooting.md § "pto-isa 版本不匹配"'})
 
     if not pypto_repo.get('valid'):
         issues.append({'component': 'pypto_repo', 'severity': 'warning', 'message': 'PyPTO 仓库未找到',
@@ -768,7 +775,15 @@ def _print_checklist(report: dict[str, Any], *, fast: bool = False) -> None:
 
     # ── 编译工具链（--fast 模式跳过）──
     if not fast:
-        for name, min_ver in [('cmake', '>= 3.16.3'), ('gcc', '>= 7.3.1'), ('make', ''), ('g++', '>= 7.3.1'), ('ninja', ''), ('pip3', ''), ('python3', '>= 3.9.5')]:
+        for name, min_ver in [
+            ('cmake', '>= 3.16.3'),
+            ('gcc', '>= 7.3.1'),
+            ('make', ''),
+            ('g++', '>= 7.3.1'),
+            ('ninja', ''),
+            ('pip3', ''),
+            ('python3', '>= 3.9.5'),
+        ]:
             info = build_tools.get(name, {})
             found = info.get('found', False)
             ver = info.get('version', '未知')

@@ -40,9 +40,14 @@ pull_number: 1276
 5. 对 codecheck 失败：提取报告 URL → 获取违规详情 → 匹配规则修复
 6. 用户确认修复方案
 7. 应用修复 + 验证
-8. 同步 upstream（检查 + rebase）
-9. 委托 pypto-pr-creator 完成 push + PR 创建
-```
+7. Apply fixes + verify
+
+> **⚠️ Before Starting**:
+> 1. Switch to the PR's local branch: `git checkout <branch_name>`
+> 2. Verify upstream remote is configured: `git remote -v | grep upstream || git remote add upstream https://gitcode.com/cann/pypto.git`
+
+8. Sync upstream (check + rebase)
+9. Delegate to pypto-pr-creator for push + PR creation
 
 ## 评论获取与分类
 
@@ -146,15 +151,16 @@ cann-robot 评论中包含 codecheck 失败的 HTML 表格：
    ```
    
    **注意**：openlibing.com 是 SPA，受 WAF 保护，Playwright MCP 不支持 ARM64，必须使用 Playwright Python。详见 [references/codecheck-rules.md](references/codecheck-rules.md)。
-3. **匹配规则** — 一次 codecheck 通常暴露多个规则，建议批量查询官方定义：
-   ```bash
-   # violations.json 为上一步脚本输出
+3. **匹配规则** — One codecheck typically exposes multiple rules. Batch query official definitions:
+
+   # violations.json is output from previous step
    python ${UNIFIED_SKILLS_ROOT}/library/shared/pypto-pr-fixer/scripts/query_codecheck_rule.py \
-     --from-violations-json violations.json \
+     --rules violations.json \
      --language python \
      --format markdown
    ```
-   自动修复/人工确认的落地策略仍参考 [references/codecheck-rules.md](references/codecheck-rules.md)。
+   Auto-fix/manual confirmation strategy still refer to [references/codecheck-rules.md](references/codecheck-rules.md).
+
 4. **分类处理**：
    - 可自动修复（格式类 G.FMT、命名类 G.NAM、日志类 G.LOG 等）→ 直接修复
    - 需人工判断（安全类 G.EDV、业务逻辑类 G.CTL 等）→ 生成修复建议
@@ -265,9 +271,8 @@ PR 创建成功后检查 CLA 和 LGTM 状态：
 
 当遇到 `pre receive hook check failed` 时，执行诊断：
 
-| 检查项 | 诊断命令 | 修复建议 |
-|--------|----------|----------|
-| Commit message 格式 | `git log -1 --format="%s"` | 必须匹配正则 `^(feat|fix|docs|style|refactor|perf|test)(.*): [A-Z].{10,200}` |
+| Branch sync status | `git log HEAD..origin/<target> --oneline` | `git pull --rebase` |
+
 | 分支同步状态 | `git log HEAD..origin/<target> --oneline` | `git pull --rebase` |
 | 提交者身份 | `git log -1 --format="%ae"` | 配置 `git user.email` |
 
