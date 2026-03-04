@@ -368,6 +368,28 @@ static std::string BuildControlFlowCallee(Function *func, int ident) {
     return oss.str();
 }
 
+static bool CheckAndInsertTargetExpression(std::ostringstream &controlFlowOss, 
+                                             const std::string &exprStr,
+                                             int indent,
+                                             bool &foundTargetExpr) {
+    static std::regex targetPattern(R"(RUNTIME_GetTensorDataInt32Dim[1-4])");
+    
+    if (!foundTargetExpr && std::regex_search(exprStr, targetPattern)) {
+        foundTargetExpr = true;
+        
+        controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "{\n";
+        controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "static bool __once_flag__ = false;\n";
+        controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "if (!__once_flag__) {\n";
+        controlFlowOss << std::setw((indent + 2) * TABSIZE) << ' ' << "YourFunctionName();\n";
+        controlFlowOss << std::setw((indent + 2) * TABSIZE) << ' ' << "__once_flag__ = true;\n";
+        controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "}\n";
+        controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "}\n";
+        
+        return true;
+    }
+    return false;
+}
+
 static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::string &sectionName,
     Function *func,
     std::unordered_map<int, int> &slotIdxMapping,
@@ -514,9 +536,14 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
 
         SymbolicExpressionTable *exprTable = linker.LookupDevRootCoa(func);
         if (exprTable != nullptr) {
+            static bool foundTargetExpr = false;
+            
             for (auto &expr : exprTable->GetPrimaryExpressionSet()) {
                 auto index = exprTable->GetPrimaryExpressionSet().GetIndex(expr);
                 auto exprStr = exprTable->BuildExpression(expr);
+                
+                CheckAndInsertTargetExpression(controlFlowOss, exprStr, indent, foundTargetExpr);
+                
                 controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_SetExpr(exprList" << devRootKey << ", " << index << ", " << exprStr << ");\n";
             }
         }
