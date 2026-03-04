@@ -468,7 +468,7 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
         APASS_LOG_ERROR_F(Elements::Tensor, "Create DDR raw tensor failed!");
         return FAILED;
     }
-    std::vector<int64_t> offset(spillTensor->GetShape().size(), 0);
+    std::vector<int64_t> offset = spillTensor->GetOffset();
 
     LogicalTensorPtr ddrTensor = std::make_shared<LogicalTensor>(function_, ddrRawTensor, offset, spillTensor->GetShape());
     if (ddrTensor == nullptr) {
@@ -684,12 +684,12 @@ int64_t OoOScheduler::CalcWorkspaceOffset(std::vector<int64_t> shape, std::vecto
 Status OoOScheduler::GetWorkspaceBaseOffset(LogicalTensorPtr ddrTensor, int64_t &base) {
     for (auto* producer : ddrTensor->GetProducers()) {
         if (producer->GetOpcode() == Opcode::OP_COPY_OUT) {
-            if (producer->GetAttr(OpAttributeKey::workspaceBaseOffset, base)) {
-                return SUCCESS;
+            if (!producer->GetAttr(OpAttributeKey::workspaceBaseOffset, base)) {
+                return FAILED;
             }
         }
     }
-    return FAILED;
+    return SUCCESS;
 }
 
 LogicalTensorPtr OoOScheduler::CreateAssemblePartTensor(LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor,
@@ -741,7 +741,7 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
         isFirst = false;
     }
     // copyin
-    std::vector<int64_t> offset(iOperand->GetShape().size(), 0);
+    std::vector<int64_t> offset = assembleAttr->GetToOffset();
     int64_t gmRelatOffset = CalcWorkspaceOffset(assembleTensor->GetShape(), assembleAttr->GetToOffset());
     if (gmRelatOffset == -1) {
         APASS_LOG_ERROR_F(Elements::Operation, "CalcWorkspaceOffset failed.");
