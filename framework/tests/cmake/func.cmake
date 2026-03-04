@@ -25,7 +25,7 @@ function(PTO_Fwk_GTest_GenerateCoverage)
             ""
             ${ARGN}
     )
-    if (ENABLE_TESTS_EXECUTE AND ENABLE_GCOV AND BUILD_OPEN_PROJECT)
+    if (ENABLE_TESTS_EXECUTE AND ENABLE_GCOV)
         # 获取 gcc 默认头文件搜索路径
         execute_process(
                 COMMAND ${CMAKE_C_COMPILER} --print-sysroot
@@ -130,9 +130,6 @@ function(PTO_Fwk_GTest_RunExe_GetPreExecSetup PY_CMD_SETUP PY_ENV_LINES BASH_CMD
     endif ()
     list(APPEND EnvLines ${LD_LIBRARY_PATH})
     # 处理环境变量 PATH
-    if ((NOT BUILD_OPEN_PROJECT) AND ENABLE_UTEST)
-        list(APPEND EnvLines "PATH=$ENV{PATH}:${CCEC_PATH}")
-    endif()
     # 处理变量 ENV_SETUP_EXT
     list(REMOVE_ITEM ARG_ENV_LINES_EXT export)
     list(REMOVE_ITEM ARG_ENV_LINES_EXT &)
