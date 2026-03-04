@@ -657,10 +657,12 @@ void SetConvShapeInfo(const TileShape &tileShape, const ConvGraphNodes &tensorGr
     convTileInfo.nL0 = convTile.tileL0Info.tileN;
 }
 
-LogicalTensorPtr ConstructBiasTile(Function &function, const ConvGraphNodes &tensorGraphNodes, ConvIterInfo &iterInfo)
+LogicalTensorPtr ConstructBiasTile(Function &function, const ConvGraphNodes &tensorGraphNodes, ConvIterInfo &iterInfo,
+                                   ConvTileInfo &convTileInfo)
 {
     std::vector<int64_t> dstBiasL1Shape = std::vector<int64_t>{1, ConvAlignB(iterInfo.nL0Size, MKN_N_VALUE)};
-    std::vector<int64_t> dstBiasL1Offset = std::vector<int64_t>{0, iterInfo.nL1Offset + iterInfo.nL0Offset};
+    std::vector<int64_t> dstBiasL1Offset = std::vector<int64_t>{0,
+        iterInfo.groupOffset * convTileInfo.coutPerGroup + iterInfo.nL1Offset + iterInfo.nL0Offset};
     LogicalTensorPtr dstBiasl1TensorPtr =
         std::make_shared<LogicalTensor>(function, tensorGraphNodes.biasTensorPtr->Datatype(),
                                         dstBiasL1Shape, SymbolicScalar::FromConcrete(dstBiasL1Shape),
@@ -1061,7 +1063,7 @@ void IterL0ExpandFunc(Function &function, ConvIterInfo &iterInfo, ConvTileInfo &
         // bias 载入
         if (convAttrParam.hasBias) {
             // get bias in bt tile for mmad
-            tileGraphNodes.biasTensorPtr = ConstructBiasTile(function, tensorGraphNodes, iterInfo);
+            tileGraphNodes.biasTensorPtr = ConstructBiasTile(function, tensorGraphNodes, iterInfo, convTileInfo);
         }
         for (iterInfo.hL0Offset = 0; iterInfo.hL0Offset < iterInfo.houtL1Size;
              iterInfo.hL0Offset += convTileInfo.hL0) {
