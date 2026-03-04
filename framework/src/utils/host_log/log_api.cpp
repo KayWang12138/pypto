@@ -14,14 +14,20 @@
  */
 
 #include <cstdarg>
+#include <array>
 
 #include "tilefwk/pypto_fwk_log.h"
 #include "host_log/log_manager.h"
 #include "host_log/dlog_handler.h"
+#include "host_log/log_module_manager.h"
 
 namespace npu::tile_fwk {
-int32_t TilefwkCheckLogLevel(int32_t moduleId, int32_t logLevel) {
+int32_t TilefwkCheckLogLevel(int32_t moduleId, int32_t logLevel, LogModule logModule) {
     (void)moduleId;
+    int32_t moduleLevel = LogModuleManager::Instance().GetModuleLogLevel(logModule);
+    if (moduleLevel >= 0) {
+        return logLevel >= moduleLevel ? 1 : 0;
+    }
     return LogManager::Instance().CheckLevel(static_cast<LogLevel>(logLevel)) ? 1 : 0;
 }
 
@@ -42,6 +48,17 @@ void TilefwkSetLogAttr(bool isDevice) {
 }
 
 #ifndef __DEVICE__
+namespace {
+const std::string kUnknownModule = "UNKNOWN";
+const std::array<std::string, static_cast<size_t>(LogModule::BOTTOM)> kModuleNameStrArray = {
+    "FUNCTION", "PASS", "CODEGEN", "MACHINE", "DISTRIBUTED", "SIMULATION", "VERIFY"
+};
+}
+const std::string& GetLogModuleName(const LogModule logModule) {
+    return (logModule >= LogModule::FUNCTION && logModule < LogModule::BOTTOM) ?
+        kModuleNameStrArray[static_cast<size_t>(logModule)] : kUnknownModule;
+}
+
 LogFuncInfo &LogFuncInfo::Instance() {
     static LogFuncInfo instance;
     return instance;
@@ -49,12 +66,14 @@ LogFuncInfo &LogFuncInfo::Instance() {
 LogFuncInfo::LogFuncInfo() {
     checkLevel = TilefwkCheckLogLevel;
     record = TilefwkLogRecord;
+    pyptoRecord = TilefwkLogRecord;
     setAttr = TilefwkSetLogAttr;
 }
 
 LogFuncInfo::~LogFuncInfo() {
     checkLevel = nullptr;
     record = nullptr;
+    pyptoRecord = nullptr;
     setAttr = nullptr;
 }
 #endif
