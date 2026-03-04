@@ -432,7 +432,7 @@ def main():
         test_qat_asymmetric_edge_cases(device_id, args.run_mode)
         print()
 
-    if args.test_level == -1 or args.test_level == 3:
+    if args.test_level == -2 or args.test_level == 3:
         test_qat_asymmetric_large(device_id, args.run_mode)
         print()
 

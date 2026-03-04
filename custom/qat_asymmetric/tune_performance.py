@@ -40,33 +40,48 @@ def create_tunable_kernel(orig_shape, num_groups, group_size, bit, vec_tile_x, v
     clip_val = 0.99
     eps = 1e-4
 
-    @pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.NPU})
+    runtime_opts = {
+        "run_mode": pypto.RunMode.NPU,
+        "stitch_function_inner_memory": 512,
+        "stitch_function_outcast_memory": 512,
+        "stitch_function_num_initial": 128,
+        "stitch_function_max_num": 128,
+        "stitch_function_num_step": 20
+    }
+
+    @pypto.frontend.jit(runtime_options=runtime_opts)
     def qat_asymmetric_kernel(
-        weight: pypto.Tensor((total_elements,), pypto.DT_FP32),
-        scale: pypto.Tensor((num_groups,), pypto.DT_FP32),
-        offset: pypto.Tensor((num_groups,), pypto.DT_FP32),
-    ) -> pypto.Tensor((total_elements,), pypto.DT_FP32):
+        weight: pypto.Tensor((total_elements,), pypto.DT_BF16),
+        scale: pypto.Tensor((num_groups,), pypto.DT_BF16),
+        offset: pypto.Tensor((num_groups,), pypto.DT_BF16),
+    ) -> (
+        pypto.Tensor((total_elements,), pypto.DT_BF16),
+        pypto.Tensor((total_elements,), pypto.DT_BF16),
+        pypto.Tensor((total_elements,), pypto.DT_BF16),
+    ):
         pypto.set_vec_tile_shapes(vec_tile_x, vec_tile_y)
         
-        protected_scale = pypto.maximum(scale, eps)
+        weight_fp32 = pypto.cast(weight, pypto.DT_FP32)
+        scale_fp32 = pypto.cast(scale, pypto.DT_FP32)
+        offset_fp32 = pypto.cast(offset, pypto.DT_FP32)
+        
+        protected_scale = pypto.maximum(scale_fp32, eps)
         alpha = pypto.mul(protected_scale, n_levels)
         
-        weight_2d = pypto.reshape(weight, [num_groups, group_size])
+        weight_2d = pypto.reshape(weight_fp32, [num_groups, group_size])
         
-        offset_2d = pypto.reshape(offset, [num_groups, 1])
+        offset_2d = pypto.reshape(offset_fp32, [num_groups, 1])
         offset_expanded = pypto.expand_clone(offset_2d, [num_groups, group_size])
         
         alpha_2d = pypto.reshape(alpha, [num_groups, 1])
         alpha_expanded = pypto.expand_clone(alpha_2d, [num_groups, group_size])
         
         weight_shifted = pypto.sub(weight_2d, offset_expanded)
-        
         weight_norm = pypto.div(weight_shifted, alpha_expanded)
         weight_clipped = pypto.clip(weight_norm, neg_clip_val, clip_val)
         
         weight_scaled = pypto.mul(weight_clipped, n_levels)
         weight_shifted2 = pypto.sub(weight_scaled, shift)
-        
         weight_rounded = pypto.round(weight_shifted2, decimals=0)
         
         weight_unshifted = pypto.add(weight_rounded, shift)
@@ -76,8 +91,14 @@ def create_tunable_kernel(orig_shape, num_groups, group_size, bit, vec_tile_x, v
         output_2d = pypto.add(weight_rescaled, offset_expanded)
         
         output = pypto.reshape(output_2d, [total_elements])
+        weight_denorm_out = pypto.reshape(weight_denorm, [total_elements])
+        alpha_expanded_out = pypto.reshape(alpha_expanded, [total_elements])
         
-        return output
+        output_bf16 = pypto.cast(output, pypto.DT_BF16)
+        weight_denorm_bf16 = pypto.cast(weight_denorm_out, pypto.DT_BF16)
+        alpha_expanded_bf16 = pypto.cast(alpha_expanded_out, pypto.DT_BF16)
+        
+        return output_bf16, weight_denorm_bf16, alpha_expanded_bf16
 
     return qat_asymmetric_kernel
 
@@ -94,9 +115,9 @@ def benchmark_config(vec_tile_x, vec_tile_y, device_id):
     kernel = create_tunable_kernel(shape, num_groups, GROUP_SIZE, BIT, vec_tile_x, vec_tile_y)
 
     torch.manual_seed(42)
-    weight_torch = torch.randn(shape, dtype=torch.float32, device=device)
-    scale_torch = torch.rand(num_groups, dtype=torch.float32, device=device) * 0.1 + 0.01
-    offset_torch = torch.randn(num_groups, dtype=torch.float32, device=device) * 0.1
+    weight_torch = (torch.randn(shape, dtype=torch.float32, device=device)).to(torch.bfloat16)
+    scale_torch = (torch.rand(num_groups, dtype=torch.float32, device=device) * 0.1 + 0.01).to(torch.bfloat16)
+    offset_torch = (torch.randn(num_groups, dtype=torch.float32, device=device) * 0.1).to(torch.bfloat16)
 
     weight_flat = weight_torch.view(-1)
 
@@ -104,9 +125,10 @@ def benchmark_config(vec_tile_x, vec_tile_y, device_id):
         _ = kernel(weight_flat, scale_torch, offset_torch)
 
     times = []
+    output_flat = None
     for _ in range(MEASURE_ROUNDS):
         start = time.time()
-        output_flat = kernel(weight_flat, scale_torch, offset_torch)
+        output_flat, _, _ = kernel(weight_flat, scale_torch, offset_torch)
         torch.npu.synchronize()
         end = time.time()
         times.append((end - start) * 1000)
@@ -122,8 +144,8 @@ def benchmark_config(vec_tile_x, vec_tile_y, device_id):
     elements_per_sec = elements * throughput_ops_per_sec / 1e6
 
     output_torch = output_flat.view(shape)
-    expected = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, GROUP_SIZE, BIT)
-    max_diff = (output_torch - expected).abs().max().item()
+    expected_out, _, _ = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, GROUP_SIZE, BIT)
+    max_diff = (output_torch - expected_out).abs().max().item()
     correctness = max_diff < 1e-2
 
     print(f"  Shape: {shape}")
