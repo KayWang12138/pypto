@@ -490,13 +490,19 @@ void AdjustTilesToReshape(Operation * op, Shape opBaseInputShape, Shape opBaseOu
     if(curStatus != SUCCESS) {
         for (size_t di=0; di< opBaseInputShape.size(); di++) {
             vectorTilesOld[di] = (opBaseInputShape[di] != -1) ? opBaseInputShape[di] : 1;
+            std::cout<<" "<<vectorTilesOld[di]<<" , ";
         }
-        for (size_t di=0; di< opBaseOutputShape.size(); di++) {
-            outTileShape[di] = (opBaseOutputShape[di] != -1) ? opBaseOutputShape[di] : 1;
+        std::cout<<"\n";
+        curStatus = derivationTileShapePass.DerivationReshapeTileShape(op, opBaseInputShape, opBaseOutputShape, vectorTilesOld, outTileShape);
+        if(curStatus != SUCCESS) {
+            std::cout<<"Not success again\n";
+            outTileShape.resize(opBaseOutputShape.size());
+            for (size_t di=0; di< opBaseOutputShape.size(); di++) {
+                outTileShape[di] = (opBaseOutputShape[di] != -1) ? opBaseOutputShape[di] : 1;
+            }
+            APASS_LOG_WARN_F(Elements::Operation, "DerivationReshapeTileShape failed. %s", GetFormatBacktrace(*op).c_str());
         }
-        APASS_LOG_WARN_F(Elements::Operation, "DerivationReshapeTileShape failed. %s", GetFormatBacktrace(*op).c_str());
         return;
-
     } 
     auto outTileProd = std::accumulate(outTileShape.begin(), outTileShape.end(), 1, std::multiplies<int64_t>());
     auto inTileProd = std::accumulate(vectorTilesOld.begin(), vectorTilesOld.end(), 1, std::multiplies<int64_t>());
@@ -705,8 +711,7 @@ void TileThroughViewAssemble(Operation* op, std::vector<int64_t>& tile) {
         std::cout << "di = " << di << std::endl;
         auto prevVal = tile[di];
         std::cout << "prevVal = " << prevVal << std::endl;
-        ASSERT(op->GetOOperands()[0]->shape[di] != -1) << "op->GetOOperands()[0]->shape[di] != -1" << std::endl;
-        tile[di] = op->GetOOperands()[0]->shape[di]; 
+        tile[di] = op->GetOOperands()[0]->shape[di] != -1 ? op->GetOOperands()[0]->shape[di] : tile[di]; 
         auto wholeSize = std::accumulate(tile.begin(), tile.end(), 1, std::multiplies<int64_t>());
         if (wholeSize > ((int64_t)UB_MAX_SIZE / maxTypeSize)) {
             tile[di] = prevVal;
@@ -970,15 +975,14 @@ void OpWithSeveralInputsTileSetting(Operation *op, const std::vector<int64_t>& v
 
     for(size_t inp = 0; inp < op->GetIOperands().size(); inp++) {
         std::cout << "op->GetIOperands().size() = " << op->GetIOperands().size() << " inp = " << inp << std::endl;
+        ASSERT(op->GetIOperands()[inp]->GetProducers().size() >= 1);
         auto prodOp = *(op->GetIOperands()[inp]->GetProducers().begin());
         auto consOp = *(op->GetOOperands()[0]->GetConsumers().begin());
-        ASSERT(op->GetIOperands()[inp]->GetProducers().size() == 1);
         std::cout << "Producer: " << prodOp->GetOpcodeStr() << " magic : " << prodOp->GetOpMagic() << " Op: " << op->GetOpcodeStr() << " magic : " << op->GetOpMagic() << std::endl;
-
         std::vector<int64_t> inpTile(inputDims, 1);
-        if ((prodOp->GetIOperands().size() == 0) || (prodOp->GetIOperands()[0]->GetProducers().size() == 0)) {
+        if (((prodOp->GetIOperands().size() == 0) || (prodOp->GetIOperands()[0]->GetProducers().size() == 0))) {
             //std::cout<<"No inputs from prod, ignore its tiling\n";
-            if((consOp->GetTileShape().GetVecTile().tile.size() == 1) && (consOp->GetTileShape().GetVecTile().tile[0] == -1)) {
+            if ((consOp->GetTileShape().GetVecTile().tile.size() != 1) || (consOp->GetTileShape().GetVecTile().tile[0] != -1)) {
                 inpTile = consOp->GetTileShape().GetVecTile().tile;
             } else {
                 inpTile = vectorTilesNew;
@@ -1344,7 +1348,7 @@ void TopkTileSetting(Operation *op, std::vector<int64_t>& vectorTilesNew) {
     int64_t tileSize = (UB_MAX_SIZE / maxTypeSize / argsCount);
 
     ASSERT(op->GetIOperands().size() == 1);
-    ASSERT(op->GetOOperands().size() == 2);
+    ASSERT(op->GetOOperands().size() >= 1);
     ASSERT(inputDims == outputDims) << "reduce have different shape size for input and output\n";
 
     auto maxInputShape = op->GetIOperands()[0]->GetShape();
@@ -1808,6 +1812,14 @@ void CubeOutDepsProcessing(Operation *cubeOp, Operation *opBase) {
     std::vector<int64_t> vectorTilesC = {cubeTile.m[0], cubeTile.n[0]};
 
     ASSERT(opBase->GetIOperands()[0]->magic == magicC);
+    bool haveInp = false;
+    for(auto inp: opBase->GetIOperands()) {
+        if (inp->magic == magicC) {
+            haveInp = true;
+            break;
+        }
+    }
+    ASSERT(haveInp == true);
     cubeOp->GetTileShapeForSetting().SetVecTile(vectorTilesC); 
 }
 
