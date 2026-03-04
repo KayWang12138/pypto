@@ -342,10 +342,8 @@ def lightning_indexer_decode(
 
     @pypto.frontend.jit(
         runtime_options={
-            "stitch_function_inner_memory": 8192,
-            "stitch_function_outcast_memory": 4096,
-            "stitch_function_num_initial": 128,
-            "device_sched_mode": 1
+            "stitch_function_max_num": 128,
+            "device_sched_mode": 3
         }
     )
     def lightning_indexer_decode_kernel(

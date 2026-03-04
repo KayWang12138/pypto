@@ -187,9 +187,7 @@ def select_experts_kernel(router_logits_shape, e_score_bias_shape, bs_top_k_fris
     topk_ids_shape = (pypto.frontend.dynamic("bs"), bs_top_k_second[1])
 
     @pypto.frontend.jit(
-        runtime_options={"stitch_function_num_initial": 128,
-        "stitch_function_outcast_memory": 128,
-        "stitch_function_inner_memory": 128,
+        runtime_options={"stitch_function_max_num": 128,
         "stitch_cfgcache_size": 2500000}
     )
     def kernel(
