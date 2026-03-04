@@ -1492,6 +1492,14 @@ Operation &Function::AddRawOperation(const Opcode opCode, const LogicalTensors &
         operations_.emplace_back(std::make_shared<Operation>(*this, opCode, iOperands, oOperands, updateTensorMap));
     opPosition_.emplace(op.get(), operations_.size() - 1);
     operations_.back()->SetScopeId(config::GetPassOption<int>(SG_SET_SCOPE));
+    std::string ENV_Name = "MAGIC";
+    const char *magic = std::getenv(ENV_Name.c_str());
+    if (magic != nullptr) {
+        int magicValue = std::stoi(magic);
+        if (op->GetOpMagic() == magicValue) {
+            std::cout << "get " << magic << std::endl;
+        }
+    }
     return *operations_.back();
 }
 
