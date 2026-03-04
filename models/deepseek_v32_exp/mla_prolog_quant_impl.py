@@ -730,9 +730,7 @@ def mla_prolog_quant_p(h, q_lora_rank, n, qk_nope_head_dim, kv_lora_rank, qk_rop
             "cube_l1_reuse_setting": {-1: 4},
         },
         runtime_options={
-            "stitch_function_inner_memory": 512,
-            "stitch_function_outcast_memory": 512,
-            "stitch_function_num_initial": 128,
+            "stitch_function_max_num": 128
         }
     )
     def mla_prolog_quant_kernel(

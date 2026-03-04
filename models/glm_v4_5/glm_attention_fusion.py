@@ -219,10 +219,7 @@ def ifa_func(b, bs, n1, hidden_size, total_head_size, head_size, half_rotary_dim
     bs = pypto.frontend.dynamic("bs")
 
     @pypto.frontend.jit(
-        runtime_options={"stitch_function_num_initial": 128,
-                        "stitch_function_outcast_memory": 1024,
-                        "stitch_function_inner_memory": 1024,
-                        "stitch_function_max_num": 128
+        runtime_options={"stitch_function_max_num": 128
                         },
         debug_options={"runtime_debug_mode": 2}
     )
