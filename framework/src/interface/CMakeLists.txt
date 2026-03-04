@@ -59,48 +59,4 @@ target_link_libraries(tile_fwk_interface
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_interface)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_interface)
 
-if (ENABLE_TORCH_VERIFIER)
-    add_library(tile_fwk_calculator SHARED)
-    target_sources(tile_fwk_calculator
-            PRIVATE
-                interpreter/calculator/calc_torch.cpp
-                interpreter/calculator/fp8_convert.cpp
-    )
-    target_compile_options(tile_fwk_calculator
-            PRIVATE
-                $<$<BOOL:${ENABLE_GCOV}>:$<$<CXX_COMPILER_ID:GNU>:--coverage -fprofile-arcs -ftest-coverage>>
-                -D_GLIBCXX_USE_CXX11_ABI=${PY3_MOD_TORCH_C_GLIBCXX_USE_CXX11_ABI}
-                -D__DEVICE__
-            PUBLIC
-                -DENABLE_VERIFIER=1
-    )
-    target_include_directories(tile_fwk_calculator
-            SYSTEM PRIVATE
-                ${PY3_MOD_TORCH_ROOT_PATH}/include
-                ${PY3_MOD_TORCH_ROOT_PATH}/include/torch/csrc/api/include
-                ${PTO_FWK_SRC_ROOT}/framework/include
-                ${PTO_FWK_SRC_ROOT}/framework/src/
-                ${PTO_FWK_SRC_ROOT}/framework/src/interface
-                $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/include>
-    )
-    target_link_directories(tile_fwk_calculator
-            PUBLIC
-                ${PY3_MOD_TORCH_ROOT_PATH}/lib
-                ${PY3_MOD_TORCH_ROOT_PATH}/../torch.libs
-                $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/lib64>
-    )
-    target_link_libraries(tile_fwk_calculator
-            PRIVATE
-                json
-                c_sec
-                torch
-                tile_fwk_intf_pub
-                $<$<BOOL:${ENABLE_GCOV}>:$<$<CXX_COMPILER_ID:GNU>:gcov>>
-    )
-    target_link_options(tile_fwk_calculator
-            PRIVATE
-                -Wl,-no-as-needed,${PY3_MOD_TORCH_ROOT_PATH}/lib/libtorch_cpu.so -Wl,-as-needed
-                -Wl,-no-as-needed,${PY3_MOD_TORCH_ROOT_PATH}/lib/libc10.so -Wl,-as-needed
-                $<$<BOOL:${ENABLE_GCOV}>:$<$<CXX_COMPILER_ID:GNU>:-fprofile-arcs -ftest-coverage>>
-    )
-endif () ## ENABLE_TORCH_VERIFIER
+add_subdirectory(interpreter)

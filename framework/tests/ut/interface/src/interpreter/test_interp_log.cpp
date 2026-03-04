@@ -30,6 +30,7 @@
 #include "interface/tensor/logical_tensor.h"
 #include "interface/operation/operation.h"
 #include "interface/interpreter/operation.h"
+#include "interface/interpreter/calc.h"
 
 namespace npu::tile_fwk {
 
