@@ -77,7 +77,7 @@ bool NeedClearStatus(const Operation &op) {
     return false;
 }
 
-Status LoopaxesProc::UpdateOpLoopAxes(Operation &op) {
+Status LoopaxesProc::UpdateOpLoopAxes(Operation &op, Function &subFunc) {
     if (SKIP_OPCODE_FOR_CODEGEN.find(op.GetOpcode()) != SKIP_OPCODE_FOR_CODEGEN.end()) {
         APASS_LOG_DEBUG_F(
             Elements::Operation, "Op Code %s, Op[%d] ignore this op", op.GetOpcodeStr().c_str(), op.GetOpMagic());
@@ -107,7 +107,7 @@ Status LoopaxesProc::UpdateOpLoopAxes(Operation &op) {
         }
         // 当前节点的loopaxes和group的loopaxes一致，当前节点划入当前的loopaxes
         // 当前节点的loopaxes和group的loopaxes不一致，划入一个新的group起点，进行group
-        if (!SameLoopAxes(loopAxes) && previousOutputMagic != input->GetMagic()) {
+        if (!SameLoopAxes(loopAxes, subFunc) && previousOutputMagic != input->GetMagic()) {
             lastGroupIdx = groupIdx++;
             previousLoopAxes = loopAxes;
             op.SetAttribute(OpAttributeKey::loopGroupStart, true);
@@ -142,7 +142,8 @@ Status LoopaxesProc::UpdateFuncLoopAxes(Function &function) {
             continue;
         }
         for (auto &op : subProgram.second->Operations(false)) {
-            UpdateOpLoopAxes(op);
+            auto &subFunc = *subProgram.second;
+            UpdateOpLoopAxes(op, subFunc);
         }
         if (lastGroupIdx != INVALID_LOOP_GROUPID && lastOpInLoop != nullptr) {
             SetOpLoopEnd(lastOpInLoop);
@@ -151,11 +152,20 @@ Status LoopaxesProc::UpdateFuncLoopAxes(Function &function) {
     return SUCCESS;
 }
 
-bool LoopaxesProc::SameLoopAxes(const std::vector<SymbolicScalar> &curLoopAxes) {
+bool LoopaxesProc::SameLoopAxes(const std::vector<SymbolicScalar> &curLoopAxes, const Function &subFunc) {
     if (curLoopAxes.size() != previousLoopAxes.size()) {
         return false;
     }
+    auto dynParamTable = subFunc.GetDynParamTable();
     for (size_t i = 0; i < curLoopAxes.size(); ++i) {
+        if (dynParamTable.find(SymbolicExpressionTable::BuildExpression(curLoopAxes[i])) != dynParamTable.end() &&
+            dynParamTable.find(SymbolicExpressionTable::BuildExpression(previousLoopAxes[i])) != dynParamTable.end()) {
+            auto curParamInfo = dynParamTable[SymbolicExpressionTable::BuildExpression(curLoopAxes[i])];
+            auto preParamInfo = dynParamTable[SymbolicExpressionTable::BuildExpression(previousLoopAxes[i])];
+            if (curParamInfo.replacedSymbol == preParamInfo.replacedSymbol) {
+                return true;
+            }
+        }
         if (SymbolicExpressionTable::BuildExpression(curLoopAxes[i]) !=
             SymbolicExpressionTable::BuildExpression(previousLoopAxes[i])) {
             return false;
