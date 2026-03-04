@@ -82,7 +82,7 @@ add_subdirectory(python)
 # 安装流程
 ########################################################################################################################
 
-if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
+if (ENABLE_FEATURE_PYTHON_FRONT_END)
     # whl 包名配置
     set(PyPTO_WhlName "pypto")
 
@@ -183,4 +183,30 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
                 TARGETS             ${InstallTargets}
         )
     endif ()
+
+    # 安装 在线编译 calculator 二进制必需文件
+    get_target_property(cSecIncludeDir c_sec_include INTERFACE_INCLUDE_DIRECTORIES)
+    install(FILES
+                ${cSecIncludeDir}/securec.h
+                ${cSecIncludeDir}/securectype.h
+            DESTINATION ${PyPTO_WhlName}/lib/calculator/include
+    )
+    install(FILES
+                framework/include/tilefwk/data_type.h
+                framework/include/tilefwk/error.h
+                framework/include/tilefwk/lazy.h
+            DESTINATION ${PyPTO_WhlName}/lib/calculator/include/tilefwk
+    )
+    install(DIRECTORY framework/src/interface/interpreter/calculator/
+            DESTINATION ${PyPTO_WhlName}/lib/calculator/src
+            PATTERN "*.h"
+            PATTERN "*.cpp"
+            PATTERN ".svn" EXCLUDE
+            PATTERN ".git" EXCLUDE
+            PATTERN "CMakeLists.txt" EXCLUDE
+    )
+    install(FILES
+                    framework/src/interface/interpreter/calculator/CMakeLists.txt
+            DESTINATION ${PyPTO_WhlName}/lib/calculator
+    )
 endif ()

@@ -8,13 +8,9 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-if (BUILD_OPEN_PROJECT)
-        set(BISHENG_PROGRAM bisheng)
-        set(BISHENG_LD ld.lld)
-else ()
-        set(BISHENG_PROGRAM ${CCEC_PATH}/bisheng)
-        set(BISHENG_LD ${CCEC_PATH}/ld.lld)
-endif ()
+
+set(BISHENG_PROGRAM bisheng)
+set(BISHENG_LD ld.lld)
 
 set(AI_CORE_FLAGS
     "-c -O3 -g -x cce -Wall -Werror -std=c++17 \
