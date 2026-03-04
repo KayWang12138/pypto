@@ -102,7 +102,7 @@ git clone https://${GITCODE_TOKEN}@gitcode.com/cann/pypto.git "${PYPTO_REPO:-$PW
 | **Python 依赖缺失/版本不足** | `pip3 install -r $PYPTO_REPO/python/requirements.txt` | 见 `troubleshooting.md` § "pip 依赖冲突" |
 | **torch/torch_npu 导入失败** (NPU 环境) | 见 `references/prepare_environment.md` § torch_npu 安装 | 见 `troubleshooting.md` § "torch_npu 导入失败" |
 | **pypto 未安装** | `cd $PYPTO_REPO && pip install -e .` | 见 `troubleshooting.md` § "DT_FP8E8M0" |
-| **pto-isa 缺失/路径未设** | `git clone https://gitcode.com/cann/pto-isa.git $PTO_TILE_LIB_CODE_PATH` + 设置环境变量 | 检查 GITCODE_TOKEN；见 `troubleshooting.md` § "pto-isa 版本不匹配" |
+| **pto-isa 缺失/路径未设** | 优先：`export PTO_TILE_LIB_CODE_PATH="$ASCEND_HOME_PATH/aarch64-linux"`（若存在 `include/pto/comm/pto_comm_inst.hpp`）；否则：`git clone https://gitcode.com/cann/pto-isa.git $PTO_TILE_LIB_CODE_PATH` | 见 `troubleshooting.md` § "PTO ISA 编译/头文件错误" |
 
 > `--device-type` 的值由 Step 1 检测的 NPU 芯片型号自动确定（910B→a2，910C→a3）。
 > `--install-path` 支持用户自定义 CANN 安装路径（默认 `/usr/local/Ascend`）。
@@ -153,17 +153,20 @@ Step 3 完成 / Happy Path
 
 | 变量 / 操作 | 设置方式 | 必须性 |
 |------------|----------|--------|
-| CANN 环境加载 | `source "${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/latest/set_env.sh"` | 每次新 shell 必须 |
-| `PTO_TILE_LIB_CODE_PATH` | `export PTO_TILE_LIB_CODE_PATH="${PTO_ISA_DIR:-$PWD/pto-isa}"` | 编译/运行必须 |
+| CANN 环境加载 | `source <cann>/set_env.sh`（推荐使用下方模板自动探测） | 每次新 shell 必须 |
+| `PTO_TILE_LIB_CODE_PATH` | 优先：`export PTO_TILE_LIB_CODE_PATH="$ASCEND_HOME_PATH/aarch64-linux"`；备用：`export PTO_TILE_LIB_CODE_PATH="${PTO_ISA_DIR:-$PWD/pto-isa}"` | 编译/运行必须 |
 | `TILE_FWK_DEVICE_ID` | `export TILE_FWK_DEVICE_ID=1` | NPU 模式必须 |
 | `PYTHONPATH` | `export PYTHONPATH="${PYPTO_REPO}/python:$PYTHONPATH"` | 开发模式推荐 |
 
 ### 完整设置模板（推荐写入 ~/.bashrc）
 
 ```bash
-source "${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/latest/set_env.sh"
+ASCEND_INSTALL_PATH=${ASCEND_INSTALL_PATH:-/usr/local/Ascend}
+CANN_ENV_SH=${CANN_ENV_SH:-$(ls -1 ${ASCEND_INSTALL_PATH}/*/set_env.sh ${ASCEND_INSTALL_PATH}/*/*/set_env.sh 2>/dev/null | head -1)}
+test -n "$CANN_ENV_SH" && source "$CANN_ENV_SH" || { echo "ERROR: CANN set_env.sh not found"; return 1; }
+
 export PYTHONPATH="${PYPTO_REPO:-$PWD/pypto}/python:$PYTHONPATH"
-export PTO_TILE_LIB_CODE_PATH="${PTO_ISA_DIR:-$PWD/pto-isa}"
+export PTO_TILE_LIB_CODE_PATH="${PTO_TILE_LIB_CODE_PATH:-$ASCEND_HOME_PATH/aarch64-linux}"
 export TILE_FWK_DEVICE_ID=1  # 可选，NPU 模式需要
 ```
 

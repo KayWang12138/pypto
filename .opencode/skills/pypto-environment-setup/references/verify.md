@@ -21,7 +21,12 @@ NPU 模式（必须用于 NPU 环境）：
 CANN_ENV_SH=${CANN_ENV_SH:-$(ls -1 ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/*/set_env.sh ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/*/*/set_env.sh 2>/dev/null | head -1)}
 test -n "$CANN_ENV_SH" && source "$CANN_ENV_SH" || { echo "ERROR: CANN set_env.sh not found"; exit 1; }
 
-export PTO_TILE_LIB_CODE_PATH="${PTO_TILE_LIB_CODE_PATH:-${PTO_ISA_DIR:-$PWD/pto-isa}}"
+PTO_CANN_DIR="${ASCEND_HOME_PATH:-}/aarch64-linux"
+if [ -d "$PTO_CANN_DIR/include/pto" ]; then
+  export PTO_TILE_LIB_CODE_PATH="${PTO_TILE_LIB_CODE_PATH:-$PTO_CANN_DIR}"
+else
+  export PTO_TILE_LIB_CODE_PATH="${PTO_TILE_LIB_CODE_PATH:-${PTO_ISA_DIR:-$PWD/pto-isa}}"
+fi
 export PYTHONPATH="${PYPTO_REPO:-$PWD/pypto}/python:$PYTHONPATH"
 export TILE_FWK_DEVICE_ID=${TILE_FWK_DEVICE_ID:-0}
 
@@ -35,7 +40,12 @@ SIM 模式（无需 NPU）：
 CANN_ENV_SH=${CANN_ENV_SH:-$(ls -1 ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/*/set_env.sh ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/*/*/set_env.sh 2>/dev/null | head -1)}
 test -n "$CANN_ENV_SH" && source "$CANN_ENV_SH" || { echo "ERROR: CANN set_env.sh not found"; exit 1; }
 
-export PTO_TILE_LIB_CODE_PATH="${PTO_TILE_LIB_CODE_PATH:-${PTO_ISA_DIR:-$PWD/pto-isa}}"
+PTO_CANN_DIR="${ASCEND_HOME_PATH:-}/aarch64-linux"
+if [ -d "$PTO_CANN_DIR/include/pto" ]; then
+  export PTO_TILE_LIB_CODE_PATH="${PTO_TILE_LIB_CODE_PATH:-$PTO_CANN_DIR}"
+else
+  export PTO_TILE_LIB_CODE_PATH="${PTO_TILE_LIB_CODE_PATH:-${PTO_ISA_DIR:-$PWD/pto-isa}}"
+fi
 export PYTHONPATH="${PYPTO_REPO:-$PWD/pypto}/python:$PYTHONPATH"
 
 python3 "${PYPTO_REPO:-$PWD/pypto}/examples/02_intermediate/operators/softmax/softmax.py" --run_mode sim
