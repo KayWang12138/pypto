@@ -376,9 +376,7 @@ def lightning_indexer_prolog_quant(x_shape, q_norm_shape, q_norm_scale_shape, w_
     @pypto.frontend.jit(
         pass_options={"cube_l1_reuse_setting": configs.cube_l1_reuse_setting,
                       "pg_upper_bound": configs.pg_upper_bound},
-        runtime_options={"stitch_function_inner_memory": 512,
-                        "stitch_function_outcast_memory": 512,
-                        "stitch_function_num_initial": 128,
+        runtime_options={"stitch_function_max_num": 128,
                         "device_sched_mode": 1}
     )
     def kernel(

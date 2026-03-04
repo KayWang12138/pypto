@@ -273,9 +273,7 @@ def quant_attention_pre(bs, hidden_size, total_head_size, head_size, q_size, kv_
     bs = pypto.frontend.dynamic("bs")
 
     @pypto.frontend.jit(
-        runtime_options={"stitch_function_num_initial": 128,
-        "stitch_function_outcast_memory": 1024,
-        "stitch_function_inner_memory": 1024,
+        runtime_options={"stitch_function_max_num": 128,
         "stitch_cfgcache_size": 3000000}
     )
     def quant_attention_pre_kernel(
