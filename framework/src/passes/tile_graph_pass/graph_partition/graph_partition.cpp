@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file iso_partitioner.cpp
+ * \file graph_partitioner.cpp
  * \brief
  */
 

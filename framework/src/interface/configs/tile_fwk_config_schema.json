@@ -48,7 +48,7 @@
                         {
                             "value": "Iso",
                             "label": {
-                                "zh": "",
+                                "zh": "基于同构检测融合瓦片内核",
                                 "en": "Fuses tile kernels based on isomorphism detection."
                             }
                         },
@@ -62,7 +62,7 @@
                         {
                             "value": "OspBsp",
                             "label": {
-                                "zh": "",
+                                "zh": "基于 BSP 模型融合瓦片内核，用于并行计算和同构检测。",
                                 "en": "Fuses tile kernels based on the BSP model for parallel computation and isomorphism detection."
                             }
                         }
