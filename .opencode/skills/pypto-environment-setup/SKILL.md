@@ -43,8 +43,6 @@ python3 "$SKILL_DIR/scripts/diagnose_env.py" --checklist
 
 脚本会自动检测以下项目并输出确认清单（每项标注 ✅ OK / ⚠️ 缺失 / ❌ 异常）：
 
-脚本会自动检测以下所有项目并输出确认清单（每项标注 ✅ OK / ⚠️ 缺失 / ❌ 异常）：
-
 | 检测项 | 检测方式 |
 |--------|----------|
 | cmake | `cmake --version`，需 >= 3.16.3 |

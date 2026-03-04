@@ -83,11 +83,13 @@ CHIP_FAMILIES: list[tuple[str, str, str, str]] = [
 
 # Known Huawei PCI device IDs -> (generation, chip family prefix)
 KNOWN_PCI_DEVICE_IDS: dict[str, tuple[str, str]] = {
+    "0xd802": ("A2", "Ascend910B"),
+    "0xd803": ("A3", "Ascend910_93"),
+}
 
 
 # ---------------------------------------------------------------------------
 # Data Classes
-# ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 
 @dataclass
