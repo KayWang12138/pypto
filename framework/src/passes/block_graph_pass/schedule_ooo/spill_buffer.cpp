@@ -684,12 +684,12 @@ int64_t OoOScheduler::CalcWorkspaceOffset(std::vector<int64_t> shape, std::vecto
 Status OoOScheduler::GetWorkspaceBaseOffset(LogicalTensorPtr ddrTensor, int64_t &base) {
     for (auto* producer : ddrTensor->GetProducers()) {
         if (producer->GetOpcode() == Opcode::OP_COPY_OUT) {
-            if (producer->GetAttr(OpAttributeKey::workspaceBaseOffset, base)) {
-                return SUCCESS;
+            if (!producer->GetAttr(OpAttributeKey::workspaceBaseOffset, base)) {
+                return FAILED;
             }
         }
     }
-    return FAILED;
+    return SUCCESS;
 }
 
 LogicalTensorPtr OoOScheduler::CreateAssemblePartTensor(LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor,
