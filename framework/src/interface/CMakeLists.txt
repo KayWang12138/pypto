@@ -81,13 +81,13 @@ if (ENABLE_TORCH_VERIFIER)
                 ${PTO_FWK_SRC_ROOT}/framework/include
                 ${PTO_FWK_SRC_ROOT}/framework/src/
                 ${PTO_FWK_SRC_ROOT}/framework/src/interface
-                $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/include>
+                $<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include>
     )
     target_link_directories(tile_fwk_calculator
             PUBLIC
                 ${PY3_MOD_TORCH_ROOT_PATH}/lib
                 ${PY3_MOD_TORCH_ROOT_PATH}/../torch.libs
-                $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/lib64>
+                $<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/lib64>
     )
     target_link_libraries(tile_fwk_calculator
             PRIVATE
