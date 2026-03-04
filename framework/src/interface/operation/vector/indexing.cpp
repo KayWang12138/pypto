@@ -1353,6 +1353,20 @@ Tensor GatherMask(const Tensor &self, const uint8_t patternMode) {
         ASSERT(patternMode == 7) << "Just support patternMode is 1, 2, 3, 4, 5, 6, 7";
     }
     auto result = Tensor(self.GetStorage()->tensor->datatype, shape);
+
+    if (!self.GetStorage()->GetDynValidShape().empty()) {
+        std::vector<SymbolicScalar> outValidShape;
+        for (auto dim : self.GetStorage()->GetDynValidShape()) {
+            outValidShape.push_back(dim);
+        }
+        if (patternMode == 1 || patternMode == 2){
+            outValidShape[outValidShape.size() - 1] = outValidShape[outValidShape.size() - 1] / 2;
+        } else if (patternMode == 3 || patternMode == 4 || patternMode == 5 || patternMode == 6) {
+            outValidShape[outValidShape.size() - 1] = outValidShape[outValidShape.size() - 1] / 4;
+        }
+        result.GetStorage()->UpdateDynValidShape(outValidShape);
+    }
+
     CALL(GatherMask, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), result.GetStorage(), patternMode);
     return result;
 }
