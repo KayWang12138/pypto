@@ -30,8 +30,8 @@ std::string CodeGenOpCloudNPU::PrintSortDynamicUnaligned(const SortParam &param)
     const std::string &dstDtypeStr = param.dstDtypeStr;
     const std::string &tmpDtypeStr = param.tmpDtypeStr;
 
-    auto dynSrcShape = dynamicValidShape[1];
-    FillIntVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM4 - dynamicValidShape[1].size(), 1);
+    auto dynSrcShape = dynamicValidShape[2];
+    FillIntVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM4 - dynamicValidShape[2].size(), 1);
 
     std::vector<std::string> paramList;
     paramList.emplace_back(srcDtypeStr);
