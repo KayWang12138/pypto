@@ -287,7 +287,7 @@ TEST_F(DynamicFunctionTest, TestOnlyExpression) {
     EXPECT_NE(rootFunc, nullptr);
     EXPECT_EQ(rootFunc->GetCallopAttrList().size(), 1);
     auto attr = rootFunc->GetCallopAttrList().front();
-    ALOG_INFO(attr->DumpAttr());
+    FUNCTION_LOGI("%s", attr->DumpAttr().c_str());
     EXPECT_EQ(attr->DumpAttr(2), "attr[2][  0,  0,(k*16), 16, 16, 16, 64, 16,RUNTIME_GetViewValidShapeDim(64,(k*16),16)]]");
 }
 
@@ -319,7 +319,7 @@ TEST_F(DynamicFunctionTest, TestOnlySymbol) {
     EXPECT_NE(rootFunc, nullptr);
     EXPECT_EQ(rootFunc->GetCallopAttrList().size(), 1);
     auto attr = rootFunc->GetCallopAttrList().front();
-    ALOG_INFO(attr->DumpAttr());
+    FUNCTION_LOGI("%s", attr->DumpAttr().c_str());
     EXPECT_EQ(attr->DumpAttr(2), "attr[2][  0,  k,  0,  1, 64,  4, 64,RUNTIME_GetViewValidShapeDim(4,k,1), 64]]");
 }
 
@@ -731,7 +731,7 @@ TEST_F(DynamicFunctionTest, TestLoopWithManualRank) {
             auto loopAttr = subFunc->GetDynloopAttribute();
             EXPECT_NE(loopAttr, nullptr);
             EXPECT_EQ(loopAttr->unrollTimes, ranks[idx++]);
-            ALOG_ERROR("unrollTimes: ", loopAttr->unrollTimes, " range: ",loopAttr->loopRange.Dump());
+            FUNCTION_LOGE("unrollTimes: %d range: %s", loopAttr->unrollTimes, loopAttr->loopRange.Dump().c_str());
             EXPECT_EQ(loopAttr->pathList.size(), 1);
         }
     }
@@ -785,7 +785,7 @@ TEST_F(DynamicFunctionTest, HiddenLoop){
     std::vector<std::string> LoopPathFuncNames1 = {"TENSOR_L01_Unroll1_6","TENSOR_TENSOR_Main_loop_Unroll1_PATH0_hiddenfunc1_9"};
     int idx = 0;
     for (auto &LoopPathFuc1 : innerLoopFunc1->GetCalleeFunctionList()) {
-        ALOG_INFO("LoopPathFuc: ", LoopPathFuc1->GetMagicName());
+        FUNCTION_LOGI("LoopPathFuc: %s", LoopPathFuc1->GetMagicName().c_str());
         EXPECT_EQ(LoopPathFuc1->GetMagicName(), LoopPathFuncNames1[idx++]);
     }
 
@@ -843,7 +843,7 @@ TEST_F(DynamicFunctionTest, HiddenLoopWithIf){
     int idx1 = 0;
     std::vector<std::string> LoopPathFuncNames = {"TENSOR_TENSOR_Main_loop_Unroll1_PATH0_4", "TENSOR_TENSOR_Main_loop_Unroll1_PATH1_10"};
     for (auto &LoopPathFuc : outerLoopFunc->GetCalleeFunctionList()) {
-        ALOG_INFO("LoopPathFuc: ", LoopPathFuc->GetMagicName());
+        FUNCTION_LOGI("LoopPathFuc: %s", LoopPathFuc->GetMagicName().c_str());
         EXPECT_EQ(LoopPathFuc->GetMagicName(), LoopPathFuncNames[idx1++]);
         EXPECT_EQ(LoopPathFuc->GetCalleeFunctionList().size(), 2);
     }
@@ -855,7 +855,7 @@ TEST_F(DynamicFunctionTest, HiddenLoopWithIf){
     int idx2 = 0;
     std::vector<std::string> innerLoopPathFuncNames1 = {"TENSOR_TENSOR_Main_loop_Unroll1_PATH1_hiddenfunc0_11", "TENSOR_L02_Unroll1_12"};
     for (auto &innerLoopPathFuc : innerLoopFunc1->GetCalleeFunctionList()) {
-        ALOG_INFO("LoopPathFuc: ", innerLoopPathFuc->GetMagicName());
+        FUNCTION_LOGI("LoopPathFuc: %s", innerLoopPathFuc->GetMagicName().c_str());
         EXPECT_EQ(innerLoopPathFuc->GetMagicName(), innerLoopPathFuncNames1[idx2++]);
     }
 
@@ -866,7 +866,7 @@ TEST_F(DynamicFunctionTest, HiddenLoopWithIf){
     int idx3 = 0;
     std::vector<std::string> innerLoopPathFuncNames2 = {"TENSOR_TENSOR_Main_loop_Unroll1_PATH0_hiddenfunc0_5", "TENSOR_L03_Unroll1_6"};
     for (auto &innerLoopPathFuc : innerLoopFunc2->GetCalleeFunctionList()) {
-        ALOG_INFO("LoopPathFuc: ", innerLoopPathFuc->GetMagicName());
+        FUNCTION_LOGI("LoopPathFuc: %s", innerLoopPathFuc->GetMagicName().c_str());
         EXPECT_EQ(innerLoopPathFuc->GetMagicName(), innerLoopPathFuncNames2[idx3++]);
     }
 
@@ -931,7 +931,7 @@ TEST_F(DynamicFunctionTest, HiddenLoopNestedWithIf){
     std::vector<std::string> LoopPathFuncNames = {"TENSOR_TENSOR_Main_loop_Unroll1_PATH0_4", "TENSOR_TENSOR_Main_loop_Unroll1_PATH1_10",
         "TENSOR_TENSOR_Main_loop_Unroll1_PATH2_16","TENSOR_TENSOR_Main_loop_Unroll1_PATH3_22"};
     for (auto &LoopPathFuc : outerLoopFunc->GetCalleeFunctionList()) {
-        ALOG_INFO("LoopPathFuc: ", LoopPathFuc->GetMagicName());
+        FUNCTION_LOGI("LoopPathFuc: %s", LoopPathFuc->GetMagicName().c_str());
         EXPECT_EQ(LoopPathFuc->GetMagicName(), LoopPathFuncNames[idx++]);
         EXPECT_EQ(LoopPathFuc->GetCalleeFunctionList().size(), 3);
     }
@@ -993,7 +993,7 @@ TEST_F(DynamicFunctionTest, HiddenLoopNestedWithIfComplex){
     int idx = 0;
     std::vector<std::string> LoopPathFuncNames = {"TENSOR_TENSOR_Main_loop_Unroll1_PATH0_4", "TENSOR_TENSOR_Main_loop_Unroll1_PATH1_14"};
     for (auto &LoopPathFuc : outerLoopFunc->GetCalleeFunctionList()) {
-        ALOG_INFO("LoopPathFuc: ", LoopPathFuc->GetMagicName());
+        FUNCTION_LOGI("LoopPathFuc: %s", LoopPathFuc->GetMagicName().c_str());
         EXPECT_EQ(LoopPathFuc->GetMagicName(), LoopPathFuncNames[idx++]);
         EXPECT_EQ(LoopPathFuc->GetCalleeFunctionList().size(), 5);
     }
