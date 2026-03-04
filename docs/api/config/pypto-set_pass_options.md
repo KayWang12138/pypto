@@ -50,7 +50,7 @@ set_pass_options(*,
                        cube_nbuffer_setting={})
 ```
 
-### dict配置说明
+### dict类型配置说明
 #### 键值对含义
 Key (hashorder): 同构子图组id。<br>
 - 值 M: 匹配 hashorder 为 M 的特定子图组。<br>
