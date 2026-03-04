@@ -41,6 +41,8 @@ const std::string TEST_TMP_DIR = "/tmp/TestPlatform/";
 class TestPlatformParser : public testing::Test {
 public:
     static void SetUpTestCase() {
+        std::string cmd = "rm -rf " + TEST_TMP_DIR;
+        [[maybe_unused]]int ret = system(cmd.c_str());
         std::string src = RealPath(GetCurrentSharedLibPath() + "/../../../framework/tests/ut/machine/stubs/compiler/data/platform_config/Ascend910_9572.ini");
         CreateMultiLevelDir(TEST_TMP_DIR);
         std::string dst = TEST_TMP_DIR + "A5.ini";
