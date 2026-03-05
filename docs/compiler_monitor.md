@@ -184,9 +184,9 @@ Compiler Monitor 提供编译过程的实时进度监控和超时检测功能。
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `enable` | bool | `True` | 是否启用监控 |
-| `interval_sec` | int | `30` | 进度打印间隔（秒） |
-| `timeout_sec` | int | `600` | 单阶段超时阈值（秒），默认 10 分钟 |
-| `total_timeout_sec` | int | `0` | 总编译时间超时阈值（秒），默认 0 表示禁用 |
+| `interval_sec` | int | `30` | 进度打印间隔（秒），默认 30（秒），手动设置大于零的数值才有效 |
+| `timeout_sec` | int | `0` | 单阶段超时阈值（秒），默认 0 表示禁用 |
+| `total_timeout_sec` | int | `600` | 总编译时间超时阈值（秒），默认 10分钟 ，0 表示禁用 |
 | `timeout_action` | str | `"warn"` | 超时动作：`"throw"`（协作式取消）或 `"warn"`（仅警告），参见[超时检测实现模式](#超时检测实现模式) |
 
 ### TimeoutAction 枚举
