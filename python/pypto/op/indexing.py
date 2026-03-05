@@ -541,3 +541,37 @@ def gathermask(self: Tensor, pattern_mode: int) -> Tensor:
     """
 
     return pypto_impl.GatherMask(self, pattern_mode)
+
+
+def permute(input: Tensor, dims: tuple) -> Tensor:
+    """
+    Returns a view of the original tensor input with its dimensions permuted.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+    dims : tuple of int
+        The desired ordering of dimensions.
+
+    Returns
+    -------
+    Tensor
+        A tensor with the same data as input but with dimensions permuted
+        according to the ordering specified by dims.
+
+    Raises
+    ------
+    ValueError
+        If dims is not a valid permutation of the input tensor's dimensions.
+
+    Examples
+    --------
+    >>> x = pypto.randn(2, 3, 5)
+    >>> x.size()
+    pypto.Size([2, 3, 5])
+    >>> y = pypto.permute(x, (2, 0, 1))
+    >>> y.size()
+    pypto.Size([5, 2, 3])
+    """
+    return pypto_impl.Permute(input, dims)

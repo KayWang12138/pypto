@@ -1,0 +1,199 @@
+/**
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to License for details. You may not use this file except in compliance with License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file test_permute_operation.cpp
+ * \brief
+ */
+
+#include "test_operation.h"
+
+using namespace tile_fwk::test_operation;
+namespace {
+struct PermuteOpFuncArgs : public OpFuncArgs {
+    PermuteOpFuncArgs(
+        const std::vector<int> &dims, const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
+        : dims_(dims), viewShape_(viewShape), tileShape_(tileShape) {}
+
+    std::vector<int> dims_;
+    std::vector<int64_t> viewShape_;
+    std::vector<int64_t> tileShape_;
+};
+
+struct PermuteOpMetaData {
+    explicit PermuteOpMetaData(const OpFunc &opFunc, const nlohmann::json &test_data)
+        : opFunc_(opFunc), test_data_(test_data) {}
+
+    OpFunc opFunc_;
+    nlohmann::json test_data_;
+};
+
+[[maybe_unused]] static void PermuteOperationExeFuncSingleCut(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
+        SymbolicScalar firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar secondDim = inputs[0].GetShape()[1];
+        auto args = static_cast<const PermuteOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        int bloop = CeilDiv(firstDim, firstViewShape);
+        int sloop = CeilDiv(secondDim, secondViewShape);
+
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                auto tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
+                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                        std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                    {bIdx * firstViewShape, sIdx * secondViewShape});
+                TileShape::Current().SetVecTile(args->tileShape_);
+                auto res = Permute(tileTensor0, args->dims_);
+                Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
+            }
+        }
+    }
+}
+
+static void PermuteOperationExeFuncDoubleCut(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
+        SymbolicScalar firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar thirdDim = inputs[0].GetShape()[2];
+        auto args = static_cast<const PermuteOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        const int thirdViewShape = args->viewShape_[2];
+        int bloop = CeilDiv(firstDim, firstViewShape);
+        int sloop = CeilDiv(secondDim, secondViewShape);
+        int nloop = CeilDiv(thirdDim, thirdViewShape);
+
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
+                    auto tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
+                        {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                            std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                            std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
+                        {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
+                    TileShape::Current().SetVecTile(args->tileShape_);
+                    auto res = Permute(tileTensor0, args->dims_);
+                    Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
+                }
+            }
+        }
+    }
+}
+
+static void PermuteOperationExeFuncTripleCut(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
+        SymbolicScalar firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar thirdDim = inputs[0].GetShape()[2];
+        SymbolicScalar fourthDim = inputs[0].GetShape()[3];
+        auto args = static_cast<const PermuteOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        const int thirdViewShape = args->viewShape_[2];
+        const int fourthViewShape = args->viewShape_[3];
+        int bloop = CeilDiv(firstDim, firstViewShape);
+        int sloop = CeilDiv(secondDim, secondViewShape);
+        int nloop = CeilDiv(thirdDim, thirdViewShape);
+        int qloop = CeilDiv(fourthDim, fourthViewShape);
+
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
+                    LOOP("LOOP_L3_qIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(0, qloop, 1)) {
+                        auto tileTensor0 =
+                            View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                                {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                    std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                    std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape),
+                                    std::min(fourthDim - qIdx * fourthViewShape, fourthViewShape)},
+                                {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
+                                    qIdx * fourthViewShape});
+                        TileShape::Current().SetVecTile(args->tileShape_);
+                        auto res = Permute(tileTensor0, args->dims_);
+                        Assemble(res,
+                            {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
+                                qIdx * fourthViewShape},
+                            outputs[0]);
+                    }
+                }
+            }
+        }
+    }
+}
+
+static void PermuteOperationExeFuncQuadrupleCut(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
+        SymbolicScalar firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar thirdDim = inputs[0].GetShape()[2];
+        SymbolicScalar fourthDim = inputs[0].GetShape()[3];
+        SymbolicScalar fifthDim = inputs[0].GetShape()[4];
+        auto args = static_cast<const PermuteOpFuncArgs *>(opArgs);
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
+        const int thirdViewShape = args->viewShape_[2];
+        const int fourthViewShape = args->viewShape_[3];
+        const int fifthViewShape = args->viewShape_[4];
+        int bloop = CeilDiv(firstDim, firstViewShape);
+        int sloop = CeilDiv(secondDim, secondViewShape);
+        int nloop = CeilDiv(thirdDim, thirdViewShape);
+        int qloop = CeilDiv(fourthDim, fourthViewShape);
+        int rloop = CeilDiv(fifthDim, fifthViewShape);
+
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
+                    LOOP("LOOP_L3_qIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(0, qloop, 1)) {
+                        LOOP("LOOP_L4_rIdx", FunctionType::DYNAMIC_LOOP, rIdx, LoopRange(0, rloop, 1)) {
+                            auto tileTensor0 = View(inputs[0],
+                                {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape, fifthViewShape},
+                                {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                                    std::min(secondDim - sIdx * secondViewShape, secondViewShape),
+                                    std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape),
+                                    std::min(fourthDim - qIdx * fourthViewShape, fourthViewShape),
+                                    std::min(fifthDim - rIdx * fifthViewShape, fifthViewShape)},
+                                {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
+                                    qIdx * fourthViewShape, rIdx * fifthViewShape});
+                            TileShape::Current().SetVecTile(args->tileShape_);
+                            auto res = Permute(tileTensor0, args->dims_);
+                            Assemble(res,
+                                {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape,
+                                    qIdx * fourthViewShape, rIdx * fifthViewShape},
+                                outputs[0]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+class PermuteOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<PermuteOpMetaData> {};
+
+INSTANTIATE_TEST_SUITE_P(TestPermute, PermuteOperationTest,
+    ::testing::ValuesIn(
+        GetOpMetaData<PermuteOpMetaData>({PermuteOperationExeFuncSingleCut, PermuteOperationExeFuncDoubleCut,
+                                             PermuteOperationExeFuncTripleCut, PermuteOperationExeFuncQuadrupleCut},
+            "permute")));
+
+TEST_P(PermuteOperationTest, TestPermute) {
+    auto test_data = GetParam().test_data_;
+    std::vector<int> dims = GetValueByName<std::vector<int>>(test_data, "dims");
+    auto args = PermuteOpFuncArgs(dims, GetViewShape(test_data), GetTileShape(test_data));
+    auto testCase = CreateTestCaseDesc<PermuteOpMetaData>(GetParam(), &args);
+    TestExecutor::runTest(testCase);
+}
+} // namespace
