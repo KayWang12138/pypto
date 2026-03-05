@@ -420,8 +420,8 @@ Status MixSubgraphSplit::ProcessLeafFunction(Function& rootFunc,
         AnalyzerInput analyzerInput(components, originalMixFunc);
         analyzerOutput = std::make_shared<AnalyzerOutput>(
             std::vector<InternalDependencyInfo>(),
-            std::unordered_map<int, std::vector<SimpleTensorParam>>(),
-            std::unordered_map<int, std::vector<SimpleTensorParam>>()
+            std::unordered_map<int, std::vector<LogicalTensorPtr>>(),
+            std::unordered_map<int, std::vector<LogicalTensorPtr>>()
         );
         Status depStatus = dependencyAnalyzer_.ProcessDependencyAnalyzer(analyzerInput, *analyzerOutput);
         if (depStatus != SUCCESS) {

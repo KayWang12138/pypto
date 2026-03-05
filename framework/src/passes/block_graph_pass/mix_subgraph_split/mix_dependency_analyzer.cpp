@@ -54,7 +54,7 @@ std::unordered_map<int, std::set<int>> MixDependencyAnalyzer::AnalyzeComponentDe
                 }
             }
         }
-    }dependencies
+    }
     // 用于记录mixsplit间的依赖关系
     return dependencies;
 }
@@ -116,14 +116,14 @@ void MixDependencyAnalyzer::ComputeDependencyClosure(std::unordered_map<int, std
 }
 
 void MixDependencyAnalyzer::ExtractExternalDependencies() {
-    if (!leafFunction_) {
+    if (!originalMixFunc_) {
         ALOG_ERROR_F("originalMixFunc_ is null, cannot extract external dependencies");
         return;
     }
     ALOG_INFO_F("Extracting external dependencies from originalMixFunc: %s", 
-            leafFunction_->GetName().c_str());
+            originalMixFunc_->GetRawName().c_str());
     // 从 leafFunction 提取 incasts - 这些 incast 应该分配给所有scope
-    const auto& incastTensors = leafFunction_->GetIncast();
+    const auto& incastTensors = originalMixFunc_->GetIncast();
     ALOG_INFO_F("Original mix function has %zu incast tensors", incastTensors.size());
     // 为每个scope分配相同的 incast tensors
     for (int compId = 0; compId <= maxComponent; compId++) {
@@ -134,7 +134,7 @@ void MixDependencyAnalyzer::ExtractExternalDependencies() {
         }
     }
     // 从 leafFunction 获取 outcasts - 这些 outcast 应该分配给所有scope
-    const auto& outcastTensors = leafFunction_->GetOutcast();
+    const auto& outcastTensors = originalMixFunc_->GetOutcast();
     ALOG_INFO_F("Original mix function has %zu outcast tensors", outcastTensors.size());
     
     // 为每个scope分配相同的 outcast tensors    
@@ -298,6 +298,15 @@ Status MixDependencyAnalyzer::ValidateCrossComponentDependencies(
     }
     ALOG_INFO_F("=== VALIDATION PASSED ===");   
     return SUCCESS; 
+}
+
+bool MixDependencyAnalyzer::IsTensorInComponentIncasts(int compId, const LogicalTensorPtr& tensor) const {
+    auto incastIt = allIncasts.find(compId);
+    if (incastIt == allIncasts.end()) return false;
+    for (const auto& param : incastIt->second) {
+        if (param == tensor) return true;
+    }
+    return false;
 }
 
 bool MixDependencyAnalyzer::CheckDirectionAndCollectValid(
