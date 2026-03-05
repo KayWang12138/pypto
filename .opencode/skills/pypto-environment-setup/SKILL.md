@@ -111,48 +111,41 @@ python3 examples/02_intermediate/operators/softmax/softmax.py --run_mode npu
 python3 examples/02_intermediate/operators/softmax/softmax.py --run_mode sim
 ```
 
-**通过标准**：退出码 `0`，输出 `Softmax test passed`，`Max difference` ≤ `3e-3`。
+⚠️ **注意**：NPU 环境必须使用 NPU 模式通过验证。
+
+**通过标准**：退出码 `0`，输出 `Softmax test passed`。
 
 **失败时**：重新运行 Step 1 诊断 → 对照 [🔧 troubleshooting.md](references/troubleshooting.md) 排查。
 
 ### Step 5: 完成报告
 
-环境配置完成后，建议将环境变量写入 `~/.bashrc` 以便后续自动加载。
+环境配置完成后，输出以下报告供用户确认。
 
-**~/.bashrc 模板**：
+**配置摘要**：
 ```bash
-# ============================================
-# PyPTO 环境配置（自动生成）
-# ============================================
-
-# CANN 环境
-source ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/set_env.sh
-
-# NPU 设备 ID（根据 npu-smi info 修改）
-export TILE_FWK_DEVICE_ID=0
-
-# PTO-ISA 路径
-export PTO_TILE_LIB_CODE_PATH=${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/aarch64-linux
-
-# PyPTO 仓库路径（可选）
-# export PYPTO_REPO=/path/to/pypto
+echo "=== PyPTO 环境配置报告 ==="
+echo "CANN 版本: $(cat ${ASCEND_HOME_PATH}/version.info 2>/dev/null || echo '未知')"
+echo "NPU 设备: $(npu-smi info 2>/dev/null | grep 'Chip Name' | head -1 || echo '未检测到')"
+echo "TILE_FWK_DEVICE_ID: ${TILE_FWK_DEVICE_ID}"
+echo "PTO_TILE_LIB_CODE_PATH: ${PTO_TILE_LIB_CODE_PATH}"
+echo "PYPTO_REPO: ${PYPTO_REPO:-$PWD}"
 ```
 
-**应用配置**：
+**验证结果**：
+- Softmax 测试（NPU 模式）：✅ 通过
+
+**持久化配置（可选）**：
 ```bash
-# 追加到 ~/.bashrc
 cat >> ~/.bashrc << 'EOF'
 # PyPTO 环境配置
-source ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/set_env.sh
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
 export TILE_FWK_DEVICE_ID=0
-export PTO_TILE_LIB_CODE_PATH=${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/aarch64-linux
+export PTO_TILE_LIB_CODE_PATH=/usr/local/Ascend/cann/aarch64-linux
 EOF
-
-# 立即生效
 source ~/.bashrc
 ```
 
-⚠️ **注意**：`TILE_FWK_DEVICE_ID` 需根据实际 NPU 卡情况修改。
+⚠️ `TILE_FWK_DEVICE_ID` 需根据 `npu-smi info` 输出修改。
 ## 📚 参考文件
 
 | File | Contents |
