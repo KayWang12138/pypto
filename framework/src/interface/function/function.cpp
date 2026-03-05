@@ -3638,7 +3638,7 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
         }
         case OverlapStatus::BE_COVERED: {
             auto viewResult = std::make_shared<LogicalTensor>(*this, matches.front()->tensor->datatype, iOperand->shape,
-                iOperand->Format(), "View_" + matches.front()->tensor->symbol, matches.front()->nodetype);
+                iOperand->GetDynValidShape(), iOperand->Format(), "View_" + matches.front()->tensor->symbol, matches.front()->nodetype);
             auto &viewOp = AddRawOperation(Opcode::OP_VIEW, {matches.front()}, {viewResult});
             viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(
                 iOperand->GetOffset(), iOperand->GetDynOffset(), iOperand->GetDynValidShape()));
@@ -3661,7 +3661,7 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
             }
 
             auto viewResult = std::make_shared<LogicalTensor>(*this, assembleResult->Datatype(), iOperand->shape,
-                iOperand->Format(), "View_" + assembleResult->Symbol(), assembleResult->nodetype);
+                iOperand->GetDynValidShape(), iOperand->Format(), "View_" + assembleResult->Symbol(), assembleResult->nodetype);
             auto &viewOp = AddRawOperation(Opcode::OP_VIEW, {assembleResult}, {viewResult});
             std::vector<int64_t> newOffset = TensorOffset::Sub(iOperand->GetOffset(), minimumOffset);
             std::vector<SymbolicScalar> newDynOffset = TensorOffset::Sub(iOperand->GetDynOffset(), minimumOffset);
