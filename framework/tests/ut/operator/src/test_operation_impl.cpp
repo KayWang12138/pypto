@@ -1275,3 +1275,45 @@ TEST_F(OperationImplTest, Test_MatmulMX_FP8E4M3) {
             npu::tile_fwk::Matrix::MatmulMX(DT_FP16, matA, scaleA, matB, scaleB, false, true, false, true, false);
     }
 }
+
+TEST_F(OperationImplTest, Test_Conv_FP16) {
+    Conv::TileL1Info l1TileShape(2, 2, 64, 64, 16, 16, 16, 1);
+    Conv::TileL0Info l0TileShape(2, 64, 16, 16);
+    TileShape::Current().SetConvTile(l1TileShape, l0TileShape, true);
+    Tensor fmap(DT_FP16, {1, 16, 2, 64}, "fmap");
+    Tensor weight(DT_FP16, {32, 16, 3, 3}, "weight");
+    Tensor result;
+    Conv::ConvExtendParam convExtendParam;
+    FUNCTION("TestConv") {
+        result =
+            npu::tile_fwk::Conv::Conv(DT_FP16, fmap, weight, {1, 1}, {1, 1, 1, 1}, {1, 1}, convExtendParam, 1);
+    }
+}
+
+TEST_F(OperationImplTest, Test_Conv_FP32) {
+    Conv::TileL1Info l1TileShape(2, 2, 64, 64, 8, 8, 16, 1);
+    Conv::TileL0Info l0TileShape(2, 64, 8, 16);
+    TileShape::Current().SetConvTile(l1TileShape, l0TileShape, true);
+    Tensor fmap(DT_FP32, {1, 8, 2, 64}, "fmap");
+    Tensor weight(DT_FP32, {32, 8, 3, 3}, "weight");
+    Tensor result;
+    Conv::ConvExtendParam convExtendParam;
+    FUNCTION("TestConv") {
+        result =
+            npu::tile_fwk::Conv::Conv(DT_FP32, fmap, weight, {1, 1}, {1, 1, 1, 1}, {1, 1}, convExtendParam, 1);
+    }
+}
+
+TEST_F(OperationImplTest, Test_Conv_FP16_Groups) {
+    Conv::TileL1Info l1TileShape(2, 2, 64, 64, 16, 16, 16, 1);
+    Conv::TileL0Info l0TileShape(2, 64, 16, 16);
+    TileShape::Current().SetConvTile(l1TileShape, l0TileShape, true);
+    Tensor fmap(DT_FP16, {1, 32, 2, 64}, "fmap");
+    Tensor weight(DT_FP16, {32, 16, 3, 3}, "weight");
+    Tensor result;
+    Conv::ConvExtendParam convExtendParam;
+    FUNCTION("TestConv") {
+        result =
+            npu::tile_fwk::Conv::Conv(DT_FP16, fmap, weight, {1, 1}, {1, 1, 1, 1}, {1, 1}, convExtendParam, 2);
+    }
+}
