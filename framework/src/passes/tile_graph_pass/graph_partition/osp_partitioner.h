@@ -23,9 +23,10 @@
 #include <unordered_map>
 
 namespace npu::tile_fwk {
-
-template <typename GraphT> class osp::BspArchitecture;
-template <typename GraphT> class osp::BspInstance;
+namespace osp {
+template <typename GraphT> class BspArchitecture;
+template <typename GraphT> class BspInstance;
+}
 
 template<typename WorkType>
 struct ArchParameters {
