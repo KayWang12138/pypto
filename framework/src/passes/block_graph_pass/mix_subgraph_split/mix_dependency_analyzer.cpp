@@ -224,7 +224,7 @@ void MixDependencyAnalyzer::CollectInternalDependencies(const std::unordered_map
         for (int dstComp : dstComps) {
             // 跳过自依赖（scope依赖自己）
             if (srcComp == dstComp) {
-                ALOG_DEBUG_F("Skip self-dependency: component %d -> %d", srcComp, dstComp);
+                APASS_LOG_DEBUG_F(Elements::Tensor, "Skip self-dependency: component %d -> %d", srcComp, dstComp);
                 continue;    
             }
             ComponentType dstType = components[dstComp].componentType;
@@ -233,13 +233,13 @@ void MixDependencyAnalyzer::CollectInternalDependencies(const std::unordered_map
                 // 添加这两个组件间的tensor依赖
                 InternalDependencyInfo depInfo(srcComp, dstComp, srcType);
                 internalDeps.push_back(depInfo);
-                ALOG_DEBUG_F("Added internal dependency: component %d (%s) -> component %d (%s)",
+                APASS_LOG_DEBUG_F(Elements::Tensor, "Added internal dependency: component %d (%s) -> component %d (%s)",
                            srcComp, srcType == ComponentType::C_SCOPE ? "C" : "V",
                            dstComp, dstType == ComponentType::C_SCOPE ? "C" : "V");
             }
         }
     } 
-    ALOG_INFO_F("Collected %zu internal dependencies between same-type components", 
+    APASS_LOG_INFO_F(Elements::Tensor, "Collected %zu internal dependencies between same-type components",
                internalDeps.size());
 }
 
@@ -310,7 +310,7 @@ void MixDependencyAnalyzer::EliminateRedundantOuterDeps(const std::vector<std::v
                     return param.tensor == pair.first;
                 });
             tensors.erase(newEnd, tensors.end());
-            ALOG_DEBUG_F("Removed redundant incast for tensor %d from component %d",
+            APASS_LOG_DEBUG_F(Elements::Tensor, "Removed redundant incast for tensor %d from component %d",
                         pair.first->GetRawMagic(), compId);
         }
     }
@@ -339,7 +339,7 @@ void MixDependencyAnalyzer::EliminateRedundantInnerDeps(std::vector<std::vector<
 }
 
 void MixDependencyAnalyzer::EliminateRedundantDependencies() {
-    ALOG_INFO_F("Eliminating redundant dependencies...");
+    APASS_LOG_INFO_F(Elements::Tensor, "Eliminating redundant dependencies...");
     // 生成内部依赖的可达阵
     std::vector<std::vector<bool>> innerDeps(maxComponent + 1, std::vector<bool>(maxComponent + 1, false));
     for (const auto& dep : internalDeps) {
@@ -357,16 +357,16 @@ void MixDependencyAnalyzer::ProcessDependencyAnalyzer(const AnalyzerInput &input
     Reset();
     InitSubgraphToFunction(input.components);
     // 步骤1：记录直接的incast/outcast(Mix子图整体与外部的依赖)
-    ALOG_INFO_F("Step 1: Recording direct incast/outcast...");
+    APASS_LOG_INFO_F(Elements::Tensor, "Step 1: Recording direct incast/outcast...");
     InOutCastRecord(input.originalMixFunc);
     // 步骤2：分析组件间直接依赖（scope与scope之间的依赖）
-    ALOG_INFO_F("Step 2: Analyzing inter-component dependencies...");
+    APASS_LOG_INFO_F(Elements::Tensor, "Step 2: Analyzing inter-component dependencies...");
     auto directDeps = AnalyzeComponentDependencies(*input.originalMixFunc);
     // 步骤3：计算依赖传递闭包
-    ALOG_INFO_F("Step 3: Computing dependency closure...");
+    APASS_LOG_INFO_F(Elements::Tensor, "Step 3: Computing dependency closure...");
     ComputeDependencyClosure(directDeps);    
     // 步骤4：计算所有依赖（包括外部依赖和内部依赖）
-    ALOG_INFO_F("Step 4: Computing all dependencies...");
+    APASS_LOG_INFO_F(Elements::Tensor, "Step 4: Computing all dependencies...");
     // 4.1：提取外部依赖（从subgraphToFunction）
     ExtractExternalDependencies(subgraphToFunction.subFuncInvokeInfos);
     // 4.2：基于传递闭包传播外部依赖到内部scope
@@ -374,7 +374,7 @@ void MixDependencyAnalyzer::ProcessDependencyAnalyzer(const AnalyzerInput &input
     // 4.3：添加内部同类型scope之间的依赖（只收集C-C、V-V的依赖）
     CollectInternalDependencies(directDeps, input.components);
     // 步骤5：消除冗余依赖
-    ALOG_INFO_F("Step 5: Eliminating redundant dependencies...");
+    APASS_LOG_INFO_F(Elements::Tensor, "Step 5: Eliminating redundant dependencies...");
     EliminateRedundantDependencies();
     output.subgraphToFunction = subgraphToFunction;
     output.internalDeps = internalDeps;

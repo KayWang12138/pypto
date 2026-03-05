@@ -64,20 +64,20 @@ Status AutoCast::GetInOutConnectedTensor(Function &function) {
 }
 
 Status AutoCast::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===> Start AutoCast for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(Elements::Function, "===> Start AutoCast for function [%s].", function.GetRawName().c_str());
     if (GetInOutConnectedTensor(function) != SUCCESS) {
-        ALOG_ERROR_F("Failed to get InOutCast-connected tensor.");
+        APASS_LOG_ERROR_F(Elements::Tensor, "Failed to get InOutCast-connected tensor.");
         return FAILED;
     }
     if (InsertCast(function) != SUCCESS) {
-        ALOG_ERROR_F("Failed to insert CAST for BF16 unsupported Operations.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Failed to insert CAST for BF16 unsupported Operations.");
         return FAILED;
     }
     if (RemoveRedundantCastChain(function) != SUCCESS) {
-        ALOG_ERROR_F("Failed to remove redundant CAST.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Failed to remove redundant CAST.");
         return FAILED;
     }
-    ALOG_INFO_F("===> End AutoCast for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(Elements::Function, "===> End AutoCast for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
 
@@ -86,7 +86,7 @@ bool AutoCast::SupportBF16(Operation *op) {
         if (UNSUPPORT_BF16_ARCH35_OPS.count(op->GetOpcode()) > 0) return false;
     } else {
         if (UNSUPPORT_BF16_OPS.count(op->GetOpcode()) > 0) {
-            ALOG_INFO_F("Op[%d] can find in UNSUPPORT_BF16_OPS.", op->GetOpMagic());
+            APASS_LOG_INFO_F(Elements::Operation, "Op[%d] can find in UNSUPPORT_BF16_OPS.", op->GetOpMagic());
             return false;
         }
     }

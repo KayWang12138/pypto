@@ -43,11 +43,11 @@ public:
 
 private:
     Status RunOnFunction(Function &function) override {
-        ALOG_INFO_F("===> Start AddAlloc.");
+        APASS_LOG_INFO_F(Elements::Operation, "===> Start AddAlloc.");
         for (auto &program : function.rootFunc_->programs_) {
-            if (AddAndCheckAlloc(*program.second) != SUCCESS) { ALOG_ERROR_F("AddAndCheckAlloc failed."); return FAILED; }
+            if (AddAndCheckAlloc(*program.second) != SUCCESS) { APASS_LOG_ERROR_F(Elements::Operation, "AddAndCheckAlloc failed."); return FAILED; }
         }
-        ALOG_INFO_F("===> End AddAlloc.");
+        APASS_LOG_INFO_F(Elements::Operation, "===> End AddAlloc.");
         return SUCCESS;
     }
     // 按color去判断是否需要插入alloc
