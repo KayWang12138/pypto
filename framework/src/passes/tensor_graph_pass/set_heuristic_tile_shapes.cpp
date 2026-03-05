@@ -2060,8 +2060,8 @@ void SetHeuristicVectorTiles(Function &function, std::unordered_set<Operation *>
     }  
     std::sort(reduceTmpOperations.begin(), reduceTmpOperations.end(), [](const std::pair<Operation *, int> &x, const std::pair<Operation *, int> &y) {return x.second < y.second;});
     
-    for (auto [op, depth] : reduceTmpOperations) {
-        priorOps[2].push_back(op);
+    for (auto op: reduceTmpOperations) {
+        priorOps[2].push_back(op.first);
     }
     reduceTmpOperations.clear();
 
