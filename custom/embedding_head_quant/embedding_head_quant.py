@@ -45,11 +45,7 @@ def create_embedding_head_quant_kernel(weight_shape, eps=1e-4, min_v=-128.0, max
 
     if run_mode == "npu":
         runtime_opts.update({
-            "stitch_function_inner_memory": 512,
-            "stitch_function_outcast_memory": 512,
-            "stitch_function_num_initial": 128,
             "stitch_function_max_num": 128,
-            "stitch_function_num_step": 20
         })
 
     @pypto.frontend.jit(runtime_options=runtime_opts)
@@ -170,20 +166,18 @@ def test_embedding_head_quant_large(device_id=None, run_mode="npu"):
     print("Test: Large tensor (4096, 2048)")
 
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
-    weight_shape = (1024, 1024)
+    weight_shape = (4096, 2048)
 
     weight_torch = (torch.randn(weight_shape, dtype=torch.float32, device=device) * 50).to(torch.bfloat16)
     scale_torch = torch.full((1, 1), 0.5, dtype=torch.bfloat16, device=device)
     expected_out, _, _ = embedding_head_quant_golden(weight_torch.clone(), scale_torch.clone())
-    print("Golden Compute End");
 
     kernel = create_embedding_head_quant_kernel(weight_shape, run_mode=run_mode)
     output_torch, _, _ = kernel(weight_torch, scale_torch)
-    # expected_out = output_torch
 
-    # max_diff = (output_torch - expected_out).abs().max().item()
-    # print(f"  Max difference: {max_diff:.6f}")
-    # assert_allclose(output_torch.float().cpu().numpy(), expected_out.float().cpu().numpy(), rtol=3e-3, atol=3e-3)
+    max_diff = (output_torch - expected_out).abs().max().item()
+    print(f"  Max difference: {max_diff:.6f}")
+    assert_allclose(output_torch.float().cpu().numpy(), expected_out.float().cpu().numpy(), rtol=3e-3, atol=3e-3)
     print("  ✓ Passed")
 
 # ===== Main Test Runner =====

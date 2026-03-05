@@ -98,11 +98,7 @@ def create_qat_asymmetric_kernel(weight_shape, num_groups, group_size, bit=4,
     runtime_opts = {"run_mode": mode}
     if run_mode == "npu":
         runtime_opts.update({
-            "stitch_function_inner_memory": 512,
-            "stitch_function_outcast_memory": 512,
-            "stitch_function_num_initial": 128,
             "stitch_function_max_num": 128,
-            "stitch_function_num_step": 20
         })
 
     @pypto.frontend.jit(runtime_options=runtime_opts)
