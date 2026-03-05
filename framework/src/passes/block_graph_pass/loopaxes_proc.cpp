@@ -158,16 +158,17 @@ bool LoopaxesProc::SameLoopAxes(const std::vector<SymbolicScalar> &curLoopAxes, 
     }
     auto dynParamTable = subFunc.GetDynParamTable();
     for (size_t i = 0; i < curLoopAxes.size(); ++i) {
-        if (dynParamTable.find(SymbolicExpressionTable::BuildExpression(curLoopAxes[i])) != dynParamTable.end() &&
-            dynParamTable.find(SymbolicExpressionTable::BuildExpression(previousLoopAxes[i])) != dynParamTable.end()) {
-            auto curParamInfo = dynParamTable[SymbolicExpressionTable::BuildExpression(curLoopAxes[i])];
-            auto preParamInfo = dynParamTable[SymbolicExpressionTable::BuildExpression(previousLoopAxes[i])];
+        auto curExpr = SymbolicExpressionTable::BuildExpression(curLoopAxes[i]);
+        auto prevExpr = SymbolicExpressionTable::BuildExpression(previousLoopAxes[i]);
+        if (dynParamTable.find(curExpr) != dynParamTable.end() &&
+            dynParamTable.find(prevExpr) != dynParamTable.end()) {
+            auto curParamInfo = dynParamTable[curExpr];
+            auto preParamInfo = dynParamTable[prevExpr];
             if (curParamInfo.replacedSymbol == preParamInfo.replacedSymbol) {
                 return true;
             }
         }
-        if (SymbolicExpressionTable::BuildExpression(curLoopAxes[i]) !=
-            SymbolicExpressionTable::BuildExpression(previousLoopAxes[i])) {
+        if (curExpr != prevExpr) {
             return false;
         }
     }
