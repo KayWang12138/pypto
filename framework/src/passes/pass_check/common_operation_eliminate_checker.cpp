@@ -14,6 +14,7 @@
  */
 
 #include "common_operation_eliminate_checker.h"
+#include "passes/pass_log/pass_log.h"
 
 namespace npu {
 namespace tile_fwk {

@@ -26,6 +26,7 @@
 #include "interface/tensor/logical_tensor.h"
 #include "tilefwk/tilefwk.h"
 #include "passes/tile_graph_pass/subgraph_to_function.h"
+#include "passes/pass_log/pass_log.h"
 
 namespace npu {
 namespace tile_fwk {  

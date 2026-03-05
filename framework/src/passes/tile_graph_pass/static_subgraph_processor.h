@@ -27,6 +27,7 @@
 #include "passes/pass_utils/pass_utils.h"
 #include "passes/pass_utils/graph_utils.h"
 #include "passes/statistics/execute_graph_statistic.h"
+#include "passes/pass_log/pass_log.h"
 
 namespace npu::tile_fwk {
 

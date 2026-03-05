@@ -14,7 +14,6 @@
  */
 
 #include "add_alloc.h"
-#include "passes/pass_log/pass_log.h"
 
 #define MODULE_NAME "AddAlloc"
 

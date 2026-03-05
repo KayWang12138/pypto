@@ -22,6 +22,7 @@
 #include "interface/program/program.h"
 #include "passes/pass_check/generate_move_op_checker.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
+#include "passes/pass_log/pass_log.h"
 
 namespace npu::tile_fwk {
 constexpr int64_t INNER_PAD_VALUE = 32;

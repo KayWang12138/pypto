@@ -16,6 +16,7 @@
 #include "merge_view_assemble_utils.h"
 #include "interface/operation/attribute.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
+#include "passes/pass_log/pass_log.h"
 
 namespace npu::tile_fwk {
 

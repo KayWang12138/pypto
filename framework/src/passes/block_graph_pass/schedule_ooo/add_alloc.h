@@ -22,6 +22,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_log/pass_log.h"
 #include <vector>
 #include <thread>
 #include <mutex>
