@@ -14,7 +14,6 @@
 #include "passes/algorithms/osp/graph_implementations/adj_list_impl/dag_vector_adapter.h"
 #include "passes/algorithms/osp/graph_implementations/adj_list_impl/compact_sparse_graph.h"
 #include "passes/algorithms/osp/graph_implementations/adj_list_impl/computational_dag_vector_impl.h"
-#include "passes/algorithms/osp/bsp/model/bsp_instance.h"
 #include "passes/pass_utils/graph_utils.h"
 
 #include "tilefwk/platform.h"
@@ -24,6 +23,11 @@
 #include <unordered_map>
 
 namespace npu::tile_fwk {
+
+namespace osp {
+template <typename GraphT>
+class BspInstance;
+}
 
 template<typename WorkType>
 struct ArchParameters {

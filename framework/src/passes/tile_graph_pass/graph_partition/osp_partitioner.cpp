@@ -11,6 +11,7 @@
 #define MODULE_NAME "GraphPartition"
 
 #include "osp_partitioner.h"
+#include "passes/algorithms/osp/bsp/model/bsp_instance.h"
 #include "passes/pass_log/pass_log.h"
 #include "passes/pass_check/iso_partitioner_checker.h"
 #include "passes/algorithms/osp/bsp/model/bsp_schedule.h"
