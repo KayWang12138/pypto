@@ -94,4 +94,6 @@ pypto-unsqueeze
 pypto-var
 pypto-view
 pypto-where
+pypto-isfinite
+pypto-ceil_div
 ```
