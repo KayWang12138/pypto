@@ -255,8 +255,9 @@ class BspSchedule {
                 numberOfSupersteps_ = superstep + 1;
             }
 
-        } else {
+        } else {            
             APASS_LOG_ERROR_F(Elements::Config, "Invalid Argument while assigning node to superstep: index out of range.");
+            throw std::invalid_argument("Invalid Argument while assigning node to superstep: index out of range.");
         }
     }
 

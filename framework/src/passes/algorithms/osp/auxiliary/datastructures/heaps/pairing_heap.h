@@ -256,6 +256,7 @@ class PairingHeap {
         if (!success) {
             delete newNode;    // Avoid memory leak if key already exists
             APASS_LOG_ERROR_F(Elements::Config, "Key already exists in the heap.");
+            throw std::invalid_argument("Key already exists in the heap.");
         }
         root_ = Meld(root_, newNode);
         numElements_++;
@@ -277,6 +278,7 @@ class PairingHeap {
     Key Pop() {
         if (IsEmpty()) {
             APASS_LOG_ERROR_F(Elements::Config, "Heap is empty.");
+            throw std::runtime_error("Heap is empty.");
         }
 
         Node *oldRoot = root_;
@@ -300,6 +302,7 @@ class PairingHeap {
         auto it = nodeMap_.find(key);
         if (it == nodeMap_.end()) {
             APASS_LOG_ERROR_F(Elements::Config, "Key does not exist in the heap.");
+            throw std::invalid_argument("Key does not exist in the heap.");
         }
 
         Node *node = it->second;
@@ -339,6 +342,7 @@ class PairingHeap {
         auto it = nodeMap_.find(key);
         if (it == nodeMap_.end()) {
             APASS_LOG_ERROR_F(Elements::Config, "Key does not exist in the heap.");
+            throw std::invalid_argument("Key does not exist in the heap.");
         }
         Node *nodeToErase = it->second;
 
@@ -367,6 +371,7 @@ class PairingHeap {
         auto it = nodeMap_.find(key);
         if (it == nodeMap_.end()) {
             APASS_LOG_ERROR_F(Elements::Config, "Key does not exist in the heap.");
+            throw std::invalid_argument("Key does not exist in the heap.");
         }
         return it->second->value_;
     }

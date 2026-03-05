@@ -11,7 +11,6 @@
 #include "osp_partitioner.h"
 #include "passes/pass_log/pass_log.h"
 #include "passes/pass_check/iso_partitioner_checker.h"
-
 #include "passes/algorithms/osp/bsp/model/bsp_schedule.h"
 #include "passes/algorithms/osp/bsp/model/util/set_schedule.h"
 #include "passes/algorithms/osp/bsp/scheduler/greedy_schedulers/grow_local_auto_cores.h"
@@ -22,9 +21,6 @@
 #include "passes/algorithms/osp/coarser/sarkar/sarkar_mul.h"
 #include "passes/algorithms/osp/bsp/scheduler/local_search/kernighan_lin/comm_cost_modules/kl_hyper_total_comm_cost.h"
 #include "passes/algorithms/osp/bsp/scheduler/local_search/kernighan_lin/kl_improver.h"
-
-
-#define MODULE_NAME "GraphPartition"
 
 namespace npu::tile_fwk {
 
