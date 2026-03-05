@@ -334,7 +334,7 @@ Status MixSubgraphSplit::GenNewFunctions(Function& rootFunc, Function* originalM
         FunctionClone functionClone(rootFunc, originalMixFunc);
         auto newFunc = functionClone.CloneFunctionByComponent(components[i], newProgramIDs[i], i);
         if (newFunc == nullptr) {
-            ALOG_ERROR_F("CloneFunctionByComponent failed for function: %s",
+            APASS_LOG_ERROR_F(Elements::Function, "CloneFunctionByComponent failed for function: %s",
                         originalMixFunc->GetRawName().c_str());
             return FAILED;  // 或者适当的错误处理
         }
@@ -347,11 +347,11 @@ Status MixSubgraphSplit::GenNewFunctions(Function& rootFunc, Function* originalM
         }
         leafAttr->mixId = mixId;
         leafAttr->mixResourceType = resourceType;
-        ALOG_DEBUG_F("Set mixId=%lu to leaf function %s (component %zu)",
+        APASS_LOG_DEBUG_F(Elements::Function, "Set mixId=%lu to leaf function %s (component %zu)",
                     mixId, newFunc->GetRawName().c_str(), i);
         newFunc->ComputeHash();
         FunctionHash funcHash = newFunc->GetFunctionHash();
-        ALOG_DEBUG_F("Function %s computed hash: %lu (mixId=%lu)",
+        APASS_LOG_DEBUG_F(Elements::Function, "Function %s computed hash: %lu (mixId=%lu)",
                     newFunc->GetMagicName().c_str(), funcHash.GetHash(), mixId);
         Program::GetInstance().GetFunctionCache().Insert(funcHash, *newFunc);
         Program::GetInstance().InsertFuncToFunctionMap(newFunc->GetMagicName(), functionClone.cloneFunc);
@@ -389,14 +389,14 @@ Status MixSubgraphSplit::ProcessLeafFunction(Function& rootFunc,
         );
         Status depStatus = dependencyAnalyzer_.ProcessDependencyAnalyzer(analyzerInput, *analyzerOutput);
         if (depStatus != SUCCESS) {
-            ALOG_ERROR_F("Dependency analyzer failed for function %s",
+            APASS_LOG_ERROR_F(Elements::Function, "Dependency analyzer failed for function %s",
                         originalMixFunc->GetRawName().c_str());
             return FAILED;
         }
         uint64_t mixId = nextMixId_++;
         APASS_LOG_DEBUG_F(Elements::Function, "Assigning mixId=%lu for original mix function programID=%d", mixId, programID);
         MixResourceType resourceType = GetMixResourceType(*originalMixFunc);
-        ALOG_DEBUG_F("Mix resource type: %d for programID=%d", static_cast<int>(resourceType), programID);
+        APASS_LOG_DEBUG_F(Elements::Function, "Mix resource type: %d for programID=%d", static_cast<int>(resourceType), programID);
         // 为每个scope创建leaf function
         if (GenNewFunctions(rootFunc, originalMixFunc, components, newProgramIDs,
                             analyzerOutput->subgraphToFunction, newFunctions,

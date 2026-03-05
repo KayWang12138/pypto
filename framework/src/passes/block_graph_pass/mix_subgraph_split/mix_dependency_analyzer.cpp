@@ -84,7 +84,7 @@ std::unordered_map<int, std::set<int>> MixDependencyAnalyzer::AnalyzeComponentDe
                     dependencies[producerInternalID].insert(consumerID);
                     std::pair<int, int> edge = {producerInternalID, consumerID};
                     crossComponentTensors[edge].push_back(oOperand);
-                    ALOG_DEBUG_F("Recorded cross-component tensor: raw=%d, magic=%d, %d->%d",
+                    APASS_LOG_DEBUG_F(Elements::Tensor, "Recorded cross-component tensor: raw=%d, magic=%d, %d->%d",
                             oOperand->GetRawMagic(), oOperand->magic,
                             producerInternalID, consumerID);
                 }
@@ -366,12 +366,12 @@ Status MixDependencyAnalyzer::ProcessDependencyAnalyzer(const AnalyzerInput &inp
     APASS_LOG_INFO_F(Elements::Tensor, "Step 1: Recording direct incast/outcast...");
     InOutCastRecord(input.originalMixFunc);
     // 步骤2：分析组件间直接依赖（scope与scope之间的依赖）
-    ALOG_INFO_F("Step 2: Analyzing inter-component dependencies and recording cross-component tensors...");
+    APASS_LOG_INFO_F(Elements::Tensor, "Step 2: Analyzing inter-component dependencies and recording cross-component tensors...");
     std::map<std::pair<int, int>, std::vector<LogicalTensorPtr>> crossComponentTensors;
     auto directDeps = AnalyzeComponentDependencies(*input.originalMixFunc, crossComponentTensors);
-    ALOG_INFO_F("Found %zu cross-component tensor dependencies:", crossComponentTensors.size());
+    APASS_LOG_INFO_F(Elements::Tensor, "Found %zu cross-component tensor dependencies:", crossComponentTensors.size());
     for (const auto& [edge, tensors] : crossComponentTensors) {
-        ALOG_INFO_F("  Component %d -> %d: %zu tensor(s)",
+        APASS_LOG_INFO_F(Elements::Tensor, "  Component %d -> %d: %zu tensor(s)",
                    edge.first, edge.second, tensors.size());
     }
     // 步骤3：计算依赖传递闭包
@@ -384,7 +384,7 @@ Status MixDependencyAnalyzer::ProcessDependencyAnalyzer(const AnalyzerInput &inp
     // 验证循环依赖是否合法
     Status validationStatus = ValidateCrossComponentDependencies(input, directDeps, crossComponentTensors);
     if (validationStatus != SUCCESS) {
-        ALOG_ERROR_F("Cross-component dependency validation failed, aborting ProcessDependencyAnalyzer...");
+        APASS_LOG_ERROR_F(Elements::Tensor, "Cross-component dependency validation failed, aborting ProcessDependencyAnalyzer...");
         return FAILED;  // 立即返回，不继续执行
     }
     // 4.2：基于传递闭包传播外部依赖到内部scope
@@ -411,7 +411,7 @@ Status MixDependencyAnalyzer::ValidateCrossComponentDependencies(
     const AnalyzerInput &input,
     const std::unordered_map<int, std::set<int>>& directDeps,
     const std::map<std::pair<int, int>, std::vector<LogicalTensorPtr>>& crossComponentTensors) {
-    ALOG_INFO_F("=== VALIDATING CROSS-COMPONENT DEPENDENCY CYCLES ===");
+    APASS_LOG_INFO_F(Elements::Tensor, "=== VALIDATING CROSS-COMPONENT DEPENDENCY CYCLES ===");
     // 收集双向依赖
     std::vector<std::pair<int, int>> bidirectionalDeps;
     for (const auto& [src, dsts] : directDeps) {
@@ -423,12 +423,12 @@ Status MixDependencyAnalyzer::ValidateCrossComponentDependencies(
         }
     }
     if (bidirectionalDeps.empty()) {
-        ALOG_INFO_F("No bidirectional dependencies detected - safe");
+        APASS_LOG_INFO_F(Elements::Tensor, "No bidirectional dependencies detected - safe");
         return SUCCESS;
     }
-    ALOG_INFO_F("=== CHECKING BIDIRECTIONAL DEPENDENCIES ===");
+    APASS_LOG_INFO_F(Elements::Tensor, "=== CHECKING BIDIRECTIONAL DEPENDENCIES ===");
     for (const auto& [comp1, comp2] : bidirectionalDeps) {
-        ALOG_INFO_F("Checking component %d <-> component %d:", comp1, comp2);
+        APASS_LOG_INFO_F(Elements::Tensor, "Checking component %d <-> component %d:", comp1, comp2);
         // 获取两个方向的tensor
         auto it1 = crossComponentTensors.find({comp1, comp2});
         auto it2 = crossComponentTensors.find({comp2, comp1});
@@ -447,7 +447,7 @@ Status MixDependencyAnalyzer::ValidateCrossComponentDependencies(
             return FAILED;
         }
     }
-    ALOG_INFO_F("=== VALIDATION PASSED ===");
+    APASS_LOG_INFO_F(Elements::Tensor, "=== VALIDATION PASSED ===");
     return SUCCESS;
 }
 
@@ -465,11 +465,11 @@ bool MixDependencyAnalyzer::CheckDirectionAndCollectValid(
 
     if (tensors.empty()) return false;
 
-    ALOG_INFO_F("  Component %d -> %d tensors (%zu):", src, dst, tensors.size());
+    APASS_LOG_INFO_F(Elements::Tensor, "  Component %d -> %d tensors (%zu):", src, dst, tensors.size());
     bool directionValid = false;
     for (auto& tensor : tensors) {
         bool isInIncast = IsTensorInComponentIncasts(dst, tensor);
-        ALOG_INFO_F("    - tensor magic=%d (raw=%d), in comp%d.incasts=%s",
+        APASS_LOG_INFO_F(Elements::Tensor, "    - tensor magic=%d (raw=%d), in comp%d.incasts=%s",
                   tensor->magic, tensor->GetRawMagic(), dst,
                   isInIncast ? "YES" : "NO");
         if (isInIncast) {
@@ -483,10 +483,10 @@ bool MixDependencyAnalyzer::CheckDirectionAndCollectValid(
 void MixDependencyAnalyzer::LogIllegalBidirectionalDependency(
     int comp1, int comp2, const AnalyzerInput& input) const {
 
-    ALOG_ERROR_F("ILLEGAL BIDIRECTIONAL DEPENDENCY DETECTED!");
-    ALOG_ERROR_F("==========================================================");
-    ALOG_ERROR_F("Component %d <-> Component %d", comp1, comp2);
-    ALOG_ERROR_F("Component types: %s <-> %s",
+    APASS_LOG_ERROR_F(Elements::Tensor, "ILLEGAL BIDIRECTIONAL DEPENDENCY DETECTED!");
+    APASS_LOG_ERROR_F(Elements::Tensor, "==========================================================");
+    APASS_LOG_ERROR_F(Elements::Tensor, "Component %d <-> Component %d", comp1, comp2);
+    APASS_LOG_ERROR_F(Elements::Tensor, "Component types: %s <-> %s",
                input.components[comp1].componentType == ComponentType::C_SCOPE ? "CUBE" :
                input.components[comp1].componentType == ComponentType::V_SCOPE ? "VECTOR" : "UNKNOWN",
                input.components[comp2].componentType == ComponentType::C_SCOPE ? "CUBE" :

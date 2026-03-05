@@ -64,7 +64,7 @@ Status AutoCast::GetInOutConnectedTensor(Function &function) {
 }
 
 Status AutoCast::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===> Start AutoCast for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(Elements::Function, "===> Start AutoCast for function [%s].", function.GetRawName().c_str());
     if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510) {
         legalCastPair.insert({DataType::DT_INT32, DataType::DT_FP16});
     }
@@ -73,11 +73,11 @@ Status AutoCast::RunOnFunction(Function &function) {
         return FAILED;
     }
     if (InsertBF16Cast(function) != SUCCESS) {
-        ALOG_ERROR_F("Failed to insert CAST for BF16 unsupported Operations.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Failed to insert CAST for BF16 unsupported Operations.");
         return FAILED;
     }
     if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && InsertInt32Fp16Cast(function) != SUCCESS) {
-        ALOG_ERROR_F("Failed to insert fp32 between int32 to fp16 cast.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Failed to insert fp32 between int32 to fp16 cast.");
         return FAILED;
     }
     if (RemoveRedundantCastChain(function) != SUCCESS) {
@@ -107,7 +107,7 @@ Status AutoCast::InsertInt32Fp16Cast(Function &function) {
             tgtTensor->Datatype() != DataType::DT_FP16) {
             continue;
         }
-        ALOG_INFO_F("Cast[%d] is cast between int32 and fp16.", op->GetOpMagic());
+        APASS_LOG_INFO_F(Elements::Operation, "Cast[%d] is cast between int32 and fp16.", op->GetOpMagic());
         auto fp32Tensor = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, tgtTensor->shape, tgtTensor->GetDynValidShape(), tgtTensor->Format());
         InsertCastOp(function, srcTensor, fp32Tensor, op->GetTileShape());
         op->ReplaceInput(fp32Tensor, srcTensor);
