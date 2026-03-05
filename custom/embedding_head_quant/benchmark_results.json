@@ -13,23 +13,23 @@
       ],
       "elements": 314114048,
       "pypto": {
-        "avg_time_ms": 39.76860046386719,
-        "std_time_ms": 38.740118211305045,
-        "min_time_ms": 25.055646896362305,
-        "max_time_ms": 155.95650672912598,
-        "throughput_M_elements_per_sec": 7898.544186522144,
+        "avg_time_ms": 11.256241798400879,
+        "std_time_ms": 10.068896503430178,
+        "min_time_ms": 7.789134979248047,
+        "max_time_ms": 41.46075248718262,
+        "throughput_M_elements_per_sec": 27905.76585202929,
         "max_error": 0.0,
         "correctness": true
       },
       "golden": {
-        "avg_time_ms": 25.141382217407227,
-        "std_time_ms": 5.789261014257191,
-        "min_time_ms": 22.353172302246094,
-        "max_time_ms": 42.44256019592285,
-        "throughput_M_elements_per_sec": 12493.905278704835
+        "avg_time_ms": 26.8110990524292,
+        "std_time_ms": 6.62424687620708,
+        "min_time_ms": 24.008512496948242,
+        "max_time_ms": 46.631574630737305,
+        "throughput_M_elements_per_sec": 11715.821398658401
       },
-      "speedup": 0.6321917775369061,
-      "throughput_ratio": 0.6321917775369061
+      "speedup": 2.3818872704243192,
+      "throughput_ratio": 2.3818872704243192
     },
     {
       "model": "7B",
@@ -39,23 +39,23 @@
       ],
       "elements": 471171072,
       "pypto": {
-        "avg_time_ms": 40.03453254699707,
-        "std_time_ms": 40.62676314961295,
-        "min_time_ms": 25.661945343017578,
-        "max_time_ms": 161.8790626525879,
-        "throughput_M_elements_per_sec": 11769.116360903827,
+        "avg_time_ms": 16.720247268676758,
+        "std_time_ms": 15.315561235219471,
+        "min_time_ms": 11.185646057128906,
+        "max_time_ms": 62.64925003051758,
+        "throughput_M_elements_per_sec": 28179.671294854514,
         "max_error": 0.0,
         "correctness": true
       },
       "golden": {
-        "avg_time_ms": 37.24365234375,
-        "std_time_ms": 8.46176241884664,
-        "min_time_ms": 33.484458923339844,
-        "max_time_ms": 62.57891654968262,
-        "throughput_M_elements_per_sec": 12651.043663795477
+        "avg_time_ms": 39.98088836669922,
+        "std_time_ms": 10.308422012905684,
+        "min_time_ms": 35.67361831665039,
+        "max_time_ms": 70.8627700805664,
+        "throughput_M_elements_per_sec": 11784.907520775518
       },
-      "speedup": 0.9302881780879839,
-      "throughput_ratio": 0.9302881780879838
+      "speedup": 2.3911660948697984,
+      "throughput_ratio": 2.3911660948697984
     },
     {
       "model": "30B",
@@ -65,23 +65,23 @@
       ],
       "elements": 193986560,
       "pypto": {
-        "avg_time_ms": 20.2542781829834,
-        "std_time_ms": 19.51462224666325,
-        "min_time_ms": 12.954950332641602,
-        "max_time_ms": 78.77993583679199,
-        "throughput_M_elements_per_sec": 9577.559775148024,
+        "avg_time_ms": 7.202291488647461,
+        "std_time_ms": 5.916382066088446,
+        "min_time_ms": 5.081415176391602,
+        "max_time_ms": 24.94978904724121,
+        "throughput_M_elements_per_sec": 26934.005698848672,
         "max_error": 0.0,
         "correctness": true
       },
       "golden": {
-        "avg_time_ms": 15.61727523803711,
-        "std_time_ms": 3.6978888514355477,
-        "min_time_ms": 13.925552368164062,
-        "max_time_ms": 26.670217514038086,
-        "throughput_M_elements_per_sec": 12421.280731963434
+        "avg_time_ms": 16.74625873565674,
+        "std_time_ms": 3.9167816796560553,
+        "min_time_ms": 14.98866081237793,
+        "max_time_ms": 28.4578800201416,
+        "throughput_M_elements_per_sec": 11583.874527565778
       },
-      "speedup": 0.7710605678931546,
-      "throughput_ratio": 0.7710605678931546
+      "speedup": 2.325129267824394,
+      "throughput_ratio": 2.3251292678243947
     }
   ]
 }
