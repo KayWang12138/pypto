@@ -561,7 +561,7 @@ def _collect_issues(
     if not pypto_info.get('ok'):
         issues.append({'component': 'pypto', 'severity': 'warning',
                        'message': pypto_info.get('error', '无法导入 pypto'),
-                       'fix_hint': 'cd $PYPTO_REPO && pip install -e .'})
+                       'fix_hint': 'cd $PYPTO_REPO && python3 build_ci.py -f python3 --clean --disable_auto_execute && pip install build_out/pypto-*.whl --force-reinstall -q'})
 
     pto_path = pto_isa.get('path')
     if not pto_path:

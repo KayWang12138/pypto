@@ -15,7 +15,7 @@
 
 ```bash
 ASCEND_INSTALL_PATH=${ASCEND_INSTALL_PATH:-/usr/local/Ascend}
-CANN_ENV_SH=$(ls -1 ${ASCEND_INSTALL_PATH}/*/set_env.sh ${ASCEND_INSTALL_PATH}/*/*/set_env.sh 2>/dev/null | head -1)
+CANN_ENV_SH=$(ls -1 "${ASCEND_INSTALL_PATH}"/*/set_env.sh "${ASCEND_INSTALL_PATH}"/*/*/set_env.sh 2>/dev/null | head -1)
 test -n "$CANN_ENV_SH" && source "$CANN_ENV_SH" || echo "CANN set_env.sh not found"
 ```
 
@@ -92,10 +92,11 @@ test -d "$PTO_TILE_LIB_CODE_PATH/include/pto" && echo OK
 
 ```bash
 cd "$PYPTO_REPO"
-# 开发模式（推荐）
-pip install -e . --verbose
-# 生产模式
-pip install . --verbose
+
+# 编译安装（推荐）
+python3 build_ci.py -f python3 --clean --disable_auto_execute
+pip install build_out/pypto-*.whl --force-reinstall -q
+
 # PyPI
 pip install pypto
 ```
@@ -109,4 +110,4 @@ pip install pypto
 | CANN 环境 | `source set_env.sh`（见上方"CANN 环境加载"） | 每次新 shell |
 | `PTO_TILE_LIB_CODE_PATH` | 优先 `$ASCEND_HOME_PATH/aarch64-linux`，备用 pto-isa 源码目录 | 编译/运行 |
 | `TILE_FWK_DEVICE_ID` | `export TILE_FWK_DEVICE_ID=1` | NPU 模式 |
-| `PYTHONPATH` | `export PYTHONPATH="${PYPTO_REPO}/python:$PYTHONPATH"` | 开发模式 |
+| `PYTHONPATH` | `export PYTHONPATH="${PYPTO_REPO}/python:$PYTHONPATH"` | 仅源码调试（不推荐日常使用） |

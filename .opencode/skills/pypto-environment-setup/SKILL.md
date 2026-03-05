@@ -124,7 +124,7 @@ python3 examples/02_intermediate/operators/softmax/softmax.py --run_mode sim
 **配置摘要**：
 ```bash
 echo "=== PyPTO 环境配置报告 ==="
-echo "CANN 版本: $(cat ${ASCEND_HOME_PATH}/version.info 2>/dev/null || echo '未知')"
+echo "CANN 版本: $(cat \"${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/version.info\" 2>/dev/null || echo '未知')"
 echo "NPU 设备: $(npu-smi info 2>/dev/null | grep 'Chip Name' | head -1 || echo '未检测到')"
 echo "TILE_FWK_DEVICE_ID: ${TILE_FWK_DEVICE_ID}"
 echo "PTO_TILE_LIB_CODE_PATH: ${PTO_TILE_LIB_CODE_PATH}"
@@ -138,9 +138,9 @@ echo "PYPTO_REPO: ${PYPTO_REPO:-$PWD}"
 ```bash
 cat >> ~/.bashrc << 'EOF'
 # PyPTO 环境配置
-source /usr/local/Ascend/ascend-toolkit/set_env.sh
+source ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/set_env.sh
 export TILE_FWK_DEVICE_ID=0
-export PTO_TILE_LIB_CODE_PATH=/usr/local/Ascend/cann/aarch64-linux
+export PTO_TILE_LIB_CODE_PATH=${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/aarch64-linux
 EOF
 source ~/.bashrc
 ```

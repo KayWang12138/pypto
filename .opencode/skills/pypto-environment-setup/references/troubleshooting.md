@@ -111,7 +111,8 @@ export PTO_TILE_LIB_CODE_PATH=/path/to/pto-isa
 ```bash
 cd "${PYPTO_REPO}/examples/02_intermediate/operators/softmax"
 rm -rf output/ 2>/dev/null || true
-python3 softmax.py  # 或 --run_mode sim
+python3 softmax.py --run_mode npu
+# 无 NPU 环境：python3 softmax.py --run_mode sim
 ```
 
 
