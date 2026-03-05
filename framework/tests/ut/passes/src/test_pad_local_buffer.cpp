@@ -1298,3 +1298,42 @@ TEST_F(TestPadLocalBuffer, L1toBt1) {
     EXPECT_EQ(t3->GetShape(), expectShape);
     EXPECT_EQ(t3->tensor->GetRawShape(), expectShape);
 }
+
+TEST_F(TestPadLocalBuffer, cast) {
+    ComputationalGraphBuilder graph;
+    EXPECT_EQ(graph.AddTensor(DataType::DT_BF16, {2, 1}, MemoryType::MEM_DEVICE_DDR, "in1"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_BF16, {2, 1}, MemoryType::MEM_UB, "t2"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"in1"}, {"t2"}, "copyin1", true), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {2, 1}, MemoryType::MEM_UB, "t3"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_CAST, {"t2"}, {"t3"}, "cast1", true), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {2, 1}, MemoryType::MEM_UB, "t4"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_OUT, {"t3"}, {"t4"}, "copyout1", true), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {2, 1}, MemoryType::MEM_UB, "t5"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {2, 1}, MemoryType::MEM_UB, "t6"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"t4"}, {"t5"}, "copyin2", true), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"t4"}, {"t6"}, "copyin3", true), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {2, 16}, MemoryType::MEM_UB, "t7"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {2, 16}, MemoryType::MEM_UB, "t8"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {2, 16}, MemoryType::MEM_UB, "t9"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_ADD, {"t7", "t5"}, {"t8"}, "add1", true), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_ADD, {"t7", "t6"}, {"t9"}, "add2", true), true);
+    // before
+
+    config::SetOperationOption(KEY_COMBINE_AXIS, true);
+    auto *rootFuncPtr = graph.GetFunction();
+    rootFuncPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto/b3.json");
+    rootFuncPtr->paramConfigs_.combineAxis = true;
+    AxisCombine axisCombineTest;
+    EXPECT_EQ(axisCombineTest.RunOnFunction(*rootFuncPtr), SUCCESS);
+    PadLocalBuffer padLocalBufferTest;
+    EXPECT_EQ(padLocalBufferTest.RunOnFunction(*rootFuncPtr), SUCCESS);
+    rootFuncPtr->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto/a3.json");
+    auto updatedOperations = rootFuncPtr->Operations();
+    int64_t cnt = 0;
+    for (const auto &op : updatedOperations) {
+        if (op.GetOpcode() == Opcode::OP_BRCB) {
+            ++cnt;
+        }
+    }
+    EXPECT_EQ(cnt, 2);
+}

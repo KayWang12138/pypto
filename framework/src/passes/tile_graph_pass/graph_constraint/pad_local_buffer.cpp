@@ -623,8 +623,21 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
             return;
         }
     }
-    if (calcType == OpCalcType::ELMWISE || calcType == OpCalcType::MOVE_IN || calcType == OpCalcType::MOVE_OUT || op.GetOpcode() == Opcode::OP_VIEW ||
-            (producerOp != nullptr && OpcodeManager::Inst().GetOpCalcType(producerOp->GetOpcode()) == OpCalcType::BROADCAST)) {
+    if (op.GetOpcode() == Opcode::OP_CAST && axisCombineMarker.IsTensorEnableAxisCombine(in)) {
+        if (lastIdx > 0 && in->tensor->rawshape[lastIdx] == 1) {
+            AlignedRawTensorIfNeed(in, lastIdx - 1, paddingValue);
+            for (auto &out : op.GetOOperands()) {
+                paddingValue = GetPaddingValue(out);
+                AlignedRawTensorIfNeed(out, lastIdx - 1, paddingValue);
+                visitedRaw.emplace(out->tensor);
+            }
+            return;
+        }
+    }
+    if (calcType == OpCalcType::ELMWISE || calcType == OpCalcType::MOVE_IN || calcType == OpCalcType::MOVE_OUT ||
+        op.GetOpcode() == Opcode::OP_VIEW ||
+        (producerOp != nullptr &&
+            OpcodeManager::Inst().GetOpCalcType(producerOp->GetOpcode()) == OpCalcType::BROADCAST)) {
         if (op.GetOpcode() == Opcode::OP_EXPAND || !axisCombineMarker.IsTensorEnableAxisCombine(in)) {
             AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
             return;
