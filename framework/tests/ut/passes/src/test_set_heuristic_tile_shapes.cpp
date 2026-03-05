@@ -57,16 +57,21 @@ TEST_F(TestSetHeuristicTileShapes, TestCube)
     std::vector<int64_t> inputAShape = {64, 128};
     std::vector<int64_t> inputBShape = {128, 64};
     std::vector<int64_t> outputCShape = {64, 64};
+    std::vector<int64_t> inputCShape = {64, 32};
 
     auto inputA = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inputAShape);
     auto inputB = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inputBShape);
     auto outputC = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outputCShape);
+    auto inputC = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inputCShape);
+    auto outputD = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inputCShape);
+    
 
     currFunctionPtr->AddOperation(Opcode::OP_A_MUL_B, {inputA, inputB}, {outputC});
+    currFunctionPtr->AddOperation(Opcode::OP_A_MUL_B, {outputC, inputC}, {outputD});
 
     currFunctionPtr->inCasts_.push_back(inputA);
     currFunctionPtr->inCasts_.push_back(inputB);
-    currFunctionPtr->outCasts_.push_back(outputC);
+    currFunctionPtr->outCasts_.push_back(outputD);
 
     // Run the pass
     SetHeuristicTileShapes setHeuristicTileShapes;
@@ -74,35 +79,102 @@ TEST_F(TestSetHeuristicTileShapes, TestCube)
     EXPECT_EQ(status, SUCCESS);
 }
 
-TEST_F(TestSetHeuristicTileShapes, TestVector)
+TEST_F(TestSetHeuristicTileShapes, TestVector1)
 {
     auto currFunctionPtr = std::make_shared<Function>(
         Program::GetInstance(), "TestSetHeuristicTileShapes", "TestSetHeuristicTileShapes", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int64_t> inputShape = {32, 8, 8};
-    std::vector<int64_t> reshapeShape = {32, 64};
-    std::vector<int64_t> rowmaxShape = {64, 1};
-    std::vector<int64_t> outputShape = {1, 64};
+    std::vector<int64_t> inputShape = {1024, 8, 8};
+    std::vector<int64_t> reshapeShape = {1024, 64};
+    std::vector<int64_t> rowmaxShape = {1024, 1};
+    std::vector<int64_t> outputShape = {1, 1024};
+    std::vector<int64_t> indicesShape = {8, 16};
+    std::vector<int64_t> gatherShape = {8, 16, 1024};
+    std::vector<int64_t> rowsumShape = {8, 16, 1};
     auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inputShape);
+    auto ubTensor0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inputShape);
     auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inputShape);
     auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshapeShape);
     auto ubTensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshapeShape);
     auto ubTensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, rowmaxShape);
     auto ubTensor5 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, rowmaxShape);
     auto ubTensor6 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outputShape);
-    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outputShape);
+    auto ubTensor7 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outputShape);
+    auto ubTensor8 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_INT32, indicesShape);
+    auto ubTensor9 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_INT32, indicesShape);
+    auto ubTensor10 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_INT32, indicesShape);
+    auto ubTensor11 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_INT32, indicesShape);
+    auto ubTensor12 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_INT32, indicesShape);
+    auto ubTensor13 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, gatherShape);
+    auto ubTensor14 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, rowsumShape);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, rowsumShape);
 
-    currFunctionPtr->AddOperation(Opcode::OP_SQRT, {inCast}, {ubTensor1});
+    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor0});
+    currFunctionPtr->AddOperation(Opcode::OP_SQRT, {ubTensor0}, {ubTensor1});
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor2}, {ubTensor3});
     currFunctionPtr->AddOperation(Opcode::OP_ROWMAX, {ubTensor3}, {ubTensor4});
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor4}, {ubTensor5});
-    auto& transpose = currFunctionPtr->AddOperation(Opcode::OP_TRANSPOSE_VNCHWCONV, {ubTensor5}, {ubTensor6});
+    auto &transpose = currFunctionPtr->AddOperation(Opcode::OP_TRANSPOSE_VNCHWCONV, {ubTensor5}, {ubTensor6});
     transpose.SetAttribute(OP_ATTR_PREFIX + "shape", std::vector<int>{1, 0});
-    currFunctionPtr->AddOperation(Opcode::OP_SQRT, {ubTensor6}, {outCast});
+    currFunctionPtr->AddOperation(Opcode::OP_SQRT, {ubTensor6}, {ubTensor7});
+    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor8}, {ubTensor9});
+    currFunctionPtr->AddOperation(Opcode::OP_LN, {ubTensor9}, {ubTensor10});
+    currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {ubTensor10}, {ubTensor11});
+    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor11}, {ubTensor12});
+    currFunctionPtr->AddOperation(Opcode::OP_GATHER, {ubTensor7, ubTensor12}, {ubTensor13});
+    currFunctionPtr->AddOperation(Opcode::OP_ROWSUM, {ubTensor13}, {ubTensor14});
+    currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {ubTensor14}, {outCast});
+    
+    currFunctionPtr->inCasts_.push_back(inCast);
+    currFunctionPtr->outCasts_.push_back(outCast);
 
+    // Run the pass
+    SetHeuristicTileShapes setHeuristicTileShapes;
+    auto status = setHeuristicTileShapes.RunOnFunction(*currFunctionPtr);
+    EXPECT_EQ(status, SUCCESS);
+}
+
+TEST_F(TestSetHeuristicTileShapes, TestVector2)
+{
+    auto currFunctionPtr = std::make_shared<Function>(
+        Program::GetInstance(), "TestSetHeuristicTileShapes", "TestSetHeuristicTileShapes", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    // Prepare the graph
+    std::vector<int64_t> inputShape = {32, 512};
+    std::vector<int64_t> topKShape = {32, 64};
+    std::vector<int64_t> rowmaxShape = {32, 1};
+    std::vector<int64_t> expandShape = {32, 256};
+    std::vector<int64_t> scatterShape = {1, 64};
+    std::vector<int64_t> outputShape = {64, 256};
+    
+    auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inputShape);
+    
+    auto ubTensor0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inputShape);
+    auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inputShape);
+    auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, topKShape);
+    auto ubTensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, rowmaxShape);
+    auto ubTensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, expandShape);
+    auto ubTensor5 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, expandShape);
+    auto ubTensor6 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, expandShape);
+    auto ubTensor7 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, scatterShape);
+    auto ubTensor8 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outputShape);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outputShape);
+
+    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor0});
+    currFunctionPtr->AddOperation(Opcode::OP_SQRT, {ubTensor0}, {ubTensor1});
+    currFunctionPtr->AddOperation(Opcode::OP_TOPK, {ubTensor1}, {ubTensor2});
+    currFunctionPtr->AddOperation(Opcode::OP_ROWMAX, {ubTensor2}, {ubTensor3});
+    currFunctionPtr->AddOperation(Opcode::OP_EXPAND, {ubTensor3}, {ubTensor4});
+    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor5});
+    currFunctionPtr->AddOperation(Opcode::OP_ADD, {ubTensor4, ubTensor5}, {ubTensor6});
+    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor7});
+    currFunctionPtr->AddOperation(Opcode::OP_INDEX_OUTCAST, {ubTensor6, ubTensor7}, {ubTensor8});
+    currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {ubTensor8}, {outCast});
+     
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
 
