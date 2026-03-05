@@ -165,7 +165,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_SUBS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_MULS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_DIVS, [this]() { return GenVectorScalarOp(); }},
-          {Opcode::OP_REMS, [this]() { return GenRemainderSOp(); }},         
+          {Opcode::OP_REMS, [this]() { return GenRemainderSOp(); }},
           {Opcode::OP_MAXS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_MINS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_LRELU, [this]() { return GenVectorScalarOp(); }},
@@ -177,7 +177,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
 
           // binary op: vector scalar with tmp
           {Opcode::OP_MODS, [this]() { return GenVectorScalarOp(); }},
-          {Opcode::OP_REMRS, [this]() { return GenRemainderRSOp(); }}, 
+          {Opcode::OP_REMRS, [this]() { return GenRemainderRSOp(); }},
           {Opcode::OP_SBITWISERIGHTSHIFT, [this]() { return GenVectorScalarOpWithTmp(); }},
           {Opcode::OP_SBITWISELEFTSHIFT, [this]() { return GenVectorScalarOpWithTmp(); }},
           {Opcode::OP_BITWISEXORS, [this]() { return GenVectorScalarOpWithTmp(); }},
@@ -608,6 +608,8 @@ void CodeGenOpCloudNPU::UpdateTileTensorInfo() {
         TileTensor tileTensor = BuildTileTensor(i, usingType);
         std::string tensorName = sm->AddTileTensor(tileTensor);
         tensorNames_[i] = tensorName;
+        CODEGEN_LOGI(
+            "AddTileTensor op idx: %d, result usingType: %s, tensorName: %s", i, usingType.c_str(), tensorName.c_str());
     }
 }
 
@@ -659,7 +661,7 @@ void CodeGenOpCloudNPU::UpdateLoopInfo() {
         if (ShouldSkipProcInLoop(i)) {
             continue;
         }
-        ShapeInLoop shapeInLoop = BuildShapeInLoop(i, loopDepth);
+        ShapeInLoop shapeInLoop = BuildShapeInLoop(i);
         CODEGEN_LOGI("shapeInLoop: loopDepth is %d newOriginShape is %s, newRawShape is %s, newDynValidShape is %s",
             loopDepth, IntVecToStr(shapeInLoop.originShape).c_str(), IntVecToStr(shapeInLoop.rawShape).c_str(),
             IntVecToStr(shapeInLoop.dynamicValidShape).c_str());
@@ -672,9 +674,9 @@ void CodeGenOpCloudNPU::UpdateLoopInfo() {
 }
 
 ShapeInLoop CodeGenOpCloudNPU::BuildShapeInLoop(int paramIdx, size_t loopDepth) {
-    auto newOriginShape = GetShapeInLoop(originShape[paramIdx], loopDepth);
-    auto newRawShape = GetShapeInLoop(rawShape[paramIdx], loopDepth);
-    auto newDynValidShape = GetShapeInLoop<SymbolicScalar>(dynamicValidShape[paramIdx], loopDepth);
+    auto newOriginShape = GetShapeInLoop(originShape[paramIdx]);
+    auto newRawShape = GetShapeInLoop(rawShape[paramIdx]);
+    auto newDynValidShape = GetShapeInLoop<SymbolicScalar>(dynamicValidShape[paramIdx]);
     return {loopDepth, newOriginShape, newRawShape, newDynValidShape};
 }
 
@@ -686,7 +688,8 @@ std::string CodeGenOpCloudNPU::PrintCoord(size_t dim, const std::string &coord) 
 
 std::string CodeGenOpCloudNPU::QueryTileTensorNameByIdx(int paramIdx) const {
     std::vector<TileTensor> res;
-    if (forBlkMgr_ != nullptr && forBlkMgr_->IsInLoop()) {
+    bool isInLoop = forBlkMgr_ != nullptr && forBlkMgr_->IsInLoop();
+    if (isInLoop) {
         res = sm->QueryTileTensorInLoopByMagic(operandWithMagic[paramIdx]);
         // some tensor in loop is reused same tensor out of loop
         if (res.empty()) {
@@ -697,15 +700,23 @@ std::string CodeGenOpCloudNPU::QueryTileTensorNameByIdx(int paramIdx) const {
     }
 
     if (res.size() == 1) {
+        CODEGEN_LOGI("QueryTileTensorNameByIdx found: %s", res[0].tensorName.c_str());
         return res[0].tensorName;
     }
-    CODEGEN_LOGI("paramIdx is %d, tensor magic is %d, res size is %d", paramIdx, operandWithMagic[paramIdx], res.size());
+    CODEGEN_LOGI("isInLoop: %d, paramIdx is %d, tensor magic is %d, res size is %d", isInLoop, paramIdx,
+        operandWithMagic[paramIdx], res.size());
+
+    auto targetRawShape =
+        isInLoop ? std::vector{*(rawShape[paramIdx].rbegin() + 1), rawShape[paramIdx].back()} : rawShape[paramIdx];
+    CODEGEN_LOGI("isInLoop: %d,rawShape is %s, targetRawShape is %s", isInLoop, IntVecToStr(rawShape[paramIdx]).c_str(),
+        IntVecToStr(targetRawShape).c_str());
 
     for (const auto &tileTensor : res) {
-        auto targetRawShape =
-            forBlkMgr_ != nullptr && forBlkMgr_->IsInLoop() ? tileTensor.shapeInLoop.rawShape : rawShape[paramIdx];
+        CODEGEN_LOGI("isInLoop: %d, tileTensor.shapeInLoop.rawShape is %s, tileTensor.rawShape is %s", isInLoop,
+            IntVecToStr(tileTensor.shapeInLoop.rawShape).c_str(), IntVecToStr(tileTensor.rawShape).c_str());
         // Currently only support additional comparison of rawShape
         if (tileTensor.rawShape == targetRawShape) {
+            CODEGEN_LOGI("QueryTileTensorNameByIdx found: %s", tileTensor.tensorName.c_str());
             return tileTensor.tensorName;
         }
     }
@@ -714,6 +725,7 @@ std::string CodeGenOpCloudNPU::QueryTileTensorNameByIdx(int paramIdx) const {
                   << " is not found !!! res size is " << res.size();
     return "";
 }
+
 std::string CodeGenOpCloudNPU::GenOpCode() const {
     std::string ret;
     auto iter = opsGenMap_.find(opCode);
