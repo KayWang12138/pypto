@@ -67,7 +67,7 @@ public:
             params_[index](args[currentIndex + 1]);
             ++currentIndex;  // 跳过下一个参数
         } else {
-            SIMULATION_LOGE("Missing argument for %d", args[currentIndex]);
+            SIMULATION_LOGE("Missing argument for %s", args[currentIndex].c_str());
         }
     }
     
@@ -80,7 +80,7 @@ public:
                 ++currentIndex;  // 跳过下一个参数
             }
         } else {
-            SIMULATION_LOGE("Unknown parameter: %d", args[currentIndex]);
+            SIMULATION_LOGE("Unknown parameter: %s", args[currentIndex].c_str());
         }
     }
 
