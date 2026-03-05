@@ -208,8 +208,7 @@ class PerformanceAnalyzer:
         if swimlane_data.get('tasks') and trace_data.get('total_time'):
             compute_time = swimlane_data['total_duration']
             control_time = trace_data['total_time']
-            control_ratio = (control_time / (compute_time + control_time) * 100)
-                if (compute_time + control_time) > 0 else 0
+            control_ratio = (control_time / (compute_time + control_time) * 100) if (compute_time + control_time) > 0 else 0
             report.append(f"- 控制开销占比: {control_ratio:.1f}%")
         
         report.append("")
