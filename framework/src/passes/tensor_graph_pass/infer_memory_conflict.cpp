@@ -196,8 +196,17 @@ bool InferMemoryConflict::MatMulPattern(const LogicalTensorPtr &reshapeIn, const
  	return false;
 }
 
+bool CheckDynRawShape(Shape shape) {
+    return std::any_of(shape.begin(), shape.end(), [](int dim) { return dim < 0; });
+}
+
 // batch MatMul优化pattern，不插入register copy
 bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn, const LogicalTensorPtr &reshapeOut) {
+    Shape inShape = reshapeIn->GetRawTensor()->GetRawShape();
+    Shape outShape = reshapeOut->GetRawTensor()->GetRawShape();
+    if (CheckDynRawShape(inShape) || CheckDynRawShape(outShape)) {
+        return false;
+    }
     if (!reshapeIn || !reshapeOut) return false;
 
     if (!MatMulPattern(reshapeIn, reshapeOut)) {
@@ -261,7 +270,8 @@ Status InferMemoryConflict::UpdateForwardTensor(Function &function, const Logica
         if (consumer->GetOpcode() == Opcode::OP_RESHAPE) {
             auto reshapeInput = consumer->GetIOperands().front();
             bool isInplace = consumer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
-            std::cout << "UpdateForwardTensor:" << memoryInfo[curTensor].GetMagic() << ":" << reshapeInput->GetMagic() << std::endl;
+            std::cout << "UpdateForwardTensor:" << memoryInfo[curTensor]->GetMagic() << ":" << reshapeInput->GetMagic()
+                      << std::endl;
             if (!isInplace && CheckRawShapeConflict(memoryInfo[curTensor], outputTensor, false, reshapeInput)) {
                 preregcopys.insert(consumer);
                 continue;
@@ -293,7 +303,8 @@ Status InferMemoryConflict::UpdateBackwardTensor(const LogicalTensorPtr &curTens
         auto reshapeOutput = producer->GetOOperands().front();
         if (producer->GetOpcode() == Opcode::OP_RESHAPE) {
             bool isInplace = producer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
-            std::cout << "UpdateForwardTensor:" << memoryInfo[curTensor].GetMagic() << ":" << reshapeInput->GetMagic() << std::endl;
+            std::cout << "UpdateForwardTensor:" << memoryInfo[curTensor]->GetMagic() << ":" << reshapeOutput->GetMagic()
+                      << std::endl;
             if (!isInplace && CheckRawShapeConflict(inputTensor, memoryInfo[curTensor], true, reshapeOutput)) {
                 postregcopys.insert(producer);
                 continue;
