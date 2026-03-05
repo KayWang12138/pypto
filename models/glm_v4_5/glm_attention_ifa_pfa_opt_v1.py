@@ -26,6 +26,17 @@ Key Differences:
 """
 import os
 import sys
+
+# 设置必需的环境变量（如果未设置）
+if 'PTO_TILE_LIB_CODE_PATH' not in os.environ:
+    pto_isa_path = '/mnt/workspace/gitCode/cann/mce/pto-isa'
+    os.environ['PTO_TILE_LIB_CODE_PATH'] = pto_isa_path
+    print(f"[INFO] Auto-setting PTO_TILE_LIB_CODE_PATH={pto_isa_path}")
+
+if 'TILE_FWK_DEVICE_ID' not in os.environ:
+    os.environ['TILE_FWK_DEVICE_ID'] = '0'
+    print(f"[INFO] Auto-setting TILE_FWK_DEVICE_ID=0")
+
 import math
 from dataclasses import dataclass
 import torch
@@ -178,10 +189,10 @@ def get_pfa_config(device="cpu"):
     tile_cfg = AttentionTileConfig(
         nq,
         s2_tile,
-        [[m_tile, m_tile], [cube_tile, cube_tile], [cube_tile, cube_tile]],
+        [[cube_tile, cube_tile], [cube_tile, cube_tile], [cube_tile, cube_tile]], # 建议128，中间64 256
         [m_tile, s2_tile],
-        [[m_tile, m_tile], [cube_tile, cube_tile], [cube_tile, cube_tile]],
-        [m_tile, cube_tile])
+        [[cube_tile, cube_tile], [cube_tile, cube_tile], [cube_tile, cube_tile]], 
+        [m_tile, s2_tile],)
     return atten_cfg, tile_cfg
 
 
@@ -480,14 +491,17 @@ def pfa_func(q_shape, kv_shape, block_table_shape):
 
     @pypto.frontend.jit(
         runtime_options={
-            "stitch_function_num_initial": 128,
-            "stitch_function_outcast_memory": 1024,
-            "stitch_function_inner_memory": 1024
-        },
+            "stitch_function_max_num": 128
+        }, 
         pass_options={
-            "pg_upper_bound": 1536,
-            "cube_l1_reuse_setting": {0: 4}, # (s1 + s2_tile - 1) // (2 * s2_tile) --(128+256-1)//(2*256)
-            "cube_l1_reuse_mode": 1  # 开启全局 L1 复用
+            "sg_set_scope":-1,
+            "pg_upper_bound": 10000, #1536,
+            "cube_l1_reuse_mode":1,
+            "cube_l1_reuse_setting": {-1: 8},
+            "cube_nbuffer_mode":1,
+            "cube_nbuffer_setting":{-1: 8},
+            "vec_nbuffer_mode":1,
+            "vec_nbuffer_setting":{}
         },
         debug_options={"runtime_debug_mode":1,
                         "compile_debug_mode":0}
@@ -513,7 +527,7 @@ def pfa_func(q_shape, kv_shape, block_table_shape):
         block_size = shape_k[1]
         nkv = shape_k[2]
         dn = shape_k[3]
-        b_scalar = query_act_seqs.shape[0] #dynamic
+        b_scalar = query_act_seqs.shape[0] #dymnamic
         
         dtype = q.dtype
         group = nq // nkv
@@ -537,9 +551,9 @@ def pfa_func(q_shape, kv_shape, block_table_shape):
         v_2d = pypto.reshape(v, k_2d_shape, inplace=True)
         q_2d = pypto.reshape(q, q_2d_shape, inplace=True)
         
-        for b_idx in pypto.loop(b_scalar, name="LOOP_b", idx_name="b_idx"):
+        for b_idx in pypto.loop(b_scalar, name="LOOP_b", idx_name="b_idx", unroll_list=[4,2,1]):
             for s1_idx in pypto.loop(s1_scalar, name="LOOP_s1", idx_name="s1_idx"):
-                # ========== PFA 关键: 因果注意力 ==========
+                # ========== PFA 因果注意力 ==========
                 # 位置 s1_idx 的 query 只能看到位置 0 到 s1_idx 的 KV
                 # cur_seq = s1_idx + 1（包含当前位置）
                 cur_seq = s1_idx + 1
@@ -554,15 +568,14 @@ def pfa_func(q_shape, kv_shape, block_table_shape):
                         for s2_idx in pypto.loop(s2_loop, name="LOOP_s2", idx_name="s2_idx", unroll_list=[8, 4, 2, 1]): # symbolicscalar
                             # PFA: 简化block_num计算（s2_tile=128, block_size=128时block_num=1）
                             block_num = s2_tile // block_size
-                            # ========== PFA 关键: block 索引从 0 开始 ==========
+                            # ========== PFA  block 索引从 0 开始 ==========
                             # 因果注意力：总是从第一个 block 开始
                             idx = s2_idx * block_num
                             bs_ofs = b_idx * s1_scalar + s1_idx
                             n1g_ofs = n2_idx * group + g_idx * g_tile
                             
-                            # ========== PFA 关键: 计算实际有效的 tile 大小 ==========
+                            # ========== PFA 计算实际有效的 tile 大小 ==========
                             # cur_seq = s1_idx + 1（当前位置+1）
-                            # actual_s2_tile = min(s2_tile, cur_seq - s2_idx * s2_tile)
                             actual_s2_tile = (cur_seq - s2_idx * s2_tile).min(s2_tile)
                             oi_ofs = [bs_ofs, n1g_ofs, 0]
                             
@@ -580,7 +593,7 @@ def pfa_func(q_shape, kv_shape, block_table_shape):
                             
                             pypto.set_cube_tile_shapes(c1_tile[0], c1_tile[1], c1_tile[2])
                             sij = pypto.matmul(qi, kj_assemble, pypto.DT_FP32, a_trans=False, b_trans=True)
-                            # ========== PFA 关键: 使用 actual_s2_tile 限制有效范围 ==========
+                            # ========== PFA 使用 actual_s2_tile 限制有效范围 ==========
                             sij = pypto.view(sij, [g_tile, s2_tile], [0, 0], valid_shape=[g_tile, actual_s2_tile])
                             
                             pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
@@ -600,7 +613,7 @@ def pfa_func(q_shape, kv_shape, block_table_shape):
                                     block_idx_valid = block_idx.max(0)
                                     vj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
                                         pypto.view(v_2d, [block_size, dn], [block_idx_valid * block_size, 0])
-                                # PFA 关键: V 也使用 actual_s2_tile
+                                # PFA V 也使用 actual_s2_tile
                                 vj_assemble = pypto.view(vj_assemble, [s2_tile, dn], [0, 0], valid_shape=[actual_s2_tile, dn])
                                 
                                 pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2])
@@ -923,5 +936,5 @@ if __name__ == "__main__":
     print()
     print("=" * 60)
     
-    # test_ifa()
+    test_ifa()
     test_pfa()
