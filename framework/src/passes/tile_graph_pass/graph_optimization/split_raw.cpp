@@ -60,9 +60,14 @@ void SplitRawTensor::UpdateConsumerView(
             // VIEW操作的offset要相应被修改, 要减去被拆分LogicalTensor的offset
             auto &fromOffset = viewOpAttribute->GetFromOffset();
             fromOffset = UpdateOffset(fromOffset, tensorOffset.GetOffset());
-            if (!tensorOffset.GetDynOffset().empty() && !viewOpAttribute->GetFromDynOffset().empty()) {
+            if (!viewOpAttribute->GetFromDynOffset().empty()) {
                 auto &fromDynOffset = viewOpAttribute->GetFromDynOffset();
-                fromDynOffset = UpdateDynOffset(fromDynOffset, tensorOffset.GetDynOffset());
+                if (!tensorOffset.GetDynOffset().empty()) {
+                    fromDynOffset = UpdateDynOffset(fromDynOffset, tensorOffset.GetDynOffset());
+                } else {
+                    fromDynOffset = UpdateDynOffset(
+                        fromDynOffset, OpImmediate::ToSpecified(OpImmediate::Specified(tensorOffset.GetOffset())));
+                }
             }
         }
         APASS_LOG_DEBUG_F(Elements::Operation, "Update View op needs fromOffset: %d.", viewOp->GetOpMagic());
@@ -91,9 +96,14 @@ void SplitRawTensor::UpdateProducerAssemble(
             // Assemble操作的offset要相应被修改, 要减去被拆分LogicalTensor的offset
             auto &toOffset = assembleOpAttribute->GetToOffset();
             toOffset = UpdateOffset(toOffset, tensorOffset.GetOffset());
-            if (!tensorOffset.GetDynOffset().empty() && !assembleOpAttribute->GetToDynOffset().empty()) {
+            if (!assembleOpAttribute->GetToDynOffset().empty()) {
                 auto &toDynOffset = assembleOpAttribute->GetToDynOffset();
-                toDynOffset = UpdateDynOffset(toDynOffset, tensorOffset.GetDynOffset());
+                if (!tensorOffset.GetDynOffset().empty()) {
+                    toDynOffset = UpdateDynOffset(toDynOffset, tensorOffset.GetDynOffset());
+                } else {
+                    toDynOffset = UpdateDynOffset(
+                        toDynOffset, OpImmediate::ToSpecified(OpImmediate::Specified(tensorOffset.GetOffset())));
+                }
             }
         }
         APASS_LOG_DEBUG_F(Elements::Operation, "Update Assemble op needs toOffset: %d.", assembleOp->GetOpMagic());
