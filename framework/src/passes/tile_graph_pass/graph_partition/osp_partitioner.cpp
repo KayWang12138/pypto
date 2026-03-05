@@ -340,12 +340,15 @@ Status OspPartitioner::ConstructBspArchCVMix(osp::BspArchitecture<GraphType> &bs
 Status OspPartitioner::ConstructDag(GraphType &graph)
 {
     if (useCVMixPartition_) {
-        ConstructDagCVMix(graph);
+        if(ConstructDagCVMix(graph) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Function, "OSP failed to generate graph with CV mix.");
+            return FAILED;
+        }
     } else {
         if (ConstructDagCVSplit(graph) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Function, "OSP failed to generate graph with CV split.");
             return FAILED;
-        };
+        }
     }
     return SUCCESS;
 }
@@ -357,13 +360,16 @@ Status OspPartitioner::ConstructBspInstance(osp::BspInstance<GraphType> &bspInst
             APASS_LOG_ERROR_F(Elements::Function, "OSP failed to generate bsp architecture with CV mix.");
             return FAILED;
         }
-        ConstructDagCVMix(bspInst.GetComputationalDag());
+        if(ConstructDagCVMix(bspInst.GetComputationalDag()) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Function, "OSP failed to generate graph with CV mix.");
+            return FAILED;
+        }
     } else {
         ConstructBspArchCVSplit(bspInst.GetArchitecture());
         if (ConstructDagCVSplit(bspInst.GetComputationalDag()) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Function, "OSP failed to generate graph with CV split.");
             return FAILED;
-        };
+        }
     }
     unsigned numTypes = std::max(bspInst.GetArchitecture().GetNumberOfProcessorTypes(), static_cast<unsigned>( bspInst.GetComputationalDag().NumVertexTypes()));
     bspInst.SetDiagonalCompatibilityMatrix(numTypes);
