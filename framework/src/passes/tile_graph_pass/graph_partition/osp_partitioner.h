@@ -24,13 +24,8 @@
 
 namespace npu::tile_fwk {
 
-namespace osp {
-template <typename GraphT>
-class BspArchitecture;
-
-template <typename GraphT>
-class BspInstance;
-}
+template <typename GraphT> class osp::BspArchitecture;
+template <typename GraphT> class osp::BspInstance;
 
 template<typename WorkType>
 struct ArchParameters {
