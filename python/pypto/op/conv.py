@@ -35,8 +35,8 @@ def conv(
     dilations,
     *,
     groups=1,
-       transposed=False,
-    output_paddings=[],
+    transposed=False,
+    output_paddings=[0, 0],
     extend_params=None
 ) -> Tensor:
     """
