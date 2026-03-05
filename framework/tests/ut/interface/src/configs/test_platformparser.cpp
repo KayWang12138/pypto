@@ -45,7 +45,7 @@ public:
     }
     void SetUp() override {
         std::string src = GetCurRunningPath() + "/../../../framework/tests/ut/machine/stubs/compiler/data/platform_config/Ascend910_9572.ini";	 
-        std::string dst = RealPath(TEST_TMP_DIR) + "A5.ini";	 
+        std::string dst = TEST_TMP_DIR + "A5.ini";	 
         std::string command = "cp " + src + " " + dst;	 
         ASSERT_EQ(std::system(command.c_str()), 0) << "Failed to copy config file: " << command;
     }
@@ -141,7 +141,7 @@ TEST_F(TestPlatformParser, AbnormalTest) {
     EXPECT_FALSE(parser.GetCCECVersion(ccecVersion)); 
     EXPECT_FALSE(parser.GetCoreVersion(ccecVersion)); 
 
-    std::string iniPath = RealPath(TEST_TMP_DIR + "A5.ini"); 
+    std::string iniPath = TEST_TMP_DIR + "A5.ini"; 
     EXPECT_TRUE(parser.Initialize(iniPath)); 
 
     std::string test; 
