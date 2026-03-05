@@ -53,21 +53,18 @@ static void ScatterTensorOperationExeFunc2Dims(
         const int64_t firstViewShape = args->viewShape_[0];
         const int64_t secondViewShape = args->viewShape_[1];
 
-        const int64_t bloop = CeilDiv(idx_firstDim, firstViewShape);
-        const int64_t sloop = CeilDiv(idx_secondDim, secondViewShape);
+        const int64_t bloop = 1; // CeilDiv(idx_firstDim, firstViewShape);
+        const int64_t sloop = 1; // CeilDiv(idx_secondDim, secondViewShape);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                auto tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
-                    {std::min(self_firstDim - bIdx * firstViewShape, firstViewShape),
-                        std::min(self_secondDim - sIdx * secondViewShape, secondViewShape)},
+                auto tileTensor0 = View(inputs[0], {self_firstDim, self_secondDim},
+                    {self_firstDim, self_secondDim},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
-                auto tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
-                    {std::min(idx_firstDim - bIdx * firstViewShape, firstViewShape),
-                        std::min(idx_secondDim - sIdx * secondViewShape, secondViewShape)},
+                auto tileTensor1 = View(inputs[1], {idx_firstDim, idx_secondDim},
+                    {idx_firstDim, idx_secondDim},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
-                auto tileTensor2 = View(inputs[2], {firstViewShape, secondViewShape},
-                    {std::min(src_firstDim - bIdx * firstViewShape, firstViewShape),
-                        std::min(src_secondDim - sIdx * secondViewShape, secondViewShape)},
+                auto tileTensor2 = View(inputs[2], {src_firstDim, src_secondDim},
+                    {src_firstDim, src_secondDim},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
 
                 TileShape::Current().SetVecTile(args->tileShape_);
@@ -96,26 +93,20 @@ static void ScatterTensorOperationExeFunc3Dims(
         const int64_t secondViewShape = args->viewShape_[1];
         const int64_t thirdViewShape = args->viewShape_[2];
 
-        const int64_t bloop = CeilDiv(idx_firstDim, firstViewShape);
-        const int64_t sloop = CeilDiv(idx_secondDim, secondViewShape);
-        const int64_t nloop = CeilDiv(idx_thirdDim, thirdViewShape);
+        const int64_t bloop = 1; // CeilDiv(idx_firstDim, firstViewShape);
+        const int64_t sloop = 1; // CeilDiv(idx_secondDim, secondViewShape);
+        const int64_t nloop = 1; // CeilDiv(idx_thirdDim, thirdViewShape);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
                 LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                    auto tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
-                        {std::min(self_firstDim - bIdx * firstViewShape, firstViewShape),
-                            std::min(self_secondDim - sIdx * secondViewShape, secondViewShape),
-                            std::min(self_thirdDim - nIdx * thirdViewShape, thirdViewShape) },
+                    auto tileTensor0 = View(inputs[0], {self_firstDim, self_secondDim, self_thirdDim},
+                        {self_firstDim, self_secondDim, self_thirdDim},
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
-                    auto tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape, thirdViewShape},
-                        {std::min(idx_firstDim - bIdx * firstViewShape, firstViewShape),
-                            std::min(idx_secondDim - sIdx * secondViewShape, secondViewShape),
-                            std::min(idx_thirdDim - nIdx * thirdViewShape, thirdViewShape) },
+                    auto tileTensor1 = View(inputs[1], {idx_firstDim, idx_secondDim, idx_thirdDim},
+                        {idx_firstDim, idx_secondDim, idx_thirdDim},
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
-                    auto tileTensor2 = View(inputs[2], {firstViewShape, secondViewShape, thirdViewShape},
-                        {std::min(src_firstDim - bIdx * firstViewShape, firstViewShape),
-                            std::min(src_secondDim - sIdx * secondViewShape, secondViewShape),
-                            std::min(src_thirdDim - nIdx * thirdViewShape, thirdViewShape) },
+                    auto tileTensor2 = View(inputs[2], {src_firstDim, src_secondDim, src_thirdDim},
+                        {src_firstDim, src_secondDim, src_thirdDim},
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
 
                     TileShape::Current().SetVecTile(args->tileShape_);
