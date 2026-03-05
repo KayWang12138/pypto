@@ -187,7 +187,8 @@ def lightning_indexer_decode_compute(
                     pypto.set_vec_tile_shapes(1, selected_count)
                     eff_in = pypto.view(max_tensor, [1, selected_count], [src_offset, 0], valid_shape=[1, eff_seq])
                     ax = pypto.view(eff_in, [1, selected_count], [0, 0], valid_shape=[1, eff_seq])
-                    bx = pypto.full([1, selected_count], pad_value, pypto.DT_FP32, valid_shape=[1, selected_count - eff_seq])
+                    bx = pypto.full([1, selected_count], pad_value, pypto.DT_FP32,
+                                    valid_shape=[1, selected_count - eff_seq])
                     pypto.assemble(pypto.clone(ax), [0, 0], pad_sc)
                     pypto.assemble(bx, [0, eff_seq], pad_sc)
                     pypto.set_pass_options(pg_skip_partition=False)
@@ -195,7 +196,8 @@ def lightning_indexer_decode_compute(
                     index_valid = pypto.view(res_index, [1, selected_count], [0, 0], valid_shape=[1, eff_seq])
                     pypto.set_vec_tile_shapes(1, 1, selected_count)
                     index_3d = pypto.reshape(index_valid, [1, 1, selected_count], valid_shape=[1, 1, eff_seq])
-                    index_pad = pypto.full([1, 1, selected_count], pad_idx_value, dxdtype, valid_shape=[1, 1, selected_count - eff_seq])
+                    index_pad = pypto.full([1, 1, selected_count], pad_idx_value, dxdtype,
+                                valid_shape=[1, 1, selected_count - eff_seq])
                     pypto.assemble(pypto.clone(index_3d), [dst_offset, 0, 0], topk_res)
                     pypto.assemble(index_pad, [dst_offset, 0, eff_seq], topk_res)
 
