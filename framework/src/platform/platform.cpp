@@ -323,8 +323,7 @@ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
 }
 
 void Platform::ObtainPlatformInfo() {
-    static bool initialized = false;
-    if (initialized) {
+    if (initialized_) {
         return;
     }
     std::string archType;
@@ -348,6 +347,6 @@ void Platform::ObtainPlatformInfo() {
             GetDie().SetMemoryPath(dataPath);
         } 
     }
-    initialized = true;
+    initialized_ = true;
 }
 }
