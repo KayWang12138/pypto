@@ -323,11 +323,12 @@ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
 }
 
 void Platform::ObtainPlatformInfo() {
+    std::lock_guard<std::mutex> lock(platform_mutex);
     if (initialized_) {
         return;
     }
-    std::string archType;
-    if (CannHostRuntime::Instance().GetSocSpec(version, npuArchInfo, archType)) {
+    std::string socVer;
+    if (CannHostRuntime::Instance().GetSocVersion(socVer)) {
         npu::tile_fwk::CmdParser cmdparser;
         LoadPlatformInfo(cmdparser);
     } else {
