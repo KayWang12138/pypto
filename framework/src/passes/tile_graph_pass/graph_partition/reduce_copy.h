@@ -52,9 +52,11 @@ public:
     Status RemarkInternalSubgraphID(Function &func);
     void BuildGraph(const OperationsViewer opOriList);
     void BuildGraphInner(const OperationsViewer &opOriList, int opIdx, int opColor);
+    void MarkInnerDDRSubgraph(Function &func);
     std::map<int, size_t> magic2Size;
     std::map<std::pair<int, int>, std::set<int>> originalEdges;
     std::set<std::pair<int, int>> crossEdges;
+    std::unordered_set<int> innerDDRSubgraphId;
     std::vector<std::set<int>> superNodeInGraph;
     std::vector<std::set<int>> superNodeOutGraph;
     std::vector<bool> isReshape;
