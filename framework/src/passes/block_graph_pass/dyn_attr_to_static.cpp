@@ -442,16 +442,18 @@ Status DynAttrToStatic::GetTileFunction(Function* function, std::vector<Function
     for (auto callop : function->GetCallopList()) {
         Function *nextFunc = nullptr;
         if (GetCallee(*callop, nextFunc) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "GetTileFunction at %s, %s[%d] GetCallee failed.%s",
-                function->GetRawName().c_str(), callop->GetOpcodeStr().c_str(), callop->GetOpMagic(), GetFormatBacktrace(callop).c_str());
+            APASS_LOG_ERROR_F(Elements::Operation, "GetTileFunction, currFunc: %s, %s[%d] GetCallee failed.",
+                function->GetRawName().c_str(), callop->GetOpcodeStr().c_str(), callop->GetOpMagic());
             return FAILED;
         }
+        APASS_LOG_DEBUG_F(Elements::Function, "GetTileFunction, %s --%s[%d]--> %s",
+            function->GetRawName().c_str(), callop->GetOpcodeStr().c_str(), callop->GetOpMagic(), nextFunc->GetRawName().c_str());
         if (nextFunc->GetGraphType() == GraphType::TILE_GRAPH) {
             tileFunctionVec.emplace_back(nextFunc);
             continue;
         } else {
             if(GetTileFunction(nextFunc, tileFunctionVec) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "GetTileFunction at %s, nextFunc at %s failed",
+                APASS_LOG_ERROR_F(Elements::Operation, "GetTileFunction, currFunc: %s, nextFunc: %s, recursive search failed",
                     function->GetRawName().c_str(), nextFunc->GetRawName().c_str());
                 return FAILED;
             }
@@ -466,12 +468,10 @@ Status DynAttrToStatic::DumpFunctionJson(Function& function, const std::string &
         APASS_LOG_ERROR_F(Elements::Function, "Get tile function failed.");
         return FAILED;
     }
-    for(auto tileFunc : tileFunctionVec) {
-        if (Pass::DumpFunctionJson(*tileFunc, logFolder, beforeFunction) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Function, "Dump function json failed.");
-            return FAILED;
-        }
+    for (auto tileFunc : tileFunctionVec) {
+        Pass::DumpFunctionJson(*tileFunc, logFolder, beforeFunction);
     }
+    APASS_LOG_DEBUG_F(Elements::Function, "Dump function[%s] json finished.", function.GetRawName().c_str());
     return SUCCESS;
 }
 
@@ -481,12 +481,10 @@ Status DynAttrToStatic::PrintFunction(Function& function, const std::string &log
         APASS_LOG_ERROR_F(Elements::Function, "Get tile function failed.");
         return FAILED;
     }
-    for(auto tileFunc : tileFunctionVec) {
-        if (Pass::PrintFunction(*tileFunc, logFolder, beforeFunction) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Function, "Print function failed.");
-            return FAILED;
-        }
+    for (auto tileFunc : tileFunctionVec) {
+        Pass::PrintFunction(*tileFunc, logFolder, beforeFunction);
     }
+    APASS_LOG_DEBUG_F(Elements::Function, "Print function[%s] finished.", function.GetRawName().c_str());
     return SUCCESS;
 }
 } // namespace tile_fwk
