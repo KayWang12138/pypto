@@ -257,3 +257,72 @@ def test_bmm_with_mn_split():
     golden = torch.matmul(a1_tensor.to(torch.float32).transpose(-2, -1), b1_tensor.to(torch.float32))
     c1 = create_bmm_kernel_with_no_mn_split(tile_config)(a1_tensor.npu(), b1_tensor.npu())
     assert torch.allclose(c1.cpu().to(torch.float32), golden, atol=1e-3, rtol=1e-3)
+
+
+@pytest.mark.soc("950", "910")
+def test_mm_with_gm_acc_mn_split_fp16():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+    torch.manual_seed(44)
+    np.random.seed(44)
+    m = 255
+    k = 127
+    n = 257
+    tile_m = 64
+    tile_k = 64
+    tile_n = 64
+    m_view = 128
+    n_view = 256
+    tile_config = ShapeConfig([m, k, n], [tile_m, tile_m], [tile_k, tile_k], [tile_n, tile_n], [m_view, n_view], FP16,
+                                FP32, False, True, False, False, False, True, True)
+    a1_tensor = torch.rand([m, k], dtype=torch.float16)
+    b1_tensor = torch.rand([n, k], dtype=torch.float16)
+    golden = torch.matmul(a1_tensor.to(torch.float32), b1_tensor.to(torch.float32).T)
+    c1 = create_mm_kernel_with_mn_split(tile_config)(a1_tensor.npu(), b1_tensor.npu())
+    assert torch.allclose(c1.cpu().to(torch.float32), golden, atol=1e-3, rtol=1e-3)
+
+
+@pytest.mark.soc("950", "910")
+def test_mm_with_gm_acc_mn_split_fp32():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+    torch.manual_seed(45)
+    np.random.seed(45)
+    m = 251
+    k = 247
+    n = 219
+    tile_m = 64
+    tile_k = 64
+    tile_n = 64
+    m_view = 128
+    n_view = 256
+    tile_config = ShapeConfig([m, k, n], [tile_m, tile_m], [tile_k, tile_k], [tile_n, tile_n], [m_view, n_view], FP32,
+                                FP32, True, True, False, False, False, True, True)
+    a1_tensor = torch.rand([k, m], dtype=torch.float32)
+    b1_tensor = torch.rand([n, k], dtype=torch.float32)
+    golden = torch.matmul(a1_tensor.to(torch.float32).T, b1_tensor.to(torch.float32).T)
+    c1 = create_mm_kernel_with_mn_split(tile_config)(a1_tensor.npu(), b1_tensor.npu())
+    assert torch.allclose(c1.cpu().to(torch.float32), golden, atol=1e-3, rtol=1e-3)
+
+
+@pytest.mark.soc("950", "910")
+def test_mm_with_gm_acc_mn_split_int8():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+    torch.manual_seed(46)
+    np.random.seed(46)
+    m = 167
+    k = 149
+    n = 201
+    tile_m = 64
+    tile_k = 64
+    tile_n = 64
+    m_view = 128
+    n_view = 256
+    tile_config = ShapeConfig([m, k, n], [tile_m, tile_m], [tile_k, tile_k], [tile_n, tile_n], [m_view, n_view], INT8,
+                                INT32, True, True, False, False, False, True, True)
+    a1_tensor = torch.randint(low=1, high=5, size=[k, m], dtype=torch.int8)
+    b1_tensor = torch.randint(low=1, high=5, size=[n, k], dtype=torch.int8)
+    golden = torch.matmul(a1_tensor.to(torch.int32).T, b1_tensor.to(torch.int32).T)
+    c1 = create_mm_kernel_with_mn_split(tile_config)(a1_tensor.npu(), b1_tensor.npu())
+    assert torch.allclose(c1.cpu().to(torch.int32), golden, atol=1e-3, rtol=1e-3)
