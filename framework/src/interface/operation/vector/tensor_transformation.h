@@ -56,4 +56,6 @@ LogicalTensorPtr TensorCastOperation(
     return result;
 }
 
+Tensor Permute(const Tensor &self, std::vector<int64_t> perm);
+
 } // namespace npu::tile_fwk
