@@ -40,21 +40,15 @@ const std::string TEST_TMP_DIR = "/tmp/TestPlatform/";
 
 class TestPlatformParser : public testing::Test {
 public:
-    static void SetUpTestCase() {
-        std::string cmd = "rm -rf " + TEST_TMP_DIR;
-        [[maybe_unused]]int ret = system(cmd.c_str());
-        std::string src = RealPath(GetCurrentSharedLibPath() + "/../../../framework/tests/ut/machine/stubs/compiler/data/platform_config/Ascend910_9572.ini");
-        CreateMultiLevelDir(TEST_TMP_DIR);
-        std::string dst = TEST_TMP_DIR + "A5.ini";
-        std::string command = "cp " + src + " " + dst;
-        int ret = std::system(command.c_str());
-        ASSERT_EQ(ret, 0) << "Failed to copy config file: " << command;
-    }
+    static void SetUpTestCase() {}
     static void TearDownTestCase() {
-        std::string cmd = "rm -rf " + TEST_TMP_DIR;
-        [[maybe_unused]]int ret = system(cmd.c_str());
     }
-    void SetUp() override {}
+    void SetUp() override {
+        std::string src = GetCurRunningPath() + "/../../../framework/tests/ut/machine/stubs/compiler/data/platform_config/Ascend910_9572.ini";	 
+        std::string dst = RealPath(TEST_TMP_DIR) + "A5.ini";	 
+        std::string command = "cp " + src + " " + dst;	 
+        ASSERT_EQ(std::system(command.c_str()), 0) << "Failed to copy config file: " << command;
+    }
     void TearDown() override {}
 };
 
