@@ -561,6 +561,7 @@ Status L1CopyInReuseRunner::Run(Function &func, int color, std::vector<std::vect
     GetColorHash(opOriList, hashColor);   // 计算子图哈希，识别同构子图
     auto colorCopyIn = GetCopyIn(opOriList, color, colorNode);   // 记录各子图的大小
     mgCopyInUpperBound_ = func.paramConfigs_.sgMgCopyInUpperBound;
+    std::cout << "here sgMgCopyInUpperBound" << mgCopyInUpperBound_ << std::endl;
     numLRMap_ = func.paramConfigs_.cubeL1ReuseSetting;
     numDBMap_ = func.paramConfigs_.cubeNBufferSetting;    // 合并阈值参数设置
     L1ReuseMode_ = GetModeBySetting(numLRMap_);
