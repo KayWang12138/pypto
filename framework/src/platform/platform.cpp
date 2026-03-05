@@ -323,12 +323,6 @@ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
 }
 
 void Platform::ObtainPlatformInfo() {
-    /*
-    static bool initialized = false;
-    if (initialized) {
-        return;
-    }
-    */
     std::string socVersion;
     if (CannHostRuntime::Instance().GetSocVersion(socVersion)) {
         npu::tile_fwk::CmdParser cmdparser;
@@ -349,6 +343,5 @@ void Platform::ObtainPlatformInfo() {
             GetDie().SetMemoryPath(dataPath);
         } 
     }
-    // initialized = true;
 }
 }
