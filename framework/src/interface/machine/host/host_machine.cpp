@@ -29,7 +29,6 @@ extern "C" {
 using RunPassFunc = int (*)(npu::tile_fwk::Program &, npu::tile_fwk::Function &, const std::string &);
 using GetResumePathFunc = std::string (*)(const std::string &);
 using ExecuteFunc = int (*)(npu::tile_fwk::MachineTask *, npu::tile_fwk::FunctionCache &);
-using PlatformFunc = std::string (*)();
 using MatchCacheFunc = bool (*)(const std::string &);
 using InitFunc = int (*)();
 
@@ -38,7 +37,6 @@ struct Backend {
     GetResumePathFunc getResumePath;
     ExecuteFunc execute;
     ExecuteFunc simuExecute;
-    PlatformFunc platform;
     MatchCacheFunc matchCache;
 
     static Backend &GetBackend() {

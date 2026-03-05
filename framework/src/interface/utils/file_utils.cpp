@@ -18,7 +18,6 @@
 #include <fcntl.h>
 #include <climits>
 #include <unistd.h>
-#include <sys/stat.h>
 #include <dirent.h>
 #include <dlfcn.h>
 #include <ftw.h>
@@ -367,23 +366,6 @@ bool CopyFile(const std::string &srcPath, const std::string &dstPath) {
     src.close();
     dst.close();
     return true;
-}
-
-std::string GetCurrentSharedLibPath() {
-    static std::string currentLibPath;
-    if (!currentLibPath.empty()) {
-        return currentLibPath;
-    }
-
-    Dl_info info;
-    if (dladdr(reinterpret_cast<void*>(GetCurrentSharedLibPath), &info)) {
-        currentLibPath = std::string(info.dli_fname);
-        int32_t pos = currentLibPath.rfind('/');
-        if (pos >= 0) {
-            currentLibPath = currentLibPath.substr(0, pos);
-        }
-    }
-    return currentLibPath;
 }
 
 std::string GetCurRunningPath() {

@@ -48,7 +48,6 @@ public:
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetPlatformConfig(KEY_TEST_IS_TIG, true);
-        Platform::Instance().ObtainPlatformInfo();
     }
     void TearDown() override {}
 

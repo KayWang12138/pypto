@@ -42,7 +42,6 @@ public:
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-        Platform::Instance().ObtainPlatformInfo();
     }
     void TearDown() override {}
 };

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -9,21 +9,22 @@
  */
 
 /*!
- * \file platform.cpp
+ * \file simulation_platform.cpp
  * \brief
  */
 
-#include "pybind_common.h"
+#include "simulation_platform.h"
 
-#include "tilefwk/platform.h"
+namespace npu {
+namespace tile_fwk {
+const std::string PLATFORM_INFO_RELATIVE_PATH = "/configs/A2A3.ini";
 
-using namespace npu::tile_fwk;
-
-namespace pypto {
-void BindPlatform(py::module &m) {
-    m.def("GetNPUArch", []() -> std::string {
-        auto npuArch = Platform::Instance().GetSoc().GetNPUArch();
-        return NPUArchToString(npuArch);
-    });
+bool SimulationPlatform::GetSimulationPlatformRealPath(std::string &realPath) {
+    realPath = RealPath(GetCurrentSharedLibPath() + PLATFORM_INFO_RELATIVE_PATH);
+    if (realPath.empty()) {
+        return false;
+    }
+    return true;
 }
-} // namespace pypto
+} // namespace tile_fwk
+} // namespace npu

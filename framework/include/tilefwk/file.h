@@ -55,5 +55,7 @@ inline std::string TrimLine(const std::string& s) {
     size_t end = s.find_last_not_of(" \t\n\r");
     return (start == std::string::npos) ? "" : s.substr(start, end - start + 1);
 }
+
+std::string GetCurrentSharedLibPath();
 }
 }
