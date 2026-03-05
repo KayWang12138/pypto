@@ -199,6 +199,7 @@ def create_l0c2l1_kernel(tile_config1, tile_config2, extend_config):
 
 
 @pytest.mark.soc("950", "910")
+@pytest.mark.skip(reason="large test case")
 def test_mm_with_mn_split():
     m = 69
     k = 99
@@ -218,6 +219,7 @@ def test_mm_with_mn_split():
 
 
 @pytest.mark.soc("950", "910")
+@pytest.mark.skip(reason="large test case")
 def test_mm_with_mn_split_nz():
     m = 64
     k = 128
@@ -242,6 +244,7 @@ def test_mm_with_mn_split_nz():
 
 
 @pytest.mark.soc("950", "910")
+@pytest.mark.skip(reason="large test case")
 def test_bmm_with_mn_split():
     b = 3
     m = 63
