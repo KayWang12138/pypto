@@ -11,7 +11,7 @@ description: "PyPTO 环境安装与环境问题修复，包括CANN、torch_npu�
 ASCEND_INSTALL_PATH=${ASCEND_INSTALL_PATH:-/usr/local/Ascend}
 ```
 
-- `PYPTO_REPO`：由诊断脚本自动检测（`$HOME/pypto` → 当前目录 find）。未找到则尝试 GitCode 克隆；失败请用户手动提供路径或设置 `GITCODE_TOKEN`。Most importantly, verify current directory is a PyPTO git repository.
+
 - `$SKILL_DIR`：由 agent 运行时自动注入的环境变量。指向当前 skill 的根目录（即本 `pypto-environment-setup/` 目录）。文档中所有 `$SKILL_DIR/scripts/...` 的引用均依赖此变量。手动执行时需自行设置，例如：`export SKILL_DIR=/path/to/pypto-environment-setup`。
 - **默认版本**：CANN 8.5.0 + PyTorch 2.6.0 + torch_npu 2.6.0
 
@@ -28,18 +28,32 @@ ASCEND_INSTALL_PATH=${ASCEND_INSTALL_PATH:-/usr/local/Ascend}
 ### Step 1: 环境检测
 
 ```bash
-# 环境诊断（完整检查）
+# Step 1.1: 检查 PYPTO_REPO 环境变量
+echo "PYPTO_REPO: ${PYPTO_REPO:-未设置}"
+
+# Step 1.2: 检查当前目录是否为 PyPTO 仓库
+[ -f "pyproject.toml" ] && [ -d "framework" ] && echo "✓ 当前目录是 PyPTO 仓库"
+```
+
+**PyPTO 仓库查找逻辑**（按优先级自动执行）：
+1. 环境变量 `$PYPTO_REPO`
+2. 当前目录（含 `pyproject.toml` + `framework/`）
+3. `$PWD` 下搜索（最多 3 层），找到多个时提示用户选择
+4. 未找到 → 自动克隆：
+
+```bash
+git clone https://gitcode.com/cann/pypto.git "$PWD/pypto"
+export PYPTO_REPO="$PWD/pypto"
+```
+
+**运行环境诊断**：
+```bash
+# Step 1.3: 进入 skill 目录运行诊断脚本
+cd ${SKILL_DIR:-.opencode/skills/pypto-environment-setup}
 python3 scripts/diagnose_env.py --checklist
 ```
 
-脚本会输出确认清单（每项标注 ✅ OK / ⚠️ 缺失 / ❌ 异常）。**将清单完整展示给用户，获得确认后继续。**
-
-若 PyPTO 仓库未找到：
-```bash
-git clone https://gitcode.com/cann/pypto.git "${PYPTO_REPO:-$PWD/pypto}"
-# 若需认证
-git clone https://${GITCODE_TOKEN}@gitcode.com/cann/pypto.git "${PYPTO_REPO:-$PWD/pypto}"
-```
+**通过标准**：清单所有项 ✅ OK。⚠️/❌ 项需修复后再继续。
 
 ### Step 2: 决策分支
 
@@ -63,32 +77,43 @@ git clone https://${GITCODE_TOKEN}@gitcode.com/cann/pypto.git "${PYPTO_REPO:-$PW
 
 ### Step 4: 验证（必须执行）
 
-任何安装/修复后必须通过 softmax 验证。NPU 环境必须用 NPU 模式。
+任何安装/修复后必须通过 softmax 验证。
 
 ```bash
-# 加载环境
-CANN_ENV_SH=$(ls -1 ${ASCEND_INSTALL_PATH}/*/set_env.sh ${ASCEND_INSTALL_PATH}/*/*/set_env.sh 2>/dev/null | head -1)
-test -n "$CANN_ENV_SH" && source "$CANN_ENV_SH" || { echo "ERROR: CANN set_env.sh not found"; return 1; }
+# Step 4.1: 加载 CANN 环境
+source ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/set_env.sh
 
-# 设置 pto-isa 路径
-PTO_CANN_DIR="${ASCEND_HOME_PATH:-}/aarch64-linux"
-if [ -d "$PTO_CANN_DIR/include/pto" ]; then
-  export PTO_TILE_LIB_CODE_PATH="${PTO_TILE_LIB_CODE_PATH:-$PTO_CANN_DIR}"
-else
-  export PTO_TILE_LIB_CODE_PATH="${PTO_TILE_LIB_CODE_PATH:-${PTO_ISA_DIR:-$PWD/pto-isa}}"
-fi
-export PYTHONPATH="${PYPTO_REPO:-$PWD/pypto}/python:$PYTHONPATH"
-export TILE_FWK_DEVICE_ID=${TILE_FWK_DEVICE_ID:-0}
+# Step 4.2: 检查可用的 NPU 卡
+npu-smi info
 
-# NPU 模式
-python3 "${PYPTO_REPO:-$PWD/pypto}/examples/02_intermediate/operators/softmax/softmax.py"
-# SIM 模式（非 NPU 环境）
-python3 "${PYPTO_REPO:-$PWD/pypto}/examples/02_intermediate/operators/softmax/softmax.py" --run_mode sim
+# Step 4.3: 设置 NPU 设备 ID（根据 Step 4.2 选择空闲卡）
+export TILE_FWK_DEVICE_ID=0
+
+# Step 4.4: 设置 PTO-ISA 路径
+export PTO_TILE_LIB_CODE_PATH=${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/aarch64-linux
+
+# Step 4.5: 进入 PyPTO 仓库
+cd ${PYPTO_REPO:-$PWD}
 ```
 
-通过标准：退出码 `0`，输出 `Softmax test passed`，`Max difference` ≤ `3e-3`。
+**编译安装**：
+```bash
+python3 build_ci.py -f python3 --clean --disable_auto_execute
+pip install build_out/pypto-*.whl --force-reinstall -q
+```
 
-失败时：重新运行 Step 1 诊断 → 对照 [🔧 troubleshooting.md](references/troubleshooting.md) 排查。
+**运行测试**：
+```bash
+# NPU 模式
+python3 examples/02_intermediate/operators/softmax/softmax.py --run_mode npu
+
+# SIM 模式（非 NPU 环境）
+python3 examples/02_intermediate/operators/softmax/softmax.py --run_mode sim
+```
+
+**通过标准**：退出码 `0`，输出 `Softmax test passed`，`Max difference` ≤ `3e-3`。
+
+**失败时**：重新运行 Step 1 诊断 → 对照 [🔧 troubleshooting.md](references/troubleshooting.md) 排查。
 
 ## 📚 参考文件
 

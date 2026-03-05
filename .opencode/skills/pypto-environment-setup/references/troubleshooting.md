@@ -54,9 +54,8 @@ python3 -c "import pypto; print(pypto.__file__)"
 ```bash
 cd "$PYPTO_REPO"
 python3 -m pip uninstall -y pypto || true
-rm -rf build/ temp.linux-* output/ python/pypto/pypto_impl*.so 2>/dev/null || true
-export PTO_TILE_LIB_CODE_PATH=${PTO_TILE_LIB_CODE_PATH:-$PWD/pto-isa}
-python3 -m pip install -e . --no-build-isolation --verbose
+python3 build_ci.py -f python3 --clean --disable_auto_execute
+pip install build_out/pypto-*.whl --force-reinstall -q
 
 # 验证
 python3 -c "from pypto.pypto_impl import DataType; print('DT_FP8E8M0=', DataType.DT_FP8E8M0)"
@@ -64,13 +63,44 @@ python3 -c "from pypto.pypto_impl import DataType; print('DT_FP8E8M0=', DataType
 
 仍失败：排查是否混用多个 pypto 路径/解释器 — `which python3` + `python3 -c "import pypto; print(pypto.__file__)"`.
 
-### PTO ISA 编译/头文件错误
 
-原因：`PTO_TILE_LIB_CODE_PATH` 指向错误。
+### ModuleNotFoundError: No module named 'pypto'
+
+原因：pypto 未编译安装。
 
 ```bash
-export PTO_TILE_LIB_CODE_PATH="${PTO_ISA_DIR:?请先设置}"
-test -d "$PTO_TILE_LIB_CODE_PATH/include/pto" && echo OK
+cd ${PYPTO_REPO:-$PWD}
+python3 build_ci.py -f python3 --clean --disable_auto_execute
+pip install build_out/pypto-*.whl --force-reinstall -q
+
+# 验证
+python3 -c "import pypto; print('✓ pypto 安装成功')"
+```
+
+### PTO ISA 编译/头文件错误
+
+原因：`PTO_TILE_LIB_CODE_PATH` 指向错误或 pto-isa 版本过旧。
+
+```bash
+# 验证头文件目录
+ls ${PTO_TILE_LIB_CODE_PATH}/include/pto/comm/pto_comm_inst.hpp 2>/dev/null && echo "✓ OK" || echo "✗ 缺失"
+```
+
+**方式 1：使用 CANN 安装目录（推荐）**
+```bash
+export PTO_TILE_LIB_CODE_PATH=${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/aarch64-linux
+```
+
+**方式 2：使用 pto-isa 源码目录（需最新版本）**
+```bash
+# 更新到最新版本
+cd /path/to/pto-isa
+git pull origin master
+
+# 验证 comm 目录存在
+ls include/pto/comm/pto_comm_inst.hpp
+
+export PTO_TILE_LIB_CODE_PATH=/path/to/pto-isa
 ```
 
 ### pto-isa 版本不匹配：缺少 pto::TROWEXPANDADD / pto::TROWEXPANDMAX
