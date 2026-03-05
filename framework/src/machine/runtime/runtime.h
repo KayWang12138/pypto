@@ -278,7 +278,7 @@ public:
 
     static void CopyToDev(uint8_t *devDstAddr, uint8_t *hostSrcAddr, uint64_t size) {
         rtMemcpy(devDstAddr, size, hostSrcAddr, size, RT_MEMCPY_HOST_TO_DEVICE);
-        MACHINE_LOGD("RuntimeAgent::CopyToDev for src %lx to dst %lx with size %u", reinterpret_cast<uint64_t>(hostSrcAddr),
+        MACHINE_LOGD("RuntimeAgent::CopyToDev for src %lx to dst %lx with size %lu", reinterpret_cast<uint64_t>(hostSrcAddr),
             reinterpret_cast<uint64_t>(devDstAddr), size);
     }
 
@@ -323,7 +323,7 @@ private:
                 *devAddr = pageVec[i].baseAddr + pageVec[i].current;
                 PutSentinelAddr(pageVec[i].baseAddr, pageVec[i].current + oriSize);
                 pageVec[i].current += alignSize;
-                MACHINE_LOGI("HugePage Mem get with size:%u addr:%p.", alignSize, *devAddr);
+                MACHINE_LOGI("HugePage Mem get with size:%lu addr:%p.", alignSize, *devAddr);
                 return true;
             }
         }
