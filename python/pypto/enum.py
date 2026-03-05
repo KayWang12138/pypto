@@ -10,6 +10,7 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
+import enum
 
 from . import pypto_impl
 
@@ -58,3 +59,14 @@ DT_UINT64 = pypto_impl.DataType.DT_UINT64
 DT_BOOL = pypto_impl.DataType.DT_BOOL
 DT_DOUBLE = pypto_impl.DataType.DT_DOUBLE
 DT_BOTTOM = pypto_impl.DataType.DT_BOTTOM
+
+
+class StatusType(enum.Enum):
+    DYN = "DYN"
+    DYNAMIC = "DYNAMIC"
+    STATIC = "STATIC"
+
+
+DYN = StatusType.DYN
+DYNAMIC = StatusType.DYNAMIC
+STATIC = StatusType.STATIC
