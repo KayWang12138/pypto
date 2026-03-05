@@ -24,9 +24,10 @@
 #include "passes/pass_utils/dead_operation_eliminate.h"
 #include "passes/pass_log/pass_log.h"
 
-#ifndef MODULE_NAME
-#define MODULE_NAME "GenerateMoveOp"
+#ifdef MODULE_NAME
+#undef MODULE_NAME
 #endif
+#define MODULE_NAME "GenerateMoveOp"
 
 namespace npu::tile_fwk {
 constexpr int64_t INNER_PAD_VALUE = 32;

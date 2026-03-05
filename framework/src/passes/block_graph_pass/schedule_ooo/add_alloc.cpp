@@ -15,8 +15,6 @@
 
 #include "add_alloc.h"
 
-#define MODULE_NAME "AddAlloc"
-
 namespace npu::tile_fwk {
 Status AddAlloc::GenTensorAllocMsgMap(Function &function, 
     std::unordered_map<int, TensorAllocMsg> &tensorAllocMsgMap) const {

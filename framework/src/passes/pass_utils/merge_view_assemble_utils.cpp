@@ -18,9 +18,10 @@
 #include "passes/pass_utils/dead_operation_eliminate.h"
 #include "passes/pass_log/pass_log.h"
 
-#ifndef MODULE_NAME
-#define MODULE_NAME "MergeViewAssembleUtils"
+#ifdef MODULE_NAME
+#undef MODULE_NAME
 #endif
+#define MODULE_NAME "MergeViewAssembleUtils"
 
 namespace npu::tile_fwk {
 

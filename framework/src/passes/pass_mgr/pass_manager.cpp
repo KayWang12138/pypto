@@ -52,9 +52,10 @@
 #include "passes/block_graph_pass/tune_tileopseq_for_vf.h"
 #include "passes/block_graph_pass/tune_sync_for_vf.h"
 
-#ifndef MODULE_NAME
-#define MODULE_NAME "PassManager"
+#ifdef MODULE_NAME
+#undef MODULE_NAME
 #endif
+#define MODULE_NAME "PassManager"
 
 namespace npu::tile_fwk {
 PassManager &PassManager::Instance() {

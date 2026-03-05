@@ -18,9 +18,10 @@
 #include "interface/utils/log.h"
 #include "passes/pass_log/pass_log.h"
 
-#ifndef MODULE_NAME
-#define MODULE_NAME "PassRegistry"
+#ifdef MODULE_NAME
+#undef MODULE_NAME
 #endif
+#define MODULE_NAME "PassRegistry"
 
 namespace npu::tile_fwk {
 // PassRegistry

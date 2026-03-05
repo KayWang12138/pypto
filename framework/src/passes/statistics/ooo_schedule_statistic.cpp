@@ -16,9 +16,10 @@
 #include "ooo_schedule_statistic.h"
 #include "passes/pass_log/pass_log.h"
 
-#ifndef MODULE_NAME
-#define MODULE_NAME "OoOScheduleStatistic"
+#ifdef MODULE_NAME
+#undef MODULE_NAME
 #endif
+#define MODULE_NAME "OoOScheduleStatistic"
 
 namespace npu {
 namespace tile_fwk {

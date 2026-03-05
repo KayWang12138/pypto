@@ -29,9 +29,10 @@
 #include <condition_variable>
 #include <atomic>
 
-#ifndef MODULE_NAME
-#define MODULE_NAME "AddAlloc"
+#ifdef MODULE_NAME
+#undef MODULE_NAME
 #endif
+#define MODULE_NAME "AddAlloc"
 
 namespace npu::tile_fwk {
 struct TensorAllocMsg {

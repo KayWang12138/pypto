@@ -20,9 +20,10 @@
 #include "interface/function/function.h"
 #include "passes/pass_log/pass_log.h"
 
-#ifndef MODULE_NAME
-#define MODULE_NAME "PassUtils"
+#ifdef MODULE_NAME
+#undef MODULE_NAME
 #endif
+#define MODULE_NAME "PassUtils"
 
 namespace npu::tile_fwk {
 
