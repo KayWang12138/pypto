@@ -156,6 +156,7 @@ void CheckOutputShape(const Tensor &inputTensor, const Tensor &weightTensor, con
 void CheckAlignment(int64_t value, int64_t alignment, const std::string& valueName)
 {
     OP_CHECK(true, {
+        ASSERT(alignment != 0) << valueName << " cannot be zero.";
         ASSERT(value % alignment == 0)
             << "Invalid " << valueName << ":" << value
             << ", requires " << alignment << "-element alignment." << std::endl;
