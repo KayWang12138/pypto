@@ -920,7 +920,7 @@ void CheckFixpipeParam(DataType inDtype, DataType outDtype, const MatmulExtendPa
 void CheckTransModeParam(DataType inDtype, const MatmulExtendParam &param = {}) {
     if(param.transMode != TransMode::CAST_NONE) {
         OP_CHECK(true, {
-            ASSERT(inDType == DataType::DT_FP32)
+            ASSERT(inDtype == DataType::DT_FP32)
                 << "TransMode is supported only when input data type are of type DT_FP32."
                 << std::endl;
         });
