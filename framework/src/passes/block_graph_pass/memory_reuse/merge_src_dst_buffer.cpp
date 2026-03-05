@@ -15,8 +15,6 @@
 
 #include "merge_src_dst_buffer.h"
 
-#define MODULE_NAME "SrcDstBufferMerge"
-
 namespace npu::tile_fwk {
 
 void SrcDstBufferMergeImpl::InitializeTensorMemorymap(Operation &op) const {

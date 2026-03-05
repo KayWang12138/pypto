@@ -17,8 +17,6 @@
 #include "interface/configs/config_manager.h"
 #include "passes/pass_log/pass_log.h"
 
-#define MODULE_NAME "StaticSubgraphProcessor"
-
 namespace npu::tile_fwk {
 
 Status StaticSubgraphProcessor::BuildGraph(Function &function) {
