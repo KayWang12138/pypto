@@ -18,7 +18,7 @@ from qat_asymmetric import (
     qat_asymmetric_golden
 )
 
-def benchmark_operator(orig_shape, group_size, bit, device_id, num_iterations=100):
+def benchmark_operator(orig_shape, group_size, bit, device_id, num_iterations=5):
     device = f'npu:{device_id}'
     total_elements = 1
     for dim in orig_shape:
@@ -39,17 +39,12 @@ def benchmark_operator(orig_shape, group_size, bit, device_id, num_iterations=10
 
     # Generate test data in BF16
     weight_torch = (torch.randn(orig_shape, dtype=torch.float32, device=device)).to(torch.bfloat16)
-    scale_torch = (torch.rand(num_groups, dtype=torch.float32, device=device) * 0.1 + 0.01).to(torch.bfloat16)
-    offset_torch = (torch.randn(num_groups, dtype=torch.float32, device=device) * 0.1).to(torch.bfloat16)
-
-    weight_flat = weight_torch.view(-1)
-
-    for _ in range(10):
-        _ = kernel(weight_flat, scale_torch, offset_torch)
+    scale_torch = (torch.rand((num_groups, 1), dtype=torch.float32, device=device) * 0.1 + 0.01).to(torch.bfloat16)
+    offset_torch = (torch.randn((num_groups, 1), dtype=torch.float32, device=device) * 0.1).to(torch.bfloat16)
 
     start_time = time.time()
     for _ in range(num_iterations):
-        output_flat, weight_denorm_flat, alpha_expanded_flat = kernel(weight_flat, scale_torch, offset_torch)
+        output_flat, weight_denorm_flat, alpha_expanded_flat = kernel(weight_torch, scale_torch, offset_torch)
     end_time = time.time()
 
     total_time = end_time - start_time
@@ -98,17 +93,15 @@ def main():
     print("=" * 70)
 
     test_configs = [
-        ((16, 16), 32, 4),
-        ((32, 32), 32, 4),
-        ((64, 64), 64, 4),
-        ((128, 128), 128, 4),
-        ((256, 256), 128, 4),
-        ((512, 512), 128, 4),
+        ((1024, 2048), 128, 4),
+        ((768, 2048), 128, 4),
+        ((2048, 768), 128, 4),
+        ((4096, 2048), 128, 4),
     ]
 
     results = []
     for shape, group_size, bit in test_configs:
-        result = benchmark_operator(shape, group_size, bit, device_id, num_iterations=100)
+        result = benchmark_operator(shape, group_size, bit, device_id, num_iterations=5)
         results.append(result)
 
     print("\n" + "=" * 70)

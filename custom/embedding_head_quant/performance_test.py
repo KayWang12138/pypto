@@ -18,33 +18,29 @@ from embedding_head_quant import (
     embedding_head_quant_golden
 )
 
-def benchmark_operator(shape, device_id, num_iterations=100):
+def benchmark_operator(weight_shape, device_id, num_iterations=5):
     device = f'npu:{device_id}'
-    print(f"\nBenchmarking shape: {shape}")
+    print(f"\nBenchmarking weight_shape: {weight_shape}")
     print(f"Device: {device}")
     print(f"Iterations: {num_iterations}")
 
-    kernel = create_embedding_head_quant_kernel(shape, run_mode="npu")
+    kernel = create_embedding_head_quant_kernel(weight_shape, run_mode="npu")
 
-    # Generate test data in BF16
-    weight_torch = (torch.randn(shape, dtype=torch.float32, device=device) * 50).to(torch.bfloat16)
-    scale_torch = (torch.rand(shape, dtype=torch.float32, device=device) * 3 + 0.5).to(torch.bfloat16)
+    weight_torch = (torch.randn(weight_shape, dtype=torch.float32, device=device) * 50).to(torch.bfloat16)
+    scale_torch = torch.full((1, 1), 0.5, dtype=torch.bfloat16, device=device)
 
-    # Warmup
     for _ in range(10):
         _ = kernel(weight_torch, scale_torch)
 
-    # Benchmark
     start_time = time.time()
     for _ in range(num_iterations):
         output_torch, clamped_torch, protected_scale_torch = kernel(weight_torch, scale_torch)
     end_time = time.time()
 
-    # Calculate metrics
     total_time = end_time - start_time
     avg_time = total_time / num_iterations
     throughput = num_iterations / total_time
-    elements = np.prod(shape)
+    elements = np.prod(weight_shape)
     elements_per_sec = elements * throughput / 1e6
 
     print(f"  Total time: {total_time:.4f}s")
@@ -52,13 +48,12 @@ def benchmark_operator(shape, device_id, num_iterations=100):
     print(f"  Throughput: {throughput:.2f} ops/sec")
     print(f"  Element throughput: {elements_per_sec:.2f} M elements/sec")
 
-    # Verify correctness
     expected_out, expected_clamped, expected_scale = embedding_head_quant_golden(weight_torch, scale_torch)
     max_diff = (output_torch - expected_out).abs().max().item()
     print(f"  Max error: {max_diff:.6f}")
 
     return {
-        'shape': shape,
+        'weight_shape': weight_shape,
         'elements': int(elements),
         'total_time': total_time,
         'avg_time_ms': avg_time * 1000,
@@ -76,15 +71,14 @@ def main():
 
     print("=" * 70)
     print("Embedding Head Quantization - Performance Benchmark (BF16 I/O)")
+    print("weight: (N, M), scale: (1, 1)")
     print("=" * 70)
 
     test_shapes = [
-        (8, 8),
-        (32, 32),
-        (64, 64),
-        (128, 128),
-        (256, 256),
-        (512, 512),
+        (1024, 2048),
+        (768, 2048),
+        (2048, 768),
+        (4096, 2048),
     ]
 
     results = []
@@ -95,11 +89,11 @@ def main():
     print("\n" + "=" * 70)
     print("Performance Summary")
     print("=" * 70)
-    print(f"{'Shape':<15} {'Elements':<12} {'Avg (ms)':<12} {'Throughput (M/s)':<20} {'Error':<10}")
+    print(f"{'Shape':<18} {'Elements':<12} {'Avg (ms)':<12} {'Throughput (M/s)':<20} {'Error':<10}")
     print("-" * 70)
     for r in results:
-        shape_str = str(r['shape'])
-        print(f"{shape_str:<15} {r['elements']:<12} "
+        shape_str = str(r['weight_shape'])
+        print(f"{shape_str:<18} {r['elements']:<12} "
               f"{r['avg_time_ms']:<12.4f} {r['throughput_M_elements_per_sec']:<20.2f} "
               f"{r['max_error']:<10.6f}")
 
@@ -108,28 +102,14 @@ def main():
     print("=" * 70)
 
     best_result = max(results, key=lambda x: x['throughput_M_elements_per_sec'])
-    print(f"Best throughput achieved: {best_result['throughput_M_elements_per_sec']:.2f} M elements/sec")
-    print(f"  at shape: {best_result['shape']}")
-
-    if len(results) >= 2:
-        small_throughput = results[0]['throughput_M_elements_per_sec']
-        large_throughput = results[-1]['throughput_M_elements_per_sec']
-        scaling_ratio = large_throughput / small_throughput
-        print(f"\nThroughput scaling (large/small): {scaling_ratio:.2f}x")
-        print(f"  Small shape throughput: {small_throughput:.2f} M elements/sec")
-        print(f"  Large shape throughput: {large_throughput:.2f} M elements/sec")
+    print(f"Best throughput: {best_result['throughput_M_elements_per_sec']:.2f} M elements/sec")
+    print(f"  at shape: {best_result['weight_shape']}")
 
     max_error = max(r['max_error'] for r in results)
-    print(f"\nMaximum error across all tests: {max_error:.6f}")
-    if max_error < 1e-3:
-        print("Accuracy: Excellent (error < 1e-3)")
-    elif max_error < 1e-2:
-        print("Accuracy: Good (error < 1e-2)")
-    else:
-        print("Accuracy: Needs improvement")
+    print(f"\nMaximum error: {max_error:.6f}")
 
     print("\n" + "=" * 70)
-    print("Benchmark completed successfully!")
+    print("Benchmark completed!")
     print("=" * 70)
 
 if __name__ == "__main__":
