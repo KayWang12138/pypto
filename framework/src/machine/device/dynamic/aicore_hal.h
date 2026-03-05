@@ -54,8 +54,7 @@ namespace DAV_3510 {
 
 class AicoreHAL {
 public:
-    inline void Init(DeviceArgs *deviceArgs, AiCoreProf *aicoreProf) {
-        aicoreProf_ = aicoreProf;
+    inline void Init(DeviceArgs *deviceArgs) {
         sharedBuffer_ = deviceArgs->sharedBuffer;
         regAddrs_ = reinterpret_cast<int64_t *>(deviceArgs->coreRegAddr);
         regNum_ = deviceArgs->nrAic + deviceArgs->nrAiv;
@@ -80,10 +79,6 @@ public:
         aicEnd_ = aicEnd;
         aivStart_ = aivStart;
         aivEnd_ = aivEnd;
-    }
-
-    inline void SetModel(uint64_t costModel) {
-        costModel_ = reinterpret_cast<CostModel::AiCoreModel*>(costModel);
     }
 
     int64_t *GetRegAddrs() const { return regAddrs_; }
@@ -129,7 +124,6 @@ public:
         if constexpr (IsDeviceMode()) {
             *readyRegQueues_[GetPhyIdByBlockId(coreIdx)] = value;
         } else {
-            DEV_VERBOSE_DEBUG("set coreidx %d value %lx.", coreIdx, value);
             auto taskId = value - 1;
             if (value == 0 || taskId == AICORE_TASK_STOP || (taskId & 0xFFFFFFFF) == AICORE_FUNC_STOP) return;
             CostModelSendTask(coreIdx, taskId);
@@ -293,7 +287,6 @@ public:
 
     uint64_t CostModelGetTask(int coreIdx) {
         auto currentTime = GetCycles();
-        DEV_DEBUG("CostModel AICore polling aicore %d, time %lu.", coreIdx, currentTime);
         if (taskIds[coreIdx].empty()) return AICORE_FUNC_STOP | AICORE_FIN_MASK;
         uint64_t taskId = 0;
         while (!taskIds[coreIdx].empty() && currentTime >= taskTimes[coreIdx].front()) {
@@ -302,11 +295,8 @@ public:
             taskIds[coreIdx].pop_front();
         }
         if (taskIds[coreIdx].empty()) {
-            DEV_DEBUG("CostModel AICore %d finish task 0x%lx, current time %lu.", coreIdx, taskId, currentTime);
             return taskId | AICORE_FIN_MASK;
         }
-        DEV_DEBUG("CostModel AICore %d running task 0x%lx, current time %lu, finish time %lu.",
-                  coreIdx, taskIds[coreIdx].front(), currentTime, taskTimes[coreIdx].front());
         return taskIds[coreIdx].front();
     }
 
@@ -315,11 +305,6 @@ public:
         uint64_t timeCost = getTaskTimeCost == nullptr ? 0 : getTaskTimeCost(coreIdx, taskId, time);
         taskTimes[coreIdx].push_back(time + timeCost);
         taskIds[coreIdx].push_back(taskId);
-        if (costModel_) {
-            costModel_->SendTask(coreIdx, taskId);
-        }
-        DEV_DEBUG("CostModel AICore %d add task 0x%lx, new queue size %lu, finish time %lu.",
-                  coreIdx, taskId, taskIds[coreIdx].size(), time + timeCost);
     }
 
     int64_t GetSharedBuffer() { return sharedBuffer_; }
@@ -330,7 +315,6 @@ public:
             if (addr == nullptr) {
                 continue;
             }
-            DEV_VERBOSE_DEBUG("phy core %u Addr is %p.", idx, addr);
             volatile uint64_t *reqQueueReg =
                 reinterpret_cast<volatile uint64_t *>(static_cast<uint8_t *>(addr) + regSprDataMainBase_);
             readyRegQueues_[idx] = reqQueueReg;
@@ -364,75 +348,6 @@ public:
         return reinterpret_cast<Metrics *>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
     }
 
-    int DumpTaskProf(int coreIdx) {
-        Metrics* metric =  GetMetrics(coreIdx);
-        if (metric == nullptr) {
-            return DEVICE_MACHINE_ERROR;
-        }
-
-        DEV_VERBOSE_DEBUG("Dump core %d prof data , task cnt %ld, metric:%p.", coreIdx, metric->taskCount, metric);
-        for (int i = 0; i < metric->taskCount; i++) {
-            volatile TaskStat *stat = &metric->tasks[i];
-            aicoreProf_->ProfGet(coreIdx, stat->subGraphId, stat->taskId, &(metric)->tasks[i]);
-            DEV_VERBOSE_DEBUG("  Dump prof for task %d, execstart: %ld execend :%ld.",
-                     stat->taskId, stat->execStart, stat->execEnd);
-        }
-        return 0;
-    }
-
-    int DumpAicorePerfTrace(int aicpuIdx, int coreIdx, CoreType coretype, std::ostringstream& oss) {
-        (void)coreIdx;
-        (void)coretype;
-        (void)oss;
-        (void)aicpuIdx;
-#if ENABLE_PERF_TRACE
-        Metrics* metric =  GetMetrics(coreIdx);
-        if (metric == nullptr) {
-            return DEVICE_MACHINE_ERROR;
-        }
-
-        oss << "{\"blockIdx\":" << coreIdx << ",\"coreType\":\"SCHED" << aicpuIdx << "-"
-            << (coretype == CoreType::AIC ? "AIC" : "AIV") << "\",\"freq\":" << freq_ << ",\"tasks\":[";
-
-        uint64_t curCycle = 0;
-        for (uint32_t type = 0; type < PERF_TRACE_CORE_MAX; type++) {
-            for (uint32_t cnt = 0; cnt < metric->perfTraceCnt[type]; cnt++) {
-                curCycle = metric->perfTrace[type][cnt];
-                if (curCycle == 0) {
-                    break;
-                }
-
-                oss << "{\"name\":\"" << AicorePerfTraceName[type];
-                if (metric->perfTraceDevTaskId[type][cnt] != INVALID_DEV_TASK_ID) {
-                    oss << "(" << metric->perfTraceDevTaskId[type][cnt] << ")";
-                }
-
-                oss << "\",\"end\":" << curCycle << "}"
-                    << (((type == PERF_TRACE_CORE_MAX - 1) && (cnt ==  metric->perfTraceCnt[type] - 1)) ? "" : ",");
-            }
-        }
-        oss << "]}";
-        if (!aicoreProf_->ProfIsEnable()) {
-            memset_s(metric, sizeof(Metrics), 0, sizeof(Metrics));
-        }
-#endif
-        return DEVICE_MACHINE_OK;
-    }
-
-    void DumpAicoreStatus(int coreIdx) const {
-        volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
-        DEV_VERBOSE_DEBUG("!!***********************aicore %d last status **************************!!", coreIdx);
-        DEV_VERBOSE_DEBUG("hello status %ld.", arg->shakeBuffer[0]);
-        DEV_VERBOSE_DEBUG("last_taskId %ld task status [%ld, %ld, %ld, %ld].", arg->shakeBuffer[NUM_ONE],
-            arg->shakeBuffer[NUM_TWO], arg->shakeBuffer[NUM_THREE], arg->shakeBuffer[NUM_FOUR], arg->shakeBuffer[NUM_FIVE]);
-
-        for (size_t i = 0; i < sizeof(arg->taskStat) / sizeof(TaskStat); i++) {
-            DEV_VERBOSE_DEBUG("task rsp index %lu: taskId %d, subGraphID %d execStart %ld execEnd %ld.", i,
-                arg->taskStat[i].taskId, arg->taskStat[i].subGraphId,
-                arg->taskStat[i].execStart, arg->taskStat[i].execEnd);
-        }
-    }
-
     uint64_t GetAicoreStatus(int coreIdx) const {
         int aicoreStatusIndex = 2;
         volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
@@ -451,11 +366,7 @@ public:
             __sync_synchronize();
 #endif
             arg->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = funcdata;
-        } else {
-            if (costModel_) {
-                costModel_->InitData(coreIdx, funcdata);
-            }
-        }
+        } 
     }
 
     bool TryHandShakeByGm(int coreIdx, int64_t dotStatus) {
@@ -475,7 +386,6 @@ public:
         SetReadyQueue(coreIdx, (uint64_t)0);
         // make sure reset wave goodbye flag after hand shake ,orelse impact last aicore exit through wavegoodbye flag
         args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX] = 0;
-        DEV_VERBOSE_DEBUG("hand shake success coreidex:%d", coreIdx);
         return true;
     }
 
@@ -522,7 +432,5 @@ private:
     uint32_t regSprCond_{DAV_2201::REG_SPR_COND};
 
     bool isNeedWriteRegForFastPath_{true};
-    AiCoreProf *aicoreProf_{nullptr};
-    CostModel::AiCoreModel *costModel_{nullptr};
 };
 }

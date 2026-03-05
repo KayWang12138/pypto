@@ -113,7 +113,6 @@ public:
         curDevTask_ = taskCtrl->devTask;
         curTaskType_ = taskCtrl->taskType;
         curTaskId_ = taskCtrl->taskId;
-        aicoreHal_.SetModel(taskCtrl->devTask->aicoreModel);
 
         if (!preFetchSuccess_) {
             SendDevTaskModel(curDevTask_);
@@ -1126,7 +1125,7 @@ private:
         aicpuIdx_ = threadIdx;
         schedIdx_ = schedIdx;
         aicValidNum_ = deviceArgs->nrValidAic;
-        aicoreHal_.Init(deviceArgs, &aicoreProf_);
+        aicoreHal_.Init(deviceArgs);
         validGetPgMask_ = deviceArgs->validGetPgMask;
         runningIds_.fill(AICORE_STATUS_INIT);
         pendingIds_.fill(AICORE_STATUS_INIT);
@@ -1150,9 +1149,6 @@ private:
         UpdateAiCoreBlockIndexSection();
         if constexpr (IsDeviceMode()) {
             aicoreHal_.MapRegistersForAllCores(aicNum_);
-            aicoreProf_.ProfInit(reinterpret_cast<int64_t *>(deviceArgs->corePmuRegAddr),
-               reinterpret_cast<int64_t *>(deviceArgs->pmuEventAddr),
-               deviceArgs->toSubMachineConfig.profConfig, deviceArgs->archInfo);
         } 
         firstLock[static_cast<int>(CoreType::AIC)] = true;
         firstLock[static_cast<int>(CoreType::AIV)] = true;
@@ -1371,18 +1367,11 @@ private:
 
     // DFX
     inline void DfxProcAfterFinishTask(int coreIdx, uint64_t taskId) {
+        (void)taskId;
         if constexpr (!IsDeviceMode())
             return;
 
         volatile TaskStat *stat = aicoreHal_.GetTaskStat(coreIdx, 0);
-
-#if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1
-        aicoreProf_.ProfGet(coreIdx, stat->subGraphId, stat->taskId, const_cast<TaskStat*>(stat));
-#endif
-
-        DEV_IF_VERBOSE_DEBUG {
-            recvFinTask_[coreIdx].push_back(TaskInfo(coreIdx, taskId));
-        }
 
 #if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1
         SetNextDfxPos(coreIdx); // pingpong 存储
@@ -1441,7 +1430,6 @@ private:
     SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *taskQueue_{nullptr};
     AicpuTaskManager &aicpuTaskManager_;
     AiCoreProf aicoreProf_;
-    AicoreDump aicoreDump_;
     int64_t dotStatus_{0};
     bool isSendStop{false};
 
