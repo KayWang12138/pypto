@@ -32,7 +32,7 @@ PassRegistry &PassRegistry::GetInstance() {
 void PassRegistry::RegisterPass(const std::string &passName, CreateFn createFn) {
     std::lock_guard lock(mtx_);
     passCreators_.emplace(passName, std::move(createFn));
-    APASS_LOG_INFO(Elements::Manager, "Register pass: %s", passName.c_str());
+    APASS_LOG_INFO_(Elements::Manager, "Register pass: %s", passName.c_str());
 }
 
 std::unique_ptr<Pass> PassRegistry::CreatePass(const std::string &passName) const {

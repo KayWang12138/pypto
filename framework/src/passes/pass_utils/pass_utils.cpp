@@ -121,7 +121,7 @@ const int SPACE_NUM_16 = 16;
 } // namespace
 void SubfuncInvokeInfoTy::ConstructActualInvokeParam(int esgId) {
     if (!isFinalized_) {
-        APASS_LOG_ERROR(Elements::Config, "Error: does not finalized before constructing InvokeParam");
+        APASS_LOG_ERROR_F(Elements::Config, "Error: does not finalized before constructing InvokeParam");
         return;
     }
 
