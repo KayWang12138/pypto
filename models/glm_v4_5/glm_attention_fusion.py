@@ -21,6 +21,7 @@ from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
 from utils.np_compare import detailed_allclose_manual as compare
 import utils.golden.attn_golden as attn_golden
+import pytest
 
 
 np.random.seed(0)
@@ -220,7 +221,8 @@ def ifa_func(b, bs, n1, hidden_size, total_head_size, head_size, half_rotary_dim
     @pypto.frontend.jit(
         runtime_options={"stitch_function_num_initial": 128,
                         "stitch_function_outcast_memory": 1024,
-                        "stitch_function_inner_memory": 1024
+                        "stitch_function_inner_memory": 1024,
+                        "stitch_function_max_num": 128
                         },
         debug_options={"runtime_debug_mode": 2}
     )
@@ -498,8 +500,7 @@ def ifa_func(b, bs, n1, hidden_size, total_head_size, head_size, half_rotary_dim
                             pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
                             qi = pypto.view(q_2d, [g_tile, dn], [bs_ofs * n1 + n1g_ofs, 0])
                             kj_assemble = pypto.tensor([s2_tile, dn], dtype, "kj_assemble")
-                            # for i in range(block_num):
-                            for i in pypto.loop(block_num):
+                            for i in range(block_num):
                                 block_idx = block_table[b_idx, idx + i]
                                 block_idx_valid = block_idx.max(0)
                                 kj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
@@ -529,7 +530,7 @@ def ifa_func(b, bs, n1, hidden_size, total_head_size, head_size, half_rotary_dim
 
                                 # c2
                                 vj_assemble = pypto.tensor([s2_tile, dn], dtype, "vj_assemble")
-                                for i in pypto.loop(block_num):
+                                for i in range(block_num):
                                     block_idx = block_table[b_idx, idx + i]
                                     block_idx_valid = block_idx.max(0)
                                     vj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
@@ -561,7 +562,7 @@ def ifa_func(b, bs, n1, hidden_size, total_head_size, head_size, half_rotary_dim
 
                                 # c2
                                 vj_assemble = pypto.tensor([s2_tile, dn], dtype, "vj_assemble")
-                                for i in pypto.loop(block_num):
+                                for i in range(block_num):
                                     block_idx = block_table[b_idx, idx + i]
                                     block_idx_valid = block_idx.max(0)
                                     vj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
@@ -620,6 +621,7 @@ def get_qwen_common_config(device="cpu"):
     return atten_cfg, tile_cfg
 
 
+@pytest.mark.soc("950", "910")
 def test_attention():
     # 使用 torch 生成数据
     torch_npu.npu.config.allow_internal_format = True

@@ -68,15 +68,6 @@
                         }
                     ]
                 },
-                "cube_l1_reuse_mode": {
-                    "type": "integer",
-                    "label": {
-                        "zh": "合图参数，用于配置结构相同且重复搬运同一GM数据的子图合并策略。该参数适用于含有CUBE计算的子图，避免同一数据被重复搬运次数过多。",
-                        "en": "Graph merging parameter, used to configure the merging strategy for subgraphs with identical structures that repeatedly transfer the same GM data. This parameter is applicable to subgraphs involving CUBE computation, and avoids excessive transfers of the same data."
-                    },
-                    "minimum": 0,
-                    "maximum": 1
-                },
                 "cube_l1_reuse_setting": {
                     "type": "object",
                     "typeHints": "intmap",
@@ -88,15 +79,6 @@
                     "key_maximum": 2147483647,
                     "value_minimum": 0,
                     "value_maximum": 2147483647
-                },
-                "cube_nbuffer_mode": {
-                    "type": "integer",
-                    "label": {
-                        "zh": "合图参数，用于配置相同结构AIC子图合并策略。该参数适用于结构相同的AIC子图合并，避免同一结构子图数过大并增大核内流水调度可能性。",
-                        "en": "Graph merging parameter, used to configure the merging strategy for AIC subgraphs with identical structures. This parameter is applicable to the merging of AIC subgraphs that share the same structure, which prevents an excessive number of subgraphs of the same structure and increases the possibility of intra-core pipeline scheduling."
-                    },
-                    "minimum": 0,
-                    "maximum": 1
                 },
                 "cube_nbuffer_setting": {
                     "type": "object",
@@ -120,15 +102,6 @@
                     "minimum": 0,
                     "maximum": 2147483647
                 },
-                "vec_nbuffer_mode": {
-                    "type": "integer",
-                    "label": {
-                        "zh": "合图参数，用于配置相同结构AIV子图合并策略。该参数适用于结构相同的AIV子图合并，避免同一结构子图数过大并增大核内流水调度可能性。",
-                        "en": "Graph merging parameters, used to configure the merging strategy for AIV subgraphs with identical structures. This parameter applies to the merging of AIV subgraphs with identical structures, which prevents an excessive number of subgraphs of the same structure and increases the possibility of intra-core pipeline scheduling."
-                    },
-                    "minimum": 0,
-                    "maximum": 2
-                },
                 "vec_nbuffer_setting": {
                     "type": "object",
                     "typeHints": "intmap",
@@ -136,9 +109,9 @@
                         "zh": "合图参数，用于配置相同结构AIV子图的合并数量。该参数适用于结构相同的AIV子图合并。",
                         "en": "Graph merging parameter, used to configure the merging count of AIV subgraphs with identical structures. This parameter is applicable to the merging of AIV subgraphs that share the same structures."
                     },
-                    "key_minimum": -1,
+                    "key_minimum": -2,
                     "key_maximum": 2147483647,
-                    "value_minimum": 1,
+                    "value_minimum": 0,
                     "value_maximum": 2147483647
                 },
                 "mg_vec_parallel_lb": {
@@ -246,6 +219,15 @@
                     "label": {
                         "zh": "设置运行时ctrlflow aicpu里stitch构建首个device task的rootfunction数量，进而控制device machine启动头开销大小",
                         "en": "Set the number of rootfunction generated for the first device task in ctrlflow AICPU, thereby controlling the startup overhead of device machine"
+                    },
+                    "minimum": 1,
+                    "maximum": 128
+                },
+                "stitch_function_max_num": {
+                    "type": "integer",
+                    "label": {
+                        "zh": "设置运行时ctrlflow aicpu里stitch构建device task的rootfunction数量",
+                        "en": "Set the number of rootfunction generated for device task in ctrlflow AICPU"
                     },
                     "minimum": 1,
                     "maximum": 128
@@ -366,29 +348,29 @@
         "verify": {
             "type": "object",
             "label": {
-                "zh": "...",
-                "en": "..."
+                "zh": "精度工具参数信息",
+                "en": "Verification tool parameter information"
             },
             "properties": {
                 "enable_pass_verify": {
                     "type": "boolean",
                     "label": {
-                        "zh": "...",
-                        "en": "..."
+                        "zh": "是否开启Pass验证",
+                        "en": "Enable Pass verification"
                     }
                 },
                 "pass_verify_save_tensor": {
                     "type": "boolean",
                     "label": {
-                        "zh": "...",
-                        "en": "..."
+                        "zh": "是否开启Pass验证时保存Tensor",
+                        "en": "Enable saving tensors when Pass verification is enabled"
                     }
                 },
                 "pass_verify_save_tensor_dir": {
                     "type": "string",
                     "label": {
-                        "zh": "...",
-                        "en": "..."
+                        "zh": "指定Pass验证时保存Tensor的目录",
+                        "en": "Specify the directory to save tensors when Pass verification is enabled"
                     }
                 },
                 "pass_verify_pass_filter": {
@@ -397,8 +379,8 @@
                         "type": "string"
                     },
                     "label": {
-                        "zh": "...",
-                        "en": "..."
+                        "zh": "指定Pass验证时需要验证的Pass名称列表",
+                        "en": "Specify the list of Pass names to filter when Pass verification is enabled"
                     }
                 },
                 "pass_verify_error_tol": {
@@ -407,8 +389,8 @@
                         "type": "double"
                     },
                     "label": {
-                        "zh": "...",
-                        "en": "..."
+                        "zh": "指定Pass验证时的误差阈值列表",
+                        "en": "Specify the error tolerance list when Pass verification is enabled"
                     }
                 }
             }
@@ -436,7 +418,7 @@
                         "en": "Set debug mode during execution stage. 0: disabled; 1: enabled, one-click to enable execution-related configs (e.g. swimlane graph)."
                     },
                     "minimum": 0,
-                    "maximum": 2
+                    "maximum": 3
                 }
             }
         },

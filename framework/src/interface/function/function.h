@@ -31,7 +31,6 @@
 #include "interface/cache/hash.h"
 #include "passes/pass_utils/pass_utils.h"
 
-#include "ir/program.h"
 namespace npu::tile_fwk {
 constexpr int FUNCTION_MAX_INCASTS = 10000;
 
@@ -112,7 +111,8 @@ public:
         explicit Iterator(const std::vector<std::shared_ptr<Operation>> &operations) : operations_(operations) {}
 
         void operator++() {
-            ASSERT(cur_ <= operations_.size());
+            ASSERT(cur_ <= operations_.size())
+                << "operator(++) out of its size. cur_: " << cur_ << ", operations_.size(): " << operations_.size();
             cur_++;
         }
 
@@ -145,7 +145,7 @@ public:
     [[nodiscard]]int GetOpPosition(const Operation &op) const {
         auto it = opPosition_.find(&op);
         if (it == opPosition_.end()) {
-            ASSERT(false);
+            ASSERT(false) << "Magic[" << op.opmagic << "] Op has not been found in opPosition.";
             return 0;
         }
         return it->second;
@@ -156,7 +156,9 @@ public:
         if (it == opPosition_.end()) {
             return {0, false};
         }
-        ASSERT(operations_[it->second].get() == &op);
+        ASSERT(operations_[it->second].get() == &op)
+            << "operations_[it->second].get(): 0x" << reinterpret_cast<uintptr_t>(operations_[it->second].get())
+            << "&op: " << reinterpret_cast<uintptr_t>(&op);
         return {it->second, true};
     }
     [[nodiscard]] bool IsEmpty()const{ return operations_.empty(); }
@@ -166,6 +168,7 @@ private:
 };
 
 struct LeafFuncAttribute {
+    static constexpr int32_t INVALID_MIX_ID = -1;
     std::string kernelName;    // 异构子图kernel函数名
     std::string kernelNameMainBlock;    // 异构子图kernel函数名(运行时选择主尾块场景中的主块)
     std::string binPath;                // 异构子图二进制文件路径
@@ -174,7 +177,7 @@ struct LeafFuncAttribute {
     std::string kernelDeclareMainBlock; // 异构子图代码的kernel声明，用于后续整体调用(运行时选择主尾块场景中的主块)
     CoreType coreType{CoreType::INVALID};
     AIVCore aivCore{AIVCore::UNSPECIFIED};  // 表示Mix子图切完的vector子图放在AIV0核还是AIV1核，0=AIV0, 1=AIV1, -1=未指定
-    int32_t mixId{-1};  // 表示哪些切完的leafFunction是从一个Mix子图切出来的
+    int32_t mixId{INVALID_MIX_ID};  // 表示哪些切完的leafFunction是从一个Mix子图切出来的
     MixResourceType mixResourceType{MixResourceType::UNKNOWN};  // mix任务资源诉求是1c2v还是1c1v
     std::vector<int32_t> aicpuLeafCode;
     std::vector<int> outcastCopyOutResolveCounterList;
@@ -315,6 +318,12 @@ struct OriArgInfo {
     bool operator==(const OriArgInfo &other) const {
         return addr == other.addr && size == other.size && needPrefetch == other.needPrefetch;
     }
+
+    std::string Dump() {
+        std::ostringstream oss;
+        oss << "addr: " << addr << ", size: " << size << ", needPrefetch: " << (needPrefetch ? "true" : "false");
+        return oss.str();
+    }
 };
 
 struct L2Info {
@@ -450,9 +459,6 @@ struct ParamConfigs {
     std::map<int64_t, int64_t> cubeL1ReuseSetting;
     std::map<int64_t, int64_t> cubeNBufferSetting;
     std::string OoOPreScheduleMethod{"PriorDFS"};
-    int vecNBuffermode{1};
-    int L1ReuseMode{0};
-    int cubeNBufferMode{0};
     int mgVecParallelLb{48};
     bool pgSkipPartition{false};
     std::map<int64_t, int64_t> vecNBufferSetting;
@@ -484,7 +490,6 @@ public:
     int opSeed_{FUNCTION_MAX_INCASTS};
     SubfuncTopologyInfoTy topoInfo_; // root function持有，对应1.0的SubgraphTopologyInfoTy
     std::map<uint64_t, Function*> programs_; // root function持有，所有异构的leaf function
-    pto::ProgramModulePtr programModule_ = nullptr;
     Function *rootFunc_ = nullptr; // TileGraph和RootGraph都需要保留，且需要映射关系
     ParamConfigs paramConfigs_;
     // vf融合适配需要pass间传递的参数
@@ -520,7 +525,8 @@ public:
     void AddGlobalTensor(std::shared_ptr<LogicalTensor> tensor) { globalTensors_.emplace(tensor); };
     void AddOperationGroup(std::vector<Operation *> operationGroup);
     const auto &GetGroupByID(const size_t groupID) const {
-        ASSERT(groupID < operationGroups_.size());
+        ASSERT(groupID < operationGroups_.size())
+            << "groupID: " << groupID << ", operationGroups_.size(): " << operationGroups_.size();
         return operationGroups_[groupID];
     }
     void ClearOperationGroups();

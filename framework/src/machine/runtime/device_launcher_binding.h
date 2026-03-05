@@ -32,16 +32,20 @@ DeviceStream DeviceGetAicoreStream();
 class DeviceTensorData {
 public:
     DeviceTensorData() = default;
-    DeviceTensorData(DataType dtype, void *addr, const std::vector<int64_t> &shape)
-        : dtype_(dtype), addr_(addr), shape_(shape) {}
-    DeviceTensorData(DataType dtype, uintptr_t addr, const std::vector<int64_t> &shape)
-        : dtype_(dtype), addr_((void *)addr), shape_(shape) {}
+    DeviceTensorData(DataType dtype, void *addr, const std::vector<int64_t> &shape,
+        TileOpFormat format = TileOpFormat::TILEOP_ND)
+        : dtype_(dtype), addr_(addr), shape_(shape), format_(format) {}
+    DeviceTensorData(DataType dtype, uintptr_t addr, const std::vector<int64_t> &shape,
+        TileOpFormat format = TileOpFormat::TILEOP_ND)
+        : dtype_(dtype), addr_((void *)addr), shape_(shape), format_(format) {}
 
     void *GetAddr() const { return addr_; }
 
     const std::vector<int64_t> &GetShape() const { return shape_; }
 
     DataType GetDataType() const { return dtype_; }
+
+    TileOpFormat Format() const { return format_; }
 
     int64_t GetDataSize() const {
         return std::accumulate(shape_.begin(), shape_.end(), BytesOf(dtype_), std::multiplies<>());
@@ -51,6 +55,7 @@ private:
     DataType dtype_;
     void *addr_;
     std::vector<int64_t> shape_;
+    TileOpFormat format_;
 };
 
 struct DeviceLauncherConfig {
@@ -250,6 +255,12 @@ private:
                 } else if (SymbolicOpcode::T_BOP_BEGIN <= opcode && opcode< SymbolicOpcode::T_BOP_END) {
                     return RawSymbolicExpression::GetSymbolicCalcBinary(opcode)(
                         Evaluate(iops[0]), Evaluate(iops[1]));
+                } else if (opcode == SymbolicOpcode::T_MOP_MAX || opcode == SymbolicOpcode::T_MOP_MIN) {
+                    std::vector<ScalarImmediateType> immediateList;
+                    for (size_t i = 0; i < iops.size(); i++) {
+                        immediateList.emplace_back(Evaluate(iops[i]));
+                    }
+                    return RawSymbolicExpression::GetSymbolicCalcMultiple(opcode)(immediateList);
                 } else {
                     ASSERT(false);
                     return 0;

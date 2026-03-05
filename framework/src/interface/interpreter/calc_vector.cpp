@@ -45,6 +45,7 @@ void ExecuteOpBinary(ExecuteOperationContext *ctx) {
         case Opcode::OP_ADD: calc::Add(ret, lhs, rhs); break;
         case Opcode::OP_ADD_BRC: calc::Add(ret, lhs, rhs); break;
         case Opcode::OP_PAIRSUM: calc::PairSum(ret, lhs, rhs); break;
+        case Opcode::OP_PAIRPROD: calc::PairProd(ret, lhs, rhs); break;
         case Opcode::OP_SUB: calc::Sub(ret, lhs, rhs); break;
         case Opcode::OP_SUB_BRC: calc::Sub(ret, lhs, rhs); break;
         case Opcode::OP_MUL: calc::Mul(ret, lhs, rhs); break;
@@ -52,6 +53,7 @@ void ExecuteOpBinary(ExecuteOperationContext *ctx) {
         case Opcode::OP_DIV: calc::Div(ret, lhs, rhs); break;
         case Opcode::OP_DIV_BRC: calc::Div(ret, lhs, rhs); break;
         case Opcode::OP_POW: calc::Pow(ret, lhs, rhs); break;
+        case Opcode::OP_REM: calc::Remainder(ret, lhs, rhs); break;
         case Opcode::OP_S_MAX: calc::Max(ret, lhs, rhs); break;
         case Opcode::OP_PAIRMAX: calc::PairMax(ret, lhs, rhs); break;
         case Opcode::OP_PAIRMIN: calc::PairMin(ret, lhs, rhs); break;
@@ -59,7 +61,10 @@ void ExecuteOpBinary(ExecuteOperationContext *ctx) {
         case Opcode::OP_BITWISEAND: calc::BitwiseAnd(ret, lhs, rhs); break;
         case Opcode::OP_BITWISEOR: calc::BitwiseOr(ret, lhs, rhs); break;
         case Opcode::OP_BITWISEXOR: calc::BitwiseXor(ret, lhs, rhs); break;
+        case Opcode::OP_EXPANDEXPDIF: calc::ExpandExpDif(ret, lhs, rhs); break;
         case Opcode::OP_COPYSIGN: calc::CopySign(ret, lhs, rhs); break;
+        case Opcode::OP_GCD: calc::Gcd(ret, lhs, rhs); break;
+        case Opcode::OP_GCD_BRC: calc::Gcd(ret, lhs, rhs); break;
         default: ASSERT(false);
     }
 }
@@ -72,6 +77,7 @@ REGISTER_CALC_OP(OP_MUL_BRC, Opcode::OP_MUL_BRC, ExecuteOpBinary<Opcode::OP_MUL_
 REGISTER_CALC_OP(OP_DIV, Opcode::OP_DIV, ExecuteOpBinary<Opcode::OP_DIV>);
 REGISTER_CALC_OP(OP_DIV_BRC, Opcode::OP_DIV_BRC, ExecuteOpBinary<Opcode::OP_DIV_BRC>);
 REGISTER_CALC_OP(OP_POW, Opcode::OP_POW, ExecuteOpBinary<Opcode::OP_POW>);
+REGISTER_CALC_OP(OP_REM, Opcode::OP_REM, ExecuteOpBinary<Opcode::OP_REM>);
 REGISTER_CALC_OP(OP_S_ADD, Opcode::OP_S_ADD, ExecuteOpBinary<Opcode::OP_ADD>);
 REGISTER_CALC_OP(OP_S_SUB, Opcode::OP_S_SUB, ExecuteOpBinary<Opcode::OP_SUB>);
 REGISTER_CALC_OP(OP_S_MUL, Opcode::OP_S_MUL, ExecuteOpBinary<Opcode::OP_MUL>);
@@ -79,6 +85,7 @@ REGISTER_CALC_OP(OP_S_DIV, Opcode::OP_S_DIV, ExecuteOpBinary<Opcode::OP_DIV>);
 REGISTER_CALC_OP(OP_PAIRMAX, Opcode::OP_PAIRMAX, ExecuteOpBinary<Opcode::OP_PAIRMAX>);
 REGISTER_CALC_OP(OP_PAIRMIN, Opcode::OP_PAIRMIN, ExecuteOpBinary<Opcode::OP_PAIRMIN>);
 REGISTER_CALC_OP(OP_PAIRSUM, Opcode::OP_PAIRSUM, ExecuteOpBinary<Opcode::OP_PAIRSUM>);
+REGISTER_CALC_OP(OP_PAIRPROD, Opcode::OP_PAIRPROD, ExecuteOpBinary<Opcode::OP_PAIRPROD>);
 REGISTER_CALC_OP(OP_S_MAX, Opcode::OP_S_MAX, ExecuteOpBinary<Opcode::OP_S_MAX>);
 REGISTER_CALC_OP(OP_S_MIN, Opcode::OP_S_MIN, ExecuteOpBinary<Opcode::OP_S_MIN>);
 REGISTER_CALC_OP(OP_MAXIMUM, Opcode::OP_MAXIMUM, ExecuteOpBinary<Opcode::OP_S_MAX>);
@@ -86,7 +93,10 @@ REGISTER_CALC_OP(OP_MINIMUM, Opcode::OP_MINIMUM, ExecuteOpBinary<Opcode::OP_S_MI
 REGISTER_CALC_OP(OP_BITWISEAND, Opcode::OP_BITWISEAND, ExecuteOpBinary<Opcode::OP_BITWISEAND>);
 REGISTER_CALC_OP(OP_BITWISEOR, Opcode::OP_BITWISEOR, ExecuteOpBinary<Opcode::OP_BITWISEOR>);
 REGISTER_CALC_OP(OP_BITWISEXOR, Opcode::OP_BITWISEXOR, ExecuteOpBinary<Opcode::OP_BITWISEXOR>);
+REGISTER_CALC_OP(OP_EXPANDEXPDIF, Opcode::OP_EXPANDEXPDIF, ExecuteOpBinary<Opcode::OP_EXPANDEXPDIF>);
 REGISTER_CALC_OP(OP_COPYSIGN, Opcode::OP_COPYSIGN, ExecuteOpBinary<Opcode::OP_COPYSIGN>);
+REGISTER_CALC_OP(OP_GCD, Opcode::OP_GCD, ExecuteOpBinary<Opcode::OP_GCD>);
+REGISTER_CALC_OP(OP_GCD_BRC, Opcode::OP_GCD_BRC, ExecuteOpBinary<Opcode::OP_GCD_BRC>);
 
 void ExecuteOpFmod(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
@@ -174,9 +184,11 @@ void ExecuteOpReduce(ExecuteOperationContext *ctx) {
         case Opcode::OP_ROWSUM_SINGLE: calc::RowSumSingle(oop, iop, axis); break;
         case Opcode::OP_ROWMAX_SINGLE: calc::RowMaxSingle(oop, iop, axis); break;
         case Opcode::OP_ROWMIN_SINGLE: calc::RowMinSingle(oop, iop, axis); break;
+        case Opcode::OP_ROWPROD_SINGLE: calc::RowProdSingle(oop, iop, axis); break;
         case Opcode::OP_ROWSUMLINE: calc::RowSumExpand(oop, iop, axis); break;
         case Opcode::OP_ROWMAXLINE: calc::RowMaxLine(oop, iop, axis); break;
         case Opcode::OP_ROWMINLINE: calc::RowMinLine(oop, iop, axis); break;
+        case Opcode::OP_ROWPRODLINE: calc::RowProdLine(oop, iop, axis); break;
         default: ASSERT(false) << "opcode not support" << ctx->op->GetOpcodeStr();
     }
 }
@@ -186,6 +198,8 @@ REGISTER_CALC_OP(OP_ROWMAX_SINGLE, Opcode::OP_ROWMAX_SINGLE, ExecuteOpReduce<Opc
 REGISTER_CALC_OP(OP_ROWMAXLINE, Opcode::OP_ROWMAXLINE, ExecuteOpReduce<Opcode::OP_ROWMAXLINE>);
 REGISTER_CALC_OP(OP_ROWMIN_SINGLE, Opcode::OP_ROWMIN_SINGLE, ExecuteOpReduce<Opcode::OP_ROWMIN_SINGLE>);
 REGISTER_CALC_OP(OP_ROWMINLINE, Opcode::OP_ROWMINLINE, ExecuteOpReduce<Opcode::OP_ROWMINLINE>);
+REGISTER_CALC_OP(OP_ROWPROD_SINGLE, Opcode::OP_ROWPROD_SINGLE, ExecuteOpReduce<Opcode::OP_ROWPROD_SINGLE>);
+REGISTER_CALC_OP(OP_ROWPRODLINE, Opcode::OP_ROWPRODLINE, ExecuteOpReduce<Opcode::OP_ROWPRODLINE>);
 
 void ExecuteOpCast(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
@@ -206,6 +220,8 @@ void ExecuteOpUnary(ExecuteOperationContext *ctx) {
     switch (opcode) {
         case Opcode::OP_EXP: calc::Exp(ret, iop); break;
         case Opcode::OP_NEG: calc::Neg(ret, iop); break;
+        case Opcode::OP_SIGN: calc::Sign(ret, iop); break;
+        case Opcode::OP_SIGNBIT: calc::Signbit(ret, iop); break;
         case Opcode::OP_RSQRT: calc::Rsqrt(ret, iop); break;
         case Opcode::OP_SQRT: calc::Sqrt(ret, iop); break;
         case Opcode::OP_RECIPROCAL: calc::Reciprocal(ret, iop); break;
@@ -214,11 +230,14 @@ void ExecuteOpUnary(ExecuteOperationContext *ctx) {
         case Opcode::OP_ABS: calc::Abs(ret, iop); break;
         case Opcode::OP_BRCB: calc::Brcb(ret, iop); break;
         case Opcode::OP_LN: calc::Ln(ret, iop); break;
+        case Opcode::OP_ISFINITE: calc::IsFinite(ret, iop); break;
         default: ASSERT(false);
     }
 }
 REGISTER_CALC_OP(OP_EXP, Opcode::OP_EXP, ExecuteOpUnary<Opcode::OP_EXP>);
 REGISTER_CALC_OP(OP_NEG, Opcode::OP_NEG, ExecuteOpUnary<Opcode::OP_NEG>);
+REGISTER_CALC_OP(OP_SIGN, Opcode::OP_SIGN, ExecuteOpUnary<Opcode::OP_SIGN>);
+REGISTER_CALC_OP(OP_SIGNBIT, Opcode::OP_SIGNBIT, ExecuteOpUnary<Opcode::OP_SIGNBIT>);
 REGISTER_CALC_OP(OP_RSQRT, Opcode::OP_RSQRT, ExecuteOpUnary<Opcode::OP_RSQRT>);
 REGISTER_CALC_OP(OP_SQRT, Opcode::OP_SQRT, ExecuteOpUnary<Opcode::OP_SQRT>);
 REGISTER_CALC_OP(OP_RECIPROCAL, Opcode::OP_RECIPROCAL, ExecuteOpUnary<Opcode::OP_RECIPROCAL>);
@@ -227,6 +246,7 @@ REGISTER_CALC_OP(OP_BITWISENOT, Opcode::OP_BITWISENOT, ExecuteOpUnary<Opcode::OP
 REGISTER_CALC_OP(OP_ABS, Opcode::OP_ABS, ExecuteOpUnary<Opcode::OP_ABS>);
 REGISTER_CALC_OP(OP_BRCB, Opcode::OP_BRCB, ExecuteOpUnary<Opcode::OP_BRCB>);
 REGISTER_CALC_OP(OP_LN, Opcode::OP_LN, ExecuteOpUnary<Opcode::OP_LN>);
+REGISTER_CALC_OP(OP_ISFINITE, Opcode::OP_ISFINITE, ExecuteOpUnary<Opcode::OP_ISFINITE>);
 
 void ExecuteOpCeil(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
@@ -255,6 +275,15 @@ void ExecuteOpTrunc(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_TRUNC, Opcode::OP_TRUNC, ExecuteOpTrunc);
 
+void ExecuteOpExp2(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto &iop = ctx->ioperandDataViewList->at(0);
+    calc::Exp2(ret, iop);
+}
+REGISTER_CALC_OP(OP_EXP2, Opcode::OP_EXP2, ExecuteOpExp2);
+
 void ExecuteOpRound(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
     ASSERT(ctx->ioperandDataViewList->size() == 1);
@@ -265,6 +294,16 @@ void ExecuteOpRound(ExecuteOperationContext *ctx) {
     calc::Round(output, input, decimals);
 }
 REGISTER_CALC_OP(OP_ROUND, Opcode::OP_ROUND, ExecuteOpRound);
+
+void ExecuteOpExpm1(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto &output = ctx->ooperandInplaceDataViewList->at(0);
+    auto &input = ctx->ioperandDataViewList->at(0);
+
+    calc::Expm1(output, input);
+}
+REGISTER_CALC_OP(OP_EXPM1, Opcode::OP_EXPM1, ExecuteOpExpm1);
 
 void ExecuteOpOneHot(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
@@ -427,6 +466,15 @@ void ExecuteOpRange(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_RANGE, Opcode::OP_RANGE, ExecuteOpRange);
 
+void ExecuteOpLog1p(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto &iop = ctx->ioperandDataViewList->at(0);
+    calc::Log1p(ret, iop);
+}
+REGISTER_CALC_OP(OP_LOG1P, Opcode::OP_LOG1P, ExecuteOpLog1p);
+
 void ExecuteOpCompare(ExecuteOperationContext *ctx) {
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop_self = ctx->ioperandDataViewList->at(0);
@@ -459,6 +507,22 @@ void ExecuteOpCmps(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_CMPS, Opcode::OP_CMPS, ExecuteOpCmps);
 
+void ExecuteOpHypot(ExecuteOperationContext *ctx) {
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+    auto iop_self = ctx->ioperandDataViewList->at(0);
+    auto iop_other = ctx->ioperandDataViewList->at(1);
+    calc::Hypot(oop, iop_self, iop_other);
+}
+REGISTER_CALC_OP(OP_HYPOT, Opcode::OP_HYPOT, ExecuteOpHypot);
+
+void ExecuteOpPReLU(ExecuteOperationContext *ctx) {
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+    auto iop_self = ctx->ioperandDataViewList->at(0);
+    auto iop_weight = ctx->ioperandDataViewList->at(1);
+    calc::PReLU(oop, iop_self, iop_weight);
+}
+REGISTER_CALC_OP(OP_PRELU, Opcode::OP_PRELU, ExecuteOpPReLU);
+
 void ExecuteOpExtract(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
@@ -489,14 +553,14 @@ void ExecuteOpGatherINUB(ExecuteOperationContext *ctx) {
 REGISTER_CALC_OP(OP_GATHER_IN_UB, Opcode::OP_GATHER_IN_UB, ExecuteOpGatherINUB);
 
 void ExecuteOpIndexAdd(ExecuteOperationContext *ctx) {
-    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
     ASSERT(ctx->ioperandDataViewList->size() == SIZE_THREE);
     auto &ret = ctx->ooperandInplaceDataViewList->at(0);
     auto &self = ctx->ioperandDataViewList->at(0);
     auto &src = ctx->ioperandDataViewList->at(1);
     auto &indices = ctx->ioperandDataViewList->at(2);
     auto alpha = Element(DT_FP32, 1.0);
-    if (ctx->op->HasAttribute(OpAttributeKey::scalar)){
+    if (ctx->op->HasAttribute(OpAttributeKey::scalar)) {
         alpha = ctx->op->GetElementAttribute(OpAttributeKey::scalar);
     }
     int axis = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "axis");
@@ -510,8 +574,9 @@ void ExecuteOpTri(ExecuteOperationContext *ctx) {
     auto &output = ctx->ooperandInplaceDataViewList->at(0);
     auto &input = ctx->ioperandDataViewList->at(0);
 
-    auto dia = ctx->op->GetElementAttribute(OpAttributeKey::dynScalar);
-    int diagonal = static_cast<int32_t>(dia.GetSignedData());
+    // dynScalar 存的是 SymbolicScalar，需用 GetSymbolicScalarAttribute + EvaluateSymbolicScalar 取整型值
+    SymbolicScalar diaSym = ctx->op->GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
+    int diagonal = static_cast<int>(ctx->opInter->EvaluateSymbolicScalar(diaSym));
     bool isUpper = ctx->op->GetBoolAttribute(OpAttributeKey::isUpper);
     isUpper ? calc::TriU(output, input, diagonal) : calc::TriL(output, input, diagonal);
 }
@@ -658,7 +723,7 @@ REGISTER_CALC_OP(OP_REDUCE_ACC, Opcode::OP_REDUCE_ACC, ExecuteOpReduceAcc);
 
 template <Opcode opcode>
 void ExecuteOpBinaryScalar(ExecuteOperationContext *ctx) {
-    if (opcode == Opcode::OP_BITWISEXOR) {
+    if (opcode == Opcode::OP_BITWISEXOR || opcode == Opcode::OP_REMRS) {
         ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
     } else {
         ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
@@ -677,11 +742,15 @@ void ExecuteOpBinaryScalar(ExecuteOperationContext *ctx) {
         case Opcode::OP_MAXS: calc::MaxS(ret, lhs, element); break;
         case Opcode::OP_MINS: calc::MinS(ret, lhs, element); break;
         case Opcode::OP_DIVS: calc::DivS(ret, lhs, element, reverse); break;
+        case Opcode::OP_REMS: calc::RemainderS(ret, lhs, element, reverse); break;
+        case Opcode::OP_REMRS: calc::RemainderRS(ret, lhs, element, reverse); break;
         case Opcode::OP_S_MAXS: calc::MaxS(ret, lhs, element); break;
         case Opcode::OP_S_MINS: calc::MinS(ret, lhs, element);  break;
+        case Opcode::OP_LRELU: calc::LReLU(ret, lhs, element); break;
         case Opcode::OP_BITWISEANDS: calc::BitwiseAndS(ret, lhs, element); break;
         case Opcode::OP_BITWISEORS: calc::BitwiseOrS(ret, lhs, element); break;
         case Opcode::OP_BITWISEXORS: calc::BitwiseXorS(ret, lhs, element); break;
+        case Opcode::OP_GCDS: calc::GcdS(ret, lhs, element); break;
         default: ASSERT(false);
     }
 }
@@ -691,9 +760,13 @@ REGISTER_CALC_OP(OP_MULS, Opcode::OP_MULS, ExecuteOpBinaryScalar<Opcode::OP_MULS
 REGISTER_CALC_OP(OP_DIVS, Opcode::OP_DIVS, ExecuteOpBinaryScalar<Opcode::OP_DIVS>);
 REGISTER_CALC_OP(OP_MAXS, Opcode::OP_MAXS, ExecuteOpBinaryScalar<Opcode::OP_MAXS>);
 REGISTER_CALC_OP(OP_MINS, Opcode::OP_MINS, ExecuteOpBinaryScalar<Opcode::OP_MINS>);
+REGISTER_CALC_OP(OP_LRELU, Opcode::OP_LRELU, ExecuteOpBinaryScalar<Opcode::OP_LRELU>);
 REGISTER_CALC_OP(OP_BITWISEANDS, Opcode::OP_BITWISEANDS, ExecuteOpBinaryScalar<Opcode::OP_BITWISEANDS>);
 REGISTER_CALC_OP(OP_BITWISEORS, Opcode::OP_BITWISEORS, ExecuteOpBinaryScalar<Opcode::OP_BITWISEORS>);
 REGISTER_CALC_OP(OP_BITWISEXORS, Opcode::OP_BITWISEXORS, ExecuteOpBinaryScalar<Opcode::OP_BITWISEXORS>);
+REGISTER_CALC_OP(OP_GCDS, Opcode::OP_GCDS, ExecuteOpBinaryScalar<Opcode::OP_GCDS>);
+REGISTER_CALC_OP(OP_REMS, Opcode::OP_REMS, ExecuteOpBinaryScalar<Opcode::OP_REMS>);
+REGISTER_CALC_OP(OP_REMRS, Opcode::OP_REMRS, ExecuteOpBinaryScalar<Opcode::OP_REMRS>);
 REGISTER_CALC_OP(OP_S_ADDS, Opcode::OP_S_ADDS, ExecuteOpBinaryScalar<Opcode::OP_ADDS>);
 REGISTER_CALC_OP(OP_S_SUBS, Opcode::OP_S_SUBS, ExecuteOpBinaryScalar<Opcode::OP_SUBS>);
 REGISTER_CALC_OP(OP_S_MULS, Opcode::OP_S_MULS, ExecuteOpBinaryScalar<Opcode::OP_MULS>);
@@ -711,6 +784,17 @@ void ExecuteOpGatherElement(ExecuteOperationContext *ctx) {
     calc::GatherElements(ret, params, indices, axis);
 }
 REGISTER_CALC_OP(OP_GATHER_ELEMENT, Opcode::OP_GATHER_ELEMENT, ExecuteOpGatherElement);
+
+void ExecuteOpGatherMask(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto &self = ctx->ioperandDataViewList->at(0);
+    int patternMode = ctx->op->GetIntAttribute("op_attr_patternMode");
+    calc::GatherMask(ret, self, patternMode);
+}
+REGISTER_CALC_OP(OP_GATHER_MASK, Opcode::OP_GATHER_MASK, ExecuteOpGatherMask);
+REGISTER_CALC_OP(OP_GATHER_MASK_BUILDIN, Opcode::OP_GATHER_MASK_BUILDIN, ExecuteOpGatherMask);
 
 template <Opcode opcode>
 void ExecuteOpBitwiseShift(ExecuteOperationContext *ctx) {

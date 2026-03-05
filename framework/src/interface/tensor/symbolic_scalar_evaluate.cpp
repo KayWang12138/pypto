@@ -290,6 +290,8 @@ ScalarImmediateType EvaluateSymbol::EvaluateSymbolicScalar(const RawSymbolicScal
                     for (size_t i = 1; i < dataList.size(); i++) {
                         result = RawSymbolicExpression::GetSymbolicCalcBinary(expr->Opcode())(result, dataList[i]);
                     }
+                } else if (expr->Opcode() == SymbolicOpcode::T_MOP_MAX || expr->Opcode() == SymbolicOpcode::T_MOP_MIN) {
+                    return RawSymbolicExpression::GetSymbolicCalcMultiple(expr->Opcode())(dataList);
                 }
             }
         } break;

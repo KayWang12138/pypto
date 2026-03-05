@@ -26,6 +26,7 @@ class DataType(enum.Enum):
     DT_HF8 = ...
     DT_FP8E4M3 = ...
     DT_FP8E5M2 = ...
+    DT_FP8E8M0 = ...
     DT_UINT8 = ...
     DT_UINT16 = ...
     DT_UINT32 = ...
@@ -248,6 +249,8 @@ class DeviceTensorData:
 
     def GetShape(self) -> List[int]: ...
 
+    def Format(self) -> TileOpFormat: ...
+
 
 class RecordIfBranch:
 
@@ -445,6 +448,12 @@ def View(a: Tensor, dtype: DataType) -> Tensor: ...
 def Exp(a: Tensor) -> Tensor: ...
 
 
+def Exp2(a: Tensor) -> Tensor: ...
+
+
+def Expm1(a: Tensor) -> Tensor: ...
+
+
 def Transpose(a: Tensor, axis: List[int]) -> Tensor: ...
 
 
@@ -483,10 +492,10 @@ def Cast(a: Tensor, dtype: DataType, mode: CastMode) -> Tensor: ...
 def index_select(src: Tensor,  dim: int,  indices: Tensor) -> Tensor: ...
 
 @overload
-def Scatter(self: Tensor, indices: Tensor, src: Element, axis: int, 
+def Scatter(self: Tensor, indices: Tensor, src: Element, axis: int,
             reduce: ScatterMode = ScatterMode.NONE) -> Tensor: ...
 @overload
-def Scatter(self: Tensor, indices: Tensor, src: Tensor, axis: int, 
+def Scatter(self: Tensor, indices: Tensor, src: Tensor, axis: int,
             reduce: ScatterMode = ScatterMode.NONE) -> Tensor: ...
 
 
@@ -551,6 +560,17 @@ def Matmul(dtype: DataType, a: Tensor, b: Tensor, a_trans: bool = False,
            b_trans: bool = False, c_matrix_nz: bool = False, extend_params: MatmulExtendParam = None) -> Tensor: ...
 
 
+@overload
+def MatmulMX(dtype: DataType, a: Tensor, aScale: Tensor, b: Tensor, bScale: Tensor, a_trans: bool = False,
+             a_scale_trans: bool = False, b_trans: bool = False, b_scale_trans: bool = False,
+             c_matrix_nz: bool = False) -> Tensor: ...
+
+@overload
+def MatmulMX(dtype: DataType, a: Tensor, aScale: Tensor, b: Tensor, bScale: Tensor, a_trans: bool = False,
+             a_scale_trans: bool = False, b_trans: bool = False, b_scale_trans: bool = False,
+             c_matrix_nz: bool = False, extend_params: MatmulExtendParam = None) -> Tensor: ...
+
+
 def Batch_matmul(dtype: DataType, a: Tensor, b: Tensor, a_trans: bool = False,
                  b_trans: bool = False, c_matrix_nz: bool = False) -> Tensor: ...
 
@@ -601,3 +621,65 @@ def LogTopFolder() -> str: ...
 
 
 def ResetLog(path: str): ...
+
+
+# distributed
+class AtomicType(enum.Enum):
+    SET = ...      
+    ADD = ...      
+
+
+def CreateShmemData(
+    group: str, 
+    world_size: int, 
+    dtype: DataType, 
+    shape: List[int], 
+    shmem_tensor: Tensor, 
+    mem_type: int,
+) -> None:
+
+
+def CreateShmemSignal(group: str, shmem_data: Tensor, shmem_signal: Tensor) -> None:
+
+
+def ShmemBarrier(pred_token: Tensor, shmem_signal: Tensor, group: str, world_size: int) -> Tensor: ...
+
+
+def ShmemDataSet(pred_token: Tensor, shmem_data: Tensor) -> None:
+
+
+def ShmemSignalSet(pred_token: Tensor, shmem_signal: Tensor) -> None:
+
+
+def ShmemPut(pred_token: Tensor, in_tensor: Tensor, shmem_data: Tensor, atomic_type: AtomicType) -> Tensor: ...
+
+
+def ShmemPutUb2Gm(in_tensor: Tensor, shmem_data_tile: Tensor, pred_token: Tensor, atomic_type: AtomicType) -> Tensor: ...
+
+
+def ShmemGet(
+    pred_token: Tensor, 
+    shmem_data: Tensor, 
+    non_shmem_dtype: DataType.DT_BOTTOM, 
+    atomic_type: AtomicType = AtomicType.SET,
+) -> Tensor: ...
+
+
+def ShmemGetGm2Ub(
+    dummy: Tensor, 
+    shmem_data_tile: Tensor, 
+    non_shmem_dtype: DataType.DT_BOTTOM, 
+    atomic_type: AtomicType = AtomicType.SET,
+) -> Tensor: ...
+
+
+def ShmemSignal(pred_token: Tensor, shmem_signal: Tensor, atomic_type: AtomicType) -> Tensor: ...
+
+
+def WaitUntil(pred_token: Tensor, shmem_signal: Tensor, cmp_value: int, reset_signal: bool = False) -> Tensor: ...
+
+
+def GetSymbolicScalarPeId(group: str) -> SymbolicScalar: ...
+
+
+def Nop(in_tensors: List[Tensor]) -> Tensor: ...
