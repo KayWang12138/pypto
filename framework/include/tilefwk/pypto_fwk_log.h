@@ -36,7 +36,7 @@ class LogFuncInfo {
 public:
     static LogFuncInfo &Instance();
     int32_t(*checkLevel)(int32_t, int32_t);
-    void(*record)(int32_t, int32_t, const char *, ...);
+    void(*record)(int32_t, int32_t, const char *, ...)__attribute__((format(printf, 3, 4)));
     void(*setAttr)(bool);
 private:
     LogFuncInfo();
