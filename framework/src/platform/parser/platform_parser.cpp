@@ -51,8 +51,8 @@ bool INIParser::ReadINIFile(const std::string& filepath) {
         if (equalPos == std::string::npos) {
             continue;
         }
-        std::string key = trimLine.substr(0, equalPos);
-        std::string value = trimLine.substr(equalPos + 1);
+        std::string key = TrimLine(trimLine.substr(0, equalPos));
+        std::string value = TrimLine(trimLine.substr(equalPos + 1));
         if (key.empty()) {
             continue;
         }
@@ -69,7 +69,7 @@ bool INIParser::GetStringVal(const std::string& column, const std::string& key, 
     }
     auto value = data_.at(column);
     if (value.find(key) == value.end()) {
-        return true;
+        return false;
     }
     val = value[key];
     return true;

@@ -38,9 +38,9 @@ private:
     ~CannHostRuntime();
     void *GetSymbol(const std::string &sym);
 
-    GetSocVerFunc socVerFunc_;
-    GetSocSpecFunc socSpecFunc_;
-    GetAiCpuNumFunc aiCpuNumFunc_;
+    GetSocVerFunc socVerFunc_ = nullptr;
+    GetSocSpecFunc socSpecFunc_ = nullptr;
+    GetAiCpuNumFunc aiCpuNumFunc_ = nullptr;
     void *handleDep_ = nullptr;	 
     void *handle_ = nullptr;
 };

@@ -108,7 +108,7 @@ bool PlatformParser::GetCCECVersion(std::unordered_map<std::string, std::string>
             ccecVersion[coreType] = versionVal;
         }
     }
-    return true;
+    return !ccecVersion.empty();
 }
 
 bool PlatformParser::GetCoreVersion(std::unordered_map<std::string, std::string>& curVersion) const {
@@ -120,7 +120,7 @@ bool PlatformParser::GetCoreVersion(std::unordered_map<std::string, std::string>
     if (GetStringVal(version, aivVersion, versionVal)) {
         curVersion[aiv] = versionVal;
     }
-    return true;
+    return !curVersion.empty();
 }
 
 size_t Core::GetMemorySize(MemoryType type) const {
@@ -323,8 +323,12 @@ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
 }
 
 void Platform::ObtainPlatformInfo() {
-    std::string socVersion;
-    if (CannHostRuntime::Instance().GetSocVersion(socVersion)) {
+    static bool initialized = false;
+    if (initialized) {
+        return;
+    }
+    std::string archType;
+    if (CannHostRuntime::Instance().GetSocSpec(version, npuArchInfo, archType)) {
         npu::tile_fwk::CmdParser cmdparser;
         LoadPlatformInfo(cmdparser);
     } else {
@@ -333,13 +337,17 @@ void Platform::ObtainPlatformInfo() {
         simulationPlatform.GetSimulationPlatformRealPath(srcPath);
         npu::tile_fwk::INIParser iniparser;
         iniparser.Initialize(srcPath);
-        LoadPlatformInfo(iniparser);
+        if (iniparser.Initialize(srcPath)) {
+            LoadPlatformInfo(iniparser);
+        }
     }
     std::vector<std::pair<MemoryType, MemoryType>> dataPath;
     InternalParser internalParser = InternalParser(NPUArchToString(GetSoc().GetNPUArch()));
-    internalParser.LoadInternalInfo();
-    if (internalParser.GetDataPath(dataPath)) {
-        GetDie().SetMemoryPath(dataPath);
+    if (internalParser.LoadInternalInfo()) {
+        if (internalParser.GetDataPath(dataPath)) {
+            GetDie().SetMemoryPath(dataPath);
+        } 
     }
+    initialized = true;
 }
 }

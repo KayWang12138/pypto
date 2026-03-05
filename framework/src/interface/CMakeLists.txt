@@ -49,7 +49,6 @@ target_link_libraries(tile_fwk_interface
             $<BUILD_INTERFACE:c_sec>
             $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_utils>>
         PRIVATE
-            tile_fwk_platform
             intf_pub_cxx17
             tile_fwk_intf_pub
             dl

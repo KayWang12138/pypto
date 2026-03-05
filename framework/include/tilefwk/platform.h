@@ -15,7 +15,6 @@
 
 #pragma once
 
-#include <dlfcn.h>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -101,7 +100,7 @@ struct MemoryGraph {
 class PlatformParser {
   public:
     PlatformParser() = default;
-    virtual ~PlatformParser() {}
+    virtual ~PlatformParser() = default;
     virtual bool GetStringVal(const std::string& column, const std::string& key, std::string& val) const = 0;
     
     bool GetSizeVal(const std::string& column, const std::string& key, size_t& val) const;
@@ -376,8 +375,7 @@ public:
         std::stringstream ss;
         ss << "{\n";
         ss << "SOC_INFO : {\n";
-        ss << "    \"SHORT_SOC_VERSION\" : " << short_soc_ver_ << ",\n";
-        ss << "    \"NPU_ARCH\" : " << static_cast<int>(version_) << ",\n";
+        ss << "    \"SHORT_SOC_VERSION\" : \"" << short_soc_ver_ << "\",\n";ss << "    \"NPU_ARCH\" : " << static_cast<int>(version_) << ",\n";
         ss << "    \"DIES_NUM\" : " << dies_cnt_ << ",\n";
         ss << "    \"AI_CPU_NUM\" : " << ai_cpu_cnt_ << ",\n";
         ss << "    \"AI_CORE_NUM\" : " << ai_core_cnt_ << ",\n";
