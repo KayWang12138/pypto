@@ -14,8 +14,8 @@
                     "format": "ND",
                     "need_trans": false,
                     "data_range": {
-                        "min": -100,
-                        "max": 100
+                        "min": -10,
+                        "max": 10
                     }
                 }
             ],
@@ -37,7 +37,7 @@
                 8
             ],
             "params": {
-                "scalar": 3.0,
+                "scalar": 34.0,
                 "scalar_type": "int32",
                 "on_board": true,
                 "func_id": -1
@@ -59,7 +59,7 @@
                     "need_trans": false,
                     "data_range": {
                         "min": 1,
-                        "max": 50
+                        "max": 10
                     }
                 }
             ],
@@ -81,7 +81,7 @@
                 8
             ],
             "params": {
-                "scalar": 5.0,
+                "scalar": 54.0,
                 "scalar_type": "int32",
                 "on_board": true,
                 "func_id": -1
@@ -129,7 +129,7 @@
                 16
             ],
             "params": {
-                "scalar": 3.0,
+                "scalar": 34.0,
                 "scalar_type": "int32",
                 "on_board": true,
                 "func_id": -1
@@ -177,7 +177,7 @@
                 16
             ],
             "params": {
-                "scalar": 3.0,
+                "scalar": 34.0,
                 "scalar_type": "int32",
                 "on_board": true,
                 "func_id": -1
@@ -225,7 +225,7 @@
                 16
             ],
             "params": {
-                "scalar": 3.0,
+                "scalar": 34.0,
                 "scalar_type": "int32",
                 "on_board": true,
                 "func_id": -1
@@ -273,7 +273,7 @@
                 16
             ],
             "params": {
-                "scalar": 3.3,
+                "scalar": 34.3,
                 "scalar_type": "fp32",
                 "on_board": true,
                 "func_id": -1
@@ -321,7 +321,7 @@
                 16
             ],
             "params": {
-                "scalar": 3.05,
+                "scalar": 34.05,
                 "scalar_type": "fp32",
                 "on_board": true,
                 "func_id": -1
@@ -369,7 +369,7 @@
                 16
             ],
             "params": {
-                "scalar": 3.7,
+                "scalar": 34.7,
                 "scalar_type": "fp32",
                 "on_board": true,
                 "func_id": -1
@@ -417,7 +417,7 @@
                 8
             ],
             "params": {
-                "scalar": -3.0,
+                "scalar": -34.0,
                 "scalar_type": "int32",
                 "on_board": true,
                 "func_id": -1
@@ -465,7 +465,7 @@
                 16
             ],
             "params": {
-                "scalar": 3.0,
+                "scalar": 34.0,
                 "scalar_type": "int32",
                 "on_board": true,
                 "func_id": -1
@@ -513,7 +513,7 @@
                 8
             ],
             "params": {
-                "scalar": -3.5,
+                "scalar": -34.5,
                 "scalar_type": "fp32",
                 "on_board": true,
                 "func_id": -1
@@ -561,7 +561,7 @@
                 16
             ],
             "params": {
-                "scalar": 3.7,
+                "scalar": 34.7,
                 "scalar_type": "fp32",
                 "on_board": true,
                 "func_id": -1
@@ -613,7 +613,7 @@
                 8
             ],
             "params": {
-                "scalar": 2.5,
+                "scalar": 24.5,
                 "scalar_type": "fp32",
                 "on_board": true,
                 "func_id": -1
@@ -665,7 +665,7 @@
                 16
             ],
             "params": {
-                "scalar": 1.5,
+                "scalar": 114.5,
                 "scalar_type": "fp32",
                 "on_board": true,
                 "func_id": -1
@@ -717,7 +717,7 @@
                 8
             ],
             "params": {
-                "scalar": 5.0,
+                "scalar": 54.0,
                 "scalar_type": "int32",
                 "on_board": true,
                 "func_id": -1
@@ -773,7 +773,7 @@
                 8
             ],
             "params": {
-                "scalar": 3.75,
+                "scalar": 38.75,
                 "scalar_type": "fp32",
                 "on_board": true,
                 "func_id": -1
@@ -829,7 +829,7 @@
                 16
             ],
             "params": {
-                "scalar": 3.75,
+                "scalar": 311.75,
                 "scalar_type": "fp32",
                 "on_board": true,
                 "func_id": -1
@@ -889,7 +889,7 @@
                 8
             ],
             "params": {
-                "scalar": 1.25,
+                "scalar": 133.25,
                 "scalar_type": "fp32",
                 "on_board": true,
                 "func_id": -1
@@ -914,7 +914,7 @@
                     "format": "ND",
                     "need_trans": false,
                     "data_range": {
-                        "min": -30,
+                        "min": 1,
                         "max": 30
                     }
                 }
@@ -949,7 +949,7 @@
                 8
             ],
             "params": {
-                "scalar": 2.0,
+                "scalar": 233.0,
                 "scalar_type": "int32",
                 "on_board": true,
                 "func_id": -1
