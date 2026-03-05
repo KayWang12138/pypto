@@ -451,7 +451,7 @@ private:
     }
 
     inline bool CheckStopTaskCanBeSent(int coreIdx) {
-        if (pendingIds_[coreIdx] == AICORE_TASK_INIT && runningIds_[coreIdx] == AICORE_TASK_INIT) {
+        if ((pendingIds_[coreIdx] == AICORE_TASK_INIT || pendingIds_[coreIdx] == AICORE_TASK_STOP) && runningIds_[coreIdx] == AICORE_TASK_INIT) {
             return true;
         }
 
@@ -752,7 +752,7 @@ private:
         DEV_VERBOSE_DEBUG("  ## send task left pend ready cnt %u , last core index:%u.",
             context_->corePendReadyCnt_[static_cast<int>(type)], idx);
         while (context_->corePendReadyCnt_[static_cast<int>(type)] > 0 && sendCnt < taskCount) {
-            if (pendingIds_[idx] == AICORE_TASK_INIT) {
+            if (pendingIds_[idx] == AICORE_TASK_INIT && wrapManager_.GetWrapCoreAvailable(idx)) {
                 DEV_VERBOSE_DEBUG("  ## send task use pendready core %u.", idx);
                 SendTaskToAiCore(type, idx, isLifo ? *newTask-- : *newTask++);
                 sendCnt++;
@@ -843,7 +843,7 @@ private:
         int32_t ret = DEVICE_MACHINE_OK;
         PerfMtBegin(static_cast<int>(PERF_EVT_RESOLVE_DEPENDENCE), aicpuIdx_);
         for (int i = coreIdxStart; i < coreIdxEnd; i++) {
-            if ((runningIds_[i] != AICORE_TASK_INIT || pendingIds_[i] != AICORE_TASK_INIT)) {
+            if ((runningIds_[i] != AICORE_TASK_INIT || pendingIds_[i] != AICORE_TASK_INIT) && pendingIds_[i] != AICORE_TASK_STOP) {
                 ret = ResolveByRegVal(type, i);
                 if (unlikely(ret != DEVICE_MACHINE_OK)) {
                     return ret;
@@ -923,11 +923,17 @@ private:
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
-            pendingIds_[coreIdx] = AICORE_TASK_INIT;
-            pendingResolveIndexList_[coreIdx] = 0;
-            context_->corePendReadyCnt_[static_cast<int>(type)]++;
-            context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
+            if (wrapManager_.IsBindedWrapId(finTaskId)) {
+                pendingIds_[coreIdx] = AICORE_TASK_INIT;
+                pendingResolveIndexList_[coreIdx] = 0;
+                context_->corePendReadyCnt_[static_cast<int>(type)]++;
+                context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
+            } else {
+                pendingIds_[coreIdx] = AICORE_TASK_STOP;
+            }
+            wrapManager_.UpdateFinishIdForMixCore(finTaskId, coreIdx);
         }
+
         return ret;
     }
 
@@ -947,7 +953,7 @@ private:
         auto &pendingResolveIndexBaseRef = pendingResolveIndexList_[coreIdx];
         auto &runningIdRef = runningIds_[coreIdx];
         auto &runningResolveIndexBaseRef = runningResolveIndexList_[coreIdx];
-        bool isWrapCoreAvailable = wrapManager_.GetWrapCoreAvailable(coreIdx);
+
         if (likely(finTaskId == pendingIdRef && finTaskState == TASK_FIN_STATE)) {
             // pending task is finished, resolve both running and pending task.
             DEV_VERBOSE_DEBUG("Pending Finished: core:%d pending:%x,%d running:%x,%d", coreIdx, pendingIdRef, pendingResolveIndexBaseRef, runningIdRef, runningResolveIndexBaseRef);
@@ -955,13 +961,15 @@ private:
             int runningResolveIndexBaseValue = runningResolveIndexBaseRef;
             uint32_t pendingIdValue = pendingIdRef;
             int pendingResolveIndexBaseValue = pendingResolveIndexBaseRef;
-            runningIdRef = AICORE_TASK_INIT;
-            runningResolveIndexBaseRef = 0;
-            pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
-            pendingResolveIndexBaseRef = 0;
-            if (isWrapCoreAvailable) { // wrapcore doesnt support pending & running yet
+            if (wrapManager_.IsBindedWrapId(finTaskId)) { // wrapcore doesnt support pending & running yet
                 context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
                 context_->corePendReadyCnt_[static_cast<int>(type)]++;
+                runningIdRef = AICORE_TASK_INIT;
+                runningResolveIndexBaseRef = 0;
+                pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
+                pendingResolveIndexBaseRef = 0;
+            } else {
+                pendingIdRef = AICORE_TASK_STOP;
             }
             if (runningIdValue != AICORE_TASK_INIT) {
                 ret = ResolveDepWithDfx(type, coreIdx, runningIdValue, runningResolveIndexBaseValue);
@@ -981,12 +989,15 @@ private:
             int runningResolveIndexBaseValueCopyout = runningResolveIndexBaseRef;
             uint32_t pendingIdValue = pendingIdRef;
             int pendingResolveIndexBaseValue = pendingResolveIndexBaseRef;
-            runningIdRef = pendingIdRef;
-            runningResolveIndexBaseRef = copyOutResolveCounter + 1;
-            pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
-            pendingResolveIndexBaseRef = 0;
-            if (isWrapCoreAvailable) {
+
+            if (wrapManager_.IsBindedWrapId(finTaskId)) {
                 context_->corePendReadyCnt_[static_cast<int>(type)]++;
+                runningIdRef = pendingIdRef;
+                runningResolveIndexBaseRef = copyOutResolveCounter + 1;
+                pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
+                pendingResolveIndexBaseRef = 0;
+            } else {
+                pendingIdRef = AICORE_TASK_STOP;
             }
             if (runningIdValueCopyout != AICORE_TASK_INIT) {
                 ret = ResolveDepWithDfx(type, coreIdx, runningIdValueCopyout, runningResolveIndexBaseValueCopyout);
@@ -1006,12 +1017,12 @@ private:
             }
             uint32_t runningIdValueAck = runningIdRef;
             int runningResolveIndexBaseValueAck = runningResolveIndexBaseRef;
-            runningIdRef = finTaskId;
-            runningResolveIndexBaseRef = pendingResolveIndexBaseRef;
-            pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
-            pendingResolveIndexBaseRef = 0;
-            if (isWrapCoreAvailable) {
+            if (wrapManager_.IsBindedWrapId(finTaskId)) {
                 context_->corePendReadyCnt_[static_cast<int>(type)]++;
+                runningIdRef = finTaskId;
+                runningResolveIndexBaseRef = pendingResolveIndexBaseRef;
+                pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
+                pendingResolveIndexBaseRef = 0;
             }
             if (runningIdValueAck != AICORE_TASK_INIT) {
                 ret = ResolveDepWithDfx(type, coreIdx, runningIdValueAck, runningResolveIndexBaseValueAck);
@@ -1026,7 +1037,7 @@ private:
             int runningResolveIndexBaseValue = runningResolveIndexBaseRef;
             runningIdRef = AICORE_TASK_INIT;
             runningResolveIndexBaseRef = 0;
-            if (isWrapCoreAvailable && pendingIdRef == AICORE_TASK_INIT) {
+            if (wrapManager_.IsBindedWrapId(finTaskId) && pendingIdRef == AICORE_TASK_INIT) {
                 context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
             }
             ret = ResolveDepWithDfx(type, coreIdx, runningIdValue, runningResolveIndexBaseValue);
@@ -1087,7 +1098,7 @@ private:
             startIdx = aivStart_;
             coreNum = aivEnd_ - aivStart_;
         }
-        while (pendingIds_[idx] != AICORE_TASK_INIT) {
+        while (pendingIds_[idx] != AICORE_TASK_INIT && wrapManager_.GetWrapCoreAvailable(idx)) {
             idx = startIdx + (idx - startIdx + 1) % (coreNum);
         }
         context_->lastPendReadyCoreIdx_[coreType] = static_cast<uint32_t>(startIdx + (idx - startIdx + 1) % (coreNum));
@@ -1205,7 +1216,6 @@ private:
         auto funcId = FuncID(finishId);
         auto opIndex = TaskID(finishId);
 
-        wrapManager_.UpdateFinishIdForMixCore(finishId, coreIdx);
         auto cceBinary = dyntask->cceBinary;
         auto func = dyntask->dynFuncDataCacheList[funcId].devFunc;
         auto predCounts =  dyntask->dynFuncDataCacheList[funcId].predCount;
