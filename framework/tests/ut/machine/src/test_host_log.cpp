@@ -108,7 +108,7 @@ TEST_F(TestHostLog, test_tilefwk_log_case0) {
     PYPTO_HOST_LOG(DLOG_ERROR, "TEST", "I'm a space-bound %s and your heart's the moon", "rocketship");
     PYPTO_HOST_LOG(DLOG_ERROR, "TEST", "And I aiming it right at you, right at you %f", 3.14f);
     PYPTO_HOST_LOG(DLOG_ERROR, "TEST", "%d miles on a clear night in %s", 250000, "June");
-    PYPTO_HOST_LOG(DLOG_ERROR, "TEST", "And I'm so lost without you, without you %x", 626);
+    PYPTO_HOST_LOG(DLOG_ERROR, "TEST", "And I'm so lost without you, without you %x", (uint32_t)626);
     PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, "TEST", "I'm a space-bound %s and your heart's the moon", "rocketship");
     PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, "TEST", "And I aiming it right at you, right at you %f", 3.14f);
     PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, "TEST", "%d miles on a clear night in %s", 250000, "June");
