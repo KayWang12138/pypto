@@ -1,0 +1,87 @@
+{
+  "config": {
+    "device_id": 0,
+    "warmup_rounds": 5,
+    "measure_rounds": 10
+  },
+  "results": [
+    {
+      "model": "3B",
+      "weight_shape": [
+        153376,
+        2048
+      ],
+      "elements": 314114048,
+      "pypto": {
+        "avg_time_ms": 39.76860046386719,
+        "std_time_ms": 38.740118211305045,
+        "min_time_ms": 25.055646896362305,
+        "max_time_ms": 155.95650672912598,
+        "throughput_M_elements_per_sec": 7898.544186522144,
+        "max_error": 0.0,
+        "correctness": true
+      },
+      "golden": {
+        "avg_time_ms": 25.141382217407227,
+        "std_time_ms": 5.789261014257191,
+        "min_time_ms": 22.353172302246094,
+        "max_time_ms": 42.44256019592285,
+        "throughput_M_elements_per_sec": 12493.905278704835
+      },
+      "speedup": 0.6321917775369061,
+      "throughput_ratio": 0.6321917775369061
+    },
+    {
+      "model": "7B",
+      "weight_shape": [
+        153376,
+        3072
+      ],
+      "elements": 471171072,
+      "pypto": {
+        "avg_time_ms": 40.03453254699707,
+        "std_time_ms": 40.62676314961295,
+        "min_time_ms": 25.661945343017578,
+        "max_time_ms": 161.8790626525879,
+        "throughput_M_elements_per_sec": 11769.116360903827,
+        "max_error": 0.0,
+        "correctness": true
+      },
+      "golden": {
+        "avg_time_ms": 37.24365234375,
+        "std_time_ms": 8.46176241884664,
+        "min_time_ms": 33.484458923339844,
+        "max_time_ms": 62.57891654968262,
+        "throughput_M_elements_per_sec": 12651.043663795477
+      },
+      "speedup": 0.9302881780879839,
+      "throughput_ratio": 0.9302881780879838
+    },
+    {
+      "model": "30B",
+      "weight_shape": [
+        75776,
+        2560
+      ],
+      "elements": 193986560,
+      "pypto": {
+        "avg_time_ms": 20.2542781829834,
+        "std_time_ms": 19.51462224666325,
+        "min_time_ms": 12.954950332641602,
+        "max_time_ms": 78.77993583679199,
+        "throughput_M_elements_per_sec": 9577.559775148024,
+        "max_error": 0.0,
+        "correctness": true
+      },
+      "golden": {
+        "avg_time_ms": 15.61727523803711,
+        "std_time_ms": 3.6978888514355477,
+        "min_time_ms": 13.925552368164062,
+        "max_time_ms": 26.670217514038086,
+        "throughput_M_elements_per_sec": 12421.280731963434
+      },
+      "speedup": 0.7710605678931546,
+      "throughput_ratio": 0.7710605678931546
+    }
+  ]
+}
