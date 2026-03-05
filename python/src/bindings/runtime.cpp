@@ -752,7 +752,8 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
     DeviceGuard devGuard(devId);
 
     auto kmodule = py::getattr(module, "kmodule").cast<KernelModulePtr>();
-    DeviceLauncher::SetCaptureMode(DeviceLauncher::IsCaptureMode(aicoreStream));
+    aclmdlRI rtModel = nullptr;
+    DeviceLauncher::GetCaptureInfo(aicoreStream, rtModel);
 
     HOST_PERF_TRACE(TracePhase::LaunchInit);
 
@@ -780,7 +781,7 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
     }
     HOST_PERF_TRACE(TracePhase::LaunchAllocWorkSpace);
 
-    DeviceLauncher::AddAicpuStream(aicoreStream, kmodule->IsTripleStream());
+    DeviceLauncher::AddAicpuStream(rtModel, kmodule->IsTripleStream());
     HOST_PERF_TRACE(TracePhase::LaunchAttachStream);
     
     uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors);
