@@ -108,7 +108,7 @@ bool PlatformParser::GetCCECVersion(std::unordered_map<std::string, std::string>
             ccecVersion[coreType] = versionVal;
         }
     }
-    return true;
+    return !ccecVersion.empty();
 }
 
 bool PlatformParser::GetCoreVersion(std::unordered_map<std::string, std::string>& curVersion) const {
@@ -120,7 +120,7 @@ bool PlatformParser::GetCoreVersion(std::unordered_map<std::string, std::string>
     if (GetStringVal(version, aivVersion, versionVal)) {
         curVersion[aiv] = versionVal;
     }
-    return true;
+    return !curVersion.empty();
 }
 
 size_t Core::GetMemorySize(MemoryType type) const {
