@@ -33,6 +33,7 @@
 #include "passes/tensor_graph_pass/remove_undriven_view.h"
 #include "passes/tensor_graph_pass/expand_function.h"
 #include "passes/tensor_graph_pass/loop_unroll.h"
+#include "passes/tensor_graph_pass/set_heuristic_tile_shapes.h"
 //  tile graph pass
 #include "passes/tile_graph_pass/graph_partition/graph_partition.h"
 #include "passes/tile_graph_pass/graph_optimization/graph_optimization.h"
@@ -103,6 +104,7 @@ void RegPass() {
     REG_PASS(LoopaxesProc);
     REG_PASS(TuneTileOpSeqForVF);
     REG_PASS(TuneSyncForVF);
+    REG_PASS(SetHeuristicTileShapes);
 }
 
 void PassManager::RegDefaultStrategy() {
@@ -110,6 +112,7 @@ void PassManager::RegDefaultStrategy() {
         "PVC2_OOO", {
             {   "RemoveRedundantReshape",      PassName::REMOVE_REDUNDANT_RESHAPE},
             {                 "AutoCast",                     PassName::AUTO_CAST},
+            {   "SetHeuristicTileShapes",     PassName::SET_HEURISTIC_TILE_SHAPES},
             {      "InferMemoryConflict",         PassName::INFER_MEMORY_CONFLICT},
             {       "RemoveUndrivenView",          PassName::REMOVE_UNDRIVEN_VIEW},
             {           "ExpandFunction",               PassName::EXPAND_FUNCTION},

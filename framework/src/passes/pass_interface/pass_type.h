@@ -70,6 +70,7 @@ enum class PassName {
     LOOPAXES_PROC,
     TUNE_TILEOP_SEQ_FOR_VF,
     TUNE_SYNC_FOR_VF,
+    SET_HEURISTIC_TILE_SHAPES,
     NOT_DEFINED
 };
 
@@ -78,6 +79,7 @@ inline constexpr const char *PassNameStr(PassName name){
         case PassName::LOOP_UNROLL: return "LoopUnroll";
         case PassName::REMOVE_REDUNDANT_RESHAPE: return "RemoveRedundantReshape";
         case PassName::AUTO_CAST: return "AutoCast";
+        case PassName::SET_HEURISTIC_TILE_SHAPES: return "SetHeuristicTileShapes";
         case PassName::INFER_MEMORY_CONFLICT: return "InferMemoryConflict";
         case PassName::REMOVE_UNDRIVEN_VIEW: return "RemoveUndrivenView";
         case PassName::EXPAND_FUNCTION: return "ExpandFunction";
