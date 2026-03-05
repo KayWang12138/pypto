@@ -1610,6 +1610,8 @@ TEST_F(DynamicOpsTest, ScatterUINT64) {
 TEST_F(DynamicOpsTest, Scatter) {
     std::string logOutput = CaptureStdoutAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    std::vector<std::string> passList = {"all"};
+    config::SetVerifyOption(KEY_PASS_VERIFY_FILTER, passList);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
     int64_t b = 1;

@@ -972,9 +972,6 @@ static void QuantExecute(torch::Tensor &tout, const TensorData *scalePtr, uint64
 
 static void QuantPreCompute(const TensorData &out, const TensorData &self, const TensorData *scalePtr, uint64_t scale, int relu) {
     ASSERT(out.dataPtr != nullptr && self.dataPtr != nullptr);
-    ALOG_DEBUG_F("Quant input data type: %s, output data type: %s, relu: %d, scale: %llu.\n",
-        DataType2CCEStr(self.dtype).c_str(), DataType2CCEStr(out.dtype).c_str(),
-        relu, scale);
     ASSERT(out.dtype == DataType::DT_FP16 && self.dtype == DataType::DT_INT32);
     auto tself = From(self);
     auto tout = From(out);
