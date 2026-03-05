@@ -119,25 +119,34 @@ python3 examples/02_intermediate/operators/softmax/softmax.py --run_mode sim
 
 ### Step 5: 完成报告
 
-环境配置完成后，输出以下报告供用户确认。
+环境配置完成后，运行诊断并整理报告。
 
-**配置摘要**：
+**运行诊断**：
 ```bash
-echo "=== PyPTO 环境配置报告 ==="
-echo "CANN 版本: $(cat \"${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/version.info\" 2>/dev/null || echo '未知')"
-echo "NPU 设备: $(npu-smi info 2>/dev/null | grep 'Chip Name' | head -1 || echo '未检测到')"
-echo "TILE_FWK_DEVICE_ID: ${TILE_FWK_DEVICE_ID}"
-echo "PTO_TILE_LIB_CODE_PATH: ${PTO_TILE_LIB_CODE_PATH}"
-echo "PYPTO_REPO: ${PYPTO_REPO:-$PWD}"
+cd ${PYPTO_REPO:-$PWD}
+python3 scripts/diagnose_env.py --checklist
 ```
 
-**验证结果**：
-- Softmax 测试（NPU 模式）：✅ 通过
+**报告模板**：
+```
+=====================================
+PyPTO 环境配置
+=====================================
+CANN 版本:  8.5.0
+NPU 芯片:   Ascend910 (A2/A3)
+Python:     3.10.x
+torch:      2.6.x
+torch_npu:  2.6.x
+pypto:      ✅ 已安装
+=====================================
 
-**持久化配置（可选）**：
-```bash
+验证结果:   Softmax（NPU 模式）✅ 通过
+
+过程问题总结：
+  - <问题> -> <解决方案>
+
+持久化配置（可选）：
 cat >> ~/.bashrc << 'EOF'
-# PyPTO 环境配置
 source ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/set_env.sh
 export TILE_FWK_DEVICE_ID=0
 export PTO_TILE_LIB_CODE_PATH=${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/aarch64-linux
