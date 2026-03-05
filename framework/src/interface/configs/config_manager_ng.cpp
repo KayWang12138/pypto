@@ -354,7 +354,6 @@ struct ConfigManagerImpl {
                 FUNCTION_LOGE("Failed to set option. Key: %s, Error: %s", it.first.c_str(), e.what());
             }
         }
-        FUNCTION_LOGD("Set locations: %s:%d", file, lino);
     }
 
     void Dump(std::stringstream &os, ConfigScope *node, const std::string &prefix) {

@@ -204,6 +204,7 @@ class Tensor:
         key = self._normalize_key(key)
 
         if all(isinstance(k, (int, SymbolicScalar)) for k in key):
+            assert self._base.dtype == DataType.DT_INT32, "tensor dtype must be DT_INT32."
             return SymbolicScalar.from_base(pypto_impl.GetTensorData(self._base, to_syms(key)))
 
         if all(isinstance(k, slice) for k in key):
