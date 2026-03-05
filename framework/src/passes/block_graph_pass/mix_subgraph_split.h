@@ -116,7 +116,6 @@ private:
                             Function* originalMixFunc, 
                             const std::vector<InternalComponentInfo>& components,
                             const std::vector<uint64_t>& newProgramIDs,
-                            SubgraphToFunction& subgraphToFunction,
                             std::vector<Function*>& newFunctions,
                             uint64_t mixId,
                             MixResourceType resourceType);
@@ -149,20 +148,6 @@ private:
                           const std::vector<InternalComponentInfo>& components,
                           uint64_t mixId,
                           const std::shared_ptr<AnalyzerOutput>& analyzerOutput);
-    void ApplyFinalDependencies(
-        const std::vector<Function*>& newFunctions,
-        const std::unordered_map<int, std::vector<SimpleTensorParam>>& allIncasts,
-        const std::unordered_map<int, std::vector<SimpleTensorParam>>& allOutcasts) const;
-    
-    void ApplyIncastDependencies(
-        Function* leafFunc,
-        int componentId,
-        const std::vector<SimpleTensorParam>& incastParams) const;
-        
-    void ApplyOutcastDependencies(
-        Function* leafFunc,
-        int componentId,
-        const std::vector<SimpleTensorParam>& outcastParams) const;
 
     uint64_t nextMixId_;
     static constexpr uint64_t INVALID_PROGRAM_ID = static_cast<uint64_t>(-1);

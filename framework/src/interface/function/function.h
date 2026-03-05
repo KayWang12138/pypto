@@ -486,6 +486,9 @@ public:
     std::vector<std::shared_ptr<LogicalTensor>> inCasts_; // Input tensors
     std::vector<std::shared_ptr<LogicalTensor>> outCasts_; // Output tensors
 
+    std::vector<std::pair<int, int>> incastPosition;
+    std::vector<std::pair<int, int>> outcastPosition;
+
     int opSeed_{FUNCTION_MAX_INCASTS};
     SubfuncTopologyInfoTy topoInfo_; // root function持有，对应1.0的SubgraphTopologyInfoTy
     std::map<uint64_t, Function*> programs_; // root function持有，所有异构的leaf function
@@ -760,7 +763,6 @@ public:
         outcastPosition.emplace_back(opmagic, k);
         outCasts_.emplace_back(tensor);
     }
-
     void RemoveOutcast(int idx) {
         outcastPosition.erase(outcastPosition.begin() + idx);
         outCasts_.erase(outCasts_.begin() + idx);
@@ -858,11 +860,9 @@ private:
 
     std::vector<std::shared_ptr<LogicalTensor>> originInCasts_;
     std::unordered_set<std::shared_ptr<LogicalTensor>> inCastsSet_; // Input tensors set
-    std::vector<std::pair<int, int>> incastPosition;
-
+   
     std::vector<std::shared_ptr<LogicalTensor>> originOutCasts_;
     std::map<int, int> opmagicToOutcastIdx_;
-    std::vector<std::pair<int, int>> outcastPosition;
 
     TensorMap tensorMap_; // TensorMap to register tensors
     std::unordered_set<std::shared_ptr<LogicalTensor>> globalTensors_; // global tensors

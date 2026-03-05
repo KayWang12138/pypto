@@ -22,7 +22,6 @@ Status MixCallOperationBuilder::CreateCallOps(Function& rootFunc, const std::vec
                                               Function* originalMixFunc,
                                               const std::vector<InternalComponentInfo>& components,
                                               const std::vector<uint64_t>& newProgramIDs,
-                                              SubgraphToFunction& subgraphToFunction,
                                               std::vector<Function*>& newFunctions,
                                               const std::vector<InternalDependencyInfo>& internalDeps)
 {
@@ -42,7 +41,7 @@ Status MixCallOperationBuilder::CreateCallOps(Function& rootFunc, const std::vec
             info.originalCallOp = originalCallOp;
             info.wrapId = wrapId;
             auto status = CreateCallOpInRootFunction(rootFunc, *info.leafFunc, info.newProgramID, info.componentIndex,
-                                                     info.originalCallOp, originalMixFunc, subgraphToFunction, info);
+                                                     info.originalCallOp, originalMixFunc, info);
             if (status != SUCCESS) {
                 ALOG_ERROR_F("Failed to create call op for component %zu", info.componentIndex);
                 return FAILED;
@@ -70,7 +69,6 @@ Status MixCallOperationBuilder::CreateCallOpInRootFunction(Function& rootFunc,
                                                            uint64_t componentIndex,
                                                            Operation* originalCallOp,
                                                            Function* originalMixFunc,
-                                                           SubgraphToFunction& subgraphToFunction,
                                                            CallOpCreationInfo& info)
 {
     ALOG_DEBUG_F("Creating callOp in root function for leaf: %s, programID=%d, component=%d, wrapId=%lu",
@@ -89,37 +87,16 @@ Status MixCallOperationBuilder::CreateCallOpInRootFunction(Function& rootFunc,
     auto originalOutcasts = originalMixFunc->GetOutcast();
     ALOG_DEBUG_F("Original mix function %s has %zu incasts, %zu outcasts",
                  originalMixFunc->GetRawName().c_str(), originalIncasts.size(), originalOutcasts.size());
-    // 从invokeInfo获取incast和outcast参数信息
-    const auto& invokeInfo = subgraphToFunction.subFuncInvokeInfos[componentIndex];
-    // 构建新的operands列表
-    std::vector<LogicalTensorPtr> newIOperands;
-    std::vector<LogicalTensorPtr> newOOperands;
-    // 用于跟踪已经处理过的tensor
-    std::set<LogicalTensorPtr> processedIncasts;
-    std::set<LogicalTensorPtr> processedOutcasts;
-    // 处理直接外部依赖的IOperands
-    ALOG_INFO_F("===> FindIOperandsAndOOperands start.");
-    FindNewIOperandsInOriginalIncast(originalIOperands, originalIncasts, invokeInfo, newIOperands, processedIncasts);
-    // 处理直接外部依赖的OOperands
-    FindNewOOperandsInOriginalOutcast(originalOOperands, originalOutcasts, invokeInfo, newOOperands, processedOutcasts);
-    // 获取传播依赖后的实际incast/outcast
-    auto actualIncasts = leafFunc.GetIncast();
-    auto actualOutcasts = leafFunc.GetOutcast();
-    // 处理传播依赖的IOperands和OOperands
-    FindNewIOperandsAndOOperandsInPropagateInOutcast(originalIOperands, originalOOperands,
-                                                     originalIncasts, originalOutcasts,
-                                                     actualIncasts, actualOutcasts,
-                                                     newIOperands, newOOperands,
-                                                     processedIncasts, processedOutcasts);
-    ALOG_INFO_F("===> FindIOperandsAndOOperands end.");
-    auto& callOp = rootFunc.AddRawOperation(Opcode::OP_CALL, newIOperands, newOOperands, false);
+    auto& callOp = rootFunc.AddRawOperation(Opcode::OP_CALL, originalIOperands, originalOOperands, false);
     ALOG_INFO_F("Created operands for new callOp %d: %zu inputs, %zu outputs",
-                callOp.GetOpMagic(), newIOperands.size(), newOOperands.size());
-    // 寻找新call op的IOpAttrOffset和OOpAttrOffset
-    FindIOpAttrOffsetAndOOpAttrOffset(leafFunc, invokeInfo, info.iOffsets, info.oOffsets, originalMixFunc);
+                callOp.GetOpMagic(), originalIOperands.size(), originalOOperands.size());
+    info.iOffsets.clear();
+    info.oOffsets.clear();
+    info.iOffsets = originalCallOp->GetIOpAttrOffsets();
+    info.oOffsets = originalCallOp->GetOOpAttrOffsets();
     callOp.SetOpOffset(info.iOffsets, info.oOffsets);
     SetCallOpAttribute(leafFunc, callOp, originalCallOp, originalCallAttr,
-                       newProgramID, componentIndex, subgraphToFunction, info);
+                       newProgramID, componentIndex, info);
     // 将创建的call op记录到info中
     info.createdCallOp = &callOp;
     ALOG_INFO_F("Successfully created callOp %d in root function for programID=%d, leaf=%s",
@@ -504,9 +481,9 @@ void MixCallOperationBuilder::SetCallOpAttribute(Function& leafFunc,
                                                  CallOpAttribute* originalCallAttr,
                                                  uint64_t newProgramID,
                                                  uint64_t componentIndex,
-                                                 SubgraphToFunction& subgraphToFunction,
                                                  CallOpCreationInfo& info)
 {
+    (void) componentIndex;
     if (originalCallAttr == nullptr) {
         ALOG_ERROR_F("Original callOp %d has no CallOpAttribute", originalCallOp->GetOpMagic());
         return;
@@ -525,13 +502,9 @@ void MixCallOperationBuilder::SetCallOpAttribute(Function& leafFunc,
     }
     callOp.SetOpAttribute(callAttr);
     callOp.UpdateSubgraphID(newProgramID);
-    if (componentIndex < subgraphToFunction.subFuncInvokeInfos.size()) {
-        callOp.SetSubFuncInvokeInfo(subgraphToFunction.subFuncInvokeInfos[componentIndex]);
-    }
     if (callOpAttr != nullptr && callOpAttr->invokeInfo_ != nullptr) {
         callOpAttr->invokeInfo_->UpdateProgramSubgraphId(newProgramID);
     }
-    subgraphToFunction.SetSemanticLabel(leafFunc.GetProgramOp(), callOp);
     ALOG_DEBUG_F("Created callOp %d: %zu arg blocks (from original callOp %d), %zu input offsets, %zu output offsets",
                  callOp.GetOpMagic(), argList.size(), originalCallOp->GetOpMagic(),
                  info.iOffsets.size(), info.oOffsets.size());
