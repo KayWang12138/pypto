@@ -190,14 +190,10 @@ public:
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
         }
-        PerfMtTrace(PERF_TRACE_DEV_TASK_SCHED_EXEC, aicpuIdx_);
-        PerfMtBegin(PERF_EVT_SYNC_AICORE, aicpuIdx_);
         int32_t rc = SyncTaskFinish();
-        PerfMtTrace(PERF_TRACE_DEV_TASK_SYNC_CORE_STOP, aicpuIdx_);
         if (rc != DEVICE_MACHINE_OK) {
             ret = rc;
         }
-        PerfMtEnd(PERF_EVT_SYNC_AICORE, aicpuIdx_);
         return ret;
     }
 
@@ -286,12 +282,10 @@ public:
     inline int RunManager(int threadIdx, DevStartArgs *devStartArgs, DeviceArgs *deviceArgs, int schedIdx) {
         int ret = DEVICE_MACHINE_OK;
         Init(threadIdx, devStartArgs, deviceArgs, schedIdx);
-        PerfMtTrace(PERF_TRACE_INIT, threadIdx);
         DeviceTaskCtrl *taskCtrl = nullptr;
         taskQueue_ = &(devStartArgs->deviceRuntimeDataDesc.taskQueueList[schedIdx_]);
         if constexpr (IsDeviceMode()) {
             ret = HandShake();
-            PerfMtTrace(PERF_TRACE_CORE_HAND_SHAKE, threadIdx);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 DEV_ERROR("hand shake timeout.");
                 AbnormalStop();
@@ -303,27 +297,18 @@ public:
             devStartArgs->syncFlag = 1;
             aicoreProf_.ProfStart();
         }
-        uint64_t lastDevTaskFinCycle = 0;
         while (ret == 0) {
             taskCtrl = preFetchSuccess_ ? preFetchNextDevTaskCtrl_ : taskQueue_->Dequeue();
             if (taskCtrl == nullptr) {
-                PerfMtTrace(PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, aicpuIdx_, lastDevTaskFinCycle);
                 if (!isSendStop) {
                     SyncTaskFinish(true);
                 }
                 break;
             }
-            PerfMtTrace(PERF_TRACE_DEV_TASK_RCV, aicpuIdx_);
-            PROF_STAGE_BEGIN_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.before\n");
-            PerfMtBegin(PERF_EVT_RUN_TASK, threadIdx);
             ret = RunTask(taskCtrl);
-            lastDevTaskFinCycle = GetCycles();
-            PerfMtEnd(PERF_EVT_RUN_TASK, threadIdx);
             if (ret != 0)
                 break;
             taskCtrl->PutTask(ret);
-            PerfMtTrace(PERF_TRACE_DEV_TASK_RSP, threadIdx);
-            PROF_STAGE_END_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.after\n");
         }
         PostRun(ret, taskCtrl);
         return ret;
@@ -580,7 +565,6 @@ private:
         if (ready == 0 ) {
             return 0;
         }
-        PerfMtBegin(PERF_EVT_SEND_AIC_TASK, aicpuIdx_);
         uint32_t readyId[MAX_MANAGER_AIV_NUM];
         ReadyQueueLock(readyQue);
         uint32_t head = __atomic_load_n(&readyQue->head, __ATOMIC_RELAXED);
@@ -588,7 +572,6 @@ private:
         uint32_t taskCount = std::min(ready, tail - head);
         if (taskCount == 0) {
             ReadyQueueUnLock(readyQue);
-            PerfMtEnd(PERF_EVT_SEND_AIC_TASK, aicpuIdx_);
             return 0;
         }
         bool isRealLifo = (enableL2CacheSch_ && !firstLock[static_cast<int>(type)]);
@@ -603,7 +586,6 @@ private:
         BatchSendTask(type, isRealLifo ? &readyId[taskCount - 1] : &readyQue->elem[head],
             taskCount, coreIdxStart, coreIdxEnd, isRealLifo);
         firstLock[static_cast<int>(type)] = false;
-        PerfMtEnd(PERF_EVT_SEND_AIC_TASK, aicpuIdx_);
         return taskCount;
     }
 
@@ -666,7 +648,6 @@ private:
         context_->sendCnt_[static_cast<int>(type)]++;
 
         if (isFirstTaskSend_) {
-            PerfMtTrace(PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK, aicpuIdx_);
             isFirstTaskSend_ = false;
         }
 
@@ -700,7 +681,6 @@ private:
     }
     inline int32_t ResolveDepForAllAiCore(CoreType type, int coreIdxStart, int coreIdxEnd) {
         int32_t ret = DEVICE_MACHINE_OK;
-        PerfMtBegin(static_cast<int>(PERF_EVT_RESOLVE_DEPENDENCE), aicpuIdx_);
         for (int i = coreIdxStart; i < coreIdxEnd; i++) {
             if ((runningIds_[i] != AICORE_TASK_INIT || pendingIds_[i] != AICORE_TASK_INIT)) {
                 ret = ResolveByRegVal(type, i);
@@ -723,7 +703,6 @@ private:
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
         }
-        PerfMtEnd(static_cast<int>(PERF_EVT_RESOLVE_DEPENDENCE), aicpuIdx_);
         return ret;
     }
 
@@ -958,26 +937,6 @@ private:
         return ret;
     }
 
-    inline uint64_t GetCostModelTaskTime(uint64_t coreIdx, uint64_t taskId, uint64_t currentTime) {
-        auto funcId = FuncID(taskId);
-        auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
-        auto costModelData = reinterpret_cast<CostModel::ModelData*>(curDevTask_->costModelData);
-        if (costModelData == nullptr) return 0;
-        auto source = dyntask->GetDynFuncDataCacheList()[funcId].devFunc;
-        auto opIndex = TaskID(taskId);
-        auto leafFunctionIdx = source->GetOperationAttrCalleeIndex(opIndex);
-        auto timeCost = costModelData->functionTime[leafFunctionIdx];
-        auto header = dyntask->GetDynFuncDataList();
-        auto dyndata = reinterpret_cast<DynFuncData *>(&header->At(0));
-        auto opAttrs = &dyndata->opAttrs[dyndata->opAtrrOffsets[TaskID(taskId)]];
-        auto psgId = opAttrs[0];
-        // devTaskId - funcId - leaf function Id - psgId
-        std::string name = std::to_string(curTaskId_) + '-' + std::to_string(funcId) + '-' +
-                           std::to_string(opIndex) + '-' + std::to_string(psgId);
-        PerfMtEvent(PERF_EVT_TASK, coreIdx + PERF_AICORE_THREAD_START, currentTime, currentTime + timeCost, name);
-        return timeCost;
-    }
-
     inline int32_t ResolveDynStitched(DynDeviceTask *dyntask, int origfunc, int origop, int coreIdx = 0) {
         int32_t ret = DEVICE_MACHINE_OK;
         auto &duppedData = dyntask->GetDynFuncDataCacheList()[origfunc].duppedData;
@@ -1194,10 +1153,7 @@ private:
             aicoreProf_.ProfInit(reinterpret_cast<int64_t *>(deviceArgs->corePmuRegAddr),
                reinterpret_cast<int64_t *>(deviceArgs->pmuEventAddr),
                deviceArgs->toSubMachineConfig.profConfig, deviceArgs->archInfo);
-        } else {
-            aicoreHal_.SetTaskTimeCost([this](uint64_t coreIdx, uint64_t taskId, uint64_t time)
-                {return GetCostModelTaskTime(coreIdx, taskId, time); });
-        }
+        } 
         firstLock[static_cast<int>(CoreType::AIC)] = true;
         firstLock[static_cast<int>(CoreType::AIV)] = true;
         preFetchSuccess_ = false;
