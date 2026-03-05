@@ -17,6 +17,7 @@
 #include "tilefwk/platform.h"
 #include "interface/utils/file_utils.h"
 #include "platform/parser/platform_parser.h"
+#include "platform/parser/internal_parser.h"
 
 using namespace npu::tile_fwk;
 const std::string archInfo = "ArchInfo";
@@ -35,24 +36,12 @@ const std::string l1Size = "l1_size";
 const std::string ubSize = "ub_size";
 const std::string aic = "AIC";
 const std::string aiv = "AIV";
-const std::string TEST_TMP_DIR = "/TestPlatform/";
+const std::string INI_PATH = "/../../../framework/tests/ut/machine/stubs/compiler/data/platform_config/Ascend910_9572.ini";
 
 class TestPlatformParser : public testing::Test {
 public:
-    static void SetUpTestCase() {
-        std::string src = RealPath(GetCurrentSharedLibPath() + "/../../../framework/tests/ut/machine/stubs/compiler/data/platform_config/Ascend910_9572.ini");
-        CreateMultiLevelDir(TEST_TMP_DIR);
-        std::string dst = TEST_TMP_DIR + "A5.ini";
-        std::string command = "cp " + src + " " + dst;
-        int ret = std::system(command.c_str());
-        if (ret != 0) {
-            std::cout << "cmd[" << command <<"] failed " << std::endl;
-        }
-    }
-    static void TearDownTestCase() {
-        std::string cmd = "rm -rf " + TEST_TMP_DIR;
-        [[maybe_unused]]int ret = system(cmd.c_str());
-    }
+    static void SetUpTestCase() {}
+    static void TearDownTestCase() {}
     void SetUp() override {}
     void TearDown() override {}
 };
@@ -69,7 +58,7 @@ TEST_F(TestPlatformParser, TestParser) {
     const size_t expectubSize = 253952UL;
 
     INIParser parser;
-    std::string iniPath = TEST_TMP_DIR + "A5.ini";
+    std::string iniPath = GetCurRunningPath() + INI_PATH;
     EXPECT_TRUE(parser.Initialize(iniPath));
 
     std::string socVersion;
@@ -136,4 +125,27 @@ TEST_F(TestPlatformParser, TestObtainPlatformInfo) {
     std::vector<MemoryType> paths;
     EXPECT_TRUE(Platform::Instance().GetDie().FindNearestPath(MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1, paths));
     EXPECT_EQ(paths.size(), 2UL);
+}
+
+TEST_F(TestPlatformParser, AbnormalTest) { 
+    INIParser parser; 
+    EXPECT_FALSE(parser.Initialize("")); 
+
+    std::unordered_map<std::string, std::string> ccecVersion; 
+    EXPECT_FALSE(parser.GetCCECVersion(ccecVersion)); 
+    EXPECT_FALSE(parser.GetCoreVersion(ccecVersion)); 
+
+    std::string iniPath = GetCurRunningPath() + INI_PATH;
+    EXPECT_TRUE(parser.Initialize(iniPath)); 
+
+    std::string test; 
+    EXPECT_FALSE(parser.GetStringVal("none", "", test)); 
+    EXPECT_FALSE(parser.GetStringVal(version, "none_other", test)); 
+
+    size_t testSize; 
+    EXPECT_FALSE(parser.GetSizeVal("none", "", testSize)); 
+
+    InternalParser internalParser = InternalParser(""); 
+    std::vector<std::pair<MemoryType, MemoryType>> dataPath; 
+    EXPECT_FALSE(internalParser.GetDataPath(dataPath)); 
 }
