@@ -172,19 +172,33 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
     return true;
 }
 
+bool CheckDynRawShape(Shape shape) {
+    return std::any_of(shape.begin(), shape.end(), [](int dim) {
+        return dim < 0;
+    });
+}
+
 bool InferMemoryConflict::MatMulPattern(const LogicalTensorPtr &reshapeIn, const LogicalTensorPtr &reshapeOut) {
+    Shape inShape = reshapeIn->GetRawTensor()->GetRawShape();
+    Shape outShape = reshapeOut->GetRawTensor()->GetRawShape();
+    if (CheckDynRawShape(inShape) || CheckDynRawShape(outShape)) {
+        return false;
+    }    
     auto producer = *(reshapeIn->GetProducers().begin());
     auto consumer = *(reshapeOut->GetConsumers().begin());
     if (producer == nullptr || consumer == nullptr) {
         return false;
     }
-    bool mulPattern =
-        ((producer->GetOpcode() == Opcode::OP_VIEW &&
-          OpcodeManager::Inst().GetOpCalcType(consumer->GetOpcode()) == OpCalcType::MATMUL) ||
-         (OpcodeManager::Inst().GetOpCalcType(producer->GetOpcode()) == OpCalcType::MATMUL && 
-          consumer->GetOpcode() == Opcode::OP_ASSEMBLE));
-
-    return mulPattern;
+    if (producer->GetOpcode() == Opcode::OP_VIEW &&
+ 	             OpcodeManager::Inst().GetOpCalcType(consumer->GetOpcode()) == OpCalcType::MATMUL) {
+ 	    auto matmulIn = consumer->GetIOperands().front();
+ 	    return matmulIn->GetProducers().size() == 1;
+ 	} else if (OpcodeManager::Inst().GetOpCalcType(producer->GetOpcode()) == OpCalcType::MATMUL &&
+ 	             consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
+ 	    auto matmulOut = producer->GetOOperands().front();
+ 	    return matmulOut->GetConsumers().size() == 1;
+    }
+    return false;
 }
 
 // batch MatMul优化pattern，不插入register copy
@@ -252,6 +266,7 @@ Status InferMemoryConflict::UpdateForwardTensor(Function &function, const Logica
         if (consumer->GetOpcode() == Opcode::OP_RESHAPE) {
             auto reshapeInput = consumer->GetIOperands().front();
             bool isInplace = consumer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
+            std::cout << "UpdateForwardTensor:" << memoryInfo[curTensor]->GetMagic() << ":" << reshapeInput->GetMagic() << std::endl;
             if (!MatchReshapePattern(reshapeInput, outputTensor) && !isInplace && CheckRawShapeConflict(memoryInfo[curTensor], outputTensor)) {
                 preregcopys.insert(consumer);
                 continue;
@@ -283,6 +298,7 @@ Status InferMemoryConflict::UpdateBackwardTensor(const LogicalTensorPtr &curTens
         auto reshapeOutput = producer->GetOOperands().front();
         if (producer->GetOpcode() == Opcode::OP_RESHAPE) {
             bool isInplace = producer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
+            std::cout << "UpdateForwardTensor:" << memoryInfo[curTensor]->GetMagic() << ":" << reshapeOutput->GetMagic() << std::endl;
             if (!MatchReshapePattern(inputTensor, reshapeOutput) && !isInplace && CheckRawShapeConflict(inputTensor, memoryInfo[curTensor])) {
                 postregcopys.insert(producer);
                 continue;
