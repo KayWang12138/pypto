@@ -65,6 +65,7 @@ Status GraphPartition::RunOnFunction(Function &function)
         OspPartitioner partitioner(mode);
         if (partitioner.SetParameter(function) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Config, "Set parameters of GraphPartition failed.");
+            return FAILED;
         }
         
         if (partitioner.PartitionGraph(function) != SUCCESS) {

@@ -588,7 +588,7 @@ bool SuperNodeGraphBuilder::MulAccCombine(const std::shared_ptr<OperationGraphIn
 bool SuperNodeGraphBuilder::ExpandCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
                             int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair)
 {
-    if (i < 0 || i > static_cast<int32_t>(opList.size())) {
+    if (i < 0 || i >= static_cast<int32_t>(opList.size())) {
         return false;
     }
     // Expand operation with only one child
