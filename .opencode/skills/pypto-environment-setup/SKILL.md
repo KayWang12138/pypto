@@ -13,7 +13,7 @@ ASCEND_INSTALL_PATH=${ASCEND_INSTALL_PATH:-/usr/local/Ascend}
 
 
 - `$SKILL_DIR`：由 agent 运行时自动注入的环境变量。指向当前 skill 的根目录（即本 `pypto-environment-setup/` 目录）。文档中所有 `$SKILL_DIR/scripts/...` 的引用均依赖此变量。手动执行时需自行设置，例如：`export SKILL_DIR=/path/to/pypto-environment-setup`。
-- **默认版本**：CANN 8.5.0 + PyTorch 2.6.0 + torch_npu 2.6.0
+- **默认版本**：CANN 8.5.0 + PyTorch 2.6.0 + torch_npu 2.6.0.post3
 
 ## ⛔ 隐私保护
 
@@ -75,6 +75,11 @@ python3 scripts/diagnose_env.py --checklist
 > 手动安装/编译细节见 [📋 prepare_environment.md](references/prepare_environment.md)。
 > 遇到报错见 [🔧 troubleshooting.md](references/troubleshooting.md)。
 
+> ⚠️ **torch_npu 版本兼容性**：CANN 8.5.0 必须配套使用 `torch_npu==2.6.0.post3`，其他版本可能导致 HCCL 符号不兼容。安装命令：
+> ```bash
+> pip install torch==2.6.0 torch-npu==2.6.0.post3
+> ```
+
 ### Step 4: 验证（必须执行）
 
 任何安装/修复后必须通过 softmax 验证。
@@ -96,7 +101,12 @@ export PTO_TILE_LIB_CODE_PATH=${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/aarch6
 cd ${PYPTO_REPO:-$PWD}
 ```
 
-**编译安装**：
+**安装 torch 和 torch_npu**（CANN 安装后执行）：
+```bash
+pip install torch==2.6.0 torch-npu==2.6.0.post3
+```
+
+**编译安装 PyPTO**：
 ```bash
 python3 build_ci.py -f python3 --clean --disable_auto_execute
 pip install build_out/pypto-*.whl --force-reinstall -q
@@ -136,7 +146,7 @@ CANN 版本:  8.5.0
 NPU 芯片:   Ascend910 (A2/A3)
 Python:     3.10.x
 torch:      2.6.x
-torch_npu:  2.6.x
+torch_npu:  2.6.0.post3
 pypto:      ✅ 已安装
 =====================================
 
