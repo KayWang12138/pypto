@@ -474,15 +474,14 @@ class JitCallableWrapper:
             dynamic_axis = [
                 i
                 for i, dim in enumerate(tensor_def.shape)
-                if isinstance(dim, pypto.SymbolicScalar)
+                if isinstance(dim, pypto.SymbolicScalar) or dim in (pypto.StatusType.DYN, pypto.StatusType.DYNAMIC)
             ]
+
             pto_tensors.append(
                 pypto.from_torch(
                     torch_tensor,
                     name=tensor_def.name,
-                    dynamic_axis=dynamic_axis if dynamic_axis else None,
-                    tensor_format=tensor_def.format,
-                    dtype=tensor_def.dtype,
+                    dynamic_axis=dynamic_axis if dynamic_axis else None
                 )
             )
         return pto_tensors
@@ -539,6 +538,7 @@ class JitCallableWrapper:
         # Re-create parser for compilation
         self._parser = self._create_parser()
         self._parser.parse()
+        self._parser.input_pto_tensor = args
 
         # Initialize backend for compilation
         self._setup_verify_data(args)
@@ -682,6 +682,7 @@ class JitCallableWrapper:
             if debug_mode is not None:
                 if debug_mode == DebugMode.CHECKATTR:
                     self._check_input_defs_match_tensors(in_tensors, input_tensor_defs)
+
         symbolic_dim_value_map = None
         out_tensors = []
         for out_tensor_def in output_tensor_defs:
@@ -710,8 +711,8 @@ class JitCallableWrapper:
             with pypto.options("jit_scope"):
                 self._set_config_option()
                 pypto_impl.DeviceInit()
-                self.compile([*pto_tensors])
-                self._run_with_cpu([*pto_tensors], [])
+                self.compile(pto_tensors)
+                self._run_with_cpu(pto_tensors, [])
 
     def _check_input_defs_match_tensors(self, in_tensors: list, input_tensor_defs: list[pypto.Tensor]) -> None:
         """Check if the input tensor definitions match the input tensors.
@@ -735,8 +736,18 @@ class JitCallableWrapper:
         idx = 0
         for in_tensor, input_tensor_def in zip(in_tensors, input_tensor_defs):
             idx += 1
+
+            # Skip checking if the input tensor definition is None or（shape len is 0 && shape object is not list）
+            if len(input_tensor_def.shape) == 0 and input_tensor_def.status_shape is None:
+                continue
+
+            # def shape len must <= tensor shape len
+            is_diff_shape = len(in_tensor.shape) != len(input_tensor_def.shape) \
+                if input_tensor_def.status_shape is None \
+                else len(in_tensor.shape) < len(input_tensor_def.shape)
+
             # Check the shape of input tensors and input tensor definitions
-            if len(in_tensor.shape) != len(input_tensor_def.shape):
+            if is_diff_shape:
                 raise ValueError(f"The number of dimensions of {ordinal(idx)} input tensor {in_tensor.shape} \
                     does not match the number of dimensions of input tensor definition {input_tensor_def.shape}.")
             for i, dim in enumerate(input_tensor_def.shape):
@@ -748,7 +759,6 @@ class JitCallableWrapper:
             if self._dtype_dict[str(in_tensor.dtype)] != input_tensor_def.dtype:
                 raise ValueError(f"The dtype of {ordinal(idx)} input tensor {in_tensor.dtype} \
                     does not match the dtype of input tensor definition {input_tensor_def.dtype}.")
-
             if in_tensor.device == "npu":
                 if self._format_dict[get_format(in_tensor)] != input_tensor_def.format:
                     raise ValueError(f"The format of {ordinal(idx)} input tensor {get_format(in_tensor)} \
