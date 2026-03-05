@@ -14,7 +14,6 @@
  */
 
 #include "merge_src_dst_buffer.h"
-#include "passes/pass_log/pass_log.h"
 
 #define MODULE_NAME "SrcDstBufferMerge"
 

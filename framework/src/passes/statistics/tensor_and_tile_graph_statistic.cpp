@@ -14,6 +14,7 @@
  */
 
 #include "tensor_and_tile_graph_statistic.h"
+#include "passes/pass_log/pass_log.h"
 
 #include <sstream>
 #include <stdexcept>
