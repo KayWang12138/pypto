@@ -90,7 +90,7 @@ class DagVectorAdapter {
     DagVectorAdapter(DagVectorAdapter &&other) noexcept = default;
     DagVectorAdapter &operator=(DagVectorAdapter &&other) noexcept = default;
 
-    virtual ~DagVectorAdapter() = default;
+    ~DagVectorAdapter() = default;
 
 
     void SetInOutNeighbors(const std::vector<std::vector<IndexT>> &inNeigbors,

@@ -123,7 +123,7 @@ class ComputationalDagVectorImpl {
         return *this;
     }
 
-    virtual ~ComputationalDagVectorImpl() = default;
+    ~ComputationalDagVectorImpl() = default;
 
     [[nodiscard]] auto Vertices() const { return IntegralRange<VertexIdx>(static_cast<VertexIdx>(vertices_.size())); }
     [[nodiscard]] VertexIdx NumVertices() const { return static_cast<VertexIdx>(vertices_.size()); }

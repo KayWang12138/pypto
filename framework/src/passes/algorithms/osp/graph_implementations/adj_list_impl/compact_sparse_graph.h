@@ -70,7 +70,7 @@ protected:
         CompactParentEdges(CompactParentEdges &&other) = default;
         CompactParentEdges &operator=(const CompactParentEdges &other) = default;
         CompactParentEdges &operator=(CompactParentEdges &&other) = default;
-        virtual ~CompactParentEdges() = default;
+        ~CompactParentEdges() = default;
 
         CompactParentEdges(std::vector<VertexIdx> &&csrEdgeParents, std::vector<EdgeT> &&csrTargetPtr)
             : csrEdgeParents_(std::move(csrEdgeParents)), csrTargetPtr_(std::move(csrTargetPtr)) {};
@@ -136,7 +136,7 @@ protected:
         CompactChildrenEdges(CompactChildrenEdges &&other) = default;
         CompactChildrenEdges &operator=(const CompactChildrenEdges &other) = default;
         CompactChildrenEdges &operator=(CompactChildrenEdges &&other) = default;
-        virtual ~CompactChildrenEdges() = default;
+        ~CompactChildrenEdges() = default;
 
         CompactChildrenEdges(std::vector<VertexIdx> &&cscEdgeChildren, std::vector<EdgeT> &&cscSourcePtr)
             : cscEdgeChildren_(std::move(cscEdgeChildren)), cscSourcePtr_(std::move(cscSourcePtr)) {};
@@ -219,7 +219,7 @@ public:
     CompactSparseGraph(CompactSparseGraph &&other) = default;
     CompactSparseGraph &operator=(const CompactSparseGraph &other) = default;
     CompactSparseGraph &operator=(CompactSparseGraph &&other) = default;
-    virtual ~CompactSparseGraph() = default;
+    ~CompactSparseGraph() = default;
 
     template <template <typename, typename...> class Container>
     CompactSparseGraph(VertexIdx numVertices, const Container<std::pair<VertexIdx, VertexIdx>> &edges)
