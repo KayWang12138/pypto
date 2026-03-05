@@ -15,6 +15,10 @@
 
 #include "auto_cast_checker.h"
 
+#ifndef MODULE_NAME
+#define MODULE_NAME "AutoCast"
+#endif
+
 namespace npu {
 namespace tile_fwk {
 Status AutoCastChecker::DoPreCheck(Function &function) {

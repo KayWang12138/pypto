@@ -29,6 +29,10 @@
 #include <condition_variable>
 #include <atomic>
 
+#ifndef MODULE_NAME
+#define MODULE_NAME "AddAlloc"
+#endif
+
 namespace npu::tile_fwk {
 struct TensorAllocMsg {
     std::vector<std::reference_wrapper<Operation>> producer;

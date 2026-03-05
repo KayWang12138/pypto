@@ -20,6 +20,10 @@
 #include "interface/utils/file_utils.h"
 #include "passes/pass_log/pass_log.h"
 
+#ifndef MODULE_NAME
+#define MODULE_NAME "PassInterface"
+#endif
+
 static constexpr size_t PASS_NUM_DIGITS = 2;
 namespace npu::tile_fwk {
 Pass::Pass(std::string name) : name_(std::move(name)) {}

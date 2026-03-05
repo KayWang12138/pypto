@@ -18,6 +18,10 @@
 #include "interface/utils/log.h"
 #include "passes/pass_log/pass_log.h"
 
+#ifndef MODULE_NAME
+#define MODULE_NAME "RescheduleUtils"
+#endif
+
 namespace npu::tile_fwk {
 bool RescheduleUtils::isAllocOp(Operation* op) {
     static std::unordered_set<Opcode> allocOpcodes = {

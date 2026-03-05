@@ -18,6 +18,10 @@
 #include "interface/utils/log.h"
 #include "passes/pass_log/pass_log.h"
 
+#ifndef MODULE_NAME
+#define MODULE_NAME "PassRegistry"
+#endif
+
 namespace npu::tile_fwk {
 // PassRegistry
 PassRegistry &PassRegistry::GetInstance() {
@@ -28,7 +32,7 @@ PassRegistry &PassRegistry::GetInstance() {
 void PassRegistry::RegisterPass(const std::string &passName, CreateFn createFn) {
     std::lock_guard lock(mtx_);
     passCreators_.emplace(passName, std::move(createFn));
-    APASS_LOG_INFO(Elements::Manager, "[PassRegistry] Register pass: ", passName.c_str());
+    APASS_LOG_INFO(Elements::Manager, "Register pass: %s", passName.c_str());
 }
 
 std::unique_ptr<Pass> PassRegistry::CreatePass(const std::string &passName) const {

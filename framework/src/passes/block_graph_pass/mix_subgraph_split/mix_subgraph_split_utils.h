@@ -28,6 +28,10 @@
 #include "passes/tile_graph_pass/subgraph_to_function.h"
 #include "passes/pass_log/pass_log.h"
 
+#ifndef MODULE_NAME
+#define MODULE_NAME "MixSubgraphSplit"
+#endif
+
 namespace npu {
 namespace tile_fwk {  
 enum class ComponentType {

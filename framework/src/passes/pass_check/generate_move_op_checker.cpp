@@ -16,6 +16,10 @@
 #include "generate_move_op_checker.h"
 #include "passes/pass_log/pass_log.h"
 
+#ifndef MODULE_NAME
+#define MODULE_NAME "GenerateMoveOpChecker"
+#endif
+
 namespace npu {
 namespace tile_fwk {
 Status GenerateMoveOpChecker::DoPreCheck(Function &function) {

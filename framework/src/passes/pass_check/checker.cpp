@@ -15,6 +15,10 @@
 
 #include "remove_redundant_op_checker.h"
 
+#ifndef MODULE_NAME
+#define MODULE_NAME "Checker"
+#endif
+
 namespace npu{
 namespace tile_fwk {
 Status Checker::DoPreCheck(Function &function) {

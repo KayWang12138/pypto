@@ -16,6 +16,10 @@
 #include "common_operation_eliminate_checker.h"
 #include "passes/pass_log/pass_log.h"
 
+#ifndef MODULE_NAME
+#define MODULE_NAME "CommonOperationEliminateChecker"
+#endif
+
 namespace npu {
 namespace tile_fwk {
 Status CommonOperationEliminateChecker::DoPreCheck(Function &function) {

@@ -17,7 +17,6 @@
 
 #include "interface/operation/operation.h"
 #include "interface/tensor/logical_tensor.h"
-#include "passes/pass_log/pass_log.h"
 
 namespace npu::tile_fwk {
 #define PRIOR_SCHEDULING // comment it to disable PriorScheduling pass

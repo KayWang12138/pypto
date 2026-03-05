@@ -19,6 +19,10 @@
 #include "passes/pass_check/auto_cast_checker.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
 
+#ifndef MODULE_NAME
+#define MODULE_NAME "AutoCast"
+#endif
+
 namespace npu {
 namespace tile_fwk {
 

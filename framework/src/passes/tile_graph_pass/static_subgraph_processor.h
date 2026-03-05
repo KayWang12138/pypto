@@ -29,6 +29,10 @@
 #include "passes/statistics/execute_graph_statistic.h"
 #include "passes/pass_log/pass_log.h"
 
+#ifndef MODULE_NAME
+#define MODULE_NAME "StaticSubGraphProcessor"
+#endif
+
 namespace npu::tile_fwk {
 
 class StaticSubgraphProcessor {
