@@ -26,7 +26,7 @@
 
 #define MODULE_NAME "GraphPartition"
 
-using namespace npu::tile_fwk;
+namespace npu::tile_fwk {
 
 Status OspPartitioner::BuildSuperNodeGraph()
 {
@@ -477,3 +477,5 @@ Status OspPartitioner::SetParameter(const Function &function) {
 
     return SUCCESS;
 }
+
+} // namespace npu::tile_fwk
