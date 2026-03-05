@@ -57,15 +57,11 @@ public:
     }
 
     // 仅AICPU_0会调用
-    inline int32_t Init(DynDeviceTask *deviceTask, bool profSwitch) {
+    inline int32_t Init(DynDeviceTask *deviceTask) {
         curDevTask_ = deviceTask;
         funcDataList_ = reinterpret_cast<DynFuncData*>(&deviceTask->GetDynFuncDataList()->At(0));
         readyQueue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(deviceTask->devTask.readyAicpuFunctionQue);
         shmemWaitUntil_.Init(deviceTask);
-        if (profSwitch) {
-            KernelArgs *args = (KernelArgs *)(sharedBuffer_ + (aicNum_ + aivNum_) * SHARED_BUFFER_SIZE);
-            aicpuTaskStat_ = (Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
-        }
         return PrepareAicpuTask();
     }
 
@@ -140,10 +136,6 @@ private:
         auto taskType = GetTaskType(taskId);
         if (taskType < TaskType::TASK_TYPE_NUM) {
             TaskStat* taskStat = nullptr;
-            if (aicpuTaskStat_ != nullptr) {
-                taskStat = &(aicpuTaskStat_->tasks[aicpuTaskStat_->taskCount]);
-                ++aicpuTaskStat_->taskCount;
-            }
             ret = shmemWaitUntil_.EnqueueOp(taskId, taskStat);
         }
         return ret;
@@ -173,7 +165,6 @@ private:
     npu::tile_fwk::Distributed::ShmemWaitUntil shmemWaitUntil_;
     DynDeviceTask *curDevTask_;
     DynFuncData *funcDataList_;
-    Metrics* aicpuTaskStat_;
     uint64_t sharedBuffer_;
     uint32_t aicNum_;
     uint32_t aivNum_;

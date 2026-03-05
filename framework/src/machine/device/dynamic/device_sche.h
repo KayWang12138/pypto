@@ -24,7 +24,6 @@
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/utils/device_log.h"
 #include "tilefwk/aicore_print.h"
-#include "machine/device/dynamic/aicore_prof.h"
 
 constexpr uint32_t LAUNCH_AICPU_NUM = 5;
 

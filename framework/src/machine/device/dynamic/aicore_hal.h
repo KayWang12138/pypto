@@ -17,7 +17,6 @@
 
 #include "tilefwk/aicpu_common.h"
 #include "machine/device/dynamic/aicore_constants.h"
-#include "machine/device/dynamic/aicore_prof.h"
 #include "machine/device/dynamic/costmodel_utils.h"
 
 namespace npu::tile_fwk::dynamic {
@@ -354,17 +353,12 @@ public:
         return arg->shakeBuffer[aicoreStatusIndex];
     }
 
-    inline void InitTaskData(int coreIdx, int64_t funcdata, int64_t buffer) {
-        (void)buffer;
+    inline void InitTaskData(int coreIdx, int64_t funcdata) {
         if constexpr (IsDeviceMode()) {
             if (args_[coreIdx] == nullptr) {
                 args_[coreIdx] = reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
             }
             volatile KernelArgs *arg = args_[coreIdx];
-#if ENABLE_AICORE_PRINT
-            arg->shakeBuffer[SHAK_BUF_PRINT_BUFFER_INDEX] = buffer;
-            __sync_synchronize();
-#endif
             arg->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = funcdata;
         } 
     }

@@ -35,7 +35,6 @@
 #include "machine/utils/dynamic/spsc_queue.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/utils/device_log.h"
-#include "machine/device/dynamic/aicore_prof.h"
 #include "machine/device/dynamic/aicore_hal.h"
 #include "machine/device/dynamic/aicpu_task_manager.h"
 #include "machine/device/dynamic/device_utils.h"
@@ -63,20 +62,15 @@ struct TaskInfo {
 
 class AiCoreManager {
 public:
-    explicit AiCoreManager(AicpuTaskManager &aicpuTaskManager) : aicpuTaskManager_(aicpuTaskManager), aicoreProf_(*this){};
+    explicit AiCoreManager(AicpuTaskManager &aicpuTaskManager) : aicpuTaskManager_(aicpuTaskManager){};
     ~AiCoreManager(){};
-
-    void InitLogger(AicoreLogger *logger) {
-        logger_ = logger;
-    }
 
     void SendDevTaskModel(DeviceTask *devTask) {
         int64_t funcdata;
         auto dyntask = (DynDeviceTask *)devTask;
         funcdata = static_cast<int64_t>(PtrToValue(dyntask->GetDynFuncDataList()));
         ForEachManageAicore([&](int coreIdx) {
-            auto logbuf = logger_ ? logger_[coreIdx].GetBuffer() : nullptr;
-            aicoreHal_.InitTaskData(coreIdx, funcdata, (uint64_t)logbuf);
+            aicoreHal_.InitTaskData(coreIdx, funcdata);
         });
     }
     inline void SetSchduleContext(SchduleContext * context) {
@@ -211,8 +205,7 @@ public:
         }
 
         if (IsNeedProcAicpuTask()) {
-            const bool profSwitch = aicoreProf_.ProfIsEnable();
-            ret = aicpuTaskManager_.Init(reinterpret_cast<DynDeviceTask *>(curDevTask_), profSwitch);
+            ret = aicpuTaskManager_.Init(reinterpret_cast<DynDeviceTask *>(curDevTask_));
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
@@ -294,7 +287,6 @@ public:
                 return ret;
             }
             devStartArgs->syncFlag = 1;
-            aicoreProf_.ProfStart();
         }
         while (ret == 0) {
             taskCtrl = preFetchSuccess_ ? preFetchNextDevTaskCtrl_ : taskQueue_->Dequeue();
@@ -385,8 +377,7 @@ private:
         int64_t funcdata;
         auto dyntask = reinterpret_cast<DynDeviceTask *>(preFetchNextDevTaskCtrl_->devTask);
         funcdata = static_cast<int64_t>(PtrToValue(dyntask->GetDynFuncDataList()));
-        auto logbuf = logger_ ? logger_[coreIdx].GetBuffer() : nullptr;
-        aicoreHal_.InitTaskData(coreIdx, funcdata, (uint64_t)logbuf);
+        aicoreHal_.InitTaskData(coreIdx, funcdata);
         return;
     }
 
@@ -450,24 +441,6 @@ private:
         return;
     }
 
-    inline void DumpDfxWhenCoreNotStop(AicoreStatus *coreStatus) {
-        for (int i = aicStart_; i < aicEnd_; i++) {
-            if (coreStatus[i] != AicoreStatus::CORE_FINISH_STOP) {
-                DEV_ERROR("left aic core %d not stop, status %d, pending:%u, rungning:%u, regfinishid: %lu,"
-                "core last status:%lu", i, ToUnderlying(coreStatus[i]), pendingIds_[i], runningIds_[i],
-                aicoreHal_.GetFinishedTask(i), aicoreHal_.GetAicoreStatus(i));
-            }
-        }
-
-        for (int i = aivStart_; i < aivEnd_; i++) {
-            if (coreStatus[i] != AicoreStatus::CORE_FINISH_STOP) {
-                DEV_ERROR("left aiv core %d not stop, status %d, pending:%u, rungning:%u, regfinishid: %lu,"
-                "core last status:%lu", i, ToUnderlying(coreStatus[i]), pendingIds_[i], runningIds_[i],
-                aicoreHal_.GetFinishedTask(i), aicoreHal_.GetAicoreStatus(i));
-            }
-        }
-    }
-
     inline int SyncTaskFinish(bool forceStop = false) {
         int finishStopNum = 0;
         int aicNum = aicEnd_ - aicStart_;
@@ -528,7 +501,6 @@ private:
             aivAllStop = curIterAivAllStop;
             DEV_IF_DEVICE {
                 if (GetCycles() - start_cycles > TIMEOUT_CYCLES) {
-                    DumpDfxWhenCoreNotStop(coreStatus);
                     DEV_ERROR("SyncAicoreDevTaskFinish timeout notstopNum=%d.", mngCoreNum - finishStopNum);
                     return DEVICE_MACHINE_TIMEOUT_SYNC_CORE_FINISH;
                 }
@@ -654,14 +626,6 @@ private:
             sendTask_[coreIdx].push_back(TaskInfo(coreIdx, newTask));
         }
     }
-
-    inline void SetAiCpuStat(int coreIdx, uint64_t taskId) {
-        struct AiCpuTaskStat aiCpuTaskStat;
-        aiCpuTaskStat.taskId = taskId;
-        aiCpuTaskStat.coreId = aicoreHal_.GetPhyIdByBlockId(coreIdx);
-        aicoreProf_.AsmCntvc(aiCpuTaskStat.taskGetStart);
-        aicoreProf_.SetAiCpuTaskStat(taskId, aiCpuTaskStat);
-    };
 
     inline int32_t PushReadyQue(ReadyCoreFunctionQueue *readyQue, void *idList, uint32_t idCnt) const {
         ReadyQueueLock(readyQue);
@@ -1429,15 +1393,11 @@ private:
 
     SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *taskQueue_{nullptr};
     AicpuTaskManager &aicpuTaskManager_;
-    AiCoreProf aicoreProf_;
     int64_t dotStatus_{0};
     bool isSendStop{false};
 
     std::vector<TaskInfo> sendTask_[MAX_AICORE_NUM];
     std::vector<TaskInfo> recvFinTask_[MAX_AICORE_NUM];
     std::vector<TaskInfo> recvAckTask_[MAX_AICORE_NUM];
-
-    AicoreLogger *logger_{nullptr};
-    friend class AiCoreProf;
 };
 }
