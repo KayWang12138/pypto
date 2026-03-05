@@ -56,6 +56,7 @@ const std::string A_MUL_B_BIAS_ATTR = OP_ATTR_PREFIX + "has_bias";
 const std::string A_MUL_B_SCALE_ATTR = OP_ATTR_PREFIX + "scale_value";
 // relu type 0: NoReLu, 1: ReLu
 const std::string A_MUL_B_RELU_ATTR = OP_ATTR_PREFIX + "relu_type";
+const std::string A_MUL_B_TRANS_MODE_ATTR = OP_ATTR_PREFIX + "trans_mode";
 const std::string A_MUL_B_VECTOR_QUANT_FLAG = OP_ATTR_PREFIX + "vector_quant_flag";
 
 struct MatmulTensorInfo {
@@ -143,6 +144,7 @@ struct MatmulAttrParam {
     int64_t kValue = 0;
     int64_t nValue = 0;
     int64_t reluType = 0;
+    int64_t transMode = 0;
     uint64_t scaleValue = 0;
     bool hasBias = false;
     bool hasScale = false;
