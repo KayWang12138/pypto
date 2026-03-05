@@ -16,11 +16,237 @@
 #include "passes/block_graph_pass/mix_subgraph_split.h"
 #include "passes/pass_utils/pass_utils.h"
 #include "interface/utils/id_gen.h"
+#include <fstream>
+#include <iomanip>
+#include <chrono>
+#include <nlohmann/json.hpp>
 
 namespace npu {
 namespace tile_fwk {
 // 初始化静态成员
 std::unordered_map<FunctionHash, GlobalSplitRecord> MixSubgraphSplit::globalSplitRecords_;
+
+void TopoJsonGenerator::GenerateBeforeTopo(Function& function,
+                                          const std::vector<Operation*>& originalCallOps,
+                                          const std::string& suffix,
+                                          const std::vector<Operation*>& mixCallOps) {
+    ALOG_INFO_F(">>> Entering GenerateAfterTopo for function: %s", function.GetRawName().c_str());
+    auto rootFunc = function.rootFunc_;
+    if (!rootFunc) return;
+    // 获取当前时间戳
+    auto now = std::chrono::system_clock::now();
+    auto time_t = std::chrono::system_clock::to_time_t(now);
+    std::stringstream ss;
+    ss << std::put_time(std::localtime(&time_t), "%Y%m%d_%H%M%S");
+
+    std::string filename = "Before_MixSubgraphSplit_" + ss.str() + suffix + ".topo.json";
+
+    nlohmann::json topoArray = nlohmann::json::array();
+    std::unordered_set<Operation*> mixCallOpsSet(mixCallOps.begin(), mixCallOps.end());
+    // 先收集所有原始callOp
+    for (auto* callOp : originalCallOps) {
+        if (!callOp || callOp->IsDeleted()) continue;
+
+        auto callAttr = dynamic_cast<CallOpAttribute*>(callOp->GetOpAttribute().get());
+        if (!callAttr) continue;
+        bool isMixCallOp = (mixCallOpsSet.find(callOp) != mixCallOpsSet.end());
+        nlohmann::json node;
+        node["funcName"] = callAttr->GetCalleeMagicName();
+        node["successors"] = nlohmann::json::array();
+        node["callOp"] = callOp->GetOpMagic();  // 直接使用callOp magic
+        node["isMixCallOp"] = isMixCallOp;
+        topoArray.push_back(node);
+    }
+    // 建立依赖关系（通过tensor的producer/consumer）
+    // 创建一个map方便通过callOp查找对应的json节点
+    std::map<int, nlohmann::json*> callOpToNode;
+    for (auto& node : topoArray) {
+        callOpToNode[node["callOp"].get<int>()] = &node;
+    }
+    for (auto* callOp : originalCallOps) {
+        if (!callOp || callOp->IsDeleted()) continue;
+
+        int srcMagic = callOp->GetOpMagic();
+        auto srcNode = callOpToNode.find(srcMagic);
+        if (srcNode == callOpToNode.end()) continue;
+
+        // 检查每个输出tensor的consumer
+        for (auto& oOperand : callOp->GetOOperands()) {
+            if (!oOperand) continue;
+
+            for (auto* consumer : oOperand->GetConsumers()) {
+                if (!consumer) continue;
+
+                int dstMagic = consumer->GetOpMagic();
+                // 确保consumer也在originalCallOps中
+                if (callOpToNode.find(dstMagic) != callOpToNode.end()) {
+                    srcNode->second->at("successors").push_back(dstMagic);
+                }
+            }
+        }
+    }
+    // 去重successors
+    for (auto& node : topoArray) {
+        auto& successors = node["successors"];
+        std::set<int> unique_successors;
+        for (auto& dst : successors) {
+            unique_successors.insert(dst.get<int>());
+        }
+        successors = nlohmann::json::array();
+        for (auto dst : unique_successors) {
+            successors.push_back(dst);
+        }
+    }
+    ALOG_INFO_F(">>> [WRITE_TEST] Opening file for writing...");
+    // 写入文件
+    std::ofstream file(filename);
+    if (file.is_open()) {
+        ALOG_INFO_F(">>> [WRITE_TEST] File opened successfully");
+        file << std::setw(2) << topoArray << std::endl;
+        file.close();
+        ALOG_INFO_F("Generated before topo file: %s", filename.c_str());
+    }
+}
+
+void TopoJsonGenerator::GenerateAfterTopo(Function& function,
+                                         const std::vector<Operation*>& newCallOps,
+                                         const std::string& suffix) {
+    auto rootFunc = function.rootFunc_;
+    if (!rootFunc) return;
+
+    auto now = std::chrono::system_clock::now();
+    auto time_t = std::chrono::system_clock::to_time_t(now);
+    std::stringstream ss;
+    ss << std::put_time(std::localtime(&time_t), "%Y%m%d_%H%M%S");
+
+    std::string filename = "After_MixSubgraphSplit_" + ss.str() + suffix + ".topo.json";
+
+    nlohmann::json topoArray = nlohmann::json::array();
+    // 先收集所有新callOp
+    std::map<int, nlohmann::json*> callOpToNode;
+
+    for (auto* callOp : newCallOps) {
+        if (!callOp || callOp->IsDeleted()) continue;
+
+        // 获取函数名
+        std::string funcName;
+        auto callAttr = dynamic_cast<CallOpAttribute*>(callOp->GetOpAttribute().get());
+
+        bool isFromMixSplit = false;
+        int32_t wrapId = -1;
+        if (callAttr) {
+            funcName = callAttr->GetCalleeMagicName();
+            // 检查是否是拆分后的 mix callOp
+            if (callAttr->wrapId != -1) {
+                isFromMixSplit = true;
+                wrapId = callAttr->wrapId;
+                ALOG_DEBUG_F("Found mix-split callOp: wrapId=%d", wrapId);
+            }
+        } else {
+            funcName = "unknown_" + std::to_string(callOp->GetOpMagic());
+        }
+
+        nlohmann::json node;
+        node["funcName"] = funcName;
+        node["successors"] = nlohmann::json::array();
+        node["depend_successors"] = nlohmann::json::array();
+        node["callOp"] = callOp->GetOpMagic();  // 直接使用callOp magic
+        node["isFromMixSplit"] = isFromMixSplit;
+        if (isFromMixSplit) {
+            node["wrapId"] = wrapId;
+        }    
+        topoArray.push_back(node);        
+    }
+    for (auto& node : topoArray) {
+        callOpToNode[node["callOp"].get<int>()] = &node;
+    }
+    // 建立依赖关系（通过tensor的producer/consumer）
+    for (auto* callOp : newCallOps) {
+        if (!callOp || callOp->IsDeleted()) continue;
+
+        int srcMagic = callOp->GetOpMagic();
+        auto srcNode = callOpToNode.find(srcMagic);
+        if (srcNode == callOpToNode.end()) continue;
+
+        // 检查每个输出tensor的consumer
+        for (auto& oOperand : callOp->GetOOperands()) {
+            if (!oOperand) continue;
+
+            for (auto* consumer : oOperand->GetConsumers()) {
+                if (!consumer) continue;
+
+                int dstMagic = consumer->GetOpMagic();
+                auto dstNode = callOpToNode.find(dstMagic);
+                if (dstNode != callOpToNode.end()) {
+                    srcNode->second->at("successors").push_back(dstMagic);
+                    ALOG_DEBUG_F("Dependency: %d -> %d via tensor %d",
+                                srcMagic, dstMagic, oOperand->magic);
+                }
+            }
+        }
+    }
+    // === 通过dependOperand建立的内部依赖 ===
+    ALOG_INFO_F("Building internal dependencies from dependOperands...");
+    for (auto* callOp : newCallOps) {
+        if (!callOp || callOp->IsDeleted()) continue;
+
+        // 检查dependOperands
+        for (auto& dependTensor : callOp->GetDependOperands()) {
+            if (!dependTensor) continue;
+
+            // dependTensor的producer是这个依赖的source
+            for (auto* producer : dependTensor->GetProducers()) {
+                if (!producer) continue;
+                int srcMagic = producer->GetOpMagic();
+                int dstMagic = callOp->GetOpMagic();  // 当前callOp是consumer
+                auto srcNode = callOpToNode.find(srcMagic);
+                auto dstNode = callOpToNode.find(dstMagic);
+
+                if (srcNode != callOpToNode.end() && dstNode != callOpToNode.end()) {
+                    // 记录到depend_successors中，便于区分两种依赖
+                    srcNode->second->at("depend_successors").push_back(dstMagic);
+                    ALOG_DEBUG_F("Internal dependency: %d -> %d via depend tensor %d",
+                                srcMagic, dstMagic, dependTensor->magic);
+
+                    // 同时也加到总的successors中（如果需要的话）
+                    srcNode->second->at("successors").push_back(dstMagic);
+                }
+            }
+        }
+    }
+    // 去重successors和depend_successors
+    for (auto& node : topoArray) {
+        // 去重普通successors
+        auto& successors = node["successors"];
+        std::set<int> unique_successors;
+        for (auto& dst : successors) {
+            unique_successors.insert(dst.get<int>());
+        }
+        successors = nlohmann::json::array();
+        for (auto dst : unique_successors) {
+            successors.push_back(dst);
+        }
+
+        // 去重depend_successors
+        auto& depend_successors = node["depend_successors"];
+        std::set<int> unique_depend;
+        for (auto& dst : depend_successors) {
+            unique_depend.insert(dst.get<int>());
+        }
+        depend_successors = nlohmann::json::array();
+        for (auto dst : unique_depend) {
+            depend_successors.push_back(dst);
+        }
+    }
+    // 写入文件
+    std::ofstream file(filename);
+    if (file.is_open()) {
+        file << std::setw(2) << topoArray << std::endl;
+        file.close();
+        ALOG_INFO_F("Generated after topo file: %s", filename.c_str());
+    }
+}
+
 Status MixSubgraphSplit::RunOnFunction(Function &function) {
     ALOG_INFO_F("===============================================================> Start MixSubgraphSplit.");
     // 获取rootFunc和programs
@@ -29,8 +255,8 @@ Status MixSubgraphSplit::RunOnFunction(Function &function) {
         ALOG_ERROR_F("Get root function failed.");
         return FAILED;
     }
-
-    auto& programs = rootFunc->programs_;
+   
+    auto allCallOpsBefore = rootFunc->GetCallopList();  // 获取所有callOp，包括非mix子图的
     // 收集所有需要拆分的Mix子图及其内部组件信息
     std::vector<MixSubgraphInfo> mixSubgraphs;
     std::set<uint64_t> mixSubgraphIDsToDelete;
@@ -39,8 +265,10 @@ Status MixSubgraphSplit::RunOnFunction(Function &function) {
         ALOG_ERROR_F("GatherSubGraphInfo failed");
         return FAILED;
     }
-    ALOG_INFO_F("Found %d leaf function to process", programs.size());
-
+    // === 生成切分前的topo.json - 传入所有callOp ===
+    TopoJsonGenerator::GenerateBeforeTopo(function, allCallOpsBefore,
+                                          "_" + function.GetRawName(),
+                                          callOpsToDelete);
     if (mixSubgraphs.empty()) {
         ALOG_INFO_F("No mix subgraph found, jump MixSubgraphSplit.");
         return SUCCESS;
@@ -55,6 +283,9 @@ Status MixSubgraphSplit::RunOnFunction(Function &function) {
         ALOG_ERROR_F("ExecuteSplit failed");
         return FAILED;
     }
+    // === 生成切分后的topo.json - 传入所有callOp ===
+    auto allCallOpsAfter = rootFunc->GetCallopList();  // 获取所有callOp，包括非mix子图的
+    TopoJsonGenerator::GenerateAfterTopo(function, allCallOpsAfter, "_" + function.GetRawName());
     ALOG_INFO_F("===============================================================> Finish MixSubgraphSplit.");
     return SUCCESS;
 }
