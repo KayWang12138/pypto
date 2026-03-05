@@ -223,7 +223,7 @@ Status NBufferMerge::Init(Function &func) {
     auto inOutGraph = RescheduleUtils::GetInOutGraphs(opList, func.GetFuncMagic());
     inGraph_ = inOutGraph[0];
     outGraph_ = inOutGraph[1];
-    APASS_LOG_INFO_F(Elements::Operation, "Before Nbuffer merge.");
+    APASS_LOG_DEBUG_F(Elements::Operation, "Before Nbuffer merge.");
     RescheduleUtils::PrintColorNode(func);
     return SUCCESS;
 }
@@ -487,6 +487,13 @@ Status NBufferMerge::NBufferMergeProcess(Function &func) {
     hashOrder_.clear();
     GetColorHash(opOriList, hashColor, hashMap);
     std::map<uint64_t, size_t> hashMergeNum;
+        // print
+    APASS_LOG_INFO_F(Elements::Operation, "Computation graph overview.");
+    for (auto &entry : hashMap) {
+        APASS_LOG_INFO_F(Elements::Operation, "Hash order: %d, Subgraph hash: %lu, Subgraph ID: %s.",
+            hashOrder[entry.first], entry.first, IntVecToStr(entry.second).c_str());
+    }
+    APASS_LOG_INFO_F(Elements::Operation, "Computation graph overview end.");    
     if (vecNBuffermode_ == autoMerge || vecNBuffermode_ == autoMulityInOutMerge) {
         APASS_LOG_INFO_F(Elements::Config, "Manually set mode to %d, automatically calculate mergeNum.", vecNBuffermode_);
         hashMergeNum = GetIsoColorMergeNum(hashMap);
