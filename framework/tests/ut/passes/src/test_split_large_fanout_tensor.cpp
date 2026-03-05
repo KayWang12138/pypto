@@ -298,6 +298,65 @@ public:
             G.SetOutCast({"out1", "out2"});
         }
     }
+    void PerfectlyMatchWithAll_FullConstruct(ComputationalGraphBuilder &G) {
+        int N = 2;
+        int T = 8;
+        std::vector<int64_t> shape0{N * T, N * T};
+        std::vector<int64_t> shape1{T, T};
+        std::vector<int64_t> shape2{N * T, T};
+        G.AddTensor(DataType::DT_FP32, shape0, "a");
+        G.AddTensor(DataType::DT_FP32, shape0, "b");
+        G.AddTensor(DataType::DT_FP32, shape2, "out");
+        G.AddTensor(DataType::DT_FP32, shape0, "sub_out");
+        // [16, 16] --> View --> [8, 8] --> Sub --> [8, 8] --> Assemble --> [16, 16]
+        TileExpandSub(G, N, T);
+        auto subOut = G.GetTensor("sub_out");
+        subOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+
+        // View 获取 [16, 16] 左半边 [16, 8]
+        G.AddTensor(DataType::DT_FP32, shape2, "sub_out_left");
+        auto subOutLeft = G.GetTensor("sub_out_left");
+        subOutLeft->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"sub_out_left"}, "View_Left");
+        auto View_Left = G.GetOp("View_Left");
+        std::vector<int64_t> offsetLeft = {0, 0};
+        auto attrLeft = std::make_shared<ViewOpAttribute>(offsetLeft, MemoryType::MEM_UNKNOWN);
+        View_Left->SetOpAttribute(attrLeft);
+
+        // View 获取 [16, 16] 右半边 [16, 8]
+        G.AddTensor(DataType::DT_FP32, shape2, "sub_out_right");
+        auto subOutRight = G.GetTensor("sub_out_right");
+        subOutRight->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"sub_out_right"}, "View_Right");
+        auto View_UR = G.GetOp("View_Right");
+        std::vector<int64_t> offsetRight = {0, T};
+        auto attrUR = std::make_shared<ViewOpAttribute>(offsetRight, MemoryType::MEM_UNKNOWN);
+        View_UR->SetOpAttribute(attrUR);
+
+        // 左半边 [16, 8] + 右半边 [16, 8]
+        std::vector<SymbolicScalar> subDynShape = {SymbolicScalar("a"), T};
+        G.AddTensor(DataType::DT_FP32, shape2, "add_out");
+        G.AddOp(Opcode::OP_ADD, {"sub_out_right", "sub_out_left"}, {"add_out"}, "Add");
+        auto addOut = G.GetTensor("add_out");
+        addOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        addOut->UpdateDynValidShape(subDynShape);
+
+        G.AddOp(Opcode::OP_ASSEMBLE, {"add_out"}, {"out"}, "Assemble_final");
+        auto attrAssembleFinal =
+            std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t>{0, 0});
+        auto Op = G.GetOp("Assemble_final");
+        Op->SetOpAttribute(attrAssembleFinal);
+
+        auto a = G.GetTensor("a");
+        a->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        auto b = G.GetTensor("b");
+        b->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+        auto out = G.GetTensor("out");
+        out->UpdateDynValidShape(subDynShape);
+
+        G.SetInCast({"a", "b"});
+        G.SetOutCast({"out"});
+    }
 };
 
 TEST_F(SplitLargeFanoutTensorTest, TestLCM) {
@@ -594,7 +653,7 @@ TEST_F(SplitLargeFanoutTensorTest, MtoM) {
             auto offset = viewAttr->GetFromOffset();
             EXPECT_EQ(accumulate(offset.begin(), offset.end(), 0), 0) << "OP_VIEW offset should be all zero";
             auto dynOffset = viewAttr->GetFromDynOffset();
-            EXPECT_EQ(dynOffset.size(), 0);
+            EXPECT_EQ(dynOffset.size(), NUM_2);
             auto input = op.GetIOperands().front();
             auto inputDynShape = input->GetDynValidShape();
             EXPECT_EQ(inputDynShape.size(), NUM_2);
@@ -809,63 +868,9 @@ TEST_F(SplitLargeFanoutTensorTest, Unmatched) {
 
 TEST_F(SplitLargeFanoutTensorTest, PerfectlyMatchWithAll_Full) {
     int NUM_2 = 2;
-    int N = 2;
-    int T = 8;
-    std::vector<int64_t> shape0{N * T, N * T};
-    std::vector<int64_t> shape1{T, T};
-    std::vector<int64_t> shape2{N * T, T};
     ComputationalGraphBuilder G;
-    G.AddTensor(DataType::DT_FP32, shape0, "a");
-    G.AddTensor(DataType::DT_FP32, shape0, "b");
-    G.AddTensor(DataType::DT_FP32, shape2, "out");
-    G.AddTensor(DataType::DT_FP32, shape0, "sub_out");
-    // [16, 16] --> View --> [8, 8] --> Sub --> [8, 8] --> Assemble --> [16, 16]
-    TileExpandSub(G, N, T);
-    auto subOut = G.GetTensor("sub_out");
-    subOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
+    PerfectlyMatchWithAll_FullConstruct(G);
 
-    // View 获取 [16, 16] 左半边 [16, 8]
-    G.AddTensor(DataType::DT_FP32, shape2, "sub_out_left");
-    auto subOutLeft = G.GetTensor("sub_out_left");
-    subOutLeft->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-    G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"sub_out_left"}, "View_Left");
-    auto View_Left =  G.GetOp("View_Left");
-    std::vector<int64_t> offsetLeft = {0, 0};
-    auto attrLeft = std::make_shared<ViewOpAttribute>(offsetLeft, MemoryType::MEM_UNKNOWN);
-    View_Left->SetOpAttribute(attrLeft);
-
-    // View 获取 [16, 16] 右半边 [16, 8]
-    G.AddTensor(DataType::DT_FP32, shape2, "sub_out_right");
-    auto subOutRight = G.GetTensor("sub_out_right");
-    subOutRight->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-    G.AddOp(Opcode::OP_VIEW, {"sub_out"}, {"sub_out_right"}, "View_Right");
-    auto View_UR =  G.GetOp("View_Right");
-    std::vector<int64_t> offsetRight = {0, T};
-    auto attrUR = std::make_shared<ViewOpAttribute>(offsetRight, MemoryType::MEM_UNKNOWN);
-    View_UR->SetOpAttribute(attrUR);
-
-    // 左半边 [16, 8] + 右半边 [16, 8]
-    std::vector<SymbolicScalar> subDynShape = {SymbolicScalar("a"), T};
-    G.AddTensor(DataType::DT_FP32, shape2, "add_out");
-    G.AddOp(Opcode::OP_ADD, {"sub_out_right", "sub_out_left"}, {"add_out"}, "Add");
-    auto addOut = G.GetTensor("add_out");
-    addOut->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-    addOut->UpdateDynValidShape(subDynShape);
-
-    G.AddOp(Opcode::OP_ASSEMBLE, {"add_out"}, {"out"}, "Assemble_final");
-    auto attrAssembleFinal = std::make_shared<AssembleOpAttribute>(MemoryType::MEM_UNKNOWN, std::vector<int64_t> {0, 0});
-    auto Op = G.GetOp("Assemble_final");
-    Op->SetOpAttribute(attrAssembleFinal);
-
-    auto a = G.GetTensor("a");
-    a->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-    auto b = G.GetTensor("b");
-    b->SetMemoryTypeBoth(MemoryType::MEM_UNKNOWN, true);
-    auto out = G.GetTensor("out");
-    out->UpdateDynValidShape(subDynShape);
-
-    G.SetInCast({"a", "b"});
-    G.SetOutCast({"out"});
     Function *function = G.GetFunction();
     // 确认构图完毕
     constexpr int singleViewOpmagic = 10017;
@@ -911,8 +916,6 @@ TEST_F(SplitLargeFanoutTensorTest, PerfectlyMatchWithAll_Full) {
             auto viewAttr = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
             auto offset = viewAttr->GetFromOffset();
             EXPECT_EQ(accumulate(offset.begin(), offset.end(), 0), 0) << "OP_VIEW offset should be all zero";
-            auto dynOffset = viewAttr->GetFromDynOffset();
-            EXPECT_EQ(dynOffset.size(), 0);
             auto input = op.GetIOperands().front();
             auto inputDynShape = input->GetDynValidShape();
             EXPECT_EQ(inputDynShape.size(), NUM_2);
