@@ -453,7 +453,7 @@ framework/src/passes/pass_mgr/
 
 | 阶段名称 | 说明 | 对应代码位置 |
 |----------|------|--------------|
-| `Prepare` | Prepare 阶段（从 pypto init 到 Program::UpdateCompileTask() 之前，所有 function 共享） | program.cpp UpdateCompileTask() 入口 |
+| `Prepare` | Prepare 阶段（从C++侧host编译开始，即EndFunc开始， 到Pass开始前，主要进行了function的构建，所有 function 共享） | program.cpp UpdateCompileTask() 入口 |
 | `Pass` | CompileFunction 阶段：对**每个**待编译 function 执行 runPass(program, func, PVC2_OOO)（Tensor→Tile→Block 整条链） | host_machine.cpp CompileFunction 内 runPass 前后 |
 | `CodeGen` | 对**每个** function 的 GenCode() 整段（含源码生成与二进制生成，含 host 控制流、aicpu 控制流、AICore kernel 的生成与编译）；不单独拆“二进制生成”阶段 | backend.cpp Execute 内 GenCode() 前后 |
 
