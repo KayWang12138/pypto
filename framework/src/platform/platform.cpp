@@ -323,23 +323,21 @@ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
 }
 
 void Platform::ObtainPlatformInfo() {
-    std::lock_guard<std::mutex> lock(platform_mutex);
     if (initialized_) {
         return;
     }
+    std::string srcPath;
     std::string socVer;
     if (CannHostRuntime::Instance().GetSocVersion(socVer)) {
-        npu::tile_fwk::CmdParser cmdparser;
-        LoadPlatformInfo(cmdparser);
+        srcPath = CannHostRuntime::Instance().GetPlatformFile(socVer);
     } else {
-        std::string srcPath;
         SimulationPlatform simulationPlatform;
         simulationPlatform.GetSimulationPlatformRealPath(srcPath);
-        npu::tile_fwk::INIParser iniparser;
-        iniparser.Initialize(srcPath);
-        if (iniparser.Initialize(srcPath)) {
-            LoadPlatformInfo(iniparser);
-        }
+    }
+    npu::tile_fwk::INIParser iniparser;
+    iniparser.Initialize(srcPath);
+    if (iniparser.Initialize(srcPath)) {
+        LoadPlatformInfo(iniparser);
     }
     std::vector<std::pair<MemoryType, MemoryType>> dataPath;
     InternalParser internalParser = InternalParser(NPUArchToString(GetSoc().GetNPUArch()));

@@ -24,13 +24,11 @@
 #include <set>
 #include <memory>
 #include <unordered_map>
-#include <mutex>
 #include "data_type.h"
 #include "pypto_fwk_log.h"
 #include "cann_host_runtime.h"
 
 namespace npu::tile_fwk {
-std::mutex platform_mutex;
 
 struct CacheInfo {
     size_t l2Size;

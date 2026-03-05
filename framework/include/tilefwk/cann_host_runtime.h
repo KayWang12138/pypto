@@ -30,6 +30,7 @@ public:
     bool GetSocVersion(std::string& socVersion);
     bool GetSocSpec(const std::string& column, const std::string& key, std::string& val);
     bool GetAICPUNum(size_t &aiCpuNum);
+    std::string GetPlatformFile(const std::string &socVersion);
 
     CannHostRuntime(const CannHostRuntime&) = delete;
     CannHostRuntime& operator=(const CannHostRuntime&) = delete;
