@@ -84,11 +84,8 @@ def qat_asymmetric_golden(weight, scale, offset, group_size, bit, eps=1e-4, clip
 
 
 # ===== JIT Kernel Implementation =====
-def create_qat_asymmetric_kernel(m, groups_per_row, group_size, bit=4, 
+def create_qat_asymmetric_kernel(m, group_size, bit=4, 
                                   eps=1e-4, clip_val=0.99, run_mode="npu", unroll_list=None):
-    if unroll_list is None:
-        unroll_list = [1, 2, 4]
-    
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
     elif run_mode == "sim":
@@ -99,6 +96,7 @@ def create_qat_asymmetric_kernel(m, groups_per_row, group_size, bit=4,
     n_levels = 2 ** (bit - 1)
     shift = 0.5
     neg_clip_val = -clip_val
+    groups_per_row = m // group_size
 
     runtime_opts = {"run_mode": mode}
     if run_mode == "npu":
@@ -109,23 +107,17 @@ def create_qat_asymmetric_kernel(m, groups_per_row, group_size, bit=4,
     @pypto.frontend.jit(runtime_options=runtime_opts)
     def qat_asymmetric_kernel(
         weight: pypto.Tensor((N, m), pypto.DT_BF16),
-        scale: pypto.Tensor((P, 1), pypto.DT_BF16),
-        offset: pypto.Tensor((P, 1), pypto.DT_BF16),
+        scale: pypto.Tensor((N * groups_per_row, 1), pypto.DT_BF16),
+        offset: pypto.Tensor((N * groups_per_row, 1), pypto.DT_BF16),
         output_bf16: pypto.Tensor((N, m), pypto.DT_BF16),
         weight_denorm_bf16: pypto.Tensor((N, m), pypto.DT_BF16),
         alpha_expanded_bf16: pypto.Tensor((N, m), pypto.DT_BF16),
     ):
         n = weight.shape[0]
         
-        for n_offset, unroll_length in pypto.loop_unroll(
-            0, n, 1, 
-            name="LOOP_N_UNROLL", 
-            idx_name="n_offset",
-            unroll_list=unroll_list
-        ):
-            tile_n = unroll_length
-            
-            pypto.set_vec_tile_shapes(tile_n, m)
+        for n_offset in pypto.loop(n, name="LOOP_N", idx_name="n_offset"):
+            tile_n = 1
+            pypto.set_vec_tile_shapes(128, 128)
             
             weight_tile = pypto.view(weight, [tile_n, m], [n_offset, 0])
             weight_fp32 = pypto.cast(weight_tile, pypto.DT_FP32)
@@ -133,8 +125,6 @@ def create_qat_asymmetric_kernel(m, groups_per_row, group_size, bit=4,
             for g_idx in pypto.loop(groups_per_row, name="LOOP_GROUPS", idx_name="g_idx"):
                 row_group_start = n_offset * groups_per_row + g_idx
                 g_col_start = g_idx * group_size
-                
-                pypto.set_vec_tile_shapes(tile_n, group_size)
                 
                 weight_group = pypto.view(weight_fp32, [tile_n, group_size], [0, g_col_start])
                 
@@ -198,7 +188,7 @@ def test_qat_asymmetric_basic(device_id=None, run_mode="npu"):
     weight_denorm_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
     alpha_expanded_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
     
-    kernel = create_qat_asymmetric_kernel(m, groups_per_row, group_size, bit, run_mode=run_mode)
+    kernel = create_qat_asymmetric_kernel(m, group_size, bit, run_mode=run_mode)
     kernel(weight_torch, scale_torch, offset_torch, output_torch, weight_denorm_torch, alpha_expanded_torch)
     
     expected_out, expected_denorm, expected_alpha = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, group_size, bit)
@@ -229,7 +219,7 @@ def test_qat_asymmetric_level1(device_id=None, run_mode="npu"):
     weight_denorm_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
     alpha_expanded_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
     
-    kernel = create_qat_asymmetric_kernel(m, groups_per_row, group_size, bit, run_mode=run_mode)
+    kernel = create_qat_asymmetric_kernel(m, group_size, bit, run_mode=run_mode)
     kernel(weight_torch, scale_torch, offset_torch, output_torch, weight_denorm_torch, alpha_expanded_torch)
     
     expected_out, _, _ = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, group_size, bit)
@@ -261,7 +251,7 @@ def test_qat_asymmetric_edge_cases(device_id=None, run_mode="npu"):
     weight_denorm_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
     alpha_expanded_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
     
-    kernel = create_qat_asymmetric_kernel(m, groups_per_row, group_size, bit, run_mode=run_mode)
+    kernel = create_qat_asymmetric_kernel(m, group_size, bit, run_mode=run_mode)
     kernel(weight_torch, scale_torch, offset_torch, output_torch, weight_denorm_torch, alpha_expanded_torch)
     
     expected_out, _, _ = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, group_size, bit)
@@ -311,7 +301,7 @@ def test_qat_asymmetric_edge_cases(device_id=None, run_mode="npu"):
     offset_torch = (torch.randn(num_groups, 1, dtype=torch.float32, device=device) * 0.1).to(torch.bfloat16)
     
     for test_bit in [2, 3]:
-        kernel_bit = create_qat_asymmetric_kernel(m, groups_per_row, group_size, test_bit, run_mode=run_mode)
+        kernel_bit = create_qat_asymmetric_kernel(m, group_size, test_bit, run_mode=run_mode)
         
         output_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
         weight_denorm_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
@@ -346,7 +336,7 @@ def test_qat_asymmetric_large(device_id=None, run_mode="npu"):
     weight_denorm_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
     alpha_expanded_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
     
-    kernel = create_qat_asymmetric_kernel(m, groups_per_row, group_size, bit, run_mode=run_mode)
+    kernel = create_qat_asymmetric_kernel(m, group_size, bit, run_mode=run_mode)
     kernel(weight_torch, scale_torch, offset_torch, output_torch, weight_denorm_torch, alpha_expanded_torch)
     
     expected_out, _, _ = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, group_size, bit)
@@ -387,7 +377,7 @@ def test_qat_asymmetric_level4(device_id=None, run_mode="npu"):
         weight_denorm_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
         alpha_expanded_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
         
-        kernel = create_qat_asymmetric_kernel(m, groups_per_row, group_size, bit, run_mode=run_mode)
+        kernel = create_qat_asymmetric_kernel(m, group_size, bit, run_mode=run_mode)
         kernel(weight_torch, scale_torch, offset_torch, output_torch, weight_denorm_torch, alpha_expanded_torch)
         
         expected_out, _, _ = qat_asymmetric_golden(weight_torch, scale_torch, offset_torch, group_size, bit)
