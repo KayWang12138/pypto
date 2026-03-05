@@ -1772,14 +1772,11 @@ std::string CodeGenOpCloudNPU::GenGatherInUB() const {
     return "";
 }
 
-std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
-    std::string gmVarName = GenGmParamVar(ToUnderlying(MISOIdx::SRC0_IDX));
-    std::string srcTensor = sm->QueryTileTensorByBufVarName(gmVarName);
-    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+std::string CodeGenOpCloudNPU::GetConvCopyInMode() const {
     int64_t copyInMode = -1;
     std::string copyInModeStr = "";
     auto ret = GetAttr(Conv::LoadStoreConvOpAttributeKey::copyInMode, copyInMode);
-    ASSERT(ret) << "Get CopyInMode failed";
+    ASSERT(ret) << "GenMemL1CopyInConv get CopyInMode failed";
 
     if (copyInMode == ToUnderlying(CopyInMode::COPY_MOD_ND2NZ)) {
         copyInModeStr = "CopyInMode::ND2NZ";
@@ -1788,21 +1785,20 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
     } else if (copyInMode == ToUnderlying(CopyInMode::COPY_MOD_DN2NZ)) {
         copyInModeStr = "CopyInMode::DN2NZ";
     } else {
-        ASSERT(false) << "Check CopyInMode failed";
+        ASSERT(false) << "GenMemL1CopyInConv check CopyInMode failed";
     }
+    return copyInModeStr;
+}
 
-    bool isFmap = true;
-    bool isConv3D = true;
-    int64_t offsetN = 0;
-    int64_t offsetC = 0;
-    int64_t offsetD = 0;
-    int64_t offsetH = 0;
-    int64_t offsetW = 0;
-    int64_t srcShapeN = 0;
-    int64_t srcShapeC = 0;
-    int64_t srcShapeD = 0;
-    int64_t srcShapeH = 0;
-    int64_t srcShapeW = 0;
+std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
+    std::string gmVarName = GenGmParamVar(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::string srcTensor = sm->QueryTileTensorByBufVarName(gmVarName);
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string copyInModeStr = GetConvCopyInMode();
+
+    bool isFmap = true, isConv3D = false;
+    int64_t offsetN = 0, offsetC = 0, offsetD = 0, offsetH = 0, offsetW = 0;
+    int64_t srcShapeN = 0, srcShapeC = 0, srcShapeD = 0, srcShapeH = 0, srcShapeW = 0;
     GetAttr(Conv::LoadStoreConvOpAttributeKey::isFmap, isFmap);
     GetAttr(Conv::LoadStoreConvOpAttributeKey::isConv3D, isConv3D);
     auto dynOffset = offsetFromAttr[ToUnderlying(MISOIdx::SRC0_IDX)];
@@ -1841,8 +1837,7 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
     std::ostringstream oss;
     oss << tileOpName;
     oss << "<" << copyInModeStr << ", " << std::to_string(isConv3D) << ", " << std::to_string(isFmap) << ">";
-    oss << PrintParams({"(", ")"}, tileOpParamList, ", ");
-    oss << STMT_END;
+    oss << PrintParams({"(", ")"}, tileOpParamList, ", ") << STMT_END;
     return oss.str();
 }
 
@@ -1865,13 +1860,8 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const {
     }
 
     bool isConv3D = false;
-    int64_t realM = 0;
-    int64_t realN = 0;
-    int64_t offsetN = 0;
-    int64_t offsetC = 0;
-    int64_t offsetD = 0;
-    int64_t offsetH = 0;
-    int64_t offsetW = 0;
+    int64_t realM = 0, realN = 0;
+    int64_t offsetN = 0, offsetC = 0, offsetD = 0, offsetH = 0, offsetW = 0;
     GetAttr(Conv::LoadStoreConvOpAttributeKey::isConv3D, isConv3D);
     auto realShape = shape[ToUnderlying(MISOIdx::DST_IDX)];
     ASSERT(realShape.size() == SHAPE_DIM2) << "GenMemL1CopyOutConv valid shape should be 2-dim!";
@@ -1898,8 +1888,7 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const {
 
     std::ostringstream oss;
     oss << tileOpName << "<" << copyOutModeStr << ", " << std::to_string(isConv3D) << ">";
-    oss << PrintParams({"(", ")"}, tileOpParamList, ", ");
-    oss << STMT_END;
+    oss << PrintParams({"(", ")"}, tileOpParamList, ", ") << STMT_END;
     return oss.str();
 }
 
