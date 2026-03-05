@@ -24,17 +24,21 @@ def benchmark_operator(weight_shape, device_id, num_iterations=5):
     print(f"Device: {device}")
     print(f"Iterations: {num_iterations}")
 
-    kernel = create_embedding_head_quant_kernel(weight_shape, run_mode="npu")
+    kernel = create_embedding_head_quant_kernel(weight_shape[1], run_mode="npu")
 
     weight_torch = (torch.randn(weight_shape, dtype=torch.float32, device=device) * 50).to(torch.bfloat16)
     scale_torch = torch.full((1, 1), 0.5, dtype=torch.bfloat16, device=device)
 
-    for _ in range(10):
-        _ = kernel(weight_torch, scale_torch)
+    output_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
+    clamped_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
+    protected_scale_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
+
+    for _ in range(5):
+        kernel(weight_torch, scale_torch, output_torch, clamped_torch, protected_scale_torch)
 
     start_time = time.time()
     for _ in range(num_iterations):
-        output_torch, clamped_torch, protected_scale_torch = kernel(weight_torch, scale_torch)
+        kernel(weight_torch, scale_torch, output_torch, clamped_torch, protected_scale_torch)
     end_time = time.time()
 
     total_time = end_time - start_time
@@ -83,7 +87,7 @@ def main():
 
     results = []
     for shape in test_shapes:
-        result = benchmark_operator(shape, device_id, num_iterations=100)
+        result = benchmark_operator(shape, device_id, num_iterations=5)
         results.append(result)
 
     print("\n" + "=" * 70)
