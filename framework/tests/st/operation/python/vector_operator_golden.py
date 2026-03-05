@@ -2687,6 +2687,23 @@ def gen_isfinite_golden(case_name: str, output: Path, case_index: int = None) ->
     return gen_op_golden("IsFinite", generate_wrapper, output, case_index)
     
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestPermute/PermuteOperationTest.TestPermute",
+    ]
+)
+def gen_permute_op_golden(
+    case_name: str, output: Path, case_index: int = None
+) -> bool:
+    def golden_func(inputs: list, config: dict):
+        input_tensor = torch.from_numpy(inputs[0])
+        params = config.get("params")
+        dims = params.get("dims")
+        output = torch.permute(input_tensor, dims)
+        return [output.numpy()]
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Permute", golden_func, output, case_index)
+
 def main() -> bool:
     # 用例名称
     case_name_list: List[str] = [
