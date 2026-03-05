@@ -1775,6 +1775,210 @@ static Tensor ConstructGmAccumulationTensorGraph(
                                         attrParam, createViews, createGraphNode, ALIGN_SIZE_64);
 }
 
+#include <functional>
+#include <tuple>
+#include <vector>
+
+// 定义函数对象类来替代lambda表达式
+
+// 用于基础矩阵乘法的View创建器
+class BasicMatmulViewCreator {
+public:
+    BasicMatmulViewCreator(const Tensor& aMatrix, const Tensor& bMatrix, const MatmulAttrParam& attrParam)
+        : aMatrix_(aMatrix), bMatrix_(bMatrix), attrParam_(attrParam) {}
+
+    std::tuple<Tensor, Tensor> operator()(int64_t kIdx, int64_t kL1Size, int64_t kScaleL1Size, 
+                                         int64_t kValidshape, int64_t kScaleValidshape,
+                                         int64_t mSize, int64_t nSize, 
+                                         SymbolicScalar mValidShape, SymbolicScalar nValidShape) const {
+        Tensor tensorA;
+        if (attrParam_.transA) {
+            tensorA = View(aMatrix_, {kL1Size, mSize}, {kValidshape, mValidShape}, {kL1Size * kIdx, 0});
+        } else {
+            tensorA = View(aMatrix_, {mSize, kL1Size}, {mValidShape, kValidshape}, {0, kL1Size * kIdx});
+        }
+        
+        Tensor tensorB;
+        if (attrParam_.transB) {
+            tensorB = View(bMatrix_, {nSize, kL1Size}, {nValidShape, kValidshape}, {0, kL1Size * kIdx});
+        } else {
+            tensorB = View(bMatrix_, {kL1Size, nSize}, {kValidshape, nValidShape}, {kL1Size * kIdx, 0});
+        }
+        
+        return std::make_tuple(tensorA, tensorB);
+    }
+
+private:
+    const Tensor& aMatrix_;
+    const Tensor& bMatrix_;
+    const MatmulAttrParam& attrParam_;
+};
+
+// 用于基础矩阵乘法的图节点创建器
+class BasicMatmulGraphNodeCreator {
+public:
+    Tensor operator()(const std::tuple<Tensor, Tensor>& views, DataType type, const MatmulAttrParam& param) const {
+        auto [tensorA, tensorB] = views;
+        MatmulGraphNodes tensorGraphNodes(tensorA.GetStorage(), tensorB.GetStorage());
+        return ConstructTensorGraph(type, tensorGraphNodes, param);
+    }
+};
+
+// 用于量化矩阵乘法的View创建器
+class QuantizedMatmulViewCreator {
+public:
+    QuantizedMatmulViewCreator(const Tensor& aMatrix, const Tensor& aScale, 
+                              const Tensor& bMatrix, const Tensor& bScale, 
+                              const MatmulAttrParam& attrParam)
+        : aMatrix_(aMatrix), aScale_(aScale), bMatrix_(bMatrix), bScale_(bScale), attrParam_(attrParam) {}
+
+    std::tuple<Tensor, Tensor, Tensor, Tensor> operator()(int64_t kIdx, int64_t kL1Size, int64_t kScaleL1Size, 
+                                                         int64_t kValidshape, int64_t kScaleValidshape,
+                                                         int64_t mSize, int64_t nSize, 
+                                                         SymbolicScalar mValidShape, SymbolicScalar nValidShape) const {
+        Tensor tensorA;
+        if (attrParam_.transA) {
+            tensorA = View(aMatrix_, {kL1Size, mSize}, {kValidshape, mValidShape}, {kL1Size * kIdx, 0});
+        } else {
+            tensorA = View(aMatrix_, {mSize, kL1Size}, {mValidShape, kValidshape}, {0, kL1Size * kIdx});
+        }
+        
+        Tensor scaleA;
+        if (attrParam_.transAScale) {
+            scaleA = View(aScale_, {kScaleL1Size, mSize, SHAPE_DIM2}, {kScaleValidshape, mValidShape, SHAPE_DIM2},
+                         {kScaleL1Size * kIdx, 0, 0});
+        } else {
+            scaleA = View(aScale_, {mSize, kScaleL1Size, SHAPE_DIM2}, {mValidShape, kScaleValidshape, SHAPE_DIM2},
+                         {0, kScaleL1Size * kIdx, 0});
+        }
+        
+        Tensor tensorB;
+        if (attrParam_.transB) {
+            tensorB = View(bMatrix_, {nSize, kL1Size}, {nValidShape, kValidshape}, {0, kL1Size * kIdx});
+        } else {
+            tensorB = View(bMatrix_, {kL1Size, nSize}, {kValidshape, nValidShape}, {kL1Size * kIdx, 0});
+        }
+        
+        Tensor scaleB;
+        if (attrParam_.transBScale) {
+            scaleB = View(bScale_, {nSize, kScaleL1Size, SHAPE_DIM2}, {nValidShape, kScaleValidshape, SHAPE_DIM2},
+                         {0, kScaleL1Size * kIdx, 0});
+        } else {
+            scaleB = View(bScale_, {kScaleL1Size, nSize, SHAPE_DIM2}, {kScaleValidshape, nValidShape, SHAPE_DIM2},
+                         {kScaleL1Size * kIdx, 0, 0});
+        }
+        
+        return std::make_tuple(tensorA, scaleA, tensorB, scaleB);
+    }
+
+private:
+    const Tensor& aMatrix_;
+    const Tensor& aScale_;
+    const Tensor& bMatrix_;
+    const Tensor& bScale_;
+    const MatmulAttrParam& attrParam_;
+};
+
+// 用于量化矩阵乘法的图节点创建器
+class QuantizedMatmulGraphNodeCreator {
+public:
+    Tensor operator()(const std::tuple<Tensor, Tensor, Tensor, Tensor>& views, DataType type, const MatmulAttrParam& param) const {
+        auto [tensorA, scaleA, tensorB, scaleB] = views;
+        MatmulGraphNodes tensorGraphNodes(
+            tensorA.GetStorage(), scaleA.GetStorage(), 
+            tensorB.GetStorage(), scaleB.GetStorage());
+        return ConstructTensorGraph(type, tensorGraphNodes, param);
+    }
+};
+
+// 通用的分块处理函数
+template<typename ViewFunc, typename GraphNodeFunc, typename... ScaleTensors>
+static Tensor ProcessMatmulWithAccumulation(
+    DataType outType,
+    const Tensor &aMatrix,
+    const Tensor &bMatrix,
+    const std::vector<Tensor>& scaleTensors, // 包含aScale和bScale
+    const MatmulAttrParam &attrParam,
+    ViewFunc createViews,
+    GraphNodeFunc createGraphNode,
+    int64_t additionalScaleFactor = 1) {
+    
+    auto &cubeTile = TileShape::Current().GetCubeTile();
+    OP_CHECK(true, {
+        ASSERT(aMatrix.GetStorage() != nullptr && bMatrix.GetStorage() != nullptr)
+            << "Both aMatrix and bMatrix cannot get storage" << std::endl;
+    });
+    
+    auto aMatrixValidShape = aMatrix.GetStorage()->GetDynValidShape();
+    auto bMatrixValidShape = bMatrix.GetStorage()->GetDynValidShape();
+    SymbolicScalar mValidShape = attrParam.transA ? aMatrixValidShape[1] : aMatrixValidShape[0];
+    SymbolicScalar nValidShape = attrParam.transB ? bMatrixValidShape[0] : bMatrixValidShape[1];
+    SymbolicScalar kL1TileShape = std::min(cubeTile.k[1], cubeTile.k[2]);
+    int64_t mSize = attrParam.transA ? aMatrix.GetShape()[1] : aMatrix.GetShape()[0];
+    int64_t kSize = attrParam.transA ? aMatrix.GetShape()[0] : aMatrix.GetShape()[1];
+    int64_t nSize = attrParam.transB ? bMatrix.GetShape()[0] : bMatrix.GetShape()[1];
+    TileShape::Current().SetVecTile({128, 128});
+    
+    std::vector<Tensor> gmPartialSums;
+    OP_CHECK(true, { 
+        ASSERT(kL1TileShape != 0) << "kL1TileShape can not be 0" << std::endl; 
+    });
+    
+    const int64_t kLoop = (kSize + kL1TileShape - 1) / kL1TileShape;
+    const int64_t kL1Size = std::min(kSize, kL1TileShape);
+    const int64_t kScaleL1Size = kL1Size / additionalScaleFactor;
+    
+    for (int64_t kIdx = 0; kIdx < kLoop; ++kIdx) {
+        int64_t kValidshape = std::min(kSize - kL1Size * kIdx, kL1Size);
+        int64_t kScaleValidshape = kValidshape / additionalScaleFactor;
+        
+        // 使用传入的view创建函数
+        auto viewResults = createViews(kIdx, kL1Size, kScaleL1Size, kValidshape, kScaleValidshape, 
+                                      mSize, nSize, mValidShape, nValidShape);
+        
+        // 创建图节点
+        Tensor gmPartialSum = createGraphNode(viewResults, outType, attrParam);
+        gmPartialSums.emplace_back(gmPartialSum);
+    }
+    
+    // 累积求和
+    for (int64_t kIdx = 1; kIdx < kLoop; ++kIdx) {
+        gmPartialSums[0] = npu::tile_fwk::Add(gmPartialSums[0], gmPartialSums[kIdx]);
+    }
+    
+    return gmPartialSums[0];
+}
+
+// 重载版本1: 基础矩阵乘法
+static Tensor ConstructGmAccumulationTensorGraph(
+    DataType outType, 
+    const Tensor &aMatrix, 
+    const Tensor &bMatrix, 
+    const MatmulAttrParam &attrParam) {
+    
+    BasicMatmulViewCreator createViews(aMatrix, bMatrix, attrParam);
+    BasicMatmulGraphNodeCreator createGraphNode;
+    
+    return ProcessMatmulWithAccumulation(outType, aMatrix, bMatrix, {}, 
+                                        attrParam, createViews, createGraphNode, 1);
+}
+
+// 重载版本2: 带量化scale的矩阵乘法
+static Tensor ConstructGmAccumulationTensorGraph(
+    DataType outType, 
+    const Tensor &aMatrix, 
+    const Tensor &aScale,
+    const Tensor &bMatrix, 
+    const Tensor &bScale, 
+    const MatmulAttrParam &attrParam) {
+    
+    QuantizedMatmulViewCreator createViews(aMatrix, aScale, bMatrix, bScale, attrParam);
+    QuantizedMatmulGraphNodeCreator createGraphNode;
+    
+    return ProcessMatmulWithAccumulation(outType, aMatrix, bMatrix, {aScale, bScale}, 
+                                        attrParam, createViews, createGraphNode, ALIGN_SIZE_64);
+}
+
 Tensor Matmul(
     DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, bool isATrans, bool isBTrans, bool isCMatrixNZ) {
     MatmulAttrParam attrParam(isATrans, isBTrans, isCMatrixNZ);
