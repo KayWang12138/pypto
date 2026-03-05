@@ -246,12 +246,12 @@ void L1CopyInReuseRunner::GetColorHash(const OperationsViewer &opOriList, std::v
             order++;
         }
     }
+    APASS_LOG_INFO_F(Elements::Operation, "Computation graph overview.");
     for (auto& entry : hashMap) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "Subgraph hash: %lu, Subgraph ID: %s.", entry.first, IntVecToStr(entry.second).c_str());
+        APASS_LOG_INFO_F(Elements::Operation, "Hash order: %d, Subgraph hash: %lu, Subgraph ID: %s.",
+            hashOrder[entry.first], entry.first, IntVecToStr(entry.second).c_str());
     }
-    for (auto& entry : hashOrder) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "Subgraph hash: %lu, Hash order: %d.", entry.first, entry.second);
-    }
+    APASS_LOG_INFO_F(Elements::Operation, "Computation graph overview end.");
 }
 
 inline void HashUpdate(std::unordered_map<uint64_t, std::vector<int>> &hashMap, 
@@ -289,7 +289,7 @@ Status L1CopyInReuseRunner::SetNumLR(std::vector<int> &numLRList) {
     }
     auto numLR = numLRMap.find(-1);
     if (numLR != numLRMap.end()) {
-        if (numLR->second < 0) {
+        if (numLR->second < 1) {
             APASS_LOG_ERROR_F(Elements::Config, "Invalid default merge count for "
                                 "Default merge count=%ld, please check.", numLR->second);
             return FAILED;
@@ -306,7 +306,7 @@ Status L1CopyInReuseRunner::SetNumLR(std::vector<int> &numLRList) {
                     APASS_LOG_ERROR_F(Elements::Config, "entry %ld not fount in hashMap.", hashcolor);
                     return FAILED;
                 }
-                if (entry.second < 0) {
+                if (entry.second < 1) {
                     APASS_LOG_ERROR_F(Elements::Config, "Invalid merge count for "
                                         "Subgraph hash %ld: merge count=%ld, please check.", hashcolor, entry.second);
                     return FAILED;
@@ -583,6 +583,7 @@ Status L1CopyInReuseRunner::Run(Function &func, int color, std::vector<std::vect
     }
     RemoveUselessViews(func); //删除节点
     func.EraseOperations(true);
+    APASS_LOG_DEBUG_F(Elements::Operation, "After L1CopyInReuse.");
     RescheduleUtils::PrintColorNode(func);
     return SUCCESS;
 }
@@ -622,7 +623,8 @@ Status L1CopyInReuseMerge::InitColorNode(Function &func, std::vector<std::vector
                 APASS_LOG_ERROR_F(Elements::Operation, "Get Feature FAILED. %s", GetFormatBacktrace(opOriList[i]).c_str());
                 return FAILED;
             }
-            APASS_LOG_INFO_F(Elements::Operation, "Op %d feature: %s.", i, IntVecToStr(feature).c_str());
+            APASS_LOG_INFO_F(
+                Elements::Operation, "Op %d feature: %s.", opOriList[i].GetOpMagic(), IntVecToStr(feature).c_str());
         }
         auto opColor = opOriList[i].GetSubgraphID();
         if (opColor > colorMax) {
