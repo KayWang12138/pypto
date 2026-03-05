@@ -502,7 +502,8 @@ AclModeGuard::AclModeGuard(aclmdlRICaptureMode tmode) : mode(tmode) {
 }
 AclModeGuard::~AclModeGuard() {
 #ifdef BUILD_WITH_CANN
-    aclmdlRICaptureThreadExchangeMode(&mode);
+    aclmdlRICaptureMode mod = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
+    aclmdlRICaptureThreadExchangeMode(&mod);
 #endif
 }
 
@@ -567,11 +568,30 @@ void DeviceLauncher::FreeControlFlowCache(uint8_t *ctrlCache) {
 #endif
 }
 
-void DeviceLauncher::AddAicpuStream(aclrtStream aicoreStream, bool tripleStream) {
+void DeviceLauncher::AddAicpuStream(aclmdlRI &rtModel, bool tripleStream) {
 #ifdef BUILD_WITH_CANN
     auto ctrlStream = (aclrtStream)machine::GetRA()->GetCtrlStream();
     auto schedtream = (aclrtStream)machine::GetRA()->GetScheStream();
-    aclmdlRI rtModel;
+    if (IsCaptureMode()) {
+        if (rtModel == nullptr) {
+            MACHINE_LOGE("rtModel is null");
+            return;
+        }
+        if (tripleStream) {
+            rtStreamAddToModel(ctrlStream, rtModel);
+        }
+        rtStreamAddToModel(schedtream, rtModel);
+    }
+#else
+    (void)rtModel;
+    (void)tripleStream;
+    return;
+#endif
+}
+
+void DeviceLauncher::GetCaptureInfo(aclrtStream aicoreStream, aclmdlRI &rtModel) {
+#ifdef BUILD_WITH_CANN
+    SetCaptureMode(false);
     aclmdlRICaptureStatus status = aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE;
     auto ret = aclmdlRICaptureGetInfo(aicoreStream, &status, &rtModel);
     if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
@@ -581,15 +601,13 @@ void DeviceLauncher::AddAicpuStream(aclrtStream aicoreStream, bool tripleStream)
         return;
     }
     if (status == aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_ACTIVE) {
-        if (tripleStream) {
-            rtStreamAddToModel(ctrlStream, rtModel);
-        }
-        rtStreamAddToModel(schedtream, rtModel);
+        SetCaptureMode(true);
+        MACHINE_LOGI("The current mode is capture mode");
     }
 #else
     (void)aicoreStream;
-    (void)tripleStream;
-    return;
+    (void)rtModel;
+    SetCaptureMode(false);
 #endif
 }
 
@@ -599,24 +617,6 @@ void DeviceLauncher::SetCaptureMode(bool captureMode) {
 
 bool DeviceLauncher::IsCaptureMode() {
     return captureMode_;
-}
-
-bool DeviceLauncher::IsCaptureMode(aclrtStream aicoreStream) {
-#ifdef BUILD_WITH_CANN
-    aclmdlRI rtModel;
-    aclmdlRICaptureStatus status = aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE;
-    auto ret = aclmdlRICaptureGetInfo(aicoreStream, &status, &rtModel);
-    if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
-        return false;
-    } else if (ret != ACL_SUCCESS) {
-        MACHINE_LOGE("get capture info failed: %d", ret);
-        return false;
-    }
-    return status == aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_ACTIVE;
-#else
-    (void)aicoreStream;
-    return false;
-#endif
 }
 
 void *DeviceLauncher::RegisterKernelBin(const std::vector<uint8_t> &kernelBinary) {
