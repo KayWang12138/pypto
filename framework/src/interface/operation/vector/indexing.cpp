@@ -1068,6 +1068,15 @@ void TiledIndexPut(Function &function, const TileShape &tileShape, Input &inputS
             inputsTile.push_back(inputIndicesTile);
         }
         auto &newOp = function.AddOperation(Opcode::OP_INDEX_PUT, inputsTile, {result});
+        int64_t startOffset = 0;
+        for (size_t i = 0, iSize = inputSelf.tileInfo.shape.size(); i < iSize; ++i) {
+            int64_t offset = inputSelf.tileInfo.offset[i];
+            for (size_t j = i + 1, jSize = inputSelf.tileInfo.shape.size(); j < jSize; ++j) {
+                offset *= inputSelf.tensor.GetShape()[j];
+            }
+            startOffset += offset;
+        }
+        newOp.SetAttribute(OpAttributeKey::startOffset, startOffset);
         newOp.SetAttribute(OpAttributeKey::inplaceIdx, 0);
         newOp.SetAttribute(OpAttributeKey::accumulate, accumulate);
         newOp.SetAttribute(OpAttributeKey::indicesSize, static_cast<int>(inputIndices.size()));
