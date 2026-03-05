@@ -1350,22 +1350,11 @@ struct EncodeDevAscendFunctionInfo {
         }
     }
 
-     void AddDependOperandsToColorGraph(std::vector<Operation *> &callopList, std::unordered_map<Operation *, int> &callopIndexDict) {
-        std::unordered_map<std::shared_ptr<LogicalTensor>, OrderedSet<Operation *>> producerDict;
-        for (auto &op : callopList) {
-            for (auto &i : op->GetOOperands()) {
-                producerDict[i].Insert(op);
-            }
-        }
 
+    void AddDependOperandsToColorGraph(std::vector<Operation *> &callopList, std::unordered_map<Operation *, int> &callopIndexDict) {
         for (auto &op : callopList) {
             for (auto &o : op->GetDependOperands()) {
-                for (auto &producer : producerDict[o]) {
-                    if (op == producer) {
-                        // Consumer and producer can not be the same.
-                        continue;
-                    }
-                    // Index for callop from its depend operand's producer callop index list
+                for (auto &producer : o->GetProducers()) {
                     colorOutGraph[callopIndexDict[producer]].push_back(callopIndexDict[op]);
                 }
             }
