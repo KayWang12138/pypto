@@ -32,7 +32,6 @@
 #include "opcode.h"
 #include "attribute.h"
 #include "attr_holder.h"
-#include "interface/utils/log.h"
 #include "interface/utils/source_location.h"
 #include "interface/tensor/logical_tensor.h"
 #include "operation_common.h"
