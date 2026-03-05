@@ -101,8 +101,8 @@ bool InferMemoryConflict::CheckConflict(const LogicalTensorPtr &inTensor, const 
     return true;
 }
 
-bool InferMemoryConflict::CheckRawShapeConflict(const LogicalTensorPtr &inTensor, const LogicalTensorPtr &outTensor,
- 	     bool isBackWard, const LogicalTensorPtr &reshapeTensor) {
+bool InferMemoryConflict::CheckRawShapeConflict(
+    const LogicalTensorPtr &inTensor, const LogicalTensorPtr &outTensor, Operation *reshapeOp) {
     int64_t inRawSize = 1;
     int64_t outRawSize = 1;
     Shape inShape = inTensor->GetRawTensor()->GetRawShape();
@@ -137,8 +137,8 @@ bool InferMemoryConflict::CheckRawShapeConflict(const LogicalTensorPtr &inTensor
         }
         outRawSize *= outShape[i];
     }
-    auto reshapeInput = isBackWard ? inTensor : reshapeTensor;
-    auto reshapeOutput = isBackWard ? reshapeTensor : outTensor;
+    auto reshapeInput = reshapeOp->GetInputOperand(0);
+    auto reshapeOutput = reshapeOp->GetOutputOperand(0);
     if (MatchReshapePattern(reshapeInput, reshapeOutput)) {
         return false;
     }
@@ -268,9 +268,8 @@ bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn,
 Status InferMemoryConflict::UpdateForwardTensor(Function &function, const LogicalTensorPtr &curTensor, Operation* consumer, std::queue<LogicalTensorPtr> &curTensors) {
     for (const auto &outputTensor : consumer->GetOOperands()) {
         if (consumer->GetOpcode() == Opcode::OP_RESHAPE) {
-            auto reshapeInput = consumer->GetIOperands().front();
             bool isInplace = consumer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
-            if (!isInplace && CheckRawShapeConflict(memoryInfo[curTensor], outputTensor, false, reshapeInput)) {
+            if (!isInplace && CheckRawShapeConflict(memoryInfo[curTensor], outputTensor, consumer)) {
                 preregcopys.insert(consumer);
                 continue;
             }
@@ -301,7 +300,7 @@ Status InferMemoryConflict::UpdateBackwardTensor(const LogicalTensorPtr &curTens
         auto reshapeOutput = producer->GetOOperands().front();
         if (producer->GetOpcode() == Opcode::OP_RESHAPE) {
             bool isInplace = producer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
-            if (!isInplace && CheckRawShapeConflict(inputTensor, memoryInfo[curTensor], true, reshapeOutput)) {
+            if (!isInplace && CheckRawShapeConflict(inputTensor, memoryInfo[curTensor], producer)) {
                 postregcopys.insert(producer);
                 continue;
             }
