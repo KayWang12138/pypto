@@ -638,6 +638,17 @@ std::string CodeGenOpCloudNPU::GenGatherMaskOp() const {
     return oss.str();
 }
 
+std::string CodeGenOpCloudNPU::GenPermuteOp() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC1_IDX));
+
+    std::ostringstream oss;
+    oss << tileOpName << WrapParamByAngleBrackets({GenOpAttr(false)});
+    oss << WrapParamByParentheses({dstTensor, src0Tensor, tmpTensor}) << STMT_END;
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::PrintIndexPutDynamicUnaligned(const PrintIndexPutParam &param) const {
     const std::string &dstVar = param.dVar;
     const std::string &src1Var = param.s1Var;

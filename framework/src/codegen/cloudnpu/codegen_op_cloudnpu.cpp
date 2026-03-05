@@ -287,6 +287,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_SCATTER_ELEMENT, [this]() { return GenScatterElementSOp(); }},
           {Opcode::OP_SCATTER, [this]() { return GenScatterOp(); }},
           {Opcode::OP_GATHER_MASK, [this]() { return GenGatherMaskOp(); }},
+          {Opcode::OP_PERMUTE, [this]() { return GenPermuteOp(); }},
       }),
       normalVecOps_({
           // vector dup

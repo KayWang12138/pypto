@@ -674,6 +674,10 @@ class Tensor:
         return pypto.triu(self, diagonal)
 
     @source_location
+    def permute(self: 'Tensor', dims: tuple) -> 'Tensor':
+        return pypto.permute(self, dims)
+
+    @source_location
     def triu_(self: 'Tensor', diagonal: 'int | SymbolicScalar' = 0) -> 'Tensor':
         self.move(pypto.triu(self, diagonal))
         return self

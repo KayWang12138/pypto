@@ -125,6 +125,7 @@ enum class Opcode {
     OP_SCATTER,
     OP_INDEX_PUT,
     OP_INDEX_ADD,
+    OP_PERMUTE,
     OP_CONCAT,
     OP_CUM_SUM,
     OP_SCATTER_UPDATE,
