@@ -263,6 +263,8 @@ def run_moe_combine_ffn_multiturn(rank: int, world_size: int) -> None:
             return f"{tensor_meta(combine_info_tensor)}, cpu_stats_unavailable={type(stat_exc).__name__}: {stat_exc}"
 
     def log_fused_launch_context(tag: str, recv_counts_tensor: torch.Tensor) -> None:
+        if not debug_stage_log:
+            return
         stage_log(
             f"{tag} launch ctx: "
             f"expand_x={tensor_meta(expand_x_data)}, combine_info={tensor_meta(combine_info_data)}, "
@@ -439,10 +441,11 @@ def run_moe_combine_ffn_multiturn(rank: int, world_size: int) -> None:
 
         valid_rows_round = int(valid_cnt_data.detach().to("cpu").sum().item())
         recv_counts_round = build_recv_counts(combine_info_data, valid_cnt_data, batch_size, top_k, world_size, rank)
-        stage_log(
-            f"Warmup[{warmup_idx}] recv_counts ready: {recv_counts_stats(recv_counts_round)}, "
-            f"valid_cnt_sum={valid_rows_round}, combine_info_stats={combine_info_stats(combine_info_data, valid_rows_round)}"
-        )
+        if debug_stage_log:
+            stage_log(
+                f"Warmup[{warmup_idx}] recv_counts ready: {recv_counts_stats(recv_counts_round)}, "
+                f"valid_cnt_sum={valid_rows_round}, combine_info_stats={combine_info_stats(combine_info_data, valid_rows_round)}"
+            )
 
         if skip_combine:
             dist.barrier()
@@ -492,10 +495,11 @@ def run_moe_combine_ffn_multiturn(rank: int, world_size: int) -> None:
 
         valid_rows_round = int(valid_cnt_data.detach().to("cpu").sum().item())
         recv_counts_round = build_recv_counts(combine_info_data, valid_cnt_data, batch_size, top_k, world_size, rank)
-        stage_log(
-            f"Test[{test_idx}] recv_counts ready: {recv_counts_stats(recv_counts_round)}, "
-            f"valid_cnt_sum={valid_rows_round}, combine_info_stats={combine_info_stats(combine_info_data, valid_rows_round)}"
-        )
+        if debug_stage_log:
+            stage_log(
+                f"Test[{test_idx}] recv_counts ready: {recv_counts_stats(recv_counts_round)}, "
+                f"valid_cnt_sum={valid_rows_round}, combine_info_stats={combine_info_stats(combine_info_data, valid_rows_round)}"
+            )
         recv_counts_pto = pypto.from_torch(recv_counts_round)
         scale_pto = pypto.from_torch(scale)
 
