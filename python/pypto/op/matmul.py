@@ -246,6 +246,7 @@ def scaled_mm(
     __validate_inputs(mat_a, mat_b, out_dtype, [a_trans, b_trans, c_matrix_nz, extend_params])
     __validate_scaled_inputs(mat_a, mat_b, scale_a, scale_b)
     __validate_scaled_shape(mat_a, mat_b, scale_a, scale_b, [a_trans, b_trans, scale_a_trans, scale_b_trans])
+    __validate_trans_mode(mat_a, mat_b, extend_params)
     if extend_params is not None:
         extend_params = pypto_impl.MatmulExtendParam(
             **__convert_matmul_extend_params(extend_params)
@@ -410,6 +411,15 @@ def __validate_scale_k_alignment(ka_dim, k_a_scale0_dim, align_64):
         raise RuntimeError(
             "Matrix K dimension is not a multiple of 64 of the Scale Matrix K0 dimension. "
             f"k_size: {ka_dim}, k_scale_size0: {k_a_scale0_dim}"
+        )
+
+
+def __validate_trans_mode(mat_a, mat_b, extend_params):
+    if (extend_params['trans_mode'] != pypto.TransMode.CAST_NONE and 
+        mat_a.GetDataType() != pypto_impl.DataType.DT_FP32 and 
+        mat_b.GetDataType() != pypto_impl.DataType.DT_FP32):
+        raise RuntimeError(
+            "TransMode is supported only when input data type is DT_FP32."
         )
 
 

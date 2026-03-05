@@ -77,6 +77,13 @@ enum class CopyOutMode : int64_t
     ND2ND = 2
 };
 
+enum class TransMode : int64_t
+{
+    CAST_NONE = 0,
+    CAST_RINT = 1,
+    CAST_ROUND = 2
+};
+
 enum class PaddingMode : int64_t {
     NO_PADDING = 0,
     PADDING_OUTER = 1,
@@ -87,13 +94,6 @@ enum class ReLuType : int64_t
 {
     NoReLu = 0,
     ReLu = 1
-};
-
-enum class TransMode : int64_t
-{
-    CAST_NONE = 0,
-    CAST_RINT = 1,
-    CAST_ROUND = 2
 };
 
 namespace TileOp {
