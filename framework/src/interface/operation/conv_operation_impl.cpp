@@ -156,6 +156,7 @@ void CheckOutputShape(const Tensor &inputTensor, const Tensor &weightTensor, con
 void CheckAlignment(int64_t value, int64_t alignment, const std::string& valueName)
 {
     OP_CHECK(true, {
+        ASSERT(alignment != 0) << "Error in alignment check for "<< valueName << ".">>;
         ASSERT(value % alignment == 0)
             << "Invalid " << valueName << ":" << value
             << ", requires " << alignment << "-element alignment." << std::endl;
@@ -342,7 +343,7 @@ void CheckL1SizeTiling(DataType outType, const Tensor &inputTensor, const Tensor
     uint64_t inputL1Size = 0;
     uint64_t m0 = NUM16;
     uint64_t wo = ConvComputeWo(inputTensor, weightTensor, attrParam);
-    uint64_t hoAL1min = wo < m0 ? (m0 + wo - 1) / wo : 1;
+    uint64_t hoAL1min = (wo == 0) ? 1 : (wo < m0 ? (m0 + wo - 1) / wo : 1);
     uint64_t khDilated = (kh - 1) * dilationH + 1;
     uint64_t hiAL1min = Conv2DInferHiL1(hoAL1min, khDilated, hin, strideH);
     uint64_t kAL1min = k0;
