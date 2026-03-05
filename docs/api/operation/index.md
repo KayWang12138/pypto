@@ -90,4 +90,6 @@ pypto-unsqueeze
 pypto-view
 pypto-LReLU
 pypto-where
+pypto-isfinite
+pypto-ceil_div
 ```
