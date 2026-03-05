@@ -278,7 +278,6 @@ private:
     std::string GenRemainderRSOp() const;
     std::string GenCmpOp() const;
     std::string GenHypotOp() const;
-    std::string GenPreluOp() const;
 
     std::string PrintDupOp(const PrintDupOpParam &param) const;
     std::string PrintDupOpDynUnaligned(const PrintDupOpParam &param) const;
@@ -456,7 +455,6 @@ private:
 
     std::string PrintCmpTileTensor() const;
     std::string PrintHypotTileTensor() const;
-    std::string PrintPreluTileTensor() const;
     std::string PrintLogicalAndTileTensor() const;
     std::string PrintLogicalNotTileTensor() const;
 

@@ -215,7 +215,6 @@ Tensor Remainder(const Tensor &self, const Tensor &other);
 Tensor Remainder(const Tensor &self, const Element &other);
 Tensor Remainder(const Element &self, const Tensor &other);
 Tensor CopySign(const Tensor &self, const Tensor &other);
-Tensor PReLU(const Tensor &self, const Tensor &weight);
 
 Tensor BitwiseRightShift(const Tensor &self, const Tensor &other);
 Tensor BitwiseRightShift(const Tensor &self, const Element &other);

@@ -1781,37 +1781,3 @@ def ceil_div(
         return pypto_impl.CeilDiv(self, other)
     else:
         return pypto_impl.CeilDiv(self, pypto_impl.Element(self.dtype, other))
-
-
-@op_wrapper
-def prelu(self: Tensor, weight: Tensor) -> Tensor:
-    """
-    Applies the element-wise parametric rectified linear unit (PReLU) function.
-    
-    The function is defined as:
-    f(x) = max(0, x) + weight * min(0, x)
-    
-    Parameters
-    ----------
-    input : Tensor
-        The input tensor.
-    weight : Tensor
-        The learnable parameter tensor. For a 4D input tensor, weight should be a 1D tensor
-        with size equal to the number of channels (second dimension).
-    
-    Returns
-    -------
-    Tensor
-        A new tensor containing the element-wise PReLU activation results.
-    
-    Examples
-    --------
-    x = pypto.tensor([-1.0, 2.0, -0.5, 3.0], dtype="float32")
-    weight = pypto.tensor([0.25], dtype="float32")
-    y = pypto.prelu(x, weight)
-    
-    Input x:  [-1.0, 2.0, -0.5, 3.0]
-    Weight:   [0.25]
-    Output y: [-0.25, 2.0, -0.125, 3.0]
-    """
-    return pypto_impl.PReLU(self, weight)
