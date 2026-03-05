@@ -917,6 +917,16 @@ void CheckFixpipeParam(DataType inDtype, DataType outDtype, const MatmulExtendPa
     }
 }
 
+void CheckTransModeParam(DataType inDtype, const MatmulExtendParam &param = {}) {
+    if(param.transMode != TransMode::CAST_NONE) {
+        OP_CHECK(true, {
+            ASSERT(inDType == DataType::DT_FP32)
+                << "TransMode is supported only when input matrices A and B are of type DT_FP32."
+                << std::endl;
+        });
+    }
+}
+
 void CheckGmAccumulationParam(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix,
     const MatmulAttrParam &attrParam, const MatmulExtendParam &param = {}) {
     auto &cubeTile = TileShape::Current().GetCubeTile();
@@ -986,6 +996,8 @@ void CheckMatmulOperands(DataType outType, const Tensor &operand1, const Tensor 
     // bias and scale valid check
     CheckBiasParam(operand1.GetDataType(), param);
     CheckFixpipeParam(operand1.GetDataType(), outType, param);
+    // trans mode valid check
+    CheckTransModeParam(operand1.GetDataType(), param);
 }
 
 void CheckMXMatmulShape(const Tensor &aTensor, const Tensor &aScaleTensor, const Tensor &bTensor,
