@@ -69,7 +69,7 @@ bool INIParser::GetStringVal(const std::string& column, const std::string& key, 
     }
     auto value = data_.at(column);
     if (value.find(key) == value.end()) {
-        return true;
+        return false;
     }
     val = value[key];
     return true;
