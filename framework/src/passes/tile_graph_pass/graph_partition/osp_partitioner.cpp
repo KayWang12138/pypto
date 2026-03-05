@@ -8,6 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#define MODULE_NAME "GraphPartition"
+
 #include "osp_partitioner.h"
 #include "passes/pass_log/pass_log.h"
 #include "passes/pass_check/iso_partitioner_checker.h"

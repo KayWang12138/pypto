@@ -21,6 +21,8 @@
 #include <string>
 #include "gtest/gtest.h"
 
+#define MODULE_NAME "OspTests"
+
 #include "passes/algorithms/osp/auxiliary/datastructures/union_find.h"
 #include "passes/algorithms/osp/auxiliary/balanced_coin_flips.h"
 #include "passes/algorithms/osp/bsp/model/bsp_architecture.h"

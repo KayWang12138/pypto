@@ -11,8 +11,6 @@
 #ifndef PASS_OSP_PARTITIONER_H
 #define PASS_OSP_PARTITIONER_H
 
-#define MODULE_NAME "GraphPartition"
-
 #include "passes/algorithms/osp/graph_implementations/adj_list_impl/dag_vector_adapter.h"
 #include "passes/algorithms/osp/graph_implementations/adj_list_impl/compact_sparse_graph.h"
 #include "passes/algorithms/osp/graph_implementations/adj_list_impl/computational_dag_vector_impl.h"

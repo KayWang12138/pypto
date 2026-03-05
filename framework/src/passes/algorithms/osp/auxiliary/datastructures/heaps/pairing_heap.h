@@ -24,10 +24,6 @@
 
 #include "passes/pass_log/pass_log.h"
 
-#ifndef MODULE_NAME
-#define MODULE_NAME "PassesAlgorithms"
-#endif
-
 namespace npu::tile_fwk {
 namespace osp {
 
