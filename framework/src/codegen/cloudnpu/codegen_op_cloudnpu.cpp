@@ -567,7 +567,7 @@ TileTensor CodeGenOpCloudNPU::BuildTileTensor(
     if (tileTensor.bufType == OperandType::BUF_DDR) {
         tileTensor.bufVar = isSpillToGm ? GenGMAddrExprWithOffset(GM_STACK_BASE, paramIdx) : GenGmParamVar(paramIdx);
     } else {
-        tileTensor.bufVar = sm->QueryVarNameByTensorMagic(tileTensor.magic, true);
+        tileTensor.bufVar = QueryTileTensorNameByIdx(paramIdx);
     }
 
     tileTensor.usingType = usingType;
