@@ -663,7 +663,7 @@ template <typename SystemConfig, typename CaseConfig>
 void DynPvModelImpl<SystemConfig, CaseConfig>::RunModel()
 {
     step_status_t step_status;
-    SIMULATION_LOGI("subcoreId: %d , coreId: %d ", subcoreId_, coreId_);
+    SIMULATION_LOGI("subcoreId: %lu , coreId: %lu ", subcoreId_, coreId_);
     do {
         step_status = static_cast<step_status_t>(pv_step_(PV_STEP_PIPE_ID, subcoreId_, coreId_, 0));
     } while (step_status != step_status_t::END && step_status != step_status_t::TIME_OUT);
