@@ -106,7 +106,6 @@ TEST_F(TestPlatformParser, TestObtainPlatformInfo) {
     const size_t expectl1Size = 524288UL;
     const size_t expectubSize = 196608UL;
 
-    Platform::Instance().ObtainPlatformInfo();
     EXPECT_EQ(Platform::Instance().GetSoc().GetNPUArch(), NPUArch::DAV_2201);
     EXPECT_EQ(Platform::Instance().GetSoc().GetCCECVersion(aic), "dav-c220-cube");
     EXPECT_EQ(Platform::Instance().GetSoc().GetCCECVersion(aiv), "dav-c220-vec");

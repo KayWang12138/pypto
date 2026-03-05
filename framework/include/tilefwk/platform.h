@@ -415,6 +415,8 @@ class Host{};
 
 class Platform {
 private:
+    Platform();
+
     Cluster cluster_;
     Host host_;
     size_t cluster_cnt_;

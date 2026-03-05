@@ -41,7 +41,6 @@ public:
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
         config::SetPassOption(VEC_NBUFFER_SETTING, std::map<int64_t, int64_t>{{-1, 2}});
-        Platform::Instance().ObtainPlatformInfo();
     }
 
     void TearDown() override {}

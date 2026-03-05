@@ -349,4 +349,8 @@ void Platform::ObtainPlatformInfo() {
     }
     initialized_ = true;
 }
+
+Platform::Platform() {
+    ObtainPlatformInfo();
+}
 }
