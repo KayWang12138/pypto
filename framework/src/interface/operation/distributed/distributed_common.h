@@ -141,8 +141,12 @@ inline bool checkValidConfig(const MoeConfig &moeConfig, std::string &assertResu
         assertResult = "Distributed constraint violated: moeConfig rankSize must divide routedExpertNum.";
         return false;
     }
-    if (routedExpertNum != ROUTED_EXPET_NUM) {
-        assertResult = "Distributed constraint violated: moeConfig routedExpertNum must be " + std::to_string(ROUTED_EXPET_NUM) + ".";
+    if (routedExpertNum <= 0) {
+        assertResult = "Distributed constraint violated: moeConfig routedExpertNum must be positive.";
+        return false;
+    }
+    if (expertNumPerRank <= 0) {
+        assertResult = "Distributed constraint violated: moeConfig expertNumPerRank must be positive.";
         return false;
     }
     if (expertNumPerRank != routedExpertNum / rankNum) {

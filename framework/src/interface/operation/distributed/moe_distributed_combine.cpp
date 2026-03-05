@@ -48,9 +48,8 @@ void MoeDistributedCombineValidateExpandX(
         << " but got " << expandXRow;
 
     int32_t expandXCol = expandX.GetShape(1);
-    int32_t supportedHiddenSize = 5120;
-    CHECK(expandXCol == supportedHiddenSize) << "The second axis of \"expandX\" only supports " << supportedHiddenSize
-        << ", but got " << expandXCol;
+    CHECK((expandXCol > 0) && (expandXCol <= 65535)) << "The second axis of \"expandX\" must be in [1, 65535], but got "
+        << expandXCol;
 
     CHECK(expandX.GetDataType() == DT_BF16) << "The data type of \"expandX\" only supports DT_BF16, but got "
         << DataType2String(expandX.GetDataType());
@@ -107,16 +106,11 @@ void MoeDistributedCombineValidateExpertScales(const Tensor& expertScales)
         << supportedDim << ", but got " << expertScales.GetShape().size();
 
     int32_t expertScalesRow = expertScales.GetShape(0);
-    int32_t supportedExpertScalesRow1 = 8;
-    int32_t supportedExpertScalesRow2 = 256;
-    CHECK((expertScalesRow == supportedExpertScalesRow1) || (expertScalesRow == supportedExpertScalesRow2)) << "The "
-        << "first axis of \"expertScales\" only supports " << supportedExpertScalesRow1 << " or "
-        << supportedExpertScalesRow2 << ", but got " << expertScalesRow;
+    CHECK(expertScalesRow > 0) << "The first axis of \"expertScales\" must be > 0, but got " << expertScalesRow;
 
     int32_t expertScalesCol = expertScales.GetShape(1);
-    int32_t supportedExpertScalesCol = 8;
-    CHECK(expertScalesCol == supportedExpertScalesCol) << "The second axis of \"expertScales\" only supports "
-        << supportedExpertScalesCol << ", but got " << expertScalesCol;
+    CHECK((expertScalesCol > 0) && (expertScalesCol <= 15)) << "The second axis of \"expertScales\" must be in [1, 15], "
+        << "but got " << expertScalesCol;
 
     CHECK(expertScales.GetDataType() == DT_FP32) << "The data type of \"expertScales\" only supports DT_FP32, but got "
         << DataType2String(expertScales.GetDataType());
@@ -158,19 +152,16 @@ void MoeDistributedCombineValidateGroup(const char* group)
         << "), but got " << groupLen;
 }
 
-void MoeDistributedCombineValidateMoeEpWorldSize(int32_t epWorldSize)
+void MoeDistributedCombineValidateMoeEpWorldSize(int32_t epWorldSize, int32_t moeExpertNum)
 {
-    int32_t supportedMoeExpertNum = 160;
     CHECK(epWorldSize > 0) << "epWorldSize must be positive, but got " << epWorldSize;
-    CHECK((supportedMoeExpertNum % epWorldSize) == 0) << "epWorldSize must divide " << supportedMoeExpertNum
-        << ", but got " << epWorldSize;
+    CHECK((moeExpertNum % epWorldSize) == 0) << "epWorldSize must divide moeExpertNum, but got epWorldSize="
+        << epWorldSize << ", moeExpertNum=" << moeExpertNum;
 }
 
 void MoeDistributedCombineValidateMoeExpertNum(int32_t moeExpertNum)
 {
-    int32_t supportedMoeExpertNum = 160;
-    CHECK(moeExpertNum == supportedMoeExpertNum) << "moeExpertNum only supports " << supportedMoeExpertNum << ", but "
-        << "got " << moeExpertNum;
+    CHECK(moeExpertNum > 0) << "moeExpertNum must be positive, but got " << moeExpertNum;
 }
 
 void TiledMoeDistributedCombineSend(
@@ -338,6 +329,9 @@ void MoeDistributedCombineValidate(const Tensor& expandX, const Tensor& assistIn
     (void)sharedExpertRankNum;
 
     int32_t batchSize = expertScales.GetShape(0);
+    int32_t topK = expertScales.GetShape(1);
+    CHECK(topK <= static_cast<int32_t>(moeExpertNum)) << "topK must be <= moeExpertNum, but got topK=" << topK
+        << ", moeExpertNum=" << moeExpertNum;
 
     MoeDistributedCombineValidateExpandX(expandX, expertScales, epWorldSize, moeExpertNum);
     MoeDistributedCombineValidateAssistInfoForCombine(assistInfoForCombine, expandX);
@@ -345,7 +339,7 @@ void MoeDistributedCombineValidate(const Tensor& expandX, const Tensor& assistIn
     MoeDistributedCombineValidateExpertScales(expertScales);
     MoeDistributedCombineValidateOut(out, expertScales, expandX);
     MoeDistributedCombineValidateGroup(group);
-    MoeDistributedCombineValidateMoeEpWorldSize(epWorldSize);
+    MoeDistributedCombineValidateMoeEpWorldSize(epWorldSize, moeExpertNum);
     MoeDistributedCombineValidateMoeExpertNum(moeExpertNum);
 }
 

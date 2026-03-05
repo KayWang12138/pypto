@@ -29,9 +29,11 @@
 #include "tilefwk/tilefwk_op.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <functional>
 #include <limits>
 #include <numeric>
+#include <sstream>
 
 namespace npu::tile_fwk::Distributed {
 void MoeDistributedCombineValidate(const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
@@ -49,6 +51,39 @@ Tensor MoeDistributedCombineReceive(
     const Tensor& shmemSignal);
 
 namespace {
+bool IsMoeFfnFusedDebugEnabled()
+{
+    static const bool enabled = []() {
+        const char* value = std::getenv("PYPTO_DEBUG_MOE_FFN_FUSED");
+        return (value != nullptr) && (std::string(value) == "1");
+    }();
+    return enabled;
+}
+
+std::string ShapeToString(const Shape& shape)
+{
+    std::ostringstream oss;
+    oss << "[";
+    for (size_t i = 0; i < shape.size(); ++i) {
+        if (i != 0) {
+            oss << ", ";
+        }
+        oss << shape[i];
+    }
+    oss << "]";
+    return oss.str();
+}
+
+void LogTensorMeta(const char* name, const Tensor& tensor)
+{
+    if (!IsMoeFfnFusedDebugEnabled()) {
+        return;
+    }
+    ALOG_ERROR << "[MOE_FFN_FUSED] " << name << ": shape=" << ShapeToString(tensor.GetShape())
+        << ", dtype=" << DataType2String(tensor.GetDataType())
+        << ", format=" << static_cast<int32_t>(tensor.Format());
+}
+
 int32_t GetFfnIntermediateSizeFromShape(const Shape& shape, int32_t hiddenSize)
 {
     ASSERT(hiddenSize > 0) << "hiddenSize must be positive, but got " << hiddenSize;
@@ -96,6 +131,13 @@ void TiledMoeFfnFused(
         << "workspaceRowsPerTile attr is required for OP_MOE_FFN_FUSED";
     ASSERT(workspace->shape[1] == workspaceCol) << "Workspace shape mismatch, expected "
         << workspaceCol << " but got " << workspace->shape[1];
+    if (IsMoeFfnFusedDebugEnabled()) {
+        ALOG_ERROR << "[MOE_FFN_FUSED][Tiled] hiddenSize=" << hiddenSize << ", intermediateSize="
+            << intermediateSize << ", workspaceRowsPerTile=" << workspaceRowsPerTile
+            << ", workspaceCol=" << workspaceCol << ", combineShape=" << ShapeToString(combineOut->shape)
+            << ", ffnWeightShape=" << ShapeToString(ffnWeight->shape) << ", outShape="
+            << ShapeToString(out->shape) << ", workspaceShape=" << ShapeToString(workspace->shape);
+    }
 
     int64_t dataByteSize = BytesOf(out->Datatype());
     ASSERT(dataByteSize != 0);
@@ -113,6 +155,11 @@ void TiledMoeFfnFused(
     CreateTileOp(tileShape,
         [&](int32_t tileIndex, int32_t rowOffset, int32_t colOffset, int32_t rowShape, int32_t colShape) {
             (void)tileIndex;
+            if (IsMoeFfnFusedDebugEnabled() && tileIndex == 0) {
+                ALOG_ERROR << "[MOE_FFN_FUSED][Tile0] rowOffset=" << rowOffset << ", colOffset=" << colOffset
+                    << ", rowShape=" << rowShape << ", colShape=" << colShape
+                    << ", paddedColShape=" << paddedColShape;
+            }
 
             auto combineTile = combineOut->View(function, {rowShape, colShape}, {rowOffset, colOffset});
             auto outTile = out->View(function, {rowShape, colShape}, {rowOffset, colOffset});
@@ -157,6 +204,12 @@ Tensor MoeFfnFused(
         {out, workspace});
     op.SetAttr("intermediateSize", static_cast<int64_t>(intermediateSize));
     op.SetAttr("workspaceRowsPerTile", workspaceRowsPerTile);
+    if (IsMoeFfnFusedDebugEnabled()) {
+        ALOG_ERROR << "[MOE_FFN_FUSED][MoeFfnFused] batchSize=" << batchSize << ", hiddenSize=" << hiddenSize
+            << ", intermediateSize=" << intermediateSize << ", tileNum=" << tileNum
+            << ", workspaceRowsPerTile=" << workspaceRowsPerTile << ", workspaceRows=" << workspaceRows
+            << ", outShape=" << ShapeToString(out->shape) << ", workspaceShape=" << ShapeToString(workspace->shape);
+    }
     return out;
 }
 
@@ -164,6 +217,18 @@ void MoeDistributedCombineFfnFused(const Tensor& expandX, const Tensor& assistIn
     const Tensor& expertScales, const Tensor& ffnWeight, const char* group, uint32_t epWorldSize,
     uint32_t moeExpertNum, uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& out)
 {
+    if (IsMoeFfnFusedDebugEnabled()) {
+        ALOG_ERROR << "[MOE_FFN_FUSED][ENTRY] group="
+            << ((group == nullptr) ? std::string("<null>") : std::string(group))
+            << ", epWorldSize=" << epWorldSize << ", moeExpertNum=" << moeExpertNum
+            << ", sharedExpertNum=" << sharedExpertNum << ", sharedExpertRankNum=" << sharedExpertRankNum;
+        LogTensorMeta("expandX", expandX);
+        LogTensorMeta("assistInfoForCombine", assistInfoForCombine);
+        LogTensorMeta("recvCounts", recvCounts);
+        LogTensorMeta("expertScales", expertScales);
+        LogTensorMeta("ffnWeight", ffnWeight);
+        LogTensorMeta("out", out);
+    }
     MoeDistributedCombineValidate(expandX, assistInfoForCombine, recvCounts, expertScales, group, epWorldSize,
         moeExpertNum, sharedExpertNum, sharedExpertRankNum, out);
     ASSERT(ffnWeight.Format() == npu::tile_fwk::TileOpFormat::TILEOP_ND) << "The format of \"ffnWeight\" only "
@@ -176,6 +241,10 @@ void MoeDistributedCombineFfnFused(const Tensor& expandX, const Tensor& assistIn
     int32_t topK = expertScales.GetShape(1);
     int32_t hiddenSize = expandX.GetShape(1);
     int32_t intermediateSize = GetFfnIntermediateSize(ffnWeight, hiddenSize);
+    if (IsMoeFfnFusedDebugEnabled()) {
+        ALOG_ERROR << "[MOE_FFN_FUSED][CONFIG] batchSize=" << batchSize << ", topK=" << topK
+            << ", hiddenSize=" << hiddenSize << ", intermediateSize=" << intermediateSize;
+    }
 
     int32_t shmemDataRow = topK * batchSize;
     Shape shmemDataShape = {1, shmemDataRow, hiddenSize};
@@ -195,14 +264,26 @@ void MoeDistributedCombineFfnFused(const Tensor& expandX, const Tensor& assistIn
     LOOP("MoeDistributedCombineOnly", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
 
+        Tensor recvCountsForReceive = recvCounts;
+        if (recvCounts.GetShape(0) == 1) {
+            TileShape::Current().SetVecTile({batchSize});
+            recvCountsForReceive = Full(topK, DT_INT32, {batchSize});
+        }
+
         int32_t expandXRow = expandX.GetShape(0);
         int32_t aivNum = AIV_NUM;
         TileShape::Current().SetDistTile({expandXRow / aivNum, aivNum, expandXRow % aivNum}, {hiddenSize, 1, 0},
             {0, 0, 0});
+
+        Tensor recvRowsForSend = recvCounts;
+        if (recvCounts.GetShape(0) != 1) {
+            TileShape::Current().SetVecTile({1});
+            recvRowsForSend = Full(expandXRow, DT_INT32, {1});
+        }
         auto sendOut = MoeDistributedCombineSend(
             expandX,
             assistInfoForCombine,
-            recvCounts,
+            recvRowsForSend,
             shmemData,
             shmemSignal,
             topK);
@@ -215,7 +296,7 @@ void MoeDistributedCombineFfnFused(const Tensor& expandX, const Tensor& assistIn
 
         TileShape::Current().SetDistTile(
             {batchSize / aivNum, aivNum, batchSize % aivNum}, {hiddenSize, 1, 0}, {0, 0, 0});
-        combineOut = MoeDistributedCombineReceive(sendOut, expertScales, recvCounts, shmemDataThisRank,
+        combineOut = MoeDistributedCombineReceive(sendOut, expertScales, recvCountsForReceive, shmemDataThisRank,
             shmemSignalThisRank);
     }
 
