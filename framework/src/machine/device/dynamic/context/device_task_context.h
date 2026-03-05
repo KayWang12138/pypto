@@ -61,6 +61,7 @@ private:
         ReadyCoreFunctionQueue *dieAicQueue[DIE_NUM]);
     int BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId,
         DevAscendFunctionDupped *stitchedList, uint64_t stitchedSize);
+    int ProcessSingleDynFuncData(DynFuncData *dyndata, DevAscendFunctionDupped &dupFunc);
 
     // mix subgraph schedule
     uint32_t* AllocWrapTasklist(DynDeviceTask *dyntask);

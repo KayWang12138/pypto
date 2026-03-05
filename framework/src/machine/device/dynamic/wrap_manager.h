@@ -499,7 +499,7 @@ public:
         }
 
         if (wrapInfo == nullptr) {
-            DEV_ERROR("cant find wrapInfo in wrapQueueForThread!");
+            DEV_ERROR(sche.task.run.wrap.dep.resolve, "# Cannot find wrapInfo in wrapQueueForThread: wrapId not found.");
             return;
         }
         wrapInfo->taskCnt--;
