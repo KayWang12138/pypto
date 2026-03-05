@@ -190,7 +190,6 @@ private:
     std::string GenOffsetsAndRawShapesDefault() const;
 
     void UpdateTileTensorInfo();
-    bool NeedUpdateLoopInfo();
     void UpdateLoopInfo();
     std::vector<SymbolicScalar> GetLoopAxes();
     ShapeInLoop BuildShapeInLoop(int paramIdx, size_t loopDepth);
