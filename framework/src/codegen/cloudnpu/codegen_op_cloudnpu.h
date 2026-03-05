@@ -164,8 +164,6 @@ public:
 
     std::string GenOpCode() const override;
 
-    void UpdateSaturateStatus(FloatSaturateStatus &fs);
-
 private:
     std::string QueryTileTensorNameByIdx(int paramIdx) const;
 

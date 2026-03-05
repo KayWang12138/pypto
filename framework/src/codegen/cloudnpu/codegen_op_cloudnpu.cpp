@@ -588,24 +588,6 @@ TileTensor CodeGenOpCloudNPU::BuildTileTensor(
     return tileTensor;
 }
 
-void CodeGenOpCloudNPU::UpdateSaturateStatus(FloatSaturateStatus &fs) {
-    auto checkValue = [&](float value) {
-        fs.hasNan |= std::isnan(value);
-        fs.hasInf |= std::isinf(value);
-    };
-
-    if (extOperandVal.IsFloat()) {
-        float value = extOperandVal.Cast<float>();
-        checkValue(value);
-    }
-    for (const auto &scalar : extScalarVec) {
-        if (scalar.IsFloat()) {
-            float value = scalar.Cast<float>();
-            checkValue(value);
-        }
-    }
-}
-
 void CodeGenOpCloudNPU::UpdateTileTensorInfo() {
     if (!isSupportLayout) {
         return;
