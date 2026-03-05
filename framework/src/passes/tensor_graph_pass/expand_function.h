@@ -18,6 +18,7 @@
 
 #include "passes/pass_interface/pass.h"
 #include "interface/operation/opcode.h"
+#include "interface/operation/operation.h"
 
 namespace npu::tile_fwk {
 class ExpandFunction : public Pass {
@@ -30,6 +31,9 @@ private:
     Status RunOnFunction(Function &function) override;
     Status Expandfunction(Function &function) const;
     Status ExpandOperation(Function &function, Operation &op) const;
+    Status ClearIOOperand(const std::vector<OperationPtr> &tensorOperations) const;
+    bool NotNeedExpand(Opcode opcode) const;
+    void ProcessForNotExpandOp(Function &function, Operation &op) const;
     void DoHealthCheckBefore(Function &function, const std::string &folderPath) override;
 
     mutable std::unordered_map<int, std::unordered_set<CoreType>> scopeMap_;
