@@ -28,10 +28,7 @@ ASCEND_INSTALL_PATH=${ASCEND_INSTALL_PATH:-/usr/local/Ascend}
 ### Step 1: 环境检测
 
 ```bash
-# 快速诊断（推荐，跳过编译工具链等检查）
-python3 scripts/diagnose_env.py --fast --checklist
-
-# 深度诊断（完整检查，首次安装或编译问题时使用）
+# 环境诊断（完整检查）
 python3 scripts/diagnose_env.py --checklist
 ```
 
@@ -56,13 +53,9 @@ git clone https://${GITCODE_TOKEN}@gitcode.com/cann/pypto.git "${PYPTO_REPO:-$PW
 
 | 问题类别 | 修复操作 | 失败回滚 |
 |---------|---------|---------|
-| **NPU 环境 + CANN 缺失** | 分步执行：<br>1. `cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=deps --device-type=<a2\|a3>`<br>2. `bash tools/prepare_env.sh --quiet --type=third_party`<br>3. `bash tools/prepare_env.sh --quiet --type=cann --device-type=<a2\|a3> --install-path=${ASCEND_INSTALL_PATH:-/usr/local/Ascend}` | 检查网络连通性和目录写入权限；见 `troubleshooting.md` |
+| **NPU 环境 + CANN 缺失** | 分步执行：<br>1. `cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=deps --device-type=<a2\|a3>`<br>2. `bash tools/prepare_env.sh --quiet --type=third_party`<br>3. `bash tools/prepare_env.sh --quiet --type=cann --device-type=<a2\|a3> --install-path=${ASCEND_INSTALL_PATH:-/usr/local/Ascend} 2>&1 \| tee prepare_env.cann.log` | 检查网络连通性和目录写入权限；见 `troubleshooting.md` |
 | **编译工具链缺失** (cmake/gcc/make/g++/ninja/pip3) | `cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=deps` | 回退到手动 `apt-get install`；检查 apt 源配置 |
 | **第三方源码包缺失** (json/libboundscheck) | `cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=third_party` | 检查网络对 cann-src-third-party 的可达性 |
-| **Python 依赖缺失/版本不足** | `pip3 install -r $PYPTO_REPO/python/requirements.txt` | 见 `troubleshooting.md` § "pip 依赖冲突" |
-| **torch/torch_npu 导入失败** (NPU 环境) | 见 `references/prepare_environment.md` § torch_npu 安装 | 见 `troubleshooting.md` § "torch_npu 导入失败" |
-| **pypto 未安装** | `cd $PYPTO_REPO && pip install -e .` | 见 `troubleshooting.md` § "DT_FP8E8M0" |
-| **pto-isa 缺失/路径未设** | `git clone https://gitcode.com/cann/pto-isa.git $PTO_TILE_LIB_CODE_PATH` + 设置环境变量 | 检查 GITCODE_TOKEN；见 `troubleshooting.md` § "pto-isa 版本不匹配" |
 
 > `--device-type` 由 Step 1 检测自动确定（910B→a2，910C→a3）。
 > 手动安装/编译细节见 [📋 prepare_environment.md](references/prepare_environment.md)。

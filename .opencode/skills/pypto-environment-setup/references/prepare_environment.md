@@ -36,11 +36,13 @@ cd "$PYPTO_REPO"
 
 > ⏱️ **Note**: This script takes approximately 15 minutes to execute.
 
-# 完整安装（CANN + 第三方依赖）
-bash tools/prepare_env.sh --quiet --type=all --device-type=<a2|a3> --install-path=$ASCEND_INSTALL_PATH
+# 分步安装（禁止 --type=all）
+bash tools/prepare_env.sh --quiet --type=deps --device-type=<a2|a3>
+bash tools/prepare_env.sh --quiet --type=third_party
+bash tools/prepare_env.sh --quiet --type=cann --device-type=<a2|a3> --install-path=$ASCEND_INSTALL_PATH 2>&1 | tee prepare_env.cann.log
 
 # 仅 CANN
-bash tools/prepare_env.sh --quiet --type=cann --device-type=<a2|a3> --install-path=$ASCEND_INSTALL_PATH
+bash tools/prepare_env.sh --quiet --type=cann --device-type=<a2|a3> --install-path=$ASCEND_INSTALL_PATH 2>&1 | tee prepare_env.cann.log
 
 # 仅编译工具链
 bash tools/prepare_env.sh --quiet --type=deps
@@ -51,7 +53,7 @@ bash tools/prepare_env.sh --quiet --type=third_party
 
 | 参数 | 说明 |
 |------|------|
-| `--type` | `deps` / `cann` / `third_party` / `all` |
+| `--type` | `deps` / `cann` / `third_party` |
 | `--device-type` | `a2`(910B) / `a3`(910C) |
 | `--install-path` | CANN 安装路径，默认 `/usr/local/Ascend` |
 | `--quiet` | 静默模式，强烈建议始终加上 |

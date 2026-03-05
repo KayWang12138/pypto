@@ -502,28 +502,24 @@ def _collect_issues(
     build_tools: dict[str, Any],
     third_party_deps: dict[str, Any],
     python_deps: dict[str, Any],
-    fast: bool = False,
 ) -> list[dict[str, str]]:
     """根据检测结果生成问题列表。"""
     issues: list[dict[str, str]] = []
     is_npu_env = npu_env.get('is_npu_env', False)
 
-    # 编译工具链（--fast 模式跳过）
-    if not fast:
-        for name, min_ver in [('cmake', '3.16.3'), ('gcc', '7.3.1'), ('make', None), ('g++', '7.3.1'), ('ninja', None), ('pip3', None), ('python3', '3.9.5')]:
-            info = build_tools.get(name, {})
-            if not info.get('found'):
-                issues.append({'component': f'build:{name}', 'severity': 'error',
-                               'message': f'{name} 未安装' + (f'（需 >= {min_ver}）' if min_ver else ''),
-                               'fix_hint': 'cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=deps'})
-            elif not info.get('meets_minimum'):
-                issues.append({'component': f'build:{name}', 'severity': 'error',
-                               'message': f"{name} {info.get('version')} 版本过低（需 >= {min_ver}）",
-                               'fix_hint': 'cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=deps'})
+    for name, min_ver in [('cmake', '3.16.3'), ('gcc', '7.3.1'), ('make', None), ('g++', '7.3.1'), ('ninja', None), ('pip3', None), ('python3', '3.9.5')]:
+        info = build_tools.get(name, {})
+        if not info.get('found'):
+            issues.append({'component': f'build:{name}', 'severity': 'error',
+                           'message': f'{name} 未安装' + (f'（需 >= {min_ver}）' if min_ver else ''),
+                           'fix_hint': 'cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=deps'})
+        elif not info.get('meets_minimum'):
+            issues.append({'component': f'build:{name}', 'severity': 'error',
+                           'message': f"{name} {info.get('version')} 版本过低（需 >= {min_ver}）",
+                           'fix_hint': 'cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=deps'})
 
 
-    # 第三方编译依赖（仅当仓库有效时才报告，对非开发者无意义）（--fast 模式跳过）
-    if not fast and pypto_repo.get('valid', False):
+    if pypto_repo.get('valid', False):
         for dep_name, dep_info in third_party_deps.items():
             if not dep_info.get('found'):
                 issues.append({'component': f'third_party:{dep_name}', 'severity': 'warning',
@@ -531,23 +527,21 @@ def _collect_issues(
                                'fix_hint': 'cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=third_party'})
 
 
-    # Python 依赖（requirements.txt）（--fast 模式跳过）
-    if not fast:
-        for pkg in python_deps.get('packages', []):
-            if pkg['status'] == 'missing':
-                issues.append({'component': f"python_dep:{pkg['name']}", 'severity': 'warning',
-                               'message': f"Python package {pkg['name']} not installed{(' (requires ' + pkg['required'] + ')') if pkg.get('required') else ''}",
-                               'fix_hint': 'pip3 install -r $PYPTO_REPO/python/requirements.txt'})
-            elif pkg['status'] == 'outdated':
-                issues.append({'component': f"python_dep:{pkg['name']}", 'severity': 'warning',
-                               'message': f"Python package {pkg['name']} {pkg.get('installed_version', '')} version too low (requires {pkg['required']})",
-                               'fix_hint': 'pip3 install -r $PYPTO_REPO/python/requirements.txt'})
+    for pkg in python_deps.get('packages', []):
+        if pkg['status'] == 'missing':
+            issues.append({'component': f"python_dep:{pkg['name']}", 'severity': 'warning',
+                           'message': f"Python package {pkg['name']} not installed{(' (requires ' + pkg['required'] + ')') if pkg.get('required') else ''}",
+                           'fix_hint': 'pip3 install -r $PYPTO_REPO/python/requirements.txt'})
+        elif pkg['status'] == 'outdated':
+            issues.append({'component': f"python_dep:{pkg['name']}", 'severity': 'warning',
+                           'message': f"Python package {pkg['name']} {pkg.get('installed_version', '')} version too low (requires {pkg['required']})",
+                           'fix_hint': 'pip3 install -r $PYPTO_REPO/python/requirements.txt'})
 
     # NPU 环境 + CANN 缺失 → 需要安装 CANN
     if is_npu_env and not cann.get('install_path'):
         issues.append({'component': 'cann', 'severity': 'error',
-                       'message': '检测到 NPU 环境但 CANN 未安装，需通过 prepare_env.sh --type=all 安装 CANN',
-                       'fix_hint': 'cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=all --device-type=<a2|a3>'})
+                       'message': '检测到 NPU 环境但 CANN 未安装，需分步安装 deps/third_party/cann',
+                       'fix_hint': 'cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=deps --device-type=<a2|a3> && bash tools/prepare_env.sh --quiet --type=third_party && bash tools/prepare_env.sh --quiet --type=cann --device-type=<a2|a3> --install-path=${ASCEND_INSTALL_PATH:-/usr/local/Ascend} 2>&1 | tee prepare_env.cann.log'})
     elif not cann.get('install_path'):
         issues.append({'component': 'cann', 'severity': 'warning', 'message': 'CANN 未安装',
                        'fix_hint': '见 references/prepare_environment.md § "使用 prepare_env.sh 完整安装"'})
@@ -655,7 +649,7 @@ def _format_summary(data: dict, issues: list[dict]) -> list[str]:  # pyright: ig
     return ['\n✅ 环境检测通过，未发现问题。']
 
 
-def _print_checklist(report: dict[str, Any], *, fast: bool = False) -> None:
+def _print_checklist(report: dict[str, Any]) -> None:
     """打印人类可读的确认清单。"""
     cann = report['cann']
     pypto_repo = report['pypto_repo']
@@ -774,23 +768,21 @@ def _print_checklist(report: dict[str, Any], *, fast: bool = False) -> None:
     else:
         rows.append(('pto-isa', _status('pto-isa', False), pto_path or 'PTO_TILE_LIB_CODE_PATH 未设置'))
 
-    # ── 编译工具链（--fast 模式跳过）──
-    if not fast:
-        for name, min_ver in [
-            ('cmake', '>= 3.16.3'),
-            ('gcc', '>= 7.3.1'),
-            ('make', ''),
-            ('g++', '>= 7.3.1'),
-            ('ninja', ''),
-            ('pip3', ''),
-            ('python3', '>= 3.9.5'),
-        ]:
-            info = build_tools.get(name, {})
-            found = info.get('found', False)
-            ver = info.get('version', '未知')
-            meets = info.get('meets_minimum', False)
-            detail = f"{ver} ({info.get('path', '')})" if found else f"未安装 {('（需 ' + min_ver + '）') if min_ver else ''}"
-            rows.append((name, _status(f'build:{name}', found and meets), detail))
+    for name, min_ver in [
+        ('cmake', '>= 3.16.3'),
+        ('gcc', '>= 7.3.1'),
+        ('make', ''),
+        ('g++', '>= 7.3.1'),
+        ('ninja', ''),
+        ('pip3', ''),
+        ('python3', '>= 3.9.5'),
+    ]:
+        info = build_tools.get(name, {})
+        found = info.get('found', False)
+        ver = info.get('version', '未知')
+        meets = info.get('meets_minimum', False)
+        detail = f"{ver} ({info.get('path', '')})" if found else f"未安装 {('（需 ' + min_ver + '）') if min_ver else ''}"
+        rows.append((name, _status(f'build:{name}', found and meets), detail))
 
     # ── 第三方编译依赖（仅当 pypto 仓库有效时显示，对非开发者无意义）──
     if pypto_repo.get('valid'):
@@ -806,31 +798,29 @@ def _print_checklist(report: dict[str, Any], *, fast: bool = False) -> None:
                     detail += f"\n下载: {url}"
             rows.append((dep_name, '✅' if found else '⚠️', detail))
 
-    # ── Python 依赖（requirements.txt）（--fast 模式跳过）──
-    if not fast:
-        pkgs = python_deps.get('packages', [])
-        if pkgs:
-            missing_count = len(python_deps.get('missing', []))
-            outdated_count = len(python_deps.get('outdated', []))
-            total = len(pkgs)
-            ok_count = total - missing_count - outdated_count
-            summary = f"{ok_count}/{total} 已安装"
-            if missing_count:
-                summary += f"，{missing_count} 缺失"
-            if outdated_count:
-                summary += f"，{outdated_count} 版本过低"
-            overall_status = '✅' if missing_count == 0 and outdated_count == 0 else '⚠️'
-            rows.append(('Python 依赖', overall_status, summary))
-            # Individual packages only if there are problems
-            for pkg in pkgs:
-                if pkg['status'] != 'ok':
-                    comp = f"python_dep:{pkg['name']}"
-                    if pkg['status'] == 'missing':
-                        rows.append((f"  {pkg['name']}", _status(comp, False), f"未安装{(' (需 ' + pkg['required'] + ')') if pkg.get('required') else ''}"))
-                    elif pkg['status'] == 'outdated':
-                        rows.append((f"  {pkg['name']}", _status(comp, False), f"{pkg.get('installed_version', '?')} → 需 {pkg['required']}"))
-        elif python_deps.get('requirements_file') is None:
-            rows.append(('Python 依赖', '─', 'requirements.txt 未找到'))
+    pkgs = python_deps.get('packages', [])
+    if pkgs:
+        missing_count = len(python_deps.get('missing', []))
+        outdated_count = len(python_deps.get('outdated', []))
+        total = len(pkgs)
+        ok_count = total - missing_count - outdated_count
+        summary = f"{ok_count}/{total} 已安装"
+        if missing_count:
+            summary += f"，{missing_count} 缺失"
+        if outdated_count:
+            summary += f"，{outdated_count} 版本过低"
+        overall_status = '✅' if missing_count == 0 and outdated_count == 0 else '⚠️'
+        rows.append(('Python 依赖', overall_status, summary))
+        # Individual packages only if there are problems
+        for pkg in pkgs:
+            if pkg['status'] != 'ok':
+                comp = f"python_dep:{pkg['name']}"
+                if pkg['status'] == 'missing':
+                    rows.append((f"  {pkg['name']}", _status(comp, False), f"未安装{(' (需 ' + pkg['required'] + ')') if pkg.get('required') else ''}"))
+                elif pkg['status'] == 'outdated':
+                    rows.append((f"  {pkg['name']}", _status(comp, False), f"{pkg.get('installed_version', '?')} → 需 {pkg['required']}"))
+    elif python_deps.get('requirements_file') is None:
+        rows.append(('Python 依赖', '─', 'requirements.txt 未找到'))
 
     # ── 输出 ──
     print('=== PyPTO 环境检测结果 ===\n')
@@ -846,7 +836,6 @@ def main() -> int:
     ap.add_argument('--json', action='store_true', help='JSON output')
     ap.add_argument('--pretty', action='store_true', help='Pretty-print JSON')
     ap.add_argument('--checklist', action='store_true', help='Human-readable confirmation checklist')
-    ap.add_argument('--fast', action='store_true', help='Fast mode: skip slow checks (build tools, third-party deps, python deps)')
     args = ap.parse_args()
 
     # 环境变量（仅 Ascend 相关条目）
@@ -881,14 +870,11 @@ def main() -> int:
     # PyPTO 仓库检测
     pypto_repo = _detect_pypto_repo()
 
-    # 编译工具链检测（--fast 模式跳过）
-    build_tools = {} if args.fast else _detect_build_tools()
+    build_tools = _detect_build_tools()
 
-    # 第三方编译依赖检测（--fast 模式跳过）
-    third_party_deps = {} if args.fast else _detect_third_party_deps(pypto_repo.get('path'))
+    third_party_deps = _detect_third_party_deps(pypto_repo.get('path'))
 
-    # Python 依赖检测（requirements.txt）（--fast 模式跳过）
-    python_deps = {'requirements_file': None, 'packages': [], 'missing': [], 'outdated': []} if args.fast else _detect_python_deps(pypto_repo.get('path'))
+    python_deps = _detect_python_deps(pypto_repo.get('path'))
 
     # NPU 环境检测（优先 npu-smi info，fallback driver/firmware）
     npu_env = _detect_npu_env(ascend_root)
@@ -917,7 +903,6 @@ def main() -> int:
         build_tools=build_tools,
         third_party_deps=third_party_deps,
         python_deps=python_deps,
-        fast=args.fast,
     )
 
     report = {
@@ -940,7 +925,7 @@ def main() -> int:
     }
 
     if args.checklist:
-        _print_checklist(report, fast=args.fast)
+        _print_checklist(report)
     elif args.json or args.pretty:
         print(json.dumps(report, ensure_ascii=False, indent=2 if args.pretty else None, sort_keys=True))
     else:
@@ -966,30 +951,24 @@ def main() -> int:
         print(f"pypto: {pypto_info.get('version') or pypto_info.get('file') if pypto_info.get('ok') else pypto_info.get('error')}")
         print(f"pypto_repo: {pypto_repo.get('path') or 'not found'} ({'valid' if pypto_repo.get('valid') else 'invalid'})")
         print(f"pto-isa: {pto_isa_path or 'not set'} ({'valid' if pto_isa.get('include_pto_exists') else 'invalid/missing'})")
-        # 编译工具链（--fast 模式跳过）
-        if not args.fast:
-            for name in ('cmake', 'gcc', 'make', 'g++', 'ninja', 'pip3', 'python3'):
-                info = build_tools.get(name, {})
-                ver = info.get('version', 'missing') if info.get('found') else 'missing'
-                ok = '✓' if info.get('meets_minimum') else '✗'
-                print(f"{name}: {ver} ({ok})")
-        # 第三方依赖（--fast 模式跳过）
-        if not args.fast:
-            for dep_name, dep_info in third_party_deps.items():
-                print(f"{dep_name}: {'found' if dep_info.get('found') else 'not found'} ({dep_info.get('version', '')})")
-        # Python 依赖（--fast 模式跳过）
-        if not args.fast:
-            packages = python_deps.get('packages')
-            missing = python_deps.get('missing')
-            outdated = python_deps.get('outdated')
+        for name in ('cmake', 'gcc', 'make', 'g++', 'ninja', 'pip3', 'python3'):
+            info = build_tools.get(name, {})
+            ver = info.get('version', 'missing') if info.get('found') else 'missing'
+            ok = '✓' if info.get('meets_minimum') else '✗'
+            print(f"{name}: {ver} ({ok})")
+        for dep_name, dep_info in third_party_deps.items():
+            print(f"{dep_name}: {'found' if dep_info.get('found') else 'not found'} ({dep_info.get('version', '')})")
+        packages = python_deps.get('packages')
+        missing = python_deps.get('missing')
+        outdated = python_deps.get('outdated')
 
-            packages_list = packages if isinstance(packages, list) else []
-            missing_list = missing if isinstance(missing, list) else []
-            outdated_list = outdated if isinstance(outdated, list) else []
+        packages_list = packages if isinstance(packages, list) else []
+        missing_list = missing if isinstance(missing, list) else []
+        outdated_list = outdated if isinstance(outdated, list) else []
 
-            total_pkgs = len(packages_list)
-            ok_count = total_pkgs - len(missing_list) - len(outdated_list)
-            print(f"python_deps: {ok_count}/{total_pkgs} ok ({len(missing_list)} missing, {len(outdated_list)} outdated)")
+        total_pkgs = len(packages_list)
+        ok_count = total_pkgs - len(missing_list) - len(outdated_list)
+        print(f"python_deps: {ok_count}/{total_pkgs} ok ({len(missing_list)} missing, {len(outdated_list)} outdated)")
         if issues:
             print(f"\nissues ({len(issues)}):")
             for i in issues:
