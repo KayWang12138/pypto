@@ -53,14 +53,6 @@ struct TensorAttributes {
     MemoryType memType {MemoryType::MEM_UNKNOWN };
 };
 
-struct MatmulInputs {
-    LogicalTensorPtr aTensorPtr = nullptr;
-    LogicalTensorPtr bTensorPtr = nullptr;
-    LogicalTensorPtr cTensorPtr = nullptr;
-    LogicalTensorPtr biasTensorPtr = nullptr;
-    LogicalTensorPtr scaleTensorPtr = nullptr;
-};
-
 void SetMatmulAttr(Operation &op, const std::tuple<LogicalTensorPtr, LogicalTensorPtr, LogicalTensorPtr> &tensorPtrs,
     const std::vector<int64_t> &matrixSize) {
     int64_t nzAttr = (static_cast<int64_t>(std::get<0>(tensorPtrs)->Format())) |
@@ -78,6 +70,16 @@ void SetMatmulAttr(Operation &op, const std::tuple<LogicalTensorPtr, LogicalTens
     op.SetAttribute(A_MUL_B_ACT_K, matrixSize[K_INDEX]);
     op.SetAttribute(A_MUL_B_ACT_N, matrixSize[N_INDEX]);
 }
+
+struct MatmulInputs {
+    LogicalTensorPtr aTensorPtr = nullptr;
+    LogicalTensorPtr bTensorPtr = nullptr;
+    LogicalTensorPtr cTensorPtr = nullptr;
+    LogicalTensorPtr biasTensorPtr = nullptr;
+    LogicalTensorPtr scaleTensorPtr = nullptr;
+};
+
+
 
 void SetBiasAndScaleAttr(
     const MatmulInputs &matmulInputs, const MatmulAttrParam &matmulAttrParam, bool isFirstTile, Operation &op) {
@@ -131,27 +133,6 @@ std::vector<SymbolicScalar> GetValidShapeFromTranspose(LogicalTensorPtr &l0Tenso
     }
     return l0ValidShape;
 }
-
-void AddOpView(
-    Function &function, const LogicalTensorPtr &operand, LogicalTensorPtr &viewTensor, const TensorAttributes &attrs) {
-    DataType dtype = ((attrs.name == "bias_BT" && operand->Datatype() == DataType::DT_FP16) ? DataType::DT_FP32 :
-                                                                                              operand->Datatype());
-    viewTensor = std::make_shared<LogicalTensor>(function, dtype, std::vector<int64_t>{1, attrs.tileSize},
-        SymbolicScalar::FromConcrete({1, attrs.tileSize}), operand->Format(), attrs.name, operand->nodetype);
-    viewTensor->UpdateDynValidShape(
-        GetViewValidShape(operand->GetDynValidShape(), {0, attrs.offset}, {}, {1, attrs.tileSize}));
-    auto &viewOperand = function.AddOperation(Opcode::OP_VIEW, {operand}, {viewTensor});
-    std::vector<int64_t> newoffset{0, attrs.offset};
-
-    auto viewAttribute = std::make_shared<ViewOpAttribute>(
-        newoffset, SymbolicScalar::FromConcrete(newoffset), viewTensor->GetDynValidShape());
-    viewAttribute->SetToType(attrs.memType);
-    viewOperand.SetOpAttribute(viewAttribute);
-    if (attrs.name.find("l1") != std::string::npos) {
-        viewOperand.SetAttribute(A_MUL_B_COPY_IN_MODE, static_cast<int64_t>(0));
-    }
-}
-
 template <bool isTransA = false, bool isTransB = false>
 void CollectSubAMulB(Function &function, const CollectSubAMulBPara &args, AggregationMap &aggregations,
     const std::vector<int64_t> &l1Offset) {
@@ -222,6 +203,27 @@ void CollectSubAMulB(Function &function, const CollectSubAMulBPara &args, Aggreg
         }
     }
 }
+
+void AddOpView(
+    Function &function, const LogicalTensorPtr &operand, LogicalTensorPtr &viewTensor, const TensorAttributes &attrs) {
+    DataType dtype = ((attrs.name == "bias_BT" && operand->Datatype() == DataType::DT_FP16) ? DataType::DT_FP32 :
+                                                                                              operand->Datatype());
+    viewTensor = std::make_shared<LogicalTensor>(function, dtype, std::vector<int64_t>{1, attrs.tileSize},
+        SymbolicScalar::FromConcrete({1, attrs.tileSize}), operand->Format(), attrs.name, operand->nodetype);
+    viewTensor->UpdateDynValidShape(
+        GetViewValidShape(operand->GetDynValidShape(), {0, attrs.offset}, {}, {1, attrs.tileSize}));
+    auto &viewOperand = function.AddOperation(Opcode::OP_VIEW, {operand}, {viewTensor});
+    std::vector<int64_t> newoffset{0, attrs.offset};
+
+    auto viewAttribute = std::make_shared<ViewOpAttribute>(
+        newoffset, SymbolicScalar::FromConcrete(newoffset), viewTensor->GetDynValidShape());
+    viewAttribute->SetToType(attrs.memType);
+    viewOperand.SetOpAttribute(viewAttribute);
+    if (attrs.name.find("l1") != std::string::npos) {
+        viewOperand.SetAttribute(A_MUL_B_COPY_IN_MODE, static_cast<int64_t>(0));
+    }
+}
+
 
 template <bool isTransA = false, bool isTransB = false>
 void L1NormalLoad(Function &function, const MatmulInputs &matmulInputs, const L1DataLoadParam &L1DataLoadParam,
