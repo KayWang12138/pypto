@@ -236,7 +236,6 @@ class BspInstance {
      * @brief Sets the number of processors. Processor type is set to 0 for all processors.
      * Resets send costs to uniform (1) and diagonal to 0. The memory bound is set to 100 for all processors.
      * @param numberOfProcessors The number of processors. Must be greater than 0.
-     * @throws std::invalid_argument if the number of processors is 0.
      */
     void SetNumberOfProcessors(const unsigned num) { architecture_.SetNumberOfProcessors(num); }
 

@@ -21,6 +21,8 @@
 #include <random>
 #include <vector>
 
+#include "passes/pass_log/pass_log.h"
+
 namespace npu::tile_fwk {
 namespace osp {
 
@@ -62,7 +64,7 @@ std::vector<VertexIdxT<GraphT>> GetTopOrder(const GraphT &graph) {
         }
 
         if (static_cast<VertexType>(topOrder.size()) != graph.NumVertices()) {
-            throw std::runtime_error("Error during topological ordering: TopOrder.size() != graph.NumVertices() ["
+            APASS_LOG_ERROR_F(Elements::Config, "Error during topological ordering: TopOrder.size() != graph.NumVertices() ["
                                      + std::to_string(topOrder.size()) + " != " + std::to_string(graph.NumVertices()) + "]");
         }
 

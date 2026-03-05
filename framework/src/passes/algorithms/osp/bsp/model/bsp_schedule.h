@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "passes/algorithms/osp/bsp/model/cost/lazy_communication_cost.h"
+#include "passes/pass_log/pass_log.h"
 
 namespace npu::tile_fwk {
 namespace osp {
@@ -251,7 +252,7 @@ class BspSchedule {
             }
 
         } else {
-            throw std::invalid_argument("Invalid Argument while assigning node to superstep: index out of range.");
+            APASS_LOG_ERROR_F(Elements::Config, "Invalid Argument while assigning node to superstep: index out of range.");
         }
     }
 

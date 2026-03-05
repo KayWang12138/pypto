@@ -25,6 +25,7 @@
 
 #include "passes/algorithms/osp/concepts/graph_traits.h"
 #include "passes/algorithms/osp/graph_implementations/integral_range.h"
+#include "passes/pass_log/pass_log.h"
 
 namespace npu::tile_fwk {
 namespace osp {
@@ -150,19 +151,19 @@ class BspArchitecture {
           memoryBound_(numberOfProcessors, memoryBound),
           processorTypes_(numberOfProcessors, 0U) {
         if (numberOfProcessors == 0U) {
-            throw std::runtime_error("BspArchitecture: Number of processors must be greater than 0.");
+            APASS_LOG_ERROR_F(Elements::Config, "BspArchitecture: Number of processors must be greater than 0.");
         }
 
         if (sendCosts.empty()) {
             InitializeUniformSendCosts();
         } else {
             if (numberOfProcessors != sendCosts.size()) {
-                throw std::invalid_argument("sendCosts_ needs to be a processors x processors matrix.\n");
+                APASS_LOG_ERROR_F(Elements::Config, "BspArchitecture: sendCosts_ needs to be a processors x processors matrix.\n");
             }
             if (std::any_of(sendCosts.begin(), sendCosts.end(), [numberOfProcessors](const auto &thing) {
                     return thing.size() != numberOfProcessors;
                 })) {
-                throw std::invalid_argument("sendCosts_ needs to be a processors x processors matrix.\n");
+                APASS_LOG_ERROR_F(Elements::Config, "BspArchitecture: sendCosts_ needs to be a processors x processors matrix.\n");
             }
 
             sendCosts_.reserve(numberOfProcessors * numberOfProcessors);
@@ -236,11 +237,10 @@ class BspArchitecture {
     /**
      * @brief Sets the memory bound for all processors using a vector.
      * @param MemoryBound The vector of memory bounds.
-     * @throws std::invalid_argument if the size of the vector is invalid.
      */
     void SetMemoryBound(const std::vector<VMemwT<GraphT>> &memoryBound) {
         if (memoryBound.size() != numberOfProcessors_) {
-            throw std::invalid_argument("Invalid Argument: Memory bound vector size does not match number of processors.");
+            APASS_LOG_ERROR_F(Elements::Config, "Invalid Argument: Memory bound vector size does not match number of processors.");
         }
         memoryBound_ = memoryBound;
     }
@@ -270,11 +270,10 @@ class BspArchitecture {
      * @brief Sets the number of processors. Processor type is set to 0 for all processors.
      * Resets send costs to uniform (1) and diagonal to 0. The memory bound is set to 100 for all processors.
      * @param numberOfProcessors The number of processors. Must be greater than 0.
-     * @throws std::invalid_argument if the number of processors is 0.
      */
     void SetNumberOfProcessors(const unsigned numberOfProcessors) {
         if (numberOfProcessors == 0) {
-            throw std::invalid_argument("Invalid Argument: Number of processors must be greater than 0.");
+            APASS_LOG_ERROR_F(Elements::Config, "Invalid Argument: Number of processors must be greater than 0.");
         }
         numberOfProcessors_ = numberOfProcessors;
         numberOfProcessorTypes_ = 1U;
@@ -293,10 +292,10 @@ class BspArchitecture {
      */
     void SetProcessorsWithTypes(const std::vector<VTypeT<GraphT>> &processorTypes) {
         if (processorTypes.empty()) {
-            throw std::invalid_argument("Invalid Argument: Processor types vector is empty.");
+            APASS_LOG_ERROR_F(Elements::Config, "Invalid Argument: Processor types vector is empty.");
         }
         if (processorTypes.size() > std::numeric_limits<unsigned>::max()) {
-            throw std::invalid_argument("Invalid Argument: Number of processors exceeds the limit.");
+            APASS_LOG_ERROR_F(Elements::Config, "Invalid Argument: Number of processors exceeds the limit.");
         }
         numberOfProcessors_ = static_cast<unsigned>(processorTypes.size());
         processorTypes_ = processorTypes;
@@ -319,11 +318,11 @@ class BspArchitecture {
     void SetProcessorsConsequTypes(const std::vector<VTypeT<GraphT>> &processorTypeCount,
                                    const std::vector<VMemwT<GraphT>> &processorTypeMemory) {
         if (processorTypeCount.size() != processorTypeMemory.size()) {
-            throw std::invalid_argument("Invalid Argument: processorTypeCount and processorTypeMemory must have the same size.");
+            APASS_LOG_ERROR_F(Elements::Config, "Invalid Argument: processorTypeCount and processorTypeMemory must have the same size.");
         }
 
         if (processorTypeCount.size() > std::numeric_limits<unsigned>::max()) {
-            throw std::invalid_argument("Invalid Argument: Number of processors exceeds the limit.");
+            APASS_LOG_ERROR_F(Elements::Config, "Invalid Argument: Number of processors exceeds the limit.");
         }
 
         numberOfProcessorTypes_ = static_cast<unsigned>(processorTypeCount.size());

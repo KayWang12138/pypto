@@ -22,6 +22,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "passes/pass_log/pass_log.h"
+
 namespace npu::tile_fwk {
 namespace osp {
 
@@ -242,7 +244,6 @@ class PairingHeap {
      * @brief Inserts a new key-value pair into the heap.
      * @param key The key to insert.
      * @param value The value associated with the key.
-     * @throws std::invalid_argument If the key already exists in the heap.
      */
     void Push(const Key &key, const Value &value) {
         Node *newNode = new Node{key, value};
@@ -250,7 +251,7 @@ class PairingHeap {
         const bool &success = pair.second;
         if (!success) {
             delete newNode;    // Avoid memory leak if key already exists
-            throw std::invalid_argument("Key already exists in the heap.");
+            APASS_LOG_ERROR_F(Elements::Config, "Key already exists in the heap.");
         }
         root_ = Meld(root_, newNode);
         numElements_++;
@@ -259,21 +260,19 @@ class PairingHeap {
     /**
      * @brief Returns the key with the minimum (or maximum) value depending on Compare.
      * @return The key at the top of the heap.
-     * @throws std::out_of_range If the heap is empty.
      */
     [[nodiscard]] const Key &Top() const {
-        if (IsEmpty()) { throw std::out_of_range("Heap is empty.");  }
+        if (IsEmpty()) { APASS_LOG_ERROR_F(Elements::Config, "Heap is empty."); }
         return root_->key_;
     }
 
     /**
      * @brief Removes and returns the key with the minimum (or maximum) value.
      * @return The key that was at the top of the heap.
-     * @throws std::out_of_range If the heap is empty.
      */
     Key Pop() {
         if (IsEmpty()) {
-            throw std::out_of_range("Heap is empty.");
+            APASS_LOG_ERROR_F(Elements::Config, "Heap is empty.");
         }
 
         Node *oldRoot = root_;
@@ -292,12 +291,11 @@ class PairingHeap {
      * @brief Updates the value of an existing key.
      * @param key The key whose value to update.
      * @param newValue The new value.
-     * @throws std::invalid_argument If the key does not exist in the heap.
      */
     void Update(const Key &key, const Value &newValue) {
         auto it = nodeMap_.find(key);
         if (it == nodeMap_.end()) {
-            throw std::invalid_argument("Key does not exist in the heap.");
+            APASS_LOG_ERROR_F(Elements::Config, "Key does not exist in the heap.");
         }
 
         Node *node = it->second;
@@ -332,12 +330,11 @@ class PairingHeap {
     /**
      * @brief Removes an arbitrary key from the heap.
      * @param key The key to remove.
-     * @throws std::invalid_argument If the key does not exist in the heap.
      */
     void Erase(const Key &key) {
         auto it = nodeMap_.find(key);
         if (it == nodeMap_.end()) {
-            throw std::invalid_argument("Key does not exist in the heap.");
+            APASS_LOG_ERROR_F(Elements::Config, "Key does not exist in the heap.");
         }
         Node *nodeToErase = it->second;
 
@@ -361,12 +358,11 @@ class PairingHeap {
      * @brief Gets the value for a given key.
      * @param key The key to look up.
      * @return The value associated with the key.
-     * @throws std::out_of_range If the key does not exist in the heap.
      */
     [[nodiscard]] const Value &GetValue(const Key &key) const {
         auto it = nodeMap_.find(key);
         if (it == nodeMap_.end()) {
-            throw std::out_of_range("Key does not exist in the heap.");
+            APASS_LOG_ERROR_F(Elements::Config, "Key does not exist in the heap.");
         }
         return it->second->value_;
     }
