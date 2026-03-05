@@ -168,6 +168,18 @@ private:
     static constexpr uint64_t INVALID_PROGRAM_ID = static_cast<uint64_t>(-1);
 };
 
+class TopoJsonGenerator {
+public:
+    static void GenerateBeforeTopo(Function& function,
+                                  const std::vector<Operation*>& originalCallOps,
+                                  const std::string& suffix,  
+                                  const std::vector<Operation*>& mixCallOps);
+    
+    static void GenerateAfterTopo(Function& function,
+                                 const std::vector<Operation*>& newCallOps,
+                                 const std::string& suffix = "");  
+};
+
 } // namespace tile_fwk
 } // namespace npu
 
