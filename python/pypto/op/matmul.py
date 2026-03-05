@@ -138,6 +138,7 @@ def matmul(
     pypto.matmul(a, b, pypto.DT_FP32, extend_params=extend_params)
     """
     __validate_inputs(input, mat2, out_dtype, [a_trans, b_trans, c_matrix_nz, extend_params])
+    __validate_trans_mode(input, mat2, extend_params)
     if input.Dim() == 2:
         if extend_params is not None:
             extend_params = pypto_impl.MatmulExtendParam(
@@ -246,7 +247,6 @@ def scaled_mm(
     __validate_inputs(mat_a, mat_b, out_dtype, [a_trans, b_trans, c_matrix_nz, extend_params])
     __validate_scaled_inputs(mat_a, mat_b, scale_a, scale_b)
     __validate_scaled_shape(mat_a, mat_b, scale_a, scale_b, [a_trans, b_trans, scale_a_trans, scale_b_trans])
-    __validate_trans_mode(mat_a, mat_b, extend_params)
     if extend_params is not None:
         extend_params = pypto_impl.MatmulExtendParam(
             **__convert_matmul_extend_params(extend_params)
@@ -415,7 +415,7 @@ def __validate_scale_k_alignment(ka_dim, k_a_scale0_dim, align_64):
 
 
 def __validate_trans_mode(mat_a, mat_b, extend_params):
-    if (extend_params['trans_mode'] != pypto.TransMode.CAST_NONE and 
+    if (extend_params['trans_mode'] != pypto_impl.TransMode.CAST_NONE and 
         mat_a.GetDataType() != pypto_impl.DataType.DT_FP32 and 
         mat_b.GetDataType() != pypto_impl.DataType.DT_FP32):
         raise RuntimeError(
