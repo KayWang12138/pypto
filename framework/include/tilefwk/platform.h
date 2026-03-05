@@ -421,7 +421,6 @@ private:
     Host host_;
     size_t cluster_cnt_;
     size_t host_cnt_;
-    bool initialized_ = false;
 public:
     static Platform &Instance() {
         static Platform instance;

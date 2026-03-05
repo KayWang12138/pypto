@@ -323,14 +323,16 @@ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
 }
 
 void Platform::ObtainPlatformInfo() {
-    if (initialized_) {
+    static bool initialize = false;
+    if (initialize) {
         return;
     }
     std::string srcPath;
     std::string socVer;
     if (CannHostRuntime::Instance().GetSocVersion(socVer)) {
         srcPath = CannHostRuntime::Instance().GetPlatformFile(socVer);
-    } else {
+    }
+    if (srcPath.empty()) {
         SimulationPlatform simulationPlatform;
         simulationPlatform.GetSimulationPlatformRealPath(srcPath);
     }
@@ -346,7 +348,7 @@ void Platform::ObtainPlatformInfo() {
             GetDie().SetMemoryPath(dataPath);
         } 
     }
-    initialized_ = true;
+    initialize = true;
 }
 
 Platform::Platform() {
