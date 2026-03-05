@@ -18,6 +18,12 @@
 #include "interface/utils/log.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/function/function.h"
+#include "passes/pass_log/pass_log.h"
+
+#ifdef MODULE_NAME
+#undef MODULE_NAME
+#endif
+#define MODULE_NAME "PassUtils"
 
 namespace npu::tile_fwk {
 
@@ -116,13 +122,13 @@ const int SPACE_NUM_16 = 16;
 } // namespace
 void SubfuncInvokeInfoTy::ConstructActualInvokeParam(int esgId) {
     if (!isFinalized_) {
-        ALOG_ERROR("Error: does not finalized before constructing InvokeParam");
+        APASS_LOG_ERROR_F(Elements::Config, "Error: does not finalized before constructing InvokeParam");
         return;
     }
 
     int paramLoc = 0;
     for (auto &tensorArg : tensorArgs_) {
-        ALOG_DEBUG_F("######## Construct TA for %d ########", esgId);
+        APASS_LOG_DEBUG_F(Elements::Config, "######## Construct TA for %d ########", esgId);
         tensorParamList_.emplace_back(paramLoc, tensorArg.realDDRId, tensorArg.offset, tensorArg.shape,
             tensorArg.rawShape, tensorArg.dType, tensorArg.isOutputToGM, tensorArg.tensor, tensorArg.opMagic,
             tensorArg.operandIdx);
@@ -171,7 +177,7 @@ void SubfuncInvokeInfoTy::PrintInvokeInfo(const std::string &extraInfo) const {
         ss << ", ";
     }
     ss << "])\n";
-    ALOG_DEBUG_F("%s", ss.str().c_str());
+    APASS_LOG_DEBUG_F(Elements::Tensor, "%s", ss.str().c_str());
 }
 
 void SubfuncInvokeInfoTy::PrettyPrintInvokeInfo(const int subgraphId) const {
@@ -194,7 +200,7 @@ void SubfuncInvokeInfoTy::PrettyPrintInvokeInfo(const int subgraphId) const {
         ss << std::endl;
     }
     ss << std::endl;
-    ALOG_DEBUG_F("%s", ss.str().c_str());
+    APASS_LOG_DEBUG_F(Elements::Tensor, "%s", ss.str().c_str());
 }
 
 void SubfuncInvokeInfoTy::DumpInvokeInfo(int64_t invokeParamMemOffset, int64_t *invokeParamPtr) const {
@@ -306,7 +312,7 @@ void SubfuncInvokeInfoTy::Print(const std::string &extInfo) const {
     }
 
     ss << "\n\n";
-    ALOG_DEBUG_F("%s", ss.str().c_str());
+    APASS_LOG_DEBUG_F(Elements::Tensor, "%s", ss.str().c_str());
 }
 
 Json SubfuncInvokeInfoTy::DumpJson() const {
@@ -364,7 +370,7 @@ void SubfuncInvokeInfoTy::LoadIncastFromJson(const Json& incastJson, Function* b
     std::shared_ptr<LogicalTensor> tensorPtr = belongTo->GetTensorMap().GetTensorByMagic(
         incastJson["tensor"].get<int>());
     if (tensorPtr == nullptr) {
-        ALOG_ERROR_F("Tile FWK for incast %d op %d is nullptr, function type %d name %s",
+        APASS_LOG_ERROR_F(Elements::Tensor, "Tile FWK for incast %d op %d is nullptr, function type %d name %s",
             incastJson["tensor"].get<int>(), opMagic, belongTo->GetFunctionType(),
             belongTo->GetMagicName().c_str());
         return;
@@ -382,7 +388,7 @@ void SubfuncInvokeInfoTy::LoadOutcastFromJson(const Json& outcastJson, Function*
     std::shared_ptr<LogicalTensor> tensorPtr = belongTo->GetTensorMap().GetTensorByMagic(
         outcastJson["tensor"].get<int>());
     if (tensorPtr == nullptr) {
-        ALOG_ERROR_F("Tile FWK for outcast %d op %d is nullptr function type %d name %s",
+        APASS_LOG_ERROR_F(Elements::Tensor, "Tile FWK for outcast %d op %d is nullptr function type %d name %s",
             outcastJson["tensor"].get<int>(), opMagic, belongTo->GetFunctionType(),
             belongTo->GetMagicName().c_str());
         return;
@@ -400,7 +406,7 @@ void SubfuncInvokeInfoTy::LoadTensorFromJson(const Json& tensorJson, Function* b
     std::shared_ptr<LogicalTensor> tensorPtr = belongTo->GetTensorMap().GetTensorByMagic(
         tensorJson["tensor"].get<int>());
     if (tensorPtr == nullptr) {
-        ALOG_ERROR_F("Tile FWK for tensor %d op %d is nullptr, function type %d name %s",
+        APASS_LOG_ERROR_F(Elements::Tensor, "Tile FWK for tensor %d op %d is nullptr, function type %d name %s",
             tensorJson["tensor"].get<int>(), opMagic, belongTo->GetFunctionType(),
             belongTo->GetMagicName().c_str());
         return;

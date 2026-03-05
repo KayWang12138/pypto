@@ -16,6 +16,11 @@
 #include "reschedule_utils.h"
 #include "interface/utils/common.h"
 #include "interface/utils/log.h"
+#include "passes/pass_log/pass_log.h"
+
+#ifndef MODULE_NAME
+#define MODULE_NAME "RescheduleUtils"
+#endif
 
 namespace npu::tile_fwk {
 bool RescheduleUtils::isAllocOp(Operation* op) {
@@ -267,7 +272,7 @@ void RescheduleUtils::PrintColorNode(Function &func) {
         auto color = op.GetSubgraphID();
         colorNode[color].push_back(i);
     }
-    ALOG_DEBUG_F("After L1CopyInReuseMerge :");
+    APASS_LOG_DEBUG_F(Elements::Operation, "After L1CopyInReuseMerge :");
     for (auto color : colorNode) {
         std::string colorInfo;
         colorInfo += "color " + std::to_string(color.first) + " : {";
@@ -276,7 +281,7 @@ void RescheduleUtils::PrintColorNode(Function &func) {
                          func.Operations()[opIdx].GetOpcodeStr() + ", ";
         }
         colorInfo += "}";
-        ALOG_DEBUG_F("%s", colorInfo.c_str());
+        APASS_LOG_DEBUG_F(Elements::Operation, "%s", colorInfo.c_str());
     }
 }
 } // namespace npu::tile_fwk

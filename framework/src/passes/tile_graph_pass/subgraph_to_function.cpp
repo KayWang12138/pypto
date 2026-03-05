@@ -22,10 +22,6 @@
 #include "passes/pass_utils/parallel_tool.h"
 #include "passes/pass_check/subgraph_to_function_checker.h"
 #include "passes/pass_utils/graph_utils.h"
-#include "passes/pass_log/pass_log.h"
-
-
-#define MODULE_NAME "SubgraphToFunction"
 
 namespace npu::tile_fwk {
 void SubgraphToFunction::Init() {

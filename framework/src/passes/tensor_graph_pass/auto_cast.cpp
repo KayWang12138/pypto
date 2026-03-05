@@ -14,9 +14,15 @@
  */
 
 #include "auto_cast.h"
+#include "passes/pass_log/pass_log.h"
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_check/auto_cast_checker.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
+
+#ifdef MODULE_NAME
+#undef MODULE_NAME
+#endif
+#define MODULE_NAME "AutoCast"
 
 namespace npu {
 namespace tile_fwk {
@@ -64,27 +70,27 @@ Status AutoCast::GetInOutConnectedTensor(Function &function) {
 }
 
 Status AutoCast::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===> Start AutoCast for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(Elements::Function, "===> Start AutoCast for function [%s].", function.GetRawName().c_str());
     if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510) {
         legalCastPair.insert({DataType::DT_INT32, DataType::DT_FP16});
     }
     if (GetInOutConnectedTensor(function) != SUCCESS) {
-        ALOG_ERROR_F("Failed to get InOutCast-connected tensor.");
+        APASS_LOG_ERROR_F(Elements::Tensor, "Failed to get InOutCast-connected tensor.");
         return FAILED;
     }
     if (InsertBF16Cast(function) != SUCCESS) {
-        ALOG_ERROR_F("Failed to insert CAST for BF16 unsupported Operations.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Failed to insert CAST for BF16 unsupported Operations.");
         return FAILED;
     }
     if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && InsertInt32Fp16Cast(function) != SUCCESS) {
-        ALOG_ERROR_F("Failed to insert fp32 between int32 to fp16 cast.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Failed to insert fp32 between int32 to fp16 cast.");
         return FAILED;
     }
     if (RemoveRedundantCastChain(function) != SUCCESS) {
-        ALOG_ERROR_F("Failed to remove redundant CAST.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Failed to remove redundant CAST.");
         return FAILED;
     }
-    ALOG_INFO_F("===> End AutoCast for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(Elements::Function, "===> End AutoCast for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
 
@@ -103,11 +109,11 @@ Status AutoCast::InsertInt32Fp16Cast(Function &function) {
         LogicalTensorPtr srcTensor = iOperands[0];
         LogicalTensorPtr tgtTensor = oOperands[0];
 
-        if (srcTensor->Datatype() != DataType::DT_INT32 || 
+        if (srcTensor->Datatype() != DataType::DT_INT32 ||
             tgtTensor->Datatype() != DataType::DT_FP16) {
             continue;
         }
-        ALOG_INFO_F("Cast[%d] is cast between int32 and fp16.", op->GetOpMagic());
+        APASS_LOG_INFO_F(Elements::Operation, "Cast[%d] is cast between int32 and fp16.", op->GetOpMagic());
         auto fp32Tensor = std::make_shared<LogicalTensor>(function, DataType::DT_FP32, tgtTensor->shape, tgtTensor->GetDynValidShape(), tgtTensor->Format());
         InsertCastOp(function, srcTensor, fp32Tensor, op->GetTileShape());
         op->ReplaceInput(fp32Tensor, srcTensor);
@@ -120,7 +126,7 @@ bool AutoCast::SupportBF16(Operation *op) {
         if (UNSUPPORT_BF16_ARCH35_OPS.count(op->GetOpcode()) > 0) return false;
     } else {
         if (UNSUPPORT_BF16_OPS.count(op->GetOpcode()) > 0) {
-            ALOG_INFO_F("Op[%d] can find in UNSUPPORT_BF16_OPS.", op->GetOpMagic());
+            APASS_LOG_INFO_F(Elements::Operation, "Op[%d] can find in UNSUPPORT_BF16_OPS.", op->GetOpMagic());
             return false;
         }
     }
@@ -184,7 +190,7 @@ Status AutoCast::InsertBF16Cast(Function &function) {
     return SUCCESS;
 }
 
-bool AutoCast::IsLegalCast(DataType ds, DataType dt) {    
+bool AutoCast::IsLegalCast(DataType ds, DataType dt) {
     if (legalCastPair.count(std::make_pair(ds, dt)) > 0) {
         return true;
     }

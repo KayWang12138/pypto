@@ -14,11 +14,16 @@
  */
 
 #include "common_operation_eliminate_checker.h"
+#include "passes/pass_log/pass_log.h"
+
+#ifndef MODULE_NAME
+#define MODULE_NAME "CommonOperationEliminateChecker"
+#endif
 
 namespace npu {
 namespace tile_fwk {
 Status CommonOperationEliminateChecker::DoPreCheck(Function &function) {
-    ALOG_INFO_F("PreCheck for CommonOperationEliminate.");
+    APASS_LOG_INFO_F(Elements::Operation, "PreCheck for CommonOperationEliminate.");
     for (auto &op : function.Operations().DuplicatedOpList()) {
         if (op->GetOpcode() == Opcode::OP_SHMEM_GET_GM2UB) {
             continue;
@@ -40,11 +45,11 @@ Status CommonOperationEliminateChecker::DoPreCheck(Function &function) {
             }
             auto& ioperands = op->GetIOperands();
             if (ioperands.size() != 1) {
-                ALOG_ERROR_F("View or Copy_In Operation %d with not one input operand.", op->GetOpMagic());
+                APASS_LOG_ERROR_F(Elements::Operation, "View or Copy_In Operation %d with not one input operand.", op->GetOpMagic());
                 return FAILED;
             }
             if (ioperands.front()->offset.size() != fromOffsetSize) {
-                ALOG_ERROR_F("View or Copy_In Operation %d with mismatch input offset shape.", op->GetOpMagic());
+                APASS_LOG_ERROR_F(Elements::Operation, "View or Copy_In Operation %d with mismatch input offset shape.", op->GetOpMagic());
                 return FAILED;
             }
         }

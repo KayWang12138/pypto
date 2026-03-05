@@ -14,6 +14,13 @@
  */
 
 #include "ooo_schedule_statistic.h"
+#include "passes/pass_log/pass_log.h"
+
+#ifdef MODULE_NAME
+#undef MODULE_NAME
+#endif
+#define MODULE_NAME "OoOScheduleStatistic"
+
 namespace npu {
 namespace tile_fwk {
 
@@ -50,7 +57,7 @@ Status OoOSchedulerCheck::HealthCheckOoOSchedule() {
     int64_t maxUBSize = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB);
     int64_t maxL1Size = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L1);
     if (maxL0ASize == 0 || maxL0BSize == 0 || maxL0CSize == 0 || maxUBSize == 0 || maxL1Size == 0) {
-        ALOG_ERROR_F("Max buffer size is 0, HealthCheckOoOSchedule failed!");
+        APASS_LOG_ERROR_F(Elements::Config, "Max buffer size is 0, HealthCheckOoOSchedule failed!");
         return FAILED;
     }
     // Workspace Info
@@ -60,7 +67,7 @@ Status OoOSchedulerCheck::HealthCheckOoOSchedule() {
     // Pipe Usage Rate
     Json pipeUsageRate;
     if (clock == 0) {
-        ALOG_ERROR_F("Clock is 0, HealthCheckOoOSchedule failed!");
+        APASS_LOG_ERROR_F(Elements::Config, "Clock is 0, HealthCheckOoOSchedule failed!");
         return FAILED;
     }
     pipeUsageRate["PIPE_S_Usage_Rate"] = FormatUsageRate(static_cast<double>(pipeUsageCount.at(PipeType::PIPE_S)) / clock * percent);
@@ -146,7 +153,7 @@ void OoOSchedulerCheck::HealthCheckBlockGraph(Function *function) {
 
 Status OoOSchedulerCheck::DoHealthCheck(Function *function, const std::string &fileName) {
     if (HealthCheckOoOSchedule() != SUCCESS) {
-        ALOG_ERROR_F("DoHealthCheck failed at HealthCheckOoOSchedule!");
+        APASS_LOG_ERROR_F(Elements::Function, "DoHealthCheck failed at HealthCheckOoOSchedule!");
         return FAILED;
     }
     HealthCheckBlockGraph(function);
