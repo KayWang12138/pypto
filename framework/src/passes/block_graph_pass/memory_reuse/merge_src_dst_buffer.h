@@ -60,13 +60,13 @@ public:
 
 private:
     Status RunOnFunction(Function &function) override {
-        ALOG_INFO_F("===> Start SrcDstBufferMerge.");
+        APASS_LOG_INFO_F(Elements::Function, "===> Start SrcDstBufferMerge.");
         SrcDstBufferMergeImpl merge;
         if (merge.Run(function) != SUCCESS) {
-			ALOG_INFO_F("===> Stop SrcDstBufferMerge.");
+			APASS_LOG_INFO_F(Elements::Function, "===> Stop SrcDstBufferMerge.");
 			return SUCCESS;
 		}
-        ALOG_INFO_F("===> Finish SrcDstBufferMerge.");
+        APASS_LOG_INFO_F(Elements::Function, "===> Finish SrcDstBufferMerge.");
         return SUCCESS;
     }
 };

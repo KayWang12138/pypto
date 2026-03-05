@@ -180,7 +180,7 @@ void PassManager::RegisterStrategy(const std::string &strategy, const std::vecto
     std::set<std::string> identifiers;
     for (auto &pass : passEntries) {
         if (!(identifiers.insert(pass.identifier).second)) {
-            ALOG_WARN_F("Duplicated identifier: %s.", pass.identifier.c_str());
+            APASS_LOG_WARN_F(Elements::Manager, "Duplicated identifier: %s.", pass.identifier.c_str());
             continue;
         }
         newPassEntries.push_back(pass);
@@ -191,13 +191,13 @@ void PassManager::RegisterStrategy(const std::string &strategy, const std::vecto
         return;
     }
     strategyPasses->second = newPassEntries;
-    ALOG_WARN_F("Strategy %s has been changed.", strategy.c_str());
+    APASS_LOG_WARN_F(Elements::Manager, "Strategy %s has been changed.", strategy.c_str());
 }
 
 std::vector<PassManager::PassEntry> PassManager::GetStrategyPasses(const std::string &strategy) const {
     auto it = strategies_.find(strategy);
     if (it == strategies_.end()) {
-        ALOG_WARN_F("Strategy %s does not exist.", strategy.c_str());
+        APASS_LOG_WARN_F(Elements::Manager, "Strategy %s does not exist.", strategy.c_str());
         auto emptyPass = std::vector<PassManager::PassEntry>();
         return emptyPass;
     }
@@ -207,7 +207,7 @@ std::vector<PassManager::PassEntry> PassManager::GetStrategyPasses(const std::st
  	    const auto &passName = PassNameStr(currPassEntry.passName);
  	    auto pass = PassRegistry::GetInstance().CreatePass(passName);
  	    if (pass == nullptr) {
-            ALOG_WARN_F("Pass %s does not exist.", passName);
+            APASS_LOG_WARN_F(Elements::Manager, "Pass %s does not exist.", passName);
  	        continue;
  	    }
  	    std::vector<NPUArch> &arches = pass->GetSupportedArches();
@@ -242,7 +242,7 @@ static bool ShouldTerminateAtStage(const std::string &identifier) {
     };
     auto it = kPassToStageMap.find(identifier);
     if (it != kPassToStageMap.end() && it->second == config::GetHostOption<int64_t>(COMPILE_STAGE)) {
-        ALOG_INFO_F("Compile stage terminates after %s.", identifier.c_str());
+        APASS_LOG_INFO_F(Elements::Manager, "Compile stage terminates after %s.", identifier.c_str());
         return true;
     }
     return false;
@@ -252,7 +252,7 @@ static void LogPassRuntime(const std::string &identifier, Program &program, Func
     const std::chrono::time_point<std::chrono::high_resolution_clock> &start) {
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    ALOG_INFO_F("Runtime of pass %s for program %s function %s is %ld us.", identifier.c_str(),
+    APASS_LOG_INFO_F(Elements::Manager, "Runtime of pass %s for program %s function %s is %ld us.", identifier.c_str(),
         program.Name().c_str(), function.GetMagicName().c_str(), duration.count());
 }
 
@@ -271,7 +271,7 @@ Status PassManager::RunPass(Program &program, Function &function, const std::str
         const auto &passName = strategyPasses[i].passName;
         auto pass = PassRegistry::GetInstance().CreatePass(PassNameStr(passName));
         if (pass == nullptr) {
-            ALOG_ERROR_F("Pass [%s] does not exist.", PassNameStr(passName));
+            APASS_LOG_ERROR_F(Elements::Manager, "Pass [%s] does not exist.", PassNameStr(passName));
             return FAILED;
         }
         PassLogUtil logUtil(*pass, function, i);
@@ -281,10 +281,10 @@ Status PassManager::RunPass(Program &program, Function &function, const std::str
             passDfxCfg.dumpGraph = true;
         }
         pass->SetPassConfigs(passDfxCfg);
-        ALOG_INFO_F("[PassManager] Apply pass <%s> on function: %s.", identifier.c_str(), function.GetMagicName().c_str());
+        APASS_LOG_INFO_F(Elements::Manager, "[PassManager] Apply pass <%s> on function: %s.", identifier.c_str(), function.GetMagicName().c_str());
         auto start = std::chrono::high_resolution_clock::now();
         if (pass->Run(function, strategy, identifier, i) != SUCCESS) {
-            ALOG_ERROR_F("Run pass <%s> failed.", identifier.c_str());
+            APASS_LOG_ERROR_F(Elements::Manager, "Run pass <%s> failed.", identifier.c_str());
             return FAILED;
         }
         if (passDfxCfg.dumpPassTimeCost) {

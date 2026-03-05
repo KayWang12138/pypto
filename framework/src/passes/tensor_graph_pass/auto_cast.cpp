@@ -69,7 +69,7 @@ Status AutoCast::RunOnFunction(Function &function) {
         legalCastPair.insert({DataType::DT_INT32, DataType::DT_FP16});
     }
     if (GetInOutConnectedTensor(function) != SUCCESS) {
-        ALOG_ERROR_F("Failed to get InOutCast-connected tensor.");
+        APASS_LOG_ERROR_F(Elements::Tensor, "Failed to get InOutCast-connected tensor.");
         return FAILED;
     }
     if (InsertBF16Cast(function) != SUCCESS) {
@@ -81,10 +81,10 @@ Status AutoCast::RunOnFunction(Function &function) {
         return FAILED;
     }
     if (RemoveRedundantCastChain(function) != SUCCESS) {
-        ALOG_ERROR_F("Failed to remove redundant CAST.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Failed to remove redundant CAST.");
         return FAILED;
     }
-    ALOG_INFO_F("===> End AutoCast for function [%s].", function.GetRawName().c_str());
+    APASS_LOG_INFO_F(Elements::Function, "===> End AutoCast for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
 }
 
@@ -103,7 +103,7 @@ Status AutoCast::InsertInt32Fp16Cast(Function &function) {
         LogicalTensorPtr srcTensor = iOperands[0];
         LogicalTensorPtr tgtTensor = oOperands[0];
 
-        if (srcTensor->Datatype() != DataType::DT_INT32 || 
+        if (srcTensor->Datatype() != DataType::DT_INT32 ||
             tgtTensor->Datatype() != DataType::DT_FP16) {
             continue;
         }
@@ -120,7 +120,7 @@ bool AutoCast::SupportBF16(Operation *op) {
         if (UNSUPPORT_BF16_ARCH35_OPS.count(op->GetOpcode()) > 0) return false;
     } else {
         if (UNSUPPORT_BF16_OPS.count(op->GetOpcode()) > 0) {
-            ALOG_INFO_F("Op[%d] can find in UNSUPPORT_BF16_OPS.", op->GetOpMagic());
+            APASS_LOG_INFO_F(Elements::Operation, "Op[%d] can find in UNSUPPORT_BF16_OPS.", op->GetOpMagic());
             return false;
         }
     }
@@ -184,7 +184,7 @@ Status AutoCast::InsertBF16Cast(Function &function) {
     return SUCCESS;
 }
 
-bool AutoCast::IsLegalCast(DataType ds, DataType dt) {    
+bool AutoCast::IsLegalCast(DataType ds, DataType dt) {
     if (legalCastPair.count(std::make_pair(ds, dt)) > 0) {
         return true;
     }
