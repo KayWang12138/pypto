@@ -53,17 +53,15 @@ static void ScatterOperationExeFunc2Dims(
         /* 根据当前Scatter实现，做tile切分时，axis轴取对应输入的axis轴的shape大小，即axis轴不做切分
          * 和设置的tileshape大小无关，以此来保证tile快内按indices的索引访问内存不会越界，其他轴可以正常切分
          * 因此，需要保证设置的viewshape axis轴的shape大小和src的axis轴shape大小一致 viewshape dim[axis] = src dim[axis] */
-        const int64_t bloop = CeilDiv(idx_firstDim, firstViewShape);
-        const int64_t sloop = CeilDiv(idx_secondDim, secondViewShape);
+        const int64_t bloop = 1; /// CeilDiv(idx_firstDim, firstViewShape);
+        const int64_t sloop = 1; /// CeilDiv(idx_secondDim, secondViewShape);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                auto tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
-                    {std::min(src_firstDim - bIdx * firstViewShape, firstViewShape),
-                        std::min(src_secondDim - sIdx * secondViewShape, secondViewShape)},
+                auto tileTensor0 = View(inputs[0], {src_firstDim, src_secondDim},
+                    {src_firstDim, src_secondDim},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
-                auto tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
-                    {std::min(idx_firstDim - bIdx * firstViewShape, firstViewShape),
-                        std::min(idx_secondDim - sIdx * secondViewShape, secondViewShape)},
+                auto tileTensor1 = View(inputs[1], {idx_firstDim, secondViewShape},
+                    { idx_firstDim, idx_secondDim},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
 
                 TileShape::Current().SetVecTile(args->tileShape_);
@@ -89,17 +87,15 @@ static void ScatterOperationExeFunc2DimsNoReduceOp(
         /* 根据当前Scatter实现，做tile切分时，axis轴取对应输入的axis轴的shape大小，即axis轴不做切分
          * 和设置的tileshape大小无关，以此来保证tile快内按indices的索引访问内存不会越界，其他轴可以正常切分
          * 因此，需要保证设置的viewshape axis轴的shape大小和src的axis轴shape大小一致 viewshape dim[axis] = src dim[axis] */
-        const int64_t bloop = CeilDiv(idx_firstDim, firstViewShape);
-        const int64_t sloop = CeilDiv(idx_secondDim, secondViewShape);
+        const int64_t bloop = 1; // CeilDiv(idx_firstDim, firstViewShape);
+        const int64_t sloop = 1; // CeilDiv(idx_secondDim, secondViewShape);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
-                auto tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
-                    {std::min(src_firstDim - bIdx * firstViewShape, firstViewShape),
-                        std::min(src_secondDim - sIdx * secondViewShape, secondViewShape)},
+                auto tileTensor0 = View(inputs[0], {src_firstDim, src_secondDim},
+                    {src_firstDim, src_secondDim},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
-                auto tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
-                    {std::min(idx_firstDim - bIdx * firstViewShape, firstViewShape),
-                        std::min(idx_secondDim - sIdx * secondViewShape, secondViewShape)},
+                auto tileTensor1 = View(inputs[1], {idx_firstDim, secondViewShape},
+                    { idx_firstDim, idx_secondDim},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
 
                 TileShape::Current().SetVecTile(args->tileShape_);
@@ -128,21 +124,17 @@ static void ScatterOperationExeFunc3Dims(
         /* 根据当前Scatter实现，做tile切分时，axis轴取对应输入的axis轴的shape大小，即axis轴不做切分
          * 和设置的tileshape大小无关，以此来保证tile快内按indices的索引访问内存不会越界，其他轴可以正常切分
          * 因此，需要保证设置的viewshape axis轴的shape大小和src的axis轴shape大小一致 viewshape dim[axis] = src dim[axis] */
-        const int64_t bloop = CeilDiv(idx_firstDim, firstViewShape);
-        const int64_t sloop = CeilDiv(idx_secondDim, secondViewShape);
-        const int64_t nloop = CeilDiv(idx_thirdDim, thirdViewShape);
+        const int64_t bloop = 1; // CeilDiv(idx_firstDim, firstViewShape);
+        const int64_t sloop = 1; // CeilDiv(idx_secondDim, secondViewShape);
+        const int64_t nloop = 1; // CeilDiv(idx_thirdDim, thirdViewShape);
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
                 LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
-                    auto tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
-                        {std::min(src_firstDim - bIdx * firstViewShape, firstViewShape),
-                            std::min(src_secondDim - sIdx * secondViewShape, secondViewShape),
-                            std::min(src_thirdDim - nIdx * thirdViewShape, thirdViewShape) },
+                    auto tileTensor0 = View(inputs[0], {src_firstDim, src_secondDim, src_thirdDim},
+                        {src_firstDim, src_secondDim, src_thirdDim},
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
-                    auto tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape, thirdViewShape},
-                        {std::min(idx_firstDim - bIdx * firstViewShape, firstViewShape),
-                            std::min(idx_secondDim - sIdx * secondViewShape, secondViewShape),
-                            std::min(idx_thirdDim - nIdx * thirdViewShape, thirdViewShape) },
+                    auto tileTensor1 = View(inputs[1], {idx_firstDim, idx_secondDim, idx_thirdDim},
+                        {idx_firstDim, idx_secondDim, idx_thirdDim},
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
 
                     TileShape::Current().SetVecTile(args->tileShape_);
