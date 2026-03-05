@@ -6,6 +6,10 @@ import numpy as np
 from numpy.testing import assert_allclose
 from typing import Tuple
 
+# ===== Module-level Dynamic Axis Definition =====
+# Define dynamic axis N for weight's first dimension
+N = pypto.frontend.dynamic("N")
+
 # ===== Golden Function (PyTorch Reference - BF16 version) =====
 def embedding_head_quant_golden(weight, scale, eps=1e-4, min_v=-128.0, max_v=127.0):
     """PyTorch reference implementation for embedding head quantization (BF16 I/O, FP32 compute).
@@ -33,7 +37,10 @@ def embedding_head_quant_golden(weight, scale, eps=1e-4, min_v=-128.0, max_v=127
     return output.to(torch.bfloat16), clamped.to(torch.bfloat16), protected_scale.to(torch.bfloat16)
 
 # ===== JIT Kernel Implementation =====
-def create_embedding_head_quant_kernel(weight_shape, eps=1e-4, min_v=-128.0, max_v=127.0, run_mode="npu"):
+def create_embedding_head_quant_kernel(m, eps=1e-4, min_v=-128.0, max_v=127.0, run_mode="npu", unroll_list=None):
+    if unroll_list is None:
+        unroll_list = [1, 2, 4]
+    
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
     elif run_mode == "sim":
@@ -50,34 +57,45 @@ def create_embedding_head_quant_kernel(weight_shape, eps=1e-4, min_v=-128.0, max
 
     @pypto.frontend.jit(runtime_options=runtime_opts)
     def embedding_head_quant_kernel(
-        weight: pypto.Tensor(weight_shape, pypto.DT_BF16),
+        weight: pypto.Tensor((N, m), pypto.DT_BF16),
         scale: pypto.Tensor((1, 1), pypto.DT_BF16),
-    ) -> (
-        pypto.Tensor(weight_shape, pypto.DT_BF16),
-        pypto.Tensor(weight_shape, pypto.DT_BF16),
-        pypto.Tensor(weight_shape, pypto.DT_BF16),
+        output_bf16: pypto.Tensor((N, m), pypto.DT_BF16),
+        clamped_bf16: pypto.Tensor((N, m), pypto.DT_BF16),
+        protected_scale_bf16: pypto.Tensor((N, m), pypto.DT_BF16),
     ):
-        pypto.set_vec_tile_shapes(128, 128)
+        n = weight.shape[0]
+        
+        for n_offset, unroll_length in pypto.loop_unroll(
+            0, n, 1, 
+            name="LOOP_N_UNROLL", 
+            idx_name="n_offset",
+            unroll_list=unroll_list
+        ):
+            tile_n = unroll_length
+            
+            pypto.set_vec_tile_shapes(tile_n, m)
+            
+            weight_tile = pypto.view(weight, [tile_n, m], [n_offset, 0])
+            weight_fp32 = pypto.cast(weight_tile, pypto.DT_FP32)
+            
+            scale_fp32 = pypto.cast(scale, pypto.DT_FP32)
+            protected_scale = pypto.maximum(scale_fp32, eps)
+            
+            scale_n = pypto.expand_clone(protected_scale, [tile_n, 1])
+            scale_expanded = pypto.expand_clone(scale_n, [tile_n, m])
 
-        weight_fp32 = pypto.cast(weight, pypto.DT_FP32)
-        scale_fp32 = pypto.cast(scale, pypto.DT_FP32)
+            normalized = pypto.div(weight_fp32, scale_expanded)
+            rounded = pypto.round(normalized, decimals=0)
+            clamped = pypto.clip(rounded, min_v, max_v)
+            output = pypto.mul(clamped, scale_expanded)
 
-        protected_scale = pypto.maximum(scale_fp32, eps)
+            output_tile = pypto.cast(output, pypto.DT_BF16)
+            clamped_tile = pypto.cast(clamped, pypto.DT_BF16)
+            scale_tile = pypto.cast(scale_expanded, pypto.DT_BF16)
 
-        n, m = weight_shape
-        scale_n = pypto.expand_clone(protected_scale, [n, 1])
-        scale_expanded = pypto.expand_clone(scale_n, [n, m])
-
-        normalized = pypto.div(weight_fp32, scale_expanded)
-        rounded = pypto.round(normalized, decimals=0)
-        clamped = pypto.clip(rounded, min_v, max_v)
-        output = pypto.mul(clamped, scale_expanded)
-
-        output_bf16 = pypto.cast(output, pypto.DT_BF16)
-        clamped_bf16 = pypto.cast(clamped, pypto.DT_BF16)
-        protected_scale_bf16 = pypto.cast(scale_expanded, pypto.DT_BF16)
-
-        return output_bf16, clamped_bf16, protected_scale_bf16
+            pypto.assemble(output_tile, [n_offset, 0], output_bf16)
+            pypto.assemble(clamped_tile, [n_offset, 0], clamped_bf16)
+            pypto.assemble(scale_tile, [n_offset, 0], protected_scale_bf16)
 
     return embedding_head_quant_kernel
 
@@ -87,13 +105,18 @@ def test_embedding_head_quant_basic(device_id=None, run_mode="npu"):
 
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     weight_shape = (8, 16)
+    n, m = weight_shape
 
     weight_torch = (torch.randn(weight_shape, dtype=torch.float32, device=device) * 10).to(torch.bfloat16)
     scale_torch = torch.full((1, 1), 0.5, dtype=torch.bfloat16, device=device)
     expected_out, expected_clamped, expected_scale = embedding_head_quant_golden(weight_torch.clone(), scale_torch.clone())
 
-    kernel = create_embedding_head_quant_kernel(weight_shape, run_mode=run_mode)
-    output_torch, clamped_torch, protected_scale_torch = kernel(weight_torch, scale_torch)
+    output_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
+    clamped_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
+    protected_scale_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
+
+    kernel = create_embedding_head_quant_kernel(m, run_mode=run_mode)
+    kernel(weight_torch, scale_torch, output_torch, clamped_torch, protected_scale_torch)
 
     max_diff_out = (output_torch - expected_out).abs().max().item()
     print(f"  Output max diff: {max_diff_out:.6f}")
@@ -106,13 +129,18 @@ def test_embedding_head_quant_level1(device_id=None, run_mode="npu"):
 
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     weight_shape = (1024, 2048)
+    n, m = weight_shape
 
     weight_torch = (torch.randn(weight_shape, dtype=torch.float32, device=device) * 100).to(torch.bfloat16)
     scale_torch = torch.full((1, 1), 0.5, dtype=torch.bfloat16, device=device)
     expected_out, _, _ = embedding_head_quant_golden(weight_torch.clone(), scale_torch.clone())
 
-    kernel = create_embedding_head_quant_kernel(weight_shape, run_mode=run_mode)
-    output_torch, _, _ = kernel(weight_torch, scale_torch)
+    output_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
+    clamped_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
+    protected_scale_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
+
+    kernel = create_embedding_head_quant_kernel(m, run_mode=run_mode)
+    kernel(weight_torch, scale_torch, output_torch, clamped_torch, protected_scale_torch)
 
     max_diff = (output_torch - expected_out).abs().max().item()
     print(f"  Max difference: {max_diff:.6f}")
@@ -124,14 +152,20 @@ def test_embedding_head_quant_edge_cases(device_id=None, run_mode="npu"):
 
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     weight_shape = (64, 128)
+    n, m = weight_shape
+
+    kernel = create_embedding_head_quant_kernel(m, run_mode=run_mode)
 
     print("  Test case 1: Very small scale")
     weight_torch = (torch.randn(weight_shape, dtype=torch.float32, device=device) * 10).to(torch.bfloat16)
     scale_torch = torch.full((1, 1), 1e-6, dtype=torch.bfloat16, device=device)
     expected_out, _, _ = embedding_head_quant_golden(weight_torch.clone(), scale_torch.clone())
 
-    kernel = create_embedding_head_quant_kernel(weight_shape, run_mode=run_mode)
-    output_torch, _, _ = kernel(weight_torch, scale_torch)
+    output_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
+    clamped_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
+    protected_scale_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
+    
+    kernel(weight_torch, scale_torch, output_torch, clamped_torch, protected_scale_torch)
 
     max_diff = (output_torch - expected_out).abs().max().item()
     print(f"    Max difference: {max_diff:.6f}")
@@ -143,7 +177,12 @@ def test_embedding_head_quant_edge_cases(device_id=None, run_mode="npu"):
     scale_torch = torch.ones((1, 1), dtype=torch.bfloat16, device=device)
 
     expected_out, _, _ = embedding_head_quant_golden(weight_torch.clone(), scale_torch.clone())
-    output_torch, _, _ = kernel(weight_torch, scale_torch)
+    
+    output_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
+    clamped_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
+    protected_scale_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
+    
+    kernel(weight_torch, scale_torch, output_torch, clamped_torch, protected_scale_torch)
 
     max_diff = (output_torch - expected_out).abs().max().item()
     print(f"    Max difference: {max_diff:.6f}")
@@ -155,7 +194,12 @@ def test_embedding_head_quant_edge_cases(device_id=None, run_mode="npu"):
     scale_torch = torch.full((1, 1), 1.5, dtype=torch.bfloat16, device=device)
 
     expected_out, _, _ = embedding_head_quant_golden(weight_torch.clone(), scale_torch.clone())
-    output_torch, _, _ = kernel(weight_torch, scale_torch)
+    
+    output_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
+    clamped_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
+    protected_scale_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
+    
+    kernel(weight_torch, scale_torch, output_torch, clamped_torch, protected_scale_torch)
 
     max_diff = (output_torch - expected_out).abs().max().item()
     print(f"    Max difference: {max_diff:.6f}")
@@ -167,18 +211,54 @@ def test_embedding_head_quant_large(device_id=None, run_mode="npu"):
 
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     weight_shape = (4096, 2048)
+    n, m = weight_shape
 
     weight_torch = (torch.randn(weight_shape, dtype=torch.float32, device=device) * 50).to(torch.bfloat16)
     scale_torch = torch.full((1, 1), 0.5, dtype=torch.bfloat16, device=device)
     expected_out, _, _ = embedding_head_quant_golden(weight_torch.clone(), scale_torch.clone())
 
-    kernel = create_embedding_head_quant_kernel(weight_shape, run_mode=run_mode)
-    output_torch, _, _ = kernel(weight_torch, scale_torch)
+    output_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
+    clamped_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
+    protected_scale_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
+
+    kernel = create_embedding_head_quant_kernel(m, run_mode=run_mode)
+    kernel(weight_torch, scale_torch, output_torch, clamped_torch, protected_scale_torch)
 
     max_diff = (output_torch - expected_out).abs().max().item()
     print(f"  Max difference: {max_diff:.6f}")
     assert_allclose(output_torch.float().cpu().numpy(), expected_out.float().cpu().numpy(), rtol=3e-3, atol=3e-3)
     print("  ✓ Passed")
+
+def test_embedding_head_quant_dynamic_n(device_id=None, run_mode="npu"):
+    print("Test: Dynamic N dimension")
+
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
+    m = 128
+
+    kernel = create_embedding_head_quant_kernel(m, run_mode=run_mode)
+
+    test_shapes = [(8, m), (32, m), (64, m), (128, m), (256, m)]
+    
+    for n, _ in test_shapes:
+        print(f"  Testing N={n}")
+        weight_shape = (n, m)
+        
+        weight_torch = (torch.randn(weight_shape, dtype=torch.float32, device=device) * 10).to(torch.bfloat16)
+        scale_torch = torch.full((1, 1), 0.5, dtype=torch.bfloat16, device=device)
+        
+        expected_out, _, _ = embedding_head_quant_golden(weight_torch.clone(), scale_torch.clone())
+        
+        output_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
+        clamped_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
+        protected_scale_torch = torch.zeros(weight_shape, dtype=torch.bfloat16, device=device)
+        
+        kernel(weight_torch, scale_torch, output_torch, clamped_torch, protected_scale_torch)
+        
+        max_diff = (output_torch - expected_out).abs().max().item()
+        assert_allclose(output_torch.float().cpu().numpy(), expected_out.float().cpu().numpy(), rtol=3e-3, atol=3e-3)
+        print(f"    ✓ N={n} passed (max_diff={max_diff:.6f})")
+    
+    print("  ✓ All dynamic N tests passed")
 
 # ===== Main Test Runner =====
 def main():
@@ -189,7 +269,7 @@ def main():
     parser.add_argument('--run_mode', type=str, default="npu", choices=["npu", "sim"],
                         help="Execution mode: npu (hardware) or sim (simulation)")
     parser.add_argument('--test_level', type=int, default=-1,
-                        help="Test level: 0=basic, 1=typical, 2=edge, 3=large, -1=all")
+                        help="Test level: 0=basic, 1=typical, 2=edge, 3=large, 4=dynamic_n, -1=all")
     args = parser.parse_args()
 
     # Get device ID
@@ -210,6 +290,7 @@ def main():
 
     print("=" * 60)
     print("Embedding Head Quantization Operator Tests")
+    print("With Dynamic N Dimension and Loop Unroll")
     print("=" * 60)
     print()
 
@@ -228,6 +309,10 @@ def main():
 
     if args.test_level == -1 or args.test_level == 3:
         test_embedding_head_quant_large(device_id, args.run_mode)
+        print()
+    
+    if args.test_level == -1 or args.test_level == 4:
+        test_embedding_head_quant_dynamic_n(device_id, args.run_mode)
         print()
 
     print("=" * 60)
