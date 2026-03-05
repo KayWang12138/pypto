@@ -14,10 +14,10 @@
  */
 
 #include "auto_cast.h"
+#include "passes/pass_log/pass_log.h"
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_check/auto_cast_checker.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
-#include "passes/pass_log/pass_log.h"
 
 namespace npu {
 namespace tile_fwk {
