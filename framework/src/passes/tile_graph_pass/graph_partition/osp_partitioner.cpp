@@ -233,6 +233,26 @@ void OspPartitioner::SetVertexCommMemWeight(GraphType &graph, int32_t vertex)
     graph.SetVertexCommWeight(vertex, static_cast<WorkType>(commWeight * archParameters_.commCorrectionFactor_));
 }
 
+OspPartitioner::VTypeType OspPartitioner::GetOspCoreTypeSplit(OpCoreType coreType)
+{
+    auto it = ospCoreTypeMapSplit.find(coreType);
+    if (it != ospCoreTypeMapSplit.end()) {
+        return it->second;
+    }
+    APASS_LOG_ERROR_F(Elements::Operation, "OpCoreType (%d) not found in ospCoreTypeMapSplit.", coreType);
+    return 0U;
+}
+
+OspPartitioner::VTypeType OspPartitioner::GetOspCoreTypeMix(OpCoreType coreType)
+{
+    auto it = ospCoreTypeMapMix.find(coreType);
+    if (it != ospCoreTypeMapMix.end()) {
+        return it->second;
+    }
+    APASS_LOG_ERROR_F(Elements::Operation, "OpCoreType (%d) not found in ospCoreTypeMapMix.", coreType);
+    return 0U;
+}
+
 Status OspPartitioner::ConstructDagCVSplit(GraphType &graph)
 {    
     if (ConstructDagCVMix(graph) != SUCCESS) {

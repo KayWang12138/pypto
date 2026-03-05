@@ -92,8 +92,8 @@ private:
 
     // Construction Helpers
     void SetVertexCommMemWeight(GraphType &graph, int32_t vertex);
-    inline VTypeType GetOspCoreTypeSplit(OpCoreType coreType) { return ospCoreTypeMapSplit.at(coreType); }
-    inline VTypeType GetOspCoreTypeMix(OpCoreType coreType) { return ospCoreTypeMapMix.at(coreType); }
+    VTypeType GetOspCoreTypeSplit(OpCoreType coreType);
+    VTypeType GetOspCoreTypeMix(OpCoreType coreType);
 
     // Run OSP Partition
     Status RunOspPartition(Function &function);
