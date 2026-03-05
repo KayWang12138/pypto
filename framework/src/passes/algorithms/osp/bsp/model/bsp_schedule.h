@@ -24,6 +24,8 @@
 #include "passes/algorithms/osp/bsp/model/cost/lazy_communication_cost.h"
 #include "passes/pass_log/pass_log.h"
 
+#define MODULE_NAME "PassesAlgorithms"
+
 namespace npu::tile_fwk {
 namespace osp {
 

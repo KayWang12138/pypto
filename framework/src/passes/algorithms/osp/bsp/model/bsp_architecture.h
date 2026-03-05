@@ -27,6 +27,8 @@
 #include "passes/algorithms/osp/graph_implementations/integral_range.h"
 #include "passes/pass_log/pass_log.h"
 
+#define MODULE_NAME "PassesAlgorithms"
+
 namespace npu::tile_fwk {
 namespace osp {
 

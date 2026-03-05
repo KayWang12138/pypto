@@ -22,6 +22,8 @@
 #include "passes/algorithms/osp/graph_algorithms/computational_dag_construction_util.h"
 #include "passes/algorithms/osp/graph_algorithms/directed_graph_util.h"
 
+#define MODULE_NAME "PassesAlgorithms"
+
 namespace npu::tile_fwk {
 namespace osp {
 
