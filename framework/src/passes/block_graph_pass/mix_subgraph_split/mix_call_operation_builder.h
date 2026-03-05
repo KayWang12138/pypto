@@ -47,7 +47,6 @@ public:
                          Function* originalMixFunc,
                          const std::vector<InternalComponentInfo>& components,
                          const std::vector<uint64_t>& newProgramIDs,
-                         SubgraphToFunction& subgraphToFunction,
                          std::vector<Function*>& newFunctions,
                          const std::vector<InternalDependencyInfo>& internalDeps);
 private:
@@ -58,7 +57,6 @@ private:
                                       uint64_t componentIndex,
                                       Operation* originalCallOp,
                                       Function* originalMixFunc,
-                                      SubgraphToFunction& subgraphToFunction,
                                       CallOpCreationInfo& info);
     void FindNewIOperandsInOriginalIncast(
         const std::vector<LogicalTensorPtr>& originalIOperands,
@@ -114,7 +112,6 @@ private:
                             CallOpAttribute* originalCallAttr,
                             uint64_t newProgramID,
                             uint64_t componentIndex,
-                            SubgraphToFunction& subgraphToFunction,
                             CallOpCreationInfo& info);
     // 内部依赖处理相关函数
     void ProcessAllInternalDependencies(Function& rootFunc,
