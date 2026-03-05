@@ -37,7 +37,7 @@ Status IndexOutcastChecker::CheckIndexOutcastDisorderedCoverage(Function &functi
                 if (consumerOp->GetOpcode() != Opcode::OP_INDEX_OUTCAST) {
                     continue;
                 }
-                if (consumerOp->GetIOperands()[DST_TILE_INPUT_PARAM_INDEX]->GetMagic() != tensor->GetMagic()) {
+                if (consumerOp->GetIOperands().size() <= DST_TILE_INPUT_PARAM_INDEX || consumerOp->GetIOperands()[DST_TILE_INPUT_PARAM_INDEX]->GetMagic() != tensor->GetMagic()) {
                     continue;
                 }
                 indexOutcastConsumers.insert(consumerOp);
