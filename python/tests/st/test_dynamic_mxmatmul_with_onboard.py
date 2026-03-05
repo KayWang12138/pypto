@@ -42,6 +42,13 @@ class ShapeConfig:
     a_format_nz: bool = False
     b_format_nz: bool = False
     c_format_nz: bool = False
+    gm_acc: bool = False
+
+
+@dataclass
+class ExtendParams:
+    bias_shape: list = field(default_factory=list)
+    bias_dtype: np.dtype = None
 
 
 def trans_nd_to_fractal_nz(data: torch.Tensor, keep_m_dim=False):
@@ -83,14 +90,13 @@ def convert_pypto_dtype_to_torch(dtype):
         raise ValueError(f"Unsupported pypto DataType: {dtype}")
 
 
-def create_scaled_mm_kernel_with_mn_split(tile_config: ShapeConfig):
+def create_scaled_mm_kernel_with_mn_split(tile_config: ShapeConfig, extend_params: Optional[ExtendParams] = None):
     m, k, n = tile_config.ori_shape
     m_view, n_view = tile_config.view_shape
     a_format = pypto.TileOpFormat.TILEOP_NZ if tile_config.a_format_nz else pypto.TileOpFormat.TILEOP_ND
     b_format = pypto.TileOpFormat.TILEOP_NZ if tile_config.b_format_nz else pypto.TileOpFormat.TILEOP_ND
     a_shape = [k, m] if tile_config.a_trans else [m, k]
     b_shape = [n, k] if tile_config.b_trans else [k, n]
-    bias_shape = [1, n]
     scale_a_shape = [k // K_BLOCK_SIZE_64, m, SHAPE_DIM_2] if tile_config.scale_a_trans else \
                     [m, k // K_BLOCK_SIZE_64, SHAPE_DIM_2]
     scale_b_shape = [n, k // K_BLOCK_SIZE_64, SHAPE_DIM_2] if tile_config.scale_b_trans else \
@@ -102,8 +108,9 @@ def create_scaled_mm_kernel_with_mn_split(tile_config: ShapeConfig):
         a_scale: pypto.Tensor(scale_a_shape, pypto.DT_FP8E8M0),
         b_tensor: pypto.Tensor(b_shape, tile_config.in_dtype, format=b_format),
         b_scale: pypto.Tensor(scale_b_shape, pypto.DT_FP8E8M0),
-        bias: pypto.Tensor(bias_shape, pypto.DT_FP32)) -> pypto.Tensor(out_shape, tile_config.out_dtype):
-        pypto.set_cube_tile_shapes(tile_config.m_tile_shape, tile_config.k_tile_shape, tile_config.n_tile_shape)
+        bias: pypto.Tensor([1, n], pypto.DT_FP32)) -> pypto.Tensor(out_shape, tile_config.out_dtype):
+        pypto.set_cube_tile_shapes(tile_config.m_tile_shape, tile_config.k_tile_shape, tile_config.n_tile_shape,
+                                    enable_split_k=tile_config.gm_acc)
         m_loop = (m + m_view - 1) // m_view
         n_loop = (n + n_view - 1) // n_view
         out_tensor = pypto.Tensor([m, n], tile_config.out_dtype)
@@ -130,8 +137,9 @@ def create_scaled_mm_kernel_with_mn_split(tile_config: ShapeConfig):
                 else:
                     scale_b_view = b_scale[:, n_idx * n_view: n_idx * n_view + n_view, :]
                 #Get the view tensor of bias
-                bias_view = bias[:, n_idx * n_view: n_idx * n_view + n_view]
-                extend_params = {'bias_tensor': bias_view}
+                if extend_params is not None:
+                    bias_view = bias[:, n_idx * n_view: n_idx * n_view + n_view]
+                    extend_params = {'bias_tensor': bias_view}
                 out_view = pypto.scaled_mm(a_view, b_view, tile_config.out_dtype, scale_a_view, scale_b_view,
                                         extend_params=extend_params, a_trans=tile_config.a_trans,
                                         b_trans=tile_config.b_trans, scale_a_trans=tile_config.scale_a_trans,
@@ -142,18 +150,19 @@ def create_scaled_mm_kernel_with_mn_split(tile_config: ShapeConfig):
     return scaled_mm_pto
 
 
-def test_scale_mm(tile_config: ShapeConfig):
-    m = tile_config.ori_shape[0]
-    k = tile_config.ori_shape[1]
-    n = tile_config.ori_shape[2]
+def create_scale_mm_with_bias(tile_config: ShapeConfig, extend_params: Optional[ExtendParams] = None):
+    m, k, n = tile_config.ori_shape
     a_shape = [k, m] if tile_config.a_trans else [m, k]
     b_shape = [n, k] if tile_config.b_trans else [k, n]
     scale_a_shape = [k // K_BLOCK_SIZE_64, m, SHAPE_DIM_2] if tile_config.scale_a_trans else \
                     [m, k // K_BLOCK_SIZE_64, SHAPE_DIM_2]
     scale_b_shape = [n, k // K_BLOCK_SIZE_64, SHAPE_DIM_2] if tile_config.scale_b_trans else \
                     [k // K_BLOCK_SIZE_64, n, SHAPE_DIM_2]
-    bias_shape = [1, n]
-    bias = torch.randn(bias_shape, dtype=torch.float32).uniform_(-3, 3)
+
+    bias = torch.empty(0)
+    if extend_params is not None:
+        bias_shape = extend_params.bias_shape
+        bias = torch.randn(bias_shape, dtype=torch.float32).uniform_(-3, 3)
 
     torch_in_dtype = convert_pypto_dtype_to_torch(tile_config.in_dtype)
     mat_a = torch.randn(a_shape, dtype=torch.float32).uniform_(-3, 3).to(torch_in_dtype)
@@ -170,20 +179,32 @@ def test_scale_mm(tile_config: ShapeConfig):
     mat_a_tmp = mat_a_tmp * scale_a_tmp.to(torch.float32)
     mat_b_tmp = mat_b.to(torch.float32).T if tile_config.b_trans else mat_b.to(torch.float32)
     mat_b_tmp = scale_b_tmp.to(torch.float32) * mat_b_tmp
-    bias_tmp = np.repeat(bias, m, axis=0)
-    golden = torch.matmul(mat_a_tmp.to(torch.float32), mat_b_tmp.to(torch.float32)) + bias_tmp
+
+    if extend_params is not None:
+        bias_tmp = np.repeat(bias, m, axis=0)
+        golden = torch.matmul(mat_a_tmp.to(torch.float32), mat_b_tmp.to(torch.float32)) + bias_tmp
+    else:
+        golden = torch.matmul(mat_a_tmp.to(torch.float32), mat_b_tmp.to(torch.float32))
+
     if tile_config.a_format_nz:
         mat_a = trans_nd_to_fractal_nz(mat_a, True)
     if tile_config.b_format_nz:
         mat_b = trans_nd_to_fractal_nz(mat_b, True)
-    out = create_scaled_mm_kernel_with_mn_split(tile_config)(mat_a.npu(), scale_a.npu(), mat_b.npu(), scale_b.npu(),
-                                                            bias.npu())
+    out = create_scaled_mm_kernel_with_mn_split(tile_config, extend_params)(mat_a.npu(), scale_a.npu(), mat_b.npu(),
+                                                                            scale_b.npu(), bias.npu())
     assert torch.allclose(out.cpu().to(torch.float32), golden, rtol=1e-3, atol=1e-3), "结果精度不匹配"
 
 
 @pytest.mark.soc("950")
 def test_scaled_mm_with_bias():
     tile_config = ShapeConfig([385, 192, 96], [64, 64], [64, 256], [256, 256], [192, 32], pypto.DataType.DT_FP8E4M3,
-                              pypto.DataType.DT_FP16, False, True, True, False, False, True)
-    test_scale_mm(tile_config)
+                              pypto.DataType.DT_FP16, False, True, True, False, False, True, False)
+    extend_params = ExtendParams([1, 96], np.float32)
+    create_scale_mm_with_bias(tile_config, extend_params)
 
+
+@pytest.mark.soc("950")
+def test_scaled_mm_with_gmacc():
+    tile_config = ShapeConfig([3, 512, 96], [64, 64], [64, 256], [256, 256], [192, 32], pypto.DataType.DT_FP8E5M2,
+                              pypto.DataType.DT_FP32, False, True, True, False, False, True, True)
+    create_scale_mm_with_bias(tile_config)
