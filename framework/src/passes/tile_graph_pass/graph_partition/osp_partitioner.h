@@ -21,7 +21,7 @@
 #include "supernode_graph_builder.h"
 #include "passes/pass_interface/pass.h"
 
-#include <map>
+#include <unordered_map>
 
 namespace npu::tile_fwk {
 
@@ -58,7 +58,7 @@ private:
     using CoarseGraphType = osp::CompactSparseGraph<VertType, VertType, WorkType, WorkType, WorkType, VTypeType>;
 
     // Core/Vertex type translation maps
-    const std::map<OpCoreType, VTypeType> ospCoreTypeMapSplit{
+    const std::unordered_map<OpCoreType, VTypeType> ospCoreTypeMapSplit{
         {OpCoreType::AIC,       0U},
         {OpCoreType::AIV,       1U},
         {OpCoreType::AICPU,     2U},
@@ -66,7 +66,7 @@ private:
         {OpCoreType::HUB,       4U},
         {OpCoreType::GMATOMIC,  5U}
     };
-    const std::map<OpCoreType, VTypeType> ospCoreTypeMapMix{
+    const std::unordered_map<OpCoreType, VTypeType> ospCoreTypeMapMix{
         {OpCoreType::AIC,       0U},
         {OpCoreType::AIV,       0U},
         {OpCoreType::AICPU,     1U},

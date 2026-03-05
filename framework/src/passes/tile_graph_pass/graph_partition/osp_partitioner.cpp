@@ -398,7 +398,7 @@ Status OspPartitioner::ConstructBspInstance(osp::BspInstance<GraphType> &bspInst
 
 uint64_t OspPartitioner::CombineHash(const uint64_t h1, const uint64_t h2) const
 {
-    constexpr uint64_t magic = 0x9e3779b9;
+    constexpr uint64_t magic = 0x9e3779b97f4a7c15ULL;
     constexpr uint64_t numSix = 6;
     constexpr uint64_t numTwo = 2;
 
