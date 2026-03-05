@@ -242,9 +242,12 @@ void bind_operation(py::module &m) {
             return npu::tile_fwk::Gather(params, indices, axis);
         },
         "Tensor gather.");
-    m.def("GatherMask", 
+    m.def("GatherMask",
         [](const Tensor &self, int patternMode) { return npu::tile_fwk::GatherMask(self, patternMode); },
         "Tensor gather Mask.");
+    m.def("Permute",
+        [](const Tensor &self, const std::vector<int>& dims) { return npu::tile_fwk::Permute(self, dims); },
+        "Tensor permute.");
     m.def("Duplicate", [](const Tensor &operand) { return npu::tile_fwk::Duplicate(operand); }, "Tensor duplicate.");
     m.def(
         "Full",

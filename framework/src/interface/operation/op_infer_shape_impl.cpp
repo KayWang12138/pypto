@@ -1102,4 +1102,30 @@ void PReLUInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& out
     outValidShapes.emplace_back(std::move(output1ValidShape));
 }
 REGISTER_INFER_SHAPE_FUNC(OP_PRELU, Opcode::OP_PRELU, PReLUInferFunc);
+
+void PermuteInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    std::vector<std::vector<SymbolicScalar>> inputValidShapes;
+    for (auto inputTensor : op->GetIOperands()) {
+        inputValidShapes.push_back(inputTensor->GetDynValidShape());
+    }
+    if (inputValidShapes.empty()) {
+        return;
+    }
+    
+    auto dims = op->GetIntVectorAttribute(OP_ATTR_PREFIX + "dims");
+    auto& inputShape = inputValidShapes[0];
+    std::vector<SymbolicScalar> outputShape;
+    
+    for (size_t i = 0; i < dims.size(); ++i) {
+        int dim = dims[i];
+        if (dim < 0) {
+            dim = dim + inputShape.size();
+        }
+        outputShape.push_back(inputShape[dim]);
+    }
+    
+    outValidShapes.push_back(outputShape);
+}
+REGISTER_INFER_SHAPE_FUNC(OP_PERMUTE, Opcode::OP_PERMUTE, PermuteInferFunc);
+
 }  // namespace npu::tile_fwk
