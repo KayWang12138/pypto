@@ -19,6 +19,7 @@ pypto-bitwise_xor
 pypto-cast
 pypto-cbrt
 pypto-ceil
+pypto-ceil_div
 pypto-clip
 pypto-clone
 pypto-concat
@@ -28,6 +29,8 @@ pypto-cumsum
 pypto-div
 pypto-eq
 pypto-exp
+pypto-exp2
+pypto-expm1
 pypto-expand_clone
 pypto-expand_exp_dif
 pypto-experimental-gather_in_l1
@@ -40,13 +43,16 @@ pypto-floor
 pypto-fmod
 pypto-full
 pypto-gather
+pypto-gathermask
 pypto-ge
+pypto-gcd
 pypto-gt
 pypto-hypot
 pypto-index_add
 pypto-index_add_
 pypto-index_select
 pypto-indexput_
+pypto-isfinite
 pypto-le
 pypto-lrelu
 pypto-log
@@ -94,5 +100,4 @@ pypto-unsqueeze
 pypto-var
 pypto-view
 pypto-where
-pypto-gathermask
 ```
