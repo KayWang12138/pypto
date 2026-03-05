@@ -23,7 +23,6 @@
 #include "interface/operation/operation.h"
 #include "interface/tensor/tensor_offset.h"
 #include "interface/utils/id_gen.h"
-#include "interface/utils/log.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/symbolic_scalar.h"
 #include "tilefwk/tilefwk.h"
@@ -3400,7 +3399,7 @@ std::vector<OriArgInfo> Function::GetOpOriginArgsInfo() {
             outcast->GetCachePolicy(CachePolicy::PREFETCH)};
         if (args.count(subscript) > 0) {
             ASSERT(args.at(subscript) == info)
-                << "args.at(subscript): " << args.at(subscript).Dump() << ", info: " << info.Dump();;
+                << "args.at(subscript): " << args.at(subscript).Dump() << ", info: " << info.Dump();
         } else {
             args.emplace(subscript, info);
         }
