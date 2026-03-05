@@ -315,6 +315,31 @@ Status ReduceCopyRunner::RemarkInternalSubgraphID(Function &func) {
     return SUCCESS;
 }
 
+void ReduceCopyRunner::MarkInnerDDRSubgraph(Function &func) {
+    std::unordered_map<int, std::unordered_set<int>> graphIdToInputDDR;
+    for (auto &op : func.Operations()) {
+        for (auto &iop : op.GetIOperands()) {
+            if (iop->GetMemoryTypeToBe() == MemoryType::MEM_DEVICE_DDR) {
+                graphIdToInputDDR[op.GetSubgraphID()].insert(iop->GetMagic());
+            }
+        }
+    }
+    for (auto &op : func.Operations()) {
+        for (auto &oop : op.GetOOperands()) {
+            if (oop->GetMemoryTypeToBe() != MemoryType::MEM_DEVICE_DDR) {
+                continue;
+            }
+            if (graphIdToInputDDR[op.GetSubgraphID()].count(oop->GetMagic()) > 0) {
+                innerDDRSubgraphId.insert(op.GetSubgraphID());
+                break;
+            }
+        }
+    }
+    for (int subgraphID : innerDDRSubgraphId) {
+        APASS_LOG_INFO_F(Elements::Operation, "Subgraph %d will not me merged in ReduceCopy for it has inner DDR tensor.", subgraphID);
+    }
+}
+
 Status ReduceCopyRunner::Init(Function &func) {
     for (auto &op : func.Operations()) {
         if (op.GetSubgraphID() == NOT_IN_SUBGRAPH) {
@@ -339,6 +364,7 @@ Status ReduceCopyRunner::Init(Function &func) {
         nodeWeights[opColor] += opOriList[i].GetLatency();
     }
     BuildGraph(opOriList);
+    MarkInnerDDRSubgraph(func);
     colorCoreType.resize(color);
     isReshape.resize(color);
     GetCoreType(opOriList, colorNode, originalEdges, colorCoreType, isReshape);
@@ -371,7 +397,8 @@ Status ReduceCopyRunner::MergePrepare(std::vector<std::tuple<int, int, size_t>> 
             superNodeOutGraph[uDense].insert(vDense);
             superNodeInGraph[vDense].insert(uDense);
         }
-        if (uRoot != vRoot && crossEdges.count(edge.first) == 0) {
+        if (innerDDRSubgraphId.count(std::get<0>(edge.first)) == 0 && innerDDRSubgraphId.count(std::get<1>(edge.first)) == 0 && 
+                uRoot != vRoot && crossEdges.count(edge.first) == 0) {
             superGraphEdges[{uRoot, vRoot}].insert(edge.second.begin(), edge.second.end());
         }
     }
