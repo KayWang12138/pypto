@@ -83,7 +83,7 @@ python3 -c "import pypto; print('✓ pypto 安装成功')"
 
 ```bash
 # 验证头文件目录
-ls ${PTO_TILE_LIB_CODE_PATH}/include/pto/comm/pto_comm_inst.hpp 2>/dev/null && echo "✓ OK" || echo "✗ 缺失"
+ls "${PTO_TILE_LIB_CODE_PATH:-/usr/local/Ascend/cann/aarch64-linux}/include/pto/comm/pto_comm_inst.hpp" 2>/dev/null && echo "✓ OK" || echo "✗ 缺失"
 ```
 
 **方式 1：使用 CANN 安装目录（推荐）**
