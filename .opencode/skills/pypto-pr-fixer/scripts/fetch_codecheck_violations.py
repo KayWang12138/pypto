@@ -41,6 +41,15 @@ class Violation:
         }
 
 
+@dataclass(frozen=True)
+class FetcherConfig:
+    """Playwright fetcher configuration."""
+    wait_strategies: list[WaitStrategy]
+    nav_timeout_ms: int
+    selector_timeout_ms: int
+    post_wait_ms: int
+    debug_dir: str
+
 class Args(argparse.Namespace):
     url: str = ""
     output: str = "json"
@@ -127,31 +136,27 @@ def _collect_candidate_texts(page: object) -> list[str]:
     texts: list[str] = []
     try:
         texts.append(candidate_page.inner_text("body"))
-    except Exception:
-        pass
+    except Exception as exc:
+        logging.debug("collect body text failed: %s", exc)
 
     try:
         row_texts = candidate_page.locator("tr").all_inner_texts()
         if row_texts:
             texts.append("\n".join(row_texts))
-    except Exception:
-        pass
+    except Exception as exc:
+        logging.debug("collect tr texts failed: %s", exc)
 
     try:
         texts.append(candidate_page.content())
-    except Exception:
-        pass
+    except Exception as exc:
+        logging.debug("collect page content failed: %s", exc)
 
     return texts
 
 
 def extract_violations_with_playwright(
     url: str,
-    wait_strategies: list[WaitStrategy],
-    nav_timeout_ms: int,
-    selector_timeout_ms: int,
-    post_wait_ms: int,
-    debug_dir: str,
+    config: FetcherConfig,
     attempt: int,
 ) -> list[Violation]:
     from playwright.sync_api import sync_playwright
@@ -162,19 +167,17 @@ def extract_violations_with_playwright(
             page = browser.new_page(viewport={"width": 1440, "height": 2200})
             last_error: Exception | None = None
 
-            for strategy in wait_strategies:
+            for strategy in config.wait_strategies:
                 try:
-                    response = page.goto(url, wait_until=strategy, timeout=nav_timeout_ms)
+                    response = page.goto(url, wait_until=strategy, timeout=config.nav_timeout_ms)
                     status = response.status if response else None
                     logging.info("  strategy=%s status=%s", strategy, status)
-
                     try:
-                        page.wait_for_selector(".el-table, .el-table__body-wrapper, body", timeout=selector_timeout_ms)
+                        page.wait_for_selector(".el-table, .el-table__body-wrapper, body", timeout=config.selector_timeout_ms)
                     except Exception as exc:
                         logging.debug("selector wait skipped: %s", exc)
 
-                    page.wait_for_timeout(post_wait_ms)
-
+                    page.wait_for_timeout(config.post_wait_ms)
                     try:
                         page.locator(".el-pagination__sizes").click(timeout=5000)
                         page.wait_for_timeout(500)
@@ -204,13 +207,12 @@ def extract_violations_with_playwright(
                     if violations:
                         return violations
 
-                    _save_debug_artifacts(page, debug_dir, attempt, f"empty_{strategy}")
+                    _save_debug_artifacts(page, config.debug_dir, attempt, f"empty_{strategy}")
                     logging.warning("  no violations parsed with strategy=%s", strategy)
                 except Exception as exc:
                     last_error = exc
-                    _save_debug_artifacts(page, debug_dir, attempt, f"fail_{strategy}")
+                    _save_debug_artifacts(page, config.debug_dir, attempt, f"fail_{strategy}")
                     logging.warning("  strategy=%s failed: %s", strategy, exc)
-
             raise RuntimeError(f"all wait strategies failed or empty, last_error={last_error}")
         finally:
             browser.close()
@@ -219,12 +221,8 @@ def extract_violations_with_playwright(
 def extract_with_retry(
     url: str,
     max_retries: int,
-    wait_strategies: list[WaitStrategy],
-    nav_timeout_ms: int,
-    selector_timeout_ms: int,
-    post_wait_ms: int,
+    config: FetcherConfig,
     jitter_ms: int,
-    debug_dir: str,
 ) -> list[Violation]:
     last_error: Exception | None = None
     for attempt in range(1, max_retries + 1):
@@ -232,11 +230,7 @@ def extract_with_retry(
             logging.info(f"Attempt {attempt}/{max_retries}...")
             return extract_violations_with_playwright(
                 url=url,
-                wait_strategies=wait_strategies,
-                nav_timeout_ms=nav_timeout_ms,
-                selector_timeout_ms=selector_timeout_ms,
-                post_wait_ms=post_wait_ms,
-                debug_dir=debug_dir,
+                config=config,
                 attempt=attempt,
             )
         except Exception as exc:  # noqa: PERF203
@@ -282,15 +276,18 @@ def main() -> int:
     try:
         retries = max(1, int(args.retries))
         wait_strategies = _parse_wait_strategies(args.wait_strategies)
-        violations = extract_with_retry(
-            url=args.url,
-            max_retries=retries,
+        config = FetcherConfig(
             wait_strategies=wait_strategies,
             nav_timeout_ms=max(1000, int(args.nav_timeout_ms)),
             selector_timeout_ms=max(0, int(args.selector_timeout_ms)),
             post_wait_ms=max(0, int(args.post_wait_ms)),
-            jitter_ms=max(0, int(args.jitter_ms)),
             debug_dir=args.debug_dir.strip(),
+        )
+        violations = extract_with_retry(
+            url=args.url,
+            max_retries=retries,
+            config=config,
+            jitter_ms=max(0, int(args.jitter_ms)),
         )
 
         if args.output == "json":
