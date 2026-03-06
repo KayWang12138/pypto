@@ -305,8 +305,8 @@ void Platform::ObtainPlatformInfo() {
     }
     if (srcPath.empty()) {
         FUNCTION_LOGW("Cannot obtain ini from the device, using default ini file.");
-        CostModel::CostModelPlatform costModelPlatform;
-        costModelPlatform.GetCostModelPlatformRealPath(srcPath);
+        SimulationPlatform simulationPlatform;
+        simulationPlatform.GetCostModelPlatformRealPath(srcPath);
     }
     LoadFromIni(srcPath);
     initialized = true;
