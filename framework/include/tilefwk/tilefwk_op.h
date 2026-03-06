@@ -131,6 +131,8 @@ Tensor Transpose(const Tensor &self, std::vector<int> perm);
 Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode = CAST_NONE, SaturationMode satmode = SaturationMode::OFF);
 
 Tensor Exp(const Tensor &self);
+Tensor Exp2(const Tensor &self);
+Tensor Expm1(const Tensor &self);
 Tensor Neg(const Tensor &self);
 Tensor Round(const Tensor &self, const int &decimals = 0);
 Tensor Rsqrt(const Tensor &self);
@@ -138,6 +140,8 @@ Tensor Relu(const Tensor &self);
 Tensor BitwiseNot(const Tensor &self);
 Tensor Sqrt(const Tensor &self);
 Tensor Ceil(const Tensor &self);
+Tensor CeilDiv(const Tensor &self, const Tensor &other);
+Tensor CeilDiv(const Tensor &self, const Element &other);
 Tensor Floor(const Tensor &self);
 Tensor Trunc(const Tensor &self);
 Tensor Reciprocal(const Tensor &operand);
@@ -145,10 +149,12 @@ Tensor Abs(const Tensor &self);
 Tensor Ln(const Tensor &operand);
 Tensor Hub(const Tensor &operand);
 Tensor Sign(const Tensor &operand);
+Tensor Signbit(const Tensor &operand);
 
 Tensor Duplicate(const Tensor &operand);
 Tensor Gather(const Tensor &params, const Tensor &indices, int axis);
 Tensor GatherElements(const Tensor &params, const Tensor &indices, int axis);
+Tensor GatherMask(const Tensor &self, const uint8_t patternMode);
 
 enum class ScatterMode {
     NONE,
@@ -179,6 +185,7 @@ Tensor RowMaxExpand(const Tensor &operand);
 Tensor Sum(const Tensor &self, int axis = -1, bool keepDim=false);
 Tensor Amax(const Tensor &self, int axis = -1, bool keepDim=false);
 Tensor Amin(const Tensor &self, int axis = -1, bool keepDim=false);
+Tensor Prod(const Tensor &self, int axis = -1, bool keepDim=false);
 
 Tensor Compact(const Tensor &operand);
 
@@ -193,6 +200,7 @@ Tensor Minimum(const Tensor &operand1, const Tensor &operand2);
 Tensor BitwiseAnd(const Tensor &self, const Tensor &other);
 Tensor BitwiseOr(const Tensor &self, const Tensor &other);
 Tensor BitwiseXor(const Tensor &self, const Tensor &other);
+Tensor ExpandExpDif(const Tensor &input, const Tensor &other);
 Tensor Add(const Tensor &self, const Element &other);
 Tensor Sub(const Tensor &self, const Element &other);
 Tensor Div(const Tensor &self, const Element &other);
@@ -208,7 +216,11 @@ Tensor Compare(const Tensor &self, const Element &other, OpType op, OutType mode
 Tensor Compare(const Element &self, const Tensor &other, OpType op, OutType mode);
 Tensor Pow(const Tensor &self, const Tensor &other);
 Tensor Pow(const Tensor &self, const Element &other);
+Tensor Remainder(const Tensor &self, const Tensor &other);
+Tensor Remainder(const Tensor &self, const Element &other);
+Tensor Remainder(const Element &self, const Tensor &other);
 Tensor CopySign(const Tensor &self, const Tensor &other);
+Tensor PReLU(const Tensor &self, const Tensor &weight);
 
 Tensor BitwiseRightShift(const Tensor &self, const Tensor &other);
 Tensor BitwiseRightShift(const Tensor &self, const Element &other);
@@ -221,6 +233,8 @@ Tensor Where(const Tensor &condition, const Tensor &input, const Tensor &other);
 Tensor Where(const Tensor &condition, const Tensor &input, const Element &other);
 Tensor Where(const Tensor &condition, const Element &input, const Tensor &other);
 Tensor Where(const Tensor &condition, const Element &input, const Element &other);
+
+Tensor LReLU(const Tensor &self, const Element &negative_slope);
 
 Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum);
 Tensor Squeeze(const Tensor &input, const std::vector<int> &dim = {});
@@ -252,6 +266,8 @@ Tensor Clip(const Tensor &self, const Element &min = {}, const Element &max = {}
 
 std::tuple<Tensor, Tensor> TopK(const Tensor &self, int k, int axis = -1, bool isLargest = true);
 Tensor ArgSort(const Tensor &self, int axis = -1, bool descending = false);
+Tensor Sort32(const Tensor &self, int idxStart = 0);
+Tensor MrgSort(const Tensor &self, int mergeSize);
 
 /**
  * @brief Sort a tensor with shape (1, n) along the last dimension, n must be orders of 2.

@@ -410,6 +410,7 @@ def do_test_lighting_indexer_prolog_quant(case_name, configs):
     print(f"=== {case_name}: PASS ===")
 
 
+@pytest.mark.soc("950", "910")
 def test_b4_s1_2_s2_64k():
     configs = IndexerPrologQuantConfigs(
         q_linear=[16, 16, 512, 512, 128, 128],
@@ -418,12 +419,11 @@ def test_b4_s1_2_s2_64k():
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
-        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
     do_test_lighting_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b4_s1_2_s2_64k", configs)
 
@@ -437,12 +437,11 @@ def test_b8_s1_2_s2_64k():
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
-        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
     do_test_lighting_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b8_s1_2_s2_64k", configs)
 
@@ -456,12 +455,11 @@ def test_b1_s1_4k_s2_64k():
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
-        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
     do_test_lighting_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b1_s1_4k_s2_64k", configs)
 
@@ -475,12 +473,11 @@ def test_b2_s1_4k_s2_64k():
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
-        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
     do_test_lighting_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b2_s1_4k_s2_64k", configs)
 
@@ -494,12 +491,11 @@ def test_b128_s1_4_s2_8k():
         w_linear=[32, 32, 512, 512, 64, 64],
         unroll_list=[128, 64, 32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4, 3: 4},
-        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=2,
         chunk_size=1,
-        vec_nbuffer_mode=0,
+        vec_nbuffer_setting={-1: 1},
     )
     pypto.set_runtime_options(stitch_function_inner_memory=512, stitch_function_outcast_memory=512)
     do_test_lighting_indexer_prolog_quant("QuantLightningIndexerPrologSTest.b128_s1_4_s2_8k", configs)

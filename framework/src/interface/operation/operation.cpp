@@ -349,7 +349,7 @@ Json Operation::DumpJson(bool dumpTensor) const {
             }
         }
         if (callee == nullptr) {
-            ALOG_ERROR_F("Cannot find function by calleeHash %s", calleeHash.c_str());
+            FUNCTION_LOGE("Cannot find function by calleeHash %s", calleeHash.c_str());
         } else {
             if (callee->rootFunc_ == nullptr) {
                 opDump["calleehash"] = calleeHash.Data();

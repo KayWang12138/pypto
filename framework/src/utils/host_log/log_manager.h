@@ -68,7 +68,7 @@ private:
 private:
     LogLevel level_{LogLevel::ERROR};
     bool enableEvent_{false};
-    bool enableStdOut_{true};
+    bool enableStdOut_{false};
     std::string hostLogDir_;
     std::string deviceLogDir_;
     std::ofstream hostFileStream_;

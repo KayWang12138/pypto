@@ -325,13 +325,22 @@ void Platform::LoadFromIni(const std::string &filePath) {
 }
 
 void Platform::ObtainPlatformInfo() {
+    static bool initialized = false;
+    if (initialized) {
+        return;
+    }
+
     std::string srcPath;
-    srcPath = HostMachine::GetInstance().GetPlatformInfo();
+    std::string socVersion;
+    if (CannHostRuntime::Instance().GetSocVersion(socVersion)) {
+        srcPath = CannHostRuntime::Instance().GetPlatformFile(socVersion);
+    }
     if (srcPath.empty()) {
         FUNCTION_LOGW("Cannot obtain ini from the device, using default ini file.");
         CostModel::CostModelPlatform costModelPlatform;
         costModelPlatform.GetCostModelPlatformRealPath(srcPath);
     }
     LoadFromIni(srcPath);
+    initialized = true;
 }
 }
