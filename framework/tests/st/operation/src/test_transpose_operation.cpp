@@ -50,7 +50,7 @@ static void TransposeOperationExeFunc2Dims(
                         std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
                 TileShape::Current().SetVecTile(transposeInfo->tileShape_);
-                auto res = Transpose(tileTensor0, {transposeInfo->first_dim_, transposeInfo->second_dim_});
+                auto res = Permute(tileTensor0, {transposeInfo->first_dim_, transposeInfo->second_dim_});
                 Assemble(res, {sIdx * secondViewShape, bIdx * firstViewShape}, outputs[0]);
             }
         }
@@ -82,7 +82,7 @@ static void TransposeOperationExeFunc3Dims(
                             std::min(thirdDim - tIdx * thirdViewShape, thirdViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape, tIdx * thirdViewShape});
                     TileShape::Current().SetVecTile(transposeInfo->tileShape_);
-                    auto res = Transpose(tileTensor0, {transposeInfo->first_dim_, transposeInfo->second_dim_});
+                    auto res = Permute(tileTensor0, {transposeInfo->first_dim_, transposeInfo->second_dim_});
                     std::vector<SymbolicScalar> viewOffset = {
                         bIdx * firstViewShape, sIdx * secondViewShape, tIdx * thirdViewShape};
                     std::swap(viewOffset[first_dim], viewOffset[second_dim]);
@@ -125,7 +125,7 @@ static void TransposeOperationExeFunc4Dims(
                                 {bIdx * firstViewShape, sIdx * secondViewShape, tIdx * thirdViewShape,
                                     pIdx * forthViewShape});
                         TileShape::Current().SetVecTile(transposeInfo->tileShape_);
-                        auto res = Transpose(tileTensor0, {transposeInfo->first_dim_, transposeInfo->second_dim_});
+                        auto res = Permute(tileTensor0, {transposeInfo->first_dim_, transposeInfo->second_dim_});
                         std::vector<SymbolicScalar> viewOffset = {bIdx * firstViewShape, sIdx * secondViewShape,
                             tIdx * thirdViewShape, pIdx * forthViewShape};
                         std::swap(viewOffset[first_dim], viewOffset[second_dim]);
@@ -174,7 +174,7 @@ static void TransposeOperationExeFunc5Dims(
                                 {bIdx * firstViewShape, sIdx * secondViewShape, tIdx * thirdViewShape,
                                     pIdx * forthViewShape, qIdx * fifthViewShape});
                             TileShape::Current().SetVecTile(transposeInfo->tileShape_);
-                            auto res = Transpose(tileTensor0, {transposeInfo->first_dim_, transposeInfo->second_dim_});
+                            auto res = Permute(tileTensor0, {transposeInfo->first_dim_, transposeInfo->second_dim_});
                             std::vector<SymbolicScalar> viewOffset = {bIdx * firstViewShape, sIdx * secondViewShape,
                                 tIdx * thirdViewShape, pIdx * forthViewShape, qIdx * fifthViewShape};
                             std::swap(viewOffset[first_dim], viewOffset[second_dim]);

@@ -168,9 +168,13 @@ void TiledPermuteInner(Function &function, const TileShape &tileShape, int cur,
         }
         
         auto resultTile = result->View(function, resultTileShape, resultTileOffset);
-        auto &op = function.AddOperation(Opcode::OP_PERMUTE, {tile}, {resultTile});
-        op.SetAttribute(OP_ATTR_PREFIX + "perm", perm);
+        auto &operation = function.AddOperation(Opcode::OP_TRANSPOSE_VNCHWCONV, {tile}, {resultTile});
+        operation.SetAttribute(OP_ATTR_PREFIX + "shape", perm);
         return;
+
+        // auto &op = function.AddOperation(Opcode::OP_PERMUTE, {tile}, {resultTile});
+        // op.SetAttribute(OP_ATTR_PREFIX + "perm", perm);
+        // return;
     }
     
     auto &vecTile = tileShape.GetVecTile();

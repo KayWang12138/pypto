@@ -489,7 +489,7 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
     AppendLocalBufVarOffsetInOrder(dVar, tmpVar, s0Var);
 
     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
-    if (opCode == Opcode::OP_TRANSPOSE_VNCHWCONV) {
+    if (opCode == Opcode::OP_TRANSPOSE_VNCHWCONV || opCode == Opcode::OP_PERMUTE) {
         return PrintVnchwconv({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
 
