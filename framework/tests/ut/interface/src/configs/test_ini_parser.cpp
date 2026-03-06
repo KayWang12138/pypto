@@ -21,17 +21,12 @@
 
 using namespace npu::tile_fwk;
 
+static std::string ConfigFile = "/../../../framework/tests/ut/machine/stubs/compiler/data/platform_config/Ascend910_9572.ini";
+
 class TestINIParser : public testing::Test {
 public:
     static void SetUpTestCase() {}
     static void TearDownTestCase() {}
-    void SetUp() override {
-        std::string src = GetCurRunningPath() + "/../../../framework/tests/ut/machine/stubs/compiler/data/platform_config/Ascend910_9572.ini";
-        std::string dst = RealPath(GetCurrentSharedLibPath() + "/configs") + "/Soc_version.ini";
-        std::string command = "cp " + src + " " + dst;
-        ASSERT(std::system(command.c_str()) == 0) << "Failed to copy config file: " << command;
-    }
-    void TearDown() override {}
 };
 
 TEST_F(TestINIParser, TestParser) {
@@ -60,7 +55,7 @@ TEST_F(TestINIParser, TestParser) {
     const size_t expectubSize = 253952UL;
 
     INIParser parser;
-    std::string iniPath = RealPath(GetCurrentSharedLibPath() + "/configs/Soc_version.ini");
+    std::string iniPath = GetCurRunningPath() + ConfigFile;
     EXPECT_EQ(parser.Initialize(iniPath), SUCCESS);
 
     std::string socVersion;
@@ -149,7 +144,7 @@ TEST_F(TestINIParser, AbnormalTest) {
     std::vector<std::vector<std::string>> dataPath;
     EXPECT_EQ(parser.GetDataPath(dataPath), FAILED);
 
-    std::string iniPath = RealPath(GetCurrentSharedLibPath() + "/configs/Soc_version.ini");
+    std::string iniPath = GetCurRunningPath() + ConfigFile;
     EXPECT_EQ(parser.Initialize(iniPath), SUCCESS);
 
     std::string test;
