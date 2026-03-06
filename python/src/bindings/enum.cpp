@@ -145,6 +145,12 @@ void bind_enum(py::module &m){
         .value("RELU", Conv::ReLuType::ReLu)
         .export_values();
 
+    py::enum_<Matrix::TransMode>(m, "TransMode")
+        .value("CAST_NONE", Matrix::TransMode::CAST_NONE)
+        .value("CAST_RINT", Matrix::TransMode::CAST_RINT)
+        .value("CAST_ROUND", Matrix::TransMode::CAST_ROUND)
+        .export_values();
+
     py::enum_<LogBaseType>(m, "LogBaseType")
         .value("LOG_E", LogBaseType::LOG_E)
         .value("LOG_2", LogBaseType::LOG_2)
