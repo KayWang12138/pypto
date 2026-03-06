@@ -92,85 +92,6 @@ struct res_map_info {
 
 namespace npu::tile_fwk {
 
-class RuntimeHostAgentMemory {
-public:
-#define DEVICE_ALLOC_ALIGN 512
-    uint8_t* AllocHostAddr(uint64_t size, bool cached = true, bool simuDevAlign = true) {
-        if (size == 0) {
-            MACHINE_LOGE("Malloc size is 0!");
-            return nullptr;
-        }
-        // Device allocate always 512 aligned.
-        auto hostPtr = (uint8_t *)malloc(size + DEVICE_ALLOC_ALIGN);
-        if (hostPtr == nullptr) {
-            MACHINE_LOGE("Malloc failed size !", size);
-            return nullptr;
-        }
-        memset_s(hostPtr, size + DEVICE_ALLOC_ALIGN, 0, size + DEVICE_ALLOC_ALIGN);
-        if (cached) {
-            allocatedHostAddr.emplace_back(hostPtr);
-        }
-        return simuDevAlign ?
-            (uint8_t *)((((uint64_t)hostPtr) + DEVICE_ALLOC_ALIGN - 1) / DEVICE_ALLOC_ALIGN * DEVICE_ALLOC_ALIGN) :
-            hostPtr;
-    }
-
-    void Free(uint8_t* ptr) {
-        if(ptr) {
-            free(ptr);
-        }
-    }
-protected:
-    void DestroyMemory() {
-        for (uint8_t *addr : allocatedHostAddr) {
-            free(addr);
-        }
-    }
-private:
-    std::vector<uint8_t *> allocatedHostAddr;
-};
-
-class RuntimeHostAgent : public RuntimeHostAgentMemory {
-public:
-    RuntimeHostAgent(RuntimeHostAgent &other) = delete;
-
-    void operator=(const RuntimeHostAgent &other) = delete;
-
-    static RuntimeHostAgent *GetAgent() {
-        static RuntimeHostAgent inst;
-        return &inst;
-    }
-
-protected:
-    RuntimeHostAgent() {
-        Init();
-    }
-
-public:
-    ~RuntimeHostAgent() { Finalize(); }
-
-public:
-    void Finalize() {
-        if (hostInited) {
-            DestroyMemory();
-        }
-    }
-
-private:
-    void Init() {
-        hostInited = true;
-    }
-
-private:
-    bool hostInited{false};
-};
-
-namespace machine {
-inline npu::tile_fwk::RuntimeHostAgent *GetRuntimeHostAgent() {
-    return npu::tile_fwk::RuntimeHostAgent::GetAgent();
-}
-}
-
 #ifdef BUILD_WITH_CANN
 
 inline void CheckDeviceId() {
@@ -223,10 +144,10 @@ public:
         if (needMemCheck_) {
             uint8_t *sentinelAddr = baseAddr + baseSize;
             if (rtMemcpy(sentinelAddr, SENTINEL_MEM_SIZE, sentinelVec_.data(), SENTINEL_MEM_SIZE, RT_MEMCPY_HOST_TO_DEVICE) != 0) {
-                ALOG_WARN_F("Memory copy sentinel value failed! Do not check memory.");
+                MACHINE_LOGW("Memory copy sentinel value failed! Do not check memory.");
                 return;
             }
-            ALOG_INFO_F("Base addr add %p with sentinelAddr %p.", baseAddr, sentinelAddr);
+            MACHINE_LOGI("Base addr add %p with sentinelAddr %p.", baseAddr, sentinelAddr);
             sentinelValMap_[baseAddr].push_back(sentinelAddr);
         }
     }
@@ -284,7 +205,7 @@ public:
             }
         }
         if (!allGood) {
-            ALOG_ERROR_F("CheckAllSentinels failed.");
+            MACHINE_LOGE("CheckAllSentinels failed.");
         }
         sentinelValMap_.clear();
         return allGood;
@@ -293,7 +214,7 @@ public:
         std::ostringstream oss;
         uint8_t* byte_ptr = reinterpret_cast<uint8_t*>(sentinelVal.data());
         oss << "Print Sentinel val in hex with ori val[" << std::hex << "0x" << SENTINEL_VALUE << "]" << std::endl;
-        ALOG_ERROR_F("%s", oss.str().c_str());
+        MACHINE_LOGE("%s", oss.str().c_str());
         oss.str("");
         for (uint32_t i = 0; i < SENTINEL_MEM_SIZE; ++i) {
             oss << std::hex << std::setw(2) << std::setfill('0') << (int)byte_ptr[i];
@@ -303,7 +224,7 @@ public:
                 oss << " ";
             }
             if ((i + 1) % 64 == 0) {
-                ALOG_ERROR_F("Sentinel Addr:%p Val:[\n%s]", sentinelAddr + i, oss.str().c_str());
+                MACHINE_LOGE("Sentinel Addr:%p Val:[\n%s]", sentinelAddr + i, oss.str().c_str());
                 oss.str("");
             }
         }
@@ -319,16 +240,16 @@ public:
         }
         auto iter = sentinelValMap_.find(baseAddr);
         if (iter == sentinelValMap_.end()) {
-            ALOG_ERROR_F("Base addr %p not found in map, need check code.", baseAddr);
+            MACHINE_LOGE("Base addr %p not found in map, need check code.", baseAddr);
             return false;
         }
         std::vector<uint64_t> sentinelVal(SENTINEL_NUM, 0);
         bool allGood = true;
         auto &sentinelVec = iter->second;
         for (auto sentinelAddr : sentinelVec) {
-            ALOG_INFO_F("Check base:%p sentinelAddr:%p.", baseAddr, sentinelAddr);
+            MACHINE_LOGI("Check base:%p sentinelAddr:%p.", baseAddr, sentinelAddr);
             if (rtMemcpy(sentinelVal.data(), SENTINEL_MEM_SIZE, sentinelAddr, SENTINEL_MEM_SIZE, RT_MEMCPY_DEVICE_TO_HOST) != 0) {
-                ALOG_WARN_F("Memory copy D2H failed! Do not check memory.");
+                MACHINE_LOGW("Memory copy D2H failed! Do not check memory.");
                 break;
             }
             if (memcmp(sentinelVal.data(), sentinelVec_.data(), SENTINEL_MEM_SIZE) != 0) {
@@ -337,9 +258,9 @@ public:
             }
         }
         if (!allGood) {
-            ALOG_ERROR_F("BaseAddr:%p check sentinel failed.", baseAddr);
+            MACHINE_LOGE("BaseAddr:%p check sentinel failed.", baseAddr);
         } else {
-            ALOG_INFO_F("BaseAddr:%p check sentinel Ok.", baseAddr);
+            MACHINE_LOGI("BaseAddr:%p check sentinel Ok.", baseAddr);
         }
         if (remove) {
             sentinelValMap_.erase(baseAddr);
@@ -413,7 +334,7 @@ private:
         int backtraceStackCount = backtrace(backtraceStack.data(), static_cast<int>(backtraceStack.size()));
         char **backtraceSymbolList = backtrace_symbols(backtraceStack.data(), backtraceStackCount);
         for (int i = 0; i < backtraceStackCount; i++) {
-            ALOG_INFO_F("backtrace frame[%d]: %s", i, backtraceSymbolList[i]);
+            MACHINE_LOGI("backtrace frame[%d]: %s", i, backtraceSymbolList[i]);
         }
         free(backtraceSymbolList);
     }

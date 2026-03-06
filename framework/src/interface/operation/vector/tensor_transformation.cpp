@@ -660,7 +660,7 @@ inline void CastOperationOperandCheck(
 void CastOperationTileFunc(Function &function, const TileShape &tileShape,
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
     CastOperationOperandCheck(iOperand, oOperand);
-    int64_t satmodeValue = 0;
+    int64_t satmodeValue = 1;
     op.GetAttr(OP_ATTR_PREFIX + "satmode", satmodeValue);
     SaturationMode satmode = static_cast<SaturationMode>(satmodeValue);
     auto mode = op.GetCastModeAttribute(OP_ATTR_PREFIX + "mode");
