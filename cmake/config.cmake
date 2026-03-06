@@ -312,7 +312,8 @@ endif ()
 ########################################################################################################################
 
 # torch optional
-if (ENABLE_TESTS OR ENABLE_FEATURE_PYTHON_FRONT_END)
+set(ENABLE_TORCH_VERIFIER OFF)
+if (ENABLE_TESTS)
     if ("${PY3_MOD_TORCH_VERSION}" STRGREATER_EQUAL "2.1.0")
         if ((CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "9.4.0") OR
             (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "15.0.0"))

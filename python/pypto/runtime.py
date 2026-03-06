@@ -129,6 +129,10 @@ class _JIT:
 
     def verify_begin(self, tensors):
         if isinstance(self._verify_options, dict) and self._verify_options.get("enable_pass_verify"):
+            # Compile and load calculator
+            mgr = BuildOnlineManager()
+            mgr.build_and_load_calculator()
+
             host_pto_tensors, _ = _gen_pto_tensor(tensors)
             host_pto_t_datas = _pto_to_tensor_data(host_pto_tensors)
             for i, dev_tensor in enumerate(_pto_to_tensor_data(tensors)):
