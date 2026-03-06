@@ -26,12 +26,20 @@ class Tensor:
                  name: str = "", format: TileOpFormat = TileOpFormat.TILEOP_ND,
                  data_ptr: Optional[int] = None, device=None, ori_shape=None):
         self.ori_shape = None
+        self.status_shape = None
         if shape is None or dtype is None:
-            self._base = pypto_impl.Tensor()
-        elif all([isinstance(s, int) for s in shape]):
+            # init default
+            nshape = shape if shape is not None else []
+            ndtype = dtype if dtype is not None else pypto.DT_FP32
+            self._base = pypto_impl.Tensor(ndtype, nshape, name, format)
+        elif shape and all([isinstance(s, int) for s in shape]):
             nshape = typing.cast(List[int], shape)
             self._base = pypto_impl.Tensor(dtype, nshape, name, format)
             self.ori_shape = ori_shape
+        elif isinstance(shape, list) and self._validate_status_shape(shape):
+            nshape = []
+            self.status_shape = shape
+            self._base = pypto_impl.Tensor(dtype, nshape, name, format)
         else:
             sym_shape = to_syms(shape)
             assert isinstance(
@@ -276,7 +284,12 @@ class Tensor:
 
     @property
     def shape(self) -> List[SymInt]:
+        if getattr(self, "status_shape", None) is not None:
+            return self.status_shape
+
         out = []
+        if self._base.IsEmpty():
+            return out
         for i, n in enumerate(self._base.GetShape()):
             if n == -1:
                 out.append(SymbolicScalar.from_base(
@@ -311,6 +324,46 @@ class Tensor:
     @name.setter
     def name(self, value: str) -> None:
         self._base.SetName(value)
+
+    @staticmethod
+    def _validate_status_shape(lst):
+        """
+        Validates the types of elements in the list:
+        - All elements except the last one: only pypto.StatusType enum or int are allowed
+        - The last element: pypto.StatusType, int or Ellipsis (...) are allowed
+        :param lst: The list to be validated
+        :return: (bool, str) → (validation result, validation message)
+        """
+
+        # boundary 1: empty list
+        if not isinstance(lst, list):
+            return False
+        if len(lst) == 0:
+            return True
+
+        for idx, elem in enumerate(lst):
+            # Check if this is the last element
+            is_last = idx == len(lst) - 1
+
+            # Case1: last element -> allows enum/int/...
+            if is_last:
+                # Check if it's an allowed type
+                if (isinstance(elem, pypto.StatusType) or  # pypto.enum type
+                    isinstance(elem, int) or             # int type
+                    elem is ...):                        # ellipsis
+                    continue
+                else:
+                    return False
+
+            # Case2: non-last element -> only allows enum/int
+            else:
+                if isinstance(elem, pypto.StatusType) or isinstance(elem, int):
+                    continue
+                else:
+                    return False
+
+        # All elements passed validation
+        return True
 
     @staticmethod
     def _get_assemble_offset(key, shape):
