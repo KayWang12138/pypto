@@ -145,27 +145,50 @@ struct DynMachineManager {
     };
 
     int AllocThreadIdxForDav3510(DeviceArgs *devArgs, int cpu, std::atomic<int> &threadIdx) {
+        if (!IsDeviceMode()) {
+            return ++threadIdx;
+        }
+
         int maxCpuId = static_cast<int>(devArgs->maxAicpuNum);
         int die0MaxCpuid = (maxCpuId >> 1);
         int scheCpuNum = static_cast<int>(devArgs->scheCpuNum);
         int die0MaxCpuNum = (scheCpuNum >> 1);
         int die1MaxCpuNum = scheCpuNum - die0MaxCpuNum;
-        int unuseThreadIdx = scheCpuNum + SCHE_THREAD_START_IDX;
+        int curThreadIdx = -1;
 
-        if (die0ThreadIdx_.load() < die0MaxCpuNum && cpu <= die0MaxCpuid) {
-            int curDie0ThreadIdx = die0ThreadIdx_.fetch_add(1) + SCHE_THREAD_START_IDX;
-            threadIdx = curDie0ThreadIdx;
-            return curDie0ThreadIdx;
+        // use CAS, Try to allocate the next available thread index, loop until successfully allocate or exceed the limit
+        if (cpu <= die0MaxCpuid) {
+            int expected = 0;
+            while (expected < die0MaxCpuNum) {
+                int desired = expected + 1;
+                // ensure thread security
+                if (die0ThreadIdx_.compare_exchange_weak(expected, desired, std::memory_order_acq_rel, std::memory_order_acq_rel)) {
+                    int curDie0ThreadIdx = expected + SCHE_THREAD_START_IDX;
+                    curThreadIdx = curDie0ThreadIdx;
+                    break;
+                }
+            }
+        } else {
+            int expected = 0;
+            while (expected < die1MaxCpuNum) {
+                int desired = expected + 1;
+                // ensure thread security
+                if (die1ThreadIdx_.compare_exchange_weak(expected, desired, std::memory_order_acq_rel, std::memory_order_acq_rel)) {
+                    int curDie1ThreadIdx = expected + die0MaxCpuNum + SCHE_THREAD_START_IDX;
+                    curThreadIdx = curDie1ThreadIdx;
+                    break;
+                }
+            }
         }
 
-        if (die1ThreadIdx_.load() < die1MaxCpuNum && cpu > die0MaxCpuid) {
-            int curDie1ThreadIdx = die1ThreadIdx_.fetch_add(1) + die0MaxCpuNum + SCHE_THREAD_START_IDX;
-            threadIdx = curDie1ThreadIdx;
-            return curDie1ThreadIdx;
+        // wait until all threads are ecexuted to prevent threads from being relaunched after exiting
+        cpumask_.fetch_or(1 << cpu, std::memory_order_release);
+        while (__builtin_popcount(cpumask_.load(std::memory_order_acquire)) != static_cast<int>(devArgs->nrAicpu)) {
+            sched_yield();
         }
 
-        threadIdx = unuseThreadIdx;
-        return unuseThreadIdx;
+        threadIdx = curThreadIdx;
+        return curThreadIdx;
     }
 
     int AllocThreadIdxForDav2201(DeviceArgs *devArgs, int cpu, std::atomic<int> &threadIdx) {
