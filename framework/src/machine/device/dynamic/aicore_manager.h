@@ -54,6 +54,16 @@ constexpr uint32_t TASK_FIN_STATE = 1; // 任务执行完成完成
 constexpr uint32_t TASK_ACK_STATE = 0; // 收到任务状态，没执行完成
 constexpr uint32_t REG_TASK_NUM = 2; // 一次寄存器task个数
 
+typedef uint64_t aicoreFunction_t;
+typedef uint32_t aicoreTask_t;
+typedef uint32_t aicoreCore_t;
+typedef uint64_t aicorePair_t;
+
+constexpr aicoreFunction_t aicoreNullFunction = 0xFFFFFFFFFFFFFFFFUL;
+constexpr aicoreTask_t aicoreNullTask = 0xFFFFFFFFUL;
+constexpr aicoreCore_t aicoreNullCore = 0xFFFFFFFFUL;
+constexpr aicorePair_t aicoreNullPair = 0xFFFFFFFFFFFFFFFFUL;
+
 struct TaskInfo {
     int coreIdx;
     uint64_t taskId;
@@ -112,7 +122,6 @@ public:
 
         readyAicCoreFunctionQue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(curDevTask_->readyAicCoreFunctionQue);
         readyAivCoreFunctionQue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(curDevTask_->readyAivCoreFunctionQue);
-        readyAicpuFunctionQue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(curDevTask_->readyAicpuFunctionQue);
         wrapManager_.Init(curDevTask_, context_->coreRunReadyCnt_, context_->runReadyCoreIdx_[CORE_IDX_AIV],
             context_->runReadyCoreIdx_[CORE_IDX_AIC], context_->corePendReadyCnt_, pendingIds_.data(),
             runningIds_.data(), aicValidNum_, [&](CoreType coreType, int arg1, uint64_t arg2) {SendTaskToAiCore(coreType, arg1, arg2);});
@@ -819,10 +828,6 @@ private:
         return ret;
     }
 
-    inline void PushAicpuTaskQueue(uint64_t taskId) {
-        PushReadyQue(readyAicpuFunctionQue_, &taskId, 1);
-    }
-
     inline bool TrySendTaskDirectly(int coreType, uint32_t taskId) {
         if (context_->coreRunReadyCnt_[coreType] > 0) {
             context_->corePendReadyCnt_[coreType]--;
@@ -904,8 +909,6 @@ private:
                         return ret;
                     }
                     context_->resolveHubCnt_++;
-                } else if (coreType == static_cast<int>(MachineType::AICPU)){
-                    PushAicpuTaskQueue(id);
                 } else if (wrapManager_.IsBindedWrapId(id)) {
                     wrapManager_.ResolveDepForMixCore(id);
                 } else {
@@ -968,8 +971,6 @@ private:
                         return ret;
                     }
                     context_->resolveHubCnt_++;
-                } else if (unlikely(coreType == static_cast<int>(MachineType::AICPU))){
-                    PushAicpuTaskQueue(id);
                 } else if (wrapManager_.IsBindedWrapId(id)) {
                     wrapManager_.ResolveDepForMixCore(id);
                 } else {
@@ -1013,8 +1014,6 @@ private:
                     context_->resolveHubCnt_++;
                 } else if (wrapManager_.IsBindedWrapId(id)) {
                     wrapManager_.ResolveDepForMixCore(id);
-                } else if (unlikely(coreType == static_cast<int>(MachineType::AICPU))){
-                    PushAicpuTaskQueue(id);
                 } else {
                     ret = PushReadyTask(static_cast<int>(coreType), id);
                     if (unlikely(ret != DEVICE_MACHINE_OK)) {return ret;}
@@ -1074,6 +1073,14 @@ private:
         pendingResolveIndexList_.fill(0);
         taskDfxStatPos_.fill(REG_LOW_TASK_PING);
         isSendStop = false;
+
+        // Getting variable controlling who is the scheduler lead. The first to arrive here should take the lead so that this starts as fast as possible
+        auto leadSchedulerId = (std::atomic<uint32_t>*) &deviceArgs->leadSchedulerId;
+        
+        // Putting myself as leader, if nobody has done it yet
+        uint32_t expectedValue = AICPU_LEAD_SCHEDULER_NULL;
+        isLeaderScheduler_ = leadSchedulerId->compare_exchange_strong(expectedValue, (uint32_t)aicpuIdx_);
+
         if (IsNeedProcAicpuTask()) {
             aicpuTaskManager_.InitDeviceArgs(deviceArgs);
         }
@@ -1331,7 +1338,6 @@ private:
     int aivEnd_{0};
     uint64_t procAicCoreFunctionCnt_{0};
     uint64_t procAivCoreFunctionCnt_{0};
-    uint64_t procAicpuFunctionCnt_{0};
     bool enableL2CacheSch_{false};
     bool enableFairSch_{false};
     bool validGetPgMask_{true};
@@ -1349,7 +1355,6 @@ private:
     /* prepare aicore ready task list */
     ReadyCoreFunctionQueue* readyAicCoreFunctionQue_{nullptr};
     ReadyCoreFunctionQueue* readyAivCoreFunctionQue_{nullptr};
-    ReadyCoreFunctionQueue* readyAicpuFunctionQue_{nullptr};
     WrapManager wrapManager_;
     SchduleContext * context_{nullptr};
 
@@ -1362,6 +1367,14 @@ private:
     AicpuTaskManager &aicpuTaskManager_;
     int64_t dotStatus_{0};
     bool isSendStop{false};
+
+    // Variable to scheduler lead and whether or not I am the lead
+    bool isLeaderScheduler_;
+
+    // Queues for managing tasks, cores and their pairing
+    pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>* availableTaskQueue_;
+    pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>* availableCoreQueue_[AICORE_TYPE_NUM];
+    pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>* runningPairQueue_; 
 
     std::vector<TaskInfo> sendTask_[MAX_AICORE_NUM];
     std::vector<TaskInfo> recvFinTask_[MAX_AICORE_NUM];

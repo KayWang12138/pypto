@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "aicore_manager.h"
+#include "aicore_static_manager.h"
 
 namespace npu::tile_fwk {
 void SdmaPrefetch(DeviceTask *devTask) {

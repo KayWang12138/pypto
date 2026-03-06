@@ -17,7 +17,7 @@
 
 #include <cstdint>
 
-#include "aicore_manager.h"
+#include "aicore_static_manager.h"
 #include "machine/device/dynamic/device_utils.h"
 #include "machine/utils/device_log.h"
 #include "machine/utils/machine_ws_intf.h"

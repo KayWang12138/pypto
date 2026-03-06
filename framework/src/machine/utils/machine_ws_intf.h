@@ -19,6 +19,7 @@
 #include "tilefwk/aicpu_common.h"
 #include "interface/utils/common.h"
 #include "tilefwk/core_func_data.h"
+#include "machine/utils/concurrent_queue/concurrent_queue.h"
 
 namespace npu::tile_fwk {
 enum class MachineStatus { START = 0, FINISH = 1, STOP = 2 };

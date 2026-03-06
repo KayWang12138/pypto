@@ -92,7 +92,6 @@ struct DeviceTaskCtrl {
     void *devTask{nullptr};
     uint64_t finishedAicFunctionCnt{0}; // 所有aicpu处理完成的aic function个数，多线程增加修改
     uint64_t finishedAivFunctionCnt{0}; // 所有aicpu处理完成的aiv function个数，多线程增加修改
-    uint64_t finishedAicpuFunctionCnt{0}; // 所有aicpu处理完成的aicpu function个数，多线程增加修改
     std::atomic<uint64_t> finishedFunctionCnt{0};
     std::atomic<int> refcnt{-1};
     void (*finishFunc)(void *devTask){nullptr};
@@ -176,13 +175,9 @@ public:
         DEV_IF_VERBOSE_DEBUG {
             __sync_fetch_and_add(&(taskCtrl->finishedAicFunctionCnt), sentAic);
             __sync_fetch_and_add(&(taskCtrl->finishedAivFunctionCnt), sentAiv);
-            __sync_fetch_and_add(&(taskCtrl->finishedAicpuFunctionCnt), sentAicpu);
             procAicCoreFunctionCnt_ += sentAic;
             procAivCoreFunctionCnt_ += sentAiv;
             procAicpuFunctionCnt_ += sentAicpu;
-            DEV_VERBOSE_DEBUG("finish send  aic task cnt: %lu,  aiv task cnt: %lu, hub task cnt:%lu, aicpu task cnt:%lu, target totalcnt: %lu \n",
-                taskCtrl->finishedAicFunctionCnt, taskCtrl->finishedAivFunctionCnt,
-                reSolveHubCnt_, taskCtrl->finishedAicpuFunctionCnt, curDevTask_->coreFunctionCnt);
         }
         reSolveHubCnt_ = 0;
     }
