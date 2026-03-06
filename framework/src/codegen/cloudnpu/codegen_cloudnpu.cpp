@@ -39,7 +39,7 @@ void PrintOperand(const std::string &operIO, std::shared_ptr<LogicalTensor> oper
     CODEGEN_LOGI("insert %s magic: %d, tensor: %s, memory map is: ", operIO.c_str(), operand->GetMagic(),
         operand->Dump().c_str());
     CODEGEN_LOGI(
-        "range is [%d, %d, %d]\n", operand->memoryrange.start, operand->memoryrange.end, operand->memoryrange.memId);
+        "range is [%zu, %zu, %d]\n", operand->memoryrange.start, operand->memoryrange.end, operand->memoryrange.memId);
 }
 
 bool HasAllocAttr(const std::shared_ptr<LogicalTensor> &tensor) {
@@ -234,7 +234,7 @@ void CodeGenCloudNPU::GenCode(
     std::deque<std::function<void(void)>> tasks;
     for (auto &subFuncPair : topFunc.rootFunc_->programs_) {
         std::function task = [this, subFuncPair, &topFunc]() {
-            CODEGEN_LOGI(" ----- subprogram id [%d] -----", subFuncPair.first);
+            CODEGEN_LOGI(" ----- subprogram id [%lu] -----", subFuncPair.first);
             auto subFunc = subFuncPair.second;
             if (HandleForAICpuSubFunc(*subFunc)) {
                 return;
@@ -317,7 +317,7 @@ std::optional<std::string> CodeGenCloudNPU::GenExtraAlloc(
     const std::shared_ptr<SymbolManager> &symbolMgr, const std::shared_ptr<LogicalTensor> &tensor) const {
     auto memType = tensor->GetMemoryTypeOriginal();
     if (OPERAND_TYPE_TO_MEMORY_TYPE.find(memType) == OPERAND_TYPE_TO_MEMORY_TYPE.end()) {
-        CODEGEN_LOGE("%s: memory type(%d) of tensor from PASS is invalid, tensor is: %s", __FUNCTION__,
+        CODEGEN_LOGE("%s: memory type(%zu) of tensor from PASS is invalid, tensor is: %s", __FUNCTION__,
             static_cast<size_t>(memType), tensor->Dump().c_str());
         return std::nullopt;
     }

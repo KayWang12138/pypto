@@ -133,7 +133,7 @@ void ProcessInvokeParaOffset(DeviceAgentTask *task, InvokeParaOffset &elm,
             MACHINE_ASSERT(elm.rawTensorAddr != nullptr);
             value = reinterpret_cast<uint64_t>(elm.rawTensorAddr) + elm.offset;
             oriValue = reinterpret_cast<uint64_t>(elm.rawTensorAddr);
-            MACHINE_LOGI("[DEVICE AGENT] Get op origin args raw tensor addr:segno %zu, base addr %p, offset "
+            MACHINE_LOGI("[DEVICE AGENT] Get op origin args raw tensor addr:segno %d, base addr %p, offset "
                         "%lu, addr+offset %lx",
                 elm.opOriginArgsSeq, elm.rawTensorAddr, elm.offset, value);
         } else {
@@ -415,7 +415,7 @@ void MachineAgent::FillL2PrefetchInfo(DeviceAgentTask *task, DeviceTask &devTask
       }
     }
     devTask.l2Info.prefetchNum = num;
-    MACHINE_LOGI("prefetchNum:%lu", devTask.l2Info.prefetchNum);
+    MACHINE_LOGI("prefetchNum:%ld", static_cast<long>(devTask.l2Info.prefetchNum));
 }
 
 void MachineAgent::FillDeviceTask(DeviceAgentTask *task, DeviceTask &devTask, MachineDeviceAgentInfo &devInfo) {

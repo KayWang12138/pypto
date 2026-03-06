@@ -451,7 +451,7 @@ void ParseInput::CheckInOutCast(FunctionPtr func)
     auto outIdx = func->outcastMagic.begin();
     while (outIdx != func->outcastMagic.end()) {
         if (func->tileMap.find((*outIdx)) == func->tileMap.end()) {
-            SIMULATION_LOGW("Outcast not found in tileMap %s", (*outIdx));
+            SIMULATION_LOGW("Outcast not found in tileMap %d", (*outIdx));
             outIdx = func->outcastMagic.erase(outIdx);
             continue;
         }
