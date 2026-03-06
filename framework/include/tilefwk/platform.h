@@ -333,7 +333,6 @@ public:
     void SetCCECVersion(const std::unordered_map<std::string, std::string>& ver);
 
     Die& GetDies() { return die_; }
-    SocVersion GetSocVersion() const { return soc_version_; }
     NPUArch GetNPUArch() const { return version_; }
     size_t GetDiesNum() const { return dies_cnt_; }
     std::string GetShortSocVersion() const { return short_soc_ver_; }
