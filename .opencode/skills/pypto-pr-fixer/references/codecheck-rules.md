@@ -26,7 +26,7 @@ openlibing.com 是 SPA 页面，受 WAF 保护，必须通过 Playwright 浏览�
 
 ```bash
 # 使用内置脚本提取违规列表
-python ${UNIFIED_SKILLS_ROOT}/library/shared/pypto-pr-fixer/scripts/fetch_codecheck_violations.py \
+python scripts/fetch_codecheck_violations.py \
   "https://www.openlibing.com/apps/entryCheckDashCode/{MR_ID}/{hash}?projectId=300033" \
   --output json
 ```
@@ -54,7 +54,7 @@ python ${UNIFIED_SKILLS_ROOT}/library/shared/pypto-pr-fixer/scripts/fetch_codech
 一次 codecheck 往往会暴露多个 `rule_id`。不建议逐条手动查本文档；可直接对违规提取的 JSON 批量查询官方定义：
 
 ```bash
-python ${UNIFIED_SKILLS_ROOT}/library/shared/pypto-pr-fixer/scripts/query_codecheck_rule.py \
+python scripts/query_codecheck_rule.py \
   --from-violations-json violations.json \
   --language python \
   --format markdown
@@ -63,7 +63,7 @@ python ${UNIFIED_SKILLS_ROOT}/library/shared/pypto-pr-fixer/scripts/query_codech
 如果希望在推送前先做本地筛查，可运行：
 
 ```bash
-python ${UNIFIED_SKILLS_ROOT}/library/shared/pypto-pr-fixer/scripts/local_codecheck.py <repo_path> --output json
+python scripts/local_codecheck.py <repo_path> --output json
 ```
 
 ### 方法二：Playwright Python 直接调用

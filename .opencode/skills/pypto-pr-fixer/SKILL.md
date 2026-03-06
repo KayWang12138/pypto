@@ -138,7 +138,7 @@ cann-robot 评论中包含 codecheck 失败的 HTML 表格：
 
 0. **本地预检（可选但推荐）** — 在提交前先做本地规则筛查，提前拦截高频问题：
    ```bash
-   python ${UNIFIED_SKILLS_ROOT}/library/shared/pypto-pr-fixer/scripts/local_codecheck.py <repo_path> --output json
+   python scripts/local_codecheck.py <repo_path> --output json
    ```
    可配合 `--rules G.CLS.06,G.LOG.02,G.ERR.04` 聚焦高频规则，`--fix` 自动修复部分问题。
 
@@ -146,7 +146,7 @@ cann-robot 评论中包含 codecheck 失败的 HTML 表格：
 2. **获取违规详情** — 使用 Playwright Python 提取违规列表：
    ```bash
    # 方法一：使用内置脚本（推荐）
-   python ${UNIFIED_SKILLS_ROOT}/library/shared/pypto-pr-fixer/scripts/fetch_codecheck_violations.py "$CODECHECK_URL" --output json
+   python scripts/fetch_codecheck_violations.py "$CODECHECK_URL" --output json
    ```
    
    **注意**：openlibing.com 是 SPA，受 WAF 保护，Playwright MCP 不支持 ARM64，必须使用 Playwright Python。详见 [references/codecheck-rules.md](references/codecheck-rules.md)。
@@ -154,7 +154,7 @@ cann-robot 评论中包含 codecheck 失败的 HTML 表格：
 
    ```bash
    # violations.json 为上一步输出
-   python ${UNIFIED_SKILLS_ROOT}/library/shared/pypto-pr-fixer/scripts/query_codecheck_rule.py \
+   python scripts/query_codecheck_rule.py \
      --rules violations.json \
      --language python \
      --format markdown
@@ -209,17 +209,7 @@ cann-robot 评论中包含 codecheck 失败的 HTML 表格：
 | 文件仅存在于 source_branch | `append` | 追加到现有 PR 的 source_branch |
 | 混合场景 | `append` | 优先追加，避免拆分修复 |
 
-**确认门**：向用户展示策略选择结果，等待确认后继续。
-
-## 修复验证
-
-对修改的 skill 目录运行验证：
-
-```bash
-python ${UNIFIED_SKILLS_ROOT}/library/shared/skill-creator/scripts/quick_validate.py <skill_dir>
-```
-
-确保输出 "Skill is valid!"。
+**用户确认**：向用户展示策略选择结果，等待确认后继续。
 
 ## 提交与 PR
 
@@ -251,7 +241,6 @@ git rebase upstream/master
 git push -f origin <branch_name>
 ```
 
-> **注意**：此步骤与 `pypto-pr-creator` Phase 4 完全一致，确保修复提交基于最新 upstream。
 
 ### 委托 pypto-pr-creator
 
@@ -287,4 +276,3 @@ PR 创建成功后检查 CLA 和 LGTM 状态：
 - [通用修复指南](references/review-guide.md) — 评论理解与修复策略
 - [CodeCheck 规则参考](references/codecheck-rules.md) — CodeArts-Check 规则映射与修复方案
 - [错误处理参考](references/error-handling.md) — MCP 错误、平台错误、pre-receive hook 诊断
-- [pypto-pr-creator](${UNIFIED_SKILLS_ROOT}/library/shared/pypto-pr-creator/SKILL.md) — PR 创建委托

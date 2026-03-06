@@ -27,7 +27,7 @@ test -n "$CANN_ENV_SH" && source "$CANN_ENV_SH" || echo "CANN set_env.sh not fou
 | `ASCEND_OPP_PATH` | OPP 算子包路径 |
 
 
-> 诊断脚本路径探测优先级：`ASCEND_HOME_PATH` → `ASCEND_TOOLKIT_HOME` → `ASCEND_OPP_PATH` 反推 → 兜底扫描 `cann-*`
+> 诊断脚本路径探测优先级：`ASCEND_HOME_PATH` → `ASCEND_OPP_PATH` 反推 → 兜底扫描 `cann-*`
 
 ## 使用 prepare_env.sh 安装（推荐）
 
