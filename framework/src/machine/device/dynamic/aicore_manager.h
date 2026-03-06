@@ -82,21 +82,19 @@ public:
             return true;
         }
         bool isValid = true;
-        DEV_IF_DEVICE {
-            if (aicoreHal_.GetRegSprDataMainBase() == DAV_3510::REG_SPR_DATA_MAIN_BASE) {
-                return true;
+        if (aicoreHal_.GetRegSprDataMainBase() == DAV_3510::REG_SPR_DATA_MAIN_BASE) {
+            return true;
+        }
+        auto regAddrs = aicoreHal_.GetRegAddrs();
+        uint32_t regNum = aicoreHal_.GetregNum();
+        for (uint32_t coreIdx = 0; coreIdx < regNum; ++coreIdx) {
+            if (regAddrs[coreIdx] == 0) {
+                continue;
             }
-            auto regAddrs = aicoreHal_.GetRegAddrs();
-            uint32_t regNum = aicoreHal_.GetregNum();
-            for (uint32_t coreIdx = 0; coreIdx < regNum; ++coreIdx) {
-                if (regAddrs[coreIdx] == 0) {
-                    continue;
-                }
-                uint32_t currentStatus = *(reinterpret_cast<volatile uint32_t*>(regAddrs[coreIdx] + REG_SPR_FAST_PATH_ENABLE));
-                if (currentStatus != REG_SPR_FAST_PATH_CLOSE) {
-                    isValid = false;
-                    *(reinterpret_cast<volatile uint32_t*>(regAddrs[coreIdx] + REG_SPR_FAST_PATH_ENABLE)) = REG_SPR_FAST_PATH_CLOSE;
-                }
+            uint32_t currentStatus = *(reinterpret_cast<volatile uint32_t*>(regAddrs[coreIdx] + REG_SPR_FAST_PATH_ENABLE));
+            if (currentStatus != REG_SPR_FAST_PATH_CLOSE) {
+                isValid = false;
+                *(reinterpret_cast<volatile uint32_t*>(regAddrs[coreIdx] + REG_SPR_FAST_PATH_ENABLE)) = REG_SPR_FAST_PATH_CLOSE;
             }
         }
         return isValid;
@@ -231,12 +229,11 @@ public:
             } else {
                 lastSent += curSent;
             }
-
-            DEV_IF_DEVICE {
-                if (GetCycles() - start > TIMEOUT_CYCLES) {
-                    return DEVICE_MACHINE_TIMEOUT_CORETASK;
-                }
+        
+            if (GetCycles() - start > TIMEOUT_CYCLES) {
+                return DEVICE_MACHINE_TIMEOUT_CORETASK;
             }
+
             // To prevent an unnecessary execution of RunCoreTask after the final batch of tasks is sent.
             allSentCnt = taskCtrl->finishedFunctionCnt.load(std::memory_order_relaxed) + lastSent;
         }
@@ -388,7 +385,9 @@ private:
     };
 
     void SendStopToCore(int coreIdx, bool isLastDevTask, AicoreStatus *coreStatus, int &finishStopNum) {
+        DEV_ERROR("[AICPU %d] Out IF Device", aicpuIdx_);
         DEV_IF_DEVICE {
+            DEV_ERROR("[AICPU %d] In1 IF Device", aicpuIdx_);
             if (isLastDevTask) {
                 NormalStopSingleCore(coreIdx);
                 coreStatus[coreIdx] = AicoreStatus::CORE_FINISH_STOP;
@@ -400,6 +399,7 @@ private:
                 coreStatus[coreIdx] = AicoreStatus::CORE_SEND_STOP;
             }
         } else {
+            printf("[AICPU %d] In2 IF Device\n", aicpuIdx_);
             coreStatus[coreIdx] = AicoreStatus::CORE_FINISH_STOP;
             finishStopNum++;
         }
@@ -560,8 +560,8 @@ private:
         return taskCount;
     }
 
-    inline uint32_t BatchSendTask(CoreType type, uint32_t *newTask, uint32_t taskCount,
-        int coreIdxStart, int coreIdxEnd, bool isLifo) {
+    inline uint32_t BatchSendTask(CoreType type, uint32_t *newTask, uint32_t taskCount, int coreIdxStart, int coreIdxEnd, bool isLifo)
+    {
         uint32_t sendCnt = 0;
         uint32_t coreRunReadyCnt = context_->coreRunReadyCnt_[static_cast<int>(type)];
         while (sendCnt < static_cast<uint64_t>(coreRunReadyCnt) && sendCnt < taskCount) {
