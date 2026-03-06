@@ -24,6 +24,14 @@ struct CalcOps *GetCalcOps() {
     static struct CalcOps *calcOps = nullptr;
 
     std::call_once(once_, []() {
+        /*  */
+#ifndef ENABLE_TESTS
+        auto handle = dlopen(nullptr, RTLD_LAZY | RTLD_NOLOAD);
+        if (handle == nullptr) {
+            VERIFY_LOGE("Can't get program handle");
+            return;
+        }
+#else
         std::string path = GetCurrentSharedLibPath() + "/libtile_fwk_calculator.so";
         if (!FileExist(path)) {
             return;
@@ -33,6 +41,7 @@ struct CalcOps *GetCalcOps() {
             VERIFY_LOGI("torch not found please check the library path or import torch first");
             return;
         }
+#endif
         auto func = dlsym(handle, "GetCalcOps");
         calcOps = reinterpret_cast<GetCalcOpsFunc>(func)();
     });
