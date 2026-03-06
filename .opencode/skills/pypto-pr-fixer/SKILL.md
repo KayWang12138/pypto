@@ -1,6 +1,6 @@
 ---
 name: pypto-pr-fixer
-description: "PyPTO 仓库 PR 自动修复工具。两大能力：(1) 通用 Review 评论修复 — 理解任意人工 review 评论并智能生成修复方案，不限于特定评论类型；(2) CodeCheck CI 修复 — 解析 cann-robot 报告的 CodeArts-Check 静态分析失败，从 openlibing.com 获取违规详情并自动修复。触发词：PR评论修复、review意见修复、PR review fixer、修复PR评论、codecheck修复、codecheck失败。"
+description: "修复 PyPTO PR 的 CodeCheck CI 失败和 review 评论。自动获取 CodeCheck 违规详情、匹配规则、应用修复。触发词：修复codecheck、codecheck问题、codecheck报错、codecheck失败、codecheck不通过、CI失败、CI报错、PR评论修复、review意见修复、修复PR、PR review fixer。"
 ---
 
 # PyPTO PR Fixer
