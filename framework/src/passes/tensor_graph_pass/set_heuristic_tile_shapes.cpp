@@ -25,6 +25,9 @@
 #include "interface/operation/operation_impl.h"
 #include "interface/configs/config_manager.h"
 #include "set_heuristic_tile_shapes.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "SetHeuristicTileShapes"
  
 using namespace npu::tile_fwk;
  

@@ -29,6 +29,9 @@
 #undef private
 #include "computational_graph_builder.h"
 #include "tilefwk/tilefwk_op.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "SubgraphToFunction"
 
 using namespace npu::tile_fwk;
 using namespace std;

@@ -14,6 +14,9 @@
  */
 
 #include "auto_cast_checker.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "AutoCast"
 
 namespace npu {
 namespace tile_fwk {

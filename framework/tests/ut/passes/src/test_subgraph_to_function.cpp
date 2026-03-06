@@ -31,6 +31,9 @@
 #include "passes/pass_mgr/pass_manager.h"
 #include "passes/statistics/execute_graph_statistic.h"
 #include "ut_json/ut_json_tool.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "SubgraphToFunction"
 
 namespace npu {
 namespace tile_fwk {

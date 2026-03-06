@@ -18,6 +18,9 @@
 #include "interface/program/program.h"
 #include "interface/function/function.h"
 #include "interface/utils/file_utils.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "Pass"
 
 static constexpr size_t PASS_NUM_DIGITS = 2;
 namespace npu::tile_fwk {

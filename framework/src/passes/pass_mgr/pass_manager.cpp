@@ -14,6 +14,7 @@
  */
 
 #include "pass_manager.h"
+#include "passes/pass_log/pass_log.h"
 
 #include <cstdlib>
 #include <unistd.h>
@@ -51,6 +52,9 @@
 #include "passes/block_graph_pass/loopaxes_proc.h"
 #include "passes/block_graph_pass/tune_tileopseq_for_vf.h"
 #include "passes/block_graph_pass/tune_sync_for_vf.h"
+
+
+#define MODULE_NAME "PassManager"
 
 namespace npu::tile_fwk {
 PassManager &PassManager::Instance() {

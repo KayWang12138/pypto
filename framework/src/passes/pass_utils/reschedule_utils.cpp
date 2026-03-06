@@ -16,6 +16,9 @@
 #include "reschedule_utils.h"
 #include "interface/utils/common.h"
 #include "interface/utils/log.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "RecheduleUtils"
 
 namespace npu::tile_fwk {
 bool RescheduleUtils::isAllocOp(Operation* op) {

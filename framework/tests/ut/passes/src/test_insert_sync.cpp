@@ -17,6 +17,9 @@
 #define private public
 #include "passes/block_graph_pass/insert_sync.h"
 #include "ut_json/ut_json_tool.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "InsertSync"
 
 namespace npu {
 namespace tile_fwk {

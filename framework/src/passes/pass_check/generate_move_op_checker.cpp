@@ -14,6 +14,9 @@
  */
 
 #include "generate_move_op_checker.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "GenerateMoveOp"
 
 namespace npu {
 namespace tile_fwk {
