@@ -26,14 +26,14 @@ Status MixCallOperationBuilder::CreateCallOps(Function& rootFunc, const std::vec
                                               std::vector<Function*>& newFunctions,
                                               const std::vector<InternalDependencyInfo>& internalDeps)
 {
-    ALOG_INFO_F("Creating call operations for %zu original call ops and %zu components",
+    APASS_LOG_INFO_F(Elements::Operation, "Creating call operations for %zu original call ops and %zu components",
                 originalCallOps.size(), components.size());
     std::vector<CallOpCreationInfo> callOpInfos;
     // 处理所有指向同构originalMixFunc的originalCallOps
     for (auto* originalCallOp : originalCallOps) {
         // 为每个原始callOp分配唯一的wrapId
         uint64_t wrapId = nextWrapId_++;
-        ALOG_DEBUG_F("Assigning wrapId=%lu for original callOp %d", wrapId, originalCallOp->GetOpMagic());
+        APASS_LOG_DEBUG_F(Elements::Operation, "Assigning wrapId=%lu for original callOp %d", wrapId, originalCallOp->GetOpMagic());
         for (size_t i = 0; i < components.size(); i++) {
             CallOpCreationInfo info;
             info.leafFunc = newFunctions[i];
@@ -44,22 +44,22 @@ Status MixCallOperationBuilder::CreateCallOps(Function& rootFunc, const std::vec
             auto status = CreateCallOpInRootFunction(rootFunc, *info.leafFunc, info.newProgramID, info.componentIndex,
                                                      info.originalCallOp, originalMixFunc, subgraphToFunction, info);
             if (status != SUCCESS) {
-                ALOG_ERROR_F("Failed to create call op for component %zu", info.componentIndex);
+                APASS_LOG_ERROR_F(Elements::Operation, "Failed to create call op for component %zu", info.componentIndex);
                 return FAILED;
             }
             if (!info.createdCallOp) {
-                ALOG_ERROR_F("Created call op is null for component %zu", info.componentIndex);
+                APASS_LOG_ERROR_F(Elements::Operation, "Created call op is null for component %zu", info.componentIndex);
                 return FAILED;
             }
             // 记录这个call op的信息
             callOpInfos.push_back(info);
-            ALOG_DEBUG_F("Created call op %d in info for component %zu (wrapId=%lu)",
+            APASS_LOG_DEBUG_F(Elements::Operation, "Created call op %d in info for component %zu (wrapId=%lu)",
                          info.createdCallOp->GetOpMagic(), info.componentIndex, wrapId);
         }
     }
     // 现在统一处理内部依赖（按wrapId分组）
     ProcessAllInternalDependencies(rootFunc, callOpInfos, internalDeps);
-    ALOG_INFO_F("Successfully created %zu call operations with internal dependencies",
+    APASS_LOG_INFO_F(Elements::Operation, "Successfully created %zu call operations with internal dependencies",
                 callOpInfos.size());
     return SUCCESS;
 }
@@ -73,21 +73,21 @@ Status MixCallOperationBuilder::CreateCallOpInRootFunction(Function& rootFunc,
                                                            SubgraphToFunction& subgraphToFunction,
                                                            CallOpCreationInfo& info)
 {
-    ALOG_DEBUG_F("Creating callOp in root function for leaf: %s, programID=%d, component=%d, wrapId=%lu",
+    APASS_LOG_DEBUG_F(Elements::Operation, "Creating callOp in root function for leaf: %s, programID=%d, component=%d, wrapId=%lu",
                  leafFunc.GetRawName().c_str(), newProgramID, componentIndex, info.wrapId);
     auto originalCallAttr = dynamic_cast<CallOpAttribute*>(originalCallOp->GetOpAttribute().get());
     if (originalCallAttr == nullptr) {
-        ALOG_ERROR_F("Original callOp %d has no CallOpAttribute", originalCallOp->GetOpMagic());
+        APASS_LOG_ERROR_F(Elements::Operation, "Original callOp %d has no CallOpAttribute", originalCallOp->GetOpMagic());
         return FAILED;
     }
     // 获取原始callOp的operands
     auto originalIOperands = originalCallOp->GetIOperands();
     auto originalOOperands = originalCallOp->GetOOperands();
-    ALOG_DEBUG_F("Original callOp %d has %zu iOperands, %zu oOperands",
+    APASS_LOG_DEBUG_F(Elements::Operation, "Original callOp %d has %zu iOperands, %zu oOperands",
                  originalCallOp->GetOpMagic(), originalIOperands.size(), originalOOperands.size());
     auto originalIncasts = originalMixFunc->GetIncast();
     auto originalOutcasts = originalMixFunc->GetOutcast();
-    ALOG_DEBUG_F("Original mix function %s has %zu incasts, %zu outcasts",
+    APASS_LOG_DEBUG_F(Elements::Function, "Original mix function %s has %zu incasts, %zu outcasts",
                  originalMixFunc->GetRawName().c_str(), originalIncasts.size(), originalOutcasts.size());
     // 从invokeInfo获取incast和outcast参数信息
     const auto& invokeInfo = subgraphToFunction.subFuncInvokeInfos[componentIndex];
@@ -98,7 +98,7 @@ Status MixCallOperationBuilder::CreateCallOpInRootFunction(Function& rootFunc,
     std::set<LogicalTensorPtr> processedIncasts;
     std::set<LogicalTensorPtr> processedOutcasts;
     // 处理直接外部依赖的IOperands
-    ALOG_INFO_F("===> FindIOperandsAndOOperands start.");
+    APASS_LOG_INFO_F(Elements::Tensor, "===> FindIOperandsAndOOperands start.");
     FindNewIOperandsInOriginalIncast(originalIOperands, originalIncasts, invokeInfo, newIOperands, processedIncasts);
     // 处理直接外部依赖的OOperands
     FindNewOOperandsInOriginalOutcast(originalOOperands, originalOutcasts, invokeInfo, newOOperands, processedOutcasts);
@@ -111,9 +111,9 @@ Status MixCallOperationBuilder::CreateCallOpInRootFunction(Function& rootFunc,
                                                      actualIncasts, actualOutcasts,
                                                      newIOperands, newOOperands,
                                                      processedIncasts, processedOutcasts);
-    ALOG_INFO_F("===> FindIOperandsAndOOperands end.");
+    APASS_LOG_INFO_F(Elements::Tensor, "===> FindIOperandsAndOOperands end.");
     auto& callOp = rootFunc.AddRawOperation(Opcode::OP_CALL, newIOperands, newOOperands, false);
-    ALOG_INFO_F("Created operands for new callOp %d: %zu inputs, %zu outputs",
+    APASS_LOG_INFO_F(Elements::Tensor, "Created operands for new callOp %d: %zu inputs, %zu outputs",
                 callOp.GetOpMagic(), newIOperands.size(), newOOperands.size());
     // 寻找新call op的IOpAttrOffset和OOpAttrOffset
     FindIOpAttrOffsetAndOOpAttrOffset(leafFunc, invokeInfo, info.iOffsets, info.oOffsets, originalMixFunc);
@@ -122,7 +122,7 @@ Status MixCallOperationBuilder::CreateCallOpInRootFunction(Function& rootFunc,
                        newProgramID, componentIndex, subgraphToFunction, info);
     // 将创建的call op记录到info中
     info.createdCallOp = &callOp;
-    ALOG_INFO_F("Successfully created callOp %d in root function for programID=%d, leaf=%s",
+    APASS_LOG_INFO_F(Elements::Operation, "Successfully created callOp %d in root function for programID=%d, leaf=%s",
                 callOp.GetOpMagic(), newProgramID, leafFunc.GetRawName().c_str());
     return SUCCESS;
 }
@@ -141,7 +141,7 @@ void MixCallOperationBuilder::FindNewIOperandsInOriginalIncast(
         if (originalIndex >= 0 && originalIndex < static_cast<int>(originalIOperands.size())) {
             newIOperands.push_back(originalIOperands[originalIndex]);
             processedIncasts.insert(incastParam.tensor);
-            ALOG_DEBUG_F("  Found: tensor magic=%d -> original iOperand[%d] (tensor magic=%d)",
+            APASS_LOG_DEBUG_F(Elements::Tensor, "  Found: tensor magic=%d -> original iOperand[%d] (tensor magic=%d)",
                          tensorMagic, originalIndex, originalIOperands[originalIndex]->magic);
         }
     }
@@ -155,7 +155,7 @@ void MixCallOperationBuilder::FindNewIOperandsInOriginalIncast(
         if (originalIndex >= 0 && originalIndex < static_cast<int>(originalIOperands.size())) {
             newIOperands.push_back(originalIOperands[originalIndex]);
             processedIncasts.insert(tensorParam.tensor);
-            ALOG_DEBUG_F("  Found: global input tensor magic=%d -> original iOperand[%d]",
+            APASS_LOG_DEBUG_F(Elements::Tensor, "  Found: global input tensor magic=%d -> original iOperand[%d]",
                          tensorMagic, originalIndex);
         }
     }
@@ -176,7 +176,7 @@ void MixCallOperationBuilder::FindNewOOperandsInOriginalOutcast(
         if (originalIndex >= 0 && originalIndex < static_cast<int>(originalOOperands.size())) {
             newOOperands.push_back(originalOOperands[originalIndex]);
             processedOutcasts.insert(outcastParam.tensor);
-            ALOG_DEBUG_F("  Found: tensor magic=%d -> original oOperand[%d] (tensor magic=%d)",
+            APASS_LOG_DEBUG_F(Elements::Tensor, "  Found: tensor magic=%d -> original oOperand[%d] (tensor magic=%d)",
                          tensorMagic, originalIndex, originalOOperands[originalIndex]->magic);
         }
     }
@@ -190,7 +190,7 @@ void MixCallOperationBuilder::FindNewOOperandsInOriginalOutcast(
         if (originalIndex >= 0 && originalIndex < static_cast<int>(originalOOperands.size())) {
             newOOperands.push_back(originalOOperands[originalIndex]);
             processedOutcasts.insert(tensorParam.tensor);
-            ALOG_DEBUG_F("  Found: global output tensor magic=%d -> original oOperand[%d]",
+            APASS_LOG_DEBUG_F(Elements::Tensor, "  Found: global output tensor magic=%d -> original oOperand[%d]",
                          tensorMagic, originalIndex);
         }
     }
@@ -213,32 +213,32 @@ void MixCallOperationBuilder::FindNewIOperandsAndOOperandsInPropagateInOutcast(
     for (const auto& incast : actualIncasts) {
         // 检查是否已经在之前的列表中处理过
         if (processedIncasts.count(incast) > 0) {
-            ALOG_DEBUG_F("  Propagated incast tensor magic=%d already processed, skipping", incast->magic);
+            APASS_LOG_DEBUG_F(Elements::Tensor, "  Propagated incast tensor magic=%d already processed, skipping", incast->magic);
             continue;
         }
         int tensorMagic = incast->magic;
-        ALOG_DEBUG_F("  Checking propagated incast tensor magic=%d", tensorMagic);
+        APASS_LOG_DEBUG_F(Elements::Tensor, "  Checking propagated incast tensor magic=%d", tensorMagic);
         int originalIndex = FindTensorIndexInList(tensorMagic, originalIncasts);
         if (originalIndex >= 0 && originalIndex < static_cast<int>(originalIOperands.size())) {
             newIOperands.push_back(originalIOperands[originalIndex]);
             processedIncasts.insert(incast);
-            ALOG_DEBUG_F("    Found: propagated incast tensor magic=%d -> original iOperand[%d]",
+            APASS_LOG_DEBUG_F(Elements::Tensor, "    Found: propagated incast tensor magic=%d -> original iOperand[%d]",
                          tensorMagic, originalIndex);
         }
     }
     // 处理传播的outcast
     for (const auto& outcast : actualOutcasts) {
         if (processedOutcasts.count(outcast) > 0) {
-            ALOG_DEBUG_F("  Propagated outcast tensor magic=%d already processed, skipping", outcast->magic);
+            APASS_LOG_DEBUG_F(Elements::Tensor, "  Propagated outcast tensor magic=%d already processed, skipping", outcast->magic);
             continue;
         }
         int tensorMagic = outcast->magic;
-        ALOG_DEBUG_F("  Checking propagated outcast tensor magic=%d", tensorMagic);
+        APASS_LOG_DEBUG_F(Elements::Tensor, "  Checking propagated outcast tensor magic=%d", tensorMagic);
         int originalIndex = FindTensorIndexInList(tensorMagic, originalOutcasts);
         if (originalIndex >= 0 && originalIndex < static_cast<int>(originalOOperands.size())) {
             newOOperands.push_back(originalOOperands[originalIndex]);
             processedOutcasts.insert(outcast);
-            ALOG_DEBUG_F("    Found: propagated outcast tensor magic=%d -> original oOperand[%d]",
+            APASS_LOG_DEBUG_F(Elements::Tensor, "    Found: propagated outcast tensor magic=%d -> original oOperand[%d]",
                          tensorMagic, originalIndex);
         }
     }
@@ -271,8 +271,8 @@ void MixCallOperationBuilder::FindIOpAttrOffsetAndOOpAttrOffset(
     auto actualIncasts = leafFunc.GetIncast();
     auto actualOutcasts = leafFunc.GetOutcast();
 
-    ALOG_INFO_F("===> FindIOpAttrOffsetAndOOpAttrOffset start.");
-    ALOG_DEBUG_F("Leaf function %s has %zu actual incasts, %zu actual outcasts after dependency propagation",
+    APASS_LOG_INFO_F(Elements::Function, "===> FindIOpAttrOffsetAndOOpAttrOffset start.");
+    APASS_LOG_DEBUG_F(Elements::Function, "Leaf function %s has %zu actual incasts, %zu actual outcasts after dependency propagation",
                  leafFunc.GetRawName().c_str(), actualIncasts.size(), actualOutcasts.size());
     std::set<LogicalTensorPtr> processedIncasts;
     std::set<LogicalTensorPtr> processedOutcasts;
@@ -298,7 +298,7 @@ void MixCallOperationBuilder::FindIOpAttrOffsetAndOOpAttrOffset(
     if (!FindOOpAttrOffsetFromActualOutcasts(actualOutcasts, extractInfo, originalMixFunc)) {
         return;
     }
-    ALOG_INFO_F("===> FindIOpAttrOffsetAndOOpAttrOffset end.");
+    APASS_LOG_INFO_F(Elements::Function, "===> FindIOpAttrOffsetAndOOpAttrOffset end.");
 }
 
 
@@ -313,13 +313,13 @@ bool MixCallOperationBuilder::FindIOpAttrOffsetFromIncast(const SubfuncInvokeInf
         }
         int offset = GetOffsetFromOp(in.opMagic, in.operandIdx, leafFunc, false);
         if (offset == -1) {
-            ALOG_ERROR_F("Failed to get offset for incast (op=%d, idx=%d)!",
+            APASS_LOG_ERROR_F(Elements::Operation, "Failed to get offset for incast (op=%d, idx=%d)!",
                          in.opMagic, in.operandIdx);
             continue;
         }
         extractInfo.iOffsets.push_back(offset);
         extractInfo.processedIncasts.insert(in.tensor);
-        ALOG_DEBUG_F("Incast (op=%d, idx=%d) -> original offset=%d",
+        APASS_LOG_DEBUG_F(Elements::Operation, "Incast (op=%d, idx=%d) -> original offset=%d",
                      in.opMagic, in.operandIdx, offset);
     }
     return true;
@@ -336,13 +336,13 @@ bool MixCallOperationBuilder::FindOOpAttrOffsetFromOutcast(const SubfuncInvokeIn
         }
         int offset = GetOffsetFromOp(out.opMagic, out.operandIdx, leafFunc, true);
         if (offset == -1) {
-            ALOG_ERROR_F("Failed to get offset for outcast (op=%d, idx=%d)!",
+            APASS_LOG_ERROR_F(Elements::Operation, "Failed to get offset for outcast (op=%d, idx=%d)!",
                          out.opMagic, out.operandIdx);
             continue;
         }
         extractInfo.oOffsets.push_back(offset);
         extractInfo.processedOutcasts.insert(out.tensor);
-        ALOG_DEBUG_F("Outcast (op=%d, idx=%d) -> original offset=%d",
+        APASS_LOG_DEBUG_F(Elements::Operation, "Outcast (op=%d, idx=%d) -> original offset=%d",
                      out.opMagic, out.operandIdx, offset);
     }
     return true;
@@ -369,8 +369,8 @@ int MixCallOperationBuilder::GetOffsetFromOp(int opMagic, int operandIdx,
             }
         }
     }
-    
-    ALOG_WARN_F("Could not find offset for op %d idx %d (isOutput=%d)",
+
+    APASS_LOG_WARN_F(Elements::Operation, "Could not find offset for op %d idx %d (isOutput=%d)",
                 opMagic, operandIdx, isOutput);
     return -1;
 }
@@ -385,19 +385,19 @@ bool MixCallOperationBuilder::FindIOOpAttrOffsetGlobalTensor(const SubfuncInvoke
         }
         int offset = GetOffsetFromOp(tensor.opMagic, tensor.operandIdx, leafFunc, tensor.isOutputToGM);
         if (offset == -1) {
-            ALOG_ERROR_F("Failed to get offset for global tensor (op=%d, idx=%d, isOutput=%d)!",
+            APASS_LOG_ERROR_F(Elements::Tensor, "Failed to get offset for global tensor (op=%d, idx=%d, isOutput=%d)!",
                          tensor.opMagic, tensor.operandIdx, tensor.isOutputToGM);
             continue;
         }
         if (tensor.isOutputToGM) {
             extractInfo.oOffsets.push_back(offset);
             extractInfo.processedOutcasts.insert(tensor.tensor);
-            ALOG_DEBUG_F("Global tensor -> Outcast: opmagic=%d, idx=%d -> oOpAttrOffset=%d",
+            APASS_LOG_DEBUG_F(Elements::Tensor, "Global tensor -> Outcast: opmagic=%d, idx=%d -> oOpAttrOffset=%d",
                          tensor.opMagic, tensor.operandIdx, offset);
         } else {
             extractInfo.iOffsets.push_back(offset);
             extractInfo.processedIncasts.insert(tensor.tensor);
-            ALOG_DEBUG_F("Global tensor -> Incast: opmagic=%d, idx=%d -> iOpAttrOffset=%d",
+            APASS_LOG_DEBUG_F(Elements::Tensor, "Global tensor -> Incast: opmagic=%d, idx=%d -> iOpAttrOffset=%d",
                          tensor.opMagic, tensor.operandIdx, offset);
         }
     }
@@ -419,12 +419,12 @@ bool MixCallOperationBuilder::FindIOpAttrOffsetFromActualIncasts(
         // 在原始Mix function中查找这个tensor的offset
         int offset = FindOriginalOffsetInMixFunction(incast, originalMixFunc);
         if (offset == -1) {
-            ALOG_ERROR_F("Failed to find offset for propagated incast tensor %d!", incast->GetRawMagic());
+            APASS_LOG_ERROR_F(Elements::Tensor, "Failed to find offset for propagated incast tensor %d!", incast->GetRawMagic());
             return false;  // 直接报错返回
         }
         extractInfo.iOffsets.push_back(offset);
         extractInfo.processedIncasts.insert(incast);
-        ALOG_DEBUG_F("Extracted propagated incast: tensor rawmagic = %d, offset = %d",
+        APASS_LOG_DEBUG_F(Elements::Tensor, "Extracted propagated incast: tensor rawmagic = %d, offset = %d",
                      incast->GetRawMagic(), offset);
     }
     return true;
@@ -442,17 +442,17 @@ bool MixCallOperationBuilder::FindOOpAttrOffsetFromActualOutcasts(
         }
         auto shape = outcast->GetShape();
         if (shape.empty()) {
-            ALOG_ERROR_F("Propagated outcast tensor %d has empty shape!", outcast->GetRawMagic());
+            APASS_LOG_ERROR_F(Elements::Tensor, "Propagated outcast tensor %d has empty shape!", outcast->GetRawMagic());
             return false;
         }
         int offset = FindOriginalOffsetInMixFunction(outcast, originalMixFunc);
         if (offset == -1) {
-            ALOG_ERROR_F("Failed to find offset for propagated outcast tensor %d!", outcast->GetRawMagic());
+            APASS_LOG_ERROR_F(Elements::Tensor, "Failed to find offset for propagated outcast tensor %d!", outcast->GetRawMagic());
             return false;  // 直接报错返回
         }
         extractInfo.oOffsets.push_back(offset);
         extractInfo.processedOutcasts.insert(outcast);
-        ALOG_DEBUG_F("Extracted propagated outcast: tensor rawmagic = %d -> original offset = %d",
+        APASS_LOG_DEBUG_F(Elements::Tensor, "Extracted propagated outcast: tensor rawmagic = %d -> original offset = %d",
                         outcast->GetRawMagic(), offset);
     }
     return true;
@@ -462,11 +462,11 @@ int MixCallOperationBuilder::FindOriginalOffsetInMixFunction(LogicalTensorPtr te
                                                              Function* originalMixFunc) const
 {
     if (tensor == nullptr || originalMixFunc == nullptr) {
-        ALOG_ERROR_F("Tensor or function is nullptr in FindOriginalOffsetInMixFunction");
+        APASS_LOG_ERROR_F(Elements::Tensor, "Tensor or function is nullptr in FindOriginalOffsetInMixFunction");
         return -1;
     }
     int rawMagic = tensor->GetRawMagic();
-    ALOG_DEBUG_F("Finding original offset for tensor raw magic=%d in function %s",
+    APASS_LOG_DEBUG_F(Elements::Tensor, "Finding original offset for tensor raw magic=%d in function %s",
                  rawMagic, originalMixFunc->GetRawName().c_str());
     auto operations = originalMixFunc->Operations(false);
     for (auto& op : operations) {
@@ -492,7 +492,7 @@ int MixCallOperationBuilder::FindOriginalOffsetInMixFunction(LogicalTensorPtr te
             }
         }
     }
-    ALOG_ERROR_F("Tensor raw magic=%d not found in function %s operations",
+    APASS_LOG_ERROR_F(Elements::Tensor, "Tensor raw magic=%d not found in function %s operations",
                  rawMagic, originalMixFunc->GetRawName().c_str());
     return -1;
 }
@@ -508,7 +508,7 @@ void MixCallOperationBuilder::SetCallOpAttribute(Function& leafFunc,
                                                  CallOpCreationInfo& info)
 {
     if (originalCallAttr == nullptr) {
-        ALOG_ERROR_F("Original callOp %d has no CallOpAttribute", originalCallOp->GetOpMagic());
+        APASS_LOG_ERROR_F(Elements::Operation, "Original callOp %d has no CallOpAttribute", originalCallOp->GetOpMagic());
         return;
     }
     // 使用原mix callOp的argList
@@ -520,7 +520,7 @@ void MixCallOperationBuilder::SetCallOpAttribute(Function& leafFunc,
     auto callOpAttr = std::dynamic_pointer_cast<CallOpAttribute>(callAttr);
     if (callOpAttr != nullptr) {
         callOpAttr->wrapId = info.wrapId;
-        ALOG_DEBUG_F("Set wrapId=%lu to callOp attribute for programID=%d (from original callOp %d)",
+        APASS_LOG_DEBUG_F(Elements::Operation, "Set wrapId=%lu to callOp attribute for programID=%d (from original callOp %d)",
                      info.wrapId, newProgramID, originalCallOp->GetOpMagic());
     }
     callOp.SetOpAttribute(callAttr);
@@ -532,7 +532,7 @@ void MixCallOperationBuilder::SetCallOpAttribute(Function& leafFunc,
         callOpAttr->invokeInfo_->UpdateProgramSubgraphId(newProgramID);
     }
     subgraphToFunction.SetSemanticLabel(leafFunc.GetProgramOp(), callOp);
-    ALOG_DEBUG_F("Created callOp %d: %zu arg blocks (from original callOp %d), %zu input offsets, %zu output offsets",
+    APASS_LOG_DEBUG_F(Elements::Operation, "Created callOp %d: %zu arg blocks (from original callOp %d), %zu input offsets, %zu output offsets",
                  callOp.GetOpMagic(), argList.size(), originalCallOp->GetOpMagic(),
                  info.iOffsets.size(), info.oOffsets.size());
 }
@@ -544,7 +544,7 @@ void MixCallOperationBuilder::ProcessAllInternalDependencies(
     const std::vector<InternalDependencyInfo>& internalDeps) const
 {
     if (internalDeps.empty()) {
-        ALOG_DEBUG_F("No internal dependencies to process");
+        APASS_LOG_DEBUG_F(Elements::Operation, "No internal dependencies to process");
         return;
     }
     // 按wrapId分组call op信息
@@ -552,7 +552,7 @@ void MixCallOperationBuilder::ProcessAllInternalDependencies(
     for (const auto& info : callOpInfos) {
         wrapIdToInfos[info.wrapId].push_back(&info);
     }
-    ALOG_INFO_F("Processing internal dependencies for %zu wrap groups", wrapIdToInfos.size());
+    APASS_LOG_INFO_F(Elements::Operation, "Processing internal dependencies for %zu wrap groups", wrapIdToInfos.size());
     // 为每个wrap组处理内部依赖
     for (const auto& [wrapId, infos] : wrapIdToInfos) {
         ProcessInternalDependenciesForWrap(rootFunc, infos, internalDeps, wrapId);
@@ -571,17 +571,17 @@ void MixCallOperationBuilder::ProcessInternalDependenciesForWrap(
     for (const auto& info : infos) {
         if (info->createdCallOp) {
             componentToCallOp[info->componentIndex] = info->createdCallOp;
-            ALOG_DEBUG_F("Wrap %lu: map component %d -> call op %d",
+            APASS_LOG_DEBUG_F(Elements::Operation, "Wrap %lu: map component %d -> call op %d",
                          wrapId, info->componentIndex, info->createdCallOp->GetOpMagic());
         }
     }
     // 如果没有内部依赖，直接返回
     if (internalDeps.empty()) {
-        ALOG_DEBUG_F("Wrap %lu: No internal dependencies to add", wrapId);
+        APASS_LOG_DEBUG_F(Elements::Operation, "Wrap %lu: No internal dependencies to add", wrapId);
         return;
     }
-    ALOG_INFO_F("Wrap %lu: Processing %zu internal dependencies", wrapId, internalDeps.size());
-    
+    APASS_LOG_INFO_F(Elements::Operation, "Wrap %lu: Processing %zu internal dependencies", wrapId, internalDeps.size());
+
     // 处理每个内部依赖
     for (const auto& dep : internalDeps) {
         int srcComp = dep.srcComp;
@@ -611,7 +611,7 @@ void MixCallOperationBuilder::ProcessInternalDependenciesForWrap(
         dependTensor->AddProducer(producerCallOp);
         dependTensor->AddConsumer(consumerCallOp);
         consumerCallOp->AddDependOperand(dependTensor);
-        ALOG_INFO_F("Wrap %lu: component %d -> component %d "
+        APASS_LOG_INFO_F(Elements::Operation, "Wrap %lu: component %d -> component %d "
                     "(call op %d -> %d, tensor magic=%d, has %zu producers, %zu consumers)",
                     wrapId, srcComp, dstComp,
                     producerCallOp->GetOpMagic(), consumerCallOp->GetOpMagic(),
