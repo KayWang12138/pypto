@@ -15,7 +15,7 @@ import ast
 import inspect
 import functools
 import re
-from typing import Any, Optional, Union, Callable
+from typing import Any, List, Optional, Union, Callable
 
 import pypto
 from pypto.symbolic_scalar import SymbolicScalar, SymInt
@@ -34,6 +34,80 @@ class NestedFunctionMarker:
     def __init__(self) -> None:
         self._original_func: Optional[Callable] = None
         self._func_name: str = ""
+
+    def _check_input_defs_match(self, call_args: list, param_specs: list) -> None:
+        """Check if input tensor definitions match with call arguments.
+
+        This method validates that the tensor arguments passed to a nested function
+        match the tensor definitions in the function signature, similar to the
+        validation performed in JIT functions.
+
+        Parameters
+        ----------
+        call_args : list
+            List of actual arguments passed to the function.
+        param_specs : list
+            List of parameter specifications (name, is_tensor, annotation).
+
+        Raises
+        ------
+        ValueError
+            If tensor shapes, dtypes, or other properties don't match.
+        """
+        # Check the number of input tensors and input tensor definitions
+        if len(param_specs) != len(call_args):
+            raise RuntimeError(f"There are {len(param_specs)} input param(s), \
+                but {len(call_args)} input arg(s).")
+
+        def ordinal(n):
+            suffix = ['th', 'st', 'nd', 'rd', 'th'][min(n % 10, 4)]
+            if 11 <= n % 100 <= 13:
+                suffix = 'th'
+            return f"{n}{suffix}"
+
+        idx = 0
+        for (param_name, is_tensor, annotation), arg_value in zip(param_specs, call_args):
+            idx += 1
+            if is_tensor:
+                if not isinstance(arg_value, pypto.Tensor):
+                    continue
+
+                input_tensor_def = annotation
+                if not isinstance(input_tensor_def, pypto.Tensor):
+                    continue
+
+                # Skip checking if the input tensor definition is a placeholder (e.g. *args)
+                if len(input_tensor_def.shape) == 0 and input_tensor_def.status_shape is None:
+                    continue
+
+                # 根据属性input_tensor_def.status_shape做判断, def的shape len 小于等于 tensor的shape len
+                is_diff_shape = len(arg_value.shape) != len(input_tensor_def.shape) \
+                    if input_tensor_def.status_shape is None \
+                    else len(arg_value.shape) < len(input_tensor_def.shape)
+
+                # Check the shape of input tensors and input tensor definitions
+                if is_diff_shape:
+                    raise ValueError(
+                        f"In nested function '{self._func_name}': "
+                        f"The number of dimensions of {ordinal(idx)} parameter '{param_name}' "
+                        f"({len(arg_value.shape)}) does not match "
+                        f"number of dimensions of parameter definition ({len(input_tensor_def.shape)})."
+                    )
+
+                for i, dim in enumerate(input_tensor_def.shape):
+                    if isinstance(dim, int) and arg_value.shape[i] != dim:
+                        raise ValueError(
+                            f"In nested function '{self._func_name}': "
+                            f"The shape of {ordinal(idx)} parameter '{param_name}' {arg_value.shape} "
+                            f"does not match the shape of parameter definition {input_tensor_def.shape}."
+                        )
+
+                if arg_value.dtype != input_tensor_def.dtype:
+                    raise ValueError(
+                        f"In nested function '{self._func_name}': "
+                        f"The dtype of {ordinal(idx)} parameter '{param_name}' ({arg_value.dtype}) "
+                        f"does not match the dtype of parameter definition ({input_tensor_def.dtype})."
+                    )
 
 
 DEFAULT_VISIT = {
@@ -156,7 +230,7 @@ class Parser(ast.NodeVisitor):
         self._signature_cache = None
         self._lowered_signature_cache = None
         self._bound_dim_values: Optional[dict[str, SymInt]] = None
-
+        self.input_pto_tensor: Optional[list[pypto.Tensor]] = None
 
     @staticmethod
     def match_input_shapes(
@@ -300,6 +374,16 @@ class Parser(ast.NodeVisitor):
 
         function_node = self.diag.source.as_ast()
 
+        def __is_enum_dyn(tensor_input_args: List[pypto.Tensor]) -> bool:
+            return any(
+                len(tensor_def.shape) == 0 or
+                any(
+                    isinstance(dim, pypto.StatusType) or (dim is Ellipsis)
+                    for dim in tensor_def.shape
+                )
+                for tensor_def in tensor_input_args
+            )
+
         # Temporarily set up context to parse signature
         with self.context.with_frame():
             for k, v in self._parsed_extra_vars.items():
@@ -309,6 +393,13 @@ class Parser(ast.NodeVisitor):
 
             # Get input arguments (only tensors allowed)
             tensor_input_args = self._visit_arguments(function_node.args)
+
+            if __is_enum_dyn(tensor_input_args):
+                tensor_input_args_def = self._visit_arguments(function_node.args)
+                tensor_input_args = self.input_pto_tensor[:len(tensor_input_args_def)]  # ensure len equal
+                
+                for in_obj, def_obj in zip(tensor_input_args, tensor_input_args_def):
+                    in_obj.name = def_obj.name
 
             # Get and validate output arguments
             if function_node.returns is None:
@@ -1372,6 +1463,13 @@ class Parser(ast.NodeVisitor):
                 ),
             )
 
+        # If callee is a normal function, ensure it is decorated as nested; otherwise, bail out.
+        if isinstance(func_value, NestedFunctionMarker):
+            try:
+                func_value._check_input_defs_match(call_args, param_specs)
+            except ValueError as e:
+                raise ParserError(node, e) from e
+
         body_nodes = func_def_node.body
         with self.context.with_frame():
             # Make callee globals/nonlocals available to the inlined body.
@@ -2035,3 +2133,4 @@ class Parser(ast.NodeVisitor):
                     f"{type(test_result).__name__} to boolean."
                 ),
             ) from e
+
