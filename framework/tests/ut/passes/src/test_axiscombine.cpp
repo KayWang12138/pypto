@@ -21,10 +21,13 @@
 #include "passes/pass_mgr/pass_manager.h"
 #include "interface/configs/config_manager.h"
 #include "computational_graph_builder.h"
+#include "passes/pass_log/pass_log.h"
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <vector>
 #include <string>
+
+#define MODULE_NAME "AxisCombine"
 
 using namespace npu::tile_fwk;
 

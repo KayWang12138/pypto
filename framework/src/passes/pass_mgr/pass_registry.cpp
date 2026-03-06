@@ -16,6 +16,9 @@
 #include "pass_registry.h"
 
 #include "interface/utils/log.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "PassRegistry"
 
 namespace npu::tile_fwk {
 // PassRegistry

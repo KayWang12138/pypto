@@ -22,6 +22,9 @@
 #include "interface/program/program.h"
 #include "passes/pass_check/generate_move_op_checker.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "GenerateMoveOp"
 
 namespace npu::tile_fwk {
 constexpr int64_t INNER_PAD_VALUE = 32;
@@ -34,10 +37,10 @@ int64_t GenerateMoveOp::PadUB(int64_t dim, int64_t padValue) {
 }
 
 Status GenerateMoveOp::RunOnFunction(Function &function) {
-    ALOG_INFO_F("===> Start GenerateMoveOp");
+    APASS_LOG_INFO_F(Elements::Operation, "===> Start GenerateMoveOp");
     Status status = CreateMoveOp(function);
     if(status != SUCCESS) {return status;}
-    ALOG_INFO_F("===> End GenerateMoveOp");
+    APASS_LOG_INFO_F(Elements::Operation, "===> End GenerateMoveOp");
     return SUCCESS;
 }
 
@@ -222,7 +225,7 @@ Status GenerateMoveOp::SetOpcodeByMemPath(Operation &op,MemoryType from,MemoryTy
     std::pair<MemoryType,MemoryType> memPathPair = {from,to};
     auto it = platformPathMap.find(memPathPair);
     if (it == platformPathMap.end()) {
-        ALOG_ERROR_F("No memory path found from %s to %s for operation %s[%d].",
+        APASS_LOG_ERROR_F(Elements::Operation, "No memory path found from %s to %s for operation %s[%d].",
             BriefMemoryTypeToString(from).c_str(),
             BriefMemoryTypeToString(to).c_str(),
             op.GetOpcodeStr().c_str(),
@@ -251,7 +254,7 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation &op) const {
     }
     op.SetOpCode(Opcode::OP_COPY_OUT);
     if (assembleOpAttribute->GetFrom() != ASSEMBLE_in->GetMemoryTypeOriginal()) {
-        ALOG_WARN_F(" Assemble op from Attr is different from iOperand, opmagic: %d, do force setting.", op.opmagic);
+        APASS_LOG_WARN_F(Elements::Operation, "Assemble op from Attr is different from iOperand, opmagic: %d, do force setting.", op.opmagic);
     }
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(ASSEMBLE_in->GetMemoryTypeOriginal(),
         OpImmediate::Specified(assembleOpAttribute->GetToTensorOffset()),

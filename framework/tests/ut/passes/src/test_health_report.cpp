@@ -20,6 +20,9 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "HealthReport"
 
 using namespace npu::tile_fwk;
 

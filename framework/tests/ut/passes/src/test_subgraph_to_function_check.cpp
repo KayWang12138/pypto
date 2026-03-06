@@ -23,6 +23,9 @@
 #include "interface/operation/operation.h"
 #include "interface/configs/config_manager.h"
 #include "interface/interpreter/raw_tensor_data.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "SubgraphToFunction"
 
 using namespace npu::tile_fwk;
 using namespace std;
