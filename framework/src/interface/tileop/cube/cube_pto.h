@@ -656,7 +656,7 @@ TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, T3 &bias) {
     pto::TMATMUL_BIAS(l0c, l0a, l0b, biasT);
 }
 
-#if __NPU_ARCH__ == 3101
+#if __NPU_ARCH__ == 3510
 template <bool isZeroC, typename T0, typename T1, typename T2, typename T3, typename T4>
 TILEOP void MatmulMX(T0 &c, T1 &a, T2 &aScale, T3 &b, T4 &bScale)
 {
