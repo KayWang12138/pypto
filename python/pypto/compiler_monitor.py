@@ -8,24 +8,19 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
-"""
-"""
-import json
-import sys
-import logging
+"""Compiler monitor: progress and timing for PyPTO compilation."""
 
-if __name__ == "__main__":
+from . import pypto_impl
 
-    try:
-        import jsonschema
-        has_jsonschema = True
-    except ImportError as e:
-        logging.warning("jsonschema module not found, ignore the schema validation")
-        has_jsonschema = False
 
-    if has_jsonschema:
-        with open(sys.argv[1]) as f:
-            instance = json.load(f)
-        with open(sys.argv[2]) as f:
-            schema = json.load(f)
-        jsonschema.validate(instance=instance, schema=schema)
+def set_compiler_monitor_options(enable=True, interval_sec=30, timeout_sec=-1, total_timeout_sec=600):
+    """Set compiler monitor options.
+
+    Args:
+        enable: Whether to enable the monitor. Default True.
+        interval_sec: Progress print interval in seconds. Default 30.
+        timeout_sec: Progress print timeout in seconds. Default -1.
+        total_timeout_sec: Progress print total timeout in seconds. Default 600.
+    """
+    pypto_impl.SetCompilerMonitorOptions(enable=enable, interval_sec=interval_sec,
+        timeout_sec=timeout_sec, total_timeout_sec=total_timeout_sec)

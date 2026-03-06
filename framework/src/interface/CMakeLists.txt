@@ -9,6 +9,8 @@
 # -----------------------------------------------------------------------------------------------------------
 
 file(GLOB _Interface_Srcs
+        # Compiler monitor
+        compiler_monitor/*.cpp
         # 前端框架
         schema/*.cpp
         configs/*.cpp
