@@ -221,3 +221,4 @@ def get_params(case_name):
 if __name__ == "__main__":
     params = get_params("testcase6")
     test_gmm_mxfp8(params)
+
