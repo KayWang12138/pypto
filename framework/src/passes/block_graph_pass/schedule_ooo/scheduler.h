@@ -365,6 +365,8 @@ private:
     LogicalTensorPtr CreateAssemblePartTensor(LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor,
         SpillInfo &spillInfo, std::shared_ptr<AssembleOpAttribute> assembleAttr);
     int64_t CalcWorkspaceOffset(std::vector<int64_t> shape, std::vector<int64_t> offset);
+    void UpdateCopyOutMode(Operation &copyOutOp);
+    void UpdateCopyInMode(Operation &copyInOp);
 
     // buffer rearrange
     Status RearrangeBuffer(MemoryType memType, std::pair<OpCoreType, int> corePair);
