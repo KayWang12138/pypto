@@ -202,12 +202,9 @@ private:
     bool ShouldSkipProcInLoop(int paramIdx);
 
     template <typename T = int64_t>
-    std::vector<T> GetShapeInLoop(const std::vector<T> &input, size_t loopDepth) {
-        ASSERT(loopDepth < input.size()) << "loopDepth " << loopDepth << " must be small than dim size" << input.size();
-        std::vector<T> reservedShapeExceptLoopAxes;
-        for (size_t i = loopDepth; i < input.size(); ++i) {
-            reservedShapeExceptLoopAxes.emplace_back(input[i]);
-        }
+    std::vector<T> GetShapeInLoop(const std::vector<T> &input) {
+        ASSERT(input.size() > SHAPE_DIM2) << "input size " << input.size() << " is less than 2";
+        std::vector<T> reservedShapeExceptLoopAxes = {*(input.rbegin() + 1), input.back()};
         return reservedShapeExceptLoopAxes;
     }
 
