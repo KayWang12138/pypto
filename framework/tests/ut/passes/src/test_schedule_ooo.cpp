@@ -2197,9 +2197,7 @@ TEST_F(ScheduleOoOTest, TestMixGraphAndDAV_3510) {
     currFunctionPtr->EndFunction(nullptr);
     OoOSchedule oooSchedule;
     Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
-    currFunctionPtr->DumpJsonFile("/mnt/workspace/gitCode/zhangxiangjie/pypto/framework/tests/ut/passes/src/test_schedule_ooo_before1.json");
     EXPECT_EQ(oooSchedule.RunOnFunction(*rootFuncPtr), SUCCESS);
-    currFunctionPtr->DumpJsonFile("/mnt/workspace/gitCode/zhangxiangjie/pypto/framework/tests/ut/passes/src/test_schedule_ooo_after1.json");
     Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_UNKNOWN);
 }
 } // namespace npu::tile_fwk
