@@ -40,6 +40,9 @@ struct StaticReadyCoreFunctionQueue {
   uint64_t tail;
   uint64_t* elem;
   size_t lock;
+
+  uint64_t wasSize() { return tail - head; }
+  uint64_t* getBuffer() { return elem; }
 };
 
 struct WrapInfo {

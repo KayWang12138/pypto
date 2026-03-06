@@ -54,6 +54,12 @@ constexpr uint32_t TASK_FIN_STATE = 1; // 任务执行完成完成
 constexpr uint32_t TASK_ACK_STATE = 0; // 收到任务状态，没执行完成
 constexpr uint32_t REG_TASK_NUM = 2; // 一次寄存器task个数
 
+constexpr uint32_t AIV_CORE_COUNT = 48;
+constexpr uint32_t AIC_CORE_COUNT = 24;
+constexpr uint32_t TOTAL_CORE_COUNT = AIV_CORE_COUNT + AIC_CORE_COUNT;
+
+#define MAX_QUEUED_TASKS 1024
+
 typedef uint64_t aicoreFunction_t;
 typedef uint32_t aicoreTask_t;
 typedef uint32_t aicoreCore_t;
@@ -63,6 +69,10 @@ constexpr aicoreFunction_t aicoreNullFunction = 0xFFFFFFFFFFFFFFFFUL;
 constexpr aicoreTask_t aicoreNullTask = 0xFFFFFFFFUL;
 constexpr aicoreCore_t aicoreNullCore = 0xFFFFFFFFUL;
 constexpr aicorePair_t aicoreNullPair = 0xFFFFFFFFFFFFFFFFUL;
+
+typedef pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask> taskQueue_t;
+typedef pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore> coreQueue_t;
+typedef pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair> pairQueue_t;
 
 struct TaskInfo {
     int coreIdx;
@@ -125,6 +135,50 @@ public:
         wrapManager_.Init(curDevTask_, context_->coreRunReadyCnt_, context_->runReadyCoreIdx_[CORE_IDX_AIV],
             context_->runReadyCoreIdx_[CORE_IDX_AIC], context_->corePendReadyCnt_, pendingIds_.data(),
             runningIds_.data(), aicValidNum_, [&](CoreType coreType, int arg1, uint64_t arg2) {SendTaskToAiCore(coreType, arg1, arg2);});
+
+        // If I am the lead AICPU scheduler, perform initailization steps
+        DEV_ERROR("[AICPU %d] Before Task Initialization", aicpuIdx_);
+        if (isLeaderScheduler_ == true)
+        {
+            DEV_ERROR("[AICPU %d] Task Initialization Leader", aicpuIdx_);
+            // // Resetting issued task count -- needed to verify termination
+            // curTaskCtrl_->issuedTaskCount = 0;
+
+            // // Allocating queues
+            // auto availableTaskQueue = new coreQueue_t(MAX_QUEUED_TASKS);
+            // curDevTask_->availableTaskQueue = (uint64_t) availableTaskQueue;
+
+            // // Adding initial set of tasks 
+            // auto readyAicCoreFunctionQue = (StaticReadyCoreFunctionQueue *)curDevTask_->readyAicCoreFunctionQue;
+            // auto readyAivCoreFunctionQue = (StaticReadyCoreFunctionQueue *)curDevTask_->readyAivCoreFunctionQue;
+            // for (size_t i = 0; i < readyAivCoreFunctionQue->wasSize(); i++) availableTaskQueue->push((uint32_t)readyAivCoreFunctionQue->getBuffer()[i]);
+            // for (size_t i = 0; i < readyAicCoreFunctionQue->wasSize(); i++) availableTaskQueue->push((uint32_t)readyAicCoreFunctionQue->getBuffer()[i]);
+
+            // // Allocating core queues
+            // auto availableVectorCoreQueue = new coreQueue_t(AIV_CORE_COUNT);
+            // auto availableCubeCoreQueue = new coreQueue_t(AIC_CORE_COUNT);
+            // curDevTask_->availableVectorCoreQueue = (uint64_t) availableVectorCoreQueue;
+            // curDevTask_->availableCubeCoreQueue = (uint64_t) availableCubeCoreQueue;
+            // for (uint32_t i = AIC_CORE_COUNT; i < AIC_CORE_COUNT + AIV_CORE_COUNT; i++) availableVectorCoreQueue->push(i);
+            // for (uint32_t i = 0; i < AIC_CORE_COUNT; i++) availableCubeCoreQueue->push(i);
+
+            // // Allocating pairing queue
+            // curDevTask_->runningPairQueue = (uint64_t) new pairQueue_t(TOTAL_CORE_COUNT);
+
+            // Setting task as initialized, allowing others to continue
+            curDevTask_->isTaskInitialized = true;
+        }
+        
+        DEV_ERROR("[AICPU %d] Task Initialized? %s (%p)", aicpuIdx_, curDevTask_->isTaskInitialized ? "True" : "False", curDevTask_);
+
+        // If I am not a lead AICPU scheduler, wait until initialization is ready
+        if (isLeaderScheduler_ == false) while(curDevTask_->isTaskInitialized == false){ /* Busy wait */ };
+
+        // Getting queue pointers
+        availableTaskQueue_                        = (taskQueue_t*)curDevTask_->availableTaskQueue;
+        runningPairQueue_                          = (pairQueue_t*)curDevTask_->runningPairQueue;
+        availableCoreQueue_[(int)MachineType::AIV] = (coreQueue_t*)curDevTask_->availableVectorCoreQueue;
+        availableCoreQueue_[(int)MachineType::AIC] = (coreQueue_t*)curDevTask_->availableCubeCoreQueue;
     }
 
     void CountSendTask(uint64_t &sentAic, uint64_t &sentAiv) {
@@ -1069,6 +1123,8 @@ private:
         // Putting myself as leader, if nobody has done it yet
         uint32_t expectedValue = AICPU_LEAD_SCHEDULER_NULL;
         isLeaderScheduler_ = leadSchedulerId->compare_exchange_strong(expectedValue, (uint32_t)aicpuIdx_);
+
+        DEV_ERROR("[AICPU %d] Am I Lead? %s 0x%X)", aicpuIdx_, isLeaderScheduler_ ? "True" : "False", leadSchedulerId->load());
 
         if (IsNeedProcAicpuTask()) {
             aicpuTaskManager_.InitDeviceArgs(deviceArgs);

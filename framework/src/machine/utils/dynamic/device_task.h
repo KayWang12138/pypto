@@ -120,6 +120,7 @@ struct DeviceTaskCtrl {
     int taskType{0};
     uint64_t taskId{0};
     DeviceTask *devTask{nullptr};
+    std::atomic<uint64_t> issuedTaskCount{0};
     uint64_t initAicFuncNum{0};
     uint64_t initAivFuncNum{0};
     uint64_t finishedAicFunctionCnt{0}; // 所有aicpu处理完成的aic function个数，多线程增加修改
