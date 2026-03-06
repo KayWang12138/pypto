@@ -87,7 +87,7 @@ void DeviceAgentTask::UpdateCompileInfo() {
             } else {
                 tensorsIdx.emplace_back(elm.opOriginArgsSeq);
             }
-            MACHINE_LOGD("offset %lu  opOriginArgsSeq %zu.\n", elm.offset, elm.opOriginArgsSeq);
+            MACHINE_LOGD("offset %lu  opOriginArgsSeq %d.\n", elm.offset, elm.opOriginArgsSeq);
             coreTensorInfoVec.emplace_back(tensorInfo);
         }
         this->compileInfo.invokeArgsOffset.emplace_back(argsOffset);

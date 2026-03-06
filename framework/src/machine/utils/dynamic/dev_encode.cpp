@@ -90,8 +90,8 @@ void DevAscendFunction::InitOperationDynamicField(
     duppedDataCopySize_ = sizeof(DevAscendFunctionDuppedData) + predCountListDataSize;
     duppedData_.HostInitDataSizeOffset(initOffset, duppedDataAllocSize_);
     predInfo_ = predInfo;
-    MACHINE_LOGI("Pred: zero= %llu aiv= %llu aic= %llu hub= %llu aicpu=%llu",
-        predInfo.totalZeroPred, predInfo.totalZeroPredAIV, predInfo.totalZeroPredAIC, predInfo.totalZeroPredHub, predInfo.totalZeroPredAicpu);
+    MACHINE_LOGI("Pred: zero= %lu aiv= %lu aic= %lu hub= %lu aicpu=%lu",
+        static_cast<unsigned long>(predInfo.totalZeroPred), static_cast<unsigned long>(predInfo.totalZeroPredAIV), static_cast<unsigned long>(predInfo.totalZeroPredAIC), static_cast<unsigned long>(predInfo.totalZeroPredHub), static_cast<unsigned long>(predInfo.totalZeroPredAicpu));
 
     ONFILLCONTENT {
         DevAscendFunctionDuppedData *dupData = reinterpret_cast<DevAscendFunctionDuppedData *>(&At(duppedData_, 0));
@@ -1009,7 +1009,7 @@ struct EncodeDevAscendFunctionInfo {
                 } else {
                     useList.emplace_back(i, j, coaIndex, coaIndex + dimSize);
                 }
-                MACHINE_LOGD("Outcast oOperandIdx for outcast %d %d is %d", o->magic, o->GetRawMagic(), j);
+                MACHINE_LOGD("Outcast oOperandIdx for outcast %d %d is %zu", o->magic, o->GetRawMagic(), j);
                 outcastUseOpSet.insert(i);
                 auto expr = callAttr->GetOutcastSymbolicExpr(j);
                 outcastOpAttr.bindTensorExprIndex = -1;
@@ -1028,7 +1028,7 @@ struct EncodeDevAscendFunctionInfo {
                     UNUSED(offsetAttrIdx);
                     auto shape = callAttr->GetLinearImmediateArgList(shapeAttrIdx, shapeAttrIdx + dimSize, false);
                     UpdateCellMatchShape(outcastOpAttr.cellMatchTableDesc, shape);
-                    MACHINE_LOGD("minimal shape for outcast %d raw %d op %d %d is %s\n", o->magic, o->GetRawMagic(), i,
+                    MACHINE_LOGD("minimal shape for outcast %d raw %d op %zu %d is %s\n", o->magic, o->GetRawMagic(), i,
                         op.GetOpMagic(), IntVecToStr(ShapeToVector(outcastOpAttr.cellMatchTableDesc.cellShape)).c_str());
                 }
             }
@@ -1124,7 +1124,7 @@ struct EncodeDevAscendFunctionInfo {
                         }
                         incastOpAttr.useList.emplace_back(j, k, coaIndex, coaIndex + dimSize);
                         UpdateCellMatchShape(incastOpAttr.cellMatchTableDesc, shape);
-                        MACHINE_LOGD("minimal shape for incast %d raw %d op %d %d is %s\n", index->magic, index->GetRawMagic(), j,
+                        MACHINE_LOGD("minimal shape for incast %d raw %d op %zu %d is %s\n", index->magic, index->GetRawMagic(), j,
                             op.GetOpMagic(), IntVecToStr(ShapeToVector(incastOpAttr.cellMatchTableDesc.cellShape)).c_str());
                         incastUseOpSet.insert(j);
                     }
@@ -1224,7 +1224,7 @@ struct EncodeDevAscendFunctionInfo {
     void PrintColorGraph(int colorNum) {
         MACHINE_LOGI("*********** Call OP Graph ***********\n");
         for (int index = 0; index < colorNum; index++) {
-            MACHINE_LOGI("%zu: %zu", index, colorOutGraph[index].size());
+            MACHINE_LOGI("%d: %zu", index, colorOutGraph[index].size());
             MACHINE_LOGI("%s", IntVecToStr(colorOutGraph[index]).c_str());
         }
         int outCount = 0;
@@ -2296,7 +2296,7 @@ static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram *devProg) {
         MACHINE_LOGD("requiredSlabNum[%d] is %u", i, requiredSlabNum);
         generalMetadataSlabSize += static_cast<uint64_t>(requiredSlabNum) * slabSize;
     }
-    MACHINE_LOGD("generalMetadataSlabSize is %u", generalMetadataSlabSize);
+    MACHINE_LOGD("generalMetadataSlabSize is %lu", static_cast<unsigned long>(generalMetadataSlabSize));
     generalMetadataSlabSize = (generalMetadataSlabSize < GENERAL_METADATA_SIZE_MIN) ? GENERAL_METADATA_SIZE_MIN : generalMetadataSlabSize;
     return generalMetadataSlabSize;
 }
