@@ -526,7 +526,6 @@ void TestMlaProlog(std::vector<int> &params) {
 }
 
 TEST_F(GraphTest, test_attention_bf16_4_1024_1024_32_256) {  // b_n_s_s2_h_q_lora_rank
-    config::SetPassOption(VEC_NBUFFER_MODE, 2);
     config::SetPassOption(VEC_NBUFFER_SETTING, std::map<int64_t, int64_t>{{-1, 2}});
     int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
     int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);

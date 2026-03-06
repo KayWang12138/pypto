@@ -342,7 +342,6 @@ void LightningIndexerImpl(const Tensor &idxQuery, const Tensor &idxQueryScale, c
     config::SetPassOption("mg_copyin_upper_bound", configs.mgCopyInUpperBound);
     config::SetPassOption("pg_upper_bound", configs.pgUpperBound);
     // vector graph fuse optimization
-    config::SetPassOption("vec_nbuffer_mode", configs.vecMergeMode);
     config::SetPassOption("vec_nbuffer_setting", configs.vecNBufferSetting);
     // cube graph fuse optimization
     config::SetPassOption("cube_l1_reuse_setting", configs.cubeL1ReuseSetting);

@@ -102,22 +102,27 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_COPY_UB_TO_UB, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_ROWMAXLINE, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_ROWMINLINE, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_ROWPRODLINE, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_ABS, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_LN, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_BRCB, [this]() { return GenUnaryOp(); }},
 
           // unary with temp buffer
           {Opcode::OP_COMPACT, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_EXP2, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_EXPM1, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROUND, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWSUMLINE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWSUM_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWMAX_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWMIN_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ISFINITE, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_ROWPROD_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_TRANSPOSE_VNCHWCONV, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_SIGN, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_SIGNBIT, [this]() { return GenUnaryOpWithTmpBuff(); }},
       }),
       binaryOps_({
           // binary op: vector operations
@@ -125,13 +130,16 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_SUB, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_MUL, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_DIV, [this]() { return GenBinaryOp(); }},
+          {Opcode::OP_REM, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_MAXIMUM, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_MINIMUM, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_PAIRSUM, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_PAIRMAX, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_PAIRMIN, [this]() { return GenBinaryOp(); }},
+          {Opcode::OP_PAIRPROD, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_BITWISEAND, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_BITWISEOR, [this]() { return GenBinaryOp(); }},
+          {Opcode::OP_EXPANDEXPDIF, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_GCD, [this]() { return GenBinaryOp(); }},
 
           // binary op: vector operations with tmp
@@ -141,6 +149,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_BITWISELEFTSHIFT, [this]() { return GenBinaryOpWithTmp(); }},
           {Opcode::OP_BITWISEXOR, [this]() { return GenBinaryOpWithTmp(); }},
           {Opcode::OP_COPYSIGN, [this]() { return GenBinaryOpWithTmp(); }},
+          {Opcode::OP_PRELU, [this]() { return GenPreluOp(); }},
 
           // binary op: broadcast associated vector
           {Opcode::OP_ADD_BRC, [this]() { return GenBinaryWithBrc(); }},
@@ -156,8 +165,10 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_SUBS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_MULS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_DIVS, [this]() { return GenVectorScalarOp(); }},
+          {Opcode::OP_REMS, [this]() { return GenRemainderSOp(); }},         
           {Opcode::OP_MAXS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_MINS, [this]() { return GenVectorScalarOp(); }},
+          {Opcode::OP_LRELU, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_BITWISEANDS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_BITWISEORS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_BITWISERIGHTSHIFTS, [this]() { return GenVectorScalarOp(); }},
@@ -166,6 +177,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
 
           // binary op: vector scalar with tmp
           {Opcode::OP_MODS, [this]() { return GenVectorScalarOp(); }},
+          {Opcode::OP_REMRS, [this]() { return GenRemainderRSOp(); }}, 
           {Opcode::OP_SBITWISERIGHTSHIFT, [this]() { return GenVectorScalarOpWithTmp(); }},
           {Opcode::OP_SBITWISELEFTSHIFT, [this]() { return GenVectorScalarOpWithTmp(); }},
           {Opcode::OP_BITWISEXORS, [this]() { return GenVectorScalarOpWithTmp(); }},
@@ -274,6 +286,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_GATHER_ELEMENT, [this]() { return GenGatherElementOp(); }},
           {Opcode::OP_SCATTER_ELEMENT, [this]() { return GenScatterElementSOp(); }},
           {Opcode::OP_SCATTER, [this]() { return GenScatterOp(); }},
+          {Opcode::OP_GATHER_MASK, [this]() { return GenGatherMaskOp(); }},
       }),
       normalVecOps_({
           // vector dup
@@ -573,24 +586,6 @@ TileTensor CodeGenOpCloudNPU::BuildTileTensor(
     tileTensor.localBufOffset = offset[paramIdx];
 
     return tileTensor;
-}
-
-void CodeGenOpCloudNPU::UpdateSaturateStatus(FloatSaturateStatus &fs) {
-    auto checkValue = [&](float value) {
-        fs.hasNan |= std::isnan(value);
-        fs.hasInf |= std::isinf(value);
-    };
-
-    if (extOperandVal.IsFloat()) {
-        float value = extOperandVal.Cast<float>();
-        checkValue(value);
-    }
-    for (const auto &scalar : extScalarVec) {
-        if (scalar.IsFloat()) {
-            float value = scalar.Cast<float>();
-            checkValue(value);
-        }
-    }
 }
 
 void CodeGenOpCloudNPU::UpdateTileTensorInfo() {
