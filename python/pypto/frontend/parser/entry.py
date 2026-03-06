@@ -28,6 +28,7 @@ from pypto.cost_model import _cost_model_run_once_data_from_host
 from pypto.frontend.parser.diagnostics import Source
 from pypto.frontend.parser.parser import NestedFunctionMarker, Parser
 from pypto.runtime import _pto_verify_datas
+from pypto._utils import BuildOnlineManager
 
 
 def _default_globals() -> dict[str, Any]:
@@ -832,7 +833,7 @@ class JitCallableWrapper:
                 captured_locals_hash = make_hashable(filtered_locals)
             else:
                 captured_locals_hash = None
-                
+
             non_tensor_hash = make_hashable(non_tensor_values) if non_tensor_values else None
 
             return (source_code, options_hash, captured_locals_hash, non_tensor_hash)
@@ -945,6 +946,9 @@ class JitCallableWrapper:
             and self._verify_options.get("enable_pass_verify")
         ):
             return
+        # Compile and load calculator
+        mgr = BuildOnlineManager()
+        mgr.build_and_load_calculator()
 
         # Copy NPU Tensor to CPU, then convert to pypto.Tensor for constructing DeviceTensorData
 
