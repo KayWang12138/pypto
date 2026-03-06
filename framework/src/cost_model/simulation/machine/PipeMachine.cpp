@@ -185,7 +185,7 @@ void PipeMachine::ReceivePacket()
     tile = packet.tileopTask.tile;
     tileOp = packet.tileopTask.tileOp;
     executingTaskId = packet.taskId;
-    SIMULATION_LOGI("[Cycle: %llu][PipeMachine: %llu][ReceivePacket] get task %llu magic %d", 
+    SIMULATION_LOGI("[Cycle: %lu][PipeMachine: %zu][ReceivePacket] get task %lu magic %d", 
             GetSim()->GetCycles(), machineId, packet.taskId, packet.tileopTask.magic);
     SetMachineExecuting(true);
     LoggerRecordPipeWL(pipeId, CounterType::QUEUE_PUSH);
@@ -199,7 +199,7 @@ void PipeMachine::ReceiveL2Packet()
     CachePacket packet;
     cacheRespQueue.Dequeue(packet);
     // Process Packet
-    SIMULATION_LOGI("[Cycle: %llu][PipeMachine: %llu][ReceiveL2Resp] %llu", GetSim()->GetCycles(), machineId, packet.pid);
+    SIMULATION_LOGI("[Cycle: %lu][PipeMachine: %zu][ReceiveL2Resp] %lu", GetSim()->GetCycles(), machineId, packet.pid);
 
     waitL2CacheResponse = false;
     nextCycles = GetSim()->GetCycles() + 1;
@@ -219,7 +219,7 @@ void PipeMachine::SendCachePacket(bool read)
     auto l2Cache = std::dynamic_pointer_cast<CacheMachine>(l2cacheMachine);
     l2Cache->RequestData(packet);
     waitL2CacheResponse = true;
-    SIMULATION_LOGI("[Cycle: %llu][PipeMachine: %llu][SendL2Request] %s", GetSim()->GetCycles(), machineId, packet.Dump().c_str());
+    SIMULATION_LOGI("[Cycle: %lu][PipeMachine: %zu][SendL2Request] %s", GetSim()->GetCycles(), machineId, packet.Dump().c_str());
 }
 
 void PipeMachine::ProcessTileOp()
@@ -232,7 +232,7 @@ void PipeMachine::ProcessTileOp()
     uint64_t latency = 0;
     if (tileOp != nullptr) {
         latency = pipeImpl->PostSimulate(tileOp);
-        SIMULATION_LOGI("[task: %llu][op: %s] latency: %llu", tileOp->taskId, tileOp->opcode.c_str(), latency);
+        SIMULATION_LOGI("[task: %lu][op: %s] latency: %lu", tileOp->taskId, tileOp->opcode.c_str(), latency);
         if (sim->config.calendarMode != static_cast<uint64_t>(CalendarMode::DEVICE)) {
             // For calendar schuedule fluctuate
             float basePercent = 100.0;
@@ -261,7 +261,7 @@ void PipeMachine::ProcessTileOp()
         tile->exeInfo.cycleInfo.executeStartCycle = GetSim()->GetCycles();
         magic = tile->magic;
     }
-    SIMULATION_LOGI("[Cycle: %llu][PipeMachine: %llu] latency: %llu", GetSim()->GetCycles(), machineId, latency);
+    SIMULATION_LOGI("[Cycle: %lu][PipeMachine: %zu] latency: %lu", GetSim()->GetCycles(), machineId, latency);
     nextCycles = GetSim()->GetCycles() + latency;
     GetSim()->UpdateNextCycles(GetSim()->GetCycles() + latency);
     retireCycle = GetSim()->GetCycles() + latency;
@@ -269,7 +269,7 @@ void PipeMachine::ProcessTileOp()
 
 void PipeMachine::PushCompletion(int taskId, int curMagic)
 {
-    SIMULATION_LOGI("[Cycle: %llu][PipeMachine: %llu][PushCompletion] push task %llu magic %d  in completion queue.", GetSim()->GetCycles(), taskId, magic);
+    SIMULATION_LOGI("[Cycle: %lu][PipeMachine: %zu][PushCompletion] push task %d magic %d  in completion queue.", GetSim()->GetCycles(), machineId, taskId, magic);
     CompletedPacket packet;
     packet.taskId = taskId;
     packet.currentType = machineType;

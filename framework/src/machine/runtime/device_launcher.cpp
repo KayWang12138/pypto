@@ -45,7 +45,7 @@ int GetCfgBlockdim() {
     // 如果未进行控核，GetMaxBlockdim接口将通过aclrtGetResInCurrentThread函数返回硬件物理最大核数
     auto maxBlk = GetMaxBlockdim();
     blk = maxBlk < static_cast<int>(blk) ? maxBlk : blk;
-    MACHINE_LOGD("Get blockdim[%d].", blk);
+    MACHINE_LOGD("Get blockdim[%zu].", blk);
     return blk;
 #else
     return kMinDefaultDim;
