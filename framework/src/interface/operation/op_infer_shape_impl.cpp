@@ -939,6 +939,32 @@ REGISTER_INFER_SHAPE_FUNC(OP_TRANSPOSE_VNCHWCONV, Opcode::OP_TRANSPOSE_VNCHWCONV
 REGISTER_INFER_SHAPE_FUNC(OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEIN, TransposeInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_TRANSPOSE_MOVEOUT, Opcode::OP_TRANSPOSE_MOVEOUT, TransposeInferFunc);
 
+void PermuteInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
+ 	     std::vector<std::vector<SymbolicScalar>> inputValidShapes;
+ 	     for (auto inputTensor : op->GetIOperands()) {
+ 	         inputValidShapes.push_back(inputTensor->GetDynValidShape());
+ 	     }
+ 	     if (inputValidShapes.empty()) {
+ 	         return;
+ 	     }
+ 	 
+ 	     auto dims = op->GetVectorIntAttribute<int>(OP_ATTR_PREFIX + " " + "dims");
+ 	     auto &inputShape = inputValidShapes[0];
+ 	     std::vector<SymbolicScalar> outputShape;
+ 	 
+ 	     for (size_t i = 0; i < dims.size(); ++i) {
+ 	         int dim = dims[i];
+ 	         if (dim < 0) {
+ 	             dim = dim + inputShape.size();
+ 	         }
+ 	         outputShape.push_back(inputShape[dim]);
+ 	     }
+ 	 
+ 	     outValidShapes.push_back(outputShape);
+ 	 }
+
+REGISTER_INFER_SHAPE_FUNC(OP_PERMUTE, Opcode::OP_PERMUTE, PermuteInferFunc);
+
 void ViewInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     auto viewOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(op->GetOpAttribute());
     if (viewOpAttribute == nullptr) {

@@ -112,6 +112,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_BRCB, [this]() { return GenUnaryOp(); }},
 
           // unary with temp buffer
+          {Opcode::OP_PERMUTE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_COMPACT, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_EXP2, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_EXPM1, [this]() { return GenUnaryOpWithTmpBuff(); }},
