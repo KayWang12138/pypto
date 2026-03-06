@@ -11,20 +11,10 @@ description: PyPTO Pass 模块分析技能。用于分析 PyPTO pass 文档中�
 
 ## 功能
 
-- 解析 pass 文档中的模块介绍章节
-- 在 framework/src/passes 中查找对应源代码
-- 结合文档和代码生成综合分析
+- 解析输入文档中的pass模块相关资料（如果有的话）
+- 在项目中 framework/src/passes 中查找对应源代码
+- 结合文档和代码生成综合分析 （如果没有资料输入，直接分析代码）
 （按照 Pass_Analysis_Template.md 模板格式输出）
-- 提取模块的关键信息：
-  - Pass 概述（名称、类型、阶段、位置）
-  - 业务功能（主要功能、处理流程、关键函数逻辑）
-  - 在编译流程中的位置（Pass 顺序、依赖关系）
-  - 业务价值（适用场景）
-  - 架构特定行为
-  - 注意事项（包括 OPCode 特判分析）
-  - 典型应用场景
-  - - 总结
-  - 相关文件
 
 ## 触发机制
 
@@ -51,7 +41,23 @@ description: PyPTO Pass 模块分析技能。用于分析 PyPTO pass 文档中�
 
 当需要理解 PyPTO pass 中某个模块的功能和设计时使用此技能。
 
+## 输出文件命名规则
+
+根据 pass 在 PVC2_OOO 策略中的位置，输出文件命名规则如下：
+
+**PVC2_OOO 策略中的 pass**：
+- 查询路径：`framework/src/passes/pass_mgr/pass_manager.cpp` 中的 `RegDefaultStrategy()` 函数
+- 命名格式：`{序号}_{PASS名称}.md`，序号使用两位数字，从 00 开始
+- 例如：00_REMOVE_REDUNDANT_RESHAPE.md, 01_AUTO_CAST.md, ..., 41_CODEGEN_PREPROC.md
+
+**不在 PVC2_OOO 策略中的 pass**：
+- 统一以 `99_` 开头
+- 命名格式：`99_{PASS名称}.md`
+- 例如：99_DYN_ATTR_TO_STATIC.md
+
 ## 工作流程
+
+按照输入场景分类，并按照场景下序号依次执行步骤
 
 ### 场景1：指定输入文档时
 
@@ -59,6 +65,7 @@ description: PyPTO Pass 模块分析技能。用于分析 PyPTO pass 文档中�
 2. 总结文档内容
 3. 在项目中 framework/src/passes 中查找对应代码
 4. 结合代码分析模块实现
+   - 注意核心函数的输入输出，并在`关键函数的核心逻辑`章节补充
 5. **特别关注 OPCode 特判分析**：
    - 搜索代码中所有 `GetOpcode()`、`GetOpCode()` 相关的判断
    - 搜索 `Opcode::OP_` 相关的常量使用
@@ -68,6 +75,7 @@ description: PyPTO Pass 模块分析技能。用于分析 PyPTO pass 文档中�
    - **详细记录视图类 OPCode 的特殊处理逻辑**
    - 将这些特判场景整理到输出文档的"注意事项"模块中
 6. 按照 Pass_Analysis_Template.md 格式生成综合文档
+7. **根据输出文件命名规则，将文档保存为对应的 .md 文件**
 
 ### 场景2：未指定文档时
 
@@ -76,6 +84,7 @@ description: PyPTO Pass 模块分析技能。用于分析 PyPTO pass 文档中�
     - 搜索 pass_manager.cpp 中 PassName 保存的所有pass，询问用户想要分析哪个pass，不要分批展示
     - 根据pass_manager.cpp中的注册信息，在 framework/src/passes 中查找用户选择的pass的代码
     - 分析代码并生成文档
+       - 注意核心函数的输入输出，并在`关键函数的核心逻辑`章节补充
     - **特别关注 OPCode 特判分析**：
       - 搜索代码中所有 `GetOpcode()`、`GetOpCode()` 相关的判断
       - 搜索 `Opcode::OP_` 相关的常量使用
@@ -85,10 +94,12 @@ description: PyPTO Pass 模块分析技能。用于分析 PyPTO pass 文档中�
       - **详细记录视图类 OPCode 的特殊处理逻辑**
       - 将这些特判场景整理到输出文档的"注意事项"模块中
     - 按照 Pass_Analysis_Template.md 格式生成综合文档
+    - **根据输出文件命名规则，将文档保存为对应的 .md 文件**
 3. 查找全部：
     - 搜索 pass_manager.cpp 中 PassName 保存的所有pass
     - 根据pass_manager.cpp中的注册信息，依次遍历每个pass的代码
     - 对每个pass分析代码并生成总结文档
+       - 注意核心函数的输入输出，并在`关键函数的核心逻辑`章节补充
     - **特别关注 OPCode 特判分析**：
       - 搜索代码中所有 `GetOpcode()`、`GetOpCode()` 相关的判断
       - 搜索 `Opcode::OP_` 相关的常量使用
@@ -178,14 +189,11 @@ description: PyPTO Pass 模块分析技能。用于分析 PyPTO pass 文档中�
      - PostCheck 阶段
      - 关键函数的核心逻辑
      - Pass 业务核心逻辑图
-3. 在编译流程中的位置
-   - Pass 顺序
-   - 依赖关系
-4. 业务价值
+3. 业务价值
    - 适用场景
-5. 架构特定行为
-6. 注意事项（包含 OPCode 特判分析）
-7. 典型应用场景
-8. 总结
-9. 相关文件
-10. 附录
+4. 架构特定行为
+5. 注意事项（包含 OPCode 特判分析）
+6. 典型应用场景
+7. 总结
+8. 相关文件
+9. 附录
