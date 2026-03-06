@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
 """从 openlibing.com CodeCheck 页面提取违规项。"""
 
 from __future__ import annotations
@@ -7,9 +8,11 @@ import argparse
 import json
 import logging
 import re
-import sys
 import time
 from dataclasses import dataclass
+
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 VIOLATION_RE = re.compile(r"文件路径:([^\n:]+):(\d+)\s*问题描述[：:]([^\n]+)\s*规则[：:]([^\n]+)")
 
@@ -64,8 +67,8 @@ def extract_violations_with_playwright(url: str) -> list[Violation]:
         browser = playwright.chromium.launch(headless=True)
         try:
             page = browser.new_page()
-            _ = page.goto(url, wait_until="networkidle", timeout=60000)
-            page.wait_for_timeout(3000)
+            _ = page.goto(url, wait_until="domcontentloaded", timeout=90000)
+            page.wait_for_timeout(8000)
 
             _ = page.evaluate(
                 """
@@ -99,8 +102,8 @@ def extract_violations_with_playwright(url: str) -> list[Violation]:
                 if largest_opt is not None:
                     largest_opt.click()
                     page.wait_for_timeout(2000)
-            except Exception:
-                pass
+            except Exception as exc:
+                logging.debug("pagination size expand skipped: %s", exc)
 
             body_text = page.inner_text("body")
             return parse_violations_from_text(body_text)
@@ -112,14 +115,14 @@ def extract_with_retry(url: str, max_retries: int = 3) -> list[Violation]:
     last_error: Exception | None = None
     for attempt in range(1, max_retries + 1):
         try:
-            logging.info(f"Attempt {attempt}/{max_retries}...", file=sys.stderr)
+            logging.info(f"Attempt {attempt}/{max_retries}...")
             return extract_violations_with_playwright(url)
         except Exception as exc:  # noqa: PERF203
             last_error = exc
             if attempt < max_retries:
                 wait_s = 2 ** (attempt - 1)
-                logging.info(f"  Failed: {exc}", file=sys.stderr)
-                logging.info(f"  Waiting {wait_s}s before retry...", file=sys.stderr)
+                logging.warning(f"  Failed: {exc}")
+                logging.info(f"  Waiting {wait_s}s before retry...")
                 time.sleep(wait_s)
 
     raise RuntimeError(f"Failed after {max_retries} attempts: {last_error}")
@@ -176,7 +179,7 @@ def main() -> int:
 
         return 0
     except Exception as exc:
-        logging.info(f"Error: {exc}", file=sys.stderr)
+        logging.error(f"Error: {exc}")
         return 1
 
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
 
 from __future__ import annotations
 
@@ -51,7 +52,7 @@ class RuleRow(TypedDict, total=False):
 
 
 def eprint(msg: str) -> None:
-    logging.info(msg, file=sys.stderr)
+    logging.error(msg)
 
 
 def normalize_rule_id(value: str) -> str:
