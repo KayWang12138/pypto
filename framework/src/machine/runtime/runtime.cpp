@@ -60,7 +60,7 @@ int RuntimeAgentMemory::GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<
         valid = 0xFFFFFFFF;
         validGetPgMask = false;
     }
-    MACHINE_LOGI("The valid cores are: %ld.", valid);
+    MACHINE_LOGI("The valid cores are: %lu.", valid);
     uint64_t coreStride = 8 * 1024 * 1024; // 8M
     uint64_t subCoreStride = 0x100000ULL;
 
