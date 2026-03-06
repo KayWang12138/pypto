@@ -2280,6 +2280,8 @@ static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram *devProg) {
         DIE_READY_QUEUE_SIZE * DIE_NUM, // DieReadyQue
         1,
         1,
+        1,
+        1,
     };
     workspace.CalculateSlabCapacityPerType(slabSize, slabCapacity,
     ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT));
