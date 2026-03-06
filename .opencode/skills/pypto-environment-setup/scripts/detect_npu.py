@@ -19,6 +19,7 @@ SoC 版本映射数据来源：
 """
 from __future__ import annotations
 
+import argparse
 import ctypes
 import glob
 import json
@@ -27,11 +28,9 @@ import os
 import re
 import subprocess
 import sys
-import argparse
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Optional
-
 
 logging.basicConfig(level=logging.INFO)
 
@@ -83,11 +82,13 @@ CHIP_FAMILIES: list[tuple[str, str, str, str]] = [
 
 # Known Huawei PCI device IDs -> (generation, chip family prefix)
 KNOWN_PCI_DEVICE_IDS: dict[str, tuple[str, str]] = {
+    "0xd802": ("A2", "Ascend910B"),
+    "0xd803": ("A3", "Ascend910_93"),
+}
 
 
 # ---------------------------------------------------------------------------
 # Data Classes
-# ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 
 @dataclass
