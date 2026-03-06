@@ -65,10 +65,20 @@ static std::vector<SymbolicScalar> ToDynShape(const std::string &tname, const Sh
 }
 
 void CheckShapeValid(DataType &dataType, const Shape &shape, TileOpFormat &format) {
-    if (format == TileOpFormat::TILEOP_NZ && shape.back() != -1) {
-        ASSERT(shape.back() * BytesOf(dataType) % ALIGN_SIZE_32 == 0)
+    if (shape.empty() || shape.back() == -1) {
+        return;
+    }
+    bool isB4 = dataType == DataType::DT_FP4_E2M1X2 || dataType == DataType::DT_FP4_E1M2X2;
+    if (format == TileOpFormat::TILEOP_NZ) {
+        size_t alignSize = isB4 ? ALIGN_SIZE_64 : ALIGN_SIZE_32;
+        ASSERT(shape.back() * BytesOf(dataType) % alignSize == 0)
             << "Current inner axis: " << shape.back() << ", when input "
-            << "is NZ format, inner axis shape must be 32-byte aligned\n";
+            << "is NZ format, inner axis shape must be 32-byte aligned(4bit dtype must be aligned to 64)\n";
+    }
+    if (format == TileOpFormat::TILEOP_ND && isB4) {
+        ASSERT((shape.back() & 1) == 0)
+            << "Current inner axis: " << shape.back() << ", when input "
+            << "is ND format and 4bit dtype, inner axis must be even number\n";
     }
 }
 
