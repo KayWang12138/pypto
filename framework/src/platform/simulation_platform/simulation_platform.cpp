@@ -18,7 +18,6 @@
 #include <dlfcn.h>
 #include "simulation_platform.h"
 
-#define PATH_MAX 4096
 namespace npu {
 namespace tile_fwk {
 const std::string PLATFORM_INFO_RELATIVE_PATH = "/configs/A2A3.ini";
