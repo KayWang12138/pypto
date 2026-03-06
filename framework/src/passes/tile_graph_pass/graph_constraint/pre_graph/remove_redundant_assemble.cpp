@@ -149,8 +149,8 @@ void RemoveRedundantAssemble::UpdateReshapeShape(Operation &reshapeOp, const Sha
 
 Status RemoveRedundantAssemble::ProcessView(Function &function) const {
     std::vector<std::pair<Operation *, Operation *>> multiReshapeVector;
-    if (DuplicateReshape(function, multiReshapeVector) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "DuplicateReshape failed.");
+    if (SplitMultiConsumerReshape(function, multiReshapeVector) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "SplitMultiConsumerReshape failed.");
         return FAILED;
     }
     if (RemoveViewMultiReshape(multiReshapeVector) != SUCCESS) {
@@ -262,7 +262,7 @@ RESHAPE -> VIEW -> RESHAPE
 RESHAPE -> COPYIN
         -> COPYIN
 */
-Status RemoveRedundantAssemble::DuplicateReshape(
+Status RemoveRedundantAssemble::SplitMultiConsumerReshape(
     Function &function, std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const {
     for (auto op : function.Operations().DuplicatedOpList()) {
         if (op->GetOpcode() != Opcode::OP_RESHAPE) {
@@ -350,7 +350,7 @@ input --> RESHAPE2 -> XXX
 
 */
 Status RemoveRedundantAssemble::RemoveViewMultiReshape(
-    std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const {
+    const std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const {
     for (auto pair : multiReshapeVector) {
         auto firstReshape = pair.first;
         auto viewOp = pair.second;
