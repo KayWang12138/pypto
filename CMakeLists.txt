@@ -90,7 +90,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
     set(InstallTargets
             tile_fwk_utils
             tile_fwk_cann_host_runtime
- 	    tile_fwk_platform
+            tile_fwk_platform
             tile_fwk_interface
             tile_fwk_codegen
             tile_fwk_compiler
