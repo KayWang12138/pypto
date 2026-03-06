@@ -26,7 +26,8 @@ public:
     static void SetUpTestCase() {}
     static void TearDownTestCase() {}
     void SetUp() override {
-        std::string src = GetCurRunningPath() + "/../../../framework/tests/ut/machine/stubs/compiler/data/platform_config/Ascend910_9572.ini";
+        std::string src = GetCurRunningPath() +
+                          "/../../../framework/tests/ut/machine/stubs/compiler/data/platform_config/Ascend910_9572.ini";
         std::string dst = RealPath(GetCurrentSharedLibPath() + "/configs") + "/Soc_version.ini";
         std::string command = "cp " + src + " " + dst;
         ASSERT(std::system(command.c_str()) == 0) << "Failed to copy config file: " << command;
@@ -34,42 +35,36 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestINIParser, TestParser) {
-    const std::string archInfo = "ArchInfo";
+void TestParse() {
     const std::string version = "version";
     const std::string socInfo = "SoCInfo";
     const std::string aiCoreSpec = "AICoreSpec";
     const std::string shortSocVer = "Short_SoC_version";
-    const std::string aiCoreCnt = "ai_core_cnt";
-    const std::string cubeCoreCnt = "cube_core_cnt";
-    const std::string vectorCoreCnt = "vector_core_cnt";
-    const std::string aiCpuCnt = "ai_cpu_cnt";
-    const std::string l0aSize = "l0_a_size";
-    const std::string l0bSize = "l0_b_size";
-    const std::string l0cSize = "l0_c_size";
-    const std::string l1Size = "l1_size";
-    const std::string ubSize = "ub_size";
-    const size_t expectAICoreCnt = 28UL;
-    const size_t expectCubeCoreCnt = 28UL;
-    const size_t expectVectorCoreCnt = 56UL;
-    const size_t expectAICpuCnt = 6UL;
-    const size_t expectl0aSize = 65536UL;
-    const size_t expectl0bSize = 65536UL;
-    const size_t expectl0cSize = 262144UL;
-    const size_t expectl1Size = 524288UL;
-    const size_t expectubSize = 253952UL;
 
+    struct SizeTest {
+        const std::string section;
+        const std::string key;
+        const size_t expected;
+    };
+    const std::vector<SizeTest> coreTests = {
+        {socInfo,     "ai_core_cnt", 28UL},
+        {socInfo,   "cube_core_cnt", 28UL},
+        {socInfo, "vector_core_cnt", 56UL},
+        {socInfo,      "ai_cpu_cnt",  6UL}
+    };
+    const std::vector<SizeTest> memoryTests = {
+        {aiCoreSpec, "l0_a_size",  65536UL},
+        {aiCoreSpec, "l0_b_size",  65536UL},
+        {aiCoreSpec, "l0_c_size", 262144UL},
+        {aiCoreSpec,   "l1_size", 524288UL},
+        {aiCoreSpec,   "ub_size", 253952UL}
+    };
     INIParser parser;
     std::string iniPath = RealPath(GetCurrentSharedLibPath() + "/configs/Soc_version.ini");
     EXPECT_EQ(parser.Initialize(iniPath), SUCCESS);
-
     std::string socVersion;
     EXPECT_EQ(parser.GetStringVal(version, shortSocVer, socVersion), SUCCESS);
     EXPECT_EQ(socVersion, "Ascend910_95");
-
-    // std::string archVal;
-    // EXPECT_EQ(parser.GetStringVal(version, archInfo, socVersion), FAILED);
-
     std::unordered_map<std::string, std::string> ccecVersion;
     EXPECT_EQ(parser.GetCCECVersion(ccecVersion), SUCCESS);
     EXPECT_NE(ccecVersion.find("AIC"), ccecVersion.end());
@@ -78,29 +73,46 @@ TEST_F(TestINIParser, TestParser) {
     EXPECT_EQ(ccecVersion["AIV"], "dav-c310");
 
     size_t coreNum;
-    EXPECT_EQ(parser.GetSizeVal(socInfo, aiCoreCnt, coreNum), SUCCESS);
-    EXPECT_EQ(coreNum, expectAICoreCnt);
-    EXPECT_EQ(parser.GetSizeVal(socInfo, cubeCoreCnt, coreNum), SUCCESS);
-    EXPECT_EQ(coreNum, expectCubeCoreCnt);
-    EXPECT_EQ(parser.GetSizeVal(socInfo, vectorCoreCnt, coreNum), SUCCESS);
-    EXPECT_EQ(coreNum, expectVectorCoreCnt);
-    EXPECT_EQ(parser.GetSizeVal(socInfo, aiCpuCnt, coreNum), SUCCESS);
-    EXPECT_EQ(coreNum, expectAICpuCnt);
-
+    for (const auto &test : coreTests) {
+        EXPECT_EQ(parser.GetSizeVal(test.section, test.key, coreNum), SUCCESS);
+        EXPECT_EQ(coreNum, test.expected);
+    }
     size_t memoryLimit;
-    EXPECT_EQ(parser.GetSizeVal(aiCoreSpec, l0aSize, memoryLimit), SUCCESS);
-    EXPECT_EQ(memoryLimit, expectl0aSize);
-    EXPECT_EQ(parser.GetSizeVal(aiCoreSpec, l0bSize, memoryLimit), SUCCESS);
-    EXPECT_EQ(memoryLimit, expectl0bSize);
-    EXPECT_EQ(parser.GetSizeVal(aiCoreSpec, l0cSize, memoryLimit), SUCCESS);
-    EXPECT_EQ(memoryLimit, expectl0cSize);
-    EXPECT_EQ(parser.GetSizeVal(aiCoreSpec, l1Size, memoryLimit), SUCCESS);
-    EXPECT_EQ(memoryLimit, expectl1Size);
-    EXPECT_EQ(parser.GetSizeVal(aiCoreSpec, ubSize, memoryLimit), SUCCESS);
-    EXPECT_EQ(memoryLimit, expectubSize);
-
+    for (const auto &test : memoryTests) {
+        EXPECT_EQ(parser.GetSizeVal(test.section, test.key, memoryLimit), SUCCESS);
+        EXPECT_EQ(memoryLimit, test.expected);
+    }
     std::vector<std::vector<std::string>> dataPath;
     EXPECT_EQ(parser.GetDataPath(dataPath), SUCCESS);
+}
+
+void AbnormalTest() {
+    INIParser parser;
+    const std::string version = "version";
+    EXPECT_EQ(parser.Initialize(""), FAILED);
+
+    std::unordered_map<std::string, std::string> ccecVersion;
+    EXPECT_EQ(parser.GetCCECVersion(ccecVersion), FAILED);
+    EXPECT_EQ(parser.GetCoreVersion(ccecVersion), FAILED);
+
+    std::vector<std::vector<std::string>> dataPath;
+    EXPECT_EQ(parser.GetDataPath(dataPath), FAILED);
+
+    std::string iniPath = RealPath(GetCurrentSharedLibPath() + "/configs/Soc_version.ini");
+    EXPECT_EQ(parser.Initialize(iniPath), SUCCESS);
+
+    std::string test;
+    EXPECT_EQ(parser.GetStringVal("none", "", test), FAILED);
+    EXPECT_EQ(parser.GetStringVal(version, "none_other", test), SUCCESS);
+
+    size_t testSize;
+    EXPECT_EQ(parser.GetSizeVal("none", "", testSize), FAILED);
+}
+
+TEST_F(TestINIParser, TestParser) {
+    // 保证两个用例同步 避免多进程共享资源出错
+    TestParse();
+    AbnormalTest();
 }
 
 TEST_F(TestINIParser, TestObtainPlatformInfo) {
@@ -135,28 +147,4 @@ TEST_F(TestINIParser, TestObtainPlatformInfo) {
     std::vector<MemoryType> paths;
     EXPECT_TRUE(Platform::Instance().GetDie().FindNearestPath(MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1, paths));
     EXPECT_EQ(paths.size(), 2UL);
-}
-
-TEST_F(TestINIParser, AbnormalTest) {
-    INIParser parser;
-    const std::string version = "version";
-    EXPECT_EQ(parser.Initialize(""), FAILED);
-
-    std::unordered_map<std::string, std::string> ccecVersion;
-    EXPECT_EQ(parser.GetCCECVersion(ccecVersion), FAILED);
-    EXPECT_EQ(parser.GetCoreVersion(ccecVersion), FAILED);
-
-    std::vector<std::vector<std::string>> dataPath;
-    EXPECT_EQ(parser.GetDataPath(dataPath), FAILED);
-
-    std::string iniPath = RealPath(GetCurrentSharedLibPath() + "/configs/Soc_version.ini");
-    EXPECT_EQ(parser.Initialize(iniPath), SUCCESS);
-
-    std::string test;
-    EXPECT_EQ(parser.GetStringVal("none", "", test), FAILED);
-    EXPECT_EQ(parser.GetStringVal(version, "none_other", test), SUCCESS);
-
-    size_t testSize;
-    EXPECT_EQ(parser.GetSizeVal("none", "", testSize), FAILED);
-
 }
