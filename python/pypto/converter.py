@@ -32,9 +32,10 @@ def _count_calls(func):
     return wrapper
 
 
-def _check_nz_format(tensor):
+def _check_nz_format(tensor, type):
     if tensor.dim() > 0:
-        block_align_bytes = 32
+        is_b4 = type == DataType.DT_FP4_E2M1X2
+        block_align_bytes = 64 if is_b4 else 32
         shape_back = tensor.shape[-1]
         if shape_back != -1 and \
             (shape_back * tensor.element_size()) % block_align_bytes != 0:
@@ -97,6 +98,7 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
     if not tensor.is_contiguous():
         raise RuntimeError("not all tensors are contiguous")
 
+    dtype = _dtype_from(tensor.dtype) if dtype is None else dtype
     if tensor_format is None:
         tensor_format = TileOpFormat.TILEOP_ND
         if tensor.device.type == "npu":
@@ -104,9 +106,8 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
 
             if torch_npu.get_npu_format(tensor) == 29:
                 tensor_format = TileOpFormat.TILEOP_NZ
-                _check_nz_format(tensor)
+                _check_nz_format(tensor, dtype)
 
-    dtype = _dtype_from(tensor.dtype) if dtype is None else dtype
     if tensor.dim() == 0:
         return Tensor(
             shape=tuple([1]),
@@ -148,6 +149,7 @@ _dtype_dict = {
     "torch.float8_e4m3fn": DataType.DT_FP8E4M3,
     "torch.float8_e5m2": DataType.DT_FP8E5M2,
     "torch.float8_e8m0fnu": DataType.DT_FP8E8M0,
+    "torch.float4_e2m1fn_x2": DataType.DT_FP4_E2M1X2,
 }
 
 
@@ -188,6 +190,10 @@ def _torch_dtype_from(dtype: DataType) -> "torch.dtype":
         DataType.DT_INT64: torch.int64,
         DataType.DT_UINT64: torch.uint64,
         DataType.DT_BOOL: torch.bool,
+        DataType.DT_FP8E4M3: torch.float8_e4m3fn,
+        DataType.DT_FP8E5M2: torch.float8_e5m2,
+        DataType.DT_FP8E8M0: torch.float8_e8m0fnu,
+        DataType.DT_FP4_E2M1X2: torch.float4_e2m1fn_x2,
     }
 
     torch_dtype = _torch_dtype_dict.get(dtype)
