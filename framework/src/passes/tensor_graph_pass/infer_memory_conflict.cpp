@@ -102,7 +102,7 @@ bool InferMemoryConflict::CheckConflict(const LogicalTensorPtr &inTensor, const 
 }
 
 bool InferMemoryConflict::CheckRawShapeConflict(
-    const LogicalTensorPtr &inTensor, const LogicalTensorPtr &outTensor, Operation *reshapeOp) {
+    const LogicalTensorPtr &inTensor, const LogicalTensorPtr &outTensor, const Operation *reshapeOp) {
     int64_t inRawSize = 1;
     int64_t outRawSize = 1;
     Shape inShape = inTensor->GetRawTensor()->GetRawShape();
@@ -178,7 +178,15 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
     return true;
 }
 
+/*
+仅支持两种场景
+1. View -> Reshape -> MatMul (MatMul 的输入只有一个，且为当前处理的reshape)
+2. MatMul ->Reshape -> Assemble (MatMul 的输出只有一个，且为当前处理的reshape)
+*/
 bool InferMemoryConflict::MatMulPattern(const LogicalTensorPtr &reshapeIn, const LogicalTensorPtr &reshapeOut) {
+    if (reshapeIn->GetProducers().empty() || reshapeOut->GetConsumers().empty()) {
+        return false;
+    }
     auto producer = *(reshapeIn->GetProducers().begin());
     auto consumer = *(reshapeOut->GetConsumers().begin());
     if (producer == nullptr || consumer == nullptr) {
@@ -202,9 +210,9 @@ bool CheckDynRawShape(Shape shape) {
 
 // batch MatMul优化pattern，不插入register copy
 bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn, const LogicalTensorPtr &reshapeOut) {
-    Shape inShape = reshapeIn->GetRawTensor()->GetRawShape();
-    Shape outShape = reshapeOut->GetRawTensor()->GetRawShape();
-    if (CheckDynRawShape(inShape) || CheckDynRawShape(outShape)) {
+    Shape inRawShape = reshapeIn->GetRawTensor()->GetRawShape();
+    Shape outRawShape = reshapeOut->GetRawTensor()->GetRawShape();
+    if (CheckDynRawShape(inRawShape) || CheckDynRawShape(outRawShape)) {
         return false;
     }
     if (!reshapeIn || !reshapeOut) return false;
