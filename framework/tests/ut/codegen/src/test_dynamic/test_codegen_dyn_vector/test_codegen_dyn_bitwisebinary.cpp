@@ -116,17 +116,17 @@ void TestBitwiseScalarDynBody(const std::vector<int64_t> &shape,
 }
 
 TEST_F(TestCodegenDynBitwiseBinary, BitwiseAndLayout) {
-    const std::string expect = R"(TBitwiseAnd<LastUse3Dim<0, 0, 0>>(ubTensor_0, ubTensor_0, ubTensor_2);)";
+    const std::string expect = R"(TBitwiseAnd<LastUse3Dim<0, 0, 0>>(ubTensor_2, ubTensor_2, ubTensor_0);)";
     TestBitwiseTensorDynBody({32, 32}, {16, 16}, "BitwiseAnd", expect);
 }
 
 TEST_F(TestCodegenDynBitwiseBinary, BitwiseOrLayout) {
-    const std::string expect = R"(TBitwiseOr<LastUse3Dim<0, 0, 0>>(ubTensor_0, ubTensor_0, ubTensor_2);)";
+    const std::string expect = R"(TBitwiseOr<LastUse3Dim<0, 0, 0>>(ubTensor_2, ubTensor_2, ubTensor_0);)";
     TestBitwiseTensorDynBody({32, 32}, {16, 16}, "BitwiseOr", expect);
 }
 
 TEST_F(TestCodegenDynBitwiseBinary, BitwiseXorLayout) {
-    const std::string expect = R"(TBitwiseXor(ubTensor_0, ubTensor_0, ubTensor_2, ubTensor_5);)";
+    const std::string expect = R"(TBitwiseXor(ubTensor_2, ubTensor_2, ubTensor_0, ubTensor_5);)";
     TestBitwiseTensorDynBody({32, 32}, {16, 16}, "BitwiseXor", expect);
 }
 
