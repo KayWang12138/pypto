@@ -13,6 +13,9 @@ cmake_minimum_required(VERSION 3.16.3)
 project(PTO_Framework_Calculator LANGUAGES C CXX)
 
 # 预定义变量检查
+if (NOT DEFINED PY3_MOD_TORCH_VERSION)
+    message(FATAL_ERROR "PY3_MOD_TORCH_VERSION is not defined")
+endif()
 if (NOT DEFINED PY3_MOD_TORCH_ROOT_PATH)
     message(FATAL_ERROR "PY3_MOD_TORCH_ROOT_PATH is not defined")
 endif()
@@ -21,6 +24,17 @@ if (NOT DEFINED PY3_MOD_TORCH_C_GLIBCXX_USE_CXX11_ABI)
 endif()
 
 if (NOT DEFINED PTO_FWK_SRC_ROOT)
+    # 在线编译
+    if ("${PY3_MOD_TORCH_VERSION}" STRLESS "2.1.0")
+        message(FATAL_ERROR "Torch(${PY3_MOD_TORCH_VERSION}) Version less 2.1.0, interpreter not supported.")
+    endif ()
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9.4.0")
+        message(FATAL_ERROR "Cxx Compiler(${CMAKE_CXX_COMPILER_ID}) Version(${CMAKE_CXX_COMPILER_VERSION}) less than 9.4.0, interpreter not supported.")
+    endif()
+
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "15.0.0")
+        message(FATAL_ERROR "Cxx Compiler(${CMAKE_CXX_COMPILER_ID}) Version(${CMAKE_CXX_COMPILER_VERSION}) less than 15.0.0, interpreter not supported.")
+    endif()
     # 构建阶段(Build)
     #   语言标准
     set(CMAKE_C_STANDARD 11)  # 指定 C 语言使用 ISO C11 标准
