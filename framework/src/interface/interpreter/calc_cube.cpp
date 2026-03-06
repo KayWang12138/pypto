@@ -16,7 +16,6 @@
 #include "interface/interpreter/function.h"
 #include "interface/utils/log.h"
 #include "interface/interpreter/operation.h"
-#include "calc.h"
 #include "interface/operation/operation_impl.h"
 
 using namespace npu::tile_fwk::calc;
