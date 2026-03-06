@@ -170,7 +170,6 @@ def _classify_chip(chip_name: str) -> tuple[Optional[str], Optional[str], Option
     return None, None, None
 
 
-
 def _detect_lspci(result: NPUDetectionResult) -> None:
     """Level 0 (highest priority): 通过 lspci -n -D 检测华为 NPU PCI 设备。
 
@@ -307,7 +306,6 @@ def _detect_driver_version(result: NPUDetectionResult) -> None:
                 return
         except (OSError, IOError):
             continue
-
 
 
 def _detect_cann_version(result: NPUDetectionResult) -> None:
@@ -556,7 +554,7 @@ def _detect_torch_npu(result: NPUDetectionResult) -> None:
 def _detect_python_acl(result: NPUDetectionResult) -> None:
     """Level 4: 通过 Python acl 包检测。"""
     try:
-        import acl  # type: ignore  # pyright: ignore[reportMissingImports]
+        import acl  # type: ignore  # pyright: ignore[reportMissingImports]  # noqa: PLC0415
     except ImportError:
         return
 
@@ -652,6 +650,7 @@ def main() -> int:
     else:
         logging.info(result.summary())
     return 0
+
 
 if __name__ == '__main__':
     raise SystemExit(main())

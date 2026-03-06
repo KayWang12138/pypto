@@ -28,6 +28,7 @@ from detect_npu import (  # noqa: E402  # pyright: ignore[reportImplicitRelative
 
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 
+
 def _parse_timeout_env() -> int:
     raw = os.environ.get('DIAG_TIMEOUT', '10')
     try:
@@ -215,6 +216,7 @@ def _detect_cann(ascend_root: str, cann_hint: str | None = None) -> dict[str, An
                         | set(glob.glob(os.path.join(ascend_root, "*/*/set_env.sh"))))
     result["set_env_candidates"] = candidates[:10]
     return result
+
 
 def _detect_pypto_repo() -> dict[str, Any]:
     """自动检测 PyPTO 仓库路径。"""
@@ -535,14 +537,12 @@ def _collect_issues(
                            'message': f"{name} {info.get('version')} 版本过低（需 >= {min_ver}）",
                            'fix_hint': 'cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=deps'})
 
-
     if pypto_repo.get('valid', False):
         for dep_name, dep_info in third_party_deps.items():
             if not dep_info.get('found'):
                 issues.append({'component': f'third_party:{dep_name}', 'severity': 'warning',
                                'message': f"{dep_name} {dep_info.get('version', '')} 源码包未找到（编译时可自动下载）",
                                'fix_hint': 'cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=third_party'})
-
 
     for pkg in python_deps.get('packages', []):
         if pkg['status'] == 'missing':
