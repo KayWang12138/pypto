@@ -69,9 +69,6 @@ TEST_F(TestPlatform, TestParser) {
     EXPECT_EQ(parser.GetStringVal(version, shortSocVer, socVersion), SUCCESS);
     EXPECT_EQ(socVersion, "Ascend910_95");
 
-    // std::string archVal;
-    // EXPECT_EQ(parser.GetStringVal(version, archInfo, socVersion), FAILED);
-
     std::unordered_map<std::string, std::string> ccecVersion;
     EXPECT_EQ(parser.GetCCECVersion(ccecVersion), SUCCESS);
     EXPECT_NE(ccecVersion.find("AIC"), ccecVersion.end());
