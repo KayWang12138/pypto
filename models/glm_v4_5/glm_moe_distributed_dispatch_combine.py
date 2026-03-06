@@ -20,8 +20,9 @@ Main Functions:
     - moe_distributed_combine_kernel: JIT compiled combine kernel
 """
 
+import pytest
 import dataclasses
-from typing import Callable
+from typing import Callable, Literal
 
 import multiprocessing as mp
 import numpy as np
@@ -30,6 +31,7 @@ import torch.distributed as dist
 import torch_npu
 
 import pypto
+import torch.nn.functional as F
 
 TensorList = list[torch.Tensor, ...]
 
@@ -150,6 +152,30 @@ class MoeCombineOperandLists:
     recv_counts_list: TensorList
     expert_scales_list: TensorList
     out_golden_list: TensorList = None
+
+
+@dataclasses.dataclass(frozen=True)
+class MoeDispatchCombineOperands:
+    x: torch.Tensor
+    expert_ids: torch.Tensor
+    expert_scales: torch.Tensor
+    expand_x_golden: torch.Tensor
+    assist_info_for_combine_golden: torch.Tensor
+    expert_token_nums_golden: torch.Tensor
+    recv_counts_golden: torch.Tensor
+    out_golden: torch.Tensor
+
+
+@dataclasses.dataclass(frozen=True)
+class MoeDispatchCombineOperandLists:
+    x_list: TensorList
+    expert_ids_list: TensorList
+    expert_scales_list: TensorList
+    expand_x_golden_list: TensorList
+    assist_info_for_combine_golden_list: TensorList
+    expert_token_nums_golden_list: TensorList
+    recv_counts_golden_list: TensorList
+    out_golden_list: TensorList
 
 
 def generate_random_tensor(shape: tuple[int, ...], dtype: torch.dtype) -> torch.Tensor:
@@ -291,35 +317,38 @@ def combine_tokens(
     return out_golden_list
 
 
-def generate_dispatch_golden(moe_case: MoeCase, torch_data_type: torch.dtype) -> MoeDispatchOperandLists:
-    x_list, moe_expert_ids_list, _ = generate_inputs(moe_case, torch_data_type)
-    (
-        expand_x_golden_list,
-        assist_info_for_combine_golden_list,
-        expert_token_nums_golden_list,
-        recv_counts_golden_list,
-    ) = dispatch_tokens(moe_case, torch_data_type, x_list, moe_expert_ids_list, True)
-    return MoeDispatchOperandLists(
-        x_list,
-        moe_expert_ids_list,
-        expand_x_golden_list,
-        assist_info_for_combine_golden_list,
-        expert_token_nums_golden_list,
-        recv_counts_golden_list,
-    )
-
-
-def generate_combine_golden(
+def generate_golden(
     moe_case: MoeCase,
     torch_data_type: torch.dtype,
-) -> MoeCombineOperandLists:
+    scene: Literal["dispatch", "combine", "both"],
+) -> Union[MoeCombineOperandLists, MoeDispatchOperandLists, MoeDispatchCombineOperandLists]:
+    """为 Dispatch & Combine 算子计算标杆值.
+
+    scene == dispatch: MoeDispatchOperandLists
+    scene == combine: MoeCombineOperandLists
+    scene == both: MoeDispatchCombineOperandLists
+    """
     x_list, moe_expert_ids_list, expert_scales_list = generate_inputs(moe_case, torch_data_type)
     (
         expand_x_list,
         assist_info_for_combine_list,
-        _,
+        expert_token_nums_list,
         recv_counts_list,
     ) = dispatch_tokens(moe_case, torch_data_type, x_list, moe_expert_ids_list, False)
+    assist_info_for_combine_golden_list = [
+        F.pad(x, (64 - 3, 0)) for x in assist_info_for_combine_list
+    ]
+    dispatch_result = MoeDispatchOperandLists(
+        x_list,
+        moe_expert_ids_list,
+        expand_x_list,
+        assist_info_for_combine_golden_list,
+        expert_token_nums_list,
+        recv_counts_list,
+    )
+    if scene in ["dispatch"]:
+        return dispatch_result
+
     operand_lists = MoeCombineOperandLists(
         expand_x_list,
         assist_info_for_combine_list,
@@ -327,13 +356,27 @@ def generate_combine_golden(
         expert_scales_list,
     )
     out_golden_list = combine_tokens(moe_case, torch_data_type, operand_lists)
-    return MoeCombineOperandLists(
+    combine_result = MoeCombineOperandLists(
         expand_x_list,
         assist_info_for_combine_list,
         recv_counts_list,
         expert_scales_list,
         out_golden_list,
     )
+    if scene in ["combine"]:
+        return combine_result
+    
+    if scene in ["both"]:
+        return MoeDispatchCombineOperandLists(
+            x_list,
+            moe_expert_ids_list,
+            expand_x_list,
+            assist_info_for_combine_golden_list,
+            expert_token_nums_list,
+            recv_counts_list,
+            expert_scales_list,
+            out_golden_list,
+        )
 
 
 def dispatch_calc_occurrences(
@@ -614,12 +657,13 @@ def moe_distributed_dispatch(moe_case: MoeCase, operands: MoeDispatchOperands, l
         assert_allcolse_whit_rtol_and_atol(out, act)
 
 
-def run_moe_distributed_dispatch() -> None:
+@pytest.mark.skip(True)
+def test_moe_distributed_dispatch() -> None:
     mp.set_start_method('spawn', force=True)
     processes = []
     moe_case = MoeCase(8, 5120, 160, 8, pypto.DT_BF16, WORLD_SIZE)
 
-    operand_lists = generate_dispatch_golden(moe_case, torch.bfloat16)
+    operand_lists = generate_golden(moe_case, torch.bfloat16, "dispatch")
     for (
         x,
         moe_expert_ids,
@@ -796,12 +840,13 @@ def moe_distributed_combine(
     assert_allclose_with_eps(out_golden.cpu(), out_actual.cpu())
 
 
-def run_moe_distributed_combine() -> None:
+@pytest.mark.skip(True)
+def test_moe_distributed_combine() -> None:
     mp.set_start_method('spawn', force=True)
     processes = []
     moe_case = MoeCase(8, 5120, 160, 8, pypto.DT_BF16, WORLD_SIZE)
 
-    operand_lists = generate_combine_golden(moe_case, torch.bfloat16)
+    operand_lists = generate_golden(moe_case, torch.bfloat16, "combine")
     for expand_x, assist_info_for_combine, recv_counts, expert_scales, out_golden, logical_rank_id in zip(
         operand_lists.expand_x_list,
         operand_lists.assist_info_for_combine_list,
@@ -818,6 +863,121 @@ def run_moe_distributed_combine() -> None:
         p.join()
 
 
+def moe_dispatch_combine(
+    moe_case: MoeCase,
+    operands: MoeDispatchCombineOperands,
+    logical_rank_id: int,
+) -> None:
+    groups = init_hccl_comm(logical_rank_id)
+
+    x = operands.x
+    expert_ids = operands.expert_ids
+    expand_x_golden = operands.expand_x_golden
+    assist_info_for_combine_golden = operands.assist_info_for_combine_golden
+    expert_token_nums_golden = operands.expert_token_nums_golden
+    recv_counts_golden = operands.recv_counts_golden
+
+    x.share_memory_()
+    expert_ids.share_memory_()
+    expand_x_golden.share_memory_()
+    assist_info_for_combine_golden.share_memory_()
+    expert_token_nums_golden.share_memory_()
+    recv_counts_golden.share_memory_()
+
+    physical_device_id = PHYSICAL_START_DEVICE_ID + logical_rank_id
+    x = x.to(f'npu:{physical_device_id}')
+    expert_ids = expert_ids.to(f'npu:{physical_device_id}')
+    expand_x_golden = expand_x_golden.to(f'npu:{physical_device_id}')
+    assist_info_for_combine_golden = assist_info_for_combine_golden.to(f'npu:{physical_device_id}')
+    expert_token_nums_golden = expert_token_nums_golden.to(f'npu:{physical_device_id}')
+    recv_counts_golden = recv_counts_golden.to(f'npu:{physical_device_id}')
+
+    kernel = moe_distributed_dispatch_kernel(moe_case=moe_case, group_name=groups[0])
+    (
+        expand_x_actual,
+        assist_info_for_combine_actual,
+        expert_token_nums_actual,
+        recv_counts_actual,
+    ) = kernel(x, expert_ids)
+
+    for out, act in [
+        (expand_x_actual, expand_x_golden),
+        (assist_info_for_combine_actual, assist_info_for_combine_golden),
+        (expert_token_nums_actual, expert_token_nums_golden),
+        (recv_counts_actual, recv_counts_golden),
+    ]:
+        assert_allcolse_whit_rtol_and_atol(out, act)
+
+    expand_x = expand_x_actual.cpu()
+    assist_info_for_combine = assist_info_for_combine_actual[:, -3:].cpu()
+    recv_counts = recv_counts_actual.cpu()
+    expert_scales = operands.expert_scales.cpu()
+    out_golden = operands.out_golden.cpu()
+
+    expand_x.share_memory_()
+    assist_info_for_combine.share_memory_()
+    recv_counts.share_memory_()
+    expert_scales.share_memory_()
+    out_golden.share_memory_()
+
+    physical_device_id = PHYSICAL_START_DEVICE_ID + logical_rank_id
+    expand_x = expand_x.to(f'npu:{physical_device_id}')
+    assist_info_for_combine = assist_info_for_combine.to(f'npu:{physical_device_id}')
+    recv_counts = recv_counts.to(f'npu:{physical_device_id}')
+    expert_scales = expert_scales.to(f'npu:{physical_device_id}')
+    out_golden = out_golden.to(f'npu:{physical_device_id}')
+
+    kernel = moe_distributed_combine_kernel(moe_case=moe_case, group_name=groups[0])
+    out_actual = kernel(expand_x, assist_info_for_combine, recv_counts, expert_scales)
+
+    assert_allclose_with_eps(out_golden.cpu(), out_actual.cpu())
+
+
+def test_distributed_moe_dispatch_combine() -> None:
+    mp.set_start_method('spawn', force=True)
+    processes = []
+    moe_case = MoeCase(8, 5120, 160, 8, pypto.DT_BF16, WORLD_SIZE)
+
+    operand_lists = generate_golden(moe_case, torch.bfloat16, "both")
+    for (
+        x,
+        moe_expert_ids,
+        expert_scale,
+        expand_x_golden,
+        assist_info_for_combine_golden,
+        expert_token_nums_golden,
+        recv_counts_golden,
+        out_golden,
+        logical_rank_id,
+    ) in zip(
+        operand_lists.x_list,
+        operand_lists.expert_ids_list,
+        operand_lists.expert_scales_list,
+        operand_lists.expand_x_golden_list,
+        operand_lists.assist_info_for_combine_golden_list,
+        operand_lists.expert_token_nums_golden_list,
+        operand_lists.recv_counts_golden_list,
+        operand_lists.out_golden_list,
+        LOGICAL_RANK_IDS,
+    ):
+        operands = MoeDispatchCombineOperands(
+            x,
+            moe_expert_ids,
+            expert_scale,
+            expand_x_golden,
+            assist_info_for_combine_golden,
+            expert_token_nums_golden,
+            recv_counts_golden,
+            out_golden,
+        )
+        p = mp.Process(target=moe_dispatch_combine, args=(moe_case, operands, logical_rank_id))
+        p.start()
+        processes.append(p)
+    for p in processes:
+        p.join()
+
+
 if __name__ == '__main__':
-    run_moe_distributed_combine()
-    run_moe_distributed_dispatch()
+    test_moe_distributed_combine()
+    test_moe_distributed_dispatch()
+    test_distributed_moe_dispatch_combine()
