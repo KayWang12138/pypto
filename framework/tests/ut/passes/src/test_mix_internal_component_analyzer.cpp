@@ -422,5 +422,21 @@ TEST_F(MixInternalComponentsAnalyzerTest, TestException_SyncOpMergeFail_NoTarget
     ASSERT_EQ(status, FAILED) << "Should return FAILED when sync op no merge target";
     test_utils::VerifyOpInternalId(syncSrcOp, MS_NEG1);
 }
+
+// 用例12：同步算子无合并目标（前校验失败, 未标记subgraphID, 返回FAILED）
+TEST_F(MixInternalComponentsAnalyzerTest, TestNonSyncFailed) {
+    // 1. 构建场景
+    auto t1 = test_utils::CreateBasicTensor(*mixFuncPtr_);
+    auto t2 = test_utils::CreateBasicTensor(*mixFuncPtr_);
+
+    test_utils::CreateCubeOp(*mixFuncPtr_, t1, t2, MS_NEG1);
+
+    // 2. 执行分析
+    std::vector<InternalComponentInfo> components;
+    Status status = analyzer_->AnalyzeInternalComponents(*mixFuncPtr_, components);
+
+    // 3. 结果校验
+    ASSERT_EQ(status, FAILED) << "Should return FAILED";
+}
 } // namespace tile_fwk
 } // namespace npu
