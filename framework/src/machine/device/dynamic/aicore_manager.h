@@ -666,7 +666,7 @@ private:
         memcpy_s(
             &readyQue->elem[readyQue->tail], idCnt * sizeof(uint32_t), (uint8_t *)idList, idCnt * sizeof(uint32_t));
          __atomic_fetch_add(&readyQue->tail, idCnt, std::memory_order_release);
-         DEV_ERROR("[AICPU %d] Pushed %u tasks: %lu (Total: %u)", aicpuIdx_, idCnt, readyQue->wasSize());
+        //  DEV_ERROR("[AICPU %d] Pushed %u tasks: %lu", aicpuIdx_, idCnt, readyQue->wasSize());
         ReadyQueueUnLock(readyQue);
         return DEVICE_MACHINE_OK;
     }
