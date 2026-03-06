@@ -1,14 +1,24 @@
 #!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
 """
 PyPTO 性能分析脚本
 从bubble_analysis.log中提取性能数据并计算性能指标
 """
 
-import re
-import json
+import logging
 import os
-from typing import Dict, List, Tuple
+import re
+import sys
 from dataclasses import dataclass
+from typing import Dict, List, Tuple
 
 
 @dataclass
@@ -51,7 +61,11 @@ def parse_bubble_analysis(log_path: str) -> List[CoreMetrics]:
         content = f.read()
     
     # 匹配核心信息
-    core_pattern = r'\[(AIC_\d+|AIV_\d+)\] Execute task num:(\d+)\s+Core Total Work Time: ([\d.]+)\s+Total Wait Time: ([\d.]+)\s+Wait Schedule Time: ([\d.]+)\s+Wait Predecessor Time: ([\d.]+)'
+    core_pattern = (
+        r'\[(AIC_\d+|AIV_\d+)\] Execute task num:(\d+)\s+Core Total Work Time: ([\d.]+)\s+'
+        r'Total Wait Time: ([\d.]+)\s+Wait Schedule Time: ([\d.]+)\s+'
+        r'Wait Predecessor Time: ([\d.]+)'
+    )
     
     matches = re.findall(core_pattern, content)
     
@@ -308,11 +322,28 @@ def generate_report(metrics: Dict, bottlenecks: List[Dict], suggestions: Dict, o
     balance_rating, balance_desc = get_rating(metrics['load_balance'], 'load_balance')
     
     # 综合评级
-    avg_rating_score = (
-        (5 if util_desc == '优秀' else 4 if util_desc == '良好' else 3 if util_desc == '一般' else 2 if util_desc == '较差' else 1) +
-        (5 if bubble_desc == '优秀' else 4 if bubble_desc == '良好' else 3 if bubble_desc == '一般' else 2 if bubble_desc == '较差' else 1) +
-        (5 if balance_desc == '优秀' else 4 if balance_desc == '良好' else 3 if balance_desc == '一般' else 2 if balance_desc == '较差' else 1)
-    ) / 3
+    util_score = (
+        5 if util_desc == '优秀' else
+        4 if util_desc == '良好' else
+        3 if util_desc == '一般' else
+        2 if util_desc == '较差' else
+        1
+    )
+    bubble_score = (
+        5 if bubble_desc == '优秀' else
+        4 if bubble_desc == '良好' else
+        3 if bubble_desc == '一般' else
+        2 if bubble_desc == '较差' else
+        1
+    )
+    balance_score = (
+        5 if balance_desc == '优秀' else
+        4 if balance_desc == '良好' else
+        3 if balance_desc == '一般' else
+        2 if balance_desc == '较差' else
+        1
+    )
+    avg_rating_score = (util_score + bubble_score + balance_score) / 3
     
     if avg_rating_score >= 4.5:
         overall_rating = '⭐⭐⭐⭐⭐'
@@ -344,9 +375,14 @@ def generate_report(metrics: Dict, bottlenecks: List[Dict], suggestions: Dict, o
 """
     
     for core in metrics['aic_cores']:
-        report += f"| {core.core_name} | {core.task_num} | {core.total_work_time:.2f} | {core.total_wait_time:.2f} | {core.wait_schedule_time:.2f} | {core.wait_predecessor_time:.2f} | {core.aicore_time:.2f} | {core.core_utilization:.2f}% | {core.bubble_rate:.2f}% |\n"
+        report += (
+            f"| {core.core_name} | {core.task_num} | {core.total_work_time:.2f} | "
+            f"{core.total_wait_time:.2f} | {core.wait_schedule_time:.2f} | "
+            f"{core.wait_predecessor_time:.2f} | {core.aicore_time:.2f} | "
+            f"{core.core_utilization:.2f}% | {core.bubble_rate:.2f}% |\n"
+        )
     
-    report += f"""
+    report += """
 ### AIV 核心性能指标
 
 | 核心 | 任务数 | 总工作时间 | 总等待时间 | 等待调度时间 | 等待前驱时间 | AicoreTime | 核心利用率 | 气泡率 |
@@ -354,7 +390,12 @@ def generate_report(metrics: Dict, bottlenecks: List[Dict], suggestions: Dict, o
 """
     
     for core in metrics['aiv_cores']:
-        report += f"| {core.core_name} | {core.task_num} | {core.total_work_time:.2f} | {core.total_wait_time:.2f} | {core.wait_schedule_time:.2f} | {core.wait_predecessor_time:.2f} | {core.aicore_time:.2f} | {core.core_utilization:.2f}% | {core.bubble_rate:.2f}% |\n"
+        report += (
+            f"| {core.core_name} | {core.task_num} | {core.total_work_time:.2f} | "
+            f"{core.total_wait_time:.2f} | {core.wait_schedule_time:.2f} | "
+            f"{core.wait_predecessor_time:.2f} | {core.aicore_time:.2f} | "
+            f"{core.core_utilization:.2f}% | {core.bubble_rate:.2f}% |\n"
+        )
     
     report += f"""
 ## 2. 性能指标统计
@@ -435,25 +476,25 @@ def generate_report(metrics: Dict, bottlenecks: List[Dict], suggestions: Dict, o
 
 def main():
     """主函数"""
-    import sys
+    logging.basicConfig(level=logging.INFO, format='%(message)s')
     
     if len(sys.argv) < 2:
-        print("Usage: python analyze_perf.py <output_dir>")
-        print("Example: python analyze_perf.py models/glm_v4_5/output/output_20260304_171658_543682_529508")
+        logging.info("Usage: python analyze_perf.py <output_dir>")
+        logging.info("Example: python analyze_perf.py models/glm_v4_5/output/output_20260304_171658_543682_529508")
         sys.exit(1)
     
     output_dir = sys.argv[1]
     bubble_log_path = os.path.join(output_dir, 'bubble_analysis.log')
     
     if not os.path.exists(bubble_log_path):
-        print(f"Error: bubble_analysis.log not found in {output_dir}")
+        logging.info(f"Error: bubble_analysis.log not found in {output_dir}")
         sys.exit(1)
     
-    print(f"正在分析性能数据: {bubble_log_path}")
+    logging.info(f"正在分析性能数据: {bubble_log_path}")
     
     # 解析性能数据
     cores = parse_bubble_analysis(bubble_log_path)
-    print(f"找到 {len(cores)} 个核心")
+    logging.info(f"找到 {len(cores)} 个核心")
     
     # 计算性能指标
     metrics = calculate_performance_metrics(cores)
@@ -472,15 +513,15 @@ def main():
     with open(report_path, 'w') as f:
         f.write(report)
     
-    print(f"性能分析报告已生成: {report_path}")
+    logging.info(f"性能分析报告已生成: {report_path}")
     
     # 输出关键指标摘要
-    print("\n=== 性能指标摘要 ===")
-    print(f"平均核心利用率: {metrics['avg_core_utilization']:.2f}%")
-    print(f"平均气泡率: {metrics['avg_bubble_rate']:.2f}%")
-    print(f"核心负载均衡度: {metrics['load_balance']:.2f}%")
-    print(f"算子实际执行时间: {metrics['max_work_time']:.2f} us")
-    print(f"发现 {len(bottlenecks)} 个性能瓶颈")
+    logging.info("\n=== 性能指标摘要 ===")
+    logging.info(f"平均核心利用率: {metrics['avg_core_utilization']:.2f}%")
+    logging.info(f"平均气泡率: {metrics['avg_bubble_rate']:.2f}%")
+    logging.info(f"核心负载均衡度: {metrics['load_balance']:.2f}%")
+    logging.info(f"算子实际执行时间: {metrics['max_work_time']:.2f} us")
+    logging.info(f"发现 {len(bottlenecks)} 个性能瓶颈")
 
 
 if __name__ == '__main__':
