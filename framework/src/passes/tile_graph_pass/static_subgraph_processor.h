@@ -29,8 +29,6 @@
 #include "passes/statistics/execute_graph_statistic.h"
 #include "passes/pass_log/pass_log.h"
 
-#undef MODULE_NAME
-#define MODULE_NAME "StaticSubgraphProcessor"
 
 namespace npu::tile_fwk {
 
@@ -69,7 +67,7 @@ public:
 
     std::vector<std::vector<OperationPtr>>& GetNList() {
         if (nLIST_ == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Operation, "nLIST is not initialized in StaticSubgraphProcessor");
+            ALOG_ERROR_F("nLIST is not initialized in StaticSubgraphProcessor");
         }
         return *nLIST_;
     }
