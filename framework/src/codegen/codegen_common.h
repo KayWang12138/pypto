@@ -153,6 +153,13 @@ enum class CopyInMode : int {
     COPY_MOD_DN2NZ
 };
 
+enum class TransMode : int
+{
+    CAST_NONE = 0,
+    CAST_RINT = 1,
+    CAST_ROUND = 2
+};
+
 enum class PadMod : int { NO_PADDING = 0, PADDING_OUTER = 1, PADDING_INNER = 2 };
 
 enum class CopyOutMode : int {

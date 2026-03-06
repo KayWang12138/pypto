@@ -78,6 +78,13 @@ enum class CopyOutMode : int64_t
     NZ2DN = 3
 };
 
+enum class TransMode : int64_t
+{
+    CAST_NONE = 0,
+    CAST_RINT = 1,
+    CAST_ROUND = 2
+};
+
 enum class PaddingMode : int64_t {
     NO_PADDING = 0,
     PADDING_OUTER = 1,
