@@ -19,7 +19,7 @@
 
 #include <string>
 #include <cstdint>
-#include "tile_fwk/file.h"
+#include "tilefwk/file.h"
 
 namespace npu {
 namespace tile_fwk {
