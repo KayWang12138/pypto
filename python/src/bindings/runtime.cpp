@@ -525,8 +525,7 @@ public:
         return nullptr;
     }
 
-    uint8_t *FindCtrlFlowCache(KernelBinary *kernel, py::object &module,
-        std::vector<DeviceTensorData> &tensors, bool isCaptureMode) {
+    uint8_t *FindCtrlFlowCache(KernelBinary *kernel, py::object &module, std::vector<DeviceTensorData> &tensors) {
         if (!IsCacheEnabled()) {
             return nullptr;
         }
@@ -534,7 +533,7 @@ public:
         auto devCache = kernel->FindCtrlFlowCache(tensors, true);
         if (devCache == nullptr) {
             std::vector<std::vector<int64_t>> shape;
-            if (isCaptureMode) {
+            if (DeviceLauncher::IsCaptureMode()) {
                 AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
                 devCache = kernel->BuildControlFlowCache(tensors, stitchCfgCacheSize, true);
             } else if (InferCacheShape(module, tensors, shape)) {
@@ -585,8 +584,8 @@ public:
         return kernel->GetWorkspaceSize(tensors);
     }
 
-    void Launch(KernelBinary *kernel, bool isCaptureMode, aclrtStream aicoreStream,
-        std::vector<DeviceTensorData> &tensors, uint8_t *ctrlFlowCache, int64_t *workspace) {
+    void Launch(KernelBinary *kernel, aclrtStream aicoreStream, std::vector<DeviceTensorData> &tensors,
+        uint8_t *ctrlFlowCache, int64_t *workspace) {
         auto [args, argsSize] = kernel->BuildKernelArgs(tensors);
         rtAicpuArgs.args = args;
         rtAicpuArgs.argsSize = argsSize;
@@ -595,7 +594,7 @@ public:
         args->kArgs.workspace = workspace;
         args->kArgs.parameter.globalRound = ++sequence;
 
-        bool debugEnable = !isCaptureMode && isDebugMode;
+        bool debugEnable = !DeviceLauncher::IsCaptureMode() && isDebugMode;
 
 #if ENABALE_VERBOSE_LOG
         ALOG_ERROR_F("triple stream %d sequence %ld workspace %p cfgcache %p", tripleStream, sequence.load(), workspace,
@@ -753,6 +752,9 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
     DeviceGuard devGuard(devId);
 
     auto kmodule = py::getattr(module, "kmodule").cast<KernelModulePtr>();
+    aclmdlRI rtModel;
+    DeviceLauncher::GetCaptureInfo(aicoreStream, rtModel);
+
     HOST_PERF_TRACE(TracePhase::LaunchInit);
 
     auto kbinary = kmodule->GetKernelBinary(tensors);
@@ -779,13 +781,13 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
     }
     HOST_PERF_TRACE(TracePhase::LaunchAllocWorkSpace);
 
-    bool isCaptureMode = DeviceLauncher::AddAicpuStream(aicoreStream, kmodule->IsTripleStream());
+    DeviceLauncher::AddAicpuStream(rtModel, kmodule->IsTripleStream());
     HOST_PERF_TRACE(TracePhase::LaunchAttachStream);
     
-    uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors, isCaptureMode);
+    uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors);
     HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
-    
-    kmodule->Launch(kbinary, isCaptureMode, aicoreStream, tensors, ctrlFlowCache, wsAddr);
+
+    kmodule->Launch(kbinary, aicoreStream, tensors, ctrlFlowCache, wsAddr);
     HOST_PERF_TRACE(TracePhase::Launch);
     HOST_PERF_EVT_END(EventPhase::LaunchKernel);
 }
