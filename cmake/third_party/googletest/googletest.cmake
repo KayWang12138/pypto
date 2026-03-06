@@ -8,7 +8,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-if (NOT BUILD_OPEN_PROJECT OR NOT ENABLE_TESTS)
+if (NOT ENABLE_TESTS)
     return()
 endif ()
 
