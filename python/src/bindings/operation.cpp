@@ -37,11 +37,21 @@ void bind_operation(py::module &m) {
     m.def(
         "Gcd", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::Gcd(self, other); }, "Tensor gcd.");
     m.def(
+        "Remainder", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::Remainder(self, other); }, "Tensor remainder.");
+    m.def(
+        "Remainder", [](const Tensor &self, const Element &other) { return npu::tile_fwk::Remainder(self, other); }, "Tensor remainder scalar.");
+    m.def(
+        "Remainder", [](const Element &self, const Tensor &other) { return npu::tile_fwk::Remainder(self, other); }, "Scalar remainder tensor.");
+    m.def(
         "BitwiseAnd", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::BitwiseAnd(self, other); }, "Tensor bitwise and.");
     m.def(
         "BitwiseOr", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::BitwiseOr(self, other); }, "Tensor bitwise or.");
     m.def(
         "BitwiseXor", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::BitwiseXor(self, other); }, "Tensor bitwise xor.");
+    m.def(
+        "ExpandExpDif",
+        [](const Tensor &input, const Tensor &other) { return npu::tile_fwk::ExpandExpDif(input, other); },
+        "Tensor expand exp dif.");
     m.def(
         "View",
         [](const Tensor &operand, const std::vector<int64_t> &shapes, const py::sequence &offsets) {
@@ -84,6 +94,9 @@ void bind_operation(py::module &m) {
         py::arg("operand"), py::arg("dstDataType"), "Tensor view_type.");
 
     m.def("Exp", [](const Tensor &self) { return npu::tile_fwk::Exp(self); }, "Tensor exp.");
+    m.def("Expm1", [](const Tensor &self) { return npu::tile_fwk::Expm1(self); }, "Tensor expm1.");
+
+    m.def("Exp2", [](const Tensor &self) { return npu::tile_fwk::Exp2(self); }, "Tensor exp2.");
 
     m.def(
         "Transpose",
@@ -98,6 +111,7 @@ void bind_operation(py::module &m) {
     m.def("Rsqrt", [](const Tensor &self) { return npu::tile_fwk::Rsqrt(self); }, "Tensor rsqrt.");
     m.def("Sqrt", [](const Tensor &self) { return npu::tile_fwk::Sqrt(self); }, "Tensor sqrt.");
     m.def("Sign", [](const Tensor &self) { return npu::tile_fwk::Sign(self); }, "Tensor sign.");
+    m.def("Signbit", [](const Tensor &self) { return npu::tile_fwk::Signbit(self); }, "Tensor signbit.");
     m.def("Ceil", [](const Tensor &self) { return npu::tile_fwk::Ceil(self); }, "Tensor ceil.");
     m.def("Floor", [](const Tensor &self) { return npu::tile_fwk::Floor(self); }, "Tensor floor.");
     m.def("Trunc", [](const Tensor &self) { return npu::tile_fwk::Trunc(self); }, "Tensor trunc.");
@@ -137,6 +151,9 @@ void bind_operation(py::module &m) {
     m.def(
         "Gcd", [](const Tensor &self, const Element &other) { return npu::tile_fwk::Gcd(self, other); },
         "Tensor gcd scalar.");
+    m.def(
+        "LReLU", [](const Tensor &self, const Element &alpha) { return npu::tile_fwk::LReLU(self, alpha); },
+        "Tensor mod scalar.");
     m.def(
         "BitwiseRightShift", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::BitwiseRightShift(self, other); },
         "Tensor bitwise right shift.");
@@ -183,6 +200,9 @@ void bind_operation(py::module &m) {
         [](const Tensor &operand, int axis, bool keepDim) { return npu::tile_fwk::Amin(operand, axis, keepDim); },
         py::arg("operand"), py::arg("axis") = -1, py::arg("keepDim") = false, "Tensor row min single.");
     m.def(
+        "Prod", [](const Tensor &operand, int axis, bool keepDim) { return npu::tile_fwk::Prod(operand, axis, keepDim); },
+        py::arg("operand"), py::arg("axis") = -1, py::arg("keepDim") = false, "Tensor row prod single.");
+    m.def(
         "RowSumExpand", [](const Tensor &operand) { return npu::tile_fwk::RowSumExpand(operand); },
         "Tensor row sum expand.");
     m.def(
@@ -228,6 +248,9 @@ void bind_operation(py::module &m) {
             return npu::tile_fwk::Gather(params, indices, axis);
         },
         "Tensor gather.");
+    m.def("GatherMask", 
+        [](const Tensor &self, int patternMode) { return npu::tile_fwk::GatherMask(self, patternMode); },
+        "Tensor gather Mask.");
     m.def("Duplicate", [](const Tensor &operand) { return npu::tile_fwk::Duplicate(operand); }, "Tensor duplicate.");
     m.def(
         "Full",
@@ -343,6 +366,18 @@ void bind_operation(py::module &m) {
             return npu::tile_fwk::TopK(self, k, axis, islargest);
         },
         py::arg("operand"), py::arg("k"), py::arg("axis"), py::arg("islargest") = true, "Tensor topk.");
+    m.def(
+        "Sort32",
+        [](const Tensor &self, int index) {
+            return npu::tile_fwk::Sort32(self, index);
+        },
+        py::arg("operand"), py::arg("index"), "Tensor sort32.");
+    m.def(
+        "MrgSort",
+        [](const Tensor &self, int mergesize) {
+            return npu::tile_fwk::MrgSort(self, mergesize);
+        },
+        py::arg("operand"), py::arg("mergesize"), "Tensor mrgsort.");
     m.def(
         "Var",
         [](const Tensor &input, const std::vector<int> &dim, float correction, bool keepDim) {
@@ -527,6 +562,10 @@ void bind_operation(py::module &m) {
         [](const Tensor &self, const Tensor &min, const Tensor &max) { return npu::tile_fwk::Clip(self, min, max); });
     m.def("Clip",
         [](const Tensor &self, const Element &min, const Element &max) { return npu::tile_fwk::Clip(self, min, max); });
+    m.def("CeilDiv",
+        [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::CeilDiv(self, other); });
+    m.def("CeilDiv",
+        [](const Tensor &self, const Element &other) { return npu::tile_fwk::CeilDiv(self, other); });
     m.def(
         "OneHot", [](const Tensor &self, int numClasses) { return npu::tile_fwk::OneHot(self, numClasses); },
         "Tensor one hot.");
@@ -594,5 +633,7 @@ void bind_operation(py::module &m) {
         },
         py::arg("in_tensors")
     );
+    m.def(
+        "PReLU", [](const Tensor &self, const Tensor &weight) { return npu::tile_fwk::PReLU(self, weight); }, "Tensor prelu.");
 }
 } // namespace pypto

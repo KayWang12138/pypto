@@ -29,7 +29,6 @@ message(STATUS "PTO_FWK_SRC_ROOT=${PTO_FWK_SRC_ROOT}")
 message(STATUS "PTO_FWK_BIN_ROOT=${PTO_FWK_BIN_ROOT}")
 
 # 公开编译开关(build)
-option(BUILD_OPEN_PROJECT "Build in open scenario." ON)
 option(BUILD_WITH_CANN "Build with CANN." ON)  # Need to install CANN package and set corresponding environment variables.
 option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
 option(ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
@@ -82,13 +81,14 @@ add_subdirectory(python)
 # 安装流程
 ########################################################################################################################
 
-if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
+if (ENABLE_FEATURE_PYTHON_FRONT_END)
     # whl 包名配置
     set(PyPTO_WhlName "pypto")
 
     # 安装 二进制文件
     set(InstallExport ${PROJECT_NAME}Targets)
     set(InstallTargets
+            tile_fwk_cann_host_runtime
             tile_fwk_simulation_platform
             tile_fwk_utils
             tile_fwk_interface
@@ -182,4 +182,32 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
                 TARGETS             ${InstallTargets}
         )
     endif ()
+
+    # 安装 在线编译 calculator 二进制必需文件
+    get_target_property(cSecIncludeDir c_sec_include INTERFACE_INCLUDE_DIRECTORIES)
+    install(FILES
+                ${cSecIncludeDir}/securec.h
+                ${cSecIncludeDir}/securectype.h
+            DESTINATION ${PyPTO_WhlName}/lib/calculator/include
+    )
+    install(FILES
+                framework/include/tilefwk/data_type.h
+                framework/include/tilefwk/error.h
+                framework/include/tilefwk/lazy.h
+                framework/include/tilefwk/element.h
+            DESTINATION ${PyPTO_WhlName}/lib/calculator/include/tilefwk
+    )
+    install(DIRECTORY framework/src/interface/interpreter/calculator/
+            DESTINATION ${PyPTO_WhlName}/lib/calculator/src
+            PATTERN "*.h"
+            PATTERN "*.cpp"
+            PATTERN ".svn" EXCLUDE
+            PATTERN ".git" EXCLUDE
+            PATTERN "CMakeLists.txt" EXCLUDE
+    )
+    install(FILES
+                cmake/intf.cmake
+                framework/src/interface/interpreter/calculator/CMakeLists.txt
+            DESTINATION ${PyPTO_WhlName}/lib/calculator
+    )
 endif ()

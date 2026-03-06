@@ -1045,6 +1045,13 @@ void CheckMXMatmulOperands(const Tensor &aTensor, const Tensor &aScaleTensor, co
         ASSERT(inDType == DataType::DT_FP8E4M3 || inDType == DataType::DT_FP8E5M2)
             << "Unsupported input data type. Only DT_FP8E4M3, DT_FP8E5M2 are supported.";
     });
+    auto cubeTile = TileShape::Current().GetCubeTile();
+    const int64_t kL0 = cubeTile.k[0];
+    OP_CHECK(true, {
+        ASSERT(kL0 % ALIGN_SIZE_64 == 0)
+            << "Current length of kL0: " << kL0
+            << ", the length of kL0 for mx matmul must be aligned to 64 elements" << std::endl;
+    });
     CheckOperandShape(aScaleTensor, bScaleTensor);
     CheckMXMatmulShape(aTensor, aScaleTensor, bTensor, bScaleTensor, attrParam);
 }
