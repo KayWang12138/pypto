@@ -28,6 +28,7 @@ constexpr int16_t SHAPE_DIM2 = 2;
 constexpr int16_t SHAPE_DIM3 = 3;
 constexpr uint16_t BLOCK_CUBE_M_N = 16;
 constexpr uint16_t BLOCK_ALIGN_BYTE = 32;
+constexpr int64_t FP4_BLOCK_ALIGN_BYTE = 64;
 
 template <CopyOutMode mode, bool isAcc, uint8_t reluMode>
 struct TStoreConfig {
@@ -89,6 +90,10 @@ INLINE void TLoadND2NZ(T &dst, U &src, const int64_t &offset0, const int64_t &of
     using tileData = pto::Tile<pto::TileType::Mat, typename T::Type, staticL1H, staticL1W, pto::BLayout::ColMajor, -1,
         -1, pto::SLayout::RowMajor>;
     int64_t gmOffset = offset1 + offset0 * srcShape1;
+    if constexpr (std::is_same<typename tileData::DType, float4_e2m1x2_t>::value ||
+                  std::is_same<typename tileData::DType, float4_e1m2x2_t>::value) {
+        gmOffset = gmOffset >> 1;
+    }
     globalData src0Global((__gm__ typename U::Type *)(src.GetAddr() + gmOffset), shapeDim2(staticL1H, staticL1W),
         strideDim2(srcStride0, srcStride1));
     tileData dstL1(dstShape0, dstShape1);
@@ -104,7 +109,9 @@ INLINE void TLoadND2NZ(T &dst, U &src, const int64_t &offset0, const int64_t &of
 template <PaddingMode padMode, typename T, typename U>
 INLINE void TLoadNZ2NZ(
     T &dst, U &src, const int64_t &offset0, const int64_t &offset1, const int64_t &curH, const int64_t &curW) {
-    constexpr int64_t c0Size = BLOCK_ALIGN_BYTE / sizeof(typename U::Type);
+    constexpr bool isFP4 = std::is_same<typename T::Type, float4_e2m1x2_t>::value ||
+                  std::is_same<typename T::Type, float4_e1m2x2_t>::value;
+    constexpr int64_t c0Size = isFP4 ? FP4_BLOCK_ALIGN_BYTE : BLOCK_ALIGN_BYTE / sizeof(typename U::Type);
     constexpr auto shapeSize = Std::tuple_size<typename T::Shape>::value;
     int64_t srcShape0 = curH;
     int64_t srcShape1 = curW;
@@ -118,6 +125,9 @@ INLINE void TLoadNZ2NZ(
     using tileData = pto::Tile<pto::TileType::Mat, typename T::Type, staticL1H, staticL1W, pto::BLayout::ColMajor, -1,
         -1, pto::SLayout::RowMajor>;
     int64_t gmOffset = CalNZOffset(srcShape0, srcShape1, offset0, offset1, c0Size);
+    if constexpr (isFP4) {
+        gmOffset = gmOffset >> 1;
+    }
     globalData src0Global((__gm__ typename U::Type *)(src.GetAddr() + gmOffset),
         shapeDim2(dstShape1 / c0Size, dstShape0 / BLOCK_CUBE_M_N),
         strideDim2(srcShape0 * srcShape1, srcShape0 * c0Size, BLOCK_CUBE_M_N * c0Size));
@@ -304,7 +314,9 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord) {
         return;
     }
     constexpr int64_t shapeSize = Std::tuple_size<typename T::Shape>::value;
-    constexpr int64_t c0Size = BLOCK_ALIGN_BYTE / sizeof(typename U::Type);
+    constexpr bool isFP4 = std::is_same<typename T::Type, float4_e2m1x2_t>::value ||
+                  std::is_same<typename T::Type, float4_e1m2x2_t>::value;
+    constexpr int64_t c0Size = isFP4 ? FP4_BLOCK_ALIGN_BYTE : BLOCK_ALIGN_BYTE / sizeof(typename U::Type);
     static_assert(shapeSize == SHAPE_DIM2 && Std::tuple_size<Coord>::value == SHAPE_DIM2, "Shape Size should be 2 Dim");
     static_assert(T::FORMAT == Hardware::L1 && U::FORMAT == Hardware::UB);
     int64_t offset0 = coord.GetValue();
@@ -319,6 +331,9 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord) {
     int64_t dstShape1 = GetShape<1>(dst);
 
     int64_t UBOffset = CalNZOffset(srcShape0, srcShape1, offset0, offset1, c0Size);
+    if constexpr (isFP4) {
+        UBOffset = UBOffset >> 1;
+    }
     using tileUBTensor = pto::Tile<pto::TileType::Vec, typename U::Type, staticUBH, staticUBW, pto::BLayout::ColMajor,
         -1, -1, pto::SLayout::RowMajor>;
     using tileL1Tensor = pto::Tile<pto::TileType::Mat, typename T::Type, staticL1H, staticL1W, pto::BLayout::ColMajor,
