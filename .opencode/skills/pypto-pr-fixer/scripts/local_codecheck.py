@@ -30,22 +30,89 @@ RULE_ORDER = [
     "private methods",
 ]
 
-AST_RULES = {"G.CLS.06", "G.LOG.02", "G.ERR.04"}
+AST_RULES = {"G.CLS.06", "G.LOG.02", "G.ERR.04", "G.TYP.04"}
 
 RULE_DESCRIPTIONS = {
     "G.CLS.06": "Class methods should follow a consistent ordering.",
     "G.LOG.02": "Use logging instead of print().",
     "G.ERR.04": "Use exception chaining with raise ... from e.",
+    "G.TYP.04": "Prefer `if seq` / `if not seq` over explicit empty-sequence checks.",
+    "G.FMT.01": "Use 4-space indentation for code blocks.",
     "G.FMT.02": "Line length should not exceed 120 characters.",
+    "G.FMT.03": "Use blank lines appropriately between classes/functions/methods.",
+    "G.FMT.04": "Use spaces around keywords and operators consistently.",
+    "G.FMT.05": "Imports should appear after module docstring/comments and before code.",
     "G.FMT.06": "Only one module should be imported per line.",
     "G.FMT.07": "Imports should be grouped and sorted.",
+    "G.FMT.08": "Write only one statement per line.",
+    "G.OPR.02": "Use `is` / `is not` when comparing to None.",
+    "G.OPR.03": "Do not use `is` / `is not` for built-in type value comparison.",
+    "G.OPR.05": "Use `is not` instead of `not ... is`.",
+    "G.OPR.06": "Use `not in` for membership negation checks.",
+    "G.EXP.03": "Do not assign lambda expressions to variables; use def instead.",
+    "G.PRJ.03": "Do not leave debugger entry points in production code.",
+    "G.TYP.08": "Use isinstance() for type checks.",
 }
 
 RUFF_RULE_MAP = {
+    "E111": "G.FMT.01",
+    "E112": "G.FMT.01",
+    "E113": "G.FMT.01",
+    "E114": "G.FMT.01",
+    "E115": "G.FMT.01",
+    "E116": "G.FMT.01",
+    "E117": "G.FMT.01",
+    "E201": "G.FMT.04",
+    "E202": "G.FMT.04",
+    "E203": "G.FMT.04",
+    "E211": "G.FMT.04",
+    "E221": "G.FMT.04",
+    "E222": "G.FMT.04",
+    "E223": "G.FMT.04",
+    "E224": "G.FMT.04",
+    "E225": "G.FMT.04",
+    "E226": "G.FMT.04",
+    "E227": "G.FMT.04",
+    "E228": "G.FMT.04",
+    "E231": "G.FMT.04",
+    "E241": "G.FMT.04",
+    "E242": "G.FMT.04",
+    "E251": "G.FMT.04",
+    "E252": "G.FMT.04",
+    "E261": "G.FMT.04",
+    "E262": "G.FMT.04",
+    "E265": "G.FMT.04",
+    "E266": "G.FMT.04",
+    "E271": "G.FMT.04",
+    "E272": "G.FMT.04",
+    "E273": "G.FMT.04",
+    "E274": "G.FMT.04",
+    "E275": "G.FMT.04",
+    "E301": "G.FMT.03",
+    "E302": "G.FMT.03",
+    "E303": "G.FMT.03",
+    "E304": "G.FMT.03",
+    "E305": "G.FMT.03",
+    "E306": "G.FMT.03",
     "E501": "G.FMT.02",
+    "E402": "G.FMT.05",
+    "E701": "G.FMT.08",
+    "E702": "G.FMT.08",
+    "E703": "G.FMT.08",
+    "E711": "G.OPR.02",
+    "E713": "G.OPR.06",
+    "E714": "G.OPR.05",
+    "E721": "G.OPR.03",
+    "E731": "G.EXP.03",
     "E401": "G.FMT.06",
     "I001": "G.FMT.07",
     "I002": "G.FMT.07",
+    "T100": "G.PRJ.03",
+    "PLC1802": "G.TYP.04",
+}
+
+RUFF_MULTI_RULE_MAP = {
+    "E721": ["G.TYP.08"],
 }
 
 RUFF_TIMEOUT_SECONDS = 180
@@ -270,7 +337,8 @@ def run_ruff_check(target: Path, fix: bool) -> list[RuffDiagnostic]:
         "check",
         str(target),
         "--select",
-        "E,F,I",
+        "E,F,I,T10,PLC",
+        "--preview",
         "--line-length",
         "120",
         "--output-format",
@@ -426,6 +494,39 @@ def raise_needs_chaining(
     return True, alias
 
 
+def is_len_call(expr: ast.expr) -> bool:
+    return isinstance(expr, ast.Call) and isinstance(expr.func, ast.Name) and expr.func.id == "len" and len(expr.args) == 1
+
+
+def is_zero_int(expr: ast.expr) -> bool:
+    return isinstance(expr, ast.Constant) and isinstance(expr.value, int) and expr.value == 0
+
+
+def is_empty_literal(expr: ast.expr) -> bool:
+    if isinstance(expr, (ast.List, ast.Tuple, ast.Set)):
+        return len(expr.elts) == 0
+    if isinstance(expr, ast.Dict):
+        return len(expr.keys) == 0
+    return False
+
+
+def check_typ_04_compare(node: ast.Compare) -> bool:
+    if len(node.comparators) != 1 or len(node.ops) != 1:
+        return False
+    left = node.left
+    right = node.comparators[0]
+    op = node.ops[0]
+
+    if is_len_call(left) and is_zero_int(right) and isinstance(op, (ast.Eq, ast.NotEq, ast.Gt, ast.LtE)):
+        return True
+    if is_len_call(right) and is_zero_int(left) and isinstance(op, (ast.Eq, ast.NotEq, ast.Lt, ast.GtE)):
+        return True
+
+    if isinstance(op, (ast.Eq, ast.NotEq)) and ((is_empty_literal(left) and not is_empty_literal(right)) or (is_empty_literal(right) and not is_empty_literal(left))):
+        return True
+    return False
+
+
 def has_logging_import(tree: ast.Module) -> bool:
     for node in tree.body:
         if isinstance(node, ast.Import):
@@ -549,6 +650,19 @@ def collect_ast_violations(
                     rule_description=RULE_DESCRIPTIONS["G.ERR.04"],
                 )
             )
+
+    if is_rule_enabled("G.TYP.04", enabled_rules):
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Compare) and check_typ_04_compare(node):
+                violations.append(
+                    Violation(
+                        file=file_name,
+                        line=node.lineno,
+                        rule_id="G.TYP.04",
+                        description="Prefer `if seq` / `if not seq` over explicit empty-sequence comparisons.",
+                        rule_description=RULE_DESCRIPTIONS["G.TYP.04"],
+                    )
+                )
 
     return violations
 
@@ -685,6 +799,18 @@ def run_ruff_violations(
                 rule_description=mapped_desc,
             )
         )
+        for extra_rule in RUFF_MULTI_RULE_MAP.get(code, []):
+            if enabled_rules and extra_rule not in enabled_rules:
+                continue
+            violations.append(
+                Violation(
+                    file=format_path(file_path, base_dir),
+                    line=line,
+                    rule_id=extra_rule,
+                    description=message,
+                    rule_description=RULE_DESCRIPTIONS.get(extra_rule, ""),
+                )
+            )
     return violations
 
 
