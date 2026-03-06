@@ -18,6 +18,9 @@
 #include "interface/utils/log.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/function/function.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "PassUtils"
 
 namespace npu::tile_fwk {
 
