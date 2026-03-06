@@ -20,7 +20,6 @@
 #include "opcode.h"
 #include "operation.h"
 #include "interface/utils/log.h"
-#include "passes/pass_log/pass_log.h"
 namespace npu::tile_fwk {
 // params: operation*, validshape, symshapes
 using FuncType = std::function<void(Operation* op, std::vector<std::vector<SymbolicScalar>>&)>;
@@ -47,7 +46,7 @@ public:
         if (it != inferShapeFuncs_.end()) {
             it->second(op, outValidShapes);
         } else {
-            APASS_LOG_WARN_F(Elements::Operation, "Infer shape failed, opcode [%s] doesn't support infer shape.",
+            ALOG_WARN_F("Infer shape failed, opcode [%s] doesn't support infer shape.",
                    op->GetOpcodeStr().c_str());
             // 如果op infershape未注册，那么validshape设置成shape
             for (auto output : op->GetOOperands()) {
