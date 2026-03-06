@@ -46,7 +46,7 @@ struct TerminateHandler {
     static void SigAction(int signo) {
         (void)signo;
         auto &backtrace = GetBacktrace(0x2, 0x10)->Get();
-        FUNCTION_LOGE("segment fault!!!\n%s", backtrace);
+        FUNCTION_LOGE("segment fault!!!\n%s", backtrace.c_str());
         std::cerr << "segment fault!!!\n" << backtrace << std::endl;
         fflush(nullptr);
         _Exit(1);

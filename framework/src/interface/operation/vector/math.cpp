@@ -82,7 +82,7 @@ Tensor LogicalNot(const Tensor &self) {
     RETURN_CALL(LogicalNotOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
 }
 
-int64_t MultiplyLastTwoElements(const std::vector<int64_t>& vec) {
+int64_t MultiplyLastTwoDims(const std::vector<int64_t>& vec) {
     constexpr auto ALIGN32HALF = 16;
     int64_t axis2 = (vec[vec.size() - 1] + ALIGN32HALF - 1) / ALIGN32HALF * ALIGN32HALF;
     return axis2 * vec[vec.size() - 2];
@@ -97,7 +97,7 @@ void TiledSignOperation(
         constexpr size_t ALIGN_SIZE = 32;
         int64_t tmpSize = ALIGN_SIZE / BytesOf(DT_FP16);
         if (input.tensor.GetDataType() == DT_INT8) {
-            tmpSize = MultiplyLastTwoElements(input.tileInfo.shape);
+            tmpSize = MultiplyLastTwoDims(input.tileInfo.shape);
         }
 
         std::vector<int64_t> tmpShape({tmpSize});
@@ -123,9 +123,45 @@ void TiledSignOperation(
     TiledSignOperation(function, tileShape, 0, input, result);
 }
 
+void TiledSignbitOperation(
+    Function &function, const TileShape &tileShape, size_t cur, Input &input, const LogicalTensorPtr &result) {
+    if (cur == input.tensor.GetShape().size()) {
+        auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
+
+        int64_t tmpSize = MultiplyLastTwoDims(input.tileInfo.shape);
+        std::vector<int64_t> tmpShape({tmpSize});
+        auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_FP16, tmpShape);
+        function.AddOperation(Opcode::OP_SIGNBIT, {tile}, {resultTile, tmpTensor});
+
+        return;
+    }
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
+        input.tileInfo.offset[cur] = i;
+        TiledSignbitOperation(function, tileShape, cur + 1, input, result);
+    }
+}
+
+void TiledSignbitOperation(
+    Function &function, const TileShape &tileShape, const LogicalTensorPtr &self, const LogicalTensorPtr &result) {
+    ASSERT(self->shape.size() == self->offset.size()) << "Shape size and offset size should be equal";
+
+    TileInfo tileInfo(result->shape.size(), result->offset.size());
+    auto input = Input{self, tileInfo};
+    TiledSignbitOperation(function, tileShape, 0, input, result);
+}
+
 LogicalTensorPtr TensorSignOperation(Function &function, LogicalTensorPtr self) {
     auto result = std::make_shared<LogicalTensor>(function, self->tensor->datatype, self->shape, self->GetDynValidShape());
     function.AddOperation(Opcode::OP_SIGN, {self}, {result});
+    return result;
+}
+
+LogicalTensorPtr TensorSignbitOperation(Function &function, LogicalTensorPtr self) {
+    auto result = std::make_shared<LogicalTensor>(function, DataType::DT_BOOL, self->shape, self->GetDynValidShape());
+    function.AddOperation(Opcode::OP_SIGNBIT, {self}, {result});
     return result;
 }
 
@@ -133,6 +169,12 @@ Tensor Sign(const Tensor &self) {
     DECLARE_TRACER();
 
     RETURN_CALL(SignOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
+}
+
+Tensor Signbit(const Tensor &self) {
+    DECLARE_TRACER();
+
+    RETURN_CALL(SignbitOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
 }
 
 Tensor Neg(const Tensor &self) {
@@ -521,6 +563,12 @@ void SignOperationTileFunc(Function &function, const TileShape &tileShape,
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
     [[maybe_unused]] const Operation &op) {
     TiledSignOperation(function, tileShape, iOperand[0], oOperand[0]);
+}
+
+void SignbitOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    [[maybe_unused]] const Operation &op) {
+    TiledSignbitOperation(function, tileShape, iOperand[0], oOperand[0]);
 }
 
 void OneHotOperationTileFunc(Function &function, const TileShape &tileShape,
@@ -972,6 +1020,82 @@ Tensor Var(const Tensor &input, const std::vector<int> &dim, float correction, b
     return res;
 }
 
+Tensor TensorExp2(Function &function, const LogicalTensorPtr &self) {
+    auto result =
+        std::make_shared<LogicalTensor>(function, self->Datatype(), self->GetShape(), self->GetDynValidShape());
+    if (self->Datatype() == DataType::DT_INT32 || self->Datatype() == DataType::DT_INT16) {
+        result = std::make_shared<LogicalTensor>(function, DT_FP32, self->GetShape(), self->GetDynValidShape());
+    }
+    auto &op = function.AddOperation(Opcode::OP_EXP2, {self}, {result});
+    function.UpdateTensorDataUsage(op);
+    return result;
+}
+
+Tensor Exp2(const Tensor &self) {
+    DECLARE_TRACER();
+
+    auto shapeSize = self.GetShape().size();
+    auto dataType = self.GetDataType();
+    ASSERT(SHAPE_DIM2 <= shapeSize && shapeSize <= SHAPE_DIM4) << "The shape.size() only support 2~4";
+    std::vector<DataType> EXP2_SUPPORT_DATATYPES = {
+        DataType::DT_FP32, DataType::DT_FP16, DataType::DT_BF16, DataType::DT_INT32, DataType::DT_INT16};
+    ASSERT(std::find(EXP2_SUPPORT_DATATYPES.begin(), EXP2_SUPPORT_DATATYPES.end(), dataType) !=
+           EXP2_SUPPORT_DATATYPES.end())
+        << "The datatype is not supported";
+
+    RETURN_CALL(Exp2, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
+}
+
+void TiledExp2(
+    Function &function, const TileShape &tileShape, size_t cur, Input &input, const LogicalTensorPtr &result) {
+    if (cur == input.tensor.GetShape().size()) {
+        auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        std::vector<int64_t> srcTileShape(input.tileInfo.shape);
+        auto tileShapeLen = srcTileShape.size();
+        ASSERT(SHAPE_DIM2 <= tileShapeLen && tileShapeLen <= SHAPE_DIM4) << "Length of tile shape only support 2~4";
+        std::vector<int64_t> tmpShape;
+        std::vector<int64_t> tmpShape2;
+        tmpShape2.assign(srcTileShape.end() - SHAPE_DIM2, srcTileShape.end());
+        auto alignSize2 = BLOCK_SIZE / BytesOf(DT_FP32);
+        tmpShape2[tmpShape2.size() - 1] = (tmpShape2[tmpShape2.size() - 1] + alignSize2 - 1) / alignSize2 * alignSize2;
+        if (input.tensor.GetDataType() == DT_FP32) {
+            tmpShape = {BLOCK_SIZE / sizeof(float)};
+        } else {
+            tmpShape.assign(srcTileShape.end() - SHAPE_DIM2, srcTileShape.end());
+            auto alignSize = BLOCK_SIZE / BytesOf(DT_FP32);
+            tmpShape[tmpShape.size() - 1] = (tmpShape[tmpShape.size() - 1] + alignSize - 1) / alignSize * alignSize;
+        }
+        auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_FP32, tmpShape);
+        auto tmpTensorNext = std::make_shared<LogicalTensor>(function, DT_FP32, tmpShape2);
+
+        function.AddOperation(Opcode::OP_EXP2, {tile}, {resultTile, tmpTensor, tmpTensorNext});
+        return;
+    }
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
+        input.tileInfo.offset[cur] = i;
+        TiledExp2(function, tileShape, cur + 1, input, result);
+    }
+}
+
+void TiledExp2(
+    Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
+    ASSERT(operand->shape.size() == operand->offset.size()) << "The shape size of operand and offset must be equal";
+
+    TileInfo tileInfo(result->shape.size(), result->offset.size());
+    auto input = Input{operand, tileInfo};
+
+    TiledExp2(function, tileShape, 0, input, result);
+}
+
+void Exp2OperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    [[maybe_unused]] const Operation &op) {
+    TiledExp2(function, tileShape, iOperand[0], oOperand[0]);
+}
+
 Tensor TensorRound(Function &function, const LogicalTensorPtr &self, const int &decimals = 0) {
     auto result =
         std::make_shared<LogicalTensor>(function, self->Datatype(), self->GetShape(), self->GetDynValidShape());
@@ -1048,11 +1172,84 @@ void RoundOperationTileFunc(Function &function, const TileShape &tileShape,
     TiledRound(function, tileShape, iOperand[0], oOperand[0], decimals);
 }
 
+Tensor TensorExpm1(Function &function, const LogicalTensorPtr &self) {
+    auto result =
+        std::make_shared<LogicalTensor>(function, self->Datatype(), self->GetShape(), self->GetDynValidShape());
+    if (self->Datatype() == DataType::DT_INT32 || self->Datatype() == DataType::DT_INT16) {
+        result = std::make_shared<LogicalTensor>(function, DT_FP32, self->GetShape(), self->GetDynValidShape());
+    }
+    auto &op = function.AddOperation(Opcode::OP_EXPM1, {self}, {result});
+    function.UpdateTensorDataUsage(op);
+    return result;
+}
+
+Tensor Expm1(const Tensor &self) {
+    DECLARE_TRACER();
+
+    auto shapeSize = self.GetShape().size();
+    auto dataType = self.GetDataType();
+    ASSERT(SHAPE_DIM2 <= shapeSize && shapeSize <= SHAPE_DIM4) << "The shape.size() only support 2~4";
+    std::vector<DataType> EXPM1_SUPPORT_DATATYPES = {
+        DataType::DT_FP32, DataType::DT_FP16, DataType::DT_BF16, DataType::DT_INT32, DataType::DT_INT16};
+    ASSERT(std::find(EXPM1_SUPPORT_DATATYPES.begin(), EXPM1_SUPPORT_DATATYPES.end(), dataType) !=
+           EXPM1_SUPPORT_DATATYPES.end())
+        << "The datatype is not supported";
+
+    RETURN_CALL(Expm1, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
+}
+
+void TiledExpm1(
+    Function &function, const TileShape &tileShape, size_t cur, Input &input, const LogicalTensorPtr &result) {
+    if (cur == input.tensor.GetShape().size()) {
+        auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        std::vector<int64_t> srcTileShape(input.tileInfo.shape);
+        auto tileShapeLen = srcTileShape.size();
+        ASSERT(SHAPE_DIM2 <= tileShapeLen && tileShapeLen <= SHAPE_DIM4) << "Length of tile shape only support 2~4";
+        std::vector<int64_t> tmpShape;
+        if (input.tensor.GetDataType() == DT_FP32) {
+            tmpShape = {BLOCK_SIZE / sizeof(float)};
+        } else {
+            tmpShape.assign(srcTileShape.end() - SHAPE_DIM2, srcTileShape.end());
+            auto alignSize = BLOCK_SIZE / BytesOf(DT_FP32);
+            tmpShape[tmpShape.size() - 1] = (tmpShape[tmpShape.size() - 1] + alignSize - 1) / alignSize * alignSize;
+        }
+        auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_FP32, tmpShape);
+        function.AddOperation(Opcode::OP_EXPM1, {tile}, {resultTile, tmpTensor});
+        return;
+    }
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
+        input.tileInfo.offset[cur] = i;
+        TiledExpm1(function, tileShape, cur + 1, input, result);
+    }
+}
+
+void TiledExpm1(
+    Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
+    ASSERT(operand->shape.size() == operand->offset.size()) << "The shape size of operand and offset must be equal";
+
+    TileInfo tileInfo(result->shape.size(), result->offset.size());
+    auto input = Input{operand, tileInfo};
+
+    TiledExpm1(function, tileShape, 0, input, result);
+}
+
+void Expm1OperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    [[maybe_unused]] const Operation &op) {
+    TiledExpm1(function, tileShape, iOperand[0], oOperand[0]);
+}
+
 REGISTER_OPERATION_TILED_FUNC(OP_LOGICALNOT, Opcode::OP_LOGICALNOT, LogicNotOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_ONEHOT, Opcode::OP_ONEHOT, OneHotOperationTileFunc);
+REGISTER_OPERATION_TILED_FUNC(OP_EXPM1, Opcode::OP_EXPM1, Expm1OperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_ROUND, Opcode::OP_ROUND, RoundOperationTileFunc);
+REGISTER_OPERATION_TILED_FUNC(OP_EXP2, Opcode::OP_EXP2, Exp2OperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_LOGICALAND, Opcode::OP_LOGICALAND, LogicAndOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_CUM_SUM, Opcode::OP_CUM_SUM, CumSumOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_TRIUL, Opcode::OP_TRIUL, TriULOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_SIGN, Opcode::OP_SIGN, SignOperationTileFunc);
+REGISTER_OPERATION_TILED_FUNC(OP_SIGNBIT, Opcode::OP_SIGNBIT, SignbitOperationTileFunc);
 } // namespace npu::tile_fwk

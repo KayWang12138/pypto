@@ -72,15 +72,28 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
             PTO_WITH_LAST_USE(pto::TROWEXPANDMIN(dst, src0, src1), n1, n2, n3);
         }
     }
-        
+
     if constexpr (op == BinaryOp::BITWISEAND) {
         pto::TAND(dst, src0, src1);
         return;
     }
-  
+
     if constexpr (op == BinaryOp::BITWISEOR) {
         pto::TOR(dst, src0, src1);
         return;
+    }
+    
+    if constexpr (op == BinaryOp::REM) {
+        pto::TREM(dst, src0, src1);
+        return;
+    }  
+
+    if constexpr (op == BinaryOp::EXPANDEXPDIF) {
+        if constexpr (operand == TileOp::BroadcastOperand::NONE) {
+            pto::TCOLEXPANDEXPDIF(dst, src0, src1);
+        } else {
+            pto::TROWEXPANDEXPDIF(dst, src0, src1);
+        }
     }
 
     if constexpr (op == BinaryOp::MOD) {
@@ -182,6 +195,12 @@ TILEOP void TMin(T0 dst, T1 src0, T2 src1) {
     BinaryCompute<BinaryOp::MIN, operand, LastUse>(dst, src0, src1);
 }
 
+#define OP_TILE_OP_REM TRem
+template <typename LastUse = LastUse3Dim<0, 0, 0>, TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
+TILEOP void TRemainder(T0 dst, T1 src0, T2 src1) {
+    BinaryCompute<BinaryOp::REM, operand, LastUse>(dst, src0, src1);
+}
+
 #define OP_TILE_OP_BITWISEAND TBitwiseAnd
 template <typename LastUse = LastUse3Dim<0, 0, 0>, TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TBitwiseAnd(T0 dst, T1 src0, T2 src1) {
@@ -192,6 +211,12 @@ TILEOP void TBitwiseAnd(T0 dst, T1 src0, T2 src1) {
 template <typename LastUse = LastUse3Dim<0, 0, 0>, TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TBitwiseOr(T0 dst, T1 src0, T2 src1) {
     BinaryCompute<BinaryOp::BITWISEOR, operand, LastUse>(dst, src0, src1);
+}
+
+#define OP_TILE_OP_EXPANDEXPDIF TExpandExpDif
+template <TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
+TILEOP void TExpandExpDif(T0 dst, T1 src0, T2 src1) {
+    BinaryCompute<BinaryOp::EXPANDEXPDIF, operand, LastUse3Dim<0, 0, 0>>(dst, src0, src1);
 }
 
 TILEOP int gcd(int a, int b) {

@@ -60,8 +60,11 @@ std::string CodeGenOpCloudNPU::PrintCastDynamicUnaligned(const PrintUnaryParam &
 }
 
 std::string CodeGenOpCloudNPU::PrintCastTileTensor() const {
+    // std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+    // std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
+    // std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
-    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));    
     auto mode = opAttrs.at(OP_ATTR_PREFIX + "mode");
     int64_t modeEnum{0};
     if (mode.HasValue()) {
@@ -82,10 +85,13 @@ std::string CodeGenOpCloudNPU::PrintCastTileTensor() const {
         templateParamList.emplace_back(lastUse);
     }
     templateParamList.emplace_back(std::to_string(modeEnum));
+    std::string satModeStr = (satModeEnum == 0) ? 
+                            "pto::SaturationMode::ON" : 
+                            "pto::SaturationMode::OFF";
+    templateParamList.emplace_back(satModeStr);
     oss << WrapParamByAngleBrackets(templateParamList);
-
-    std::string satModeParam = "static_cast<pto::SaturationMode>(" + std::to_string(satModeEnum) + ")";
-    oss << WrapParamByParentheses({dstTensor, srcTensor, satModeParam});
+    // oss << WrapParamByParentheses({dstTensor, srcTensor, tmpTensor});
+    oss << WrapParamByParentheses({dstTensor, srcTensor});
     oss << ";\n";
     return oss.str();
 }
@@ -570,7 +576,8 @@ std::string CodeGenOpCloudNPU::GenUnaryOp() const {
         return PrintOneHot({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     } else if (opCode == Opcode::OP_ROWMAX || opCode == Opcode::OP_ROWEXPMAX || opCode == Opcode::OP_ROWEXPSUM) {
         return PrintReduceEx({s0Var, dVar, srcDtypeStr, dstDtypeStr});
-    } else if (opCode == Opcode::OP_ROWMAXLINE || opCode == Opcode::OP_ROWMINLINE) {
+    } else if (opCode == Opcode::OP_ROWMAXLINE || opCode == Opcode::OP_ROWMINLINE || 
+               opCode == Opcode::OP_ROWPRODLINE) {
         return PrintRowMaxline({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     } else if (opCode == Opcode::OP_EXP || opCode == Opcode::OP_SQRT || opCode == Opcode::OP_ABS || opCode == Opcode::OP_RELU ||
                opCode == Opcode::OP_RECIPROCAL || opCode == Opcode::OP_NEG || opCode == Opcode::OP_RSQRT ||
