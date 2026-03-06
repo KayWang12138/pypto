@@ -15,12 +15,7 @@ project(tile_fwk_server LANGUAGES C CXX)
 ########################################################################################################################
 # 基础配置
 ########################################################################################################################
-if (BUILD_OPEN_PROJECT)
-    add_subdirectory(stub)
-else ()
-    set(CMAKE_SKIP_RPATH TRUE)
-    get_filename_component(PTO_FWK_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../" ABSOLUTE)
-endif()
+add_subdirectory(stub)
 
 file(GLOB _Device_Utils_Srcs
     ${PTO_FWK_SRC_ROOT}/framework/src/machine/utils/dynamic/dev_encode_function.cpp
@@ -52,7 +47,7 @@ target_compile_options(tile_fwk_server
             -Wextra
             -std=gnu++17
             -rdynamic
-            -O3	
+            -O3
             -shared
             -fPIC
             -D__DEVICE__
@@ -67,22 +62,22 @@ target_include_directories(tile_fwk_server
             ${PTO_FWK_SRC_ROOT}/framework/src/interface
             ${PTO_FWK_SRC_ROOT}/framework/src/interface/machine/device
             ${PTO_FWK_SRC_ROOT}/framework/src/cost_model
-        PRIVATE  # 使用 CANN 场景依赖
-            $<BUILD_INTERFACE:$<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include>>
-            $<BUILD_INTERFACE:$<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/toolchain>>
-            $<BUILD_INTERFACE:$<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/base>>
+        PRIVATE
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include>>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/include/toolchain>>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/base>>
 )
 target_link_directories(tile_fwk_server
         PRIVATE
-            $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/devlib/linux/aarch64/>
-            $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/devlib/device/>
+            $<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/devlib/linux/aarch64/>
+            $<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/devlib/device/>
             $<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/lib64>
 )
 target_link_libraries(tile_fwk_server
         PRIVATE
             -Wl,--no-as-needed
             c_sec
-            $<IF:$<BOOL:${BUILD_OPEN_PROJECT}>,slog_stub,slog>
+            slog_stub
             -ldl
             $<$<TARGET_EXISTS:intf_pub>:$<BUILD_INTERFACE:intf_pub>>
 )
@@ -90,17 +85,4 @@ set_target_properties(tile_fwk_server PROPERTIES OUTPUT_NAME tilefwk_backend_ser
 
 if (NOT ENABLE_FEATURE_PYTHON_FRONT_END)
     install(TARGETS tile_fwk_server LIBRARY DESTINATION lib OPTIONAL)
-endif ()
-
-if (NOT BUILD_OPEN_PROJECT)
-    set(TILE_FWK_KERNEL_TAR_GZ_NAME "transformer_tile_fwk_aicpu_kernel.tar.gz")
-    add_custom_command(TARGET tile_fwk_server POST_BUILD
-        COMMAND echo "Begin to compress ${TILE_FWK_KERNEL_TAR_GZ_NAME} from ${CMAKE_CURRENT_BINARY_DIR}/libtilefwk_backend_server.so"
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/aicpu_kernels_device/tile_fwk_machine
-        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/libtilefwk_backend_server.so ${CMAKE_CURRENT_BINARY_DIR}/aicpu_kernels_device/tile_fwk_machine
-        COMMAND cd ${CMAKE_CURRENT_BINARY_DIR}
-        COMMAND tar czf ${TILE_FWK_KERNEL_TAR_GZ_NAME} aicpu_kernels_device
-        COMMAND echo "${CMAKE_CURRENT_BINARY_DIR}/${TILE_FWK_KERNEL_TAR_GZ_NAME} has been generated."
-    )
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${TILE_FWK_KERNEL_TAR_GZ_NAME} DESTINATION lib OPTIONAL)
 endif ()
