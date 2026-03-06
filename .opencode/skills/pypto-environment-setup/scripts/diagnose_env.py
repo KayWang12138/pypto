@@ -38,6 +38,8 @@ def _parse_timeout_env() -> int:
 
 
 _DEFAULT_TIMEOUT_S: int = _parse_timeout_env()
+
+
 def _run(cmd: list[str], timeout_s: int = _DEFAULT_TIMEOUT_S) -> dict[str, Any]:
     try:
         p = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=timeout_s)
@@ -217,14 +219,14 @@ def _detect_cann(ascend_root: str, cann_hint: str | None = None) -> dict[str, An
 def _detect_pypto_repo() -> dict[str, Any]:
     """自动检测 PyPTO 仓库路径。"""
     candidates = []
-    
+
     # 从已安装的 pypto 包路径反推仓库根目录（优先级最高）
     pypto_info = _safe_import('pypto')
     if pypto_info.get('file'):
         # /path/to/pypto/python/pypto/__init__.py -> /path/to/pypto
         pypto_pkg_dir = os.path.dirname(os.path.dirname(os.path.dirname(pypto_info['file'])))
         candidates.append(pypto_pkg_dir)
-    
+
     # 环境变量 + 常规候选路径
     _ws = os.environ.get("HOME") or os.getcwd()
     candidates.extend([
@@ -233,7 +235,7 @@ def _detect_pypto_repo() -> dict[str, Any]:
         os.path.join(os.path.expanduser("~"), "pypto"),
         os.getcwd(),
     ])
-    
+
     for p in candidates:
         if not p:
             continue
@@ -306,12 +308,12 @@ def _detect_build_tools() -> dict[str, Any]:
 
 def _detect_third_party_deps(pypto_repo_path: str | None) -> dict[str, Any]:
     """检测第三方编译依赖（源码包）：nlohmann/json v3.11.3、libboundscheck v1.1.16。"""
-    JSON_URL = 'https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/third_party_deps/json-3.11.3.tar.gz'
-    SECUREC_URL = 'https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/third_party_deps/libboundscheck-v1.1.16.tar.gz'
+    json_url = 'https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/third_party_deps/json-3.11.3.tar.gz'
+    securec_url = 'https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/third_party_deps/libboundscheck-v1.1.16.tar.gz'
 
     result: dict[str, Any] = {
-        'json': {'found': False, 'version': 'v3.11.3', 'download_url': JSON_URL},
-        'libboundscheck': {'found': False, 'version': 'v1.1.16', 'download_url': SECUREC_URL},
+        'json': {'found': False, 'version': 'v3.11.3', 'download_url': json_url},
+        'libboundscheck': {'found': False, 'version': 'v1.1.16', 'download_url': securec_url},
     }
 
     if not pypto_repo_path:
@@ -494,6 +496,7 @@ def _detect_npu_env(ascend_root: str) -> dict[str, Any]:
         'firmware_exists': firmware_exists,
         'firmware_path': firmware_dir if firmware_exists else None,
     }
+
 
 def _collect_issues(
     *,
@@ -864,6 +867,7 @@ def _print_checklist(report: dict[str, Any]) -> None:
         logging.info(line)
     for line in _format_issues(issues):
         logging.info(line)
+
 
 def main() -> int:
     ap = argparse.ArgumentParser(description='Diagnose PyPTO/PyTorch/CANN/NPU environment')
