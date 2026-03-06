@@ -4,9 +4,8 @@ PyPTO 性能分析脚本
 从bubble_analysis.log中提取性能数据并计算性能指标
 """
 
-import re
-import json
 import os
+import re
 from typing import Dict, List, Tuple
 from dataclasses import dataclass
 
@@ -346,7 +345,7 @@ def generate_report(metrics: Dict, bottlenecks: List[Dict], suggestions: Dict, o
     for core in metrics['aic_cores']:
         report += f"| {core.core_name} | {core.task_num} | {core.total_work_time:.2f} | {core.total_wait_time:.2f} | {core.wait_schedule_time:.2f} | {core.wait_predecessor_time:.2f} | {core.aicore_time:.2f} | {core.core_utilization:.2f}% | {core.bubble_rate:.2f}% |\n"
     
-    report += f"""
+    report += """
 ### AIV 核心性能指标
 
 | 核心 | 任务数 | 总工作时间 | 总等待时间 | 等待调度时间 | 等待前驱时间 | AicoreTime | 核心利用率 | 气泡率 |
