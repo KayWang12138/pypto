@@ -165,7 +165,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_SUBS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_MULS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_DIVS, [this]() { return GenVectorScalarOp(); }},
-          {Opcode::OP_REMS, [this]() { return GenRemainderSOp(); }},         
+          {Opcode::OP_REMS, [this]() { return GenRemainderSOp(); }},
           {Opcode::OP_MAXS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_MINS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_LRELU, [this]() { return GenVectorScalarOp(); }},
@@ -177,7 +177,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
 
           // binary op: vector scalar with tmp
           {Opcode::OP_MODS, [this]() { return GenVectorScalarOp(); }},
-          {Opcode::OP_REMRS, [this]() { return GenRemainderRSOp(); }}, 
+          {Opcode::OP_REMRS, [this]() { return GenRemainderRSOp(); }},
           {Opcode::OP_SBITWISERIGHTSHIFT, [this]() { return GenVectorScalarOpWithTmp(); }},
           {Opcode::OP_SBITWISELEFTSHIFT, [this]() { return GenVectorScalarOpWithTmp(); }},
           {Opcode::OP_BITWISEXORS, [this]() { return GenVectorScalarOpWithTmp(); }},
@@ -550,11 +550,11 @@ TileTensor CodeGenOpCloudNPU::BuildTileTensor(
     bool isSpillToGm = operand[paramIdx] == SYMBOL_STACK_BASE;
 
     TileTensor tileTensor;
-    tileTensor.isStatic = functionType == FunctionType::STATIC;
+    tileTensor.isConstant = functionType == FunctionType::STATIC || isMainBlock;
     tileTensor.magic = operandWithMagic[paramIdx];
     tileTensor.shapeInLoop = shapeInLoop;
 
-    if (tileTensor.isStatic) {
+    if (tileTensor.isConstant) {
         tileTensor.dim = shapeInLoop.loopDepth > 0 ? shapeInLoop.originShape.size() : originShape[paramIdx].size();
     } else {
         tileTensor.dim =
@@ -602,8 +602,8 @@ void CodeGenOpCloudNPU::UpdateTileTensorInfo() {
     tileOpName = iter->second; // update tileOpName from SUPPORT_TILETENSOR_OPS
 
     for (int i = 0; i < operandCnt; ++i) {
-        TileTensorUsing tileTensorUsing{operandDtype[i], operandType[i], static_cast<int>(rawShape[i].size()),
-            originShape[i], rawShape[i], functionType == FunctionType::STATIC};
+        TileTensorUsing tileTensorUsing{functionType == FunctionType::STATIC || isMainBlock, operandDtype[i],
+            operandType[i], static_cast<int>(rawShape[i].size()), originShape[i], rawShape[i]};
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
         TileTensor tileTensor = BuildTileTensor(i, usingType);
         std::string tensorName = sm->AddTileTensor(tileTensor);
@@ -663,8 +663,9 @@ void CodeGenOpCloudNPU::UpdateLoopInfo() {
         CODEGEN_LOGI("shapeInLoop: loopDepth is %d newOriginShape is %s, newRawShape is %s, newDynValidShape is %s",
             loopDepth, IntVecToStr(shapeInLoop.originShape).c_str(), IntVecToStr(shapeInLoop.rawShape).c_str(),
             IntVecToStr(shapeInLoop.dynamicValidShape).c_str());
-        TileTensorUsing tileTensorUsing{operandDtype[i], operandType[i], static_cast<int>(shapeInLoop.rawShape.size()),
-            shapeInLoop.originShape, shapeInLoop.rawShape, functionType == FunctionType::STATIC};
+        TileTensorUsing tileTensorUsing{functionType == FunctionType::STATIC || isMainBlock, operandDtype[i],
+            operandType[i], static_cast<int>(shapeInLoop.rawShape.size()), shapeInLoop.originShape,
+            shapeInLoop.rawShape};
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
         TileTensor tileTensor = BuildTileTensor(i, usingType, shapeInLoop);
         forBlkMgr_->AddTensorInLoopBody(tensorNames_[i], tileTensor);
@@ -699,7 +700,8 @@ std::string CodeGenOpCloudNPU::QueryTileTensorNameByIdx(int paramIdx) const {
     if (res.size() == 1) {
         return res[0].tensorName;
     }
-    CODEGEN_LOGI("paramIdx is %d, tensor magic is %d, res size is %d", paramIdx, operandWithMagic[paramIdx], res.size());
+    CODEGEN_LOGI(
+        "paramIdx is %d, tensor magic is %d, res size is %d", paramIdx, operandWithMagic[paramIdx], res.size());
 
     for (const auto &tileTensor : res) {
         auto targetRawShape =
@@ -725,6 +727,7 @@ std::string CodeGenOpCloudNPU::GenOpCode() const {
     }
 
     if (forBlkMgr_ == nullptr || !forBlkMgr_->IsInLoop()) {
+        CODEGEN_LOGI_FULL(": op codegen result: \n, %s", ret.c_str());
         return ret;
     }
 
@@ -738,6 +741,7 @@ std::string CodeGenOpCloudNPU::GenOpCode() const {
 
     ret = forBlkMgr_->Print();
     forBlkMgr_->OutLoop();
+    CODEGEN_LOGI_FULL(": op codegen result: \n, %s", ret.c_str());
     return ret;
 }
 

@@ -147,7 +147,6 @@ void CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc, std::ost
         if (!allocSourceCode.empty()) {
             CODEGEN_LOGI(": extra alloc generated(moved up to alloc region): %s", allocSourceCode.c_str());
         }
-        CODEGEN_LOGI(": op codegen result: \n, %s", tileOpSourceCode.c_str());
         CODEGEN_LOGI("------------------------ Op CodeGenNPU Finish -----------------------");
     }
     floatSpecValMgr.PrintFloatSpecVal(oss);
