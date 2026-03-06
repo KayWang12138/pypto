@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
 
 from __future__ import annotations
 
@@ -498,7 +499,7 @@ def apply_edits(source: str, edits: list[TextEdit]) -> str:
         current_end = edit.end
     result = source
     for edit in reversed(cleaned):
-        result = result[:edit.start] + edit.replacement + result[edit.end :]
+        result = result[:edit.start] + edit.replacement + result[edit.end:]
     return result
 
 
@@ -566,7 +567,7 @@ def build_ast_fixes(
             if not is_print_call(node):
                 continue
             start = to_offset(offsets, node.lineno, node.col_offset)
-            if source[start : start + 5] != "print":
+            if source[start:start + 5] != "print":
                 continue
             edits.append(TextEdit(start=start, end=start + 5, replacement="logging.info"))
             replaced_print = True
