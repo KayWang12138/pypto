@@ -223,7 +223,8 @@ Status RemoveRedundantAssemble::RemoveViewSingleReshape(Function &function) cons
     return SUCCESS;
 }
 
-// large , small
+// 检测并优化特定的reshape模式：当输入张量的前两个维度中有一个为1时，
+// 这两个维度可以合并为单个维度（例如 [1, N, ...] 或 [N, 1, ...] → [N, ...]）
 bool RemoveViewMultiReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTensorPtr &reshapeOutput) {
     auto longerRawShape = reshapeInput->GetRawTensor()->GetRawShape();
     auto shorterRawShape = reshapeOutput->GetRawTensor()->GetRawShape();
@@ -300,6 +301,9 @@ Status RemoveRedundantAssemble::SplitMultiConsumerReshape(
 
 Status RemoveRedundantAssemble::ProcessReshape(Function &function, Operation *&operation,
     std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const {
+    if (operation == nullptr) {
+        return FAILED;
+    }
     auto iOperand = operation->iOperand[0];
     auto oOperand = operation->oOperand[0];
     if (oOperand == nullptr) {
