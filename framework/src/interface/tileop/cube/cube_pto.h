@@ -18,6 +18,12 @@
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
 
+#if __NPU_ARCH__ == 3101
+#define PTO_NPU_ARCH_A5
+#elif __NPU_ARCH__ == 3510
+#define PTO_NPU_ARCH_A5
+#endif
+
 constexpr int16_t SHAPE_DIM2 = 2;
 constexpr int16_t SHAPE_DIM3 = 3;
 constexpr uint16_t BLOCK_CUBE_M_N = 16;
@@ -656,7 +662,7 @@ TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, T3 &bias) {
     pto::TMATMUL_BIAS(l0c, l0a, l0b, biasT);
 }
 
-#if __NPU_ARCH__ == 3101
+#if defined PTO_NPU_ARCH_A5
 template <bool isZeroC, typename T0, typename T1, typename T2, typename T3, typename T4>
 TILEOP void MatmulMX(T0 &c, T1 &a, T2 &aScale, T3 &b, T4 &bScale)
 {
