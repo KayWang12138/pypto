@@ -43,7 +43,7 @@ Status AutoCastChecker::DoPreCheck(Function &function) {
 }
 
 Status AutoCastChecker::DoPostCheck(Function &function) {
-    APASS_LOG_INFO_F("PostCheck for AutoCast");
+    APASS_LOG_INFO_F(Elements::Operation, "PostCheck for AutoCast");
     std::vector<Operation *> opList = function.Operations().DuplicatedOpList();
     for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
         Operation *op = opList[opIdx];
