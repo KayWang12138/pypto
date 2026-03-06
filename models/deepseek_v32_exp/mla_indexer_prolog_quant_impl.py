@@ -323,9 +323,7 @@ def mla_indexer_prolog_quant_p(h, n_q, q_lora_rank, kv_lora_rank, qk_nope_head_d
             "cube_l1_reuse_setting": {-1: 4},
             "pg_upper_bound": 8192,
         },
-        runtime_options={"stitch_function_inner_memory": 512, 
-                        "stitch_function_outcast_memory": 512,
-                        "stitch_function_num_initial": 128,
+        runtime_options={"stitch_function_max_num": 128,
                         "device_sched_mode": 2}
     )
     def mla_indexer_prolog_quant_kernel(

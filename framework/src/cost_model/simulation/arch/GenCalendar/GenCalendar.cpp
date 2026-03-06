@@ -172,11 +172,11 @@ void GenCalendar::RemoveBarrierCounter()
     uint64_t maxCounterId = 128;
     for (auto &x : waitToTaskMap) {
         for (auto w : x.first) {
-            SIMULATION_LOGI("%llu ", w);
+            SIMULATION_LOGI("%lu ", w);
         }
         SIMULATION_LOGI("\n -- > ");
         for (auto w : x.second) {
-            SIMULATION_LOGI("%llu ", w);
+            SIMULATION_LOGI("%lu ", w);
         }
         SIMULATION_LOGI("\n");
         auto total_send_wait = x.first.size() * x.second.size();
@@ -186,7 +186,7 @@ void GenCalendar::RemoveBarrierCounter()
             // This is not our case.
             continue;
         }
-        SIMULATION_LOGI("%d !!!!\n", saved_send_wait);
+        SIMULATION_LOGI("%zu !!!!\n", saved_send_wait);
         if (barrierCounterId == maxCounterId) {
             // I have used all my barrier counters.
             break;

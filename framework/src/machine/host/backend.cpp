@@ -659,7 +659,7 @@ static void ConstructCodeInfo(struct EncodeDevAscendFunctionParam &encodeDevAsce
       ASSERT(leafFuncAttr != nullptr)<<"leafFuncAttr is null\n";
       encodeDevAscendFunctionParam.calleeHashIndexDict[hash] = leafIndex;
       attr->devLeafIndex2Hash[leafIndex] = hash;
-      MACHINE_LOGI("Dyndev.codegen: [ %d ] hash= %llu binpath= %s", leafIndex, hash, leafFuncAttr->binPath.c_str());
+      MACHINE_LOGI("Dyndev.codegen: [ %d ] hash= %lu binpath= %s", leafIndex, hash, leafFuncAttr->binPath.c_str());
       attr->cceCodeInfo[leafIndex].coreType = static_cast<uint32_t>(leafFuncAttr->coreType);
       if (leaf->IsDummyFunction())
         attr->cceCodeInfo[leafIndex].coreType = static_cast<uint32_t>(CoreType::HUB);
@@ -874,7 +874,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
                 leafDict[hash] = leaf;
                 MACHINE_LOGI("Dyndev.codegen: %s", leaf->GetRawName().c_str());
             } else {
-                MACHINE_LOGE(" Duplicate func hash %llu name %s", hash, leaf->GetRawName().c_str());
+                MACHINE_LOGE(" Duplicate func hash %lu name %s", hash, leaf->GetRawName().c_str());
             }
         }
     }

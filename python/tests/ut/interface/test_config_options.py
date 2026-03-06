@@ -55,6 +55,7 @@ def test_reset_option():
     runtime_option = pypto.get_runtime_options()
     host_option = pypto.get_host_options()
     assert runtime_option["stitch_function_num_initial"] == 128
+    assert runtime_option["stitch_function_max_num"] == 0
     assert host_option["compile_stage"] == pypto.CompStage.ALL_COMPLETE.value
 
 
