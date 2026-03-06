@@ -1,8 +1,8 @@
 
 
-说明：本文描述如何快速使用示例 Dockerfile 创建可运行 PyPTO 的 Docker 容器。  
-在使用 Docker 容器前，请务必**完成主机 NPU 硬件部署，以及 NPU 驱动和固件安装**，可参考文档  
-[Environment README](../docs/install/prepare_environment.md)。  
+说明：本文描述如何快速使用示例 Dockerfile 创建可运行 PyPTO 的 Docker 容器。
+在使用 Docker 容器前，请务必**完成主机 NPU 硬件部署，以及 NPU 驱动和固件安装**，可参考文档
+[Environment README](../docs/install/prepare_environment.md)。
 建议 Docker 版本：**v27.2.1 及以上**。
 
 ## 版本说明
@@ -28,26 +28,26 @@
 # arch: x86_64, aarch64
 # python: 3.11
 # cann env
-# cann_verison: 8.5.0 
+# cann_verison: 8.5.0
 # torch: 2.6.0
 # torch_npu: 2.6.0
 # device_type: A2, A3
 #**************docker info*******************#
 ```
 
-示例 Dockerfile 以 **Ubuntu** 为基础编写，不同操作系统镜像之间存在轻微差异，请根据实际操作系统进行适配调整。  
+示例 Dockerfile 以 **Ubuntu** 为基础编写，不同操作系统镜像之间存在轻微差异，请根据实际操作系统进行适配调整。
 
-在使用前，请根据 **操作系统 + 硬件类型** 指定 `CANN_VERSION`：  
+在使用前，请根据 **操作系统 + 硬件类型** 指定 `CANN_VERSION`：
 
-- **Ubuntu + A3**：`ARG CANN_VERSION=8.5.0-a3-ubuntu22.04-py3.11`  
-- **Ubuntu + A2**：`ARG CANN_VERSION=8.5.0-910b-ubuntu22.04-py3.11`  
-- **openEuler + A3**：`ARG CANN_VERSION=8.5.0-a3-openeuler24.03-py3.11`  
-- **openEuler + A2**：`ARG CANN_VERSION=8.5.0-910b-openeuler24.03-py3.11`  
+- **Ubuntu + A3**：`ARG CANN_VERSION=8.5.0-a3-ubuntu22.04-py3.11`
+- **Ubuntu + A2**：`ARG CANN_VERSION=8.5.0-910b-ubuntu22.04-py3.11`
+- **openEuler + A3**：`ARG CANN_VERSION=8.5.0-a3-openeuler24.03-py3.11`
+- **openEuler + A2**：`ARG CANN_VERSION=8.5.0-910b-openeuler24.03-py3.11`
 
-根据 CPU 架构指定 `TARGETPLATFORM`：  
+根据 CPU 架构指定 `TARGETPLATFORM`：
 
-- **x86_64**：`ARG TARGETPLATFORM=linux/amd64`  
-- **aarch64**：`ARG TARGETPLATFORM=linux/arm64`  
+- **x86_64**：`ARG TARGETPLATFORM=linux/amd64`
+- **aarch64**：`ARG TARGETPLATFORM=linux/arm64`
 
 <span style="font-size:12px;">*若上述信息与实际硬件及驱动不匹配，将导致 CANN 包安装失败，从而导致镜像构建失败。*</span>
 
@@ -159,7 +159,7 @@ ENV https_proxy=$PROXY
 ENV http_proxy=$PROXY
 ```
 
-若希望构建其他环境版本的镜像，可参考 Ascend 社区提供的基础镜像：  
+若希望构建其他环境版本的镜像，可参考 Ascend 社区提供的基础镜像：
 [`https://quay.io/repository/ascend/cann`](https://quay.io/repository/ascend/cann)
 
 ---
@@ -180,10 +180,10 @@ ENV http_proxy=$PROXY
 #**************docker info*******************#
 ```
 
-Dockerfile 使用方式说明：  
+Dockerfile 使用方式说明：
 
-- 使用 **Ubuntu 22.04**：`ARG PY_VERSION=3.11-ubuntu22.04`  
-- 使用 **openEuler 22.03**：`ARG PY_VERSION=3.11-openeuler22.03`  
+- 使用 **Ubuntu 22.04**：`ARG PY_VERSION=3.11-ubuntu22.04`
+- 使用 **openEuler 22.03**：`ARG PY_VERSION=3.11-openeuler22.03`
 
 ### 示例 Dockerfile（版本 2）
 
@@ -233,7 +233,7 @@ ENV https_proxy=$PROXY
 ENV http_proxy=$PROXY
 ```
 
-若希望构建其他 Python / OS 组合的镜像，可参考：  
+若希望构建其他 Python / OS 组合的镜像，可参考：
 [`https://quay.io/repository/ascend/python`](https://quay.io/repository/ascend/python)
 
 ---
@@ -337,5 +337,18 @@ docker exec -it pypto_x86a3 /bin/bash
 3. **验证**
 
    完成以上步骤后，即可在容器内运行 PyPTO 相关用例。
+
+4. **安装MPI依赖（可选，通信需要）**
+
+```bash
+# 如果是Ubuntu/Debian系统
+apt-get update && apt-get install -y mpich
+
+# 如果是CentOS/RHEL系统
+yum install -y mpich
+
+# 如果是Alpine系统
+apk add openmpi
+```
 
 <span style="font-size:12px;">*注：出于兼容性考虑，当前 Docker 环境中编译构建得到的 `whl` 包建议仅在对应 Docker 容器内使用。*</span>
