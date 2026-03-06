@@ -14,6 +14,7 @@
  */
 
 #include "ini_parser.h"
+#include "tilefwk/file.h"
 #include "tilefwk/pypto_fwk_log.h"
 
 namespace npu {
