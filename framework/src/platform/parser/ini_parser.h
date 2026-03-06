@@ -14,8 +14,11 @@
  */
 #ifndef INI_PARSER_H_
 #define INI_PARSER_H_
+
 #include <fstream>
-#include "interface/utils/common.h"
+#include "tilefwk/file.h"
+#include "tilefwk/pypto_fwk_log.h"
+
 namespace npu {
 namespace tile_fwk {
 
