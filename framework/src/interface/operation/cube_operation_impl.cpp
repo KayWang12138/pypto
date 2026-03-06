@@ -419,6 +419,12 @@ inline bool CheckValidShape(const LogicalTensorPtr &tensorPtr)
     return tensorPtr->GetDynValidShape().size() == SHAPE_DIM2;
 }
 
+inline size_t GetAlignSize(DataType dataType)
+{
+    bool isB4 = dataType == DataType::DT_FP4_E2M1X2 || dataType == DataType::DT_FP4_E1M2X2;
+    return isB4 ? ALIGN_SIZE_64 : ALIGN_SIZE_32;
+}
+
 template <typename T1, typename T2 = T1>
 LogicalTensorPtr AddOpView(Function &function, const LogicalTensorPtr &srcTensorPtr,
                            const MatmulTensorInfo &dstTensorInfo, const std::map<std::string, T1> opAttr = {},
@@ -698,21 +704,26 @@ void CheckCubeTiling(const Tensor &operand1, const Tensor &operand2, const Matmu
     CheckL1L0Tile(kL0, kL1b, "kL0", "kL1b");
     CheckL1L0Tile(nL0, nL1, "nL0", "nL1");
     CheckL1L0Tile(mL0, mL1, "mL0", "mL1");
+    size_t alignSizeA = GetAlignSize(operand1.GetDataType());
+    size_t alignSizeB = GetAlignSize(operand2.GetDataType());
     OP_CHECK(true, {
-        ASSERT(kL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0)
+        ASSERT(kL0 * BytesOf(operand1.GetDataType()) % alignSizeA == 0)
             << "Current length of kL0: " << (kL0 * BytesOf(operand1.GetDataType()))
-            << " bytes, the length must be aligned to 32 bytes" << std::endl;
+            << " bytes, the length must be aligned to 32 bytes, 4bit dtype must be aligned to 64 " << std::endl;
     });
     OP_CHECK(true, {
-        ASSERT(nL0 * BytesOf(operand2.GetDataType()) % ALIGN_SIZE_32 == 0)
+        ASSERT(nL0 * BytesOf(operand2.GetDataType()) % alignSizeB == 0)
             << "Current length of nL0: " << (kL0 * BytesOf(operand1.GetDataType()))
-            << " bytes, the length must be aligned to 32 bytes" << std::endl;
+            << " bytes, the length must be aligned to 32 bytes, 4bit dtype must be aligned to 64" << std::endl;
     });
     if (operand1.Format() == TileOpFormat::TILEOP_ND) {
-        if (attrParam.transA) { // For ND A transpose, mL0 must be 32B aligned
-            OP_CHECK(true, { ASSERT(mL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0)
-                                << "Current length of mL0: " << (mL0 * BytesOf(operand1.GetDataType()))
-                                << " bytes, the length must be aligned to 32 bytes when A is transposed" << std::endl;
+        if (attrParam.transA) { // For ND A transpose, mL0 must be 32B aligned, B4 must be 64 aligned
+            OP_CHECK(true, {
+                ASSERT(mL0 * BytesOf(operand1.GetDataType()) % alignSizeA == 0)
+                    << "Current length of mL0: " << (mL0 * BytesOf(operand1.GetDataType()))
+                    << " bytes, the length must be aligned to 32 bytes(4bit dtype must be aligned to 64) when A is "
+                       "transposed"
+                    << std::endl;
             });
         }
     }
@@ -720,6 +731,7 @@ void CheckCubeTiling(const Tensor &operand1, const Tensor &operand2, const Matmu
 
 void CheckOperandShapeBound(const Tensor &operand) {
     auto opFormat = operand.Format();
+    size_t alignSize = GetAlignSize(operand.GetDataType());
     if (opFormat == TileOpFormat::TILEOP_ND) {
         OP_CHECK(true, {
             ASSERT(operand.GetShape().back() <= SHAPE_INNER_AXIS_MAX_SIZE)
@@ -731,11 +743,19 @@ void CheckOperandShapeBound(const Tensor &operand) {
                 << "Current outer axis: " << (operand.GetShape()[operand.GetShape().size() - SHAPE_DIM2])
                 << ", when input is ND format, outer axis must be less than 2^31 - 1" << std::endl;
         });
+        if (operand.GetDataType() == DataType::DT_FP4_E2M1X2 || operand.GetDataType() == DataType::DT_FP4_E1M2X2) {
+            OP_CHECK(true, {
+                ASSERT(operand.GetShape().back() & 1 == 0)
+                    << "Current inner axis: " << operand.GetShape().back()
+                    << ", when input is ND format and 4bit dtype, inner axis must be even number" << std::endl;
+            });
+        }
     } else {
         OP_CHECK(true, {
-            ASSERT(operand.GetShape().back() * BytesOf(operand.GetDataType()) % ALIGN_SIZE_32 == 0)
+            ASSERT(operand.GetShape().back() * BytesOf(operand.GetDataType()) % alignSize == 0)
                 << "Current inner axis: " << operand.GetShape().back() << ", when input "
-                << "is NZ format, inner axis shape must be 32-byte aligned" << std::endl;
+                << "is NZ format, inner axis shape must be 32-byte aligned(4bit dtype must be aligned to 64)"
+                << std::endl;
         });
         OP_CHECK(true, {
             ASSERT(operand.GetShape()[operand.GetShape().size() - SHAPE_DIM2] % ALIGN_SIZE_16 == 0)
@@ -753,20 +773,24 @@ void CheckNZFormatAligned(const Tensor &operand1, const Tensor &operand2, const 
     const int64_t nL0 = cubeTile.n[0];
     auto opFormatA = operand1.Format();
     auto opFormatB = operand2.Format();
+    size_t alignSizeA = GetAlignSize(operand1.GetDataType());
+    size_t alignSizeB = GetAlignSize(operand2.GetDataType());
     if (opFormatA == TileOpFormat::TILEOP_NZ) {
         if (attrParam.transA) {
-            OP_CHECK(true, {ASSERT(mL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0)
-                                << "Current length of mL0: " << (mL0 * BytesOf(operand1.GetDataType()))
-                                << " bytes, the length must be aligned to 32 bytes" << std::endl;
+            OP_CHECK(true, {
+                ASSERT(mL0 * BytesOf(operand1.GetDataType()) % alignSizeA == 0)
+                    << "Current length of mL0: " << (mL0 * BytesOf(operand1.GetDataType()))
+                    << " bytes, the length must be aligned to 32 bytes(4bit dtype must be aligned to 64)" << std::endl;
             });
             OP_CHECK(true, {
                 ASSERT(kL0 % ALIGN_SIZE_16 == 0) << "Current length of kL0: " << kL0
                                                  << " elements, the length must be aligned to 16 elements" << std::endl;
             });
         } else {
-            OP_CHECK(true, { ASSERT(kL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0)
-                                << "Current length of kL0: " << (kL0 * BytesOf(operand1.GetDataType()))
-                                << " bytes, the length must be aligned to 32 bytes" << std::endl;
+            OP_CHECK(true, {
+                ASSERT(kL0 * BytesOf(operand1.GetDataType()) % alignSizeA == 0)
+                    << "Current length of kL0: " << (kL0 * BytesOf(operand1.GetDataType()))
+                    << " bytes, the length must be aligned to 32 bytes(4bit dtype must be aligned to 64)" << std::endl;
             });
             OP_CHECK(true, {
                 ASSERT(mL0 % ALIGN_SIZE_16 == 0) << "Current length of mL0: " << mL0
@@ -776,18 +800,20 @@ void CheckNZFormatAligned(const Tensor &operand1, const Tensor &operand2, const 
     }
     if (opFormatB == TileOpFormat::TILEOP_NZ) {
         if (attrParam.transB) {
-            OP_CHECK(true, {ASSERT(kL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0)
-                                << "Current length of kL0: " << (kL0 * BytesOf(operand1.GetDataType()))
-                                << " bytes, the length must be aligned to 32 bytes" << std::endl;
+            OP_CHECK(true, {
+                ASSERT(kL0 * BytesOf(operand2.GetDataType()) % alignSizeB == 0)
+                    << "Current length of kL0: " << (kL0 * BytesOf(operand2.GetDataType()))
+                    << " bytes, the length must be aligned to 32 bytes(4bit dtype must be aligned to 64)" << std::endl;
             });
             OP_CHECK(true, {
                 ASSERT(nL0 % ALIGN_SIZE_16 == 0) << "Current length of nL0: " << nL0
                                                  << " elements, the length must be aligned to 16 elements" << std::endl;
             });
         } else {
-            OP_CHECK(true, {ASSERT(nL0 * BytesOf(operand1.GetDataType()) % ALIGN_SIZE_32 == 0)
-                                << "Current length of nL0: " << (nL0 * BytesOf(operand1.GetDataType()))
-                                << " bytes, the length must be aligned to 32 bytes" << std::endl;
+            OP_CHECK(true, {
+                ASSERT(nL0 * BytesOf(operand2.GetDataType()) % alignSizeB == 0)
+                    << "Current length of nL0: " << (nL0 * BytesOf(operand2.GetDataType()))
+                    << " bytes, the length must be aligned to 32 bytes(4bit dtype must be aligned to 64)" << std::endl;
             });
             OP_CHECK(true, {
                 ASSERT(kL0 % ALIGN_SIZE_16 == 0) << "Current length of kL0: " << kL0
@@ -1041,9 +1067,16 @@ void CheckMXMatmulOperands(const Tensor &aTensor, const Tensor &aScaleTensor, co
             << ", bScaleTensor dataType: " << DataType2String(bScaleTensor.GetDataType()) << std::endl;
     });
     DataType inDType = aTensor.GetDataType();
+    static const std::unordered_set<DataType> supportedTypes = {
+        DataType::DT_FP8E4M3,
+        DataType::DT_FP8E5M2,
+        DataType::DT_FP4_E2M1X2,
+        DataType::DT_FP4_E1M2X2
+    };
+
     OP_CHECK(true, {
-        ASSERT(inDType == DataType::DT_FP8E4M3 || inDType == DataType::DT_FP8E5M2)
-            << "Unsupported input data type. Only DT_FP8E4M3, DT_FP8E5M2 are supported.";
+        ASSERT(supportedTypes.find(inDType) != supportedTypes.end())
+            << "Unsupported input data type. Only support DT_FP8E4M3, DT_FP8E5M2, DT_FP4_E2M1X2, DT_FP4_E1M2X2.";
     });
     auto cubeTile = TileShape::Current().GetCubeTile();
     const int64_t kL0 = cubeTile.k[0];
