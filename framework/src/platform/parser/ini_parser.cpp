@@ -14,8 +14,8 @@
  */
 
 #include "ini_parser.h"
-#include "interface/utils/file_utils.h"
 #include "tilefwk/pypto_fwk_log.h"
+
 namespace npu {
 namespace tile_fwk {
 const std::string platformConfigEnv = "PLATFORM_CONFIG_PATH";
