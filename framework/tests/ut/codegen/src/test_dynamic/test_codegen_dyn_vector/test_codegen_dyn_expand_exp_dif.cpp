@@ -79,7 +79,7 @@ TEST_F(TestCodegenDynExpandExpDif, TestExpandExpDifLastAxis) {
 TEST_F(TestCodegenDynExpandExpDif, TestExpandExpDifSecondaryLastAxis) {
     const Shape shape_x = {16, 128};
     const Shape shape_y = {1, 128};
-    std::string expect = R"!!!(TExpandExpDif(ubTensor_9, ubTensor_9, ubTensor_11);)!!!";
+    std::string expect = R"!!!(TExpandExpDif(ubTensor_11, ubTensor_11, ubTensor_9);)!!!";
     TestExpandExpDif(shape_x, shape_y, expect);
 }
 } // namespace npu::tile_fwk
