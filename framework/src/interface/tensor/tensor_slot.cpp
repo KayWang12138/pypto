@@ -586,8 +586,10 @@ IncastOutcastLink TensorSlotManager::BuildIncastOutcastLink([[maybe_unused]]cons
             continue;
         }
         link.ioslotDict[tensorFunc] = scope->ioslot;
+        std::cout << "tensorFunc:" << tensorFunc->GetMagicName() << "\n";
         for (auto &outcast : scope->ioslot.partialUpdateOutcastList) {
             for (auto &slot : scope->ioslot.outcastSlot[outcast]) {
+                std::cout << "partialUpdateSlotIndexSet:" << slot << "\n";
                 partialUpdateSlotIndexSet.insert(slot);
             }
         }
@@ -634,6 +636,7 @@ IncastOutcastLink TensorSlotManager::BuildIncastOutcastLink([[maybe_unused]]cons
     }
 
     for (auto &slotIndex : partialUpdateSlotIndexSet) {
+        std::cout << slotIndex << " insert partialUpdateSlotIdexList" << std::endl;
         link.partialUpdateSlotIdexList.push_back(slotIndex);
     }
 

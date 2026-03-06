@@ -12,6 +12,7 @@
 """
 from dataclasses import dataclass
 import os
+import sys
 import logging
 import math
 import pytest
@@ -310,6 +311,33 @@ def topk_idx_compare(t: torch.Tensor, t_ref: torch.Tensor, name, atol, error_cou
     assert precision == "PASS", err_msg
 
 
+def print_topk_diff(topk_res_npu: torch.Tensor, topk_res_golden: torch.Tensor, atol: float = 5e-3,
+                    max_print: int = 100) -> None:
+    """
+    打印 topk_res_npu 和 topk_res_golden 中差异较大的元素信息。
+    只打印绝对误差大于 atol 的元素，最多打印 max_print 条。
+    """
+    assert topk_res_npu.shape == topk_res_golden.shape, \
+        f"shape 不一致: npu={topk_res_npu.shape}, golden={topk_res_golden.shape}"
+
+    diff = topk_res_npu - topk_res_golden
+    mask = diff.abs() > atol
+    idxs = mask.nonzero(as_tuple=False)
+
+    total = idxs.size(0)
+    print(f"topk diff count (|npu-golden| > {atol}): {total}")
+
+    for i, idx in enumerate(idxs):
+        if i >= max_print:
+            print(f"... 已达到 max_print={max_print}，剩余 {total - max_print} 条未打印")
+            break
+        idx_list = idx.tolist()
+        v_npu = topk_res_npu[tuple(idx_list)].item()
+        v_golden = topk_res_golden[tuple(idx_list)].item()
+        d = v_npu - v_golden
+        print(f"index={idx_list}, npu={v_npu}, golden={v_golden}, diff={d}")
+
+
 def lightning_indexer(case_name: str) -> bool:
     from lightning_indexer_quant_impl import lightning_indexer_decode
     # 设置设备ID
@@ -375,6 +403,13 @@ def lightning_indexer(case_name: str) -> bool:
     topk_res_golden = lightning_indexer_compute(input_data_map, params)
 
     topk_res_golden = topk_res_golden.reshape(b * s1, 1, selected_count)
+    # # 完整打印 tensor，不截断
+    # torch.set_printoptions(threshold=sys.maxsize, linewidth=200)
+    # print(topk_res_npu)
+    # torch.set_printoptions(threshold=1000, linewidth=80)  # 恢复默认
+
+    # 打印单元素差异信息
+    print_topk_diff(topk_res_npu.cpu(), topk_res_golden.cpu(), atol=5e-3, max_print=100)
 
     # 执行结果比较
     topk_idx_compare(topk_res_npu.cpu(), topk_res_golden.cpu(), "topk_res", 5e-3, selected_count)

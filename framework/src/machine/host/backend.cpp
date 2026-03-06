@@ -243,6 +243,9 @@ static void ReplaceSlotIndex(DyndevFunctionAttribute *attr, std::vector<bool>& s
     replaceSlotIdx(inoutLink.assembleSlotIndexList);
     replaceSlotIdx(inoutLink.shmemTensorSlotIndexList);
     replaceSlotIdx(inoutLink.partialUpdateSlotIdexList);
+    for (auto &ioslot : inoutLink.partialUpdateSlotIdexList) {
+        std::cout << "ioslot: " << ioslot << std::endl;
+    }
     for (auto &slot : inoutLink.inplaceSlotIndexList) {
         if (slot != -1)
             slot = slotIdxMapping[slot];
@@ -821,6 +824,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
     expressionOss << "#endif/*TILE_FWK_EXPRESSION_H*/" << "\n";
     std::string controlFlowSource = controlFlowOss.str();
     std::string expressionSource = expressionOss.str();
+    std::cout << "function name: " << function->GetMagicName() << "\n";
     SimplifySlots(attr.get(), slotIdxMapping);
     BuildSlotRootIncastOutcastDict(attr.get());
     BuildRootFuncKeyDict(attr.get());
