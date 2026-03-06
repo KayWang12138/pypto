@@ -230,7 +230,7 @@ TEST_F(TestCodegenDynBinary, TestGatherEleTileTensor) {
     codeGen.GenCode(*function, {});
 
     std::string res = GetResultFromCpp(*function);
-    std::string expect = R"!!!(TgatherElement<4>(ubTensor_15, ubTensor_11, ubTensor_13, ubTensor_16);
+    std::string expect = R"!!!(TgatherElement<4>(ubTensor_15, ubTensor_13, ubTensor_11, ubTensor_16);
 )!!!";
     CheckStringExist(expect, res);
 }
