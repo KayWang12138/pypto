@@ -385,23 +385,15 @@ private:
     };
 
     void SendStopToCore(int coreIdx, bool isLastDevTask, AicoreStatus *coreStatus, int &finishStopNum) {
-        DEV_ERROR("[AICPU %d] Out IF Device", aicpuIdx_);
-        DEV_IF_DEVICE {
-            DEV_ERROR("[AICPU %d] In1 IF Device", aicpuIdx_);
-            if (isLastDevTask) {
-                NormalStopSingleCore(coreIdx);
-                coreStatus[coreIdx] = AicoreStatus::CORE_FINISH_STOP;
-                finishStopNum++;
-            } else {
-                uint64_t stopFlag =
-                    (static_cast<uint64_t>(curTaskId_) << REG_HIGH_DTASKID_SHIFT) | (AICORE_FUNC_STOP + 1);
-                aicoreHal_.SetReadyQueue(coreIdx, stopFlag);
-                coreStatus[coreIdx] = AicoreStatus::CORE_SEND_STOP;
-            }
-        } else {
-            printf("[AICPU %d] In2 IF Device\n", aicpuIdx_);
+        if (isLastDevTask) {
+            NormalStopSingleCore(coreIdx);
             coreStatus[coreIdx] = AicoreStatus::CORE_FINISH_STOP;
             finishStopNum++;
+        } else {
+            uint64_t stopFlag =
+                (static_cast<uint64_t>(curTaskId_) << REG_HIGH_DTASKID_SHIFT) | (AICORE_FUNC_STOP + 1);
+            aicoreHal_.SetReadyQueue(coreIdx, stopFlag);
+            coreStatus[coreIdx] = AicoreStatus::CORE_SEND_STOP;
         }
     }
 
@@ -427,14 +419,12 @@ private:
         }
 
         if (!isLastDevTask) {
-            DEV_IF_DEVICE {
-                if ((coreStatus[coreIdx] == AicoreStatus::CORE_SEND_STOP) &&
-                    (aicoreHal_.GetFinishedTask(coreIdx) == ((static_cast<uint64_t>(curTaskId_) <<
-                        REG_HIGH_DTASKID_SHIFT) | (AICORE_FUNC_STOP | AICORE_FIN_MASK)))) {
-                    SendPreFetchNextDevTaskDataToCore(coreIdx);
-                    coreStatus[coreIdx] = AicoreStatus::CORE_FINISH_STOP;
-                    finishStopNum++;
-                }
+            if ((coreStatus[coreIdx] == AicoreStatus::CORE_SEND_STOP) &&
+                (aicoreHal_.GetFinishedTask(coreIdx) == ((static_cast<uint64_t>(curTaskId_) <<
+                    REG_HIGH_DTASKID_SHIFT) | (AICORE_FUNC_STOP | AICORE_FIN_MASK)))) {
+                SendPreFetchNextDevTaskDataToCore(coreIdx);
+                coreStatus[coreIdx] = AicoreStatus::CORE_FINISH_STOP;
+                finishStopNum++;
             }
         }
 
@@ -499,11 +489,9 @@ private:
                 }
             }
             aivAllStop = curIterAivAllStop;
-            DEV_IF_DEVICE {
-                if (GetCycles() - start_cycles > TIMEOUT_CYCLES) {
-                    DEV_ERROR("SyncAicoreDevTaskFinish timeout notstopNum=%d.", mngCoreNum - finishStopNum);
-                    return DEVICE_MACHINE_TIMEOUT_SYNC_CORE_FINISH;
-                }
+            if (GetCycles() - start_cycles > TIMEOUT_CYCLES) {
+                DEV_ERROR("SyncAicoreDevTaskFinish timeout notstopNum=%d.", mngCoreNum - finishStopNum);
+                return DEVICE_MACHINE_TIMEOUT_SYNC_CORE_FINISH;
             }
         }
         return SyncAicpuTaskFinish();
@@ -621,10 +609,6 @@ private:
         if (isFirstTaskSend_) {
             isFirstTaskSend_ = false;
         }
-
-        DEV_IF_VERBOSE_DEBUG {
-            sendTask_[coreIdx].push_back(TaskInfo(coreIdx, newTask));
-        }
     }
 
     inline int32_t PushReadyQue(ReadyCoreFunctionQueue *readyQue, void *idList, uint32_t idCnt) const {
@@ -632,13 +616,6 @@ private:
         memcpy_s(
             &readyQue->elem[readyQue->tail], idCnt * sizeof(uint32_t), (uint8_t *)idList, idCnt * sizeof(uint32_t));
          __atomic_fetch_add(&readyQue->tail, idCnt, std::memory_order_release);
-        DEV_IF_NONDEVICE {
-            if (readyQue->tail > readyQue->capacity){
-                DEV_ERROR("readyQue tail=%u > readyQue capacity=%u", readyQue->tail, readyQue->capacity);
-                return DEVICE_MACHINE_ERROR;
-            }
-            DEV_ASSERT(readyQue->tail <= readyQue->capacity);
-        }
         ReadyQueueUnLock(readyQue);
         return DEVICE_MACHINE_OK;
     }
@@ -1245,16 +1222,6 @@ private:
         f(AIV_NUM_PER_AI_CORE * aicValidNum_, schedIdx_, aicpuNum_, aivStart_, aivEnd_);
         aivStart_ += aicValidNum_;
         aivEnd_ += aicValidNum_;
-
-        DEV_IF_NONDEVICE {
-            context_->corePendReadyCnt_[static_cast<int>(CoreType::AIC)] = aicEnd_ - aicStart_;
-            context_->corePendReadyCnt_[static_cast<int>(CoreType::AIV)] = aivEnd_ - aivStart_;
-            ForEachManageAicoreReverse(
-                [this](int coreIdx) {
-                int coreType = static_cast<int>(AicoreType(coreIdx));
-                context_->runReadyCoreIdx_[coreType][context_->coreRunReadyCnt_[coreType]++] = coreIdx;
-                });
-        }
 
         context_->lastPendReadyCoreIdx_[static_cast<int>(CoreType::AIV)] = static_cast<uint32_t>(aivStart_);
         context_->lastPendReadyCoreIdx_[static_cast<int>(CoreType::AIC)] = static_cast<uint32_t>(aicStart_);
