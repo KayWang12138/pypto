@@ -25,7 +25,7 @@ std::string GetDeclName(const std::string &name) {
 }
 
 TEST_F(ControlFlowTest, RunDeviceContext) {
-    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 0x4);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_MAX_NUM, 0x4);
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
 
     int tiling = 32;
@@ -138,7 +138,7 @@ TEST_F(ControlFlowTest, TestDD) {
 }
 
 TEST_F(ControlFlowTest, TensorRecycleDestruct) {
-    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 100);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_MAX_NUM, 100);
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
 
     int tiling = 32;
@@ -230,7 +230,7 @@ TEST_F(ControlFlowTest, CtrlFlowPartialCache) {
     config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 46000);
 
     // every task 4 root func
-    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 0x4);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_MAX_NUM, 0x4);
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
 
     int tiling = 32; int n = tiling * 4;
