@@ -832,7 +832,7 @@ class JitCallableWrapper:
                 captured_locals_hash = make_hashable(filtered_locals)
             else:
                 captured_locals_hash = None
-                
+
             non_tensor_hash = make_hashable(non_tensor_values) if non_tensor_values else None
 
             return (source_code, options_hash, captured_locals_hash, non_tensor_hash)
@@ -945,6 +945,7 @@ class JitCallableWrapper:
             and self._verify_options.get("enable_pass_verify")
         ):
             return
+        # Enable
 
         # Copy NPU Tensor to CPU, then convert to pypto.Tensor for constructing DeviceTensorData
 
