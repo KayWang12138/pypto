@@ -818,6 +818,12 @@ private:
         }
     }
 
+    uint32_t WrapOpWrapListSlabMemObjSize() {
+ 	    return MAX_CACHED_FUNC_NUM * sizeof(uint64_t);
+ 	}
+ 	uint32_t WrapOpWrapTaskNumListSlabMemObjSize() {
+ 	    return MAX_CACHED_FUNC_NUM  * sizeof(uint64_t);
+ 	}
     uint32_t (DeviceWorkspaceAllocator::*slabMemObjSizeFunc[ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT)])() = {
         &DeviceWorkspaceAllocator::DevFunctionDuppedSlabMemObjSize,
         &DeviceWorkspaceAllocator::DynFuncDataSlabMemObjSize,
@@ -827,6 +833,8 @@ private:
         &DeviceWorkspaceAllocator::DieReadyQueSlabMemObjSize,
         &DeviceWorkspaceAllocator::WrapQueSlabMemObjSize,
         &DeviceWorkspaceAllocator::WrapTasklistSlabMemObjSize,
+        &DeviceWorkspaceAllocator::WrapOpWrapListSlabMemObjSize,
+ 	    &DeviceWorkspaceAllocator::WrapOpWrapTaskNumListSlabMemObjSize,
         nullptr, // invalid type
         &DeviceWorkspaceAllocator::DuppedStitchSlabMemObjSize,
     };
