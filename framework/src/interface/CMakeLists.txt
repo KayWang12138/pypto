@@ -36,8 +36,7 @@ add_library(tile_fwk_interface SHARED)
 target_sources(tile_fwk_interface PRIVATE ${_Interface_Srcs})
 target_compile_definitions(tile_fwk_interface
         PRIVATE
-            $<$<BOOL:${ENABLE_TESTS}>:SRCPATH="${PTO_FWK_SRC_ROOT}">
-            $<$<BOOL:${ENABLE_FEATURE_PYTHON_FRONT_END}>:ENABLE_FEATURE_PYTHON_FRONT_END>
+            $<$<BOOL:${ENABLE_TESTS}>:ENABLE_TESTS>
 )
 target_include_directories(tile_fwk_interface
         PUBLIC
