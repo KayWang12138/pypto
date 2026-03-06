@@ -1964,6 +1964,9 @@ struct EncodeDevAscendProgramInfo {
             dyndevAttr->inoutLink.assembleSlotIndexList,
             dyndevAttr->inoutLink.inplaceSlotIndexList,
             fillContent);
+        for (auto i : dyndevAttr->inoutLink.partialUpdateSlotIdexList) {
+            std::cout << "partialUpdateSlotIndex: " << i << std::endl;
+        }
         devProg->InitPartialUpdateSlot(
                 initOffset,
                 dyndevAttr->devEncodeList,

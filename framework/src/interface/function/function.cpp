@@ -543,49 +543,49 @@ void Function::CheckAndUpdateGetTensorData(size_t currOutcastIdx, size_t newOutc
 void Function::CleanRedundantOutcast(
     std::map<Function *, std::set<size_t>> &removeRecord, std::map<Function*, std::set<size_t>> &getTensorDataRecord) {
     for (auto &[func, removeList] : removeRecord) {
-        std::cout << "func name: " << func->GetMagicName() << std::endl;
-        std::cout << "============before remove===========" << std::endl;
-        for (auto outcast : func->GetOutcast()) {
-            std::cout << "outcast: " << outcast->GetMagic() << std::endl;
-        }
+        // std::cout << "func name: " << func->GetMagicName() << std::endl;
+        // std::cout << "============before remove===========" << std::endl;
+        // for (auto outcast : func->GetOutcast()) {
+        //     std::cout << "outcast: " << outcast->GetMagic() << std::endl;
+        // }
         for (auto it = removeList.rbegin(); it != removeList.rend(); ++it) {
             auto outCastIdx = *it;
             func->Parent().EraseCallOpOpnd(func->GetFunctionHash(), outCastIdx);
             func->RemoveOutcast(outCastIdx);
         }
-        std::cout << "============after remove===========" << std::endl;
-        for (auto outcast : func->GetOutcast()) {
-            std::cout << "outcast: " << outcast->GetMagic() << std::endl;
-        }
+        // std::cout << "============after remove===========" << std::endl;
+        // for (auto outcast : func->GetOutcast()) {
+        //     std::cout << "outcast: " << outcast->GetMagic() << std::endl;
+        // }
 
-        auto &scope = func->GetSlotScope();
-        std::cout << "============before remove partialUpdateOutcastList===========" << std::endl;
-        for (auto outcastSlot : scope->ioslot.partialUpdateOutcastList) {
-            std::cout << "outcast index: " << outcastSlot << std::endl;
-        }
-        if (scope != nullptr && !scope->ioslot.partialUpdateOutcastList.empty()) {
-            std::vector<int> newPartialUpdateOutcastList;
-            std::vector<int> newPartialUpdateCount;
-            newPartialUpdateOutcastList.reserve(scope->ioslot.partialUpdateOutcastList.size());
-            newPartialUpdateCount.reserve(scope->ioslot.partialUpdateCount.size());
-            for (size_t i = 0; i < scope->ioslot.partialUpdateOutcastList.size(); ++i) {
-                int currOutcastIdx = scope->ioslot.partialUpdateOutcastList[i];
-                auto it = std::lower_bound(
-                    removeList.begin(), removeList.end(), static_cast<size_t>(currOutcastIdx));
-                if (it != removeList.end() && *it == static_cast<size_t>(currOutcastIdx)) {
-                    continue;
-                }
-                size_t newOutcastIdx = static_cast<size_t>(currOutcastIdx) - std::distance(removeList.begin(), it);
-                newPartialUpdateOutcastList.push_back(static_cast<int>(newOutcastIdx));
-                newPartialUpdateCount.push_back(scope->ioslot.partialUpdateCount[i]);
-            }
-            scope->ioslot.partialUpdateOutcastList.swap(newPartialUpdateOutcastList);
-            scope->ioslot.partialUpdateCount.swap(newPartialUpdateCount);
-        }
-         std::cout << "============after remove partialUpdateOutcastList===========" << std::endl;
-        for (auto outcastSlot : scope->ioslot.partialUpdateOutcastList) {
-            std::cout << "outcast index: " << outcastSlot << std::endl;
-        }
+        // auto &scope = func->GetSlotScope();
+        // std::cout << "============before remove partialUpdateOutcastList===========" << std::endl;
+        // for (auto outcastSlot : scope->ioslot.partialUpdateOutcastList) {
+        //     std::cout << "outcast index: " << outcastSlot << std::endl;
+        // }
+        // if (scope != nullptr && !scope->ioslot.partialUpdateOutcastList.empty()) {
+        //     std::vector<int> newPartialUpdateOutcastList;
+        //     std::vector<int> newPartialUpdateCount;
+        //     newPartialUpdateOutcastList.reserve(scope->ioslot.partialUpdateOutcastList.size());
+        //     newPartialUpdateCount.reserve(scope->ioslot.partialUpdateCount.size());
+        //     for (size_t i = 0; i < scope->ioslot.partialUpdateOutcastList.size(); ++i) {
+        //         int currOutcastIdx = scope->ioslot.partialUpdateOutcastList[i];
+        //         auto it = std::lower_bound(
+        //             removeList.begin(), removeList.end(), static_cast<size_t>(currOutcastIdx));
+        //         if (it != removeList.end() && *it == static_cast<size_t>(currOutcastIdx)) {
+        //             continue;
+        //         }
+        //         size_t newOutcastIdx = static_cast<size_t>(currOutcastIdx) - std::distance(removeList.begin(), it);
+        //         newPartialUpdateOutcastList.push_back(static_cast<int>(newOutcastIdx));
+        //         newPartialUpdateCount.push_back(scope->ioslot.partialUpdateCount[i]);
+        //     }
+        //     scope->ioslot.partialUpdateOutcastList.swap(newPartialUpdateOutcastList);
+        //     scope->ioslot.partialUpdateCount.swap(newPartialUpdateCount);
+        // }
+        //  std::cout << "============after remove partialUpdateOutcastList===========" << std::endl;
+        // for (auto outcastSlot : scope->ioslot.partialUpdateOutcastList) {
+        //     std::cout << "outcast index: " << outcastSlot << std::endl;
+        // }
         if (getTensorDataRecord.count(func) <= 0) {
             continue;
         }
