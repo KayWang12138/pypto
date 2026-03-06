@@ -7,9 +7,15 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import random
 import re
 import time
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Literal, cast
+
+
+WaitStrategy = Literal["domcontentloaded", "load", "networkidle", "commit"]
 
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -40,11 +46,18 @@ class Args(argparse.Namespace):
     output: str = "json"
     group: bool = False
     retries: int = 3
+    wait_strategies: str = "domcontentloaded,load,networkidle"
+    nav_timeout_ms: int = 90000
+    selector_timeout_ms: int = 15000
+    post_wait_ms: int = 5000
+    jitter_ms: int = 500
+    debug_dir: str = ""
 
 
 def parse_violations_from_text(text: str) -> list[Violation]:
     violations: list[Violation] = []
-    for file_path, line_text, description, rule in VIOLATION_RE.findall(text):
+    for raw_match in VIOLATION_RE.findall(text):
+        file_path, line_text, description, rule = cast(tuple[str, str, str, str], raw_match)
         parts = rule.strip().split(" ", 1)
         rule_id = parts[0] if parts else ""
         rule_description = parts[1] if len(parts) > 1 else ""
@@ -60,69 +73,178 @@ def parse_violations_from_text(text: str) -> list[Violation]:
     return violations
 
 
-def extract_violations_with_playwright(url: str) -> list[Violation]:
+def _dedup_violations(items: list[Violation]) -> list[Violation]:
+    seen: set[tuple[str, int, str, str]] = set()
+    result: list[Violation] = []
+    for item in items:
+        key = (item.file, item.line, item.description, item.rule_id)
+        if key not in seen:
+            seen.add(key)
+            result.append(item)
+    return result
+
+
+def _parse_wait_strategies(raw: str) -> list[WaitStrategy]:
+    allowed: set[WaitStrategy] = {"domcontentloaded", "load", "networkidle", "commit"}
+    parsed = [s.strip() for s in raw.split(",") if s.strip()]
+    strategies: list[WaitStrategy] = []
+    for s in parsed:
+        if s in allowed:
+            strategies.append(cast(WaitStrategy, s))
+    if strategies:
+        return strategies
+    return cast(list[WaitStrategy], ["domcontentloaded", "load", "networkidle"])
+
+
+def _save_debug_artifacts(page: object, debug_dir: str, attempt: int, stage: str) -> None:
+    if not debug_dir:
+        return
+
+    from playwright.sync_api import Page
+
+    debug_page = cast(Page, page)
+    debug_path = Path(debug_dir)
+    debug_path.mkdir(parents=True, exist_ok=True)
+    ts = int(time.time() * 1000)
+    prefix = debug_path / f"attempt{attempt}_{stage}_{ts}"
+
+    try:
+        debug_page.screenshot(path=str(prefix.with_suffix(".png")), full_page=True)
+    except Exception as exc:
+        logging.debug("save screenshot failed: %s", exc)
+
+    try:
+        html = debug_page.content()
+        prefix.with_suffix(".html").write_text(html, encoding="utf-8")
+    except Exception as exc:
+        logging.debug("save html failed: %s", exc)
+
+
+def _collect_candidate_texts(page: object) -> list[str]:
+    from playwright.sync_api import Page
+
+    candidate_page = cast(Page, page)
+    texts: list[str] = []
+    try:
+        texts.append(candidate_page.inner_text("body"))
+    except Exception:
+        pass
+
+    try:
+        row_texts = candidate_page.locator("tr").all_inner_texts()
+        if row_texts:
+            texts.append("\n".join(row_texts))
+    except Exception:
+        pass
+
+    try:
+        texts.append(candidate_page.content())
+    except Exception:
+        pass
+
+    return texts
+
+
+def extract_violations_with_playwright(
+    url: str,
+    wait_strategies: list[WaitStrategy],
+    nav_timeout_ms: int,
+    selector_timeout_ms: int,
+    post_wait_ms: int,
+    debug_dir: str,
+    attempt: int,
+) -> list[Violation]:
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         try:
-            page = browser.new_page()
-            _ = page.goto(url, wait_until="domcontentloaded", timeout=90000)
-            page.wait_for_timeout(8000)
+            page = browser.new_page(viewport={"width": 1440, "height": 2200})
+            last_error: Exception | None = None
 
-            _ = page.evaluate(
-                """
-                const cookieDivs = document.querySelectorAll('[class*="cookie"]');
-                cookieDivs.forEach(div => div.remove());
-                const overlays = document.querySelectorAll('[style*="position: fixed"], [style*="position:fixed"]');
-                overlays.forEach(el => {
-                    if (el.style.zIndex > 1000) {
-                        el.remove();
-                    }
-                });
-                """
-            )
-            page.wait_for_timeout(500)
+            for strategy in wait_strategies:
+                try:
+                    response = page.goto(url, wait_until=strategy, timeout=nav_timeout_ms)
+                    status = response.status if response else None
+                    logging.info("  strategy=%s status=%s", strategy, status)
 
-            try:
-                page.locator(".el-pagination__sizes").click(timeout=5000)
-                page.wait_for_timeout(500)
+                    try:
+                        page.wait_for_selector(".el-table, .el-table__body-wrapper, body", timeout=selector_timeout_ms)
+                    except Exception as exc:
+                        logging.debug("selector wait skipped: %s", exc)
 
-                options = page.locator(".el-select-dropdown__item").all()
-                largest_opt = None
-                largest_num = 0
-                for opt in options:
-                    text = opt.inner_text()
-                    digits = "".join(ch for ch in text if ch.isdigit())
-                    num = int(digits) if digits else 0
-                    if num > largest_num:
-                        largest_num = num
-                        largest_opt = opt
+                    page.wait_for_timeout(post_wait_ms)
 
-                if largest_opt is not None:
-                    largest_opt.click()
-                    page.wait_for_timeout(2000)
-            except Exception as exc:
-                logging.debug("pagination size expand skipped: %s", exc)
+                    try:
+                        page.locator(".el-pagination__sizes").click(timeout=5000)
+                        page.wait_for_timeout(500)
 
-            body_text = page.inner_text("body")
-            return parse_violations_from_text(body_text)
+                        options = page.locator(".el-select-dropdown__item").all()
+                        largest_opt = None
+                        largest_num = 0
+                        for opt in options:
+                            text = opt.inner_text()
+                            digits = "".join(ch for ch in text if ch.isdigit())
+                            num = int(digits) if digits else 0
+                            if num > largest_num:
+                                largest_num = num
+                                largest_opt = opt
+
+                        if largest_opt is not None:
+                            largest_opt.click()
+                            page.wait_for_timeout(2000)
+                    except Exception as exc:
+                        logging.debug("pagination size expand skipped: %s", exc)
+
+                    collected: list[Violation] = []
+                    for text in _collect_candidate_texts(page):
+                        collected.extend(parse_violations_from_text(text))
+                    violations = _dedup_violations(collected)
+
+                    if violations:
+                        return violations
+
+                    _save_debug_artifacts(page, debug_dir, attempt, f"empty_{strategy}")
+                    logging.warning("  no violations parsed with strategy=%s", strategy)
+                except Exception as exc:
+                    last_error = exc
+                    _save_debug_artifacts(page, debug_dir, attempt, f"fail_{strategy}")
+                    logging.warning("  strategy=%s failed: %s", strategy, exc)
+
+            raise RuntimeError(f"all wait strategies failed or empty, last_error={last_error}")
         finally:
             browser.close()
 
 
-def extract_with_retry(url: str, max_retries: int = 3) -> list[Violation]:
+def extract_with_retry(
+    url: str,
+    max_retries: int,
+    wait_strategies: list[WaitStrategy],
+    nav_timeout_ms: int,
+    selector_timeout_ms: int,
+    post_wait_ms: int,
+    jitter_ms: int,
+    debug_dir: str,
+) -> list[Violation]:
     last_error: Exception | None = None
     for attempt in range(1, max_retries + 1):
         try:
             logging.info(f"Attempt {attempt}/{max_retries}...")
-            return extract_violations_with_playwright(url)
+            return extract_violations_with_playwright(
+                url=url,
+                wait_strategies=wait_strategies,
+                nav_timeout_ms=nav_timeout_ms,
+                selector_timeout_ms=selector_timeout_ms,
+                post_wait_ms=post_wait_ms,
+                debug_dir=debug_dir,
+                attempt=attempt,
+            )
         except Exception as exc:  # noqa: PERF203
             last_error = exc
             if attempt < max_retries:
-                wait_s = 2 ** (attempt - 1)
+                wait_s = (2 ** (attempt - 1)) + random.uniform(0, max(0, jitter_ms) / 1000.0)
                 logging.warning(f"  Failed: {exc}")
-                logging.info(f"  Waiting {wait_s}s before retry...")
+                logging.info(f"  Waiting {wait_s:.2f}s before retry...")
                 time.sleep(wait_s)
 
     raise RuntimeError(f"Failed after {max_retries} attempts: {last_error}")
@@ -141,6 +263,16 @@ def parse_args() -> Args:
     _ = parser.add_argument("--output", "-o", choices=["json", "text"], default="json", help="输出格式")
     _ = parser.add_argument("--group", "-g", action="store_true", help="按规则分组输出")
     _ = parser.add_argument("--retries", type=int, default=3, help="提取重试次数（默认 3）")
+    _ = parser.add_argument(
+        "--wait-strategies",
+        default="domcontentloaded,load,networkidle",
+        help="导航等待策略，逗号分隔（domcontentloaded,load,networkidle,commit）",
+    )
+    _ = parser.add_argument("--nav-timeout-ms", type=int, default=90000, help="导航超时毫秒")
+    _ = parser.add_argument("--selector-timeout-ms", type=int, default=15000, help="关键选择器等待超时毫秒")
+    _ = parser.add_argument("--post-wait-ms", type=int, default=5000, help="页面加载后额外等待毫秒")
+    _ = parser.add_argument("--jitter-ms", type=int, default=500, help="重试抖动毫秒上限")
+    _ = parser.add_argument("--debug-dir", default="", help="失败时保存截图/HTML的目录")
     return parser.parse_args(namespace=Args())
 
 
@@ -149,7 +281,17 @@ def main() -> int:
 
     try:
         retries = max(1, int(args.retries))
-        violations = extract_with_retry(args.url, max_retries=retries)
+        wait_strategies = _parse_wait_strategies(args.wait_strategies)
+        violations = extract_with_retry(
+            url=args.url,
+            max_retries=retries,
+            wait_strategies=wait_strategies,
+            nav_timeout_ms=max(1000, int(args.nav_timeout_ms)),
+            selector_timeout_ms=max(0, int(args.selector_timeout_ms)),
+            post_wait_ms=max(0, int(args.post_wait_ms)),
+            jitter_ms=max(0, int(args.jitter_ms)),
+            debug_dir=args.debug_dir.strip(),
+        )
 
         if args.output == "json":
             grouped = group_by_rule(violations)
