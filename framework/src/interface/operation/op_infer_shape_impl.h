@@ -46,7 +46,7 @@ public:
         if (it != inferShapeFuncs_.end()) {
             it->second(op, outValidShapes);
         } else {
-            ALOG_WARN_F("Infer shape failed, opcode [%s] doesn't support infer shape.",
+            APASS_LOG_WARN_F(Elements::Operation, "Infer shape failed, opcode [%s] doesn't support infer shape.",
                    op->GetOpcodeStr().c_str());
             // 如果op infershape未注册，那么validshape设置成shape
             for (auto output : op->GetOOperands()) {
