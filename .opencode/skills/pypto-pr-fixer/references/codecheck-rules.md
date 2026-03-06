@@ -129,7 +129,7 @@ def fetch_codecheck_violations(url: str) -> list[dict]:
 
 共 111 条规则，按类别分组。严重等级：critical > major > minor > suggestion。
 
-### 可自动修复的规则（Auto-fixable）
+### 可自动修复的规则（可自动修复）
 
 以下规则具有确定性修复方案，适合自动修复：
 
@@ -160,7 +160,7 @@ def fetch_codecheck_violations(url: str) -> list[dict]:
 | G.CMT.01 | minor | 模块 docstring 位置 | 调整位置 |
 | G.CMT.04 | minor | 注释位置和格式一致 | 调整格式 |
 | G.CMT.05 | minor | 避免 TODO/FIXME 注释 | 删除或转为 issue |
-| G.CMT.06 | minor | File header must include copyright statement | **Important**: File header must follow the format of other PyPTO repository files - not just copyright header, but the complete header structure. Refer to existing files in the repo for the correct format. |
+| G.CMT.06 | minor | 文件头必须包含版权声明 | **重要**：文件头必须遵循 PyPTO 仓库其他文件的格式——不仅仅是版权声明，还包括完整的文件头结构。请参考仓库中现有文件获取正确格式。 |
 
 #### 运算符规范 (G.OPR)
 
@@ -221,7 +221,7 @@ def fetch_codecheck_violations(url: str) -> list[dict]:
 |------|---------|------|-------------|
 | G.LOG.02 | minor | 使用日志记录工具实现日志功能 | 替换 `print` 为 `logging` |
 
-### 需要人工判断的规则（Manual-review）
+### 需要人工判断的规则（需人工判断）
 
 以下规则修复涉及业务逻辑理解，建议生成修复建议但需人工确认：
 

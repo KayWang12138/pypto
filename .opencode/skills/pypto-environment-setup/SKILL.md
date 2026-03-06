@@ -25,13 +25,13 @@ ASCEND_INSTALL_PATH=${ASCEND_INSTALL_PATH:-/usr/local/Ascend}
 
 > ⚠️ **环境保护**：任何安装前必须先检测当前状态，向用户展示已有组件及版本，获得确认后才执行变更。
 
-### Step 1: 环境检测
+### 步骤 1：环境检测
 
 ```bash
-# Step 1.1: 检查 PYPTO_REPO 环境变量
+# 步骤 1.1：检查 PYPTO_REPO 环境变量
 echo "PYPTO_REPO: ${PYPTO_REPO:-未设置}"
 
-# Step 1.2: 检查当前目录是否为 PyPTO 仓库
+# 步骤 1.2：检查当前目录是否为 PyPTO 仓库
 [ -f "pyproject.toml" ] && [ -d "framework" ] && echo "✓ 当前目录是 PyPTO 仓库"
 ```
 
@@ -48,20 +48,20 @@ export PYPTO_REPO="$PWD/pypto"
 
 **运行环境诊断**：
 ```bash
-# Step 1.3: 进入 skill 目录运行诊断脚本
+# 步骤 1.3：进入 skill 目录运行诊断脚本
 cd ${SKILL_DIR:-.opencode/skills/pypto-environment-setup}
 python3 scripts/diagnose_env.py --checklist
 ```
 
 **通过标准**：清单所有项 ✅ OK。⚠️/❌ 项需修复后再继续。
 
-### Step 2: 决策分支
+### 步骤 2：决策分支
 
-- 0 issues → 跳至 Step 4 验证
-- 有 issues → 向用户展示问题清单，获得确认后进入 Step 3
+- 0 个问题 → 跳至步骤 4 验证
+- 有问题 → 向用户展示问题清单，获得确认后进入步骤 3
 - 用户拒绝 → 停止，报告当前状态
 
-### Step 3: 按类别修复
+### 步骤 3：按类别修复
 
 只修复缺失项，不改动已正常组件。
 
@@ -71,7 +71,7 @@ python3 scripts/diagnose_env.py --checklist
 | **编译工具链缺失** (cmake/gcc/make/g++/ninja/pip3) | `cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=deps` | 回退到手动 `apt-get install`；检查 apt 源配置 |
 | **第三方源码包缺失** (json/libboundscheck) | `cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=third_party` | 检查网络对 cann-src-third-party 的可达性 |
 
-> `--device-type` 由 Step 1 检测自动确定（910B→a2，910C→a3）。
+> `--device-type` 由步骤 1 检测自动确定（910B→a2，910C→a3）。
 > 手动安装/编译细节见 [📋 prepare_environment.md](references/prepare_environment.md)。
 > 遇到报错见 [🔧 troubleshooting.md](references/troubleshooting.md)。
 
@@ -80,24 +80,24 @@ python3 scripts/diagnose_env.py --checklist
 > pip install torch==2.6.0 torch-npu==2.6.0.post3
 > ```
 
-### Step 4: 验证（必须执行）
+### 步骤 4：验证（必须执行）
 
 任何安装/修复后必须通过 softmax 验证。
 
 ```bash
-# Step 4.1: 加载 CANN 环境
+# 步骤 4.1：加载 CANN 环境
 source ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/set_env.sh
 
-# Step 4.2: 检查可用的 NPU 卡
+# 步骤 4.2：检查可用的 NPU 卡
 npu-smi info
 
-# Step 4.3: 设置 NPU 设备 ID（根据 Step 4.2 选择空闲卡）
+# 步骤 4.3：设置 NPU 设备 ID（根据步骤 4.2 选择空闲卡）
 export TILE_FWK_DEVICE_ID=0
 
-# Step 4.4: 设置 PTO-ISA 路径
+# 步骤 4.4：设置 PTO-ISA 路径
 export PTO_TILE_LIB_CODE_PATH=${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/aarch64-linux
 
-# Step 4.5: 进入 PyPTO 仓库
+# 步骤 4.5：进入 PyPTO 仓库
 cd ${PYPTO_REPO:-$PWD}
 ```
 
@@ -125,9 +125,9 @@ python3 examples/02_intermediate/operators/softmax/softmax.py --run_mode sim
 
 **通过标准**：退出码 `0`，输出 `Softmax test passed`。
 
-**失败时**：重新运行 Step 1 诊断 → 对照 [🔧 troubleshooting.md](references/troubleshooting.md) 排查。
+**失败时**：重新运行步骤 1 诊断 → 对照 [🔧 troubleshooting.md](references/troubleshooting.md) 排查。
 
-### Step 5: 完成报告
+### 步骤 5：完成报告
 
 环境配置完成后，运行诊断并整理报告。
 
@@ -167,7 +167,7 @@ source ~/.bashrc
 ⚠️ `TILE_FWK_DEVICE_ID` 需根据 `npu-smi info` 输出修改。
 ## 📚 参考文件
 
-| File | Contents |
+| 文件 | 内容 |
 |------|----------|
 | [📋 prepare_environment.md](references/prepare_environment.md) | 安装 CANN/torch_npu/pto-isa、编译 PyPTO |
 | [🔧 troubleshooting.md](references/troubleshooting.md) | 安装/导入/运行报错 |

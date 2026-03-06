@@ -27,14 +27,14 @@ test -n "$CANN_ENV_SH" && source "$CANN_ENV_SH" || echo "CANN set_env.sh not fou
 | `ASCEND_OPP_PATH` | OPP 算子包路径 |
 
 
-> 诊断脚本路径探测优先级：`ASCEND_HOME_PATH` → `ASCEND_TOOLKIT_HOME` → `ASCEND_OPP_PATH` 反推 → Fallback 扫描 `cann-*`
+> 诊断脚本路径探测优先级：`ASCEND_HOME_PATH` → `ASCEND_TOOLKIT_HOME` → `ASCEND_OPP_PATH` 反推 → 兜底扫描 `cann-*`
 
 ## 使用 prepare_env.sh 安装（推荐）
 
 ```bash
 cd "$PYPTO_REPO"
 
-> ⏱️ **Note**: This script takes approximately 15 minutes to execute.
+> ⏱️ **说明**：该脚本大约需要 15 分钟执行完成。
 
 # 分步安装（禁止 --type=all）
 bash tools/prepare_env.sh --quiet --type=deps --device-type=<a2|a3>
