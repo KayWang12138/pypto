@@ -487,13 +487,13 @@ Status NBufferMerge::NBufferMergeProcess(Function &func) {
     hashOrder_.clear();
     GetColorHash(opOriList, hashColor, hashMap);
     std::map<uint64_t, size_t> hashMergeNum;
-        // print
-    APASS_LOG_INFO_F(Elements::Operation, "Computation graph overview.");
+    // print hashorder
+    APASS_LOG_INFO_F(Elements::Operation, "Computation graph [%s] overview.", func.GetRawName().c_str());
     for (auto &entry : hashMap) {
         APASS_LOG_INFO_F(Elements::Operation, "Hash order: %d, Subgraph hash: %lu, Subgraph ID: %s.",
             hashOrder[entry.first], entry.first, IntVecToStr(entry.second).c_str());
     }
-    APASS_LOG_INFO_F(Elements::Operation, "Computation graph overview end.");    
+    APASS_LOG_INFO_F(Elements::Operation, "Computation graph [%s] overview end.", func.GetRawName().c_str()");    
     if (vecNBuffermode_ == autoMerge || vecNBuffermode_ == autoMulityInOutMerge) {
         APASS_LOG_INFO_F(Elements::Config, "Manually set mode to %d, automatically calculate mergeNum.", vecNBuffermode_);
         hashMergeNum = GetIsoColorMergeNum(hashMap);

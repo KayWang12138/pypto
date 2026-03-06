@@ -254,12 +254,13 @@ void L1CopyInReuseRunner::GetColorHash(const OperationsViewer &opOriList, std::v
             order++;
         }
     }
-    APASS_LOG_INFO_F(Elements::Operation, "Computation graph overview.");
+    // print hashorder
+    APASS_LOG_INFO_F(Elements::Operation, "Computation graph [%s] overview.", func.GetRawName().c_str());
     for (auto& entry : hashMap_) {
         APASS_LOG_INFO_F(Elements::Operation, "Hash order: %d, Subgraph hash: %lu, Subgraph ID: %s.",
             hashOrder[entry.first], entry.first, IntVecToStr(entry.second).c_str());
     }
-    APASS_LOG_INFO_F(Elements::Operation, "Computation graph overview end.");
+    APASS_LOG_INFO_F(Elements::Operation, "Computation graph [%s] overview end.", func.GetRawName().c_str());
 }
 
 inline void HashUpdate(std::unordered_map<uint64_t, std::vector<int>> &hashMap, 
