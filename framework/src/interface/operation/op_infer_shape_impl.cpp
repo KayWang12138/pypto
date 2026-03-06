@@ -20,6 +20,8 @@
 #include "interface/utils/common.h"
 #include "passes/pass_log/pass_log.h"
 
+#define MODULE_NAME "OpInferShapeImpl"
+
 namespace npu::tile_fwk {
 const std::string COPY_OUT_FORCE_INFER_SHAPE = "copy_out_force_infer_shape";
 
