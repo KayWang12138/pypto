@@ -188,7 +188,6 @@ public:
         context_->sendCnt_[static_cast<int>(CoreType::AIV)] = 0;
     }
 
-    template <bool enableAicpuTask = false>
     inline int32_t RunCoreTask(DeviceTaskCtrl *taskCtrl, uint64_t& sent) {
         int32_t ret = DEVICE_MACHINE_OK;
         (void)taskCtrl;
@@ -206,17 +205,7 @@ public:
         uint64_t sentAiv = 0;
         CountSendTask(sentAic, sentAiv);
 
-        sent = 0UL;
-        if constexpr (enableAicpuTask) {
-            if (IsNeedProcAicpuTask()) {
-                ret = ResolveDepForAicpuTask(sent);
-                if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                    return ret;
-                }
-            }
-        }
-
-        sent += (sentAic + sentAiv);
+        sent = sentAic + sentAiv;
         return ret;
     }
 
@@ -278,7 +267,7 @@ public:
         uint32_t allSentCnt = taskCtrl->finishedFunctionCnt.load(std::memory_order_relaxed);
         while (allSentCnt < curDevTask_->coreFunctionCnt) {
             uint64_t curSent = 0;
-            int32_t ret = RunCoreTask<true>(taskCtrl, curSent);
+            int32_t ret = RunCoreTask(taskCtrl, curSent);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
@@ -668,6 +657,7 @@ private:
         memcpy_s(
             &readyQue->elem[readyQue->tail], idCnt * sizeof(uint32_t), (uint8_t *)idList, idCnt * sizeof(uint32_t));
          __atomic_fetch_add(&readyQue->tail, idCnt, std::memory_order_release);
+         DEV_ERROR("[AICPU %d] Pushed %u tasks: %lu (Total: %u)", aicpuIdx_, idCnt, readyQue->wasSize());
         ReadyQueueUnLock(readyQue);
         return DEVICE_MACHINE_OK;
     }
