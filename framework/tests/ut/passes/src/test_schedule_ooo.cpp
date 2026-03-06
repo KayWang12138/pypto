@@ -955,7 +955,7 @@ TEST_F(ScheduleOoOTest, TestScheduleSpillAssemble) {
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.ScheduleMainLoop();
     // 待ScheduleMainloop支持assemble
-    EXPECT_EQ(res, FAILED);
+    EXPECT_EQ(res, SUCCESS);
 }
 
 TEST_F(ScheduleOoOTest, TestScheduleSpillFragFailed) {
@@ -1612,15 +1612,26 @@ TEST_F(ScheduleOoOTest, TestBufferPollRearrange) {
     auto allocIssue2 = std::make_shared<IssueEntry>(*alloc2, 2);
     auto alloc3 = subGraph.GetOp("Alloc3");
     auto allocIssue3 = std::make_shared<IssueEntry>(*alloc3, 3);
+    allocIssue1->execOrder = 1;
+    allocIssue2->execOrder = 2;
     allocIssue3->reqMemIds = {3};
+    allocIssue3->execOrder = 0;
 
     // 验证重排，排序依据为size从大到小
     OoOScheduler oooSchedule(*function);
     auto corePair = opCoreTypeMap.at(OpCoreType::AIV);
+    allocIssue3->coreLocation = corePair;
     oooSchedule.bufferManagerMap[corePair.first][corePair.second][MemoryType::MEM_UB] = pool;
     oooSchedule.tensorOccupyMap[MemoryType::MEM_UB].emplace(1, allocIssue1);
-    oooSchedule.tensorOccupyMap[MemoryType::MEM_UB].emplace(2, allocIssue2);
+    oooSchedule.tensorOccupyMap[MemoryType::MEM_UB].emplace(2, nullptr);
     oooSchedule.localBufferMap[3] = std::make_shared<LocalBuffer>(3, 65536, MemoryType::MEM_UB);
+    size_t temp = 1;
+    EXPECT_EQ(oooSchedule.SpillAllBuffer(allocIssue3, temp, false, oooSchedule.localBufferMap[3]), FAILED);
+    EXPECT_EQ(oooSchedule.RearrangeBuffer(allocIssue3, MemoryType::MEM_UB, corePair, false), FAILED);
+    EXPECT_EQ(oooSchedule.PrintSpillFailedInfo(allocIssue3, true), FAILED);
+    oooSchedule.tensorOccupyMap[MemoryType::MEM_UB][2] = allocIssue2;
+    EXPECT_EQ(oooSchedule.SpillAllBuffer(allocIssue3, temp, true, oooSchedule.localBufferMap[3]), FAILED);
+    allocIssue3->execOrder = 3;
     EXPECT_EQ(oooSchedule.RearrangeBuffer(allocIssue3, MemoryType::MEM_UB, corePair, false), SUCCESS);
     auto &ubPool = oooSchedule.bufferManagerMap[corePair.first][corePair.second][MemoryType::MEM_UB];
     EXPECT_EQ(ubPool.GetBufferSize(1), 65536);
