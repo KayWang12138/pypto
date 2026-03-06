@@ -14,10 +14,9 @@
  */
 
 #include <fstream>
-#include "ini_parser.h"
 #include "tilefwk/platform.h"
-#include "interface/utils/file_utils.h"
-#include "cost_model/simulation_platform/platform.h"
+#include "parser/ini_parser.h"
+#include "simulation_platform/simulation_platform.h"
 
 namespace npu::tile_fwk {
 const std::string version = "version";
@@ -79,17 +78,6 @@ NPUArch StringToNPUArch(const std::string& npuArch) {
         return it->second;
     }
     return NPUArch::DAV_2201;
-}
-
-std::string ToJsonString(const std::string& s) {
-    std::string escaped_s = "\"";
-    for (char c : s) {
-        if (c == '"') escaped_s += "\\\"";
-        else if (c == '\\') escaped_s += "\\\\";
-        else escaped_s += c;
-    }
-    escaped_s += "\"";
-    return escaped_s;
 }
 
 size_t Core::GetMemorySize(MemoryType type) const {
