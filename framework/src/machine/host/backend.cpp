@@ -36,6 +36,7 @@
 #include "tilefwk/op_registry.h"
 #include "main_block.h"
 #include <dlfcn.h>
+#include <regex>
 #include "tilefwk/pypto_fwk_log.h"
 
 using namespace npu::tile_fwk::dynamic;
@@ -414,8 +415,18 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
             expressionOss << "#define " << AddArgPrefix(outputNameList[idx]) << " " << idx + inputNameList.size() << "\n";
         }
 
-        controlFlowOss << "#define LOOP(idx, b, e, s) for (int64_t idx = (b), idxEnd = (e), idxStep = (s); idx < idxEnd; idx += idxStep)\n"
-            << "namespace npu::tile_fwk {\n"
+        controlFlowOss << "#define LOOP(idx, b, e, s) for (int64_t idx = (b), idxEnd = (e), (idxStep) = (s); idx < idxEnd; idx += idxStep)\n"
+             << "namespace npu::tile_fwk {\n"
+             << "static inline void WaitForSyncFlag(DevStartArgsBase *startArgs) {\n"
+             << "    DEV_IF_DEVICE {\n"
+             << "        uint64_t start = GetCycles();\n"
+             << "        while (startArgs->syncFlag != 1) {\n"
+             << "            if (GetCycles() - start > HAND_SHAKE_TIMEOUT) {\n"
+             << "                break;\n"
+             << "            }\n"
+             << "        }\n"
+             << "    }\n"
+             << "}\n"
             << BuildControlFlowCallee(func, 0)
             << "__attribute__((section(\"" << sectionName << ".entry"
             << "\")))\n"

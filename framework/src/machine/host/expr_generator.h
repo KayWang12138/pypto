@@ -68,6 +68,25 @@ public:
         header.close();
     }
 
+    static bool CheckAndInsertTargetExpression(std::ofstream &out, 
+                                             const std::string &exprStr,
+                                             int indent,
+                                             bool &foundTargetExpr) {
+        static std::regex targetPattern(R"(RUNTIME_GetTensorDataInt32Dim[1-4])");
+        
+        if (!foundTargetExpr && std::regex_search(exprStr, targetPattern)) {
+            foundTargetExpr = true;
+            
+            out << std::setw(indent * TABSIZE) << ' ' << "{\n";
+            out << std::setw((indent + 1) * TABSIZE) << ' ' << "WaitForSyncFlag(startArgs);\n";
+            out << std::setw(indent * TABSIZE) << ' ' << "}\n";
+
+            return true;
+        }
+        return false;
+    }
+
+
     template<typename ExpressionSet, typename BuildExpressionFunc>
     void GenerateBatchFile(std::ostringstream &controlFlowOss, std::ostringstream &exprHeaderOss, const std::string &expName,
         const ExpressionSet& expressions, std::vector<std::string> &exprSrcFiles, int indent, int devRootKey, const BuildExpressionFunc& buildExpr) {
@@ -92,6 +111,8 @@ public:
             for (size_t idx = batch.startExprIndex; idx < batch.endExprIndex; idx++) {
                 const auto& expr = expressions[idx];
                 auto exprStr = buildExpr(expr);
+                static bool foundTargetExpr = false;
+                CheckAndInsertTargetExpression(out, exprStr, idx, foundTargetExpr);
                 out << "    RUNTIME_SetExpr(exprList, " << idx << ", " << exprStr << ");\n";
             }
             out << "}\n\n"
