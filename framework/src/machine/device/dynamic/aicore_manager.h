@@ -542,29 +542,20 @@ private:
             ReadyQueueUnLock(readyQue);
             return 0;
         }
-        bool isRealLifo = (enableL2CacheSch_ && !firstLock[static_cast<int>(type)]);
-        if (isRealLifo) {
-            memcpy_s(readyId, taskCount * sizeof(uint64_t),
-                reinterpret_cast<uint8_t *>(&readyQue->elem[tail - taskCount]), taskCount * sizeof(uint32_t));
-            __atomic_fetch_sub(&readyQue->tail, taskCount, std::memory_order_release);
-        } else {
-            __atomic_fetch_add(&readyQue->head, taskCount, std::memory_order_release);
-        }
+        memcpy_s(readyId, taskCount * sizeof(uint64_t), reinterpret_cast<uint8_t *>(&readyQue->elem[tail - taskCount]), taskCount * sizeof(uint32_t));
+        __atomic_fetch_sub(&readyQue->tail, taskCount, std::memory_order_release);
         ReadyQueueUnLock((readyQue));
-        BatchSendTask(type, isRealLifo ? &readyId[taskCount - 1] : &readyQue->elem[head],
-            taskCount, coreIdxStart, coreIdxEnd, isRealLifo);
+        BatchSendTask(type, &readyQue->elem[head], taskCount, coreIdxStart, coreIdxEnd);
         firstLock[static_cast<int>(type)] = false;
         return taskCount;
     }
 
-    inline uint32_t BatchSendTask(CoreType type, uint32_t *newTask, uint32_t taskCount, int coreIdxStart, int coreIdxEnd, bool isLifo)
+    inline uint32_t BatchSendTask(CoreType type, uint32_t *newTask, uint32_t taskCount, int coreIdxStart, int coreIdxEnd)
     {
         uint32_t sendCnt = 0;
         uint32_t coreRunReadyCnt = context_->coreRunReadyCnt_[static_cast<int>(type)];
         while (sendCnt < static_cast<uint64_t>(coreRunReadyCnt) && sendCnt < taskCount) {
-            SendTaskToAiCore(type,
-                context_->runReadyCoreIdx_[static_cast<int>(type)][--context_->coreRunReadyCnt_[static_cast<int>(type)]],
-                isLifo ? *newTask-- : *newTask++);
+            SendTaskToAiCore(type, context_->runReadyCoreIdx_[static_cast<int>(type)][--context_->coreRunReadyCnt_[static_cast<int>(type)]], *newTask++);
             sendCnt++;
         }
         context_->corePendReadyCnt_[static_cast<int>(type)] -= sendCnt;
@@ -574,7 +565,7 @@ private:
         uint32_t lastProcCore = idx;
         while (context_->corePendReadyCnt_[static_cast<int>(type)] > 0 && sendCnt < taskCount) {
             if (pendingIds_[idx] == AICORE_TASK_INIT) {
-                SendTaskToAiCore(type, idx, isLifo ? *newTask-- : *newTask++);
+                SendTaskToAiCore(type, idx, *newTask++);
                 sendCnt++;
                 context_->corePendReadyCnt_[static_cast<int>(type)]--;
                 lastProcCore = idx;
@@ -662,8 +653,7 @@ private:
         if (context_->readyCount[aicIndex] > 0) {
             uint32_t needSendCnt = std::min(GetReadyCoreNum(CoreType::AIC), context_->readyCount[aicIndex]);
             if (needSendCnt > 0) {
-                context_->readyCount[aicIndex] -= BatchSendTask(CoreType::AIC, &context_->readyIds[aicIndex][context_->readyCount[aicIndex] - 1],
-                    needSendCnt, aicStart_, aicEnd_, true);
+                context_->readyCount[aicIndex] -= BatchSendTask(CoreType::AIC, &context_->readyIds[aicIndex][context_->readyCount[aicIndex] - 1], needSendCnt, aicStart_, aicEnd_);
             }
             if (context_->readyCount[aicIndex] > 0) {
                 ret = PushReadyQue(readyAicCoreFunctionQue_, context_->readyIds[aicIndex], context_->readyCount[aicIndex]);
@@ -677,8 +667,7 @@ private:
         if (context_->readyCount[aivIndex] > 0) {
             uint32_t needSendCnt = std::min(GetReadyCoreNum(CoreType::AIV), context_->readyCount[aivIndex]);
             if (needSendCnt > 0) {
-                context_->readyCount[aivIndex] -= BatchSendTask(CoreType::AIV, &context_->readyIds[aivIndex][context_->readyCount[aivIndex] - 1],
-                    needSendCnt, aivStart_, aivEnd_, true);
+                context_->readyCount[aivIndex] -= BatchSendTask(CoreType::AIV, &context_->readyIds[aivIndex][context_->readyCount[aivIndex] - 1],  needSendCnt, aivStart_, aivEnd_);
             }
             if (context_->readyCount[aivIndex] > 0) {
                 ret = PushReadyQue(readyAivCoreFunctionQue_, context_->readyIds[aivIndex], context_->readyCount[aivIndex]);
