@@ -72,7 +72,7 @@ TEST_F(TestCodegenDynPairProd, PairProdLayout) {
     codeGen.GenCode(*function, {});
 
     std::string res = GetResultFromCpp(*function);
-    const std::string expect = R"(TPairProd(ubTensor_4, ubTensor_0, ubTensor_2);)";
+    const std::string expect = R"(TPairProd(ubTensor_4, ubTensor_2, ubTensor_0);)";
     CheckStringExist(expect, res);
 }
 } // namespace npu::tile_fwk
