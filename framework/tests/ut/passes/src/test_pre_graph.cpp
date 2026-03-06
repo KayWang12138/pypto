@@ -830,14 +830,16 @@ TEST_F(PreGraphTest, TestProcessReshape) {
 
     // run pass
     Function *function = G.GetFunction();
+    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto/b.json");
     EXPECT_NE(function, nullptr);
     PreGraphProcess passLocal;
     EXPECT_EQ(passLocal.Run(*function, "", "", 0), SUCCESS);
-    
+    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto/a.json");
     // check after pass
     auto opList = function->Operations();
     int64_t viewCnt = 0;
     int64_t reshapeCnt = 0;
+
     for (const auto &op : opList) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             ++viewCnt;
@@ -847,7 +849,25 @@ TEST_F(PreGraphTest, TestProcessReshape) {
         }
     }
     EXPECT_EQ(viewCnt, 0);
-    EXPECT_EQ(reshapeCnt, 2);
+    EXPECT_EQ(reshapeCnt, 2); // tmp Reshape Remove
+
+    // Verify RESHAPE2 exists and has correct shapes
+    auto *reshape2Op = G.GetOp("RESHAPE2");
+    EXPECT_NE(reshape2Op, nullptr) << "RESHAPE2 should exist";
+    auto reshape2Input = reshape2Op->GetIOperands().front();
+    auto reshape2Output = reshape2Op->GetOOperands().front();
+    EXPECT_EQ(reshape2Input->GetShape(), (std::vector<int64_t>{16, 24576}))
+        << "RESHAPE2 input shape should be {16, 24576}";
+
+    // Verify RESHAPE1 : connect to copyin
+    auto *reshape1Op = G.GetOp("RESHAPE1");
+    int64_t copyinCnt = 0;
+    for (auto consumer : reshape1Op->GetOutputOperand(0)->GetConsumers()) {
+        if (consumer->GetOpcode() == Opcode::OP_COPY_IN) {
+            ++copyinCnt;
+        }
+    }
+    EXPECT_EQ(copyinCnt, 2);
 }
 
 void CompareOpImmediateVector(const std::vector<OpImmediate> &result, const std::vector<int64_t> &expect) {
