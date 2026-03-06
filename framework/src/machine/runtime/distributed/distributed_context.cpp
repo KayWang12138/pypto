@@ -278,46 +278,6 @@ uint64_t DistributedContext::AllocCommContext<ResType::RING_A2>([[maybe_unused]]
 }
 
 std::vector<uint64_t> DistributedContext::GetCommContext([[maybe_unused]] const std::vector<std::string> &groupNames) {
-#ifdef BUILD_WITH_CANN
-    if (groupNames.size() == 0) {
-        return {};
-    }
-    CommTopo topoRet;
-    const char *group = groupNames[0].c_str();
-    ASSERT(HcomGetL0TopoTypeEx(group, &topoRet, COMM_IS_NOT_SET_DEVICE) == HCCL_SUCCESS) << "Get hcom topo failed";
-    uint32_t topoType = static_cast<uint32_t>(topoRet);
-    std::shared_ptr<TilingStructBase> tilingStruct;
-    if (topoType == COMM_MESH) {
-        tilingStruct = std::make_shared<TilingStruct>();
-    } else {
-        tilingStruct = std::make_shared<TilingStructV2>();
-    }
-    std::vector<uint64_t> commContext(groupNames.size(), 0);
-    ASSERT(groupNames.size() <= DIST_COMM_GROUP_NUM) <<"Commgroup size is not be supported";
-    for (size_t groupIndex = 0; groupIndex < groupNames.size(); ++groupIndex) {
-        auto groupName = groupNames[groupIndex];
-        if (g_context.find(groupName) != g_context.end()) { // 检查context缓存
-            commContext[groupIndex] = g_context[groupName].first;
-            continue;
-        }
-        HcclComm commHandle = nullptr;
-        ASSERT(HcomGetCommHandleByGroup(groupName.c_str(), &commHandle) == 0) << "Get hcom handle failed";
-        tilingStruct->MakeMc2TilingStruct(groupName);
-        auto ret = HcclAllocComResourceByTiling(commHandle, machine::GetRA()->GetStream(),
-            tilingStruct->GetMc2CommConfig(), reinterpret_cast<void **>(&commContext[groupIndex]));
-        ASSERT((ret == 0) && (commContext[groupIndex] != 0UL)) << "Hccl alloc resource failed";
-        DISTRIBUTED_LOGI("groupIndex=%u, groupName=%s, commContext=%lu", groupIndex, groupName.c_str(),
-            commContext[groupIndex]);
-        if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
-            commContext[groupIndex] = AllocCommContext<ResType::MESH_A5>(commContext[groupIndex], groupName);
-        } else if (topoType == COMM_MESH) {
-            commContext[groupIndex] = AllocCommContext<ResType::MESH_A3>(commContext[groupIndex], groupName);
-        } else {
-            commContext[groupIndex] = AllocCommContext<ResType::RING_A2>(commContext[groupIndex], groupName);
-        }
-    }
-    return commContext;
-#endif
     return {};
 }
 
