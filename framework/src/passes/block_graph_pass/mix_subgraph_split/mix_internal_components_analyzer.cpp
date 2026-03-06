@@ -24,38 +24,38 @@ Status MixInternalComponentsAnalyzer::AnalyzeInternalComponents(Function& mixSub
     // step1:处理InternalSubgraphIDs的传播继承和传播
     auto status = ProcessInternalSubgraphIDs(mixSubgraphFunc, componentsByInternalID);
     if (status != SUCCESS) {
-        ALOG_ERROR_F("ProcessInternalSubgraphIDs Failed.");
-        return status; 
+        APASS_LOG_ERROR_F(Elements::Operation, "ProcessInternalSubgraphIDs Failed.");
+        return status;
     }
-  
+
     for (const auto& [internalID, operations] : componentsByInternalID) {
         std::string suffix = "_internal_" + std::to_string(internalID);
         // 向返回容器中添加component信息
         internalComponents.emplace_back(internalID, suffix, AIVCore::UNSPECIFIED);
         auto& curComponent = internalComponents.back();
         curComponent.operations = operations;
-        
-        // step2:处理 componentType 属性的传播 
+
+        // step2:处理 componentType 属性的传播
         ComponentType componentType = ComponentType::UNKNOWN;
         auto determineComponent = DetermineComponentType(curComponent, componentType);
         if (determineComponent != SUCCESS) {
-            ALOG_ERROR_F("DetermineComponentType Failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "DetermineComponentType Failed.");
             return determineComponent;
         }
         curComponent.componentType = componentType;
-        
+
         // step3:处理 aivCore 属性的传播（AIV0/AIV1/UNSPECIFIED，UNSPECIFIED表示Cube或其他类型）
         AIVCore aivCore = AIVCore::UNSPECIFIED;
         auto determineAivCore = DetermineComponentAIVCore(operations,curComponent.componentType, aivCore);
         if (determineAivCore != SUCCESS) {
-            ALOG_ERROR_F("DetermineComponentAIVCore Failed.");
+            APASS_LOG_ERROR_F(Elements::Operation, "DetermineComponentAIVCore Failed.");
             return determineAivCore;
         }
         curComponent.aivCore = aivCore;
-    
-        ALOG_DEBUG_F("Internal component: internalSubgraphID=%d, operationCount=%zu.", internalID, operations.size());
+
+        APASS_LOG_DEBUG_F(Elements::Operation, "Internal component: internalSubgraphID=%d, operationCount=%zu.", internalID, operations.size());
     }
-    ALOG_INFO_F("ProcessPassDependencies success! Analyzed %zu internal components.", internalComponents.size());
+    APASS_LOG_INFO_F(Elements::Operation, "ProcessPassDependencies success! Analyzed %zu internal components.", internalComponents.size());
     return SUCCESS;
 }
 
@@ -63,31 +63,31 @@ Status MixInternalComponentsAnalyzer::AnalyzeInternalComponents(Function& mixSub
 Status MixInternalComponentsAnalyzer::ProcessInternalSubgraphIDs(Function& mixSubgraphFunc,
                                                     std::map<int, std::vector<Operation*>> &componentsByInternalID) const {
     // step1:前校验
-    auto precheck = PreCheckSubGraphIDs(mixSubgraphFunc); 
+    auto precheck = PreCheckSubGraphIDs(mixSubgraphFunc);
     if (precheck != SUCCESS) {
-        ALOG_ERROR_F("Precheck ProcessInternalSubgraphIDs Failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Precheck ProcessInternalSubgraphIDs Failed.");
         return precheck;
     }
 
     std::vector<Operation*> unassignedOps;
     // step2: 按算子已有的internalSubgraphID做分组，收集无ID的未分配算子
     componentsByInternalID = GroupOperationsByExistingInternalID(mixSubgraphFunc, unassignedOps);
-    
+
     // step3: 如果存在未分配的算子（非同步），执行同步算子合并逻辑
     if (!unassignedOps.empty()) {
-        ALOG_INFO_F("Found %zu operations without internalSubgraphID, using heuristic analysis",
+        APASS_LOG_INFO_F(Elements::Operation, "Found %zu operations without internalSubgraphID, using heuristic analysis",
                    unassignedOps.size());
         ProcessUnassignedOperations(unassignedOps, componentsByInternalID, mixSubgraphFunc);
     }
 
-    // step4:后校验  
+    // step4:后校验
     auto postcheck = PostCheckSubGraphIDs(mixSubgraphFunc);
     if (postcheck != SUCCESS) {
-        ALOG_ERROR_F("Postcheck ProcessInternalSubgraphIDs Failed.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Postcheck ProcessInternalSubgraphIDs Failed.");
         return postcheck;
     }
 
-    ALOG_INFO_F("Success to group operations into %zu internal components", componentsByInternalID.size());
+    APASS_LOG_INFO_F(Elements::Operation, "Success to group operations into %zu internal components", componentsByInternalID.size());
     return SUCCESS;
 }
 
@@ -104,12 +104,12 @@ Status MixInternalComponentsAnalyzer::PreCheckSubGraphIDs(Function& mixSubgraphF
         if (!IsSyncOperation(const_cast<Operation*>(&op))) {
             int internalSubgraphID = op.GetInternalSubgraphID();
             if (internalSubgraphID < 0) {
-                ALOG_ERROR_F("[PreCheck]:Invalid non-sync operation %s[%d] found!", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+                APASS_LOG_ERROR_F(Elements::Operation, "[PreCheck]:Invalid non-sync operation %s[%d] found!", op.GetOpcodeStr().c_str(), op.GetOpMagic());
                 return FAILED;
             }
         }
     }
-    ALOG_INFO_F("[PreCheck] Success: All non-sync operations have valid internalSubgraphID.");
+    APASS_LOG_INFO_F(Elements::Operation, "[PreCheck] Success: All non-sync operations have valid internalSubgraphID.");
     return SUCCESS;
 }
 
@@ -125,11 +125,11 @@ Status MixInternalComponentsAnalyzer::PostCheckSubGraphIDs(Function& mixSubgraph
         // 核心规则：校验所有算子必须有合法的internalSubgraphID(>=0)
         int internalSubgraphID = op.GetInternalSubgraphID();
         if (internalSubgraphID < 0) {
-            ALOG_ERROR_F("[PostCheck]: Invalid operation %s[%d] found!", op.GetOpcodeStr().c_str(), op.GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "[PostCheck]: Invalid operation %s[%d] found!", op.GetOpcodeStr().c_str(), op.GetOpMagic());
             return FAILED;
         }
     }
-    ALOG_INFO_F("[PostCheck] Success: All operations have valid internalSubgraphID.");
+    APASS_LOG_INFO_F(Elements::Operation, "[PostCheck] Success: All operations have valid internalSubgraphID.");
     return SUCCESS;
 }
 
@@ -143,16 +143,17 @@ std::map<int, std::vector<Operation*>> MixInternalComponentsAnalyzer::GroupOpera
         int internalSubgraphID = op.GetInternalSubgraphID();
         if (internalSubgraphID >= 0) {
             internalIDToOperations[internalSubgraphID].push_back(&op);
-            ALOG_DEBUG_F("Operation %s assigned to internalID=%d",
+            APASS_LOG_DEBUG_F(Elements::Operation, "Operation %s assigned to internalID=%d",
                         op.GetOpcodeStr().c_str(), internalSubgraphID);
         } else {
             // 没有有效的internalSubgraphID，收集到未分配列表
             unassignedOps.push_back(&op);
         }
     }
-    ALOG_INFO_F("Grouped operations by existing internalSubgraphID into %zu groups, %zu unassigned", internalIDToOperations.size(), unassignedOps.size());
+    APASS_LOG_INFO_F(Elements::Operation, "Grouped operations by existing internalSubgraphID into %zu groups, %zu unassigned",
+        internalIDToOperations.size(), unassignedOps.size());
     return internalIDToOperations;
-    
+
 }
 
 void MixInternalComponentsAnalyzer::ProcessUnassignedOperations(
@@ -181,15 +182,15 @@ void MixInternalComponentsAnalyzer::ProcessUnassignedOperations(
         bool merged = MergeSyncOperation(syncOp, componentsByInternalID, opToComponentMap, mixSubgraphFunc);
         if (!merged) {
             remainingOps.push_back(syncOp);
-            ALOG_DEBUG_F("Sync operation %s %d not merged", 
+            APASS_LOG_DEBUG_F(Elements::Operation, "Sync operation %s %d not merged",
                         syncOp->GetOpcodeStr().c_str(), syncOp->GetOpMagic());
         }
     }
     // 报告未分配的op
     if (!remainingOps.empty()) {
-        ALOG_ERROR_F("Found %zu unexpected unassigned operations after first step:", remainingOps.size());
+        APASS_LOG_ERROR_F(Elements::Operation, "Found %zu unexpected unassigned operations after first step:", remainingOps.size());
         for (auto* op : remainingOps) {
-            ALOG_DEBUG_F("  Unassigned: %s %d", 
+            APASS_LOG_DEBUG_F(Elements::Operation, "  Unassigned: %s %d",
                         op->GetOpcodeStr().c_str(), op->GetOpMagic());
         }
     }
@@ -241,7 +242,7 @@ bool MixInternalComponentsAnalyzer::MergeSyncOperation(Operation* op, std::map<i
         return MergeSyncSrcDst(op, targetDstOp, componentsByInternalID, opToComponentMap);
     }
 
-    ALOG_ERROR_F("Unhandled sync operation type: %s %d",
+    APASS_LOG_ERROR_F(Elements::Operation, "Unhandled sync operation type: %s %d",
                 op->GetOpcodeStr().c_str(), op->GetOpMagic());
     return false;
 }
@@ -257,12 +258,12 @@ bool MixInternalComponentsAnalyzer::MergeSyncPhase2(Operation* op, Function& mix
             op->UpdateInternalSubgraphID(it->second);
             componentsByInternalID[it->second].push_back(op);
             opToComponentMap[op] = it->second;
-            ALOG_DEBUG_F("Merged PHASE2 %d to component %d via previous op %d",
+            APASS_LOG_DEBUG_F(Elements::Operation, "Merged PHASE2 %d to component %d via previous op %d",
                         op->GetOpMagic(), it->second, targetOp->GetOpMagic());
             return true;
         }
     }
-    ALOG_WARN_F("Failed to merge PHASE2 %d: no valid previous op found backward", op->GetOpMagic());
+    APASS_LOG_WARN_F(Elements::Operation, "Failed to merge PHASE2 %d: no valid previous op found backward", op->GetOpMagic());
     return false;
 }
 
@@ -277,12 +278,12 @@ bool MixInternalComponentsAnalyzer::MergeSyncPhase1(Operation* op, Function& mix
             op->UpdateInternalSubgraphID(it->second);
             componentsByInternalID[it->second].push_back(op);
             opToComponentMap[op] = it->second;
-            ALOG_DEBUG_F("Merged PHASE1 %d to component %d via next op %d",
+            APASS_LOG_DEBUG_F(Elements::Operation, "Merged PHASE1 %d to component %d via next op %d",
                         op->GetOpMagic(), it->second, targetOp->GetOpMagic());
             return true;
         }
     }
-    ALOG_WARN_F("Failed to merge PHASE1 %d: no valid next op found forward", op->GetOpMagic());
+    APASS_LOG_WARN_F(Elements::Operation, "Failed to merge PHASE1 %d: no valid next op found forward", op->GetOpMagic());
     return false;
 }
 
@@ -293,17 +294,17 @@ bool MixInternalComponentsAnalyzer::MergeSyncSrcDst(Operation* op, Operation* ta
             op->UpdateInternalSubgraphID(it->second);
             componentsByInternalID[it->second].push_back(op);
             opToComponentMap[op] = it->second;
-            ALOG_DEBUG_F("Merged %s %d to component %d via non-sync op %d",
+            APASS_LOG_DEBUG_F(Elements::Operation, "Merged %s %d to component %d via non-sync op %d",
                         op->GetOpcodeStr().c_str(), op->GetOpMagic(), it->second, targetOp->GetOpMagic());
             return true;
         } else {
             // 目标op存在但尚未分配
-            ALOG_DEBUG_F("Cannot merge %s %d: target op %d exists but not yet assigned (will retry later)",
+            APASS_LOG_DEBUG_F(Elements::Operation, "Cannot merge %s %d: target op %d exists but not yet assigned (will retry later)",
                         op->GetOpcodeStr().c_str(), op->GetOpMagic(), targetOp->GetOpMagic());
             return false;
         }
     }
-    ALOG_WARN_F("Failed to merge %s %d: no non-sync operation found in search direction",
+    APASS_LOG_WARN_F(Elements::Operation, "Failed to merge %s %d: no non-sync operation found in search direction",
                 op->GetOpcodeStr().c_str(), op->GetOpMagic());
     return false;
 }
@@ -319,12 +320,12 @@ Operation* MixInternalComponentsAnalyzer::FindFirstOpBackward(Operation* startOp
     for (int i = startIndex - 1; i >= 0; --i) {
         Operation* candidate = opList[i];
         if (predicate(candidate)) {
-            ALOG_DEBUG_F("Found target op %d at index %d (searching backward from %d)", candidate->GetOpMagic(), i, startIndex);
+            APASS_LOG_DEBUG_F(Elements::Operation, "Found target op %d at index %d (searching backward from %d)", candidate->GetOpMagic(), i, startIndex);
             return candidate;
         }
     }
 
-    ALOG_DEBUG_F("No matching op found for op %d in backward direction", startOp->GetOpMagic());
+    APASS_LOG_DEBUG_F(Elements::Operation, "No matching op found for op %d in backward direction", startOp->GetOpMagic());
     return nullptr;
 }
 
@@ -339,34 +340,34 @@ Operation* MixInternalComponentsAnalyzer::FindFirstOpForward(Operation* startOp,
     for (int i = startIndex + 1; i < static_cast<int>(opList.size()); ++i) {
         Operation* candidate = opList[i];
         if (predicate(candidate)) {
-            ALOG_DEBUG_F("Found target op %d at index %d (searching forward from %d)", candidate->GetOpMagic(), i, startIndex);
+            APASS_LOG_DEBUG_F(Elements::Operation, "Found target op %d at index %d (searching forward from %d)", candidate->GetOpMagic(), i, startIndex);
             return candidate;
         }
     }
 
-    ALOG_DEBUG_F("No matching op found for op %d in forward direction", startOp->GetOpMagic());
+    APASS_LOG_DEBUG_F(Elements::Operation, "No matching op found for op %d in forward direction", startOp->GetOpMagic());
     return nullptr;
 }
 
 // 处理 componentType 属性
-Status MixInternalComponentsAnalyzer::DetermineComponentType(const InternalComponentInfo& component, ComponentType& componentType) const 
+Status MixInternalComponentsAnalyzer::DetermineComponentType(const InternalComponentInfo& component, ComponentType& componentType) const
 {
     componentType = ComponentType::UNKNOWN;
     if (component.operations.empty()) {
-        ALOG_WARN_F("Empty component, cannot determine type");
+        APASS_LOG_WARN_F(Elements::Operation, "Empty component, cannot determine type");
         return SUCCESS;
     }
     // 增加 iscube 属性一致性校验
     bool isConsistent = CheckAllCubeAttrConsistent(component);
     if (!isConsistent) {
-        ALOG_ERROR_F("[IsCubeAttr_CHECK] Component %s has inconsistent isCube attribute!", component.suffix.c_str());
+        APASS_LOG_ERROR_F(Elements::Operation, "[IsCubeAttr_CHECK] Component %s has inconsistent isCube attribute!", component.suffix.c_str());
         return FAILED;
     }
     // 遍历所有非同步op，查找isCube属性
     for (auto* op : component.operations) {
         // 跳过同步op
         if (IsSyncOperation(op)) {
-            ALOG_DEBUG_F("Skipping sync op %d (opcode=%s)", 
+            APASS_LOG_DEBUG_F(Elements::Operation, "Skipping sync op %d (opcode=%s)",
                         op->GetOpMagic(), op->GetOpcodeStr().c_str());
             continue;
         }
@@ -374,19 +375,19 @@ Status MixInternalComponentsAnalyzer::DetermineComponentType(const InternalCompo
         if (op->HasAttribute(OpAttributeKey::isCube)) {
             bool isCube = op->GetBoolAttribute(OpAttributeKey::isCube);
             if (isCube) {
-                ALOG_DEBUG_F("Component %s determined as C_SCOPE (non-sync op %d has isCube=true)", 
+                APASS_LOG_DEBUG_F(Elements::Operation, "Component %s determined as C_SCOPE (non-sync op %d has isCube=true)",
                             component.suffix.c_str(), op->GetOpMagic());
                 componentType = ComponentType::C_SCOPE;
                 return SUCCESS;
             }
         }
-        ALOG_DEBUG_F("Component %s determined as V_SCOPE (non-sync op %d has isCube=false or no isCube attr)", 
+        APASS_LOG_DEBUG_F(Elements::Operation, "Component %s determined as V_SCOPE (non-sync op %d has isCube=false or no isCube attr)",
                     component.suffix.c_str(), op->GetOpMagic());
         componentType = ComponentType::V_SCOPE;
         return SUCCESS;
     }
     // 如果所有操作都是同步操作
-    ALOG_DEBUG_F("Component %s has only sync operations (%zu ops)", 
+    APASS_LOG_DEBUG_F(Elements::Operation, "Component %s has only sync operations (%zu ops)",
                 component.suffix.c_str(), component.operations.size());
     return FAILED;
 }
@@ -409,7 +410,7 @@ bool MixInternalComponentsAnalyzer::CheckAllCubeAttrConsistent(const InternalCom
             continue;
         }
         if (refIsCube != curIsCube) {
-            ALOG_ERROR_F("Component %s has inconsistent isCube attribute! Error op magic=%d, opcode=%s.",
+            APASS_LOG_ERROR_F(Elements::Operation, "Component %s has inconsistent isCube attribute! Error op magic=%d, opcode=%s.",
                         component.suffix.c_str(), op->GetOpMagic(), op->GetOpcodeStr().c_str());
             return false;
         }
@@ -418,7 +419,7 @@ bool MixInternalComponentsAnalyzer::CheckAllCubeAttrConsistent(const InternalCom
 }
 
 // 处理 AIVCore 属性
-Status MixInternalComponentsAnalyzer::DetermineComponentAIVCore(const std::vector<Operation*>& operations, ComponentType componentType, AIVCore& outAivCore) const  
+Status MixInternalComponentsAnalyzer::DetermineComponentAIVCore(const std::vector<Operation*>& operations, ComponentType componentType, AIVCore& outAivCore) const
 {
     outAivCore = AIVCore::UNSPECIFIED;
     // 空scope的AIVcore属性设置为UNSPECIFIED
@@ -433,15 +434,15 @@ Status MixInternalComponentsAnalyzer::DetermineComponentAIVCore(const std::vecto
         case ComponentType::V_SCOPE:
             return ProcessVecScope(operations, componentID, outAivCore);
         default:
-            ALOG_ERROR_F("Cannot determine AIVCore for component %d: all ops are sync or UNKNOWN scope",
+            APASS_LOG_ERROR_F(Elements::Operation, "Cannot determine AIVCore for component %d: all ops are sync or UNKNOWN scope",
                 operations[0]->GetInternalSubgraphID());
             return FAILED;
-    }  
+    }
 }
 
 Status MixInternalComponentsAnalyzer::ProcessCubeScope(const std::vector<Operation*>& operations, int componentID) const {
     // CUBE SCOPE: 处理L0C_COPY_UB OP的subBlockIdx属性
-    ALOG_DEBUG_F("Component %d is cube scope, start process L0C_COPY_UB subBlockIdx Attr.", componentID);
+    APASS_LOG_DEBUG_F(Elements::Operation, "Component %d is cube scope, start process L0C_COPY_UB subBlockIdx Attr.", componentID);
     AIVCore targetAIVCore = AIVCore::UNSPECIFIED;
     for (auto* op : operations) {
         if (op->GetOpcode() == Opcode::OP_L0C_COPY_UB) {
@@ -451,20 +452,20 @@ Status MixInternalComponentsAnalyzer::ProcessCubeScope(const std::vector<Operati
                 return checkRet;
             }
             // 2. 获取目标AIVCore并设置subBlockIdx属性
-            targetAIVCore = FindConsumerVectorAIVCore(op);  
+            targetAIVCore = FindConsumerVectorAIVCore(op);
             if (targetAIVCore != AIVCore::UNSPECIFIED) {
                 int64_t subBlockIdx = (targetAIVCore == AIVCore::AIV0) ? 0 : 1;
                 op->SetAttr(OpAttributeKey::subBlockIdx, subBlockIdx);
-                ALOG_DEBUG_F("Set SUB_BLOCK_IDX=%ld for L0C_COPY_UB op %d", subBlockIdx, op->GetOpMagic());
+                APASS_LOG_DEBUG_F(Elements::Operation, "Set SUB_BLOCK_IDX=%ld for L0C_COPY_UB op %d", subBlockIdx, op->GetOpMagic());
             }
         }
     }
     return SUCCESS;
-}  
+}
 
 Status MixInternalComponentsAnalyzer::ProcessVecScope(const std::vector<Operation*>& operations, int componentID, AIVCore& outAivCore) const {
     // VEC SCOPE: 基于第一个非同步op确定AIVCore属性
-    ALOG_DEBUG_F("Component %d is vec scope. Start process AIVCore", componentID);
+    APASS_LOG_DEBUG_F(Elements::Operation, "Component %d is vec scope. Start process AIVCore", componentID);
     for (auto* op : operations) {
         if (!IsSyncOperation(op) && op->GetAIVCore() != AIVCore::UNSPECIFIED) {
             AIVCore refAIVCore = op->GetAIVCore();
@@ -474,7 +475,7 @@ Status MixInternalComponentsAnalyzer::ProcessVecScope(const std::vector<Operatio
                 return checkRet;
             }
             //校验通过，设置输出并返回
-            ALOG_DEBUG_F("Component AIVCore determined by op %s: AIV%d",
+            APASS_LOG_DEBUG_F(Elements::Operation, "Component AIVCore determined by op %s: AIV%d",
                     op->GetOpcodeStr().c_str(), (refAIVCore == AIVCore::AIV0 ? 0 : 1));
             outAivCore = refAIVCore;
             return SUCCESS;
@@ -493,8 +494,8 @@ Status MixInternalComponentsAnalyzer::CheckVecScopeAivCoreConsistant(const std::
         AIVCore check_core = check_op->GetAIVCore();
         // 非UNSPECIFIED的AIVCore必须与基准值一致
         if (check_core != AIVCore::UNSPECIFIED && check_core != refAIVCore) {
-            ALOG_ERROR_F("[AIVCore_CHECK] Component %d has inconsistent AIVCore!", componentID);
-            return FAILED;  
+            APASS_LOG_ERROR_F(Elements::Operation, "[AIVCore_CHECK] Component %d has inconsistent AIVCore!", componentID);
+            return FAILED;
         }
     }
     return SUCCESS;
@@ -503,7 +504,7 @@ Status MixInternalComponentsAnalyzer::CheckVecScopeAivCoreConsistant(const std::
 // 校验函数：校验L0C_COPY_UB的消费者v_scope的AIVCore属性一致性
 Status MixInternalComponentsAnalyzer::CheckL0CCopyUBConsumerAIVCoreConsistency(Operation* copyOp, int componentID) const {
     if (copyOp == nullptr) {
-        ALOG_ERROR_F("Component %d, L0C_COPY_UB op is nullptr.", componentID);
+        APASS_LOG_ERROR_F(Elements::Operation, "Component %d, L0C_COPY_UB op is nullptr.", componentID);
         return FAILED;
     }
     std::vector<AIVCore> consumerAivCores;
@@ -514,7 +515,7 @@ Status MixInternalComponentsAnalyzer::CheckL0CCopyUBConsumerAIVCoreConsistency(O
         AIVCore refConsumerAivCore = consumerAivCores.front();
         for (size_t i = 1; i < consumerAivCores.size(); i++) {
             if (consumerAivCores[i] != refConsumerAivCore ) {
-                ALOG_ERROR_F("Component %d, L0C_COPY_UB op %d has inconsistent AIVore.", componentID, copyOp->GetOpMagic());
+                APASS_LOG_ERROR_F(Elements::Operation, "Component %d, L0C_COPY_UB op %d has inconsistent AIVore.", componentID, copyOp->GetOpMagic());
                 return FAILED;
             }
         }
@@ -564,7 +565,7 @@ int GetStartIndex(const std::vector<Operation *> &opList, Operation* startOp) {
             return i;
         }
     }
-    ALOG_DEBUG_F("Start op %d not found in sequence", startOp->GetOpMagic());
+    APASS_LOG_DEBUG_F(Elements::Operation, "Start op %d not found in sequence", startOp->GetOpMagic());
     return -1;
 }
 }
