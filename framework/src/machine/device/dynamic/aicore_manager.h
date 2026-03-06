@@ -137,40 +137,38 @@ public:
             runningIds_.data(), aicValidNum_, [&](CoreType coreType, int arg1, uint64_t arg2) {SendTaskToAiCore(coreType, arg1, arg2);});
 
         // If I am the lead AICPU scheduler, perform initailization steps
-        DEV_ERROR("[AICPU %d] Before Task Initialization", aicpuIdx_);
         if (isLeaderScheduler_ == true)
         {
-            DEV_ERROR("[AICPU %d] Task Initialization Leader", aicpuIdx_);
-            // // Resetting issued task count -- needed to verify termination
-            // curTaskCtrl_->issuedTaskCount = 0;
+            // Resetting issued task count -- needed to verify termination
+            curTaskCtrl_->issuedTaskCount = 0;
 
-            // // Allocating queues
-            // auto availableTaskQueue = new coreQueue_t(MAX_QUEUED_TASKS);
-            // curDevTask_->availableTaskQueue = (uint64_t) availableTaskQueue;
+            // Allocating queues
+            auto availableTaskQueue = new coreQueue_t(MAX_QUEUED_TASKS);
+            curDevTask_->availableTaskQueue = (uint64_t) availableTaskQueue;
 
             // // Adding initial set of tasks 
-            // auto readyAicCoreFunctionQue = (StaticReadyCoreFunctionQueue *)curDevTask_->readyAicCoreFunctionQue;
-            // auto readyAivCoreFunctionQue = (StaticReadyCoreFunctionQueue *)curDevTask_->readyAivCoreFunctionQue;
-            // for (size_t i = 0; i < readyAivCoreFunctionQue->wasSize(); i++) availableTaskQueue->push((uint32_t)readyAivCoreFunctionQue->getBuffer()[i]);
-            // for (size_t i = 0; i < readyAicCoreFunctionQue->wasSize(); i++) availableTaskQueue->push((uint32_t)readyAicCoreFunctionQue->getBuffer()[i]);
+            auto readyAicCoreFunctionQue = (ReadyCoreFunctionQueue *)curDevTask_->readyAicCoreFunctionQue;
+            auto readyAivCoreFunctionQue = (ReadyCoreFunctionQueue *)curDevTask_->readyAivCoreFunctionQue;
+            // DEV_ERROR("[AICPU %d] AIV Tasks: %lu", aicpuIdx_, readyAivCoreFunctionQue->wasSize());
+            // DEV_ERROR("[AICPU %d] AIC Tasks: %lu", aicpuIdx_, readyAicCoreFunctionQue->wasSize());
+            for (size_t i = 0; i < readyAivCoreFunctionQue->wasSize(); i++) availableTaskQueue->push((uint32_t)readyAivCoreFunctionQue->getBuffer()[i]);
+            for (size_t i = 0; i < readyAicCoreFunctionQue->wasSize(); i++) availableTaskQueue->push((uint32_t)readyAicCoreFunctionQue->getBuffer()[i]);
 
-            // // Allocating core queues
-            // auto availableVectorCoreQueue = new coreQueue_t(AIV_CORE_COUNT);
-            // auto availableCubeCoreQueue = new coreQueue_t(AIC_CORE_COUNT);
-            // curDevTask_->availableVectorCoreQueue = (uint64_t) availableVectorCoreQueue;
-            // curDevTask_->availableCubeCoreQueue = (uint64_t) availableCubeCoreQueue;
-            // for (uint32_t i = AIC_CORE_COUNT; i < AIC_CORE_COUNT + AIV_CORE_COUNT; i++) availableVectorCoreQueue->push(i);
-            // for (uint32_t i = 0; i < AIC_CORE_COUNT; i++) availableCubeCoreQueue->push(i);
+            // Allocating core queues
+            auto availableVectorCoreQueue = new coreQueue_t(AIV_CORE_COUNT);
+            auto availableCubeCoreQueue = new coreQueue_t(AIC_CORE_COUNT);
+            curDevTask_->availableVectorCoreQueue = (uint64_t) availableVectorCoreQueue;
+            curDevTask_->availableCubeCoreQueue = (uint64_t) availableCubeCoreQueue;
+            for (uint32_t i = AIC_CORE_COUNT; i < AIC_CORE_COUNT + AIV_CORE_COUNT; i++) availableVectorCoreQueue->push(i);
+            for (uint32_t i = 0; i < AIC_CORE_COUNT; i++) availableCubeCoreQueue->push(i);
 
-            // // Allocating pairing queue
-            // curDevTask_->runningPairQueue = (uint64_t) new pairQueue_t(TOTAL_CORE_COUNT);
+            // Allocating pairing queue
+            curDevTask_->runningPairQueue = (uint64_t) new pairQueue_t(TOTAL_CORE_COUNT);
 
             // Setting task as initialized, allowing others to continue
             curDevTask_->isTaskInitialized = true;
         }
         
-        DEV_ERROR("[AICPU %d] Task Initialized? %s (%p)", aicpuIdx_, curDevTask_->isTaskInitialized ? "True" : "False", curDevTask_);
-
         // If I am not a lead AICPU scheduler, wait until initialization is ready
         if (isLeaderScheduler_ == false) while(curDevTask_->isTaskInitialized == false){ /* Busy wait */ };
 
@@ -1123,8 +1121,6 @@ private:
         // Putting myself as leader, if nobody has done it yet
         uint32_t expectedValue = AICPU_LEAD_SCHEDULER_NULL;
         isLeaderScheduler_ = leadSchedulerId->compare_exchange_strong(expectedValue, (uint32_t)aicpuIdx_);
-
-        DEV_ERROR("[AICPU %d] Am I Lead? %s 0x%X)", aicpuIdx_, isLeaderScheduler_ ? "True" : "False", leadSchedulerId->load());
 
         if (IsNeedProcAicpuTask()) {
             aicpuTaskManager_.InitDeviceArgs(deviceArgs);
