@@ -291,15 +291,27 @@ def verify(func, inputs, outputs, goldens, *args,
     pypto_impl.OperatorEnd(handler)
 
 
+def _check_golden_on_cpu(golden, index):
+    """Raise if golden data is on device; golden must be CPU-side."""
+    if not isinstance(golden, torch.Tensor):
+        return
+    if golden.device.type != 'cpu':
+        raise ValueError(
+            f"set_verify_golden_data: golden data must be on CPU, but goldens[{index}] "
+            f"is on device '{golden.device}'. Please call .cpu() before passing, e.g. goldens=[..., t.cpu(), ...]."
+        )
+
+
 def set_verify_golden_data(in_out_tensors=None, goldens=None):
     from .enum import DT_FP16
     pto_goldens = []
     if goldens:
-        for golden in goldens:
+        for idx, golden in enumerate(goldens):
             if golden is None:
                 data = pypto_impl.DeviceTensorData(DT_FP16, 0, [0, 0])
                 pto_goldens.append(data)
                 continue
+            _check_golden_on_cpu(golden, idx)
             if not isinstance(golden, pypto.Tensor):
                 t = pypto.from_torch(golden)
             else:
@@ -315,7 +327,12 @@ def set_verify_golden_data(in_out_tensors=None, goldens=None):
 
     if in_out_tensors:
         pto_in_out = []
-        for t in in_out_tensors:
+        for idx, t in enumerate(in_out_tensors):
+            if isinstance(t, torch.Tensor) and t.device.type != 'cpu':
+                raise ValueError(
+                    f"set_verify_golden_data: in_out_tensors must be on CPU, but in_out_tensors[{idx}] "
+                    f"is on device '{t.device}'. Please call .cpu() before passing."
+                )
             pto_in_out.append(t if isinstance(t, pypto.Tensor)
                               else pypto.from_torch(t))
 
