@@ -687,8 +687,11 @@ std::string CodeGenOpCloudNPU::PrintIndexPut(const PrintIndexPutParam &param) co
 std::string CodeGenOpCloudNPU::PrintIndexPutLayout(size_t indicesSize, bool accumulate) const {
     std::string gmVarName = GenGmParamVar(ID0);
     std::string dstTensor = sm->QueryTileTensorByBufVarName(gmVarName);
+    std::vector<std::string> gmOffsetExpr = GetGmOffsetForTileTensor(ID0);
+    std::string coordCp = WrapParamByParentheses(gmOffsetExpr);
+    std::string coord = PrintCoord(rawShape[ID0].size(), coordCp);
     std::string valuesTensor = QueryTileTensorNameByIdx(ID2);
-    std::vector<std::string> paramList = {dstTensor, valuesTensor};
+    std::vector<std::string> paramList = {dstTensor, coord, valuesTensor};
     for (size_t i = 0; i < SHAPE_DIM4; ++i) {
         if (i < indicesSize) {
             std::string indices = QueryTileTensorNameByIdx(ID3 + i);
@@ -697,13 +700,9 @@ std::string CodeGenOpCloudNPU::PrintIndexPutLayout(size_t indicesSize, bool accu
             paramList.push_back(paramList.back());
         }
     }
-    auto startOffsetAttr = opAttrs.at(OpAttributeKey::startOffset);
-    ASSERT(startOffsetAttr.HasValue()) << "cannot get startOffset attr";
-    int64_t startOffset = AnyCast<int64_t>(startOffsetAttr);
     std::ostringstream oss;
-    oss << tileOpName << "<" << accumulate << ", " << indicesSize << ", " << startOffset << ">"
-        << WrapParamByParentheses(paramList)
-        << STMT_END;
+    oss << tileOpName << "<" << accumulate << ", " << indicesSize << ">"
+        << WrapParamByParentheses(paramList) << STMT_END;
     return oss.str();
 }
 
