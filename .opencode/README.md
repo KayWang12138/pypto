@@ -1,12 +1,12 @@
 # PyPTO OpenCode 工作流
 
-通过 AI 代理 + 14 个专家技能，自动完成昇腾 NPU 算子开发全流程。
+通过 AI 代理与专家技能，自动完成昇腾 NPU 算子开发全流程：
 
 ```
 需求分析 → 环境准备 → 编码实现 → 精度验证 → 性能调优 → PR 提交
 ```
 
-本仓库为 [OpenCode](https://opencode.ai) 预配置了项目规范（AGENTS.md）和专家技能（Skills），开箱即用。
+本仓库为 [OpenCode](https://opencode.ai) 预配置了项目规范（AGENTS.md）和专家技能（Skills），开箱即用。技能持续增加中，以 `.opencode/skills/` 目录下的实际内容为准。
 
 ---
 
@@ -32,17 +32,12 @@ OpenCode 会自动加载项目规范，选择合适的技能，按标准流程�
 | :------------------------ | :----------------------------------- | :----------------------- |
 | 开发一个新算子            | `pypto-operator-develop-workflow`     | 全流程引导，从需求到交付 |
 | 修复环境报错              | `pypto-environment-setup`            | 诊断 + 修复 + 验证      |
-| 分析编译 pass 校验结果    | `pypto-verify`                       | 定位失败的 pass 及原因   |
+| 分析编译 pass 校验结果    | `pypto-verify-pass`                  | 定位失败的 pass 及原因   |
 | 排查精度不一致            | `pypto-verify-binary-search`         | 二分法定位首个误差点     |
 | 分析算子性能瓶颈          | `pypto-operator-perf-autotune`       | 泳道图分析 + 优化建议    |
 | 迭代调优到目标性能        | `pypto-perf-tuning-loop`             | 参数扫描 + 对比报告      |
 | 提交 PR 到 cann/pypto     | `pypto-pr-creator`                   | 自动创建规范 PR          |
 | 修复 PR review 意见       | `pypto-pr-fixer`                     | 解析评论 + 自动修复      |
-| 审查代码质量              | `code-review`                        | 问题清单 + 严重程度分级  |
-| 创建实现计划              | `plan-protocol`                      | 标准计划格式 + 引用      |
-| 审查实现计划              | `plan-review`                        | 完整性 / 可执行性评估    |
-| 了解编码哲学              | `code-philosophy`                    | 5 Laws of Elegant Defense |
-| 了解 UI 设计哲学          | `frontend-philosophy`                | 5 Pillars of Intentional UI |
 | 安装 GitCode MCP Server   | `gitcode-mcp-install`                | 安装 + 配置 + 验证       |
 
 > **不确定用哪个？** 直接描述目标，OpenCode 会自动匹配。
@@ -55,7 +50,7 @@ OpenCode 会自动加载项目规范，选择合适的技能，按标准流程�
 
 #### `pypto-operator-develop-workflow` — 算子开发全流程
 
-**适用场景**：开发昇腾 NPU 自定义算子
+**适用场景**：从零开发一个昇腾 NPU 自定义算子
 
 **你需要提供**：算子名称、数学公式、输入输出规格、数据类型、精度要求
 
@@ -63,13 +58,15 @@ OpenCode 会自动加载项目规范，选择合适的技能，按标准流程�
 
 #### `pypto-environment-setup` — 环境诊断与修复
 
-**适用场景**：环境安装失败、import 报错、NPU 设备检测不到
+**适用场景**：环境安装失败、import 报错、NPU 设备检测不到、依赖冲突
 
 **你需要提供**：问题描述（如错误信息、Python 版本、已安装的包）
 
 **你会得到**：诊断报告 + 修复步骤 + 验证命令
 
-#### `pypto-verify` — Pass 校验分析
+#### `pypto-verify-pass` — Pass 校验分析
+
+> **注意**：目录名为 `pypto-verify-pass`，frontmatter name 为 `pypto-verify`，两种方式均可调用。
 
 **适用场景**：编译后需要确认各 pass 是否通过
 
@@ -91,7 +88,7 @@ OpenCode 会自动加载项目规范，选择合适的技能，按标准流程�
 
 #### `pypto-operator-perf-autotune` — 性能分析与调优建议
 
-**适用场景**：算子开发完成后，分析性能瓶颈
+**适用场景**：算子开发完成后，分析性能瓶颈并获取优化方向
 
 **你需要提供**：算子代码、输出目录路径
 
@@ -103,11 +100,11 @@ OpenCode 会自动加载项目规范，选择合适的技能，按标准流程�
 
 **你需要提供**：算子代码、性能目标、可调参数范围
 
-**你会得到**：基准性能 → 调优后性能对比报告 + 最优参数组合
+**你会得到**：基准性能 → 参数扫描 → 调优后性能对比报告 + 最优参数组合
 
 ---
 
-### PR 与贡献
+### 代码贡献
 
 #### `pypto-pr-creator` — 创建 PR
 
@@ -115,55 +112,15 @@ OpenCode 会自动加载项目规范，选择合适的技能，按标准流程�
 
 **你需要提供**：分支名、commit 信息、PR 标题和描述
 
-**你会得到**：PR 创建链接 + 结构化报告
+**你会得到**：fork 验证 → 用户确认 → 分支创建 → PR 创建链接 + 结构化报告
 
 #### `pypto-pr-fixer` — 修复 PR 问题
 
-**适用场景**：PR 收到 review 评论或 CodeCheck 失败
+**适用场景**：PR 收到 review 评论或 CodeCheck CI 失败
 
 **你需要提供**：PR URL 或 `owner/repo/pull_number`、需要修复的评论
 
-**你会得到**：修复方案 + 自动应用 + 同步更新
-
----
-
-### 工程规范
-
-#### `code-review` — 代码审查
-
-**适用场景**：审查代码的正确性、安全性、性能、风格
-
-**你需要提供**：需要审查的文件或 diff
-
-**你会得到**：问题清单（含严重程度、置信度、`file:line`）
-
-#### `plan-protocol` — 创建实现计划
-
-**适用场景**：多步骤任务需要结构化的实现计划
-
-**你需要提供**：目标、上下文、依赖关系
-
-**你会得到**：带 YAML frontmatter 和引用的标准计划文档
-
-#### `plan-review` — 审查实现计划
-
-**适用场景**：提交计划前检查质量
-
-**你需要提供**：计划文档
-
-**你会得到**：完整性 / 可执行性 / 引用质量审查报告
-
-#### `code-philosophy` — 编码哲学
-
-**适用场景**：编码前加载设计原则作为前置知识
-
-**你会得到**：5 Laws of Elegant Defense + 实践检查清单
-
-#### `frontend-philosophy` — UI 设计哲学
-
-**适用场景**：UI/设计任务前加载设计原则
-
-**你会得到**：5 Pillars of Intentional UI + 设计检查清单
+**你会得到**：评论解析 → 修复方案 → 自动应用 → 同步更新
 
 ---
 
@@ -171,7 +128,7 @@ OpenCode 会自动加载项目规范，选择合适的技能，按标准流程�
 
 #### `gitcode-mcp-install` — GitCode MCP Server
 
-**适用场景**：安装或配置 GitCode MCP Server
+**适用场景**：首次安装或重新配置 GitCode MCP Server，使 AI 代理能与 GitCode 平台交互
 
 **你需要提供**：安装方式偏好（Go 二进制 / Python 源码）
 
@@ -222,42 +179,16 @@ Skills 是定义在 `.opencode/skills/` 目录下的可复用行为模块。每�
 
 ---
 
-## 安全须知
-
-- **Token 不得泄露**：永远不要在对话、代码、日志中暴露真实令牌。配置文件使用 `$GITCODE_TOKEN` 等环境变量占位符。
-- **提交前检查**：确认 PR 中不包含 `.env`、凭证文件或硬编码的密钥。
-
----
-
 ## 常见问题
-
-<details>
-<summary><b>没有 NPU 环境怎么办？</b></summary>
-
-1. 使用 `pypto-environment-setup` 诊断当前环境状态
-2. 如果是环境缺失，按技能提供的步骤安装 CANN / torch_npu
-3. 如果只是验证算法逻辑，可先在 CPU 上用 PyTorch 原生实现验证 golden，再迁移到 NPU
-
-</details>
-
-<details>
-<summary><b>Skill 调用失败怎么办？</b></summary>
-
-1. 检查 skill 名称拼写（使用目录名，如 `pypto-operator-develop-workflow`）
-2. 确认该 skill 在当前配置的允许列表中
-3. 尝试斜杠命令方式：`/<skill_name>`
-4. 如果仍然失败，可以让 OpenCode 直接读取对应的 `SKILL.md` 文件并按其流程执行
-
-</details>
 
 <details>
 <summary><b>AGENTS.md 和 Skills 有什么区别？</b></summary>
 
-| 维度     | AGENTS.md              | Skills                         |
-| :------- | :--------------------- | :----------------------------- |
-| 作用     | 项目级自定义规范       | 特定任务的执行流程             |
+| 维度     | AGENTS.md                | Skills                         |
+| :------- | :----------------------- | :----------------------------- |
+| 作用     | 项目级自定义规范         | 特定任务的执行流程             |
 | 加载方式 | 自动加载，对所有对话生效 | 按需加载，调用时才生效         |
-| 内容     | 通用开发规范和原则     | 具体任务的步骤、工具、验证标准 |
+| 内容     | 通用开发规范和原则       | 具体任务的步骤、工具、验证标准 |
 
 两者配合使用：AGENTS.md 定义"怎么做才对"，Skills 定义"怎么一步步做完"。
 
