@@ -27,7 +27,7 @@ PassRegistry &PassRegistry::GetInstance() {
 void PassRegistry::RegisterPass(const std::string &passName, CreateFn createFn) {
     std::lock_guard lock(mtx_);
     passCreators_.emplace(passName, std::move(createFn));
-    ALOG_INFO("[PassRegistry] Register pass: ", passName.c_str());
+    APASS_LOG_INFO_F(Elements::Function, "[PassRegistry] Register pass: ", passName.c_str());
 }
 
 std::unique_ptr<Pass> PassRegistry::CreatePass(const std::string &passName) const {

@@ -82,7 +82,7 @@ std::multimap<int, int> GetPSgToESgMap(Function *rootFunc) {
         int PSgId = iter.GetProgramId();
         int ESgId = rootFunc->Operations()[i].GetSubgraphID();
         PSgToESgMap.insert({PSgId, ESgId});
-        ALOG_INFO_F("PSgId: %d, ESgId: %d", PSgId, ESgId);
+        APASS_LOG_INFO_F(Elements::Function, "PSgId: %d, ESgId: %d", PSgId, ESgId);
     }
     return PSgToESgMap;
 }
@@ -219,7 +219,7 @@ TEST_F(SubgraphToFunctionTest, DifferentOffset) {
     currFunctionPtr->outCasts_.push_back(output_tensor);
 
     currFunctionPtr->SetTotalSubGraphCount(totalSubGraphCount);
-    ALOG_INFO("draw program graph before pass.");
+    APASS_LOG_INFO_F(Elements::Function, "draw program graph before pass.");
 
     std::stringstream ssBefore;
     ssBefore << "Before_subgraphToFunction";
@@ -334,7 +334,7 @@ TEST_F(SubgraphToFunctionTest, SameOffset) {
     currFunctionPtr->outCasts_.push_back(output_tensor);
 
     currFunctionPtr->SetTotalSubGraphCount(totalSubGraphCount);
-    ALOG_INFO("draw program graph before pass.");
+    APASS_LOG_INFO_F(Elements::Function, "draw program graph before pass.");
 
     Json progDump;
     progDump["version"] = "2.0";

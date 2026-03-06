@@ -165,5 +165,5 @@ TEST_F(TestAxisCombine, TestDD) {
     }
 
     auto funcMap = Program::GetInstance().GetFunctionMap();
-    ALOG_INFO(funcMap.size());
+    APASS_LOG_INFO_F(Elements::Function, funcMap.size());
 }

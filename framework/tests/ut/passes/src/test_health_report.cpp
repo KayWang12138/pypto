@@ -76,5 +76,5 @@ TEST_F(HealthReportTest, TestDD) {
     TestLoopViewAssembleCopy(t0, t1, blockTable, out, s);
 
     auto funcMap = Program::GetInstance().GetFunctionMap();
-    ALOG_INFO(funcMap.size());
+    APASS_LOG_INFO_F(Elements::Function, funcMap.size());
 }
