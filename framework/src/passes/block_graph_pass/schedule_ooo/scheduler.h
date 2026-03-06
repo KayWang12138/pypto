@@ -253,8 +253,7 @@ private:
     void UpdateBufferUsage(MemoryType bufferType, int memId, bool isFree);
     void PrintOpList(std::vector<Operation *> operations);
     void PrintDependencies();
-    void PrintSpillFailedInfo(IssueEntryPtr allocIssue, MemoryType bufferType);
-    Status PrintSpillFailedInfo(IssueEntryPtr allocIssue);
+    Status PrintSpillFailedInfo(IssueEntryPtr allocIssue, bool isGenSpill);
 
     // sort ops
     Status SortOps();
@@ -311,7 +310,7 @@ private:
     Status ExecuteIssue();
 
     // gen spill
-    Status GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx);
+    Status GenSpillOp(size_t &pcIdx);
     Status GenBufferSpill(IssueEntryPtr allocIssue);
     Status SelectSpillBuffers(LocalBufferPtr allocBuffer, IssueEntryPtr issue, 
         std::vector<int> &spillGroup, bool isGenSpill);
@@ -321,6 +320,7 @@ private:
     bool CheckMachineAndL1(IssueEntryPtr spillIssue, IssueEntryPtr allocIssue);
     bool IsBelongSpillBlackList(IssueEntryPtr spillIssue, IssueEntryPtr issue);
     void FindFilterLtags(IssueEntryPtr allocIssue, std::set<IssueEntryPtr> &filterLtags);
+    Status SpillAllBuffer(IssueEntryPtr allocIssue, size_t &pcIdx, bool isGenSpill, LocalBufferPtr allocBuffer);
     Status SpillMultiBuffer(IssueEntryPtr allocIssue, std::vector<int> spillGroup, size_t &pcIdx, 
         LocalBufferPtr allocBuffer, bool isGenSpill);
     Status GetSpillInfo(IssueEntryPtr allocIssue, int spillMemId, bool isGenSpill, SpillInfo &spillInfo);
