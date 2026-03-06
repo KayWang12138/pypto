@@ -252,7 +252,7 @@ bool RemoveViewMultiReshapePattern(const LogicalTensorPtr &reshapeInput, const L
 }
 
 /*
-拷贝一个RESHAPE
+拆分RESHAPE
 Before:
 RESHAPE -> VIEW -> RESHAPE
         -> COPYIN
@@ -299,6 +299,7 @@ Status RemoveRedundantAssemble::SplitMultiConsumerReshape(
     return SUCCESS;
 }
 
+// 处理 RESHAPE 拆分逻辑
 Status RemoveRedundantAssemble::ProcessReshape(Function &function, Operation *&operation,
     std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const {
     if (operation == nullptr) {
@@ -355,10 +356,25 @@ input --> RESHAPE2 -> XXX
 */
 Status RemoveRedundantAssemble::RemoveViewMultiReshape(
     const std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const {
-    for (auto pair : multiReshapeVector) {
+    for (const auto &pair : multiReshapeVector) {
         auto firstReshape = pair.first;
         auto viewOp = pair.second;
-        auto secondReshape = *(viewOp->GetOutputOperand(0)->GetConsumers().begin());
+        if (viewOp->GetOutputOperand(0) == nullptr) {
+            APASS_LOG_ERROR_F(Elements::Operation, "VIEW operator [%d]: OutputOperand[0] is a null pointer. %s",
+                viewOp->GetOpMagic(), GetFormatBacktrace(viewOp).c_str());
+            return FAILED;
+        }
+        auto consumers = viewOp->GetOutputOperand(0)->GetConsumers();
+        if (consumers.empty()) {
+            APASS_LOG_ERROR_F(Elements::Operation, "VIEW operator [%d]: OutputOperand[0] has no consumers. %s",
+                viewOp->GetOpMagic(), GetFormatBacktrace(viewOp).c_str());
+            return FAILED;
+        }
+        auto secondReshape = *consumers.begin();
+        if (secondReshape == nullptr) {
+            APASS_LOG_ERROR_F(Elements::Operation, "SecondReshape is null.");
+            return FAILED;
+        }
         auto oriRawShape = secondReshape->GetIOperands().front()->GetRawTensor()->GetRawShape();
         Shape newShape;
         std::remove_copy_if(
