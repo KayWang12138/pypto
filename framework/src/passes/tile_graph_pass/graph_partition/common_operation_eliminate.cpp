@@ -109,7 +109,6 @@ Status CommonOperationEliminate::RunOnFunction(Function &function) {
     std::unordered_set<Operation*> cacheProducers;
     for (auto& orderedTensor: sequence) {
         auto& producerGroup = tensorProducerMap[orderedTensor];
-        //auto tensorProducerPair = std::pair<LogicalTensorPtr, std::vector<Operation*>>(orderedTensor, producerGroup);
         if (producerGroup.empty() || !TensorProducersMerge(orderedTensor, cacheProducers, tensorProducerMap)) {
             continue;
         }
