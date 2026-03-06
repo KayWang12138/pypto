@@ -34,7 +34,7 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestINIParser, TestParser) {
+void TestParse() {
     const std::string archInfo = "ArchInfo";
     const std::string version = "version";
     const std::string socInfo = "SoCInfo";
@@ -103,6 +103,34 @@ TEST_F(TestINIParser, TestParser) {
     EXPECT_EQ(parser.GetDataPath(dataPath), SUCCESS);
 }
 
+void AbnormalTest() {
+    INIParser parser;
+    const std::string version = "version";
+    EXPECT_EQ(parser.Initialize(""), FAILED);
+
+    std::unordered_map<std::string, std::string> ccecVersion;
+    EXPECT_EQ(parser.GetCCECVersion(ccecVersion), FAILED);
+    EXPECT_EQ(parser.GetCoreVersion(ccecVersion), FAILED);
+
+    std::vector<std::vector<std::string>> dataPath;
+    EXPECT_EQ(parser.GetDataPath(dataPath), FAILED);
+
+    std::string iniPath = RealPath(GetCurrentSharedLibPath() + "/configs/Soc_version.ini");
+    EXPECT_EQ(parser.Initialize(iniPath), SUCCESS);
+
+    std::string test;
+    EXPECT_EQ(parser.GetStringVal("none", "", test), FAILED);
+    EXPECT_EQ(parser.GetStringVal(version, "none_other", test), SUCCESS);
+
+    size_t testSize;
+    EXPECT_EQ(parser.GetSizeVal("none", "", testSize), FAILED);
+}
+
+TEST_F(TestINIParser, TestParser) {
+    TestParse();
+    AbnormalTest();
+}
+
 TEST_F(TestINIParser, TestObtainPlatformInfo) {
     const std::string aic = "AIC";
     const std::string aiv = "AIV";
@@ -135,28 +163,4 @@ TEST_F(TestINIParser, TestObtainPlatformInfo) {
     std::vector<MemoryType> paths;
     EXPECT_TRUE(Platform::Instance().GetDie().FindNearestPath(MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1, paths));
     EXPECT_EQ(paths.size(), 2UL);
-}
-
-TEST_F(TestINIParser, AbnormalTest) {
-    INIParser parser;
-    const std::string version = "version";
-    EXPECT_EQ(parser.Initialize(""), FAILED);
-
-    std::unordered_map<std::string, std::string> ccecVersion;
-    EXPECT_EQ(parser.GetCCECVersion(ccecVersion), FAILED);
-    EXPECT_EQ(parser.GetCoreVersion(ccecVersion), FAILED);
-
-    std::vector<std::vector<std::string>> dataPath;
-    EXPECT_EQ(parser.GetDataPath(dataPath), FAILED);
-
-    std::string iniPath = RealPath(GetCurrentSharedLibPath() + "/configs/Soc_version.ini");
-    EXPECT_EQ(parser.Initialize(iniPath), SUCCESS);
-
-    std::string test;
-    EXPECT_EQ(parser.GetStringVal("none", "", test), FAILED);
-    EXPECT_EQ(parser.GetStringVal(version, "none_other", test), SUCCESS);
-
-    size_t testSize;
-    EXPECT_EQ(parser.GetSizeVal("none", "", testSize), FAILED);
-
 }
