@@ -1417,13 +1417,13 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
     };
     LogicalTensors reshapeOutputs;
     std::vector<std::string> expectAssembleDynShape = {
-        "RUNTIME_Max(0, (a0*RUNTIME_Ne(a0, 0)))",
-        "RUNTIME_Max(0, (a1*RUNTIME_Ne(a1, 0)))",
+        "RUNTIME_Max((a0*RUNTIME_Ne(a0, 0)), 0)",
+        "RUNTIME_Max((a1*RUNTIME_Ne(a1, 0)), 0)",
         "2"
     };
     std::vector<std::string> expectReshapeDynShape = {
-        "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a0,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a0,0,2), 0))-0))",
-        "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a1,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a1,0,2), 0))-0))",
+        "RUNTIME_Max(((RUNTIME_GetViewValidShapeDim(a0,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a0,0,2), 0))-0), 0)",
+        "RUNTIME_Max(((RUNTIME_GetViewValidShapeDim(a1,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a1,0,2), 0))-0), 0)",
         "1",
         "2"
     };
@@ -1526,15 +1526,15 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     std::vector<std::string> expectAssembleDynShape = {
         "2",
         "2",
-        "RUNTIME_Max(0, (a*RUNTIME_Ne(a, 0)))"
+        "RUNTIME_Max((a*RUNTIME_Ne(a, 0)), 0)"
     };
     std::vector<std::string> expectValidShape1 = {
         "4",
-        "RUNTIME_Max(RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))-0)), ((RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))-0))"
+        "RUNTIME_Max(((RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))-0), 0)"
     };
     std::vector<std::string> expectValidShape2 = {
         "4",
-        "RUNTIME_Max(RUNTIME_Max(0, (((RUNTIME_GetViewValidShapeDim(a,2,2)+2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,2,2), 0))-2)), (((RUNTIME_GetViewValidShapeDim(a,2,2)+2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,2,2), 0))-2))"
+        "RUNTIME_Max((((RUNTIME_GetViewValidShapeDim(a,2,2)+2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,2,2), 0))-2), 0)"
     };
     std::unordered_map<LogicalTensorPtr, std::vector<int64_t>> expectAssembleOffset = {{inputs[0], assembleOffset1}, {inputs[1], assembleOffset2}};
     std::unordered_map<LogicalTensorPtr, std::vector<std::string>> expectValidShapes = {{inputs[0], expectValidShape1}, {inputs[1], expectValidShape2}};
@@ -1656,13 +1656,13 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
     std::vector<std::string> expectAssembleDynShape = {
         "2",
         "4",
-        "RUNTIME_Max(RUNTIME_Max(0, (a*RUNTIME_Ne(a, 0))), (a*RUNTIME_Ne(a, 0)))"
+        "RUNTIME_Max((a*RUNTIME_Ne(a, 0)), 0)"
     };
     std::vector<std::string> expectValidShape = {
         "2",
         "2",
         "2",
-        "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))-0))"
+        "RUNTIME_Max(((RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))-0), 0)"
     };
     std::unordered_map<LogicalTensorPtr, std::vector<std::string>> expectValidShapes = {
         {inputs[0], expectValidShape}, {inputs[1], expectValidShape},

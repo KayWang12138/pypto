@@ -2277,6 +2277,7 @@ static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram *devProg) {
         1,// VecStitchList
         1,// DynDevTask
         READY_QUEUE_SIZE, //ReadyQue
+        DIE_READY_QUEUE_SIZE * DIE_NUM, // DieReadyQue
         1,
         1,
     };
@@ -2316,7 +2317,7 @@ static uint64_t DumpTensorWorkspace() {
 }
 
 static uint64_t LeafDumpWorkspace() {
-    if (IsPtoDataDumpEnabled()){
+    if (IsPtoDataDumpEnabled()) {
         static constexpr uint64_t LEAFDUMP_WORKSPACE = 12 * MEBI;
         return LEAFDUMP_WORKSPACE;
     } else {

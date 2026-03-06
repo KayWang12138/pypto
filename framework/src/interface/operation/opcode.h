@@ -29,6 +29,8 @@ namespace npu::tile_fwk {
 enum class Opcode {
     // Unary Vector
     OP_EXP,
+    OP_EXP2,
+    OP_EXPM1,
     OP_NEG,
     OP_RSQRT,
     OP_RELU,
@@ -51,13 +53,17 @@ enum class Opcode {
     OP_ROWSUMLINE,
     OP_ROWMAXLINE,
     OP_ROWMINLINE,
+    OP_ROWPRODLINE,
     OP_ADDS,
     OP_SUBS,
     OP_MULS,
     OP_DIVS,
     OP_MODS,
+    OP_REMS,
+    OP_REMRS,
     OP_MAXS,
     OP_MINS,
+    OP_LRELU,
     OP_BITWISEANDS,
     OP_BITWISEORS,
     OP_BITWISEXORS,
@@ -77,6 +83,7 @@ enum class Opcode {
     OP_ISFINITE,
     OP_HUB,
     OP_SIGN,
+    OP_SIGNBIT,
     OP_BRCB,
     OP_BITWISERIGHTSHIFTS,
     OP_BITWISELEFTSHIFTS,
@@ -93,6 +100,7 @@ enum class Opcode {
     OP_GCD,
     OP_GCDS,
     OP_GCD_BRC,
+    OP_REM,
     OP_ADD_BRC,
     OP_SUB_BRC,
     OP_MUL_BRC,
@@ -107,9 +115,12 @@ enum class Opcode {
     OP_S_MIN,
     OP_MAXIMUM,
     OP_MINIMUM,
+    OP_EXPANDEXPDIF,
     OP_GATHER_FROM_UB,
     OP_GATHER,
     OP_GATHER_ELEMENT,
+    OP_GATHER_MASK,
+    OP_GATHER_MASK_BUILDIN,
     OP_SCATTER_ELEMENT,
     OP_SCATTER,
     OP_INDEX_PUT,
@@ -121,14 +132,17 @@ enum class Opcode {
     OP_PAIRMAX,
     OP_PAIRMIN,
     OP_PAIRSUM,
+    OP_PAIRPROD,
     OP_ROWMAX_SINGLE,
     OP_ROWMIN_SINGLE,
     OP_ROWSUM_SINGLE,
+    OP_ROWPROD_SINGLE,
     OP_ROWMAX_COMBINE_AXIS_SINGLE,
     OP_ROWSUM_COMBINE_AXIS_SINGLE,
     OP_CMP,
     OP_CMPS,
     OP_HYPOT,
+    OP_PRELU,
     OP_WHERE_TT,
     OP_WHERE_TS,
     OP_WHERE_ST,
@@ -530,11 +544,13 @@ const std::unordered_set<Opcode> BINARY_OPS{
     Opcode::OP_PAIRSUM,
     Opcode::OP_PAIRMAX,
     Opcode::OP_PAIRMIN,
+    Opcode::OP_PAIRPROD,
     Opcode::OP_BITWISERIGHTSHIFT,
     Opcode::OP_BITWISELEFTSHIFT,
     Opcode::OP_BITWISEAND,
     Opcode::OP_BITWISEOR,
     Opcode::OP_BITWISEXOR,
+    Opcode::OP_EXPANDEXPDIF,
     Opcode::OP_COPYSIGN,
 };
 
@@ -547,20 +563,21 @@ const std::unordered_set<Opcode> BINARY_WITH_BRC_OPS{
     Opcode::OP_MIN_BRC,
 };
 
-const std::unordered_set<Opcode> UNARY_OPS{Opcode::OP_EXP, Opcode::OP_NEG, Opcode::OP_RSQRT, Opcode::OP_SQRT, Opcode::OP_RELU,
+const std::unordered_set<Opcode> UNARY_OPS{Opcode::OP_EXP, Opcode::OP_EXP2, Opcode::OP_EXPM1, Opcode::OP_NEG, Opcode::OP_RSQRT, Opcode::OP_SQRT, Opcode::OP_RELU,
     Opcode::OP_CEIL, Opcode::OP_FLOOR, Opcode::OP_TRUNC, Opcode::OP_EXPAND, Opcode::OP_RECIPROCAL, Opcode::OP_ROWSUM,
     Opcode::OP_ROWMAX, Opcode::OP_ROWEXPSUM, Opcode::OP_ROWEXPMAX, Opcode::OP_L1_TO_L1, Opcode::OP_COPY_UB_TO_UB,
     Opcode::OP_ROUND, Opcode::OP_ROWSUMLINE, Opcode::OP_ABS, Opcode::OP_LN, Opcode::OP_ISFINITE, Opcode::OP_HUB, Opcode::OP_BITWISENOT,
-    Opcode::OP_SIGN};
+    Opcode::OP_SIGN, Opcode::OP_ROWPRODLINE, Opcode::OP_SIGNBIT};
 
 const std::unordered_set<Opcode> UNARY_OPS_WITH_TMP{Opcode::OP_COMPACT, Opcode::OP_ROWSUM_SINGLE,
     Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWMIN_SINGLE, Opcode::OP_TRANSPOSE_VNCHWCONV,
-    Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE};
+    Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, Opcode::OP_ROWPROD_SINGLE};
 
 const std::unordered_set<Opcode> VECTOR_SCALAR_OPS{
     Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_DIVS, Opcode::OP_MAXS, Opcode::OP_MINS,
     Opcode::OP_BITWISEANDS, Opcode::OP_BITWISEORS, Opcode::OP_BITWISEXORS, Opcode::OP_BITWISERIGHTSHIFTS,
-    Opcode::OP_BITWISELEFTSHIFTS, Opcode::OP_SBITWISERIGHTSHIFT, Opcode::OP_SBITWISELEFTSHIFT, Opcode::OP_COPYSIGN};
+    Opcode::OP_BITWISELEFTSHIFTS, Opcode::OP_SBITWISERIGHTSHIFT, Opcode::OP_SBITWISELEFTSHIFT, Opcode::OP_COPYSIGN,
+    Opcode::OP_LRELU};
 
 const std::unordered_set<Opcode> SCLAR_VECTOR_SCALAR_OPS{
     Opcode::OP_S_ADDS, Opcode::OP_S_SUBS, Opcode::OP_S_MULS, Opcode::OP_S_DIVS, Opcode::OP_S_MAXS, Opcode::OP_S_MINS};
@@ -573,6 +590,7 @@ const std::unordered_set<Opcode> WHERE_OPS{
     Opcode::OP_WHERE_TT, Opcode::OP_WHERE_TS, Opcode::OP_WHERE_ST, Opcode::OP_WHERE_SS};
 
 const std::unordered_set<Opcode> GATHER_ELEMENT_OPS{Opcode::OP_GATHER_ELEMENT};
+const std::unordered_set<Opcode> GATHER_MASK_OPS{Opcode::OP_GATHER_MASK};
 const std::unordered_set<Opcode> SCATTER_ELEMENT_OPS{Opcode::OP_SCATTER_ELEMENT};
 const std::unordered_set<Opcode> SCATTER_OPS{Opcode::OP_SCATTER};
 const std::unordered_set<Opcode> INDEX_ADD_OPS{Opcode::OP_INDEX_ADD};
@@ -580,50 +598,57 @@ const std::unordered_set<Opcode> INDEX_PUT_OPS{Opcode::OP_INDEX_PUT};
 const std::unordered_set<Opcode> CUM_SUM_OPS{Opcode::OP_CUM_SUM};
 
 const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE, Opcode::OP_TRANSPOSE_VNCHWCONV,
-    Opcode::OP_GATHER_ELEMENT, Opcode::OP_INDEX_ADD, Opcode::OP_CUM_SUM, Opcode::OP_TRIUL, Opcode::OP_COPY_IN, Opcode::OP_UB_COPY_IN,
-    Opcode::OP_L1_COPY_IN, Opcode::OP_COPY_OUT, Opcode::OP_UB_COPY_OUT, Opcode::OP_L1_COPY_OUT, Opcode::OP_L0C_COPY_OUT,
-    Opcode::OP_TRANSPOSE_MOVEOUT, Opcode::OP_INDEX_OUTCAST, Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL,
-    Opcode::OP_DIV, Opcode::OP_EXP, Opcode::OP_NEG, Opcode::OP_LN, Opcode::OP_HUB, Opcode::OP_ABS, Opcode::OP_RSQRT, Opcode::OP_RELU, Opcode::OP_LOG1P,
-    Opcode::OP_CEIL, Opcode::OP_FLOOR, Opcode::OP_TRUNC, Opcode::OP_SQRT, Opcode::OP_RECIPROCAL, Opcode::OP_CAST, Opcode::OP_ISFINITE,
-    Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_DIVS, Opcode::OP_MAXS, Opcode::OP_MINS,
-    Opcode::OP_PAIRMAX, Opcode::OP_PAIRSUM, Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_EXPAND,
-    Opcode::OP_VEC_DUP, Opcode::OP_MAXIMUM, Opcode::OP_MINIMUM, Opcode::OP_L1_TO_L0A, Opcode::OP_LOGICALNOT,
-    Opcode::OP_LOGICALAND, Opcode::OP_ONEHOT, Opcode::OP_POW, Opcode::OP_INDEX_PUT, Opcode::OP_L1_TO_L0_BT,
-    Opcode::OP_L1_TO_L0B, Opcode::OP_L1_TO_L0_AT, Opcode::OP_A_MUL_B, Opcode::OP_A_MULACC_B, Opcode::OP_A_MUL_BT,
-    Opcode::OP_AT_MUL_B, Opcode::OP_AT_MUL_BT, Opcode::OP_WHERE_TT, Opcode::OP_WHERE_TS, Opcode::OP_WHERE_ST,
-    Opcode::OP_WHERE_SS, Opcode::OP_ROWSUMLINE, Opcode::OP_ADD_BRC, Opcode::OP_ADD_BRC, Opcode::OP_SUB_BRC,
-    Opcode::OP_MUL_BRC, Opcode::OP_DIV_BRC, Opcode::OP_MAX_BRC, Opcode::OP_MIN_BRC, Opcode::OP_GATHER,Opcode::OP_HYPOT,
-    Opcode::OP_S_ADDS, Opcode::OP_S_SUBS, Opcode::OP_S_DIVS, Opcode::OP_S_MULS, Opcode::OP_S_MAXS, Opcode::OP_S_MINS,
-    Opcode::OP_ROUND, Opcode::OP_BITSORT, Opcode::OP_MRGSORT, Opcode::OP_CMP, Opcode::OP_CMPS, Opcode::OP_EXTRACT,
+    Opcode::OP_GATHER_ELEMENT, Opcode::OP_INDEX_ADD, Opcode::OP_CUM_SUM, Opcode::OP_TRIUL, Opcode::OP_COPY_IN,
+    Opcode::OP_UB_COPY_IN, Opcode::OP_L1_COPY_IN, Opcode::OP_COPY_OUT, Opcode::OP_UB_COPY_OUT, Opcode::OP_L1_COPY_OUT,
+    Opcode::OP_L0C_COPY_OUT, Opcode::OP_TRANSPOSE_MOVEOUT, Opcode::OP_INDEX_OUTCAST, Opcode::OP_ADD, Opcode::OP_SUB,
+    Opcode::OP_MUL, Opcode::OP_DIV, Opcode::OP_EXP, Opcode::OP_EXP2, Opcode::OP_EXPM1, Opcode::OP_NEG, Opcode::OP_LN, Opcode::OP_HUB,
+    Opcode::OP_ABS, Opcode::OP_RSQRT, Opcode::OP_RELU, Opcode::OP_LOG1P, Opcode::OP_CEIL, Opcode::OP_FLOOR,
+    Opcode::OP_TRUNC, Opcode::OP_SQRT, Opcode::OP_RECIPROCAL, Opcode::OP_CAST, Opcode::OP_ISFINITE, Opcode::OP_ADDS,
+    Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_DIVS, Opcode::OP_MAXS, Opcode::OP_MINS, Opcode::OP_PAIRMAX,
+    Opcode::OP_PAIRSUM, Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_EXPAND, Opcode::OP_VEC_DUP,
+    Opcode::OP_MAXIMUM, Opcode::OP_MINIMUM, Opcode::OP_L1_TO_L0A, Opcode::OP_LOGICALNOT, Opcode::OP_LOGICALAND,
+    Opcode::OP_ONEHOT, Opcode::OP_POW, Opcode::OP_INDEX_PUT, Opcode::OP_L1_TO_L0_BT, Opcode::OP_L1_TO_L0B,
+    Opcode::OP_L1_TO_L0_AT, Opcode::OP_A_MUL_B, Opcode::OP_A_MULACC_B, Opcode::OP_A_MUL_BT, Opcode::OP_AT_MUL_B,
+    Opcode::OP_AT_MUL_BT, Opcode::OP_WHERE_TT, Opcode::OP_WHERE_TS, Opcode::OP_WHERE_ST, Opcode::OP_WHERE_SS,
+    Opcode::OP_ROWSUMLINE, Opcode::OP_ADD_BRC, Opcode::OP_ADD_BRC, Opcode::OP_SUB_BRC, Opcode::OP_MUL_BRC,
+    Opcode::OP_DIV_BRC, Opcode::OP_MAX_BRC, Opcode::OP_MIN_BRC, Opcode::OP_GATHER,
+    Opcode::OP_HYPOT, Opcode::OP_S_ADDS, Opcode::OP_LRELU, Opcode::OP_REM, Opcode::OP_REMS, Opcode::OP_REMRS,
+    Opcode::OP_S_SUBS, Opcode::OP_S_DIVS, Opcode::OP_S_MULS, Opcode::OP_S_MAXS, Opcode::OP_S_MINS, Opcode::OP_ROUND,
+    Opcode::OP_BITSORT, Opcode::OP_MRGSORT, Opcode::OP_CMP, Opcode::OP_CMPS, Opcode::OP_EXTRACT, Opcode::OP_PRELU,
     Opcode::OP_TILEDMRGSORT, Opcode::OP_ROWMAXLINE, Opcode::OP_PAIRMIN, Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWMINLINE,
-    Opcode::OP_TOPK_SORT, Opcode::OP_TOPK_MERGE, Opcode::OP_TOPK_EXTRACT, Opcode::OP_SCATTER_ELEMENT, Opcode::OP_SIGN,
+    Opcode::OP_TOPK_SORT, Opcode::OP_TOPK_MERGE, Opcode::OP_TOPK_EXTRACT, Opcode::OP_SCATTER_ELEMENT, Opcode::OP_SIGN, Opcode::OP_SIGNBIT,
     Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_SORT, Opcode::OP_COMPARE_SWAP, Opcode::OP_MERGE, Opcode::OP_L0C_TO_L1,
-    Opcode::OP_SCATTER, Opcode::OP_GATHER_FROM_UB, Opcode::OP_RESHAPE_COPY_IN, Opcode::OP_RESHAPE_COPY_OUT, Opcode::OP_L1_TO_FIX_QUANT_PRE,
-    Opcode::OP_L1_TO_BT, Opcode::OP_BRCB, Opcode::OP_MOD, Opcode::OP_MODS, Opcode::OP_BITWISEAND, Opcode::OP_BITWISEOR,
-    Opcode::OP_BITWISEXOR, Opcode::OP_BITWISEANDS, Opcode::OP_BITWISEORS, Opcode::OP_BITWISEXORS, Opcode::OP_BITWISENOT,
-    Opcode::OP_BITWISERIGHTSHIFT, Opcode::OP_BITWISELEFTSHIFT, Opcode::OP_BITWISERIGHTSHIFTS, Opcode::OP_BITWISELEFTSHIFTS,
-    Opcode::OP_SBITWISERIGHTSHIFT, Opcode::OP_SBITWISELEFTSHIFT, Opcode::OP_COPYSIGN, Opcode::OP_TWOTILEMRGSORT, Opcode::OP_EXTRACT_SINGLE, Opcode::OP_SORT_UB};
+    Opcode::OP_SCATTER, Opcode::OP_GATHER_FROM_UB, Opcode::OP_RESHAPE_COPY_IN, Opcode::OP_RESHAPE_COPY_OUT,
+    Opcode::OP_L1_TO_FIX_QUANT_PRE, Opcode::OP_L1_TO_BT, Opcode::OP_BRCB, Opcode::OP_MOD, Opcode::OP_MODS,
+    Opcode::OP_BITWISEAND, Opcode::OP_BITWISEOR, Opcode::OP_BITWISEXOR, Opcode::OP_BITWISEANDS, Opcode::OP_BITWISEORS,
+    Opcode::OP_BITWISEXORS, Opcode::OP_EXPANDEXPDIF, Opcode::OP_BITWISENOT, Opcode::OP_BITWISERIGHTSHIFT, Opcode::OP_BITWISELEFTSHIFT,
+    Opcode::OP_BITWISERIGHTSHIFTS, Opcode::OP_BITWISELEFTSHIFTS, Opcode::OP_SBITWISERIGHTSHIFT,
+    Opcode::OP_SBITWISELEFTSHIFT, Opcode::OP_COPYSIGN, Opcode::OP_TWOTILEMRGSORT, Opcode::OP_EXTRACT_SINGLE,
+    Opcode::OP_SORT_UB, Opcode::OP_GATHER_MASK, Opcode::OP_GATHER_MASK_BUILDIN, Opcode::OP_PAIRPROD, Opcode::OP_ROWPROD_SINGLE, 
+    Opcode::OP_ROWPRODLINE};
 
 const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{Opcode::OP_EXP, Opcode::OP_RSQRT, Opcode::OP_SQRT, Opcode::OP_RELU,
-    Opcode::OP_RECIPROCAL, Opcode::OP_ABS, Opcode::OP_LN, Opcode::OP_LOGICALNOT, Opcode::OP_TRIUL,
-    Opcode::OP_LOGICALAND, Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_DIVS,
+    Opcode::OP_RECIPROCAL, Opcode::OP_ABS, Opcode::OP_LN, Opcode::OP_LOGICALNOT, Opcode::OP_TRIUL, Opcode::OP_REMRS,
+    Opcode::OP_LOGICALAND, Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_DIVS, Opcode::OP_REM, Opcode::OP_REMS,
     Opcode::OP_MAXS, Opcode::OP_MINS, Opcode::OP_S_ADDS, Opcode::OP_S_SUBS, Opcode::OP_S_MULS, Opcode::OP_S_DIVS,
     Opcode::OP_S_MAXS, Opcode::OP_S_MINS, Opcode::OP_NEG, Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL, Opcode::OP_DIV,
     Opcode::OP_MAXIMUM, Opcode::OP_MINIMUM, Opcode::OP_ADD_BRC, Opcode::OP_SUB_BRC, Opcode::OP_MUL_BRC,
     Opcode::OP_DIV_BRC, Opcode::OP_MAX_BRC, Opcode::OP_MIN_BRC, Opcode::OP_S_ADD, Opcode::OP_S_SUB, Opcode::OP_S_MUL,
-    Opcode::OP_S_DIV, Opcode::OP_S_MAX, Opcode::OP_S_MIN,Opcode::OP_WHERE_TT, Opcode::OP_WHERE_TS,
+    Opcode::OP_S_DIV, Opcode::OP_S_MAX, Opcode::OP_S_MIN,Opcode::OP_WHERE_TT, Opcode::OP_WHERE_TS, Opcode::OP_PRELU,
     Opcode::OP_WHERE_ST, Opcode::OP_WHERE_SS, Opcode::OP_ROWMAX, Opcode::OP_ROWSUM, Opcode::OP_ROWEXPMAX,
     Opcode::OP_ROWEXPSUM, Opcode::OP_ROWSUMLINE, Opcode::OP_ROWMAXLINE, Opcode::OP_ROWMINLINE, Opcode::OP_ROWMAX_SINGLE,
-    Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, Opcode::OP_SIGN,
+    Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, Opcode::OP_SIGN, Opcode::OP_SIGNBIT,
     Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, Opcode::OP_MOD, Opcode::OP_MODS, Opcode::OP_BITWISEAND, Opcode::OP_BITWISEOR, 
-    Opcode::OP_BITWISEXOR, Opcode::OP_BITWISEANDS, Opcode::OP_BITWISEORS, Opcode::OP_BITWISEXORS, Opcode::OP_BITWISENOT,
+    Opcode::OP_BITWISEXOR, Opcode::OP_BITWISEANDS, Opcode::OP_BITWISEORS, Opcode::OP_BITWISEXORS, Opcode::OP_EXPANDEXPDIF, Opcode::OP_BITWISENOT,
     Opcode::OP_BITWISERIGHTSHIFT, Opcode::OP_BITWISELEFTSHIFT, Opcode::OP_BITWISERIGHTSHIFTS, Opcode::OP_BITWISELEFTSHIFTS,
-    Opcode::OP_SBITWISERIGHTSHIFT, Opcode::OP_SBITWISELEFTSHIFT, Opcode::OP_COPYSIGN};
+    Opcode::OP_SBITWISERIGHTSHIFT, Opcode::OP_SBITWISELEFTSHIFT, Opcode::OP_COPYSIGN, Opcode::OP_LRELU, Opcode::OP_ROWPROD_SINGLE, 
+    Opcode::OP_ROWPRODLINE};
 
 const std::unordered_set<Opcode> UNSUPPORT_BF16_ARCH35_OPS{Opcode::OP_EXP, Opcode::OP_RSQRT, Opcode::OP_SQRT, Opcode::OP_RELU,
-    Opcode::OP_ABS, Opcode::OP_LOGICALNOT,Opcode::OP_LOGICALAND, Opcode::OP_DIVS, Opcode::OP_DIV,
+    Opcode::OP_ABS, Opcode::OP_LOGICALNOT,Opcode::OP_LOGICALAND, Opcode::OP_DIVS, Opcode::OP_DIV, Opcode::OP_EXPANDEXPDIF,
     Opcode::OP_ROWSUMLINE, Opcode::OP_ROWMAXLINE, Opcode::OP_ROWMINLINE, Opcode::OP_ROWMAX_SINGLE,
-    Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_MOD, Opcode::OP_MODS};
+    Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_MOD, Opcode::OP_MODS, Opcode::OP_PRELU, Opcode::OP_ROWPROD_SINGLE, 
+    Opcode::OP_ROWPRODLINE};
 
 const std::unordered_set<Opcode> FIX_COPY_IN_OPS{Opcode::OP_L1_TO_FIX, Opcode::OP_L1_TO_FIX_QUANT_PRE,
     Opcode::OP_L1_TO_FIX_RELU_PRE, Opcode::OP_L1_TO_FIX_RELU_POST, Opcode::OP_L1_TO_FIX_QUANT_POST,
@@ -645,12 +670,13 @@ const std::unordered_set<Opcode> DISTRIBUTED_OPS{Opcode::OP_SEND_TO_ROUTING_EXPE
     Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE};
 
 const std::unordered_set<Opcode> LASTUSE_OPS{Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL, Opcode::OP_DIV,
-    Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_MAXS, Opcode::OP_MINS, Opcode::OP_EXP,
+    Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_MAXS, Opcode::OP_MINS, Opcode::OP_EXP, Opcode::OP_LRELU,
     Opcode::OP_BRCB, Opcode::OP_BITWISENOT, Opcode::OP_SORT, Opcode::OP_SQRT, Opcode::OP_RSQRT, Opcode::OP_RECIPROCAL,
     Opcode::OP_CONVERT, Opcode::OP_EXPAND, Opcode::OP_ROWEXPMAX, Opcode::OP_ROWMAX, Opcode::OP_ROWSUM, Opcode::OP_CAST,
     Opcode::OP_ROWSUM_SINGLE, Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWMIN_SINGLE, Opcode::OP_DIVS, Opcode::OP_ABS,
     Opcode::OP_MAXIMUM, Opcode::OP_MINIMUM, Opcode::OP_BITWISEAND, Opcode::OP_BITWISEOR, Opcode::OP_BITWISEANDS,
-    Opcode::OP_BITWISEORS, Opcode::OP_RELU, Opcode::OP_MODS, Opcode::OP_MOD, Opcode::OP_SIGN};
+    Opcode::OP_BITWISEORS, Opcode::OP_RELU, Opcode::OP_MODS, Opcode::OP_MOD, Opcode::OP_SIGN, Opcode::OP_PRELU, 
+    Opcode::OP_ROWPROD_SINGLE, Opcode::OP_SIGNBIT};
 
 inline bool IsAllocOpCode(Opcode opCode) {
     return (ALLOC_OPCODE.count(opCode) != 0);
