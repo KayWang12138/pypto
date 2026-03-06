@@ -14,6 +14,9 @@
  */
 
 #include "remove_redundant_op_checker.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "Checker"
 
 namespace npu{
 namespace tile_fwk {
