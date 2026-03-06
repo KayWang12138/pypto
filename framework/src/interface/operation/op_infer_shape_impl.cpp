@@ -18,6 +18,7 @@
 #include "interface/operation/operation.h"
 #include "interface/tensor/symbolic_scalar.h"
 #include "interface/utils/common.h"
+#include "passes/pass_log/pass_log.h"
 
 namespace npu::tile_fwk {
 const std::string COPY_OUT_FORCE_INFER_SHAPE = "copy_out_force_infer_shape";
