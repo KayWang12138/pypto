@@ -58,6 +58,7 @@ enum class BinaryOpType {
     EXPANDEXPDIF,
     COPYSIGN,
     GCD,
+    FLOORDIV,
 };
 
 template <BinaryOpType T>
@@ -89,6 +90,7 @@ std::string GetBinaryOpName() {
         case BinaryOpType::EXPANDEXPDIF: return "EXPANDEXPDIF";
         case BinaryOpType::COPYSIGN: return "COPYSIGN";
         case BinaryOpType::GCD: return "GCD";
+        case BinaryOpType::FLOORDIV: return "FLOORDIV";
         default: ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "unknown binary op type"; return "";
     }
 }
@@ -118,6 +120,7 @@ Opcode GetBinaryOpNameCode() {
             CASE(BITWISEOR);
             CASE(BITWISEXOR);
             CASE(GCD);
+            CASE(FLOORDIV);
             case BinaryOpType::LRELU: return Opcode::OP_LRELU;
             default: ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "unknown binary op type";
         }
@@ -165,6 +168,7 @@ Opcode GetBinaryOpNameCode() {
         CASE(EXPANDEXPDIF);
         CASE(COPYSIGN);
         CASE(GCD);
+        CASE(FLOORDIV);
         default: ASSERT(VectorErrorCode::ERR_PARAM_INVALID, false) << "unknown binary op type";
     }
 #undef CASE

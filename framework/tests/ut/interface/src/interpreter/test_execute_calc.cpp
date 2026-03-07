@@ -686,6 +686,109 @@ TEST_F(CalcCommonTest, ExecuteOpBinaryWithLhsFromBrcb) {
     EXPECT_FLOAT_EQ(outputView->Get<float>(3), 44.f);
 }
 
+// 测试 FloorDiv
+TEST_F(CalcCommonTest, ExecuteOpBinaryFloorDivWithTmpOutput) {
+    auto func = std::make_shared<Function>(Program::GetInstance(), "TestFloorDivBinary",
+        "TestFloorDivBinary", nullptr);
+
+    std::vector<int64_t> shape = {2, 32};
+    std::vector<int64_t> tmpShape = {64};
+    std::vector<int32_t> lhsValues(shape[0] * shape[1]);
+    std::vector<int32_t> rhsValues(shape[0] * shape[1]);
+    std::vector<int32_t> expectedValues(shape[0] * shape[1]);
+    const std::vector<int32_t> lhsPattern = {5, -5, 7, -7};
+    const std::vector<int32_t> rhsPattern = {2, 2, -3, -3};
+    const std::vector<int32_t> expectedPattern = {2, -3, -3, 2};
+    for (size_t i = 0; i < lhsValues.size(); i++) {
+        lhsValues[i] = lhsPattern[i % lhsPattern.size()];
+        rhsValues[i] = rhsPattern[i % rhsPattern.size()];
+        expectedValues[i] = expectedPattern[i % expectedPattern.size()];
+    }
+    auto lhsTensor = std::make_shared<LogicalTensor>(*func, DT_INT32, shape);
+    auto rhsTensor = std::make_shared<LogicalTensor>(*func, DT_INT32, shape);
+    auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_INT32, shape);
+    auto tmpTensor = std::make_shared<LogicalTensor>(*func, DT_INT32, tmpShape);
+    auto &floorDivOp = func->AddOperation(Opcode::OP_FLOORDIV, {lhsTensor, rhsTensor}, {outputTensor, tmpTensor});
+
+    Tensor lhsTensorData(DT_INT32, shape);
+    Tensor rhsTensorData(DT_INT32, shape);
+    Tensor outputTensorData(DT_INT32, shape);
+    Tensor tmpTensorData(DT_INT32, tmpShape);
+
+    auto lhsData = RawTensorData::CreateTensor<int32_t>(lhsTensorData, lhsValues);
+    auto rhsData = RawTensorData::CreateTensor<int32_t>(rhsTensorData, rhsValues);
+    auto outputData = RawTensorData::CreateConstantTensor<int32_t>(outputTensorData, 0);
+    auto tmpData = RawTensorData::CreateConstantTensor<int32_t>(tmpTensorData, 0);
+
+    auto lhsView = std::make_shared<LogicalTensorData>(lhsData);
+    auto rhsView = std::make_shared<LogicalTensorData>(rhsData);
+    auto outputView = std::make_shared<LogicalTensorData>(outputData);
+    auto tmpView = std::make_shared<LogicalTensorData>(tmpData);
+
+    auto inoutDataPair = std::make_shared<FunctionIODataPair>();
+    FunctionFrame frame(func.get(), nullptr, nullptr, inoutDataPair, 0);
+    OperationInterpreter opInter;
+    std::vector<LogicalTensorDataPtr> ioperandDataViewList = {lhsView, rhsView};
+    std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputView, tmpView};
+    ExecuteOperationContext ctx = {&frame, &opInter, &floorDivOp, &ioperandDataViewList, nullptr,
+        &ooperandInplaceDataViewList};
+    opInter.ExecuteOperation(&ctx);
+
+    ASSERT_EQ(outputView->GetSize(), static_cast<int64_t>(expectedValues.size()));
+    for (size_t i = 0; i < expectedValues.size(); i++) {
+        EXPECT_EQ(outputView->Get<int32_t>(i), expectedValues[i]);
+    }
+}
+
+// 测试 FloorDivS
+TEST_F(CalcCommonTest, ExecuteOpBinaryScalarFloorDivWithTmpOutput) {
+    auto func = std::make_shared<Function>(Program::GetInstance(), "TestFloorDivScalar",
+        "TestFloorDivScalar", nullptr);
+
+    std::vector<int64_t> shape = {2, 32};
+    std::vector<int64_t> tmpShape = {64};
+    std::vector<int32_t> inputValues(shape[0] * shape[1]);
+    std::vector<int32_t> expectedValues(shape[0] * shape[1]);
+    const std::vector<int32_t> inputPattern = {5, -5, 7, -7};
+    const std::vector<int32_t> expectedPattern = {2, -3, 3, -4};
+    for (size_t i = 0; i < inputValues.size(); i++) {
+        inputValues[i] = inputPattern[i % inputPattern.size()];
+        expectedValues[i] = expectedPattern[i % expectedPattern.size()];
+    }
+    auto inputTensor = std::make_shared<LogicalTensor>(*func, DT_INT32, shape);
+    auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_INT32, shape);
+    auto tmpTensor = std::make_shared<LogicalTensor>(*func, DT_INT32, tmpShape);
+    auto &floorDivOp = func->AddOperation(Opcode::OP_FLOORDIVS, {inputTensor}, {outputTensor, tmpTensor});
+    floorDivOp.SetAttribute(OpAttributeKey::scalar, Element(DT_INT32, 2));
+    floorDivOp.SetAttribute(OP_ATTR_PREFIX + "reverseOperand", false);
+
+    Tensor inputTensorData(DT_INT32, shape);
+    Tensor outputTensorData(DT_INT32, shape);
+    Tensor tmpTensorData(DT_INT32, tmpShape);
+
+    auto inputData = RawTensorData::CreateTensor<int32_t>(inputTensorData, inputValues);
+    auto outputData = RawTensorData::CreateConstantTensor<int32_t>(outputTensorData, 0);
+    auto tmpData = RawTensorData::CreateConstantTensor<int32_t>(tmpTensorData, 0);
+
+    auto inputView = std::make_shared<LogicalTensorData>(inputData);
+    auto outputView = std::make_shared<LogicalTensorData>(outputData);
+    auto tmpView = std::make_shared<LogicalTensorData>(tmpData);
+
+    auto inoutDataPair = std::make_shared<FunctionIODataPair>();
+    FunctionFrame frame(func.get(), nullptr, nullptr, inoutDataPair, 0);
+    OperationInterpreter opInter;
+    std::vector<LogicalTensorDataPtr> ioperandDataViewList = {inputView};
+    std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputView, tmpView};
+    ExecuteOperationContext ctx = {&frame, &opInter, &floorDivOp, &ioperandDataViewList, nullptr,
+        &ooperandInplaceDataViewList};
+    opInter.ExecuteOperation(&ctx);
+
+    ASSERT_EQ(outputView->GetSize(), static_cast<int64_t>(expectedValues.size()));
+    for (size_t i = 0; i < expectedValues.size(); i++) {
+        EXPECT_EQ(outputView->Get<int32_t>(i), expectedValues[i]);
+    }
+}
+
 // 测试 ExecuteOpLog1p，验证 calc::Log1p 行为
 TEST_F(CalcCommonTest, ExecuteOpLog1pBasic) {
     auto func = std::make_shared<Function>(Program::GetInstance(), "TestLog1p",

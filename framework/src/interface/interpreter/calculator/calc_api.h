@@ -99,6 +99,7 @@ struct CalcOps {
     void (*SubS)(const TensorData &, const TensorData &, const Element &, bool);
     void (*MulS)(const TensorData &, const TensorData &, const Element &, bool);
     void (*DivS)(const TensorData &, const TensorData &, const Element &, bool);
+    void (*FloorDivS)(const TensorData &, const TensorData &, const Element &, bool);
     void (*FmodS)(const TensorData &, const TensorData &, const Element &, bool);
     void (*RemainderS)(const TensorData &, const TensorData &, const Element &, bool);
     void (*RemainderRS)(const TensorData &, const TensorData &, const Element &, bool);
@@ -111,6 +112,7 @@ struct CalcOps {
     void (*Sub)(const TensorData &, const TensorData &, const TensorData &);
     void (*Mul)(const TensorData &, const TensorData &, const TensorData &);
     void (*Div)(const TensorData &, const TensorData &, const TensorData &);
+    void (*FloorDiv)(const TensorData &, const TensorData &, const TensorData &);
     void (*Fmod)(const TensorData &, const TensorData &, const TensorData &);
     void (*Remainder)(const TensorData &, const TensorData &, const TensorData &);
     void (*Pow)(const TensorData &, const TensorData &, const TensorData &);
