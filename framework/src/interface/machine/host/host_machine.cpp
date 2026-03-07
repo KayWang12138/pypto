@@ -32,7 +32,6 @@ using ExecuteFunc = int (*)(npu::tile_fwk::MachineTask *, npu::tile_fwk::Functio
 using PlatformFunc = std::string (*)();
 using MatchCacheFunc = bool (*)(const std::string &);
 using InitFunc = int (*)();
-
 struct Backend {
     RunPassFunc runPass;
     GetResumePathFunc getResumePath;
@@ -60,6 +59,7 @@ private:
         progHandle = dlopen(nullptr, RTLD_LAZY | RTLD_NOLOAD);
         compilerHandle = dlopen("libtile_fwk_compiler.so", RTLD_LAZY | RTLD_NOLOAD);
         simuHandle = dlopen("libtile_fwk_simulator.so", RTLD_LAZY | RTLD_NOLOAD);
+        runtimeHandle = dlopen("libtile_fwk_runtime.so", RTLD_LAZY | RTLD_NOLOAD);
 
         runPass = (RunPassFunc)GetSymbol(progHandle, "RunPass");
         getResumePath = (GetResumePathFunc)GetSymbol(progHandle, "GetResumePath");
@@ -87,6 +87,7 @@ private:
     void *progHandle;
     void *compilerHandle;
     void *simuHandle;
+    void *runtimeHandle;
 };
 }
 
