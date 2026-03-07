@@ -1,0 +1,332 @@
+diff --git a/1.diff b/1.diff
+new file mode 100644
+index 00000000..e69de29b
+diff --git a/framework/src/machine/utils/machine_error.h b/framework/src/machine/utils/machine_error.h
+new file mode 100644
+index 00000000..7af5a8be
+--- /dev/null
++++ b/framework/src/machine/utils/machine_error.h
+@@ -0,0 +1,162 @@
++/**
++ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
++ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
++ * CANN Open Software License Agreement Version 2.0 (the "License").
++ * Please refer to the License for details. You may not use this file except in compliance with the License.
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
++ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
++ * See LICENSE in the root of the software repository for the full text of the License.
++ */
++
++/*!
++ * \file machine_error.h
++ * \brief MACHINE 组件错误分类、场景枚举与错误码常量。
++ *        - F7XXXX：MACHINE 内部已梳理报错（大流程 Category -> 子流程 Scene）。
++ *        - F80xxx-F86xxx：内部预留；F870xx/F875xx/F880xx/F885xx/F890xx/F895xx：与 FUNCTION/PASS/CODEGEN/SIMULATION/DISTRIBUTED/OPERATION 交集。
++ */
++
++#pragma once
++
++#include <cstdint>
++
++namespace npu::tile_fwk {
++
++// =============================================================================
++// 一、大流程：MachineErrorCategory（对应 F7Cxxx 中的 C）
++// =============================================================================
++
++enum class MachineErrorCategory {
++    SCHEDULER,      = 70000U, // 0: 调度链路
++    CONTROL_FLOW,   = 71000U, // 1: 控制流执行
++    WORKSPACE,      = 72000U, // 2: Workspace / Slab
++    DUMP_DFX,       = 73000U, // 3: Dump / DFX / Profiling
++    PROGRAM_ENCODE, = 74000U, // 4: 编解码与一致性
++    TENSOR_META,    = 75000U, // 5: 张量元信息
++    SERVER_KERNEL,  = 76000U, // 6: AICPU server / kernel
++    THREAD_MACHINE, = 77000U, // 7: 线程/机器级
++    DATA_STRUCTURE, = 78000U, // 8: 内部数据结构
++    UNKNOWN         = 79000U, // 9: 未知/预留
++};
++
++// =============================================================================
++// 二、子流程：各 Category 下的 ErrorScene 枚举（枚举值即错误码 F7xxxx）
++// =============================================================================
++
++enum class SchedErrorScene : uint32_t {
++    PREFETCH_CHECK_FAILED     = 70001U,
++    AIC_TASK_WAIT_TIMEOUT     = 70002U,
++    AIV_TASK_WAIT_TIMEOUT     = 70003U,
++    TAIL_TASK_WAIT_TIMEOUT    = 70004U,
++    ALL_AICORE_SYNC_TIMEOUT   = 70005U,
++    HANDSHAKE_TIMEOUT         = 70006U,
++    READY_QUEUE_OVERFLOW      = 70007U,
++    SIGNAL_QUEUE_OVERFLOW     = 70008U,
++    QUEUE_DEQUEUE_WHEN_EMPTY  = 70009U,
++    CORE_TASK_PROCESS_FAILED  = 70010U,
++    AICPU_TASK_SYNC_TIMEOUT   = 70011U,
++    EXCEPTION_RESET_TRIGGERED = 70012U,
++    EXCEPTION_SIGNAL_RECEIVED = 70013U,
++    THREAD_INIT_ARGS_INVALID  = 70014U,
++    UNKNOWN                   = 70099U
++};
++
++enum class ControlFlowErrorScene : uint32_t {
++    CTRL_FLOW_EXEC_FAILED     = 71001U,
++    ROOT_ALLOC_CTX_NULL       = 71002U,
++    ROOT_STITCH_CTX_NULL      = 71003U,
++    SYNC_FLAG_WAIT_TIMEOUT    = 71004U,
++    DEVICE_TASK_BUILD_FAILED  = 71005U,
++    READY_QUEUE_INIT_FAILED   = 71006U,
++    DEP_DUMP_FAILED           = 71007U,
++    READY_QUEUE_DUMP_FAILED   = 71008U,
++    TASK_STATS_ABNORMAL       = 71009U,
++    UNKNOWN                   = 71099U
++};
++
++enum class WorkspaceErrorScene : uint32_t {
++    SLAB_ADD_CACHE_FAILED       = 72001U,
++    SLAB_STAGE_LIST_INCONSISTENT = 72002U,
++    SLAB_TYPE_INVALID           = 72003U,
++    WORKSPACE_INIT_RESOURCE_ERROR = 72004U,
++    WORKSPACE_INIT_PARAM_INVALID  = 72005U,
++    WS_TENSOR_ADDRESS_OUT_OF_RANGE = 72006U,
++    SLAB_CAPACITY_CALC_INVALID  = 72007U,
++    UNKNOWN                     = 72099U
++};
++
++enum class DumpDfxErrorScene : uint32_t {
++    DUMP_MEMCPY_FAILED            = 73001U,
++    DUMP_TENSOR_INFO_FAILED       = 73002U,
++    DUMP_TENSOR_DATA_FAILED       = 73003U,
++    METRIC_ALLOC_OR_WAIT_TIMEOUT  = 73004U,
++    PERF_TRACE_FORMAT_ERROR       = 73005U,
++    PERF_TRACE_DUMP_ERROR         = 73006U,
++    DFX_AICPU_TIMEOUT            = 73007U,
++    UNKNOWN                       = 73099U
++};
++
++enum class ProgramEncodeErrorScene : uint32_t {
++    DYNFUNC_DATA_ALIGNMENT_ERROR = 74001U,
++    FUNC_OP_SIZE_MISMATCH        = 74002U,
++    STITCH_PRED_SUCC_MISMATCH     = 74003U,
++    STITCH_LIST_TOO_LARGE         = 74004U,
++    STITCH_HANDLE_INDEX_OUT_OF_RANGE = 74005U,
++    CELL_MATCH_PARAM_INVALID     = 74006U,
++    PROGRAM_RANGE_VERIFY_FAILED   = 74007U,
++    CACHE_RELOC_KIND_INVALID      = 74008U,
++    UNKNOWN                       = 74099U
++};
++
++enum class TensorMetaErrorScene : uint32_t {
++    TENSOR_DIM_COUNT_EXCEEDED   = 75001U,
++    TENSOR_ENCODE_PTR_MISMATCH  = 75002U,
++    RAW_TENSOR_INDEX_OUT_OF_RANGE = 75003U,
++    SHAPE_VALUE_MISMATCH        = 75004U,
++    TENSOR_DUMP_INFO_INCONSISTENT = 75005U,
++    UNKNOWN                      = 75099U
++};
++
++enum class ServerKernelErrorScene : uint32_t {
++    DYN_SERVER_ARGS_NULL      = 76001U,
++    DYN_SERVER_SAVE_SO_FAILED  = 76002U,
++    KERNEL_EXEC_FUNC_FAILED    = 76003U,
++    KERNEL_SO_OR_FUNC_LOAD_FAILED = 76004U,
++    DYN_SERVER_RUN_FAILED      = 76005U,
++    DYN_SERVER_INIT_FAILED     = 76006U,
++    UNKNOWN                    = 76099U
++};
++
++enum class ThreadMachineErrorScene : uint32_t {
++    DEVICE_ARGS_INVALID     = 77001U,
++    SIGNAL_HANDLER_ABNORMAL = 77002U,
++    RESET_REG_ALL_TRIGGERED = 77003U,
++    UNKNOWN                 = 77099U
++};
++
++enum class DataStructureErrorScene : uint32_t {
++    DEV_RELOC_VECTOR_INDEX_OOB = 78001U,
++    SMALL_ARRAY_RESIZE_OOB     = 78002U,
++    UNKNOWN                    = 78099U
++};
++
++// 与其它组件的交集错误码预留枚举（每段 100 个码位，后续按需扩展具体场景）
++enum class MachineFunctionScene : uint32_t {
++    RESERVED = 87000U   // 87000-87099 与 FUNCTION 交集，预留
++};
++enum class MachinePassScene : uint32_t {
++    RESERVED = 87500U   // 87500-87599 与 PASS 交集，预留
++};
++enum class MachineCodegenScene : uint32_t {
++    RESERVED = 88000U   // 88000-88099 与 CODEGEN 交集，预留
++};
++enum class MachineSimulationScene : uint32_t {
++    RESERVED = 88500U   // 88500-88599 与 SIMULATION 交集，预留
++};
++enum class MachineDistributedScene : uint32_t {
++    RESERVED = 89000U   // 89000-89099 与 DISTRIBUTED 交集，预留
++};
++enum class MachineOperationScene : uint32_t {
++    RESERVED = 89500U   // 89500-89599 与 OPERATION 交集，预留
++};
++
++}  // namespace npu::tile_fwk
+diff --git a/trouble_shooting/README.md b/trouble_shooting/README.md
+new file mode 100644
+index 00000000..e3b41769
+--- /dev/null
++++ b/trouble_shooting/README.md
+@@ -0,0 +1,55 @@
++# PYPTO 框架错误码方案
++
++本文档说明 PYPTO 各组件错误码的整体范围与约定。各组件具体错误码定义与排查说明见下方链接。
++
++## 1. 总体范围
++
++所有 ASSERT ERROR 报错均需由错误码承载。各组件错误码范围如下：
++
++| 范围             | 组件/用途     |
++|------------------|---------------|
++| F1XXXX           | 外部限制（用户写法问题、场景限制、版本兼容性等） |
++| F2XXXX / F3XXXX  | FUNCTION      |
++| F4XXXX / F5XXXX  | PASS          |
++| F6XXXX           | CODEGEN       |
++| F7XXXX / F8XXXX  | MACHINE       |
++| F9XXXX           | SIMULATION    |
++| FAXXXX           | DISTRIBUTED   |
++| FBXXXX           | OPERATION     |
++
++## 2. 各组件错误码文档
++
++| 组件        | 范围       | 文档 |
++|-------------|------------|------|
++| FUNCTION    | F2/F3XXXX  | [function.md](function.md) |
++| PASS        | F4/F5XXXX  | [pass.md](pass.md) |
++| CODEGEN     | F6XXXX     | [codegen.md](codegen.md) |
++| MACHINE     | F7/F8XXXX  | [machine.md](machine.md) |
++| SIMULATION  | F9XXXX     | [simulation.md](simulation.md) |
++| DISTRIBUTED | FAXXXX     | [distributed.md](distributed.md) |
++| OPERATION   | FBXXXX     | [operation.md](operation.md) |
++
++## 3 原则
++
++- **报错与日志**：各组件 ASSERT/CHECK/ERROR 报错处须使用本组件 error 头文件中的错误码，并在日志或异常中携带该码。
++- **按组件管理**：各组件错误码头文件在各自组件目录下维护，不集中到统一头文件。
++- **文档补充**：若单靠 ErrorMsg 无法说明原因或难以定位，须为该错误码补充 trouble_shooting 文档（原因、排查步骤与解决方案）。
++- **大流程到子流程**：错误码分类应先梳理大流程（Category），再细化子流程（Scene）；头文件内按此顺序组织枚举。
++- **单一职责**：一个错误码只对应一种场景（一类问题），语义单一、便于根据码值快速定位原因。
++
++## 4 用法举例（以 MACHINE 为例）
++
++报错或打 ERROR 日志时带上错误码，日志中显示为 **Fxxxxx**（如 F70004）。枚举值即错误码，可直接转成数值使用。例如原日志：
++
++```cpp
++DEV_ERROR("hand shake timeout.");
++```
++
++应改为带错误码的写法（枚举直接转数值打印）：
++
++```cpp
++#include "machine/utils/machine_error.h"
++
++DEV_ERROR("F%u hand shake timeout.",
++          static_cast<unsigned>(npu::tile_fwk::SchedErrorScene::TAIL_TASK_WAIT_TIMEOUT));
++```
+diff --git a/trouble_shooting/codegen.md b/trouble_shooting/codegen.md
+new file mode 100644
+index 00000000..f670a883
+--- /dev/null
++++ b/trouble_shooting/codegen.md
+@@ -0,0 +1,6 @@
++# CODEGEN 组件错误码
++
++（待补充）
++
++- **范围**：F6XXXX
++- 本文档将说明 CODEGEN 组件的错误码定义、场景说明与排查建议。
+diff --git a/trouble_shooting/distributed.md b/trouble_shooting/distributed.md
+new file mode 100644
+index 00000000..4a131d57
+--- /dev/null
++++ b/trouble_shooting/distributed.md
+@@ -0,0 +1,6 @@
++# DISTRIBUTED 组件错误码
++
++（待补充）
++
++- **范围**：FAXXXX
++- 本文档将说明 DISTRIBUTED 组件的错误码定义、场景说明与排查建议。
+diff --git a/trouble_shooting/function.md b/trouble_shooting/function.md
+new file mode 100644
+index 00000000..fc60c1ab
+--- /dev/null
++++ b/trouble_shooting/function.md
+@@ -0,0 +1,6 @@
++# FUNCTION 组件错误码
++
++（待补充）
++
++- **范围**：F2XXXX / F3XXXX
++- 本文档将说明 FUNCTION 组件的错误码定义、场景说明与排查建议。
+diff --git a/trouble_shooting/machine.md b/trouble_shooting/machine.md
+new file mode 100644
+index 00000000..10193e0a
+--- /dev/null
++++ b/trouble_shooting/machine.md
+@@ -0,0 +1,22 @@
++# MACHINE 组件错误码
++
++MACHINE 错误码的范围、Category/Scene 定义及具体码值均以头文件为准，本文档不再重复罗列。
++
++**头文件（权威定义）**：`framework/src/machine/utils/machine_error.h`
++
++头文件内包含：`MachineErrorCategory`、各 `*ErrorScene` 枚举（如 `SchedErrorScene`、`WorkspaceErrorScene`）、`ToMachineErrorCode`、`GetMachineErrorCategory`、`IsMachineIntersectionErrorCode` 等，详见源码注释与实现。
++
++---
++
++## F70006 HANDSHAKE_TIMEOUT 排查说明
++
++**含义**：AICPU 与 AICore/AIV 握手超时。调度线程在设备模式下调用了 `HandShake()`，在约定时间内未完成握手即报此错。
++
++**典型报错位置**：`framework/src/machine/device/dynamic/aicore_manager.h` 中调度 run 初始化阶段（`HandShake()` 返回非 OK 时打印 `"hand shake timeout."`）。
++
++**建议排查步骤**：
++
++1. **确认设备与驱动**：NPU 设备可用、驱动正常，`npu-smi info` 无异常。
++2. **确认资源与负载**：当前进程/容器内 NPU 占用是否过高，是否存在多进程争用同一设备。
++3. **确认超时配置**：若存在握手/同步超时配置项，检查是否过短或与环境不符。
++4. **查日志上下文**：结合同线程前后日志（如 “Schedule run init succ” 之后、AbnormalStop 相关）确认是首次握手失败还是运行中异常。
+diff --git a/trouble_shooting/operation.md b/trouble_shooting/operation.md
+new file mode 100644
+index 00000000..b985c4b6
+--- /dev/null
++++ b/trouble_shooting/operation.md
+@@ -0,0 +1,6 @@
++# OPERATION 组件错误码
++
++（待补充）
++
++- **范围**：FBXXXX
++- 本文档将说明 OPERATION 组件的错误码定义、场景说明与排查建议。
+diff --git a/trouble_shooting/pass.md b/trouble_shooting/pass.md
+new file mode 100644
+index 00000000..4736d8ca
+--- /dev/null
++++ b/trouble_shooting/pass.md
+@@ -0,0 +1,6 @@
++# PASS 组件错误码
++
++（待补充）
++
++- **范围**：F4XXXX / F5XXXX
++- 本文档将说明 PASS 组件的错误码定义、场景说明与排查建议。
+diff --git a/trouble_shooting/simulation.md b/trouble_shooting/simulation.md
+new file mode 100644
+index 00000000..1d245486
+--- /dev/null
++++ b/trouble_shooting/simulation.md
+@@ -0,0 +1,6 @@
++# SIMULATION 组件错误码
++
++（待补充）
++
++- **范围**：F9XXXX
++- 本文档将说明 SIMULATION 组件的错误码定义、场景说明与排查建议。
