@@ -38,7 +38,6 @@ option(ENABLE_COMPILE_DEPENDENCY_CHECK "Enable compile dependency relation check
 # 公开编译开关(Feature 特性级开关)
 option(ENABLE_FEATURE_PYTHON_FRONT_END "Enable Python Front-end" ON)
 option(ENABLE_FEATURE_INSTALL_EXPERIMENT "Enable experiment header or binary file install" OFF)
-option(ENABLE_TORCH_VERIFIER "Flow verify with libtorch" OFF)
 
 # 公开编译开关(tests)
 option(ENABLE_TESTS_EXECUTE "Enable auto execute tests executable" OFF)
@@ -110,9 +109,6 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
             DESTINATION "${PyPTO_WhlName}/lib"
             PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
     )
-    if (ENABLE_TORCH_VERIFIER)
-        list(APPEND InstallTargets tile_fwk_calculator)
-    endif()
     PTO_Fwk_InstallBinaries(
             EXPORT      ${InstallExport}
             WHL_NAME    ${PyPTO_WhlName}
