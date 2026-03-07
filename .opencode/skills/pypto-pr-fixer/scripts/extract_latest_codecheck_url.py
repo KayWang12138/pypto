@@ -9,6 +9,7 @@
 用法示例:
   python3 /tmp/extract_latest_codecheck_url.py --input comments.json
   cat comments.json | python3 /tmp/extract_latest_codecheck_url.py
+  python3 /tmp/extract_latest_codecheck_url.py --input comments.json --evidence
 
 退出码:
   0: 成功找到并输出 URL
@@ -26,7 +27,6 @@ from datetime import datetime, timezone
 from typing import Any, Iterable
 
 CODECHECK_URL_RE = re.compile(
-CODECHECK_URL_RE = re.compile(
     r"https://www\.openlibing\.com/apps/entryCheckDashCode/[^\s'\">]+",
     flags=re.IGNORECASE,
 )
@@ -39,6 +39,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--input",
         help="评论 JSON 文件路径；不传时从 stdin 读取",
+    )
+    parser.add_argument(
+        "--evidence",
+        action="store_true",
+        help="输出完整 JSON 证据链（包含所有匹配的 codecheck URL）",
     )
     parser.add_argument(
         "--verbose",
@@ -124,22 +129,104 @@ def extract_latest_codecheck(comments: Iterable[dict[str, Any]]) -> tuple[int | 
     return latest_comment_id, latest_created_at, latest_url
 
 
+def extract_with_evidence(comments: Iterable[dict[str, Any]]) -> dict[str, Any]:
+    """提取所有 codecheck URL 并返回完整证据链。
+    
+    Returns:
+        包含以下结构的字典：
+        {
+            "total_found": int,  # 共找到多少个 codecheck URL
+            "latest": {
+                "comment_id": int | None,
+                "created_at": str | None,
+                "url": str
+            },
+            "evidence_chain": [
+                {
+                    "index": int,
+                    "comment_id": int | None,
+                    "created_at": str | None,
+                    "url": str,
+                    "is_latest": bool
+                },
+                ...  # 按时间倒序排列
+            ]
+        }
+    """
+    matches: list[tuple[datetime, int, str | None, str]] = []  # (created_at, comment_id, created_at_raw, url)
+    
+    for c in comments:
+        body = c.get("body")
+        if not isinstance(body, str) or "codecheck" not in body.lower():
+            continue
+
+        match = CODECHECK_URL_RE.search(body)
+        if not match:
+            continue
+
+        created_at_raw = c.get("created_at")
+        created_at_dt = parse_time(created_at_raw)
+        cid = c.get("id")
+        cid_num = cid if isinstance(cid, int) else -1
+        url = match.group(0)
+        
+        matches.append((created_at_dt, cid_num, created_at_raw if isinstance(created_at_raw, str) else None, url))
+    
+    if not matches:
+        raise ValueError("未在评论中找到 codecheck URL")
+    
+    # 按时间倒序排序（最新的在前）
+    matches.sort(reverse=True, key=lambda x: (x[0], x[1]))
+    
+    # 构建证据链
+    evidence_chain = []
+    for idx, (created_at_dt, cid_num, created_at_raw, url) in enumerate(matches):
+        evidence_chain.append({
+            "index": idx,
+            "comment_id": cid_num if cid_num >= 0 else None,
+            "created_at": created_at_raw,
+            "url": url,
+            "is_latest": idx == 0
+        })
+    
+    # 提取最新的
+    latest_match = matches[0]
+    latest = {
+        "comment_id": latest_match[1] if latest_match[1] >= 0 else None,
+        "created_at": latest_match[2],
+        "url": latest_match[3]
+    }
+    
+    return {
+        "total_found": len(matches),
+        "latest": latest,
+        "evidence_chain": evidence_chain
+    }
+
+
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     args = parse_args()
     try:
         data = load_json(args.input)
-        comment_id, created_at, url = extract_latest_codecheck(iter_comments(data))
+        
+        if args.evidence:
+            # 证据链模式：输出完整 JSON
+            result = extract_with_evidence(iter_comments(data))
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        else:
+            # 默认模式：仅输出最新 URL
+            comment_id, created_at, url = extract_latest_codecheck(iter_comments(data))
+            if args.verbose:
+                logging.info("comment_id=%s", comment_id)
+                logging.info("created_at=%s", created_at)
+                logging.info("codecheck_url=%s", url)
+            else:
+                print(url)
     except ValueError as exc:
         logging.error("ERROR: %s", exc)
         return 1
 
-    if args.verbose:
-        logging.info("comment_id=%s", comment_id)
-        logging.info("created_at=%s", created_at)
-        logging.info("codecheck_url=%s", url)
-    else:
-        print(url)
     return 0
 
 
