@@ -195,13 +195,9 @@ class VerifyRes:
             for _, tensor_info in enumerate(tensor_infos):
                 tensor_info["verify_tensor_file"] = "" 
                 tensor_info["cmp_res"] = "NO_CMP"
-            # res_tensor_infos.extend(tensor_infos)
-            # continue
             return
 
         self._compare_codegen_tensors(tensor_infos, tensor_infos_new)
-        # res_tensor_infos.extend(tensor_infos)
-
 
     def get_verify_codegen_res(self, callop_tensor_infos):
         res_tensor_infos = []
