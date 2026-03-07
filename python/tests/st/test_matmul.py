@@ -86,68 +86,68 @@ def trans_nd_to_fractal_nz(data: torch.Tensor, keep_m_dim=False):
     return data
     
 
-def create_mm_kernel_with_mn_split(tile_config):
-    m = tile_config.ori_shape[0]
-    k = tile_config.ori_shape[1]
-    n = tile_config.ori_shape[2]
-    m_view = tile_config.view_shape[0]
-    n_view = tile_config.view_shape[1]
-    a_format = pypto.TileOpFormat.TILEOP_NZ if tile_config.a_format_nz else pypto.TileOpFormat.TILEOP_ND
-    b_format = pypto.TileOpFormat.TILEOP_NZ if tile_config.b_format_nz else pypto.TileOpFormat.TILEOP_ND
-    a_shape = [k, m] if tile_config.a_trans else [m, k]
-    b_shape = [n, k] if tile_config.b_trans else [k, n]
+def create_mm_kernel_with_mn_split(shape_info):
+    m = shape_info.ori_shape[0]
+    k = shape_info.ori_shape[1]
+    n = shape_info.ori_shape[2]
+    m_view = shape_info.view_shape[0]
+    n_view = shape_info.view_shape[1]
+    a_format = pypto.TileOpFormat.TILEOP_NZ if shape_info.a_format_nz else pypto.TileOpFormat.TILEOP_ND
+    b_format = pypto.TileOpFormat.TILEOP_NZ if shape_info.b_format_nz else pypto.TileOpFormat.TILEOP_ND
+    a_shape = [k, m] if shape_info.a_trans else [m, k]
+    b_shape = [n, k] if shape_info.b_trans else [k, n]
     
     @pypto.frontend.jit(
         debug_options={"runtime_debug_mode": 0, "compile_debug_mode": 0}
     )
     def matmul_kernel(
-        a_tensor: pypto.Tensor(a_shape, tile_config.in_dtype, format=a_format),
-        b_tensor: pypto.Tensor(b_shape, tile_config.in_dtype, format=b_format),
-    ) -> pypto.Tensor([m, n], tile_config.out_dtype):
-        pypto.set_cube_tile_shapes(tile_config.m_tile_shape, tile_config.k_tile_shape, tile_config.n_tile_shape,
-                                   enable_multi_data_load=tile_config.mdl_flag, enable_split_k=tile_config.gm_acc)
+        a_tensor: pypto.Tensor(a_shape, shape_info.in_dtype, format=a_format),
+        b_tensor: pypto.Tensor(b_shape, shape_info.in_dtype, format=b_format),
+    ) -> pypto.Tensor([m, n], shape_info.out_dtype):
+        pypto.set_cube_tile_shapes(shape_info.m_tile_shape, shape_info.k_tile_shape, shape_info.n_tile_shape,
+                                   enable_multi_data_load=shape_info.mdl_flag, enable_split_k=shape_info.gm_acc)
         m_loop = (m + m_view - 1) // m_view
         n_loop = (n + n_view - 1) // n_view
-        out_tensor = pypto.Tensor([m, n], tile_config.out_dtype)
+        out_tensor = pypto.Tensor([m, n], shape_info.out_dtype)
         for m_idx in pypto.loop(0, m_loop, 1, name="LOOP_L0_mIdx", idx_name="m_idx"):
             for n_idx in pypto.loop(0, n_loop, 1, name="LOOP_L0_nIdx", idx_name="n_idx"):
-                if tile_config.a_trans:
+                if shape_info.a_trans:
                     a_view = a_tensor[:, m_idx * m_view: m_idx * m_view + m_view]
                 else:
                     a_view = a_tensor[m_idx * m_view: m_idx * m_view + m_view, :]
-                if tile_config.b_trans:
+                if shape_info.b_trans:
                     b_view = b_tensor[n_idx * n_view: n_idx * n_view + n_view, :]
                 else:
                     b_view = b_tensor[:, n_idx * n_view: n_idx * n_view + n_view]
-                out_view = pypto.matmul(a_view, b_view, a_trans=tile_config.a_trans, b_trans=tile_config.b_trans,
-                                        out_dtype=tile_config.out_dtype)
+                out_view = pypto.matmul(a_view, b_view, a_trans=shape_info.a_trans, b_trans=shape_info.b_trans,
+                                        out_dtype=shape_info.out_dtype)
                 out_tensor[m_idx * m_view: m_idx * m_view + m_view, n_idx * n_view: n_idx * n_view + n_view] = out_view
         return out_tensor
     return matmul_kernel
 
 
-def create_bmm_kernel_with_no_mn_split(tile_config):
-    b = tile_config.ori_shape[0]
-    m = tile_config.ori_shape[1]
-    k = tile_config.ori_shape[2]
-    n = tile_config.ori_shape[3]
-    a_format = pypto.TileOpFormat.TILEOP_NZ if tile_config.a_format_nz else pypto.TileOpFormat.TILEOP_ND
-    b_format = pypto.TileOpFormat.TILEOP_NZ if tile_config.b_format_nz else pypto.TileOpFormat.TILEOP_ND
-    a_shape = [b, k, m] if tile_config.a_trans else [b, m, k]
-    b_shape = [b, n, k] if tile_config.b_trans else [b, k, n]
+def create_bmm_kernel_with_no_mn_split(shape_info):
+    b = shape_info.ori_shape[0]
+    m = shape_info.ori_shape[1]
+    k = shape_info.ori_shape[2]
+    n = shape_info.ori_shape[3]
+    a_format = pypto.TileOpFormat.TILEOP_NZ if shape_info.a_format_nz else pypto.TileOpFormat.TILEOP_ND
+    b_format = pypto.TileOpFormat.TILEOP_NZ if shape_info.b_format_nz else pypto.TileOpFormat.TILEOP_ND
+    a_shape = [b, k, m] if shape_info.a_trans else [b, m, k]
+    b_shape = [b, n, k] if shape_info.b_trans else [b, k, n]
     
     @pypto.frontend.jit(
         debug_options={"runtime_debug_mode": 0, "compile_debug_mode": 0}
     )
     def matmul_kernel(
-        a_tensor: pypto.Tensor(a_shape, tile_config.in_dtype, format=a_format),
-        b_tensor: pypto.Tensor(b_shape, tile_config.in_dtype, format=b_format),
-    ) -> pypto.Tensor([b, m, n], tile_config.out_dtype):
-        pypto.set_cube_tile_shapes(tile_config.m_tile_shape, tile_config.k_tile_shape, tile_config.n_tile_shape, 
-                                   enable_multi_data_load=tile_config.mdl_flag, enable_split_k=tile_config.gm_acc)
-        out_tensor = pypto.Tensor([b, m, n], tile_config.out_dtype)
-        out_tensor = pypto.matmul(a_tensor, b_tensor, a_trans=tile_config.a_trans, b_trans=tile_config.b_trans,
-                                    out_dtype=tile_config.out_dtype)
+        a_tensor: pypto.Tensor(a_shape, shape_info.in_dtype, format=a_format),
+        b_tensor: pypto.Tensor(b_shape, shape_info.in_dtype, format=b_format),
+    ) -> pypto.Tensor([b, m, n], shape_info.out_dtype):
+        pypto.set_cube_tile_shapes(shape_info.m_tile_shape, shape_info.k_tile_shape, shape_info.n_tile_shape, 
+                                   enable_multi_data_load=shape_info.mdl_flag, enable_split_k=shape_info.gm_acc)
+        out_tensor = pypto.Tensor([b, m, n], shape_info.out_dtype)
+        out_tensor = pypto.matmul(a_tensor, b_tensor, a_trans=shape_info.a_trans, b_trans=shape_info.b_trans,
+                                    out_dtype=shape_info.out_dtype)
         return out_tensor
     return matmul_kernel
 
@@ -209,12 +209,12 @@ def test_mm_with_mn_split():
     tile_n = 64
     m_view = 128
     n_view = 256
-    tile_config = ShapeConfig([m, k, n], [tile_m, tile_m], [tile_k, tile_k], [tile_n, tile_n], [m_view, n_view], FP16,
+    shape_info = ShapeConfig([m, k, n], [tile_m, tile_m], [tile_k, tile_k], [tile_n, tile_n], [m_view, n_view], FP16,
                                 FP32, True, True, False, False, False, False, False)
     a1_tensor = torch.rand([k, m], dtype=torch.float16)
     b1_tensor = torch.rand([n, k], dtype=torch.float16)
     golden = torch.matmul(a1_tensor.to(torch.float32).T, b1_tensor.to(torch.float32).T)
-    c1 = create_mm_kernel_with_mn_split(tile_config)(a1_tensor.npu(), b1_tensor.npu())
+    c1 = create_mm_kernel_with_mn_split(shape_info)(a1_tensor.npu(), b1_tensor.npu())
     assert torch.allclose(c1.cpu().to(torch.float32), golden, atol=1e-3, rtol=1e-3)
 
 
@@ -229,17 +229,17 @@ def test_mm_with_mn_split_nz():
     tile_n = 64
     m_view = 128
     n_view = 256
-    tile_config = ShapeConfig([m, k, n], [tile_m, tile_m], [tile_k, tile_k], [tile_n, tile_n], [m_view, n_view], FP16,
+    shape_info = ShapeConfig([m, k, n], [tile_m, tile_m], [tile_k, tile_k], [tile_n, tile_n], [m_view, n_view], FP16,
                                 FP32, True, True, True, True, False, False, False)
     
     a1_tensor = torch.rand([k, m], dtype=torch.float16)
     b1_tensor = torch.rand([n, k], dtype=torch.float16)
 
-    a1_tensor_nz = trans_nd_to_fractal_nz(a1_tensor).view(k, m) if tile_config.a_format_nz else a1_tensor
-    b1_tensor_nz = trans_nd_to_fractal_nz(b1_tensor).view(n, k) if tile_config.b_format_nz else b1_tensor
+    a1_tensor_nz = trans_nd_to_fractal_nz(a1_tensor).view(k, m) if shape_info.a_format_nz else a1_tensor
+    b1_tensor_nz = trans_nd_to_fractal_nz(b1_tensor).view(n, k) if shape_info.b_format_nz else b1_tensor
 
     golden = torch.matmul(a1_tensor.to(torch.float32).T, b1_tensor.to(torch.float32).T)
-    c1 = create_mm_kernel_with_mn_split(tile_config)(a1_tensor_nz.npu(), b1_tensor_nz.npu())
+    c1 = create_mm_kernel_with_mn_split(shape_info)(a1_tensor_nz.npu(), b1_tensor_nz.npu())
     assert torch.allclose(c1.cpu().to(torch.float32), golden, atol=1e-3, rtol=1e-3)
 
 
@@ -253,10 +253,10 @@ def test_bmm_with_mn_split():
     tile_m = 64
     tile_k = 64
     tile_n = 64
-    tile_config = ShapeConfig([b, m, k, n], [tile_m, tile_m], [tile_k, tile_k], [tile_n, tile_n], [-1, -1], FP16, FP32,
+    shape_info = ShapeConfig([b, m, k, n], [tile_m, tile_m], [tile_k, tile_k], [tile_n, tile_n], [-1, -1], FP16, FP32,
                                 True, False, False, False, False, False, False)
     a1_tensor = torch.rand([b, k, m], dtype=torch.float16)
     b1_tensor = torch.rand([b, k, n], dtype=torch.float16)
     golden = torch.matmul(a1_tensor.to(torch.float32).transpose(-2, -1), b1_tensor.to(torch.float32))
-    c1 = create_bmm_kernel_with_no_mn_split(tile_config)(a1_tensor.npu(), b1_tensor.npu())
+    c1 = create_bmm_kernel_with_no_mn_split(shape_info)(a1_tensor.npu(), b1_tensor.npu())
     assert torch.allclose(c1.cpu().to(torch.float32), golden, atol=1e-3, rtol=1e-3)
