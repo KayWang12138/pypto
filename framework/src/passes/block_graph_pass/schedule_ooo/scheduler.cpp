@@ -21,12 +21,6 @@
 
 namespace npu::tile_fwk {
 
-constexpr int64_t MAX_L0A_SIZE = 64 * 1024;
-constexpr int64_t MAX_L0C_SIZE = 128 * 1024;
-constexpr int64_t MAX_L0MX_SIZE = 2 * 1024;
-constexpr int64_t MAX_BT_SIZE = 1 * 1024;
-constexpr int64_t MAX_FIX_SIZE = 1 * 1024;
-constexpr int64_t MAX_FIX_QUANT_PRE_SIZE = 1 * 2048;
 constexpr int32_t DIM_FIVE = 5;
 constexpr int32_t LAST_TWO_DIM = 2;
 constexpr int32_t UB_BLOCK_SIZE = 32;
@@ -1163,7 +1157,7 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std:
     depthCache_.clear();
     LOG_SCOPE_BEGIN(tInit, Elements::Function, "Init");
     // 初始化芯片各buffer大小
-    InitMemorySize();
+    localMemorySize = CommonUtils::GetLocalMemorySize();
     if (fixCoreConfig.empty()) {
         InitCoreConfig(operations);
     } else {
@@ -1196,26 +1190,6 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std:
     InitIssueQueuesAndBufferManager();
     LOG_SCOPE_END(tInit);
     return SUCCESS;
-}
-
-void OoOScheduler::InitMemorySize() {
-    localMemorySize = {
-        {MemoryType::MEM_L0AMX, MAX_L0MX_SIZE},
-        {MemoryType::MEM_L0BMX, MAX_L0MX_SIZE},
-        {MemoryType::MEM_L0A, MAX_L0A_SIZE},
-        {MemoryType::MEM_L0C, MAX_L0C_SIZE},
-        {MemoryType::MEM_BT, MAX_BT_SIZE},
-        {MemoryType::MEM_FIX, MAX_FIX_SIZE},
-        {MemoryType::MEM_FIX_QUANT_PRE, MAX_FIX_QUANT_PRE_SIZE},
-    };
-    localMemorySize.insert({MemoryType::MEM_UB,
-        Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB)});
-    localMemorySize.insert({MemoryType::MEM_L1,
-        Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L1)});
-    localMemorySize.insert({MemoryType::MEM_L0B,
-        Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L0B)});
-    localMemorySize.insert({MemoryType::MEM_FIX_QUANT_PRE,
-        Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_FIX_QUANT_PRE)});
 }
 
 Status OoOScheduler::Schedule(const std::vector<Operation *> &operations, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap,
