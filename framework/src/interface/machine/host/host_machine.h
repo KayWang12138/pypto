@@ -28,6 +28,7 @@
 #include "interface/machine/host/machine_task.h"
 #include "interface/configs/config_manager.h"
 #include "interface/cache/function_cache.h"
+#include "interface/machine/device/tilefwk/aicpu_common.h"
 
 namespace npu::tile_fwk {
 #if defined(MACHINE_DEBUG) && MACHINE_DEBUG == 1
@@ -88,6 +89,7 @@ public:
 
     void StashTask(Function* function);
     void SubAllStashedTask();
+    void SetDevPerfDevPtr(DeviceArgs &devArgs, std::vector<void*> &perfData);
 
     void ClearStashFuncQueue();
 public: // api mode
@@ -103,6 +105,7 @@ private:
     /* 线程处理函数 */
     void CompileThreadFunc();
     void AgentThreadFunc();
+    void DumpThreadFunc();
 
     void PushAgentQueue(std::unique_ptr<MachineTask> task);
     void PushFinishQueue(std::unique_ptr<MachineTask> task);
@@ -120,18 +123,23 @@ private:
     /* 线程管理 */
     int compileThreadCount_{1};
     int agentThreadCount_{1};
+    int dumpThreadCount_{1};
     std::mutex compileQueueMutex_;
     std::mutex agentQueueMutex_;
     std::mutex stashQueueMutex_;
+    std::mutex dumpDataMutex_;
     std::condition_variable compileQueueCv_;
     std::condition_variable agentQueueCv_;
     std::vector<std::thread> compileThreads_;
     std::vector<std::thread> agentThreads_;
+    std::vector<std::thread> dumpThreads_;
     SafeQueue<std::unique_ptr<MachineTask>> compileQueue_; // 待编译任务
     SafeQueue<std::unique_ptr<MachineTask>> agentQueue_; // 待device agent处理任务
     SafeQueue<std::unique_ptr<MachineTask>> finishQueue_; // device machine 处理结束任务
     SafeQueue<std::tuple<Function *, std::shared_ptr<ConfigScope>, InternalGlobalConfig,
                          nlohmann::json>> stashedFuncQueue_; // stash func
+    DeviceArgs args_;
+    std::vector<void*> perfData_;
 };
 
 } // namespace npu::tile_fwk
