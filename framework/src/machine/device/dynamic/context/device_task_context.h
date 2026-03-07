@@ -54,12 +54,9 @@ private:
     int InitReadyQueues(DynDeviceTask *dyntask, DevAscendProgram *devProg,
         ReadyCoreFunctionQueue* queue[READY_QUEUE_SIZE]);
     int ProcessZeroPredTask(DynDeviceTask *dyntask, uint32_t *wrapTasklistAddr, WrapInfoQueue *wrapQueue, bool isNeedWrap);
-    void InitDieReadyQueues(DynDeviceTask *dyntask, DevAscendProgram *devProg,
-        ReadyCoreFunctionQueue* dieAivQueue[DIE_NUM], ReadyCoreFunctionQueue* dieAicQueue[DIE_NUM]);
+    void InitDieReadyQueues(DynDeviceTask *dyntask, DevAscendProgram *devProg);
     void UpdateDeviceTaskQueueInfo(DynDeviceTask *dyntask, ReadyCoreFunctionQueue *aicpuQueue, ReadyCoreFunctionQueue *aivQueue,
         ReadyCoreFunctionQueue *aicQueue, WrapInfoQueue *wrapQueue, uint32_t *wrapTasklistAddr);
-    void UpdateDeviceDieTaskQueueInfo(DynDeviceTask *dyntask, ReadyCoreFunctionQueue *dieAivQueue[DIE_NUM],
-        ReadyCoreFunctionQueue *dieAicQueue[DIE_NUM]);
     int BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId,
         DevAscendFunctionDupped *stitchedList, uint64_t stitchedSize);
 
@@ -90,6 +87,13 @@ private:
                 ProcessWrapQueue(dyntask, MakeMixWrapID(funcIdx, static_cast<uint32_t>(opWrapList[succIdx])), funcIdx, succIdx,
                     reinterpret_cast<WrapInfoQueue *>(dyntask->devTask.mixTaskData.readyWrapCoreFunctionQue),
                     reinterpret_cast<uint32_t *>(dyntask->devTask.mixTaskData.wrapTasklist));
+            } else if (IsMixArch(devProg_) && (GetLoopDieId(dyntask, funcIdx) >= 0)) {
+                auto dieId = GetLoopDieId(dyntask, funcIdx);
+                auto q = reinterpret_cast<ReadyCoreFunctionQueue *>(dyntask->devTask.dieReadyFunctionQue.readyDieAicCoreFunctionQue[dieId]);
+                if (coreType == static_cast<int>(CoreType::AIV)) {
+                    q = reinterpret_cast<ReadyCoreFunctionQueue *>(dyntask->devTask.dieReadyFunctionQue.readyDieAivCoreFunctionQue[dieId]);
+                }
+                 q->elem[q->tail++] = MakeTaskID(funcIdx, succIdx);
             } else {
                 auto q = dyntask->readyQueue[dyntask->GetReadyQueueIndexByCoreType(static_cast<CoreType>(coreType))];
                 q->elem[q->tail++] = MakeTaskID(funcIdx, succIdx);
@@ -108,5 +112,14 @@ public:
     static void DumpDepend(DynDeviceTask *dyntask, DevAscendProgram *devProg, DevStartArgs *startArgs, const char *prefix);
 
     int BuildDeviceTaskDataAndReadyQueue(DynDeviceTask *dyntask, uint32_t taskId, DevAscendProgram *devProg);
+
+    inline int8_t GetLoopDieId(DynDeviceTask *dyntask, size_t funcIndex) {
+        auto &funcDup = dyntask->stitchedList[funcIndex];
+        auto loopDieId = funcDup.loopDieId_;
+        if (loopDieId > static_cast<int8_t>(DIE_NUM) || loopDieId < -1) {
+            loopDieId = -1;
+        }
+        return loopDieId;
+    }
 };
 }

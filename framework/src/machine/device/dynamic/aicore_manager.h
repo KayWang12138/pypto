@@ -1417,6 +1417,9 @@ private:
 
     inline bool IsExistAicpuIdleOneDie(CoreType type) {
     #ifdef SUPPORT_DIE_TO_DIE_SCHE
+        if (!enableFairSch_) { // Enable parallel loop，tasks are evenly distributed among dies
+            return true;
+        }
         int schedStart = 0;
         int schedEnd = 0;
         wrapManager_.GetDieSchedIdRange(schedStart, schedEnd, aicpuNum_);
