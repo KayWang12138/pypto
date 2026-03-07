@@ -28,6 +28,7 @@
 #include "interface/machine/host/machine_task.h"
 #include "interface/configs/config_manager.h"
 #include "interface/cache/function_cache.h"
+#include "interface/machine/device/tilefwk/aicpu_common.h"
 
 namespace npu::tile_fwk {
 #if defined(MACHINE_DEBUG) && MACHINE_DEBUG == 1
