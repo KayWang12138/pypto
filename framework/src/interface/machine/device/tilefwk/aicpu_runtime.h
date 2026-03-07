@@ -31,7 +31,8 @@ enum RuntimeCallStage {
     T_RUNTIME_CALL_LOG = 2,
     T_RUNTIME_CALL_SHMEM_ALLOC = 3,
     T_RUNTIME_CALL_SLOT_MARK_NEED_ALLOC = 4,
-    T_RUNTIME_CALL_MAX = 5,
+    T_RUNTIME_CALL_CALC_DIE_ID = 5,
+    T_RUNTIME_CALL_MAX = 6,
 };
 
 using Call1EntryType = uint64_t (*)(uint64_t);
@@ -125,4 +126,5 @@ int64_t RuntimeNe(int64_t input1, int64_t input2) {
         runtimeCallList[RuntimeCallStage::T_RUNTIME_CALL_SLOT_MARK_NEED_ALLOC](ctx, slotIndex); \
     } while (0)
 
+#define RUNTIME_RootCalcDieId(funcKey) runtimeCallList[RuntimeCallStage::T_RUNTIME_CALL_CALC_DIE_ID](ctx, funcKey)
 }  // namespace npu::tile_fwk

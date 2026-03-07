@@ -40,6 +40,7 @@ private:
     uint64_t readyTaskNum {0};
     uint64_t dynFuncDataSize {0};
     uint64_t leafFuncDataSize {0};
+    std::vector<uint64_t> dieIdList_;
 private:
     DevAscendProgram *devProg_{nullptr};
     DeviceWorkspaceAllocator *workspace_{nullptr};
@@ -52,7 +53,8 @@ private:
     int InitReadyQueues(DynDeviceTask *dyntask, DevAscendProgram *devProg,
         ReadyCoreFunctionQueue* queue[READY_QUEUE_SIZE]);
     int ProcessZeroPredTask(DynDeviceTask *dyntask, ReadyCoreFunctionQueue *aicpuQueue, ReadyCoreFunctionQueue *aivQueue,
-        ReadyCoreFunctionQueue *aicQueue, uint32_t *wrapTasklistAddr, WrapInfoQueue *wrapQueue, bool isNeedWrap);
+        ReadyCoreFunctionQueue *aicQueue, uint32_t *wrapTasklistAddr, WrapInfoQueue *wrapQueue, bool isNeedWrap,
+        ReadyCoreFunctionQueue *dieAivQueue[DIE_NUM], ReadyCoreFunctionQueue *dieAicQueue[DIE_NUM]);
     void InitDieReadyQueues(DynDeviceTask *dyntask, DevAscendProgram *devProg,
         ReadyCoreFunctionQueue* dieAivQueue[DIE_NUM], ReadyCoreFunctionQueue* dieAicQueue[DIE_NUM]);
     void UpdateDeviceTaskQueueInfo(DynDeviceTask *dyntask, ReadyCoreFunctionQueue *aicpuQueue, ReadyCoreFunctionQueue *aivQueue,
@@ -83,6 +85,13 @@ private:
                 ProcessWrapQueue(dyntask, MakeMixWrapID(funcIdx, static_cast<uint32_t>(opWrapList[succIdx])), funcIdx, succIdx,
                     reinterpret_cast<WrapInfoQueue *>(dyntask->devTask.mixTaskData.readyWrapCoreFunctionQue),
                     reinterpret_cast<uint32_t *>(dyntask->devTask.mixTaskData.wrapTasklist));
+            } else if (IsMixArch(devProg_)) {
+                auto dieId = dieIdList_[funcIdx];
+                auto q = dyntask->devTask.dieReadyFunctionQue.readyDieAicCoreFunctionQue[dieId];
+                if (coreType == static_cast<int>(CoreType::AIV)) {
+                    q = dyntask->devTask.dieReadyFunctionQue.readyDieAivCoreFunctionQue[dieId];
+                }
+                 q->elem[q->tail++] = MakeTaskID(funcIdx, succIdx);
             } else {
                 auto q = dyntask->readyQueue[dyntask->GetReadyQueueIndexByCoreType(static_cast<CoreType>(coreType))];
                 q->elem[q->tail++] = MakeTaskID(funcIdx, succIdx);
@@ -101,5 +110,9 @@ public:
     static void DumpDepend(DynDeviceTask *dyntask, DevAscendProgram *devProg, DevStartArgs *startArgs, const char *prefix);
 
     int BuildDeviceTaskDataAndReadyQueue(DynDeviceTask *dyntask, uint32_t taskId, DevAscendProgram *devProg);
+
+    inline void ApendDieId(uint32_t dieId) {
+        dieIdList_.push_back(dieId);
+    }
 };
 }
