@@ -889,6 +889,30 @@ void CopyOutInferFunc(Operation* op,
 }
 REGISTER_INFER_SHAPE_FUNC(OP_COPY_OUT, Opcode::OP_COPY_OUT, CopyOutInferFunc);
 
+void PermuteInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
+   std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    std::vector<std::vector<SymbolicScalar>> inputValidShapes;
+    for (auto inputTensor : op->GetIOperands()) {
+        inputValidShapes.push_back(inputTensor->GetDynValidShape());
+    }
+    if (inputValidShapes.empty()) {
+        return;
+    }
+    auto axises = op->GetVectorIntAttribute<int>(OP_ATTR_PREFIX + "perm");
+    for (size_t i = 0; i < axises.size(); ++i) {
+        axises[i] = axises[i] < 0 ? axises[i] + axises.size() : axises[i];
+    }
+    for (auto output : op->GetOOperands()) {
+        std::vector<SymbolicScalar> outputShape;
+        outputShape.insert(outputShape.end(), inputValidShapes[0].begin(), inputValidShapes[0].end());
+        for (size_t i = 0; i < axises.size(); ++i) {
+            outputShape.push_back(inputShape[axises[i]]);
+        }
+        outValidShapes.push_back(outputShape);
+    }
+}
+REGISTER_INFER_SHAPE_FUNC(OP_PERMUTE, Opcode::OP_PERMUTE, PermuteInferFunc);
+
 // MTE infer shape func
 void TransposeInferFunc(Operation* op,
     std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
