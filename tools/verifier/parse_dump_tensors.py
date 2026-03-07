@@ -168,6 +168,40 @@ class VerifyRes:
         tensor_info["verify_dup_tensor"] = verify_dup_tensor
         tensor_info["valid_shape"], tensor_info["loop_info"] = valid_shape, loop_info
 
+    def process_single_task(self, tensor_infos, op_info_list_callop):
+        tensor_infos_new = copy.deepcopy(tensor_infos)
+        op_info_list = op_info_list_callop.copy(deep=True)
+        all_match = False
+        while not all_match:
+            self.get_verify_res_single(tensor_infos_new[0], op_info_list.to_dict(orient='records'))
+            if not tensor_infos_new[0].get("loop_info"):
+                break
+            op_info_list_with_loop = op_info_list[op_info_list["loopInfo"] == tensor_infos_new[0].get("loop_info")]
+            all_match = True
+            for i, tensor_info in enumerate(tensor_infos_new):
+                if i == 0:
+                    continue
+                tensor_info["verify_dup_tensor"] = ""   # 先清理上一次的结果
+                self.get_verify_res_single(tensor_info, op_info_list_with_loop.to_dict(orient='records'))
+                if not tensor_info["verify_dup_tensor"]:
+                    all_match = False
+                    break
+            if all_match:
+                op_info_list_callop = op_info_list_callop[op_info_list_callop["loopInfo"] != tensor_infos_new[0].get("loop_info")]
+                break
+            op_info_list = op_info_list[op_info_list["loopInfo"] != tensor_infos_new[0].get("loop_info")]
+        if not all_match:
+            for _, tensor_info in enumerate(tensor_infos):
+                tensor_info["verify_tensor_file"] = "" 
+                tensor_info["cmp_res"] = "NO_CMP"
+            # res_tensor_infos.extend(tensor_infos)
+            # continue
+            return
+
+        self._compare_codegen_tensors(tensor_infos, tensor_infos_new)
+        # res_tensor_infos.extend(tensor_infos)
+
+
     def get_verify_codegen_res(self, callop_tensor_infos):
         res_tensor_infos = []
         if self.verify_codegen_op_info_list is None:
@@ -180,37 +214,7 @@ class VerifyRes:
         op_info_list_callop = self.verify_codegen_op_info_list.copy(deep=True)
         op_info_list_callop = op_info_list_callop[op_info_list_callop["callopMagic"] == callop_magic]
         for tensor_infos in callop_tensor_infos:
-            # callop_magic = tensor_infos[0].get("callopMagic")   # callop
-            tensor_infos_new = copy.deepcopy(tensor_infos)
-            op_info_list = op_info_list_callop.copy(deep=True)
-            # op_info_list = op_info_list[op_info_list["callopMagic"] == callop_magic]
-            all_match = False
-            while not all_match:
-                self.get_verify_res_single(tensor_infos_new[0], op_info_list.to_dict(orient='records'))
-                if not tensor_infos_new[0].get("loop_info"):
-                    break
-                op_info_list_with_loop = op_info_list[op_info_list["loopInfo"] == tensor_infos_new[0].get("loop_info")]
-                all_match = True
-                for i, tensor_info in enumerate(tensor_infos_new):
-                    if i == 0:
-                        continue
-                    tensor_info["verify_dup_tensor"] = ""   # 先清理上一次的结果
-                    self.get_verify_res_single(tensor_info, op_info_list_with_loop.to_dict(orient='records'))
-                    if not tensor_info["verify_dup_tensor"]:
-                        all_match = False
-                        break
-                if all_match:
-                    op_info_list_callop = op_info_list_callop[op_info_list_callop["loopInfo"] != tensor_infos_new[0].get("loop_info")]
-                    break
-                op_info_list = op_info_list[op_info_list["loopInfo"] != tensor_infos_new[0].get("loop_info")]
-            if not all_match:
-                for _, tensor_info in enumerate(tensor_infos):
-                    tensor_info["verify_tensor_file"] = "" 
-                    tensor_info["cmp_res"] = "NO_CMP"
-                res_tensor_infos.extend(tensor_infos)
-                continue
-
-            self._compare_codegen_tensors(tensor_infos, tensor_infos_new)
+            self.process_single_task(tensor_infos, op_info_list_callop)
             res_tensor_infos.extend(tensor_infos)
         return res_tensor_infos
 
