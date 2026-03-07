@@ -32,6 +32,7 @@ using ExecuteFunc = int (*)(npu::tile_fwk::MachineTask *, npu::tile_fwk::Functio
 using PlatformFunc = std::string (*)();
 using MatchCacheFunc = bool (*)(const std::string &);
 using InitFunc = int (*)();
+using DumpDevProfData = void (*)(DeviceArgs &, std::vector<void*> &, bool);
 
 struct Backend {
     RunPassFunc runPass;
@@ -40,6 +41,7 @@ struct Backend {
     ExecuteFunc simuExecute;
     PlatformFunc platform;
     MatchCacheFunc matchCache;
+    DumpDevProfData dumpDevProfData;
 
     static Backend &GetBackend() {
         static Backend backend;
@@ -60,12 +62,14 @@ private:
         progHandle = dlopen(nullptr, RTLD_LAZY | RTLD_NOLOAD);
         compilerHandle = dlopen("libtile_fwk_compiler.so", RTLD_LAZY | RTLD_NOLOAD);
         simuHandle = dlopen("libtile_fwk_simulator.so", RTLD_LAZY | RTLD_NOLOAD);
+        runtimeHandle = dlopen("libtile_fwk_runtime.so", RTLD_LAZY | RTLD_NOLOAD);
 
         runPass = (RunPassFunc)GetSymbol(progHandle, "RunPass");
         getResumePath = (GetResumePathFunc)GetSymbol(progHandle, "GetResumePath");
         execute = (ExecuteFunc)GetSymbol(compilerHandle, "Execute");
         matchCache = (MatchCacheFunc)GetSymbol(compilerHandle, "MatchCache");
         simuExecute = (ExecuteFunc)GetSymbol(simuHandle, "ExecuteSimulation");
+        dumpDevProfData = (DumpDevProfData)GetSymbol(runtimeHandle, "DumpDevTaskPerfData");
 
         auto initFunc = (InitFunc)GetSymbol(compilerHandle, "Initialize");
         if (initFunc) {
@@ -87,6 +91,7 @@ private:
     void *progHandle;
     void *compilerHandle;
     void *simuHandle;
+    void *runtimeHandle;
 };
 }
 
@@ -120,6 +125,11 @@ bool HostMachine::Init(const HostMachineMode mode) {
     return true;
 }
 
+void HostMachine::SetDevPerfDevPtr(DeviceArgs &devArgs, std::vector<void*> &perfData) {
+    args_ = devArgs;
+    perfData_ = perfData;
+}
+
 void HostMachine::Destroy() {
     if (mode_ == HostMachineMode::SERVER) {
         WaitTaskFinish();
@@ -144,6 +154,9 @@ void HostMachine::InitThread() {
     for (int idx = 0; idx < agentThreadCount_; ++idx) {
         agentThreads_.emplace_back(&HostMachine::AgentThreadFunc, this);
     }
+    for (int idx = 0; idx < dumpThreadCount_; ++idx) {
+        dumpThreads_.emplace_back(&HostMachine::DumpThreadFunc, this);
+    }
 }
 
 void HostMachine::DestroyThread() {
@@ -166,8 +179,15 @@ void HostMachine::DestroyThread() {
         }
     }
 
+    for (auto &thread : dumpThreads_) {
+        if (thread.joinable()) {
+            thread.join();
+        }
+    }
+
     compileThreads_.clear();
     agentThreads_.clear();
+    dumpThreads_.clear();
 }
 
 void HostMachine::CompileFunction(Function* func) const {
@@ -367,6 +387,23 @@ void HostMachine::AgentThreadFunc() {
             task->SetError(std::move(e.what()));
         }
         PushFinishQueue(std::move(task));
+    }
+}
+
+void HostMachine::DumpThreadFunc() {
+    int count = 0;
+    auto &backend = Backend::GetBackend();
+    while (!stopFlag_.load()) {
+        usleep(10000); // sleep 10ms
+        if (backend.dumpDevProfData && perfData_.size() > 0) {
+            MACHINE_LOGI("Dump thread iteration %d", count);
+            backend.dumpDevProfData(args_, perfData_, false);
+        }
+        count++;
+    }
+    if (backend.dumpDevProfData) {
+        MACHINE_LOGI("Dump thread final dump");
+        backend.dumpDevProfData(args_, perfData_, true);
     }
 }
 } // namespace npu::tile_fwk
