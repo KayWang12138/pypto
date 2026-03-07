@@ -1784,6 +1784,39 @@ def ceil_div(
 
 
 @op_wrapper
+def floor_div(
+    input: Tensor,
+    other: Union[Tensor, int],
+) -> Tensor:
+    """
+    Calculate the flooring division of two tensors.
+    Parameters
+    ---------
+    input: Tensor
+        The dividend tensor.
+    other: Tensor or int
+        The divisor tensor or scalar.
+    out: Tensor
+        The tensor after calculating the flooring division of the corresponding elements of self and other.
+    Examples
+    ---------
+    x = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
+    y = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
+    out = pypto.floor_div(x, y)
+    Input  x : [[1 6 6],
+                [4 6 6]]
+           y : [[1 1 2],
+                [3 4 5]]
+    Output out:[[1 6 3],
+                [1 1 1]]
+    """
+    if isinstance(other, pypto_impl.Tensor):
+        return pypto_impl.FloorDiv(self, other)
+    else:
+        return pypto_impl.FloorDiv(self, pypto_impl.Element(self.dtype, other))
+
+
+@op_wrapper
 def prelu(self: Tensor, weight: Tensor) -> Tensor:
     """
     Applies the element-wise parametric rectified linear unit (PReLU) function.
