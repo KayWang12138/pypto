@@ -37,16 +37,22 @@ pull_number: 1276
 2. 获取 PR 元数据和全部评论
 3. 过滤机器人评论，分离人工评论与 CI 报告
 4. 对人工评论：通用理解 → 定位文件 → 生成修复方案
-5. 对 codecheck 失败：提取报告 URL → 获取违规详情 → 匹配规则修复
+5. 对 codecheck 失败：
+   ├── 5a. 提取报告 URL
+   ├── 5b. 获取违规详情（强制 scripts/fetch_codecheck_violations.py）
+   └── 5c. 匹配规则修复（强制 scripts/query_codecheck_rule.py）
 6. 用户确认修复方案
-7. 应用修复 + 验证
+7. 应用修复
+8. 本地预检（必须）— 使用 scripts/local_codecheck.py 扫描
+   └── 发现问题 → 返回步骤 7 继续修复
+   └── 无问题 → 继续
 
 > **⚠️ 开始前**：
 > 1. 切换到 PR 对应的本地分支：`git checkout <branch_name>`
 > 2. 确认已配置 upstream remote：`git remote -v | grep upstream || git remote add upstream https://gitcode.com/cann/pypto.git`
 
-8. 同步 upstream（检查 + rebase）
-9. 委托 pypto-pr-creator 完成 push + 创建 PR
+9. 同步 upstream（检查 + rebase）
+10. 委托 pypto-pr-creator 完成 commit + push
 
 ## 评论获取与分类
 
@@ -136,35 +142,56 @@ cann-robot 评论中包含 codecheck 失败的 HTML 表格：
 
 ### 处理流程
 
-0. **本地预检（可选但推荐）** — 在提交前先做本地规则筛查，提前拦截高频问题：
-   ```bash
-   python scripts/local_codecheck.py <repo_path> --output json
-   ```
-   可配合 `--rules G.CLS.06,G.LOG.02,G.ERR.04` 聚焦高频规则，`--fix` 自动修复部分问题。
+#### 步骤 1：提取报告 URL
 
-1. **提取报告 URL** — 从 cann-robot 评论 HTML 中解析 `href`
-2. **获取违规详情** — 使用 Playwright Python 提取违规列表：
-   ```bash
-   # 方法一：使用内置脚本（推荐）
-   python scripts/fetch_codecheck_violations.py "$CODECHECK_URL" --output json
-   ```
-   
-   **注意**：openlibing.com 是 SPA，受 WAF 保护，Playwright MCP 不支持 ARM64，必须使用 Playwright Python。详见 [references/codecheck-rules.md](references/codecheck-rules.md)。
-3. **匹配规则** — 一次 codecheck 通常会暴露多条规则；批量查询官方定义：
+从 cann-robot 评论 HTML 中解析 `href`。
 
-   ```bash
-   # violations.json 为上一步输出
-   python scripts/query_codecheck_rule.py \
-     --rules violations.json \
-     --language python \
-     --format markdown
-   ```
-   自动修复/人工确认策略仍参考 [references/codecheck-rules.md](references/codecheck-rules.md)。
+#### 步骤 2：获取违规详情（强制脚本）
 
-4. **分类处理**：
-   - 可自动修复（格式类 G.FMT、命名类 G.NAM、日志类 G.LOG 等）→ 直接修复
-   - 需人工判断（安全类 G.EDV、业务逻辑类 G.CTL 等）→ 生成修复建议
-5. **应用修复并验证**
+**必须使用** `scripts/fetch_codecheck_violations.py`：
+
+```bash
+python scripts/fetch_codecheck_violations.py "$CODECHECK_URL" --output json
+```
+
+**降级条件**（仅以下情况可使用其他方式）：
+1. 脚本文件不存在
+2. 脚本执行报错且无法修复
+3. 用户明确指定使用其他方式
+
+降级时需记录原因并告知用户。
+
+> **注意**：openlibing.com 是 SPA，受 WAF 保护，Playwright MCP 不支持 ARM64，脚本内部使用 Playwright Python 实现。
+
+#### 步骤 3：查询规则修复方案（强制脚本）
+
+**必须使用** `scripts/query_codecheck_rule.py`：
+
+```bash
+python scripts/query_codecheck_rule.py \
+  --rules violations.json \
+  --language python \
+  --format markdown
+```
+
+**降级条件**（仅以下情况可使用其他方式）：
+1. 脚本文件不存在
+2. 脚本执行报错且无法修复
+3. 规则 ID 在脚本数据库中不存在
+4. 用户明确指定使用其他方式
+
+降级方案：查阅 `references/codecheck-rules.md` 或官方文档。
+
+#### 步骤 4：分类处理
+
+- 可自动修复（格式类 G.FMT、命名类 G.NAM、日志类 G.LOG 等）→ 直接修复
+- 需人工判断（安全类 G.EDV、业务逻辑类 G.CTL 等）→ 生成修复建议
+
+#### 步骤 5：应用修复
+
+根据分类结果应用修复。
+
+> **本地预检** 在核心流程的 **步骤 8** 执行（commit 前），此处不做。
 
 ### 提取脚本
 
@@ -184,6 +211,23 @@ cann-robot 评论中包含 codecheck 失败的 HTML 表格：
   ]
 }
 ```
+
+## 本地预检（必须）
+
+**执行时机**：修复完成后、commit 之前（核心流程步骤 8）
+
+```bash
+python scripts/local_codecheck.py <repo_path> --output json
+```
+
+**处理逻辑**：
+- 发现问题 → 返回修复阶段继续处理
+- 无问题 → 继续执行 commit
+
+**不可跳过**：此步骤为提交前的最后保障，确保本地代码符合 CodeCheck 规则。
+
+---
+
 
 ### 环境依赖
 
