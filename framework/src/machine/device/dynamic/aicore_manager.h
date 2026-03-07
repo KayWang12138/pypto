@@ -1428,7 +1428,7 @@ private:
     #else
         (void)type;
     #endif
-        return false;
+        return true;
     }
 
     inline void AicpuIsBusy(CoreType type) {
