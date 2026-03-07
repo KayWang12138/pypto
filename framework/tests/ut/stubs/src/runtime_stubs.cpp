@@ -22,6 +22,22 @@
 #define TIME 12345
 
 extern "C" {
+enum class processType_t {
+    PROCESS_CP1 = 1,
+};
+
+enum class res_map_type {
+    RES_AICORE = 0,
+};
+
+struct res_map_info {
+    processType_t target_proc_type;
+    res_map_type res_type;
+    unsigned int res_id;
+    unsigned int flag;
+    unsigned int rsv[1];
+};
+
 rtError_t rtCtxSetCurrent(rtContext_t ctx)
 {
     (void)ctx;
@@ -371,6 +387,14 @@ rtError_t rtCpuKernelLaunchWithFlag(const void *soName, const void *kernelName, 
     (void)smDesc;
     (void)stream;
     (void)flags;
+    return RT_ERROR_NONE;
+}
+
+halResMap halResMap(unsigned int devId, struct res_map_info *res_info, unsigned long *va, unsigned int *len) {
+    (void)devId;
+    (void)res_info;
+    (void)va;
+    (void)len;
     return RT_ERROR_NONE;
 }
 }

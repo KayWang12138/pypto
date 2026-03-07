@@ -115,6 +115,10 @@ int RuntimeAgentMemory::GetAicoreRegInfoForDAV3510(std::vector<int64_t> &regs, s
 
     auto halFunc = (int (*)(unsigned int devId, struct res_map_info *res_info, unsigned long *va,
         unsigned int *len))dlsym(nullptr, "halResMap");
+    if (halFunc == nullptr) {
+        MACHINE_LOGE("Hal function not found.");
+        return -1;
+    }
     unsigned int devId = GetLogDeviceId();
 
     struct res_map_info mapInfo;
