@@ -35,6 +35,11 @@ const std::string l0bSize = "l0_b_size";
 const std::string l0cSize = "l0_c_size";
 const std::string l1Size = "l1_size";
 const std::string ubSize = "ub_size";
+const std::string btSize = "bt_size";
+const std::string fixQuantPreSize = "fb0_size";
+constexpr size_t MAX_FIX_SIZE = 1 * 1024;
+constexpr size_t MAX_L0MX_SIZE = 2 * 1024;
+
 const std::unordered_map<std::string, NPUArch> npuArchMap = {
     {"1001", NPUArch::DAV_1001},
     {"2201", NPUArch::DAV_2201},
@@ -318,6 +323,16 @@ void Platform::LoadFromIni(const std::string &filePath) {
     if (parser.GetSizeVal(aiCoreSpec, ubSize, memoryLimit) == SUCCESS) {
         GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_UB, memoryLimit));
     }
+    if (parser.GetSizeVal(aiCoreSpec, btSize, memoryLimit) == SUCCESS) {
+        GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_BT, memoryLimit));
+    }
+    if (parser.GetSizeVal(aiCoreSpec, fixQuantPreSize, memoryLimit) == SUCCESS) {
+        GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_FIX_QUANT_PRE, memoryLimit));
+    }
+    // 插桩
+    GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_FIX, MAX_FIX_SIZE));
+    GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0AMX, MAX_L0MX_SIZE));
+    GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0BMX, MAX_L0MX_SIZE));
     std::vector<std::vector<std::string>> dataPath;
     if (parser.GetDataPath(dataPath) == SUCCESS) {
         GetDie().SetMemoryPath(dataPath);
