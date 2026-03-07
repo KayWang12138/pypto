@@ -192,6 +192,8 @@ int DeviceExecuteContext::RunControlFlow(DevStartArgs *startArgs) {
         DeviceExecuteRuntimeCallLog,
         DeviceExecuteRuntimeCallShmemAllocator,
         DeviceExecuteRuntimeCallSlotMarkNeedAlloc,
+        DeviceExecuteRuntimeCallGetLoopDieId,
+        DeviceExecuteRuntimeCallSetLoopDieId,
     };
     int originalErrorState = this->GetErrorState();
     execProg.controlFlowBinary.CallControlFlow(this, symbolTable.data(), runtimeCallList, startArgs);
@@ -475,6 +477,10 @@ void DeviceExecuteContext::MarkSlotNeedAlloc(int slotIndex) {
     return;
 }
 
+void DeviceExecuteContext::SetLoopDieId(int8_t dieId) {
+    currDevRootDup.DupDataForDynFuncData()->loopDieId_ = dieId;
+}
+
 void *DeviceExecuteContext::DeviceExecuteRuntimeCallRootAlloc(void *ctx_, uint64_t rootKey) {
     DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;
     if (ctx == nullptr) {
@@ -577,6 +583,20 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, u
 void *DeviceExecuteContext::DeviceExecuteRuntimeCallSlotMarkNeedAlloc(void *ctx_, uint64_t slotIndex) {
     DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;
     ctx->MarkSlotNeedAlloc(slotIndex);
+    return nullptr;
+}
+
+void *DeviceExecuteContext::DeviceExecuteRuntimeCallGetLoopDieId(void *ctx_,  uint64_t rootKey) {
+    (void)rootKey;
+    DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;
+    return static_cast<void*>(&ctx->loopDieId_);
+}
+
+void *DeviceExecuteContext::DeviceExecuteRuntimeCallSetLoopDieId(void *ctx_,  uint64_t rootKey) {
+    (void)rootKey;
+    DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;
+    ctx->SetLoopDieId(ctx->loopDieId_);
+    DEV_VERBOSE_DEBUG("Set loop die id:%d:", ctx->loopDieId_);
     return nullptr;
 }
 }
