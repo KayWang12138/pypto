@@ -114,6 +114,8 @@ struct DeviceExecuteContext {
 
     void MarkSlotNeedAlloc(int slotIndex);
 
+    void CalcDieId(uint64_t rootKey);
+
     int GetErrorState() const {
         return errorState_;
     }
@@ -131,6 +133,8 @@ private:
     static void *DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, uint64_t value);
 
     static void *DeviceExecuteRuntimeCallSlotMarkNeedAlloc(void *ctx_, uint64_t slotIndex);
+
+    static void *DeviceExecuteRuntimeCallCalcDieId(void *ctx_, uint64_t dieId);
 
     int errorState_{DEVICE_MACHINE_OK};
 };
