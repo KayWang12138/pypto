@@ -51,7 +51,8 @@ int32_t ShmemWaitUntil::PollCompleted(npu::tile_fwk::dynamic::AiCoreManager *aic
 {
     return runingTaskQueue_.PollCompleted([&](SignalTileOp* task) {
         if (aicoreManager == nullptr) {
-            DEV_ERROR("AicoreManager is nullptr");
+            DEV_ERROR(SchedErrorScene::UNKNOWN, "sche.task.pre.task.poll",
+                      "# AicoreManager is nullptr.");
             return dynamic::DEVICE_MACHINE_ERROR;
         }
         return aicoreManager->ProcessCompletedAicpuTask(task->taskId_);

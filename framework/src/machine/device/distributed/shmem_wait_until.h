@@ -58,7 +58,9 @@ public:
 
     SignalTileOp* CreateTaskData(uint32_t taskId, int32_t *addr, int32_t expectSum, bool resetSignal) {
         if (taskCount >= AICPU_TASK_ARRAY_SIZE) {
-            DEV_ERROR("taskCount : %u >= AICPU_TASK_ARRAY_SIZE : %lu", taskCount, AICPU_TASK_ARRAY_SIZE);
+            DEV_ERROR(SchedErrorScene::SIGNAL_QUEUE_OVERFLOW, "ctrl.task.pre.task.create",
+                      "taskCount=%u maxSize=%lu # Task array is full",
+                      taskCount, AICPU_TASK_ARRAY_SIZE);
             return nullptr;
         }
         SignalTileOp* newTask = &taskArray[taskCount];
@@ -70,7 +72,8 @@ public:
     int32_t InsertTask(uint32_t taskId, int32_t *addr, int32_t expectSum, bool resetSignal) {
         SignalTileOp* newTask = CreateTaskData(taskId, addr, expectSum, resetSignal);
         if (newTask == nullptr) {
-            DEV_ERROR("newTask is nullptr");
+            DEV_ERROR(SchedErrorScene::SIGNAL_QUEUE_OVERFLOW, "ctrl.task.pre.task.insert",
+                      "taskId=%u # New task creation returned null", taskId);
             return dynamic::DEVICE_MACHINE_ERROR;
         }
         uint32_t index = Hash(taskId);
@@ -106,7 +109,8 @@ public:
         queue_[rear_] = task;
         rear_ = (rear_ + 1) & AICPU_TASK_ARRAY_SIZE_MOD;
         if (rear_ == front_) {
-            DEV_ERROR("SignalTileOp* queue_ is Full, Need resize queue_, front_ = %u, rear_ = %u", front_, rear_);
+            DEV_ERROR(SchedErrorScene::SIGNAL_QUEUE_OVERFLOW, "ctrl.task.pre.task.enqueue",
+                      "front=%u rear=%u # SignalTileOp queue is full, resize required", front_, rear_);
             return dynamic::DEVICE_MACHINE_ERROR;
         }
         return dynamic::DEVICE_MACHINE_OK;
@@ -118,7 +122,8 @@ public:
 
     inline int32_t Dequeue() {
         if (IsEmpty()) {
-            DEV_ERROR("Queue is empty.");
+            DEV_ERROR(SchedErrorScene::QUEUE_DEQUEUE_WHEN_EMPTY, "sche.task.end.task.dequeue",
+                      "# Queue is empty.");
             return dynamic::DEVICE_MACHINE_ERROR;
         }
         front_ = (front_ + 1) & AICPU_TASK_ARRAY_SIZE_MOD;
@@ -180,7 +185,8 @@ public:
     inline int32_t EnqueueOp(uint64_t taskId, TaskStat* taskStat) {
         SignalTileOp* task = hashMap_.FindTask(taskId);
         if (task == nullptr) {
-            DEV_ERROR("There is no this taskId: %lu", taskId);
+            DEV_ERROR(SchedErrorScene::SIGNAL_QUEUE_OVERFLOW, "ctrl.task.pre.task.enqueue",
+                      "taskId=%lu # taskId not found in hashMap", taskId);
             return dynamic::DEVICE_MACHINE_ERROR;
         }
         if (taskStat != nullptr) {

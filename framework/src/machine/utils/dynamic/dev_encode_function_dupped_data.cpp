@@ -18,7 +18,9 @@
 namespace npu::tile_fwk::dynamic {
 std::string DevAscendFunctionDuppedData::Dump(int indent) const {
     if (GetSource()->GetOperationSize() != GetOperationSize()) {
-        DEV_ERROR("GetOperationSize mismatch: source=%zu, self=%u", GetSource()->GetOperationSize(), GetOperationSize());
+        DEV_ERROR(ProgramEncodeErrorScene::FUNC_OP_SIZE_MISMATCH, "ctrl.task.pre.func.dump",
+                  "source=%zu self=%u # Operation size mismatch",
+                  GetSource()->GetOperationSize(), GetOperationSize());
     }
     DEV_ASSERT(GetSource()->GetOperationSize() == GetOperationSize());
     std::string INDENT(indent, ' ');

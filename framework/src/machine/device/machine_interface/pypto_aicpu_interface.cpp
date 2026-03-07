@@ -30,13 +30,15 @@ extern "C" {
 __attribute__((visibility("default"))) uint32_t StaticPyptoKernelServer(void *args) {
     DEV_DEBUG("Start to exect static server");
     if (args == nullptr) {
-        DEV_ERROR("Args is invalid");
+        DEV_ERROR(ServerKernelErrorScene::DYN_SERVER_ARGS_NULL, "aicpu.static.server",
+                  "# Args is null.");
         return 1;
     }
     auto devArgs = (DeviceArgs*)args;
     auto data = reinterpret_cast<char *>(devArgs->aicpuSoBin);
     if (!g_handleManager.SaveSoFile(data, devArgs->aicpuSoLen)) {
-        DEV_ERROR("create so failed");
+        DEV_ERROR(ServerKernelErrorScene::DYN_SERVER_SAVE_SO_FAILED, "aicpu.static.server",
+                  "# Cannot save so file.");
         return 1;
     }
     g_handleManager.SetTileFwkKernelMap();
@@ -45,7 +47,9 @@ __attribute__((visibility("default"))) uint32_t StaticPyptoKernelServer(void *ar
     DEV_DEBUG("After Get kernel func [%s], with ret[%d]",
                         staticServerKernelkFun.c_str(), static_cast<int>(ret));
     if (ret != 0) {
-        DEV_ERROR("TileFwk kernelFunc [%s] exec not Success", staticServerKernelkFun.c_str());
+        DEV_ERROR(ServerKernelErrorScene::KERNEL_EXEC_FUNC_FAILED, "aicpu.static.server",
+                  "kernelFunc=%s # KernelFunc execution error",
+                  staticServerKernelkFun.c_str());
         return 1;
     }
     return 0;
@@ -56,18 +60,21 @@ __attribute__((visibility("default"))) uint32_t DynPyptoKernelServerNull(void *a
     InitLogSwitch();
 #endif
     if (args == nullptr) {
-        DEV_ERROR("Server init input args is null");
+        DEV_ERROR(ServerKernelErrorScene::DYN_SERVER_ARGS_NULL, "sche.task.pre.dyn.server",
+                  "# Input args is null.");
         return 1;
     }
     auto kargs = (DeviceKernelArgs *)args;
     if (kargs == nullptr) {
-        DEV_ERROR("Server init DeviceKernelArgs is null");
+        DEV_ERROR(ServerKernelErrorScene::DYN_SERVER_ARGS_NULL, "sche.task.pre.dyn.server",
+                  "# DeviceKernelArgs is null.");
         return 1;
     }
     auto devArgs = reinterpret_cast<DeviceArgs*>(kargs->cfgdata);
     auto data = reinterpret_cast<char *>(devArgs->aicpuSoBin);
     if (!g_handleManager.SaveSoFile(data, devArgs->aicpuSoLen, devArgs->deviceId)) {
-        DEV_ERROR("create so failed");
+        DEV_ERROR(ServerKernelErrorScene::DYN_SERVER_SAVE_SO_FAILED, "sche.task.pre.dyn.server",
+                  "deviceId=%lu # Cannot save so file for device", devArgs->deviceId);
         return 1;
     }
     g_handleManager.SetTileFwkKernelMap();
@@ -77,7 +84,8 @@ __attribute__((visibility("default"))) uint32_t DynPyptoKernelServerNull(void *a
 __attribute__((visibility("default"))) uint32_t DynPyptoKernelServer(void *args) {
     auto ret = g_handleManager.ExecuteFunc(args, dyExecFuncKey);
     if (ret != 0) {
-        DEV_ERROR("TileFwk kernelFunc [%s] exec not Success", dynServerKernelFun.c_str());
+        DEV_ERROR(ServerKernelErrorScene::KERNEL_EXEC_FUNC_FAILED, "sche.task.run.dyn.server",
+                  "kernelFunc=%s # KernelFunc execution error", dynServerKernelFun.c_str());
         return 1;
     }
     return 0;
@@ -86,7 +94,8 @@ __attribute__((visibility("default"))) uint32_t DynPyptoKernelServer(void *args)
 __attribute__((visibility("default"))) uint32_t DynPyptoKernelServerInit(void *args) {
     auto ret = g_handleManager.ExecuteFunc(args, dyInitFuncKey);
     if (ret != 0) {
-        DEV_ERROR("TileFwk kernelFunc [%s] exec not Success", dynServerKernelInitFun.c_str());
+        DEV_ERROR(ServerKernelErrorScene::KERNEL_EXEC_FUNC_FAILED, "sche.task.pre.dyn.server.init",
+                  "kernelFunc=%s # KernelFunc execution error", dynServerKernelInitFun.c_str());
         return 1;
     }
     return 0;

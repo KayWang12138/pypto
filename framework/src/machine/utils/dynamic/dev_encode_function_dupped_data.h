@@ -85,7 +85,9 @@ struct DevAscendFunctionDuppedData {
         int outcastStitchIndex = GetSource()->GetOperationOutcastStitchIndex(operationIndex);
         DEV_IF_NONDEVICE {
             if (!maybeNull && outcastStitchIndex == 0) {
-                DEV_ERROR("GetOperationStitch: operation %d has invalid outcast stitch index 0", operationIndex);
+                DEV_ERROR(ProgramEncodeErrorScene::UNKNOWN, "ctrl.task.pre.stitch.outcast",
+                          "operationIndex=%d # Operation has invalid outcast stitch index 0",
+                          operationIndex);
             }
             DEV_ASSERT(maybeNull || outcastStitchIndex != 0);
         }
@@ -95,7 +97,9 @@ struct DevAscendFunctionDuppedData {
         int outcastStitchIndex = GetSource()->GetOperationOutcastStitchIndex(operationIndex);
         DEV_IF_NONDEVICE {
             if (!maybeNull && outcastStitchIndex == 0) {
-                DEV_ERROR("GetOperationStitch: operation %d has invalid outcast stitch index 0", operationIndex);
+                DEV_ERROR(ProgramEncodeErrorScene::UNKNOWN, "ctrl.task.pre.stitch.outcast",
+                          "operationIndex=%d # Operation has invalid outcast stitch index 0",
+                          operationIndex);
             }
             DEV_ASSERT(maybeNull || outcastStitchIndex != 0);
         }
@@ -339,10 +343,13 @@ struct DevAscendFunctionDupped {
         int dim = info.GetDim();
         auto rawTensor = func->GetRawTensor(rawIndex);
         if (rawIndex >= func->GetRawTensorSize()) {
-            DEV_ERROR("Invalid rawIndex=%lu, exceeds raw tensor size=%lu", rawIndex, func->GetRawTensorSize());
+            DEV_ERROR(TensorMetaErrorScene::RAW_TENSOR_INDEX_OUT_OF_RANGE, "ctrl.task.pre.attr.dump",
+                      "rawIndex=%lu rawTensorSize=%lu # Invalid rawIndex",
+                      rawIndex, func->GetRawTensorSize());
         }
         if (dim != rawTensor->GetDim()) {
-            DEV_ERROR("Dimension mismatch: info.dim=%d, rawTensor->dim=%d", dim, rawTensor->GetDim());
+            DEV_ERROR(TensorMetaErrorScene::SHAPE_VALUE_MISMATCH, "ctrl.task.pre.attr.dump",
+                      "infoDim=%d rawTensorDim=%d # Dimension mismatch", dim, rawTensor->GetDim());
         }
         DEV_ASSERT(rawIndex < func->GetRawTensorSize());
         DEV_ASSERT(dim == rawTensor->GetDim());
@@ -352,13 +359,16 @@ struct DevAscendFunctionDupped {
             auto shape = static_cast<int64_t>(rawTensor->shape.At(d, funcData->exprTbl));
             auto actualShape = GetValue(attrs, shapeIdx);
             if (actualShape != shape) {
-                DEV_ERROR("Shape mismatch at dim %d: expacted=%ld, got=%ld", d, shape, actualShape);
+                DEV_ERROR(TensorMetaErrorScene::SHAPE_VALUE_MISMATCH, "ctrl.task.pre.attr.dump",
+                          "dim=%d expected=%ld actual=%ld # Shape mismatch at dim",
+                          d, shape, actualShape);
             }
             DEV_ASSERT(actualShape == shape);
         }
         if (dim != rawTensor->GetDim()) {
-            DEV_ERROR("Final dimension mismatch after shape validation: info.dim=%d, rawTensor->dim=%d", dim, rawTensor->GetDim());
-        }
+            DEV_ERROR(TensorMetaErrorScene::SHAPE_VALUE_MISMATCH, "ctrl.task.pre.attr.dump",
+                      "infoDim=%d rawTensorDim=%d # Final dimension mismatch",
+                      dim, rawTensor->GetDim());
         DEV_ASSERT(dim == rawTensor->GetDim());
         for (int i = 0; i < dim * ARG_ATTR_TYPE; i++) {
             oss << GetValue(attrs, attrOffset + i) << ", ";
@@ -432,7 +442,9 @@ struct DevAscendFunctionDupped {
             if (i % RAW_TENSOR_DESC_PRE_SIZE == 0)
                 oss << "\n   ";
             if (GetRawTensorAddrEx(i) != GetRawTensorAddr(i)) {
-                DEV_ERROR("Tensor address mismatch at index %lu: addr=%lu, addrEx=%lu.", i, GetRawTensorAddr(i), GetRawTensorAddrEx(i));
+                DEV_ERROR(ProgramEncodeErrorScene::FUNC_OP_SIZE_MISMATCH, "ctrl.task.pre.func.dump",
+                          "index=%lu addr=%lu addrEx=%lu # Tensor address mismatch at index",
+                          i, GetRawTensorAddr(i), GetRawTensorAddrEx(i));
             }
             DEV_ASSERT(GetRawTensorAddrEx(i) == GetRawTensorAddr(i));
             auto desc = funcData->rawTensorDesc[i];
