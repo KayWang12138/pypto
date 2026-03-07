@@ -529,11 +529,9 @@ def check_typ_04_compare(node: ast.Compare) -> bool:
 
     left_empty = is_empty_literal(left)
     right_empty = is_empty_literal(right)
-    if isinstance(op, (ast.Eq, ast.NotEq)) and (
-        (left_empty and not right_empty) or (right_empty and not left_empty)
-    ):
-        return True
-        return True
+    if isinstance(op, (ast.Eq, ast.NotEq)):
+        if left_empty != right_empty:
+            return True
     return False
 
 

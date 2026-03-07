@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2026. All rights reserved.
 """从 GitCode PR 评论 JSON 中提取最新 codecheck URL。
 
 说明:
@@ -18,12 +19,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import re
 import sys
 from datetime import datetime, timezone
 from typing import Any, Iterable
 
-
+CODECHECK_URL_RE = re.compile(
 CODECHECK_URL_RE = re.compile(
     r"https://www\.openlibing\.com/apps/entryCheckDashCode/[^\s'\">]+",
     flags=re.IGNORECASE,
@@ -123,18 +125,19 @@ def extract_latest_codecheck(comments: Iterable[dict[str, Any]]) -> tuple[int | 
 
 
 def main() -> int:
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     args = parse_args()
     try:
         data = load_json(args.input)
         comment_id, created_at, url = extract_latest_codecheck(iter_comments(data))
     except ValueError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
+        logging.error("ERROR: %s", exc)
         return 1
 
     if args.verbose:
-        print(f"comment_id={comment_id}")
-        print(f"created_at={created_at}")
-        print(f"codecheck_url={url}")
+        logging.info("comment_id=%s", comment_id)
+        logging.info("created_at=%s", created_at)
+        logging.info("codecheck_url=%s", url)
     else:
         print(url)
     return 0
