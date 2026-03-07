@@ -357,6 +357,21 @@ Tensor Gcd(const Tensor &self, const Element &other) {
     RETURN_CALL(BinaryOperationScalar<BinaryOpType::GCD>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), other);
 }
 
+Tensor FloorDiv(const Tensor &self, const Tensor &other) {
+    std::vector<DataType> FLOORDIV_SUPPORT_TYPES = {DataType::DT_INT32};
+    ASSERT(
+        self.GetDataType() == other.GetDataType() && 
+        std::find(FLOORDIV_SUPPORT_TYPES.begin(), FLOORDIV_SUPPORT_TYPES.end(), self.GetDataType()) != FLOORDIV_SUPPORT_TYPES.end())
+        << "FloorDiv only supports same data type for self and other! And it should be in DT_INT32.";
+
+    Tensor selfFp32 = Cast(self, DataType::DT_FP32);
+    Tensor otherFp32 = Cast(other, DataType::DT_FP32);
+    Tensor resultFp32 = Div(selfFp32, otherFp32);
+    resultFp32 = Floor(resultFp32);
+    Tensor result = Cast(resultFp32, DataType::DT_INT32);
+    return result;
+}
+
 template <BinaryOpType T>
 void TiledBinaryOperationScalar(Function &function, const TileShape &tileShape, size_t cur, LogicalInput &input1,
     Element &value, const LogicalTensorPtr &result, TileInfo &resultTileInfo, bool reverseOperand) {
@@ -538,6 +553,20 @@ Tensor CeilDiv(const Tensor &self, const Element &other) {
     Tensor resultFp32 = Div(selfFp32, otherFp32);
     resultFp32 = Ceil(resultFp32);
     Tensor result = Cast(resultFp32, DT_INT32);
+    return result;
+}
+
+Tensor FloorDiv(const Tensor &self, const Element &other) {
+    std::vector<DataType> FLOORDIV_SUPPORT_TYPES = {DataType::DT_INT32};
+    ASSERT(
+        self.GetDataType() == other.GetDataType() &&
+        std::find(FLOORDIV_SUPPORT_TYPES.begin(), FLOORDIV_SUPPORT_TYPES.end(), self.GetDataType()) != FLOORDIV_SUPPORT_TYPES.end()) << "FloorDiv only supports same data type for self and other! And it should be in DT_INT32";
+
+    Tensor selfFp32 = Cast(self, DataType::DT_FP32);
+    Element otherFp32(DataType::DT_FP32, other.Cast<float>());
+    Tensor resultFp32 = Div(selfFp32, otherFp32);
+    resultFp32 = Floor(resultFp32);
+    Tensor result = Cast(resultFp32, DataType::DT_INT32);
     return result;
 }
 
