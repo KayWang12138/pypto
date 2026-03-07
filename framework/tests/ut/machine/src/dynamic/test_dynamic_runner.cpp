@@ -196,7 +196,7 @@ TEST_F(TestDynamicDeviceRunner, test_dump_device_perf) {
     std::string jsonPath = npu::tile_fwk::config::LogTopFolder() + "/tilefwk_L1_prof_data.json";
     EXPECT_EQ(IsPathExist(jsonPath), true);
     setenv("DUMP_DEVICE_PERF", "true", 1);
-    npu::tile_fwk::dynamic::DumpDevTaskPerfData(devKernelArgs, perfData);
+    npu::tile_fwk::dynamic::DumpDevTaskPerfData(devKernelArgs, perfData, true);
     jsonPath = npu::tile_fwk::config::LogTopFolder() + "/machine_runtime_operator_trace.json";
     unsetenv("DUMP_DEVICE_PERF");
     EXPECT_EQ(IsPathExist(jsonPath), true);

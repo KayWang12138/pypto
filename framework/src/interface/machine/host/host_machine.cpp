@@ -32,7 +32,7 @@ using ExecuteFunc = int (*)(npu::tile_fwk::MachineTask *, npu::tile_fwk::Functio
 using PlatformFunc = std::string (*)();
 using MatchCacheFunc = bool (*)(const std::string &);
 using InitFunc = int (*)();
-using DumpDevProfData = void (*)(DeviceArgs &, std::vector<void*> &);
+using DumpDevProfData = void (*)(DeviceArgs &, std::vector<void*> &, bool);
 
 struct Backend {
     RunPassFunc runPass;
@@ -140,11 +140,6 @@ void HostMachine::Destroy() {
     PerfAnalysis::Get().Dump(true, fileName);
     PerfAnalysis::Get().Dump(false);
 #endif
-    auto &backend = Backend::GetBackend();
-    if (backend.dumpDevProfData) {
-        MACHINE_LOGI("Start dump device profiling data");
-        backend.dumpDevProfData(args_, perfData_);
-    }
     MACHINE_LOGD("HostMachine is destroying...");
 }
 
@@ -158,6 +153,9 @@ void HostMachine::InitThread() {
     }
     for (int idx = 0; idx < agentThreadCount_; ++idx) {
         agentThreads_.emplace_back(&HostMachine::AgentThreadFunc, this);
+    }
+    for (int idx = 0; idx < dumpThreadCount_; ++idx) {
+        dumpThreads_.emplace_back(&HostMachine::DumpThreadFunc, this);
     }
 }
 
@@ -181,8 +179,15 @@ void HostMachine::DestroyThread() {
         }
     }
 
+    for (auto &thread : dumpThreads_) {
+        if (thread.joinable()) {
+            thread.join();
+        }
+    }
+
     compileThreads_.clear();
     agentThreads_.clear();
+    dumpThreads_.clear();
 }
 
 void HostMachine::CompileFunction(Function* func) const {
@@ -382,6 +387,23 @@ void HostMachine::AgentThreadFunc() {
             task->SetError(std::move(e.what()));
         }
         PushFinishQueue(std::move(task));
+    }
+}
+
+void HostMachine::DumpThreadFunc() {
+    int count = 0;
+    auto &backend = Backend::GetBackend();
+    while (!stopFlag_.load()) {
+        usleep(10000); // sleep 10ms
+        if (backend.dumpDevProfData && perfData_.size() > 0) {
+            MACHINE_LOGI("Dump thread iteration %d", count);
+            backend.dumpDevProfData(args_, perfData_, false);
+        }
+        count++;
+    }
+    if (backend.dumpDevProfData) {
+        MACHINE_LOGI("Dump thread final dump");
+        backend.dumpDevProfData(args_, perfData_, true);
     }
 }
 } // namespace npu::tile_fwk

@@ -105,6 +105,7 @@ private:
     /* 线程处理函数 */
     void CompileThreadFunc();
     void AgentThreadFunc();
+    void DumpThreadFunc();
 
     void PushAgentQueue(std::unique_ptr<MachineTask> task);
     void PushFinishQueue(std::unique_ptr<MachineTask> task);
@@ -122,6 +123,7 @@ private:
     /* 线程管理 */
     int compileThreadCount_{1};
     int agentThreadCount_{1};
+    int dumpThreadCount_{1};
     std::mutex compileQueueMutex_;
     std::mutex agentQueueMutex_;
     std::mutex stashQueueMutex_;
@@ -129,6 +131,7 @@ private:
     std::condition_variable agentQueueCv_;
     std::vector<std::thread> compileThreads_;
     std::vector<std::thread> agentThreads_;
+    std::vector<std::thread> dumpThreads_;
     SafeQueue<std::unique_ptr<MachineTask>> compileQueue_; // 待编译任务
     SafeQueue<std::unique_ptr<MachineTask>> agentQueue_; // 待device agent处理任务
     SafeQueue<std::unique_ptr<MachineTask>> finishQueue_; // device machine 处理结束任务

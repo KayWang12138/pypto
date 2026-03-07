@@ -76,7 +76,6 @@ public:
     void ResetPerData();
     void DumpAiCoreExecutionTimeData();
     void DumpAiCorePmuData();
-    void DumpDevTaskPerfData();
     void SynchronizeDeviceToHostProfData();
     void InitMetaData(DeviceArgs &devArgs);
     void InitAiCpuSoBin(DeviceArgs &devArgs);
