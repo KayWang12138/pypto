@@ -161,6 +161,9 @@ void HostMachine::InitThread() {
     for (int idx = 0; idx < agentThreadCount_; ++idx) {
         agentThreads_.emplace_back(&HostMachine::AgentThreadFunc, this);
     }
+    for (int idx = 0; idx < dumpThreadCount_; ++idx) {
+        dumpThreads_.emplace_back(&HostMachine::DumpThreadFunc, this);
+    }
 }
 
 void HostMachine::DestroyThread() {
@@ -183,8 +186,15 @@ void HostMachine::DestroyThread() {
         }
     }
 
+    for (auto &thread : dumpThreads_) {
+        if (thread.joinable()) {
+            thread.join();
+        }
+    }
+
     compileThreads_.clear();
     agentThreads_.clear();
+    dumpThreads_.clear();
 }
 
 void HostMachine::CompileFunction(Function* func) const {
@@ -382,6 +392,23 @@ void HostMachine::AgentThreadFunc() {
             task->SetError(std::move(e.what()));
         }
         PushFinishQueue(std::move(task));
+    }
+}
+
+void HostMachine::DumpThreadFunc() {
+    int count = 0;
+    auto &backend = Backend::GetBackend();
+    while (!stopFlag_.load()) {
+        usleep(10000); // sleep 10ms
+        if (backend.dumpDevProfData && perfData_.size() > 0) {
+            MACHINE_LOGI("Dump thread iteration %d", count);
+            backend.dumpDevProfData(args_, perfData_);
+        }
+        count++;
+    }
+    if (backend.dumpDevProfData) {
+        MACHINE_LOGI("Dump thread final dump");
+        backend.dumpDevProfData(args_, perfData_);
     }
 }
 } // namespace npu::tile_fwk

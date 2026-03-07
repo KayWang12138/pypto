@@ -25,7 +25,7 @@
 #include "tilefwk/pypto_fwk_log.h"
 namespace npu::tile_fwk::dynamic {
 constexpr int DUMP_LEVEL_FOUR = 4;
-
+uint32_t g_last_turn_num = 0;
 extern "C" void DumpDevTaskPerfData(DeviceArgs &args, const std::vector<void *> &perfData) {
     if (GetEnvVar("DUMP_DEVICE_PERF") == "true" && perfData.size() > 0) {
         uint64_t freq = (args.archInfo == ArchInfo::DAV_2201) ?
@@ -136,7 +136,7 @@ inline void SparateCore(int total, int idx, int part, const int &offset, std::ve
 inline void ConstructAicorePerfInfo(json &tasksArr, Metrics *aicoreMetric, const uint32_t &turnNum) { 
     uint64_t curCycle = 0;
     for (uint32_t type = 0; type < PERF_TRACE_CORE_MAX; type++) {
-        for (uint32_t turnIdx = 0; turnIdx < turnNum; turnIdx++) {
+        for (uint32_t turnIdx = g_last_turn_num; turnIdx < turnNum; turnIdx++) {
             for (uint32_t cnt = 0; cnt < aicoreMetric->perfTraceCnt[turnIdx][type]; cnt++) {
                 json aicoreTaskType;
                 curCycle = aicoreMetric->perfTrace[turnIdx][type][cnt];
@@ -212,7 +212,7 @@ inline void DumpAicpuDevTask(const DeviceArgs &args, json &aicpuPrefArray, const
         aicpu["coreType"] = coreType;
         aicpu["freq"] = freq;
         json aicpuDevTasks = json::array();
-        for (uint32_t turnIdx = 0; turnIdx < turnNum; turnIdx++) {
+        for (uint32_t turnIdx = g_last_turn_num; turnIdx < turnNum; turnIdx++) {
             MetricPerf aicpuMetric = GetAicpuPrefAddr(args, turnIdx);
             for (uint32_t type = 0; type < PERF_TRACE_MAX; type++) {
                 if (PerfTraceIsDevTask[type]) {
@@ -243,11 +243,15 @@ void DumpAicpuPerfInfo(DeviceArgs &args, const std::vector<void *> &perfData, co
     Metrics *aicoreMetric = reinterpret_cast<Metrics*>(hostBuffer.data());
     auto sumTurnNum = aicoreMetric->turnNum;
     MACHINE_LOGI("CoreId 0 devAddr: %p, sumTurnNum: %u", devPtr, sumTurnNum);
+    if (sumTurnNum == g_last_turn_num || sumTurnNum < 50 || sumTurnNum % 50 != 0) {
+        return;
+    }
     json aicpuPrefArray = json::array();
     DumpAicpuDevTask(args, aicpuPrefArray, freq, sumTurnNum);
     DumpAicoreDevTask(args, aicpuPrefArray, perfData, freq, sumTurnNum);
     
-    std::string aicpuPerfilePath = npu::tile_fwk::config::LogTopFolder() + "/aicpu_dev_pref.json";
+    std::string aicpuPerfilePath = npu::tile_fwk::config::LogTopFolder() +
+                                   "/aicpu_dev_pref_" + std::to_string(g_last_turn_num) + ".json";
     if (!DumpFile(aicpuPrefArray.dump(DUMP_LEVEL_FOUR), aicpuPerfilePath)) {
         MACHINE_LOGW("Contrust custom op json failed");
         return;
@@ -256,10 +260,12 @@ void DumpAicpuPerfInfo(DeviceArgs &args, const std::vector<void *> &perfData, co
     // toolkit drawm aicpu preffto
     std::string scriptPath = GetCurrentSharedLibPath() + "/scripts/machine_perf_trace.py";
     std::string cmd = "python3 " + scriptPath + " gen_perfetto " + aicpuPerfilePath + " "
-                        + npu::tile_fwk::config::LogTopFolder() + "/machine_runtime_operator_trace.json";
+                        + npu::tile_fwk::config::LogTopFolder() +
+                        "/machine_runtime_operator_trace" + std::to_string(g_last_turn_num) + ".json";
     if (system(cmd.c_str()) != 0) {
         MACHINE_LOGW("Failed to execute machine_perf_trace.py, cannot get aicpu perfetto.json.");
     }
+    g_last_turn_num = sumTurnNum;
     npu::tile_fwk::config::SetRunDataOption(KEY_AICPU_PERF_GRAPH_PATH,
             npu::tile_fwk::config::GetAbsoluteTopFolder() + "/machine_runtime_operator_trace.json");
 }
