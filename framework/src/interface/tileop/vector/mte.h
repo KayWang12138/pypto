@@ -236,6 +236,16 @@ __aicore__ inline void DoIndexPut(size_t indicesShape, size_t dstShapes[], size_
     constexpr auto tileW = Std::tuple_element<valuesSize - 1, typename VAL::TileShape>::type::value;
     using ValuesTileDefine = pto::Tile<pto::TileType::Vec, ValuesDtype, 1, tileW, pto::BLayout::RowMajor, -1, -1>;
     constexpr size_t indicesSize = dstShapeSize - valuesSize + 1;
+    __ubuf__ ValuesDtype *valuesPtr = (__ubuf__ ValuesDtype *) valuesAddr;
+    size_t nBurst = 1;
+    size_t lenBurst = valuesShapes[2];
+    if constexpr (valuesSize == 1) {
+        lenBurst = 1;
+    } else if constexpr (valuesSize == 3) {
+        nBurst = valuesShapes[1];
+    } else if constexpr (valuesSize == 4) {
+        nBurst = valuesShapes[1] * valuesShapes[0];
+    }
     for (LoopVar i = 0; i < indicesShape; ++i) {
         uint64_t dstOffset = 0;
         if constexpr (indicesSize >= 1) {
@@ -250,15 +260,8 @@ __aicore__ inline void DoIndexPut(size_t indicesShape, size_t dstShapes[], size_
         if constexpr (indicesSize >= 4) {
             dstOffset += ((__ubuf__ IndicesDtype *) indices3.GetAddr())[i] * IndexPutGetStride<7 - dstShapeSize>(dstShapes);
         }
-        size_t nBurst = 1;
-        size_t lenBurst = valuesShapes[2];
         if constexpr (valuesSize == 1) {
-            lenBurst = 1;
-            ((__ubuf__ ValuesDtype *) valuesAddr)[0] = ((__ubuf__ ValuesDtype *) valuesAddr)[i];
-        } else if constexpr (valuesSize == 3) {
-            nBurst = valuesShapes[1];
-        } else if constexpr (valuesSize == 4) {
-            nBurst = valuesShapes[1] * valuesShapes[0];
+            valuesPtr[0] = valuesPtr[i];
         }
         IndexPutCopyOut<atomicType, ValuesDtype, ValuesTileDefine>(
             nBurst, lenBurst, valuesStrides,
@@ -268,6 +271,7 @@ __aicore__ inline void DoIndexPut(size_t indicesShape, size_t dstShapes[], size_
     }
 }
 
+#define OP_TILE_OP_INDEXPUT TIndexPut
 template <bool accumulate, size_t indicesSize, typename DST, typename C, typename VAL, typename IDX>
 __aicore__ inline void TIndexPut(DST dst, C coordinate, VAL values, IDX indices0, IDX indices1, IDX indices2, IDX indices3) {
     constexpr auto atomicType = accumulate ? pto::AtomicType::AtomicAdd : pto::AtomicType::AtomicNone;
@@ -294,9 +298,9 @@ __aicore__ inline void TIndexPut(DST dst, C coordinate, VAL values, IDX indices0
         static_cast<size_t>(valuesLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>()),
         static_cast<size_t>(valuesLayout.template GetShapeDim<DIM_5TH, MAX_DIMS>())
     };
+    size_t gmOffset = static_cast<size_t>(dstLayout.template GetGmOffset<C, MAX_DIMS>(coordinate));
     set_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
     wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
-    size_t gmOffset = static_cast<size_t>(dstLayout.template GetGmOffset<C, MAX_DIMS>(coordinate));
     DoIndexPut<atomicType, dstShapeSize, valuesSize, VAL>(indicesShape, dstShapes, valuesStrides, valuesShapes,
         values.GetAddr(), dst.GetAddr() + gmOffset, indices0, indices1, indices2, indices3);
     set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
