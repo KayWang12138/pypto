@@ -422,6 +422,9 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
             << "__attribute__((section(\"" << sectionName << ".entry"
             << "\")))\n"
             << "uint64_t ControlFlowEntry(void *ctx, int64_t *symbolTable, RuntimeCallEntryType runtimeCallList[], DevStartArgsBase *startArgs) {\n";
+        if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+            controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "int8_t *loopDieId = (int8_t *)RUNTIME_RootGetDieId(" << 0 << ");\n";
+        }
         for (auto &callee : GetCalleeList(cache, func)) {
             BuildControlFlow(cache, linker, sectionName, callee, slotIdxMapping, group, rootTileDict, controlFlowOss, expressionOss,
                 exprHeaderOss, indent + 1, expName, exprSrcFiles, tensorNameToDependCore);
@@ -480,7 +483,11 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         std::string iterVar = "VAR_" + attr->iterSymbolName;
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "LOOP(" << iterVar << ", " << iterBegin << ", " << iterEnd << ", " << iterStep << ") {\n";
         controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "VALUE_" << attr->iterSymbolName << " = " << iterVar << ";\n";
-
+        if ((Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) && (func->GetDynloopAttribute()->parallelFor == ParallelMode::PARALLEL)) {
+            controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "int8_t DIESET_" << attr->iterSymbolName << " = 0;\n";
+            controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "RUNTIME_CalcLoopDieId(" << iterVar << ", " <<  iterEnd << ", "
+                << iterStep << ", " << DIE_NUM << ", " << "DIESET_" << attr->iterSymbolName << ");\n";
+        }
         auto pathNode = attr->BuildPathNode();
         MACHINE_LOGI("Paths: \n %s", pathNode->Dump().c_str());
         std::vector<Function *> calleeList = GetCalleeList(cache, func);
@@ -493,6 +500,9 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         std::sort(pathRootList.begin(), pathRootList.end());
         ASSERT(calleeList == pathRootList)<<"calleeList size:"<<calleeList.size()<<" pathRootList size:"<<pathRootList.size();
         condBuilder(pathNode, indent + 1);
+        if ((Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) && (func->GetDynloopAttribute()->parallelFor == ParallelMode::PARALLEL)) {
+            controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "RUNTIME_ClearLoopDieId(" << "DIESET_" << attr->iterSymbolName << ");\n";
+        }
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "}\n";
     } else if (func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC_LOOP_PATH, GraphType::TENSOR_GRAPH)) {
         controlFlowOss << BuildControlFlowCallee(func, indent * TABSIZE);
@@ -535,6 +545,9 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         SymbolicExpressionTable *exprTable = linker.LookupDevRootCoa(func);
         if (exprTable != nullptr) {
             GenerateExpression(exprTable, devRootKey, expName, exprSrcFiles, controlFlowOss, exprHeaderOss, indent, tensorNameToDependCore);
+        }
+        if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+            controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_RootSetDieId(" << devRootKey << "ULL);\n";
         }
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_RootStitch(" << devRootKey << "ULL);\n";
     } else {

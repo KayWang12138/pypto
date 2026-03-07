@@ -42,7 +42,10 @@ protected:
         }
         dyntask->devTask.coreFunctionCnt = coreFunctionCnt;
         dyntask->dynFuncDataCacheListSize = 0;
-        dyntask->devTask.mixTaskData.wrapIdNum = 1;
+        for (size_t i = 0; i < DIE_NUM; i++) {
+            dyntask->devTask.dieReadyFunctionQue.readyDieAivCoreFunctionQue[i] = 0;
+            dyntask->devTask.dieReadyFunctionQue.readyDieAicCoreFunctionQue[i] = 0;
+        }
     }
 
     void CreateMockDevAscendProgram(DevAscendProgram *devProg, ArchInfo archInfo) {
@@ -83,6 +86,7 @@ TEST_F(TestDeviceTaskContext, test_build_ready_queue_calls_wrap_functions) {
 
     dyntask->dynFuncDataCacheList[0].devFunc = &devFunc;
     dyntask->dynFuncDataCacheListSize = 1;
+    dyntask->devTask.mixTaskData.wrapIdNum = 1;
 
     bool isNeedWrap = taskContext.IsNeedWrapProcess(dyntask.get(), &devProg);
     EXPECT_TRUE(isNeedWrap);
@@ -95,4 +99,74 @@ TEST_F(TestDeviceTaskContext, test_build_ready_queue_calls_wrap_functions) {
     EXPECT_EQ(wrapQueue->head, 0);
     EXPECT_EQ(wrapQueue->tail, 0);
     EXPECT_GT(wrapQueue->capacity, 0);
+}
+
+TEST_F(TestDeviceTaskContext, test_init_die_ready_queues_mix_arch) {
+    DeviceTaskContext taskContext;
+    DevStartArgsBase startArgs;
+    constexpr size_t kControlFlowCacheSize = 64 * 1024;
+    auto controlFlowCacheBuf = std::make_unique<uint8_t[]>(kControlFlowCacheSize);
+
+    DevAscendProgram devProg;
+    CreateMockDevAscendProgram(&devProg, ArchInfo::DAV_3510);
+    devProg.controlFlowCache.cacheData =
+        DevRelocVector<uint8_t>(kControlFlowCacheSize, controlFlowCacheBuf.get());
+    devProg.controlFlowCache.isRecording = true;
+
+    DeviceWorkspaceAllocator workspace(&devProg);
+
+    taskContext.InitAllocator(&devProg, workspace, &startArgs);
+
+    auto dyntask = std::make_unique<DynDeviceTask>(workspace);
+    CreateMockDynDeviceTask(dyntask.get(), 100);
+
+    taskContext.InitDieReadyQueues(dyntask.get(), &devProg);
+
+    for (size_t i = 0; i < DIE_NUM; i++) {
+        EXPECT_NE(dyntask->devTask.dieReadyFunctionQue.readyDieAivCoreFunctionQue[i], 0UL);
+        EXPECT_NE(dyntask->devTask.dieReadyFunctionQue.readyDieAicCoreFunctionQue[i], 0UL);
+
+        auto aivQueue = reinterpret_cast<ReadyCoreFunctionQueue *>(
+            dyntask->devTask.dieReadyFunctionQue.readyDieAivCoreFunctionQue[i]);
+        auto aicQueue = reinterpret_cast<ReadyCoreFunctionQueue *>(
+            dyntask->devTask.dieReadyFunctionQue.readyDieAicCoreFunctionQue[i]);
+
+        EXPECT_NE(aivQueue, nullptr);
+        EXPECT_NE(aicQueue, nullptr);
+        EXPECT_EQ(aivQueue->head, 0U);
+        EXPECT_EQ(aivQueue->tail, 0U);
+        EXPECT_EQ(aicQueue->head, 0U);
+        EXPECT_EQ(aicQueue->tail, 0U);
+    }
+}
+
+TEST_F(TestDeviceTaskContext, test_build_ready_queue_for_func_mix_arch_no_die_id) {
+    DeviceTaskContext taskContext;
+    DevAscendProgram devProg;
+    CreateMockDevAscendProgram(&devProg, ArchInfo::DAV_3510);
+    EXPECT_TRUE(taskContext.IsMultiDie(&devProg));
+}
+
+TEST_F(TestDeviceTaskContext, test_build_ready_queue_core_function_cnt_not_exceeds_stitch_function_size) {
+    DeviceTaskContext taskContext;
+    DevStartArgsBase startArgs;
+    constexpr size_t kControlFlowCacheSize = 64 * 1024;
+    auto controlFlowCacheBuf = std::make_unique<uint8_t[]>(kControlFlowCacheSize);
+
+    DevAscendProgram devProg;
+    CreateMockDevAscendProgram(&devProg, ArchInfo::DAV_3510);
+    devProg.stitchFunctionsize = 10;
+    devProg.controlFlowCache.cacheData =
+        DevRelocVector<uint8_t>(kControlFlowCacheSize, controlFlowCacheBuf.get());
+    devProg.controlFlowCache.isRecording = true;
+
+    DeviceWorkspaceAllocator workspace(&devProg);
+    taskContext.InitAllocator(&devProg, workspace, &startArgs);
+
+    auto dyntask = std::make_unique<DynDeviceTask>(workspace);
+    CreateMockDynDeviceTask(dyntask.get(), 8);
+
+    int ret = taskContext.BuildReadyQueue(dyntask.get(), &devProg);
+
+    EXPECT_EQ(ret, DEVICE_MACHINE_OK);
 }
