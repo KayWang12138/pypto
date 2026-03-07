@@ -1,0 +1,78 @@
+#include <iostream>
+#include <sstream>
+#include <string>
+#include <iomanip>
+
+enum class ErrCode {
+    // INVALID_GRAPH_TYPE = 0x10000,
+    // NULL_POINTER = 0x10001,
+    // INDEX_OUT_OF_BOUNDS = 0x10002,
+    DUPLICATE_OPERATION = 0x10003,
+    // CYCLE_DETECTED = 0x10004,
+    INVALID_OPERATION_OPERAND = 0x10005,
+    INVALID_FUNCTION_TYPE = 0x10006,
+    TENSOR_CONSISTENCY_ERROR = 0x10007,
+    OPERATION_NOT_FOUND = 0x10008,
+    // GROUP_ID_MISMATCH = 0x10009,
+    SHAPE_MISMATCH = 0x1000A,
+    PRODUCER_CONSUMER_ERROR = 0x1000B,
+
+    CONFIG_INVALID_TYPE = 0x11004,
+    CONFIG_FIELD_MISSING = 0x11005,
+    CONFIG_KEY_NOT_LOADED = 0x11007,
+    CONFIG_VALUE_CONVERT_FAILED = 0x11008,
+    CONFIG_VALUE_OVERFLOW = 0x11009,
+
+    TENSOR_AXIS_OUT_OF_RANGE = 0x12002,
+    TENSOR_VIEW_DIMENSION_MISMATCH = 0x12003,
+    TENSOR_VIEW_OFFSET_MISMATCH = 0x12004,
+    TENSOR_SHAPE_OUT_OF_BOUNDS = 0x12005,
+    TENSOR_INVALID_SHAPE = 0x12006,
+    TENSOR_DATATYPE_MISMATCH = 0x12008,
+    TENSOR_NOT_UNDER_DYNAMIC_FUNCTION = 0x1200D,
+    TENSOR_NO_ACTIVE_FUNCTION = 0x1200F,
+
+    FUNCTION_TYPE_MISMATCH = 0x13007,
+    FUNCTION_NOT_FOUND_BY_MAGIC = 0x13008,
+    FUNCTION_MAIN_NOT_FOUND = 0x13009,
+    FUNCTION_UNROLL_TIMES_MUST_BE_POSITIVE = 0x1300C,
+    FUNCTION_LOOP_INDEX_NAME_DUPLICATE = 0x13010,
+
+    FILE_READ_FAILED = 0x14001,
+    FILE_WRITE_FAILED = 0x14002,
+    FILE_CREATE_FAILED = 0x14003,
+    FILE_DELETE_FAILED = 0x14004,
+    DIR_CREATE_FAILED = 0x14101,
+    DIR_DELETE_FAILED = 0x14102,
+
+    TENSORSLOT_NOT_FOUND_IN_INDEX_DICT = 0x15003,
+    TENSORSLOT_ALREADY_EXISTS = 0x15004,
+    TENSORSLOT_NOT_FOUND_IN_INPUT_DICT = 0x15006,
+    TENSORSLOT_CHECKPOINT_STACK_ERROR = 0x15007,
+    TENSORSLOT_NOT_IN_INDEX_DICT = 0x15008,
+
+    SYMBOLIC_OPERAND_COUNT_MISMATCH = 0x19001,
+    SYMBOLIC_OPERAND_SIZE_INVALID = 0x19001,
+
+};
+
+template <typename T>
+std::string ToHexString(T num, int width = 0, bool upper = true, bool prefix = false) {
+    std::stringstream ss;
+    if (upper) {
+        ss << std::uppercase;
+    } else {
+        ss << std::nouppercase;
+    }
+
+    if (prefix) {
+        ss << "0x";
+    }
+
+    ss << std::hex << std::setfill('0') << std::setw(width) << num;
+    return ss.str();
+}
+
+inline std::string FunctionErrCode2Str(ErrCode &code) {
+    return "F" + ToHexString<int64_t>(static_cast<int64_t>(code), 4);
+}
