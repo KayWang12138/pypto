@@ -333,32 +333,32 @@ def main() -> int:
                         "failed_tasks": ci_result.get("failed_tasks", []),
                         "evidence": evidence,
                     }
-                    print(json.dumps(out, ensure_ascii=False, indent=2))
+                    logging.info(json.dumps(out, ensure_ascii=False, indent=2))
                 else:
-                    print(ci_result.get("codecheck_url"))
+                    logging.info(ci_result.get("codecheck_url"))
                 return 0
 
             if kind == "non_codecheck_failed":
                 if args.format == "json":
-                    print(json.dumps(ci_result, ensure_ascii=False, indent=2))
+                    logging.info(json.dumps(ci_result, ensure_ascii=False, indent=2))
                 else:
-                    print("latest_ci_result=non_codecheck_failed")
-                    print(f"codecheck_status={ci_result.get('codecheck_status')}")
+                    logging.info("latest_ci_result=non_codecheck_failed")
+                    logging.info(f"codecheck_status={ci_result.get('codecheck_status')}")
                     for task in ci_result.get("failed_tasks", []):
-                        print(f"failed_task={task.get('task')} status={task.get('status')}")
+                        logging.info(f"failed_task={task.get('task')} status={task.get('status')}")
                 return 3
 
             if args.format == "json":
-                print(json.dumps(ci_result, ensure_ascii=False, indent=2))
+                logging.info(json.dumps(ci_result, ensure_ascii=False, indent=2))
             else:
-                print("latest_ci_result=undecidable")
-                print(f"reason={ci_result.get('reason')}")
+                logging.info("latest_ci_result=undecidable")
+                logging.info(f"reason={ci_result.get('reason')}")
             return 4
 
         if args.evidence:
             # 证据链模式：输出完整 JSON
             result = extract_with_evidence(comments)
-            print(json.dumps(result, ensure_ascii=False, indent=2))
+            logging.info(json.dumps(result, ensure_ascii=False, indent=2))
         else:
             # 默认模式：仅输出最新 URL
             comment_id, created_at, url = extract_latest_codecheck(comments)
@@ -367,7 +367,7 @@ def main() -> int:
                 logging.info("created_at=%s", created_at)
                 logging.info("codecheck_url=%s", url)
             else:
-                print(url)
+                logging.info(url)
     except ValueError as exc:
         logging.error("ERROR: %s", exc)
         return 1
