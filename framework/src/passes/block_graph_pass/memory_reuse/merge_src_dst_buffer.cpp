@@ -94,7 +94,7 @@ Status SrcDstBufferMergeImpl::Init(const std::vector<Operation *> &opList) {
     return SUCCESS;
 }
 
-bool SrcDstBufferMergeImpl::CheckIgnoreScene(const Operation &oriOps) {
+bool SrcDstBufferMergeImpl::CheckIgnore(const Operation &oriOps) {
     /* use opcode is unfavorable for reading and modification, maybe use opcalctype */
     const std::set<Opcode> ignoreOps = {Opcode::OP_UB_ALLOC, Opcode::OP_COPY_IN, Opcode::OP_COPY_OUT, Opcode::OP_UB_COPY_ND2NZ};
     if (ignoreOps.count(oriOps.GetOpcode()) != 0) {
@@ -181,7 +181,7 @@ Status SrcDstBufferMergeImpl::Run(Function &func) {
         for (size_t i = 0; i < oriOps.size(); i++) {
             APASS_LOG_DEBUG_F(Elements::Operation, "Attempt memory reuse for op:%s[%d]",
                 oriOps[i]->GetOpcodeStr().c_str(), oriOps[i]->GetOpMagic());
-            if (CheckIgnoreScene(*oriOps[i])) {
+            if (CheckIgnore(*oriOps[i])) {
                 continue;
             }
             bool hasInplaced = false;

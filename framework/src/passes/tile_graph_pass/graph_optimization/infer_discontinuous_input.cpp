@@ -208,7 +208,7 @@ inline std::vector<size_t> GetInputTileConflict(
     return copyIdx;
 }
 
-std::vector<std::pair<LogicalTensorPtr, Operation *>> InferDiscontinuousInput::FilterCopyScenes(
+std::vector<std::pair<LogicalTensorPtr, Operation *>> InferDiscontinuousInput::FilterCopys(
     const std::vector<std::pair<LogicalTensorPtr, Operation*>> &inplaceTensors) {
     std::vector<std::pair<LogicalTensorPtr, Operation *>> needInsertCopys;
     if (inplaceTensors.empty()) {
@@ -258,7 +258,7 @@ Status InferDiscontinuousInput::InferFromIncast() {
                 continue;
             }
             auto inplacedTensor = GetInplacedTileTensors(outputTensor);
-            filterdTensor = FilterCopyScenes(inplacedTensor);
+            filterdTensor = FilterCopys(inplacedTensor);
             insertCopys_.emplace(outputTensor, filterdTensor);
         }
     }

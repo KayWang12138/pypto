@@ -145,14 +145,16 @@ struct DevRelocVector {
 
     T &operator[](size_t idx) {
         if (idx >= size_) {
-            DEV_ERROR("Index out of bounds: idx=%zu, size=%zu", idx, size_);
+            DEV_ERROR(DataStructureError::DEV_RELOC_VECTOR_INDEX_OOB, "data.valid",
+                      "idx=%zu size=%zu # Index out of bounds", idx, size_);
         }
         DEV_ASSERT(idx < size_);
         return data_[idx];
     }
     const T &operator[](size_t idx) const {
         if (idx >= size_) {
-            DEV_ERROR("Index out of bounds: idx=%zu, size=%zu", idx, size_);
+            DEV_ERROR(DataStructureError::DEV_RELOC_VECTOR_INDEX_OOB, "data.valid",
+                      "idx=%zu size=%zu # Index out of bounds", idx, size_);
         }
         DEV_ASSERT(idx < size_);
         return data_[idx];

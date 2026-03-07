@@ -80,7 +80,9 @@ void *DeviceExecuteContext::SymbolHandlerIdToHandler(SymbolHandlerId id) {
         case SymbolHandlerId::GetInputDataInt32Dim4:
             return reinterpret_cast<void *>(GetInputDataInt32Dim4);
         default:
-            DEV_ERROR("Invalid SymbolHandlerId: %lu", static_cast<uint64_t>(id));
+            DEV_ERROR(ControlFlowError::UNKNOWN, "ctrl.task.pre.handler",
+                      "SymbolHandlerId=%lu # Invalid SymbolHandlerId",
+                      static_cast<uint64_t>(id));
             DEV_ASSERT(0);
             return nullptr;
     }
@@ -197,7 +199,8 @@ int DeviceExecuteContext::RunControlFlow(DevStartArgs *startArgs) {
     execProg.controlFlowBinary.CallControlFlow(this, symbolTable.data(), runtimeCallList, startArgs);
     int finalErrorState = this->GetErrorState();
     if (finalErrorState != originalErrorState && finalErrorState != DEVICE_MACHINE_OK) {
-        DEV_ERROR("Control flow execution failed with error code: %d", finalErrorState);
+        DEV_ERROR(ControlFlowError::CTRL_FLOW_EXEC_FAILED, "ctrl.ctrlflow.leave",
+                  "errorCode=%d # Control flow execution failed", finalErrorState);
         return finalErrorState;
     }
     PerfEnd(PERF_EVT_CONTROL_FLOW);
@@ -252,7 +255,8 @@ int DeviceExecuteContext::GELaunchPartialCache(DevStartArgs *startArgs, PushTask
         uint64_t start = GetCycles();
         while ((startArgs->devProg->devArgs.disableSync == 0) && startArgs->syncFlag != 1) {
             if (GetCycles() - start > HAND_SHAKE_TIMEOUT) {
-                DEV_ERROR("Wait sync flag timeout.");
+                DEV_ERROR(ControlFlowError::SYNC_FLAG_WAIT_TIMEOUT, "ctrl.ctrlflow.wait_value",
+                          "# Wait sync flag timeout.");
                 break;
             }
         }
@@ -346,7 +350,8 @@ int DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool 
     PROF_STAGE_BEGIN(PERF_EVT_STAGE_BUILD_TASK, "BuildDeviceTaskData.before\n");
     DynDeviceTask *dynTask = taskContext.BuildDeviceTaskData(stitchContext, taskId, devProg, withoutTail);
     if (dynTask == nullptr) {
-        DEV_ERROR("Build device task data failed.");
+        DEV_ERROR(ControlFlowError::DEVICE_TASK_BUILD_FAILED, "ctrl.buildtask.leave",
+                  "taskId=%lu # Returned null", taskId);
         return DEVICE_MACHINE_ERROR;
     }
 
@@ -485,7 +490,8 @@ void DeviceExecuteContext::MarkSlotNeedAlloc(int slotIndex) {
 void *DeviceExecuteContext::DeviceExecuteRuntimeCallRootAlloc(void *ctx_, uint64_t rootKey) {
     DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;
     if (ctx == nullptr) {
-        DEV_ERROR("invalid ctx.");
+        DEV_ERROR(ControlFlowError::ROOT_ALLOC_CTX_NULL, "ctrl.ctrlflow.call.root_alloc",
+                  "# Context is null.");
         return nullptr;
     }
     PerfBegin(PERF_EVT_ROOT_FUNC);
@@ -516,7 +522,8 @@ bool IsSpecialRootKey(uint64_t rootKey) {
 void *DeviceExecuteContext::DeviceExecuteRuntimeCallRootStitch(void *ctx_, uint64_t rootKey) {
     DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;
     if (ctx == nullptr) {
-        DEV_ERROR("invalid ctx.");
+        DEV_ERROR(ControlFlowError::ROOT_STITCH_CTX_NULL, "ctrl.ctrlflow.call.root_stitch",
+                  "# Context is null.");
         return nullptr;
     }
     PerfBegin(PERF_EVT_ROOT_FUNC);
@@ -574,7 +581,8 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, u
     uint64_t shmemAddrEndOffset = ctx->shmemAddrOffset[memType] + size;
     if (shmemAddrEndOffset > winSize) {
         ctx->shmemAddrOffset[memType] = 0UL;
-        DEV_ERROR("Exceeds winSize limit. Maximum allowed: %lu, got: %lu", winSize, shmemAddrEndOffset);
+        DEV_ERROR(ControlFlowError::UNKNOWN, "ctrl.unknown",
+                  "winSize=%lu got=%lu # Exceeds winSize limit", winSize, shmemAddrEndOffset);
     }
     uint64_t vaddr = ctx->shmemAddrOffset[memType] | (groupIndex << GROUP_SHIFT) | (memType << MEMTYPE_SHIFT) | (1UL << FILL_SHIFT);
     ctx->shmemAddrOffset[memType] += size;

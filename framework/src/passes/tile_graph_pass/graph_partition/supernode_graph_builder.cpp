@@ -513,7 +513,7 @@ inline bool SuperNodeGraphBuilder::AssembleCombine(const std::shared_ptr<Operati
         if (opList[i]->GetOOperands().empty()) {
             return false;
         }
-        if (AssembleToCopyoutScene(opList[i])) {
+        if (AssembleToCopyout(opList[i])) {
             // 在GenerateMoveOp中需要转换为CopyOut的Assemble, 参考CopyOutCombine处理
             return CopyOutCombine(operationInfo, opList, i, mergePair, true);
         }
@@ -529,14 +529,14 @@ inline bool SuperNodeGraphBuilder::AssembleCombine(const std::shared_ptr<Operati
 }
 
 inline bool SuperNodeGraphBuilder::CopyOutCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
-                            int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair, bool assembleScene)
+                            int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair, bool assemble)
 {
     if (i < 0 || i >= static_cast<int32_t>(opList.size())) {
         return false;
     }
     std::vector<int32_t> candidateOpMagic;
     // 所有的copyout操作与其输入绑定
-    if (OpcodeManager::Inst().GetOpCalcType(opList[i]->GetOpcode()) == OpCalcType::MOVE_OUT || assembleScene) {
+    if (OpcodeManager::Inst().GetOpCalcType(opList[i]->GetOpcode()) == OpCalcType::MOVE_OUT || assemble) {
         for (auto inNode : operationInfo->inGraph_[i]) {
             mergePair.emplace_back(inNode, i);
             APASS_LOG_DEBUG_F(Elements::Operation, "Combine %d and %d for CopyOut in building SuperNode.",
@@ -585,7 +585,7 @@ inline bool SuperNodeGraphBuilder::MulAccCombine(const std::shared_ptr<Operation
     return false;
 }
 
-inline bool SuperNodeGraphBuilder::AssembleToCopyoutScene(Operation *op)
+inline bool SuperNodeGraphBuilder::AssembleToCopyout(Operation *op)
 {
     auto assembleIn = op->iOperand.front();
     auto parentOp = *assembleIn->GetProducers().begin();
