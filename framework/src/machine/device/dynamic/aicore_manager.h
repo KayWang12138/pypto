@@ -1327,7 +1327,7 @@ private:
     }
 
     inline bool IsExistAicpuIdleOneDie(CoreType type) {
-    #ifdef SUPPORT_DIE_TO_DIE_SCHE
+    #ifndef SUPPORT_DIE_TO_DIE_SCHE
         int schedStart = 0;
         int schedEnd = 0;
         wrapManager_.GetDieSchedIdRange(schedStart, schedEnd, aicpuNum_);
