@@ -342,17 +342,17 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         q_norm = pypto.view(q_norm_in, [t_tile, q_lora_rank], [t_idx, 0])
         q_norm_scale = pypto.view(q_norm_scale_in, [t_tile, 1], [t_idx, 0])
         pypto.set_cube_tile_shapes([t_tile_max, t_tile_max], [512, 512], [128, 128])
-        q_proj = pypto.matmul(q_norm, w_qb_in, pypto.DT_BF16)
+        q_proj = pypto.matmul(q_norm, w_qb_in, x_dtype)
 
         pypto.set_semantic_label("Query-Dequant")
         pypto.set_vec_tile_shapes(8, head_num * head_dim)
         q_f32 = pypto.cast(q_proj, pypto.DT_FP32)
         q_f32 = q_f32 * q_norm_scale
         q_f32 = q_f32 * w_qb_scale
-        q_cast = pypto.cast(q_f32, x_dtype)
+        q_bf16 = pypto.cast(q_f32, x_dtype)
 
         pypto.set_semantic_label("Query-Rope")
-        q_bf16 = pypto.reshape(q_cast, [t_tile, head_num, head_dim])
+        q_bf16 = pypto.reshape(q_bf16, [t_tile, head_num, head_dim])
         q_rope = pypto.view(q_bf16, [t_tile, head_num, rope_head_dim], [0, 0, 0])
         q_nope = pypto.view(q_bf16, [t_tile, head_num, head_dim - rope_head_dim], [0, 0, rope_head_dim])
         rope_cos = pypto.view(cos_idx_rope_in, [t_tile, rope_head_dim], [t_idx, 0])
@@ -376,15 +376,15 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         pypto.set_semantic_label("Key-Linear")
         pypto.set_cube_tile_shapes([64, 64], [512, 512], [64, 64])
         x = pypto.view(x_in, [t_tile, h], [t_idx, 0])
-        k = pypto.matmul(x, wk_in, pypto.DT_FP32)
+        k_proj = pypto.matmul(x, wk_in, x_dtype)
 
         pypto.set_semantic_label("Key-RmsNorm")
         pypto.set_vec_tile_shapes(t_tile_max, head_dim)
-        k_bf16 = pypto.cast(quant_rms_norm(k, gamma_2d, -1, 1e-6), x_dtype)
+        k_rms_norm = quant_rms_norm(k_proj, gamma_2d, -1, 1e-6)
 
         pypto.set_semantic_label("Key-Rope")
-        k_rope = pypto.view(k_bf16, [t_tile, rope_head_dim], [0, 0])
-        k_nope = pypto.view(k_bf16, [t_tile, head_dim - rope_head_dim], [0, rope_head_dim])
+        k_rope = pypto.view(k_rms_norm, [t_tile, rope_head_dim], [0, 0])
+        k_nope = pypto.view(k_rms_norm, [t_tile, head_dim - rope_head_dim], [0, rope_head_dim])
         k_roped = quant_rope_2d(k_rope, rope_cos, rope_sin)
         pypto.set_vec_tile_shapes(t_tile_max, head_dim)
         k_concat = pypto.concat([k_roped, k_nope], -1)
@@ -407,15 +407,15 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         pypto.set_semantic_label("Weight-Linear")
         pypto.set_cube_tile_shapes([32, 32], [1024, 1024], [32, 32])
         pypto.set_vec_tile_shapes(t_tile_max, head_num)
-        weights = pypto.cast(pypto.matmul(x, w_proj_in, x_dtype), pypto.DT_FP32)
+        weights = pypto.matmul(x, w_proj_in, x_dtype)
         weights = pypto.mul(weights, 1.0 / (math.sqrt(head_num) * math.sqrt(head_dim)))
-        weights_f16 = pypto.cast(weights, pypto.DT_BF16)
-        pypto.assemble(weights_f16, [t_idx, 0], weights_out)
+        pypto.assemble(weights, [t_idx, 0], weights_out)
 
 
 @pypto.jit(
     pass_options={
-        "vec_nbuffer_setting": {5: 2, 1: 4},
+        # 3 cast_cos/sin, 5 q_dequant, 1 q_quant
+        "vec_nbuffer_setting": {3: 2, 5: 2, 1: 4},
         "cube_l1_reuse_setting": {-1: 4},
         "pg_upper_bound": 8192
     },

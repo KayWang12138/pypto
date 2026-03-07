@@ -14,12 +14,12 @@ Lightning Indexer Prolog Quantization Module
 This module implements the Lightning Indexer Prolog quantization computation
 for DeepSeek V32 model. It handles:
 - Query computation with dynamic quantization
-- Key computation with LayerNorm and RoPE
+- Key computation with RmsNorm and RoPE
 - Weight computation for indexer attention
 
 Main Functions:
     - lightning_indexer_prolog_quant_compute: Main computation function
-    - quant_layer_norm: Quantized LayerNorm implementation
+    - quant_rms_norm: Quantized RmsNorm implementation
     - prolog_quant: Per-token quantization function
     - quant_rope_2d: 2D RoPE (Rotary Position Embedding) computation
     - rope_3d: 3D RoPE computation
@@ -56,7 +56,6 @@ class IndexerPrologQuantInput:
     wk: torch.tensor  # BF16, (h, headDim)
     w_proj: torch.tensor  # BF16, (h, headNum)
     ln_gamma_k: torch.tensor  # BF16, (headDim,)
-    ln_beta_k: torch.tensor  # BF16, (headDim,)
     cos_idx_rope: torch.tensor  # BF16, (t, ropeHeadDim)
     sin_idx_rope: torch.tensor  # BF16, (t, ropeHeadDim)
     hadamard_q: torch.tensor  # BF16, (headDim, headDim)
@@ -75,17 +74,16 @@ class IndexerPrologQuantOutput:
     weights: torch.tensor
 
 
-def quant_layer_norm(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, dim: int, epsilon: float):
-    """Compute quantized LayerNorm operation.
+def quant_rms_norm(x: pypto.Tensor, gamma: pypto.Tensor, dim: int, epsilon: float):
+    """Compute quantized RmsNorm operation.
 
-    Applies Layer Normalization with quantization support. The function normalizes
+    Applies Rms Normalization with quantization support. The function normalizes
     the input tensor along the specified dimension using mean and variance,
-    then applies learnable scale (gamma) and shift (beta) parameters.
+    then applies learnable scale (gamma) parameters.
 
     Args:
         x: Input tensor to normalize, shape depends on input
         gamma: Scale parameter tensor, shape should match the normalization dimension
-        beta: Shift parameter tensor, shape should match the normalization dimension
         dim: Dimension along which to normalize. Can be -1 (last dimension) or
              len(x.shape) - 1 (last dimension explicitly)
         epsilon: Small constant added to variance to avoid division by zero
@@ -103,21 +101,14 @@ def quant_layer_norm(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, d
 
     x_fp32 = pypto.cast(x, pypto.DT_FP32)
     # do division first to avoid overflow
-    x_scaled = x_fp32 * (1.0 / x.shape[actual_dim])
-    mean = pypto.sum(x_scaled, actual_dim, keepdim=True)
+    x2 = x_fp32 * x_fp32
+    x2_scaled = x2 * (1.0 / x.shape[actual_dim])
+    mean_square = pypto.sum(x2_scaled, actual_dim, keepdim=True)
 
-    diff = x_fp32 - mean
-    squared_diff = diff * diff
-    squared_diff_scaled = squared_diff * (1.0 / x.shape[actual_dim])
-    var = pypto.sum(squared_diff_scaled, actual_dim, keepdim=True)
-    # add epsilon to avoid division by zero
-    var_eps = var + epsilon
-    std_var = pypto.sqrt(var_eps)
-    res32 = diff / std_var
-
+    rms = pypto.sqrt(mean_square + epsilon)
+    res32 = x_fp32 / rms
     gamma32 = pypto.cast(gamma, pypto.DT_FP32)
-    beta32 = pypto.cast(beta, pypto.DT_FP32)
-    return pypto.cast((res32 * gamma32) + beta32, x_dtype)
+    return pypto.cast((res32 * gamma32), x_dtype)
 
 
 def quant_rope_2d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor):
@@ -272,10 +263,9 @@ def rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor) -> pypto.Tens
 
 def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
                                            w_qb_scale_in, wk_in, w_proj_in, ln_gamma_k_in,
-                                           ln_beta_k_in, cos_idx_rope_in, sin_idx_rope_in,
-                                           hadamard_q_in, hadamard_k_in, k_quant_in, k_scale_in,
-                                           k_cache_index_in, q_quant_out, q_scale_out, k_quant_out,
-                                           k_scale_out, weights_out):
+                                           cos_idx_rope_in, sin_idx_rope_in, hadamard_q_in,
+                                           hadamard_k_in, k_quant_in, k_scale_in, k_cache_index_in,
+                                           q_quant_out, q_scale_out, k_quant_out, k_scale_out, weights_out):
     """Compute Lightning Indexer Prolog with quantization.
 
     Main computation function for Lightning Indexer Prolog quantization.
@@ -291,7 +281,7 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
 
     2. Key Path:
        - Linear transformation with wk
-       - LayerNorm normalization
+       - RmsNorm normalization
        - Apply RoPE
        - Apply Hadamard transformation
        - Quantize to FP8.E4M3 with per-token-head scale
@@ -310,8 +300,7 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         w_qb_scale_in: Query weight dequantization scale, shape (q_lora_rank // 32, head_num * head_dim), dtype E8M0
         wk_in: Key projection weight matrix, BF16 format with ND layout
         w_proj_in: Weight projection matrix, BF16 format with ND layout
-        ln_gamma_k_in: LayerNorm scale parameter for key, shape (head_dim,), dtype BF16
-        ln_beta_k_in: LayerNorm shift parameter for key, shape (head_dim,), dtype BF16
+        ln_gamma_k_in: RmsNorm scale parameter for key, shape (head_dim,), dtype BF16
         cos_idx_rope_in: Cosine values for RoPE, shape (t, rope_head_dim), dtype BF16
         sin_idx_rope_in: Sine values for RoPE, shape (t, rope_head_dim), dtype BF16
         hadamard_q_in: Hadamard transformation matrix for query, shape (head_dim, head_dim), dtype BF16
@@ -341,7 +330,6 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
 
     k_cache_index = pypto.reshape(k_cache_index_in, [t, 1], inplace=True)
     gamma_2d = pypto.reshape(ln_gamma_k_in, [1, ln_gamma_k_in.shape[0]], inplace=True)
-    beta_2d = pypto.reshape(ln_beta_k_in, [1, ln_beta_k_in.shape[0]], inplace=True)
 
     unroll_list = [128, 64, 32, 16, 8, 4, 2, 1]
     t_tile_max = unroll_list[0]
@@ -354,7 +342,7 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         q_norm_scale = pypto.view(q_norm_scale_in, [t_tile, q_lora_rank // 64, 2], [t_idx, 0, 0])
         pypto.set_cube_tile_shapes([t_tile_max, t_tile_max], [512, 512], [128, 128])
         pypto.set_vec_tile_shapes(8, head_num * head_dim)
-        q_scaled_mm = pypto.scaled_mm(q_norm, w_qb_in, pypto.DT_BF16, q_norm_scale, w_qb_scale_in, scale_b_trans=True)
+        q_scaled_mm = pypto.scaled_mm(q_norm, w_qb_in, x_dtype, q_norm_scale, w_qb_scale_in, scale_b_trans=True)
 
         pypto.set_semantic_label("Query-Rope")
         q_bf16 = pypto.reshape(q_scaled_mm, [t_tile, head_num, head_dim])
@@ -381,15 +369,15 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         pypto.set_semantic_label("Key-Linear")
         pypto.set_cube_tile_shapes([64, 64], [512, 512], [64, 64])
         x = pypto.view(x_in, [t_tile, h], [t_idx, 0])
-        k = pypto.matmul(x, wk_in, pypto.DT_FP32)
+        k_proj = pypto.matmul(x, wk_in, x_dtype)
 
-        pypto.set_semantic_label("Key-LayerNorm")
+        pypto.set_semantic_label("Key-RmsNorm")
         pypto.set_vec_tile_shapes(t_tile_max, head_dim)
-        k_bf16 = pypto.cast(quant_layer_norm(k, gamma_2d, beta_2d, -1, 1e-6), x_dtype)
+        k_rms_norm = pypto.cast(quant_rms_norm(k_proj, gamma_2d, -1, 1e-6), x_dtype)
 
         pypto.set_semantic_label("Key-Rope")
-        k_rope = pypto.view(k_bf16, [t_tile, rope_head_dim], [0, 0])
-        k_nope = pypto.view(k_bf16, [t_tile, head_dim - rope_head_dim], [0, rope_head_dim])
+        k_rope = pypto.view(k_rms_norm, [t_tile, rope_head_dim], [0, 0])
+        k_nope = pypto.view(k_rms_norm, [t_tile, head_dim - rope_head_dim], [0, rope_head_dim])
         k_roped = quant_rope_2d(k_rope, rope_cos, rope_sin)
         pypto.set_vec_tile_shapes(t_tile_max, head_dim)
         k_concat = pypto.concat([k_roped, k_nope], -1)
@@ -412,15 +400,15 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         pypto.set_semantic_label("Weight-Linear")
         pypto.set_cube_tile_shapes([32, 32], [1024, 1024], [32, 32])
         pypto.set_vec_tile_shapes(t_tile_max, head_num)
-        weights = pypto.cast(pypto.matmul(x, w_proj_in, x_dtype), pypto.DT_FP32)
+        weights = pypto.matmul(x, w_proj_in, x_dtype)
         weights = pypto.mul(weights, 1.0 / (math.sqrt(head_num) * math.sqrt(head_dim)))
-        weights_f16 = pypto.cast(weights, pypto.DT_BF16)
-        pypto.assemble(weights_f16, [t_idx, 0], weights_out)
+        pypto.assemble(weights, [t_idx, 0], weights_out)
 
 
 @pypto.jit(
     pass_options={
-        "vec_nbuffer_setting": {4: 4, 7: 16, 1: 4},
+        # 3 cast_cos/sin, 4 q_rope, 7 q_nope, 1 q_quant
+        "vec_nbuffer_setting": {3: 2, 4: 4, 7: 16, 1: 4},
         "cube_l1_reuse_setting": {-1: 4},
         "pg_upper_bound": 8192
     },
@@ -432,10 +420,9 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
 )
 def lightning_indexer_prolog_quant(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
                                    w_qb_scale_in, wk_in, w_proj_in, ln_gamma_k_in,
-                                   ln_beta_k_in, cos_idx_rope_in, sin_idx_rope_in,
-                                   hadamard_q_in, hadamard_k_in, k_quant_in, k_scale_in,
-                                   k_cache_index_in, q_quant_out, q_scale_out, k_quant_out,
-                                   k_scale_out, weights_out):
+                                   cos_idx_rope_in, sin_idx_rope_in, hadamard_q_in,
+                                   hadamard_k_in, k_quant_in, k_scale_in, k_cache_index_in,
+                                   q_quant_out, q_scale_out, k_quant_out, k_scale_out, weights_out):
     """JIT-compiled wrapper for Lightning Indexer Prolog quantization computation.
 
     This is the main entry point for the Lightning Indexer Prolog quantization operator.
@@ -450,8 +437,7 @@ def lightning_indexer_prolog_quant(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
         w_qb_scale_in: Query weight dequantization scale, shape (head_num * head_dim, 1), dtype FP32
         wk_in: Key projection weight matrix, BF16 format with ND layout
         w_proj_in: Weight projection matrix, BF16 format with ND layout
-        ln_gamma_k_in: LayerNorm scale parameter for key, shape (head_dim,), dtype BF16
-        ln_beta_k_in: LayerNorm shift parameter for key, shape (head_dim,), dtype BF16
+        ln_gamma_k_in: RmsNorm scale parameter for key, shape (head_dim,), dtype BF16
         cos_idx_rope_in: Cosine values for RoPE, shape (t, rope_head_dim), dtype BF16
         sin_idx_rope_in: Sine values for RoPE, shape (t, rope_head_dim), dtype BF16
         hadamard_q_in: Hadamard transformation matrix for query, shape (head_dim, head_dim), dtype BF16
@@ -473,7 +459,6 @@ def lightning_indexer_prolog_quant(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
 
     lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
                                            w_qb_scale_in, wk_in, w_proj_in, ln_gamma_k_in,
-                                           ln_beta_k_in, cos_idx_rope_in, sin_idx_rope_in,
-                                           hadamard_q_in, hadamard_k_in, k_quant_in, k_scale_in,
-                                           k_cache_index_in, q_quant_out, q_scale_out, k_quant_out,
-                                           k_scale_out, weights_out)
+                                           cos_idx_rope_in, sin_idx_rope_in, hadamard_q_in, 
+                                           hadamard_k_in, k_quant_in, k_scale_in, k_cache_index_in, 
+                                           q_quant_out, q_scale_out, k_quant_out, k_scale_out, weights_out)
