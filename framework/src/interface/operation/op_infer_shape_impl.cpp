@@ -168,6 +168,18 @@ REGISTER_INFER_SHAPE_FUNC(OP_BITWISEXOR, Opcode::OP_BITWISEXOR, ElewiseInferFunc
 REGISTER_INFER_SHAPE_FUNC(OP_EXPANDEXPDIF, Opcode::OP_EXPANDEXPDIF, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_COPYSIGN, Opcode::OP_COPYSIGN, ElewiseInferFunc);
 
+void FloorDivInferShapeFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    auto inputValidShape = op->GetIOperands()[0]->GetDynValidShape();
+    if (inputValidShape.empty()) {
+        return;
+    }
+    size_t ndim = inputValidShape.size();
+    outValidShapes.emplace_back(inputValidShape);
+    outValidShapes.emplace_back(std::vector<SymbolicScalar>{inputValidShape[ndim - 1] * 2});
+}
+REGISTER_INFER_SHAPE_FUNC(OP_FLOORDIV, Opcode::OP_FLOORDIV, FloorDivInferShapeFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_FLOORDIVS, Opcode::OP_FLOORDIVS, FloorDivInferShapeFunc);
+
 void PadInferShapeFunc(Operation* op,
                        std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     auto inputValidShape = op->GetIOperands()[0]->GetDynValidShape();

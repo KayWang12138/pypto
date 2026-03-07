@@ -26,7 +26,8 @@ void ExecuteOpBinary(ExecuteOperationContext *ctx) {
         opcode == Opcode::OP_DIV_BRC) {
         ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
                ctx->ooperandInplaceDataViewList->size() == SIZE_TWO);
-    } else if (opcode == Opcode::OP_BITWISEXOR || opcode == Opcode::OP_COPYSIGN || opcode == Opcode::OP_POW) {
+    } else if (opcode == Opcode::OP_BITWISEXOR || opcode == Opcode::OP_COPYSIGN ||
+               opcode == Opcode::OP_POW || opcode == Opcode::OP_FLOORDIV) {
         ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
                ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
     } else {
@@ -80,6 +81,7 @@ void ExecuteOpBinary(ExecuteOperationContext *ctx) {
         case Opcode::OP_MUL_BRC: calc::Mul(ret, lhs, rhs); break;
         case Opcode::OP_DIV: calc::Div(ret, lhs, rhs); break;
         case Opcode::OP_DIV_BRC: calc::Div(ret, lhs, rhs); break;
+        case Opcode::OP_FLOORDIV: calc::FloorDiv(ret, lhs, rhs); break;
         case Opcode::OP_POW: calc::Pow(ret, lhs, rhs); break;
         case Opcode::OP_REM: calc::Remainder(ret, lhs, rhs); break;
         case Opcode::OP_S_MAX: calc::Max(ret, lhs, rhs); break;
@@ -104,6 +106,7 @@ REGISTER_CALC_OP(OP_MUL, Opcode::OP_MUL, ExecuteOpBinary<Opcode::OP_MUL>);
 REGISTER_CALC_OP(OP_MUL_BRC, Opcode::OP_MUL_BRC, ExecuteOpBinary<Opcode::OP_MUL_BRC>);
 REGISTER_CALC_OP(OP_DIV, Opcode::OP_DIV, ExecuteOpBinary<Opcode::OP_DIV>);
 REGISTER_CALC_OP(OP_DIV_BRC, Opcode::OP_DIV_BRC, ExecuteOpBinary<Opcode::OP_DIV_BRC>);
+REGISTER_CALC_OP(OP_FLOORDIV, Opcode::OP_FLOORDIV, ExecuteOpBinary<Opcode::OP_FLOORDIV>);
 REGISTER_CALC_OP(OP_POW, Opcode::OP_POW, ExecuteOpBinary<Opcode::OP_POW>);
 REGISTER_CALC_OP(OP_REM, Opcode::OP_REM, ExecuteOpBinary<Opcode::OP_REM>);
 REGISTER_CALC_OP(OP_S_ADD, Opcode::OP_S_ADD, ExecuteOpBinary<Opcode::OP_ADD>);
@@ -846,7 +849,7 @@ REGISTER_CALC_OP(OP_REDUCE_ACC, Opcode::OP_REDUCE_ACC, ExecuteOpReduceAcc);
 
 template <Opcode opcode>
 void ExecuteOpBinaryScalar(ExecuteOperationContext *ctx) {
-    if (opcode == Opcode::OP_BITWISEXOR || opcode == Opcode::OP_REMRS) {
+    if (opcode == Opcode::OP_BITWISEXOR || opcode == Opcode::OP_REMRS || opcode == Opcode::OP_FLOORDIVS) {
         ASSERT(ExecuteOperationScene::CTX_OUTPUT_COUNT_MISMATCH,
                ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
     } else {
@@ -868,6 +871,7 @@ void ExecuteOpBinaryScalar(ExecuteOperationContext *ctx) {
         case Opcode::OP_MAXS: calc::MaxS(ret, lhs, element); break;
         case Opcode::OP_MINS: calc::MinS(ret, lhs, element); break;
         case Opcode::OP_DIVS: calc::DivS(ret, lhs, element, reverse); break;
+        case Opcode::OP_FLOORDIVS: calc::FloorDivS(ret, lhs, element, reverse); break;
         case Opcode::OP_REMS: calc::RemainderS(ret, lhs, element, reverse); break;
         case Opcode::OP_REMRS: calc::RemainderRS(ret, lhs, element, reverse); break;
         case Opcode::OP_S_MAXS: calc::MaxS(ret, lhs, element); break;
@@ -884,6 +888,7 @@ REGISTER_CALC_OP(OP_ADDS, Opcode::OP_ADDS, ExecuteOpBinaryScalar<Opcode::OP_ADDS
 REGISTER_CALC_OP(OP_SUBS, Opcode::OP_SUBS, ExecuteOpBinaryScalar<Opcode::OP_SUBS>);
 REGISTER_CALC_OP(OP_MULS, Opcode::OP_MULS, ExecuteOpBinaryScalar<Opcode::OP_MULS>);
 REGISTER_CALC_OP(OP_DIVS, Opcode::OP_DIVS, ExecuteOpBinaryScalar<Opcode::OP_DIVS>);
+REGISTER_CALC_OP(OP_FLOORDIVS, Opcode::OP_FLOORDIVS, ExecuteOpBinaryScalar<Opcode::OP_FLOORDIVS>);
 REGISTER_CALC_OP(OP_MAXS, Opcode::OP_MAXS, ExecuteOpBinaryScalar<Opcode::OP_MAXS>);
 REGISTER_CALC_OP(OP_MINS, Opcode::OP_MINS, ExecuteOpBinaryScalar<Opcode::OP_MINS>);
 REGISTER_CALC_OP(OP_LRELU, Opcode::OP_LRELU, ExecuteOpBinaryScalar<Opcode::OP_LRELU>);

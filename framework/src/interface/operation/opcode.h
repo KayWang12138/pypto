@@ -155,6 +155,9 @@ enum class Opcode {
     OP_BITWISEAND,
     OP_BITWISEOR,
     OP_BITWISEXOR,
+    OP_FLOORDIV,
+    OP_FLOORDIVS,
+
     // Cube
     OP_A_MUL_B,
     OP_A_MULACC_B,
@@ -554,6 +557,8 @@ const std::unordered_set<Opcode> BINARY_OPS{
     Opcode::OP_BITWISEXOR,
     Opcode::OP_EXPANDEXPDIF,
     Opcode::OP_COPYSIGN,
+    Opcode::OP_FLOORDIV,
+    Opcode::OP_FLOORDIVS,
 };
 
 const std::unordered_set<Opcode> BINARY_WITH_BRC_OPS{
@@ -627,7 +632,7 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE,
     Opcode::OP_BITWISERIGHTSHIFTS, Opcode::OP_BITWISELEFTSHIFTS, Opcode::OP_SBITWISERIGHTSHIFT,
     Opcode::OP_SBITWISELEFTSHIFT, Opcode::OP_COPYSIGN, Opcode::OP_TWOTILEMRGSORT, Opcode::OP_EXTRACT_SINGLE,
     Opcode::OP_SORT_UB, Opcode::OP_GATHER_MASK, Opcode::OP_GATHER_MASK_BUILDIN, Opcode::OP_PAIRPROD, Opcode::OP_ROWPROD_SINGLE,
-    Opcode::OP_ROWPRODLINE};
+    Opcode::OP_ROWPRODLINE, Opcode::OP_FLOORDIV, Opcode::OP_FLOORDIVS};
 
 const std::unordered_set<Opcode> UNSUPPORT_FP16_OPS{Opcode::OP_MOD, Opcode::OP_MODS, Opcode::OP_REMRS, Opcode::OP_REMS, Opcode::OP_REM};
 
@@ -646,7 +651,7 @@ const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{Opcode::OP_EXP, Opcode::OP_R
     Opcode::OP_BITWISEXOR, Opcode::OP_BITWISEANDS, Opcode::OP_BITWISEORS, Opcode::OP_BITWISEXORS, Opcode::OP_EXPANDEXPDIF, Opcode::OP_BITWISENOT,
     Opcode::OP_BITWISERIGHTSHIFT, Opcode::OP_BITWISELEFTSHIFT, Opcode::OP_BITWISERIGHTSHIFTS, Opcode::OP_BITWISELEFTSHIFTS,
     Opcode::OP_SBITWISERIGHTSHIFT, Opcode::OP_SBITWISELEFTSHIFT, Opcode::OP_COPYSIGN, Opcode::OP_LRELU, Opcode::OP_ROWPROD_SINGLE,
-    Opcode::OP_ROWPRODLINE};
+    Opcode::OP_ROWPRODLINE, Opcode::OP_FLOORDIV, Opcode::OP_FLOORDIVS};
 
 const std::unordered_set<Opcode> UNSUPPORT_BF16_ARCH35_OPS{Opcode::OP_EXP, Opcode::OP_RSQRT, Opcode::OP_SQRT, Opcode::OP_RELU,
     Opcode::OP_ABS, Opcode::OP_LOGICALNOT, Opcode::OP_LOGICALAND, Opcode::OP_DIVS, Opcode::OP_DIV, Opcode::OP_EXPANDEXPDIF,
