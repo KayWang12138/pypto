@@ -807,6 +807,26 @@ TEST_F(OperationImplTest, test_Trunc_FP32) {
     }
 }
 
+TEST_F(OperationImplTest, test_FloorDiv_int32) {
+    TileShape::Current().SetVecTile(16, 32);
+    Tensor self(DT_INT32, {64, 64}, "self");
+    Tensor other(DT_INT32, {64, 64}, "other");
+    Tensor result;
+    FUNCTION("TestFloorDiv") {
+        result = FloorDiv(self, other);
+    }
+}
+
+TEST_F(OperationImplTest, test_FloorDivs_int32) {
+    TileShape::Current().SetVecTile(16, 32);
+    Tensor self(DT_INT32, {64, 64}, "self");
+    Element other(DT_INT32, 2);
+    Tensor result;
+    FUNCTION("TestFloorDivs") {
+        result = FloorDiv(self, other);
+    }
+}
+
 TEST_F(OperationImplTest, test_Reciprocal_FP32) {
  	     constexpr int TILE_SHAPE = 32;
  	     constexpr int SHAPE = 128;

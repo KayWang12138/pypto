@@ -40,6 +40,7 @@ pypto-experimental-load
 pypto-experimental-set_operation_options
 pypto-experimental-transposed_batchmatmul
 pypto-floor
+pypto-floor_div
 pypto-fmod
 pypto-full
 pypto-gather
