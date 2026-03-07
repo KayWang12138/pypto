@@ -91,8 +91,7 @@ bool DeviceTaskContext::IsNeedWrapProcess(DynDeviceTask *dyntask, DevAscendProgr
     return dyntask->devTask.mixTaskData.wrapIdNum > 0;
 }
 
-void DeviceTaskContext::InitDieReadyQueues(DynDeviceTask *dyntask, DevAscendProgram *devProg,
-    ReadyCoreFunctionQueue* dieAivQueue[DIE_NUM], ReadyCoreFunctionQueue* dieAicQueue[DIE_NUM]) {
+void DeviceTaskContext::InitDieReadyQueues(DynDeviceTask *dyntask, DevAscendProgram *devProg) {
     if (!IsMixArch(devProg)) {
         return;
     }
@@ -105,17 +104,18 @@ void DeviceTaskContext::InitDieReadyQueues(DynDeviceTask *dyntask, DevAscendProg
         queue[i] = q;
     }
     for (size_t i = 0; i < DIE_NUM; i++) {
-        dieAivQueue[i] = queue[i];
-        dieAicQueue[i] = queue[DIE_NUM + i];
+        dyntask->devTask.dieReadyFunctionQue.readyDieAivCoreFunctionQue[i] = PtrToValue(queue[i]);
+        dyntask->devTask.dieReadyFunctionQue.readyDieAicCoreFunctionQue[i] = PtrToValue(queue[DIE_NUM + i]);
     }
 }
 
-void DeviceTaskContext::UpdateDeviceDieTaskQueueInfo(DynDeviceTask *dyntask, ReadyCoreFunctionQueue *dieAivQueue[DIE_NUM],
-    ReadyCoreFunctionQueue *dieAicQueue[DIE_NUM]) {
-    for (size_t i = 0; i < DIE_NUM; i++) {
-        dyntask->devTask.dieReadyFunctionQue.readyDieAivCoreFunctionQue[i] = PtrToValue(dieAivQueue[i]);
-        dyntask->devTask.dieReadyFunctionQue.readyDieAicCoreFunctionQue[i] = PtrToValue(dieAicQueue[i]);
+void DeviceTaskContext::GetDieReadyQueues(DynDeviceTask *dyntask, ReadyCoreFunctionQueue *targetAivQueue,
+    ReadyCoreFunctionQueue *targetAicQueue, int8_t dieId) {
+    if (dieId < 0 || dieId >= static_cast<int8_t>(DIE_NUM)) {
+        return;
     }
+    targetAivQueue = reinterpret_cast<ReadyCoreFunctionQueue *>(dyntask->devTask.dieReadyFunctionQue.readyDieAivCoreFunctionQue[dieId]);
+    targetAicQueue = reinterpret_cast<ReadyCoreFunctionQueue *>(dyntask->devTask.dieReadyFunctionQue.readyDieAicCoreFunctionQue[dieId]);
 }
 
 void DeviceTaskContext::AllocOpWrapList (DynDeviceTask *dyntask) {
