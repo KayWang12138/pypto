@@ -204,26 +204,7 @@ python scripts/query_codecheck_rule.py \
 
 > **本地预检** 在核心流程的 **步骤 8** 执行（commit 前），此处不做。
 
-### 提取脚本
 
-URL 提取：`scripts/extract_latest_codecheck_url.py`（从评论 JSON 提取最新 codecheck URL）
-
-违规获取：`scripts/fetch_codecheck_violations.py`（支持 `--retries`）
-
-规则查询：`scripts/query_codecheck_rule.py`（支持多规则/从 violations.json 批量查询）
-
-本地预检：`scripts/local_codecheck.py`（ruff + AST 混合检查，支持 `--rules` / `--fix`）
-
-输出示例：
-```json
-{
-  "total": 79,
-  "by_rule": {"G.LOG.02": 25, "G.FMT.02": 22, "G.CLS.11": 13, ...},
-  "violations": [
-    {"file": "path/to/file.py", "line": 42, "rule_id": "G.FMT.02", ...}
-  ]
-}
-```
 
 ## 本地预检（必须）
 
