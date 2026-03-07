@@ -115,6 +115,11 @@ bool HostMachine::Init(const HostMachineMode mode) {
         DestroyThread();
     }
     mode_ = mode;
+
+    if (mode == HostMachineMode::SERVER) {
+        InitThread();
+    }
+
     initialized_.store(true);
     HOST_PERF_TRACE_START();
     return true;
@@ -134,9 +139,6 @@ void HostMachine::Destroy() {
 }
 
 void HostMachine::InitThread() {
-    if (!compileThreads_.empty()) {
-        return;
-    }
     stopFlag_.store(false);
     for (int idx = 0; idx < compileThreadCount_; ++idx) {
         compileThreads_.emplace_back(&HostMachine::CompileThreadFunc, this);
@@ -194,8 +196,6 @@ void HostMachine::SubTask(Function *function) {
         MACHINE_ASSERT(curTask == nullptr);
         curTask = new MachineTask(curTaskId_++, function);
         return;
-    } else if (mode_ == HostMachineMode::SERVER) {
-        InitThread();
     }
 
     std::lock_guard<std::mutex> lock(compileQueueMutex_);

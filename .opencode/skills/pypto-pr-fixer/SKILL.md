@@ -1,6 +1,6 @@
 ---
 name: pypto-pr-fixer
-description: "PyPTO 仓库 PR 自动修复工具。两大能力：(1) 通用 Review 评论修复 — 理解任意人工 review 评论并智能生成修复方案，不限于特定评论类型；(2) CodeCheck CI 修复 — 解析 cann-robot 报告的 CodeArts-Check 静态分析失败，从 openlibing.com 获取违规详情并自动修复。触发词：PR评论修复、review意见修复、PR review fixer、修复PR评论、codecheck修复、codecheck失败。"
+description: "修复 PyPTO PR 的 CodeCheck CI 失败和 review 评论。自动获取 CodeCheck 违规详情、匹配规则、应用修复。触发词：修复codecheck、codecheck问题、codecheck报错、codecheck失败、codecheck不通过、CI失败、CI报错、PR评论修复、review意见修复、修复PR、PR review fixer。"
 ---
 
 # PyPTO PR Fixer
@@ -37,11 +37,22 @@ pull_number: 1276
 2. 获取 PR 元数据和全部评论
 3. 过滤机器人评论，分离人工评论与 CI 报告
 4. 对人工评论：通用理解 → 定位文件 → 生成修复方案
-5. 对 codecheck 失败：提取报告 URL → 获取违规详情 → 匹配规则修复
+5. 对 codecheck 失败：
+   ├── 5a. 提取报告 URL（强制 scripts/extract_latest_codecheck_url.py）
+   ├── 5b. 获取违规详情（强制 scripts/fetch_codecheck_violations.py）
+   └── 5c. 匹配规则修复（强制 scripts/query_codecheck_rule.py）
 6. 用户确认修复方案
-7. 应用修复 + 验证
-8. 委托 pypto-pr-creator 完成 push + PR 创建
-```
+7. 应用修复
+8. 本地预检（必须）— 使用 scripts/local_codecheck.py 扫描
+   └── 发现问题 → 返回步骤 7 继续修复
+   └── 无问题 → 继续
+
+> **⚠️ 开始前**：
+> 1. 切换到 PR 对应的本地分支：`git checkout <branch_name>`
+> 2. 确认已配置 upstream remote：`git remote -v | grep upstream || git remote add upstream https://gitcode.com/cann/pypto.git`
+
+9. 同步 upstream（检查 + rebase）
+10. 委托 pypto-pr-creator 完成 commit + push
 
 ## 评论获取与分类
 
@@ -113,7 +124,7 @@ def is_robot_comment(comment):
 
 GitCode MCP 的 `diff_comment` 包含 `diff_position`（`start_new_line`/`end_new_line`），但**不包含文件 `path`**。定位文件时需结合 grep 搜索评论提及的代码内容。
 
-详见 @references/review-guide.md。
+详见 [references/review-guide.md](references/review-guide.md)。
 
 ## 能力二：CodeCheck CI 修复
 
@@ -131,34 +142,86 @@ cann-robot 评论中包含 codecheck 失败的 HTML 表格：
 
 ### 处理流程
 
-1. **提取报告 URL** — 从 cann-robot 评论 HTML 中解析 `href`
-2. **获取违规详情** — 使用 Playwright Python 提取违规列表：
-   ```bash
-   # 方法一：使用内置脚本（推荐）
-   python ${UNIFIED_SKILLS_ROOT}/library/shared/gitcode-pr-review-fixer/scripts/fetch_codecheck_violations.py "$CODECHECK_URL" --output json
-   ```
-   
-   **注意**：openlibing.com 是 SPA，受 WAF 保护，Playwright MCP 不支持 ARM64，必须使用 Playwright Python。详见 @references/codecheck-rules.md。
-3. **匹配规则** — 根据规则 ID 在 @references/codecheck-rules.md 中查找修复方案
-4. **分类处理**：
-   - 可自动修复（格式类 G.FMT、命名类 G.NAM、日志类 G.LOG 等）→ 直接修复
-   - 需人工判断（安全类 G.EDV、业务逻辑类 G.CTL 等）→ 生成修复建议
-5. **应用修复并验证**
+#### 步骤 1：提取报告 URL（强制脚本）
 
-### 提取脚本
+**必须使用** `scripts/extract_latest_codecheck_url.py`：
 
-内置脚本：`scripts/fetch_codecheck_violations.py`
-
-输出示例：
-```json
-{
-  "total": 79,
-  "by_rule": {"G.LOG.02": 25, "G.FMT.02": 22, "G.CLS.11": 13, ...},
-  "violations": [
-    {"file": "path/to/file.py", "line": 42, "rule_id": "G.FMT.02", ...}
-  ]
-}
+```bash
+python scripts/extract_latest_codecheck_url.py --input comments.json
 ```
+
+**输出**：最新的 codecheck URL
+
+**降级条件**（仅以下情况可手动解析）：
+1. 脚本文件不存在
+2. 脚本执行报错且无法修复
+3. 用户明确指定使用其他方式
+
+#### 步骤 2：获取违规详情（强制脚本）
+
+**必须使用** `scripts/fetch_codecheck_violations.py`：
+
+```bash
+python scripts/fetch_codecheck_violations.py "$CODECHECK_URL" --output json
+```
+
+**降级条件**（仅以下情况可使用其他方式）：
+1. 脚本文件不存在
+2. 脚本执行报错且无法修复
+3. 用户明确指定使用其他方式
+
+降级时需记录原因并告知用户。
+
+> **注意**：openlibing.com 是 SPA，受 WAF 保护，Playwright MCP 不支持 ARM64，脚本内部使用 Playwright Python 实现。
+
+#### 步骤 3：查询规则修复方案（强制脚本）
+
+**必须使用** `scripts/query_codecheck_rule.py`：
+
+```bash
+python scripts/query_codecheck_rule.py \
+  --rules violations.json \
+  --language python \
+  --format markdown
+```
+
+**降级条件**（仅以下情况可使用其他方式）：
+1. 脚本文件不存在
+2. 脚本执行报错且无法修复
+3. 规则 ID 在脚本数据库中不存在
+4. 用户明确指定使用其他方式
+
+降级方案：查阅 `references/codecheck-rules.md` 或官方文档。
+
+#### 步骤 4：分类处理
+
+- 可自动修复（格式类 G.FMT、命名类 G.NAM、日志类 G.LOG 等）→ 直接修复
+- 需人工判断（安全类 G.EDV、业务逻辑类 G.CTL 等）→ 生成修复建议
+
+#### 步骤 5：应用修复
+
+根据分类结果应用修复。
+
+> **本地预检** 在核心流程的 **步骤 8** 执行（commit 前），此处不做。
+
+
+
+## 本地预检（必须）
+
+**执行时机**：修复完成后、commit 之前（核心流程步骤 8）
+
+```bash
+python scripts/local_codecheck.py <repo_path> --output json
+```
+
+**处理逻辑**：
+- 发现问题 → 返回修复阶段继续处理
+- 无问题 → 继续执行 commit
+
+**不可跳过**：此步骤为提交前的最后保障，确保本地代码符合 CodeCheck 规则。
+
+---
+
 
 ### 环境依赖
 
@@ -172,7 +235,7 @@ cann-robot 评论中包含 codecheck 失败的 HTML 表格：
 
 ### CodeCheck 规则参考
 
-完整规则映射见 @references/codecheck-rules.md，包含 111 条 Python 规则的修复方案分类。
+完整规则映射见 [references/codecheck-rules.md](references/codecheck-rules.md)，包含 111 条 Python 规则的修复方案分类。
 
 ## PR 策略选择
 
@@ -184,17 +247,7 @@ cann-robot 评论中包含 codecheck 失败的 HTML 表格：
 | 文件仅存在于 source_branch | `append` | 追加到现有 PR 的 source_branch |
 | 混合场景 | `append` | 优先追加，避免拆分修复 |
 
-**确认门**：向用户展示策略选择结果，等待确认后继续。
-
-## 修复验证
-
-对修改的 skill 目录运行验证：
-
-```bash
-python ${UNIFIED_SKILLS_ROOT}/library/shared/skill-creator/scripts/quick_validate.py <skill_dir>
-```
-
-确保输出 "Skill is valid!"。
+**用户确认**：向用户展示策略选择结果，等待确认后继续。
 
 ## 提交与 PR
 
@@ -207,6 +260,26 @@ fix(skills): <summary>
 - <change 2>
 ```
 
+> **⚠️ Commit Message 格式（Pre-receive Hook 强制验证）**：`^(feat|fix|docs|style|refactor|perf|test)(.*): [A-Z].{10,200}` — Tag 必须是这 7 种之一，冒号后必须有空格，Summary 首字母必须大写且长度 10-200 字符。验证：`git log -1 --format="%s" | grep -E '^(feat|fix|docs|style|refactor|perf|test)(.*): [A-Z].{10,200}'`
+
+### 同步 Upstream（关键步骤）
+
+**在委托 pypto-pr-creator 之前，必须确保分支与 upstream 同步**，否则 push 会因 "pre receive hook check failed" 失败。
+
+```bash
+# 步骤 1：获取 upstream 最新状态
+git fetch upstream master
+
+# 步骤 2：检查分支是否落后
+git log --oneline HEAD..upstream/master | wc -l
+# 若输出 > 0，说明分支落后，需要 rebase
+
+# 步骤 3：rebase（如落后）
+git rebase upstream/master
+git push -f origin <branch_name>
+```
+
+
 ### 委托 pypto-pr-creator
 
 PR 创建逻辑**完全委托给 pypto-pr-creator 技能**，传递：
@@ -214,6 +287,7 @@ PR 创建逻辑**完全委托给 pypto-pr-creator 技能**，传递：
 - commit 信息
 - PR 标题和描述
 
+> **委托时已同步 upstream**，pypto-pr-creator 可直接执行 commit + push。
 ### PR 创建后检查
 
 PR 创建成功后检查 CLA 和 LGTM 状态：
@@ -224,13 +298,10 @@ PR 创建成功后检查 CLA 和 LGTM 状态：
 
 当遇到 `pre receive hook check failed` 时，执行诊断：
 
-| 检查项 | 诊断命令 | 修复建议 |
-|--------|----------|----------|
-| Commit message 格式 | `git log -1 --format="%s"` | 必须匹配 `tag(scope): Summary` |
 | 分支同步状态 | `git log HEAD..origin/<target> --oneline` | `git pull --rebase` |
 | 提交者身份 | `git log -1 --format="%ae"` | 配置 `git user.email` |
 
-详见 @references/error-handling.md。
+
 
 ## 限制说明
 
@@ -240,7 +311,6 @@ PR 创建成功后检查 CLA 和 LGTM 状态：
 
 ## 参考文档
 
-- 通用修复指南 (@references/review-guide.md) — 评论理解与修复策略
-- CodeCheck 规则参考 (@references/codecheck-rules.md) — CodeArts-Check 规则映射与修复方案
-- 错误处理参考 (@references/error-handling.md) — MCP 错误、平台错误、pre-receive hook 诊断
-- pypto-pr-creator (@${UNIFIED_SKILLS_ROOT}/library/shared/pypto-pr-creator/SKILL.md) — PR 创建委托
+- [通用修复指南](references/review-guide.md) — 评论理解与修复策略
+- [CodeCheck 规则参考](references/codecheck-rules.md) — CodeArts-Check 规则映射与修复方案
+- [错误处理参考](references/error-handling.md) — MCP 错误、平台错误、pre-receive hook 诊断

@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+"""从 GitCode PR 评论 JSON 中提取最新 codecheck URL。
+
+说明:
+- 本脚本不调用任何 GitCode API。
+- 输入必须是已有的评论 JSON 数据（通常为数组，每个元素含 body 和 created_at）。
+
+用法示例:
+  python3 /tmp/extract_latest_codecheck_url.py --input comments.json
+  cat comments.json | python3 /tmp/extract_latest_codecheck_url.py
+
+退出码:
+  0: 成功找到并输出 URL
+  1: 输入错误或未找到 URL
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from datetime import datetime, timezone
+from typing import Any, Iterable
+
+
+CODECHECK_URL_RE = re.compile(
+    r"https://www\.openlibing\.com/apps/entryCheckDashCode/[^\s'\">]+",
+    flags=re.IGNORECASE,
+)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="从 PR 评论 JSON 中提取最新 codecheck URL（不调用 GitCode API）"
+    )
+    parser.add_argument(
+        "--input",
+        help="评论 JSON 文件路径；不传时从 stdin 读取",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="输出详细信息（comment_id、created_at、url）",
+    )
+    return parser.parse_args()
+
+
+def load_json(input_path: str | None) -> Any:
+    try:
+        if input_path:
+            with open(input_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        return json.load(sys.stdin)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"输入不是合法 JSON: {exc}") from exc
+    except OSError as exc:
+        raise ValueError(f"读取输入失败: {exc}") from exc
+
+
+def parse_time(ts: Any) -> datetime:
+    if not isinstance(ts, str) or not ts.strip():
+        return datetime.min.replace(tzinfo=timezone.utc)
+    normalized = ts.strip().replace("Z", "+00:00")
+    try:
+        dt = datetime.fromisoformat(normalized)
+    except ValueError:
+        return datetime.min.replace(tzinfo=timezone.utc)
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def iter_comments(data: Any) -> Iterable[dict[str, Any]]:
+    if isinstance(data, list):
+        for item in data:
+            if isinstance(item, dict):
+                yield item
+    elif isinstance(data, dict):
+        for key in ("comments", "data", "items"):
+            maybe = data.get(key)
+            if isinstance(maybe, list):
+                for item in maybe:
+                    if isinstance(item, dict):
+                        yield item
+                return
+        raise ValueError("JSON 对象中未找到 comments/data/items 数组")
+    else:
+        raise ValueError("JSON 顶层必须是数组或对象")
+
+
+def extract_latest_codecheck(comments: Iterable[dict[str, Any]]) -> tuple[int | None, str | None, str]:
+    latest_key: tuple[datetime, int] | None = None
+    latest_comment_id: int | None = None
+    latest_created_at: str | None = None
+    latest_url: str | None = None
+
+    for c in comments:
+        body = c.get("body")
+        if not isinstance(body, str) or "codecheck" not in body.lower():
+            continue
+
+        match = CODECHECK_URL_RE.search(body)
+        if not match:
+            continue
+
+        created_at_raw = c.get("created_at")
+        created_at_dt = parse_time(created_at_raw)
+        cid = c.get("id")
+        cid_num = cid if isinstance(cid, int) else -1
+        key = (created_at_dt, cid_num)
+
+        if latest_key is None or key > latest_key:
+            latest_key = key
+            latest_comment_id = cid if isinstance(cid, int) else None
+            latest_created_at = created_at_raw if isinstance(created_at_raw, str) else None
+            latest_url = match.group(0)
+
+    if latest_url is None:
+        raise ValueError("未在评论中找到 codecheck URL")
+
+    return latest_comment_id, latest_created_at, latest_url
+
+
+def main() -> int:
+    args = parse_args()
+    try:
+        data = load_json(args.input)
+        comment_id, created_at, url = extract_latest_codecheck(iter_comments(data))
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    if args.verbose:
+        print(f"comment_id={comment_id}")
+        print(f"created_at={created_at}")
+        print(f"codecheck_url={url}")
+    else:
+        print(url)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
