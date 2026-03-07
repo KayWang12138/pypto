@@ -400,6 +400,7 @@ DEFINE_BINARY_S_OPS(AddS, add_out)
 DEFINE_BINARY_S_OPS(SubS, sub_out)
 DEFINE_BINARY_S_OPS(MulS, mul_out)
 DEFINE_BINARY_S_OPS(DivS, div_out)
+DEFINE_BINARY_S_OPS(FloorDivS, floor_divide_out)
 DEFINE_BINARY_S_OPS(FmodS, fmod_out)
 DEFINE_BINARY_S_OPS(RemainderS, remainder_out)
 DEFINE_BINARY_S_OPS(RemainderRS, remainder_out)
@@ -608,6 +609,7 @@ static void PReLU(const TensorData &out, const TensorData &self, const TensorDat
 
 DEFINE_BINARY_OPS(Remainder, remainder_out)
 DEFINE_BINARY_OPS(Gcd, gcd_out)
+DEFINE_BINARY_OPS(FloorDiv, floor_divide_out)
 
 static void Pow(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tout = From(out);
@@ -2076,6 +2078,7 @@ static struct CalcOps calcOps = {
     .SubS = SubS,
     .MulS = MulS,
     .DivS = DivS,
+    .FloorDivS = FloorDivS,
     .FmodS = FmodS,
     .RemainderS = RemainderS,
     .RemainderRS = RemainderRS,
@@ -2087,6 +2090,7 @@ static struct CalcOps calcOps = {
     .Sub = Sub,
     .Mul = Mul,
     .Div = Div,
+    .FloorDiv = FloorDiv,
     .Fmod = Fmod,
     .Remainder = Remainder,
     .Pow = Pow,
