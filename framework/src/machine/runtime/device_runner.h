@@ -72,6 +72,7 @@ public:
     }
 
     void SetDebugEnable();
+    void ResetMetrics(const uint32_t &coreId);
     void ResetPerData();
     void DumpAiCoreExecutionTimeData();
     void DumpAiCorePmuData();
@@ -80,6 +81,7 @@ public:
     void InitAiCpuSoBin(DeviceArgs &devArgs);
     bool GetValidGetPgMask() const;
     void ReportHostProfInfo(uint64_t startTime, uint32_t blockDim, uint16_t taskType, bool isCore = false);
+    bool GetEnableDumpDevPref() const;
 
 private:
     DeviceRunner() = default;
@@ -120,6 +122,7 @@ private:
     std::unordered_map<ArchInfo, std::function<int(std::vector<int64_t>&, std::vector<int64_t>&)>> addressMappingTable_;
     bool isCapture_{false};
     bool initFlag_{false};
+    bool enableDumpDevPref_{false};
 };
 }
 #else
