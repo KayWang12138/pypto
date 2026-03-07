@@ -150,6 +150,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx)
           {Opcode::OP_BITWISEXOR, [this]() { return GenBinaryOpWithTmp(); }},
           {Opcode::OP_COPYSIGN, [this]() { return GenBinaryOpWithTmp(); }},
           {Opcode::OP_PRELU, [this]() { return GenPreluOp(); }},
+          {Opcode::OP_FLOORDIV, [this]() { return GenBinaryOpWithTmp(); }},
 
           // binary op: broadcast associated vector
           {Opcode::OP_ADD_BRC, [this]() { return GenBinaryWithBrc(); }},
@@ -181,6 +182,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx)
           {Opcode::OP_SBITWISERIGHTSHIFT, [this]() { return GenVectorScalarOpWithTmp(); }},
           {Opcode::OP_SBITWISELEFTSHIFT, [this]() { return GenVectorScalarOpWithTmp(); }},
           {Opcode::OP_BITWISEXORS, [this]() { return GenVectorScalarOpWithTmp(); }},
+          {Opcode::OP_FLOORDIVS, [this]() { return GenVectorScalarOpWithTmp(); }},
 
           // binary op: vector scalar, scalar mode
           {Opcode::OP_S_ADDS, [this]() { return GenVectorScalarOpScalarMode(); }},

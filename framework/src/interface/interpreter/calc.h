@@ -197,6 +197,9 @@ inline void MulS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Elem
 inline void DivS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
     GetCalcOps()->DivS(Trans(out), Trans(self), scalar, reverse);
 }
+inline void FloorDivS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
+    GetCalcOps()->FloorDivS(Trans(out), Trans(self), scalar, reverse);
+}
 inline void FmodS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
     GetCalcOps()->FmodS(Trans(out), Trans(self), scalar, reverse);
 }
@@ -229,6 +232,9 @@ inline void Mul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTens
 }
 inline void Div(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     GetCalcOps()->Div(Trans(out), Trans(self), Trans(other));
+}
+inline void FloorDiv(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    GetCalcOps()->FloorDiv(Trans(out), Trans(self), Trans(other));
 }
 inline void Fmod(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     GetCalcOps()->Fmod(Trans(out), Trans(self), Trans(other));

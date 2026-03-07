@@ -504,6 +504,17 @@ TEST_F(TorchAdaptorTest, BinaryOps) {
         ASSERT_ALLCLOSE(out, golden);
     }
     {
+        std::vector<int32_t> sdata = {5, -5, 7, -7};
+        std::vector<int32_t> odata = {2, 2, -3, -3};
+        auto self = makeTensorData(DT_INT32, {2, 2}, sdata);
+        auto other = makeTensorData(DT_INT32, {2, 2}, odata);
+        auto out = makeTensorData(DT_INT32, {2, 2}, 0);
+        std::vector<int32_t> gdata = {2, -3, -3, 2};
+        auto golden = makeTensorData(DT_INT32, {2, 2}, gdata);
+        calc::FloorDiv(out, self, other);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+    {
         auto self = makeTensorData(DT_FP32, {16, 16}, 5.0f);
         auto out = makeTensorData(DT_BOOL, {16, 16}, true);
         auto golden = makeTensorData(DT_BOOL, {16, 16}, true);
@@ -806,6 +817,16 @@ TEST_F(TorchAdaptorTest, BinaryOpsS) {
         auto out = makeTensorData(DT_FP32, {16, 16}, 0.0f);
         auto golden = makeTensorData(DT_FP32, {16, 16}, 0.4f);
         calc::DivS(out, self, elem, true);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+    {
+        std::vector<int32_t> sdata = {5, -5, 7, -7};
+        auto self = makeTensorData(DT_INT32, {2, 2}, sdata);
+        auto elem = Element(DT_INT32, 2);
+        auto out = makeTensorData(DT_INT32, {2, 2}, 0);
+        std::vector<int32_t> gdata = {2, -3, 3, -4};
+        auto golden = makeTensorData(DT_INT32, {2, 2}, gdata);
+        calc::FloorDivS(out, self, elem);
         ASSERT_ALLCLOSE(out, golden);
     }
     {
