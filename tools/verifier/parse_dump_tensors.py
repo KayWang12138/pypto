@@ -174,9 +174,10 @@ class VerifyRes:
         all_match = False
         while not all_match:
             self.get_verify_res_single(tensor_infos_new[0], op_info_list.to_dict(orient='records'))
-            if not tensor_infos_new[0].get("loop_info"):
+            cur_loop_info = tensor_infos_new[0].get("loop_info")
+            if not cur_loop_info:
                 break
-            op_info_list_with_loop = op_info_list[op_info_list["loopInfo"] == tensor_infos_new[0].get("loop_info")]
+            op_info_list_with_loop = op_info_list[op_info_list["loopInfo"] == cur_loop_info]
             all_match = True
             for i, tensor_info in enumerate(tensor_infos_new):
                 if i == 0:
@@ -187,9 +188,9 @@ class VerifyRes:
                     all_match = False
                     break
             if all_match:
-                op_info_list_callop = op_info_list_callop[op_info_list_callop["loopInfo"] != tensor_infos_new[0].get("loop_info")]
+                op_info_list_callop = op_info_list_callop[op_info_list_callop["loopInfo"] != cur_loop_info]
                 break
-            op_info_list = op_info_list[op_info_list["loopInfo"] != tensor_infos_new[0].get("loop_info")]
+            op_info_list = op_info_list[op_info_list["loopInfo"] != cur_loop_info]
         if not all_match:
             for _, tensor_info in enumerate(tensor_infos):
                 tensor_info["verify_tensor_file"] = "" 
