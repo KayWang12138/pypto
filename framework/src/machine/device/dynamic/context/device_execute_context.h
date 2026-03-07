@@ -132,6 +132,8 @@ private:
 
     static void *DeviceExecuteRuntimeCallSlotMarkNeedAlloc(void *ctx_, uint64_t slotIndex);
 
+    static void *DeviceExecuteRuntimeCallCalcDieId(void *ctx_, uint64_t dieId);
+
     int errorState_{DEVICE_MACHINE_OK};
 };
 }
