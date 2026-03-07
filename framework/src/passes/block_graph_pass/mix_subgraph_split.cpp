@@ -39,7 +39,7 @@ Status MixSubgraphSplit::RunOnFunction(Function &function) {
         ALOG_ERROR_F("GatherSubGraphInfo failed");
         return FAILED;
     }
-    ALOG_INFO_F("Found %d leaf function to process", programs.size());
+    ALOG_INFO_F("Found %zu leaf function to process", programs.size());
 
     if (mixSubgraphs.empty()) {
         ALOG_INFO_F("No mix subgraph found, jump MixSubgraphSplit.");
@@ -140,7 +140,7 @@ Status MixSubgraphSplit::CalculateSplit(Function &function, std::vector<MixSubgr
         }
     }
     size_t finalCount = originalCount - deleteCount + newSubgraphCount;
-    ALOG_INFO_F("Program count: original= %d, delete=%d, new=%d, final=%d", originalCount, deleteCount, newSubgraphCount, finalCount);
+    ALOG_INFO_F("Program count: original= %zu, delete=%zu, new=%zu, final=%zu", originalCount, deleteCount, newSubgraphCount, finalCount);
     // 构建programID重映射表
     uint64_t nextProgramID = 0; // 从0开始重新分配连续ID
 
@@ -148,7 +148,7 @@ Status MixSubgraphSplit::CalculateSplit(Function &function, std::vector<MixSubgr
     for (auto &program : rootFunc->programs_) {
         if (mixSubgraphIDsToDelete.find(program.first) == mixSubgraphIDsToDelete.end()) {
             programIDRemap[program.first] = nextProgramID++;
-            ALOG_DEBUG_F("Remap preserved program: %d ->  %d", program.first, programIDRemap[program.first]);
+            ALOG_DEBUG_F("Remap preserved program: %u ->  %lu", program.first, programIDRemap[program.first]);
         }
     }
     // 为新创建的子图分配连续的ID
@@ -198,7 +198,7 @@ Status MixSubgraphSplit::ExecuteSplit(Function &function, std::vector<MixSubgrap
     }
     // 删除原始Mix子图的callOp
     DeleteOriginalMixCallOps(*rootFunc, callOpsToDelete);
-    ALOG_INFO_F("Found %d mix subgraphs to split", mixSubgraphs.size());
+    ALOG_INFO_F("Found %zu mix subgraphs to split", mixSubgraphs.size());
 
     // 应用拆分结果并重新映射所有programID
     auto status = ApplySplitResultsWithRemap(function, splitResults, programIDRemap, mixSubgraphNewIDs);
@@ -271,7 +271,7 @@ Status MixSubgraphSplit::ApplySplitResultsWithRemap(Function& function,
             // 更新function的programID
             if (program.second != nullptr) {
                 program.second->SetProgramId(newID);
-                ALOG_DEBUG_F("Updated preserved program: oldID=%d -> newID=%d", program.first, newID);
+                ALOG_DEBUG_F("Updated preserved program: oldID=%u -> newID=%lu", program.first, newID);
             }
         }
     }
@@ -294,14 +294,14 @@ Status MixSubgraphSplit::ApplySplitResultsWithRemap(Function& function,
             if (newFunc != nullptr) {
                 newPrograms[newProgramID] = newFunc;
                 newFunc->SetProgramId(newProgramID);
-                ALOG_DEBUG_F("Added new subgraph: programID=%d, function=%s",
+                ALOG_DEBUG_F("Added new subgraph: programID=%lu, function=%s",
                         newProgramID, newFunc->GetRawName().c_str());
             }
         }
     }
     // 更新rootFunc的programs
     rootFunc->programs_ = std::move(newPrograms);
-    ALOG_INFO_F("Program mapping completed: original count=%d, new count=%d",
+    ALOG_INFO_F("Program mapping completed: original count=%lu, new count=%zu",
             originalCount, rootFunc->programs_.size());
     return SUCCESS;
 }
@@ -394,9 +394,9 @@ Status MixSubgraphSplit::ProcessLeafFunction(Function& rootFunc,
             return FAILED;
         }
         uint64_t mixId = nextMixId_++;
-        ALOG_DEBUG_F("Assigning mixId=%lu for original mix function programID=%d", mixId, programID);
+        ALOG_DEBUG_F("Assigning mixId=%lu for original mix function programID=%lu", mixId, programID);
         MixResourceType resourceType = GetMixResourceType(*originalMixFunc);
-        ALOG_DEBUG_F("Mix resource type: %d for programID=%d", static_cast<int>(resourceType), programID);
+        ALOG_DEBUG_F("Mix resource type: %d for programID=%lu", static_cast<int>(resourceType), programID);
         // 为每个scope创建leaf function
         if (GenNewFunctions(rootFunc, originalMixFunc, components, newProgramIDs,
                             analyzerOutput->subgraphToFunction, newFunctions,
@@ -621,7 +621,7 @@ void MixSubgraphSplit::DeleteOriginalMixCallOps(Function& rootFunc, const std::v
     }
     // 执行实际删除
     rootFunc.EraseOperations(false);
-    ALOG_INFO_F("Deleted %d original mix subgraph callOps", callOpsToDelete.size());
+    ALOG_INFO_F("Deleted %zu original mix subgraph callOps", callOpsToDelete.size());
 }
 }
 }
