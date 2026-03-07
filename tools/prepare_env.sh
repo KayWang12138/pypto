@@ -686,7 +686,7 @@ install_single_package() {
     elif [[ "$filename" =~ "pto-isa" ]]; then
         install_cmd="$filename --quiet --install --force --install-path=$INSTALL_PATH "
     else
-        install_cmd="$filename --quiet --full --install-path=$INSTALL_PATH "
+        install_cmd="$filename --full --install-path=$INSTALL_PATH "
     fi
 
     log_print "info" "Running: $install_cmd"
