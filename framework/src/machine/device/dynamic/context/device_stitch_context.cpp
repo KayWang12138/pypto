@@ -61,7 +61,7 @@ void DeviceStitchContext::CheckStitch(DevAscendFunctionDupped *stitchedList, int
             }
         }
         if (dynPredCount != dynSuccCount) {
-            DEV_ERROR("dynPredCount %u does not match dynSuccCount %u", dynPredCount, dynSuccCount);
+            DEV_ERROR(ctrl.task.pre.stitch.check, "dynPredCount=%u dynSuccCount=%u # dynPredCount does not match dynSuccCount", dynPredCount, dynSuccCount);
         }
         DEV_ASSERT(dynPredCount == dynSuccCount);
     }
@@ -170,7 +170,7 @@ int DeviceStitchContext::MoveTo(DynDeviceTask *dynTask) {
     stitchedCallOpSize_ = 0;
 
     if (dynTask->stitchedList.size() > MAX_CACHED_FUNC_NUM) {
-        DEV_ERROR("Stitch list size:%u exceeds maximum allowed cached function number:%zu.", dynTask->stitchedList.size(), MAX_CACHED_FUNC_NUM);
+        DEV_ERROR(ctrl.stitch.toomany_root, "stitchListSize=%u maxCached=%zu # Stitch list size exceeds maximum allowed cached function number", dynTask->stitchedList.size(), MAX_CACHED_FUNC_NUM);
         return DEVICE_MACHINE_ERROR;
     }
     DEV_ASSERT(dynTask->stitchedList.size() <= MAX_CACHED_FUNC_NUM);
@@ -200,10 +200,10 @@ void DeviceStitchContext::HandleOneStitch(
 
     DEV_IF_NONDEVICE {
         if (producerOperationIdx >= producerDup.GetSource()->GetOperationSize()) {
-            DEV_ERROR("producerOperationIdx %zu exceeds the size of GetOperation %zu", producerOperationIdx, producerDup.GetSource()->GetOperationSize());
+            DEV_ERROR(ctrl.task.pre.stitch.handle, "producerOperationIdx=%zu operationSize=%zu # producerOperationIdx exceeds the size of GetOperation", producerOperationIdx, producerDup.GetSource()->GetOperationSize());
         }
         if (consumerOperationIdx >= consumerDup.GetSource()->GetOperationSize()) {
-            DEV_ERROR("consumerOperationIdx %zu exceeds the size of GetOperation %zu", consumerOperationIdx, consumerDup.GetSource()->GetOperationSize());
+            DEV_ERROR(ctrl.task.pre.stitch.handle, "consumerOperationIdx=%zu operationSize=%zu # consumerOperationIdx exceeds the size of GetOperation", consumerOperationIdx, consumerDup.GetSource()->GetOperationSize());
         }
         DEV_ASSERT(producerOperationIdx < producerDup.GetSource()->GetOperationSize());
         DEV_ASSERT(consumerOperationIdx < consumerDup.GetSource()->GetOperationSize());
@@ -445,7 +445,7 @@ uint64_t DeviceStitchContext::FastStitch(DeviceExecuteSlot *slotList, size_t slo
         for (size_t j = 0; j < incast.fromSlotList.size(); ++j) {
             auto slotIdx = nextSrc->At(incast.fromSlotList, j);
             if (slotIdx >= (int)slotSize) {
-                DEV_ERROR("slotIdx %d is larger than slotSize %zu!.", slotIdx, slotSize);
+                DEV_ERROR(ctrl.stitch.invalid_slot, "slotIdx=%d slotSize=%zu # slotIdx is larger than slotSize", slotIdx, slotSize);
                 continue;
             }
 

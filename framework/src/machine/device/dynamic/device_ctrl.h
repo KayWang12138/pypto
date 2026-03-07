@@ -41,7 +41,8 @@ class DeviceCtrlMachine {
 public:
     void InitTaskCtrl(int idx, int type, uint64_t taskId, DeviceTask *devTask, DeviceExecuteContext *ctx) {
         if (ctx == nullptr) {
-            DEV_ERROR("Init Task control failed, which ctx is null.");
+            DEV_ERROR(ServerKernelErrorScene::DYN_SERVER_INIT_FAILED, "ctrl.push.init_dtask",
+                      "# Init task control failed, DeviceExecuteContext is null.");
             return;
         }
         auto taskCtrl = &GetTaskCtrlInPool(idx);
@@ -328,8 +329,9 @@ public:
             return -1;
         }
         if (kargs->inputs == nullptr || kargs->cfgdata == nullptr) {
-            DEV_ERROR("Args has null in inputs[%p] work[%p] or cfg[%p].\n", kargs->inputs,
-                    kargs->workspace, kargs->cfgdata);
+            DEV_ERROR(ServerKernelErrorScene::DYN_SERVER_ARGS_NULL, "ctrl.init",
+                      "inputs=%p workspace=%p cfgdata=%p # Null pointer detected",
+                      kargs->inputs, kargs->workspace, kargs->cfgdata);
             return -1;
         }
         InitDyn(kargs);
