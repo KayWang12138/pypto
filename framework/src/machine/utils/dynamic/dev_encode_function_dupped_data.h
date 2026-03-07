@@ -34,6 +34,7 @@ struct DevAscendFunctionDuppedData {
     uintdevptr_t runtimeWorkspace_;
     RuntimeReuseInfo runtimeWsReuseInfo_;
     uintdevptr_t runtimeOutcastWorkspace_;
+    int8_t loopDieId_ = -1;
     uint8_t data_[0];
     /*
      *  Duplicated:
@@ -448,7 +449,6 @@ struct DevAscendFunctionDupped {
     void SetFuncData(DynFuncData *data) { funcData = data; }
 
     DevAscendFunctionDuppedData *DupDataForDynFuncData() { return DupData(); }
-
 private:
     const DevAscendFunctionDuppedData *DupData() const { return dupTiny_.As<DevAscendFunctionDuppedData>(); }
     DevAscendFunctionDuppedData *DupData() { return dupTiny_.As<DevAscendFunctionDuppedData>(); }
