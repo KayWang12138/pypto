@@ -244,6 +244,7 @@ def set_verify_options(*,
                        pass_verify_save_tensor_dir: Optional[str] = None,
                        pass_verify_pass_filter: Optional[List[str]] = None,
                        pass_verify_error_tol: Optional[List[float]] = None,
+                       enable_call_task_dump: Optional[bool] = None
                        ) -> None:
     """
     Set verify options.
@@ -264,6 +265,9 @@ def set_verify_options(*,
 
     pass_verify_error_tol : List
         Customize atol and rtol.
+    
+    enable_call_task_dump : bool
+        Whether to dump the call task tensors.
     """
     if pass_verify_pass_filter == []:
         pass_verify_pass_filter = None

@@ -188,7 +188,7 @@ public:
         }
 
 #ifdef BUILD_WITH_CANN
-        if (IsPtoDataDumpEnabled()) {  // dump tensor
+        if (config::GetVerifyOption<bool>(KEY_ENABLE_CALL_TASK_DUMP)) {  // dump tensor
             devProg->devArgs.hostPid = GetProcessId();
         }
         if (isDevice) {

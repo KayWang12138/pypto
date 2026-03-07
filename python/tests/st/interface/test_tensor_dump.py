@@ -20,7 +20,8 @@ import numpy as np
 
 @pypto.jit(verify_options={"enable_pass_verify": True,
                            "pass_verify_save_tensor": True,
-                           "pass_verify_pass_filter": ["CodegenPreproc"]
+                           "pass_verify_pass_filter": ["CodegenPreproc"],
+                           "enable_call_task_dump": True
                         })
 def compute_dyn(x, y, out):
     first_dim, second_dim = x.shape
@@ -51,8 +52,7 @@ def test_tensor_dump():
     a = torch.rand(shape, dtype=torch.float16)
     b = torch.rand(shape, dtype=torch.float16)
     c = torch.zeros(shape, dtype=torch.float16)
-    os.environ["PTO_DATADUMP_ENABLE"] = "true"
-
+    
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
     torch.npu.set_device(int(device_id))
 
