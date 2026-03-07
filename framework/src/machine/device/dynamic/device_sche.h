@@ -145,6 +145,9 @@ struct DynMachineManager {
     };
 
     int AllocThreadIdxForDav3510(DeviceArgs *devArgs, int cpu, std::atomic<int> &threadIdx) {
+        if (!IsDeviceMode()) {
+            return ++threadIdx;
+        }
         int maxCpuId = static_cast<int>(devArgs->maxAicpuNum);
         int die0MaxCpuid = (maxCpuId >> 1);
         int scheCpuNum = static_cast<int>(devArgs->scheCpuNum);
