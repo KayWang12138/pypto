@@ -192,6 +192,7 @@ int DeviceExecuteContext::RunControlFlow(DevStartArgs *startArgs) {
         DeviceExecuteRuntimeCallLog,
         DeviceExecuteRuntimeCallShmemAllocator,
         DeviceExecuteRuntimeCallSlotMarkNeedAlloc,
+        DeviceExecuteRuntimeCallCalcDieId,
     };
     int originalErrorState = this->GetErrorState();
     execProg.controlFlowBinary.CallControlFlow(this, symbolTable.data(), runtimeCallList, startArgs);
@@ -480,6 +481,14 @@ void DeviceExecuteContext::MarkSlotNeedAlloc(int slotIndex) {
     return;
 }
 
+void DeviceExecuteContext::CalcDieId(uint64_t rootKey) {
+    uint32_t dieId = 0;
+    if (rootKey & 1 == 0) {
+        dieId = 1;
+    }
+    taskContext.SetDieId(dieId);
+}
+
 void *DeviceExecuteContext::DeviceExecuteRuntimeCallRootAlloc(void *ctx_, uint64_t rootKey) {
     DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;
     if (ctx == nullptr) {
@@ -582,6 +591,12 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, u
 void *DeviceExecuteContext::DeviceExecuteRuntimeCallSlotMarkNeedAlloc(void *ctx_, uint64_t slotIndex) {
     DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;
     ctx->MarkSlotNeedAlloc(slotIndex);
+    return nullptr;
+}
+
+void *DeviceExecuteContext::DeviceExecuteRuntimeCallCalcDieId(void *ctx_, uint64_t dieId) {
+    DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;
+    ctx->CalcDieId(dieId);
     return nullptr;
 }
 }
