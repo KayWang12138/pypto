@@ -407,6 +407,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
             << "__attribute__((section(\"" << sectionName
             << "\")))\n"
             << "uint64_t ControlFlowEntry(void *ctx, int64_t *symbolTable, RuntimeCallEntryType runtimeCallList[], DevStartArgsBase *startArgs) {\n";
+        controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "int8_t *loopDieId = (int8_t *)RUNTIME_RootGetDieId(" << 0 << ");\n";
         for (auto &callee : GetCalleeList(cache, func)) {
             BuildControlFlow(cache, linker, sectionName, callee, slotIdxMapping, group, rootTileDict, controlFlowOss, expressionOss, indent + 1, expName);
         }
@@ -462,6 +463,8 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         std::string iterVar = "VAR_" + attr->iterSymbolName;
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "LOOP(" << iterVar << ", " << iterBegin << ", " << iterEnd << ", " << iterStep << ") {\n";
         controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "VALUE_" << attr->iterSymbolName << " = " << iterVar << ";\n";
+        controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "int8_t DIESET_" << attr->iterSymbolName << " = 0;\n";
+        controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "RUNTIME_CalcLoopDieId(" << iterVar << ", " <<  iterEnd << ", " << iterStep << ", " << 2 << ", " << "DIESET_" << attr->iterSymbolName << ");\n";
 
         auto pathNode = attr->BuildPathNode();
         MACHINE_LOGI("Paths: \n %s", pathNode->Dump().c_str());
@@ -475,6 +478,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         std::sort(pathRootList.begin(), pathRootList.end());
         ASSERT(calleeList == pathRootList)<<"calleeList size:"<<calleeList.size()<<" pathRootList size:"<<pathRootList.size();
         condBuilder(pathNode, indent + 1);
+        controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "RUNTIME_ClearLoopDieId(" << "DIESET_" << attr->iterSymbolName << ");\n";
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "}\n";
     } else if (func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC_LOOP_PATH, GraphType::TENSOR_GRAPH)) {
         controlFlowOss << BuildControlFlowCallee(func, indent * TABSIZE);
@@ -510,6 +514,9 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
 
         int devRootKey = group.devRootList.GetIndex(func);
         controlFlowOss << BuildControlFlowCallee(func, indent * TABSIZE);
+        if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+            controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_RootSetDieId(" << devRootKey << "ULL);\n";
+        }
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "uint64_t *exprList" << devRootKey << " = (uint64_t *)RUNTIME_RootAlloc(" << devRootKey << "ULL);\n";
 
         SymbolicExpressionTable *exprTable = linker.LookupDevRootCoa(func);
