@@ -360,6 +360,13 @@
                         "zh": "指定Pass验证时的误差阈值列表",
                         "en": "Specify the error tolerance list when Pass verification is enabled"
                     }
+                },
+                "enable_call_task_dump": {
+                    "type": "boolean",
+                    "label": {
+                        "zh": "是否开启Call Task数据dump",
+                        "en": "Enable Call Task Dump"
+                    }
                 }
             }
         },
