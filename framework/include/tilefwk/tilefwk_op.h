@@ -143,6 +143,8 @@ Tensor Ceil(const Tensor &self);
 Tensor CeilDiv(const Tensor &self, const Tensor &other);
 Tensor CeilDiv(const Tensor &self, const Element &other);
 Tensor Floor(const Tensor &self);
+Tensor FloorDiv(const Tensor &self, const Tensor &other);
+Tensor FloorDiv(const Tensor &self, const Element &other);
 Tensor Trunc(const Tensor &self);
 Tensor Reciprocal(const Tensor &operand);
 Tensor Abs(const Tensor &self);
