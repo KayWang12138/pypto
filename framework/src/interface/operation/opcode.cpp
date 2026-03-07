@@ -238,6 +238,12 @@ void OpcodeManager::RegisterVectorBinary() {
     RegisterInfo(Opcode::OP_EXPANDEXPDIF, OpCoreType::AIV, "EXPANDEXPDIF", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB}, {"TileOp::TExpandExpDif", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
         {OpAttributeKey::inputCombineAxis}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_FLOORDIV, OpCoreType::AIV, "FLOORDIV", {MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::TFloorDiv", PIPE_V, PIPE_V, CoreType::AIV},
+        OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis, OpAttributeKey::excludeBufferReuse}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_FLOORDIVS, OpCoreType::AIV, "FLOORDIVS", {MemoryType::MEM_UB},
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::TFloorDivS", PIPE_V, PIPE_V, CoreType::AIV},
+        OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis, OpAttributeKey::excludeBufferReuse}, TileShapeVerifier::Verify);
 }
 
 void OpcodeManager::RegisterVectorUnary() {
@@ -1003,6 +1009,8 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {         Opcode::OP_BITWISENOT,    "TBitwiseNot"},
     {       Opcode::OP_EXPANDEXPDIF,  "TExpandExpDif"},
     {           Opcode::OP_COPYSIGN,      "TCopysign"},
+    {           Opcode::OP_FLOORDIV,      "TFloorDiv"},
+    {          Opcode::OP_FLOORDIVS,     "TFloorDivS"},
     {          Opcode::OP_L1_TO_L0A,       "TExtract"},
     {          Opcode::OP_L1_TO_L0B,       "TExtract"},
     {        Opcode::OP_L1_TO_L0_AT,       "TExtract"},

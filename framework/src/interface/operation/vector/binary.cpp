@@ -134,6 +134,13 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
                 auto tempTensor = std::make_shared<LogicalTensor>(function, result->Datatype(), tmpShape);
                 op = &function.AddOperation(
                     GetBinaryOpNameCode<T, false, false>(), {inputTile1, inputTile2}, {resultTile, tempTensor});
+            } else if (opName == "FLOORDIV") {
+                std::vector<int64_t> tmpShape;
+                auto alignSize = BLOCK_SIZE / BytesOf(result->Datatype());
+                tmpShape.push_back(AlignUp(resultTileInfo.shape.back(), alignSize) * 2);
+                auto tempTensor = std::make_shared<LogicalTensor>(function, result->Datatype(), tmpShape);
+                function.AddOperation(
+                    GetBinaryOpNameCode<T, false, false>(), {inputTile1, inputTile2}, {resultTile, tempTensor});
             } else {
                 op = &function.AddOperation(GetBinaryOpNameCode<T, false, false>(), {inputTile1, inputTile2}, {resultTile});
             }
@@ -425,6 +432,19 @@ Tensor Gcd(const Tensor &self, const Element &other) {
         self.GetStorage(), other);
 }
 
+Tensor FloorDiv(const Tensor &self, const Tensor &other) {
+    DECLARE_TRACER();
+    std::vector<DataType> FLOORDIV_SUPPORT_TYPES = {DataType::DT_INT32};
+    ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED,
+        self.GetDataType() == other.GetDataType() &&
+            std::find(FLOORDIV_SUPPORT_TYPES.begin(), FLOORDIV_SUPPORT_TYPES.end(), self.GetDataType()) !=
+                FLOORDIV_SUPPORT_TYPES.end())
+        << "FloorDiv only supports same data type for self and other! And it should be in DT_INT32.";
+
+    RETURN_CALL(BinaryOperation<BinaryOpType::FLOORDIV>, *Program::GetInstance().GetCurrentFunction(),
+        self, other);
+}
+
 template <BinaryOpType T>
 void TiledBinaryOperationScalar(Function &function, const TileShape &tileShape, size_t cur, LogicalInput &input1,
     Element &value, const LogicalTensorPtr &result, TileInfo &resultTileInfo, bool reverseOperand) {
@@ -436,6 +456,16 @@ void TiledBinaryOperationScalar(Function &function, const TileShape &tileShape, 
             std::vector<int64_t> tmpShape(resultTileInfo.shape);
             auto alignSize = BLOCK_SIZE / BytesOf(input1.tensor->Datatype());
             tmpShape[resultTileInfo.shape.size() - 1] = AlignUp(tmpShape[resultTileInfo.shape.size() - 1], alignSize);
+            auto tempTensor = std::make_shared<LogicalTensor>(function, input1.tensor->Datatype(), tmpShape);
+            auto &tmpOp = function.AddOperation(
+                opNameCode, {inputTile1}, {resultTile, tempTensor});
+            tmpOp.SetAttribute(OpAttributeKey::scalar, value);
+            tmpOp.SetAttribute(OP_ATTR_PREFIX + "reverseOperand", reverseOperand);
+            return;
+        } else if (opNameCode == Opcode::OP_FLOORDIVS) {
+            std::vector<int64_t> tmpShape;
+            auto alignSize = BLOCK_SIZE / BytesOf(input1.tensor->Datatype());
+            tmpShape.push_back(AlignUp(resultTileInfo.shape.back(), alignSize) * 2);
             auto tempTensor = std::make_shared<LogicalTensor>(function, input1.tensor->Datatype(), tmpShape);
             auto &tmpOp = function.AddOperation(
                 opNameCode, {inputTile1}, {resultTile, tempTensor});
@@ -615,6 +645,19 @@ Tensor CeilDiv(const Tensor &self, const Element &other) {
     resultFp32 = Ceil(resultFp32);
     Tensor result = Cast(resultFp32, DT_INT32);
     return result;
+}
+
+Tensor FloorDiv(const Tensor &self, const Element &other) {
+    DECLARE_TRACER();
+    std::vector<DataType> FLOORDIV_SUPPORT_TYPES = {DataType::DT_INT32};
+    ASSERT(VectorErrorCode::ERR_PARAM_DTYPE_UNSUPPORTED,
+        self.GetDataType() == other.GetDataType() &&
+            std::find(FLOORDIV_SUPPORT_TYPES.begin(), FLOORDIV_SUPPORT_TYPES.end(), self.GetDataType()) !=
+                FLOORDIV_SUPPORT_TYPES.end())
+        << "FloorDiv only supports same data type for self and other! And it should be in DT_INT32.";
+    
+    RETURN_CALL(BinaryOperationScalar<BinaryOpType::FLOORDIV>, *Program::GetInstance().GetCurrentFunction(),
+        self.GetStorage(), other);
 }
 
 template <BinaryOpType T>
@@ -848,6 +891,7 @@ REGISTER_OPERATION_TILED_FUNC(OP_BITWISEXOR, Opcode::OP_BITWISEXOR, BinaryOperat
 REGISTER_OPERATION_TILED_FUNC(OP_COPYSIGN, Opcode::OP_COPYSIGN, BinaryOperationTileFunc<BinaryOpType::COPYSIGN>);
 REGISTER_OPERATION_TILED_FUNC(OP_GCD, Opcode::OP_GCD, BinaryOperationTileFunc<BinaryOpType::GCD>);
 REGISTER_OPERATION_TILED_FUNC(OP_PRELU, Opcode::OP_PRELU, PReLUOperationTileFunc);
+REGISTER_OPERATION_TILED_FUNC(OP_FLOORDIV, Opcode::OP_FLOORDIV, BinaryOperationTileFunc<BinaryOpType::FLOORDIV>);
 
 REGISTER_OPERATION_TILED_FUNC(OP_ADDS, Opcode::OP_ADDS, BinaryOperationScalarTileFunc<BinaryOpType::ADD>);
 REGISTER_OPERATION_TILED_FUNC(OP_SUBS, Opcode::OP_SUBS, BinaryOperationScalarTileFunc<BinaryOpType::SUB>);
@@ -863,6 +907,7 @@ REGISTER_OPERATION_TILED_FUNC(OP_BITWISEXORS, Opcode::OP_BITWISEXORS, BinaryOper
 REGISTER_OPERATION_TILED_FUNC(OP_GCDS, Opcode::OP_GCDS, BinaryOperationScalarTileFunc<BinaryOpType::GCD>);
 REGISTER_OPERATION_TILED_FUNC(OP_REMS, Opcode::OP_REMS, BinaryOperationScalarTileFunc<BinaryOpType::REM>);
 REGISTER_OPERATION_TILED_FUNC(OP_REMRS, Opcode::OP_REMRS, BinaryOperationScalarResTileFunc<BinaryOpType::REMR>);
+REGISTER_OPERATION_TILED_FUNC(OP_FLOORDIVS, Opcode::OP_FLOORDIVS, BinaryOperationScalarResTileFunc<BinaryOpType::FLOORDIV>);
 
 REGISTER_OPERATION_TILED_FUNC(OP_S_ADDS, Opcode::OP_S_ADDS, BinaryOperationAllScalarResTileFunc<BinaryOpType::S_ADD>);
 REGISTER_OPERATION_TILED_FUNC(OP_S_SUBS, Opcode::OP_S_SUBS, BinaryOperationAllScalarResTileFunc<BinaryOpType::S_SUB>);
