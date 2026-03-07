@@ -448,6 +448,7 @@ struct DevAscendFunctionDupped {
     void SetFuncData(DynFuncData *data) { funcData = data; }
 
     DevAscendFunctionDuppedData *DupDataForDynFuncData() { return DupData(); }
+    int8_t loopDieId_ = -1;
 
 private:
     const DevAscendFunctionDuppedData *DupData() const { return dupTiny_.As<DevAscendFunctionDuppedData>(); }
