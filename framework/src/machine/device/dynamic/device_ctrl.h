@@ -54,7 +54,7 @@ public:
         taskCtrl->finishedAivFunctionCnt = 0;
         taskCtrl->finishedAicpuFunctionCnt = 0;
         taskCtrl->finishedFunctionCnt.store(0, std::memory_order_relaxed);
-        taskCtrl->runFlag.store(true, std::memory_order_relaxed);
+        taskCtrl->runFlag.store(true, std::memory_order_relaxed);  // wait
         taskCtrl->runcnt.store(GetScheAicpuNum(), std::memory_order_relaxed);
         taskCtrl->ctx = ctx;
         taskCtrl->retCode = 0;
