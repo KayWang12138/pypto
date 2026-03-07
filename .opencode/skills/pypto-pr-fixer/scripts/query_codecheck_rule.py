@@ -311,6 +311,7 @@ def format_markdown(by_id: dict[str, list[RuleRow]], source_url: str) -> str:
 
 
 def main() -> int:
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     parser = argparse.ArgumentParser(description="CodeCheck 规则查询工具（支持批量）")
     parser.add_argument("rule_ids", nargs="*", help="规则 ID（可多个），如 G.CLS.06 G.FMT.02")
     parser.add_argument("--rules-file", type=Path, help="从文件读取规则 ID（每行一个，支持 # 注释）")
@@ -319,6 +320,12 @@ def main() -> int:
         "--rules",
         metavar="RULES",
         help="Comma-separated rule IDs or path to violations JSON (e.g., G.CLS.06,G.LOG.02 or violations.json)",
+    )
+    parser.add_argument(
+        "--from-violations-json",
+        dest="from_violations_json",
+        metavar="PATH",
+        help="从 violations JSON 提取规则 ID（传文件路径或 '-' 表示 stdin）",
     )
     parser.add_argument("--category", "-c", help="按类别查询，如 CLS/FMT/ERR")
     parser.add_argument("--list", action="store_true", help="列出规则（包含标题）")
@@ -428,6 +435,23 @@ def main() -> int:
             rid = normalize_rule_id(line)
             if rid:
                 rule_ids.append(rid)
+
+    if args.rules:
+        rules_arg = (args.rules or "").strip()
+        if rules_arg:
+            rules_path = Path(rules_arg)
+            if rules_path.exists() and rules_path.is_file() and rules_path.suffix.lower() == ".json":
+                try:
+                    obj = json.loads(rules_path.read_text(encoding="utf-8"))
+                    rule_ids.extend(extract_rule_ids_from_violations_json(obj))
+                except Exception as e:
+                    eprint(f"Error: {e}")
+                    return 2
+            else:
+                for part in rules_arg.split(","):
+                    rid = normalize_rule_id(part)
+                    if rid:
+                        rule_ids.append(rid)
 
     if args.from_violations_json:
         src = args.from_violations_json

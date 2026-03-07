@@ -10,9 +10,12 @@
   python3 /tmp/extract_latest_codecheck_url.py --input comments.json
   cat comments.json | python3 /tmp/extract_latest_codecheck_url.py
   python3 /tmp/extract_latest_codecheck_url.py --input comments.json --evidence
+  python3 /tmp/extract_latest_codecheck_url.py --input comments.json --gate-on-latest-ci --format json
 
 退出码:
   0: 成功找到并输出 URL
+  3: 最新 CI 失败但失败任务不是 codecheck
+  4: 无法判定最新 CI 结果或缺少 codecheck 状态
   1: 输入错误或未找到 URL
 """
 
@@ -30,6 +33,10 @@ CODECHECK_URL_RE = re.compile(
     r"https://www\.openlibing\.com/apps/entryCheckDashCode/[^\s'\">]+",
     flags=re.IGNORECASE,
 )
+CI_ROW_RE = re.compile(
+    r"<td><strong>([^<]+)</strong></td>\s*<td>([^<]+)</td>",
+    flags=re.IGNORECASE,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -44,6 +51,17 @@ def parse_args() -> argparse.Namespace:
         "--evidence",
         action="store_true",
         help="输出完整 JSON 证据链（包含所有匹配的 codecheck URL）",
+    )
+    parser.add_argument(
+        "--gate-on-latest-ci",
+        action="store_true",
+        help="基于最新 CI 报告判断是否由 codecheck 导致失败；仅 codecheck 失败时输出 URL/证据链",
+    )
+    parser.add_argument(
+        "--format",
+        choices=["text", "json"],
+        default="text",
+        help="输出格式（默认 text）",
     )
     parser.add_argument(
         "--verbose",
@@ -107,8 +125,8 @@ def extract_latest_codecheck(comments: Iterable[dict[str, Any]]) -> tuple[int | 
         if not isinstance(body, str) or "codecheck" not in body.lower():
             continue
 
-        match = CODECHECK_URL_RE.search(body)
-        if not match:
+        url_matches = list(CODECHECK_URL_RE.finditer(body))
+        if not url_matches:
             continue
 
         created_at_raw = c.get("created_at")
@@ -121,7 +139,7 @@ def extract_latest_codecheck(comments: Iterable[dict[str, Any]]) -> tuple[int | 
             latest_key = key
             latest_comment_id = cid if isinstance(cid, int) else None
             latest_created_at = created_at_raw if isinstance(created_at_raw, str) else None
-            latest_url = match.group(0)
+            latest_url = url_matches[0].group(0)
 
     if latest_url is None:
         raise ValueError("未在评论中找到 codecheck URL")
@@ -160,17 +178,17 @@ def extract_with_evidence(comments: Iterable[dict[str, Any]]) -> dict[str, Any]:
         if not isinstance(body, str) or "codecheck" not in body.lower():
             continue
 
-        match = CODECHECK_URL_RE.search(body)
-        if not match:
+        url_matches = list(CODECHECK_URL_RE.finditer(body))
+        if not url_matches:
             continue
 
         created_at_raw = c.get("created_at")
         created_at_dt = parse_time(created_at_raw)
         cid = c.get("id")
         cid_num = cid if isinstance(cid, int) else -1
-        url = match.group(0)
-        
-        matches.append((created_at_dt, cid_num, created_at_raw if isinstance(created_at_raw, str) else None, url))
+        created_at_str = created_at_raw if isinstance(created_at_raw, str) else None
+        for url_match in url_matches:
+            matches.append((created_at_dt, cid_num, created_at_str, url_match.group(0)))
     
     if not matches:
         raise ValueError("未在评论中找到 codecheck URL")
@@ -180,13 +198,13 @@ def extract_with_evidence(comments: Iterable[dict[str, Any]]) -> dict[str, Any]:
     
     # 构建证据链
     evidence_chain = []
-    for idx, (created_at_dt, cid_num, created_at_raw, url) in enumerate(matches):
+    for idx, (created_at_dt, cid_num, created_at_raw, url) in enumerate(matches, start=1):
         evidence_chain.append({
             "index": idx,
             "comment_id": cid_num if cid_num >= 0 else None,
             "created_at": created_at_raw,
             "url": url,
-            "is_latest": idx == 0
+            "is_latest": idx == 1
         })
     
     # 提取最新的
@@ -204,19 +222,146 @@ def extract_with_evidence(comments: Iterable[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _status_is_failed(status: str) -> bool:
+    s = (status or "").strip().lower()
+    return "failed" in s or "❌" in s
+
+
+def _status_is_success(status: str) -> bool:
+    s = (status or "").strip().lower()
+    return "success" in s or "✅" in s
+
+
+def _extract_ci_rows(body: str) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for task, status in CI_ROW_RE.findall(body):
+        rows.append({"task": task.strip(), "status": status.strip()})
+    return rows
+
+
+def analyze_latest_ci(comments: Iterable[dict[str, Any]]) -> dict[str, Any]:
+    latest_key: tuple[datetime, int] | None = None
+    latest_comment: dict[str, Any] | None = None
+
+    for c in comments:
+        login = str(c.get("user", {}).get("login", "")).lower()
+        body = c.get("body")
+        if login != "cann-robot" or not isinstance(body, str):
+            continue
+        if "<td><strong>" not in body:
+            continue
+
+        rows = _extract_ci_rows(body)
+        if not rows:
+            continue
+
+        created_at_raw = c.get("created_at")
+        created_at_dt = parse_time(created_at_raw)
+        cid = c.get("id")
+        cid_num = cid if isinstance(cid, int) else -1
+        key = (created_at_dt, cid_num)
+
+        if latest_key is None or key > latest_key:
+            latest_key = key
+            latest_comment = c
+
+    if latest_comment is None:
+        return {
+            "kind": "undecidable",
+            "reason": "未找到可解析的最新 cann-robot CI 报告评论",
+        }
+
+    body = str(latest_comment.get("body", ""))
+    rows = _extract_ci_rows(body)
+    row_status_map = {r["task"].strip().lower(): r["status"] for r in rows}
+    codecheck_status = row_status_map.get("codecheck")
+    failed_tasks = [r for r in rows if _status_is_failed(r["status"]) and r["task"].strip().lower() != "codecheck"]
+    codecheck_url_match = CODECHECK_URL_RE.search(body)
+    codecheck_url = codecheck_url_match.group(0) if codecheck_url_match else None
+
+    result: dict[str, Any] = {
+        "latest_comment_id": latest_comment.get("id"),
+        "latest_created_at": latest_comment.get("created_at"),
+        "codecheck_status": codecheck_status,
+        "failed_tasks": failed_tasks,
+        "rows": rows,
+    }
+
+    if codecheck_status is None:
+        result["kind"] = "undecidable"
+        result["reason"] = "最新 CI 报告中未找到 codecheck 状态行"
+        return result
+
+    if _status_is_failed(codecheck_status):
+        if not codecheck_url:
+            result["kind"] = "undecidable"
+            result["reason"] = "codecheck 失败但未找到 codecheck URL"
+            return result
+        result["kind"] = "codecheck_failed"
+        result["codecheck_url"] = codecheck_url
+        return result
+
+    if _status_is_success(codecheck_status) and failed_tasks:
+        result["kind"] = "non_codecheck_failed"
+        return result
+
+    result["kind"] = "undecidable"
+    result["reason"] = "未命中可判定分支（可能 CI 全成功或状态未完整更新）"
+    return result
+
+
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     args = parse_args()
     try:
         data = load_json(args.input)
         
+        comments = list(iter_comments(data))
+
+        if args.gate_on_latest_ci:
+            ci_result = analyze_latest_ci(comments)
+            kind = ci_result.get("kind")
+            if kind == "codecheck_failed":
+                if args.evidence or args.format == "json":
+                    evidence = extract_with_evidence(comments)
+                    out = {
+                        "kind": "codecheck_failed",
+                        "codecheck_url": ci_result.get("codecheck_url"),
+                        "latest_comment_id": ci_result.get("latest_comment_id"),
+                        "latest_created_at": ci_result.get("latest_created_at"),
+                        "codecheck_status": ci_result.get("codecheck_status"),
+                        "failed_tasks": ci_result.get("failed_tasks", []),
+                        "evidence": evidence,
+                    }
+                    print(json.dumps(out, ensure_ascii=False, indent=2))
+                else:
+                    print(ci_result.get("codecheck_url"))
+                return 0
+
+            if kind == "non_codecheck_failed":
+                if args.format == "json":
+                    print(json.dumps(ci_result, ensure_ascii=False, indent=2))
+                else:
+                    print("latest_ci_result=non_codecheck_failed")
+                    print(f"codecheck_status={ci_result.get('codecheck_status')}")
+                    for task in ci_result.get("failed_tasks", []):
+                        print(f"failed_task={task.get('task')} status={task.get('status')}")
+                return 3
+
+            if args.format == "json":
+                print(json.dumps(ci_result, ensure_ascii=False, indent=2))
+            else:
+                print("latest_ci_result=undecidable")
+                print(f"reason={ci_result.get('reason')}")
+            return 4
+
         if args.evidence:
             # 证据链模式：输出完整 JSON
-            result = extract_with_evidence(iter_comments(data))
+            result = extract_with_evidence(comments)
             print(json.dumps(result, ensure_ascii=False, indent=2))
         else:
             # 默认模式：仅输出最新 URL
-            comment_id, created_at, url = extract_latest_codecheck(iter_comments(data))
+            comment_id, created_at, url = extract_latest_codecheck(comments)
             if args.verbose:
                 logging.info("comment_id=%s", comment_id)
                 logging.info("created_at=%s", created_at)
