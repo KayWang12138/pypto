@@ -50,6 +50,7 @@ class FetcherConfig:
     post_wait_ms: int
     debug_dir: str
 
+
 class Args(argparse.Namespace):
     url: str = ""
     output: str = "json"
@@ -173,7 +174,10 @@ def extract_violations_with_playwright(
                     status = response.status if response else None
                     logging.info("  strategy=%s status=%s", strategy, status)
                     try:
-                        page.wait_for_selector(".el-table, .el-table__body-wrapper, body", timeout=config.selector_timeout_ms)
+                        page.wait_for_selector(
+                            ".el-table, .el-table__body-wrapper, body",
+                            timeout=config.selector_timeout_ms,
+                        )
                     except Exception as exc:
                         logging.debug("selector wait skipped: %s", exc)
 

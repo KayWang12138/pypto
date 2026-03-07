@@ -495,7 +495,12 @@ def raise_needs_chaining(
 
 
 def is_len_call(expr: ast.expr) -> bool:
-    return isinstance(expr, ast.Call) and isinstance(expr.func, ast.Name) and expr.func.id == "len" and len(expr.args) == 1
+    return (
+        isinstance(expr, ast.Call)
+        and isinstance(expr.func, ast.Name)
+        and expr.func.id == "len"
+        and len(expr.args) == 1
+    )
 
 
 def is_zero_int(expr: ast.expr) -> bool:
@@ -522,7 +527,12 @@ def check_typ_04_compare(node: ast.Compare) -> bool:
     if is_len_call(right) and is_zero_int(left) and isinstance(op, (ast.Eq, ast.NotEq, ast.Lt, ast.GtE)):
         return True
 
-    if isinstance(op, (ast.Eq, ast.NotEq)) and ((is_empty_literal(left) and not is_empty_literal(right)) or (is_empty_literal(right) and not is_empty_literal(left))):
+    left_empty = is_empty_literal(left)
+    right_empty = is_empty_literal(right)
+    if isinstance(op, (ast.Eq, ast.NotEq)) and (
+        (left_empty and not right_empty) or (right_empty and not left_empty)
+    ):
+        return True
         return True
     return False
 
