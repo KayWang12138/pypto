@@ -38,7 +38,7 @@ pull_number: 1276
 3. 过滤机器人评论，分离人工评论与 CI 报告
 4. 对人工评论：通用理解 → 定位文件 → 生成修复方案
 5. 对 codecheck 失败：
-   ├── 5a. 提取报告 URL
+   ├── 5a. 提取报告 URL（强制 scripts/extract_latest_codecheck_url.py）
    ├── 5b. 获取违规详情（强制 scripts/fetch_codecheck_violations.py）
    └── 5c. 匹配规则修复（强制 scripts/query_codecheck_rule.py）
 6. 用户确认修复方案
@@ -142,9 +142,20 @@ cann-robot 评论中包含 codecheck 失败的 HTML 表格：
 
 ### 处理流程
 
-#### 步骤 1：提取报告 URL
+#### 步骤 1：提取报告 URL（强制脚本）
 
-从 cann-robot 评论 HTML 中解析 `href`。
+**必须使用** `scripts/extract_latest_codecheck_url.py`：
+
+```bash
+python scripts/extract_latest_codecheck_url.py --input comments.json
+```
+
+**输出**：最新的 codecheck URL
+
+**降级条件**（仅以下情况可手动解析）：
+1. 脚本文件不存在
+2. 脚本执行报错且无法修复
+3. 用户明确指定使用其他方式
 
 #### 步骤 2：获取违规详情（强制脚本）
 
@@ -195,7 +206,9 @@ python scripts/query_codecheck_rule.py \
 
 ### 提取脚本
 
-内置脚本：`scripts/fetch_codecheck_violations.py`（支持 `--retries`）
+URL 提取：`scripts/extract_latest_codecheck_url.py`（从评论 JSON 提取最新 codecheck URL）
+
+违规获取：`scripts/fetch_codecheck_violations.py`（支持 `--retries`）
 
 规则查询：`scripts/query_codecheck_rule.py`（支持多规则/从 violations.json 批量查询）
 
