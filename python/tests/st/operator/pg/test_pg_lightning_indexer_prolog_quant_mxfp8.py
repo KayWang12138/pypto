@@ -28,7 +28,7 @@ from utils.compare_2_1 import precision_compare_triple
 pyptolib = torch.library.Library("pypto", "FRAGMENT")
 pyptolib.define("lightning_indexer_prolog_quant_mxfp8(Tensor x, Tensor q_norm, Tensor q_norm_scale, \
     Tensor w_qb, Tensor w_qb_scale, Tensor wk, Tensor w_proj, Tensor ln_gamma_k, \
-    Tensor ln_beta_k, Tensor cos_idx_rope, Tensor sin_idx_rope, Tensor hadamard_q, \
+    Tensor cos_idx_rope, Tensor sin_idx_rope, Tensor hadamard_q, \
     Tensor hadamard_k, Tensor k_cache, Tensor k_cache_scale, Tensor k_cache_index) -> \
     (Tensor q_fp8e4m3, Tensor q_scale, Tensor k_fp8e4m3, Tensor k_scale, Tensor weights)")
 
@@ -127,7 +127,6 @@ def gen_inputs(dims, dtype=torch.bfloat16, quant_dtype=torch.float8_e4m3fn):
     w_idx_k = torch.empty((h, d), dtype=dtype).uniform_(-1, 1)
     w_idx_proj = torch.empty((h, n), dtype=dtype).uniform_(-1, 1)
     ln_gamma = torch.ones((d,), dtype=dtype)
-    ln_beta = torch.zeros((d,), dtype=dtype)
 
     random_angles = (torch.rand(b, s, rope_head_dim, dtype=torch.float32) * 2 * torch.pi)
     cos = torch.cos(random_angles).to(dtype)
@@ -144,24 +143,23 @@ def gen_inputs(dims, dtype=torch.bfloat16, quant_dtype=torch.float8_e4m3fn):
     k_scale_cache = gen_cache_tensor(k_scale_cache_bsnd, block_table, block_num, block_size)
 
     return {
-        "token_x": x,  # input0, bf16
-        "q_norm": q_norm,  # input1, mxfp8e4m3
-        "q_norm_scale": q_norm_scale,  # input2, e8m0
-        "w_idx_qb": w_idx_qb,  # input3, mxfp8e4m3
-        "w_idx_qb_scale": w_idx_qb_scale,  # input4, e8m0
-        "w_idx_k": w_idx_k,  # input5, bf16
-        "w_idx_proj": w_idx_proj,  # input6, bf16
-        "layer_norm_gamma": ln_gamma,  # input7, bf16
-        "layer_norm_beta": ln_beta,  # input8, bf16
-        "cos_idx_rope": cos,  # input9, bf16
-        "sin_idx_rope": sin,  # input10, bf16
-        "hadamard_q": hadamard_q,  # input11, bf16
-        "hadamard_k": hadamard_k,  # input12, bf16
-        "idx_k_cache": k_cache,  # input13, fp8e4m3  # (block_num, block_size, n_kv, d)
-        "idx_k_scale_cache": k_scale_cache,  # input14, fp32  # (block_num, block_size, n_kv, 1)
-        "idx_k_cache_index": k_cache_index,  # input15, int64  (b, s)/（t,)
-        "idx_block_table": block_table,  # input16, int32  (b, ceil(s2, block_size))
-        "act_seq": act_seq,  # input17, int32
+        "token_x": x,  # bf16
+        "q_norm": q_norm,  # mxf8e4m3
+        "q_norm_scale": q_norm_scale,  # fp32
+        "w_idx_qb": w_idx_qb,  # mxf8e4m3
+        "w_idx_qb_scale": w_idx_qb_scale,  # fp32
+        "w_idx_k": w_idx_k,  # bf16
+        "w_idx_proj": w_idx_proj,  # bf16
+        "rms_norm_gamma": ln_gamma,  # bf16
+        "cos_idx_rope": cos,  # bf16
+        "sin_idx_rope": sin,  # bf16
+        "hadamard_q": hadamard_q,  # bf16
+        "hadamard_k": hadamard_k,  # bf16
+        "idx_k_cache": k_cache,  # fp8e4m3 (block_num, block_size, n_kv, d)
+        "idx_k_scale_cache": k_scale_cache,  # fp32 (block_num, block_size, n_kv, 1)
+        "idx_k_cache_index": k_cache_index.npu(),  # int64 (b, s)/（t,)
+        "idx_block_table": block_table,  # int32 (b, ceil(s2, block_size))
+        "act_seq": act_seq,  # int32
     }
 
 
@@ -179,14 +177,13 @@ def scatter_update_pa_bsnd(cache, k_bsnd, cache_index, axis):
     return res.reshape(block_number, block_size, n_kv, d)
 
 
-def layer_norm(x: torch.Tensor, gamma: torch.Tensor, beta: torch.Tensor, eps=1e-6) -> torch.Tensor:
+def rms_norm(x: torch.Tensor, gamma: torch.Tensor, eps=1e-6) -> torch.Tensor:
     x_dtype = x.dtype
     if x_dtype != torch.float32:
         x = x.to(torch.float32)
-    mean = x.mean(dim=-1, keepdim=True)
-    var = ((x - mean) ** 2).mean(dim=-1, keepdim=True)
-    x = (x - mean) / torch.sqrt(var + eps)
-    return (x * gamma.to(torch.float32) + beta.to(torch.float32)).to(x_dtype)
+    rms = torch.sqrt(torch.mean(x ** 2, dim=-1, keepdim=True) + eps)
+    x = x / rms
+    return (x * gamma.to(torch.float32)).to(x_dtype)
 
 
 def quant_fp8e4m3(x: torch.Tensor):
@@ -240,18 +237,17 @@ def indexer_prolog(inputs_initial: dict, dims: dict, platform: str = "cpu"):
     w_idx_qb_scale = inputs["w_idx_qb_scale"]  # (q_lora_rank//32, n * d), e8m0
     w_idx_k = inputs["w_idx_k"]  # (h, d)
     w_idx_proj = inputs["w_idx_proj"]  # (h, n)
-    layer_norm_gamma = inputs["layer_norm_gamma"]  # (d,)
-    layer_norm_beta = inputs["layer_norm_beta"]  # (d,)
+    rms_norm_gamma = inputs["rms_norm_gamma"]  # (d,)
     cos = inputs["cos_idx_rope"]  # (b, s, rope_head_dim)
     sin = inputs["sin_idx_rope"]  # (b, s, rope_head_dim)
     hadamard_q = inputs["hadamard_q"]  # (d, d)
     hadamard_k = inputs["hadamard_k"]  # (d, d)
-    idx_k_cache = inputs["idx_k_cache"]  # input13, fp8e4m3
-    idx_k_scale_cache = inputs["idx_k_scale_cache"]  # input14, fp16
+    idx_k_cache = inputs["idx_k_cache"]  # fp8e4m3
+    idx_k_scale_cache = inputs["idx_k_scale_cache"]  # fp16
     cache_index = inputs["idx_k_cache_index"]  # (b, s), int32
     x_dtype = x.dtype
 
-    # calculate
+    # q quant matmul
     q_norm_scale_expand = q_norm_scale.cpu().repeat_interleave(32, dim=2)
     w_idx_qb_scale_expand = w_idx_qb_scale.cpu().transpose(0, 1).repeat_interleave(32, dim=0) # TO DO Trans
 
@@ -264,43 +260,61 @@ def indexer_prolog(inputs_initial: dict, dims: dict, platform: str = "cpu"):
         w_idx_qb_scale_expand_fp32 = w_idx_qb_scale_expand_fp32.npu()
 
     q_matmul_mx = torch.matmul(q_norm_fp32 * q_norm_scale_expand_fp32, w_idx_qb_fp32 * w_idx_qb_scale_expand_fp32)
-
     q_bf16 = q_matmul_mx.reshape(b, s, n, d).to(x_dtype)
-    q_rope, q_nope = torch.split(q_bf16, [rope_head_dim, d - rope_head_dim], dim=-1)
-    q_rope = single_rope(q_rope, cos, sin)
-    q_cat = torch.cat([q_rope, q_nope], dim=-1)
-    # hadamard
-    # matmul use float32 for arm, arm平台matmul在bfloat16数据类型下表现跟x86不一致，通过升精度保证正确性
-    q_hadamard = torch.matmul(q_cat.to(torch.float32), hadamard_q.to(torch.float32)).to(x_dtype)  # (b, s, n, d)
-    q_fp8e4m3, q_scale = quant_fp8e4m3(q_hadamard)  # (b, s, n, d) fp8e4m3, (b, s, n, 1) fp32
-    q_scale = q_scale.to(torch.float32)
 
-    k_matmul = torch.matmul(x.to(torch.float32), w_idx_k.to(torch.float32))  # (b, s, d)
-    k = layer_norm(k_matmul, layer_norm_gamma, layer_norm_beta).to(x_dtype)
-    k_rope, k_nope = torch.split(k, [rope_head_dim, d - rope_head_dim], dim=-1)
-    k_rope = single_rope(k_rope.unsqueeze(2), cos, sin).squeeze(2)
-    k = torch.cat([k_rope, k_nope], dim=-1)
-    # hadamard
-    # matmul use float32 for arm, arm平台matmul在bfloat16数据类型下表现跟x86不一致，通过升精度保证正确性
-    k_hadamard = torch.matmul(k.to(torch.float32), hadamard_k.to(torch.float32)).to(x_dtype)  # (b, s, d)
-    k_fp8e4m3, k_scale = quant_fp8e4m3(k_hadamard)  # (b, s, d) fp8e4m3, (b, s, 1) fp32
-    k_scale = k_scale.to(torch.float32)
-    # cache update
-    k_cache = idx_k_cache.clone()  # (block_num, block_size, n_kv, d)
-    k_scale_cache = idx_k_scale_cache.clone()  # (block_num, block_size, n_kv, 1)
+    # q rope
+    q_rope, q_nope = torch.split(q_bf16, [rope_head_dim, d - rope_head_dim], dim=-1)
+    if platform == "cpu":
+        q_rope = single_rope(q_rope, cos, sin)
+    elif platform == "npu":
+        cos = cos.view(-1, 1, 1, rope_head_dim)
+        sin = sin.view(-1, 1, 1, rope_head_dim)
+        q_rope = q_rope.view(-1, n, 1, rope_head_dim)
+        q_rope = torch_npu.npu_rotary_mul(q_rope, cos, sin).view(b, s, n, rope_head_dim)
+    q_cat = torch.cat([q_rope, q_nope], dim=-1)
+    # q hadamard
+    q_hadamard = torch.matmul(q_cat, hadamard_q)
+    # q quant
+    if platform == "cpu":
+        q_fp8e4m3, q_scale = quant_fp8e4m3(q_hadamard)
+    elif platform == "npu":
+        q_fp8e4m3, q_scale = torch_npu.npu_dynamic_quant(q_hadamard, dst_type=torch.float8_e4m3fn)
+
+    # k linear
+    k_proj = torch.matmul(x, w_idx_k)
+    # k rms norm
+    if platform == "cpu":
+        k_rms_norm = rms_norm(k_proj, rms_norm_gamma).to(x_dtype)
+    elif platform == "npu":
+        k_rms_norm = torch_npu.npu_rms_norm(k_proj, rms_norm_gamma, epsilon=1e-6)[0]
+    # k rope
+    k_rope, k_nope = torch.split(k_rms_norm, [rope_head_dim, d - rope_head_dim], dim=-1)
+    if platform == "cpu":
+        k_rope = single_rope(k_rope.unsqueeze(2), cos, sin).squeeze(2)
+    elif platform == "npu":
+        k_rope = k_rope.view(-1, 1, 1, rope_head_dim)
+        k_rope = torch_npu.npu_rotary_mul(k_rope, cos, sin).view(b, s, rope_head_dim)
+    k_cat = torch.cat([k_rope, k_nope], dim=-1)
+    # k hadamard
+    k_hadamard = torch.matmul(k_cat, hadamard_k)
+    # k quant
+    if platform == "cpu":
+        k_fp8e4m3, k_scale = quant_fp8e4m3(k_hadamard)
+    elif platform == "npu":
+        k_fp8e4m3, k_scale = torch_npu.npu_dynamic_quant(k_hadamard, dst_type=torch.float8_e4m3fn)
+    # k cache update
+    k_cache = idx_k_cache.clone()
+    k_scale_cache = idx_k_scale_cache.clone()
     scatter_update_pa_bsnd(k_cache, k_fp8e4m3.reshape(b, s, 1, d), cache_index, -2)
     scatter_update_pa_bsnd(k_scale_cache, k_scale.reshape(b, s, 1, 1), cache_index, -2)
 
-    # matmul use float32 for arm, arm平台matmul在bfloat16数据类型下表现跟x86不一致，通过升精度保证正确性
-    weights = torch.matmul(x.to(torch.float32), \
-        w_idx_proj.to(torch.float32)).to(x_dtype).to(torch.float32)  # (b, s, n)
+    # w linear
+    weights = torch.matmul(x, w_idx_proj)
     weights = weights * (n ** -0.5) * (d ** -0.5)
-    weights = weights.to(x_dtype)
 
     # output dtype: fp8e4m3, fp32, fp8e4m3, fp32, bf16
-    outputs = {"query": q_fp8e4m3, "query_scale": q_scale,
-               "idx_k_cache_out": k_cache, "idx_k_scale_cache_out": k_scale_cache,
-               "weights": weights}
+    outputs = {"query": q_fp8e4m3, "query_scale": q_scale, "idx_k_cache_out": k_cache,
+               "idx_k_scale_cache_out": k_scale_cache, "weights": weights}
     return outputs
 
 
@@ -354,7 +368,7 @@ def ascend_operator_accuracy_standard_version_2_1(pypto_out, npu_out, golden_out
 
 @torch.library.impl(pyptolib, "lightning_indexer_prolog_quant_mxfp8", "Meta")
 def lightning_indexer_prolog_quant_mxfp8_meta(x, q_norm, q_norm_scale, w_qb, w_qb_scale, wk, w_proj,
-                                           ln_gamma_k, ln_beta_k, cos_idx_rope, sin_idx_rope, hadamard_q,
+                                           ln_gamma_k, cos_idx_rope, sin_idx_rope, hadamard_q,
                                            hadamard_k, k_cache, k_cache_scale, k_cache_index):
     t = x.shape[0]
     head_num = w_proj.shape[1]
@@ -371,7 +385,7 @@ def lightning_indexer_prolog_quant_mxfp8_meta(x, q_norm, q_norm_scale, w_qb, w_q
 # @torch.library.impl(pyptolib, "lightning_indexer_prolog_quant_mxfp8", "NPU")
 @allow_in_graph
 def lightning_indexer_prolog_quant_mxfp8_npu(x, q_norm, q_norm_scale, w_qb, w_qb_scale, wk, w_proj,
-                                           ln_gamma_k, ln_beta_k, cos_idx_rope, sin_idx_rope, hadamard_q,
+                                           ln_gamma_k, cos_idx_rope, sin_idx_rope, hadamard_q,
                                            hadamard_k, k_cache, k_cache_scale, k_cache_index):
     t = x.shape[0]
     head_num = w_proj.shape[1]
@@ -396,7 +410,6 @@ def lightning_indexer_prolog_quant_mxfp8_npu(x, q_norm, q_norm_scale, w_qb, w_qb
         wk: [],
         w_proj: [],
         ln_gamma_k: [],
-        ln_beta_k: [],
         cos_idx_rope: [0],
         sin_idx_rope: [0],
         hadamard_q: [],
@@ -420,11 +433,11 @@ def lightning_indexer_prolog_quant_mxfp8_npu(x, q_norm, q_norm_scale, w_qb, w_qb
 
 
 def pypto_lightning_indexer_prolog_quant_mxfp8(x, q_norm, q_norm_scale, w_qb, w_qb_scale, wk, w_proj,
-                                        ln_gamma_k, ln_beta_k, cos_idx_rope, sin_idx_rope, hadamard_q,
+                                        ln_gamma_k, cos_idx_rope, sin_idx_rope, hadamard_q,
                                         hadamard_k, k_cache, k_cache_scale, k_cache_index):
     
     return torch.ops.pypto.lightning_indexer_prolog_quant_mxfp8(x, q_norm, q_norm_scale, w_qb, w_qb_scale,
-        wk, w_proj, ln_gamma_k, ln_beta_k, cos_idx_rope, sin_idx_rope, hadamard_q, hadamard_k, k_cache,
+        wk, w_proj, ln_gamma_k, cos_idx_rope, sin_idx_rope, hadamard_q, hadamard_k, k_cache,
         k_cache_scale, k_cache_index)
 
 
@@ -438,7 +451,6 @@ def lightning_indexer_prolog_quant_dyn(inputs: IndexerPrologQuantInput, outputs:
         inputs.wk: [],
         inputs.w_proj: [],
         inputs.ln_gamma_k: [],
-        inputs.ln_beta_k: [],
         inputs.cos_idx_rope: [0],
         inputs.sin_idx_rope: [0],
         inputs.hadamard_q: [],
@@ -480,13 +492,12 @@ def do_test_lightning_indexer_prolog_quant(case_name):
         x=inputs_data["token_x"].npu().reshape(t, h),
         q_norm=inputs_data["q_norm"].npu().reshape(t, q_lora_rank),
         q_norm_scale=inputs_data["q_norm_scale"].npu().reshape(t, q_lora_rank // 64, 2),
-        w_qb=inputs_data["w_idx_qb"].npu(),  # TO DO ND->NZ
+        w_qb=inputs_data["w_idx_qb"].npu(),
         w_qb_scale=inputs_data["w_idx_qb_scale"].npu() \
-            .reshape(head_num * idx_head_dim, q_lora_rank // 64, 2),  # TO DO ND->DN
-        wk=inputs_data["w_idx_k"].npu(),  # TO DO ND->NZ
-        w_proj=inputs_data["w_idx_proj"].npu(),  # TO DO ND->NZ
-        ln_gamma_k=inputs_data["layer_norm_gamma"].npu(),
-        ln_beta_k=inputs_data["layer_norm_beta"].npu(),
+            .reshape(head_num * idx_head_dim, q_lora_rank // 64, 2),
+        wk=inputs_data["w_idx_k"].npu(),
+        w_proj=inputs_data["w_idx_proj"].npu(),
+        ln_gamma_k=inputs_data["rms_norm_gamma"].npu(),
         cos_idx_rope=inputs_data["cos_idx_rope"].npu().reshape(t, rope_head_dim),
         sin_idx_rope=inputs_data["sin_idx_rope"].npu().reshape(t, rope_head_dim),
         hadamard_q=inputs_data["hadamard_q"].npu(),
@@ -589,10 +600,10 @@ class Model(torch.nn.Module):
         super(Model, self).__init__()
 
     def forward(self, *args):
-        x, q_norm, q_norm_scale, w_qb, w_qb_scale, wk, w_proj, ln_gamma_k, ln_beta_k, cos_idx_rope, \
+        x, q_norm, q_norm_scale, w_qb, w_qb_scale, wk, w_proj, ln_gamma_k, cos_idx_rope, \
         sin_idx_rope, hadamard_q, hadamard_k, k_cache, k_cache_scale, k_cache_index = args
         q_fp8e4m3, q_scale, k_fp8e4m3, k_scale, weights = torch.ops.pypto.lightning_indexer_prolog_quant_mxfp8(
-            x, q_norm, q_norm_scale, w_qb, w_qb_scale, wk, w_proj, ln_gamma_k, ln_beta_k, cos_idx_rope,
+            x, q_norm, q_norm_scale, w_qb, w_qb_scale, wk, w_proj, ln_gamma_k, cos_idx_rope,
             sin_idx_rope, hadamard_q, hadamard_k, k_cache, k_cache_scale, k_cache_index)
         return q_fp8e4m3, q_scale, k_fp8e4m3, k_scale, weights
 
@@ -630,8 +641,8 @@ def test_acl():
     q_fp8e4m3, q_scale, k_fp8e4m3, k_scale, weights = compile_forward(inputs["token_x"].npu().reshape(t, h),
         inputs["q_norm"].npu().reshape(t, q_lora_rank), inputs["q_norm_scale"].npu().reshape(t, q_lora_rank // 64, 2),
         inputs["w_idx_qb"].npu(), inputs["w_idx_qb_scale"].npu().reshape(head_num * idx_head_dim, q_lora_rank // 64, 2),
-        inputs["w_idx_k"].npu(), inputs["w_idx_proj"].npu(), inputs["layer_norm_gamma"].npu(),
-        inputs["layer_norm_beta"].npu(), inputs["cos_idx_rope"].npu().reshape(t, rope_head_dim),
+        inputs["w_idx_k"].npu(), inputs["w_idx_proj"].npu(), inputs["rms_norm_gamma"].npu(),
+        inputs["cos_idx_rope"].npu().reshape(t, rope_head_dim),
         inputs["sin_idx_rope"].npu().reshape(t, rope_head_dim), inputs["hadamard_q"].npu(), inputs["hadamard_k"].npu(),
         inputs["idx_k_cache"].npu(), inputs["idx_k_scale_cache"].npu(), inputs["idx_k_cache_index"].npu().reshape(t))
 

@@ -219,8 +219,8 @@ def indexer_prolog(inputs_initial: dict, dims: dict, precision: str = "same"):
     sin = inputs["sin_idx_rope"]  # (b, s, rope_head_dim)
     hadamard_q = inputs["hadamard_q"]  # (d, d)
     hadamard_k = inputs["hadamard_k"]  # (d, d)
-    idx_k_cache = inputs["idx_k_cache"]  # input13, hif8
-    idx_k_scale_cache = inputs["idx_k_scale_cache"]  # input14, fp16
+    idx_k_cache = inputs["idx_k_cache"]  # hif8
+    idx_k_scale_cache = inputs["idx_k_scale_cache"]  # fp16
     cache_index = inputs["idx_k_cache_index"]  # (b, s), int32
     x_dtype = x.dtype
 
@@ -272,9 +272,8 @@ def indexer_prolog(inputs_initial: dict, dims: dict, precision: str = "same"):
     weights = weights * (n ** -0.5) * (d ** -0.5)
 
     # output dtype: hif8, fp32, hif8, fp32, bf16
-    outputs = {"query": q_hif8, "query_scale": q_scale,
-               "idx_k_cache_out": k_cache, "idx_k_scale_cache_out": k_scale_cache,
-               "weights": weights}
+    outputs = {"query": q_hif8, "query_scale": q_scale, "idx_k_cache_out": k_cache,
+               "idx_k_scale_cache_out": k_scale_cache, "weights": weights}
     return outputs
 
 
