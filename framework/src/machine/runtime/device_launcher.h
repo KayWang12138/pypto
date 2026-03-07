@@ -22,6 +22,8 @@
 #ifdef BUILD_WITH_CANN
 #include "machine/runtime/device_runner.h"
 #include "acl/acl_rt.h"
+#include "runtime/mem.h"
+#include "machine/runtime/runtime.h"
 #endif
 
 #include "machine/runtime/device_launcher_binding.h"
@@ -39,6 +41,7 @@
 #include "tilefwk/platform.h"
 #include "machine/runtime/distributed/distributed_context.h"
 #include "tilefwk/pypto_fwk_log.h"
+
 
 #ifndef BUILD_WITH_CANN
 enum aclmdlRICaptureMode {};
@@ -229,8 +232,15 @@ public:
         devProg->l2CacheOffset = devMem.GetL2Offset();
         if (config.workspaceAddr) {
             kArgs.workspace = (int64_t *)config.workspaceAddr;
+#ifdef BUILD_WITH_CANN
+            (void)rtMemset(kArgs.workspace, devProg->workspaceSize, 0xcc, devProg->workspaceSize);
+#endif
         } else if (kArgs.workspace == nullptr && (devProg->workspaceSize != 0)) {
+            printf(" alloc workspace devAddr\n");
             kArgs.workspace = (int64_t *)devMem.AllocDev(devProg->workspaceSize, CachedOperator::GetWorkspaceDevAddrHolder(cachedOperator));
+#ifdef BUILD_WITH_CANN
+            (void)rtMemset(kArgs.workspace, devProg->workspaceSize, 0xcc, devProg->workspaceSize);
+#endif
         }
         if (isCtrlCacheRecording) {
             kArgs.cfgdata = (int64_t *)devProg;

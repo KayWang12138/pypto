@@ -395,12 +395,13 @@ public:
         return workspaceSize;
     }
 
-    std::pair<AiCpuArgs *, int64_t> BuildKernelArgs(const std::vector<DeviceTensorData> &tensors) {
+    std::pair<AiCpuArgs *, int64_t> BuildKernelArgs(const std::vector<DeviceTensorData> &tensors) {   //输入16 输出5
         auto &disableL2List = dynAttr->disableL2List;
         auto aicpuArgs = (AiCpuArgs *)aicpuArgBuf.data();
         int64_t *inputp = (int64_t *)(aicpuArgs + 1);
         auto tensorData = (DevTensorData *)(inputp + 2);
         ASSERT((int64_t)tensors.size() == inputp[0]) << "mismatch tensor size";
+        printf("tensors size:%ld\n", inputp[0]);
         for (size_t i = 0; i < (size_t)inputp[0]; ++i) {
             auto &t = tensors[i];
             auto addr = (uint64_t)t.GetAddr();
@@ -415,6 +416,14 @@ public:
                 tensorData->shape.dim[j] = shape[j];
             }
             tensorData++;
+            if (i >= 16) {
+                int tesorSize = 1;
+                for (int j = 0; j < tensorData->shape.dimSize; ++j) {
+                    tesorSize *= shape[j];
+                }
+                rtMemset(t.GetAddr(), tesorSize, 0xcc, tesorSize);
+            }
+
         }
 
         return {aicpuArgs, aicpuArgBuf.size() * sizeof(int64_t)};
