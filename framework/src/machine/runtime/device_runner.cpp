@@ -44,6 +44,7 @@
 #include "machine/host/perf_analysis.h"
 #include "log_types.h"
 #include "tilefwk/pypto_fwk_log.h"
+#include "interface/machine/host/host_machine.h"
 
 using json = nlohmann::json;
 extern char _binary_kernel_o_start[];
@@ -54,6 +55,7 @@ constexpr int32_t PMU_ADDR_TYPE = 3;    // nGnRnE Addr type for Geting pmuInfo
 constexpr int32_t PATH_LENGTH = 64;
 constexpr uint32_t LOG_BUF_SIZE = 64 * 1024;
 bool g_IsNullLaunched = false;
+bool g_IsProfDevAddrInit = false;
 constexpr uint32_t MIX_BLOCK_DIM = 2;
 constexpr uint32_t HIGHT_BIT = 16;
 
@@ -74,6 +76,16 @@ void ExchangeCaputerMode(const bool &isCapture) {
         aclmdlRICaptureThreadExchangeMode(&mode);
         MACHINE_LOGI("captureMode is: %d", mode);
     }
+}
+
+void *ManualManMem(int size) {
+    uint8_t *devPtr = nullptr;
+    auto alignSize = MemSizeAlign(size);
+    if (rtMalloc(reinterpret_cast<void**>(&devPtr), alignSize, TWO_MB_HUGE_PAGE_FLAGS, 0) != 0) {
+        MACHINE_LOGW("Mem alloc failed");
+        return nullptr;
+    }
+    return devPtr;
 }
 
 void SyncStreams(rtStream_t aicpuStream, rtStream_t aicoreStream, bool useSyncFlag) {
@@ -132,11 +144,8 @@ void DeviceRunner::GetModuleLogLevel(DeviceArgs &args) {
     }
     DevDfxArgs devDfxArg;
     devDfxArg.logLevel = logLevel;
-    if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
-        devDfxArg.isOpenSwim = PRO_LEVEL2;
-    }
-    if (dynamic::DeviceLauncher::IsCaptureMode()) {
-        devDfxArg.isOpenSwim = 0;
+    if (enableDumpDevPref_) {
+        devDfxArg.isOpenSwim = 1;
     }
     MACHINE_LOGI("Get PYPTO log level is: %d, openSwimLevel: %d", logLevel, devDfxArg.isOpenSwim);
     auto size = sizeof(DevDfxArgs);
@@ -153,7 +162,17 @@ void DeviceRunner::InitDynamicArgs(DeviceArgs &args) {
         RT_MEMCPY_HOST_TO_DEVICE);
 
     for (uint64_t i = 0; i < args.nrAic + args.nrAiv + AICPU_NUM_OF_RUN_AICPU_TASKS; i++) {
-        perfData_.push_back(DevAlloc(MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics)));
+        perfData_.push_back(ManualManMem(MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics)));
+    }
+
+    if (GetEnvVar("DUMP_DEVICE_PERF") == "true") {
+        aicpuDevPtr_ = ManualManMem(MAX_TURN_NUM * sizeof(MetricPerf));  
+        if (aicpuDevPtr_ == 0) {
+            MACHINE_LOGW("Aicpu per addr malloc failed");
+            return;
+        }
+        args_.aicpuPerfAddr = npu::tile_fwk::dynamic::PtrToValue(aicpuDevPtr_);
+        enableDumpDevPref_ = true;
     }
 }
 
@@ -178,12 +197,6 @@ void DeviceRunner::InitMetaData(DeviceArgs &devArgs) {
     devArgs.corePmuAddr = args_.corePmuAddr;
     devArgs.taskWastTime = args_.taskWastTime;
     devArgs.pmuEventAddr = args_.pmuEventAddr;
-    if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
-        args_.aicpuPerfAddr = npu::tile_fwk::dynamic::PtrToValue(DevAlloc(sizeof(MetricPerf)));
-        if (args_.aicpuPerfAddr == 0) {
-            MACHINE_LOGW("Aicpu per addr malloc failed");
-        }
-    }
     devArgs.aicpuPerfAddr = args_.aicpuPerfAddr;
     GetModuleLogLevel(devArgs);
 }
@@ -227,7 +240,6 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     MACHINE_LOGI("aic %u aiv %u  blockDim_ %d sharedBuffer %lx coreRegAddr %lx corePmuRegAddr %lx\n", args.nrAic,
         args.nrAiv, blockDim_, args.sharedBuffer, args.coreRegAddr, args.corePmuRegAddr);
     InitDynamicArgs(args);
-
     return 0;
 }
 
@@ -558,15 +570,31 @@ int DeviceRunner::InitAicpuServer() {
     return rtStreamSynchronize(aicpuStream);
 }
 
+bool DeviceRunner::GetEnableDumpDevPref() const {
+    return enableDumpDevPref_;
+}
+
+void DeviceRunner::ResetMetrics(const uint32_t &coreId) {
+    if (enableDumpDevPref_) {
+        if (!g_IsProfDevAddrInit) {
+            rtMemset(perfData_[coreId], sizeof(Metrics), 0, sizeof(Metrics));
+            g_IsProfDevAddrInit = true;
+        }
+    } else {
+        rtMemset(perfData_[coreId], sizeof(Metrics), 0, sizeof(Metrics));
+    }
+}
+
 void DeviceRunner::SetDebugEnable() {
     for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
-        rtMemset(perfData_[i], sizeof(Metrics), 0, sizeof(Metrics));
+        ResetMetrics(i);
         rtMemcpy((reinterpret_cast<uint8_t *>(args_.sharedBuffer + sizeof(uint64_t) * SHAK_BUF_DFX_DATA_INDEX)) + i * SHARED_BUFFER_SIZE,
             sizeof(uint64_t),
             reinterpret_cast<uint8_t *>(&perfData_[i]),
             sizeof(uint64_t),
             RT_MEMCPY_HOST_TO_DEVICE);
     }
+    MACHINE_LOGD("Set debug enable aicore 0 devPtr: %p", perfData_[0]);
 }
 
 int DeviceRunner::RunPrepare() {
@@ -805,8 +833,63 @@ int DeviceRunner::Init(void) {
         return -1;
     }
     InitAicpuServer();
+    StartDumpThread();
     return 0;
 }
+
+void DeviceRunner::StartDumpThread() {
+    if (!enableDumpDevPref_) {
+        return;
+    }
+    if (dumpThread_.joinable()) {
+        return;
+    }
+    dumpThreadStopFlag_.store(false);
+    dumpThread_ = std::thread(&DeviceRunner::DumpThreadFunc, this);
+    MACHINE_LOGI("Dump thread started");
+}
+
+void DeviceRunner::StopDumpThread() {
+    if (!dumpThread_.joinable()) {
+        return;
+    }
+    dumpThreadStopFlag_.store(true);
+    if (dumpThread_.joinable()) {
+        dumpThread_.join();
+    }
+    MACHINE_LOGD("Dump thread stopped");
+    
+    if (args_.aicpuPerfAddr != 0) {
+        void *ptr = npu::tile_fwk::dynamic::ValueToPtr(args_.aicpuPerfAddr);
+        if (ptr != nullptr) {
+            rtFree(ptr);
+        }
+    }
+    for (size_t i = 0; i < perfData_.size(); i++) {
+        if (perfData_[i] != nullptr) {
+            rtFree(perfData_[i]);
+        }
+    }
+    perfData_.clear();
+}
+
+void DeviceRunner::DumpThreadFunc() {
+    int count = 0;
+    while (!dumpThreadStopFlag_.load()) {
+        usleep(10000);
+        MACHINE_LOGD("Dump thread iteration %d", count);
+        npu::tile_fwk::dynamic::DumpDevTaskPerfData(args_, perfData_, false);
+        count++;
+    }
+    MACHINE_LOGD("Dump thread final dump");
+    npu::tile_fwk::dynamic::DumpDevTaskPerfData(args_, perfData_, true);
+}
+
+DeviceRunner::~DeviceRunner() {
+    MACHINE_LOGD("Start to cleanup perfData");
+    StopDumpThread();
+}
+
 } // namespace npu::tile_fwk
 
 #else // stub
