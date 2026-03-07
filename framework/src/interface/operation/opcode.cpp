@@ -434,6 +434,10 @@ void OpcodeManager::RegisterVector() {
     RegisterInfo(Opcode::OP_TRANSPOSE_MOVEOUT, OpCoreType::ANY, "TRANSPOSE_MOVEOUT", {MemoryType::MEM_UB},
         {MemoryType::MEM_DEVICE_DDR}, {"TileOp::TtransposeMoveOut", PIPE_MTE3, PIPE_MTE3, CoreType::AIV},
         OpCalcType::MOVE_OUT, {OP_ATTR_PREFIX + "shape"}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_PERMUTE, OpCoreType::ANY, "PERMUTE", {MemoryType::MEM_UB},
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Tpermute", PIPE_V, PIPE_V, CoreType::AIV},
+        OpCalcType::MOVE_LOCAL, {OP_ATTR_PREFIX + "perm", OpAttributeKey::excludeBufferReuse},
+        TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_TRANSPOSE_VNCHWCONV, OpCoreType::ANY, "TRANSPOSE_VNCHWCONV", {MemoryType::MEM_UB},
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Ttranspose_vnchwconv", PIPE_V, PIPE_V, CoreType::AIV},
         OpCalcType::MOVE_LOCAL, {OP_ATTR_PREFIX + "shape", OpAttributeKey::excludeBufferReuse},
