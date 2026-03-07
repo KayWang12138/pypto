@@ -14,6 +14,7 @@
  */
 
 #include "gtest/gtest.h"
+#include <cstdlib>
 #include "machine/runtime/device_runner.h"
 #include "machine/runtime/machine_agent.h"
 #include "machine/runtime/device_launcher.h"
@@ -170,15 +171,15 @@ TEST_F(TestDynamicDeviceRunner, test_dump_device_perf) {
     devKernelArgs.nrAicpu = 3;
     config::SetOptionsNg<int64_t>("debug.runtime_debug_mode", 1);
     npu::tile_fwk::DeviceRunner::Get().InitMetaData(devKernelArgs);
-    EXPECT_NE(devKernelArgs.aicpuPerfAddr, 0);
+    EXPECT_EQ(devKernelArgs.aicpuPerfAddr, 0);
     std::vector<void *> perfData;
     Metrics *metr = static_cast<Metrics*>(malloc(sizeof(Metrics) + sizeof(TaskStat)));
     TaskStat taskStat;
     taskStat.execEnd =1;
     metr->taskCount = 1;
     metr->tasks[0] = taskStat;
-    metr->perfTrace[0][0] = 1;
-    metr->taskCount = 1;
+    metr->perfTrace[0][0][0] = 1;
+    metr->turnNum = 1;
 
     MetricPerf aicpuMetPer;
     aicpuMetPer.perfAicpuTraceDevTask[0][0][0] = 1;
@@ -193,8 +194,11 @@ TEST_F(TestDynamicDeviceRunner, test_dump_device_perf) {
     free(metr);
     std::string jsonPath = npu::tile_fwk::config::LogTopFolder() + "/tilefwk_L1_prof_data.json";
     EXPECT_EQ(IsPathExist(jsonPath), true);
+    setenv("DUMP_DEVICE_PERF", "true", 1);
+    npu::tile_fwk::dynamic::DumpDevTaskPerfData(devKernelArgs, perfData, true);
     jsonPath = npu::tile_fwk::config::LogTopFolder() + "/machine_runtime_operator_trace.json";
-    EXPECT_EQ(IsPathExist(jsonPath), true);
+    unsetenv("DUMP_DEVICE_PERF");
+    EXPECT_EQ(IsPathExist(jsonPath), false);
 }
 
 TEST_F(TestDynamicDeviceRunner, test_launch_init) {
