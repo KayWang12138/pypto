@@ -510,6 +510,9 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
 
         int devRootKey = group.devRootList.GetIndex(func);
         controlFlowOss << BuildControlFlowCallee(func, indent * TABSIZE);
+        if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+            controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_RootCalcDieId(" << devRootKey << "ULL);\n";
+        }
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "uint64_t *exprList" << devRootKey << " = (uint64_t *)RUNTIME_RootAlloc(" << devRootKey << "ULL);\n";
 
         SymbolicExpressionTable *exprTable = linker.LookupDevRootCoa(func);

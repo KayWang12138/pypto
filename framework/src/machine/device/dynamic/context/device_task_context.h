@@ -40,6 +40,7 @@ private:
     uint64_t readyTaskNum {0};
     uint64_t dynFuncDataSize {0};
     uint64_t leafFuncDataSize {0};
+    uint64_t dieId_ {0};
 private:
     DevAscendProgram *devProg_{nullptr};
     DeviceWorkspaceAllocator *workspace_{nullptr};
@@ -101,5 +102,9 @@ public:
     static void DumpDepend(DynDeviceTask *dyntask, DevAscendProgram *devProg, DevStartArgs *startArgs, const char *prefix);
 
     int BuildDeviceTaskDataAndReadyQueue(DynDeviceTask *dyntask, uint32_t taskId, DevAscendProgram *devProg);
+
+    inline void SetDieId(uint32_t dieId) {
+        dieId_ = dieId;
+    }
 };
 }
