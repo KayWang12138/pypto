@@ -678,13 +678,18 @@ install_single_package() {
     fi
     
     local install_cmd=""
+    local quiet_flag=""
+
+    if [ "$QUIET" = true ]; then
+        quiet_flag="--quiet "
+    fi
 
     if [[ "$filename" =~ "ops" ]]; then
-        install_cmd="$filename --quiet --install --force --install-path=$INSTALL_PATH "
+        install_cmd="$filename ${quiet_flag}--install --force --install-path=$INSTALL_PATH "
     elif [[ "$filename" =~ "toolkit" ]]; then
-        install_cmd="$filename --quiet --install --force --install-path=$INSTALL_PATH "
+        install_cmd="$filename ${quiet_flag}--install --force --install-path=$INSTALL_PATH "
     else
-        install_cmd="$filename --quiet --full --install-path=$INSTALL_PATH "
+        install_cmd="$filename ${quiet_flag}--full --install-path=$INSTALL_PATH "
     fi
 
     log_print "info" "Running: $install_cmd"
