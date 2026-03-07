@@ -158,6 +158,7 @@ public:
         }
         MACHINE_LOGI("RuntimeAgent::Alloc size[%lu] with align size[%lu].", size, alignSize);
         if (TryGetHugePageMem(devAddr, size, alignSize, tmpAddr)) {
+            rtMemset(*devAddr, alignSize, 0xcc, alignSize);
             return;
         }
         size_t allocSize = ((alignSize - 1) / ONT_GB_SIZE + 1) * ONT_GB_SIZE;
@@ -174,10 +175,12 @@ public:
             } else {
                 allocatedDevAddr.emplace_back(*devAddr);
             }
+            rtMemset(*devAddr, alignSize, 0xcc, alignSize);
             MACHINE_LOGI("AllocDevAddr %p size is %lu", *devAddr, size);
             PutSentinelAddr(*devAddr, size);
             return;
         }
+        rtMemset(*devAddr, allocSize, 0xcc, allocSize);
         if (tmpAddr) {
             allocatedTmpDevAddr.emplace_back(*devAddr);
             tmpHugePageVec.emplace_back(HugePageDesc(*devAddr, allocSize));

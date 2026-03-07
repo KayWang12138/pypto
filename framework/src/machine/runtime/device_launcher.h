@@ -229,7 +229,9 @@ public:
         devProg->l2CacheOffset = devMem.GetL2Offset();
         if (config.workspaceAddr) {
             kArgs.workspace = (int64_t *)config.workspaceAddr;
+            rtMemset(kArgs.workspace, devProg->workspaceSize, 0xcc, devProg->workspaceSize);
         } else if (kArgs.workspace == nullptr && (devProg->workspaceSize != 0)) {
+            printf(" alloc workspace devAddr");
             kArgs.workspace = (int64_t *)devMem.AllocDev(devProg->workspaceSize, CachedOperator::GetWorkspaceDevAddrHolder(cachedOperator));
         }
         if (isCtrlCacheRecording) {
