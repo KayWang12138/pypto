@@ -2828,6 +2828,47 @@ def gen_ceil_divs_golden(case_name: str, output: Path, case_index: int = None) -
     return gen_op_golden("CeilDivs", generate_wrapper, output, case_index)
 
 
+@GoldenRegister.reg_golden_func(case_names=[
+    "TestFloorDiv/FloorDivOperationTest.TestFloorDiv",
+])
+def gen_floor_div_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+
+    def generate_wrapper(
+        inputs: List[np.ndarray],
+        config: Dict[str, Any],
+    ) -> List[np.ndarray]:
+        tensor0 = from_numpy(inputs[0]).npu()
+        tensor1 = from_numpy(inputs[1]).npu()
+        result = torch.floor_divide(tensor0, tensor1)
+        result = result.cpu()
+        return [to_numpy(result)]
+    
+    logging.debug(f"Generating golden files of {case_name} ...")
+    return gen_op_golden("FloorDiv", generate_wrapper, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(case_names=[
+    "TestFloorDivs/FloorDivsOperationTest.TestFloorDivs",
+])
+def gen_floor_divs_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+
+    def generate_wrapper(
+        inputs: List[np.ndarray],
+        config: Dict[str, Any],
+    ) -> List[np.ndarray]:
+        params = config.get("params")
+        params["scalar_type"] = params.get("scalar_type", "int32")
+        scalar = get_dtype_by_name(params["scalar_type"])(params["scalar"])
+        tensor0 = from_numpy(inputs[0]).npu()
+        tensor1 = from_numpy(scalar).npu()
+        result = torch.floor_divide(tensor0, tensor1)
+        result = result.cpu()
+        return [to_numpy(result)]
+    
+    logging.debug(f"Generating golden files of {case_name} ...")
+    return gen_op_golden("FloorDivs", generate_wrapper, output, case_index)
+
+
 def main() -> bool:
     # 用例名称
     case_name_list: List[str] = [
