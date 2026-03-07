@@ -90,6 +90,7 @@ struct DevAscendFunction {
     DevLocalVector<uint8_t> duppedData_;
 // wrap for mix subgraph schedule
 public:
+    int8_t loopDieId_{-1};
     uint64_t wrapIdNum_{0};
     int *GetOpWrapListAddr() { return &At(opWrapList_, 0); }
     int *GetOpWrapTaskNumListAddr() { return &At(opWrapTaskNumList_, 0); }
