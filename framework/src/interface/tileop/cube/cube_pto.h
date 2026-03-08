@@ -220,11 +220,11 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord, int16_t subblockId)
         using tileUBTensor =
             pto::Tile<pto::TileType::Vec, typename T::Type, staticUBH, staticUBW, pto::BLayout::RowMajor, staticUBH,
                       staticUBW, enableNZ2ND ? pto::SLayout::NoneBox : pto::SLayout::ColMajor>;
-        using tileL0CTensor = pto::TileAcc<typename U::Type, staticL0CH, staticL0CW>;
+        using tileL0CTensor = pto::TileAcc<typename U::Type, staticL0CH, staticL0CW, -1, -1>;
         tileUBTensor UBTile;
-        tileL0CTensor l0cTile;
-        pto::TASSIGN(UBTile, (uint64_t)dst.GetAddr() + l0cOffset);
-        pto::TASSIGN(l0cTile, (uint64_t)src.GetAddr());
+        tileL0CTensor l0cTile(srcShape0, srcShape1);
+        pto::TASSIGN(UBTile, (uint64_t)dst.GetAddr());
+        pto::TASSIGN(l0cTile, (uint64_t)src.GetAddr() + l0cOffset);
         if (subblockId == 0) {
             pto::TMOV<tileUBTensor, tileL0CTensor, AccToVecMode::SingleModeVec0>(UBTile, l0cTile);
         } else {
