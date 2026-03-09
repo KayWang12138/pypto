@@ -63,6 +63,7 @@ public:
     std::string GenMemL1CopyIn() const;
     std::string GenMemL1CopyOut() const;
     std::string GetConvCopyInMode() const;
+    std::string GetConvCopyOutMode() const;
     std::string GenMemL1CopyInConv() const;
     std::string GenMemL1CopyOutConv() const;
     std::string GenMemL1ToFB() const;
@@ -367,9 +368,6 @@ private:
     std::string PrintBinaryDynamicUnaligned(const PrintBinaryParam &param) const;
     std::string PrintBinaryTileTensor() const;
     std::string PrintBinary(const PrintBinaryParam &param) const;
-
-    std::string PrintBinaryTmpTileTensor() const;
-    std::string PrintBinaryTmp(const PrintBinaryTmpParam &param) const;
 
     std::string PrintBinaryBrcStatic(const PrintBinaryBrcParam &param) const;
     std::string PrintBinaryBrcDynamicUnaligned(const PrintBinaryBrcParam &param) const;
