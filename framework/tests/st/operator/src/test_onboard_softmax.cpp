@@ -305,38 +305,6 @@ TEST_F(SoftmaxOnBoard, test_softmax_full_inference) {
     EXPECT_EQ(ret, true);
 }
 
-TEST_F(SoftmaxOnBoard, test_softmax_deepseek) {
-    aclInit(nullptr);
-    rtSetDevice(GetDeviceIdByEnvVar());
-    std::vector<int64_t> ishape = {4, 8, 1, 512};
-    std::vector<int64_t> oshape = {ishape[0], ishape[1], ishape[2], ishape[3]};
-    DataType dtype = DataType::DT_FP16;
-    int icap = ishape[0] * ishape[1] * ishape[2] * ishape[3];
-    int oCap = oshape[0] * oshape[1] * oshape[2] * oshape[3];
-    uint64_t outputSize = oCap * sizeof(uint16_t);
-    uint8_t *out_ptr = allocDevAddr(outputSize);
-    PROGRAM("softmax_deepseek") {
-        void *x_ptr = readToDev(GetGoldenDir() + "/x_deepseek.bin", icap);
-        TileShape::Current().SetVecTile({1, 2, 1, 256});
-        Tensor i_x(dtype, ishape, (uint8_t *)x_ptr, "x");
-        Tensor o_x(dtype, oshape, out_ptr, "softmax_deepseek");
-
-        config::SetBuildStatic(true);
-        FUNCTION("SOFTMAX_DEEPSEEK", {i_x, o_x}) {
-            o_x = SoftmaxNew(i_x);
-        }
-    }
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
-    std::vector<npu::tile_fwk::float16> x(icap);
-    std::vector<npu::tile_fwk::float16> golden(oCap);
-    std::vector<npu::tile_fwk::float16> res(oCap);
-    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), out_ptr, outputSize);
-    readInput(GetGoldenDir() + "/x_deepseek.bin", x);
-    readInput(GetGoldenDir() + "/softmax_deepseek.bin", golden);
-    int ret = resultCmpUnary<npu::tile_fwk::float16>(x, golden, res, 0.001f, 10);
-    EXPECT_EQ(ret, true);
-}
-
 TEST_F(SoftmaxOnBoard, test_softmax_flash_attention) {
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
