@@ -623,8 +623,6 @@ TEST_F(TestAxisCombineMarker, cast_op) {
     auto *rootFuncPtr = graph.GetFunction();
     AxisCombineMarker marker;
     marker.Run(*rootFuncPtr);
-    
-    // Verify the tensor is marked as UNKNOWN
     auto t4 = graph.GetTensor("t4");
     EXPECT_EQ(marker.IsTensorEnableAxisCombine(t4), true);   // Unhandled op should be unknown
 }
