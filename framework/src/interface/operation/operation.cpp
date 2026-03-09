@@ -76,6 +76,9 @@ const std::string OpAttributeKey::loopGroupEnd = "LOOP_GROUP_END";
 const std::string OpAttributeKey::lastUse = "last_use";
 const std::string OpAttributeKey::isUpper = "is_upper";
 const std::string OpAttributeKey::blockSize = "block_size";
+const std::string OpAttributeKey::copyInMode = "op_attr_copy_in_mode";
+const std::string OpAttributeKey::copyOutMode = "op_attr_copy_out_mode";
+const std::string OpAttributeKey::copyIsNZ = "op_attr_is_nz";
 
 const std::string ConvOpAttributeKey::cin = "CIN";
 const std::string ConvOpAttributeKey::cout = "COUT";

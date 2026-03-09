@@ -15,7 +15,6 @@
 
 #include "scheduler.h"
 #include "passes/pass_log/pass_log.h"
-#include "interface/utils/common.h"
 
 #define MODULE_NAME "OoOSchedule"
 
@@ -23,8 +22,6 @@ namespace npu::tile_fwk {
 
 constexpr int32_t TWO_ISSUE = 2;
 constexpr int32_t DEFAULT_LATENCY = 511;
-const std::string COPY_IN_MODE = OP_ATTR_PREFIX + "copy_in_mode";
-const std::string COPY_OUT_MODE = OP_ATTR_PREFIX + "copy_out_mode";
 
 OoOSchedulerCheck::SpillInfo OoOScheduler::RecordSpillInfo(MemoryType bufferType, int memId,
     LocalBufferPtr allocBuffer, LogicalTensorPtr spillOutTensor, bool needCopyOut) {
@@ -501,20 +498,20 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
 void OoOScheduler::UpdateCopyOutMode(Operation &copyOutOp) {
     // A5 上 L0C_COPY_OUT 设置为 NZ_NZ, A2/A3 上 L1_COPY_OUT 设置为 ND_ND
     if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && copyOutOp.GetInputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
-        copyOutOp.SetAttribute(COPY_OUT_MODE, static_cast<int64_t>(Matrix::CopyOutMode::NZ2NZ));
+        copyOutOp.SetAttribute(OpAttributeKey::copyIsNZ, 1);
     }
     if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 && copyOutOp.GetInputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
-        copyOutOp.SetAttribute(COPY_OUT_MODE, static_cast<int64_t>(Matrix::CopyOutMode::ND2ND));
+        copyOutOp.SetAttribute(OpAttributeKey::copyOutMode, static_cast<int64_t>(Matrix::CopyOutMode::ND2ND));
     }
 }
 
 void OoOScheduler::UpdateCopyInMode(Operation &copyInOp) {
     // A5 上 L1_COPY_IN 设置为 NZ_NZ, A2/A3 上 L1_COPY_IN 设置为 ND_ND
     if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && copyInOp.GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
-        copyInOp.SetAttribute(COPY_IN_MODE, static_cast<int64_t>(Matrix::CopyInMode::NZ2NZ));
+        copyInOp.SetAttribute(OpAttributeKey::copyInMode, static_cast<int64_t>(Matrix::CopyInMode::NZ2NZ));
     }
     if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 && copyInOp.GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
-        copyInOp.SetAttribute(COPY_IN_MODE, static_cast<int64_t>(Matrix::CopyInMode::ND2ND));
+        copyInOp.SetAttribute(OpAttributeKey::copyInMode, static_cast<int64_t>(Matrix::CopyInMode::ND2ND));
     }
 }
 
