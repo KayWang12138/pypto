@@ -149,15 +149,18 @@ TEST_F(TestPlatform, AbnormalTest) {
 
     std::vector<std::pair<MemoryType, MemoryType>> dataPath; 
     InternalParser internalParser1 = InternalParser("");
+    EXPECT_TRUE(internalParser1.LoadInternalInfo());
     EXPECT_FALSE(internalParser1.GetDataPath(dataPath));
 
     InternalParser internalParser2 = InternalParser("2201");
+    EXPECT_TRUE(internalParser2.LoadInternalInfo());
     EXPECT_TRUE(internalParser2.GetDataPath(dataPath));
 }
 
 TEST_F(TestPlatform, A5Stub) {
     std::vector<std::pair<MemoryType, MemoryType>> dataPath; 
     InternalParser parser2 = InternalParser("3510");
+    EXPECT_TRUE(parser2.LoadInternalInfo());
     EXPECT_TRUE(parser2.GetDataPath(dataPath));
     Platform::Instance().GetDie().SetMemoryPath(dataPath);
 
