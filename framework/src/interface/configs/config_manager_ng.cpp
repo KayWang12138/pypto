@@ -496,7 +496,6 @@ std::string ConfigManagerNg::GetOptionsTree() {
     return impl_->GetOptionsTree();
 }
 
-
 ConfigManagerNg::ConfigManagerNg() : impl_(std::make_unique<ConfigManagerImpl>()) {
     globalScope = impl_->root;
 }
