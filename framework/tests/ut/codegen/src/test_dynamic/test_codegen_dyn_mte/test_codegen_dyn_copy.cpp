@@ -218,6 +218,101 @@ std::string TestL1CopyInBody(
     return cop.GenOpCode();
 }
 
+std::string TestConvL1CopyInBody(std::vector<int64_t> gmShape, bool isFmap = true, int64_t copyInMode = 3,
+    DataType dtype = DataType::DT_FP16) {
+    constexpr int64_t M0 = 16;
+    constexpr int64_t N0 = 16;
+    std::map<DataType, int64_t> k0Map = {{DataType::DT_FP16, 16}, {DataType::DT_BF16, 16}, {DataType::DT_FP32, 8}};
+    bool isConv3D = shape.size() == 5;
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
+
+    std::string funcName = "TestConvL1CopyInTileTensor";
+    if (isFmap) {
+        funcName.append("Fmap");
+    } else {
+        funcName.append("Weight");
+    }
+    if (isConv3D) {
+        funcName.append("3D");
+    } else {
+        funcName.append("2D");
+    }
+
+    const std::vector<int64_t> shape = {64, 64};
+    auto shapeImme = OpImmediate::Specified(shape);
+    TileShape::Current().SetVecTile(shape);
+
+    Tensor inputA(dtype, shape, "A");
+    Tensor inputB(dtype, shape, "B");
+    Tensor output(dtype, shape, "C");
+
+    FUNCTION(funcName, {inputA, inputB, output}) {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Add(inputA, inputB);
+        }
+    }
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    function->SetUnderDynamicFunction(true);
+
+    std::shared_ptr<LogicalTensor> gmTensor =
+        std::make_shared<LogicalTensor>(function, dtype, gmShape, SymbolicScalar::FromConcrete(gmShape),
+                                        TileOpFormat::TILEOP_ND, "gmTensor", NodeType::INCAST);
+    gmTensor->UpdateDynValidShape(SymbolicScalar::FromConcrete(gmShape));
+    gmTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+    gmTensor->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
+    std::vector<SymbolicScalar> dstL1Shape;
+    std::vector<int64_t> offset = {0, 0, 0, 0};
+
+    if (isConv3D) {
+        offset = {0, 0, 0, 0, 0};
+        if (isFmap) {
+            dstL1Shape = {gmShape[0], gmShape[2], ConvCeilDiv(gmShape[1], k0Map[dtype]), gmShape[3], gmShape[4],
+                           k0Map[dtype]};
+        } else {
+            dstL1Shape = {ConvCeilDiv(gmShape[1], k0Map[dtype]) * gmShape[2] * gmShape[3] * gmShape[4],
+                          ConvCeilDiv(gmShape[0], N0), N0, k0Map[dtype]};
+        }
+    } else {
+        if (isFmap) {
+            dstL1Shape = {gmShape[0], ConvCeilDiv(gmShape[1], k0Map[dtype]), gmShape[2], gmShape[3], k0Map[dtype]};
+        } else {
+            dstL1Shape = {ConvCeilDiv(gmShape[1], k0Map[dtype]) * gmShape[2] * gmShape[3], ConvCeilDiv(gmShape[0], N0),
+                          N0, k0Map[dtype]};
+        }
+    }
+    std::shared_ptr<LogicalTensor> localTensor =
+        std::make_shared<LogicalTensor>(function, dtype, dstL1Shape, SymbolicScalar::FromConcrete(dstL1Shape),
+                                        TileOpFormat::TILEOP_NZ, "L1Tensor", NodeType::LOCAL);
+    localTensor->UpdateDynValidShape(SymbolicScalar::FromConcrete(dstL1Shape));
+
+    auto &op = function->AddOperation(Opcode::OP_L1_COPY_IN_CONV, {gmTensor}, {localTensor});
+    op.SetOpAttribute("IS_FMAP", isFmap);
+    op.SetOpAttribute("IS_CONV3D", isConv3D);
+    op.SetOpAttribute("COPY_IN_MODE", copyInMode);
+
+    auto copyAttr = std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified(offset),
+        MemoryType::MEM_L1, OpImmediate::Specified(gmShape), OpImmediate::Specified(dstL1Shape),
+        OpImmediate::Specified(dstL1Shape)
+    );
+    op.SetOpAttribute(copyAttr);
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop({symbolManager, *function, *function->rootFunc_->programs_[0], op, {}});
+    function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
+
+    cop.originShape[0] = gmShape;
+    cop.originShape[1] = gmShape;
+
+    return cop.GenOpCode();
+}
+
 TEST_F(TestCodegenDynCopy, L1CopyIn) {
     std::string res = TestL1CopyInBody();
     std::string expect =
@@ -256,6 +351,14 @@ TEST_F(TestCodegenDynCopy, L1CopyInNZWithValue) {
     std::string res = TestL1CopyInBody(true, 1, 1);
     std::string expect =
         R"!!!(TileOp::DynL1CopyInNZ2NZ<float, float>((__cbuf__ float*)L1_S0_E0, (__gm__ float*)GET_PARAM_ADDR(param, 0, 0), 64, 64, GET_PARAM_RAWSHAPE_2(param, 0, 0), GET_PARAM_OFFSET_2(param, 0, 0), 1, 1, 0);
+)!!!";
+    EXPECT_EQ(res, expect);
+}
+
+TEST_F(TestCodegenDynCopy, L1CopyInTileTensorFmapConv2D) {
+    std::string res = TestConvL1CopyInBody({1, 16, 1, 16});
+    std::string expect =
+        R"!!!(TLoadConv<CopyInMode::DN2NZ, 0, 1>(l1Tensor_10, gmTensor_11, 0, 0, 0, 0, 0, 1, 16, 0, 1, 16);
 )!!!";
     EXPECT_EQ(res, expect);
 }
