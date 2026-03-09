@@ -675,7 +675,7 @@ def moe_distributed_dispatch(moe_case: MoeCase, operands: MoeDispatchOperands, l
         assert_allcolse_whit_rtol_and_atol(out, act)
 
 
-@pytest.mark.skip(True)
+@pytest.mark.skip(reason="功能未实现，暂不执行")
 def test_moe_distributed_dispatch() -> None:
     mp.set_start_method('spawn', force=True)
     processes = []
@@ -858,7 +858,7 @@ def moe_distributed_combine(
     assert_allclose_with_eps(out_golden.cpu(), out_actual.cpu())
 
 
-@pytest.mark.skip(True)
+@pytest.mark.skip(reason="功能未实现，暂不执行")
 def test_moe_distributed_combine() -> None:
     mp.set_start_method('spawn', force=True)
     processes = []
@@ -918,7 +918,7 @@ def moe_dispatch_combine(
     assert_allclose_with_eps(out_golden.cpu(), out_actual.cpu())
 
 
-@pytest.mark.skip(True)
+@pytest.mark.skip(reason="功能未实现，暂不执行")
 def test_distributed_moe_dispatch_combine() -> None:
     mp.set_start_method('spawn', force=True)
     processes = []
