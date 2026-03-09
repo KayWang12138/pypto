@@ -184,7 +184,7 @@ TEST_F(CommonOperationEliminateTest, IgnoreDifferentAttr) {
     EXPECT_NE(function, nullptr);
     CommonOperationEliminate COE;
     COE.Run(*function, "", "", 0);
-    const int validOpNum = 3;
+    const int validOpNum = 3;//修复后有序遍历tensor，使得连续冗余场景正确消除
     EXPECT_EQ(function->Operations().size(), validOpNum);
 }
 

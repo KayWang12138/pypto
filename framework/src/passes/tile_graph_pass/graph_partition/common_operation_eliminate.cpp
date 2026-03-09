@@ -254,7 +254,7 @@ void CommonOperationEliminate::UpdateConnection(LogicalTensorPtr oldtensor,  Log
 
 bool CommonOperationEliminate::TensorProducersMerge(const LogicalTensorPtr orderedTensor, std::unordered_set<Operation*>& cacheProducers, 
                                                     const std::unordered_map<LogicalTensorPtr, std::vector<Operation*>>& tensorProducerMap) {
-    auto& producers = tensorProducerMap.find(orderedTensor)->second;
+    auto& producers = tensorProducerMap.at(orderedTensor);
     if (producers.empty()) {
         return false;
     }
