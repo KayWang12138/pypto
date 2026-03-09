@@ -238,6 +238,29 @@ static void Relu(const TensorData &out, const TensorData &self) {
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
+// static void Pad(LogicalTensorDataPtr out, LogicalTensorDataPtr self,
+//     int64_t padRight, int64_t padBottom, const Element &padValue,
+//     int64_t srcValidRow, int64_t srcValidCol) {
+//     auto tout = From(out);
+//     auto tself = From(self);
+//     auto padScalar = From(padValue);
+
+//     int64_t ndim = static_cast<int64_t>(tout.second.dim());
+//     int64_t outH = tout.second.size(ndim - 2);
+//     int64_t outW = tout.second.size(ndim - 1);
+
+//     if (srcValidRow == 0 || srcValidCol == 0) {
+//         tout.second.fill_(padScalar);
+//     } else {
+//         auto validSelf = tself.second.narrow(ndim - 2, 0, srcValidRow).narrow(ndim - 1, 0, srcValidCol);
+//         int64_t actualPadRight = outW - srcValidCol;
+//         int64_t actualPadBottom = outH - srcValidRow;
+//         auto padded = torch::constant_pad_nd(validSelf, {0, actualPadRight, 0, actualPadBottom}, padScalar);
+//         tout.second.copy_(padded);
+//     }
+//     ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
+// }
+
 static void BitwiseNot(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     auto tself = From(self);
@@ -1976,6 +1999,7 @@ static struct CalcOps calcOps = {
     .Reciprocal = Reciprocal,
     .Relu = Relu,
     .Log1p = Log1p,
+    //.Pad = Pad,
     .BitwiseNot = BitwiseNot,
     .Abs = Abs,
     .Brcb = Brcb,
