@@ -15,7 +15,7 @@
 
 #include <fstream>
 #include "tilefwk/platform.h"
-#include "parser/ini_parser.h"
+#include "parser/platform_parser.h"
 #include "parser/internal_parser.h"
 #include "simulation_platform/simulation_platform.h"
 
@@ -130,8 +130,8 @@ std::string SoC::GetCCECVersion(std::string CoreType) {
     }
 }
 
-void MemoryNode::AddDest(const std::shared_ptr<MemoryNode> &to) {
-    dests.insert({to->type});
+size_t SoC::GetAICPUNum() const {
+    return ai_cpu_cnt_;
 }
 
 void MemoryGraph::AddPath(MemoryType from, MemoryType to) {
@@ -198,20 +198,14 @@ bool MemoryGraph::FindNearestPath(MemoryType from, MemoryType to, std::vector<Me
     return true;
 }
 
-void MemoryGraph::Reset() {
-    nodes.clear();
-}
-
 Platform &Platform::Instance() {
     static Platform instance;
     return instance;
 }
 
-void Platform::LoadFromIni(const std::string &filePath) {
-    npu::tile_fwk::INIParser parser;
-    parser.Initialize(filePath);
-    std::string socVersion;
+ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
     std::string archType;
+    std::string socVersion;
     std::unordered_map<std::string, std::string> versionInfo;
     if (parser.GetStringVal(version, npuArchInfo, archType)) {
         GetSoc().SetNPUArch(archType);
@@ -255,7 +249,7 @@ void Platform::LoadFromIni(const std::string &filePath) {
         GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_UB, memoryLimit));
     }
     std::vector<std::pair<MemoryType, MemoryType>> dataPath;
-    InternalParser internalParser = InternalParser(NPUArchToString(GetSoc().GetNPUArch()));
+    InternalParser internalParser = InternalParser(archType);
     if (internalParser.LoadInternalInfo()) {
         if (internalParser.GetDataPath(dataPath)) {
             GetDie().SetMemoryPath(dataPath);
@@ -279,7 +273,9 @@ void Platform::ObtainPlatformInfo() {
         SimulationPlatform simulationPlatform;
         simulationPlatform.GetCostModelPlatformRealPath(srcPath);
     }
-    LoadFromIni(srcPath);
+    INIParser iniparser;
+ 	iniparser.Initialize(srcPath);
+    LoadPlatformInfo(iniparser);
     initialized = true;
 }
 }

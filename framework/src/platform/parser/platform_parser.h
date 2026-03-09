@@ -9,11 +9,11 @@
  */
 
 /*!
- * \file ini_parser.h
+ * \file platform_parser.h
  * \brief
  */
-#ifndef INI_PARSER_H_
-#define INI_PARSER_H_
+#ifndef PLATFORM_PARSER_H_
+#define PLATFORM_PARSER_H_
 
 #include <map>
 #include <set>
@@ -21,27 +21,20 @@
 #include <fstream>
 #include <unordered_map>
 #include "tilefwk/file.h"
+#include "tilefwk/platform.h"
 #include "tilefwk/pypto_fwk_log.h"
 
 namespace npu {
 namespace tile_fwk {
-
-class INIParser {
-  public:
+class INIParser : public PlatformParser {
+public:
     INIParser() = default;
     ~INIParser() = default;
     bool Initialize(const std::string &iniFilePath); 
-    bool GetStringVal(const std::string& column, const std::string& key, std::string& val);
-    bool GetSizeVal(const std::string& column, const std::string& key, size_t& val);
-
-    bool GetCCECVersion(std::unordered_map<std::string, std::string>& ccecVersion);
-    bool GetCoreVersion(std::unordered_map<std::string, std::string>& curVersion);
-    bool GetDataPath(std::vector<std::vector<std::string>>& dataPath);
-  private:
+    bool GetStringVal(const std::string& column, const std::string& key, std::string& val) const override;
+private:
     bool ReadINIFile(const std::string& filepath);
-    bool FilterCCECVersion(const std::string& key, std::string &coreType);
-    
-    std::map<std::string, std::map<std::string, std::string>> data_;
+    std::unordered_map<std::string, std::unordered_map<std::string, std::string>> data_;
 };
 } // namespace tile_fwk
 } // namepsace npu 

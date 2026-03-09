@@ -80,7 +80,9 @@ enum class InstCategory {
 struct MemoryNode {
     MemoryType type;
     std::set<MemoryType> dests;
-    void AddDest(const std::shared_ptr<MemoryNode> &to);
+    void AddDest(const std::shared_ptr<MemoryNode> &to) {
+        dests.insert({to->type});
+    }
 };
 
 struct MemoryGraph {
@@ -90,7 +92,21 @@ struct MemoryGraph {
     void DFS(MemoryType target, const std::shared_ptr<MemoryNode> &node, std::vector<MemoryType> &candidate,
         std::vector<MemoryType> &paths) const;
     bool FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType> &paths) const;
-    void Reset();
+    void Reset() {
+        nodes.clear();
+    }
+};
+
+class PlatformParser {
+public:
+    PlatformParser() = default;
+    virtual ~PlatformParser() = default;
+    virtual bool GetStringVal(const std::string& column, const std::string& key, std::string& val) const = 0;
+    
+    bool GetSizeVal(const std::string& column, const std::string& key, size_t& val) const;
+    bool GetCCECVersion(std::unordered_map<std::string, std::string>& ccecVersion) const;
+    bool GetCoreVersion(std::unordered_map<std::string, std::string>& curVersion) const;
+    bool FilterCCECVersion(const std::string& key, std::string &coreType) const;
 };
 
 class Inst {
@@ -340,7 +356,7 @@ public:
     std::string GetCCECVersion(std::string CoreType);
 
     // SOCINFO
-    size_t GetAICPUNum() const { return ai_cpu_cnt_; }
+    size_t GetAICPUNum() const;
     size_t GetAICoreNum() const { return ai_core_cnt_; }
     size_t GetAICCoreNum() const { return cube_core_cnt_; }
     size_t GetAIVCoreNum() const { return vector_core_cnt_; }
@@ -425,7 +441,7 @@ public:
     AicCore& GetAICCore() { return GetCoreWrap().GetAICCore(); }
     AivCore& GetAIVCore() { return GetCoreWrap().GetAIVCore(); }
     
-    void LoadFromIni(const std::string &filePath);
+    void LoadPlatformInfo(const PlatformParser &parser);
     void ObtainPlatformInfo();
 
     std::string Dump() {
