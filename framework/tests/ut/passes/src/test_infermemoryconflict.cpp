@@ -1024,7 +1024,7 @@ TEST_F(InferMemoryConflictTest, STest4) {
 
 /*
 STest5
-动态tensor->view->reshape->matmul 需插入 registery copy
+动态tensor->view->reshape->matmul 需插入 register copy
        t5  -----------------------------------|
                                                 +-> A_MUL_B -> o1
 t1 -> VIEW -> t2 -> VIEW -> t3 -> RESHAPE -> t4
@@ -1047,7 +1047,7 @@ TEST_F(InferMemoryConflictTest, STest5) {
     G.AddOp(Opcode::OP_VIEW, {"t2"}, {"t3"}, "V2");
     G.AddOp(Opcode::OP_RESHAPE, {"t3"}, {"t4"}, "R1");
     G.AddOp(Opcode::OP_A_MUL_B, {"t4", "t5"}, {"o1"}, "MUL1");
-    G.AddOp(Opcode::OP_A_MUL_B, {"t4", "t6"}, {"o2"}, "MUL1");
+    G.AddOp(Opcode::OP_A_MUL_B, {"t4", "t6"}, {"o2"}, "MUL2");
 
     // set incast and outcast
     G.SetInCast({"t1", "t5", "t6"});

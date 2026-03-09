@@ -35,6 +35,10 @@ uint32_t GetPowerOfTwo(uint32_t cur) {
     }
     return ret;
 }
+
+bool CheckDynRawShape(const Shape &shape) {
+    return std::any_of(shape.begin(), shape.end(), [](int dim) { return dim < 0; });
+}
 }
 
 Status InferMemoryConflict::RunOnFunction(Function &function) {
@@ -193,29 +197,26 @@ bool InferMemoryConflict::MatMulPattern(const LogicalTensorPtr &reshapeIn, const
         return false;
     }
     if (producer->GetOpcode() == Opcode::OP_VIEW &&
-            OpcodeManager::Inst().GetOpCalcType(consumer->GetOpcode()) == OpCalcType::MATMUL) {
-            auto matmulIn = consumer->GetIOperands().front();
-            return matmulIn->GetProducers().size() == 1;
+        OpcodeManager::Inst().GetOpCalcType(consumer->GetOpcode()) == OpCalcType::MATMUL) {
+        auto matmulIn = consumer->GetIOperands().front();
+        return matmulIn->GetProducers().size() == 1;
     } else if (OpcodeManager::Inst().GetOpCalcType(producer->GetOpcode()) == OpCalcType::MATMUL &&
-            consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
+               consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
         auto matmulOut = producer->GetOOperands().front();
         return matmulOut->GetConsumers().size() == 1;
     }
- 	return false;
-}
-
-bool CheckDynRawShape(Shape shape) {
-    return std::any_of(shape.begin(), shape.end(), [](int dim) { return dim < 0; });
+    return false;
 }
 
 // batch MatMul优化pattern，不插入register copy
 bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn, const LogicalTensorPtr &reshapeOut) {
+    if (!reshapeIn || !reshapeOut)
+        return false;
     Shape inRawShape = reshapeIn->GetRawTensor()->GetRawShape();
     Shape outRawShape = reshapeOut->GetRawTensor()->GetRawShape();
     if (CheckDynRawShape(inRawShape) || CheckDynRawShape(outRawShape)) {
         return false;
     }
-    if (!reshapeIn || !reshapeOut) return false;
 
     if (!MatMulPattern(reshapeIn, reshapeOut)) {
         return false;
