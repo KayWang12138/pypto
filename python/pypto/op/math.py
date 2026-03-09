@@ -1749,6 +1749,40 @@ def var(
     return pypto_impl.Var(input, inner_dim, correction, keepdim)
 
 
+
+@op_wrapper
+def ceil_div(
+    self: Tensor,
+    other: Union[Tensor, int],
+) -> Tensor:
+    """
+    Calculate the ceiling division of two tensors.
+    Parameters
+    ---------
+    self: Tensor
+        The dividend tensor.
+    other: Tensor or int
+        The divisor tensor or scalar.
+    out: Tensor
+        The tensor after calculating the ceiling division of the corresponding elements of self and other.
+    Examples
+    ---------
+    x = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
+    y = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
+    out = pypto.ceildiv(x, y)
+    Input  x : [[1 6 6],
+                [4 6 6]]
+           y : [[1 1 2],
+                [3 4 5]]
+    Output out:[[1 6 3],
+                [2 2 2]]
+    """
+    if isinstance(other, pypto_impl.Tensor):
+        return pypto_impl.CeilDiv(self, other)
+    else:
+        return pypto_impl.CeilDiv(self, pypto_impl.Element(self.dtype, other))
+
+
 @op_wrapper
 def prelu(self: Tensor, weight: Tensor) -> Tensor:
     """

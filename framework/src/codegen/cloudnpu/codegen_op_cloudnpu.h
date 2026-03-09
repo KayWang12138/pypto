@@ -23,6 +23,7 @@
 #include "codegen/codegen_common.h"
 #include "tilefwk/data_type.h"
 #include "interface/operation/operation.h"
+#include "interface/operation/operation_impl.h"
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
@@ -61,9 +62,14 @@ public:
     std::string GenMemL1ToBt() const;
     std::string GenMemL1CopyIn() const;
     std::string GenMemL1CopyOut() const;
+    std::string GetConvCopyInMode() const;
+    std::string GenMemL1CopyInConv() const;
+    std::string GenMemL1CopyOutConv() const;
     std::string GenMemL1ToFB() const;
     std::string GenMemL0CCopyOut() const;
     std::string GenMemL0CToL1() const;
+    std::string GenMemL1ToL0Load3D() const;
+    std::string GenMemL1ToL0Load2D() const;
 
     std::string GenMemL1ToL0() const;
 
@@ -164,8 +170,6 @@ public:
 
     std::string GenOpCode() const override;
 
-    void UpdateSaturateStatus(FloatSaturateStatus &fs);
-
 private:
     std::string QueryTileTensorNameByIdx(int paramIdx) const;
 
@@ -192,19 +196,15 @@ private:
     std::string GenOffsetsAndRawShapesDefault() const;
 
     void UpdateTileTensorInfo();
-    bool NeedUpdateLoopInfo();
     void UpdateLoopInfo();
     std::vector<SymbolicScalar> GetLoopAxes();
     ShapeInLoop BuildShapeInLoop(int paramIdx, size_t loopDepth);
     bool ShouldSkipProcInLoop(int paramIdx);
 
     template <typename T = int64_t>
-    std::vector<T> GetShapeInLoop(const std::vector<T> &input, size_t loopDepth) {
-        ASSERT(loopDepth < input.size()) << "loopDepth " << loopDepth << " must be small than dim size" << input.size();
-        std::vector<T> reservedShapeExceptLoopAxes;
-        for (size_t i = loopDepth; i < input.size(); ++i) {
-            reservedShapeExceptLoopAxes.emplace_back(input[i]);
-        }
+    std::vector<T> GetShapeInLoop(const std::vector<T> &input) {
+        ASSERT(input.size() > SHAPE_DIM2) << "input size " << input.size() << " is less than 2";
+        std::vector<T> reservedShapeExceptLoopAxes = {*(input.rbegin() + 1), input.back()};
         return reservedShapeExceptLoopAxes;
     }
 

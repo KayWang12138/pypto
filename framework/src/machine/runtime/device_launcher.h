@@ -61,6 +61,7 @@ struct AiCpuArgs {
 
 int GetCfgBlockdim();
 int GetMaxBlockdim();
+uint32_t GetProcessId();
 
 class DeviceLauncherContext {
 public:
@@ -187,6 +188,9 @@ public:
         }
 
 #ifdef BUILD_WITH_CANN
+        if (IsPtoDataDumpEnabled()) {  // dump tensor
+            devProg->devArgs.hostPid = GetProcessId();
+        }
         if (isDevice) {
             devProg->devArgs.validGetPgMask = DeviceRunner::Get().GetValidGetPgMask();
         }
@@ -207,9 +211,9 @@ public:
         }
 #endif
         devProg->workspaceSize = devProg->memBudget.Total();
-        MACHINE_LOGI("workspaceSize=%lu, tensor=%lu, metadata=%lu, aicoreSpillen=%lu, debug.DumpTensor=%lu",
+        MACHINE_LOGI("workspaceSize=%lu, tensor=%lu, metadata=%lu, aicoreSpillen=%lu, debug.DumpTensor=%lu, leafDumpWorkspace=%lu",
             devProg->workspaceSize, devProg->memBudget.tensor.Total(), devProg->memBudget.metadata.Total(),
-            devProg->memBudget.aicoreSpilled, devProg->memBudget.debug.dumpTensor);
+            devProg->memBudget.aicoreSpilled, devProg->memBudget.debug.dumpTensor, devProg->memBudget.debug.leafDump);
         MACHINE_LOGI("Tensor:rootInner=%lu, devTaskInnerOutCasts=%lu, slotted=%lux%lu(slots).",
             devProg->memBudget.tensor.rootInner,
             devProg->memBudget.tensor.devTaskInnerExclusiveOutcasts, devProg->memBudget.tensor.MaxOutcastMem(),
@@ -219,7 +223,8 @@ public:
     // Fill metadata and kArgs (templated because it uses DeviceMemoryTy) (keeps <= 50 lines)
     template<typename DeviceMemoryTy>
     static void FillKernelMeta(DeviceMemoryTy& devMem, DeviceKernelArgs &kArgs, DevAscendProgram *devProg,
-            const std::vector<uint8_t> &devProgData, bool isCtrlCacheRecording, const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
+            const std::vector<uint8_t> &devProgData, bool isCtrlCacheRecording, const DeviceLauncherConfig &config,
+            CachedOperator *cachedOperator) {
         AssignMetaAddr(devMem, kArgs, devProg, cachedOperator);
         devProg->l2CacheOffset = devMem.GetL2Offset();
         if (config.workspaceAddr) {
@@ -236,14 +241,17 @@ public:
             kArgs.cfgdata = (int64_t *)devMem.CopyToDev(devProgData, CachedOperator::GetCfgDataDevAddrHolder(cachedOperator));
         }
         kArgs.machineConfig = devProg->devArgs.machineConfig;
-        if (config::GetPlatformConfig(KEY_ENABLE_PROF_FUNC, false)) {
-            kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICPU_FUNC);
-        }
-        if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_TIME, false) || config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL)  {
-            kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_TIME);
-        }
-        if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_PMU, false)) {
-            kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_PMU);
+        if (!IsCaptureMode()) {
+            if (config::GetPlatformConfig(KEY_ENABLE_PROF_FUNC, false)) {
+                kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICPU_FUNC);
+            }
+            if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_TIME, false) ||
+                config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
+                kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_TIME);
+            }
+            if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_PMU, false)) {
+                kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_PMU);
+            }
         }
         devProg->devArgs.toSubMachineConfig = kArgs.toSubMachineConfig;
     }
@@ -430,7 +438,10 @@ public:
     static void FreeControlFlowCache(uint8_t *ctrlCache);
     static void *RegisterKernelBin(const std::vector<uint8_t> &kernelBinary);
     static void UnregisterKernelBin(void *hdl);
-    static bool AddAicpuStream(aclrtStream aicoreStream, bool tripleStream);
+    static void SetCaptureMode(bool captureMode);
+    static bool IsCaptureMode();
+    static void GetCaptureInfo(aclrtStream aicoreStream, aclmdlRI &rtModel);
+    static void AddAicpuStream(aclmdlRI &rtModel, bool tripleStream);
     static int LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream, bool debugEnable, [[maybe_unused]]Function *function);
     static int LaunchAicoreKernel(
         aclrtStream aicoreStream, void *kernel, rtArgsEx_t &rtArgs, rtTaskCfgInfo_t &rtTaskCfg, bool debugEnable);
@@ -444,6 +455,8 @@ public:
     static CachedOperator* DeviceRunCacheOperatorGet(Function *func);
  public:
     static std::vector<uint8_t> tensorInfo_;
+private:
+    static bool captureMode_;
 };
 
 void DataDumpInit();

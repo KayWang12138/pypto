@@ -23,7 +23,6 @@
 #include "interface/operation/operation.h"
 #include "interface/tensor/tensor_offset.h"
 #include "interface/utils/id_gen.h"
-#include "interface/utils/log.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/symbolic_scalar.h"
 #include "tilefwk/tilefwk.h"
@@ -283,7 +282,8 @@ OperationsViewer Function::Operations(bool sorted) {
 
 bool Function::IsCube() const {
     for (const auto &oper : OperationsViewer(operations_, opPosition_)) {
-        if (oper.HasAttr(OpAttributeKey::isCube) && oper.GetBoolAttribute(OpAttributeKey::isCube)) {
+        if ((oper.HasAttr(OpAttributeKey::isCube) && oper.GetBoolAttribute(OpAttributeKey::isCube))
+            || oper.GetOpcode() == Opcode::OP_L1_COPY_IN_CONV) {
             return true;
         }
     }
@@ -3400,7 +3400,7 @@ std::vector<OriArgInfo> Function::GetOpOriginArgsInfo() {
             outcast->GetCachePolicy(CachePolicy::PREFETCH)};
         if (args.count(subscript) > 0) {
             ASSERT(args.at(subscript) == info)
-                << "args.at(subscript): " << args.at(subscript).Dump() << ", info: " << info.Dump();;
+                << "args.at(subscript): " << args.at(subscript).Dump() << ", info: " << info.Dump();
         } else {
             args.emplace(subscript, info);
         }
@@ -3655,6 +3655,9 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
 
             auto assembleResult = std::make_shared<LogicalTensor>(*this, matches[0]->Datatype(), maximumShape,
                 iOperand->Format(), "Assemble_" + matches[0]->Symbol(), iOperand->nodetype);
+            if (!iOperand->GetDynValidShape().empty()) {
+                assembleResult->UpdateDynValidShape(iOperand->GetDynValidShape());
+            }
             ASSERT(assembleResult->GetProducers().empty()) "Assemble result should have no producers";
             for (size_t idx = 0; idx < matches.size(); idx++) {
                 auto &assembleOp = AddRawOperation(Opcode::OP_ASSEMBLE, {matches[idx]}, {assembleResult});
@@ -3663,6 +3666,9 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
 
             auto viewResult = std::make_shared<LogicalTensor>(*this, assembleResult->Datatype(), iOperand->shape,
                 iOperand->Format(), "View_" + assembleResult->Symbol(), assembleResult->nodetype);
+            if (!iOperand->GetDynValidShape().empty()) {
+                viewResult->UpdateDynValidShape(iOperand->GetDynValidShape());
+            }
             auto &viewOp = AddRawOperation(Opcode::OP_VIEW, {assembleResult}, {viewResult});
             std::vector<int64_t> newOffset = TensorOffset::Sub(iOperand->GetOffset(), minimumOffset);
             std::vector<SymbolicScalar> newDynOffset = TensorOffset::Sub(iOperand->GetDynOffset(), minimumOffset);

@@ -18,6 +18,12 @@
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
 
+#if __NPU_ARCH__ == 3101
+#define PTO_NPU_ARCH_A5
+#elif __NPU_ARCH__ == 3510
+#define PTO_NPU_ARCH_A5
+#endif
+
 constexpr int16_t SHAPE_DIM2 = 2;
 constexpr int16_t SHAPE_DIM3 = 3;
 constexpr uint16_t BLOCK_CUBE_M_N = 16;
@@ -570,7 +576,7 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord, int16_t subblockId) {
     }
 }
 
-template <bool isZeroC, typename T, typename U, typename V>
+template <bool isZeroC, TransMode transMode, typename T, typename U, typename V>
 TILEOP void TMatmul(T &c, U &a, V &b) {
     constexpr auto shapeSizeA = Std::tuple_size<typename U::Shape>::value;
     constexpr auto shapeSizeB = Std::tuple_size<typename V::Shape>::value;
@@ -598,6 +604,9 @@ TILEOP void TMatmul(T &c, U &a, V &b) {
 
     validM = (validM + BLOCK_CUBE_M_N - 1) / BLOCK_CUBE_M_N * BLOCK_CUBE_M_N;
     tileL0ATensor l0a(validM, validK);
+    if constexpr (transMode != TransMode::CAST_NONE) {
+        l0a.SetMadTF32Mode(static_cast<pto::RoundMode>(transMode));
+    }
     tileL0BTensor l0b(validK, validN);
     tileL0CTensor l0c(validM, validN);
     if (std::is_same<typename tileL0ATensor::DType, float>::value) {
@@ -613,9 +622,12 @@ TILEOP void TMatmul(T &c, U &a, V &b) {
     } else {
         pto::TMATMUL_ACC(l0c, l0c, l0a, l0b);
     }
+    if constexpr (transMode != TransMode::CAST_NONE) {
+        l0a.ResetMadMode();
+    }
 }
 
-template <typename T0, typename T1, typename T2, typename T3>
+template <TransMode transMode, typename T0, typename T1, typename T2, typename T3>
 TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, T3 &bias) {
     constexpr auto shapeSizeA = Std::tuple_size<typename T1::Shape>::value;
     constexpr auto shapeSizeB = Std::tuple_size<typename T2::Shape>::value;
@@ -645,6 +657,9 @@ TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, T3 &bias) {
 
     validM = (validM + BLOCK_CUBE_M_N - 1) / BLOCK_CUBE_M_N * BLOCK_CUBE_M_N;
     tileL0ATensor l0a(validM, validK);
+    if constexpr (transMode != TransMode::CAST_NONE) {
+        l0a.SetMadTF32Mode(static_cast<pto::RoundMode>(transMode));
+    }
     tileL0BTensor l0b(validK, validN);
     tileL0CTensor l0c(validM, validN);
     tileBiasTensor biasT(1, validN);
@@ -654,9 +669,12 @@ TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, T3 &bias) {
     pto::TASSIGN(l0c, (uint64_t)c.GetAddr());
     pto::TASSIGN(biasT, (uint64_t)bias.GetAddr());
     pto::TMATMUL_BIAS(l0c, l0a, l0b, biasT);
+    if constexpr (transMode != TransMode::CAST_NONE) {
+        l0a.ResetMadMode();
+    }
 }
 
-#if __NPU_ARCH__ == 3101
+#if defined PTO_NPU_ARCH_A5
 template <bool isZeroC, typename T0, typename T1, typename T2, typename T3, typename T4>
 TILEOP void MatmulMX(T0 &c, T1 &a, T2 &aScale, T3 &b, T4 &bScale)
 {
@@ -792,7 +810,8 @@ INLINE void TStoreExecute(globalData dstGlobal, tileData srcL0C, V &fixbuf, uint
                 dstGlobal, srcL0C, fpData);
         }
     } else {
-        pto::TSTORE<tileData, globalData, config::kIsAcc ? pto::AtomicType::AtomicAdd : pto::AtomicType::AtomicNone>(
+        pto::TSTORE<tileData, globalData, config::kIsAcc ? pto::AtomicType::AtomicAdd : pto::AtomicType::AtomicNone,
+            config::kReluMode == 0 ? pto::ReluPreMode::NoRelu : pto::ReluPreMode::NormalRelu>(
             dstGlobal, srcL0C);
     }
 }

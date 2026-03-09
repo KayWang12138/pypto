@@ -413,8 +413,8 @@ void bind_operation(py::module &m) {
 
     py::class_<Matrix::MatmulExtendParam>(m, "MatmulExtendParam")
         .def(py::init<>())
-        .def(py::init<Tensor, Tensor, float, Matrix::ReLuType>(), py::arg("bias_tensor"), py::arg("scale_tensor"),
-            py::arg("scale"), py::arg("relu_type"), "Matrix extend params.");
+        .def(py::init<Tensor, Tensor, float, Matrix::ReLuType, Matrix::TransMode>(), py::arg("bias_tensor"), py::arg("scale_tensor"),
+            py::arg("scale"), py::arg("relu_type"), py::arg("trans_mode"), "Matrix extend params.");
 
     m.def(
         "Matmul",
@@ -425,6 +425,10 @@ void bind_operation(py::module &m) {
         py::arg("out_type"), py::arg("tensor_a"), py::arg("tensor_b"), py::arg("a_trans") = false,
         py::arg("b_trans") = false, py::arg("c_matrix_nz") = false, py::arg("extend_params"),
         "Matrix multiply with extend param.");
+    py::class_<Conv::ConvExtendParam>(m, "ConvExtendParam")
+        .def(py::init<>())
+        .def(py::init<Tensor, Tensor, float, Conv::ReLuType>(), py::arg("bias_tensor"), py::arg("scale_tensor"),
+            py::arg("scale"), py::arg("relu_type"), "Conv extend params.");
     m.def(
         "MatmulMX",
         [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_a_scale, const Tensor &tensor_b,
@@ -437,6 +441,17 @@ void bind_operation(py::module &m) {
         py::arg("tensor_b_scale"), py::arg("a_trans") = false, py::arg("a_scale_trans") = false,
         py::arg("b_trans") = false, py::arg("b_scale_trans") = false, py::arg("c_matrix_nz") = false,
         py::arg("extend_params"), "Matrix multiply with extend param.");
+    m.def(
+        "Conv",
+        [](DataType out_type, const Tensor &tensor_input, const Tensor &tensor_weight, const std::vector<int64_t> &strides, 
+            const std::vector<int64_t> &paddings, const std::vector<int64_t> &dilations, const Conv::ConvExtendParam& extendParam, 
+            const int64_t groups) {
+            return Conv::Conv(out_type, tensor_input, tensor_weight, strides, paddings,
+                dilations, extendParam, groups);
+        },
+        py::arg("out_type"), py::arg("tensor_input"), py::arg("tensor_weight"), py::arg("strides"), 
+        py::arg("paddings"), py::arg("dilations"), py::arg("extend_params"), py::arg("groups") = 1,
+        "Convolution forward with extend param.");
     m.def(
         "BatchMatmul",
         [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b, bool a_trans, bool b_trans,
@@ -561,6 +576,10 @@ void bind_operation(py::module &m) {
         [](const Tensor &self, const Tensor &min, const Tensor &max) { return npu::tile_fwk::Clip(self, min, max); });
     m.def("Clip",
         [](const Tensor &self, const Element &min, const Element &max) { return npu::tile_fwk::Clip(self, min, max); });
+    m.def("CeilDiv",
+        [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::CeilDiv(self, other); });
+    m.def("CeilDiv",
+        [](const Tensor &self, const Element &other) { return npu::tile_fwk::CeilDiv(self, other); });
     m.def(
         "OneHot", [](const Tensor &self, int numClasses) { return npu::tile_fwk::OneHot(self, numClasses); },
         "Tensor one hot.");

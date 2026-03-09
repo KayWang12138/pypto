@@ -38,7 +38,7 @@ bool CheckSameShape(const std::shared_ptr<LogicalTensor> &lhs, const std::shared
 
 std::size_t RawExpectedOperator::CalculateHash() const {
     HashBuffer hashBuffer(static_cast<char32_t>(opcode_), attrs_);
-    return Digest(hashBuffer);;
+    return Digest(hashBuffer);
 }
 
 template<typename T>
@@ -118,7 +118,7 @@ std::size_t RawExpectedOperationValue::CalculateHash() const {
     for (auto &op : operands_) {
         hashBuffer.Update(op->GetHash());
     }
-    return Digest(hashBuffer);;
+    return Digest(hashBuffer);
 }
 
 std::size_t RawExpectedExtractValue::CalculateHash() const {
@@ -126,7 +126,7 @@ std::size_t RawExpectedExtractValue::CalculateHash() const {
     hashBuffer.Append(sourceShape_);
     hashBuffer.Append(resultOffset_);
     hashBuffer.Append(resultShape_);
-    return Digest(hashBuffer);;
+    return Digest(hashBuffer);
 }
 
 std::size_t RawExpectedInsertValue::CalculateHash() const {
@@ -136,12 +136,12 @@ std::size_t RawExpectedInsertValue::CalculateHash() const {
         hashBuffer.Append(e.shape);
         hashBuffer.Append(e.source->GetHash());
     }
-    return Digest(hashBuffer);;
+    return Digest(hashBuffer);
 }
 
 std::size_t RawExpectedResultofValue::CalculateHash() const {
     HashBuffer hashBuffer(static_cast<char32_t>(kind_), resultof_->GetHash(), index_);
-    return Digest(hashBuffer);;
+    return Digest(hashBuffer);
 }
 
 std::size_t ListExpectedValue::CalculateHash() const {
@@ -149,7 +149,7 @@ std::size_t ListExpectedValue::CalculateHash() const {
     for (auto &arg : elements_) {
         hashBuffer.Update(arg->GetHash());
     }
-    return Digest(hashBuffer);;
+    return Digest(hashBuffer);
 }
 
 ExpectedValue ExpectedValueBuilder::ValueLookup(ExpectedValue &v) {

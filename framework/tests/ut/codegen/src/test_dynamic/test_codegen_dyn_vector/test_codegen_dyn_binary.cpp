@@ -101,15 +101,20 @@ TEST_F(TestCodegenDynBinary, TestCodegenAddDim2SrcNotSameShape) {
     TestAddDynBody({64, 64}, {64, 64}, "ADD", true);
 }
 
-TEST_F(TestCodegenDynBinary, TestAddsDynamic) {
+void TestAddSDynBody(
+    const std::string &testName, float scalar, bool isSupportTileTensor, const std::vector<std::string> &expect) {
+    if (isSupportTileTensor) {
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    }
+
     std::vector<int64_t> shape = {64, 64};
     TileShape::Current().SetVecTile({64, 64});
     Tensor input_a(DataType::DT_FP32, shape, "A");
-    Element value(DataType::DT_FP32, 1.5);
+    Element value(DataType::DT_FP32, scalar);
     Tensor output(DataType::DT_FP32, shape, "C");
     ConfigManager::Instance();
 
-    std::string funcName = "ADD_S";
+    std::string funcName = testName;
     FUNCTION(funcName, {input_a, output}) {
         LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
@@ -121,26 +126,40 @@ TEST_F(TestCodegenDynBinary, TestAddsDynamic) {
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
-    for (auto &subFunc : function->rootFunc_->programs_) {
-        for (auto &op : subFunc.second->Operations()) {
-            if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
-                if (IsCopyIn(op.GetOpcode()))
-                    op.SetIOpAttrOffset(0, 0);
-                else
-                    op.SetOOpAttrOffset(0, 0);
-                op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
-            }
-        }
-        DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->dynParamTable_.emplace("sym_2_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_2_dim_1", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_4_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_4_dim_1", fakeParam);
-    }
 
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
+
+    const std::string res = GetResultFromCpp(*function);
+    for (auto &e : expect) {
+        CheckStringExist(e, res);
+    }
+}
+
+TEST_F(TestCodegenDynBinary, TestAddSDynamic) {
+    std::vector<std::string> expect = {
+        R"!!!(TileOp::DynTadds_<float, /*DS*/ 1, 64, 64, /*S0S*/ 1, 64, 64>((__ubuf__ float*)UB_S0_E16384, (__ubuf__ float*)UB_S0_E16384, (float)1.5, 1, 1, sym_5_dim_0, sym_5_dim_1);
+)!!!"};
+    TestAddSDynBody("TestAddsDynamic", 1.5, false, expect);
+}
+
+TEST_F(TestCodegenDynBinary, TestAddSTileTensorInfPos) {
+    std::vector<std::string> expect = {R"!!!(union {float f; uint32_t u;} float_inf_pos = {.u = 0x7F800000};)!!!",
+        R"!!!(TAddS<LastUse2Dim<0, 0>, float>(ubTensor_1, ubTensor_1, float_inf_pos.f);)!!!"};
+    TestAddSDynBody("TestAddSTileTensorInfPos", 1.0f / 0.0f, true, expect);
+}
+
+TEST_F(TestCodegenDynBinary, TestAddSTileTensorInfNeg) {
+    std::vector<std::string> expect = {R"!!!(union {float f; uint32_t u;} float_inf_neg = {.u = 0xFF800000};)!!!",
+        R"!!!(TAddS<LastUse2Dim<0, 0>, float>(ubTensor_1, ubTensor_1, float_inf_neg.f);)!!!"};
+    TestAddSDynBody("TestAddSTileTensorInfNeg", -1.0f / 0.0f, true, expect);
+}
+
+TEST_F(TestCodegenDynBinary, TestAddSTileTensorNAN) {
+    std::vector<std::string> expect = {R"!!!(union {float f; uint32_t u;} float_nan = {.u = 0x7FC00000};)!!!",
+        R"!!!(TAddS<LastUse2Dim<0, 0>, float>(ubTensor_1, ubTensor_1, float_nan.f);)!!!"};
+    TestAddSDynBody("TestAddSTileTensorNAN", 0.0f / 0.0f, true, expect);
 }
 
 TEST_F(TestCodegenDynBinary, TestGatherEle) {
@@ -376,17 +395,18 @@ TEST_F(TestCodegenDynBinary, TestAddTileTensor) {
             output = Add(inputA, inputB);
         }
     }
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + addFuncName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    auto function = Program::GetInstance().GetFunctionByRawName(
+        FUNCTION_PREFIX + addFuncName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetUnderDynamicFunction(true);
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
-    auto localTensorA = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_UB, addShape, dynValidShape});
-    auto localTensorB = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_UB, addShape, dynValidShape});
+    auto localTensorA =
+        CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_UB, addShape, dynValidShape});
+    auto localTensorB =
+        CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_UB, addShape, dynValidShape});
     auto localOutTensor =
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, addShape, dynValidShape});
 
-    auto &op =
-        function->AddOperation(Opcode::OP_ADD, {localTensorA, localTensorB}, {localOutTensor});
+    auto &op = function->AddOperation(Opcode::OP_ADD, {localTensorA, localTensorB}, {localOutTensor});
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
     std::vector<int> initVec(addShape.size(), false);
     op.SetAttribute(OpAttributeKey::lastUse, initVec);

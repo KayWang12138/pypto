@@ -147,9 +147,10 @@ ConfigScope::ConfigScope(ConfigScopePtr parent) : parent_(parent) {
 TileShape ConfigScope::GenerateTileShape() const {
     std::vector<int64_t> vecTile = GetConfig<std::vector<int64_t>>("vec_tile_shapes");
     CubeTile cubeTile = GetConfig<CubeTile>("cube_tile_shapes");
+    ConvTile convTile = GetConfig<ConvTile>("conv_tile_shapes");
     DistTile distTile = GetConfig<DistTile>("dist_tile_shapes");
     std::vector<int64_t> matrixSize = GetConfig<std::vector<int64_t>>("matrix_size");
-    TileShape tileShape(vecTile, cubeTile, distTile, matrixSize);
+    TileShape tileShape(vecTile, cubeTile, convTile, distTile, matrixSize);
     return tileShape;
 }
 
@@ -354,7 +355,6 @@ struct ConfigManagerImpl {
                 FUNCTION_LOGE("Failed to set option. Key: %s, Error: %s", it.first.c_str(), e.what());
             }
         }
-        FUNCTION_LOGD("Set locations: %s:%d", file, lino);
     }
 
     void Dump(std::stringstream &os, ConfigScope *node, const std::string &prefix) {
@@ -435,6 +435,7 @@ private:
         tileShape.Reset();
         root->AddValue("cube_tile_shapes", tileShape.GetCubeTile());
         root->AddValue("vec_tile_shapes", tileShape.GetVecTile().tile);
+        root->AddValue("conv_tile_shapes", tileShape.GetConvTile());
         root->AddValue("matrix_size", tileShape.GetMatrixSize());
         root->AddValue("dist_tile_shapes", tileShape.GetDistTile());
     }
@@ -494,7 +495,6 @@ const std::map<std::string, std::pair<int64_t, int64_t>> &ConfigManagerNg::Range
 std::string ConfigManagerNg::GetOptionsTree() {
     return impl_->GetOptionsTree();
 }
-
 
 ConfigManagerNg::ConfigManagerNg() : impl_(std::make_unique<ConfigManagerImpl>()) {
     globalScope = impl_->root;

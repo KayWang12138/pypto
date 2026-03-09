@@ -99,8 +99,8 @@ Status INIParser::GetSizeVal(const std::string& column, const std::string& key, 
     }
     val = 0UL;
 
-    constexpr int    kRadix10    = 10;
-    constexpr int    kMaxDigit10 = kRadix10 - 1;
+    constexpr int kRadix10 = 10;
+    constexpr int kMaxDigit10 = kRadix10 - 1;
 
     for (const char &c : valStr) {
         int digit = c - '0';

@@ -77,7 +77,7 @@ struct CalcOps {
     void (*Log1p)(const TensorData &, const TensorData &);
     void (*BitwiseNot)(const TensorData &, const TensorData &);
     void (*Abs)(const TensorData &, const TensorData &);
-    void (*Brcb)(const TensorData &, const TensorData &);  
+    void (*Brcb)(const TensorData &, const TensorData &);
     void (*WhereTT)(const TensorData &, const TensorData &, const TensorData &, const TensorData &);
     void (*WhereTS)(const TensorData &, const TensorData &, const TensorData &, const Element &);
     void (*WhereST)(const TensorData &, const TensorData &, const Element &, const TensorData &);
@@ -146,6 +146,7 @@ struct CalcOps {
     void (*ExpandS)(const TensorData &, const Element &);
     void (*Expand)(const TensorData &, const TensorData &);
     void (*GatherElements)(const TensorData &, const TensorData &, const TensorData &, int);
+    void (*GatherMask)(const TensorData &, const TensorData &, int);
     void (*IndexAdd)(const TensorData &, const TensorData &, const TensorData &, const TensorData &, int, const Element &);
     void (*TriU)(const TensorData &, const TensorData &, int);
     void (*TriL)(const TensorData &, const TensorData &, int);

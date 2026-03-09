@@ -36,7 +36,11 @@ class LogFuncInfo {
 public:
     static LogFuncInfo &Instance();
     int32_t(*checkLevel)(int32_t, int32_t);
+#ifndef IGNORE_LOG_FORMAT_CHECK
+    void(*record)(int32_t, int32_t, const char *, ...) __attribute__((format(printf, 3, 4)));
+#else
     void(*record)(int32_t, int32_t, const char *, ...);
+#endif
     void(*setAttr)(bool);
 private:
     LogFuncInfo();
@@ -130,6 +134,7 @@ private:
 #define CODEGEN_LOGE(...) PYPTO_HOST_LOG(DLOG_ERROR, "CODEGEN", __VA_ARGS__)
 #define CODEGEN_EVENT(...) PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, "CODEGEN", __VA_ARGS__)
 #define CODEGEN_LOGD_FULL(...) PYPTO_HOST_SPLIT_LOG(DLOG_DEBUG, "CODEGEN", __VA_ARGS__)
+#define CODEGEN_LOGI_FULL(...) PYPTO_HOST_SPLIT_LOG(DLOG_INFO, "CODEGEN", __VA_ARGS__)
 
 #define MACHINE_LOGD(...) PYPTO_HOST_LOG(DLOG_DEBUG, "MACHINE", __VA_ARGS__)
 #define MACHINE_LOGI(...) PYPTO_HOST_LOG(DLOG_INFO, "MACHINE", __VA_ARGS__)

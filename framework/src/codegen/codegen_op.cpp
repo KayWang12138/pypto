@@ -36,6 +36,9 @@ const std::unordered_set<Opcode> OP_SHAPE_FROM_ATTR{
     Opcode::OP_TRANSPOSE_MOVEIN,
     // index outcast
     Opcode::OP_INDEX_OUTCAST,
+    // conv Load
+    Opcode::OP_L1_COPY_IN_CONV,
+    Opcode::OP_L0C_COPY_OUT_CONV,
 };
 bool IsOpShapeFromAttr(Opcode opcode) {
     return OP_SHAPE_FROM_ATTR.find(opcode) != OP_SHAPE_FROM_ATTR.end();
@@ -54,11 +57,11 @@ void CombineLastTwoAxis(std::vector<T> &shape, size_t shapeSize) {
 void CodeGenOp::CombineAxis(const Operation &oper, int operandIdx, bool isInput, size_t ioIdx) {
     size_t dim = rawShape[operandIdx].size();
     if (dim <= 1) {
-        CODEGEN_LOGW("raw shape dim is %d, return", dim);
+        CODEGEN_LOGW("raw shape dim is %zu, return", dim);
         return;
     }
 
-    CODEGEN_LOGI("operandIdx %d, isInput: %d, ioIdx is %d ", operandIdx, isInput, ioIdx);
+    CODEGEN_LOGI("operandIdx %d, isInput: %d, ioIdx is %zu ", operandIdx, isInput, ioIdx);
 
     std::vector<bool> needCombineIOIdx;
     if (((isInput && oper.GetAttr(OpAttributeKey::inputCombineAxis, needCombineIOIdx)) ||
@@ -92,8 +95,8 @@ void CodeGenOp::UpdateShape(
             isMainBlock ? SymbolicScalar::FromConcrete(logicalTensor.shape) : logicalTensor.GetDynValidShape();
     }
 
-    ASSERT(logicalTensor.shape.size() <= MAX_DIM)
-        << "only support max dim: " << MAX_DIM << ", Tensor is " << logicalTensor.Dump();
+    ASSERT(logicalTensor.shape.size() <= UPDATE_SHAPE_MAX_DIM)
+        << "only support max dim: " << UPDATE_SHAPE_MAX_DIM << ", Tensor is " << logicalTensor.Dump();
 
     Opcode opcode = oper.GetOpcode();
     if (logicalTensor.GetMemoryTypeOriginal() == MEM_DEVICE_DDR && IsOpShapeFromAttr(opcode)) {
@@ -445,8 +448,8 @@ void CodeGenOp::GetGmParamIdx(const Operation &oper) {
         ASSERT(outParamLocSize <= oper.oOperand.size())
             << "size of Op.outParamLocation_ is larger than output operands, Op is " << oper.Dump();
 
-        CODEGEN_LOGI("%d: inParamLocation = %s", __FUNCTION__, IntVecToStr(oper.inParamLocation_).c_str());
-        CODEGEN_LOGI("%d: outParamLocation = %s", __FUNCTION__, IntVecToStr(oper.outParamLocation_).c_str());
+        CODEGEN_LOGI("%s: inParamLocation = %s", __FUNCTION__, IntVecToStr(oper.inParamLocation_).c_str());
+        CODEGEN_LOGI("%s: outParamLocation = %s", __FUNCTION__, IntVecToStr(oper.outParamLocation_).c_str());
 
         std::copy(oper.outParamLocation_.begin(), oper.outParamLocation_.end(), paramLocation);
         std::copy(oper.inParamLocation_.begin(), oper.inParamLocation_.end(), paramLocation + oper.oOperand.size());

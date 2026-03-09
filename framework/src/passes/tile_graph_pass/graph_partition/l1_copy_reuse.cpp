@@ -231,7 +231,7 @@ void L1CopyInReuseRunner::GetOpHash(std::vector<uint64_t> &hashList, const std::
 void L1CopyInReuseRunner::GetColorHash(const OperationsViewer &opOriList, std::vector<uint64_t> &hashColor) {
     std::vector<uint64_t> hashTileOp(opOriList.size(), 0);
     for (size_t i = 0; i < opOriList.size(); i++) {
-            GetOpHash(hashTileOp, opOriList[i].GetOpcodeStr(), i);
+        GetOpHash(hashTileOp, opOriList[i].GetOpcodeStr(), i);
     }
     uint64_t a = 0x12345678;
     uint64_t p = 23;
@@ -653,7 +653,7 @@ Status L1CopyInReuseMerge::CheckOpListValid(Function &func) const {
     for (size_t i = 0; i < opOriList.size(); i++) {
         if (opOriList[i].GetIOperands().size() != 0 && opOriList[i].GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && 
         opOriList[i].GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
-            if (opOriList[i].GetOpcode() == Opcode::OP_VIEW || opOriList[i].GetOpcode() == Opcode::OP_CONVERT) {
+            if (opOriList[i].GetOpcode() == Opcode::OP_VIEW || opOriList[i].GetOpcode() == Opcode::OP_CONVERT || opOriList[i].GetOpcode() == Opcode::OP_L1_COPY_IN_CONV) {
                 //符合预期且合法
                 continue;
             } else if (opOriList[i].GetOpcode() == Opcode::OP_GATHER_IN_L1) {
