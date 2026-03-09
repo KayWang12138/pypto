@@ -326,6 +326,78 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest4) {
 }
 
 /*
+TESTExpandFunctionAssembleNotExpand
+Bug #605: Assemble operation should NOT be expanded.
+inCast{32,128}->reshape->ubTensor{64,64}->assemble->outCast{32,128}
+Expected: assemble remains as a single instance (not expanded to 4 instances)
+No UB node operations should be generated.
+*/
+TEST_F(TestExpandFunctionPass, ExpandFunctionUTest5) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestExpandFunction", "TestExpandFunction", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    // Prepare the graph: reshape -> assemble
+    std::vector<int64_t> shape1 = {kNumExpFive, kNumExpSeven};
+    std::vector<int64_t> shape2 = {kNumExpSix, kNumExpSix};
+    std::vector<int64_t> shape3 = {kNumExpFive, kNumExpSeven};
+    auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+    auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape3);
+
+    std::vector<int64_t> toOffset = {kNumZero, kNumZero};
+    std::vector<SymbolicScalar> symbol = {SymbolicScalar("sym")};
+    auto op_attr = std::make_shared<AssembleOpAttribute>(toOffset, symbol);
+    currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {inCast}, {ubTensor});
+    currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {ubTensor}, {outCast});
+
+    std::shared_ptr<Operation> reshape_op;
+    std::shared_ptr<Operation> assemble_op;
+    for (uint32_t uIndex = 0; uIndex < currFunctionPtr->Operations().size(); ++uIndex){
+        if (currFunctionPtr->Operations().operations_[uIndex]->GetOpcode() == Opcode::OP_RESHAPE) {
+            reshape_op = currFunctionPtr->Operations().operations_[uIndex];
+        }
+        if (currFunctionPtr->Operations().operations_[uIndex]->GetOpcode() == Opcode::OP_ASSEMBLE) {
+            assemble_op = currFunctionPtr->Operations().operations_[uIndex];
+        }
+    }
+
+    assemble_op->SetOpAttribute(op_attr);
+    reshape_op->tileShape_.SetVecTile({kNumExpFive, kNumExpFive});
+    assemble_op->tileShape_.SetVecTile({kNumExpFive, kNumExpFive});
+
+    currFunctionPtr->inCasts_.push_back(inCast);
+    currFunctionPtr->outCasts_.push_back(outCast);
+    currFunctionPtr->SetGraphType(GraphType::TENSOR_GRAPH);
+
+    ExpandFunction expandfunctionpass;
+    auto status = expandfunctionpass.RunOnFunction(*currFunctionPtr);
+    EXPECT_EQ(status, SUCCESS);
+    EXPECT_EQ(currFunctionPtr->GetGraphType(), GraphType::TILE_GRAPH);
+
+    // Verify assemble is NOT expanded (Bug #605 fix)
+    // Before fix: assemble_num was 4 (expanded)
+    // After fix: assemble_num should be 1 (not expanded)
+    uint32_t assemble_num = kNumZero;
+    uint32_t reshape_num = kNumZero;
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            EXPECT_NE(op.GetOpMagic(), assemble_op->GetOpMagic());
+            // Verify assemble has correct attribute
+            auto attr = op.GetOpAttribute();
+            EXPECT_NE(attr, nullptr);
+            ++assemble_num;
+        }
+        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            ++reshape_num;
+        }
+    }
+    // Key assertion: assemble should remain as a single instance (not expanded)
+    EXPECT_EQ(assemble_num, kNumOne);
+    // Verify reshape is also not expanded (it's not in kNotNeedExpandOps, but should still work)
+    EXPECT_EQ(reshape_num, kNumOne);
+}
+
+/*
 {64, 64} -> exp -> {64, 64}
 {64, 64} -> (view) - > exp -> (assemble) - > {64, 64}
 {64, 64} -> (view) -> (view {32, 64}) - > exp -> (assemble {32, 64}) -> (assemble) - > {64, 64}
