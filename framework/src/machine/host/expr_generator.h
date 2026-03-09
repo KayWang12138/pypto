@@ -80,7 +80,7 @@ public:
             }
             // Write file header
             out << "#define __TILE_FWK_AICPU__ 1\n"
-                << "#include <cstdint>\n\n"
+                << "#include <stdint.h>\n\n"
                 << "#include \"" << expName << "\"\n"
                 << "#include \"tilefwk/aikernel_data.h\"\n"
                 << "#include \"tilefwk/aicpu_runtime.h\"\n"
@@ -129,6 +129,7 @@ private:
             ASSERT(false) << "File merge.link open failed!";
             return;
         }
+        file << "ENTRY(PyptoControlFlowEntry)\n";
         file << "SECTIONS\n{\n"
              << "    . = 0x10000;\n"  // align 4K
              << "    .pypto : { *(.pypto.entry) *(.pypto.func) *(.rodata.*) }\n}\n";
