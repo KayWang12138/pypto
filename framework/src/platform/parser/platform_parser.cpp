@@ -141,7 +141,7 @@ bool INIParser::ReadINIFile(const std::string& filepath) {
     return true;
 }
 
-bool INIParser::GetStringVal(const std::string& column, const std::string& key, std::string& val) {
+bool INIParser::GetStringVal(const std::string& column, const std::string& key, std::string& val) const {
     val.clear();
     if (data_.find(column) == data_.end()) {
         FUNCTION_LOGE("Cannot find attr 'version' from the ini file.");

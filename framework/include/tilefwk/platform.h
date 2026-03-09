@@ -441,6 +441,7 @@ public:
     AicCore& GetAICCore() { return GetCoreWrap().GetAICCore(); }
     AivCore& GetAIVCore() { return GetCoreWrap().GetAIVCore(); }
     
+    void SetMemoryLimit(const PlatformParser &parser);
     void LoadPlatformInfo(const PlatformParser &parser);
     void ObtainPlatformInfo();
 

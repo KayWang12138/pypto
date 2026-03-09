@@ -203,7 +203,26 @@ Platform &Platform::Instance() {
     return instance;
 }
 
- void Platform::LoadPlatformInfo(const PlatformParser &parser) {
+void Platform::SetMemoryLimit(const PlatformParser &parser) {
+    size_t memoryLimit;
+    if (parser.GetSizeVal(aiCoreSpec, l0aSize, memoryLimit)) {
+        GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0A, memoryLimit));
+    }
+    if (parser.GetSizeVal(aiCoreSpec, l0bSize, memoryLimit)) {
+        GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0B, memoryLimit));
+    }
+    if (parser.GetSizeVal(aiCoreSpec, l0cSize, memoryLimit)) {
+        GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0C, memoryLimit));
+    }
+    if (parser.GetSizeVal(aiCoreSpec, l1Size, memoryLimit)) {
+        GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_L1, memoryLimit));
+    }
+    if (parser.GetSizeVal(aiCoreSpec, ubSize, memoryLimit)) {
+        GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_UB, memoryLimit));
+    }
+}
+
+void Platform::LoadPlatformInfo(const PlatformParser &parser) {
     std::string archType;
     std::string socVersion;
     std::unordered_map<std::string, std::string> versionInfo;
@@ -232,22 +251,7 @@ Platform &Platform::Instance() {
     if (parser.GetSizeVal(socInfo, aiCpuCnt, coreNum)) {
         GetSoc().SetAICPUNum(coreNum);
     }
-    size_t memoryLimit;
-    if (parser.GetSizeVal(aiCoreSpec, l0aSize, memoryLimit)) {
-        GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0A, memoryLimit));
-    }
-    if (parser.GetSizeVal(aiCoreSpec, l0bSize, memoryLimit)) {
-        GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0B, memoryLimit));
-    }
-    if (parser.GetSizeVal(aiCoreSpec, l0cSize, memoryLimit)) {
-        GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0C, memoryLimit));
-    }
-    if (parser.GetSizeVal(aiCoreSpec, l1Size, memoryLimit)) {
-        GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_L1, memoryLimit));
-    }
-    if (parser.GetSizeVal(aiCoreSpec, ubSize, memoryLimit)) {
-        GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_UB, memoryLimit));
-    }
+    SetMemoryLimit(parser);
     std::vector<std::pair<MemoryType, MemoryType>> dataPath;
     InternalParser internalParser = InternalParser(archType);
     if (internalParser.LoadInternalInfo()) {
