@@ -108,7 +108,13 @@ enum CastMode {
     CAST_ODD = 6,   // round to odd (Von Neumann rounding)
 };
 
-enum BroadcastOperand : int64_t {
+enum class BroadcastOperand : int64_t {
+    NONE          = 0,
+    LEFT_OPERAND  = 1,
+    RIGHT_OPERAND = 2,
+};
+
+enum class PenuBroadcastOperand : int64_t {
     NONE          = 0,
     LEFT_OPERAND  = 1,
     RIGHT_OPERAND = 2,
