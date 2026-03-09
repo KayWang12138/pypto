@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * This program is free software; you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
@@ -35,6 +35,18 @@ const int NUM_32 = 32;
 const int NUM_64 = 64;
 const int NUM_128 = 128;
 constexpr float F_3 = 3.0;
+
+template <typename OpType>
+OpType* FindOpByOpcode(Function* function, Opcode targetOpcode) {
+    OpType* targetOp = nullptr;
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == targetOpcode) {
+            targetOp = &op;
+            break;
+        }
+    }
+    return targetOp; 
+}
 
 class TestGenerateMoveOpPass : public ::testing::Test {
 public:
@@ -122,14 +134,8 @@ TEST_F(TestGenerateMoveOpPass, PostCheck_ViewOp_DismatchedMemType) {
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    Operation* viewOp = nullptr;
-    for (auto& op : function->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_VIEW) {
-            viewOp = &op;
-            break;
-        }
-    }
-    ASSERT_NE(viewOp, nullptr);
+    Operation* viewOp = FindOpByOpcode<Operation>(function, Opcode::OP_VIEW);
+    ASSERT_NE(viewOp, nullptr); 
 
     auto inputTensor = viewOp->GetIOperands().front();
     auto outputTensor = viewOp->GetOOperands().front();
@@ -212,13 +218,7 @@ TEST_F(TestGenerateMoveOpPass, PreCheck_ViewOp_InputIsNull) {
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    Operation* viewOp = nullptr;
-    for (auto& op : function->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_VIEW) {
-            viewOp = &op;
-            break;
-        }
-    }
+    Operation* viewOp = FindOpByOpcode<Operation>(function, Opcode::OP_VIEW);
     ASSERT_NE(viewOp, nullptr);
 
     auto& inputOperands = const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(viewOp->GetIOperands());
@@ -243,13 +243,7 @@ TEST_F(TestGenerateMoveOpPass, PreCheck_ViewOp_OutputIsNull) {
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    Operation* viewOp = nullptr;
-    for (auto& op : function->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_VIEW) {
-            viewOp = &op;
-            break;
-        }
-    }
+    Operation* viewOp = FindOpByOpcode<Operation>(function, Opcode::OP_VIEW);
     ASSERT_NE(viewOp, nullptr);
 
     auto& outputOperands = const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(viewOp->GetOOperands());
@@ -273,17 +267,11 @@ TEST_F(TestGenerateMoveOpPass, PreCheck_ViewOp_OutputHasNullConsumer) {
 
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
-
-    Operation* viewOp = nullptr;
-    std::shared_ptr<LogicalTensor> viewOutputTensor = nullptr;
-    for (auto& op : function->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_VIEW) {
-            viewOp = &op;
-            viewOutputTensor = op.GetOOperands().front();
-            break;
-        }
-    }
+    
+    Operation* viewOp = FindOpByOpcode<Operation>(function, Opcode::OP_VIEW);
     ASSERT_NE(viewOp, nullptr);
+    
+    std::shared_ptr<LogicalTensor> viewOutputTensor = viewOp->GetOOperands().front();
     ASSERT_NE(viewOutputTensor, nullptr);
 
     auto& consumers = const_cast<std::set<Operation*, LogicalTensor::CompareOp>&>(viewOutputTensor->GetConsumers());
@@ -309,16 +297,10 @@ TEST_F(TestGenerateMoveOpPass, PreCheck_ViewOp_OutputHasNullConsumers) {
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    Operation* viewOp = nullptr;
-    std::shared_ptr<LogicalTensor> viewOutputTensor = nullptr;
-    for (auto& op : function->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_VIEW) {
-            viewOp = &op;
-            viewOutputTensor = op.GetOOperands().front();
-            break;
-        }
-    }
+    Operation* viewOp = FindOpByOpcode<Operation>(function, Opcode::OP_VIEW);
     ASSERT_NE(viewOp, nullptr);
+    
+    std::shared_ptr<LogicalTensor> viewOutputTensor = viewOp->GetOOperands().front();
     ASSERT_NE(viewOutputTensor, nullptr);
 
     viewOutputTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
@@ -346,16 +328,10 @@ TEST_F(TestGenerateMoveOpPass, PreCheck_ViewOp_ConsumerNotSupportDDR) {
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    Operation* viewOp = nullptr;
-    std::shared_ptr<LogicalTensor> viewOutputTensor = nullptr;
-    for (auto& op : function->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_VIEW) {
-            viewOp = &op;
-            viewOutputTensor = op.GetOOperands().front();
-            break;
-        }
-    }
+    Operation* viewOp = FindOpByOpcode<Operation>(function, Opcode::OP_VIEW);
     ASSERT_NE(viewOp, nullptr);
+    
+    std::shared_ptr<LogicalTensor> viewOutputTensor = viewOp->GetOOperands().front();
     ASSERT_NE(viewOutputTensor, nullptr);
 
     viewOutputTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
@@ -379,16 +355,10 @@ TEST_F(TestGenerateMoveOpPass, PreCheck_ViewOp_ConvertPathInvalid) {
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    Operation* viewOp = nullptr;
-    std::shared_ptr<LogicalTensor> viewOutputTensor = nullptr;
-    for (auto& op : function->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_VIEW) {
-            viewOp = &op;
-            viewOutputTensor = op.GetOOperands().front();
-            break;
-        }
-    }
+    Operation* viewOp = FindOpByOpcode<Operation>(function, Opcode::OP_VIEW);
     ASSERT_NE(viewOp, nullptr);
+    
+    std::shared_ptr<LogicalTensor> viewOutputTensor = viewOp->GetOOperands().front();
     ASSERT_NE(viewOutputTensor, nullptr);
 
     viewOutputTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
@@ -412,17 +382,10 @@ TEST_F(TestGenerateMoveOpPass, PreCheck_AssembleOp_AttrNull) {
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    Operation* assembleOp = nullptr;
-    for (auto& op : function->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
-            assembleOp = &op;
-            break;
-        }
-    }
+    Operation* assembleOp = FindOpByOpcode<Operation>(function, Opcode::OP_ASSEMBLE);
     ASSERT_NE(assembleOp, nullptr);
 
     assembleOp->SetAttribute("AssembleAttr", "");
-
     auto& attrPtr = const_cast<std::shared_ptr<OpAttribute>&>(assembleOp->GetOpAttribute());
     attrPtr = nullptr;
 
@@ -483,13 +446,7 @@ TEST_F(TestGenerateMoveOpPass, PreCheck_AssembleOp_InputIsNull) {
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    Operation* assembleOp = nullptr;
-    for (auto& op : function->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
-            assembleOp = &op;
-            break;
-        }
-    }
+    Operation* assembleOp = FindOpByOpcode<Operation>(function, Opcode::OP_ASSEMBLE);
     ASSERT_NE(assembleOp, nullptr);
 
     auto& inputOperands = const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(assembleOp->GetIOperands());
@@ -514,13 +471,7 @@ TEST_F(TestGenerateMoveOpPass, PreCheck_AssembleOp_OutputIsNull) {
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    Operation* assembleOp = nullptr;
-    for (auto& op : function->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
-            assembleOp = &op;
-            break;
-        }
-    }
+    Operation* assembleOp = FindOpByOpcode<Operation>(function, Opcode::OP_ASSEMBLE);
     ASSERT_NE(assembleOp, nullptr);
 
     auto& outputOperands = const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(assembleOp->GetOOperands());
@@ -583,13 +534,7 @@ TEST_F(TestGenerateMoveOpPass, PreCheck_ConvertOp_InputIsNull) {
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    Operation* convertOp = nullptr;
-    for (auto& op : function->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_CONVERT) {
-            convertOp = &op;
-            break;
-        }
-    }
+    Operation* convertOp = FindOpByOpcode<Operation>(function, Opcode::OP_CONVERT);
     ASSERT_NE(convertOp, nullptr);
 
     auto& inputOperands = const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(convertOp->GetIOperands());
@@ -614,13 +559,7 @@ TEST_F(TestGenerateMoveOpPass, PreCheck_ConvertOp_OutputIsNull) {
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    Operation* convertOp = nullptr;
-    for (auto& op : function->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_CONVERT) {
-            convertOp = &op;
-            break;
-        }
-    }
+    Operation* convertOp = FindOpByOpcode<Operation>(function, Opcode::OP_CONVERT);
     ASSERT_NE(convertOp, nullptr);
 
     auto& outputOperands = const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(convertOp->GetOOperands());
@@ -645,18 +584,11 @@ TEST_F(TestGenerateMoveOpPass, PreCheck_ConvertOp_SameMemType) {
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    Operation* convertOp = nullptr;
-    std::shared_ptr<LogicalTensor> inputTensor = nullptr;
-    std::shared_ptr<LogicalTensor> outputTensor = nullptr;
-    for (auto& op : function->Operations()) {
-        if (op.GetOpcode() == Opcode::OP_CONVERT) {
-            convertOp = &op;
-            inputTensor = op.GetIOperands().front();
-            outputTensor = op.GetOOperands().front();
-            break;
-        }
-    }
+    Operation* convertOp = FindOpByOpcode<Operation>(function, Opcode::OP_CONVERT);
     ASSERT_NE(convertOp, nullptr);
+    
+    std::shared_ptr<LogicalTensor> inputTensor = convertOp->GetIOperands().front();
+    std::shared_ptr<LogicalTensor> outputTensor = convertOp->GetOOperands().front();
     ASSERT_NE(inputTensor, nullptr);
     ASSERT_NE(outputTensor, nullptr);
 
