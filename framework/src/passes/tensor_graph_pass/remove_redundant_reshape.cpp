@@ -52,6 +52,10 @@ Status RemoveRedundantReshape::RunOnFunction(Function &function) {
     return SUCCESS;
 }
 
+bool containsNegativeOne(const std::vector<int64_t>& vec) {
+    return std::find(vec.begin(), vec.end(), static_cast<int64_t>(-1)) != vec.end();
+}
+
 Status RemoveRedundantReshape::RemoveReshape(Function &function) const {
     std::unordered_set<Operation *> redundantResapes;
     LogicalTensorPtr in;
@@ -69,7 +73,7 @@ Status RemoveRedundantReshape::RemoveReshape(Function &function) const {
             if (consumerOp == nullptr) {
                 APASS_LOG_ERROR_F(Elements::Operation, "Consumer of op [%d] is null; Check if consumer is valid. %s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
                 return FAILED;}
-            if (in->shape != out->shape && consumerOp->GetOpcode() != Opcode::OP_RESHAPE) {
+            if (in->shape != out->shape || consumerOp->GetOpcode() != Opcode::OP_RESHAPE || containsNegativeOne(in->shape) || containsNegativeOne(out->shape)) {
                 allConsumersIsReshape = false;
                 continue;
             }
