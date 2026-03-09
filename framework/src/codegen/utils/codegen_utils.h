@@ -49,8 +49,8 @@ inline std::string ToStringHelper(const std::string &value) {
     return value;
 }
 template <typename... Ts>
-std::string ToStringHelper(const std::variant<Ts...>& value) {
-    return std::visit([](const auto& arg) { return ToStringHelper(arg); }, value);
+std::string ToStringHelper(const std::variant<Ts...> &value) {
+    return std::visit([](const auto &arg) { return ToStringHelper(arg); }, value);
 }
 
 inline std::string ToStringHelper(const SymbolicScalar &value) {
@@ -179,6 +179,12 @@ struct FloatSpecVal {
         return "";
     }
 };
+
+std::string CopyInModeToString(Matrix::CopyInMode copyMode);
+
+std::string CopyOutModeToString(Matrix::CopyOutMode copyMode);
+
+std::string PaddingModeToString(Matrix::PaddingMode paddingMode);
 
 } // namespace npu::tile_fwk
 #endif
