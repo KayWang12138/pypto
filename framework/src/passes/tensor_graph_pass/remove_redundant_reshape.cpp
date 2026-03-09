@@ -69,7 +69,7 @@ Status RemoveRedundantReshape::RemoveReshape(Function &function) const {
             if (consumerOp == nullptr) {
                 APASS_LOG_ERROR_F(Elements::Operation, "Consumer of op [%d] is null; Check if consumer is valid. %s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
                 return FAILED;}
-            if (in->shape != out->shape || consumerOp->GetOpcode() != Opcode::OP_RESHAPE) {
+            if (in->shape != out->shape && consumerOp->GetOpcode() != Opcode::OP_RESHAPE) {
                 allConsumersIsReshape = false;
                 continue;
             }
