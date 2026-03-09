@@ -466,6 +466,10 @@ TEST_F(TestGlobalMemoryReuse, TestConnectionMatrix) {
     EXPECT_EQ(connectionMatrix.GetBitMap(0) == largeBitmap0, true); // 位置为0的op bitmap为largeBitmap0
     EXPECT_EQ(connectionMatrix.GetBitMap(1) == largeBitmap1, true); // 位置为1的op bitmap为largeBitmap1
     EXPECT_EQ(connectionMatrix.GetBitMap(2) == largeBitmap2, true); // 位置为2的op bitmap为largeBitmap2
+
+    // 覆盖 connection_matrix.cpp 第137行: GetBitMap(index) 当 index >= size_ 时返回 invalidBitmap_
+    const LargeBitmap &invalidResult = connectionMatrix.GetBitMap(99);
+    EXPECT_FALSE(invalidResult.GetBit(0));
 }
 
 TEST_F(TestGlobalMemoryReuse, TestGlobalMemoryReuseNormal) {
