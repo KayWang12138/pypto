@@ -143,7 +143,7 @@ static void PadOperationExeFunc4Dims(
 }
 
 class PadOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<PadOpMetaData> {
-}
+};
 
 INSTANTIATE_TEST_SUITE_P(TestPad, PadOperationTest,
     ::testing::ValuesIn(GetOpMetaData<PadOpMetaData>(
