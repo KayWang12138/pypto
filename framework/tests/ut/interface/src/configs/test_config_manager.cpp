@@ -17,7 +17,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
-#include "interface/configs/config_manager_ng.h"
+#include "interface/configs/config_manager_ng.cpp"
 
 using namespace npu::tile_fwk;
 
@@ -180,10 +180,7 @@ TEST_F(TestConfigManager, NormalPassTest) {
         {SG_PARALLEL_NUM, {0, INT_MAX}},
         {SG_PG_UPPER_BOUND, {0, INT_MAX}},
         {SG_PG_LOWER_BOUND, {0, INT_MAX}},
-        {CUBE_L1_REUSE_MODE, {0, 2}},
-        {CUBE_NBUFFER_MODE, {0, 2}},
         {MG_COPYIN_UPPER_BOUND, {0, INT_MAX}},
-        {VEC_NBUFFER_MODE, {0, 2}},
         {MG_VEC_PARALLEL_LB, {1, 48}},
         {COPYOUT_RESOLVE_COALESCING, {0, 1000000}}
     };
@@ -206,10 +203,7 @@ TEST_F(TestConfigManager, AbnormalPassTest) {
         {SG_PARALLEL_NUM, {-1, outVal}},
         {SG_PG_UPPER_BOUND, {-1, outVal}},
         {SG_PG_LOWER_BOUND, {-1, outVal}},
-        {CUBE_L1_REUSE_MODE, {-1, 3}},
-        {CUBE_NBUFFER_MODE, {-1, 3}},
         {MG_COPYIN_UPPER_BOUND, {-1, outVal}},
-        {VEC_NBUFFER_MODE, {-1, 3}},
         {MG_VEC_PARALLEL_LB, {0, 49}},
         {COPYOUT_RESOLVE_COALESCING, {-1, 1000001}}
     };
@@ -253,4 +247,20 @@ TEST_F(TestConfigManager, GlobalConfig) {
 
     PrintOptions p = config::GetPrintOptions();
 
+}
+
+TEST_F(TestConfigManager, LoadJson) {
+    nlohmann::json jdata = {
+        {"test_label", "field"},
+    };
+    TypeInfo test;
+    test.build_type_infos(jdata, "");
+    EXPECT_EQ(test.typeInfos.size(), 0);
+    jdata = {
+        {
+            "type", "none",
+        }
+    };
+    test.build_type_infos(jdata, "");
+    EXPECT_EQ(test.typeInfos.size(), 0);
 }

@@ -19,7 +19,8 @@
         "DT_BOOL": 15,
         "DT_DOUBLE": 16,
         "DT_FP8E5M2": 17,
-        "DT_FP8E4M3": 18
+        "DT_FP8E4M3": 18,
+        "DT_FP8E8M0": 19
     },
     "FunctionType": {
         "EAGER": 0,
@@ -80,6 +81,8 @@
         "T_BOP_GE": 13,
         "T_BOP_MIN": 14,
         "T_BOP_MAX": 15,
-        "T_MOP_CALL": 16
+        "T_MOP_CALL": 16,
+        "T_MOP_MIN": 17,
+        "T_MOP_MAX": 18
     }
 }

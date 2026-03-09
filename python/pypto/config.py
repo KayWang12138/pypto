@@ -57,15 +57,10 @@ def set_pass_options(*,
                      pg_skip_partition: Optional[bool] = None,
                      pg_upper_bound: Optional[int] = None,
                      pg_lower_bound: Optional[int] = None,
-                     pg_parallel_lower_bound: Optional[int] = None,
                      mg_vec_parallel_lb: Optional[int] = None,
-                     vec_nbuffer_mode: Optional[int] = None,
                      vec_nbuffer_setting: Optional[Dict[int, int]] = None,
-                     cube_l1_reuse_mode: Optional[int] = None,
                      cube_l1_reuse_setting: Optional[Dict[int, int]] = None,
-                     cube_nbuffer_mode: Optional[int] = None,
                      cube_nbuffer_setting: Optional[Dict[int, int]] = None,
-                     mg_copyin_upper_bound: Optional[int] = None,
                      sg_set_scope: Optional[int] = None,
                      ) -> None:
     """
@@ -84,42 +79,22 @@ def set_pass_options(*,
         Merged graph parameter, used to configure
         the lower bound of subgraph size.
 
-    pg_parallel_lower_bound : int
-        Merged graph parameter, used to configure
-        the minimum parallelism of subgraphs with the same structure.
-
     mg_vec_parallel_lb : int
         Merged graph parameter, used to configure
         the minimum parallelism of AIV subgraphs with the same structure.
 
-    vec_nbuffer_mode : int
-        Merged graph parameter, used to configure
-        the merging strategy for AIV subgraphs with the same structure.
-
     vec_nbuffer_setting : Dict[int, int]
         Merged graph parameter, used to configure
         the merging quantity of AIV subgraphs with the same structure.
-
-    cube_l1_reuse_mode : int
-        Merged graph parameter, used to configure
-        the merging strategy for subgraphs with the same structure
-        and repeated transfer of the same GM data.
 
     cube_l1_reuse_setting : Dict[int, int]
         Merged graph parameter, used to configure
         the merging quantity of subgraphs with the same structure
         and repeated transfer of the same GM data.
 
-    cube_nbuffer_mode : int
-        Merged graph parameter, used to configure
-        the merging strategy for AIC subgraphs with the same structure.
-
     cube_nbuffer_setting : Dict[int, int]
         Merged graph parameter, used to configure
         the merging quantity of AIC subgraphs with the same structure.
-
-    mg_copyin_upper_bound : int
-        Merged graph parameter, used to configure the merged graph size.
     """
     options_dict = {k: v for k, v in locals().items() if v is not None}
     set_options(pass_options=options_dict)
@@ -197,6 +172,7 @@ def set_runtime_options(*,
                         stitch_function_inner_memory: Optional[int] = None,
                         stitch_function_outcast_memory: Optional[int] = None,
                         stitch_function_num_initial: Optional[int] = None,
+                        stitch_function_max_num: Optional[int] = None,
                         stitch_function_num_step: Optional[int] = None,
                         stitch_function_size: int = None,
                         stitch_cfgcache_size: Optional[int] = None,
@@ -223,6 +199,11 @@ def set_runtime_options(*,
 
     stitch_function_num_initial : int
         The amount of computation tasks for the first stitch task submitted to
+        the scheduling AICPU for processing, controlled in the ctrlflow AICPU
+        during machine runtime.
+
+    stitch_function_max_num : int
+        The amount of computation tasks for the stitch task submitted to
         the scheduling AICPU for processing, controlled in the ctrlflow AICPU
         during machine runtime.
 
@@ -365,8 +346,8 @@ class _Options:
     INIT_FIELDS = [
         "name", "codegen_options", "host_options", "pass_options",
         "runtime_options", "verify_options", "debug_options",
-        "vec_tile_shapes", "cube_tile_shapes", "matrix_size",
-        "operation_options"
+        "vec_tile_shapes", "cube_tile_shapes", "conv_tile_shapes",
+        "matrix_size", "operation_options"
     ]
 
     PREFIX_MAP = {
@@ -401,6 +382,13 @@ class _Options:
                 opts["cube_tile_shapes"] = self.cube_tile_shapes._impl
             else:
                 opts["cube_tile_shapes"] = CubeTile(*self.cube_tile_shapes)._impl
+        
+                        
+        if self.conv_tile_shapes is not None:
+            if isinstance(self.conv_tile_shapes, ConvTile):
+                opts["conv_tile_shapes"] = self.conv_tile_shapes._impl
+            else:
+                opts["conv_tile_shapes"] = ConvTile(*self.conv_tile_shapes)._impl
 
         if self.matrix_size is not None:
             opts["matrix_size"] = self.matrix_size
@@ -449,6 +437,7 @@ def options(
     debug_options=None,
     vec_tile_shapes=None,
     cube_tile_shapes=None,
+    conv_tile_shapes=None,
     matrix_size=None,
 ):
     """
@@ -515,6 +504,7 @@ def set_options(
     operation_options=None,
     vec_tile_shapes=None,
     cube_tile_shapes=None,
+    conv_tile_shapes=None,
     matrix_size=None,
 ):
     """
@@ -605,6 +595,56 @@ class CubeTile:
         return self._impl
 
 
+class ConvTile:
+    """ConvTile"""
+    def __init__(self, tile_l1_info: pypto_impl.TileL1Info, tile_l0_info: pypto_impl.TileL0Info, 
+                 set_l0_tile: bool = False):
+        """
+        ConvTile tile for convolution operation, tile_l1_info for L1 Cache, tile_l0_info for L0 Cache
+
+        Parameters
+        ---------
+        tile_l1_info: pypto_impl.TileL1Info
+            Tile configuration for L1 Cache (convolution dimensions):
+            - tileHin: Input height tile size
+            - tileHout: Output height tile size
+            - tileWin: Input weight tile size
+            - tileWout: Output weight tile size
+            - tileCinFmap: Input channel tile size for feature map
+            - tileCinWeight: Input channel tile size for weight
+            - tileN: Output channel tile size
+            - tileBatch: Batch dimension tile size
+        tile_l0_info: pypto_impl.TileL0Info, optional
+            Tile configuration for L0 Cache (H/W/K/N dimensions):
+            - tileH: H dimension tile size
+            - tileW: W dimension tile size
+            - tileK: K dimension tile size
+            - tileN: N dimension tile size
+        set_l0_tile: bool, optional
+            Flag to enable L0 Tile configuration, default False.
+        """
+
+        self._impl = pypto_impl.ConvTile(tile_l1_info, tile_l0_info, set_l0_tile)
+
+    def __getattr__(self, name):
+        attr_map = {
+            'tile_l1_info': 'tileL1Info',
+            'tile_l0_info': 'tileL0Info',
+            'set_l0_tile': 'setL0Tile',
+        }
+        impl_name = attr_map.get(name, name)
+        return getattr(self._impl, impl_name)
+
+    def __repr__(self):
+        return repr(self._impl)
+
+    def __str__(self):
+        return str(self._impl)
+
+    def impl(self) -> pypto_impl.ConvTile:
+        return self._impl
+
+
 class ConfigScope:
 
     def __init__(self, cpp_config_scope=None):
@@ -654,6 +694,9 @@ class ConfigScope:
 
     def get_cube_tile_shapes(self):
         return self._options.get("cube_tile_shapes")
+
+    def get_conv_tile_shapes(self):
+        return self._options.get("conv_tile_shapes")
 
     def get_matrix_size(self):
         return self._options.get("matrix_size")

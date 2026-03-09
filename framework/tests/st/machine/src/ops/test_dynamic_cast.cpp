@@ -25,7 +25,6 @@ class DynamicCastTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
 
 TEST_F(DynamicCastTest, testDynCastUnalign) {
     TileShape::Current().SetVecTile(1, 16);
-
     int b = 1;
     int sq = 32;
     int d = 64;
@@ -80,6 +79,7 @@ TEST_F(DynamicCastTest, testDynCastUnalign) {
         reinterpret_cast<int32_t *>(outs->data()) + outs->size() / sizeof(int32_t));
     int ret = resultCmpCast<float, int32_t>(x, golden, outVec, 0.001f);
     EXPECT_EQ(ret, true);
+    unsetenv("ENABLE_CTRLFLOW_COMPILE");
 }
 
 TEST_F(DynamicCastTest, testDynCastDevSeparate) {

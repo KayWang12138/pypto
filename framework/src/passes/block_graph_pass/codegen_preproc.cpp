@@ -182,6 +182,15 @@ bool ReduceNeedCombineAxis(const Operation &op) {
     return false;
 }
 
+void CodegenPreproc::FixExpandDimForAxisCombine(Operation &op, int dimSize) const {
+    if (op.GetOpcode() == Opcode::OP_EXPAND) {
+        int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM");
+        if (axis == dimSize - NUM2) {
+            op.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", axis + 1);
+        }
+    }
+}
+
 Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
     const std::set<Opcode> skipInputCombineOps = {Opcode::OP_BRCB, Opcode::OP_EXPAND};
     for (auto &subProgram : func.rootFunc_->programs_) {
@@ -204,6 +213,8 @@ Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
             for (size_t i = 0; i < outputs.size(); ++i) {
                 if (outputs[i]->tensor->rawshape.back() == 1 && ReduceNeedCombineAxis(op)) {
                     outputCombineAxis.push_back(true);
+                    // OP_EXPAND 只有单输出，此处只会执行一次
+                    FixExpandDimForAxisCombine(op, static_cast<int>(outputs[i]->tensor->rawshape.size()));
                 } else {
                     outputCombineAxis.push_back(false);
                 }
@@ -254,10 +265,6 @@ void CodegenPreproc::SetNeedAllocAttr(Function &function) {
 }
 
 Status CodegenPreproc::RunOnFunction(Function &function) {
-    if (config::GetPassGlobalConfig(KEY_ENABLE_VF, false)) {
-        config::SetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE, 1);
-        APASS_LOG_INFO_F(Elements::Operation, "Set valid_shape_optimize as 1 for vf is enabled.");
-    }
     combineAxis = function.paramConfigs_.combineAxis;
     forceCombineAxis = function.paramConfigs_.forceCombineAxis;
     APASS_LOG_INFO_F(Elements::Operation, "===============================================================> Start CodegenPreproc.");

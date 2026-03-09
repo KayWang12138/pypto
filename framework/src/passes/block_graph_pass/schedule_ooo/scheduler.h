@@ -176,6 +176,7 @@ private:
     std::unordered_map<OpCoreType, std::map<int, std::map<PipeType, IssueQueue>>> issueQueues;
 
     std::unordered_map<MemoryType, int64_t> localMemorySize;
+    std::unordered_map<LogicalTensorPtr, LogicalTensorPtr> l02L0MXMap_;
 
     Function &function_;
     int issueId{0};
@@ -252,8 +253,7 @@ private:
     void UpdateBufferUsage(MemoryType bufferType, int memId, bool isFree);
     void PrintOpList(std::vector<Operation *> operations);
     void PrintDependencies();
-    void PrintSpillFailedInfo(IssueEntryPtr allocIssue, MemoryType bufferType);
-    Status PrintSpillFailedInfo(IssueEntryPtr allocIssue);
+    Status PrintSpillFailedInfo(IssueEntryPtr allocIssue, bool isGenSpill);
 
     // sort ops
     Status SortOps();
@@ -310,7 +310,7 @@ private:
     Status ExecuteIssue();
 
     // gen spill
-    Status GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx);
+    Status GenSpillOp(size_t &pcIdx);
     Status GenBufferSpill(IssueEntryPtr allocIssue);
     Status SelectSpillBuffers(LocalBufferPtr allocBuffer, IssueEntryPtr issue, 
         std::vector<int> &spillGroup, bool isGenSpill);
@@ -320,6 +320,7 @@ private:
     bool CheckMachineAndL1(IssueEntryPtr spillIssue, IssueEntryPtr allocIssue);
     bool IsBelongSpillBlackList(IssueEntryPtr spillIssue, IssueEntryPtr issue);
     void FindFilterLtags(IssueEntryPtr allocIssue, std::set<IssueEntryPtr> &filterLtags);
+    Status SpillAllBuffer(IssueEntryPtr allocIssue, size_t &pcIdx, bool isGenSpill, LocalBufferPtr allocBuffer);
     Status SpillMultiBuffer(IssueEntryPtr allocIssue, std::vector<int> spillGroup, size_t &pcIdx, 
         LocalBufferPtr allocBuffer, bool isGenSpill);
     Status GetSpillInfo(IssueEntryPtr allocIssue, int spillMemId, bool isGenSpill, SpillInfo &spillInfo);
@@ -366,7 +367,7 @@ private:
     int64_t CalcWorkspaceOffset(std::vector<int64_t> shape, std::vector<int64_t> offset);
 
     // buffer rearrange
-    Status RearrangeBuffer(MemoryType memType, std::pair<OpCoreType, int> corePair);
+    Status RearrangeBuffer(IssueEntryPtr allocIssue, MemoryType memType, std::pair<OpCoreType, int> corePair, bool isGenSpill);
     Status RearrangeBuffers(IssueEntryPtr issue, bool isGenSpillStage, bool &rearrangeUBBF16);
     Status GenRearrangeCopyOp(IssueEntryPtr issue, MemoryType memType, int memId, int &newMemId, bool &rearrangeUBBF16);
     Status UpdateMemId(int oldMemId, int newMemId);

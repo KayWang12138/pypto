@@ -484,17 +484,17 @@ void MoeDispatchValidateV1(const Tensor &tokenTensor, const Tensor &tokenExpertT
     Tensor &validCnt, Tensor &combineInfo, const char *group, const MoeConfig &moeConfig)
 {
     std::string assertResult;
-    ASSERT(checkValidConfig(moeConfig, assertResult)) << assertResult;
-    ASSERT(group != nullptr) << "MoeDispatch constraint violated: group name can't be nullptr.";
-    ASSERT(group[0] != '\0') << "MoeDispatch constraint violated: group name is not valid.";
-    ASSERT(strnlen(group, 128) < 128) << "MoeDispatch constraint violated: group name max size must be 128.";
-    ASSERT(checkValidInput(tokenTensor, 2, DataType::DT_BF16, 8, 5120, assertResult)) << assertResult; // 当前仅支持shape:8,5120
+    CHECK(checkValidConfig(moeConfig, assertResult)) << assertResult;
+    CHECK(group != nullptr) << "MoeDispatch constraint violated: group name can't be nullptr.";
+    CHECK(group[0] != '\0') << "MoeDispatch constraint violated: group name is not valid.";
+    CHECK(strnlen(group, 128) < 128) << "MoeDispatch constraint violated: group name max size must be 128.";
+    CHECK(checkValidInput(tokenTensor, 2, DataType::DT_BF16, 8, 5120, assertResult)) << assertResult; // 当前仅支持shape:8,5120
     int32_t expandXRow = std::min(static_cast<int32_t>(tokenTensor.GetShape(0)) *
         static_cast<int32_t>(tokenExpertTable.GetShape(1)) * moeConfig.rankNum, static_cast<int32_t>(tokenTensor.GetShape(0)) * moeConfig.routedExpertNum);
-    ASSERT(checkValidInput(tokenExpertTable, 2, DataType::DT_INT32, 8, 8, assertResult)) << assertResult; // 当前仅支持shape:8,8
-    ASSERT(checkValidInput(validCnt, 1, DataType::DT_INT32, moeConfig.expertNumPerRank, 1, assertResult)) << assertResult;
-    ASSERT(checkValidInput(expandX, 2, DataType::DT_BF16, expandXRow, 5120, assertResult)) << assertResult; // 当前仅支持hiddenSize:5120
-    ASSERT(checkValidInput(combineInfo, 2, DataType::DT_INT32, expandXRow, 3, assertResult)) << assertResult; // comBineInfo固定hiddenSize:3
+    CHECK(checkValidInput(tokenExpertTable, 2, DataType::DT_INT32, 8, 8, assertResult)) << assertResult; // 当前仅支持shape:8,8
+    CHECK(checkValidInput(validCnt, 1, DataType::DT_INT32, moeConfig.expertNumPerRank, 1, assertResult)) << assertResult;
+    CHECK(checkValidInput(expandX, 2, DataType::DT_BF16, expandXRow, 5120, assertResult)) << assertResult; // 当前仅支持hiddenSize:5120
+    CHECK(checkValidInput(combineInfo, 2, DataType::DT_INT32, expandXRow, 3, assertResult)) << assertResult; // comBineInfo固定hiddenSize:3
 }
 
 void CreateShmemDispatchLoop(Tensor& shmemData, Tensor& shmemFlag, const char *group,
@@ -564,30 +564,31 @@ void MoeDispatchValidateV2(const Tensor& x, const Tensor& expertIds, const char 
     Tensor& expertTokenNums, Tensor& assistInfoForCombine, Tensor& recvCounts)
 {
     std::string assertResult;
-    ASSERT(group != nullptr) << "MoeDispatch constraint violated: group name can't be nullptr.";
-    ASSERT(group[0] != '\0') << "MoeDispatch constraint violated: group name must be valid, but got '\0'";
-    ASSERT(strnlen(group, 128) < 128) << "MoeDispatch constraint violated: group name max size must be 128, but got " << strnlen(group, 128);
-    ASSERT(epWorldSize > 0) << "MoeDispatch constraint violated: epWorldSize must be > 0, but got " << epWorldSize;
-    ASSERT(moeExpertNum == 160) << "MoeDispatch constraint violated: moeExpertNum must 160, but got " << moeExpertNum;
-    ASSERT(sharedExpertNum == 0) << "MoeDispatch constraint violated: sharedExpertNum must 0, but got " << sharedExpertNum;
-    ASSERT(sharedExpertRankNum == 0) << "MoeDispatch constraint violated: sharedExpertRankNum must 0, but got " << sharedExpertRankNum;
+    CHECK(group != nullptr) << "MoeDispatch constraint violated: group name can't be nullptr.";
+    CHECK(group[0] != '\0') << "MoeDispatch constraint violated: group name must be valid, but got '\0'";
+    CHECK(strnlen(group, 128) < 128) << "MoeDispatch constraint violated: group name max size must be 128, but got " << strnlen(group, 128);
+    CHECK(epWorldSize > 0) << "MoeDispatch constraint violated: epWorldSize must be > 0, but got " << epWorldSize;
+    CHECK(moeExpertNum == 160) << "MoeDispatch constraint violated: moeExpertNum must 160, but got " << moeExpertNum;
+    CHECK(sharedExpertNum == 0) << "MoeDispatch constraint violated: sharedExpertNum must 0, but got " << sharedExpertNum;
+    CHECK(sharedExpertRankNum == 0) << "MoeDispatch constraint violated: sharedExpertRankNum must 0, but got " << sharedExpertRankNum;
     int32_t routedExpertNum =  moeExpertNum - sharedExpertNum;
     int32_t expertNumPerRank = routedExpertNum / epWorldSize;
-    ASSERT(checkValidInput(x, 2, DataType::DT_BF16, 8, 5120, assertResult)) << assertResult; // 当前仅支持shape:8,5120
-    ASSERT(checkValidInput(expertIds, 2, DataType::DT_INT32, 8, 8, assertResult)) << assertResult; // 当前仅支持shape:8,8
-    ASSERT(checkValidInput(expertTokenNums, 1, DataType::DT_INT32, expertNumPerRank, 1, assertResult)) << assertResult;
-    ASSERT(checkValidInput(recvCounts, 1, DataType::DT_INT32, 1, 0, assertResult)) << assertResult;
+    CHECK(checkValidInput(x, 2, DataType::DT_BF16, 8, 5120, assertResult)) << assertResult;
+    CHECK(checkValidInput(expertIds, 2, DataType::DT_INT32, 8, 8, assertResult)) << assertResult;
+    CHECK(checkValidInput(expertTokenNums, 1, DataType::DT_INT32, expertNumPerRank, 1, assertResult)) << assertResult;
+    CHECK(checkValidInput(recvCounts, 1, DataType::DT_INT32, 1, 0, assertResult)) << assertResult;
     int batchSize = x.GetShape(0);
     int topK = expertIds.GetShape(1);
     int32_t expandXRow = std::min(static_cast<int32_t>(batchSize) *
         static_cast<int32_t>(topK) * static_cast<int32_t>(epWorldSize), static_cast<int32_t>(batchSize) * routedExpertNum);
-    ASSERT(checkValidInput(expandX, 2, DataType::DT_BF16, expandXRow, 5120, assertResult)) << assertResult; // 当前仅支持hiddenSize:5120
-    ASSERT(checkValidInput(assistInfoForCombine, 2, DataType::DT_INT32, expandXRow, 64, assertResult)) << assertResult; // comBineInfo固定hiddenSize:64
+    CHECK(checkValidInput(expandX, 2, DataType::DT_BF16, expandXRow, 5120, assertResult)) << assertResult;
+    CHECK(checkValidInput(assistInfoForCombine, 2, DataType::DT_INT32, expandXRow, 3, assertResult)) << assertResult;
     uint64_t shmemSize = moeExpertNum * x.GetShape(0) * x.GetShape(1) * BytesOf(x.GetDataType()) +
         moeExpertNum * x.GetShape(0) * assistInfoForCombine.GetShape(1) * BytesOf(assistInfoForCombine.GetDataType()) +
-        AlignUp(routedExpertNum, 256) * 8 * BytesOf(DataType::DT_INT32) + moeExpertNum * 128 * BytesOf(DataType::DT_INT32) + 128 * BytesOf(DataType::DT_INT32);
+        AlignUp(routedExpertNum, 256) * 8 * BytesOf(DataType::DT_INT32) +
+        moeExpertNum * 128 * BytesOf(DataType::DT_INT32) + 128 * BytesOf(DataType::DT_INT32);
     const uint64_t winSize = 1024 * 1024 * 200;
-    ASSERT(shmemSize < winSize) << "Exceeds winSize limit. Masxmum allowed: " << winSize << ", got: " << shmemSize;
+    CHECK(shmemSize < winSize) << "Exceeds winSize limit. Masxmum allowed: " << winSize << ", got: " << shmemSize;
 }
 
 Tensor Nop(const std::vector<Tensor>& inTensors)
@@ -626,19 +627,19 @@ void MoeDistributedDispatchV2(const Tensor& x, const Tensor& expertIds, const ch
     MoeDispatchValidateV2(x, expertIds, group, epWorldSize, moeExpertNum, sharedExpertNum, 
         sharedExpertRankNum, expandX, expertTokenNums, assistInfoForCombine, recvCounts);
     int32_t routedExpertNum = moeExpertNum - sharedExpertNum;
-    ASSERT(epWorldSize > 0) << "MoeDispatch constraint violated: epWorldSize must be > 0, but got " << epWorldSize;
+    CHECK(epWorldSize > 0) << "MoeDispatch constraint violated: epWorldSize must be > 0, but got " << epWorldSize;
     int32_t expertNumPerRank = routedExpertNum / epWorldSize;
     int32_t batchSize = x.GetShape(0);
     int32_t hiddenSize = x.GetShape(1);
     int32_t topK = expertIds.GetShape(1);
-    ASSERT(topK > 0) << "MoeDispatch constraint violated: topK must be > 0, but got " << topK;
-    ASSERT(expertNumPerRank > 0) << "MoeDispatch constraint violated: expertNumPerRank must be > 0, but got " << expertNumPerRank;
+    CHECK(topK > 0) << "MoeDispatch constraint violated: topK must be > 0, but got " << topK;
+    CHECK(expertNumPerRank > 0) << "MoeDispatch constraint violated: expertNumPerRank must be > 0, but got " << expertNumPerRank;
     Tensor shmemData;
     Tensor shmemInfo;
     Tensor shmemCount;
     Tensor shmemCountSignal;
     Tensor shmemDataSignal;
-    int32_t infoSize = assistInfoForCombine.GetShape(1);
+    int32_t infoSize = AlignUp(assistInfoForCombine.GetShape(1), 8);
     int32_t countSize = 8;
     int32_t signalCol = 128;
     int32_t cumSumRowShape = AlignUp(routedExpertNum, 256);
@@ -658,6 +659,7 @@ void MoeDistributedDispatchV2(const Tensor& x, const Tensor& expertIds, const ch
         CreateShmemData(group, epWorldSize, DT_INT32, shmemDataSignalgShape, shmemDataSignal, 0);
     }
 
+    TileShape::Current().SetVecTile({1, batchSize * topK});
     Tensor expertIdsVec = Reshape(expertIds, {1, batchSize * topK});
     Tensor offsetTable(DataType::DT_INT32, {batchSize, topK}, "offsetTable");
     LOOP("MoeDistributedDispatchPrepare", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
@@ -665,7 +667,6 @@ void MoeDistributedDispatchV2(const Tensor& x, const Tensor& expertIds, const ch
         for (int index = 0; index < batchSize * topK; ++index) {
             int32_t rowIndex = index / topK;
             int32_t colIndex = index % topK;
-            TileShape::Current().SetVecTile({1, infoSize});
             SymbolicScalar remoteExpertId = GetTensorData(expertIds, {rowIndex, colIndex});
             Tensor tokenOffsetResult = DispatchCalcOccurrences(expertIdsVec, remoteExpertId, index);
             SymbolicScalar tokenOffset = GetTensorData(tokenOffsetResult, {0, index - 1});
@@ -673,32 +674,28 @@ void MoeDistributedDispatchV2(const Tensor& x, const Tensor& expertIds, const ch
         }
     }
 
-    LOOP("MoeDistributedDispatchSendData", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-        (void) i;
-        for (int32_t index = 0; index < topK * batchSize; ++index) {
-            Tensor moeInfo(DataType::DT_INT32, {1, infoSize}, "moeInfo");
-            int32_t rowIndex = index / topK;
-            int32_t colIndex = index % topK;
-            Tensor tensorTile = View(x, {1, hiddenSize}, {rowIndex, 0});
-            TileShape::Current().SetVecTile({1, infoSize});
-            SetTensorData(thisRank, {0, assistInfoForCombine.GetShape(1) - 3}, moeInfo);
-            SetTensorData(rowIndex, {0, assistInfoForCombine.GetShape(1) - 2}, moeInfo);
-            SetTensorData(colIndex, {0, assistInfoForCombine.GetShape(1) - 1}, moeInfo);
-            SymbolicScalar remoteExpertId = GetTensorData(expertIds, {rowIndex, colIndex});
-            SymbolicScalar remoteExpertOffset = remoteExpertId % expertNumPerRank;
-            SymbolicScalar remoteRankId = remoteExpertId / expertNumPerRank;
-            SymbolicScalar tokenOffset = GetTensorData(offsetTable, {rowIndex, colIndex});
-            Tensor shmemDataTile = View(shmemData, {1, 1, 1, hiddenSize}, std::vector<SymbolicScalar>{remoteRankId, remoteExpertOffset * epWorldSize + thisRank, tokenOffset, 0});
-            TileShape::Current().SetVecTile({1, hiddenSize});
-            Tensor shmemDataPutOut = ShmemPut(offsetTable, tensorTile, shmemDataTile);
-            Tensor shmemInfoTile = View(shmemInfo, {1, 1, 1, infoSize}, std::vector<SymbolicScalar>{remoteRankId, remoteExpertOffset * epWorldSize + thisRank, tokenOffset, 0});
-            TileShape::Current().SetVecTile({1, infoSize});
-            Tensor shmemInfoPutOut = ShmemPut(offsetTable, moeInfo, shmemInfoTile);
-            Tensor sendOut = Nop({shmemDataPutOut, shmemInfoPutOut});
-            TileShape::Current().SetVecTile({1, signalCol});
-            Tensor shmemDataSignalTile = View(shmemDataSignal, {epWorldSize, 1, 1, 1, signalCol}, {0, 0, 0, 0, 0});
-            ShmemSignal(sendOut, shmemDataSignalTile, AtomicType::ADD);
-        }
+    LOOP("MoeDistributedDispatchSendData", FunctionType::DYNAMIC_LOOP, index, LoopRange(topK * batchSize)) {
+        Tensor moeInfo(DataType::DT_INT32, {1, infoSize}, "moeInfo");
+        SymbolicScalar rowIndex = index / topK;
+        SymbolicScalar colIndex = index % topK;
+        Tensor tensorTile = View(x, {1, hiddenSize}, {rowIndex, 0});
+        SetTensorData(thisRank, {0, 0}, moeInfo);
+        SetTensorData(rowIndex, {0, 1}, moeInfo);
+        SetTensorData(colIndex, {0, 2}, moeInfo);
+        SymbolicScalar remoteExpertId = GetTensorData(expertIds, {rowIndex, colIndex});
+        SymbolicScalar remoteExpertOffset = remoteExpertId % expertNumPerRank;
+        SymbolicScalar remoteRankId = remoteExpertId / expertNumPerRank;
+        SymbolicScalar tokenOffset = GetTensorData(offsetTable, {rowIndex, colIndex});
+        Tensor shmemDataTile = View(shmemData, {1, 1, 1, hiddenSize}, std::vector<SymbolicScalar>{remoteRankId, remoteExpertOffset * epWorldSize + thisRank, tokenOffset, 0});
+        TileShape::Current().SetVecTile({1, hiddenSize});
+        Tensor shmemDataPutOut = ShmemPut(offsetTable, tensorTile, shmemDataTile);
+        Tensor shmemInfoTile = View(shmemInfo, {1, 1, 1, infoSize}, std::vector<SymbolicScalar>{remoteRankId, remoteExpertOffset * epWorldSize + thisRank, tokenOffset, 0});
+        TileShape::Current().SetVecTile({1, infoSize});
+        Tensor shmemInfoPutOut = ShmemPut(offsetTable, moeInfo, shmemInfoTile);
+        Tensor sendOut = Nop({shmemDataPutOut, shmemInfoPutOut});
+        TileShape::Current().SetVecTile({1, signalCol});
+        Tensor shmemDataSignalTile = View(shmemDataSignal, {epWorldSize, 1, 1, 1, signalCol}, {0, 0, 0, 0, 0});
+        ShmemSignal(sendOut, shmemDataSignalTile, AtomicType::ADD);
     }
 
     Tensor shmemCountOut(DT_INT32, {1, 1}, "shmemCountOut");
@@ -727,7 +724,7 @@ void MoeDistributedDispatchV2(const Tensor& x, const Tensor& expertIds, const ch
         Tensor waitUntilOut = WaitUntil(cumSumResult, shmemCountSignalLocalTile, moeExpertNum, true);
         Tensor waitOut = Nop({waitUntilOut1, waitUntilOut});
 
-        TileShape::Current().SetVecTile({1, countSize});
+        TileShape::Current().SetVecTile({cumSumRowShape, countSize});
         Tensor shmemReceiveCountTile = View(shmemCount, {1, 1, cumSumRowShape, countSize}, {thisRank, 0, 0, 0});
         localExpertRecvCount = ShmemGet(waitOut, shmemReceiveCountTile);
         TileShape::Current().SetVecTile({cumSumRowShape, countSize});
@@ -753,12 +750,14 @@ void MoeDistributedDispatchV2(const Tensor& x, const Tensor& expertIds, const ch
         for (uint32_t index = 0; index < expertNumPerRank * epWorldSize; ++index) {
             SymbolicScalar curCount = GetTensorData(localExpertRecvCount, {index + 1, 0});
             SymbolicScalar offset = GetTensorData(cumSumResult, {index, 0});
-            Tensor curShmemDataTile = View(shmemData, {1, 1, batchSize, hiddenSize}, std::vector<SymbolicScalar>{1, 1, curCount, hiddenSize}, {thisRank, index, 0, 0});
+            Tensor curShmemDataTile = View(shmemData, {1, 1, batchSize, hiddenSize},
+                std::vector<SymbolicScalar>{1, 1, curCount, hiddenSize}, {thisRank, index, 0, 0});
             TileShape::Current().SetVecTile({batchSize, hiddenSize});
             Tensor localDataRecvCount = ShmemGetGm2Ub(cumSumResult, curShmemDataTile);
             Assemble(localDataRecvCount, std::vector<SymbolicScalar>{offset, 0}, expandX);
-            Tensor curShmemInfoTile = View(shmemInfo, {1, 1, batchSize, infoSize}, std::vector<SymbolicScalar>{1, 1, curCount, infoSize}, {thisRank, index, 0, 0});
-            TileShape::Current().SetVecTile({batchSize, infoSize});
+            Tensor curShmemInfoTile = View(shmemInfo, {1, 1, batchSize, assistInfoForCombine.GetShape(1)},
+                std::vector<SymbolicScalar>{1, 1, curCount, assistInfoForCombine.GetShape(1)}, {thisRank, index, 0, 0});
+            TileShape::Current().SetVecTile({batchSize, assistInfoForCombine.GetShape(1)});
             Tensor localInfoRecvCount = ShmemGetGm2Ub(cumSumResult, curShmemInfoTile);
             Assemble(localInfoRecvCount, std::vector<SymbolicScalar>{offset, 0}, assistInfoForCombine);
         }

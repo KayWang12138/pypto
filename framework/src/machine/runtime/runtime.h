@@ -39,15 +39,15 @@
 #include "interface/configs/config_manager.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/platform.h"
-
-#ifdef BUILD_WITH_CANN
-#include "acl/acl.h"
-#include "runtime/rt.h"
-#include "runtime/rt_preload_task.h"
-#endif
+#include "tilefwk/pypto_fwk_log.h"
+#include "memory_pool.h"
 
 constexpr int ADDR_MAP_TYPE_REG_AIC_CTRL = 2;
 constexpr int ADDR_MAP_TYPE_REG_AIC_PMU_CTRL = 3;
+
+static constexpr uint64_t SENTINEL_VALUE = 0xDEADBEEFDEADBEEF;
+static constexpr uint32_t SENTINEL_NUM = 64;
+static constexpr uint32_t SENTINEL_MEM_SIZE = 512;
 
 struct AddrMapInPara {
     unsigned int addr_type;
@@ -87,112 +87,15 @@ struct res_map_info {
 
 namespace npu::tile_fwk {
 
-class RuntimeHostAgentMemory {
-public:
-    void backtracePrint(int count = 1000) {
-        std::vector<void*> backtraceStack(count);
-        int backtraceStackCount = backtrace(backtraceStack.data(), static_cast<int>(backtraceStack.size()));
-        char **backtraceSymbolList = backtrace_symbols(backtraceStack.data(), backtraceStackCount);
-        free(backtraceSymbolList);
-    }
-#define DEVICE_ALLOC_ALIGN 512
-    uint8_t* AllocHostAddr(uint64_t size, bool cached = true, bool simuDevAlign = true) {
-        if (size == 0) {
-            ALOG_ERROR_F("Malloc size is 0!");
-            return nullptr;
-        }
-        // Device allocate always 512 aligned.
-        auto hostPtr = (uint8_t *)malloc(size + DEVICE_ALLOC_ALIGN);
-        if (hostPtr == nullptr) {
-            ALOG_ERROR_F("Malloc failed size !", size);
-            return nullptr;
-        }
-        memset_s(hostPtr, size + DEVICE_ALLOC_ALIGN, 0, size + DEVICE_ALLOC_ALIGN);
-        if (cached) {
-            allocatedHostAddr.emplace_back(hostPtr);
-        }
-        return simuDevAlign ?
-            (uint8_t *)((((uint64_t)hostPtr) + DEVICE_ALLOC_ALIGN - 1) / DEVICE_ALLOC_ALIGN * DEVICE_ALLOC_ALIGN) :
-            hostPtr;
-    }
-
-    void Free(uint8_t* ptr) {
-        if(ptr) {
-            free(ptr);
-        }
-    }
-protected:
-    void DestroyMemory() {
-        for (uint8_t *addr : allocatedHostAddr) {
-            free(addr);
-        }
-    }
-private:
-    std::vector<uint8_t *> allocatedHostAddr;
-};
-
-class RuntimeHostAgent : public RuntimeHostAgentMemory {
-public:
-    RuntimeHostAgent(RuntimeHostAgent &other) = delete;
-
-    void operator=(const RuntimeHostAgent &other) = delete;
-
-    static RuntimeHostAgent *GetAgent() {
-        static RuntimeHostAgent inst;
-        return &inst;
-    }
-
-protected:
-    RuntimeHostAgent() {
-        Init();
-    }
-
-public:
-    ~RuntimeHostAgent() { Finalize(); }
-
-public:
-    void Finalize() {
-        if (hostInited) {
-            DestroyMemory();
-        }
-    }
-
-private:
-    void Init() {
-        hostInited = true;
-    }
-
-private:
-    bool hostInited{false};
-};
-
-namespace machine {
-inline npu::tile_fwk::RuntimeHostAgent *GetRuntimeHostAgent() {
-    return npu::tile_fwk::RuntimeHostAgent::GetAgent();
-}
-}
-
 #ifdef BUILD_WITH_CANN
 
 inline void CheckDeviceId() {
     int32_t devId = 0;
     int32_t getDeviceResult = rtGetDevice(&devId);
     if (getDeviceResult != RT_ERROR_NONE) {
-        ALOG_ERROR_F("fail get device id, check if set device id");
+        MACHINE_LOGE("fail get device id, check if set device id");
         return;
     }
- }
-
-struct HugePageDesc {
-    uint8_t *baseAddr;
-    size_t allSize;
-    size_t current;
-    HugePageDesc(uint8_t *addr, size_t size) : baseAddr(addr), allSize(size), current(0) {}
-};
-
-inline size_t MemSizeAlign(const size_t bytes, const uint32_t aligns = 512U) {
-    const size_t alignSize = (aligns == 0U) ? sizeof(uintptr_t) : aligns;
-    return (((bytes + alignSize) - 1U) / alignSize) * alignSize;
 }
 
 inline int32_t GetUserDeviceId() {
@@ -206,65 +109,42 @@ inline int32_t GetLogDeviceId() {
     int32_t userDeviceId = GetUserDeviceId();
     ASSERT(rtGetLogicDevIdByUserDevId(userDeviceId, &logicDeviceId) == RT_ERROR_NONE) << "Trans usrDeviceId: " <<
            userDeviceId << " to logDevId not success";
-    ALOG_DEBUG_F("Current userDeviceId is %d, logic Deviceid is %d", userDeviceId, logicDeviceId);
+    MACHINE_LOGD("Current userDeviceId is %d, logic Deviceid is %d", userDeviceId, logicDeviceId);
     return logicDeviceId;
 }
 
-inline constexpr uint32_t ONG_GB_HUGE_PAGE_FLAGS = RT_MEMORY_HBM | RT_MEMORY_POLICY_HUGE1G_PAGE_ONLY;
-inline constexpr size_t ONT_GB_SIZE = 1024 * 1024 * 1024;
-inline constexpr uint32_t TWO_MB_HUGE_PAGE_FLAGS = RT_MEMORY_HBM | RT_MEMORY_POLICY_HUGE_PAGE_FIRST;
-
 class RuntimeAgentMemory {
 public:
-    void AllocDevAddr(uint8_t **devAddr, uint64_t size, bool tmpAddr = false) {
-        auto alignSize = MemSizeAlign(size);
-        ALOG_INFO_F("RuntimeAgent::Alloc size[%lu] with align size[%lu].", size, alignSize);
-        if (TryGetHugePageMem(devAddr, alignSize, tmpAddr)) {
-            return;
-        }
-        size_t allocSize = ((alignSize - 1) / ONT_GB_SIZE + 1) * ONT_GB_SIZE;
-        int res = rtMalloc((void **)devAddr, allocSize, ONG_GB_HUGE_PAGE_FLAGS, 0);
-        if (res != 0) {
-            ALOG_WARN_F("1G page mem alloc failed, turn to 2M page.\n");
-            res = rtMalloc((void **)devAddr, alignSize, TWO_MB_HUGE_PAGE_FLAGS, 0);
-            if (res != 0) {
-                ALOG_ERROR_F("RuntimeAgent::AllocDevAddr failed for size %lu", size);
-                return;
-            }
-            if (tmpAddr) {
-                allocatedTmpDevAddr.emplace_back(*devAddr);
-            } else {
-                allocatedDevAddr.emplace_back(*devAddr);
-            }
-            ALOG_INFO_F("AllocDevAddr %p size is %lu", *devAddr, size);
-            return;
-        }
-        if (tmpAddr) {
-            allocatedTmpDevAddr.emplace_back(*devAddr);
-            tmpHugePageVec.emplace_back(HugePageDesc(*devAddr, allocSize));
+    void AllocDevAddr(uint8_t **devAddr, uint64_t size) {
+        bool success = memPool_.AllocDevAddrInPool(devAddr, size);
+        if (!success) {
+            MACHINE_LOGE("RuntimeAgent::AllocDevAddrInPool failed for size %lu", size);
+            devAddr = nullptr;
         } else {
-            allocatedDevAddr.emplace_back(*devAddr);
-            hugePageVec.emplace_back(HugePageDesc(*devAddr, allocSize));
+            MACHINE_LOGI("RuntimeAgentMemory: Alloc success %p", *devAddr);
         }
-        if (!TryGetHugePageMem(devAddr, alignSize, tmpAddr)) {
-            ALOG_ERROR_F("RuntimeAgent::AllocDevAddr failed for size %lu", size);
-            return;
-        }
-        ALOG_INFO_F("Alloc 1G page mem %p size is %lu.", *devAddr, allocSize);
-        return;
     }
 
-    bool IsHugePageMemory(uint8_t *devAddr) const {
-        for (auto &hugepage : hugePageVec) {
-            if (devAddr >= hugepage.baseAddr && devAddr < hugepage.baseAddr + hugepage.allSize)
-                return true;
-        }
-        return false;
+    void FreeDevAddr(uint8_t *devAddr) {
+        if (!devAddr) return; 
+        memPool_.FreeDevAddr(devAddr);
+    }
+
+    void DynamicRecycle() {
+        memPool_.DynamicRecycle();
+    }
+
+    void PrintPoolStatus() {
+        memPool_.PrintPoolStatus();
+    }
+
+    bool CheckAllSentinels() {
+        return memPool_.CheckAllSentinels();
     }
 
     static void CopyToDev(uint8_t *devDstAddr, uint8_t *hostSrcAddr, uint64_t size) {
         rtMemcpy(devDstAddr, size, hostSrcAddr, size, RT_MEMCPY_HOST_TO_DEVICE);
-        ALOG_DEBUG_F("RuntimeAgent::CopyToDev for src %lx to dst %lx with size %u", reinterpret_cast<uint64_t>(hostSrcAddr),
+        MACHINE_LOGD("RuntimeAgent::CopyToDev for src %lx to dst %lx with size %lu", reinterpret_cast<uint64_t>(hostSrcAddr),
             reinterpret_cast<uint64_t>(devDstAddr), size);
     }
 
@@ -282,42 +162,13 @@ public:
         return validGetPgMask;
     }
 
-    void FreeTmpMemory() {
-        for (uint8_t *addr : allocatedTmpDevAddr) {
-            rtFree(addr);
-        }
-        allocatedTmpDevAddr.clear();
-        tmpHugePageVec.clear();
-    }
-
 protected:
     void DestroyMemory() {
-        for (uint8_t *addr : allocatedDevAddr) {
-            rtFree(addr);
-        }
-        allocatedDevAddr.clear();
-        hugePageVec.clear();
-        FreeTmpMemory();
-    }
-private:
-    bool TryGetHugePageMem(uint8_t **devAddr, uint64_t alignSize, bool tmpAddr) {
-        std::vector<HugePageDesc> &pageVec = tmpAddr ? tmpHugePageVec : hugePageVec;
-        for (size_t i = 0; i < pageVec.size(); ++i) {
-            if (pageVec[i].current + alignSize <= pageVec[i].allSize) {
-                *devAddr = pageVec[i].baseAddr + pageVec[i].current;
-                pageVec[i].current += alignSize;
-                ALOG_INFO_F("HugePage Mem get with size:%u addr:%p.", alignSize, *devAddr);
-                return true;
-            }
-        }
-        return false;
+        memPool_.DestroyPool();
     }
 private:
     bool validGetPgMask = true;
-    std::vector<HugePageDesc> hugePageVec;
-    std::vector<HugePageDesc> tmpHugePageVec;
-    std::vector<uint8_t *> allocatedDevAddr;
-    std::vector<uint8_t *> allocatedTmpDevAddr;
+    DevMemoryPool memPool_;
 };
 
 class RuntimeAgentStream {
@@ -373,7 +224,7 @@ public:
         uint64_t offset = 0;
         int32_t userDeviceId = GetUserDeviceId();
         rtGetL2CacheOffset(userDeviceId, &offset);
-        ALOG_DEBUG_F("rtGetL2CacheOffset %lu", offset);
+        MACHINE_LOGD("rtGetL2CacheOffset %lu", offset);
         return offset;
     }
 
@@ -386,11 +237,9 @@ public:
 #endif
     }
 
-    void FreeTensor(uint8_t *devAddr) const {
-        ALOG_DEBUG_F("RuntimeAgent::FreeTensor");
-        if (IsHugePageMemory(devAddr))
-            return;
-        rtFree(devAddr);
+    void FreeTensor(uint8_t *devAddr) {
+        MACHINE_LOGD("RuntimeAgent::FreeTensor");
+        this->FreeDevAddr(devAddr);
     }
 
     void Finalize() {
@@ -402,14 +251,14 @@ public:
 #endif
         }
 
-        ALOG_DEBUG_F("RuntimeAgent: runtime quit");
+        MACHINE_LOGD("RuntimeAgent: runtime quit");
     }
 
 private:
     void Init() {
-        ALOG_INFO_F("RuntimeAgent: Init acl runtime!");
+        MACHINE_LOGI("RuntimeAgent: Init acl runtime!");
         CheckDeviceId();
-        ALOG_DEBUG_F("RuntimeAgent: Create a default stream!");
+        MACHINE_LOGD("RuntimeAgent: Create a default stream!");
         CreateStream();
     }
 

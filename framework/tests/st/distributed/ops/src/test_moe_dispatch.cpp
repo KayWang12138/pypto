@@ -33,7 +33,7 @@ void TestShmemMoeDispatch(OpTestParam& testParam, std::string& goldenDir)
     int32_t expandXRowShape = std::min(static_cast<int32_t>(batchSize) *
         static_cast<int32_t>(topK) * testParam.rankSize, static_cast<int32_t>(batchSize) * routedNum);
     Shape expandXShape{expandXRowShape, hiddenSize};
-    Shape combineInfoShape{expandXRowShape, 64};
+    Shape combineInfoShape{expandXRowShape, 3};
     Tensor tokenTensor(dType, tokenTensorShape, "tokenTensor");
     Tensor tokenExpertTable(DataType::DT_INT32, tokenExpertTableShape, "tokenExpertTable");
     Tensor expertTokenNums(DataType::DT_INT32, {expertNumPerRank}, "expertTokenNums");

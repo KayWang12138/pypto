@@ -19,6 +19,7 @@ import torch
 import torch_npu
 import numpy as np
 import pypto
+from utils.compare import compare
 
 
 @dataclass
@@ -39,7 +40,7 @@ class LightningIndexerConfigs:
     }
     # tile params
     s1_tile = 2
-    topk_tile = 16384
+    topk_tile = 8192
     # set the tileshape size in cube computation
     c1_tile = [64, 64, 128, 128, 128, 128] # (m, M), (k, K), (n, N)
     c2_tile = [128, 128, 64, 64, 128, 128] # (m, M), (k, K), (n, N)
@@ -375,10 +376,6 @@ def lightning_indexer(case_name: str) -> bool:
     torch_npu.npu.synchronize()
 
     topk_res_golden = lightning_indexer_compute(input_data_map, params)
-
-    topk_res_golden = topk_res_golden.reshape(b * s1, 1, selected_count)
-
-    # 执行结果比较
     topk_idx_compare(topk_res_npu.cpu(), topk_res_golden.cpu(), "topk_res", 5e-3, selected_count)
 
     return True

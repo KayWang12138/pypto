@@ -25,8 +25,8 @@
 #include "interface/function/function.h"
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
+#include "tilefwk/pypto_fwk_log.h"
 
-#include "ir/function.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -53,6 +53,7 @@ constexpr int64_t DEFAULT_CACHE_DEVICE_TASK_NUM = 10000;
 constexpr int32_t MAX_CELLMATCHSSTRIDE = 20000000;
 static constexpr uint64_t GENERAL_METADATA_SIZE_MIN = 4 * MEBI;
 constexpr uint32_t FRIENDLY_CACHE_ALIGN_U64_SIZE = 2; // 友好的cache对齐是2个u64
+static uint32_t MAX_UNROLL_TIMES = 1; // the max num of unroll_list
 
 void DevAscendFunction::InitIncastOutcastAttr(
         uintdevptr_t &initOffset,
@@ -89,8 +90,8 @@ void DevAscendFunction::InitOperationDynamicField(
     duppedDataCopySize_ = sizeof(DevAscendFunctionDuppedData) + predCountListDataSize;
     duppedData_.HostInitDataSizeOffset(initOffset, duppedDataAllocSize_);
     predInfo_ = predInfo;
-    ALOG_INFO("Pred: zero=", predInfo.totalZeroPred, " aiv=", predInfo.totalZeroPredAIV,
-        " aic=", predInfo.totalZeroPredAIC, " hub=", predInfo.totalZeroPredHub, " aicpu=", predInfo.totalZeroPredAicpu);
+    MACHINE_LOGI("Pred: zero= %lu aiv= %lu aic= %lu hub= %lu aicpu=%lu",
+        static_cast<unsigned long>(predInfo.totalZeroPred), static_cast<unsigned long>(predInfo.totalZeroPredAIV), static_cast<unsigned long>(predInfo.totalZeroPredAIC), static_cast<unsigned long>(predInfo.totalZeroPredHub), static_cast<unsigned long>(predInfo.totalZeroPredAicpu));
 
     ONFILLCONTENT {
         DevAscendFunctionDuppedData *dupData = reinterpret_cast<DevAscendFunctionDuppedData *>(&At(duppedData_, 0));
@@ -158,7 +159,7 @@ void HandleActualRaw(const OrderedSet<std::shared_ptr<RawTensor>> &incastRawList
     auto iter = rawMagicToRawTensor.find(rawTensor->actualRawmagic);
     if (iter != rawMagicToRawTensor.end()) {
         if (iter->second->addrOffset == UINT64_MAX) {
-            ALOG_ERROR_F("addrOffset is invalid actual raw magic %d, original raw magic %d",
+            MACHINE_LOGE("addrOffset is invalid actual raw magic %d, original raw magic %d",
                 rawTensor->actualRawmagic, rawTensor->rawmagic);
             encoded.addrOffset = 0;
         } else {
@@ -173,7 +174,7 @@ void HandleActualRaw(const OrderedSet<std::shared_ptr<RawTensor>> &incastRawList
                 encoded.ioIndex = -1;
                 encoded.ioProperty = DevIOProperty::NONE;
             }
-            ALOG_DEBUG_F("Tensor %d use tensor %d's addr io index %d", rawTensor->rawmagic, rawTensor->actualRawmagic,
+            MACHINE_LOGD("Tensor %d use tensor %d's addr io index %d", rawTensor->rawmagic, rawTensor->actualRawmagic,
                 encoded.ioIndex);
         }
     }
@@ -182,7 +183,7 @@ void HandleActualRaw(const OrderedSet<std::shared_ptr<RawTensor>> &incastRawList
 void DevAscendFunction::UpdateRawTensorDesc(const std::shared_ptr<RawTensor> &rawTensor, size_t i, size_t incastRawListSize,
     DevAscendRawTensor &encoded) {
     if (rawTensor->actualRawmagic != -1) {
-        ALOG_DEBUG_F("[%3zu] raw %d, actualRaw %d, IOType <%s>, addrOffset 0x%lx, ioIndex %d.",
+        MACHINE_LOGD("[%3zu] raw %d, actualRaw %d, IOType <%s>, addrOffset 0x%lx, ioIndex %d.",
                 i, rawTensor->rawmagic, rawTensor->actualRawmagic, DevIOProperty2String(encoded.ioProperty).c_str(),
                 encoded.addrOffset, encoded.ioIndex);
     }
@@ -245,7 +246,7 @@ static void EncodeRawShape(const SymbolicExpressionTable *expressionTable, DevAs
     int64_t nelm = std::max(GetShapeSizeSafe(rawTensor->oriRawshape), GetShapeSizeSafe(rawTensor->rawshape));
     encoded->maxStaticMemReq = AlignUp(nelm * BytesOf(rawTensor->GetDataType()), TENSOR_ADDR_ALIGNMENT);
     if (nelm > MAX_SHAPE_WARN_THRESHOLE) {
-        ALOG_WARN_F("Root=[%s], symbol=[%s]: staticMemReq=[%lu] is too larger, which might indicate an error",
+        MACHINE_LOGW("Root=[%s], symbol=[%s]: staticMemReq=[%lu] is too larger, which might indicate an error",
             rootName.c_str(), rawTensor->symbol.c_str(), encoded->maxStaticMemReq);
     }
 }
@@ -296,7 +297,7 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
 
     ONFILLCONTENT {
         const std::vector<RuntimeSlotKindSet> &runtimeSlotKindSetList = inoutLink->runtimeSlotKindSetList;
-        ALOG_DEBUG_F("incast raw size %zu, outcast raw size %zu, rawlist size %zu", incastRawList.size(), outcastRawList.size(),
+        MACHINE_LOGD("incast raw size %zu, outcast raw size %zu, rawlist size %zu", incastRawList.size(), outcastRawList.size(),
             rawList.size());
         rootInnerTensorWsMemoryRequirement = 0;
         exclusiveOutcastWsMemoryRequirement = 0;
@@ -402,7 +403,7 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
 
         // file linkedIncastId
         auto outIncastLinkMap = param.devRoot->outIncastLinkMap;
-        ALOG_DEBUG_F("devRoot is %s", param.devRoot->GetRawName().c_str());
+        MACHINE_LOGD("devRoot is %s", param.devRoot->GetRawName().c_str());
         for (size_t i = 0; i < rawList.size(); i++) {
             auto &encoded = *GetRawTensor(i);
             if (outIncastLinkMap.find(rawList[i]) != outIncastLinkMap.end()) {
@@ -412,13 +413,13 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                 auto replacedIncast = outIncastLinkMap[rawList[i]];
                 if (std::find(rawList.begin(), rawList.end(), replacedIncast) != rawList.end()) {
                     encoded.linkedIncastId = incastRawList.GetIndex(replacedIncast); //换成incast的下标 ioidx
-                    ALOG_DEBUG_F("linkedIncastId is %d", encoded.linkedIncastId);
+                    MACHINE_LOGD("linkedIncastId is %d", encoded.linkedIncastId);
                 } else {
                     encoded.linkedIncastId = -1;
                 }
             } else {
                 encoded.linkedIncastId = -1;
-                ALOG_DEBUG_F("linkedIncastId is %d", encoded.linkedIncastId);
+                MACHINE_LOGD("linkedIncastId is %d", encoded.linkedIncastId);
             }
         }
     }; // ONFILLCONTENT
@@ -440,7 +441,9 @@ static int GetCceIndex(const std::unordered_map<uint64_t, int> &calleeHashIndexD
     const std::shared_ptr<CallOpAttribute> &callop)
 {
     int cceIndex = calleeHashIndexDict.at(callop->GetCalleeHash().GetHash());
-    if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) == 1) {
+    bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
+    enableVF = enableVF && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
+    if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) == 1 || enableVF) {
         cceIndex = std::max(0, cceIndex * MAIN_BLOCK_SIZE - 1);
     }
     return cceIndex;
@@ -544,7 +547,7 @@ void DevAscendFunction::InitOperation(
                     DevAscendOperationOperandInfo(tlist.GetIndex(tensor), coaIndex + COA_INDEX_DIM_BASE, tensor->GetShape().size());
             }
             operanSize += op->GetOOperands().size();
-            ALOG_DEBUG_F("Producer %zu oOperand list size is %zu", index, op->GetOOperands().size());
+            MACHINE_LOGD("Producer %zu oOperand list size is %zu", index, op->GetOOperands().size());
             // Fill attr
             auto callArgs = callop->GetLinearArgList();
             int opStaticAttrSize = callArgs.size();
@@ -594,7 +597,7 @@ void DevAscendFunction::InitOperation(
             ASSERT(At(operationList_, idx).depGraphPredCount == callOpPredDict.find(op)->second) << "depGraphPredCount mismatch: expected " <<
                    callOpPredDict.find(op)->second << ", got " << At(operationList_, idx).depGraphPredCount;
             if(dupData->GetOperationCurrPredCount(idx) != callOpPredDict.find(op)->second) {
-                ALOG_ERROR_F("OperationCurrPredCount: %d Callopsize is %u exceeds the maximum allowed value of 65535.",
+                MACHINE_LOGE("OperationCurrPredCount: %d Callopsize is %u exceeds the maximum allowed value of 65535.",
                 dupData->GetOperationCurrPredCount(idx), dupData ->GetOperationSize());
             }
             ASSERT(dupData->GetOperationCurrPredCount(idx) == callOpPredDict.find(op)->second) << "GetOperationCurrPredCount mismatch: expected " <<
@@ -942,7 +945,7 @@ struct EncodeDevAscendFunctionInfo {
             if (cellMatchShape.dim[index] > dimValue) {
                 cellMatchShape.dim[index] = dimValue;
                 if (cellMatchShape.dim[index] == 0) {
-                    ALOG_ERROR_F("cellMatchShape.dim[%zu] is zero after assignment", index);
+                    MACHINE_LOGE("cellMatchShape.dim[%zu] is zero after assignment", index);
                 }
                 DEV_ASSERT(cellMatchShape.dim[index]);
             }
@@ -967,7 +970,7 @@ struct EncodeDevAscendFunctionInfo {
             cellMatchSize *= tile;
             cellMatchStride[r] = cellMatchSize;
         }
-        ALOG_DEBUG_F("Outcast is %d raw %d shape %s | cellMatchSize %d cellMatchShape %s cellMatchStride %s\n", tensor->magic, tensor->GetRawMagic(),
+        MACHINE_LOGD("Outcast is %d raw %d shape %s | cellMatchSize %d cellMatchShape %s cellMatchStride %s\n", tensor->magic, tensor->GetRawMagic(),
             IntVecToStr(tensor->shape).c_str(),
             cellMatchSize,
             IntVecToStr(ShapeToVector(cellMatchShape)).c_str(),
@@ -1008,7 +1011,7 @@ struct EncodeDevAscendFunctionInfo {
                 } else {
                     useList.emplace_back(i, j, coaIndex, coaIndex + dimSize);
                 }
-                ALOG_DEBUG_F("Outcast oOperandIdx for outcast %d %d is %d", o->magic, o->GetRawMagic(), j);
+                MACHINE_LOGD("Outcast oOperandIdx for outcast %d %d is %zu", o->magic, o->GetRawMagic(), j);
                 outcastUseOpSet.insert(i);
                 auto expr = callAttr->GetOutcastSymbolicExpr(j);
                 outcastOpAttr.bindTensorExprIndex = -1;
@@ -1027,7 +1030,7 @@ struct EncodeDevAscendFunctionInfo {
                     UNUSED(offsetAttrIdx);
                     auto shape = callAttr->GetLinearImmediateArgList(shapeAttrIdx, shapeAttrIdx + dimSize, false);
                     UpdateCellMatchShape(outcastOpAttr.cellMatchTableDesc, shape);
-                    ALOG_DEBUG_F("minimal shape for outcast %d raw %d op %d %d is %s\n", o->magic, o->GetRawMagic(), i,
+                    MACHINE_LOGD("minimal shape for outcast %d raw %d op %zu %d is %s\n", o->magic, o->GetRawMagic(), i,
                         op.GetOpMagic(), IntVecToStr(ShapeToVector(outcastOpAttr.cellMatchTableDesc.cellShape)).c_str());
                 }
             }
@@ -1123,7 +1126,7 @@ struct EncodeDevAscendFunctionInfo {
                         }
                         incastOpAttr.useList.emplace_back(j, k, coaIndex, coaIndex + dimSize);
                         UpdateCellMatchShape(incastOpAttr.cellMatchTableDesc, shape);
-                        ALOG_DEBUG_F("minimal shape for incast %d raw %d op %d %d is %s\n", index->magic, index->GetRawMagic(), j,
+                        MACHINE_LOGD("minimal shape for incast %d raw %d op %zu %d is %s\n", index->magic, index->GetRawMagic(), j,
                             op.GetOpMagic(), IntVecToStr(ShapeToVector(incastOpAttr.cellMatchTableDesc.cellShape)).c_str());
                         incastUseOpSet.insert(j);
                     }
@@ -1221,16 +1224,16 @@ struct EncodeDevAscendFunctionInfo {
     }
 
     void PrintColorGraph(int colorNum) {
-        ALOG_INFO_F("*********** Call OP Graph ***********\n");
+        MACHINE_LOGI("*********** Call OP Graph ***********\n");
         for (int index = 0; index < colorNum; index++) {
-            ALOG_INFO_F("%zu: %zu", index, colorOutGraph[index].size());
-            ALOG_INFO_F("%s", IntVecToStr(colorOutGraph[index]).c_str());
+            MACHINE_LOGI("%d: %zu", index, colorOutGraph[index].size());
+            MACHINE_LOGI("%s", IntVecToStr(colorOutGraph[index]).c_str());
         }
         int outCount = 0;
         for (int index = 0; index < colorNum; index++) {
             outCount += colorOutGraph[index].size();
         }
-        ALOG_INFO_F("Total out: %d\n", outCount);
+        MACHINE_LOGI("Total out: %d\n", outCount);
     }
 
     inline void FindAllReachableNodes(int start_node, std::unordered_map<int, std::vector<int>>& outGraph,
@@ -1281,7 +1284,7 @@ struct EncodeDevAscendFunctionInfo {
         for (int index = 0; index < colorNum; index++) {
             // make redundantColorOutGraph[index]'s order grow
             std::sort(redundantColorOutGraph[index].begin(), redundantColorOutGraph[index].end());
-            ALOG_INFO_F("Redundant outgraph of %d is %s.", index, IntVecToStr(redundantColorOutGraph[index]).c_str());
+            MACHINE_LOGI("Redundant outgraph of %d is %s.", index, IntVecToStr(redundantColorOutGraph[index]).c_str());
             // update color_out_graph
             std::vector<int> newGraph;
             size_t n = 0U;
@@ -1427,22 +1430,16 @@ struct EncodeDevAscendFunctionInfo {
         FunctionCache &cache = Program::GetInstance().GetFunctionCache();
         for (auto &[callop, succSet] : callOpSuccDict) {
             Function *devLeafFunc = cache.GetCacheFunction(callop->GetCalleeHash());
-            std::shared_ptr<LeafFuncAttribute> leafAttr = nullptr;
             if (devLeafFunc == nullptr) {
-                pto::BlockFunction *devIrBlockFunc = cache.GetCacheIrBlockFunction(callop->GetCalleeHash());
-                if (devIrBlockFunc == nullptr) {
-                    ASSERT(GetCoreType(callop) == static_cast<int>(CoreType::HUB)) << "GetCoreType return unexpected value: " <<
-                       GetCoreType(callop) << ", expectedBlockFunction: " << static_cast<int>(CoreType::HUB) << " for callop: " << callop;
-                    copyOutResolveSuccIndexListDict[callop] = std::vector<int>({0});
-                    continue;
-                }
-                leafAttr = devIrBlockFunc->GetLeafFuncAttribute();
-            } else {
-                leafAttr = devLeafFunc->GetLeafFuncAttribute();
+                ASSERT(GetCoreType(callop) == static_cast<int>(CoreType::HUB)) << "GetCoreType return unexpected value: " <<
+                   GetCoreType(callop) << ", expectedBlockFunction: " << static_cast<int>(CoreType::HUB) << " for callop: " << callop;
+                copyOutResolveSuccIndexListDict[callop] = std::vector<int>({0});
+                continue;
             }
+            std::shared_ptr<LeafFuncAttribute> leafAttr = devLeafFunc->GetLeafFuncAttribute();
 
             if (leafAttr == nullptr) {
-                ALOG_ERROR_F("Leaf Attr of leaf function %s is nullptr.", callop->GetCalleeMagicName().c_str());
+                MACHINE_LOGE("Leaf Attr of leaf function %s is nullptr.", callop->GetCalleeMagicName().c_str());
                 continue;
             }
             if (leafAttr->outcastCopyOutResolveCounterList.size() == 0) {
@@ -1905,12 +1902,20 @@ struct ControlFlowCacheFactor {
 };
 
 static int EstimatedStitchingCount() {
+    uint16_t stitchNum = config::GetRuntimeOption<uint16_t>(STITCH_FUNCTION_MAX_NUM);
+    if (stitchNum > 0) {
+        return stitchNum * MAX_UNROLL_TIMES;
+    }
     int value = config::GetRuntimeOption<int>(STITCH_FUNCTION_OUTCAST_MEMORY);
     ASSERT(value > 0) << "Invalid value for STITCH_FUNCTION_OUTCAST_MEMORY: " << value << ", must be greater than 0";
     return value;
 }
 
 static int WorkspaceRecyclePeriod() {
+    uint16_t stitchNum = config::GetRuntimeOption<uint16_t>(STITCH_FUNCTION_MAX_NUM);
+    if (stitchNum > 0) {
+        return stitchNum * MAX_UNROLL_TIMES;
+    }
     int value = config::GetRuntimeOption<int>(STITCH_FUNCTION_INNER_MEMORY);
     ASSERT(value > 0) << "Invalid value for STITCH_FUNCTION_INNER_MEMORY: " << value << ", must be greater than 0";
     return value;
@@ -1926,6 +1931,22 @@ void DevAscendProgram::InitControlFlowCache(
     controlFlowCache.Init(dyndevAttr.get(), ctrlFlowCacheSize, runtimeOutcastPoolSize, initOffset);
 }
 
+static int ParseUnrollTimes(const std::string &rawName) {
+    const static std::string UNROLL_MARKS[2] = {"_LoopUnroll", "_Unroll"};
+    int unrollTimes = 1;
+    for (auto& unrollMask : UNROLL_MARKS) {
+        auto unrollPos = rawName.rfind(unrollMask);
+        if (unrollPos == std::string::npos) {
+            continue;
+        }
+        std::string suffix = rawName.substr(unrollPos + unrollMask.length());
+        if (std::isdigit(suffix.front())) {
+            unrollTimes *= std::stoi(suffix);
+        }
+    }
+    return unrollTimes;
+}
+
 struct EncodeDevAscendProgramInfo {
     Function *func;
     std::shared_ptr<DyndevFunctionAttribute> dyndevAttr;
@@ -1935,6 +1956,10 @@ struct EncodeDevAscendProgramInfo {
     explicit EncodeDevAscendProgramInfo(Function *tfunc) : func(tfunc) {
         ASSERT(func->GetDyndevAttribute() != nullptr) << "DyndevAttribute is null for function: " << func;
         dyndevAttr = func->GetDyndevAttribute();
+        for (auto &devRoot : dyndevAttr->funcGroup.devRootList) {
+            int unroll = ParseUnrollTimes(devRoot->GetRawName());
+            MAX_UNROLL_TIMES = std::max(MAX_UNROLL_TIMES, (uint32_t)unroll);
+        }
     }
 
     void Init(DevAscendProgram *devProg, bool fillContent) {
@@ -1973,7 +1998,6 @@ struct EncodeDevAscendProgramInfo {
                 dyndevAttr->inoutLink.partialUpdateSlotIdexList,
                 fillContent);
         devProg->InitPrefetchInfoList(initOffset, dyndevAttr->l2InfoList, fillContent);
-        devProg->commGroupNum = static_cast<uint64_t>(dyndevAttr->commGroupNames.size());
         devProg->InitDisableL2List(initOffset, dyndevAttr->disableL2List, fillContent);
 
         // control flow cache is always at the back of the program. So it should be the last.
@@ -2082,22 +2106,6 @@ static bool IsAssembleSlot(std::vector<SlotInfo> &slots, DevAscendFunction *func
     }
     return isAssemble;
 };
-
-static int ParseUnrollTimes(const std::string &rawName) {
-    const static std::string UNROLL_MARKS[2] = {"_LoopUnroll", "_Unroll"};
-    int unrollTimes = 1;
-    for (auto& unrollMask : UNROLL_MARKS) {
-        auto unrollPos = rawName.rfind(unrollMask);
-        if (unrollPos == std::string::npos) {
-            continue;
-        }
-        std::string suffix = rawName.substr(unrollPos + unrollMask.length());
-        if (std::isdigit(suffix.front())) {
-            unrollTimes *= std::stoi(suffix);
-        }
-    }
-    return unrollTimes;
-}
 
 static uint64_t CalcUnrolledRootBudget(uint64_t budget, int unrollTimes, int configMultiplier) {
     ASSERT(unrollTimes > 0) << "Invalid unrollTimes:  " << unrollTimes << ", must be greater than 0";
@@ -2251,12 +2259,12 @@ static uint64_t CalcGeneralMetadataSlotWorkspace(DevAscendProgram *devProg) {
     uint64_t itemPoolMemSize = DeviceWorkspaceAllocator::CalcMetadataItemPoolMemSize(devProg);
     uint64_t vectorMemSize = DeviceWorkspaceAllocator::CalcMetadataVectorMemSize(devProg);
     uint64_t slotAllocatorMemSize = DeviceWorkspaceAllocator::CalcMetadataSlotAllocatorMemSize(devProg);
-    ALOG_DEBUG_F("itemPoolMemSize is: %lu, vectorMemSize is: %lu, slotAllocatorMemSize is %lu,", 
+    MACHINE_LOGD("itemPoolMemSize is: %lu, vectorMemSize is: %lu, slotAllocatorMemSize is %lu,", 
                   itemPoolMemSize, vectorMemSize, slotAllocatorMemSize);
     static constexpr uint64_t AICPU_SLOT_STATIC_MEMSIZE = 2 * MEBI;
     generalMetadataSlotSize = itemPoolMemSize + vectorMemSize + 
                               slotAllocatorMemSize + AICPU_SLOT_STATIC_MEMSIZE;
-    ALOG_DEBUG_F("workspace of generalMetadataSlotSize is %lu, ", generalMetadataSlotSize);
+    MACHINE_LOGD("workspace of generalMetadataSlotSize is %lu, ", generalMetadataSlotSize);
     return generalMetadataSlotSize;
 }
 
@@ -2271,6 +2279,7 @@ static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram *devProg) {
         1,// VecStitchList
         1,// DynDevTask
         READY_QUEUE_SIZE, //ReadyQue
+        DIE_READY_QUEUE_SIZE * DIE_NUM, // DieReadyQue
         1,
         1,
     };
@@ -2278,7 +2287,7 @@ static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram *devProg) {
     ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT));
 
     for (int i=0; i < ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT); i++) {
-        ALOG_DEBUG_F("slabCapacity[%d] is %u", i, slabCapacity[i]);
+        MACHINE_LOGD("slabCapacity[%d] is %u", i, slabCapacity[i]);
         if (slabCapacity[i] == 0) {
             continue;
         }
@@ -2286,10 +2295,10 @@ static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram *devProg) {
         // alloc redundant slabpage for DuppedFunction and Readyque to prevent memory border situations
         if(i == ToUnderlying(WsAicpuSlabMemType::DUPPED_FUNC_DATA) ||
          i == ToUnderlying(WsAicpuSlabMemType::READY_QUE)) requiredSlabNum++;
-        ALOG_DEBUG_F("requiredSlabNum[%d] is %u", i, requiredSlabNum);
+        MACHINE_LOGD("requiredSlabNum[%d] is %u", i, requiredSlabNum);
         generalMetadataSlabSize += static_cast<uint64_t>(requiredSlabNum) * slabSize;
     }
-    ALOG_DEBUG_F("generalMetadataSlabSize is %u", generalMetadataSlabSize);
+    MACHINE_LOGD("generalMetadataSlabSize is %lu", static_cast<unsigned long>(generalMetadataSlabSize));
     generalMetadataSlabSize = (generalMetadataSlabSize < GENERAL_METADATA_SIZE_MIN) ? GENERAL_METADATA_SIZE_MIN : generalMetadataSlabSize;
     return generalMetadataSlabSize;
 }
@@ -2310,7 +2319,7 @@ static uint64_t DumpTensorWorkspace() {
 }
 
 static uint64_t LeafDumpWorkspace() {
-    if (IsPtoDataDumpEnabled()){
+    if (IsPtoDataDumpEnabled()) {
         static constexpr uint64_t LEAFDUMP_WORKSPACE = 12 * MEBI;
         return LEAFDUMP_WORKSPACE;
     } else {
@@ -2343,6 +2352,10 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
         base->memBudget.aicoreSpilled = tensorWsRes.perCoreSpilledMem * maxCoreNum;
         base->devArgs.machineConfig = func->paramConfigs_.machineConfig_;
         base->stitchFunctionNumInitial = func->paramConfigs_.stitchFunctionNumInitial_;
+        uint16_t value = config::GetRuntimeOption<uint16_t>(STITCH_FUNCTION_MAX_NUM);
+        if (value > 0) {
+            base->stitchFunctionNumInitial = value;
+        }
         base->stitchFunctionNumStep = func->paramConfigs_.stitchFunctionNumStep_;
         base->stitchFunctionsize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
         base->memBudget.metadata.general = CalcGeneralMetadataSlotWorkspace(base);
