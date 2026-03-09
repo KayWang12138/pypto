@@ -133,4 +133,51 @@ TEST_F(TestCodegenDynSpillOut, L1SpillTileTensor) {
         R"!!!(TLoad<CopyInMode::ND2ND, PaddingMode::NO_PADDING>(l1Tensor_19, gmTensor_18, Coord2Dim(0, 0), 64, 64);)!!!";
     CheckStringExist(expect, res);
 }
+
+TEST_F(TestCodegenDynSpillOut, L1SpillTileTensorConv2D) {
+    std::vector<int64_t> shape = {16, 16};
+    std::vector<int64_t> gmShape = {1, 16, 1, 16}; 
+    auto function = GenMockFuncDyn("L1SpillTileTensorConv2D", shape);
+    auto gmTensor = CreateConvTensor(*function, DataType::DT_FP16, gmShape, MemoryType::MEM_DEVICE_DDR, false);
+    auto l0cTensor = CreateConvTensor(*function, DataType::DT_FP16, shape, MemoryType::MEM_L0C, false);
+
+    auto &op = function->rootFunc_->programs_[0]->AddOperation(Opcode::OP_L0C_COPY_OUT_CONV, {l0cTensor}, {gmTensor});
+    auto shapeImme = OpImmediate::Specified(shape);
+    op.SetAttribute("COPY_OUT_MODE", 3);
+    op.SetAttribute("IS_CONV3D", false);
+    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_L1, OpImmediate::Specified({0, 0, 0, 0}), shapeImme,
+                                                        shapeImme, shapeImme));
+    CodeGenCtx ctx;
+    CodeGenCloudNPU codegen(ctx);
+    codegen.GenCode(*function, {});
+    const std::string res = GetResultFromCpp(*function);
+    std::string expect =
+        R"!!!(TStoreConv<CopyOutMode::NZ2DN, 0>(gmTensor_18, l0cTensor_19, 0, 0, 0, 0, 0, 16, 16);)!!!";
+    CheckStringExist(expect, res);
+}
+
+TEST_F(TestCodegenDynSpillOut, L1SpillTileTensorConv3D) {
+    std::vector<int64_t> shape = {16, 16};
+    std::vector<int64_t> gmShape = {1, 16, 1, 1, 16};
+    auto function = GenMockFuncDyn("L1SpillTileTensorConv3D", shape);
+    auto gmTensor = CreateConvTensor(*function, DataType::DT_FP32, gmShape, MemoryType::MEM_DEVICE_DDR, false);
+    auto l0cTensor = CreateConvTensor(*function, DataType::DT_FP32, shape, MemoryType::MEM_L0C, false);
+
+    auto &op = function->rootFunc_->programs_[0]->AddOperation(Opcode::OP_L0C_COPY_OUT_CONV, {l0cTensor}, {gmTensor});
+    auto shapeImme = OpImmediate::Specified(shape);
+    op.SetAttribute("COPY_OUT_MODE", 3);
+    op.SetAttribute("IS_CONV3D", true);
+    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_L1, OpImmediate::Specified({0, 0, 0, 0, 0}), shapeImme,
+                                                        shapeImme, shapeImme));
+    CodeGenCtx ctx;
+    CodeGenCloudNPU codegen(ctx);
+    codegen.GenCode(*function, {});
+    const std::string res = GetResultFromCpp(*function);
+    std::string expect =
+        R"!!!(TStoreConv<CopyOutMode::NZ2DN, 1>(gmTensor_18, l0cTensor_19, 0, 0, 0, 0, 0, 16, 16);)!!!";
+    CheckStringExist(expect, res);
+}
+
 } // namespace npu::tile_fwk
