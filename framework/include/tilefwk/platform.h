@@ -29,7 +29,6 @@
 #include "cann_host_runtime.h"
 
 namespace npu::tile_fwk {
-std::string ToJsonString(const std::string& s);
 
 struct CacheInfo {
     size_t l2Size;
@@ -269,7 +268,7 @@ public:
     void SetMemDeviceDDRSize(size_t size) { mem_device_ddr_size_ = size; }
     void SetMemHost1Size(size_t size)     { mem_host1_size_      = size; }
 
-    bool SetMemoryPath(const std::vector<std::vector<std::string>>& dataPaths);
+    bool SetMemoryPath(const std::vector<std::pair<MemoryType, MemoryType>>& dataPaths);
     bool FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType> &paths) const;
 
     std::string Dump() const {
@@ -298,23 +297,12 @@ public:
     AivCore& GetAIVCore() { return core_wrap_.GetAIVCore(); }
 };
 
-enum class SocVersion{
-    ASCEND_910B1
-};
-
 enum class NPUArch{
     DAV_1001 = 1001,
     DAV_2201 = 2201,
     DAV_3510 = 3510,
     DAV_UNKNOWN
 };
-
-inline std::string SocVersionToString(SocVersion soc_version) {
-    switch (soc_version) {
-        case SocVersion::ASCEND_910B1: return "Ascend910B1";
-        default: return "Ascend910B1";
-    }
-}
 
 inline std::string NPUArchToString(NPUArch npu_arch) {
     switch (npu_arch) {
@@ -328,7 +316,6 @@ inline std::string NPUArchToString(NPUArch npu_arch) {
 class SoC {
 private:
     Die die_;
-    SocVersion soc_version_;
     NPUArch version_;
     std::string short_soc_ver_;
     size_t dies_cnt_;
@@ -338,8 +325,6 @@ private:
     size_t ai_cpu_cnt_;
 public:
     void SetDie(const Die& die) { die_ = die; }
-    void SetSocVersion(SocVersion soc_version) {soc_version_ = soc_version; }
-    void SetSocVersion(const std::string& soc_version);
     void SetNPUArch(NPUArch version) { version_ = version; }
     void SetNPUArch(const std::string& version);
     void SetShortSocVersion(const std::string& version) { short_soc_ver_ = version;}
@@ -348,7 +333,6 @@ public:
     void SetCCECVersion(const std::unordered_map<std::string, std::string>& ver);
 
     Die& GetDies() { return die_; }
-    SocVersion GetSocVersion() const { return soc_version_; }
     NPUArch GetNPUArch() const { return version_; }
     size_t GetDiesNum() const { return dies_cnt_; }
     std::string GetShortSocVersion() const { return short_soc_ver_; }
@@ -376,7 +360,7 @@ public:
         std::stringstream ss;
         ss << "{\n";
         ss << "SOC_INFO : {\n";
-        ss << "    \"SOC_VERSION\" : " << static_cast<int>(soc_version_) << ",\n";
+        ss << "    \"SHORT_SOC_VERSION\" : \"" << short_soc_ver_ << "\",\n";
         ss << "    \"NPU_ARCH\" : " << static_cast<int>(version_) << ",\n";
         ss << "    \"DIES_NUM\" : " << dies_cnt_ << ",\n";
         ss << "    \"AI_CPU_NUM\" : " << ai_cpu_cnt_ << ",\n";
@@ -445,46 +429,46 @@ public:
     void ObtainPlatformInfo();
 
     std::string Dump() {
-    std::ostringstream ss;
-    ss << "{\n";
+        std::ostringstream ss;
+        ss << "{\n";
 
-    // 1. Platform
-    ss << "  \"PLATFORM_INFO\" : {\n";
-    ss << "    \"CLUSTER_NUM\" : " << cluster_cnt_ << ",\n";
-    ss << "    \"HOST_NUM\" : " << host_cnt_ << "\n";
-    ss << "  },\n";
+        // 1. Platform
+        ss << "  \"PLATFORM_INFO\" : {\n";
+        ss << "    \"CLUSTER_NUM\" : " << cluster_cnt_ << ",\n";
+        ss << "    \"HOST_NUM\" : " << host_cnt_ << "\n";
+        ss << "  },\n";
 
-    auto appendInlineObject = [&](const std::string &child_dump, bool with_trailing_comma) {
-        constexpr size_t kLeftWrapLen  = std::char_traits<char>::length("{");
-        constexpr size_t kRightWrapLen = std::char_traits<char>::length("}");
-        if (child_dump.size() <= kLeftWrapLen + kRightWrapLen) {
-            return; 
-        }
-        const size_t inner_len = child_dump.size() - kLeftWrapLen - kRightWrapLen;
-        ss.write(child_dump.data() + kLeftWrapLen, static_cast<std::streamsize>(inner_len));
-        ss << (with_trailing_comma ? ",\n" : "\n");
-    };
+        auto appendInlineObject = [&](const std::string &child_dump, bool with_trailing_comma) {
+            constexpr size_t kLeftWrapLen  = std::char_traits<char>::length("{");
+            constexpr size_t kRightWrapLen = std::char_traits<char>::length("}");
+            if (child_dump.size() <= kLeftWrapLen + kRightWrapLen) {
+                return; 
+            }
+            const size_t inner_len = child_dump.size() - kLeftWrapLen - kRightWrapLen;
+            ss.write(child_dump.data() + kLeftWrapLen, static_cast<std::streamsize>(inner_len));
+            ss << (with_trailing_comma ? ",\n" : "\n");
+        };
 
-    // 2. Cluster
-    appendInlineObject(cluster_.Dump(), true);
+        // 2. Cluster
+        appendInlineObject(cluster_.Dump(), true);
 
-    // 3. SoC
-    appendInlineObject(GetSoc().Dump(), true);
+        // 3. SoC
+        appendInlineObject(GetSoc().Dump(), true);
 
-    // 4. Die
-    appendInlineObject(GetDie().Dump(), true);
+        // 4. Die
+        appendInlineObject(GetDie().Dump(), true);
 
-    // 5. CoreWrap
-    appendInlineObject(GetCoreWrap().Dump(), true);
+        // 5. CoreWrap
+        appendInlineObject(GetCoreWrap().Dump(), true);
 
-    // 6. AIVCore
-    appendInlineObject(GetAIVCore().Dump(), true);
+        // 6. AIVCore
+        appendInlineObject(GetAIVCore().Dump(), true);
 
-    // 7. AICCore
-    appendInlineObject(GetAICCore().Dump(), false);
+        // 7. AICCore
+        appendInlineObject(GetAICCore().Dump(), false);
 
-    ss << "}\n";
-    return ss.str();
-}
+        ss << "}\n";
+        return ss.str();
+    }
 };
 } // namespace npu::tile_fwk
