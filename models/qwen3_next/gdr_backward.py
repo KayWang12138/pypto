@@ -318,7 +318,8 @@ def make_chunk_constants(BT: int, device, dtype=torch.float32):
     M_lt = M_le - I                                          # strict lower
     C_cum = M_le                                              # prefix sum: y = C_cum @ x
     C_rcum = (idx[None, :] >= idx[:, None]).to(dtype)         # upper incl diag: suffix sum
-    return I, M_le, M_lt, C_cum, C_rcum
+    ones_1l = torch.ones(1,BT).to(dtype).to(device)                     # (1,L) ones
+    return I, M_le, M_lt, C_cum, C_rcum, ones_1l
 
 
 # ============================================================
@@ -680,6 +681,12 @@ def pypto_slice_chunk_inputs(
     L, D, b_idx, s_idx, rev_idx, nv_idx, nqk_idx, actual_L, H, NT
     ):
 
+
+    """
+    PYPTO Bug:
+    A input View tensor going to Cube needs +0.0 to deliver Vectors first.
+    If it's solved, remove +0.0.
+    """
     pypto.set_vec_tile_shapes(16, 128, 128, 128)
     query_used_view = pypto.view(q_norm_cache, [1, 1, L, D], [b_idx, nqk_idx, s_idx, 0], valid_shape =[1, 1, actual_L, D]) + 0.0 #bnsd
     key_used_view = pypto.view(k_norm_cache, [1, 1, L, D], [b_idx, nqk_idx, s_idx, 0], valid_shape =[1, 1, actual_L, D]) + 0.0 #bnsd
@@ -759,7 +766,7 @@ def pypto_fused_34_local_attn_and_recurrence_backprop(
 def pypto_fused_56_qkg_and_wy_repr(
     qc_in, kc_in, v_new_in, doc_in, g_cum_2d, gl_exp_1, s_tok_in, dS_next_in, S_before_in,
     qk_in, M_le_in, scale_scalar, dv_total_in,
-    vc, betac, A_view_2d, M_lt_in, decay_2d, kkt
+    vc, betac, A_view_2d, M_lt_in, decay_2d, kkt, ones_1l
 ):
     pypto.set_vec_tile_shapes(256, 128)
     pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
@@ -768,7 +775,7 @@ def pypto_fused_56_qkg_and_wy_repr(
     dq_c_tmp = pypto.matmul(doc_in, S_before_in, pypto.DT_FP32, a_trans=False, b_trans=True)
     dk_state = pypto.matmul(v_scaled, dS_next_in, pypto.DT_FP32, a_trans=False, b_trans=True)
     dw_pos = pypto.matmul(dv_total_in, S_before_in, pypto.DT_FP32, a_trans=False, b_trans=True)
-    dqg_scale = dq_c_tmp * pypto.exp(g_cum_2d) * scale_scalar
+    dqg_scale = dq_c_tmp * (pypto.exp(g_cum_2d) * scale_scalar)
     tail_add2 = (kc_in * dk_state).sum(dim=-1, keepdim=True).sum(dim=0, keepdim=True) + gl_exp_1 * (S_before_in * dS_next_in).sum(dim=-1, keepdim=True).sum(dim=0, keepdim=True)
     dA_based_tmp = pypto.matmul(doc_in, v_new_in, pypto.DT_FP32, a_trans=False, b_trans=True)
     dq_c_term1 = dA_based_tmp * decay_2d * M_le_in * scale_scalar
@@ -788,13 +795,14 @@ def pypto_fused_56_qkg_and_wy_repr(
     dkbg = pypto.matmul(A_view_2d, dw_pos, pypto.DT_FP32, a_trans=True, b_trans=False)
     dv_c = dvb * betac
     dg_cum_presum = dq_c_tmp * qc_in * pypto.exp(g_cum_2d) * scale_scalar - kc_in * dk_state - dkbg * kbg
-    dg_cum_tmp6 = dg_cum_presum.sum(-1, keepdim=True) + M_le_in[:, -1:] * tail_add2 + dg_cum_tmp4
+    
+    # OPT4: Reorder to (A^T @ dA) @ A^T so inner dim is K; can improve L1 reuse on 910B
     dA_term1_pos = pypto.matmul(dw_pos, kbg, pypto.DT_FP32, a_trans=False, b_trans=True)
     dA_term2 = pypto.matmul(dv_total_in, vb, pypto.DT_FP32, a_trans=False, b_trans=True)
-    dL_term2_AT = pypto.matmul(dA_term2, A_view_2d, pypto.DT_FP32, a_trans=False, b_trans=True)
-    dL_term1_AT = pypto.matmul(dA_term1_pos, A_view_2d, pypto.DT_FP32, a_trans=False, b_trans=True)
-    dL_part1 = pypto.matmul(A_view_2d, dL_term2_AT, pypto.DT_FP32, a_trans=True, b_trans=False)
-    dL_part2 = pypto.matmul(A_view_2d, dL_term1_AT, pypto.DT_FP32, a_trans=True, b_trans=False)
+    dL_part1 = pypto.matmul(A_view_2d, dA_term2, pypto.DT_FP32, a_trans=True, b_trans=False)
+    dL_part1 = pypto.matmul(dL_part1, A_view_2d, pypto.DT_FP32, a_trans=False, b_trans=True)
+    dL_part2 = pypto.matmul(A_view_2d, dA_term1_pos, pypto.DT_FP32, a_trans=True, b_trans=False)
+    dL_part2 = pypto.matmul(dL_part2, A_view_2d, pypto.DT_FP32, a_trans=False, b_trans=True)
     dL_masked = (dL_part1 - dL_part2) * M_lt_in
     db_c_tmp = dvb * vc - dkbg * kc_in * pypto.exp(g_cum_2d) 
     db_c = db_c_tmp.sum(-1, keepdim=True) - (kkt * decay_2d * dL_masked).sum(-1, keepdim=True)
@@ -803,10 +811,12 @@ def pypto_fused_56_qkg_and_wy_repr(
     dg_cum_term_pos = mmat_pos * kkt_M
     mmat_sum = mmat_pos + mmat_pos.transpose(0, 1)
     dk_c_term2 = pypto.matmul(mmat_sum, kc_in, pypto.DT_FP32, a_trans=False, b_trans=False)
-    dk_c = dk_state + dk_c_term1 - (dkbg * beg) - dk_c_term2
+    dk_c = dk_state + dk_c_term1 - dk_c_term2 - dkbg * beg
 
-    pypto.set_vec_tile_shapes(256, 128, 128)
-    dg_cum_out = dg_cum_tmp6 - dg_cum_term_pos.sum(-1, keepdim=True) + dg_cum_term_pos.sum(-2).unsqueeze(-1)
+    term_row = pypto.matmul(dg_cum_term_pos, ones_1l, pypto.DT_FP32, a_trans=False, b_trans=True)
+    term_col = pypto.matmul(dg_cum_term_pos, ones_1l, pypto.DT_FP32, a_trans=True, b_trans=True)
+    dg_cum_tmp6 = dg_cum_presum.sum(-1, keepdim=True) + M_le_in[:, -1:] * tail_add2 + dg_cum_tmp4
+    dg_cum_out = term_col - term_row + dg_cum_tmp6 #dg_cum_tmp6 - term_row + term_col
     return dq_c, dg_cum_out, dk_c, dv_c, db_c
 
 
@@ -871,9 +881,9 @@ def pypto_bsnd_gated_delta_rule_bwd(
     # -------------------------------------------------------------
     @pypto.frontend.jit(
         runtime_options={"run_mode": mode,
-        "stitch_function_inner_memory": 1024,
+        "stitch_function_inner_memory": 896,
         "stitch_function_num_initial": 128,
-        "stitch_function_outcast_memory": 1024,
+        "stitch_function_outcast_memory": 896,
         "device_sched_mode": 1
         },
         debug_options={"runtime_debug_mode": 1}
@@ -888,6 +898,7 @@ def pypto_bsnd_gated_delta_rule_bwd(
             M_lt_in: pypto.Tensor((l,l), pypto.DT_FP32), 
             C_cum_in_3d: pypto.Tensor((1,l,l), pypto.DT_FP32),
             C_rcum_in: pypto.Tensor((l,l), pypto.DT_FP32),
+            ones_1l: pypto.Tensor((1,l), pypto.DT_FP32),
             A_cache: pypto.Tensor((batch*nv*chunks, l, l), pypto.DT_FP32),
             w_cache: pypto.Tensor((batch*nv*chunks, l, dim), pypto.DT_FP32),
             v_new_cache: pypto.Tensor((batch*nv*chunks, l, dim), pypto.DT_FP32),
@@ -917,10 +928,10 @@ def pypto_bsnd_gated_delta_rule_bwd(
         # -------------------------------------------------------------
         dq_out = pypto.tensor((batch, dyn_seq, nqk, dim), pypto.DT_FP32)
         dk_out = pypto.tensor((batch, dyn_seq, nqk, dim), pypto.DT_FP32)
-        dv_out =  pypto.Tensor((batch, dyn_seq, nv, dim), pypto.DT_FP32)
-        db_out = pypto.Tensor((batch, dyn_seq, nv), pypto.DT_FP32)
-        dg_raw_out = pypto.Tensor((batch, dyn_seq, nv), pypto.DT_FP32)
-        dh0_out = pypto.Tensor((batch, nv, dim, dim), pypto.DT_FP32)
+        dv_out = pypto.tensor((batch, dyn_seq, nv, dim), pypto.DT_FP32)
+        db_out = pypto.tensor((batch, dyn_seq, nv), pypto.DT_FP32)
+        dg_raw_out = pypto.tensor((batch, dyn_seq, nv), pypto.DT_FP32)
+        dh0_out = pypto.tensor((batch, nv, dim, dim), pypto.DT_FP32)
 
         # F5: single pre-allocated recurrence buffer (no full-tensor copy to avoid DDR error).
         dS_buffer = pypto.tensor((batch, nv, dim, dim), pypto.DT_FP32)
@@ -935,7 +946,7 @@ def pypto_bsnd_gated_delta_rule_bwd(
                 dS_2d = pypto.reshape(pypto.view(dS_buffer, [1, 1, dim, dim], [b_idx, nv_idx, 0, 0]), [dim, dim])
                 dht_slice = pypto.reshape(pypto.view(dht_in, [1, 1, dim, dim], [b_idx, nv_idx, 0, 0]), [dim, dim])
                 dS_2d[:] = dht_slice
-                for inv_s_idx in pypto.loop(0, dyn_seq, l, name="LOOP_S_REVERSE_BSND", idx_name="i_idx"):
+                for inv_s_idx in pypto.loop(0, dyn_seq, l, name="LOOP_S_REVERSE_BSND", idx_name="i_idx", unroll_list=[16, 1]):
                     s_idx = dyn_seq - inv_s_idx - l
                     rev_idx = s_idx // l
                     actual_L = (dyn_seq - s_idx).min(l)
@@ -978,7 +989,7 @@ def pypto_bsnd_gated_delta_rule_bwd(
                     dq_c, dg_cum_out, dk_c, dv_c, db_c = pypto_fused_56_qkg_and_wy_repr(
                         qc, kc, v_new_view_2d, doc, g_cum_2d, gl_exp_1, s_tok, dS_2d, S_before_view_2d,
                         qk, M_le_in, scale_scalar, dv_total,
-                        vc, betac, A_view_2d, M_lt_in, decay_2d, kkt
+                        vc, betac, A_view_2d, M_lt_in, decay_2d, kkt, ones_1l
                     )
 
                     # -----------------------------------------
@@ -1008,7 +1019,7 @@ def pypto_bsnd_gated_delta_rule_bwd(
 def pypto_function(
     q, v, g_raw, beta, do, dht,
     cache,
-    M_le, M_lt, C_cum, C_rcum,
+    M_le, M_lt, C_cum, C_rcum, ones_1l,
     act_seq_len,
     run_mode='npu'
     ):
@@ -1033,7 +1044,7 @@ def pypto_function(
     use_qk_l2norm_in_kernel_cache =  torch.tensor([cache['use_qk_l2norm_in_kernel']], dtype=torch.int).to(device)
 
     input_tensors = [
-        v, g_raw, beta, do, dht, M_le, M_lt, C_cum, C_rcum,
+        v, g_raw, beta, do, dht, M_le, M_lt, C_cum, C_rcum, ones_1l,
         A_cache, w_cache, v_new_cache, S_before_cache, 
         q_norm_cache, k_norm_cache, q_rstd_cache, k_rstd_cache, 
         use_qk_l2norm_in_kernel_cache
@@ -1076,7 +1087,7 @@ def main():
     initial_state = (torch.randn(B, Nv, D, D, device=device, dtype=dtype) * 0.01).requires_grad_(True)
 
     # constants (provided as inputs to ref impls)
-    I, M_le, M_lt, C_cum, C_rcum = make_chunk_constants(BT, device=device, dtype=torch.float32)
+    I, M_le, M_lt, C_cum, C_rcum, ones_1l = make_chunk_constants(BT, device=device, dtype=torch.float32)
 
 
     # input BSND
@@ -1151,7 +1162,7 @@ def main():
             g_raw=gate_for_pypto.detach(), beta=beta_for_pypto.detach(),
             do=do_for_pypto.detach(), dht=dht_bsnd.detach(),
             cache=cache_for_pypto,
-            M_le=M_le, M_lt=M_lt, C_cum=C_cum_3d, C_rcum=C_rcum,
+            M_le=M_le, M_lt=M_lt, C_cum=C_cum_3d, C_rcum=C_rcum, ones_1l=ones_1l,
             act_seq_len=act_seq_len,
             run_mode=run_mode
         )
