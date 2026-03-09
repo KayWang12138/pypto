@@ -67,4 +67,26 @@ void CheckStringExist(const std::string &target, const std::string &content) {
     EXPECT_TRUE(res) << "target: \n" << target << "\n\n ---- not found in content ---- \n\n" << content << std::endl;
 }
 
+std::shared_ptr<LogicalTensor> CreateConvTensor(Function &function, const DataType &dtype,
+    const std::vector<int64_t> &shape, const MemoryType &memType) {
+    std::shared_ptr<LogicalTensor> tensorPtr = nullptr;
+    if (memType == MemoryType::MEM_DEVICE_DDR) {
+        tensorPtr = std::make_shared<LogicalTensor>(function, dtype, shape, SymbolicScalar::FromConcrete(shape),
+                                            `       TileOpFormat::TILEOP_ND, "gmTensor", NodeType::INCAST);
+        tensorPtr->UpdateDynValidShape(SymbolicScalar::FromConcrete(shape));
+    } else {
+        tensorPtr = std::make_shared<LogicalTensor>(*function, dtype, shape, SymbolicScalar::FromConcrete(shape),
+                                                    TileOpFormat::TILEOP_NZ, "L1Tensor", NodeType::LOCAL);
+        tensorPtr->UpdateDynValidShape(SymbolicScalar::FromConcrete(shape));
+        tensorPtr->UpdateSubgraphID(0);
+        tensorPtr->SetAttr(OpAttributeKey::needAlloc, true);
+        tensorPtr->memoryrange.memId = 0;
+        tensorPtr->memoryrange.start = 0;
+        tensorPtr->memoryrange.end = 0;
+    }
+    tensorPtr->SetMemoryTypeOriginal(memType);
+    tensorPtr->SetMemoryTypeToBe(memType);
+    return tensorPtr;
+}
+
 } // namespace npu::tile_fwk

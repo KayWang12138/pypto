@@ -62,7 +62,8 @@ std::shared_ptr<LogicalTensor> CreateLogicalTensor(const LogicalTensorInfo &info
 std::string GetResultFromCpp(const Function &function);
 
 void CheckStringExist(const std::string &expect, const std::string &result);
-
+std::shared_ptr<LogicalTensor> CreateConvTensor(Function &function, const DataType &dtype,
+    const std::vector<int64_t> &shape, const MemoryType &memType);
 } // namespace npu::tile_fwk
 
 #endif // TEST_CODEGEN_UTILS_H
