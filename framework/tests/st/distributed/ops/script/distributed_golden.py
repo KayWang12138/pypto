@@ -27,11 +27,6 @@ if str(scripts_path) not in sys.path:
     sys.path.append(str(scripts_path))
 from golden_register import GoldenRegister
 
-helper_path: Path = Path(scripts_path, 'helper')
-if str(helper_path) not in sys.path:
-    sys.path.append(str(helper_path))
-from test_case_loader import TestCaseLoader
-
 
 np.random.seed(0)
 torch.manual_seed(0)
