@@ -28,32 +28,31 @@ void TiledPadImpl(Function &function, const TileShape &tileShape, size_t cur, Pa
     const LogicalTensorPtr &result, TileInfo &resultTileInfo, int64_t padRight, int64_t padBottom,
     const Element &padValue) {
     size_t ndim = result->shape.size();
-
+    auto &vecTile = tileShape.GetVecTile();
     if (cur == ndim) {
-        auto lastShape = input.tileInfo..GetShape()[ndim - 1];
+        auto lastShape = input.tileInfo.shape[ndim - 1];
         auto lastOffset = input.tileInfo.offset[ndim - 1];
-        auto preShape = input.tileInfo..GetShape()[ndim - 2];
+        auto preShape = input.tileInfo.shape[ndim - 2];
         auto preOffset = input.tileInfo.offset[ndim - 2];
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         if (lastShape < 0 || preShape < 0) {
             auto &op = function.AddOperation("TILE_VEC_DUP", {}, {resultTile});
-            op.SetAttribute(OpAttributeKey::scalar, value);
-        } else if (lastOffset + tileShape[ndim - 1] > lastShape || preOffset + tileShape[ndim - 2] > preShape) {
-            auto inputTile = input.tensor->View(function, viewShape, input.tileInfo.offset);
+            op.SetAttribute(OpAttributeKey::scalar, padValue);
+        } else if (lastOffset + vecTile[ndim - 1] > lastShape || preOffset + vecTile[ndim - 2] > preShape) {
+            auto inputTile = input.tensor->View(function, input.tileInfo.shape, input.tileInfo.offset);
             auto &op = function.AddOperation(Opcode::OP_PAD, {inputTile}, {resultTile});
-            padRight = lastOffset + tileShape[ndim - 1] > lastShape ? lastOffset + tileShape[ndim - 1] - lastShape : 0;
-            padBottom = preOffset + tileShape[ndim - 2] > preShape ? preOffset + tileShape[ndim - 2] - preShape : 0;
+            padRight = lastOffset + vecTile[ndim - 1] > lastShape ? lastOffset + vecTile[ndim - 1] - lastShape : 0;
+            padBottom = preOffset + vecTile[ndim - 2] > preShape ? preOffset + vecTile[ndim - 2] - preShape : 0;
             op.SetAttribute(OpAttributeKey::scalar, padValue);
             op.SetAttribute(OP_ATTR_PREFIX + "pad_right", padRight);
             op.SetAttribute(OP_ATTR_PREFIX + "pad_bottom", padBottom);
         } else {
-            auto inputTile = input.tensor->View(function, viewShape, input.tileInfo.offset);
+            auto inputTile = input.tensor->View(function, input.tileInfo.shape, input.tileInfo.offset);
             function.AddOperation(Opcode::OP_REGISTER_COPY, {inputTile}, {resultTile});
         }
         return;
     }
 
-    auto &vecTile = tileShape.GetVecTile();
     for (int64_t i = 0; i < result->shape[cur]; i += vecTile[cur]) {
         resultTileInfo.offset[cur] = i;
         resultTileInfo.shape[cur] = std::min(result->shape[cur] - i, vecTile[cur]);
