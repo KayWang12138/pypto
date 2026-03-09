@@ -88,27 +88,9 @@ Status InferMemoryConflict::RunOnFunction(Function &function) {
             outOp->UpdateTileShape(viewTypeTile);
         }
     }
-    for (auto &op : function.Operations()) {
-        auto opcode = op.GetOpcode();
-        if(opcode != Opcode::OP_VIEW) {
-            //跳过非view的op
-            continue;
-        }
-        auto consumers = op.oOperand.front()->GetConsumers();
-        //获取view级联的assemble消费者
-        for (const auto &consumer : consumers) {
-            if (consumer->GetOpcode() != Opcode::OP_ASSEMBLE) {
-                //跳过不是assemble的消费者
-                continue;
-            }
-            LogicalTensorPtr inputTensor = consumer->GetIOperands().front();
-            std::shared_ptr<RawTensor> newRawTensor = std::make_shared<RawTensor>(inputTensor->Datatype(), inputTensor->GetShape());
-            Offset newOffset(inputTensor->GetShape().size(), 0);
-            LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(function, newRawTensor, newOffset, inputTensor->GetShape(), inputTensor->GetDynValidShape());
-            inputTensor->RemoveConsumer(consumer);
-            function.AddRawOperation(Opcode::OP_REGISTER_COPY, {inputTensor}, {newTensor});
-            consumer->ReplaceOutput(newTensor, inputTensor);
-        }
+    if (InsertCopysForViewAssemble(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "InsertCopysForViewAssemble failed.");
+        return FAILED;
     }
     DeadOperationEliminator::EliminateDeadOperation(function);
     APASS_LOG_INFO_F(Elements::Operation, "End InferMemoryConflict for function [%s].", function.GetRawName().c_str());
@@ -514,6 +496,32 @@ Status InferMemoryConflict::InsertCopys(Function &function) {
         APASS_LOG_ERROR_F(Elements::Operation, "InsertPostCopys failed.");
         return FAILED;
     }
+    return SUCCESS;
+}
+
+Status InferMemoryConflict::InsertCopysForViewAssemble(Function &function) {
+    for (auto &op : function.Operations()) {
+ 	    auto opcode = op.GetOpcode();
+ 	    if(opcode != Opcode::OP_VIEW) {
+ 	        //跳过非view的op
+ 	        continue;
+ 	    }
+ 	    auto consumers = op.oOperand.front()->GetConsumers();
+ 	        //获取view级联的assemble消费者
+        for (const auto &consumer : consumers) {
+            if (consumer->GetOpcode() != Opcode::OP_ASSEMBLE) {
+                //跳过不是assemble的消费者
+                continue;
+            }
+            LogicalTensorPtr inputTensor = consumer->GetIOperands().front();
+            std::shared_ptr<RawTensor> newRawTensor = std::make_shared<RawTensor>(inputTensor->Datatype(), inputTensor->GetShape());
+            Offset newOffset(inputTensor->GetShape().size(), 0);
+            LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(function, newRawTensor, newOffset, inputTensor->GetShape(), inputTensor->GetDynValidShape());
+            inputTensor->RemoveConsumer(consumer);
+            function.AddRawOperation(Opcode::OP_REGISTER_COPY, {inputTensor}, {newTensor});
+            consumer->ReplaceOutput(newTensor, inputTensor);
+        }
+ 	}
     return SUCCESS;
 }
 
