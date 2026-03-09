@@ -215,3 +215,54 @@ def test_bmm_with_mn_split():
         shape_info
     )
     assert torch.allclose(c1_tensor.cpu().to(torch.float32), golden.cpu().to(torch.float32), atol=1e-3, rtol=1e-3)
+
+
+def fp32_to_tf32_modes(tensor: torch.Tensor):
+    if tensor.dtype != torch.float32:
+        tensor = tensor.to(torch.float32)
+    
+    sign = torch.sign(tensor)
+    abs_tensor = torch.abs(tensor)
+    bits = abs_tensor.view(torch.int32)
+    truncate_mask = 0xFFFFE000
+    half_ulp_mask = 0x00001000
+    less_than_half_mask = 0x00000FFF
+    increment_mask = 0x00002000
+    last_bit_mask = 0x00002000
+    tensor_trunc = torch.tensor(truncate_mask, dtype=torch.int64)
+    tensor_half = torch.tensor(half_ulp_mask, dtype=torch.int64)
+    tensor_less = torch.tensor(less_than_half_mask, dtype=torch.int64)
+    tensor_inc = torch.tensor(increment_mask, dtype=torch.int64)
+    tensor_last = torch.tensor(last_bit_mask, dtype=torch.int64)
+    truncated = bits & tensor_trunc
+    round_part = bits & (tensor_half | tensor_less)
+    greater_than_half = (round_part > tensor_half)
+    equal_to_half = (round_part == tensor_half)
+    last_bit_is_one = (truncated & tensor_last) != 0
+    ties_need_increment = equal_to_half & last_bit_is_one
+    needs_increment_rne = greater_than_half | ties_need_increment
+    res_bits_rne = torch.where(needs_increment_rne, truncated + tensor_inc, truncated)
+    needs_increment_rafz = (round_part >= tensor_half)
+    res_bits_rafz = torch.where(needs_increment_rafz, truncated + tensor_inc, truncated)
+    res_abs_rne = res_bits_rne.view(torch.float32)
+    res_abs_rafz = res_bits_rafz.view(torch.float32)
+    is_special = ~torch.isfinite(x)
+    res_rne = sign * res_abs_rne
+    res_rafz = sign * res_abs_rafz
+    res_rne = torch.where(is_special, tensor, res_rne)
+    res_rafz = torch.where(is_special, tensor, res_rafz)
+    diff = (res_rafz[0][0] - res_rne[0][0]).item()
+
+    return res_rne, res_rafz
+
+
+def test_tf32_rint():
+    m = 255
+    k = 127
+    n = 513
+    tile_m = 64
+    tile_k = 64
+    tile_n = 64
+    m_view = 128
+    n_view = 256
+    tile_config = ShapeConfig([m, k, n], [tile_m, tile_m], [tile_k, tile_k])
