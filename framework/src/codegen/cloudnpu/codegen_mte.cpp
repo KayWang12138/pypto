@@ -75,7 +75,7 @@ std::string CodeGenOpCloudNPU::GenMemCopyCube(bool isLocalToGM, unsigned uf) con
     return GenMemCopyVar(isLocalToGM, isSpillToGm, uf);
 }
 
-std::string CodeGenOpCloudNPU::GenMemL1SpillToGM(bool isLocalToGM, unsigned int uf) const {
+std::string CodeGenOpCloudNPU::GenMemL1SpillToGM(bool isLocalToGM, unsigned uf) const {
     unsigned gmIdx = isLocalToGM ? 0 : 1;
     unsigned l1Idx = isLocalToGM ? 1 : 0;
     DataType gmDtype = operandDtype[gmIdx];
@@ -140,11 +140,7 @@ std::string CodeGenOpCloudNPU::GenL0CToUBTileTensor() const {
     std::string coordCp = WrapParamByParentheses(offset[ToUnderlying(MISOIdx::SRC0_IDX)]);
     // e.g. Coord4Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
     std::string coord = PrintCoord(rawShape[ToUnderlying(MISOIdx::SRC0_IDX)].size(), coordCp);
-    int64_t copyInMode = 1;
-    if (opAttrs.count(OP_ATTR_PREFIX + "is_nz")) {
-        copyInMode = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "is_nz"));
-    }
-    std::string nzVar = copyInMode ? "CopyOutMode::NZ2ND" : "CopyOutMode::NZ2NZ";
+    std::string nzVar = "CopyOutMode::NZ2ND"; // current only support NZ2ND in L0C -> UB
     std::ostringstream oss;
     int64_t aivId = 0;
     GetAttr(OpAttributeKey::subBlockIdx, aivId);
@@ -705,7 +701,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CTileTensor(const PrintMemCopyW
     int64_t isAcc = 0;
     auto [outerValueStr, innerValueStr] = GetOuterInnerValueStr(param.gmIdx, param.gmShape);
     GetAttr(OP_ATTR_PREFIX + "atomic_add", isAcc);
-    GetAttr("op_attr_is_nz", nzValue);
+    GetAttr(OpAttributeKey::copyIsNZ, nzValue);
     std::string nzVar = nzValue ? "CopyOutMode::NZ2NZ" : "CopyOutMode::NZ2ND";
     std::vector<std::string> storeConfigList = {nzVar, std::to_string(isAcc), std::to_string(reluMode)};
     std::string storeConfig = WrapParamByAngleBrackets(storeConfigList);
@@ -796,7 +792,7 @@ std::string CodeGenOpCloudNPU::PrintL0CCopyOutDynamicUnalign(const PrintMemCopyW
     if (ret) {
         paramList.emplace_back(std::to_string(isAcc));
     }
-    ret = GetAttr("op_attr_is_nz", nzValue);
+    ret = GetAttr(OpAttributeKey::copyIsNZ, nzValue);
     if (ret && nzValue == 1) {
         paramList.emplace_back("false");
     } else {
@@ -916,34 +912,21 @@ std::string CodeGenOpCloudNPU::PrintMemCopyInWithL1TileTensor(const PrintMemCopy
         tileOpParamList.insert(tileOpParamList.end(), {outerValueStr, innerValueStr});
     }
     int64_t copyInMode = -1;
-    std::string cpModeStr = "";
-    if (opAttrs.count(OP_ATTR_PREFIX + "copy_in_mode")) {
-        copyInMode = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "copy_in_mode"));
+    if (opAttrs.count(OpAttributeKey::copyInMode)) {
+        copyInMode = AnyCast<int64_t>(opAttrs.at(OpAttributeKey::copyInMode));
     }
-    CopyInMode copyMode = static_cast<CopyInMode>(copyInMode);
-
+    auto cpMode = static_cast<Matrix::CopyInMode>(copyInMode);
     int64_t nzValue = 0;
-    auto ret = GetAttr(OP_ATTR_PREFIX + "is_nz", nzValue);
-    if (copyMode == CopyInMode::COPY_MOD_ND2ND) {
-        cpModeStr = "CopyInMode::ND2ND";
-    } else if (copyMode == CopyInMode::COPY_MOD_DN2NZ) {
-        cpModeStr = "CopyInMode::DN2NZ";
-    } else if (copyMode == CopyInMode::COPY_MOD_NZ2NZ) {
-        cpModeStr = "CopyInMode::NZ2NZ";
-    } else if (ret && nzValue) {
-        cpModeStr = "CopyInMode::NZ2NZ";
-    } else {
-        cpModeStr = "CopyInMode::ND2NZ";
+    auto ret = GetAttr(OpAttributeKey::copyIsNZ, nzValue);
+    if (ret && nzValue) {
+        cpMode = Matrix::CopyInMode::NZ2NZ;
     }
+    std::string cpModeStr = CopyInModeToString(cpMode);
+
     int64_t paddingMode = 0;
-    std::string padModStr = "";
     GetAttr(OP_ATTR_PREFIX + "copy_in_l1_padding_mode", paddingMode);
-    switch (static_cast<PadMod>(paddingMode)) {
-        case PadMod::NO_PADDING: padModStr = "PaddingMode::NO_PADDING"; break;
-        case PadMod::PADDING_OUTER: padModStr = "PaddingMode::PADDING_OUTER"; break;
-        case PadMod::PADDING_INNER: padModStr = "PaddingMode::PADDING_INNER"; break;
-        default: padModStr = "PaddingMode::NO_PADDING"; break;
-    }
+    std::string padModStr = PaddingModeToString(static_cast<Matrix::PaddingMode>(paddingMode));
+
     std::ostringstream oss;
     if (opCode == Opcode::OP_L1_COPY_IN_A_SCALE || opCode == Opcode::OP_L1_COPY_IN_B_SCALE) {
         oss << tileOpName << WrapParamByAngleBrackets({cpModeStr}) << WrapParamByParentheses(tileOpParamList)
@@ -960,8 +943,13 @@ std::string CodeGenOpCloudNPU::PrintMemCopyOutWithL1TileTensor(const PrintMemCop
     std::vector<std::string> tileOpParamList =
         GeTileOpParamForNormalCopyTileTensor(param.gmIdx, param.addrExpr[param.gmIdx], param.isSpillingToGM);
 
-    std::string nd2nd = "CopyOutMode::ND2ND";
-    std::vector<std::string> storeConfigList = {nd2nd, "0", "0"};
+    int64_t copyOutMode = -1;
+    if (opAttrs.count(OpAttributeKey::copyOutMode)) {
+        copyOutMode = AnyCast<int64_t>(opAttrs.at(OpAttributeKey::copyOutMode));
+    }
+    auto cpMode = static_cast<Matrix::CopyOutMode>(copyOutMode);
+    std::string cpModeStr = CopyOutModeToString(cpMode);
+    std::vector<std::string> storeConfigList = {cpModeStr, "0", "0"};
     std::string storeConfig = WrapParamByAngleBrackets(storeConfigList);
 
     std::ostringstream oss;
@@ -1006,7 +994,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Static(const PrintMemCopyWithL1
     int printRet = sprintf_s(addrBuffer, BUFFER_SIZE_1024, "%s", addrExpr[ID1].c_str());
     ASSERT(printRet >= 0) << "sprintf_s failed in PrintMemCopyWithL1Static, return value:" << printRet;
     int64_t nzValue = 0;
-    auto ret = GetAttr("op_attr_is_nz", nzValue);
+    auto ret = GetAttr(OpAttributeKey::copyIsNZ, nzValue);
     if (ret && nzValue == 1) {
         opName = "TileOp::L1CopyInNZ2NZ";
         std::string curAddrBuffer =
@@ -1060,7 +1048,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL
     std::string addrBuffer = addrExpr[ID1];
 
     int64_t nzValue = 0;
-    auto ret = GetAttr(OP_ATTR_PREFIX + "is_nz", nzValue);
+    auto ret = GetAttr(OpAttributeKey::copyIsNZ, nzValue);
     if (ret && nzValue == 1) {
         opName = tileOpName + "NZ2NZ";
         auto [outerValueStr, innerValueStr] = GetOuterInnerValueStr(gmIdx, param.gmShape);
@@ -1747,19 +1735,11 @@ std::string CodeGenOpCloudNPU::GenGatherInUB() const {
 
 std::string CodeGenOpCloudNPU::GetConvCopyInMode() const {
     int64_t copyInMode = -1;
-    std::string copyInModeStr = "";
-    auto ret = GetAttr(Conv::LoadStoreConvOpAttributeKey::copyInMode, copyInMode);
-    ASSERT(ret) << "GenMemL1CopyInConv get CopyInMode failed";
-
-    if (copyInMode == ToUnderlying(CopyInMode::COPY_MOD_ND2NZ)) {
-        copyInModeStr = "CopyInMode::ND2NZ";
-    } else if (copyInMode == ToUnderlying(CopyInMode::COPY_MOD_NZ2NZ)) {
-        copyInModeStr = "CopyInMode::NZ2NZ";
-    } else if (copyInMode == ToUnderlying(CopyInMode::COPY_MOD_DN2NZ)) {
-        copyInModeStr = "CopyInMode::DN2NZ";
-    } else {
-        ASSERT(false) << "GenMemL1CopyInConv check CopyInMode failed";
-    }
+    GetAttr(Conv::LoadStoreConvOpAttributeKey::copyInMode, copyInMode);
+    ASSERT(
+        copyInMode >= ToUnderlying(Matrix::CopyInMode::ND2NZ) && copyInMode <= ToUnderlying(Matrix::CopyInMode::DN2NZ))
+        << "GenMemL1CopyInConv CopyInMode is invalid: " << copyInMode;
+    std::string copyInModeStr = CopyInModeToString(static_cast<Matrix::CopyInMode>(copyInMode));
     return copyInModeStr;
 }
 
@@ -1802,10 +1782,9 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
         srcShapeW = srcShape[ID3];
     }
 
-    std::vector<std::string> tileOpParamList = 
-        {dstTensor, srcTensor, std::to_string(offsetN), std::to_string(offsetC), std::to_string(offsetD),
-        std::to_string(offsetH), std::to_string(offsetW), std::to_string(srcShapeN), std::to_string(srcShapeC),
-        std::to_string(srcShapeD), std::to_string(srcShapeH), std::to_string(srcShapeW)};
+    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, std::to_string(offsetN), std::to_string(offsetC),
+        std::to_string(offsetD), std::to_string(offsetH), std::to_string(offsetW), std::to_string(srcShapeN),
+        std::to_string(srcShapeC), std::to_string(srcShapeD), std::to_string(srcShapeH), std::to_string(srcShapeW)};
 
     std::ostringstream oss;
     oss << tileOpName;
@@ -1814,23 +1793,22 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
     return oss.str();
 }
 
+std::string CodeGenOpCloudNPU::GetConvCopyOutMode() const {
+    int64_t copyOutMode = -1;
+    GetAttr(Conv::LoadStoreConvOpAttributeKey::copyOutMode, copyOutMode);
+    ASSERT(copyOutMode == ToUnderlying(Matrix::CopyOutMode::NZ2ND) ||
+           copyOutMode == ToUnderlying(Matrix::CopyOutMode::NZ2NZ) ||
+           copyOutMode == ToUnderlying(Matrix::CopyOutMode::NZ2DN))
+        << "GenMemL1CopyOutConv CopyOutMode is invalid: " << copyOutMode;
+    std::string copyOutModeStr = CopyOutModeToString(static_cast<Matrix::CopyOutMode>(copyOutMode));
+    return copyOutModeStr;
+}
+
 std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const {
     std::string gmVarName = GenGmParamVar(ToUnderlying(MISOIdx::DST_IDX));
     std::string dstTensor = sm->QueryTileTensorByBufVarName(gmVarName);
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
-    int64_t copyOutMode = -1;
-    std::string copyOutModeStr = "";
-    auto ret = GetAttr(Conv::LoadStoreConvOpAttributeKey::copyOutMode, copyOutMode);
-    ASSERT(ret) << "Get CopyOutMode failed";
-    if (copyOutMode == ToUnderlying(CopyOutMode::COPY_MOD_NZ2ND)) {
-        copyOutModeStr = "CopyOutMode::NZ2ND";
-    } else if (copyOutMode == ToUnderlying(CopyOutMode::COPY_MOD_NZ2NZ)) {
-        copyOutModeStr = "CopyOutMode::NZ2NZ";
-    } else if (copyOutMode == ToUnderlying(CopyOutMode::COPY_MOD_NZ2DN)) {
-        copyOutModeStr = "CopyOutMode::NZ2DN";
-    } else {
-        ASSERT(false) << "Check CopyOutMode failed";
-    }
+    std::string copyOutModeStr = GetConvCopyOutMode();
 
     bool isConv3D = false;
     int64_t realM = 0, realN = 0;
@@ -1889,16 +1867,16 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
     GetAttr(Conv::L12L0ConvOpAttributeKey::paddingBottom, padBottom);
     GetAttr(Conv::L12L0ConvOpAttributeKey::padValue, padValue);
     paramList.emplace_back(padLeft);
-    paramList.emplace_back(padRight);  
+    paramList.emplace_back(padRight);
     paramList.emplace_back(padTop);
-    paramList.emplace_back(padBottom);  
+    paramList.emplace_back(padBottom);
     paramList.emplace_back(padValue);
 
     int64_t filterH = 0, filterW = 0;
     GetAttr(Conv::L12L0ConvOpAttributeKey::filterH, filterH);
     GetAttr(Conv::L12L0ConvOpAttributeKey::filterW, filterW);
     paramList.emplace_back(filterH);
-    paramList.emplace_back(filterW);  
+    paramList.emplace_back(filterW);
 
     int64_t dilationH = 0, dilationW = 0;
     GetAttr(Conv::L12L0ConvOpAttributeKey::dilationH, dilationH);
@@ -1937,8 +1915,8 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load2D() const {
     int64_t kPos = 0, nPos = 0;
     GetAttr(Conv::L12L0ConvOpAttributeKey::postK, kPos);
     GetAttr(Conv::L12L0ConvOpAttributeKey::postN, nPos);
-    paramList.emplace_back(kPos);  
-    paramList.emplace_back(nPos);    
+    paramList.emplace_back(kPos);
+    paramList.emplace_back(nPos);
 
     std::vector<int64_t> weightL1Shape = this->rawShape[ID1];
     ALOG_INFO_F("GenMemL1ToL0Load2D %s, weightL1Shape is %s", tileOpName.c_str(), IntVecToStr(weightL1Shape).c_str());
@@ -1951,7 +1929,7 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load2D() const {
     std::string tiloOpCallParam = JoinString(paramList, ", ");
 
     std::ostringstream oss;
-    oss << tileOpName.c_str() <<  "(" << tiloOpCallParam << ");\n";
+    oss << tileOpName.c_str() << "(" << tiloOpCallParam << ");\n";
     return oss.str();
 }
 } // namespace npu::tile_fwk
