@@ -527,7 +527,7 @@ Status InferMemoryConflict::InsertCopysForViewAssemble(Function &function) {
             LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(function, newRawTensor, newOffset, inputTensor->GetShape(), inputTensor->GetDynValidShape());
             inputTensor->RemoveConsumer(consumer);
             function.AddRawOperation(Opcode::OP_REGISTER_COPY, {inputTensor}, {newTensor});
-            consumer->ReplaceOutput(newTensor, inputTensor);
+            consumer->ReplaceInput(newTensor, inputTensor);
         }
  	}
     return SUCCESS;
