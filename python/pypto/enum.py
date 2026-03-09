@@ -27,6 +27,7 @@ CastMode = pypto_impl.CastMode
 OpType = pypto_impl.OpType
 OutType = pypto_impl.OutType
 ReLuType = pypto_impl.ReLuType
+TransMode = pypto_impl.TransMode
 ScatterMode = pypto_impl.ScatterMode
 AtomicType = pypto_impl.AtomicType
 
