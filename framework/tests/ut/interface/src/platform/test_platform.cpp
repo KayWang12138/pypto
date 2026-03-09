@@ -59,7 +59,8 @@ TEST_F(TestPlatform, TestParser) {
     const size_t expectubSize = 253952UL;
 
     INIParser parser;
-    EXPECT_TRUE(parser.Initialize(INI_PATH));
+    std::string iniPath = RealPath(GetCurrentSharedLibPath() + INI_PATH);
+    EXPECT_TRUE(parser.Initialize(iniPath));
 
     std::string socVersion;
     EXPECT_TRUE(parser.GetStringVal(version, shortSocVer, socVersion));
@@ -135,7 +136,8 @@ TEST_F(TestPlatform, AbnormalTest) {
     EXPECT_FALSE(parser.GetCCECVersion(ccecVersion));
     EXPECT_FALSE(parser.GetCoreVersion(ccecVersion));
 
-    EXPECT_TRUE(parser.Initialize(INI_PATH));
+    std::string iniPath = RealPath(GetCurrentSharedLibPath() + INI_PATH);
+    EXPECT_TRUE(parser.Initialize(iniPath));
 
     std::string test;
     EXPECT_FALSE(parser.GetStringVal("none", "", test));
