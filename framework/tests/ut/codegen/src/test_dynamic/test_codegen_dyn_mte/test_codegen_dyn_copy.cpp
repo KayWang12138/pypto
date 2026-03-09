@@ -654,4 +654,128 @@ TEST_F(TestCodegenDynCopy, L0CToL1) {
     EXPECT_EQ(res, expect);
 }
 
+std::tuple<Function *, std::vector<int64_t>> SetupConvFunction(
+    const std::string &funcName, const std::vector<int64_t> &l0Shape) {
+    Tensor inputA(DT_FP32, l0Shape, "A");
+    Tensor inputB(DT_FP32, l0Shape, "B");
+    Tensor output(DT_FP32, l0Shape, "C");
+
+    FUNCTION(funcName, {inputA, inputB, output}) {
+        output = Add(inputA, inputB);
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    function->SetUnderDynamicFunction(true);
+    return std::make_tuple(function, l0Shape);
+}
+
+void SetConvLoad3DAttributes(Operation &op) {
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::postM, (int64_t)0);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::postK, (int64_t)0);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::paddingLeft, (int64_t)0);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::paddingRight, (int64_t)0);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::paddingTop, (int64_t)0);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::paddingBottom, (int64_t)0);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::padValue, (int64_t)0);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::filterH, (int64_t)1);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::filterW, (int64_t)1);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::dilationH, (int64_t)1);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::dilationW, (int64_t)1);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::strideH, (int64_t)1);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::strideW, (int64_t)1);
+    op.SetAttribute(Conv::LoadStoreConvOpAttributeKey::isConv3D, false);
+}
+
+std::string TestConvLoad3DBody() {
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
+
+    std::vector<int64_t> l0Shape = {64, 64};
+    std::vector<int64_t> l1Shape = {16, 64, 64, 16};
+    auto shapeImme = OpImmediate::Specified(l0Shape);
+    TileShape::Current().SetVecTile(l0Shape);
+    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
+
+    std::string funcName = "ConvLoad3D";
+
+    auto [function, unusedShape] = SetupConvFunction(funcName, l1Shape);
+
+    const std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    auto l1Tensor = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L1, l1Shape, dynValidShape});
+    auto l0Tensor = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L0A, l0Shape, dynValidShape});
+
+    std::vector<int64_t> offset = {0, 0};
+    std::vector<SymbolicScalar> dynoffset = {0, 0};
+    l1Tensor->UpdateOffset(TensorOffset(offset, dynoffset));
+
+    auto &op = function->AddOperation(Opcode::OP_LOAD3D_CONV, {l1Tensor}, {l0Tensor});
+    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    SetConvLoad3DAttributes(op);
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop({symbolManager, *function, *function->rootFunc_->programs_[0], op, {}});
+    function->GetTensorMap().inverseMap_[l1Tensor->GetMagic()] = l1Tensor;
+    function->GetTensorMap().inverseMap_[l0Tensor->GetMagic()] = l0Tensor;
+
+    return cop.GenOpCode();
+}
+
+TEST_F(TestCodegenDynCopy, Load3DConv) {
+    std::string res = TestConvLoad3DBody();
+    std::string expect = R"!!!(TLoad3D<0>(l0aTensor_10, l1Tensor_11, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1);
+)!!!";
+    EXPECT_EQ(res, expect);
+}
+
+void SetConvLoad2DAttributes(Operation &op) {
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::postK, (int64_t)0);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::postN, (int64_t)0);
+}
+
+std::string TestConvLoad2DBody() {
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
+
+    std::vector<int64_t> l0Shape = {64, 64};
+    std::vector<int64_t> l1Shape = {16, 16, 1, 1};
+    auto shapeImme = OpImmediate::Specified(l0Shape);
+    TileShape::Current().SetVecTile(l0Shape);
+    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
+
+    std::string funcName = "ConvLoad2D";
+
+    auto [function, unusedShape] = SetupConvFunction(funcName, l1Shape);
+
+    const std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    auto l1Tensor = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L1, l1Shape, dynValidShape});
+    auto l0Tensor = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L0B, l0Shape, dynValidShape});
+
+    std::vector<int64_t> offset = {0, 0};
+    std::vector<SymbolicScalar> dynoffset = {0, 0};
+    l1Tensor->UpdateOffset(TensorOffset(offset, dynoffset));
+
+    auto &op = function->AddOperation(Opcode::OP_LOAD2D_CONV, {l1Tensor}, {l0Tensor});
+    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    SetConvLoad2DAttributes(op);
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop({symbolManager, *function, *function->rootFunc_->programs_[0], op, {}});
+    function->GetTensorMap().inverseMap_[l1Tensor->GetMagic()] = l1Tensor;
+    function->GetTensorMap().inverseMap_[l0Tensor->GetMagic()] = l0Tensor;
+
+    return cop.GenOpCode();
+}
+
+TEST_F(TestCodegenDynCopy, Load2DConv) {
+    std::string res = TestConvLoad2DBody();
+    std::string expect = R"!!!(TLoad2D(l0bTensor_10, l1Tensor_11, 0, 0);
+)!!!";
+    EXPECT_EQ(res, expect);
+}
+
 } // namespace npu::tile_fwk
