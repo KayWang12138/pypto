@@ -182,5 +182,11 @@ struct FloatSpecVal {
     }
 };
 
+std::string CopyInModeToString(Matrix::CopyInMode copyMode);
+
+std::string CopyOutModeToString(Matrix::CopyOutMode copyMode);
+
+std::string PaddingModeToString(Matrix::PaddingMode paddingMode);
+
 } // namespace npu::tile_fwk
 #endif

@@ -211,9 +211,6 @@ void TestCVSyncBody(Opcode syncOpcode) {
     CodeGenOpCloudNPU cop(opCtx);
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
 
-    cop.originShape[0] = shape;
-    cop.originShape[1] = shape;
-
     std::string res = cop.GenOpCode();
     std::string expect;
     if (syncOpcode == Opcode::OP_CV_SYNC_SRC) {
