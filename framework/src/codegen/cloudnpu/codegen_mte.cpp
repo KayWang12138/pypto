@@ -1922,7 +1922,7 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
     GetAttr(Conv::LoadStoreConvOpAttributeKey::isConv3D, isConv3D);
 
     std::ostringstream oss;
-    oss << tileOpName.c_str() << "<" << std::to_string(isConv3D) << ">" << "(" << tiloOpCallParam << ");\n";
+    oss << tileOpName.c_str() << WrapParamByAngleBrackets(isConv3D) << WrapParamByParentheses(paramList) << STMT_END;
     return oss.str();
 }
 
@@ -1951,7 +1951,7 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load2D() const {
     std::string tiloOpCallParam = JoinString(paramList, ", ");
 
     std::ostringstream oss;
-    oss << tileOpName.c_str() <<  "(" << tiloOpCallParam << ");\n";
+    oss << tileOpName.c_str() << WrapParamByParentheses(paramList) << STMT_END;
     return oss.str();
 }
 } // namespace npu::tile_fwk
