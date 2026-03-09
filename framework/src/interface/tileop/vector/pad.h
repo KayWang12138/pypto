@@ -1,3 +1,24 @@
+/**
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file pad.h
+ * \brief
+ */
+
+#ifndef TILEOP_TILE_OPERATOR_PAD__H
+#define TILEOP_TILE_OPERATOR_PAD__H
+
+#include "utils/layout.h"
+#include "utils/tile_tensor.h"
+
 template <typename DstTensor, typename SrcTensor>
 TILEOP void TPad(DstTensor dst, SrcTensor src, float padValue, LoopVar srcValidRow, LoopVar srcValidCol) {
     constexpr auto dstShapeSize = Std::tuple_size<typename DstTensor::Shape>::value;
@@ -57,3 +78,5 @@ TILEOP void TPad(DstTensor dst, SrcTensor src, float padValue, LoopVar srcValidR
         }
     }
 }
+
+#endif

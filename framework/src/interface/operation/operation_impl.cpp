@@ -346,7 +346,6 @@ Tensor Assign(const Tensor &operand) {
 }
 
 #define CALL(n, ...) Tensor##n(__VA_ARGS__)
-#define RETURN_CALL(n, ...) return Tensor##n(__VA_ARGS__)
 
 void TiledInnerRegisterCopy(const int dimIdx, Function &function, const TileShape &tileShape,
     const LogicalTensorPtr &operand, const LogicalTensorPtr &result,

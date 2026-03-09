@@ -238,28 +238,31 @@ static void Relu(const TensorData &out, const TensorData &self) {
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
-// static void Pad(LogicalTensorDataPtr out, LogicalTensorDataPtr self,
-//     int64_t padRight, int64_t padBottom, const Element &padValue,
-//     int64_t srcValidRow, int64_t srcValidCol) {
-//     auto tout = From(out);
-//     auto tself = From(self);
-//     auto padScalar = From(padValue);
-
-//     int64_t ndim = static_cast<int64_t>(tout.second.dim());
-//     int64_t outH = tout.second.size(ndim - 2);
-//     int64_t outW = tout.second.size(ndim - 1);
-
-//     if (srcValidRow == 0 || srcValidCol == 0) {
-//         tout.second.fill_(padScalar);
-//     } else {
-//         auto validSelf = tself.second.narrow(ndim - 2, 0, srcValidRow).narrow(ndim - 1, 0, srcValidCol);
-//         int64_t actualPadRight = outW - srcValidCol;
-//         int64_t actualPadBottom = outH - srcValidRow;
-//         auto padded = torch::constant_pad_nd(validSelf, {0, actualPadRight, 0, actualPadBottom}, padScalar);
-//         tout.second.copy_(padded);
-//     }
-//     ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
-// }
+static void Pad(const TensorData &out, const TensorData &input, const Element &padValue) {
+    auto tinput = From(input);
+    auto tout = From(out);
+    
+    std::vector<int64_t> in_shape = tinput.second.sizes().vec();
+    std::vector<int64_t> out_shape = tout.second.sizes().vec();
+    size_t ndim = out_shape.size();
+    int64_t pad_right = 0;
+    int64_t pad_bottom = 0;
+    
+    if (ndim >= 2) {
+        pad_right = std::max(static_cast<int64_t>(0), out_shape[ndim - 1] - in_shape[ndim - 1]);
+        pad_bottom = std::max(static_cast<int64_t>(0), out_shape[ndim - 2] - in_shape[ndim - 2]);
+    } else if (ndim == 1) {
+        pad_right = std::max(static_cast<int64_t>(0), out_shape[0] - in_shape[0]);
+    }
+    std::vector<int64_t> pad_vec = {0, pad_right, 0, pad_bottom};
+    double pad_val_double = padValue.Cast<double>();
+    namespace F = torch::nn::functional;
+    F::PadFuncOptions options(pad_vec);
+    options.mode(torch::kConstant).value(pad_val_double);
+    auto result = F::pad(tinput.second, options);
+    tout.second.copy_(result);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
 
 static void BitwiseNot(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
@@ -1999,7 +2002,7 @@ static struct CalcOps calcOps = {
     .Reciprocal = Reciprocal,
     .Relu = Relu,
     .Log1p = Log1p,
-    //.Pad = Pad,
+    .Pad = Pad,
     .BitwiseNot = BitwiseNot,
     .Abs = Abs,
     .Brcb = Brcb,
