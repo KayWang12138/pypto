@@ -67,4 +67,11 @@ void CheckStringExist(const std::string &target, const std::string &content) {
     EXPECT_TRUE(res) << "target: \n" << target << "\n\n ---- not found in content ---- \n\n" << content << std::endl;
 }
 
+int64_t ConvCeilDiv(int64_t a, int64_t b) {
+    if (b == 0) {
+        return 0;
+    }
+    return (a + b - 1) / b;
+}
+
 } // namespace npu::tile_fwk
