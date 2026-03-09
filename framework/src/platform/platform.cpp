@@ -245,49 +245,49 @@ void Platform::LoadFromIni(const std::string &filePath) {
     std::string socVersion;
     std::string archType;
     std::unordered_map<std::string, std::string> versionInfo;
-    if (parser.GetStringVal(version, npuArchInfo, archType) == SUCCESS) {
+    if (parser.GetStringVal(version, npuArchInfo, archType)) {
         GetSoc().SetNPUArch(archType);
     }
-    if (parser.GetStringVal(version, shortSocVer, archType) == SUCCESS) {
+    if (parser.GetStringVal(version, shortSocVer, archType)) {
         GetSoc().SetShortSocVersion(archType);
     }
-    if (parser.GetCCECVersion(versionInfo) == SUCCESS) {
+    if (parser.GetCCECVersion(versionInfo)) {
         GetSoc().SetCCECVersion(versionInfo);
     }
-    if (parser.GetCoreVersion(versionInfo) == SUCCESS) {
+    if (parser.GetCoreVersion(versionInfo)) {
         GetSoc().SetCoreVersion(versionInfo);
     }
     size_t coreNum;
-    if (parser.GetSizeVal(socInfo, aiCoreCnt, coreNum) == SUCCESS) {
+    if (parser.GetSizeVal(socInfo, aiCoreCnt, coreNum)) {
         GetSoc().SetAICoreNum(coreNum);
     }
-    if (parser.GetSizeVal(socInfo, cubeCoreCnt, coreNum) == SUCCESS) {
+    if (parser.GetSizeVal(socInfo, cubeCoreCnt, coreNum)) {
         GetSoc().SetAICCoreNum(coreNum);
     }
-    if (parser.GetSizeVal(socInfo, vectorCoreCnt, coreNum) == SUCCESS) {
+    if (parser.GetSizeVal(socInfo, vectorCoreCnt, coreNum)) {
         GetSoc().SetAIVCoreNum(coreNum);
     }
-    if (parser.GetSizeVal(socInfo, aiCpuCnt, coreNum) == SUCCESS) {
+    if (parser.GetSizeVal(socInfo, aiCpuCnt, coreNum)) {
         GetSoc().SetAICPUNum(coreNum);
     }
     size_t memoryLimit;
-    if (parser.GetSizeVal(aiCoreSpec, l0aSize, memoryLimit) == SUCCESS) {
+    if (parser.GetSizeVal(aiCoreSpec, l0aSize, memoryLimit)) {
         GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0A, memoryLimit));
     }
-    if (parser.GetSizeVal(aiCoreSpec, l0bSize, memoryLimit) == SUCCESS) {
+    if (parser.GetSizeVal(aiCoreSpec, l0bSize, memoryLimit)) {
         GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0B, memoryLimit));
     }
-    if (parser.GetSizeVal(aiCoreSpec, l0cSize, memoryLimit) == SUCCESS) {
+    if (parser.GetSizeVal(aiCoreSpec, l0cSize, memoryLimit)) {
         GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0C, memoryLimit));
     }
-    if (parser.GetSizeVal(aiCoreSpec, l1Size, memoryLimit) == SUCCESS) {
+    if (parser.GetSizeVal(aiCoreSpec, l1Size, memoryLimit)) {
         GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_L1, memoryLimit));
     }
-    if (parser.GetSizeVal(aiCoreSpec, ubSize, memoryLimit) == SUCCESS) {
+    if (parser.GetSizeVal(aiCoreSpec, ubSize, memoryLimit)) {
         GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_UB, memoryLimit));
     }
     std::vector<std::vector<std::string>> dataPath;
-    if (parser.GetDataPath(dataPath) == SUCCESS) {
+    if (parser.GetDataPath(dataPath)) {
         GetDie().SetMemoryPath(dataPath);
     }
 }
