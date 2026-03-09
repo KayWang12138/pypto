@@ -64,11 +64,40 @@ Status AutoCastChecker::DoPostCheck(Function &function) {
             }
         }
     }
+    for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
+        Operation *op = opList[opIdx];
+        if (SupportFP16(op)) {
+            continue;
+        }
+        auto iOperands = op->GetIOperands();
+        for (const auto &iop : iOperands) {
+            if (iop->Datatype() == DataType::DT_FP16) {
+                ALOG_ERROR_F("Exist unsupported FP16 compute between op %d and tensor %d",
+                            op->GetOpMagic(), iop->GetMagic());
+                return FAILED;
+            }
+        }
+        auto oOperands = op->GetOOperands();
+        for (const auto &oop : oOperands) {
+            if (oop->Datatype() == DataType::DT_FP16) {
+                ALOG_ERROR_F("Exist unsupported FP16 compute between op %d and tensor %d",
+                            op->GetOpMagic(), oop->GetMagic());
+                return FAILED;
+            }
+        }
+    }
     return SUCCESS;
 }
 
 bool AutoCastChecker::SupportBF16(Operation *op) {
     if (UNSUPPORT_BF16_OPS.count(op->GetOpcode()) > 0) {
+        return false;
+    }
+    return true;
+}
+
+bool AutoCastChecker::SupportFP16(Operation *op) {
+    if (UNSUPPORT_FP16_OPS.count(op->GetOpcode()) > 0) {
         return false;
     }
     return true;
