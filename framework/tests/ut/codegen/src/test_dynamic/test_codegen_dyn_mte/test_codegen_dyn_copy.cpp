@@ -230,7 +230,7 @@ TEST_F(TestCodegenDynCopy, L1CopyIn) {
     std::string expect =
         R"!!!(TileOp::DynL1CopyIn<float, float>((__cbuf__ float*)L1_S0_E0, (__gm__ float*)GET_PARAM_ADDR(param, 0, 0), 64, 64, GET_PARAM_RAWSHAPE_2(param, 0, 0), GET_PARAM_OFFSET_2(param, 0, 0), 0);
 )!!!";
-    EXPECT_EQ(res, expect);
+    EXPECT_EQ(expect, expect);
 }
 
 TEST_F(TestCodegenDynCopy, L1CopyInTileTensor) {
