@@ -14,9 +14,9 @@
  */
 #include <gtest/gtest.h>
 #include "tilefwk/platform.h"
+#define private public
 #include "passes/block_graph_pass/insert_sync.h"
 #include "ut_json/ut_json_tool.h"
-#define private public
 
 namespace npu {
 namespace tile_fwk {
@@ -734,6 +734,15 @@ TEST_F(InsertSyncTest, TestRelaxFakeDataDep) {
         eventIdDeadlockEnterTimes = static_cast<size_t>(0);
         break;
     }
+}
+
+// 覆盖 insert_sync.cpp 第1075行: GetDepInfo 返回后 depInfo size 与 eventNum 不匹配
+TEST_F(InsertSyncTest, TestGetDepInfoSizeMismatch) {
+    PipeSync ps;
+    std::vector<IndexOp> emptySyncedOpLog;
+    auto pipePair = PipeSync::dataDepPair[0];
+    DataDepInfo depInfo;
+    EXPECT_EQ(ps.GetDepInfo(emptySyncedOpLog, pipePair, depInfo), FAILED);
 }
 } // namespace tile_fwk
 } // namespace npu
