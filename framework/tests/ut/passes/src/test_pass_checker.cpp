@@ -221,7 +221,7 @@ TEST_F(PassCheckTest, TestPreGraphCheckerAssembleViewReshapeInvalidIO) {
     auto incast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto outcast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     currFunctionPtr->AddOperation(Opcode::OP_VIEW, {incast1, incast2}, {outcast1});
-    currFunctionPtr->Operations().back()->UpdateSubgraphID(0);
+    currFunctionPtr->Operations().back().UpdateSubgraphID(0);
 
     currFunctionPtr->inCasts_.push_back(incast1);
     currFunctionPtr->inCasts_.push_back(incast2);
@@ -244,8 +244,8 @@ TEST_F(PassCheckTest, TestPreGraphCheckerTensorNotInSubgraph) {
 
     currFunctionPtr->AddOperation(Opcode::OP_ADD, {incast1}, {tensor1});
     currFunctionPtr->AddOperation(Opcode::OP_ADD, {tensor1}, {outcast1});
-    currFunctionPtr->Operations()[0]->UpdateSubgraphID(0);
-    currFunctionPtr->Operations()[1]->UpdateSubgraphID(1);
+    currFunctionPtr->Operations()[0].UpdateSubgraphID(0);
+    currFunctionPtr->Operations()[1].UpdateSubgraphID(1);
     incast1->subGraphID = 0;
     outcast1->subGraphID = 1;
     tensor1->subGraphID = NOT_IN_SUBGRAPH;

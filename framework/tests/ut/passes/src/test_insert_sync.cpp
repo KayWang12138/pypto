@@ -741,7 +741,7 @@ TEST_F(InsertSyncTest, TestGetDepInfoSizeMismatch) {
     PipeSync ps;
     std::vector<IndexOp> emptySyncedOpLog;
     auto pipePair = PipeSync::dataDepPair[0];
-    DataDepInfo depInfo;
+    PipeSync::DataDepInfo depInfo;
     EXPECT_EQ(ps.GetDepInfo(emptySyncedOpLog, pipePair, depInfo), FAILED);
 }
 } // namespace tile_fwk
