@@ -92,7 +92,7 @@ out = pypto.conv(input_conv, weight, pypto.DT_FP16,
                    paddings=[0, 0, 0, 0],
                    dilations=[1, 1])
 
-# 2D 卷积带 bias 和 ReLU
+# 2D 卷积带 bias 和 ReLu （当前暂不支持ReLu）
 input_conv = pypto.tensor((1, 32, 8, 16), pypto.DT_FP16, "input_conv")
 weight = pypto.tensor((32, 32, 1, 1), pypto.DT_FP16, "weight")
 bias = pypto.tensor((32,), pypto.DT_FP16, "bias")
