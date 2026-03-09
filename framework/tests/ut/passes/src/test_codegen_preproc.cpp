@@ -287,6 +287,7 @@ TEST_F(CodegenPreprocTest, TestCombineAxis3510) {
     // Verify CodegenPreproc
     auto afterExpand = graph.GetOp("sub");
     EXPECT_EQ(afterExpand->HasAttr(OpAttributeKey::outputCombineAxis), false);
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_UNKNOWN);
 }
 
 } // namespace tile_fwk
