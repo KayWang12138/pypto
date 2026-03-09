@@ -65,10 +65,14 @@ void CheckBinaryInputTensors(const LogicalTensorPtr &tensor1, const LogicalTenso
 }
 
 void BroadcastOperandTensor(LogicalTensorPtr &operand, LogicalTensorPtr &other, LogicalTensorPtr result,
-                                      Function& function, const TileShape& tileShape) {
+                                      Function& function, const TileShape& tileShape, bool withBrc) {
     auto dstShape = result->shape;
     if (operand->shape == dstShape) {
         return;
+    }
+    if (withBrc) {
+        dstShape = operand->shape;
+        dstShape[operand->shape.size() - 1] = result->shape[operand->shape.size() - 1];
     }
     auto expanded = std::make_shared<LogicalTensor>(function, operand->Datatype(), dstShape);
     Expand(function, tileShape, operand, {other}, expanded);
@@ -84,14 +88,9 @@ void BinaryOperationOperandCheck(
 }
 
 // [m,n] + [m, 1]
-bool CallBrcBinOp(LogicalTensorPtr operand1, LogicalTensorPtr operand2) {
+bool CallwithBrcBinOp(LogicalTensorPtr operand1, LogicalTensorPtr operand2) {
     ASSERT(operand1->shape.size() == operand2->shape.size() && "Dims not match");
     size_t shapeSize = operand1->shape.size();
-    for (size_t i = 0; i < shapeSize - 1; ++i) {
-        if (operand1->shape[i] != operand2->shape[i]) {
-            return false;
-        }
-    }
 
     return ((operand1->shape[shapeSize - 1] != 1) && (operand2->shape[shapeSize - 1] == 1)) ||
            ((operand1->shape[shapeSize - 1] == 1) && (operand2->shape[shapeSize - 1] != 1));
@@ -100,22 +99,23 @@ bool CallBrcBinOp(LogicalTensorPtr operand1, LogicalTensorPtr operand2) {
 template <BinaryOpType T>
 void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t cur, LogicalInput &input1,
     LogicalInput &input2, const LogicalTensorPtr &result, TileInfo &resultTileInfo, bool withBrc) {
-    constexpr size_t shapeSize = 2;
-    if (cur == input1.tensor->GetShape().size()) {
+    size_t shapeSize = input1.tensor->GetShape().size();
+    if (cur == shapeSize) {
         auto inputTile1 = input1.tensor->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
         auto inputTile2 = input2.tensor->View(function, input2.tileInfo.shape, input2.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         auto opName = GetBinaryOpName<T>();
+        Operation *op = nullptr;
         if (withBrc) {
             std::vector<int64_t> tmpShape(input1.tileInfo.shape);
             auto alignSize = BLOCK_SIZE / BytesOf(input2.tensor->Datatype());
             tmpShape[input1.tileInfo.shape.size() - 1] = alignSize;
-            if (input1.tileInfo.shape.size() == shapeSize) {
-                tmpShape[input1.tileInfo.shape.size() - shapeSize] =
-                    (tmpShape[input1.tileInfo.shape.size() - shapeSize] + alignSize - 1) / alignSize * alignSize;
+            if (input1.tileInfo.shape.size() == NUM2) {
+                tmpShape[input1.tileInfo.shape.size() - NUM2] =
+                    (tmpShape[input1.tileInfo.shape.size() - NUM2] + alignSize - 1) / alignSize * alignSize;
             }
             auto tempTensor = std::make_shared<LogicalTensor>(function, input2.tensor->Datatype(), tmpShape);
-            function.AddOperation(
+            op = &function.AddOperation(
                 GetBinaryOpNameCode<T, false, true>(), {inputTile1, inputTile2}, {resultTile, tempTensor});
         } else {
             if (opName == "BITWISEXOR" || opName == "COPYSIGN" || opName == "POW") {
@@ -124,10 +124,17 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
                 tmpShape[resultTileInfo.shape.size() - 1] = 
                     AlignUp(tmpShape[resultTileInfo.shape.size() - 1], alignSize);
                 auto tempTensor = std::make_shared<LogicalTensor>(function, result->Datatype(), tmpShape);
-                function.AddOperation(
+                op = &function.AddOperation(
                     GetBinaryOpNameCode<T, false, false>(), {inputTile1, inputTile2}, {resultTile, tempTensor});
             } else {
-                function.AddOperation(GetBinaryOpNameCode<T, false, false>(), {inputTile1, inputTile2}, {resultTile});
+                op = &function.AddOperation(GetBinaryOpNameCode<T, false, false>(), {inputTile1, inputTile2}, {resultTile});
+            }
+        }
+        if (shapeSize > 1) {
+            if ((input1.tensor->GetShape()[shapeSize - 2] != 1) && (input2.tensor->GetShape()[shapeSize - 2] == 1)) {
+                op->SetAttribute(OpAttributeKey::brcpIdx, static_cast<int64_t>(2));
+            } else if ((input1.tensor->GetShape()[shapeSize - 2] == 1) && (input2.tensor->GetShape()[shapeSize - 2] != 1)) {
+                op->SetAttribute(OpAttributeKey::brcpIdx, static_cast<int64_t>(1));
             }
         }
         return;
@@ -150,24 +157,19 @@ template <BinaryOpType T>
 void TiledBinaryOperation(Function &function, const TileShape &tileShape, LogicalTensorPtr operand1,
     LogicalTensorPtr operand2, const LogicalTensorPtr &result) {
     CheckBinOpOperandsValid(operand1, operand2);
-    bool withBrc = CallBrcBinOp(operand1, operand2) &&
-                   (function.paramConfigs_.forceCombineAxis ||
-                       function.paramConfigs_.combineAxis);
-    // nolast brc will be inline
-    if (!withBrc) {
-        BroadcastOperandTensor(operand1, operand2, result, function, tileShape);
-        BroadcastOperandTensor(operand2, operand1, result, function, tileShape);
+    bool tailBrc = CallwithBrcBinOp(operand1, operand2);
+    if (tailBrc && !function.paramConfigs_.forceCombineAxis && !function.paramConfigs_.combineAxis) {
+        BroadcastOperandTensor(operand1, operand2, result, function, tileShape, tailBrc);
+        BroadcastOperandTensor(operand2, operand1, result, function, tileShape, tailBrc);
     }
 
-    TileInfo tileInfo1(result->shape.size(), result->offset.size());
-    TileInfo tileInfo2(result->shape.size(), result->offset.size());
+    TileInfo tileInfo1(operand1->shape.size(), operand1->offset.size());
+    TileInfo tileInfo2(operand2->shape.size(), operand2->offset.size());
     TileInfo resultTileInfo(result->shape.size(), result->offset.size());
     auto input1 = LogicalInput{operand1, tileInfo1};
     auto input2 = LogicalInput{operand2, tileInfo2};
-    // 如果使能了Combine Axis逻辑，需要将withbrc置为false，避免后续走OP_XX_BRC逻辑
-    if (function.paramConfigs_.combineAxis) {
-        withBrc = false;
-    }
+    // 如果打开了forceCombineAxis要走进OP_XX_BRC，如果打开combineAxis要避免后续走OP_XX_BRC逻辑
+    bool withBrc = tailBrc && function.paramConfigs_.forceCombineAxis && !function.paramConfigs_.combineAxis;
     TiledBinaryOperation<T>(function, tileShape, 0, input1, input2, result, resultTileInfo, withBrc);
 }
 
