@@ -18,6 +18,7 @@
 #include "tilefwk/platform.h"
 #include "interface/utils/file_utils.h"
 #include "platform/parser/ini_parser.h"
+#include "platform/parser/internal_parser.h"
 
 using namespace npu::tile_fwk;
 const std::string archInfo = "ArchInfo";
@@ -97,9 +98,6 @@ TEST_F(TestPlatform, TestParser) {
     EXPECT_EQ(memoryLimit, expectl1Size);
     EXPECT_TRUE(parser.GetSizeVal(aiCoreSpec, ubSize, memoryLimit));
     EXPECT_EQ(memoryLimit, expectubSize);
-
-    std::vector<std::vector<std::string>> dataPath;
-    EXPECT_TRUE(parser.GetDataPath(dataPath));
 }
 
 TEST_F(TestPlatform, TestObtainPlatformInfo) {
@@ -142,9 +140,6 @@ TEST_F(TestPlatform, AbnormalTest) {
     EXPECT_FALSE(parser.GetCCECVersion(ccecVersion));
     EXPECT_FALSE(parser.GetCoreVersion(ccecVersion));
 
-    std::vector<std::vector<std::string>> dataPath;
-    EXPECT_FALSE(parser.GetDataPath(dataPath));
-
     std::string iniPath = RealPath(GetCurrentSharedLibPath() + "/configs/Soc_version.ini");
     EXPECT_TRUE(parser.Initialize(iniPath));
 
@@ -154,4 +149,8 @@ TEST_F(TestPlatform, AbnormalTest) {
 
     size_t testSize;
     EXPECT_FALSE(parser.GetSizeVal("none", "", testSize));
+
+    InternalParser internalParser = InternalParser(""); 
+    std::vector<std::pair<MemoryType, MemoryType>> dataPath; 
+    EXPECT_FALSE(internalParser.GetDataPath(dataPath)); 
 }
