@@ -64,6 +64,17 @@ bool NeedClearStatus(const Operation &op) {
         return true;
     }
 
+    if (SUPPORT_BRCINLINE.find(opCode) != SUPPORT_BRCINLINE.end()) {
+        for (const auto& oper : op.GetIOperands()) {
+            for (int64_t s : oper->GetRawTensor()->GetRawShape()) {
+                if (s == 1) {
+                    return true;
+                }
+                
+            }
+        }
+    }
+
     //  Opcode::OP_EXPAND only support last axis or second last axis in for-loop
     if (opCode == Opcode::OP_EXPAND) {
         std::string axisKey = OP_ATTR_PREFIX + "EXPANDDIM";
