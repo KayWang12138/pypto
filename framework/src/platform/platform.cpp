@@ -224,13 +224,13 @@ void Platform::SetMemoryLimit(const PlatformParser &parser) {
 
 void Platform::LoadPlatformInfo(const PlatformParser &parser) {
     std::string archType;
-    std::string socVersion;
+    std::string shortSocVersion;
     std::unordered_map<std::string, std::string> versionInfo;
     if (parser.GetStringVal(version, npuArchInfo, archType)) {
         GetSoc().SetNPUArch(archType);
     }
-    if (parser.GetStringVal(version, shortSocVer, archType)) {
-        GetSoc().SetShortSocVersion(archType);
+    if (parser.GetStringVal(version, shortSocVer, shortSocVersion)) {
+        GetSoc().SetShortSocVersion(shortSocVersion);
     }
     if (parser.GetCCECVersion(versionInfo)) {
         GetSoc().SetCCECVersion(versionInfo);

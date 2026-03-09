@@ -27,11 +27,11 @@ namespace npu {
 namespace tile_fwk {
 class InternalParser {
 public:
-    InternalParser(const std::string &socVersion) : socVersion_(socVersion) {}
+    InternalParser(const std::string &archType) : archType_(archType) {}
     bool LoadInternalInfo();
     bool GetDataPath(std::vector<std::pair<MemoryType, MemoryType>> &dataPath);
 private:
-    std::string socVersion_;
+    std::string archType_;
     std::map<std::string, std::string> data_;
 };
 }
