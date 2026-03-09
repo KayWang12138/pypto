@@ -101,6 +101,7 @@ class PlatformParser {
 public:
     PlatformParser() = default;
     virtual ~PlatformParser() = default;
+    
     virtual bool GetStringVal(const std::string& column, const std::string& key, std::string& val) const = 0;
     
     bool GetSizeVal(const std::string& column, const std::string& key, size_t& val) const;
