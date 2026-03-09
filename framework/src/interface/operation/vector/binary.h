@@ -170,6 +170,15 @@ Opcode GetBinaryOpNameCode() {
 #undef CASE
 }
 
+const std::unordered_set<Opcode> SUPPORT_BRCINLINE{
+    Opcode::OP_ADD,
+    Opcode::OP_SUB,
+    Opcode::OP_MUL,
+    Opcode::OP_DIV,
+    Opcode::OP_MAXIMUM,
+    Opcode::OP_MINIMUM,
+};
+
 struct LogicalInput {
     const LogicalTensorPtr tensor;
     TileInfo tileInfo;
@@ -182,7 +191,7 @@ void BinaryOperationOperandCheck(
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand);
 void CheckBinaryInputTensors(const LogicalTensorPtr &tensor1, const LogicalTensorPtr &tensor2, std::string &op);
 void BroadcastOperandTensor(LogicalTensorPtr &operand, LogicalTensorPtr &other, LogicalTensorPtr result,
-                                      Function& function, const TileShape& tileShape);
+                                      Function& function, const TileShape& tileShape, bool tailBrc = false);
 
 // OP_ADD OP_SUB OP_MUL OP_DIV OP_MAX OP_BITWISEAND OP_BITWISEOR OP_BITWISEXOR
 template <BinaryOpType T>
@@ -199,8 +208,9 @@ LogicalTensorPtr TensorBinaryOperation(Function &function, const Tensor &operand
 
     std::vector<SymbolicScalar> resultValidShape;
     std::vector<int64_t> resultShape = BinaryOperationResultShape(oprandT1, oprandT2);
+    size_t shapeSize = resultShape.size();
     if ((!oprandT1->GetDynValidShape().empty()) && (!oprandT2->GetDynValidShape().empty())) {
-        for (size_t i = 0; i < resultShape.size(); ++i) {
+        for (size_t i = 0; i < shapeSize; ++i) {
             if (resultShape[i] == oprandT1->shape[i]) {
                 resultValidShape.push_back(operand1.GetStorage()->GetDynValidShape()[i]);
             } else {
