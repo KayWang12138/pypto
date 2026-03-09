@@ -338,7 +338,7 @@ TEST_F(DynamicOpsTest, Ceil) {
 
     int64_t b = 2;
     int64_t n = 4;
-    
+
     Tensor self(DT_FP32, {b, n}, "self");
     Tensor outValue(DT_FP32, {b, n}, "outValue");
 
@@ -372,7 +372,7 @@ TEST_F(DynamicOpsTest, Floor) {
 
     int64_t b = 2;
     int64_t n = 4;
-    
+
     Tensor self(DT_FP32, {b, n}, "self");
     Tensor outValue(DT_FP32, {b, n}, "outValue");
 
@@ -406,7 +406,7 @@ TEST_F(DynamicOpsTest, Trunc) {
 
     int64_t b = 2;
     int64_t n = 4;
-    
+
     Tensor self(DT_FP32, {b, n}, "self");
     Tensor outValue(DT_FP32, {b, n}, "outValue");
 
@@ -1030,7 +1030,7 @@ TEST_F(DynamicOpsTest, GatherInL1) {
     Tensor indices(DT_INT32, {1, 4}, "t1");
     Tensor pageTable(DT_INT32, {1, 2}, "t1");
     Tensor out(DT_FP16, {4, 16}, "t1");
- 	 
+
     auto paramData = Random(DT_FP16, param.GetShape());
     auto indicesRaw = RawTensorData::CreateTensor<int32_t>(indices, {0, 1, 1, 0});
     auto indicesData = LogicalTensorData::Create(*indicesRaw);
@@ -2109,11 +2109,11 @@ TEST_F(DynamicOpsTest, Range) {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
-    int64_t size = 5;  
+    int64_t size = 5;
     Element start(DT_INT32, 1);
     Element end(DT_INT32, 10);
     Element step(DT_INT32, 2);
-    
+
     Tensor out(DT_INT32, {size}, "out");
     ProgramData::GetInstance().AppendInputs({});
     ProgramData::GetInstance().AppendOutputs({

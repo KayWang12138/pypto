@@ -29,7 +29,7 @@ void TiledHypotOperationImpl(Function &function, const TileShape &tileShape, siz
         auto inputTile1 = input1.tensor.GetStorage()->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
         auto inputTile2 = input2.tensor.GetStorage()->View(function, input2.tileInfo.shape, input2.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
-        size_t element_size = sizeof(float); 
+        size_t element_size = sizeof(float);
         int64_t num_elements = 1;
         if (!resultTileInfo.shape.empty()) {
             num_elements = resultTileInfo.shape.back();
@@ -58,7 +58,7 @@ void TiledHypotOperationImpl(Function &function, const TileShape &tileShape, siz
 
 void TiledHypotOperation(Function &function, const TileShape &tileShape, LogicalTensorPtr operand1,
     LogicalTensorPtr operand2, const LogicalTensorPtr &result) {
-    
+
     auto broadcastOperand = [&](LogicalTensorPtr&operand,LogicalTensorPtr&other) {
         auto dstShape = result->shape;
         if (operand->shape == dstShape) {
@@ -76,7 +76,7 @@ void TiledHypotOperation(Function &function, const TileShape &tileShape, Logical
     TileInfo tileInfo1(result->shape.size(), result->offset.size());
     TileInfo tileInfo2(result->shape.size(), result->offset.size());
     TileInfo resultTileInfo(result->shape.size(), result->offset.size());
-    
+
     auto input1 = Input{operand1, tileInfo1};
     auto input2 = Input{operand2, tileInfo2};
 
@@ -94,7 +94,7 @@ LogicalTensorPtr TensorHypotOperation(Function &function, const Tensor &self, co
     }
 
     std::vector<int64_t> resultShape = BinaryOperationResultShape(operandT1, operandT2);
-    
+
     std::vector<SymbolicScalar> resultValidShape;
     if (!operandT1->GetDynValidShape().empty() && !operandT2->GetDynValidShape().empty()) {
         for (size_t i = 0; i < resultShape.size(); ++i) {

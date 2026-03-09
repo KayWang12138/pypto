@@ -32,6 +32,7 @@
 #include "opcode.h"
 #include "attribute.h"
 #include "attr_holder.h"
+#include "attr_key.h"
 #include "interface/utils/source_location.h"
 #include "interface/tensor/logical_tensor.h"
 #include "operation_common.h"
@@ -46,102 +47,6 @@ constexpr int32_t TILE_STR_PREFIX_LEN = 5;
 #define AICPU_CALL_NUM_BIT 16
 #define AICPU_CALL_ARG_BIT 16
 #define AICPU_CALL_TASK_BIT 32
-
-class OpAttributeKey {
-public:
-    static const std::string aicpuCall;
-    static const std::string scalar;
-    static const std::string vectorScalar;
-    static const std::string dynScalar;
-    static const std::string isGlobalInput;
-    static const std::string seqNo;
-    static const std::string color;
-    static const std::string isCube;
-    static const std::string blockPadding;
-    static const std::string broadcastLastAxis;
-    static const std::string tilePadding;
-    static const std::string reshapePadding;
-    static const std::string shapePadded;
-    static const std::string needAlloc;
-    static const std::string dontTouch;
-    static const std::string tag;
-    static const std::string distTilingInfo;
-    static const std::string sameInOut;
-    static const std::string inputCombineAxis;
-    static const std::string outputCombineAxis;
-    static const std::string inputCombineAxisDone;
-    static const std::string outputCombineAxisDone;
-    static const std::string inplaceIdx;
-    static const std::string inplaceInfo;
-    static const std::string cacheMode;
-    static const std::string panzBlockSize;
-    static const std::string requiresBoundaryCopy;
-    static const std::string excludeBufferReuse;
-    static const std::string bindTensor;
-    static const std::string startOffset;
-    static const std::string distOpAttr;
-    static const std::string subBlockIdx;
-    static const std::string accumulate;
-    static const std::string indicesSize;
-    static const std::string brcbIdx;
-    static const std::string quantFlag;
-    static const std::string loopGroup;
-    static const std::string loopAxes;
-    static const std::string loopGroupStart;
-    static const std::string loopGroupEnd;
-    static const std::string lastUse;
-    static const std::string isUpper;
-    static const std::string blockSize;
-    static const std::string transMode;
-};
-
-
-class ConvOpAttributeKey {
-public:
-    static const std::string cin;
-    static const std::string cout;
-    static const std::string paddingLeft;
-    static const std::string paddingTop;
-    static const std::string paddingRight;
-    static const std::string paddingBottom;
-    static const std::string strideh;
-    static const std::string stridew;
-    static const std::string hposX;
-    static const std::string hsteP;
-    static const std::string wposX;
-    static const std::string wstep;
-    static const std::string hoffsetY;
-    static const std::string woffsetY;
-    static const std::string reluType;
-    static const std::string reluAlpha;
-    static const std::string clearFlag;
-    static const std::string hasAccFlag;
-    static const std::string hasEltFlag;
-    static const std::string hasBiasFlag;
-    static const std::string eltBrcbFlag;
-    static const std::string fmapSrcNum;
-    static const std::string eltMode;
-    static const std::string fmapC0;
-};
-
-class FixpOpAttributeKey {
-public:
-    static const std::string hStart;
-    static const std::string hEnd;
-    static const std::string quantPreScalar;
-    static const std::string quantPostScalar;
-    static const std::string antiqScalar;
-    static const std::string hasQuantPreVector;
-    static const std::string hasQuantPostVector;
-    static const std::string hasAntiqVector;
-    static const std::string fbAddrSpace;
-};
-
-class PoolOpAttributeKey {
-public:
-    static const std::string poolh;
-    static const std::string poolw;
-};
 
 enum class FbBufferSpace { QUANT_PRE = 0, RELU_PRE, RELU_POST, QUANT_POST, ANTIQ_ELT, ANTIQ_MTE2 };
 

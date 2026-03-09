@@ -38,20 +38,20 @@ class TensorComparator:
                 logging.FileHandler("app.log", encoding="utf-8")
             ]
         )
-    
+
     @staticmethod
     def print_info(d_detail, d_str, topk):
         num = len(d_detail[0])
         if num > 0:
             num_picked = min(topk, num) if topk and topk >= 0 else num
-            
+
             table_data = []
             for i in range(num_picked):
                 info_off = d_detail[0][i].item()
                 off_raw = d_detail[1][i]
                 off_raw = off_raw.tolist() if off_raw.dim() > 0 else [off_raw.item()]
                 info_off_raw = '_'.join([str(s) for s in off_raw])
-                
+
                 row = [
                     i + 1,
                     info_off,
@@ -63,15 +63,15 @@ class TensorComparator:
                     info_off_raw
                 ]
                 table_data.append(row)
-            
+
             headers = ["#", "off", "a", "b", "ad", "rd", "ad_tol", "off_raw"]
-            
+
             logging.info(f"-{d_str}({num})")
             logging.info(tabulate(table_data, headers=headers, tablefmt="grid"))
-            
+
             if num_picked < num and num_picked > 0:
                 logging.info(f' ...... {topk+1}~{num} ({num-num_picked}) ......')
-    
+
     @staticmethod
     def check_isclose(a, b, config: IsCloseConfig = IsCloseConfig()):
         rtol, atol, calc_dtype, shape, is_ignore_bothzero, is_detail, fail_factor, is_extra = config
@@ -100,7 +100,7 @@ class TensorComparator:
         if cnt_out_pass < 0:
             raise ValueError(f'cnt_out_pass > 0: {cnt_out_pass}')
         if is_ignore_bothzero:
-            cnt_picked = cnt_all - cnt_out_bothzero    
+            cnt_picked = cnt_all - cnt_out_bothzero
             if (cnt_all - cnt_out_bothzero) != (cnt_out_warn + cnt_out_pass):
                 raise ValueError(f'(cnt_all - cnt_out_bothzero) == (cnt_out_warn + cnt_out_pass)')
         else:
@@ -111,7 +111,7 @@ class TensorComparator:
         tol_cnt = tol_cnt_raw = int(cnt_picked * min(rtol, atol))
         if tol_cnt_raw == 0:
             # tol_cnt is zero, adjust to small value
-            tol_cnt = min(16, int(cnt_picked**0.5) // 2)                            
+            tol_cnt = min(16, int(cnt_picked**0.5) // 2)
 
         if not is_detail:
             const_empty_arg = torch.tensor([], dtype=torch.int64)
@@ -133,11 +133,11 @@ class TensorComparator:
                 arg_warn_raw = torch.argwhere(mask_warn.reshape(to_shape))
                 arg_fail_raw = torch.argwhere(mask_fail.reshape(to_shape))
                 arg_infnan_raw = torch.argwhere(mask_infnan.reshape(to_shape))
-            data_warn_info_list = (arg_warn, arg_warn_raw, aa.take(arg_warn), bb.take(arg_warn), 
+            data_warn_info_list = (arg_warn, arg_warn_raw, aa.take(arg_warn), bb.take(arg_warn),
                                     ab_ad.take(arg_warn), ab_rd.take(arg_warn), tol_warn.take(arg_warn))
             data_fail_info_list = (arg_fail, arg_fail_raw, aa.take(arg_fail), bb.take(arg_fail), ab_ad.take(arg_fail),
                                      ab_rd.take(arg_fail), tol_fail.take(arg_warn))
-            data_infnan_info_list = (arg_infnan, arg_infnan_raw, aa.take(arg_infnan), bb.take(arg_infnan), 
+            data_infnan_info_list = (arg_infnan, arg_infnan_raw, aa.take(arg_infnan), bb.take(arg_infnan),
                                         ab_ad.take(arg_infnan), ab_rd.take(arg_infnan), arg_infnan)
 
         # weak/strong warning

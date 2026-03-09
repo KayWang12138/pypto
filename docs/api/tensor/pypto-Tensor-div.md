@@ -16,4 +16,3 @@ div(self, other: 'Tensor | int | float') -> 'Tensor'
 ## 详细说明
 
 请参见[pypto.div](../operation/pypto-div.md)。
-

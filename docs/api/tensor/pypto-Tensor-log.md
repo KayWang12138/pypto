@@ -16,4 +16,3 @@ log(self) -> 'Tensor'
 ## 详细说明
 
 请参见[pypto.log](../operation/pypto-log.md)。
-

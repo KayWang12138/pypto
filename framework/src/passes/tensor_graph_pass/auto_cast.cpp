@@ -103,7 +103,7 @@ Status AutoCast::InsertInt32Fp16Cast(Function &function) {
         LogicalTensorPtr srcTensor = iOperands[0];
         LogicalTensorPtr tgtTensor = oOperands[0];
 
-        if (srcTensor->Datatype() != DataType::DT_INT32 || 
+        if (srcTensor->Datatype() != DataType::DT_INT32 ||
             tgtTensor->Datatype() != DataType::DT_FP16) {
             continue;
         }
@@ -127,7 +127,7 @@ bool AutoCast::SupportBF16(Operation *op) {
     return true;
 }
 
-void AutoCast::InsertCastOp(Function &function, LogicalTensorPtr src, LogicalTensorPtr tgt, 
+void AutoCast::InsertCastOp(Function &function, LogicalTensorPtr src, LogicalTensorPtr tgt,
                                        const TileShape &tileShape) {
     Operation &newCast = function.AddRawOperation(Opcode::OP_CAST, {src}, {tgt});
     newCast.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
@@ -184,7 +184,7 @@ Status AutoCast::InsertBF16Cast(Function &function) {
     return SUCCESS;
 }
 
-bool AutoCast::IsLegalCast(DataType ds, DataType dt) {    
+bool AutoCast::IsLegalCast(DataType ds, DataType dt) {
     if (legalCastPair.count(std::make_pair(ds, dt)) > 0) {
         return true;
     }

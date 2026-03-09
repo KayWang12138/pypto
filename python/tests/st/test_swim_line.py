@@ -25,9 +25,9 @@ import pytest
 
 @pypto.jit(debug_options=dict(runtime_debug_mode=1))
 def matmul_add(in_tensor0, in_tensor1, in_tensor2, out_tensor):
-    a = in_tensor0	 
-    b = in_tensor1	 
-    c = in_tensor2	 
+    a = in_tensor0
+    b = in_tensor1
+    c = in_tensor2
     d = out_tensor
     tiling = 32
     n, k, m = tiling * 8, tiling * 8, tiling * 8
@@ -80,7 +80,7 @@ def test_device_run_data_from_device_mix_nodep():
 
     aicpu_json_path = pypto.pypto_impl.LogTopFolder() + "/aicpu_dev_pref.json"
     assert os.path.exists(aicpu_json_path), "Could not Get aicpu perf"
-    
+
     with open(aicpu_json_path, 'r', encoding='utf-8') as f:
         core_list: List[Dict] = json.load(f)
         for core in core_list:

@@ -56,7 +56,7 @@ TEST_F(TestCodegenDynWhere, TestDynOpWhere) {
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
-    
+
     Element scalaVal(DataType::DT_FP32, 1.0);
 
     std::string funcName = "TestDynOpWhere";
@@ -68,7 +68,7 @@ TEST_F(TestCodegenDynWhere, TestDynOpWhere) {
     }
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-        
+
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
     auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});

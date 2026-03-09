@@ -1334,7 +1334,7 @@ unsigned long Function::ComputeHashOrderless() const {
         // mixId标识同一次Mix拆出来的leafFunction组
         if (leafFuncAttr_->mixId != LeafFuncAttribute::INVALID_MIX_ID) {
             ss << " MIX_ID:" << leafFuncAttr_->mixId;
-        }   
+        }
         if (leafFuncAttr_->aivCore != AIVCore::UNSPECIFIED) {
             ss << " AIV_CORE:" << static_cast<int>(leafFuncAttr_->aivCore);
         }

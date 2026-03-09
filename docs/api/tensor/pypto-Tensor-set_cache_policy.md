@@ -39,4 +39,3 @@ set_cache_policy(self, policy: CachePolicy, value: bool) -> None
 t = pypto.tensor((16, 16), pypto.DT_FP32)
 t.set_cache_policy(pypto.CachePolicy.NONE_CACHEABLE, True)
 ```
-

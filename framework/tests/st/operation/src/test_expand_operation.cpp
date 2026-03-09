@@ -80,7 +80,7 @@ static void ExpandOperationExeFunc2Dims(
                 TileShape::Current().SetVecTile(args->tileShape_);
                 auto res = Expand(tileTensor0, viewShape, {std::min(outputsShape[0] - bIdx * viewShape[0], viewShape[0]),
                                                             std::min(outputsShape[1] - sIdx * viewShape[1], viewShape[1])});
-                Assemble(res, {bIdx * viewShape[0], sIdx * viewShape[1]}, outputs[0]); 
+                Assemble(res, {bIdx * viewShape[0], sIdx * viewShape[1]}, outputs[0]);
             }
         }
     }

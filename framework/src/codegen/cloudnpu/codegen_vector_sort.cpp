@@ -610,7 +610,7 @@ std::string CodeGenOpCloudNPU::GenTwoTileMrgSort() const {
 }
 
 std::string CodeGenOpCloudNPU::PrintSortUBDynamicUnaligned(bool containDstType) const {
-    
+
     std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
     std::string srcVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     AppendLocalBufVarOffsetInOrder(dstVar, srcVar);
@@ -643,7 +643,7 @@ std::string CodeGenOpCloudNPU::PrintSortUBDynamicUnaligned(bool containDstType) 
     for (int i = 0; i < SHAPE_DIM4; i ++ ) {
         paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynSrcShape[i]));
     }
-    
+
     std::string tileOpParam = JoinString(paramList, CONN_COMMA);
 
     std::ostringstream oss;

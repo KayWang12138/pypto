@@ -23,10 +23,10 @@ const unsigned IDX_DIM2 = 2;
 const unsigned IDX_DIM3 = 3;
 
 struct ArgSortOpFuncArgs : public OpFuncArgs {
-    ArgSortOpFuncArgs(std::vector<int64_t> viewShape, const std::vector<int64_t> tileShape, 
+    ArgSortOpFuncArgs(std::vector<int64_t> viewShape, const std::vector<int64_t> tileShape,
         std::vector<int> dims, std::vector<bool> descending) :
         viewShape_(viewShape), tileShape_(tileShape), dims_(dims), descending_(descending) {}
-    
+
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
     std::vector<int> dims_;
@@ -36,7 +36,7 @@ struct ArgSortOpFuncArgs : public OpFuncArgs {
 struct ArgSortOpMetaData {
     ArgSortOpMetaData(const OpFunc &opFunc, const nlohmann::json &test_data)
         : opFunc_(opFunc), test_data_(test_data) {}
-    
+
     OpFunc opFunc_;
     nlohmann::json test_data_;
 };
@@ -70,7 +70,7 @@ static void ArgSortOperationExeFunc2Dims(const std::vector<Tensor> &inputs, std:
             LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0])) {
                 LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loop[IDX_DIM1])) {
                     std::vector<SymbolicScalar> offset = {
-                        bIdx * args->viewShape_[0], 
+                        bIdx * args->viewShape_[0],
                         sIdx * args->viewShape_[1]
                     };
                     auto viewTensor = View(inputs[0], args->viewShape_, {
@@ -104,8 +104,8 @@ static void ArgSortOperationExeFunc3Dims(const std::vector<Tensor> &inputs, std:
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loop[IDX_DIM1])) {
                 LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(loop[IDX_DIM2])) {
                     std::vector<SymbolicScalar> offset = {
-                        bIdx * args->viewShape_[0], 
-                        sIdx * args->viewShape_[1], 
+                        bIdx * args->viewShape_[0],
+                        sIdx * args->viewShape_[1],
                         mIdx * args->viewShape_[2]
                     };
                     auto viewTensor = View(inputs[0], args->viewShape_, {
@@ -144,8 +144,8 @@ static void ArgSortOperationExeFunc4Dims(const std::vector<Tensor> &inputs, std:
                 LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(loop[IDX_DIM2])) {
                     LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(loop[IDX_DIM3])) {
                         std::vector<SymbolicScalar> offset = {
-                            bIdx * args->viewShape_[0], 
-                            sIdx * args->viewShape_[1], 
+                            bIdx * args->viewShape_[0],
+                            sIdx * args->viewShape_[1],
                             mIdx * args->viewShape_[2],
                             nIdx * args->viewShape_[3]
                         };
@@ -177,7 +177,7 @@ TEST_P(ArgSortOperationTest, TestArgSort) {
     testCase.inputTensors = GetInputTensors(test_data);
     testCase.outputTensors = GetOutputTensors(test_data);
     auto args = ArgSortOpFuncArgs(
-        GetViewShape(test_data), 
+        GetViewShape(test_data),
         GetTileShape(test_data),
         GetValueByName<std::vector<int>>(test_data, "dims"),
         GetValueByName<std::vector<bool>>(test_data, "descending")

@@ -33,7 +33,7 @@ bool OpChecker::InputMemTypeChecker::check(Operation *op) const {
     if (conditions.empty()) return true;
     const std::vector<MemoryType> &currentType = OpcodeManager::Inst().GetInputsMemType(op->GetOpcode());
     return std::any_of(
-        currentType.begin(), 
+        currentType.begin(),
         currentType.end(),
         [this](const MemoryType &memType) {
             return std::find(conditions.begin(), conditions.end(), memType) != conditions.end();
@@ -44,7 +44,7 @@ bool OpChecker::OutputMemTypeChecker::check(Operation *op) const {
     if (conditions.empty()) return true;
     const std::vector<MemoryType> &currentType = OpcodeManager::Inst().GetOutputsMemType(op->GetOpcode());
     return std::any_of(
-        currentType.begin(), 
+        currentType.begin(),
         currentType.end(),
         [this](const MemoryType &memType) {
             return std::find(conditions.begin(), conditions.end(), memType) != conditions.end();

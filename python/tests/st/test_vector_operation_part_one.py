@@ -286,7 +286,7 @@ def test_vector_operation_ceil():
     view_shape = (16, 16)
     tile_shape = (8, 8)
     pypto.runtime._device_init()
-    
+
     a = pypto.tensor(shape, dtype, "CEIL_TENSOR_a")
     b = pypto.tensor(shape, dtype, "CEIL_TENSOR_b")
 
@@ -311,7 +311,7 @@ def test_vector_operation_ceil():
 
     expected = torch.ceil(a_tensor)
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
-    
+
     pypto.runtime._device_fini()
 
 
@@ -325,7 +325,7 @@ def test_vector_operation_floor():
     view_shape = (16, 16)
     tile_shape = (8, 8)
     pypto.runtime._device_init()
-    
+
     a = pypto.tensor(shape, dtype, "FLOOR_TENSOR_a")
     b = pypto.tensor(shape, dtype, "FLOOR_TENSOR_b")
 
@@ -350,7 +350,7 @@ def test_vector_operation_floor():
 
     expected = torch.floor(a_tensor)
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
-    
+
     pypto.runtime._device_fini()
 
 
@@ -364,7 +364,7 @@ def test_vector_operation_trunc():
     view_shape = (16, 16)
     tile_shape = (8, 8)
     pypto.runtime._device_init()
-    
+
     a = pypto.tensor(shape, dtype, "TRUNC_TENSOR_a")
     b = pypto.tensor(shape, dtype, "TRUNC_TENSOR_b")
 
@@ -389,7 +389,7 @@ def test_vector_operation_trunc():
 
     expected = torch.trunc(a_tensor)
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
-    
+
     pypto.runtime._device_fini()
 
 

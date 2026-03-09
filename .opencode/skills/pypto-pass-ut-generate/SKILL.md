@@ -11,13 +11,13 @@ license: 完整条款见 LICENSE.txt
 本技能用于分析如何根据用户描述生成对应的Pass侧单元测试用例（UT），结合pypto-pass-module-analyzer/SKILL.md技能分析Pass业务，帮助设计相关单元测试用例（UT）。
 
 ## 触发机制
- 	 
+
  	当用户输入包含以下关键字或者相关内容时，自动触发此技能：
- 	 
+
  	 （1）设计Pass模块XXX的UT用例**：设计指定 Pass 模块的功能的UT用例
  	 （2）设计Pass模块XXX的XXX功能**：设计指定 Pass 模块的指定功能的UT用例
  	 （3）设计XXX功能的相关Pass模块的UT用例**：设计与XXX功能相关Pass的UT用例
- 
+
  	触发示例：
 
  	 （1）"设计Pass模块AutoCast的UT用例"
@@ -25,7 +25,7 @@ license: 完整条款见 LICENSE.txt
  	 （3）"设计删除冗余Op功能的相关Pass的UT用例"
 
 ## 使用场景
- 	 
+
  	当需要设计 PyPTO pass 中模块的功能或业务单元测试时使用此技能。
 
 ## UT生成流程一
@@ -83,7 +83,7 @@ license: 完整条款见 LICENSE.txt
 ### 步骤 4：构建function
 
     构建整张计算图function，利用智能指针进行创建，并在创建后判断是否为空。若用户未明确指定参数，则belongTo为新建Program实例，funcMagicName和funcRawName均为TestXXX，XXX为pass名字，parentFunc为空指针。
-    
+
     详细的信息如下：
         Function类常用构造函数：
 ```cpp
@@ -107,7 +107,7 @@ license: 完整条款见 LICENSE.txt
     LogicalTensor类常用构造函数：
         LogicalTensor(Function &function, DataType t, Shape tshape, TileOpFormat tformat = TileOpFormat::TILEOP_ND, std::string tname = "",
         NodeType tnodetype = NodeType::LOCAL);
-    
+
     详细LogicalTensor类信息，请参考：pypto/framework/src/interface/tensor/logical_tensor.h
 
 ### 步骤 6：创建Operation及绑定function输入输出
@@ -163,7 +163,7 @@ license: 完整条款见 LICENSE.txt
         python3 build_ci.py -c -u=xxx.* --gcov -j=24 -f=cpp
     xxx为该测试用例类的名字,xx为测试用例
     执行结束时,会在build/路径下，生成cov_result 目录，打开index.html观察对应pass的UT覆盖率情况，若覆盖率<=80%，则针对未覆盖的业务，重复以上步骤，进行该Pass UT补充。
-    
+
 ## UT生成流程二
 
 ### 步骤 1：分析业务
@@ -233,5 +233,3 @@ license: 完整条款见 LICENSE.txt
 | BLOCK GRAPH 执行 | `CS_EXECUTE_GRAPH` |
 
 根据 Pass 所在文件夹目录选择对应的编译策略。
-
-

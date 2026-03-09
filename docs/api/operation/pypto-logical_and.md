@@ -77,4 +77,3 @@ z2 = pypto.logical_and(x, y2)
 输出数据z1: [True, False]
 输出数据z2: [[True, False], [False, False]]
 ```
-

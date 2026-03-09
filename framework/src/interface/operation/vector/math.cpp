@@ -26,7 +26,7 @@ void TiledLogicalNotOperation(
     if (cur == input.tensor.GetShape().size()) {
         auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
-        
+
         constexpr int64_t COUNT_NUM = 2048;
         constexpr int64_t vcmp_bit_size = COUNT_NUM / 8;
         constexpr size_t ALIGN_SIZE = 32;
@@ -37,7 +37,7 @@ void TiledLogicalNotOperation(
         } else {
             select_dtype = DT_FP16;
         }
-        
+
         int64_t total_size = COUNT_NUM * 2 + COUNT_NUM * BytesOf(select_dtype) * 2 + vcmp_bit_size + 8;
         total_size = (total_size + ALIGN_SIZE - 1) / ALIGN_SIZE * ALIGN_SIZE;
         std::vector<int64_t> tmpShape({total_size});
@@ -93,7 +93,7 @@ void TiledSignOperation(
     if (cur == input.tensor.GetShape().size()) {
         auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
-        
+
         constexpr size_t ALIGN_SIZE = 32;
         int64_t tmpSize = ALIGN_SIZE / BytesOf(DT_FP16);
         if (input.tensor.GetDataType() == DT_INT8) {
@@ -296,7 +296,7 @@ Tensor Log1p(const Tensor &self) {
 
     auto tAddOne = CALL(BinaryOperationScalar<BinaryOpType::ADD>, *Program::GetInstance().GetCurrentFunction(),
                         operandCast.GetStorage(), Element(DataType::DT_FP32, 1.0f));
-  
+
     auto dSubOne = CALL(BinaryOperationScalar<BinaryOpType::ADD>, *Program::GetInstance().GetCurrentFunction(),
                         tAddOne, Element(DataType::DT_FP32, -1.0f));
 
@@ -314,7 +314,7 @@ Tensor Log1p(const Tensor &self) {
     auto ySelect = Where(maskEqOne, operandCast, yRaw);
 
     ySelect = Where(maskEqInf, Element(DataType::DT_FP32, INFINITY), ySelect);
-                
+
     auto resTensorBeforeCast = Tensor(DataType::DT_FP32, self.GetShape());
     resTensorBeforeCast = ySelect;
 
@@ -326,7 +326,7 @@ Tensor Log1p(const Tensor &self) {
             resTensorBeforeCast.GetStorage(), DataType::DT_BF16, CastMode::CAST_NONE);
     }
     return resTensorBeforeCast;
-} 
+}
 
 LogicalTensorPtr GenAllOneTensor(const Shape &shape, std::vector<SymbolicScalar> validShape, const DataType &dataType) {
     auto result = CALL(FullOperation, *Program::GetInstance().GetCurrentFunction(), Element(DataType::DT_FP32, 1.0),
@@ -493,8 +493,8 @@ void TiledLogicalAndOperation(Function& function, const TileShape& tileShape, si
         std::vector<int64_t> tmp_shape({static_cast<int64_t>(total_bytes)});
         auto tmp_tensor = std::make_shared<LogicalTensor>(function, DT_UINT8, tmp_shape);
 
-        function.AddOperation(Opcode::OP_LOGICALAND, {tile0, tile1}, 
-                            {resultTile, tmp_tensor});    
+        function.AddOperation(Opcode::OP_LOGICALAND, {tile0, tile1},
+                            {resultTile, tmp_tensor});
         return;
     }
 

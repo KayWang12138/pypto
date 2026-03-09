@@ -38,10 +38,10 @@ class TestBase(abc.ABC):
 
         Args:
             kwargs (Dict): {"param": type}, dictionary of parameters and type.
-        
+
         Returns:
             None:
-        
+
         Examples:
             >>> self.setup_parameters(i = int, j = int, check = bool)
             >>> self.setup_parameters(dtype = type, b = int, scale = float)
@@ -83,13 +83,13 @@ class TestBase(abc.ABC):
 
         Args:
             tensors (Dict): input tensors, should be passed by locals()
-            op_formats (Dict): {'input_name': op_format(int)}, tensor op format in cpp. 
+            op_formats (Dict): {'input_name': op_format(int)}, tensor op format in cpp.
                                     As ND is default format, only NZ tensor need to be identified.
                                     op_format candidate: 0 for ND, 1 for NZ
-        
+
         Returns:
             None:
-        
+
         Examples:
             >>> self.setup_input_tensors(locals(), {'w' : 1})
         """
@@ -98,17 +98,17 @@ class TestBase(abc.ABC):
                 if isinstance(value, np.ndarray) and name != 'self':
                     setattr(self, name, value)
                     self.input_tensors[name] = (
-                        value, 
+                        value,
                         list(value.shape),
-                        value.dtype, 
+                        value.dtype,
                         0
                     )
                 elif isinstance(value, torch.Tensor) and name != 'self':
                     setattr(self, name, value)
                     self.input_tensors[name] = (
-                        value, 
+                        value,
                         list(value.shape),
-                        value.dtype, 
+                        value.dtype,
                         0
                     )
 
@@ -129,23 +129,23 @@ class TestBase(abc.ABC):
 
         Args:
             tensors (dict) : {"output_name": tensor}, dictionary of output tensors
-        
+
         Returns:
             None:
-        
+
         Examples:
             >>> self.setup_output({'output': output})
         """
         for name, value in tensors.items():
             if isinstance(value, np.ndarray) and name != 'self':
                 self.golden_outputs[name] = (
-                    value, 
+                    value,
                     list(value.shape),
                     value.dtype
                 )
             elif isinstance(value, torch.Tensor) and name != 'self':
                 self.golden_outputs[name] = (
-                    value, 
+                    value,
                     list(value.shape),
                     value.dtype
                 )
@@ -154,13 +154,13 @@ class TestBase(abc.ABC):
     def define_parameters(self, param_set: tuple) -> Dict[str, Any]:
         """
         Need user overwrite!!
-        Define parameters in computation graph. 
+        Define parameters in computation graph.
         1. Use self.setup_parameters() to define parameters type.
         2. Use self.load_parameters() to load arguments.
 
         Args:
            param_set (tuple) : tuple of arguments, directly pass to self.load_parameters().
-        
+
         Returns:
             parameters (dict) : {"param": arg}, dictionary of parameters and arguments
 
@@ -175,13 +175,13 @@ class TestBase(abc.ABC):
         """
         Need user overwrite!!
         Define input tensors and set op format in cpp
-        1. Define all input tensor in computation graph. 
+        1. Define all input tensor in computation graph.
            Conditional input should be defined as None when the condition is false and returned in the function end.
         2. Use self.setup_input_tensors() to store input tensors. The default tensor op format is ND (0).
            User can set op format to NZ by passing dict {'input_name': 1} to op_formats parameter
            of self.setup_input_tensors()
         3. Tensors return order must be consistent with the parameters order of core()
-        
+
         Returns:
             inputs (tuple) : all input tensors.
 
@@ -203,7 +203,7 @@ class TestBase(abc.ABC):
 
         Args:
            tensors : all input tensors, order must be consistent with define_input_tensors() return.
-        
+
         Returns:
             None:
 
@@ -289,7 +289,7 @@ class TestBase(abc.ABC):
                 "dtype": self.dtype_name(str(dtype)),
                 "opFormat": op_format
             }
-            
+
             dir_idx = max(i for i, name in enumerate(Path(bin_path).parts)
                           if name == self.name)
             entry["bin_file"] = str(Path(*Path(bin_path).parts[dir_idx + 1:]))
@@ -305,7 +305,7 @@ class TestBase(abc.ABC):
                 "dtype": self.dtype_name(str(dtype)),
                 "opFormat": 0
             }
-            
+
             dir_idx = max(i for i, name in enumerate(Path(bin_path).parts)
                          if name == self.name)
             entry["bin_file"] = str(

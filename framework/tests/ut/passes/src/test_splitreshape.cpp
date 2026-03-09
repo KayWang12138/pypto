@@ -1173,7 +1173,7 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedSTest) {
     }
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase1");
-    
+
     RunPassStra(*func, PassName::EXPAND_FUNCTION);
     CheckOpReshape(func, CheckReshapeStruct{origShape, kSizeTwo, false, {}, reshapeShape, kSizeTwo, false, {}, kNumOne});
 

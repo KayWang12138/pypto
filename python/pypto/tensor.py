@@ -479,7 +479,7 @@ class Tensor:
     @source_location
     def mul(self, other: 'Tensor | int | float') -> 'Tensor':
         return pypto.mul(self, other)
-    
+
     @source_location
     def hypot(self, other: 'Tensor') -> 'Tensor':
         return pypto.hypot(self, other)
@@ -599,7 +599,7 @@ class Tensor:
     @source_location
     def topk(self, k: int, dim: Optional[int] = None, largest: bool = True) -> Tuple['Tensor', 'Tensor']:
         return pypto.topk(self, k, dim, largest)
-    
+
     @source_location
     def sort32(self, index: Optional[int] = None) -> 'Tensor':
         return pypto.sort32(self, index)
@@ -611,7 +611,7 @@ class Tensor:
     @source_location
     def exp(self) -> 'Tensor':
         return pypto.exp(self)
-    
+
     @source_location
     def sign(self) -> 'Tensor':
         return pypto.sign(self)
@@ -639,7 +639,7 @@ class Tensor:
     @source_location
     def log10(self) -> 'Tensor':
         return pypto.log10(self)
-        
+
     @source_location
     def log2(self) -> 'Tensor':
         return pypto.log2(self)

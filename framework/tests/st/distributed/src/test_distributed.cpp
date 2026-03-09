@@ -23,7 +23,7 @@ class DistributedTest : public testing::TestWithParam<OpMetaData> {
 public:
     static void TearDownTestCase() {}
 
-    static void SetUpTestCase() 
+    static void SetUpTestCase()
     {
         GegisterOps();
     }
@@ -63,7 +63,7 @@ public:
         std::string caseName = testData["case_name"].get<std::string>();
         std::string goldenDir = GetGoldenDirPath(testData, fileName);
         DisOpRegister::GetRegister().Run(opName, testParam, dtype, goldenDir);
-        DISTRIBUTED_LOGI("test case finished successfully: op=%s, case=%s, json file=%s.", 
+        DISTRIBUTED_LOGI("test case finished successfully: op=%s, case=%s, json file=%s.",
             opName.c_str(), caseName.c_str(), fileName.c_str());
     }
 
