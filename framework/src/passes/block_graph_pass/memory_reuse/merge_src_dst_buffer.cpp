@@ -221,7 +221,7 @@ bool SrcDstBufferMergeImpl::CheckAssembleReuse(const LogicalTensorPtr &outOperan
 }
 
 bool SrcDstBufferMergeImpl::CanSrcDstReuse(const Operation &ops, std::shared_ptr<LogicalTensor> iOperand, std::shared_ptr<LogicalTensor> oOperand) {
-    if (std::find(SCATTER_ELEMENT_OPS.begin(), SCATTER_ELEMENT_OPS.end(), ops.GetOpcode()) != SCATTER_ELEMENT_OPS.end()) {
+    if (Opcode::OP_SCATTER_ELEMENT == ops.GetOpcode()) {
         if (iOperand == ops.GetIOperands()[0]) {
             return true;
         }
