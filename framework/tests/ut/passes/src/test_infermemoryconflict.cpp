@@ -61,6 +61,36 @@ public:
     void TearDown() override {}
 };
 
+// 覆盖 infer_memory_conflict.cpp 第127行: CheckRawShapeConflict 中 inShape[i] < 0
+TEST_F(InferMemoryConflictTest, CheckRawShapeConflictInShapeNegative) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "CheckRawShapeTest", "CheckRawShapeTest", nullptr);
+    std::vector<int64_t> inShape = {-1, 4};
+    std::vector<int64_t> outShape = {2, 4};
+    std::shared_ptr<RawTensor> inRaw = std::make_shared<RawTensor>(DT_FP32, inShape);
+    std::shared_ptr<RawTensor> outRaw = std::make_shared<RawTensor>(DT_FP32, outShape);
+    auto inTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, inRaw, std::vector<int64_t>{0, 0}, inShape);
+    auto outTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, outRaw, std::vector<int64_t>{0, 0}, outShape);
+    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inTensor}, {outTensor});
+    InferMemoryConflict pass;
+    // 这里只关注 inShape 中存在负值时的早返回分支，reshapeOp 不会被访问，传入 nullptr 即可
+    EXPECT_TRUE(pass.CheckRawShapeConflict(inTensor, outTensor, nullptr));
+}
+
+// 覆盖 infer_memory_conflict.cpp 第134行: CheckRawShapeConflict 中 outShape[i] < 0
+TEST_F(InferMemoryConflictTest, CheckRawShapeConflictOutShapeNegative) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "CheckRawShapeTest2", "CheckRawShapeTest2", nullptr);
+    std::vector<int64_t> inShape = {2, 4};
+    std::vector<int64_t> outShape = {-1, 4};
+    std::shared_ptr<RawTensor> inRaw = std::make_shared<RawTensor>(DT_FP32, inShape);
+    std::shared_ptr<RawTensor> outRaw = std::make_shared<RawTensor>(DT_FP32, outShape);
+    auto inTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, inRaw, std::vector<int64_t>{0, 0}, inShape);
+    auto outTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, outRaw, std::vector<int64_t>{0, 0}, outShape);
+    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inTensor}, {outTensor});
+    InferMemoryConflict pass;
+    // 这里只关注 outShape 中存在负值时的早返回分支，reshapeOp 不会被访问，传入 nullptr 即可
+    EXPECT_TRUE(pass.CheckRawShapeConflict(inTensor, outTensor, nullptr));
+}
+
 TEST_F(InferMemoryConflictTest, TestInit) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
