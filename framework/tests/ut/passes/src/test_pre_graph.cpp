@@ -868,6 +868,25 @@ TEST_F(PreGraphTest, TestProcessReshape) {
     EXPECT_EQ(copyinCnt, 2);
 }
 
+TEST_F(PreGraphTest, TestRemoveViewMultiReshapeErrCondition) {
+    ComputationalGraphBuilder G;
+    G.AddTensor(DataType::DT_FP16, {16, 24576}, "t1");
+    G.AddTensor(DataType::DT_FP16, {16, 1, 128, 192}, "t2");
+    G.AddTensor(DataType::DT_FP16, {16, 1, 128, 128}, "t3");
+    G.AddOp(Opcode::OP_RESHAPE, {"t1"}, {"t2"}, "RESHAPE1");
+    G.AddOp(Opcode::OP_VIEW, {"t2"}, {"t3"}, "VIEW");
+
+    RemoveRedundantAssemble pass;
+    std::vector<std::pair<Operation *, Operation *>> multiReshapeVector;
+    multiReshapeVector.push_back({G.GetOp("RESHAPE1"), G.GetOp("VIEW")});
+
+    EXPECT_EQ(pass.RemoveViewMultiReshape(multiReshapeVector), FAILED);
+
+    auto viewOp = G.GetOp("VIEW");
+    viewOp->oOperand[0] = nullptr;
+    EXPECT_EQ(pass.RemoveViewMultiReshape(multiReshapeVector), FAILED);
+}
+
 void CompareOpImmediateVector(const std::vector<OpImmediate> &result, const std::vector<int64_t> &expect) {
     EXPECT_EQ(result.size(), expect.size());
     for (size_t idx = 0; idx < result.size(); ++idx) {
