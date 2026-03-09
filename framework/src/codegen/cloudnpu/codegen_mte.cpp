@@ -1922,7 +1922,7 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
     GetAttr(Conv::LoadStoreConvOpAttributeKey::isConv3D, isConv3D);
 
     std::ostringstream oss;
-    oss << tileOpName.c_str() << WrapParamByAngleBrackets({isConv3D}) << WrapParamByParentheses(paramList) << STMT_END;
+    oss << tileOpName.c_str() << WrapParamByAngleBrackets({std::to_string(isConv3D)}) << WrapParamByParentheses(paramList) << STMT_END;
     return oss.str();
 }
 
