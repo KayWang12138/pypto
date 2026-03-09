@@ -307,5 +307,42 @@ TEST_F(DerivationTileShapeTest, DerivationDiffSizeFail1) {
     BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
 }
 
+// 覆盖 derivation_tile_shape.cpp 第535行: CheckTileShape 中 inTileSize != outTileSize
+TEST_F(DerivationTileShapeTest, DerivationCheckTileShapeSizeMismatch) {
+    ComputationalGraphBuilder G;
+    BuildGraphAndCheck(G);
+
+    Shape inShape = {4, 6};
+    Shape outShape = {2, 2, 6};
+    std::vector<int64_t> inTileShape = {2, 3};
+    BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
+}
+
+// 覆盖 derivation_tile_shape.cpp 第551行: CheckTileShape 中 inDistance != outDistance (tile 内存排布不一致)
+TEST_F(DerivationTileShapeTest, DerivationCheckTileShapeDistanceMismatch) {
+    ComputationalGraphBuilder G;
+    BuildGraphAndCheck(G);
+
+    Shape inShape = {2, 2, 6};
+    Shape outShape = {2, 4, 3};
+    std::vector<int64_t> inTileShape = {2, 2, 2};
+    BuildShapeAndCheckFail(G.GetFunction(), inShape, outShape, inTileShape);
+}
+
+// 覆盖 derivation_tile_shape.cpp 第569行: DerivationReshapeTileShape 传入非 OP_RESHAPE op
+TEST_F(DerivationTileShapeTest, DerivationReshapeTileShapeNonReshapeOp) {
+    ComputationalGraphBuilder G;
+    G.AddTensor(DataType::DT_FP32, {8, 8}, "a");
+    G.AddTensor(DataType::DT_FP32, {8, 8}, "b");
+    G.AddOp(Opcode::OP_ADD, {"a"}, {"b"}, "add1");
+    G.SetInCast({"a"});
+    G.SetOutCast({"b"});
+    Function *function = G.GetFunction();
+    DerivationTileShape pass;
+    std::vector<int64_t> outTileShape;
+    auto addOp = function->Operations().DuplicatedOpList()[0];
+    EXPECT_EQ(pass.DerivationReshapeTileShape(addOp, {8, 8}, {8, 8}, {4, 4}, outTileShape), WARNING);
+}
+
 } // namespace tile_fwk
 } // namespace npu
