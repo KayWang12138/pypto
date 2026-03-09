@@ -80,7 +80,7 @@ bool FlowVerifier::VerifyResult(const std::string &key,
 
         auto tensorGraphResult = VerifyResult(goldenDataViewList[k], tensorDataViewList[k], rtol, atol);
         if (!tensorGraphResult.Check()) {
-            VERIFY_LOGE("%s Verify for %zu data view list index %zu result FAILED", key.c_str(), goldenDataViewList.size(), k);
+            VERIFY_LOGE_FULL("%s Verify for %zu data view list index %zu result FAILED", key.c_str(), goldenDataViewList.size(), k);
             opInfo[toIndex(OpInfoCsvHeader::verifyResult)] = "FAILED";
             result = false;
         } else {

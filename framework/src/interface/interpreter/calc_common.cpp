@@ -245,7 +245,7 @@ void ExecutePrint(ExecuteOperationContext *ctx) {
             csv << "element_count," << oop->GetData()->GetDataSize() / oop->GetData()->GetElementSize() << "\n";
             csv.close();
         } else {
-            VERIFY_LOGE("open csv file %s failed!!!!", csvPath.c_str());
+            VERIFY_LOGE_FULL("open csv file %s failed!!!!", csvPath.c_str());
         }
     }
 
