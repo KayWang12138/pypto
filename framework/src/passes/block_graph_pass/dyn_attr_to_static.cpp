@@ -438,7 +438,7 @@ Status DynAttrToStatic::RunOnFunction(Function &function) {
     return SUCCESS;
 }
 
-Status DynAttrToStatic::GetTileFunction(Function* function, std::vector<Function*> &tileFunctionVec) {
+Status DynAttrToStatic::GetTileFunction(Function* function, std::unordered_set<Function*> &tileFunctionSet) {
     for (auto callop : function->GetCallopList()) {
         Function *nextFunc = nullptr;
         if (GetCallee(*callop, nextFunc) != SUCCESS) {
@@ -449,9 +449,9 @@ Status DynAttrToStatic::GetTileFunction(Function* function, std::vector<Function
         APASS_LOG_DEBUG_F(Elements::Function, "GetTileFunction, %s --%s[%d]--> %s",
             function->GetRawName().c_str(), callop->GetOpcodeStr().c_str(), callop->GetOpMagic(), nextFunc->GetRawName().c_str());
         if (nextFunc->GetGraphType() == GraphType::TILE_GRAPH) {
-            tileFunctionVec.emplace_back(nextFunc);
+            tileFunctionSet.emplace(nextFunc);
         } else {
-            if(GetTileFunction(nextFunc, tileFunctionVec) != SUCCESS) {
+            if(GetTileFunction(nextFunc, tileFunctionSet) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "GetTileFunction, currFunc: %s, nextFunc: %s, recursive search failed",
                     function->GetRawName().c_str(), nextFunc->GetRawName().c_str());
                 return FAILED;
@@ -462,12 +462,12 @@ Status DynAttrToStatic::GetTileFunction(Function* function, std::vector<Function
 }
 
 Status DynAttrToStatic::DumpFunctionJson(Function& function, const std::string &logFolder, bool beforeFunction) {
-    std::vector<Function*> tileFunctionVec;
-    if (GetTileFunction(&function, tileFunctionVec) != SUCCESS) {
+    std::unordered_set<Function*> tileFunctionSet;
+    if (GetTileFunction(&function, tileFunctionSet) != SUCCESS) {
         return FAILED;
     }
-    APASS_LOG_DEBUG_F(Elements::Function, "Obtained a total of %zu tileFunctions", tileFunctionVec.size());
-    for (auto tileFunc : tileFunctionVec) {
+    APASS_LOG_DEBUG_F(Elements::Function, "Obtained a total of %zu tileFunctions", tileFunctionSet.size());
+    for (auto tileFunc : tileFunctionSet) {
         APASS_LOG_DEBUG_F(Elements::Function, "Dump tileFunction[%s] json", tileFunc->GetRawName().c_str());
         Pass::DumpFunctionJson(*tileFunc, logFolder, beforeFunction);
     }
@@ -476,12 +476,12 @@ Status DynAttrToStatic::DumpFunctionJson(Function& function, const std::string &
 }
 
 Status DynAttrToStatic::PrintFunction(Function& function, const std::string &logFolder, bool beforeFunction) {
-    std::vector<Function*> tileFunctionVec;
-    if (GetTileFunction(&function, tileFunctionVec) != SUCCESS) {
+    std::unordered_set<Function*> tileFunctionSet;
+    if (GetTileFunction(&function, tileFunctionSet) != SUCCESS) {
         return FAILED;
     }
-    APASS_LOG_DEBUG_F(Elements::Function, "Obtained a total of %zu tileFunctions", tileFunctionVec.size());
-    for (auto tileFunc : tileFunctionVec) {
+    APASS_LOG_DEBUG_F(Elements::Function, "Obtained a total of %zu tileFunctions", tileFunctionSet.size());
+    for (auto tileFunc : tileFunctionSet) {
         APASS_LOG_DEBUG_F(Elements::Function, "Print tileFunction[%s]", tileFunc->GetRawName().c_str());
         Pass::PrintFunction(*tileFunc, logFolder, beforeFunction);
     }
