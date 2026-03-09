@@ -49,7 +49,11 @@ TileShape需要满足以下约束条件：
 
         - 1 <= tileCinFmap <= Cin（Cin为输入特征图实际通道数）
 
+        - tileCinFmap * sizeof(dtype) % 32 == 0
+
         - 1 <= tileCinWeight <= Cin（Cin为权重输入通道实际数量）
+
+        - tileCinWeight * sizeof(dtype) % 32 == 0
 
         - 1 <= tileN <= Cout（Cout为输出特征图实际通道数）
 
