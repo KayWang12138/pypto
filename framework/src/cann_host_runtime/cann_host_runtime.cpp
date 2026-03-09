@@ -21,15 +21,15 @@ namespace tile_fwk {
 const uint32_t kMaxLength = 50;
 const std::string socVerFuncName = "rtGetSocVersion";
 
-void *CannHostRuntime::GetSymbol(const std::string &sym) {	 
- #ifdef BUILD_WITH_CANN	 
-     if (handleDep_ != nullptr && handle_ != nullptr) {	 
-         return dlsym(handle_, sym.c_str());	 
-     }	 
- #endif	 
-     (void)sym;	 
-     return nullptr;	 
- }	 
+void *CannHostRuntime::GetSymbol(const std::string &sym) {
+#ifdef BUILD_WITH_CANN
+    if (handleDep_ != nullptr && handle_ != nullptr) {
+        return dlsym(handle_, sym.c_str());
+    }
+#endif
+    (void)sym;
+    return nullptr;
+}
 
 CannHostRuntime::CannHostRuntime() {
 #ifdef BUILD_WITH_CANN
@@ -44,17 +44,17 @@ CannHostRuntime::CannHostRuntime() {
         socVerFunc_ = (GetSocVerFunc)GetSymbol(socVerFuncName);
     }
 #endif
-    if (handleDep_ == nullptr || handle_ == nullptr) { 
-        FUNCTION_LOGW("Cannot obtain so file through dlopen."); 
+    if (handleDep_ == nullptr || handle_ == nullptr) {
+        FUNCTION_LOGW("Cannot obtain so file through dlopen.");
     }
 }
 
-CannHostRuntime::~CannHostRuntime() { 
+CannHostRuntime::~CannHostRuntime() {
     if (handle_ != nullptr) {
-        dlclose(handle_);	 
+        dlclose(handle_);
     }
-    if (handleDep_ != nullptr) {	 
-        dlclose(handleDep_);	 
+    if (handleDep_ != nullptr) {
+        dlclose(handleDep_);
     }
 }
 
