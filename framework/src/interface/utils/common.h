@@ -620,6 +620,13 @@ enum class CopyInMode : int64_t {
     DN2NZ = 3
 };
 
+enum class CopyOutMode : int64_t {
+    NZ2ND = 0,
+    NZ2NZ = 1,
+    ND2ND = 2,
+    NZ2DN = 3
+};
+
 enum class PaddingMode : int64_t {
     NO_PADDING = 0,
     PADDING_OUTER = 1,
