@@ -9,21 +9,88 @@
  */
 
 /*!
- * \file ini_parser.cpp
+ * \file platform_parser.cpp
  * \brief
  */
 
-#include "ini_parser.h"
+#include "platform_parser.h"
 
 namespace npu {
 namespace tile_fwk {
 const std::string platformConfigEnv = "PLATFORM_CONFIG_PATH";
 const std::string version = "version";
-const std::string instrinsicMap = "AICoreintrinsicDtypeMap";
 const std::string aic = "AIC";
 const std::string aiv = "AIV";
 const std::string aicVersion = "AIC_version";
 const std::string aivVersion = "AIV_version";
+const std::string ccecAicVersion = "CCEC_AIC_version";
+const std::string ccecAivVersion = "CCEC_AIV_version";
+const std::string ccecCubeVersion = "CCEC_CUBE_version";
+const std::string ccecVectorVersion = "CCEC_VECTOR_version";
+
+bool PlatformParser::FilterCCECVersion(const std::string& key, std::string &coreType) const {
+    const std::string prefix = "CCEC_";
+    const std::string suffix = "_version";
+    const size_t prefixLen = prefix.length();
+    const size_t suffixLen = suffix.length();
+    if (key.length() >= (prefixLen + suffixLen) &&
+        key.substr(0, prefixLen) == prefix &&
+        key.substr(key.length() - suffixLen) == suffix) {
+        coreType = key.substr(prefixLen, key.length() - prefixLen - suffixLen);
+        return true;
+    } else {
+        return false;
+    }
+}
+
+bool PlatformParser::GetSizeVal(const std::string& column, const std::string& key, size_t& val) const {
+    std::string valStr;
+    const size_t max_size_t = std::numeric_limits<size_t>::max();
+    if (!GetStringVal(column, key, valStr)) {
+        return false;
+    }
+    val = 0UL;
+
+    constexpr int    kRadix10    = 10;
+    constexpr int    kMaxDigit10 = kRadix10 - 1;
+
+    for (const char &c : valStr) {
+        int digit = c - '0';
+        if (digit < 0 || digit > kMaxDigit10) {
+            return false;
+        }
+        if (val > (max_size_t - digit) / kRadix10) {
+            return false;
+        }
+        val = val * kRadix10 + digit;
+    }
+    return true;
+}
+
+bool PlatformParser::GetCCECVersion(std::unordered_map<std::string, std::string>& ccecVersion) const {
+    const std::vector<std::string> ccecVersions = {ccecAicVersion, ccecAivVersion, ccecCubeVersion, ccecVectorVersion};
+    ccecVersion.clear();
+    std::string coreType;
+    std::string versionVal;
+    for (const auto &curVersion : ccecVersions) {
+        if (FilterCCECVersion(curVersion, coreType) && GetStringVal(version, curVersion, versionVal)) {
+            ccecVersion[coreType] = versionVal;
+        }
+    }
+    return !ccecVersion.empty();
+}
+
+bool PlatformParser::GetCoreVersion(std::unordered_map<std::string, std::string>& curVersion) const {
+    curVersion.clear();
+    std::string versionVal;
+    if (GetStringVal(version, aicVersion, versionVal)) {
+        curVersion[aic] = versionVal;
+    }
+    if (GetStringVal(version, aivVersion, versionVal)) {
+        curVersion[aiv] = versionVal;
+    }
+    return !curVersion.empty();
+}
 
 bool INIParser::Initialize(const std::string& iniFilePath) {
     FUNCTION_LOGI("Start to parse ini_file %s.", iniFilePath.c_str());
@@ -74,93 +141,19 @@ bool INIParser::ReadINIFile(const std::string& filepath) {
     return true;
 }
 
-bool INIParser::GetStringVal(const std::string& column, const std::string& key, std::string& val) {
+bool INIParser::GetStringVal(const std::string& column, const std::string& key, std::string& val) const {
     val.clear();
     if (data_.find(column) == data_.end()) {
         FUNCTION_LOGE("Cannot find attr 'version' from the ini file.");
         return false;
     }
-    auto value = data_[column];
+    auto value = data_.at(column);
     if (value.find(key) == value.end()) {
         FUNCTION_LOGW("Cannot find attr '%s' from the [version] tab.", key.c_str());
         return false;
     }
-    val = value[key];
+    val = value.at(key);
     return true;
-}
-
-bool INIParser::GetSizeVal(const std::string& column, const std::string& key, size_t& val) {
-    std::string valStr;
-    const size_t max_size_t = std::numeric_limits<size_t>::max();
-    if (!GetStringVal(column, key, valStr)) {
-        FUNCTION_LOGE("GetStringVal FAILED.");
-        return false;
-    }
-    val = 0UL;
-
-    constexpr int    kRadix10    = 10;
-    constexpr int    kMaxDigit10 = kRadix10 - 1;
-
-    for (const char &c : valStr) {
-        int digit = c - '0';
-        if (digit < 0 || digit > kMaxDigit10) {
-            FUNCTION_LOGE("Cannot convert string to size_t: %s.", valStr.c_str());
-            return false;
-        }
-        if (val > (max_size_t - digit) / kRadix10) {
-            FUNCTION_LOGE("Overflow data: %s.", valStr.c_str());
-            return false;
-        }
-        val = val * kRadix10 + digit;
-    }
-    return true;
-}
-
-bool INIParser::GetCCECVersion(std::unordered_map<std::string, std::string>& ccecVersion) {
-    ccecVersion.clear();
-    if (data_.find(version) == data_.end()) {
-        FUNCTION_LOGE("Cannot find attribute 'version' from the ini file.");
-        return false;
-    }
-    auto versionVal = data_[version];
-    std::string coreType;
-    for (const auto &pair : versionVal) {
-        if (FilterCCECVersion(pair.first, coreType)) {
-            ccecVersion[coreType] = pair.second;
-        }
-    }
-    return true;
-}
-
-bool INIParser::GetCoreVersion(std::unordered_map<std::string, std::string>& curVersion) {
-    curVersion.clear();
-    if (data_.find(version) == data_.end()) {
-        FUNCTION_LOGE("Cannot find attribute 'version' from the ini file.");
-        return false;
-    }
-    auto versionVal = data_[version];
-    if (versionVal.find(aicVersion) != versionVal.end()) {
-        curVersion[aic] = versionVal[aicVersion];
-    }
-    if (versionVal.find(aivVersion) != versionVal.end()) {
-        curVersion[aiv] = versionVal[aivVersion];
-    }
-    return true;
-}
-
-bool INIParser::FilterCCECVersion(const std::string& key, std::string &coreType) {
-    const std::string prefix = "CCEC_";
-    const std::string suffix = "_version";
-    const size_t prefixLen = prefix.length();
-    const size_t suffixLen = suffix.length();
-    if (key.length() >= (prefixLen + suffixLen) &&
-        key.substr(0, prefixLen) == prefix &&
-        key.substr(key.length() - suffixLen) == suffix) {
-        coreType = key.substr(prefixLen, key.length() - prefixLen - suffixLen);
-        return true;
-    } else {
-        return false;
-    }
 }
 }  // namespace tile_fwk
 }  // namespace npu

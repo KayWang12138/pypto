@@ -95,7 +95,7 @@ bool InternalParser::LoadInternalInfo() {
             data_[section] = info;
             info.clear();
         } else if (trimLine.find("{") != std::string::npos) {
-            if (TrimLine(trimLine.substr(0, trimLine.find(':'))) != socVersion_) {
+            if (TrimLine(trimLine.substr(0, trimLine.find(':'))) != archType_) {
                 currentSoc = false;
             }
         } else if (trimLine.find("[") != std::string::npos) {
