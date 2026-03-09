@@ -85,7 +85,7 @@ std::string TestL0COutBody(bool isDynamicAligned) {
     op.SetOOpAttrOffset(0, 0);
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
     if (!isDynamicAligned) {
-        op.SetAttribute("op_attr_is_nz", 1);
+        op.SetAttribute(OpAttributeKey::copyIsNZ, 1);
     }
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
@@ -95,9 +95,6 @@ std::string TestL0COutBody(bool isDynamicAligned) {
     CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
     CodeGenOpCloudNPU cop(opCtx);
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
-
-    cop.originShape[0] = shape;
-    cop.originShape[1] = shape;
     return cop.GenOpCode();
 }
 
