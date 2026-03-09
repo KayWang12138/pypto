@@ -143,16 +143,18 @@ bool INIParser::ReadINIFile(const std::string& filepath) {
 
 bool INIParser::GetStringVal(const std::string& column, const std::string& key, std::string& val) const {
     val.clear();
-    if (data_.find(column) == data_.end()) {
+    auto iter = data_.find(column);
+    if (iter == data_.end()) {
         FUNCTION_LOGE("Cannot find attr 'version' from the ini file.");
         return false;
     }
-    auto value = data_.at(column);
-    if (value.find(key) == value.end()) {
+    auto value = iter->second;
+    auto iter2 = value.find(key);
+    if (iter2 == value.end()) {
         FUNCTION_LOGW("Cannot find attr '%s' from the [version] tab.", key.c_str());
         return false;
     }
-    val = value.at(key);
+    val = iter2->second;
     return true;
 }
 }  // namespace tile_fwk

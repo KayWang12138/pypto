@@ -21,6 +21,7 @@
 #include "platform/parser/internal_parser.h"
 
 using namespace npu::tile_fwk;
+const size_t Num2 = 2UL;
 const std::string archInfo = "ArchInfo";
 const std::string version = "version";
 const std::string socInfo = "SoCInfo";
@@ -146,7 +147,28 @@ TEST_F(TestPlatform, AbnormalTest) {
     size_t testSize;
     EXPECT_FALSE(parser.GetSizeVal("none", "", testSize));
 
-    InternalParser internalParser = InternalParser(""); 
     std::vector<std::pair<MemoryType, MemoryType>> dataPath; 
-    EXPECT_FALSE(internalParser.GetDataPath(dataPath)); 
+    InternalParser internalParser1 = InternalParser("");
+    EXPECT_FALSE(internalParser1.GetDataPath(dataPath));
+
+    InternalParser internalParser2 = InternalParser("2201");
+    EXPECT_TRUE(internalParser2.GetDataPath(dataPath));
+}
+
+TEST_F(TestPlatform, A5Stub) {
+    std::vector<std::pair<MemoryType, MemoryType>> dataPath; 
+    InternalParser parser2 = InternalParser("3510");
+    EXPECT_TRUE(parser2.GetDataPath(dataPath));
+    Platform::Instance().GetDie().SetMemoryPath(dataPath);
+
+    std::vector<MemoryType> path;
+    Platform::Instance().GetDie().FindNearestPath(MemoryType::MEM_L0C, MemoryType::MEM_UB, path); 
+    EXPECT_EQ(path.size(), Num2); 
+    path.clear(); 
+    Platform::Instance().GetDie().FindNearestPath(MemoryType::MEM_L1, MemoryType::MEM_UB, path); 
+    EXPECT_EQ(path.size(), Num2); 
+    path.clear(); 
+    Platform::Instance().GetDie().FindNearestPath(MemoryType::MEM_UB, MemoryType::MEM_L1, path); 
+    EXPECT_EQ(path.size(), Num2); 
+    path.clear();
 }

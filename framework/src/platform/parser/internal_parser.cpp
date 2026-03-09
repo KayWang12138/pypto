@@ -22,6 +22,7 @@ const std::string paths = "PATHS";
 const std::string comma = ",";
 const std::string direction = "->";
 
+// Thread-safe in C++11: static local initialization is guaranteed to be thread-safe
 std::string GetCurSharedLibPath() {
     static std::string curLibPath;
     if (!curLibPath.empty()) {
@@ -86,6 +87,9 @@ bool InternalParser::LoadInternalInfo() {
     bool currentSoc = true;
     while (std::getline(file, line)) {
         trimLine = TrimLine(line);
+        if (trimLine[0] == '#') {
+            continue;
+        }
         if (trimLine.find("}") != std::string::npos) {
             currentSoc = true;
         } else if (trimLine.empty() || !currentSoc) {
