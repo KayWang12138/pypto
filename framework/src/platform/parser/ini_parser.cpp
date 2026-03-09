@@ -24,6 +24,25 @@ const std::string aic = "AIC";
 const std::string aiv = "AIV";
 const std::string aicVersion = "AIC_version";
 const std::string aivVersion = "AIV_version";
+const std::string ccecAicVersion = "CCEC_AIC_version";
+const std::string ccecAivVersion = "CCEC_AIV_version";
+const std::string ccecCubeVersion = "CCEC_CUBE_version";
+const std::string ccecVectorVersion = "CCEC_VECTOR_version";
+
+bool FilterCCECVersion(const std::string& key, std::string &coreType) {
+    const std::string prefix = "CCEC_";
+    const std::string suffix = "_version";
+    const size_t prefixLen = prefix.length();
+    const size_t suffixLen = suffix.length();
+    if (key.length() >= (prefixLen + suffixLen) &&
+        key.substr(0, prefixLen) == prefix &&
+        key.substr(key.length() - suffixLen) == suffix) {
+        coreType = key.substr(prefixLen, key.length() - prefixLen - suffixLen);
+        return true;
+    } else {
+        return false;
+    }
+}
 
 bool INIParser::Initialize(const std::string& iniFilePath) {
     FUNCTION_LOGI("Start to parse ini_file %s.", iniFilePath.c_str());
@@ -117,16 +136,13 @@ bool INIParser::GetSizeVal(const std::string& column, const std::string& key, si
 }
 
 bool INIParser::GetCCECVersion(std::unordered_map<std::string, std::string>& ccecVersion) {
+    const std::vector<std::string> ccecVersions = {ccecAicVersion, ccecAivVersion, ccecCubeVersion, ccecVectorVersion};
     ccecVersion.clear();
-    if (data_.find(version) == data_.end()) {
-        FUNCTION_LOGE("Cannot find attribute 'version' from the ini file.");
-        return false;
-    }
-    auto versionVal = data_[version];
     std::string coreType;
-    for (const auto &pair : versionVal) {
-        if (FilterCCECVersion(pair.first, coreType)) {
-            ccecVersion[coreType] = pair.second;
+    std::string versionVal;
+    for (const auto &curVersion : ccecVersions) {
+        if (FilterCCECVersion(curVersion, coreType) && GetStringVal(version, curVersion, versionVal)) {
+            ccecVersion[coreType] = versionVal;
         }
     }
     return true;
@@ -134,33 +150,14 @@ bool INIParser::GetCCECVersion(std::unordered_map<std::string, std::string>& cce
 
 bool INIParser::GetCoreVersion(std::unordered_map<std::string, std::string>& curVersion) {
     curVersion.clear();
-    if (data_.find(version) == data_.end()) {
-        FUNCTION_LOGE("Cannot find attribute 'version' from the ini file.");
-        return false;
+    std::string versionVal;
+    if (GetStringVal(version, aicVersion, versionVal)) {
+        curVersion[aic] = versionVal;
     }
-    auto versionVal = data_[version];
-    if (versionVal.find(aicVersion) != versionVal.end()) {
-        curVersion[aic] = versionVal[aicVersion];
-    }
-    if (versionVal.find(aivVersion) != versionVal.end()) {
-        curVersion[aiv] = versionVal[aivVersion];
+    if (GetStringVal(version, aivVersion, versionVal)) {
+        curVersion[aiv] = versionVal;
     }
     return true;
-}
-
-bool INIParser::FilterCCECVersion(const std::string& key, std::string &coreType) {
-    const std::string prefix = "CCEC_";
-    const std::string suffix = "_version";
-    const size_t prefixLen = prefix.length();
-    const size_t suffixLen = suffix.length();
-    if (key.length() >= (prefixLen + suffixLen) &&
-        key.substr(0, prefixLen) == prefix &&
-        key.substr(key.length() - suffixLen) == suffix) {
-        coreType = key.substr(prefixLen, key.length() - prefixLen - suffixLen);
-        return true;
-    } else {
-        return false;
-    }
 }
 }  // namespace tile_fwk
 }  // namespace npu

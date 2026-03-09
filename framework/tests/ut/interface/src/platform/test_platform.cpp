@@ -37,17 +37,13 @@ const std::string l1Size = "l1_size";
 const std::string ubSize = "ub_size";
 const std::string aic = "AIC";
 const std::string aiv = "AIV";
+const std::string INI_PATH = "/../../../framework/tests/ut/machine/stubs/compiler/data/platform_config/Ascend910_9572.ini";
 
 class TestPlatform : public testing::Test {
 public:
     static void SetUpTestCase() {}
     static void TearDownTestCase() {}
-    void SetUp() override {
-        std::string src = GetCurRunningPath() + "/../../../framework/tests/ut/machine/stubs/compiler/data/platform_config/Ascend910_9572.ini";
-        std::string dst = RealPath(GetCurrentSharedLibPath() + "/configs") + "/Soc_version.ini";
-        std::string command = "cp " + src + " " + dst;
-        ASSERT(std::system(command.c_str()) == 0) << "Failed to copy config file: " << command;
-    }
+    void SetUp() override {}
     void TearDown() override {}
 };
 
@@ -63,7 +59,7 @@ TEST_F(TestPlatform, TestParser) {
     const size_t expectubSize = 253952UL;
 
     INIParser parser;
-    std::string iniPath = RealPath(GetCurrentSharedLibPath() + "/configs/Soc_version.ini");
+    std::string iniPath = RealPath(GetCurrentSharedLibPath() + INI_PATH);
     EXPECT_TRUE(parser.Initialize(iniPath));
 
     std::string socVersion;
@@ -140,7 +136,7 @@ TEST_F(TestPlatform, AbnormalTest) {
     EXPECT_FALSE(parser.GetCCECVersion(ccecVersion));
     EXPECT_FALSE(parser.GetCoreVersion(ccecVersion));
 
-    std::string iniPath = RealPath(GetCurrentSharedLibPath() + "/configs/Soc_version.ini");
+    std::string iniPath = RealPath(GetCurrentSharedLibPath() + INI_PATH);
     EXPECT_TRUE(parser.Initialize(iniPath));
 
     std::string test;
