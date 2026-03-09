@@ -20,7 +20,7 @@
 #include "utils/tile_tensor.h"
 
 template <typename DstTensor, typename SrcTensor>
-TILEOP void TPad(DstTensor dst, SrcTensor src, float padValue, LoopVar srcValidRow, LoopVar srcValidCol) {
+TILEOP void TPad(DstTensor dst, SrcTensor src, float padValue) {
     constexpr auto dstShapeSize = Std::tuple_size<typename DstTensor::Shape>::value;
     constexpr auto srcShapeSize = Std::tuple_size<typename SrcTensor::Shape>::value;
     static_assert(srcShapeSize == dstShapeSize, "Pad: Src and Dst rank mismatch");
@@ -32,29 +32,26 @@ TILEOP void TPad(DstTensor dst, SrcTensor src, float padValue, LoopVar srcValidR
     auto dstShape2 = dstLayout.template GetShapeDim<2, expectSize>();
     auto dstShape3 = dstLayout.template GetShapeDim<3, expectSize>();
     auto dstShape4 = dstLayout.template GetShapeDim<4, expectSize>();
-
     auto dstStride0 = dstLayout.template GetStrideDim<0, expectSize>();
     auto dstStride1 = dstLayout.template GetStrideDim<1, expectSize>();
     auto dstStride2 = dstLayout.template GetStrideDim<2, expectSize>();
 
     const auto srcLayout = src.GetLayout();
+    auto srcShape3 = srcLayout.template GetShapeDim<3, expectSize>();
+    auto srcShape4 = srcLayout.template GetShapeDim<4, expectSize>();
     auto srcStride0 = srcLayout.template GetStrideDim<0, expectSize>();
     auto srcStride1 = srcLayout.template GetStrideDim<1, expectSize>();
     auto srcStride2 = srcLayout.template GetStrideDim<2, expectSize>();
 
     using SrcDtype = typename SrcTensor::Type;
     using DstDtype = typename DstTensor::Type;
-
     constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<DstTensor, 3, 5>();
     constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<DstTensor, 4, 5>();
-
+    constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<DstTensor, 3, 5>();
+    constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<DstTensor, 4, 5>();
     using DstTileType = pto::Tile<pto::TileType::Vec, DstDtype, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1,
-                                  pto::SLayout::NoneBox, 512, pto::PadValue::Zero>;
-    using SrcTileType = pto::Tile<pto::TileType::Vec, SrcDtype, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
-
-    if (dstShape3 == 0 || dstShape4 == 0) {
-        return;
-    }
+        pto::SLayout::NoneBox, 512, pto::PadValue::Zero>;
+    using SrcTileType = pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
 
     for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
         for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
@@ -63,16 +60,11 @@ TILEOP void TPad(DstTensor dst, SrcTensor src, float padValue, LoopVar srcValidR
                 auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
                 auto dstAddr = dst.GetAddr() + dstOffset * sizeof(DstDtype);
                 pto::TASSIGN(dstTile, dstAddr);
-
-                if (srcValidRow > 0 && srcValidCol > 0) {
-                    SrcTileType srcTile(srcValidRow, srcValidCol);
-                    auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
-                    auto srcAddr = src.GetAddr() + srcOffset * sizeof(SrcDtype);
-                    pto::TASSIGN(srcTile, srcAddr);
-                    pto::TFILLPAD(dstTile, srcTile);
-                } else {
-                    pto::TEXPANDS(dstTile, static_cast<DstDtype>(padValue));
-                }
+                SrcTileType srcTile(srcShape3, srcShape4);
+                auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
+                auto srcAddr = src.GetAddr() + srcOffset * sizeof(SrcDtype);
+                pto::TASSIGN(srcTile, srcAddr);
+                pto::TFILLPAD(dstTile, srcTile);
                 (void)padValue;
             }
         }

@@ -1632,7 +1632,6 @@ std::string CodeGenOpCloudNPU::PrintPreluTileTensor() const {
 
 std::string CodeGenOpCloudNPU::PrintPadTileTensor() const {
     enum class TensorIdx : int { dstIdx = 0, srcIdx = 1 };
-
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(TensorIdx::dstIdx));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(TensorIdx::srcIdx));
 
@@ -1642,27 +1641,16 @@ std::string CodeGenOpCloudNPU::PrintPadTileTensor() const {
         auto scalarElement = AnyCast<Element>(scalarAttr);
         padValue = static_cast<float>(scalarElement.GetFloatData());
     }
-    
-    auto rowAttr = opAttrs.at(OP_ATTR_PREFIX + "src_valid_row");
-    auto colAttr = opAttrs.at(OP_ATTR_PREFIX + "src_valid_col");
-
-    std::string srcValidRowStr = std::to_string(AnyCast<int64_t>(rowAttr));
-    std::string srcValidColStr = std::to_string(AnyCast<int64_t>(colAttr));
 
     std::vector<std::string> tileOpParamList = {
         dstTensor,
         srcTensor,
-        std::to_string(padValue),
-        srcValidRowStr,
-        srcValidColStr
+        std::to_string(padValue)
     };
-
     std::ostringstream oss;
     oss << tileOpName;
-    
     oss << WrapParamByParentheses(tileOpParamList); 
     oss << STMT_END;
-    
     return oss.str();
 }
 

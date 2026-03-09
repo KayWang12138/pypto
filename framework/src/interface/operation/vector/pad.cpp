@@ -30,41 +30,35 @@ void TiledPadImpl(Function &function, const TileShape &tileShape, size_t cur, Pa
     size_t ndim = result->shape.size();
 
     if (cur == ndim) {
-        int64_t srcValidRow = input.tileInfo.shape[ndim - 2];
-        int64_t srcValidCol = input.tileInfo.shape[ndim - 1];
-
-        std::vector<int64_t> viewShape = input.tileInfo.shape;
-        viewShape[ndim - 2] = std::max(viewShape[ndim - 2], static_cast<int64_t>(1));
-        viewShape[ndim - 1] = std::max(viewShape[ndim - 1], static_cast<int64_t>(1));
-
-        auto inputTile = input.tensor->View(function, viewShape, input.tileInfo.offset);
+        auto lastShape = input.tileInfo..GetShape()[ndim - 1];
+        auto lastOffset = input.tileInfo.offset[ndim - 1];
+        auto preShape = input.tileInfo..GetShape()[ndim - 2];
+        auto preOffset = input.tileInfo.offset[ndim - 2];
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
-
-        auto &op = function.AddOperation(Opcode::OP_PAD, {inputTile}, {resultTile});
-        op.SetAttribute(OP_ATTR_PREFIX + "src_valid_row", static_cast<int64_t>(srcValidRow));
-        op.SetAttribute(OP_ATTR_PREFIX + "src_valid_col", static_cast<int64_t>(srcValidCol));
-        op.SetAttribute(OpAttributeKey::scalar, padValue);
+        if (lastShape < 0 || preShape < 0) {
+            auto &op = function.AddOperation("TILE_VEC_DUP", {}, {resultTile});
+            op.SetAttribute(OpAttributeKey::scalar, value);
+        } else if (lastOffset + tileShape[ndim - 1] > lastShape || preOffset + tileShape[ndim - 2] > preShape) {
+            auto inputTile = input.tensor->View(function, viewShape, input.tileInfo.offset);
+            auto &op = function.AddOperation(Opcode::OP_PAD, {inputTile}, {resultTile});
+            padRight = lastOffset + tileShape[ndim - 1] > lastShape ? lastOffset + tileShape[ndim - 1] - lastShape : 0;
+            padBottom = preOffset + tileShape[ndim - 2] > preShape ? preOffset + tileShape[ndim - 2] - preShape : 0;
+            op.SetAttribute(OpAttributeKey::scalar, padValue);
+            op.SetAttribute(OP_ATTR_PREFIX + "pad_right", padRight);
+            op.SetAttribute(OP_ATTR_PREFIX + "pad_bottom", padBottom);
+        } else {
+            auto inputTile = input.tensor->View(function, viewShape, input.tileInfo.offset);
+            function.AddOperation(Opcode::OP_REGISTER_COPY, {inputTile}, {resultTile});
+        }
         return;
     }
 
     auto &vecTile = tileShape.GetVecTile();
-    int64_t step = vecTile[cur];
-    int64_t inputDimSize = input.tensor->shape[cur];
-    int64_t outputDimSize = result->shape[cur];
-
-    for (int64_t i = 0; i < outputDimSize; i += step) {
-        int64_t outTileSize = std::min(outputDimSize - i, step);
+    for (int64_t i = 0; i < result->shape[cur]; i += vecTile[cur]) {
         resultTileInfo.offset[cur] = i;
-        resultTileInfo.shape[cur] = outTileSize;
-
-        int64_t srcValid = std::max(static_cast<int64_t>(0), std::min(inputDimSize - i, outTileSize));
-        if (srcValid > 0) {
-            input.tileInfo.offset[cur] = i;
-            input.tileInfo.shape[cur] = srcValid;
-        } else {
-            input.tileInfo.offset[cur] = 0;
-            input.tileInfo.shape[cur] = 0;
-        }
+        resultTileInfo.shape[cur] = std::min(result->shape[cur] - i, vecTile[cur]);
+        input.tileInfo.offset[cur] = i;
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
         TiledPadImpl(function, tileShape, cur + 1, input, result, resultTileInfo, padRight, padBottom, padValue);
     }
 }
