@@ -76,11 +76,6 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
             return 0;
         }
     } else {
-        if (function->IsFunctionType(FunctionType::STATIC) && function->GetRootFunction()) {
-            /* calc workspace size and every sub function invoke entry para offset */
-            CalcFunctionInvokeWorkespace(nullptr, function, deviceAgentTask->compileInfo);
-        }
-
         deviceAgentTask->compileInfo.workSpaceStackSize = function->GetStackWorkespaceSize();
 
         if (function->IsFunctionType(
@@ -95,15 +90,8 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
         /* finish compile add function cache */
         cache.Insert(function->GetFunctionHash(), *function);
         deviceAgentTask->SetFunctionCache(cache.Get(function->GetFunctionHash()));
-        if (function->IsFunctionType(FunctionType::STATIC)) {
-            deviceAgentTask->Validate();
-            deviceAgentTask->UpdateCompileInfo();
-        }
         // save compile result on disk
         CacheManager::Instance().SaveTaskFile(deviceAgentTask.get());
-    }
-    if (function->IsFunctionType(FunctionType::STATIC)) {
-        gDeviceAgentTaskPtr = deviceAgentTask;
     }
     return 0;
 }
