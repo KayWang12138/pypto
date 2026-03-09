@@ -41,24 +41,6 @@ const std::unordered_map<std::string, NPUArch> npuArchMap = {
     {"3510", NPUArch::DAV_3510},
 };
 
-// helper function
-MemoryType StringToMemoryType(const std::string& memType) {
-    const std::unordered_map<std::string, MemoryType> memTypeMap = {
-        {"out", MemoryType::MEM_DEVICE_DDR},
-        {"l1", MemoryType::MEM_L1},
-        {"l0a", MemoryType::MEM_L0A},
-        {"l0b", MemoryType::MEM_L0B},
-        {"l0c", MemoryType::MEM_L0C},
-        {"ub", MemoryType::MEM_UB},
-        {"bt", MemoryType::MEM_BT}
-    };
-    auto it = memTypeMap.find(memType);
-    if (it != memTypeMap.end()) {
-        return it->second;
-    }
-    return MemoryType::MEM_UNKNOWN;
-}
-
 NPUArch StringToNPUArch(const std::string& npuArch) {
     auto it = npuArchMap.find(npuArch);
     if (it != npuArchMap.end()) {
