@@ -246,7 +246,7 @@ void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &
         try {
             captureExecution = functionInterpreter_->RunForPass(functionInterpreter_->execDumpPassName, func, capture);
         } catch (std::exception &e) {
-            VERIFY_LOGE("VerifyPass failed for function %s, pass %s (passIndex: %d, captureIndex: %zu): %s",
+            VERIFY_LOGE_FULL("VerifyPass failed for function %s, pass %s (passIndex: %d, captureIndex: %zu): %s",
                         func->GetMagicName().c_str(), passIdentifier.c_str(), passIndex, captureIndex, e.what());
             checkResult = false;
             continue;

@@ -251,7 +251,7 @@ void ExecutePrint(ExecuteOperationContext *ctx) {
 
     std::string format;
     if (ctx->op->GetAttr(OP_ATTR_PREFIX + "format", format)) {
-        VERIFY_LOGI("%s", FormatString(format, ctx->opInter, ctx->ioperandDataViewList, scalars).c_str());
+        std::cout << FormatString(format, ctx->opInter, ctx->ioperandDataViewList, scalars) << std::endl;
     }
 }
 REGISTER_CALC_OP(OP_PRINT, Opcode::OP_PRINT, ExecutePrint);
