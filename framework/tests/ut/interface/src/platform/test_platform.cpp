@@ -150,7 +150,7 @@ TEST_F(TestPlatform, AbnormalTest) {
 
     std::string test;
     EXPECT_FALSE(parser.GetStringVal("none", "", test));
-    EXPECT_TRUE(parser.GetStringVal(version, "none_other", test));
+    EXPECT_FALSE(parser.GetStringVal(version, "none_other", test));
 
     size_t testSize;
     EXPECT_FALSE(parser.GetSizeVal("none", "", testSize));
