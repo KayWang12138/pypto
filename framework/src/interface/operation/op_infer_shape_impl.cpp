@@ -126,6 +126,35 @@ REGISTER_INFER_SHAPE_FUNC(OP_CAST, Opcode::OP_CAST, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_MUL, Opcode::OP_MUL, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_DIV, Opcode::OP_DIV, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_DIVS, Opcode::OP_DIVS, ElewiseInferFunc);
+
+void PadInferShapeFunc(Operation* op,
+                       std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    auto inputValidShape = op->GetIOperands()[0]->GetDynValidShape();
+    if (inputValidShape.empty()) {
+        return;
+    }
+    size_t ndim = inputValidShape.size();
+
+    std::vector<SymbolicScalar> outValidShape = inputValidShape;
+    
+    // 正常的逻辑推理：输出有效形状 = 输入有效形状 + 此操作特有的 Pad 大小
+    int64_t padRight = 0;
+    int64_t padBottom = 0;
+    op->GetAttr(OP_ATTR_PREFIX + "pad_right", padRight);
+    op->GetAttr(OP_ATTR_PREFIX + "pad_bottom", padBottom);
+    
+    if (ndim >= 1 && padRight > 0) {
+        outValidShape[ndim - 1] = outValidShape[ndim - 1] + padRight;
+    }
+    if (ndim >= 2 && padBottom > 0) {
+        outValidShape[ndim - 2] = outValidShape[ndim - 2] + padBottom;
+    }
+
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(outValidShape);
+    }
+}
+REGISTER_INFER_SHAPE_FUNC(OP_PAD, Opcode::OP_PAD, PadInferShapeFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_RECIPROCAL, Opcode::OP_RECIPROCAL, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_SUBS, Opcode::OP_SUBS, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_MAXS, Opcode::OP_MAXS, ElewiseInferFunc);
