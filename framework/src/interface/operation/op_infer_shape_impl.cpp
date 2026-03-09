@@ -962,13 +962,16 @@ void ViewInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outV
 
         Offset inOffset = op->GetIOperands()[0]->GetOffset();
         Offset subOffset(inOffset.size(), 0);
-        for (size_t i = 0; i < inOffset.size(); i++) {
-            subOffset[i] = viewOpAttribute->GetFromOffset()[i] - inOffset[i];
+        Offset viewOpAttributeFromOffset = viewOpAttribute->GetFromOffset();
+        if (!inOffset.empty() && !viewOpAttributeFromOffset.empty()) {
+            for (size_t i = 0; i < inOffset.size(); i++) {
+                subOffset[i] = viewOpAttributeFromOffset - inOffset[i];
+            }
         }
-
+        
         std::vector<SymbolicScalar> inDynOffset = op->GetIOperands()[0]->GetDynOffset();
         std::vector<SymbolicScalar> subDynOffset(inOffset.size());
-        std::vector<SymbolicScalar> viewOpAttributeDynFromOffset = viewOpAttribute->GetFromDynOffset() ;
+        std::vector<SymbolicScalar> viewOpAttributeDynFromOffset = viewOpAttribute->GetFromDynOffset();
         if (!inDynOffset.empty() && !viewOpAttributeDynFromOffset.empty()) {
             for (size_t i = 0; i < inDynOffset.size(); i++) {
                 subDynOffset[i] = viewOpAttributeDynFromOffset[i] - inDynOffset[i];
