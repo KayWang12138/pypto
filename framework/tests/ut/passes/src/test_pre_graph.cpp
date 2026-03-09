@@ -830,11 +830,9 @@ TEST_F(PreGraphTest, TestProcessReshape) {
 
     // run pass
     Function *function = G.GetFunction();
-    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto/b.json");
     EXPECT_NE(function, nullptr);
     PreGraphProcess passLocal;
     EXPECT_EQ(passLocal.Run(*function, "", "", 0), SUCCESS);
-    function->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto/a.json");
     // check after pass
     auto opList = function->Operations();
     int64_t viewCnt = 0;
