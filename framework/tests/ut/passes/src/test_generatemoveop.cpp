@@ -19,6 +19,7 @@
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_mgr/pass_manager.h"
 #include "ut_json/ut_json_tool.h"
+#include "computational_graph_builder.h"
 #include "passes/tile_graph_pass/data_path/generate_move_op.h"
 #include "passes/tile_graph_pass/data_path/convert_op_inserter.h"
 #include "interface/configs/config_manager.h"
@@ -50,127 +51,671 @@ public:
     void TearDown() override {}
 };
 
+TEST_F(TestGenerateMoveOpPass, PreCheck_InvalidOpType_Duplicate_Convert) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames{"t1", "t2", "t3", "t4"};
+    std::vector<Opcode> opCodes{Opcode::OP_DUPLICATE, Opcode::OP_CONVERT};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t3"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}, {"t4"}};
+    std::vector<std::string> opNames{"DUPLICATE_Invalid", "CONVERT_Invalid"};
 
-TEST_F(TestGenerateMoveOpPass, PRE_ViewOp_AttrNull) {
-    PROGRAM("PRE_ViewOp_AttrNull") {
-        FUNCTION("ADD") {
-            Tensor i(DT_FP32, {16, 16}, "i");
-            Tensor o = View(i, {16, 16}, {0, 0});
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
 
-            Function* func = Program::GetInstance().GetCurrentFunction();
-            GenerateMoveOp checker;
-            EXPECT_EQ(checker.PreCheck(*func), FAILED);
-        }
-    }
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
 }
 
-TEST_F(TestGenerateMoveOpPass, PRE_ViewOp_InputNumNot1) {
-    PROGRAM("PRE_ViewOp_InputNumNot1") {
-        FUNCTION("ADD") {
-            Tensor i(DT_FP32, {16, 16}, "i");
-            Tensor o1 = View(i, {16, 16}, {0, 0});
-            Tensor o2 = View(i, {16, 16}, {0, 0});
-            Function* func = Program::GetInstance().GetCurrentFunction();
-            GenerateMoveOp checker;
-            EXPECT_EQ(checker.PreCheck(*func), FAILED);
-        }
-    }
+TEST_F(TestGenerateMoveOpPass, PostCheck_ViewOp_MoreThanOneInput) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames{"t1", "t2", "t3"};
+    std::vector<Opcode> opCodes{Opcode::OP_VIEW};
+    std::vector<std::vector<std::string>> ioperands{{"t1", "t2"}};
+    std::vector<std::vector<std::string>> ooperands{{"t3"}};
+    std::vector<std::string> opNames{"VIEW_MultiInput"};
+
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
 }
 
-TEST_F(TestGenerateMoveOpPass, PRE_ViewOp_OutputConsumerNull) {
-    PROGRAM("PRE_ViewOp_OutputConsumerNull") {
-        FUNCTION("ADD") {
-            Tensor i(DT_FP32, {16, 16}, "i");
-            Tensor o = View(i, {16, 16}, {0, 0}); 
+TEST_F(TestGenerateMoveOpPass, PostCheck_AssembleOp_MoreThanOneOutput) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames{"t1", "t2", "t3"};
+    std::vector<Opcode> opCodes{Opcode::OP_ASSEMBLE};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2", "t3"}};
+    std::vector<std::string> opNames{"ASSEMBLE_MultiOutput"};
 
-            Function* func = Program::GetInstance().GetCurrentFunction();
-            GenerateMoveOp checker;
-            EXPECT_EQ(checker.PreCheck(*func), FAILED);
-        }
-    }
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
 }
 
-TEST_F(TestGenerateMoveOpPass, PRE_AssembleOp_AttrNull) {
-    PROGRAM("PRE_AssembleOp_AttrNull") {
-        FUNCTION("ADD") {
-            Tensor i(DT_FP32, {16, 16}, "i");
-            std::vector<std::pair<Tensor, std::vector<int64_t>>> items;
-            items.push_back(std::make_pair(i, std::vector<int64_t>{0, 0}));
-            Tensor o = Assemble(items);
-            GenerateMoveOp checker;
-            EXPECT_EQ(FAILED, FAILED);
+TEST_F(TestGenerateMoveOpPass, PostCheck_ViewOp_DismatchedMemType) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames{"t1", "t2"};
+    std::vector<Opcode> opCodes{Opcode::OP_VIEW};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}};
+    std::vector<std::string> opNames{"VIEW_DismatchedMemType"};
+
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    Operation* viewOp = nullptr;
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            viewOp = &op;
+            break;
         }
     }
+    ASSERT_NE(viewOp, nullptr);
+
+    auto inputTensor = viewOp->GetIOperands().front();
+    auto outputTensor = viewOp->GetOOperands().front();
+    
+    outputTensor->SetMemoryTypeOriginal(static_cast<MemoryType>(static_cast<int>(MemoryType::MEM_DEVICE_DDR) + 1));
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
 }
 
-TEST_F(TestGenerateMoveOpPass, PRE_AssembleOp_InputNumNot1) {
-    PROGRAM("PRE_AssembleOp_InputNumNot1") {
-        FUNCTION("ADD") {
-            Tensor i1(DT_FP32, {16, 16}, "i1");
-            Tensor i2(DT_FP32, {16, 16}, "i2");
-            std::vector<std::pair<Tensor, std::vector<int64_t>>> items;
-            items.push_back(std::make_pair(i1, std::vector<int64_t>{0, 0}));
-            items.push_back(std::make_pair(i2, std::vector<int64_t>{0, 0}));
-            EXPECT_THROW({
-                Tensor o = Assemble(items); 
-            }, std::exception); 
-        }
-    }
+TEST_F(TestGenerateMoveOpPass, PreCheck_ViewOp_AttrNull) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames{"t1", "t2"};
+    std::vector<Opcode> opCodes{Opcode::OP_VIEW};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}};
+    std::vector<std::string> opNames{"VIEW_AttrNull"};
+
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, false), true);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
 }
 
-TEST_F(TestGenerateMoveOpPass, PRE_ConvertOp_AttrNull) {
-    PROGRAM("PRE_ConvertOp_AttrNull") {
-        FUNCTION("ADD") {
-            Tensor in(DT_FP32, {16, 16}, "in");
-            Tensor out(DT_FP32, {16, 16}, "out");
-            Function* func = Program::GetInstance().GetCurrentFunction();
-            GenerateMoveOp checker;
-            EXPECT_EQ(checker.PreCheck(*func), SUCCESS);
-        }
-    }
+TEST_F(TestGenerateMoveOpPass, PreCheck_ViewOp_ValidMoreThanOneInput) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames{"t1", "t2", "t3"};
+    std::vector<Opcode> opCodes{Opcode::OP_VIEW};
+    std::vector<std::vector<std::string>> ioperands{{"t1", "t2"}};
+    std::vector<std::vector<std::string>> ooperands{{"t3"}};
+    std::vector<std::string> opNames{"VIEW_ValidMultiInput"};
+
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, false), true);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
 }
 
-TEST_F(TestGenerateMoveOpPass, PRE_ConvertOp_SameMemType) {
-    PROGRAM("PRE_ConvertOp_SameMemType") {
-        FUNCTION("ADD") {
-            Tensor in(DT_FP32, {16, 16}, "in");
-            Tensor out(DT_FP32, {16, 16}, "out");
+TEST_F(TestGenerateMoveOpPass, PreCheck_ViewOp_ValidMoreThanOneOutput) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames{"t1", "t2", "t3"};
+    std::vector<Opcode> opCodes{Opcode::OP_VIEW};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2", "t3"}};
+    std::vector<std::string> opNames{"VIEW_ValidMultiOutput"};
 
-            Function* func = Program::GetInstance().GetCurrentFunction();
-            GenerateMoveOp checker;
-            EXPECT_EQ(checker.PreCheck(*func), SUCCESS);
-        }
-    }
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, false), true);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
 }
 
-TEST_F(TestGenerateMoveOpPass, PRE_ConvertOp_ShapeMismatch) {
-    PROGRAM("PRE_ConvertOp_ShapeMismatch") {
-        FUNCTION("ADD") {
-            Tensor in(DT_FP32, {16, 16}, "in");
-            Tensor out(DT_FP32, {32, 32}, "out");
-            Function* func = Program::GetInstance().GetCurrentFunction();
-            GenerateMoveOp checker;
-            EXPECT_EQ(checker.PreCheck(*func), SUCCESS);
+TEST_F(TestGenerateMoveOpPass, PreCheck_ViewOp_InputIsNull) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames{"t1", "t2"};
+    std::vector<Opcode> opCodes{Opcode::OP_VIEW};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}};
+    std::vector<std::string> opNames{"VIEW_InputNull"};
+
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, false), true);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    Operation* viewOp = nullptr;
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            viewOp = &op;
+            break;
         }
     }
+    ASSERT_NE(viewOp, nullptr);
+
+    auto& inputOperands = const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(viewOp->GetIOperands());
+    inputOperands[0] = nullptr;
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
 }
 
-TEST_F(TestGenerateMoveOpPass, POST_HasDuplicateOp) {
-    PROGRAM("POST_HasDuplicateOp") {
-        FUNCTION("ADD") {
-            Tensor i(DT_FP32, {16, 16}, "i");
-            Tensor o1 = View(i, {16, 16}, {0, 0}); // 第一个View OP
-            Tensor o2 = View(i, {16, 16}, {0, 0}); // 第二个View OP（重复OP）
+TEST_F(TestGenerateMoveOpPass, PreCheck_ViewOp_OutputIsNull) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames{"t1", "t2"};
+    std::vector<Opcode> opCodes{Opcode::OP_VIEW};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}};
+    std::vector<std::string> opNames{"VIEW_OutputNull"};
 
-            Function* func = Program::GetInstance().GetCurrentFunction();
-            if (func == nullptr) {
-                EXPECT_TRUE(false); 
-            }
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, false), true);
 
-            GenerateMoveOp checker;
-            EXPECT_EQ(checker.PostCheck(*func), SUCCESS);
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    Operation* viewOp = nullptr;
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            viewOp = &op;
+            break;
         }
     }
+    ASSERT_NE(viewOp, nullptr);
+
+    auto& outputOperands = const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(viewOp->GetOOperands());
+    outputOperands[0] = nullptr;
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
+}
+
+TEST_F(TestGenerateMoveOpPass, PreCheck_ViewOp_OutputHasNullConsumer) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames{"t1", "t2"};
+    std::vector<Opcode> opCodes{Opcode::OP_VIEW};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}};
+    std::vector<std::string> opNames{"VIEW_NullConsumer"};
+
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, false), true);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    Operation* viewOp = nullptr;
+    std::shared_ptr<LogicalTensor> viewOutputTensor = nullptr;
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            viewOp = &op;
+            viewOutputTensor = op.GetOOperands().front();
+            break;
+        }
+    }
+    ASSERT_NE(viewOp, nullptr);
+    ASSERT_NE(viewOutputTensor, nullptr);
+
+    auto& consumers = const_cast<std::set<Operation*, LogicalTensor::CompareOp>&>(viewOutputTensor->GetConsumers());
+    consumers.clear();
+    consumers.insert(nullptr);
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
+}
+
+TEST_F(TestGenerateMoveOpPass, PreCheck_ViewOp_OutputHasNullConsumers) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames{"t1", "t2"};
+    std::vector<Opcode> opCodes{Opcode::OP_VIEW};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}};
+    std::vector<std::string> opNames{"VIEW_NullConsumers"};
+
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, false), true);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    Operation* viewOp = nullptr;
+    std::shared_ptr<LogicalTensor> viewOutputTensor = nullptr;
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            viewOp = &op;
+            viewOutputTensor = op.GetOOperands().front();
+            break;
+        }
+    }
+    ASSERT_NE(viewOp, nullptr);
+    ASSERT_NE(viewOutputTensor, nullptr);
+
+    viewOutputTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+
+    auto& consumers = const_cast<std::set<Operation*, LogicalTensor::CompareOp>&>(viewOutputTensor->GetConsumers());
+    consumers.clear();
+    consumers.insert(nullptr);
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
+}
+
+TEST_F(TestGenerateMoveOpPass, PreCheck_ViewOp_ConsumerNotSupportDDR) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames{"t1", "t2", "t3"};
+    std::vector<Opcode> opCodes{Opcode::OP_VIEW, Opcode::OP_MUL};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}, {"t3"}};
+    std::vector<std::string> opNames{"VIEW_DDR", "MUL_NotSupportDDR"};
+
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, false), true);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    Operation* viewOp = nullptr;
+    std::shared_ptr<LogicalTensor> viewOutputTensor = nullptr;
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            viewOp = &op;
+            viewOutputTensor = op.GetOOperands().front();
+            break;
+        }
+    }
+    ASSERT_NE(viewOp, nullptr);
+    ASSERT_NE(viewOutputTensor, nullptr);
+
+    viewOutputTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
+}
+
+TEST_F(TestGenerateMoveOpPass, PreCheck_ViewOp_ConvertPathInvalid) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames{"t1", "t2"};
+    std::vector<Opcode> opCodes{Opcode::OP_VIEW};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}};
+    std::vector<std::string> opNames{"VIEW_DDR"};
+
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, false), true);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    Operation* viewOp = nullptr;
+    std::shared_ptr<LogicalTensor> viewOutputTensor = nullptr;
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            viewOp = &op;
+            viewOutputTensor = op.GetOOperands().front();
+            break;
+        }
+    }
+    ASSERT_NE(viewOp, nullptr);
+    ASSERT_NE(viewOutputTensor, nullptr);
+
+    viewOutputTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
+}
+
+TEST_F(TestGenerateMoveOpPass, PreCheck_AssembleOp_AttrNull) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames{"t1", "t2"};
+    std::vector<Opcode> opCodes{Opcode::OP_ASSEMBLE};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}};
+    std::vector<std::string> opNames{"ASSEMBLE_AttrNull"};
+
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    Operation* assembleOp = nullptr;
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            assembleOp = &op;
+            break;
+        }
+    }
+    ASSERT_NE(assembleOp, nullptr);
+
+    assembleOp->SetAttribute("AssembleAttr", "");
+
+    auto& attrPtr = const_cast<std::shared_ptr<OpAttribute>&>(assembleOp->GetOpAttribute());
+    attrPtr = nullptr;
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
+}
+
+TEST_F(TestGenerateMoveOpPass, PreCheck_AssembleOp_ValidMoreThanOneInput) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames{"t1", "t2", "t3"};
+    std::vector<Opcode> opCodes{Opcode::OP_ASSEMBLE};
+    std::vector<std::vector<std::string>> ioperands{{"t1", "t2"}};
+    std::vector<std::vector<std::string>> ooperands{{"t3"}};
+    std::vector<std::string> opNames{"ASSEMBLE_ValidMultiInput"};
+
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
+}
+
+TEST_F(TestGenerateMoveOpPass, PreCheck_AssembleOp_ValidMoreThanOneOutput) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames{"t1", "t2", "t3"};
+    std::vector<Opcode> opCodes{Opcode::OP_ASSEMBLE};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2", "t3"}};
+    std::vector<std::string> opNames{"ASSEMBLE_ValidMultiOutput"};
+
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
+}
+
+TEST_F(TestGenerateMoveOpPass, PreCheck_AssembleOp_InputIsNull) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames{"t1", "t2"};
+    std::vector<Opcode> opCodes{Opcode::OP_ASSEMBLE};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}};
+    std::vector<std::string> opNames{"ASSEMBLE_InputNull"};
+
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    Operation* assembleOp = nullptr;
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            assembleOp = &op;
+            break;
+        }
+    }
+    ASSERT_NE(assembleOp, nullptr);
+
+    auto& inputOperands = const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(assembleOp->GetIOperands());
+    inputOperands[0] = nullptr;
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
+}
+
+TEST_F(TestGenerateMoveOpPass, PreCheck_AssembleOp_OutputIsNull) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames{"t1", "t2"};
+    std::vector<Opcode> opCodes{Opcode::OP_ASSEMBLE};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}};
+    std::vector<std::string> opNames{"ASSEMBLE_OutputNull"};
+
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    Operation* assembleOp = nullptr;
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            assembleOp = &op;
+            break;
+        }
+    }
+    ASSERT_NE(assembleOp, nullptr);
+
+    auto& outputOperands = const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(assembleOp->GetOOperands());
+    outputOperands[0] = nullptr;
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
+}
+
+TEST_F(TestGenerateMoveOpPass, PreCheck_ConvertOp_ValidMoreThanOneInput) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames{"t1", "t2", "t3"};
+    std::vector<Opcode> opCodes{Opcode::OP_CONVERT};
+    std::vector<std::vector<std::string>> ioperands{{"t1", "t2"}};
+    std::vector<std::vector<std::string>> ooperands{{"t3"}};
+    std::vector<std::string> opNames{"CONVERT_ValidMultiInput"};
+
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
+}
+
+TEST_F(TestGenerateMoveOpPass, PreCheck_ConvertOp_ValidMoreThanOneOutput) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames{"t1", "t2", "t3"};
+    std::vector<Opcode> opCodes{Opcode::OP_CONVERT};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2", "t3"}};
+    std::vector<std::string> opNames{"CONVERT_ValidMultiOutput"};
+
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
+}
+
+TEST_F(TestGenerateMoveOpPass, PreCheck_ConvertOp_InputIsNull) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames{"t1", "t2"};
+    std::vector<Opcode> opCodes{Opcode::OP_CONVERT};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}};
+    std::vector<std::string> opNames{"CONVERT_InputNull"};
+
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    Operation* convertOp = nullptr;
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_CONVERT) {
+            convertOp = &op;
+            break;
+        }
+    }
+    ASSERT_NE(convertOp, nullptr);
+
+    auto& inputOperands = const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(convertOp->GetIOperands());
+    inputOperands[0] = nullptr;
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
+}
+
+TEST_F(TestGenerateMoveOpPass, PreCheck_ConvertOp_OutputIsNull) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames{"t1", "t2"};
+    std::vector<Opcode> opCodes{Opcode::OP_CONVERT};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}};
+    std::vector<std::string> opNames{"CONVERT_OutputNull"};
+
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    Operation* convertOp = nullptr;
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_CONVERT) {
+            convertOp = &op;
+            break;
+        }
+    }
+    ASSERT_NE(convertOp, nullptr);
+
+    auto& outputOperands = const_cast<std::vector<std::shared_ptr<LogicalTensor>>&>(convertOp->GetOOperands());
+    outputOperands[0] = nullptr;
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
+}
+
+TEST_F(TestGenerateMoveOpPass, PreCheck_ConvertOp_SameMemType) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames{"t1", "t2"};
+    std::vector<Opcode> opCodes{Opcode::OP_CONVERT};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}};
+    std::vector<std::string> opNames{"CONVERT_SameMemType"};
+
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    Operation* convertOp = nullptr;
+    std::shared_ptr<LogicalTensor> inputTensor = nullptr;
+    std::shared_ptr<LogicalTensor> outputTensor = nullptr;
+    for (auto& op : function->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_CONVERT) {
+            convertOp = &op;
+            inputTensor = op.GetIOperands().front();
+            outputTensor = op.GetOOperands().front();
+            break;
+        }
+    }
+    ASSERT_NE(convertOp, nullptr);
+    ASSERT_NE(inputTensor, nullptr);
+    ASSERT_NE(outputTensor, nullptr);
+
+    inputTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+    outputTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
+}
+
+TEST_F(TestGenerateMoveOpPass, PreCheck_ConvertOp_DiffShape) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames1{"t1"};
+    std::vector<int64_t> shape1{16, 16};
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, shape1, tensorNames1), true);
+
+    std::vector<std::string> tensorNames2{"t2"};
+    std::vector<int64_t> shape2{32, 32};
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, shape2, tensorNames2), true);
+
+    std::vector<Opcode> opCodes{Opcode::OP_CONVERT};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}};
+    std::vector<std::string> opNames{"CONVERT_DiffShape"};
+
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
+}
+
+TEST_F(TestGenerateMoveOpPass, PreCheck_AssembleOp_DiffShape) {
+    ComputationalGraphBuilder G;
+    std::vector<std::string> tensorNames1{"t1"};
+    std::vector<int64_t> shape1{16, 16};
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, shape1, tensorNames1), true);
+
+    std::vector<std::string> tensorNames2{"t2"};
+    std::vector<int64_t> shape2{32, 32};
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, shape2, tensorNames2), true);
+
+    std::vector<Opcode> opCodes{Opcode::OP_ASSEMBLE};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}};
+    std::vector<std::string> opNames{"ASSEMBLE_DiffShape"};
+
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
 }
 } // namespace tile_fwk
 } // namespace npu
