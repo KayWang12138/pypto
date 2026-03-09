@@ -16,6 +16,7 @@
 #include <fstream>
 #include "tilefwk/platform.h"
 #include "parser/ini_parser.h"
+#include "parser/internal_parser.h"
 #include "simulation_platform/simulation_platform.h"
 
 namespace npu::tile_fwk {
@@ -85,25 +86,10 @@ size_t Die::GetMemoryLimit(MemoryType type) const {
     return aic_limit == 0 ? aiv_limit : aic_limit;
 }
 
-bool Die::SetMemoryPath(const std::vector<std::vector<std::string>>& dataPaths) {
-    // 目前已知包含DDR到UB的数据通路，L0C到DDR/L1的通路，但指令有缺失，所以先打桩
-    memoryGraph_.AddPath(MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB);
-    memoryGraph_.AddPath(MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR);
-    memoryGraph_.AddPath(MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR);
-    memoryGraph_.AddPath(MemoryType::MEM_L0C, MemoryType::MEM_L1);
-    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
-        memoryGraph_.AddPath(MemoryType::MEM_L0C, MemoryType::MEM_UB);
-        memoryGraph_.AddPath(MemoryType::MEM_UB, MemoryType::MEM_L1);
-        memoryGraph_.AddPath(MemoryType::MEM_L1, MemoryType::MEM_UB);
-    }
+bool Die::SetMemoryPath(const std::vector<std::pair<MemoryType, MemoryType>>& dataPaths) {
     for (const auto &pathDesc : dataPaths) {
-        if (pathDesc.size() != 2U) {
-            continue;
-        }
-        MemoryType from = StringToMemoryType(pathDesc[0]);
-        MemoryType to = StringToMemoryType(pathDesc[1]);
-        if (from != MemoryType::MEM_UNKNOWN && to != MemoryType::MEM_UNKNOWN) {
-            memoryGraph_.AddPath(from, to);
+        if (pathDesc.first != MemoryType::MEM_UNKNOWN && pathDesc.second != MemoryType::MEM_UNKNOWN) {
+            memoryGraph_.AddPath(pathDesc.first, pathDesc.second);
         }
     }
     return true;
@@ -286,9 +272,12 @@ void Platform::LoadFromIni(const std::string &filePath) {
     if (parser.GetSizeVal(aiCoreSpec, ubSize, memoryLimit)) {
         GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_UB, memoryLimit));
     }
-    std::vector<std::vector<std::string>> dataPath;
-    if (parser.GetDataPath(dataPath)) {
-        GetDie().SetMemoryPath(dataPath);
+    std::vector<std::pair<MemoryType, MemoryType>> dataPath;
+    InternalParser internalParser = InternalParser(NPUArchToString(GetSoc().GetNPUArch()));
+    if (internalParser.LoadInternalInfo()) {
+        if (internalParser.GetDataPath(dataPath)) {
+            GetDie().SetMemoryPath(dataPath);
+        } 
     }
 }
 

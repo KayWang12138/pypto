@@ -268,7 +268,7 @@ public:
     void SetMemDeviceDDRSize(size_t size) { mem_device_ddr_size_ = size; }
     void SetMemHost1Size(size_t size)     { mem_host1_size_      = size; }
 
-    bool SetMemoryPath(const std::vector<std::vector<std::string>>& dataPaths);
+    bool SetMemoryPath(const std::vector<std::pair<MemoryType, MemoryType>>& dataPaths);
     bool FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType> &paths) const;
 
     std::string Dump() const {

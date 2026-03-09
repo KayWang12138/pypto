@@ -40,9 +40,7 @@ class INIParser {
   private:
     bool ReadINIFile(const std::string& filepath);
     bool FilterCCECVersion(const std::string& key, std::string &coreType);
-    bool FilterDirections(const std::string& value, std::string &part);
-    bool FilterDataPath(const std::string& part, std::string &from, std::string &to);
-
+    
     std::map<std::string, std::map<std::string, std::string>> data_;
 };
 } // namespace tile_fwk

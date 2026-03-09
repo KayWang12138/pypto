@@ -148,31 +148,6 @@ bool INIParser::GetCoreVersion(std::unordered_map<std::string, std::string>& cur
     return true;
 }
 
-bool INIParser::GetDataPath(std::vector<std::vector<std::string>>& dataPath) {
-    if (data_.find(instrinsicMap) == data_.end()) {
-        FUNCTION_LOGE("Cannot find attribute '%s' from the ini file.", instrinsicMap.c_str());
-        return false;
-    }
-    std::string from;
-    std::string to;
-    std::string direction;
-    std::set<std::string> directions;
-    std::vector<std::string> curPath;
-    auto instrinsics = data_[instrinsicMap];
-    for (const auto &pair : instrinsics) {
-        if (FilterDirections(pair.second, direction)) {
-            directions.insert(direction);
-        }
-    }
-    for (const auto &rec : directions) {
-        if (FilterDataPath(rec, from, to)) {
-            curPath = {from, to};
-            dataPath.emplace_back(curPath);
-        }
-    }
-    return true;
-}
-
 bool INIParser::FilterCCECVersion(const std::string& key, std::string &coreType) {
     const std::string prefix = "CCEC_";
     const std::string suffix = "_version";
@@ -186,32 +161,6 @@ bool INIParser::FilterCCECVersion(const std::string& key, std::string &coreType)
     } else {
         return false;
     }
-}
-
-bool INIParser::FilterDirections(const std::string& value, std::string &part) {
-    const std::string prefix = "Intrinsic_data_move";
-    const char middle = '_';
-    const char direction = '2';
-    const char last = '|';
-    size_t lastPos = value.find_last_of(last);
-    auto tmpPart = value.substr(0, lastPos);
-    if (value.find(prefix) != 0 || tmpPart.find(direction) >= tmpPart.size()) {
-        return false;
-    }
-    size_t middlePos = tmpPart.find_last_of(middle);
-    part = value.substr(middlePos + 1, lastPos - middlePos - 1);
-    return true;
-}
-
-bool INIParser::FilterDataPath(const std::string& part, std::string &from, std::string &to) {
-    const std::string direction = "2";
-    size_t sepPos = part.find(direction);
-    if (sepPos == std::string::npos || sepPos == 0 || sepPos == part.length() - 1) {
-        return false;
-    }
-    from = part.substr(0, sepPos);
-    to = part.substr(sepPos + 1);
-    return true;
 }
 }  // namespace tile_fwk
 }  // namespace npu
