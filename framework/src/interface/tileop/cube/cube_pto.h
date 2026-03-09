@@ -559,15 +559,17 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord, int16_t subblockId) {
         constexpr auto staticL0CW = Std::tuple_element<shapeSize - 1, typename U::TileShape>::type::value;
         int64_t srcShape0 = GetShape<0>(src);
         int64_t srcShape1 = GetShape<1>(src);
+        int64_t dstShape0 = GetShape<0>(dst);
+        int64_t dstShape1 = GetShape<1>(dst);
         int64_t l0cOffset = CalNZOffset(srcShape0, srcShape1, offset0, offset1, c0Size);
         using tileUBTensor = pto::Tile<pto::TileType::Vec, typename T::Type, staticUBH, staticUBW,
-            mode == CopyOutMode::NZ2ND ? pto::BLayout::RowMajor : pto::BLayout::ColMajor, staticUBH, staticUBW,
+            mode == CopyOutMode::NZ2ND ? pto::BLayout::RowMajor : pto::BLayout::ColMajor, -1, -1,
             mode == CopyOutMode::NZ2ND ? pto::SLayout::NoneBox : pto::SLayout::RowMajor>;
         using tileL0CTensor = pto::TileAcc<typename U::Type, staticL0CH, staticL0CW>;
-        tileUBTensor UBTile;
-        tileL0CTensor l0cTile;
-        pto::TASSIGN(UBTile, (uint64_t)dst.GetAddr() + l0cOffset);
-        pto::TASSIGN(l0cTile, (uint64_t)src.GetAddr());
+        tileUBTensor UBTile(dstShape0, dstShape1);
+        tileL0CTensor l0cTile(srcShape0, srcShape1);
+        pto::TASSIGN(UBTile, (uint64_t)dst.GetAddr());
+        pto::TASSIGN(l0cTile, (uint64_t)src.GetAddr() + l0cOffset);
         if (subblockId == 0) {
             pto::TMOV<tileUBTensor, tileL0CTensor, pto::AccToVecMode::SingleModeVec0>(UBTile, l0cTile);
         } else {

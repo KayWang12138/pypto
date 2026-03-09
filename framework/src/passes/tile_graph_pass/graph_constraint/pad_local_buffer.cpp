@@ -69,7 +69,8 @@ bool PadLocalBuffer::IsInputInt8(const Operation &op, const LogicalTensorPtr &in
         return true;
     }
 
-    if (op.GetOpcode() == Opcode::OP_COPY_OUT || op.GetOpcode() == Opcode::OP_L0C_TO_L1) {
+    if (op.GetOpcode() == Opcode::OP_COPY_OUT || op.GetOpcode() == Opcode::OP_L0C_TO_L1 ||
+        op.GetOpcode() == Opcode::OP_L0C_COPY_UB) {
         Operation *inProducerPtr = *in->GetProducers().begin();
         if (inProducerPtr != nullptr && inProducerPtr->GetIOperands().size() != 0 &&
             inProducerPtr->GetIOperands()[0] != nullptr && inProducerPtr->GetIOperands()[0]->tensor != nullptr) {
@@ -148,7 +149,7 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
         另外，bias或fixpipe场景只做低维16元素对齐，高维保持不变
         Before:
         L1_TO_L0A --> L0A (shape:[24, 400]) ------------------------->    \
-        L1_TO_BT --> bias_BT (shape:[1, 8]) -----> (address misalign)  A_MUL_B 
+        L1_TO_BT --> bias_BT (shape:[1, 8]) -----> (address misalign)  A_MUL_B
         L1_TO_L0B --> L0B (shape:[400, 16]) ------------------------->    /
 
         After:
