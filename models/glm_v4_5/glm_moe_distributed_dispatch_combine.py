@@ -182,6 +182,12 @@ def generate_inputs(moe_case: MoeCase, torch_data_type: torch.dtype) -> tuple[Te
     return x_list, moe_expert_ids_list, topk_expert_scales_list
 
 
+def create_tensor_on_npu(golden_tensor, device_id):
+    return torch.empty(golden_tensor.shape, 
+                    dtype=golden_tensor.dtype,
+                    device=f'npu:{device_id}')
+
+
 def get_moe_expert_num_per_rank(moe_case: MoeCase) -> int:
     return (moe_case.moe_expert_num + moe_case.ep_world_size - 1) // moe_case.ep_world_size
 
@@ -252,7 +258,7 @@ def dispatch_tokens(
         expand_x_per_rank.append(fixed_shape_expand_x)
         assist_info_for_combine_per_rank.append(fixed_shape_assist_info_for_combine)
         expert_token_nums_per_rank.append(expert_token_nums)
-        recv_counts_per_rank.append(expert_token_nums.sum().unsqueeze(0))
+        recv_counts_per_rank.append(expert_token_nums.sum(dtype=torch.int32).unsqueeze(0))
 
     return expand_x_per_rank, assist_info_for_combine_per_rank, expert_token_nums_per_rank, recv_counts_per_rank
 
@@ -386,18 +392,13 @@ def moe_distributed_dispatch_kernel(
 
     @pypto.frontend.jit()
     def kernel(
-        x: pypto.Tensor([batch_size, hidden_size], data_type, format=pypto.TileOpFormat.TILEOP_ND),
-        expert_ids: pypto.Tensor([batch_size, topk], pypto.DT_INT32, format=pypto.TileOpFormat.TILEOP_ND),
-    ) -> (
-        pypto.Tensor([expand_x_row, hidden_size], data_type),
-        pypto.Tensor([expand_x_row, info_size], pypto.DT_INT32),
-        pypto.Tensor([expert_num_per_rank], pypto.DT_INT32),
-        pypto.Tensor([1], pypto.DT_INT32),
+        x: pypto.Tensor(),
+        expert_ids: pypto.Tensor(),
+        expand_x: pypto.Tensor(),
+        assist_info_for_combine: pypto.Tensor(),
+        expert_token_nums: pypto.Tensor(),
+        recv_counts: pypto.Tensor(),
     ):
-        expand_x = pypto.Tensor([expand_x_row, hidden_size], x.dtype)
-        assist_info_for_combine = pypto.Tensor([expand_x_row, info_size], pypto.DT_INT32)
-        expert_token_nums = pypto.Tensor([expert_num_per_rank], pypto.DT_INT32)
-        recv_counts = pypto.Tensor([1], pypto.DT_INT32)
         this_rank = pypto.distributed.my_symbolic_pe(group_name)
 
         # 创建通信共享区域
@@ -567,8 +568,6 @@ def moe_distributed_dispatch_kernel(
                 )
                 assist_info_for_combine[offset:offset + cur_count, :info_size] = local_info_recv_count
 
-        return expand_x, assist_info_for_combine, expert_token_nums, recv_counts
-
     return kernel
 
 
@@ -597,13 +596,13 @@ def moe_distributed_dispatch(moe_case: MoeCase, operands: MoeDispatchOperands, l
     expert_token_nums_golden = expert_token_nums_golden.to(f'npu:{physical_device_id}')
     recv_counts_golden = recv_counts_golden.to(f'npu:{physical_device_id}')
 
+    expand_x_actual = create_tensor_on_npu(expand_x_golden, physical_device_id)
+    assist_info_for_combine_actual = create_tensor_on_npu(assist_info_for_combine_golden, physical_device_id)
+    expert_token_nums_actual = create_tensor_on_npu(expert_token_nums_golden, physical_device_id)
+    recv_counts_actual = create_tensor_on_npu(recv_counts_golden, physical_device_id)
+
     kernel = moe_distributed_dispatch_kernel(moe_case=moe_case, group_name=groups[0])
-    (
-        expand_x_actual,
-        assist_info_for_combine_actual,
-        expert_token_nums_actual,
-        recv_counts_actual,
-    ) = kernel(x, expert_ids)
+    kernel(x, expert_ids, expand_x_actual, assist_info_for_combine_actual, expert_token_nums_actual, recv_counts_actual)
 
     for out, act in [
         (expand_x_actual, expand_x_golden),
@@ -679,11 +678,12 @@ def moe_distributed_combine_kernel(
 
     @pypto.frontend.jit()
     def kernel(
-        expand_x: pypto.Tensor([row, hidden_size], data_type, format=pypto.TileOpFormat.TILEOP_ND),
-        assist_info_for_combine: pypto.Tensor([row, 3], pypto.DT_INT32, format=pypto.TileOpFormat.TILEOP_ND),
-        recv_counts: pypto.Tensor([1], pypto.DT_INT32, format=pypto.TileOpFormat.TILEOP_ND),
-        expert_scales: pypto.Tensor([batch_size, topk], pypto.DT_FP32, format=pypto.TileOpFormat.TILEOP_ND),
-    ) -> pypto.Tensor([batch_size, hidden_size], data_type, format=pypto.TileOpFormat.TILEOP_ND):
+        expand_x: pypto.Tensor(),
+        assist_info_for_combine: pypto.Tensor(),
+        recv_counts: pypto.Tensor([1], pypto.DT_INT32),
+        expert_scales: pypto.Tensor(),
+        out: pypto.Tensor(),
+    ):
         # 创建 shmem_data 和 shmem_signal
         shmem_data, shmem_signal = pypto.distributed.create_shmem_tensor(
             group_name,
@@ -719,7 +719,6 @@ def moe_distributed_combine_kernel(
             )
 
         # 接收 token
-        out = pypto.tensor([batch_size, hidden_size], expand_x.dtype)
         my_pe = pypto.distributed.my_symbolic_pe(group_name)
         for token_id in range(batch_size):
             pypto.set_vec_tile_shapes(1, hidden_size)
@@ -755,8 +754,6 @@ def moe_distributed_combine_kernel(
 
             out[token_id:, :] = matmul_out_fp16
 
-        return out
-
     return kernel
 
 
@@ -785,11 +782,12 @@ def moe_distributed_combine(
     recv_counts = recv_counts.to(f'npu:{physical_device_id}')
     expert_scales = expert_scales.to(f'npu:{physical_device_id}')
     out_golden = out_golden.to(f'npu:{physical_device_id}')
+    out = create_tensor_on_npu(out_golden, physical_device_id)
 
     kernel = moe_distributed_combine_kernel(moe_case=moe_case, group_name=groups[0])
-    out_actual = kernel(expand_x, assist_info_for_combine, recv_counts, expert_scales)
+    kernel(expand_x, assist_info_for_combine, recv_counts, expert_scales, out)
 
-    assert_allclose_with_eps(out_golden.cpu(), out_actual.cpu())
+    assert_allclose_with_eps(out_golden.cpu(), out.cpu())
 
 
 def run_moe_distributed_combine() -> None:
