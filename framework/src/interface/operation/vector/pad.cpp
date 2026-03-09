@@ -18,13 +18,7 @@
 #include "passes/pass_utils/graph_utils.h"
 
 namespace npu::tile_fwk {
-
-struct PadInput {
-    LogicalTensorPtr tensor;
-    TileInfo tileInfo;
-};
-
-void TiledPadImpl(Function &function, const TileShape &tileShape, size_t cur, PadInput &input,
+void TiledPadImpl(Function &function, const TileShape &tileShape, size_t cur, Input &input,
     const LogicalTensorPtr &result, TileInfo &resultTileInfo, int64_t padRight, int64_t padBottom,
     const Element &padValue) {
     size_t ndim = result->shape.size();
@@ -39,7 +33,7 @@ void TiledPadImpl(Function &function, const TileShape &tileShape, size_t cur, Pa
             auto &op = function.AddOperation("TILE_VEC_DUP", {}, {resultTile});
             op.SetAttribute(OpAttributeKey::scalar, padValue);
         } else if (lastOffset + vecTile[ndim - 1] > lastShape || preOffset + vecTile[ndim - 2] > preShape) {
-            auto inputTile = input.tensor->View(function, input.tileInfo.shape, input.tileInfo.offset);
+            auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
             auto &op = function.AddOperation(Opcode::OP_PAD, {inputTile}, {resultTile});
             padRight = lastOffset + vecTile[ndim - 1] > lastShape ? lastOffset + vecTile[ndim - 1] - lastShape : 0;
             padBottom = preOffset + vecTile[ndim - 2] > preShape ? preOffset + vecTile[ndim - 2] - preShape : 0;
@@ -47,7 +41,7 @@ void TiledPadImpl(Function &function, const TileShape &tileShape, size_t cur, Pa
             op.SetAttribute(OP_ATTR_PREFIX + "pad_right", padRight);
             op.SetAttribute(OP_ATTR_PREFIX + "pad_bottom", padBottom);
         } else {
-            auto inputTile = input.tensor->View(function, input.tileInfo.shape, input.tileInfo.offset);
+            auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
             function.AddOperation(Opcode::OP_REGISTER_COPY, {inputTile}, {resultTile});
         }
         return;
@@ -67,7 +61,7 @@ void TiledPadOperation(Function &function, const TileShape &tileShape, const Log
     size_t ndim = result->shape.size();
     TileInfo resultTileInfo(ndim, ndim);
     TileInfo inputTileInfo(ndim, ndim);
-    PadInput padInput{input, inputTileInfo};
+    Input padInput{input, inputTileInfo};
     TiledPadImpl(function, tileShape, 0, padInput, result, resultTileInfo, padRight, padBottom, padValue);
 }
 
