@@ -56,38 +56,10 @@ Status InferMemoryConflict::RunOnFunction(Function &function) {
         APASS_LOG_ERROR_F(Elements::Operation, "InsertCopys failed.");
         return FAILED;
     }
-    for (auto &op : function.Operations()) {
-        if (op.GetOpcode() == Opcode::OP_VIEW_TYPE) {
-            auto output = op.GetOOperands()[0];
-            auto outOp = *output->GetConsumers().begin();
-            if (outOp == nullptr || outOp->GetOpcode() != Opcode::OP_REGISTER_COPY) {
-                continue;
-            }
-            TileShape viewTypeTile;
-            auto vecTypeTile = op.GetTileShape().GetVecTile();
-            auto viewTypeIn = op.GetIOperands()[0];
-            auto viewTypeOut = op.GetOOperands()[0];
-            auto inType = viewTypeIn->tensor->datatype;
-            auto outType = viewTypeOut->tensor->datatype;
-            auto inEntry = viewTypeTable.find(inType);
-            auto outEntry = viewTypeTable.find(outType);
-            if (inEntry == viewTypeTable.end() || outEntry == viewTypeTable.end()) {
-                APASS_LOG_ERROR_F(Elements::Operation, "ViewType Input Tensor OR Output Tensor DataType is not in viewType, Please check it!");
-                return FAILED;
-            }
-            if (inEntry->second < outEntry->second) {
-                if (vecTypeTile.tile[vecTypeTile.tile.size()-1] % (outEntry->second / inEntry->second) != 0) {
-                    APASS_LOG_ERROR_F(Elements::Operation, "vecTypeTile tile dim n is not even.");
-                    return FAILED;
-                }
-                vecTypeTile.tile[vecTypeTile.tile.size()-1] /= (outEntry->second / inEntry->second);
-            } else {
-                vecTypeTile.tile[vecTypeTile.tile.size()-1] *= (inEntry->second / outEntry->second);
-            }
-            viewTypeTile.SetVecTile(vecTypeTile);
-            outOp->UpdateTileShape(viewTypeTile);
-        }
-    }
+    if (ProcessViewType(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "ProcessViewType failed.");
+        return FAILED;
+    }    
     if (InsertCopysForViewAssemble(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "InsertCopysForViewAssemble failed.");
         return FAILED;
@@ -495,6 +467,42 @@ Status InferMemoryConflict::InsertCopys(Function &function) {
     if (InsertPostCopys(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "InsertPostCopys failed.");
         return FAILED;
+    }
+    return SUCCESS;
+}
+
+Status InferMemoryConflict::ProcessViewType(Function &function) {
+    for (auto &op : function.Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW_TYPE) {
+            auto output = op.GetOOperands()[0];
+            auto outOp = *output->GetConsumers().begin();
+            if (outOp == nullptr || outOp->GetOpcode() != Opcode::OP_REGISTER_COPY) {
+                continue;
+            }
+            TileShape viewTypeTile;
+            auto vecTypeTile = op.GetTileShape().GetVecTile();
+            auto viewTypeIn = op.GetIOperands()[0];
+            auto viewTypeOut = op.GetOOperands()[0];
+            auto inType = viewTypeIn->tensor->datatype;
+            auto outType = viewTypeOut->tensor->datatype;
+            auto inEntry = viewTypeTable.find(inType);
+            auto outEntry = viewTypeTable.find(outType);
+            if (inEntry == viewTypeTable.end() || outEntry == viewTypeTable.end()) {
+                APASS_LOG_ERROR_F(Elements::Operation, "ViewType Input Tensor OR Output Tensor DataType is not in viewType, Please check it!");
+                return FAILED;
+            }
+            if (inEntry->second < outEntry->second) {
+                if (vecTypeTile.tile[vecTypeTile.tile.size()-1] % (outEntry->second / inEntry->second) != 0) {
+                    APASS_LOG_ERROR_F(Elements::Operation, "vecTypeTile tile dim n is not even.");
+                    return FAILED;
+                }
+                vecTypeTile.tile[vecTypeTile.tile.size()-1] /= (outEntry->second / inEntry->second);
+            } else {
+                vecTypeTile.tile[vecTypeTile.tile.size()-1] *= (inEntry->second / outEntry->second);
+            }
+            viewTypeTile.SetVecTile(vecTypeTile);
+            outOp->UpdateTileShape(viewTypeTile);
+        }
     }
     return SUCCESS;
 }
