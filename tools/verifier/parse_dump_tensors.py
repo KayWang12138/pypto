@@ -172,6 +172,7 @@ class VerifyRes:
         tensor_infos_new = copy.deepcopy(tensor_infos)
         op_info_list = op_info_list_callop.copy(deep=True)
         all_match = False
+        update_op_info = op_info_list_callop
         while not all_match:
             self.get_verify_res_single(tensor_infos_new[0], op_info_list.to_dict(orient='records'))
             cur_loop_info = tensor_infos_new[0].get("loop_info")
@@ -188,16 +189,17 @@ class VerifyRes:
                     all_match = False
                     break
             if all_match:
-                op_info_list_callop = op_info_list_callop[op_info_list_callop["loopInfo"] != cur_loop_info]
+                update_op_info = op_info_list_callop[op_info_list_callop["loopInfo"] != cur_loop_info]
                 break
             op_info_list = op_info_list[op_info_list["loopInfo"] != cur_loop_info]
         if not all_match:
             for _, tensor_info in enumerate(tensor_infos):
                 tensor_info["verify_tensor_file"] = "" 
                 tensor_info["cmp_res"] = "NO_CMP"
-            return
+            return update_op_info
 
         self._compare_codegen_tensors(tensor_infos, tensor_infos_new)
+        return update_op_info
 
     def get_verify_codegen_res(self, callop_tensor_infos):
         res_tensor_infos = []
@@ -211,7 +213,7 @@ class VerifyRes:
         op_info_list_callop = self.verify_codegen_op_info_list.copy(deep=True)
         op_info_list_callop = op_info_list_callop[op_info_list_callop["callopMagic"] == callop_magic]
         for tensor_infos in callop_tensor_infos:
-            self.process_single_task(tensor_infos, op_info_list_callop)
+            op_info_list_callop = self.process_single_task(tensor_infos, op_info_list_callop)
             res_tensor_infos.extend(tensor_infos)
         return res_tensor_infos
 
