@@ -126,7 +126,7 @@ def extract_node_from_ge_graph(
     ge_graph: torchair.ge._ge_graph.GeGraph,
     op_type: str,
 ):
-    for op in ge_graph._proto_op:
+    for op in ge_graph._proto.op:
         if op.type == op_type:
             return op
     raise ValueError(f"No node found for {op_type}")
