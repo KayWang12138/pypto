@@ -88,4 +88,40 @@ Function *GenMockFuncDyn(const std::string &funcName, const std::vector<int64_t>
     return function;
 }
 
+std::shared_ptr<LogicalTensor> CreateConvTensor(Function &function, const DataType &dtype,
+    const std::vector<int64_t> &shape, const MemoryType &memType, const bool &isCopyIn) {
+    std::shared_ptr<LogicalTensor> tensorPtr = nullptr;
+    if (isCopyIn) {
+        if (memType == MemoryType::MEM_DEVICE_DDR) {
+            tensorPtr = std::make_shared<LogicalTensor>(function, dtype, shape, SymbolicScalar::FromConcrete(shape),
+                                                        TileOpFormat::TILEOP_ND, "GmTensor", NodeType::INCAST);
+        } else {
+            tensorPtr = std::make_shared<LogicalTensor>(function, dtype, shape, SymbolicScalar::FromConcrete(shape),
+                                                        TileOpFormat::TILEOP_NZ, "L1Tensor", NodeType::LOCAL);
+            tensorPtr->UpdateSubgraphID(0);
+            tensorPtr->SetAttr(OpAttributeKey::needAlloc, true);
+            tensorPtr->memoryrange.memId = 0;
+            tensorPtr->memoryrange.start = 0;
+            tensorPtr->memoryrange.end = 0;
+        }
+    } else {
+        if (memType == MemoryType::MEM_DEVICE_DDR) {
+            tensorPtr = std::make_shared<LogicalTensor>(function, dtype, shape, SymbolicScalar::FromConcrete(shape),
+                                                        TileOpFormat::TILEOP_ND, "GmTensor", NodeType::OUTCAST);
+        } else {
+            tensorPtr = std::make_shared<LogicalTensor>(function, dtype, shape, SymbolicScalar::FromConcrete(shape),
+                                                        TileOpFormat::TILEOP_NZ, "L0CTensor", NodeType::LOCAL);
+            tensorPtr->UpdateSubgraphID(0);
+            tensorPtr->SetAttr(OpAttributeKey::needAlloc, true);
+            tensorPtr->memoryrange.memId = 0;
+            tensorPtr->memoryrange.start = 0;
+            tensorPtr->memoryrange.end = 0;
+        }
+    }
+    tensorPtr->UpdateDynValidShape(SymbolicScalar::FromConcrete(shape));
+    tensorPtr->SetMemoryTypeOriginal(memType);
+    tensorPtr->SetMemoryTypeToBe(memType);
+    return tensorPtr;
+}
+
 } // namespace npu::tile_fwk
