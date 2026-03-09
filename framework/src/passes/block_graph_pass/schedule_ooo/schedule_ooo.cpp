@@ -229,7 +229,7 @@ Status OoOSchedule::RecordLastUseMemory(Function &function) {
         auto lastUseOp = entry.second;
         auto lastUseTensor = entry.first;
         if (LASTUSE_OPS.find(lastUseOp->GetOpcode()) == LASTUSE_OPS.end()) {
-            continue;
+            continue; //针对非LASTUSE_OPS中的op不做处理，仅处理LASTUSE_OPS中的op
         }
         if (opInputIdxMap.find(lastUseOp) == opInputIdxMap.end()) {
             int tensorSize = lastUseOp->GetIOperands().size() + lastUseOp->GetOOperands().size();
