@@ -25,21 +25,21 @@ const std::string aiv = "AIV";
 const std::string aicVersion = "AIC_version";
 const std::string aivVersion = "AIV_version";
 
-Status INIParser::Initialize(const std::string& iniFilePath) {
+bool INIParser::Initialize(const std::string& iniFilePath) {
     FUNCTION_LOGI("Start to parse ini_file %s.", iniFilePath.c_str());
-    if (ReadINIFile(iniFilePath) != SUCCESS) {
+    if (!ReadINIFile(iniFilePath)) {
         FUNCTION_LOGE("ReadINIFile failed.");
-        return FAILED;
+        return false;
     }
-    return SUCCESS;
+    return true;
 }
 
-Status INIParser::ReadINIFile(const std::string& filepath) {
+bool INIParser::ReadINIFile(const std::string& filepath) {
     data_.clear();
     std::ifstream file(filepath);
     if (!file.is_open()) {
         FUNCTION_LOGE("Failed to open ini file: %s.", filepath.c_str());
-        return FAILED;
+        return false;
     }
     std::string line;
     std::string section;
@@ -71,30 +71,30 @@ Status INIParser::ReadINIFile(const std::string& filepath) {
         data_[section][key] = value;
     }
     file.close();
-    return SUCCESS;
+    return true;
 }
 
-Status INIParser::GetStringVal(const std::string& column, const std::string& key, std::string& val) {
+bool INIParser::GetStringVal(const std::string& column, const std::string& key, std::string& val) {
     val.clear();
     if (data_.find(column) == data_.end()) {
         FUNCTION_LOGE("Cannot find attr 'version' from the ini file.");
-        return FAILED;
+        return false;
     }
     auto value = data_[column];
     if (value.find(key) == value.end()) {
         FUNCTION_LOGW("Cannot find attr '%s' from the [version] tab.", key.c_str());
-        return SUCCESS;
+        return false;
     }
     val = value[key];
-    return SUCCESS;
+    return true;
 }
 
-Status INIParser::GetSizeVal(const std::string& column, const std::string& key, size_t& val) {
+bool INIParser::GetSizeVal(const std::string& column, const std::string& key, size_t& val) {
     std::string valStr;
     const size_t max_size_t = std::numeric_limits<size_t>::max();
-    if (GetStringVal(column, key, valStr) != SUCCESS) {
+    if (!GetStringVal(column, key, valStr)) {
         FUNCTION_LOGE("GetStringVal FAILED.");
-        return FAILED;
+        return false;
     }
     val = 0UL;
 
@@ -105,22 +105,22 @@ Status INIParser::GetSizeVal(const std::string& column, const std::string& key, 
         int digit = c - '0';
         if (digit < 0 || digit > kMaxDigit10) {
             FUNCTION_LOGE("Cannot convert string to size_t: %s.", valStr.c_str());
-            return FAILED;
+            return false;
         }
         if (val > (max_size_t - digit) / kRadix10) {
             FUNCTION_LOGE("Overflow data: %s.", valStr.c_str());
-            return FAILED;
+            return false;
         }
         val = val * kRadix10 + digit;
     }
-    return SUCCESS;
+    return true;
 }
 
-Status INIParser::GetCCECVersion(std::unordered_map<std::string, std::string>& ccecVersion) {
+bool INIParser::GetCCECVersion(std::unordered_map<std::string, std::string>& ccecVersion) {
     ccecVersion.clear();
     if (data_.find(version) == data_.end()) {
         FUNCTION_LOGE("Cannot find attribute 'version' from the ini file.");
-        return FAILED;
+        return false;
     }
     auto versionVal = data_[version];
     std::string coreType;
@@ -129,14 +129,14 @@ Status INIParser::GetCCECVersion(std::unordered_map<std::string, std::string>& c
             ccecVersion[coreType] = pair.second;
         }
     }
-    return SUCCESS;
+    return true;
 }
 
-Status INIParser::GetCoreVersion(std::unordered_map<std::string, std::string>& curVersion) {
+bool INIParser::GetCoreVersion(std::unordered_map<std::string, std::string>& curVersion) {
     curVersion.clear();
     if (data_.find(version) == data_.end()) {
         FUNCTION_LOGE("Cannot find attribute 'version' from the ini file.");
-        return FAILED;
+        return false;
     }
     auto versionVal = data_[version];
     if (versionVal.find(aicVersion) != versionVal.end()) {
@@ -145,13 +145,13 @@ Status INIParser::GetCoreVersion(std::unordered_map<std::string, std::string>& c
     if (versionVal.find(aivVersion) != versionVal.end()) {
         curVersion[aiv] = versionVal[aivVersion];
     }
-    return SUCCESS;
+    return true;
 }
 
-Status INIParser::GetDataPath(std::vector<std::vector<std::string>>& dataPath) {
+bool INIParser::GetDataPath(std::vector<std::vector<std::string>>& dataPath) {
     if (data_.find(instrinsicMap) == data_.end()) {
         FUNCTION_LOGE("Cannot find attribute '%s' from the ini file.", instrinsicMap.c_str());
-        return FAILED;
+        return false;
     }
     std::string from;
     std::string to;
@@ -170,7 +170,7 @@ Status INIParser::GetDataPath(std::vector<std::vector<std::string>>& dataPath) {
             dataPath.emplace_back(curPath);
         }
     }
-    return SUCCESS;
+    return true;
 }
 
 bool INIParser::FilterCCECVersion(const std::string& key, std::string &coreType) {

@@ -15,7 +15,11 @@
 #ifndef INI_PARSER_H_
 #define INI_PARSER_H_
 
+#include <map>
+#include <set>
+#include <vector>
 #include <fstream>
+#include <unordered_map>
 #include "tilefwk/file.h"
 #include "tilefwk/pypto_fwk_log.h"
 
@@ -26,15 +30,15 @@ class INIParser {
   public:
     INIParser() = default;
     ~INIParser() = default;
-    Status Initialize(const std::string &iniFilePath); 
-    Status GetStringVal(const std::string& column, const std::string& key, std::string& val);
-    Status GetSizeVal(const std::string& column, const std::string& key, size_t& val);
+    bool Initialize(const std::string &iniFilePath); 
+    bool GetStringVal(const std::string& column, const std::string& key, std::string& val);
+    bool GetSizeVal(const std::string& column, const std::string& key, size_t& val);
 
-    Status GetCCECVersion(std::unordered_map<std::string, std::string>& ccecVersion);
-    Status GetCoreVersion(std::unordered_map<std::string, std::string>& curVersion);
-    Status GetDataPath(std::vector<std::vector<std::string>>& dataPath);
+    bool GetCCECVersion(std::unordered_map<std::string, std::string>& ccecVersion);
+    bool GetCoreVersion(std::unordered_map<std::string, std::string>& curVersion);
+    bool GetDataPath(std::vector<std::vector<std::string>>& dataPath);
   private:
-    Status ReadINIFile(const std::string& filepath);
+    bool ReadINIFile(const std::string& filepath);
     bool FilterCCECVersion(const std::string& key, std::string &coreType);
     bool FilterDirections(const std::string& value, std::string &part);
     bool FilterDataPath(const std::string& part, std::string &from, std::string &to);
