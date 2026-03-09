@@ -95,8 +95,8 @@ TEST_F(TestGenerateMoveOpPass, PreCheck_InvalidOpType_Duplicate_Convert) {
     EXPECT_NE(function, nullptr);
 
     GenerateMoveOp checker;
-    Status preCheckStatus = checker.PreCheck(*function);
-    EXPECT_EQ(preCheckStatus, FAILED);
+    Status postCheckStatus = checker.PostCheck(*function);
+    EXPECT_EQ(postCheckStatus, FAILED);
 }
 
 TEST_F(TestGenerateMoveOpPass, PostCheck_ViewOp_MoreThanOneInput) {
