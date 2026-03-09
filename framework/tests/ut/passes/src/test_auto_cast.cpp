@@ -123,7 +123,6 @@ TEST_F(AutoCastTest, AutoCastChecker_PostCheck_Normal) {
 }
 
 TEST_F(AutoCastTest, AutoCastChecker_Cast_InvalidOutputNum_BF16_Unsupported) {
-    // 场景1：CAST输出数≠1（独立测试，确保图构建合法）
     ComputationalGraphBuilder G1;
     EXPECT_EQ(G1.AddTensor(DataType::DT_INT32, {16, 16}, "t1"), true);
     EXPECT_EQ(G1.AddTensor(DataType::DT_FP16, {16, 16}, "t2"), true);
@@ -137,10 +136,9 @@ TEST_F(AutoCastTest, AutoCastChecker_Cast_InvalidOutputNum_BF16_Unsupported) {
     ASSERT_NE(function1, nullptr);
 
     AutoCast autoCast1;
-    EXPECT_EQ(autoCast1.PreCheck(*function1), FAILED); // 预期返回FAILED（1）
+    EXPECT_EQ(autoCast1.PreCheck(*function1), FAILED); 
     autoCast1.RunOnFunction(*function1);
 
-    // 场景2：不支持BF16输入（独立测试，先添加输出张量t3）
     ComputationalGraphBuilder G2;
     EXPECT_EQ(G2.AddTensor(DataType::DT_BF16, {16, 16}, "t1"), true);
     EXPECT_EQ(G2.AddTensor(DataType::DT_FP32, {16, 16}, "t2"), true);
@@ -157,7 +155,6 @@ TEST_F(AutoCastTest, AutoCastChecker_Cast_InvalidOutputNum_BF16_Unsupported) {
     EXPECT_EQ(autoCast2.PostCheck(*function2), FAILED); 
     autoCast2.RunOnFunction(*function2);
 
-    // 场景3：不支持BF16输出（独立测试，确保图构建合法）
     ComputationalGraphBuilder G3;
     EXPECT_EQ(G3.AddTensor(DataType::DT_FP32, {16, 16}, "t1"), true);
     EXPECT_EQ(G3.AddTensor(DataType::DT_BF16, {16, 16}, "t2"), true);
@@ -204,6 +201,86 @@ TEST_F(AutoCastTest, AutoCastChecker_Cast_InvalidInputNum) {
 
     AutoCast autoCast;
     EXPECT_EQ(autoCast.PreCheck(*function), FAILED);
+    autoCast.RunOnFunction(*function);
+}
+
+TEST_F(AutoCastTest, MixedCastWithInvalidConnection) {
+    ComputationalGraphBuilder G;
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {16, 16}, "t1"), true);
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {16, 16}, "t2"), true);
+
+    std::vector<Opcode> opCodes{Opcode::OP_VIEW, Opcode::OP_ADD};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}, {}};
+    std::vector<std::string> opNames{"View1", "Add1"};
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+
+    EXPECT_EQ(G.SetInCast({"t1"}), true);
+    EXPECT_EQ(G.SetOutCast({}), true);
+    Function *function = G.GetFunction();
+
+    AutoCast autoCast;
+    autoCast.RunOnFunction(*function);
+}
+
+TEST_F(AutoCastTest, UnsupportedBF16WithAbnormalTensor) {
+    ComputationalGraphBuilder G;
+    EXPECT_EQ(G.AddTensor(DataType::DT_BF16, {16, 16}, "t1"), true);
+    EXPECT_EQ(G.AddTensor(DataType::DT_BF16, {16, 16}, "t2"), true);
+    EXPECT_EQ(G.AddTensor(DataType::DT_BF16, {16, 16}, "t3"), true);
+
+    std::vector<Opcode> opCodes{Opcode::OP_MUL};
+    std::vector<std::vector<std::string>> ioperands{{"t1", "t2"}};
+    std::vector<std::vector<std::string>> ooperands{{"t3"}};
+    std::vector<std::string> opNames{"Mul1"};
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+
+    EXPECT_EQ(G.SetInCast({"t1", "t2"}), true);
+    EXPECT_EQ(G.SetOutCast({"t3"}), true);
+    Function *function = G.GetFunction();
+
+    AutoCast autoCast;
+    autoCast.RunOnFunction(*function);
+}
+
+TEST_F(AutoCastTest, Int32Fp16WithInvalidShape) {
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
+    ComputationalGraphBuilder G;
+    EXPECT_EQ(G.AddTensor(DataType::DT_INT32, {16, 16}, "t1"), true);
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP16, {32, 32}, "t2"), true);
+
+    std::vector<Opcode> opCodes{Opcode::OP_CAST};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}};
+    std::vector<std::string> opNames{"Cast1"};
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+
+    EXPECT_EQ(G.SetInCast({"t1"}), true);
+    EXPECT_EQ(G.SetOutCast({"t2"}), true);
+    Function *function = G.GetFunction();
+
+    AutoCast autoCast;
+    autoCast.RunOnFunction(*function);
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_UNKNOWN);
+}
+
+TEST_F(AutoCastTest, RedundantCastWithLoopChain) {
+    ComputationalGraphBuilder G;
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {16, 16}, "t1"), true);
+    EXPECT_EQ(G.AddTensor(DataType::DT_BF16, {16, 16}, "t2"), true);
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {16, 16}, "t3"), true);
+
+    std::vector<Opcode> opCodes{Opcode::OP_CAST, Opcode::OP_CAST};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}, {"t2"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}, {"t3"}};
+    std::vector<std::string> opNames{"Cast1", "Cast2"};
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+
+    EXPECT_EQ(G.SetInCast({"t1"}), true);
+    EXPECT_EQ(G.SetOutCast({"t3"}), true);
+    Function *function = G.GetFunction();
+
+    AutoCast autoCast;
     autoCast.RunOnFunction(*function);
 }
 } // namespace tile_fwk
