@@ -624,5 +624,5 @@ TEST_F(TestAxisCombineMarker, cast_op) {
     AxisCombineMarker marker;
     marker.Run(*rootFuncPtr);
     auto t4 = graph.GetTensor("t4");
-    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t4), true);   // Unhandled op should be unknown
+    EXPECT_EQ(marker.IsTensorEnableAxisCombine(t4), true);
 }
