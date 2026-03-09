@@ -1922,7 +1922,7 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
     GetAttr(Conv::LoadStoreConvOpAttributeKey::isConv3D, isConv3D);
 
     std::ostringstream oss;
-    oss << tileOpName.c_str() << WrapParamByAngleBrackets({isConv3D}) << WrapParamByParentheses(paramList) << STMT_END;
+    oss << tileOpName.c_str() << WrapParamByAngleBrackets({std::to_string(isConv3D)}) << WrapParamByParentheses(paramList) << STMT_END;
     return oss.str();
 }
 
@@ -1942,7 +1942,6 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load2D() const {
 
     std::vector<int64_t> weightL1Shape = this->rawShape[ID1];
     ALOG_INFO_F("GenMemL1ToL0Load2D %s, weightL1Shape is %s", tileOpName.c_str(), IntVecToStr(weightL1Shape).c_str());
-    ASSERT(weightL1Shape.size() == SHAPE_DIM4) << "GenMemL1ToL0Load2D weight only support 4-dim!";
 
     std::vector<int64_t> weightL0Shape = this->rawShape[ID0];
     ALOG_INFO_F("GenMemL1ToL0Load2D %s, weightL0Shape is %s", tileOpName.c_str(), IntVecToStr(weightL0Shape).c_str());
