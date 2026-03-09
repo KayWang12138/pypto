@@ -10,7 +10,7 @@
 
 /*!
  * \file test_generate_move_op.cpp
- * \brief Unit test for Generate Move Op pass (纯基础语法，可编译)
+ * \brief Unit test for Generate_Move_Op pass
  */
 
 #include <gtest/gtest.h>
@@ -45,7 +45,24 @@ OpType* FindOpByOpcode(Function* function, Opcode targetOpcode) {
             break;
         }
     }
-    return targetOp; 
+    return targetOp;
+}
+
+void SetViewOpMemoryTypeAndCheck(Function* function, bool clearConsumers = false) {
+    Operation* viewOp = FindOpByOpcode<Operation>(function, Opcode::OP_VIEW);
+    ASSERT_NE(viewOp, nullptr);
+    std::shared_ptr<LogicalTensor> viewOutputTensor = viewOp->GetOOperands().front();
+    ASSERT_NE(viewOutputTensor, nullptr);
+    viewOutputTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+    if (clearConsumers) {
+        auto& consumers = const_cast<std::set<Operation*, LogicalTensor::CompareOp>&>(viewOutputTensor->GetConsumers());
+        consumers.clear();
+        consumers.insert(nullptr);
+    }
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*function);
+    EXPECT_EQ(preCheckStatus, FAILED);
 }
 
 class TestGenerateMoveOpPass : public ::testing::Test {
@@ -135,7 +152,7 @@ TEST_F(TestGenerateMoveOpPass, PostCheck_ViewOp_DismatchedMemType) {
     EXPECT_NE(function, nullptr);
 
     Operation* viewOp = FindOpByOpcode<Operation>(function, Opcode::OP_VIEW);
-    ASSERT_NE(viewOp, nullptr); 
+    ASSERT_NE(viewOp, nullptr);
 
     auto inputTensor = viewOp->GetIOperands().front();
     auto outputTensor = viewOp->GetOOperands().front();
@@ -267,20 +284,9 @@ TEST_F(TestGenerateMoveOpPass, PreCheck_ViewOp_OutputHasNullConsumer) {
 
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
-    
-    Operation* viewOp = FindOpByOpcode<Operation>(function, Opcode::OP_VIEW);
-    ASSERT_NE(viewOp, nullptr);
-    
-    std::shared_ptr<LogicalTensor> viewOutputTensor = viewOp->GetOOperands().front();
-    ASSERT_NE(viewOutputTensor, nullptr);
 
-    auto& consumers = const_cast<std::set<Operation*, LogicalTensor::CompareOp>&>(viewOutputTensor->GetConsumers());
-    consumers.clear();
-    consumers.insert(nullptr);
-
-    GenerateMoveOp checker;
-    Status preCheckStatus = checker.PreCheck(*function);
-    EXPECT_EQ(preCheckStatus, FAILED);
+    // 调用通用函数（清空消费者）
+    SetViewOpMemoryTypeAndCheck(function, true);
 }
 
 TEST_F(TestGenerateMoveOpPass, PreCheck_ViewOp_OutputHasNullConsumers) {
@@ -297,21 +303,7 @@ TEST_F(TestGenerateMoveOpPass, PreCheck_ViewOp_OutputHasNullConsumers) {
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    Operation* viewOp = FindOpByOpcode<Operation>(function, Opcode::OP_VIEW);
-    ASSERT_NE(viewOp, nullptr);
-    
-    std::shared_ptr<LogicalTensor> viewOutputTensor = viewOp->GetOOperands().front();
-    ASSERT_NE(viewOutputTensor, nullptr);
-
-    viewOutputTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
-
-    auto& consumers = const_cast<std::set<Operation*, LogicalTensor::CompareOp>&>(viewOutputTensor->GetConsumers());
-    consumers.clear();
-    consumers.insert(nullptr);
-
-    GenerateMoveOp checker;
-    Status preCheckStatus = checker.PreCheck(*function);
-    EXPECT_EQ(preCheckStatus, FAILED);
+    SetViewOpMemoryTypeAndCheck(function, false);
 }
 
 TEST_F(TestGenerateMoveOpPass, PreCheck_ViewOp_ConsumerNotSupportDDR) {
@@ -328,17 +320,7 @@ TEST_F(TestGenerateMoveOpPass, PreCheck_ViewOp_ConsumerNotSupportDDR) {
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    Operation* viewOp = FindOpByOpcode<Operation>(function, Opcode::OP_VIEW);
-    ASSERT_NE(viewOp, nullptr);
-    
-    std::shared_ptr<LogicalTensor> viewOutputTensor = viewOp->GetOOperands().front();
-    ASSERT_NE(viewOutputTensor, nullptr);
-
-    viewOutputTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
-
-    GenerateMoveOp checker;
-    Status preCheckStatus = checker.PreCheck(*function);
-    EXPECT_EQ(preCheckStatus, FAILED);
+    SetViewOpMemoryTypeAndCheck(function, false);
 }
 
 TEST_F(TestGenerateMoveOpPass, PreCheck_ViewOp_ConvertPathInvalid) {
@@ -355,17 +337,8 @@ TEST_F(TestGenerateMoveOpPass, PreCheck_ViewOp_ConvertPathInvalid) {
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
 
-    Operation* viewOp = FindOpByOpcode<Operation>(function, Opcode::OP_VIEW);
-    ASSERT_NE(viewOp, nullptr);
-    
-    std::shared_ptr<LogicalTensor> viewOutputTensor = viewOp->GetOOperands().front();
-    ASSERT_NE(viewOutputTensor, nullptr);
-
-    viewOutputTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
-
-    GenerateMoveOp checker;
-    Status preCheckStatus = checker.PreCheck(*function);
-    EXPECT_EQ(preCheckStatus, FAILED);
+    // 调用通用函数（不清空消费者）
+    SetViewOpMemoryTypeAndCheck(function, false);
 }
 
 TEST_F(TestGenerateMoveOpPass, PreCheck_AssembleOp_AttrNull) {
