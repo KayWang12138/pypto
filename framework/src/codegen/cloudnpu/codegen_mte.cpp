@@ -1806,18 +1806,19 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
         {dstTensor, srcTensor, std::to_string(offsetN), std::to_string(offsetC), std::to_string(offsetD),
         std::to_string(offsetH), std::to_string(offsetW), std::to_string(srcShapeN), std::to_string(srcShapeC),
         std::to_string(srcShapeD), std::to_string(srcShapeH), std::to_string(srcShapeW)};
+    
+    std::string srcDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(MISOIdx::SRC0_IDX)]);
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(MISOIdx::DST_IDX)]);
+    std::vector<std::string> templateParamList =
+        {copyInModeStr, std::to_string(isConv3D), std::to_string(isFmap), dstDtypeStr, srcDtypeStr};
 
     std::ostringstream oss;
-    oss << tileOpName;
-    oss << "<" << copyInModeStr << ", " << std::to_string(isConv3D) << ", " << std::to_string(isFmap) << ">";
-    oss << PrintParams({"(", ")"}, tileOpParamList, ", ") << STMT_END;
+    oss << tileOpName << WrapParamByAngleBrackets(templateParamList);
+    oss << WrapParamByParentheses(tileOpParamList) << STMT_END;
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const {
-    std::string gmVarName = GenGmParamVar(ToUnderlying(MISOIdx::DST_IDX));
-    std::string dstTensor = sm->QueryTileTensorByBufVarName(gmVarName);
-    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+std::string CodeGenOpCloudNPU::GetConvCopyOutMode() const {
     int64_t copyOutMode = -1;
     std::string copyOutModeStr = "";
     auto ret = GetAttr(Conv::LoadStoreConvOpAttributeKey::copyOutMode, copyOutMode);
@@ -1831,6 +1832,14 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const {
     } else {
         ASSERT(false) << "Check CopyOutMode failed";
     }
+    return copyOutModeStr;
+}
+
+std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const {
+    std::string gmVarName = GenGmParamVar(ToUnderlying(MISOIdx::DST_IDX));
+    std::string dstTensor = sm->QueryTileTensorByBufVarName(gmVarName);
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::string copyOutModeStr = GetConvCopyOutMode();
 
     bool isConv3D = false;
     int64_t realM = 0, realN = 0;
@@ -1859,9 +1868,14 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const {
         std::to_string(offsetD), std::to_string(offsetH), std::to_string(offsetW), std::to_string(realM),
         std::to_string(realN)};
 
+    std::string srcDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(MISOIdx::SRC0_IDX)]);
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ToUnderlying(MISOIdx::DST_IDX)]);
+    std::vector<std::string> templateParamList =
+        {copyOutModeStr, std::to_string(isConv3D), dstDtypeStr, srcDtypeStr};
+
     std::ostringstream oss;
-    oss << tileOpName << "<" << copyOutModeStr << ", " << std::to_string(isConv3D) << ">";
-    oss << PrintParams({"(", ")"}, tileOpParamList, ", ") << STMT_END;
+    oss << tileOpName << WrapParamByAngleBrackets(templateParamList);
+    oss << WrapParamByParentheses(tileOpParamList) << STMT_END;
     return oss.str();
 }
 
