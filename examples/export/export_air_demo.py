@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import pypto
 
 import torchair
 from torchair import register_fx_node_ge_converter
@@ -11,9 +10,10 @@ from numpy.testing import assert_allclose
 
 import os
 import argparse
-from typing import Optional
+from typing import Optional, Callable
 
-NPU_DEVICE_ID = 1
+import pypto
+
 DOMAIN = "ai.onnx.contrib"
 OP_TYPE__ADD = "AddPyptoCustomOp"
 DOMAIN_OP_TYPE__ADD = f"{DOMAIN}::{OP_TYPE__ADD}"
@@ -22,48 +22,26 @@ TILE_SHAPES = (1, 16, 1, 64)
 
 @pypto.export.pypto_op_kernel(kernel_name="add_kernel", tile_shapes=TILE_SHAPES, support_dynamic_aligned=True, version=1,
                 incl_src=True, incl_binary=True, incl_ir=True)
-def add_kernel_py(t0, t1, t2):
+def add_kernel_body(t0, t1):
     print("Goes through add_kernel")
-
-    tensor_shape = t0.shape
     pypto.set_vec_tile_shapes(*TILE_SHAPES)
-
-    b = pypto.symbolic_scalar(tensor_shape[0])
-    n1, n2, dim = tensor_shape[1:]
-    tile_b = pypto.symbolic_scalar(1)
-    b_loop = b / tile_b
-
-    for idx in pypto.loop(b_loop):
-        b_offset = idx * tile_b
-        b_offset_end = (idx + 1) * tile_b
-        t0_sub = t0[b_offset:b_offset_end, :n1, :n2, :dim]
-        t1_sub = t1[b_offset:b_offset_end, :n1, :n2, :dim]
-        t3_sub = t0_sub + t1_sub
-        t2[b_offset:b_offset_end, :, :, :] = t3_sub
-
-# 像这样使用jit，以避免jit被传递到@pypto_op装饰器函数中
-# add_kernel = pypto.jit(add_kernel_py) # --- can't reallt set runtime_options (e.g. run_mode=1) this way
+    return t0 + t1
 
 def create_add_kernel(run_mode: int):
-    @pypto.jit(runtime_options={"run_mode": run_mode})
-    def add_kernel(t0, t1, t2):
-        return add_kernel_py(t0, t1, t2)
+    @pypto.frontend.jit(runtime_options={"run_mode": run_mode})
+    def add_kernel(
+        t0: pypto.Tensor(SHAPE, pypto.DT_FP32),
+        t1: pypto.Tensor(SHAPE, pypto.DT_FP32),
+    ) -> pypto.Tensor(SHAPE, pypto.DT_FP32):
+        t2 = add_kernel_body(t0, t1)
+        return t2
     return add_kernel
 
 @torch.library.custom_op("pypto::add_pypto", mutates_args=())
 def add_pypto(x0: torch.Tensor, x1: torch.Tensor, run_mode: int = 0) -> torch.Tensor:
     print("Goes through pypto npu kernel")
-    output_data = torch.zeros_like(x0, device=x0.device)
-
-    pto_inputs = [
-        pypto.from_torch(x0, "IN_0"),
-        pypto.from_torch(x1, "IN_1"),
-    ]
-    pto_outputs = [pypto.from_torch(output_data, "OUT_0")]
-
-    create_add_kernel(run_mode)(*pto_inputs, *pto_outputs)
-    #pypto.runtime._device_synchronize()
-
+    output_data = create_add_kernel(run_mode)(x0, x1)
+    pypto.runtime._device_synchronize()
     print("Returned output_data")
     return output_data
 
@@ -73,17 +51,19 @@ def add_pypto_fake(x0, x1, run_mode = 0):
     assert x0.shape == x1.shape
     return torch.empty_like(x0)
 
-@pypto.export.pypto_op_infer_shape(pypto_op_kernel=add_kernel_py)
+@pypto.export.pypto_op_infer_shape(pypto_op_kernel=add_kernel_body)
 def add_pypto_infer_shape(x0_shape, x1_shape):
     return x0_shape
 
-@pypto.export.pypto_op_calc_workspace(pypto_op_kernel=add_kernel_py)
+@pypto.export.pypto_op_calc_workspace(pypto_op_kernel=add_kernel_body)
 def add_pypto_calc_workspace(x0_shape, x1_shape):
     return 42
 
 @register_fx_node_ge_converter(torch.ops.pypto.add_pypto.default)
-@pypto.export.pypto_op_torchair_fx_node_ge_converter(pypto_op_kernel=add_kernel_py)
-def converter_add_pypto(x: torchair_tensor, y: torchair_tensor, z: torchair_tensor = None, meta_outputs: any = None, op_context: dict = {}):
+@pypto.export.pypto_op_torchair_fx_node_ge_converter(pypto_op_kernel=add_kernel_body)
+def converter_add_pypto(x: torchair_tensor, y: torchair_tensor, z: torchair_tensor = None,
+        meta_outputs: any = None, pypto_op_kernel_export: Callable[..., dict]=None):
+    op_context = pypto_op_kernel_export(x, y)
     return torchair.ge.custom_op(
         op_type=DOMAIN_OP_TYPE__ADD,
         inputs={
@@ -98,6 +78,17 @@ class CustomModel(nn.Module):
     def forward(self, x0, x1, run_mode=0):
         return torch.ops.pypto.add_pypto(x0, x1, run_mode=run_mode)
 
+def get_device_id():
+    if "TILE_FWK_DEVICE_ID" not in os.environ:
+        print("Please set TILE_FWK_DEVICE_ID variable before running this demo:")
+        print("\texport TILE_FWK_DEVICE_ID=0")
+    try:
+        device_id = int(os.environ["TILE_FWK_DEVICE_ID"])
+        return device_id
+    except ValueError:
+        print(f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}")
+        return None
+
 def export_demo(path: str, force_cpu: bool = False, force_sim: bool = False):
     pypto.set_host_options(only_codegen=True)
     pypto.set_codegen_options(support_dynamic_aligned=True)
@@ -107,9 +98,10 @@ def export_demo(path: str, force_cpu: bool = False, force_sim: bool = False):
 
     if not force_sim and torch.npu.is_available():
         run_mode = 0
-        torch.npu.set_device(NPU_DEVICE_ID)
+        device_id = get_device_id()
+        torch.npu.set_device(device_id)
         if not force_cpu:
-            device = f"npu:{NPU_DEVICE_ID}"
+            device = f"npu:{device_id}"
             model = model.to(device)
     else:
         run_mode = 1
@@ -130,10 +122,6 @@ def export_demo(path: str, force_cpu: bool = False, force_sim: bool = False):
             atol=3e-3
         )
         print("Assert Passed")
-
-    model = model.cpu()
-    input_data0 = input_data0.cpu()
-    input_data1 = input_data1.cpu()
 
     os.makedirs(os.path.dirname(path), exist_ok=True)
     pypto.export.export_to_torchair(

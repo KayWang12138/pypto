@@ -1,7 +1,7 @@
 import os
 
 ROOT_KERNEL_BINARIES_DIR = "output"
-ROOT_KERNEL_IR_DIR = "/home/p84341448/n84434144_nikita/pypto_ir/build_output/" # TODO update after pypto ir repo is merged to cann/pypto
+ROOT_KERNEL_IR_DIR = "build_output" # TODO update after ir converter is finalized
 
 def _find_kernel_binary_path(kernel_name):
     kernels = os.listdir(ROOT_KERNEL_BINARIES_DIR)
