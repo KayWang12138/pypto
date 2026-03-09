@@ -26,15 +26,15 @@ def layer_norm_func():
     x = pypto.tensor([1, 1], pypto.DT_FP32)
     pypto.add(x, 1.0)
     assert [64, 128] == get_options("vec_tile_shapes")
-    assert {1: 2} == get_options("pass.vec_nbuffer_setting") # 当前scope未设置，依然是上层scope值
+    assert {0: 2} == get_options("pass.vec_nbuffer_setting") # 当前scope未设置，依然是上层scope值
 
 
 # jit scope 1
 @pypto.jit(
-        pass_options={"vec_nbuffer_setting": {1: 2}},
+        pass_options={"vec_nbuffer_setting": {0: 2}},
         )
 def set_scope_options(a, c, tiling=None):
-    assert {1: 2} == get_options("pass.vec_nbuffer_setting")
+    assert {0: 2} == get_options("pass.vec_nbuffer_setting")
 
     # 原接口依然有效，同时修改当前scope中的配置
     pypto.set_vec_tile_shapes(32, 32)
@@ -49,7 +49,7 @@ def set_scope_options(a, c, tiling=None):
         # 隐式 scope
         pypto.set_options(pass_options={"cube_l1_reuse_setting": {0: 8}})
         assert {0: 8} == get_options("pass.cube_l1_reuse_setting")
-        assert {1: 2} == get_options("pass.vec_nbuffer_setting") # 当前scope未设置，依然是上层scope值
+        assert {0: 2} == get_options("pass.vec_nbuffer_setting") # 当前scope未设置，依然是上层scope值
 
         # func scope
         layer_norm_func()
@@ -57,20 +57,20 @@ def set_scope_options(a, c, tiling=None):
         # 显式 scope
         with pypto.options("scope2",
                             pass_options={"pg_upper_bound": 100,
-                                          "cube_nbuffer_setting": {3: 4}},
+                                          "cube_nbuffer_setting": {0: 4}},
                             vec_tile_shapes=[64, 64],
                             matrix_size=[64, 32],
                             cube_tile_shapes=[[16, 16], [256, 512, 128], [128, 128], True]
                             ): # scope 3
             assert 100 == get_options("pass.pg_upper_bound")
-            assert {3: 4} == get_options("pass.cube_nbuffer_setting")
+            assert {0: 4} == get_options("pass.cube_nbuffer_setting")
             assert [64, 64] == get_options("vec_tile_shapes")
             assert [64, 32] == get_options("matrix_size")
             assert check_cube_tile_shapes([16, 16], [256, 512, 128], [128, 128], True)
-            assert {1: 2} == get_options("pass.vec_nbuffer_setting") # 当前scope未设置，依然是上层scope值
+            assert {0: 2} == get_options("pass.vec_nbuffer_setting") # 当前scope未设置，依然是上层scope值
             print(pypto.get_options_tree())
 
-        assert {1: 2} == get_options("pass.vec_nbuffer_setting")
+        assert {0: 2} == get_options("pass.vec_nbuffer_setting")
         assert [32, 32] == get_options("vec_tile_shapes")
 
 
