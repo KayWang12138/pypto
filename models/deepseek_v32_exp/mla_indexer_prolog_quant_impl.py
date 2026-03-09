@@ -68,10 +68,7 @@ def mla_indexer_prolog_quant_compute(
     head_dim = ip_hadamard_q_in.shape[0]
     q_head_dim = qk_nope_head_dim + qk_rope_head_dim
 
-    tile_bs = mla_tile_config.tile_bs
-
     t = token_x.shape[0]
-    bs_loop = (t + tile_bs - 1) // tile_bs
 
     quant_inputs = MlaQuantInputs()
 
@@ -84,8 +81,7 @@ def mla_indexer_prolog_quant_compute(
         quant_inputs.dequant_scale_w_uq_qr = dequant_scale_wuqr_reshape
 
     unroll_list = mla_tile_config.unroll_list
-    for bs_offset, unroll_length in pypto.loop_unroll(0, t, 1, name="MLA_BS_LOOP", idx_name="bs_offset",
-                                                      unroll_list=unroll_list, ):
+    for bs_offset, unroll_length in pypto.loop_unroll(0, t, 1, name="MLA_BS_LOOP", idx_name="bs_offset", unroll_list=unroll_list, ):
         tile_bs = unroll_length
         output_offset = [bs_offset, 0, 0]
 
