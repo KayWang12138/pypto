@@ -10,7 +10,7 @@
 
 /*!
  * \file kernel_dump_utils.cpp
- * \brief dump binary and kernel.o into one kernel
+ * \brief dump binary into one kernel
  */
 
 #include "machine/dump/kernel_dump_utils.h"
@@ -27,12 +27,8 @@
 namespace npu::tile_fwk {
 namespace {
 constexpr int64_t LEVEL_FOUR = 4;
-constexpr int64_t MAX_BLOCK_NUM = 24;
-const std::string KERNEL_FILE_PREFIX = "ast_op_";
 const std::string KERNEL_BIN_FILE_SUFFIX = ".o";
 const std::string KERNEL_JSON_FILE_SUFFIX = ".json";
-const std::string AICORE_KERNEL_FILE_PATH = "kernel/kernel.o";
-const std::string AICORE_KERNEL_FILE_NAME = "kernel.o";
 
 inline size_t DataSizeAlign(const size_t bytes, const uint32_t aligns = 32U) {
     const size_t alignSize = (aligns == 0U) ? sizeof(uintptr_t) : aligns;
@@ -82,8 +78,7 @@ bool KernelDumpUtils::DumpBinFile(const DeviceAgentTask *deviceAgentTask, const 
     kernelHeader.dataOffset[static_cast<size_t>(KernelContextType::OpBinary)] = offset;
     Function *function = deviceAgentTask->GetFunction();
     std::vector<uint8_t> opBinData;
-    bool isDynamic = function->IsFunctionType(FunctionType::DYNAMIC);
-    if (isDynamic && function->GetDyndevAttribute() != nullptr) {
+    if (function->IsFunctionType(FunctionType::DYNAMIC) && function->GetDyndevAttribute() != nullptr) {
         opBinData = function->GetDyndevAttribute()->devProgBinary;
     }
 
@@ -93,17 +88,9 @@ bool KernelDumpUtils::DumpBinFile(const DeviceAgentTask *deviceAgentTask, const 
     kernelHeader.dataSize[static_cast<size_t>(KernelContextType::OpBinary)] = opBinData.size();
     offset += DataSizeAlign(opBinData.size());
 
-    // kernel.o
-    std::string kernelPath = GetDumpKernelPath() + "/" + AICORE_KERNEL_FILE_NAME;
-    std::vector<uint8_t> kernelBinData;
-    if (isDynamic) {
-      kernelBinData = LoadFile(dyKernelPath);
-    } else if (kernelBinData.empty()) {
-        kernelPath = GetDumpKernelPath() + "/" + AICORE_KERNEL_FILE_PATH;
-        kernelBinData = LoadFile(kernelPath);
-        if (kernelBinData.empty()) {
-            return false;
-        }
+    std::vector<uint8_t> kernelBinData = LoadFile(dyKernelPath);
+    if (kernelBinData.empty()) {
+        return false;
     }
     kernelHeader.dataOffset[static_cast<size_t>(KernelContextType::Kernel)] = offset;
     kernelHeader.dataSize[static_cast<size_t>(KernelContextType::Kernel)] = kernelBinData.size();

@@ -10,7 +10,7 @@
 
 /*!
  * \file kernel_dump_utils.h
- * \brief dump binary and kernel.o into single kernel
+ * \brief dump binary into single kernel
  */
 
 #pragma once

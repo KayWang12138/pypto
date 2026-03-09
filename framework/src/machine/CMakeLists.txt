@@ -10,7 +10,6 @@
 
 
 if (BUILD_WITH_CANN)
-    add_subdirectory(kernel)
     add_subdirectory(device)
 endif ()
 add_subdirectory(runtime)
