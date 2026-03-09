@@ -959,8 +959,26 @@ void ViewInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outV
             inputValidShape.resize(shapeImm.size());
             OpImmediate::NormalizeValue(inputValidShape, 0, shapeImm, 0, false);
         }
-        auto newDynValidShape = GetViewValidShape(inputValidShape, viewOpAttribute->GetFromOffset(),
-                                                    viewOpAttribute->GetFromDynOffset(), op->GetOOperands()[0]->oriShape);
+
+                Offset inOffset = Op->GetIOperands()[0]->GetOffset();
+        Offset subOffset(inOffset.size(), 0);
+        for (size_t = 0; i < inOffset.size(); i++) {
+            subOffset[i] = viewOpAttribute->GetFromOffset()[i] - inOffset[i];
+        }
+
+        std::vector<SymbolicScalar> inDynOffset = op->GetIOperands()[0]->GetDynOffset();
+        std::vector<SymbolicScalar> subDynOffset(inOffset.size());
+        std::vector<SymbolicScalar> viewOpAttributeDynFromOffset = viewOpAttribute->GetFromDynOffset() ;
+        if (!inDynOffset.empty() && !viewOpAttributeDynFromOffset.empty()) {
+            for (size_t i = 0; i < inDynOffset.size(); i++) {
+                subDynOffset[i] = viewOpAttributeDynFromOffset[i] - inDynOffset[i];
+            }
+        } else {
+            subDynOffset.resize(0);
+        }
+
+        auto newDynValidShape = GetViewValidShape(inputValidShape, subOffset,
+                                                    subDynOffset, op->GetOOperands()[0]->oriShape);
         for (auto output : op->GetOOperands()) {
             outValidShapes.push_back(newDynValidShape);
         }
