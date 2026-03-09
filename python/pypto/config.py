@@ -56,7 +56,6 @@ def set_print_options(*,
 def set_pass_options(*,
                      pg_skip_partition: Optional[bool] = None,
                      pg_upper_bound: Optional[int] = None,
-                     mg_vec_parallel_lb: Optional[int] = None,
                      vec_nbuffer_setting: Optional[Dict[int, int]] = None,
                      cube_l1_reuse_setting: Optional[Dict[int, int]] = None,
                      cube_nbuffer_setting: Optional[Dict[int, int]] = None,
@@ -73,10 +72,6 @@ def set_pass_options(*,
     pg_upper_bound : int
         Merged graph parameter, used to configure
         the upper bound of subgraph size.
-
-    mg_vec_parallel_lb : int
-        Merged graph parameter, used to configure
-        the minimum parallelism of AIV subgraphs with the same structure.
 
     vec_nbuffer_setting : Dict[int, int]
         Merged graph parameter, used to configure

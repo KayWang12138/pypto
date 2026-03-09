@@ -44,7 +44,6 @@ def test_pass_option():
         "pg_skip_partition": True,
         "pg_upper_bound": 2,
         "sg_set_scope": 5,
-        "mg_vec_parallel_lb": 6,
         "vec_nbuffer_setting": {1: 2},
         "cube_l1_reuse_setting": {-1: 6, 2: 3},
         "cube_nbuffer_setting": {-1: 2}
