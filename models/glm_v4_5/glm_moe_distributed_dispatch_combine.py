@@ -318,12 +318,11 @@ def combine_tokens(
     return out_golden_list
 
 
-def generate_golden(
+def generate_dispatch_golden(
     moe_case: MoeCase,
     torch_data_type: torch.dtype,
-    scene: Scene,
-) -> Union[MoeCombineOperandLists, MoeDispatchOperandLists, MoeDispatchCombineOperandLists]:
-    x_list, moe_expert_ids_list, expert_scales_list = generate_inputs(moe_case, torch_data_type)
+) -> MoeCombineOperandLists:
+    x_list, moe_expert_ids_list, _ = generate_inputs(moe_case, torch_data_type)
     (
         expand_x_list,
         assist_info_for_combine_list,
@@ -341,8 +340,21 @@ def generate_golden(
         expert_token_nums_golden_list,
         recv_counts_list,
     )
-    if scene == Scene.DISPATCH:
-        return dispatch_result
+
+    return dispatch_result
+
+
+def generate_combine_golden(
+    moe_case: MoeCase,
+    torch_data_type: torch.dtype,
+) -> MoeCombineOperandLists:
+    x_list, moe_expert_ids_list, expert_scales_list = generate_inputs(moe_case, torch_data_type)
+    (
+        expand_x_list,
+        assist_info_for_combine_list,
+        _,
+        recv_counts_list,
+    ) = dispatch_tokens(moe_case, torch_data_type, x_list, moe_expert_ids_list, False)
 
     operand_lists = MoeCombineOperandLists(
         expand_x_list,
@@ -352,17 +364,37 @@ def generate_golden(
     )
     out_golden_list = combine_tokens(moe_case, torch_data_type, operand_lists)
     operand_lists.out_golden_list = out_golden_list
-    if scene == Scene.COMBINE:
-        return operand_lists
-    
-    if scene == Scene.DISPATCH_COMBINE:
-        return MoeDispatchCombineOperandLists(
-            x_list,
-            moe_expert_ids_list,
-            expert_scales_list,
-            expert_token_nums_golden_list,
-            out_golden_list,
-        )
+
+    return operand_lists
+
+
+def generate_dispatch_combine_golden(
+    moe_case: MoeCase,
+    torch_data_type: torch.dtype,
+) -> MoeDispatchCombineOperandLists:
+    x_list, moe_expert_ids_list, expert_scales_list = generate_inputs(moe_case, torch_data_type)
+    (
+        expand_x_list,
+        assist_info_for_combine_list,
+        expert_token_nums_golden_list,
+        recv_counts_list,
+    ) = dispatch_tokens(moe_case, torch_data_type, x_list, moe_expert_ids_list, False)
+
+    operand_lists = MoeCombineOperandLists(
+        expand_x_list,
+        assist_info_for_combine_list,
+        recv_counts_list,
+        expert_scales_list,
+    )
+    out_golden_list = combine_tokens(moe_case, torch_data_type, operand_lists)
+
+    return MoeDispatchCombineOperandLists(
+        x_list,
+        moe_expert_ids_list,
+        expert_scales_list,
+        expert_token_nums_golden_list,
+        out_golden_list,
+    )
 
 
 def dispatch_calc_occurrences(
@@ -649,7 +681,7 @@ def test_moe_distributed_dispatch() -> None:
     processes = []
     moe_case = MoeCase(8, 5120, 160, 8, pypto.DT_BF16, WORLD_SIZE)
 
-    operand_lists = generate_golden(moe_case, torch.bfloat16, Scene.DISPATCH)
+    operand_lists = generate_dispatch_golden(moe_case, torch.bfloat16)
     for (
         x,
         moe_expert_ids,
@@ -832,7 +864,7 @@ def test_moe_distributed_combine() -> None:
     processes = []
     moe_case = MoeCase(8, 5120, 160, 8, pypto.DT_BF16, WORLD_SIZE)
 
-    operand_lists = generate_golden(moe_case, torch.bfloat16, Scene.COMBINE)
+    operand_lists = generate_combine_golden(moe_case, torch.bfloat16)
     for expand_x, assist_info_for_combine, recv_counts, expert_scales, out_golden, logical_rank_id in zip(
         operand_lists.expand_x_list,
         operand_lists.assist_info_for_combine_list,
@@ -892,7 +924,7 @@ def test_distributed_moe_dispatch_combine() -> None:
     processes = []
     moe_case = MoeCase(8, 5120, 160, 8, pypto.DT_BF16, WORLD_SIZE)
 
-    operand_lists = generate_golden(moe_case, torch.bfloat16, Scene.DISPATCH_COMBINE)
+    operand_lists = generate_dispatch_combine_golden(moe_case, torch.bfloat16)
 
     for (
         x,
