@@ -164,8 +164,9 @@ bool LoopaxesProc::SameLoopAxes(const std::vector<SymbolicScalar> &curLoopAxes, 
             dynParamTable.find(prevExpr) != dynParamTable.end()) {
             auto curParamInfo = dynParamTable[curExpr];
             auto preParamInfo = dynParamTable[prevExpr];
-            if (curParamInfo.replacedSymbol == preParamInfo.replacedSymbol) {
-                APASS_LOG_INFO_F(Elements::Operation, "%s & %s has same replacedSymbol.", curExpr, prevExpr);
+            if (!curParamInfo.replacedSymbol.empty() && !preParamInfo.replacedSymbol.empty() &&
+                curParamInfo.replacedSymbol == preParamInfo.replacedSymbol) {
+                APASS_LOG_INFO_F(Elements::Operation, "%s & %s has same replacedSymbol.", curExpr.c_str(), prevExpr.c_str());
                 return true;
             }
         }
