@@ -103,5 +103,63 @@ TEST_F(AutoCastTest, Int32ToFP16Cast) {
     EXPECT_EQ(function->Operations().size(), opNum2);
     Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_UNKNOWN);
 }
+
+TEST_F(AutoCastTest, InsertFP16Cast) {
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_2201);
+    ComputationalGraphBuilder G;
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP16, {16, 16}, "t1"), true);
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP16, {16, 16}, "t2"), true);
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP16, {16, 16}, "t3"), true);
+    std::vector<Opcode> opCodes{Opcode::OP_MOD};
+    std::vector<std::vector<std::string>> ioperands{{"t1", "t2"}};
+    std::vector<std::vector<std::string>> ooperands{{"t3"}};
+    std::vector<std::string> opNames{"Fmod"};
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    EXPECT_EQ(G.SetInCast({"t1", "t2"}), true);
+    EXPECT_EQ(G.SetOutCast({"t3"}), true);
+    Function *function = G.GetFunction();
+    EXPECT_EQ(function->Operations().size(), 1);
+    AutoCast autoCast;
+    autoCast.RunOnFunction(*function);
+    autoCast.PostCheck(*function);
+    const int opNum = 4;
+    EXPECT_EQ(function->Operations().size(), opNum);
+
+    // Verify Cast operations and data types
+    int castCount = 0;
+    int modOpCount = 0;
+    auto ops = function->Operations().DuplicatedOpList();
+    for (auto op : ops) {
+        if (op->GetOpcode() == Opcode::OP_CAST) {
+            castCount++;
+            // Verify source and destination data types
+            auto iOperands = op->GetIOperands();
+            auto oOperands = op->GetOOperands();
+            EXPECT_EQ(iOperands.size(), 1);
+            EXPECT_EQ(oOperands.size(), 1);
+            auto inputType = iOperands[0]->Datatype();
+            auto outputType = oOperands[0]->Datatype();
+            // Cast should be either FP16->FP32 or FP32->FP16
+            EXPECT_TRUE((inputType == DataType::DT_FP16 && outputType == DataType::DT_FP32) ||
+                        (inputType == DataType::DT_FP32 && outputType == DataType::DT_FP16));
+        } else if (op->GetOpcode() == Opcode::OP_MOD) {
+            modOpCount++;
+            // Verify MOD operation inputs are FP32
+            auto iOperands = op->GetIOperands();
+            EXPECT_EQ(iOperands.size(), 2);
+            for (auto &iop : iOperands) {
+                EXPECT_EQ(iop->Datatype(), DataType::DT_FP32);
+            }
+        }
+    }
+    EXPECT_EQ(castCount, 3);  // 2 input conversions + 1 output conversion
+    EXPECT_EQ(modOpCount, 1);
+    
+    // Verify final output is still FP16
+    auto finalOutputs = function->Outputs();
+    for (auto &output : finalOutputs) {
+        EXPECT_EQ(output->Datatype(), DataType::DT_FP16);
+    }
+}
 } // namespace tile_fwk
 } // namespace npu
