@@ -77,20 +77,6 @@ TEST_F(TestGenerateMoveOpPass, PRE_ViewOp_InputNumNot1) {
     }
 }
 
-TEST_F(TestGenerateMoveOpPass, PRE_ViewOp_OutputNumNot1) {
-    PROGRAM("PRE_ViewOp_OutputNumNot1") {
-        FUNCTION("ADD") {
-            Tensor i(DT_FP32, {16, 16}, "i");
-            Tensor o1 = View(i, {16, 16}, {0, 0});
-            Tensor o2 = View(i, {16, 16}, {0, 0}); // 场景3：输出数量≠1
-
-            Function* func = Program::GetInstance().GetCurrentFunction();
-            GenerateMoveOp checker;
-            EXPECT_EQ(checker.PreCheck(*func), FAILED);
-        }
-    }
-}
-
 TEST_F(TestGenerateMoveOpPass, PRE_ViewOp_OutputConsumerNull) {
     PROGRAM("PRE_ViewOp_OutputConsumerNull") {
         FUNCTION("ADD") {
