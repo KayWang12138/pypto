@@ -1809,15 +1809,12 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
 
     std::ostringstream oss;
     oss << tileOpName;
-    oss << "<" << copyInModeStr << ", " << std::to_string(isConv3D) << ", " << std::to_string(isFmap) << ">";
-    oss << PrintParams({"(", ")"}, tileOpParamList, ", ") << STMT_END;
+    oss << WrapParamByAngleBrackets({copyInModeStr, std::to_string(isConv3D), std::to_string(isFmap)});
+    oss << WrapParamByParentheses(tileOpParamList) << STMT_END;
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const {
-    std::string gmVarName = GenGmParamVar(ToUnderlying(MISOIdx::DST_IDX));
-    std::string dstTensor = sm->QueryTileTensorByBufVarName(gmVarName);
-    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+std::string CodeGenOpCloudNPU::GetConvCopyOutMode() const {
     int64_t copyOutMode = -1;
     std::string copyOutModeStr = "";
     auto ret = GetAttr(Conv::LoadStoreConvOpAttributeKey::copyOutMode, copyOutMode);
@@ -1831,6 +1828,14 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const {
     } else {
         ASSERT(false) << "Check CopyOutMode failed";
     }
+    return copyOutModeStr;
+}
+
+std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const {
+    std::string gmVarName = GenGmParamVar(ToUnderlying(MISOIdx::DST_IDX));
+    std::string dstTensor = sm->QueryTileTensorByBufVarName(gmVarName);
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::string copyOutModeStr = GetConvCopyOutMode();
 
     bool isConv3D = false;
     int64_t realM = 0, realN = 0;
@@ -1860,8 +1865,9 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const {
         std::to_string(realN)};
 
     std::ostringstream oss;
-    oss << tileOpName << "<" << copyOutModeStr << ", " << std::to_string(isConv3D) << ">";
-    oss << PrintParams({"(", ")"}, tileOpParamList, ", ") << STMT_END;
+    oss << tileOpName;
+    oss << WrapParamByAngleBrackets({copyOutModeStr, std::to_string(isConv3D)});
+    oss << WrapParamByParentheses(tileOpParamList) << STMT_END;
     return oss.str();
 }
 
