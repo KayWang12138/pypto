@@ -34,6 +34,15 @@
 using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
+
+// 不需要展开的操作码集合
+// 这些操作在展开过程中保持原样，不进行 tile-level 展开
+const std::unordered_set<Opcode> ExpandFunction::kNotNeedExpandOps = {
+    Opcode::OP_VIEW,
+    Opcode::OP_ASSEMBLE,
+    Opcode::OP_NOP
+};
+
 Status ExpandFunction::ClearIOOperand(const std::vector<OperationPtr> &tensorOperations) const {
     for (auto &op : tensorOperations) {
         // clear consumers and producers
@@ -56,15 +65,6 @@ Status ExpandFunction::ClearIOOperand(const std::vector<OperationPtr> &tensorOpe
     }
     return SUCCESS;
 }
-
-// 不需要展开的操作码集合
-// 这些操作在展开过程中保持原样，不进行 tile-level 展开
-const std::unordered_set<Opcode> ExpandFunction::kNotNeedExpandOps = {
-    Opcode::OP_VIEW,
-    Opcode::OP_ASSEMBLE,
-    Opcode::OP_PAD,
-    Opcode::OP_NOP
-};
 
 void ExpandFunction::ProcessForNotExpandOp(Function &function, Operation &op) const {
     auto &newOp = function.AddOperation(op.GetOpcode(), op.GetIOperands(), op.GetOOperands());
@@ -138,7 +138,7 @@ Status ExpandFunction::Expandfunction(Function &function) const {
             continue;
         }
         SourceLocation::SetLocation(op->GetLocation());
-        if (NotNeedExpand(op->GetOpcode())) {
+        if (kNotNeedExpandOps.count(op->GetOpcode())) {
             ProcessForNotExpandOp(function, *op);
             continue;
         }
