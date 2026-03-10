@@ -179,51 +179,45 @@ def process_main_loop_interation(
     ids_k[bs_idx * view_shape[0]:, 0:] = topk_ids
 
 
-def select_experts_kernel(router_logits_shape, e_score_bias_shape, bs_top_k_frist, bs_top_k_second,
-                                         renormalize, topk_group, num_expert_group):
+@pypto.frontend.jit(
+    runtime_options={"stitch_function_max_num": 128,
+                     "stitch_cfgcache_size": 2500000}
+)
+def select_experts_kernel(
+    logits: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
+    e_score_bias_input: pypto.Tensor([], pypto.DT_BF16),
+    weight_k: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
+    index_k: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_INT32),
+    renormalize=True,
+    topk_group=1,
+    num_expert_group=1
+):
+    batch_size = logits.shape[0]
+    number_experts = logits.shape[1]
+    topk = index_k.shape[1]
+    view_shape = (1, number_experts)
+    view_first = 1
+    bs_loop = (batch_size + view_shape[0] - 1) // view_shape[0]
 
-    router_logits_shape = (pypto.frontend.dynamic("bs"), router_logits_shape[1])
-    topk_weights_shape = (pypto.frontend.dynamic("bs"), bs_top_k_frist[1])
-    topk_ids_shape = (pypto.frontend.dynamic("bs"), bs_top_k_second[1])
+    pypto.set_vec_tile_shapes(number_experts)
+    e_score_bias_2d = pypto.reshape(e_score_bias_input, [1, number_experts], inplace=True)  # (160) -> (1,160)
 
-    @pypto.frontend.jit(
-        runtime_options={"stitch_function_max_num": 128,
-        "stitch_cfgcache_size": 2500000}
-    )
-    def kernel(
-        logits: pypto.tensor(router_logits_shape, pypto.DT_FP32),
-        e_score_bias_input: pypto.tensor(e_score_bias_shape, pypto.DT_BF16),
-        weight_k: pypto.tensor(topk_weights_shape, pypto.DT_FP32),
-        index_k: pypto.tensor(topk_ids_shape, pypto.DT_INT32)
-    ):
-        batch_size = logits.shape[0]
-        number_experts = logits.shape[1]
-        idx_k_shape = topk_ids_shape
-        topk = idx_k_shape[1]
-        view_shape = (1, number_experts)
-        view_first = 1
-        bs_loop = (batch_size + view_shape[0] - 1) // view_shape[0]
-
-        pypto.set_vec_tile_shapes(number_experts)
-        e_score_bias_2d = pypto.reshape(e_score_bias_input, [1, number_experts], inplace=True)  # (160) -> (1,160)
-
-        for bs_index in pypto.loop(bs_loop, name="LOOP_MOEGATE_L0", idx_name="bs_idx"):
-            process_main_loop_interation(
-                bs_index,
-                logits,
-                e_score_bias_2d,
-                weight_k,
-                index_k,
-                batch_size,
-                number_experts,
-                view_shape,
-                view_first,
-                topk,
-                topk_group,
-                num_expert_group,
-                renormalize
-            )
-    return kernel
+    for bs_index in pypto.loop(bs_loop, name="LOOP_MOEGATE_L0", idx_name="bs_idx"):
+        process_main_loop_interation(
+            bs_index,
+            logits,
+            e_score_bias_2d,
+            weight_k,
+            index_k,
+            batch_size,
+            number_experts,
+            view_shape,
+            view_first,
+            topk,
+            topk_group,
+            num_expert_group,
+            renormalize
+        )
 
 
 def gen_row_idx_gloden(hidden_states, top_k):
@@ -362,11 +356,15 @@ def select_experts(
         num_expert_group,
         e_score_correction_bias
     )
-    bs = router_logits.shape[0]
-    shapes = [router_logits.shape, e_score_correction_bias.shape, (bs, top_k), (bs, top_k), \
-            renormalize, topk_group, num_expert_group]
-    inputs = [router_logits, e_score_correction_bias, topk_weights, topk_ids]
-    select_experts_kernel(*shapes)(*inputs)
+    select_experts_kernel(
+        router_logits,
+        e_score_correction_bias,
+        topk_weights,
+        topk_ids,
+        renormalize=renormalize,
+        topk_group=topk_group,
+        num_expert_group=num_expert_group
+    )
 
 
 def main():
