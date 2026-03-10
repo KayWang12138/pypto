@@ -132,6 +132,7 @@ Status AxisCombine::Process(Function &function) {
 }
 
 Status AxisCombine::RunOnFunction(Function &function) {
+    std::cout << "dbj here" << std::endl;
     APASS_LOG_INFO_F(Elements::Function, "===> Start AxisCombine.");
     if (!function.paramConfigs_.combineAxis) {
         APASS_LOG_INFO_F(Elements::Operation, "AxisCombine is skipped.");

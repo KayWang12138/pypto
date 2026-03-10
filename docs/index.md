@@ -12,3 +12,4 @@ install/index
 tutorials/index
 api/index
 tools/index
+passes/index
