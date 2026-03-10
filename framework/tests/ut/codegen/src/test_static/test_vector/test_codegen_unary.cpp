@@ -350,4 +350,41 @@ TEST_F(TestCodegenUnary, TestRowMaxLine) {
 )!!!";
     EXPECT_EQ(res, expect);
 }
+
+TEST_F(TestCodegenUnary, TestPad) {
+    config::SetBuildStatic(true);
+
+    std::vector<int64_t> shape = {2, 2};
+    std::vector<int64_t> outShape = {3, 4};
+    TileShape::Current().SetVecTile({2, 2});
+    Tensor input(DT_FP32, shape, "input");
+    Tensor output(DT_FP32, outShape, "output");
+
+    std::string funcName = "TestPad";
+    FUNCTION(funcName, {input, output}) {
+        output = Pad(input, {0, 2, 0, 1}, "constant", 0.0f);
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+    auto localTensorDst = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, outShape});
+
+    auto &op = function->AddOperation(Opcode::OP_PAD, {localTensorSrc}, {localTensorDst});
+    op.SetAttribute(OP_ATTR_PREFIX + "PAD_MODE", std::string("constant"));
+    op.SetAttribute(OP_ATTR_PREFIX + "PAD_VALUE", 0.0f);
+    op.SetAttribute(OP_ATTR_PREFIX + "PAD", std::vector<int64_t>({0, 2, 0, 1}));
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, function->GetFunctionType());
+    function->GetTensorMap().inverseMap_[localTensorSrc->GetMagic()] = localTensorSrc;
+    function->GetTensorMap().inverseMap_[localTensorDst->GetMagic()] = localTensorDst;
+
+    cop.Init(op);
+    std::string res = cop.GenOpCode();
+    // Check that the generated code contains the pad operation
+    EXPECT_TRUE(res.find("Pad") != std::string::npos);
+    EXPECT_TRUE(res.find("constant") != std::string::npos);
+}
 } // namespace npu::tile_fwk
