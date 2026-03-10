@@ -23,11 +23,11 @@
 
 namespace npu {
 namespace tile_fwk {
-bool containsNegativeOne1(const std::vector<long>& vec) {
+bool containsNegativeOne1(const std::vector<int64_t>& vec) {
     if (vec.empty()) {
         return false;
     }
-    return std::find(vec.begin(), vec.end(), static_cast<long>(-1)) != vec.end();
+    return std::find(vec.begin(), vec.end(), static_cast<int64_t>(-1)) != vec.end();
 }
 
 bool EqualInOutShape(const Operation &op) {
