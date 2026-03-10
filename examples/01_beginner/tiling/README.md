@@ -24,7 +24,7 @@ Tiling 是昇腾 NPU 性能优化的核心。通过合理地划分张量分块�
 
 ```bash
 # 配置 CANN 环境变量
-source /usr/local/Ascend/ascend-toolkit/latest/bin/setenv.bash
+source /usr/local/Ascend/cann/setenv.bash
 
 # 设置设备 ID
 export TILE_FWK_DEVICE_ID=0

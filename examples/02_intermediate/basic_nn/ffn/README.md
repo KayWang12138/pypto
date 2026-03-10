@@ -19,7 +19,7 @@
 
 ```bash
 # 配置 CANN 环境变量
-source /usr/local/Ascend/ascend-toolkit/latest/bin/setenv.bash
+source /usr/local/Ascend/cann/setenv.bash
 
 # 设置设备 ID
 export TILE_FWK_DEVICE_ID=0
@@ -41,7 +41,7 @@ FFN 模块实现了标准的 Transformer 前馈网络逻辑：
 
 ### 标准 FFN (GELU/ReLU)
 ```
-Input [B, H] 
+Input [B, H]
   → Gate Projection [B, H] @ [H, I] → [B, I]
   → Activation (GELU/ReLU)
   → Down Projection [B, I] @ [I, H] → [B, H]

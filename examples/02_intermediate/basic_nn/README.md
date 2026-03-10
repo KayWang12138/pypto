@@ -17,7 +17,7 @@
 
 ## 代码结构
 
-- **`layer_normalization/`**: 
+- **`layer_normalization/`**:
   - `layer_norm.py`: 包含 LayerNorm 和 RMSNorm 的核心实现及其精度验证。
 - **`ffn/`**:
   - `ffn_module.py`: FFN 模块的核心实现与各种场景测试。
@@ -28,7 +28,7 @@
 
 ```bash
 # 配置 CANN 环境变量
-source /usr/local/Ascend/ascend-toolkit/latest/bin/setenv.bash
+source /usr/local/Ascend/cann/setenv.bash
 
 # 设置设备 ID
 export TILE_FWK_DEVICE_ID=0
