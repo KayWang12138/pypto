@@ -34,9 +34,7 @@ namespace tile_fwk {
 class InplaceProcessTest : public testing::Test {
 public:
     static void SetUpTestCase() {}
-
     static void TearDownTestCase() {}
-
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
@@ -44,7 +42,6 @@ public:
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
     void TearDown() override {}
-
     bool IsInplace(const Operation &op) {
         auto input = op.GetIOperands().front();
         auto output = op.GetOOperands().front();
