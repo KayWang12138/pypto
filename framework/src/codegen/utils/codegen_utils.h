@@ -22,6 +22,7 @@
 #include <variant>
 
 #include "codegen/codegen_common.h"
+#include "codegen_error.h"
 #include "tilefwk/data_type.h"
 #include "interface/tensor/symbolic_scalar.h"
 #include "interface/utils/common.h"
@@ -49,8 +50,8 @@ inline std::string ToStringHelper(const std::string &value) {
     return value;
 }
 template <typename... Ts>
-std::string ToStringHelper(const std::variant<Ts...>& value) {
-    return std::visit([](const auto& arg) { return ToStringHelper(arg); }, value);
+std::string ToStringHelper(const std::variant<Ts...> &value) {
+    return std::visit([](const auto &arg) { return ToStringHelper(arg); }, value);
 }
 
 inline std::string ToStringHelper(const SymbolicScalar &value) {
@@ -105,7 +106,7 @@ std::string GetTypeForB16B32(const DataType &dtype);
 
 inline std::string GetPipeId(PipeType queue) {
     auto res = PIPE_ID.find(queue);
-    ASSERT(res != PIPE_ID.end()) << "can not find pipe id: " << ToUnderlying(queue);
+    ASSERT(GenCodeErr::PIPE_ID_NOT_FOUND, res != PIPE_ID.end()) << "can not find pipe id: " << ToUnderlying(queue);
     return res->second;
 }
 
@@ -175,7 +176,8 @@ struct FloatSpecVal {
                 return iter->second;
             }
         }
-        ASSERT(false) << "FloatSpecVal not found, dtype: " << ToUnderlying(dtype) << ", value: " << value;
+        ASSERT(GenCodeErr::DATA_TYPE_UNSUPPORTED, false)
+            << "FloatSpecVal not found, dtype: " << ToUnderlying(dtype) << ", value: " << value;
         return "";
     }
 };
