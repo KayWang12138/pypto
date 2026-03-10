@@ -100,7 +100,7 @@ public:
 
     Status RunOnFunction(Function &function) override;
 
-    static void ResetGlobalState() { {
+    static void ResetGlobalState() {
         globalSplitRecords_.clear();
         globalNextMixId_.store(0);    
     }
