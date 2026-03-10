@@ -144,14 +144,14 @@ def pad(input: Tensor, pad: Sequence[int], mode: str = "constant", value: float 
     # Pad last dim by (0, 1) -> Right pad 1
     # Pad 2nd to last dim by (0, 1) -> Bottom pad 1
     p1 = (0, 1, 0, 1) 
-    out = pypto.pad(t4d, p1, "constant", 9.0)
+    out = pypto.pad(t4d, p1, "constant", 0.0)
 
     Input t4d: [[[[0.0, 1.0],
                 [2.0, 3.0]]]]
     
-    Output out: [[[[0.0, 1.0, 9.0],
-                [2.0, 3.0, 9.0],
-                [9.0, 9.0, 9.0]]]]
+    Output out: [[[[0.0, 1.0, 0.0],
+                [2.0, 3.0, 0.0],
+                [0.0, 0.0, 0.0]]]]
 
     """
 
