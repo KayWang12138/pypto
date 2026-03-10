@@ -34,7 +34,7 @@ private:
     ~CannHostRuntime();
     void *GetSymbol(const std::string &sym);
 
-    GetSocVerFunc socVerFunc_;
+    GetSocVerFunc socVerFunc_ = nullptr;
     void *handleDep_ = nullptr;	 
     void *handle_ = nullptr;
 };

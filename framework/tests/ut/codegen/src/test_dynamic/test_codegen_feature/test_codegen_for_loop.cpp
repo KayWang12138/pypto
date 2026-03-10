@@ -122,8 +122,8 @@ TEST_F(TestCodegenForLoop, TestForLoop) {
         ubTensor_1_low2DimInLoop.SetAddr(ubTensor_1.GetLinearAddr(tileOffsets));
         ubTensor_3_low2DimInLoop.SetAddr(ubTensor_3.GetLinearAddr(tileOffsets));
         ubTensor_5_low2DimInLoop.SetAddr(ubTensor_5.GetLinearAddr(tileOffsets));
-        TSub<LastUse3Dim<0, 0, 0>>(ubTensor_5_low2DimInLoop, ubTensor_3_low2DimInLoop, ubTensor_1_low2DimInLoop);
-        TAdd<LastUse3Dim<0, 0, 0>>(ubTensor_11_low2DimInLoop, ubTensor_3_low2DimInLoop, ubTensor_1_low2DimInLoop);
+        TAdd<LastUse3Dim<0, 0, 0>>(ubTensor_5_low2DimInLoop, ubTensor_1_low2DimInLoop, ubTensor_3_low2DimInLoop);
+        TSub<LastUse3Dim<0, 1, 1>>(ubTensor_11_low2DimInLoop, ubTensor_1_low2DimInLoop, ubTensor_3_low2DimInLoop);
     }
   }
 })";
@@ -132,8 +132,7 @@ TEST_F(TestCodegenForLoop, TestForLoop) {
     const std::string expect2 = R"(
         auto tileOffsets = TileOffset(idx0, idx1, idx2);
         ubTensor_5_low2DimInLoop.SetAddr(ubTensor_5.GetLinearAddr(tileOffsets));
-        ubTensor_11_low2DimInLoop.SetAddr(ubTensor_11.GetLinearAddr(tileOffsets));
-        TMul<LastUse3Dim<0, 0, 0>>(ubTensor_11_low2DimInLoop, ubTensor_11_low2DimInLoop, ubTensor_5_low2DimInLoop);
+        TMul<LastUse3Dim<0, 1, 1>>(ubTensor_5_low2DimInLoop, ubTensor_5_low2DimInLoop, ubTensor_11_low2DimInLoop);
     }
   }
 })";

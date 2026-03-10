@@ -34,9 +34,49 @@ std::string CubeTile::ToString() const {
         << "m: {" << m[0] << ", " << m[1] << '}' << ", "
         << "k: {" << k[0] << ", " << k[1] << ", " << k[0x2] << '}' << ", "
         << "n: {" << n[0] << ", " << n[1] << '}' << ", "
-        << "enableMultiDataLoad: " << enableMultiDataLoad << ", "
         << "enableSplitK: " << enableSplitK
         << "}; ";
+    return ss.str();
+}
+
+bool ConvTile::valid() const {
+    if (tileL1Info.tileHin <= 0 || tileL1Info.tileHout <= 0 ||
+        tileL1Info.tileWin <= 0 || tileL1Info.tileWout <= 0 ||
+        tileL1Info.tileCinFmap <= 0 || tileL1Info.tileCinWeight <= 0 ||
+        tileL1Info.tileN <= 0 || tileL1Info.tileBatch <= 0) {
+        return false;
+    }
+
+    if (setL0Tile) {
+        if (tileL0Info.tileH <= 0 || tileL0Info.tileW <= 0 ||
+            tileL0Info.tileK <= 0 || tileL0Info.tileN <= 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+std::string ConvTile::ToString() const {
+    std::stringstream ss;
+    ss << "ConvTile: " << '{'
+       << "tileL1Info: {"
+       << "tileHin: " << tileL1Info.tileHin << ", "
+       << "tileHout: " << tileL1Info.tileHout << ", "
+       << "tileWin: " << tileL1Info.tileWin << ", "
+       << "tileWout: " << tileL1Info.tileWout << ", "
+       << "tileCinFmap: " << tileL1Info.tileCinFmap << ", "
+       << "tileCinWeight: " << tileL1Info.tileCinWeight << ", "
+       << "tileN: " << tileL1Info.tileN << ", "
+       << "tileBatch: " << tileL1Info.tileBatch
+       << "}, "
+       << "tileL0Info: {"
+       << "tileH: " << tileL0Info.tileH << ", "
+       << "tileW: " << tileL0Info.tileW << ", "
+       << "tileK: " << tileL0Info.tileK << ", "
+       << "tileN: " << tileL0Info.tileN
+       << "}, "
+       << "setL0Tile: " << (setL0Tile ? "true" : "false")
+       << "};";
     return ss.str();
 }
 
@@ -58,20 +98,28 @@ std::string DistTile::ToString() const {
 }
 
 TileShape::TileShape()
-    : vecTile{}, cubeTile{}, distTile{}, matrixSize{} {}
+    : vecTile{}, cubeTile{}, convTile{}, distTile{}, matrixSize{} {}
 
 TileShape::TileShape(
     const std::vector<int64_t>& vTile,
     const CubeTile& cTile,
+    const ConvTile& cvTile,
     const DistTile& dTile,
     const std::vector<int64_t>& mSize
 )
-    : vecTile{vTile}, cubeTile(cTile), distTile(dTile), matrixSize(mSize) {}
+    : vecTile{vTile}, cubeTile(cTile), convTile(cvTile), distTile(dTile), matrixSize(mSize) {}
 
 TileShape &TileShape::Current() {
     static TileShape instance;
     instance = ConfigManagerNg::CurrentScope()->GenerateTileShape();
     return instance;
+}
+
+void TileShape::SetConvTile(const Conv::TileL1Info &tileL1Info, 
+                            const Conv::TileL0Info &tileL0Info, 
+                            bool setL0Tile) {
+    convTile = {tileL1Info, tileL0Info, setL0Tile};
+    ConfigManagerNg::CurrentScope()->UpdateValue("conv_tile_shapes", convTile);
 }
 
 void TileShape::SetVecTile(const std::vector<int64_t> &tile) {
@@ -87,12 +135,12 @@ void TileShape::SetVecTile(const VecTile &tile) {
 void TileShape::SetCubeTile(const std::array<int64_t, MAX_M_DIM_SIZE> &m,
                             const std::array<int64_t, MAX_K_DIM_SIZE> &k,
                             const std::array<int64_t, MAX_N_DIM_SIZE> &n,
-                            bool enableMultiDataLoad, bool enableSplitK) {
+                            bool enableSplitK) {
     auto nk = k;
     if (nk[2] == 0) {
         nk[2] = nk[1];
     }
-    cubeTile = {m, nk, n, enableMultiDataLoad, enableSplitK};
+    cubeTile = {m, nk, n, enableSplitK};
     ConfigManagerNg::CurrentScope()->UpdateValue("cube_tile_shapes", cubeTile);
 }
 
@@ -148,6 +196,9 @@ std::string TileShape::ToString(TileType type) const {
     }
     if (type == TileType::CUBE || type == TileType::MAX) {
         ss << cubeTile.ToString();
+    }
+    if (type == TileType::CONV || type == TileType::MAX) {
+        ss << convTile.ToString();
     }
     if (type == TileType::DIST || type == TileType::MAX) {
         ss << distTile.ToString();

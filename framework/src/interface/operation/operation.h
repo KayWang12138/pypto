@@ -32,7 +32,6 @@
 #include "opcode.h"
 #include "attribute.h"
 #include "attr_holder.h"
-#include "interface/utils/log.h"
 #include "interface/utils/source_location.h"
 #include "interface/tensor/logical_tensor.h"
 #include "operation_common.h"
@@ -93,6 +92,8 @@ public:
     static const std::string lastUse;
     static const std::string isUpper;
     static const std::string blockSize;
+    static const std::string transMode;
+    static const std::string workspaceBaseOffset;
 };
 
 
@@ -376,7 +377,7 @@ public:
             Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
             Opcode::OP_GATHER_IN_UB, Opcode::OP_COPY_TO_LOCAL_EXPERT,
             Opcode::OP_L1_COPY_IN_A_SCALE, Opcode::OP_L1_COPY_IN_B_SCALE, Opcode::OP_L1_TO_L0A_SCALE,
-            Opcode::OP_L1_TO_L0B_SCALE};
+            Opcode::OP_L1_TO_L0B_SCALE, Opcode::OP_L1_COPY_IN_CONV, Opcode::OP_L0C_COPY_OUT_CONV};
         if (copyOpAttrOpTypes.count(opcode_) > 0) {
             ASSERT(std::dynamic_pointer_cast<CopyOpAttribute>(opAttribute_) != nullptr);
             return;

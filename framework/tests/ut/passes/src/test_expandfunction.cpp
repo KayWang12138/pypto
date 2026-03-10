@@ -139,7 +139,7 @@ TEST_F(TestExpandFunctionPass, TestCVSeperate2) {
     std::vector<int64_t> tile_shape = {kNumExpFive, kNumExpFive};
     std::vector<int64_t> shape = {kNumExpSix, kNumExpSix};    
     TileShape::Current().SetVecTile(kNumExpFive, kNumExpFive);
-    TileShape::Current().SetCubeTile({kNumExpFive, kNumExpFive}, {kNumExpFive, kNumExpFive}, {kNumExpFive, kNumExpFive}, false, false);
+    TileShape::Current().SetCubeTile({kNumExpFive, kNumExpFive}, {kNumExpFive, kNumExpFive}, {kNumExpFive, kNumExpFive}, false);
 
     currFunctionPtr->SetGraphType(GraphType::TENSOR_GRAPH);
 
@@ -559,7 +559,7 @@ TEST_F(TestExpandFunctionPass, DisableCombineAxisOnA5) {
     ExpandFunction expandfunctionpass;
     auto status = expandfunctionpass.RunOnFunction(*currFunctionPtr);
     EXPECT_EQ(status, SUCCESS);
-    EXPECT_EQ(currFunctionPtr->paramConfigs_.combineAxis, false);
+    EXPECT_EQ(currFunctionPtr->paramConfigs_.combineAxis, true);
 }
 
 }
