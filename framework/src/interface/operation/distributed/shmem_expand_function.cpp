@@ -101,11 +101,7 @@ void DfsTiling(const Shape& shmemTensorTileShape, Input& input, size_t curDim, u
 {
     std::vector<int64_t>& tileShape = input.tileInfo.shape;
     std::vector<int64_t>& tileOffset = input.tileInfo.offset;
-    if (curDim == tileShape.size()) {
-        CHECK(tileIndex < MAX_TILE_NUM) << "tileIndex must be < " << MAX_TILE_NUM << ", but got " << tileIndex;
-        for (int64_t shape : tileShape) {
-            CHECK(shape != 0) << "view shape should not be 0, but got " << IntVecToStr(tileShape);
-        }
+    if (curDim == tileShape.size()) {        
         addTileOp(tileIndex, input);
         tileIndex++;
         return;
@@ -118,13 +114,28 @@ void DfsTiling(const Shape& shmemTensorTileShape, Input& input, size_t curDim, u
     }
 }
 
-void DfsTiling(const VecTile& vecTile, const LogicalTensorPtr shmemTensor,
+void DfsTiling(Opcode opCode, const VecTile& vecTile, const LogicalTensorPtr shmemTensor,
     std::function<void(uint32_t, Input&)> addTileOp)
 {
     size_t dim = shmemTensor->shape.size();
     Shape shmemTensorTileShape = shmemTensor->shape;
     Shape shmemTensorTileOffset = shmemTensor->offset;
     size_t shmemTensorStartDim = dim - vecTile.size();
+    int32_t worldSize = shmemTensorTileShape[0];
+    CHECK(std::all_of(vecTile.tile.begin(), vecTile.tile.end(), [](int64_t v) { return v > 0;}))
+        << "Invalid vecTile set: each element of the tileSize must be > 0";
+    CHECK([&](){
+        for (int32_t i = 0; i < vecTile.size(); ++i) {
+            if (vecTile[i] > shmemTensor->shape(shmemTensorStartDim + i)) {
+                return false;
+            }
+        }
+        return true;
+    }()) << "Invalid vecTile set: tile size must be <= input shape for each dimension";
+    int32_t totalTileNum = shmemTensorTileShape[shmemTensorStartDim] / vecTile[0] *
+        shmemTensorTileShape[shmemTensorStartDim + 1] / vecTile[1];
+    CHECK(totalTileNum <= MAX_TILE_NUM / worldSize) <<  << "The tile num of " << GetOpcodeStr(opCode) <<
+        " shoule be less than or equal to " << MAX_TILE_NUM / worldSize << ", but got " << totalTileNum;
     std::copy(vecTile.tile.begin(), vecTile.tile.end(), shmemTensorTileShape.begin() + shmemTensorStartDim);
     std::fill(shmemTensorTileOffset.begin() + shmemTensorStartDim, shmemTensorTileOffset.end(), 0);
     TileInfo tileInfo{shmemTensorTileShape, shmemTensorTileOffset};
