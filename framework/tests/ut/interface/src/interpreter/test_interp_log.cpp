@@ -54,7 +54,7 @@ public:
 };
 
 TEST_F(InterpreterLogTest, ReshapeMismatchElementCount) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
         config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
         config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -122,7 +122,7 @@ TEST_F(InterpreterLogTest, PrecisionMismatchErrorLog) {
 
 // 测试空 loop (start=0, end=0) 能否触发 interpreter 的 "skip execute due to idx range = 0" 日志
 TEST_F(InterpreterLogTest, EmptyLoopStartEndZero) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
         config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
         config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
