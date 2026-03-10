@@ -962,7 +962,11 @@ def gen_pad_op_golden(case_name: str, output: Path, case_index: int = None) -> b
             pad_value = torch.inf
         else:
             pad_value = 0.0
-        tensor = torch.from_numpy(inputs[0])
+        if inputs[0].dtype == bfloat16:
+            tensor = torch.from_numpy(inputs[0].astype(np.float32)).to(torch.bfloat16)
+        else:
+            tensor = torch.from_numpy(inputs[0])
+
         if len(input_shape) == 1:
             pad_right = output_shape[-1] - input_shape[-1]
             result = F.pad(tensor, (0, pad_right), mode='constant', value=pad_value)
