@@ -29,7 +29,6 @@
 #include "cann_host_runtime.h"
 
 namespace npu::tile_fwk {
-
 struct CacheInfo {
     size_t l2Size;
     size_t l2LineSize;
@@ -448,8 +447,8 @@ public:
     AicCore& GetAICCore() { return GetCoreWrap().GetAICCore(); }
     AivCore& GetAIVCore() { return GetCoreWrap().GetAIVCore(); }
     
-    void SetMemoryLimit(const PlatformParser &parser);
-    void LoadPlatformInfo(const PlatformParser &parser);
+    void SetMemoryLimit(const std::unique_ptr<PlatformParser> &parser);
+    void LoadPlatformInfo(const std::unique_ptr<PlatformParser> &parser);
     void ObtainPlatformInfo();
 
     std::string Dump() {

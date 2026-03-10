@@ -92,6 +92,13 @@ bool PlatformParser::GetCoreVersion(std::unordered_map<std::string, std::string>
     return !curVersion.empty();
 }
 
+INIParser::INIParser() {
+    std::string srcPath;
+    SimulationPlatform simulationPlatform;
+    simulationPlatform.GetCostModelPlatformRealPath(srcPath);
+    Initialize(srcPath);
+}
+
 bool INIParser::Initialize(const std::string& iniFilePath) {
     FUNCTION_LOGI("Start to parse ini_file %s.", iniFilePath.c_str());
     if (!ReadINIFile(iniFilePath)) {
@@ -154,10 +161,16 @@ bool INIParser::GetStringVal(const std::string& column, const std::string& key, 
         FUNCTION_LOGW("Cannot find attr '%s' from the [version] tab.", key.c_str());
         return false;
     }
+    val = iter2->second;
+    return true;
+}
+
+bool CmdParser::GetStringVal(const std::string& column, const std::string& key, std::string& val) const {
+    val.clear();
     if (!CannHostRuntime::Instance().GetSocSpec(column, key, val)) {
         FUNCTION_LOGW("Cannot find soc spec '%s' from the [%s] column.", key.c_str(), column.c_str());
+        return false;
     }
-    val = iter2->second;
     return true;
 }
 }  // namespace tile_fwk
