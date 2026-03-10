@@ -1403,8 +1403,8 @@ TEST_F(SplitLargeFanoutTensorTest, ComplexOverlap) {
         }
     }
     for (auto &[k, v]: recordAssemble) {
-        //6个output，两个1对1，两个被拆成合到[16, 32]的4对2，两个保留不动。
-        EXPECT_EQ(recordView[k], (v == 1) ? 1 : 2);
+        //6个output，除了两个被输入包含关系的输出外，其余均不拆分。
+        EXPECT_EQ(recordView[k], (v == 1) ? 1 : 4);
     }
 }
 
