@@ -1193,28 +1193,27 @@ void Function::ProducerMagicLookup(const Function *function, const LogicalTensor
         if (subGraphId != INT32_MIN && op->GetSubgraphID() != subGraphId) {
             continue;
         }
-        if (op->GetOOperands().size() > 1) {
-            for (size_t idx = 0; idx < op->GetOOperands().size(); idx++) {
-                if (op->GetOutputOperand(idx) == tensor) {
-                    ss << "ooperand " << idx << " ";
+        ss << " " << op->GetOpcodeStr(true);
+        for (size_t idx = 0; idx < op->GetOOperands().size(); idx++) {
+            if (op->GetOutputOperand(idx) == tensor) {
+                ss << "oAttrOffset " << idx << " " << op->GetOOpAttrOffset(idx) << " ";
+            }
+        }
+        for (size_t idx = 0; idx < op->GetIOperands().size(); idx++) {
+            ss << "iAttrOffset " << idx << " " << op->GetIOpAttrOffset(idx) << " ";
+        }
+        if (function->GetFunctionType() == FunctionType::STATIC) {
+            if (OpcodeManager::Inst().IsBoundaryIn(op->GetOpcode())) {
+                for (size_t idx = 1; idx < op->iOperand[0]->tensor->rawshape.size(); idx++) {
+                    ss << op->iOperand[0]->tensor->rawshape[idx] << " ";
+                }
+            }
+            if (OpcodeManager::Inst().IsBoundaryOut(op->GetOpcode())) {
+                for (size_t idx = 1; idx < op->oOperand[0]->tensor->rawshape.size(); idx++) {
+                    ss << op->oOperand[0]->tensor->rawshape[idx] << " ";
                 }
             }
         }
-        bool isInBoundary = OpcodeManager::Inst().IsBoundaryIn(op->GetOpcode());
-        if (isInBoundary) {
-            /* 除了最高轴之外的所有内轴都纳入到hash的计算中 */
-            for (size_t idx = 1; idx < op->iOperand[0]->tensor->rawshape.size(); idx++) {
-                ss << op->iOperand[0]->tensor->rawshape[idx] << " ";
-            }
-        }
-        bool isOutBoundary = OpcodeManager::Inst().IsBoundaryOut(op->GetOpcode());
-        if (isOutBoundary) {
-            /* 除了最高轴之外的所有内轴都纳入到hash的计算中 */
-            for (size_t idx = 1; idx < op->oOperand[0]->tensor->rawshape.size(); idx++) {
-                ss << op->oOperand[0]->tensor->rawshape[idx] << " ";
-            }
-        }
-        ss << " " << op->GetOpcodeStr(true);
         for (const auto &attr : OpcodeManager::Inst().GetAttrs(op->GetOpcode())) {
             ss << " attr: [" << attr << " : "
                << op->DumpAttr(attr) << "]";
@@ -1334,7 +1333,7 @@ unsigned long Function::ComputeHashOrderless() const {
         // mixId标识同一次Mix拆出来的leafFunction组
         if (leafFuncAttr_->mixId != LeafFuncAttribute::INVALID_MIX_ID) {
             ss << " MIX_ID:" << leafFuncAttr_->mixId;
-        }   
+        }
         if (leafFuncAttr_->aivCore != AIVCore::UNSPECIFIED) {
             ss << " AIV_CORE:" << static_cast<int>(leafFuncAttr_->aivCore);
         }
