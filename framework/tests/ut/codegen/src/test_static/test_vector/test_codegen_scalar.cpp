@@ -65,7 +65,9 @@ void TestQuant(std::vector<int64_t> &inputShape) {
         case DIM2: TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[1]); break;
         case DIM3: TileShape::Current().SetVecTile(vecTileShape[0], vecTileShape[0], vecTileShape[1]); break;
         case DIM4: TileShape::Current().SetVecTile(1, 1, vecTileShape[0], vecTileShape[1]); break;
-        default: ASSERT(true) << "unsupport dim " << shapeDim << " \n"; break;
+        default:
+            ASSERT(GenCodeErr::TENSOR_DIM_UNSUPPORTED, shapeDim <= DIM4) << "unsupport dim " << shapeDim << " \n";
+            break;
     }
 
     Tensor input(DataType::DT_FP16, inputShape, "input");
