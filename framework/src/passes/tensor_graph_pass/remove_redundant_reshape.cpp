@@ -25,7 +25,7 @@ using namespace npu::tile_fwk;
 namespace npu::tile_fwk {
 namespace {
 
-bool containsNegativeOne1(const std::vector<int>& vec) {
+bool containsNegativeOne(const std::vector<int>& vec) {
     if (vec.empty()) {
         return false;
     }
