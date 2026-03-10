@@ -466,7 +466,7 @@ void SplitLargeFanoutTensor::SplitLargeTensor(Function &function) {
 
 void SplitLargeFanoutTensor::GetOffsets(std::set<Shape, ShapeDimComparator> &tileOffsets, const Shape &lcmShape, const LogicalTensorPtr &largeTensor) {
     Shape current(lcmShape.size());
-    const auto& offsets = toShapes[largeTensor];
+    const auto& offsets = toShapes_[largeTensor];
     if (!offsets.empty()) {
         Shape maxOffset = *offsets.begin();
         for (const auto& offset : offsets) {
