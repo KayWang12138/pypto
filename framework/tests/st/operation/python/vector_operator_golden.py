@@ -945,6 +945,41 @@ def gen_trunc_op_golden(case_name: str, output: Path, case_index: int = None) ->
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Trunc", golden_func, output, case_index)
 
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestPad/PadOperationTest.TestPad",
+    ]
+)
+def gen_pad_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    def golden_func(inputs: list, config: dict):
+        input_shape = config["input_tensors"][0]["shape"]
+        output_shape = config["output_tensors"][0]["shape"]
+        pad_value_type = config.get("params", {}).get("pad_value_type", "zero")
+        if pad_value_type == "min":
+            pad_value = -torch.inf
+        elif pad_value_type == "max":
+            pad_value = torch.inf
+        else:
+            pad_value = 0.0
+        if inputs[0].dtype == bfloat16:
+            tensor = torch.from_numpy(inputs[0].astype(np.float32)).to(torch.bfloat16)
+        else:
+            tensor = torch.from_numpy(inputs[0])
+
+        if len(input_shape) == 1:
+            pad_right = output_shape[-1] - input_shape[-1]
+            result = F.pad(tensor, (0, pad_right), mode='constant', value=pad_value)
+        else:
+            pad_right = output_shape[-1] - input_shape[-1]
+            pad_bottom = output_shape[-2] - input_shape[-2]
+            result = F.pad(tensor, (0, pad_right, 0, pad_bottom), mode='constant', value=pad_value)
+        return [to_numpy(result)]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Pad", golden_func, output, case_index)
+
+
 @GoldenRegister.reg_golden_func(
     case_names=[
         "TestSqrt/SqrtOperationTest.TestSqrt",

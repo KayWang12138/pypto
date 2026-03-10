@@ -350,4 +350,5 @@ TEST_F(TestCodegenUnary, TestRowMaxLine) {
 )!!!";
     EXPECT_EQ(res, expect);
 }
+
 } // namespace npu::tile_fwk
