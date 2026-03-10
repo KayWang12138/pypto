@@ -521,5 +521,7 @@ public:
         }
         return numel;
     }
+
+    static std::unordered_map<MemoryType, int64_t> GetLocalMemorySize();
 };
 }
