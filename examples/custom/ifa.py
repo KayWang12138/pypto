@@ -12,7 +12,7 @@
 
 import os
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import torch
 import torch.nn.functional as F
@@ -337,11 +337,6 @@ def reshape_qkv_to_2d(q, k, v, kernel_params):
     return q_2d, k_2d, v_2d
 
 
-@dataclass
-class ContextParams:
-    kernel_params: IFAKernelParams
-    tile_cfg: AttentionTileConfig
-
 def assemble_kj(k_2d, block_table, b_idx, idx, ctx_params):
     kernel_params = ctx_params.kernel_params
     tile_cfg = ctx_params.tile_cfg
@@ -444,6 +439,123 @@ def finalize_output(out_update, sum_update, out_ofs, atten_out, dtype, ctx_param
     pypto.assemble(oi_final_3d, out_ofs, atten_out)
 
 
+def compute_c1(qi, kj_assemble, actual_s2_tile, tile_cfg):
+    c1_tile = tile_cfg.c1_tile
+    g_tile = tile_cfg.g_tile
+    s2_tile = tile_cfg.s2_tile
+
+    pypto.set_cube_tile_shapes(c1_tile[0], c1_tile[1], c1_tile[2])
+    sij = pypto.matmul(qi, kj_assemble, pypto.DT_FP32, a_trans=False, b_trans=True)
+    sij = pypto.view(sij, [g_tile, s2_tile], [0, 0], valid_shape=[g_tile, actual_s2_tile])
+    return sij
+
+
+def compute_loop_s2(ctx_params, s2_idx, cur_seq_len, bs_ofs, n1g_ofs, b_idx, dtype, out_update, sum_update, max_update, out_ofs):
+    tile_cfg = ctx_params.tile_cfg
+    kernel_params = ctx_params.kernel_params
+    loop_tensors = ctx_params.loop_tensors
+
+    q_2d = loop_tensors.q_2d
+    k_2d = loop_tensors.k_2d
+    v_2d = loop_tensors.v_2d
+    kv_act_seqs = loop_tensors.kv_act_seqs
+    block_table = loop_tensors.block_table
+    atten_out = loop_tensors.atten_out
+
+    block_num = tile_cfg.s2_tile // kernel_params.block_size
+    idx = s2_idx * block_num
+    actual_s2_tile = (cur_seq_len - s2_idx * tile_cfg.s2_tile).min(tile_cfg.s2_tile)
+    pypto.set_vec_tile_shapes(tile_cfg.v1_tile[0], tile_cfg.v1_tile[1])
+    qi = pypto.view(q_2d, [tile_cfg.g_tile, kernel_params.d], [bs_ofs * kernel_params.n1 + n1g_ofs, 0])
+    kj_assemble = assemble_kj(k_2d, block_table, b_idx, idx, ctx_params)
+
+    sij = compute_c1(qi, kj_assemble, actual_s2_tile, tile_cfg)
+    pypto.set_vec_tile_shapes(tile_cfg.v1_tile[0], tile_cfg.v1_tile[1])
+    vj_assemble = assemble_vj(v_2d, block_table, b_idx, idx, actual_s2_tile, ctx_params)
+    if pypto.cond(pypto.is_loop_begin(s2_idx)):
+        out_update, sum_update, max_update = compute_first_tile(sij, vj_assemble, dtype, ctx_params, out_update, sum_update, max_update)
+    else:
+        out_update, sum_update, max_update = compute_other_tile(sij, vj_assemble, dtype, ctx_params, out_update, sum_update, max_update)
+    
+    if pypto.cond(pypto.is_loop_end(s2_idx)):
+        finalize_output(out_update, sum_update, out_ofs, atten_out, dtype, ctx_params)
+
+
+def compute_loop_group(ctx_params, n2_idx, group_idx, cur_seq_len, bs_ofs, b_idx, dtype, s2_loop):
+    tile_cfg = ctx_params.tile_cfg
+    kernel_params = ctx_params.kernel_params
+
+    n1g_ofs = n2_idx * kernel_params.group + group_idx * tile_cfg.g_tile
+        
+    out_ofs = [bs_ofs, n1g_ofs, 0]
+    out_update = pypto.tensor([tile_cfg.g_tile, kernel_params.d], pypto.DT_FP32, "out_update")
+    sum_update = pypto.tensor([tile_cfg.g_tile, 1], pypto.DT_FP32, "sum_update")
+    max_update = pypto.tensor([tile_cfg.g_tile, 1], pypto.DT_FP32, "max_update")
+    for s2_idx in pypto.loop(s2_loop, name="LOOP_s2", idx_name="s2_idx", unroll_list=[8, 4, 2, 1]):
+        compute_loop_s2(ctx_params, s2_idx, cur_seq_len, bs_ofs, n1g_ofs, b_idx, dtype, out_update, sum_update, max_update, out_ofs)
+        
+
+def compute_loop_n2(ctx_params, n2_idx, group_loop, cur_seq_len, bs_ofs, b_idx, dtype, s2_loop):
+    for group_idx in pypto.loop(group_loop, name="LOOP_group_idx", idx_name="group_idx"):
+        compute_loop_group(ctx_params, n2_idx, group_idx, cur_seq_len, bs_ofs, b_idx, dtype, s2_loop)
+        
+
+def compute_loop_s1(ctx_params, group_loop, cur_seq_len, bs_ofs, b_idx, dtype, s2_loop):
+    kernel_params = ctx_params.kernel_params
+
+    for n2_idx in pypto.loop(kernel_params.n2, name="LOOP_n2", idx_name="n2_idx"):
+        compute_loop_n2(ctx_params, n2_idx, group_loop, cur_seq_len, bs_ofs, b_idx, dtype, s2_loop)
+
+
+# def compute_loop_b(b_idx, group_loop, dtype, kv_act_seqs, ctx_params, q_2d, k_2d, v_2d, block_table, atten_out):
+def compute_loop_b(group_loop, dtype, ctx_params):
+    kernel_params = ctx_params.kernel_params
+    tile_cfg = ctx_params.tile_cfg
+    loop_tensors = ctx_params.loop_tensors
+    loop_index = ctx_params.loop_index
+
+    b_idx = loop_index.b_idx
+
+    q_2d = loop_tensors.q_2d
+    k_2d = loop_tensors.k_2d
+    v_2d = loop_tensors.v_2d
+    kv_act_seqs = loop_tensors.kv_act_seqs
+    block_table = loop_tensors.block_table
+    atten_out = loop_tensors.atten_out
+
+    s1 = kernel_params.s1
+    s2_tile = tile_cfg.s2_tile
+
+    for s1_idx in pypto.loop(s1, name="LOOP_s1", idx_name="s1_idx"):
+        cur_seq_len = kv_act_seqs[b_idx] - (s1 - 1 - s1_idx)
+        s2_loop = pypto.ceildiv(cur_seq_len, s2_tile)
+        bs_ofs = b_idx * s1 + s1_idx
+        compute_loop_s1(ctx_params, group_loop, cur_seq_len, bs_ofs, b_idx, dtype, s2_loop)
+        
+
+@dataclass
+class LoopTensor:
+    q_2d: pypto.Tensor = None
+    k_2d: pypto.Tensor = None
+    v_2d: pypto.Tensor = None
+    block_table: pypto.Tensor = None
+    kv_act_seqs: pypto.Tensor = None
+    atten_out: pypto.Tensor = None
+
+
+@dataclass
+class LoopIndex:
+    b_idx: int = 0
+
+
+@dataclass
+class ContextParams:
+    kernel_params: IFAKernelParams
+    tile_cfg: AttentionTileConfig
+    loop_tensors: LoopTensor
+    loop_index: LoopIndex = None
+
+
 def ifa_func(q_shape, kv_shape, block_table_shape):
     out_shape = q_shape
 
@@ -462,7 +574,7 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
         pass_options={
             "pg_upper_bound": 1536,
             # Q常驻，0代表第一组mmad，4代表4次matmul合并
-            "cube_l1_reuse_setting": {0: 6}
+            "cube_l1_reuse_setting": {0: 8}
         },
         debug_options={"runtime_debug_mode": 1}
     )
@@ -476,7 +588,6 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
     ):
         print(f"================ ifa_func_kernel ================")
         # 1. 解析参数
-
         dtype = q.dtype
         kernel_params = init_kernel_params(q, k, block_table_shape)
 
@@ -485,49 +596,20 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
 
         # 3. q, k, v reshape为二维
         q_2d, k_2d, v_2d = reshape_qkv_to_2d(q, k, v, kernel_params)
+        loop_tensors = LoopTensor(q_2d, k_2d, v_2d, block_table, kv_act_seqs, atten_out)
 
         group_loop = kernel_params.group // tile_cfg.g_tile
-        ctx_params = ContextParams(kernel_params=kernel_params, tile_cfg=tile_cfg)
+        ctx_params = ContextParams(kernel_params, tile_cfg, loop_tensors)
 
         # 4. 实现kernel逻辑
         for b_idx in pypto.loop(kernel_params.b, name="LOOP_b", idx_name="b_idx"):
-            for s1_idx in pypto.loop(kernel_params.s1, name="LOOP_s1", idx_name="s1_idx"):
-                cur_seq_len = kv_act_seqs[b_idx] - (kernel_params.s1 - 1 - s1_idx)
-                s2_loop = pypto.ceildiv(cur_seq_len, tile_cfg.s2_tile)
-                bs_ofs = b_idx * kernel_params.s1 + s1_idx
-                for n2_idx in pypto.loop(kernel_params.n2, name="LOOP_n2", idx_name="n2_idx"):
-                    for group_idx in pypto.loop(group_loop, name="LOOP_group_idx", idx_name="group_idx"):
-                        n1g_ofs = n2_idx * kernel_params.group + group_idx * tile_cfg.g_tile
-                        
-                        out_ofs = [bs_ofs, n1g_ofs, 0]
-                        out_update = pypto.tensor([tile_cfg.g_tile, kernel_params.d], pypto.DT_FP32, "out_update")
-                        sum_update = pypto.tensor([tile_cfg.g_tile, 1], pypto.DT_FP32, "sum_update")
-                        max_update = pypto.tensor([tile_cfg.g_tile, 1], pypto.DT_FP32, "max_update")
-                        for s2_idx in pypto.loop(s2_loop, name="LOOP_s2", idx_name="s2_idx", unroll_list=[8, 4, 2, 1]):
-                            block_num = tile_cfg.s2_tile // kernel_params.block_size
-                            idx = s2_idx * block_num
-                            actual_s2_tile = (cur_seq_len - s2_idx * tile_cfg.s2_tile).min(tile_cfg.s2_tile)
-                            pypto.set_vec_tile_shapes(tile_cfg.v1_tile[0], tile_cfg.v1_tile[1])
-                            qi = pypto.view(q_2d, [tile_cfg.g_tile, kernel_params.d], [bs_ofs * kernel_params.n1 + n1g_ofs, 0])
-                            kj_assemble = assemble_kj(k_2d, block_table, b_idx, idx, ctx_params)
-
-                            # 5. flash attention的计算逻辑
-                            pypto.set_cube_tile_shapes(tile_cfg.c1_tile[0], tile_cfg.c1_tile[1], tile_cfg.c1_tile[2])
-                            sij = pypto.matmul(qi, kj_assemble, pypto.DT_FP32, a_trans=False, b_trans=True)
-                            sij = pypto.view(sij, [tile_cfg.g_tile, tile_cfg.s2_tile], [0, 0], valid_shape=[tile_cfg.g_tile, actual_s2_tile])
-
-                            pypto.set_vec_tile_shapes(tile_cfg.v1_tile[0], tile_cfg.v1_tile[1])
-                            vj_assemble = assemble_vj(v_2d, block_table, b_idx, idx, actual_s2_tile, ctx_params)
-                            if pypto.is_loop_begin(s2_idx):
-                                out_update, sum_update, max_update = compute_first_tile(sij, vj_assemble, dtype, ctx_params, out_update, sum_update, max_update)
-                            else:
-                                out_update, sum_update, max_update = compute_other_tile(sij, vj_assemble, dtype, ctx_params, out_update, sum_update, max_update)
-                            
-                            if pypto.is_loop_end(s2_idx):
-                                finalize_output(out_update, sum_update, out_ofs, atten_out, dtype, ctx_params)
+            loop_index = LoopIndex(b_idx=b_idx)
+            ctx_params = replace(ctx_params, loop_index=loop_index)
+            compute_loop_b(group_loop, dtype, ctx_params)
     return ifa_func_kernel
 
 
+@allow_in_graph
 def incre_flash_attention(
     query: torch.Tensor,
     key: torch.Tensor,
