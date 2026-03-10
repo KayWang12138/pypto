@@ -158,11 +158,6 @@ def expand_exp_dif(input: Tensor, other: Tensor) -> Tensor:
     Tensor
         A new tensor containing the element-wise expand exp dif.
 
-    Raises
-    ------
-    RuntimeError
-        If neither the last axis nor secondary last axis of other is 1.
-
     Examples
     --------
     x = pypto.tensor([2, 3], pypto.DT_FP32)
@@ -183,9 +178,4 @@ def expand_exp_dif(input: Tensor, other: Tensor) -> Tensor:
     Output z :    [[ 1.       ,  2.718282 ,  7.3890557],
                    [ 7.3890557, 20.085537 , 54.59815  ]]
     """
-    shape = other.shape
-    if len(shape) > 1 and shape[-1] != 1 and shape[-2] != 1:
-        raise RuntimeError(
-            "Neither the last axis nor secondary last axis of other is 1."
-        )
     return pypto_impl.ExpandExpDif(input, other)
