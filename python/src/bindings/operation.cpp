@@ -106,6 +106,17 @@ void bind_operation(py::module &m) {
     m.def("Reciprocal", [](const Tensor &operand) { return npu::tile_fwk::Reciprocal(operand); }, "Tensor reciprocal.");
     m.def("Relu", [](const Tensor &operand) { return npu::tile_fwk::Relu(operand); }, "Tensor relu.");
     m.def(
+        "Pad",
+        [](const Tensor &self, const std::vector<int64_t> &padding, const std::string &mode, float value) {
+            return npu::tile_fwk::Pad(self, padding, mode, value);
+        },
+        "Pads tensor with constant value (supports right/bottom padding only).",
+        py::arg("input"),
+        py::arg("pad"),
+        py::arg("mode") = "constant",
+        py::arg("value") = 0.0f
+    );
+    m.def(
         "Round", [](const Tensor &self, int decimals) { return npu::tile_fwk::Round(self, decimals); }, py::arg("self"),
         py::arg("decimals") = 0, "Tensor round.");
     m.def("Rsqrt", [](const Tensor &self) { return npu::tile_fwk::Rsqrt(self); }, "Tensor rsqrt.");
@@ -355,10 +366,6 @@ void bind_operation(py::module &m) {
         "TriL",
         [](const Tensor &input, const SymbolicScalar &diagonal) { return npu::tile_fwk::TriL(input, diagonal); },
         "Tensor tril.");
-    m.def(
-        "Pad",
-        [](const Tensor &old, const std::vector<int64_t> &newShape) { return npu::tile_fwk::Pad(old, newShape); },
-        "Tensor pad.");
     m.def(
         "TopK",
         [](const Tensor &self, int k, int axis, bool islargest) {
