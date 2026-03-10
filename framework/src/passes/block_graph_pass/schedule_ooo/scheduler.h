@@ -330,7 +330,7 @@ private:
     Status SpillOutBuffer(SpillInfo &spillInfo, IssueEntryPtr issue, size_t &pcIdx, bool isGenSpill);
     Status CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr &spillCopyout, int &bufLastUseOrder, bool &isFinish);
     Status CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorPtr spillTensor, int spillMemId,
-        IssueEntryPtr &spillCopyout);    
+        IssueEntryPtr &spillCopyout, SpillInfo spillInfo);
     Status SpillInBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, MemoryType bufferType, bool isGenSpill);
     Status SpillInReshapeBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, bool isGenSpill);
     Status SpillReshapeParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, LogicalTensorPtr reshapeTensor, bool isGenSpill);
