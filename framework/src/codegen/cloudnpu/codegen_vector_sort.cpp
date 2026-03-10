@@ -217,8 +217,7 @@ SortParam CodeGenOpCloudNPU::PrepareSortParam() const {
         {ds[ID0], ds[ID1], ds[ID2], ds[ID3]},
         {ts[ID0], ts[ID1], ts[ID2], ts[ID3]},
         {ss[ID0], ss[ID1], ss[ID2], ss[ID3]},
-        src0Var, dstVar, tmpVar, src0DtypeStr,
-        dstDtypeStr, tmpDtypeStr
+        src0Var, dstVar, tmpVar, src0DtypeStr, dstDtypeStr, tmpDtypeStr
     };
 }
 
@@ -367,8 +366,7 @@ std::string CodeGenOpCloudNPU::PrintTileSortTileTensor() const {
     std::string src4Tensor = QueryTileTensorNameByIdx(ID5);
     std::ostringstream oss;
     oss << tileOpName << WrapParamByAngleBrackets({GenOpAttr(false)});
-    oss << WrapParamByParentheses({dstTensor, src1Tensor, src2Tensor, src3Tensor, src4Tensor, tmpTensor})
-        << STMT_END;
+    oss << WrapParamByParentheses({dstTensor, src1Tensor, src2Tensor, src3Tensor, src4Tensor, tmpTensor}) << STMT_END;
     return oss.str();
 }
 
@@ -510,7 +508,7 @@ std::string CodeGenOpCloudNPU::GenTopKSortOp() const {
     if (opAttrs.count(OpAttributeKey::dynScalar)) {
         auto scalar = opAttrs.at(OpAttributeKey::dynScalar);
         ASSERT((scalar.HasValue()) && (scalar.Type() == typeid(SymbolicScalar)))
-            << AnyCast<SymbolicScalar>(scalar).IsValid()
+            << GenErrorCode(OperErr::ATTRIBUTE_INVALID) << AnyCast<SymbolicScalar>(scalar).IsValid()
             << "SCALAR attribute has to have symbolic value.";
         auto scalarExpr = AnyCast<SymbolicScalar>(scalar);
         startIdx = SymbolicExpressionTable::BuildExpression(scalarExpr);
@@ -610,7 +608,6 @@ std::string CodeGenOpCloudNPU::GenTwoTileMrgSort() const {
 }
 
 std::string CodeGenOpCloudNPU::PrintSortUBDynamicUnaligned(bool containDstType) const {
-    
     std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
     std::string srcVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     AppendLocalBufVarOffsetInOrder(dstVar, srcVar);
@@ -640,10 +637,10 @@ std::string CodeGenOpCloudNPU::PrintSortUBDynamicUnaligned(bool containDstType) 
     std::string dstParam = "(__ubuf__ " + dstDtypeStr + "*)" + dstVar;
 
     paramList.insert(paramList.end(), {dstParam, srcParam});
-    for (int i = 0; i < SHAPE_DIM4; i ++ ) {
+    for (int i = 0; i < SHAPE_DIM4; i++) {
         paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynSrcShape[i]));
     }
-    
+
     std::string tileOpParam = JoinString(paramList, CONN_COMMA);
 
     std::ostringstream oss;
