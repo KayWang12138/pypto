@@ -38,6 +38,22 @@ class DistributedConfig:
         self._parse_device_list()
         self.master_port = master_port
 
+    def get_physical_device_id(self, logical_rank: int) -> int:
+        """
+        根据逻辑rank获取物理设备ID
+        如果没有环境变量 返回0-n的映射
+        Args:
+            logical_rank: 逻辑rank
+        Returns:
+            int: 物理设备ID
+        """
+        if logical_rank >= len(self.physical_device_ids):
+            raise ValueError(
+                f"Logical rank {logical_rank} out of range. "
+                f"Available physical devices: {self.physical_device_ids}"
+            )
+        return self.physical_device_ids[logical_rank]
+
     def _parse_device_list(self):
         """解析设备列表"""
         device_list_str = os.environ.get("TILE_FWK_DEVICE_ID_LIST", "")
@@ -69,19 +85,3 @@ class DistributedConfig:
             return 50001
 
         return port
-
-    def get_physical_device_id(self, logical_rank: int) -> int:
-        """
-        根据逻辑rank获取物理设备ID
-        如果没有环境变量 返回0-n的映射
-        Args:
-            logical_rank: 逻辑rank
-        Returns:
-            int: 物理设备ID
-        """
-        if logical_rank >= len(self.physical_device_ids):
-            raise ValueError(
-                f"Logical rank {logical_rank} out of range. "
-                f"Available physical devices: {self.physical_device_ids}"
-            )
-        return self.physical_device_ids[logical_rank]

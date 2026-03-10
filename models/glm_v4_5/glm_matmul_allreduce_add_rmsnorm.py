@@ -254,6 +254,7 @@ def matmul_allreduce_add_rmsnorm(
 
     return out_tensor, residual_out
 
+
 @pytest.mark.world_size(2)
 def test_matmul_allreduce_add_rmsnorm():
     mp.set_start_method('spawn', force=True)
@@ -268,6 +269,7 @@ def test_matmul_allreduce_add_rmsnorm():
         p.join()
         if p.exitcode != 0:
             raise AssertionError(f"process {i} failed, return: {p.exitcode}")
+
 
 def main():
     test_matmul_allreduce_add_rmsnorm()

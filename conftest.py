@@ -68,15 +68,15 @@ def _is_case_match_cards(item, target_cards) -> bool:
     """
     cards_marker = item.get_closest_marker("world_size")
     if cards_marker is None:
-        return target_cards == 1
-    else:
-        # 解析标记中的卡数要求
-        required_cards = cards_marker.args
-        if isinstance(required_cards[0], int):
-            # 单个卡数，如 @pytest.mark.world_size(2)
-            return target_cards == required_cards[0]
-        else:
-            return target_cards == 1
+        return True
+    required_cards = cards_marker.args
+    if not required_cards:
+        return True
+
+    if isinstance(required_cards[0], int):
+        return target_cards == required_cards[0]
+
+    return True
 
 
 def pytest_configure_node(node):

@@ -39,6 +39,7 @@ TensorList = list[torch.Tensor, ...]
 np.random.seed(0)
 torch.manual_seed(0)
 
+
 def check_cond(cond: bool, msg: str) -> None:
     if not cond:
         raise ValueError(msg)
@@ -179,7 +180,7 @@ def generate_inputs(moe_case: MoeCase, torch_data_type: torch.dtype) -> tuple[Te
 
 
 def create_tensor_on_npu(golden_tensor, device_id):
-    return torch.empty(golden_tensor.shape, 
+    return torch.empty(golden_tensor.shape,
                     dtype=golden_tensor.dtype,
                     device=f'npu:{device_id}')
 
@@ -609,6 +610,7 @@ def moe_distributed_dispatch(config: DistributedConfig, moe_case: MoeCase, opera
     ]:
         assert_allcolse_whit_rtol_and_atol(out, act)
 
+
 @pytest.mark.world_size(4)
 def test_moe_distributed_dispatch() -> None:
     config = DistributedConfig(world_size=4)
@@ -789,6 +791,7 @@ def moe_distributed_combine(
     kernel(expand_x, assist_info_for_combine, recv_counts, expert_scales, out)
 
     assert_allclose_with_eps(out_golden.cpu(), out.cpu())
+
 
 @pytest.mark.world_size(4)
 def test_moe_distributed_combine() -> None:
