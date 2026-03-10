@@ -32,7 +32,7 @@ private:
     void InitOpOutput(const Operation &op);
     Status CheckOpValid(const Operation *op, int opId);
     Status Init(const std::vector<Operation *> &opList);
-    bool CheckIgnoreScene(const Operation &oriOps);
+    bool CheckIgnore(const Operation &oriOps);
     Status CheckHasInplaced(const Operation &oriOps, const Operation &ops,
         std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors, bool &hasInplaced);
     Status FindReplaced(const Operation &oriOps, const Operation &ops,

@@ -39,7 +39,7 @@ private:
     void InsertCopyOp(Function &function, LogicalTensorPtr iOperand, LogicalTensorPtr oOperand);
     Status InsertTensorCopy(Function &function);
     void Init(Function& function);
-    std::vector<std::pair<LogicalTensorPtr, Operation *>> FilterCopyScenes(
+    std::vector<std::pair<LogicalTensorPtr, Operation *>> FilterCopys(
         const std::vector<std::pair<LogicalTensorPtr, Operation *>> &);
     std::map<LogicalTensorPtr, std::vector<std::pair<LogicalTensorPtr, Operation *>>> insertCopys_;
     std::map<Operation *, size_t> opInputDegree_;

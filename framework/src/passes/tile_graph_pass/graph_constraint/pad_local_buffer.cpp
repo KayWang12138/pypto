@@ -82,7 +82,7 @@ bool PadLocalBuffer::IsInputInt8(const Operation &op, const LogicalTensorPtr &in
     return false;
 }
 
-void PadMatmulL1ConvertScene(Operation &op, LogicalTensorPtr &in, size_t lowIndex, bool padRawShape) {
+void PadMatmulL1Convert(Operation &op, LogicalTensorPtr &in, size_t lowIndex, bool padRawShape) {
     const auto &producers = in->GetProducers();
     auto bytes = BytesOf(in->Datatype());
     auto &padShape = padRawShape ? in->tensor->rawshape : in->shape;
@@ -123,7 +123,7 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
     auto lowIndex = in->shape.size() - 1;  // matmul低轴
     const auto &producers = in->GetProducers();
     const auto &consumers = in->GetConsumers();
-    const bool isL1ConvertScene = !producers.empty() && !consumers.empty() && *producers.begin() != nullptr && *consumers.begin() != nullptr
+    const bool isL1Convert = !producers.empty() && !consumers.empty() && *producers.begin() != nullptr && *consumers.begin() != nullptr
         && ((*producers.begin())->GetOpcode() == Opcode::OP_L1_TO_FIX_QUANT_PRE || (*producers.begin())->GetOpcode() == Opcode::OP_L1_TO_BT
             || (*consumers.begin())->GetOpcode() == Opcode::OP_L1_TO_BT || (*consumers.begin())->GetOpcode() == Opcode::OP_L1_TO_FIX_QUANT_PRE);
     const bool isInt8Input = IsInputInt8(op, in);
@@ -142,7 +142,7 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
         PadForMatMulMX(in, mxLowAxis);
         return;
     }
-    if (isL1ConvertScene) {
+    if (isL1Convert) {
         /*
         输入带bias或fixpipe场景，切分tileShape为[1, N]，在L1_TO_BT和L1_TO_FIX_QUANT_PRE时，BT统一为FP32，BT BUFFER要求64B对齐，FixPipe为uint64，FB BUFFER为128B对齐，均要求N满足16元素对齐，否则会出现address misalign异常
         示例场景：biasShape = [1, 3208]，tileShapeN = [32, 128]，3208 % 32 = 8尾块非对齐
@@ -157,7 +157,7 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
         L1_TO_BT --> bias_BT (shape:[1, 16]) --> A_MUL_B --> output(shape:[32, 16])
         L1_TO_L0B --> L0B (shape:[400, 16])  -->   /
         */
-        PadMatmulL1ConvertScene(op, in, lowIndex, false);
+        PadMatmulL1Convert(op, in, lowIndex, false);
     } else if (isInt8Input) {
         in->shape[highIndex] = Pad(in->shape[highIndex], CUBE_PAD_INT8_VALUE);
         in->shape[lowIndex] = Pad(in->shape[lowIndex], CUBE_PAD_INT8_VALUE);
@@ -172,8 +172,8 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
         return;
     }
     in->tensor->oriRawshape = in->tensor->rawshape;
-    if (isL1ConvertScene) {
-        PadMatmulL1ConvertScene(op, in, lowIndex, true);
+    if (isL1Convert) {
+        PadMatmulL1Convert(op, in, lowIndex, true);
     } else if (isInt8Input) {
         in->tensor->rawshape[highIndex] = Pad(in->tensor->oriRawshape[highIndex], CUBE_PAD_INT8_VALUE);
         in->tensor->rawshape[lowIndex] = Pad(in->tensor->oriRawshape[lowIndex], CUBE_PAD_INT8_VALUE);

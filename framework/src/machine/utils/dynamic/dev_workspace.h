@@ -106,9 +106,10 @@ private:
                 default:
                     break;
             }
-            DEV_ERROR("  Func (%2zu) %16s rawTensor[%2zu], @%" PRIx64 " [%zu bytes]%s.",
-                stitchedListIndex, dup.GetSource()->GetRawName(), rawIndex, ptr, size,
-                ioPropertyDump.c_str());
+            DEV_ERROR(WorkspaceError::SLAB_CAPACITY_CALC_INVALID, "ctrl.task.pre.workspace.dump",
+                      "func=%2zu name=%16s rawTensor=%2zu address=0x%" PRIx64 " size=%zu bytes # Workspace dump",
+                      stitchedListIndex, dup.GetSource()->GetRawName(), rawIndex, ptr, size,
+                      ioPropertyDump.c_str());
         }
     };
 
@@ -152,19 +153,22 @@ public:
                 switch (VerifyTensorMemoryState(memInfo.ptr, memInfo.size)) {
                     case WsMemoryState::INSIDE:
                         if (!IsValidWsTensor(memInfo.ptr, memInfo.size)) {
-                            DEV_ERROR("Invalid workspace tensor (not completely inside any workspace segment):");
+                            DEV_ERROR(WorkspaceError::WS_TENSOR_ADDRESS_OUT_OF_RANGE, "ctrl.task.pre.workspace.verify",
+                                      "# Invalid workspace tensor: not completely inside any workspace segment.");
                             memInfo.DumpError();
                             verificationSuccess = false;
                         }
                         break;
                     case WsMemoryState::CROSS_BOUNDARY:
-                        DEV_ERROR("Memory crossing workspace boundary:");
+                        DEV_ERROR(WorkspaceError::WS_TENSOR_ADDRESS_OUT_OF_RANGE, "ctrl.task.pre.workspace.verify",
+                                  "# Memory crossing workspace boundary.");
                         memInfo.DumpError();
                         verificationSuccess = false;
                         break;
                     default:
                         if (!inoutAddr.count(memInfo.ptr)) {
-                            DEV_ERROR("Non input/output tensor outside of workspace:");
+                            DEV_ERROR(WorkspaceError::WS_TENSOR_ADDRESS_OUT_OF_RANGE, "ctrl.task.pre.workspace.verify",
+                                      "# Non input/output tensor outside of workspace.");
                             memInfo.DumpError();
                             verificationSuccess = false;
                         }
@@ -603,12 +607,15 @@ public:
     }
     void CalculateSlabCapacityPerType (uint32_t slabSize, uint32_t* slabCapacity, uint32_t slabTypeNum) {
         if (slabCapacity == nullptr) {
-            DEV_ERROR("slabCapacity is nullptr");
+            DEV_ERROR(WorkspaceError::WORKSPACE_INIT_RESOURCE_ERROR, "workspace.init.resource",
+                      "# slabCapacity is nullptr.");
             return;
         }
         constexpr uint32_t maxSlabTypes = ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT);
         if (slabTypeNum > maxSlabTypes) {
-            DEV_ERROR("slabTypeNum exceeds the allowed typenum %u ", maxSlabTypes);
+            DEV_ERROR(WorkspaceError::WORKSPACE_INIT_PARAM_INVALID, "workspace.init.check",
+                      "slabTypeNum=%u maxAllowed=%u # slabTypeNum exceeds the allowed typenum",
+                      slabTypeNum, maxSlabTypes);
             return;
         }
         for (size_t i = 0; i < slabTypeNum; ++i) {
@@ -636,7 +643,8 @@ public:
                 // should not happen, first task alloc failed
                 metadataAllocators_.generalSlab.DumpMemoryStatusWhenAbnormal("SlabAlloc null");
                 metadataAllocators_.stitchSlab.DumpMemoryStatusWhenAbnormal("SlabAlloc null");
-                DEV_ERROR("Slab alloc null,type=%u,objsize=%u.", ToUnderlying(type), objSize);
+                DEV_ERROR(WorkspaceError::SLAB_ADD_CACHE_FAILED, "ctrl.task.pre.workspace.slab.alloc",
+                          "type=%u objSize=%u # no memory available", ToUnderlying(type), objSize);
                 DEV_ASSERT_MSG(false, "Slab alloc null,type=%u,objsize=%u.", ToUnderlying(type), objSize);
             }
             uint64_t ttlstart = GetCycles();
@@ -891,7 +899,8 @@ private:
                 DEV_ASSERT(registCacheRes);
             }
         } else {
-            DEV_ERROR("Invalid slab memory type: %u", (unsigned int)type);
+            DEV_ERROR(WorkspaceError::SLAB_TYPE_INVALID, "ctrl.task.pre.workspace.slab.type",
+                      "type=%u # Invalid slab memory type", (unsigned int)type);
             DEV_ASSERT(false);
         }
     }

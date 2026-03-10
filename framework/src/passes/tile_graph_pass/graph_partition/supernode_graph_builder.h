@@ -78,12 +78,12 @@ protected:
     inline bool AssembleCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
                             int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair);
     inline bool CopyOutCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
-                            int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair, bool assembleScene);
+                            int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair, bool assemble);
     inline bool CopyInCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
                             int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair);
     inline bool MulAccCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
                             int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair);
-    inline bool AssembleToCopyoutScene(Operation *op);
+    inline bool AssembleToCopyout(Operation *op);
     
     // BuildHashValues helpers
     uint64_t CombineHash(const uint64_t h1, const uint64_t h2) const;
