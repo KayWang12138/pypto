@@ -54,22 +54,22 @@ Status GenerateMoveOpChecker::DoPostCheck(Function &function) {
     for (auto &operation : operations) {
         auto op = operation.GetOpcode();
         if(op == Opcode::OP_DUPLICATE || op == Opcode::OP_CONVERT) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Operation validation failed: Operation %s[%d] is invalid here.",operation.GetOpcode().c_str,operation.GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Operation validation failed: Operation %s[%d] is invalid here.",static_cast<int>(operation.GetOpcode()),operation.GetOpMagic());
             return FAILED;
         }
         if(op == Opcode::OP_ASSEMBLE || op == Opcode::OP_VIEW) {
             if(operation.GetIOperands().size() != 1) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Operation validation failed: Operation %s[%d] has more than one input.",operation.GetOpcode().c_str,operation.GetOpMagic());
+                APASS_LOG_ERROR_F(Elements::Operation, "Operation validation failed: Operation %s[%d] has more than one input.",static_cast<int>(operation.GetOpcode()),operation.GetOpMagic());
                 return FAILED;
             }
             if(operation.GetOOperands().size() != 1) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Operation validation failed: Operation %s[%d] has more than one output.",operation.GetOpcode().c_str,operation.GetOpMagic());
+                APASS_LOG_ERROR_F(Elements::Operation, "Operation validation failed: Operation %s[%d] has more than one output.",static_cast<int>(operation.GetOpcode()),operation.GetOpMagic());
                 return FAILED;
             }
             auto inputMemType = operation.GetIOperands().front()->GetMemoryTypeOriginal();
             auto outputMemType = operation.GetOOperands().front()->GetMemoryTypeOriginal();
             if(inputMemType != outputMemType) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Operation validation failed: Operation %s[%d] has dismatched memory type. Input memory type:%s. Output memory type:%s",operation.GetOpcode().c_str,operation.GetOpMagic(),
+                APASS_LOG_ERROR_F(Elements::Operation, "Operation validation failed: Operation %s[%d] has dismatched memory type. Input memory type:%s. Output memory type:%s",static_cast<int>(operation.GetOpcode()).c_str,operation.GetOpMagic(),
                     BriefMemoryTypeToString(inputMemType).c_str(),
                     BriefMemoryTypeToString(outputMemType).c_str()
                 );
