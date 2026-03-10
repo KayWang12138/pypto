@@ -194,4 +194,15 @@ TEST_F(DynamicMatmulUTest, transposed_batchmatmul_test) {
     }
 }
 
+TEST_F(DynamicMatmulUTest, mm_A_B_ND_tf32) {
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
+    int m = 128;
+    int k = 256;
+    int n = 512;
+    using TestMatmulType = MatmulImpl<float, float, MatrixInputs<false, false, false, false, true>>;
+    Matrix::MatmulExtendParam param;
+    param.trans_mode = TransMode::CAST_ROUND;
+    TestDynMatmul<TestMatmulType>(m, k, n, param);
+}
+
 } // namespace
