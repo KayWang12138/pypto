@@ -1107,14 +1107,13 @@ TEST_F(FunctionTest, Test_ScalarOp) {
 TEST_F(FunctionTest, TestPad) {
     config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     std::vector<int64_t> shape{8, 16};
-    std::vector<int64_t> newShape{8, 24};
     Tensor a(DT_FP32, shape, "a");
     Tensor b;
     TileShape::Current().SetVecTile(8, 8);
 
     config::SetBuildStatic(true);
     FUNCTION("Pad") {
-        b = Pad(a, newShape);
+        b = Pad(a, {0, 0, 0, 8}, "constant");
     }
     ALOG_INFO(Program::GetInstance().Dump());
 }

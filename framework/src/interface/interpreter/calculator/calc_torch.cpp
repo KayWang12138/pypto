@@ -238,6 +238,32 @@ static void Relu(const TensorData &out, const TensorData &self) {
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
+static void Pad(const TensorData &out, const TensorData &input, const Element &padValue) {
+    auto tinput = From(input);
+    auto tout = From(out);
+    
+    std::vector<int64_t> in_shape = tinput.second.sizes().vec();
+    std::vector<int64_t> out_shape = tout.second.sizes().vec();
+    size_t ndim = out_shape.size();
+    int64_t pad_right = 0;
+    int64_t pad_bottom = 0;
+    
+    if (ndim >= 2) {
+        pad_right = std::max(static_cast<int64_t>(0), out_shape[ndim - 1] - in_shape[ndim - 1]);
+        pad_bottom = std::max(static_cast<int64_t>(0), out_shape[ndim - 2] - in_shape[ndim - 2]);
+    } else if (ndim == 1) {
+        pad_right = std::max(static_cast<int64_t>(0), out_shape[0] - in_shape[0]);
+    }
+    std::vector<int64_t> pad_vec = {0, pad_right, 0, pad_bottom};
+    double pad_val_double = padValue.Cast<double>();
+    namespace F = torch::nn::functional;
+    F::PadFuncOptions options(pad_vec);
+    options.mode(torch::kConstant).value(pad_val_double);
+    auto result = F::pad(tinput.second, options);
+    tout.second.copy_(result);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
 static void BitwiseNot(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     auto tself = From(self);
@@ -1976,6 +2002,7 @@ static struct CalcOps calcOps = {
     .Reciprocal = Reciprocal,
     .Relu = Relu,
     .Log1p = Log1p,
+    .Pad = Pad,
     .BitwiseNot = BitwiseNot,
     .Abs = Abs,
     .Brcb = Brcb,
