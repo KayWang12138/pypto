@@ -30,7 +30,7 @@
 
 ```bash
 # 配置 CANN 环境变量
-source /usr/local/Ascend/ascend-toolkit/latest/bin/setenv.bash
+source /usr/local/Ascend/cann/setenv.bash
 
 # 设置 NPU 设备 ID（运行 NPU 样例时必需）
 export TILE_FWK_DEVICE_ID=0
@@ -70,7 +70,7 @@ python3 examples/01_beginner/basic/basic_ops.py --run_mode sim
    - [02_intermediate/operators](02_intermediate/operators/README.md)
    - [02_intermediate/basic_nn](02_intermediate/basic_nn/README.md)
    - [02_intermediate/controlflow](02_intermediate/controlflow/README.md)
-   
+
 
 3. **第三阶段：深度实践**
    - [03_advanced/advanced_nn](03_advanced/advanced_nn/README.md)
