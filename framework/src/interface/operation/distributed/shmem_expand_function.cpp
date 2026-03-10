@@ -19,7 +19,7 @@
 namespace npu::tile_fwk::Distributed {
 namespace {
 using DummyTileFunc = std::function<LogicalTensorPtr(int32_t tileIndex)>;
-
+int tileNumOfWaitUntil = 0;
 constexpr uint16_t UB_BUFFER_BYTE_SIZE = 16 * 1024;
 constexpr uint16_t DTYPE_CAST_BYTE_SIZE = 256;
 constexpr uint16_t UB_ALIGN_SIZE = 32;
@@ -296,7 +296,9 @@ void TiledShmemWaitUntil(Function& function, const TileShape& tileShape,
         auto outTile = outTileFunc(tileIndex);
 
         auto& tileOp = function.AddOperation(Opcode::OP_SHMEM_WAIT_UNTIL, {predTokenTile, shmemSignalTile}, {outTile});
-        
+        tileNumOfWaitUntil++;
+        CHECK(tileNumOfWaitUntil <= MAX_TILE_NUM) <<
+            "WaitUntil tile number exceeds the maximum allowed value: " << MAX_TILE_NUM;
         DistOpAttr distOpAttr;
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         distOpAttr.aicpuOpParams.push_back(tileRowShape);
