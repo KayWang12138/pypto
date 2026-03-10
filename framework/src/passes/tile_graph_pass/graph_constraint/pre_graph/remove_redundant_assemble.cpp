@@ -28,9 +28,14 @@ std::vector<OpImmediate> SumOffset(const std::vector<OpImmediate> offset1, const
 }
 
 // 当前op为Copy Out时，需要将后继Assemble上的offset累加到当前op的CopyOpAttr上
-void UpdateCopyOutAttr(Operation &op, Operation &opNext) {
+Status UpdateCopyOutAttr(Operation &op, Operation &opNext) {
     auto opAttr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
     auto opNextAttr = std::static_pointer_cast<AssembleOpAttribute>(opNext.GetOpAttribute());
+    if (!opAttr || !opNextAttr) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Copyout[%d] miss attribute or Assemble[%d] miss attribute.",
+            op.GetOpMagic(), opNext.GetOpMagic());
+        return FAILED;
+    }
     if (opNextAttr->GetToDynOffset().size() != 0) {
         if (op.GetOpcode() != Opcode::OP_COPY_OUT) {
             opAttr->SetToOffset(OpImmediate::Specified(opNextAttr->GetToDynOffset()));
@@ -45,6 +50,7 @@ void UpdateCopyOutAttr(Operation &op, Operation &opNext) {
         } 
     }
     opAttr->SetRawShape(OpImmediate::Specified(op.GetOOperands().front()->tensor->GetDynRawShape()));
+    return SUCCESS;
 }
 
 bool CalculateNewRawShape(
@@ -564,7 +570,10 @@ Status RemoveRedundantAssemble::HanldeForSingleAssemble(Function &function, Logi
             if (!IsCopyOut(producer->GetOpcode())) continue;
             APASS_LOG_DEBUG_F(Elements::Operation, "The producer op:[%d] is copyOut, update its CopyOpAttr. %s",
                 producer->GetOpMagic(), producer->GetOpcodeStr().c_str());
-            UpdateCopyOutAttr(*producer, *cons);
+            if (UpdateCopyOutAttr(*producer, *cons) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "UpdateCopyOutAttr failed.");
+                return FAILED;
+            }
         }
     }
     HandleForAssembleFromInOut(function, op, producersBackup);
@@ -615,10 +624,6 @@ Status RemoveRedundantAssemble::DeleteRedundantAssemble(Function &function) cons
 }
 
 Status RemoveRedundantAssemble::DeleteRedundantView(Function &function) const {
-    if (RemoveViewMultiReshape(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "RemoveViewMultiReshape failed.");
-        return FAILED;
-    }
     if (ProcessView(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "ProcessView failed.");
         return FAILED;
