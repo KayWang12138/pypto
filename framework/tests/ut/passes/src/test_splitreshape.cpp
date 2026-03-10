@@ -1669,10 +1669,13 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
         {inputs[2], expectValidShape}, {inputs[3], expectValidShape}
     };
     CheckNewAssembles(newAssembles, expectAssembleOffset, expectAssembleDynShape, expectValidShapes, dynInputShape, reshapeOutputs, kNumFour);
-    EXPECT_NE(reshapeOutputs[0], reshapeOutputs[3]);
-    EXPECT_EQ(reshapeOutputs[0]->GetConsumers().size(), kNumOne);
-    EXPECT_EQ(reshapeOutputs[3]->GetConsumers().size(), kNumOne);
-    EXPECT_NE(*(reshapeOutputs[0]->GetConsumers().begin()), *(reshapeOutputs[3]->GetConsumers().begin()));
+    int eqCount = (reshapeOutputs[0] == reshapeOutputs[1]) + (reshapeOutputs[0] == reshapeOutputs[2]) + (reshapeOutputs[0] == reshapeOutputs[3]) +
+                  (reshapeOutputs[1] == reshapeOutputs[2]) + (reshapeOutputs[1] == reshapeOutputs[3]) + (reshapeOutputs[2] == reshapeOutputs[3]);
+    const int expectEqCount = 2;
+    EXPECT_EQ(eqCount, expectEqCount); // reshapeOutput共四个，两两相等，两组之间不等，所以预期相等数量为2。
+    for (const auto &outputTensor : reshapeOutputs){
+        EXPECT_EQ(outputTensor->GetConsumers().size(), kNumOne);
+    }
 }
 
 namespace {
