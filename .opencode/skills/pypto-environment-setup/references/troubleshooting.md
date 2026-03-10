@@ -17,6 +17,19 @@
 修复：加载 CANN 环境后重试（见 [prepare_environment.md](prepare_environment.md) § "CANN 环境加载"），然后 `npu-smi info`。
 ### torch_npu 导入失败：libhccl.so / libatb.so / libascend_hal.so
 
+> ⚠️ **修复环境后必须重新编译安装 pypto**
+>
+> 环境变量（如 CANN、ASCEND_HOME_PATH 等）变更后，已安装的 pypto 扩展可能与新环境不兼容。必须执行以下步骤：
+> ```bash
+> cd "$PYPTO_REPO"
+> python3 -m pip uninstall -y pypto || true
+> python3 build_ci.py -f python3 --clean --disable_auto_execute
+> pip install build_out/pypto-*.whl --force-reinstall -q
+>
+> # 验证
+> python3 -c "import pypto; print('✓ pypto 安装成功')"
+> ```
+
 原因分两类：
 1. `set_env.sh` 未加载 → 加载 CANN 环境即可
 2. CANN 安装不完整（缺 ops 包）→ 即使 source 了仍缺 so
