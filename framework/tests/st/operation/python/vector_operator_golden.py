@@ -974,7 +974,7 @@ def gen_pad_op_golden(case_name: str, output: Path, case_index: int = None) -> b
             pad_right = output_shape[-1] - input_shape[-1]
             pad_bottom = output_shape[-2] - input_shape[-2]
             result = F.pad(tensor, (0, pad_right, 0, pad_bottom), mode='constant', value=pad_value)
-        return [result.numpy()]
+        return [to_numpy(result)]
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Pad", golden_func, output, case_index)
