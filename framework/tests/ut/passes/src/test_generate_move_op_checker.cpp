@@ -561,3 +561,5 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ConvertOp_Valid) {
     Status preCheckStatus = checker.PreCheck(*currFunctionPtr);
     EXPECT_EQ(preCheckStatus, SUCCESS);
 }
+} // namespace tile_fwk
+} // namespace npu
