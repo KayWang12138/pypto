@@ -136,4 +136,47 @@ TEST_F(TestCodegenDynUna, TestDynExpand) {
     EXPECT_EQ(res, expect);
 }
 
+TEST_F(TestCodegenDynUna, TestDynPad) {
+    std::vector<int64_t> shape = {64, 64};
+    std::vector<int64_t> outShape = {68, 70};
+    auto shapeImme = OpImmediate::Specified(shape);
+    TileShape::Current().SetVecTile(shape);
+    Tensor input(DT_FP32, shape, "input");
+    Tensor output(DT_FP32, outShape, "output");
+
+    std::string funcName = "TestDynPad";
+    FUNCTION(funcName, {input, output}) {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Pad(input, {0, 4, 0, 6}, "constant", 0.0f);
+        }
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    function->SetUnderDynamicFunction(true);
+    std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    std::vector<SymbolicScalar> dynValidShapeOut = {68, 70};
+    auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localOutTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, outShape, dynValidShapeOut});
+
+    auto &op = function->AddOperation(Opcode::OP_PAD, {localTensor}, {localOutTensor});
+    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OP_ATTR_PREFIX + "PAD_MODE", std::string("constant"));
+    op.SetAttribute(OP_ATTR_PREFIX + "PAD_VALUE", 0.0f);
+    op.SetAttribute(OP_ATTR_PREFIX + "PAD", std::vector<int64_t>({0, 4, 0, 6}));
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
+    function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
+
+    cop.Init(op);
+    std::string res = cop.GenOpCode();
+    // Check that the generated code contains the pad operation
+    EXPECT_TRUE(res.find("Pad") != std::string::npos);
+    EXPECT_TRUE(res.find("constant") != std::string::npos);
+}
+
 } // namespace npu::tile_fwk

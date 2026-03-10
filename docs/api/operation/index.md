@@ -70,6 +70,7 @@ pypto-ne
 pypto-neg
 pypto-ones
 pypto-one_hot
+pypto-pad
 pypto-pow
 pypto-prelu
 pypto-prod
