@@ -51,7 +51,7 @@ def softmax_kernel(
 
 ```bash
 # 配置 CANN 环境变量
-source /usr/local/Ascend/ascend-toolkit/latest/bin/setenv.bash
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
 
 # 设置设备 ID
 export TILE_FWK_DEVICE_ID=0
