@@ -46,8 +46,6 @@
 #include "tilefwk/pypto_fwk_log.h"
 
 using json = nlohmann::json;
-extern char _binary_kernel_o_start[];
-extern char _binary_kernel_o_end[];
 
 constexpr int32_t AICORE_ADDR_TYPE = 2; // nocache Addr type for aicore/aicpu map
 constexpr int32_t PMU_ADDR_TYPE = 3;    // nGnRnE Addr type for Geting pmuInfo
@@ -767,10 +765,6 @@ int DeviceRunner::RegisterKernelBin(void **hdl, std::vector<uint8_t> *funcBinBuf
         bin = binBuf->data();
         binSize = binBuf->size();
         MACHINE_LOGD("Reg dynamic bin size %zu.", binSize);
-    } else {
-        bin = _binary_kernel_o_start;
-        binSize = _binary_kernel_o_end - _binary_kernel_o_start;
-        MACHINE_LOGD("Reg static bin size %zu.", binSize);
     }
     rtDevBinary_t binary{.magic = RT_DEV_BINARY_MAGIC_ELF, .version = 0, .data = bin, .length = binSize};
     int rc = rtRegisterAllKernel(&binary, hdl);
@@ -800,10 +794,7 @@ int DeviceRunner::Init(void) {
         MACHINE_LOGE("prepareArgs failed\n");
         return -1;
     }
-    if (RegisterKernelBin(&binHdl_) != 0) {
-        MACHINE_LOGE("RegisterKernelBin failed\n");
-        return -1;
-    }
+
     InitAicpuServer();
     return 0;
 }
