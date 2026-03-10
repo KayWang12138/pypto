@@ -136,7 +136,7 @@ void CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc, std::ost
         CodeGenOpCloudNPU cop(
             {symbolMgr, topFunc, subFunc, op, locToOffsetMap, ctx.isMainBlock, ctx.isDynamicAligned, forBlkMgr});
         std::string tileOpSourceCode = cop.GenOpCode();
-        ASSERT(tileOpSourceCode.find("CG_ERROR") == tileOpSourceCode.npos)
+        ASSERT(GenCodeErr::GEN_OP_CODE_FAILED, tileOpSourceCode.find("CG_ERROR") == tileOpSourceCode.npos)
             << "Generate code of op failed, op is " << op.Dump();
 
         allocSourceRegion.append(allocSourceCode);
@@ -321,7 +321,8 @@ std::string CodeGenCloudNPU::PrepareCmd(const CompileInfo &compileInfo, const st
     std::string compileCmd = oss.str();
 
     int ret = CheckInjectStr(compileCmd.c_str(), compileCmd.length());
-    ASSERT(ret == 0) << "CheckInjectStr failed. errCode = " << ret << ", compileCmd is " << compileCmd;
+    ASSERT(CmpCodeErr::CMD_CHECK_FAILED, ret == 0)
+        << "CheckInjectStr failed. errCode = " << ret << ", compileCmd is " << compileCmd;
 
     CODEGEN_LOGI_FULL("compile kernel...\n%s", compileCmd.c_str());
     return compileCmd;
@@ -366,7 +367,8 @@ void CodeGenCloudNPU::DumpCode(const std::string &fileName, std::ostringstream &
         codeFile.flush();
         codeFile.close();
     } catch (const std::ofstream::failure &e) {
-        CODEGEN_LOGE("Code file operation failed: %s, error: %s, errno: %d", fileName.c_str(), e.what(), errno);
+        CODEGEN_LOGE_E(CmpCodeErr::FILE_IO_FAILED, "Code file operation failed: %s, error: %s, errno: %d",
+            fileName.c_str(), e.what(), errno);
         codeFile.close();
         std::remove(fileName.c_str());
         return;
@@ -377,8 +379,9 @@ std::optional<std::string> CodeGenCloudNPU::GenExtraAlloc(
     const std::shared_ptr<SymbolManager> &symbolMgr, const std::shared_ptr<LogicalTensor> &tensor) const {
     auto memType = tensor->GetMemoryTypeOriginal();
     if (OPERAND_TYPE_TO_MEMORY_TYPE.find(memType) == OPERAND_TYPE_TO_MEMORY_TYPE.end()) {
-        CODEGEN_LOGE("%s: memory type(%zu) of tensor from PASS is invalid, tensor is: %s", __FUNCTION__,
-            static_cast<size_t>(memType), tensor->Dump().c_str());
+        CODEGEN_LOGE_E(OperErr::OPERAND_TYPE_UNSUPPORTED,
+            " memory type(%zu) of tensor from PASS is invalid, tensor is: %s", static_cast<size_t>(memType),
+            tensor->Dump().c_str());
         return std::nullopt;
     }
 
@@ -404,7 +407,7 @@ std::pair<std::string, std::string> GenAllocVarName(const std::string &prefix, c
 std::string CodeGenCloudNPU::GenAlloc(
     const std::shared_ptr<SymbolManager> &sm, BufferType bufferType, DataType dataType, const TileRange &range) const {
     if ((BUFFER_TYPE_TO_PREFIX.count(bufferType) == 0) || (OPERAND_TYPE_TO_ADDR_TYPE.count(bufferType) == 0)) {
-        ASSERT(false) << "invalid bufferType: " << static_cast<size_t>(bufferType);
+        ASSERT(OperErr::OPERAND_TYPE_UNSUPPORTED, false) << "invalid bufferType: " << static_cast<size_t>(bufferType);
         return "";
     }
 
@@ -443,8 +446,9 @@ void CodeGenCloudNPU::CompileCode(const std::string &compileCmd) const {
         return;
     }
     int ret = DoCompileCmd(compileCmd);
-    ASSERT(ret == 0) << "DoCompileCmd failed. errCode = " << ret << "\n******** bisheng compiling cmd start ********\n"
-                     << compileCmd << "\n******** bisheng compiling cmd end ********\n";
+    ASSERT(CmpCodeErr::COMPILE_CODE_FAILED, ret == 0)
+        << "DoCompileCmd failed. errCode = " << ret << "\n******** bisheng compiling cmd start ********\n"
+        << compileCmd << "\n******** bisheng compiling cmd end ********\n";
 }
 
 std::string GetIncludePathByLib() {
@@ -475,7 +479,7 @@ std::string CodeGenCloudNPU::GetIncludePathForCompileCCE() const {
         return includePathByLib;
     }
 
-    ASSERT(false) << "include path for compiling cce is unavailable";
+    ASSERT(CmpCodeErr::INCLUDE_FILE_NOT_FOUND, false) << "include path for compiling cce is unavailable";
     return "";
 }
 
@@ -488,7 +492,8 @@ std::string CodeGenCloudNPU::GetPtoTileLibPathByEnv() const {
     const char *homePath = std::getenv(ENV_PTO_TILE_LIB_CODE_PATH.c_str());
     if (homePath != nullptr) {
         std::string envPath = std::string(homePath) + "/include";
-        ASSERT(IsPathExist(envPath + "/pto")) << "Pto-isa path " << envPath << "/pto not found! please check.";
+        ASSERT(CmpCodeErr::PTO_ISA_NOT_FOUND, IsPathExist(envPath + "/pto"))
+            << "Pto-isa path " << envPath << "/pto not found! please check.";
         return envPath;
     }
 
@@ -496,11 +501,12 @@ std::string CodeGenCloudNPU::GetPtoTileLibPathByEnv() const {
     homePath = std::getenv(ENV_ASCEND_HOME_PATH.c_str());
     if (homePath != nullptr) {
         std::string cannPath = std::string(homePath) + "/include";
-        ASSERT(IsPathExist(cannPath + "/pto")) << "Pto-isa path " << cannPath << "/pto not found! please check.";
+        ASSERT(CmpCodeErr::PTO_ISA_NOT_FOUND, IsPathExist(cannPath + "/pto"))
+            << "Pto-isa path " << cannPath << "/pto not found! please check.";
         return cannPath;
     }
 
-    ASSERT(false) << "Pto-isa path not found. please install pto-isa properly.";
+    ASSERT(CmpCodeErr::PTO_ISA_NOT_FOUND, false) << "Pto-isa path not found. please install pto-isa properly.";
     return "";
 }
 
@@ -572,7 +578,8 @@ std::string CodeGenCloudNPU::GetCoreArch(const CompileInfo &compileInfo) const {
 int CodeGenCloudNPU::DoCompileCmd(const std::string &compileCmd) const {
     int ret = std::system(compileCmd.c_str());
     if (ret != 0) {
-        CODEGEN_LOGE("kernel compilation failed, ret = %d\ncompile cmd is:\n %s", ret, compileCmd.c_str());
+        CODEGEN_LOGE_E(CmpCodeErr::COMPILE_CODE_FAILED, "kernel compilation failed, ret = %d\ncompile cmd is:\n %s",
+            ret, compileCmd.c_str());
     }
     return ret;
 }
@@ -605,13 +612,9 @@ void EncodeWaitUntilInfo(const Operation &op, std::vector<int32_t> &code) {
     auto it = map.find(OpAttributeKey::distOpAttr);
     if (it != map.end()) {
         Distributed::ShmemWaitUntilAttr distAttr = AnyCast<Distributed::ShmemWaitUntilAttr>(it->second);
-        std::vector<int32_t> attrs = {
-            static_cast<int32_t>(distAttr.expectedSum),
-            static_cast<int32_t>(distAttr.signalStride),
-            static_cast<int32_t>(distAttr.resetSignal),
-            static_cast<int32_t>(distAttr.tileRowShape),
-            static_cast<int32_t>(distAttr.tileColShape)
-        };
+        std::vector<int32_t> attrs = {static_cast<int32_t>(distAttr.expectedSum),
+            static_cast<int32_t>(distAttr.signalStride), static_cast<int32_t>(distAttr.resetSignal),
+            static_cast<int32_t>(distAttr.tileRowShape), static_cast<int32_t>(distAttr.tileColShape)};
         code.push_back(static_cast<int32_t>(attrs.size()));
         code.insert(code.end(), attrs.begin(), attrs.end());
     }
@@ -697,7 +700,7 @@ std::string CodeGenCloudNPU::GetOutputDir() const {
 void CodeGenCloudNPU::GenerateMakefile(const std::string &makefilePath) const {
     std::ofstream makefile(makefilePath);
     if (!makefile.is_open()) {
-        ASSERT(false) << "Failed to create Makefile: " << makefilePath;
+        ASSERT(CmpCodeErr::FILE_IO_FAILED, false) << "Failed to create Makefile: " << makefilePath;
         return;
     }
 
@@ -763,7 +766,7 @@ void CodeGenCloudNPU::ExecuteParallelCompile(const Function &topFunc) {
     auto duration = std::chrono::duration<double, std::milli>(endTime - startTime);
     CODEGEN_LOGI("Parallel compilation finished in %f ms", duration.count());
 
-    ASSERT(ret == 0) << "Parallel compilation failed with return code: " << ret;
+    ASSERT(CmpCodeErr::COMPILE_CODE_FAILED, ret == 0) << "Parallel compilation failed with return code: " << ret;
 
     compileTasks_.clear();
 }
