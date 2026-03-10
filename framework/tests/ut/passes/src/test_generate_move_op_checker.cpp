@@ -585,5 +585,34 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ConvertOp_Valid) {
     EXPECT_EQ(preCheckStatus, SUCCESS);
 }
 
+TEST_F(TestGenerateMoveOpChecker, PreCheck_ViewOp_MoreThanOneInput1) {
+    // 1. 原生构造Function
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestViewMultiInput", "TestViewMultiInput", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    std::vector<int64_t> shape = {16, 32};
+    auto t1Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto t2Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto t3Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {t1Tensor, t2Tensor}, {t3Tensor});
+
+    std::vector<int64_t> viewShape{16, 32};
+    auto viewAttr = std::make_shared<ViewOpAttribute>(viewShape); 
+    viewOp.SetOpAttribute(viewAttr);
+
+    currFunctionPtr->inCasts_.push_back(t1Tensor);
+    currFunctionPtr->outCasts_.push_back(t3Tensor);
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*currFunctionPtr);
+    EXPECT_EQ(preCheckStatus, FAILED);
+    const auto &operations = currFunctionPtr->Operations();
+    for (auto &op : operations) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            EXPECT_EQ(op.GetIOperands().size(), 2);
+        }
+    }
+}
 } // namespace tile_fwk
 } // namespace npu
