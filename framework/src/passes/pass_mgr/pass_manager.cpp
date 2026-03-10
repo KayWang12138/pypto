@@ -257,7 +257,6 @@ static void LogPassRuntime(const std::string &identifier, Program &program, Func
 }
 
 Status PassManager::RunPass(Program &program, Function &function, const std::string &strategy) const {
-    Platform::Instance().ObtainPlatformInfo();
     auto strategyPasses = GetStrategyPasses(strategy);
     std::vector<std::string> identifiers;
     std::transform(strategyPasses.begin(), strategyPasses.end(), std::back_inserter(identifiers),

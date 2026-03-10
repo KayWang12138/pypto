@@ -20,6 +20,7 @@ namespace npu {
 namespace tile_fwk {
 const uint32_t kMaxLength = 50;
 const std::string socVerFuncName = "rtGetSocVersion";
+const std::string socSpecFuncName = "rtGetSocSpec";
 
 void *CannHostRuntime::GetSymbol(const std::string &sym) {
 #ifdef BUILD_WITH_CANN
@@ -42,6 +43,7 @@ CannHostRuntime::CannHostRuntime() {
     handle_ = dlopen(soPath.c_str(), RTLD_LAZY);
     if (handleDep_ != nullptr && handle_ != nullptr) {
         socVerFunc_ = (GetSocVerFunc)GetSymbol(socVerFuncName);
+        socSpecFunc_ = (GetSocSpecFunc)GetSymbol(socSpecFuncName);
     }
 #endif
     if (handleDep_ == nullptr || handle_ == nullptr) {
@@ -77,6 +79,25 @@ bool CannHostRuntime::GetSocVersion(std::string& socVersion) {
     }
 #endif
     socVersion.clear();
+    return false;
+}
+
+bool CannHostRuntime::GetSocSpec(const std::string& column, const std::string& key, std::string& val) {   
+#ifdef BUILD_WITH_CANN
+    int ret = 1;
+    char charVal[kMaxLength] = {0};
+    if (socSpecFunc_ != nullptr) {
+        ret = socSpecFunc_(column.c_str(), key.c_str(), charVal, kMaxLength);
+    }
+    if (ret == 0) {
+        charVal[kMaxLength - 1] = '\0';
+        val = std::string(charVal);
+        return true;
+    }
+#endif
+    (void)column;
+    (void)key;
+    (void)val;
     return false;
 }
 
