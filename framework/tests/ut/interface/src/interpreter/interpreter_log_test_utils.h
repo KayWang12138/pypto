@@ -55,7 +55,7 @@ static inline std::string InterpLogTestGetThreadLogPrefix() {
 #else
     long tid = getpid();
 #endif
-    return std::string(kInterpLogTestHostLogFilePrefix) + std::to_string(tid) + "-";
+    return std::string(kInterpLogTestHostLogFilePrefix) + std::to_string(tid) + "_";
 }
 
 static inline std::map<std::string, size_t> InterpLogTestListHostLogFilesWithSize(const std::string &dir,
