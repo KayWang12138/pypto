@@ -1576,7 +1576,7 @@ TEST_F(ScheduleOoOTest, TestMixSchedule) {
     OoOSchedule oooSchedule;
     auto opList = function->Operations(false).DuplicatedOpList();
     std::pair<uint64_t, Function*> functionPair = std::make_pair(0, function);
-    int size = 0;
+    int64_t size = 0;
     Status res = oooSchedule.MixSchedule(opList, *function, functionPair, size);
     EXPECT_EQ(res, SUCCESS);
 }
@@ -1722,7 +1722,7 @@ TEST_F(ScheduleOoOTest, TestOoO1C2V) {
     auto opList = optimizeSort.operations;
     OoOSchedule oooSchedule;
     std::pair<uint64_t, Function*> functionPair = std::make_pair(0, function);
-    int size = 0;
+    int64_t size = 0;
     res = oooSchedule.MixSchedule(opList, *function, functionPair, size);
     EXPECT_EQ(res, SUCCESS);
     EXPECT_EQ(op1->GetInternalSubgraphID(), 1);
