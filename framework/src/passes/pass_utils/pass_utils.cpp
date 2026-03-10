@@ -18,8 +18,10 @@
 #include "interface/utils/log.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/function/function.h"
+#include "tilefwk/platform.h"
 
 namespace npu::tile_fwk {
+static constexpr size_t kSimdVFStackReservedSize = 8 * 1024; // reserved UB space for SIMD VF stack
 
 void FunctionUtils::RelinkOperationInput(Operation *op, const size_t inputIndex, const Operation *targetOp,
                                          const size_t outputIndex) {
@@ -860,5 +862,33 @@ void SubfuncTopologyInfoTy::LoadJson(const Json &topoJson)
         AddEntry(ele["esg_id"], ele["ready_state"], outGraph);
         UpdateEntry(ele["ext_type"], ele["ext_param_num"], ele["ext_params"].get<std::vector<int64_t>>());
     }
+}
+
+const std::unordered_map<MemoryType, int64_t>& CommonUtils::GetLocalMemorySize() {
+    static const std::unordered_map<MemoryType, int64_t> localMemorySize = []() {
+        std::unordered_map<MemoryType, int64_t> m;
+        auto &platform = Platform::Instance();
+        auto &die = platform.GetDie();
+
+        int64_t ubSize = die.GetMemoryLimit(MemoryType::MEM_UB);
+
+        if (platform.GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+            ubSize -= kSimdVFStackReservedSize;
+        }
+
+        m[MemoryType::MEM_UB] = ubSize;
+        m[MemoryType::MEM_L1] = die.GetMemoryLimit(MemoryType::MEM_L1);
+        m[MemoryType::MEM_L0A] = die.GetMemoryLimit(MemoryType::MEM_L0A);
+        m[MemoryType::MEM_L0B] = die.GetMemoryLimit(MemoryType::MEM_L0B);
+        m[MemoryType::MEM_L0C] = die.GetMemoryLimit(MemoryType::MEM_L0C);
+        m[MemoryType::MEM_L0AMX] = die.GetMemoryLimit(MemoryType::MEM_L0AMX);
+        m[MemoryType::MEM_L0BMX] = die.GetMemoryLimit(MemoryType::MEM_L0BMX);
+        m[MemoryType::MEM_BT] = die.GetMemoryLimit(MemoryType::MEM_BT);
+        m[MemoryType::MEM_FIX] = die.GetMemoryLimit(MemoryType::MEM_FIX);
+        m[MemoryType::MEM_FIX_QUANT_PRE] = die.GetMemoryLimit(MemoryType::MEM_FIX_QUANT_PRE);
+
+        return m;
+    }();
+    return localMemorySize;
 }
 } // namespace npu::tile_fwk
