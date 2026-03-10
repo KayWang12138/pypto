@@ -26,7 +26,7 @@ namespace npu::tile_fwk {
 std::vector<int64_t> NormalizeShape(const std::vector<int64_t> &shapeVec, unsigned dim) {
     std::vector<int64_t> normalizedVec(dim, 1);
     for (size_t i = 0; i < shapeVec.size(); i++) {
-        ASSERT(i < dim && "exceed dimension limit!");
+        ASSERT(OperErr::TENSOR_DIM_EXCEEDED, i < dim) << "exceed dimension limit!";
         normalizedVec[i] = shapeVec[shapeVec.size() - 1 - i];
     }
     std::reverse(normalizedVec.begin(), normalizedVec.end());
@@ -60,7 +60,7 @@ std::string GetTypeForB16B32(const DataType &dtype) {
     if (BytesOf(dtype) == K_BYTES_OF32_BIT) {
         return "uint32_t";
     }
-    ASSERT(false) << "can not support dtype: " << DataType2String(dtype);
+    ASSERT(GenCodeErr::DATA_TYPE_UNSUPPORTED, false) << "can not support dtype: " << DataType2String(dtype);
     return {};
 }
 
@@ -69,13 +69,14 @@ std::string GetAddrTypeByOperandType(OperandType type) {
     if (iter != OPERAND_TYPE_TO_ADDR_TYPE.end()) {
         return iter->second;
     }
-    ASSERT(false) << "cannot support current OperandType " << type;
+    ASSERT(OperErr::OPERAND_TYPE_UNSUPPORTED, false) << "cannot support current OperandType " << type;
     return "";
 }
 
 int64_t CalcLinearOffset(const std::vector<int64_t> &shape, const std::vector<int64_t> &offset) {
     if (shape.empty() || offset.empty() || shape.size() != offset.size()) {
-        CODEGEN_LOGE("Invalid Input! shape: %s, offset: %s", IntVecToStr(shape).c_str(), IntVecToStr(offset).c_str());
+        CODEGEN_LOGE_E(GenCodeErr::TENSOR_SHAPE_INVALID, "Invalid Input! shape: %s, offset: %s",
+            IntVecToStr(shape).c_str(), IntVecToStr(offset).c_str());
         return 0;
     }
 
