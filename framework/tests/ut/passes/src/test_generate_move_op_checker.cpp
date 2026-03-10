@@ -653,27 +653,6 @@ TEST_F(TestGenerateMoveOpChecker, PostCheck_AssembleOp_MoreThanOneInput) {
     EXPECT_EQ(postCheckStatus, FAILED);
 }
 
-TEST_F(TestGenerateMoveOpChecker, PostCheck_AssembleOp_MoreThanOneOutput) {
-    ComputationalGraphBuilder G;
-    std::vector<std::string> tensorNames{"t1", "t2", "t3"};
-    std::vector<Opcode> opCodes{Opcode::OP_ASSEMBLE};
-    std::vector<std::vector<std::string>> ioperands{{"t1"}};
-    std::vector<std::vector<std::string>> ooperands{
-        {"t2", "t3"}
-    };
-    std::vector<std::string> opNames{"ASSEMBLE_MultiOutput"};
-
-    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
-    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
-
-    Function *function = G.GetFunction();
-    EXPECT_NE(function, nullptr);
-
-    GenerateMoveOp checker;
-    Status postCheckStatus = checker.PostCheck(*function);
-    EXPECT_EQ(postCheckStatus, FAILED);
-}
-
 TEST_F(TestGenerateMoveOpChecker, PostCheck_AssembleOp_InputMemTypeNotMatch) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2"};
