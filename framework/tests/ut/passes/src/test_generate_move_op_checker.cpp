@@ -109,7 +109,7 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ViewOp_MoreThanOneOutput) {
     };
     std::vector<std::string> opNames{"VIEW_MultiOutput"};
 
-    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 32}, tensorNames), true);
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
 
     Function *function = G.GetFunction();
@@ -298,20 +298,17 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_AssembleOp_MoreThanOneInput) {
 
 TEST_F(TestGenerateMoveOpChecker, PreCheck_AssembleOp_MoreThanOneOutput) {
     ComputationalGraphBuilder G;
-    std::vector<std::string> tensorNames{"t1", "t2", "t3"};
+    std::vector<std::string> tensorNames{"t0", "t2", "t3"};
     std::vector<Opcode> opCodes{Opcode::OP_ASSEMBLE};
-    std::vector<std::vector<std::string>> ioperands{{"t1"}};
+    std::vector<std::vector<std::string>> ioperands{{"t0"}};
     std::vector<std::vector<std::string>> ooperands{
         {"t2", "t3"}
     };
-    std::vector<std::string> opNames{"ASSEMBLE_MultiOutput"};
-
-    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    std::vector<std::string> opNames{"ASSEMBLE_MultiOutput1"};
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 32}, tensorNames), true);
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
-
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
-
     GenerateMoveOp checker;
     Status preCheckStatus = checker.PreCheck(*function);
     EXPECT_EQ(preCheckStatus, FAILED);
@@ -325,7 +322,7 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_AssembleOp_InputIsNull) {
     std::vector<std::vector<std::string>> ooperands{{"t2"}};
     std::vector<std::string> opNames{"ASSEMBLE_InputNull"};
 
-    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 32}, tensorNames), true);
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
 
     Function *function = G.GetFunction();
@@ -521,40 +518,16 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ConvertOp_DiffShape) {
     std::vector<Opcode> opCodes{Opcode::OP_CONVERT};
     std::vector<std::vector<std::string>> ioperands{{"t1"}};
     std::vector<std::vector<std::string>> ooperands{{"t2"}};
-    std::vector<std::string> opNames{"CONVERT_DiffShape"};
-
+    std::vector<std::string> opNames{"CONVERT_DiffShape1"};
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
-
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
-
     GenerateMoveOp checker;
     Status preCheckStatus = checker.PreCheck(*function);
     EXPECT_EQ(preCheckStatus, FAILED);
 }
 
-} // namespace tile_fwk
-} // namespace npu
-
-namespace npu {
-namespace tile_fwk {
-
-class TestGenerateMoveOpCheckerPostCheck : public ::testing::Test {
-public:
-    static void SetUpTestCase() {}
-    static void TearDownTestCase() {}
-
-    void SetUp() override {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetHostConfig(KEY_STRATEGY, "GenerateMoveOpCheckerTestStrategy");
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-    }
-    void TearDown() override {}
-};
-
-TEST_F(TestGenerateMoveOpCheckerPostCheck, PostCheck_Duplicate_Exist) {
+TEST_F(TestGenerateMoveOpChecker, PostCheck_Duplicate_Exist) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2"};
     std::vector<Opcode> opCodes{Opcode::OP_DUPLICATE};
@@ -573,7 +546,7 @@ TEST_F(TestGenerateMoveOpCheckerPostCheck, PostCheck_Duplicate_Exist) {
     EXPECT_EQ(postCheckStatus, FAILED);
 }
 
-TEST_F(TestGenerateMoveOpCheckerPostCheck, PostCheck_Convert_Exist) {
+TEST_F(TestGenerateMoveOpChecker, PostCheck_Convert_Exist) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2"};
     std::vector<Opcode> opCodes{Opcode::OP_CONVERT};
@@ -592,7 +565,7 @@ TEST_F(TestGenerateMoveOpCheckerPostCheck, PostCheck_Convert_Exist) {
     EXPECT_EQ(postCheckStatus, FAILED);
 }
 
-TEST_F(TestGenerateMoveOpCheckerPostCheck, PostCheck_ViewOp_MoreThanOneInput) {
+TEST_F(TestGenerateMoveOpChecker, PostCheck_ViewOp_MoreThanOneInput) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3"};
     std::vector<Opcode> opCodes{Opcode::OP_VIEW};
@@ -613,7 +586,7 @@ TEST_F(TestGenerateMoveOpCheckerPostCheck, PostCheck_ViewOp_MoreThanOneInput) {
     EXPECT_EQ(postCheckStatus, FAILED);
 }
 
-TEST_F(TestGenerateMoveOpCheckerPostCheck, PostCheck_ViewOp_MoreThanOneOutput) {
+TEST_F(TestGenerateMoveOpChecker, PostCheck_ViewOp_MoreThanOneOutput) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3"};
     std::vector<Opcode> opCodes{Opcode::OP_VIEW};
@@ -622,19 +595,16 @@ TEST_F(TestGenerateMoveOpCheckerPostCheck, PostCheck_ViewOp_MoreThanOneOutput) {
         {"t2", "t3"}
     };
     std::vector<std::string> opNames{"VIEW_MultiOutput"};
-
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
-
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
-
     GenerateMoveOp checker;
     Status postCheckStatus = checker.PostCheck(*function);
     EXPECT_EQ(postCheckStatus, FAILED);
 }
 
-TEST_F(TestGenerateMoveOpCheckerPostCheck, PostCheck_ViewOp_InputMemTypeNotMatch) {
+TEST_F(TestGenerateMoveOpChecker, PostCheck_ViewOp_InputMemTypeNotMatch) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2"};
     std::vector<Opcode> opCodes{Opcode::OP_VIEW};
@@ -664,7 +634,7 @@ TEST_F(TestGenerateMoveOpCheckerPostCheck, PostCheck_ViewOp_InputMemTypeNotMatch
     EXPECT_EQ(postCheckStatus, FAILED);
 }
 
-TEST_F(TestGenerateMoveOpCheckerPostCheck, PostCheck_AssembleOp_MoreThanOneInput) {
+TEST_F(TestGenerateMoveOpChecker, PostCheck_AssembleOp_MoreThanOneInput) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3"};
     std::vector<Opcode> opCodes{Opcode::OP_ASSEMBLE};
@@ -672,20 +642,18 @@ TEST_F(TestGenerateMoveOpCheckerPostCheck, PostCheck_AssembleOp_MoreThanOneInput
         {"t1", "t2"}
     };
     std::vector<std::vector<std::string>> ooperands{{"t3"}};
-    std::vector<std::string> opNames{"ASSEMBLE_MultiInput"};
+    std::vector<std::string> opNames{"ASSEMBLE_MultiInput2"};
 
-    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
+    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 32}, tensorNames), true);
     EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
-
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
-
     GenerateMoveOp checker;
     Status postCheckStatus = checker.PostCheck(*function);
     EXPECT_EQ(postCheckStatus, FAILED);
 }
 
-TEST_F(TestGenerateMoveOpCheckerPostCheck, PostCheck_AssembleOp_MoreThanOneOutput) {
+TEST_F(TestGenerateMoveOpChecker, PostCheck_AssembleOp_MoreThanOneOutput) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3"};
     std::vector<Opcode> opCodes{Opcode::OP_ASSEMBLE};
@@ -706,7 +674,7 @@ TEST_F(TestGenerateMoveOpCheckerPostCheck, PostCheck_AssembleOp_MoreThanOneOutpu
     EXPECT_EQ(postCheckStatus, FAILED);
 }
 
-TEST_F(TestGenerateMoveOpCheckerPostCheck, PostCheck_AssembleOp_InputMemTypeNotMatch) {
+TEST_F(TestGenerateMoveOpChecker, PostCheck_AssembleOp_InputMemTypeNotMatch) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2"};
     std::vector<Opcode> opCodes{Opcode::OP_ASSEMBLE};
@@ -736,28 +704,7 @@ TEST_F(TestGenerateMoveOpCheckerPostCheck, PostCheck_AssembleOp_InputMemTypeNotM
     EXPECT_EQ(postCheckStatus, FAILED);
 }
 
-} // namespace tile_fwk
-} // namespace npu
-
-namespace npu {
-namespace tile_fwk {
-
-class TestGenerateMoveOpCheckerValid : public ::testing::Test {
-public:
-    static void SetUpTestCase() {}
-    static void TearDownTestCase() {}
-
-    void SetUp() override {
-        Program::GetInstance().Reset();
-        config::Reset();
-        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-        config::SetHostConfig(KEY_STRATEGY, "GenerateMoveOpCheckerTestStrategy");
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-    }
-    void TearDown() override {}
-};
-
-TEST_F(TestGenerateMoveOpCheckerValid, PreCheck_ViewOp_Valid) {
+TEST_F(TestGenerateMoveOpChecker, PreCheck_ViewOp_Valid) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3"};
     std::vector<Opcode> opCodes{Opcode::OP_VIEW, Opcode::OP_MUL};
@@ -786,7 +733,7 @@ TEST_F(TestGenerateMoveOpCheckerValid, PreCheck_ViewOp_Valid) {
     EXPECT_EQ(preCheckStatus, SUCCESS);
 }
 
-TEST_F(TestGenerateMoveOpCheckerValid, PreCheck_AssembleOp_Valid) {
+TEST_F(TestGenerateMoveOpChecker, PreCheck_AssembleOp_Valid) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2"};
     std::vector<Opcode> opCodes{Opcode::OP_ASSEMBLE};
@@ -811,7 +758,7 @@ TEST_F(TestGenerateMoveOpCheckerValid, PreCheck_AssembleOp_Valid) {
     EXPECT_EQ(preCheckStatus, SUCCESS);
 }
 
-TEST_F(TestGenerateMoveOpCheckerValid, PreCheck_ConvertOp_Valid) {
+TEST_F(TestGenerateMoveOpChecker, PreCheck_ConvertOp_Valid) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2"};
     std::vector<Opcode> opCodes{Opcode::OP_CONVERT};
