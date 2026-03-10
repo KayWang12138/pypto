@@ -3324,6 +3324,8 @@ TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp, unsign
     // pipe_barrier(PIPE_ALL); // 当前OP无法描述两条流水,UB复用场景存在问题,暂时按照pipe_all规避
     int32_t srcShape1Align = (oriShape1 + 31) / 32 * 32;
     __ubuf__ uint32_t *idx = (__ubuf__ uint32_t *)tmp;
+    set_flag(PIPE_V, PIPE_S, EVENT_ID6);
+    wait_flag(PIPE_V, PIPE_S, EVENT_ID6);
     for (int32_t j = 0; j < oriShape1; j++) {
         *(idx + j) = (j + offset);
     }
@@ -3333,37 +3335,27 @@ TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp, unsign
 
     // 对于不满足32元素对齐场景,首先将src拷贝到dst的3*srcShape1位置
     if (oriShape1 < 32) {
-        uint64_t srcShape1_Align_Block_Num = (oriShape1 * sizeof(float) + 31) / 32;
-        uint64_t dstShape1_Block_Num = dstShape1 * sizeof(float) / 32;
-        copy_ubuf_to_ubuf((__ubuf__ float *)tmp + srcShape1Align, (__ubuf__ void *)src, 0, oriShape0,
-            srcShape1_Align_Block_Num, 0, dstShape1_Block_Num - srcShape1_Align_Block_Num);
-        pipe_barrier(PIPE_V);
-        if constexpr (isLargest == 0) {
-            for (int32_t i = 0; i < oriShape0; ++i) {
+        uint64_t mask = ~(((static_cast<uint32_t>(1)) << oriShape1) - 1);
+        mask = mask & 0xFFFFFFFF;
+        for (int rowIdx = 0; rowIdx < oriShape0; rowIdx++) {
+            if constexpr (isLargest == 0) {
                 set_mask_count();
                 set_vector_mask(0, oriShape1);
-                // 按照升序排列时,需要首先将数据加上0x80000000,同时不可以污染src
-                vadds((__ubuf__ int32_t *)tmp + srcShape1Align,
-                 (__ubuf__ int32_t *)tmp + srcShape1Align, 0x80000000, 1, 1, 1, 8, 8);
+                vadds((__ubuf__ int32_t *)src + rowIdx * srcShape1,
+                (__ubuf__ int32_t *)src + rowIdx * srcShape1, 0x80000000, 1, 1, 1, 8, 8);
                 pipe_barrier(PIPE_V);
                 set_mask_norm();
                 set_vector_mask(-1, -1);
             }
-        }
-        // 需要将尾块部分置为-inf，之后再排序
-        // 计算duplicate的mask
-        uint64_t mask = ~(((static_cast<uint32_t>(1)) << oriShape1) - 1);
-        mask = mask & 0xFFFFFFFF;
-        for (int rowIdx = 0; rowIdx < oriShape0; rowIdx++) {
             set_mask_norm();
             set_vector_mask(0, mask);
-            vector_dup(tmp + srcShape1Align + rowIdx * dstShape1, FLOAT_MIN, 1, 1, 1, 0, (int64_t)0);
+            vector_dup(src + rowIdx * srcShape1, FLOAT_MIN, 1, 1, 1, 0, (int64_t)0);
             pipe_barrier(PIPE_V);
             vbitsort((__ubuf__ float *)dst + rowIdx * dstShape1,
-                (__ubuf__ float *)tmp + srcShape1Align, (__ubuf__ uint32_t *)idx, 1);
+                (__ubuf__ float *)src + rowIdx * srcShape1, (__ubuf__ uint32_t *)idx, 1);
             pipe_barrier(PIPE_V);
+            set_vector_mask(-1, -1);
         }
-        set_vector_mask(-1, -1);
     }
 
     if (oriShape1 == 32) {
@@ -3374,10 +3366,8 @@ TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp, unsign
             if constexpr (isLargest == 0) {
                 set_mask_count();
                 set_vector_mask(0, oriShape1);
-                // 按照升序排列时,需要首先将数据加上0x80000000,同时不可以污染src
-                srcData = reinterpret_cast<__ubuf__ float *>(tmp) + srcShape1Align;
-                vadds(reinterpret_cast<__ubuf__ int32_t *>(srcData), reinterpret_cast<__ubuf__ int32_t *>(src) + rowIdx * srcShape1,
-                 0x80000000, 1, 1, 1, 8, 8);
+                vadds((__ubuf__ int32_t *)src + rowIdx * srcShape1,
+                (__ubuf__ int32_t *)src + rowIdx * srcShape1, 0x80000000, 1, 1, 1, 8, 8);
                 pipe_barrier(PIPE_V);
                 set_mask_norm();
                 set_vector_mask(-1, -1);
@@ -3400,19 +3390,16 @@ TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp, unsign
             if constexpr (isLargest == 0) {
                 set_mask_count();
                 set_vector_mask(0, oriShape1);
-                // 按照升序排列时,需要首先将数据乘以-1,同时不可以污染src
-                srcData = reinterpret_cast<__ubuf__ float *>(dst) + srcShape1Align;
-                vadds(reinterpret_cast<__ubuf__ int32_t *>(srcData), reinterpret_cast<__ubuf__ int32_t *>(src) + rowIdx * srcShape1,
-                 0x80000000, 1, 1, 1, 8, 8);
+                vadds((__ubuf__ int32_t *)src + rowIdx * srcShape1,
+                (__ubuf__ int32_t *)src + rowIdx * srcShape1, 0x80000000, 1, 1, 1, 8, 8);
                 pipe_barrier(PIPE_V);
                 set_mask_norm();
                 set_vector_mask(-1, -1);
-            } else {
-                constexpr uint16_t lenBurst = srcShape1 * sizeof(T) / BLOCK_SIZE;
-                srcData = reinterpret_cast<__ubuf__ float *>(dst) + srcShape1Align;
-                copy_ubuf_to_ubuf(srcData, src + rowIdx * srcShape1, 0, 1, lenBurst, 0, 0);
-                pipe_barrier(PIPE_V);
             }
+            constexpr uint16_t lenBurst = srcShape1 * sizeof(T) / BLOCK_SIZE;
+            srcData = reinterpret_cast<__ubuf__ float *>(tmp) + srcShape1Align;
+            copy_ubuf_to_ubuf(srcData, src + rowIdx * srcShape1, 0, 1, lenBurst, 0, 0);
+            pipe_barrier(PIPE_V);
             if (max_repeat_num > 0) {
                 for (int j = 0; j < max_repeat_num; ++j) {
                     vbitsort(dstData + j * REPEAT_MAX * 64, srcData + j * REPEAT_MAX * 32,
