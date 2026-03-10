@@ -24,6 +24,34 @@ constexpr uint16_t UB_BUFFER_BYTE_SIZE = 16 * 1024;
 constexpr uint16_t DTYPE_CAST_BYTE_SIZE = 256;
 constexpr uint16_t UB_ALIGN_SIZE = 32;
 
+void ValidateTilingSize(const Opcode opCode, const VecTile& vecTile, const Tensor& shmemTensor, int32_t dim)
+{
+    int32_t expectedTileSize = in.GetShape().size();
+    int32_t worldSize = shmemTensor.GetShape(0);
+    int32_t shmemStartDim =  shmemTensor.GetShape().size() - dim;
+    CHECK(expectedTileSize == static_cast<int32_t>(vecTile.size())) << OpcodeManager::Inst().GetOpcodeStr(opCode) <<
+        " has invalid dim of tile shape: dim of tile shape must be equal to " << std::to_string(expectedTileSize) << ".";
+    CHECK(std::all_of(vecTile.tile.begin(), vecTile.tile.begin() + expectedTileSize, [](int64_t v) { return v > 0;}))
+        << OpcodeManager::Inst().GetOpcodeStr(opCode) << " has invalid vecTile set: each element of the tileSize must be > 0";
+    CHECK([&](){
+        for (int32_t i = 0; i < expectedTileSize; ++i) {
+            if (vecTile[i] > in.GetShape(i)) {
+                return false;
+            }
+        }
+        return true;
+    }()) << OpcodeManager::Inst().GetOpcodeStr(opCode) << " has invalid vecTile set: tile size must be <= input shape for each dimension";
+    int32_t tileRowShape = vecTile[0];
+    int32_t tileColShape = vecTile[1];
+    int32_t tileRowNum = shmemTensor.GetShape(shmemStartDim) / tileRowShape + (shmemTensor.GetShape(shmemStartDim) % tileRowShape == 0 ? 0 : 1);
+    int32_t tileColNum = shmemTensor.GetShape(shmemStartDim + 1) / tileColShape + (shmemTensor.GetShape(shmemStartDim + 1) % tileColShape == 0 ? 0 : 1);
+    CHECK(worldSize > 0) << OpcodeManager::Inst().GetOpcodeStr(opCode) <<
+        " has invalid worldSize, worldSize should be more than 0, but got " << worldSize;
+    CHECK(tileRowNum * tileColNum <= MAX_TILE_NUM / worldSize) << OpcodeManager::Inst().GetOpcodeStr(opCode) <<
+        " has invalid totalTileNum, totalTileNum shoule be less than or equal to" << MAX_TILE_NUM / worldSize <<
+        ", but got " << tileRowNum * tileColNum;
+}
+
 LogicalTensorPtr View2DTile(const LogicalTensorPtr dummy, int32_t tileIndex, int32_t tileRowNum, int32_t tileColNum,
     Function& function)
 {
@@ -196,7 +224,7 @@ void TiledShmemPut(Function& function, const TileShape& tileShape,
     auto in = iOperand[1];
     auto shmemData = iOperand[2];
     auto out = oOperand[0];
-
+    ValidateTilingSize(Opcode::OP_SHMEM_PUT, tileShape.GetVecTile(), shmemData, in.GetShape());
     DummyTileFunc predTokenTileFunc = GetDummyTileFunc(predToken, shmemData, tileShape.GetVecTile(), function);
     DummyTileFunc outTileFunc = GetDummyTileFunc(out, shmemData, tileShape.GetVecTile(), function);
     DfsTiling(tileShape.GetVecTile(), shmemData, [&](uint32_t tileIndex, Input& input) {
@@ -250,7 +278,7 @@ void TiledShmemSignal(Function& function, const TileShape& tileShape,
     auto predToken = iOperand[0];
     auto shmemSignal = iOperand[1];
     auto out = oOperand[0];
-
+    ValidateTilingSize(Opcode::OP_SHMEM_SIGNAL, tileShape.GetVecTile(), shmemSignal, 2);
     DummyTileFunc predTokenTileFunc = GetDummyTileFunc(predToken, shmemSignal, tileShape.GetVecTile(), function);
     DummyTileFunc outTileFunc = GetDummyTileFunc(out, shmemSignal, tileShape.GetVecTile(), function);
     DfsTiling(tileShape.GetVecTile(), shmemSignal, [&](uint32_t tileIndex, Input& input){
@@ -282,7 +310,7 @@ void TiledShmemWaitUntil(Function& function, const TileShape& tileShape,
     auto predToken = iOperand[0];
     auto shmemSignal = iOperand[1];
     auto out = oOperand[0];
-
+    ValidateTilingSize(Opcode::OP_SHMEM_WAIT_UNTIL, tileShape.GetVecTile(), shmemSignal, 2);
     int32_t tileRowShape = tileShape.GetVecTile()[0];
     int32_t tileColShape = tileShape.GetVecTile()[1];
 
@@ -314,6 +342,7 @@ void TiledShmemGet(Function& function, const TileShape& tileShape,
     auto predToken = iOperand[0];
     auto shmemData = iOperand[1];
     auto out = oOperand[0];
+    ValidateTilingSize(Opcode::OP_SHMEM_GET, tileShape.GetVecTile(), shmemData, 2);
     DummyTileFunc predTokenTileFunc = GetDummyTileFunc(predToken, shmemData, tileShape.GetVecTile(), function);
     DummyTileFunc outTileFunc;
     DfsTiling(tileShape.GetVecTile(), shmemData, [&](uint32_t tileIndex, Input& input) {
@@ -345,7 +374,7 @@ void TiledShmemGetGM2UB(Function& function, const TileShape& tileShape,
     auto dummy = iOperand[0];
     auto shmemData = iOperand[1];
     auto outUb = oOperand[0];
-
+    ValidateTilingSize(Opcode::OP_SHMEM_GET_GM2UB, tileShape.GetVecTile(), shmemData, 2);
     DummyTileFunc dummyTileFunc = GetDummyTileFunc(dummy, shmemData, tileShape.GetVecTile(), function);
     DummyTileFunc outTileFunc;
     DfsTiling(tileShape.GetVecTile(), shmemData, [&](uint32_t tileIndex, Input& input) {
