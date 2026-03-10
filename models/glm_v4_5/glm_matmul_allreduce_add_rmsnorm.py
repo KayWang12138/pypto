@@ -34,7 +34,7 @@ from utils.distributed_config import DistributedConfig
 
 
 def init_hccl_comm(config: DistributedConfig, logical_rank):
-    physical_device_id = PHYSICAL_START_DEVICE_ID + logical_rank
+    physical_device_id = config.get_physical_device_id(logical_rank)
     torch_npu.npu.set_device(physical_device_id)
     dist.init_process_group(
         backend="hccl",
@@ -193,12 +193,12 @@ def matmul_allreduce_add_rmsnorm_result_golden(batch_size, num, input_datas):
     return output_datas
 
 
-def matmul_allreduce_add_rmsnorm_worker(config: DistributedConfig, intput_data, output_data, rank):
+def matmul_allreduce_add_rmsnorm_worker(config: DistributedConfig, input_data, output_data, rank):
     groups = init_hccl_comm(config, rank)
     physical_device_id = config.get_physical_device_id(rank)
     device = f'npu:{physical_device_id}'
 
-    in_tensor, matmul_weight, residual, gamma, bias, eps = intput_data
+    in_tensor, matmul_weight, residual, gamma, bias, eps = input_data
     golden_out_tensor, golden_residual = output_data
 
     out_tensor = torch.empty(residual.shape, dtype=torch.bfloat16, device=device)
@@ -245,7 +245,7 @@ def matmul_allreduce_add_rmsnorm(
     out_tensor = torch.empty(residual.shape, dtype=torch.bfloat16, device=residual.device)
     residual_out = torch.empty(residual.shape, dtype=torch.bfloat16, device=residual.device)
 
-    inputs = [hidden_states, matmul_weight, residual, gamma, bias, out_tensor, residual_out]
+    inputs = [hidden_size, matmul_weight, residual, gamma, bias, out_tensor, residual_out]
 
     batch_size, attn_dim_per_tp = in_tensor.shape
     hidden_size = out_tensor.shape[1]
@@ -254,18 +254,20 @@ def matmul_allreduce_add_rmsnorm(
 
     return out_tensor, residual_out
 
-
-def run_matmul_allreduce_add_rmsnorm():
+@pytest.mark.world_size(2)
+def test_matmul_allreduce_add_rmsnorm():
     mp.set_start_method('spawn', force=True)
+    config = DistributedConfig(world_size=2)
     processes = []
-    input_datas, output_datas = generate_golden_data()
+    input_datas, output_datas = generate_golden_data(config.world_size)
     for i in range(config.world_size):
         p = mp.Process(target=matmul_allreduce_add_rmsnorm_worker, args=(config, input_datas[i], output_datas[i], i))
         p.start()
         processes.append(p)
-    for p in processes:
+    for i, p in enumerate(processes):
         p.join()
-
+        if p.exitcode != 0:
+            raise AssertionError(f"process {i} failed, return: {p.exitcode}")
 
 def main():
     test_matmul_allreduce_add_rmsnorm()
