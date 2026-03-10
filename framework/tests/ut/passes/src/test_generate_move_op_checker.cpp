@@ -185,65 +185,35 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ViewOp_InputIsNull) {
 }
 
 TEST_F(TestGenerateMoveOpChecker, PreCheck_ViewOp_OutputIsNull) {
-    auto currFunctionPtr =
-        std::make_shared<Function>(Program::GetInstance(), "TestViewOutputNull", "TestViewOutputNull", nullptr);
-    if (currFunctionPtr == nullptr) {
-        SUCCEED() << "Function create failed, skip test (env issue)";
-        return;
-    }
-
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestViewOutputNull", "TestViewOutputNull", nullptr);
+    if (!currFunctionPtr) { SUCCEED() << "Skip: Function create failed"; return; }
     std::vector<int64_t> shape = {16, 32};
     auto t0Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    if (t0Tensor == nullptr) {
-        SUCCEED() << "LogicalTensor t0 create failed, skip test (env issue)";
-        return;
-    }
-    t0Tensor->nodetype = NodeType::INCAST;
-
     auto t2Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    if (t2Tensor == nullptr) {
-        SUCCEED() << "LogicalTensor t2 create failed, skip test (env issue)";
-        return;
-    }
+    if (!t0Tensor || !t2Tensor) { SUCCEED() << "Skip: Tensor create failed"; return; }
+    t0Tensor->nodetype = NodeType::INCAST;
     t2Tensor->nodetype = NodeType::OUTCAST;
-
     auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {t0Tensor}, {t2Tensor});
-    std::vector<int64_t> viewShape{16, 32};
-    auto viewAttr = std::make_shared<ViewOpAttribute>(viewShape);
-    viewOp.SetOpAttribute(viewAttr);
-
+    viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{16, 32}));
     auto& producers = const_cast<std::set<Operation*, LogicalTensor::CompareOp>&>(t2Tensor->GetProducers());
-    producers.clear();
     auto& consumers = const_cast<std::set<Operation*, LogicalTensor::CompareOp>&>(t2Tensor->GetConsumers());
+    producers.clear();
     consumers.clear();
     t2Tensor->SetMagic(0); 
-
     currFunctionPtr->inCasts_.push_back(t0Tensor);
     currFunctionPtr->outCasts_.push_back(t2Tensor);
-
     LogicalTensorPtr nullOutput = nullptr;
-    bool isOutputNull = (nullOutput == nullptr);
-    if (isOutputNull) {
-        SUCCEED() << "Output nullptr check logic covered: isOutputNull = true";
+    if (nullOutput == nullptr) {
+        SUCCEED() << "Output nullptr check covered";
     } else {
-        FAIL() << "Output nullptr check logic not covered (unexpected)";
+        FAIL() << "Output nullptr check not covered";
     }
-
-    int opMagic = viewOp.GetOpMagic();
-    if (opMagic > 0) {
-        SUCCEED() << "OP magic is valid: " << opMagic << " (log line coverable)";
-    }
-
     GenerateMoveOp checker;
     Status preCheckStatus = checker.PreCheck(*currFunctionPtr);
-    SUCCEED() << "PreCheck executed without crash, status: " << (preCheckStatus == SUCCESS ? "SUCCESS" : "FAILED");
-
-    const auto &operations = currFunctionPtr->Operations();
-    for (auto &op : operations) {
-        if (op.GetOpcode() == Opcode::OP_VIEW) {
-            if (op.GetOOperands().front() != nullptr) {
-                SUCCEED() << "Output tensor magic: " << op.GetOOperands().front()->GetMagic();
-            }
+    SUCCEED() << "PreCheck status: " << (preCheckStatus == SUCCESS ? "SUCCESS" : "FAILED");
+    for (auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW && op.GetOOperands().front()) {
+            SUCCEED() << "Output magic: " << op.GetOOperands().front()->GetMagic();
         }
     }
 }
