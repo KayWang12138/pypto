@@ -30,6 +30,7 @@
 #include <map>
 #include <sys/syscall.h>
 #include <unistd.h>
+#include <iostream>
 
 // 与 LogManager 落盘路径一致（仅本头文件内使用）
 static constexpr const char *kInterpLogTestEnvProcessLogPath = "ASCEND_PROCESS_LOG_PATH";
@@ -43,8 +44,13 @@ static inline std::string InterpLogTestGetHostLogDir() {
     if (envPath != nullptr && envPath[0] != '\0') {
         return std::string(envPath) + kInterpLogTestHostLogSubDir;
     }
+    const char *workPath = std::getenv("ASCEND_WORK_PATH");
+    if (workPath != nullptr && workPath[0] != '\0') {
+        std::cerr << "work path:" << std::string(workPath) << std::endl;
+    }
     const char *home = std::getenv("HOME");
     std::string base = (home != nullptr && home[0] != '\0') ? std::string(home) : ".";
+    std::cerr << "log base dir:" << base << std::endl;
     return base + kInterpLogTestDefaultLogSubDir + kInterpLogTestHostLogSubDir;
 }
 
@@ -55,7 +61,7 @@ static inline std::string InterpLogTestGetThreadLogPrefix() {
 #else
     long tid = getpid();
 #endif
-    return std::string(kInterpLogTestHostLogFilePrefix) + std::to_string(tid) + "-";
+    return std::string(kInterpLogTestHostLogFilePrefix) + std::to_string(tid) + "_";
 }
 
 static inline std::map<std::string, size_t> InterpLogTestListHostLogFilesWithSize(const std::string &dir,
