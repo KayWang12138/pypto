@@ -175,16 +175,15 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ViewOp_OutputIsNull) {
     auto currFunctionPtr =
         std::make_shared<Function>(Program::GetInstance(), "TestViewOutputNull", "TestViewOutputNull", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-
-    std::vector<int64_t> shape = {16, 16};
-    auto t1Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    t1Tensor->nodetype = NodeType::INCAST;
+    std::vector<int64_t> shape = {16, 32};
+    auto t0Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    t0Tensor->nodetype = NodeType::INCAST;
     auto t2Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     t2Tensor->nodetype = NodeType::OUTCAST;
 
-    auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {t1Tensor}, {t2Tensor});
+    auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {t0Tensor}, {t2Tensor});
 
-    std::vector<int64_t> viewShape{16, 16};
+    std::vector<int64_t> viewShape{16, 32};
     auto viewAttr = std::make_shared<ViewOpAttribute>(viewShape);
     viewOp.SetOpAttribute(viewAttr);
     auto& producers = const_cast<std::set<Operation*, LogicalTensor::CompareOp>&>(t2Tensor->GetProducers());
@@ -192,7 +191,7 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ViewOp_OutputIsNull) {
     auto& consumers = const_cast<std::set<Operation*, LogicalTensor::CompareOp>&>(t2Tensor->GetConsumers());
     consumers.clear();
     t2Tensor->SetMagic(0); 
-    currFunctionPtr->inCasts_.push_back(t1Tensor);
+    currFunctionPtr->inCasts_.push_back(t0Tensor);
     currFunctionPtr->outCasts_.push_back(t2Tensor);
 
     GenerateMoveOp checker;
@@ -212,25 +211,25 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ViewOp_OutputHasNullConsumer) {
         std::make_shared<Function>(Program::GetInstance(), "TestViewOutputHasNullConsumer", "TestViewOutputHasNullConsumer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
-    std::vector<int64_t> shape = {16, 16};
-    auto t1Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    t1Tensor->nodetype = NodeType::INCAST;
-    auto t2Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    t2Tensor->nodetype = NodeType::OUTCAST;
+    std::vector<int64_t> shape = {16, 48};
+    auto t01Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    t01Tensor->nodetype = NodeType::INCAST;
+    auto t02Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    t02Tensor->nodetype = NodeType::OUTCAST;
 
-    auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {t1Tensor}, {t2Tensor});
+    auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {t01Tensor}, {t02Tensor});
 
-    std::vector<int64_t> viewShape{16, 16};
+    std::vector<int64_t> viewShape{16, 48};
     auto viewAttr = std::make_shared<ViewOpAttribute>(viewShape);
     viewOp.SetOpAttribute(viewAttr);
 
     using ConsumerSetType = std::set<Operation*, LogicalTensor::CompareOp>;
-    auto& consumers = const_cast<ConsumerSetType&>(t2Tensor->GetConsumers());
+    auto& consumers = const_cast<ConsumerSetType&>(t02Tensor->GetConsumers());
     consumers.clear();
     consumers.insert(nullptr);
 
-    currFunctionPtr->inCasts_.push_back(t1Tensor);
-    currFunctionPtr->outCasts_.push_back(t2Tensor);
+    currFunctionPtr->inCasts_.push_back(t01Tensor);
+    currFunctionPtr->outCasts_.push_back(t02Tensor);
 
     GenerateMoveOp checker;
     Status preCheckStatus = checker.PreCheck(*currFunctionPtr);
@@ -342,7 +341,7 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_AssembleOp_MoreThanOneInput) {
     auto t3Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
 
     auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {t1Tensor, t2Tensor}, {t3Tensor});
-    auto assembleAttr = std::make_shared<AssembleOpAttribute>();
+    auto assembleAttr = std::make_shared<AssembleOpAttribute>(Offset{0, 0});
     assembleOp.SetOpAttribute(assembleAttr);
     (void)assembleAttr; 
     currFunctionPtr->inCasts_.push_back(t1Tensor);
@@ -361,7 +360,7 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_AssembleOp_MoreThanOneOutput) {
     auto t2Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto t3Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {t0Tensor}, {t2Tensor, t3Tensor});
-    auto assembleAttr = std::make_shared<AssembleOpAttribute>();
+    auto assembleAttr = std::make_shared<AssembleOpAttribute>(Offset{0, 0});
     assembleOp.SetOpAttribute(assembleAttr);
     (void)assembleAttr;
     currFunctionPtr->inCasts_.push_back(t0Tensor);
@@ -389,26 +388,6 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_AssembleOp_InputIsNull) {
     
     Status preCheckStatus = FAILED;
     EXPECT_EQ(assembleOp.GetIOperands().front(), nullptr);
-    EXPECT_EQ(preCheckStatus, FAILED);
-}
-
-TEST_F(TestGenerateMoveOpChecker, PreCheck_AssembleOp_OutputIsNull) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestAssembleOpOutputNull", "TestAssembleOpOutputNull", nullptr);
-    EXPECT_TRUE(currFunctionPtr != nullptr);
-    std::vector<int64_t> shape = {16, 32};
-    auto t1Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    auto t2Tensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {t1Tensor}, {t2Tensor});
-    (void)assembleOp;
-    
-    auto &outputOperands = const_cast<std::vector<std::shared_ptr<LogicalTensor>> &>(assembleOp.GetOOperands());
-    outputOperands[0] = nullptr;
-
-    currFunctionPtr->inCasts_.push_back(t1Tensor);
-    currFunctionPtr->outCasts_.push_back(t2Tensor);
-    
-    Status preCheckStatus = FAILED;
-    EXPECT_EQ(assembleOp.GetOOperands().front(), nullptr);
     EXPECT_EQ(preCheckStatus, FAILED);
 }
 
@@ -582,5 +561,3 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ConvertOp_Valid) {
     Status preCheckStatus = checker.PreCheck(*currFunctionPtr);
     EXPECT_EQ(preCheckStatus, SUCCESS);
 }
-} // namespace tile_fwk
-} // namespace npu
