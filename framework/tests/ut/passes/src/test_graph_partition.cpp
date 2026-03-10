@@ -630,5 +630,42 @@ TEST_F(GraphPartitionTest, TestBoundaryConvert) {
     EXPECT_NE(G.GetOp("L1ToL0A")->GetSubgraphID(), G.GetOp("convert")->GetSubgraphID());
 }
 
+void ConstructGraphForMatMulViewFormSuperNode(ComputationalGraphBuilder& G) {
+    // add tensor
+    DataType dateType = DataType::DT_FP16;
+    Shape shape = {16, 16};
+    Shape viewShape {8, 16};
+    std::vector<std::string> oriTensorNames{"matA1DDR", "matB1DDR", "matA1L1", "matB1L1", "matA1L0A", "matB1L0B", "matC1L0C"};
+    std::vector<MemoryType> oriTensorMemoryType{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L0A, 
+        MemoryType::MEM_L0B, MemoryType::MEM_L0C};
+    EXPECT_EQ(G.AddTensors(dateType, shape, oriTensorMemoryType, oriTensorNames, 0), true);
+    std::vector<std::string> afterViewTensorNames{"viewC1L0C", "outcast1"};
+    std::vector<MemoryType> afterViewTensorMemoryType{MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR};
+    EXPECT_EQ(G.AddTensors(dateType, viewShape, afterViewTensorMemoryType, afterViewTensorNames, 0), true);
+    // add operation
+    std::vector<Opcode> opCodes{Opcode::OP_VIEW, Opcode::OP_VIEW, Opcode::OP_L1_TO_L0A, Opcode::OP_L1_TO_L0B, 
+        Opcode::OP_A_MUL_B, Opcode::OP_VIEW, Opcode::OP_ASSEMBLE};
+    std::vector<std::string> opNames{"View1", "View2", "L1ToL0A1", "L1ToL0B1", "Mul1", "View3", "Assemble1"};
+    std::vector<std::vector<std::string>> iOperands{{"matA1DDR"}, {"matB1DDR"}, {"matA1L1"}, {"matB1L1"}, {"matA1L0A","matB1L0B"}, {"matC1L0C"}, {"viewC1L0C"}};
+    std::vector<std::vector<std::string>> oOperands{{"matA1L1"}, {"matB1L1"}, {"matA1L0A"}, {"matB1L0B"}, {"matC1L0C"}, {"viewC1L0C"}, {"outcast1"}};
+    EXPECT_EQ(G.AddOps(opCodes, iOperands, oOperands, opNames, true), true);
+    EXPECT_EQ(G.SetInCast({"matA1DDR", "matB1DDR"}), true);
+    EXPECT_EQ(G.SetOutCast({"outcast1"}), true);
+}
+
+TEST_F(GraphPartitionTest, TestMatMulViewFormSuperNode) {
+    ComputationalGraphBuilder G;
+    ConstructGraphForMatMulViewFormSuperNode(G);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    GraphPartition gpp;
+    EXPECT_EQ(gpp.RunOnFunction(*function), SUCCESS);
+
+    auto mulOp = G.GetOp("Mul1");
+    auto viewOp = G.GetOp("View3");
+    EXPECT_EQ(mulOp->GetSubgraphID(), viewOp->GetSubgraphID());
+}
+
 } // namespace tile_fwk
 } // namespace npu
