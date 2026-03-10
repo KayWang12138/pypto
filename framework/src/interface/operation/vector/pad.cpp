@@ -24,19 +24,23 @@ void TiledPadImpl(Function &function, const TileShape &tileShape, size_t cur, In
     size_t ndim = result->shape.size();
     auto &vecTile = tileShape.GetVecTile();
     if (cur == ndim) {
+        auto lastOrgShape = input.tensor.GetShape()[ndim - 1];
+        auto preOrgShape = input.tensor.GetShape()[ndim - 2];
         auto lastShape = input.tileInfo.shape[ndim - 1];
         auto lastOffset = input.tileInfo.offset[ndim - 1];
         auto preShape = input.tileInfo.shape[ndim - 2];
         auto preOffset = input.tileInfo.offset[ndim - 2];
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
-        if (lastShape < 0 || preShape < 0) {
+        if (lastShape <= 0 || preShape <= 0) {
             auto &op = function.AddOperation("TILE_VEC_DUP", {}, {resultTile});
             op.SetAttribute(OpAttributeKey::scalar, padValue);
-        } else if (lastOffset + vecTile[ndim - 1] > lastShape || preOffset + vecTile[ndim - 2] > preShape) {
+            op.SetAttribute(OP_ATTR_PREFIX + "shape", resultTileInfo.shape);
+            op.SetAttribute(OP_ATTR_PREFIX + "validShape", resultTile->GetDynValidShape());
+        } else if (lastOffset + vecTile[ndim - 1] > lastOrgShape || preOffset + vecTile[ndim - 2] > preOrgShape) {
             auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
             auto &op = function.AddOperation(Opcode::OP_PAD, {inputTile}, {resultTile});
-            padRight = lastOffset + vecTile[ndim - 1] > lastShape ? lastOffset + vecTile[ndim - 1] - lastShape : 0;
-            padBottom = preOffset + vecTile[ndim - 2] > preShape ? preOffset + vecTile[ndim - 2] - preShape : 0;
+            padRight = lastOffset + vecTile[ndim - 1] > lastOrgShape ? lastOffset + vecTile[ndim - 1] - lastOrgShape : 0;
+            padBottom = preOffset + vecTile[ndim - 2] > preOrgShape ? preOffset + vecTile[ndim - 2] - preOrgShape : 0;
             op.SetAttribute(OpAttributeKey::scalar, padValue);
             op.SetAttribute(OP_ATTR_PREFIX + "pad_right", padRight);
             op.SetAttribute(OP_ATTR_PREFIX + "pad_bottom", padBottom);
