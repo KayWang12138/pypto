@@ -176,9 +176,6 @@ Status RemoveRedundantOp::ProcessViewAssemble(Function &function) {
                 //跳过view输入和 assemble输出 mem类型不同的场景
                 continue;
             }
-            if (in == nullptr || out == nullptr) {
-                return FAILED;
-            }
             if (startTensor->shape == endTensor->shape && startTensor->offset == endTensor->offset ) {
                 //case1：view输入和assemble输出tensor shape和offset完全匹配
                 //      startTensor(inshape) ---> view1  ---> tempTensor1  --->  assemble1  ---> endTensor(outshape = inshape)
