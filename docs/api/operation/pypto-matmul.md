@@ -23,6 +23,8 @@ matmul(input, mat2, out_dtype, *, a_trans = False, b_trans = False, c_matrix_nz 
 
 ## 参数说明
 
+表1：API参数说明
+
 
 | 参数名            | 输入/输出 | 说明                                                                 |
 |-------------------|-----------|----------------------------------------------------------------------|
@@ -32,7 +34,17 @@ matmul(input, mat2, out_dtype, *, a_trans = False, b_trans = False, c_matrix_nz 
 | a_trans           | 输入      | 参数a_trans表示输入左矩阵是否转置，默认为False。 |
 | b_trans           | 输入      | 参数b_trans表示输入右矩阵是否转置，默认为False。 |
 | c_matrix_nz       | 输入      | 参数c_matrix_nz表示输出矩阵的Format是否采用NZ格式，默认为False，当前仅支持设置False，即输出矩阵仅支持ND格式。 |
-| extend_params     | 输入      | 支持bias、fixpipe反量化及TF32舍入模式TransMode功能，数据类型为字典格式。 <br> 参数：bias_tensor <br> 类型：Tensor <br> 功能说明： <br> - 输入左右矩阵数据类型为DT_FP16时，Bias矩阵数据类型可选DT_FP16和DT_FP32。 <br> - 输入左右矩阵数据类型为DT_FP32时，Bias矩阵数据类型只能为DT_FP32。 <br> - 输入左右矩阵数据类型为DT_INT8时，Bias矩阵数据类型只能为DT_INT32。 <br> - 输入左右矩阵数据类型为DT_FP8E5M2，DT_FP8E4M3时，Bias矩阵数据类型只能为DT_FP32。 <br> - bias_tensor只支持ND格式。 <br> - bias_tensor的第一维度应置1，且N维度需要与mat2矩阵的N维度相等。 <br> - Bias不支持多核切K功能。 <br> - 仅支持矩阵维度为2维场景。 <br> 参数：scale <br> 类型：float <br> 功能说明： <br> - 输入为float类型，取1为符号位 + 8位指数位 + 10位尾数位参与运算。 <br> 参数：scale_tensor <br> 类型：Tensor <br> 功能说明： <br> - scale_tensor输入固定为uint64_t 的Tensor。计算时会转换uint64_t为float类型的低32位bit后，取1为符号位 + 8位指数位 + 10位尾数位参与运算。 <br> - scale_tensor的第一维度必须置1，且N维度需要与mat2矩阵的N维度相等。 <br> - scale_tensor只支持ND格式。 <br> - 仅支持矩阵维度为2维场景。 <br> 参数：relu_type <br> 类型：[ReLuType](../datatype/ReLuType.md) <br> 功能说明： <br> - 支持RELU和NO_RELU两种模式。 <br> - 仅支持矩阵维度为2维场景。 <br> 参数：trans_mode <br> 类型：[TransMode](../datatype/TransMode.md) <br> 功能说明： <br> - CAST_NONE：不使能float数据类型转换为TF32数据类型。 <br> - CAST_RINT：使能float数据类型转换为TF32数据类型，舍入规则：舍入到最近整数，中间值时舍入到偶数。 <br> - CAST_ROUND：使能float数据类型转换为TF32数据类型，舍入规则：舍入到最近整数，中间值时远离零舍入。 <br> - 仅支持Ascend 950PR/Ascend 950DT。 <br> - 仅支持输入左右矩阵和输出矩阵数据类型均为DT_FP32时设置。 <br> - 仅支持矩阵维度为2维场景。 |
+| extend_params     | 输入      | 支持bias、fixpipe反量化及TF32舍入模式TransMode功能，详见下表。 <br> - 数据类型为字典格式。 <br> - 此参数与其内部参数均为可选参数。 |
+
+表2：extend_params参数说明
+
+| 参数名            | 说明                                                                 |
+|-------------------|----------------------------------------------------------------------|
+| scale             | 表示pertensor量化场景（使用同一个缩放因子将高精度数映射到低精度数）输出矩阵反量化的参数。 <br> 输入为float类型，取1位符号位 + 8位指数位 + 10位尾数位参与运算。 |
+| scale_tensor      | 表示perchannel量化场景（对每一个输出通道独立计算一套量化参数）输出矩阵反量化的矩阵。 <br> scale_tensor输入固定为uint64_t 的Tensor。计算时会转换uint64_t为float类型的低32位bit后，取1位符号位 + 8位指数位 + 10位尾数位参与运算。 <br> scale_tensor的第一维度必须置1，且N维度需要与mat2矩阵的N维度相等。 <br> scale_tensor只支持ND格式。 <br> 仅支持矩阵维度为2维场景。 |
+| bias_tensor       | 表示偏置矩阵。 <br> 输入为Tensor类型。 <br> 输入左右矩阵数据类型为DT_FP16时，Bias矩阵数据类型可选DT_FP16和DT_FP32。 <br> 输入左右矩阵数据类型为DT_FP32时，Bias矩阵数据类型只能为DT_FP32。 <br> 输入左右矩阵数据类型为DT_INT8时，Bias矩阵数据类型只能为DT_INT32。 <br> 输入左右矩阵数据类型为DT_FP8E5M2，DT_FP8E4M3时，Bias矩阵数据类型只能为DT_FP32。 <br> bias_tensor只支持ND格式。 <br> bias_tensor的第一维度应置1，且N维度需要与mat2矩阵的N维度相等。 <br> Bias不支持多核切K功能。 <br> 仅支持矩阵维度为2维场景。 |
+| relu_type         | 表示输出矩阵是否进行ReLu操作。 <br> 输入为[ReLuType](../datatype/ReLuType.md)类型。 <br> 支持RELU和NO_RELU两种模式。 <br> 仅支持矩阵维度为2维场景。 |
+| trans_mode        | 表示是否使能TF32计算及TF32舍入模式。 <br> 输入为[TransMode](../datatype/TransMode.md)类型。 <br> CAST_NONE：不使能float数据类型转换为TF32数据类型。 <br> CAST_RINT：使能float数据类型转换为TF32数据类型，舍入规则：舍入到最近整数，中间值时舍入到偶数。 <br> CAST_ROUND：使能float数据类型转换为TF32数据类型，舍入规则：舍入到最近整数，中间值时远离零舍入。 <br> 仅支持输入左右矩阵和输出矩阵数据类型均为DT_FP32时设置。 <br> 仅支持矩阵维度为2维场景。 |
 
 ## 返回值说明
 
@@ -40,8 +52,8 @@ matmul(input, mat2, out_dtype, *, a_trans = False, b_trans = False, c_matrix_nz 
 
 ## 约束说明
 
--   Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持DT_HF8，DT_FP8E5M2，DT_FP8E4M3
--   Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持DT_HF8，DT_FP8E5M2，DT_FP8E4M3
+-   Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持DT_HF8，DT_FP8E5M2，DT_FP8E4M3，不支持extend_params中的trans_mode参数。
+-   Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持DT_HF8，DT_FP8E5M2，DT_FP8E4M3，不支持extend_params中的trans_mode参数。
 -   调用matmul接口前需要通过pypto.set\_cube\_tile\_shapes设置M、N、K轴上的切分大小
 -   当矩阵维度为3维或者4维时，需要调用pypto.set\_vec\_tile\_shapes接口设置vector的TileShape切分，如未设置，接口内部会设置2维的vec\_tile\_shape，其值为128，128。
 -   调用matmul接口的输入为调用pypto.reshape后的NZ格式时，需要调用pypto.set\_matrix\_size接口设置pypto.reshape前的输入到matmul的原始Shape的m,k,n值。
