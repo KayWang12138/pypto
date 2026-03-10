@@ -13,7 +13,6 @@
  * \brief
  */
 
-#include <iostream>
 #include "platform_parser.h"
 
 namespace npu {
@@ -166,8 +165,15 @@ bool INIParser::GetStringVal(const std::string& column, const std::string& key, 
     }
     val = iter2->second;
     std::string rec;
-    CannHostRuntime::Instance().GetSocSpec(column, key, rec);
-    std::cout << "column:" << column << ",key:" << key << ", val:" << val << ", rec:" << rec << std::endl;
+    return true;
+}
+
+bool CmdParser::GetStringVal(const std::string& column, const std::string& key, std::string& val) const {
+    val.clear();
+    if (!CannHostRuntime::Instance().GetSocSpec(column, key, val)) {
+        FUNCTION_LOGE("Cannot find soc spec '%s' from the [%s] column.", key.c_str(), column.c_str());
+        return false;
+    }
     return true;
 }
 }  // namespace tile_fwk
