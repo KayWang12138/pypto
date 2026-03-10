@@ -12,6 +12,9 @@
 DistributedConfig
 """
 import os
+import torch
+import torch.distributed as dist
+import torch_npu
 from typing import List
 
 
@@ -36,9 +39,22 @@ class DistributedConfig:
         self.world_size: int = world_size
         self.logical_ranks = list(range(self.world_size))
         self._parse_device_list()
-        self.master_port = master_port
+        self.master_port = self._calculate_port()
 
-    def get_physical_device_id(self, logical_rank: int) -> int:
+    def init_hccl_comm(self, logical_rank_id: int) -> list[str]:
+        physical_device_id = self._get_physical_device_id(logical_rank_id)
+        torch_npu.npu.set_device(physical_device_id)
+        dist.init_process_group(
+            backend='hccl',
+            rank=logical_rank_id,
+            world_size=self.world_size,
+            init_method=f'tcp://{self.master_ip}:{self.master_port}',
+        )
+        group_handle = dist.new_group(backend='hccl', ranks=self.logical_ranks)
+        group_name = group_handle._get_backend(torch.device('npu')).get_hccl_comm_name(logical_rank_id)
+        return [group_name]
+
+    def _get_physical_device_id(self, logical_rank: int) -> int:
         """
         根据逻辑rank获取物理设备ID
         如果没有环境变量 返回0-n的映射

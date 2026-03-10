@@ -27,8 +27,6 @@ import multiprocessing as mp
 import numpy as np
 import pytest
 import torch
-import torch.distributed as dist
-import torch_npu
 
 import pypto
 
@@ -79,20 +77,6 @@ def assert_allcolse_whit_rtol_and_atol(out, act):
         rtol=0,
         atol=0,
     )
-
-
-def init_hccl_comm(config: DistributedConfig, logical_rank_id: int) -> list[str, ...]:
-    physical_device_id = config.get_physical_device_id(logical_rank_id)
-    torch_npu.npu.set_device(physical_device_id)
-    dist.init_process_group(
-        backend='hccl',
-        rank=logical_rank_id,
-        world_size=config.world_size,
-        init_method=f'tcp://{config.master_ip}:{config.master_port}',
-    )
-    group_handle = dist.new_group(backend='hccl', ranks=config.logical_ranks)
-    group_name = group_handle._get_backend(torch.device('npu')).get_hccl_comm_name(logical_rank_id)
-    return [group_name]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -570,7 +554,7 @@ def moe_distributed_dispatch_kernel(
 
 def moe_distributed_dispatch(config: DistributedConfig, moe_case: MoeCase, operands: MoeDispatchOperands,
     logical_rank_id: int) -> None:
-    groups = init_hccl_comm(config, logical_rank_id)
+    groups = config.init_hccl_comm(config, logical_rank_id)
 
     x = operands.x
     expert_ids = operands.expert_ids
@@ -765,7 +749,7 @@ def moe_distributed_combine(
     operands: MoeCombineOperands,
     logical_rank_id: int,
 ) -> None:
-    groups = init_hccl_comm(config, logical_rank_id)
+    groups = config.init_hccl_comm(config, logical_rank_id)
 
     expand_x = operands.expand_x
     assist_info_for_combine = operands.assist_info_for_combine

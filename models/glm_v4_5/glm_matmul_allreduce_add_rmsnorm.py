@@ -25,26 +25,10 @@ import pytest
 import torch
 from torch._dynamo import allow_in_graph
 from torch._subclasses import fake_tensor
-import torch.distributed as dist
-import torch_npu
 
 import pypto
 
 from utils.distributed_config import DistributedConfig
-
-
-def init_hccl_comm(config: DistributedConfig, logical_rank: int) -> list[str]:
-    physical_device_id = config.get_physical_device_id(logical_rank)
-    torch_npu.npu.set_device(physical_device_id)
-    dist.init_process_group(
-        backend="hccl",
-        rank=logical_rank,
-        world_size=config.world_size,
-        init_method=f"tcp://{config.master_port}:{config.master_port}",
-    )
-    group_handle = dist.new_group(backend="hccl", ranks=config.logical_ranks)
-    group_name = group_handle._get_backend(torch.device("npu")).get_hccl_comm_name(logical_rank)
-    return [group_name]
 
 
 @pypto.frontend.jit()
@@ -195,7 +179,7 @@ def matmul_allreduce_add_rmsnorm_result_golden(batch_size, num, input_datas):
 
 
 def matmul_allreduce_add_rmsnorm_worker(config: DistributedConfig, input_data: list, output_data: list, rank: int):
-    groups = init_hccl_comm(config, rank)
+    groups = config.init_hccl_comm(config, rank)
     physical_device_id = config.get_physical_device_id(rank)
     device = f'npu:{physical_device_id}'
 
@@ -255,10 +239,10 @@ def matmul_allreduce_add_rmsnorm(
     return out_tensor, residual_out
 
 
-@pytest.mark.world_size(2)
+@pytest.mark.world_size(4)
 def test_matmul_allreduce_add_rmsnorm():
     mp.set_start_method('spawn', force=True)
-    config = DistributedConfig(world_size=2)
+    config = DistributedConfig(world_size=4)
     processes = []
     input_datas, output_datas = generate_golden_data(config.world_size)
     for i in range(config.world_size):
