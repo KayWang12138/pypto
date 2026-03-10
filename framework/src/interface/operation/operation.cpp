@@ -77,6 +77,7 @@ const std::string OpAttributeKey::lastUse = "last_use";
 const std::string OpAttributeKey::isUpper = "is_upper";
 const std::string OpAttributeKey::blockSize = "block_size";
 const std::string OpAttributeKey::transMode = "op_attr_trans_mode";
+const std::string OpAttributeKey::workspaceBaseOffset = "workspace_base_offset";
 
 const std::string ConvOpAttributeKey::cin = "CIN";
 const std::string ConvOpAttributeKey::cout = "COUT";
