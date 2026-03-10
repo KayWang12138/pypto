@@ -135,5 +135,4 @@ TEST_F(TestCodegenDynUna, TestDynExpand) {
 )!!!";
     EXPECT_EQ(res, expect);
 }
-
 } // namespace npu::tile_fwk
