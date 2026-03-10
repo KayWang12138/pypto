@@ -954,8 +954,7 @@ TEST_F(ScheduleOoOTest, TestScheduleSpillAssemble) {
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.ScheduleMainLoop();
-    // 待ScheduleMainloop支持assemble
-    EXPECT_EQ(res, FAILED);
+    EXPECT_EQ(res, SUCCESS);
 }
 
 TEST_F(ScheduleOoOTest, TestScheduleSpillFragFailed) {
@@ -1594,12 +1593,12 @@ TEST_F(ScheduleOoOTest, TestBufferPollRearrange) {
 
     // 构造子图
     ComputationalGraphBuilder subGraph;
-    std::vector<std::string> tensorNames{"t1", "t2"};
-    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_UB, MemoryType::MEM_UB};
-    std::vector<Opcode> opCodes{Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC};
-    std::vector<std::vector<std::string>> ioperands{{}, {}};
-    std::vector<std::vector<std::string>> ooperands{{"t1"}, {"t2"}};
-    std::vector<std::string> opNames{"Alloc1", "Alloc2"};
+    std::vector<std::string> tensorNames{"t1", "t2", "t3"};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB};
+    std::vector<Opcode> opCodes{Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC};
+    std::vector<std::vector<std::string>> ioperands{{}, {}, {}};
+    std::vector<std::vector<std::string>> ooperands{{"t1"}, {"t2"}, {"t3"}};
+    std::vector<std::string> opNames{"Alloc1", "Alloc2", "Alloc3"};
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {128, 128}, tensorMemTypes, tensorNames, 0), true);
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     Function *function = subGraph.GetFunction();
@@ -1610,14 +1609,29 @@ TEST_F(ScheduleOoOTest, TestBufferPollRearrange) {
     auto allocIssue1 = std::make_shared<IssueEntry>(*alloc1, 1);
     auto alloc2 = subGraph.GetOp("Alloc2");
     auto allocIssue2 = std::make_shared<IssueEntry>(*alloc2, 2);
+    auto alloc3 = subGraph.GetOp("Alloc3");
+    auto allocIssue3 = std::make_shared<IssueEntry>(*alloc3, 3);
+    allocIssue1->execOrder = 1;
+    allocIssue2->execOrder = 2;
+    allocIssue3->reqMemIds = {3};
+    allocIssue3->execOrder = 0;
 
     // 验证重排，排序依据为size从大到小
     OoOScheduler oooSchedule(*function);
     auto corePair = opCoreTypeMap.at(OpCoreType::AIV);
+    allocIssue3->coreLocation = corePair;
     oooSchedule.bufferManagerMap[corePair.first][corePair.second][MemoryType::MEM_UB] = pool;
     oooSchedule.tensorOccupyMap[MemoryType::MEM_UB].emplace(1, allocIssue1);
-    oooSchedule.tensorOccupyMap[MemoryType::MEM_UB].emplace(2, allocIssue2);
-    EXPECT_EQ(oooSchedule.RearrangeBuffer(MemoryType::MEM_UB, corePair), SUCCESS);
+    oooSchedule.tensorOccupyMap[MemoryType::MEM_UB].emplace(2, nullptr);
+    oooSchedule.localBufferMap[3] = std::make_shared<LocalBuffer>(3, 65536, MemoryType::MEM_UB);
+    size_t temp = 1;
+    EXPECT_EQ(oooSchedule.SpillAllBuffer(allocIssue3, temp, false, oooSchedule.localBufferMap[3]), FAILED);
+    EXPECT_EQ(oooSchedule.RearrangeBuffer(allocIssue3, MemoryType::MEM_UB, corePair, false), FAILED);
+    EXPECT_EQ(oooSchedule.PrintSpillFailedInfo(allocIssue3, true), FAILED);
+    oooSchedule.tensorOccupyMap[MemoryType::MEM_UB][2] = allocIssue2;
+    EXPECT_EQ(oooSchedule.SpillAllBuffer(allocIssue3, temp, true, oooSchedule.localBufferMap[3]), FAILED);
+    allocIssue3->execOrder = 3;
+    EXPECT_EQ(oooSchedule.RearrangeBuffer(allocIssue3, MemoryType::MEM_UB, corePair, false), SUCCESS);
     auto &ubPool = oooSchedule.bufferManagerMap[corePair.first][corePair.second][MemoryType::MEM_UB];
     EXPECT_EQ(ubPool.GetBufferSize(1), 65536);
     EXPECT_EQ(ubPool.GetBufferSize(2), 98304);
@@ -1712,8 +1726,8 @@ TEST_F(ScheduleOoOTest, TestOoO1C2V) {
     res = oooSchedule.MixSchedule(opList, *function, functionPair, size);
     EXPECT_EQ(res, SUCCESS);
     EXPECT_EQ(op1->GetInternalSubgraphID(), 1);
-    EXPECT_EQ(op2->GetInternalSubgraphID(), 0);
-    EXPECT_EQ(op3->GetInternalSubgraphID(), 1);
+    EXPECT_EQ(op2->GetInternalSubgraphID(), 1);
+    EXPECT_EQ(op3->GetInternalSubgraphID(), 0);
     EXPECT_EQ(op4->GetInternalSubgraphID(), 2);
 }
 
@@ -1821,7 +1835,7 @@ TEST_F(ScheduleOoOTest, TestL1SpillBuffer) {
     OoOScheduler oooSchedule(*function);
     res = oooSchedule.Init(opList);
     EXPECT_EQ(res, SUCCESS);
-    EXPECT_EQ(oooSchedule.issueEntries[5]->tileOp.GetOpcodeStr(), "L0A_ALLOC");
+    EXPECT_EQ(oooSchedule.issueEntries[4]->tileOp.GetOpcodeStr(), "L0A_ALLOC");
     IssueEntryPtr ubCopyL1 = nullptr;
     IssueEntryPtr alloc3 = nullptr;
     SetAttribute(subGraph, oooSchedule, ubCopyL1, alloc3);
@@ -1833,9 +1847,9 @@ TEST_F(ScheduleOoOTest, TestL1SpillBuffer) {
     res = oooSchedule.SpillBuffer(spillInfo, alloc3, pcIdx, localBuffer2, true);
     EXPECT_EQ(res, SUCCESS);
     EXPECT_EQ(oooSchedule.issueEntries.size(), 18);
-    EXPECT_EQ(oooSchedule.issueEntries[5]->tileOp.GetOpcodeStr(), "COPY_OUT");
-    EXPECT_EQ(oooSchedule.issueEntries[5]->tileOp.GetInternalSubgraphID(), 0);
-    EXPECT_EQ(oooSchedule.issueEntries[5]->tileOp.GetAIVCore(), AIVCore::AIV0);
+    EXPECT_EQ(oooSchedule.issueEntries[4]->tileOp.GetOpcodeStr(), "COPY_OUT");
+    EXPECT_EQ(oooSchedule.issueEntries[4]->tileOp.GetInternalSubgraphID(), 0);
+    EXPECT_EQ(oooSchedule.issueEntries[4]->tileOp.GetAIVCore(), AIVCore::AIV0);
     EXPECT_EQ(oooSchedule.issueEntries[12]->tileOp.GetOpcodeStr(), "L1_ALLOC");
     EXPECT_EQ(oooSchedule.issueEntries[13]->tileOp.GetOpcodeStr(), "COPY_IN");
     EXPECT_EQ(oooSchedule.issueEntries[12]->tileOp.GetInternalSubgraphID(), 1);
@@ -1971,7 +1985,7 @@ TEST_F(ScheduleOoOTest, TestL1ReshapeSpillBuffer1) {
     res = ooOSchedule.Init(optimizeSort.operations);
     EXPECT_EQ(res, SUCCESS);
     EXPECT_EQ(ooOSchedule.issueEntries.size(), 16);
-    EXPECT_TRUE(CheckOrderExists(GetIssueEntry("COPY_IN1", subGraph, ooOSchedule)->predecessors, ooOSchedule.issueEntries[5], ooOSchedule.issueEntryMap));
+    EXPECT_TRUE(CheckOrderExists(GetIssueEntry("COPY_IN1", subGraph, ooOSchedule)->predecessors, ooOSchedule.issueEntries[4], ooOSchedule.issueEntryMap));
     EXPECT_EQ(ooOSchedule.issueEntries[15]->tileOp.GetOpcodeStr(), "COPY_OUT");
     IssueEntryPtr reshape = nullptr;
     IssueEntryPtr alloc3 = nullptr;

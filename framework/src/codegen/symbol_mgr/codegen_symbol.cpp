@@ -170,7 +170,6 @@ std::vector<TileTensor> SymbolManager::QueryTileTensorInLoopByMagic(int magic) {
     for (auto it = start; it != end; ++it) {
         res.emplace_back(it->second);
     }
-    CODEGEN_LOGI("TileTensor magic %d not found in loop", magic);
     return res;
 }
 

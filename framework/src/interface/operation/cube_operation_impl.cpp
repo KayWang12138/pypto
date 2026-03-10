@@ -25,6 +25,7 @@
 #include "operation_impl.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/tile_shape.h"
+#include "tilefwk/platform.h"
 
 namespace npu {
 namespace tile_fwk {
@@ -84,6 +85,7 @@ void SetBiasAndScaleAttr(
     if (matmulInputs.biasTensorPtr != nullptr && isFirstTile) {
         op.SetAttribute(A_MUL_B_BIAS_ATTR, true);
     }
+    op.SetAttribute(A_MUL_B_TRANS_MODE_ATTR, static_cast<int64_t>(matmulAttrParam.transMode));
     if (isFirstTile) {
         op.SetAttribute(A_MUL_B_RELU_ATTR, static_cast<int64_t>(matmulAttrParam.reluType));
     }
@@ -489,6 +491,7 @@ void SetAMulBAttr(const MatmulGraphNodes &tensorGraphNodes, const MatmulAttrPara
     op.SetAttribute(A_MUL_B_ACT_K, attrParam.kValue);
     op.SetAttribute(A_MUL_B_ACT_N, attrParam.nValue);
     op.SetAttribute(A_MUL_B_GM_ACC, attrParam.gmAccumulationFlag);
+    op.SetAttribute(A_MUL_B_TRANS_MODE_ATTR, static_cast<int64_t>(attrParam.transMode));
 
     if (op.GetOpcode() == Opcode::OP_A_MUL_B) {
         op.SetAttribute(A_MUL_B_BIAS_ATTR, tensorGraphNodes.biasTensorPtr != nullptr);
@@ -505,6 +508,7 @@ void SetTensorGraphAttr(
     op.SetAttribute(A_MUL_B_TRANS_B, attrParam.transB);
     op.SetAttribute(A_MUL_B_BIAS_ATTR, (param.biasTensor.GetStorage() != nullptr));
     op.SetAttribute(A_MUL_B_RELU_ATTR, static_cast<int64_t>(param.reluType));
+    op.SetAttribute(A_MUL_B_TRANS_MODE_ATTR, static_cast<int64_t>(param.transMode));
     // means perchannel
     if (param.scaleTensor.GetStorage() != nullptr) {
         op.SetAttribute(A_MUL_B_VECTOR_QUANT_FLAG, true);
@@ -550,6 +554,7 @@ void SetMatmulAttrParam(const Operation &op, MatmulAttrParam &param)
     param.transA = (op.HasAttr(A_MUL_B_TRANS_A)) ? op.GetBoolAttribute(A_MUL_B_TRANS_A) : false;
     param.transB = (op.HasAttr(A_MUL_B_TRANS_B)) ? op.GetBoolAttribute(A_MUL_B_TRANS_B) : false;
     param.gmAccumulationFlag = (op.HasAttr(A_MUL_B_GM_ACC)) ? op.GetBoolAttribute(A_MUL_B_GM_ACC) : false;
+    param.transMode = (op.HasAttr(A_MUL_B_TRANS_MODE_ATTR)) ? op.GetIntAttribute(A_MUL_B_TRANS_MODE_ATTR) : 0;
     if (param.hasMXScale) {
         param.transAScale = op.GetIntAttribute(A_MUL_B_SCALE_A_COPY_IN_MODE) == static_cast<int64_t>(CopyInMode::DN2NZ);
         param.transBScale = op.GetIntAttribute(A_MUL_B_SCALE_B_COPY_IN_MODE) == static_cast<int64_t>(CopyInMode::DN2NZ);
@@ -562,8 +567,7 @@ void SetTensorGraphNodes(const std::vector<LogicalTensorPtr> &operandVec, const 
     size_t mxScaleSize = static_cast<size_t>(param.hasMXScale) * SHAPE_DIM2;
     size_t operandVecSize =
         SHAPE_DIM2 + static_cast<size_t>(param.hasScale + param.hasBias + param.gmAccumulationFlag) + mxScaleSize;
-    OP_CHECK(true, {
-        ASSERT(operandVec.size() == operandVecSize)
+    OP_CHECK(true, {ASSERT(operandVec.size() == operandVecSize)
             << "Operand vector size mismatch: "
             << "Expected size: " << operandVecSize << ", actual size: " << operandVec.size()
             << ", SHAPE_DIM2: " << SHAPE_DIM2 << ", hasScale: " << param.hasScale << ", hasBias: " << param.hasBias
@@ -599,9 +603,14 @@ void SetTensorGraphNodes(const std::vector<LogicalTensorPtr> &operandVec, const 
         case 4:  // 4含义：有gmTensor
             tensorGraphNodes.gmAccumulationTensorPtr = operandVec[SHAPE_DIM2];
             break;
-        case 8:
+        case 8: // 8含义: mxmatmul场景
             tensorGraphNodes.aScaleTensorPtr = operandVec[SHAPE_DIM2];
             tensorGraphNodes.bScaleTensorPtr = operandVec[SHAPE_DIM3];
+            break;
+        case 10: // 10含义: mxmatmul场景，有bias
+            tensorGraphNodes.aScaleTensorPtr = operandVec[SHAPE_DIM2];
+            tensorGraphNodes.bScaleTensorPtr = operandVec[SHAPE_DIM3];
+            tensorGraphNodes.biasTensorPtr = operandVec[SHAPE_DIM4];
             break;
         default:
             OP_CHECK(true, { ASSERT(false) << "Invalid tensor graph\n";});
@@ -705,7 +714,7 @@ void CheckCubeTiling(const Tensor &operand1, const Tensor &operand2, const Matmu
     });
     OP_CHECK(true, {
         ASSERT(nL0 * BytesOf(operand2.GetDataType()) % ALIGN_SIZE_32 == 0)
-            << "Current length of nL0: " << (kL0 * BytesOf(operand1.GetDataType()))
+            << "Current length of nL0: " << (nL0 * BytesOf(operand1.GetDataType()))
             << " bytes, the length must be aligned to 32 bytes" << std::endl;
     });
     if (operand1.Format() == TileOpFormat::TILEOP_ND) {
@@ -912,6 +921,16 @@ void CheckFixpipeParam(DataType inDtype, DataType outDtype, const MatmulExtendPa
     }
 }
 
+void CheckTransModeParam(DataType inDtype, const MatmulExtendParam &param = {}) {
+    if(param.transMode != TransMode::CAST_NONE) {
+        OP_CHECK(true, {
+            ASSERT(inDtype == DataType::DT_FP32)
+                << "The param of transMode is only supported when input data type is DT_FP32."
+                << std::endl;
+        });
+    }
+}
+
 void CheckGmAccumulationParam(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix,
     const MatmulAttrParam &attrParam, const MatmulExtendParam &param = {}) {
     auto &cubeTile = TileShape::Current().GetCubeTile();
@@ -952,19 +971,43 @@ void CheckGmAccumulationParam(DataType outType, const Tensor &aMatrix, const Ten
     });
 }
 
-void CheckMatmulOperands(DataType outType, const Tensor &operand1, const Tensor &operand2,
-    const MatmulAttrParam &attrParam, const MatmulExtendParam &param = {}) {
+
+void CheckOperandDtype(DataType outType, const Tensor &operand1, const Tensor &operand2) {
     OP_CHECK(true, {
         ASSERT(outType == DataType::DT_FP32 || outType == DataType::DT_FP16 || outType == DataType::DT_BF16 ||
                outType == DataType::DT_INT32)
             << "Unsupported output data type. Only DT_FP32, DT_FP16, DT_BF16, DT_INT32 are supported.";
     });
+    const DataType operand1Dtype = operand1.GetDataType();
+    const DataType operand2Dtype = operand2.GetDataType();
+    const bool isOperand1Fp8 = (operand1Dtype == DataType::DT_FP8E5M2 || operand1Dtype == DataType::DT_FP8E4M3);
     OP_CHECK(true, {
-        ASSERT(operand1.GetDataType() == operand2.GetDataType())
-            << "input dataType must be consistent. "
-            << "operand1 dataType: " << DataType2String(operand1.GetDataType())
-            << ", operand2 dataType: " << DataType2String(operand2.GetDataType()) << std::endl;
+        ASSERT(!isOperand1Fp8 || (operand2Dtype == DataType::DT_FP8E5M2 || operand2Dtype == DataType::DT_FP8E4M3))
+            << "When operand1 is of type DT_FP8E4M3 or DT_FP8E5M2, operand2 must be DT_FP8E4M3 or DT_FP8E5M2. "
+            << "operand1 dataType: " << DataType2String(operand1Dtype)
+            << ", operand2 dataType: " << DataType2String(operand2Dtype);
     });
+    OP_CHECK(true, {
+        ASSERT(operand1Dtype != DataType::DT_FP8E5M2 || operand1.Format() == TileOpFormat::TILEOP_ND)
+            << "When operand1 data type is DT_FP8E5M2, format must be ND.";
+    });
+    OP_CHECK(true, {
+        ASSERT(operand2Dtype != DataType::DT_FP8E5M2 || operand2.Format() == TileOpFormat::TILEOP_ND)
+            << "When operand2 data type is DT_FP8E5M2, format must be ND.";
+    });
+
+    OP_CHECK(true, {
+        ASSERT(isOperand1Fp8 || (operand1Dtype == operand2Dtype))
+            << "input dataType must be consistent. "
+            << "operand1 dataType: " << DataType2String(operand1Dtype)
+            << ", operand2 dataType: " << DataType2String(operand2Dtype);
+    });
+}
+
+void CheckMatmulOperands(DataType outType, const Tensor &operand1, const Tensor &operand2,
+    const MatmulAttrParam &attrParam, const MatmulExtendParam &param = {}) {
+    // dtype valid check
+    CheckOperandDtype(outType, operand1, operand2);
     // GM Acc valid check
     CheckGmAccumulationParam(outType, operand1, operand2, attrParam, param);
     // shape valid check
@@ -981,6 +1024,8 @@ void CheckMatmulOperands(DataType outType, const Tensor &operand1, const Tensor 
     // bias and scale valid check
     CheckBiasParam(operand1.GetDataType(), param);
     CheckFixpipeParam(operand1.GetDataType(), outType, param);
+    // trans mode valid check
+    CheckTransModeParam(operand1.GetDataType(), param);
 }
 
 void CheckMXMatmulShape(const Tensor &aTensor, const Tensor &aScaleTensor, const Tensor &bTensor,

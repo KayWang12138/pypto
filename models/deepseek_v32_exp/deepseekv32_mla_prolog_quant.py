@@ -181,8 +181,6 @@ def mla_prolog_quant_v32_compute(inputs):
         # matmul use float32 for arm, arm平台matmul在bfloat16数据类型下表现与x86平台不一致，通过升精度保证正确性
         q_a_proj = torch.matmul(x_2d.to(torch.float32), w_dq.to(torch.float32))  # [b * s, q_lora_rank]
 
-    q_a_proj = q_a_proj.to(dtype)
-
     q_a_layernorm = rms_norm(q_a_proj, gamma_cq)
 
     # shape is: [b * s, q_lora_rank] @ [q_lora_rank, n * q_head_dim] -> [b * s, n * q_head_dim]
@@ -611,13 +609,6 @@ def mla_prolog_quant_v32(params, input_tensors, golden_data, dtype, w_dtype, is_
                 w_uk_data, w_dkv_kr_data, rmsnorm_gamma_cq_data, rmsnorm_gamma_ckv_data,
                 rope_cos_data, rope_sin_data, cache_index_data,
                 kv_cache_data, kr_cache_data, k_scale_cache_data]
-    output_data = [output_q_norm_data, output_q_norm_scale_data, output_q_nope_data,
-                output_q_rope_data, output_kv_cache_data, output_kr_cache_data, k_scale_cache_data_out]
-
-    block_num_value = kv_cache_shape[0]
-    n_kv = n2
-    n_q = n1
-
     output_data = [output_q_norm_data, output_q_norm_scale_data, output_q_nope_data,
                 output_q_rope_data, output_kv_cache_data, output_kr_cache_data, k_scale_cache_data_out]
 
