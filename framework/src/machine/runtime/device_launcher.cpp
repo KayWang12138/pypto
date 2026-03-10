@@ -168,6 +168,8 @@ int DeviceLauncher::RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStre
     return 0;
 }
 
+
+
 int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
         rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
@@ -214,10 +216,15 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     CheckDeviceId();
     DeviceKernelArgs kArgs;
     DeviceLauncherConfigFillDeviceInfo(config);
+#ifdef __ESL_SIMULATION__
+    EslModelMemoryUtils devMemoryUtilis;
+#else 
     DeviceMemoryUtils devMemoryUtilis;
+#endif
     DeviceInitDistributedContext(devMemoryUtilis, dynAttr->commGroupNames, kArgs);
 
     HOST_PERF_TRACE(TracePhase::RunDevEnvReady);
+
     DeviceInitTilingData(devMemoryUtilis, kArgs, dynAttr->devProgBinary, inputDevCtrlCache, config, cachedOperator);
     HOST_PERF_TRACE(TracePhase::RunDevInitTiling);
 
@@ -269,22 +276,28 @@ int DeviceLauncher::DeviceRunOnce(Function *function, DevControlFlowCache* hostC
     auto aicoreStream = machine::GetRA()->GetStream();
     std::vector<DeviceTensorData> inputDeviceDataList;
     std::vector<DeviceTensorData> outputDeviceDataList;
-    DeviceMemoryUtils devMemoryUtilis(true);
-    std::tie(inputDeviceDataList, outputDeviceDataList) = BuildInputOutputFromHost(devMemoryUtilis, inputDataList, outputDataList);
+#ifdef __ESL_SIMULATION__
+    EslModelMemoryUtils devMemoryHugePage(true);
+    EslModelMemoryUtils devMemoryNotHugePage(false); 
+#else 
+    DeviceMemoryUtils devMemoryHugePage(true);
+    DeviceMemoryUtils devMemoryNotHugePage(false);
+#endif
+    std::tie(inputDeviceDataList, outputDeviceDataList) = BuildInputOutputFromHost(devMemoryHugePage, inputDataList, outputDataList);
 
-    DeviceMemoryUtils devMemory(false);
     uint8_t* devCtrlCache = nullptr;
     if (hostCtrlCache) {
-        devCtrlCache = devMemory.CopyToDev(reinterpret_cast<uint8_t *>(hostCtrlCache), hostCtrlCache->usedCacheSize, nullptr);
+        devCtrlCache = devMemoryNotHugePage.CopyToDev(reinterpret_cast<uint8_t *>(hostCtrlCache), hostCtrlCache->allCacheSize, nullptr);
     }
 
     int rc = DeviceLaunchOnceWithDeviceTensorData(function, inputDeviceDataList, outputDeviceDataList,
         aicpuStream, aicoreStream, true, nullptr, reinterpret_cast<DevControlFlowCache*>(devCtrlCache), config);
-    CopyFromDev(DeviceMemoryUtils(), outputDataList);
+    CopyFromDev(devMemoryHugePage, outputDataList);
     if (HasInplaceArgs(function) || outputDataList.size() == 0) {
-        CopyFromDev(DeviceMemoryUtils(), inputDataList);
+        CopyFromDev(devMemoryHugePage, inputDataList);
     }
-    devMemory.Free(devCtrlCache);
+    devMemoryHugePage.Free(devCtrlCache);
+    // machine::GetRA()->FreeTmpMemory();
     return rc;
 #else
     (void)hostCtrlCache;
@@ -479,7 +492,11 @@ uint32_t GetProcessId() {
 
 void CopyDevToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTensor) {
 #ifdef BUILD_WITH_CANN
+#ifdef __ESL_SIMULATION__
+    EslModelMemoryUtils().CopyFromDev((uint8_t *)hostTensor.GetAddr(), (uint8_t *)devTensor.GetAddr(), devTensor.GetDataSize());
+#else
     DeviceMemoryUtils().CopyFromDev((uint8_t *)hostTensor.GetAddr(), (uint8_t *)devTensor.GetAddr(), devTensor.GetDataSize());
+#endif
 #else
     (void)devTensor;
     (void)hostTensor;
@@ -488,7 +505,11 @@ void CopyDevToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTens
 
 void CopyHostToDev(const DeviceTensorData &devTensor, DeviceTensorData &hostTensor) {
 #ifdef BUILD_WITH_CANN
+#ifdef __ESL_SIMULATION__
+    EslModelMemoryUtils().CopyToDev((uint8_t *)devTensor.GetAddr(), (uint8_t *)hostTensor.GetAddr(), devTensor.GetDataSize());
+#else
     DeviceMemoryUtils().CopyToDev((uint8_t *)devTensor.GetAddr(), (uint8_t *)hostTensor.GetAddr(), devTensor.GetDataSize());
+#endif
 #else
     (void)devTensor;
     (void)hostTensor;
@@ -497,7 +518,11 @@ void CopyHostToDev(const DeviceTensorData &devTensor, DeviceTensorData &hostTens
 
 uint8_t* CopyHostToDev(uint8_t* data, uint64_t size) {
 #ifdef BUILD_WITH_CANN
+#ifdef __ESL_SIMULATION__
+    return EslModelMemoryUtils(false).CopyToDev((uint8_t *)data, size, nullptr);
+#else
     return DeviceMemoryUtils(false).CopyToDev((uint8_t *)data, size, nullptr);
+#endif
 #else
     (void)data;
     (void)size;
@@ -540,7 +565,11 @@ void DeviceLauncher::FillDeviceKernelArgs(std::vector<uint8_t> &devProgData, Dev
     DeviceLauncherConfig config;
     CachedOperator cache;
     DeviceLauncherConfigFillDeviceInfo(config);
+#ifdef __ESL_SIMULATION__
+    EslModelMemoryUtils deviceMemoryUtils;
+#else
     DeviceMemoryUtils deviceMemoryUtils;
+#endif
     DeviceInitTilingData(deviceMemoryUtils, kargs, devProgData, nullptr, config, &cache);
     DeviceInitDistributedContext(deviceMemoryUtils, groupNames, kargs);
 #else
@@ -709,6 +738,76 @@ int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream
         ret = rtAicpuKernelLaunchExWithArgs(
             rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", nrAicpu, &rtArgs, nullptr, schedStream, 0);
         devRunner.ReportHostProfInfo(startTime, nrAicpu, MSPROF_GE_TASK_TYPE_AI_CPU, false);
+        return ret;
+    }
+#else
+    (void)rtArgs;
+    (void)tripleStream;
+    (void)debugEnable;
+    return 0;
+#endif
+}
+
+extern "C" int DynTileFwkBackendKernelServer(void *targ);
+int DeviceLauncher::LaunchAicpuKernelEsl(rtAicpuArgsEx_t &rtArgs, bool tripleStream,
+                                      bool debugEnable, [[maybe_unused]]Function *function) {
+#ifdef BUILD_WITH_CANN
+    std::this_thread::sleep_for(std::chrono::seconds(10));
+    auto &devRunner = DeviceRunner::Get();
+    if (debugEnable) {
+        devRunner.SetDebugEnable();
+    }
+    int ret = 0;
+    auto args = (AiCpuArgs *)rtArgs.args;
+    const int nrAicpu = DeviceLauncher::GetDevProg(function)->devArgs.nrAicpu;
+    if (tripleStream) {
+        std::vector<std::thread> aicpus(nrAicpu + 2);
+        std::atomic<int> idx{0};
+        args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_CTRL;
+        for (int i = 0; i < nrAicpu + 2; i++) {
+            if (i == 2) {
+                args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_SCHE;
+            }
+            aicpus[i] = std::thread([&]() {
+                int tidx = idx++;
+                cpu_set_t cpuset;
+                CPU_ZERO(&cpuset);
+                CPU_SET(tidx, &cpuset);
+                std::string name = "aicput" + std::to_string(tidx);
+                std::cout << "start thread: " << name << std::endl;
+                pthread_setname_np(pthread_self(), name.c_str());
+                pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+                (void)DynTileFwkBackendKernelServer(&args->kArgs);
+            });
+        }
+        for (int i = 0; i < nrAicpu + 2; i++) {
+            if (aicpus[i].joinable()) {
+                aicpus[i].join();
+            }
+        }
+        return ret;
+    } else {
+        args->kArgs.parameter.runMode = RUN_UNIFIED_STREAM;
+        std::vector<std::thread> aicpus(nrAicpu + 2);
+        std::atomic<int> idx{0};
+        for (int i = 0; i < nrAicpu; i++) {
+            aicpus[i] = std::thread([&]() {
+                int tidx = idx++;
+                cpu_set_t cpuset;
+                CPU_ZERO(&cpuset);
+                CPU_SET(tidx, &cpuset);
+                std::string name = "aicput" + std::to_string(tidx);
+                std::cout << "start thread: " << name << std::endl;
+                pthread_setname_np(pthread_self(), name.c_str());
+                pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+                (void)DynTileFwkBackendKernelServer(&args->kArgs);
+            });
+        }
+        for (int i = 0; i < nrAicpu + 2; i++) {
+            if (aicpus[i].joinable()) {
+                aicpus[i].join();
+            }
+        }
         return ret;
     }
 #else

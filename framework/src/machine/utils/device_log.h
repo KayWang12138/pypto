@@ -46,6 +46,8 @@ namespace npu::tile_fwk {
 
 #define DEV_IF_VERBOSE_DEBUG if constexpr (IsCompileVerboseLog())
 
+#define DEV_IF_DEVICE_OR_ESL if constexpr (IsDeviceMode() || IsEslMode())
+
 inline constexpr bool IsCompileVerboseLog() {
 #if ENABLE_COMPILE_VERBOSE_LOG
     return true;

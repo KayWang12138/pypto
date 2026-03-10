@@ -24,12 +24,17 @@
 #include "acl/acl_rt.h"
 #endif
 
+#ifdef __ESL_SIMULATION__
+#include "machine/runtime/esl_memory_utils.h"
+#else
+#include "machine/runtime/device_memory_utils.h"
+#endif
+
 #include "machine/runtime/device_launcher_binding.h"
 #include "interface/configs/config_manager.h"
 #include "interface/function/function.h"
 #include "machine/utils/dynamic/dev_tensor_creator.h"
 #include "machine/device/dynamic/device_common.h"
-#include "machine/runtime/device_memory_utils.h"
 #include "tilefwk/tilefwk.h"
 #include "tilefwk/platform.h"
 #include "interface/inner/tilefwk.h"
@@ -348,9 +353,9 @@ public:
         dataPtr += inputList.size();
         buildInouts(outputList, dataPtr, tensorIdx);
         if (devMem.IsDevice()) {
-            kArgs.inputs = reinterpret_cast<int64_t*>(tensorInfo_.data());
+            kArgs.inputs = reinterpret_cast<int64_t*>(tensorInfo_.data() + sizeof(AiCpuArgs));
             kArgs.outputs = (int64_t *)allSize;
-        } else {;
+        } else {
             kArgs.inputs = reinterpret_cast<int64_t*>(tensorInfo_.data() + sizeof(AiCpuArgs));
             kArgs.outputs = kArgs.inputs + 1;
         }
@@ -443,6 +448,7 @@ public:
     static void GetCaptureInfo(aclrtStream aicoreStream, aclmdlRI &rtModel);
     static void AddAicpuStream(aclmdlRI &rtModel, bool tripleStream);
     static int LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream, bool debugEnable, [[maybe_unused]]Function *function);
+    static int LaunchAicpuKernelEsl(rtAicpuArgsEx_t &rtArgs, bool tripleStream, bool debugEnable, [[maybe_unused]]Function *function);   
     static int LaunchAicoreKernel(
         aclrtStream aicoreStream, void *kernel, rtArgsEx_t &rtArgs, rtTaskCfgInfo_t &rtTaskCfg, bool debugEnable);
     static int DeviceRunOnce(Function *function, DevControlFlowCache* hostCtrlCache = nullptr,

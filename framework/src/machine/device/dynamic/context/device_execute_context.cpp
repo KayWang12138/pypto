@@ -106,6 +106,10 @@ int DeviceExecuteContext::RunInit(DevStartArgs *startArgs, PushTaskEntry tPushTa
 
     taskContext.InitAllocator(devProg, workspace, startArgs);
 
+#ifdef __ESL_SIMULATION__
+    taskContext.InitBusWriteFunc();
+#endif
+
     workspace.SetupVector(symbolTable);
     symbolTable.resize(devProg->symbolTable.size());
     for (int index = 0; index < startArgs->GetInputSymbolSize(); ++index) {
