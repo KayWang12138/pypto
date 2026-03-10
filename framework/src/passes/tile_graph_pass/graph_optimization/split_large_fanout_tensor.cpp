@@ -706,6 +706,7 @@ void SplitLargeFanoutTensor::SetEnableMoreSplit(bool enableMoreSplit) {
 Status SplitLargeFanoutTensor::PreCheck(Function &function){
     return checker_.DoPreCheck(function);
 }
+
 Status SplitLargeFanoutTensor::PostCheck(Function &function){
     return checker_.DoPostCheck(function);
 }
