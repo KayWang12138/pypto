@@ -71,3 +71,5 @@ def test_verify_dyn():
     pypto.set_verify_golden_data(goldens=[None, None, golden_cpu])
     add_dyn_kernel(a, b, output_data)
     assert torch.allclose(output_data, golden)
+
+test_verify_dyn()
