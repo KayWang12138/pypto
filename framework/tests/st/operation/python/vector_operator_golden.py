@@ -955,8 +955,6 @@ def gen_pad_op_golden(case_name: str, output: Path, case_index: int = None) -> b
     def golden_func(inputs: list, config: dict):
         input_shape = config["input_tensors"][0]["shape"]
         output_shape = config["output_tensors"][0]["shape"]
-        pad_right = output_shape[-1] - input_shape[-1]
-        pad_bottom = output_shape[-2] - input_shape[-2]
         pad_value_type = config.get("params", {}).get("pad_value_type", "zero")
         if pad_value_type == "min":
             pad_value = -torch.inf
@@ -965,7 +963,13 @@ def gen_pad_op_golden(case_name: str, output: Path, case_index: int = None) -> b
         else:
             pad_value = 0.0
         tensor = torch.from_numpy(inputs[0])
-        result = F.pad(tensor, (0, pad_right, 0, pad_bottom), mode='constant', value=pad_value)
+        if len(input_shape) == 1:
+            pad_right = output_shape[-1] - input_shape[-1]
+            result = F.pad(tensor, (0, pad_right), mode='constant', value=pad_value)
+        else:
+            pad_right = output_shape[-1] - input_shape[-1]
+            pad_bottom = output_shape[-2] - input_shape[-2]
+            result = F.pad(tensor, (0, pad_right, 0, pad_bottom), mode='constant', value=pad_value)
         return [result.numpy()]
 
     logging.debug("Case(%s), Golden creating...", case_name)
