@@ -887,13 +887,6 @@ TEST_F(PreGraphTest, TestRemoveViewMultiReshapeErrCondition) {
     EXPECT_EQ(pass.RemoveViewMultiReshape(multiReshapeVector), FAILED);
 }
 
-void CompareOpImmediateVector(const std::vector<OpImmediate> &result, const std::vector<int64_t> &expect) {
-    EXPECT_EQ(result.size(), expect.size());
-    for (size_t idx = 0; idx < result.size(); ++idx) {
-        EXPECT_EQ(result[idx].Dump(), std::to_string(expect[idx]));
-    }
-}
-
 TEST_F(PreGraphTest, TestRemoveRedundantAssemble) {
     ComputationalGraphBuilder G;
     // add tensor

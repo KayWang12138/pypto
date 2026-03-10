@@ -36,7 +36,6 @@ private:
     void HandleForAssembleFromInOut(Function &function, Operation &AssembleOp,
         std::set<Operation *, LogicalTensor::CompareOp> &producersBackup) const;
     Status ProcessView(Function &function) const;
-    void UpdateReshapeShape(Operation &reshapeOp, const Shape &newRawShape) const;
     Status SplitMultiConsumerReshape(
         Function &function, std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const;
     Status ProcessReshape(Function &function, Operation *&operation,
