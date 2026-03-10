@@ -24,6 +24,9 @@
 namespace npu {
 namespace tile_fwk {
 bool containsNegativeOne1(const std::vector<long>& vec) {
+    if (vec.empty()) {
+        return false;
+    }
     return std::find(vec.begin(), vec.end(), static_cast<long>(-1)) != vec.end();
 }
 
@@ -172,6 +175,9 @@ Status RemoveRedundantOp::ProcessViewAssemble(Function &function) {
             if (inputMemtype != outputMemtype) {
                 //跳过view输入和 assemble输出 mem类型不同的场景
                 continue;
+            }
+            if (in == nullptr || out == nullptr) {
+                return FAILED;
             }
             if (startTensor->shape == endTensor->shape && startTensor->offset == endTensor->offset ) {
                 //case1：view输入和assemble输出tensor shape和offset完全匹配

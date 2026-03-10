@@ -25,8 +25,11 @@ using namespace npu::tile_fwk;
 namespace npu::tile_fwk {
 namespace {
 
-bool containsNegativeOne(const std::vector<int64_t>& vec) {
-    return std::find(vec.begin(), vec.end(), static_cast<int64_t>(-1)) != vec.end();
+bool containsNegativeOne1(const std::vector<int>& vec) {
+    if (vec.empty()) {
+        return false;
+    }
+    return std::find(vec.begin(), vec.end(), static_cast<int>(-1)) != vec.end();
 }
 
 Status CheckIOOperands(const Operation &op, LogicalTensorPtr &in, LogicalTensorPtr &out) {
