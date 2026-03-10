@@ -21,7 +21,7 @@ if (ENABLE_UTEST)
 
     if (BUILD_WITH_CANN)
         PTO_Fwk_UTest_AddModuleDir(DIR machine)
-        PTO_Fwk_UTest_AddModuleDir(DIR codegen)
+        # PTO_Fwk_UTest_AddModuleDir(DIR codegen)
     endif ()
 
     # 可执行程序

@@ -20,7 +20,7 @@
 
 ```bash
 # 配置 CANN 环境变量
-source /usr/local/Ascend/ascend-toolkit/latest/bin/setenv.bash
+source /usr/local/Ascend/cann/setenv.bash
 
 # 设置设备 ID
 export TILE_FWK_DEVICE_ID=0
@@ -46,7 +46,7 @@ def silu_activation(x: pypto.Tensor) -> pypto.Tensor:
     x_neg = pypto.mul(x, -1.0)
     exp_neg = pypto.exp(x_neg)
     sigmoid = pypto.div(1.0, pypto.add(exp_neg, 1.0))
-    
+
     # 2. 计算 x * sigmoid(x)
     return pypto.mul(x, sigmoid)
 ```

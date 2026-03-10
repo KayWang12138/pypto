@@ -86,7 +86,7 @@ python3 scripts/diagnose_env.py --checklist
 
 ```bash
 # 步骤 4.1：加载 CANN 环境
-source ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/set_env.sh
+source ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/latest/set_env.sh
 
 # 步骤 4.2：检查可用的 NPU 卡
 npu-smi info
@@ -157,7 +157,7 @@ pypto:      ✅ 已安装
 
 持久化配置（可选）：
 cat >> ~/.bashrc << 'EOF'
-source ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/set_env.sh
+source ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/latest/set_env.sh
 export TILE_FWK_DEVICE_ID=0
 export PTO_TILE_LIB_CODE_PATH=${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/aarch64-linux
 EOF
