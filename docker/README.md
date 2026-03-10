@@ -112,12 +112,12 @@ RUN python -m pip install --no-cache-dir torch==2.6.0 --index-url https://downlo
 #
 # # Note: 设置环境变量，容器登录自动生效
 # RUN \
-#     CANN_TOOLKIT_ENV_FILE="/usr/local/Ascend/CANN_pypto/ascend-toolkit/latest/set_env.sh" && \
+#     CANN_TOOLKIT_ENV_FILE="/usr/local/Ascend/CANN_pypto/ascend-toolkit/set_env.sh" && \
 #     echo "source ${CANN_TOOLKIT_ENV_FILE}" >> /etc/profile && \
 #     echo "source ${CANN_TOOLKIT_ENV_FILE}" >> ~/.bashrc
 #
 # ENTRYPOINT ["/bin/bash", "-c", "\
-#     source /usr/local/Ascend/CANN_pypto/ascend-toolkit/latest/set_env.sh && \
+#     source /usr/local/Ascend/CANN_pypto/ascend-toolkit/set_env.sh && \
 #     exec \"$@\"", "--"]
 
 # step4: 安装 cann-pto-isa
