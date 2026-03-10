@@ -225,29 +225,29 @@ void Platform::LoadPlatformInfo(const std::unique_ptr<PlatformParser> &parser) {
     std::string archType;
     std::string shortSocVersion;
     std::unordered_map<std::string, std::string> versionInfo;
-    if (parser.GetStringVal(version, npuArchInfo, archType)) {
+    if (parser->GetStringVal(version, npuArchInfo, archType)) {
         GetSoc().SetNPUArch(archType);
     }
-    if (parser.GetStringVal(version, shortSocVer, shortSocVersion)) {
+    if (parser->GetStringVal(version, shortSocVer, shortSocVersion)) {
         GetSoc().SetShortSocVersion(shortSocVersion);
     }
-    if (parser.GetCCECVersion(versionInfo)) {
+    if (parser->GetCCECVersion(versionInfo)) {
         GetSoc().SetCCECVersion(versionInfo);
     }
-    if (parser.GetCoreVersion(versionInfo)) {
+    if (parser->GetCoreVersion(versionInfo)) {
         GetSoc().SetCoreVersion(versionInfo);
     }
     size_t coreNum;
-    if (parser.GetSizeVal(socInfo, aiCoreCnt, coreNum)) {
+    if (parser->GetSizeVal(socInfo, aiCoreCnt, coreNum)) {
         GetSoc().SetAICoreNum(coreNum);
     }
-    if (parser.GetSizeVal(socInfo, cubeCoreCnt, coreNum)) {
+    if (parser->GetSizeVal(socInfo, cubeCoreCnt, coreNum)) {
         GetSoc().SetAICCoreNum(coreNum);
     }
-    if (parser.GetSizeVal(socInfo, vectorCoreCnt, coreNum)) {
+    if (parser->GetSizeVal(socInfo, vectorCoreCnt, coreNum)) {
         GetSoc().SetAIVCoreNum(coreNum);
     }
-    if (parser.GetSizeVal(socInfo, aiCpuCnt, coreNum)) {
+    if (parser->GetSizeVal(socInfo, aiCpuCnt, coreNum)) {
         GetSoc().SetAICPUNum(coreNum);
     }
     SetMemoryLimit(parser);

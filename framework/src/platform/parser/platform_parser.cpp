@@ -96,7 +96,9 @@ INIParser::INIParser() {
     std::string srcPath;
     SimulationPlatform simulationPlatform;
     simulationPlatform.GetCostModelPlatformRealPath(srcPath);
-    Initialize(srcPath);
+    if (!Initialize(srcPath)) {
+        FUNCTION_LOGE("Failed to initialize.");
+    }
 }
 
 bool INIParser::Initialize(const std::string& iniFilePath) {
