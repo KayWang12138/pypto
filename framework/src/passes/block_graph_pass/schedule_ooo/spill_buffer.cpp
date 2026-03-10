@@ -278,7 +278,10 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
     // 设置ODO copy_in op offset
     UpdateOpAttr(spillAllocOp, 1, localTensor, {}, spillIssue, 0);
     UpdateOpAttr(spillCopyInOp, DEFAULT_LATENCY, localTensor, spillOutTensor->GetOffset(), spillIssue, base);
-    UpdateCopyInMode(spillCopyInOp);
+    // DDR->COPY_IN->spillTensor 场景不标记 copy_in_mode
+    if (spillIssue->tileOp.GetOpcode() != Opcode::OP_COPY_IN) {
+        UpdateCopyInMode(spillCopyInOp);
+    }
     // 初始化OP_COPY_IN/OP_ALLOC的issueEntry
     IssueEntryPtr spillAllocInst = std::make_shared<IssueEntry>(spillAllocOp, issueId);
     issueEntryMap[issueId++] = spillAllocInst;
@@ -375,7 +378,10 @@ Status OoOScheduler::SpillReshapeParticalBuffer(SpillInfo &spillInfo, IssueEntry
     GetWorkspaceBaseOffset(spillInfo.ddrTensor_, base);
     UpdateOpAttr(spillCopyInOp, DEFAULT_LATENCY, newTensor, spillInfo.ddrTensor_->GetOffset(), preIssue, base);
     auto spillCopyInIssue = UpdateIssueAttr(spillCopyInOp, {reshapeTensor->memoryrange.memId}, allocIssue, bufNextUseOrder, isGenSpill);
-    UpdateCopyInMode(spillCopyInOp);
+    // A5 下 DDR->COPY_IN->L1->RESHAPE->L1 场景不标记 copy_in_mode
+    if (preIssue->tileOp.GetOpcode() != Opcode::OP_COPY_IN) {
+        UpdateCopyInMode(spillCopyInOp);
+    }
     // 创建 reshape
     auto &reshapeOp = function_.AddRawOperation(Opcode::OP_RESHAPE, {newTensor}, {reshapeTensor});
     reshapeOp.UpdateLatency(1);
@@ -454,9 +460,12 @@ Status OoOScheduler::SpillInBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssu
 }
 
 Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorPtr spillTensor,
-    int spillMemId, IssueEntryPtr &spillCopyout) {
-    // 创建spill搬出所需的DDR rawtensor/tensor
+    int spillMemId, IssueEntryPtr &spillCopyout, SpillInfo spillInfo) {
+    // 创建spill搬出所需的DDR rawtensor/tensor (A5 L1 spill 的情况：spillInfo.spillIssue_ != spillIssue)
     std::shared_ptr<RawTensor> ddrRawTensor =
+        (spillInfo.spillIssue_ != spillIssue && spillTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) ?
+        std::make_shared<RawTensor>(spillInfo.spillTensor_->Datatype(), spillTensor->tensor->rawshape,
+        TileOpFormat::TILEOP_ND, "WorkspaceGm", SYMBOL_STACK_BASE) :
         std::make_shared<RawTensor>(spillTensor->Datatype(), spillTensor->tensor->rawshape,
         TileOpFormat::TILEOP_ND, "WorkspaceGm", SYMBOL_STACK_BASE);
     if (ddrRawTensor == nullptr) {
@@ -480,7 +489,13 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
     // 创建spill搬出所需的DDR OP_COPY_OUT
     Operation &spillOutOp = function_.AddRawOperation(Opcode::OP_COPY_OUT, {spillTensor}, {ddrTensor});
     UpdateOpAttr(spillOutOp, DEFAULT_LATENCY, spillTensor, offset, spillIssue, workspaceOffsetTemp);
-
+    if (spillInfo.spillIssue_ != spillIssue && spillTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
+        // L0C_L1 上的 op_attr_scale_value 属性迁移至 L0C_COPY_OUT 上
+        Element scaleValue = Element(DataType::DT_UINT64, 0);
+        if (spillInfo.spillIssue_->tileOp.GetAttr(OpAttributeKey::scaleValue, scaleValue)) {
+            spillOutOp.SetAttribute(OpAttributeKey::scaleValue, scaleValue);
+        }
+    }
     // 创建spill搬出数据OP_COPY_OUT的issueEntry
     spillCopyout = std::make_shared<IssueEntry>(spillOutOp, issueId);
     issueEntryMap[issueId++] = spillCopyout;
@@ -560,7 +575,7 @@ Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr 
         APASS_LOG_ERROR_F(Elements::Operation, "A5 does not support the COPY_IN-actualSpillIssue. ");
         return FAILED;
     }
-    if (CreateSpillCopyout(actualSpillIssue, actualSpillTensor, actualSpillTensor->memoryrange.memId, spillCopyout) != SUCCESS) {
+    if (CreateSpillCopyout(actualSpillIssue, actualSpillTensor, actualSpillTensor->memoryrange.memId, spillCopyout, spillInfo) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "CreateSpillCopyout failed for specialL1 spill! %s", GetFormatBacktrace(spillIssue->tileOp).c_str());
         return FAILED;
     }
@@ -587,7 +602,7 @@ Status OoOScheduler::SpillOutBuffer(SpillInfo &spillInfo, IssueEntryPtr issue, s
         }
     } else {
         if (CreateSpillCopyout(spillInfo.spillIssue_, spillInfo.spillTensor_, spillInfo.spillMemId_,
-        spillCopyout) != SUCCESS) {
+        spillCopyout, spillInfo) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "CreateSpillCopyout failed! %s", GetFormatBacktrace(spillInfo.spillIssue_->tileOp).c_str());
             return FAILED;
         }
