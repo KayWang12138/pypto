@@ -1257,6 +1257,53 @@ TEST_F(TorchAdaptorTest, Misc) {
     }
 }
 
+TEST_F(TorchAdaptorTest, Pad) {
+    // Test 2D pad with constant value 0.0
+    std::vector<float> sdata = {1.0, 2.0, 3.0, 4.0};
+    std::vector<float> gdata = {1.0, 2.0, 3.0, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    auto self = makeTensorData(DT_FP32, {2, 2}, sdata);
+    auto out = makeTensorData(DT_FP32, {3, 4}, 0.0f);
+    auto golden = makeTensorData(DT_FP32, {3, 4}, gdata);
+    calc::Pad(out, self, {0, 2, 0, 1}, "constant", Element(DT_FP32, 0.0f));
+    ASSERT_ALLCLOSE(out, golden);
+
+    // Test 1D pad with constant value 0.0
+    std::vector<float> sdata_1d = {1.0, 2.0, 3.0, 4.0};
+    std::vector<float> gdata_1d = {0.0, 1.0, 2.0, 3.0, 4.0, 0.0, 0.0};
+    auto self_1d = makeTensorData(DT_FP32, {4}, sdata_1d);
+    auto out_1d = makeTensorData(DT_FP32, {7}, 0.0f);
+    auto golden_1d = makeTensorData(DT_FP32, {7}, gdata_1d);
+    calc::Pad(out_1d, self_1d, {1, 2}, "constant", Element(DT_FP32, 0.0f));
+    ASSERT_ALLCLOSE(out_1d, golden_1d);
+
+    // Test 3D pad with constant value 0.0
+    std::vector<float> sdata_3d = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0};
+    std::vector<float> gdata_3d = {
+        1.0, 2.0, 3.0, 4.0, 0.0,
+        5.0, 6.0, 7.0, 8.0, 0.0,
+        0.0, 0.0, 0.0, 0.0, 0.0
+    };
+    auto self_3d = makeTensorData(DT_FP32, {2, 2, 2}, sdata_3d);
+    auto out_3d = makeTensorData(DT_FP32, {3, 2, 3}, 0.0f);
+    auto golden_3d = makeTensorData(DT_FP32, {3, 2, 3}, gdata_3d);
+    calc::Pad(out_3d, self_3d, {0, 1, 0, 0, 0, 1}, "constant", Element(DT_FP32, 0.0f));
+    ASSERT_ALLCLOSE(out_3d, golden_3d);
+
+    // Test pad with positive infinity
+    std::vector<float> gdata_inf = {1.0, 2.0, 3.0, 4.0, INFINITY, INFINITY, INFINITY, INFINITY, INFINITY, INFINITY, INFINITY, INFINITY};
+    auto out_inf = makeTensorData(DT_FP32, {3, 4}, 0.0f);
+    auto golden_inf = makeTensorData(DT_FP32, {3, 4}, gdata_inf);
+    calc::Pad(out_inf, self, {0, 2, 0, 1}, "constant", Element(DT_FP32, INFINITY));
+    ASSERT_ALLCLOSE(out_inf, golden_inf);
+
+    // Test pad with negative infinity
+    std::vector<float> gdata_ninf = {1.0, 2.0, 3.0, 4.0, -INFINITY, -INFINITY, -INFINITY, -INFINITY, -INFINITY, -INFINITY, -INFINITY, -INFINITY};
+    auto out_ninf = makeTensorData(DT_FP32, {3, 4}, 0.0f);
+    auto golden_ninf = makeTensorData(DT_FP32, {3, 4}, gdata_ninf);
+    calc::Pad(out_ninf, self, {0, 2, 0, 1}, "constant", Element(DT_FP32, -INFINITY));
+    ASSERT_ALLCLOSE(out_ninf, golden_ninf);
+}
+
 TEST_F(TorchAdaptorTest, BitSortDescending) {
     // 降序
     std::vector<float> sdata = {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0,
