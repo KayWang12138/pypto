@@ -1,0 +1,63 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+
+ "provider": {
+    "myprovider": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "volcengine",
+      "options": {
+        "baseURL": "https://ark.cn-beijing.volces.com/api/v3",
+        "apiKey": "26b0c713-1c62-4cfb-8e8b-280f8e7b78ad"
+      },
+      "models": {
+         "ep-20260227091101-hwb9m": {
+          "name": "GLM-4-7-ep-20260227091101-hwb9m"
+         }
+      }
+    }
+ },
+
+  "tui": {
+    "scroll_speed": 5,
+    "scroll_acceleration": {
+      "enabled": true
+    },
+    "diff_style": "auto"
+  },
+
+  "tools": {
+    "webfetch": true,
+    "glob": true
+  },
+
+  "watcher": {
+    "ignore": [
+      "node_modules/**",
+      "dist/**",
+      ".git/**",
+      "build/**",
+      "target/**",
+      "**/.*"
+    ]
+  },
+
+  "compaction": {
+    "auto": true,
+    "prune": true
+  },
+
+  "autoupdate": false,
+
+  "experimental": {
+    "disable_paste_summary": true
+  },
+
+  "permission": {
+    "edit": "allow",
+    "bash": "allow",
+    "write": "allow",
+    "read": "allow",
+    "webfetch": "allow",
+    "glob": "allow"
+  },
+}
