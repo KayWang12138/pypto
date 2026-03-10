@@ -359,7 +359,6 @@ Status BufferPool::CompactBufferSlices(std::unordered_map<int, LocalBufferPtr> &
 
 
 void BufferPool::PrintStatus() {
-    APASS_LOG_DEBUG_F(Elements::Tensor, "Buffer Status : ");
     std::vector<int> memIdList;
     for (auto &[memId, slice] : bufferSlices) {
         (void)slice;
