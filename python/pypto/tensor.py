@@ -9,7 +9,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 import typing
-from typing import Union, List, Optional, Tuple
+from typing import Union, List, Optional, Tuple, Sequence
 
 import sympy
 import pypto
@@ -746,6 +746,10 @@ class Tensor:
         if valid_shape is None:
             valid_shape = []
         return pypto.expand_clone(self, shape, valid_shape=valid_shape)
+
+    @source_location
+    def pad(self, pad: Sequence[int], mode: str = "constant", value: float = 0.0) -> 'Tensor':
+        return pypto.pad(self, pad, mode, value)
 
     @source_location
     def scatter_update(self, dim: int, index: 'Tensor', src: 'Tensor') -> 'Tensor':
