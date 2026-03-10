@@ -93,7 +93,6 @@ def matmul_allreduce_add_rmsnorm_kernel(
                 shmem_data, shmem_shape, [0, 0, 0], pred=[in_tensor_tile], is_signal=False)
             signal_clear_out = pypto.distributed.shmem_clear(
                 shmem_signal, shmem_shape, [0, 0, 0], pred=[in_tensor_tile], is_signal=True)
-            pypto.set_vec_tile_shapes(1, 8)
             barrier_out = pypto.distributed.shmem_barrier_all(
                 shmem_barrier_signal, [data_clear_out, signal_clear_out])
 
@@ -158,12 +157,13 @@ def generate_golden_data():
 
     #构造每张卡上需要的数据
     input_datas = []
-    for _ in range(WORLD_SIZE):
-        in_tensor = torch.randn((batch_size, attn_dim_per_tp), dtype=torch.bfloat16).share_memory_()
-        matmul_weight = torch.randn((hidden_size, attn_dim_per_tp), dtype=torch.bfloat16).share_memory_()
-        residual = torch.randn((batch_size, hidden_size), dtype=torch.bfloat16).share_memory_()
-        gamma = torch.randn((hidden_size), dtype=torch.bfloat16).share_memory_()
-        bias = torch.randn((hidden_size), dtype=torch.bfloat16).share_memory_()
+    for rank in range(WORLD_SIZE):
+        device = f'npu:{rank + PHYSICAL_START_DEVICE_ID}'
+        in_tensor = torch.randn((batch_size, attn_dim_per_tp), dtype=torch.bfloat16, device=device).share_memory_()
+        matmul_weight = torch.randn((hidden_size, attn_dim_per_tp), dtype=torch.bfloat16, device=device).share_memory_()
+        residual = torch.randn((batch_size, hidden_size), dtype=torch.bfloat16, device=device).share_memory_()
+        gamma = torch.randn((hidden_size), dtype=torch.bfloat16, device=device).share_memory_()
+        bias = torch.randn((hidden_size), dtype=torch.bfloat16, device=device).share_memory_()
         eps = 1e-5
         input_data = [in_tensor, matmul_weight, residual, gamma, bias, eps]
         input_datas.append(input_data)
@@ -177,13 +177,14 @@ def matmul_allreduce_add_rmsnorm_result_golden(batch_size, num, input_datas):
     matmul_allreduce_result_fp32 = torch.zeros((batch_size, num), dtype=torch.float32)
     for input_data in input_datas:
         in_tensor, matmul_weight = input_data[:2]
+        matmul_weight = torch_npu.npu_format_cast(matmul_weight, torch_npu.Format.FRACTAL_NZ)
         matmul_result = torch.matmul(in_tensor, matmul_weight.T)
-        matmul_allreduce_result_fp32 += matmul_result.to(torch.float32)
+        matmul_allreduce_result_fp32 += matmul_result.cpu().to(torch.float32)
 
     # 计算各卡上add_rmsnorm之后的结果
     for input_data in input_datas:
         residual, gamma, bias, eps = input_data[-4:]
-        res_add = residual.to(torch.float32) + matmul_allreduce_result_fp32
+        res_add = residual.to(torch.float32) + matmul_allreduce_result_fp32.to(residual.device)
         mean_coff = 1.0 / res_add.shape[-1]
         in_tensor_f32 = res_add
         square = in_tensor_f32 * in_tensor_f32
@@ -203,13 +204,13 @@ def matmul_allreduce_add_rmsnorm_worker(intput_data, output_data, rank):
     groups = init_hccl_comm(rank)
     device = f'npu:{rank + PHYSICAL_START_DEVICE_ID}'
     in_tensor, matmul_weight, residual, gamma, bias, eps = intput_data
+    matmul_weight = torch_npu.npu_format_cast(matmul_weight, torch_npu.Format.FRACTAL_NZ)
     golden_out_tensor, golden_residual = output_data
 
     out_tensor = torch.empty(residual.shape, dtype=torch.bfloat16, device=device)
     residual_out = torch.empty(residual.shape, dtype=torch.bfloat16, device=device)
 
-    inputs = [in_tensor.to(device), matmul_weight.to(device), residual.to(device), gamma.to(device), 
-        bias.to(device), out_tensor, residual_out]
+    inputs = [in_tensor, matmul_weight, residual, gamma, bias, out_tensor, residual_out]
 
     batch_size, _ = in_tensor.shape
     hidden_size = out_tensor.shape[1]
