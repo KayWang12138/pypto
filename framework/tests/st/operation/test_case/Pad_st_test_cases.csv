@@ -1,0 +1,6 @@
+case_name,input_shape,input_dtype,input_format,input_datarange,output_shape,output_dtype,output_format,view_shape,tile_shape,pad_value,pad_value_type,func_id
+Pad_test_0,"[32, 32]",fp16,ND,"[-10, 10]","[64, 64]",fp16,ND,"[32, 32]","[32, 32]",0,"zero",-1
+Pad_test_1,"[32, 32]",fp32,ND,"[-100, 100]","[64, 64]",fp32,ND,"[32, 32]","[16, 16]",0,"zero",-1
+Pad_test_2,"[16, 32]",fp32,ND,"[-5, 5]","[24, 40]",fp32,ND,"[16, 32]","[8, 8]",0,"zero",-1
+Pad_test_3,"[8, 8]",fp16,ND,"[-10, 10]","[16, 16]",fp16,ND,"[8, 8]","[8, 8]",0,"zero",-1
+Pad_test_4,"[1]",fp32,ND,"[-10, 10]","[64]",fp32,ND,"[1]","[9]",0,"zero",3
