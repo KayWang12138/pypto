@@ -368,7 +368,7 @@ void SubfuncInvokeInfoTy::LoadIncastFromJson(const Json& incastJson, Function* b
         incastJson["tensor"].get<int>());
     if (tensorPtr == nullptr) {
         APASS_LOG_ERROR_F(Elements::Function, "Tile FWK for incast %d op %d is nullptr, function type %d name %s",
-            incastJson["tensor"].get<int>(), opMagic, belongTo->GetFunctionType(),
+            incastJson["tensor"].get<int>(), opMagic, static_cast<int>(belongTo->GetFunctionType()),
             belongTo->GetMagicName().c_str());
         return;
     }
@@ -386,7 +386,7 @@ void SubfuncInvokeInfoTy::LoadOutcastFromJson(const Json& outcastJson, Function*
         outcastJson["tensor"].get<int>());
     if (tensorPtr == nullptr) {
         APASS_LOG_ERROR_F(Elements::Function, "Tile FWK for outcast %d op %d is nullptr function type %d name %s",
-            outcastJson["tensor"].get<int>(), opMagic, belongTo->GetFunctionType(),
+            outcastJson["tensor"].get<int>(), opMagic, static_cast<int>(belongTo->GetFunctionType()),
             belongTo->GetMagicName().c_str());
         return;
     }
@@ -404,7 +404,7 @@ void SubfuncInvokeInfoTy::LoadTensorFromJson(const Json& tensorJson, Function* b
         tensorJson["tensor"].get<int>());
     if (tensorPtr == nullptr) {
         APASS_LOG_ERROR_F(Elements::Function, "Tile FWK for tensor %d op %d is nullptr, function type %d name %s",
-            tensorJson["tensor"].get<int>(), opMagic, belongTo->GetFunctionType(),
+            tensorJson["tensor"].get<int>(), opMagic, static_cast<int>(belongTo->GetFunctionType()),
             belongTo->GetMagicName().c_str());
         return;
     }
