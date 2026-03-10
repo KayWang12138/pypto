@@ -45,8 +45,7 @@ static void PadOperationExeFunc1Dims(
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             auto tileTensor = View(inputs[0], {firstViewShape},
-                {std::min(firstDim - bIdx * firstViewShape, firstViewShape)},
-                {bIdx * firstViewShape});
+                {std::min(firstDim - bIdx * firstViewShape, firstViewShape)}, {bIdx * firstViewShape});
             TileShape::Current().SetVecTile(args->tileShape_);
             int64_t padRight = outputs[0].GetShape()[0] - inputs[0].GetShape()[0];
             auto res = Pad(tileTensor, {0, padRight}, "constant", args->padValue_);
@@ -167,7 +166,8 @@ class PadOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_
 
 INSTANTIATE_TEST_SUITE_P(TestPad, PadOperationTest,
     ::testing::ValuesIn(GetOpMetaData<PadOpMetaData>(
-        {PadOperationExeFunc1Dims, PadOperationExeFunc2Dims, PadOperationExeFunc3Dims, PadOperationExeFunc4Dims}, "Pad")));
+        {PadOperationExeFunc2Dims, PadOperationExeFunc3Dims, PadOperationExeFunc4Dims, PadOperationExeFunc1Dims},
+        "Pad")));
 
 TEST_P(PadOperationTest, TestPad) {
     auto test_data = GetParam().test_data_;
