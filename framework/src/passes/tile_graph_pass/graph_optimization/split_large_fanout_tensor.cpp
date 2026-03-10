@@ -367,6 +367,7 @@ void SplitLargeFanoutTensor::CollectLargeTensorFromInfo(const LogicalTensorPtr &
 // 遍历所有的tensor, 对前序为Assemble后序为View的大Tensor进行拆分
 void SplitLargeFanoutTensor::CollectLargeTensor(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "---> CollectLargeTensor.");
+    std::unordered_set<int> visited;
     auto &tensorMap = function.GetTensorMap().tensorMap_;
     for (const auto &tMap : tensorMap) {
         for (const auto &logicalTensor : tMap.second) {
@@ -376,7 +377,10 @@ void SplitLargeFanoutTensor::CollectLargeTensor(Function &function) {
             if (producer == nullptr || consumer == nullptr) { break; }
             if (producer->GetOpcode() == Opcode::OP_ASSEMBLE && consumer->GetOpcode() == Opcode::OP_VIEW) {
                 // 收集大Tensor, 形成Set{TensorPtr1, TensorPtr2, ...}
-                largeTensors_.insert(logicalTensor);
+                if (visited.count(logicalTensor->GetMagic()) == 0) {
+                    visited.insert(logicalTensor->GetMagic());
+                    largeTensors_.push_back(logicalTensor);
+                }
                 CollectLargeTensorToInfo(logicalTensor);
                 CollectLargeTensorFromInfo(logicalTensor);
                 APASS_LOG_INFO_F(Elements::Tensor, "Large tensor magic is %d.", logicalTensor->GetMagic());
