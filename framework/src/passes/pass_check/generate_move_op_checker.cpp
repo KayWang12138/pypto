@@ -69,7 +69,7 @@ Status GenerateMoveOpChecker::DoPostCheck(Function &function) {
             auto inputMemType = operation.GetIOperands().front()->GetMemoryTypeOriginal();
             auto outputMemType = operation.GetOOperands().front()->GetMemoryTypeOriginal();
             if(inputMemType != outputMemType) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Operation validation failed: Operation %d[%d] has dismatched memory type. Input memory type:%s. Output memory type:%s",static_cast<int>(operation.GetOpcode()).c_str,operation.GetOpMagic(),
+                APASS_LOG_ERROR_F(Elements::Operation, "Operation validation failed: Operation %d[%d] has dismatched memory type. Input memory type:%s. Output memory type:%s",static_cast<int>(operation.GetOpcode()),operation.GetOpMagic(),
                     BriefMemoryTypeToString(inputMemType).c_str(),
                     BriefMemoryTypeToString(outputMemType).c_str()
                 );
