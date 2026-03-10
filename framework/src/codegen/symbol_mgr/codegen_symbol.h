@@ -228,6 +228,7 @@ public:
         auto res = tensorMap_.insert({magicNum, tensor});
         if (!res.second) {
             ASSERT(tensor == tensorMap_[magicNum])
+                << GenErrorCode(GenOpCodeErrorScene::TENSOR_MAGIC_CONFLICT)
                 << "!!! ERROR !!! tensor magic : " << magicNum
                 << " is conflicted!!!\ninsert tensor key: " << FormatAllocKey(CreateAllocKey(tensor))
                 << "\ntensor dump info -- " << tensor->Dump()
