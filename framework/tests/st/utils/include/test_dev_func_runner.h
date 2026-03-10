@@ -151,6 +151,7 @@ private:
         if (function_ == nullptr || function_->GetDyndevAttribute() == nullptr) {
             return;
         }
+        std::cerr << "===========Dynamic Function==============" << std::endl;
         KernelLaunchPrecheck(inputs, outputs);
         DevAscendProgram *functionDevProg = reinterpret_cast<DevAscendProgram *>(function_->GetDyndevAttribute()->devProgBinary.data());
         if (config_.controlFlowCache) {
@@ -179,6 +180,7 @@ private:
         if (gDeviceAgentTaskPtr == nullptr) {
             return;
         }
+        std::cerr << "===========Static Function gDeviceAgentTaskPtr is not null==============" << std::endl;
         MachineAgent::AgentProc(gDeviceAgentTaskPtr.get());
         CheckDeviceId();
         MachinePipe::PipeProc(gDeviceAgentTaskPtr.get());
