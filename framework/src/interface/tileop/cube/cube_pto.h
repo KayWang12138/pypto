@@ -183,6 +183,9 @@ INLINE void TLoadND2ND(T &dst, U &src, const int64_t &offset0, const int64_t &of
 // Copy Scale A data from DDR to L1 for MX matmul
 template <CopyInMode mode, typename Coord, typename T, typename U>
 TILEOP void TLoadAMX(T &dst, U &src, const Coord &coord) {
+    if (!CheckShapeValid(dst, src)) {
+        return;
+    }
     constexpr auto shapeSize = Std::tuple_size<typename T::Shape>::value;
     static_assert(shapeSize == SHAPE_DIM3 && Std::tuple_size<Coord>::value == SHAPE_DIM3,
         "[TLoadAMX Error]: MXMatmul A Scale Shape Size should be 3 Dim");
@@ -228,6 +231,9 @@ TILEOP void TLoadAMX(T &dst, U &src, const Coord &coord) {
 // Copy Scale B data from DDR to L1 for MX matmul
 template <CopyInMode mode, typename Coord, typename T, typename U>
 TILEOP void TLoadBMX(T &dst, U &src, const Coord &coord) {
+    if (!CheckShapeValid(dst, src)) {
+        return;
+    }
     constexpr auto shapeSize = Std::tuple_size<typename T::Shape>::value;
     static_assert(shapeSize == SHAPE_DIM3 && Std::tuple_size<Coord>::value == SHAPE_DIM3,
         "[TLoadBMX Error]: MXMatmul B Scale Shape Size should be 3 Dim");
@@ -504,6 +510,9 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord) {
 template <typename Coord, typename T, typename U>
 TILEOP void TExtractMX(T &dst, U &src, const Coord &coord)
 {
+    if (!CheckShapeValid(dst, src)) {
+        return;
+    }
     constexpr auto shapeSize = Std::tuple_size<typename T::Shape>::value;
     static_assert(shapeSize == SHAPE_DIM3 && Std::tuple_size<Coord>::value == SHAPE_DIM3,
                   "[TExtractMX Error]: L0A_MX scale or L0B_MX scale Shape Size should be 3 Dim");
@@ -559,15 +568,17 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord, int16_t subblockId) {
         constexpr auto staticL0CW = Std::tuple_element<shapeSize - 1, typename U::TileShape>::type::value;
         int64_t srcShape0 = GetShape<0>(src);
         int64_t srcShape1 = GetShape<1>(src);
+        int64_t dstShape0 = GetShape<0>(dst);
+        int64_t dstShape1 = GetShape<1>(dst);
         int64_t l0cOffset = CalNZOffset(srcShape0, srcShape1, offset0, offset1, c0Size);
         using tileUBTensor = pto::Tile<pto::TileType::Vec, typename T::Type, staticUBH, staticUBW,
-            mode == CopyOutMode::NZ2ND ? pto::BLayout::RowMajor : pto::BLayout::ColMajor, staticUBH, staticUBW,
+            mode == CopyOutMode::NZ2ND ? pto::BLayout::RowMajor : pto::BLayout::ColMajor, -1, -1,
             mode == CopyOutMode::NZ2ND ? pto::SLayout::NoneBox : pto::SLayout::RowMajor>;
-        using tileL0CTensor = pto::TileAcc<typename U::Type, staticL0CH, staticL0CW>;
-        tileUBTensor UBTile;
-        tileL0CTensor l0cTile;
-        pto::TASSIGN(UBTile, (uint64_t)dst.GetAddr() + l0cOffset);
-        pto::TASSIGN(l0cTile, (uint64_t)src.GetAddr());
+        using tileL0CTensor = pto::TileAcc<typename U::Type, staticL0CH, staticL0CW, -1, -1>;
+        tileUBTensor UBTile(dstShape0, dstShape1);
+        tileL0CTensor l0cTile(srcShape0, srcShape1);
+        pto::TASSIGN(UBTile, (uint64_t)dst.GetAddr());
+        pto::TASSIGN(l0cTile, (uint64_t)src.GetAddr() + l0cOffset);
         if (subblockId == 0) {
             pto::TMOV<tileUBTensor, tileL0CTensor, pto::AccToVecMode::SingleModeVec0>(UBTile, l0cTile);
         } else {
@@ -702,7 +713,9 @@ TILEOP void MatmulMX(T0 &c, T1 &a, T2 &aScale, T3 &b, T4 &bScale)
     int64_t validK = GetShape<1>(a);
     int64_t validN = GetShape<1>(b);
     int64_t validScaleK = GetShape<1>(aScale) * SHAPE_DIM2;
-
+    if (validM == 0 || validK == 0 || validN == 0 || validScaleK == 0) {
+        return;
+    }
     using tileL0CTensor = pto::TileAcc<typename T0::Type, staticL0CH, staticL0CW, -1, -1>;
     using tileL0ATensor = pto::TileLeft<typename T1::Type, staticL0AH, staticL0AW, -1, -1>;
     using tileL0AScaleTensor = pto::TileLeftScale<typename T1::Type, staticL0AH, staticL0AScaleW * SHAPE_DIM2, -1, -1>;
@@ -756,7 +769,9 @@ TILEOP void MatmulMX(T0 &c, T1 &a, T2 &aScale, T3 &b, T4 &bScale, T5 &bias)
     int64_t validK = GetShape<1>(a);
     int64_t validScaleK = GetShape<1>(aScale) * SHAPE_DIM2;
     int64_t validN = GetShape<1>(b);
-
+    if (validM == 0 || validK == 0 || validN == 0 || validScaleK == 0) {
+        return;
+    }
     using tileL0CTensor = pto::TileAcc<typename T0::Type, staticL0CH, staticL0CW, -1, -1>;
     using tileL0ATensor = pto::TileLeft<typename T1::Type, staticL0AH, staticL0AW, -1, -1>;
     using tileL0AScaleTensor = pto::TileLeftScale<typename T1::Type, staticL0AH, staticL0AScaleW * SHAPE_DIM2, -1, -1>;
