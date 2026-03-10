@@ -47,8 +47,8 @@ TILEOP void TPad(DstTensor dst, SrcTensor src, float padValue) {
     using DstDtype = typename DstTensor::Type;
     constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<DstTensor, 3, 5>();
     constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<DstTensor, 4, 5>();
-    constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<DstTensor, 3, 5>();
-    constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<DstTensor, 4, 5>();
+    constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<SrcTensor, 3, 5>();
+    constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<SrcTensor, 4, 5>();
     using DstTileType = pto::Tile<pto::TileType::Vec, DstDtype, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1,
         pto::SLayout::NoneBox, 512, pto::PadValue::Zero>;
     using SrcTileType = pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
@@ -64,7 +64,7 @@ TILEOP void TPad(DstTensor dst, SrcTensor src, float padValue) {
                 auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
                 auto srcAddr = src.GetAddr() + srcOffset * sizeof(SrcDtype);
                 pto::TASSIGN(srcTile, srcAddr);
-                pto::TFILLPAD(dstTile, srcTile);
+                pto::TFILLPAD_EXPAND(dstTile, srcTile);
                 (void)padValue;
             }
         }
