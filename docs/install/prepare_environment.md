@@ -22,10 +22,25 @@ PyPTO支持在具备NPU硬件的**真实环境**和仅有CPU硬件的**仿真环
 1. **安装Python依赖**
 
     - Python：版本 >= 3.9
+        - **重要**：若后续需要通过源码编译安装PyPTO，还需安装 Python 的 Development 组件（常称为 `python3-dev`）。
+
+    - 安装Python依赖包：
+
+        依赖的pip包及对应版本在`python/requirements.txt`中描述，可以使用如下命令完成安装：
+
+        ```bash
+        # 进入pypto项目源码根目录
+        cd pypto
+
+        # 安装相关pip包依赖
+        python3 -m pip install -r python/requirements.txt
+        ```
+
     - PyTorch及Ascend Extension for PyTorch：
         - 请根据实际环境的Python版本单独安装，参考[Ascend Extension for PyTorch安装说明](https://www.hiascend.com/document/detail/zh/Pytorch/720/configandinstg/instg/insg_0001.html)。
         - **重要**：需确保`PyTorch`、`Ascend Extension for PyTorch` 与`PyPTO`三者的Python版本一致。
         - **仿真环境说明**：在仿真环境中可跳过`Ascend Extension for PyTorch`的安装，但仍需安装`PyTorch`。
+        - **顺序说明**：请参考下文 “安装工具包” 章节完成对应工具包安装后，再安装 `Ascend Extension for PyTorch`。
 
 2. **安装编译依赖**
 
@@ -36,18 +51,6 @@ PyPTO支持在具备NPU硬件的**真实环境**和仅有CPU硬件的**仿真环
     - cmake >= 3.16.3
     - make
     - g++ >= 7.3.1
-
-    **安装Python依赖包：**
-
-    依赖的pip包及对应版本在`python/requirements.txt`中描述，可以使用如下命令完成安装：
-
-    ```bash
-    # 进入pypto项目源码根目录
-    cd pypto
-
-    # 安装相关pip包依赖
-    python3 -m pip install -r python/requirements.txt
-    ```
 
     **准备第三方开源软件源码包**
 
@@ -201,12 +204,15 @@ bash tools/prepare_env.sh --type=cann --device-type=a2
 
 #### 环境变量配置
 
+    安装完成后请配置环境变量，请用户根据set_env.sh的实际路径执行如下命令。
+    上述环境变量配置只在当前窗口生效，用户可以按需将以上命令写入环境变量配置文件（如.bashrc文件）。
+
     ```bash
     # 默认路径安装，以root用户为例（非root用户，将/usr/local替换为${HOME}）
     source /usr/local/Ascend/ascend-toolkit/set_env.sh
 
     # 指定路径安装
-    source ${install_path}/cann/set_env.sh
+    source ${install_path}/ascend-toolkit/set_env.sh
     ```
 
 ## 安装PyPTO Toolkit插件（可选）
