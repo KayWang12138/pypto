@@ -1,11 +1,7 @@
 ---
 name: pypto-skill-reviewer
 description: >-
-  对 PyPTO 项目 skill 进行深度定性审查并生成结构化改进报告。基于官方最佳实践的
-  10 维度评分体系，覆盖 frontmatter、简洁性、渐进披露、工作流等维度。
-  适用于审查单个 pypto-* skill 的质量、审核 skill PR、或在发布前改进现有 skill。
-  触发词："审查skill"、"review skill"、"skill质量"、"skill改进"、"pypto skill review"、
-  "skill best practices check"、"检查skill"。
+  对 PyPTO 项目 skill 进行深度定性审查并生成结构化改进报告。基于官方最佳实践的 10 维度评分体系，覆盖 frontmatter、简洁性、渐进披露、工作流等维度。适用于审查单个 pypto-* skill 的质量、审核 skill PR、或在发布前改进现有 skill。触发词："审查skill"、"review skill"、"skill质量"、"skill改进"、"pypto skill review"、"skill best practices check"、"检查skill"。
 ---
 
 # PyPTO Skill 审查工具
