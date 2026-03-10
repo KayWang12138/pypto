@@ -144,7 +144,7 @@ PyPTO驱动包支持25.2.0以上版本，CANN包支持8.5.0以上版本。
 同样可以查看CANN包安装目录下opp包内的version信息，如：
 
 ```text
-/usr/local/Ascend/ascend-toolkit/latest/opp/version.info
+/usr/local/Ascend/cann/opp/version.info
     Version=8.5.0.2.220
     version_dir=8.5.0
     timestamp=20251117_000024591

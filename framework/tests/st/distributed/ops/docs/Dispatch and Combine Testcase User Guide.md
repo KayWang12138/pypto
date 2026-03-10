@@ -41,10 +41,10 @@
 
    ```shell
    # 默认路径安装，以root用户为例（非root用户，将/usr/local替换为${HOME}）
-   source /usr/local/Ascend/cann/set_env.sh
+   source /usr/local/Ascend/ascend-toolkit/set_env.sh
 
    # 指定路径安装
-   source ${install_path}/cann/set_env.sh
+   source ${install_path}/ascend-toolkit/set_env.sh
    ```
 
 2. 设置 pto-isa 的环境变量。
