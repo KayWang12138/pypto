@@ -2255,4 +2255,33 @@ TEST_F(ScheduleOoOTest, TestMixGraphAndDAV_3510) {
     EXPECT_EQ(oooSchedule.RunOnFunction(*rootFuncPtr), SUCCESS);
     Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_UNKNOWN);
 }
+TEST_F(ScheduleOoOTest, TestCreateSpillCopyout) {
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorNames{"L0A", "L0C", "L1"};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_L0A, MemoryType::MEM_L0C, MemoryType::MEM_L1};
+
+    std::vector<Opcode> opCodes{Opcode::OP_COPY_IN, Opcode::OP_L0C_TO_L1, Opcode::OP_L0A_ALLOC, Opcode::OP_L0C_ALLOC, Opcode::OP_L1_ALLOC};
+    std::vector<std::string> opNames{"copy_in", "L0C_L1", "L0A_ALLOC", "L0C_ALLOC", "L1_ALLOC"};
+    std::vector<std::vector<std::string>> ioperands{{"L0A"}, {"L0C"}, {}, {}, {}};
+    std::vector<std::vector<std::string>> ooperands{{"L0C"}, {"L1"}, {"L0A"}, {"L0C"}, {"L1"}};
+
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {16, 16}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+
+    Function *function = subGraph.GetFunction();
+    OptimizeSort sort(function->Operations().DuplicatedOpList(), *function);
+    Status res = sort.SortOps();
+    EXPECT_EQ(res, SUCCESS);
+    OoOScheduler oooSchedule(*function);
+    oooSchedule.Init(sort.operations);
+    IssueEntryPtr l0cCopyL1 = GetIssueEntry("L0C_L1", subGraph, oooSchedule);
+    IssueEntryPtr copyIn = GetIssueEntry("copy_in", subGraph, oooSchedule);
+    SpillInfo spillInfo;
+    InitSpillInfo(spillInfo, 0, l0cCopyL1);
+    IssueEntryPtr spillCopyout = nullptr;
+    res = oooSchedule.CreateSpillCopyout(copyIn, copyIn->tileOp.GetOutputOperand(0),
+    1, spillCopyout, spillInfo);
+    EXPECT_EQ(res, SUCCESS);
+}
+
 } // namespace npu::tile_fwk
