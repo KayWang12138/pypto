@@ -71,7 +71,7 @@ public:
 class ReduceCopyMerge : public Pass {
 public:
     ReduceCopyMerge() : Pass("ReduceCopyMerge") {
-        SetSupportedArches({NPUArch::DAV_UNKNOWN});
+        // SetSupportedArches({NPUArch::DAV_UNKNOWN});
     }
     ~ReduceCopyMerge() override = default;
 private:
