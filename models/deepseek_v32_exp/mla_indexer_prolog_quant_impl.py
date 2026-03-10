@@ -68,11 +68,7 @@ def mla_indexer_prolog_quant_compute(
     head_dim = ip_hadamard_q_in.shape[0]
     q_head_dim = qk_nope_head_dim + qk_rope_head_dim
 
-    tile_bs = mla_tile_config.tile_bs
-
     t = token_x.shape[0]
-    bs_loop = (t + tile_bs - 1) // tile_bs
-
     quant_inputs = MlaQuantInputs()
 
     k_cache_index_2d = pypto.reshape(cache_index, [t, 1], inplace=True)
