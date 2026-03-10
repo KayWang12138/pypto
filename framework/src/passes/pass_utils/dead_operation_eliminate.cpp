@@ -89,13 +89,6 @@ void DeadOperationEliminator::EliminateOperation(Function &function, bool sorted
             op.SetAsDeleted();
         }
     }
-    function.EraseOperations(false);
-    /* 删除没有生产者和消费者的tensor */
-    auto inverseMapCopy = function.GetTensorMap().inverseMap_;
-    for (const auto &item : inverseMapCopy) {
-        if (item.second->GetProducers().empty() && item.second->GetConsumers().empty()) {
-            function.GetTensorMap().Erase(item.second);
-        }
-    }
+    function.EraseOperations(true, false);
 }
 } // namespace
