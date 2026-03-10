@@ -55,7 +55,6 @@ public:
 
     void SetUp() override {
         Program::GetInstance().Reset();
-        Platform::Instance().ObtainPlatformInfo();
     }
     void TearDown() override {}
 };

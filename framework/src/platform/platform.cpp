@@ -261,6 +261,12 @@ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
     }
 }
 
+Platform::Platform() {
+    FUNCTION_LOGD("Start initializing platform.");
+    ObtainPlatformInfo();
+    FUNCTION_LOGD("Initialized platform.");
+}
+
 void Platform::ObtainPlatformInfo() {
     static bool initialized = false;
     if (initialized) {

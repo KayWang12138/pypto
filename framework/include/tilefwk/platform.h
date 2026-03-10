@@ -417,7 +417,10 @@ public:
 class Host{};
 
 class Platform {
-private:   
+private:
+    Platform() = default;
+    ~Platform() =default;
+
     Cluster cluster_;
     Host host_;
     size_t cluster_cnt_;
