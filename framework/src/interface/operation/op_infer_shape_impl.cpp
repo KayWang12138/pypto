@@ -961,28 +961,28 @@ void ViewInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outV
         }
 
         Offset inOffset = op->GetIOperands()[0]->GetOffset();
-        Offset subOffset(inOffset.size(), 0);
         Offset viewOpAttributeFromOffset = viewOpAttribute->GetFromOffset();
+        Offset subOffset(viewOpAttributeFromOffset.size(), 0);
         if (!inOffset.empty() && !viewOpAttributeFromOffset.empty()) {
             for (size_t i = 0; i < inOffset.size(); i++) {
                 subOffset[i] = viewOpAttributeFromOffset[i] - inOffset[i];
             }
         } else {
-            for (size_t i = 0; i < inOffset.size(); i++) {
+            for (size_t i = 0; i < viewOpAttributeFromOffset.size(); i++) {
                 subOffset[i] = viewOpAttributeFromOffset[i];
             }
            
         }
         
         std::vector<SymbolicScalar> inDynOffset = op->GetIOperands()[0]->GetDynOffset();
-        std::vector<SymbolicScalar> subDynOffset(inOffset.size());
         std::vector<SymbolicScalar> viewOpAttributeFromDynOffset = viewOpAttribute->GetFromDynOffset();
+        std::vector<SymbolicScalar> subDynOffset(viewOpAttributeFromDynOffset.size());
         if (!inDynOffset.empty() && !viewOpAttributeFromDynOffset.empty()) {
             for (size_t i = 0; i < inDynOffset.size(); i++) {
                 subDynOffset[i] = viewOpAttributeFromDynOffset[i] - inDynOffset[i];
             }
         } else {
-            for (size_t i = 0; i < inDynOffset.size(); i++) {
+            for (size_t i = 0; i < viewOpAttributeFromDynOffset.size(); i++) {
                 subDynOffset[i] = viewOpAttributeFromDynOffset[i];
             }
         }
