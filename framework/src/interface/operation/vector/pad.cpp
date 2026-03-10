@@ -13,6 +13,7 @@
  * \brief
  */
 
+#include <cmath>
 #include "tensor_transformation.h"
 #include "interface/utils/operator_tracer.h"
 #include "passes/pass_utils/graph_utils.h"
@@ -61,7 +62,8 @@ void TiledPadImpl(Function &function, const TileShape &tileShape, size_t cur, In
                 op.SetAttribute(OpAttributeKey::scalar, padValue);
                 op.SetAttribute(OP_ATTR_PREFIX + "shape", resultTileInfo.shape);
                 op.SetAttribute(OP_ATTR_PREFIX + "validShape", resultTile->GetDynValidShape());
-            } else if (lastOffset + vecTile[ndim - 1] > lastInputShape || preOffset + vecTile[ndim - 2] > preInputShape) {
+            } else if (lastOffset + vecTile[ndim - 1] > lastInputShape ||
+                       preOffset + vecTile[ndim - 2] > preInputShape) {
                 auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
                 auto &op = function.AddOperation(Opcode::OP_PAD, {inputTile}, {resultTile});
                 auto last = std::min(lastResultShape, lastOffset + vecTile[ndim - 1]);
@@ -100,6 +102,7 @@ void TiledPadOperation(Function &function, const TileShape &tileShape, const Log
 LogicalTensorPtr TensorPadOperation(
     Function &function, const Tensor &self, const std::vector<int64_t> &padding, const std::string &mode, float value) {
     ASSERT(mode == "constant") << "Pad: only 'constant' mode is supported.";
+    ASSERT(std::isinf(value) || (value == 0.0)) << "Pad: pad value must be -inf, inf, or 0.";
 
     auto operand = self.GetStorage();
     std::vector<int64_t> outputShape = operand->shape;

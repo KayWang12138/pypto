@@ -123,6 +123,7 @@ def pad(input: Tensor, pad: Sequence[int], mode: str = "constant", value: float 
         Note: Currently only 'constant' is supported.
     value : float, optional
         fill value for 'constant' padding. Default: 0.0
+        Note: Currently only 'inf' '-inf' '0.0' is supported.
 
     Returns
     -------
