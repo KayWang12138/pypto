@@ -1047,7 +1047,7 @@ void MrgSortFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outVal
     auto topk_kvalue = op->GetIntAttribute(TOPK_KVALUE);
     SymbolicScalar tmp = (res[topk_axis] + blockSize - 1) / blockSize * blockSize;
     res[topk_axis] = std::min(res[topk_axis],
-     (topk_kvalue + kBlockFpNum - 1) / kBlockFpNum * kBlockFpNum) * NUM2;
+     (topk_kvalue + kBlockFpNum - 1) / kBlockFpNum * kBlockFpNum * NUM2);
     for (auto output : op->GetOOperands()) {
         outValidShapes.push_back(res);
     }
