@@ -118,13 +118,18 @@ void DfsTiling(const Shape& shmemTensorTileShape, Input& input, size_t curDim, u
     }
 }
 
-void DfsTiling(const VecTile& vecTile, const LogicalTensorPtr shmemTensor,
+void DfsTiling(Opcode opCode, const VecTile& vecTile, const LogicalTensorPtr shmemTensor,
     std::function<void(uint32_t, Input&)> addTileOp)
 {
     size_t dim = shmemTensor->shape.size();
     Shape shmemTensorTileShape = shmemTensor->shape;
     Shape shmemTensorTileOffset = shmemTensor->offset;
     size_t shmemTensorStartDim = dim - vecTile.size();
+    int32_t worldSize = shmemTensorTileShape[0];
+    int32_t totalTileNum = shmemTensorTileShape[shmemTensorStartDim] / vecTile[0] *
+        shmemTensorTileShape[shmemTensorStartDim + 1] / vecTile[1];
+    CHECK(totalTileNum <= MAX_TILE_NUM / worldSize) <<  << "The tile num of " << GetOpcodeStr(opCode) <<
+        " shoule be less than or equal to " << MAX_TILE_NUM / worldSize << ", but got " << totalTileNum;
     std::copy(vecTile.tile.begin(), vecTile.tile.end(), shmemTensorTileShape.begin() + shmemTensorStartDim);
     std::fill(shmemTensorTileOffset.begin() + shmemTensorStartDim, shmemTensorTileOffset.end(), 0);
     TileInfo tileInfo{shmemTensorTileShape, shmemTensorTileOffset};
