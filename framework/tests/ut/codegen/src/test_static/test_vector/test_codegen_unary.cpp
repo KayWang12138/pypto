@@ -160,7 +160,7 @@ Function &TestFullBody(
     TileShape::Current().SetVecTile(tileShape);
     Tensor input_a(DT_FP32, shape, "A");
     Tensor output(DT_FP32, shape, "C");
-    Element value(DataType::DT_FP32, 2.0f);
+    Element value(DataType::DT_FP32, 2.0);
     config::SetBuildStatic(true);
     FUNCTION(name, {input_a, output}) {
         output = Full(value, DT_FP32, shape, {});
@@ -175,7 +175,8 @@ Function &TestFullBody(
 TEST_F(TestCodegenUnary, FullDim2TileTensor) {
     Function &func = TestFullBody({32, 32}, {16, 16}, "FULL_DIM2_TILETENSOR", true);
     std::string res = GetResultFromCpp(func);
-    std::string expect = R"!!!(TVecDup<float>(ubTensor_1, 2);)!!!";
+    std::string expect = R"!!!(TVecDup<float>(ubTensor_1, 2.000000);
+)!!!";
     CheckStringExist(expect, res);
 }
 
@@ -339,10 +340,11 @@ TEST_F(TestCodegenUnary, TestRowMaxLine) {
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op);
-    CodeGenOpCloudNPU cop(opCtx);
+    CodeGenOpCloudNPU cop(symbolManager, function->GetFunctionType());
     function->GetTensorMap().inverseMap_[localTensorSrc->GetMagic()] = localTensorSrc;
     function->GetTensorMap().inverseMap_[localTensorDst->GetMagic()] = localTensorDst;
+
+    cop.Init(op);
     std::string res = cop.GenOpCode();
     std::string expect =
         R"!!!(TileOp::Trowmaxline_<float, 1, 2, 2, 64, 2, 2, 64, 2, 2, 64, 2>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0);

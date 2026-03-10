@@ -21,61 +21,24 @@
 #include "interface/utils/op_info_manager.h"
 #include "tilefwk/pypto_fwk_log.h"
 
-struct process_sign {
-    pid_t tgid;
-    char sign[49];   // 49 is PROCESS_SIGN_LENGTH
-    char resv[4];    // 4 is PROCESS_RESV_LENGTH
-};
 extern "C" __attribute__((weak)) int AdxDataDumpServerUnInit();
 extern "C" __attribute__((weak)) int AdxDataDumpServerInit();
-extern "C" __attribute__((weak)) int drvGetProcessSign(process_sign *sign);
 
 namespace npu::tile_fwk::dynamic {
 namespace {
     constexpr uint32_t kMinDefaultDim = 20;
-    // AIC:AIV的比例系数
-    constexpr uint32_t AICAIVRATIO = 2;
 }
 int GetCfgBlockdim() {
 #ifdef BUILD_WITH_CANN
     auto blk = Platform::Instance().GetSoc().GetAICoreNum();
     blk = blk > 0 ? blk : kMinDefaultDim;
-
-    // 通过GetMaxBlockdim接口获取设置的最大核数，如果设置的最大核数大于硬件物理最大核数时，控核不生效
-    // 如果未进行控核，GetMaxBlockdim接口将通过aclrtGetResInCurrentThread函数返回硬件物理最大核数
-    auto maxBlk = GetMaxBlockdim();
-    blk = maxBlk < static_cast<int>(blk) ? maxBlk : blk;
-    MACHINE_LOGD("Get blockdim[%zu].", blk);
+    MACHINE_LOGD("Get blockdim[%d].", blk);
     return blk;
 #else
     return kMinDefaultDim;
 #endif
 }
 
-int GetMaxBlockdim() {
-#ifdef BUILD_WITH_CANN
-    uint32_t cubeBlockDim = 0;
-    uint32_t vectorBlockDim = 0;
-    // 若未进行控核，aclrtGetResInCurrentThread返回的是满核
-    aclrtGetResInCurrentThread(ACL_RT_DEV_RES_CUBE_CORE, &cubeBlockDim);
-    aclrtGetResInCurrentThread(ACL_RT_DEV_RES_VECTOR_CORE, &vectorBlockDim);
-    // 若不满足AIC和AIV的比例，手动处理成为符合AIC和AIV的比例最大值
-    if (vectorBlockDim != cubeBlockDim * AICAIVRATIO) {
-        auto rtsMaxBlockDim = std::min(cubeBlockDim, vectorBlockDim / AICAIVRATIO);
-        ALOG_WARN_F(
-            "The cubeBlockDim[%d] and vectorBlockDim[%d] do not conform to the 1: %d ratio of AIC and AIV, "
-            "and will be set to values that conform to the ratio of AIC and AIV. "
-            "The cubeBlockDim and vectorBlockDim are set at %d and %d", 
-            cubeBlockDim, vectorBlockDim, AICAIVRATIO, rtsMaxBlockDim, rtsMaxBlockDim * AICAIVRATIO);
-        return rtsMaxBlockDim;
-    } else {
-        return cubeBlockDim;
-    }
-#else
-    return kMinDefaultDim;
-#endif
-}
- 	 
 void (*forceLinkLibraryCompiler)() = &npu::tile_fwk::ForceLinkLibraryCompiler;
 
 DeviceLauncherContext &DeviceLauncherContext::Get() {
@@ -84,7 +47,6 @@ DeviceLauncherContext &DeviceLauncherContext::Get() {
 }
 
 std::vector<uint8_t> DeviceLauncher::tensorInfo_(kDefaultTensorinfoSize);
-bool DeviceLauncher::captureMode_ = false;
 
 #ifdef BUILD_WITH_CANN
 static const std::unordered_map<int, std::function<void(bool&)>> captureStatusHandlers = {
@@ -214,15 +176,14 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     CheckDeviceId();
     DeviceKernelArgs kArgs;
     DeviceLauncherConfigFillDeviceInfo(config);
-    DeviceMemoryUtils devMemoryUtilis;
-    DeviceInitDistributedContext(devMemoryUtilis, dynAttr->commGroupNames, kArgs);
+    DeviceInitDistributedContext(DeviceMemoryUtils(), dynAttr->commGroupNames, kArgs);
 
     HOST_PERF_TRACE(TracePhase::RunDevEnvReady);
-    DeviceInitTilingData(devMemoryUtilis, kArgs, dynAttr->devProgBinary, inputDevCtrlCache, config, cachedOperator);
+    DeviceInitTilingData(DeviceMemoryUtils(), kArgs, dynAttr->devProgBinary, inputDevCtrlCache, config, cachedOperator);
     HOST_PERF_TRACE(TracePhase::RunDevInitTiling);
 
     DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
-    DeviceInitKernelInOuts(devMemoryUtilis, kArgs, inputList, outputList, dynAttr->disableL2List);
+    DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList, dynAttr->disableL2List);
 
     HOST_PERF_TRACE(TracePhase::RunDevInitInOutTensor);
 
@@ -269,11 +230,10 @@ int DeviceLauncher::DeviceRunOnce(Function *function, DevControlFlowCache* hostC
     auto aicoreStream = machine::GetRA()->GetStream();
     std::vector<DeviceTensorData> inputDeviceDataList;
     std::vector<DeviceTensorData> outputDeviceDataList;
-    DeviceMemoryUtils devMemoryUtilis(true);
-    std::tie(inputDeviceDataList, outputDeviceDataList) = BuildInputOutputFromHost(devMemoryUtilis, inputDataList, outputDataList);
+    std::tie(inputDeviceDataList, outputDeviceDataList) = BuildInputOutputFromHost(DeviceMemoryUtils(), inputDataList, outputDataList);
 
-    DeviceMemoryUtils devMemory(false);
     uint8_t* devCtrlCache = nullptr;
+    DeviceMemoryUtils devMemory(false);
     if (hostCtrlCache) {
         devCtrlCache = devMemory.CopyToDev(reinterpret_cast<uint8_t *>(hostCtrlCache), hostCtrlCache->usedCacheSize, nullptr);
     }
@@ -285,6 +245,7 @@ int DeviceLauncher::DeviceRunOnce(Function *function, DevControlFlowCache* hostC
         CopyFromDev(DeviceMemoryUtils(), inputDataList);
     }
     devMemory.Free(devCtrlCache);
+    machine::GetRA()->FreeTmpMemory();
     return rc;
 #else
     (void)hostCtrlCache;
@@ -455,28 +416,6 @@ void DataDumpUnInit() {
     }
 }
 
-uint32_t GetProcessId() {
-#ifdef BUILD_WITH_CANN
-    if (drvGetProcessSign != nullptr) {
-        process_sign processSign;
-        auto ret = drvGetProcessSign(&processSign);
-        if (ret == 0) {
-            ALOG_DEBUG_F("Got process sign from drv: tgid=%d", processSign.tgid);
-            return static_cast<uint32_t>(processSign.tgid);
-        }
-        ALOG_WARN_F("drvGetProcessSign failed, ret=%d, falling back to getpid()", ret);
-    } else {
-        ALOG_WARN_F("drvGetProcessSign is nullptr, falling back to getpid()");
-    }
-    
-    uint32_t pid = static_cast<uint32_t>(getpid());
-    ALOG_DEBUG_F("Using getpid(): pid=%d", pid);
-    return pid;
-#else
-    return 0;
-#endif
-}
-
 void CopyDevToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTensor) {
 #ifdef BUILD_WITH_CANN
     DeviceMemoryUtils().CopyFromDev((uint8_t *)hostTensor.GetAddr(), (uint8_t *)devTensor.GetAddr(), devTensor.GetDataSize());
@@ -529,8 +468,7 @@ AclModeGuard::AclModeGuard(aclmdlRICaptureMode tmode) : mode(tmode) {
 }
 AclModeGuard::~AclModeGuard() {
 #ifdef BUILD_WITH_CANN
-    aclmdlRICaptureMode mod = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
-    aclmdlRICaptureThreadExchangeMode(&mod);
+    aclmdlRICaptureThreadExchangeMode(&mode);
 #endif
 }
 
@@ -540,9 +478,8 @@ void DeviceLauncher::FillDeviceKernelArgs(std::vector<uint8_t> &devProgData, Dev
     DeviceLauncherConfig config;
     CachedOperator cache;
     DeviceLauncherConfigFillDeviceInfo(config);
-    DeviceMemoryUtils deviceMemoryUtils;
-    DeviceInitTilingData(deviceMemoryUtils, kargs, devProgData, nullptr, config, &cache);
-    DeviceInitDistributedContext(deviceMemoryUtils, groupNames, kargs);
+    DeviceInitTilingData(DeviceMemoryUtils(), kargs, devProgData, nullptr, config, &cache);
+    DeviceInitDistributedContext(DeviceMemoryUtils(), groupNames, kargs);
 #else
     (void)devProgData;
     (void)kargs;
@@ -595,52 +532,32 @@ void DeviceLauncher::FreeControlFlowCache(uint8_t *ctrlCache) {
 #endif
 }
 
-void DeviceLauncher::AddAicpuStream(aclmdlRI &rtModel, bool tripleStream) {
+bool DeviceLauncher::AddAicpuStream(aclrtStream aicoreStream, bool tripleStream) {
 #ifdef BUILD_WITH_CANN
     auto ctrlStream = (aclrtStream)machine::GetRA()->GetCtrlStream();
     auto schedtream = (aclrtStream)machine::GetRA()->GetScheStream();
-    
-    if (IsCaptureMode()) {
+    aclmdlRI rtModel;
+    aclmdlRICaptureStatus status = aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE;
+    auto ret = aclmdlRICaptureGetInfo(aicoreStream, &status, &rtModel);
+    if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
+        return false;
+    } else if (ret != ACL_SUCCESS) {
+        MACHINE_LOGE("get capture info failed: %d", ret);
+        return false;
+    }
+    if (status == aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_ACTIVE) {
         if (tripleStream) {
             rtStreamAddToModel(ctrlStream, rtModel);
         }
         rtStreamAddToModel(schedtream, rtModel);
+        return true;
     }
-#else
-    (void)rtModel;
-    (void)tripleStream;
-    return;
-#endif
-}
-
-void DeviceLauncher::GetCaptureInfo(aclrtStream aicoreStream, aclmdlRI &rtModel) {
-#ifdef BUILD_WITH_CANN
-    SetCaptureMode(false);
-    aclmdlRICaptureStatus status = aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE;
-    auto ret = aclmdlRICaptureGetInfo(aicoreStream, &status, &rtModel);
-    if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
-        return;
-    } else if (ret != ACL_SUCCESS) {
-        MACHINE_LOGE("get capture info failed: %d", ret);
-        return;
-    }
-    if (status == aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_ACTIVE) {
-        SetCaptureMode(true);
-        MACHINE_LOGI("The current mode is capture mode");
-    }
+    return false;
 #else
     (void)aicoreStream;
-    (void)rtModel;
-    SetCaptureMode(false);
+    (void)tripleStream;
+    return false;
 #endif
-}
-
-void DeviceLauncher::SetCaptureMode(bool captureMode) {
-    captureMode_ = captureMode;
-}
-
-bool DeviceLauncher::IsCaptureMode() {
-    return captureMode_;
 }
 
 void *DeviceLauncher::RegisterKernelBin(const std::vector<uint8_t> &kernelBinary) {

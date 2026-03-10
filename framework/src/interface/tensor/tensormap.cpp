@@ -187,34 +187,38 @@ int CalcOverlapSize(const std::shared_ptr<LogicalTensor> &pTensor,
     return std::accumulate(overlapEdge.begin(), overlapEdge.end(), 1, std::multiplies<>());
 }
 
-// Calculate overlap relationship between two N-D tensor regions described by (offset, shape).
-// For each dimension, treat it as a closed interval [offset, offset + shape - 1]. If any
-// dimension has no intersection, return NO_OVER_LAP; otherwise return PERFECTLY_MATCH,
-// COVERED (P covers Q), BE_COVERED (Q covers P), or PARTIAL_OVERLAP.
-OverlapStatus CalcOverlapByOffsetShape(const std::vector<int64_t>& pOffset,
-                                       const std::vector<int64_t>& pShape,
-                                       const std::vector<int64_t>& qOffset,
-                                       const std::vector<int64_t>& qShape) noexcept
-{
+OverlapStatus CalcOverlap(
+    const std::shared_ptr<LogicalTensor> &pTensor, const std::shared_ptr<LogicalTensor> &qTensor, bool loose) {
+    OverlapStatus status = OverlapStatus::NO_OVER_LAP;
+
+    if (!pTensor || !qTensor) {
+        return status;
+    }
+
     // Check if tensors have same number of dimensions
-    if (pOffset.size() != qOffset.size() || pShape.size() != qShape.size() || pOffset.size() != pShape.size()) {
-        return OverlapStatus::NO_OVER_LAP;
+    if (pTensor->offset.size() != qTensor->offset.size() || pTensor->shape.size() != qTensor->shape.size()) {
+        return status;
+    }
+
+    // Check if tensors have same raw tensor (memory space)
+    if (!loose && pTensor->tensor->rawmagic != qTensor->tensor->rawmagic) {
+        return status;
     }
 
     bool perfectlyMatch = true;
     bool pCoverQ = true;
     bool qCoverP = true;
-
     // Check overlap in each dimension
-    for (size_t dim = 0; dim < pOffset.size(); dim++) {
+    for (size_t dim = 0; dim < pTensor->offset.size(); dim++) {
         // Two ranges [a, a+length_a] and [b, b+length_b] do NOT overlap if:
         // a + length_a <= b OR b + length_b <= a
         // Therefore, they overlap if: !(a + length_a <= b OR b + length_b <= a)
         // Which is equivalent to: a + length_a > b AND b + length_b > a
-        const int64_t pStart = pOffset[dim];
-        const int64_t pEnd   = pStart + pShape[dim] - 1;
-        const int64_t qStart = qOffset[dim];
-        const int64_t qEnd   = qStart + qShape[dim] - 1;
+
+        int64_t pStart = pTensor->offset[dim];
+        int64_t pEnd = pStart + pTensor->shape[dim] - 1;
+        int64_t qStart = qTensor->offset[dim];
+        int64_t qEnd = qStart + qTensor->shape[dim] - 1;
 
         if (pEnd < qStart || qEnd < pStart) {
             return OverlapStatus::NO_OVER_LAP;
@@ -224,30 +228,17 @@ OverlapStatus CalcOverlapByOffsetShape(const std::vector<int64_t>& pOffset,
         qCoverP &= (qStart <= pStart && pEnd <= qEnd);
         perfectlyMatch &= (pStart == qStart && pEnd == qEnd);
     }
-
     if (perfectlyMatch) {
-        return OverlapStatus::PERFECTLY_MATCH;
+        status = OverlapStatus::PERFECTLY_MATCH;
     } else if (pCoverQ) {
-        return OverlapStatus::COVERED;
+        status = OverlapStatus::COVERED;
     } else if (qCoverP) {
-        return OverlapStatus::BE_COVERED;
+        status = OverlapStatus::BE_COVERED;
     } else {
-        return OverlapStatus::PARTIAL_OVERLAP;
-    }
-}
-
-OverlapStatus CalcOverlap(const std::shared_ptr<LogicalTensor>& pTensor,
-                          const std::shared_ptr<LogicalTensor>& qTensor,
-                          bool loose)
-{
-    if (!pTensor || !qTensor) return OverlapStatus::NO_OVER_LAP;
-
-    // Check if tensors have same raw tensor (memory space)
-    if (!loose && pTensor->tensor->rawmagic != qTensor->tensor->rawmagic) {
-        return OverlapStatus::NO_OVER_LAP;
+        status = OverlapStatus::PARTIAL_OVERLAP;
     }
 
-    return CalcOverlapByOffsetShape(pTensor->offset, pTensor->shape, qTensor->offset, qTensor->shape);
+    return status;
 }
 
 OverlapStatus CalcOverlap(const std::shared_ptr<LogicalTensor> &pTensor,

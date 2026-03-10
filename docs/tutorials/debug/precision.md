@@ -105,13 +105,7 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
 
 ### 环境准备
 
-最新 master 分支代码及 0.1.1 之后版本（不含 0.1.1 版本）支持在运行时在线编译精度工具所需 C++ 二进制，不需重新编译安装 PyPTO, 但需确认在线编译所需的构建工具符合以下要求：
-
-    - cmake >= 3.16.3
-    - make
-    - g++ >= 9.4.0
-
-早期PyPTO源码需要重新编译并安装PyPTO后才能使用该工具。
+需要重新编译并安装PyPTO后才能使用该工具。
 
 1.  确认GCC安装并升级到9.4.0或更高版本。
 2.  重新通过源码编译安装PyPTO。主要区别是在编译安装命令中增加选项 --no-build-isolation，其他操作请参见[编译安装](../../install/prepare_environment.md)。
@@ -122,7 +116,7 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
 
 ### 自检操作步骤
 
-1.  开启精度调试开关。参考样例为：[hello_world.py](../../../examples/00_hello_world/hello_world.py)。
+1.  开启精度调试开关。参考样例为：[add_direct.py](../../../examples/01_beginner/basic/add_direct.py)。
 
     ```python
     ...
@@ -131,22 +125,19 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
         "pass_verify_save_tensor": True,
         ...
     }
-
-    @pypto.frontend.jit(verify_options=verify_options)
-    def add_kernel(
-        input0: pypto.Tensor((1, 4, 1, 64), pypto.DT_FP32),
-        input1: pypto.Tensor((1, 4, 1, 64), pypto.DT_FP32),
-    ) -> pypto.Tensor((1, 4, 1, 64), pypto.DT_FP32):
+    
+    @pypto.jit(verify_options=verify_options)
+    def add_kernel(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor):
         pypto.set_vec_tile_shapes(1, 4, 1, 64)
-        return input0 + input1
-
+        output[:] = input0 + input1
+    
     ...
     ```
 
 2.  执行修改后用例。
 
     ```bash
-    python3 examples/00_hello_world/hello_world.py
+    python3 examples/01_beginner/00_introduction/add_direct.py
     ```
 
     打印类似以下输出，指示对应的自检结果为通过（PASS）、未通过（FAIL\(ED\)）或跳过校验（NO\_COMPARE）：
@@ -166,11 +157,11 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
 
     ```text
     ├── tensor_graph # 保存前端初始计算图模拟计算后的中间数据，作为基础数据
-    │   ├── *.data
+    │   ├── *.data 
     │   └── ...
     ├── verify_result.csv # 结果报告，用于保存中间数据的元数据信息、元数据对应的数据文件名、对其中属于Tensor数据的文件进行自检的结果
     ├── {FUNC_NAME}.pass_{PASS_SEQ}_{PASS_NAME} # 保存中间pass计算图模拟计算后的中间数据，作为待测数据
-    │   ├── *.data
+    │   ├── *.data 
     │   └── ...
     ```
 
@@ -185,11 +176,11 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
     |No.|单个Pass内的数据顺序编号，例如1|
     |rootFuncID|Root Function节点的唯一标识|
     |funcID|Function节点的唯一标识|
-    |verifyType|算子信息及数据对应的pass名称，</br>格式为：* {FUNC_NAME}.pass_{PASS_SEQ}_{PASS_NAME}</br>示例为：function_TENSOR_LOOP_L1_Unroll1_PATH1_7.pass_06_SplitReshape|
+    |verifyType|算子信息及数据对应的pass名称，</br>格式为：* {FUNC_NAME}.pass_{PASS_SEQ}_{PASS_NAME}</br>示例为：function_TENSOR_LOOP_L1_Unroll1_PATH1_7.pass_06_SplitReshape|    
     |LoopInfo|控制流信息，例如s_idx=2@b_idx=1|
     |opCode|Tile算子名称|
     |opMagic|Operation节点的唯一标识|
-    |tensorMagic|Tensor的唯一标识|
+    |tensorMagic|Tensor的唯一标识|      
     |rawTensorMagic|Tensor节点所属物理内存区域Raw Tensor的唯一标识|
     |offset|当前Tensor在rawTensor内存中的偏移量，为整数数组|
     |inputShape|输入Tensor节点的形状信息，为整数数组|
@@ -219,7 +210,7 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
 
 ### 粗检操作步骤
 
-1.  开启精度调试开关。参考样例为：[hello_world.py](../../../examples/00_hello_world/hello_world.py)。
+1.  开启精度调试开关。参考样例为：[add_direct.py](../../../examples/01_beginner/basic/add_direct.py)。
 
     ```python
     ...
@@ -227,36 +218,35 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
         "enable_pass_verify": True,
         ...
     }
-
-    @pypto.frontend.jit(verify_options=verify_options)
-    def add_kernel(
-        input0: pypto.Tensor((1, 16, 1, 64), pypto.DT_FP32),
-        input1: pypto.Tensor((1, 16, 1, 64), pypto.DT_FP32),
-    ) -> pypto.Tensor((1, 16, 1, 64), pypto.DT_FP32):
+    
+    @pypto.jit(verify_options=verify_options)
+    def add_kernel(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor):
         pypto.set_vec_tile_shapes(1, 16, 1, 64)
-        return input0 + input1
-
-    def add(input_data0, input_data1):
-        return add_kernel(input_data0, input_data1)
-
+        output[:] = input0 + input1
+    
+    def add(input_data0, input_data1, output_data):
+        ...
+    
     def test_add():
         shape = (1, 16, 1, 64)
         input_data0 = torch.rand(shape, dtype=torch.float)
         input_data1 = torch.rand(shape, dtype=torch.float)
+        output_data = torch.zeros(shape, dtype=torch.float)
         torch_add = torch.add(input_data0, input_data1)
         pypto.set_verify_golden_data(goldens=[None, None, torch_add])
-
+    
         input_data0 = input_data0.to('npu')
         input_data1 = input_data1.to('npu')
-
-        output_data = add(input_data0, input_data1)
+        output_data = output_data.to('npu')
+    
+        add(input_data0, input_data1, output_data)
     ...
     ```
 
 2.  执行修改后用例。
 
     ```bash
-    python3 examples/00_hello_world/hello_world.py
+    python3 examples/01_beginner/00_introduction/add_direct.py 
     ```
 
 3.  打印类似以下输出，指示对应的自检结果为通过（PASS）、未通过（FAIL\(ED\)）或跳过校验（NO\_COMPARE）：
@@ -271,9 +261,9 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
 
     ```text
     ├── tensor_graph # 保存前端初始计算图模拟计算后的输入、输出数据，供后续人工分析
-    │   ├── tensor_Incast_0.data
-    │   ├── tensor_Incast_1.data
-    │   ├── tensor_OUT_0.data
+    │   ├── tensor_Incast_0.data 
+    │   ├── tensor_Incast_1.data 
+    │   ├── tensor_OUT_0.data 
     │   └── ...
     ├── verify_result.csv # 结果报告，用于保存对以上数据进行粗检的结果
     ```
@@ -287,7 +277,7 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
 
 ### 人工调测步骤
 
-1.  开启精度调试开关。参考样例为：[hello_world.py](../../../examples/00_hello_world/hello_world.py)。
+1.  开启精度调试开关。参考样例为：[add_direct.py](../../../examples/01_beginner/basic/add_direct.py)。
 
     ```python
     ...
@@ -295,34 +285,31 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
         "enable_pass_verify": True,
         ...
     }
-
-    @pypto.frontend.jit(verify_options=verify_options)
-    def add_kernel(
-        input0: pypto.Tensor((1, 4, 1, 64), pypto.DT_FP32),
-        input1: pypto.Tensor((1, 4, 1, 64), pypto.DT_FP32),
-    ) -> pypto.Tensor((1, 4, 1, 64), pypto.DT_FP32):
+    
+    @pypto.jit(verify_options=verify_options)
+    def add_kernel(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor):
         pypto.set_vec_tile_shapes(1, 4, 1, 64)
         pypto.pass_verify_save(input1, "input1_by_pass_verify")
         pypto.pass_verify_print(input0)
-        return input0 + input1
-
-    def add(input_data0, input_data1):
-        return add_kernel(input_data0, input_data1)
-
+        output[:] = input0 + input1
+    
+    def add(input_data0, input_data1, output_data):
+        ...
+    
     def test_add():
-        shape = (1, 4, 1, 64)
         input_data0 = torch.rand(shape, dtype=torch.float, device='npu')
         input_data1 = torch.rand(shape, dtype=torch.float, device='npu')
+        output_data = torch.zeros(shape, dtype=torch.float, device='npu')
         torch_add = torch.add(input_data0, input_data1)
-
-        output_data = add(input_data0, input_data1)
+    
+        add(input_data0, input_data1, output_data)
     ...
     ```
 
 2.  执行修改后用例。
 
     ```bash
-    python3 examples/00_hello_world/hello_world.py
+    python3 examples/01_beginner/00_introduction/add_direct.py 
     ```
 
 3.  打印类似以下输出，指示 input0 所保存的部分参考数据。

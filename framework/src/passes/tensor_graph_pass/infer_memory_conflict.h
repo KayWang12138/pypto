@@ -50,8 +50,7 @@ private:
 
     bool CheckTransmit(Operation &curOp);
     bool CheckConflict(const LogicalTensorPtr &inTensor, const LogicalTensorPtr &outTensor);
-    bool CheckRawShapeConflict(
-        const LogicalTensorPtr &inTensor, const LogicalTensorPtr &outTensor, const Operation *reshapeOp);
+    bool CheckRawShapeConflict(const LogicalTensorPtr &inTensor, const LogicalTensorPtr &outTensor);
     bool IsValidTileShape(const Operation &op) const;
     bool MatchReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTensorPtr &reshapeOut);
     bool MatMulPattern(const LogicalTensorPtr &reshapeInput, const LogicalTensorPtr &reshapeOut);

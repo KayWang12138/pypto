@@ -30,8 +30,6 @@ TILEOP void ReduceComputeImpl(T0 dst, T1 src, T2 tmp) {
         PTO_WITH_LAST_USE(pto::TROWMAX(dst, src, tmp), n1, n2, n3);
     } else if constexpr (op == ReduceOp::MIN) {
         PTO_WITH_LAST_USE(pto::TROWMIN(dst, src, tmp), n1, n2, n3);
-    } else if constexpr (op == ReduceOp::PROD) {
-        PTO_WITH_LAST_USE(pto::TROWPROD(dst, src, tmp), n1, n2, n3);
     }
 }
 
@@ -114,14 +112,8 @@ TILEOP void TRowMinSingle(T0 dst, T1 src, T2 tmp) {
     ReduceLastAxisCompute<ReduceOp::MIN, LastUse>(dst, src, tmp);
 }
 
-#define OP_TILE_OP_ROWPRODSINGLE TRowProdSingle
-template <typename LastUse = LastUse3Dim<0, 0, 0>, typename T0, typename T1, typename T2>
-TILEOP void TRowProdSingle(T0 dst, T1 src, T2 tmp) {
-    ReduceLastAxisCompute<ReduceOp::PROD, LastUse>(dst, src, tmp);
-}
-
 template <ReduceOp op, int axis, typename T0, typename T1>
-TILEOP void TRowMaxMinProdLineDynamic(T0 dst, T1 src) {
+TILEOP void TRowMaxMinLineDynamic(T0 dst, T1 src) {
     constexpr auto srcShapeSize = Std::tuple_size<typename T1::Shape>::value;
     constexpr auto dstShapeSize = Std::tuple_size<typename T0::Shape>::value;
     constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, axis + dstShapeSize - 5>();
@@ -176,9 +168,7 @@ TILEOP void TRowMaxMinProdLineDynamic(T0 dst, T1 src) {
                         pto::TCOLMAX(dstTile, srcTile);
                     } else if constexpr (op == ReduceOp::MIN) {
                         pto::TCOLMIN(dstTile, srcTile);
-                    } else if constexpr (op == ReduceOp::PROD) {
-                        pto::TCOLPROD(dstTile, srcTile);
-                    }
+                    } 
                 }
             }
         }
@@ -188,23 +178,17 @@ TILEOP void TRowMaxMinProdLineDynamic(T0 dst, T1 src) {
 #define OP_TILE_OP_ROWMAXLINE TRowMaxLine
 template <int axis, typename T0, typename T1>
 TILEOP void TRowMaxLine(T0 dst, T1 src) {
-    TRowMaxMinProdLineDynamic<ReduceOp::MAX, axis>(dst, src);
+    TRowMaxMinLineDynamic<ReduceOp::MAX, axis>(dst, src);
 }
 
 #define OP_TILE_OP_ROWMINLINE TRowMinLine
 template <int axis, typename T0, typename T1>
 TILEOP void TRowMinLine(T0 dst, T1 src) {
-    TRowMaxMinProdLineDynamic<ReduceOp::MIN, axis>(dst, src);
+    TRowMaxMinLineDynamic<ReduceOp::MIN, axis>(dst, src);
 }
 
-#define OP_TILE_OP_ROWPRODLINE TRowProdLine
-template <int axis, typename T0, typename T1>
-TILEOP void TRowProdLine(T0 dst, T1 src) {
-    TRowMaxMinProdLineDynamic<ReduceOp::PROD, axis>(dst, src);
-}
-
-template <int axis, typename DstTileDefine, typename SrcTileDefine, typename TmpTileDefine, typename T0, typename T1, typename T2>	 
- TILEOP void TRowSumLineDynamic(T0 dst, T1 src, T2 tmp) {
+template <int axis, typename DstTileDefine, typename SrcTileDefine, typename TmpTileDefine, typename T0, typename T1, typename T2>
+TILEOP void TRowSumLineDynamic(T0 dst, T1 src, T2 tmp) {
     constexpr size_t expectSize = 5;
     constexpr auto typeSize = sizeof(typename T1::Type);
     const auto dstLayout = dst.GetLayout();

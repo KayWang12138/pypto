@@ -96,7 +96,7 @@ void AssignMemoryType::RunOnOperation(Operation &operation) {
     for (size_t i = 0; i < operation.iOperand.size(); ++i) {
         auto &tensor = operation.iOperand[i];
         if (i >= inputsMemType.size()) {
-            APASS_LOG_INFO_F(Elements::Operation, "%s[%d] input %zu magic %d mem original is NOT Defined in opcode.cpp.",
+            APASS_LOG_INFO_F(Elements::Operation, "%s[%d] input %d magic %d mem original is NOT Defined in opcode.cpp.",
                 operation.GetOpcodeStr().c_str(), operation.GetOpMagic(), i, tensor->magic);
             continue;
         }
@@ -218,6 +218,7 @@ void AssignMemoryType::ProcessAssemblewithSpecificMem(Operation &operation) {
     for (const auto &consumerOp : output->GetConsumers()) {
         auto consumerOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(consumerOp->GetOpAttribute());
         // 大包搬运场景：assemble后接view且view的toAttr为L1
+        // 非大包搬运场景：assemble后的op预期输入为L1
         if (consumerOpAttribute && consumerOpAttribute->GetTo() != MemoryType::MEM_UNKNOWN) {
             if (consumerOpAttribute->GetTo() != MemoryType::MEM_L1) {
                 return;
@@ -436,7 +437,7 @@ void AssignMemoryType::AssignMoveOpForAssemble(Operation &operation) {
             int64_t tensorBytes = static_cast<int64_t>(BytesOf(tensor->Datatype()));
             int64_t byteOffset = tensorBytes * lineOffset;
             
-            APASS_LOG_DEBUG_F(Elements::Tensor, "Op's input tensor, lineOffset is %ld, tensorBytes is %ld, byteOffset is %ld.", static_cast<long>(lineOffset), static_cast<long>(tensorBytes), static_cast<long>(byteOffset));
+            APASS_LOG_DEBUG_F(Elements::Tensor, "Op %ld 's input tensor, lineOffset is %ld, tensorBytes is %ld, byteOffset is %ld.", lineOffset, tensorBytes, byteOffset);
             // 对齐检查，根据assemble的offset和assemble输出tensor的rawshape计算线性offset，如果非32B对齐，则将assemble输出tensor推导为DDR类型
             static constexpr int UB_ALIGN_BYTES = 32;
             if (byteOffset % UB_ALIGN_BYTES != 0) {

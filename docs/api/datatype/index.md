@@ -13,5 +13,4 @@ ReduceMode
 ReLuType
 ScatterMode
 TileOpFormat
-TransMode
 pypto-bytes_of

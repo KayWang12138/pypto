@@ -253,7 +253,8 @@ private:
     void UpdateBufferUsage(MemoryType bufferType, int memId, bool isFree);
     void PrintOpList(std::vector<Operation *> operations);
     void PrintDependencies();
-    Status PrintSpillFailedInfo(IssueEntryPtr allocIssue, bool isGenSpill);
+    void PrintSpillFailedInfo(IssueEntryPtr allocIssue, MemoryType bufferType);
+    Status PrintSpillFailedInfo(IssueEntryPtr allocIssue);
 
     // sort ops
     Status SortOps();
@@ -310,7 +311,7 @@ private:
     Status ExecuteIssue();
 
     // gen spill
-    Status GenSpillOp(size_t &pcIdx);
+    Status GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx);
     Status GenBufferSpill(IssueEntryPtr allocIssue);
     Status SelectSpillBuffers(LocalBufferPtr allocBuffer, IssueEntryPtr issue, 
         std::vector<int> &spillGroup, bool isGenSpill);
@@ -320,7 +321,6 @@ private:
     bool CheckMachineAndL1(IssueEntryPtr spillIssue, IssueEntryPtr allocIssue);
     bool IsBelongSpillBlackList(IssueEntryPtr spillIssue, IssueEntryPtr issue);
     void FindFilterLtags(IssueEntryPtr allocIssue, std::set<IssueEntryPtr> &filterLtags);
-    Status SpillAllBuffer(IssueEntryPtr allocIssue, size_t &pcIdx, bool isGenSpill, LocalBufferPtr allocBuffer);
     Status SpillMultiBuffer(IssueEntryPtr allocIssue, std::vector<int> spillGroup, size_t &pcIdx, 
         LocalBufferPtr allocBuffer, bool isGenSpill);
     Status GetSpillInfo(IssueEntryPtr allocIssue, int spillMemId, bool isGenSpill, SpillInfo &spillInfo);
@@ -345,7 +345,7 @@ private:
     void ReplaceTensorMemId(IssueEntryPtr &issue, int oldMemId, int newMemId);
     void UpdateOpInternalSubgraphID(Operation &op, IssueEntryPtr issue);
     void UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr spillTensor, std::vector<int64_t> offset,
-        IssueEntryPtr spillIssue, int64_t workspaceBaseOffset);
+        IssueEntryPtr spillIssue);
     Status UpdateTensorAttr(LogicalTensorPtr tensor, MemoryType memType, LogicalTensorPtr spillTensor, int spillMemId);
     int GetBufNextUseOrder(IssueEntryPtr issue, int curMemId);
     int GetBufLastUseOrder(IssueEntryPtr issue, int curMemId);
@@ -365,10 +365,9 @@ private:
     LogicalTensorPtr CreateAssemblePartTensor(LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor,
         SpillInfo &spillInfo, std::shared_ptr<AssembleOpAttribute> assembleAttr);
     int64_t CalcWorkspaceOffset(std::vector<int64_t> shape, std::vector<int64_t> offset);
-    void GetWorkspaceBaseOffset(LogicalTensorPtr ddrTensor, int64_t &base);
 
     // buffer rearrange
-    Status RearrangeBuffer(IssueEntryPtr allocIssue, MemoryType memType, std::pair<OpCoreType, int> corePair, bool isGenSpill);
+    Status RearrangeBuffer(MemoryType memType, std::pair<OpCoreType, int> corePair);
     Status RearrangeBuffers(IssueEntryPtr issue, bool isGenSpillStage, bool &rearrangeUBBF16);
     Status GenRearrangeCopyOp(IssueEntryPtr issue, MemoryType memType, int memId, int &newMemId, bool &rearrangeUBBF16);
     Status UpdateMemId(int oldMemId, int newMemId);
@@ -385,7 +384,7 @@ public:
     OoOScheduler(Function &function) : function_(function) {}
 
     std::vector<Operation *> GetNewOperations() { return newOperations_; }
-    int64_t workspaceOffset{0};
+    int workspaceOffset{0};
     int clock{0};
     OoOSchedulerCheck oooCheck;
     std::unordered_map<PipeType, int> pipeEndTime;

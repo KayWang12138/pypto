@@ -29,7 +29,6 @@ const std::unordered_set<Opcode> NEED_BRC_OPS{
     Opcode::OP_DIV,
     Opcode::OP_MAXIMUM,
     Opcode::OP_MINIMUM,
-    Opcode::OP_EXPANDEXPDIF,
 };
 
 bool InsertCondition(const Opcode &code) {
@@ -41,7 +40,7 @@ bool InsertCondition(const Opcode &code) {
 
 Status AlignedIfNeed(int64_t &currentDim, int64_t &padValue) {
     if (padValue == 0) {
-        APASS_LOG_ERROR_F(Elements::Config, "invalid pad base %ld.", static_cast<long>(padValue));
+        APASS_LOG_ERROR_F(Elements::Config, "invalid pad base %d.", padValue);
         return FAILED;
     }
     if (currentDim % padValue != 0) {

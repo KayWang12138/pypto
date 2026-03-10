@@ -51,9 +51,11 @@ void SortedProducer(std::vector<Operation*>& sortedProducers) {
     });
 }
 
-void CollectProducerInfo(const std::vector<Operation*> &sortedProducers, const LogicalTensorPtr &curTensor,
-                         std::vector<std::string> &opStrList, std::stringstream &ss)
-{
+unsigned long ComputeHash(const std::vector <Operation*>& producers, LogicalTensorPtr curTensor) {
+    std::vector<std::string> opStrList;
+    std::stringstream ss;
+    std::vector<Operation*> sortedProducers = producers;
+    SortedProducer(sortedProducers);
     for (const auto& op: sortedProducers) {
         if (op == nullptr) {
             continue;
@@ -87,9 +89,6 @@ void CollectProducerInfo(const std::vector<Operation*> &sortedProducers, const L
         if (op->GetOpAttribute() != nullptr) {
             ss << " " << op->GetOpAttribute()->Dump();
         }
-        if (!op->DumpAttr().empty()) {
-            ss << " " << op->DumpAttr();
-        }
         for (const auto &attr : OpcodeManager::Inst().GetAttrs(op->GetOpcode())) {
             ss << " attr: [" << attr << " : " << op->DumpAttr(attr) << "]";
         }
@@ -100,25 +99,16 @@ void CollectProducerInfo(const std::vector<Operation*> &sortedProducers, const L
     for (const auto& str: opStrList) {
         ss << str;
     }
-}
-
-unsigned long ComputeHash(const std::vector <Operation*>& producers, LogicalTensorPtr curTensor) {
-    std::vector<std::string> opStrList;
-    std::stringstream ss;
-    std::vector<Operation*> sortedProducers = producers;
-    SortedProducer(sortedProducers);
-    CollectProducerInfo(sortedProducers, curTensor, opStrList, ss);
     std::hash<std::string> hasher;
     return hasher(ss.str());
 }
 
 Status CommonOperationEliminate::RunOnFunction(Function &function) {
-    std::vector<LogicalTensorPtr> sequence;
-    auto tensorProducerMap = GetTensorProducers(function, sequence);
+    auto tensorProducerMap = GetTensorProducers(function);
     std::unordered_set<Operation*> cacheProducers;
-    for (auto& orderedTensor: sequence) {
-        auto& producerGroup = tensorProducerMap[orderedTensor];
-        if (producerGroup.empty() || !TensorProducersMerge(orderedTensor, cacheProducers, tensorProducerMap)) {
+    for (auto& tensorProducerPair: tensorProducerMap) {
+        auto& producerGroup = tensorProducerPair.second;
+        if (producerGroup.empty() || !TensorProducersMerge(tensorProducerPair, cacheProducers)) {
             continue;
         }
         for (auto op: producerGroup) {
@@ -143,8 +133,7 @@ Status CommonOperationEliminate::PreCheck(Function &function) {
     return checker.DoPreCheck(function);
 }
 
-std::unordered_map<LogicalTensorPtr, std::vector<Operation*>> CommonOperationEliminate::GetTensorProducers(
- 	    Function &function, std::vector<LogicalTensorPtr>& sequence) {
+std::unordered_map<LogicalTensorPtr, std::vector<Operation*>> CommonOperationEliminate::GetTensorProducers(Function &function) {
     std::unordered_map<LogicalTensorPtr, std::vector<Operation*>> tensorProducerMap;
     std::unordered_set<int> visitedTensors;
     auto allOps = function.Operations(true).DuplicatedOpList();
@@ -159,23 +148,17 @@ std::unordered_map<LogicalTensorPtr, std::vector<Operation*>> CommonOperationEli
             }
             visitedTensors.insert(tensor->GetMagic());
             for (const auto& pro: tensor->GetProducers()) {
-                if (pro == nullptr) {
-                    APASS_LOG_ERROR_F(Elements::Operation, "Producer operation nullptr for Tensor[%d].", tensor->GetMagic());
-                    continue;
+                if (pro != nullptr) {
+                    tensorProducerMap[tensor].push_back(pro);
                 }
-                if (tensorProducerMap.count(tensor) == 0) {
-                    sequence.push_back(tensor);
-                }
-                tensorProducerMap[tensor].push_back(pro);
             }
         }
     }
     return tensorProducerMap;
 }
 
-std::pair<LogicalTensorPtr, std::vector<Operation*>>  CommonOperationEliminate::TensorHashExist(const LogicalTensorPtr  orderedTensor, std::unordered_set<Operation*>& cacheProducers, 
-                                                                                                const std::unordered_map<LogicalTensorPtr, std::vector<Operation*>>& tensorProducerMap) {
-    const std::vector<Operation*>& producers = tensorProducerMap.find(orderedTensor)->second;
+std::pair<LogicalTensorPtr, std::vector<Operation*>>  CommonOperationEliminate::TensorHashExist(const std::pair<LogicalTensorPtr, std::vector<Operation*>>& tensorProducersPair, std::unordered_set<Operation*>& cacheProducers) {
+    const std::vector<Operation*>& producers = tensorProducersPair.second;
     for (auto operation: producers) {
         if (operation == nullptr) {
             continue;
@@ -196,21 +179,21 @@ std::pair<LogicalTensorPtr, std::vector<Operation*>>  CommonOperationEliminate::
             return {nullptr, {}};
         }
     }
-    uint64_t groupHash = ComputeHash(producers, orderedTensor);
+    uint64_t groupHash = ComputeHash(producers, tensorProducersPair.first);
     if (hashCache.count(groupHash) != 0){
-        APASS_LOG_DEBUG_F(Elements::Operation, "Tensor[%d] are marked as hash already existed tensor.", orderedTensor->GetMagic());
+        APASS_LOG_DEBUG_F(Elements::Operation, "Tensor[%d] are marked as hash already existed tensor.", tensorProducersPair.first->GetMagic());
         return hashCache[groupHash];
     }
-    hashCache.emplace(groupHash, std::make_pair(orderedTensor, producers));
-    if (orderedTensor == nullptr) {
+    hashCache.emplace(groupHash, tensorProducersPair);
+    if (tensorProducersPair.first == nullptr) {
         return {nullptr, {}};
     }
-    for (auto producer: orderedTensor->GetProducers()) {
+    for (auto producer: tensorProducersPair.first->GetProducers()) {
         if (producer != nullptr) {
             cacheProducers.insert(producer);
         }
     }
-    APASS_LOG_DEBUG_F(Elements::Operation, "Tensor[%d] hash already existed.", orderedTensor->GetMagic());
+    APASS_LOG_DEBUG_F(Elements::Operation, "Tensor[%d] hash already existed.", tensorProducersPair.first->GetMagic());
     return {nullptr, {}};
 }
 
@@ -261,31 +244,30 @@ void CommonOperationEliminate::UpdateConnection(LogicalTensorPtr oldtensor,  Log
     }
 }
 
-bool CommonOperationEliminate::TensorProducersMerge(const LogicalTensorPtr orderedTensor, std::unordered_set<Operation*>& cacheProducers, 
-                                                    const std::unordered_map<LogicalTensorPtr, std::vector<Operation*>>& tensorProducerMap) {
-    auto& producers = tensorProducerMap.at(orderedTensor);
+bool CommonOperationEliminate::TensorProducersMerge(const std::pair<LogicalTensorPtr, std::vector<Operation*>>& tensorProducerPair, std::unordered_set<Operation*>& cacheProducers) {
+    auto& producers = tensorProducerPair.second;  
     if (producers.empty()) {
         return false;
     }
-    auto existOp = TensorHashExist(orderedTensor, cacheProducers, tensorProducerMap);
-    if (existOp.first == nullptr || orderedTensor == nullptr || existOp.second.empty()) {
+    auto existOp = TensorHashExist(tensorProducerPair, cacheProducers);
+    if (existOp.first == nullptr || tensorProducerPair.first == nullptr || existOp.second.empty()) {
         return false;
     }
-    if (orderedTensor->shape != existOp.first->shape) {
+    if (tensorProducerPair.first->shape != existOp.first->shape) {
         return false;
     }
-    if (orderedTensor->tensor->GetDataType() != existOp.first->tensor->GetDataType()) {
+    if (tensorProducerPair.first->tensor->GetDataType() != existOp.first->tensor->GetDataType()) {
         return false;
     }
-    LogicalTensorPtr oldtensor = orderedTensor;
+    LogicalTensorPtr oldtensor = tensorProducerPair.first;
     LogicalTensorPtr newtensor = existOp.first;
     if (oldtensor->nodetype == NodeType::OUTCAST) {
         return false;
     }
-    if (producers.size() == existOp.second.size()) {
+    if (tensorProducerPair.second.size() == existOp.second.size()) {
         bool allSame = true;
         for (size_t i = 0; i < existOp.second.size() && allSame; i++) {
-            allSame = (producers[i] == existOp.second[i]);
+            allSame = (tensorProducerPair.second[i] == existOp.second[i]);
         }
         if (allSame) {
             return false;

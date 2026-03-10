@@ -794,14 +794,6 @@ private:
         return sizeof(ReadyCoreFunctionQueue) + devProg_-> stitchFunctionsize * sizeof(uint32_t);
     }
 
-    uint32_t DieReadyQueSlabMemObjSize() {
-        if (devProg_->devArgs.archInfo == ArchInfo::DAV_3510) {
-            return sizeof(ReadyCoreFunctionQueue) + devProg_-> stitchFunctionsize * sizeof(uint32_t);
-        } else {
-            return 1;
-        }
-    }
-
     uint32_t WrapQueSlabMemObjSize() {
         if (devProg_->devArgs.archInfo == ArchInfo::DAV_3510) {
             return sizeof(ReadyCoreFunctionQueue) + devProg_-> stitchFunctionsize * sizeof(uint32_t);
@@ -824,7 +816,6 @@ private:
         &DeviceWorkspaceAllocator::VecStitchListSLabMemObjSize,
         &DeviceWorkspaceAllocator::DynDevTaskSlabMemObjSize,
         &DeviceWorkspaceAllocator::ReadyQueSlabMemObjSize,
-        &DeviceWorkspaceAllocator::DieReadyQueSlabMemObjSize,
         &DeviceWorkspaceAllocator::WrapQueSlabMemObjSize,
         &DeviceWorkspaceAllocator::WrapTasklistSlabMemObjSize,
         nullptr, // invalid type

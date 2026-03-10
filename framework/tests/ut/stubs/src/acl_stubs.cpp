@@ -100,11 +100,4 @@ aclError aclrtSetExceptionInfoCallback(aclrtExceptionInfoCallback callback)
     (void)callback;
     return 0;
 }
-
-aclError aclrtGetResInCurrentThread(aclrtDevResLimitType type, uint32_t *value)
-{
-    (void)type;
-    (void)value;
-    return 0;
-}
 }

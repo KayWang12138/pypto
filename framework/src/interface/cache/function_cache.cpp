@@ -21,7 +21,6 @@
 #include "securec.h"
 #include "topo_processor.h"
 #include "interface/utils/log.h"
-#include "tilefwk/pypto_fwk_log.h"
 
 namespace npu::tile_fwk {
 std::optional<CacheValue> FunctionCache::Get(HashKey key) {
@@ -65,15 +64,15 @@ void FunctionCache::UpdateTopoCache(const Function &func, CacheValue &value) {
         tempPtr->depNum = func.topoInfo_.topology_[i].outGraph.size();
         tempPtr->extParamNum = func.topoInfo_.topology_[i].extParamNum;
         tempPtr->extType = func.topoInfo_.topology_[i].extType;
-        MACHINE_LOGD("[function cache]topo %u, readycount:%ld, depnum:%lu, coreType:%lu, extType:%u",
+        ALOG_DEBUG_F("[function cache]topo %u, readycount:%ld, depnum:%lu, coreType:%lu, extType:%u",
             i, tempPtr->readyCount, tempPtr->depNum, tempPtr->coreType, tempPtr->extType);
         uint32_t j = 0;
-        for (auto &ele : func.topoInfo_.topology_[i].outGraph) {
+        for (auto& ele : func.topoInfo_.topology_[i].outGraph) {
             tempPtr->depIds[j] = ele;
             j++;
-            MACHINE_LOGD("[function cache]depend %d", ele);
+            ALOG_DEBUG_F("[function cache]depend %u", ele);
         }
-        for (auto &ele : func.topoInfo_.topology_[i].extParams) {
+        for (auto& ele : func.topoInfo_.topology_[i].extParams) {
             tempPtr->depIds[j++] = static_cast<uint64_t>(ele);
         }
         uint32_t tempLength = sizeof(CoreFunctionTopo) + sizeof(uint64_t) * (tempPtr->depNum + tempPtr->extParamNum);
@@ -136,7 +135,7 @@ void FunctionCache::UpdateBinCache(const Function &func, CacheValue &value) {
             totalSize += binData.size() + sizeof(uint64_t);
             binMap[ele.first] = std::move(binData);
         } else {
-            MACHINE_LOGE("bin path %s is not existed", binPath.c_str());
+            ALOG_ERROR("bin path %s is not existed", binPath.c_str());
             abort();
         }
     }

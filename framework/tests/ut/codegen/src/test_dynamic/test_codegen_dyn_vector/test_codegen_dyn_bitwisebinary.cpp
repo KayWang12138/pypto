@@ -118,6 +118,7 @@ void TestBitwiseScalarDynBody(const std::vector<int64_t> &shape,
 TEST_F(TestCodegenDynBitwiseBinary, BitwiseAndLayout) {
     const std::string expect = R"(TBitwiseAnd<LastUse3Dim<0, 1, 1>>(ubTensor_0, ubTensor_0, ubTensor_2);)";
     TestBitwiseTensorDynBody({32, 32}, {16, 16}, "BitwiseAnd", expect);
+
 }
 
 TEST_F(TestCodegenDynBitwiseBinary, BitwiseOrLayout) {

@@ -75,7 +75,7 @@ struct DeviceMemoryUtils {
     uint8_t *CopyToDev(RawTensorData &data) {
         if (data.GetDevPtr() == nullptr) {
             uint8_t *devPtr = nullptr;
-            machine::GetRA()->AllocDevAddr(&devPtr, data.size());
+            machine::GetRA()->AllocDevAddr(&devPtr, data.size(), true);
             if (devPtr == nullptr) {
                 return nullptr;
             }

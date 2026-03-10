@@ -17,9 +17,7 @@ pypto-Tensor-dim
 pypto-Tensor-div
 pypto-Tensor-dtype
 pypto-Tensor-exp
-pypto-Tensor-exp2
 pypto-Tensor-expand_clone
-pypto-Tensor-expm1
 pypto-Tensor-id
 pypto-Tensor-index_add
 pypto-Tensor-index_add_

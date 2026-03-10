@@ -327,6 +327,9 @@ def do_test_sparse_attention_func_aq(bn1n2s1, actual_seq, input_params, input_da
     block_table_npu = block_table.npu()
     kv_act_seqs_npu = kv_act_seqs.npu()
 
+    calc_attention_out_npu = calc_attention_out.npu()
+    calc_attention_out_npu = calc_attention_out_npu.reshape(-1, kv_lora_rank)
+
     pto_inputs = [q_nope_npu, q_rope_npu, nope_cache_npu, topk_indices_npu, block_table_npu, kv_act_seqs_npu]
 
     max_blocknum_perbatch = math.ceil(max_kv_seq / block_size)
@@ -377,7 +380,6 @@ def do_test_sfa_entry(case_name: str, is_p: bool):
     return True
 
 
-@pytest.mark.soc("950", "910")
 def test_sfa_bf16_b4_s2_seq64k_total_int8_d():
     '''
     sfa decode测试函数
@@ -385,7 +387,6 @@ def test_sfa_bf16_b4_s2_seq64k_total_int8_d():
     do_test_sfa_entry("sfa_bf16_b4_s2_seq64K_total_int8_d", is_p=False)
 
 
-@pytest.mark.soc("950", "910")
 @pytest.mark.skip(reason="perf")
 def test_sfa_bf16_b4_s2_seq64k_per_int8_d():
     '''
@@ -394,7 +395,6 @@ def test_sfa_bf16_b4_s2_seq64k_per_int8_d():
     do_test_sfa_entry("sfa_bf16_b4_s2_seq64K_per_int8_d", is_p=False)
 
 
-@pytest.mark.soc("950", "910")
 @pytest.mark.skip(reason="large test case")
 def test_sfa_bf16_b1_s256_seq64k_int8_p():
     '''

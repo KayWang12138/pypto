@@ -76,8 +76,6 @@ const std::string OpAttributeKey::loopGroupEnd = "LOOP_GROUP_END";
 const std::string OpAttributeKey::lastUse = "last_use";
 const std::string OpAttributeKey::isUpper = "is_upper";
 const std::string OpAttributeKey::blockSize = "block_size";
-const std::string OpAttributeKey::transMode = "op_attr_trans_mode";
-const std::string OpAttributeKey::workspaceBaseOffset = "workspace_base_offset";
 
 const std::string ConvOpAttributeKey::cin = "CIN";
 const std::string ConvOpAttributeKey::cout = "COUT";
@@ -165,9 +163,7 @@ Operation::Operation(
     if (function_->IsGraphType({GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) {
         tileShape_ = TileShape::Current();
         if (coreType_ == CoreType::AIC) {
-            auto &cubeTile = tileShape_.GetCubeTile();
-            auto &convTile = tileShape_.GetConvTile();
-            ASSERT(cubeTile.valid() || convTile.valid())
+            ASSERT(tileShape_.GetCubeTile().valid())
                 << "op [" << OpcodeManager::Inst().GetOpcodeStr(opcode) << "]tile shape not set";
         }
         OpCalcType calcType = OpcodeManager::Inst().GetOpCalcType(opcode);
@@ -353,7 +349,7 @@ Json Operation::DumpJson(bool dumpTensor) const {
             }
         }
         if (callee == nullptr) {
-            FUNCTION_LOGE("Cannot find function by calleeHash %s", calleeHash.c_str());
+            ALOG_ERROR_F("Cannot find function by calleeHash %s", calleeHash.c_str());
         } else {
             if (callee->rootFunc_ == nullptr) {
                 opDump["calleehash"] = calleeHash.Data();

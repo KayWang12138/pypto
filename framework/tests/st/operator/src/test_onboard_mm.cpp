@@ -143,22 +143,22 @@ void TestMatmulACC(int m, int k, int n, string dataPath) {
 }
 
 TEST_F(MatmulOnBoardTest, test_mm_float32_64_64_64_acc) {
-    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32}, true);
+    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32}, false, true);
     TestMatmulACC<npu::tile_fwk::float16, float>(64, 64, 64, GetGoldenDir());
 }
 
 TEST_F(MatmulOnBoardTest, test_mm_float32_32_7168_1536_acc) {
-    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {64, 64}, true);
+    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {64, 64}, false, true);
     TestMatmulACC<npu::tile_fwk::float16, float>(32, 7168, 1536, GetGoldenDir());
 }
 
 TEST_F(MatmulOnBoardTest, test_mm_float32_32_512_128_acc) {
-    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {64, 64}, true);
+    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {64, 64}, false, true);
     TestMatmulACC<npu::tile_fwk::float16, float>(32, 512, 128, GetGoldenDir());
 }
 
 TEST_F(MatmulOnBoardTest, test_mm_float32_32_1024_512_acc) {
-    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {256, 256}, true);
+    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {256, 256}, false, true);
     TestMatmulACC<npu::tile_fwk::float16, float>(32, 1024, 512, GetGoldenDir());
 }
 
@@ -183,32 +183,32 @@ TEST_F(MatmulOnBoardTest, test_mm_float32_32_128_128) {
 }
 
 TEST_F(MatmulOnBoardTest, test_mm_float32_32_128_64) {
-    TileShape::Current().SetCubeTile({16, 32}, {32, 64}, {32, 64});
+    TileShape::Current().SetCubeTile({16, 32}, {32, 64}, {32, 64}, true);
     TestMatmul<npu::tile_fwk::float16, float>(32, 128, 64, GetGoldenDir());
 }
 
 TEST_F(MatmulOnBoardTest, test_mm_int8_32_128_64) {
-    TileShape::Current().SetCubeTile({16, 32}, {64, 128}, {32, 64});
+    TileShape::Current().SetCubeTile({16, 32}, {64, 128}, {32, 64}, true);
     TestMatmul<int8_t, int32_t>(32, 128, 64, GetGoldenDir());
 }
 
 TEST_F(MatmulOnBoardTest, test_mm_int8_32_128_64_bt) {
-    TileShape::Current().SetCubeTile({16, 32}, {64, 128}, {32, 64});
+    TileShape::Current().SetCubeTile({16, 32}, {64, 128}, {32, 64}, true);
     TestMatmulTrans<int8_t, int32_t>(32, 128, 64, GetGoldenDir());
 }
 
 TEST_F(MatmulOnBoardTest, test_mm_float_32_128_128) {
-    TileShape::Current().SetCubeTile({16, 32}, {64, 128}, {64, 128});
+    TileShape::Current().SetCubeTile({16, 32}, {64, 128}, {64, 128}, true);
     TestMatmul<float, float>(32, 128, 128, GetGoldenDir());
 }
 
 TEST_F(MatmulOnBoardTest, test_mm_float_32_128_128_bt) {
-    TileShape::Current().SetCubeTile({16, 32}, {64, 128}, {64, 128});
+    TileShape::Current().SetCubeTile({16, 32}, {64, 128}, {64, 128}, true);
     TestMatmulTrans<float, float>(32, 128, 128, GetGoldenDir());
 }
 
 TEST_F(MatmulOnBoardTest, test_mm_float32_32_192_64) {
-    TileShape::Current().SetCubeTile({16, 32}, {32, 64, 96}, {32, 64});
+    TileShape::Current().SetCubeTile({16, 32}, {32, 64, 96}, {32, 64}, true);
     TestMatmul<npu::tile_fwk::float16, float>(32, 192, 64, GetGoldenDir());
 }
 

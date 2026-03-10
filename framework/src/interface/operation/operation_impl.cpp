@@ -27,6 +27,7 @@
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
 #include "interface/utils/common.h"
+#include "interface/utils/log.h"
 #include "interface/utils/operator_tracer.h"
 #include "passes/pass_utils/graph_utils.h"
 
@@ -1568,10 +1569,6 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             Matrix::ConstructTileGraph(function, tileShape, iOperand, oOperand[0], op);
             break;
         }
-        case Opcode::OP_CONV: {
-            Conv::ConstructTileGraph(function, tileShape, iOperand, oOperand[0], op);
-            break;
-        }
         case Opcode::OP_TOPK_SORT: {
             int idxStart = op.GetIntAttribute(TOPK_START_INDEX);
             SymbolicScalar dynIdxStart;
@@ -1720,7 +1717,7 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             break;
         }
         default: {
-            FUNCTION_LOGE("Unsupported opcode %d, opmagic is %d", static_cast<int>(opCode), op.GetOpMagic());
+            ALOG_ERROR_F("Unsupported opcode %d, opmagic is %d", static_cast<int>(opCode), op.GetOpMagic());
             ASSERT(false) << "Unsupported opcode " << static_cast<int>(opCode) << ", opmagic is " << op.GetOpMagic();
         }
     }

@@ -23,9 +23,9 @@ def test_print_options():
 
 def test_pass_option():
     # int
-    pypto.set_pass_options(mg_vec_parallel_lb=48)
+    pypto.set_pass_options(cube_l1_reuse_mode=0)
     pass_option = pypto.get_pass_options()
-    assert pass_option["mg_vec_parallel_lb"] == 48
+    assert pass_option["cube_l1_reuse_mode"] == 0
     # map
     pypto.set_pass_options(cube_nbuffer_setting={3: 4})
     pass_option = pypto.get_pass_options()
@@ -55,7 +55,6 @@ def test_reset_option():
     runtime_option = pypto.get_runtime_options()
     host_option = pypto.get_host_options()
     assert runtime_option["stitch_function_num_initial"] == 128
-    assert runtime_option["stitch_function_max_num"] == 0
     assert host_option["compile_stage"] == pypto.CompStage.ALL_COMPLETE.value
 
 

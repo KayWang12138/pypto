@@ -105,26 +105,6 @@ TEST_F(OperationImplTest, test_IsFinite_int32) {
     }
 }
 
-TEST_F(OperationImplTest, test_CeilDivs_int32) {
-    TileShape::Current().SetVecTile(4, 32);
-    Tensor self(DT_INT32, {11, 32}, "self");
-    Element other(DT_INT32, 2);
-    Tensor result;
-    FUNCTION("TestCeilDiv") {
-        result = CeilDiv(self, other);
-    }
-}
-
-TEST_F(OperationImplTest, test_CeilDiv_int32) {
-    TileShape::Current().SetVecTile(4, 32);
-    Tensor self(DT_INT32, {11, 32}, "self");
-    Tensor other(DT_INT32, {11, 32}, "other");
-    Tensor result;
-    FUNCTION("TestCeilDiv") {
-        result = CeilDiv(self, other);
-    }
-}
-
 TEST_F(OperationImplTest, test_Compare_BOOL) {
     TileShape::Current().SetVecTile({4, 4});
     Tensor operand1(DT_FP32, {8, 8}, "operand1");
@@ -227,28 +207,6 @@ TEST_F(OperationImplTest, test_Hypot_FP16) {
     Tensor result;
     FUNCTION("TestHypot") {
         result = Hypot(operand1, operand2);
-    }
-}
-
-TEST_F(OperationImplTest, test_PReLU_FP32) {
-    TileShape::Current().SetVecTile({4, 4});
-    Tensor operand1(DT_FP32, {8, 8}, "operand1");
-    Tensor weight(DT_FP32, {8}, "weight");
-    std::vector<int64_t> dstShape = {8, 8};
-    Tensor result;
-    FUNCTION("TestPReLU") {
-        result = PReLU(operand1, weight);
-    }
-}
-
-TEST_F(OperationImplTest, test_PReLU_FP16) {
-    TileShape::Current().SetVecTile({4, 4});
-    Tensor operand1(DT_FP16, {8, 8}, "operand1");
-    Tensor weight(DT_FP16, {8}, "weight");
-    std::vector<int64_t> dstShape = {8, 8};
-    Tensor result;
-    FUNCTION("TestPReLU") {
-        result = PReLU(operand1, weight);
     }
 }
 
@@ -413,32 +371,6 @@ TEST_F(OperationImplTest, Test_LogicalNot_BF16) {
     }
 }
 
-TEST_F(OperationImplTest, Test_Expm1_FP16) {
-    PROGRAM("Expm1") {
-        std::vector<int64_t> shape = {128, 32};
-        TileShape::Current().SetVecTile({128, 32});
-        Tensor input_a(DT_FP16, shape, "operand1");
-        auto output = Tensor(DT_FP16, shape, "res");
-        config::SetBuildStatic(true);
-        FUNCTION("Expm1_FP16") {
-            output = Expm1(input_a);
-        }
-    }
-}
-
-TEST_F(OperationImplTest, Test_Expm1_FP32) {
-    PROGRAM("Expm1") {
-        std::vector<int64_t> shape = {128, 32};
-        TileShape::Current().SetVecTile({128, 32});
-        Tensor input_a(DT_FP32, shape, "operand1");
-        auto output = Tensor(DT_FP32, shape, "res");
-        config::SetBuildStatic(true);
-        FUNCTION("Expm1_FP32") {
-            output = Expm1(input_a);
-        }
-    }
-}
-
 TEST_F(OperationImplTest, Test_Sign_FP16) {
     PROGRAM("Sign") {
         std::vector<int64_t> shape = {128, 32};
@@ -474,32 +406,6 @@ TEST_F(OperationImplTest, Test_Sign_INT16) {
         config::SetBuildStatic(true);
         FUNCTION("Sign_INT16") {
             output = Sign(input_a);
-        }
-    }
-}
-
-TEST_F(OperationImplTest, Test_Signbit_FP16) {
-    PROGRAM("Signbit") {
-        std::vector<int64_t> shape = {128, 32};
-        TileShape::Current().SetVecTile({128, 32});
-        Tensor input_a(DT_FP16, shape, "A");
-        auto output = Tensor(DT_BOOL, shape, "res");
-        config::SetBuildStatic(true);
-        FUNCTION("Signbit_FP16") {
-            output = Signbit(input_a);
-        }
-    }
-}
-
-TEST_F(OperationImplTest, Test_Signbit_FP32) {
-    PROGRAM("Signbit") {
-        std::vector<int64_t> shape = {128, 32};
-        TileShape::Current().SetVecTile({128, 32});
-        Tensor input_a(DT_FP32, shape, "A");
-        auto output = Tensor(DT_BOOL, shape, "res");
-        config::SetBuildStatic(true);
-        FUNCTION("Signbit_FP32") {
-            output = Signbit(input_a);
         }
     }
 }
@@ -697,32 +603,6 @@ TEST_F(OperationImplTest, test_Range_INT32) {
     Tensor result;
     FUNCTION("TestRange") {
         result = Range(start, end, step);
-    }
-}
-
-TEST_F(OperationImplTest, Test_Exp2_FP16) {
-    PROGRAM("Exp2") {
-        std::vector<int64_t> shape = {128, 32};
-        TileShape::Current().SetVecTile({128, 32});
-        Tensor input_a(DT_FP16, shape, "operand1");
-        auto output = Tensor(DT_FP16, shape, "res");
-        config::SetBuildStatic(true);
-        FUNCTION("Exp2_FP16") {
-            output = Exp2(input_a);
-        }
-    }
-}
-
-TEST_F(OperationImplTest, Test_Exp2_FP32) {
-    PROGRAM("Exp2") {
-        std::vector<int64_t> shape = {128, 32};
-        TileShape::Current().SetVecTile({128, 32});
-        Tensor input_a(DT_FP32, shape, "operand1");
-        auto output = Tensor(DT_FP32, shape, "res");
-        config::SetBuildStatic(true);
-        FUNCTION("Exp2_FP32") {
-            output = Exp2(input_a);
-        }
     }
 }
 
@@ -965,24 +845,6 @@ TEST_F(OperationImplTest, test_Gather) {
     }
 }
 
-TEST_F(OperationImplTest, test_GatherMask_1) {
-    TileShape::Current().SetVecTile(8, 8);
-    Tensor operand1(DT_FP16, {8, 16}, "operand1");
-    Tensor result;
-    FUNCTION("TestGatherMask") {
-        result = GatherMask(operand1, 1);
-    }
-}
-
-TEST_F(OperationImplTest, test_GatherMask_3) {
-    TileShape::Current().SetVecTile(8, 8);
-    Tensor operand1(DT_FP16, {8, 16}, "operand1");
-    Tensor result;
-    FUNCTION("TestGatherMask") {
-        result = GatherMask(operand1, 3);
-    }
-}
-
 TEST_F(OperationImplTest, test_Scatter_FP16) {
     TileShape::Current().SetVecTile(8, 16);
     Tensor operand1(DT_FP16, {8, 16}, "operand1");
@@ -1066,17 +928,6 @@ TEST_F(OperationImplTest, test_FmodS) {
     Tensor result;
     FUNCTION("TestFmodS") {
         result = Fmod(input0, input1);
-    }
-}
-
-TEST_F(OperationImplTest, test_LReLU) {
-    TileShape::Current().SetVecTile({4, 4});
-    Tensor input0(DT_FP32, {8, 8}, "input0");
-    float scalar = 0.01f;
-    Element input1(DT_FP32, scalar);
-    Tensor result;
-    FUNCTION("TestLReLU") {
-        result = LReLU(input0, input1);
     }
 }
 
@@ -1250,76 +1101,28 @@ TEST_F(OperationImplTest, Test_CopySign_int) {
     }
 }
 
-TEST_F(OperationImplTest, Test_Conv2d_FP16) {
-    Conv::TileL1Info l1TileShape(2, 2, 64, 64, 16, 16, 16, 1);
-    Conv::TileL0Info l0TileShape(2, 64, 16, 16);
-    TileShape::Current().SetConvTile(l1TileShape, l0TileShape, true);
-    Tensor fmap(DT_FP16, {1, 16, 2, 64}, "fmap");
-    Tensor weight(DT_FP16, {32, 16, 3, 3}, "weight");
+TEST_F(OperationImplTest, Test_MatmulMX_FP8E5M2) {
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
+    Tensor matA(DT_FP8E5M2, {128, 256}, "matA");
+    Tensor matB(DT_FP8E5M2, {256, 128}, "matB");
+    Tensor scaleA(DT_FP8E8M0, {128, 4, 2}, "scaleA");
+    Tensor scaleB(DT_FP8E8M0, {4, 128, 2}, "scaleB");
     Tensor result;
-    Conv::ConvExtendParam convExtendParam;
-    FUNCTION("TestConv") {
+    FUNCTION("TestBitwiseRightShift") {
         result =
-            npu::tile_fwk::Conv::Conv(DT_FP16, fmap, weight, {1, 1}, {1, 1, 1, 1}, {1, 1}, convExtendParam, 1);
+            npu::tile_fwk::Matrix::MatmulMX(DT_FP32, matA, scaleA, matB, scaleB, false, false, false, false, false);
     }
 }
 
-TEST_F(OperationImplTest, Test_Conv2d_FP32) {
-    Conv::TileL1Info l1TileShape(2, 2, 64, 64, 8, 8, 16, 1);
-    Conv::TileL0Info l0TileShape(2, 64, 8, 16);
-    TileShape::Current().SetConvTile(l1TileShape, l0TileShape, true);
-    Tensor fmap(DT_FP32, {1, 8, 2, 64}, "fmap");
-    Tensor weight(DT_FP32, {32, 8, 3, 3}, "weight");
+TEST_F(OperationImplTest, Test_MatmulMX_FP8E4M3) {
+    TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
+    Tensor matA(DT_FP8E4M3, {128, 256}, "matA");
+    Tensor matB(DT_FP8E4M3, {256, 128}, "matB");
+    Tensor scaleA(DT_FP8E8M0, {4, 128, 2}, "scaleA");
+    Tensor scaleB(DT_FP8E8M0, {128, 4, 2}, "scaleB");
     Tensor result;
-    Conv::ConvExtendParam convExtendParam;
-    FUNCTION("TestConv") {
+    FUNCTION("TestBitwiseRightShift") {
         result =
-            npu::tile_fwk::Conv::Conv(DT_FP32, fmap, weight, {1, 1}, {1, 1, 1, 1}, {1, 1}, convExtendParam, 1);
-    }
-}
-
-TEST_F(OperationImplTest, Test_Conv2d_BF16_Groups) {
-    Conv::TileL1Info l1TileShape(2, 2, 64, 64, 16, 16, 16, 1);
-    Conv::TileL0Info l0TileShape(2, 64, 16, 16);
-    TileShape::Current().SetConvTile(l1TileShape, l0TileShape, true);
-    Tensor fmap(DT_BF16, {1, 32, 2, 64}, "fmap");
-    Tensor weight(DT_BF16, {32, 16, 3, 3}, "weight");
-    Tensor result;
-    Conv::ConvExtendParam convExtendParam;
-    FUNCTION("TestConv") {
-        result =
-            npu::tile_fwk::Conv::Conv(DT_BF16, fmap, weight, {1, 1}, {1, 1, 1, 1}, {1, 1}, convExtendParam, 2);
-    }
-}
-
-TEST_F(OperationImplTest, Test_Conv1d_FP16_Bias) {
-    Conv::TileL1Info l1TileShape(1, 1, 64, 64, 16, 16, 16, 1);
-    Conv::TileL0Info l0TileShape(1, 64, 16, 16);
-    TileShape::Current().SetConvTile(l1TileShape, l0TileShape, true);
-    Tensor fmap(DT_FP16, {1, 32, 64}, "fmap");
-    Tensor weight(DT_FP16, {32, 32, 3}, "weight");
-    Tensor bias(DT_FP16, {32,}, "bias");
-    Tensor result;
-    Conv::ConvExtendParam convExtendParam;
-    convExtendParam.biasTensor = bias;
-    FUNCTION("TestConv") {
-        result =
-            npu::tile_fwk::Conv::Conv(DT_FP16, fmap, weight, {1}, {1, 1}, {1}, convExtendParam, 1);
-    }
-}
-
-TEST_F(OperationImplTest, Test_Conv3d_FP16_Bias) {
-    Conv::TileL1Info l1TileShape(2, 2, 64, 64, 16, 16, 16, 1);
-    Conv::TileL0Info l0TileShape(2, 64, 16, 16);
-    TileShape::Current().SetConvTile(l1TileShape, l0TileShape, true);
-    Tensor fmap(DT_FP16, {1, 32, 2, 2, 64}, "fmap");
-    Tensor weight(DT_FP16, {32, 32, 2, 3, 3}, "weight");
-    Tensor bias(DT_FP16, {32,}, "bias");
-    Tensor result;
-    Conv::ConvExtendParam convExtendParam;
-    convExtendParam.biasTensor = bias;
-    FUNCTION("TestConv") {
-        result =
-            npu::tile_fwk::Conv::Conv(DT_FP16, fmap, weight, {1, 1, 1}, {0, 0 ,1, 1, 1, 1}, {1, 1, 1}, convExtendParam, 1);
+            npu::tile_fwk::Matrix::MatmulMX(DT_FP16, matA, scaleA, matB, scaleB, false, true, false, true, false);
     }
 }

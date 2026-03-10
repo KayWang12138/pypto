@@ -28,7 +28,6 @@ from pypto.cost_model import _cost_model_run_once_data_from_host
 from pypto.frontend.parser.diagnostics import Source
 from pypto.frontend.parser.parser import NestedFunctionMarker, Parser
 from pypto.runtime import _pto_verify_datas
-from pypto._utils import BuildOnlineManager
 
 
 def _default_globals() -> dict[str, Any]:
@@ -325,9 +324,13 @@ class JitCallableWrapper:
         out_tensors = self._allocate_output_tensors(
             in_tensors, input_tensor_defs, output_tensor_defs, device
         )
-        torch_tensors = [*in_tensors, *out_tensors]
-        tensor_defs = [*input_tensor_defs, *output_tensor_defs]
-        self._execute_kernel(torch_tensors, tensor_defs)
+        pto_in_tensors = self._convert_tensors_with_metadata(
+            in_tensors, input_tensor_defs
+        )
+        pto_out_tensors = self._convert_tensors_with_metadata(
+            out_tensors, output_tensor_defs
+        )
+        self._execute_kernel(pto_in_tensors, pto_out_tensors)
         if not out_tensors:
             return None
         if len(out_tensors) == 1:
@@ -475,14 +478,15 @@ class JitCallableWrapper:
             dynamic_axis = [
                 i
                 for i, dim in enumerate(tensor_def.shape)
-                if isinstance(dim, pypto.SymbolicScalar) or dim in (pypto.StatusType.DYN, pypto.StatusType.DYNAMIC)
+                if isinstance(dim, pypto.SymbolicScalar)
             ]
-
             pto_tensors.append(
                 pypto.from_torch(
                     torch_tensor,
                     name=tensor_def.name,
-                    dynamic_axis=dynamic_axis if dynamic_axis else None
+                    dynamic_axis=dynamic_axis if dynamic_axis else None,
+                    tensor_format=tensor_def.format,
+                    dtype=tensor_def.dtype,
                 )
             )
         return pto_tensors
@@ -516,32 +520,26 @@ class JitCallableWrapper:
 
     def compile(
         self,
-        tensors,
-        tensor_defs=None,
+        args
     ) -> None:
         """Lazily compile function using PTO tensors for dynamic shape binding & verification.
 
-        Compiles the wrapped function on first call (lazy mode).
+        Compiles the wrapped function on first call (lazy mode), using input PTO tensors to:
+        1. Bind dynamic dimensions from concrete shapes (ori_shape)
+        2. Set up verification data
+        3. Generate PTO IR via deferred parsing
 
         Parameters
         ----------
-        tensors : list
-            Either list[pypto.Tensor] (PTO tensors) or list[torch.Tensor] (torch tensors).
-        tensor_defs : list[pypto.Tensor], optional
-            When provided, tensors are torch tensors and will be converted to PTO via from_torch
-            using name/dynamic_axis/dtype from each tensor_def. When None, tensors are PTO tensors.
+        pto_tensors : list[pypto.Tensor]
+            PTO tensors with concrete shapes for dynamic dim binding & verification setup
         """
-        if tensor_defs is not None:
-            args = self._convert_tensors_with_metadata(tensors, tensor_defs)
-        else:
-            args = tensors
-
         # Re-create parser for compilation
         self._parser = self._create_parser()
         self._parser.parse()
-        self._parser.input_pto_tensor = args
 
         # Initialize backend for compilation
+
         self._setup_verify_data(args)
 
         # Set options AFTER OperatorBegin() to match @pypto.jit behavior
@@ -683,7 +681,6 @@ class JitCallableWrapper:
             if debug_mode is not None:
                 if debug_mode == DebugMode.CHECKATTR:
                     self._check_input_defs_match_tensors(in_tensors, input_tensor_defs)
-
         symbolic_dim_value_map = None
         out_tensors = []
         for out_tensor_def in output_tensor_defs:
@@ -697,23 +694,20 @@ class JitCallableWrapper:
 
     def _execute_kernel(
         self,
-        torch_tensors: list,
-        tensor_defs: list,
+        pto_in_tensors: list,
+        pto_out_tensors: list,
     ) -> None:
         """Run kernel on NPU or CPU (SIM)."""
         if self._runtime_options.get("run_mode", None) == RunMode.NPU:
-            pypto_impl.LaunchKernelTorch(
-                self, _current_stream(), torch_tensors, tensor_defs
+            pypto_impl.LaunchKernel(
+                self, _current_stream(), *pto_in_tensors, *pto_out_tensors
             )
         else:
-            pto_tensors = self._convert_tensors_with_metadata(
-                torch_tensors, tensor_defs
-            )
             with pypto.options("jit_scope"):
                 self._set_config_option()
                 pypto_impl.DeviceInit()
-                self.compile(pto_tensors)
-                self._run_with_cpu(pto_tensors, [])
+                self.compile([*pto_in_tensors, *pto_out_tensors])
+                self._run_with_cpu([*pto_in_tensors, *pto_out_tensors], [])
 
     def _check_input_defs_match_tensors(self, in_tensors: list, input_tensor_defs: list[pypto.Tensor]) -> None:
         """Check if the input tensor definitions match the input tensors.
@@ -737,18 +731,8 @@ class JitCallableWrapper:
         idx = 0
         for in_tensor, input_tensor_def in zip(in_tensors, input_tensor_defs):
             idx += 1
-
-            # Skip checking if the input tensor definition is None or（shape len is 0 && shape object is not list）
-            if len(input_tensor_def.shape) == 0 and input_tensor_def.status_shape is None:
-                continue
-
-            # def shape len must <= tensor shape len
-            is_diff_shape = len(in_tensor.shape) != len(input_tensor_def.shape) \
-                if input_tensor_def.status_shape is None \
-                else len(in_tensor.shape) < len(input_tensor_def.shape)
-
             # Check the shape of input tensors and input tensor definitions
-            if is_diff_shape:
+            if len(in_tensor.shape) != len(input_tensor_def.shape):
                 raise ValueError(f"The number of dimensions of {ordinal(idx)} input tensor {in_tensor.shape} \
                     does not match the number of dimensions of input tensor definition {input_tensor_def.shape}.")
             for i, dim in enumerate(input_tensor_def.shape):
@@ -760,6 +744,7 @@ class JitCallableWrapper:
             if self._dtype_dict[str(in_tensor.dtype)] != input_tensor_def.dtype:
                 raise ValueError(f"The dtype of {ordinal(idx)} input tensor {in_tensor.dtype} \
                     does not match the dtype of input tensor definition {input_tensor_def.dtype}.")
+
             if in_tensor.device == "npu":
                 if self._format_dict[get_format(in_tensor)] != input_tensor_def.format:
                     raise ValueError(f"The format of {ordinal(idx)} input tensor {get_format(in_tensor)} \
@@ -825,15 +810,7 @@ class JitCallableWrapper:
                 make_hashable(self._debug_options),
             )
 
-            if self._captured_locals is not None:
-                filtered_locals = {
-                    k: v for k, v in self._captured_locals.items()
-                    if not isinstance(v, torch.Tensor)
-                }
-                captured_locals_hash = make_hashable(filtered_locals)
-            else:
-                captured_locals_hash = None
-
+            captured_locals_hash = make_hashable(self._captured_locals) if self._captured_locals else None
             non_tensor_hash = make_hashable(non_tensor_values) if non_tensor_values else None
 
             return (source_code, options_hash, captured_locals_hash, non_tensor_hash)
@@ -946,9 +923,6 @@ class JitCallableWrapper:
             and self._verify_options.get("enable_pass_verify")
         ):
             return
-        # Compile and load calculator
-        mgr = BuildOnlineManager()
-        mgr.build_and_load_calculator()
 
         # Copy NPU Tensor to CPU, then convert to pypto.Tensor for constructing DeviceTensorData
 

@@ -24,22 +24,25 @@ N1 = 64
 D = 64
 
 
-@pypto.frontend.jit()
-def dyn_loop_with_loop_begin(
-    in_tensor: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
-    out_tensor: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP32)
-):
-    pypto.set_vec_tile_shapes(1, 1, 64, 64)
+def create_dyn_loop_with_loop_begin(shape_in, shape_out):
+    @pypto.frontend.jit()
+    def dyn_loop_with_loop_begin(
+        in_tensor: pypto.Tensor(shape_in, pypto.DT_FP32),
+        out_tensor: pypto.Tensor(shape_out, pypto.DT_FP32)
+    ) -> pypto.Tensor(shape_out, pypto.DT_FP32):
+        pypto.set_vec_tile_shapes(1, 1, 64, 64)
 
-    for b_idx in pypto.loop(B, name="b_loop", idx_name="b_idx"):
-        for s_idx in pypto.loop(S, name="s_loop", idx_name="s_idx"):
-            a0 = pypto.view(in_tensor, [1, 1, N1, D], [b_idx, s_idx, 0, 0])
-            if pypto.is_loop_begin(b_idx):
-                a1 = pypto.add(a0, 1.0)
-                pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
-            else:
-                a1 = pypto.mul(a0, 1.0)
-                pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
+        for b_idx in pypto.loop(B, name="b_loop", idx_name="b_idx"):
+            for s_idx in pypto.loop(S, name="s_loop", idx_name="s_idx"):
+                a0 = pypto.view(in_tensor, [1, 1, N1, D], [b_idx, s_idx, 0, 0])
+                if pypto.is_loop_begin(b_idx):
+                    a1 = pypto.add(a0, 1.0)
+                    pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
+                else:
+                    a1 = pypto.mul(a0, 1.0)
+                    pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
+
+    return dyn_loop_with_loop_begin
 
 
 def test_is_loop_begin():
@@ -55,8 +58,9 @@ def test_is_loop_begin():
     input_torch = torch.rand(shape_in, dtype=torch.float32, device=f'npu:{device_id}')
     output_torch = torch.ones(shape_out, dtype=torch.float32, device=f'npu:{device_id}')
 
-    # Execute kernel
-    dyn_loop_with_loop_begin(input_torch, output_torch)
+    # Create kernel and execute
+    kernel = create_dyn_loop_with_loop_begin(shape_in, shape_out)
+    kernel(input_torch, output_torch)
 
     # Synchronize device
     torch_npu.npu.synchronize()
@@ -72,22 +76,25 @@ def test_is_loop_begin():
     assert torch.allclose(output_result, output_golden, atol=1e-5)
 
 
-@pypto.frontend.jit()
-def dyn_loop_with_loop_end(
-    in_tensor: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
-    out_tensor: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP32)
-):
-    pypto.set_vec_tile_shapes(1, 1, 64, 64)
+def create_dyn_loop_with_loop_end(shape_in, shape_out):
+    @pypto.frontend.jit()
+    def dyn_loop_with_loop_end(
+        in_tensor: pypto.Tensor(shape_in, pypto.DT_FP32),
+        out_tensor: pypto.Tensor(shape_out, pypto.DT_FP32)
+    ):
+        pypto.set_vec_tile_shapes(1, 1, 64, 64)
 
-    for b_idx in pypto.loop(B, name="b_loop", idx_name="b_idx"):
-        for s_idx in pypto.loop(S, name="s_loop", idx_name="s_idx"):
-            a0 = pypto.view(in_tensor, [1, 1, N1, D], [b_idx, s_idx, 0, 0])
-            if pypto.is_loop_end(b_idx):
-                a1 = pypto.add(a0, 1.0)
-                pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
-            else:
-                a1 = pypto.mul(a0, 1.0)
-                pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
+        for b_idx in pypto.loop(B, name="b_loop", idx_name="b_idx"):
+            for s_idx in pypto.loop(S, name="s_loop", idx_name="s_idx"):
+                a0 = pypto.view(in_tensor, [1, 1, N1, D], [b_idx, s_idx, 0, 0])
+                if pypto.is_loop_end(b_idx):
+                    a1 = pypto.add(a0, 1.0)
+                    pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
+                else:
+                    a1 = pypto.mul(a0, 1.0)
+                    pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
+
+    return dyn_loop_with_loop_end
 
 
 def test_is_loop_end():
@@ -104,8 +111,9 @@ def test_is_loop_end():
     input_torch = torch.rand(shape_in, dtype=torch.float32, device=f'npu:{device_id}')
     output_torch = torch.ones(shape_out, dtype=torch.float32, device=f'npu:{device_id}')
 
-    # Execute kernel
-    dyn_loop_with_loop_end(input_torch, output_torch)
+    # Create kernel and execute
+    kernel = create_dyn_loop_with_loop_end(shape_in, shape_out)
+    kernel(input_torch, output_torch)
 
     # Synchronize device
     torch_npu.npu.synchronize()
@@ -121,5 +129,4 @@ def test_is_loop_end():
 
 
 if __name__ == "__main__":
-    test_is_loop_begin()
     test_is_loop_end()

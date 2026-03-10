@@ -19,7 +19,6 @@ import torch
 import torch_npu
 import numpy as np
 import pypto
-from utils.compare import compare
 
 
 @dataclass
@@ -40,7 +39,7 @@ class LightningIndexerConfigs:
     }
     # tile params
     s1_tile = 2
-    topk_tile = 8192
+    topk_tile = 16384
     # set the tileshape size in cube computation
     c1_tile = [64, 64, 128, 128, 128, 128] # (m, M), (k, K), (n, N)
     c2_tile = [128, 128, 64, 64, 128, 128] # (m, M), (k, K), (n, N)
@@ -274,7 +273,7 @@ def topk_idx_compare(t: torch.Tensor, t_ref: torch.Tensor, name, atol, error_cou
     err_msg = None
 
     # 按元素遍历比较
-    for idx, (act, exp) in enumerate(zip(t.flatten().tolist(), t_ref.flatten().tolist())):
+    for idx, (exp, act) in enumerate(zip(t.flatten().tolist(), t_ref.flatten().tolist())):
         # 按误差阈值分组（每组包含error_count_threshold个元素）
         part_index = idx // error_count_threshold
         # 记录不匹配的索引
@@ -376,6 +375,10 @@ def lightning_indexer(case_name: str) -> bool:
     torch_npu.npu.synchronize()
 
     topk_res_golden = lightning_indexer_compute(input_data_map, params)
+
+    topk_res_golden = topk_res_golden.reshape(b * s1, 1, selected_count)
+
+    # 执行结果比较
     topk_idx_compare(topk_res_npu.cpu(), topk_res_golden.cpu(), "topk_res", 5e-3, selected_count)
 
     return True

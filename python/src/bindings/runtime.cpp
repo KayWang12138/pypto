@@ -16,9 +16,7 @@
 #include "pybind_common.h"
 
 #include <cstdint>
-#include <functional>
 #include <memory>
-#include <string>
 #include <utility>
 #include <vector>
 #include "interface/interpreter/raw_tensor_data.h"
@@ -28,7 +26,6 @@
 #include "machine/runtime/device_launcher.h"
 #include "machine/utils/dynamic/dev_start_args.h"
 #include "machine/host/perf_analysis.h"
-#include "bindings/torch_tensor_converter.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -114,11 +111,10 @@ std::string DeviceRunOnceDataFromHost(
     InitializeInputOutputData(inputs, outputs);
 
     DevControlFlowCache* hostCache = nullptr;
-    EmulationMemoryUtils memUtils;
     if (config::GetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE) != 0) {
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
-        EmulationLauncher::BuildControlFlowCache(func, memUtils, inputs, outputs, &hostCache, config);
+        EmulationLauncher::BuildControlFlowCache(func, inputs, outputs, &hostCache, config);
     }
 
     if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1 && EmulationLauncher::EmulationRunOnce(func, hostCache) != 0) {
@@ -127,6 +123,10 @@ std::string DeviceRunOnceDataFromHost(
 
     if (DeviceRunOnce(func, reinterpret_cast<uint8_t*>(hostCache)) != 0) {
         return "device run failed";
+    }
+
+    if (hostCache) {
+        free(hostCache);
     }
 
     for (size_t i = 0; i < outputs.size(); i++) {
@@ -247,11 +247,10 @@ int64_t BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputL
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
         uint8_t* ctrlCache = op->FindCtrlFlowCache(inputList, outputList);
-        EmulationMemoryUtils memUtils;
         if (ctrlCache == nullptr) {
             HOST_PERF_EVT_BEGIN(EventPhase::BuildCtrlFlowCache);
             DevControlFlowCache* hostCache = nullptr;
-            if (EmulationLauncher::BuildControlFlowCache(op->GetFunction(), memUtils,
+            if (EmulationLauncher::BuildControlFlowCache(op->GetFunction(),
                 inputList, outputList, &hostCache, config) != 0) {
                 return 0;
             }
@@ -264,6 +263,7 @@ int64_t BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputL
             if (hostCache) {
                 ctrlCache = CopyHostToDev(reinterpret_cast<uint8_t*>(hostCache),
                     reinterpret_cast<DevControlFlowCache*>(hostCache)->usedCacheSize);
+                free(hostCache);
             }
 
             if (isCapturing) {
@@ -362,13 +362,13 @@ public:
 
         devProg->ctrlFlowCacheSize = cfgCacheSize;
         config.isCacheOriginShape = isOriginShape;
-        EmulationMemoryUtils memUtils;
-        int ret = EmulationLauncher::BuildControlFlowCache(dynFunc.get(), memUtils, inputs, {}, &ctrlCache, config);
+        int ret = EmulationLauncher::BuildControlFlowCache(dynFunc.get(), inputs, {}, &ctrlCache, config);
         if (ret != 0) {
             ALOG_ERROR("control flow cache failed", ret);
             return nullptr;
         }
 
+        auto ctrlCachePtr = std::unique_ptr<uint8_t>((uint8_t *)ctrlCache);
         uint8_t *devCache = DeviceLauncher::CopyControlFlowCache(ctrlCache);
 #if ENABALE_VERBOSE_LOG
         std::stringstream ss;
@@ -525,7 +525,8 @@ public:
         return nullptr;
     }
 
-    uint8_t *FindCtrlFlowCache(KernelBinary *kernel, py::object &module, std::vector<DeviceTensorData> &tensors) {
+    uint8_t *FindCtrlFlowCache(KernelBinary *kernel, py::object &module, py::args &args,
+        std::vector<DeviceTensorData> &tensors, bool isCaptureMode) {
         if (!IsCacheEnabled()) {
             return nullptr;
         }
@@ -533,10 +534,10 @@ public:
         auto devCache = kernel->FindCtrlFlowCache(tensors, true);
         if (devCache == nullptr) {
             std::vector<std::vector<int64_t>> shape;
-            if (DeviceLauncher::IsCaptureMode()) {
+            if (isCaptureMode) {
                 AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
                 devCache = kernel->BuildControlFlowCache(tensors, stitchCfgCacheSize, true);
-            } else if (InferCacheShape(module, tensors, shape)) {
+            } else if (InferCacheShape(module, args, shape)) {
                 devCache = kernel->FindCtrlFlowCache(shape, false);
             } else {
                 AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
@@ -558,16 +559,6 @@ public:
     KernelBinary *Compile(py::object &module, py::args &args) {
         auto compile = py::getattr(module, "compile");
         compile(args);
-        return RegisterLastCompiledKernel(module);
-    }
-
-    KernelBinary *CompileFromTorch(py::object &module, py::sequence &torch_tensors, py::sequence tensor_defs) {
-        auto compile = py::getattr(module, "compile");
-        compile(torch_tensors, tensor_defs);
-        return RegisterLastCompiledKernel(module);
-    }
-
-    KernelBinary *RegisterLastCompiledKernel(py::object &module) {
         auto func = Program::GetInstance().GetLastFunction();
         auto kernel = new KernelBinary(Program::GetInstance().GetFunctionSharedPtr(func));
         kernels.push_back(kernel);
@@ -584,8 +575,8 @@ public:
         return kernel->GetWorkspaceSize(tensors);
     }
 
-    void Launch(KernelBinary *kernel, aclrtStream aicoreStream, std::vector<DeviceTensorData> &tensors,
-        uint8_t *ctrlFlowCache, int64_t *workspace) {
+    void Launch(KernelBinary *kernel, bool isCaptureMode, aclrtStream aicoreStream,
+        std::vector<DeviceTensorData> &tensors, uint8_t *ctrlFlowCache, int64_t *workspace) {
         auto [args, argsSize] = kernel->BuildKernelArgs(tensors);
         rtAicpuArgs.args = args;
         rtAicpuArgs.argsSize = argsSize;
@@ -594,7 +585,7 @@ public:
         args->kArgs.workspace = workspace;
         args->kArgs.parameter.globalRound = ++sequence;
 
-        bool debugEnable = !DeviceLauncher::IsCaptureMode() && isDebugMode;
+        bool debugEnable = !isCaptureMode && isDebugMode;
 
 #if ENABALE_VERBOSE_LOG
         ALOG_ERROR_F("triple stream %d sequence %ld workspace %p cfgcache %p", tripleStream, sequence.load(), workspace,
@@ -683,15 +674,17 @@ private:
         }
     }
 
-    bool InferCacheShape(py::object &module, std::vector<DeviceTensorData> &tensors,
-        std::vector<std::vector<int64_t>> &shapes) {
+    bool InferCacheShape(py::object &module, py::args &args, std::vector<std::vector<int64_t>> &shapes) {
         auto infershape = py::getattr(module, "_infer_controlflow_shape", py::none());
         if (infershape.is_none()) {
             return false;
         }
         py::list oriShapes;
-        for (auto &t : tensors) {
-            oriShapes.append(py::cast(t.GetShape()));
+        for (auto &pt : args) {
+            auto shape = py::getattr(pt, "ori_shape", py::none());
+            if (!shape.is_none()) {
+                oriShapes.append(shape);
+            }
         }
         auto cfshape = infershape(*oriShapes);
         if (cfshape.is_none()) {
@@ -746,25 +739,27 @@ static int GetInputTensors(py::args &args, std::vector<DeviceTensorData> &tensor
     return py::getattr(device, "index").cast<int>();
 }
 
-static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
-    std::vector<DeviceTensorData> &tensors,
-    std::function<KernelBinary *(KernelModulePtr)> compile_fn) {
+void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
+    HOST_PERF_TRACE_START();
+    HOST_PERF_EVT_BEGIN(EventPhase::LaunchKernel);
+    auto aicoreStream = (aclrtStream)stream;
+
+    std::vector<DeviceTensorData> tensors;
+    auto devId = GetInputTensors(args, tensors);
     DeviceGuard devGuard(devId);
 
     auto kmodule = py::getattr(module, "kmodule").cast<KernelModulePtr>();
-    aclmdlRI rtModel;
-    DeviceLauncher::GetCaptureInfo(aicoreStream, rtModel);
-
     HOST_PERF_TRACE(TracePhase::LaunchInit);
 
     auto kbinary = kmodule->GetKernelBinary(tensors);
     if (kbinary == nullptr) {
         Program::GetInstance().Reset();
+        // Set capture mode to relaxed to support rtmemcpy / rtmemset
         AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
 #if ENABALE_VERBOSE_LOG
         ALOG_ERROR("compile kernel");
 #endif
-        kbinary = compile_fn(kmodule);
+        kbinary = kmodule->Compile(module, args);
     }
 
     kmodule->EmulationLaunch(kbinary, tensors);
@@ -781,46 +776,18 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
     }
     HOST_PERF_TRACE(TracePhase::LaunchAllocWorkSpace);
 
-    DeviceLauncher::AddAicpuStream(rtModel, kmodule->IsTripleStream());
+    bool isCaptureMode = DeviceLauncher::AddAicpuStream(aicoreStream, kmodule->IsTripleStream());
     HOST_PERF_TRACE(TracePhase::LaunchAttachStream);
     
-    uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors);
+    uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, args, tensors, isCaptureMode);
     HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
-
-    kmodule->Launch(kbinary, aicoreStream, tensors, ctrlFlowCache, wsAddr);
+    
+    kmodule->Launch(kbinary, isCaptureMode, aicoreStream, tensors, ctrlFlowCache, wsAddr);
     HOST_PERF_TRACE(TracePhase::Launch);
     HOST_PERF_EVT_END(EventPhase::LaunchKernel);
 }
-
-void LaunchKernelTorch(py::object &module, int64_t stream, py::sequence &torchTensors,
-                       py::sequence &tensorDefs) {
-    HOST_PERF_TRACE_START();
-    HOST_PERF_EVT_BEGIN(EventPhase::LaunchKernel);
-    auto aicoreStream = (aclrtStream)stream;
-
-    ValidateInputs(torchTensors, tensorDefs);
-
-    std::vector<DeviceTensorData> tensors;
-    int devId = TorchTensorConverter::Convert(torchTensors, tensorDefs, tensors);
-
-    DoLaunch(module, aicoreStream, devId, tensors,
-        [&](KernelModulePtr km) { return km->CompileFromTorch(module, torchTensors, tensorDefs); });
-}
-
-void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
-    HOST_PERF_TRACE_START();
-    HOST_PERF_EVT_BEGIN(EventPhase::LaunchKernel);
-    auto aicoreStream = (aclrtStream)stream;
-
-    std::vector<DeviceTensorData> tensors;
-    auto devId = GetInputTensors(args, tensors);
-
-    DoLaunch(module, aicoreStream, devId, tensors,
-        [&](KernelModulePtr km) { return km->Compile(module, args); });
-}
 #else
 void LaunchKernel(py::object &, int64_t, py::args &) { }
-void LaunchKernelTorch(py::object &, int64_t, py::sequence &, py::sequence &) { }
 class KernelModule {
 public:
     KernelModule(py::object &) { }
@@ -842,7 +809,6 @@ void BindRuntime(py::module &m) {
     m.def("CopyToHost", &CopyToHost);
     m.def("CopyToDev", &CopyToDev);
     m.def("LaunchKernel", &LaunchKernel);
-    m.def("LaunchKernelTorch", &LaunchKernelTorch);
 
     py::class_<DeviceTensorData>(m, "DeviceTensorData")
         .def(py::init<DataType, uintptr_t, const std::vector<int64_t> &>(), py::arg("dtype"), py::arg("addr"),

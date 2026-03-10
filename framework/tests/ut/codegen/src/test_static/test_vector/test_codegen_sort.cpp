@@ -59,7 +59,7 @@ struct TopKParams {
     bool isLargest;
 };
 void TopKOnBoardFunc(TopKParams &params) {
-    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 1}});
+    config::SetPassOption(CUBE_L1_REUSE_MODE, 0);
 
     int32_t shape0 = params.shape0;
     int32_t shape1 = params.shape1;
@@ -85,7 +85,7 @@ void TopKOnBoardFunc(TopKParams &params) {
     std::string res = GetResultFromCpp(*function);
     std::string expect = R"!!!(#include "TileOpImpl.h"
 
-// funcHash: 1566166759862677907
+// funcHash: 14987786423466542775
 
 extern "C" [aicore] void TENSOR_TOPK_T_TILETENSOR_2_0_4503599627370496(__gm__ GMTensorInfo* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
 float __ubuf__ *UB_S0_E16384 = (float __ubuf__ *)get_imm(0x0); // size: 0x4000

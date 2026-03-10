@@ -15,7 +15,6 @@
 
 #include "main_block.h"
 #include "codegen/codegen.h"
-#include "tilefwk/platform.h"
 #include "tilefwk/pypto_fwk_log.h"
 
 namespace npu::tile_fwk {
@@ -85,9 +84,7 @@ bool MainBlockCondBulider::GetValidShapeFromCoa(const std::vector<SymbolicScalar
 
 void MainBlockCondBulider::CollectCallopMainBlockConds(Function *func)
 {
-    bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
-    enableVF = enableVF && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
-    if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) != 1 && !enableVF) {
+    if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) != 1) {
         AddUniqueCondition(SymbolicScalar(false));
         return;
     }
@@ -120,9 +117,7 @@ void MainBlockCondBulider::CollectCallopMainBlockConds(Function *func)
 
 void MainBlockCondBulider::CollectCoaMainBlockConds(const std::vector<std::vector<SymbolicScalar>> &argList)
 {
-    bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
-    enableVF = enableVF && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
-    if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) != 1 && !enableVF) {
+    if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) != 1) {
         AddUniqueCondition(SymbolicScalar(false));
         return;
     }
@@ -164,9 +159,7 @@ SymbolicScalar MainBlockCondBulider::BuildMainBlockExpression()
 
 void MainBlockCondBulider::Gencode(Function *function, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset)
 {
-    bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
-    enableVF = enableVF && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
-    if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) == 1 || enableVF) {
+    if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) == 1) {
         npu::tile_fwk::CodeGenCtx codeGenCtxMainBlock("", GetEmitPath("kernel_aicore"), true);
         npu::tile_fwk::CodeGen codeGenMainBlock(codeGenCtxMainBlock);
         codeGenMainBlock.GenCode(*function, invokeParaOffset);

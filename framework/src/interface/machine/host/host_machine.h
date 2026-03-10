@@ -90,6 +90,9 @@ public:
     void SubAllStashedTask();
 
     void ClearStashFuncQueue();
+
+    std::string GetPlatformInfo() const;
+
 public: // api mode
     MachineTask* Compile(MachineTask* task = nullptr) const;
 

@@ -22,8 +22,8 @@
 #include "interface/program/program.h"
 #include "interface/tensor/logical_tensor.h"
 #include "tilefwk/tilefwk.h"
-#include "passes/block_graph_pass/mix_subgraph_split/mix_subgraph_split_utils.h"
 #include "passes/tile_graph_pass/subgraph_to_function.h"
+#include "passes/block_graph_pass/mix_subgraph_split/mix_subgraph_split_utils.h"
 #include "passes/block_graph_pass/mix_subgraph_split/mix_internal_components_analyzer.h"
 #include "passes/block_graph_pass/mix_subgraph_split/mix_dependency_analyzer.h"
 #include "passes/block_graph_pass/mix_subgraph_split/function_clone.h"
@@ -117,9 +117,9 @@ private:
                             const std::vector<InternalComponentInfo>& components,
                             const std::vector<uint64_t>& newProgramIDs,
                             SubgraphToFunction& subgraphToFunction,
-                            std::vector<Function*>& newFunctions,
-                            uint64_t mixId,
-                            MixResourceType resourceType);
+                            std::vector<Function*>& newFunctions);
+    Status SetMixIdResourceType(std::vector<Function*> &newFunctions, uint64_t mixId, MixResourceType resourceType);
+                                      
     // 应用拆分结果到全局programs
     Status ApplySplitResultsWithRemap(Function& function,
                                      const std::vector<MixSubgraphSplitResult>& splitResults,

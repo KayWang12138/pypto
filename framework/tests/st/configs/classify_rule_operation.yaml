@@ -1,11 +1,11 @@
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
-# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
-# CANN Open Software License Agreement Version 2.0 (the "License").
+# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+# This file is a part of the CANN Open Software.
+# Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
-# -----------------------------------------------------------------------------------------------------------
+# ======================================================================================================================
 
 # 说明:
 #   本文件用于 Tests 用例分类分组定义
@@ -100,8 +100,6 @@ stest:
       - TestAdd/AddOperationTest.TestAdd/11
       - TestFmod/FmodOperationTest.TestFmod/0
       - TestFmod/FmodOperationTest.TestFmod/1
-      - TestLReLU/LReLUOperationTest.TestLReLU/0
-      - TestLReLU/LReLUOperationTest.TestLReLU/1
       - TestConcat/ConcatOperationTest.TestConcat/0
       - TestConcat/ConcatOperationTest.TestConcat/1
       - TestGcd/GcdOperationTest.TestGcd/3
@@ -113,8 +111,6 @@ stest:
       - TestGatherElement/GatherElementOperationTest.TestGatherElement/0
       - TestGatherElement/GatherElementOperationTest.TestGatherElement/4
       - TestGatherElement/GatherElementOperationTest.TestGatherElement/14
-      - TestGatherMask/GatherMaskOperationTest.TestGatherMask/19
-      - TestGatherMask/GatherMaskOperationTest.TestGatherMask/18
       - TestAdds/AddsOperationTest.TestAdds/20
       - TestAdds/AddsOperationTest.TestAdds/21
       - TestAdds/AddsOperationTest.TestAdds/22
@@ -130,16 +126,6 @@ stest:
       - TestDivs/DivsOperationTest.TestDivs/2
       - TestExp/ExpOperationTest.TestExp/18
       - TestExp/ExpOperationTest.TestExp/19
-      - TestExp2/Exp2OperationTest.TestExp2/17
-      - TestExp2/Exp2OperationTest.TestExp2/18
-      - TestExp2/Exp2OperationTest.TestExp2/19
-      - TestExpm1/Expm1OperationTest.TestExpm1/19
-      - TestExpm1/Expm1OperationTest.TestExpm1/20
-      - TestExpm1/Expm1OperationTest.TestExpm1/21
-      - TestExpm1/Expm1OperationTest.TestExpm1/22
-      - TestExpm1/Expm1OperationTest.TestExpm1/23
-      - TestExpandExpDif/ExpandExpDifOperationTest.TestExpandExpDif/12
-      - TestExpandExpDif/ExpandExpDifOperationTest.TestExpandExpDif/13
       - TestMul/MulOperationTest.TestMul/21
       - TestMul/MulOperationTest.TestMul/22
       - TestMul/MulOperationTest.TestMul/25
@@ -232,10 +218,6 @@ stest:
       - TestTriU/TriUOperationTest.TestTriU/8
       - TestTriU/TriUOperationTest.TestTriU/10
       - TestTriL/TriLOperationTest.TestTriL/1
-      - TestRemainder/RemainderOperationTest.TestRemainder/1
-      - TestRemainder/RemainderOperationTest.TestRemainder/4
-      - TestRemainderS/RemainderSOperationTest.TestRemainderS/0
-      - TestRemainderRS/RemainderRSOperationTest.TestRemainderRS/10
       - TestIndexAdd/IndexAddOperationTest.TestIndexAdd/20
       - TestIndexAdd/IndexAddOperationTest.TestIndexAdd/21
       - TestLogicalAnd/LogicalAndOperationTest.TestLogicalAnd/0
@@ -255,16 +237,6 @@ stest:
       - TestCopySign/CopySignOperationTest.TestCopySign/1
       - TestCopySign/CopySignOperationTest.TestCopySign/4
       - TestCopySign/CopySignOperationTest.TestCopySign/5
-      - TestProd/ProdOperationTest.TestProd/1
-      - TestProd/ProdOperationTest.TestProd/9
-      - TestRelu/ReluOperationTest.TestRelu/0
-      - TestRelu/ReluOperationTest.TestRelu/3
-      - TestHypot/HypotOperationTest.TestHypot/0
-      - TestHypot/HypotOperationTest.TestHypot/3
-      - TestSign/SignOperationTest.TestSign/3
-      - TestSign/SignOperationTest.TestSign/18
-      - TestPReLU/PReLUOperationTest.TestPReLU/4
-      - TestPReLU/PReLUOperationTest.TestPReLU/16
       # - GatherInL1Test.gather_in_a_unalign
       # - GatherInL1Test.gather_in_bt_with_valid_shape
       - GatherInUBTest.gather_in_a_

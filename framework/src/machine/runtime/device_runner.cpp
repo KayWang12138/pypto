@@ -135,15 +135,12 @@ void DeviceRunner::GetModuleLogLevel(DeviceArgs &args) {
     if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
         devDfxArg.isOpenSwim = PRO_LEVEL2;
     }
-    if (dynamic::DeviceLauncher::IsCaptureMode()) {
-        devDfxArg.isOpenSwim = 0;
-    }
     MACHINE_LOGI("Get PYPTO log level is: %d, openSwimLevel: %d", logLevel, devDfxArg.isOpenSwim);
     auto size = sizeof(DevDfxArgs);
     args.devDfxArgAddr = args_.devDfxArgAddr;
     auto ret = rtMemcpy(reinterpret_cast<void *>(args.devDfxArgAddr), size, &devDfxArg, size, RT_MEMCPY_HOST_TO_DEVICE);
     if (ret != 0) {
-        MACHINE_LOGW("rtmemcpy failed, so couldn't get device log");
+        MACHINE_LOGW("Rt mem cpy failed, so couldn't get device log");
     }
 }
 
@@ -197,7 +194,6 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     blockDim_ = dynamic::GetCfgBlockdim();
     args.nrValidAic = blockDim_;
     args.nrAicpu = aicpuNum_;
-    args.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockDim_, aicpuNum_, args.archInfo);
     int nrCore = regs.size() + AICPU_NUM_OF_RUN_AICPU_TASKS;
     args.sharedBuffer = reinterpret_cast<uint64_t>(DevAlloc(nrCore * SHARED_BUFFER_SIZE));
     args.coreRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
@@ -212,7 +208,7 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     args.devDfxArgAddr = reinterpret_cast<uint64_t>(DevAlloc(sizeof(DevDfxArgs)));
 
     if (args.devDfxArgAddr == 0) {
-        MACHINE_LOGE("Alloc devDfx info failed");
+        ALOG_ERROR_F("Alloc devDfx info failed");
         return -1;
     }
 
@@ -265,7 +261,6 @@ int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
         aicpuNum_ = npu::tile_fwk::dynamic::DEVICE_MAX_AICPU_NUM;
     }
     int cpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum() - 1);
-    args.maxAicpuNum = cpuNum;
     aicpuNum_ = aicpuNum_ < cpuNum ? aicpuNum_ : cpuNum;
     auto it = addressMappingTable_.find(args.archInfo);
     if (it != addressMappingTable_.end()){
@@ -308,10 +303,10 @@ int DeviceRunner::Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t t
     }
     ASSERT(rc == 0);
     if (IsPtoDataDumpEnabled()) {
-        MACHINE_LOGD("DataDumpServerInit is called\n");
+        MACHINE_LOGD("DataDumpServerInit is called \n");
         rc = AdxDataDumpServerUnInit();
         if (rc != 0) {
-            MACHINE_LOGE("AdxDataDumpServerUnInit is failed %d\n", rc);
+            MACHINE_LOGE("AdxDataDumpServerUnInit is failed %d \n", rc);
         }
     }
     uint64_t taskWastTime = GetTasksTime();
@@ -525,6 +520,9 @@ void DeviceRunner::InitAiCpuSoBin(DeviceArgs &devArgs) {
     devArgs.aicpuSoBin = reinterpret_cast<uint64_t>(dAicpuData);
     devArgs.aicpuSoLen = buffer.size();
     devArgs.deviceId = GetLogDeviceId();
+    if (IsPtoDataDumpEnabled()) {
+       devArgs.hostPid = getpid();
+    }
     HOST_PERF_TRACE(TracePhase::RunDevKernelInitAicpuSo);
 }
 
@@ -709,7 +707,6 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     args_.nrValidAic = blockdim;
     args_.nrAicpu = launchAicpuNum;
     args_.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockDim_, aicpuNum_, args_.archInfo);
-
     ExchangeCaputerMode(isCapture_);
     if (ctrlStream == nullptr) {
         return DynamicKernelLaunch(aicpuStream, aicoreStream, kernelArgs, blockDim_);

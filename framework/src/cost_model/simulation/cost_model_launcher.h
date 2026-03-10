@@ -121,7 +121,7 @@ struct MemoryHelper {
 
     uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
         (void)cachedDevAddrHolder;
-        uint8_t *devPtr = npu::tile_fwk::dynamic::HostAgentStub::GetAgent()->AllocHostAddr(size);
+        uint8_t *devPtr = machine::GetRuntimeHostAgent()->AllocHostAddr(size);
         return devPtr;
     }
 
@@ -214,9 +214,8 @@ private:
         config_.onBoard = false;
         auto dynAttr = function_->GetDyndevAttribute();
         DeviceLauncherConfigFillDeviceInfo(config_);
-        MemoryHelper  memoryHelper(true);
-        DeviceInitDistributedContext(memoryHelper, dynAttr->commGroupNames, kArgs);
-        DeviceInitTilingData(memoryHelper, kArgs, dynAttr->devProgBinary, nullptr, config_, nullptr);
+        DeviceInitDistributedContext(MemoryHelper(true), dynAttr->commGroupNames, kArgs);
+        DeviceInitTilingData(MemoryHelper(true), kArgs, dynAttr->devProgBinary, nullptr, config_, nullptr);
         InitKernelInOuts(kArgs, inputs, outputs, true);
         RunCostModel(&kArgs);
         SIMULATION_LOGI("Run TestModel");
@@ -476,9 +475,8 @@ private:
         const std::vector<RawTensorDataPtr> &outputTensors, bool isTest) {
         std::vector<DeviceTensorData> inputList;
         std::vector<DeviceTensorData> outputList;
-        MemoryHelper memoryHelper(isTest);
-        std::tie(inputList, outputList) = BuildInputOutputFromHost(memoryHelper, inputTensors, outputTensors);
-        DeviceInitKernelInOuts(memoryHelper, kArgs, inputList, outputList, {});
+        std::tie(inputList, outputList) = BuildInputOutputFromHost(MemoryHelper(isTest), inputTensors, outputTensors);
+        DeviceInitKernelInOuts(MemoryHelper(isTest), kArgs, inputList, outputList, {});
         SIMULATION_LOGI("Inputs %p outputs %p workspace %p cfgdata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
             kArgs.cfgdata);
     }

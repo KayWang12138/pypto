@@ -34,7 +34,6 @@ SymbolicScalar BindTensor(uint64_t groupIndex, uint64_t memType, uint64_t size) 
     std::string name = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::BindTensor);
     name = AddRuntimePrefix(name);
     SymbolicScalar bindTensor(name);
-    static uint64_t index = 0;
-    return bindTensor(groupIndex, memType, size, index++);
+    return bindTensor(groupIndex, memType, size);
 }
 }

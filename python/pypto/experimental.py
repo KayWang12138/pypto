@@ -202,19 +202,16 @@ def shmem_store(
     --------
     Store the computation result from UB to pe 2
     result = pypto.matmul(A_tile, B_tile, pypto.DT_FP16)
-    out = pypto.experimental.shmem_store(
+    dummy = pypto.experimental.shmem_store(
         result,
-        [0, 0],
+        offsets=[m_offset, n_offset],
         sym_buffer,
-        2,
-        pred=pred_token,
+        dst_pe2,
+        pred,
     )
     """
-    if pred is None:
-        dummy = Tensor([1, 1], DataType.DT_INT32).base()
-    else:
-        dummy = pred[0] if len(pred) == 1 else pypto_impl.Nop(pred)
-    dst_tile = pypto_impl.View(dst, [1, 1] + src.shape, [dst_pe] + offsets)
+    dummy = pred[0] if len(pred) == 1 else pypto_impl.Nop(pred)
+    dst_tile = pypto_impl.View(dst, [1, 1] + src.shape, to_syms([dst_pe] + offsets))
     return pypto_impl.ShmemPutUb2Gm(src, dst_tile, dummy, AtomicType.SET)
 
 
@@ -255,32 +252,29 @@ def shmem_load(
     Examples
     --------
     Load a [64, 128] tile from pe 1 into UB
-    wait_until_out = pypto.distributed.shmem_wait_until(
-        shmem_signal,
-        OpType.EQ,
-        4,
-        shape,
-        offset,
-        clear_signal=True,
-        pred=None,
+    shmem_tile = pypto.view(shmem_tensor, shape=[64, 128], offset=[0, 0])
+    pre_token = pypto.distributed.waituntil(
+        shmem_signal, 
+        shapes, 
+        offsets,
+        cmp_value,
+        pred,
+        clear_flag,
     )
     tile = pypto.experimental.shmem_load(
-        shmem_data,
-        1,
-        [1, 128, 256],
-        [0, 0, 0],
-        pred=wait_until_out,
-        valid_shape=None,
+        shmem_tile,
+        src_pe=1,
+        shape,
+        offset,
+        pred,
+        valid_shape
     )
     The tile is now in UB and can be used directly for computation
     result = pypto.exp(tile)
     """
-    if pred is None:
-        dummy = Tensor([1, 1], DataType.DT_INT32).base()
-    else:
-        dummy = pred[0] if len(pred) == 1 else pypto_impl.Nop(pred)
+    dummy = pred[0] if len(pred) == 1 else pypto_impl.Nop(pred)
     if valid_shape is None:
-        src_tile = pypto_impl.View(src, [1] + shape, [src_pe] + offset)
+        src_tile = pypto_impl.View(src, [1] + shape, to_syms([src_pe] + offset))
     else:
         src_tile = pypto_impl.View(src, [1] + shape, to_syms(valid_shape), to_syms([src_pe] + offset))
     return pypto_impl.ShmemGetGm2Ub(dummy, src_tile)

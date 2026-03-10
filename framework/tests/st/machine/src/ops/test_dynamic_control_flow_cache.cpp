@@ -86,8 +86,7 @@ TEST_F(DynamicControlFlowCacheTest, KernelReuse) {
     DeviceLauncherConfig config;
     config.blockdim = 24; // 24:max aicore num
     DevControlFlowCache* ctrlFlowCache = nullptr;
-    EmulationMemoryUtils memUtils;
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), memUtils, {}, {}, &ctrlFlowCache, config));
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, &ctrlFlowCache, config));
 
     DeviceLauncher::DeviceRunCacheKernelEnable(Program::GetInstance().GetLastFunction(), true);
 
@@ -143,8 +142,7 @@ TEST_F(DynamicControlFlowCacheTest, CheckShape) {
     DeviceLauncherConfig config;
     config.blockdim = 24; // 24:max aicore num
     DevControlFlowCache* ctrlFlowCache = nullptr;
-    EmulationMemoryUtils memUtils;
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), memUtils, {}, {}, &ctrlFlowCache, config));
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, &ctrlFlowCache, config));
 
     DevAscendProgram *devProg = DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction());
     EXPECT_NE(devProg->controlFlowCache.deviceTaskCount, 0);
@@ -206,7 +204,7 @@ TEST_F(DynamicControlFlowCacheTest, CheckShape) {
 
 TEST_F(DynamicControlFlowCacheTest, CheckLackMemory) {
     config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 12000);
-    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_MAX_NUM, 128);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 128);
 
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
@@ -246,8 +244,7 @@ TEST_F(DynamicControlFlowCacheTest, CheckLackMemory) {
     config.blockdim = 24; // 24:max aicore num
 
     DevControlFlowCache* ctrlCache = nullptr;
-    EmulationMemoryUtils memUtils;
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), memUtils, {}, {}, &ctrlCache, config));
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, &ctrlCache, config));
     EXPECT_EQ(ctrlCache->deviceTaskCount, 0);
     EXPECT_EQ(ctrlCache->deviceTaskSkippedCount, 1);
 
@@ -291,8 +288,7 @@ TEST_F(DynamicControlFlowCacheTest, CheckGetTensorData) {
     DeviceLauncherConfig config;
     config.blockdim = 24; // 24:max aicore num
     DevControlFlowCache* ctrlFlowCache = nullptr;
-    EmulationMemoryUtils memUtils;
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), memUtils, {}, {}, &ctrlFlowCache, config));
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, &ctrlFlowCache, config));
 }
 
 static DeviceTensorData toTensorData(const std::shared_ptr<LogicalTensor> &t) {
@@ -304,7 +300,7 @@ TEST_F(DynamicControlFlowCacheTest, PartialCache) {
     config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 46000);
 
     // every task 4 root func
-    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_MAX_NUM, 0x4);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 0x4);
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
 
     int tiling = 32; int n = tiling * 4;
@@ -343,8 +339,8 @@ TEST_F(DynamicControlFlowCacheTest, PartialCache) {
     DeviceLauncherConfig config;
     config.blockdim = 24; // 24:max aicore num
     DevControlFlowCache* ctrlFlowCache = nullptr;
-    EmulationMemoryUtils memUtils;
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), memUtils, inputList, outputList, &ctrlFlowCache, config));
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(),
+        inputList, outputList, &ctrlFlowCache, config));
     DevAscendProgram *devProg = DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction());
 
     EXPECT_EQ(0x3, ctrlFlowCache->deviceTaskCount);
@@ -384,13 +380,14 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress) {
     config::SetPassOption(SG_PG_UPPER_BOUND, 1024);
     config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 32}});
     config::SetPassOption(SG_PARALLEL_NUM, 2);
+    config::SetPassOption(VEC_NBUFFER_MODE, 2);
     config::SetPassOption<std::map<int64_t, int64_t>>(VEC_NBUFFER_SETTING, {{-1, 16}});
 
     // cache at most 3 task
     config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 40000);
 
     // every task 4 root func
-    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_MAX_NUM, 0x3);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 0x3);
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
 
     static constexpr int v64 = 64;
@@ -451,8 +448,7 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress) {
     DeviceLauncherConfig config;
     config.blockdim = 24; // 24:max aicore num
     DevControlFlowCache* ctrlFlowCache = nullptr;
-    EmulationMemoryUtils memUtils;
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), memUtils, inputList, outputList, &ctrlFlowCache, config));
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), inputList, outputList, &ctrlFlowCache, config));
 
     DevAscendProgram *devProg = DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction());
     EXPECT_EQ(0x1, ctrlFlowCache->deviceTaskCount);
@@ -507,7 +503,7 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress) {
 
 TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependData) {
     config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 56000);
-    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_MAX_NUM, 0x4);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 0x4);
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
     int tiling = 32; int n = tiling * 4;
     TileShape::Current().SetVecTile(tiling, tiling);
@@ -530,8 +526,7 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependData) {
     }
     DeviceLauncherConfig config; config.blockdim = 24; // 24:max aicore num
     DevControlFlowCache* ctrlCache = nullptr;
-    EmulationMemoryUtils memUtils;
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), memUtils, {}, {}, &ctrlCache, config));
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, &ctrlCache, config));
 
     DevAscendProgram *devProgram = DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction());
 
@@ -562,7 +557,7 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependData) {
 
 TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependControl) {
     config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 40000);
-    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_MAX_NUM, 4);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 4);
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
 
     int tiling = 32; int n = tiling * 4;
@@ -592,8 +587,7 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependControl) {
     std::vector<DeviceTensorData> outputList = {toTensorData(output.GetStorage())};
     DeviceLauncherConfig config; config.blockdim = 24; // 24:max aicore num
     DevControlFlowCache *ctrlFlowCache = nullptr;
-    EmulationMemoryUtils memUtils;
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), memUtils, inputList, outputList, &ctrlFlowCache, config));
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), inputList, outputList, &ctrlFlowCache, config));
 
     DevAscendProgram *devProg = DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction());
     EXPECT_EQ(0x1, ctrlFlowCache->deviceTaskCount);

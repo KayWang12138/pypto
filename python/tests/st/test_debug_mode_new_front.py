@@ -20,17 +20,16 @@ import torch_npu
 import pytest
 
 
-@pypto.frontend.jit(
+def add_wrapper(shape, tiling=None):
+    @pypto.frontend.jit(
     debug_options={"compile_debug_mode": 1, "runtime_debug_mode": 1}
-)
-def add_kernel(
-    a: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_INT32),
-    b: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_INT32),
-    c: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_INT32),
-    tiling=32
-):
-    pypto.set_vec_tile_shapes(tiling, tiling)
-    c.move(a + b)
+    )
+    def add(a: pypto.Tensor(shape, pypto.DT_INT32),
+            b: pypto.Tensor(shape, pypto.DT_INT32)) -> pypto.Tensor(shape, pypto.DT_INT32):
+        pypto.set_vec_tile_shapes(tiling, tiling)
+        c = a + b
+        return c
+    return add
 
 
 def check_output():
@@ -63,9 +62,8 @@ def device_run(device_id):
     # prepare data
     a_data = torch.ones((n, m), dtype=torch.int32, device=f'npu:{device_id}') * 2
     b_data = torch.ones((n, m), dtype=torch.int32, device=f'npu:{device_id}')
-    c_data = torch.zeros((n, m), dtype=torch.int32, device=f'npu:{device_id}')
 
-    add_kernel(a_data, b_data, c_data, tiling=tiling)
+    result = add_wrapper(shape, tiling)(a_data, b_data)
     torch_npu.npu.synchronize()
 
     check_output()

@@ -91,11 +91,12 @@ class IndexerPrologQuantConfigs:
     unroll_list: List[int]
 
     cube_l1_reuse_setting: dict[int, int]
+    mg_copyin_upper_bound: int
     pg_upper_bound: int
     block_size: int
     t_sub_tile: int
     chunk_size: int
-    vec_nbuffer_setting: dict[int, int]
+    vec_nbuffer_mode: int
 
 
 def quant_layer_norm(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, dim: int, epsilon: float):
@@ -388,7 +389,7 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         pypto.set_semantic_label("Query-Dequant-Linear")
         pypto.set_cube_tile_shapes([q_linear[L0M_INDEX], q_linear[L1M_INDEX]],
                                    [q_linear[L0K_INDEX], q_linear[L1K_INDEX]],
-                                   [q_linear[L0N_INDEX], q_linear[L1N_INDEX]])
+                                   [q_linear[L0N_INDEX], q_linear[L1N_INDEX]], True)
         pypto.set_vec_tile_shapes(8, head_num * head_dim)
 
         q_cast = pypto.scaled_mm(q_norm, w_qb_in, pypto.DT_BF16, q_norm_scale, w_qb_scale_in, scale_b_trans=True)
@@ -426,7 +427,7 @@ def lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_q
         pypto.set_semantic_label("Key-Linear")
         pypto.set_cube_tile_shapes([k_linear[L0M_INDEX], k_linear[L1M_INDEX]],
                                    [k_linear[L0K_INDEX], k_linear[L1K_INDEX]],
-                                   [k_linear[L0N_INDEX], k_linear[L1N_INDEX]])
+                                   [k_linear[L0N_INDEX], k_linear[L1N_INDEX]], True)
         x = pypto.view(x_in, [t_tile, h], [t_idx, 0])  # 这里将t_tile分档，offset不需要乘t_tile
         k = pypto.matmul(x, wk_in, pypto.DT_FP32)  # (t_tile, head_dim)
 
@@ -515,8 +516,9 @@ def lightning_indexer_prolog_quant(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
         It configures pass options for memory optimization and calls the core
         computation function.
     """
-    pypto.set_pass_options(vec_nbuffer_setting=configs.vec_nbuffer_setting)
+    pypto.set_pass_options(vec_nbuffer_mode=configs.vec_nbuffer_mode)
     pypto.set_pass_options(cube_l1_reuse_setting=configs.cube_l1_reuse_setting)
+    pypto.set_pass_options(mg_copyin_upper_bound=configs.mg_copyin_upper_bound)
     pypto.set_pass_options(pg_upper_bound=configs.pg_upper_bound)
 
     pypto.set_runtime_options(device_sched_mode=1)

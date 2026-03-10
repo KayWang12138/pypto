@@ -60,7 +60,7 @@ int RuntimeAgentMemory::GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<
         valid = 0xFFFFFFFF;
         validGetPgMask = false;
     }
-    MACHINE_LOGI("The valid cores are: %lu.", valid);
+    MACHINE_LOGI("The valid cores are: %ld.", valid);
     uint64_t coreStride = 8 * 1024 * 1024; // 8M
     uint64_t subCoreStride = 0x100000ULL;
 
@@ -161,22 +161,22 @@ void *RuntimeAgentMemory::MapAiCoreReg() {
     std::vector<int64_t> regAddr;
     regAddr.insert(regAddr.end(), aic.begin(), aic.end());
     regAddr.insert(regAddr.end(), aiv.begin(), aiv.end());
-    uint8_t *devAddr = nullptr;
+    void *devAddr = nullptr;
     size_t regAddrSize = sizeof(void *) * regAddr.size();
-    AllocDevAddr(&devAddr, regAddrSize);
-    if (devAddr == nullptr) {
+    int rc = rtMalloc(&devAddr, regAddrSize, RT_MEMORY_HBM, 0);
+    if (rc != 0) {
         MACHINE_LOGE("rtMalloc failed. size: %zu", regAddrSize);
         return nullptr;
     }
 
-    int rc = rtMemcpy(devAddr, regAddrSize, regAddr.data(), regAddrSize, RT_MEMCPY_HOST_TO_DEVICE);
+    rc = rtMemcpy(devAddr, regAddrSize, regAddr.data(), regAddrSize, RT_MEMCPY_HOST_TO_DEVICE);
     if (rc != 0) {
         MACHINE_LOGE("rtMemcpy failed. size: %zu", regAddrSize);
-        FreeDevAddr((uint8_t*)devAddr);
         return nullptr;
     }
 
     MACHINE_LOGI("All AiCore Reg mapped: %p. size: %zu", devAddr, regAddrSize);
+    allocatedDevAddr.emplace_back((uint8_t *)devAddr);
     return devAddr;
 }
 

@@ -119,7 +119,8 @@ static void BatchMatmulOperationExeFuncNoSplit(
             Tensor tensorA = View(inputs[0], inputs[0].GetShape(), tileParam.aValidShape, tileParam.aOffset);
             Tensor tensorB = View(inputs[1], inputs[1].GetShape(), tileParam.bValidShape, tileParam.bOffset);
             TileShape::Current().SetCubeTile({args->tileShape_[0][0], args->tileShape_[0][1]},
-                {args->tileShape_[1][0], args->tileShape_[1][1]}, {args->tileShape_[2][0], args->tileShape_[2][1]});
+                {args->tileShape_[1][0], args->tileShape_[1][1]}, {args->tileShape_[2][0], args->tileShape_[2][1]},
+                true);
             if (args->param_.isAMatrixNz || args->param_.isBMatrixNz || args->param_.isCMatrixNz) {
                 TileShape::Current().SetMatrixSize({tileParam.mDim, tileParam.kDim, tileParam.nDim});
             }
@@ -156,7 +157,8 @@ static void BatchMatmulOperationExeFuncSplitM(
 
             TileShape::Current().SetVecTile(tileParam.vecTileShape);
             TileShape::Current().SetCubeTile({args->tileShape_[0][0], args->tileShape_[0][1]},
-                {args->tileShape_[1][0], args->tileShape_[1][1]}, {args->tileShape_[2][0], args->tileShape_[2][1]});
+                {args->tileShape_[1][0], args->tileShape_[1][1]}, {args->tileShape_[2][0], args->tileShape_[2][1]},
+                true);
             if (args->param_.isAMatrixNz || args->param_.isBMatrixNz || args->param_.isCMatrixNz) {
                 TileShape::Current().SetMatrixSize({tileParam.mDim, tileParam.kDim, tileParam.nDim});
             }
@@ -192,7 +194,8 @@ static void BatchMatmulOperationExeFuncSplitN(
             }
             Tensor tensorB = View(inputs[1], tileParam.bViewShape, tileParam.bValidShape, tileParam.bOffset);
             TileShape::Current().SetCubeTile({args->tileShape_[0][0], args->tileShape_[0][1]},
-                {args->tileShape_[1][0], args->tileShape_[1][1]}, {args->tileShape_[2][0], args->tileShape_[2][1]});
+                {args->tileShape_[1][0], args->tileShape_[1][1]}, {args->tileShape_[2][0], args->tileShape_[2][1]},
+                true);
             TileShape::Current().SetVecTile(tileParam.vecTileShape);
             if (args->param_.isAMatrixNz || args->param_.isBMatrixNz || args->param_.isCMatrixNz) {
                 TileShape::Current().SetMatrixSize({tileParam.mDim, tileParam.kDim, tileParam.nDim});
@@ -243,7 +246,8 @@ static void BatchMatmulOperationExeFuncSplitMN(
 
                 TileShape::Current().SetVecTile(tileParam.vecTileShape);
                 TileShape::Current().SetCubeTile({args->tileShape_[0][0], args->tileShape_[0][1]},
-                    {args->tileShape_[1][0], args->tileShape_[1][1]}, {args->tileShape_[2][0], args->tileShape_[2][1]});
+                    {args->tileShape_[1][0], args->tileShape_[1][1]}, {args->tileShape_[2][0], args->tileShape_[2][1]},
+                    true);
                 if (args->param_.isAMatrixNz || args->param_.isBMatrixNz || args->param_.isCMatrixNz) {
                     TileShape::Current().SetMatrixSize({tileParam.mDim, tileParam.kDim, tileParam.nDim});
                 }

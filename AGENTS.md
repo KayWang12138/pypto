@@ -14,27 +14,12 @@
 - 支持批量生成
 ---
 
-## Skills目录说明
-
-本项目使用的skills位于 `.opencode/skills/` 目录下，每个skill包含一个SKILL.md文件。
-由于Skill工具无法直接从项目目录加载skills，开发时应：
-1. 直接读取对应skill的SKILL.md文件内容
-2. 将skill内容作为指导文档使用
-3. 使用Task工具调用Explore和Plan Agent来执行相应任务
-
-可用skills：
-- pypto-operator-develop-workflow: 算子开发流程
-- pypto-operator-perf-analyzer: 算子性能分析
-- pypto-operator-perf-autotuner: 算子性能自动化调优
-
----
-
 ## 集成的技能列表
 | 技能  | 触发时机  | 说明  |
 | :------------ | :------------ | :------------ |
 | pypto-skill-creator  | 接收到用户生成skill指令时  | 根据用户需求，自动创建skill，并将其添加到skills中 |
 | pypto-operator-develop-workflow  | 接收到算子开发任务时  | 详细开发流程及环境准备、运行测试等 |
-| pypto-operator-perf-autotuner  | 接收到算子性能统计及调优指令时  | 算子性能自动化调优，会调用pypto-operator-perf-analyzer进行性能分析 |
+| pypto-operator-perf-autotune  | 接收到算子性能统计及调优指令时  | 性能统计及性能调优指导 |
 ---
 
 ## 核心原则 ⭐⭐⭐
@@ -335,13 +320,6 @@ Level 3: 大数据量    ──▶ 性能验证
 ### 当用户提出查看文档/代码时
 
 直接使用 **Read**、**Grep**、**Glob** 工具进行文档和代码查看。
-
-### 文件查找规则
-
-当需要查找文件时：
-1. 优先使用 **Glob** 工具通过文件名模式搜索整个代码仓库
-2. 文档中提到的路径可能是相对路径，需要使用Glob在整个项目中搜索
-3. 例如：查找 `scripts/environment_prepare.sh` 时，使用 `Glob` 搜索 `**/environment_prepare.sh`
 
 ### Agent使用规则
 1. 使用`Explore Agent`查找资料

@@ -434,6 +434,8 @@ def mla_prolog_quant_v32_compute(inputs):
     else:
         q_a_proj = torch.matmul(x_2d.to(torch.float32), w_dq.to(torch.float32))  # [b * s, q_lora_rank]
 
+    q_a_proj = q_a_proj.to(dtype)
+
     q_a_layernorm = rms_norm(q_a_proj, gamma_cq)
 
     # shape is: [b * s, q_lora_rank] @ [q_lora_rank, n * q_head_dim] -> [b * s, n * q_head_dim]
@@ -950,11 +952,12 @@ def test_b_4_s1_2_tilebs_8_d():
         w_linear=[16, 16, 256, 256, 128, 128],
         unroll_list=[128, 64, 32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
+        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_setting={-1: 1},
+        vec_nbuffer_mode=0,
     )
 
     do_test("mla_prolog_indexer_prolog_quant.test_b_4_s1_2_tilebs_8",
@@ -1023,11 +1026,12 @@ def test_t_32_tilebs_16_p():
         w_linear=[16, 16, 1024, 1024, 32, 32],
         unroll_list=[32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4},
+        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=1,
         chunk_size=2,
-        vec_nbuffer_setting={-1: 1},
+        vec_nbuffer_mode=0,
     )
 
     do_test("mla_prolog_indexer_prolog_prefill.test_t_32_tilebs_16",
@@ -1095,11 +1099,12 @@ def test_t_512_tilebs_128_p():
         w_linear=[32, 32, 512, 512, 64, 64],
         unroll_list=[128, 64, 32, 16, 8, 4, 2, 1],
         cube_l1_reuse_setting={1: 4, 3: 4},
+        mg_copyin_upper_bound=2 * 1024 * 1024,
         pg_upper_bound=8192,
         block_size=128,
         t_sub_tile=2,
         chunk_size=1,
-        vec_nbuffer_setting={-1: 1},
+        vec_nbuffer_mode=0,
     )
 
     do_test("mla_prolog_indexer_prolog_prefill.test_t_512_tilebs_128", params, mla_epsilon_cq, mla_epsilon_ckv,

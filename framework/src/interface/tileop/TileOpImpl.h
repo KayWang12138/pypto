@@ -27,10 +27,10 @@
 #include "distributed/common.h"
 #include "distributed/moe_dispatch.h"
 #include "distributed/moe_combine.h"
+#include "distributed/tileop_shmem.h"
 #include "dynamic/aicpu_call.h"
 
 #ifdef SUPPORT_TILE_TENSOR
-#include "distributed/tileop_shmem.h"
 #include "utils/layout.h"
 #include "vector/unary.h"
 #include "vector/trans.h"
@@ -38,14 +38,12 @@
 #include "vector/binary_scalar.h"
 #include "vector/cast.h"
 #include "vector/sign.h"
-#include "vector/signbit.h"
 #include "vector/reduce.h"
 #include "vector/sort.h"
 #include "vector/mte.h"
 #include "vector/logicalnot.h"
 #include "vector/compare.h"
 #include "vector/hypot.h"
-#include "vector/prelu.h"
 #include "vector/gather.h"
 #include "vector/indexadd.h"
 #include "vector/scatter.h"
@@ -63,7 +61,6 @@
 #include "vector/bitwise_shift.h"
 #include "vector/copysign.h"
 #include "cube/cube_pto.h"
-#include "conv/conv_pto.h"
 #endif
 
 #endif

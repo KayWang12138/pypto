@@ -30,5 +30,4 @@ void BindCostModelRuntime(py::module &m);
 void bind_pass(py::module &m);
 void BindFunction(py::module &m);
 void BindDistributed(py::module &m);
-void BindPlatform(py::module &m);
 } // namespace pypto

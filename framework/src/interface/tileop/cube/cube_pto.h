@@ -18,12 +18,6 @@
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
 
-#if __NPU_ARCH__ == 3101
-#define PTO_NPU_ARCH_A5
-#elif __NPU_ARCH__ == 3510
-#define PTO_NPU_ARCH_A5
-#endif
-
 constexpr int16_t SHAPE_DIM2 = 2;
 constexpr int16_t SHAPE_DIM3 = 3;
 constexpr uint16_t BLOCK_CUBE_M_N = 16;
@@ -183,9 +177,6 @@ INLINE void TLoadND2ND(T &dst, U &src, const int64_t &offset0, const int64_t &of
 // Copy Scale A data from DDR to L1 for MX matmul
 template <CopyInMode mode, typename Coord, typename T, typename U>
 TILEOP void TLoadAMX(T &dst, U &src, const Coord &coord) {
-    if (!CheckShapeValid(dst, src)) {
-        return;
-    }
     constexpr auto shapeSize = Std::tuple_size<typename T::Shape>::value;
     static_assert(shapeSize == SHAPE_DIM3 && Std::tuple_size<Coord>::value == SHAPE_DIM3,
         "[TLoadAMX Error]: MXMatmul A Scale Shape Size should be 3 Dim");
@@ -231,9 +222,6 @@ TILEOP void TLoadAMX(T &dst, U &src, const Coord &coord) {
 // Copy Scale B data from DDR to L1 for MX matmul
 template <CopyInMode mode, typename Coord, typename T, typename U>
 TILEOP void TLoadBMX(T &dst, U &src, const Coord &coord) {
-    if (!CheckShapeValid(dst, src)) {
-        return;
-    }
     constexpr auto shapeSize = Std::tuple_size<typename T::Shape>::value;
     static_assert(shapeSize == SHAPE_DIM3 && Std::tuple_size<Coord>::value == SHAPE_DIM3,
         "[TLoadBMX Error]: MXMatmul B Scale Shape Size should be 3 Dim");
@@ -510,9 +498,6 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord) {
 template <typename Coord, typename T, typename U>
 TILEOP void TExtractMX(T &dst, U &src, const Coord &coord)
 {
-    if (!CheckShapeValid(dst, src)) {
-        return;
-    }
     constexpr auto shapeSize = Std::tuple_size<typename T::Shape>::value;
     static_assert(shapeSize == SHAPE_DIM3 && Std::tuple_size<Coord>::value == SHAPE_DIM3,
                   "[TExtractMX Error]: L0A_MX scale or L0B_MX scale Shape Size should be 3 Dim");
@@ -568,17 +553,15 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord, int16_t subblockId) {
         constexpr auto staticL0CW = Std::tuple_element<shapeSize - 1, typename U::TileShape>::type::value;
         int64_t srcShape0 = GetShape<0>(src);
         int64_t srcShape1 = GetShape<1>(src);
-        int64_t dstShape0 = GetShape<0>(dst);
-        int64_t dstShape1 = GetShape<1>(dst);
         int64_t l0cOffset = CalNZOffset(srcShape0, srcShape1, offset0, offset1, c0Size);
         using tileUBTensor = pto::Tile<pto::TileType::Vec, typename T::Type, staticUBH, staticUBW,
-            mode == CopyOutMode::NZ2ND ? pto::BLayout::RowMajor : pto::BLayout::ColMajor, -1, -1,
+            mode == CopyOutMode::NZ2ND ? pto::BLayout::RowMajor : pto::BLayout::ColMajor, staticUBH, staticUBW,
             mode == CopyOutMode::NZ2ND ? pto::SLayout::NoneBox : pto::SLayout::RowMajor>;
-        using tileL0CTensor = pto::TileAcc<typename U::Type, staticL0CH, staticL0CW, -1, -1>;
-        tileUBTensor UBTile(dstShape0, dstShape1);
-        tileL0CTensor l0cTile(srcShape0, srcShape1);
-        pto::TASSIGN(UBTile, (uint64_t)dst.GetAddr());
-        pto::TASSIGN(l0cTile, (uint64_t)src.GetAddr() + l0cOffset);
+        using tileL0CTensor = pto::TileAcc<typename U::Type, staticL0CH, staticL0CW>;
+        tileUBTensor UBTile;
+        tileL0CTensor l0cTile;
+        pto::TASSIGN(UBTile, (uint64_t)dst.GetAddr() + l0cOffset);
+        pto::TASSIGN(l0cTile, (uint64_t)src.GetAddr());
         if (subblockId == 0) {
             pto::TMOV<tileUBTensor, tileL0CTensor, pto::AccToVecMode::SingleModeVec0>(UBTile, l0cTile);
         } else {
@@ -587,7 +570,7 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord, int16_t subblockId) {
     }
 }
 
-template <bool isZeroC, TransMode transMode, typename T, typename U, typename V>
+template <bool isZeroC, typename T, typename U, typename V>
 TILEOP void TMatmul(T &c, U &a, V &b) {
     constexpr auto shapeSizeA = Std::tuple_size<typename U::Shape>::value;
     constexpr auto shapeSizeB = Std::tuple_size<typename V::Shape>::value;
@@ -615,9 +598,6 @@ TILEOP void TMatmul(T &c, U &a, V &b) {
 
     validM = (validM + BLOCK_CUBE_M_N - 1) / BLOCK_CUBE_M_N * BLOCK_CUBE_M_N;
     tileL0ATensor l0a(validM, validK);
-    if constexpr (transMode != TransMode::CAST_NONE) {
-        l0a.SetMadTF32Mode(static_cast<pto::RoundMode>(transMode));
-    }
     tileL0BTensor l0b(validK, validN);
     tileL0CTensor l0c(validM, validN);
     if (std::is_same<typename tileL0ATensor::DType, float>::value) {
@@ -633,12 +613,9 @@ TILEOP void TMatmul(T &c, U &a, V &b) {
     } else {
         pto::TMATMUL_ACC(l0c, l0c, l0a, l0b);
     }
-    if constexpr (transMode != TransMode::CAST_NONE) {
-        l0a.ResetMadMode();
-    }
 }
 
-template <TransMode transMode, typename T0, typename T1, typename T2, typename T3>
+template <typename T0, typename T1, typename T2, typename T3>
 TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, T3 &bias) {
     constexpr auto shapeSizeA = Std::tuple_size<typename T1::Shape>::value;
     constexpr auto shapeSizeB = Std::tuple_size<typename T2::Shape>::value;
@@ -668,9 +645,6 @@ TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, T3 &bias) {
 
     validM = (validM + BLOCK_CUBE_M_N - 1) / BLOCK_CUBE_M_N * BLOCK_CUBE_M_N;
     tileL0ATensor l0a(validM, validK);
-    if constexpr (transMode != TransMode::CAST_NONE) {
-        l0a.SetMadTF32Mode(static_cast<pto::RoundMode>(transMode));
-    }
     tileL0BTensor l0b(validK, validN);
     tileL0CTensor l0c(validM, validN);
     tileBiasTensor biasT(1, validN);
@@ -680,12 +654,9 @@ TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, T3 &bias) {
     pto::TASSIGN(l0c, (uint64_t)c.GetAddr());
     pto::TASSIGN(biasT, (uint64_t)bias.GetAddr());
     pto::TMATMUL_BIAS(l0c, l0a, l0b, biasT);
-    if constexpr (transMode != TransMode::CAST_NONE) {
-        l0a.ResetMadMode();
-    }
 }
 
-#if defined PTO_NPU_ARCH_A5
+#if __NPU_ARCH__ == 3101
 template <bool isZeroC, typename T0, typename T1, typename T2, typename T3, typename T4>
 TILEOP void MatmulMX(T0 &c, T1 &a, T2 &aScale, T3 &b, T4 &bScale)
 {
@@ -713,9 +684,7 @@ TILEOP void MatmulMX(T0 &c, T1 &a, T2 &aScale, T3 &b, T4 &bScale)
     int64_t validK = GetShape<1>(a);
     int64_t validN = GetShape<1>(b);
     int64_t validScaleK = GetShape<1>(aScale) * SHAPE_DIM2;
-    if (validM == 0 || validK == 0 || validN == 0 || validScaleK == 0) {
-        return;
-    }
+
     using tileL0CTensor = pto::TileAcc<typename T0::Type, staticL0CH, staticL0CW, -1, -1>;
     using tileL0ATensor = pto::TileLeft<typename T1::Type, staticL0AH, staticL0AW, -1, -1>;
     using tileL0AScaleTensor = pto::TileLeftScale<typename T1::Type, staticL0AH, staticL0AScaleW * SHAPE_DIM2, -1, -1>;
@@ -769,9 +738,7 @@ TILEOP void MatmulMX(T0 &c, T1 &a, T2 &aScale, T3 &b, T4 &bScale, T5 &bias)
     int64_t validK = GetShape<1>(a);
     int64_t validScaleK = GetShape<1>(aScale) * SHAPE_DIM2;
     int64_t validN = GetShape<1>(b);
-    if (validM == 0 || validK == 0 || validN == 0 || validScaleK == 0) {
-        return;
-    }
+
     using tileL0CTensor = pto::TileAcc<typename T0::Type, staticL0CH, staticL0CW, -1, -1>;
     using tileL0ATensor = pto::TileLeft<typename T1::Type, staticL0AH, staticL0AW, -1, -1>;
     using tileL0AScaleTensor = pto::TileLeftScale<typename T1::Type, staticL0AH, staticL0AScaleW * SHAPE_DIM2, -1, -1>;
@@ -825,8 +792,7 @@ INLINE void TStoreExecute(globalData dstGlobal, tileData srcL0C, V &fixbuf, uint
                 dstGlobal, srcL0C, fpData);
         }
     } else {
-        pto::TSTORE<tileData, globalData, config::kIsAcc ? pto::AtomicType::AtomicAdd : pto::AtomicType::AtomicNone,
-            config::kReluMode == 0 ? pto::ReluPreMode::NoRelu : pto::ReluPreMode::NormalRelu>(
+        pto::TSTORE<tileData, globalData, config::kIsAcc ? pto::AtomicType::AtomicAdd : pto::AtomicType::AtomicNone>(
             dstGlobal, srcL0C);
     }
 }

@@ -28,7 +28,6 @@ const std::string PREFIX_STR_RAW_SHAPE = "RAWSHAPE";
 const std::string PREFIX_STR_STRIDE = "STRIDE";
 const std::string PREFIX_STR_OFFSET = "OFFSET";
 constexpr const int MAX_DIM = 5;
-constexpr const int UPDATE_SHAPE_MAX_DIM = 6;
 
 const std::string GET_PARAM_VALID_SHAPE_BY_IDX = "GET_PARAM_VALID_SHAPE_BY_IDX";
 const std::string GET_PARAM_OFFSET_BY_IDX = "GET_PARAM_OFFSET_BY_IDX";
@@ -61,13 +60,6 @@ constexpr const int BUFFER_SIZE_256 = 256;
 constexpr const int BUFFER_SIZE_512 = 512;
 constexpr const int BUFFER_SIZE_1024 = 1024;
 
-const std::string FP16_INF_POS = "0x7C00";
-const std::string FP16_INF_NEG = "0xFC00";
-const std::string FP16_NAN = "0x7C01";
-const std::string FP32_INF_POS = "0x7F800000";
-const std::string FP32_INF_NEG = "0xFF800000";
-const std::string FP32_NAN = "0x7FC00000";
-
 // multi input single output
 enum class MISOIdx : unsigned {
     DST_IDX = 0,
@@ -82,14 +74,6 @@ enum class MIMOIdx : unsigned {
     TMP_IDX = 1,
     SRC0_IDX = 2,
     SRC1_IDX = 3,
-};
-
-// multi input latched output
-enum class MILOIdx : unsigned {
-    DST_IDX = 0,
-    TMP_IDX = 1,
-    TMP2_IDX = 2,
-    SRC0_IDX = 3,
 };
 
 const std::unordered_map<OperandType, std::string> OPERAND_TYPE_TO_ADDR_TYPE{
@@ -153,21 +137,10 @@ enum class CopyInMode : int {
     COPY_MOD_DN2NZ
 };
 
-enum class TransMode : int
-{
-    CAST_NONE = 0,
-    CAST_RINT = 1,
-    CAST_ROUND = 2
-};
-
-enum class PadMod : int { NO_PADDING = 0, PADDING_OUTER = 1, PADDING_INNER = 2 };
-
-enum class CopyOutMode : int {
-    COPY_MOD_INVALID = -1,
-    COPY_MOD_NZ2ND = 0,
-    COPY_MOD_NZ2NZ,
-    COPY_MOD_ND2ND,
-    COPY_MOD_NZ2DN
+enum class PadMod : int {
+    NO_PADDING = 0,
+    PADDING_OUTER = 1,
+    PADDING_INNER = 2
 };
 
 struct CodeGenCtx {
@@ -179,6 +152,31 @@ struct CodeGenCtx {
         : includePath(std::move(inPath)), cceDir(std::move(cmpPath)), isMainBlock(isMainBlk) {}
     bool IsCCEPathEmpty() const { return cceDir.empty(); }
     bool IsIncludePathEmpty() const { return includePath.empty(); }
+};
+
+struct SortParam {
+    std::vector<int64_t> dstShape{4, 1};
+    std::vector<int64_t> tmpShape{4, 1};
+    std::vector<int64_t> srcShape{4, 1};
+    const std::string s0Var;
+    const std::string dVar;
+    const std::string tVar;
+    const std::string srcDtypeStr;
+    const std::string dstDtypeStr;
+    const std::string tmpDtypeStr;
+};
+
+struct TiledSortParam {
+    std::vector<int64_t> dstShape{4, 1};
+    std::vector<int64_t> srcShape{5, 1};
+    const std::string s0Var;
+    const std::string s1Var;
+    const std::string s2Var;
+    const std::string s3Var;
+    const std::string tmpVar;
+    const std::string dVar;
+    const std::string srcDtypeStr;
+    const std::string dstDtypeStr;
 };
 
 const std::map<MemoryType, OperandType> OPERAND_TYPE_TO_MEMORY_TYPE{
@@ -200,6 +198,10 @@ const std::map<MemoryType, OperandType> OPERAND_TYPE_TO_MEMORY_TYPE{
     {         MemoryType::MEM_L0BMX, BUF_L0BMX},
 };
 
+struct FloatSaturateStatus {
+    bool hasNan{false};
+    bool hasInf{false};
+};
 } // namespace npu::tile_fwk
 
 #endif // CODEGEN_COMMON_H

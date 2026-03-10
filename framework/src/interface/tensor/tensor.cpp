@@ -64,7 +64,8 @@ static std::vector<SymbolicScalar> ToDynShape(const std::string &tname, const Sh
     return dynShape;
 }
 
-void CheckShapeValid(DataType &dataType, const Shape &shape, TileOpFormat &format) {
+template <typename T>
+void CheckShapeValid(DataType &dataType, T &shape, TileOpFormat &format) {
     if (format == TileOpFormat::TILEOP_NZ && shape.back() != -1) {
         ASSERT(shape.back() * BytesOf(dataType) % ALIGN_SIZE_32 == 0)
             << "Current inner axis: " << shape.back() << ", when input "
@@ -88,6 +89,7 @@ Tensor::Tensor(DataType dataType, const Shape &shape, std::string name, TileOpFo
 
 Tensor::Tensor(DataType dataType, std::vector<SymbolicScalar> shape, std::string name, TileOpFormat format)
     : Tensor(dataType, SymbolicScalar::Concrete(shape, -1), name, format) {
+    CheckShapeValid(dataType, shape, format);
     auto rawTensor = storage_->GetRawTensor();
     for (size_t axis = 0; axis < shape.size(); axis++) {
         if (shape[axis].ConcreteValid() && shape[axis].Concrete() == -1) {
@@ -359,8 +361,8 @@ SymbolicScalar GetInputDataInt32Dim4(const Tensor &t, SymbolicScalar off0, Symbo
 }
 
 SymbolicScalar GetInputData(const Tensor &t, const std::vector<SymbolicScalar> &offset) {
-    ASSERT(t.Dim() == offset.size()) << "t.Dim(): " << t.Dim() << "!= offset.size(): " << offset.size();
-    ASSERT(t.Dim() >0 && t.Dim() <= 0x4) << "t.Dim(): " << t.Dim() << ", limit: [1, 4]";
+    ASSERT(t.Dim() == offset.size()) << "t.Dim(): " << t.Dim() << ", offset.size(): " << offset.size();
+    ASSERT(t.Dim() >0 && t.Dim() <= 0x4) << "t.Dim(): " << t.Dim();
     if (t.Dim() == 0x1) {
         return GetInputDataInt32Dim1(t, offset[0]);
     }
@@ -418,7 +420,7 @@ static std::vector<std::reference_wrapper<const Tensor>>::iterator FindTensor (
 
 constexpr int MAX_GET_TENSOR_DATA_DIM = 4;
 SymbolicScalar GetTensorData(const Tensor &t, const std::vector<SymbolicScalar> &offset) {
-    CHECK(t.GetDataType() == DT_INT32) << "Tensor dtype must be DT_INT32.";
+    CHECK(t.GetDataType() == DT_INT32);
     auto funcPtr = Program::GetInstance().GetCurrentDynamicFunction();
     if (funcPtr) {
         auto inputTensorList = funcPtr->GetDyndevAttribute()->startArgsInputTensorList;
@@ -428,7 +430,7 @@ SymbolicScalar GetTensorData(const Tensor &t, const std::vector<SymbolicScalar> 
         }
     }
     FUNCTION_LOGD("Tensor[%s] has not been found in inputTensorList.", t.GetName().c_str());
-    CHECK(offset.size() <= MAX_GET_TENSOR_DATA_DIM) << "Offset.size() must be less than " << MAX_GET_TENSOR_DATA_DIM;
+    CHECK(offset.size() <= MAX_GET_TENSOR_DATA_DIM);
     SymbolHandlerId handlerId = static_cast<SymbolHandlerId>(static_cast<int>(SymbolHandlerId::GetTensorDataInt32Dim1) + offset.size() - 1) ;
     return DoGetTensorDataInt32(handlerId, t, offset);
 }
@@ -447,7 +449,7 @@ void DoSetTensorDataInt32(const SymbolicScalar &v, const std::vector<SymbolicSca
 }
 
 void SetTensorData(const SymbolicScalar &v, const std::vector<SymbolicScalar> &off, Tensor &dst) {
-    CHECK(dst.GetDataType() == DT_INT32) << "Tensor dtype must be DT_INT32.";
+    CHECK(dst.GetDataType() == DT_INT32);
     FUNCTION_LOGD("Set tensor[%s] data.", dst.GetName().c_str());
     return DoSetTensorDataInt32(v, off, dst);
 }

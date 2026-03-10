@@ -115,13 +115,17 @@ void UpdateExpandStatus(Operation *op, std::unordered_map<LogicalTensorPtr, Axis
         auto dimSize = static_cast<int>(inputTensor->GetShape().size());
         int axis = op->GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM");
         // 在尾轴为1的条件下，要求尾轴没有发生broadcast。[n, 1, 1]->expand->[n, 8, 1]??
-        if (axis < dimSize - 1) {
+        if (axis < dimSize - 2) {
             tensorStatus[outputTensor] = AxisReorderStatus::ENABLE;
             return;
         } else {
             // 如果是尾轴broadcast，不支持交换轴
             tensorStatus[inputTensor] = AxisReorderStatus::DISABLE;
             tensorStatus[outputTensor] = AxisReorderStatus::UNKNOWN;
+            if (outputTensor->GetShape().back() == 1) {
+                tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;
+                return;
+            }
         }
         return;
     }
@@ -201,8 +205,7 @@ void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx) {
         return;
     }
     if (OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::ELMWISE ||
-        OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::BROADCAST ||
-        OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::CAST) {
+        OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::BROADCAST) {
         UpdateElewiseStatus(op, tensorStatus_);
         return;
     }

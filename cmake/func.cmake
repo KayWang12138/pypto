@@ -55,7 +55,8 @@ function(PTO_Fwk_AnalysisTargetSymbols)
             ""
             ${ARGN}
     )
-    if (ENABLE_COMPILE_DEPENDENCY_CHECK
+    if (BUILD_OPEN_PROJECT
+            AND (ENABLE_COMPILE_DEPENDENCY_CHECK)
             AND (CMAKE_GENERATOR STREQUAL "Unix Makefiles")
             AND (CMAKE_C_COMPILER_ID STREQUAL "GNU"))
         set(_file $<TARGET_FILE:${ARG_TARGET}>)
@@ -97,7 +98,8 @@ function(PTO_Fwk_AnalysisTargetHeaderFiles)
             ""
             ${ARGN}
     )
-    if (ENABLE_COMPILE_DEPENDENCY_CHECK
+    if (BUILD_OPEN_PROJECT
+            AND (ENABLE_COMPILE_DEPENDENCY_CHECK)
             AND (CMAKE_GENERATOR STREQUAL "Unix Makefiles")
             AND (CMAKE_C_COMPILER_ID STREQUAL "GNU"))
         set(_TargetFile $<TARGET_FILE:${ARG_TARGET}>)

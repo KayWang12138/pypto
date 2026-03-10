@@ -320,9 +320,7 @@ std::string CallOpAttribute::DumpAttr(int idx) const {
         }
         ss << "]";
     } else {
-        ASSERT(static_cast<size_t>(idx) < argList_.size())
-            << "idx: " << static_cast<size_t>(idx)
-            << "argList.size(): " << argList_.size();
+        ASSERT(static_cast<size_t>(idx) < argList_.size());
         ss << "attr[" << idx << "][";
         for (size_t j = 0; j < argList_[idx].size(); j++) {
             if (j != 0) {
@@ -595,7 +593,7 @@ std::shared_ptr<CopyOpAttribute> CopyOpAttribute::DeserializeFrom(const Json& at
     if (attrJson.size() <= VALUE3) {
         std::vector<OpImmediate> vec;
         auto res = std::make_shared<CopyOpAttribute>(MemoryType::MEM_UNKNOWN, vec, vec, vec);
-        FUNCTION_LOGE("CopyOpAttr json shape is illegal");
+        ALOG_ERROR("CopyOpAttr json shape is illegal");
         return res;
     }
     std::vector<OpImmediate> shape;

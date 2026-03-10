@@ -1417,13 +1417,13 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
     };
     LogicalTensors reshapeOutputs;
     std::vector<std::string> expectAssembleDynShape = {
-        "RUNTIME_Max((a0*RUNTIME_Ne(a0, 0)), 0)",
-        "RUNTIME_Max((a1*RUNTIME_Ne(a1, 0)), 0)",
+        "RUNTIME_Max(0, (a0*RUNTIME_Ne(a0, 0)))",
+        "RUNTIME_Max(0, (a1*RUNTIME_Ne(a1, 0)))",
         "2"
     };
     std::vector<std::string> expectReshapeDynShape = {
-        "RUNTIME_Max(((RUNTIME_GetViewValidShapeDim(a0,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a0,0,2), 0))-0), 0)",
-        "RUNTIME_Max(((RUNTIME_GetViewValidShapeDim(a1,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a1,0,2), 0))-0), 0)",
+        "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a0,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a0,0,2), 0))-0))",
+        "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a1,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a1,0,2), 0))-0))",
         "1",
         "2"
     };
@@ -1526,15 +1526,15 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     std::vector<std::string> expectAssembleDynShape = {
         "2",
         "2",
-        "RUNTIME_Max((a*RUNTIME_Ne(a, 0)), 0)"
+        "RUNTIME_Max(0, (a*RUNTIME_Ne(a, 0)))"
     };
     std::vector<std::string> expectValidShape1 = {
         "4",
-        "RUNTIME_Max(((RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))-0), 0)"
+        "RUNTIME_Max(RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))-0)), ((RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))-0))"
     };
     std::vector<std::string> expectValidShape2 = {
         "4",
-        "RUNTIME_Max((((RUNTIME_GetViewValidShapeDim(a,2,2)+2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,2,2), 0))-2), 0)"
+        "RUNTIME_Max(RUNTIME_Max(0, (((RUNTIME_GetViewValidShapeDim(a,2,2)+2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,2,2), 0))-2)), (((RUNTIME_GetViewValidShapeDim(a,2,2)+2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,2,2), 0))-2))"
     };
     std::unordered_map<LogicalTensorPtr, std::vector<int64_t>> expectAssembleOffset = {{inputs[0], assembleOffset1}, {inputs[1], assembleOffset2}};
     std::unordered_map<LogicalTensorPtr, std::vector<std::string>> expectValidShapes = {{inputs[0], expectValidShape1}, {inputs[1], expectValidShape2}};
@@ -1656,13 +1656,13 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
     std::vector<std::string> expectAssembleDynShape = {
         "2",
         "4",
-        "RUNTIME_Max((a*RUNTIME_Ne(a, 0)), 0)"
+        "RUNTIME_Max(RUNTIME_Max(0, (a*RUNTIME_Ne(a, 0))), (a*RUNTIME_Ne(a, 0)))"
     };
     std::vector<std::string> expectValidShape = {
         "2",
         "2",
         "2",
-        "RUNTIME_Max(((RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))-0), 0)"
+        "RUNTIME_Max(0, ((RUNTIME_GetViewValidShapeDim(a,0,2)*RUNTIME_Ne(RUNTIME_GetViewValidShapeDim(a,0,2), 0))-0))"
     };
     std::unordered_map<LogicalTensorPtr, std::vector<std::string>> expectValidShapes = {
         {inputs[0], expectValidShape}, {inputs[1], expectValidShape},
@@ -1972,124 +1972,6 @@ TEST_F(TestSplitReshapePass, TestExceptionCase5) {
     RunPassStra(*func, PassName::SPLIT_RESHAPE);
     int AfterOpNum = CheckOpNum(func, kNumOne);
     EXPECT_EQ(AfterOpNum, OpNum);
-}
-
-TEST_F(TestSplitReshapePass, TestShapeAlignIndexExceeded) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
-    ASSERT_TRUE(currFunctionPtr != nullptr);
-    SplitReshape pass;
-    // shape1 单维先耗尽：第一轮 i1=0,i2=0 得到 prod1=1,i1=1,i2=1；下一轮 prod1==1&&prod2==1 时 i1>=shape1.size() 触发 line 393
-    std::vector<int64_t> shape1 = {kNumTwo};                    // 1 dim
-    std::vector<int64_t> shape2 = {kNumTwo, kNumTwo};           // 2 dims
-    std::vector<int64_t> alignedShape;
-    Status status = pass.ShapeAlign(shape1, shape2, alignedShape);
-    EXPECT_EQ(status, FAILED);  // line 393: i1 >= shape1.size() || i2 >= shape2.size()
-}
-
-TEST_F(TestSplitReshapePass, TestRawToAlignUpdateShapeOffsetTailCond) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
-    ASSERT_TRUE(currFunctionPtr != nullptr);
-    SplitReshape pass;
-    ReshapeTilePara shapePara;
-    std::vector<int64_t> rawShape = {kNumEight};
-    std::vector<int64_t> alignedShape = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int64_t> tileOffset = {kNumThree};   // currentOffset=3
-    std::vector<int64_t> tileShape = {kNumTwo};     // currentShape=2, stride becomes 4 -> 3+2>4
-    shapePara = {rawShape, alignedShape, tileOffset, tileShape};
-    std::vector<int64_t> newOffset, newShape;
-    Status status = pass.RawToAlign(shapePara, newOffset, newShape);
-    EXPECT_EQ(status, WARNING);  // line 420: currentOffset + currentShape > stride
-}
-
-TEST_F(TestSplitReshapePass, TestRawToAlignUpdateShapeOffsetOffsetNotDivisible) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
-    ASSERT_TRUE(currFunctionPtr != nullptr);
-    SplitReshape pass;
-    ReshapeTilePara shapePara;
-    std::vector<int64_t> rawShape = {kNumEight};
-    std::vector<int64_t> alignedShape = {kNumTwo, kNumFour};
-    std::vector<int64_t> tileOffset = {kNumThree};   // currentOffset=3, stride becomes 4 -> 3%4!=0
-    std::vector<int64_t> tileShape = {kNumEight};
-    shapePara = {rawShape, alignedShape, tileOffset, tileShape};
-    std::vector<int64_t> newOffset, newShape;
-    Status status = pass.RawToAlign(shapePara, newOffset, newShape);
-    EXPECT_EQ(status, WARNING);  // line 426: currentOffset % stride != 0
-}
-
-TEST_F(TestSplitReshapePass, TestRawToAlignUpdateShapeOffsetShapeNotDivisible) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
-    ASSERT_TRUE(currFunctionPtr != nullptr);
-    SplitReshape pass;
-    ReshapeTilePara shapePara;
-    std::vector<int64_t> rawShape = {kNumEight};
-    std::vector<int64_t> alignedShape = {kNumTwo, kNumFour};
-    std::vector<int64_t> tileOffset = {kNumZero};
-    std::vector<int64_t> tileShape = {kNumSix};     // currentShape=5 would be 5%4!=0; use 6 so first block no, then 6%4!=0
-    shapePara = {rawShape, alignedShape, tileOffset, tileShape};
-    std::vector<int64_t> newOffset, newShape;
-    Status status = pass.RawToAlign(shapePara, newOffset, newShape);
-    EXPECT_EQ(status, WARNING);  // line 430: currentShape % stride != 0
-}
-
-TEST_F(TestSplitReshapePass, TestRawToAlignConstructShapeOffsetStrideNotDivisible) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
-    ASSERT_TRUE(currFunctionPtr != nullptr);
-    SplitReshape pass;
-    ReshapeTilePara shapePara;
-    static const int64_t kNine = 9;
-    std::vector<int64_t> rawShape = {kNine};       // 9 % 2 != 0
-    std::vector<int64_t> alignedShape = {kNumTwo, kNumTwo};
-    std::vector<int64_t> tileOffset = {kNumZero};
-    std::vector<int64_t> tileShape = {kNine};
-    shapePara = {rawShape, alignedShape, tileOffset, tileShape};
-    std::vector<int64_t> newOffset, newShape;
-    Status status = pass.RawToAlign(shapePara, newOffset, newShape);
-    EXPECT_EQ(status, WARNING);  // line 454: stride % alignedShape[i] != 0
-}
-
-TEST_F(TestSplitReshapePass, TestRawToAlignShapeOneTileInvalid) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
-    ASSERT_TRUE(currFunctionPtr != nullptr);
-    SplitReshape pass;
-    ReshapeTilePara shapePara;
-    std::vector<int64_t> rawShape = {kNumOne, kNumEight};
-    std::vector<int64_t> alignedShape = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int64_t> tileOffset = {kNumOne, kNumTwo};   // shape[0]=1 but tileOffset[0]=1 (should be 0)
-    std::vector<int64_t> tileShape = {kNumOne, kNumTwo};
-    shapePara = {rawShape, alignedShape, tileOffset, tileShape};
-    std::vector<int64_t> newOffset, newShape;
-    Status status = pass.RawToAlign(shapePara, newOffset, newShape);
-    EXPECT_EQ(status, FAILED);   // line 492: Shape[%zu] is 1, but tileOffset/tileShape invalid
-}
-
-TEST_F(TestSplitReshapePass, TestAlignToRawRawShapeZero) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
-    ASSERT_TRUE(currFunctionPtr != nullptr);
-    SplitReshape pass;
-    ReshapeTilePara shapePara;
-    std::vector<int64_t> alignedShape = {kNumZero, kNumTwo};  // rawShape in AlignToRaw = shapePara.shape
-    std::vector<int64_t> rawShape = {kNumSix};
-    std::vector<int64_t> tileOffset = {kNumZero, kNumZero};
-    std::vector<int64_t> tileShape = {kNumZero, kNumThree};
-    shapePara = {alignedShape, rawShape, tileOffset, tileShape};
-    std::vector<int64_t> newOffset, newShape;
-    Status status = pass.AlignToRaw(shapePara, newOffset, newShape);
-    EXPECT_EQ(status, FAILED);   // line 537: rawShape[i] is 0
-}
-
-TEST_F(TestSplitReshapePass, TestAlignToRawStrideNotDivisibleByRawShape) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestReshapeSplit", "TestReshapeSplit", nullptr);
-    ASSERT_TRUE(currFunctionPtr != nullptr);
-    SplitReshape pass;
-    ReshapeTilePara shapePara;
-    std::vector<int64_t> alignedShape = {kNumFour};   // rawShape = [4]
-    std::vector<int64_t> rawShape = {kNumSix};        // newRawshape = [6], stride=6, 6%4!=0
-    std::vector<int64_t> tileOffset = {kNumZero};
-    std::vector<int64_t> tileShape = {kNumFour};
-    shapePara = {alignedShape, rawShape, tileOffset, tileShape};
-    std::vector<int64_t> newOffset, newShape;
-    Status status = pass.AlignToRaw(shapePara, newOffset, newShape);
-    EXPECT_EQ(status, FAILED);   // line 541: stride % rawShape[i] != 0
 }
 }
 }

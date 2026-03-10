@@ -13,12 +13,12 @@
  * \brief
  */
 
-#include <limits>
 #include <torch/torch.h>
-#include "calc_api.h"
-#include "fp8_convert.h"
+#include <limits>
 #include "tilefwk/error.h"
-#include "securec.h"
+#include "../calc_api.h"
+#include "interpreter/calculator/fp8_convert.h"
+#include "interface/utils/log.h"
 
 namespace npu::tile_fwk {
 
@@ -140,20 +140,6 @@ static void Exp(const TensorData &out, const TensorData &self) {
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
-static void Exp2(const TensorData &out, const TensorData &self) {
-    auto tout = From(out);
-    auto tself = From(self);
-    torch::exp2_out(tout.second, tself.second);
-    ToOperand(tout.second, tout.first, out.dtype);
-}
-
-static void Expm1(const TensorData &out, const TensorData &self) {
-    auto tout = From(out);
-    auto tself = From(self);
-    torch::expm1_out(tout.second, tself.second);
-    ToOperand(tout.second, tout.first, out.dtype);
-}
-
 static void Neg(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     auto tself = From(self);
@@ -165,13 +151,6 @@ static void Sign(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     auto tself = From(self);
     torch::sign_out(tout.second, tself.second);
-    ToOperand(tout.second, tout.first, out.dtype);
-}
-
-static void Signbit(const TensorData &out, const TensorData &self) {
-    auto tout = From(out);
-    auto tself = From(self);
-    torch::signbit_out(tout.second, tself.second);
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
@@ -335,8 +314,6 @@ DEFINE_BINARY_S_OPS(SubS, sub_out)
 DEFINE_BINARY_S_OPS(MulS, mul_out)
 DEFINE_BINARY_S_OPS(DivS, div_out)
 DEFINE_BINARY_S_OPS(FmodS, fmod_out)
-DEFINE_BINARY_S_OPS(RemainderS, remainder_out)
-DEFINE_BINARY_S_OPS(RemainderRS, remainder_out)
 DEFINE_BINARY_S_OPS(BitwiseAndS, bitwise_and_out)
 DEFINE_BINARY_S_OPS(BitwiseOrS, bitwise_or_out)
 DEFINE_BINARY_S_OPS(BitwiseXorS, bitwise_xor_out)
@@ -345,21 +322,21 @@ static void Add(const TensorData &out, const TensorData &self, const TensorData 
     auto tself = From(self);
     auto tother = From(other);
     auto tout = From(out);
-
+    
     std::vector<int64_t> shape_self = tself.second.sizes().vec();
     std::vector<int64_t> shape_other = tother.second.sizes().vec();
 
     if (shape_self.size() == 2 && shape_other.size() == 2 &&
-        shape_self[0] == shape_other[0] &&
+        shape_self[0] == shape_other[0] && 
         shape_self[1] != shape_other[1]) {
-
+        
         if (shape_other[1] == 8) {
             int64_t cols_self = shape_self[1];
             int64_t cols_other = shape_other[1];
             int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
             auto tother_expanded = tother.second.repeat({1, repeat_times});
             auto tother_final = tother_expanded.index(
-                {torch::indexing::Slice(),
+                {torch::indexing::Slice(), 
                  torch::indexing::Slice(0, cols_self)});
             torch::add_out(tout.second, tself.second, tother_final);
         } else {
@@ -375,21 +352,21 @@ static void Sub(const TensorData &out, const TensorData &self, const TensorData 
     auto tself = From(self);
     auto tother = From(other);
     auto tout = From(out);
-
+    
     std::vector<int64_t> shape_self = tself.second.sizes().vec();
     std::vector<int64_t> shape_other = tother.second.sizes().vec();
 
     if (shape_self.size() == 2 && shape_other.size() == 2 &&
-        shape_self[0] == shape_other[0] &&
+        shape_self[0] == shape_other[0] && 
         shape_self[1] != shape_other[1]) {
-
+        
         if (shape_other[1] == 8) {
             int64_t cols_self = shape_self[1];
             int64_t cols_other = shape_other[1];
             int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
             auto tother_expanded = tother.second.repeat({1, repeat_times});
             auto tother_final = tother_expanded.index(
-                {torch::indexing::Slice(),
+                {torch::indexing::Slice(), 
                  torch::indexing::Slice(0, cols_self)});
             torch::sub_out(tout.second, tself.second, tother_final);
         } else {
@@ -405,21 +382,21 @@ static void Mul(const TensorData &out, const TensorData &self, const TensorData 
     auto tself = From(self);
     auto tother = From(other);
     auto tout = From(out);
-
+    
     std::vector<int64_t> shape_self = tself.second.sizes().vec();
     std::vector<int64_t> shape_other = tother.second.sizes().vec();
 
     if (shape_self.size() == 2 && shape_other.size() == 2 &&
-        shape_self[0] == shape_other[0] &&
+        shape_self[0] == shape_other[0] && 
         shape_self[1] != shape_other[1]) {
-
+        
         if (shape_other[1] == 8) {
             int64_t cols_self = shape_self[1];
             int64_t cols_other = shape_other[1];
             int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
             auto tother_expanded = tother.second.repeat({1, repeat_times});
             auto tother_final = tother_expanded.index(
-                {torch::indexing::Slice(),
+                {torch::indexing::Slice(), 
                  torch::indexing::Slice(0, cols_self)});
             torch::mul_out(tout.second, tself.second, tother_final);
         } else {
@@ -435,21 +412,21 @@ static void Div(const TensorData &out, const TensorData &self, const TensorData 
     auto tself = From(self);
     auto tother = From(other);
     auto tout = From(out);
-
+    
     std::vector<int64_t> shape_self = tself.second.sizes().vec();
     std::vector<int64_t> shape_other = tother.second.sizes().vec();
 
     if (shape_self.size() == 2 && shape_other.size() == 2 &&
-        shape_self[0] == shape_other[0] &&
+        shape_self[0] == shape_other[0] && 
         shape_self[1] != shape_other[1]) {
-
+        
         if (shape_other[1] == 8) {
             int64_t cols_self = shape_self[1];
             int64_t cols_other = shape_other[1];
             int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
             auto tother_expanded = tother.second.repeat({1, repeat_times});
             auto tother_final = tother_expanded.index(
-                {torch::indexing::Slice(),
+                {torch::indexing::Slice(), 
                  torch::indexing::Slice(0, cols_self)});
             torch::div_out(tout.second, tself.second, tother_final);
         } else {
@@ -469,16 +446,16 @@ static void Hypot(const TensorData &out, const TensorData &self, const TensorDat
     std::vector<int64_t> shape_other = tother.second.sizes().vec();
 
     if (shape_self.size() == 2 && shape_other.size() == 2 &&
-        shape_self[0] == shape_other[0] &&
+        shape_self[0] == shape_other[0] && 
         shape_self[1] != shape_other[1]) {
-
+        
         if (shape_other[1] == 8) {
             int64_t cols_self = shape_self[1];
             int64_t cols_other = shape_other[1];
             int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
             auto tother_expanded = tother.second.repeat({1, repeat_times});
             auto tother_final = tother_expanded.index(
-                {torch::indexing::Slice(),
+                {torch::indexing::Slice(), 
                  torch::indexing::Slice(0, cols_self)});
             torch::hypot_out(tout.second, tself.second, tother_final);
         } else {
@@ -495,21 +472,21 @@ static void Fmod(const TensorData &out, const TensorData &self, const TensorData
     auto tself = From(self);
     auto tother = From(other);
     auto tout = From(out);
-
+    
     std::vector<int64_t> shape_self = tself.second.sizes().vec();
     std::vector<int64_t> shape_other = tother.second.sizes().vec();
 
     if (shape_self.size() == 2 && shape_other.size() == 2 &&
-        shape_self[0] == shape_other[0] &&
+        shape_self[0] == shape_other[0] && 
         shape_self[1] != shape_other[1]) {
-
+        
         if (shape_other[1] == 8) {
             int64_t cols_self = shape_self[1];
             int64_t cols_other = shape_other[1];
             int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
             auto tother_expanded = tother.second.repeat({1, repeat_times});
             auto tother_final = tother_expanded.index(
-                {torch::indexing::Slice(),
+                {torch::indexing::Slice(), 
                  torch::indexing::Slice(0, cols_self)});
             torch::fmod_out(tout.second, tself.second, tother_final);
         } else {
@@ -520,28 +497,6 @@ static void Fmod(const TensorData &out, const TensorData &self, const TensorData
     }
     ToOperand(tout.second, tout.first, out.dtype);
 }
-
-static void PReLU(const TensorData &out, const TensorData &self, const TensorData &weight) {
-    auto tout = From(out);
-    auto tself = From(self);
-    auto tweight = From(weight);
-
-    auto result = torch::where(tself.second >= 0, tself.second, tweight.second * tself.second);
-    tout.second.copy_(result);
-    ToOperand(tout.second, tout.first, out.dtype);
-}
-
-#define DEFINE_BINARY_OPS(Name, op_out)                                                        \
-    static void Name(const TensorData &out, const TensorData &self, const TensorData &other) { \
-        auto tout = From(out);                                                                 \
-        auto tself = From(self);                                                               \
-        auto tother = From(other);                                                             \
-        torch::op_out(tout.second, tself.second, tother.second);                               \
-        ToOperand(tout.second, tout.first, out.dtype);                                         \
-    }
-
-DEFINE_BINARY_OPS(Remainder, remainder_out)
-DEFINE_BINARY_OPS(Gcd, gcd_out)
 
 static void Pow(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tout = From(out);
@@ -572,19 +527,6 @@ static void BitwiseXor(const TensorData &out, const TensorData &self, const Tens
     auto tself = From(self);
     auto tother = From(other);
     torch::bitwise_xor_out(tout.second, tself.second, tother.second);
-    ToOperand(tout.second, tout.first, out.dtype);
-}
-
-static void ExpandExpDif(const TensorData &out, const TensorData &self, const TensorData &other) {
-    auto tself = From(self);
-    auto tother = From(other);
-    auto tout = From(out);
-
-    auto shape = tself.second.sizes().vec();
-    auto expand = tother.second.expand(torch::IntArrayRef(shape));
-
-    torch::sub_out(tout.second, tself.second, expand);
-    torch::exp_out(tout.second, tout.second);
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
@@ -640,6 +582,14 @@ static void SBitwiseLeftShift(const TensorData &out, const Element &scalar, cons
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
+static void Gcd(const TensorData &out, const TensorData &self, const TensorData &other) {
+    auto tout = From(out);
+    auto tself = From(self);
+    auto tother = From(other);
+    torch::gcd_out(tout.second, tself.second, tother.second);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
 static void GcdS(const TensorData &out, const TensorData &self, const Element &scalar) {
     auto tout = From(out);
     auto tself = From(self);
@@ -677,21 +627,21 @@ static void Min(const TensorData &out, const TensorData &self, const TensorData 
     auto tself = From(self);
     auto tother = From(other);
     auto tout = From(out);
-
+    
     std::vector<int64_t> shape_self = tself.second.sizes().vec();
     std::vector<int64_t> shape_other = tother.second.sizes().vec();
 
     if (shape_self.size() == 2 && shape_other.size() == 2 &&
-        shape_self[0] == shape_other[0] &&
+        shape_self[0] == shape_other[0] && 
         shape_self[1] != shape_other[1]) {
-
+        
         if (shape_other[1] == 8) {
             int64_t cols_self = shape_self[1];
             int64_t cols_other = shape_other[1];
             int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
             auto tother_expanded = tother.second.repeat({1, repeat_times});
             auto tother_final = tother_expanded.index(
-                {torch::indexing::Slice(),
+                {torch::indexing::Slice(), 
                  torch::indexing::Slice(0, cols_self)});
             torch::min_out(tout.second, tself.second, tother_final);
         } else {
@@ -707,21 +657,21 @@ static void Max(const TensorData &out, const TensorData &self, const TensorData 
     auto tself = From(self);
     auto tother = From(other);
     auto tout = From(out);
-
+    
     std::vector<int64_t> shape_self = tself.second.sizes().vec();
     std::vector<int64_t> shape_other = tother.second.sizes().vec();
 
     if (shape_self.size() == 2 && shape_other.size() == 2 &&
-        shape_self[0] == shape_other[0] &&
+        shape_self[0] == shape_other[0] && 
         shape_self[1] != shape_other[1]) {
-
+        
         if (shape_other[1] == 8) {
             int64_t cols_self = shape_self[1];
             int64_t cols_other = shape_other[1];
             int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
             auto tother_expanded = tother.second.repeat({1, repeat_times});
             auto tother_final = tother_expanded.index(
-                {torch::indexing::Slice(),
+                {torch::indexing::Slice(), 
                  torch::indexing::Slice(0, cols_self)});
             torch::max_out(tout.second, tself.second, tother_final);
         } else {
@@ -744,13 +694,6 @@ static void MaxS(const TensorData &out, const TensorData &self, const Element &e
     auto tout = From(out);
     auto tself = From(self);
     torch::clamp_min_out(tout.second, tself.second, From(elem));
-    ToOperand(tout.second, tout.first, out.dtype);
-}
-
-static void LReLU(const TensorData &out, const TensorData &self, const Element &negative_slope = Element(DataType::DT_FP32, 0.01)) {
-    auto tout = From(out);
-    auto tself = From(self);
-    torch::leaky_relu_out(tout.second, tself.second, From(negative_slope));
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
@@ -799,15 +742,15 @@ static void CompareImpl(const TensorData &out, const torch::Tensor& tself, const
         if (tmp_result.dim() > 0) {
             int64_t last_dim = tmp_result.size(-1);
             ASSERT(last_dim % NUM_VALUE_8 == 0) << "Last dimension must be divisible by 8 in BIT mode";
-
+            
             auto shape = tmp_result.sizes().vec();
             shape.back() = last_dim / NUM_VALUE_8;
-
+            
             torch::Tensor packed = torch::empty(shape, torch::kUInt8);
             auto tmp_result_contig = tmp_result.contiguous();
             auto tmp_data = tmp_result_contig.data_ptr<bool>();
             auto packed_data = packed.data_ptr<uint8_t>();
-
+            
             const int64_t num_elements = tmp_result.numel();
             for (int64_t i = 0; i < num_elements / NUM_VALUE_8; ++i) {
                 uint8_t byte = 0;
@@ -855,7 +798,6 @@ static void Cmps(const TensorData &out, const TensorData &self, const Element &e
 DEFINE_BINARY_PAIR_OPS(Sum, add_out)
 DEFINE_BINARY_PAIR_OPS(Max, max_out)
 DEFINE_BINARY_PAIR_OPS(Min, min_out)
-DEFINE_BINARY_PAIR_OPS(Prod, mul_out)
 
 std::vector<int64_t> GenAxesForTranspose(const int64_t offset, const std::vector<int64_t>& base) {
     std::vector<int64_t> axes;
@@ -971,6 +913,9 @@ static void QuantExecute(torch::Tensor &tout, const TensorData *scalePtr, uint64
 
 static void QuantPreCompute(const TensorData &out, const TensorData &self, const TensorData *scalePtr, uint64_t scale, int relu) {
     ASSERT(out.dataPtr != nullptr && self.dataPtr != nullptr);
+    ALOG_DEBUG_F("Quant input data type: %s, output data type: %s, relu: %d, scale: %llu.\n",
+        DataType2CCEStr(self.dtype).c_str(), DataType2CCEStr(out.dtype).c_str(),
+        relu, scale);
     ASSERT(out.dtype == DataType::DT_FP16 && self.dtype == DataType::DT_INT32);
     auto tself = From(self);
     auto tout = From(out);
@@ -1207,41 +1152,6 @@ void GatherElements(const TensorData &out, const TensorData &params, const Tenso
     ToOperand(ret.second, ret.first, out.dtype);
 }
 
-void GatherMask(const TensorData &out, const TensorData &self, int patternMode) {
-    auto ret = From(out);
-    auto src = From(self);
-    auto last_dim = src.second.size(src.second.dim() - 1);
-    if (patternMode == 7){
-        ret.second = src.second;
-    } else {
-        torch::Tensor selected_indices;
-        switch(patternMode) {
-            case 1:
-            selected_indices = torch::arange(0, last_dim, 2);
-            break;
-            case 2:
-            selected_indices = torch::arange(1, last_dim, 2);
-            break;
-            case 3:
-            selected_indices = torch::arange(0, last_dim, 4);
-            break;
-            case 4:
-            selected_indices = torch::arange(1, last_dim, 4);
-            break;
-            case 5:
-            selected_indices = torch::arange(2, last_dim, 4);
-            break;
-            case 6:
-            selected_indices = torch::arange(3, last_dim, 4);
-            break;
-            default:
-            ASSERT(patternMode >= 1 && patternMode <= 7) << "Invalid patternMode";
-        }
-        ret.second = src.second.index_select(-1, selected_indices);
-    }
-    ToOperand(ret.second, ret.first, out.dtype);
-}
-
 void IndexAdd(const TensorData &out, const TensorData &self, const TensorData &src, const TensorData &indices, int axis, const Element &alpha) {
     auto tout = From(out);
     auto inputSelf = From(self);
@@ -1276,7 +1186,7 @@ void CumSum(const TensorData &out, const TensorData &in, int axis) {
 
 void IndexPut(const TensorData &out, const TensorData &self, const std::vector<TensorData> &indices, const TensorData &values, bool accumulate) {
     c10::List<c10::optional<at::Tensor>> indicesList;
-    for (auto idx : indices) {
+    for (const auto idx : indices) {
         indicesList.push_back(From(idx).second);
     }
     auto tout = From(out);
@@ -1349,20 +1259,6 @@ static void RowMaxLine(const TensorData &out, const TensorData &self, int dim) {
     auto tout = From(out);
     auto ret = torch::max(tself.second, dim, true);
     ToOperand(std::get<0>(ret), tout.first, out.dtype);
-}
-
-static void RowProdSingle(const TensorData &out, const TensorData &self, int dim) {
-    auto tout = From(out);
-    auto tself = From(self);
-    torch::prod_out(tout.second, tself.second, {dim}, true);
-    ToOperand(tout.second, tout.first, out.dtype);
-}
-
-static void RowProdLine(const TensorData &out, const TensorData &self, int dim) {
-    auto tout = From(out);
-    auto tself = From(self);
-    torch::prod_out(tout.second, tself.second, {dim}, true);
-    ToOperand(tout.second, tout.first, out.dtype);
 }
 
 static void Reshape(const TensorData &out, const TensorData &self) {
@@ -1926,18 +1822,18 @@ static void ScatterElement(const TensorData &out, const TensorData &self, const 
 static void Brcb(const TensorData &out, const TensorData &self) {
     auto tself = From(self);
     auto tout = From(out);
-
+    
     std::vector<int64_t> input_shape = tself.second.sizes().vec();
     std::vector<int64_t> output_shape = tout.second.sizes().vec();
-
+    
     int64_t M = input_shape[0];
-    int64_t N = output_shape[1];
-    auto first_col = tself.second.index({torch::indexing::Slice(), 0});
-    auto expanded = first_col.unsqueeze(1).expand({M, N});
+    int64_t N = output_shape[1]; 
+    auto first_col = tself.second.index({torch::indexing::Slice(), 0}); 
+    auto expanded = first_col.unsqueeze(1).expand({M, N}); 
     tout.second.copy_(expanded);
     ToOperand(tout.second, tout.first, out.dtype);
 }
-
+    
 static void Scatter(const TensorData &out, const TensorData &self, const TensorData &index,
     const TensorData &src, int axis, int reduce) {
     auto output = From(out);
@@ -1962,12 +1858,9 @@ static struct CalcOps calcOps = {
     .AllClose = AllClose,
     .Cast = Cast,
     .Exp = Exp,
-    .Exp2 = Exp2,
-    .Expm1 = Expm1,
     .Neg = Neg,
     .Rsqrt = Rsqrt,
     .Sign = Sign,
-    .Signbit = Signbit,
     .Sqrt = Sqrt,
     .Ceil = Ceil,
     .Floor = Floor,
@@ -1983,7 +1876,6 @@ static struct CalcOps calcOps = {
     .WhereTS = WhereTS,
     .WhereST = WhereST,
     .WhereSS = WhereSS,
-    .LReLU = LReLU,
     .Ln = Ln,
     .IsFinite = IsFinite,
     .LogicalNot = LogicalNot,
@@ -1991,15 +1883,12 @@ static struct CalcOps calcOps = {
     .Compare = Compare,
     .Cmps = Cmps,
     .Hypot = Hypot,
-    .PReLU = PReLU,
     .LogicalAnd = LogicalAnd,
     .AddS = AddS,
     .SubS = SubS,
     .MulS = MulS,
     .DivS = DivS,
     .FmodS = FmodS,
-    .RemainderS = RemainderS,
-    .RemainderRS = RemainderRS,
     .BitwiseAndS = BitwiseAndS,
     .BitwiseOrS = BitwiseOrS,
     .BitwiseXorS = BitwiseXorS,
@@ -2009,18 +1898,15 @@ static struct CalcOps calcOps = {
     .Mul = Mul,
     .Div = Div,
     .Fmod = Fmod,
-    .Remainder = Remainder,
     .Pow = Pow,
     .BitwiseAnd = BitwiseAnd,
     .BitwiseOr = BitwiseOr,
     .BitwiseXor = BitwiseXor,
-    .ExpandExpDif = ExpandExpDif,
     .CopySign = CopySign,
     .Gcd = Gcd,
     .PairSum = PairSum,
     .PairMax = PairMax,
     .PairMin = PairMin,
-    .PairProd = PairProd,
     .Min = Min,
     .Max = Max,
     .MinS = MinS,
@@ -2031,15 +1917,12 @@ static struct CalcOps calcOps = {
     .RowSumSingle = RowSumSingle,
     .RowMinSingle = RowMinSingle,
     .RowMaxSingle = RowMaxSingle,
-    .RowProdSingle = RowProdSingle,
     .RowMinLine = RowMinLine,
     .RowMaxLine = RowMaxLine,
-    .RowProdLine = RowProdLine,
     .OneHot = OneHot,
     .ExpandS = ExpandS,
     .Expand = Expand,
     .GatherElements = GatherElements,
-    .GatherMask = GatherMask,
     .IndexAdd = IndexAdd,
     .TriU = TriU,
     .TriL = TriL,

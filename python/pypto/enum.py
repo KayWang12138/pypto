@@ -10,7 +10,6 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
-import enum
 
 from . import pypto_impl
 
@@ -27,7 +26,6 @@ CastMode = pypto_impl.CastMode
 OpType = pypto_impl.OpType
 OutType = pypto_impl.OutType
 ReLuType = pypto_impl.ReLuType
-TransMode = pypto_impl.TransMode
 ScatterMode = pypto_impl.ScatterMode
 AtomicType = pypto_impl.AtomicType
 
@@ -60,14 +58,3 @@ DT_UINT64 = pypto_impl.DataType.DT_UINT64
 DT_BOOL = pypto_impl.DataType.DT_BOOL
 DT_DOUBLE = pypto_impl.DataType.DT_DOUBLE
 DT_BOTTOM = pypto_impl.DataType.DT_BOTTOM
-
-
-class StatusType(enum.Enum):
-    DYN = "DYN"
-    DYNAMIC = "DYNAMIC"
-    STATIC = "STATIC"
-
-
-DYN = StatusType.DYN
-DYNAMIC = StatusType.DYNAMIC
-STATIC = StatusType.STATIC

@@ -182,37 +182,11 @@ bool ReduceNeedCombineAxis(const Operation &op) {
     return false;
 }
 
-void CodegenPreproc::FixExpandDimForAxisCombine(Operation &op, int dimSize) const {
-    if (op.GetOpcode() == Opcode::OP_EXPAND) {
-        int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM");
-        if (axis == dimSize - NUM2) {
-            op.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", axis + 1);
-        }
-    }
-}
-
-inline bool SkipInputCombineOps3510(Operation& op) {
-    const std::unordered_set<Opcode> skipInputCombineOps3510 = {Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL,
-        Opcode::OP_DIV, Opcode::OP_MAXIMUM, Opcode::OP_MINIMUM};
-    if (skipInputCombineOps3510.count(op.GetOpcode()) == 0) {
-        return false;
-    }
-    auto lhs = op.GetIOperands()[0];
-    auto rhs = op.GetIOperands()[1];
-    if (lhs->GetShape() == rhs->GetShape()) {
-        return false;
-    }
-    return true;
-}
-
 Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
     const std::set<Opcode> skipInputCombineOps = {Opcode::OP_BRCB, Opcode::OP_EXPAND};
     for (auto &subProgram : func.rootFunc_->programs_) {
         for (auto &op : subProgram.second->Operations(false)) {
             if (OpcodeManager::Inst().GetCoreType(op.GetOpcode()) != OpCoreType::AIV && !IsUBCopy(op)) {
-                continue;
-            }
-            if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && SkipInputCombineOps3510(op)) {
                 continue;
             }
             std::vector<bool> inputCombineAxis;
@@ -230,8 +204,6 @@ Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
             for (size_t i = 0; i < outputs.size(); ++i) {
                 if (outputs[i]->tensor->rawshape.back() == 1 && ReduceNeedCombineAxis(op)) {
                     outputCombineAxis.push_back(true);
-                    // OP_EXPAND 只有单输出，此处只会执行一次
-                    FixExpandDimForAxisCombine(op, static_cast<int>(outputs[i]->tensor->rawshape.size()));
                 } else {
                     outputCombineAxis.push_back(false);
                 }
@@ -282,6 +254,10 @@ void CodegenPreproc::SetNeedAllocAttr(Function &function) {
 }
 
 Status CodegenPreproc::RunOnFunction(Function &function) {
+    if (config::GetPassGlobalConfig(KEY_ENABLE_VF, false)) {
+        config::SetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE, 1);
+        APASS_LOG_INFO_F(Elements::Operation, "Set valid_shape_optimize as 1 for vf is enabled.");
+    }
     combineAxis = function.paramConfigs_.combineAxis;
     forceCombineAxis = function.paramConfigs_.forceCombineAxis;
     APASS_LOG_INFO_F(Elements::Operation, "===============================================================> Start CodegenPreproc.");

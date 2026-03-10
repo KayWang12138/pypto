@@ -62,13 +62,18 @@ if (BUILD_WITH_CANN)
     else ()
         set(ASCEND_CANN_PACKAGE_PATH)
     endif ()
-    if ("${ASCEND_CANN_PACKAGE_PATH}x" STREQUAL "x" OR NOT EXISTS "${ASCEND_CANN_PACKAGE_PATH}")
-        set(BUILD_WITH_CANN OFF)
-        message(STATUS "ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH} is empty or not exist, auto turn off BUILD_WITH_CANN")
+    if (BUILD_OPEN_PROJECT)
+        if ("${ASCEND_CANN_PACKAGE_PATH}x" STREQUAL "x" OR NOT EXISTS "${ASCEND_CANN_PACKAGE_PATH}")
+            set(BUILD_WITH_CANN OFF)
+            message(STATUS "ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH} is empty or not exist, auto turn off BUILD_WITH_CANN")
+        endif ()
+    else ()
+        set(ASCEND_CANN_PACKAGE_PATH)
     endif ()
 endif ()
 message(STATUS "ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH}")
 message(STATUS "BUILD_WITH_CANN=${BUILD_WITH_CANN}")
+
 
 # 获取 3rd Path
 if (PYPTO_THIRD_PARTY_PATH)
@@ -164,14 +169,16 @@ set(CMAKE_CXX_EXTENSIONS OFF)  # 禁用 C 编译器扩展, 使用纯 ISO C++17 �
 
 # 构建阶段(Build)
 #   CCACHE 配置
-find_program(CCACHE_PROGRAM ccache)
-if (CCACHE_PROGRAM)
-    set(CMAKE_C_COMPILER_LAUNCHER   ${CCACHE_PROGRAM} CACHE PATH "C cache Compiler")
-    set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM} CACHE PATH "CXX cache Compiler")
-    message(STATUS "Use ccache, CCACHE_BASEDIR=$ENV{CCACHE_BASEDIR}")
-else ()
-    message(STATUS "ccache not found.")
-endif ()
+if (BUILD_OPEN_PROJECT)
+    find_program(CCACHE_PROGRAM ccache)
+    if (CCACHE_PROGRAM)
+        set(CMAKE_C_COMPILER_LAUNCHER   ${CCACHE_PROGRAM} CACHE PATH "C cache Compiler")
+        set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM} CACHE PATH "CXX cache Compiler")
+        message(STATUS "Use ccache, CCACHE_BASEDIR=$ENV{CCACHE_BASEDIR}")
+    else ()
+        message(STATUS "ccache not found.")
+    endif ()
+endif()
 
 # 构建阶段(Build)
 #   输出路径
@@ -193,7 +200,9 @@ message(STATUS "CMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
 ########################################################################################################################
 # 预处理
 ########################################################################################################################
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+if (BUILD_OPEN_PROJECT)
+    set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+endif()
 
 if (NOT "${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
     if (ENABLE_GCOV)
@@ -312,8 +321,7 @@ endif ()
 ########################################################################################################################
 
 # torch optional
-set(ENABLE_TORCH_VERIFIER OFF)
-if (ENABLE_TESTS)
+if (ENABLE_TESTS OR ENABLE_FEATURE_PYTHON_FRONT_END)
     if ("${PY3_MOD_TORCH_VERSION}" STRGREATER_EQUAL "2.1.0")
         if ((CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "9.4.0") OR
             (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "15.0.0"))
@@ -321,4 +329,3 @@ if (ENABLE_TESTS)
         endif()
     endif()
 endif()
-message(STATUS "ENABLE_TORCH_VERIFIER=${ENABLE_TORCH_VERIFIER}")

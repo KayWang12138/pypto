@@ -292,8 +292,6 @@ void DeviceExecuteContext::DumpDeviceTask(uint64_t taskId, DynDeviceTask *device
         for (size_t i = 0; i < outcastSize; ++i) {
             DEV_TRACE_DEBUG(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), RActOutcast(i, dupped->SchemaGetOutcastRange(i))));
         }
-        DEV_TRACE_DEBUG(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), RActExpressionCount(dupped->GetExpressionSize())));
-        DEV_TRACE_DEBUG_SPLIT(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), expr(dupped->SchemaGetExpressionList())));
     }
 }
 
@@ -560,7 +558,7 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, u
     uint64_t memType = (reinterpret_cast<uint64_t*>(value))[1];
     uint64_t size = (reinterpret_cast<uint64_t*>(value))[2];
     constexpr uint64_t memTypeCount = 2;
-    constexpr uint64_t OFFSET_BITS = 54UL;
+    constexpr uint64_t OFFSET_BITS = 58UL;
     constexpr uint64_t GROUP_BITS = 2UL;
     constexpr uint64_t MEMTYPE_BITS = 2UL;
     constexpr uint64_t GROUP_SHIFT = OFFSET_BITS;
@@ -571,10 +569,8 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, u
     DEV_ASSERT(groupIndex < ctx->args->commGroupNum);
     auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(ctx->args->commContexts[groupIndex]);
     uint64_t winSize = memType == 0 ? hcclOpParam->winDataSize : hcclOpParam->winStatusSize;
-    uint64_t shmemAddrEndOffset = ctx->shmemAddrOffset[memType] + size;
-    if (shmemAddrEndOffset > winSize) {
+    if (ctx->shmemAddrOffset[memType] + size > winSize) {
         ctx->shmemAddrOffset[memType] = 0UL;
-        DEV_ERROR("Exceeds winSize limit. Maximum allowed: %lu, got: %lu", winSize, shmemAddrEndOffset);
     }
     uint64_t vaddr = ctx->shmemAddrOffset[memType] | (groupIndex << GROUP_SHIFT) | (memType << MEMTYPE_SHIFT) | (1UL << FILL_SHIFT);
     ctx->shmemAddrOffset[memType] += size;

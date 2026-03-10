@@ -267,7 +267,7 @@ public:
                 return;
             }
         } catch (...) {
-            FUNCTION_LOGE("json parse error");
+            ALOG_ERROR_F("json parse error");
         }
     }
 };

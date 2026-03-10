@@ -1,6 +1,6 @@
 # 编译与执行
 
-PyPTO通过函数定义在NPU硬件上构建可编译的计算图结构，并利用@pypto.frontend.jit装饰器实现即时编译（JIT），从而充分发挥NPU的并行计算能力，从而提升算子执行效率。
+PyPTO通过函数定义在NPU硬件上构建可编译的计算图结构，并利用@pypto.jit装饰器实现即时编译（JIT），从而充分发挥NPU的并行计算能力，从而提升算子执行效率。
 
 ## Kernel函数定义
 
@@ -9,34 +9,31 @@ PyPTO通过函数定义在NPU硬件上构建可编译的计算图结构，并利
 -   基础函数定义：
 
     ```python
-    def add_kernel(input: pypto.Tensor) -> pypto.Tensor:
+    def add_kernel(input: pypto.Tensor, output: pypto.Tensor):
         # Tiling setting
         pypto.set_vec_tile_shapes(1, 4, 1, 64)
-        return input + 1
+        output[:] = input + 1
     ```
 
 -   多输入输出函数定义：
 
     ```python
-    def add_kernel(input0: pypto.Tensor, input1: pypto.Tensor) -> pypto.Tensor:
+    def add_kernel(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor):
          # Tiling setting
          pypto.set_vec_tile_shapes(1, 4, 1, 64)
-         return input0 + input1
+         output[:] = input0 + input1
     ```
 
 ## JIT编译
 
-当通过PyPTO函数完成kernel的计算流及数据流的编写，可以加上pypto.frontend.jit的装饰器， 标记该函数为JIT编译目标，触发PyPTO的编译流程。
+当通过PyPTO函数完成kernel的计算流及数据流的编写，可以加上pypto.jit的装饰器， 标记该函数为JIT编译目标，触发PyPTO的编译流程。
 
 ```python
-@pypto.frontend.jit
-def add_kernel(
-    input0: pypto.Tensor((1, 4, 1, 64), pypto.DT_FP32),
-    input1: pypto.Tensor((1, 4, 1, 64), pypto.DT_FP32),
-) -> pypto.Tensor((1, 4, 1, 64), pypto.DT_FP32):
+@pypto.jit
+def add_kernel(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor):
      # Tiling setting
      pypto.set_vec_tile_shapes(1, 4, 1, 64)
-     return input0 + input1
+     output[:] = input0 + input1
 ```
 
 JIT编译流程为：
@@ -44,7 +41,7 @@ JIT编译流程为：
 -   首次调用时，函数以“记录模式”执行，操作被记录并优化为计算图，经编译器生成针对NPU的优化代码后缓存二进制文件；
 -   后续调用时，函数直接调用缓存的二进制文件在NPU上执行，无需重复编译。
 
-完整样例请参考：[hello_world](../../../examples/00_hello_world/hello_world.py)。
+完整样例请参考：[add_direct.py](../../../examples/01_beginner/basic/add_direct.py)。
 
 
 ## 条件编译
@@ -52,14 +49,14 @@ JIT编译流程为：
 JIT装饰器支持参数配置，可根据配置支持不同的条件编译：
 
 ```python
-@pypto.frontend.jit(
+@pypto.jit(
     host_options={},               
-    pass_options={},
+    pass_options={},                                    
     runtime_options={},
-    verify_options={},
+    verify_options={},                                    
     debug_options={}
 )
-def advanced_function(input0, input1):
+def advanced_function(input0, input1, output):
     # 实现自定义计算逻辑
     pass
 ```
@@ -86,9 +83,7 @@ pypto.set_codegen_options(support_dynamic_aligned=True)
 您可以定义多个JIT函数并将它们一起使用：
 
 ```python
-B = pypto.frontend.dynamic("B")
-
-def add_core(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor, val: int, add1_flag: bool = False):
+def add_core(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor, val:int, add1_flag: bool = False):
     pypto.set_vec_tile_shapes(1, 4, 1, 64)
     if add1_flag:
         t3 = input0 + input1
@@ -96,40 +91,28 @@ def add_core(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor, v
     else:
         output[:] = input0 + input1
 
-@pypto.frontend.jit
-def add_kernel_true(
-    input0: pypto.Tensor((B, 4, 1, 64), pypto.DT_FP32),
-    input1: pypto.Tensor((B, 4, 1, 64), pypto.DT_FP32),
-    val: int
-) -> pypto.Tensor((B, 4, 1, 64), pypto.DT_FP32):
-    output = pypto.tensor((B, 4, 1, 64), pypto.DT_FP32)
+@pypto.jit
+def add_kernel_true(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor, val: int):
     add_core(input0, input1, output, val, True)
-    return output
 
 
-@pypto.frontend.jit
-def add_kernel_false(
-    input0: pypto.Tensor((B, 4, 1, 64), pypto.DT_FP32),
-    input1: pypto.Tensor((B, 4, 1, 64), pypto.DT_FP32),
-    val: int
-) -> pypto.Tensor((B, 4, 1, 64), pypto.DT_FP32):
-    output = pypto.tensor((B, 4, 1, 64), pypto.DT_FP32)
+@pypto.jit
+def add_kernel_false(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor, val: int):
     add_core(input0, input1, output, val, False)
-    return output
 
 
 #使用这两个函数 
-def add_add1flag_false(input_data0, input_data1, val=0):
-    output_data = add_kernel_false(input_data0, input_data1, val)
-    return output_data
+def add_add1flag_false(input_data0, input_data1, output_data, val=0): dynamic_axis=False):
+    ...
+    add_kernel_false(pto_input0, pto_input1, pto_output, val)
 
-def add_add1flag_true(input_data0, input_data1, val=0):
-    output_data = add_kernel_true(input_data0, input_data1, val)
-    return output_data
+def add_add1flag_true(input_data0, input_data1, output_data, val=0, dynamic_axis=False):
+    ...
+    add_kernel_true(pto_input0, pto_input1, pto_output, val)
 
-add_add1flag_false(input_data0, input_data1, val)
-add_add1flag_true(input_data0, input_data1, val)
+add_add1flag_false(input_data0, input_data1, output_data, val, True)
+add_add1flag_true(input_data0, input_data1, output_data1, val, True)
 ```
 
-完整样例请参考：[multi_jit.py](../../../examples/03_advanced/patterns/function/multi_jit.py)
+完整样例请参考：[add_scalar_loop_multi_jit.py](../../../examples/03_advanced/patterns/add_scalar_loop_multi_jit.py)
 

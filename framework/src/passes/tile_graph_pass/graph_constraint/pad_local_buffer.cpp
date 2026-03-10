@@ -54,8 +54,8 @@ bool PadLocalBuffer::IsInputInt8(const Operation &op, const LogicalTensorPtr &in
         return false;
     }
 
-    APASS_LOG_DEBUG_F(Elements::Tensor, "Matmul Op %d is %s\n", op.opmagic, op.GetOpcodeStr().c_str());
-    APASS_LOG_DEBUG_F(Elements::Tensor, "####### %d data type is %s\n", in->magic, DataType2VectorRegStr(in->tensor->GetDataType()).c_str());
+    APASS_LOG_DEBUG_F(Elements::Tensor, "Tensor", "Matmul Op %d is %s\n", op.opmagic, op.GetOpcodeStr().c_str());
+    APASS_LOG_DEBUG_F(Elements::Tensor, "Tensor", "####### %d data type is %s\n", in->magic, DataType2VectorRegStr(in->tensor->GetDataType()).c_str());
 
     bool matmulOp = std::find(cubeOps.begin(), cubeOps.end(), op.GetOpcode()) != cubeOps.end();
     bool opsInputInt8 = false;
@@ -69,8 +69,7 @@ bool PadLocalBuffer::IsInputInt8(const Operation &op, const LogicalTensorPtr &in
         return true;
     }
 
-    if (op.GetOpcode() == Opcode::OP_COPY_OUT || op.GetOpcode() == Opcode::OP_L0C_TO_L1 ||
-        op.GetOpcode() == Opcode::OP_L0C_COPY_UB) {
+    if (op.GetOpcode() == Opcode::OP_COPY_OUT || op.GetOpcode() == Opcode::OP_L0C_TO_L1) {
         Operation *inProducerPtr = *in->GetProducers().begin();
         if (inProducerPtr != nullptr && inProducerPtr->GetIOperands().size() != 0 &&
             inProducerPtr->GetIOperands()[0] != nullptr && inProducerPtr->GetIOperands()[0]->tensor != nullptr) {
@@ -149,7 +148,7 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
         另外，bias或fixpipe场景只做低维16元素对齐，高维保持不变
         Before:
         L1_TO_L0A --> L0A (shape:[24, 400]) ------------------------->    \
-        L1_TO_BT --> bias_BT (shape:[1, 8]) -----> (address misalign)  A_MUL_B
+        L1_TO_BT --> bias_BT (shape:[1, 8]) -----> (address misalign)  A_MUL_B 
         L1_TO_L0B --> L0B (shape:[400, 16]) ------------------------->    /
 
         After:
@@ -476,7 +475,7 @@ Status PadLocalBuffer::ProcessTranspose(Function &function) {
         }
         auto transposeAxis = op.GetVectorIntAttribute<int>(OP_ATTR_PREFIX + "shape");
         if (transposeAxis.size() != TRANSPOSE_MIN_SHAPE_SIZE) {
-            APASS_LOG_DEBUG_F(Elements::Tensor, "transpose op %d %s's shape size %zu is not two, skip.", op.opmagic, op.GetOpcodeStr().c_str(), transposeAxis.size());
+            APASS_LOG_DEBUG_F(Elements::Tensor, "transpose op %d %s's shape size %d is not two, skip.", op.opmagic, op.GetOpcodeStr().c_str(), transposeAxis.size());
             continue;
         }
         if (op.iOperand.size() <= 0 || op.oOperand.size() <= 0) {
@@ -503,7 +502,7 @@ Status PadLocalBuffer::ProcessTranspose(Function &function) {
         auto &inLastDim = inTensor->shape[lastDimIdx];
         auto &outFirstDim = outTensor->shape[nonLastDimIdx];
         if (inLastDim != outFirstDim) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "tune transpose output dim %ld to %ld.", static_cast<long>(inLastDim), static_cast<long>(outFirstDim));
+            APASS_LOG_DEBUG_F(Elements::Operation, "tune transpose output dim %d to %d.", inLastDim, outFirstDim);
             outTensor->shape[nonLastDimIdx] = inLastDim;
             outTensor->tensor->rawshape[nonLastDimIdx] = inLastDim;
         }
@@ -609,11 +608,10 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
             AlignedRawTensorIfNeed(out, lastIdx, paddingValue);
             visitedRaw.emplace(out->tensor);
         }
-        return;
     }
     if (calcType == OpCalcType::BROADCAST) {
         auto dimIdx = lastIdx;
-        if (axisCombineMarker.IsTensorEnableAxisCombine(in)) {
+        if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 && axisCombineMarker.IsTensorEnableAxisCombine(in)) {
             dimIdx = ProcessBroadcastForAxisCombine(in);
         }
         AlignedRawTensorIfNeed(in, dimIdx, paddingValue);

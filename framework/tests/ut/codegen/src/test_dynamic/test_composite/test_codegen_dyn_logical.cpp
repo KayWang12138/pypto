@@ -80,12 +80,13 @@ TEST_F(TestCodegenDynLogical, TestDynOpLogicalAnd) {
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
-    CodeGenOpCloudNPU cop(opCtx);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
     function->GetTensorMap().inverseMap_[localTensorInput1->GetMagic()] = localTensorInput1;
     function->GetTensorMap().inverseMap_[localTensorInput2->GetMagic()] = localTensorInput2;
     function->GetTensorMap().inverseMap_[localTensorRes->GetMagic()] = localTensorRes;
     function->GetTensorMap().inverseMap_[localTensorTmp->GetMagic()] = localTensorTmp;
+
+    cop.Init(op);
     std::string res = cop.GenOpCode();
     std::string expect =
         R"!!!(TileOp::DynTlogicalAnd<float, float, 64, 64, 64>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 64, 64);
@@ -127,11 +128,12 @@ TEST_F(TestCodegenDynLogical, TestDynOpLogicalNot) {
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
-    CodeGenOpCloudNPU cop(opCtx);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
     function->GetTensorMap().inverseMap_[localTensorInput->GetMagic()] = localTensorInput;
     function->GetTensorMap().inverseMap_[localTensorRes->GetMagic()] = localTensorRes;
     function->GetTensorMap().inverseMap_[localTensorTmpCond->GetMagic()] = localTensorTmpCond;
+
+    cop.Init(op);
     std::string res = cop.GenOpCode();
     std::string expect =
         R"!!!(TileOp::DynTlogicalNot<float, 64, 64>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 64, 64);
@@ -175,11 +177,11 @@ std::string TestLogicalBody(Opcode opcode) {
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPUCtx opCtx(symbolManager, *function, *function->rootFunc_->programs_[0], op, {});
-    CodeGenOpCloudNPU cop(opCtx);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
     function->GetTensorMap().inverseMap_[logicalInTensor->GetMagic()] = logicalInTensor;
     function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
 
+    cop.Init(op);
     cop.UpdateTileTensorInfo();
     return cop.GenOpCode();
 }

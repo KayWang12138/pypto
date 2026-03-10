@@ -23,6 +23,7 @@
 #include "interface/operation/operation.h"
 #include "interface/tensor/tensor_offset.h"
 #include "interface/utils/id_gen.h"
+#include "interface/utils/log.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/symbolic_scalar.h"
 #include "tilefwk/tilefwk.h"
@@ -282,8 +283,7 @@ OperationsViewer Function::Operations(bool sorted) {
 
 bool Function::IsCube() const {
     for (const auto &oper : OperationsViewer(operations_, opPosition_)) {
-        if ((oper.HasAttr(OpAttributeKey::isCube) && oper.GetBoolAttribute(OpAttributeKey::isCube))
-            || oper.GetOpcode() == Opcode::OP_L1_COPY_IN_CONV) {
+        if (oper.HasAttr(OpAttributeKey::isCube) && oper.GetBoolAttribute(OpAttributeKey::isCube)) {
             return true;
         }
     }
@@ -1193,27 +1193,28 @@ void Function::ProducerMagicLookup(const Function *function, const LogicalTensor
         if (subGraphId != INT32_MIN && op->GetSubgraphID() != subGraphId) {
             continue;
         }
+        if (op->GetOOperands().size() > 1) {
+            for (size_t idx = 0; idx < op->GetOOperands().size(); idx++) {
+                if (op->GetOutputOperand(idx) == tensor) {
+                    ss << "ooperand " << idx << " ";
+                }
+            }
+        }
+        bool isInBoundary = OpcodeManager::Inst().IsBoundaryIn(op->GetOpcode());
+        if (isInBoundary) {
+            /* 除了最高轴之外的所有内轴都纳入到hash的计算中 */
+            for (size_t idx = 1; idx < op->iOperand[0]->tensor->rawshape.size(); idx++) {
+                ss << op->iOperand[0]->tensor->rawshape[idx] << " ";
+            }
+        }
+        bool isOutBoundary = OpcodeManager::Inst().IsBoundaryOut(op->GetOpcode());
+        if (isOutBoundary) {
+            /* 除了最高轴之外的所有内轴都纳入到hash的计算中 */
+            for (size_t idx = 1; idx < op->oOperand[0]->tensor->rawshape.size(); idx++) {
+                ss << op->oOperand[0]->tensor->rawshape[idx] << " ";
+            }
+        }
         ss << " " << op->GetOpcodeStr(true);
-        for (size_t idx = 0; idx < op->GetOOperands().size(); idx++) {
-            if (op->GetOutputOperand(idx) == tensor) {
-                ss << "oAttrOffset " << idx << " " << op->GetOOpAttrOffset(idx) << " ";
-            }
-        }
-        for (size_t idx = 0; idx < op->GetIOperands().size(); idx++) {
-            ss << "iAttrOffset " << idx << " " << op->GetIOpAttrOffset(idx) << " ";
-        }
-        if (function->GetFunctionType() == FunctionType::STATIC) {
-            if (OpcodeManager::Inst().IsBoundaryIn(op->GetOpcode())) {
-                for (size_t idx = 1; idx < op->iOperand[0]->tensor->rawshape.size(); idx++) {
-                    ss << op->iOperand[0]->tensor->rawshape[idx] << " ";
-                }
-            }
-            if (OpcodeManager::Inst().IsBoundaryOut(op->GetOpcode())) {
-                for (size_t idx = 1; idx < op->oOperand[0]->tensor->rawshape.size(); idx++) {
-                    ss << op->oOperand[0]->tensor->rawshape[idx] << " ";
-                }
-            }
-        }
         for (const auto &attr : OpcodeManager::Inst().GetAttrs(op->GetOpcode())) {
             ss << " attr: [" << attr << " : "
                << op->DumpAttr(attr) << "]";
@@ -1328,15 +1329,6 @@ unsigned long Function::ComputeHashOrderless() const {
     // temporary avoidance, switch SUPPORT_DYNAMIC_ALIGNED has an unexpected effect on dynamic binary reuse
     if (functionType_ == FunctionType::DYNAMIC) {
         ss << "dynamic unaligned:" << config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_ALIGNED);
-    }
-    if (leafFuncAttr_ != nullptr) {
-        // mixId标识同一次Mix拆出来的leafFunction组
-        if (leafFuncAttr_->mixId != LeafFuncAttribute::INVALID_MIX_ID) {
-            ss << " MIX_ID:" << leafFuncAttr_->mixId;
-        }
-        if (leafFuncAttr_->aivCore != AIVCore::UNSPECIFIED) {
-            ss << " AIV_CORE:" << static_cast<int>(leafFuncAttr_->aivCore);
-        }
     }
     std::hash<std::string> hasher;
     auto result = hasher(ss.str());
@@ -2076,10 +2068,13 @@ Json Function::DumpJson(bool useTable) {
     funcJson["_opseed"] = opSeed_;
     funcJson["_rawid"] = IdGen<IdType::RAW_TENSOR>::Inst().CurId();
     funcJson["_funcid"] = IdGen<IdType::FUNCTION>::Inst().CurId();
+    funcJson["_l1_reuse_mode"] = paramConfigs_.L1ReuseMode;
+    funcJson["_cube_nbuffer_mode"] = paramConfigs_.cubeNBufferMode;
     funcJson["_sg_pg_upperbound"] = paramConfigs_.sgPgUpperBound;
     funcJson["_sg_pg_lowerbound"] = paramConfigs_.sgPgLowerBound;
     funcJson["_sg_parallel_num"] = paramConfigs_.sgParallelNum;
     funcJson["_sg_mg_copyin_upper_bound"] = paramConfigs_.sgMgCopyInUpperBound;
+    funcJson["_vec_nbuffer_mode"] = paramConfigs_.vecNBuffermode;
     funcJson["_mg_vec_parallel_lb"] = paramConfigs_.mgVecParallelLb;
     funcJson["_pg_skip_partition"] = paramConfigs_.pgSkipPartition;
     funcJson["_total_subgraph_count"] = totalSubGraphCount_;
@@ -2393,10 +2388,13 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     IdGen<IdType::RAW_TENSOR>::Inst().SetId(rawid);
     int funcid = funcJson["_funcid"].get<int>();
     IdGen<IdType::FUNCTION>::Inst().SetId(funcid);
+    func->paramConfigs_.L1ReuseMode = funcJson["_l1_reuse_mode"].get<int>();
+    func->paramConfigs_.cubeNBufferMode = funcJson["_cube_nbuffer_mode"].get<int>();
     func->paramConfigs_.sgPgUpperBound = funcJson["_sg_pg_upperbound"].get<int>();
     func->paramConfigs_.sgPgLowerBound = funcJson["_sg_pg_lowerbound"].get<int>();
     func->paramConfigs_.sgParallelNum = funcJson["_sg_parallel_num"].get<int>();
     func->paramConfigs_.sgMgCopyInUpperBound = funcJson["_sg_mg_copyin_upper_bound"].get<int>();
+    func->paramConfigs_.vecNBuffermode = funcJson["_vec_nbuffer_mode"].get<int>();
     func->paramConfigs_.mgVecParallelLb = funcJson["_mg_vec_parallel_lb"].get<int>();
     func->paramConfigs_.pgSkipPartition = funcJson["_pg_skip_partition"].get<bool>();
     auto subGraphCount = funcJson["_total_subgraph_count"].get<size_t>();
@@ -3399,7 +3397,7 @@ std::vector<OriArgInfo> Function::GetOpOriginArgsInfo() {
             outcast->GetCachePolicy(CachePolicy::PREFETCH)};
         if (args.count(subscript) > 0) {
             ASSERT(args.at(subscript) == info)
-                << "args.at(subscript): " << args.at(subscript).Dump() << ", info: " << info.Dump();
+                << "args.at(subscript): " << args.at(subscript).Dump() << ", info: " << info.Dump();;
         } else {
             args.emplace(subscript, info);
         }
@@ -3654,9 +3652,6 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
 
             auto assembleResult = std::make_shared<LogicalTensor>(*this, matches[0]->Datatype(), maximumShape,
                 iOperand->Format(), "Assemble_" + matches[0]->Symbol(), iOperand->nodetype);
-            if (!iOperand->GetDynValidShape().empty()) {
-                assembleResult->UpdateDynValidShape(iOperand->GetDynValidShape());
-            }
             ASSERT(assembleResult->GetProducers().empty()) "Assemble result should have no producers";
             for (size_t idx = 0; idx < matches.size(); idx++) {
                 auto &assembleOp = AddRawOperation(Opcode::OP_ASSEMBLE, {matches[idx]}, {assembleResult});
@@ -3665,9 +3660,6 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
 
             auto viewResult = std::make_shared<LogicalTensor>(*this, assembleResult->Datatype(), iOperand->shape,
                 iOperand->Format(), "View_" + assembleResult->Symbol(), assembleResult->nodetype);
-            if (!iOperand->GetDynValidShape().empty()) {
-                viewResult->UpdateDynValidShape(iOperand->GetDynValidShape());
-            }
             auto &viewOp = AddRawOperation(Opcode::OP_VIEW, {assembleResult}, {viewResult});
             std::vector<int64_t> newOffset = TensorOffset::Sub(iOperand->GetOffset(), minimumOffset);
             std::vector<SymbolicScalar> newDynOffset = TensorOffset::Sub(iOperand->GetDynOffset(), minimumOffset);

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import torch
 
 from . import pypto_impl
 from .converter import _gen_pto_tensor, from_torch
-from ._utils import BuildOnlineManager
 
 __all__ = [
     "_device_init",
@@ -130,10 +129,6 @@ class _JIT:
 
     def verify_begin(self, tensors):
         if isinstance(self._verify_options, dict) and self._verify_options.get("enable_pass_verify"):
-            # Compile and load calculator
-            mgr = BuildOnlineManager()
-            mgr.build_and_load_calculator()
-
             host_pto_tensors, _ = _gen_pto_tensor(tensors)
             host_pto_t_datas = _pto_to_tensor_data(host_pto_tensors)
             for i, dev_tensor in enumerate(_pto_to_tensor_data(tensors)):
@@ -296,33 +291,15 @@ def verify(func, inputs, outputs, goldens, *args,
     pypto_impl.OperatorEnd(handler)
 
 
-def _check_tensor_on_cpu(tensor, kind: str, index: int):
-    """Raise if tensor (torch.Tensor or pypto.Tensor) is on device; must be CPU-side."""
-    if isinstance(tensor, torch.Tensor):
-        if tensor.device.type != 'cpu':
-            raise ValueError(
-                f"set_verify_golden_data: {kind} must be on CPU, but {kind}[{index}] "
-                f"(torch.Tensor) is on device '{tensor.device}'. Please call .cpu() before passing."
-            )
-        return
-    if isinstance(tensor, pypto.Tensor) and tensor.device is not None:
-        if getattr(tensor.device, 'type', None) != 'cpu':
-            raise ValueError(
-                f"set_verify_golden_data: {kind} must be on CPU, but {kind}[{index}] "
-                f"(pypto.Tensor) is on device '{tensor.device}'. Please use CPU data, e.g. pypto.from_torch(t.cpu())."
-            )
-
-
 def set_verify_golden_data(in_out_tensors=None, goldens=None):
     from .enum import DT_FP16
     pto_goldens = []
     if goldens:
-        for idx, golden in enumerate(goldens):
+        for golden in goldens:
             if golden is None:
                 data = pypto_impl.DeviceTensorData(DT_FP16, 0, [0, 0])
                 pto_goldens.append(data)
                 continue
-            _check_tensor_on_cpu(golden, "goldens", idx)
             if not isinstance(golden, pypto.Tensor):
                 t = pypto.from_torch(golden)
             else:
@@ -338,8 +315,7 @@ def set_verify_golden_data(in_out_tensors=None, goldens=None):
 
     if in_out_tensors:
         pto_in_out = []
-        for idx, t in enumerate(in_out_tensors):
-            _check_tensor_on_cpu(t, "in_out_tensors", idx)
+        for t in in_out_tensors:
             pto_in_out.append(t if isinstance(t, pypto.Tensor)
                               else pypto.from_torch(t))
 

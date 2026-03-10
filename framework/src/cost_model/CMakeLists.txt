@@ -11,3 +11,4 @@
 add_subdirectory(simulation)
 add_subdirectory(simulation_ca)
 add_subdirectory(simulation_pv)
+add_subdirectory(simulation_platform)
