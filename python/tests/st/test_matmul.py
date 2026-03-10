@@ -55,6 +55,7 @@ class ExtendParams:
     scale_dtype: np.dtype = None
     scale: int = None
     relu_type: int = None
+    trans_mode: pypto.TransMode = pypto.TransMode.CAST_NONE
 
 
 def trans_nd_to_fractal_nz(data: torch.Tensor, keep_m_dim=False):
@@ -215,3 +216,127 @@ def test_bmm_with_mn_split():
         shape_info
     )
     assert torch.allclose(c1_tensor.cpu().to(torch.float32), golden.cpu().to(torch.float32), atol=1e-3, rtol=1e-3)
+
+
+def fp32_to_tf32_modes(tensor: torch.Tensor):
+    if tensor.dtype != torch.float32:
+        tensor = tensor.to(torch.float32)
+    
+    sign = torch.sign(tensor)
+    abs_tensor = torch.abs(tensor)
+    bits = abs_tensor.view(torch.int32)
+    truncate_mask = 0xFFFFE000
+    half_ulp_mask = 0x00001000
+    less_than_half_mask = 0x00000FFF
+    increment_mask = 0x00002000
+    last_bit_mask = 0x00002000
+    tensor_trunc = torch.tensor(truncate_mask, dtype=torch.int64)
+    tensor_half = torch.tensor(half_ulp_mask, dtype=torch.int64)
+    tensor_less = torch.tensor(less_than_half_mask, dtype=torch.int64)
+    tensor_inc = torch.tensor(increment_mask, dtype=torch.int64)
+    tensor_last = torch.tensor(last_bit_mask, dtype=torch.int64)
+    truncated = bits & tensor_trunc
+    round_part = bits & (tensor_half | tensor_less)
+    greater_than_half = (round_part > tensor_half)
+    equal_to_half = (round_part == tensor_half)
+    last_bit_is_one = (truncated & tensor_last) != 0
+    ties_need_increment = equal_to_half & last_bit_is_one
+    needs_increment_rne = greater_than_half | ties_need_increment
+    res_bits_rne = torch.where(needs_increment_rne, truncated + tensor_inc, truncated)
+    needs_increment_rafz = (round_part >= tensor_half)
+    res_bits_rafz = torch.where(needs_increment_rafz, truncated + tensor_inc, truncated)
+    res_abs_rne = res_bits_rne.view(torch.float32)
+    res_abs_rafz = res_bits_rafz.view(torch.float32)
+    is_special = ~torch.isfinite(tensor)
+    res_rne = sign * res_abs_rne
+    res_rafz = sign * res_abs_rafz
+    res_rne = torch.where(is_special, tensor, res_rne)
+    res_rafz = torch.where(is_special, tensor, res_rafz)
+    diff = (res_rafz[0][0] - res_rne[0][0]).item()
+
+    return res_rne, res_rafz
+
+
+def create_mm_kernel_with_mn_split_with_param_tf32(tile_config, extend_config):
+    m = tile_config.ori_shape[0]
+    k = tile_config.ori_shape[1]
+    n = tile_config.ori_shape[2]
+    a_format = pypto.TileOpFormat.TILEOP_NZ if tile_config.a_format_nz else pypto.TileOpFormat.TILEOP_ND
+    b_format = pypto.TileOpFormat.TILEOP_NZ if tile_config.b_format_nz else pypto.TileOpFormat.TILEOP_ND
+    a_shape = (k, m) if tile_config.a_trans else (m, k)
+    b_shape = (n, k) if tile_config.b_trans else (k, n)
+    tile_shape = (tile_config.m_tile_shape, tile_config.k_tile_shape, tile_config.n_tile_shape)
+
+    @pypto.frontend.jit(runtime_options={"run_mode": 0})
+    def matmul_kernel(
+        a_tensor: pypto.Tensor(a_shape, tile_config.in_dtype, format=a_format),
+        b_tensor: pypto.Tensor(b_shape, tile_config.in_dtype, format=b_format),
+        out_tensor: pypto.Tensor((m, n), tile_config.out_dtype, format=pypto.TileOpFormat.TILEOP_ND)
+    ):
+        pypto.set_cube_tile_shapes(*tile_shape, True, False)
+        pypto.set_vec_tile_shapes(tile_shape[0][0], tile_shape[2][0])
+        tile_m = tile_config.view_shape[0]
+        tile_n = tile_config.view_shape[1]
+        m_loop = (m + tile_m - 1) // tile_m
+        n_loop = (n + tile_n - 1) // tile_n
+        for m_idx in pypto.loop(0, m_loop, 1, name="LOOP_L0_mIdx", idx_name="m_idx"):
+            for n_idx in pypto.loop(0, n_loop, 1, name="LOOP_L1_nIdx", idx_name="n_idx"):
+                m_offset = m_idx * tile_m
+                n_offset = n_idx * tile_n
+                if tile_config.a_trans:
+                    input_a_view = a_tensor[0:k, m_offset:m_offset + tile_m]
+                else:
+                    input_a_view = a_tensor[m_offset:m_offset + tile_m, 0:k]
+                if tile_config.b_trans:
+                    input_b_view = b_tensor[n_offset:n_offset + tile_n, 0:k]
+                else:
+                    input_b_view = b_tensor[0:k, n_offset:n_offset + tile_n]
+                output_view = pypto.matmul(input_a_view, input_b_view, out_dtype=tile_config.out_dtype,
+                                            a_trans=tile_config.a_trans, b_trans=tile_config.b_trans, c_matrix_nz=False,
+                                            extend_params={"trans_mode": extend_config.trans_mode})
+                out_tensor[m_offset:m_offset + tile_m, n_offset:n_offset + tile_n] = output_view
+    return matmul_kernel
+
+
+@pytest.mark.soc("950")
+def test_tf32_rint():
+    m = 255
+    k = 127
+    n = 513
+    tile_m = 64
+    tile_k = 64
+    tile_n = 64
+    m_view = 128
+    n_view = 256
+    tile_config = ShapeConfig([m, k, n], [tile_m, tile_m], [tile_k, tile_k], [tile_n, tile_n], [m_view, n_view], FP32,
+                                FP32, True, True, False, False, False, False, False)
+    extend_config = ExtendParams(trans_mode=pypto.TransMode.CAST_RINT)
+    a1_tensor = torch.rand([k, m], dtype=torch.float32)
+    b1_tensor = torch.rand([n, k], dtype=torch.float32)
+    golden = torch.matmul(fp32_to_tf32_modes(a1_tensor.to(torch.float32).T)[0],
+                            fp32_to_tf32_modes(b1_tensor.to(torch.float32).T)[0])
+    c1 = torch.empty([m, n], dtype=torch.float32).npu()
+    create_mm_kernel_with_mn_split_with_Param_tf32(tile_config, extend_config)(a1_tensor.npu(), b1_tensor.npu(), c1)
+    assert torch.allclose(c1.cpu().to(torch.float32), golden, atol=1e-3, rtol=1e-3)
+
+
+@pytest.mark.soc("950")
+def test_tf32_round():
+    m = 257
+    k = 129
+    n = 511
+    tile_m = 128
+    tile_k = 128
+    tile_n = 128
+    m_view = 256
+    n_view = 128
+    tile_config = ShapeConfig([m, k, n], [tile_m, tile_m], [tile_k, tile_k], [tile_n, tile_n], [m_view, n_view], FP32,
+                                FP32, True, True, False, False, False, False, False)
+    extend_config = ExtendParams(trans_mode=pypto.TransMode.CAST_ROUND)
+    b1_tensor = torch.rand([n, k], dtype=torch.float32)
+    a1_tensor = torch.rand([k, m], dtype=torch.float32)
+    golden = torch.matmul(fp32_to_tf32_modes(a1_tensor.to(torch.float32).T)[1],
+                            fp32_to_tf32_modes(b1_tensor.to(torch.float32).T)[1])
+    c1 = torch.empty([m, n], dtype=torch.float32).npu()
+    create_mm_kernel_with_mn_split_with_Param_tf32(tile_config, extend_config)(a1_tensor.npu(), b1_tensor.npu(), c1)
+    assert torch.allclose(c1.cpu().to(torch.float32), golden, atol=1e-3, rtol=1e-3)
