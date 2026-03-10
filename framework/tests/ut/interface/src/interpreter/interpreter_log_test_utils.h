@@ -50,12 +50,7 @@ static inline std::string InterpLogTestGetHostLogDir() {
 
 // 与 LogManager 一致：日志文件名形如 pypto-log-<tid>-<timestamp>.log，这里按当前线程 tid 过滤
 static inline std::string InterpLogTestGetThreadLogPrefix() {
-#ifdef __NR_gettid
-    long tid = syscall(__NR_gettid);
-#else
-    long tid = getpid();
-#endif
-    return std::string(kInterpLogTestHostLogFilePrefix) + std::to_string(tid) + "-";
+    return std::string(kInterpLogTestHostLogFilePrefix) + std::to_string(getpid()) + "_";
 }
 
 static inline std::map<std::string, size_t> InterpLogTestListHostLogFilesWithSize(const std::string &dir,
