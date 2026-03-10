@@ -65,6 +65,8 @@ from typing import Optional, List, Dict, Tuple, Any
 from importlib import metadata
 from packaging import requirements
 
+from cmake.scripts.analysis_changed_files import Analysis as AnalysisChangedFiles
+
 
 class CMakeParam(abc.ABC):
     """CMake 参数抽象基类
@@ -917,6 +919,7 @@ class BuildCtrl(CMakeParam):
         self.pip_dependence_desc: Dict[str, str] = {"pip": ">=22.1"}
         self.pip_support_config_setting = self.check_pip_dependencies(deps=self.pip_dependence_desc,
                                                                       raise_err=False, log_err=False)
+        self.changed_files_analysis = AnalysisChangedFiles(rule=Path(self.src_root, "classify_rule.yaml"))
 
     def __str__(self) -> str:
         """返回构建控制参数的字符串表示
@@ -1082,6 +1085,8 @@ class BuildCtrl(CMakeParam):
         # 流程处理
         if ctrl.verbose:
             logging.getLogger().setLevel(logging.DEBUG)
+
+
         # 区分 python3 前端和 cpp 前端
         logging.info("%s", ctrl)
         if ctrl.feature.frontend_type_python3:
@@ -1091,8 +1096,6 @@ class BuildCtrl(CMakeParam):
             ctrl.py_tests()
         else:
             logging.info("Front-end(cpp), start process with CMake")
-            if 'func' in args:
-                args.func(args=args, ctrl=ctrl)
             ctrl.cmake_clean()
             ctrl.cmake_configure()
             ctrl.cmake_build()
@@ -1272,35 +1275,6 @@ class BuildCtrl(CMakeParam):
                 logging.info("Clean ast data cache folder(%s)", astdata_folder)
                 shutil.rmtree(astdata_folder)
 
-    def py_clean(self):
-        """清理 Python 前端构建的中间结果
-
-        清理包括 CMake 构建目录, Python 缓存文件, 输出目录等. 仅在 clean 标记为 True 时执行额外清理.
-        """
-        self.cmake_clean()
-        if not self.clean:
-            return
-        pkg_src = Path(self.src_root, "python/pypto")
-        path_lst = [
-            Path(Path.cwd(), "output"),
-            Path(Path.cwd(), "kernel_meta"),
-            Path(self.src_root, "python/pypto.egg-info"),
-            Path(pkg_src, "__pycache__"),
-            Path(pkg_src, "op/__pycache__"),
-            Path(pkg_src, "lib"),  # edit 模式
-        ]
-        so_glob = pkg_src.glob(pattern=f"*.so")
-        so_path = [Path(p) for p in so_glob]
-        path_lst.extend(so_path)
-        for cache_dir in path_lst:
-            if not cache_dir.exists():
-                continue
-            logging.info("Clean Cache/Output Path(%s)", cache_dir)
-            if cache_dir.is_dir():
-                shutil.rmtree(cache_dir)
-            else:
-                os.remove(cache_dir)
-
     def cmake_configure(self):
         """执行 CMake Configure 阶段流程
 
@@ -1337,6 +1311,35 @@ class BuildCtrl(CMakeParam):
                 logging.info(f"CMake Build(%s/%s) failed, ERROR CODE: %s", i, len(cmd_list), e.returncode)
                 raise e
             logging.info("CMake Build(%s/%s) success, %s", i, len(cmd_list), duration)
+
+    def py_clean(self):
+        """清理 Python 前端构建的中间结果
+
+        清理包括 CMake 构建目录, Python 缓存文件, 输出目录等. 仅在 clean 标记为 True 时执行额外清理.
+        """
+        self.cmake_clean()
+        if not self.clean:
+            return
+        pkg_src = Path(self.src_root, "python/pypto")
+        path_lst = [
+            Path(Path.cwd(), "output"),
+            Path(Path.cwd(), "kernel_meta"),
+            Path(self.src_root, "python/pypto.egg-info"),
+            Path(pkg_src, "__pycache__"),
+            Path(pkg_src, "op/__pycache__"),
+            Path(pkg_src, "lib"),  # edit 模式
+        ]
+        so_glob = pkg_src.glob(pattern=f"*.so")
+        so_path = [Path(p) for p in so_glob]
+        path_lst.extend(so_path)
+        for cache_dir in path_lst:
+            if not cache_dir.exists():
+                continue
+            logging.info("Clean Cache/Output Path(%s)", cache_dir)
+            if cache_dir.is_dir():
+                shutil.rmtree(cache_dir)
+            else:
+                os.remove(cache_dir)
 
     def py_build(self):
         """whl 包编译处理
