@@ -1673,7 +1673,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
                   (reshapeOutputs[1] == reshapeOutputs[2]) + (reshapeOutputs[1] == reshapeOutputs[3]) + (reshapeOutputs[2] == reshapeOutputs[3]);
     const int expectEqCount = 2;
     EXPECT_EQ(eqCount, expectEqCount); // reshapeOutput共四个，两两相等，两组之间不等，所以预期相等数量为2。
-    for (const auto outputTensor : reshapeOutputs){
+    for (const auto &outputTensor : reshapeOutputs){
         EXPECT_EQ(outputTensor->GetConsumers().size(), kNumOne);
     }
 }
