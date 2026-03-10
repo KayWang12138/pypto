@@ -29,6 +29,7 @@
 #include "passes/statistics/ooo_schedule_statistic.h"
 #include "passes/block_graph_pass/schedule_ooo/buffer_pool.h"
 #include "passes/pass_utils/reschedule_utils.h"
+#include "passes/pass_utils/pass_utils.h"
 
 #ifndef MODULE_NAME
 #define MODULE_NAME "OoOScheduleBase"
@@ -36,11 +37,6 @@
 
 namespace npu::tile_fwk {
 
-constexpr int64_t MAX_L0A_SIZE = 64 * 1024;
-constexpr int64_t MAX_L0C_SIZE = 128 * 1024;
-constexpr int64_t MAX_BT_SIZE = 1 * 1024;
-constexpr int64_t MAX_FIX_SIZE = 1 * 1024;
-constexpr int64_t MAX_FIX_QUANT_PRE_SIZE = 1 * 2048;
 constexpr int32_t DIM_FIVE = 5;
 constexpr int32_t LAST_TWO_DIM = 2;
 constexpr int32_t UB_BLOCK_SIZE = 32;
@@ -100,23 +96,6 @@ public:
         }
         auto cacheIt = inOutOperandsCache_.emplace(op, std::move(inOutOperand)).first;
         return cacheIt->second;
-    }
-
-    void InitMemorySize() {
-        localMemSize = {
-            {MemoryType::MEM_L0A, MAX_L0A_SIZE}, {MemoryType::MEM_L0C, MAX_L0C_SIZE},
-            {MemoryType::MEM_BT, MAX_BT_SIZE}, {MemoryType::MEM_FIX, MAX_FIX_SIZE},
-            {MemoryType::MEM_FIX_QUANT_PRE, MAX_FIX_QUANT_PRE_SIZE},
-        };
-        localMemSize.insert({MemoryType::MEM_UB,
-            Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB)});
-        localMemSize.insert({MemoryType::MEM_L1,
-            Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L1)});
-        localMemSize.insert({MemoryType::MEM_L0B,
-            Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L0B)});
-        localMemSize.insert({MemoryType::MEM_FIX_QUANT_PRE,
-            Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_FIX_QUANT_PRE)});
-        localMemoryCurrentSize = localMemSize;
     }
 
     void InitOpConsumerAndProducer() {
@@ -434,7 +413,8 @@ public:
 
     Status Init(std::vector<Operation*> &opList) {
         // 初始化芯片各buffer大小
-        InitMemorySize();
+        localMemSize = CommonUtils::GetLocalMemorySize();
+ 	    localMemoryCurrentSize = localMemSize;
         operations = opList;
         InitOpConsumerAndProducer();
         for (auto& op : operations) {
