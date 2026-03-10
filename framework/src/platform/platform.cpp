@@ -281,7 +281,7 @@ void Platform::ObtainPlatformInfo() {
         parser = std::make_unique<INIParser>();
     } else {
         FUNCTION_LOGD("Cannot obtain platform through cann package, use simulation info.");
-        parser = std::make_unique<INIParser>();
+        parser = std::make_unique<CmdParser>();
     }
     LoadPlatformInfo(parser);
     initialized = true;
