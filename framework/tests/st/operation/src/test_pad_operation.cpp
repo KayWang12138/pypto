@@ -34,6 +34,27 @@ struct PadOpMetaData {
     nlohmann::json test_data_;
 };
 
+static void PadOperationExeFunc1Dims(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
+        SymbolicScalar firstDim = inputs[0].GetShape()[0];
+        const struct PadOpFuncArgs *args = static_cast<const PadOpFuncArgs *>(opArgs);
+        // viewshape不切分尾部两轴
+        const int firstViewShape = inputs[0].GetShape()[0];
+        const int bloop = CeilDiv(firstDim, firstViewShape);
+
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            auto tileTensor = View(inputs[0], {firstViewShape},
+                {std::min(firstDim - bIdx * firstViewShape, firstViewShape)},
+                {bIdx * firstViewShape});
+            TileShape::Current().SetVecTile(args->tileShape_);
+            int64_t padRight = outputs[0].GetShape()[0] - inputs[0].GetShape()[0];
+            auto res = Pad(tileTensor, {0, padRight}, "constant", args->padValue_);
+            Assemble(res, {bIdx * firstViewShape}, outputs[0]);
+        }
+    }
+}
+
 static void PadOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
@@ -142,12 +163,11 @@ static void PadOperationExeFunc4Dims(
     }
 }
 
-class PadOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<PadOpMetaData> {
-};
+class PadOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<PadOpMetaData> {};
 
 INSTANTIATE_TEST_SUITE_P(TestPad, PadOperationTest,
     ::testing::ValuesIn(GetOpMetaData<PadOpMetaData>(
-        {PadOperationExeFunc2Dims, PadOperationExeFunc3Dims, PadOperationExeFunc4Dims}, "Pad")));
+        {PadOperationExeFunc1Dims, PadOperationExeFunc2Dims, PadOperationExeFunc3Dims, PadOperationExeFunc4Dims}, "Pad")));
 
 TEST_P(PadOperationTest, TestPad) {
     auto test_data = GetParam().test_data_;
