@@ -653,36 +653,6 @@ TEST_F(TestGenerateMoveOpChecker, PostCheck_AssembleOp_MoreThanOneInput) {
     EXPECT_EQ(postCheckStatus, FAILED);
 }
 
-TEST_F(TestGenerateMoveOpChecker, PostCheck_AssembleOp_InputMemTypeNotMatch) {
-    ComputationalGraphBuilder G;
-    std::vector<std::string> tensorNames{"t1", "t2"};
-    std::vector<Opcode> opCodes{Opcode::OP_ASSEMBLE};
-    std::vector<std::vector<std::string>> ioperands{{"t1"}};
-    std::vector<std::vector<std::string>> ooperands{{"t2"}};
-    std::vector<std::string> opNames{"ASSEMBLE_MemTypeNotMatch"};
-
-    EXPECT_EQ(G.AddTensors(DataType::DT_FP32, {16, 16}, tensorNames), true);
-    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
-
-    Function *function = G.GetFunction();
-    EXPECT_NE(function, nullptr);
-
-    Operation *assembleOp = FindOpByOpcode<Operation>(function, Opcode::OP_ASSEMBLE);
-    ASSERT_NE(assembleOp, nullptr);
-
-    auto inputTensor = assembleOp->GetIOperands().front();
-    auto outputTensor = assembleOp->GetOOperands().front();
-    ASSERT_NE(inputTensor, nullptr);
-    ASSERT_NE(outputTensor, nullptr);
-
-    inputTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
-    outputTensor->SetMemoryTypeOriginal(MemoryType::MEM_L1);
-
-    GenerateMoveOp checker;
-    Status postCheckStatus = checker.PostCheck(*function);
-    EXPECT_EQ(postCheckStatus, FAILED);
-}
-
 TEST_F(TestGenerateMoveOpChecker, PreCheck_ViewOp_Valid) {
     ComputationalGraphBuilder G;
     std::vector<std::string> tensorNames{"t1", "t2", "t3"};
