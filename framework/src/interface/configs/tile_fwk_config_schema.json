@@ -294,6 +294,44 @@
                         "zh": "控制编译执行的阶段",
                         "en": "Set the stage of compile."
                     }
+                },
+                "compile_monitor_enable": {
+                    "type": "boolean",
+                    "default": true,
+                    "label": {
+                        "zh": "控制编译阶段是否开启编译过程进度打印",
+                        "en": "Control whether to enable compilation progress printing during the compilation phase."
+                    }
+                },
+                "interval_sec": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2147483647,
+                    "default": 60,
+                    "label": {
+                        "zh": "控制某个阶段编译过程进度打印的频率",
+                        "en": "Control the frequency of printing the compilation progress for a certain stage."
+                    }
+                },
+                "timeout_sec": {
+                    "type": "integer",
+                    "minimum": -1,
+                    "maximum": 2147483647,
+                    "default": -1,
+                    "label": {
+                        "zh": "控制某个阶段编译过程超时的时间",
+                        "en": "Control the timeout duration of a certain stage of the compilation process."
+                    }
+                },
+                "total_timeout_sec": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2147483647,
+                    "default": 600,
+                    "label": {
+                        "zh": "控制整个编译过程超时的时间",
+                        "en": "Control the timeout duration for the entire compilation process."
+                    }
                 }
             }
         },
