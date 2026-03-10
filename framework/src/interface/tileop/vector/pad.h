@@ -19,8 +19,8 @@
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
 
-template <typename DstTensor, typename SrcTensor>
-TILEOP void TPad(DstTensor dst, SrcTensor src, float padValue) {
+template <pto::PadValue padValue, typename DstTensor, typename SrcTensor>
+TILEOP void TPad(DstTensor dst, SrcTensor src) {
     constexpr auto dstShapeSize = Std::tuple_size<typename DstTensor::Shape>::value;
     constexpr auto srcShapeSize = Std::tuple_size<typename SrcTensor::Shape>::value;
     static_assert(srcShapeSize == dstShapeSize, "Pad: Src and Dst rank mismatch");
@@ -50,7 +50,7 @@ TILEOP void TPad(DstTensor dst, SrcTensor src, float padValue) {
     constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<SrcTensor, 3, 5>();
     constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<SrcTensor, 4, 5>();
     using DstTileType = pto::Tile<pto::TileType::Vec, DstDtype, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1,
-        pto::SLayout::NoneBox, 512, pto::PadValue::Zero>;
+        pto::SLayout::NoneBox, 512, padValue>;
     using SrcTileType = pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
 
     for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
@@ -65,7 +65,6 @@ TILEOP void TPad(DstTensor dst, SrcTensor src, float padValue) {
                 auto srcAddr = src.GetAddr() + srcOffset * sizeof(SrcDtype);
                 pto::TASSIGN(srcTile, srcAddr);
                 pto::TFILLPAD_EXPAND(dstTile, srcTile);
-                (void)padValue;
             }
         }
     }

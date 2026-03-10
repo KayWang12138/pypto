@@ -163,7 +163,7 @@ std::string CodeGenOpCloudNPU::GenDupOp() const {
         auto scalar = opAttrs.at(OpAttributeKey::scalar);
         ASSERT((scalar.HasValue()) && (scalar.Type() == typeid(Element)))
             << AnyCast<Element>(scalar).IsFloat() << "SCALAR attribute has to have float value.";
-        dupV = FormatFloat(AnyCast<Element>(scalar).Cast<float>());
+        dupV = FormatFloat(AnyCast<Element>(scalar).Cast<float>(), operandDtype[ToUnderlying(MISOIdx::DST_IDX)]);
     } else if (dstDtypeStr == "int32_t") {
         auto scalar = opAttrs.at(OpAttributeKey::scalar);
         ASSERT((scalar.HasValue()) && (scalar.Type() == typeid(Element)))
@@ -1631,24 +1631,22 @@ std::string CodeGenOpCloudNPU::PrintPreluTileTensor() const {
 }
 
 std::string CodeGenOpCloudNPU::PrintPadTileTensor() const {
-    enum class TensorIdx : int { dstIdx = 0, srcIdx = 1 };
-    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(TensorIdx::dstIdx));
-    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(TensorIdx::srcIdx));
-
-    float padValue = 0.0f;
-    if (opAttrs.count(OpAttributeKey::scalar) > 0) {
-        auto scalarAttr = opAttrs.at(OpAttributeKey::scalar);
-        auto scalarElement = AnyCast<Element>(scalarAttr);
-        padValue = static_cast<float>(scalarElement.GetFloatData());
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    auto c = extOperandVal.Cast<float>();
+    std::string padValue = "pto::PadValue::Zero";
+    if (c < 0) {
+        padValue = "pto::PadValue::Min";
+    } else if (c > 0) {
+        padValue = "pto::PadValue::Max";
     }
-
     std::vector<std::string> tileOpParamList = {
         dstTensor,
-        srcTensor,
-        std::to_string(padValue)
+        srcTensor
     };
+
     std::ostringstream oss;
-    oss << tileOpName;
+    oss << tileOpName << "<" << padValue << ">";
     oss << WrapParamByParentheses(tileOpParamList); 
     oss << STMT_END;
     return oss.str();

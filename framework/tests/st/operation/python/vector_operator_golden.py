@@ -957,7 +957,13 @@ def gen_pad_op_golden(case_name: str, output: Path, case_index: int = None) -> b
         output_shape = config["output_tensors"][0]["shape"]
         pad_right = output_shape[-1] - input_shape[-1]
         pad_bottom = output_shape[-2] - input_shape[-2]
-        pad_value = config.get("params", {}).get("pad_value", 0.0)
+        pad_value_type = config.get("params", {}).get("pad_value_type", "zero")
+        if pad_value_type == "min":
+            pad_value = -torch.inf
+        elif pad_value_type == "max":
+            pad_value = torch.inf
+        else:
+            pad_value = 0.0
         tensor = torch.from_numpy(inputs[0])
         result = F.pad(tensor, (0, pad_right, 0, pad_bottom), mode='constant', value=pad_value)
         return [result.numpy()]

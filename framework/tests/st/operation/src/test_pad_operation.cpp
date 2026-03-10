@@ -151,7 +151,13 @@ INSTANTIATE_TEST_SUITE_P(TestPad, PadOperationTest,
 
 TEST_P(PadOperationTest, TestPad) {
     auto test_data = GetParam().test_data_;
-    auto padValue = GetValueByName<float>(test_data, "pad_value");
+    std::string padValueType = GetValueByName<std::string>(test_data, "pad_value_type");
+    float padValue = 0.0f;
+    if (padValueType == "min") {
+        padValue = -std::numeric_limits<float>::infinity();
+    } else if (padValueType == "max") {
+        padValue = std::numeric_limits<float>::infinity();
+    }
     auto args = PadOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data), padValue);
     auto testCase = CreateTestCaseDesc<PadOpMetaData>(GetParam(), &args);
     TestExecutor::runTest(testCase);
