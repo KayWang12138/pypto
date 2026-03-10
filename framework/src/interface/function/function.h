@@ -615,8 +615,8 @@ public:
     int GetFuncMagic() const { return functionMagic_; }
     const TensorMap &GetTensorMap() const { return tensorMap_; }
     TensorMap &GetTensorMap() { return tensorMap_; }
-    int GetStackWorkespaceSize() const { return stackWorkespaceSize_; }
-    void SetStackWorkespaceSize(int size) { stackWorkespaceSize_ = size; }
+    int64_t GetStackWorkespaceSize() const { return stackWorkespaceSize_; }
+    void SetStackWorkespaceSize(int64_t size) { stackWorkespaceSize_ = size; }
 
     size_t GetTotalSubGraphCount() const { return totalSubGraphCount_; }
 
@@ -850,7 +850,7 @@ private:
     size_t totalAicSubGraphCount_ = 0;
     size_t totalAivSubGraphCount_ = 0;
     size_t totalSubGraphCount_ = 0;
-    int stackWorkespaceSize_ = 0;
+    int64_t stackWorkespaceSize_ = 0;
     FunctionHash functionHash_{0};
     std::vector<std::string> calleeMagicNameList_;
     std::unordered_set<std::string> loopIdxNameList_;
