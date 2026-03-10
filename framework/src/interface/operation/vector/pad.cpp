@@ -24,33 +24,57 @@ void TiledPadImpl(Function &function, const TileShape &tileShape, size_t cur, In
     size_t ndim = result->shape.size();
     auto &vecTile = tileShape.GetVecTile();
     if (cur == ndim) {
-        auto lastInputShape = input.tensor.GetShape()[ndim - 1];
-        auto preInputShape = input.tensor.GetShape()[ndim - 2];
-        auto lastResultShape = result->shape[ndim - 1];
-        auto preResultShape = result->shape[ndim - 2];
-        auto lastShape = input.tileInfo.shape[ndim - 1];
-        auto lastOffset = input.tileInfo.offset[ndim - 1];
-        auto preShape = input.tileInfo.shape[ndim - 2];
-        auto preOffset = input.tileInfo.offset[ndim - 2];
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
-        if (lastShape <= 0 || preShape <= 0) {
-            auto &op = function.AddOperation("TILE_VEC_DUP", {}, {resultTile});
-            op.SetAttribute(OpAttributeKey::scalar, padValue);
-            op.SetAttribute(OP_ATTR_PREFIX + "shape", resultTileInfo.shape);
-            op.SetAttribute(OP_ATTR_PREFIX + "validShape", resultTile->GetDynValidShape());
-        } else if (lastOffset + vecTile[ndim - 1] > lastInputShape || preOffset + vecTile[ndim - 2] > preInputShape) {
-            auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
-            auto &op = function.AddOperation(Opcode::OP_PAD, {inputTile}, {resultTile});
-            auto last = std::min(lastResultShape, lastOffset + vecTile[ndim - 1]);
-            auto pre = std::min(preResultShape, preOffset + vecTile[ndim - 2]);
-            padRight = last > lastInputShape ? last - lastInputShape : 0;
-            padBottom = pre > preInputShape ? pre - preInputShape : 0;
-            op.SetAttribute(OpAttributeKey::scalar, padValue);
-            op.SetAttribute(OP_ATTR_PREFIX + "pad_right", padRight);
-            op.SetAttribute(OP_ATTR_PREFIX + "pad_bottom", padBottom);
+        if (ndim == 1) {
+            auto lastInputShape = input.tensor.GetShape()[0];
+            auto lastResultShape = result->shape[0];
+            auto lastShape = input.tileInfo.shape[0];
+            auto lastOffset = input.tileInfo.offset[0];
+            if (lastShape <= 0) {
+                auto &op = function.AddOperation("TILE_VEC_DUP", {}, {resultTile});
+                op.SetAttribute(OpAttributeKey::scalar, padValue);
+                op.SetAttribute(OP_ATTR_PREFIX + "shape", resultTileInfo.shape);
+                op.SetAttribute(OP_ATTR_PREFIX + "validShape", resultTile->GetDynValidShape());
+            } else if (lastOffset + vecTile[0] > lastInputShape) {
+                auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
+                auto &op = function.AddOperation(Opcode::OP_PAD, {inputTile}, {resultTile});
+                auto last = std::min(lastResultShape, lastOffset + vecTile[0]);
+                padRight = last > lastInputShape ? last - lastInputShape : 0;
+                op.SetAttribute(OpAttributeKey::scalar, padValue);
+                op.SetAttribute(OP_ATTR_PREFIX + "pad_right", padRight);
+                op.SetAttribute(OP_ATTR_PREFIX + "pad_bottom", 0);
+            } else {
+                auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
+                function.AddOperation(Opcode::OP_REGISTER_COPY, {inputTile}, {resultTile});
+            }
         } else {
-            auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
-            function.AddOperation(Opcode::OP_REGISTER_COPY, {inputTile}, {resultTile});
+            auto lastInputShape = input.tensor.GetShape()[ndim - 1];
+            auto lastResultShape = result->shape[ndim - 1];
+            auto lastShape = input.tileInfo.shape[ndim - 1];
+            auto lastOffset = input.tileInfo.offset[ndim - 1];
+            auto preInputShape = input.tensor.GetShape()[ndim - 2];
+            auto preResultShape = result->shape[ndim - 2];
+            auto preShape = input.tileInfo.shape[ndim - 2];
+            auto preOffset = input.tileInfo.offset[ndim - 2];
+            if (lastShape <= 0 || preShape <= 0) {
+                auto &op = function.AddOperation("TILE_VEC_DUP", {}, {resultTile});
+                op.SetAttribute(OpAttributeKey::scalar, padValue);
+                op.SetAttribute(OP_ATTR_PREFIX + "shape", resultTileInfo.shape);
+                op.SetAttribute(OP_ATTR_PREFIX + "validShape", resultTile->GetDynValidShape());
+            } else if (lastOffset + vecTile[ndim - 1] > lastInputShape || preOffset + vecTile[ndim - 2] > preInputShape) {
+                auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
+                auto &op = function.AddOperation(Opcode::OP_PAD, {inputTile}, {resultTile});
+                auto last = std::min(lastResultShape, lastOffset + vecTile[ndim - 1]);
+                auto pre = std::min(preResultShape, preOffset + vecTile[ndim - 2]);
+                padRight = last > lastInputShape ? last - lastInputShape : 0;
+                padBottom = pre > preInputShape ? pre - preInputShape : 0;
+                op.SetAttribute(OpAttributeKey::scalar, padValue);
+                op.SetAttribute(OP_ATTR_PREFIX + "pad_right", padRight);
+                op.SetAttribute(OP_ATTR_PREFIX + "pad_bottom", padBottom);
+            } else {
+                auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
+                function.AddOperation(Opcode::OP_REGISTER_COPY, {inputTile}, {resultTile});
+            }
         }
         return;
     }
@@ -76,23 +100,37 @@ void TiledPadOperation(Function &function, const TileShape &tileShape, const Log
 LogicalTensorPtr TensorPadOperation(
     Function &function, const Tensor &self, const std::vector<int64_t> &padding, const std::string &mode, float value) {
     ASSERT(mode == "constant") << "Pad: only 'constant' mode is supported.";
-    ASSERT(padding.size() == 4) << "Pad: only support last 2 axis pad.";
-    ASSERT(padding[0] == 0 && padding[2] == 0) << "Pad: only support bottom and right pad.";
 
     auto operand = self.GetStorage();
     std::vector<int64_t> outputShape = operand->shape;
     size_t ndim = operand->shape.size();
-    int64_t padRight = padding[1];
-    int64_t padBottom = padding[3];
-    outputShape[ndim - 1] += padRight;
-    outputShape[ndim - 2] += padBottom;
+    int64_t padRight = 0;
+    int64_t padBottom = 0;
+
+    if (ndim == 1) {
+        ASSERT(padding.size() == 2) << "Pad: 1D tensor only support 2 padding values.";
+        ASSERT(padding[0] == 0) << "Pad: 1D tensor only support right pad.";
+        padRight = padding[1];
+        outputShape[0] += padRight;
+    } else {
+        ASSERT(padding.size() == 4) << "Pad: only support last 2 axis pad.";
+        ASSERT(padding[0] == 0 && padding[2] == 0) << "Pad: only support bottom and right pad.";
+        padRight = padding[1];
+        padBottom = padding[3];
+        outputShape[ndim - 1] += padRight;
+        outputShape[ndim - 2] += padBottom;
+    }
 
     std::vector<SymbolicScalar> resultValidShape;
     const auto &inputValidShape = operand->GetDynValidShape();
     if (!inputValidShape.empty()) {
         resultValidShape = inputValidShape;
-        resultValidShape[ndim - 1] = resultValidShape[ndim - 1] + padRight;
-        resultValidShape[ndim - 2] = resultValidShape[ndim - 2] + padBottom;
+        if (ndim == 1) {
+            resultValidShape[0] = resultValidShape[0] + padRight;
+        } else {
+            resultValidShape[ndim - 1] = resultValidShape[ndim - 1] + padRight;
+            resultValidShape[ndim - 2] = resultValidShape[ndim - 2] + padBottom;
+        }
     }
     auto result = std::make_shared<LogicalTensor>(function, operand->Datatype(), outputShape, resultValidShape);
     auto &op = function.AddOperation(Opcode::OP_PAD, {operand}, {result});
