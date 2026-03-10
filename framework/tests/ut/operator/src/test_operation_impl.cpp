@@ -1323,3 +1323,21 @@ TEST_F(OperationImplTest, Test_Conv3d_FP16_Bias) {
             npu::tile_fwk::Conv::Conv(DT_FP16, fmap, weight, {1, 1, 1}, {0, 0 ,1, 1, 1, 1}, {1, 1, 1}, convExtendParam, 1);
     }
 }
+
+TEST_F(OperationImplTest, test_Pad_1D) {
+    TileShape::Current().SetVecTile(8);
+    Tensor input(DT_FP32, {10}, "input");
+    Tensor result;
+    FUNCTION("TestPad1D") {
+        result = Pad(input, {0, 36}, "constant", 0.0f);
+    }
+}
+
+TEST_F(OperationImplTest, test_Pad_2D) {
+    TileShape::Current().SetVecTile(4, 4);
+    Tensor input(DT_FP32, {6, 6}, "input");
+    Tensor result;
+    FUNCTION("TestPad2D") {
+        result = Pad(input, {0, 12, 0, 12}, "constant", 0.0f);
+    }
+}
