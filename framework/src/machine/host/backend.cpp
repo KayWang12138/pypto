@@ -35,6 +35,8 @@
 #include "passes/pass_mgr/pass_manager.h"
 #include "tilefwk/op_registry.h"
 #include "main_block.h"
+#include "interface/compiler_monitor/monitor_manager.h"
+#include "interface/compiler_monitor/monitor_stage_scope.h"
 #include <dlfcn.h>
 #include "tilefwk/pypto_fwk_log.h"
 
@@ -86,6 +88,7 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
         if (function->IsFunctionType(
                 {FunctionType::DYNAMIC, FunctionType::DYNAMIC_LOOP, FunctionType::DYNAMIC_LOOP_PATH})) {
             if (function->GetGraphType() == GraphType::TILE_GRAPH) {
+                COMPILER_LOGI("The codegen of the current function is executed last");
                 // When expression fusion, don't need tile graph codegen.
                 return 0;
             }
@@ -863,6 +866,8 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
         config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, devTile->paramConfigs_.dynamicAlignedOps);
         npu::tile_fwk::CodeGenCtx codeGenCtx("", GetEmitPath("kernel_aicore"));
         npu::tile_fwk::CodeGen codeGen(codeGenCtx);
+        COMPILER_LOGI("Function :[%s] starts executing codegen and binary compilation",
+                      devTile->GetMagicName().c_str());
         codeGen.GenCode(*devTile, {});
         MainBlockCondBulider builder;
         builder.Gencode(devTile, {});
@@ -954,13 +959,19 @@ MachineTask *GenCode(
      * the filepath of the object file is updated to the binPath_ member.
      */
     if (function->GetGraphType() == GraphType::TILE_GRAPH) {
+        MonitorStageScope codeGenScope("CodeGen");
+        COMPILER_LOGI("Start (TILE_GRAPH) CodeGen stage...");
         codeGen.GenCode(*function, invokeParaOffset);
         MainBlockCondBulider builder;
         builder.Gencode(function, invokeParaOffset);
     } else {
         if (function->IsFunctionType(FunctionType::DYNAMIC)) {
+            MonitorStageScope codeGenScope("CodeGen");
+            COMPILER_LOGI("Start (DYNAMIC) CodeGen stage...");
             std::string cce_path = RealPath(codeGenCtx.cceDir) + "/";
             CompileDyndevFunction(function, cache, cce_path, kernelPath);
+        } else {
+            COMPILER_LOGI("The current function does not need to do codegen");
         }
     }
 
