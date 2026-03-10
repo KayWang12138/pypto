@@ -80,6 +80,25 @@ bool CannHostRuntime::GetSocVersion(std::string& socVersion) {
     return false;
 }
 
+bool CannHostRuntime::GetSocSpec(const std::string& column, const std::string& key, std::string& val) {   
+#ifdef BUILD_WITH_CANN
+    int ret = 1;
+    char charVal[kMaxLength] = {0};
+    if (socSpecFunc_ != nullptr) {
+        ret = socSpecFunc_(column.c_str(), key.c_str(), charVal, kMaxLength);
+    }
+    if (ret == 0) {
+        charVal[kMaxLength - 1] = '\0';
+        val = std::string(charVal);
+        return true;
+    }
+#endif
+    (void)column;
+    (void)key;
+    (void)val;
+    return false;
+}
+
 std::string CannHostRuntime::GetPlatformFile(const std::string &socVersion) {
     std::string platformFile;
     if (socVersion.empty()) {

@@ -154,6 +154,7 @@ bool INIParser::GetStringVal(const std::string& column, const std::string& key, 
         FUNCTION_LOGW("Cannot find attr '%s' from the [version] tab.", key.c_str());
         return false;
     }
+    CannHostRuntime::Instance().GetSocSpec(column, key, val);
     val = iter2->second;
     return true;
 }

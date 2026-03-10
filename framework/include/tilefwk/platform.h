@@ -418,7 +418,7 @@ class Host{};
 
 class Platform {
 private:
-    Platform() = default;
+    Platform();
     ~Platform() =default;
 
     Cluster cluster_;
@@ -427,6 +427,9 @@ private:
     size_t host_cnt_;
 public:
     static Platform &Instance();
+
+    Platform(const Platform&) = delete;
+    Platform& operator=(const Platform&) = delete;
 
     void SetCluster(const Cluster& cluster) { cluster_ = cluster; }
     void SetHost(const Host& host) { host_ = host; }
