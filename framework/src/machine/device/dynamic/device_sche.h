@@ -45,9 +45,14 @@ inline void tracr_start(const int threadIdx) {
 
 /**
  * finalizing tracr
+ * 
+ * NOTE: threadIdx starts at 1 and goes up to 3. Why? idk
  */
 inline void tracr_finalize(const int threadIdx, const DeviceArgs *devArgs) {
     void(devArgs->tracrData);
+
+    DEV_ERROR("[TraCR] thread[%d] dumping the traces tracrThread->_traceIdx: %lu", threadIdx, tracrThread->_traceIdx);
+
 #ifdef ENABLE_TRACR
     // Copy the tracr payloads on the shared memory space
     TraCR::Payload* tracrData_ = reinterpret_cast<TraCR::Payload*>(devArgs->tracrData);
@@ -55,17 +60,16 @@ inline void tracr_finalize(const int threadIdx, const DeviceArgs *devArgs) {
 
     if (tracrThread->_traceIdx > 0) {
         const size_t payload_size = tracrThread->_traceIdx * sizeof(TraCR::Payload);
-        
-        // Slower than std::memcpy() but CI Pipeline approved
+
         memcpy_s(
-            &tracrData_[threadIdx * TraCR::CAPACITY],
+            &tracrData_[(threadIdx-1) * TraCR::CAPACITY],
             payload_size,
             tracrThread->_traces.data(),
             payload_size
         );
     }
         
-    tracrDataSizes_[threadIdx] = tracrThread->_traceIdx;
+    tracrDataSizes_[threadIdx-1] = tracrThread->_traceIdx;
 #endif
 
     if (threadIdx == 1) {

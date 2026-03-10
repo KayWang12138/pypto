@@ -47,9 +47,12 @@ LogFuncInfo &LogFuncInfo::Instance() {
     return instance;
 }
 LogFuncInfo::LogFuncInfo() {
-    checkLevel = TilefwkCheckLogLevel;
-    record = TilefwkLogRecord;
-    setAttr = TilefwkSetLogAttr;
+    checkLevel = nullptr;
+    record = nullptr;
+    setAttr = nullptr;
+    // checkLevel = TilefwkCheckLogLevel;
+    // record = TilefwkLogRecord;
+    // setAttr = TilefwkSetLogAttr;
 }
 
 LogFuncInfo::~LogFuncInfo() {
