@@ -110,6 +110,13 @@ private:
         }                                                                                                                                        \
     } while (0)
 
+#define COMPILER_LOGD(...) PYPTO_HOST_LOG(DLOG_DEBUG, "COMPILER_MONITOR", __VA_ARGS__)
+#define COMPILER_LOGI(...) PYPTO_HOST_LOG(DLOG_INFO, "COMPILER_MONITOR", __VA_ARGS__)
+#define COMPILER_LOGW(...) PYPTO_HOST_LOG(DLOG_WARN, "COMPILER_MONITOR", __VA_ARGS__)
+#define COMPILER_LOGE(...) PYPTO_HOST_LOG(DLOG_ERROR, "COMPILER_MONITOR", __VA_ARGS__)
+#define COMPILER_EVENT(...) PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, "COMPILER_MONITOR", __VA_ARGS__)
+#define COMPILER_LOGD_FULL(...) PYPTO_HOST_SPLIT_LOG(DLOG_DEBUG, "COMPILER_MONITOR", __VA_ARGS__)
+
 #define FUNCTION_LOGD(...) PYPTO_HOST_LOG(DLOG_DEBUG, "FUNCTION", __VA_ARGS__)
 #define FUNCTION_LOGI(...) PYPTO_HOST_LOG(DLOG_INFO, "FUNCTION", __VA_ARGS__)
 #define FUNCTION_LOGW(...) PYPTO_HOST_LOG(DLOG_WARN, "FUNCTION", __VA_ARGS__)

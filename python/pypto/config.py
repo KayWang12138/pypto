@@ -114,7 +114,11 @@ def get_pass_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
 
 
 
-def set_host_options(*, compile_stage: Optional[CompStage] = None) -> None:
+def set_host_options(*, compile_stage: Optional[CompStage] = None,
+                     compile_monitor_enable: Optional[bool] = None,
+                     interval_sec: Optional[int] = None,
+                     timeout_sec: Optional[int] = None,
+                     total_timeout_sec: Optional[int] = None) -> None:
     """
     Set host options.
 
@@ -122,8 +126,20 @@ def set_host_options(*, compile_stage: Optional[CompStage] = None) -> None:
     ---------
     compile_stage : CompStage
         Control the compilation phase.
+
+    compile_monitor_enable : bool
+        Control whether to enable compilation progress printing during the compilation phase.
+
+    interval_sec : int
+        Control the frequency of printing the compilation progress for a certain stage.
+
+    timeout_sec : int
+        Control the timeout duration of a certain stage of the compilation process.
+
+    total_timeout_sec : int
+        Control the timeout duration for the entire compilation process.
     """
-    options_dict = {k: v.value for k, v in locals().items() if v is not None}
+    options_dict = {k: v.value if isinstance(v, CompStage) else v for k, v in locals().items() if v is not None}
     set_options(host_options=options_dict)
 
 
