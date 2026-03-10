@@ -43,7 +43,7 @@ CannHostRuntime::CannHostRuntime() {
     handle_ = dlopen(soPath.c_str(), RTLD_LAZY);
     if (handleDep_ != nullptr && handle_ != nullptr) {
         socVerFunc_ = (GetSocVerFunc)GetSymbol(socVerFuncName);
-        socVerFunc_ = (GetSocSpecFunc)GetSymbol(socSpecFuncName);
+        socSpecFunc_ = (GetSocSpecFunc)GetSymbol(socSpecFuncName);
     }
 #endif
     if (handleDep_ == nullptr || handle_ == nullptr) {
