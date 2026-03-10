@@ -63,7 +63,7 @@ def test():
     params = ((16, 16), (8, 8), (0, 4, 0, 4), 0)
     st = PadTest(params, op_pad, op_pad_golden, tiling=16)
     st()
-    print("Test Passed!")
+
 
 if __name__ == "__main__":
     test()
