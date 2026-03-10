@@ -98,5 +98,32 @@ bool CannHostRuntime::GetSocSpec(const std::string& column, const std::string& k
     (void)val;
     return false;
 }
+
+std::string CannHostRuntime::GetPlatformFile(const std::string &socVersion) {
+    std::string platformFile;
+    if (socVersion.empty()) {
+        return "";
+    }
+    // get platform file path
+    const char *envPath = std::getenv("ASCEND_HOME_PATH");
+    if (envPath == nullptr) {
+        return "";
+    }
+    std::string configRelativePath = "data/platform_config/";
+#ifdef PROCESSOR_SUBPATH
+    const char *processorSubpath = PROCESSOR_SUBPATH;
+#else
+    const char *processorSubpath = "";
+#endif
+    std::string platformConfDir = std::string(envPath) + "/" + std::string(processorSubpath) + "/" + configRelativePath;
+    if (RealPath(platformConfDir).empty()) {
+        platformConfDir = std::string(envPath) + "/" + configRelativePath;
+    }
+    platformFile = platformConfDir + socVersion + ".ini";
+    if (RealPath(platformFile).empty()) {
+        return "";
+    }
+    return platformFile;
+}
 }  // namespace tile_fwk
 }  // namespace npu

@@ -28,6 +28,7 @@ public:
     static CannHostRuntime& Instance();
     bool GetSocVersion(std::string& socVersion);
     bool GetSocSpec(const std::string& column, const std::string& key, std::string& val);
+    
     std::string GetPlatformFile(const std::string &socVersion);
     
     CannHostRuntime(const CannHostRuntime&) = delete;
