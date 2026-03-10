@@ -367,10 +367,11 @@ void CodeGenOpCloudNPU::AppendLocalBufferVarOffset(
         }
 
         std::vector<int64_t> varRawShape = rawShape[operandIdx];
-        ASSERT(!varRawShape.empty()) << "varRawShape is empty!! operandIdx: " << operandIdx;
+        ASSERT(!varRawShape.empty()) << GenErrorCode(GenCodeErr::TENSOR_SHAPE_INVALID)
+                                     << "varRawShape is empty!! operandIdx: " << operandIdx;
         ASSERT(varOffset.size() == varRawShape.size())
-            << "varOffset " << IntVecToStr(varOffset) << ", size " << varOffset.size() << " vs varRawShape "
-            << IntVecToStr(varRawShape) << ", size " << varRawShape.size()
+            << GenErrorCode(GenCodeErr::TENSOR_SHAPE_MISMATCHED) << "varOffset " << IntVecToStr(varOffset) << ", size "
+            << varOffset.size() << " vs varRawShape " << IntVecToStr(varRawShape) << ", size " << varRawShape.size()
             << " is not equal!! operandIdx: " << operandIdx;
 
         resOffset = CalcLinearOffset(varRawShape, varOffset);
@@ -380,7 +381,8 @@ void CodeGenOpCloudNPU::AppendLocalBufferVarOffset(
 
         std::string &var = kv.second.get();
 
-        ASSERT(!var.empty()) << "operandIdx: " << operandIdx << ", var is empty !!";
+        ASSERT(!var.empty()) << GenErrorCode(GenCodeErr::SYMBOL_NOT_FOUND) << "operandIdx: " << operandIdx
+                             << ", var is empty !!";
         CODEGEN_LOGI("var: %s, varRawShape: %s, varOffset: %s, resOffset: %ld", var.c_str(),
             IntVecToStr(varRawShape).c_str(), IntVecToStr(varOffset).c_str(), static_cast<long>(resOffset));
 
@@ -397,10 +399,11 @@ SymbolicScalar CodeGenOpCloudNPU::GetOperandStartOffset(int operandIdx) const {
     const auto &dynOffset = dynamicOffset[operandIdx];
     if (!dynOffset.empty()) {
         std::vector varRawShape = rawShape[operandIdx]; // 内部应该不能出现dynRawShape，所以这里用立即数即可
-        ASSERT(!varRawShape.empty()) << "varRawShape is empty!!";
+        ASSERT(!varRawShape.empty()) << GenErrorCode(GenCodeErr::TENSOR_SHAPE_INVALID) << "varRawShape is empty!!";
         ASSERT(dynOffset.size() == varRawShape.size())
-            << "dynOffset " << SymbolicVecToStr(dynOffset) << ", size " << dynOffset.size() << " vs varRawShape "
-            << IntVecToStr(varRawShape) << ", size " << varRawShape.size() << " is not equal!!";
+            << GenErrorCode(GenCodeErr::TENSOR_SHAPE_MISMATCHED) << "dynOffset " << SymbolicVecToStr(dynOffset)
+            << ", size " << dynOffset.size() << " vs varRawShape " << IntVecToStr(varRawShape) << ", size "
+            << varRawShape.size() << " is not equal!! operandIdx: " << operandIdx;
 
         SymbolicScalar resOffset = 0;
         for (size_t i = 0; i < dynOffset.size(); i++) {
@@ -408,7 +411,8 @@ SymbolicScalar CodeGenOpCloudNPU::GetOperandStartOffset(int operandIdx) const {
             resOffset = resOffset + dynOffset[i];
         }
 
-        ASSERT(operandIdx < operandCnt) << "operandIdx: " << operandIdx << ", operandCnt: " << operandCnt;
+        ASSERT(OperErr::OPERAND_COUNT_EXCEEDED, operandIdx < operandCnt)
+            << "operandIdx: " << operandIdx << ", operandCnt: " << operandCnt;
         CODEGEN_LOGD(" varRawShape: %s", IntVecToStr(varRawShape).c_str());
         CODEGEN_LOGD(" varOffset: %s", SymbolicVecToStr(dynOffset).c_str());
         CODEGEN_LOGD(" resOffset: %s", resOffset.Dump().c_str());
@@ -419,17 +423,19 @@ SymbolicScalar CodeGenOpCloudNPU::GetOperandStartOffset(int operandIdx) const {
     }
 
     std::vector varRawShape = rawShape[operandIdx];
-    ASSERT(!varRawShape.empty()) << "varRawShape is empty!!";
-    ASSERT(varOffset.size() == varRawShape.size())
+    ASSERT(GenCodeErr::TENSOR_SHAPE_INVALID, !varRawShape.empty())
+        << "varRawShape is empty!! operandIdx: " << operandIdx;
+    ASSERT(GenCodeErr::TENSOR_SHAPE_MISMATCHED, varOffset.size() == varRawShape.size())
         << "varOffset " << IntVecToStr(varOffset) << ", size " << varOffset.size() << " vs varRawShape "
-        << IntVecToStr(varRawShape) << ", size " << varRawShape.size() << " is not equal!!";
+        << IntVecToStr(varRawShape) << ", size " << varRawShape.size() << " is not equal!! operandIdx: " << operandIdx;
 
     int64_t resOffset = CalcLinearOffset(varRawShape, varOffset);
     if (resOffset == 0) {
         return 0;
     }
 
-    ASSERT(operandIdx < operandCnt) << "operandIdx: " << operandIdx << ", operandCnt: " << operandCnt;
+    ASSERT(OperErr::OPERAND_COUNT_EXCEEDED, operandIdx < operandCnt)
+        << "operandIdx: " << operandIdx << ", operandCnt: " << operandCnt;
     CODEGEN_LOGD(" varRawShape: %s", IntVecToStr(varRawShape).c_str());
     CODEGEN_LOGD(" varOffset: %s", IntVecToStr(varOffset).c_str());
     CODEGEN_LOGD(" resOffset: %ld", static_cast<long>(resOffset));
@@ -446,8 +452,8 @@ std::string CodeGenOpCloudNPU::GenGmParamVar(unsigned gmParamIdx) const {
 
     auto paramLoc = paramLocation[gmParamIdx];
     auto iter = paramLocToParamListOffset.find(paramLoc);
-    ASSERT(iter != paramLocToParamListOffset.end())
-        << "paramLoc " << paramLoc << " can not be found in paramLocToParamListOffset";
+    ASSERT(GenCodeErr::PARAM_IDX_INVALID, iter != paramLocToParamListOffset.end())
+        << "paramLoc " << paramLoc << " can not be found in paramLocToParamListOffset!! gmParamIdx: " << gmParamIdx;
     std::string gmVar = "((" + GM_PARAM_TYPE_FOR_STATIC + "*)(param) + " + std::to_string(iter->second) + ")->Addr";
     return gmVar;
 }
@@ -594,7 +600,8 @@ void CodeGenOpCloudNPU::UpdateTileTensorInfo() {
 
     auto iter = SUPPORT_TILETENSOR_OPS.find(opCode);
     if (iter == SUPPORT_TILETENSOR_OPS.end()) {
-        ASSERT(iter != SUPPORT_TILETENSOR_OPS.end()) << "opCode: " << opCodeStr << " not support tile tensor!";
+        ASSERT(GenCodeErr::OP_CODE_UNSUPPORTED, iter != SUPPORT_TILETENSOR_OPS.end())
+            << "opCode: " << opCodeStr << " not support tile tensor!";
         return;
     }
 
@@ -722,8 +729,9 @@ TileTensor CodeGenOpCloudNPU::QueryTileTensorByIdx(int paramIdx) const {
         }
     }
 
-    ASSERT(false) << "TileTensor: paramIdx " << paramIdx << ", tensor magic " << operandWithMagic[paramIdx]
-                  << " is not found !!! res size is " << res.size();
+    ASSERT(GenCodeErr::TENSOR_NOT_FOUND, false)
+        << "TileTensor: paramIdx " << paramIdx << ", tensor magic " << operandWithMagic[paramIdx]
+        << " is not found !!! res size is " << res.size();
     static TileTensor emptyTileTensor;
     return emptyTileTensor;
 }
@@ -773,7 +781,7 @@ std::string CodeGenOpCloudNPU::GetLastUse() const {
     }
     std::vector<int64_t> val = GetVectorIntAttribute(OpAttributeKey::lastUse);
     int valSize = val.size();
-    ASSERT(valSize != 0) << "GetLastUse error!!!";
+    ASSERT(OperErr::ATTRIBUTE_INVALID, valSize != 0) << "GetLastUse error!!!";
     std::ostringstream oss;
     oss << "LastUse" << valSize << "Dim";
     oss << WrapParamByAngleBrackets(val);
