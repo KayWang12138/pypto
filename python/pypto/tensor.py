@@ -748,7 +748,7 @@ class Tensor:
         return pypto.expand_clone(self, shape, valid_shape=valid_shape)
 
     @source_location
-    def pad(pad: Sequence[int], mode: str = "constant", value: float = 0.0) -> Tensor:
+    def pad(self, pad: Sequence[int], mode: str = "constant", value: float = 0.0) -> Tensor:
         return pypto.pad(self, pad, mode, value)
 
     @source_location

@@ -8,8 +8,6 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
-#!/usr/bin/env python3
-# coding: utf-8
 """
 Pad Operator System Test (Fixed map::at error)
 """
@@ -19,7 +17,6 @@ import numpy as np
 from st.pypto_test import TestBuilder
 
 
-# params: (view_shape, tile_shape, padding_config, pad_value)
 def op_pad(params, a, b):
     view_shape, tile_shape, padding, pad_val = params
     pad_l, pad_r, pad_t, pad_b = padding
