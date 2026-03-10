@@ -44,7 +44,7 @@
 在运行任何样例之前，请确保已配置 CANN 环境并设置了设备 ID：
 
 ```bash
-source /usr/local/Ascend/ascend-toolkit/latest/bin/setenv.bash
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
 export TILE_FWK_DEVICE_ID=0
 ```
 

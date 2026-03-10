@@ -574,7 +574,7 @@ def _collect_issues(
                        'fix_hint': '见 references/prepare_environment.md § "使用 prepare_env.sh 完整安装"'})
     elif not cann.get('set_env_candidates'):
         issues.append({'component': 'cann', 'severity': 'warning', 'message': 'CANN set_env.sh 未找到',
-                       'fix_hint': 'source ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/latest/set_env.sh'})
+                       'fix_hint': 'source ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/set_env.sh'})
 
     if is_npu_env and not torch_info.get('ok'):
         issues.append({'component': 'torch', 'severity': 'error',

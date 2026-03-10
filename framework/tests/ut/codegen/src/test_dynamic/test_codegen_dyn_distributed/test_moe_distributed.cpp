@@ -66,7 +66,7 @@ TEST_F(TestMoeDistributed, MoeDistributedDispatchV2) {
     int32_t expandXRowShape = topK * rankSize < routingExpertNum ?
         static_cast<int32_t>(batchSize) * static_cast<int32_t>(topK) * rankSize :
         static_cast<int32_t>(batchSize) * routingExpertNum;
-    
+
     Shape xShape{batchSize, hiddenSize};
     Shape expertIdsShape{batchSize, topK};
     Shape expandXShape{expandXRowShape, hiddenSize};
@@ -88,44 +88,6 @@ TEST_F(TestMoeDistributed, MoeDistributedDispatchV2) {
     }
 
     auto functionRawName = MoeDistributedGetFunctionRawName("MoeDistributedDispatchSendData");
-    auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
-
-TEST_F(TestMoeDistributed, MoeDistributedDispatch) {
-    const char *group = "hcom12";
-    DataType dType = DT_BF16;
-    int routingExpertNum = 160;
-    int topK = 8;
-    int batchSize = 8;
-    int hiddenSize = 5120;
-    int rankSize = 4;
-
-    int32_t expandXRowShape = topK * rankSize < routingExpertNum ?
-        static_cast<int32_t>(batchSize) * static_cast<int32_t>(topK) * rankSize :
-        static_cast<int32_t>(batchSize) * routingExpertNum;
-    
-    Shape tokenTensorShape{batchSize, hiddenSize};
-    Shape tokenExpertTableShape{batchSize, topK};
-    Shape expandXShape{expandXRowShape, hiddenSize};
-    Shape validCntShape{routingExpertNum / rankSize};
-    Shape combineInfoShape{expandXRowShape, 3};
-
-    Tensor tokenTensor(dType, tokenTensorShape, "tokenTensor");
-    Tensor tokenExpertTable(DataType::DT_INT32, tokenExpertTableShape, "tokenExpertTable");
-    Tensor validCnt(DataType::DT_INT32, validCntShape, "validCnt");
-    Tensor expandX(dType, expandXShape, "expandX");
-    Tensor combineInfo(DataType::DT_INT32, combineInfoShape, "combineInfo");
-
-    MoeConfig moeConfig{routingExpertNum, routingExpertNum / rankSize, rankSize};
-
-    FUNCTION("DISPATCH_F", {tokenTensor, tokenExpertTable}, {expandX, validCnt, combineInfo}) {
-        Distributed::MoeDistributedDispatch(tokenTensor, tokenExpertTable, expandX, validCnt, combineInfo, group, moeConfig);
-    }
-
-    auto functionRawName = MoeDistributedGetFunctionRawName("L0");
     auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
