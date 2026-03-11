@@ -1299,7 +1299,6 @@ TEST_F(TestPadLocalBuffer, L1toBt1) {
     EXPECT_EQ(t3->tensor->GetRawShape(), expectShape);
 }
 
-// QAT case
 TEST_F(TestPadLocalBuffer, axiscombineCastCase) {
     ComputationalGraphBuilder graph;
     EXPECT_EQ(graph.AddTensor(DataType::DT_BF16, {2, 1}, MemoryType::MEM_DEVICE_DDR, "in1"), true);
