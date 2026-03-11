@@ -66,7 +66,9 @@ Status checkView(Operation *op) {
             continue;
         }
         if (logicTensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "Tensor(%d) memory type is MEM_DEVICE_DDR.", logicTensor->GetMagic());
+            APASS_LOG_ERROR_F(Elements::Tensor,
+                "Tensor(%d) memory type is MEM_DEVICE_DDR, which is not supported for VIEW->ASSEMBLE case.",
+                logicTensor->GetMagic());
             return FAILED;
         }
     }
