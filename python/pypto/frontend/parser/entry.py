@@ -545,15 +545,16 @@ class JitCallableWrapper:
         self._setup_verify_data(args)
 
         # Set options AFTER OperatorBegin() to match @pypto.jit behavior
-        self._set_config_option()
+        with pypto.options("jit_scope"):
+            self._set_config_option()
 
-        # Bind dynamic dimensions from concrete inputs
-        self._parser.bind_dynamic_dims_to_input_tensors()
+            # Bind dynamic dimensions from concrete inputs
+            self._parser.bind_dynamic_dims_to_input_tensors()
 
-        # Execute the deferred parsing (happens on first __call__)
-        self._pto_function = self._parser.execute()
+            # Execute the deferred parsing (happens on first __call__)
+            self._pto_function = self._parser.execute()
 
-        # Reset golden data after compilation, similar to pypto.jit
+            # Reset golden data after compilation, similar to pypto.jit
         _pto_verify_datas.reset()
 
     def _parse_call_args(
@@ -645,6 +646,11 @@ class JitCallableWrapper:
         ):
             self.kmodule = JitCallableWrapper._kernel_module_cache[key]
         else:
+            default_value = pypto.get_debug_options().get("runtime_debug_mode", 0)
+            if self._debug_options is None:
+                self._debug_options = {"runtime_debug_mode": default_value}
+            elif self._debug_options.get("runtime_debug_mode") is None:
+                self._debug_options["runtime_debug_mode"] = default_value
             self.kmodule = pypto_impl.KernelModule(self)
             if key is not None:
                 JitCallableWrapper._kernel_module_cache[key] = self.kmodule
@@ -915,7 +921,6 @@ class JitCallableWrapper:
         - verify options (verification settings)
         - debug options (debugging settings)
         """
-        self._set_run_mode()
         if self._codegen_options:
             pypto.set_codegen_options(**self._codegen_options)
         if self._host_options:
