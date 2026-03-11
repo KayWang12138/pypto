@@ -23,18 +23,26 @@
 #include "tilefwk/file.h"
 #include "tilefwk/platform.h"
 #include "tilefwk/pypto_fwk_log.h"
+#include "simulation_platform/simulation_platform.h"
 
 namespace npu {
 namespace tile_fwk {
 class INIParser : public PlatformParser {
 public:
-    INIParser() = default;
+    INIParser();
     ~INIParser() = default;
-    bool Initialize(const std::string &iniFilePath); 
     bool GetStringVal(const std::string& column, const std::string& key, std::string& val) const override;
 private:
     bool ReadINIFile(const std::string& filepath);
+    bool Initialize(const std::string &iniFilePath); 
     std::map<std::string, std::map<std::string, std::string>> data_;
+};
+
+class CmdParser : public PlatformParser {
+public:
+    CmdParser() = default;
+    ~CmdParser() = default;
+    bool GetStringVal(const std::string& column, const std::string& key, std::string& val) const override;
 };
 } // namespace tile_fwk
 } // namepsace npu 
