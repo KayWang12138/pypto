@@ -463,7 +463,7 @@ private:
 
         int type =static_cast<int>(AicoreType(coreIdx));
         if (likely(regLFinTaskState == TASK_FIN_STATE)) {
-            INSTRUMENTATION_MARK_RESET(coreIdx2tracrIdx(coreIdx, type));
+            INSTRUMENTATION_MARK_RESET(coreIdx2tracrIdx(coreIdx, (CoreType)type));
             if (pendingIds_[coreIdx] == regLFinTaskId) {
                 bMatch = true;
                 context_->runReadyCoreIdx_[type][context_->coreRunReadyCnt_[type]++] = coreIdx;
@@ -1769,6 +1769,26 @@ private:
         return aicpuIdx_ == 2;
     }
 
+    /**
+     * A method for transforming the coreIdx into tracrIdx
+     */
+    inline uint16_t coreIdx2tracrIdx(const int &coreIdx, const CoreType &type) {
+        switch(type) {
+            case CoreType::AIV:
+            {
+                return aicpuSchedNum_ + coreIdx + (aicNum_ - aicValidNum_);
+            }
+            case CoreType::AIC:
+            {
+                return aicpuSchedNum_ + coreIdx;
+            }
+            default:
+            {
+                return aicpuSchedNum_ + aivNum_ + aicNum_;
+            }
+        }
+    }
+
 private:
     uint64_t seq;
     AicoreHAL aicoreHal_;
@@ -1780,6 +1800,7 @@ private:
     int aicpuIdx_{0};
     int schedIdx_{0};
     int aicpuNum_{MAX_SCHEDULE_AICPU_NUM};
+    int aicpuSchedNum_{MAX_SCHEDULE_AICPU_NUM - MAX_OTHER_AICPU_NUM};
     int aicStart_{0};
     int aicEnd_{0};
     int aivStart_{0};
