@@ -310,8 +310,9 @@ def _detect_build_tools() -> dict[str, Any]:
 
 def _detect_third_party_deps(pypto_repo_path: str | None) -> dict[str, Any]:
     """检测第三方编译依赖（源码包）：nlohmann/json v3.11.3、libboundscheck v1.1.16。"""
-    json_url = 'https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/third_party_deps/json-3.11.3.tar.gz'
-    securec_url = 'https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/third_party_deps/libboundscheck-v1.1.16.tar.gz'
+    json_url = 'https://gitcode.com/cann-src-third-party/json/releases/download/v3.11.3/json-3.11.3.tar.gz'
+    securec_url = 'https://gitcode.com/cann-src-third-party/libboundscheck/releases/' \
+                    'download/v1.1.16/libboundscheck-v1.1.16.tar.gz'
 
     result: dict[str, Any] = {
         'json': {'found': False, 'version': 'v3.11.3', 'download_url': json_url},

@@ -59,8 +59,8 @@ PyPTO支持在具备NPU硬件的**真实环境**和仅有CPU硬件的**仿真环
 
     | 软件包                 | 版本      | 下载地址                                                                                                                    |
     |:--------------------|:--------|:------------------------------------------------------------------------------------------------------------------------|
-    | JSON for Modern C++ | v3.11.3 | [下载链接](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/third_party_deps/json-3.11.3.tar.gz)                      |
-    | libboundscheck      | v1.1.16 | [下载链接](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/third_party_deps/libboundscheck-v1.1.16.tar.gz) |
+    | JSON for Modern C++ | v3.11.3 | [下载链接](https://gitcode.com/cann-src-third-party/json/releases/download/v3.11.3/json-3.11.3.tar.gz)                      |
+    | libboundscheck      | v1.1.16 | [下载链接](https://gitcode.com/cann-src-third-party/libboundscheck/releases/download/v1.1.16/libboundscheck-v1.1.16.tar.gz) |
 
     手工准备第三方开源源码包的方法:
 
