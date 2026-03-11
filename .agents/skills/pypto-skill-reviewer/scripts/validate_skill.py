@@ -2,7 +2,7 @@
 """
 validate_skill.py — Static checker for skill directories.
 
-Checks 28 static rules from rules.json against a target skill directory.
+Checks 27 static rules from rules.json against a target skill directory.
 Outputs a JSON array of findings to stdout.
 
 Usage:
@@ -19,6 +19,22 @@ import py_compile
 import tempfile
 import yaml
 from pathlib import Path
+
+
+rule_meta = {}
+
+
+def set_rule_meta(rules_data):
+    global rule_meta
+    rule_meta = {
+        r["id"]: {
+            "severity": r.get("severity"),
+            "dimension": r.get("dimension"),
+            "type": r.get("type"),
+        }
+        for r in rules_data.get("rules", [])
+        if isinstance(r, dict) and "id" in r
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -166,7 +182,6 @@ def check_r05(fm, **_):
 
 
 def check_r06(fm, known_fields, **_):
-    """R06: Unknown frontmatter fields produce a warning"""
     if fm is None:
         return None
     unknown = [k for k in fm.keys() if k not in known_fields]
@@ -624,12 +639,27 @@ def check_r48(lines, **_):
 # Helpers
 # ---------------------------------------------------------------------------
 
-def finding(rule_id, severity, dimension, status, message, file, line, snippet):
+def finding(rule_id, *args):
     """Create a standardized finding dict."""
+    if len(args) == 7:
+        legacy_severity, legacy_dimension, status, message, file, line, snippet = args
+    elif len(args) == 5:
+        legacy_severity = None
+        legacy_dimension = None
+        status, message, file, line, snippet = args
+    else:
+        raise ValueError("invalid finding arguments")
+
+    meta = rule_meta.get(rule_id, {})
+    severity = meta.get("severity") or legacy_severity or "S3"
+    dimension = meta.get("dimension") or legacy_dimension or "D1"
+    rule_type = meta.get("type") or "static"
+
     return {
         "rule_id": rule_id,
         "severity": severity,
         "dimension": dimension,
+        "type": rule_type,
         "status": status,
         "message": message,
         "evidence": {
@@ -654,91 +684,6 @@ def flatten(results):
 
 
 # ---------------------------------------------------------------------------
-# Scoring
-# ---------------------------------------------------------------------------
-
-DIMENSION_WEIGHTS = {
-    "D1": 0.25, "D2": 0.15, "D3": 0.10,
-    "D4": 0.10, "D5": 0.10, "D6": 0.10, "D7": 0.05,
-    "D8": 0.10, "D9": 0.05,
-}
-
-SEVERITY_DEDUCTIONS = {"S0": 20, "S1": 10, "S2": 5, "S3": 2}
-
-
-def calculate_score(findings, skill_dir):
-    """Calculate dimension scores, total, and grade from findings.
-
-    Formula (per scoring-spec.md):
-        dimension_raw   = max(0, 100 - sum_of_FAIL_deductions)
-        dimension_score = dimension_raw * weight
-        total           = sum(dimension_scores for D1-D9)
-
-    Special rules:
-        - S0 veto: any S0 FAIL caps total at 59.9, max grade D
-        - D9: no scripts/ directory in target skill -> full marks (5.0)
-    """
-    dim_deductions = {f"D{i}": 0 for i in range(1, 10)}
-    s0_veto = False
-
-    for f in findings:
-        if f.get("status") != "FAIL":
-            continue
-        sev = f.get("severity", "S3")
-        dim = f.get("dimension", "D1")
-        dim_deductions[dim] = dim_deductions.get(dim, 0) + SEVERITY_DEDUCTIONS.get(sev, 0)
-        if sev == "S0":
-            s0_veto = True
-
-    scripts_dir = os.path.join(skill_dir, "scripts")
-    d9_no_scripts = not os.path.isdir(scripts_dir)
-
-    dimensions = {}
-    for dim, weight in DIMENSION_WEIGHTS.items():
-        if dim == "D9" and d9_no_scripts:
-            dimensions[dim] = {
-                "raw": 100, "weight": weight,
-                "score": round(100 * weight, 2),
-                "deductions": 0,
-                "note": "no scripts/ directory — full marks",
-            }
-        else:
-            raw = max(0, 100 - dim_deductions.get(dim, 0))
-            dimensions[dim] = {
-                "raw": raw, "weight": weight,
-                "score": round(raw * weight, 2),
-                "deductions": dim_deductions.get(dim, 0),
-            }
-
-    total = round(sum(d["score"] for d in dimensions.values()), 2)
-
-    if s0_veto and total > 59.9:
-        total = 59.9
-
-    if total >= 90:
-        grade = "A"
-    elif total >= 75:
-        grade = "B"
-    elif total >= 60:
-        grade = "C"
-    elif total >= 40:
-        grade = "D"
-    else:
-        grade = "F"
-
-    if s0_veto and grade not in ("D", "F"):
-        grade = "D"
-
-    return {
-        "dimensions": dimensions,
-        "total": total,
-        "grade": grade,
-        "s0_veto": s0_veto,
-        "d9_no_scripts": d9_no_scripts,
-    }
-
-
-# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -759,14 +704,13 @@ def validate(skill_dir):
     # Extract frontmatter lines (between the --- delimiters) for R37
     fm_lines = lines[1:fm_end - 1] if fm_end and fm_end > 2 else []
 
-    # Load known fields and standard dirs from rules.json
     rules_json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                    "..", "references", "rules.json")
     known_fields = [
-        "name", "description", "context", "agent", "allowed-tools",
-        "user-invocable", "intercept", "model"
+        "name", "description", "license", "compatibility", "metadata"
     ]
     standard_dirs = ["references", "scripts", "templates", "assets", "examples"]
+    rules_data = {"rules": []}
     if os.path.isfile(rules_json_path):
         try:
             with open(rules_json_path, "r", encoding="utf-8") as rf:
@@ -775,6 +719,8 @@ def validate(skill_dir):
             standard_dirs = rules_data.get("standard_subdirectories", standard_dirs)
         except (json.JSONDecodeError, OSError):
             pass
+
+    set_rule_meta(rules_data)
 
     ctx = {
         "lines": lines,
@@ -818,41 +764,24 @@ def validate(skill_dir):
 
     findings = flatten(results)
 
-    # Inject PASS status for rules that did not fail
-    STATIC_RULES = {
-        "R01": ("S0", "D1"), "R02": ("S0", "D1"), "R03": ("S0", "D1"),
-        "R04": ("S1", "D1"), "R05": ("S2", "D1"), "R06": ("S3", "D1"),
-        "R10": ("S2", "D1"), "R11": ("S1", "D2"), "R12": ("S2", "D2"),
-        "R13": ("S1", "D2"), "R15": ("S2", "D3"), "R16": ("S2", "D3"),
-        "R17": ("S2", "D3"), "R18": ("S2", "D3"), "R22": ("S2", "D4"),
-        "R34": ("S0", "D8"), "R35": ("S1", "D8"), "R36": ("S1", "D8"),
-        "R37": ("S1", "D8"), "R38": ("S2", "D8"), "R39": ("S2", "D9"),
-        "R40": ("S2", "D9"), "R41": ("S2", "D9"),
-        "R45": ("S3", "D3"), "R46": ("S2", "D1"), "R47": ("S2", "D2"),
-        "R48": ("S3", "D4"),
-    }
+    static_rule_ids = [
+        rule_id for rule_id, meta in rule_meta.items()
+        if meta.get("type") == "static"
+    ]
     failed_rules = {f["rule_id"] for f in findings}
-    for rule_id, (sev, dim) in STATIC_RULES.items():
+    for rule_id in static_rule_ids:
         if rule_id not in failed_rules:
-            findings.append({
-                "rule_id": rule_id,
-                "severity": sev,
-                "dimension": dim,
-                "status": "PASS",
-                "message": "",
-                "evidence": {"file": "", "line": 0, "snippet": ""},
-            })
+            findings.append(finding(rule_id, "PASS", "", "", 0, ""))
 
     return findings
 
 
 def main():
     """CLI entry point."""
-    score_flag = "--score" in sys.argv
-    args = [a for a in sys.argv[1:] if a != "--score"]
+    args = sys.argv[1:]
 
     if not args:
-        print("用法: python3 validate_skill.py [--score] <技能目录路径>",
+        print("用法: python3 validate_skill.py <技能目录路径>",
               file=sys.stderr)
         sys.exit(1)
 
@@ -864,14 +793,7 @@ def main():
         sys.exit(1)
 
     findings = validate(skill_dir)
-
-    if score_flag:
-        score_result = calculate_score(findings, skill_dir)
-        output = {"findings": findings, "score": score_result}
-    else:
-        output = findings
-
-    print(json.dumps(output, indent=2, ensure_ascii=False))
+    print(json.dumps(findings, indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":

@@ -86,7 +86,7 @@
       "severity": "S3",
       "type": "static",
       "dimension": "D1",
-      "rule": "未知的 frontmatter 字段应产生告警",
+      "rule": "frontmatter 应仅包含已知字段（name, description, license, compatibility, metadata）",
       "source": ["A1"],
       "check_strategy": "Compare all keys against known_frontmatter_fields whitelist"
     },
@@ -415,7 +415,7 @@
       "check_strategy": "Check for try/except blocks, error reporting, and non-zero exit codes on failure"
     },
     {
-      "id": "R45",
+      "id": "R43",
       "severity": "S3",
       "type": "static",
       "dimension": "D3",
@@ -424,7 +424,7 @@
       "check_strategy": "Compare subdirectory names against standard set: references, scripts, templates, assets, examples"
     },
     {
-      "id": "R46",
+      "id": "R44",
       "severity": "S2",
       "type": "static",
       "dimension": "D1",
@@ -433,7 +433,7 @@
       "check_strategy": "Scan description field for <[a-zA-Z][^>]*> patterns that indicate unresolved placeholders"
     },
     {
-      "id": "R47",
+      "id": "R45",
       "severity": "S2",
       "type": "static",
       "dimension": "D2",
@@ -442,7 +442,7 @@
       "check_strategy": "Collect all Markdown headings (## and ###), flag exact duplicates with line numbers"
     },
     {
-      "id": "R48",
+      "id": "R46",
       "severity": "S3",
       "type": "static",
       "dimension": "D4",
@@ -452,7 +452,7 @@
     },
 
     {
-      "id": "R49",
+      "id": "R47",
       "severity": "S2",
       "type": "semantic",
       "dimension": "D7",

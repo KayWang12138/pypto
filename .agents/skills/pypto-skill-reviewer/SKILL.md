@@ -1,7 +1,6 @@
 ---
 name: pypto-skill-reviewer
 description: "对一个 skill 目录进行质量与最佳实践合规性评审并评分。用于需要审计某个 skill、检查 skill 是否遵循规范，或在发布前评估 skill 的场景。通过 Python 脚本执行静态检查，并通过清单执行语义评审，最终产出带有具体修复建议的评分报告。"
-user-invocable: true
 ---
 
 # PyPTO Skill Reviewer
@@ -20,6 +19,7 @@ user-invocable: true
 | [references/scoring-spec.md](references/scoring-spec.md) | 评分算法：维度权重、扣分公式、S0 否决、等级映射 | 在第 3 阶段开始时读取 |
 | [references/semantic-checklist.md](references/semantic-checklist.md) | 20 条语义规则的详细检查要求、证据标准和判定准则 | 在第 2 阶段开始时读取 |
 | [scripts/validate_skill.py](scripts/validate_skill.py) | 对 27 条规则进行确定性静态检查，输出 JSON findings | 在第 1 阶段执行 |
+| [scripts/score_findings.py](scripts/score_findings.py) | 对合并后的 findings 执行确定性打分与覆盖率统计，输出 JSON score | 在第 3 阶段执行 |
 | [templates/report-template.md](templates/report-template.md) | 最终评审报告的 Markdown 模板 | 在第 3 阶段开始时读取 |
 
 ## 工作流程
@@ -31,10 +31,10 @@ user-invocable: true
 1. 读取 [references/rules.json](references/rules.json) 以理解规则定义。
 2. 对目标 skill 运行静态检查器：
    ```
-   python3 <reviewer-dir>/scripts/validate_skill.py --score <skill-path>
+   python3 <reviewer-dir>/scripts/validate_skill.py <skill-path>
    ```
 其中 `<reviewer-dir>` 是该 skill 自身的目录（`.agents/skills/pypto-skill-reviewer`）。
-3. 捕获 JSON 输出 —— 一个顶层对象，包含 `findings`（finding 对象数组）与 `score`（评分结果）。
+3. 捕获 JSON 输出 —— 一个 finding 对象数组 `findings_static`。
 4. 验证脚本是否成功退出。若失败，报告错误，并仅继续输出第 2 阶段结果。
 
 ### 第 2 阶段：语义评审
@@ -70,27 +70,31 @@ user-invocable: true
 
 1. 读取 [references/scoring-spec.md](references/scoring-spec.md) 获取评分算法。
 2. 读取 [templates/report-template.md](templates/report-template.md) 获取报告格式。
-3. 将第 1 阶段和第 2 阶段的所有 findings 合并为单一列表。
-4. 按位置将 findings 聚合为问题：
+3. 将第 1 阶段和第 2 阶段的所有 findings 合并为单一列表，并保存为 `findings_merged.json`。
+4. 对合并后的 findings 运行确定性评分脚本：
+   ```
+   python3 <reviewer-dir>/scripts/score_findings.py \
+     --rules <reviewer-dir>/references/rules.json \
+     --skill-path <skill-path> \
+     --findings findings_merged.json
+   ```
+   捕获 JSON 输出为 `score_result`。
+5. 按位置将 findings 聚合为问题：
    - **聚合键**：`file + line_range`（彼此相距 ±5 行内的 findings 合并为一个问题）
    - 每个问题记录所有匹配的 `rule_id` 值
    - 每个问题生成一条统一修复建议（包含修改前/后对比）
    - `rule_content`：从 rules.json 中查询对应 rule_id 的 `rule` 字段内容
-5. 按维度计算分数：
+6. 分数、等级、覆盖率、计数（pass/fail/warn/skip）必须使用 `score_result`，不得手工估算。
+7. 按维度计算分数时，以 `score_result.dimensions` 为唯一来源：
    ```
    dimension_raw   = max(0, 100 - sum_of_FAIL_deductions)
    dimension_score = dimension_raw × weight
    ```
-6. 计算总分：`total = Σ dimension_scores (D1–D9)`。
-7. 应用 S0 否决：若任一 S0 规则状态为 FAIL，则总分封顶为 59.9，且最高等级为 D。
-8. D9 特殊情况：若目标 skill 不存在 `scripts/` 目录，D9 给满分（5.0）。
-9. 将总分映射到等级：A (90–100)、B (75–89)、C (60–74)、D (40–59)、F (0–39)。
-10. 计算规则覆盖率：静态规则（脚本输出中的 PASS + FAIL）+ 语义规则（第 2 阶段的 PASS + FAIL + SKIP）= 总评估数。覆盖率 = evaluated / 47 × 100%。
-11. 应用质量门禁 —— 评分前过滤 findings：
+8. 应用质量门禁 —— 评分前过滤 findings：
     - **内部错绑**：若某语义 finding 的证据明显引用的是 reviewer 自身而非目标 skill，移除该 finding，并标注原因 `internal_misbound_rule_or_evidence`。
     - **证据不足**：若某语义 finding 的 `evidence.snippet` 无法在目标文件中逐字找到，移除该 finding，并标注原因 `low_information_snippet`。
     - 为报告中的质量门禁章节记录所有被过滤项。
-12. 使用模板渲染最终报告，填充全部占位符。
+9. 使用模板渲染最终报告，填充全部占位符。
 
 ## 输出
 
