@@ -202,52 +202,52 @@ Platform &Platform::Instance() {
     return instance;
 }
 
-void Platform::SetMemoryLimit(const std::unique_ptr<PlatformParser> &parser) {
+void Platform::SetMemoryLimit(const PlatformParser &parser) {
     size_t memoryLimit;
-    if (parser->GetSizeVal(aiCoreSpec, l0aSize, memoryLimit)) {
+    if (parser.GetSizeVal(aiCoreSpec, l0aSize, memoryLimit)) {
         GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0A, memoryLimit));
     }
-    if (parser->GetSizeVal(aiCoreSpec, l0bSize, memoryLimit)) {
+    if (parser.GetSizeVal(aiCoreSpec, l0bSize, memoryLimit)) {
         GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0B, memoryLimit));
     }
-    if (parser->GetSizeVal(aiCoreSpec, l0cSize, memoryLimit)) {
+    if (parser.GetSizeVal(aiCoreSpec, l0cSize, memoryLimit)) {
         GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0C, memoryLimit));
     }
-    if (parser->GetSizeVal(aiCoreSpec, l1Size, memoryLimit)) {
+    if (parser.GetSizeVal(aiCoreSpec, l1Size, memoryLimit)) {
         GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_L1, memoryLimit));
     }
-    if (parser->GetSizeVal(aiCoreSpec, ubSize, memoryLimit)) {
+    if (parser.GetSizeVal(aiCoreSpec, ubSize, memoryLimit)) {
         GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_UB, memoryLimit));
     }
 }
 
-void Platform::LoadPlatformInfo(const std::unique_ptr<PlatformParser> &parser) {
+void Platform::LoadPlatformInfo(const PlatformParser &parser) {
     std::string archType;
     std::string shortSocVersion;
     std::unordered_map<std::string, std::string> versionInfo;
-    if (parser->GetStringVal(version, npuArchInfo, archType)) {
+    if (parser.GetStringVal(version, npuArchInfo, archType)) {
         GetSoc().SetNPUArch(archType);
     }
-    if (parser->GetStringVal(version, shortSocVer, shortSocVersion)) {
+    if (parser.GetStringVal(version, shortSocVer, shortSocVersion)) {
         GetSoc().SetShortSocVersion(shortSocVersion);
     }
-    if (parser->GetCCECVersion(versionInfo)) {
+    if (parser.GetCCECVersion(versionInfo)) {
         GetSoc().SetCCECVersion(versionInfo);
     }
-    if (parser->GetCoreVersion(versionInfo)) {
+    if (parser.GetCoreVersion(versionInfo)) {
         GetSoc().SetCoreVersion(versionInfo);
     }
     size_t coreNum;
-    if (parser->GetSizeVal(socInfo, aiCoreCnt, coreNum)) {
+    if (parser.GetSizeVal(socInfo, aiCoreCnt, coreNum)) {
         GetSoc().SetAICoreNum(coreNum);
     }
-    if (parser->GetSizeVal(socInfo, cubeCoreCnt, coreNum)) {
+    if (parser.GetSizeVal(socInfo, cubeCoreCnt, coreNum)) {
         GetSoc().SetAICCoreNum(coreNum);
     }
-    if (parser->GetSizeVal(socInfo, vectorCoreCnt, coreNum)) {
+    if (parser.GetSizeVal(socInfo, vectorCoreCnt, coreNum)) {
         GetSoc().SetAIVCoreNum(coreNum);
     }
-    if (parser->GetSizeVal(socInfo, aiCpuCnt, coreNum)) {
+    if (parser.GetSizeVal(socInfo, aiCpuCnt, coreNum)) {
         GetSoc().SetAICPUNum(coreNum);
     }
     SetMemoryLimit(parser);
@@ -281,7 +281,7 @@ void Platform::ObtainPlatformInfo() {
         FUNCTION_LOGD("Cannot obtain platform through cann package, use simulation info.");
         parser = std::make_unique<INIParser>();
     }
-    LoadPlatformInfo(parser);
+    LoadPlatformInfo(*parser);
     initialized = true;
 }
 }

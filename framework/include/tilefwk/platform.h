@@ -447,8 +447,8 @@ public:
     AicCore& GetAICCore() { return GetCoreWrap().GetAICCore(); }
     AivCore& GetAIVCore() { return GetCoreWrap().GetAIVCore(); }
     
-    void SetMemoryLimit(const std::unique_ptr<PlatformParser> &parser);
-    void LoadPlatformInfo(const std::unique_ptr<PlatformParser> &parser);
+    void SetMemoryLimit(const PlatformParser &parser);
+    void LoadPlatformInfo(const PlatformParser &parser);
     void ObtainPlatformInfo();
 
     std::string Dump() {

@@ -17,6 +17,7 @@
 #include "tilefwk/tilefwk.h"
 #include "tilefwk/platform.h"
 #include "interface/utils/file_utils.h"
+#define private public
 #include "platform/parser/platform_parser.h"
 #include "platform/parser/internal_parser.h"
 

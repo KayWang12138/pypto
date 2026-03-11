@@ -98,6 +98,7 @@ INIParser::INIParser() {
     simulationPlatform.GetCostModelPlatformRealPath(srcPath);
     if (!Initialize(srcPath)) {
         FUNCTION_LOGE("Failed to initialize.");
+        throw std::runtime_error("can not open simulation file: " + srcPath);
     }
 }
 
@@ -164,7 +165,6 @@ bool INIParser::GetStringVal(const std::string& column, const std::string& key, 
         return false;
     }
     val = iter2->second;
-    std::string rec;
     return true;
 }
 
