@@ -346,7 +346,6 @@ Tensor Assign(const Tensor &operand) {
 }
 
 #define CALL(n, ...) Tensor##n(__VA_ARGS__)
-#define RETURN_CALL(n, ...) return Tensor##n(__VA_ARGS__)
 
 void TiledInnerRegisterCopy(const int dimIdx, Function &function, const TileShape &tileShape,
     const LogicalTensorPtr &operand, const LogicalTensorPtr &result,
@@ -374,80 +373,6 @@ void TiledInnerRegisterCopy(Function &function, const TileShape &tileShape,
     std::vector<int64_t> actOffset(result->GetShape().size(), 0);
     std::vector<int64_t> actTileShape(result->GetShape().size(), 1);
     TiledInnerRegisterCopy(0, function, tileShape, operand, result, actTileShape, actOffset);
-}
-
-void TiledPadOperation(Function &function, const std::vector<int64_t> &tileShape, const std::vector<int64_t> &tileOffset,
-    const LogicalTensorPtr &result, const LogicalTensorPtr &operand)
-{
-    auto resultTile = result->View(function, tileShape, tileOffset);
-    std::vector<int64_t> originTileShape(tileShape);
-    for (auto i = 0; static_cast<size_t>(i) < tileOffset.size(); i++) {
-        if (tileOffset[i] >= operand->GetShape()[i]) {
-            function.AddOperation("TILE_PAD", {}, { resultTile });
-            return;
-        } else if ((tileOffset[i] + tileShape[i]) > operand->GetShape()[i]) {
-            originTileShape[i] = std::min(operand->GetShape()[i] - tileOffset[i], tileShape[i]);
-        }
-    }
-    auto operandTile = View(operand, originTileShape, tileOffset);
-    function.AddOperation("TILE_PAD", { operandTile.GetStorage() }, { resultTile });
-}
-
-void TiledPadLoop(Function &function, int dimIdx, std::vector<int64_t> &tileShape, std::vector<int64_t> &tileOffset,
-    const LogicalTensorPtr &result, const LogicalTensorPtr &operand,
-    std::vector<int64_t> &cfgShape)
-{
-    if (static_cast<size_t>(dimIdx) == result->GetShape().size()) {
-        TiledPadOperation(function, tileShape, tileOffset, result, operand);
-        return;
-    }
-    for (auto i = 0; i < result->GetShape()[dimIdx]; i += cfgShape[dimIdx]) {
-        tileShape[dimIdx] = std::min(result->GetShape()[dimIdx] - i, cfgShape[dimIdx]);
-        tileOffset[dimIdx] = i;
-        TiledPadLoop(function, dimIdx + 1, tileShape, tileOffset, result, operand, cfgShape);
-    }
-}
-
-void TileInnerPad(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
-    const LogicalTensorPtr &result)
-{
-    std::vector<int64_t> offset(result->shape.size(), 0);
-    std::vector<int64_t> padTileShape(result->GetShape().size(), 1);
-    std::vector<int64_t> cfgShape(result->GetShape().size(), 1);
-    auto &vecTile = tileShape.GetVecTile();
-    cfgShape[cfgShape.size() - 1] = vecTile[1];
-    cfgShape[cfgShape.size() - 2] = vecTile[0];
-    TiledPadLoop(function, 0, padTileShape, offset, result, operand, cfgShape);
-}
-
-LogicalTensorPtr TensorPadOperation(Function &function, const TileShape &tileShape,
-    const LogicalTensorPtr operand, const std::vector<int64_t> &newShape)
-{
-    auto tmpResult = std::make_shared<LogicalTensor>(function, operand->Datatype(), newShape);
-    auto result = std::make_shared<LogicalTensor>(function, operand->Datatype(), newShape, operand->Format());
-    TileInnerPad(function, tileShape, operand, tmpResult);
-    auto &assembleOp = function.AddOperation(Opcode::OP_ASSEMBLE, {tmpResult}, {result});
-    assembleOp.SetAssembleOpAttribute(std::vector<int64_t>(newShape.size(), 0));
-    return result;
-}
-
-Tensor Pad(const Tensor &old, const std::vector<int64_t> &newShape)
-{
-    DECLARE_TRACER();
-    auto oldShape = old.GetShape();
-    auto oldShapeSize = oldShape.size();
-    assert(oldShapeSize == newShape.size());
-    assert(oldShape.size() >= SHAPE_DIM2);
-    for (int i = 0; static_cast<size_t>(i) < oldShapeSize; ++i) {
-        // 目前只支持最后一维做pad
-        if (static_cast<size_t>(i) == (oldShapeSize - 1)) {
-            assert(newShape[i] >= oldShape[i]);
-            continue;
-        }
-        ASSERT(oldShape[i] == newShape[i]);
-    }
-    RETURN_CALL(
-        PadOperation, *Program::GetInstance().GetCurrentFunction(), TileShape::Current(), old.GetStorage(), newShape);
 }
 
 void TiledInnerCompact(Function &function, const TileShape &tileShape,

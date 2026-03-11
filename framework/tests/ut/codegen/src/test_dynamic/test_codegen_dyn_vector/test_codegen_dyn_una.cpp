@@ -135,4 +135,49 @@ TEST_F(TestCodegenDynUna, TestDynExpand) {
     EXPECT_EQ(res, expect);
 }
 
+TEST_F(TestCodegenDynUna, TestPadDynamic) {
+    int S0 = 8;
+    int S1 = 16;
+    int D0 = 12;
+    int D1 = 20;
+
+    std::vector<int64_t> srcShape = {S0, S1};
+    std::vector<int64_t> dstShape = {D0, D1};
+
+    TileShape::Current().SetVecTile({8, 16});
+    Tensor input(DataType::DT_FP32, srcShape, "input");
+    Tensor output(DataType::DT_FP32, dstShape, "output");
+
+    std::string funcName = "TestPadDynamic";
+    FUNCTION(funcName, {input, output}) {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Pad(input, {0, 4, 0, 4}, "constant", 0.0f);
+        }
+    }
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
+    function->SetUnderDynamicFunction(true);
+    for (auto &subFunc : function->rootFunc_->programs_) {
+        for (auto &op : subFunc.second->Operations()) {
+            if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
+                if (IsCopyIn(op.GetOpcode()))
+                    op.SetIOpAttrOffset(0, 0);
+                else
+                    op.SetOOpAttrOffset(0, 0);
+                op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+            }
+        }
+        DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
+        subFunc.second->dynParamTable_.emplace("sym_113_dim_0", fakeParam);
+        subFunc.second->dynParamTable_.emplace("sym_113_dim_1", fakeParam);
+    }
+
+    npu::tile_fwk::CodeGenCtx ctx;
+    ctx.isMainBlock = true;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
 } // namespace npu::tile_fwk
