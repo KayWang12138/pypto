@@ -1,9 +1,7 @@
 ---
-{
-  "name": "pypto-skill-reviewer",
-  "description": "Review and score a skill directory for quality and best-practice compliance. Use when you need to audit a skill, check if a skill follows conventions, or evaluate a skill before publishing. Runs static checks via a Python script and semantic review via checklist, then produces a scored report with concrete fix suggestions.",
-  "user-invocable": true
-}
+name: pypto-skill-reviewer
+description: "Review and score a skill directory for quality and best-practice compliance. Use when you need to audit a skill, check if a skill follows conventions, or evaluate a skill before publishing. Runs static checks via a Python script and semantic review via checklist, then produces a scored report with concrete fix suggestions."
+user-invocable: true
 ---
 
 # PyPTO Skill Reviewer
@@ -33,7 +31,7 @@ Execute three phases. Phase 1 and Phase 2 run in parallel because they have no d
 1. Read [references/rules.json](references/rules.json) to understand the rule definitions.
 2. Run the static checker against the target skill:
    ```
-   python3 <reviewer-dir>/scripts/validate_skill.py <skill-path>
+   python3 <reviewer-dir>/scripts/validate_skill.py --score <skill-path>
    ```
    Where `<reviewer-dir>` is this skill's own directory (`.opencode/skills/pypto-skill-reviewer`).
 3. Capture the JSON output — an array of finding objects.
@@ -86,7 +84,7 @@ Execute three phases. Phase 1 and Phase 2 run in parallel because they have no d
 7. Apply S0 veto: if any S0 rule has status FAIL, cap total at 59.9 and set max grade to D.
 8. D9 special case: if no `scripts/` directory exists in the target skill, award D9 full marks (5.0).
 9. Map total score to grade: A (90–100), B (75–89), C (60–74), D (40–59), F (0–39).
-10. Compute rule coverage: count expected rules, evaluated (PASS+FAIL), and skipped.
+10. Compute rule coverage: static rules (PASS + FAIL from script output) + semantic rules (PASS + FAIL + SKIP from Phase 2) = total evaluated. Coverage = evaluated / 51 × 100%.
 11. Apply quality gates — filter findings before scoring:
     - **Internal misbound**: If a semantic finding's evidence clearly refers to the reviewer itself rather than the target skill, remove it and tag reason `internal_misbound_rule_or_evidence`.
     - **Insufficient evidence**: If a semantic finding's `evidence.snippet` cannot be found verbatim in the target files, remove it and tag reason `low_information_snippet`.
@@ -95,23 +93,34 @@ Execute three phases. Phase 1 and Phase 2 run in parallel because they have no d
 
 ## Output
 
-Output the complete review report in Markdown format directly to the user. The report contains:
+Output the complete review report in Markdown format directly to the user. The report MUST contain ALL 6 sections below — missing any section means the report is incomplete.
 
-1. **Review summary** — score, grade, S0 veto status, rule statistics
-2. **Dimension scores table** — per-dimension breakdown with deduction details
-3. **Rule coverage** — expected vs evaluated vs skipped rules
-4. **Quality gate** — filtered internal-misbound and insufficient-evidence items
-5. **Issue list** — grouped by severity (S0 → S1 → S2 → S3), each issue with:
-   - Issue description
-   - Matched rule IDs with severity
-   - Location and evidence (quoted from target skill)
-   - Unified fix suggestion with before/after comparison
-6. **Passed rules summary** — rules that passed, grouped by dimension
+1. **Review summary** — skill name, total score (0-100, two decimal places), grade (A/B/C/D/F), S0 veto status (Yes/No), rule statistics (pass/fail/warn/skip counts)
+2. **Dimension scores table** — 9 rows (D1-D9), each with: raw score (0-100), weight, weighted score, deduction breakdown listing every FAIL rule_id and its deduction value
+3. **Rule coverage** — static count + semantic count = total evaluated, with per-status breakdown (PASS/FAIL/SKIP), coverage percentage = evaluated / 51 × 100%
+4. **Quality gate** — filtered items with count and removal reason (internal_misbound / low_information_snippet)
+5. **Issue list** — grouped by severity (S0 → S3), each issue with:
+   - Issue description referencing specific target skill content
+   - Matched rule IDs with severity tags
+   - Location (`file:line`) and evidence (verbatim snippet ≥10 chars from target)
+   - Concrete fix suggestion with before/after comparison
+6. **Passed rules summary** — all passed rule IDs grouped by dimension
+
+**Success criteria**: A valid report satisfies:
+  (a) all 6 sections present,
+  (b) total score = sum of dimension weighted scores (±0.01),
+  (c) every finding's evidence.snippet exists verbatim in target files,
+  (d) coverage denominator = 51.
 
 ## Error Handling
 
 - **SKILL.md not found**: Report as a single S0 finding (R01), skip all other checks, output a minimal report with score 0 and grade F.
-- **Script execution failure**: Log the error, proceed with semantic review only, note in the report that static checks were incomplete.
+- **Script execution failure**: Log the error, proceed with semantic review only, note in the report that static checks were incomplete. Mark all 29 static rules as SKIP in coverage.
+- **Script output malformed**: If validate_skill.py stdout is not valid JSON:
+  1. Report: "Static analysis script returned non-JSON output"
+  2. Include raw stderr (first 500 chars) in the report's quality gate section
+  3. Proceed with semantic-only review
+  4. Mark all 29 static rules as SKIP in coverage
 - **Empty skill directory**: Same as SKILL.md not found.
 - **Invalid frontmatter**: R01 FAIL triggers S0 veto. Continue checking other rules where possible (those not dependent on frontmatter data).
 
@@ -119,5 +128,10 @@ Output the complete review report in Markdown format directly to the user. The r
 
 - Do not modify any files in the target skill directory — this is a read-only review.
 - Do not fabricate evidence — every snippet must exist in the actual target files.
-- Apply rules exactly as defined in rules.json — do not invent additional rules or skip defined ones.
-- Use the scoring formula precisely — do not estimate or approximate scores.
+- **`rules.json` is the SINGLE SOURCE OF TRUTH** for all 51 rules. Do NOT:
+  - Invent rules not defined in rules.json
+  - Modify severity levels or dimension assignments from rules.json
+  - Skip any rule — if a rule cannot be checked, mark it as SKIP with reason
+  - Override rule definitions based on assumptions or external knowledge
+- Every finding MUST reference a `rule_id` that exists in rules.json.
+- Use the scoring formula from `scoring-spec.md` precisely — do not estimate or approximate scores.

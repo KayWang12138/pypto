@@ -8,7 +8,7 @@ Outputs a JSON array of findings to stdout.
 Usage:
     python3 validate_skill.py <skill-directory-path>
 
-Requirements: Python 3.8+, zero external dependencies.
+Requirements: Python 3.8+, pyyaml.
 """
 
 import json
@@ -17,6 +17,7 @@ import re
 import sys
 import py_compile
 import tempfile
+import yaml
 from pathlib import Path
 
 
@@ -25,7 +26,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 def parse_frontmatter(lines):
-    """Parse JSON frontmatter delimited by --- lines.
+    """Parse YAML frontmatter delimited by --- lines.
 
     Returns (frontmatter_dict, fm_start_line, fm_end_line, body_start_line)
     or (None, None, None, None) if no valid frontmatter found.
@@ -45,9 +46,10 @@ def parse_frontmatter(lines):
 
     fm_text = "".join(lines[1:end_idx])
     try:
-        fm = json.loads(fm_text)
-    except json.JSONDecodeError:
-        # Try as simple key: value pairs (YAML-like but we expect JSON per spec)
+        fm = yaml.safe_load(fm_text)
+    except yaml.YAMLError:
+        return None, 1, end_idx + 1, end_idx + 1
+    if not isinstance(fm, dict):
         return None, 1, end_idx + 1, end_idx + 1
 
     return fm, 1, end_idx + 1, end_idx + 1
@@ -87,7 +89,7 @@ def check_r01(lines, **_):
     fm, start, end, _ = parse_frontmatter(lines)
     if fm is None:
         return finding("R01", "S0", "D1", "FAIL",
-                       "SKILL.md does not start with a valid `---` delimited JSON frontmatter block",
+                       "SKILL.md does not start with a valid `---` delimited YAML frontmatter block",
                        "SKILL.md", 1,
                        lines[0].rstrip() if lines else "(empty file)")
     return None
@@ -356,10 +358,11 @@ def check_r22(lines, **_):
                     open_line = None
 
     if open_fence is not None:
+        unclosed_line = open_line if open_line is not None else 0
         return finding("R22", "S2", "D4", "FAIL",
-                       f"Unclosed code block starting at line {open_line + 1}",
-                       "SKILL.md", open_line + 1,
-                       lines[open_line].rstrip() if open_line < len(lines) else "")
+                       f"Unclosed code block starting at line {unclosed_line + 1}",
+                       "SKILL.md", unclosed_line + 1,
+                       lines[unclosed_line].rstrip() if unclosed_line < len(lines) else "")
     return None
 
 
@@ -679,6 +682,93 @@ def flatten(results):
 
 
 # ---------------------------------------------------------------------------
+# Scoring
+# ---------------------------------------------------------------------------
+
+DIMENSION_WEIGHTS = {
+    "D0": 0.00, "D1": 0.25, "D2": 0.15, "D3": 0.10,
+    "D4": 0.10, "D5": 0.10, "D6": 0.10, "D7": 0.05,
+    "D8": 0.10, "D9": 0.05,
+}
+
+SEVERITY_DEDUCTIONS = {"S0": 20, "S1": 10, "S2": 5, "S3": 2}
+
+
+def calculate_score(findings, skill_dir):
+    """Calculate dimension scores, total, and grade from findings.
+
+    Formula (per scoring-spec.md):
+        dimension_raw   = max(0, 100 - sum_of_FAIL_deductions)
+        dimension_score = dimension_raw * weight
+        total           = sum(dimension_scores for D1-D9)
+
+    Special rules:
+        - S0 veto: any S0 FAIL caps total at 59.9, max grade D
+        - D9: no scripts/ directory in target skill -> full marks (5.0)
+    """
+    dim_deductions = {f"D{i}": 0 for i in range(10)}
+    s0_veto = False
+
+    for f in findings:
+        if f.get("status") != "FAIL":
+            continue
+        sev = f.get("severity", "S3")
+        dim = f.get("dimension", "D0")
+        dim_deductions[dim] = dim_deductions.get(dim, 0) + SEVERITY_DEDUCTIONS.get(sev, 0)
+        if sev == "S0":
+            s0_veto = True
+
+    scripts_dir = os.path.join(skill_dir, "scripts")
+    d9_no_scripts = not os.path.isdir(scripts_dir)
+
+    dimensions = {}
+    for dim, weight in DIMENSION_WEIGHTS.items():
+        if dim == "D0":
+            continue
+        if dim == "D9" and d9_no_scripts:
+            dimensions[dim] = {
+                "raw": 100, "weight": weight,
+                "score": round(100 * weight, 2),
+                "deductions": 0,
+                "note": "no scripts/ directory — full marks",
+            }
+        else:
+            raw = max(0, 100 - dim_deductions.get(dim, 0))
+            dimensions[dim] = {
+                "raw": raw, "weight": weight,
+                "score": round(raw * weight, 2),
+                "deductions": dim_deductions.get(dim, 0),
+            }
+
+    total = round(sum(d["score"] for d in dimensions.values()), 2)
+
+    if s0_veto and total > 59.9:
+        total = 59.9
+
+    if total >= 90:
+        grade = "A"
+    elif total >= 75:
+        grade = "B"
+    elif total >= 60:
+        grade = "C"
+    elif total >= 40:
+        grade = "D"
+    else:
+        grade = "F"
+
+    if s0_veto and grade not in ("D", "F"):
+        grade = "D"
+
+    return {
+        "dimensions": dimensions,
+        "total": total,
+        "grade": grade,
+        "s0_veto": s0_veto,
+        "d9_no_scripts": d9_no_scripts,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -758,15 +848,47 @@ def validate(skill_dir):
         check_r49(**ctx),
     ]
 
-    return flatten(results)
+    findings = flatten(results)
+
+    # Inject PASS status for rules that did not fail
+    STATIC_RULES = {
+        "R01": ("S0", "D1"), "R02": ("S0", "D1"), "R03": ("S0", "D1"),
+        "R04": ("S1", "D1"), "R05": ("S2", "D1"), "R06": ("S3", "D1"),
+        "R10": ("S2", "D1"), "R11": ("S1", "D2"), "R12": ("S2", "D2"),
+        "R13": ("S1", "D2"), "R15": ("S2", "D3"), "R16": ("S2", "D3"),
+        "R17": ("S2", "D3"), "R18": ("S2", "D3"), "R22": ("S2", "D4"),
+        "R34": ("S0", "D8"), "R35": ("S1", "D8"), "R36": ("S1", "D8"),
+        "R37": ("S1", "D8"), "R38": ("S2", "D8"), "R39": ("S2", "D9"),
+        "R40": ("S2", "D9"), "R41": ("S2", "D9"), "R43": ("S2", "D0"),
+        "R45": ("S2", "D0"), "R46": ("S2", "D1"), "R47": ("S2", "D2"),
+        "R48": ("S3", "D4"), "R49": ("S2", "D8"),
+    }
+    failed_rules = {f["rule_id"] for f in findings}
+    for rule_id, (sev, dim) in STATIC_RULES.items():
+        if rule_id not in failed_rules:
+            findings.append({
+                "rule_id": rule_id,
+                "severity": sev,
+                "dimension": dim,
+                "status": "PASS",
+                "message": "",
+                "evidence": {"file": "", "line": 0, "snippet": ""},
+            })
+
+    return findings
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python3 validate_skill.py <skill-directory-path>", file=sys.stderr)
+    """CLI entry point."""
+    score_flag = "--score" in sys.argv
+    args = [a for a in sys.argv[1:] if a != "--score"]
+
+    if not args:
+        print("Usage: python3 validate_skill.py [--score] <skill-directory-path>",
+              file=sys.stderr)
         sys.exit(1)
 
-    skill_dir = os.path.abspath(sys.argv[1])
+    skill_dir = os.path.abspath(args[0])
     if not os.path.isdir(skill_dir):
         print(json.dumps([finding("R01", "S0", "D1", "FAIL",
                                   f"Path is not a directory: {skill_dir}",
@@ -774,7 +896,14 @@ def main():
         sys.exit(1)
 
     findings = validate(skill_dir)
-    print(json.dumps(findings, indent=2, ensure_ascii=False))
+
+    if score_flag:
+        score_result = calculate_score(findings, skill_dir)
+        output = {"findings": findings, "score": score_result}
+    else:
+        output = findings
+
+    print(json.dumps(output, indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":
