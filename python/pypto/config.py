@@ -104,7 +104,11 @@ def get_pass_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
 
 
 
-def set_host_options(*, compile_stage: Optional[CompStage] = None) -> None:
+def set_host_options(*, compile_stage: Optional[CompStage] = None,
+                     compile_monitor_enable: Optional[bool] = None,
+                     interval_sec: Optional[int] = None,
+                     timeout_sec: Optional[int] = None,
+                     total_timeout_sec: Optional[int] = None) -> None:
     """
     Set host options.
 
@@ -112,8 +116,20 @@ def set_host_options(*, compile_stage: Optional[CompStage] = None) -> None:
     ---------
     compile_stage : CompStage
         Control the compilation phase.
+
+    compile_monitor_enable : bool
+        Control whether to enable compilation progress printing during the compilation phase.
+
+    interval_sec : int
+        Control the frequency of printing the compilation progress for a certain stage.
+
+    timeout_sec : int
+        Control the timeout duration of a certain stage of the compilation process.
+
+    total_timeout_sec : int
+        Control the timeout duration for the entire compilation process.
     """
-    options_dict = {k: v.value for k, v in locals().items() if v is not None}
+    options_dict = {k: v.value if isinstance(v, CompStage) else v for k, v in locals().items() if v is not None}
     set_options(host_options=options_dict)
 
 
@@ -336,8 +352,8 @@ class _Options:
     INIT_FIELDS = [
         "name", "codegen_options", "host_options", "pass_options",
         "runtime_options", "verify_options", "debug_options",
-        "vec_tile_shapes", "cube_tile_shapes", "matrix_size",
-        "operation_options"
+        "vec_tile_shapes", "cube_tile_shapes", "conv_tile_shapes",
+        "matrix_size", "operation_options"
     ]
 
     PREFIX_MAP = {
@@ -372,6 +388,13 @@ class _Options:
                 opts["cube_tile_shapes"] = self.cube_tile_shapes._impl
             else:
                 opts["cube_tile_shapes"] = CubeTile(*self.cube_tile_shapes)._impl
+        
+                        
+        if self.conv_tile_shapes is not None:
+            if isinstance(self.conv_tile_shapes, ConvTile):
+                opts["conv_tile_shapes"] = self.conv_tile_shapes._impl
+            else:
+                opts["conv_tile_shapes"] = ConvTile(*self.conv_tile_shapes)._impl
 
         if self.matrix_size is not None:
             opts["matrix_size"] = self.matrix_size
@@ -420,6 +443,7 @@ def options(
     debug_options=None,
     vec_tile_shapes=None,
     cube_tile_shapes=None,
+    conv_tile_shapes=None,
     matrix_size=None,
 ):
     """
@@ -486,6 +510,7 @@ def set_options(
     operation_options=None,
     vec_tile_shapes=None,
     cube_tile_shapes=None,
+    conv_tile_shapes=None,
     matrix_size=None,
 ):
     """
@@ -522,8 +547,7 @@ def get_options_tree():
 
 class CubeTile:
     """CubeTile"""
-    def __init__(self, m: List[int], k: List[int], n: List[int], enable_multi_data_load: bool = False,
-                        enable_split_k: bool = False):
+    def __init__(self, m: List[int], k: List[int], n: List[int], enable_split_k: bool = False):
         """
         CubeTile tile for matmul operation, m[0], k[0], n[0] for L0 Cache, m[1], k[1], n[1] for L1 Cache
 
@@ -541,10 +565,6 @@ class CubeTile:
             the value of the tile shape in n dimension
             The length of the list must be 2.
 
-        enable_multi_data_load: bool
-            whether the process of moving L1 to L0 is multi data load.
-            default is false (i.e. not multi data load)
-
         enable_split_k: bool
             whether the matmul result accumulated in the GM.
             default is false (i.e. not GM ACC)
@@ -561,7 +581,7 @@ class CubeTile:
         if len(k_padded) == 2:
             k_padded.append(k_padded[1])  # k[2] = k[1]
 
-        self._impl = pypto_impl.CubeTile(list(m), k_padded, list(n), enable_multi_data_load, enable_split_k)
+        self._impl = pypto_impl.CubeTile(list(m), k_padded, list(n), enable_split_k)
 
     def __getattr__(self, name):
         return getattr(self._impl, name)
@@ -573,6 +593,56 @@ class CubeTile:
         return str(self._impl)
 
     def impl(self) -> pypto_impl.CubeTile:
+        return self._impl
+
+
+class ConvTile:
+    """ConvTile"""
+    def __init__(self, tile_l1_info: pypto_impl.TileL1Info, tile_l0_info: pypto_impl.TileL0Info, 
+                 set_l0_tile: bool = False):
+        """
+        ConvTile tile for convolution operation, tile_l1_info for L1 Cache, tile_l0_info for L0 Cache
+
+        Parameters
+        ---------
+        tile_l1_info: pypto_impl.TileL1Info
+            Tile configuration for L1 Cache (convolution dimensions):
+            - tileHin: Input height tile size
+            - tileHout: Output height tile size
+            - tileWin: Input weight tile size
+            - tileWout: Output weight tile size
+            - tileCinFmap: Input channel tile size for feature map
+            - tileCinWeight: Input channel tile size for weight
+            - tileN: Output channel tile size
+            - tileBatch: Batch dimension tile size
+        tile_l0_info: pypto_impl.TileL0Info, optional
+            Tile configuration for L0 Cache (H/W/K/N dimensions):
+            - tileH: H dimension tile size
+            - tileW: W dimension tile size
+            - tileK: K dimension tile size
+            - tileN: N dimension tile size
+        set_l0_tile: bool, optional
+            Flag to enable L0 Tile configuration, default False.
+        """
+
+        self._impl = pypto_impl.ConvTile(tile_l1_info, tile_l0_info, set_l0_tile)
+
+    def __getattr__(self, name):
+        attr_map = {
+            'tile_l1_info': 'tileL1Info',
+            'tile_l0_info': 'tileL0Info',
+            'set_l0_tile': 'setL0Tile',
+        }
+        impl_name = attr_map.get(name, name)
+        return getattr(self._impl, impl_name)
+
+    def __repr__(self):
+        return repr(self._impl)
+
+    def __str__(self):
+        return str(self._impl)
+
+    def impl(self) -> pypto_impl.ConvTile:
         return self._impl
 
 
@@ -625,6 +695,9 @@ class ConfigScope:
 
     def get_cube_tile_shapes(self):
         return self._options.get("cube_tile_shapes")
+
+    def get_conv_tile_shapes(self):
+        return self._options.get("conv_tile_shapes")
 
     def get_matrix_size(self):
         return self._options.get("matrix_size")

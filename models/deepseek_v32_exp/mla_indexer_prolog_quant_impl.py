@@ -68,11 +68,7 @@ def mla_indexer_prolog_quant_compute(
     head_dim = ip_hadamard_q_in.shape[0]
     q_head_dim = qk_nope_head_dim + qk_rope_head_dim
 
-    tile_bs = mla_tile_config.tile_bs
-
     t = token_x.shape[0]
-    bs_loop = (t + tile_bs - 1) // tile_bs
-
     quant_inputs = MlaQuantInputs()
 
     k_cache_index_2d = pypto.reshape(cache_index, [t, 1], inplace=True)
@@ -183,7 +179,7 @@ def mla_indexer_prolog_quant_compute(
         pypto.set_semantic_label("Query-Linear")
         pypto.set_cube_tile_shapes([q_linear[L0M_INDEX], q_linear[L1M_INDEX]],
                                 [q_linear[L0K_INDEX], q_linear[L1K_INDEX]],
-                                [q_linear[L0N_INDEX], q_linear[L1N_INDEX]], True)
+                                [q_linear[L0N_INDEX], q_linear[L1N_INDEX]])
         q_s32 = pypto.matmul(q_norm, ip_w_qb_in, pypto.DT_INT32)  # (tile_bs, head_num * head_dim)
 
         pypto.set_semantic_label("Query-Dequant")
@@ -227,7 +223,7 @@ def mla_indexer_prolog_quant_compute(
         pypto.set_semantic_label("Key-Linear")
         pypto.set_cube_tile_shapes([k_linear[L0M_INDEX], k_linear[L1M_INDEX]],
                                 [k_linear[L0K_INDEX], k_linear[L1K_INDEX]],
-                                [k_linear[L0N_INDEX], k_linear[L1N_INDEX]], True)
+                                [k_linear[L0N_INDEX], k_linear[L1N_INDEX]])
         k = pypto.matmul(x_view, ip_wk_in, pypto.DT_FP32)  # (tile_bs, head_dim)
 
         if tile_bs <= 32:
@@ -323,9 +319,7 @@ def mla_indexer_prolog_quant_p(h, n_q, q_lora_rank, kv_lora_rank, qk_nope_head_d
             "cube_l1_reuse_setting": {-1: 4},
             "pg_upper_bound": 8192,
         },
-        runtime_options={"stitch_function_inner_memory": 512, 
-                        "stitch_function_outcast_memory": 512,
-                        "stitch_function_num_initial": 128,
+        runtime_options={"stitch_function_max_num": 128,
                         "device_sched_mode": 2}
     )
     def mla_indexer_prolog_quant_kernel(

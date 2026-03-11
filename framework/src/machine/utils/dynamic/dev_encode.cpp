@@ -90,8 +90,8 @@ void DevAscendFunction::InitOperationDynamicField(
     duppedDataCopySize_ = sizeof(DevAscendFunctionDuppedData) + predCountListDataSize;
     duppedData_.HostInitDataSizeOffset(initOffset, duppedDataAllocSize_);
     predInfo_ = predInfo;
-    MACHINE_LOGI("Pred: zero= %llu aiv= %llu aic= %llu hub= %llu aicpu=%llu",
-        predInfo.totalZeroPred, predInfo.totalZeroPredAIV, predInfo.totalZeroPredAIC, predInfo.totalZeroPredHub, predInfo.totalZeroPredAicpu);
+    MACHINE_LOGI("Pred: zero= %lu aiv= %lu aic= %lu hub= %lu aicpu=%lu",
+        static_cast<unsigned long>(predInfo.totalZeroPred), static_cast<unsigned long>(predInfo.totalZeroPredAIV), static_cast<unsigned long>(predInfo.totalZeroPredAIC), static_cast<unsigned long>(predInfo.totalZeroPredHub), static_cast<unsigned long>(predInfo.totalZeroPredAicpu));
 
     ONFILLCONTENT {
         DevAscendFunctionDuppedData *dupData = reinterpret_cast<DevAscendFunctionDuppedData *>(&At(duppedData_, 0));
@@ -441,7 +441,9 @@ static int GetCceIndex(const std::unordered_map<uint64_t, int> &calleeHashIndexD
     const std::shared_ptr<CallOpAttribute> &callop)
 {
     int cceIndex = calleeHashIndexDict.at(callop->GetCalleeHash().GetHash());
-    if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) == 1) {
+    bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
+    enableVF = enableVF && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
+    if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) == 1 || enableVF) {
         cceIndex = std::max(0, cceIndex * MAIN_BLOCK_SIZE - 1);
     }
     return cceIndex;
@@ -1009,7 +1011,7 @@ struct EncodeDevAscendFunctionInfo {
                 } else {
                     useList.emplace_back(i, j, coaIndex, coaIndex + dimSize);
                 }
-                MACHINE_LOGD("Outcast oOperandIdx for outcast %d %d is %d", o->magic, o->GetRawMagic(), j);
+                MACHINE_LOGD("Outcast oOperandIdx for outcast %d %d is %zu", o->magic, o->GetRawMagic(), j);
                 outcastUseOpSet.insert(i);
                 auto expr = callAttr->GetOutcastSymbolicExpr(j);
                 outcastOpAttr.bindTensorExprIndex = -1;
@@ -1028,7 +1030,7 @@ struct EncodeDevAscendFunctionInfo {
                     UNUSED(offsetAttrIdx);
                     auto shape = callAttr->GetLinearImmediateArgList(shapeAttrIdx, shapeAttrIdx + dimSize, false);
                     UpdateCellMatchShape(outcastOpAttr.cellMatchTableDesc, shape);
-                    MACHINE_LOGD("minimal shape for outcast %d raw %d op %d %d is %s\n", o->magic, o->GetRawMagic(), i,
+                    MACHINE_LOGD("minimal shape for outcast %d raw %d op %zu %d is %s\n", o->magic, o->GetRawMagic(), i,
                         op.GetOpMagic(), IntVecToStr(ShapeToVector(outcastOpAttr.cellMatchTableDesc.cellShape)).c_str());
                 }
             }
@@ -1124,7 +1126,7 @@ struct EncodeDevAscendFunctionInfo {
                         }
                         incastOpAttr.useList.emplace_back(j, k, coaIndex, coaIndex + dimSize);
                         UpdateCellMatchShape(incastOpAttr.cellMatchTableDesc, shape);
-                        MACHINE_LOGD("minimal shape for incast %d raw %d op %d %d is %s\n", index->magic, index->GetRawMagic(), j,
+                        MACHINE_LOGD("minimal shape for incast %d raw %d op %zu %d is %s\n", index->magic, index->GetRawMagic(), j,
                             op.GetOpMagic(), IntVecToStr(ShapeToVector(incastOpAttr.cellMatchTableDesc.cellShape)).c_str());
                         incastUseOpSet.insert(j);
                     }
@@ -1224,7 +1226,7 @@ struct EncodeDevAscendFunctionInfo {
     void PrintColorGraph(int colorNum) {
         MACHINE_LOGI("*********** Call OP Graph ***********\n");
         for (int index = 0; index < colorNum; index++) {
-            MACHINE_LOGI("%zu: %zu", index, colorOutGraph[index].size());
+            MACHINE_LOGI("%d: %zu", index, colorOutGraph[index].size());
             MACHINE_LOGI("%s", IntVecToStr(colorOutGraph[index]).c_str());
         }
         int outCount = 0;
@@ -1350,22 +1352,10 @@ struct EncodeDevAscendFunctionInfo {
         }
     }
 
-     void AddDependOperandsToColorGraph(std::vector<Operation *> &callopList, std::unordered_map<Operation *, int> &callopIndexDict) {
-        std::unordered_map<std::shared_ptr<LogicalTensor>, OrderedSet<Operation *>> producerDict;
-        for (auto &op : callopList) {
-            for (auto &i : op->GetOOperands()) {
-                producerDict[i].Insert(op);
-            }
-        }
-
-        for (auto &op : callopList) {
-            for (auto &o : op->GetDependOperands()) {
-                for (auto &producer : producerDict[o]) {
-                    if (op == producer) {
-                        // Consumer and producer can not be the same.
-                        continue;
-                    }
-                    // Index for callop from its depend operand's producer callop index list
+    void AddDependOperandsToColorGraphForMix(std::vector<Operation *> &callopListVec, std::unordered_map<Operation *, int> &callopIndexDict) {
+        for (auto &op : callopListVec) {
+            for (auto &depend : op->GetDependOperands()) {
+                for (auto &producer : depend->GetProducers()) {
                     colorOutGraph[callopIndexDict[producer]].push_back(callopIndexDict[op]);
                 }
             }
@@ -1531,7 +1521,7 @@ struct EncodeDevAscendFunctionInfo {
                 }
             }
         }
-        AddDependOperandsToColorGraph(callopList, callopIndexDict);
+        AddDependOperandsToColorGraphForMix(callopList, callopIndexDict);
         for (size_t idx = 0; idx < callopList.size(); idx++) {
             std::sort(colorOutGraph[idx].begin(), colorOutGraph[idx].end());
             // remove repeated idx in ooperand's consumer callop idx list
@@ -2296,7 +2286,7 @@ static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram *devProg) {
         MACHINE_LOGD("requiredSlabNum[%d] is %u", i, requiredSlabNum);
         generalMetadataSlabSize += static_cast<uint64_t>(requiredSlabNum) * slabSize;
     }
-    MACHINE_LOGD("generalMetadataSlabSize is %u", generalMetadataSlabSize);
+    MACHINE_LOGD("generalMetadataSlabSize is %lu", static_cast<unsigned long>(generalMetadataSlabSize));
     generalMetadataSlabSize = (generalMetadataSlabSize < GENERAL_METADATA_SIZE_MIN) ? GENERAL_METADATA_SIZE_MIN : generalMetadataSlabSize;
     return generalMetadataSlabSize;
 }

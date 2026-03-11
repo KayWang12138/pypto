@@ -101,7 +101,7 @@ void SimSys::BuildCaches()
 {
     functionCache.SetSim(GetShared());
     functionCache.SetMaxCacheSize(config.functionCacheSize);
-    SIMULATION_LOGI("[ModelTop][BuildCache] FunctionCache max size: %llu", functionCache.GetMaxCacheSize());
+    SIMULATION_LOGI("[ModelTop][BuildCache] FunctionCache max size: %lu", static_cast<unsigned long>(functionCache.GetMaxCacheSize()));
 
     // Create the L2 cache.
     auto l2BankId = 0;
@@ -406,7 +406,7 @@ void SimSys::AddMachine(std::shared_ptr<Machine> m)
 
 void SimSys::Step()
 {
-    SIMULATION_LOGI("[ModelTop][Step] ========== %llu ========== [ModelTop][Step]", globalCycles);
+    SIMULATION_LOGI("[ModelTop][Step] ========== %lu ========== [ModelTop][Step]", static_cast<unsigned long>(globalCycles));
     for (const auto &machine : machines) {
         machine->Step();
     }
@@ -446,7 +446,7 @@ bool SimSys::IsTerminate() const
 void SimSys::ReportDeadlock(size_t machineId)
 {
     deadlock = true;
-    SIMULATION_LOGE("[ReportDeadlock] Machine %d is deadlock at cycle %llu", machineId, globalCycles);
+    SIMULATION_LOGE("[ReportDeadlock] Machine %zu is deadlock at cycle %lu", machineId, static_cast<unsigned long>(globalCycles));
 }
 
 bool SimSys::IsDeadlock() const

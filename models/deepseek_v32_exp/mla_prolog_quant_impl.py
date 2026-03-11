@@ -440,7 +440,7 @@ def pre_compute_2d(
                                    [tile_config.pre_quant_cube_tile[2], tile_config.pre_quant_cube_tile[3]],
                                    [tile_config.pre_quant_cube_tile[4], tile_config.pre_quant_cube_tile[5]])
         pypto.set_semantic_label("Matmul_qa")
-        q_a_proj = pypto.matmul(token_x, w_dq, dtype)
+        q_a_proj = pypto.matmul(token_x, w_dq, pypto.DT_FP32)
 
     pypto.set_vec_tile_shapes(mv, q_lora_rank)
     pypto.set_semantic_label("RmsNorm_qa")
@@ -591,11 +591,7 @@ def mla_prolog_quant_compute(
     qk_rope_head_dim = sin.shape[1]
     q_head_dim = qk_nope_head_dim + qk_rope_head_dim
 
-    tile_bs = tile_config.tile_bs
-
     t = token_x.shape[0]
-    bs_loop = (t + tile_bs - 1) // tile_bs
-
     quant_inputs = MlaQuantInputs()
 
     k_cache_index_2d = pypto.reshape(cache_index, [t, 1], inplace=True)
@@ -730,9 +726,7 @@ def mla_prolog_quant_p(h, q_lora_rank, n, qk_nope_head_dim, kv_lora_rank, qk_rop
             "cube_l1_reuse_setting": {-1: 4},
         },
         runtime_options={
-            "stitch_function_inner_memory": 512,
-            "stitch_function_outcast_memory": 512,
-            "stitch_function_num_initial": 128,
+            "stitch_function_max_num": 128
         }
     )
     def mla_prolog_quant_kernel(

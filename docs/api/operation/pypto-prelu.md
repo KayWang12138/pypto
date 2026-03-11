@@ -42,11 +42,7 @@ prelu(input: Tensor, weight: Tensor) -> Tensor
 1.  input 和 weight 类型应该相同。
 2.  weight 的Shape必须为一维，且长度等于 input 的第二维大小。
 3.  input 和 weight 不支持 nan、inf 等特殊值。
-4.  由于存在临时内存使用，输入维度为二维时，TileShape大小有额外约束，假设TileShape为\[a,b\]，那么a\*b\*sizeof\(self\) + b\*sizeof\(self\)<UB。
-  
-## 接口补充
-
-由于A2/A3芯片指令限制，当输入为inf、-inf是，计算结果为nan，与竞品不一致。
+4.  由于存在临时内存使用，输入维度为二维时，TileShape大小有额外约束，假设TileShape为\[a,b\]，那么a\*b\*sizeof\(self\) + b/8 + 8KB < UB。
 
 ## 调用示例
 

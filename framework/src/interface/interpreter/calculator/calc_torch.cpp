@@ -1276,7 +1276,7 @@ void CumSum(const TensorData &out, const TensorData &in, int axis) {
 
 void IndexPut(const TensorData &out, const TensorData &self, const std::vector<TensorData> &indices, const TensorData &values, bool accumulate) {
     c10::List<c10::optional<at::Tensor>> indicesList;
-    for (const auto idx : indices) {
+    for (auto idx : indices) {
         indicesList.push_back(From(idx).second);
     }
     auto tout = From(out);

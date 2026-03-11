@@ -21,6 +21,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include "tilefwk/pypto_fwk_log.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/utils/op_info_manager.h"
 #include "machine/runtime/device_launcher_binding.h"
@@ -29,6 +30,8 @@
 #include "machine/utils/dynamic/dev_start_args.h"
 #include "machine/host/perf_analysis.h"
 #include "bindings/torch_tensor_converter.h"
+#include "interface/compiler_monitor/monitor_manager.h"
+#include "interface/compiler_monitor/monitor_stage_scope.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -525,8 +528,7 @@ public:
         return nullptr;
     }
 
-    uint8_t *FindCtrlFlowCache(KernelBinary *kernel, py::object &module,
-        std::vector<DeviceTensorData> &tensors, bool isCaptureMode) {
+    uint8_t *FindCtrlFlowCache(KernelBinary *kernel, py::object &module, std::vector<DeviceTensorData> &tensors) {
         if (!IsCacheEnabled()) {
             return nullptr;
         }
@@ -534,7 +536,7 @@ public:
         auto devCache = kernel->FindCtrlFlowCache(tensors, true);
         if (devCache == nullptr) {
             std::vector<std::vector<int64_t>> shape;
-            if (isCaptureMode) {
+            if (DeviceLauncher::IsCaptureMode()) {
                 AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
                 devCache = kernel->BuildControlFlowCache(tensors, stitchCfgCacheSize, true);
             } else if (InferCacheShape(module, tensors, shape)) {
@@ -557,12 +559,20 @@ public:
     }
 
     KernelBinary *Compile(py::object &module, py::args &args) {
+        COMPILER_LOGI("Old frontend compile begin once.");
+        // Prepare stage starts here and ends at Program::UpdateCompileTask() for OLD
+        // "Prepare" 在Initialize中设置
+        MonitorManager::Instance().Initialize(compileMonitorEnable, intervalSec, timeoutSec, totalTimeoutSec);
         auto compile = py::getattr(module, "compile");
         compile(args);
         return RegisterLastCompiledKernel(module);
     }
 
     KernelBinary *CompileFromTorch(py::object &module, py::sequence &torch_tensors, py::sequence tensor_defs) {
+        COMPILER_LOGI("New frontend compile from torch begin once.");
+        // Prepare stage starts here and ends at Program::UpdateCompileTask() for NEW
+        // "Prepare" 在Initialize中设置
+        MonitorManager::Instance().Initialize(compileMonitorEnable, intervalSec, timeoutSec, totalTimeoutSec);
         auto compile = py::getattr(module, "compile");
         compile(torch_tensors, tensor_defs);
         return RegisterLastCompiledKernel(module);
@@ -585,8 +595,8 @@ public:
         return kernel->GetWorkspaceSize(tensors);
     }
 
-    void Launch(KernelBinary *kernel, bool isCaptureMode, aclrtStream aicoreStream,
-        std::vector<DeviceTensorData> &tensors, uint8_t *ctrlFlowCache, int64_t *workspace) {
+    void Launch(KernelBinary *kernel, aclrtStream aicoreStream, std::vector<DeviceTensorData> &tensors,
+        uint8_t *ctrlFlowCache, int64_t *workspace) {
         auto [args, argsSize] = kernel->BuildKernelArgs(tensors);
         rtAicpuArgs.args = args;
         rtAicpuArgs.argsSize = argsSize;
@@ -595,7 +605,7 @@ public:
         args->kArgs.workspace = workspace;
         args->kArgs.parameter.globalRound = ++sequence;
 
-        bool debugEnable = !isCaptureMode && isDebugMode;
+        bool debugEnable = !DeviceLauncher::IsCaptureMode() && isDebugMode;
 
 #if ENABALE_VERBOSE_LOG
         ALOG_ERROR_F("triple stream %d sequence %ld workspace %p cfgcache %p", tripleStream, sequence.load(), workspace,
@@ -656,6 +666,22 @@ private:
         if (!module.attr("_infer_controlflow_shape").is_none()) {
             inferCacheShape = true;
         }
+
+        if (!module.attr("_host_options").is_none()) {
+            auto host_options = module.attr("_host_options").cast<py::dict>();
+            if (host_options.contains("compile_monitor_enable")) {	 
+                compileMonitorEnable = host_options["compile_monitor_enable"].cast<bool>();
+            }
+            if (host_options.contains("interval_sec")) {	 
+                intervalSec = host_options["interval_sec"].cast<int>();
+            }
+            if (host_options.contains("timeout_sec")) {	 
+                timeoutSec = host_options["timeout_sec"].cast<int>();
+            }
+            if (host_options.contains("total_timeout_sec")) {	 
+                totalTimeoutSec = host_options["total_timeout_sec"].cast<int>();
+            }
+        }
 #if ENABALE_VERBOSE_LOG
         ALOG_ERROR("triple_stream_sched: ", tripleStream, " stitch_cfgcache_size: ", stitchCfgCacheSize,
             " infer_cache_shape: ", inferCacheShape);
@@ -709,6 +735,10 @@ private:
     bool tripleStream{true};
     bool isDebugMode{false};
     int64_t stitchCfgCacheSize{0};
+    bool compileMonitorEnable{true};
+    int intervalSec{60};
+    int timeoutSec{-1};
+    int totalTimeoutSec{600};
 
     rtHostInputInfo_t hostInfo;
     rtAicpuArgsEx_t rtAicpuArgs;
@@ -753,6 +783,9 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
     DeviceGuard devGuard(devId);
 
     auto kmodule = py::getattr(module, "kmodule").cast<KernelModulePtr>();
+    aclmdlRI rtModel;
+    DeviceLauncher::GetCaptureInfo(aicoreStream, rtModel);
+
     HOST_PERF_TRACE(TracePhase::LaunchInit);
 
     auto kbinary = kmodule->GetKernelBinary(tensors);
@@ -779,13 +812,13 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
     }
     HOST_PERF_TRACE(TracePhase::LaunchAllocWorkSpace);
 
-    bool isCaptureMode = DeviceLauncher::AddAicpuStream(aicoreStream, kmodule->IsTripleStream());
+    DeviceLauncher::AddAicpuStream(rtModel, kmodule->IsTripleStream());
     HOST_PERF_TRACE(TracePhase::LaunchAttachStream);
     
-    uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors, isCaptureMode);
+    uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors);
     HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
-    
-    kmodule->Launch(kbinary, isCaptureMode, aicoreStream, tensors, ctrlFlowCache, wsAddr);
+
+    kmodule->Launch(kbinary, aicoreStream, tensors, ctrlFlowCache, wsAddr);
     HOST_PERF_TRACE(TracePhase::Launch);
     HOST_PERF_EVT_END(EventPhase::LaunchKernel);
 }

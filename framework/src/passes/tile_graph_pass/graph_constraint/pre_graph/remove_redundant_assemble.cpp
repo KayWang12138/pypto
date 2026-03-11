@@ -147,6 +147,23 @@ void RemoveRedundantAssemble::UpdateReshapeShape(Operation &reshapeOp, const Sha
     reshapeOp.GetOOperands().front()->tensor->UpdateRawShape(newRawShape);
 }
 
+Status RemoveRedundantAssemble::ProcessView(Function &function) const {
+    std::vector<std::pair<Operation *, Operation *>> multiReshapeVector;
+    if (SplitMultiConsumerReshape(function, multiReshapeVector) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "SplitMultiConsumerReshape failed.");
+        return FAILED;
+    }
+    if (RemoveViewMultiReshape(multiReshapeVector) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "RemoveViewMultiReshape failed.");
+        return FAILED;
+    }
+    if (RemoveViewSingleReshape(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "RemoveViewSingleReshape failed.");
+        return FAILED;
+    }
+    return SUCCESS;
+}
+
 /*
 删除冗余的VIEW处理场景:
 Brfore：
@@ -156,7 +173,7 @@ After：
 RESHAPE -> COPYIN
         -> COPYIN
 */
-Status RemoveRedundantAssemble::ProcessView(Function &function) const {
+Status RemoveRedundantAssemble::RemoveViewSingleReshape(Function &function) const {
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_RESHAPE) continue;
         auto &reshapeOp = op;
@@ -206,7 +223,8 @@ Status RemoveRedundantAssemble::ProcessView(Function &function) const {
     return SUCCESS;
 }
 
-// large , small
+// 检测并优化特定的reshape模式：当输入张量的前两个维度中有一个为1时，
+// 这两个维度可以合并为单个维度（例如 [1, N, ...] 或 [N, 1, ...] → [N, ...]）
 bool RemoveViewMultiReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTensorPtr &reshapeOutput) {
     auto longerRawShape = reshapeInput->GetRawTensor()->GetRawShape();
     auto shorterRawShape = reshapeOutput->GetRawTensor()->GetRawShape();
@@ -234,7 +252,7 @@ bool RemoveViewMultiReshapePattern(const LogicalTensorPtr &reshapeInput, const L
 }
 
 /*
-拷贝一个RESHAPE
+拆分RESHAPE
 Before:
 RESHAPE -> VIEW -> RESHAPE
         -> COPYIN
@@ -245,58 +263,8 @@ RESHAPE -> VIEW -> RESHAPE
 RESHAPE -> COPYIN
         -> COPYIN
 */
-Status ProcessReshape(Function &function, Operation *&operation) {
-    auto iOperand = operation->iOperand[0];
-    auto oOperand = operation->oOperand[0];
-    if (oOperand == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation,
-            "Null output operands detected while iterating over the output operands of the operation [%d].%s",
-            operation->opmagic, GetFormatBacktrace(operation).c_str());
-        return FAILED;
-    }
-    if (iOperand == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation,
-            "Null input operands detected while iterating over the input operands of the operation [%d].%s",
-            operation->opmagic, GetFormatBacktrace(operation).c_str());
-        return FAILED;
-    }
-    auto consumers = oOperand->GetConsumers();
-    for (auto &consumer : consumers) {
-        if (consumer == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "Null consumer detected while iterating over the consumers of the output operand [%d].", oOperand->magic);
-            return FAILED;
-        }
-        if (consumer->GetOpcode() == Opcode::OP_COPY_IN) {
-            continue;
-        }
-        auto dst = oOperand->Clone(function, true);
-        if (dst == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "Clone failed for output operand [%d].", oOperand->magic);
-            return FAILED;
-        }
-        consumer->ReplaceInput(dst, oOperand);
-        auto &newReshapeOp = function.AddRawOperation(Opcode::OP_RESHAPE, {iOperand}, {dst});
-        const std::shared_ptr<OpAttribute> oriReshapeAttr = operation->GetOpAttribute();
-        if (oriReshapeAttr != nullptr) {
-            newReshapeOp.SetOpAttribute(oriReshapeAttr);
-        }
-    }
-    return SUCCESS;
-}
-
-/*
-拷贝一个RESHAPE和删除冗余RESHAPE
-Before:
-RESHAPE1 -> VIEW -> RESHAPE2
-         -> COPYIN
-         -> COPYIN
-
-After:
-RESHAPE2
-RESHAPE -> COPYIN
-        -> COPYIN
-*/
-Status RemoveViewMultiReshape(Function &function) {
+Status RemoveRedundantAssemble::SplitMultiConsumerReshape(
+    Function &function, std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const {
     for (auto op : function.Operations().DuplicatedOpList()) {
         if (op->GetOpcode() != Opcode::OP_RESHAPE) {
             continue;
@@ -317,23 +285,104 @@ Status RemoveViewMultiReshape(Function &function) {
                 viewConsumerOp->GetOpcode() != Opcode::OP_RESHAPE) {
                 continue;
             }
-            if (ProcessReshape(function, firstReshape) != SUCCESS) {
-                APASS_LOG_ERROR_F(
-                    Elements::Operation, "ProcessReshape failed. %s", GetFormatBacktrace(firstReshape).c_str());
-                return FAILED;
+            if (consumer.size() != 1) {
+                if (ProcessReshape(function, firstReshape, multiReshapeVector) != SUCCESS) {
+                    APASS_LOG_ERROR_F(
+                        Elements::Operation, "ProcessReshape failed. %s", GetFormatBacktrace(firstReshape).c_str());
+                    return FAILED;
+                }
+            } else {
+                multiReshapeVector.push_back(std::make_pair(firstReshape, consumerOp));
             }
-            APASS_LOG_DEBUG_F(Elements::Operation, "Match RemoveViewMultiReshape pattern %d -> %d -> %d",
-                firstReshape->GetOpMagic(), consumerOp->GetOpMagic(), viewConsumerOp->GetOpMagic());
-
-            auto oriRawShape = viewConsumerOp->GetIOperands().front()->GetRawTensor()->GetRawShape();
-            Shape newShape;
-            std::remove_copy_if(oriRawShape.begin(), oriRawShape.end(), std::back_inserter(newShape),
-                [](const auto &e) { return e == 1; });
-            viewConsumerOp->GetOOperands().front()->GetRawTensor()->UpdateRawShape(newShape);
-            viewConsumerOp->ReplaceIOperand(0, firstReshape->GetIOperands().front());
-            firstReshape->SetAsDeleted();
-            consumerOp->SetAsDeleted();
         }
+    }
+    return SUCCESS;
+}
+
+// 处理 RESHAPE 拆分逻辑
+Status RemoveRedundantAssemble::ProcessReshape(Function &function, Operation *&operation,
+    std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const {
+    if (operation == nullptr) {
+        return FAILED;
+    }
+    auto iOperand = operation->iOperand[0];
+    auto oOperand = operation->oOperand[0];
+    if (oOperand == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Operation,
+            "Null output operands detected while iterating over the output operands of the operation [%d].%s",
+            operation->opmagic, GetFormatBacktrace(operation).c_str());
+        return FAILED;
+    }
+    if (iOperand == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Operation,
+            "Null input operands detected while iterating over the input operands of the operation [%d].%s",
+            operation->opmagic, GetFormatBacktrace(operation).c_str());
+        return FAILED;
+    }
+    auto consumers = oOperand->GetConsumers();
+    for (auto &consumer : consumers) {
+        if (consumer == nullptr) {
+            APASS_LOG_ERROR_F(Elements::Tensor,
+                "Null consumer detected while iterating over the consumers of the output operand [%d].", oOperand->magic);
+            return FAILED;
+        }
+        if (consumer->GetOpcode() == Opcode::OP_COPY_IN) {
+            continue;
+        }
+        auto dst = oOperand->Clone(function, true);
+        if (dst == nullptr) {
+            APASS_LOG_ERROR_F(Elements::Tensor, "Clone failed for output operand [%d].", oOperand->magic);
+            return FAILED;
+        }
+        consumer->ReplaceInput(dst, oOperand);
+        auto &newReshapeOp = function.AddRawOperation(Opcode::OP_RESHAPE, {iOperand}, {dst});
+        const std::shared_ptr<OpAttribute> oriReshapeAttr = operation->GetOpAttribute();
+        if (oriReshapeAttr != nullptr) {
+            newReshapeOp.SetOpAttribute(oriReshapeAttr);
+        }
+        multiReshapeVector.emplace_back(&newReshapeOp, consumer);
+    }
+    return SUCCESS;
+}
+
+/*
+删除冗余RESHAPE
+Before:
+input --> RESHAPE1 -> VIEW -> RESHAPE2 -> XXX
+
+After:
+input --> RESHAPE2 -> XXX
+
+*/
+Status RemoveRedundantAssemble::RemoveViewMultiReshape(
+    const std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const {
+    for (const auto &pair : multiReshapeVector) {
+        auto firstReshape = pair.first;
+        auto viewOp = pair.second;
+        if (viewOp->GetOutputOperand(0) == nullptr) {
+            APASS_LOG_ERROR_F(Elements::Operation, "VIEW operator [%d]: OutputOperand[0] is a null pointer. %s",
+                viewOp->GetOpMagic(), GetFormatBacktrace(viewOp).c_str());
+            return FAILED;
+        }
+        auto consumers = viewOp->GetOutputOperand(0)->GetConsumers();
+        if (consumers.empty()) {
+            APASS_LOG_ERROR_F(Elements::Operation, "VIEW operator [%d]: OutputOperand[0] has no consumers. %s",
+                viewOp->GetOpMagic(), GetFormatBacktrace(viewOp).c_str());
+            return FAILED;
+        }
+        auto secondReshape = *consumers.begin();
+        if (secondReshape == nullptr) {
+            APASS_LOG_ERROR_F(Elements::Operation, "SecondReshape is null.");
+            return FAILED;
+        }
+        auto oriRawShape = secondReshape->GetIOperands().front()->GetRawTensor()->GetRawShape();
+        Shape newShape;
+        std::remove_copy_if(
+            oriRawShape.begin(), oriRawShape.end(), std::back_inserter(newShape), [](const auto &e) { return e == 1; });
+        secondReshape->GetOOperands().front()->GetRawTensor()->UpdateRawShape(newShape);
+        secondReshape->ReplaceIOperand(0, firstReshape->GetIOperands().front());
+        firstReshape->SetAsDeleted();
+        viewOp->SetAsDeleted();
     }
     return SUCCESS;
 }
@@ -560,10 +609,6 @@ Status RemoveRedundantAssemble::DeleteRedundantAssemble(Function &function) cons
         } else {
             if (HanldeForSingleAssemble(function, input, output, op) != SUCCESS) return FAILED;
         }
-    }
-    if (RemoveViewMultiReshape(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "RemoveViewMultiReshape failed.");
-        return FAILED;
     }
     if (ProcessView(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "ProcessView failed.");

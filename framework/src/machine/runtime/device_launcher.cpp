@@ -45,7 +45,7 @@ int GetCfgBlockdim() {
     // 如果未进行控核，GetMaxBlockdim接口将通过aclrtGetResInCurrentThread函数返回硬件物理最大核数
     auto maxBlk = GetMaxBlockdim();
     blk = maxBlk < static_cast<int>(blk) ? maxBlk : blk;
-    MACHINE_LOGD("Get blockdim[%d].", blk);
+    MACHINE_LOGD("Get blockdim[%zu].", blk);
     return blk;
 #else
     return kMinDefaultDim;
@@ -84,6 +84,7 @@ DeviceLauncherContext &DeviceLauncherContext::Get() {
 }
 
 std::vector<uint8_t> DeviceLauncher::tensorInfo_(kDefaultTensorinfoSize);
+bool DeviceLauncher::captureMode_ = false;
 
 #ifdef BUILD_WITH_CANN
 static const std::unordered_map<int, std::function<void(bool&)>> captureStatusHandlers = {
@@ -284,7 +285,6 @@ int DeviceLauncher::DeviceRunOnce(Function *function, DevControlFlowCache* hostC
         CopyFromDev(DeviceMemoryUtils(), inputDataList);
     }
     devMemory.Free(devCtrlCache);
-    machine::GetRA()->FreeTmpMemory();
     return rc;
 #else
     (void)hostCtrlCache;
@@ -529,7 +529,8 @@ AclModeGuard::AclModeGuard(aclmdlRICaptureMode tmode) : mode(tmode) {
 }
 AclModeGuard::~AclModeGuard() {
 #ifdef BUILD_WITH_CANN
-    aclmdlRICaptureThreadExchangeMode(&mode);
+    aclmdlRICaptureMode mod = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
+    aclmdlRICaptureThreadExchangeMode(&mod);
 #endif
 }
 
@@ -594,32 +595,52 @@ void DeviceLauncher::FreeControlFlowCache(uint8_t *ctrlCache) {
 #endif
 }
 
-bool DeviceLauncher::AddAicpuStream(aclrtStream aicoreStream, bool tripleStream) {
+void DeviceLauncher::AddAicpuStream(aclmdlRI &rtModel, bool tripleStream) {
 #ifdef BUILD_WITH_CANN
     auto ctrlStream = (aclrtStream)machine::GetRA()->GetCtrlStream();
     auto schedtream = (aclrtStream)machine::GetRA()->GetScheStream();
-    aclmdlRI rtModel;
-    aclmdlRICaptureStatus status = aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE;
-    auto ret = aclmdlRICaptureGetInfo(aicoreStream, &status, &rtModel);
-    if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
-        return false;
-    } else if (ret != ACL_SUCCESS) {
-        MACHINE_LOGE("get capture info failed: %d", ret);
-        return false;
-    }
-    if (status == aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_ACTIVE) {
+    
+    if (IsCaptureMode()) {
         if (tripleStream) {
             rtStreamAddToModel(ctrlStream, rtModel);
         }
         rtStreamAddToModel(schedtream, rtModel);
-        return true;
     }
-    return false;
+#else
+    (void)rtModel;
+    (void)tripleStream;
+    return;
+#endif
+}
+
+void DeviceLauncher::GetCaptureInfo(aclrtStream aicoreStream, aclmdlRI &rtModel) {
+#ifdef BUILD_WITH_CANN
+    SetCaptureMode(false);
+    aclmdlRICaptureStatus status = aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE;
+    auto ret = aclmdlRICaptureGetInfo(aicoreStream, &status, &rtModel);
+    if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
+        return;
+    } else if (ret != ACL_SUCCESS) {
+        MACHINE_LOGE("get capture info failed: %d", ret);
+        return;
+    }
+    if (status == aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_ACTIVE) {
+        SetCaptureMode(true);
+        MACHINE_LOGI("The current mode is capture mode");
+    }
 #else
     (void)aicoreStream;
-    (void)tripleStream;
-    return false;
+    (void)rtModel;
+    SetCaptureMode(false);
 #endif
+}
+
+void DeviceLauncher::SetCaptureMode(bool captureMode) {
+    captureMode_ = captureMode;
+}
+
+bool DeviceLauncher::IsCaptureMode() {
+    return captureMode_;
 }
 
 void *DeviceLauncher::RegisterKernelBin(const std::vector<uint8_t> &kernelBinary) {

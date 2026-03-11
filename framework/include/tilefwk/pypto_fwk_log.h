@@ -36,7 +36,7 @@ class LogFuncInfo {
 public:
     static LogFuncInfo &Instance();
     int32_t(*checkLevel)(int32_t, int32_t);
-    void(*record)(int32_t, int32_t, const char *, ...);
+    void(*record)(int32_t, int32_t, const char *, ...) __attribute__((format(printf, 3, 4)));
     void(*setAttr)(bool);
 private:
     LogFuncInfo();
@@ -110,6 +110,13 @@ private:
         }                                                                                                                                        \
     } while (0)
 
+#define COMPILER_LOGD(...) PYPTO_HOST_LOG(DLOG_DEBUG, "COMPILER_MONITOR", __VA_ARGS__)
+#define COMPILER_LOGI(...) PYPTO_HOST_LOG(DLOG_INFO, "COMPILER_MONITOR", __VA_ARGS__)
+#define COMPILER_LOGW(...) PYPTO_HOST_LOG(DLOG_WARN, "COMPILER_MONITOR", __VA_ARGS__)
+#define COMPILER_LOGE(...) PYPTO_HOST_LOG(DLOG_ERROR, "COMPILER_MONITOR", __VA_ARGS__)
+#define COMPILER_EVENT(...) PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, "COMPILER_MONITOR", __VA_ARGS__)
+#define COMPILER_LOGD_FULL(...) PYPTO_HOST_SPLIT_LOG(DLOG_DEBUG, "COMPILER_MONITOR", __VA_ARGS__)
+
 #define FUNCTION_LOGD(...) PYPTO_HOST_LOG(DLOG_DEBUG, "FUNCTION", __VA_ARGS__)
 #define FUNCTION_LOGI(...) PYPTO_HOST_LOG(DLOG_INFO, "FUNCTION", __VA_ARGS__)
 #define FUNCTION_LOGW(...) PYPTO_HOST_LOG(DLOG_WARN, "FUNCTION", __VA_ARGS__)
@@ -154,8 +161,7 @@ private:
 #define VERIFY_LOGD(...) PYPTO_HOST_LOG(DLOG_DEBUG, "VERIFY", __VA_ARGS__)
 #define VERIFY_LOGI(...) PYPTO_HOST_LOG(DLOG_INFO, "VERIFY", __VA_ARGS__)
 #define VERIFY_LOGW(...) PYPTO_HOST_LOG(DLOG_WARN, "VERIFY", __VA_ARGS__)
-#define VERIFY_LOGE(...) PYPTO_HOST_LOG(DLOG_ERROR, "VERIFY", __VA_ARGS__)
 #define VERIFY_EVENT(...) PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, "VERIFY", __VA_ARGS__)
-#define VERIFY_LOGD_FULL(...) PYPTO_HOST_SPLIT_LOG(DLOG_DEBUG, "VERIFY", __VA_ARGS__)
+#define VERIFY_LOGE_FULL(...) PYPTO_HOST_SPLIT_LOG(DLOG_ERROR, "VERIFY", __VA_ARGS__)
 
 #endif
