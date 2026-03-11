@@ -107,6 +107,12 @@ def gen_quan_per_channel_weight_nz(x):
 
 
 @pypto.frontend.jit(
+      host_options={
+        "compile_monitor_enable": True,
+        "compile_timeout": 0,
+        "compile_timeout_stage": 0,
+        "compile_monitor_print_interval": 5
+    },
     runtime_options={"device_sched_mode": 1,
                     "stitch_function_max_num": 128,
                     "stitch_cfgcache_size": 7700000},
@@ -147,7 +153,7 @@ def moe_fusion_kernel(
 
     # 4. 实现kernel逻辑，循环展开BS动态轴
     for bs_idx, tile_batch in pypto.loop_unroll(0, bs, 1, name="LOOP_MOE_FUSION_L0", idx_name="bs_idx",
-                                                unroll_list=powers_of_2(32)):
+                                                unroll_list=powers_of_2(64)):
         # 5. 通过view得到tile_logits
         tile_hidden_states = hidden_states[bs_idx:bs_idx + tile_batch, :]
 
