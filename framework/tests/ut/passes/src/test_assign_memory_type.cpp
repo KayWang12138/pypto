@@ -938,9 +938,7 @@ TEST_F(AssignMemoryTypeTest, TestMultiDataLoad) {
     Function *func = G.GetFunction();
     AssignMemoryType assignMemoryType;
     EXPECT_EQ(assignMemoryType.PostCheck(*func), FAILED);
-    func->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto/b2.json");
     EXPECT_EQ(assignMemoryType.RunOnFunction(*func), SUCCESS);
-    func->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto/a2.json");
     EXPECT_EQ(assignMemoryType.PostCheck(*func), SUCCESS);
     for (const auto &op : func->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
