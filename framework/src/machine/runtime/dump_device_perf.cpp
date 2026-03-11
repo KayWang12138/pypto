@@ -15,6 +15,7 @@
 #include "dump_device_perf.h"
 #ifdef BUILD_WITH_CANN
 
+#include <cstdlib>
 #include "interface/machine/device/tilefwk/aicpu_common.h"
 #include "interface/utils/log.h"
 #include "runtime/mem.h"
@@ -226,6 +227,11 @@ void DumpAicpuPerfInfo(DeviceArgs &args, const std::vector<void *> &perfData, co
                         + npu::tile_fwk::config::LogTopFolder() + "/machine_runtime_operator_trace.json";
     if (system(cmd.c_str()) != 0) {
         MACHINE_LOGW("Failed to execute machine_perf_trace.py, cannot get aicpu perfetto.json.");
+    }
+    // Auto run analyze command; script decides to print or skip by env var.
+    std::string analysisCmd = "python3 " + scriptPath + " analyze " + aicpuPerfilePath;
+    if (system(analysisCmd.c_str()) != 0) {
+        MACHINE_LOGW("Failed to execute machine_perf_trace.py analyze.");
     }
     npu::tile_fwk::config::SetRunDataOption(KEY_AICPU_PERF_GRAPH_PATH,
             npu::tile_fwk::config::GetAbsoluteTopFolder() + "/machine_runtime_operator_trace.json");

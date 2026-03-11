@@ -13,7 +13,11 @@
 import json
 import re
 import argparse
-from typing import Dict, List, Any
+import os
+import shutil
+import unicodedata
+from pathlib import Path
+from typing import Dict, List, Any, Optional, Tuple
 
 
 def parse_log_file(log_file_path):
@@ -225,6 +229,359 @@ def gen_perfetto_example():
     print("You can check it by upload this file to https://ui.perfetto.dev/")
 
 
+def get_output_dirs() -> List[Path]:
+    dirs: List[Path] = []
+    root = Path(".")
+    dirs.extend([d for d in root.iterdir() if d.is_dir() and d.name.startswith("output_")])
+    nested_output = root / "output"
+    if nested_output.exists():
+        dirs.extend([d for d in nested_output.iterdir() if d.is_dir() and d.name.startswith("output_")])
+    uniq = {str(d.resolve()): d for d in dirs}
+    result = list(uniq.values())
+    result.sort(key=lambda x: x.name, reverse=True)
+    return result
+
+
+def load_json(file_path: Path) -> Any:
+    with open(file_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def safe_div(a: float, b: float) -> float:
+    return a / b if b else 0.0
+
+
+def to_us(cycles: float, freq: float) -> float:
+    return safe_div(cycles, freq)
+
+
+def display_width(text: str) -> int:
+    width = 0
+    for ch in text:
+        if unicodedata.combining(ch):
+            continue
+        width += 2 if unicodedata.east_asian_width(ch) in ("F", "W") else 1
+    return width
+
+
+def pad_cell(text: str, width: int) -> str:
+    pad = max(width - display_width(text), 0)
+    return text + (" " * pad)
+
+
+def render_table_lines(headers: List[str], rows: List[List[str]]) -> List[str]:
+    line_rows: List[List[str]] = [[str(x) for x in headers]]
+    line_rows.extend([[str(x) for x in row] for row in rows])
+
+    widths = [display_width(h) for h in headers]
+    for row in line_rows:
+        for i, cell in enumerate(row):
+            widths[i] = max(widths[i], display_width(cell))
+
+    def fmt_row(row: List[str]) -> str:
+        return "| " + " | ".join(pad_cell(cell, widths[i]) for i, cell in enumerate(row)) + " |"
+
+    def fmt_border() -> str:
+        return "| " + " | ".join("-" * widths[i] for i in range(len(widths))) + " |"
+
+    lines = [fmt_border(), fmt_row(line_rows[0]), fmt_border()]
+    for row in line_rows[1:]:
+        lines.append(fmt_row(row))
+    lines.append(fmt_border())
+    return lines
+
+
+def print_table(headers: List[str], rows: List[List[str]]) -> None:
+    for line in render_table_lines(headers, rows):
+        print(line)
+
+
+def print_tables_side_by_side(
+    left_headers: List[str],
+    left_rows: List[List[str]],
+    right_headers: List[str],
+    right_rows: List[List[str]],
+    gap: int = 4,
+) -> None:
+    left_lines = render_table_lines(left_headers, left_rows)
+    right_lines = render_table_lines(right_headers, right_rows)
+    left_width = max(display_width(line) for line in left_lines) if left_lines else 0
+    total_lines = max(len(left_lines), len(right_lines))
+
+    for i in range(total_lines):
+        left = left_lines[i] if i < len(left_lines) else ""
+        right = right_lines[i] if i < len(right_lines) else ""
+        left_padded = pad_cell(left, left_width)
+        print(left_padded + (" " * gap) + right)
+
+
+def print_section(title: str) -> None:
+    term_cols = shutil.get_terminal_size(fallback=(100, 20)).columns
+    total_width = max(60, term_cols - 2)
+    text = f" {title} "
+    if len(text) >= total_width:
+        print(f"\n{text}")
+        return
+    left = (total_width - len(text)) // 2
+    right = total_width - len(text) - left
+    print("\n" + ("=" * left) + text + ("=" * right))
+
+
+def print_subsection(title: str) -> None:
+    line = "-" * 20
+    print(f"\n{line} {title} {line}")
+
+
+def parse_task_name(name: str) -> Tuple[str, Optional[int]]:
+    m = re.match(r"^([A-Z0-9_]+)(?:\((\d+)\))?$", str(name))
+    if not m:
+        return str(name), None
+    base = m.group(1)
+    idx = int(m.group(2)) if m.group(2) is not None else None
+    return base, idx
+
+
+def get_task_cycle(tasks: List[Dict[str, Any]], task_name: str, idx: Optional[int] = None) -> Optional[float]:
+    for task in tasks:
+        base, num = parse_task_name(task.get("name", ""))
+        if base != task_name:
+            continue
+        if idx is not None and num != idx:
+            continue
+        return float(task.get("end", 0))
+    return None
+
+
+def calc_duration_from_ends(start_end: Optional[float], end_end: Optional[float]) -> Optional[float]:
+    if start_end is None or end_end is None:
+        return None
+    return end_end - start_end
+
+
+def get_task_duration(
+    tasks: List[Dict[str, Any]],
+    start_task_name: str,
+    end_task_name: str,
+    start_idx: Optional[int] = None,
+    end_idx: Optional[int] = None,
+) -> Optional[float]:
+    start_end = get_task_cycle(tasks, start_task_name, start_idx)
+    end_end = get_task_cycle(tasks, end_task_name, end_idx)
+    return calc_duration_from_ends(start_end, end_end)
+
+
+def format_us(v: Optional[float], freq: float) -> str:
+    if v is None:
+        return "-"
+    return f"{to_us(v, freq):.2f}"
+
+
+def summarize_us(values: List[float], freq: float) -> List[str]:
+    if not values:
+        return ["0", "-", "-", "-"]
+    avg = sum(values) / len(values)
+    return [
+        str(len(values)),
+        f"{to_us(min(values), freq):.2f}",
+        f"{to_us(avg, freq):.2f}",
+        f"{to_us(max(values), freq):.2f}"
+    ]
+
+
+def is_print_device_perf_enabled() -> bool:
+    val = os.getenv("PRINT_DEVICE_PERF", "")
+    return val.strip().lower() in {"1", "true", "on", "yes"}
+
+
+def analyze_ctrl_aicpu(aicpu_dev_pref: List[Dict[str, Any]]) -> None:
+    print_section("CTRL AICPU")
+    ctrl = next((x for x in aicpu_dev_pref if str(x.get("coreType")) == "AICPU-CTRL"), None)
+    if ctrl is None:
+        print("- No AICPU-CTRL data found")
+        return
+    tasks = ctrl.get("tasks", [])
+    freq = float(ctrl.get("freq", 0)) or 1.0
+    block_idx = int(ctrl.get("blockIdx", 0))
+    build_dur = get_task_duration(tasks, "BEGIN", "DEV_TASK_BUILD", None, 0)
+    print_table(
+        ["Compute Units", "DEV_TASK_BUILD(us)"],
+        [[f"AICPU-CTRL-{block_idx}", format_us(build_dur, freq)]],
+    )
+
+
+def analyze_sched_aicpu(aicpu_dev_pref: List[Dict[str, Any]]) -> None:
+    print_section("SCHED AICPU")
+    scheds = [x for x in aicpu_dev_pref if str(x.get("coreType")) == "AICPU-SCHED"]
+    if not scheds:
+        print("- No AICPU-SCHED data found")
+        return
+
+    scheds.sort(key=lambda x: int(x.get("blockIdx", 0)))
+    rows: List[List[str]] = []
+
+    for s in scheds:
+        block_idx = int(s.get("blockIdx", -1))
+        tasks = s.get("tasks", [])
+        freq = float(s.get("freq", 0)) or 1.0
+
+        alloc_dur = get_task_duration(tasks, "BEGIN", "ALLOC_THREAD_ID")
+        init_dur = get_task_duration(tasks, "ALLOC_THREAD_ID", "INIT")
+        handshake_dur = get_task_duration(tasks, "INIT", "CORE_HAND_SHAKE")
+        dev_task_rcv = get_task_duration(tasks, "CORE_HAND_SHAKE", "DEV_TASK_RCV", None, 0)
+        post_dur = get_task_duration(tasks, "DEV_TASK_SCHED_EXEC", "WAIT_CORE_EXIT", 0, None)
+        rows.append(
+            [
+                f"AICPU-SCHED-{block_idx}",
+                format_us(alloc_dur, freq),
+                format_us(init_dur, freq),
+                format_us(handshake_dur, freq),
+                format_us(dev_task_rcv, freq),
+                format_us(post_dur, freq),
+            ]
+        )
+
+    print_table(
+        [
+            "Compute Units",
+            "ALLOC_THREAD_ID(us)",
+            "INIT(us)",
+            "CORE_HAND_SHAKE(us)",
+            "DEV_TASK_RCV(us)",
+            "Post-process(us)",
+        ],
+        rows,
+    )
+
+
+def collect_aicore_exec_rows(aicpu_dev_pref: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    for core in aicpu_dev_pref:
+        core_type = str(core.get("coreType", ""))
+        if not (core_type.startswith("SCHED") and ("-AIC" in core_type or "-AIV" in core_type)):
+            continue
+        tasks = core.get("tasks", [])
+        begin = get_task_cycle(tasks, "BEGIN")
+        wait_first = get_task_cycle(tasks, "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK", 0)
+        all_exec = get_task_cycle(tasks, "DEV_TASK_ALL_CALLOP_TASK_EXEC", 0)
+        wait_exit_notify = get_task_cycle(tasks, "WAIT_EXIT_NOTIFY")
+        if all_exec is None:
+            continue
+
+        callop_exec = calc_duration_from_ends(wait_first, all_exec)
+        exit_wait = calc_duration_from_ends(all_exec, wait_exit_notify)
+        begin_to_exit = calc_duration_from_ends(begin, wait_exit_notify)
+        begin_to_wait_first = calc_duration_from_ends(begin, wait_first)
+        rows.append(
+            {
+                "core_type": core_type,
+                "block_idx": int(core.get("blockIdx", -1)),
+                "freq": float(core.get("freq", 0)) or 1.0,
+                "wait_first": wait_first,
+                "all_exec": all_exec,
+                "begin_to_wait_first": begin_to_wait_first,
+                "callop_exec": callop_exec,
+                "exit_wait": exit_wait,
+                "begin_to_exit": begin_to_exit,
+            }
+        )
+    rows.sort(key=lambda x: x["block_idx"])
+    return rows
+
+
+def analyze_aicore(aicore_exec_rows: List[Dict[str, Any]]) -> None:
+    print_section("AICore")
+    if not aicore_exec_rows:
+        print("- No valid AICore execution data")
+        return
+
+    all_wait_first: List[float] = []
+    all_exec_done: List[float] = []
+    begin_to_exit_values: List[float] = []
+    ref_freq = float(aicore_exec_rows[0].get("freq", 1.0)) or 1.0
+    for row in aicore_exec_rows:
+        wait_first = row.get("wait_first")
+        all_exec = row.get("all_exec")
+        begin_to_exit = row.get("begin_to_exit")
+        if wait_first is not None and all_exec is not None and all_exec > wait_first:
+            all_wait_first.append(wait_first)
+            all_exec_done.append(all_exec)
+        if begin_to_exit is not None and begin_to_exit > 0:
+            begin_to_exit_values.append(begin_to_exit)
+
+    e2e_time = "-"
+    total_runtime_max = "-"
+    if all_wait_first and all_exec_done:
+        e2e_cycles = max(all_exec_done) - min(all_wait_first)
+        e2e_time = f"{to_us(e2e_cycles, ref_freq):.2f}"
+    if begin_to_exit_values:
+        total_runtime_max = f"{to_us(max(begin_to_exit_values), ref_freq):.2f}"
+    print_table(
+        ["Compute Units", "End-to-End time", "Total runtime (max)"],
+        [["AICore", e2e_time, total_runtime_max]],
+    )
+
+    print_subsection("Appendix: AICore Execution Details")
+    detail_rows: List[List[str]] = []
+    for row in aicore_exec_rows:
+        freq = float(row.get("freq", 1.0)) or 1.0
+        detail_rows.append(
+            [
+                str(row["core_type"]),
+                str(row["block_idx"]),
+                format_us(row.get("begin_to_exit"), freq),
+                format_us(row.get("begin_to_wait_first"), freq),
+                format_us(row.get("callop_exec"), freq),
+                format_us(row.get("exit_wait"), freq),
+            ]
+        )
+
+    print_table(
+        [
+            "coreType",
+            "blockIdx",
+            "Total runtime(us)",
+            "Wait before first callop(us)",
+            "First-callop receive time(us)",
+            "Wait-to-exit after execution(us)",
+        ],
+        detail_rows,
+    )
+
+
+def analyze_output_command(output_dir_arg: Optional[str]) -> None:
+    if not is_print_device_perf_enabled():
+        return
+
+    if output_dir_arg:
+        input_path = Path(output_dir_arg)
+    else:
+        print("Error: analyze requires an input json path")
+        return
+
+    if not input_path.exists():
+        print(f"Error: path does not exist: {input_path}")
+        return
+
+    aicpu_pref_file = input_path
+    analyze_target = str(input_path)
+
+    if not aicpu_pref_file.exists():
+        print(f"Error: {aicpu_pref_file} does not exist")
+        return
+
+    print(f"Analyzing input: {analyze_target}")
+    aicpu_dev_pref = load_json(aicpu_pref_file)
+    if not isinstance(aicpu_dev_pref, list):
+        print("Error: invalid aicpu_dev_pref.json format, expected list")
+        return
+
+    analyze_ctrl_aicpu(aicpu_dev_pref)
+    analyze_sched_aicpu(aicpu_dev_pref)
+    aicore_exec_rows = collect_aicore_exec_rows(aicpu_dev_pref)
+    analyze_aicore(aicore_exec_rows)
+    print()
+
+
 def main():
     parser = argparse.ArgumentParser(description='Performance data processing tool')
     subparsers = parser.add_subparsers(dest='command', help='Available commands', required=True)
@@ -241,6 +598,9 @@ def main():
 
     # gen_perfetto_example 子命令
     example_parser = subparsers.add_parser('gen_perfetto_example', help='Generate example Perfetto data')
+    # analyze 子命令
+    analyze_parser = subparsers.add_parser('analyze', help='Analyze perf json by output dir or json file path')
+    analyze_parser.add_argument('output_dir', nargs='?', help='Output directory or perf json file path; latest output_* if omitted')
 
     args = parser.parse_args()
 
@@ -250,6 +610,8 @@ def main():
         gen_perfetto_command(args.input_file, args.output_file)
     elif args.command == 'gen_perfetto_example':
         gen_perfetto_example()
+    elif args.command == 'analyze':
+        analyze_output_command(args.output_dir)
     else:
         parser.print_help()
 
