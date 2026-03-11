@@ -272,7 +272,7 @@ TILEOP void TCompare(TDst dst, T src, TTmp tmpbuf, TVal scalarVal) {
                     CmpTile cmpResTile;
                     TileStartAddrUB startAddrUBTile(1, addressUsed);
                     TmpTile tmpTile(1, info.shape4);
-                    InitCommonTiles<T, Types>(vselResultTile, startAddrUBTile, oneConditionTile, zeroConditionTile, bitResTile, 
+                    InitCommonTiles<T, Types>(vselResultTile,, startAddrUBTile, oneConditionTile, zeroConditionTile, bitResTile, 
                                               cmpResTile, buffers, dstAddr, info.shape4, info.dstShape);
                     pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
                     auto& dst0 = (mode == 0) ? cmpResTile : bitResTile;

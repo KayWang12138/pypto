@@ -46,12 +46,17 @@ TILEOP void CaculateMask(uint64_t condition, __ubuf__ half *castCondition, __ubu
 
 template <typename T, unsigned elementsCount>
 TILEOP void ProcessWhere(uint64_t dst, uint64_t vcmpBitResult, uint64_t src0, uint64_t src1,
-                        const unsigned curCount) {
+                        uint64_t startAddrUB, const unsigned curCount) {
     
     constexpr unsigned bitsOfByte = 8;
+    constexpr unsigned addressUsed = 4;
+    constexpr unsigned alignUint8 = 32;
     using TileVCmpBitResult = pto::Tile<pto::TileType::Vec, uint8_t, 1, elementsCount / bitsOfByte, pto::BLayout::RowMajor, -1, -1>;
     TileVCmpBitResult vcmpBitResultTile(1, curCount / bitsOfByte);
     pto::TASSIGN(vcmpBitResultTile, (uint64_t)(vcmpBitResult));
+    using TileStartAddrUB = pto::Tile<pto::TileType::Vec, uint8_t, 1, alignUint8, pto::BLayout::RowMajor, -1, -1>;
+    TileStartAddrUB startAddrUBTile(1, addressUsed);
+    pto::TASSIGN(startAddrUBTile, (uint64_t)(startAddrUB));
     
     using TileDst = pto::Tile<pto::TileType::Vec, T, 1, elementsCount, pto::BLayout::RowMajor, -1, -1>;
     TileDst dstTile(1, curCount);
@@ -64,7 +69,7 @@ TILEOP void ProcessWhere(uint64_t dst, uint64_t vcmpBitResult, uint64_t src0, ui
     #ifdef __DAV_V220
     pipe_barrier(PIPE_V);
     #endif
-    pto::TSEL(dstTile, vcmpBitResultTile, src0Tile, src1Tile);
+    pto::TSEL(dstTile, vcmpBitResultTile, src0Tile, src1Tile, startAddrUBTile);
 }
 
 #define OP_TILE_OP_WHERETT TWhereTT
@@ -74,10 +79,12 @@ TILEOP void TWhereTT(TDst dst, TTmp tmpbuf, TCond condition, TSrc0 src0, TSrc1 s
     constexpr auto shapeSize = Std::tuple_size<typename TDst::Shape>::value;
 
     constexpr unsigned elementsPerCount = 1024;
+    constexpr unsigned bitsOfByte = 8;
     uint64_t tmpbufAddr = tmpbuf.GetAddr();
     __ubuf__ half *castCondition = reinterpret_cast<__ubuf__ half*>(tmpbufAddr);
     __ubuf__ half *compareCondition = castCondition + elementsPerCount;
     __ubuf__ uint8_t *vcmpBitResult = reinterpret_cast<__ubuf__ uint8_t*>(compareCondition + elementsPerCount);
+    __ubuf__ uint8_t *startAddrUB = reinterpret_cast<__ubuf__ uint8_t*>(vcmpBitResult + elementsPerCount / bitsOfByte);
 
     constexpr size_t expectSize = 5;
     const auto dstLayout = dst.GetLayout();
@@ -125,6 +132,7 @@ TILEOP void TWhereTT(TDst dst, TTmp tmpbuf, TCond condition, TSrc0 src0, TSrc1 s
                                                                                 (uint64_t)(vcmpBitResult),
                                                                                 (uint64_t)(src0.GetAddr() + offset * src0TypeSize),
                                                                                 (uint64_t)(src1.GetAddr() + offset * src1TypeSize),
+                                                                                (uint64_t)(startAddrUB),
                                                                                 elementsPerCount);
                         }
                         if (elementsRemainPerLine) {
@@ -138,6 +146,7 @@ TILEOP void TWhereTT(TDst dst, TTmp tmpbuf, TCond condition, TSrc0 src0, TSrc1 s
                                                                                 (uint64_t)(vcmpBitResult),
                                                                                 (uint64_t)(src0.GetAddr() + offset * src0TypeSize),
                                                                                 (uint64_t)(src1.GetAddr() + offset * src1TypeSize),
+                                                                                (uint64_t)(startAddrUB),
                                                                                 elementsRemainPerLine);
                         }
                     } else {
@@ -177,6 +186,7 @@ TILEOP void TWhereTS(TDst dst, TTmp tmpbuf, TCond condition, TSrc0 src0, TSrc1 s
     __ubuf__ half *compareCondition = castCondition + elementsPerCount;
     __ubuf__ uint8_t *vcmpBitResult = reinterpret_cast<__ubuf__ uint8_t*>(compareCondition + elementsPerCount);
     __ubuf__ typename TDst::Type *otherTempTensor = (__ubuf__ typename TDst::Type *)(vcmpBitResult + elementsPerCount / bitsOfByte);
+    __ubuf__ uint8_t *startAddrUB = reinterpret_cast<__ubuf__ uint8_t*>(otherTempTensor + elementsPerCount);
 
     using TileTSrc1 = pto::Tile<pto::TileType::Vec, TSrc1, 1, elementsPerCount, pto::BLayout::RowMajor, -1, -1>;
     TileTSrc1 src1Tile(1, elementsPerCount);
@@ -226,6 +236,7 @@ TILEOP void TWhereTS(TDst dst, TTmp tmpbuf, TCond condition, TSrc0 src0, TSrc1 s
                                                                                 (uint64_t)(vcmpBitResult),
                                                                                 (uint64_t)(src0.GetAddr() + offset * src0TypeSize),
                                                                                 (uint64_t)(otherTempTensor),
+                                                                                (uint64_t)(startAddrUB),
                                                                                 elementsPerCount);
                         }
                         if (elementsRemainPerLine) {
@@ -239,6 +250,7 @@ TILEOP void TWhereTS(TDst dst, TTmp tmpbuf, TCond condition, TSrc0 src0, TSrc1 s
                                                                                 (uint64_t)(vcmpBitResult),
                                                                                 (uint64_t)(src0.GetAddr() + offset * src0TypeSize),
                                                                                 (uint64_t)(otherTempTensor),
+                                                                                (uint64_t)(startAddrUB),
                                                                                 elementsRemainPerLine);
                         }
                     } else {
@@ -250,6 +262,7 @@ TILEOP void TWhereTS(TDst dst, TTmp tmpbuf, TCond condition, TSrc0 src0, TSrc1 s
                                                                                 (uint64_t)(condition.GetAddr() + conditionOffset * conditionTypeSize),
                                                                                 (uint64_t)(src0.GetAddr() + offset * src0TypeSize),
                                                                                 (uint64_t)(otherTempTensor),
+                                                                                (uint64_t)(startAddrUB),
                                                                                 elementsPerCount);
                         }
                         if (elementsRemainPerLine) {
@@ -260,6 +273,7 @@ TILEOP void TWhereTS(TDst dst, TTmp tmpbuf, TCond condition, TSrc0 src0, TSrc1 s
                                                                                 (uint64_t)(condition.GetAddr() + conditionOffset * conditionTypeSize),
                                                                                 (uint64_t)(src0.GetAddr() + offset * src0TypeSize),
                                                                                 (uint64_t)(otherTempTensor),
+                                                                                (uint64_t)(startAddrUB),
                                                                                 elementsRemainPerLine);
                         }
                     }
@@ -282,6 +296,7 @@ TILEOP void TWhereST(TDst dst, TTmp tmpbuf, TCond condition, TSrc0 src0, TSrc1 s
     __ubuf__ half *compareCondition = castCondition + elementsPerCount;
     __ubuf__ uint8_t *vcmpBitResult = reinterpret_cast<__ubuf__ uint8_t*>(compareCondition + elementsPerCount);
     __ubuf__ typename TDst::Type *inputTempTensor = (__ubuf__ typename TDst::Type *)(vcmpBitResult + elementsPerCount / bitsOfByte);
+    __ubuf__ uint8_t *startAddrUB = reinterpret_cast<__ubuf__ uint8_t*>(inputTempTensor + elementsPerCount);
 
     using TileTSrc0 = pto::Tile<pto::TileType::Vec, TSrc0, 1, elementsPerCount, pto::BLayout::RowMajor, -1, -1>;
     TileTSrc0 src0Tile(1, elementsPerCount);
@@ -331,6 +346,7 @@ TILEOP void TWhereST(TDst dst, TTmp tmpbuf, TCond condition, TSrc0 src0, TSrc1 s
                                                                                 (uint64_t)(vcmpBitResult),
                                                                                 (uint64_t)(inputTempTensor),
                                                                                 (uint64_t)(src1.GetAddr() + offset * src1TypeSize),
+                                                                                (uint64_t)(startAddrUB),
                                                                                 elementsPerCount);
                         }
                         if (elementsRemainPerLine) {
@@ -344,6 +360,7 @@ TILEOP void TWhereST(TDst dst, TTmp tmpbuf, TCond condition, TSrc0 src0, TSrc1 s
                                                                                 (uint64_t)(vcmpBitResult),
                                                                                 (uint64_t)(inputTempTensor),
                                                                                 (uint64_t)(src1.GetAddr() + offset * src1TypeSize),
+                                                                                (uint64_t)(startAddrUB),
                                                                                 elementsRemainPerLine);
                         }
                     } else {
@@ -355,6 +372,7 @@ TILEOP void TWhereST(TDst dst, TTmp tmpbuf, TCond condition, TSrc0 src0, TSrc1 s
                                                                                 (uint64_t)(condition.GetAddr() + conditionOffset * conditionTypeSize),
                                                                                 (uint64_t)(inputTempTensor),
                                                                                 (uint64_t)(src1.GetAddr() + offset * src1TypeSize),
+                                                                                (uint64_t)(startAddrUB),
                                                                                 elementsPerCount);
                         }
                         if (elementsRemainPerLine) {
@@ -365,6 +383,7 @@ TILEOP void TWhereST(TDst dst, TTmp tmpbuf, TCond condition, TSrc0 src0, TSrc1 s
                                                                                 (uint64_t)(condition.GetAddr() + conditionOffset * conditionTypeSize),
                                                                                 (uint64_t)(inputTempTensor),
                                                                                 (uint64_t)(src1.GetAddr() + offset * src1TypeSize),
+                                                                                (uint64_t)(startAddrUB),
                                                                                 elementsRemainPerLine);
                         }
                     }
@@ -388,6 +407,7 @@ TILEOP void TWhereSS(TDst dst, TTmp tmpbuf, TCond condition, TSrc0 src0, TSrc1 s
     __ubuf__ uint8_t *vcmpBitResult = reinterpret_cast<__ubuf__ uint8_t*>(compareCondition + elementsPerCount);
     __ubuf__ typename TDst::Type *inputTempTensor = (__ubuf__ typename TDst::Type *)(vcmpBitResult + elementsPerCount / bitsOfByte);
     __ubuf__ typename TDst::Type *otherTempTensor = (__ubuf__ typename TDst::Type *)(inputTempTensor + elementsPerCount);
+    __ubuf__ uint8_t *startAddrUB = reinterpret_cast<__ubuf__ uint8_t*>(otherTempTensor + elementsPerCount);
 
     using TileTSrc0 = pto::Tile<pto::TileType::Vec, TSrc0, 1, elementsPerCount, pto::BLayout::RowMajor, -1, -1>;
     TileTSrc0 src0Tile(1, elementsPerCount);
@@ -439,6 +459,7 @@ TILEOP void TWhereSS(TDst dst, TTmp tmpbuf, TCond condition, TSrc0 src0, TSrc1 s
                                                                                 (uint64_t)(vcmpBitResult),
                                                                                 (uint64_t)(inputTempTensor),
                                                                                 (uint64_t)(otherTempTensor),
+                                                                                (uint64_t)(startAddrUB),
                                                                                 elementsPerCount);
                         }
                         if (elementsRemainPerLine) {
@@ -452,6 +473,7 @@ TILEOP void TWhereSS(TDst dst, TTmp tmpbuf, TCond condition, TSrc0 src0, TSrc1 s
                                                                                 (uint64_t)(vcmpBitResult),
                                                                                 (uint64_t)(inputTempTensor),
                                                                                 (uint64_t)(otherTempTensor),
+                                                                                (uint64_t)(startAddrUB),
                                                                                 elementsRemainPerLine);
                         }
                     } else {
@@ -463,6 +485,7 @@ TILEOP void TWhereSS(TDst dst, TTmp tmpbuf, TCond condition, TSrc0 src0, TSrc1 s
                                                                                 (uint64_t)(condition.GetAddr() + conditionOffset * conditionTypeSize),
                                                                                 (uint64_t)(inputTempTensor),
                                                                                 (uint64_t)(otherTempTensor),
+                                                                                (uint64_t)(startAddrUB),
                                                                                 elementsPerCount);
                         }
                         if (elementsRemainPerLine) {
@@ -473,6 +496,7 @@ TILEOP void TWhereSS(TDst dst, TTmp tmpbuf, TCond condition, TSrc0 src0, TSrc1 s
                                                                                 (uint64_t)(condition.GetAddr() + conditionOffset * conditionTypeSize),
                                                                                 (uint64_t)(inputTempTensor),
                                                                                 (uint64_t)(otherTempTensor),
+                                                                                (uint64_t)(startAddrUB),
                                                                                 elementsRemainPerLine);
                         }
                     }
