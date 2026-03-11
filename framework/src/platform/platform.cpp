@@ -17,7 +17,6 @@
 #include "tilefwk/platform.h"
 #include "parser/platform_parser.h"
 #include "parser/internal_parser.h"
-#include "simulation_platform/simulation_platform.h"
 
 namespace npu::tile_fwk {
 const std::string version = "version";
@@ -205,6 +204,7 @@ Platform &Platform::Instance() {
 
 void Platform::SetMemoryLimit(const PlatformParser &parser) {
     size_t memoryLimit;
+    FUNCTION_LOGD("Start set memory limit.");
     if (parser.GetSizeVal(aiCoreSpec, l0aSize, memoryLimit)) {
         GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0A, memoryLimit));
     }
@@ -226,6 +226,7 @@ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
     std::string archType;
     std::string shortSocVersion;
     std::unordered_map<std::string, std::string> versionInfo;
+    FUNCTION_LOGD("Start load platform info.");
     if (parser.GetStringVal(version, npuArchInfo, archType)) {
         GetSoc().SetNPUArch(archType);
     }
@@ -254,6 +255,7 @@ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
     SetMemoryLimit(parser);
     std::vector<std::pair<MemoryType, MemoryType>> dataPath;
     InternalParser internalParser = InternalParser(archType);
+    FUNCTION_LOGD("Start obtaining data path.");
     if (internalParser.LoadInternalInfo()) {
         if (internalParser.GetDataPath(dataPath)) {
             GetDie().SetMemoryPath(dataPath);
@@ -261,25 +263,30 @@ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
     }
 }
 
+Platform::Platform() {
+    FUNCTION_LOGD("Start initializing platform.");
+    ObtainPlatformInfo();
+    FUNCTION_LOGD("Initialized platform.");
+}
+
 void Platform::ObtainPlatformInfo() {
     static bool initialized = false;
     if (initialized) {
         return;
     }
-
-    std::string srcPath;
     std::string socVersion;
+    std::unique_ptr<PlatformParser> parser;
+    FUNCTION_LOGD("Start obtaining platform info.");
     if (CannHostRuntime::Instance().GetSocVersion(socVersion)) {
-        srcPath = CannHostRuntime::Instance().GetPlatformFile(socVersion);
+        FUNCTION_LOGD("Obtain platform through cann package(socVersion:%s), use runtime function.", socVersion.c_str());
+        parser = std::make_unique<CmdParser>();
+    } else {
+        FUNCTION_LOGD("Cannot obtain platform through cann package, use simulation info.");
+        parser = std::make_unique<INIParser>();
     }
-    if (srcPath.empty()) {
-        FUNCTION_LOGW("Cannot obtain ini from the device, using default ini file.");
-        SimulationPlatform simulationPlatform;
-        simulationPlatform.GetCostModelPlatformRealPath(srcPath);
-    }
-    INIParser iniparser;
- 	iniparser.Initialize(srcPath);
-    LoadPlatformInfo(iniparser);
+    FUNCTION_LOGD("Try to load platform info.");
+    LoadPlatformInfo(*parser);
+    FUNCTION_LOGD("Loaded platform info.");
     initialized = true;
 }
 }
