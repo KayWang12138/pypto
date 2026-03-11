@@ -473,6 +473,11 @@ void AssignMemoryType::AssignMoveOpForView(Operation &operation) {
     bool isExplicitMemType = (attrToType != MemoryType::MEM_UNKNOWN);
     if(isExplicitMemType) {
         //跳过前端指定mem类型的view
+        if ((operation.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR ||
+                operation.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_UB) &&
+            attrToType == MemoryType::MEM_L1) {
+            inserter.UpdateTensorTobeMap(operation.iOperand.front(), operation, attrToType);
+        }
         return;
     }
     auto outputTensor = operation.GetOOperands().front();
