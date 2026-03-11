@@ -101,8 +101,12 @@ inline int TracrData2BTS(const TraCR::Payload* tracrData, const size_t* tracrDat
     fs::create_directories(base_dir);
 
     for (uint32_t t = 0; t < MAX_STATIC_SCHEDULE_AICPU_NUM; ++t) {
+        printf("tracrDataSizes[%u] = %lu\n", t, tracrDataSizes[t]);
+    }
 
+    for (uint32_t t = 0; t < MAX_STATIC_SCHEDULE_AICPU_NUM; ++t) {
         size_t num_traces = tracrDataSizes[t];
+        printf("tracrDataSizes[%u] = %lu\n", t, tracrDataSizes[t]);
         if (num_traces == 0)
             continue;
 
@@ -126,6 +130,12 @@ inline int TracrData2BTS(const TraCR::Payload* tracrData, const size_t* tracrDat
 
         const TraCR::Payload* thread_ptr =
             tracrData + t * TraCR::CAPACITY;
+
+        for(size_t i = 0; i < num_traces; ++i) {
+            const TraCR::Payload payload = thread_ptr[i];
+            printf("[TraCR] thread[%u] idx: %lu, Payload: [%u, %u, %u, %lu]\n", 
+            t, i, payload.channelId, payload.eventId, payload.extraId, payload.timestamp);
+        }
 
         out.write(
             reinterpret_cast<const char*>(thread_ptr),
@@ -392,6 +402,8 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     args.coreRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
     args.corePmuRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
     args.corePmuAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * PMU_BUFFER_SIZE));
+    printf("@@ Init tracr data on device\n");
+    printf("MAX_STATIC_SCHEDULE_AICPU_NUM = %u, args_.scheCpuNum = %u\n", MAX_STATIC_SCHEDULE_AICPU_NUM, args_.scheCpuNum);
 #ifdef ENABLE_TRACR
     size_t size = sizeof(TraCR::Payload) * MAX_STATIC_SCHEDULE_AICPU_NUM * TraCR::CAPACITY;
     args.tracrData = reinterpret_cast<uint64_t>(DevAlloc(size));
@@ -677,7 +689,7 @@ int DeviceRunner::DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t ct
     int rcAicpu = rtStreamSynchronize(aicpuStream);
     int rcCtrl = 0;
     if (ctrlStream != nullptr) {
-        rcCtrl = rtStreamSynchronize(aicpuStream);
+        rcCtrl = rtStreamSynchronize(ctrlStream);
     }
     if (IsPtoDataDumpEnabled()) {
         MACHINE_LOGD("DataDumpServerInit is called \n");
@@ -957,7 +969,27 @@ int DeviceRunner::DynamicRun(rtStream_t aicpuStream, rtStream_t ctrlStream, rtSt
     if (isCapture_) {
         return 0;
     }
-    return DynamicLaunchSynchronize(aicpuStream, ctrlStream, aicoreStream);
+    rc = DynamicLaunchSynchronize(aicpuStream, ctrlStream, aicoreStream);
+    if (rc < 0) {
+        return rc;
+    }
+    printf("DynamicLaunchSynchronize done rc = %d\n", rc);
+
+    // load TraCR payloads
+#ifdef ENABLE_TRACR
+    rc = StoreTracrData();
+    if (rc != 0) {
+        ALOG_INFO_F("StoreTracrData() failed");
+    }   
+
+    rc = StoreTracrMetaData();
+    if (rc != 0) {
+        ALOG_INFO_F("StoreTracrMetaData() failed");
+    }
+#endif
+    printf("TraCR store success\n");
+
+    return rc;
 }
 
 /**************************** DynamicFunction *****************************/
