@@ -13,7 +13,9 @@
 import json
 import re
 import argparse
-from typing import Dict, List, Any
+import unicodedata
+from pathlib import Path
+from typing import Dict, List, Any, Optional, Tuple
 
 
 def parse_log_file(log_file_path):
@@ -225,6 +227,399 @@ def gen_perfetto_example():
     print("You can check it by upload this file to https://ui.perfetto.dev/")
 
 
+def get_output_dirs() -> List[Path]:
+    dirs: List[Path] = []
+    root = Path(".")
+    dirs.extend([d for d in root.iterdir() if d.is_dir() and d.name.startswith("output_")])
+    nested_output = root / "output"
+    if nested_output.exists():
+        dirs.extend([d for d in nested_output.iterdir() if d.is_dir() and d.name.startswith("output_")])
+    uniq = {str(d.resolve()): d for d in dirs}
+    result = list(uniq.values())
+    result.sort(key=lambda x: x.name, reverse=True)
+    return result
+
+
+def load_json(file_path: Path) -> Any:
+    with open(file_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def safe_div(a: float, b: float) -> float:
+    return a / b if b else 0.0
+
+
+def to_us(cycles: float, freq: float) -> float:
+    return safe_div(cycles, freq)
+
+
+def display_width(text: str) -> int:
+    width = 0
+    for ch in text:
+        if unicodedata.combining(ch):
+            continue
+        width += 2 if unicodedata.east_asian_width(ch) in ("F", "W") else 1
+    return width
+
+
+def pad_cell(text: str, width: int) -> str:
+    pad = max(width - display_width(text), 0)
+    return text + (" " * pad)
+
+
+def render_table_lines(headers: List[str], rows: List[List[str]]) -> List[str]:
+    line_rows: List[List[str]] = [[str(x) for x in headers]]
+    line_rows.extend([[str(x) for x in row] for row in rows])
+
+    widths = [display_width(h) for h in headers]
+    for row in line_rows:
+        for i, cell in enumerate(row):
+            widths[i] = max(widths[i], display_width(cell))
+
+    def fmt_row(row: List[str]) -> str:
+        return "| " + " | ".join(pad_cell(cell, widths[i]) for i, cell in enumerate(row)) + " |"
+
+    def fmt_border() -> str:
+        return "| " + " | ".join("-" * widths[i] for i in range(len(widths))) + " |"
+
+    lines = [fmt_border(), fmt_row(line_rows[0]), fmt_border()]
+    for row in line_rows[1:]:
+        lines.append(fmt_row(row))
+    lines.append(fmt_border())
+    return lines
+
+
+def print_table(headers: List[str], rows: List[List[str]]) -> None:
+    for line in render_table_lines(headers, rows):
+        print(line)
+
+
+def print_tables_side_by_side(
+    left_headers: List[str],
+    left_rows: List[List[str]],
+    right_headers: List[str],
+    right_rows: List[List[str]],
+    gap: int = 4,
+) -> None:
+    left_lines = render_table_lines(left_headers, left_rows)
+    right_lines = render_table_lines(right_headers, right_rows)
+    left_width = max(display_width(line) for line in left_lines) if left_lines else 0
+    total_lines = max(len(left_lines), len(right_lines))
+
+    for i in range(total_lines):
+        left = left_lines[i] if i < len(left_lines) else ""
+        right = right_lines[i] if i < len(right_lines) else ""
+        left_padded = pad_cell(left, left_width)
+        print(left_padded + (" " * gap) + right)
+
+
+def print_section(title: str) -> None:
+    line = "=" * 24
+    print(f"\n{line} {title} {line}")
+
+
+def print_subsection(title: str) -> None:
+    line = "-" * 20
+    print(f"\n{line} {title} {line}")
+
+
+def parse_task_name(name: str) -> Tuple[str, Optional[int]]:
+    m = re.match(r"^([A-Z0-9_]+)(?:\((\d+)\))?$", str(name))
+    if not m:
+        return str(name), None
+    base = m.group(1)
+    idx = int(m.group(2)) if m.group(2) is not None else None
+    return base, idx
+
+
+def get_task_cycle(tasks: List[Dict[str, Any]], task_name: str, idx: Optional[int] = None) -> Optional[float]:
+    for task in tasks:
+        base, num = parse_task_name(task.get("name", ""))
+        if base != task_name:
+            continue
+        if idx is not None and num != idx:
+            continue
+        return float(task.get("end", 0))
+    return None
+
+
+def calc_duration_from_ends(start_end: Optional[float], end_end: Optional[float]) -> Optional[float]:
+    if start_end is None or end_end is None:
+        return None
+    return end_end - start_end
+
+
+def get_task_duration(
+    tasks: List[Dict[str, Any]],
+    start_task_name: str,
+    end_task_name: str,
+    start_idx: Optional[int] = None,
+    end_idx: Optional[int] = None,
+) -> Optional[float]:
+    start_end = get_task_cycle(tasks, start_task_name, start_idx)
+    end_end = get_task_cycle(tasks, end_task_name, end_idx)
+    return calc_duration_from_ends(start_end, end_end)
+
+
+def format_us(v: Optional[float], freq: float) -> str:
+    if v is None:
+        return "-"
+    return f"{to_us(v, freq):.2f}"
+
+
+def summarize_us(values: List[float], freq: float) -> List[str]:
+    if not values:
+        return ["0", "-", "-", "-"]
+    avg = sum(values) / len(values)
+    return [str(len(values)), f"{to_us(min(values), freq):.2f}", f"{to_us(avg, freq):.2f}", f"{to_us(max(values), freq):.2f}"]
+
+
+def analyze_stage1(aicpu_dev_pref: List[Dict[str, Any]], aicore_wait_rows: List[Dict[str, Any]]) -> None:
+    print_section("Stage 1: AICPU Prep and AICore First-task Wait")
+    analyze_stage1_ctrl(aicpu_dev_pref)
+    analyze_stage1_sched(aicpu_dev_pref)
+    analyze_stage1_aicore(aicore_wait_rows)
+
+
+def analyze_stage1_ctrl(aicpu_dev_pref: List[Dict[str, Any]]) -> None:
+    print_subsection("Stage 1 - CTRL AICPU")
+    ctrl = next((x for x in aicpu_dev_pref if str(x.get("coreType")) == "AICPU-CTRL"), None)
+    if ctrl is None:
+        print("- No AICPU-CTRL data found")
+        return
+    tasks = ctrl.get("tasks", [])
+    freq = float(ctrl.get("freq", 0)) or 1.0
+    build_dur = get_task_duration(tasks, "BEGIN", "DEV_TASK_BUILD", None, 0)
+    print_table(["Phase", "Time(us)"], [["DEV_TASK_BUILD", format_us(build_dur, freq)]])
+
+
+def analyze_stage1_sched(aicpu_dev_pref: List[Dict[str, Any]]) -> None:
+    print_subsection("Stage 1 - SCHED AICPU")
+    scheds = [x for x in aicpu_dev_pref if str(x.get("coreType")) == "AICPU-SCHED"]
+    if not scheds:
+        print("- No AICPU-SCHED data found")
+        return
+
+    scheds.sort(key=lambda x: int(x.get("blockIdx", 0)))
+    rows: List[List[str]] = []
+
+    for s in scheds:
+        block_idx = int(s.get("blockIdx", -1))
+        tasks = s.get("tasks", [])
+        freq = float(s.get("freq", 0)) or 1.0
+
+        alloc_dur = get_task_duration(tasks, "BEGIN", "ALLOC_THREAD_ID")
+        init_dur = get_task_duration(tasks, "ALLOC_THREAD_ID", "INIT")
+        handshake_dur = get_task_duration(tasks, "INIT", "CORE_HAND_SHAKE")
+        dev_task_rcv = get_task_duration(tasks, "CORE_HAND_SHAKE", "DEV_TASK_RCV", None, 0)
+        total_dur = None
+        if alloc_dur is not None and init_dur is not None and handshake_dur is not None and dev_task_rcv is not None:
+            total_dur = alloc_dur + init_dur + handshake_dur + dev_task_rcv
+
+        rows.append(
+            [
+                str(block_idx),
+                format_us(alloc_dur, freq),
+                format_us(init_dur, freq),
+                format_us(handshake_dur, freq),
+                format_us(dev_task_rcv, freq),
+                format_us(total_dur, freq),
+            ]
+        )
+
+    print_table(
+        ["blockIdx", "ALLOC_THREAD_ID(us)", "INIT(us)", "CORE_HAND_SHAKE(us)", "DEV_TASK_RCV(us)", "TOTAL(us)"],
+        rows,
+    )
+
+
+def analyze_stage1_aicore(aicore_wait_rows: List[Dict[str, Any]]) -> None:
+    print_subsection("Stage 1 - AICore Wait Before First Callop")
+    values: List[float] = []
+    ref_freq = 1.0
+    for row in aicore_wait_rows:
+        wait_dev_task = row.get("first_wait")
+        freq = float(row.get("freq", 1.0)) or 1.0
+        ref_freq = freq
+        if wait_dev_task is not None:
+            values.append(wait_dev_task)
+
+    if not aicore_wait_rows:
+        print("- No eligible AICore data found")
+        return
+
+    stat = summarize_us(values, ref_freq)
+    print_table(["Stats", "count", "min(us)", "avg(us)", "max(us)"], [["AICore wait for dev task", stat[0], stat[1], stat[2], stat[3]]])
+
+
+def analyze_stage2(aicpu_dev_pref: List[Dict[str, Any]]) -> None:
+    print_section("Stage 2: AICore Overall Execution")
+    all_wait_first: List[float] = []
+    all_exec_done: List[float] = []
+    aic_total = 0.0
+    aiv_total = 0.0
+    aic_count = 0
+    aiv_count = 0
+
+    for core in aicpu_dev_pref:
+        ctype = str(core.get("coreType", ""))
+        if not (ctype.startswith("SCHED") and ("-AIC" in ctype or "-AIV" in ctype)):
+            continue
+        tasks = core.get("tasks", [])
+        wait_first = get_task_cycle(tasks, "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK", 0)
+        all_exec = get_task_cycle(tasks, "DEV_TASK_ALL_CALLOP_TASK_EXEC", 0)
+        if wait_first is None or all_exec is None or all_exec <= wait_first:
+            continue
+
+        dur = all_exec - wait_first
+        if "-AIC" in ctype:
+            aic_count += 1
+            aic_total += dur
+        else:
+            aiv_count += 1
+            aiv_total += dur
+        all_wait_first.append(wait_first)
+        all_exec_done.append(all_exec)
+
+    if not all_wait_first or not all_exec_done:
+        print("- No valid AICore execution data")
+        return
+
+    freq = 1.0
+    if aicpu_dev_pref:
+        freq = float(aicpu_dev_pref[0].get("freq", 1.0)) or 1.0
+
+    e2e_cycles = max(all_exec_done) - min(all_wait_first)
+    total_exec_cycles = aic_total + aiv_total
+
+    print_tables_side_by_side(
+        ["Metric", "Time(us)"],
+        [
+            ["AICore End-to-End time", f"{to_us(e2e_cycles, freq):.2f}"],
+            ["AICore total exec time", f"{to_us(total_exec_cycles, freq):.2f}"],
+        ],
+        ["Type", "Count", "Total time(us)"],
+        [
+            ["AIC", str(aic_count), f"{to_us(aic_total, freq):.2f}"],
+            ["AIV", str(aiv_count), f"{to_us(aiv_total, freq):.2f}"],
+        ],
+    )
+
+
+def analyze_stage3(aicore_wait_rows: List[Dict[str, Any]]) -> None:
+    print_section("Stage 3: AICore Exit Wait After Execution")
+    values: List[float] = []
+    ref_freq = 1.0
+    for row in aicore_wait_rows:
+        gap = row.get("exit_wait")
+        freq = float(row.get("freq", 1.0)) or 1.0
+        ref_freq = freq
+        if gap is None:
+            continue
+        values.append(gap)
+    if not aicore_wait_rows:
+        print("- No AICore exit-wait data found")
+        return
+    stat = summarize_us(values, ref_freq)
+    print_table(["Stats", "count", "min(us)", "avg(us)", "max(us)"], [["AICore exit wait", stat[0], stat[1], stat[2], stat[3]]])
+
+
+def collect_aicore_wait_rows(aicpu_dev_pref: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    for core in aicpu_dev_pref:
+        core_type = str(core.get("coreType", ""))
+        if not (core_type.startswith("SCHED") and ("-AIC" in core_type or "-AIV" in core_type)):
+            continue
+        tasks = core.get("tasks", [])
+        wait_first = get_task_cycle(tasks, "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK", 0)
+        if wait_first is None:
+            continue
+        first_wait = get_task_duration(tasks, "BEGIN", "DEV_TASK_RCV_MODEL", None, 0)
+        exit_wait = get_task_duration(tasks, "DEV_TASK_ALL_CALLOP_TASK_EXEC", "DEV_TASK_WAIT_SYNC_STOP_NOTIFY", 0, 0)
+        rows.append(
+            {
+                "core_type": core_type,
+                "block_idx": int(core.get("blockIdx", -1)),
+                "freq": float(core.get("freq", 0)) or 1.0,
+                "first_wait": first_wait,
+                "exit_wait": exit_wait,
+            }
+        )
+    rows.sort(key=lambda x: x["block_idx"])
+    return rows
+
+
+def analyze_aicore_wait_detail(aicore_wait_rows: List[Dict[str, Any]]) -> None:
+    print_section("Appendix: AICore Wait Details")
+    if not aicore_wait_rows:
+        print("- No AICore detail data available")
+        return
+    rows: List[List[str]] = []
+    for item in aicore_wait_rows:
+        freq = float(item.get("freq", 1.0)) or 1.0
+        rows.append(
+            [
+                str(item["core_type"]),
+                str(item["block_idx"]),
+                format_us(item.get("first_wait"), freq),
+                format_us(item.get("exit_wait"), freq),
+            ]
+        )
+    print_table(
+        ["coreType", "blockIdx", "Wait before first callop(us)", "Exit wait after exec(us)"],
+        rows,
+    )
+
+
+def analyze_stage4(aicpu_dev_pref: List[Dict[str, Any]]) -> None:
+    print_section("Stage 4: SCHED AICPU Post-processing")
+    scheds = [x for x in aicpu_dev_pref if str(x.get("coreType")) == "AICPU-SCHED"]
+    if not scheds:
+        print("- No AICPU-SCHED data found")
+        return
+    rows: List[List[str]] = []
+    for s in sorted(scheds, key=lambda x: int(x.get("blockIdx", 0))):
+        tasks = s.get("tasks", [])
+        gap = get_task_duration(tasks, "DEV_TASK_SCHED_EXEC", "WAIT_CORE_EXIT", 0, None)
+        freq = float(s.get("freq", 0)) or 1.0
+        rows.append([str(int(s.get("blockIdx", -1))), format_us(gap, freq)])
+    print_table(["blockIdx", "SCHED AICPU post-process time(us)"], rows)
+
+
+def analyze_output_command(output_dir_arg: Optional[str]) -> None:
+    if output_dir_arg:
+        output_dir = Path(output_dir_arg)
+    else:
+        output_dirs = get_output_dirs()
+        if not output_dirs:
+            print("Error: no output_* directory found")
+            return
+        output_dir = output_dirs[0]
+
+    if not output_dir.exists():
+        print(f"Error: directory does not exist: {output_dir}")
+        return
+
+    aicpu_pref_file = output_dir / "aicpu_dev_pref.json"
+    if not aicpu_pref_file.exists():
+        print(f"Error: {aicpu_pref_file} does not exist")
+        return
+
+    print(f"Analyzing directory: {output_dir}")
+    aicpu_dev_pref = load_json(aicpu_pref_file)
+    if not isinstance(aicpu_dev_pref, list):
+        print("Error: invalid aicpu_dev_pref.json format, expected list")
+        return
+
+    aicore_wait_rows = collect_aicore_wait_rows(aicpu_dev_pref)
+    analyze_stage1(aicpu_dev_pref, aicore_wait_rows)
+    analyze_stage2(aicpu_dev_pref)
+    analyze_stage3(aicore_wait_rows)
+    analyze_stage4(aicpu_dev_pref)
+    analyze_aicore_wait_detail(aicore_wait_rows)
+    print()
+
+
 def main():
     parser = argparse.ArgumentParser(description='Performance data processing tool')
     subparsers = parser.add_subparsers(dest='command', help='Available commands', required=True)
@@ -241,6 +636,9 @@ def main():
 
     # gen_perfetto_example 子命令
     example_parser = subparsers.add_parser('gen_perfetto_example', help='Generate example Perfetto data')
+    # analyze 子命令
+    analyze_parser = subparsers.add_parser('analyze', help='Analyze aicpu_dev_pref.json in output directory')
+    analyze_parser.add_argument('output_dir', nargs='?', help='Path to output directory; latest output_* if omitted')
 
     args = parser.parse_args()
 
@@ -250,6 +648,8 @@ def main():
         gen_perfetto_command(args.input_file, args.output_file)
     elif args.command == 'gen_perfetto_example':
         gen_perfetto_example()
+    elif args.command == 'analyze':
+        analyze_output_command(args.output_dir)
     else:
         parser.print_help()
 
