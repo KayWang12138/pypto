@@ -1,0 +1,501 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0.0",
+  "meta": {
+    "title": "PyPTO Skill Reviewer Rules",
+    "description": "Single source of truth for all 51 review rules across 10 dimensions",
+    "sources": [
+      { "id": "A1", "title": "Anthropic Docs: Claude Code Skills", "url": "https://docs.anthropic.com/en/docs/claude-code/skills" },
+      { "id": "A2", "title": "Anthropic Docs: Subagents", "url": "https://docs.anthropic.com/en/docs/claude-code/subagents" },
+      { "id": "A3", "title": "Anthropic Blog: Complete Guide to Building Skills", "url": "https://claude.com/blog/complete-guide-to-building-skills-for-claude" },
+      { "id": "A4", "title": "Anthropic Docs: Claude Code Tutorials", "url": "https://docs.anthropic.com/en/docs/claude-code/tutorials" },
+      { "id": "A5", "title": "The Complete Guide to Building Skills (PDF)", "url": "https://resources.anthropic.com/hubfs/The-Complete-Guide-to-Building-Skill-for-Claude.pdf" }
+    ]
+  },
+  "dimensions": {
+    "D1": { "name": "Frontmatter 元数据", "weight": 25 },
+    "D2": { "name": "简洁性与效率", "weight": 15 },
+    "D3": { "name": "文件结构与导航", "weight": 10 },
+    "D4": { "name": "语言与表达", "weight": 10 },
+    "D5": { "name": "精确性与可执行性", "weight": 10 },
+    "D6": { "name": "工作流完整性", "weight": 10 },
+    "D7": { "name": "模式与最佳实践", "weight": 5 },
+    "D8": { "name": "反模式检测", "weight": 10 },
+    "D9": { "name": "脚本与代码质量", "weight": 5 },
+    "D0": { "name": "附加检查", "weight": 0 }
+  },
+  "severity_deductions": {
+    "S0": 20,
+    "S1": 10,
+    "S2": 5,
+    "S3": 2
+  },
+  "known_frontmatter_fields": [
+    "name", "description", "context", "agent", "allowed-tools",
+    "user-invocable", "intercept", "model"
+  ],
+  "standard_subdirectories": [
+    "references", "scripts", "templates", "assets", "examples"
+  ],
+  "rules": [
+    {
+      "id": "R01",
+      "severity": "S0",
+      "type": "static",
+      "dimension": "D1",
+      "rule": "SKILL.md must start with a frontmatter block delimited by `---`",
+      "source": ["A1"],
+      "check_strategy": "Parse first line for `---` and find matching closing `---` on its own line"
+    },
+    {
+      "id": "R02",
+      "severity": "S0",
+      "type": "static",
+      "dimension": "D1",
+      "rule": "`name` field must exist, be non-empty, kebab-case, and ≤64 characters",
+      "source": ["A1"],
+      "check_strategy": "Parse frontmatter, validate with regex ^[a-z0-9]+(-[a-z0-9]+)*$, strip quotes, check length"
+    },
+    {
+      "id": "R03",
+      "severity": "S0",
+      "type": "static",
+      "dimension": "D1",
+      "rule": "`description` field must exist and be ≥20 characters",
+      "source": ["A1"],
+      "check_strategy": "Extract description supporting multiline syntax (> and |), check length after trimming"
+    },
+    {
+      "id": "R04",
+      "severity": "S1",
+      "type": "static",
+      "dimension": "D1",
+      "rule": "`name` value should match the skill directory name",
+      "source": ["A1"],
+      "check_strategy": "Compare name field with basename(skill_dir), case-insensitive"
+    },
+    {
+      "id": "R05",
+      "severity": "S2",
+      "type": "static",
+      "dimension": "D1",
+      "rule": "`description` should not exceed 1024 characters",
+      "source": ["A1"],
+      "check_strategy": "Count characters after multiline merge"
+    },
+    {
+      "id": "R06",
+      "severity": "S3",
+      "type": "static",
+      "dimension": "D1",
+      "rule": "Unknown frontmatter fields produce a warning",
+      "source": ["A1"],
+      "check_strategy": "Compare all keys against known_frontmatter_fields whitelist"
+    },
+    {
+      "id": "R07",
+      "severity": "S1",
+      "type": "semantic",
+      "dimension": "D1",
+      "rule": "`description` must answer both 'what it does' and 'when to use it'",
+      "source": ["A1", "A3"],
+      "check_strategy": "Semantic analysis of description content for purpose and trigger conditions"
+    },
+    {
+      "id": "R08",
+      "severity": "S2",
+      "type": "semantic",
+      "dimension": "D1",
+      "rule": "`description` should contain natural trigger phrases a user would say",
+      "source": ["A3", "A5"],
+      "check_strategy": "Check for natural language phrases that match user intent patterns"
+    },
+    {
+      "id": "R09",
+      "severity": "S2",
+      "type": "semantic",
+      "dimension": "D1",
+      "rule": "`description` should be outcome-oriented rather than feature-listing",
+      "source": ["A3"],
+      "check_strategy": "Evaluate whether description focuses on outcomes vs listing capabilities"
+    },
+    {
+      "id": "R10",
+      "severity": "S2",
+      "type": "static",
+      "dimension": "D1",
+      "rule": "`allowed-tools` if present must be correctly formatted; boolean fields must have valid values",
+      "source": ["A1"],
+      "check_strategy": "Check only when field exists: allowed-tools as comma-separated list, booleans as true/false"
+    },
+    {
+      "id": "R11",
+      "severity": "S1",
+      "type": "static",
+      "dimension": "D2",
+      "rule": "SKILL.md must not exceed 500 lines",
+      "source": ["A1"],
+      "check_strategy": "Count total lines including frontmatter"
+    },
+    {
+      "id": "R12",
+      "severity": "S2",
+      "type": "static",
+      "dimension": "D2",
+      "rule": "SKILL.md body must not exceed 5000 words",
+      "source": ["A3"],
+      "check_strategy": "Count words in body (after frontmatter) using whitespace splitting"
+    },
+    {
+      "id": "R13",
+      "severity": "S1",
+      "type": "static",
+      "dimension": "D2",
+      "rule": "Must not contain TODO/FIXME/HACK placeholders (except inside code blocks)",
+      "source": ["A3"],
+      "check_strategy": "Line-by-line scan tracking code block open/close state, skip content inside code blocks"
+    },
+    {
+      "id": "R14",
+      "severity": "S2",
+      "type": "semantic",
+      "dimension": "D2",
+      "rule": "No redundant duplicate content across sections",
+      "source": ["A3"],
+      "check_strategy": "Semantic analysis for repeated instructions or duplicated paragraphs across sections"
+    },
+    {
+      "id": "R15",
+      "severity": "S2",
+      "type": "static",
+      "dimension": "D3",
+      "rule": "Skill directory name must be kebab-case and ≤64 characters",
+      "source": ["A1"],
+      "check_strategy": "Validate basename with regex ^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    {
+      "id": "R16",
+      "severity": "S2",
+      "type": "static",
+      "dimension": "D3",
+      "rule": "Large content blocks (>100 lines of reference material) should be in references/",
+      "source": ["A1"],
+      "check_strategy": "Count non-code-block text segments length, flag if >100 lines of quoted/reference material inline"
+    },
+    {
+      "id": "R17",
+      "severity": "S2",
+      "type": "static",
+      "dimension": "D3",
+      "rule": "Referenced paths should use relative paths",
+      "source": ["A1"],
+      "check_strategy": "Extract Markdown link targets, exclude URLs and code block content, check for absolute paths"
+    },
+    {
+      "id": "R18",
+      "severity": "S2",
+      "type": "static",
+      "dimension": "D3",
+      "rule": "Referenced file paths must actually exist",
+      "source": ["A1"],
+      "check_strategy": "Resolve relative paths from skill directory, exclude URLs and anchor-only refs (#)"
+    },
+    {
+      "id": "R19",
+      "severity": "S2",
+      "type": "semantic",
+      "dimension": "D3",
+      "rule": "SKILL.md should describe the purpose and load timing of each referenced file",
+      "source": ["A1", "A3"],
+      "check_strategy": "Check that each referenced file has accompanying context about why and when it is loaded"
+    },
+    {
+      "id": "R20",
+      "severity": "S2",
+      "type": "semantic",
+      "dimension": "D4",
+      "rule": "Instructions must use imperative mood, not passive suggestions",
+      "source": ["A3", "A5"],
+      "check_strategy": "Scan for passive voice patterns and convert to imperative form suggestions"
+    },
+    {
+      "id": "R21",
+      "severity": "S3",
+      "type": "semantic",
+      "dimension": "D4",
+      "rule": "Avoid vague language ('consider', 'you might', 'perhaps')",
+      "source": ["A3", "A5"],
+      "check_strategy": "Scan for hedging words and suggest definitive alternatives"
+    },
+    {
+      "id": "R22",
+      "severity": "S2",
+      "type": "static",
+      "dimension": "D4",
+      "rule": "Code blocks must be properly closed",
+      "source": ["A1"],
+      "check_strategy": "Track ``` open/close pairs, support language-annotated fences"
+    },
+    {
+      "id": "R23",
+      "severity": "S2",
+      "type": "semantic",
+      "dimension": "D4",
+      "rule": "Instructions should explain why, not just describe what to do",
+      "source": ["A3"],
+      "check_strategy": "Check for instructions that lack rationale or justification"
+    },
+    {
+      "id": "R24",
+      "severity": "S2",
+      "type": "semantic",
+      "dimension": "D5",
+      "rule": "Each step should have verifiable success criteria",
+      "source": ["A3", "A5"],
+      "check_strategy": "Check workflow steps for explicit success/completion indicators"
+    },
+    {
+      "id": "R25",
+      "severity": "S2",
+      "type": "semantic",
+      "dimension": "D5",
+      "rule": "Commands and paths must be specific and executable",
+      "source": ["A3"],
+      "check_strategy": "Check for placeholder commands or unresolved path variables"
+    },
+    {
+      "id": "R26",
+      "severity": "S1",
+      "type": "semantic",
+      "dimension": "D5",
+      "rule": "All mentioned operations must provide concrete methods",
+      "source": ["A3"],
+      "check_strategy": "Identify action references without corresponding implementation details"
+    },
+    {
+      "id": "R27",
+      "severity": "S2",
+      "type": "semantic",
+      "dimension": "D5",
+      "rule": "Completion criteria must be clearly defined",
+      "source": ["A3", "A5"],
+      "check_strategy": "Check for explicit definition of what constitutes task completion"
+    },
+    {
+      "id": "R28",
+      "severity": "S1",
+      "type": "semantic",
+      "dimension": "D6",
+      "rule": "Must define a clear step-by-step workflow",
+      "source": ["A1", "A3"],
+      "check_strategy": "Check for numbered/ordered steps or clear sequential workflow"
+    },
+    {
+      "id": "R29",
+      "severity": "S2",
+      "type": "semantic",
+      "dimension": "D6",
+      "rule": "Workflow steps must flow smoothly between each other",
+      "source": ["A3"],
+      "check_strategy": "Check that outputs of one step connect to inputs of the next"
+    },
+    {
+      "id": "R30",
+      "severity": "S2",
+      "type": "semantic",
+      "dimension": "D6",
+      "rule": "Must include error handling or failure recovery instructions",
+      "source": ["A3"],
+      "check_strategy": "Check for error/failure/fallback handling in workflow"
+    },
+    {
+      "id": "R31",
+      "severity": "S2",
+      "type": "semantic",
+      "dimension": "D6",
+      "rule": "Conditional branches must clearly describe each path",
+      "source": ["A3"],
+      "check_strategy": "Check if/else/when conditions have all branches specified"
+    },
+    {
+      "id": "R32",
+      "severity": "S3",
+      "type": "semantic",
+      "dimension": "D7",
+      "rule": "Should use progressive disclosure pattern (entry summary → body details → reference depth)",
+      "source": ["A1", "A3"],
+      "check_strategy": "Check document structure for layered information architecture"
+    },
+    {
+      "id": "R33",
+      "severity": "S3",
+      "type": "semantic",
+      "dimension": "D7",
+      "rule": "Validation logic should prefer deterministic scripts",
+      "source": ["A3"],
+      "check_strategy": "Check if verification tasks use scripts rather than relying solely on LLM judgment"
+    },
+    {
+      "id": "R34",
+      "severity": "S0",
+      "type": "static",
+      "dimension": "D8",
+      "rule": "Must not embed secrets, credentials, or sensitive data",
+      "source": ["A3"],
+      "check_strategy": "Scan with high-precision patterns: sk-[a-zA-Z0-9]{20,}, ghp_[a-zA-Z0-9]{36}, AKIA[0-9A-Z]{16}, -----BEGIN.*PRIVATE KEY-----, password\\s*[:=]\\s*['\"][^'\"]{8,}. Exclude code block examples"
+    },
+    {
+      "id": "R35",
+      "severity": "S1",
+      "type": "static",
+      "dimension": "D8",
+      "rule": "Must not hardcode absolute paths (user directory paths)",
+      "source": ["A3"],
+      "check_strategy": "Scan for /home/, /Users/, /root/ paths. Exclude /usr/bin/env, /dev/null, URLs, code block examples"
+    },
+    {
+      "id": "R36",
+      "severity": "S1",
+      "type": "static",
+      "dimension": "D8",
+      "rule": "Must not inline large data blocks (>50 lines) in SKILL.md",
+      "source": ["A1", "A3"],
+      "check_strategy": "Check code block lengths, only flag JSON/YAML/XML/CSV blocks >50 lines"
+    },
+    {
+      "id": "R37",
+      "severity": "S1",
+      "type": "static",
+      "dimension": "D8",
+      "rule": "Frontmatter must not contain XML tags",
+      "source": ["A1"],
+      "check_strategy": "Scan frontmatter region only for <[a-zA-Z] pattern"
+    },
+    {
+      "id": "R38",
+      "severity": "S2",
+      "type": "static",
+      "dimension": "D8",
+      "rule": "Must not use Windows-style paths",
+      "source": ["A3"],
+      "check_strategy": "Scan for C:\\ or D:\\ patterns, exclude code blocks"
+    },
+    {
+      "id": "R39",
+      "severity": "S2",
+      "type": "static",
+      "dimension": "D9",
+      "rule": "Python scripts must have valid syntax",
+      "source": ["A3"],
+      "check_strategy": "Use py_compile.compile() to check, report SyntaxError with line number"
+    },
+    {
+      "id": "R40",
+      "severity": "S2",
+      "type": "static",
+      "dimension": "D9",
+      "rule": "Scripts must include a shebang line",
+      "source": ["A3"],
+      "check_strategy": "Check first line for #! in .py/.sh/.bash files"
+    },
+    {
+      "id": "R41",
+      "severity": "S2",
+      "type": "static",
+      "dimension": "D9",
+      "rule": "Script paths must be portable",
+      "source": ["A3"],
+      "check_strategy": "Same absolute path scanning as R35 exclusion logic applied to script files"
+    },
+    {
+      "id": "R42",
+      "severity": "S2",
+      "type": "semantic",
+      "dimension": "D9",
+      "rule": "Scripts should include basic error handling",
+      "source": ["A3"],
+      "check_strategy": "Check for try/except blocks, error reporting, and non-zero exit codes on failure"
+    },
+    {
+      "id": "R43",
+      "severity": "S2",
+      "type": "static",
+      "dimension": "D0",
+      "rule": "When `context: fork`, the `agent` field should also be specified",
+      "source": ["A1", "A2"],
+      "check_strategy": "Check only when context field exists and equals fork"
+    },
+    {
+      "id": "R44",
+      "severity": "S2",
+      "type": "semantic",
+      "dimension": "D0",
+      "rule": "Fork-type skills must include explicit task instructions",
+      "source": ["A1", "A2"],
+      "check_strategy": "Check fork skills for clear task delegation instructions"
+    },
+    {
+      "id": "R45",
+      "severity": "S2",
+      "type": "static",
+      "dimension": "D0",
+      "rule": "Subdirectory structure should use standard naming",
+      "source": ["A1"],
+      "check_strategy": "Compare subdirectory names against standard set: references, scripts, templates, assets, examples"
+    },
+    {
+      "id": "R46",
+      "severity": "S2",
+      "type": "static",
+      "dimension": "D1",
+      "rule": "`description` must not contain angle-bracket placeholders like `<xxx>`",
+      "source": ["A1"],
+      "check_strategy": "Scan description field for <[a-zA-Z][^>]*> patterns that indicate unresolved placeholders"
+    },
+    {
+      "id": "R47",
+      "severity": "S2",
+      "type": "static",
+      "dimension": "D2",
+      "rule": "No duplicate section headings within the same file",
+      "source": ["A3"],
+      "check_strategy": "Collect all Markdown headings (## and ###), flag exact duplicates with line numbers"
+    },
+    {
+      "id": "R48",
+      "severity": "S3",
+      "type": "static",
+      "dimension": "D4",
+      "rule": "Fenced code blocks should have a language annotation",
+      "source": ["A3"],
+      "check_strategy": "Check opening ``` lines for a language identifier after the fence marker"
+    },
+    {
+      "id": "R49",
+      "severity": "S2",
+      "type": "static",
+      "dimension": "D8",
+      "rule": "Lines should not exceed 200 characters (excluding code blocks and tables)",
+      "source": ["A3"],
+      "check_strategy": "Scan lines outside code blocks and table rows, flag lines exceeding 200 characters"
+    },
+    {
+      "id": "R50",
+      "severity": "S2",
+      "type": "semantic",
+      "dimension": "D9",
+      "rule": "Scripts should handle missing dependencies gracefully",
+      "source": ["A3"],
+      "check_strategy": "Check that import statements are wrapped in try/except or that the script checks for required tools before use"
+    },
+    {
+      "id": "R51",
+      "severity": "S2",
+      "type": "semantic",
+      "dimension": "D7",
+      "rule": "When multiple options are presented, a default recommendation should be provided",
+      "source": ["A3"],
+      "check_strategy": "Identify sections offering choices/alternatives and check for a recommended default"
+    }
+  ]
+}
