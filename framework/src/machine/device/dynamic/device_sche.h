@@ -144,31 +144,52 @@ struct DynMachineManager {
         int (*kernelCtrlServer)(void *targ);
     };
 
-    int AllocThreadIdxForDav3510(DeviceArgs *devArgs, int cpu, std::atomic<int> &threadIdx) {
-        int maxCpuId = static_cast<int>(devArgs->maxAicpuNum);
-        int die0MaxCpuid = (maxCpuId >> 1);
-        int scheCpuNum = static_cast<int>(devArgs->scheCpuNum);
-        int die0MaxCpuNum = (scheCpuNum >> 1);
-        int die1MaxCpuNum = scheCpuNum - die0MaxCpuNum;
-        int unuseThreadIdx = scheCpuNum + SCHE_THREAD_START_IDX;
-
-        if (die0ThreadIdx_.load() < die0MaxCpuNum && cpu <= die0MaxCpuid) {
-            int curDie0ThreadIdx = die0ThreadIdx_.fetch_add(1) + SCHE_THREAD_START_IDX;
-            threadIdx = curDie0ThreadIdx;
-            return curDie0ThreadIdx;
+    void SetCurThreadIdxForDav3510(int dieMaxCpuNum, int startIdx, int &curThreadIdx, std::atomic<int> &dieThreadIdx) {
+        int expected = 0;
+        while (expected < dieMaxCpuNum) {   // ensure thread security
+            int desired = expected + 1;
+            if (dieThreadIdx.compare_exchange_weak(expected, desired, std::memory_order_acq_rel, std::memory_order_acq_rel)) {
+                int curDieThreadIdx = expected + startIdx;
+                curThreadIdx = curDieThreadIdx;
+                break;
+            }
         }
-
-        if (die1ThreadIdx_.load() < die1MaxCpuNum && cpu > die0MaxCpuid) {
-            int curDie1ThreadIdx = die1ThreadIdx_.fetch_add(1) + die0MaxCpuNum + SCHE_THREAD_START_IDX;
-            threadIdx = curDie1ThreadIdx;
-            return curDie1ThreadIdx;
-        }
-
-        threadIdx = unuseThreadIdx;
-        return unuseThreadIdx;
     }
 
-    int AllocThreadIdxForDav2201(DeviceArgs *devArgs, int cpu, std::atomic<int> &threadIdx) {
+    int AllocThreadIdxForDav3510(DeviceArgs *devArgs, int cpu, int &curThreadIdx, std::atomic<int> &threadIdx) {
+        if (!IsDeviceMode()) {
+            curThreadIdx = ++threadIdx;
+            return npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
+        }
+
+        int die0MaxCpuid = static_cast<int>(devArgs->maxAicpuNum >> 1);
+        int die0MaxCpuNum = static_cast<int>(devArgs->scheCpuNum >> 1);
+        int die1MaxCpuNum = static_cast<int>(devArgs->scheCpuNum) - die0MaxCpuNum;
+
+        // use CAS, Try to allocate the next available thread index, loop until successfully allocate or exceed the limit
+        if (cpu <= die0MaxCpuid) {
+            SetCurThreadIdxForDav3510(die0MaxCpuNum, SCHE_THREAD_START_IDX, curThreadIdx, die0ThreadIdx_);
+        } else {
+            SetCurThreadIdxForDav3510(die1MaxCpuNum, die0MaxCpuNum + SCHE_THREAD_START_IDX, curThreadIdx, die1ThreadIdx_);
+        }
+
+        // wait until all threads are ecexuted to prevent threads from being relaunched after exiting
+        cpumask_.fetch_or(1 << cpu, std::memory_order_release);
+        uint64_t start = GetCycles();
+        while (__builtin_popcount(cpumask_.load(std::memory_order_acquire)) != static_cast<int>(devArgs->nrAicpu)) {
+            if (GetCycles() - start > TIMEOUT_CYCLES) {
+                DEV_ERROR("ThreadIdx %d, physical cpu %d alloc timeout.", curThreadIdx, cpu);
+                return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
+            }
+            sched_yield();
+        }
+
+        DEV_INFO("Physical cpu %d alloc threadIdx %d success.", cpu, curThreadIdx);
+        threadIdx = curThreadIdx;
+        return npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
+    }
+
+    int AllocThreadIdxForDav2201(DeviceArgs *devArgs, int cpu, int &curThreadIdx, std::atomic<int> &threadIdx) {
         cpumask_.fetch_or(1 << cpu, std::memory_order_release);
         while (__builtin_popcount(cpumask_.load(std::memory_order_acquire)) != static_cast<int>(devArgs->nrAicpu)) {
             sched_yield();
@@ -186,27 +207,30 @@ struct DynMachineManager {
             cpuoff += CPUS_PER_CLUSTER;
         }
         if (clus_id == -1) {
-            return ++threadIdx;
+            curThreadIdx = ++threadIdx;
         }
         if (cpu < cpuoff || cpu >= (cpuoff + CPUS_PER_CLUSTER)) {
-            return -1;
+            curThreadIdx = -1;
         }
-        return ++threadIdx;
+        curThreadIdx = ++threadIdx;
+        return npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
     }
 
-    int AllocThreadIdx(DeviceArgs *devArgs, std::atomic<int> &threadIdx) {
+    int AllocThreadIdx(DeviceArgs *devArgs, int &curThreadIdx, std::atomic<int> &threadIdx) {
         if (devArgs->scheCpuNum == 1) {
-            return ++threadIdx;
+            curThreadIdx = ++threadIdx;
+            return npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
         }
 
         int cpu = sched_getcpu();
         if (devArgs->archInfo == ArchInfo::DAV_3510) {
-            return AllocThreadIdxForDav3510(devArgs, cpu, threadIdx);
+            return AllocThreadIdxForDav3510(devArgs, cpu, curThreadIdx, threadIdx);
         } else if (devArgs->archInfo == ArchInfo::DAV_2201) {
-            return AllocThreadIdxForDav2201(devArgs, cpu, threadIdx);
+            return AllocThreadIdxForDav2201(devArgs, cpu, curThreadIdx, threadIdx);
         }
 
-        return ++threadIdx;
+        curThreadIdx = ++threadIdx;
+        return npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
     }
 
     void SignalReg(const KernelCtrlEntry &entry) {
@@ -290,7 +314,12 @@ struct DynMachineManager {
             DEV_ERROR("Aicpu num[%u] less than sche num[%u].", devArgs->nrAicpu, devArgs->scheCpuNum);
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
         }
-        int threadIdx = AllocThreadIdx(devArgs, threadIdx_);
+        int threadIdx = -1;
+        if (AllocThreadIdx(devArgs, threadIdx, threadIdx_) != npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
+            DEV_ERROR("Current cpu[%d] alloc thread failed.", sched_getcpu());
+            return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
+        }
+
         uint64_t allocThreadCycle = GetCycles();
 
         if ((threadIdx != -1) && threadIdx <= static_cast<int>(devArgs->scheCpuNum)) {
@@ -468,7 +497,12 @@ struct DynMachineManager {
 
         DevStartArgs *runtimeDataCurrent = reinterpret_cast<DevStartArgs *>(devProg->GetRuntimeDataList()->GetRuntimeDataCurrent());
         auto devArgs = devProg->devArgs;
-        int threadIdx = AllocThreadIdx(&devArgs, runtimeDataCurrent->devScheState.threadIdx);
+        int threadIdx = -1;
+        if (AllocThreadIdx(&devArgs, threadIdx, runtimeDataCurrent->devScheState.threadIdx) != npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
+            DEV_ERROR("Current cpu[%d] alloc thread failed.", sched_getcpu());
+            return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
+        }
+
         int ret = DEVICE_MACHINE_OK;
         if (threadIdx != -1 && threadIdx <= static_cast<int>(devArgs.scheCpuNum)) {
             DEV_INFO("SchedThreadEnter idx=%d round=%d", threadIdx, (int)kargs->parameter.globalRound);
