@@ -21,7 +21,7 @@ license: 完整条款见 LICENSE.txt
 
 示例问题配置：
 ```
-question: 
+question:
   - header: "PyPTO配置"
     question: "请提供 pypto 目录的完整路径"
     options: []
@@ -54,6 +54,8 @@ question:
 ### 3. 重新编译和安装
 
 进入用户提供的 pypto 目录路径，重新编译 pypto 包并pip安装。
+**编译命令**: `cd <用户提供的 pypto 目录路径> && python3 build_ci.py -f python3 --disable_auto_execute`
+**pip安装命令**: `pip install <用户提供的 pypto 目录路径>/build_out/pypto*.whl --force --no-deps`
 
 ### 4. 清理日志
 
@@ -91,28 +93,35 @@ grep -rn "trace" <log-file> | grep "LActFinish"
 ```
 
 ### 7. 定位问题 CCE 文件
+**解析 LEvent 事件 格式**:
+LActStart 事件 格式为 `LEvent(LUid(deviceTaskId, funcId, rootIndex, opIdx, leafIndex),LActStart(coreIdx))`
+LActFinish 事件 格式为 `LEvent(LUid(deviceTaskId, funcId, rootIndex, opIdx, leafIndex),LActFinish(coreIdx))`
 
 **对比日志**:
-1. 从 LActStart 日志中提取所有 Uid
-2. 从 LActFinish 日志中提取所有 Uid
-3. 对比两者的Uid，找出在 LActStart 中存在而在 LActFinish 中缺失所有的 Uid，从Uid对应的LEvent提取出`<CCE_ID>`（括号中的最后一个值）
-**重要**: 理论上，所有缺失的Uid对应的是同一个`<CCE_ID>`。只有当缺失多个Uid且这些Uid对应的`<CCE_ID>`值不同时，才可能需要输出多个`<CCE_ID>`对应的文件（如果存在）
+1. 从 LActStart 事件日志中提取所有的 coreIdx，将所有的coreIdx从小到大排序，若不存在LActStart 事件，则为空
+2. 从 LActFinish 事件日志中提取所有的 coreIdx，，将所有的coreIdx从小到大排序，若不存在LActFinish 事件，则为空
+3. 对比两者的coreIdx，找出缺失的全部coreIdx（缺失条件为coreIdx在LActStart事件中存在且在LActFinish事件中不存在），从coreIdx对应的LActFinish 事件提取出`<leafIndex>`（LUid中的最后一个值）
+**重要**: 理论上，所有缺失的coreIdx对应的是同一个`<leafIndex>`
 
-**解析 LEvent 格式**:
-LEvent 格式为 `#LEvent{LUid{0,0,0,<value>,<CCE_ID>},LActStart{<uid>}}`
 
 **查找 CCE 文件**:
-在 `kernel_aicore` 目录中查找包含 `_<CCE_ID>_` 后缀为cpp的文件。
+**CCE 文件名称格式**: <CCE_pre_name>_<CCE_hash>_<CCE_ID>_<core_type>.cpp
+**Record 文件名称格式** sub_func_<core_type>_call_<ID>.h
+1. 在 `kernel_aicore` 目录下查找 Record 文件，在多个Record 文件中搜索`case <leafIndex>`，从而得到Record 文件名称，通过Record 文件名称得到<core_type>
+2. 阅读存在`case <leafIndex>`的Record 文件，通过`case <leafIndex>`找到对应的函数名，函数名格式为<CCE_pre_name>_<CCE_ID>_<func_hash>，通过函数名得到<CCE_pre_name>_<CCE_ID>
+3. 通过<CCE_pre_name>、<CCE_ID>、<core_type>得到CCE 文件名的关键信息，在`kernel_aicore` 目录下查找文件名称，若存在，则查找完成
 
-### 8. 输出结果
+### 8. 检索问题代码
+1. 从后往前注释CCE文件（注释规则为，使用二分算法注释。若注释了wait_flag代码需注释对应的set_flag代码），不需要重新编译安装，直接进行清理日志（跳过清理运行目录下的 `kernel_aic*` 文件夹步骤）和运行测试步骤，检查是否有报错日志，若依然存在报错日志，则继续使用二分算法向前添加注释，若不存在报错日志，则使用二分算向后取消注释，直到能够确定问题代码是某一行为止
+2. 将上述步骤中对CCE文件的所有修改全部恢复
 
-输出找到的 CPP 文件路径。
+### 9. 输出结果
+
+输出找到的 CPP 文件路径和问题代码。
 
 ## 关键点
 
 - 确保 `fixed` 模式启用以保持输出路径不变
 - 每次运行前清理日志以避免混淆
 - 执行每条命令时，务必确保在用户提供的运行目录下执行
-- 通过对比 LActStart 和 LActFinish 事件定位失败的 Uid
-- CCE 文件名中包含对应 `_<CCE_ID>_` 的标识符
-- 当缺失多个Uid且对应的`<CCE_ID>`值不同时，在 `kernel_aicore` 目录中查找时可能存在多个 `_<CCE_ID>_` 后缀为cpp的文件，一定不要遗漏
+
