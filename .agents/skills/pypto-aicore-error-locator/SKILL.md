@@ -54,6 +54,8 @@ question:
 ### 3. 重新编译和安装
 
 进入用户提供的 pypto 目录路径，重新编译 pypto 包并pip安装。
+**编译命令**: `cd <用户提供的 pypto 目录路径> && python3 build_ci.py -f python3 --disable_auto_execute`
+**pip安装命令**: `pip install <用户提供的 pypto 目录路径>/build_out/pypto*.whl --force --no-deps`
 
 ### 4. 清理日志
 
@@ -91,28 +93,38 @@ grep -rn "trace" <log-file> | grep "LActFinish"
 ```
 
 ### 7. 定位问题 CCE 文件
+**解析 LEvent 事件 格式**:
+LActStart 事件 格式为 `LEvent(LUid(deviceTaskId, funcId, rootIndex, opIdx, leafIndex),LActStart(coreIdx))`
+LActFinish 事件 格式为 `LEvent(LUid(deviceTaskId, funcId, rootIndex, opIdx, leafIndex),LActFinish(coreIdx))`
 
 **对比日志**:
-1. 从 LActStart 日志中提取所有 Uid
-2. 从 LActFinish 日志中提取所有 Uid
-3. 对比两者的Uid，找出在 LActStart 中存在而在 LActFinish 中缺失所有的 Uid，从Uid对应的LEvent提取出`<CCE_ID>`（括号中的最后一个值）
-**重要**: 理论上，所有缺失的Uid对应的是同一个`<CCE_ID>`。只有当缺失多个Uid且这些Uid对应的`<CCE_ID>`值不同时，才可能需要输出多个`<CCE_ID>`对应的文件（如果存在）
+1. 从 LActStart 事件日志中提取所有的 coreIdx，将所有的coreIdx从小到大排序，若不存在LActStart 事件，则为空
+2. 从 LActFinish 事件日志中提取所有的 coreIdx，，将所有的coreIdx从小到大排序，若不存在LActFinish 事件，则为空
+3. 对比两者的coreIdx，找出缺失的全部coreIdx（缺失条件为coreIdx在LActStart事件中存在且在LActFinish事件中不存在），从coreIdx对应的LActFinish 事件提取出`<leafIndex>`（LUid中的最后一个值）
+**重要**: 理论上，所有缺失的coreIdx对应的是同一个`<leafIndex>`
 
-**解析 LEvent 格式**:
-LEvent 格式为 `#LEvent{LUid{0,0,0,<value>,<CCE_ID>},LActStart{<uid>}}`
 
 **查找 CCE 文件**:
-在 `kernel_aicore` 目录中查找包含 `_<CCE_ID>_` 后缀为cpp的文件。
+**CCE 文件名称格式**: <CCE_pre_name>_<CCE_hash>_<CCE_ID>_<core_type>.cpp
+**Record 文件名称格式** sub_func_<core_type>_call_<ID>.h
+1. 在 `kernel_aicore` 目录下查找 Record 文件，在多个Record 文件中搜索`case <leafIndex>`，从而得到Record 文件名称，通过Record 文件名称得到<core_type>
+2. 阅读存在`case <leafIndex>`的Record 文件，通过`case <leafIndex>`找到对应的函数名，函数名格式为<CCE_pre_name>_<CCE_ID>_<func_hash>，通过函数名得到<CCE_pre_name>_<CCE_ID>
+3. 通过<CCE_pre_name>、<CCE_ID>、<core_type>得到CCE 文件名的关键信息，在`kernel_aicore` 目录下查找文件名称，若存在，则查找完成
 
-### 8. 输出结果
+### 8. 找到问题代码
+**方案一**: 阅读报错日志和CCE文件代码，找到问题代码
 
-输出找到的 CPP 文件路径。
+**方案二**: 
+1. 修改CCE文件，将CCE文件中的set_flag和wait_flag全部注释，再次运行，观察是否仍能复现问题，若不能复现问题，此方案不生效
+2. 在set_flag和wait_flag全部注释的基础上，从后往前注释CCE文件，循环运行，直到不报错为止，从而找到问题代码
+3. 将上述步骤中对CCE文件的所有修改全部恢复
+
+### 9. 输出结果
+
+输出找到的 CPP 文件路径和问题代码。
 
 ## 关键点
 
 - 确保 `fixed` 模式启用以保持输出路径不变
 - 每次运行前清理日志以避免混淆
 - 执行每条命令时，务必确保在用户提供的运行目录下执行
-- 通过对比 LActStart 和 LActFinish 事件定位失败的 Uid
-- CCE 文件名中包含对应 `_<CCE_ID>_` 的标识符
-- 当缺失多个Uid且对应的`<CCE_ID>`值不同时，在 `kernel_aicore` 目录中查找时可能存在多个 `_<CCE_ID>_` 后缀为cpp的文件，一定不要遗漏
