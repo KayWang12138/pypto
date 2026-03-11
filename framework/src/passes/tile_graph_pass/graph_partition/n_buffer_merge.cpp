@@ -489,8 +489,7 @@ Status NBufferMerge::NBufferMergeProcess(Function &func) {
     // print hashorder
     APASS_LOG_INFO_F(Elements::Operation, "Computation graph [%s] overview.", func.GetRawName().c_str());
     for (auto &entry : hashMap) {
-        APASS_LOG_INFO_F(Elements::Operation, "Hash order: %d, Subgraph hash: %lu, Subgraph ID: %s.",
-            hashOrder_[entry.first], entry.first, IntVecToStr(entry.second).c_str());
+        APASS_LOG_INFO_F(Elements::Operation, "Hash order: %d, Subgraph hash: %lu, Subgraph ID: %s.", hashOrder_[entry.first], entry.first, IntVecToStr(entry.second).c_str());
     }
     APASS_LOG_INFO_F(Elements::Operation, "Computation graph [%s] overview end.", func.GetRawName().c_str());
     std::map<uint64_t, size_t> hashMergeNum;
