@@ -45,6 +45,7 @@ private:
     Status ObtainReshapeTile(Operation &op, Shape &inTileShape, Shape &outTileShape);
     Status InferTileShape(Operation &op, const LogicalTensorPtr &tensor, TileShape parentTile, Shape &reshapeTile);
     Status SetDefaultShape(const LogicalTensorPtr &tensor, std::vector<int64_t> &defaultTile);
+    Status ProcessViewType(Function &function);
     Status InsertCopysForViewAssemble(Function &function);
     TileShape ObtainTileShape(const std::unordered_set<Operation *> &origOp);
 
