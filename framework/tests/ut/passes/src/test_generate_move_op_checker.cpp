@@ -573,5 +573,25 @@ TEST_F(TestGenerateMoveOpChecker, PreCheck_ConvertOp_Valid) {
     Status preCheckStatus = checker.PreCheck(*currFunctionPtr);
     EXPECT_EQ(preCheckStatus, SUCCESS);
 }
+
+TEST_F(TestGenerateMoveOpChecker, TestViewOutputNullptr) {
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestViewOutputNullptr", "TestViewOutputNullptr", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    std::vector<int64_t> shape1 = {8, 4};
+    std::vector<int64_t> shape2 = {1, 8, 4};
+    auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+
+    currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {inCast}, {ubTensor});
+    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor}, {});
+
+    currFunctionPtr->inCasts_.push_back(inCast);
+
+    GenerateMoveOp checker;
+    Status preCheckStatus = checker.PreCheck(*currFunctionPtr);
+    EXPECT_EQ(preCheckStatus, FAILED);
+}
 } // namespace tile_fwk
 } // namespace npu
