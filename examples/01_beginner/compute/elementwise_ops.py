@@ -22,6 +22,7 @@ Usage:
 
 import argparse
 import gc
+import itertools
 import os
 import sys
 import pypto
@@ -34,15 +35,29 @@ def cleanup_between_tests(run_mode: str = "npu"):
     """Clean up resources between test cases to prevent state pollution.
 
     This function should be called after each test case to ensure:
-    1. Python garbage collection is triggered to free unreferenced tensors
-    2. PyPTO program state is reset (if available)
+    1. PyPTO program state is reset to clear accumulated state
+    2. Controller class variables are reset to initial state
+    3. Python garbage collection is triggered to free unreferenced tensors
 
     Note: NPU synchronize is intentionally NOT called here as it can cause
     timeout issues when NPU state is abnormal after certain operations.
     """
     # Reset PyPTO program state to clear any accumulated state
-    if hasattr(pypto, 'reset'):
-        pypto.reset()
+    # Use pypto_impl.Reset() directly since reset() is not exported in __all__
+    try:
+        from pypto import pypto_impl
+        pypto_impl.Reset()
+    except ImportError:
+        pass  # pypto_impl not available, skip reset
+
+    # Reset Controller class variables to prevent state pollution between tests
+    # The Controller class in _controller.py has class-level state that persists
+    try:
+        from pypto._controller import Controller
+        Controller._loop_idx_generator = itertools.count(0)
+        Controller.in_function = False
+    except ImportError:
+        pass  # Controller not available, skip reset
 
     # Force garbage collection to free unreferenced tensors
     gc.collect()
