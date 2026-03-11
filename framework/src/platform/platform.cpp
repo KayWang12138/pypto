@@ -204,6 +204,7 @@ Platform &Platform::Instance() {
 
 void Platform::SetMemoryLimit(const PlatformParser &parser) {
     size_t memoryLimit;
+    FUNCTION_LOGD("Start set memory limit.");
     if (parser.GetSizeVal(aiCoreSpec, l0aSize, memoryLimit)) {
         GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0A, memoryLimit));
     }
@@ -225,6 +226,7 @@ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
     std::string archType;
     std::string shortSocVersion;
     std::unordered_map<std::string, std::string> versionInfo;
+    FUNCTION_LOGD("Start load platform info.");
     if (parser.GetStringVal(version, npuArchInfo, archType)) {
         GetSoc().SetNPUArch(archType);
     }
@@ -253,6 +255,7 @@ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
     SetMemoryLimit(parser);
     std::vector<std::pair<MemoryType, MemoryType>> dataPath;
     InternalParser internalParser = InternalParser(archType);
+    FUNCTION_LOGD("Start obtaining data path.");
     if (internalParser.LoadInternalInfo()) {
         if (internalParser.GetDataPath(dataPath)) {
             GetDie().SetMemoryPath(dataPath);
@@ -282,6 +285,7 @@ void Platform::ObtainPlatformInfo() {
     }
     FUNCTION_LOGD("Try to load platform info.");
     LoadPlatformInfo(*parser);
+    FUNCTION_LOGD("Loaded platform info.");
     initialized = true;
 }
 }
