@@ -80,18 +80,6 @@ bool PlatformParser::GetCCECVersion(std::unordered_map<std::string, std::string>
     return !ccecVersion.empty();
 }
 
-bool PlatformParser::GetCoreVersion(std::unordered_map<std::string, std::string>& curVersion) const {
-    curVersion.clear();
-    std::string versionVal;
-    if (GetStringVal(version, aicVersion, versionVal)) {
-        curVersion[aic] = versionVal;
-    }
-    if (GetStringVal(version, aivVersion, versionVal)) {
-        curVersion[aiv] = versionVal;
-    }
-    return !curVersion.empty();
-}
-
 INIParser::INIParser() {
     std::string srcPath;
     SimulationPlatform simulationPlatform;

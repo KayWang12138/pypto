@@ -100,5 +100,21 @@ bool CannHostRuntime::GetSocSpec(const std::string& column, const std::string& k
     (void)val;
     return false;
 }
+
+bool CannHostRuntime::GetAICPUNum(size_t &aiCpuNum) {
+#ifdef BUILD_WITH_CANN
+    int ret = 1;
+    uint32_t cpuNum = 0;
+    if (aiCpuNumFunc_ != nullptr) {
+        ret = aiCpuNumFunc_(&cpuNum);
+    }
+    if (ret == 0) {
+        aiCpuNum = static_cast<size_t>(cpuNum);
+        return true;
+    }
+#endif
+    (void)aiCpuNum;
+    return false;
+}
 }  // namespace tile_fwk
 }  // namespace npu

@@ -15,8 +15,8 @@
 
 #include <fstream>
 #include "tilefwk/platform.h"
-#include "parser/platform_parser.h"
-#include "parser/internal_parser.h"
+#include "platform_parser.h"
+#include "internal_parser.h"
 
 namespace npu::tile_fwk {
 const std::string version = "version";
@@ -109,16 +109,6 @@ void SoC::SetCCECVersion(const std::unordered_map<std::string, std::string>& ver
     }
 }
 
-std::string SoC::GetCoreVersion(std::string CoreType) {
-    if (CoreType == "AIC") {
-        return GetAICCore().GetVersion();
-    } else if (CoreType == "AIV") {
-        return GetAIVCore().GetVersion();
-    } else {
-        return "UNKNOWN_CORE";
-    }
-}
-
 std::string SoC::GetCCECVersion(std::string CoreType) {
     if (CoreType == "AIC") {
         return GetAICCore().GetCCECVersion();
@@ -130,6 +120,10 @@ std::string SoC::GetCCECVersion(std::string CoreType) {
 }
 
 size_t SoC::GetAICPUNum() const {
+    size_t aiCpuNum = 0;
+    if (CannHostRuntime::Instance().GetAICPUNum(aiCpuNum)) {
+        return static_cast<size_t>(aiCpuNum);
+    }
     return ai_cpu_cnt_;
 }
 
@@ -235,9 +229,6 @@ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
     }
     if (parser.GetCCECVersion(versionInfo)) {
         GetSoc().SetCCECVersion(versionInfo);
-    }
-    if (parser.GetCoreVersion(versionInfo)) {
-        GetSoc().SetCoreVersion(versionInfo);
     }
     size_t coreNum;
     if (parser.GetSizeVal(socInfo, aiCoreCnt, coreNum)) {

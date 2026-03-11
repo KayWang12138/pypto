@@ -105,7 +105,6 @@ public:
     
     bool GetSizeVal(const std::string& column, const std::string& key, size_t& val) const;
     bool GetCCECVersion(std::unordered_map<std::string, std::string>& ccecVersion) const;
-    bool GetCoreVersion(std::unordered_map<std::string, std::string>& curVersion) const;
     bool FilterCCECVersion(const std::string& key, std::string &coreType) const;
 };
 
@@ -352,7 +351,6 @@ public:
     NPUArch GetNPUArch() const { return version_; }
     size_t GetDiesNum() const { return dies_cnt_; }
     std::string GetShortSocVersion() const { return short_soc_ver_; }
-    std::string GetCoreVersion(std::string CoreType);
     std::string GetCCECVersion(std::string CoreType);
 
     // SOCINFO

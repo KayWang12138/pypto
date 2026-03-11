@@ -8,11 +8,8 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-file(GLOB _Platform_Srcs
-		*.cpp
-		parser/*.cpp
-		parser/simulation_platform/*.cpp
-)
+file(GLOB_RECURSE _Platform_Srcs *.cpp)
+
 add_library(tile_fwk_platform SHARED)
 target_sources(tile_fwk_platform PRIVATE ${_Platform_Srcs})
 target_link_libraries(tile_fwk_platform
