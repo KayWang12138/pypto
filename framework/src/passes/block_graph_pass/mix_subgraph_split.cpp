@@ -21,6 +21,8 @@ namespace npu {
 namespace tile_fwk {
 // 初始化静态成员
 std::unordered_map<FunctionHash, GlobalSplitRecord> MixSubgraphSplit::globalSplitRecords_;
+std::atomic<uint64_t> MixSubgraphSplit::globalNextMixId_{0};
+
 Status MixSubgraphSplit::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "===============================================================> Start MixSubgraphSplit.");
     // 获取rootFunc和programs
@@ -393,7 +395,7 @@ Status MixSubgraphSplit::ProcessLeafFunction(Function& rootFunc,
                         originalMixFunc->GetRawName().c_str());
             return FAILED;
         }
-        uint64_t mixId = nextMixId_++;
+        uint64_t mixId = globalNextMixId_++;
         APASS_LOG_DEBUG_F(Elements::Function, "Assigning mixId=%lu for original mix function programID=%lu", mixId, programID);
         MixResourceType resourceType = GetMixResourceType(*originalMixFunc);
         APASS_LOG_DEBUG_F(Elements::Function, "Mix resource type: %d for programID=%lu", static_cast<int>(resourceType), programID);
