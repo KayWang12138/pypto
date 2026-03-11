@@ -28,9 +28,9 @@
     "host": {
         "compile_stage": 0,
         "compile_monitor_enable": true,
-        "interval_sec": 60,
-        "timeout_sec": -1,
-        "total_timeout_sec": 600
+        "compile_timeout": 600,
+        "compile_timeout_stage": -1,
+        "compile_monitor_print_interval": 60
     },
     "codegen": {
         "support_dynamic_aligned": false

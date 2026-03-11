@@ -303,7 +303,7 @@
                         "en": "Control whether to enable compilation progress printing during the compilation phase."
                     }
                 },
-                "interval_sec": {
+                "compile_monitor_print_interval": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 2147483647,
@@ -313,7 +313,7 @@
                         "en": "Control the frequency of printing the compilation progress for a certain stage."
                     }
                 },
-                "timeout_sec": {
+                "compile_timeout_stage": {
                     "type": "integer",
                     "minimum": -1,
                     "maximum": 2147483647,
@@ -323,7 +323,7 @@
                         "en": "Control the timeout duration of a certain stage of the compilation process."
                     }
                 },
-                "total_timeout_sec": {
+                "compile_timeout": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 2147483647,
