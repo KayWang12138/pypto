@@ -493,10 +493,10 @@ TEST_F(ReplaceTensorTest, TestSameAssembleOut) {
     auto outcast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, outRawTensor1, offset0, shape1);
     outcast1->SetMemoryTypeBoth(MEM_DEVICE_DDR, true);
     /*       Init Graph
-                            /—————> assemble -outcast1
-                             /————> assemble \         
-        incast ————> copyIn -                 - outcast0  
-                             \————> assemble /          
+                              /———> assemble -outcast1
+                             /————> assemble \
+        incast ————> copyIn -                 - outcast0
+                             \————> assemble /
     */
     auto &copyInOp = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {copyInOut});
     auto &assOp0 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {copyInOut}, {outcast0});
@@ -520,10 +520,25 @@ TEST_F(ReplaceTensorTest, TestSameAssembleOut) {
     currFunctionPtr->inCasts_.push_back(incast);
     currFunctionPtr->outCasts_.push_back(outcast0);
     currFunctionPtr->outCasts_.push_back(outcast1);
-    int opSumBefore = currFunctionPtr->Operations().size();
     EXPECT_EQ(pass.RunOnFunction(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(currFunctionPtr->Operations().size(), opSumBefore + 4);
     EXPECT_EQ(pass.PostCheck(*currFunctionPtr), SUCCESS);
+    int copyInCnt = 0;
+    int copyOutCnt = 0;
+    int assembleCnt = 0;
+    for (const auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_COPY_IN) {
+            ++copyInCnt;
+        }
+        if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
+            ++copyOutCnt;
+        }
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            ++assembleCnt;
+        }
+    }
+    EXPECT_EQ(copyInCnt, 3);
+    EXPECT_EQ(copyOutCnt, 2);
+    EXPECT_EQ(assembleCnt, 0);
 }
 
 TEST_F(ReplaceTensorTest, TestNotInplaceReshape) {

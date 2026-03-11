@@ -24,6 +24,7 @@
 #include "passes/pass_mgr/pass_manager.h"
 #include "interface/configs/config_manager.h"
 #include "passes/tile_graph_pass/graph_constraint/pre_graph/pre_graph.h"
+#include "passes/tile_graph_pass/graph_constraint/pre_graph/remove_redundant_assemble.h"
 #include "ut_json/ut_json_tool.h"
 #include "computational_graph_builder.h"
 #define private public
@@ -434,6 +435,8 @@ TEST_F(PreGraphTest, TestTransposeDatamove) {
     preGraph.PreCheck(*function);
     preGraph.RunOnFunction(*function);
     preGraph.PostCheck(*function);
+    RemoveRedundantAssemble removeRedundantAssemble;
+    EXPECT_EQ(removeRedundantAssemble.DeleteRedundantAssemble(*function), SUCCESS);
     std::cout << "Run Pass Done." << std::endl;
     /*
     dump graph after Pass
