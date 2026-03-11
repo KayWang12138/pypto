@@ -278,6 +278,7 @@ Status GenerateMoveOp::CreateMoveOpForConvert(Function &function, Operation &op)
 void GenerateMoveOp::ProcessUB2L1(Function &function, Operation &op) const {
     //插入UB2L1节点（NZ2NZ)，并设置UBcopyL1的NZ属性
     op.SetAttribute(OP_ATTR_PREFIX + "is_nz", 1);
+    op.SetAttribute(OpAttributeKey::isCube, false);
     auto inputTensor = op.iOperand.front();
     if(inputTensor->Format() == TileOpFormat::TILEOP_ND) {
         //新建一块logcialtensor
