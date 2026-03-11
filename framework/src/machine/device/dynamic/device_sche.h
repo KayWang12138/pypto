@@ -42,39 +42,34 @@ inline void tracr_start(const int threadIdx) {
 }
 
 /**
- * finalizing tracr
+ * finalizing tracr function
  * 
  * NOTE: threadIdx starts at 1 and goes up to 3. Why? idk
  */
 inline void tracr_finalize(const int threadIdx, const DeviceArgs *devArgs) {
     void(devArgs->tracrData);
 
-    DEV_ERROR("[TraCR] thread[%d] dumping the traces tracrThread->_traceIdx: %lu", threadIdx, tracrThread->_traceIdx);
-
 #ifdef ENABLE_TRACR
-    // Copy the tracr payloads on the shared memory space
-    TraCR::Payload* tracrData_ = reinterpret_cast<TraCR::Payload*>(devArgs->tracrData);
-    size_t* tracrDataSizes_ = reinterpret_cast<size_t*>(devArgs->tracrDataSizes);
+    if constexpr (IsDeviceMode()) {
+        DEV_ERROR("[TraCR] thread[%d] dumping the #traces: %lu", threadIdx, tracrThread->_traceIdx);
 
-    if (tracrThread->_traceIdx > 0) {
+        // Copy the tracr payloads on the shared memory space
+        TraCR::Payload* tracrData_ = reinterpret_cast<TraCR::Payload*>(devArgs->tracrData);
+        size_t* tracrDataSizes_ = reinterpret_cast<size_t*>(devArgs->tracrDataSizes);
 
-        for(size_t i = 0; i < tracrThread->_traceIdx; ++i) {
-            const auto payload = tracrThread->_traces[i];
-            DEV_ERROR("[TraCR] thread[%d] idx: %lu, Payload: [%u, %u, %u, %lu]", 
-            threadIdx, i, payload.channelId, payload.eventId, payload.extraId, payload.timestamp);
+        if (tracrThread->_traceIdx > 0) {
+            const size_t payload_size = tracrThread->_traceIdx * sizeof(TraCR::Payload);
+
+            memcpy_s(
+                &tracrData_[(threadIdx-1) * TraCR::CAPACITY], 
+                payload_size,
+                tracrThread->_traces.data(),
+                payload_size
+            );
         }
-
-        const size_t payload_size = tracrThread->_traceIdx * sizeof(TraCR::Payload);
-
-        memcpy_s(
-            &tracrData_[(threadIdx-1) * TraCR::CAPACITY], 
-            payload_size,
-            tracrThread->_traces.data(),
-            payload_size
-        );
+            
+        tracrDataSizes_[threadIdx-1] = tracrThread->_traceIdx;
     }
-        
-    tracrDataSizes_[threadIdx-1] = tracrThread->_traceIdx;
 #endif
 
     if (threadIdx == 1) {

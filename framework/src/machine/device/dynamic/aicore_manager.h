@@ -463,7 +463,7 @@ private:
 
         int type =static_cast<int>(AicoreType(coreIdx));
         if (likely(regLFinTaskState == TASK_FIN_STATE)) {
-            INSTRUMENTATION_MARK_RESET(coreIdx);
+            INSTRUMENTATION_MARK_RESET(coreIdx2tracrIdx(coreIdx, type));
             if (pendingIds_[coreIdx] == regLFinTaskId) {
                 bMatch = true;
                 context_->runReadyCoreIdx_[type][context_->coreRunReadyCnt_[type]++] = coreIdx;
@@ -894,7 +894,7 @@ private:
         pendingResolveIndexList_[coreIdx] = 0;
         context_->sendCnt_[static_cast<int>(type)]++;
 
-        INSTRUMENTATION_MARK_SET(coreIdx, 0, (uint32_t)newTask);  // 0 = "running task"
+        INSTRUMENTATION_MARK_SET(coreIdx2tracrIdx(coreIdx, type), 0, (uint32_t)newTask);  // 0 = "running task"
         if (isFirstTaskSend_) {
             PerfMtTrace(PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK, aicpuIdx_);
             isFirstTaskSend_ = false;
@@ -1015,7 +1015,7 @@ private:
     inline int32_t ResolveWhenSyncMode(CoreType type, uint32_t finTaskId, uint32_t finTaskState, int coreIdx)  {
         int32_t ret = DEVICE_MACHINE_OK;
         if (finTaskId == pendingIds_[coreIdx] && finTaskState == TASK_FIN_STATE) {
-            INSTRUMENTATION_MARK_RESET(coreIdx);
+            INSTRUMENTATION_MARK_RESET(coreIdx2tracrIdx(coreIdx, type));
 
             DEV_VERBOSE_DEBUG("core index: %d, PendingTask Finished."
                 " pending: %x.", coreIdx, pendingIds_[coreIdx]);
@@ -1050,7 +1050,7 @@ private:
         bool isWrapCoreAvailable = wrapManager_.GetWrapCoreAvailable(coreIdx);
         if (likely(finTaskId == pendingIdRef && finTaskState == TASK_FIN_STATE)) {
             // pending task is finished, resolve both running and pending task.
-            INSTRUMENTATION_MARK_RESET(coreIdx);
+            INSTRUMENTATION_MARK_RESET(coreIdx2tracrIdx(coreIdx, type));
             DEV_VERBOSE_DEBUG("Pending Finished: core:%d pending:%x,%d running:%x,%d", coreIdx, pendingIdRef, pendingResolveIndexBaseRef, runningIdRef, runningResolveIndexBaseRef);
             uint32_t runningIdValue = runningIdRef;
             int runningResolveIndexBaseValue = runningResolveIndexBaseRef;
@@ -1122,7 +1122,7 @@ private:
             }
         } else if (finTaskId == runningIdRef && finTaskState == TASK_FIN_STATE) {
             // running task is finished, resolve running task. Pending task is unmodified
-            INSTRUMENTATION_MARK_RESET(coreIdx);
+            INSTRUMENTATION_MARK_RESET(coreIdx2tracrIdx(coreIdx, type));
             DEV_VERBOSE_DEBUG("Running finished: core:%d pending:%x,%d running:%x,%d", coreIdx, pendingIdRef, pendingResolveIndexBaseRef, runningIdRef, runningResolveIndexBaseRef);
             uint32_t runningIdValue = runningIdRef;
             int runningResolveIndexBaseValue = runningResolveIndexBaseRef;

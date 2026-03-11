@@ -156,7 +156,7 @@ private:
         if (config_.controlFlowCache) {
             functionDevProg->controlFlowCache.isRecording = true;
         }
-        // RunModel(inputs, outputs);
+        RunModel(inputs, outputs);
         if (functionDevProg->controlFlowCache.isRecording) {
             functionDevProg->controlFlowCache.isRecording = false;
 
