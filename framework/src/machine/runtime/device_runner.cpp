@@ -131,6 +131,12 @@ inline int TracrData2BTS(const TraCR::Payload* tracrData, const size_t* tracrDat
         const TraCR::Payload* thread_ptr =
             tracrData + t * TraCR::CAPACITY;
 
+        for(size_t i = 0; i < num_traces; ++i) {
+            const TraCR::Payload payload = thread_ptr[i];
+            printf("[TraCR] thread[%u] idx: %lu, Payload: [%u, %u, %u, %lu]\n", 
+            t, i, payload.channelId, payload.eventId, payload.extraId, payload.timestamp);
+        }
+
         out.write(
             reinterpret_cast<const char*>(thread_ptr),
             num_traces * sizeof(TraCR::Payload)
@@ -968,49 +974,6 @@ int DeviceRunner::DynamicRun(rtStream_t aicpuStream, rtStream_t ctrlStream, rtSt
         return rc;
     }
     printf("DynamicLaunchSynchronize done rc = %d\n", rc);
-
-    // npu::tile_fwk::dynamic::DevAscendProgram *devProg = reinterpret_cast<npu::tile_fwk::dynamic::DevAscendProgram *>(kernelArgs->cfgdata);
-    // DeviceArgs devArgs = devProg->devArgs;
-
-    // TraCR::Payload* tracrData;
-    // size_t* tracrDataSizes;
-
-    // size_t size = sizeof(TraCR::Payload) * TraCR::CAPACITY * MAX_STATIC_SCHEDULE_AICPU_NUM;
-    // rc = rtMallocHost(reinterpret_cast<void **>(&tracrData), size, 0);
-    // if (rc != 0) {
-    //     ALOG_INFO_F("rtMallocHost failed");
-    //     return rc;
-    // }
-
-    // rc = rtMemcpy(reinterpret_cast<void *>(tracrData), size,
-    //                   reinterpret_cast<void *>(devArgs.tracrData),
-    //                   size, RT_MEMCPY_DEVICE_TO_HOST);
-    // if (rc != 0) {
-    //     ALOG_INFO_F("rtMemcpy failed");
-    //     return rc;
-    // }
-
-    
-    // size = sizeof(size_t) * MAX_STATIC_SCHEDULE_AICPU_NUM;
-    // rc = rtMallocHost(reinterpret_cast<void **>(&tracrDataSizes), size, 0);
-    // if (rc != 0) {
-    //     ALOG_INFO_F("rtMallocHost failed");
-    //     return rc;
-    // }
-
-    // rc = rtMemcpy(reinterpret_cast<void *>(tracrDataSizes), size,
-    //                   reinterpret_cast<void *>(devArgs.tracrDataSizes),
-    //                   size, RT_MEMCPY_DEVICE_TO_HOST);
-    // if (rc != 0) {
-    //     ALOG_INFO_F("rtMemcpy failed");
-    //     return rc;
-    // }
-
-    // printf("@@ printing kArgs argument.\n");
-    // for(size_t i = 0; i < MAX_STATIC_SCHEDULE_AICPU_NUM; ++i) {
-    //     printf("tracrDataSizes[%lu] = %lu\n", i, tracrDataSizes[i]);
-    // }
-
 
     // load TraCR payloads
 #ifdef ENABLE_TRACR

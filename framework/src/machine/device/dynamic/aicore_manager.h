@@ -214,11 +214,9 @@ public:
             return ret;
         }
 
-        INSTRUMENTATION_MARK_SET(aicpuIdx_, PERF_TRACE_DEV_TASK_SCHED_EXEC, 0);
         PerfMtTrace(PERF_TRACE_DEV_TASK_SCHED_EXEC, aicpuIdx_);
         PerfMtBegin(PERF_EVT_SYNC_AICORE, aicpuIdx_);
         int32_t rc = SyncTaskFinish();
-        INSTRUMENTATION_MARK_SET(aicpuIdx_, PERF_TRACE_DEV_TASK_SYNC_CORE_STOP, 0);
         PerfMtTrace(PERF_TRACE_DEV_TASK_SYNC_CORE_STOP, aicpuIdx_);
         if (rc != DEVICE_MACHINE_OK) {
             ret = rc;
@@ -328,7 +326,6 @@ public:
         }
 
         if constexpr (IsDeviceMode()) {
-            INSTRUMENTATION_MARK_SET(aicpuIdx_, PERF_TRACE_WAIT_CORE_EXIT, 0);
             PerfMtTrace(PERF_TRACE_WAIT_CORE_EXIT, aicpuIdx_);
             ProfStop();
         }
@@ -339,13 +336,11 @@ public:
     inline int RunManager(int threadIdx, DevStartArgs *devStartArgs, DeviceArgs *deviceArgs, int schedIdx) {
         int ret = DEVICE_MACHINE_OK;
         Init(threadIdx, devStartArgs, deviceArgs, schedIdx);
-        INSTRUMENTATION_MARK_SET(threadIdx, PERF_TRACE_INIT, 0);
         PerfMtTrace(PERF_TRACE_INIT, threadIdx);
         DeviceTaskCtrl *taskCtrl = nullptr;
         taskQueue_ = &(devStartArgs->deviceRuntimeDataDesc.taskQueueList[schedIdx_]);
         if constexpr (IsDeviceMode()) {
             ret = HandShake();
-            INSTRUMENTATION_MARK_SET(threadIdx, PERF_TRACE_CORE_HAND_SHAKE, 0);
             PerfMtTrace(PERF_TRACE_CORE_HAND_SHAKE, threadIdx);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 AbnormalStop();
@@ -361,14 +356,12 @@ public:
         while (ret == 0) {
             taskCtrl = preFetchSuccess_ ? preFetchNextDevTaskCtrl_ : taskQueue_->Dequeue();
             if (taskCtrl == nullptr) {
-                INSTRUMENTATION_MARK_SET(aicpuIdx_, PERF_TRACE_DEV_TASK_RCV, (uint32_t)lastDevTaskFinCycle);
                 PerfMtTrace(PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, aicpuIdx_, lastDevTaskFinCycle);
                 if (!isSendStop) {
                     SyncTaskFinish(true);
                 }
                 break;
             }
-            INSTRUMENTATION_MARK_SET(aicpuIdx_, PERF_TRACE_DEV_TASK_RCV, 0);
             PerfMtTrace(PERF_TRACE_DEV_TASK_RCV, aicpuIdx_);
             PROF_STAGE_BEGIN_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.before\n");
             PerfMtBegin(PERF_EVT_RUN_TASK, threadIdx);
@@ -379,7 +372,6 @@ public:
             if (ret != 0)
                 break;
             taskCtrl->PutTask(ret);
-            INSTRUMENTATION_MARK_SET(threadIdx, PERF_TRACE_DEV_TASK_RSP, 0);
             PerfMtTrace(PERF_TRACE_DEV_TASK_RSP, threadIdx);
             PROF_STAGE_END_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.after\n");
         }
@@ -471,6 +463,7 @@ private:
 
         int type =static_cast<int>(AicoreType(coreIdx));
         if (likely(regLFinTaskState == TASK_FIN_STATE)) {
+            INSTRUMENTATION_MARK_RESET(coreIdx);
             if (pendingIds_[coreIdx] == regLFinTaskId) {
                 bMatch = true;
                 context_->runReadyCoreIdx_[type][context_->coreRunReadyCnt_[type]++] = coreIdx;
@@ -820,6 +813,7 @@ private:
         pendingResolveIndexList_[coreIdx] = 0;
         context_->sendCnt_[static_cast<int>(type)]++;
 
+        INSTRUMENTATION_MARK_SET(coreIdx, 0, (uint32_t)newTask);  // 0 = "running task"
         if (isFirstTaskSend_) {
             PerfMtTrace(PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK, aicpuIdx_);
             isFirstTaskSend_ = false;
@@ -940,6 +934,8 @@ private:
     inline int32_t ResolveWhenSyncMode(CoreType type, uint32_t finTaskId, uint32_t finTaskState, int coreIdx)  {
         int32_t ret = DEVICE_MACHINE_OK;
         if (finTaskId == pendingIds_[coreIdx] && finTaskState == TASK_FIN_STATE) {
+            INSTRUMENTATION_MARK_RESET(coreIdx);
+
             DEV_VERBOSE_DEBUG("core index: %d, PendingTask Finished."
                 " pending: %x.", coreIdx, pendingIds_[coreIdx]);
             ret = ResolveDepWithDfx(type, coreIdx, finTaskId);
@@ -973,6 +969,7 @@ private:
         bool isWrapCoreAvailable = wrapManager_.GetWrapCoreAvailable(coreIdx);
         if (likely(finTaskId == pendingIdRef && finTaskState == TASK_FIN_STATE)) {
             // pending task is finished, resolve both running and pending task.
+            INSTRUMENTATION_MARK_RESET(coreIdx);
             DEV_VERBOSE_DEBUG("Pending Finished: core:%d pending:%x,%d running:%x,%d", coreIdx, pendingIdRef, pendingResolveIndexBaseRef, runningIdRef, runningResolveIndexBaseRef);
             uint32_t runningIdValue = runningIdRef;
             int runningResolveIndexBaseValue = runningResolveIndexBaseRef;
@@ -1044,6 +1041,7 @@ private:
             }
         } else if (finTaskId == runningIdRef && finTaskState == TASK_FIN_STATE) {
             // running task is finished, resolve running task. Pending task is unmodified
+            INSTRUMENTATION_MARK_RESET(coreIdx);
             DEV_VERBOSE_DEBUG("Running finished: core:%d pending:%x,%d running:%x,%d", coreIdx, pendingIdRef, pendingResolveIndexBaseRef, runningIdRef, runningResolveIndexBaseRef);
             uint32_t runningIdValue = runningIdRef;
             int runningResolveIndexBaseValue = runningResolveIndexBaseRef;

@@ -28,8 +28,6 @@
 #include "tilefwk/aicore_print.h"
 #include "machine/device/dynamic/aicore_prof.h"
 
-constexpr uint32_t LAUNCH_AICPU_NUM = 5;
-
 namespace npu::tile_fwk::dynamic {
 
 /**
@@ -59,10 +57,17 @@ inline void tracr_finalize(const int threadIdx, const DeviceArgs *devArgs) {
     size_t* tracrDataSizes_ = reinterpret_cast<size_t*>(devArgs->tracrDataSizes);
 
     if (tracrThread->_traceIdx > 0) {
+
+        for(size_t i = 0; i < tracrThread->_traceIdx; ++i) {
+            const auto payload = tracrThread->_traces[i];
+            DEV_ERROR("[TraCR] thread[%d] idx: %lu, Payload: [%u, %u, %u, %lu]", 
+            threadIdx, i, payload.channelId, payload.eventId, payload.extraId, payload.timestamp);
+        }
+
         const size_t payload_size = tracrThread->_traceIdx * sizeof(TraCR::Payload);
 
         memcpy_s(
-            &tracrData_[(threadIdx-1) * TraCR::CAPACITY],
+            &tracrData_[(threadIdx-1) * TraCR::CAPACITY], 
             payload_size,
             tracrThread->_traces.data(),
             payload_size
