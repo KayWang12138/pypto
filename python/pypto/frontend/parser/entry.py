@@ -756,7 +756,8 @@ class JitCallableWrapper:
                             does not match the shape of input tensor definition {input_tensor_def.shape}.")
 
             # Check the dtype of input tensors and input tensor definitions
-            if input_tensor_def.status_dtype is not None and self._dtype_dict[str(in_tensor.dtype)] != input_tensor_def.dtype:
+            if input_tensor_def.status_dtype is not None and \
+                    self._dtype_dict[str(in_tensor.dtype)] != input_tensor_def.dtype:
                 raise ValueError(f"The dtype of {ordinal(idx)} input tensor {in_tensor.dtype} \
                     does not match the dtype of input tensor definition {input_tensor_def.dtype}.")
 
