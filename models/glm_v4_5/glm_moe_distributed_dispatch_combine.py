@@ -552,9 +552,13 @@ def moe_distributed_dispatch_kernel(
     return kernel
 
 
-def moe_distributed_dispatch(config: DistributedConfig, moe_case: MoeCase, operands: MoeDispatchOperands,
-    logical_rank_id: int) -> None:
-    groups = config.init_hccl_comm(config, logical_rank_id)
+def moe_distributed_dispatch(
+    config: DistributedConfig,
+    moe_case: MoeCase,
+    operands: MoeDispatchOperands,
+	logical_rank_id: int,
+) -> None:
+    groups = config.init_hccl_comm(logical_rank_id)
 
     x = operands.x
     expert_ids = operands.expert_ids
@@ -749,7 +753,7 @@ def moe_distributed_combine(
     operands: MoeCombineOperands,
     logical_rank_id: int,
 ) -> None:
-    groups = config.init_hccl_comm(config, logical_rank_id)
+    groups = config.init_hccl_comm(logical_rank_id)
 
     expand_x = operands.expand_x
     assist_info_for_combine = operands.assist_info_for_combine
