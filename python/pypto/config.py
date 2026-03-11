@@ -56,8 +56,6 @@ def set_print_options(*,
 def set_pass_options(*,
                      pg_skip_partition: Optional[bool] = None,
                      pg_upper_bound: Optional[int] = None,
-                     pg_lower_bound: Optional[int] = None,
-                     mg_vec_parallel_lb: Optional[int] = None,
                      vec_nbuffer_setting: Optional[Dict[int, int]] = None,
                      cube_l1_reuse_setting: Optional[Dict[int, int]] = None,
                      cube_nbuffer_setting: Optional[Dict[int, int]] = None,
@@ -74,14 +72,6 @@ def set_pass_options(*,
     pg_upper_bound : int
         Merged graph parameter, used to configure
         the upper bound of subgraph size.
-
-    pg_lower_bound : int
-        Merged graph parameter, used to configure
-        the lower bound of subgraph size.
-
-    mg_vec_parallel_lb : int
-        Merged graph parameter, used to configure
-        the minimum parallelism of AIV subgraphs with the same structure.
 
     vec_nbuffer_setting : Dict[int, int]
         Merged graph parameter, used to configure
@@ -116,9 +106,9 @@ def get_pass_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
 
 def set_host_options(*, compile_stage: Optional[CompStage] = None,
                      compile_monitor_enable: Optional[bool] = None,
-                     interval_sec: Optional[int] = None,
-                     timeout_sec: Optional[int] = None,
-                     total_timeout_sec: Optional[int] = None) -> None:
+                     compile_timeout: Optional[int] = None,
+                     compile_timeout_stage: Optional[int] = None,
+                     compile_monitor_print_interval: Optional[int] = None) -> None:
     """
     Set host options.
 
@@ -130,14 +120,14 @@ def set_host_options(*, compile_stage: Optional[CompStage] = None,
     compile_monitor_enable : bool
         Control whether to enable compilation progress printing during the compilation phase.
 
-    interval_sec : int
-        Control the frequency of printing the compilation progress for a certain stage.
+    compile_timeout : int
+        Control the timeout duration for the entire compilation process.
 
-    timeout_sec : int
+    compile_timeout_stage : int
         Control the timeout duration of a certain stage of the compilation process.
 
-    total_timeout_sec : int
-        Control the timeout duration for the entire compilation process.
+    compile_monitor_print_interval : int
+        Control the frequency of printing the compilation progress for a certain stage.
     """
     options_dict = {k: v.value if isinstance(v, CompStage) else v for k, v in locals().items() if v is not None}
     set_options(host_options=options_dict)
@@ -282,7 +272,7 @@ def set_verify_options(*,
         Customize atol and rtol.
     """
     if pass_verify_pass_filter == []:
-        pass_verify_pass_filter = None
+        pass_verify_pass_filter = ["no_verify"]
     if pass_verify_error_tol is None or len(pass_verify_error_tol) != 2:
         pass_verify_error_tol = [1e-3, 1e-3]
     pass_verify_error_tol = [float(x) for x in pass_verify_error_tol]

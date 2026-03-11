@@ -142,13 +142,13 @@ void PassManager::RegDefaultStrategy() {
             {                 "AddAlloc",                     PassName::ADD_ALLOC},
             {              "OoOSchedule",                  PassName::OOO_SCHEDULE},
             {       "TuneTileOpSeqForVF",        PassName::TUNE_TILEOP_SEQ_FOR_VF},
-            {        "GlobalMemoryReuse",           PassName::GLOBAL_MEMORY_REUSE},
             {              "RemoveAlloc",                  PassName::REMOVE_ALLOC},
             {           "CopyOutResolve",              PassName::COPY_OUT_RESOLVE},
             {               "InsertSync",                   PassName::INSERT_SYNC},
             {            "TuneSyncForVF",              PassName::TUNE_SYNC_FOR_VF},
             {         "MixSubgraphSplit",            PassName::MIX_SUBGRAPH_SPLIT},
-            {             "LoopaxesProc",             PassName::LOOPAXES_PROC},
+            {        "GlobalMemoryReuse",           PassName::GLOBAL_MEMORY_REUSE},
+            {             "LoopaxesProc",                 PassName::LOOPAXES_PROC},
             {           "CodegenPreproc",               PassName::CODEGEN_PREPROC},
     });
     RegisterStrategy(
@@ -257,7 +257,6 @@ static void LogPassRuntime(const std::string &identifier, Program &program, Func
 }
 
 Status PassManager::RunPass(Program &program, Function &function, const std::string &strategy) const {
-    Platform::Instance().ObtainPlatformInfo();
     auto strategyPasses = GetStrategyPasses(strategy);
     std::vector<std::string> identifiers;
     std::transform(strategyPasses.begin(), strategyPasses.end(), std::back_inserter(identifiers),

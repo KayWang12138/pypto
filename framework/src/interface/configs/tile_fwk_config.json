@@ -3,7 +3,7 @@
         "pg_parallel_lower_bound": 20,
         "pg_upper_bound": 10000,
         "pg_lower_bound": 512,
-        "mg_copyin_upper_bound": 2097152,
+        "mg_copyin_upper_bound": 104857600,
         "mg_vec_parallel_lb": 48,
         "pg_skip_partition": false,
         "copyout_resolve_coalescing": 0,
@@ -28,9 +28,9 @@
     "host": {
         "compile_stage": 0,
         "compile_monitor_enable": true,
-        "interval_sec": 60,
-        "timeout_sec": -1,
-        "total_timeout_sec": 600
+        "compile_timeout": 600,
+        "compile_timeout_stage": -1,
+        "compile_monitor_print_interval": 60
     },
     "codegen": {
         "support_dynamic_aligned": false

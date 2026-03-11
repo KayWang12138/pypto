@@ -92,18 +92,30 @@ bool PlatformParser::GetCoreVersion(std::unordered_map<std::string, std::string>
     return !curVersion.empty();
 }
 
+INIParser::INIParser() {
+    std::string srcPath;
+    SimulationPlatform simulationPlatform;
+    simulationPlatform.GetCostModelPlatformRealPath(srcPath);
+    FUNCTION_LOGD("Try to initiate the ini parser.");
+    if (!Initialize(srcPath)) {
+        throw std::runtime_error("can not open simulation file: " + srcPath);
+    }
+}
+
 bool INIParser::Initialize(const std::string& iniFilePath) {
     FUNCTION_LOGI("Start to parse ini_file %s.", iniFilePath.c_str());
     if (!ReadINIFile(iniFilePath)) {
         FUNCTION_LOGE("ReadINIFile failed.");
         return false;
     }
+    FUNCTION_LOGD("Parse ini_file %s successfully.", iniFilePath.c_str());
     return true;
 }
 
 bool INIParser::ReadINIFile(const std::string& filepath) {
     data_.clear();
     std::ifstream file(filepath);
+    FUNCTION_LOGD("Try to open ini file: %s.", filepath.c_str());
     if (!file.is_open()) {
         FUNCTION_LOGE("Failed to open ini file: %s.", filepath.c_str());
         return false;
@@ -142,19 +154,30 @@ bool INIParser::ReadINIFile(const std::string& filepath) {
 }
 
 bool INIParser::GetStringVal(const std::string& column, const std::string& key, std::string& val) const {
+    FUNCTION_LOGD("Try to obtain value from column[%s] and key[%s] throughs ini file.", column.c_str(), key.c_str());
     val.clear();
     auto iter = data_.find(column);
     if (iter == data_.end()) {
-        FUNCTION_LOGE("Cannot find attr 'version' from the ini file.");
+        FUNCTION_LOGE("Cannot find attr '%s' from the ini file.", column.c_str());
         return false;
     }
     auto value = iter->second;
     auto iter2 = value.find(key);
     if (iter2 == value.end()) {
-        FUNCTION_LOGW("Cannot find attr '%s' from the [version] tab.", key.c_str());
+        FUNCTION_LOGE("Cannot find attr '%s' from the [%s] tab.", key.c_str(), column.c_str());
         return false;
     }
     val = iter2->second;
+    FUNCTION_LOGD("Value[%s][%s] = %s.", column.c_str(), key.c_str(), val.c_str());
+    return true;
+}
+
+bool CmdParser::GetStringVal(const std::string& column, const std::string& key, std::string& val) const {
+    val.clear();
+    if (!CannHostRuntime::Instance().GetSocSpec(column, key, val)) {
+        FUNCTION_LOGE("Cannot find soc spec '%s' from the [%s] column.", key.c_str(), column.c_str());
+        return false;
+    }
     return true;
 }
 }  // namespace tile_fwk

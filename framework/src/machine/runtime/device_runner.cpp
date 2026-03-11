@@ -25,7 +25,6 @@
 #include <tracr/tracr.hpp>
 
 #include "securec.h"
-#include "machine/device/aicore_manager.h"
 #include "machine/runtime/runtime.h"
 #include "machine/runtime/device_launcher.h"
 #include "machine/runtime/load_aicpu_op.h"
@@ -53,8 +52,6 @@
 
 namespace fs = std::experimental::filesystem;
 using json = nlohmann::json;
-extern char _binary_kernel_o_start[];
-extern char _binary_kernel_o_end[];
 
 constexpr int32_t AICORE_ADDR_TYPE = 2; // nocache Addr type for aicore/aicpu map
 constexpr int32_t PMU_ADDR_TYPE = 3;    // nGnRnE Addr type for Geting pmuInfo
@@ -95,12 +92,12 @@ fs::path expand_user_path(const std::string& path)
 /**
  * 
  */
-inline int TracrData2BTS(const TraCR::Payload* tracrData, const size_t* tracrDataSizes) {
+inline int TracrData2BTS(const TraCR::Payload* tracrData, const size_t* tracrDataSizes, const size_t num_threads) {
     fs::path base_dir = expand_user_path("~/ascend/tracr/proc.1");
 
     fs::create_directories(base_dir);
 
-    for (uint32_t t = 0; t < MAX_STATIC_SCHEDULE_AICPU_NUM; ++t) {
+    for (uint32_t t = 0; t < num_threads; ++t) {
         size_t num_traces = tracrDataSizes[t];
         if (num_traces == 0)
             continue;
@@ -149,7 +146,7 @@ int DeviceRunner::StoreTracrData() {
     TraCR::Payload* tracrData;
     size_t* tracrDataSizes;
 
-    size_t size = sizeof(TraCR::Payload) * TraCR::CAPACITY * MAX_STATIC_SCHEDULE_AICPU_NUM;
+    size_t size = sizeof(TraCR::Payload) * TraCR::CAPACITY * args_.scheCpuNum;
     int rc = rtMallocHost(reinterpret_cast<void **>(&tracrData), size, 0);
     if (rc != 0) {
         ALOG_INFO_F("rtMallocHost failed");
@@ -165,7 +162,7 @@ int DeviceRunner::StoreTracrData() {
     }
 
     
-    size = sizeof(size_t) * MAX_STATIC_SCHEDULE_AICPU_NUM;
+    size = sizeof(size_t) * args_.scheCpuNum;
     rc = rtMallocHost(reinterpret_cast<void **>(&tracrDataSizes), size, 0);
     if (rc != 0) {
         ALOG_INFO_F("rtMallocHost failed");
@@ -181,7 +178,7 @@ int DeviceRunner::StoreTracrData() {
     }
 
     // Now, store the traces into '~/ascend/tracr/'
-    rc = TracrData2BTS(tracrData, tracrDataSizes);
+    rc = TracrData2BTS(tracrData, tracrDataSizes, args_.scheCpuNum);
     if (rc != 0) {
         ALOG_INFO_F("TracrData2BTS() failed");
         return rc;
@@ -212,7 +209,7 @@ int DeviceRunner::StoreTracrMetaData() {
 
     // channel_names
     nlohmann::json channel_names = nlohmann::json::array();
-    for(uint32_t i = 0; i < MAX_STATIC_SCHEDULE_AICPU_NUM; ++i) {
+    for(uint32_t i = 0; i < args_.scheCpuNum; ++i) {
         channel_names.push_back("AICPU_" + std::to_string(i));
     }
     for(uint32_t i = 0; i < args_.nrAic; ++i) {
@@ -392,13 +389,12 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     args.corePmuRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
     args.corePmuAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * PMU_BUFFER_SIZE));
 #ifdef ENABLE_TRACR
-    ASSERT(MAX_STATIC_SCHEDULE_AICPU_NUM == args_.scheCpuNum);
-    size_t size = sizeof(TraCR::Payload) * MAX_STATIC_SCHEDULE_AICPU_NUM * TraCR::CAPACITY;
+    size_t size = sizeof(TraCR::Payload) * args.scheCpuNum * TraCR::CAPACITY;
     args.tracrData = reinterpret_cast<uint64_t>(DevAlloc(size));
 
     int rc = rtMemset(reinterpret_cast<void *>(args.tracrData), size, 0, size);
 
-    args.tracrDataSizes = reinterpret_cast<uint64_t>(DevAlloc(MAX_STATIC_SCHEDULE_AICPU_NUM * sizeof(size_t)));
+    args.tracrDataSizes = reinterpret_cast<uint64_t>(DevAlloc(args.scheCpuNum * sizeof(size_t)));
 
     if (args.tracrData == 0 || args.tracrDataSizes == 0 || rc != 0) {
         ALOG_ERROR_F("TraCR enabled allocating device memory failed");
@@ -996,14 +992,13 @@ int DeviceRunner::RegisterKernelBin(void **hdl, std::vector<uint8_t> *funcBinBuf
     void *bin = nullptr;
     size_t binSize = 0;
     std::vector<uint8_t> *binBuf = (funcBinBuf == nullptr) ? &g_binBuf : funcBinBuf;
+    if (binBuf == nullptr || binBuf->size() == 0) {
+        return 0;
+    }
     if (binBuf->size() != 0) {
         bin = binBuf->data();
         binSize = binBuf->size();
         MACHINE_LOGD("Reg dynamic bin size %zu.", binSize);
-    } else {
-        bin = _binary_kernel_o_start;
-        binSize = _binary_kernel_o_end - _binary_kernel_o_start;
-        MACHINE_LOGD("Reg static bin size %zu.", binSize);
     }
     rtDevBinary_t binary{.magic = RT_DEV_BINARY_MAGIC_ELF, .version = 0, .data = bin, .length = binSize};
     int rc = rtRegisterAllKernel(&binary, hdl);
