@@ -115,7 +115,7 @@ bool INIParser::Initialize(const std::string& iniFilePath) {
 bool INIParser::ReadINIFile(const std::string& filepath) {
     data_.clear();
     std::ifstream file(filepath);
-    FUNCTION_LOGD("Try to open ini file: %s.", filepath);
+    FUNCTION_LOGD("Try to open ini file: %s.", filepath.c_str());
     if (!file.is_open()) {
         FUNCTION_LOGE("Failed to open ini file: %s.", filepath.c_str());
         return false;
