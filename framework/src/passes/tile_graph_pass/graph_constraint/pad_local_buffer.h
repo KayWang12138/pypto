@@ -58,7 +58,8 @@ private:
     bool IsMatmul(const LogicalTensorPtr &tensor) const;
     bool IsVector(const LogicalTensorPtr &tensor);
     void DoPadding(Function &function);
-    bool IsInputInt8(const Operation &op, const LogicalTensorPtr &in) const;
+    bool IsInputDataType(
+        const Operation &op, const LogicalTensorPtr &in, const std::unordered_set<DataType> &targetTypes) const;
     bool processTranspose_;
     std::unordered_map<int64_t, int64_t> broadcastLastAxis_;
     bool combineAxis{false};
