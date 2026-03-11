@@ -60,9 +60,9 @@ constexpr int64_t CFG_RUN_MODE_SIM = 1;
 // host
 constexpr const char *COMPILE_STAGE = "compile_stage";
 constexpr const char *COMPILE_MONITOR_ENABLE = "compile_monitor_enable";
-constexpr const char *INTERVAL_SEC = "interval_sec";
-constexpr const char *TIMEOUT_SEC = "timeout_sec";
-constexpr const char *TOTAL_TIMEOUT_SEC = "total_timeout_sec";
+constexpr const char *INTERVAL_SEC = "compile_monitor_print_interval";
+constexpr const char *TIMEOUT_SEC = "compile_timeout_stage";
+constexpr const char *TOTAL_TIMEOUT_SEC = "compile_timeout";
 constexpr int64_t CS_ALL_COMPLETE = 0;
 constexpr int64_t CS_TENSOR_GRAPH = 1;
 constexpr int64_t CS_TILE_GRAPH = 2;
