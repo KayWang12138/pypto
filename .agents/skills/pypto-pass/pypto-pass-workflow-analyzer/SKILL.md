@@ -63,13 +63,13 @@ description: PyPTO Pass 业务流分析技能。用于分析 PyPTO pass 文档�
 
 ## 工作流程
 
-### 基础业务流分析
+### 基础业务流分析步骤
 1. 定位 pass 文档中的业务流介绍部分
 2. 分析业务流的结构和阶段
 3. 提取业务流的关键信息
 4. 绘制业务流执行路径
 
-### 视图类OP流程分析（新增）
+### 视图类OP流程分析步骤
 1.输入处理：
    - 接收文件夹路径或一系列文档路径
    - 读取所有相关文档内容
@@ -110,7 +110,7 @@ description: PyPTO Pass 业务流分析技能。用于分析 PyPTO pass 文档�
 **重要：每个视图类OP会生成独立的文档文件**
 
 #### 输出文档结构
-```
+```text
 pass_workflow_analysis/
 ├── view_op_workflow.md          # View操作完整流程分析
 ├── assemble_op_workflow.md      # Assemble操作完整流程分析

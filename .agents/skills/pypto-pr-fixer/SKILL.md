@@ -12,14 +12,14 @@ PyPTO 仓库 PR 自动修复工具，提供两大能力：
 
 ### 模式 1: PR URL
 
-```
+```text
 https://gitcode.com/<owner>/<repo>/pull/<number>
 https://gitcode.com/<owner>/<repo>/merge_requests/<number>
 ```
 
 ### 模式 2: 三元组
 
-```
+```text
 owner: cann
 repo: pypto
 pull_number: 1276
@@ -32,7 +32,7 @@ pull_number: 1276
 
 ## 核心流程
 
-```
+```text
 1. 解析 PR 标识 → owner/repo/number
 2. 检查 CI 标签状态
    ├── ci-pipeline-running → 等待 3 分钟后重试（循环）
@@ -57,8 +57,10 @@ pull_number: 1276
 
 10. 同步 upstream（检查 + rebase）
 11. 委托 pypto-pr-creator 完成 commit + push
+```
 
 ## 评论获取与分类
+
 
 ### 获取评论（使用 GitCode MCP 工具）
 
@@ -148,7 +150,7 @@ def is_robot_comment(comment):
    - 评论中提及的文件路径
    - `grep` 搜索评论中提到的关键内容
 4. **生成修复** — 使用 `edit`/`write` 工具直接修复
-5. **标记待办** — 无法自动修复的评论输出为结构化 TODO
+5. **标记待办** — 无法自动修复的评论输出为结构化待办事项
 
 ### 输出格式
 
@@ -167,7 +169,7 @@ def is_robot_comment(comment):
   auto_fixable: false
   reason: "涉及架构决策"
   suggested_action: "与 reviewer 讨论方案后再修改"
-```
+```text
 
 ### diff_comment 注意事项
 
@@ -189,7 +191,7 @@ cann-robot 评论中包含 codecheck 失败的 HTML 表格：
 </tr>
 ```
 
-### 处理流程
+### CodeCheck 处理流程
 
 #### 步骤 1：提取报告 URL
 
@@ -208,7 +210,7 @@ python scripts/extract_latest_codecheck_url.py \
   --gate-on-latest-ci \
   --evidence \
   --format json
-```
+```text
 
 **判定结果分支**：
 - `kind=codecheck_failed`：输出 `codecheck_url`；`--evidence` 时额外输出证据链
@@ -241,7 +243,7 @@ python scripts/extract_latest_codecheck_url.py \
     {"index": 3, "comment_id": 164054080, "created_at": "2026-03-07T08:00:00Z", "url": "...", "is_latest": false}
   ]
 }
-```
+```text
 
 **证据链说明**：
 - `total_found`: 共找到多少个 codecheck URL
@@ -279,7 +281,7 @@ python scripts/query_codecheck_rule.py \
   --from-violations-json violations.json \
   --language python \
   --format markdown
-```
+```text
 
 **降级条件**（仅以下情况可使用其他方式）：
 1. 脚本文件不存在
@@ -349,7 +351,7 @@ python scripts/local_codecheck.py <repo_path> --output json
 
 ### Commit Message 格式
 
-```
+```text
 fix(skills): <summary>
 
 - <change 1>
@@ -410,3 +412,5 @@ PR 创建成功后检查 CLA 和 LGTM 状态：
 - [通用修复指南](references/review-guide.md) — 评论理解与修复策略
 - [CodeCheck 规则参考](references/codecheck-rules.md) — CodeArts-Check 规则映射与修复方案
 - [错误处理参考](references/error-handling.md) — MCP 错误、平台错误、pre-receive hook 诊断
+
+

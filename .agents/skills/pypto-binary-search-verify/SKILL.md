@@ -1,5 +1,5 @@
 ---
-name: pypto-verify-binary-search
+name: pypto-binary-search-verify
 description: PyPTO 算子二分查找调试技能。利用精度工具通过二分查找方法快速定位算子精度问题。当需要调试 PyPTO 算子精度、定位精度差异来源或进行中间结果对比时使用此技能。
 license: 完整条款见 LICENSE.txt
 ---
@@ -120,7 +120,7 @@ def golden(inputs, outputs):
 
 ### 原则 4：二分查找策略
 
-```
+```text
 输入 [op1] [op2] [op3] ... [opN] 输出
   ↑                              ↑
 正确                          不正确
@@ -177,7 +177,7 @@ python3 .opencode/skills/pypto-verify-binary-search/scripts/verify_binary_search
 
 工具会自动分析并给出建议：
 
-```
+```text
 ✗ 检查点 checkpoint1 匹配，但 checkpoint2 不匹配
 → 问题位置：checkpoint1 和 checkpoint2 之间的操作
 → 建议：在这两个检查点之间插入新的检查点
@@ -246,7 +246,7 @@ pypto.pass_verify_save(softmax_out, "x")
 
 ### 2. 渐进式二分
 
-```
+```text
 第1轮：输入 → 中间 → 输出（3个检查点）
   ↓ 发现中间不匹配
 第2轮：在中间位置前后插入检查点（5个检查点）

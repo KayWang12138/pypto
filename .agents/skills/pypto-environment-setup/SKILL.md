@@ -9,7 +9,7 @@ description: "PyPTO 环境安装与环境问题修复，包括CANN、torch_npu�
 
 ```bash
 ASCEND_INSTALL_PATH=${ASCEND_INSTALL_PATH:-/usr/local/Ascend}
-```
+```text
 
 
 - `$SKILL_DIR`：由 agent 运行时自动注入的环境变量。指向当前 skill 的根目录（即本 `pypto-environment-setup/` 目录）。文档中所有 `$SKILL_DIR/scripts/...` 的引用均依赖此变量。手动执行时需自行设置，例如：`export SKILL_DIR=/path/to/pypto-environment-setup`。
@@ -44,7 +44,7 @@ echo "PYPTO_REPO: ${PYPTO_REPO:-未设置}"
 ```bash
 git clone https://gitcode.com/cann/pypto.git "$PWD/pypto"
 export PYPTO_REPO="$PWD/pypto"
-```
+```text
 
 **运行环境诊断**：
 ```bash
@@ -99,7 +99,7 @@ export PTO_TILE_LIB_CODE_PATH=${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/aarch6
 
 # 步骤 4.5：进入 PyPTO 仓库
 cd ${PYPTO_REPO:-$PWD}
-```
+```text
 
 **安装 torch 和 torch_npu**（CANN 安装后执行）：
 ```bash
@@ -110,7 +110,7 @@ pip install torch==2.6.0 torch-npu==2.6.0.post3
 ```bash
 python3 build_ci.py -f python3 --clean --disable_auto_execute
 pip install build_out/pypto-*.whl --force-reinstall -q
-```
+```text
 
 **运行测试**：
 ```bash
@@ -138,7 +138,7 @@ python3 scripts/diagnose_env.py --checklist
 ```
 
 **报告模板**：
-```
+```text
 =====================================
 PyPTO 环境配置
 =====================================

@@ -99,8 +99,4 @@ A:
 
 ## 参考资料
 
-- [性能调优文档](../../docs/tutorials/debug/performance.md)
-- [Matmul 高性能编程](../../docs/tutorials/debug/matmul_performance_guide.md)
-- [性能优化案例](../../docs/tutorials/debug/performance_case_quantindexerprolog.md)
-- [功能调试](../../docs/tutorials/debug/debug.md)
-- [精度调试](../../docs/tutorials/debug/precision.md)
+> 待补充：性能调优相关文档链接

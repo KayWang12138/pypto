@@ -20,7 +20,7 @@ license: 完整条款见 LICENSE.txt
 - **运行目录**: 用户必须提供运行测试命令的目录路径
 
 示例问题配置：
-```
+```text
 question: 
   - header: "PyPTO配置"
     question: "请提供 pypto 目录的完整路径"
@@ -83,7 +83,7 @@ question:
 **搜索 LActStart 事件**:
 ```bash
 grep -rn "trace" <log-file> | grep "LActStart"
-```
+```text
 
 **搜索 LActFinish 事件**:
 ```bash

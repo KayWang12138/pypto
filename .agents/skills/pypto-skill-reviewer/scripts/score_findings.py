@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 STATUS_PRIORITY = {"FAIL": 4, "WARN": 3, "PASS": 2, "SKIP": 1}
-GRADE_THRESHOLDS = [(90, "A"), (75, "B"), (60, "C"), (40, "D"), (0, "F")]
+GRADE_THRESHOLDS = [(95, "A"), (85, "B"), (70, "C"), (55, "D"), (0, "F")]
 S0_VETO_CAP = 59.9
 
 

@@ -9,7 +9,7 @@ description: PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处理
 
 ## 工作流程概览
 
-```
+```text
 需求检查 → 环境准备 → Plan 模式 → 开发实现 → 测试验证 → 高阶参数使能
 ```
 
@@ -42,7 +42,7 @@ description: PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处理
 5. **精度标准不合理**：bfloat16 使用 atol=0.0001, rtol=0.0078125
 6. **使用 PyTorch 作为 Golden 函数**：使用 NumPy 实现 golden 函数时，bfloat16 数据类型转换不够准确
 
-详细的错误示例、正确做法和经验教训请查看：**[common_issues.md](./common_issues.md)**
+详细的错误示例、正确做法和经验教训请在开发过程中逐步积累。
 
 ## 开发阶段
 
@@ -61,7 +61,7 @@ description: PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处理
 ```bash
 # 检查 环境变量是否设置
 echo ${PATH} |grep cann-8.5.0 # 检查cann-8.5.0是否配置
-```
+```text
 2. 检查pto-isa源码是否获取
 ```bash
 # 检查 环境变量是否设置
@@ -76,7 +76,7 @@ echo ${PTO_TILE_LIB_CODE_PATH} # 检查依赖的pto-isa源码是否获取
 ```bash
 ls docs/api/    # API 接口说明
 ls examples/            # 示例代码
-```
+```text
 4. 设置device_id
 ```bash
 export TILE_FWK_DEVICE_ID=0

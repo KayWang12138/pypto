@@ -1,5 +1,5 @@
 ---
-name: pass-ut-generate
+name: pypto-pass-ut-generate
 description: 根据Pass业务描述，生成单元测试用例（UT）。当用户输入业务情况时，能根据业务，生成对应Pass的Ut用例。
 license: 完整条款见 LICENSE.txt
 ---
@@ -65,7 +65,7 @@ license: 完整条款见 LICENSE.txt
 
     搭建测试用例框架 TEST_F(XXXX, XXX){ }，其中XXXX为上述新建的测试类，XXX为该测试用例名字，可根据根据业务内容生成。
     另外，在TEST_F(XXXX, XXX){ }上方位置处可以添加该测试用例注释，描述经过该pass前后的变化，例如：
- ```cpp
+```cpp
             /*
         TESTRemoveDummyExpand
         inCast{8,16}->expand->ubTensor{8,16}->exp->outCast1{8,16}
@@ -166,19 +166,19 @@ license: 完整条款见 LICENSE.txt
     
 ## UT生成流程二
 
-### 步骤 1：分析业务
+### 流程二 - 步骤 1：分析业务
 
     同UT生成流程一中步骤1：分析业务
 
-### 步骤 2：环境配置
+### 流程二 - 步骤 2：环境配置
 
     同UT生成流程一中步骤2：环境配置
 
-### 步骤 3：搭建测试用例框架
+### 流程二 - 步骤 3：搭建测试用例框架
 
     同UT生成流程一中步骤3：搭建测试用例框架
 
-### 步骤 4：构建function
+### 流程二 - 步骤 4：构建function
 
     利用ComputationalGraphBuilder类来构建function，通过调用AddTensor()和AddTensors()来实现function中Tensor的构建，调用AddOp()和AddOps()来实现function中Op的构建。
     通过调用SetInCast()和SetOutCast()来实现对function的输入输出构建。

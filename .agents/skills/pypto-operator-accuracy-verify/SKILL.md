@@ -35,7 +35,7 @@ assert_allclose(
     rtol=1e-3,  # 相对容差
     atol=1e-3   # 绝对容差
 )
-```
+```text
 
 ### 容差配置策略
 
@@ -83,7 +83,7 @@ detailed_allclose_manual(
     max_prints=50,   # 最大打印异常数量
     force_print_first_n=5  # 强制打印前N个元素
 )
-```
+```text
 
 ### 输出信息说明
 
@@ -97,7 +97,7 @@ detailed_allclose_manual(
 
 ### 输出示例
 
-```
+```text
 开始比较数组，形状: (32, 5120), 总元素数: 163840
 容差条件: rtol=0.001, atol=0.001
 ================================================================================
@@ -115,7 +115,7 @@ detailed_allclose_manual(
 异常比例: 0.0000%
 
 np.allclose 等价结果: True
-```
+```text
 
 ## 精度验证标准
 
@@ -158,7 +158,7 @@ np.random.seed(0)
 
 # 生成测试数据
 input_data = torch.randn(shape, dtype=torch.bfloat16, device='npu:0')
-```
+```text
 
 ### 步骤 2：执行 NPU 算子
 
@@ -173,7 +173,7 @@ your_npu_operator(input_data, actual_result)
 ```python
 # 执行 Golden 实现
 expected_result = your_golden_implementation(input_data)
-```
+```text
 
 ### 步骤 4：精度验证
 
@@ -207,7 +207,7 @@ detailed_allclose_manual(
     max_prints=100,  # 打印更多异常
     force_print_first_n=10  # 打印前10个元素
 )
-```
+```text
 
 ## 完整测试模板
 
@@ -275,7 +275,7 @@ def test_operator_multiple_shapes():
         )
 
         print(f"✓ Shape ({batch_size}, {hidden_size}) 验证通过")
-```
+```text
 
 ## 调试技巧
 
@@ -319,7 +319,7 @@ def your_npu_operator(input_data, output_data, debug_intermediate=False):
 
     # 最终计算
     output_data[:] = compute_final(intermediate2)
-```
+```text
 
 ### 技巧 3：数据类型检查
 
@@ -346,7 +346,7 @@ assert input_data.shape == expected_input_shape, f"Expected {expected_input_shap
 
 # 检查输出形状
 assert output_data.shape == expected_output_shape, f"Expected {expected_output_shape}, got {output_data.shape}"
-```
+```text
 
 ## 容差调整建议
 

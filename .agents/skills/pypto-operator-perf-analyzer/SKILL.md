@@ -30,7 +30,7 @@ description: 分析 PyPTO 算子的性能指标。用于分析 PyPTO 算子的�
 **查找最新输出目录：**
 ```bash
 ls -lt output/ | head -n 2
-```
+```text
 
 ### 步骤 2：提取核心性能指标
 
@@ -56,27 +56,23 @@ AicoreTime = 核心总工作时间 - 总等待时间
 
 #### 3.1 核心利用率
 
-```
+```text
 核心利用率 = AicoreTime / (AicoreTime + 等待总时间) × 100%
-```
 
 #### 3.2 气泡率
 
-```
+```text
 气泡率 = 等待调度时间 / (AicoreTime + 等待调度时间) × 100%
-```
 
 #### 3.3 平均核心利用率
 
-```
+```text
 平均核心利用率 = 所有核心核心利用率之和 / 核心数量
-```
 
 #### 3.4 平均气泡率
 
-```
+```text
 平均气泡率 = 所有核心气泡率之和 / 核心数量
-```
 
 ### 步骤 4：性能评级
 
@@ -180,7 +176,7 @@ python3 .opencode/skills/pypto-operator-perf-analyzer/scripts/analyze_perf.py <o
 示例：
 ```bash
 python3 .opencode/skills/pypto-operator-perf-analyzer/scripts/analyze_perf.py output/output_20260214_152549_401503_511667
-```
+```text
 
 ## 性能优化建议库
 
@@ -207,7 +203,7 @@ python3 .opencode/skills/pypto-operator-perf-analyzer/scripts/analyze_perf.py ou
    ```python
    for idx in pypto.loop(A.shape[0] // 64, unroll_list=[8, 4, 2, 1], name="A", idx_name='b'):
        offset = idx * s2_tile
-   ```
+   ```text
 
    **参数说明：**
    - `loop_count`: 循环迭代次数
@@ -244,7 +240,7 @@ python3 .opencode/skills/pypto-operator-perf-analyzer/scripts/analyze_perf.py ou
                   # 最内层循环添加 unroll_list
                   for s2_idx in pypto.loop(s2_loop, unroll_list=[8, 4, 2, 1], name="LOOP_s2", idx_name="s2_idx"):
                      # 计算逻辑
-   ```
+   ```text
 
 3. **调整任务粒度**
    - 增大 loop 的 tile size
@@ -258,7 +254,7 @@ python3 .opencode/skills/pypto-operator-perf-analyzer/scripts/analyze_perf.py ou
 5. **使用 L1Reuse 优化**
    ```python
    pypto.set_pass_options(cube_l1_reuse_setting={0: 8})
-   ```
+   ```text
 
 ### 优化建议 2：核心利用率低
 
@@ -280,7 +276,7 @@ python3 .opencode/skills/pypto-operator-perf-analyzer/scripts/analyze_perf.py ou
    ```python
    # Cube Tilesize
    pypto.set_cube_tile_shapes([128, 128], [128, 512], [128, 128])
-   ```
+   ```text
 
 3. **启用 CubeNBuffer 合并同构子图**
    ```python
@@ -310,7 +306,7 @@ python3 .opencode/skills/pypto-operator-perf-analyzer/scripts/analyze_perf.py ou
    pypto.set_pass_options(sg_set_scope=1)
    # ... 操作 ...
    pypto.set_pass_options(sg_set_scope=-1)
-   ```
+   ```text
 
 ## 性能分析报告模板
 
@@ -394,6 +390,4 @@ python3 .opencode/skills/pypto-operator-perf-analyzer/scripts/analyze_perf.py ou
 
 ## 参考资料
 
-- [性能调优文档](../../docs/tutorials/debug/performance.md)
-- [Matmul 高性能编程](../../docs/tutorials/debug/matmul_performance_guide.md)
-- [性能优化案例](../../docs/tutorials/debug/performance_case_quantindexerprolog.md)
+> 待补充：性能调优相关文档链接
