@@ -26,14 +26,11 @@ namespace tile_fwk {
 bool EqualInOutShape(const Operation &op) {
     auto in = op.GetIOperands().front();
     auto out = op.GetOOperands().front();
-    auto needSkip = [](const Shape &vec) -> bool {
-        return std::any_of(vec.begin(), vec.end(), [](int64_t val) { return val == -1; });
-    };
     // 比较memtype
     bool equalMemType = (in->GetMemoryTypeOriginal() == out->GetMemoryTypeOriginal());
     // 比较静态shape
     bool equalShape = (in->GetShape() == out->GetShape());
-    return (equalMemType && equalShape && !needSkip(in->GetShape()) && !needSkip(out->GetShape()));
+    return (equalMemType && equalShape);
 }
 
 bool EqualInOut(const Operation &op) {
