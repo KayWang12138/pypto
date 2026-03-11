@@ -1,7 +1,6 @@
 ---
 name: pypto-operator-develop-workflow
 description: PyPTO 算子开发工作流程。用于开发华为昇腾 AI 处理器自定义算子。在接到算子开发任务时使用，确保开发过程规范、高效、符合官方最佳实践。
-tag: [PyPTO，算子开发]
 ---
 
 # PyPTO 算子开发工作流程
