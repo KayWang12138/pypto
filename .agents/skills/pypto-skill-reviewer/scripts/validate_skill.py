@@ -1,7 +1,3 @@
-# Copyright (c) 2026 Huawei Technologies Co., Ltd.
-# Licensed under the Apache License, Version 2.0
-#
-
 #!/usr/bin/env python3
 """
 validate_skill.py — Static checker for skill directories.
@@ -14,16 +10,16 @@ Usage:
 
 Requirements: Python 3.8+, pyyaml.
 """
+import logging
 
 import json
 import os
+import py_compile
 import re
 import sys
-import py_compile
 import tempfile
-import yaml
-from pathlib import Path
 
+import yaml
 
 rule_meta = {}
 
@@ -782,22 +778,22 @@ def validate(skill_dir):
 
 def main():
     """CLI entry point."""
+    logging.basicConfig(level=logging.INFO, format='%(message)s')
     args = sys.argv[1:]
 
     if not args:
-        print("用法: python3 validate_skill.py <技能目录路径>",
-              file=sys.stderr)
+        logging.error("用法: python3 validate_skill.py <技能目录路径>")
         sys.exit(1)
 
     skill_dir = os.path.abspath(args[0])
     if not os.path.isdir(skill_dir):
-        print(json.dumps([finding("R01", "S0", "D1", "FAIL",
+        logging.info(json.dumps([finding("R01", "S0", "D1", "FAIL",
                                   f"路径不是目录: {skill_dir}",
                                   skill_dir, 0, "(not a directory)")]))
         sys.exit(1)
 
     findings = validate(skill_dir)
-    print(json.dumps(findings, indent=2, ensure_ascii=False))
+    logging.info(json.dumps(findings, indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":

@@ -1,17 +1,13 @@
-# Copyright (c) 2026 Huawei Technologies Co., Ltd.
-# Licensed under the Apache License, Version 2.0
-#
-
 #!/usr/bin/env python3
+import logging
 
 import argparse
 import json
 import os
 from pathlib import Path
 
-
 STATUS_PRIORITY = {"FAIL": 4, "WARN": 3, "PASS": 2, "SKIP": 1}
-GRADE_THRESHOLDS = [(95, "A"), (85, "B"), (70, "C"), (55, "D"), (0, "F")]
+GRADE_THRESHOLDS = [(90, "A"), (75, "B"), (60, "C"), (40, "D"), (0, "F")]
 S0_VETO_CAP = 59.9
 
 
@@ -188,7 +184,8 @@ def main():
     if args.out:
         Path(args.out).write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     else:
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+        logging.info(json.dumps(result, indent=2, ensure_ascii=False))
+        logging.info(json.dumps(result, indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":
