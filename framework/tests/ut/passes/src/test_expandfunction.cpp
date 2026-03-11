@@ -170,8 +170,7 @@ TEST_F(TestExpandFunctionPass, TestCVSeperate2) {
 }
 /*
 TESTExpandFunctionNOP
-inCast{8,16}->pad->ubTensor1{8,16}->nop->ubTensor2{8,16}->view->outCast{8,16}
-pad is removed
+inCast{8,16}->nop->ubTensor2{8,16}->view->outCast{8,16}
 */
 TEST_F(TestExpandFunctionPass, ExpandFunctionUTest2) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestExpandFunction", "TestExpandFunction", nullptr);
@@ -184,15 +183,13 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest2) {
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
 
     auto op_attr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{kNumZero, kNumZero});
-    currFunctionPtr->AddOperation(Opcode::OP_PAD, {inCast}, {ubTensor1});
-    currFunctionPtr->AddOperation(Opcode::OP_NOP, {ubTensor1}, {ubTensor2});
-    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {outCast});
+    currFunctionPtr->AddOperation(Opcode::OP_NOP, {inCast}, {ubTensor1});
+    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor1}, {outCast});
     
-    std::shared_ptr<Operation> pad_op, nop_op, view_op;
+    std::shared_ptr<Operation> nop_op, view_op;
     for (uint32_t uIndex = 0; uIndex < currFunctionPtr->Operations().size(); ++uIndex){
         auto op = currFunctionPtr->Operations().operations_[uIndex];
-        if (op->GetOpcode() == Opcode::OP_PAD) pad_op = op;
-        else if (op->GetOpcode() == Opcode::OP_NOP) nop_op = op;
+        if (op->GetOpcode() == Opcode::OP_NOP) nop_op = op;
         else if (op->GetOpcode() == Opcode::OP_VIEW) view_op = op;
     }
 
@@ -207,20 +204,16 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest2) {
     EXPECT_EQ(status, SUCCESS);
     EXPECT_EQ(currFunctionPtr->GetGraphType(), GraphType::TILE_GRAPH);
 
-    uint32_t view_num = kNumZero, pad_num = kNumZero, nop_num = kNumZero;
+    uint32_t view_num = kNumZero, nop_num = kNumZero;
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             EXPECT_EQ(op_attr, view_op->GetOpAttribute());
             EXPECT_NE(view_op->GetOpMagic(), op.GetOpMagic()); ++view_num;
-        } else if (op.GetOpcode() == Opcode::OP_PAD) {
-            EXPECT_TRUE(pad_op->GetOpAttribute() == nullptr);
-            EXPECT_NE(pad_op->GetOpMagic(), op.GetOpMagic()); ++pad_num;
         } else if (op.GetOpcode() == Opcode::OP_NOP) {
             EXPECT_NE(nop_op->GetOpMagic(), op.GetOpMagic()); ++nop_num;
         }
     }
     EXPECT_EQ(view_num, kNumOne);
-    EXPECT_EQ(pad_num, kNumOne);
     EXPECT_EQ(nop_num, kNumOne);
 }
 

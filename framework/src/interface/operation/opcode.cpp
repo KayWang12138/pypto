@@ -260,6 +260,11 @@ void OpcodeManager::RegisterVectorUnary() {
     RegisterInfo(Opcode::OP_RELU, OpCoreType::AIV, "RELU", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Trelu", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
         {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_PAD, OpCoreType::AIV, "PAD", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::Tpad", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
+        {OpAttributeKey::scalar, OP_ATTR_PREFIX + "pad_right", OP_ATTR_PREFIX + "pad_bottom",
+            OpAttributeKey::excludeBufferReuse},
+        TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_SQRT, OpCoreType::AIV, "SQRT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tsqrt", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
         {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
@@ -788,8 +793,6 @@ void OpcodeManager::RegisterCommon() {
         {"TileOp::Thub", PIPE_V, PIPE_V, CoreType::HUB}, OpCalcType::ELMWISE, {OpAttributeKey::inplaceInfo});
     RegisterInfo(Opcode::OP_REGISTER_COPY, OpCoreType::AIV, "REGISTER_COPY", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"REGISTER_COPY", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::SYS, {}, TileShapeVerifier::Verify);
-    RegisterInfo(Opcode::OP_PAD, OpCoreType::ANY, "PAD", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {},
-        OpCalcType::ELMWISE, {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis});
     RegisterInfo(Opcode::OP_UB_ALLOC, OpCoreType::AIV, "UB_ALLOC", {}, {MemoryType::MEM_UB},
         {"UB_ALLOC", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::SYS, {OpAttributeKey::excludeBufferReuse});
     RegisterInfo(Opcode::OP_REG_ALLOC, OpCoreType::AIV, "REG_ALLOC", {}, {MemoryType::MEM_VECTOR_REG},
@@ -957,6 +960,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {              Opcode::OP_RSQRT,         "TRsqrt"},
     {              Opcode::OP_RELU,           "TRelu"},
     {              Opcode::OP_LOG1P,         "TLog1p"},
+    {              Opcode::OP_PAD,             "TPad"},
     {               Opcode::OP_SQRT,          "TSqrt"},
     {               Opcode::OP_SIGN,          "TSign"},
     {            Opcode::OP_SIGNBIT,       "TSignbit"},
