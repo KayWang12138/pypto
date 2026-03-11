@@ -25,6 +25,7 @@ public:
     Status DeleteRedundantAssemble(Function &function) const;
     Status DeleteRedundantView(Function &function) const;
     void HandleForReshapeToOutcast(Function &function) const;
+    Status RemoveRedundant(Function &function) const;
 
 private:
     bool IsCandidateAssembleOp(Function &function, Operation &op) const;

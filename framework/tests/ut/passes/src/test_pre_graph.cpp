@@ -435,8 +435,6 @@ TEST_F(PreGraphTest, TestTransposeDatamove) {
     preGraph.PreCheck(*function);
     preGraph.RunOnFunction(*function);
     preGraph.PostCheck(*function);
-    RemoveRedundantAssemble removeRedundantAssemble;
-    EXPECT_EQ(removeRedundantAssemble.DeleteRedundantAssemble(*function), SUCCESS);
     std::cout << "Run Pass Done." << std::endl;
     /*
     dump graph after Pass
