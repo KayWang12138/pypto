@@ -168,6 +168,31 @@ REGISTER_INFER_SHAPE_FUNC(OP_BITWISEXOR, Opcode::OP_BITWISEXOR, ElewiseInferFunc
 REGISTER_INFER_SHAPE_FUNC(OP_EXPANDEXPDIF, Opcode::OP_EXPANDEXPDIF, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_COPYSIGN, Opcode::OP_COPYSIGN, ElewiseInferFunc);
 
+void PadInferShapeFunc(Operation* op,
+                       std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    auto inputValidShape = op->GetIOperands()[0]->GetDynValidShape();
+    if (inputValidShape.empty()) {
+        return;
+    }
+    size_t ndim = inputValidShape.size();
+    std::vector<SymbolicScalar> outValidShape = inputValidShape;
+
+    int64_t padRight = 0;
+    int64_t padBottom = 0;
+    op->GetAttr(OP_ATTR_PREFIX + "pad_right", padRight);
+    op->GetAttr(OP_ATTR_PREFIX + "pad_bottom", padBottom);
+    if (ndim >= 1 && padRight > 0) {
+        outValidShape[ndim - 1] = outValidShape[ndim - 1] + padRight;
+    }
+    if (ndim >= 2 && padBottom > 0) {
+        outValidShape[ndim - 2] = outValidShape[ndim - 2] + padBottom;
+    }
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(outValidShape);
+    }
+}
+REGISTER_INFER_SHAPE_FUNC(OP_PAD, Opcode::OP_PAD, PadInferShapeFunc);
+
 void IndexOutCastInferFunc(Operation* op,
                       std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     std::vector<SymbolicScalar> outValidShape;
