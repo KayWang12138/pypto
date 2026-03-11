@@ -467,21 +467,24 @@ void SplitLargeFanoutTensor::SplitLargeTensor(Function &function) {
 void SplitLargeFanoutTensor::GetOffsets(std::set<Shape, ShapeDimComparator> &tileOffsets, const Shape &lcmShape, const LogicalTensorPtr &largeTensor) {
     Shape current(lcmShape.size());
     const auto& offsets = toShapes_[largeTensor];
+    // 规避：当前以每个维度上最大的toShape做offset切分来覆盖非尾块的offset，避免级联view-assemble导致的validShape表达式过长
     if (!offsets.empty()) {
-        Shape maxOffset = *offsets.begin();
+        Shape boundingOffset = *offsets.begin();
         for (const auto& offset : offsets) {
-            for (size_t i = 0; i < maxOffset.size(); ++i) {
-                if (offset[i] > maxOffset[i]) {
-                    maxOffset[i] = offset[i];
+            for (size_t i = 0; i < boundingOffset.size(); ++i) {
+                if (offset[i] > boundingOffset[i]) {
+                    boundingOffset[i] = offset[i];
                 }
             }
         }
 
         std::vector<Shape> tempOffsets;
-        GenerateOffset(largeTensor->shape, maxOffset, current, tempOffsets, 0);
+        GenerateOffset(largeTensor->shape, boundingOffset, current, tempOffsets, 0);
         for (const auto& tempOffset : tempOffsets) {
             tileOffsets.insert(tempOffset);
         }
+    } else {
+        APASS_LOG_WARN_F(Elements::Tensor, "Skip offset processing for large tensor [%d] due to empty offsets.", largeTensor->GetMagic());
     }
     // 处理lcmShape对应的offset
     std::vector<Shape> tempOffsets;

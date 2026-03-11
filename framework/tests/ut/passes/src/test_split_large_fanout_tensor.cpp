@@ -1404,6 +1404,7 @@ TEST_F(SplitLargeFanoutTensorTest, ComplexOverlap) {
     }
     for (auto &[k, v]: recordAssemble) {
         //6个output，除了两个被输入包含关系的输出外，其余均不拆分。
+        //故未被切分的输出为4个，对应预期有4个view
         EXPECT_EQ(recordView[k], (v == 1) ? 1 : 4);
     }
 }
