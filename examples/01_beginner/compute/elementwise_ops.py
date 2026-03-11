@@ -21,12 +21,38 @@ Usage:
 """
 
 import argparse
+import gc
 import os
 import sys
 import pypto
 import torch
 import numpy as np
 from numpy.testing import assert_allclose
+
+
+def cleanup_between_tests(run_mode: str = "npu"):
+    """Clean up resources between test cases to prevent state pollution.
+
+    This function should be called after each test case to ensure:
+    1. NPU computations are synchronized
+    2. PyPTO program state is reset
+    3. Python garbage collection is triggered
+    """
+    # Synchronize NPU to ensure all computations are complete
+    if run_mode == "npu":
+        try:
+            torch.npu.synchronize()
+        except Exception:
+            pass
+
+    # Reset PyPTO program state to clear any accumulated state
+    try:
+        pypto.reset()
+    except Exception:
+        pass
+
+    # Force garbage collection to free unreferenced tensors
+    gc.collect()
 
 
 def get_device_id():
@@ -1599,8 +1625,11 @@ Examples:
             if args.run_mode == "npu" and device_id is None:
                 print(f"Skipping {case_key} ({ex_info['name']}): NPU device not configured")
                 continue
-            
+
             ex_info['function'](device_id, args.run_mode)
+
+            # Clean up between test cases to prevent state pollution
+            cleanup_between_tests(args.run_mode)
         
         if len(examples_to_run) > 1:
             print("=" * 60)
