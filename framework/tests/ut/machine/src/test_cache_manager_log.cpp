@@ -100,9 +100,7 @@ TEST_F(TestCacheManagerLog, SaveTaskFile_FilesAlreadyExist) {
 
     auto machineTask = std::make_shared<MachineTask>(1, reinterpret_cast<Function *>(0x1234));
     machineTask->SetCacheKey(cacheKey);
-    auto deviceTask = std::make_unique<DeviceAgentTask>(machineTask);
-
-    cm.SaveTaskFile(deviceTask.get());
+    cm.SaveTaskFile(cacheKey, machineTask->GetCacheKey());
 
     SUCCEED();
 }
