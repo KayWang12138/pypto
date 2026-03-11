@@ -256,7 +256,7 @@ static void LogPassRuntime(const std::string &identifier, Program &program, Func
     const std::chrono::time_point<std::chrono::high_resolution_clock> &start) {
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    APASS_LOG_INFO_F(Elements::Function, "Runtime of pass %s for program %s function %s is %ld us.", identifier.c_str(),
+    APASS_LOG_INFO_F(Elements::Function, "The Runtime of pass %s for program %s function %s is %ld us.", identifier.c_str(),
         program.Name().c_str(), function.GetMagicName().c_str(), duration.count());
 }
 
