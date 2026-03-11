@@ -18,6 +18,15 @@ import torch.distributed as dist
 import torch_npu
 
 
+class CustomProcessGroup(dist.ProcessGroup):
+    """安全访问内部方法"""
+
+    def get_hccl_comm_name(self, rank: int) -> str:
+        """获取HCCL通信名称的公共方法"""
+        backend = self._get_backend(torch.device('npu'))
+        return backend.get_hccl_comm_name(rank)
+
+
 class DistributedConfig:
     """通信测试配置类"""
 
@@ -25,9 +34,6 @@ class DistributedConfig:
         self,
         world_size: int = 0,
         master_ip: str = "127.0.0.1",
-        master_port: int = 50001,
-        logical_ranks: list[int] = [],
-        physical_device_ids: list[int] = [],
     ):
         """
         初始化多卡测试配置
@@ -53,8 +59,7 @@ class DistributedConfig:
             world_size=self.world_size,
             init_method=f'tcp://{self.master_ip}:{self.master_port}',
         )
-        group_handle = dist.new_group(backend='hccl', ranks=self.logical_ranks)
-        group_name = group_handle._get_backend(torch.device('npu')).get_hccl_comm_name(logical_rank_id)
+        group_name = self._get_hccl_comm_name(logical_rank_id)
         return [group_name]
 
     def get_physical_device_id(self, logical_rank_id: int) -> int:
@@ -72,6 +77,11 @@ class DistributedConfig:
                 f"Available physical devices: {self.physical_device_ids}"
             )
         return self.physical_device_ids[logical_rank_id]
+
+    def _get_hccl_comm_name(self, logical_rank_id: int) -> str:
+        """简单获取HCCL通信名称"""
+        group_handle = dist.new_group(backend='hccl', ranks=self.logical_ranks)
+        return group_handle._get_backend(torch.device('npu')).get_hccl_comm_name(logical_rank_id)
 
     def _parse_device_list(self):
         """解析设备列表"""

@@ -178,7 +178,12 @@ def matmul_allreduce_add_rmsnorm_result_golden(batch_size, num, input_datas):
     return output_datas
 
 
-def matmul_allreduce_add_rmsnorm_worker(config: DistributedConfig, input_data: list, output_data: list, logical_rank_id: int):
+def matmul_allreduce_add_rmsnorm_worker(
+    config: DistributedConfig,
+    input_data: list,
+    output_data: list,
+    logical_rank_id: int,
+):
     groups = config.init_hccl_comm(logical_rank_id)
     physical_device_id = config.get_physical_device_id(logical_rank_id)
     device = f'npu:{physical_device_id}'

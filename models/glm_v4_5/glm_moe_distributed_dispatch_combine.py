@@ -556,7 +556,7 @@ def moe_distributed_dispatch(
     config: DistributedConfig,
     moe_case: MoeCase,
     operands: MoeDispatchOperands,
-	logical_rank_id: int,
+    logical_rank_id: int,
 ) -> None:
     groups = config.init_hccl_comm(logical_rank_id)
 
