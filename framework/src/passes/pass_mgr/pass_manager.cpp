@@ -285,7 +285,7 @@ Status PassManager::RunPass(Program &program, Function &function, const std::str
             passDfxCfg.dumpGraph = true;
         }
         pass->SetPassConfigs(passDfxCfg);
-        APASS_LOG_INFO_F(Elements::Function, "[PassManager] Apply pass <%s> on function: %s.", identifier.c_str(), function.GetMagicName().c_str());
+        APASS_LOG_INFO_F(Elements::Function, "Apply pass <%s> on function: %s.", identifier.c_str(), function.GetMagicName().c_str());
         auto start = std::chrono::high_resolution_clock::now();
         if (pass->Run(function, strategy, identifier, i) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Function, "Run pass <%s> failed.", identifier.c_str());
