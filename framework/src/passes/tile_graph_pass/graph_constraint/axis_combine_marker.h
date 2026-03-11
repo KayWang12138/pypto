@@ -33,6 +33,20 @@ enum class AxisReorderStatus {
     DISABLE,  // 尾轴为1，但是不支持合轴优化的场景
     UNKNOWN   // 不涉及合轴优化
 };
+
+inline std::string AxisReorderStatusToString(AxisReorderStatus status) {
+    switch (status) {
+        case AxisReorderStatus::ENABLE:
+            return "ENABLE";
+        case AxisReorderStatus::DISABLE:
+            return "DISABLE";
+        case AxisReorderStatus::UNKNOWN:
+            return "UNKNOWN";
+        default:
+            return "INVALID";
+    }
+}
+
 class AxisCombineMarker
 {
   public:
@@ -40,6 +54,7 @@ class AxisCombineMarker
     ~AxisCombineMarker() = default;
     bool IsTensorEnableAxisCombine(LogicalTensorPtr tensor);
     void Run(Function &function);
+    void PrintTensorStatus();
   private:
     void Init(Function &function);
     std::vector<Operation *> opList_;

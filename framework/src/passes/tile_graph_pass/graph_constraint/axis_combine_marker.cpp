@@ -20,9 +20,29 @@ void AxisCombineMarker::Run(Function &function) {
     Init(function);
     ForwardVisit();
     BackwardVisit();
+    PrintTensorStatus();
+}
+
+void AxisCombineMarker::PrintTensorStatus() {
+    std::cout << "\n========== AxisCombineMarker Tensor Status ==========" << std::endl;
+    for (const auto &pair : tensorStatus_) {
+        auto tensor = pair.first;
+        auto status = pair.second;
+        std::cout << "Tensor ID: " << tensor->GetMagic()
+                  << ", Shape: " << tensor->GetShape()
+                  << ", Status: " << AxisReorderStatusToString(status)
+                  << std::endl;
+    }
+    std::cout << "======================================================\n" << std::endl;
 }
 
 bool AxisCombineMarker::IsTensorEnableAxisCombine(LogicalTensorPtr tensor) {
+    std::string statusStr = "NOT_FOUND";
+    if (tensorStatus_.find(tensor) != tensorStatus_.end()) {
+        statusStr = AxisReorderStatusToString(tensorStatus_[tensor]);
+    }
+    std::cout << "IsTensorEnableAxisCombine(tensor_id=" << tensor->GetMagic()
+              << ", status=" << statusStr << ")" << std::endl;
     if (tensorStatus_.find(tensor) != tensorStatus_.end() && tensorStatus_[tensor] == AxisReorderStatus::ENABLE) {
         return true;
     }
@@ -162,6 +182,7 @@ void UpdateElewiseStatus(Operation *op, std::unordered_map<LogicalTensorPtr, Axi
     }
     if (outputTensor->GetShape().back() != 1) {
         tensorStatus[outputTensor] = AxisReorderStatus::UNKNOWN;
+        std::cout << "change AAAAAA" << outputTensor->GetMagic() << "to enable" << std::endl;
         return;
     }
     for (auto inputTensor : op->GetIOperands()) {
