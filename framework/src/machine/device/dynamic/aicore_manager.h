@@ -564,12 +564,7 @@ private:
         return context_->corePendReadyCnt_[static_cast<int>(type)];
     }
 
-    inline uint64_t TryBatchSendTask(CoreType type, ReadyCoreFunctionQueue* readyQue,
-                int coreIdxStart, int coreIdxEnd) {
-        if (__atomic_load_n(&readyQue->tail, __ATOMIC_RELAXED) == __atomic_load_n(&readyQue->head, __ATOMIC_RELAXED)) {
-            return 0;
-        }
-
+    inline uint64_t TryBatchSendTask(CoreType type, ReadyCoreFunctionQueue* readyQue, int coreIdxStart, int coreIdxEnd) {
         uint32_t ready = GetReadyCoreNum(type);
         if (ready == 0 ) {
             return 0;
@@ -708,6 +703,7 @@ private:
                     needSendCnt, aicStart_, aicEnd_, true);
             }
             if (context_->readyCount[aicIndex] > 0) {
+                // DEV_ERROR("Push Cube Tasks");
                 ret = PushReadyQue(readyAicCoreFunctionQue_, context_->readyIds[aicIndex], context_->readyCount[aicIndex]);
                 if (unlikely(ret != DEVICE_MACHINE_OK)) {
                     return ret;
@@ -723,6 +719,7 @@ private:
                     needSendCnt, aivStart_, aivEnd_, true);
             }
             if (context_->readyCount[aivIndex] > 0) {
+                // DEV_ERROR("Push Vector Tasks");
                 ret = PushReadyQue(readyAivCoreFunctionQue_, context_->readyIds[aivIndex], context_->readyCount[aivIndex]);
                 if (unlikely(ret != DEVICE_MACHINE_OK)) {
                     return ret;
@@ -870,50 +867,13 @@ private:
         return ret;
     }
 
-    inline bool TrySendTaskDirectly(int coreType, uint32_t taskId) {
-        if (context_->coreRunReadyCnt_[coreType] > 0) {
-            context_->corePendReadyCnt_[coreType]--;
-            SendTaskToAiCore(static_cast<CoreType>(coreType),
-                context_->runReadyCoreIdx_[coreType][--context_->coreRunReadyCnt_[coreType]], taskId);
-            return true;
-        }
-
-        if (context_->corePendReadyCnt_[coreType] == 0) {
-            return false;
-        }
-
-        if (enableFairSch_ && IsExistOtherAicpuIdle(static_cast<CoreType>(coreType))) {
-            return false;
-        }
-
-        int startIdx;
-        int coreNum;
-        int idx = static_cast<int>(context_->lastPendReadyCoreIdx_[coreType]);
-        if (coreType == static_cast<int>(CoreType::AIC)) {
-            startIdx = aicStart_;
-            coreNum = aicEnd_ - aicStart_;
-        } else {
-            startIdx = aivStart_;
-            coreNum = aivEnd_ - aivStart_;
-        }
-        while (pendingIds_[idx] != AICORE_TASK_INIT) {
-            idx = startIdx + (idx - startIdx + 1) % (coreNum);
-        }
-        context_->lastPendReadyCoreIdx_[coreType] = static_cast<uint32_t>(startIdx + (idx - startIdx + 1) % (coreNum));
-        context_->corePendReadyCnt_[coreType]--;
-        SendTaskToAiCore(static_cast<CoreType>(coreType), idx, taskId);
-        return true;
-    }
-
     inline int32_t PushReadyTask(int coreType, uint64_t taskId) {
         int32_t ret = DEVICE_MACHINE_OK;
-        if (enableL2CacheSch_ && TrySendTaskDirectly(coreType, taskId)) {
-            return DEVICE_MACHINE_OK;
-        }
 
         if (unlikely(context_->readyCount[coreType] == READY_ID_FIX_CACHE_NUM)) {
             ReadyCoreFunctionQueue* readyQue =
                 coreType == static_cast<int>(CoreType::AIC) ?  readyAicCoreFunctionQue_ : readyAivCoreFunctionQue_;
+            DEV_ERROR("Type: %d\n", coreType);
             ret = PushReadyQue(readyQue, context_->readyIds[coreType], context_->readyCount[coreType]);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
