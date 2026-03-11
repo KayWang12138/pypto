@@ -17,6 +17,9 @@
 #define private public
 #include "passes/block_graph_pass/insert_sync.h"
 #include "ut_json/ut_json_tool.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "InsertSync"
 
 namespace npu {
 namespace tile_fwk {
@@ -416,12 +419,12 @@ TEST_F(InsertSyncTest, TestUpdateDep) {
                 auto setPipeIdx1 = ps.latestPipeDep_[pcCurr].setPipes[pcSet1];
                 auto setPipeIdx2 = ps.latestPipeDep_[pcCurr].setPipes[pcSet2];
                 if (i == IS_NUM4 && k == IS_NUM3) {
-                    ALOG_DEBUG_F("%s", ps.DumpLatestPipeDepMap().c_str());
+                    APASS_LOG_DEBUG_F(Elements::Function, "%s", ps.DumpLatestPipeDepMap().c_str());
                     EXPECT_EQ(setPipeIdx1, IS_NUM3);
                     EXPECT_EQ(setPipeIdx2, IS_NUM1);
                 }
                 if (i == IS_NUM4 && k == 0) {
-                    ALOG_DEBUG_F("%s", ps.DumpLatestPipeDepMap().c_str());
+                    APASS_LOG_DEBUG_F(Elements::Function, "%s", ps.DumpLatestPipeDepMap().c_str());
                     EXPECT_EQ(setPipeIdx1, IS_NUM3);
                     EXPECT_EQ(setPipeIdx2, IS_NUM1);
                 }

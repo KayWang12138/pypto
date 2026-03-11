@@ -20,6 +20,9 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "HealthReport"
 
 using namespace npu::tile_fwk;
 
@@ -76,5 +79,5 @@ TEST_F(HealthReportTest, TestDD) {
     TestLoopViewAssembleCopy(t0, t1, blockTable, out, s);
 
     auto funcMap = Program::GetInstance().GetFunctionMap();
-    ALOG_INFO(funcMap.size());
+    APASS_LOG_INFO_F(Elements::Function, "%d", static_cast<int>(funcMap.size()));
 }

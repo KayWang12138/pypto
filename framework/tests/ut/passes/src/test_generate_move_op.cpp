@@ -22,6 +22,7 @@
 #include "passes/tile_graph_pass/data_path/generate_move_op.h"
 #include "passes/tile_graph_pass/data_path/convert_op_inserter.h"
 #include "interface/configs/config_manager.h"
+#include "passes/pass_check/generate_move_op_checker.h"
 #include <fstream>
 #include <vector>
 #include <string>
@@ -832,6 +833,107 @@ TEST_F(GenerateMoveOpPassTest, ProcessUB2L1NonNDFormat) {
         }
         EXPECT_EQ(ub2ubNum, 0) << "No OP_UB_COPY_ND2NZ should be inserted for NZ format";
         EXPECT_EQ(ubCopyL1Op->iOperand.front()->Format(), TileOpFormat::TILEOP_NZ);
+    }
+}
+
+TEST_F(GenerateMoveOpPassTest, GenerateMoveOpCheckerValidViewOpErrors) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestValidViewOpErrors", "TestValidViewOpErrors", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    Program::GetInstance().InsertFuncToFunctionMap("TestValidViewOpErrors", currFunctionPtr);
+
+    std::vector<int64_t> shape{8, 4};
+    auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto outTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+
+    currFunctionPtr->inCasts_.push_back(inCast);
+    currFunctionPtr->outCasts_.push_back(outTensor);
+
+    GenerateMoveOpChecker checker;
+
+    {
+        auto testFunc = std::make_shared<Function>(Program::GetInstance(), "TestViewOpAttrNull", "TestViewOpAttrNull", nullptr);
+        Program::GetInstance().InsertFuncToFunctionMap("TestViewOpAttrNull", testFunc);
+        auto testIn = std::make_shared<LogicalTensor>(*testFunc, DT_FP32, shape);
+        auto testOut = std::make_shared<LogicalTensor>(*testFunc, DT_FP32, shape);
+        testFunc->AddRawOperation(Opcode::OP_VIEW, {testIn}, {testOut});
+        testFunc->inCasts_.push_back(testIn);
+        testFunc->outCasts_.push_back(testOut);
+        Status status = checker.DoPreCheck(*testFunc);
+        EXPECT_EQ(status, FAILED);
+    }
+
+    {
+        auto testFunc = std::make_shared<Function>(Program::GetInstance(), "TestViewOpMultiInput", "TestViewOpMultiInput", nullptr);
+        Program::GetInstance().InsertFuncToFunctionMap("TestViewOpMultiInput", testFunc);
+        auto testIn1 = std::make_shared<LogicalTensor>(*testFunc, DT_FP32, shape);
+        auto testIn2 = std::make_shared<LogicalTensor>(*testFunc, DT_FP32, shape);
+        auto testOut = std::make_shared<LogicalTensor>(*testFunc, DT_FP32, shape);
+        auto& viewOp = testFunc->AddRawOperation(Opcode::OP_VIEW, {testIn1, testIn2}, {testOut});
+        viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}));
+        testFunc->inCasts_.push_back(testIn1);
+        testFunc->outCasts_.push_back(testOut);
+        Status status = checker.DoPreCheck(*testFunc);
+        EXPECT_EQ(status, FAILED);
+    }
+
+    {
+        auto testFunc = std::make_shared<Function>(Program::GetInstance(), "TestViewOpMultiOutput", "TestViewOpMultiOutput", nullptr);
+        Program::GetInstance().InsertFuncToFunctionMap("TestViewOpMultiOutput", testFunc);
+        auto testIn = std::make_shared<LogicalTensor>(*testFunc, DT_FP32, shape);
+        auto testOut1 = std::make_shared<LogicalTensor>(*testFunc, DT_FP32, shape);
+        auto testOut2 = std::make_shared<LogicalTensor>(*testFunc, DT_FP32, shape);
+        auto& viewOp = testFunc->AddRawOperation(Opcode::OP_VIEW, {testIn}, {testOut1, testOut2});
+        viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}));
+        testFunc->inCasts_.push_back(testIn);
+        testFunc->outCasts_.push_back(testOut1);
+        Status status = checker.DoPreCheck(*testFunc);
+        EXPECT_EQ(status, FAILED);
+    }
+}
+
+TEST_F(GenerateMoveOpPassTest, GenerateMoveOpCheckerValidAssembleOpErrors) {
+    std::vector<int64_t> shape{8, 4};
+    GenerateMoveOpChecker checker;
+
+    {
+        auto testFunc = std::make_shared<Function>(Program::GetInstance(), "TestAssembleOpAttrNull", "TestAssembleOpAttrNull", nullptr);
+        Program::GetInstance().InsertFuncToFunctionMap("TestAssembleOpAttrNull", testFunc);
+        auto testIn = std::make_shared<LogicalTensor>(*testFunc, DT_FP32, shape);
+        auto testOut = std::make_shared<LogicalTensor>(*testFunc, DT_FP32, shape);
+        testFunc->AddRawOperation(Opcode::OP_ASSEMBLE, {testIn}, {testOut});
+        testFunc->inCasts_.push_back(testIn);
+        testFunc->outCasts_.push_back(testOut);
+        Status status = checker.DoPreCheck(*testFunc);
+        EXPECT_EQ(status, FAILED);
+    }
+
+    {
+        auto testFunc = std::make_shared<Function>(Program::GetInstance(), "TestAssembleOpMultiInput", "TestAssembleOpMultiInput", nullptr);
+        Program::GetInstance().InsertFuncToFunctionMap("TestAssembleOpMultiInput", testFunc);
+        auto testIn1 = std::make_shared<LogicalTensor>(*testFunc, DT_FP32, shape);
+        auto testIn2 = std::make_shared<LogicalTensor>(*testFunc, DT_FP32, shape);
+        auto testOut = std::make_shared<LogicalTensor>(*testFunc, DT_FP32, shape);
+        auto& assembleOp = testFunc->AddRawOperation(Opcode::OP_ASSEMBLE, {testIn1, testIn2}, {testOut});
+        assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0}));
+        testFunc->inCasts_.push_back(testIn1);
+        testFunc->outCasts_.push_back(testOut);
+        Status status = checker.DoPreCheck(*testFunc);
+        EXPECT_EQ(status, FAILED);
+    }
+
+    {
+        auto testFunc = std::make_shared<Function>(Program::GetInstance(), "TestAssembleOpMultiOutput", "TestAssembleOpMultiOutput", nullptr);
+        Program::GetInstance().InsertFuncToFunctionMap("TestAssembleOpMultiOutput", testFunc);
+        auto testIn = std::make_shared<LogicalTensor>(*testFunc, DT_FP32, shape);
+        auto testOut1 = std::make_shared<LogicalTensor>(*testFunc, DT_FP32, shape);
+        auto testOut2 = std::make_shared<LogicalTensor>(*testFunc, DT_FP32, shape);
+        auto& assembleOp = testFunc->AddRawOperation(Opcode::OP_ASSEMBLE, {testIn}, {testOut1, testOut2});
+        assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(std::vector<int64_t>{0, 0}));
+        testFunc->inCasts_.push_back(testIn);
+        testFunc->outCasts_.push_back(testOut1);
+        Status status = checker.DoPreCheck(*testFunc);
+        EXPECT_EQ(status, FAILED);
     }
 }
 }

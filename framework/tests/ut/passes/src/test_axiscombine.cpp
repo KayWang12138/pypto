@@ -21,10 +21,13 @@
 #include "passes/pass_mgr/pass_manager.h"
 #include "interface/configs/config_manager.h"
 #include "computational_graph_builder.h"
+#include "passes/pass_log/pass_log.h"
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <vector>
 #include <string>
+
+#define MODULE_NAME "AxisCombine"
 
 using namespace npu::tile_fwk;
 
@@ -165,5 +168,5 @@ TEST_F(TestAxisCombine, TestDD) {
     }
 
     auto funcMap = Program::GetInstance().GetFunctionMap();
-    ALOG_INFO(funcMap.size());
+    APASS_LOG_INFO_F(Elements::Function, "%d", static_cast<int>(funcMap.size()));
 }
