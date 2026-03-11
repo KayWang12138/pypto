@@ -228,10 +228,11 @@ void DumpAicpuPerfInfo(DeviceArgs &args, const std::vector<void *> &perfData, co
         MACHINE_LOGW("Failed to execute machine_perf_trace.py, cannot get aicpu perfetto.json.");
     }
     // Auto run staged aicore/aicpu profiling analysis in dump phase.
-    std::string stageAnalysisScript = GetCurrentSharedLibPath() + "/scripts/machine_performance_analysis.py";
-    std::string stageAnalysisCmd = "python3 \"" + stageAnalysisScript + "\" \"" + npu::tile_fwk::config::LogTopFolder() + "\"";
+    std::string stageAnalysisScript = GetCurrentSharedLibPath() + "/scripts/machine_perf_trace.py";
+    std::string stageAnalysisCmd = "python3 \"" + stageAnalysisScript + "\" analyze \""
+        + npu::tile_fwk::config::LogTopFolder() + "\"";
     if (system(stageAnalysisCmd.c_str()) != 0) {
-        MACHINE_LOGW("Failed to execute machine_performance_analysis.py.");
+        MACHINE_LOGW("Failed to execute machine_perf_trace.py analyze.");
     }
     npu::tile_fwk::config::SetRunDataOption(KEY_AICPU_PERF_GRAPH_PATH,
             npu::tile_fwk::config::GetAbsoluteTopFolder() + "/machine_runtime_operator_trace.json");
