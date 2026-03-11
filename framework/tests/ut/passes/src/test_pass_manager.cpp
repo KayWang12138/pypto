@@ -187,7 +187,7 @@ TEST_F(PassManagerTest, TestPassDFX) {
     PassManager::Instance().RunPass(Program::GetInstance(), *function, "TestPassDFX");
 }
 
-TEST_F(PassManagerTest, TestPassStrategy_RepeatRegister_TriggerWarn) {
+TEST_F(PassManagerTest, TestPassStrategyRepeatRegister) {
     const std::string testStrategy = "RepeatRegStrategy";
     PassManager::Instance().RegisterStrategy(testStrategy, {
                         {   "RemoveRedundantReshape",   PassName::REMOVE_REDUNDANT_RESHAPE },
