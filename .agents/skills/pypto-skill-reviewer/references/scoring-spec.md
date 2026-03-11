@@ -1,10 +1,10 @@
-# Scoring Specification
+# 评分规范
 
-This document defines the scoring algorithm for the PyPTO Skill Reviewer.
+本文档定义了 PyPTO Skill Reviewer 的评分算法。
 
-## Dimensions and Weights
+## 维度与权重
 
-| Dimension | Name | Weight | Max Score |
+| 维度 | 名称 | 权重 | 满分 |
 |-----------|------|--------|-----------|
 | D1 | Frontmatter 元数据 | 25% | 25.0 |
 | D2 | 简洁性与效率 | 15% | 15.0 |
@@ -16,58 +16,58 @@ This document defines the scoring algorithm for the PyPTO Skill Reviewer.
 | D8 | 反模式检测 | 10% | 10.0 |
 | D9 | 脚本与代码质量 | 5% | 5.0 |
 
-**D0 (附加检查)** has weight 0 — its findings contribute to context but do not affect scoring.
+**D0（附加检查）**的权重为 0 —— 其发现用于补充上下文，但不影响评分。
 
-**D9 special rule**: When no `scripts/` directory exists, D9 receives full marks automatically.
+**D9 特殊规则**：当不存在 `scripts/` 目录时，D9 自动获得满分。
 
-## Severity Levels and Deductions
+## 严重级别与扣分
 
-| Severity | Deduction | Meaning |
+| 严重级别 | 扣分 | 含义 |
 |----------|-----------|---------|
-| S0 | 20 points | Fatal defect — triggers veto mechanism |
-| S1 | 10 points | Major issue |
-| S2 | 5 points | Moderate issue |
-| S3 | 2 points | Minor suggestion |
+| S0 | 20 分 | 致命缺陷 —— 触发否决机制 |
+| S1 | 10 分 | 重大问题 |
+| S2 | 5 分 | 中等问题 |
+| S3 | 2 分 | 轻微建议 |
 
-## Scoring Formula
+## 评分公式
 
-### Per-Dimension Score
+### 单维度得分
 
-Each dimension is scored on a 0–100 internal scale, then multiplied by its weight:
+每个维度先按 0–100 的内部量表评分，再乘以该维度权重：
 
 ```
 dimension_raw  = max(0, 100 - sum_of_deductions_in_dimension)
 dimension_score = dimension_raw × weight
 ```
 
-Where `sum_of_deductions_in_dimension` is the sum of all FAIL deductions for rules in that dimension.
+其中，`sum_of_deductions_in_dimension` 是该维度内所有规则 FAIL 扣分之和。
 
-Example: D1 (weight 25%). If R04 (S1, -10) and R05 (S2, -5) both fail:
+示例：D1（权重 25%）。若 R04（S1，-10）与 R05（S2，-5）均失败：
 ```
 D1_raw   = max(0, 100 - 10 - 5) = 85
 D1_score = 85 × 0.25 = 21.25
 ```
 
-This avoids low-weight dimensions being zeroed out by a single S1 deduction (e.g., D7 at 5% weight: one S1 gives `max(0,100-10)×0.05 = 4.5` instead of `max(0,5-10) = 0`).
+这样可避免低权重维度因一次 S1 扣分被直接清零（例如 D7 权重为 5% 时：一次 S1 得 `max(0,100-10)×0.05 = 4.5`，而不是 `max(0,5-10) = 0`）。
 
-### Total Score
+### 总分
 
 ```
 total_score = Σ dimension_scores (for D1 through D9)
 ```
 
-### S0 Veto Mechanism
+### S0 否决机制
 
-If **any** S0-severity rule has status FAIL:
-- Total score is capped at **59.9**
-- Maximum grade is **D**
-- The veto is noted in the report summary
+若**任意** S0 严重级别规则状态为 FAIL：
+- 总分上限为 **59.9**
+- 最高等级为 **D**
+- 在报告摘要中标注该否决
 
-S0 rules: R01, R02, R03, R34.
+S0 规则：R01、R02、R03、R34。
 
-## Grade Mapping
+## 等级映射
 
-| Grade | Score Range |
+| 等级 | 分数范围 |
 |-------|------------|
 | A | 90.0 – 100.0 |
 | B | 75.0 – 89.9 |
@@ -75,23 +75,23 @@ S0 rules: R01, R02, R03, R34.
 | D | 40.0 – 59.9 |
 | F | 0.0 – 39.9 |
 
-## Issue Aggregation
+## 问题聚合
 
-Findings from static and semantic checks are aggregated into **issues** by location:
+来自静态检查与语义检查的发现会按位置聚合为 **issues**：
 
-- **Aggregation key**: `file + line_range` (findings within ±5 lines merge into one issue)
-- Each issue records all matching `rule_id` values
-- Each issue gets a single unified fix suggestion covering all matched rules
-- Fix suggestions include **before** and **after** content comparison
+- **聚合键**：`file + line_range`（±5 行内的发现合并为一个 issue）
+- 每个 issue 记录所有匹配的 `rule_id` 值
+- 每个 issue 生成一条统一修复建议，覆盖所有匹配规则
+- 修复建议包含 **before** 和 **after** 内容对比
 
-## Counting Rules
+## 计数规则
 
-- **PASS**: Rule check succeeded — no deduction
-- **FAIL**: Rule check failed — deduction applied per severity
-- **WARN**: Advisory only (used for S3 rules where the check is inconclusive) — counted separately, no deduction
-- **SKIP**: Rule not applicable (e.g., R43 when `context` field is absent) — not counted
+- **PASS**：规则检查通过 —— 不扣分
+- **FAIL**：规则检查失败 —— 按严重级别扣分
+- **WARN**：仅告警（用于 S3 规则中检查结果不确定的情况）—— 单独计数，不扣分
+- **SKIP**：规则不适用（例如缺少 `context` 字段时的 R43）—— 不计数
 
-Report statistics:
-- `pass_count`: Number of PASS results
-- `fail_count`: Number of FAIL results
-- `warn_count`: Number of WARN results
+报告统计项：
+- `pass_count`：PASS 结果数量
+- `fail_count`：FAIL 结果数量
+- `warn_count`：WARN 结果数量

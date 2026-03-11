@@ -43,7 +43,7 @@
       "severity": "S0",
       "type": "static",
       "dimension": "D1",
-      "rule": "SKILL.md must start with a frontmatter block delimited by `---`",
+      "rule": "SKILL.md 必须以由 `---` 分隔的 frontmatter 块开头",
       "source": ["A1"],
       "check_strategy": "Parse first line for `---` and find matching closing `---` on its own line"
     },
@@ -52,7 +52,7 @@
       "severity": "S0",
       "type": "static",
       "dimension": "D1",
-      "rule": "`name` field must exist, be non-empty, kebab-case, and ≤64 characters",
+      "rule": "`name` 字段必须存在、非空、为 kebab-case 且长度 ≤64 字符",
       "source": ["A1"],
       "check_strategy": "Parse frontmatter, validate with regex ^[a-z0-9]+(-[a-z0-9]+)*$, strip quotes, check length"
     },
@@ -61,7 +61,7 @@
       "severity": "S0",
       "type": "static",
       "dimension": "D1",
-      "rule": "`description` field must exist and be ≥20 characters",
+      "rule": "`description` 字段必须存在且长度 ≥20 字符",
       "source": ["A1"],
       "check_strategy": "Extract description supporting multiline syntax (> and |), check length after trimming"
     },
@@ -70,7 +70,7 @@
       "severity": "S1",
       "type": "static",
       "dimension": "D1",
-      "rule": "`name` value should match the skill directory name",
+      "rule": "`name` 值应与 skill 目录名一致",
       "source": ["A1"],
       "check_strategy": "Compare name field with basename(skill_dir), case-insensitive"
     },
@@ -79,7 +79,7 @@
       "severity": "S2",
       "type": "static",
       "dimension": "D1",
-      "rule": "`description` should not exceed 1024 characters",
+      "rule": "`description` 不应超过 1024 字符",
       "source": ["A1"],
       "check_strategy": "Count characters after multiline merge"
     },
@@ -88,7 +88,7 @@
       "severity": "S3",
       "type": "static",
       "dimension": "D1",
-      "rule": "Unknown frontmatter fields produce a warning",
+      "rule": "未知的 frontmatter 字段应产生告警",
       "source": ["A1"],
       "check_strategy": "Compare all keys against known_frontmatter_fields whitelist"
     },
@@ -97,7 +97,7 @@
       "severity": "S1",
       "type": "semantic",
       "dimension": "D1",
-      "rule": "`description` must answer both 'what it does' and 'when to use it'",
+      "rule": "`description` 必须同时回答“做什么”和“何时使用”",
       "source": ["A1", "A3"],
       "check_strategy": "Semantic analysis of description content for purpose and trigger conditions"
     },
@@ -106,7 +106,7 @@
       "severity": "S2",
       "type": "semantic",
       "dimension": "D1",
-      "rule": "`description` should contain natural trigger phrases a user would say",
+      "rule": "`description` 应包含用户自然会说出的触发短语",
       "source": ["A3", "A5"],
       "check_strategy": "Check for natural language phrases that match user intent patterns"
     },
@@ -115,7 +115,7 @@
       "severity": "S2",
       "type": "semantic",
       "dimension": "D1",
-      "rule": "`description` should be outcome-oriented rather than feature-listing",
+      "rule": "`description` 应以结果为导向，而不是功能罗列",
       "source": ["A3"],
       "check_strategy": "Evaluate whether description focuses on outcomes vs listing capabilities"
     },
@@ -124,7 +124,7 @@
       "severity": "S2",
       "type": "static",
       "dimension": "D1",
-      "rule": "`allowed-tools` if present must be correctly formatted; boolean fields must have valid values",
+      "rule": "若存在 `allowed-tools`，其格式必须正确；布尔字段必须为合法取值",
       "source": ["A1"],
       "check_strategy": "Check only when field exists: allowed-tools as comma-separated list, booleans as true/false"
     },
@@ -133,7 +133,7 @@
       "severity": "S1",
       "type": "static",
       "dimension": "D2",
-      "rule": "SKILL.md must not exceed 500 lines",
+      "rule": "SKILL.md 不得超过 500 行",
       "source": ["A1"],
       "check_strategy": "Count total lines including frontmatter"
     },
@@ -142,7 +142,7 @@
       "severity": "S2",
       "type": "static",
       "dimension": "D2",
-      "rule": "SKILL.md body must not exceed 5000 words",
+      "rule": "SKILL.md 正文不得超过 5000 词",
       "source": ["A3"],
       "check_strategy": "Count words in body (after frontmatter) using whitespace splitting"
     },
@@ -151,7 +151,7 @@
       "severity": "S1",
       "type": "static",
       "dimension": "D2",
-      "rule": "Must not contain TODO/FIXME/HACK placeholders (except inside code blocks)",
+      "rule": "不得包含 TODO/FIXME/HACK 占位符（代码块内除外）",
       "source": ["A3"],
       "check_strategy": "Line-by-line scan tracking code block open/close state, skip content inside code blocks"
     },
@@ -160,7 +160,7 @@
       "severity": "S2",
       "type": "semantic",
       "dimension": "D2",
-      "rule": "No redundant duplicate content across sections",
+      "rule": "各章节之间不得存在冗余重复内容",
       "source": ["A3"],
       "check_strategy": "Semantic analysis for repeated instructions or duplicated paragraphs across sections"
     },
@@ -169,7 +169,7 @@
       "severity": "S2",
       "type": "static",
       "dimension": "D3",
-      "rule": "Skill directory name must be kebab-case and ≤64 characters",
+      "rule": "skill 目录名必须为 kebab-case 且长度 ≤64 字符",
       "source": ["A1"],
       "check_strategy": "Validate basename with regex ^[a-z0-9]+(-[a-z0-9]+)*$"
     },
@@ -178,7 +178,7 @@
       "severity": "S2",
       "type": "static",
       "dimension": "D3",
-      "rule": "Large content blocks (>100 lines of reference material) should be in references/",
+      "rule": "大型内容块（>100 行参考材料）应放在 references/ 中",
       "source": ["A1"],
       "check_strategy": "Count non-code-block text segments length, flag if >100 lines of quoted/reference material inline"
     },
@@ -187,7 +187,7 @@
       "severity": "S2",
       "type": "static",
       "dimension": "D3",
-      "rule": "Referenced paths should use relative paths",
+      "rule": "引用路径应使用相对路径",
       "source": ["A1"],
       "check_strategy": "Extract Markdown link targets, exclude URLs and code block content, check for absolute paths"
     },
@@ -196,7 +196,7 @@
       "severity": "S2",
       "type": "static",
       "dimension": "D3",
-      "rule": "Referenced file paths must actually exist",
+      "rule": "被引用的文件路径必须真实存在",
       "source": ["A1"],
       "check_strategy": "Resolve relative paths from skill directory, exclude URLs and anchor-only refs (#)"
     },
@@ -205,7 +205,7 @@
       "severity": "S2",
       "type": "semantic",
       "dimension": "D3",
-      "rule": "SKILL.md should describe the purpose and load timing of each referenced file",
+      "rule": "SKILL.md 应说明每个被引用文件的用途和加载时机",
       "source": ["A1", "A3"],
       "check_strategy": "Check that each referenced file has accompanying context about why and when it is loaded"
     },
@@ -214,7 +214,7 @@
       "severity": "S2",
       "type": "semantic",
       "dimension": "D4",
-      "rule": "Instructions must use imperative mood, not passive suggestions",
+      "rule": "指令必须使用祈使语气，而非被动建议式表达",
       "source": ["A3", "A5"],
       "check_strategy": "Scan for passive voice patterns and convert to imperative form suggestions"
     },
@@ -223,7 +223,7 @@
       "severity": "S3",
       "type": "semantic",
       "dimension": "D4",
-      "rule": "Avoid vague language ('consider', 'you might', 'perhaps')",
+      "rule": "避免使用含糊措辞（如 'consider'、'you might'、'perhaps'）",
       "source": ["A3", "A5"],
       "check_strategy": "Scan for hedging words and suggest definitive alternatives"
     },
@@ -232,7 +232,7 @@
       "severity": "S2",
       "type": "static",
       "dimension": "D4",
-      "rule": "Code blocks must be properly closed",
+      "rule": "代码块必须正确闭合",
       "source": ["A1"],
       "check_strategy": "Track ``` open/close pairs, support language-annotated fences"
     },
@@ -241,7 +241,7 @@
       "severity": "S2",
       "type": "semantic",
       "dimension": "D4",
-      "rule": "Instructions should explain why, not just describe what to do",
+      "rule": "指令应解释“为什么”，而不仅是“做什么”",
       "source": ["A3"],
       "check_strategy": "Check for instructions that lack rationale or justification"
     },
@@ -250,7 +250,7 @@
       "severity": "S2",
       "type": "semantic",
       "dimension": "D5",
-      "rule": "Each step should have verifiable success criteria",
+      "rule": "每个步骤都应具备可验证的成功标准",
       "source": ["A3", "A5"],
       "check_strategy": "Check workflow steps for explicit success/completion indicators"
     },
@@ -259,7 +259,7 @@
       "severity": "S2",
       "type": "semantic",
       "dimension": "D5",
-      "rule": "Commands and paths must be specific and executable",
+      "rule": "命令和路径必须具体且可执行",
       "source": ["A3"],
       "check_strategy": "Check for placeholder commands or unresolved path variables"
     },
@@ -268,7 +268,7 @@
       "severity": "S1",
       "type": "semantic",
       "dimension": "D5",
-      "rule": "All mentioned operations must provide concrete methods",
+      "rule": "所有提及的操作都必须提供具体实现方法",
       "source": ["A3"],
       "check_strategy": "Identify action references without corresponding implementation details"
     },
@@ -277,7 +277,7 @@
       "severity": "S2",
       "type": "semantic",
       "dimension": "D5",
-      "rule": "Completion criteria must be clearly defined",
+      "rule": "完成标准必须明确定义",
       "source": ["A3", "A5"],
       "check_strategy": "Check for explicit definition of what constitutes task completion"
     },
@@ -286,7 +286,7 @@
       "severity": "S1",
       "type": "semantic",
       "dimension": "D6",
-      "rule": "Must define a clear step-by-step workflow",
+      "rule": "必须定义清晰的分步工作流",
       "source": ["A1", "A3"],
       "check_strategy": "Check for numbered/ordered steps or clear sequential workflow"
     },
@@ -295,7 +295,7 @@
       "severity": "S2",
       "type": "semantic",
       "dimension": "D6",
-      "rule": "Workflow steps must flow smoothly between each other",
+      "rule": "工作流步骤之间必须顺畅衔接",
       "source": ["A3"],
       "check_strategy": "Check that outputs of one step connect to inputs of the next"
     },
@@ -304,7 +304,7 @@
       "severity": "S2",
       "type": "semantic",
       "dimension": "D6",
-      "rule": "Must include error handling or failure recovery instructions",
+      "rule": "必须包含错误处理或失败恢复说明",
       "source": ["A3"],
       "check_strategy": "Check for error/failure/fallback handling in workflow"
     },
@@ -313,7 +313,7 @@
       "severity": "S2",
       "type": "semantic",
       "dimension": "D6",
-      "rule": "Conditional branches must clearly describe each path",
+      "rule": "条件分支必须清晰描述每条路径",
       "source": ["A3"],
       "check_strategy": "Check if/else/when conditions have all branches specified"
     },
@@ -322,7 +322,7 @@
       "severity": "S3",
       "type": "semantic",
       "dimension": "D7",
-      "rule": "Should use progressive disclosure pattern (entry summary → body details → reference depth)",
+      "rule": "应采用渐进披露模式（入口摘要 → 正文细节 → 参考深度）",
       "source": ["A1", "A3"],
       "check_strategy": "Check document structure for layered information architecture"
     },
@@ -331,7 +331,7 @@
       "severity": "S3",
       "type": "semantic",
       "dimension": "D7",
-      "rule": "Validation logic should prefer deterministic scripts",
+      "rule": "验证逻辑应优先使用确定性脚本",
       "source": ["A3"],
       "check_strategy": "Check if verification tasks use scripts rather than relying solely on LLM judgment"
     },
@@ -340,7 +340,7 @@
       "severity": "S0",
       "type": "static",
       "dimension": "D8",
-      "rule": "Must not embed secrets, credentials, or sensitive data",
+      "rule": "不得嵌入密钥、凭据或敏感数据",
       "source": ["A3"],
       "check_strategy": "Scan with high-precision patterns: sk-[a-zA-Z0-9]{20,}, ghp_[a-zA-Z0-9]{36}, AKIA[0-9A-Z]{16}, -----BEGIN.*PRIVATE KEY-----, password\\s*[:=]\\s*['\"][^'\"]{8,}. Exclude code block examples"
     },
@@ -349,7 +349,7 @@
       "severity": "S1",
       "type": "static",
       "dimension": "D8",
-      "rule": "Must not hardcode absolute paths (user directory paths)",
+      "rule": "不得硬编码绝对路径（用户目录路径）",
       "source": ["A3"],
       "check_strategy": "Scan for /home/, /Users/, /root/ paths. Exclude /usr/bin/env, /dev/null, URLs, code block examples"
     },
@@ -358,7 +358,7 @@
       "severity": "S1",
       "type": "static",
       "dimension": "D8",
-      "rule": "Must not inline large data blocks (>50 lines) in SKILL.md",
+      "rule": "不得在 SKILL.md 中内联大型数据块（>50 行）",
       "source": ["A1", "A3"],
       "check_strategy": "Check code block lengths, only flag JSON/YAML/XML/CSV blocks >50 lines"
     },
@@ -367,7 +367,7 @@
       "severity": "S1",
       "type": "static",
       "dimension": "D8",
-      "rule": "Frontmatter must not contain XML tags",
+      "rule": "frontmatter 中不得包含 XML 标签",
       "source": ["A1"],
       "check_strategy": "Scan frontmatter region only for <[a-zA-Z] pattern"
     },
@@ -376,7 +376,7 @@
       "severity": "S2",
       "type": "static",
       "dimension": "D8",
-      "rule": "Must not use Windows-style paths",
+      "rule": "不得使用 Windows 风格路径",
       "source": ["A3"],
       "check_strategy": "Scan for C:\\ or D:\\ patterns, exclude code blocks"
     },
@@ -385,7 +385,7 @@
       "severity": "S2",
       "type": "static",
       "dimension": "D9",
-      "rule": "Python scripts must have valid syntax",
+      "rule": "Python 脚本必须具有有效语法",
       "source": ["A3"],
       "check_strategy": "Use py_compile.compile() to check, report SyntaxError with line number"
     },
@@ -394,7 +394,7 @@
       "severity": "S2",
       "type": "static",
       "dimension": "D9",
-      "rule": "Scripts must include a shebang line",
+      "rule": "脚本必须包含 shebang 行",
       "source": ["A3"],
       "check_strategy": "Check first line for #! in .py/.sh/.bash files"
     },
@@ -403,7 +403,7 @@
       "severity": "S2",
       "type": "static",
       "dimension": "D9",
-      "rule": "Script paths must be portable",
+      "rule": "脚本路径必须可移植",
       "source": ["A3"],
       "check_strategy": "Same absolute path scanning as R35 exclusion logic applied to script files"
     },
@@ -412,7 +412,7 @@
       "severity": "S2",
       "type": "semantic",
       "dimension": "D9",
-      "rule": "Scripts should include basic error handling",
+      "rule": "脚本应包含基础错误处理",
       "source": ["A3"],
       "check_strategy": "Check for try/except blocks, error reporting, and non-zero exit codes on failure"
     },
@@ -421,7 +421,7 @@
       "severity": "S2",
       "type": "static",
       "dimension": "D0",
-      "rule": "When `context: fork`, the `agent` field should also be specified",
+      "rule": "当 `context: fork` 时，也应指定 `agent` 字段",
       "source": ["A1", "A2"],
       "check_strategy": "Check only when context field exists and equals fork"
     },
@@ -430,7 +430,7 @@
       "severity": "S2",
       "type": "semantic",
       "dimension": "D0",
-      "rule": "Fork-type skills must include explicit task instructions",
+      "rule": "fork 类型 skill 必须包含明确的任务指令",
       "source": ["A1", "A2"],
       "check_strategy": "Check fork skills for clear task delegation instructions"
     },
@@ -439,7 +439,7 @@
       "severity": "S2",
       "type": "static",
       "dimension": "D0",
-      "rule": "Subdirectory structure should use standard naming",
+      "rule": "子目录结构应使用标准命名",
       "source": ["A1"],
       "check_strategy": "Compare subdirectory names against standard set: references, scripts, templates, assets, examples"
     },
@@ -448,7 +448,7 @@
       "severity": "S2",
       "type": "static",
       "dimension": "D1",
-      "rule": "`description` must not contain angle-bracket placeholders like `<xxx>`",
+      "rule": "`description` 不得包含如 `<xxx>` 的尖括号占位符",
       "source": ["A1"],
       "check_strategy": "Scan description field for <[a-zA-Z][^>]*> patterns that indicate unresolved placeholders"
     },
@@ -457,7 +457,7 @@
       "severity": "S2",
       "type": "static",
       "dimension": "D2",
-      "rule": "No duplicate section headings within the same file",
+      "rule": "同一文件内不得有重复的章节标题",
       "source": ["A3"],
       "check_strategy": "Collect all Markdown headings (## and ###), flag exact duplicates with line numbers"
     },
@@ -466,7 +466,7 @@
       "severity": "S3",
       "type": "static",
       "dimension": "D4",
-      "rule": "Fenced code blocks should have a language annotation",
+      "rule": "围栏代码块应带有语言标注",
       "source": ["A3"],
       "check_strategy": "Check opening ``` lines for a language identifier after the fence marker"
     },
@@ -475,7 +475,7 @@
       "severity": "S2",
       "type": "static",
       "dimension": "D8",
-      "rule": "Lines should not exceed 200 characters (excluding code blocks and tables)",
+      "rule": "单行不应超过 200 字符（代码块和表格除外）",
       "source": ["A3"],
       "check_strategy": "Scan lines outside code blocks and table rows, flag lines exceeding 200 characters"
     },
@@ -484,7 +484,7 @@
       "severity": "S2",
       "type": "semantic",
       "dimension": "D9",
-      "rule": "Scripts should handle missing dependencies gracefully",
+      "rule": "脚本应能优雅处理缺失依赖",
       "source": ["A3"],
       "check_strategy": "Check that import statements are wrapped in try/except or that the script checks for required tools before use"
     },
@@ -493,7 +493,7 @@
       "severity": "S2",
       "type": "semantic",
       "dimension": "D7",
-      "rule": "When multiple options are presented, a default recommendation should be provided",
+      "rule": "提供多个选项时，应给出默认推荐",
       "source": ["A3"],
       "check_strategy": "Identify sections offering choices/alternatives and check for a recommended default"
     }

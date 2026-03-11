@@ -1,137 +1,137 @@
 ---
 name: pypto-skill-reviewer
-description: "Review and score a skill directory for quality and best-practice compliance. Use when you need to audit a skill, check if a skill follows conventions, or evaluate a skill before publishing. Runs static checks via a Python script and semantic review via checklist, then produces a scored report with concrete fix suggestions."
+description: "对一个 skill 目录进行质量与最佳实践合规性评审并评分。用于需要审计某个 skill、检查 skill 是否遵循规范，或在发布前评估 skill 的场景。通过 Python 脚本执行静态检查，并通过清单执行语义评审，最终产出带有具体修复建议的评分报告。"
 user-invocable: true
 ---
 
 # PyPTO Skill Reviewer
 
-Review a skill directory against 51 rules across 9 dimensions, producing a scored report with actionable fix suggestions.
+基于 9 个维度下的 51 条规则，对一个 skill 目录进行评审，并产出带有可执行修复建议的评分报告。
 
-## Input
+## 输入
 
-The user provides a `<skill-path>` — the path to the skill directory to review. This directory must contain a `SKILL.md` file.
+用户会提供一个 `<skill-path>` —— 待评审 skill 目录的路径。该目录必须包含 `SKILL.md` 文件。
 
-## Reference Files
+## 参考文件
 
 | File | Purpose | Load Timing |
 |------|---------|-------------|
-| [references/rules.json](references/rules.json) | Single source of truth for all 51 rules, dimensions, weights, and severity levels | Read at the start of Phase 1 and Phase 2 |
-| [references/scoring-spec.md](references/scoring-spec.md) | Scoring algorithm: dimension weights, deduction formula, S0 veto, grade mapping | Read at the start of Phase 3 |
-| [references/semantic-checklist.md](references/semantic-checklist.md) | Detailed check requirements, evidence standards, and judgment criteria for 22 semantic rules | Read at the start of Phase 2 |
-| [scripts/validate_skill.py](scripts/validate_skill.py) | Deterministic static checker for 29 rules, outputs JSON findings | Executed in Phase 1 |
-| [templates/report-template.md](templates/report-template.md) | Markdown template for the final review report | Read at the start of Phase 3 |
+| [references/rules.json](references/rules.json) | 51 条规则、维度、权重和严重级别的唯一事实来源 | 在第 1 阶段和第 2 阶段开始时读取 |
+| [references/scoring-spec.md](references/scoring-spec.md) | 评分算法：维度权重、扣分公式、S0 否决、等级映射 | 在第 3 阶段开始时读取 |
+| [references/semantic-checklist.md](references/semantic-checklist.md) | 22 条语义规则的详细检查要求、证据标准和判定准则 | 在第 2 阶段开始时读取 |
+| [scripts/validate_skill.py](scripts/validate_skill.py) | 对 29 条规则进行确定性静态检查，输出 JSON findings | 在第 1 阶段执行 |
+| [templates/report-template.md](templates/report-template.md) | 最终评审报告的 Markdown 模板 | 在第 3 阶段开始时读取 |
 
-## Workflow
+## 工作流程
 
-Execute three phases. Phase 1 and Phase 2 run in parallel because they have no data dependencies.
+执行三个阶段。由于没有数据依赖，第 1 阶段和第 2 阶段可并行运行。
 
-### Phase 1: Static Checks
+### 第 1 阶段：静态检查
 
-1. Read [references/rules.json](references/rules.json) to understand the rule definitions.
-2. Run the static checker against the target skill:
+1. 读取 [references/rules.json](references/rules.json) 以理解规则定义。
+2. 对目标 skill 运行静态检查器：
    ```
    python3 <reviewer-dir>/scripts/validate_skill.py --score <skill-path>
    ```
-   Where `<reviewer-dir>` is this skill's own directory (`.opencode/skills/pypto-skill-reviewer`).
-3. Capture the JSON output — an array of finding objects.
-4. Verify the script exited successfully. If it fails, report the error and continue to Phase 2 results only.
+   其中 `<reviewer-dir>` 是该 skill 自身的目录（`.opencode/skills/pypto-skill-reviewer`）。
+3. 捕获 JSON 输出 —— 一个 finding 对象数组。
+4. 验证脚本是否成功退出。若失败，报告错误，并仅继续输出第 2 阶段结果。
 
-### Phase 2: Semantic Review
+### 第 2 阶段：语义评审
 
-1. Read [references/rules.json](references/rules.json) to identify which rules are `type: "semantic"`.
-2. Read [references/semantic-checklist.md](references/semantic-checklist.md) for the detailed check procedures.
-3. Read all files in the target skill directory:
-   - `SKILL.md` (required)
-   - All files in subdirectories (`references/`, `scripts/`, `templates/`, etc.)
-4. Evaluate each semantic rule against the target skill content, following the checklist procedures exactly.
-5. For each rule, produce a finding object with the required fields:
+1. 读取 [references/rules.json](references/rules.json) 以识别哪些规则是 `type: "semantic"`。
+2. 读取 [references/semantic-checklist.md](references/semantic-checklist.md) 获取详细检查流程。
+3. 读取目标 skill 目录中的全部文件：
+   - `SKILL.md`（必需）
+   - 子目录中的所有文件（`references/`、`scripts/`、`templates/` 等）
+4. 严格按照清单流程，逐条评估语义规则与目标 skill 内容的一致性。
+5. 对每条规则，生成包含必需字段的 finding 对象：
    ```json
    {
      "rule_id": "R07",
-     "status": "FAIL|PASS|SKIP",
+     "status": "失败|通过|跳过",
      "severity": "S1",
      "dimension": "D1",
-     "message": "(must reference specific content from the target skill)",
+     "message": "（必须引用目标 skill 的具体内容）",
      "evidence": {
        "file": "SKILL.md",
        "line": 3,
-       "snippet": "(verbatim excerpt from target skill, ≥10 chars)"
+       "snippet": "（来自目标 skill 的逐字摘录，≥10 个字符）"
      },
-     "suggested_fix": "(concrete edit for this specific skill)"
+     "suggested_fix": "（针对该具体 skill 的明确修改建议）"
    }
    ```
-6. Run self-validation on all semantic findings:
-   - **Snippet match**: Verify every `evidence.snippet` exists verbatim in the target skill files. Remove or fix any finding with a fabricated snippet.
-   - **Uniqueness**: Ensure no two findings have identical `message` text. Merge or differentiate duplicates.
-   - **Specificity**: Confirm every `message` and `suggested_fix` references the target skill's specific content, not generic advice.
+6. 对所有语义 findings 执行自校验：
+   - **Snippet 匹配**：验证每个 `evidence.snippet` 都在目标 skill 文件中逐字存在。若发现伪造片段，删除或修正该 finding。
+   - **唯一性**：确保任意两条 finding 的 `message` 文本不完全相同。对重复项进行合并或差异化处理。
+   - **具体性**：确认每条 `message` 和 `suggested_fix` 都引用目标 skill 的具体内容，而非泛化建议。
 
-### Phase 3: Scoring and Report
+### 第 3 阶段：评分与报告
 
-1. Read [references/scoring-spec.md](references/scoring-spec.md) for the scoring algorithm.
-2. Read [templates/report-template.md](templates/report-template.md) for the report format.
-3. Merge all findings from Phase 1 and Phase 2 into a single list.
-4. Aggregate findings into issues by location:
-   - **Aggregation key**: `file + line_range` (findings within ±5 lines of each other merge into one issue)
-   - Each issue records all matched `rule_id` values
-   - Generate a single unified fix suggestion per issue (with before/after comparison)
-5. Calculate scores per dimension:
+1. 读取 [references/scoring-spec.md](references/scoring-spec.md) 获取评分算法。
+2. 读取 [templates/report-template.md](templates/report-template.md) 获取报告格式。
+3. 将第 1 阶段和第 2 阶段的所有 findings 合并为单一列表。
+4. 按位置将 findings 聚合为问题：
+   - **聚合键**：`file + line_range`（彼此相距 ±5 行内的 findings 合并为一个问题）
+   - 每个问题记录所有匹配的 `rule_id` 值
+   - 每个问题生成一条统一修复建议（包含修改前/后对比）
+5. 按维度计算分数：
    ```
    dimension_raw   = max(0, 100 - sum_of_FAIL_deductions)
    dimension_score = dimension_raw × weight
    ```
-6. Calculate total score: `total = Σ dimension_scores (D1–D9)`.
-7. Apply S0 veto: if any S0 rule has status FAIL, cap total at 59.9 and set max grade to D.
-8. D9 special case: if no `scripts/` directory exists in the target skill, award D9 full marks (5.0).
-9. Map total score to grade: A (90–100), B (75–89), C (60–74), D (40–59), F (0–39).
-10. Compute rule coverage: static rules (PASS + FAIL from script output) + semantic rules (PASS + FAIL + SKIP from Phase 2) = total evaluated. Coverage = evaluated / 51 × 100%.
-11. Apply quality gates — filter findings before scoring:
-    - **Internal misbound**: If a semantic finding's evidence clearly refers to the reviewer itself rather than the target skill, remove it and tag reason `internal_misbound_rule_or_evidence`.
-    - **Insufficient evidence**: If a semantic finding's `evidence.snippet` cannot be found verbatim in the target files, remove it and tag reason `low_information_snippet`.
-    - Record all filtered items for the quality gate section of the report.
-12. Render the final report using the template, filling in all placeholders.
+6. 计算总分：`total = Σ dimension_scores (D1–D9)`。
+7. 应用 S0 否决：若任一 S0 规则状态为 FAIL，则总分封顶为 59.9，且最高等级为 D。
+8. D9 特殊情况：若目标 skill 不存在 `scripts/` 目录，D9 给满分（5.0）。
+9. 将总分映射到等级：A (90–100)、B (75–89)、C (60–74)、D (40–59)、F (0–39)。
+10. 计算规则覆盖率：静态规则（脚本输出中的 PASS + FAIL）+ 语义规则（第 2 阶段的 PASS + FAIL + SKIP）= 总评估数。覆盖率 = evaluated / 51 × 100%。
+11. 应用质量门禁 —— 评分前过滤 findings：
+    - **内部错绑**：若某语义 finding 的证据明显引用的是 reviewer 自身而非目标 skill，移除该 finding，并标注原因 `internal_misbound_rule_or_evidence`。
+    - **证据不足**：若某语义 finding 的 `evidence.snippet` 无法在目标文件中逐字找到，移除该 finding，并标注原因 `low_information_snippet`。
+    - 为报告中的质量门禁章节记录所有被过滤项。
+12. 使用模板渲染最终报告，填充全部占位符。
 
-## Output
+## 输出
 
-Output the complete review report in Markdown format directly to the user. The report MUST contain ALL 6 sections below — missing any section means the report is incomplete.
+直接向用户输出完整的 Markdown 评审报告。报告必须包含以下全部 6 个章节 —— 缺少任意章节都视为不完整。
 
-1. **Review summary** — skill name, total score (0-100, two decimal places), grade (A/B/C/D/F), S0 veto status (Yes/No), rule statistics (pass/fail/warn/skip counts)
-2. **Dimension scores table** — 9 rows (D1-D9), each with: raw score (0-100), weight, weighted score, deduction breakdown listing every FAIL rule_id and its deduction value
-3. **Rule coverage** — static count + semantic count = total evaluated, with per-status breakdown (PASS/FAIL/SKIP), coverage percentage = evaluated / 51 × 100%
-4. **Quality gate** — filtered items with count and removal reason (internal_misbound / low_information_snippet)
-5. **Issue list** — grouped by severity (S0 → S3), each issue with:
-   - Issue description referencing specific target skill content
-   - Matched rule IDs with severity tags
-   - Location (`file:line`) and evidence (verbatim snippet ≥10 chars from target)
-   - Concrete fix suggestion with before/after comparison
-6. **Passed rules summary** — all passed rule IDs grouped by dimension
+1. **评审摘要** —— skill 名称、总分（0-100，保留两位小数）、等级（A/B/C/D/F）、S0 否决状态（是/否）、规则统计（pass/fail/warn/skip 计数）
+2. **维度评分表** —— 9 行（D1-D9），每行包含：原始分（0-100）、权重、加权分、扣分明细（列出每个 FAIL 的 rule_id 及其扣分值）
+3. **规则覆盖率** —— 静态计数 + 语义计数 = 总评估数，含按状态拆分（PASS/FAIL/SKIP），覆盖率百分比 = evaluated / 51 × 100%
+4. **质量门禁** —— 被过滤项的数量与移除原因（internal_misbound / low_information_snippet）
+5. **问题列表** —— 按严重级别分组（S0 → S3），每个问题包含：
+   - 引用目标 skill 具体内容的问题描述
+   - 带严重级别标记的匹配规则 ID
+   - 位置（`file:line`）与证据（来自目标的逐字片段，≥10 个字符）
+   - 含修改前/后对比的具体修复建议
+6. **通过规则汇总** —— 按维度分组的全部通过 rule_id
 
-**Success criteria**: A valid report satisfies:
-  (a) all 6 sections present,
-  (b) total score = sum of dimension weighted scores (±0.01),
-  (c) every finding's evidence.snippet exists verbatim in target files,
-  (d) coverage denominator = 51.
+**成功标准**：一个有效报告需满足：
+  (a) 6 个章节全部存在，
+  (b) 总分 = 各维度加权分之和（±0.01），
+  (c) 每条 finding 的 evidence.snippet 都在目标文件中逐字存在，
+  (d) 覆盖率分母 = 51。
 
-## Error Handling
+## 错误处理
 
-- **SKILL.md not found**: Report as a single S0 finding (R01), skip all other checks, output a minimal report with score 0 and grade F.
-- **Script execution failure**: Log the error, proceed with semantic review only, note in the report that static checks were incomplete. Mark all 29 static rules as SKIP in coverage.
-- **Script output malformed**: If validate_skill.py stdout is not valid JSON:
-  1. Report: "Static analysis script returned non-JSON output"
-  2. Include raw stderr (first 500 chars) in the report's quality gate section
-  3. Proceed with semantic-only review
-  4. Mark all 29 static rules as SKIP in coverage
-- **Empty skill directory**: Same as SKILL.md not found.
-- **Invalid frontmatter**: R01 FAIL triggers S0 veto. Continue checking other rules where possible (those not dependent on frontmatter data).
+- **未找到 SKILL.md**：以单条 S0 finding（R01）上报，跳过其他所有检查，输出最小报告（分数 0，等级 F）。
+- **脚本执行失败**：记录错误，仅继续语义评审，并在报告中注明静态检查未完成。覆盖率中 29 条静态规则全部标记为 SKIP。
+- **脚本输出格式错误**：若 validate_skill.py 的 stdout 不是合法 JSON：
+  1. 报告："静态分析脚本返回了非 JSON 输出"
+  2. 在报告质量门禁章节包含原始 stderr（前 500 个字符）
+  3. 继续仅语义评审
+  4. 覆盖率中 29 条静态规则全部标记为 SKIP
+- **skill 目录为空**：同“未找到 SKILL.md”。
+- **frontmatter 无效**：R01 FAIL 触发 S0 否决。尽可能继续检查其他规则（即不依赖 frontmatter 数据的规则）。
 
-## Constraints
+## 约束
 
-- Do not modify any files in the target skill directory — this is a read-only review.
-- Do not fabricate evidence — every snippet must exist in the actual target files.
-- **`rules.json` is the SINGLE SOURCE OF TRUTH** for all 51 rules. Do NOT:
-  - Invent rules not defined in rules.json
-  - Modify severity levels or dimension assignments from rules.json
-  - Skip any rule — if a rule cannot be checked, mark it as SKIP with reason
-  - Override rule definitions based on assumptions or external knowledge
-- Every finding MUST reference a `rule_id` that exists in rules.json.
-- Use the scoring formula from `scoring-spec.md` precisely — do not estimate or approximate scores.
+- 不要修改目标 skill 目录中的任何文件 —— 这是只读评审。
+- 不要伪造证据 —— 每个 snippet 都必须真实存在于目标文件中。
+- **`rules.json` 是 51 条规则的唯一事实来源**。禁止：
+  - 发明 rules.json 未定义的规则
+  - 修改 rules.json 中的严重级别或维度归属
+  - 跳过任何规则 —— 若某规则无法检查，必须以 SKIP 标记并给出原因
+  - 基于假设或外部知识覆盖规则定义
+- 每条 finding 都必须引用一个存在于 rules.json 的 `rule_id`。
+- 必须严格使用 `scoring-spec.md` 中的评分公式 —— 不得估算或近似。

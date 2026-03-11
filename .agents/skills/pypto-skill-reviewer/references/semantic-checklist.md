@@ -1,10 +1,10 @@
-# Semantic Review Checklist
+# 语义评审检查清单
 
-This checklist defines the 21 semantic rules that require LLM judgment. For each rule, follow the check requirements, evidence standards, and judgment criteria exactly.
+本检查清单定义了 21 条需要 LLM 判断的语义规则。对每条规则，都必须严格遵循检查要求、证据标准和判定标准。
 
-## Output Format
+## 输出格式
 
-For each rule, output a JSON object:
+对每条规则，输出一个 JSON 对象：
 
 ```json
 {
@@ -12,295 +12,297 @@ For each rule, output a JSON object:
   "status": "FAIL",
   "severity": "S1",
   "dimension": "D1",
-  "message": "(must quote specific content from the target skill, never generic text)",
+  "message": "（必须引用目标 skill 的具体内容，绝不能是泛泛而谈的文本）",
   "evidence": {
     "file": "SKILL.md",
     "line": 3,
-    "snippet": "(must be a verbatim excerpt from the target skill, ≥10 characters)"
+    "snippet": "（必须是目标 skill 中逐字摘录的原文片段，≥10 个字符）"
   },
-  "suggested_fix": "(must be a concrete edit specific to this skill)"
+  "suggested_fix": "（必须是针对该 skill 的具体修改建议）"
 }
 ```
 
-For PASS results, set `status: "PASS"` and provide a brief `message` confirming what was found. Evidence is optional for PASS.
+对于 `PASS` 结果，将 `status` 设为 `"PASS"`，并提供简要 `message` 说明发现了什么。`PASS` 时证据可选。
 
 ---
 
 ## D1 Frontmatter 元数据
 
-### R07 — Description Must Answer "What" and "When" (S1)
+### R07 — Description 必须回答“做什么”和“何时使用”（S1）
 
-**Check**: Read the `description` frontmatter field. It must clearly answer:
-1. **What does this skill do?** — the purpose/outcome
-2. **When should it be used?** — the trigger condition or user scenario
+**检查**：阅读 frontmatter 中的 `description` 字段。它必须清晰回答：
+1. **这个 skill 做什么？** —— 目标/产出
+2. **何时应当使用？** —— 触发条件或用户场景
 
-**Evidence standard**: Quote the description text. Identify which of the two questions is missing or poorly answered.
+**证据标准**：引用 description 文本。指出上述两个问题中哪一个缺失或回答不充分。
 
-**Judgment**:
-- PASS: Both questions are answered (explicitly or implicitly clear)
-- FAIL: One or both questions are not addressed
+**判定**：
+- `PASS`：两个问题都已回答（显式或隐式但足够清晰）
+- `FAIL`：一个或两个问题未被覆盖
 
-### R08 — Description Contains Natural Trigger Phrases (S2)
+### R08 — Description 包含自然触发短语（S2）
 
-**Check**: The `description` should contain phrases a user would naturally say when they want to invoke this skill. These are the keywords/phrases the AI assistant uses to match user requests to skills.
+**检查**：`description` 应包含用户在想调用该 skill 时会自然说出的短语。这些是 AI 助手用于将用户请求匹配到 skill 的关键词/短语。
 
-**Evidence standard**: Quote the description. If trigger phrases are present, list them. If absent, suggest what phrases should be added.
+**证据标准**：引用 description。若存在触发短语，列出它们；若不存在，建议应补充哪些短语。
 
-**Judgment**:
-- PASS: Contains at least one natural trigger phrase
-- FAIL: Only uses technical/formal language without user-facing trigger phrases
+**判定**：
+- `PASS`：至少包含一个自然触发短语
+- `FAIL`：仅使用技术化/正式化语言，缺少面向用户的触发短语
 
-### R09 — Description Is Outcome-Oriented (S2)
+### R09 — Description 以结果为导向（S2）
 
-**Check**: The `description` should focus on the outcome or result for the user, not just list features or capabilities.
+**检查**：`description` 应聚焦用户获得的结果，而不只是罗列特性或能力。
 
-**Evidence standard**: Quote the description. Identify whether it states outcomes ("reviews skills for quality") vs features ("checks frontmatter, validates structure, runs scripts").
+**证据标准**：引用 description。判断其是在描述结果（“评审 skill 质量”）还是在描述功能列表（“检查 frontmatter、验证结构、运行脚本”）。
 
-**Judgment**:
-- PASS: Primarily outcome-oriented
-- FAIL: Primarily feature-listing without clear outcomes
+**判定**：
+- `PASS`：主要以结果为导向
+- `FAIL`：主要是功能罗列，缺少明确结果
 
 ---
 
 ## D2 简洁性与效率
 
-### R14 — No Redundant Duplicate Content (S2)
+### R14 — 不存在冗余重复内容（S2）
 
-**Check**: Scan all sections of SKILL.md for content that is repeated in substantially the same form. Identical instructions appearing in multiple sections are wasteful.
+**检查**：扫描 SKILL.md 的所有章节，查找是否有本质上重复的内容。相同指令在多个章节重复出现属于浪费。
 
-**Evidence standard**: Quote both occurrences with their section headings and line numbers.
+**证据标准**：引用两处重复内容，并给出各自的章节标题和行号。
 
-**Judgment**:
-- PASS: No significant duplication found
-- FAIL: Same instruction or content block appears in two or more places
+**判定**：
+- `PASS`：未发现明显重复
+- `FAIL`：相同指令或内容块在两个或以上位置出现
 
 ---
 
 ## D3 文件结构与导航
 
-### R19 — Referenced Files Have Purpose and Timing Described (S2)
+### R19 — 被引用文件需说明用途与时机（S2）
 
-**Check**: For each file referenced in SKILL.md (via links or mentions of files in references/, scripts/, templates/), check that the skill explains:
-1. **Purpose**: What the file is for
-2. **Load timing**: When it should be read/executed
+**检查**：对于 SKILL.md 中引用的每个文件（通过链接，或提及 references/、scripts/、templates/ 下文件），检查 skill 是否说明：
+1. **用途**：该文件用于什么
+2. **加载时机**：何时应读取/执行
 
-**Evidence standard**: List each referenced file and quote the context where it is mentioned. Note which files lack purpose or timing descriptions.
+**证据标准**：列出每个被引用文件，并引用其被提及的上下文。指出哪些文件缺少用途或时机说明。
 
-**Judgment**:
-- PASS: All referenced files have both purpose and timing described
-- FAIL: One or more files lack purpose or timing context
+**判定**：
+- `PASS`：所有被引用文件都说明了用途与时机
+- `FAIL`：一个或多个文件缺少用途或时机上下文
 
 ---
 
 ## D4 语言与表达
 
-### R20 — Instructions Use Imperative Mood (S2)
+### R20 — 指令使用祈使语气（S2）
 
-**Check**: Instructions and directives in the skill body should use imperative mood ("Run the script", "Read the file") rather than passive suggestions ("The script should be run", "The file could be read").
+**检查**：skill 主体中的指令和要求应使用祈使语气（“运行脚本”“读取文件”），而不是被动建议语气（“应运行脚本”“文件可以读取”）。
 
-**Evidence standard**: Quote specific lines that use passive/suggestive voice. Suggest imperative rewording.
+**证据标准**：引用使用被动/建议语气的具体行，并给出祈使语气改写建议。
 
-**Judgment**:
-- PASS: Instructions are predominantly imperative
-- FAIL: Multiple key instructions use passive voice or indirect phrasing
+**判定**：
+- `PASS`：指令以祈使语气为主
+- `FAIL`：多条关键指令使用被动语态或间接表达
 
-### R21 — Avoid Vague Language (S3)
+### R21 — 避免模糊语言（S3）
 
-**Check**: Scan for hedging words and vague qualifiers: "consider", "you might", "perhaps", "maybe", "try to", "it would be good to", "ideally".
+**检查**：扫描模糊措辞和弱化词，如：“考虑”“你可以”“也许”“可能”“尽量”“最好”“理想情况下”。
 
-**Evidence standard**: Quote lines containing vague language with line numbers.
+**证据标准**：引用包含模糊语言的行，并附行号。
 
-**Judgment**:
-- PASS: No significant vague language in instructions
-- FAIL: Hedging language appears in actionable instructions (not in background context)
+**判定**：
+- `PASS`：指令中无明显模糊语言
+- `FAIL`：可执行指令中出现弱化措辞（背景说明中的不算）
 
-### R23 — Instructions Explain Why (S2)
+### R23 — 指令解释原因（S2）
 
-**Check**: Key instructions should include rationale. "Do X because Y" is stronger than just "Do X".
+**检查**：关键指令应包含理由。“因为 Y，所以做 X”强于仅写“做 X”。
 
-**Evidence standard**: Identify instructions that lack rationale. Quote them and suggest how to add reasoning.
+**证据标准**：识别缺少理由的指令，引用原文并建议如何补充原因。
 
-**Judgment**:
-- PASS: Most key instructions include reasoning or the reason is self-evident from context
-- FAIL: Multiple important instructions lack any rationale
+**判定**：
+- `PASS`：大多数关键指令包含理由，或上下文已使理由不言自明
+- `FAIL`：多条重要指令完全缺少理由
 
 ---
 
 ## D5 精确性与可执行性
 
-### R24 — Steps Have Verifiable Success Criteria (S2)
+### R24 — 步骤具有可验证的成功标准（S2）
 
-**Check**: Workflow steps should define how to know they succeeded. "Run the script" alone is insufficient; "Run the script and verify the output contains no FAIL entries" is verifiable.
+**检查**：工作流步骤应定义如何判断成功。仅写“运行脚本”不够；“运行脚本并确认输出不含 FAIL 条目”才可验证。
 
-**Evidence standard**: Quote steps that lack success criteria.
+**证据标准**：引用缺少成功标准的步骤。
 
-**Judgment**:
-- PASS: Most steps have explicit or clearly implied success criteria
-- FAIL: Multiple steps have no way to verify completion
+**判定**：
+- `PASS`：大多数步骤有显式或清晰隐含的成功标准
+- `FAIL`：多条步骤无法验证是否完成
 
-### R25 — Commands and Paths Are Specific (S2)
+### R25 — 命令与路径具体明确（S2）
 
-**Check**: Any commands, file paths, or tool references should be concrete and executable, not placeholder-like or generic.
+**检查**：任何命令、文件路径或工具引用都应具体且可执行，不能是占位符或泛化表达。
 
-**Evidence standard**: Quote any placeholder commands (`<command>`, `$SOME_VAR` without definition) or unresolved paths.
+**证据标准**：引用任何占位命令（`<command>`、未定义的 `$SOME_VAR`）或未解析路径。
 
-**Judgment**:
-- PASS: All commands and paths are specific
-- FAIL: Contains unresolved placeholders or generic references in executable context
+**判定**：
+- `PASS`：所有命令和路径都具体明确
+- `FAIL`：在可执行语境中存在未解析占位符或泛化引用
 
-### R26 — All Operations Provide Concrete Methods (S1)
+### R26 — 所有操作都提供具体方法（S1）
 
-**Check**: When the skill says to "validate X" or "check Y", it must specify how — a specific script, tool command, or step-by-step procedure.
+**检查**：当 skill 提到“验证 X”或“检查 Y”时，必须说明如何做——给出具体脚本、工具命令或分步骤流程。
 
-**Evidence standard**: Quote operations that lack implementation details.
+**证据标准**：引用缺少实现细节的操作描述。
 
-**Judgment**:
-- PASS: All mentioned operations have concrete methods
-- FAIL: One or more operations are mentioned without specifying how to do them
+**判定**：
+- `PASS`：所有提及的操作都有具体方法
+- `FAIL`：一个或多个操作仅被提及，但未说明执行方式
 
-### R27 — Completion Criteria Are Defined (S2)
+### R27 — 定义完成标准（S2）
 
-**Check**: The skill should clearly state when the overall task is complete. What is the final deliverable? How does the user know it's done?
+**检查**：skill 应清楚说明整体任务何时算完成。最终交付物是什么？用户如何确认已完成？
 
-**Evidence standard**: Quote the completion criteria if found, or note their absence.
+**证据标准**：若找到完成标准，引用其内容；否则注明缺失。
 
-**Judgment**:
-- PASS: Clear completion criteria exist
-- FAIL: No explicit definition of what constitutes completion
+**判定**：
+- `PASS`：存在清晰的完成标准
+- `FAIL`：未显式定义“完成”的判定条件
 
 ---
 
 ## D6 工作流完整性
 
-### R28 — Clear Step-by-Step Workflow Defined (S1)
+### R28 — 定义清晰的分步工作流（S1）
 
-**Check**: The skill must contain a structured workflow — numbered steps, ordered phases, or clear sequential stages.
+**检查**：skill 必须包含结构化工作流——编号步骤、有序阶段，或清晰的顺序分段。
 
-**Evidence standard**: Identify the workflow structure. If absent, note what a workflow should look like for this skill.
+**证据标准**：指出工作流结构。若缺失，说明该 skill 的工作流应呈现为何种形式。
 
-**Judgment**:
-- PASS: Clear ordered workflow exists
-- FAIL: No discernible step-by-step flow; instructions are scattered or unordered
+**判定**：
+- `PASS`：存在清晰有序的工作流
+- `FAIL`：无可辨识的分步流程；指令零散或无序
 
-### R29 — Workflow Steps Flow Smoothly (S2)
+### R29 — 工作流步骤衔接顺畅（S2）
 
-**Check**: The output of one step should connect logically to the input of the next. No "jumps" where context is lost between steps.
+**检查**：上一步输出应在逻辑上连接到下一步输入。步骤之间不应出现上下文丢失的“跳跃”。
 
-**Evidence standard**: Identify any gaps where a step's output doesn't feed into the next step's requirements.
+**证据标准**：指出步骤间断裂处，即上一步输出未能满足下一步输入要求的位置。
 
-**Judgment**:
-- PASS: Steps have clear data/control flow between them
-- FAIL: Gaps exist between steps where information is lost or undefined
+**判定**：
+- `PASS`：步骤间数据流/控制流清晰
+- `FAIL`：步骤之间存在信息丢失或未定义的断点
 
-### R30 — Error Handling or Failure Recovery Included (S2)
+### R30 — 包含错误处理或失败恢复（S2）
 
-**Check**: The skill should address what to do when things go wrong — script failures, missing files, invalid input, unexpected states.
+**检查**：skill 应说明出现问题时怎么办——如脚本失败、文件缺失、输入无效、状态异常等。
 
-**Evidence standard**: Quote error handling instructions if found, or note their absence.
+**证据标准**：若存在错误处理指令则引用；否则注明缺失。
 
-**Judgment**:
-- PASS: At least basic error handling is described
-- FAIL: No mention of error cases or recovery procedures
+**判定**：
+- `PASS`：至少描述了基础错误处理
+- `FAIL`：未提及任何错误场景或恢复流程
 
-### R31 — Conditional Branches Are Fully Described (S2)
+### R31 — 条件分支描述完整（S2）
 
-**Check**: When the skill uses if/else logic or conditional paths (e.g., "if X exists, do A; otherwise do B"), all branches must be specified.
+**检查**：当 skill 使用 if/else 或条件路径（如“若 X 存在则做 A，否则做 B”）时，必须覆盖所有分支。
 
-**Evidence standard**: Quote conditional logic and identify any branches that lack instructions.
+**证据标准**：引用条件逻辑，并指出缺少指令的分支。
 
-**Judgment**:
-- PASS: All conditional branches have clear instructions, or no conditional logic exists
-- FAIL: One or more branches are missing or underspecified
+**判定**：
+- `PASS`：所有条件分支都有清晰指令，或不存在条件逻辑
+- `FAIL`：一个或多个分支缺失或描述不足
 
 ---
 
 ## D7 模式与最佳实践
 
-### R32 — Progressive Disclosure Pattern (S3)
+### R32 — 渐进式披露模式（S3）
 
-**Check**: The skill should follow a layered structure:
-1. **Entry**: Brief summary/overview at the top
-2. **Body**: Detailed instructions and workflow
-3. **References**: Deep content in separate files
+**检查**：skill 应遵循分层结构：
+1. **入口**：顶部简要摘要/概览
+2. **主体**：详细指令与工作流
+3. **参考**：将深入内容放在独立文件
 
-**Evidence standard**: Describe the document's structure and how well it follows this pattern.
+**证据标准**：描述文档结构，并说明其对该模式的符合程度。
 
-**Judgment**:
-- PASS: Clear layered structure from summary to detail to references
-- FAIL: Content is flat (all at same detail level) or inverted (deep details before overview)
+**判定**：
+- `PASS`：从概览到细节再到参考的分层结构清晰
+- `FAIL`：内容扁平（所有信息处于同一细节层级）或倒置（先深层细节后概览）
 
-### R33 — Deterministic Scripts for Validation (S3)
+### R33 — 使用确定性脚本做验证（S3）
 
-**Check**: Verification tasks (checking correctness, validating format) should use deterministic scripts rather than relying solely on LLM judgment.
+**检查**：验证任务（检查正确性、校验格式）应使用确定性脚本，而不是完全依赖 LLM 判断。
 
-**Evidence standard**: Identify validation tasks and note whether they use scripts or rely on LLM alone.
+**证据标准**：识别验证任务，并注明其使用脚本还是仅依赖 LLM。
 
-**Judgment**:
-- PASS: Key validation tasks use scripts or deterministic checks
-- FAIL: All validation relies on LLM judgment with no deterministic component
+**判定**：
+- `PASS`：关键验证任务使用脚本或确定性检查
+- `FAIL`：所有验证都依赖 LLM 判断，缺少确定性组件
 
-### R51 — Multi-Option Default Recommendation (S2)
+### R51 — 多选场景提供默认推荐（S2）
 
-**Check**: When the skill presents multiple options, alternatives, or approaches for the user or the AI to choose from, a default or recommended option should be clearly indicated.
+**检查**：当 skill 提供多个选项、替代方案或路径供用户/AI 选择时，应清晰标注默认项或推荐项。
 
-**Evidence standard**: Quote the section presenting options. Note whether a default is marked (e.g., "(recommended)", "prefer X", "default: Y").
+**证据标准**：引用呈现选项的段落。注明是否标记了默认项（如“（推荐）”“优先 X”“默认：Y”）。
 
-**Judgment**:
-- PASS: All multi-option sections have a clear default or recommendation, or no multi-option sections exist
-- FAIL: Options are presented without any guidance on which to prefer
+**判定**：
+- `PASS`：所有多选段落均有清晰默认项/推荐项，或不存在多选段落
+- `FAIL`：给出多个选项但未说明优先选择哪一个
 
 ---
 
 ## D9 脚本与代码质量
 
-### R42 — Scripts Include Basic Error Handling (S2)
+### R42 — 脚本包含基础错误处理（S2）
 
-**Check**: Script files in `scripts/` should include:
-- Try/except or try/catch blocks for operations that can fail
-- Meaningful error messages on failure
-- Non-zero exit codes on error
+**检查**：`scripts/` 中的脚本应包含：
+- 对可能失败操作的 try/except 或 try/catch
+- 失败时有明确错误信息
+- 出错时返回非零退出码
 
-**Evidence standard**: Quote the error handling code or note its absence.
+**证据标准**：引用错误处理代码，或注明其缺失。
 
-**Judgment**:
-- PASS: Scripts have basic error handling
-- FAIL: Scripts lack try/except blocks and may silently fail
-- SKIP: No scripts/ directory exists
+**判定**：
+- `PASS`：脚本具备基础错误处理
+- `FAIL`：脚本缺少 try/except，可能静默失败
+- `SKIP`：不存在 `scripts/` 目录
 
-### R50 — Scripts Handle Missing Dependencies Gracefully (S2)
+### R50 — 脚本能优雅处理缺失依赖（S2）
 
-**Check**: Scripts that import non-standard-library modules or invoke external tools should handle the case where the dependency is missing — either with a try/except around the import or an explicit check before use.
+**检查**：若脚本导入了非标准库模块或调用外部工具，应处理依赖缺失场景——要么对 import 使用 try/except，要么在使用前显式检查。
 
-**Evidence standard**: Quote import statements. Note whether missing-dependency errors would produce a helpful message or an opaque traceback.
+**证据标准**：引用 import 语句。说明依赖缺失时是给出有帮助的提示，还是只抛出晦涩 traceback。
 
-**Judgment**:
-- PASS: All imports are stdlib-only, or non-stdlib imports are guarded with try/except and a clear error message
-- FAIL: Non-stdlib imports exist without any guard, so a missing dependency would crash with an unhelpful traceback
-- SKIP: No scripts/ directory exists
+**判定**：
+- `PASS`：要么全部是标准库导入；要么非标准库导入已用 try/except 防护并提供清晰报错
+- `FAIL`：存在未防护的非标准库导入，依赖缺失时会以不友好的 traceback 崩溃
+- `SKIP`：不存在 `scripts/` 目录
 
 ---
 
 ## D0 附加检查
 
-### R44 — Fork Skills Include Explicit Task Instructions (S2)
+### R44 — Fork 技能包含明确任务指令（S2）
 
-**Check**: When `context: fork` is set, the skill body must contain clear instructions for what the spawned agent should do.
+**检查**：当设置 `context: fork` 时，skill 主体必须明确说明被派生 agent 需要做什么。
 
-**Evidence standard**: Quote the task instructions for the forked agent.
+**证据标准**：引用给 forked agent 的任务指令。
 
-**Judgment**:
-- PASS: Clear task delegation instructions exist
-- FAIL: Fork context is set but no clear task instructions for the agent
-- SKIP: `context` is not set to `fork`
+**判定**：
+- `PASS`：存在清晰的任务委派指令
+- `FAIL`：已设置 fork 上下文，但没有给 agent 的明确任务指令
+- `SKIP`：`context` 不是 `fork`
 
 ---
 
-## Self-Validation Checklist
+## 自检清单
 
-After completing all semantic checks, perform these validations on your own output:
+在完成全部语义检查后，对你自己的输出执行以下校验：
 
-1. **Snippet Match**: Every `evidence.snippet` MUST be a verbatim excerpt from the target skill files. Verify each one exists in the source.
+1. **片段匹配**：每个 `evidence.snippet` 都必须是目标 skill 文件中的逐字原文。请验证每条都能在源文件中找到。
 
-2. **Uniqueness**: No two findings should have identical `message` text. If duplicates exist, merge them or differentiate.
+2. **唯一性**：任意两条发现的 `message` 文本不得完全相同。若有重复，需合并或区分。
 
-3. **Specificity**: Every `message` and `suggested_fix` must reference the target skill's specific content (name, phrases, structure). Generic advice like "improve the description" without referencing the actual description content is invalid.
+3. **具体性**：每条 `message` 与 `suggested_fix` 都必须引用目标 skill 的具体内容（名称、短语、结构）。像“改进描述”这类未引用实际描述内容的泛化建议无效。
+
+（文件结束 - 共 306 行）
