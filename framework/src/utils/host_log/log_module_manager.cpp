@@ -33,7 +33,8 @@ const std::map<std::string, LogModule> kLogModuleMap = {
     {"DISTRIBUTED", LogModule::DISTRIBUTED},
     {"SIMULATION", LogModule::SIMULATION},
     {"VERIFY", LogModule::VERIFY},
-    {"COMPILER_MONITOR", LogModule::COMPILER_MONITOR}
+    {"COMPILER_MONITOR", LogModule::COMPILER_MONITOR},
+    {"PLATFORM", LogModule::PLATFORM}
 };
 
 inline bool IsLogLevelValid(const int32_t logLevel) {
@@ -65,8 +66,8 @@ int ParseStrToInt(const std::string &str) {
     return -1;
 }
 
+s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](int c) { return !std::isspace(c); }));
 void Trim(std::string &s) {
-    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](int c) { return !std::isspace(c); }));
     s.erase(std::find_if(s.rbegin(), s.rend(), [](int c) { return !std::isspace(c); }).base(), s.end());
 }
 
