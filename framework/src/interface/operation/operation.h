@@ -93,6 +93,7 @@ public:
     static const std::string isUpper;
     static const std::string blockSize;
     static const std::string transMode;
+    static const std::string workspaceBaseOffset;
 };
 
 

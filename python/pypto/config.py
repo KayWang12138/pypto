@@ -114,7 +114,11 @@ def get_pass_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
 
 
 
-def set_host_options(*, compile_stage: Optional[CompStage] = None) -> None:
+def set_host_options(*, compile_stage: Optional[CompStage] = None,
+                     compile_monitor_enable: Optional[bool] = None,
+                     interval_sec: Optional[int] = None,
+                     timeout_sec: Optional[int] = None,
+                     total_timeout_sec: Optional[int] = None) -> None:
     """
     Set host options.
 
@@ -122,8 +126,20 @@ def set_host_options(*, compile_stage: Optional[CompStage] = None) -> None:
     ---------
     compile_stage : CompStage
         Control the compilation phase.
+
+    compile_monitor_enable : bool
+        Control whether to enable compilation progress printing during the compilation phase.
+
+    interval_sec : int
+        Control the frequency of printing the compilation progress for a certain stage.
+
+    timeout_sec : int
+        Control the timeout duration of a certain stage of the compilation process.
+
+    total_timeout_sec : int
+        Control the timeout duration for the entire compilation process.
     """
-    options_dict = {k: v.value for k, v in locals().items() if v is not None}
+    options_dict = {k: v.value if isinstance(v, CompStage) else v for k, v in locals().items() if v is not None}
     set_options(host_options=options_dict)
 
 
@@ -541,8 +557,7 @@ def get_options_tree():
 
 class CubeTile:
     """CubeTile"""
-    def __init__(self, m: List[int], k: List[int], n: List[int], enable_multi_data_load: bool = False,
-                        enable_split_k: bool = False):
+    def __init__(self, m: List[int], k: List[int], n: List[int], enable_split_k: bool = False):
         """
         CubeTile tile for matmul operation, m[0], k[0], n[0] for L0 Cache, m[1], k[1], n[1] for L1 Cache
 
@@ -560,10 +575,6 @@ class CubeTile:
             the value of the tile shape in n dimension
             The length of the list must be 2.
 
-        enable_multi_data_load: bool
-            whether the process of moving L1 to L0 is multi data load.
-            default is false (i.e. not multi data load)
-
         enable_split_k: bool
             whether the matmul result accumulated in the GM.
             default is false (i.e. not GM ACC)
@@ -580,7 +591,7 @@ class CubeTile:
         if len(k_padded) == 2:
             k_padded.append(k_padded[1])  # k[2] = k[1]
 
-        self._impl = pypto_impl.CubeTile(list(m), k_padded, list(n), enable_multi_data_load, enable_split_k)
+        self._impl = pypto_impl.CubeTile(list(m), k_padded, list(n), enable_split_k)
 
     def __getattr__(self, name):
         return getattr(self._impl, name)
