@@ -69,6 +69,8 @@
 
 **命中规则**：{{rule_ids_with_severity}}
 
+> 规则内容：{{rule_content}}
+
 **位置**：`{{file}}:{{line}}`
 
 **当前内容**：
@@ -89,6 +91,8 @@
 #### 问题 {{n}}：{{issue_title}}
 
 **命中规则**：{{rule_ids_with_severity}}
+
+> 规则内容：{{rule_content}}
 
 **位置**：`{{file}}:{{line}}`
 
@@ -111,6 +115,8 @@
 
 **命中规则**：{{rule_ids_with_severity}}
 
+> 规则内容：{{rule_content}}
+
 **位置**：`{{file}}:{{line}}`
 
 **当前内容**：
@@ -131,6 +137,8 @@
 #### 问题 {{n}}：{{issue_title}}
 
 **命中规则**：{{rule_ids_with_severity}}
+
+> 规则内容：{{rule_content}}
 
 **位置**：`{{file}}:{{line}}`
 

@@ -2,7 +2,7 @@
 """
 validate_skill.py — Static checker for skill directories.
 
-Checks 24 static rules from rules.json against a target skill directory.
+Checks 28 static rules from rules.json against a target skill directory.
 Outputs a JSON array of findings to stdout.
 
 Usage:
@@ -201,23 +201,23 @@ def check_r10(fm, **_):
 
 
 def check_r11(lines, **_):
-    """R11: SKILL.md must not exceed 500 lines"""
+    """R11: SKILL.md must not exceed 600 lines"""
     count = len(lines)
-    if count > 500:
+    if count > 600:
         return finding("R11", "S1", "D2", "FAIL",
-                       f"SKILL.md 共 {count} 行（最大 500 行）",
+                       f"SKILL.md 共 {count} 行（最大 600 行）",
                        "SKILL.md", 1, f"{count} lines")
     return None
 
 
 def check_r12(lines, fm_end_line, **_):
-    """R12: SKILL.md body must not exceed 5000 words"""
+    """R12: SKILL.md body must not exceed 6000 words"""
     body_start = fm_end_line if fm_end_line else 0
     body = "".join(lines[body_start:])
     word_count = len(body.split())
-    if word_count > 5000:
+    if word_count > 6000:
         return finding("R12", "S2", "D2", "FAIL",
-                       f"SKILL.md 正文共 {word_count} 个词（最大 5000 个词）",
+                       f"SKILL.md 正文共 {word_count} 个词（最大 6000 个词）",
                        "SKILL.md", body_start + 1, f"{word_count} words")
     return None
 
@@ -497,6 +497,9 @@ def check_r40(skill_dir, **_):
     for f in os.listdir(scripts_dir):
         if not any(f.endswith(ext) for ext in (".py", ".sh", ".bash")):
             continue
+        # 豁免 __init__.py（Python 包初始化文件不需要 shebang）
+        if f == "__init__.py":
+            continue
         fpath = os.path.join(scripts_dir, f)
         try:
             with open(fpath, "r", encoding="utf-8", errors="replace") as fh:
@@ -562,7 +565,7 @@ def check_r45(skill_dir, standard_dirs, **_):
     for entry in entries:
         full = os.path.join(skill_dir, entry)
         if os.path.isdir(full) and entry not in standard_dirs and not entry.startswith("."):
-            results.append(finding("R45", "S2", "D0", "FAIL",
+            results.append(finding("R45", "S3", "D0", "FAIL",
                                    f"非标准子目录 `{entry}`（期望: {', '.join(standard_dirs)}）",
                                    entry, 0, entry))
     return results if results else None
@@ -628,24 +631,7 @@ def check_r48(lines, **_):
     return results if results else None
 
 
-def check_r49(lines, fm_end_line, **_):
-    """R49: Lines should not exceed 200 chars (excluding code blocks, tables, frontmatter)"""
-    tracker = CodeBlockTracker()
-    body_start = fm_end_line if fm_end_line else 0
-    results = []
-    for i, line in enumerate(lines):
-        in_block = tracker.update(line)
-        if in_block or i < body_start:
-            continue
-        stripped = line.rstrip("\n\r")
-        # Skip table rows
-        if stripped.startswith("|"):
-            continue
-        if len(stripped) > 200:
-            results.append(finding("R49", "S2", "D8", "FAIL",
-                                   f"行长度超过 200 个字符（当前 {len(stripped)} 个字符）",
-                                   "SKILL.md", i + 1, stripped[:80] + "..."))
-    return results if results else None
+
 
 
 # ---------------------------------------------------------------------------
@@ -845,7 +831,6 @@ def validate(skill_dir):
         check_r46(**ctx),
         check_r47(**ctx),
         check_r48(**ctx),
-        check_r49(**ctx),
     ]
 
     findings = flatten(results)
@@ -860,8 +845,8 @@ def validate(skill_dir):
         "R34": ("S0", "D8"), "R35": ("S1", "D8"), "R36": ("S1", "D8"),
         "R37": ("S1", "D8"), "R38": ("S2", "D8"), "R39": ("S2", "D9"),
         "R40": ("S2", "D9"), "R41": ("S2", "D9"), "R43": ("S2", "D0"),
-        "R45": ("S2", "D0"), "R46": ("S2", "D1"), "R47": ("S2", "D2"),
-        "R48": ("S3", "D4"), "R49": ("S2", "D8"),
+        "R45": ("S3", "D0"), "R46": ("S2", "D1"), "R47": ("S2", "D2"),
+        "R48": ("S3", "D4"),
     }
     failed_rules = {f["rule_id"] for f in findings}
     for rule_id, (sev, dim) in STATIC_RULES.items():

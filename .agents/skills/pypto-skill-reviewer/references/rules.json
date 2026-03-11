@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "meta": {
     "title": "PyPTO Skill Reviewer Rules",
-    "description": "Single source of truth for all 51 review rules across 10 dimensions",
+    "description": "Single source of truth for all 50 review rules across 10 dimensions",
     "sources": [
       { "id": "A1", "title": "Anthropic Docs: Claude Code Skills", "url": "https://docs.anthropic.com/en/docs/claude-code/skills" },
       { "id": "A2", "title": "Anthropic Docs: Subagents", "url": "https://docs.anthropic.com/en/docs/claude-code/subagents" },
@@ -31,8 +31,7 @@
     "S3": 2
   },
   "known_frontmatter_fields": [
-    "name", "description", "context", "agent", "allowed-tools",
-    "user-invocable", "intercept", "model"
+    "name", "description", "license", "compatibility", "metadata"
   ],
   "standard_subdirectories": [
     "references", "scripts", "templates", "assets", "examples"
@@ -133,18 +132,18 @@
       "severity": "S1",
       "type": "static",
       "dimension": "D2",
-      "rule": "SKILL.md 不得超过 500 行",
+      "rule": "SKILL.md 不得超过 600 行",
       "source": ["A1"],
-      "check_strategy": "Count total lines including frontmatter"
+      "check_strategy": "Count total lines including frontmatter, threshold=600"
     },
     {
       "id": "R12",
       "severity": "S2",
       "type": "static",
       "dimension": "D2",
-      "rule": "SKILL.md 正文不得超过 5000 词",
+      "rule": "SKILL.md 正文不得超过 6000 词",
       "source": ["A3"],
-      "check_strategy": "Count words in body (after frontmatter) using whitespace splitting"
+      "check_strategy": "Count words in body (after frontmatter) using whitespace splitting, threshold=6000"
     },
     {
       "id": "R13",
@@ -270,7 +269,7 @@
       "dimension": "D5",
       "rule": "所有提及的操作都必须提供具体实现方法",
       "source": ["A3"],
-      "check_strategy": "Identify action references without corresponding implementation details"
+      "check_strategy": "Identify action references without corresponding implementation details. Skill invocations (e.g., 'use xxx-skill to...') do not require parameter details as AI handles skill calls automatically."}
     },
     {
       "id": "R27",
@@ -436,7 +435,7 @@
     },
     {
       "id": "R45",
-      "severity": "S2",
+      "severity": "S3",
       "type": "static",
       "dimension": "D0",
       "rule": "子目录结构应使用标准命名",
@@ -470,17 +469,9 @@
       "source": ["A3"],
       "check_strategy": "Check opening ``` lines for a language identifier after the fence marker"
     },
+
     {
       "id": "R49",
-      "severity": "S2",
-      "type": "static",
-      "dimension": "D8",
-      "rule": "单行不应超过 200 字符（代码块和表格除外）",
-      "source": ["A3"],
-      "check_strategy": "Scan lines outside code blocks and table rows, flag lines exceeding 200 characters"
-    },
-    {
-      "id": "R50",
       "severity": "S2",
       "type": "semantic",
       "dimension": "D9",
@@ -489,7 +480,7 @@
       "check_strategy": "Check that import statements are wrapped in try/except or that the script checks for required tools before use"
     },
     {
-      "id": "R51",
+      "id": "R50",
       "severity": "S2",
       "type": "semantic",
       "dimension": "D7",

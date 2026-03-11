@@ -6,7 +6,7 @@ user-invocable: true
 
 # PyPTO Skill Reviewer
 
-基于 9 个维度下的 51 条规则，对一个 skill 目录进行评审，并产出带有可执行修复建议的评分报告。
+基于 9 个维度下的 50 条规则，对一个 skill 目录进行评审，并产出带有可执行修复建议的评分报告。
 
 ## 输入
 
@@ -16,10 +16,10 @@ user-invocable: true
 
 | File | Purpose | Load Timing |
 |------|---------|-------------|
-| [references/rules.json](references/rules.json) | 51 条规则、维度、权重和严重级别的唯一事实来源 | 在第 1 阶段和第 2 阶段开始时读取 |
+| [references/rules.json](references/rules.json) | 50 条规则、维度、权重和严重级别的唯一事实来源 | 在第 1 阶段和第 2 阶段开始时读取 |
 | [references/scoring-spec.md](references/scoring-spec.md) | 评分算法：维度权重、扣分公式、S0 否决、等级映射 | 在第 3 阶段开始时读取 |
 | [references/semantic-checklist.md](references/semantic-checklist.md) | 22 条语义规则的详细检查要求、证据标准和判定准则 | 在第 2 阶段开始时读取 |
-| [scripts/validate_skill.py](scripts/validate_skill.py) | 对 29 条规则进行确定性静态检查，输出 JSON findings | 在第 1 阶段执行 |
+| [scripts/validate_skill.py](scripts/validate_skill.py) | 对 28 条规则进行确定性静态检查，输出 JSON findings | 在第 1 阶段执行 |
 | [templates/report-template.md](templates/report-template.md) | 最终评审报告的 Markdown 模板 | 在第 3 阶段开始时读取 |
 
 ## 工作流程
@@ -33,7 +33,7 @@ user-invocable: true
    ```
    python3 <reviewer-dir>/scripts/validate_skill.py --score <skill-path>
    ```
-   其中 `<reviewer-dir>` 是该 skill 自身的目录（`.opencode/skills/pypto-skill-reviewer`）。
+其中 `<reviewer-dir>` 是该 skill 自身的目录（`.agents/skills/pypto-skill-reviewer`）。
 3. 捕获 JSON 输出 —— 一个 finding 对象数组。
 4. 验证脚本是否成功退出。若失败，报告错误，并仅继续输出第 2 阶段结果。
 
@@ -75,6 +75,7 @@ user-invocable: true
    - **聚合键**：`file + line_range`（彼此相距 ±5 行内的 findings 合并为一个问题）
    - 每个问题记录所有匹配的 `rule_id` 值
    - 每个问题生成一条统一修复建议（包含修改前/后对比）
+   - `rule_content`：从 rules.json 中查询对应 rule_id 的 `rule` 字段内容
 5. 按维度计算分数：
    ```
    dimension_raw   = max(0, 100 - sum_of_FAIL_deductions)
@@ -84,7 +85,7 @@ user-invocable: true
 7. 应用 S0 否决：若任一 S0 规则状态为 FAIL，则总分封顶为 59.9，且最高等级为 D。
 8. D9 特殊情况：若目标 skill 不存在 `scripts/` 目录，D9 给满分（5.0）。
 9. 将总分映射到等级：A (90–100)、B (75–89)、C (60–74)、D (40–59)、F (0–39)。
-10. 计算规则覆盖率：静态规则（脚本输出中的 PASS + FAIL）+ 语义规则（第 2 阶段的 PASS + FAIL + SKIP）= 总评估数。覆盖率 = evaluated / 51 × 100%。
+10. 计算规则覆盖率：静态规则（脚本输出中的 PASS + FAIL）+ 语义规则（第 2 阶段的 PASS + FAIL + SKIP）= 总评估数。覆盖率 = evaluated / 50 × 100%。
 11. 应用质量门禁 —— 评分前过滤 findings：
     - **内部错绑**：若某语义 finding 的证据明显引用的是 reviewer 自身而非目标 skill，移除该 finding，并标注原因 `internal_misbound_rule_or_evidence`。
     - **证据不足**：若某语义 finding 的 `evidence.snippet` 无法在目标文件中逐字找到，移除该 finding，并标注原因 `low_information_snippet`。
@@ -97,7 +98,7 @@ user-invocable: true
 
 1. **评审摘要** —— skill 名称、总分（0-100，保留两位小数）、等级（A/B/C/D/F）、S0 否决状态（是/否）、规则统计（pass/fail/warn/skip 计数）
 2. **维度评分表** —— 9 行（D1-D9），每行包含：原始分（0-100）、权重、加权分、扣分明细（列出每个 FAIL 的 rule_id 及其扣分值）
-3. **规则覆盖率** —— 静态计数 + 语义计数 = 总评估数，含按状态拆分（PASS/FAIL/SKIP），覆盖率百分比 = evaluated / 51 × 100%
+3. **规则覆盖率** —— 静态计数 + 语义计数 = 总评估数，含按状态拆分（PASS/FAIL/SKIP），覆盖率百分比 = evaluated / 50 × 100%
 4. **质量门禁** —— 被过滤项的数量与移除原因（internal_misbound / low_information_snippet）
 5. **问题列表** —— 按严重级别分组（S0 → S3），每个问题包含：
    - 引用目标 skill 具体内容的问题描述
@@ -110,17 +111,17 @@ user-invocable: true
   (a) 6 个章节全部存在，
   (b) 总分 = 各维度加权分之和（±0.01），
   (c) 每条 finding 的 evidence.snippet 都在目标文件中逐字存在，
-  (d) 覆盖率分母 = 51。
+  (d) 覆盖率分母 = 50。
 
 ## 错误处理
 
 - **未找到 SKILL.md**：以单条 S0 finding（R01）上报，跳过其他所有检查，输出最小报告（分数 0，等级 F）。
-- **脚本执行失败**：记录错误，仅继续语义评审，并在报告中注明静态检查未完成。覆盖率中 29 条静态规则全部标记为 SKIP。
+- **脚本执行失败**：记录错误，仅继续语义评审，并在报告中注明静态检查未完成。覆盖率中 28 条静态规则全部标记为 SKIP。
 - **脚本输出格式错误**：若 validate_skill.py 的 stdout 不是合法 JSON：
   1. 报告："静态分析脚本返回了非 JSON 输出"
   2. 在报告质量门禁章节包含原始 stderr（前 500 个字符）
   3. 继续仅语义评审
-  4. 覆盖率中 29 条静态规则全部标记为 SKIP
+  4. 覆盖率中 28 条静态规则全部标记为 SKIP
 - **skill 目录为空**：同“未找到 SKILL.md”。
 - **frontmatter 无效**：R01 FAIL 触发 S0 否决。尽可能继续检查其他规则（即不依赖 frontmatter 数据的规则）。
 
@@ -128,7 +129,7 @@ user-invocable: true
 
 - 不要修改目标 skill 目录中的任何文件 —— 这是只读评审。
 - 不要伪造证据 —— 每个 snippet 都必须真实存在于目标文件中。
-- **`rules.json` 是 51 条规则的唯一事实来源**。禁止：
+- **`rules.json` 是 50 条规则的唯一事实来源**。禁止：
   - 发明 rules.json 未定义的规则
   - 修改 rules.json 中的严重级别或维度归属
   - 跳过任何规则 —— 若某规则无法检查，必须以 SKIP 标记并给出原因
