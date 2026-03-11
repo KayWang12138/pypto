@@ -39,19 +39,12 @@ def cleanup_between_tests(run_mode: str = "npu"):
     3. Python garbage collection is triggered
     """
     # Synchronize NPU to ensure all computations are complete
-    if run_mode == "npu":
-        try:
-            torch.npu.synchronize()
-        except Exception as e:
-            print(f"\nError: {e}")
-            raise
+    if run_mode == "npu" and hasattr(torch, 'npu') and hasattr(torch.npu, 'synchronize'):
+        torch.npu.synchronize()
 
     # Reset PyPTO program state to clear any accumulated state
-    try:
+    if hasattr(pypto, 'reset'):
         pypto.reset()
-    except Exception as e:
-        print(f"\nError: {e}")
-        raise
 
     # Force garbage collection to free unreferenced tensors
     gc.collect()
