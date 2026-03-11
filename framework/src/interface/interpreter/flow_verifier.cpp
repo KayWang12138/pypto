@@ -205,7 +205,6 @@ static std::string ToString(const T &val, size_t totalSize) {
     }
 }
 
-
 void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &passIdentifier) {
     functionInterpreter_->verifyType = VerifyType::PASS;
     functionInterpreter_->passIndex = passIndex;
