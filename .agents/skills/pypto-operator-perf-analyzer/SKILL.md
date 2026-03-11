@@ -388,6 +388,4 @@ python3 .opencode/skills/pypto-operator-perf-analyzer/scripts/analyze_perf.py ou
 可在 https://ui.perfetto.dev/ 上传泳道图文件进行可视化分析。
 ```
 
-## 参考资料
 
-> 待补充：性能调优相关文档链接
