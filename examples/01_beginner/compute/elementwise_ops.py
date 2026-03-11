@@ -34,14 +34,12 @@ def cleanup_between_tests(run_mode: str = "npu"):
     """Clean up resources between test cases to prevent state pollution.
 
     This function should be called after each test case to ensure:
-    1. NPU computations are synchronized
-    2. PyPTO program state is reset
-    3. Python garbage collection is triggered
-    """
-    # Synchronize NPU to ensure all computations are complete
-    if run_mode == "npu" and hasattr(torch, 'npu') and hasattr(torch.npu, 'synchronize'):
-        torch.npu.synchronize()
+    1. Python garbage collection is triggered to free unreferenced tensors
+    2. PyPTO program state is reset (if available)
 
+    Note: NPU synchronize is intentionally NOT called here as it can cause
+    timeout issues when NPU state is abnormal after certain operations.
+    """
     # Reset PyPTO program state to clear any accumulated state
     if hasattr(pypto, 'reset'):
         pypto.reset()
