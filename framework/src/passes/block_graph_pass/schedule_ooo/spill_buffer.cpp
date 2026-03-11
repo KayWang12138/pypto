@@ -460,8 +460,12 @@ Status OoOScheduler::SpillInBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssu
 }
 
 Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorPtr spillTensor,
-    int spillMemId, IssueEntryPtr &spillCopyout, SpillInfo spillInfo) {
-    // 创建spill搬出所需的DDR rawtensor/tensor (A5 L1 spill 的情况：spillInfo.spillIssue_ != spillIssue)
+    int spillMemId, IssueEntryPtr &spillCopyout, const SpillInfo &spillInfo) {
+    // 创建spill搬出所需的DDR rawtensor/tensor
+    // A5 中 L1-spill 在 spillIssue 为 L0C_L1 时, 需要设置 L0C_COPY_OUT 搬出的 DDR 的 dtype 与需要搬入的 L1 一致, 其余情况和实际搬出 tensor 的 dtype 一致
+    // L0C----L0C_COPY_L1------L1
+    //    \                      \
+    //     L0C_COPY_OUT->DDR->L1_COPY_IN
     std::shared_ptr<RawTensor> ddrRawTensor =
         (spillInfo.spillIssue_ != spillIssue && spillTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) ?
         std::make_shared<RawTensor>(spillInfo.spillTensor_->Datatype(), spillTensor->tensor->rawshape,
@@ -494,6 +498,7 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
         Element scaleValue = Element(DataType::DT_UINT64, 0);
         if (spillInfo.spillIssue_->tileOp.GetAttr(OpAttributeKey::scaleValue, scaleValue)) {
             spillOutOp.SetAttribute(OpAttributeKey::scaleValue, scaleValue);
+            APASS_LOG_DEBUG_F(Elements::Operation, "Transfer scaleValue %s from L0C_COPY_L1 to L0C_COPY_OUT", std::string(scaleValue.GetUnsignedData()).c_str());
         }
     }
     // 创建spill搬出数据OP_COPY_OUT的issueEntry
@@ -520,6 +525,8 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
 
 void OoOScheduler::UpdateCopyOutMode(Operation &copyOutOp) {
     // A5 上 L0C_COPY_OUT 设置为 NZ_NZ, A2/A3 上 L1_COPY_OUT 设置为 ND_ND
+    auto input = copyOutOp.GetInputOperand(0);
+    if (!input) { return; }
     if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && copyOutOp.GetInputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
         copyOutOp.SetAttribute(OpAttributeKey::copyIsNZ, 1);
     }
@@ -530,6 +537,8 @@ void OoOScheduler::UpdateCopyOutMode(Operation &copyOutOp) {
 
 void OoOScheduler::UpdateCopyInMode(Operation &copyInOp) {
     // A5 上 L1_COPY_IN 设置为 NZ_NZ, A2/A3 上 L1_COPY_IN 设置为 ND_ND
+    auto output = copyInOp.GetOutputOperand(0);
+    if (!output) { return; }
     if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && copyInOp.GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
         copyInOp.SetAttribute(OpAttributeKey::copyInMode, static_cast<int64_t>(Matrix::CopyInMode::NZ2NZ));
     }
