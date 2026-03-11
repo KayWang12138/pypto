@@ -618,4 +618,116 @@ TEST_F(TestCodegenDynCopy, L0CToL1) {
     EXPECT_EQ(res, expect);
 }
 
+Function *SetupConvFunction(const std::string &funcName) {
+    const std::vector<int64_t> shape = {16, 16};
+    Conv::TileL1Info l1TileShape(1, 1, 16, 16, 16, 16, 16, 1);
+    Conv::TileL0Info l0TileShape(1, 16, 16, 16);
+    TileShape::Current().SetConvTile(l1TileShape, l0TileShape, true);
+
+    return GenMockFuncDyn(funcName, shape);;
+}
+
+void SetConvLoad3DAttributes(Operation &op, const bool &isConv3D) {
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::postM, (int64_t)0);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::postK, (int64_t)0);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::paddingLeft, (int64_t)0);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::paddingRight, (int64_t)0);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::paddingTop, (int64_t)0);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::paddingBottom, (int64_t)0);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::padValue, (int64_t)0);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::filterH, (int64_t)1);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::filterW, (int64_t)1);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::dilationH, (int64_t)1);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::dilationW, (int64_t)1);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::strideH, (int64_t)1);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::strideW, (int64_t)1);
+    op.SetAttribute(Conv::LoadStoreConvOpAttributeKey::isConv3D, isConv3D);
+}
+
+std::string TestConvLoad3DBody(const bool &isConv3D) {
+    std::string funcName = "ConvLoad3D";
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
+
+    auto function = SetupConvFunction(funcName);
+
+    const std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    auto l1Tensor = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L1, {16, 16}, dynValidShape});
+    auto l0Tensor = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L0A, {16, 16}, dynValidShape});
+
+    std::vector<int64_t> offset = {0, 0};
+    std::vector<SymbolicScalar> dynoffset = {0, 0};
+    l1Tensor->UpdateOffset(TensorOffset(offset, dynoffset));
+
+    auto &op = function->AddOperation(Opcode::OP_LOAD3D_CONV, {l1Tensor}, {l0Tensor});
+    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    SetConvLoad3DAttributes(op, isConv3D);
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop({symbolManager, *function, *function->rootFunc_->programs_[0], op, {}});
+    function->GetTensorMap().inverseMap_[l1Tensor->GetMagic()] = l1Tensor;
+    function->GetTensorMap().inverseMap_[l0Tensor->GetMagic()] = l0Tensor;
+
+    return cop.GenOpCode();
+}
+
+TEST_F(TestCodegenDynCopy, Load3DConv2D) {
+    std::string res = TestConvLoad3DBody(false);
+    std::string expect = R"!!!(TLoad3D<0>(l0aTensor_10, l1Tensor_11, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1);
+)!!!";
+    EXPECT_EQ(res, expect);
+}
+
+TEST_F(TestCodegenDynCopy, Load3DConv3D) {
+    std::string res = TestConvLoad3DBody(true);
+    std::string expect = R"!!!(TLoad3D<1>(l0aTensor_10, l1Tensor_11, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1);
+)!!!";
+    EXPECT_EQ(res, expect);
+}
+
+void SetConvLoad2DAttributes(Operation &op) {
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::postK, (int64_t)0);
+    op.SetAttribute(Conv::L12L0ConvOpAttributeKey::postN, (int64_t)0);
+}
+
+std::string TestConvLoad2DBody() {
+    std::string funcName = "ConvLoad2D";
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
+
+    auto function = SetupConvFunction(funcName);
+
+    const std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    auto l1Tensor = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L1, {16, 16}, dynValidShape});
+    auto l0Tensor = CreateLogicalTensor({*function, DataType::DT_FP16, MemoryType::MEM_L0B, {16, 16}, dynValidShape});
+
+    std::vector<int64_t> offset = {0, 0};
+    std::vector<SymbolicScalar> dynoffset = {0, 0};
+    l1Tensor->UpdateOffset(TensorOffset(offset, dynoffset));
+
+    auto &op = function->AddOperation(Opcode::OP_LOAD2D_CONV, {l1Tensor}, {l0Tensor});
+    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    SetConvLoad2DAttributes(op);
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop({symbolManager, *function, *function->rootFunc_->programs_[0], op, {}});
+    function->GetTensorMap().inverseMap_[l1Tensor->GetMagic()] = l1Tensor;
+    function->GetTensorMap().inverseMap_[l0Tensor->GetMagic()] = l0Tensor;
+
+    return cop.GenOpCode();
+}
+
+TEST_F(TestCodegenDynCopy, Load2DConv) {
+    std::string res = TestConvLoad2DBody();
+    std::string expect = R"!!!(TLoad2D(l0bTensor_10, l1Tensor_11, 0, 0);
+)!!!";
+    EXPECT_EQ(res, expect);
+}
+
 } // namespace npu::tile_fwk
