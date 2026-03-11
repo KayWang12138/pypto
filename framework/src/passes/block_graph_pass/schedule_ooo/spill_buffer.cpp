@@ -279,8 +279,9 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
     UpdateOpAttr(spillAllocOp, 1, localTensor, {}, spillIssue, 0);
     UpdateOpAttr(spillCopyInOp, DEFAULT_LATENCY, localTensor, spillOutTensor->GetOffset(), spillIssue, base);
     // DDR->COPY_IN->spillTensor 场景不标记 copy_in_mode
-    if (spillIssue->tileOp.GetOpcode() != Opcode::OP_COPY_IN) {
-        UpdateCopyInMode(spillCopyInOp);
+    if (spillIssue->tileOp.GetOpcode() != Opcode::OP_COPY_IN && UpdateCopyInMode(spillCopyInOp) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "UpdateCopyInMode failed!");
+        return FAILED;
     }
     // 初始化OP_COPY_IN/OP_ALLOC的issueEntry
     IssueEntryPtr spillAllocInst = std::make_shared<IssueEntry>(spillAllocOp, issueId);
@@ -379,8 +380,9 @@ Status OoOScheduler::SpillReshapeParticalBuffer(SpillInfo &spillInfo, IssueEntry
     UpdateOpAttr(spillCopyInOp, DEFAULT_LATENCY, newTensor, spillInfo.ddrTensor_->GetOffset(), preIssue, base);
     auto spillCopyInIssue = UpdateIssueAttr(spillCopyInOp, {reshapeTensor->memoryrange.memId}, allocIssue, bufNextUseOrder, isGenSpill);
     // A5 下 DDR->COPY_IN->L1->RESHAPE->L1 场景不标记 copy_in_mode
-    if (preIssue->tileOp.GetOpcode() != Opcode::OP_COPY_IN) {
-        UpdateCopyInMode(spillCopyInOp);
+    if (preIssue->tileOp.GetOpcode() != Opcode::OP_COPY_IN && UpdateCopyInMode(spillCopyInOp) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "UpdateCopyInMode failed");
+        return FAILED;
     }
     // 创建 reshape
     auto &reshapeOp = function_.AddRawOperation(Opcode::OP_RESHAPE, {newTensor}, {reshapeTensor});
@@ -464,8 +466,7 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
     // 创建spill搬出所需的DDR rawtensor/tensor
     // A5 中 L1-spill 在 spillIssue 为 L0C_L1 时, 需要设置 L0C_COPY_OUT 搬出的 DDR 的 dtype 与需要搬入的 L1 一致, 其余情况和实际搬出 tensor 的 dtype 一致
     // L0C----L0C_COPY_L1------L1
-    //    \                      \
-    //     L0C_COPY_OUT->DDR->L1_COPY_IN
+    // L0C->L0C_COPY_OUT->DDR->L1_COPY_IN
     std::shared_ptr<RawTensor> ddrRawTensor =
         (spillInfo.spillIssue_ != spillIssue && spillTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) ?
         std::make_shared<RawTensor>(spillInfo.spillTensor_->Datatype(), spillTensor->tensor->rawshape,
@@ -498,7 +499,7 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
         Element scaleValue = Element(DataType::DT_UINT64, 0);
         if (spillInfo.spillIssue_->tileOp.GetAttr(OpAttributeKey::scaleValue, scaleValue)) {
             spillOutOp.SetAttribute(OpAttributeKey::scaleValue, scaleValue);
-            APASS_LOG_DEBUG_F(Elements::Operation, "Transfer scaleValue %s from L0C_COPY_L1 to L0C_COPY_OUT", std::string(scaleValue.GetUnsignedData()).c_str());
+            APASS_LOG_DEBUG_F(Elements::Operation, "Transfer scaleValue %s from L0C_COPY_L1 to L0C_COPY_OUT", std::to_string(scaleValue.GetUnsignedData()).c_str());
         }
     }
     // 创建spill搬出数据OP_COPY_OUT的issueEntry
@@ -523,28 +524,34 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
     return SUCCESS;
 }
 
-void OoOScheduler::UpdateCopyOutMode(Operation &copyOutOp) {
+Status OoOScheduler::UpdateCopyOutMode(Operation &copyOutOp) {
     // A5 上 L0C_COPY_OUT 设置为 NZ_NZ, A2/A3 上 L1_COPY_OUT 设置为 ND_ND
     auto input = copyOutOp.GetInputOperand(0);
-    if (!input) { return; }
+    if (!input) {
+        APASS_LOG_ERROR_F(Elements::Operation, "CopyOutOp %s[%d] does not have inputOperand", copyOutOp.GetOpcodeStr().c_str(), copyOutOp.GetOpMagic());
+        return FAILED;
+    }
     if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && copyOutOp.GetInputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) {
         copyOutOp.SetAttribute(OpAttributeKey::copyIsNZ, 1);
-    }
-    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 && copyOutOp.GetInputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+    } else if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 && copyOutOp.GetInputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
         copyOutOp.SetAttribute(OpAttributeKey::copyOutMode, static_cast<int64_t>(Matrix::CopyOutMode::ND2ND));
     }
+    return SUCCESS;
 }
 
-void OoOScheduler::UpdateCopyInMode(Operation &copyInOp) {
+Status OoOScheduler::UpdateCopyInMode(Operation &copyInOp) {
     // A5 上 L1_COPY_IN 设置为 NZ_NZ, A2/A3 上 L1_COPY_IN 设置为 ND_ND
     auto output = copyInOp.GetOutputOperand(0);
-    if (!output) { return; }
+    if (!output) {
+        APASS_LOG_ERROR_F(Elements::Operation, "CopyInOp %s[%d] does not have outputOperand", copyInOp.GetOpcodeStr().c_str(), copyInOp.GetOpMagic());
+        return FAILED;
+    }
     if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && copyInOp.GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
         copyInOp.SetAttribute(OpAttributeKey::copyInMode, static_cast<int64_t>(Matrix::CopyInMode::NZ2NZ));
-    }
-    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 && copyInOp.GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+    } else if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 && copyInOp.GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
         copyInOp.SetAttribute(OpAttributeKey::copyInMode, static_cast<int64_t>(Matrix::CopyInMode::ND2ND));
     }
+    return SUCCESS;
 }
 
 Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr &spillCopyout, int &bufLastUseOrder, bool &isFinish) {
@@ -621,7 +628,10 @@ Status OoOScheduler::SpillOutBuffer(SpillInfo &spillInfo, IssueEntryPtr issue, s
         APASS_LOG_ERROR_F(Elements::Tensor, "Cannot find spill Tensor[%d] last used order.", spillInfo.spillMemId_);
         return FAILED;
     }
-    UpdateCopyOutMode(spillCopyout->tileOp);
+    if (UpdateCopyOutMode(spillCopyout->tileOp) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "UpdateCopyOutMode failed!");
+        return FAILED;
+    }
     spillCopyout->execOrder = bufLastUseOrder + 1;
     InsertIssueEntries(spillCopyout);
     if (isGenSpill) {
@@ -790,7 +800,10 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
                 iOperand->GetMemoryTypeOriginal(), OpImmediate::Specified(iOperand->GetShape()),
                 OpImmediate::Specified(assembleTensor->tensor->GetDynRawShape())));
     spillCopyInOp.UpdateLatency(DEFAULT_LATENCY);
-    UpdateCopyInMode(spillCopyInOp);
+    if (UpdateCopyInMode(spillCopyInOp) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "UpdateCopyInMode failed.");
+        return FAILED;
+    }
     UpdateIssueAttr(spillCopyInOp, {assembleTensor->memoryrange.memId}, allocIssue, bufNextUseOrder, isGenSpill);
     // assemble
     auto &assembleOp = function_.AddRawOperation(Opcode::OP_ASSEMBLE, {localTensor}, {assembleTensor});
