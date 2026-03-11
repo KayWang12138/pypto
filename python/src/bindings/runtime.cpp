@@ -669,17 +669,17 @@ private:
 
         if (!module.attr("_host_options").is_none()) {
             auto host_options = module.attr("_host_options").cast<py::dict>();
-            if (host_options.contains("compile_monitor_enable")) {	 
+            if (host_options.contains("compile_monitor_enable")) {
                 compileMonitorEnable = host_options["compile_monitor_enable"].cast<bool>();
             }
-            if (host_options.contains("interval_sec")) {	 
-                intervalSec = host_options["interval_sec"].cast<int>();
+            if (host_options.contains("compile_monitor_print_interval")) {
+                intervalSec = host_options["compile_monitor_print_interval"].cast<int>();
             }
-            if (host_options.contains("timeout_sec")) {	 
-                timeoutSec = host_options["timeout_sec"].cast<int>();
+            if (host_options.contains("compile_timeout_stage")) {
+                timeoutSec = host_options["compile_timeout_stage"].cast<int>();
             }
-            if (host_options.contains("total_timeout_sec")) {	 
-                totalTimeoutSec = host_options["total_timeout_sec"].cast<int>();
+            if (host_options.contains("compile_timeout")) {
+                totalTimeoutSec = host_options["compile_timeout"].cast<int>();
             }
         }
 #if ENABALE_VERBOSE_LOG
