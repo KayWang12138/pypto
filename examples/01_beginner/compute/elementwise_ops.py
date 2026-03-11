@@ -42,14 +42,16 @@ def cleanup_between_tests(run_mode: str = "npu"):
     if run_mode == "npu":
         try:
             torch.npu.synchronize()
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"\nError: {e}")
+            raise
 
     # Reset PyPTO program state to clear any accumulated state
     try:
         pypto.reset()
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"\nError: {e}")
+        raise
 
     # Force garbage collection to free unreferenced tensors
     gc.collect()
