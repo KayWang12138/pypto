@@ -50,10 +50,11 @@ void UpdateCopyOutAttr(Operation &op, Operation &opNext) {
 bool CalculateNewRawShape(
     const std::vector<int64_t> &newShape, const std::vector<int64_t> &oriRawShape, std::vector<int64_t> &newRawShape) {
     newRawShape.resize(newShape.size());
-    size_t diff = oriRawShape.size() - newShape.size();
-    if (diff > 0) {
+    
+    if (oriRawShape.size() - newShape.size() >= 0) {
+        size_t diff = oriRawShape.size() - newShape.size();
         std::copy(oriRawShape.begin() + diff, oriRawShape.end(), newRawShape.begin());
-    }else {
+    } else {
         return false;
     }
     int64_t newShapeSize = 1;

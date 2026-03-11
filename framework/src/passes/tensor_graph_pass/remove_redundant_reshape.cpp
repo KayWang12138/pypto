@@ -56,7 +56,7 @@ Status RemoveRedundantReshape::RemoveReshape(Function &function) const {
     std::unordered_set<Operation *> redundantResapes;
     LogicalTensorPtr in;
     LogicalTensorPtr out;
-    auto needSkip = [](const Shape &vec) -> bool {
+    auto needSkip = [](const Shape vec) -> bool {
         return std::any_of(vec.begin(), vec.end(), [](int64_t val) { return val == -1; });
     };
     for (auto &op : function.Operations()) {
