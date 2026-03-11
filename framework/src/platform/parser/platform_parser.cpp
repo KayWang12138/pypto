@@ -172,13 +172,11 @@ bool INIParser::GetStringVal(const std::string& column, const std::string& key, 
 }
 
 bool CmdParser::GetStringVal(const std::string& column, const std::string& key, std::string& val) const {
-    FUNCTION_LOGD("Try to obtain value from column[%s] and key[%s] throughs ini file.", column.c_str(), key.c_str());
     val.clear();
     if (!CannHostRuntime::Instance().GetSocSpec(column, key, val)) {
         FUNCTION_LOGE("Cannot find soc spec '%s' from the [%s] column.", key.c_str(), column.c_str());
         return false;
     }
-    FUNCTION_LOGD("Value[%s][%s] = %s.", column.c_str(), key.c_str(), val.c_str());
     return true;
 }
 }  // namespace tile_fwk

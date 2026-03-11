@@ -271,7 +271,6 @@ void Platform::ObtainPlatformInfo() {
     if (initialized) {
         return;
     }
-
     std::string socVersion;
     std::unique_ptr<PlatformParser> parser;
     if (CannHostRuntime::Instance().GetSocVersion(socVersion)) {
@@ -281,6 +280,7 @@ void Platform::ObtainPlatformInfo() {
         FUNCTION_LOGD("Cannot obtain platform through cann package, use simulation info.");
         parser = std::make_unique<INIParser>();
     }
+    FUNCTION_LOGD("Try to load platform info.");
     LoadPlatformInfo(*parser);
     initialized = true;
 }
