@@ -21,12 +21,46 @@ Usage:
 """
 
 import argparse
+import gc
+import itertools
 import os
 import sys
 import pypto
 import torch
 import numpy as np
 from numpy.testing import assert_allclose
+
+
+def cleanup_between_tests(run_mode: str = "npu"):
+    """Clean up resources between test cases to prevent state pollution.
+
+    This function should be called after each test case to ensure:
+    1. PyPTO program state is reset to clear accumulated state
+    2. Controller class variables are reset to initial state
+    3. Python garbage collection is triggered to free unreferenced tensors
+
+    Note: NPU synchronize is intentionally NOT called here as it can cause
+    timeout issues when NPU state is abnormal after certain operations.
+    """
+    # Reset PyPTO program state to clear any accumulated state
+    # Use pypto_impl.Reset() directly since reset() is not exported in __all__
+    try:
+        from pypto import pypto_impl
+        pypto_impl.Reset()
+    except ImportError:
+        pass  # pypto_impl not available, skip reset
+
+    # Reset Controller class variables to prevent state pollution between tests
+    # The Controller class in _controller.py has class-level state that persists
+    try:
+        from pypto._controller import Controller
+        Controller._loop_idx_generator = itertools.count(0)
+        Controller.in_function = False
+    except ImportError:
+        pass  # Controller not available, skip reset
+
+    # Force garbage collection to free unreferenced tensors
+    gc.collect()
 
 
 def get_device_id():
@@ -1599,8 +1633,11 @@ Examples:
             if args.run_mode == "npu" and device_id is None:
                 print(f"Skipping {case_key} ({ex_info['name']}): NPU device not configured")
                 continue
-            
+
             ex_info['function'](device_id, args.run_mode)
+
+            # Clean up between test cases to prevent state pollution
+            cleanup_between_tests(args.run_mode)
         
         if len(examples_to_run) > 1:
             print("=" * 60)
