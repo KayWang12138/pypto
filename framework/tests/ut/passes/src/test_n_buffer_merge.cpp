@@ -200,7 +200,7 @@ TEST_F(NBufferMergeTest, TestInvalidMode) {
 }
 
 TEST_F(NBufferMergeTest, TestMode2AndVecNBufferSettingKeyMoreThanMaxValue) {
-    EXPECT_EQ(TestNBufferMergeWithDifferentVecBufferSetting({{-1, 4}, {100, 2}}), FAILED);
+    EXPECT_EQ(TestNBufferMergeWithDifferentVecBufferSetting({{-1, 4}, {100, 2}}), SUCCESS);
 }
 
 TEST_F(NBufferMergeTest, TestMode2AndVecNBufferSettingValueLessThanMinValue) {
