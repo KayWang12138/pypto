@@ -156,7 +156,7 @@ public:
 
     static uint32_t GetAiCpuNumForDav3510(uint32_t aiCpuNum, uint32_t scheCpuNum) {
         if (scheCpuNum == 1) {
-            return 1;   // sche num is 1, no need lauch more aicpu
+            return scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM;
         }
 
         uint32_t oneDieMinCpuNum = aiCpuNum >> 1;
