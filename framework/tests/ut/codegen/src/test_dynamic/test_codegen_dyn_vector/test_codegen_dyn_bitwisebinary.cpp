@@ -126,7 +126,7 @@ TEST_F(TestCodegenDynBitwiseBinary, BitwiseOrLayout) {
 }
 
 TEST_F(TestCodegenDynBitwiseBinary, BitwiseXorLayout) {
-    const std::string expect = R"(TBitwiseXor(ubTensor_2, ubTensor_2, ubTensor_0, ubTensor_5);)";
+    const std::string expect = R"(TBitwiseXor(ubTensor_0, ubTensor_0, ubTensor_2, ubTensor_5);)";
     TestBitwiseTensorDynBody({32, 32}, {16, 16}, "BitwiseXor", expect);
 }
 
