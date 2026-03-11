@@ -51,7 +51,7 @@ bool CalculateNewRawShape(
     const std::vector<int64_t> &newShape, const std::vector<int64_t> &oriRawShape, std::vector<int64_t> &newRawShape) {
     newRawShape.resize(newShape.size());
     
-    if (oriRawShape.size() - newShape.size() >= 0) {
+    if (oriRawShape.size() >= newShape.size()) {
         size_t diff = oriRawShape.size() - newShape.size();
         std::copy(oriRawShape.begin() + diff, oriRawShape.end(), newRawShape.begin());
     } else {
