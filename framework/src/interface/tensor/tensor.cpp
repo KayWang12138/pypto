@@ -64,17 +64,8 @@ static std::vector<SymbolicScalar> ToDynShape(const std::string &tname, const Sh
     return dynShape;
 }
 
-void CheckShapeValid(DataType &dataType, const Shape &shape, TileOpFormat &format) {
-    if (format == TileOpFormat::TILEOP_NZ && shape.back() != -1) {
-        ASSERT(shape.back() * BytesOf(dataType) % ALIGN_SIZE_32 == 0)
-            << "Current inner axis: " << shape.back() << ", when input "
-            << "is NZ format, inner axis shape must be 32-byte aligned\n";
-    }
-}
-
 Tensor::Tensor(DataType dataType, const Shape &shape, std::string name, TileOpFormat format)
     : index_(IdGen<IdType::TENSOR_INDEX>::Inst().NewId()) {
-    CheckShapeValid(dataType, shape, format);
     auto dynShape = ToDynShape(name, shape);
     storage_ = std::make_shared<LogicalTensor>(
         *Program::GetInstance().GetCurrentFunction(), dataType, shape, dynShape, format, name, NodeType::LOCAL);
