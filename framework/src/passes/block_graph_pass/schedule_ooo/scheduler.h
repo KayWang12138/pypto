@@ -366,8 +366,8 @@ private:
         SpillInfo &spillInfo, std::shared_ptr<AssembleOpAttribute> assembleAttr);
     int64_t CalcWorkspaceOffset(std::vector<int64_t> shape, std::vector<int64_t> offset);
     void GetWorkspaceBaseOffset(LogicalTensorPtr ddrTensor, int64_t &base);
-    void UpdateCopyOutMode(Operation &copyOutOp);
-    void UpdateCopyInMode(Operation &copyInOp);
+    Status UpdateCopyOutMode(Operation &copyOutOp);
+    Status UpdateCopyInMode(Operation &copyInOp);
 
     // buffer rearrange
     Status RearrangeBuffer(IssueEntryPtr allocIssue, MemoryType memType, std::pair<OpCoreType, int> corePair, bool isGenSpill);
