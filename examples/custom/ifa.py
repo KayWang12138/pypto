@@ -11,6 +11,7 @@
 
 
 import os
+import logging
 import math
 from dataclasses import dataclass, replace
 
@@ -26,9 +27,18 @@ from torch._dynamo import allow_in_graph
 import pypto
 
 
-def debug_print(tag, msg):
-    print(f"[DEBUG][{tag}] {msg}")
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.propagate = False
 
+formatter = logging.Formatter(
+    fmt='%(asctime)s - [%(levelname)s] - [%(filename)s:%(lineno)d] %(message)s',
+    datefmt='[%Y-%m-%d %H:%M:%S]'
+)
+handler = logging.StreamHandler()
+handler.setFormatter(formatter)
+logger.handlers.clear()
+logger.addHandler(handler)
 
 @dataclass
 class AttentionTileConfig:
@@ -57,6 +67,69 @@ class AttentionConfig:
     kv_num_blocks: int = 0
 
 
+@dataclass
+class LoopOfs:
+    bs_ofs: int = 0
+    n1g_ofs: int = 0
+    out_ofs: int = 0
+
+
+@dataclass
+class LoopTensor:
+    q_2d: pypto.Tensor = None
+    k_2d: pypto.Tensor = None
+    v_2d: pypto.Tensor = None
+    block_table: pypto.Tensor = None
+    kv_act_seqs: pypto.Tensor = None
+    atten_out: pypto.Tensor = None
+
+
+@dataclass
+class LoopIndex:
+    b_idx: int = 0
+    s1_idx: int = 0
+    n2_idx: int = 0
+    group_idx: int = 0
+    s2_idx: int = 0
+
+
+@dataclass
+class LoopSize:
+    group_loop: int = 0
+    s2_loop: int = 0
+
+
+@dataclass
+class TempUpdateTensor:
+    out_update: pypto.Tensor = None
+    sum_update: pypto.Tensor = None
+    max_update: pypto.Tensor = None
+
+
+@dataclass
+class IFAKernelParams:
+    n1: int
+    d: int
+    block_num: int
+    n2: int
+    block_size: int
+    b: int
+    s1: int
+    group: int
+    softmax_scale: float
+
+
+@dataclass
+class ContextParams:
+    kernel_params: IFAKernelParams = None
+    tile_cfg: AttentionTileConfig = None
+    loop_tensors: LoopTensor = None
+    loop_index: LoopIndex = None
+    loop_size: TempUpdateTensor = None
+    loop_ofs: LoopOfs = None
+    temp_update_tensors: TempUpdateTensor = None
+
+
 def gen_block_table(atten_cfg: AttentionConfig, device: str):
     block_num_per_batch = []
     block_num = 0  # res: 1024
@@ -68,25 +141,15 @@ def gen_block_table(atten_cfg: AttentionConfig, device: str):
 
     block_table_shape = [block_table_batch, max_num_blocks_per_query]  # [8, 128]
 
-    # 处理 torch tensor 类型的 actual_seq_len
-    if isinstance(actual_seq_len, torch.Tensor):
-        # 如果 tensor 在 GPU/NPU 上，先移动到 CPU
-        if actual_seq_len.device.type != 'cpu':
-            actual_seq_len_cpu = actual_seq_len.cpu()
-        else:
-            actual_seq_len_cpu = actual_seq_len
-
-        # 转换为 numpy 数组进行处理，或者直接使用 torch 操作
-        for actual_seq in actual_seq_len_cpu:
-            block_num_per_batch.append(math.ceil(actual_seq.item() / block_size))
-            block_num += math.ceil(actual_seq.item() / block_size)
+    if actual_seq_len.device.type != 'cpu':
+        actual_seq_len_cpu = actual_seq_len.cpu()
     else:
-        # 保持对 list 的兼容
-        for actual_seq in actual_seq_len:
-            block_num_per_batch.append(math.ceil(actual_seq / block_size))
-            block_num += math.ceil(actual_seq / block_size)
+        actual_seq_len_cpu = actual_seq_len
 
-    # 使用 torch 替换 numpy
+    for actual_seq in actual_seq_len_cpu:
+        block_num_per_batch.append(math.ceil(actual_seq.item() / block_size))
+        block_num += math.ceil(actual_seq.item() / block_size)
+
     block_idx_list = torch.arange(0, block_num, dtype=torch.int32)
     block_idx_list = block_idx_list[torch.randperm(block_idx_list.size(0))]  # 随机排列
 
@@ -111,17 +174,13 @@ def kv_cache_concat(k_cache: torch.Tensor, v_cache: torch.Tensor, block_table: t
     kv_actual_seqs = atten_cfg.kv_actual_seqs
     dtype = v_cache.dtype
 
-    # 处理 torch tensor 类型的 kv_actual_seqs
-    if isinstance(kv_actual_seqs, torch.Tensor):
-        if kv_actual_seqs.device.type != 'cpu':
-            kv_actual_seqs_cpu = kv_actual_seqs.cpu()
-        else:
-            kv_actual_seqs_cpu = kv_actual_seqs
-        kv_max = (torch.max(kv_actual_seqs_cpu).item() + block_size - 1) // block_size * block_size
+    if kv_actual_seqs.device.type != 'cpu':
+        kv_actual_seqs_cpu = kv_actual_seqs.cpu()
     else:
-        kv_max = (max(kv_actual_seqs) + block_size - 1) // block_size * block_size
+        kv_actual_seqs_cpu = kv_actual_seqs
+    kv_act_seq_max= torch.max(kv_actual_seqs_cpu).item()
+    kv_max = math.ceil(kv_act_seq_max / block_size) * block_size
 
-    # 使用 torch 创建张量，保持在同一设备上
     k = torch.zeros([b, n2, kv_max, kv_lora_rank], dtype=dtype, device=device)  # BNSD [8, 1, 16384, 128]
     v = torch.zeros([b, n2, kv_max, rope_dim], dtype=dtype, device=device)  # BNSD [8, 1, 16384, 128]
     
@@ -134,7 +193,6 @@ def kv_cache_concat(k_cache: torch.Tensor, v_cache: torch.Tensor, block_table: t
         for _, block_idx in enumerate(block_list):
             if block_idx == -1:
                 break
-            # 使用 torch 的切片操作
             start_idx = s_idx * block_size
             end_idx = (s_idx + 1) * block_size
 
@@ -156,17 +214,17 @@ def get_env_device_id():
         int: The device ID if valid, None otherwise.
     """
     if 'TILE_FWK_DEVICE_ID' not in os.environ:
-        print("If no NPU environment is available, set --run_mode sim to run in simulation mode;")
-        print("otherwise, set the environment variable TILE_FWK_DEVICE_ID.")
-        print("Please set it before running this example:")
-        print("  export TILE_FWK_DEVICE_ID=0")
+        logger.info("If no NPU environment is available, set --run_mode sim to run in simulation mode;")
+        logger.info("otherwise, set the environment variable TILE_FWK_DEVICE_ID.")
+        logger.info("Please set it before running this example:")
+        logger.info("  export TILE_FWK_DEVICE_ID=0")
         return None
 
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
     except ValueError:
-        print(f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}")
+        logger.info(f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}")
         return None
 
 
@@ -182,8 +240,26 @@ def get_device(device_id: int = None, run_mode: str = "npu"):
 
 def get_base_params(case_name: str):
     params = {}
-    if case_name.startswith("8b16k"):
-        params = {"b": 8, "s2": 16384, "s1": 1, "d": 128, "n1": 12, "n2": 1}
+    if case_name.startswith("1b16k"):
+        params = {"b": 1, "s2": 16 * 1024, "s1": 1, "d": 128, "n1": 12, "n2": 1}
+    elif case_name.startswith("2b16k"):
+        params = {"b": 2, "s2": 16 * 1024, "s1": 1, "d": 128, "n1": 12, "n2": 1}
+    elif case_name.startswith("4b16k"):
+        params = {"b": 4, "s2": 16 * 1024, "s1": 1, "d": 128, "n1": 12, "n2": 1}
+    elif case_name.startswith("8b16k"):
+        params = {"b": 8, "s2": 16 * 1024, "s1": 1, "d": 128, "n1": 12, "n2": 1}
+    elif case_name.startswith("16b16k"):
+        params = {"b": 16, "s2": 16 * 1024, "s1": 1, "d": 128, "n1": 12, "n2": 1}
+    elif case_name.startswith("1b8k"):
+        params = {"b": 1, "s2": 8 * 1024, "s1": 1, "d": 128, "n1": 12, "n2": 1}
+    elif case_name.startswith("2b8k"):
+        params = {"b": 2, "s2": 8 * 1024, "s1": 1, "d": 128, "n1": 12, "n2": 1}
+    elif case_name.startswith("4b8k"):
+        params = {"b": 4, "s2": 8 * 1024, "s1": 1, "d": 128, "n1": 12, "n2": 1}
+    elif case_name.startswith("8b8k"):
+        params = {"b": 4, "s2": 8 * 1024, "s1": 1, "d": 128, "n1": 12, "n2": 1}
+    elif case_name.startswith("16b8k"):
+        params = {"b": 16, "s2": 8 * 1024, "s1": 1, "d": 128, "n1": 12, "n2": 1}
     else:
         raise Exception(f"Case {case_name} does not exist.")
     return params
@@ -254,7 +330,7 @@ def gen_qkv(atten_cfg: AttentionConfig, device: str):
     return q, k, v
 
 
-def gen_ifa_golden(q, k, v, block_table, atten_cfg: AttentionConfig):
+def gen_ifa_golden(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, block_table: torch.Tensor, atten_cfg: AttentionConfig):
     b = atten_cfg.b
     s1 = atten_cfg.s1
     n2 = atten_cfg.n2
@@ -268,7 +344,7 @@ def gen_ifa_golden(q, k, v, block_table, atten_cfg: AttentionConfig):
         for s1_idx in range(s1):
             for n2_idx in range(n2):
                 # 从 torch tensor 获取值
-                kv_seq_len = kv_actual_seqs[b_idx].item()  # 使用 .item() 获取标量值
+                kv_seq_len = kv_actual_seqs[b_idx].item()
                 cur_s1_len = s1 - 1 - s1_idx
                 seq_len = kv_seq_len - cur_s1_len
 
@@ -288,20 +364,6 @@ def gen_ifa_golden(q, k, v, block_table, atten_cfg: AttentionConfig):
                 # 存储结果
                 atten_out[b_idx * s1 + s1_idx] = bmm2_res
     return atten_out
-
-
-
-@dataclass
-class IFAKernelParams:
-    n1: int
-    d: int
-    block_num: int
-    n2: int
-    block_size: int
-    b: int
-    s1: int
-    group: int
-    softmax_scale: float
 
 
 def init_kernel_params(q, k, block_table_shape):
@@ -337,13 +399,19 @@ def reshape_qkv_to_2d(q, k, v, kernel_params):
     return q_2d, k_2d, v_2d
 
 
-def assemble_kj(k_2d, block_table, b_idx, idx, ctx_params):
-    kernel_params = ctx_params.kernel_params
-    tile_cfg = ctx_params.tile_cfg
+def assemble_kj(idx, ctx_params):
+    # get need loop tensors 
+    k_2d = ctx_params.loop_tensors.k_2d
+    block_table = ctx_params.loop_tensors.block_table
 
-    s2_tile = tile_cfg.s2_tile
-    block_size = kernel_params.block_size
-    d = kernel_params.d
+    # get need tile cfg
+    s2_tile = ctx_params.tile_cfg.s2_tile
+
+    # get need kernel params
+    block_size = ctx_params.kernel_params.block_size
+    d = ctx_params.kernel_params.d
+
+    b_idx = ctx_params.loop_index.b_idx
     
     block_num = s2_tile // block_size
 
@@ -357,13 +425,19 @@ def assemble_kj(k_2d, block_table, b_idx, idx, ctx_params):
     return kj_assemble
     
 
-def assemble_vj(v_2d, block_table, b_idx, idx, actual_s2_tile, ctx_params):
-    kernel_params = ctx_params.kernel_params
-    tile_cfg = ctx_params.tile_cfg
+def assemble_vj(idx, actual_s2_tile, ctx_params):
+    # get need loop tensors 
+    v_2d = ctx_params.loop_tensors.v_2d
+    block_table = ctx_params.loop_tensors.block_table
 
-    s2_tile = tile_cfg.s2_tile
-    block_size = kernel_params.block_size
-    d = kernel_params.d
+    # get need tile cfg
+    s2_tile = ctx_params.tile_cfg.s2_tile
+
+    # get need kernel params
+    block_size = ctx_params.kernel_params.block_size
+    d = ctx_params.kernel_params.d
+
+    b_idx = ctx_params.loop_index.b_idx
 
     block_num = s2_tile // block_size
 
@@ -377,11 +451,17 @@ def assemble_vj(v_2d, block_table, b_idx, idx, actual_s2_tile, ctx_params):
     return vj_assemble
 
 
-def compute_first_tile(sij, vj_assemble, dtype, ctx_params, out_update, sum_update, max_update):
-    kernel_params = ctx_params.kernel_params
-    tile_cfg = ctx_params.tile_cfg
+def compute_first_tile(sij, vj_assemble, dtype, ctx_params):
+    softmax_scale = ctx_params.kernel_params.softmax_scale
 
-    sij_scale = pypto.mul(sij, kernel_params.softmax_scale)
+    c2_tile = ctx_params.tile_cfg.c2_tile
+    v2_tile = ctx_params.tile_cfg.v2_tile
+
+    out_update = ctx_params.temp_update_tensors.out_update
+    sum_update = ctx_params.temp_update_tensors.sum_update
+    max_update = ctx_params.temp_update_tensors.max_update
+
+    sij_scale = pypto.mul(sij, softmax_scale)
     tilda_mij = pypto.amax(sij_scale, dim=-1, keepdim=True)
 
     tsub = pypto.sub(sij_scale, tilda_mij)
@@ -390,20 +470,25 @@ def compute_first_tile(sij, vj_assemble, dtype, ctx_params, out_update, sum_upda
     sum_update[:] = pypto.sum(tilda_pij, dim=-1, keepdim=True)
     max_update[:] = tilda_mij
 
-    pypto.set_cube_tile_shapes(tile_cfg.c2_tile[0], tile_cfg.c2_tile[1], tile_cfg.c2_tile[2])
+    pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2])
     oi_tmp = pypto.matmul(tilda_pij_fp16, vj_assemble, pypto.DT_FP32)
 
-    pypto.set_vec_tile_shapes(tile_cfg.v2_tile[0], tile_cfg.v2_tile[1])
+    pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
     out_update[:] = oi_tmp
-    return out_update, sum_update, max_update
 
 
-def compute_other_tile(sij, vj_assemble, dtype, ctx_params, out_update, sum_update, max_update):
-    kernel_params = ctx_params.kernel_params
-    tile_cfg = ctx_params.tile_cfg
+def compute_other_tile(sij, vj_assemble, dtype, ctx_params):
+    softmax_scale = ctx_params.kernel_params.softmax_scale
+
+    c2_tile = ctx_params.tile_cfg.c2_tile
+    v2_tile = ctx_params.tile_cfg.v2_tile
+
+    out_update = ctx_params.temp_update_tensors.out_update
+    sum_update = ctx_params.temp_update_tensors.sum_update
+    max_update = ctx_params.temp_update_tensors.max_update
 
     pypto.set_pass_options(sg_set_scope=1)
-    sij_scale = pypto.mul(sij, kernel_params.softmax_scale)
+    sij_scale = pypto.mul(sij, softmax_scale)
     tilda_mij = pypto.amax(sij_scale, dim=-1, keepdim=True)
     max_new = pypto.maximum(max_update, tilda_mij)
     tsub = pypto.sub(sij_scale, max_new)
@@ -419,22 +504,28 @@ def compute_other_tile(sij, vj_assemble, dtype, ctx_params, out_update, sum_upda
     sum_update[:] = sum_update * update_mul + sum_local
     pypto.set_pass_options(sg_set_scope=-1)
 
-    pypto.set_cube_tile_shapes(tile_cfg.c2_tile[0], tile_cfg.c2_tile[1], tile_cfg.c2_tile[2])
+    pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2])
     oi_tmp = pypto.matmul(tilda_pij_fp16, vj_assemble, pypto.DT_FP32)
 
-    pypto.set_vec_tile_shapes(tile_cfg.v2_tile[0], tile_cfg.v2_tile[1])
+    pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
     out_update[:] = out_update * update_mul + oi_tmp
-    return out_update, sum_update, max_update
 
 
-def finalize_output(out_update, sum_update, out_ofs, atten_out, dtype, ctx_params):
-    kernel_params = ctx_params.kernel_params
-    tile_cfg = ctx_params.tile_cfg
+def finalize_output(out_ofs, dtype, ctx_params):
+    d = ctx_params.kernel_params.d
+
+    v2_tile = ctx_params.tile_cfg.v2_tile
+    g_tile = ctx_params.tile_cfg.g_tile
+
+    out_update = ctx_params.temp_update_tensors.out_update
+    sum_update = ctx_params.temp_update_tensors.sum_update
+
+    atten_out = ctx_params.loop_tensors.atten_out
 
     oi_final = pypto.div(out_update, sum_update)
-    pypto.set_vec_tile_shapes(16, tile_cfg.v2_tile[0], tile_cfg.v2_tile[1])
+    pypto.set_vec_tile_shapes(16, v2_tile[0], v2_tile[1])
     oi_final_3d = pypto.cast(
-        pypto.reshape(oi_final, [1, tile_cfg.g_tile, kernel_params.d]), dtype)
+        pypto.reshape(oi_final, [1, g_tile, d]), dtype)
     # 7. 将结果搬运到输出tensor上
     pypto.assemble(oi_final_3d, out_ofs, atten_out)
 
@@ -450,111 +541,129 @@ def compute_c1(qi, kj_assemble, actual_s2_tile, tile_cfg):
     return sij
 
 
-def compute_loop_s2(ctx_params, s2_idx, cur_seq_len, bs_ofs, n1g_ofs, b_idx, dtype, out_update, sum_update, max_update, out_ofs):
+def compute_loop_s2(ctx_params, cur_seq_len, dtype):
+    # get need tile cfg
     tile_cfg = ctx_params.tile_cfg
-    kernel_params = ctx_params.kernel_params
-    loop_tensors = ctx_params.loop_tensors
+    s2_tile = tile_cfg.s2_tile
+    v1_tile = tile_cfg.v1_tile
+    g_tile = tile_cfg.g_tile
 
-    q_2d = loop_tensors.q_2d
-    k_2d = loop_tensors.k_2d
-    v_2d = loop_tensors.v_2d
-    kv_act_seqs = loop_tensors.kv_act_seqs
-    block_table = loop_tensors.block_table
-    atten_out = loop_tensors.atten_out
+    # get need kernel params
+    block_size = ctx_params.kernel_params.block_size
+    d = ctx_params.kernel_params.d
+    n1 = ctx_params.kernel_params.n1
 
-    block_num = tile_cfg.s2_tile // kernel_params.block_size
+    # get need loop tensors
+    q_2d = ctx_params.loop_tensors.q_2d
+
+    # get need loop offset params
+    bs_ofs = ctx_params.loop_ofs.bs_ofs
+    n1g_ofs = ctx_params.loop_ofs.n1g_ofs
+    out_ofs = ctx_params.loop_ofs.out_ofs
+
+    # get need loop index params
+    s2_idx = ctx_params.loop_index.s2_idx
+
+    block_num = s2_tile // block_size
     idx = s2_idx * block_num
-    actual_s2_tile = (cur_seq_len - s2_idx * tile_cfg.s2_tile).min(tile_cfg.s2_tile)
-    pypto.set_vec_tile_shapes(tile_cfg.v1_tile[0], tile_cfg.v1_tile[1])
-    qi = pypto.view(q_2d, [tile_cfg.g_tile, kernel_params.d], [bs_ofs * kernel_params.n1 + n1g_ofs, 0])
-    kj_assemble = assemble_kj(k_2d, block_table, b_idx, idx, ctx_params)
+
+    actual_s2_tile = (cur_seq_len - s2_idx * s2_tile).min(s2_tile)
+    pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
+    qi = pypto.view(q_2d, [g_tile, d], [bs_ofs * n1 + n1g_ofs, 0])
+    kj_assemble = assemble_kj(idx, ctx_params)
 
     sij = compute_c1(qi, kj_assemble, actual_s2_tile, tile_cfg)
-    pypto.set_vec_tile_shapes(tile_cfg.v1_tile[0], tile_cfg.v1_tile[1])
-    vj_assemble = assemble_vj(v_2d, block_table, b_idx, idx, actual_s2_tile, ctx_params)
+    pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
+    vj_assemble = assemble_vj(idx, actual_s2_tile, ctx_params)
     if pypto.cond(pypto.is_loop_begin(s2_idx)):
-        out_update, sum_update, max_update = compute_first_tile(sij, vj_assemble, dtype, ctx_params, out_update, sum_update, max_update)
+        compute_first_tile(sij, vj_assemble, dtype, ctx_params)
     else:
-        out_update, sum_update, max_update = compute_other_tile(sij, vj_assemble, dtype, ctx_params, out_update, sum_update, max_update)
+        compute_other_tile(sij, vj_assemble, dtype, ctx_params)
     
     if pypto.cond(pypto.is_loop_end(s2_idx)):
-        finalize_output(out_update, sum_update, out_ofs, atten_out, dtype, ctx_params)
+        finalize_output(out_ofs, dtype, ctx_params)
 
 
-def compute_loop_group(ctx_params, n2_idx, group_idx, cur_seq_len, bs_ofs, b_idx, dtype, s2_loop):
-    tile_cfg = ctx_params.tile_cfg
-    kernel_params = ctx_params.kernel_params
+def compute_loop_group(ctx_params, cur_seq_len, dtype):
+    # get need tile cfg
+    g_tile = ctx_params.tile_cfg.g_tile
 
-    n1g_ofs = n2_idx * kernel_params.group + group_idx * tile_cfg.g_tile
-        
-    out_ofs = [bs_ofs, n1g_ofs, 0]
-    out_update = pypto.tensor([tile_cfg.g_tile, kernel_params.d], pypto.DT_FP32, "out_update")
-    sum_update = pypto.tensor([tile_cfg.g_tile, 1], pypto.DT_FP32, "sum_update")
-    max_update = pypto.tensor([tile_cfg.g_tile, 1], pypto.DT_FP32, "max_update")
-    for s2_idx in pypto.loop(s2_loop, name="LOOP_s2", idx_name="s2_idx", unroll_list=[8, 4, 2, 1]):
-        compute_loop_s2(ctx_params, s2_idx, cur_seq_len, bs_ofs, n1g_ofs, b_idx, dtype, out_update, sum_update, max_update, out_ofs)
-        
+    # get need kernel params
+    group = ctx_params.kernel_params.group
+    d = ctx_params.kernel_params.d
 
-def compute_loop_n2(ctx_params, n2_idx, group_loop, cur_seq_len, bs_ofs, b_idx, dtype, s2_loop):
-    for group_idx in pypto.loop(group_loop, name="LOOP_group_idx", idx_name="group_idx"):
-        compute_loop_group(ctx_params, n2_idx, group_idx, cur_seq_len, bs_ofs, b_idx, dtype, s2_loop)
-        
-
-def compute_loop_s1(ctx_params, group_loop, cur_seq_len, bs_ofs, b_idx, dtype, s2_loop):
-    kernel_params = ctx_params.kernel_params
-
-    for n2_idx in pypto.loop(kernel_params.n2, name="LOOP_n2", idx_name="n2_idx"):
-        compute_loop_n2(ctx_params, n2_idx, group_loop, cur_seq_len, bs_ofs, b_idx, dtype, s2_loop)
-
-
-# def compute_loop_b(b_idx, group_loop, dtype, kv_act_seqs, ctx_params, q_2d, k_2d, v_2d, block_table, atten_out):
-def compute_loop_b(group_loop, dtype, ctx_params):
-    kernel_params = ctx_params.kernel_params
-    tile_cfg = ctx_params.tile_cfg
-    loop_tensors = ctx_params.loop_tensors
+    # get need loop index params
     loop_index = ctx_params.loop_index
+    n2_idx = loop_index.n2_idx
+    group_idx = loop_index.group_idx
 
-    b_idx = loop_index.b_idx
+    # get need loop offset params
+    loop_ofs = ctx_params.loop_ofs
+    bs_ofs = loop_ofs.bs_ofs
 
-    q_2d = loop_tensors.q_2d
-    k_2d = loop_tensors.k_2d
-    v_2d = loop_tensors.v_2d
-    kv_act_seqs = loop_tensors.kv_act_seqs
-    block_table = loop_tensors.block_table
-    atten_out = loop_tensors.atten_out
+    # get need loop params
+    s2_loop = ctx_params.loop_size.s2_loop
 
-    s1 = kernel_params.s1
-    s2_tile = tile_cfg.s2_tile
+    n1g_ofs = n2_idx * group + group_idx * g_tile
+    out_ofs = [bs_ofs, n1g_ofs, 0]
+    loop_ofs = replace(loop_ofs, n1g_ofs=n1g_ofs, out_ofs=out_ofs)
+
+    out_update = pypto.tensor([g_tile, d], pypto.DT_FP32, "out_update")
+    sum_update = pypto.tensor([g_tile, 1], pypto.DT_FP32, "sum_update")
+    max_update = pypto.tensor([g_tile, 1], pypto.DT_FP32, "max_update")
+    temp_update_tensors = TempUpdateTensor(out_update, sum_update, max_update)
+
+    for s2_idx in pypto.loop(s2_loop, name="LOOP_s2", idx_name="s2_idx", unroll_list=[8, 4, 2, 1]):
+        loop_index = replace(loop_index, s2_idx=s2_idx)
+        ctx_params = replace(ctx_params, loop_index=loop_index, 
+                            temp_update_tensors=temp_update_tensors, loop_ofs=loop_ofs)
+        compute_loop_s2(ctx_params, cur_seq_len, dtype)
+        
+
+def compute_loop_n2(ctx_params, cur_seq_len, dtype):
+    loop_index = ctx_params.loop_index
+    group_loop = ctx_params.loop_size.group_loop
+
+    for group_idx in pypto.loop(group_loop, name="LOOP_group_idx", idx_name="group_idx"):
+        loop_index = replace(loop_index, group_idx=group_idx)
+        ctx_params = replace(ctx_params, loop_index=loop_index)
+        compute_loop_group(ctx_params, cur_seq_len, dtype)
+        
+
+def compute_loop_s1(ctx_params, cur_seq_len, dtype):
+    n2 = ctx_params.kernel_params.n2
+    loop_index =  ctx_params.loop_index
+
+    for n2_idx in pypto.loop(n2, name="LOOP_n2", idx_name="n2_idx"):
+        loop_index = replace(loop_index, n2_idx=n2_idx)
+        ctx_params = replace(ctx_params, loop_index=loop_index)
+        compute_loop_n2(ctx_params, cur_seq_len, dtype)
+
+
+def compute_loop_b(dtype, ctx_params):
+    # get need kernel params
+    s1 = ctx_params.kernel_params.s1
+
+    # get need tile cfg
+    s2_tile = ctx_params.tile_cfg.s2_tile
+
+    # get need loop tensors
+    kv_act_seqs = ctx_params.loop_tensors.kv_act_seqs
+
+    # get need loop index
+    b_idx = ctx_params.loop_index.b_idx
+
+    loop_size = ctx_params.loop_size
 
     for s1_idx in pypto.loop(s1, name="LOOP_s1", idx_name="s1_idx"):
         cur_seq_len = kv_act_seqs[b_idx] - (s1 - 1 - s1_idx)
         s2_loop = pypto.ceildiv(cur_seq_len, s2_tile)
+        loop_size = replace(loop_size, s2_loop=s2_loop)
         bs_ofs = b_idx * s1 + s1_idx
-        compute_loop_s1(ctx_params, group_loop, cur_seq_len, bs_ofs, b_idx, dtype, s2_loop)
-        
-
-@dataclass
-class LoopTensor:
-    q_2d: pypto.Tensor = None
-    k_2d: pypto.Tensor = None
-    v_2d: pypto.Tensor = None
-    block_table: pypto.Tensor = None
-    kv_act_seqs: pypto.Tensor = None
-    atten_out: pypto.Tensor = None
-
-
-@dataclass
-class LoopIndex:
-    b_idx: int = 0
-
-
-@dataclass
-class ContextParams:
-    kernel_params: IFAKernelParams
-    tile_cfg: AttentionTileConfig
-    loop_tensors: LoopTensor
-    loop_index: LoopIndex = None
-
+        loop_ofs = LoopOfs(bs_ofs=bs_ofs)
+        ctx_params = replace(ctx_params, loop_size=loop_size, loop_ofs=loop_ofs)
+        compute_loop_s1(ctx_params, cur_seq_len, dtype)
+    
 
 def ifa_func(q_shape, kv_shape, block_table_shape):
     out_shape = q_shape
@@ -586,7 +695,7 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
         kv_act_seqs: pypto.Tensor((b, ), pypto.DT_INT32),
         atten_out: pypto.Tensor(out_shape, pypto.DT_BF16)
     ):
-        print(f"================ ifa_func_kernel ================")
+        logger.info(f"================ ifa_func_kernel ================")
         # 1. 解析参数
         dtype = q.dtype
         kernel_params = init_kernel_params(q, k, block_table_shape)
@@ -599,13 +708,18 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
         loop_tensors = LoopTensor(q_2d, k_2d, v_2d, block_table, kv_act_seqs, atten_out)
 
         group_loop = kernel_params.group // tile_cfg.g_tile
-        ctx_params = ContextParams(kernel_params, tile_cfg, loop_tensors)
+        loop_size = LoopSize(group_loop=group_loop)
+
+        ctx_params = ContextParams(
+            kernel_params=kernel_params, tile_cfg=tile_cfg, loop_tensors=loop_tensors,
+            loop_size=loop_size
+        )
 
         # 4. 实现kernel逻辑
         for b_idx in pypto.loop(kernel_params.b, name="LOOP_b", idx_name="b_idx"):
             loop_index = LoopIndex(b_idx=b_idx)
             ctx_params = replace(ctx_params, loop_index=loop_index)
-            compute_loop_b(group_loop, dtype, ctx_params)
+            compute_loop_b(dtype, ctx_params)
     return ifa_func_kernel
 
 
@@ -641,21 +755,25 @@ def incre_flash_attention(
 
 
 def do_test_incre_flash_attention(case_name: str):
+    logger.info("*" * 60)
+    logger.info(f"Run incre_flash_attention {case_name} case")
+    logger.info("*" * 60 + "\n")
+
     device = get_device()
     atten_cfg = get_ifa_atten_cfg(device, case_name)
 
     q, k_cache, v_cache = gen_qkv(atten_cfg, device)
-    debug_print("q.shape", q.shape)
-    debug_print("k_cache.shape", k_cache.shape)
-    debug_print("v_cache.shape", v_cache.shape)
+    logger.info(f"q.shape: {q.shape}")
+    logger.info(f"k_cache.shape: {k_cache.shape}")
+    logger.info(f"v_cache.shape: {v_cache.shape}")
     block_table = gen_block_table(atten_cfg, device)
-    debug_print("block_table.shape", block_table.shape)
+    logger.info(f"block_table.shape: {block_table.shape}")
     k, v = kv_cache_concat(k_cache, v_cache, block_table, atten_cfg, device)
-    debug_print("k.shape", k.shape)
-    debug_print("v.shape", v.shape)
+    logger.info(f"k.shape: {k.shape}")
+    logger.info(f"v.shape: {v.shape}")
 
     kv_actual_seqs = atten_cfg.kv_actual_seqs
-    debug_print("kv_actual_seqs", kv_actual_seqs)
+    logger.info(f"kv_actual_seqs: {kv_actual_seqs}")
     ifa_golden = gen_ifa_golden(q, k, v, block_table, atten_cfg)
 
     inputs = dict(
@@ -677,9 +795,66 @@ def do_test_incre_flash_attention(case_name: str):
                     rtol=0.0078125, atol=0.0001)
  
 
+def main():
+    logger.info("\n")
+    logger.info("=" * 60)
+    logger.info("PyPTO incre_flash_attention Example")
+    logger.info("=" * 60 + "\n")
+    
+    # test incre_flash_attention kvs 16k
+    test_incre_flash_attention_1b16k()
+    test_incre_flash_attention_2b16k()
+    test_incre_flash_attention_4b16k()
+    test_incre_flash_attention_8b16k()
+    test_incre_flash_attention_16b16k()
+
+    # test incre_flash_attention kvs 8k
+    test_incre_flash_attention_1b8k()
+    test_incre_flash_attention_2b8k()
+    test_incre_flash_attention_4b8k()
+    test_incre_flash_attention_8b8k()
+    test_incre_flash_attention_16b8k()
+
+
+def test_incre_flash_attention_1b16k():
+    do_test_incre_flash_attention("1b16k")
+
+
+def test_incre_flash_attention_2b16k():
+    do_test_incre_flash_attention("2b16k")
+
+
+def test_incre_flash_attention_4b16k():
+    do_test_incre_flash_attention("4b16k")
+
+
 def test_incre_flash_attention_8b16k():
     do_test_incre_flash_attention("8b16k")
 
 
+def test_incre_flash_attention_16b16k():
+    do_test_incre_flash_attention("16b16k")
+
+
+def test_incre_flash_attention_1b8k():
+    do_test_incre_flash_attention("1b8k")
+
+
+def test_incre_flash_attention_2b8k():
+    do_test_incre_flash_attention("2b8k")
+
+
+def test_incre_flash_attention_4b8k():
+    do_test_incre_flash_attention("4b8k")
+
+
+def test_incre_flash_attention_8b8k():
+    do_test_incre_flash_attention("8b8k")
+
+
+def test_incre_flash_attention_16b8k():
+    do_test_incre_flash_attention("16b8k")
+
+
 if __name__ == "__main__":
-    test_incre_flash_attention_8b16k()
+    main()
