@@ -452,7 +452,10 @@ struct DynMachineManager {
             if (ret != 0) {
                 return ret;
             }
+            kargs->taskWastTime = GetCycles();
+            PerfMtTrace(PERF_TRACE_BEGIN, ctrlThreadIdx, kargs->taskWastTime);
             ret = RunCtrl(kargs, entry, ctrlThreadIdx);
+            PerfMtTrace(PERF_TRACE_EXIT, ctrlThreadIdx);
             DEV_INFO("CtrlThreadLeave idx=%d ret=%d", ctrlThreadIdx, ret);
         } else {
             SignalReg(entry);
@@ -465,10 +468,12 @@ struct DynMachineManager {
 
         splittedInfo_.ScheWait(devProg);
         // After wait, the devStartArgs should be ready.
-
+        auto beginTime = GetCycles();
         DevStartArgs *runtimeDataCurrent = reinterpret_cast<DevStartArgs *>(devProg->GetRuntimeDataList()->GetRuntimeDataCurrent());
         auto devArgs = devProg->devArgs;
         int threadIdx = AllocThreadIdx(&devArgs, runtimeDataCurrent->devScheState.threadIdx);
+        PerfMtTrace(PERF_TRACE_ALLOC_THREAD_ID, threadIdx);
+        PerfMtTrace(PERF_TRACE_BEGIN, threadIdx, beginTime);
         int ret = DEVICE_MACHINE_OK;
         if (threadIdx != -1 && threadIdx <= static_cast<int>(devArgs.scheCpuNum)) {
             DEV_INFO("SchedThreadEnter idx=%d round=%d", threadIdx, (int)kargs->parameter.globalRound);
