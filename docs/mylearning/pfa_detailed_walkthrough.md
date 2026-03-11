@@ -1,4 +1,4 @@
-# PFA 详细迭代过程与寻址计算解读
+# PFA 详细迭代过程与寻址计算解读 (v2 版本)
 
 ## 文档说明
 
@@ -6,6 +6,7 @@
 - 大矩阵如何拆分成小矩阵进行计算
 - 每次迭代时的寻址计算过程
 - 不同 tile 分块的具体数据流
+- v2 版本的优化点
 
 **前置知识**: 建议先阅读 `pfa_graph.md` 了解整体数据布局和循环结构。
 
@@ -16,7 +17,7 @@
 ### 1.1 测试配置
 
 ```python
-# PFA 测试配置 (glm_attention_ifa_pfa_opt_v1.py:162-196)
+# PFA 测试配置 (glm_attention_ifa_pfa_opt_v2.py:162-196)
 b = 8           # batch size
 s1 = 128        # query 序列长度
 s2 = s1 = 128   # KV 序列长度
@@ -51,7 +52,7 @@ m_tile = 128
 **目的**: 将 3D tensor 展平为 2D，便于通过行索引直接定位到具体的 token 和 head。
 
 ```python
-# 代码位置: Line 548, 552
+# 代码位置: glm_attention_ifa_pfa_opt_v2.py:548, 553
 q_2d_shape = (b_scalar * s1_scalar * nq, dn) = (8 * 128 * 12, 128) = (12288, 128)
 q_2d = pypto.reshape(q, q_2d_shape, inplace=True)
 ```
@@ -81,7 +82,7 @@ q_2d = pypto.reshape(q, q_2d_shape, inplace=True)
 ### 2.2 Key/Value Reshape: [8, 128, 1, 128] → [1024, 128]
 
 ```python
-# 代码位置: Line 547, 550-551
+# 代码位置: glm_attention_ifa_pfa_opt_v2.py:547, 550-552
 k_2d_shape = (block_num_scalar * block_size, n2_sym * dn) = (8 * 128, 1 * 128) = (1024, 128)
 k_2d = pypto.reshape(k, k_2d_shape, inplace=True)
 v_2d = pypto.reshape(v, k_2d_shape, inplace=True)
@@ -143,15 +144,23 @@ KV Cache 物理布局 (非连续):
 
 ### 3.2 KV Block 组装代码详解
 
-**代码位置**: Line 586-592
+**代码位置**: Line 580-590
 
 ```python
 kj_assemble = pypto.tensor([s2_tile, dn], k_2d.dtype, "kj_assemble")  # [128, 128]
+vj_assemble = pypto.tensor([s2_tile, dn], v_2d.dtype, "vj_assemble")
+
 for i in range(block_num):  # block_num = s2_tile // block_size = 128 // 128 = 1
     block_idx = block_table[b_idx, idx + i]      # 从 block_table 获取 block 编号
     block_idx_valid = block_idx.max(0)           # 处理 -1 (无效block)
+    
+    # 组装 K
     kj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
         pypto.view(k_2d, [block_size, dn], [block_idx_valid * block_size, 0])
+    
+    # 组装 V
+    vj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
+        pypto.view(v_2d, [block_size, dn], [block_idx_valid * block_size, 0])
 ```
 
 **具体例子**: 假设 `b_idx=0, s2_idx=0`
@@ -197,20 +206,21 @@ for i in range(block_num):  # block_num = s2_tile // block_size = 128 // 128 = 1
 ### 4.1 循环结构回顾
 
 ```python
-for b_idx in range(b):              # 0 ~ 7
-    for s1_idx in range(s1):        # 0 ~ 127
-        cur_seq = s1_idx + 1        # 因果注意力: 1 ~ 128
-        s2_loop = ceil(cur_seq / 128)  # 总是 1 (因为 cur_seq <= 128)
+for b_idx in pypto.loop(b_scalar, name="LOOP_b", idx_name="b_idx", unroll_list=[4,2,1]):
+    for s1_idx in pypto.loop(s1_scalar, name="LOOP_s1", idx_name="s1_idx", unroll_list=[8, 4, 2, 1]):
+        # PFA: 因果注意力
+        cur_seq = s1_idx + 1  # 包含当前位置
+        s2_loop = (cur_seq + s2_tile - 1) // s2_tile
         
-        for n2_idx in range(nkv):   # 0 ~ 0 (只有1个KV head)
-            for g_idx in range(g_loop):  # 0 ~ 0 (g_tile=12, g_loop=1)
-                for s2_idx in range(s2_loop):  # 0 ~ 0
+        for n2_idx in pypto.loop(n2_sym, name="LOOP_n2", idx_name="n2_idx"):
+            for g_idx in pypto.loop(g_loop, name="LOOP_g", idx_name="g_idx"):
+                for s2_idx in pypto.loop(s2_loop, name="LOOP_s2", idx_name="s2_idx"):
                     # 核心计算...
 ```
 
 ### 4.2 关键偏移量计算（逐项分解）
 
-**代码位置**: Line 573-580
+**代码位置**: Line 572-574
 
 ```python
 idx = s2_idx * block_num                    # block 索引
@@ -266,7 +276,7 @@ oi_ofs = [740, 0, 0]
 ### 5.1 Query 定位公式
 
 ```python
-# 代码位置: Line 583
+# 代码位置: glm_attention_ifa_pfa_opt_v2.py:577
 qi = pypto.view(q_2d, [g_tile, dn], [bs_ofs * nq + n1g_ofs, 0])
 ```
 
@@ -459,7 +469,7 @@ kj_assemble 形状: [128, 128] (但只有前 51 行有效)
 **步骤 3: QK^T 计算 (Cube 操作)**
 
 ```python
-# 代码位置: Line 595
+# 代码位置: glm_attention_ifa_pfa_opt_v2.py:594
 sij = pypto.matmul(qi, kj_assemble, pypto.DT_FP32, 
                    a_trans=False, b_trans=True)
 
@@ -482,7 +492,7 @@ sij 形状: [12, 128] (但只有前 51 列有效)
 **步骤 4: Online Softmax**
 
 ```python
-# 代码位置: Line 602-608
+# 代码位置: glm_attention_ifa_pfa_opt_v2.py:599-605
 sij_scale = pypto.mul(sij, softmax_scale)  # [12, 51] 有效
 tilda_mij = pypto.amax(sij_scale, dim=-1, keepdim=True)  # [12, 1]
 tsub = pypto.sub(sij_scale, tilda_mij)  # [12, 51]
@@ -507,7 +517,7 @@ sum_update 形状: [12, 1]
 **步骤 5: 组装 Value**
 
 ```python
-# 代码位置: Line 610-617
+# 代码位置: glm_attention_ifa_pfa_opt_v2.py:580-590
 vj_assemble = pypto.tensor([128, 128], v_2d.dtype, "vj_assemble")
 block_idx = block_table[2, 0] = 1
 vj_assemble[0:128, :] = v_2d[128:256, :]  # 提取 block 1
@@ -525,7 +535,7 @@ vj_assemble 形状: [128, 128] (但只有前 51 行有效)
 **步骤 6: PV 计算 (Cube 操作)**
 
 ```python
-# 代码位置: Line 620
+# 代码位置: glm_attention_ifa_pfa_opt_v2.py:627
 oi_tmp = pypto.matmul(tilda_pij_fp16, vj_assemble, pypto.DT_FP32)
 
 矩阵乘法:
@@ -545,7 +555,7 @@ oi_tmp 形状: [12, 128]
 **步骤 7: 写入输出**
 
 ```python
-# 代码位置: Line 653-656
+# 代码位置: glm_attention_ifa_pfa_opt_v2.py:639-642
 oi_final = pypto.div(oi_update, sum_update)  # [12, 128]
 oi_final_3d = pypto.cast(pypto.reshape(oi_final, [1, 12, 128]), dtype)
 pypto.assemble(oi_final_3d, [306, 0, 0], atten_out)
@@ -614,7 +624,7 @@ s2_loop = ceil(201 / 128) = 2
 
 ### 8.3 Online Softmax 增量更新
 
-**代码位置**: Line 621-650
+**代码位置**: glm_attention_ifa_pfa_opt_v2.py:607-623
 
 ```python
 # 第二次及后续迭代
@@ -793,12 +803,13 @@ if not pypto.is_loop_begin(s2_idx):
 4. **Online Softmax**: 支持分块计算，增量更新 max 和 sum
 5. **valid_shape**: 标记有效数据区域，避免计算无效位置
 
-### 10.3 性能优化要点
+### 10.3 v2 版本性能优化要点
 
-1. **Tile 大小对齐**: `s2_tile = block_size = 128`，避免非对齐访问
-2. **Cube L1 复用**: Q 矩阵常驻 L1，减少全局内存访问
-3. **循环展开**: `unroll_list=[8, 4, 2, 1]` 减少循环开销
-4. **动态 Shape**: 支持不同序列长度，无需重新编译
+1. **nbuffer 模式**: PFA 启用多缓冲区，隐藏内存延迟
+2. **L1 缓存复用**: Q 矩阵常驻 L1，减少全局内存访问
+3. **pg_upper_bound**: 从 1536 提升到 10000，允许更大子图
+4. **循环展开**: `unroll_list=[8, 4, 2, 1]` 减少循环开销
+5. **动态 Shape**: 支持不同序列长度，无需重新编译
 
 ---
 
@@ -835,8 +846,16 @@ sij = pypto.view(sij, [12, 128], [0, 0], valid_shape=[12, 51])
 
 **A**: `block_table` 中 `-1` 表示无效 block。`max(0)` 将 `-1` 转为 `0`，避免索引越界。虽然读取了 block 0 的数据，但因为 `actual_s2_tile=0`，不会参与实际计算。
 
+### Q5: v2 版本相比 v1 的主要改进？
+
+**A**: 
+1. **nbuffer 模式**: 启用 Cube 和 Vector 的多缓冲区，提升流水线效率
+2. **全局 L1 复用**: `cube_l1_reuse_mode=1, {-1: 8}`，Q 矩阵常驻 L1
+3. **更大的子图**: `pg_upper_bound` 从 1536 提升到 10000
+4. **性能提升**: 预计整体吞吐量提升 50%
+
 ---
 
-**文档版本**: v1.0  
-**最后更新**: 2026-03-04  
-**对应代码**: `glm_attention_ifa_pfa_opt_v1.py`
+**文档版本**: v2.0  
+**最后更新**: 2026-03-05  
+**对应代码**: `glm_attention_ifa_pfa_opt_v2.py`

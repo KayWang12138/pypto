@@ -1,0 +1,1566 @@
+# 华为昇腾 Prompt Flash Attention (PFA) 技术深度解析
+
+> **版本**: CANN 8.5.0  
+> **目标平台**: Ascend 910B/910C/A2/A3  
+> **分析日期**: 2026-03-05  
+> **源码仓库**: https://gitcode.com/cann/ops-transformer
+
+---
+
+## 📋 目录
+
+1. [概述](#概述)
+2. [代码结构分析](#代码结构分析)
+3. [Shape 和分块策略](#shape-和分块策略)
+4. [VF 指令流程与内存管理](#vf-指令流程与内存管理)
+5. [Shape 泛化机制](#shape-泛化机制)
+6. [核心特性实现](#核心特性实现)
+7. [与 PyPTO 实现对比](#与-pypto-实现对比)
+8. [性能优化要点](#性能优化要点)
+9. [总结与最佳实践](#总结与最佳实践)
+
+---
+
+## 概述
+
+### 什么是 Prompt Flash Attention？
+
+**Prompt Flash Attention (PFA)** 是华为昇腾针对 Transformer 推理场景优化的高性能注意力算子，专门用于处理 **Prompt 阶段的全序列注意力计算**。与 Incremental Flash Attention（逐token生成）不同，PFA 处理整个输入序列，是 LLM 推理的第一阶段核心计算。
+
+### 核心数学公式
+
+标准的缩放点积注意力公式：
+
+$$
+\text{Attention}(Q, K, V) = \text{Softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V
+$$
+
+其中：
+- $Q \in \mathbb{R}^{B \times N \times S_q \times D}$ （Query张量）
+- $K \in \mathbb{R}^{B \times N_{kv} \times S_{kv} \times D}$ （Key张量）
+- $V \in \mathbb{R}^{B \times N_{kv} \times S_{kv} \times D}$ （Value张量）
+- $B$: Batch Size
+- $N$: Query 头数
+- $N_{kv}$: Key/Value 头数（GQA场景）
+- $S_q, S_{kv}$: Query 和 KV 的序列长度
+- $D$: Head Dimension
+
+### 为什么需要 Flash Attention？
+
+传统注意力计算的瓶颈：
+1. **内存占用**: $O(B \times N \times S^2 \times D)$，序列长度平方级增长
+2. **内存访问**: 需要存储完整的注意力矩阵 $(S_q \times S_{kv})$
+3. **带宽瓶颈**: 频繁的 HBM 访问成为性能瓶颈
+
+Flash Attention 的优化思路：
+1. **Tiling**: 将大矩阵分块计算，适配片上存储
+2. **Online Softmax**: 分块计算 softmax，避免存储完整注意力矩阵
+3. **Recomputation**: 权衡计算与内存访问，减少 HBM 读写
+
+---
+
+## 代码结构分析
+
+### 整体项目结构
+
+```
+fused_infer_attention_score/
+├── op_host/                          # Host 侧实现（Tiling + API）
+│   ├── op_api/                       # ACLNN API 实现
+│   │   ├── aclnn_fused_infer_attention_score_v5.cpp    # V5 API 主入口
+│   │   ├── aclnn_fused_infer_attention_score_v5.h      # V5 API 头文件
+│   │   ├── aclnn_fused_infer_attention_score_inner.cpp # 内部实现
+│   │   └── ...
+│   │
+│   ├── arch32/                       # 910B 架构专用 Tiling
+│   │   ├── fused_infer_attention_score_tiling_v3.cpp
+│   │   ├── fused_infer_attention_score_tiling_check.cpp
+│   │   └── ...
+│   │
+│   ├── arch35/                       # 910C/A2 架构专用 Tiling
+│   │   ├── fused_infer_attention_score_tiling_v2.cpp
+│   │   └── ...
+│   │
+│   ├── fused_infer_attention_score_tiling.cpp        # Tiling 主逻辑
+│   └── fused_infer_attention_score_infershape.cpp    # Shape 推导
+│
+├── op_kernel/                        # Kernel 实现（NPU 执行）
+│   ├── fused_infer_attention_score.cpp               # 主 Kernel
+│   ├── fused_infer_attention_score_v3.cpp            # V3 Kernel
+│   ├── flash_attention_interface.cpp                 # 接口层
+│   │
+│   └── attn_infra/                   # 注意力基础设施库
+│       ├── gemm/                     # 矩阵乘法模块
+│       │   ├── block/block_mmad.hpp          # 块级矩阵乘
+│       │   ├── block/block_mmad_qk.hpp       # QK^T 专用
+│       │   ├── block/block_mmad_pv.hpp       # PV 专用
+│       │   └── tile_common/                  # Tile 级操作
+│       │
+│       ├── epilogue/                 # 输出处理模块
+│       │   ├── block/block_epilogue.hpp      # 输出处理基类
+│       │   ├── block/block_epilogue_online_softmax.hpp  # Online Softmax
+│       │   └── tile_common/                  # Tile 级操作
+│       │
+│       ├── layout/                   # 内存布局抽象
+│       │   ├── matrix.hpp
+│       │   └── vector.hpp
+│       │
+│       └── arch/                     # 架构抽象层
+│           ├── resource.hpp
+│           └── local_tensor_buffer.hpp
+│
+├── docs/                             # API 文档
+│   ├── aclnnFusedInferAttentionScoreV5.md
+│   └── ...
+│
+└── tests/                            # 测试用例
+    ├── pytest/
+    ├── st/
+    └── ut/
+```
+
+### 三层架构设计
+
+PFA 采用经典的 **Host-Device 分离**架构：
+
+```mermaid
+graph TB
+    subgraph "Host 侧 (CPU)"
+        A[ACLNN API Entry<br/>aclnn_fused_infer_attention_score_v5.cpp]
+        B[Tiling 策略<br/>arch32/arch35]
+        C[Shape 推导<br/>infershape.cpp]
+    end
+    
+    subgraph "Device 侧 (NPU)"
+        D[Kernel 入口<br/>fused_infer_attention_score.cpp]
+        E[GEMM 模块<br/>QK^T + PV]
+        F[Epilogue 模块<br/>Softmax + 输出]
+        G[内存管理<br/>attn_infra/layout]
+    end
+    
+    A --> B
+    B --> C
+    C -->|Tiling Data| D
+    D --> E
+    E --> F
+    F --> G
+```
+
+### 主要函数执行流程
+
+#### 1. Host 侧流程
+
+**文件**: `op_host/op_api/aclnn_fused_infer_attention_score_v5.cpp`
+
+```cpp
+// 步骤 1: 获取最大 workspace 大小
+aclnnStatus aclnnFusedInferAttentionScoreV5GetMaxWorkspaceSize(
+    const aclTensor *query, 
+    const aclTensorList *key, 
+    const aclTensorList *value,
+    // ... 30+ 参数（量化、稀疏注意力、RoPE等）
+    uint64_t *workspaceSize, 
+    aclOpExecutor **executor
+) {
+    // 1.1 处理 key/value tensor list
+    // 1.2 处理 shared prefix tensors
+    // 1.3 创建 fake arrays for optional parameters
+    // 1.4 处理 softmax LSE placeholder
+    // 1.5 调用 inner API 计算实际 workspace
+}
+
+// 步骤 2: 执行前准备
+aclnnStatus aclnnFusedInferAttentionScoreV5GetWorkspaceSize(
+    // ... 同样的参数列表
+    uint64_t *workspaceSize, 
+    aclOpExecutor **executor
+) {
+    // 调用 inner 实现
+    return aclnnInnerFusedInferAttentionScoreGetWorkspaceSize(...);
+}
+
+// 步骤 3: 执行 Kernel
+aclnnStatus aclnnFusedInferAttentionScoreV5(
+    void *workspace, 
+    uint64_t workspaceSize, 
+    aclOpExecutor *executor, 
+    const aclrtStream stream
+) {
+    // 直接调用 inner 执行函数
+    return aclnnInnerFusedInferAttentionScore(
+        workspace, workspaceSize, executor, stream);
+}
+```
+
+**关键点**：
+- **GetMaxWorkspaceSize**: 处理可选参数、shared prefix、softmax LSE 等特殊场景
+- **Workspace 模式**: 所有临时内存由用户预先分配，避免运行时动态分配
+- **Executor 模式**: 编译信息存储在 executor 中，支持图模式优化
+
+#### 2. Tiling 策略选择
+
+**文件**: `op_host/arch32/fused_infer_attention_score_tiling_v3.cpp` (910B)  
+**文件**: `op_host/arch35/fused_infer_attention_score_tiling_v2.cpp` (910C/A2)
+
+```cpp
+// 架构特定的 Tiling 策略
+graphStatus FusedInferAttentionScoreTilingV3(gert::TilingContext *context) {
+    // 1. 获取输入 shape 信息
+    auto queryShape = context->GetInputShape(0);
+    auto keyShape = context->GetInputShape(1);
+    
+    // 2. 计算 tiling 参数
+    // - block_size: 每个 core 处理的数据块大小
+    // - loop_count: 外层循环次数
+    // - buffer_size: UB/L1/L0C buffer 分配
+    
+    // 3. 设置 tiling data
+    tiling.set_totalCoreNum(aicCoreNum);
+    tiling.set_blockSize(blockSize);
+    tiling.SaveToBuffer(context->GetRawTilingData());
+    
+    return GRAPH_SUCCESS;
+}
+```
+
+**Tiling 决策因素**：
+1. **输入 Shape**: B, N, S, D 的具体值
+2. **数据类型**: FP16/BF16/INT8/INT4（影响对齐要求）
+3. **硬件资源**: UB/L1/L0C 容量
+4. **并行度**: 多少个 AI Core 并行计算
+
+---
+
+## Shape 和分块策略
+
+### 输入/输出张量 Shape 定义
+
+#### 标准 Attention (无 GQA)
+
+```
+Query:    [B, N, S_q, D]      # B=batch, N=num_heads, S_q=query_seq_len, D=head_dim
+Key:      [B, N, S_kv, D]     # S_kv=key_value_seq_len
+Value:    [B, N, S_kv, D]
+Output:   [B, N, S_q, D]
+```
+
+#### GQA (Grouped Query Attention)
+
+```
+Query:    [B, N_q, S_q, D]        # N_q = query heads
+Key:      [B, N_kv, S_kv, D]      # N_kv = key/value heads, N_q % N_kv == 0
+Value:    [B, N_kv, S_kv, D]
+Output:   [B, N_q, S_q, D]
+
+# 例如: N_q=32, N_kv=8 (每4个query头共享1组KV)
+```
+
+#### 支持的 Layout
+
+| Layout | Shape 格式 | 说明 |
+|--------|-----------|------|
+| **BSH** | `[B, S, N*D]` | BSH = Batch-SeqLen-Hidden，传统格式 |
+| **BSND** | `[B, S, N, D]` | BSND = Batch-SeqLen-NumHeads-Dim，头维度展开 |
+| **TND** | `[T, N, D]` | TND = TotalSeqLen-NumHeads-Dim，扁平化 batch |
+
+**代码示例**（来自文档）：
+```cpp
+// BSH Layout
+query:      [2, 1024, 4096]   // B=2, S=1024, N*D=32*128=4096
+key/value:  [2, 1024, 4096]
+
+// BSND Layout  
+query:      [2, 1024, 32, 128]   // B=2, S=1024, N=32, D=128
+key/value:  [2, 1024, 32, 128]
+
+// TND Layout（Paged Attention常用）
+query:      [2048, 32, 128]   // T=B*S=2*1024=2048
+key/value:  [2048, 32, 128]
+```
+
+### Tiling 策略详解
+
+#### 为什么需要 Tiling？
+
+**问题**: Attention 矩阵 $S_q \times S_{kv}$ 可能非常大，无法完整放入片上存储。
+
+**示例**:
+- Batch=2, Heads=32, S_q=4096, S_kv=4096
+- Attention 矩阵大小: $2 \times 32 \times 4096 \times 4096 \times 2$ bytes = **2 GB**
+- AI Core UB 大小: ~1.5 MB（远小于 2 GB）
+
+**解决方案**: 分块计算（Tiling）
+
+#### Tiling 维度分解
+
+PFA 采用 **4D Tiling** 策略：
+
+```
+维度分解：
+├── Batch (B)    → split by B tiles
+├── Heads (N)    → split by N tiles  
+├── Query Seq (S_q)   → split by B_Q tiles (Block Query)
+└── KV Seq (S_kv)     → split by B_KV tiles (Block KV)
+```
+
+#### Tiling 示意图
+
+```mermaid
+graph LR
+    subgraph "完整 Attention 矩阵 (S_q × S_kv)"
+        A1["(0,0)"] A2["(0,1)"] A3["..."] A4["(0,N)"]
+        B1["(1,0)"] B2["(1,1)"] B3["..."] B4["(1,N)"]
+        C1["..."]   C2["..."]   C3["..."] C4["..."]
+        D1["(N,0)"] D2["(N,1)"] D3["..."] D4["(N,N)"]
+    end
+    
+    subgraph "分块计算 (Tile by Tile)"
+        T1["Tile (0,0)"] --> T2["Tile (0,1)"]
+        T2 --> T3["..."]
+        T3 --> T4["Tile (0,N)"]
+    end
+    
+    A1 -.-> T1
+```
+
+**关键参数**（来自 tiling 实现）：
+
+```cpp
+struct FlashAttentionTilingData {
+    // 并行度
+    uint32_t totalCoreNum;      // 总 AI Core 数量
+    uint32_t blockIdx;          // 当前 core ID
+    
+    // 分块大小
+    uint32_t batchSize;         // B 块大小
+    uint32_t headNum;           // N 块大小  
+    uint32_t querySeqTileSize;  // S_q 块大小 (B_Q)
+    uint32_t kvSeqTileSize;     // S_kv 块大小 (B_KV)
+    
+    // 循环次数
+    uint32_t batchLoop;         // B 方向循环
+    uint32_t headLoop;          // N 方向循环
+    uint32_t querySeqLoop;      // S_q 方向循环
+    uint32_t kvSeqLoop;         // S_kv 方向循环
+    
+    // Buffer 大小
+    uint32_t ubSize;            // Unified Buffer 大小
+    uint32_t l1Size;            // L1 Buffer 大小
+    uint32_t l0cSize;           // L0C Buffer 大小
+};
+```
+
+#### 实际 Tiling 案例
+
+**场景**: B=2, N=32, S_q=1024, S_kv=1024, D=128, BF16
+
+```cpp
+// Tiling 策略 (910C/A2)
+totalCoreNum = 30;           // 使用 30 个 AI Core
+batchSize = 1;               // 每个 core 处理 1 个 batch
+headNum = 1;                 // 每个 core 处理 1 个 head
+querySeqTileSize = 64;       // Query 序列分块: 1024/64 = 16 tiles
+kvSeqTileSize = 64;          // KV 序列分块: 1024/64 = 16 tiles
+
+// 计算循环次数
+batchLoop = 2;               // 2 batches
+headLoop = 32 / 30 = 1~2     // 30 cores 分担 32 heads
+querySeqLoop = 1024 / 64 = 16
+kvSeqLoop = 1024 / 64 = 16
+
+// 每个 core 的工作量
+// Core 0: batch=0, head=0, query_tiles=16, kv_tiles=16
+//   -> 计算 16*16 = 256 个 tiles
+// Core 1: batch=0, head=1, ...
+```
+
+#### 内存布局与对齐
+
+**对齐要求**（来自文档）：
+
+| 数据类型 | 对齐字节数 | 示例（D=128） |
+|---------|-----------|--------------|
+| **FP16/BF16** | 16 字节 | D 必须是 8 的倍数 (128÷8=16 ✓) |
+| **INT8** | 32 字节 | D 必须是 16 的倍数 (128÷16=8 ✓) |
+| **INT4** | 64 字节 | D 必须是 32 的倍数 (128÷32=4 ✓) |
+
+**内存布局选择**：
+
+```
+ND Format (NCHW-like):
+┌─────────────────┐
+│ B0_N0_S0_D      │ 连续存储
+│ B0_N0_S1_D      │
+│ ...             │
+└─────────────────┘
+
+NZ Format (NCHWc-like, 用于 Cube 单元):
+┌─────────┬─────────┐
+│ D0_D7   │ D8_D15  │ D 维度分块
+│ ...     │ ...     │
+└─────────┴─────────┘
+```
+
+---
+
+## VF 指令流程与内存管理
+
+### 昇腾 AI Core 架构回顾
+
+```mermaid
+graph TB
+    subgraph "AI Core 架构"
+        GM[Global Memory<br/>HBM]
+        UB[Unified Buffer<br/>~1.5 MB]
+        L1[L1 Buffer<br/>~1 MB]
+        L0A[L0A Buffer<br/>64 KB]
+        L0B[L0B Buffer<br/>64 KB]
+        L0C[L0C Buffer<br/>128 KB]
+        
+        VF[Vector Facility<br/>向量计算单元]
+        CU[Cube Unit<br/>矩阵计算单元]
+        
+        GM -->|DataCopy| UB
+        GM -->|DataCopy| L1
+        UB --> VF
+        L1 -->|Load2L0| L0A
+        L1 -->|Load2L0| L0B
+        L0A --> CU
+        L0B --> CU
+        CU -->|Store| L0C
+        L0C -->|DataCopy| UB
+        UB -->|DataCopy| GM
+    end
+```
+
+### Flash Attention 计算流程
+
+#### 标准 Flash Attention (无优化)
+
+```python
+# 伪代码
+for b in range(B):
+    for n in range(N):
+        for i in range(S_q // B_Q):      # Query blocks
+            for j in range(S_kv // B_KV):  # KV blocks
+                # Step 1: Q @ K^T (Cube Unit)
+                Q_block = load_Q(b, n, i*B_Q:(i+1)*B_Q, :)    # [B_Q, D]
+                K_block = load_K(b, n, j*B_KV:(j+1)*B_KV, :)  # [B_KV, D]
+                S_ij = matmul(Q_block, K_block.T)             # [B_Q, B_KV]
+                
+                # Step 2: Scale
+                S_ij_scaled = S_ij / sqrt(D)
+                
+                # Step 3: Apply mask (if causal)
+                if causal:
+                    S_ij_scaled = apply_causal_mask(S_ij_scaled)
+                
+                # Step 4: Softmax (Vector Facility)
+                P_ij = softmax(S_ij_scaled)  # [B_Q, B_KV]
+                
+                # Step 5: P @ V (Cube Unit)
+                V_block = load_V(b, n, j*B_KV:(j+1)*B_KV, :)  # [B_KV, D]
+                O_ij = matmul(P_ij, V_block)                  # [B_Q, D]
+                
+                # Step 6: Accumulate output
+                O[b, n, i*B_Q:(i+1)*B_Q, :] += O_ij
+```
+
+**问题**: 需要存储完整的注意力矩阵 P ∈ [S_q, S_kv]，内存占用大
+
+#### Online Softmax Flash Attention
+
+**核心思想**: 分块计算 softmax，使用 **Online Softmax** 算法累积结果
+
+**Online Softmax 数学原理**：
+
+给定两个向量块 $x_1, x_2$，如何计算 $\text{softmax}([x_1, x_2])$？
+
+$$
+\begin{align}
+m_{\text{new}} &= \max(m_1, m_2) \\
+d_{\text{new}} &= d_1 \cdot e^{m_1 - m_{\text{new}}} + d_2 \cdot e^{m_2 - m_{\text{new}}} \\
+O_{\text{new}} &= O_1 \cdot \frac{d_1 \cdot e^{m_1 - m_{\text{new}}}}{d_{\text{new}}} + O_2 \cdot \frac{d_2 \cdot e^{m_2 - m_{\text{new}}}}{d_{\text{new}}}
+\end{align}
+$$
+
+其中：
+- $m_i = \max(x_i)$: 第 i 块的最大值
+- $d_i = \sum e^{x_i - m_i}$: 第 i 块的指数和
+- $O_i = \text{softmax}(x_i) \cdot V_i$: 第 i 块的输出
+
+**代码实现**（来自 `flash_attention.py` golden）：
+
+```python
+def flash_attention_online_softmax(q, k, v, B_Q=128, B_KV=128):
+    """Online Softmax Flash Attention 实现"""
+    B, N, S_q, D = q.shape
+    S_kv = k.shape[2]
+    
+    # 初始化
+    O = np.zeros([B, N, S_q, D], dtype=np.float32)
+    m = np.full([B, N, S_q, 1], -np.inf, dtype=np.float32)  # max
+    l = np.zeros([B, N, S_q, 1], dtype=np.float32)          # sum(exp)
+    
+    for b in range(B):
+        for n in range(N):
+            # 外层循环: KV blocks
+            for j in range(S_kv // B_KV):
+                k_j = k[b, n, j*B_KV:(j+1)*B_KV, :]  # [B_KV, D]
+                v_j = v[b, n, j*B_KV:(j+1)*B_KV, :]  # [B_KV, D]
+                
+                # 内层循环: Query blocks
+                for i in range(S_q // B_Q):
+                    q_i = q[b, n, i*B_Q:(i+1)*B_Q, :]  # [B_Q, D]
+                    
+                    # Step 1: Q @ K^T
+                    S_ij = np.matmul(q_i, k_j.T)       # [B_Q, B_KV]
+                    
+                    # Step 2: 当前块的 max 和 sum
+                    m_ij = np.max(S_ij, axis=-1, keepdims=True)  # [B_Q, 1]
+                    S_ij_shifted = S_ij - m_ij
+                    P_ij = np.exp(S_ij_shifted)         # [B_Q, B_KV]
+                    l_ij = np.sum(P_ij, axis=-1, keepdims=True)  # [B_Q, 1]
+                    
+                    # Step 3: 当前块的输出
+                    O_ij = np.matmul(P_ij, v_j)         # [B_Q, D]
+                    
+                    # Step 4: Online Softmax 更新
+                    m_old = m[b, n, i*B_Q:(i+1)*B_Q, :]
+                    l_old = l[b, n, i*B_Q:(i+1)*B_Q, :]
+                    O_old = O[b, n, i*B_Q:(i+1)*B_Q, :]
+                    
+                    # 更新 max
+                    m_new = np.maximum(m_old, m_ij)
+                    
+                    # 更新 sum
+                    l_new = (l_old * np.exp(m_old - m_new) + 
+                             l_ij * np.exp(m_ij - m_new))
+                    
+                    # 更新输出
+                    O_new = (O_old * l_old * np.exp(m_old - m_new) / l_new +
+                             O_ij * l_ij * np.exp(m_ij - m_new) / l_new)
+                    
+                    # 写回
+                    m[b, n, i*B_Q:(i+1)*B_Q, :] = m_new
+                    l[b, n, i*B_Q:(i+1)*B_Q, :] = l_new
+                    O[b, n, i*B_Q:(i+1)*B_Q, :] = O_new
+    
+    return O
+```
+
+### AscendC 实现的关键 API
+
+#### 1. 数据搬运（Data Copy）
+
+```cpp
+// GM -> UB
+auto copyParams = ub.GetShape();
+DataCopy(ub, gm_tensor[b_offset * ub_size], copyParams);
+
+// UB -> GM  
+DataCopy(gm_tensor[b_offset * ub_size], ub, copyParams);
+
+// L0C -> UB
+DataCopy(ub, l0c, copyParams);
+
+// L1 -> L0A/L0B (Load2L0)
+Load2L0(l0a, l1_tensor[a_offset], copyParams);
+Load2L0(l0b, l1_tensor[b_offset], copyParams);
+```
+
+#### 2. 矩阵乘法（Cube Unit）
+
+```cpp
+// MMAD: Matrix Multiply and Accumulate with D-type
+// 计算: L0C = L0A @ L0B + L0C
+MMAD(l0c, l0a, l0b, mmadParams);
+
+// QK^T: [B_Q, D] @ [D, B_KV] = [B_Q, B_KV]
+// PV:   [B_Q, B_KV] @ [B_KV, D] = [B_Q, D]
+```
+
+#### 3. 向量计算（Vector Facility）
+
+```cpp
+// Softmax 计算
+// Step 1: Max reduction
+ReduceMax(max_val, input_tensor, reduceParams);
+
+// Step 2: Sub + Exp
+Sub(input_shifted, input_tensor, max_val);
+Exp(exp_result, input_shifted);
+
+// Step 3: Sum reduction
+ReduceSum(sum_val, exp_result, reduceParams);
+
+// Step 4: Div
+Div(output, exp_result, sum_val);
+```
+
+#### 4. Online Softmax 更新
+
+```cpp
+// 更新 max: m_new = max(m_old, m_ij)
+Max(m_new, m_old, m_ij);
+
+// 更新 sum: l_new = l_old * exp(m_old - m_new) + l_ij * exp(m_ij - m_new)
+Sub(delta_old, m_old, m_new);
+Exp(scale_old, delta_old);
+Mul(l_old_scaled, l_old, scale_old);
+
+Sub(delta_ij, m_ij, m_new);
+Exp(scale_ij, delta_ij);
+Mul(l_ij_scaled, l_ij, scale_ij);
+
+Add(l_new, l_old_scaled, l_ij_scaled);
+
+// 更新 output: O_new = (O_old * l_old * scale_old + O_ij * l_ij * scale_ij) / l_new
+Mul(O_old_scaled, O_old, l_old_scaled);
+Mul(O_ij_scaled, O_ij, l_ij_scaled);
+Add(O_new_unnorm, O_old_scaled, O_ij_scaled);
+Div(O_new, O_new_unnorm, l_new);
+```
+
+### 内存管理策略
+
+#### Buffer 分配策略
+
+```cpp
+// attn_infra/arch/resource.hpp
+struct AttentionResource {
+    // UB 分配
+    LocalTensor<float> q_in_ub;      // Query block [B_Q, D]
+    LocalTensor<float> k_in_ub;      // Key block [B_KV, D]
+    LocalTensor<float> v_in_ub;      // Value block [B_KV, D]
+    LocalTensor<float> s_in_ub;      // Score [B_Q, B_KV]
+    LocalTensor<float> p_in_ub;      // Probability [B_Q, B_KV]
+    LocalTensor<float> o_in_ub;      // Output [B_Q, D]
+    
+    // 中间变量
+    LocalTensor<float> max_val;      // [B_Q, 1]
+    LocalTensor<float> sum_val;      // [B_Q, 1]
+    LocalTensor<float> scale_old;    // [B_Q, 1]
+    LocalTensor<float> scale_ij;     // [B_Q, 1]
+    
+    // L1 分配（可选，用于双缓冲）
+    LocalTensor<float> q_l1;
+    LocalTensor<float> k_l1;
+    LocalTensor<float> v_l1;
+};
+```
+
+#### 内存复用技巧
+
+**Double Buffering（双缓冲）**：
+
+```cpp
+// UB 分成两半：Ping-Pong Buffer
+// 当计算 Ping buffer 时，预取数据到 Pong buffer
+LocalTensor<float> ub_ping = ub[0 : ub_size/2];
+LocalTensor<float> ub_pong = ub[ub_size/2 : ub_size];
+
+// Loop 0: 计算 Ping，加载 Pong
+Compute(ub_ping);
+DataCopy(ub_pong, gm_next_block);
+
+// Loop 1: 计算 Pong，加载 Ping
+Compute(ub_pong);
+DataCopy(ub_ping, gm_next_block);
+```
+
+---
+
+## Shape 泛化机制
+
+### 动态 Shape 支持
+
+PFA 支持多种动态 Shape 场景：
+
+1. **动态 Batch Size**: 推理时 batch 可能变化
+2. **动态序列长度**: Prompt 长度不一
+3. **动态 KV Cache 长度**: 增量推理时 KV 逐渐增长
+
+#### 实现机制
+
+**1. Tiling 时计算**（Host 侧）
+
+```cpp
+// op_host/fused_infer_attention_score_tiling.cpp
+graphStatus CalculateTiling(gert::TilingContext *context) {
+    // 获取运行时 shape
+    auto query_shape = context->GetInputShape(0)->GetStorageShape();
+    int64_t B = query_shape.GetDim(0);
+    int64_t N = query_shape.GetDim(1);
+    int64_t S_q = query_shape.GetDim(2);
+    int64_t D = query_shape.GetDim(3);
+    
+    // 动态计算 tiling 参数
+    uint32_t B_Q = CalculateQueryTileSize(S_q, D, ub_size);
+    uint32_t B_KV = CalculateKVTileSize(S_kv, D, ub_size);
+    
+    // 保存到 tiling data
+    tiling.set_querySeqTileSize(B_Q);
+    tiling.set_kvSeqTileSize(B_KV);
+    tiling.set_querySeqLoop((S_q + B_Q - 1) / B_Q);
+    tiling.set_kvSeqLoop((S_kv + B_KV - 1) / B_KV);
+}
+```
+
+**2. Kernel 时执行**（Device 侧）
+
+```cpp
+// op_kernel/fused_infer_attention_score.cpp
+__aicore__ inline void Process() {
+    // 从 tiling data 读取动态参数
+    uint32_t B_Q = tilingData.get_querySeqTileSize();
+    uint32_t B_KV = tilingData.get_kvSeqTileSize();
+    uint32_t query_loop = tilingData.get_querySeqLoop();
+    uint32_t kv_loop = tilingData.get_kvSeqLoop();
+    
+    // 动态循环
+    for (uint32_t i = 0; i < query_loop; i++) {
+        for (uint32_t j = 0; j < kv_loop; j++) {
+            ProcessOneTile(i, j, B_Q, B_KV);
+        }
+    }
+}
+
+__aicore__ inline void ProcessOneTile(
+    uint32_t query_idx, uint32_t kv_idx, 
+    uint32_t B_Q, uint32_t B_KV
+) {
+    // 计算当前 tile 的实际大小（处理边界）
+    uint32_t actual_B_Q = min(B_Q, S_q - query_idx * B_Q);
+    uint32_t actual_B_KV = min(B_KV, S_kv - kv_idx * B_KV);
+    
+    // 加载实际大小的数据
+    LoadQBlock(query_idx * B_Q, actual_B_Q);
+    LoadKBlock(kv_idx * B_KV, actual_B_KV);
+    
+    // 计算并处理边界
+    ComputeAttention(actual_B_Q, actual_B_KV);
+}
+```
+
+### 多头注意力处理（GQA）
+
+**GQA (Grouped Query Attention)** 场景：
+
+```
+Query Heads: N_q = 32
+KV Heads:    N_kv = 8
+Group Size:  N_q / N_kv = 4  (每4个query头共享1组KV)
+```
+
+**实现逻辑**：
+
+```cpp
+__aicore__ inline void ProcessGQA() {
+    uint32_t N_q = query_shape[1];
+    uint32_t N_kv = key_shape[1];
+    uint32_t group_size = N_q / N_kv;
+    
+    for (uint32_t kv_head = 0; kv_head < N_kv; kv_head++) {
+        // 加载一组 KV（复用 group_size 次）
+        LoadKVHead(kv_head);
+        
+        // 该组 KV 对应的所有 query 头
+        for (uint32_t q_in_group = 0; q_in_group < group_size; q_in_group++) {
+            uint32_t q_head = kv_head * group_size + q_in_group;
+            
+            // 加载 query 头
+            LoadQueryHead(q_head);
+            
+            // 计算注意力（复用 KV）
+            ComputeAttentionWithSharedKV();
+        }
+    }
+}
+```
+
+**内存优化**: KV 只需加载一次，被多个 query 头复用
+
+### Paged Attention 支持
+
+**Paged Attention** 用于高效管理 KV Cache：
+
+```cpp
+// Block Table 结构
+struct BlockTable {
+    int32_t* block_ids;     // [max_seq_len / block_size]
+    int32_t block_size;     // 每个块包含的 token 数量
+    int32_t num_blocks;     // 总块数
+};
+
+// 示例
+batch = 0:
+  block_ids = [5, 12, 3, 8, ...]  // 该序列使用的物理块 ID
+  block_size = 16                  // 每个块存储 16 个 token 的 KV
+  
+// KV Cache 存储（物理布局）
+KV Cache: [num_blocks, 2, N_kv, block_size, D]
+         [block_id, K/V, head, tokens_in_block, dim]
+```
+
+**实现逻辑**：
+
+```cpp
+__aicore__ inline void LoadKVFromPageTable(
+    int32_t* block_table, 
+    int32_t seq_len,
+    int32_t block_size
+) {
+    int32_t num_blocks = (seq_len + block_size - 1) / block_size;
+    
+    for (int32_t block_idx = 0; block_idx < num_blocks; block_idx++) {
+        // 查询页表，获取物理块 ID
+        int32_t physical_block_id = block_table[block_idx];
+        
+        // 计算该块处理的 token 数量（处理边界）
+        int32_t tokens_in_block = min(
+            block_size, 
+            seq_len - block_idx * block_size
+        );
+        
+        // 从物理地址加载 KV
+        // GM offset: physical_block_id * block_size * N_kv * D
+        LoadKVBlock(physical_block_id, tokens_in_block);
+    }
+}
+```
+
+**优势**:
+1. **内存高效**: 不连续序列无需连续存储，减少内存碎片
+2. **灵活管理**: 可以动态分配和释放块
+3. **支持前缀缓存**: 相同前缀的序列可共享 KV Cache
+
+---
+
+## 核心特性实现
+
+### 1. 因果注意力（Causal Attention）
+
+**用途**: 仅关注当前位置之前的 token（自回归生成）
+
+**实现方式 1**: Attention Mask
+
+```cpp
+// 生成因果掩码
+// mask[i, j] = 0 if j <= i, else -inf
+__aicore__ inline void ApplyCausalMask(
+    LocalTensor<float> scores,
+    int32_t query_start,
+    int32_t kv_start,
+    int32_t B_Q,
+    int32_t B_KV
+) {
+    for (int i = 0; i < B_Q; i++) {
+        for (int j = 0; j < B_KV; j++) {
+            int32_t q_pos = query_start + i;
+            int32_t k_pos = kv_start + j;
+            
+            if (k_pos > q_pos) {
+                // 未来位置，设置为 -inf
+                scores[i * B_KV + j] = -INFINITY;
+            }
+        }
+    }
+}
+```
+
+**实现方式 2**: 直接跳过计算（更高效）
+
+```cpp
+__aicore__ inline void ComputeCausalAttention(
+    int32_t query_idx,
+    int32_t kv_idx,
+    int32_t B_Q,
+    int32_t B_KV
+) {
+    int32_t query_start = query_idx * B_Q;
+    int32_t kv_start = kv_idx * B_KV;
+    
+    // 如果整个块都在因果范围外，跳过
+    if (kv_start > query_start + B_Q) {
+        return;  // 不计算
+    }
+    
+    // 计算实际有效的 KV 长度
+    int32_t valid_kv_len = min(B_KV, query_start + B_Q - kv_start);
+    
+    if (valid_kv_len <= 0) {
+        return;
+    }
+    
+    // 只计算有效部分
+    LoadQBlock(query_start, B_Q);
+    LoadKBlock(kv_start, valid_kv_len);
+    ComputeAttention(B_Q, valid_kv_len);
+}
+```
+
+### 2. RoPE (Rotary Position Embedding)
+
+**数学公式**:
+
+$$
+\begin{align}
+\text{RoPE}(x, pos) &= \begin{pmatrix} x_1 \\ x_2 \\ x_3 \\ x_4 \\ \vdots \end{pmatrix} \odot 
+\begin{pmatrix} \cos(pos \cdot \theta_1) \\ \cos(pos \cdot \theta_1) \\ \cos(pos \cdot \theta_2) \\ \cos(pos \cdot \theta_2) \\ \vdots \end{pmatrix} \\
+&+ \begin{pmatrix} -x_2 \\ x_1 \\ -x_4 \\ x_3 \\ \vdots \end{pmatrix} \odot
+\begin{pmatrix} \sin(pos \cdot \theta_1) \\ \sin(pos \cdot \theta_1) \\ \sin(pos \cdot \theta_2) \\ \sin(pos \cdot \theta_2) \\ \vdots \end{pmatrix}
+\end{align}
+$$
+
+其中 $\theta_i = 10000^{-2i/D}$
+
+**实现逻辑**:
+
+```cpp
+__aicore__ inline void ApplyRoPE(
+    LocalTensor<float> query,      // [B_Q, D]
+    LocalTensor<float> query_rope, // RoPE 编码 [B_Q, D/2]
+    int32_t start_pos,
+    int32_t B_Q,
+    int32_t D
+) {
+    for (int i = 0; i < B_Q; i++) {
+        int32_t pos = start_pos + i;
+        
+        for (int j = 0; j < D/2; j++) {
+            float theta = pow(10000.0, -2.0 * j / D);
+            float angle = pos * theta;
+            float cos_val = cos(angle);
+            float sin_val = sin(angle);
+            
+            float x1 = query[i * D + 2*j];
+            float x2 = query[i * D + 2*j + 1];
+            
+            // 应用旋转
+            query[i * D + 2*j] = x1 * cos_val - x2 * sin_val;
+            query[i * D + 2*j + 1] = x1 * sin_val + x2 * cos_val;
+        }
+    }
+}
+```
+
+**优化**: RoPE 编码预计算并缓存
+
+```cpp
+// Host 侧预计算
+void PrecomputeRoPE(int32_t max_seq_len, int32_t D) {
+    for (int pos = 0; pos < max_seq_len; pos++) {
+        for (int j = 0; j < D/2; j++) {
+            float theta = pow(10000.0, -2.0 * j / D);
+            float angle = pos * theta;
+            rope_cache[pos * D + 2*j] = cos(angle);
+            rope_cache[pos * D + 2*j + 1] = sin(angle);
+        }
+    }
+}
+
+// Device 侧查表
+__aicore__ inline void ApplyRoPEFromCache(
+    LocalTensor<float> query,
+    GlobalTensor<float> rope_cache,
+    int32_t start_pos,
+    int32_t B_Q,
+    int32_t D
+) {
+    for (int i = 0; i < B_Q; i++) {
+        int32_t pos = start_pos + i;
+        
+        for (int j = 0; j < D/2; j++) {
+            float cos_val = rope_cache[pos * D + 2*j];
+            float sin_val = rope_cache[pos * D + 2*j + 1];
+            
+            float x1 = query[i * D + 2*j];
+            float x2 = query[i * D + 2*j + 1];
+            
+            query[i * D + 2*j] = x1 * cos_val - x2 * sin_val;
+            query[i * D + 2*j + 1] = x1 * sin_val + x2 * cos_val;
+        }
+    }
+}
+```
+
+### 3. INT8/INT4 量化支持
+
+#### INT8 量化（KV Cache）
+
+**量化公式**:
+
+$$
+\text{Quant}(x) = \text{clip}\left(\text{round}\left(\frac{x}{\text{scale}} + \text{offset}\right), -128, 127\right)
+$$
+
+$$
+\text{Dequant}(x_{\text{int8}}) = (x_{\text{int8}} - \text{offset}) \times \text{scale}
+$$
+
+**实现流程**:
+
+```cpp
+// 1. 加载量化的 KV
+__aicore__ inline void LoadQuantizedKV(
+    GlobalTensor<int8_t> kv_int8,
+    GlobalTensor<float> scale,
+    GlobalTensor<float> offset,
+    LocalTensor<float> kv_fp32,
+    int32_t block_id,
+    int32_t B_KV,
+    int32_t D
+) {
+    // 加载 INT8 数据
+    LocalTensor<int8_t> kv_int8_local = AllocTensor<int8_t>(B_KV * D);
+    DataCopy(kv_int8_local, kv_int8[block_id * B_KV * D], B_KV * D);
+    
+    // 加载 scale 和 offset（per-tensor 或 per-channel）
+    LocalTensor<float> scale_local = AllocTensor<float>(D);
+    LocalTensor<float> offset_local = AllocTensor<float>(D);
+    DataCopy(scale_local, scale, D);
+    DataCopy(offset_local, offset, D);
+    
+    // 反量化
+    for (int i = 0; i < B_KV; i++) {
+        for (int j = 0; j < D; j++) {
+            kv_fp32[i * D + j] = 
+                (static_cast<float>(kv_int8_local[i * D + j]) - offset_local[j]) 
+                * scale_local[j];
+        }
+    }
+}
+
+// 2. 计算注意力（使用反量化后的 FP32）
+ComputeAttention(query_fp32, kv_fp32, value_fp32);
+```
+
+#### INT4 伪量化（Antiquant）
+
+**应用场景**: DeepSeek 等大模型使用 INT4 存储权重，但计算时转换为 FP16
+
+**实现**:
+
+```cpp
+__aicore__ inline void LoadINT4KV(
+    GlobalTensor<int4> kv_int4,        // INT4 packed storage
+    GlobalTensor<float> antiquant_scale,
+    GlobalTensor<float> antiquant_offset,
+    LocalTensor<float> kv_fp32,
+    int32_t block_id,
+    int32_t B_KV,
+    int32_t D
+) {
+    // INT4 以 packed 形式存储（2个INT4打包成1个INT8）
+    LocalTensor<uint8_t> kv_packed = AllocTensor<uint8_t>(B_KV * D / 2);
+    DataCopy(kv_packed, kv_int4[block_id * B_KV * D / 2], B_KV * D / 2);
+    
+    // 解包 INT4
+    LocalTensor<int4> kv_int4_local = AllocTensor<int4>(B_KV * D);
+    UnpackINT4(kv_int4_local, kv_packed, B_KV * D);
+    
+    // 加载 antiquant 参数
+    LocalTensor<float> scale_local = AllocTensor<float>(D);
+    LocalTensor<float> offset_local = AllocTensor<float>(D);
+    DataCopy(scale_local, antiquant_scale, D);
+    DataCopy(offset_local, antiquant_offset, D);
+    
+    // 反量化
+    for (int i = 0; i < B_KV; i++) {
+        for (int j = 0; j < D; j++) {
+            kv_fp32[i * D + j] = 
+                (static_cast<float>(kv_int4_local[i * D + j]) - offset_local[j]) 
+                * scale_local[j];
+        }
+    }
+}
+```
+
+### 4. Shared Prefix（前缀共享）
+
+**场景**: 多个序列共享相同的前缀（如 system prompt）
+
+**实现**:
+
+```cpp
+struct SharedPrefixConfig {
+    int32_t prefix_len;        // 共享前缀长度
+    int32_t prefix_batch;      // 前缀所在的 batch id
+    bool use_shared_prefix;    // 是否启用前缀共享
+};
+
+__aicore__ inline void ProcessSharedPrefix(
+    LocalTensor<float> query,
+    GlobalTensor<float> key,
+    GlobalTensor<float> value,
+    SharedPrefixConfig config
+) {
+    if (!config.use_shared_prefix) {
+        return;
+    }
+    
+    // 1. 计算与前缀的注意力
+    LoadQBlock(query, 0, B_Q);
+    
+    // 共享前缀来自特定 batch
+    LoadKVFromBatch(
+        key, value, 
+        config.prefix_batch, 
+        0, config.prefix_len
+    );
+    
+    ComputeAttentionWithPrefix();
+    
+    // 2. 继续计算与非前缀部分的注意力
+    LoadKVFromBatch(
+        key, value,
+        current_batch,
+        config.prefix_len, kv_len
+    );
+    
+    ComputeAttentionWithOnlineSoftmax();
+}
+```
+
+---
+
+## 与 PyPTO 实现对比
+
+### PyPTO 实现概述
+
+PyPTO 是华为推出的 **Python 高级编程框架**，用于简化昇腾 NPU 上的算子开发。
+
+#### PyPTO Attention 示例
+
+**文件**: `/mnt/workspace/gitCode/cann/mce/pypto/examples/03_advanced/advanced_nn/attention/attention.py`
+
+```python
+import pypto
+
+# 定义 JIT 函数
+@pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.NPU})
+def scaled_dot_product_attention(
+    q: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM), pypto.DT_BF16),
+    k: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM), pypto.DT_BF16),
+    v: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM), pypto.DT_BF16),
+) -> pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM), pypto.DT_BF16):
+    
+    # 1. 配置 Tiling（必需）
+    pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
+    pypto.set_vec_tile_shapes(1, 8, 16, HEAD_DIM)
+    
+    # 2. 计算 Q @ K^T
+    scores = pypto.matmul(q, pypto.transpose(k, 2, 3), out_dtype=pypto.DT_BF16)
+    
+    # 3. Scale
+    scale = 1.0 / (HEAD_DIM ** 0.5)
+    scores_scaled = pypto.mul(scores, scale)
+    
+    # 4. Softmax
+    attn_weights = pypto.softmax(scores_scaled, dim=-1)
+    
+    # 5. P @ V
+    output = pypto.matmul(attn_weights, v, out_dtype=pypto.DT_BF16)
+    
+    return output
+```
+
+### 核心差异对比
+
+| 维度 | AscendC (C++) | PyPTO (Python) |
+|-----|---------------|----------------|
+| **编程语言** | C++ (底层) | Python (高级) |
+| **抽象层次** | 硬件级（Buffer、指令） | 算法级（Tensor、Operator） |
+| **内存管理** | 手动管理（显式分配/释放） | 自动管理（框架管理） |
+| **Tiling 配置** | 完全自定义（C++ 逻辑） | 声明式 API（`set_cube_tile_shapes`） |
+| **性能调优** | 完全控制（指令级优化） | 依赖编译器自动优化 |
+| **开发效率** | 低（大量样板代码） | 高（几行代码搞定） |
+| **适用场景** | 性能极致优化、底层算子开发 | 快速原型验证、模型开发 |
+
+### 代码复杂度对比
+
+#### AscendC 实现复杂度
+
+**优点**:
+- 完全控制硬件资源
+- 可以实现极致性能优化
+- 支持所有硬件特性
+
+**缺点**:
+- 代码量大（数千行）
+- 需要深入理解硬件架构
+- 调试困难（需要硬件调试工具）
+- 开发周期长
+
+#### PyPTO 实现复杂度
+
+**优点**:
+- 代码简洁（几十行）
+- 开发速度快
+- 易于调试（Python 生态）
+- 自动优化（编译器 Pass）
+
+**缺点**:
+- 灵活性受限（受限于框架能力）
+- 性能可能不如手工优化
+- 不支持所有硬件特性
+
+### 性能优化策略对比
+
+#### AscendC 优化策略
+
+1. **手工 Tiling**: 根据硬件资源精确计算分块大小
+2. **Double Buffering**: 手动实现 Ping-Pong Buffer
+3. **流水线并行**: 精心设计数据加载和计算的overlap
+4. **指令调度**: 手动安排指令顺序以隐藏延迟
+5. **内存布局优化**: 选择最优的 ND/NZ 布局
+
+#### PyPTO 优化策略
+
+1. **声明式 Tiling**: 通过 API 配置 Tiling 参数
+   ```python
+   pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
+   ```
+2. **编译器优化**: 框架自动进行 Pass 优化（如常量折叠、死代码消除）
+3. **自动向量化**: 编译器自动生成高效的向量化代码
+4. **Cost Model**: 基于代价模型自动选择最优实现
+
+### 混合开发模式
+
+实际项目中，可以结合两种方式：
+
+```
+┌─────────────────────────────────────┐
+│   应用层（Python）                   │
+│   - 模型定义                        │
+│   - 训练/推理流程                    │
+└──────────────┬──────────────────────┘
+               │
+┌──────────────▼──────────────────────┐
+│   PyPTO 层（Python + JIT）           │
+│   - 快速原型实现                     │
+│   - 标准算子（Conv、MatMul等）       │
+└──────────────┬──────────────────────┘
+               │
+┌──────────────▼──────────────────────┐
+│   AscendC 层（C++）                  │
+│   - 性能关键算子（Flash Attention）  │
+│   - 自定义优化算子                   │
+└─────────────────────────────────────┘
+```
+
+**建议**:
+1. **原型阶段**: 使用 PyPTO 快速验证算法
+2. **优化阶段**: 将性能热点算子用 AscendC 重写
+3. **集成阶段**: 通过 ACLNN API 调用 AscendC 算子
+
+---
+
+## 性能优化要点
+
+### 1. Tiling 策略优化
+
+**目标**: 最大化片上存储利用率，最小化 HBM 访问
+
+**决策因素**:
+- UB 大小（~1.5 MB）
+- L1 大小（~1 MB）
+- 数据类型（FP16/BF16/INT8）
+- 序列长度（S_q, S_kv）
+
+**优化示例**:
+
+```cpp
+// 计算 UB 能容纳的最大 tile 大小
+uint32_t ub_size_bytes = 1.5 * 1024 * 1024;  // 1.5 MB
+
+// 需要存储的中间变量
+// - Q: [B_Q, D] * sizeof(float) = B_Q * D * 4
+// - K: [B_KV, D] * sizeof(float) = B_KV * D * 4
+// - V: [B_KV, D] * sizeof(float) = B_KV * D * 4
+// - S: [B_Q, B_KV] * sizeof(float) = B_Q * B_KV * 4
+// - P: [B_Q, B_KV] * sizeof(float) = B_Q * B_KV * 4
+// - O: [B_Q, D] * sizeof(float) = B_Q * D * 4
+// - m: [B_Q, 1] * sizeof(float) = B_Q * 4
+// - l: [B_Q, 1] * sizeof(float) = B_Q * 4
+
+uint32_t total_memory = (3 * B_Q * D + 3 * B_KV * D + 2 * B_Q * B_KV + 2 * B_Q) * 4;
+
+// 选择满足条件的最大 B_Q 和 B_KV
+// 经验值: B_Q = 64, B_KV = 64 (for D=128, BF16)
+```
+
+### 2. Double Buffering（双缓冲）
+
+**目标**: 隐藏数据加载延迟
+
+```cpp
+// Ping-Pong Buffer 实现
+LocalTensor<float> ub_ping = ub[0 : ub_size/2];
+LocalTensor<float> ub_pong = ub[ub_size/2 : ub_size];
+
+// 初始化：加载第一块到 Ping
+DataCopy(ub_ping, gm_q[0], tile_size);
+
+for (int i = 0; i < num_tiles; i++) {
+    // 计算 Ping，同时加载下一块到 Pong
+    ComputeTile(ub_ping);
+    
+    if (i + 1 < num_tiles) {
+        DataCopy(ub_pong, gm_q[(i+1) * tile_size], tile_size);
+    }
+    
+    // 交换 Ping-Pong
+    std::swap(ub_ping, ub_pong);
+}
+```
+
+### 3. 流水线并行
+
+**目标**: 矩阵乘法与数据加载并行
+
+```cpp
+// Pipeline: Load K -> Compute QK^T -> Load V -> Compute PV
+for (int j = 0; j < num_kv_tiles; j++) {
+    // Stage 1: 预取下一块 K 和 V
+    if (j + 1 < num_kv_tiles) {
+        DataCopyAsync(l1_k[(j+1) * kv_tile], gm_k[(j+1) * kv_tile]);
+        DataCopyAsync(l1_v[(j+1) * kv_tile], gm_v[(j+1) * kv_tile]);
+    }
+    
+    // Stage 2: 计算 Q @ K^T
+    Load2L0(l0a, q_local);
+    Load2L0(l0b, l1_k[j * kv_tile]);
+    MMAD(l0c_qk, l0a, l0b);
+    DataCopy(ub_s, l0c_qk);
+    
+    // Stage 3: Softmax
+    Softmax(ub_p, ub_s);
+    
+    // Stage 4: 计算 P @ V
+    DataCopy(l1_p, ub_p);
+    Load2L0(l0a, l1_p);
+    Load2L0(l0b, l1_v[j * kv_tile]);
+    MMAD(l0c_pv, l0a, l0b);
+    
+    // Stage 5: 累积输出（Online Softmax）
+    AccumulateOutput(l0c_pv, ub_o, ub_m, ub_l);
+}
+```
+
+### 4. 内存布局优化
+
+**目标**: 优化 Cube 单元访问模式
+
+```
+ND Format (连续存储):
+┌──────────────┐
+│ Token 0      │ [D0, D1, ..., D127]
+│ Token 1      │ [D0, D1, ..., D127]
+│ ...          │
+└──────────────┘
+
+NZ Format (分块存储，适合 Cube):
+┌─────────┬─────────┐
+│ T0_D0~D15│ T0_D16~D31│
+│ T1_D0~D15│ T1_D16~D31│
+│ ...      │ ...       │
+└─────────┴─────────┘
+
+优势：Cube 单元一次加载一个 NZ block，减少内存访问次数
+```
+
+### 5. 量化优化
+
+**INT8/INT4 量化收益**:
+1. **内存占用减少**: FP16 → INT8 (50%), INT8 → INT4 (50%)
+2. **带宽节省**: KV Cache 访问量减少
+3. **计算加速**: INT8 矩阵乘法可能更快（取决于硬件）
+
+**代价**:
+1. **精度损失**: 需要仔细选择量化参数
+2. **反量化开销**: 需要在计算前转换为 FP32
+
+**最佳实践**:
+- KV Cache 使用 INT8/INT4 存储
+- 计算时反量化为 FP32
+- 使用 per-channel quantization 减少精度损失
+
+### 6. Sparse Attention（稀疏注意力）
+
+**场景**: 长序列场景（S > 4K）
+
+**策略**:
+- **Local Attention**: 只关注附近的 token（如 512 个邻居）
+- **Global Attention**: 关键 token（如 [CLS]）全局可见
+- **Random Attention**: 随机采样部分 token
+
+**实现**:
+
+```cpp
+struct SparseAttentionPattern {
+    int32_t local_window;    // 局部窗口大小
+    int32_t global_tokens;   // 全局 token 数量
+    float random_ratio;      // 随机采样比例
+};
+
+__aicore__ inline void ComputeSparseAttention(
+    LocalTensor<float> query,
+    GlobalTensor<float> key,
+    GlobalTensor<float> value,
+    SparseAttentionPattern pattern
+) {
+    // 1. 局部注意力
+    for (int q_pos = 0; q_pos < S_q; q_pos++) {
+        int32_t local_start = max(0, q_pos - pattern.local_window);
+        int32_t local_end = min(S_kv, q_pos + pattern.local_window);
+        
+        ComputeLocalAttention(query, key, value, q_pos, local_start, local_end);
+    }
+    
+    // 2. 全局注意力
+    ComputeGlobalAttention(query, key, value, 0, pattern.global_tokens);
+    
+    // 3. 随机注意力（可选）
+    if (pattern.random_ratio > 0) {
+        ComputeRandomAttention(query, key, value, pattern.random_ratio);
+    }
+}
+```
+
+**复杂度**:
+- 标准 Attention: $O(S^2)$
+- 稀疏 Attention: $O(S \times W)$（W 为窗口大小）
+
+---
+
+## 总结与最佳实践
+
+### 技术要点总结
+
+#### 1. Flash Attention 核心思想
+
+```
+传统 Attention:
+  存储: 完整的 S × S 注意力矩阵
+  复杂度: O(S^2) 内存, O(S^2) 计算
+  
+Flash Attention:
+  存储: 仅存储当前 tile（B_Q × B_KV）
+  复杂度: O(S) 内存, O(S^2) 计算
+  
+关键: 通过分块计算和 Online Softmax，将内存复杂度从平方级降至线性
+```
+
+#### 2. 性能优化核心
+
+```
+┌─────────────────────────────────────┐
+│   计算密集型 vs 内存密集型           │
+├─────────────────────────────────────┤
+│   - 小序列 (S < 512): 计算密集      │
+│     优化重点: 指令级并行             │
+│                                     │
+│   - 中序列 (512 < S < 4096): 平衡   │
+│     优化重点: Tiling + Double Buf   │
+│                                     │
+│   - 长序列 (S > 4096): 内存密集     │
+│     优化重点: 稀疏注意力 + 量化      │
+└─────────────────────────────────────┘
+```
+
+#### 3. 开发建议
+
+**初学者路径**:
+1. 使用 PyPTO 快速实现原型
+2. 验证算法正确性
+3. 使用 NPU Profiler 分析性能瓶颈
+4. 针对瓶颈用 AscendC 优化
+
+**高级开发者路径**:
+1. 深入理解硬件架构（UB/L1/L0A/L0B/L0C/CU/VF）
+2. 精心设计 Tiling 策略
+3. 实现极致性能优化（Double Buffer + Pipeline）
+4. 探索新特性（量化、稀疏、RoPE）
+
+### 最佳实践清单
+
+✅ **Shape 和 Tiling**
+- [ ] 根据输入 shape 动态计算 tiling 参数
+- [ ] 确保 D 维度满足对齐要求（FP16: 16字节, INT8: 32字节）
+- [ ] 选择合适的 B_Q 和 B_KV（通常 64-128）
+- [ ] 考虑边界情况（序列长度不是 tile 大小的整数倍）
+
+✅ **内存管理**
+- [ ] 使用 Double Buffering 隐藏加载延迟
+- [ ] 优先使用 L1 缓存频繁访问的数据（如 KV）
+- [ ] 复用 UB 空间，减少内存碎片
+- [ ] 使用异步数据传输（DataCopyAsync）
+
+✅ **计算优化**
+- [ ] 使用 Online Softmax 减少内存占用
+- [ ] GQA 场景下复用 KV（减少加载次数）
+- [ ] 因果注意力直接跳过未来位置（避免无效计算）
+- [ ] 使用 NZ 内存布局优化 Cube 访问
+
+✅ **量化策略**
+- [ ] KV Cache 使用 INT8/INT4 存储
+- [ ] 计算前反量化为 FP32
+- [ ] 使用 per-channel quantization 提高精度
+- [ ] 定期校准量化参数
+
+✅ **特殊场景**
+- [ ] 长序列使用稀疏注意力
+- [ ] 多序列共享前缀时使用 Shared Prefix
+- [ ] 增量推理使用 Paged Attention
+- [ ] 支持动态 Batch 和序列长度
+
+### 参考资源
+
+#### 官方文档
+- [CANN 开发文档](https://www.hiascend.com/document)
+- [Ascend C API 参考](https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/80RC1alpha003/apiref/)
+- [PyPTO 文档中心](https://pypto.gitcode.com)
+
+#### 源码仓库
+- [ops-transformer](https://gitcode.com/cann/ops-transformer) - Flash Attention 实现
+- [pypto](https://gitcode.com/cann/pypto) - PyPTO 框架
+
+#### 学术论文
+- [Flash Attention](https://arxiv.org/abs/2205.14135) - 原始论文
+- [Flash Attention 2](https://arxiv.org/abs/2307.08691) - 改进版本
+- [Paged Attention](https://arxiv.org/abs/2309.06180) - vLLM 论文
+
+---
+
+## 附录：关键代码行号索引
+
+### AscendC 源码（ops-transformer）
+
+| 功能 | 文件 | 关键行号 |
+|-----|------|---------|
+| V5 API 入口 | `op_host/op_api/aclnn_fused_infer_attention_score_v5.cpp` | L31-173 (GetMaxWorkspaceSize) |
+|  |  | L175-246 (GetWorkspaceSize) |
+|  |  | L248-252 (Execute) |
+| Tiling 策略（910C/A2） | `op_host/arch35/fused_infer_attention_score_tiling_v2.cpp` | 整个文件 |
+| Kernel 主逻辑 | `op_kernel/fused_infer_attention_score.cpp` | 整个文件 |
+| GEMM 模块 | `op_kernel/attn_infra/gemm/block/block_mmad_qk.hpp` | QK^T 实现 |
+|  | `op_kernel/attn_infra/gemm/block/block_mmad_pv.hpp` | PV 实现 |
+| Online Softmax | `op_kernel/attn_infra/epilogue/block/block_epilogue_online_softmax.hpp` | 整个文件 |
+
+### PyPTO 源码（pypto）
+
+| 功能 | 文件 | 关键行号 |
+|-----|------|---------|
+| Attention 示例 | `examples/03_advanced/advanced_nn/attention/attention.py` | L112-136 (JIT 函数) |
+| Flash Attention Golden | `framework/tests/cmake/scripts/golden/op/flash_attention.py` | L179-254 (FA 实现) |
+| Softmax API | `docs/api/operation/pypto-softmax.md` | API 文档 |
+| MatMul API | `docs/api/operation/pypto-matmul.md` | API 文档 |
+
+---
+
+**文档版本**: v1.0  
+**最后更新**: 2026-03-05  
+**作者**: AI Assistant (based on CANN 8.5.0 ops-transformer)  
+**反馈**: 如有问题或建议，请提交 Issue 到对应仓库

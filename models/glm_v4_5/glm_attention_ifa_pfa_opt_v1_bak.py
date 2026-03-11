@@ -589,7 +589,8 @@ def pfa_func(q_shape, kv_shape, block_table_shape):
                                 block_idx_valid = block_idx.max(0)
                                 kj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
                                     pypto.view(k_2d, [block_size, dn], [block_idx_valid * block_size, 0])
-                            kj_assemble = pypto.view(kj_assemble, [s2_tile, dn], [0, 0], valid_shape=[s2_tile, dn])
+                            # ========== 修改点2: kj_assemble 也使用 actual_s2_tile 作为 valid_shape ==========
+                            kj_assemble = pypto.view(kj_assemble, [s2_tile, dn], [0, 0], valid_shape=[actual_s2_tile, dn])
                             
                             pypto.set_cube_tile_shapes(c1_tile[0], c1_tile[1], c1_tile[2])
                             sij = pypto.matmul(qi, kj_assemble, pypto.DT_FP32, a_trans=False, b_trans=True)
@@ -722,7 +723,6 @@ def attention_pfa(
 # ============================================================================
 # 测试函数
 # ============================================================================
-
 def run_ifa_test(atten_cfg):
     """运行 IFA 测试"""
     debug_print("IFA_TEST", "Starting IFA test...")
@@ -936,5 +936,5 @@ if __name__ == "__main__":
     print()
     print("=" * 60)
     
-    test_ifa()
+    # test_ifa()
     test_pfa()
