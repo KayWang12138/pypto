@@ -205,6 +205,7 @@ static std::string ToString(const T &val, size_t totalSize) {
     }
 }
 
+
 void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &passIdentifier) {
     functionInterpreter_->verifyType = VerifyType::PASS;
     functionInterpreter_->passIndex = passIndex;
@@ -219,7 +220,8 @@ void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &
     if (passFilter.empty()) {
  	         return;
  	}
- 	if (passFilter[0] != "all") {
+
+ 	if (std::find(passFilter.begin(), passFilter.end(), "all") == passFilter.end()) {
         auto it = std::find(passFilter.begin(), passFilter.end(), passIdentifier);
         if (it == passFilter.end()) {
             return;
