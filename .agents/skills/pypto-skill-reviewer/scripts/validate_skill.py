@@ -541,20 +541,6 @@ def check_r41(skill_dir, **_):
     return results if results else None
 
 
-def check_r43(fm, **_):
-    """R43: When context: fork, agent field should also be specified"""
-    if fm is None:
-        return None
-    ctx = fm.get("context")
-    if ctx != "fork":
-        return None
-    if "agent" not in fm or not fm["agent"]:
-        return finding("R43", "S2", "D0", "FAIL",
-                       "已设置 `context: fork`，但 `agent` 字段缺失或为空",
-                       "SKILL.md", 1, f"context: {ctx}")
-    return None
-
-
 def check_r45(skill_dir, standard_dirs, **_):
     """R45: Subdirectory structure should use standard naming"""
     results = []
@@ -565,7 +551,7 @@ def check_r45(skill_dir, standard_dirs, **_):
     for entry in entries:
         full = os.path.join(skill_dir, entry)
         if os.path.isdir(full) and entry not in standard_dirs and not entry.startswith("."):
-            results.append(finding("R45", "S3", "D0", "FAIL",
+            results.append(finding("R45", "S3", "D3", "FAIL",
                                    f"非标准子目录 `{entry}`（期望: {', '.join(standard_dirs)}）",
                                    entry, 0, entry))
     return results if results else None
@@ -672,7 +658,7 @@ def flatten(results):
 # ---------------------------------------------------------------------------
 
 DIMENSION_WEIGHTS = {
-    "D0": 0.00, "D1": 0.25, "D2": 0.15, "D3": 0.10,
+    "D1": 0.25, "D2": 0.15, "D3": 0.10,
     "D4": 0.10, "D5": 0.10, "D6": 0.10, "D7": 0.05,
     "D8": 0.10, "D9": 0.05,
 }
@@ -692,14 +678,14 @@ def calculate_score(findings, skill_dir):
         - S0 veto: any S0 FAIL caps total at 59.9, max grade D
         - D9: no scripts/ directory in target skill -> full marks (5.0)
     """
-    dim_deductions = {f"D{i}": 0 for i in range(10)}
+    dim_deductions = {f"D{i}": 0 for i in range(1, 10)}
     s0_veto = False
 
     for f in findings:
         if f.get("status") != "FAIL":
             continue
         sev = f.get("severity", "S3")
-        dim = f.get("dimension", "D0")
+        dim = f.get("dimension", "D1")
         dim_deductions[dim] = dim_deductions.get(dim, 0) + SEVERITY_DEDUCTIONS.get(sev, 0)
         if sev == "S0":
             s0_veto = True
@@ -709,8 +695,6 @@ def calculate_score(findings, skill_dir):
 
     dimensions = {}
     for dim, weight in DIMENSION_WEIGHTS.items():
-        if dim == "D0":
-            continue
         if dim == "D9" and d9_no_scripts:
             dimensions[dim] = {
                 "raw": 100, "weight": weight,
@@ -826,7 +810,6 @@ def validate(skill_dir):
         check_r39(**ctx),
         check_r40(**ctx),
         check_r41(**ctx),
-        check_r43(**ctx),
         check_r45(**ctx),
         check_r46(**ctx),
         check_r47(**ctx),
@@ -844,8 +827,8 @@ def validate(skill_dir):
         "R17": ("S2", "D3"), "R18": ("S2", "D3"), "R22": ("S2", "D4"),
         "R34": ("S0", "D8"), "R35": ("S1", "D8"), "R36": ("S1", "D8"),
         "R37": ("S1", "D8"), "R38": ("S2", "D8"), "R39": ("S2", "D9"),
-        "R40": ("S2", "D9"), "R41": ("S2", "D9"), "R43": ("S2", "D0"),
-        "R45": ("S3", "D0"), "R46": ("S2", "D1"), "R47": ("S2", "D2"),
+        "R40": ("S2", "D9"), "R41": ("S2", "D9"),
+        "R45": ("S3", "D3"), "R46": ("S2", "D1"), "R47": ("S2", "D2"),
         "R48": ("S3", "D4"),
     }
     failed_rules = {f["rule_id"] for f in findings}

@@ -9,7 +9,7 @@
 | 总分 | {{score}} / 100 |
 | 等级 | {{grade}} |
 | S0 否决 | {{s0_veto}} |
-| 规则统计 | 通过 {{pass_count}} / 失败 {{fail_count}} / 警告 {{warn_count}} |
+| 规则统计 | 通过 {{pass_count}} / 失败 {{fail_count}} / 警告 {{warn_count}} / 跳过 {{skip_count}} |
 
 ## 维度得分
 

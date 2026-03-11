@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "meta": {
     "title": "PyPTO Skill Reviewer Rules",
-    "description": "Single source of truth for all 50 review rules across 10 dimensions",
+    "description": "Single source of truth for all 47 review rules across 9 dimensions",
     "sources": [
       { "id": "A1", "title": "Anthropic Docs: Claude Code Skills", "url": "https://docs.anthropic.com/en/docs/claude-code/skills" },
       { "id": "A2", "title": "Anthropic Docs: Subagents", "url": "https://docs.anthropic.com/en/docs/claude-code/subagents" },
@@ -21,8 +21,7 @@
     "D6": { "name": "工作流完整性", "weight": 10 },
     "D7": { "name": "模式与最佳实践", "weight": 5 },
     "D8": { "name": "反模式检测", "weight": 10 },
-    "D9": { "name": "脚本与代码质量", "weight": 5 },
-    "D0": { "name": "附加检查", "weight": 0 }
+    "D9": { "name": "脚本与代码质量", "weight": 5 }
   },
   "severity_deductions": {
     "S0": 20,
@@ -269,7 +268,7 @@
       "dimension": "D5",
       "rule": "所有提及的操作都必须提供具体实现方法",
       "source": ["A3"],
-      "check_strategy": "Identify action references without corresponding implementation details. Skill invocations (e.g., 'use xxx-skill to...') do not require parameter details as AI handles skill calls automatically."}
+      "check_strategy": "Identify action references without corresponding implementation details. Skill invocations (e.g., 'use xxx-skill to...') do not require parameter details as AI handles skill calls automatically."
     },
     {
       "id": "R27",
@@ -416,28 +415,10 @@
       "check_strategy": "Check for try/except blocks, error reporting, and non-zero exit codes on failure"
     },
     {
-      "id": "R43",
-      "severity": "S2",
-      "type": "static",
-      "dimension": "D0",
-      "rule": "当 `context: fork` 时，也应指定 `agent` 字段",
-      "source": ["A1", "A2"],
-      "check_strategy": "Check only when context field exists and equals fork"
-    },
-    {
-      "id": "R44",
-      "severity": "S2",
-      "type": "semantic",
-      "dimension": "D0",
-      "rule": "fork 类型 skill 必须包含明确的任务指令",
-      "source": ["A1", "A2"],
-      "check_strategy": "Check fork skills for clear task delegation instructions"
-    },
-    {
       "id": "R45",
       "severity": "S3",
       "type": "static",
-      "dimension": "D0",
+      "dimension": "D3",
       "rule": "子目录结构应使用标准命名",
       "source": ["A1"],
       "check_strategy": "Compare subdirectory names against standard set: references, scripts, templates, assets, examples"
@@ -472,15 +453,6 @@
 
     {
       "id": "R49",
-      "severity": "S2",
-      "type": "semantic",
-      "dimension": "D9",
-      "rule": "脚本应能优雅处理缺失依赖",
-      "source": ["A3"],
-      "check_strategy": "Check that import statements are wrapped in try/except or that the script checks for required tools before use"
-    },
-    {
-      "id": "R50",
       "severity": "S2",
       "type": "semantic",
       "dimension": "D7",
