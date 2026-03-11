@@ -107,6 +107,11 @@ def gen_quan_per_channel_weight_nz(x):
 
 
 @pypto.frontend.jit(
+    host_options={
+        "compile_monitor_enable": False,
+        "compile_timeout": 120,
+        "compile_timeout_stage": 30,
+        "compile_monitor_print_interval": 5},
     runtime_options={"device_sched_mode": 1,
                     "stitch_function_max_num": 128,
                     "stitch_cfgcache_size": 7700000},

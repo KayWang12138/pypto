@@ -62,7 +62,7 @@ void MonitorManager::Initialize(bool enable, int interval_sec, int timeout_sec, 
 
 void MonitorManager::Shutdown() {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (!initialized_) {
+    if (!initialized_ || !enable_) {
         return;
     }
     if (impl_) {
@@ -94,6 +94,9 @@ double MonitorManager::GetCurrentStageElapsed(const std::string& name) {
 }
 
 void MonitorManager::SetTotalFunctionCount(int n) {
+    if (!enable_) {
+        return;
+    }
     MonitorImpl* to_start = nullptr;
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -124,12 +127,18 @@ void MonitorManager::SetTotalFunctionCount(int n) {
 }
 
 int MonitorManager::GetAndIncrementNextFunctionIndex() {
+    if (!enable_) {
+        return 0;
+    }
     std::lock_guard<std::mutex> lock(mutex_);
     int k = next_function_index_++;
     return k;
 }
 
 void MonitorManager::SetCurrentFunctionIndex(int k) {
+    if (!enable_) {
+        return;
+    }
     std::lock_guard<std::mutex> lock(mutex_);
     current_function_index_ = k;
     std::string val = std::to_string(k);
@@ -137,6 +146,9 @@ void MonitorManager::SetCurrentFunctionIndex(int k) {
 }
 
 void MonitorManager::TryEndPrepareStage() {
+    if (!impl_ || !enable_) {
+        return;
+    }
     std::lock_guard<std::mutex> lock(mutex_);
     impl_->StopMonitoring();
     if (!initialized_ || python_stage_ended_) {
@@ -163,7 +175,7 @@ void MonitorManager::TryEndPrepareStage() {
 
 void MonitorManager::NotifyCompilationFinished() {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (!initialized_) {
+    if (!initialized_ || !enable_) {
         return;
     }
     PrintCompilationFinished();
@@ -302,6 +314,9 @@ std::string MonitorManager::GetCurrentFunctionName() const {
 }
 
 void MonitorManager::SetCurrentFunctionName(const std::string& name) {
+    if (!enable_) {
+        return;
+    }
     std::lock_guard<std::mutex> lock(mutex_);
     current_function_ = name;
 }
@@ -341,7 +356,7 @@ std::unordered_map<std::string, double> MonitorManager::GetStageElapsedTotals() 
 void MonitorManager::StartStage(const std::string& name) {
     COMPILER_LOGI("Stage ==[%s]== begin.", name.c_str());
     std::lock_guard<std::mutex> lock(mutex_);
-    if (!initialized_ || !impl_) {
+    if (!initialized_ || !impl_ || !enable_) {
         return;
     }
     impl_->StartMonitoring();
@@ -352,14 +367,14 @@ void MonitorManager::StartStage(const std::string& name) {
 }
 
 void MonitorManager::EndStage(const std::string& name) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!initialized_ || !impl_ || !enable_) {
+        return;
+    }
     if (this->GetTimeoutSec() != 0) {
         stage_timeout_flag_["Prepare"] = false;
         stage_timeout_flag_["Pass"] = false;
         stage_timeout_flag_["CodeGen"] = false;
-    }
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (!initialized_) {
-        return;
     }
     impl_->StopMonitoring();
     auto now = std::chrono::steady_clock::now();
