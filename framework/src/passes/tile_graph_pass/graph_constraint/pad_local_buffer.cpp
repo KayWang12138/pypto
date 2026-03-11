@@ -557,7 +557,7 @@ int64_t AlignedRawTensorIfNeed(LogicalTensorPtr &in, int64_t pos, const int64_t 
     }
     int64_t padDim = Pad(in->tensor->rawshape[pos], base);
     int64_t paddingValue = GetPaddingValue(in);
-    if (padDim % paddingValue != 0) {
+    if (paddingValue != 0 && padDim % paddingValue != 0) {
         padDim = Lcm(padDim, paddingValue);
     }
     in->tensor->rawshape[pos] = padDim;
