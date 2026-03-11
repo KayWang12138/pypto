@@ -552,8 +552,12 @@ def moe_distributed_dispatch_kernel(
     return kernel
 
 
-def moe_distributed_dispatch(config: DistributedConfig, moe_case: MoeCase, operands: MoeDispatchOperands,
-    logical_rank_id: int) -> None:
+def moe_distributed_dispatch(
+    config: DistributedConfig,
+    moe_case: MoeCase,
+    operands: MoeDispatchOperands,
+	logical_rank_id: int,
+) -> None:
     groups = config.init_hccl_comm(config, logical_rank_id)
 
     x = operands.x
