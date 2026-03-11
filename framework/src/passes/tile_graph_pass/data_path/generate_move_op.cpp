@@ -158,11 +158,10 @@ Status GenerateMoveOp::ProcessDefault(Function &function, Operation &op, ViewOpA
     }
     if(op.GetOpcode() == Opcode::OP_L0C_TO_L1) {
         SetL0C2L1CopyAttr(op, op.GetOOperands()[0]->GetShape(), OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()), OpImmediate::Specified(ZERO_OFFSET));
+    } else if (op.GetOpcode() == Opcode::OP_L0C_COPY_UB) {
+        op.SetAttribute(OpAttributeKey::isCube, true);
     } else {
         SetCopyAttr(op,viewOpAttribute);
-        if (op.GetOpcode() == Opcode::OP_L0C_COPY_UB) {
-            op.SetAttribute(OpAttributeKey::isCube, true);
-        }
     }
     return SUCCESS;
 }
