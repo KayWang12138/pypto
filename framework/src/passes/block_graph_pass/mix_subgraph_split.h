@@ -93,12 +93,17 @@ struct GlobalSplitRecord {
 
 class MixSubgraphSplit : public Pass {
 public:
-    MixSubgraphSplit() : Pass("MixSubgraphSplit"), nextMixId_(0) {
+    MixSubgraphSplit() : Pass("MixSubgraphSplit") {
         SetSupportedArches({NPUArch::DAV_3510});
     }
     ~MixSubgraphSplit() override = default;
 
     Status RunOnFunction(Function &function) override;
+
+    static void ResetGlobalState() {
+        globalSplitRecords_.clear();
+        globalNextMixId_.store(0);    
+    }
 
 private:
     // 子模块
@@ -164,7 +169,7 @@ private:
         int componentId,
         const std::vector<SimpleTensorParam>& outcastParams) const;
 
-    uint64_t nextMixId_;
+    static std::atomic<uint64_t> globalNextMixId_;
     static constexpr uint64_t INVALID_PROGRAM_ID = static_cast<uint64_t>(-1);
 };
 
