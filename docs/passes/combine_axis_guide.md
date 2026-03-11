@@ -180,7 +180,215 @@ enum class AxisReorderStatus {
 | **REDUCE** | `UpdateReduceStatus()` | reduce 倒数第二轴 → DISABLE；否则 → 输入状态 |
 | **ELMWISE** | `UpdateElewiseStatus()` | 任一输入 DISABLE → DISABLE；输出尾轴=1 → ENABLE |
 
-#### 4.1.4 正向遍历逻辑
+#### 4.1.4 Reduce 算子的详细业务语义
+
+Reduce 操作对合轴优化的影响需要根据 Reduce 轴的位置进行判断，因为 Reduce 会改变 tensor 的维度结构。
+
+**核心问题**：Reduce 是否会影响尾轴的状态？Reduce 后的 tensor 是否还能支持合轴优化？
+
+##### 三种 Reduce 轴的处理逻辑
+
+**1. Reduce 非最后两轴（`axis < dimSize - 2`）**
+
+```cpp
+// 输入: [N, M, K, L, 1]  (dimSize=5)
+// Reduce(axis=1) → [N, K, L, 1]
+if (dimSize > 1 && axis < dimSize - 2) {
+    tensorStatus[outputTensor] = tensorStatus[inputTensor];
+    return;
+}
+```
+
+**示例**：
+```
+输入: [32, 128, 64, 1]
+状态: ENABLE (尾轴=1，支持合轴)
+  ↓
+Reduce(axis=1)  # reduce 倒数第三轴
+  ↓
+输出: [32, 64, 1]
+状态: ENABLE (继承输入状态，尾轴仍为1)
+```
+
+**理解**：Reduce 的轴不在最后两轴，不影响尾轴的连续性，输入的合轴状态可以直接传递给输出。
+
+---
+
+**2. Reduce 倒数第二轴（`axis == dimSize - 2`）**
+
+```cpp
+// 输入: [N, M, 1]
+// Reduce(axis=1) → [N, 1]
+if (axis == dimSize - 2) {
+    // reduce倒数第二轴，当前不支持合轴优化
+    tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;
+    return;
+}
+```
+
+**示例**：
+```
+输入: [32, 128, 1]
+状态: ENABLE
+  ↓
+Reduce(axis=1)  # reduce 倒数第二轴
+  ↓
+输出: [32, 1]
+状态: DISABLE (不支持合轴)
+```
+
+**为什么倒数第二轴 Reduce 不支持合轴？**
+
+**原因分析**：
+
+假设有以下业务场景：
+```python
+# 原始 shape: [32, 128, 1]
+x = tensor(shape=[32, 128, 1])
+
+# 1. 倒数第二轴 reduce
+y = x.sum(axis=1)  # [32, 1]
+
+# 2. 后续广播操作
+z = y + tensor(shape=[32, 8])  # [32, 8]
+```
+
+**如果支持合轴**：
+```
+步骤1: [32, 128, 1] → Reduce → [32, 1]
+步骤2: [32, 1] 需要广播到 [32, 8]
+      ↓ 合轴优化
+      倒数第二轴合并: [32, 1] → [32*1] = [32]
+      BRCB 扩展: [32] → [32, 8]  ✗ 问题！
+```
+
+**问题所在**：
+- Reduce 倒数第二轴后，shape 变为 `[32, 1]`
+- 如果合轴，变成 `[32]`（一维）
+- BRCB 指令无法将一维 tensor 扩展到二维
+- **硬件约束**：BRCB 要求至少有两维才能进行倒数第二轴的对齐和扩展
+
+**代码体现**（`pad_local_buffer.cpp:614-620`）：
+```cpp
+if (calcType == OpCalcType::BROADCAST) {
+    auto dimIdx = lastIdx;
+    if (axisCombineMarker.IsTensorEnableAxisCombine(in)) {
+        dimIdx = ProcessBroadcastForAxisCombine(in);  // 返回 lastIdx - 1
+    }
+    // 如果 shape 只有一维，lastIdx = 0，dimIdx = -1，会越界！
+    AlignedRawTensorIfNeed(in, dimIdx, paddingValue);
+}
+```
+
+---
+
+**3. Reduce 尾轴（`axis == dimSize - 1`）**
+
+```cpp
+// 输入: [N, M, 1]
+// Reduce(axis=2) → [N, M]
+// Reduce尾轴，默认可以
+tensorStatus[outputTensor] = AxisReorderStatus::ENABLE;
+```
+
+**示例 1：Reduce 尾轴 = 1**
+```
+输入: [32, 128, 1]
+状态: ENABLE
+  ↓
+Reduce(axis=-1)  # reduce 尾轴
+  ↓
+输出: [32, 128]
+状态: ENABLE
+```
+
+**为什么尾轴 Reduce 默认支持？**
+
+**关键理解**：这里的 `ENABLE` 状态的含义是：
+- **不是指输出 tensor 本身支持合轴**（因为它尾轴已经不存在了）
+- **而是指这个 Reduce 节点允许前驱节点进行合轴优化**
+
+**实际业务场景**：
+```python
+# 场景：Attention score 计算
+# 输入: [batch, seq_len, num_heads, 1]
+# 这是一个经过 softmax 后的 attention mask，尾轴=1
+mask = tensor(shape=[batch, seq_len, num_heads, 1])
+
+# Reduce 尾轴：sum over last axis
+mask_sum = mask.sum(axis=-1)  # [batch, seq_len, num_heads]
+
+# 后续广播操作
+result = mask_sum + bias  # bias: [batch, seq_len, 1]
+```
+
+**合轴优化的作用位置**：
+```
+[mask] 输入: [batch, seq_len, num_heads, 1]
+  ↓
+合轴优化: [batch, seq_len, num_heads, 1] → [batch, seq_len, num_heads]
+  ↓
+Reduce(axis=-1): [batch, seq_len, num_heads] → [batch, seq_len, 1]
+  ↓
+输出: [batch, seq_len, 1]
+```
+
+**为什么要这样处理？**
+
+从注释看："尾轴reduce，需不需要交换轴要看后继节点"
+
+1. **如果后继节点需要合轴**：
+   - Reduce 的输出 `[32, 128]` 尾轴不是 1，不涉及合轴
+   - 但 Reduce 的输入 `[32, 128, 1]` 尾轴是 1，**可以在 Reduce 之前**进行合轴优化
+   - 这样可以节省 Reduce 操作前的 UB 空间
+
+2. **如果后继节点不需要合轴**：
+   - 标记为 `ENABLE` 不会产生负面影响
+   - 正向遍历时，后继节点会根据实际情况调整状态
+
+3. **反向遍历的作用**：
+
+```cpp
+// axis_combine_marker.cpp:239-262
+void AxisCombineMarker::UpdateOpACEnableBackward(uint16_t opIdx) {
+    auto op = opList_[opIdx];
+    auto outputTensor = op->GetOOperands()[0];
+    if (OpcodeManager::Inst().GetOpCalcType(op.GetOpcode()) == OpCalcType::ELMWISE ||
+        OpcodeManager::Inst().GetOpCalcType(op.GetOpcode()) == OpCalcType::BROADCAST ||
+        ((op->GetOpcode() == Opcode::OP_VIEW || op->GetOpcode() == Opcode::OP_ASSEMBLE) &&
+          outputTensor->GetShape().back() == op->GetIOperands()[0]->GetShape().back())) {
+        if (tensorStatus_[outputTensor] == AxisReorderStatus::DISABLE) {
+            for (auto inputTensor : op->GetIOperands()) {
+                tensorStatus_[inputTensor] = AxisReorderStatus::DISABLE;
+            }
+            return;
+        }
+        // ...
+    }
+}
+```
+
+**反向遍历的作用**：
+- 如果 Reduce 的输出被标记为 `DISABLE`（因为后继节点不支持）
+- 通过反向遍历，将 `DISABLE` 传播到 Reduce 的输入
+- 这样可以避免在无效路径上浪费时间
+
+---
+
+**总结：Reduce 算子的状态决策**
+
+| Reduce 轴位置 | 示例 | 输出状态 | 原因 |
+|--------------|------|---------|------|
+| **非最后两轴** (axis < dimSize-2) | `[32, 128, 64, 1]` reduce(axis=1) → `[32, 64, 1]` | **继承输入状态** | 不影响尾轴的连续性 |
+| **倒数第二轴** (axis == dimSize-2) | `[32, 128, 1]` reduce(axis=1) → `[32, 1]` | **DISABLE** | 合轴后只有一维，BRCB 无法处理 |
+| **尾轴** (axis == dimSize-1) | `[32, 128, 1]` reduce(axis=-1) → `[32, 128]` | **ENABLE** | 允许在 Reduce 之前进行合轴优化 |
+
+**关键理解**：
+- `ENABLE` 状态不仅表示当前 tensor 支持合轴
+- 还表示**允许前驱节点进行合轴优化**
+- Reduce 尾轴的场景，虽然输出尾轴不存在，但合轴优化可以在 Reduce **之前**进行，节省 UB 空间
+
+#### 4.1.5 正向遍历逻辑
 
 ```cpp
 void AxisCombineMarker::ForwardVisit() {
@@ -211,7 +419,7 @@ void AxisCombineMarker::ForwardVisit() {
 }
 ```
 
-#### 4.1.5 反向遍历逻辑
+#### 4.1.6 反向遍历逻辑
 
 ```cpp
 void AxisCombineMarker::BackwardVisit() {
@@ -698,8 +906,45 @@ def sparse_flash_attention(q, k, v, mask):
    - UB Copy 操作
 
 4. **平台限制**：
-   - 非非 DAV_3510 平台才支持完整功能
-   - DAV_3510 平台会跳过合轴优化
+
+   **DAV_3510 架构 vs 非 DAV_3510 架构的区别**：
+
+   | 特性 | DAV_3510 架构 | 非 DAV_3510 架构（如 DAV_2201） |
+   |------|---------------|------------------------------|
+   **BRCB 插入** | 不插入 BRCB 算子 | 根据合轴状态插入 BRCB 或 EXPAND |
+   **Padding 策略** | 保持原有尾轴对齐逻辑 | 支持 BROADCAST 的倒数第二轴对齐 |
+   **尾轴合并** | 跳过特定广播算子的合轴处理 | 执行完整的尾轴合并逻辑 |
+   **性能收益** | 无（功能未启用） | 内存带宽节省、UB 空间节省 |
+
+   **DAV_3510 架构的具体处理**：
+   ```cpp
+   // axis_combine.cpp:85
+   if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510) {
+       // 非 DAV_3510：插入 BRCB 算子
+       auto &brcb = function.AddRawOperation(Opcode::OP_BRCB, ...);
+   }
+   // DAV_3510：跳过，不插入 BRCB
+
+   // pad_local_buffer.cpp:616
+   if (axisCombineMarker.IsTensorEnableAxisCombine(in)) {
+       dimIdx = ProcessBroadcastForAxisCombine(in);  // 倒数第二轴对齐
+   }
+   // DAV_3510：始终保持尾轴对齐
+
+   // codegen_preproc.cpp:215
+   if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 &&
+       SkipInputCombineOps3510(op)) {
+       continue;  // 跳过合轴处理
+   }
+   ```
+
+   **DAV_3510 跳过的广播算子**：
+   ```cpp
+   const std::unordered_set<Opcode> skipInputCombineOps3510 = {
+       Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL,
+       Opcode::OP_DIV, Opcode::OP_MAXIMUM, Opcode::OP_MINIMUM
+   };
+   ```
 
 ### 8.2 性能约束
 

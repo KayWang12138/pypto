@@ -31,6 +31,11 @@ namespace npu::tile_fwk {
 Status AssignMemoryType::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "===> Start AssignMemoryType.");
     for (auto &op : function.Operations()) {
+        if (op.GetOpMagic() == 10237) {
+            if (op.GetIOperands().begin()->TobeMeme == UB) {
+                std::cout << "here" << std::endl;
+            }
+        }
         RunOnOperation(op);
     }
     for (auto &op : function.Operations()) {
