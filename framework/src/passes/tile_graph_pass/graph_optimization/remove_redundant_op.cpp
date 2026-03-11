@@ -23,21 +23,17 @@
 
 namespace npu {
 namespace tile_fwk {
-bool containsNegativeOne1(const std::vector<int64_t>& vec) {
-    if (vec.empty()) {
-        return false;
-    }
-    return std::find(vec.begin(), vec.end(), static_cast<int64_t>(-1)) != vec.end();
-}
-
 bool EqualInOutShape(const Operation &op) {
     auto in = op.GetIOperands().front();
     auto out = op.GetOOperands().front();
+    auto needSkip = [](const Shape &vec) -> bool {
+        return std::any_of(vec.begin(), vec.end(), [](int64_t val) { return val == -1; });
+    };
     // 比较memtype
     bool equalMemType = (in->GetMemoryTypeOriginal() == out->GetMemoryTypeOriginal());
     // 比较静态shape
     bool equalShape = (in->GetShape() == out->GetShape());
-    return (equalMemType && equalShape && !containsNegativeOne1(in->shape) && !containsNegativeOne1(out->shape));
+    return (equalMemType && equalShape && !needSkip(in->GetShape()) && !needSkip(out->GetShape()));
 }
 
 bool EqualInOut(const Operation &op) {
@@ -393,6 +389,9 @@ void RemoveRedundantOp::GenerateNewView(Function &function, Operation &op, Logic
 
 Status RemoveRedundantOp::ProcessReshape(Function &function) {
     bool canRemove;
+    auto needSkip = [](const Shape &vec) -> bool {
+        return std::any_of(vec.begin(), vec.end(), [](int64_t val) { return val == -1; });
+    };
     for (auto &op : function.Operations()) {
         auto opcode = op.GetOpcode();
         if (opcode != Opcode::OP_RESHAPE) {
@@ -402,7 +401,7 @@ Status RemoveRedundantOp::ProcessReshape(Function &function) {
         auto in = op.GetIOperands().front();
         auto out = op.GetOOperands().front();
         canRemove = false;
-        if (in->shape == out->shape && !containsNegativeOne1(in->shape) && !containsNegativeOne1(out->shape)) {
+        if (in->shape == out->shape && !needSkip(in->GetShape()) && !needSkip(out->GetShape())) {
             APASS_LOG_DEBUG_F(Elements::Operation, "op[%d]'s in->shape == out->shape.", op.GetOpMagic());
             canRemove = true;
         } else if (!op.ConsumerOps().empty()) {

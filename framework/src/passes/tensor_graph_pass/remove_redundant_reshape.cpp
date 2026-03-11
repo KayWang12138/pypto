@@ -24,14 +24,6 @@ using namespace npu::tile_fwk;
 
 namespace npu::tile_fwk {
 namespace {
-
-bool containsNegativeOne(const std::vector<int64_t>& vec) {
-    if (vec.empty()) {
-        return false;
-    }
-    return std::find(vec.begin(), vec.end(), static_cast<int64_t>(-1)) != vec.end();
-}
-
 Status CheckIOOperands(const Operation &op, LogicalTensorPtr &in, LogicalTensorPtr &out) {
     if (op.GetIOperands().size() != 1) {
         APASS_LOG_ERROR_F(Elements::Operation, "Op [%d] has invalid input operands. %s", op.GetOpMagic(),GetFormatBacktrace(op).c_str());
@@ -64,6 +56,9 @@ Status RemoveRedundantReshape::RemoveReshape(Function &function) const {
     std::unordered_set<Operation *> redundantResapes;
     LogicalTensorPtr in;
     LogicalTensorPtr out;
+    auto needSkip = [](const Shape &vec) -> bool {
+        return std::any_of(vec.begin(), vec.end(), [](int64_t val) { return val == -1; });
+    };
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_RESHAPE) {
             continue;
@@ -77,7 +72,7 @@ Status RemoveRedundantReshape::RemoveReshape(Function &function) const {
             if (consumerOp == nullptr) {
                 APASS_LOG_ERROR_F(Elements::Operation, "Consumer of op [%d] is null; Check if consumer is valid. %s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
                 return FAILED;}
-            if ((in->shape != out->shape && consumerOp->GetOpcode() != Opcode::OP_RESHAPE) || containsNegativeOne(in->shape) || containsNegativeOne(out->shape)) {
+            if ((in->shape != out->shape && consumerOp->GetOpcode() != Opcode::OP_RESHAPE) || needSkip(in->GetShape()) || needSkip(out->GetShape())) {
                 allConsumersIsReshape = false;
                 continue;
             }
