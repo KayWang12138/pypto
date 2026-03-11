@@ -65,11 +65,25 @@ python3 scripts/diagnose_env.py --checklist
 
 只修复缺失项，不改动已正常组件。
 
+**⚠️ 重要：NPU 环境 + CANN 缺失时，必须按顺序执行以下 5 步，全部完成后才能进入步骤 4**
+
 | 问题类别 | 修复操作 | 失败回滚 |
 |---------|---------|---------|
-| **NPU 环境 + CANN 缺失** | 分步执行：<br>1. `cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=deps --device-type=<a2\|a3>`<br>2. `bash tools/prepare_env.sh --quiet --type=third_party`<br>3. `script -q -c "bash tools/prepare_env.sh --quiet --type=cann --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.log` | 检查网络连通性和目录写入权限；见 `troubleshooting.md` |
+| **NPU 环境 + CANN 缺失** | **按顺序执行以下 5 步**：<br><br>**步骤 3.1：安装编译依赖**<br>`cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=deps --device-type=<a2\|a3>`<br><br>**步骤 3.2：下载第三方源码包**<br>`bash tools/prepare_env.sh --quiet --type=third_party`<br><br>**步骤 3.3：下载 CANN 安装包**<br>`script -q -c "bash tools/prepare_env.sh --quiet --type=download_cann --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.download.log`<br><br>**步骤 3.4：安装 CANN**<br>`script -q -c "bash tools/prepare_env.sh --quiet --type=install_cann --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.install.log`<br><br>**步骤 3.5：验证 CANN 安装**<br>检查 CANN 安装日志，未完成则安装（见下方代码块）<br><br>⚠️ **全部 5 步完成后才能进入步骤 4** | 检查网络连通性和目录写入权限；见 `troubleshooting.md` |
 | **编译工具链缺失** (cmake/gcc/make/g++/ninja/pip3) | `cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=deps` | 回退到手动 `apt-get install`；检查 apt 源配置 |
 | **第三方源码包缺失** (json/libboundscheck) | `cd $PYPTO_REPO && bash tools/prepare_env.sh --quiet --type=third_party` | 检查网络对 cann-src-third-party 的可达性 |
+
+**CANN 安装检查脚本**：
+```bash
+cd ${PYPTO_REPO:-$PWD}
+# 检查 CANN 安装日志，未完成则安装
+if ! grep -q "Successfully installed CANN packages." prepare_env.cann.log 2>/dev/null; then
+    echo "CANN 未安装完成，正在安装..."
+    script -q -c "bash tools/prepare_env.sh --quiet --type=cann --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.log
+else
+    echo "CANN 已安装完成"
+fi
+```
 
 > `--device-type` 由步骤 1 检测自动确定（910B→a2，910C→a3）。
 > 手动安装/编译细节见 [📋 prepare_environment.md](references/prepare_environment.md)。
@@ -89,25 +103,12 @@ python3 scripts/diagnose_env.py --checklist
 source ${ASCEND_INSTALL_PATH:-/usr/local/Ascend}/ascend-toolkit/set_env.sh
 ```
 
-#### 步骤 4.2：检查可用的 NPU 卡
+#### 步骤 4.2：检查可用的 NPU 卡 (务必在加载cann环境后检查)
 ```bash
 npu-smi info
 ```
 
-#### 步骤 4.3：确保 CANN 安装完成
-```bash
-cd ${PYPTO_REPO:-$PWD}
-
-# 检查 CANN 安装日志，未完成则安装
-if ! grep -q "Successfully installed CANN packages." prepare_env.cann.log 2>/dev/null; then
-    echo "CANN 未安装完成，正在安装..."
-    script -q -c "bash tools/prepare_env.sh --quiet --type=cann --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.log
-else
-    echo "CANN 已安装完成"
-fi
-```
-
-#### 步骤 4.4：设置环境变量
+#### 步骤 4.3：设置环境变量
 ```bash
 # 设置 NPU 设备 ID（根据步骤 4.2 选择空闲卡）
 export TILE_FWK_DEVICE_ID=0
@@ -116,19 +117,23 @@ export TILE_FWK_DEVICE_ID=0
 export PTO_TILE_LIB_CODE_PATH=${ASCEND_HOME_PATH:-/usr/local/Ascend/cann}/aarch64-linux
 ```
 
-#### 步骤 4.5：安装 torch 和 torch_npu
+#### 步骤 4.4：安装 torch 和 torch_npu
 ```bash
 pip install torch==2.6.0 torch-npu==2.6.0.post3
 ```
 
-#### 步骤 4.6：编译安装 PyPTO
+#### 步骤 4.5：编译安装 PyPTO
+
 ```bash
+# 如果有pypto先删除本地pypto
+pip uninstall pypto -y
 cd ${PYPTO_REPO:-$PWD}
-python3 build_ci.py -f python3 --clean --disable_auto_execute
-pip install build_out/pypto-*.whl --force-reinstall -q
+rm -rf build_out
+python3 build_ci.py
+pip install build_out/pypto-*.whl
 ```
 
-#### 步骤 4.7：运行测试验证
+#### 步骤 4.6：运行测试验证
 ```bash
 # NPU 模式（有 NPU 环境时必须使用）
 python3 examples/02_intermediate/operators/softmax/softmax.py --run_mode npu

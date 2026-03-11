@@ -39,9 +39,17 @@ cd "$PYPTO_REPO"
 # 分步安装（禁止 --type=all）
 bash tools/prepare_env.sh --quiet --type=deps --device-type=<a2|a3>
 bash tools/prepare_env.sh --quiet --type=third_party
-script -q -c "bash tools/prepare_env.sh --quiet --type=cann --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.log
-# 仅 CANN
-script -q -c "bash tools/prepare_env.sh --quiet --type=cann --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.log
+# 先下载cann包
+script -q -c "bash tools/prepare_env.sh --quiet --type=download_cann --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.log
+# 再安装cann包
+script -q -c "bash tools/prepare_env.sh --quiet --type=install_cann --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.log 
+
+
+# 仅 CANN 
+# 先下载cann包
+script -q -c "bash tools/prepare_env.sh --quiet --type=download_cann --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.log
+# 再安装cann包
+script -q -c "bash tools/prepare_env.sh --quiet --type=install_cann --device-type=<a2\|a3> --install-path=$ASCEND_INSTALL_PATH" prepare_env.cann.log 
 
 # 仅编译工具链
 bash tools/prepare_env.sh --quiet --type=deps
