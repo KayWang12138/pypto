@@ -151,17 +151,11 @@ def pytest_runtest_setup(item):
     # 获取当前运行模式下的卡数
     device_list_str: Optional[str] = os.environ.get("TILE_FWK_DEVICE_ID_LIST", None)
     if device_list_str is not None:
-        # 多卡模式
+        # 多卡
         device_list = device_list_str.split(",")
-        current_cards = len(device_list)
     else:
-        # 单卡模式或无设备
+        # 单卡
         device_id: Optional[str] = os.environ.get("TILE_FWK_DEVICE_ID", None)
-        current_cards = 1 if device_id is not None else 0
-
-    # 检查用例是否匹配当前卡数
-    if not _is_case_match_cards(item, current_cards):
-        pytest.skip(f"Test requires different number of cards. Current: {current_cards}")
 
     # 设置进程描述
     case_name: str = str(item.name)
@@ -255,7 +249,7 @@ def pytest_collection_modifyitems(config, items):
         # 筛选用例
         filtered_items = [item for item in items if _is_case_match_soc(item, target_soc)]
 
-    # 新增：根据卡数要求过滤用例
+    # 根据卡数要求过滤用例
     cards_per_case = config.getoption("--cards-per-case", 1)
 
     # 在收集阶段就过滤掉不匹配的用例

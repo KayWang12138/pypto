@@ -12,10 +12,10 @@
 DistributedConfig
 """
 import os
+
 import torch
 import torch.distributed as dist
 import torch_npu
-from typing import List
 
 
 class DistributedConfig:
@@ -26,6 +26,8 @@ class DistributedConfig:
         world_size: int = 0,
         master_ip: str = "127.0.0.1",
         master_port: int = 50001,
+        logical_ranks: list[int] = [],
+        physical_device_ids: list[int] = [],
     ):
         """
         初始化多卡测试配置
@@ -33,16 +35,18 @@ class DistributedConfig:
             world_size: 需要的卡数 0表示从环境变量解析
             master_ip: 主节点IP地址
             master_port: 主节点端口
+            logical_ranks: hccl申请资源需要逻辑卡数
+            physical_device_ids: 实际使用的物理卡
         """
         self.master_ip = master_ip
-        self.physical_device_ids: List[int] = []
-        self.world_size: int = world_size
-        self.logical_ranks = list(range(self.world_size))
+        self.physical_device_ids = []
+        self.world_size = world_size
         self._parse_device_list()
+        self.logical_ranks = list(range(self.world_size))
         self.master_port = self._calculate_port()
 
     def init_hccl_comm(self, logical_rank_id: int) -> list[str]:
-        physical_device_id = self._get_physical_device_id(logical_rank_id)
+        physical_device_id = self.get_physical_device_id(logical_rank_id)
         torch_npu.npu.set_device(physical_device_id)
         dist.init_process_group(
             backend='hccl',
@@ -54,21 +58,21 @@ class DistributedConfig:
         group_name = group_handle._get_backend(torch.device('npu')).get_hccl_comm_name(logical_rank_id)
         return [group_name]
 
-    def _get_physical_device_id(self, logical_rank: int) -> int:
+    def get_physical_device_id(self, logical_rank_id: int) -> int:
         """
         根据逻辑rank获取物理设备ID
         如果没有环境变量 返回0-n的映射
         Args:
-            logical_rank: 逻辑rank
+            logical_rank_id: 逻辑rank
         Returns:
             int: 物理设备ID
         """
-        if logical_rank >= len(self.physical_device_ids):
+        if logical_rank_id >= len(self.physical_device_ids):
             raise ValueError(
-                f"Logical rank {logical_rank} out of range. "
+                f"Logical rank {logical_rank_id} out of range. "
                 f"Available physical devices: {self.physical_device_ids}"
             )
-        return self.physical_device_ids[logical_rank]
+        return self.physical_device_ids[logical_rank_id]
 
     def _parse_device_list(self):
         """解析设备列表"""
