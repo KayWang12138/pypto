@@ -39,7 +39,6 @@ public:
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetHostConfig(KEY_STRATEGY, "ReduceCopyTestStrategy");
-        Platform::Instance().ObtainPlatformInfo();
     }
     void TearDown() override {}
 };

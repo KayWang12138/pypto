@@ -29,7 +29,6 @@
 #include "cann_host_runtime.h"
 
 namespace npu::tile_fwk {
-
 struct CacheInfo {
     size_t l2Size;
     size_t l2LineSize;
@@ -417,13 +416,19 @@ public:
 class Host{};
 
 class Platform {
-private:   
+private:
+    Platform();
+    ~Platform() =default;
+
     Cluster cluster_;
     Host host_;
     size_t cluster_cnt_;
     size_t host_cnt_;
 public:
     static Platform &Instance();
+
+    Platform(const Platform&) = delete;
+    Platform& operator=(const Platform&) = delete;
 
     void SetCluster(const Cluster& cluster) { cluster_ = cluster; }
     void SetHost(const Host& host) { host_ = host; }

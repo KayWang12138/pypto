@@ -245,7 +245,6 @@ void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const T
     CheckValueRange(tileN, "tileL1Info.tileN" , NUM1, ConvAlignB(tileCout, NUM16));
 
     Platform& platform = Platform::Instance();
-    platform.ObtainPlatformInfo();
     size_t l0aSize = platform.GetAICCore().GetMemorySize(MemoryType::MEM_L0A);
     size_t l0bSize = platform.GetAICCore().GetMemorySize(MemoryType::MEM_L0B);
     size_t l0cSize = platform.GetAICCore().GetMemorySize(MemoryType::MEM_L0C);

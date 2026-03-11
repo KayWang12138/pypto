@@ -11,7 +11,7 @@
 file(GLOB _Platform_Srcs
 		*.cpp
 		parser/*.cpp
-		simulation_platform/*.cpp
+		parser/simulation_platform/*.cpp
 )
 add_library(tile_fwk_platform SHARED)
 target_sources(tile_fwk_platform PRIVATE ${_Platform_Srcs})
