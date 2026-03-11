@@ -29,6 +29,7 @@ using namespace npu::tile_fwk;
 
 namespace npu{
 namespace tile_fwk {
+const int NUM_1 = 1;
 const int NUM_32 = 32;
 const int NUM_64 = 64;
 const int NUM_128 = 128;
@@ -900,6 +901,54 @@ TEST_F(AssignMemoryTypeTest, AssembleAndReshapeAfterAssemble) {
             if (op.GetOpcode() == Opcode::OP_RESHAPE) {
                 EXPECT_EQ(op.iOperand[0]->GetMemoryTypeOriginal(), op.oOperand[0]->GetMemoryTypeOriginal());
             }
+        }
+    }
+}
+
+void ConstructMultiDataLoadGraph(ComputationalGraphBuilder &G, std::string name) {
+    G.AddTensor(DataType::DT_FP32, {NUM_128, NUM_1, NUM_128}, MemoryType::MEM_UNKNOWN, "in" + name);
+    G.AddTensor(DataType::DT_FP32, {NUM_128, NUM_1, NUM_128}, MemoryType::MEM_UNKNOWN, "t1" + name);
+    G.AddOp(Opcode::OP_VIEW, {"in" + name}, {"t1" + name}, "v1" + name);
+    G.GetOp("v1" + name)
+        ->SetOpAttribute(
+            std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_128, NUM_1, NUM_128}, MemoryType::MEM_UNKNOWN));
+    G.AddTensor(DataType::DT_FP32, {NUM_128, NUM_128}, MemoryType::MEM_UNKNOWN, "t2" + name);
+    G.AddOp(Opcode::OP_RESHAPE, {"t1" + name}, {"t2" + name}, "r" + name);
+    G.AddTensor(DataType::DT_FP32, {NUM_128, NUM_128}, MemoryType::MEM_UNKNOWN, "t4" + name);
+    G.AddOp(Opcode::OP_VIEW, {"t2" + name}, {"t4" + name}, "v2" + name);
+    G.GetOp("v2" + name)
+        ->SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_128, NUM_128}, MemoryType::MEM_L1));
+    G.AddTensor(DataType::DT_FP32, {NUM_128, NUM_128}, MemoryType::MEM_UNKNOWN, "t5" + name);
+    G.AddOp(Opcode::OP_VIEW, {"t4" + name}, {"t5" + name}, "v3" + name);
+}
+
+TEST_F(AssignMemoryTypeTest, TestMultiDataLoad) {
+    ComputationalGraphBuilder G;
+    ConstructMultiDataLoadGraph(G, "a");
+    ConstructMultiDataLoadGraph(G, "b");
+    G.AddTensor(DataType::DT_FP32, {NUM_128, NUM_128}, MemoryType::MEM_UNKNOWN, "t6");
+    G.AddOp(Opcode::OP_A_MUL_B, {"t5a", "t5b"}, {"t6"}, "amulb");
+    G.AddTensor(DataType::DT_FP32, {NUM_128, NUM_128}, MemoryType::MEM_UNKNOWN, "t3b");
+    G.AddOp(Opcode::OP_MUL, {"t2b", "t2b"}, {"t3b"}, "mulb");
+    G.GetOp("v3a")->SetOpAttribute(
+        std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_128, NUM_128}, MemoryType::MEM_L0A));
+    G.GetOp("v3b")->SetOpAttribute(
+        std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_128, NUM_128}, MemoryType::MEM_L0B));
+
+    Function *func = G.GetFunction();
+    AssignMemoryType assignMemoryType;
+    EXPECT_EQ(assignMemoryType.PostCheck(*func), FAILED);
+    func->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto/b2.json");
+    EXPECT_EQ(assignMemoryType.RunOnFunction(*func), SUCCESS);
+    func->DumpJsonFile("/mnt/workspace/gitCode/cann/pypto/a2.json");
+    EXPECT_EQ(assignMemoryType.PostCheck(*func), SUCCESS);
+    for (const auto &op : func->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            EXPECT_TRUE(op.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR);
+        }
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            EXPECT_FALSE(op.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
+                         op.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L1);
         }
     }
 }
