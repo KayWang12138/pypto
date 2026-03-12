@@ -530,7 +530,7 @@ public:
             return defaultReadyQue;
         }
 
-#ifdef SUPPORT_DIE_TO_DIE_SCHE
+#ifndef SUPPORT_DIE_TO_DIE_SCHE
         size_t dieIndex = static_cast<size_t>(dieId_);
         ReadyCoreFunctionQueue* dieReadyQueue = nullptr;
         switch(type) {

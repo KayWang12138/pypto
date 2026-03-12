@@ -61,6 +61,8 @@ struct DeviceExecuteContext {
 
     uint64_t shmemAddrOffset[2] = {0};
 
+    int8_t loopDieId_ = -1;
+
     bool DuppedRootCached();
 
     bool DuppedRootUpdateAndCachedAllSubmitted();
@@ -114,6 +116,8 @@ struct DeviceExecuteContext {
 
     void MarkSlotNeedAlloc(int slotIndex);
 
+    void SetDieId(int8_t rootKey);
+
     int GetErrorState() const {
         return errorState_;
     }
@@ -131,6 +135,10 @@ private:
     static void *DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, uint64_t value);
 
     static void *DeviceExecuteRuntimeCallSlotMarkNeedAlloc(void *ctx_, uint64_t slotIndex);
+
+    static void *DeviceExecuteRuntimeCallGetDieId(void *ctx_,  uint64_t rootKey);
+
+    static void *DeviceExecuteRuntimeCallSetDieId(void *ctx_, uint64_t rootKey);
 
     int errorState_{DEVICE_MACHINE_OK};
 };
