@@ -261,7 +261,7 @@ public:
 
     inline int RunManager(int threadIdx, DevStartArgs *devStartArgs, DeviceArgs *deviceArgs, int schedIdx) {
         int ret = DEVICE_MACHINE_OK;
-        Init(threadIdx, devStartArgs, deviceArgs, schedIdx);
+        Init(threadIdx, deviceArgs, schedIdx);
         DeviceTaskCtrl *taskCtrl = nullptr;
         taskQueue_ = &(devStartArgs->deviceRuntimeDataDesc.taskQueueList[schedIdx_]);
         if constexpr (IsDeviceMode()) {
@@ -789,10 +789,6 @@ private:
         return ret;
     }
 
-    inline void PushAicpuTaskQueue(uint64_t taskId) {
-        PushReadyQue(readyAicpuFunctionQue_, &taskId, 1);
-    }
-
     inline bool TrySendTaskDirectly(int coreType, uint32_t taskId) {
         if (context_->coreRunReadyCnt_[coreType] > 0) {
             context_->corePendReadyCnt_[coreType]--;
@@ -874,8 +870,6 @@ private:
                         return ret;
                     }
                     context_->resolveHubCnt_++;
-                } else if (coreType == static_cast<int>(MachineType::AICPU)){
-                    PushAicpuTaskQueue(id);
                 } else if (wrapManager_.IsBindedWrapId(id)) {
                     wrapManager_.ResolveDepForMixCore(id);
                 } else {
@@ -938,8 +932,6 @@ private:
                         return ret;
                     }
                     context_->resolveHubCnt_++;
-                } else if (unlikely(coreType == static_cast<int>(MachineType::AICPU))){
-                    PushAicpuTaskQueue(id);
                 } else if (wrapManager_.IsBindedWrapId(id)) {
                     wrapManager_.ResolveDepForMixCore(id);
                 } else {
@@ -983,8 +975,6 @@ private:
                     context_->resolveHubCnt_++;
                 } else if (wrapManager_.IsBindedWrapId(id)) {
                     wrapManager_.ResolveDepForMixCore(id);
-                } else if (unlikely(coreType == static_cast<int>(MachineType::AICPU))){
-                    PushAicpuTaskQueue(id);
                 } else {
                     ret = PushReadyTask(static_cast<int>(coreType), id);
                     if (unlikely(ret != DEVICE_MACHINE_OK)) {return ret;}
@@ -1027,7 +1017,7 @@ private:
         }
     }
 
-    inline void Init(int threadIdx, DevStartArgs *startArgs, DeviceArgs *deviceArgs, int schedIdx) {
+    inline void Init(int threadIdx, DeviceArgs *deviceArgs, int schedIdx) {
         aicNum_ = static_cast<int32_t>(deviceArgs->nrAic);
         aivNum_ = static_cast<int32_t>(deviceArgs->nrAiv);
         aicpuNum_ = deviceArgs->scheCpuNum;
@@ -1043,10 +1033,6 @@ private:
         taskDfxStatPos_.fill(REG_LOW_TASK_PING);
         isSendStop = false;
         wrapManager_.InitDeviceInfo(deviceArgs);
-
-#if ENABLE_TENSOR_DUMP
-        aicoreDump_.Init(startArgs, schedIdx);
-#endif
 
         if (deviceArgs->machineConfig != static_cast<uint8_t>(MachineScheduleConfig::DEFAULT_SCH)) {
             if (aicpuNum_ > 1) {
@@ -1340,7 +1326,6 @@ private:
 
     SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *taskQueue_{nullptr};
     AicpuTaskManager &aicpuTaskManager_;
-    AicoreDump aicoreDump_;
     int64_t dotStatus_{0};
     bool isSendStop{false};
 
