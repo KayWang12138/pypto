@@ -33,13 +33,15 @@ constexpr size_t HIGH_INDEX = 0;
 constexpr size_t LOW_INDEX = 1;
 constexpr uint32_t LEFT_SHIFT32 = 32;
 constexpr int64_t CUBE_PAD_VALUE = 16;
-constexpr int64_t CUBE_PAD_INT8_VALUE = 32;
+constexpr int64_t CUBE_PAD_B8_VALUE = 32;
+constexpr int64_t CUBE_PAD_B4_VALUE = 64;
 constexpr int64_t BT_PAD_BASE = 64;
 constexpr int64_t mxHighAxis = 0;
 constexpr int64_t mxLowAxis = 1;
 const std::vector<bool> AXIS_COMBINED = {true};
 const std::vector<bool> BROADCAST_AXIS_COMBINED = {true, true};
-const std::unordered_set<DataType> inDataSupport = {DataType::DT_INT8, DataType::DT_FP8E5M2, DataType::DT_FP8E4M3, DataType::DT_HF8};
+const std::unordered_set<DataType> b8DataSupport = {DataType::DT_INT8, DataType::DT_FP8E5M2, DataType::DT_FP8E4M3, DataType::DT_HF8};
+const std::unordered_set<DataType> b4DataSupport = {DataType::DT_FP4_E2M1X2, DataType::DT_FP4_E1M2X2};
 const int64_t BRCB_SECOND_LAST_BASE = 8;
 const size_t LAST_SECOND_AXIS = 2;
 const std::string REDUCE_AXIS = OP_ATTR_PREFIX + "AXIS";
@@ -47,8 +49,11 @@ int64_t Pad(int64_t dim, int64_t padValue) {
     return (dim + padValue - 1) / padValue * padValue;
 }
 
-bool PadLocalBuffer::IsInputInt8(const Operation &op, const LogicalTensorPtr &in) const {
-    std::vector<Opcode> cubeOps = {Opcode::OP_A_MUL_B, Opcode::OP_AT_MUL_B, Opcode::OP_A_MUL_BT, Opcode::OP_AT_MUL_BT, Opcode::OP_A_MULACC_B};
+
+bool PadLocalBuffer::IsInputDataType(
+    const Operation &op, const LogicalTensorPtr &in, const std::unordered_set<DataType> &targetTypes) const {
+    std::vector<Opcode> cubeOps = {
+        Opcode::OP_A_MUL_B, Opcode::OP_AT_MUL_B, Opcode::OP_A_MUL_BT, Opcode::OP_AT_MUL_BT, Opcode::OP_A_MULACC_B};
 
     if (in == nullptr || in->tensor == nullptr) {
         return false;
@@ -58,12 +63,12 @@ bool PadLocalBuffer::IsInputInt8(const Operation &op, const LogicalTensorPtr &in
     APASS_LOG_DEBUG_F(Elements::Tensor, "####### %d data type is %s\n", in->magic, DataType2VectorRegStr(in->tensor->GetDataType()).c_str());
 
     bool matmulOp = std::find(cubeOps.begin(), cubeOps.end(), op.GetOpcode()) != cubeOps.end();
-    bool opsInputInt8 = false;
+    bool opsInputDtype = false;
     if (op.GetIOperands().size() > 0 && op.GetIOperands()[0] != nullptr && op.GetIOperands()[0]->tensor != nullptr) {
-        opsInputInt8 = inDataSupport.find(op.GetIOperands()[0]->tensor->GetDataType()) != inDataSupport.end();
+        opsInputDtype = targetTypes.find(op.GetIOperands()[0]->tensor->GetDataType()) != targetTypes.end();
     }
 
-    if (inDataSupport.find(in->tensor->GetDataType()) != inDataSupport.end() || (matmulOp && opsInputInt8)) {
+    if (targetTypes.find(in->tensor->GetDataType()) != targetTypes.end() || (matmulOp && opsInputDtype)) {
         // 检查op的输入数据类型是不是int8类型或者in的数据类型是否为int8
         // 包括matmul系列和GM->L1->L0系列
         return true;
@@ -76,7 +81,7 @@ bool PadLocalBuffer::IsInputInt8(const Operation &op, const LogicalTensorPtr &in
             inProducerPtr->GetIOperands()[0] != nullptr && inProducerPtr->GetIOperands()[0]->tensor != nullptr) {
             // 检查in的前置op节点的输入是否为int8。
             // iOperands (dtype:int8) --> A_MULACC_B --> in (dtype:fp16/int32), iOperands (dtype:fp16/int32) --> COPY_OUT
-            return inDataSupport.find(inProducerPtr->GetIOperands()[0]->tensor->GetDataType()) != inDataSupport.end();
+            return targetTypes.find(inProducerPtr->GetIOperands()[0]->tensor->GetDataType()) != targetTypes.end();
         }
     }
     return false;
@@ -105,9 +110,9 @@ void PadMatmulL1ConvertScene(Operation &op, LogicalTensorPtr &in, size_t lowInde
 }
 
 void PadForMatMulMX(LogicalTensorPtr &in, const int64_t &axisNum) {
-    in->shape[axisNum] = Pad(in->shape[axisNum], CUBE_PAD_INT8_VALUE);
+    in->shape[axisNum] = Pad(in->shape[axisNum], CUBE_PAD_B8_VALUE);
     in->tensor->oriRawshape = in->tensor->rawshape;
-    in->tensor->rawshape[axisNum] = Pad(in->tensor->oriRawshape[axisNum], CUBE_PAD_INT8_VALUE);
+    in->tensor->rawshape[axisNum] = Pad(in->tensor->oriRawshape[axisNum], CUBE_PAD_B8_VALUE);
 }
 
 void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
@@ -126,7 +131,8 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
     const bool isL1ConvertScene = !producers.empty() && !consumers.empty() && *producers.begin() != nullptr && *consumers.begin() != nullptr
         && ((*producers.begin())->GetOpcode() == Opcode::OP_L1_TO_FIX_QUANT_PRE || (*producers.begin())->GetOpcode() == Opcode::OP_L1_TO_BT
             || (*consumers.begin())->GetOpcode() == Opcode::OP_L1_TO_BT || (*consumers.begin())->GetOpcode() == Opcode::OP_L1_TO_FIX_QUANT_PRE);
-    const bool isInt8Input = IsInputInt8(op, in);
+    const bool IsInputB8 = IsInputDataType(op, in, b8DataSupport);
+    const bool IsInputB4 = IsInputDataType(op, in, b4DataSupport);
     /*
     首先，可以通过in的数据类型是否为int8来判断是否要做32B对齐。
     再者，存在两种情况
@@ -158,9 +164,12 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
         L1_TO_L0B --> L0B (shape:[400, 16])  -->   /
         */
         PadMatmulL1ConvertScene(op, in, lowIndex, false);
-    } else if (isInt8Input) {
-        in->shape[highIndex] = Pad(in->shape[highIndex], CUBE_PAD_INT8_VALUE);
-        in->shape[lowIndex] = Pad(in->shape[lowIndex], CUBE_PAD_INT8_VALUE);
+    } else if (IsInputB8) {
+        in->shape[highIndex] = Pad(in->shape[highIndex], CUBE_PAD_B8_VALUE);
+        in->shape[lowIndex] = Pad(in->shape[lowIndex], CUBE_PAD_B8_VALUE);
+    } else if (IsInputB4) {
+        in->shape[highIndex] = Pad(in->shape[highIndex], CUBE_PAD_B4_VALUE);
+        in->shape[lowIndex] = Pad(in->shape[lowIndex], CUBE_PAD_B4_VALUE);
     } else {
         in->shape[highIndex] = Pad(in->shape[highIndex], CUBE_PAD_VALUE);
         in->shape[lowIndex] = Pad(in->shape[lowIndex], CUBE_PAD_VALUE);
@@ -174,9 +183,12 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
     in->tensor->oriRawshape = in->tensor->rawshape;
     if (isL1ConvertScene) {
         PadMatmulL1ConvertScene(op, in, lowIndex, true);
-    } else if (isInt8Input) {
-        in->tensor->rawshape[highIndex] = Pad(in->tensor->oriRawshape[highIndex], CUBE_PAD_INT8_VALUE);
-        in->tensor->rawshape[lowIndex] = Pad(in->tensor->oriRawshape[lowIndex], CUBE_PAD_INT8_VALUE);
+    } else if (IsInputB8) {
+        in->tensor->rawshape[highIndex] = Pad(in->tensor->oriRawshape[highIndex], CUBE_PAD_B8_VALUE);
+        in->tensor->rawshape[lowIndex] = Pad(in->tensor->oriRawshape[lowIndex], CUBE_PAD_B8_VALUE);
+    } else if (IsInputB4) {
+        in->tensor->rawshape[highIndex] = Pad(in->tensor->oriRawshape[highIndex], CUBE_PAD_B4_VALUE);
+        in->tensor->rawshape[lowIndex] = Pad(in->tensor->oriRawshape[lowIndex], CUBE_PAD_B4_VALUE);
     } else {
         in->tensor->rawshape[highIndex] = Pad(in->tensor->oriRawshape[highIndex], CUBE_PAD_VALUE);
         in->tensor->rawshape[lowIndex] = Pad(in->tensor->oriRawshape[lowIndex], CUBE_PAD_VALUE);
