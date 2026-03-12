@@ -8,7 +8,8 @@ import torchair
 from . import pypto_op
 from .zip import _unzip_b64_to_dir
 
-### Common
+_NODE_TYPE__GE = "ge"
+_NODE_TYPE__ONNX = "onnx"
 
 def _try_call(fn, strict=True):
     def wrapper(*args, **kwargs):
@@ -20,6 +21,32 @@ def _try_call(fn, strict=True):
             except:
                 return None
     return wrapper
+
+def __generate_value_extractor(node_type, field_name, value_type):
+    func_name = f"_extract_{field_name}_from_{node_type}_node"
+    func_code = f"""
+def {func_name}({node_type}_node):
+    return _extract_{value_type}_attr_from_{node_type}_node(
+        {node_type}_node={node_type}_node,
+        attr_name=pypto_op._META_KEY__{field_name.upper()}
+    )
+"""
+    exec(func_code, globals())
+
+def __generate_string_value_extractor(node_type, field_name):
+    return __generate_value_extractor(node_type, field_name, value_type="string")
+
+def __generate_zip_extractor(node_type, field_name):
+    func_name = f"_extract_{field_name}_from_{node_type}_node"
+    func_code = f"""
+def {func_name}({node_type}_node, out_dir: str, strict: bool = True):
+    return _try_call(_extract_zip_from_{node_type}_node, strict=strict)(
+        {node_type}_node={node_type}_node,
+        b64_attr_name=pypto_op._META_KEY__{field_name.upper()}_ZIP,
+        out_dir=out_dir,
+    )
+"""
+    exec(func_code, globals())
 
 ### ONNX
 
@@ -74,53 +101,20 @@ def _extract_zip_from_onnx_node(
 
     return zip_meta
 
-def _extract_kernel_format_from_onnx_node(onnx_node: onnx.NodeProto):
-    return _extract_string_attr_from_onnx_node(
-        onnx_node=onnx_node,
-        attr_name=pypto_op._META_KEY__KERNEL_FORMAT,
-    )
+__generate_string_value_extractor(_NODE_TYPE__ONNX, "kernel_format")
+__generate_string_value_extractor(_NODE_TYPE__ONNX, "infer_shape_source")
+__generate_string_value_extractor(_NODE_TYPE__ONNX, "calc_workspace_source")
+__generate_string_value_extractor(_NODE_TYPE__ONNX, "meta_json")
 
-def _extract_pypto_meta_from_onnx_node(onnx_node: onnx.NodeProto):
-    meta_json = _extract_string_attr_from_onnx_node(
-        onnx_node=onnx_node,
-        attr_name=pypto_op._META_KEY__META_JSON,
-    )
-    return json.loads(meta_json)
+__generate_zip_extractor(_NODE_TYPE__ONNX, "kernel_source")
+__generate_zip_extractor(_NODE_TYPE__ONNX, "kernel_binary")
+__generate_zip_extractor(_NODE_TYPE__ONNX, "kernel_ir")
+__generate_zip_extractor(_NODE_TYPE__ONNX, "cpp_sources")
 
-def _extract_infer_shape_source_from_onnx_node(onnx_node: onnx.NodeProto):
-    return _extract_string_attr_from_onnx_node(
-        onnx_node=onnx_node,
-        attr_name=pypto_op._META_KEY__INFER_SHAPE_SOURCE,
-    )
+def _extract_pypto_meta_from_onnx_node(onnx_node):
+    return json.loads(_extract_meta_json_from_onnx_node(onnx_node))
 
-def _extract_calc_workspace_source_from_onnx_node(onnx_node: onnx.NodeProto):
-    return _extract_string_attr_from_onnx_node(
-        onnx_node=onnx_node,
-        attr_name=pypto_op._META_KEY__CALC_WORKSPACE_SOURCE,
-    )
-
-def _extract_kernel_source_from_onnx_node(onnx_node: onnx.NodeProto, out_dir: str, strict: bool = True):
-    return _try_call(_extract_zip_from_onnx_node, strict=strict)(
-        onnx_node=onnx_node,
-        b64_attr_name=pypto_op._META_KEY__KERNEL_SOURCE_ZIP,
-        out_dir=out_dir,
-    )
-
-def _extract_kernel_binary_from_onnx_node(onnx_node: onnx.NodeProto, out_dir: str, strict: bool = True):
-    return _try_call(_extract_zip_from_onnx_node, strict=strict)(
-        onnx_node=onnx_node,
-        b64_attr_name=pypto_op._META_KEY__KERNEL_BINARY_ZIP,
-        out_dir=out_dir,
-    )
-
-def _extract_kernel_ir_from_onnx_node(onnx_node: onnx.NodeProto, out_dir: str, strict: bool = True):
-    return _try_call(_extract_zip_from_onnx_node, strict=strict)(
-        onnx_node=onnx_node,
-        b64_attr_name=pypto_op._META_KEY__KERNEL_IR_ZIP,
-        out_dir=out_dir,
-    )
-
-### TorchAir
+### Torch Air
 
 def extract_node_from_ge_graph(
     ge_graph: torchair.ge._ge_graph.GeGraph,
@@ -155,93 +149,50 @@ def _extract_zip_from_ge_node(
 
     return zip_meta
 
-def _extract_kernel_format_from_ge_node(ge_node):
-    return _extract_string_attr_from_ge_node(
-        ge_node=ge_node,
-        attr_name=pypto_op._META_KEY__KERNEL_FORMAT
-    )
+__generate_string_value_extractor(_NODE_TYPE__GE, "kernel_format")
+__generate_string_value_extractor(_NODE_TYPE__GE, "infer_shape_source")
+__generate_string_value_extractor(_NODE_TYPE__GE, "calc_workspace_source")
+__generate_string_value_extractor(_NODE_TYPE__GE, "meta_json")
+
+__generate_zip_extractor(_NODE_TYPE__GE, "kernel_source")
+__generate_zip_extractor(_NODE_TYPE__GE, "kernel_binary")
+__generate_zip_extractor(_NODE_TYPE__GE, "kernel_ir")
+__generate_zip_extractor(_NODE_TYPE__GE, "cpp_sources")
 
 def _extract_pypto_meta_from_ge_node(ge_node):
-    meta_json = _extract_string_attr_from_ge_node(
-        ge_node=ge_node,
-        attr_name=pypto_op._META_KEY__META_JSON
-    )
-    return json.loads(meta_json)
-
-def _extract_infer_shape_source_from_ge_node(ge_node):
-    return _extract_string_attr_from_ge_node(
-        ge_node=ge_node,
-        attr_name=pypto_op._META_KEY__INFER_SHAPE_SOURCE,
-    )
-
-def _extract_calc_workspace_source_from_ge_node(ge_node):
-    return _extract_string_attr_from_ge_node(
-        ge_node=ge_node,
-        attr_name=pypto_op._META_KEY__CALC_WORKSPACE_SOURCE,
-    )
-
-def _extract_kernel_source_from_ge_node(ge_node, out_dir: str, strict: bool = True):
-    return _try_call(_extract_zip_from_ge_node, strict=strict)(
-        ge_node=ge_node,
-        b64_attr_name=pypto_op._META_KEY__KERNEL_SOURCE_ZIP,
-        out_dir=out_dir,
-    )
-
-def _extract_kernel_binary_from_ge_node(ge_node, out_dir: str, strict: bool = True): 
-    return _try_call(_extract_zip_from_ge_node, strict=strict)(
-        ge_node=ge_node,
-        b64_attr_name=pypto_op._META_KEY__KERNEL_BINARY_ZIP,
-        out_dir=out_dir,
-    )
-
-def _extract_kernel_ir_from_ge_node(ge_node, out_dir: str, strict: bool = True):
-    return _try_call(_extract_zip_from_ge_node, strict=strict)(
-        ge_node=ge_node,
-        b64_attr_name=pypto_op._META_KEY__KERNEL_IR_ZIP,
-        out_dir=out_dir,
-    )
+    return json.loads(_extract_meta_json_from_ge_node(ge_node))
 
 ### Common
-# > can introduce Extractor class and use templates for similar functions
+# > can introduce Extractor class to store state / cache
 
-def extract_kernel_format_from_node(node):
+def __generate_common_simple_value_extractor(field_name):
+    func_name = f"extract_{field_name}"
+    func_code = f"""
+def {func_name}(node):
     if isinstance(node, onnx.NodeProto):
-        return _extract_kernel_format_from_onnx_node(node)
+        return _extract_{field_name}_from_{_NODE_TYPE__ONNX}_node(node)
     else:
-        return _extract_kernel_format_from_ge_node(node)
+        return _extract_{field_name}_from_{_NODE_TYPE__GE}_node(node)
+"""
+    exec(func_code, globals())
 
-def extract_pypto_meta_from_node(node):
+def __generate_common_zip_extractor(field_name):
+    func_name = f"extract_{field_name}"
+    func_code = f"""
+def {func_name}(node, out_dir: str, strict: bool = True):
     if isinstance(node, onnx.NodeProto):
-        return _extract_pypto_meta_from_onnx_node(node)
+        return _extract_{field_name}_from_{_NODE_TYPE__ONNX}_node(node, out_dir, strict)
     else:
-        return _extract_pypto_meta_from_ge_node(node)
+        return _extract_{field_name}_from_{_NODE_TYPE__GE}_node(node, out_dir, strict)
+"""
+    exec(func_code, globals())
 
-def extract_infer_shape_source_from_node(node):
-    if isinstance(node, onnx.NodeProto):
-        return _extract_infer_shape_source_from_onnx_node(node)
-    else:
-        return _extract_infer_shape_source_from_ge_node(node)
+__generate_common_simple_value_extractor("kernel_format")
+__generate_common_simple_value_extractor("pypto_meta")
+__generate_common_simple_value_extractor("infer_shape_source")
+__generate_common_simple_value_extractor("calc_workspace_source")
 
-def extract_calc_workspace_source_from_node(node):
-    if isinstance(node, onnx.NodeProto):
-        return _extract_calc_workspace_source_from_onnx_node(node)
-    else:
-        return _extract_calc_workspace_source_from_ge_node(node)
-
-def extract_kernel_source_from_node(node, out_dir: str, strict: bool = True):
-    if isinstance(node, onnx.NodeProto):
-        return _extract_kernel_source_from_onnx_node(node, out_dir, strict)
-    else:
-        return _extract_kernel_source_from_ge_node(node, out_dir, strict)
-
-def extract_kernel_binary_from_node(node, out_dir: str, strict: bool = True):
-    if isinstance(node, onnx.NodeProto):
-        return _extract_kernel_binary_from_onnx_node(node, out_dir, strict)
-    else:
-        return _extract_kernel_binary_from_ge_node(node, out_dir, strict)
-
-def extract_kernel_ir_from_node(node, out_dir: str, strict: bool = True):
-    if isinstance(node, onnx.NodeProto):
-        return _extract_kernel_ir_from_onnx_node(node, out_dir, strict)
-    else:
-        return _extract_kernel_ir_from_ge_node(node, out_dir, strict)
+__generate_common_zip_extractor("kernel_source")
+__generate_common_zip_extractor("kernel_binary")
+__generate_common_zip_extractor("kernel_ir")
+__generate_common_zip_extractor("cpp_sources")
