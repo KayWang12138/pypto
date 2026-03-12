@@ -161,7 +161,9 @@ def moe_fusion_kernel(
         tile_hidden_states_fp32 = pypto.cast(tile_hidden_states, pypto.DT_FP32)
         mm_weight_fp32 = pypto.cast(mm_weight, pypto.DT_FP32)
         pypto.set_cube_tile_shapes([min(tile_batch, 32), min(tile_batch, 32)], [512, 1024], [16, 16])
+        pypto.set_semantic_label("mm1")
         res = pypto.matmul(tile_hidden_states_fp32, mm_weight_fp32, tile_hidden_states_fp32.dtype, b_trans=True)
+        pypto.set_semantic_label("mm2")
         # gate end
 
         # select start
@@ -187,7 +189,9 @@ def moe_fusion_kernel(
 
         # amax
         pypto.set_vec_tile_shapes(view_first, num_expert_group, group_unit)
+        pypto.set_semantic_label("amax1")
         max1 = pypto.amax(r1, -1, False)
+        pypto.set_semantic_label("amax2")
         group_weight = max1
 
         # topk
