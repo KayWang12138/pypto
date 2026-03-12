@@ -276,6 +276,16 @@
                             }
                         }
                     ]
+                },
+                "ready_on_host_tensors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "zh": "标记在Host端准备好的Tensor名称列表",
+                        "en": "Specify the list of Tensor names that are ready on Host"
+                    }
                 }
             }
         },
