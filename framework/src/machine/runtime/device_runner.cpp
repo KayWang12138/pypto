@@ -262,7 +262,7 @@ int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
     if (args.archInfo == ArchInfo::DAV_3510) {
         aicpuNum_ = npu::tile_fwk::dynamic::DEVICE_MAX_AICPU_NUM;
     }
-    int cpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum() - 1);
+    int cpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum());
     args.maxAicpuNum = cpuNum;
     aicpuNum_ = aicpuNum_ < cpuNum ? aicpuNum_ : cpuNum;
     auto it = addressMappingTable_.find(args.archInfo);
