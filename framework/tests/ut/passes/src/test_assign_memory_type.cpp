@@ -946,7 +946,7 @@ TEST_F(AssignMemoryTypeTest, TestMultiDataLoad) {
         }
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             EXPECT_FALSE(op.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
-                         op.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L1);
+                         op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L1);
         }
     }
 }
