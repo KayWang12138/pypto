@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/**
+/*!
  * \file test_config_runmode.cpp
  * \brief
  */
@@ -26,8 +26,12 @@ class TestConfigRunmode : public testing::Test {
 public:
     static void SetUpTestCase() {}
     static void TearDownTestCase() {}
-    void SetUp() override { Program::GetInstance().Reset(); }
-    void TearDown() override { Program::GetInstance().Reset(); }
+    void SetUp() override {
+        Program::GetInstance().Reset();
+    }
+    void TearDown() override {
+        Program::GetInstance().Reset();
+    }
 };
 
 TEST_F(TestConfigRunmode, COMPILE_STAGE_TENSOR_GRAPH) {

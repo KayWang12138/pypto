@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/**
+/*!
  * \file test_subfunction.cpp
  * \brief
  */
@@ -22,13 +22,21 @@ using namespace npu::tile_fwk;
 
 class SubFunctionTest : public testing::Test {
 public:
-    static void SetUpTestCase() { std::cout << "SubFunctionTest SetUpTestCase" << std::endl; }
+    static void SetUpTestCase() {
+        std::cout << "SubFunctionTest SetUpTestCase" << std::endl;
+    }
 
-    static void TearDownTestCase() { std::cout << "SubFunctionTest TearDownTestCase" << std::endl; }
+    static void TearDownTestCase() {
+        std::cout << "SubFunctionTest TearDownTestCase" << std::endl;
+    }
 
-    void SetUp() override { std::cout << "SubFunctionTest SetUp" << std::endl; }
+    void SetUp() override {
+        std::cout << "SubFunctionTest SetUp" << std::endl;
+    }
 
-    void TearDown() override { std::cout << "SubFunctionTest TearDown" << std::endl; }
+    void TearDown() override {
+        std::cout << "SubFunctionTest TearDown" << std::endl;
+    }
 };
 
 TEST_F(SubFunctionTest, SubfuncInvokeInfoTy_PrintInvokeInfo) {

@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/**
+/*!
  * \file test_function_converage.cpp
  * \brief
  */
@@ -47,7 +47,9 @@ public:
         Program::GetInstance().Reset();
     }
 
-    void TearDown() override { std::cout << "FunctionCoverageTest TearDown" << std::endl; }
+    void TearDown() override {
+        std::cout << "FunctionCoverageTest TearDown" << std::endl;
+    }
 };
 
 TEST_F(FunctionCoverageTest, ConverageCase1) {
@@ -221,47 +223,47 @@ TEST_F(FunctionCoverageTest, TestReuseTensorCase1) {
         output = Exp(in4);
     }
 
-    const Function *constFunc = Program::GetInstance().GetFunctionByRawName("TENSOR_R1");
-    ASSERT_NE(constFunc, nullptr);
-    Function *func = const_cast<Function *>(constFunc);
+    const Function *const_func = Program::GetInstance().GetFunctionByRawName("TENSOR_R1");
+    ASSERT_NE(const_func, nullptr);
+    Function *func = const_cast<Function *>(const_func);
     ASSERT_NE(func, nullptr);
     std::cout << "=========" << std::endl;
-    Operation *reOp = nullptr;
-    Operation *sqrtOp = nullptr;
+    Operation *re_op = nullptr;
+    Operation *sqrt_op = nullptr;
     for (auto &op : func->Operations()) {
-        std::cout << "Op:" << op.opmagic << " " << op.GetOpcodeStr() << std::endl;
+        std::cout << "Op:" << op.opmagic<< " " <<  op.GetOpcodeStr() << std::endl;
         std::cout << "input operation:";
-        for (const std::shared_ptr<LogicalTensor> &inputTensor : op.GetIOperands()) {
-            for (const auto &itemOp : inputTensor->GetProducers()) {
-                std::cout << "(" << itemOp->opmagic << ", " << itemOp->GetOpcodeStr() << ") ";
+        for (const std::shared_ptr<LogicalTensor> &input_tensor : op.GetIOperands()) {
+            for (const auto &item_op : input_tensor->GetProducers()) {
+                std::cout << "(" << item_op->opmagic << ", " << item_op->GetOpcodeStr() << ") ";
             }
         }
         std::cout << std::endl << "output operation:";
-        for (const std::shared_ptr<LogicalTensor> &outputTensor : op.GetOOperands()) {
-            for (const auto &itemOp : outputTensor->GetConsumers()) {
-                std::cout << "(" << itemOp->opmagic << ", " << itemOp->GetOpcodeStr() << ") ";
+        for (const std::shared_ptr<LogicalTensor> &output_tensor : op.GetOOperands()) {
+            for (const auto &item_op : output_tensor->GetConsumers()) {
+                std::cout << "(" << item_op->opmagic << ", " << item_op->GetOpcodeStr() << ") ";
             }
         }
         std::cout << std::endl << std::endl;
         if (op.GetOpcode() == Opcode::OP_RECIPROCAL) {
-            reOp = &op;
+            re_op = &op;
         }
         if (op.GetOpcode() == Opcode::OP_SQRT) {
-            sqrtOp = &op;
+            sqrt_op = &op;
         }
     }
     std::cout << "=========" << std::endl;
-    ASSERT_NE(reOp, nullptr);
-    ASSERT_NE(sqrtOp, nullptr);
-    LogicalTensorPtr srcTensor = reOp->GetOutputOperand(0);
-    LogicalTensorPtr dstTensor = sqrtOp->GetOutputOperand(0);
+    ASSERT_NE(re_op, nullptr);
+    ASSERT_NE(sqrt_op, nullptr);
+    LogicalTensorPtr src_tensor = re_op->GetOutputOperand(0);
+    LogicalTensorPtr dst_tensor = sqrt_op->GetOutputOperand(0);
     // EXPECT_EQ(func->TensorReuse(dst_tensor, src_tensor), false);
     // src_tensor->offset = {0, 0};
     // dst_tensor->offset = {0, 0};
-    EXPECT_EQ(func->TensorReuse(dstTensor, srcTensor), true);
-    EXPECT_EQ(srcTensor->tensor, dstTensor->tensor);
+    EXPECT_EQ(func->TensorReuse(dst_tensor, src_tensor), true);
+    EXPECT_EQ(src_tensor->tensor, dst_tensor->tensor);
     // EXPECT_EQ(sqrt_op->GetInCtrlOperations(), re_op->GetInCtrlOperations());
-    EXPECT_EQ(sqrtOp->GetInCtrlOperations().empty(), true);
+    EXPECT_EQ(sqrt_op->GetInCtrlOperations().empty(), true);
 }
 
 TEST_F(FunctionCoverageTest, TestFunctionHash) {
@@ -280,8 +282,8 @@ TEST_F(FunctionCoverageTest, TestFunctionHash) {
         output = Exp(in4);
     }
 
-    const Function *constFunc = Program::GetInstance().GetFunctionByRawName("TENSOR_R2");
-    ASSERT_NE(constFunc, nullptr);
-    Function *func = const_cast<Function *>(constFunc);
+    const Function *const_func = Program::GetInstance().GetFunctionByRawName("TENSOR_R2");
+    ASSERT_NE(const_func, nullptr);
+    Function *func = const_cast<Function *>(const_func);
     ASSERT_NE(func, nullptr);
 }

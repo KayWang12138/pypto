@@ -45,27 +45,27 @@ void bind_operation(py::module &m) {
     m.def(
         "View",
         [](const Tensor &operand, const std::vector<int64_t> &shapes, const py::sequence &offsets) {
-            bool hasSymbolic = false;
+            bool has_symbolic = false;
             for (const auto &item : offsets) {
                 if (py::isinstance<SymbolicScalar>(item)) {
-                    hasSymbolic = true;
+                    has_symbolic = true;
                     break;
                 }
             }
-            if (hasSymbolic) {
-                std::vector<SymbolicScalar> symbolicOffsets;
-                symbolicOffsets.reserve(py::len(offsets));
+            if (has_symbolic) {
+                std::vector<SymbolicScalar> symbolic_offsets;
+                symbolic_offsets.reserve(py::len(offsets));
                 for (const auto &item : offsets) {
-                    symbolicOffsets.push_back(item.cast<SymbolicScalar>());
+                    symbolic_offsets.push_back(item.cast<SymbolicScalar>());
                 }
-                return npu::tile_fwk::View(operand, shapes, symbolicOffsets);
+                return npu::tile_fwk::View(operand, shapes, symbolic_offsets);
             } else {
-                std::vector<int64_t> intOffsets;
-                intOffsets.reserve(py::len(offsets));
+                std::vector<int64_t> int_offsets;
+                int_offsets.reserve(py::len(offsets));
                 for (const auto &item : offsets) {
-                    intOffsets.push_back(item.cast<int64_t>());
+                    int_offsets.push_back(item.cast<int64_t>());
                 }
-                return npu::tile_fwk::View(operand, shapes, intOffsets);
+                return npu::tile_fwk::View(operand, shapes, int_offsets);
             }
         },
         py::arg("operand"), py::arg("shapes"), py::arg("offsets"),
@@ -378,19 +378,19 @@ void bind_operation(py::module &m) {
         py::arg("operand"), py::arg("axis"), py::arg("descending") = false, "Tensor argsort.");
     m.def(
         "Matmul",
-        [](DataType outType, const Tensor &tensorA, const Tensor &tensorB, bool aTrans, bool bTrans,
-            bool cMatrixNz) {
-            return Matrix::Matmul(outType, tensorA, tensorB, aTrans, bTrans, cMatrixNz);
+        [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b, bool a_trans, bool b_trans,
+            bool c_matrix_nz) {
+            return Matrix::Matmul(out_type, tensor_a, tensor_b, a_trans, b_trans, c_matrix_nz);
         },
         py::arg("out_type"), py::arg("tensor_a"), py::arg("tensor_b"), py::arg("a_trans") = false,
         py::arg("b_trans") = false, py::arg("c_matrix_nz") = false, "Matrix multiply.");
     m.def(
         "MatmulMX",
-        [](DataType outType, const Tensor &tensorA, const Tensor &tensorAScale, const Tensor &tensorB,
-            const Tensor &tensorBScale, bool aTrans, bool aScaleTrans, bool bTrans, bool bScaleTrans,
-            bool cMatrixNz) {
-            return Matrix::MatmulMX(outType, tensorA, tensorAScale, tensorB, tensorBScale, aTrans,
-                             aScaleTrans, bTrans, bScaleTrans, cMatrixNz);
+        [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_a_scale, const Tensor &tensor_b,
+            const Tensor &tensor_b_scale, bool a_trans, bool a_scale_trans, bool b_trans, bool b_scale_trans,
+            bool c_matrix_nz) {
+            return Matrix::MatmulMX(out_type, tensor_a, tensor_a_scale, tensor_b, tensor_b_scale, a_trans,
+                             a_scale_trans, b_trans, b_scale_trans, c_matrix_nz);
         },
         py::arg("out_type"), py::arg("tensor_a"), py::arg("tensor_a_scale"), py::arg("tensor_b"),
         py::arg("tensor_b_scale"), py::arg("a_trans") = false, py::arg("a_scale_trans") = false,
@@ -404,20 +404,20 @@ void bind_operation(py::module &m) {
 
     m.def(
         "Matmul",
-        [](DataType outType, const Tensor &tensorA, const Tensor &tensorB,
-            bool aTrans, bool bTrans, bool cMatrixNz, const Matrix::MatmulExtendParam &extendParam) {
-            return Matrix::Matmul(outType, tensorA, tensorB, extendParam, aTrans, bTrans, cMatrixNz);
+        [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b,
+            bool a_trans, bool b_trans, bool c_matrix_nz, const Matrix::MatmulExtendParam &extendParam) {
+            return Matrix::Matmul(out_type, tensor_a, tensor_b, extendParam, a_trans, b_trans, c_matrix_nz);
         },
         py::arg("out_type"), py::arg("tensor_a"), py::arg("tensor_b"), py::arg("a_trans") = false,
         py::arg("b_trans") = false, py::arg("c_matrix_nz") = false, py::arg("extend_params"),
         "Matrix multiply with extend param.");
     m.def(
         "MatmulMX",
-        [](DataType outType, const Tensor &tensorA, const Tensor &tensorAScale, const Tensor &tensorB,
-            const Tensor &tensorBScale, bool aTrans, bool aScaleTrans, bool bTrans, bool bScaleTrans,
-            bool cMatrixNz, const Matrix::MatmulExtendParam &extendParam) {
-            return Matrix::MatmulMX(outType, tensorA, tensorAScale, tensorB, tensorBScale, extendParam, aTrans,
-                             aScaleTrans, bTrans, bScaleTrans, cMatrixNz);
+        [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_a_scale, const Tensor &tensor_b,
+            const Tensor &tensor_b_scale, bool a_trans, bool a_scale_trans, bool b_trans, bool b_scale_trans,
+            bool c_matrix_nz, const Matrix::MatmulExtendParam &extendParam) {
+            return Matrix::MatmulMX(out_type, tensor_a, tensor_a_scale, tensor_b, tensor_b_scale, extendParam, a_trans,
+                             a_scale_trans, b_trans, b_scale_trans, c_matrix_nz);
         },
         py::arg("out_type"), py::arg("tensor_a"), py::arg("tensor_a_scale"), py::arg("tensor_b"),
         py::arg("tensor_b_scale"), py::arg("a_trans") = false, py::arg("a_scale_trans") = false,
@@ -425,22 +425,22 @@ void bind_operation(py::module &m) {
         py::arg("extend_params"), "Matrix multiply with extend param.");
     m.def(
         "BatchMatmul",
-        [](DataType outType, const Tensor &tensorA, const Tensor &tensorB, bool aTrans, bool bTrans,
-            bool cMatrixNz) {
-            return Matrix::BatchMatmul(outType, tensorA, tensorB, aTrans, bTrans, cMatrixNz);
+        [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b, bool a_trans, bool b_trans,
+            bool c_matrix_nz) {
+            return Matrix::BatchMatmul(out_type, tensor_a, tensor_b, a_trans, b_trans, c_matrix_nz);
         },
         py::arg("out_type"), py::arg("a"), py::arg("b"), py::arg("a_trans") = false, py::arg("b_trans") = false,
         py::arg("c_matrix_nz") = false, "Batch matrix multiply.");
     m.def(
         "gather_in_l1",
         [](const Tensor &src, const Tensor &indices, const Tensor &blockTable, int blockSize, int size,
-            bool isBMatrix, bool isTrans) {
-            if (!isBMatrix && !isTrans) {
+            bool is_b_matrix, bool is_trans) {
+            if (!is_b_matrix && !is_trans) {
                 std::cout << " gather in l1 m def" << std::endl;
                 return experimental::GatherInL1<false, false>(src, indices, blockTable, blockSize, size);
-            } else if (!isBMatrix && isTrans) {
+            } else if (!is_b_matrix && is_trans) {
                 return experimental::GatherInL1<false, true>(src, indices, blockTable, blockSize, size);
-            } else if (isBMatrix && !isTrans) {
+            } else if (is_b_matrix && !is_trans) {
                 return experimental::GatherInL1<true, false>(src, indices, blockTable, blockSize, size);
             } else {
                 return experimental::GatherInL1<true, true>(src, indices, blockTable, blockSize, size);
@@ -457,38 +457,38 @@ void bind_operation(py::module &m) {
         "Tensor gather_in_ub");
     m.def(
         "TransposedBatchMatmul",
-        [](DataType outType, const Tensor &tensorA, const Tensor &tensorB) {
-            return Matrix::TransposedBatchMatmul(outType, tensorA, tensorB);
+        [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b) {
+            return Matrix::TransposedBatchMatmul(out_type, tensor_a, tensor_b);
         },
         py::arg("out_type"), py::arg("a"), py::arg("b"), "Transposed batch matrix multiply.");
     m.def(
         "ScalarDivS",
-        [](const Tensor &operand, const Element &value, bool reverseOperand = false) {
-            return npu::tile_fwk::ScalarDivS(operand, value, reverseOperand);
+        [](const Tensor &operand, const Element &value, bool reverse_operand = false) {
+            return npu::tile_fwk::ScalarDivS(operand, value, reverse_operand);
         },
         py::arg("operand"), py::arg("value"), py::arg("reverse_operand") = false, "Tensor scalar divs.");
     m.def(
         "ScalarAddS",
-        [](const Tensor &operand, const Element &value, bool reverseOperand = false) {
-            return npu::tile_fwk::ScalarAddS(operand, value, reverseOperand);
+        [](const Tensor &operand, const Element &value, bool reverse_operand = false) {
+            return npu::tile_fwk::ScalarAddS(operand, value, reverse_operand);
         },
         py::arg("operand"), py::arg("value"), py::arg("reverse_operand") = false, "Tensor scalar adds.");
     m.def(
         "ScalarMaxS",
-        [](const Tensor &operand, const Element &value, bool reverseOperand = false) {
-            return npu::tile_fwk::ScalarMaxS(operand, value, reverseOperand);
+        [](const Tensor &operand, const Element &value, bool reverse_operand = false) {
+            return npu::tile_fwk::ScalarMaxS(operand, value, reverse_operand);
         },
         py::arg("operand"), py::arg("value"), py::arg("reverse_operand") = false, "Tensor scalar maxs.");
     m.def(
         "ScalarSubS",
-        [](const Tensor &operand, const Element &value, bool reverseOperand = false) {
-            return npu::tile_fwk::ScalarSubS(operand, value, reverseOperand);
+        [](const Tensor &operand, const Element &value, bool reverse_operand = false) {
+            return npu::tile_fwk::ScalarSubS(operand, value, reverse_operand);
         },
         py::arg("operand"), py::arg("value"), py::arg("reverse_operand") = false, "Tensor scalar subs.");
     m.def(
         "ScalarMulS",
-        [](const Tensor &operand, const Element &value, bool reverseOperand = false) {
-            return npu::tile_fwk::ScalarMulS(operand, value, reverseOperand);
+        [](const Tensor &operand, const Element &value, bool reverse_operand = false) {
+            return npu::tile_fwk::ScalarMulS(operand, value, reverse_operand);
         },
         py::arg("operand"), py::arg("value"), py::arg("reverse_operand") = false, "Tensor scalar muls.");
     m.def(
@@ -558,8 +558,8 @@ void bind_operation(py::module &m) {
                         SymbolicScalar cond) { npu::tile_fwk::ToFile(operand, fname, scalars, cond); });
     m.def(
         "topk_sort",
-        [](const Tensor &x, int idxStart) {
-            auto result = npu::tile_fwk::TopKSort(x, idxStart);
+        [](const Tensor &x, int idx_start) {
+            auto result = npu::tile_fwk::TopKSort(x, idx_start);
             // return as a Python tuple (y, temp)
             return py::make_tuple(std::get<0>(result), std::get<1>(result));
         },
@@ -571,8 +571,8 @@ void bind_operation(py::module &m) {
 
     m.def(
         "topk_sort",
-        [](const Tensor &x, const SymbolicScalar &idxStart) {
-            auto result = npu::tile_fwk::TopKSort(x, idxStart);
+        [](const Tensor &x, const SymbolicScalar &idx_start) {
+            auto result = npu::tile_fwk::TopKSort(x, idx_start);
             return py::make_tuple(std::get<0>(result), std::get<1>(result));
         },
         py::arg("x"), py::arg("idx_start"),
@@ -583,8 +583,8 @@ void bind_operation(py::module &m) {
 
     m.def(
         "topk_merge",
-        [](const Tensor &x, int mergeSize) {
-            return npu::tile_fwk::TopKMerge(x, mergeSize);
+        [](const Tensor &x, int merge_size) {
+            return npu::tile_fwk::TopKMerge(x, merge_size);
         },
         py::arg("x"), py::arg("merge_size"),
         "TopKMerge(x, merge_size:int) -> y\n"
@@ -593,8 +593,8 @@ void bind_operation(py::module &m) {
 
     m.def(
         "topk_extract",
-        [](const Tensor &x, int k, bool isIndex) {
-            return npu::tile_fwk::TopKExtract(x, k, isIndex);
+        [](const Tensor &x, int k, bool is_index) {
+            return npu::tile_fwk::TopKExtract(x, k, is_index);
         },
         py::arg("x"), py::arg("k"), py::arg("is_index") = false,
         "TopKExtract(x, k:int, is_index:bool=False) -> y\n"
