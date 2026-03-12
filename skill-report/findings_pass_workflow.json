@@ -1,0 +1,466 @@
+[
+  {
+    "rule_id": "R45",
+    "severity": "S2",
+    "dimension": "D2",
+    "type": "static",
+    "status": "FAIL",
+    "message": "重复的章节标题「基础业务流分析」（首次出现在第 14 行，重复于第 66 行）",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 66,
+      "snippet": "### 基础业务流分析"
+    },
+    "suggested_fix": "将第 66 行的标题改为更具描述性的名称，如「基础业务流分析步骤」或合并重复内容"
+  },
+  {
+    "rule_id": "R45",
+    "severity": "S2",
+    "dimension": "D2",
+    "type": "static",
+    "status": "FAIL",
+    "message": "重复的章节标题「视图类OP流程分析（新增）」（首次出现在第 23 行，重复于第 72 行）",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 72,
+      "snippet": "### 视图类OP流程分析（新增）"
+    },
+    "suggested_fix": "将第 72 行的标题改为更具描述性的名称，如「视图类OP流程分析步骤」或合并重复内容"
+  },
+  {
+    "rule_id": "R46",
+    "severity": "S3",
+    "dimension": "D4",
+    "type": "static",
+    "status": "FAIL",
+    "message": "代码块缺少语言标注（第 113 行）",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 113,
+      "snippet": "```"
+    },
+    "suggested_fix": "为代码块添加语言标注，如 ```text 或 ```plaintext"
+  },
+  {
+    "rule_id": "R24",
+    "severity": "S2",
+    "dimension": "D5",
+    "type": "semantic",
+    "status": "FAIL",
+    "message": "工作流步骤缺乏可验证的成功标准。例如步骤「定位 pass 文档中的业务流介绍部分」未说明如何确认定位成功",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 67,
+      "snippet": "1. 定位 pass 文档中的业务流介绍部分"
+    },
+    "suggested_fix": "为每个工作流步骤添加验证标准，例如：「1. 定位 pass 文档中的业务流介绍部分（确认找到包含 '业务流' 或 '执行流程' 关键词的章节）」"
+  },
+  {
+    "rule_id": "R30",
+    "severity": "S2",
+    "dimension": "D6",
+    "type": "semantic",
+    "status": "FAIL",
+    "message": "缺少错误处理或失败恢复说明。未说明当文档不存在、关键词未找到或解析失败时应如何处理",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 66,
+      "snippet": "### 基础业务流分析\n1. 定位 pass 文档中的业务流介绍部分"
+    },
+    "suggested_fix": "在工作流末尾添加错误处理章节，例如：「## 异常处理 - 若文档不存在或路径无效，返回明确的错误提示 - 若未找到 View/Assemble/Reshape 关键词，报告该文档不包含视图类OP信息」"
+  },
+  {
+    "rule_id": "R01",
+    "severity": "S0",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "Frontmatter 格式正确",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 1,
+      "snippet": "---"
+    }
+  },
+  {
+    "rule_id": "R02",
+    "severity": "S0",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "name 字段存在且格式正确",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 2,
+      "snippet": "name: pypto-pass-workflow-analyzer"
+    }
+  },
+  {
+    "rule_id": "R03",
+    "severity": "S0",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "description 字段存在且长度足够",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 3,
+      "snippet": "description: PyPTO Pass 业务流分析技能。用于分析 PyPTO pass 文档中的业务流介绍部分，帮助理解 pass 的执行流程和数据流转。当需要理解 PyPTO pass 的执行流程和业务逻辑时使用此技能。"
+    }
+  },
+  {
+    "rule_id": "R04",
+    "severity": "S1",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "name 值与 skill 目录名一致",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 2,
+      "snippet": "name: pypto-pass-workflow-analyzer"
+    }
+  },
+  {
+    "rule_id": "R05",
+    "severity": "S2",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "description 长度未超过 1024 字符"
+  },
+  {
+    "rule_id": "R06",
+    "severity": "S3",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "frontmatter 仅包含已知字段"
+  },
+  {
+    "rule_id": "R07",
+    "severity": "S1",
+    "dimension": "D1",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "description 清晰回答了做什么（分析 pass 文档中的业务流介绍部分）和何时使用（当需要理解 PyPTO pass 的执行流程和业务逻辑时）",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 3,
+      "snippet": "用于分析 PyPTO pass 文档中的业务流介绍部分，帮助理解 pass 的执行流程和数据流转。当需要理解 PyPTO pass 的执行流程和业务逻辑时使用此技能。"
+    }
+  },
+  {
+    "rule_id": "R08",
+    "severity": "S2",
+    "dimension": "D1",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "description 包含自然触发短语，如分析 PyPTO pass 文档、理解 pass 的执行流程、业务逻辑等",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 3,
+      "snippet": "用于分析 PyPTO pass 文档中的业务流介绍部分"
+    }
+  },
+  {
+    "rule_id": "R09",
+    "severity": "S2",
+    "dimension": "D1",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "description 以结果为导向，描述了用户将获得的结果（理解 pass 的执行流程和数据流转）而非仅列出功能",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 3,
+      "snippet": "帮助理解 pass 的执行流程和数据流转"
+    }
+  },
+  {
+    "rule_id": "R10",
+    "severity": "S2",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "不存在 allowed-tools 字段，无需检查"
+  },
+  {
+    "rule_id": "R11",
+    "severity": "S1",
+    "dimension": "D2",
+    "type": "static",
+    "status": "PASS",
+    "message": "SKILL.md 未超过 600 行（当前 160 行）"
+  },
+  {
+    "rule_id": "R12",
+    "severity": "S2",
+    "dimension": "D2",
+    "type": "static",
+    "status": "PASS",
+    "message": "正文未超过 6000 词"
+  },
+  {
+    "rule_id": "R13",
+    "severity": "S1",
+    "dimension": "D2",
+    "type": "static",
+    "status": "PASS",
+    "message": "未包含 TODO/FIXME/HACK 占位符"
+  },
+  {
+    "rule_id": "R14",
+    "severity": "S2",
+    "dimension": "D2",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "各章节内容虽有主题重叠，但分别从功能描述和执行步骤两个不同角度阐述，不构成实质性冗余"
+  },
+  {
+    "rule_id": "R15",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "skill 目录名符合 kebab-case 格式"
+  },
+  {
+    "rule_id": "R16",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "不存在超过 100 行的大型内联参考材料"
+  },
+  {
+    "rule_id": "R17",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "未使用绝对路径引用"
+  },
+  {
+    "rule_id": "R18",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "所有引用的文件路径均存在（无外部文件引用）"
+  },
+  {
+    "rule_id": "R19",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "本技能未引用外部文件，无需说明用途和加载时机"
+  },
+  {
+    "rule_id": "R20",
+    "severity": "S1",
+    "dimension": "D4",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "指令主要使用祈使语气，如定位、分析、提取、绘制等",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 67,
+      "snippet": "1. 定位 pass 文档中的业务流介绍部分"
+    }
+  },
+  {
+    "rule_id": "R21",
+    "severity": "S3",
+    "dimension": "D4",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "未发现含糊措辞"
+  },
+  {
+    "rule_id": "R22",
+    "severity": "S2",
+    "dimension": "D4",
+    "type": "static",
+    "status": "PASS",
+    "message": "所有代码块均正确闭合"
+  },
+  {
+    "rule_id": "R23",
+    "severity": "S2",
+    "dimension": "D4",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "关键指令在上下文中已具有足够的理由说明"
+  },
+  {
+    "rule_id": "R25",
+    "severity": "S2",
+    "dimension": "D5",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "操作描述具体明确，无占位符或未定义变量"
+  },
+  {
+    "rule_id": "R26",
+    "severity": "S1",
+    "dimension": "D5",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "所有提及的操作均为文档分析类操作，由 LLM 执行，工作流步骤即为其实现方法"
+  },
+  {
+    "rule_id": "R27",
+    "severity": "S2",
+    "dimension": "D5",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "完成标准在输出章节明确定义，包括输出文件结构和每个文件应包含的内容",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 100,
+      "snippet": "## 输出"
+    }
+  },
+  {
+    "rule_id": "R28",
+    "severity": "S1",
+    "dimension": "D6",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "存在清晰的分步工作流，包括编号步骤和明确的执行顺序",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 66,
+      "snippet": "### 基础业务流分析\n1. 定位 pass 文档中的业务流介绍部分"
+    }
+  },
+  {
+    "rule_id": "R29",
+    "severity": "S2",
+    "dimension": "D6",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "工作流步骤间衔接顺畅：输入处理、识别、分析、输出，逻辑连贯"
+  },
+  {
+    "rule_id": "R31",
+    "severity": "S2",
+    "dimension": "D6",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "不存在复杂的条件分支逻辑，无需完整描述各路径"
+  },
+  {
+    "rule_id": "R32",
+    "severity": "S3",
+    "dimension": "D7",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "采用渐进披露模式：概述、功能、使用场景、工作流程、输出，结构清晰"
+  },
+  {
+    "rule_id": "R33",
+    "severity": "S3",
+    "dimension": "D7",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "本技能为 LLM 文档分析类技能，验证依赖于分析结果的质量评估，不适用于确定性脚本验证"
+  },
+  {
+    "rule_id": "R34",
+    "severity": "S0",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "未嵌入密钥、凭据或敏感数据"
+  },
+  {
+    "rule_id": "R35",
+    "severity": "S1",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "未硬编码绝对路径"
+  },
+  {
+    "rule_id": "R36",
+    "severity": "S1",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "未内联大型数据块"
+  },
+  {
+    "rule_id": "R37",
+    "severity": "S1",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "frontmatter 中未包含 XML 标签"
+  },
+  {
+    "rule_id": "R38",
+    "severity": "S2",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "未使用 Windows 风格路径"
+  },
+  {
+    "rule_id": "R39",
+    "severity": "S2",
+    "dimension": "D9",
+    "type": "static",
+    "status": "PASS",
+    "message": "不存在 Python 脚本文件"
+  },
+  {
+    "rule_id": "R40",
+    "severity": "S2",
+    "dimension": "D9",
+    "type": "static",
+    "status": "PASS",
+    "message": "不存在脚本文件"
+  },
+  {
+    "rule_id": "R41",
+    "severity": "S2",
+    "dimension": "D9",
+    "type": "static",
+    "status": "PASS",
+    "message": "不存在脚本文件"
+  },
+  {
+    "rule_id": "R42",
+    "severity": "S2",
+    "dimension": "D9",
+    "type": "semantic",
+    "status": "SKIP",
+    "message": "不存在 scripts/ 目录，跳过检查"
+  },
+  {
+    "rule_id": "R43",
+    "severity": "S3",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "不存在子目录，符合标准"
+  },
+  {
+    "rule_id": "R44",
+    "severity": "S2",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "description 中未包含尖括号占位符"
+  },
+  {
+    "rule_id": "R47",
+    "severity": "S2",
+    "dimension": "D7",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "技能提供两种分析类型，但这是根据用户需求选择的独立功能，而非同一场景下的多选项，无需标注默认推荐"
+  }
+]

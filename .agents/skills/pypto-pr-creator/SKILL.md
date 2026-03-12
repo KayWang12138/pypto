@@ -79,7 +79,7 @@ echo "2. SSH Key: $(ls ~/.ssh/*.pub 2>/dev/null | wc -l) 个公钥"
 echo "3. credential.helper: $(git config --global credential.helper 2>/dev/null || echo '未配置')"
 echo "4. .git-credentials: $([ -f ~/.git-credentials ] && echo '✅ 存在' || echo '❌ 不存在')"
 echo "5. SSH Agent: $(ssh-add -l 2>/dev/null && echo '运行中' || echo '未运行')"
-```text
+```
 
 #### 2.2 认证方式对比
 
@@ -105,7 +105,7 @@ git config --global credential.helper 'cache --timeout=604800'
 # 配置
 git config --global credential.helper store
 # 首次 push 输入用户名和 Token，保存到 ~/.git-credentials
-```text
+```
 
 **方式 3: SSH Key（需在 GitCode 网站配置）**
 ```bash
@@ -126,7 +126,7 @@ export GITCODE_TOKEN="your-token"
 
 # 配置 URL
 git remote set-url origin https://oauth2:${GITCODE_TOKEN}@gitcode.com/<username>/pypto.git
-```text
+```
 
 **方式 5: libsecret（Linux 桌面）**
 ```bash
@@ -172,7 +172,7 @@ git config --global credential.helper /usr/share/doc/git/contrib/credential/libs
 ```python
 result = gitcode_get_repository(owner="<username>", repo="pypto")
 # 验证: result.parent.full_name == "cann/pypto"
-```text
+```
 
 ### 阶段 3：用户确认（强制阻塞）
 
@@ -213,7 +213,7 @@ git remote add upstream https://gitcode.com/cann/pypto.git
 **步骤 2：获取 upstream 最新状态**
 ```bash
 git fetch upstream master
-```text
+```
 
 **步骤 3：检查分支是否落后**
 ```bash
@@ -233,7 +233,7 @@ git rebase upstream/master
 
 # Force push 更新 fork 分支
 git push -f origin <branch_name>
-```text
+```
 ### 阶段 5：创建分支、Commit、Push
 
 ```bash
@@ -256,7 +256,7 @@ git -C "$PYPTO_REPO" push origin <branch_name>
 ```bash
 git config --local --get http.extraheader
 # 如输出包含 "Authorization: Bearer ..." → 这是问题根源
-```text
+```
 
 **原因**：GitCode 不支持 Bearer token 认证，只支持 HTTP Basic Auth。若配置了 `http.extraheader=Authorization: Bearer <token>`，git 会强制使用 Bearer token 导致认证失败。
 
@@ -285,7 +285,7 @@ EOF
 GIT_CURL_VERBOSE=1 git push origin <branch_name> 2>&1 | grep -i authorization
 # 正确: Authorization: Basic <base64>
 # 错误: Authorization: Bearer <token>
-```text
+```
 ### 阶段 6：创建或更新 PR
 
 #### 5.1 判断创建还是更新
@@ -310,7 +310,7 @@ gitcode_create_pull_request(
     base="master",                         # 目标分支
     body="..."                             # PR 描述（禁止为空）
 )
-```text
+```
 
 **关键细节**：
 - `head` 格式为 `<username>:<branch_name>`（冒号分隔），不是纯分支名
@@ -349,7 +349,7 @@ curl -s -X POST "https://api.gitcode.com/api/v5/repos/cann/pypto/pulls" \
     "base": "master",
     "body": "PR 描述内容"
   }'
-```text
+```
 
 **成功响应**：返回 PR JSON，包含 `html_url` 字段
 
@@ -404,7 +404,7 @@ elif any("cla/yes" in l.get("name", "") or "cla/pass" in l.get("name", "") for l
 else:
     # 无 CLA 标签，可能需要等待或手动触发
     cla_passed = None
-```text
+```
 
 #### 8.2 CLA 失败处理
 
@@ -444,7 +444,7 @@ git push -f origin <branch_name>
 # 方式 3: 在 GitCode 添加邮箱
 # 访问 GitCode → Settings → Emails → Add email
 # 添加 commit 中使用的邮箱并验证
-```text
+```
 
 **步骤 4：重新触发 CLA 检查**
 

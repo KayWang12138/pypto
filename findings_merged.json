@@ -1,0 +1,170 @@
+[
+  {
+    "rule_id": "R04",
+    "severity": "S1",
+    "dimension": "D1",
+    "type": "static",
+    "status": "FAIL",
+    "message": "`name` 值 `pass-ut-generate` 与目录名 `pypto-pass-ut-generate` 不匹配",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 2,
+      "snippet": "name: pass-ut-generate"
+    },
+    "suggested_fix": "将 frontmatter 中的 name 字段修改为 `pypto-pass-ut-generate`，使其与目录名保持一致"
+  },
+  {
+    "rule_id": "R46",
+    "severity": "S3",
+    "dimension": "D4",
+    "type": "static",
+    "status": "FAIL",
+    "message": "代码块缺少语言标注（第81行）",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 81,
+      "snippet": "```"
+    },
+    "suggested_fix": "为代码块添加语言标注，如 `cpp`"
+  },
+  {
+    "rule_id": "R46",
+    "severity": "S3",
+    "dimension": "D4",
+    "type": "static",
+    "status": "FAIL",
+    "message": "代码块缺少语言标注（第92行）",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 92,
+      "snippet": "```"
+    },
+    "suggested_fix": "为代码块添加语言标注，如 `cpp`"
+  },
+  {
+    "rule_id": "R46",
+    "severity": "S3",
+    "dimension": "D4",
+    "type": "static",
+    "status": "FAIL",
+    "message": "代码块缺少语言标注（第99行）",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 99,
+      "snippet": "```"
+    },
+    "suggested_fix": "为代码块添加语言标注，如 `cpp`"
+  },
+  {
+    "rule_id": "R46",
+    "severity": "S3",
+    "dimension": "D4",
+    "type": "static",
+    "status": "FAIL",
+    "message": "代码块缺少语言标注（第129行）",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 129,
+      "snippet": "```"
+    },
+    "suggested_fix": "为代码块添加语言标注，如 `cpp`"
+  },
+  {
+    "rule_id": "R46",
+    "severity": "S3",
+    "dimension": "D4",
+    "type": "static",
+    "status": "FAIL",
+    "message": "代码块缺少语言标注（第148行）",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 148,
+      "snippet": "```"
+    },
+    "suggested_fix": "为代码块添加语言标注，如 `cpp`"
+  },
+  {"rule_id": "R01", "severity": "S0", "dimension": "D1", "type": "static", "status": "PASS", "message": "SKILL.md 以有效的 frontmatter 块开头", "evidence": {"file": "SKILL.md", "line": 1, "snippet": "---"}},
+  {"rule_id": "R02", "severity": "S0", "dimension": "D1", "type": "static", "status": "PASS", "message": "`name` 字段存在且为有效的 kebab-case", "evidence": {"file": "SKILL.md", "line": 2, "snippet": "name: pass-ut-generate"}},
+  {"rule_id": "R03", "severity": "S0", "dimension": "D1", "type": "static", "status": "PASS", "message": "`description` 字段存在且长度 >= 20 字符", "evidence": {"file": "SKILL.md", "line": 3, "snippet": "description: 根据Pass业务描述，生成单元测试用例（UT）。当用户输入业务情况时，能根据业务，生成对应Pass的Ut用例。"}},
+  {"rule_id": "R05", "severity": "S2", "dimension": "D1", "type": "static", "status": "PASS", "message": "`description` 长度未超过 1024 字符", "evidence": {"file": "", "line": 0, "snippet": ""}},
+  {"rule_id": "R06", "severity": "S3", "dimension": "D1", "type": "static", "status": "PASS", "message": "frontmatter 仅包含已知字段", "evidence": {"file": "", "line": 0, "snippet": ""}},
+  {"rule_id": "R10", "severity": "S2", "dimension": "D1", "type": "static", "status": "PASS", "message": "无 `allowed-tools` 字段需要检查", "evidence": {"file": "", "line": 0, "snippet": ""}},
+  {"rule_id": "R11", "severity": "S1", "dimension": "D2", "type": "static", "status": "PASS", "message": "SKILL.md 总行数为 237 行，未超过 600 行限制", "evidence": {"file": "SKILL.md", "line": 237, "snippet": ""}},
+  {"rule_id": "R12", "severity": "S2", "dimension": "D2", "type": "static", "status": "PASS", "message": "正文词数未超过 6000 词限制", "evidence": {"file": "", "line": 0, "snippet": ""}},
+  {"rule_id": "R13", "severity": "S1", "dimension": "D2", "type": "static", "status": "PASS", "message": "未发现 TODO/FIXME/HACK 占位符", "evidence": {"file": "", "line": 0, "snippet": ""}},
+  {"rule_id": "R15", "severity": "S2", "dimension": "D3", "type": "static", "status": "PASS", "message": "目录名 `pypto-pass-ut-generate` 符合 kebab-case 规范", "evidence": {"file": "", "line": 0, "snippet": ""}},
+  {"rule_id": "R16", "severity": "S2", "dimension": "D3", "type": "static", "status": "PASS", "message": "无超过 100 行的大型内联内容块", "evidence": {"file": "", "line": 0, "snippet": ""}},
+  {"rule_id": "R17", "severity": "S2", "dimension": "D3", "type": "static", "status": "PASS", "message": "引用路径均使用相对路径", "evidence": {"file": "", "line": 0, "snippet": ""}},
+  {"rule_id": "R18", "severity": "S2", "dimension": "D3", "type": "static", "status": "PASS", "message": "被引用的文件路径均存在", "evidence": {"file": "", "line": 0, "snippet": ""}},
+  {"rule_id": "R22", "severity": "S2", "dimension": "D4", "type": "static", "status": "PASS", "message": "所有代码块均正确闭合", "evidence": {"file": "", "line": 0, "snippet": ""}},
+  {"rule_id": "R34", "severity": "S0", "dimension": "D8", "type": "static", "status": "PASS", "message": "未发现密钥、凭据或敏感数据", "evidence": {"file": "", "line": 0, "snippet": ""}},
+  {"rule_id": "R35", "severity": "S1", "dimension": "D8", "type": "static", "status": "PASS", "message": "未发现硬编码的绝对用户目录路径", "evidence": {"file": "", "line": 0, "snippet": ""}},
+  {"rule_id": "R36", "severity": "S1", "dimension": "D8", "type": "static", "status": "PASS", "message": "未发现超过 50 行的大型内联数据块", "evidence": {"file": "", "line": 0, "snippet": ""}},
+  {"rule_id": "R37", "severity": "S1", "dimension": "D8", "type": "static", "status": "PASS", "message": "frontmatter 中未发现 XML 标签", "evidence": {"file": "", "line": 0, "snippet": ""}},
+  {"rule_id": "R38", "severity": "S2", "dimension": "D8", "type": "static", "status": "PASS", "message": "未发现 Windows 风格路径", "evidence": {"file": "", "line": 0, "snippet": ""}},
+  {"rule_id": "R39", "severity": "S2", "dimension": "D9", "type": "static", "status": "PASS", "message": "不存在脚本文件需要检查语法", "evidence": {"file": "", "line": 0, "snippet": ""}},
+  {"rule_id": "R40", "severity": "S2", "dimension": "D9", "type": "static", "status": "PASS", "message": "不存在脚本文件需要检查 shebang", "evidence": {"file": "", "line": 0, "snippet": ""}},
+  {"rule_id": "R41", "severity": "S2", "dimension": "D9", "type": "static", "status": "PASS", "message": "不存在脚本文件需要检查路径可移植性", "evidence": {"file": "", "line": 0, "snippet": ""}},
+  {"rule_id": "R43", "severity": "S3", "dimension": "D3", "type": "static", "status": "PASS", "message": "无子目录，无需检查标准命名", "evidence": {"file": "", "line": 0, "snippet": ""}},
+  {"rule_id": "R44", "severity": "S2", "dimension": "D1", "type": "static", "status": "PASS", "message": "`description` 中未发现尖括号占位符", "evidence": {"file": "", "line": 0, "snippet": ""}},
+  {"rule_id": "R45", "severity": "S2", "dimension": "D2", "type": "static", "status": "PASS", "message": "未发现重复的章节标题", "evidence": {"file": "", "line": 0, "snippet": ""}},
+  {"rule_id": "R07", "severity": "S1", "dimension": "D1", "type": "semantic", "status": "PASS", "message": "description 清晰回答了做什么（生成单元测试用例）和何时使用（当用户输入业务情况时）", "evidence": {"file": "SKILL.md", "line": 3, "snippet": "根据Pass业务描述，生成单元测试用例（UT）。当用户输入业务情况时，能根据业务，生成对应Pass的Ut用例。"}},
+  {"rule_id": "R08", "severity": "S2", "dimension": "D1", "type": "semantic", "status": "PASS", "message": "description 包含自然触发短语，如设计Pass模块XXX的UT用例等", "evidence": {"file": "SKILL.md", "line": 17, "snippet": "（1）设计Pass模块XXX的UT用例**：设计指定 Pass 模块的功能的UT用例"}},
+  {"rule_id": "R09", "severity": "S2", "dimension": "D1", "type": "semantic", "status": "PASS", "message": "description 以结果为导向，聚焦于生成单元测试用例这一产出", "evidence": {"file": "SKILL.md", "line": 3, "snippet": "根据Pass业务描述，生成单元测试用例（UT）"}},
+  {"rule_id": "R14", "severity": "S2", "dimension": "D2", "type": "semantic", "status": "PASS", "message": "流程二通过引用方式复用流程一的步骤，避免了冗余重复", "evidence": {"file": "SKILL.md", "line": 171, "snippet": "同UT生成流程一中步骤1：分析业务"}},
+  {
+    "rule_id": "R19",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "semantic",
+    "status": "FAIL",
+    "message": "参考资料章节列出了多个文件路径，但未说明每个文件的用途和加载时机",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 210,
+      "snippet": "## 参考资料\n\n| 类别 | 文件路径 |\n|------|----------|\n| 生成流程一示例 | `pypto/framework/tests/ut/passes/src/test_removeredundantop.cpp` |"
+    },
+    "suggested_fix": "在参考资料章节中为每个文件添加用途说明（如'用于参考标准UT编写结构'）和加载时机（如'步骤3搭建框架时参考'）"
+  },
+  {"rule_id": "R20", "severity": "S2", "dimension": "D4", "type": "semantic", "status": "PASS", "message": "指令主要使用祈使语气，如分析业务、创建新的类、构建计算图", "evidence": {"file": "SKILL.md", "line": 35, "snippet": "根据用户描述的业务情况，分析相关业务"}},
+  {"rule_id": "R21", "severity": "S3", "dimension": "D4", "type": "semantic", "status": "PASS", "message": "指令使用确定性语言，无明显模糊措辞", "evidence": {"file": "SKILL.md", "line": 42, "snippet": "在pypto/framework/tests/ut/passes/src/test_xxx.cpp寻找对应的测试文件"}},
+  {
+    "rule_id": "R23",
+    "severity": "S2",
+    "dimension": "D4",
+    "type": "semantic",
+    "status": "FAIL",
+    "message": "步骤2中要求声明该类继承于gtest框架，但未解释为什么要继承gtest框架",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 46,
+      "snippet": "（2）声明该类继承于gtest框架"
+    },
+    "suggested_fix": "补充原因说明，如'（2）声明该类继承于gtest框架，以使用gtest提供的测试断言和生命周期管理功能'"
+  },
+  {"rule_id": "R24", "severity": "S2", "dimension": "D5", "type": "semantic", "status": "PASS", "message": "步骤7提供了具体的校验代码示例（EXPECT_EQ），步骤8提供了执行验证命令", "evidence": {"file": "SKILL.md", "line": 147, "snippet": "EXPECT_EQ(assemble_num, kNumZero);"}},
+  {"rule_id": "R25", "severity": "S2", "dimension": "D5", "type": "semantic", "status": "PASS", "message": "命令和路径具体明确，如 python3 build_ci.py -c -u=xxx.* -j=24", "evidence": {"file": "SKILL.md", "line": 152, "snippet": "python3 build_ci.py -c -u=xxx.* -j=24来验证用例是否正确"}},
+  {"rule_id": "R26", "severity": "S1", "dimension": "D5", "type": "semantic", "status": "PASS", "message": "所有提及的操作都提供了具体方法，如构建function、创建Tensor、创建Operation都有详细代码示例", "evidence": {"file": "SKILL.md", "line": 88, "snippet": "Function类常用构造函数：\n```cpp\nFunction(const Program &belongTo, const std::string &funcMagicName, const std::string &funcRawName,\n    Function *parentFunc);\n```"}},
+  {"rule_id": "R27", "severity": "S2", "dimension": "D5", "type": "semantic", "status": "PASS", "message": "步骤9明确定义了完成标准：覆盖率 > 80%", "evidence": {"file": "SKILL.md", "line": 165, "snippet": "若覆盖率<=80%，则针对未覆盖的业务，重复以上步骤，进行该Pass UT补充"}},
+  {"rule_id": "R28", "severity": "S1", "dimension": "D6", "type": "semantic", "status": "PASS", "message": "定义了两个清晰的分步工作流：UT生成流程一（9步）和UT生成流程二（7步）", "evidence": {"file": "SKILL.md", "line": 31, "snippet": "## UT生成流程一\n\n### 步骤 1：分析业务"}},
+  {"rule_id": "R29", "severity": "S2", "dimension": "D6", "type": "semantic", "status": "PASS", "message": "工作流步骤衔接顺畅，从分析业务到环境配置到搭建框架到构建function到创建Tensor到创建Operation到校验到执行到统计覆盖率", "evidence": {"file": "SKILL.md", "line": 64, "snippet": "### 步骤 3：搭建测试用例框架\n\n    搭建测试用例框架 TEST_F(XXXX, XXX){ }"}},
+  {
+    "rule_id": "R30",
+    "severity": "S2",
+    "dimension": "D6",
+    "type": "semantic",
+    "status": "FAIL",
+    "message": "仅提及执行超时的处理，缺少文件缺失、输入无效、环境异常等其他错误场景的处理说明",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 153,
+      "snippet": "当执行超时时，优先执行Python3 build_ci.py -u=xxx.* -j=24"
+    },
+    "suggested_fix": "添加更多错误处理场景，如：测试文件不存在时如何处理、编译失败时的排查步骤、覆盖率工具不可用时的替代方案"
+  },
+  {"rule_id": "R31", "severity": "S2", "dimension": "D6", "type": "semantic", "status": "PASS", "message": "步骤1的三种条件分支（具体Pass、模糊Pass、设计UT）均有清晰的指令说明", "evidence": {"file": "SKILL.md", "line": 36, "snippet": "（1）当描述为具体Pass的具体业务时...（2）当描述为模糊Pass业务时...（3）当描述为设计Pass的UT时..."}},
+  {"rule_id": "R32", "severity": "S3", "dimension": "D7", "type": "semantic", "status": "PASS", "message": "遵循渐进披露模式：概述到触发机制到使用场景到详细工作流到注意事项到参考资料", "evidence": {"file": "SKILL.md", "line": 7, "snippet": "## 概述\n\n本技能用于分析如何根据用户描述生成对应的Pass侧单元测试用例（UT）"}},
+  {"rule_id": "R33", "severity": "S3", "dimension": "D7", "type": "semantic", "status": "PASS", "message": "使用确定性脚本进行验证：build_ci.py 执行测试，GCov 统计覆盖率", "evidence": {"file": "SKILL.md", "line": 161, "snippet": "在当前环境中，通过GCov来统计代码UT覆盖率"}},
+  {"rule_id": "R47", "severity": "S2", "dimension": "D7", "type": "semantic", "status": "PASS", "message": "提供了默认值推荐，如若用户未明确指定参数，则belongTo为新建Program实例", "evidence": {"file": "SKILL.md", "line": 85, "snippet": "若用户未明确指定参数，则belongTo为新建Program实例，funcMagicName和funcRawName均为TestXXX"}},
+  {"rule_id": "R42", "severity": "S2", "dimension": "D9", "type": "semantic", "status": "SKIP", "message": "不存在 scripts/ 目录，跳过检查", "evidence": {"file": "", "line": 0, "snippet": ""}}
+]

@@ -1,0 +1,706 @@
+{
+  "total": 93.7,
+  "grade": "A",
+  "s0_veto": false,
+  "d9_no_scripts": true,
+  "counts": {
+    "pass_count": 37,
+    "fail_count": 9,
+    "warn_count": 0,
+    "skip_count": 1
+  },
+  "coverage": {
+    "expected": 47,
+    "evaluated": 47,
+    "coverage_percent": 100.0
+  },
+  "dimensions": {
+    "D1": {
+      "raw": 90,
+      "weight": 0.25,
+      "deductions": 10,
+      "score": 22.5
+    },
+    "D2": {
+      "raw": 95,
+      "weight": 0.15,
+      "deductions": 5,
+      "score": 14.25
+    },
+    "D3": {
+      "raw": 95,
+      "weight": 0.1,
+      "deductions": 5,
+      "score": 9.5
+    },
+    "D4": {
+      "raw": 93,
+      "weight": 0.1,
+      "deductions": 7,
+      "score": 9.3
+    },
+    "D5": {
+      "raw": 85,
+      "weight": 0.1,
+      "deductions": 15,
+      "score": 8.5
+    },
+    "D6": {
+      "raw": 100,
+      "weight": 0.1,
+      "deductions": 0,
+      "score": 10.0
+    },
+    "D7": {
+      "raw": 93,
+      "weight": 0.05,
+      "deductions": 7,
+      "score": 4.65
+    },
+    "D8": {
+      "raw": 100,
+      "weight": 0.1,
+      "deductions": 0,
+      "score": 10.0
+    },
+    "D9": {
+      "raw": 100,
+      "weight": 0.05,
+      "deductions": 0,
+      "score": 5.0
+    }
+  },
+  "findings": [
+    {
+      "rule_id": "R01",
+      "severity": "S0",
+      "dimension": "D1",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R02",
+      "severity": "S0",
+      "dimension": "D1",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R03",
+      "severity": "S0",
+      "dimension": "D1",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R04",
+      "severity": "S1",
+      "dimension": "D1",
+      "type": "static",
+      "status": "FAIL",
+      "message": "`name` 值 `pypto-precision-multiple-checkpoints` 与目录名 `pypto-binary-search-without-verify` 不匹配",
+      "evidence": {
+        "file": "SKILL.md",
+        "line": 1,
+        "snippet": "pypto-precision-multiple-checkpoints"
+      }
+    },
+    {
+      "rule_id": "R05",
+      "severity": "S2",
+      "dimension": "D1",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R06",
+      "severity": "S3",
+      "dimension": "D1",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R07",
+      "severity": "S1",
+      "dimension": "D1",
+      "type": "semantic",
+      "status": "PASS",
+      "message": "description 同时说明了技能目标（通过多检查点定位精度差异具体 op）和适用场景（算子运行通过但精度不满足要求等）。",
+      "evidence": {
+        "file": "SKILL.md",
+        "line": 3,
+        "snippet": "适用于算子运行通过但精度不满足要求、需要定位具体op导致精度问题、需要对比多个中间结果的场景。"
+      },
+      "suggested_fix": "保持现状。"
+    },
+    {
+      "rule_id": "R08",
+      "severity": "S2",
+      "dimension": "D1",
+      "type": "semantic",
+      "status": "PASS",
+      "message": "description 包含自然触发短语，如“精度不满足要求”“定位具体op导致精度问题”。",
+      "evidence": {
+        "file": "SKILL.md",
+        "line": 3,
+        "snippet": "适用于算子运行通过但精度不满足要求、需要定位具体op导致精度问题"
+      },
+      "suggested_fix": "保持现状。"
+    },
+    {
+      "rule_id": "R09",
+      "severity": "S2",
+      "dimension": "D1",
+      "type": "semantic",
+      "status": "PASS",
+      "message": "description 以定位精度问题结果为导向，而非单纯罗列能力清单。",
+      "evidence": {
+        "file": "SKILL.md",
+        "line": 3,
+        "snippet": "定位导致精度差异的具体op"
+      },
+      "suggested_fix": "保持现状。"
+    },
+    {
+      "rule_id": "R10",
+      "severity": "S2",
+      "dimension": "D1",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R11",
+      "severity": "S1",
+      "dimension": "D2",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R12",
+      "severity": "S2",
+      "dimension": "D2",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R13",
+      "severity": "S1",
+      "dimension": "D2",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R14",
+      "severity": "S2",
+      "dimension": "D2",
+      "type": "semantic",
+      "status": "FAIL",
+      "message": "文档存在重复指令：第 2 步已要求“添加检查点tensor作为输入参数”，后续“关键模式”再次重复同一要求，信息冗余。",
+      "evidence": {
+        "file": "SKILL.md",
+        "line": 26,
+        "snippet": "在kernel函数定义中添加检查点tensor作为输入参数，每个对应一个检查点。"
+      },
+      "suggested_fix": "合并“步骤 2”与“关键模式”中的重复条目，保留一处完整说明；另一处改为链接或一句“复用步骤 2 的实现约束”。"
+    },
+    {
+      "rule_id": "R15",
+      "severity": "S2",
+      "dimension": "D3",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R16",
+      "severity": "S2",
+      "dimension": "D3",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R17",
+      "severity": "S2",
+      "dimension": "D3",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R18",
+      "severity": "S2",
+      "dimension": "D3",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R19",
+      "severity": "S2",
+      "dimension": "D3",
+      "type": "semantic",
+      "status": "FAIL",
+      "message": "引用了 `docs/api/`，但未说明应在何时加载该资料（如步骤前置校验阶段）以及具体用途（例如 shape/dtype API 约束查询）。",
+      "evidence": {
+        "file": "SKILL.md",
+        "line": 147,
+        "snippet": "- PyPTO API: `docs/api/`"
+      },
+      "suggested_fix": "在“参考资料”或“工作流程步骤 1”补充：先读取 `docs/api/` 用于核对 assemble、dtype 转换和 tensor 声明约束，再开始插桩修改。"
+    },
+    {
+      "rule_id": "R20",
+      "severity": "S2",
+      "dimension": "D4",
+      "type": "semantic",
+      "status": "PASS",
+      "message": "主体指令以祈使风格为主（如“检查”“确保”“统一转换”），可直接执行。",
+      "evidence": {
+        "file": "SKILL.md",
+        "line": 127,
+        "snippet": "检查golden和kernel的shape是否一致，不一致检查检查点输出拼接。"
+      },
+      "suggested_fix": "保持现状。"
+    },
+    {
+      "rule_id": "R21",
+      "severity": "S3",
+      "dimension": "D4",
+      "type": "semantic",
+      "status": "FAIL",
+      "message": "存在模糊表述“选择合适的方法”，未给出判定条件，执行时易产生歧义。",
+      "evidence": {
+        "file": "SKILL.md",
+        "line": 131,
+        "snippet": "使用切片赋值或者view, assemble赋值，根据代码逻辑选择合适的方法。"
+      },
+      "suggested_fix": "将“合适的方法”具体化为可判定规则，例如“连续内存场景默认用 view+assemble；非连续切片场景默认用切片赋值”。"
+    },
+    {
+      "rule_id": "R22",
+      "severity": "S2",
+      "dimension": "D4",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R23",
+      "severity": "S2",
+      "dimension": "D4",
+      "type": "semantic",
+      "status": "FAIL",
+      "message": "关键步骤“分析代码结构，确定检查点”给了动作但缺少原因说明，未解释为何该步骤能降低误判。",
+      "evidence": {
+        "file": "SKILL.md",
+        "line": 22,
+        "snippet": "分析kernel和golden代码，确定需要检查的关键计算节点。"
+      },
+      "suggested_fix": "补充原因：例如“先选关键节点可减少无效检查点数量，并保证每个对比点对应明确计算语义，便于快速定位首个误差源”。"
+    },
+    {
+      "rule_id": "R24",
+      "severity": "S2",
+      "dimension": "D5",
+      "type": "semantic",
+      "status": "FAIL",
+      "message": "多个步骤缺少可验证成功标准，例如“步骤 1：分析代码结构”未定义完成判据（如检查点列表与节点映射表）。",
+      "evidence": {
+        "file": "SKILL.md",
+        "line": 20,
+        "snippet": "### 步骤 1：分析代码结构，确定检查点"
+      },
+      "suggested_fix": "为每个步骤追加“完成判定”，如步骤 1 需产出“检查点清单（变量名/shape/dtype/对应 golden 节点）”；步骤 2 需通过“kernel 编译通过且检查点 tensor 已写入”。"
+    },
+    {
+      "rule_id": "R25",
+      "severity": "S2",
+      "dimension": "D5",
+      "type": "semantic",
+      "status": "PASS",
+      "message": "文档中的路径和对象引用具体，无 `<placeholder>` 或未解析变量。",
+      "evidence": {
+        "file": "SKILL.md",
+        "line": 147,
+        "snippet": "- PyPTO API: `docs/api/`"
+      },
+      "suggested_fix": "保持现状。"
+    },
+    {
+      "rule_id": "R26",
+      "severity": "S1",
+      "dimension": "D5",
+      "type": "semantic",
+      "status": "FAIL",
+      "message": "“根据对比结果，定位到第一个精度不匹配的检查点”仅描述目标，未给出具体定位方法（比较阈值、遍历顺序、失败即停策略）。",
+      "evidence": {
+        "file": "SKILL.md",
+        "line": 71,
+        "snippet": "根据对比结果，定位到第一个精度不匹配的检查点，问题就在该检查点之前或该检查点的计算中。"
+      },
+      "suggested_fix": "补充可执行方法：按检查点顺序逐个比对，使用固定阈值（如 atol/rtol）判定；首次失败即记录检查点索引并停止，输出“前一通过点-当前失败点”区间。"
+    },
+    {
+      "rule_id": "R27",
+      "severity": "S2",
+      "dimension": "D5",
+      "type": "semantic",
+      "status": "PASS",
+      "message": "存在整体完成标准：通过检查清单完成全部改造并定位到具体 op。",
+      "evidence": {
+        "file": "SKILL.md",
+        "line": 121,
+        "snippet": "二分定位精度问题，直到找到具体op"
+      },
+      "suggested_fix": "保持现状。"
+    },
+    {
+      "rule_id": "R28",
+      "severity": "S1",
+      "dimension": "D6",
+      "type": "semantic",
+      "status": "PASS",
+      "message": "文档给出了 6 个顺序步骤，工作流结构清晰。",
+      "evidence": {
+        "file": "SKILL.md",
+        "line": 18,
+        "snippet": "## 工作流程"
+      },
+      "suggested_fix": "保持现状。"
+    },
+    {
+      "rule_id": "R29",
+      "severity": "S2",
+      "dimension": "D6",
+      "type": "semantic",
+      "status": "PASS",
+      "message": "步骤衔接顺畅：从选点、改 kernel、改 golden、改测试到运行分析，再进入二分定位。",
+      "evidence": {
+        "file": "SKILL.md",
+        "line": 24,
+        "snippet": "### 步骤 2：修改kernel函数，添加检查点tensor"
+      },
+      "suggested_fix": "保持现状。"
+    },
+    {
+      "rule_id": "R30",
+      "severity": "S2",
+      "dimension": "D6",
+      "type": "semantic",
+      "status": "PASS",
+      "message": "包含错误处理内容，提供了 shape/dtype/返回值声明等常见失败场景及修正方向。",
+      "evidence": {
+        "file": "SKILL.md",
+        "line": 123,
+        "snippet": "## 常见问题"
+      },
+      "suggested_fix": "保持现状。"
+    },
+    {
+      "rule_id": "R31",
+      "severity": "S2",
+      "dimension": "D6",
+      "type": "semantic",
+      "status": "PASS",
+      "message": "条件分支描述基本完整，针对差异场景给出对应动作（如 dtype 不一致时转换）。",
+      "evidence": {
+        "file": "SKILL.md",
+        "line": 89,
+        "snippet": "如果dtype不一致，进行转换。golden使用float32，jit使用bf16，统一转换为float32对比。"
+      },
+      "suggested_fix": "保持现状。"
+    },
+    {
+      "rule_id": "R32",
+      "severity": "S3",
+      "dimension": "D7",
+      "type": "semantic",
+      "status": "PASS",
+      "message": "结构具备渐进披露：开头概述、主体分步骤细节、结尾参考资料。",
+      "evidence": {
+        "file": "SKILL.md",
+        "line": 145,
+        "snippet": "## 参考资料"
+      },
+      "suggested_fix": "保持现状。"
+    },
+    {
+      "rule_id": "R33",
+      "severity": "S3",
+      "dimension": "D7",
+      "type": "semantic",
+      "status": "FAIL",
+      "message": "验证过程主要依赖人工分析与手动对比，未提供确定性脚本进行自动判定与输出。",
+      "evidence": {
+        "file": "SKILL.md",
+        "line": 66,
+        "snippet": "创建检查点tensor，执行kernel（kernel内部会原地修改checkpoint），执行golden，对比最终结果和所有检查点。"
+      },
+      "suggested_fix": "新增 `scripts/compare_checkpoints.py`，固定输入、阈值与检查点顺序，自动输出首个失败检查点与误差统计。"
+    },
+    {
+      "rule_id": "R34",
+      "severity": "S0",
+      "dimension": "D8",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R35",
+      "severity": "S1",
+      "dimension": "D8",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R36",
+      "severity": "S1",
+      "dimension": "D8",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R37",
+      "severity": "S1",
+      "dimension": "D8",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R38",
+      "severity": "S2",
+      "dimension": "D8",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R39",
+      "severity": "S2",
+      "dimension": "D9",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R40",
+      "severity": "S2",
+      "dimension": "D9",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R41",
+      "severity": "S2",
+      "dimension": "D9",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R42",
+      "severity": "S2",
+      "dimension": "D9",
+      "type": "semantic",
+      "status": "SKIP",
+      "message": "目标 skill 目录不存在 `scripts/`，该规则按清单要求跳过。",
+      "evidence": {
+        "file": "SKILL.md",
+        "line": 145,
+        "snippet": "## 参考资料"
+      },
+      "suggested_fix": "如后续新增脚本，请补充 try/except、错误日志和非零退出码。"
+    },
+    {
+      "rule_id": "R43",
+      "severity": "S3",
+      "dimension": "D3",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R44",
+      "severity": "S2",
+      "dimension": "D1",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R45",
+      "severity": "S2",
+      "dimension": "D2",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R46",
+      "severity": "S3",
+      "dimension": "D4",
+      "type": "static",
+      "status": "PASS",
+      "message": "",
+      "evidence": {
+        "file": "",
+        "line": 0,
+        "snippet": ""
+      }
+    },
+    {
+      "rule_id": "R47",
+      "severity": "S2",
+      "dimension": "D7",
+      "type": "semantic",
+      "status": "FAIL",
+      "message": "存在多选路径“切片赋值或者view, assemble赋值”，但未给出默认推荐，影响一致性执行。",
+      "evidence": {
+        "file": "SKILL.md",
+        "line": 131,
+        "snippet": "使用切片赋值或者view, assemble赋值，根据代码逻辑选择合适的方法。"
+      },
+      "suggested_fix": "在该段落标注默认方案，例如“默认优先使用 view+assemble；仅当 view 不可用时退回切片赋值”。"
+    }
+  ]
+}

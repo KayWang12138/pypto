@@ -1,0 +1,16 @@
+[
+  {
+    "rule_id": "R01",
+    "severity": "S0",
+    "dimension": "D1",
+    "type": "static",
+    "status": "FAIL",
+    "message": "目标技能目录不存在：/workspace/code/pypto/.claude/worktrees/pypto-skill-reviewer/.agents/skills/pypto-precision-multiple-checkpoints。无法找到 SKILL.md 文件进行评审。",
+    "evidence": {
+      "file": "N/A",
+      "line": 0,
+      "snippet": "Directory does not exist: /workspace/code/pypto/.claude/worktrees/pypto-skill-reviewer/.agents/skills/pypto-precision-multiple-checkpoints"
+    },
+    "suggested_fix": "请确认目标技能路径是否正确。当前指定的路径不存在。可用的技能目录包括：pypto-aicore-error-locator, pypto-binary-search-verify, pypto-binary-search-without-verify, pypto-environment-setup, pypto-operator-accuracy-verify, pypto-operator-develop-workflow, pypto-operator-perf-analyzer, pypto-operator-perf-autotuner, pypto-pass, pypto-pr-creator, pypto-pr-fixer, pypto-skill-reviewer"
+  }
+]

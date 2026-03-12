@@ -1,0 +1,262 @@
+[
+  {
+    "rule_id": "R07",
+    "status": "PASS",
+    "severity": "S1",
+    "dimension": "D1",
+    "message": "description 同时说明了技能用途（环境安装与修复）和触发场景（环境安装失败、导入失败、依赖冲突等）。",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 3,
+      "snippet": "PyPTO 环境安装与环境问题修复，包括CANN、torch_npu、编译工具链、第三方依赖和PyPTO编译运行等。Triggers:"
+    },
+    "suggested_fix": "保持当前写法。"
+  },
+  {
+    "rule_id": "R08",
+    "status": "PASS",
+    "severity": "S2",
+    "dimension": "D1",
+    "message": "description 已包含多条用户自然触发短语，如 \"CANN install\"、\"diagnose environment\"、\"fix import error\"。",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 3,
+      "snippet": "Triggers: PyPTO environment setup, CANN install, torch_npu, NPU environment"
+    },
+    "suggested_fix": "保持当前触发词覆盖范围。"
+  },
+  {
+    "rule_id": "R09",
+    "status": "PASS",
+    "severity": "S2",
+    "dimension": "D1",
+    "message": "description 以用户结果为导向，核心结果是完成 PyPTO 环境安装与故障修复，而非仅罗列内部实现细节。",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 3,
+      "snippet": "PyPTO 环境安装与环境问题修复"
+    },
+    "suggested_fix": "保持结果导向表达。"
+  },
+  {
+    "rule_id": "R14",
+    "status": "FAIL",
+    "severity": "S2",
+    "dimension": "D2",
+    "message": "存在冗余重复：`pip install torch==2.6.0 torch-npu==2.6.0.post3` 在“步骤 3：按类别修复”（行80）与“步骤 4：验证”后的安装小节（行106）重复出现，造成同一安装动作在相邻流程中重复说明。",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 106,
+      "snippet": "pip install torch==2.6.0 torch-npu==2.6.0.post3"
+    },
+    "suggested_fix": "将行80替换为“安装命令见步骤4的‘安装 torch 和 torch_npu’小节”，仅在一个位置保留完整命令，并在另一处改为交叉引用。"
+  },
+  {
+    "rule_id": "R19",
+    "status": "PASS",
+    "severity": "S2",
+    "dimension": "D3",
+    "message": "被引用文件均给出了用途与加载时机：prepare_environment.md 用于手动安装细节，troubleshooting.md 用于失败排查。",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 75,
+      "snippet": "手动安装/编译细节见 [📋 prepare_environment.md](references/prepare_environment.md)。"
+    },
+    "suggested_fix": "保持当前引用上下文。"
+  },
+  {
+    "rule_id": "R20",
+    "status": "PASS",
+    "severity": "S2",
+    "dimension": "D4",
+    "message": "关键执行指令以祈使语气表达，例如“运行环境诊断”“加载 CANN 环境”“编译安装 PyPTO”。",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 49,
+      "snippet": "**运行环境诊断**："
+    },
+    "suggested_fix": "保持当前语气风格。"
+  },
+  {
+    "rule_id": "R21",
+    "status": "PASS",
+    "severity": "S3",
+    "dimension": "D4",
+    "message": "执行指令中未出现“可以/也许/尽量”等弱化词，整体语句明确且可执行。",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 83,
+      "snippet": "### 步骤 4：验证（必须执行）"
+    },
+    "suggested_fix": "保持当前确定性措辞。"
+  },
+  {
+    "rule_id": "R23",
+    "status": "PASS",
+    "severity": "S2",
+    "dimension": "D4",
+    "message": "关键限制与操作均给出原因说明，例如 torch_npu 版本约束给出 HCCL 符号不兼容原因。",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 78,
+      "snippet": "CANN 8.5.0 必须配套使用 `torch_npu==2.6.0.post3`，其他版本可能导致 HCCL 符号不兼容。"
+    },
+    "suggested_fix": "保持“动作+原因”写法。"
+  },
+  {
+    "rule_id": "R24",
+    "status": "PASS",
+    "severity": "S2",
+    "dimension": "D5",
+    "message": "流程步骤包含可验证成功标准，明确了诊断清单全绿与 softmax 通过条件（退出码与关键输出）。",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 126,
+      "snippet": "**通过标准**：退出码 `0`，输出 `Softmax test passed`。"
+    },
+    "suggested_fix": "保持当前成功标准定义。"
+  },
+  {
+    "rule_id": "R25",
+    "status": "FAIL",
+    "severity": "S2",
+    "dimension": "D5",
+    "message": "部分命令仍包含未解析占位符，无法直接执行，例如 `--device-type=<a2\\|a3>` 需要显式替换为具体值才可运行。",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 70,
+      "snippet": "--device-type=<a2\\|a3>"
+    },
+    "suggested_fix": "将命令改为可直接执行形式（例如给出默认 `--device-type=a3`），并在同一行补充“若检测为 910B 则改为 a2”的替换规则。"
+  },
+  {
+    "rule_id": "R26",
+    "status": "PASS",
+    "severity": "S1",
+    "dimension": "D5",
+    "message": "文档中提及的操作均给出具体执行方法（命令或脚本路径），未发现仅提及不落地的非技能调用动作。",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 53,
+      "snippet": "python3 scripts/diagnose_env.py --checklist"
+    },
+    "suggested_fix": "保持当前可执行粒度。"
+  },
+  {
+    "rule_id": "R27",
+    "status": "PASS",
+    "severity": "S2",
+    "dimension": "D5",
+    "message": "定义了整体完成判定：完成环境配置后运行诊断并输出结构化完成报告。",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 130,
+      "snippet": "### 步骤 5：完成报告"
+    },
+    "suggested_fix": "可保持当前完成定义。"
+  },
+  {
+    "rule_id": "R28",
+    "status": "PASS",
+    "severity": "S1",
+    "dimension": "D6",
+    "message": "技能提供了编号化分步流程（步骤1至步骤5），流程顺序清晰。",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 28,
+      "snippet": "### 步骤 1：环境检测"
+    },
+    "suggested_fix": "保持分步结构。"
+  },
+  {
+    "rule_id": "R29",
+    "status": "PASS",
+    "severity": "S2",
+    "dimension": "D6",
+    "message": "步骤衔接明确：先诊断（步骤1）再决策（步骤2）再修复（步骤3）再验证（步骤4）再报告（步骤5）。",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 60,
+      "snippet": "0 个问题 → 跳至步骤 4 验证"
+    },
+    "suggested_fix": "保持当前衔接说明。"
+  },
+  {
+    "rule_id": "R30",
+    "status": "PASS",
+    "severity": "S2",
+    "dimension": "D6",
+    "message": "包含失败恢复机制，明确要求失败时回到诊断并结合 troubleshooting 文档排查。",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 128,
+      "snippet": "**失败时**：重新运行步骤 1 诊断 → 对照 [🔧 troubleshooting.md](references/troubleshooting.md) 排查。"
+    },
+    "suggested_fix": "保持当前恢复路径。"
+  },
+  {
+    "rule_id": "R31",
+    "status": "PASS",
+    "severity": "S2",
+    "dimension": "D6",
+    "message": "条件分支覆盖完整，包含“无问题/有问题/用户拒绝”三类路径并给出对应动作。",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 60,
+      "snippet": "- 0 个问题 → 跳至步骤 4 验证"
+    },
+    "suggested_fix": "保持分支覆盖。"
+  },
+  {
+    "rule_id": "R32",
+    "status": "PASS",
+    "severity": "S3",
+    "dimension": "D7",
+    "message": "文档结构符合渐进披露：顶部给出约定与工作流程，主体给出步骤细节，底部链接 references 深化内容。",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 168,
+      "snippet": "## 📚 参考文件"
+    },
+    "suggested_fix": "保持分层结构。"
+  },
+  {
+    "rule_id": "R33",
+    "status": "PASS",
+    "severity": "S3",
+    "dimension": "D7",
+    "message": "验证环节优先采用确定性脚本与命令（diagnose_env.py、softmax 示例）而非仅依赖主观判断。",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 53,
+      "snippet": "python3 scripts/diagnose_env.py --checklist"
+    },
+    "suggested_fix": "保持脚本优先验证方式。"
+  },
+  {
+    "rule_id": "R47",
+    "status": "PASS",
+    "severity": "S2",
+    "dimension": "D7",
+    "message": "多选场景提供了默认推荐，例如 references 中明确“源码方式（推荐）”与“.run 包方式（备用）”。",
+    "evidence": {
+      "file": "references/prepare_environment.md",
+      "line": 65,
+      "snippet": "### 源码方式（推荐）"
+    },
+    "suggested_fix": "保持“推荐/备用”标注。"
+  },
+  {
+    "rule_id": "R42",
+    "status": "PASS",
+    "severity": "S2",
+    "dimension": "D9",
+    "message": "scripts 中存在基础错误处理：广泛使用 try/except，异常时返回结构化错误并在主入口转换为退出码。",
+    "evidence": {
+      "file": "scripts/diagnose_env.py",
+      "line": 1050,
+      "snippet": "except BrokenPipeError as e:"
+    },
+    "suggested_fix": "保持当前错误处理模式。"
+  }
+]

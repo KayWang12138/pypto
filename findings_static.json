@@ -1,0 +1,353 @@
+[
+  {
+    "rule_id": "R01",
+    "severity": "S0",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R02",
+    "severity": "S0",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R03",
+    "severity": "S0",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R04",
+    "severity": "S1",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R05",
+    "severity": "S2",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R06",
+    "severity": "S3",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R10",
+    "severity": "S2",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R11",
+    "severity": "S1",
+    "dimension": "D2",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R12",
+    "severity": "S2",
+    "dimension": "D2",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R13",
+    "severity": "S1",
+    "dimension": "D2",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R15",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R16",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R17",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R18",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R22",
+    "severity": "S2",
+    "dimension": "D4",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R34",
+    "severity": "S0",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R35",
+    "severity": "S1",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R36",
+    "severity": "S1",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R37",
+    "severity": "S1",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R38",
+    "severity": "S2",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R39",
+    "severity": "S2",
+    "dimension": "D9",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R40",
+    "severity": "S2",
+    "dimension": "D9",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R41",
+    "severity": "S2",
+    "dimension": "D9",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R43",
+    "severity": "S3",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R44",
+    "severity": "S2",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R45",
+    "severity": "S2",
+    "dimension": "D2",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  },
+  {
+    "rule_id": "R46",
+    "severity": "S3",
+    "dimension": "D4",
+    "type": "static",
+    "status": "PASS",
+    "message": "",
+    "evidence": {
+      "file": "",
+      "line": 0,
+      "snippet": ""
+    }
+  }
+]

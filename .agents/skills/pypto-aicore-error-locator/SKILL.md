@@ -83,7 +83,7 @@ question:
 **搜索 LActStart 事件**:
 ```bash
 grep -rn "trace" <log-file> | grep "LActStart"
-```text
+```
 
 **搜索 LActFinish 事件**:
 ```bash

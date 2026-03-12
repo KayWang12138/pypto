@@ -1,0 +1,656 @@
+[
+  {
+    "rule_id": "R46",
+    "severity": "S3",
+    "dimension": "D4",
+    "type": "static",
+    "status": "FAIL",
+    "message": "代码块缺少语言标注",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 14,
+      "snippet": "```"
+    },
+    "suggested_fix": "为代码块添加语言标注，如 ```text 或 ```mermaid"
+  },
+  {
+    "rule_id": "R46",
+    "severity": "S3",
+    "dimension": "D4",
+    "type": "static",
+    "status": "FAIL",
+    "message": "代码块缺少语言标注",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 146,
+      "snippet": "```"
+    },
+    "suggested_fix": "为代码块添加语言标注，如 ```text"
+  },
+  {
+    "rule_id": "R46",
+    "severity": "S3",
+    "dimension": "D4",
+    "type": "static",
+    "status": "FAIL",
+    "message": "代码块缺少语言标注",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 459,
+      "snippet": "```"
+    },
+    "suggested_fix": "为代码块添加语言标注，如 ```text"
+  },
+  {
+    "rule_id": "R46",
+    "severity": "S3",
+    "dimension": "D4",
+    "type": "static",
+    "status": "FAIL",
+    "message": "代码块缺少语言标注",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 479,
+      "snippet": "```"
+    },
+    "suggested_fix": "为代码块添加语言标注，如 ```text"
+  },
+  {
+    "rule_id": "R01",
+    "severity": "S0",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "SKILL.md 以有效的 frontmatter 块开头",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 1,
+      "snippet": "---"
+    }
+  },
+  {
+    "rule_id": "R02",
+    "severity": "S0",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "name 字段存在、非空、为 kebab-case 且长度符合要求",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 2,
+      "snippet": "name: pypto-pr-creator"
+    }
+  },
+  {
+    "rule_id": "R03",
+    "severity": "S0",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "description 字段存在且长度 >= 20 字符",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 3,
+      "snippet": "description: \"PyPTO 项目 PR 创建全流程指南"
+    }
+  },
+  {
+    "rule_id": "R04",
+    "severity": "S1",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "name 值与 skill 目录名一致",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 2,
+      "snippet": "name: pypto-pr-creator"
+    }
+  },
+  {
+    "rule_id": "R05",
+    "severity": "S2",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "description 未超过 1024 字符",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 3,
+      "snippet": "description: \"PyPTO 项目 PR 创建全流程指南"
+    }
+  },
+  {
+    "rule_id": "R06",
+    "severity": "S3",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "frontmatter 仅包含已知字段",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 1,
+      "snippet": "---"
+    }
+  },
+  {
+    "rule_id": "R07",
+    "severity": "S1",
+    "dimension": "D1",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "description 清晰回答了'做什么'（PR 创建全流程指南）和'何时使用'（当需要为 cann/pypto 仓库创建 PR、编写 commit 信息时使用）",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 3,
+      "snippet": "PyPTO 项目 PR 创建全流程指南。当需要为 cann/pypto 仓库创建 PR、编写 commit 信息、准备代码提交、检查 PR 规范时使用"
+    }
+  },
+  {
+    "rule_id": "R08",
+    "severity": "S2",
+    "dimension": "D1",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "description 包含自然触发短语：创建PR、提交PR、PR规范、commit message、pypto贡献、代码提交到pypto、更新PR",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 3,
+      "snippet": "触发词：创建PR、提交PR、PR规范、commit message、pypto贡献、代码提交到pypto、更新PR"
+    }
+  },
+  {
+    "rule_id": "R09",
+    "severity": "S2",
+    "dimension": "D1",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "description 以结果为导向，聚焦于'PR 创建全流程指南'和'结构化报告'产出",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 3,
+      "snippet": "PR 创建后结构化报告"
+    }
+  },
+  {
+    "rule_id": "R10",
+    "severity": "S2",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "无 allowed-tools 字段，无需检查",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 1,
+      "snippet": "---"
+    }
+  },
+  {
+    "rule_id": "R11",
+    "severity": "S1",
+    "dimension": "D2",
+    "type": "static",
+    "status": "PASS",
+    "message": "SKILL.md 共 575 行，未超过 600 行限制",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 575,
+      "snippet": "> `$PYPTO_REPO` = 用户的 pypto 本地仓库根目录"
+    }
+  },
+  {
+    "rule_id": "R12",
+    "severity": "S2",
+    "dimension": "D2",
+    "type": "static",
+    "status": "PASS",
+    "message": "正文词数未超过 6000 词限制",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 1,
+      "snippet": "---"
+    }
+  },
+  {
+    "rule_id": "R13",
+    "severity": "S1",
+    "dimension": "D2",
+    "type": "static",
+    "status": "PASS",
+    "message": "未发现 TODO/FIXME/HACK 占位符（代码块外）",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 1,
+      "snippet": "---"
+    }
+  },
+  {
+    "rule_id": "R14",
+    "severity": "S2",
+    "dimension": "D2",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "各章节内容无冗余重复，每个阶段有独特职责",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 55,
+      "snippet": "## 完整工作流（9 个阶段）"
+    }
+  },
+  {
+    "rule_id": "R15",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "skill 目录名 pypto-pr-creator 符合 kebab-case 且长度符合要求",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 2,
+      "snippet": "name: pypto-pr-creator"
+    }
+  },
+  {
+    "rule_id": "R16",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "大型参考材料已放入 references/ 目录",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 320,
+      "snippet": "完整参数说明和示例见 [references/pr-spec.md](references/pr-spec.md)"
+    }
+  },
+  {
+    "rule_id": "R17",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "引用路径使用相对路径",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 320,
+      "snippet": "[references/pr-spec.md](references/pr-spec.md)"
+    }
+  },
+  {
+    "rule_id": "R18",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "被引用文件 references/pr-spec.md 和 references/checklist.md 均存在",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 534,
+      "snippet": "[references/checklist.md](references/checklist.md)"
+    }
+  },
+  {
+    "rule_id": "R19",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "被引用文件说明了用途：pr-spec.md 用于'完整参数说明和示例'，checklist.md 用于'提交前检查清单'",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 320,
+      "snippet": "完整参数说明和示例见 [references/pr-spec.md](references/pr-spec.md)"
+    }
+  },
+  {
+    "rule_id": "R20",
+    "severity": "S2",
+    "dimension": "D4",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "指令使用祈使语气，如'检查当前工作目录'、'添加 upstream remote'、'配置认证'",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 63,
+      "snippet": "检查当前工作目录是否是 pypto 仓库"
+    }
+  },
+  {
+    "rule_id": "R21",
+    "severity": "S3",
+    "dimension": "D4",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "可执行指令中无明显模糊语言",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 63,
+      "snippet": "检查当前工作目录是否是 pypto 仓库"
+    }
+  },
+  {
+    "rule_id": "R22",
+    "severity": "S2",
+    "dimension": "D4",
+    "type": "static",
+    "status": "PASS",
+    "message": "所有代码块正确闭合",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 1,
+      "snippet": "---"
+    }
+  },
+  {
+    "rule_id": "R23",
+    "severity": "S2",
+    "dimension": "D4",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "关键指令包含理由说明，如'Push 需要 Git 认证，必须检查并配置认证方式'、'分支落后于 upstream 是 PR 创建失败的常见原因'",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 70,
+      "snippet": "Push 需要 Git 认证，必须检查并配置认证方式"
+    }
+  },
+  {
+    "rule_id": "R24",
+    "severity": "S2",
+    "dimension": "D5",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "工作流步骤具备可验证的成功标准，如'若输出 > 0，说明分支落后，需要 rebase'",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 223,
+      "snippet": "若输出 > 0，说明分支落后，需要 rebase"
+    }
+  },
+  {
+    "rule_id": "R25",
+    "severity": "S2",
+    "dimension": "D5",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "命令和路径具体明确，如 git rev-parse --is-shallow-repository、git fetch --unshallow origin",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 66,
+      "snippet": "检测浅克隆：git rev-parse --is-shallow-repository"
+    }
+  },
+  {
+    "rule_id": "R26",
+    "severity": "S1",
+    "dimension": "D5",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "所有操作都提供具体方法，如'检查 CLA 状态'有完整 Python 代码示例",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 389,
+      "snippet": "# 获取 PR 详情，检查 labels"
+    }
+  },
+  {
+    "rule_id": "R27",
+    "severity": "S2",
+    "dimension": "D5",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "完成标准明确定义：PR 创建成功后输出结构化报告，包含 PR 链接验证",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 367,
+      "snippet": "必须验证：链接格式为 https://gitcode.com/cann/pypto/merge_requests/<pr_id>"
+    }
+  },
+  {
+    "rule_id": "R28",
+    "severity": "S1",
+    "dimension": "D6",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "定义了清晰的 9 阶段分步工作流：仓库发现与验证 → Git 认证检查 → 用户确认 → 预检修复 → 创建分支 → 创建/更新 PR → 报告 → CLA 检查 → 追加修改",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 55,
+      "snippet": "## 完整工作流（9 个阶段）"
+    }
+  },
+  {
+    "rule_id": "R29",
+    "severity": "S2",
+    "dimension": "D6",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "工作流步骤衔接顺畅，每阶段输出作为下阶段输入",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 57,
+      "snippet": "### 阶段 1：仓库发现与验证"
+    }
+  },
+  {
+    "rule_id": "R30",
+    "severity": "S2",
+    "dimension": "D6",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "包含详细错误处理：Push 失败诊断与修复、MCP 失败后的 curl 兜底方案、CLA 失败处理",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 250,
+      "snippet": "#### Push 失败诊断与修复"
+    }
+  },
+  {
+    "rule_id": "R31",
+    "severity": "S2",
+    "dimension": "D6",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "条件分支描述完整，如'如存在匹配 PR → 询问用户：更新现有 PR 还是创建新 PR；如不存在 → 创建新 PR'",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 296,
+      "snippet": "如存在匹配 PR → 询问用户：更新现有 PR 还是创建新 PR"
+    }
+  },
+  {
+    "rule_id": "R32",
+    "severity": "S3",
+    "dimension": "D7",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "采用渐进披露模式：入口摘要（核心概念）→ 正文细节（9 阶段工作流）→ 参考深度（references/pr-spec.md）",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 10,
+      "snippet": "## ⚠️ 核心概念：跨 Fork PR"
+    }
+  },
+  {
+    "rule_id": "R33",
+    "severity": "S3",
+    "dimension": "D7",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "验证逻辑使用确定性脚本，如认证检测脚本、upstream 同步检查命令",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 75,
+      "snippet": "echo \"=== Git 认证状态检测 ===\""
+    }
+  },
+  {
+    "rule_id": "R34",
+    "severity": "S0",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "未发现密钥、凭据或敏感数据",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 1,
+      "snippet": "---"
+    }
+  },
+  {
+    "rule_id": "R35",
+    "severity": "S1",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "未发现硬编码的绝对用户目录路径",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 1,
+      "snippet": "---"
+    }
+  },
+  {
+    "rule_id": "R36",
+    "severity": "S1",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "未发现超过 50 行的内联数据块",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 1,
+      "snippet": "---"
+    }
+  },
+  {
+    "rule_id": "R37",
+    "severity": "S1",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "frontmatter 中未发现 XML 标签",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 1,
+      "snippet": "---"
+    }
+  },
+  {
+    "rule_id": "R38",
+    "severity": "S2",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "未发现 Windows 风格路径",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 1,
+      "snippet": "---"
+    }
+  },
+  {
+    "rule_id": "R39",
+    "severity": "S2",
+    "dimension": "D9",
+    "type": "static",
+    "status": "PASS",
+    "message": "无 Python 脚本文件需要检查",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 1,
+      "snippet": "---"
+    }
+  },
+  {
+    "rule_id": "R40",
+    "severity": "S2",
+    "dimension": "D9",
+    "type": "static",
+    "status": "PASS",
+    "message": "无脚本文件需要检查 shebang",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 1,
+      "snippet": "---"
+    }
+  },
+  {
+    "rule_id": "R41",
+    "severity": "S2",
+    "dimension": "D9",
+    "type": "static",
+    "status": "PASS",
+    "message": "无脚本文件需要检查路径可移植性",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 1,
+      "snippet": "---"
+    }
+  },
+  {
+    "rule_id": "R42",
+    "severity": "S2",
+    "dimension": "D9",
+    "type": "semantic",
+    "status": "SKIP",
+    "message": "不存在 scripts/ 目录，跳过脚本错误处理检查",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 1,
+      "snippet": "---"
+    }
+  },
+  {
+    "rule_id": "R43",
+    "severity": "S3",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "子目录 references/ 使用标准命名",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 320,
+      "snippet": "[references/pr-spec.md](references/pr-spec.md)"
+    }
+  },
+  {
+    "rule_id": "R44",
+    "severity": "S2",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "description 中未发现尖括号占位符",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 3,
+      "snippet": "description: \"PyPTO 项目 PR 创建全流程指南"
+    }
+  },
+  {
+    "rule_id": "R45",
+    "severity": "S2",
+    "dimension": "D2",
+    "type": "static",
+    "status": "PASS",
+    "message": "未发现重复的章节标题",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 1,
+      "snippet": "---"
+    }
+  },
+  {
+    "rule_id": "R47",
+    "severity": "S2",
+    "dimension": "D7",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "多选场景提供默认推荐，如'方式 1: credential.helper cache（推荐容器环境）'、认证方式对比表有'推荐场景'列",
+    "evidence": {
+      "file": "SKILL.md",
+      "line": 96,
+      "snippet": "**方式 1: credential.helper cache（推荐容器环境）**"
+    }
+  }
+]

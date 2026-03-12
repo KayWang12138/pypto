@@ -169,7 +169,7 @@ def is_robot_comment(comment):
   auto_fixable: false
   reason: "涉及架构决策"
   suggested_action: "与 reviewer 讨论方案后再修改"
-```text
+```
 
 ### diff_comment 注意事项
 
@@ -210,7 +210,7 @@ python scripts/extract_latest_codecheck_url.py \
   --gate-on-latest-ci \
   --evidence \
   --format json
-```text
+```
 
 **判定结果分支**：
 - `kind=codecheck_failed`：输出 `codecheck_url`；`--evidence` 时额外输出证据链
@@ -243,7 +243,7 @@ python scripts/extract_latest_codecheck_url.py \
     {"index": 3, "comment_id": 164054080, "created_at": "2026-03-07T08:00:00Z", "url": "...", "is_latest": false}
   ]
 }
-```text
+```
 
 **证据链说明**：
 - `total_found`: 共找到多少个 codecheck URL
@@ -281,7 +281,7 @@ python scripts/query_codecheck_rule.py \
   --from-violations-json violations.json \
   --language python \
   --format markdown
-```text
+```
 
 **降级条件**（仅以下情况可使用其他方式）：
 1. 脚本文件不存在
