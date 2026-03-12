@@ -126,7 +126,7 @@ TEST_F(AutoCastTest, InsertFP16Cast) {
     EXPECT_EQ(function->Operations().size(), opNum);
 }
 
-TEST_F(AutoCastTest, AutoCastChecker_PostCheck_Normal) {
+TEST_F(AutoCastTest, PostCheckNormal) {
     ComputationalGraphBuilder G;
     EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {16, 16}, "t1"), true);
     EXPECT_EQ(G.AddTensor(DataType::DT_BF16, {16, 16}, "t2"), true);
@@ -144,7 +144,7 @@ TEST_F(AutoCastTest, AutoCastChecker_PostCheck_Normal) {
     autoCast.RunOnFunction(*function);
 }
 
-TEST_F(AutoCastTest, AutoCastChecker_Cast_InvalidOutputNum_BF16_Unsupported) {
+TEST_F(AutoCastTest, OutputBF16Unsupported) {
     ComputationalGraphBuilder G1;
     EXPECT_EQ(G1.AddTensor(DataType::DT_INT32, {16, 16}, "t1"), true);
     EXPECT_EQ(G1.AddTensor(DataType::DT_FP16, {16, 16}, "t2"), true);
@@ -193,7 +193,7 @@ TEST_F(AutoCastTest, AutoCastChecker_Cast_InvalidOutputNum_BF16_Unsupported) {
     autoCast3.RunOnFunction(*function3);
 }
 
-TEST_F(AutoCastTest, AutoCastChecker_PreCheck_Normal) {
+TEST_F(AutoCastTest, PreCheckNormal) {
     ComputationalGraphBuilder G;
     EXPECT_EQ(G.AddTensor(DataType::DT_INT32, {16, 16}, "t1"), true);
     EXPECT_EQ(G.AddTensor(DataType::DT_FP16, {16, 16}, "t2"), true);
@@ -209,7 +209,7 @@ TEST_F(AutoCastTest, AutoCastChecker_PreCheck_Normal) {
     autoCast.RunOnFunction(*function);
 }
 
-TEST_F(AutoCastTest, AutoCastChecker_Cast_InvalidInputNum) {
+TEST_F(AutoCastTest, CastInvalidInputNum) {
     ComputationalGraphBuilder G;
     EXPECT_EQ(G.AddTensor(DataType::DT_INT32, {16, 16}, "t1"), true);
     EXPECT_EQ(G.AddTensor(DataType::DT_INT32, {16, 16}, "t2"), true);
@@ -304,6 +304,40 @@ TEST_F(AutoCastTest, RedundantCastWithLoopChain) {
 
     AutoCast autoCast;
     autoCast.RunOnFunction(*function);
+}
+
+TEST_F(AutoCastTest, UnsupportedFP16Input) {
+    ComputationalGraphBuilder G;
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP16, {16, 16}, "t1"), true); 
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {16, 16}, "t2"), true);
+    std::vector<Opcode> opCodes;
+    opCodes.push_back(Opcode::OP_MOD); // 关键：FP16不支持的OP
+    std::vector<std::vector<std::string>> ioperands{{"t1", "t2"}}; // t1是FP16输入
+    std::vector<std::vector<std::string>> ooperands{{"t2"}};
+    std::vector<std::string> opNames{"Mod"};
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Function *function = G.GetFunction();
+    ASSERT_NE(function, nullptr);
+    AutoCast checker;
+    Status ret = checker.PostCheck(*function);
+    EXPECT_EQ(ret, FAILED);
+}
+
+TEST_F(AutoCastTest, UnsupportedFP16Output) {
+    ComputationalGraphBuilder G;
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {16, 16}, "t1"), true);
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP16, {16, 16}, "t2"), true); 
+    std::vector<Opcode> opCodes;
+    opCodes.push_back(Opcode::OP_MOD); // 关键：FP16不支持的OP
+    std::vector<std::vector<std::string>> ioperands{{"t1"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}}; // t2是FP16输出
+    std::vector<std::string> opNames{"Mod"};
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Function *function = G.GetFunction();
+    ASSERT_NE(function, nullptr);
+    AutoCast checker;
+    Status ret = checker.PostCheck(*function);
+    EXPECT_EQ(ret, FAILED);
 }
 } // namespace tile_fwk
 } // namespace npu
