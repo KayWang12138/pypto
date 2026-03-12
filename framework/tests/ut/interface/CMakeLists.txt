@@ -27,3 +27,8 @@ PTO_Fwk_UTest_AddCaseLib(
         SOURCES ${_Sources}
         LINK_LIBRARIES ${LinkLibraries}
 )
+
+# Add msgpack include path for serialization tests
+if (TARGET msgpackc-cxx)
+    target_link_libraries(${_Target} PRIVATE msgpackc-cxx)
+endif ()

@@ -82,8 +82,13 @@ from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor
 from .functions import Function, get_last_function, get_current_function
 
+from . import pypto_impl  # noqa
+from . import ir  # noqa
 # Import frontend after all other imports to avoid circular imports
 from . import frontend
+
+passes = pypto_impl.passes
+testing = pypto_impl.testing
 
 
 tensor = Tensor
