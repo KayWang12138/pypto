@@ -33,7 +33,7 @@ description: PyPTO Pass 业务流分析技能。用于分析 PyPTO pass 文档�
 
 ### 步骤2：解析业务流程设计
 
-从文档中提取以下信息：
+从文档及pass模块代码中提取以下信息：
 
 1. **业务场景描述**
    - 业务名称和目标
@@ -42,20 +42,18 @@ description: PyPTO Pass 业务流分析技能。用于分析 PyPTO pass 文档�
 
 2. **涉及的 Pass 模块**
    - 列出所有参与的 pass 模块
-   - 每个 pass 的名称和基本功能
+   - 每个 pass 的名称和基本功能, 使用 `pypto-pass-module-analyzer` 技能分析相关pass功能
 
-3. **执行顺序**
+3. **执行顺序和依赖关系**
    - 根据 `framework/src/passes/pass_mgr/pass_manager.cpp` 中的默认执行策略中定义的执行顺序，识别Pass模块的执行顺序
    - 根据pass源码所在目录识别该pass所处阶段，执行阶段划分[Tensor Graph Pass / Tile Graph Pass / Block Graph Pass / Execute Graph Pass]
+   - 在 `framework/src/passes/` 中查找相关 pass 的源代码，分析模块间数据依赖关系和状态依赖关系
 
-4. **依赖关系**
-   - Pass 之间的前置依赖
-   - 数据依赖关系
-   - 状态依赖关系
-
-5. **数据流转**
-   - 各 pass 的输入输出
-   - 中间数据的传递方式
+5. **数据流转和状态变化**
+   - 根据文档及源码分析涉及的pass模块使用什么数据结构来进行数据流转和状态传递
+   - 根据文档及源码分析经过该模块处理后数据及状态的变化
+     - 模块1：模块处理前数据及状态 → 模块处理 → 模块处理后数据及状态变化
+     - 模块2：模块处理前数据及状态 → 模块处理 → 模块处理后数据及状态变化
 
 ### 步骤3：结合源代码验证
 
