@@ -194,16 +194,27 @@ std::string SymbolManager::QueryTileTensorFullDimByTensorInLoop(const std::strin
     return fullDimTensorName;
 }
 
-std::string SymbolManager::QueryTileTensorByBufVarName(const std::string &bufVarName) {
+const TileTensor &SymbolManager::QueryTileTensorByBufVar(const std::string &bufVarName) {
     for (const auto &tileTensorPair : tileTensor_) {
         const TileTensor &tileTensor = tileTensorPair.first;
         if (tileTensor.bufVar == bufVarName) {
-            return tileTensor.tensorName;
+            return tileTensor;
         }
     }
 
     ASSERT(false) << "bufVarName " << bufVarName << " is not found !!! ";
-    return "";
+    static TileTensor emptyTileTensor;
+    return emptyTileTensor;
+}
+
+std::string SymbolManager::QueryTileTensorNameByBufVar(const std::string &bufVarName) {
+    const TileTensor &tileTensor = QueryTileTensorByBufVar(bufVarName);
+    return tileTensor.tensorName;
+}
+
+std::string SymbolManager::QueryTileTensorTypeByBufVar(const std::string &bufVarName) {
+    const TileTensor &tileTensor = QueryTileTensorByBufVar(bufVarName);
+    return tileTensor.usingType;
 }
 
 std::string SymbolManager::GenUsingList() {
