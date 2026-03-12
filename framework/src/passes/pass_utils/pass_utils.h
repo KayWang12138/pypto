@@ -527,11 +527,6 @@ public:
         return numel;
     }
 
-    // 判断 Tensor 的 shape 是否存在-1
-    static bool ContainsNegativeOne(const Shape &shape) {
-        return std::any_of(shape.begin(), shape.end(), [](int64_t val) { return val == -1; });
-    }
-
     static std::unordered_map<MemoryType, int64_t> GetLocalMemorySize();
 };
 }
