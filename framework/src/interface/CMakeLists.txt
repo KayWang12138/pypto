@@ -19,6 +19,10 @@ file(GLOB _Interface_Srcs
         utils/*.cpp
         plugin/*.cpp
 
+        # Core infrastructure
+        core/*.cpp
+        ir/*.cpp
+
         # Operation
         operation/*.cpp
         operation/vector/*.cpp
