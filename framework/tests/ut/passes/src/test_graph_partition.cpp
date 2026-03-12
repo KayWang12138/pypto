@@ -779,43 +779,119 @@ TEST_F(GraphPartitionTest, TestBoundaryConvert) {
     EXPECT_NE(G.GetOp("L1ToL0A")->GetSubgraphID(), G.GetOp("convert")->GetSubgraphID());
 }
 
-void GetExpandGraph(ComputationalGraphBuilder &G) {
-    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {128,  1}, "s1"), true);
-    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {128,128}, "t1"), true);
-    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {128,128}, "t2"), true);
-    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {128,128}, "o1"), true);
-
-    EXPECT_EQ(G.AddOp(Opcode::OP_EXPAND, {"s1"}, {"t1"}, "expand", true), true);
-    EXPECT_EQ(G.AddOp(Opcode::OP_ADD, {"t1", "t2"}, {"o1"}, "add", true), true);
-
-    EXPECT_EQ(G.SetInCast({"s1", "t2"}), true);
-    EXPECT_EQ(G.SetOutCast({"o1"}), true);
+void ConstructGraphForMatMulViewFormSuperNode(ComputationalGraphBuilder& G) {
+    // add tensor
+    DataType dataType = DataType::DT_FP16;
+    Shape shape = {16, 16};
+    Shape viewShape {8, 16};
+    std::vector<std::string> oriTensorNames{"matA1DDR", "matB1DDR", "matA1L1", "matB1L1", "matA1L0A", "matB1L0B", "matC1L0C"};
+    std::vector<MemoryType> oriTensorMemoryType{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L0A, 
+        MemoryType::MEM_L0B, MemoryType::MEM_L0C};
+    EXPECT_EQ(G.AddTensors(dataType, shape, oriTensorMemoryType, oriTensorNames, 0), true);
+    std::vector<std::string> afterViewTensorNames{"viewC1L0C", "outcast1"};
+    std::vector<MemoryType> afterViewTensorMemoryType{MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR};
+    EXPECT_EQ(G.AddTensors(dataType, viewShape, afterViewTensorMemoryType, afterViewTensorNames, 0), true);
+    // add operation
+    std::vector<Opcode> opCodes{Opcode::OP_VIEW, Opcode::OP_VIEW, Opcode::OP_L1_TO_L0A, Opcode::OP_L1_TO_L0B, 
+        Opcode::OP_A_MUL_B, Opcode::OP_VIEW, Opcode::OP_ASSEMBLE};
+    std::vector<std::string> opNames{"View1", "View2", "L1ToL0A1", "L1ToL0B1", "Mul1", "View3", "Assemble1"};
+    std::vector<std::vector<std::string>> iOperands{{"matA1DDR"}, {"matB1DDR"}, {"matA1L1"}, {"matB1L1"}, {"matA1L0A","matB1L0B"}, {"matC1L0C"}, {"viewC1L0C"}};
+    std::vector<std::vector<std::string>> oOperands{{"matA1L1"}, {"matB1L1"}, {"matA1L0A"}, {"matB1L0B"}, {"matC1L0C"}, {"viewC1L0C"}, {"outcast1"}};
+    EXPECT_EQ(G.AddOps(opCodes, iOperands, oOperands, opNames, true), true);
+    EXPECT_EQ(G.SetInCast({"matA1DDR", "matB1DDR"}), true);
+    EXPECT_EQ(G.SetOutCast({"outcast1"}), true);
 }
 
-TEST_F(GraphPartitionTest, TestExpandCombine) {
+TEST_F(GraphPartitionTest, TestMatMulViewFormSuperNode) {
     ComputationalGraphBuilder G;
-    GetExpandGraph(G);
+    ConstructGraphForMatMulViewFormSuperNode(G);
+
     Function *function = G.GetFunction();
-    EXPECT_EQ(function->Operations().size(), 2);
+    EXPECT_NE(function, nullptr);
+    GraphPartition gpp;
+    EXPECT_EQ(gpp.RunOnFunction(*function), SUCCESS);
 
-    OspPartitioner partitioner(OspMode::SARKAR);
-    EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
+    auto mulOp = G.GetOp("Mul1");
+    auto viewOp = G.GetOp("View3");
+    EXPECT_EQ(mulOp->GetSubgraphID(), viewOp->GetSubgraphID());
+}
 
-    const int subGraphNum = function->GetTotalSubGraphCount();
-    for (const auto &opPair : G.operations_) {
-        Operation *op = opPair.second;
-        EXPECT_NE(op, nullptr);
-        EXPECT_EQ(op->GetSubgraphID() >= 0 && op->GetSubgraphID() < subGraphNum, true);
-        if (op->GetOpcode() == Opcode::OP_EXPAND) {
-            EXPECT_EQ(op->GetOOperands().size(), 1U);
-            EXPECT_EQ(op->GetOOperands()[0]->GetConsumers().size(), 1U);
-            
-            int32_t inputSubGraphIDs = op->GetSubgraphID();
-            int32_t outputSubGraphIDs = (*(op->GetOOperands()[0]->GetConsumers().begin()))->GetSubgraphID();
+void ConstructGraphForMatMulMultipleViewSuccessors(ComputationalGraphBuilder& G) {
+    DataType dataType = DataType::DT_FP16;
+    Shape shape = {16, 16};
+    Shape viewShape {8, 16};
+    std::vector<std::string> oriTensorNames{"matA3DDR", "matB3DDR", "matA3L1", "matB3L1", "matA3L0A", "matB3L0B", "matC3L0C"};
+    std::vector<MemoryType> oriTensorMemoryType{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1, MemoryType::MEM_L1, 
+        MemoryType::MEM_L0A, MemoryType::MEM_L0B, MemoryType::MEM_L0C};
+    EXPECT_EQ(G.AddTensors(dataType, shape, oriTensorMemoryType, oriTensorNames, 0), true);
+    std::vector<std::string> afterViewTensorNames{"viewC3L0C_1", "viewC3L0C_2", "outcast3"};
+    std::vector<MemoryType> afterViewTensorMemoryType{MemoryType::MEM_L0C, MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR};
+    EXPECT_EQ(G.AddTensors(dataType, viewShape, afterViewTensorMemoryType, afterViewTensorNames, 0), true);
+    std::vector<Opcode> opCodes{Opcode::OP_VIEW, Opcode::OP_VIEW, Opcode::OP_L1_TO_L0A, Opcode::OP_L1_TO_L0B, 
+        Opcode::OP_A_MUL_B, Opcode::OP_VIEW, Opcode::OP_VIEW, Opcode::OP_ASSEMBLE};
+    std::vector<std::string> opNames{"View1", "View2", "L1ToL0A3", "L1ToL0B3", "Mul3", "ViewL0C_1", "ViewL0C_2", "Assemble3"};
+    std::vector<std::vector<std::string>> iOperands{{"matA3DDR"}, {"matB3DDR"}, {"matA3L1"}, {"matB3L1"}, 
+        {"matA3L0A","matB3L0B"}, {"matC3L0C"}, {"matC3L0C"}, {"viewC3L0C_1"}};
+    std::vector<std::vector<std::string>> oOperands{{"matA3L1"}, {"matB3L1"}, {"matA3L0A"}, {"matB3L0B"}, 
+        {"matC3L0C"}, {"viewC3L0C_1"}, {"viewC3L0C_2"}, {"outcast3"}};
+    EXPECT_EQ(G.AddOps(opCodes, iOperands, oOperands, opNames, true), true);
+    EXPECT_EQ(G.SetInCast({"matA3DDR", "matB3DDR"}), true);
+    EXPECT_EQ(G.SetOutCast({"outcast3"}), true);
+}
 
-            EXPECT_EQ(inputSubGraphIDs, outputSubGraphIDs);
-        }
-    }
+TEST_F(GraphPartitionTest, TestMatMulMultipleViewSuccessors) {
+    ComputationalGraphBuilder G;
+    ConstructGraphForMatMulMultipleViewSuccessors(G);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    GraphPartition gpp;
+    EXPECT_EQ(gpp.RunOnFunction(*function), SUCCESS);
+
+    auto mulOp = G.GetOp("Mul3");
+    auto viewL0C_1 = G.GetOp("ViewL0C_1");
+    auto viewL0C_2 = G.GetOp("ViewL0C_2");
+    EXPECT_EQ(mulOp->GetSubgraphID(), viewL0C_1->GetSubgraphID());
+    EXPECT_EQ(mulOp->GetSubgraphID(), viewL0C_2->GetSubgraphID());
+}
+
+void ConstructGraphForMatMulViewNonL0C(ComputationalGraphBuilder& G) {
+    DataType dataType = DataType::DT_FP16;
+    Shape shape = {16, 16};
+    Shape viewShape {8, 16};
+    std::vector<std::string> oriTensorNames{"matA4DDR", "matB4DDR", "matA4L1", "matB4L1", "matA4L0A", "matB4L0B", "matC4L0C"};
+    std::vector<MemoryType> oriTensorMemoryType{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1, MemoryType::MEM_L1, 
+        MemoryType::MEM_L0A, MemoryType::MEM_L0B, MemoryType::MEM_L0C};
+    EXPECT_EQ(G.AddTensors(dataType, shape, oriTensorMemoryType, oriTensorNames, 0), true);
+    std::vector<std::string> afterViewTensorNames{"viewC4DDR", "viewC4L1", "outcast4"};
+    std::vector<MemoryType> afterViewTensorMemoryType{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1, MemoryType::MEM_DEVICE_DDR};
+    EXPECT_EQ(G.AddTensors(dataType, viewShape, afterViewTensorMemoryType, afterViewTensorNames, 0), true);
+    std::vector<Opcode> opCodes{Opcode::OP_VIEW, Opcode::OP_VIEW, Opcode::OP_L1_TO_L0A, Opcode::OP_L1_TO_L0B, 
+        Opcode::OP_A_MUL_B, Opcode::OP_VIEW, Opcode::OP_VIEW, Opcode::OP_ASSEMBLE};
+    std::vector<std::string> opNames{"View1", "View2", "L1ToL0A4", "L1ToL0B4", "Mul4", "ViewDDR", "ViewL1", "Assemble4"};
+    std::vector<std::vector<std::string>> iOperands{{"matA4DDR"}, {"matB4DDR"}, {"matA4L1"}, {"matB4L1"}, 
+        {"matA4L0A","matB4L0B"}, {"matC4L0C"}, {"matC4L0C"}, {"viewC4L1"}};
+    std::vector<std::vector<std::string>> oOperands{{"matA4L1"}, {"matB4L1"}, {"matA4L0A"}, {"matB4L0B"}, 
+        {"matC4L0C"}, {"viewC4DDR"}, {"viewC4L1"}, {"outcast4"}};
+    EXPECT_EQ(G.AddOps(opCodes, iOperands, oOperands, opNames, true), true);
+    EXPECT_EQ(G.SetInCast({"matA4DDR", "matB4DDR"}), true);
+    EXPECT_EQ(G.SetOutCast({"outcast4"}), true);
+}
+
+TEST_F(GraphPartitionTest, TestMatMulViewNonL0C) {
+    ComputationalGraphBuilder G;
+    ConstructGraphForMatMulViewNonL0C(G);
+
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    GraphPartition gpp;
+    EXPECT_EQ(gpp.RunOnFunction(*function), SUCCESS);
+
+    auto mulOp = G.GetOp("Mul4");
+    auto viewDDROp = G.GetOp("ViewDDR");
+    auto viewL1Op = G.GetOp("ViewL1");
+    EXPECT_NE(mulOp->GetSubgraphID(), viewDDROp->GetSubgraphID());
+    EXPECT_EQ(mulOp->GetSubgraphID(), viewL1Op->GetSubgraphID());
 }
 
 } // namespace tile_fwk

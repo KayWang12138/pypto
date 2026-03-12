@@ -24,13 +24,18 @@ namespace npu::tile_fwk {
 void ExecuteOpAssemble(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
     ASSERT(ctx->ioperandDataViewList->size() <= NUM_VALUE_2);
+    ASSERT(ctx->op != nullptr);
     auto &oop = ctx->ooperandInplaceDataViewList->at(0);
     auto &iop = ctx->ioperandDataViewList->at(0);
 
     auto assemble = std::static_pointer_cast<AssembleOpAttribute>(ctx->op->GetOpAttribute());
     std::vector<int64_t> offset = ctx->opInter->EvaluateOffset(assemble->GetToOffset(), assemble->GetToDynOffset());
     auto ret = oop->View(iop->GetShape(), offset);
-    calc::Copy(ret, iop);
+    if (ctx->op->HasAttribute(OP_ATTR_PREFIX + "atomic_add")) {
+        calc::Add(ret, iop, ret);
+    } else {
+        calc::Copy(ret, iop);
+    }
 }
 REGISTER_CALC_OP(OP_ASSEMBLE, Opcode::OP_ASSEMBLE, ExecuteOpAssemble);
 REGISTER_CALC_OP(OP_ASSEMBLE_SSA, Opcode::OP_ASSEMBLE_SSA, ExecuteOpAssemble);
@@ -150,8 +155,6 @@ void ExecuteOpCopyIn(ExecuteOperationContext *ctx) {
         iopValid = std::make_shared<LogicalTensorData>(iopValid->GetData(), dynvalidshape, fromOffset);
         if (outputCombineAxisDone && oopShape.size() == SIZE_TWO) {
             oopTrans = oopTrans->View(dynvalidshape, std::vector<int64_t>(fromOffset.size(), 0));
-        } else {
-            oopValid = oop->View(dynvalidshape, std::vector<int64_t>(fromOffset.size(), 0));
         }
     }
 
@@ -247,13 +250,13 @@ void ExecutePrint(ExecuteOperationContext *ctx) {
             csv << "element_count," << oop->GetData()->GetDataSize() / oop->GetData()->GetElementSize() << "\n";
             csv.close();
         } else {
-            VERIFY_LOGE("open csv file %s failed!!!!", csvPath.c_str());
+            VERIFY_LOGE_FULL("open csv file %s failed!!!!", csvPath.c_str());
         }
     }
 
     std::string format;
     if (ctx->op->GetAttr(OP_ATTR_PREFIX + "format", format)) {
-        VERIFY_LOGI("%s", FormatString(format, ctx->opInter, ctx->ioperandDataViewList, scalars).c_str());
+        std::cout << FormatString(format, ctx->opInter, ctx->ioperandDataViewList, scalars) << std::endl;
     }
 }
 REGISTER_CALC_OP(OP_PRINT, Opcode::OP_PRINT, ExecutePrint);
@@ -274,4 +277,6 @@ void ExecuteOpReshape(ExecuteOperationContext *ctx) {
     }
 }
 REGISTER_CALC_OP(OP_RESHAPE, Opcode::OP_RESHAPE, ExecuteOpReshape);
+REGISTER_CALC_OP(OP_RESHAPE_COPY_OUT, Opcode::OP_RESHAPE_COPY_OUT, ExecuteOpCopyOut);
+REGISTER_CALC_OP(OP_RESHAPE_COPY_IN, Opcode::OP_RESHAPE_COPY_IN, ExecuteOpCopyIn);
 }

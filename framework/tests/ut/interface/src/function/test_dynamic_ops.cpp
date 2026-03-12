@@ -55,7 +55,7 @@ public:
         << "Expected no FAILED in verify log, captured: " << (logOutput)
 
 TEST_F(DynamicOpsTest, FmodFp32) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -98,7 +98,7 @@ TEST_F(DynamicOpsTest, FmodFp32) {
 }
 
 TEST_F(DynamicOpsTest, FmodSFp32) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -245,7 +245,7 @@ TEST_F(DynamicOpsTest, RemainderRSFp32) {
 }
 
 TEST_F(DynamicOpsTest, Assemble) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -287,8 +287,76 @@ TEST_F(DynamicOpsTest, Assemble) {
     EXPECT_NO_VERIFY_FAILED(logOutput);
 }
 
-TEST_F(DynamicOpsTest, AssembleFp16) {
+TEST_F(DynamicOpsTest, IndexOutcastSeveralLoops) {
     std::string logOutput = CaptureStdoutAndEcho([]() {
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+    // 4D 场景下 TileShape：[tileB, tileS, 1, d]，尾轴 d 不切分
+    TileShape::Current().SetVecTile(256, 128, 1, 64);
+    int b = 16;
+    int s1 = 4;
+    int s2 = 2048;
+    int d = 64;
+    int blockSize = 128;
+    int blockNum = b * s2 / blockSize;
+    Tensor src(DT_FP32, {b, s1, 1, d}, "t0");
+    Tensor index(DT_INT32, {b, s1}, "t1");
+    Tensor dst(DT_FP32, {blockNum, blockSize, 1, d}, "t2");
+    Tensor out(DT_FP32, {blockNum, blockSize, 1, d}, "out");
+
+    // 构造 index: index[i][j] = i * s2 + j * (s2 / s1)
+    std::vector<int32_t> indexData(b * s1);
+    int stride = s2 / s1;
+    for (int i = 0; i < b; ++i) {
+        for (int j = 0; j < s1; ++j) {
+            indexData[i * s1 + j] = i * s2 + j * stride;
+        }
+    }
+
+    // 构造 golden dst
+    std::vector<float> dstGolden(blockNum * blockSize * d, 0.0f);
+    for (int i = 0; i < b; ++i) {
+        for (int j = 0; j < s1; ++j) {
+            int g = indexData[i * s1 + j];
+            int blk = g / blockSize;
+            int off = g % blockSize;
+            for (int k = 0; k < d; ++k) {
+                int64_t pos = ((static_cast<int64_t>(blk) * blockSize + off) * d) + k;
+                dstGolden[static_cast<size_t>(pos)] = 1.0f;
+            }
+        }
+    }
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(src, 1.0f),
+        RawTensorData::CreateTensor<int32_t>(index, indexData),
+        RawTensorData::CreateConstantTensor<float>(dst, 0.0f),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 0.0f),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor(out, dstGolden),
+    });
+
+    // FUNCTION 中执行一次 ScatterUpdate
+    std::string funcName = "IndexOutcastScatterUpdate";
+    FUNCTION(funcName, {src, index, dst}, {out}) {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(2)) {
+            (void)i;
+            std::string cacheMode = "PA_BNSD";
+            auto tmpIndex = View(index, {b / 2, s1}, {i * (b / 2), 0});
+            auto tmpSrc = View(src, {b / 2, s1, 1, d}, {i * (b / 2), 0, 0, 0});
+            out = ScatterUpdate(dst, tmpIndex, tmpSrc, -2, cacheMode, blockSize);
+        }
+    }
+    });
+    EXPECT_NO_VERIFY_FAILED(logOutput);
+}
+
+
+TEST_F(DynamicOpsTest, AssembleFp16) {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -332,7 +400,7 @@ TEST_F(DynamicOpsTest, AssembleFp16) {
 }
 
 TEST_F(DynamicOpsTest, Ceil) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -366,7 +434,7 @@ TEST_F(DynamicOpsTest, Ceil) {
 }
 
 TEST_F(DynamicOpsTest, Floor) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -400,7 +468,7 @@ TEST_F(DynamicOpsTest, Floor) {
 }
 
 TEST_F(DynamicOpsTest, Trunc) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -434,7 +502,7 @@ TEST_F(DynamicOpsTest, Trunc) {
 }
 
 TEST_F(DynamicOpsTest, PassVerifyWithoutGoldens) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -474,7 +542,7 @@ TEST_F(DynamicOpsTest, PassVerifyWithoutGoldens) {
 }
 
 TEST_F(DynamicOpsTest, OpsElementWise) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -573,7 +641,7 @@ TEST_F(DynamicOpsTest, OpsElementWise) {
 }
 
 TEST_F_WITH_COST(DynamicOpsTest, Cube, 98) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -763,7 +831,7 @@ TEST_F(DynamicOpsTest, Expm1) {
 }
 
 TEST_F(DynamicOpsTest, MatmulAcc) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -793,7 +861,7 @@ TEST_F(DynamicOpsTest, MatmulAcc) {
 }
 
 TEST_F(DynamicOpsTest, GetTensorData) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
     config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
@@ -851,32 +919,32 @@ static void TestMatmul(DataType inType, DataType outType) {
 }
 
 TEST_F(DynamicOpsTest, MatmulFP16FP16) {
-    std::string logOutput = CaptureStdoutAndEcho([]() { TestMatmul(DT_FP16, DT_FP16); });
+    std::string logOutput = CaptureLogFileAndEcho([]() { TestMatmul(DT_FP16, DT_FP16); });
     EXPECT_NO_VERIFY_FAILED(logOutput);
 }
 
 TEST_F(DynamicOpsTest, MatmulBF16BF16) {
-    std::string logOutput = CaptureStdoutAndEcho([]() { TestMatmul(DT_BF16, DT_BF16); });
+    std::string logOutput = CaptureLogFileAndEcho([]() { TestMatmul(DT_BF16, DT_BF16); });
     EXPECT_NO_VERIFY_FAILED(logOutput);
 }
 
 TEST_F(DynamicOpsTest, MatmulFP16FP32) {
-    std::string logOutput = CaptureStdoutAndEcho([]() { TestMatmul(DT_FP16, DT_FP32); });
+    std::string logOutput = CaptureLogFileAndEcho([]() { TestMatmul(DT_FP16, DT_FP32); });
     EXPECT_NO_VERIFY_FAILED(logOutput);
 }
 
 TEST_F(DynamicOpsTest, MatmulBF16FP32) {
-    std::string logOutput = CaptureStdoutAndEcho([]() { TestMatmul(DT_BF16, DT_FP32); });
+    std::string logOutput = CaptureLogFileAndEcho([]() { TestMatmul(DT_BF16, DT_FP32); });
     EXPECT_NO_VERIFY_FAILED(logOutput);
 }
 
 TEST_F(DynamicOpsTest, MatmulFP32FP32) {
-    std::string logOutput = CaptureStdoutAndEcho([]() { TestMatmul(DT_FP32, DT_FP32); });
+    std::string logOutput = CaptureLogFileAndEcho([]() { TestMatmul(DT_FP32, DT_FP32); });
     EXPECT_NO_VERIFY_FAILED(logOutput);
 }
 
 TEST_F(DynamicOpsTest, MatMulPertensor) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     Tensor t0(DT_INT8, {128, 256}, "t0");
     Tensor t1(DT_INT8, {128, 256}, "t1");
@@ -897,7 +965,7 @@ TEST_F(DynamicOpsTest, MatMulPertensor) {
     ProgramData::GetInstance().PrepareData({logicTensor0->GetData(), logicTensor1->GetData()},
         {out0->GetData()}, {golden->GetData()});
 
-    TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64}, true, false);
+    TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64}, false);
     FUNCTION("main", {t0, t1}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
@@ -912,7 +980,7 @@ TEST_F(DynamicOpsTest, MatMulPertensor) {
 }
 
 TEST_F(DynamicOpsTest, MatMulPerchannel) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     Tensor t0(DT_INT8, {128, 128}, "t0");
     Tensor t1(DT_INT8, {128, 128}, "t1");
@@ -951,7 +1019,7 @@ TEST_F(DynamicOpsTest, MatMulPerchannel) {
 }
 
 TEST_F(DynamicOpsTest, MatMulBias) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     Tensor t0(DT_FP16, {256, 64}, "t0");
     Tensor t1(DT_FP16, {64, 256}, "t1");
@@ -983,7 +1051,7 @@ TEST_F(DynamicOpsTest, MatMulBias) {
 }
 
 TEST_F(DynamicOpsTest, MatMulL0CToL1Fixpipe) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     Tensor t0(DT_INT8, {64, 64}, "t0");
     Tensor t1(DT_INT8, {64, 64}, "t1");
@@ -1059,7 +1127,7 @@ TEST_F(DynamicOpsTest, GatherInL1) {
 }
 
 TEST_F(DynamicOpsTest, Round) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -1118,7 +1186,7 @@ TEST_F(DynamicOpsTest, Exp2) {
 }
 
 TEST_F(DynamicOpsTest, TriU) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -1158,7 +1226,7 @@ TEST_F(DynamicOpsTest, TriU) {
 }
 
 TEST_F(DynamicOpsTest, Gcd) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -1194,7 +1262,7 @@ TEST_F(DynamicOpsTest, Gcd) {
 }
 
 TEST_F(DynamicOpsTest, GcdBrc) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -1230,7 +1298,7 @@ TEST_F(DynamicOpsTest, GcdBrc) {
 }
 
 TEST_F(DynamicOpsTest, Gcds) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -1262,7 +1330,7 @@ TEST_F(DynamicOpsTest, Gcds) {
 }
 
 TEST_F(DynamicOpsTest, GatherElement) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -1345,7 +1413,7 @@ TEST_F(DynamicOpsTest, GatherMask) {
 }
 
 TEST_F(DynamicOpsTest, IndexAdd) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -1393,7 +1461,7 @@ TEST_F(DynamicOpsTest, IndexAdd) {
 }
 
 TEST_F(DynamicOpsTest, ScatterElement) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -1440,7 +1508,7 @@ static void Scatter(Tensor &self, Tensor &idx, Tensor &src, Tensor &out, int b, 
 }
 
 TEST_F(DynamicOpsTest, ScatterINT8) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -1468,7 +1536,7 @@ TEST_F(DynamicOpsTest, ScatterINT8) {
 }
 
 TEST_F(DynamicOpsTest, ScatterUINT8) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -1496,7 +1564,7 @@ TEST_F(DynamicOpsTest, ScatterUINT8) {
 }
 
 TEST_F(DynamicOpsTest, ScatterINT16) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -1524,7 +1592,7 @@ TEST_F(DynamicOpsTest, ScatterINT16) {
 }
 
 TEST_F(DynamicOpsTest, ScatterUINT16) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -1552,9 +1620,11 @@ TEST_F(DynamicOpsTest, ScatterUINT16) {
 }
 
 TEST_F(DynamicOpsTest, ScatterUINT32) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+    std::vector<std::string> passList = {"all"};
+ 	config::SetVerifyOption(KEY_PASS_VERIFY_FILTER, passList);
 
     int64_t b = 1;
     int64_t s = 8;
@@ -1580,7 +1650,7 @@ TEST_F(DynamicOpsTest, ScatterUINT32) {
 }
 
 TEST_F(DynamicOpsTest, ScatterUINT64) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -1608,7 +1678,7 @@ TEST_F(DynamicOpsTest, ScatterUINT64) {
 }
 
 TEST_F(DynamicOpsTest, Scatter) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -1636,7 +1706,7 @@ TEST_F(DynamicOpsTest, Scatter) {
 }
 
 TEST_F(DynamicOpsTest, ReduceMax) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -1724,7 +1794,7 @@ TEST_F(DynamicOpsTest, Topk) {
 }
 
 TEST_F(DynamicOpsTest, TopKSort) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -1761,7 +1831,7 @@ TEST_F(DynamicOpsTest, TopKSort) {
 }
 
 TEST_F(DynamicOpsTest, TopKMerge) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -1799,7 +1869,7 @@ TEST_F(DynamicOpsTest, TopKMerge) {
 }
 
 TEST_F(DynamicOpsTest, TopKExtractValues) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -1841,7 +1911,7 @@ TEST_F(DynamicOpsTest, TopKExtractValues) {
 }
 
 TEST_F(DynamicOpsTest, TopKExtractIndices) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -1883,7 +1953,7 @@ TEST_F(DynamicOpsTest, TopKExtractIndices) {
 }
 
 TEST_F(DynamicOpsTest, BitwiseRightShift) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
     int64_t b = 8;
@@ -1915,7 +1985,7 @@ TEST_F(DynamicOpsTest, BitwiseRightShift) {
 }
 
 TEST_F(DynamicOpsTest, BitwiseLeftShift) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
     int64_t b = 8;
@@ -1947,7 +2017,7 @@ TEST_F(DynamicOpsTest, BitwiseLeftShift) {
 }
 
 TEST_F(DynamicOpsTest, BitwiseRightShifts) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
     int64_t b = 8;
@@ -1978,7 +2048,7 @@ TEST_F(DynamicOpsTest, BitwiseRightShifts) {
 }
 
 TEST_F(DynamicOpsTest, BitwiseLeftShifts) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
     int64_t b = 8;
@@ -2009,7 +2079,7 @@ TEST_F(DynamicOpsTest, BitwiseLeftShifts) {
 }
 
 TEST_F(DynamicOpsTest, SBitwiseRightShift) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
     int64_t b = 8;
@@ -2040,7 +2110,7 @@ TEST_F(DynamicOpsTest, SBitwiseRightShift) {
 }
 
 TEST_F(DynamicOpsTest, SBitwiseLeftShift) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
     int64_t b = 8;
@@ -2071,7 +2141,7 @@ TEST_F(DynamicOpsTest, SBitwiseLeftShift) {
 }
 
 TEST_F(DynamicOpsTest, CopySign) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
     int64_t b = 8;
@@ -2103,7 +2173,7 @@ TEST_F(DynamicOpsTest, CopySign) {
 }
 
 TEST_F(DynamicOpsTest, Range) {
-    std::string logOutput = CaptureStdoutAndEcho([]() {
+    std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 

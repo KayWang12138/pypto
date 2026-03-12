@@ -21,8 +21,18 @@
 #include "interface/interpreter/operation.h"
 #include "interface/tensor/symbolic_scalar_evaluate.h"
 #include "calc.h"
+#include <algorithm>
 
 namespace npu::tile_fwk {
+
+struct PairHash {
+    template <class T1, class T2>
+    std::size_t operator()(const std::pair<T1, T2> &p) const {
+        auto hash1 = std::hash<T1>{}(p.first);
+        auto hash2 = std::hash<T2>{}(p.second);
+        return hash1 ^ (hash2 << 1);
+    }
+};
 
 struct FunctionIODataPair {
     std::vector<std::shared_ptr<LogicalTensorData>> incastDataViewList;
@@ -85,6 +95,8 @@ struct FunctionFrame {
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::string> tensorDataBinDict;
     std::unordered_map<std::shared_ptr<LogicalTensorData>, std::shared_ptr<LogicalTensor>> callopDataViewTensorDict;  // Record the relationship between the callop data view and the tensor
     int frameIndex;
+    std::set<int> indexOutcastOpIndices;
+    std::vector<std::set<LogicalTensorPtr>> inplaceTensorSetList;
     int funcIndex;
     int rootFuncIndex{-1};
     int passIndex{-1};
@@ -95,6 +107,63 @@ struct FunctionFrame {
 
     int GetFrameIndex() const { return frameIndex; }
 
+    void InitInplaceDataViewList() {
+        inplaceTensorSetList.clear();
+        if (func == nullptr || indexOutcastOpIndices.empty()) {
+            return;
+        }
+
+        auto ops = const_cast<Function *>(func)->Operations(false);
+        // 建立 Operation 指针到其在 Operations(false) 中下标的映射
+        std::unordered_map<Operation *, int> opIndexMap;
+        opIndexMap.reserve(ops.size());
+        for (int i = 0; i < static_cast<int>(ops.size()); ++i) {
+            opIndexMap[&ops[static_cast<size_t>(i)]] = i;
+        }
+
+        // 使用拷贝，避免在遍历时直接修改 indexOutcastOpIndices
+        std::set<int> indices = indexOutcastOpIndices;
+
+        for (auto index : indices) {
+            // 该 index 可能在前一次遍历链路时被删除，这里跳过已删除的 INDEX_OUTCAST
+            if (indexOutcastOpIndices.count(index) == 0) {
+                continue;
+            }
+            if (index < 0 || static_cast<size_t>(index) >= ops.size()) {
+                continue;
+            }
+
+            Operation &idxOutcastOp = ops[static_cast<size_t>(index)];
+            auto iOps = idxOutcastOp.GetIOperands();
+            auto oOps = idxOutcastOp.GetOOperands();
+            // 需要至少 3 个输入，且至少 1 个输出
+            ASSERT(iOps.size() > 2);
+            ASSERT(!oOps.empty());
+
+            LogicalTensorPtr startTensor = iOps[2];
+            LogicalTensorPtr endTensor = oOps[0];
+            ASSERT(startTensor != nullptr);
+            ASSERT(endTensor != nullptr);
+
+            std::set<LogicalTensorPtr> tensorGroup;
+            std::unordered_set<LogicalTensorPtr> visitedTensor;
+            std::unordered_set<Operation *> visitedOp;
+            bool chainValid = true;
+            Operation *rootIndexOutcastOp = &idxOutcastOp;
+
+            TraverseBackward(startTensor, rootIndexOutcastOp, tensorGroup, visitedTensor, visitedOp, chainValid, opIndexMap);
+            if (!chainValid) {
+                continue;
+            }
+            TraverseForward(endTensor, rootIndexOutcastOp, tensorGroup, visitedTensor, visitedOp, chainValid, opIndexMap);
+            if (!chainValid) {
+                continue;
+            }
+
+            inplaceTensorSetList.emplace_back(std::move(tensorGroup));
+        }
+
+    }
     FunctionFrame(const Function *func_, const Operation *callop_,
         const std::shared_ptr<CallOpAttribute> &callopAttr_, std::shared_ptr<FunctionIODataPair> inoutDataPair_,
         int frameIndex_)
@@ -103,6 +172,17 @@ struct FunctionFrame {
           callopAttr(callopAttr_),
           inoutDataPair(inoutDataPair_),
           frameIndex(frameIndex_) {
+        if (func != nullptr) {
+            int idx = 0;
+            auto ops = const_cast<Function *>(func)->Operations(false);
+            for (auto &op : ops) {
+                if (op.GetOpcode() == Opcode::OP_INDEX_OUTCAST) {
+                    indexOutcastOpIndices.insert(idx);
+                }
+                ++idx;
+            }
+        }
+        InitInplaceDataViewList();
         if (inoutDataPair != nullptr) {
             ASSERT(func->GetIncast().size() == inoutDataPair->incastDataViewList.size());
             for (size_t i = 0; i < inoutDataPair->incastDataViewList.size(); i++) {
@@ -192,6 +272,101 @@ struct FunctionFrame {
     }
 
 private:
+    bool IsAllowedInplaceChainOpcode(Opcode opcode) const {
+        return opcode == Opcode::OP_INDEX_OUTCAST ||
+               opcode == Opcode::OP_VIEW ||
+               opcode == Opcode::OP_RESHAPE ||
+               opcode == Opcode::OP_ASSEMBLE ||
+               opcode == Opcode::OP_PRINT;
+    }
+
+    void TraverseBackward(LogicalTensorPtr t,
+                          Operation *rootIndexOutcastOp,
+                          std::set<LogicalTensorPtr> &tensorGroup,
+                          std::unordered_set<LogicalTensorPtr> &visitedTensor,
+                          std::unordered_set<Operation *> &visitedOp,
+                          bool &chainValid,
+                          const std::unordered_map<Operation *, int> &opIndexMap) {
+        if (!chainValid || t == nullptr) {
+            return;
+        }
+        if (visitedTensor.insert(t).second) {
+            tensorGroup.insert(t);
+        }
+        for (auto producer : t->GetProducers()) {
+            if (producer == nullptr) {
+                continue;
+            }
+            if (!IsAllowedInplaceChainOpcode(producer->GetOpcode())) {
+                chainValid = false;
+                return;
+            }
+            if (visitedOp.insert(producer).second) {
+                // 如果向前遍历到其他 INDEX_OUTCAST，将其从 indexOutcastOpIndices 中移除，避免之后重复遍历
+                if (producer->GetOpcode() == Opcode::OP_INDEX_OUTCAST &&
+                    producer != rootIndexOutcastOp) {
+                    auto it = opIndexMap.find(producer);
+                    if (it != opIndexMap.end()) {
+                        indexOutcastOpIndices.erase(it->second);
+                    }
+                }
+                // IndexOutcast 只从第三个输入继续向前，其余（view/reshape/assemble）只有一个输入
+                auto &producerInputs = producer->GetIOperands();
+                if (producer->GetOpcode() == Opcode::OP_INDEX_OUTCAST) {
+                    if (producerInputs.size() > 2 && producerInputs[2] != nullptr) {
+                        TraverseBackward(producerInputs[2], rootIndexOutcastOp, tensorGroup, visitedTensor,
+                                         visitedOp, chainValid, opIndexMap);
+                    }
+                } else {
+                    if (!producerInputs.empty() && producerInputs[0] != nullptr) {
+                        TraverseBackward(producerInputs[0], rootIndexOutcastOp, tensorGroup, visitedTensor,
+                                         visitedOp, chainValid, opIndexMap);
+                    }
+                }
+            }
+        }
+    }
+
+    void TraverseForward(LogicalTensorPtr t,
+                         Operation *rootIndexOutcastOp,
+                         std::set<LogicalTensorPtr> &tensorGroup,
+                         std::unordered_set<LogicalTensorPtr> &visitedTensor,
+                         std::unordered_set<Operation *> &visitedOp,
+                         bool &chainValid,
+                         const std::unordered_map<Operation *, int> &opIndexMap) {
+        if (!chainValid || t == nullptr) {
+            return;
+        }
+        if (visitedTensor.insert(t).second) {
+            tensorGroup.insert(t);
+        }
+        for (auto consumerOp : t->GetConsumers()) {
+            if (consumerOp == nullptr) {
+                continue;
+            }
+            if (!IsAllowedInplaceChainOpcode(consumerOp->GetOpcode())) {
+                chainValid = false;
+                return;
+            }
+            if (visitedOp.insert(consumerOp).second) {
+                // 如果向后遍历到其他 INDEX_OUTCAST，将其从 indexOutcastOpIndices 中移除，避免之后重复遍历
+                if (consumerOp->GetOpcode() == Opcode::OP_INDEX_OUTCAST &&
+                    consumerOp != rootIndexOutcastOp) {
+                    auto it = opIndexMap.find(consumerOp);
+                    if (it != opIndexMap.end()) {
+                        indexOutcastOpIndices.erase(it->second);
+                    }
+                }
+                // IndexOutcast / View / Reshape / Assemble 视为一个输入一个输出，只从其输出继续向后
+                auto &consumerOutputs = consumerOp->GetOOperands();
+                if (!consumerOutputs.empty() && consumerOutputs[0] != nullptr) {
+                    TraverseForward(consumerOutputs[0], rootIndexOutcastOp, tensorGroup, visitedTensor,
+                                    visitedOp, chainValid, opIndexMap);
+                }
+            }
+        }
+    }
+
     void DoAddTensorDataView(
             const std::shared_ptr<LogicalTensor> &tensor,
             const std::shared_ptr<LogicalTensorData> &dataView) {
@@ -267,6 +442,10 @@ struct FunctionControlFlowExecution {
 
 constexpr int EXEC_DUMP_LEVEL_OPERATION = 1;
 constexpr int EXEC_DUMP_LEVEL_TENSOR = 2;
+const std::unordered_set<Opcode> MIX_PATH_OPS = {
+    Opcode::OP_UB_COPY_L1,
+    Opcode::OP_L0C_COPY_UB
+};
 
 enum class VerifyType { INVALID, TENSOR_GRAPH, PASS, EXECUTE_GRAPH };
 enum class OpInfoCsvHeader {
@@ -340,6 +519,7 @@ struct FunctionInterpreter {
     std::unordered_map<int, std::shared_ptr<LogicalTensorData>> slotDataViewDict_;
     std::vector<std::shared_ptr<FunctionFrame>> *captureFrameList{nullptr};
     std::unordered_map<std::string, ScalarImmediateType> loopSymbolDict;
+    std::unordered_map<std::pair<std::shared_ptr<LogicalTensor>, int32_t>, std::shared_ptr<LogicalTensorData>, PairHash> mixGlobalTensorDict;
 
     int execDumpLevel{0};
 
@@ -556,6 +736,12 @@ struct FunctionInterpreter {
         for (size_t index = 0; index < iOpDataList.size(); index++) {
             if (iOpDataList[index] == nullptr) {
                 auto iop = op->GetIOperands()[index];
+                if (frame.callop != nullptr) {
+                    ALOG_INFO("ExecuteOperation: iop ", index, " is null, try to find in mixGlobalTensorDict.");
+                    auto callopAttr = std::static_pointer_cast<CallOpAttribute>(frame.callop->GetOpAttribute());
+                    iOpDataList[index] = mixGlobalTensorDict[{iop, callopAttr->wrapId}];
+                    if (iOpDataList[index] != nullptr) {continue;}
+                }
                 ASSERT(op->GetOpcode() == Opcode::OP_CALL);
                 iOpDataList[index] = AllocateDataView(frame, iop);
             }
@@ -575,6 +761,11 @@ struct FunctionInterpreter {
                     oOpDataList.push_back(AllocateDataView(frame, oop, dtype));
                 } else {
                     auto ret = AllocateDataView(frame, oop);
+                    if (frame.callop != nullptr && MIX_PATH_OPS.count(op->GetOpcode()) > 0) {
+                        auto callopAttr = std::static_pointer_cast<CallOpAttribute>(frame.callop->GetOpAttribute());
+                        mixGlobalTensorDict[{oop, callopAttr->wrapId}] = ret;
+                    }
+
                     oOpDataList.push_back(ret);
                 }
             }
@@ -648,8 +839,79 @@ struct FunctionInterpreter {
             ExecuteHandleOperationEnd();
         }
         ExecuteHandleFunctionEnd();
+
+        CopyInplaceOutcastToIncast(func, frame);
+
         EraseTensorDataView(func, *frame);
         return frame;
+    }
+
+    void CopyInplaceOutcastToIncast(Function *func, const std::shared_ptr<FunctionFrame> &frame) {
+        // After function execution, if inplace chains exist, copy data from outcast back to incast.
+        if (frame == nullptr || frame->inplaceTensorSetList.empty()) {
+            return;
+        }
+
+        auto &incastList = func->GetIncast();
+        auto &outcastList = func->GetOutcast();
+
+        for (const auto &tensorGroup : frame->inplaceTensorSetList) {
+            if (tensorGroup.size() < 2) {
+                continue;
+            }
+
+            // Find incast tensor in this group.
+            LogicalTensorPtr incastTensor = nullptr;
+            bool hasIncastFromFunc = false;
+            for (const auto &t : tensorGroup) {
+                if (std::find(incastList.begin(), incastList.end(), t) != incastList.end()) {
+                    incastTensor = t;
+                    hasIncastFromFunc = true;
+                    break;
+                }
+            }
+            if (incastTensor == nullptr) {
+                // Fallback: use first tensor in set if no explicit incast found.
+                incastTensor = *tensorGroup.begin();
+            }
+
+            // Find outcast tensor in this group.
+            LogicalTensorPtr outcastTensor = nullptr;
+            bool hasOutcastFromFunc = false;
+            for (const auto &t : tensorGroup) {
+                if (std::find(outcastList.begin(), outcastList.end(), t) != outcastList.end()) {
+                    outcastTensor = t;
+                    hasOutcastFromFunc = true;
+                    break;
+                }
+            }
+            // Fallback: use last tensor in set if no explicit outcast found.
+            if (outcastTensor == nullptr) {
+                outcastTensor = *tensorGroup.rbegin();
+            }
+
+            // If this group has neither incast nor outcast belonging to current function IO,
+            // it indicates that inplaceTensorSetList is inconsistent with function IO spec.
+            ASSERT(hasIncastFromFunc || hasOutcastFromFunc);
+
+            auto incastView = frame->GetDataView(incastTensor);
+            auto outcastView = frame->GetDataView(outcastTensor);
+            if (incastView == nullptr || outcastView == nullptr) {
+                continue;
+            }
+
+            auto incData = incastView->GetData();
+            auto outData = outcastView->GetData();
+            if (incData == nullptr || outData == nullptr || incData.get() == outData.get()) {
+                continue;
+            }
+
+            ASSERT(incData->GetDataType() == outData->GetDataType());
+            ASSERT(incData->GetDataSize() == outData->GetDataSize());
+            ASSERT(incData->size() == outData->size());
+
+            std::copy(outData->data(), outData->data() + outData->size(), incData->data());
+        }
     }
 
     void EraseTensorDataView(Function *func, FunctionFrame &frame) {
@@ -1056,6 +1318,7 @@ public:
 
         DumpBegin();
         TimeStamp ts;
+        mixGlobalTensorDict.clear();
         std::shared_ptr<FunctionCaptureExecution> unitCapture = ExecuteUnit(func, capture);
         DumpEnd();
         TimeStamp ts1;

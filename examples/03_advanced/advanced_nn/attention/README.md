@@ -21,7 +21,11 @@
 
 ```bash
 # 配置 CANN 环境变量
-source /usr/local/Ascend/ascend-toolkit/latest/bin/setenv.bash
+# 安装完成后请配置环境变量，请用户根据set_env.sh的实际路径执行如下命令。
+# 上述环境变量配置只在当前窗口生效，用户可以按需将以上命令写入环境变量配置文件（如.bashrc文件）。
+
+# 默认路径安装，以root用户为例（非root用户，将/usr/local替换为${HOME}）
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
 
 # 设置设备 ID
 export TILE_FWK_DEVICE_ID=0
@@ -43,18 +47,18 @@ python3 attention.py --list
 ```python
 @pypto.frontend.jit
 def scaled_dot_product_attention(
-    q: pypto.tensor((S1, DQK), pypto.DT_FP32), 
-    k: pypto.tensor((S2, DQK), pypto.DT_FP32), 
+    q: pypto.tensor((S1, DQK), pypto.DT_FP32),
+    k: pypto.tensor((S2, DQK), pypto.DT_FP32),
     v: pypto.tensor((S2, DV), pypto.DT_FP32)
 ) -> pypto.tensor((S1, DV), pypto.DT_FP32):
     # 1. 计算 Q @ K^T
     k_t = pypto.transpose(k, [0, 1, 3, 2])
     scores = pypto.matmul(q, k_t)
-    
+
     # 2. 缩放与 Softmax
     scores_scaled = scores * scale
     attn_weights = pypto.softmax(scores_scaled, dim=-1)
-    
+
     # 3. 施加到 V 上
     output = pypto.matmul(attn_weights, v)
     return output

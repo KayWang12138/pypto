@@ -46,8 +46,6 @@
 #include "tilefwk/pypto_fwk_log.h"
 
 using json = nlohmann::json;
-extern char _binary_kernel_o_start[];
-extern char _binary_kernel_o_end[];
 
 constexpr int32_t AICORE_ADDR_TYPE = 2; // nocache Addr type for aicore/aicpu map
 constexpr int32_t PMU_ADDR_TYPE = 3;    // nGnRnE Addr type for Geting pmuInfo
@@ -134,6 +132,9 @@ void DeviceRunner::GetModuleLogLevel(DeviceArgs &args) {
     devDfxArg.logLevel = logLevel;
     if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
         devDfxArg.isOpenSwim = PRO_LEVEL2;
+    }
+    if (dynamic::DeviceLauncher::IsCaptureMode()) {
+        devDfxArg.isOpenSwim = 0;
     }
     MACHINE_LOGI("Get PYPTO log level is: %d, openSwimLevel: %d", logLevel, devDfxArg.isOpenSwim);
     auto size = sizeof(DevDfxArgs);
@@ -522,9 +523,6 @@ void DeviceRunner::InitAiCpuSoBin(DeviceArgs &devArgs) {
     devArgs.aicpuSoBin = reinterpret_cast<uint64_t>(dAicpuData);
     devArgs.aicpuSoLen = buffer.size();
     devArgs.deviceId = GetLogDeviceId();
-    if (IsPtoDataDumpEnabled()) {
-       devArgs.hostPid = getpid();
-    }
     HOST_PERF_TRACE(TracePhase::RunDevKernelInitAicpuSo);
 }
 
@@ -763,14 +761,13 @@ int DeviceRunner::RegisterKernelBin(void **hdl, std::vector<uint8_t> *funcBinBuf
     void *bin = nullptr;
     size_t binSize = 0;
     std::vector<uint8_t> *binBuf = (funcBinBuf == nullptr) ? &g_binBuf : funcBinBuf;
+    if (binBuf == nullptr || binBuf->size() == 0) {
+        return 0;
+    }
     if (binBuf->size() != 0) {
         bin = binBuf->data();
         binSize = binBuf->size();
         MACHINE_LOGD("Reg dynamic bin size %zu.", binSize);
-    } else {
-        bin = _binary_kernel_o_start;
-        binSize = _binary_kernel_o_end - _binary_kernel_o_start;
-        MACHINE_LOGD("Reg static bin size %zu.", binSize);
     }
     rtDevBinary_t binary{.magic = RT_DEV_BINARY_MAGIC_ELF, .version = 0, .data = bin, .length = binSize};
     int rc = rtRegisterAllKernel(&binary, hdl);

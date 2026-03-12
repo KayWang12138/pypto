@@ -163,7 +163,7 @@ std::string CodeGenOpCloudNPU::GenDupOp() const {
         auto scalar = opAttrs.at(OpAttributeKey::scalar);
         ASSERT((scalar.HasValue()) && (scalar.Type() == typeid(Element)))
             << AnyCast<Element>(scalar).IsFloat() << "SCALAR attribute has to have float value.";
-        dupV = FormatFloat(AnyCast<Element>(scalar).Cast<float>());
+        dupV = FormatFloat(AnyCast<Element>(scalar).Cast<float>(), operandDtype[ToUnderlying(MISOIdx::DST_IDX)]);
     } else if (dstDtypeStr == "int32_t") {
         auto scalar = opAttrs.at(OpAttributeKey::scalar);
         ASSERT((scalar.HasValue()) && (scalar.Type() == typeid(Element)))
@@ -497,7 +497,7 @@ std::string CodeGenOpCloudNPU::GenGatherFromUBOp() const {
     std::vector dstShape = this->rawShape[0];
 
     std::vector src0Shape = this->rawShape[1];
-    CODEGEN_LOGI("GenGatherOp, src0 Shape is [%d,%d]", src0Shape[0], src0Shape[1]);
+    CODEGEN_LOGI("GenGatherOp, src0 Shape is [%ld,%ld]", static_cast<long>(src0Shape[0]), static_cast<long>(src0Shape[1]));
 
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
@@ -686,7 +686,7 @@ std::string CodeGenOpCloudNPU::PrintIndexPut(const PrintIndexPutParam &param) co
 
 std::string CodeGenOpCloudNPU::PrintIndexPutLayout(size_t indicesSize, bool accumulate) const {
     std::string gmVarName = GenGmParamVar(ID0);
-    std::string dstTensor = sm->QueryTileTensorByBufVarName(gmVarName);
+    std::string dstTensor = sm->QueryTileTensorNameByBufVar(gmVarName);
     std::string valuesTensor = QueryTileTensorNameByIdx(ID2);
     std::vector<std::string> paramList = {dstTensor, valuesTensor};
     for (size_t i = 0; i < SHAPE_DIM4; ++i) {
@@ -1628,6 +1628,32 @@ std::string CodeGenOpCloudNPU::PrintPreluTileTensor() const {
     oss << tileOpName << "<" << axis << ">" << WrapParamByParentheses(tileOpParamList) << STMT_END;
 
     return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintPadTileTensor() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    auto c = extOperandVal.Cast<float>();
+    std::string padValue = "pto::PadValue::Zero";
+    if (c < 0) {
+        padValue = "pto::PadValue::Min";
+    } else if (c > 0) {
+        padValue = "pto::PadValue::Max";
+    }
+    std::vector<std::string> tileOpParamList = {
+        dstTensor,
+        srcTensor
+    };
+
+    std::ostringstream oss;
+    oss << tileOpName << "<" << padValue << ">";
+    oss << WrapParamByParentheses(tileOpParamList); 
+    oss << STMT_END;
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenPadOp() const {
+    return PrintPadTileTensor();
 }
 
 std::string CodeGenOpCloudNPU::GenPreluOp() const {
