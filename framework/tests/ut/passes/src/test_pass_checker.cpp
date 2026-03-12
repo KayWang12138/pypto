@@ -25,6 +25,9 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "passes/pass_check/checker.h"
 #include "passes/pass_check/pre_graph_checker.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "Checker"
 
 using namespace npu::tile_fwk;
 using namespace std;
