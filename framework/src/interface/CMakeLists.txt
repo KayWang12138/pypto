@@ -11,6 +11,9 @@
 file(GLOB _Interface_Srcs
         # Compiler monitor
         compiler_monitor/*.cpp
+        # Core infrastructure
+        core/*.cpp
+        ir/*.cpp
         # 前端框架
         schema/*.cpp
         configs/*.cpp
