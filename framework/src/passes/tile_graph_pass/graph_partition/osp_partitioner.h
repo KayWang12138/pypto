@@ -44,8 +44,8 @@ enum class OspMode {
 
 class OspPartitioner : public SuperNodeGraphBuilder {
 public:    
-    OspPartitioner(OspMode mode) : ospMode_(mode) { useCVMixPartition_ = GraphUtils::IsCVMixPlatform(); };
-    OspPartitioner(OspMode mode, bool useCVMixPartition) : ospMode_(mode) { useCVMixPartition_ =  useCVMixPartition; };
+    OspPartitioner(OspMode mode) : SuperNodeGraphBuilder(GraphUtils::IsCVMixPlatform()), ospMode_(mode) { };
+    OspPartitioner(OspMode mode, bool useCVMixPartition) : SuperNodeGraphBuilder(useCVMixPartition), ospMode_(mode) { };
     ~OspPartitioner() = default;
 
     Status SetParameter(const Function &function);

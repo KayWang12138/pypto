@@ -63,6 +63,7 @@ public:
 class SuperNodeGraphBuilder {
 public:
     SuperNodeGraphBuilder() = default;
+    SuperNodeGraphBuilder(bool useCVMixPartition) : useCVMixPartition_(useCVMixPartition) {};
     virtual ~SuperNodeGraphBuilder() = default;
 
 protected:
