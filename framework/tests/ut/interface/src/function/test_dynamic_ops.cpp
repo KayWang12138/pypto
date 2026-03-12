@@ -348,7 +348,6 @@ TEST_F(DynamicOpsTest, IndexOutcastSeveralLoops) {
             auto tmpIndex = View(index, {b / 2, s1}, {i * (b / 2), 0});
             auto tmpSrc = View(src, {b / 2, s1, 1, d}, {i * (b / 2), 0, 0, 0});
             out = ScatterUpdate(dst, tmpIndex, tmpSrc, -2, cacheMode, blockSize);
-            // PrintIf(1,"out=", out);
         }
     }
     });
