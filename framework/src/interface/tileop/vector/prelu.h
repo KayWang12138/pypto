@@ -65,7 +65,7 @@ TILEOP void TPRelu(T0 dst, T1 src, T2 weight, T3 tmp) {
         constexpr size_t ALIGN_SIZE = 32;
         constexpr size_t SIZEOFBYTE = 8;
         constexpr int64_t tmpSize = (srcTileW + SIZEOFBYTE - 1) / SIZEOFBYTE;
-        constexpr auto tmpTileW = (tmpSize + ALIGN_SIZE - 1) / ALIGN_SIZE * ALIGN_SIZE;
+        constexpr auto tmpTileW = (tmpSize + ALIGN_SIZE - 1) / ALIGN_SIZE * ALIGN_SIZE + ALIGN_SIZE;
         auto tmpShape = (srcShape4 + SIZEOFBYTE - 1) / SIZEOFBYTE;
 
         using DstTileDefine =
@@ -79,6 +79,7 @@ TILEOP void TPRelu(T0 dst, T1 src, T2 weight, T3 tmp) {
         TmpTileDefine tmpTile(1, tmpShape);
         SrcTileDefine weightTile(1, srcShape4);
         pto::TASSIGN(tmpTile, (uint64_t)(tmp.GetAddr()));
+        pto::TASSIGN(weightTile, (uint64_t)(weight.GetAddr()));
         
         for (LoopVar n3Index = 0; n3Index < dstShape3; ++n3Index) {
             auto dstOffset = n3Index * dstStride3;
@@ -86,7 +87,6 @@ TILEOP void TPRelu(T0 dst, T1 src, T2 weight, T3 tmp) {
             
             pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
             pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
-            pto::TASSIGN(weightTile, (uint64_t)(weight.GetAddr()));
             
             pto::TPRELU(dstTile, srcTile, weightTile, tmpTile);
         }
