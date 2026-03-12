@@ -34,6 +34,12 @@ const std::string l0bSize = "l0_b_size";
 const std::string l0cSize = "l0_c_size";
 const std::string l1Size = "l1_size";
 const std::string ubSize = "ub_size";
+const std::string btSize = "bt_size";
+const std::string fixQuantPreSize = "fb0_size";
+
+constexpr size_t kDefaultFixSize = 1 * 1024;
+constexpr size_t kDefaultL0mxSize = 2 * 1024;
+
 const std::unordered_map<std::string, NPUArch> npuArchMap = {
     {"1001", NPUArch::DAV_1001},
     {"2201", NPUArch::DAV_2201},
@@ -43,7 +49,7 @@ const std::unordered_map<std::string, NPUArch> npuArchMap = {
 NPUArch StringToNPUArch(const std::string& npuArch) {
     auto it = npuArchMap.find(npuArch);
     if (it != npuArchMap.end()) {
-        FUNCTION_LOGD("Set NpuArch as %s.", npuArch.c_str());
+        PLATFORM_LOGD("Set NpuArch as %s.", npuArch.c_str());
         return it->second;
     }
     return NPUArch::DAV_2201;
@@ -89,16 +95,6 @@ void SoC::SetNPUArch(const std::string& versionStr) {
     version_ = StringToNPUArch(versionStr);
 }
 
-void SoC::SetCoreVersion(const std::unordered_map<std::string, std::string>& ver) {
-    for (const auto &pair : ver) {
-        if (pair.first == "AIC") {
-            GetAICCore().SetVersion(pair.second);
-        } else if (pair.first == "AIV") {
-            GetAIVCore().SetVersion(pair.second);
-        }
-    }
-}
-
 void SoC::SetCCECVersion(const std::unordered_map<std::string, std::string>& ver) {
     for (const auto &pair : ver) {
         if (pair.first == "AIC") {
@@ -106,16 +102,6 @@ void SoC::SetCCECVersion(const std::unordered_map<std::string, std::string>& ver
         } else if (pair.first == "AIV") {
             GetAIVCore().SetCCECVersion(pair.second);
         }
-    }
-}
-
-std::string SoC::GetCoreVersion(std::string CoreType) {
-    if (CoreType == "AIC") {
-        return GetAICCore().GetVersion();
-    } else if (CoreType == "AIV") {
-        return GetAIVCore().GetVersion();
-    } else {
-        return "UNKNOWN_CORE";
     }
 }
 
@@ -204,7 +190,7 @@ Platform &Platform::Instance() {
 
 void Platform::SetMemoryLimit(const PlatformParser &parser) {
     size_t memoryLimit;
-    FUNCTION_LOGD("Start set memory limit.");
+    PLATFORM_LOGD("Start set memory limit.");
     if (parser.GetSizeVal(aiCoreSpec, l0aSize, memoryLimit)) {
         GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0A, memoryLimit));
     }
@@ -220,13 +206,23 @@ void Platform::SetMemoryLimit(const PlatformParser &parser) {
     if (parser.GetSizeVal(aiCoreSpec, ubSize, memoryLimit)) {
         GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_UB, memoryLimit));
     }
+    if (parser.GetSizeVal(aiCoreSpec, btSize, memoryLimit)) {
+        GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_BT, memoryLimit));
+    }
+    if (parser.GetSizeVal(aiCoreSpec, fixQuantPreSize, memoryLimit)) {
+        GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_FIX_QUANT_PRE, memoryLimit));
+    }
+    // 插桩
+    GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_FIX, kDefaultFixSize));
+    GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0AMX, kDefaultL0mxSize));
+    GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0BMX, kDefaultL0mxSize));
 }
 
 void Platform::LoadPlatformInfo(const PlatformParser &parser) {
     std::string archType;
     std::string shortSocVersion;
     std::unordered_map<std::string, std::string> versionInfo;
-    FUNCTION_LOGD("Start load platform info.");
+    PLATFORM_LOGD("Start load platform info.");
     if (parser.GetStringVal(version, npuArchInfo, archType)) {
         GetSoc().SetNPUArch(archType);
     }
@@ -235,9 +231,6 @@ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
     }
     if (parser.GetCCECVersion(versionInfo)) {
         GetSoc().SetCCECVersion(versionInfo);
-    }
-    if (parser.GetCoreVersion(versionInfo)) {
-        GetSoc().SetCoreVersion(versionInfo);
     }
     size_t coreNum;
     if (parser.GetSizeVal(socInfo, aiCoreCnt, coreNum)) {
@@ -255,7 +248,7 @@ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
     SetMemoryLimit(parser);
     std::vector<std::pair<MemoryType, MemoryType>> dataPath;
     InternalParser internalParser = InternalParser(archType);
-    FUNCTION_LOGD("Start obtaining data path.");
+    PLATFORM_LOGD("Start obtaining data path.");
     if (internalParser.LoadInternalInfo()) {
         if (internalParser.GetDataPath(dataPath)) {
             GetDie().SetMemoryPath(dataPath);
@@ -264,9 +257,9 @@ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
 }
 
 Platform::Platform() {
-    FUNCTION_LOGD("Start initializing platform.");
+    PLATFORM_LOGD("Start initializing platform.");
     ObtainPlatformInfo();
-    FUNCTION_LOGD("Initialized platform.");
+    PLATFORM_LOGD("Initialized platform.");
 }
 
 void Platform::ObtainPlatformInfo() {
@@ -276,17 +269,17 @@ void Platform::ObtainPlatformInfo() {
     }
     std::string socVersion;
     std::unique_ptr<PlatformParser> parser;
-    FUNCTION_LOGD("Start obtaining platform info.");
+    PLATFORM_LOGD("Start obtaining platform info.");
     if (CannHostRuntime::Instance().GetSocVersion(socVersion)) {
-        FUNCTION_LOGD("Obtain platform through cann package(socVersion:%s), use runtime function.", socVersion.c_str());
+        PLATFORM_LOGD("Obtain platform through cann package(socVersion:%s), use runtime function.", socVersion.c_str());
         parser = std::make_unique<CmdParser>();
     } else {
-        FUNCTION_LOGD("Cannot obtain platform through cann package, use simulation info.");
+        PLATFORM_LOGD("Cannot obtain platform through cann package, use simulation info.");
         parser = std::make_unique<INIParser>();
     }
-    FUNCTION_LOGD("Try to load platform info.");
+    PLATFORM_LOGD("Try to load platform info.");
     LoadPlatformInfo(*parser);
-    FUNCTION_LOGD("Loaded platform info.");
+    PLATFORM_LOGD("Loaded platform info.");
     initialized = true;
 }
 }
