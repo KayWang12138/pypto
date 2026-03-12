@@ -472,10 +472,9 @@ void AssignMemoryType::AssignMoveOpForView(Operation &operation) {
     MemoryType attrToType = viewOpAttribute->GetTo();
     bool isExplicitMemType = (attrToType != MemoryType::MEM_UNKNOWN);
     if(isExplicitMemType) {
-        //跳过前端指定mem类型的view
-        if ((operation.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR ||
-                operation.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_UB) &&
-            attrToType == MemoryType::MEM_L1) {
+        // 前端指定type的view单独处理，大包搬运场景即ToAttr为MEM_L1时将内存类型刷给View输入Tensor的TobeMap
+        if (!operation.iOperand.empty() && attrToType == MemoryType::MEM_L1 &&
+            inserter.CrossCore(operation.iOperand.front()->GetMemoryTypeOriginal(), attrToType)) {
             inserter.UpdateTensorTobeMap(operation.iOperand.front(), operation, attrToType);
         }
         return;
