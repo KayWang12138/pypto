@@ -21,38 +21,16 @@ Main Functions:
 import multiprocessing as mp
 
 import numpy as np
+import pytest
 import torch
 from torch._dynamo import allow_in_graph
 from torch._subclasses import fake_tensor
-import torch.distributed as dist
-import torch_npu
 
 import pypto
 
-# 通信域初始化相关参数
-MASTER_IP = "127.0.0.1"
-MASTER_PORT = "50001"
-WORLD_SIZE = 2
-PHYSICAL_START_DEVICE_ID = 0
-LOGICAL_RANKS = list(range(WORLD_SIZE))
+from utils.distributed_config import DistributedConfig
 
 
-def init_hccl_comm(logical_rank):
-    physical_device_id = PHYSICAL_START_DEVICE_ID + logical_rank
-    torch_npu.npu.set_device(physical_device_id)
-    dist.init_process_group(
-        backend="hccl",
-        rank=logical_rank,
-        world_size=WORLD_SIZE,
-        init_method=f"tcp://{MASTER_IP}:{MASTER_PORT}",
-    )
-    group_handle = dist.new_group(backend="hccl", ranks=LOGICAL_RANKS)
-    group_name = group_handle._get_backend(torch.device("npu")).get_hccl_comm_name(logical_rank)
-    return [group_name]
-
-
-
-    
 @pypto.frontend.jit()
 def matmul_allreduce_add_rmsnorm_kernel(
     in_tensor: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_BF16),
@@ -65,7 +43,8 @@ def matmul_allreduce_add_rmsnorm_kernel(
     batch_size,
     hidden_size,
     eps,
-    group_name
+    group_name,
+    world_size,
 ):
     in_tensor_mean_coff = 1.0 / hidden_size
     view_row_shape = 8
@@ -79,14 +58,14 @@ def matmul_allreduce_add_rmsnorm_kernel(
         # 1. create shmem tesnor
         shmem_shape = [1, view_row_shape, hidden_size]
         shmem_data, shmem_signal = pypto.distributed.create_shmem_tensor(
-            group_name, WORLD_SIZE, pypto.DT_FP32, shmem_shape)
-        shmem_barrier_signal = pypto.distributed.create_shmem_signal(group_name, WORLD_SIZE)
+            group_name, world_size, pypto.DT_FP32, shmem_shape)
+        shmem_barrier_signal = pypto.distributed.create_shmem_signal(group_name, world_size)
         my_pe = pypto.distributed.my_symbolic_pe(group_name)
         for _ in pypto.loop(1, name="LOOP_MM_AR_ARMS_L0", idx_name="_"):
             in_tensor_tile = pypto.view(
                 in_tensor, (view_row_shape, in_tensor.shape[1]), [bs_idx * view_row_shape, 0],
                 valid_shape=[(batch_size - bs_idx * view_row_shape).min(view_row_shape), in_tensor.shape[1]])
-            
+
             # 2. clear data
             pypto.set_vec_tile_shapes(view_row_shape, hidden_size)
             data_clear_out = pypto.distributed.shmem_clear(
@@ -103,12 +82,12 @@ def matmul_allreduce_add_rmsnorm_kernel(
 
             # 4. allreduce
             pypto.set_vec_tile_shapes(view_row_shape, hidden_size)
-            for dyn_idx in range(WORLD_SIZE):
+            for dyn_idx in range(world_size):
                 put_out = pypto.distributed.shmem_put(matmul_result, [0, 0, 0], shmem_data, dyn_idx,
                     put_op=pypto.AtomicType.ADD, pred=[barrier_out])
-                pypto.distributed.shmem_signal(shmem_signal, dyn_idx, 1, [1, 1] + shmem_shape, 
+                pypto.distributed.shmem_signal(shmem_signal, dyn_idx, 1, [1, 1] + shmem_shape,
                     [dyn_idx, dyn_idx, 0, 0, 0], sig_op=pypto.AtomicType.ADD, pred=[put_out])
-            wait_until_out = pypto.distributed.shmem_wait_until(shmem_signal, pypto.OpType.EQ, WORLD_SIZE, 
+            wait_until_out = pypto.distributed.shmem_wait_until(shmem_signal, pypto.OpType.EQ, world_size,
                 [1, 1] + shmem_shape, [my_pe, my_pe, 0, 0, 0], clear_signal=True, pred=[in_tensor_tile])
             pypto.set_vec_tile_shapes(1, hidden_size)
             all_reduce_out = pypto.experimental.shmem_load(
@@ -149,7 +128,7 @@ def matmul_allreduce_add_rmsnorm_kernel(
             out_tensor[bs_idx * pypto.symbolic_scalar(view_row_shape):] = hidden_bf16
 
 
-def generate_golden_data():
+def generate_golden_data(world_size: int):
     # 设置参数
     batch_size = 8
     attn_dim_per_tp = 1536
@@ -158,7 +137,7 @@ def generate_golden_data():
 
     #构造每张卡上需要的数据
     input_datas = []
-    for _ in range(WORLD_SIZE):
+    for _ in range(world_size):
         in_tensor = torch.randn((batch_size, attn_dim_per_tp), dtype=torch.bfloat16).share_memory_()
         matmul_weight = torch.randn((hidden_size, attn_dim_per_tp), dtype=torch.bfloat16).share_memory_()
         residual = torch.randn((batch_size, hidden_size), dtype=torch.bfloat16).share_memory_()
@@ -199,35 +178,42 @@ def matmul_allreduce_add_rmsnorm_result_golden(batch_size, num, input_datas):
     return output_datas
 
 
-def matmul_allreduce_add_rmsnorm_worker(intput_data, output_data, rank):
-    groups = init_hccl_comm(rank)
-    device = f'npu:{rank + PHYSICAL_START_DEVICE_ID}'
-    in_tensor, matmul_weight, residual, gamma, bias, eps = intput_data
+def matmul_allreduce_add_rmsnorm_worker(
+    config: DistributedConfig,
+    input_data: list,
+    output_data: list,
+    logical_rank_id: int,
+):
+    groups = config.init_hccl_comm(logical_rank_id)
+    physical_device_id = config.get_physical_device_id(logical_rank_id)
+    device = f'npu:{physical_device_id}'
+
+    in_tensor, matmul_weight, residual, gamma, bias, eps = input_data
     golden_out_tensor, golden_residual = output_data
 
     out_tensor = torch.empty(residual.shape, dtype=torch.bfloat16, device=device)
     residual_out = torch.empty(residual.shape, dtype=torch.bfloat16, device=device)
 
-    inputs = [in_tensor.to(device), matmul_weight.to(device), residual.to(device), gamma.to(device), 
+    inputs = [in_tensor.to(device), matmul_weight.to(device), residual.to(device), gamma.to(device),
         bias.to(device), out_tensor, residual_out]
 
     batch_size, _ = in_tensor.shape
     hidden_size = out_tensor.shape[1]
 
-    matmul_allreduce_add_rmsnorm_kernel(*inputs, batch_size, hidden_size, eps, groups[0])
+    matmul_allreduce_add_rmsnorm_kernel(*inputs, batch_size, hidden_size, eps, groups[0], config.world_size)
 
     np.testing.assert_allclose(
-        np.array(out_tensor.cpu().flatten().tolist()), 
-        np.array(golden_out_tensor.cpu().flatten().tolist()), 
-        rtol=8e-3, 
+        np.array(out_tensor.cpu().flatten().tolist()),
+        np.array(golden_out_tensor.cpu().flatten().tolist()),
+        rtol=8e-3,
         atol=7e-2,
     )
 
     np.testing.assert_allclose(
-        np.array(residual_out.cpu().flatten().tolist()), 
-        np.array(golden_residual.cpu().flatten().tolist()), 
-        rtol=8e-3, 
-        atol=5e-1,
+        np.array(residual_out.cpu().flatten().tolist()),
+        np.array(golden_residual.cpu().flatten().tolist()),
+        rtol=7e-2,
+        atol=8e-3,
     )
 
 
@@ -240,37 +226,42 @@ def matmul_allreduce_add_rmsnorm(
     bias: torch.Tensor,
     eps: float,
     group_name: str,
+    world_size: int,
 ):
     if isinstance(in_tensor, fake_tensor.FakeTensor):
         return None, None
-    
+
     out_tensor = torch.empty(residual.shape, dtype=torch.bfloat16, device=residual.device)
     residual_out = torch.empty(residual.shape, dtype=torch.bfloat16, device=residual.device)
-    
-    inputs = [in_tensor, matmul_weight, residual, gamma, bias, out_tensor, residual_out]
+
+    inputs = [hidden_size, matmul_weight, residual, gamma, bias, out_tensor, residual_out]
 
     batch_size, _ = in_tensor.shape
     hidden_size = out_tensor.shape[1]
 
-    matmul_allreduce_add_rmsnorm_kernel(*inputs, batch_size, hidden_size, eps, group_name)
+    matmul_allreduce_add_rmsnorm_kernel(*inputs, batch_size, hidden_size, eps, group_name, world_size)
 
     return out_tensor, residual_out
 
 
-def test_matmul_allreduce_add_rmsnorm():
+@pytest.mark.world_size(4)
+def run_matmul_allreduce_add_rmsnorm():
     mp.set_start_method('spawn', force=True)
+    config = DistributedConfig(world_size=4)
     processes = []
-    input_datas, output_datas = generate_golden_data()
-    for i in range(WORLD_SIZE):
-        p = mp.Process(target=matmul_allreduce_add_rmsnorm_worker, args=(input_datas[i], output_datas[i], i))
+    input_datas, output_datas = generate_golden_data(config.world_size)
+    for i in range(config.world_size):
+        p = mp.Process(target=matmul_allreduce_add_rmsnorm_worker, args=(config, input_datas[i], output_datas[i], i))
         p.start()
         processes.append(p)
-    for p in processes:
+    for i, p in enumerate(processes):
         p.join()
+        if p.exitcode != 0:
+            raise AssertionError(f"process {i} failed, return: {p.exitcode}")
 
 
 def main():
-    test_matmul_allreduce_add_rmsnorm()
+    run_matmul_allreduce_add_rmsnorm()
 
 
 if __name__ == '__main__':

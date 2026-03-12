@@ -25,22 +25,17 @@ from typing import Callable
 
 import multiprocessing as mp
 import numpy as np
+import pytest
 import torch
-import torch.distributed as dist
-import torch_npu
 
 import pypto
+
+from utils.distributed_config import DistributedConfig
 
 TensorList = list[torch.Tensor, ...]
 
 np.random.seed(0)
 torch.manual_seed(0)
-
-MASTER_IP = '127.0.0.1'
-MASTER_PORT = '50001'
-WORLD_SIZE = 4
-PHYSICAL_START_DEVICE_ID = 0
-LOGICAL_RANK_IDS = list(range(WORLD_SIZE))
 
 
 def check_cond(cond: bool, msg: str) -> None:
@@ -82,20 +77,6 @@ def assert_allcolse_whit_rtol_and_atol(out, act):
         rtol=0,
         atol=0,
     )
-
-
-def init_hccl_comm(logical_rank_id: int) -> list[str, ...]:
-    physical_device_id = PHYSICAL_START_DEVICE_ID + logical_rank_id
-    torch_npu.npu.set_device(physical_device_id)
-    dist.init_process_group(
-        backend='hccl',
-        rank=logical_rank_id,
-        world_size=WORLD_SIZE,
-        init_method=f'tcp://{MASTER_IP}:{MASTER_PORT}',
-    )
-    group_handle = dist.new_group(backend='hccl', ranks=LOGICAL_RANK_IDS)
-    group_name = group_handle._get_backend(torch.device('npu')).get_hccl_comm_name(logical_rank_id)
-    return [group_name]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -183,7 +164,7 @@ def generate_inputs(moe_case: MoeCase, torch_data_type: torch.dtype) -> tuple[Te
 
 
 def create_tensor_on_npu(golden_tensor, device_id):
-    return torch.empty(golden_tensor.shape, 
+    return torch.empty(golden_tensor.shape,
                     dtype=golden_tensor.dtype,
                     device=f'npu:{device_id}')
 
@@ -575,8 +556,13 @@ def moe_distributed_dispatch_kernel(
     return kernel
 
 
-def moe_distributed_dispatch(moe_case: MoeCase, operands: MoeDispatchOperands, logical_rank_id: int) -> None:
-    groups = init_hccl_comm(logical_rank_id)
+def moe_distributed_dispatch(
+    config: DistributedConfig,
+    moe_case: MoeCase,
+    operands: MoeDispatchOperands,
+    logical_rank_id: int,
+) -> None:
+    groups = config.init_hccl_comm(logical_rank_id)
 
     x = operands.x
     expert_ids = operands.expert_ids
@@ -592,7 +578,7 @@ def moe_distributed_dispatch(moe_case: MoeCase, operands: MoeDispatchOperands, l
     expert_token_nums_golden.share_memory_()
     recv_counts_golden.share_memory_()
 
-    physical_device_id = PHYSICAL_START_DEVICE_ID + logical_rank_id
+    physical_device_id = config.get_physical_device_id(logical_rank_id)
     x = x.to(f'npu:{physical_device_id}')
     expert_ids = expert_ids.to(f'npu:{physical_device_id}')
     expand_x_golden = expand_x_golden.to(f'npu:{physical_device_id}')
@@ -617,10 +603,12 @@ def moe_distributed_dispatch(moe_case: MoeCase, operands: MoeDispatchOperands, l
         assert_allcolse_whit_rtol_and_atol(out, act)
 
 
+@pytest.mark.world_size(4)
 def run_moe_distributed_dispatch() -> None:
+    config = DistributedConfig(world_size=4)
     mp.set_start_method('spawn', force=True)
     processes = []
-    moe_case = MoeCase(8, 5120, 160, 8, pypto.DT_BF16, WORLD_SIZE)
+    moe_case = MoeCase(8, 5120, 160, 8, pypto.DT_BF16, config.world_size)
 
     operand_lists = generate_dispatch_golden(moe_case, torch.bfloat16)
     for (
@@ -638,7 +626,7 @@ def run_moe_distributed_dispatch() -> None:
         operand_lists.assist_info_for_combine_golden_list,
         operand_lists.expert_token_nums_golden_list,
         operand_lists.recv_counts_golden_list,
-        LOGICAL_RANK_IDS,
+        config.logical_ranks,
     ):
         operands = MoeDispatchOperands(
             x,
@@ -648,11 +636,13 @@ def run_moe_distributed_dispatch() -> None:
             expert_token_nums_golden,
             recv_counts_golden,
         )
-        p = mp.Process(target=moe_distributed_dispatch, args=(moe_case, operands, logical_rank_id))
+        p = mp.Process(target=moe_distributed_dispatch, args=(config, moe_case, operands, logical_rank_id))
         p.start()
         processes.append(p)
-    for p in processes:
+    for i, p in enumerate(processes):
         p.join()
+        if p.exitcode != 0:
+            raise AssertionError(f"process {i} failed, return: {p.exitcode}")
 
 
 def moe_distributed_combine_kernel(
@@ -762,11 +752,12 @@ def moe_distributed_combine_kernel(
 
 
 def moe_distributed_combine(
+    config: DistributedConfig,
     moe_case: MoeCase,
     operands: MoeCombineOperands,
     logical_rank_id: int,
 ) -> None:
-    groups = init_hccl_comm(logical_rank_id)
+    groups = config.init_hccl_comm(logical_rank_id)
 
     expand_x = operands.expand_x
     assist_info_for_combine = operands.assist_info_for_combine
@@ -780,7 +771,7 @@ def moe_distributed_combine(
     expert_scales.share_memory_()
     out_golden.share_memory_()
 
-    physical_device_id = PHYSICAL_START_DEVICE_ID + logical_rank_id
+    physical_device_id = config.get_physical_device_id(logical_rank_id)
     expand_x = expand_x.to(f'npu:{physical_device_id}')
     assist_info_for_combine = assist_info_for_combine.to(f'npu:{physical_device_id}')
     recv_counts = recv_counts.to(f'npu:{physical_device_id}')
@@ -794,10 +785,12 @@ def moe_distributed_combine(
     assert_allclose_with_eps(out_golden.cpu(), out.cpu())
 
 
-def run_moe_distributed_combine() -> None:
+@pytest.mark.world_size(4)
+def test_moe_distributed_combine() -> None:
+    config = DistributedConfig(world_size=4)
     mp.set_start_method('spawn', force=True)
     processes = []
-    moe_case = MoeCase(8, 5120, 160, 8, pypto.DT_BF16, WORLD_SIZE)
+    moe_case = MoeCase(8, 5120, 160, 8, pypto.DT_BF16, config.world_size)
 
     operand_lists = generate_combine_golden(moe_case, torch.bfloat16)
     for expand_x, assist_info_for_combine, recv_counts, expert_scales, out_golden, logical_rank_id in zip(
@@ -806,16 +799,18 @@ def run_moe_distributed_combine() -> None:
         operand_lists.recv_counts_list,
         operand_lists.expert_scales_list,
         operand_lists.out_golden_list,
-        LOGICAL_RANK_IDS,
+        config.logical_ranks,
     ):
         operands = MoeCombineOperands(expand_x, assist_info_for_combine, recv_counts, expert_scales, out_golden)
-        p = mp.Process(target=moe_distributed_combine, args=(moe_case, operands, logical_rank_id))
+        p = mp.Process(target=moe_distributed_combine, args=(config, moe_case, operands, logical_rank_id))
         p.start()
         processes.append(p)
-    for p in processes:
+    for i, p in enumerate(processes):
         p.join()
+        if p.exitcode != 0:
+            raise AssertionError(f"process {i} failed, return: {p.exitcode}")
 
 
 if __name__ == '__main__':
-    run_moe_distributed_combine()
+    test_moe_distributed_combine()
     run_moe_distributed_dispatch()
