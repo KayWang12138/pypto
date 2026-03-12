@@ -25,17 +25,15 @@ public:
     Status DeleteRedundantAssemble(Function &function) const;
     Status DeleteRedundantView(Function &function) const;
     void HandleForReshapeToOutcast(Function &function) const;
-    Status RemoveRedundant(Function &function) const;
 
 private:
-    bool IsCandidateAssembleOp(Function &function, Operation &op) const;
-    void UpdateReshapeShape(Operation &reshapeOp, const Shape &newRawShape) const;
-    Status HanldeForSingleAssemble(Function &function, LogicalTensorPtr input, LogicalTensorPtr output, Operation &op) const;
-    void HanldeForMultiAssemble(Function &function, std::unordered_set<Operation *>& concurrentAssembles) const;
     void HandleForAssembleToOutcast(Function &function, Operation &assembleOp,
         std::set<Operation *, LogicalTensor::CompareOp> &producersBackup) const;
     void HandleForAssembleFromInOut(Function &function, Operation &AssembleOp,
         std::set<Operation *, LogicalTensor::CompareOp> &producersBackup) const;
+    void HanldeForMultiAssemble(Function &function, std::unordered_set<Operation *> &concurrentAssembles) const;
+    Status HanldeForSingleAssemble(
+        Function &function, LogicalTensorPtr input, LogicalTensorPtr output, Operation &op) const;
     Status ProcessView(Function &function) const;
     Status SplitMultiConsumerReshape(
         Function &function, std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const;
@@ -43,6 +41,8 @@ private:
         std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const;
     Status RemoveViewMultiReshape(const std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const;
     Status RemoveViewSingleReshape(Function &function) const;
+    bool IsCandidateAssembleOp(Function &function, Operation &op) const;
+    void UpdateReshapeShape(Operation &reshapeOp, const Shape &newRawShape) const;
 };
 } // namespace npu::tile_fwk
 #endif // PASS_REMOVE_REDUNDANT_ASSEMBLE_H

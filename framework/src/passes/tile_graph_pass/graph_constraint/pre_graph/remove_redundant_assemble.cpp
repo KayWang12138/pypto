@@ -631,17 +631,4 @@ Status RemoveRedundantAssemble::DeleteRedundantView(Function &function) const {
     function.EraseOperations(false);
     return SUCCESS;
 }
-
-Status RemoveRedundantAssemble::RemoveRedundant(Function &function) const {
-    if (DeleteRedundantAssemble(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "DeleteRedundantAssemble failed.");
-        return FAILED;
-    }
-    if (DeleteRedundantView(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "DeleteRedundantView failed.");
-        return FAILED;
-    }
-    HandleForReshapeToOutcast(function);
-    return SUCCESS;
-}
 } // namespace npu::tile_fwk

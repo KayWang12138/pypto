@@ -62,21 +62,12 @@ Status PreGraphProcess::RunOnFunction(Function &function) {
     }
     SetBoundary setBoundary;
     setBoundary.SetTensorBoundary(function);
-    // Processing Special Ops
-    SetCopyAttr setCopyAttr;
-    for (auto &op : opList) {
-        if (IsCopyOut(op.GetOpcode()) && op.GetOpcode() != Opcode::OP_COPY_OUT) {
-            setCopyAttr.ProcessSpecialMTEOperation(op);
-        }
-        if (IsCopyIn(op.GetOpcode()) && op.GetOpcode() != Opcode::OP_COPY_IN && op.GetOpcode() != Opcode::OP_SHMEM_GET_GM2UB) {
-            setCopyAttr.ProcessMoveInOperation(op);
-        }
-    }
     RemoveRedundantAssemble removeRedundantAssemble;
-    if (removeRedundantAssemble.RemoveRedundant(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "RemoveRedundant failed.");
+    if (removeRedundantAssemble.DeleteRedundantView(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "DeleteRedundantView failed.");
         return FAILED;
     }
+    removeRedundantAssemble.HandleForReshapeToOutcast(function);
     CubeProcess cubeProcess;
     if (cubeProcess.UpdateCubeOp(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Update Cube attr failed.");
