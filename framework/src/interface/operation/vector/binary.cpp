@@ -180,10 +180,10 @@ void TiledPReLUOperation(
         int axis = 5 - cur + 1;
         constexpr size_t ALIGN_SIZE = 32;
         constexpr size_t SIZEOFBYTE = 8;
-        int64_t tmpSize = ALIGN_SIZE / SIZEOFBYTE;
+        int64_t tmpSize = ALIGN_SIZE;
         if (axis == 4) {
             tmpSize = (input.tileInfo.shape[cur - 1] + SIZEOFBYTE - 1) / SIZEOFBYTE;
-            tmpSize = (tmpSize + ALIGN_SIZE - 1) / ALIGN_SIZE * ALIGN_SIZE;
+            tmpSize = (tmpSize + ALIGN_SIZE - 1) / ALIGN_SIZE * ALIGN_SIZE + ALIGN_SIZE;
         }
         std::vector<int64_t> tmpShape({tmpSize});
         auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_UINT8, tmpShape);
