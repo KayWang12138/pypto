@@ -297,8 +297,11 @@ std::string CodeGenOpCloudNPU::GenGatherOp() const
     return "";
 }
 
-std::string CodeGenOpCloudNPU::PrintGatherInUBLayout() const
-{
+std::string CodeGenOpCloudNPU::GenPermuteOp() const {
+    return PrintPermuteLayout();
+}
+
+std::string CodeGenOpCloudNPU::PrintGatherInUBLayout() const {
     constexpr int paramIndex = 1;
     constexpr int indicesIndex = 2;
     constexpr int blockTableIndex = 3;
