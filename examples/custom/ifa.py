@@ -965,34 +965,46 @@ def compute_loop_s2(ctx_params, cur_seq_len, dtype):
 
 
 def compute_loop_group(ctx_params, cur_seq_len, dtype):
-    # get need tile cfg
+    """
+    Compute attention loop over groups.
+    
+    Args:
+        ctx_params: Context parameters
+        cur_seq_len: Current sequence length
+        dtype: Data type for computation
+    """
+
+    # Get needed tile cfg
     g_tile = ctx_params.tile_cfg.g_tile
 
-    # get need kernel params
+    # Get needed kernel params
     group = ctx_params.kernel_params.group
     d = ctx_params.kernel_params.d
 
-    # get need loop index params
+    # Get needed loop index params
     loop_index = ctx_params.loop_index
     n2_idx = loop_index.n2_idx
     group_idx = loop_index.group_idx
 
-    # get need loop offset params
+    # Get needed loop offset params
     loop_ofs = ctx_params.loop_ofs
     bs_ofs = loop_ofs.bs_ofs
 
-    # get need loop params
+    # Get needed loop params
     s2_loop = ctx_params.loop_size.s2_loop
 
+    # Calculate offset for current group
     n1g_ofs = n2_idx * group + group_idx * g_tile
     out_ofs = [bs_ofs, n1g_ofs, 0]
     loop_ofs = replace(loop_ofs, n1g_ofs=n1g_ofs, out_ofs=out_ofs)
 
+    # Initialize temporary tensors for online softmax
     out_update = pypto.tensor([g_tile, d], pypto.DT_FP32, "out_update")
     sum_update = pypto.tensor([g_tile, 1], pypto.DT_FP32, "sum_update")
     max_update = pypto.tensor([g_tile, 1], pypto.DT_FP32, "max_update")
     temp_update_tensors = TempUpdateTensor(out_update, sum_update, max_update)
 
+    # Loop over sequence tiles
     for s2_idx in pypto.loop(s2_loop, name="LOOP_s2", idx_name="s2_idx", unroll_list=[8, 4, 2, 1]):
         loop_index = replace(loop_index, s2_idx=s2_idx)
         ctx_params = replace(ctx_params, loop_index=loop_index, 
@@ -1001,6 +1013,14 @@ def compute_loop_group(ctx_params, cur_seq_len, dtype):
         
 
 def compute_loop_n2(ctx_params, cur_seq_len, dtype):
+    """
+    Compute attention loop over key/value heads.
+    
+    Args:
+        ctx_params: Context parameters
+        cur_seq_len: Current sequence length
+        dtype: Data type for computation
+    """
     loop_index = ctx_params.loop_index
     group_loop = ctx_params.loop_size.group_loop
 
@@ -1011,6 +1031,14 @@ def compute_loop_n2(ctx_params, cur_seq_len, dtype):
         
 
 def compute_loop_s1(ctx_params, cur_seq_len, dtype):
+    """
+    Compute attention loop over query sequence positions.
+    
+    Args:
+        ctx_params: Context parameters
+        cur_seq_len: Current sequence length
+        dtype: Data type for computation
+    """
     n2 = ctx_params.kernel_params.n2
     loop_index =  ctx_params.loop_index
 
@@ -1021,22 +1049,32 @@ def compute_loop_s1(ctx_params, cur_seq_len, dtype):
 
 
 def compute_loop_b(dtype, ctx_params):
-    # get need kernel params
+    """
+    Compute attention loop over batch dimension.
+    
+    Args:
+        dtype: Data type for computation
+        ctx_params: Context parameters
+    """
+    # Get needed kernel params
     s1 = ctx_params.kernel_params.s1
 
-    # get need tile cfg
+    # Get needed tile cfg
     s2_tile = ctx_params.tile_cfg.s2_tile
 
-    # get need loop tensors
+    # Get needed loop tensors
     kv_act_seqs = ctx_params.loop_tensors.kv_act_seqs
 
-    # get need loop index
+    # Get needed loop index
     b_idx = ctx_params.loop_index.b_idx
 
     loop_size = ctx_params.loop_size
 
+    # Loop over query sequence positions
     for s1_idx in pypto.loop(s1, name="LOOP_s1", idx_name="s1_idx"):
+        # Calculate effective sequence length
         cur_seq_len = kv_act_seqs[b_idx] - (s1 - 1 - s1_idx)
+
         s2_loop = pypto.ceildiv(cur_seq_len, s2_tile)
         loop_size = replace(loop_size, s2_loop=s2_loop)
         bs_ofs = b_idx * s1 + s1_idx
@@ -1046,8 +1084,23 @@ def compute_loop_b(dtype, ctx_params):
     
 
 def ifa_func(q_shape, kv_shape, block_table_shape):
+    """
+    Create the IFA (Incremental Flash Attention) kernel function.
+    
+    This function defines and returns a JIT-compiled kernel that performs
+    incremental flash attention using PyPTO.
+    
+    Args:
+        q_shape: Shape of query tensor
+        kv_shape: Shape of KV cache tensors
+        block_table_shape: Shape of block table
+    
+    Returns:
+        function: JIT-compiled IFA kernel function
+    """
     out_shape = q_shape
 
+    # Mark dimensions as dynamic for flexible input sizes
     q_shape = (pypto.frontend.dynamic("qshape"), q_shape[1], q_shape[2])
     kv_shape = (pypto.frontend.dynamic("kvshape"), kv_shape[1], kv_shape[2], kv_shape[3])
     bs = pypto.frontend.dynamic("bs")
@@ -1075,26 +1128,29 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
         kv_act_seqs: pypto.Tensor((b, ), pypto.DT_INT32),
         atten_out: pypto.Tensor(out_shape, pypto.DT_BF16)
     ):
-        # 1. 解析参数
+        # Step 1: Initialize kernel parameters
         dtype = q.dtype
         kernel_params = init_kernel_params(q, k, block_table_shape)
 
-        # 2. 解析tile配置
+        # Step 2: Get tile configuration
         tile_cfg = get_ifa_tile_cfg()
 
-        # 3. q, k, v reshape为二维
+        # Step 3: Reshape Q, K, V to 2D
         q_2d, k_2d, v_2d = reshape_qkv_to_2d(q, k, v, kernel_params)
         loop_tensors = LoopTensor(q_2d, k_2d, v_2d, block_table, kv_act_seqs, atten_out)
 
+        # Calculate number of groups to iterate
         group_loop = kernel_params.group // tile_cfg.g_tile
         loop_size = LoopSize(group_loop=group_loop)
 
+        # Create context parameters
         ctx_params = ContextParams(
             kernel_params=kernel_params, tile_cfg=tile_cfg, loop_tensors=loop_tensors,
             loop_size=loop_size
         )
 
-        # 4. 实现kernel逻辑
+        # Step 4: Implement kernel logic with nested loops
+        # Loop over batch dimension
         for b_idx in pypto.loop(kernel_params.b, name="LOOP_b", idx_name="b_idx"):
             loop_index = LoopIndex(b_idx=b_idx)
             ctx_params = replace(ctx_params, loop_index=loop_index)
@@ -1134,6 +1190,18 @@ def incre_flash_attention(
 
 
 def do_test_incre_flash_attention(case_name: str):
+    """
+    Test the incremental flash attention implementation.
+    
+    This function runs a complete test for a given case:
+    1. Generate test data
+    2. Compute golden (reference) output using PyTorch
+    3. Compute output using PyPTO IFA
+    4. Compare results
+    
+    Args:
+        case_name: Name of the test case (e.g., "1b16k", "8b8k")
+    """
     logger.info("*" * 60)
     logger.info(f"Run incre_flash_attention {case_name} case")
     logger.info("*" * 60 + "\n")
