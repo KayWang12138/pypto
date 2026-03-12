@@ -739,27 +739,28 @@ class JitCallableWrapper:
             idx += 1
 
             # Skip checking if the input tensor definition is None or（shape len is 0 && shape object is not list）
-            if len(input_tensor_def.shape) == 0 and input_tensor_def.status_shape is None:
-                continue
+            if len(input_tensor_def.shape) != 0 or input_tensor_def.status_shape is not None:
 
-            # def shape len must <= tensor shape len
-            is_diff_shape = len(in_tensor.shape) != len(input_tensor_def.shape) \
-                if input_tensor_def.status_shape is None \
-                else len(in_tensor.shape) < len(input_tensor_def.shape)
+                # def shape len must <= tensor shape len
+                is_diff_shape = len(in_tensor.shape) != len(input_tensor_def.shape) \
+                    if input_tensor_def.status_shape is None \
+                    else len(in_tensor.shape) < len(input_tensor_def.shape)
 
-            # Check the shape of input tensors and input tensor definitions
-            if is_diff_shape:
-                raise ValueError(f"The number of dimensions of {ordinal(idx)} input tensor {in_tensor.shape} \
-                    does not match the number of dimensions of input tensor definition {input_tensor_def.shape}.")
-            for i, dim in enumerate(input_tensor_def.shape):
-                if isinstance(dim, int) and in_tensor.shape[i] != dim:
-                    raise ValueError(f"The shape of {ordinal(idx)} input tensor {in_tensor.shape} \
-                        does not match the shape of input tensor definition {input_tensor_def.shape}.")
+                # Check the shape of input tensors and input tensor definitions
+                if is_diff_shape:
+                    raise ValueError(f"The number of dimensions of {ordinal(idx)} input tensor {in_tensor.shape} \
+                        does not match the number of dimensions of input tensor definition {input_tensor_def.shape}.")
+                for i, dim in enumerate(input_tensor_def.shape):
+                    if isinstance(dim, int) and in_tensor.shape[i] != dim:
+                        raise ValueError(f"The shape of {ordinal(idx)} input tensor {in_tensor.shape} \
+                            does not match the shape of input tensor definition {input_tensor_def.shape}.")
 
             # Check the dtype of input tensors and input tensor definitions
-            if self._dtype_dict[str(in_tensor.dtype)] != input_tensor_def.dtype:
+            if input_tensor_def.status_dtype is not None and \
+                    self._dtype_dict[str(in_tensor.dtype)] != input_tensor_def.dtype:
                 raise ValueError(f"The dtype of {ordinal(idx)} input tensor {in_tensor.dtype} \
                     does not match the dtype of input tensor definition {input_tensor_def.dtype}.")
+
             if in_tensor.device.type == "npu":
                 if self._format_dict[get_format(in_tensor)] != input_tensor_def.format:
                     raise ValueError(f"The format of {ordinal(idx)} input tensor {get_format(in_tensor)} \
