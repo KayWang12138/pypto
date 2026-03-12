@@ -22,12 +22,13 @@ def _count_calls(func):
 
     @wraps(func)
     def wrapper(tensor, name: str = "", *, dynamic_axis: Optional[List[int]] = None,
-                tensor_format: Optional[TileOpFormat] = None, dtype: Optional[DataType] = None):
+                tensor_format: Optional[TileOpFormat] = None, dtype: Optional[DataType] = None,
+                readyOnAicoreStart: bool = False):
         nonlocal count
         count += 1
         if name == "":
             name = f"TENSOR_{count}"
-        return func(tensor, name, dynamic_axis, tensor_format, dtype)
+        return func(tensor, name, dynamic_axis, tensor_format, dtype, readyOnAicoreStart)
 
     return wrapper
 
@@ -51,7 +52,8 @@ def _check_inner_shape(tensor, dtype, is_nz):
 
 @_count_calls
 def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
-               tensor_format: Optional[TileOpFormat] = None, dtype: Optional[DataType] = None):
+               tensor_format: Optional[TileOpFormat] = None, dtype: Optional[DataType] = None,
+               readyOnAicoreStart: bool = False):
     """
     convert the input into a PyPTO Tensor
 
@@ -125,6 +127,7 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
             data_ptr=tensor.data_ptr(),
             format=tensor_format,
             device=tensor.device,
+            readyOnAicoreStart = readyOnAicoreStart
         )
     dyn_shape = list(tensor.shape)
     if dynamic_axis is not None:
@@ -138,6 +141,7 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
         format=tensor_format,
         device=tensor.device,
         ori_shape=list(tensor.shape),
+        readyOnAicoreStart = readyOnAicoreStart
     )
 
 
