@@ -106,10 +106,21 @@ public:
    (cond) ? 0 : npu::tile_fwk::Error(__func__, __FILE__, __LINE__, npu::tile_fwk::GetBacktrace(0, /* 64 is maxFrames */ 64)) = \
         npu::tile_fwk::ErrorMessage() << "ASSERTION FAILED: " #cond << "\n"
 
+/* internal check with error code */
+#define ASSERT_C(cond, errCode)                                                                                               \
+   (cond) ? 0 : npu::tile_fwk::Error(__func__, __FILE__, __LINE__, npu::tile_fwk::GetBacktrace(0, /* 64 is maxFrames */ 64)) = \
+        npu::tile_fwk::ErrorMessage() << "ASSERTION FAILED: " #cond << " ErrCode: F" << static_cast<uint32_t>(errCode)        \
+                                      << "!\n"
+
 /* check for user input */
 #define CHECK(cond)                                                                                                           \
    (cond) ? 0 : npu::tile_fwk::Error(__func__, __FILE__, __LINE__, npu::tile_fwk::GetBacktrace(0, /* 64 is maxFrames */ 64)) = \
         npu::tile_fwk::ErrorMessage() << "CHECK FAILED: " #cond << "\n"
+
+#define CHECK_C(cond, errCode)                                                                                                \
+   (cond) ? 0 : npu::tile_fwk::Error(__func__, __FILE__, __LINE__, npu::tile_fwk::GetBacktrace(0, /* 64 is maxFrames */ 64)) = \
+        npu::tile_fwk::ErrorMessage() << "CHECK FAILED: " #cond << " ErrCode: F" << static_cast<uint32_t>(errCode)            \
+                                      << "!\n"
 
 #define TILEFWK_ERROR()                                                                                            \
     npu::tile_fwk::Error(__func__, __FILE__, __LINE__, npu::tile_fwk::GetBacktrace(0, /* 64 is maxFrames */ 64)) = \
@@ -120,8 +131,18 @@ public:
     (cond) ? 0 : AssertInfo() = npu::tile_fwk::ErrorMessage() \
         << "ASSERTION FAILED: " #cond " file " << __FILE__ << ", line " << __LINE__ << "\n"
 
+#define ASSERT_C(cond, errCode)                             \
+    (cond) ? 0 : AssertInfo() = npu::tile_fwk::ErrorMessage() \
+        << "ASSERTION FAILED: " #cond " ErrCode: F" << static_cast<uint32_t>(errCode) \
+        << "! file " << __FILE__ << ", line " << __LINE__ << "\n"
+
 #define CHECK(cond)                             \
     (cond) ? 0 : AssertInfo() = npu::tile_fwk::ErrorMessage() \
         << "CHECK FAILED: " #cond " file " << __FILE__ << ", line " << __LINE__ << "\n"
+
+#define CHECK_C(cond, errCode)                             \
+    (cond) ? 0 : AssertInfo() = npu::tile_fwk::ErrorMessage() \
+        << "CHECK FAILED: " #cond " ErrCode: F" << static_cast<uint32_t>(errCode) \
+        << "! file " << __FILE__ << ", line " << __LINE__ << "\n"
 #endif
 } // namespace npu::tile_fwk
