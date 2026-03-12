@@ -158,6 +158,8 @@ Status GenerateMoveOp::ProcessDefault(Function &function, Operation &op, ViewOpA
     }
     if(op.GetOpcode() == Opcode::OP_L0C_TO_L1) {
         SetL0C2L1CopyAttr(op, op.GetOOperands()[0]->GetShape(), OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()), OpImmediate::Specified(ZERO_OFFSET));
+    } else if (op.GetOpcode() == Opcode::OP_L0C_COPY_UB) {
+        op.SetAttribute(OpAttributeKey::isCube, true);
     } else {
         SetCopyAttr(op,viewOpAttribute);
     }
@@ -278,6 +280,7 @@ Status GenerateMoveOp::CreateMoveOpForConvert(Function &function, Operation &op)
 void GenerateMoveOp::ProcessUB2L1(Function &function, Operation &op) const {
     //插入UB2L1节点（NZ2NZ)，并设置UBcopyL1的NZ属性
     op.SetAttribute(OP_ATTR_PREFIX + "is_nz", 1);
+    op.SetAttribute(OpAttributeKey::isCube, false);
     auto inputTensor = op.iOperand.front();
     if(inputTensor->Format() == TileOpFormat::TILEOP_ND) {
         //新建一块logcialtensor
