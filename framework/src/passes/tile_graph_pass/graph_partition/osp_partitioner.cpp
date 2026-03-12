@@ -31,8 +31,8 @@ Status OspPartitioner::BuildSuperNodeGraph()
 {
     std::vector<Operation*> &opList = operationInfo_->opList_;
     if (opList.size() != operationInfo_->inGraph_.size() || opList.size() != operationInfo_->outGraph_.size()) {
-        APASS_LOG_ERROR_F(Elements::Function, "Osp: Operation inGraph and outGraph have not been initialized.");
-        APASS_LOG_ERROR_F(Elements::Function, "Operation list size (%u) does not match with Operation In- and Out-Graph size (%u, respectively %u).",
+        APASS_LOG_ERROR_F(Elements::Function, "Osp: Operation inGraph and outGraph have not been initialized.\n 
+                          Operation list size (%u) does not match with Operation In- and Out-Graph size (%u, respectively %u).",
                           opList.size(), operationInfo_->inGraph_.size(), operationInfo_->outGraph_.size());
         return FAILED;
     }
