@@ -38,6 +38,11 @@ using namespace npu::tile_fwk::dynamic;
 
 namespace pypto {
 
+static bool IsCompileStageAllComplete() {
+    static bool value = (config::GetHostOption<int64_t>(COMPILE_STAGE) == CS_ALL_COMPLETE);
+    return value;
+}
+
 void CopyToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTensor) {
     CopyDevToHost(devTensor, hostTensor);
 }
@@ -104,7 +109,7 @@ static void InitializeInputOutputData(const std::vector<DeviceTensorData> &input
 
 std::string DeviceRunOnceDataFromHost(
     const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs) {
-    if (config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_ALL_COMPLETE) {
+    if (!IsCompileStageAllComplete()) {
         return "";
     }
     ProgramData::GetInstance().Reset();
@@ -151,7 +156,7 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
     [[maybe_unused]] py::int_ incomingStreamPython, [[maybe_unused]] py::int_ workspaceData,
     [[maybe_unused]] py::int_ devCtrlCache) {
 
-    if (config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_ALL_COMPLETE) {
+    if (!IsCompileStageAllComplete()) {
         return "";
     }
     HOST_PERF_TRACE_START();
@@ -580,6 +585,10 @@ public:
 
     KernelBinary *RegisterLastCompiledKernel(py::object &module) {
         auto func = Program::GetInstance().GetLastFunction();
+        auto attr = func->GetDyndevAttribute();
+        if (attr->devProgBinary.empty() || attr->kernelBinary.empty()) {
+            return nullptr;
+        }
         auto kernel = new KernelBinary(Program::GetInstance().GetFunctionSharedPtr(func));
         kernels.push_back(kernel);
         if (inferCacheShape) {
@@ -604,14 +613,13 @@ public:
         args->kArgs.ctrlFlowCache = (int64_t *)ctrlFlowCache;
         args->kArgs.workspace = workspace;
         args->kArgs.parameter.globalRound = ++sequence;
-        auto isCaptureMode = DeviceLauncher::IsCaptureMode();
-        bool debugEnable = !isCaptureMode && isDebugMode;
+
+        bool debugEnable = !DeviceLauncher::IsCaptureMode() && isDebugMode;
 
 #if ENABALE_VERBOSE_LOG
         ALOG_ERROR_F("triple stream %d sequence %ld workspace %p cfgcache %p", tripleStream, sequence.load(), workspace,
             ctrlFlowCache);
 #endif
-        DeviceLauncher::SetDevPerfAddr(debugEnable, isCaptureMode);
         int ret = DeviceLauncher::LaunchAicpuKernel(rtAicpuArgs, tripleStream, debugEnable, kernel->GetFunction());
         ASSERT(ret == RT_ERROR_NONE) << "launch aicpu failed: " << ret;
 
@@ -797,6 +805,11 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
         ALOG_ERROR("compile kernel");
 #endif
         kbinary = compile_fn(kmodule);
+    }
+
+    if (!IsCompileStageAllComplete()) {
+        HOST_PERF_EVT_END(EventPhase::LaunchKernel);
+        return;
     }
 
     kmodule->EmulationLaunch(kbinary, tensors);
