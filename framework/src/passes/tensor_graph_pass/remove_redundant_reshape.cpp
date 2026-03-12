@@ -16,6 +16,7 @@
 #include "remove_redundant_reshape.h"
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_check/remove_redundant_reshape_checker.h"
+#include "passes/pass_utils/pass_utils.h"
 #include "passes/pass_log/pass_log.h"
 
 #define MODULE_NAME "RemoveRedundantReshape"
@@ -56,9 +57,6 @@ Status RemoveRedundantReshape::RemoveReshape(Function &function) const {
     std::unordered_set<Operation *> redundantResapes;
     LogicalTensorPtr in;
     LogicalTensorPtr out;
-    auto needSkip = [](const Shape vec) -> bool {
-        return std::any_of(vec.begin(), vec.end(), [](int64_t val) { return val == -1; });
-    };
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_RESHAPE) {
             continue;
@@ -66,20 +64,23 @@ Status RemoveRedundantReshape::RemoveReshape(Function &function) const {
         if (CheckIOOperands(op, in, out) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "Op [%d] has invalid input or output operands; Check if op has valid input and output. %s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;}
+        if (CommonUtils::ContainsNegativeOne(in->GetShape()) || CommonUtils::ContainsNegativeOne(out->GetShape())) {
+            continue;
+        }
         auto consumers = out->GetConsumers();
         bool allConsumersIsReshape = true;
         for (auto &consumerOp : consumers) {
             if (consumerOp == nullptr) {
                 APASS_LOG_ERROR_F(Elements::Operation, "Consumer of op [%d] is null; Check if consumer is valid. %s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
                 return FAILED;}
-            if ((in->shape != out->shape && consumerOp->GetOpcode() != Opcode::OP_RESHAPE) || needSkip(in->GetShape()) || needSkip(out->GetShape())) {
+            if (in->shape != out->shape && consumerOp->GetOpcode() != Opcode::OP_RESHAPE) {
                 allConsumersIsReshape = false;
                 continue;
             }
             consumerOp->ReplaceInput(in, out);
         }
         if (allConsumersIsReshape == true) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "All consummers of op [%d] are reshape.", op.GetOpMagic());
+            APASS_LOG_DEBUG_F(Elements::Operation, "All consummers of op [%d] are reshape and the shapes are not -1.", op.GetOpMagic());
             redundantResapes.insert(&op);
         }
     }
