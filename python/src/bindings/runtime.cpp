@@ -38,6 +38,8 @@ using namespace npu::tile_fwk::dynamic;
 
 namespace pypto {
 
+bool g_compileStageAllComplete = false;
+
 void CopyToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTensor) {
     CopyDevToHost(devTensor, hostTensor);
 }
@@ -104,7 +106,7 @@ static void InitializeInputOutputData(const std::vector<DeviceTensorData> &input
 
 std::string DeviceRunOnceDataFromHost(
     const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs) {
-    if (config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_ALL_COMPLETE) {
+    if (!g_compileStageAllComplete) {
         return "";
     }
     ProgramData::GetInstance().Reset();
@@ -151,7 +153,7 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
     [[maybe_unused]] py::int_ incomingStreamPython, [[maybe_unused]] py::int_ workspaceData,
     [[maybe_unused]] py::int_ devCtrlCache) {
 
-    if (config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_ALL_COMPLETE) {
+    if (!g_compileStageAllComplete) {
         return "";
     }
     HOST_PERF_TRACE_START();
@@ -225,6 +227,7 @@ std::string OperatorDeviceSynchronize(py::int_ incomingStreamPython) {
 
 void DeviceInit() {
     DeviceLauncherInit();
+    g_compileStageAllComplete = (config::GetHostOption<int64_t>(COMPILE_STAGE) == CS_ALL_COMPLETE);
 }
 
 void DeviceFini() {
@@ -580,6 +583,10 @@ public:
 
     KernelBinary *RegisterLastCompiledKernel(py::object &module) {
         auto func = Program::GetInstance().GetLastFunction();
+        auto attr = func->GetDyndevAttribute();
+        if (attr->devProgBinary.empty() || attr->kernelBinary.empty()) {
+            return nullptr;
+        }
         auto kernel = new KernelBinary(Program::GetInstance().GetFunctionSharedPtr(func));
         kernels.push_back(kernel);
         if (inferCacheShape) {
@@ -796,6 +803,11 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
         ALOG_ERROR("compile kernel");
 #endif
         kbinary = compile_fn(kmodule);
+    }
+
+    if (!g_compileStageAllComplete) {
+        HOST_PERF_EVT_END(EventPhase::LaunchKernel);
+        return;
     }
 
     kmodule->EmulationLaunch(kbinary, tensors);
