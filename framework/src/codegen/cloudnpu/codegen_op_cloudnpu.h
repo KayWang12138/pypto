@@ -128,6 +128,8 @@ public:
     std::string PrintGatherDynamicUnaligned() const;
     std::string PrintGatherLayout() const;
     std::string GenGatherOp() const;
+    std::string GenPermuteOp() const;
+    std::string GenPermuteElementOp() const;
     std::string GenGatherFromUBOp() const;
 
     std::string GenMemCopyCube(bool isLocalToGM, unsigned uf = 0) const;
@@ -254,6 +256,7 @@ private:
     std::string GetLastUse() const;
 
     TileTensor BuildTileTensor(int paramIdx, const std::string& usingType, const ShapeInLoop& shapeInLoop = {});
+    TileTensor BuildPermuteTmpTileTensor(int paramIdx, const ShapeInLoop &shapeInLoop = {});
     void UpdateTileTensorShapeAndStride(
         int paramIdx, TileTensor& tileTensor, bool isSpillToGm, const ShapeInLoop& shapeInLoop = {});
     std::vector<std::string> BuildStride(const std::vector<int64_t>& input);
@@ -316,6 +319,8 @@ private:
     std::string PrintVnchwconv(const PrintUnaryTmpBuffParam& param) const;
     std::string PrintVnchwconvDynUnaligned(const PrintUnaryTmpBuffParam& param) const;
     std::string PrintVnchwconvStatic(const PrintUnaryTmpBuffParam& param) const;
+    std::string PrintPermuteLayout() const;
+    std::string PrintPermuteElementLayout() const;
     std::string PrintUnaryWithTmpTileTensor() const;
 
     std::string PrintCompact(const PrintUnaryTmpBuffParam& param) const;
