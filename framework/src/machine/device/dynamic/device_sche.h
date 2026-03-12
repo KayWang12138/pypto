@@ -48,7 +48,7 @@ class DeviceSchedMachine {
 public:
     DeviceSchedMachine() {
         for (uint32_t i = 0; i < MAX_SCHEDULE_AICPU_NUM; ++i) {
-            aicoreManager_[i] = std::make_unique<AiCoreManager>(aicpuTaskManager_);
+            aicoreManager_[i] = std::make_unique<AiCoreManager>();
         }
     }
 

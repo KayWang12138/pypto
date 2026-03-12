@@ -63,8 +63,8 @@ struct TaskInfo {
 
 class AiCoreManager {
 public:
-    explicit AiCoreManager(AicpuTaskManager &aicpuTaskManager) : aicpuTaskManager_(aicpuTaskManager){};
-    ~AiCoreManager(){};
+    AiCoreManager() = default;
+    virtual ~AiCoreManager() = default;
 
     void InitLogger(AicoreLogger *logger) {
         logger_ = logger;
@@ -105,6 +105,7 @@ public:
         }
         return isValid;
     }
+
     inline void InitDevTask(DeviceTaskCtrl *taskCtrl) {
         curTaskCtrl_ = taskCtrl;
         curDevTask_ = taskCtrl->devTask;
@@ -153,14 +154,6 @@ public:
         sent = 0UL;
         sent += (sentAic + sentAiv);
         return ret;
-    }
-
-    void DumpAicoreLog(int coreIdx) {
-        const int bufSize = 512;
-        char buf[bufSize];
-        while (logger_[coreIdx].Read(buf, bufSize)) {
-            DEV_INFO("core-%d %s", coreIdx, buf);
-        }
     }
 
     inline int RunTask(DeviceTaskCtrl *taskCtrl) {
@@ -290,14 +283,6 @@ public:
             taskCtrl->PutTask(ret);
         }
         return ret;
-    }
-
-    int32_t ProcessCompletedAicpuTask(uint64_t taskId) {
-        int32_t ret = ResolveDepDyn(taskId);
-        if (unlikely(ret != DEVICE_MACHINE_OK)) {
-            return ret;
-        }
-        return BatchPushReadyQueue();
     }
 
 private:
@@ -498,7 +483,6 @@ private:
         if (ready == 0 ) {
             return 0;
         }
-        uint32_t readyId[MAX_MANAGER_AIV_NUM];
         ReadyQueueLock(readyQue);
         uint32_t head = __atomic_load_n(&readyQue->head, __ATOMIC_RELAXED);
         uint32_t tail = __atomic_load_n(&readyQue->tail, __ATOMIC_RELAXED);
@@ -507,18 +491,9 @@ private:
             ReadyQueueUnLock(readyQue);
             return 0;
         }
-        bool isRealLifo = (enableL2CacheSch_ && !firstLock[static_cast<int>(type)]);
-        if (isRealLifo) {
-            memcpy_s(readyId, taskCount * sizeof(uint64_t),
-                reinterpret_cast<uint8_t *>(&readyQue->elem[tail - taskCount]), taskCount * sizeof(uint32_t));
-            __atomic_fetch_sub(&readyQue->tail, taskCount, std::memory_order_release);
-        } else {
-            __atomic_fetch_add(&readyQue->head, taskCount, std::memory_order_release);
-        }
+        __atomic_fetch_add(&readyQue->head, taskCount, std::memory_order_release);
         ReadyQueueUnLock((readyQue));
-        BatchSendTask(type, isRealLifo ? &readyId[taskCount - 1] : &readyQue->elem[head],
-            taskCount, coreIdxStart, coreIdxEnd, isRealLifo);
-        firstLock[static_cast<int>(type)] = false;
+        BatchSendTask(type, &readyQue->elem[head], taskCount, coreIdxStart, coreIdxEnd, false);
         return taskCount;
     }
 
@@ -650,14 +625,6 @@ private:
             context_->readyCount[aivIndex] = 0;
         }
         return ret;
-    }
-
-    inline int32_t ResolveDepForAicpuTask(uint64_t& taskCount) {
-        int32_t ret = aicpuTaskManager_.TaskProcess(taskCount);
-        if (unlikely(ret != DEVICE_MACHINE_OK)) {
-            return ret;
-        }
-        return aicpuTaskManager_.TaskPoll(this);
     }
 
     inline int32_t ResolveWhenSyncMode(CoreType type, uint32_t finTaskId, uint32_t finTaskState, int coreIdx)  {
@@ -1044,8 +1011,6 @@ private:
         }
         UpdateAiCoreBlockIndexSection();
         aicoreHal_.MapRegistersForAllCores(aicNum_);
-        firstLock[static_cast<int>(CoreType::AIC)] = true;
-        firstLock[static_cast<int>(CoreType::AIV)] = true;
         preFetchSuccess_ = false;
         preFetchNextDevTaskCtrl_ = nullptr;
     }
@@ -1284,7 +1249,6 @@ private:
 private:
     uint64_t seq;
     AicoreHAL aicoreHal_;
-    bool firstLock[AICORE_TYPE_NUM]{true,true};
     int aicNum_{0};
     int aivNum_{0};
     int aicValidNum_{0}; // 有效的aic，根据pgmask计算host传过来
@@ -1325,7 +1289,6 @@ private:
     std::array<int, MAX_AICORE_NUM> taskDfxStatPos_;
 
     SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *taskQueue_{nullptr};
-    AicpuTaskManager &aicpuTaskManager_;
     int64_t dotStatus_{0};
     bool isSendStop{false};
 

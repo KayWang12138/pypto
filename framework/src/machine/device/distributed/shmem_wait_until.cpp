@@ -47,15 +47,16 @@ inline bool SignalTileOp::PollCompleted() const
     return true;
 }
 
-int32_t ShmemWaitUntil::PollCompleted(npu::tile_fwk::dynamic::AiCoreManager *aicoreManager)
+int32_t ShmemWaitUntil::PollCompleted([[maybe_unused]] npu::tile_fwk::dynamic::AiCoreManager *aicoreManager)
 {
-    return runingTaskQueue_.PollCompleted([&](SignalTileOp* task) {
-        if (aicoreManager == nullptr) {
-            DEV_ERROR("AicoreManager is nullptr");
-            return dynamic::DEVICE_MACHINE_ERROR;
-        }
-        return aicoreManager->ProcessCompletedAicpuTask(task->taskId_);
-    });
+    // return runingTaskQueue_.PollCompleted([&](SignalTileOp* task) {
+    //     if (aicoreManager == nullptr) {
+    //         DEV_ERROR("AicoreManager is nullptr");
+    //         return dynamic::DEVICE_MACHINE_ERROR;
+    //     }
+    //     return aicoreManager->ProcessCompletedAicpuTask(task->taskId_);
+    // });
+    return 0;
 }
 
 uint64_t ShmemWaitUntil::GetRawAddr(const uint64_t addr, const uint64_t dstRankId)
