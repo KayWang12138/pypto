@@ -22,34 +22,47 @@ namespace npu {
 namespace tile_fwk {
 Status CommonOperationEliminateChecker::DoPreCheck(Function &function) {
     APASS_LOG_INFO_F(Elements::Operation, "PreCheck for CommonOperationEliminate.");
-    for (auto &op : function.Operations().DuplicatedOpList()) {
+    
+    std::vector<Operation *> opList = function.Operations().DuplicatedOpList();
+    for (auto &op : opList) {
         if (op->GetOpcode() == Opcode::OP_SHMEM_GET_GM2UB) {
             continue;
         }
-        if (op->GetOpAttribute() != nullptr) {
-            size_t fromOffsetSize = -1;
-            if (auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(op->GetOpAttribute().get())) {
-                auto &fromOffset = viewOpAttribute->GetFromOffset();
-                fromOffsetSize = fromOffset.size();
-            } else if (auto copyOpAttribute = dynamic_cast<CopyOpAttribute*>(op->GetOpAttribute().get())) {
-                if (copyOpAttribute->IsCopyOut()) {
-                    continue;
-                }
-                auto [fromOffset, memType] = copyOpAttribute->GetCopyInAttr();
-                (void)memType;
-                fromOffsetSize = fromOffset.size();
-            } else {
+        OpAttributePtr opAttr = op->GetOpAttribute();
+        if (opAttr == nullptr) {
+            continue;
+        size_t fromOffsetSize = -1;
+        bool isEffectiveAttr = false;
+        if (auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(opAttr.get())) {
+            auto &fromOffset = viewOpAttribute->GetFromOffset();
+            fromOffsetSize = fromOffset.size();
+            isEffectiveAttr = true;
+        }
+        else if (auto copyOpAttribute = dynamic_cast<CopyOpAttribute*>(opAttr.get())) {
+            if (copyOpAttribute->IsCopyOut()) {
                 continue;
             }
-            auto& ioperands = op->GetIOperands();
-            if (ioperands.size() != 1) {
-                APASS_LOG_ERROR_F(Elements::Operation, "View or Copy_In Operation %d with not one input operand.", op->GetOpMagic());
-                return FAILED;
-            }
-            if (ioperands.front()->offset.size() != fromOffsetSize) {
-                APASS_LOG_ERROR_F(Elements::Operation, "View or Copy_In Operation %d with mismatch input offset shape.", op->GetOpMagic());
-                return FAILED;
-            }
+            auto [fromOffset, memType] = copyOpAttribute->GetCopyInAttr();
+            (void)memType;
+            fromOffsetSize = fromOffset.size();
+            isEffectiveAttr = true;
+        }
+        if (!isEffectiveAttr) {
+            continue;
+        }
+        auto& ioperands = op->GetIOperands();
+        const int opMagic = op->GetOpMagic();
+        if (ioperands.size() != 1) {
+            APASS_LOG_ERROR_F(Elements::Operation,
+                             "View or Copy_In Operation %d with not one input operand.",
+                             opMagic);
+            return FAILED;
+        }
+        if (ioperands.front()->offset.size() != fromOffsetSize) {
+            APASS_LOG_ERROR_F(Elements::Operation,
+                             "View or Copy_In Operation %d with mismatch input offset shape.",
+                             opMagic);
+            return FAILED;
         }
     }
     return SUCCESS;
