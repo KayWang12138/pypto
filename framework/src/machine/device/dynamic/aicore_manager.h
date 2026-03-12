@@ -198,7 +198,6 @@ public:
                 taskCtrl->finishedFunctionCnt.load(), curDevTask_->coreFunctionCnt, taskCtrl->taskId);
             DumpAiCoreStatus();
         }
-
         return ret;
     }
 
