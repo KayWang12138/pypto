@@ -231,7 +231,8 @@ std::string CodeGenCloudNPU::GetParamType(const Function &func, bool isUnderDynF
 
 void CodeGenCloudNPU::GenCode(
     Function &topFunc, [[maybe_unused]] const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) {
-    COMPILER_LOGI("DumpCCE and DoCompileCCE to binary");
+    COMPILER_LOGI("Start Generate AI_CORE code for topFunc: %s, hash: %s", topFunc.GetMagicName().c_str(),
+        topFunc.GetFunctionHash().c_str());
     std::deque<std::function<void(void)>> tasks;
     for (auto &subFuncPair : topFunc.rootFunc_->programs_) {
         std::function task = [this, subFuncPair, &topFunc]() {
@@ -248,8 +249,7 @@ void CodeGenCloudNPU::GenCode(
             GenFuncEnd(leafKernelFunc);
 #ifdef BUILD_WITH_CANN
             if (std::getenv(ENV_ASCEND_HOME_PATH.c_str()) != nullptr) {
-                DumpCCE(compileInfo.GetCCEAbsPath(), leafKernelFunc);
-                DoCompileCCE(compileInfo, "");
+                CodeToBinary(leafKernelFunc, compileInfo, "");
             }
 #endif
             UpdateSubFunc(subFuncPair, compileInfo);
@@ -281,7 +281,50 @@ void CodeGenCloudNPU::UpdateSubFunc(std::pair<uint64_t, Function *> subFuncPair,
     leafFunc->SetLeafFuncAttribute(attr);
 }
 
-bool CodeGenCloudNPU::IsNeedDumpCCE(const std::string &inputFile) const {
+int CheckInjectStr(const char cmdStr[], size_t strLen) {
+    if (cmdStr == nullptr) {
+        return -1;
+    }
+    char filtChar[] = {';', '|', '`', '>', '<'};
+    for (size_t i = 0; i < strLen; ++i) {
+        for (const auto &c : filtChar) {
+            if (cmdStr[i] == c) {
+                return -1;
+            }
+        }
+    }
+    return 0;
+}
+
+std::string CodeGenCloudNPU::PrepareCmd(const CompileInfo &compileInfo, const std::string &compileOptions) const {
+    std::ostringstream oss;
+    oss << "bisheng -c -O3 -g -x cce -std=c++17 ";
+    BuildArchOptions(oss, compileInfo);
+    BuildIncludes(oss);
+    BuildExtraOptions(oss, compileOptions);
+
+    const std::string srcFile = compileInfo.GetCCEAbsPath();
+    const std::string objFile = compileInfo.GetBinAbsPath();
+    oss << "-o " << objFile << " " << srcFile;
+
+    std::string compileCmd = oss.str();
+
+    int ret = CheckInjectStr(compileCmd.c_str(), compileCmd.length());
+    ASSERT(ret == 0) << "CheckInjectStr failed. errCode = " << ret << ", compileCmd is " << compileCmd;
+
+    CODEGEN_LOGI_FULL("compile kernel...\n%s", compileCmd.c_str());
+    return compileCmd;
+}
+
+void CodeGenCloudNPU::CodeToBinary(
+    std::ostringstream &code, const CompileInfo &compileInfo, const std::string &compileOptions) const {
+    std::string compileCmd = PrepareCmd(compileInfo, compileOptions);
+    code << "\n\n\n// kernel compilation command:\n// " << compileCmd << "\n";
+    DumpCode(compileInfo.GetCCEAbsPath(), code);
+    CompileCode(compileCmd);
+}
+
+bool CodeGenCloudNPU::IsNeedDumpCode(const std::string &inputFile) const {
     if (ConfigManager::Instance().GetCodeGenConfig(KEY_FORCE_OVERWRITE, true)) {
         // force dump, default is true
         return true;
@@ -293,22 +336,21 @@ bool CodeGenCloudNPU::IsNeedDumpCCE(const std::string &inputFile) const {
     return true;
 }
 
-void CodeGenCloudNPU::DumpCCE(const std::string &fileName, std::ostringstream &oss) const {
-    if (!IsNeedDumpCCE(fileName)) {
+void CodeGenCloudNPU::DumpCode(const std::string &fileName, std::ostringstream &code) const {
+    if (!IsNeedDumpCode(fileName)) {
         return;
     }
 
-    std::ofstream cceFile;
+    std::ofstream codeFile;
     try {
-        // 开启异常：failbit/badbit 触发 std::ofstream::failure 异常
-        cceFile.exceptions(std::ofstream::failbit | std::ofstream::badbit);
-        cceFile.open(fileName);
-        cceFile << oss.str();
-        cceFile.flush();
-        cceFile.close();
+        codeFile.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+        codeFile.open(fileName);
+        codeFile << code.str();
+        codeFile.flush();
+        codeFile.close();
     } catch (const std::ofstream::failure &e) {
-        CODEGEN_LOGE("CCE file operation failed: %s, error: %s, errno: %d", fileName.c_str(), e.what(), errno);
-        cceFile.close();
+        CODEGEN_LOGE("Code file operation failed: %s, error: %s, errno: %d", fileName.c_str(), e.what(), errno);
+        codeFile.close();
         std::remove(fileName.c_str());
         return;
     }
@@ -378,30 +420,14 @@ std::string CodeGenCloudNPU::GenAlloc(
     return oss.str();
 }
 
-int CheckInjectStr(const char cmdStr[], size_t strLen) {
-    if (cmdStr == nullptr) {
-        return -1;
-    }
-    char filtChar[] = {';', '|', '`', '>', '<'};
-    for (size_t i = 0; i < strLen; ++i) {
-        for (const auto &c : filtChar) {
-            if (cmdStr[i] == c) {
-                return -1;
-            }
-        }
-    }
-    return 0;
-}
-
-void CodeGenCloudNPU::DoCompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const {
+void CodeGenCloudNPU::CompileCode(const std::string &compileCmd) const {
     if (config::GetHostOption<int64_t>(COMPILE_STAGE) == CS_CODEGEN_INSTRUCTION) {
         CODEGEN_LOGI("Compile stage terminates after codegen instruction.");
         return;
     }
-    auto [ret, ccecCmd] = CompileCCE(compileInfo, compileOptions);
-    ASSERT(ret == 0) << "CompileCCE failed. errCode = " << ret << ", cce file: " << compileInfo.GetCCEAbsPath()
-                     << "\n******** bisheng compiling cmd start ********\n"
-                     << ccecCmd << "\n******** bisheng compiling cmd end ********\n";
+    int ret = DoCompileCmd(compileCmd);
+    ASSERT(ret == 0) << "DoCompileCmd failed. errCode = " << ret << "\n******** bisheng compiling cmd start ********\n"
+                     << compileCmd << "\n******** bisheng compiling cmd end ********\n";
 }
 
 std::string GetIncludePathByLib() {
@@ -526,31 +552,12 @@ std::string CodeGenCloudNPU::GetCoreArch(const CompileInfo &compileInfo) const {
     }
 }
 
-std::pair<int, std::string> CodeGenCloudNPU::CompileCCE(
-    const CompileInfo &compileInfo, const std::string &compileOptions) const {
-    std::ostringstream oss;
-    oss << "bisheng -c -O3 -g -x cce -std=c++17 ";
-    BuildArchOptions(oss, compileInfo);
-    BuildIncludes(oss);
-    BuildExtraOptions(oss, compileOptions);
-
-    const std::string srcFile = compileInfo.GetCCEAbsPath();
-    const std::string objFile = compileInfo.GetBinAbsPath();
-    oss << "-o " << objFile << " " << srcFile;
-
-    std::string ccecCmd = oss.str();
-
-    CODEGEN_LOGI_FULL("compile kernel...\n%s", ccecCmd.c_str());
-
-    int ret = CheckInjectStr(ccecCmd.c_str(), ccecCmd.length());
-    ASSERT(ret == 0) << "CheckInjectStr failed. errCode = " << ret;
-
-    ret = std::system(ccecCmd.c_str());
+int CodeGenCloudNPU::DoCompileCmd(const std::string &compileCmd) const {
+    int ret = std::system(compileCmd.c_str());
     if (ret != 0) {
-        CODEGEN_LOGE("Compile cce kernel failed, ret = %d\ncompile cmd is:\n %s", ret, ccecCmd.c_str());
+        CODEGEN_LOGE("kernel compilation failed, ret = %d\ncompile cmd is:\n %s", ret, compileCmd.c_str());
     }
-
-    return {ret, ccecCmd};
+    return ret;
 }
 
 void EncodeWaitUntilInfo(const Operation &op, std::vector<int32_t> &code) {
