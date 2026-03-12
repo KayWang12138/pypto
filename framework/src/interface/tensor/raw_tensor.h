@@ -39,10 +39,11 @@ public:
     std::vector<SymbolicScalar> dynRawShape;
     DataType datatype;
     TileOpFormat format;
+    bool dependConst = false;
     std::string symbol;
     uint64_t addrOffset = UINT64_MAX;
     RawTensor(DataType t, std::vector<int64_t> tshape, TileOpFormat format = TileOpFormat::TILEOP_ND,
-        std::string tname = "", int trawmagic = -1);
+        std::string tname = "", int trawmagic = -1, bool tconst = false);
 
     RawTensor(RawTensor &&) = delete;
     RawTensor(const RawTensor &other) = delete;
@@ -74,6 +75,7 @@ public:
     const std::string &GetSymbol() const { return symbol; }
     void SetSymbol(std::string s) { symbol = std::move(s); }
     DataType GetDataType() const { return datatype; }
+    bool GetDependConst() const { return dependConst; }
     const Shape &GetRawShape() const { return rawshape; }
     int64_t GetRawShapeSize() const;
     int64_t GetRawDataSize() const;
