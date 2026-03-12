@@ -270,7 +270,7 @@ def get_conv_tile_shapes() -> Tuple[pypto_impl.TileL1Info, pypto_impl.TileL0Info
     # implementation
     scope = get_current_scope()
     conv_tile = scope.get_conv_tile_shapes()
-    return tuple([conv_tile.tile_l1_info, conv_tile.tile_l0_info, conv_tile.set_l0_tile])
+    return tuple([conv_tile.tileL1Info, conv_tile.tileL0Info, conv_tile.setL0Tile])
 
 
 def set_matrix_size(size: List[int]):
