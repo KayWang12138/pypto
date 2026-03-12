@@ -1,0 +1,7700 @@
+{
+  "traceEvents": [
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 0,
+      "args": {
+        "name": "AICPU-CTRL-0"
+      }
+    },
+    {
+      "name": "DEV_TASK_BUILD(0)",
+      "cat": "AICPU-CTRL",
+      "ph": "X",
+      "ts": 162573404506.6,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 0,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_BUILD(1)",
+      "cat": "AICPU-CTRL",
+      "ph": "X",
+      "ts": 162573404506.62,
+      "dur": 339306.88,
+      "pid": 0,
+      "tid": 0,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_BUILD(2)",
+      "cat": "AICPU-CTRL",
+      "ph": "X",
+      "ts": 162573743813.5,
+      "dur": 37.4,
+      "pid": 0,
+      "tid": 0,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_BUILD(3)",
+      "cat": "AICPU-CTRL",
+      "ph": "X",
+      "ts": 162573743850.9,
+      "dur": 495766.66,
+      "pid": 0,
+      "tid": 0,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_BUILD(4)",
+      "cat": "AICPU-CTRL",
+      "ph": "X",
+      "ts": 162574239617.56,
+      "dur": 198.76,
+      "pid": 0,
+      "tid": 0,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 1,
+      "args": {
+        "name": "AICPU-SCHED-1"
+      }
+    },
+    {
+      "name": "DEV_TASK_RCV(0)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573404507.12,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SEND_FIRST_CALLOP_TASK",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573404507.14,
+      "dur": 11.34,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SCHED_EXEC(0)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573404518.48,
+      "dur": 79.74,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SYNC_CORE_STOP(0)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573404598.22,
+      "dur": 15.02,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RSP(0)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573404613.24,
+      "dur": 0.62,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV(1)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573404613.86,
+      "dur": 339199.9,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SEND_FIRST_CALLOP_TASK",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573743813.76,
+      "dur": 1.6,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SCHED_EXEC(1)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573743815.36,
+      "dur": 139.3,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SYNC_CORE_STOP(1)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573743954.66,
+      "dur": 27.34,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RSP(1)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573743982.0,
+      "dur": 0.42,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV(2)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573743982.42,
+      "dur": 0.18,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SEND_FIRST_CALLOP_TASK",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573743982.6,
+      "dur": 1.04,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SCHED_EXEC(2)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573743983.64,
+      "dur": 2.78,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SYNC_CORE_STOP(2)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573743986.42,
+      "dur": 13.58,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RSP(2)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573744000.0,
+      "dur": 2.46,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573744002.46,
+      "dur": 495449.66,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "CORE_HAND_SHAKE",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239452.12,
+      "dur": 3.58,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV(3)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239455.7,
+      "dur": 161.9,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SEND_FIRST_CALLOP_TASK",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239617.6,
+      "dur": 1.88,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SCHED_EXEC(3)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239619.48,
+      "dur": 184.44,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SYNC_CORE_STOP(3)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239803.92,
+      "dur": 24.7,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RSP(3)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239828.62,
+      "dur": 2.16,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV(4)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239830.78,
+      "dur": 0.74,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SEND_FIRST_CALLOP_TASK",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239831.52,
+      "dur": 1.62,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SCHED_EXEC(4)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239833.14,
+      "dur": 156.48,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SYNC_CORE_STOP(4)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239989.62,
+      "dur": 14.36,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_FINISH",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574240003.98,
+      "dur": 0.12,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RSP(4)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574240004.1,
+      "dur": 1.04,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_CORE_EXIT",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574240005.14,
+      "dur": 0.56,
+      "pid": 0,
+      "tid": 1,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 2,
+      "args": {
+        "name": "AICPU-SCHED-2"
+      }
+    },
+    {
+      "name": "DEV_TASK_RCV(0)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573404507.02,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SEND_FIRST_CALLOP_TASK",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573404507.04,
+      "dur": 8.52,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SCHED_EXEC(0)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573404515.56,
+      "dur": 83.56,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SYNC_CORE_STOP(0)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573404599.12,
+      "dur": 13.28,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RSP(0)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573404612.4,
+      "dur": 1.6,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV(1)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573404614.0,
+      "dur": 339199.58,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SEND_FIRST_CALLOP_TASK",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573743813.58,
+      "dur": 1.22,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SCHED_EXEC(1)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573743814.8,
+      "dur": 139.86,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SYNC_CORE_STOP(1)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573743954.66,
+      "dur": 23.32,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RSP(1)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573743977.98,
+      "dur": 4.74,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV(2)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573743982.72,
+      "dur": 0.38,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SEND_FIRST_CALLOP_TASK",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573743983.1,
+      "dur": 1.36,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SCHED_EXEC(2)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573743984.46,
+      "dur": 6.12,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SYNC_CORE_STOP(2)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573743990.58,
+      "dur": 10.46,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RSP(2)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573744001.04,
+      "dur": 1.3,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573744002.34,
+      "dur": 495449.14,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "CORE_HAND_SHAKE",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239451.48,
+      "dur": 3.62,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV(3)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239455.1,
+      "dur": 162.3,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SEND_FIRST_CALLOP_TASK",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239617.4,
+      "dur": 1.56,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SCHED_EXEC(3)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239618.96,
+      "dur": 185.3,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SYNC_CORE_STOP(3)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239804.26,
+      "dur": 25.32,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RSP(3)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239829.58,
+      "dur": 0.88,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV(4)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239830.46,
+      "dur": 0.1,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SEND_FIRST_CALLOP_TASK",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239830.56,
+      "dur": 0.54,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SCHED_EXEC(4)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239831.1,
+      "dur": 157.3,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SYNC_CORE_STOP(4)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239988.4,
+      "dur": 13.62,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_FINISH",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574240002.02,
+      "dur": 0.28,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RSP(4)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574240002.3,
+      "dur": 2.7,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_CORE_EXIT",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574240005.0,
+      "dur": 0.14,
+      "pid": 0,
+      "tid": 2,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 3,
+      "args": {
+        "name": "AICPU-SCHED-3"
+      }
+    },
+    {
+      "name": "DEV_TASK_RCV(0)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573404507.28,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SEND_FIRST_CALLOP_TASK",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573404507.3,
+      "dur": 11.38,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SCHED_EXEC(0)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573404518.68,
+      "dur": 79.52,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SYNC_CORE_STOP(0)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573404598.2,
+      "dur": 14.62,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RSP(0)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573404612.82,
+      "dur": 0.86,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV(1)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573404613.68,
+      "dur": 339200.16,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SEND_FIRST_CALLOP_TASK",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573743813.84,
+      "dur": 0.9,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SCHED_EXEC(1)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573743814.74,
+      "dur": 140.08,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SYNC_CORE_STOP(1)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573743954.82,
+      "dur": 25.78,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RSP(1)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573743980.6,
+      "dur": 2.34,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV(2)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573743982.94,
+      "dur": 0.38,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SEND_FIRST_CALLOP_TASK",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573743983.32,
+      "dur": 0.8,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SCHED_EXEC(2)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573743984.12,
+      "dur": 2.72,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SYNC_CORE_STOP(2)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573743986.84,
+      "dur": 15.04,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RSP(2)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573744001.88,
+      "dur": 0.08,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162573744001.96,
+      "dur": 495447.76,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "CORE_HAND_SHAKE",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239449.72,
+      "dur": 2.44,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV(3)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239452.16,
+      "dur": 165.44,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SEND_FIRST_CALLOP_TASK",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239617.6,
+      "dur": 1.32,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SCHED_EXEC(3)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239618.92,
+      "dur": 185.26,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SYNC_CORE_STOP(3)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239804.18,
+      "dur": 25.74,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RSP(3)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239829.92,
+      "dur": 0.7,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV(4)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239830.62,
+      "dur": 0.34,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SEND_FIRST_CALLOP_TASK",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239830.96,
+      "dur": 0.54,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SCHED_EXEC(4)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239831.5,
+      "dur": 156.52,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_SYNC_CORE_STOP(4)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574239988.02,
+      "dur": 16.42,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_FINISH",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574240004.44,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RSP(4)",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574240004.46,
+      "dur": 0.7,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_CORE_EXIT",
+      "cat": "AICPU-SCHED",
+      "ph": "X",
+      "ts": 162574240005.16,
+      "dur": 0.3,
+      "pid": 0,
+      "tid": 3,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 4,
+      "args": {
+        "name": "SCHED1-AIC-0"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239408.28,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 4,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239408.3,
+      "dur": 0.34,
+      "pid": 0,
+      "tid": 4,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239408.64,
+      "dur": 209.8,
+      "pid": 0,
+      "tid": 4,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239618.44,
+      "dur": 186.48,
+      "pid": 0,
+      "tid": 4,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239804.92,
+      "dur": 27.46,
+      "pid": 0,
+      "tid": 4,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239832.38,
+      "dur": 161.42,
+      "pid": 0,
+      "tid": 4,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239993.8,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 4,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 5,
+      "args": {
+        "name": "SCHED1-AIC-1"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239408.36,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 5,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239408.38,
+      "dur": 0.5,
+      "pid": 0,
+      "tid": 5,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239408.88,
+      "dur": 209.66,
+      "pid": 0,
+      "tid": 5,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239618.54,
+      "dur": 186.36,
+      "pid": 0,
+      "tid": 5,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239804.9,
+      "dur": 27.5,
+      "pid": 0,
+      "tid": 5,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239832.4,
+      "dur": 160.82,
+      "pid": 0,
+      "tid": 5,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239993.22,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 5,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 6,
+      "args": {
+        "name": "SCHED1-AIC-2"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239410.66,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 6,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239410.68,
+      "dur": 0.34,
+      "pid": 0,
+      "tid": 6,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239411.02,
+      "dur": 207.52,
+      "pid": 0,
+      "tid": 6,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239618.54,
+      "dur": 186.36,
+      "pid": 0,
+      "tid": 6,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239804.9,
+      "dur": 27.72,
+      "pid": 0,
+      "tid": 6,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239832.62,
+      "dur": 160.04,
+      "pid": 0,
+      "tid": 6,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239992.66,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 6,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 7,
+      "args": {
+        "name": "SCHED1-AIC-3"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239410.64,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 7,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239410.66,
+      "dur": 0.32,
+      "pid": 0,
+      "tid": 7,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239410.98,
+      "dur": 207.54,
+      "pid": 0,
+      "tid": 7,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239618.52,
+      "dur": 186.34,
+      "pid": 0,
+      "tid": 7,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239804.86,
+      "dur": 27.8,
+      "pid": 0,
+      "tid": 7,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239832.66,
+      "dur": 159.48,
+      "pid": 0,
+      "tid": 7,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239992.14,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 7,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 8,
+      "args": {
+        "name": "SCHED1-AIC-4"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239411.94,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 8,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239411.96,
+      "dur": 0.32,
+      "pid": 0,
+      "tid": 8,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239412.28,
+      "dur": 206.24,
+      "pid": 0,
+      "tid": 8,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239618.52,
+      "dur": 186.34,
+      "pid": 0,
+      "tid": 8,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239804.86,
+      "dur": 27.86,
+      "pid": 0,
+      "tid": 8,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239832.72,
+      "dur": 159.0,
+      "pid": 0,
+      "tid": 8,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239991.72,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 8,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 9,
+      "args": {
+        "name": "SCHED1-AIC-5"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239409.8,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 9,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239409.82,
+      "dur": 0.32,
+      "pid": 0,
+      "tid": 9,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239410.14,
+      "dur": 208.32,
+      "pid": 0,
+      "tid": 9,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239618.46,
+      "dur": 186.4,
+      "pid": 0,
+      "tid": 9,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239804.86,
+      "dur": 27.7,
+      "pid": 0,
+      "tid": 9,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239832.56,
+      "dur": 158.34,
+      "pid": 0,
+      "tid": 9,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239990.9,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 9,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 10,
+      "args": {
+        "name": "SCHED1-AIC-6"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239412.1,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 10,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239412.12,
+      "dur": 0.32,
+      "pid": 0,
+      "tid": 10,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239412.44,
+      "dur": 206.12,
+      "pid": 0,
+      "tid": 10,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239618.56,
+      "dur": 186.32,
+      "pid": 0,
+      "tid": 10,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239804.88,
+      "dur": 27.74,
+      "pid": 0,
+      "tid": 10,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239832.62,
+      "dur": 157.9,
+      "pid": 0,
+      "tid": 10,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED1-AIC",
+      "ph": "X",
+      "ts": 162574239990.52,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 10,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 11,
+      "args": {
+        "name": "SCHED2-AIC-7"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239412.62,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 11,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239412.64,
+      "dur": 0.54,
+      "pid": 0,
+      "tid": 11,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239413.18,
+      "dur": 204.78,
+      "pid": 0,
+      "tid": 11,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239617.96,
+      "dur": 187.08,
+      "pid": 0,
+      "tid": 11,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239805.04,
+      "dur": 26.02,
+      "pid": 0,
+      "tid": 11,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239831.06,
+      "dur": 160.9,
+      "pid": 0,
+      "tid": 11,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239991.96,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 11,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 12,
+      "args": {
+        "name": "SCHED2-AIC-8"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239412.32,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 12,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239412.34,
+      "dur": 0.3,
+      "pid": 0,
+      "tid": 12,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239412.64,
+      "dur": 205.32,
+      "pid": 0,
+      "tid": 12,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239617.96,
+      "dur": 187.06,
+      "pid": 0,
+      "tid": 12,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239805.02,
+      "dur": 26.26,
+      "pid": 0,
+      "tid": 12,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239831.28,
+      "dur": 160.08,
+      "pid": 0,
+      "tid": 12,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239991.36,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 12,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 13,
+      "args": {
+        "name": "SCHED2-AIC-9"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239410.5,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 13,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239410.52,
+      "dur": 1.68,
+      "pid": 0,
+      "tid": 13,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239412.2,
+      "dur": 205.72,
+      "pid": 0,
+      "tid": 13,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239617.92,
+      "dur": 187.08,
+      "pid": 0,
+      "tid": 13,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239805.0,
+      "dur": 26.2,
+      "pid": 0,
+      "tid": 13,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239831.2,
+      "dur": 159.52,
+      "pid": 0,
+      "tid": 13,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239990.72,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 13,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 14,
+      "args": {
+        "name": "SCHED2-AIC-10"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239408.48,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 14,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239408.5,
+      "dur": 0.3,
+      "pid": 0,
+      "tid": 14,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239408.8,
+      "dur": 209.14,
+      "pid": 0,
+      "tid": 14,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239617.94,
+      "dur": 187.04,
+      "pid": 0,
+      "tid": 14,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239804.98,
+      "dur": 26.18,
+      "pid": 0,
+      "tid": 14,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239831.16,
+      "dur": 159.24,
+      "pid": 0,
+      "tid": 14,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239990.4,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 14,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 15,
+      "args": {
+        "name": "SCHED2-AIC-11"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239408.84,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 15,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239408.86,
+      "dur": 0.52,
+      "pid": 0,
+      "tid": 15,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239409.38,
+      "dur": 208.52,
+      "pid": 0,
+      "tid": 15,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239617.9,
+      "dur": 187.06,
+      "pid": 0,
+      "tid": 15,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239804.96,
+      "dur": 26.36,
+      "pid": 0,
+      "tid": 15,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239831.32,
+      "dur": 158.52,
+      "pid": 0,
+      "tid": 15,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239989.84,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 15,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 16,
+      "args": {
+        "name": "SCHED2-AIC-12"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239409.02,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 16,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239409.04,
+      "dur": 0.34,
+      "pid": 0,
+      "tid": 16,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239409.38,
+      "dur": 208.9,
+      "pid": 0,
+      "tid": 16,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239618.28,
+      "dur": 186.7,
+      "pid": 0,
+      "tid": 16,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239804.98,
+      "dur": 26.24,
+      "pid": 0,
+      "tid": 16,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239831.22,
+      "dur": 158.14,
+      "pid": 0,
+      "tid": 16,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239989.36,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 16,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 17,
+      "args": {
+        "name": "SCHED2-AIC-13"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239409.12,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 17,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239409.14,
+      "dur": 0.34,
+      "pid": 0,
+      "tid": 17,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239409.48,
+      "dur": 208.96,
+      "pid": 0,
+      "tid": 17,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239618.44,
+      "dur": 186.64,
+      "pid": 0,
+      "tid": 17,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239805.08,
+      "dur": 26.04,
+      "pid": 0,
+      "tid": 17,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239831.12,
+      "dur": 157.96,
+      "pid": 0,
+      "tid": 17,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED2-AIC",
+      "ph": "X",
+      "ts": 162574239989.08,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 17,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 18,
+      "args": {
+        "name": "SCHED3-AIC-14"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239409.44,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 18,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239409.46,
+      "dur": 0.46,
+      "pid": 0,
+      "tid": 18,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239409.92,
+      "dur": 208.22,
+      "pid": 0,
+      "tid": 18,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239618.14,
+      "dur": 186.8,
+      "pid": 0,
+      "tid": 18,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239804.94,
+      "dur": 26.74,
+      "pid": 0,
+      "tid": 18,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239831.68,
+      "dur": 159.72,
+      "pid": 0,
+      "tid": 18,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239991.4,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 18,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 19,
+      "args": {
+        "name": "SCHED3-AIC-15"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239409.62,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 19,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239409.64,
+      "dur": 0.34,
+      "pid": 0,
+      "tid": 19,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239409.98,
+      "dur": 208.18,
+      "pid": 0,
+      "tid": 19,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239618.16,
+      "dur": 186.76,
+      "pid": 0,
+      "tid": 19,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239804.92,
+      "dur": 26.44,
+      "pid": 0,
+      "tid": 19,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239831.36,
+      "dur": 159.66,
+      "pid": 0,
+      "tid": 19,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239991.02,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 19,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 20,
+      "args": {
+        "name": "SCHED3-AIC-16"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239409.9,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 20,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239409.92,
+      "dur": 0.32,
+      "pid": 0,
+      "tid": 20,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239410.24,
+      "dur": 207.84,
+      "pid": 0,
+      "tid": 20,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239618.08,
+      "dur": 186.84,
+      "pid": 0,
+      "tid": 20,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239804.92,
+      "dur": 26.42,
+      "pid": 0,
+      "tid": 20,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239831.34,
+      "dur": 159.22,
+      "pid": 0,
+      "tid": 20,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239990.56,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 20,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 21,
+      "args": {
+        "name": "SCHED3-AIC-17"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239410.04,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 21,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239410.06,
+      "dur": 0.3,
+      "pid": 0,
+      "tid": 21,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239410.36,
+      "dur": 207.84,
+      "pid": 0,
+      "tid": 21,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239618.2,
+      "dur": 186.8,
+      "pid": 0,
+      "tid": 21,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239805.0,
+      "dur": 26.28,
+      "pid": 0,
+      "tid": 21,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239831.28,
+      "dur": 158.8,
+      "pid": 0,
+      "tid": 21,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239990.08,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 21,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 22,
+      "args": {
+        "name": "SCHED3-AIC-18"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239410.2,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 22,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239410.22,
+      "dur": 0.34,
+      "pid": 0,
+      "tid": 22,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239410.56,
+      "dur": 207.9,
+      "pid": 0,
+      "tid": 22,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239618.46,
+      "dur": 186.46,
+      "pid": 0,
+      "tid": 22,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239804.92,
+      "dur": 26.4,
+      "pid": 0,
+      "tid": 22,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239831.32,
+      "dur": 157.94,
+      "pid": 0,
+      "tid": 22,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239989.26,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 22,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 23,
+      "args": {
+        "name": "SCHED3-AIC-19"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239411.92,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 23,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239411.94,
+      "dur": 0.4,
+      "pid": 0,
+      "tid": 23,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239412.34,
+      "dur": 205.84,
+      "pid": 0,
+      "tid": 23,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239618.18,
+      "dur": 186.82,
+      "pid": 0,
+      "tid": 23,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239805.0,
+      "dur": 26.66,
+      "pid": 0,
+      "tid": 23,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239831.66,
+      "dur": 157.16,
+      "pid": 0,
+      "tid": 23,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED3-AIC",
+      "ph": "X",
+      "ts": 162574239988.82,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 23,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 24,
+      "args": {
+        "name": "SCHED1-AIV-20"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239411.8,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 24,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239411.82,
+      "dur": 0.34,
+      "pid": 0,
+      "tid": 24,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239412.16,
+      "dur": 206.5,
+      "pid": 0,
+      "tid": 24,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239618.66,
+      "dur": 3.54,
+      "pid": 0,
+      "tid": 24,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239622.2,
+      "dur": 191.14,
+      "pid": 0,
+      "tid": 24,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239813.34,
+      "dur": 0.58,
+      "pid": 0,
+      "tid": 24,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239813.92,
+      "dur": 18.76,
+      "pid": 0,
+      "tid": 24,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239832.68,
+      "dur": 2.24,
+      "pid": 0,
+      "tid": 24,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239834.92,
+      "dur": 167.16,
+      "pid": 0,
+      "tid": 24,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240002.08,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 24,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240002.1,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 24,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240002.14,
+      "dur": 0.32,
+      "pid": 0,
+      "tid": 24,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 25,
+      "args": {
+        "name": "SCHED1-AIV-21"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239409.7,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 25,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239409.72,
+      "dur": 0.32,
+      "pid": 0,
+      "tid": 25,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239410.04,
+      "dur": 208.58,
+      "pid": 0,
+      "tid": 25,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239618.62,
+      "dur": 3.28,
+      "pid": 0,
+      "tid": 25,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239621.9,
+      "dur": 201.24,
+      "pid": 0,
+      "tid": 25,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239823.14,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 25,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239823.18,
+      "dur": 9.2,
+      "pid": 0,
+      "tid": 25,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239832.38,
+      "dur": 1.44,
+      "pid": 0,
+      "tid": 25,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239833.82,
+      "dur": 169.5,
+      "pid": 0,
+      "tid": 25,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240003.32,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 25,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240003.34,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 25,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240003.36,
+      "dur": 0.28,
+      "pid": 0,
+      "tid": 25,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 26,
+      "args": {
+        "name": "SCHED1-AIV-22"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239409.26,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 26,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239409.28,
+      "dur": 0.32,
+      "pid": 0,
+      "tid": 26,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239409.6,
+      "dur": 209.04,
+      "pid": 0,
+      "tid": 26,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239618.64,
+      "dur": 3.42,
+      "pid": 0,
+      "tid": 26,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239622.06,
+      "dur": 203.58,
+      "pid": 0,
+      "tid": 26,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239825.64,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 26,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239825.68,
+      "dur": 7.0,
+      "pid": 0,
+      "tid": 26,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239832.68,
+      "dur": 2.04,
+      "pid": 0,
+      "tid": 26,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239834.72,
+      "dur": 169.44,
+      "pid": 0,
+      "tid": 26,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240004.16,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 26,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240004.18,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 26,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240004.2,
+      "dur": 0.28,
+      "pid": 0,
+      "tid": 26,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 27,
+      "args": {
+        "name": "SCHED1-AIV-23"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239412.16,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 27,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239412.18,
+      "dur": 0.34,
+      "pid": 0,
+      "tid": 27,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239412.52,
+      "dur": 206.14,
+      "pid": 0,
+      "tid": 27,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239618.66,
+      "dur": 3.66,
+      "pid": 0,
+      "tid": 27,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239622.32,
+      "dur": 201.78,
+      "pid": 0,
+      "tid": 27,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239824.1,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 27,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239824.12,
+      "dur": 8.54,
+      "pid": 0,
+      "tid": 27,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239832.66,
+      "dur": 2.2,
+      "pid": 0,
+      "tid": 27,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239834.86,
+      "dur": 168.72,
+      "pid": 0,
+      "tid": 27,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240003.58,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 27,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240003.6,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 27,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240003.62,
+      "dur": 0.34,
+      "pid": 0,
+      "tid": 27,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 28,
+      "args": {
+        "name": "SCHED1-AIV-24"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239408.38,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 28,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239408.4,
+      "dur": 0.34,
+      "pid": 0,
+      "tid": 28,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239408.74,
+      "dur": 209.92,
+      "pid": 0,
+      "tid": 28,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239618.66,
+      "dur": 4.56,
+      "pid": 0,
+      "tid": 28,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239623.22,
+      "dur": 201.82,
+      "pid": 0,
+      "tid": 28,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239825.04,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 28,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239825.06,
+      "dur": 7.34,
+      "pid": 0,
+      "tid": 28,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239832.4,
+      "dur": 1.94,
+      "pid": 0,
+      "tid": 28,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239834.34,
+      "dur": 169.82,
+      "pid": 0,
+      "tid": 28,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240004.16,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 28,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240004.18,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 28,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240004.2,
+      "dur": 0.36,
+      "pid": 0,
+      "tid": 28,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 29,
+      "args": {
+        "name": "SCHED1-AIV-25"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239411.22,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 29,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239411.24,
+      "dur": 0.34,
+      "pid": 0,
+      "tid": 29,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239411.58,
+      "dur": 207.1,
+      "pid": 0,
+      "tid": 29,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239618.68,
+      "dur": 3.64,
+      "pid": 0,
+      "tid": 29,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239622.32,
+      "dur": 193.38,
+      "pid": 0,
+      "tid": 29,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239815.7,
+      "dur": 0.38,
+      "pid": 0,
+      "tid": 29,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239816.08,
+      "dur": 16.42,
+      "pid": 0,
+      "tid": 29,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239832.5,
+      "dur": 1.16,
+      "pid": 0,
+      "tid": 29,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239833.66,
+      "dur": 168.36,
+      "pid": 0,
+      "tid": 29,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240002.02,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 29,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240002.04,
+      "dur": 0.5,
+      "pid": 0,
+      "tid": 29,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240002.54,
+      "dur": 0.18,
+      "pid": 0,
+      "tid": 29,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 30,
+      "args": {
+        "name": "SCHED1-AIV-26"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239409.32,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 30,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239409.34,
+      "dur": 0.32,
+      "pid": 0,
+      "tid": 30,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239409.66,
+      "dur": 209.08,
+      "pid": 0,
+      "tid": 30,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239618.74,
+      "dur": 3.72,
+      "pid": 0,
+      "tid": 30,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239622.46,
+      "dur": 204.88,
+      "pid": 0,
+      "tid": 30,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239827.34,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 30,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239827.38,
+      "dur": 5.42,
+      "pid": 0,
+      "tid": 30,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239832.8,
+      "dur": 2.34,
+      "pid": 0,
+      "tid": 30,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239835.14,
+      "dur": 167.72,
+      "pid": 0,
+      "tid": 30,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240002.86,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 30,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240002.88,
+      "dur": 0.56,
+      "pid": 0,
+      "tid": 30,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240003.44,
+      "dur": 0.26,
+      "pid": 0,
+      "tid": 30,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 31,
+      "args": {
+        "name": "SCHED1-AIV-27"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239410.74,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 31,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239410.76,
+      "dur": 0.34,
+      "pid": 0,
+      "tid": 31,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239411.1,
+      "dur": 207.7,
+      "pid": 0,
+      "tid": 31,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239618.8,
+      "dur": 3.84,
+      "pid": 0,
+      "tid": 31,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239622.64,
+      "dur": 193.24,
+      "pid": 0,
+      "tid": 31,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239815.88,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 31,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239815.9,
+      "dur": 16.76,
+      "pid": 0,
+      "tid": 31,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239832.66,
+      "dur": 1.68,
+      "pid": 0,
+      "tid": 31,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239834.34,
+      "dur": 169.68,
+      "pid": 0,
+      "tid": 31,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240004.02,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 31,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240004.04,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 31,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240004.06,
+      "dur": 0.3,
+      "pid": 0,
+      "tid": 31,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 32,
+      "args": {
+        "name": "SCHED1-AIV-28"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239408.76,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 32,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239408.78,
+      "dur": 0.32,
+      "pid": 0,
+      "tid": 32,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239409.1,
+      "dur": 209.7,
+      "pid": 0,
+      "tid": 32,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239618.8,
+      "dur": 3.84,
+      "pid": 0,
+      "tid": 32,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239622.64,
+      "dur": 192.28,
+      "pid": 0,
+      "tid": 32,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239814.92,
+      "dur": 0.66,
+      "pid": 0,
+      "tid": 32,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239815.58,
+      "dur": 16.98,
+      "pid": 0,
+      "tid": 32,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239832.56,
+      "dur": 1.34,
+      "pid": 0,
+      "tid": 32,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239833.9,
+      "dur": 169.28,
+      "pid": 0,
+      "tid": 32,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240003.18,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 32,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240003.2,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 32,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240003.22,
+      "dur": 0.2,
+      "pid": 0,
+      "tid": 32,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 33,
+      "args": {
+        "name": "SCHED1-AIV-29"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239409.58,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 33,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239409.6,
+      "dur": 0.52,
+      "pid": 0,
+      "tid": 33,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239410.12,
+      "dur": 208.62,
+      "pid": 0,
+      "tid": 33,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239618.74,
+      "dur": 3.64,
+      "pid": 0,
+      "tid": 33,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239622.38,
+      "dur": 205.7,
+      "pid": 0,
+      "tid": 33,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239828.08,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 33,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239828.1,
+      "dur": 4.62,
+      "pid": 0,
+      "tid": 33,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239832.72,
+      "dur": 2.2,
+      "pid": 0,
+      "tid": 33,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239834.92,
+      "dur": 169.62,
+      "pid": 0,
+      "tid": 33,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240004.54,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 33,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240004.56,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 33,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240004.6,
+      "dur": 0.18,
+      "pid": 0,
+      "tid": 33,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 34,
+      "args": {
+        "name": "SCHED1-AIV-30"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239408.56,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 34,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239408.58,
+      "dur": 0.32,
+      "pid": 0,
+      "tid": 34,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239408.9,
+      "dur": 209.88,
+      "pid": 0,
+      "tid": 34,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239618.78,
+      "dur": 3.72,
+      "pid": 0,
+      "tid": 34,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239622.5,
+      "dur": 204.62,
+      "pid": 0,
+      "tid": 34,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239827.12,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 34,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239827.14,
+      "dur": 5.4,
+      "pid": 0,
+      "tid": 34,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239832.54,
+      "dur": 1.68,
+      "pid": 0,
+      "tid": 34,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239834.22,
+      "dur": 169.26,
+      "pid": 0,
+      "tid": 34,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240003.48,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 34,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240003.5,
+      "dur": 0.4,
+      "pid": 0,
+      "tid": 34,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240003.9,
+      "dur": 0.26,
+      "pid": 0,
+      "tid": 34,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 35,
+      "args": {
+        "name": "SCHED1-AIV-31"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239409.32,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 35,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239409.34,
+      "dur": 0.38,
+      "pid": 0,
+      "tid": 35,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239409.72,
+      "dur": 209.12,
+      "pid": 0,
+      "tid": 35,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239618.84,
+      "dur": 3.92,
+      "pid": 0,
+      "tid": 35,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239622.76,
+      "dur": 191.86,
+      "pid": 0,
+      "tid": 35,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239814.62,
+      "dur": 0.46,
+      "pid": 0,
+      "tid": 35,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239815.08,
+      "dur": 17.46,
+      "pid": 0,
+      "tid": 35,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239832.54,
+      "dur": 1.36,
+      "pid": 0,
+      "tid": 35,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239833.9,
+      "dur": 167.92,
+      "pid": 0,
+      "tid": 35,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240001.82,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 35,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240001.84,
+      "dur": 0.24,
+      "pid": 0,
+      "tid": 35,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240002.08,
+      "dur": 0.18,
+      "pid": 0,
+      "tid": 35,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 36,
+      "args": {
+        "name": "SCHED1-AIV-32"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239410.1,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 36,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239410.12,
+      "dur": 0.38,
+      "pid": 0,
+      "tid": 36,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239410.5,
+      "dur": 208.34,
+      "pid": 0,
+      "tid": 36,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239618.84,
+      "dur": 3.9,
+      "pid": 0,
+      "tid": 36,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239622.74,
+      "dur": 193.94,
+      "pid": 0,
+      "tid": 36,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239816.68,
+      "dur": 0.92,
+      "pid": 0,
+      "tid": 36,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239817.6,
+      "dur": 14.92,
+      "pid": 0,
+      "tid": 36,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239832.52,
+      "dur": 1.52,
+      "pid": 0,
+      "tid": 36,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239834.04,
+      "dur": 168.66,
+      "pid": 0,
+      "tid": 36,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240002.7,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 36,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240002.72,
+      "dur": 0.26,
+      "pid": 0,
+      "tid": 36,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240002.98,
+      "dur": 0.18,
+      "pid": 0,
+      "tid": 36,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 37,
+      "args": {
+        "name": "SCHED1-AIV-33"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239409.26,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 37,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239409.28,
+      "dur": 0.36,
+      "pid": 0,
+      "tid": 37,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239409.64,
+      "dur": 209.06,
+      "pid": 0,
+      "tid": 37,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239618.7,
+      "dur": 3.76,
+      "pid": 0,
+      "tid": 37,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239622.46,
+      "dur": 193.7,
+      "pid": 0,
+      "tid": 37,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239816.16,
+      "dur": 0.92,
+      "pid": 0,
+      "tid": 37,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239817.08,
+      "dur": 15.56,
+      "pid": 0,
+      "tid": 37,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239832.64,
+      "dur": 1.64,
+      "pid": 0,
+      "tid": 37,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574239834.28,
+      "dur": 171.78,
+      "pid": 0,
+      "tid": 37,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240006.06,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 37,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240006.08,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 37,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED1-AIV",
+      "ph": "X",
+      "ts": 162574240006.1,
+      "dur": 0.16,
+      "pid": 0,
+      "tid": 37,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 38,
+      "args": {
+        "name": "SCHED2-AIV-34"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239409.56,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 38,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239409.58,
+      "dur": 0.32,
+      "pid": 0,
+      "tid": 38,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239409.9,
+      "dur": 208.36,
+      "pid": 0,
+      "tid": 38,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239618.26,
+      "dur": 1.02,
+      "pid": 0,
+      "tid": 38,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239619.28,
+      "dur": 208.6,
+      "pid": 0,
+      "tid": 38,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239827.88,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 38,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239827.9,
+      "dur": 3.12,
+      "pid": 0,
+      "tid": 38,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239831.02,
+      "dur": 1.52,
+      "pid": 0,
+      "tid": 38,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239832.54,
+      "dur": 173.96,
+      "pid": 0,
+      "tid": 38,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240006.5,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 38,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240006.52,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 38,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240006.54,
+      "dur": 0.18,
+      "pid": 0,
+      "tid": 38,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 39,
+      "args": {
+        "name": "SCHED2-AIV-35"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239409.36,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 39,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239409.38,
+      "dur": 0.32,
+      "pid": 0,
+      "tid": 39,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239409.7,
+      "dur": 208.66,
+      "pid": 0,
+      "tid": 39,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239618.36,
+      "dur": 1.32,
+      "pid": 0,
+      "tid": 39,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239619.68,
+      "dur": 208.1,
+      "pid": 0,
+      "tid": 39,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239827.78,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 39,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239827.82,
+      "dur": 3.24,
+      "pid": 0,
+      "tid": 39,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239831.06,
+      "dur": 1.26,
+      "pid": 0,
+      "tid": 39,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239832.32,
+      "dur": 168.54,
+      "pid": 0,
+      "tid": 39,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240000.86,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 39,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240000.88,
+      "dur": 0.34,
+      "pid": 0,
+      "tid": 39,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240001.22,
+      "dur": 0.18,
+      "pid": 0,
+      "tid": 39,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 40,
+      "args": {
+        "name": "SCHED2-AIV-36"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239409.78,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 40,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239409.8,
+      "dur": 0.32,
+      "pid": 0,
+      "tid": 40,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239410.12,
+      "dur": 208.46,
+      "pid": 0,
+      "tid": 40,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239618.58,
+      "dur": 4.68,
+      "pid": 0,
+      "tid": 40,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239623.26,
+      "dur": 202.54,
+      "pid": 0,
+      "tid": 40,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239825.8,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 40,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239825.84,
+      "dur": 5.44,
+      "pid": 0,
+      "tid": 40,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239831.28,
+      "dur": 1.06,
+      "pid": 0,
+      "tid": 40,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239832.34,
+      "dur": 180.26,
+      "pid": 0,
+      "tid": 40,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240012.6,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 40,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240012.62,
+      "dur": 0.1,
+      "pid": 0,
+      "tid": 40,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240012.72,
+      "dur": 0.28,
+      "pid": 0,
+      "tid": 40,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 41,
+      "args": {
+        "name": "SCHED2-AIV-37"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239410.14,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 41,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239410.16,
+      "dur": 0.34,
+      "pid": 0,
+      "tid": 41,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239410.5,
+      "dur": 207.78,
+      "pid": 0,
+      "tid": 41,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239618.28,
+      "dur": 1.62,
+      "pid": 0,
+      "tid": 41,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239619.9,
+      "dur": 208.82,
+      "pid": 0,
+      "tid": 41,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239828.72,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 41,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239828.76,
+      "dur": 2.78,
+      "pid": 0,
+      "tid": 41,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239831.54,
+      "dur": 1.32,
+      "pid": 0,
+      "tid": 41,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239832.86,
+      "dur": 181.78,
+      "pid": 0,
+      "tid": 41,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240014.64,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 41,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240014.66,
+      "dur": 0.1,
+      "pid": 0,
+      "tid": 41,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240014.76,
+      "dur": 0.22,
+      "pid": 0,
+      "tid": 41,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 42,
+      "args": {
+        "name": "SCHED2-AIV-38"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239410.34,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 42,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239410.36,
+      "dur": 0.34,
+      "pid": 0,
+      "tid": 42,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239410.7,
+      "dur": 207.44,
+      "pid": 0,
+      "tid": 42,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239618.14,
+      "dur": 2.4,
+      "pid": 0,
+      "tid": 42,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239620.54,
+      "dur": 207.32,
+      "pid": 0,
+      "tid": 42,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239827.86,
+      "dur": 0.12,
+      "pid": 0,
+      "tid": 42,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239827.98,
+      "dur": 3.34,
+      "pid": 0,
+      "tid": 42,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239831.32,
+      "dur": 1.22,
+      "pid": 0,
+      "tid": 42,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239832.54,
+      "dur": 180.14,
+      "pid": 0,
+      "tid": 42,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240012.68,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 42,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240012.7,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 42,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240012.72,
+      "dur": 0.36,
+      "pid": 0,
+      "tid": 42,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 43,
+      "args": {
+        "name": "SCHED2-AIV-39"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239410.56,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 43,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239410.58,
+      "dur": 0.36,
+      "pid": 0,
+      "tid": 43,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239410.94,
+      "dur": 207.3,
+      "pid": 0,
+      "tid": 43,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239618.24,
+      "dur": 1.76,
+      "pid": 0,
+      "tid": 43,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239620.0,
+      "dur": 205.18,
+      "pid": 0,
+      "tid": 43,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239825.18,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 43,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239825.22,
+      "dur": 5.96,
+      "pid": 0,
+      "tid": 43,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239831.18,
+      "dur": 2.82,
+      "pid": 0,
+      "tid": 43,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239834.0,
+      "dur": 171.4,
+      "pid": 0,
+      "tid": 43,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240005.4,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 43,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240005.42,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 43,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240005.44,
+      "dur": 0.26,
+      "pid": 0,
+      "tid": 43,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 44,
+      "args": {
+        "name": "SCHED2-AIV-40"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239410.8,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 44,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239410.82,
+      "dur": 0.36,
+      "pid": 0,
+      "tid": 44,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239411.18,
+      "dur": 207.06,
+      "pid": 0,
+      "tid": 44,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239618.24,
+      "dur": 1.78,
+      "pid": 0,
+      "tid": 44,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239620.02,
+      "dur": 203.3,
+      "pid": 0,
+      "tid": 44,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239823.32,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 44,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239823.36,
+      "dur": 7.9,
+      "pid": 0,
+      "tid": 44,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239831.26,
+      "dur": 3.76,
+      "pid": 0,
+      "tid": 44,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239835.02,
+      "dur": 171.24,
+      "pid": 0,
+      "tid": 44,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240006.26,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 44,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240006.28,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 44,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240006.32,
+      "dur": 0.16,
+      "pid": 0,
+      "tid": 44,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 45,
+      "args": {
+        "name": "SCHED2-AIV-41"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239411.96,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 45,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239411.98,
+      "dur": 0.34,
+      "pid": 0,
+      "tid": 45,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239412.32,
+      "dur": 205.84,
+      "pid": 0,
+      "tid": 45,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239618.16,
+      "dur": 2.46,
+      "pid": 0,
+      "tid": 45,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239620.62,
+      "dur": 206.08,
+      "pid": 0,
+      "tid": 45,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239826.7,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 45,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239826.72,
+      "dur": 4.38,
+      "pid": 0,
+      "tid": 45,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239831.1,
+      "dur": 1.66,
+      "pid": 0,
+      "tid": 45,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239832.76,
+      "dur": 169.76,
+      "pid": 0,
+      "tid": 45,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240002.52,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 45,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240002.54,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 45,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240002.58,
+      "dur": 0.2,
+      "pid": 0,
+      "tid": 45,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 46,
+      "args": {
+        "name": "SCHED2-AIV-42"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239410.84,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 46,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239410.86,
+      "dur": 0.34,
+      "pid": 0,
+      "tid": 46,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239411.2,
+      "dur": 207.22,
+      "pid": 0,
+      "tid": 46,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239618.42,
+      "dur": 1.6,
+      "pid": 0,
+      "tid": 46,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239620.02,
+      "dur": 207.56,
+      "pid": 0,
+      "tid": 46,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239827.58,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 46,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239827.62,
+      "dur": 3.46,
+      "pid": 0,
+      "tid": 46,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239831.08,
+      "dur": 1.4,
+      "pid": 0,
+      "tid": 46,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239832.48,
+      "dur": 170.88,
+      "pid": 0,
+      "tid": 46,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240003.36,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 46,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240003.38,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 46,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240003.4,
+      "dur": 0.36,
+      "pid": 0,
+      "tid": 46,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 47,
+      "args": {
+        "name": "SCHED2-AIV-43"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239410.48,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 47,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239410.5,
+      "dur": 0.32,
+      "pid": 0,
+      "tid": 47,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239410.82,
+      "dur": 207.5,
+      "pid": 0,
+      "tid": 47,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239618.32,
+      "dur": 1.72,
+      "pid": 0,
+      "tid": 47,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239620.04,
+      "dur": 207.18,
+      "pid": 0,
+      "tid": 47,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239827.22,
+      "dur": 0.14,
+      "pid": 0,
+      "tid": 47,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239827.36,
+      "dur": 3.78,
+      "pid": 0,
+      "tid": 47,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239831.14,
+      "dur": 2.38,
+      "pid": 0,
+      "tid": 47,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239833.52,
+      "dur": 178.58,
+      "pid": 0,
+      "tid": 47,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240012.1,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 47,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240012.12,
+      "dur": 0.14,
+      "pid": 0,
+      "tid": 47,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240012.26,
+      "dur": 0.16,
+      "pid": 0,
+      "tid": 47,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 48,
+      "args": {
+        "name": "SCHED2-AIV-44"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239411.0,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 48,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239411.02,
+      "dur": 0.32,
+      "pid": 0,
+      "tid": 48,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239411.34,
+      "dur": 206.86,
+      "pid": 0,
+      "tid": 48,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239618.2,
+      "dur": 1.84,
+      "pid": 0,
+      "tid": 48,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239620.04,
+      "dur": 204.92,
+      "pid": 0,
+      "tid": 48,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239824.96,
+      "dur": 0.1,
+      "pid": 0,
+      "tid": 48,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239825.06,
+      "dur": 6.3,
+      "pid": 0,
+      "tid": 48,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239831.36,
+      "dur": 1.26,
+      "pid": 0,
+      "tid": 48,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239832.62,
+      "dur": 178.66,
+      "pid": 0,
+      "tid": 48,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240011.28,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 48,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240011.3,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 48,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240011.34,
+      "dur": 0.16,
+      "pid": 0,
+      "tid": 48,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 49,
+      "args": {
+        "name": "SCHED2-AIV-45"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239410.96,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 49,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239410.98,
+      "dur": 0.42,
+      "pid": 0,
+      "tid": 49,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239411.4,
+      "dur": 206.98,
+      "pid": 0,
+      "tid": 49,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239618.38,
+      "dur": 1.74,
+      "pid": 0,
+      "tid": 49,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239620.12,
+      "dur": 208.72,
+      "pid": 0,
+      "tid": 49,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239828.84,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 49,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239828.88,
+      "dur": 2.68,
+      "pid": 0,
+      "tid": 49,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239831.56,
+      "dur": 1.5,
+      "pid": 0,
+      "tid": 49,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239833.06,
+      "dur": 170.7,
+      "pid": 0,
+      "tid": 49,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240003.76,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 49,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240003.78,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 49,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240003.82,
+      "dur": 0.24,
+      "pid": 0,
+      "tid": 49,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 50,
+      "args": {
+        "name": "SCHED2-AIV-46"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239411.96,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 50,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239411.98,
+      "dur": 0.34,
+      "pid": 0,
+      "tid": 50,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239412.32,
+      "dur": 206.34,
+      "pid": 0,
+      "tid": 50,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239618.66,
+      "dur": 3.4,
+      "pid": 0,
+      "tid": 50,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239622.06,
+      "dur": 205.94,
+      "pid": 0,
+      "tid": 50,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239828.0,
+      "dur": 0.12,
+      "pid": 0,
+      "tid": 50,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239828.12,
+      "dur": 3.34,
+      "pid": 0,
+      "tid": 50,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239831.46,
+      "dur": 1.42,
+      "pid": 0,
+      "tid": 50,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574239832.88,
+      "dur": 168.92,
+      "pid": 0,
+      "tid": 50,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240001.8,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 50,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240001.82,
+      "dur": 0.32,
+      "pid": 0,
+      "tid": 50,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED2-AIV",
+      "ph": "X",
+      "ts": 162574240002.14,
+      "dur": 0.34,
+      "pid": 0,
+      "tid": 50,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 51,
+      "args": {
+        "name": "SCHED3-AIV-47"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239411.1,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 51,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239411.12,
+      "dur": 0.34,
+      "pid": 0,
+      "tid": 51,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239411.46,
+      "dur": 207.36,
+      "pid": 0,
+      "tid": 51,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239618.82,
+      "dur": 3.76,
+      "pid": 0,
+      "tid": 51,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239622.58,
+      "dur": 203.38,
+      "pid": 0,
+      "tid": 51,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239825.96,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 51,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239826.0,
+      "dur": 5.72,
+      "pid": 0,
+      "tid": 51,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239831.72,
+      "dur": 1.38,
+      "pid": 0,
+      "tid": 51,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239833.1,
+      "dur": 165.5,
+      "pid": 0,
+      "tid": 51,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239998.6,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 51,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239998.62,
+      "dur": 0.26,
+      "pid": 0,
+      "tid": 51,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239998.88,
+      "dur": 0.14,
+      "pid": 0,
+      "tid": 51,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 52,
+      "args": {
+        "name": "SCHED3-AIV-48"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239411.46,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 52,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239411.48,
+      "dur": 0.36,
+      "pid": 0,
+      "tid": 52,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239411.84,
+      "dur": 206.52,
+      "pid": 0,
+      "tid": 52,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239618.36,
+      "dur": 1.28,
+      "pid": 0,
+      "tid": 52,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239619.64,
+      "dur": 199.34,
+      "pid": 0,
+      "tid": 52,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239818.98,
+      "dur": 0.12,
+      "pid": 0,
+      "tid": 52,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239819.1,
+      "dur": 12.36,
+      "pid": 0,
+      "tid": 52,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239831.46,
+      "dur": 1.6,
+      "pid": 0,
+      "tid": 52,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239833.06,
+      "dur": 167.18,
+      "pid": 0,
+      "tid": 52,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240000.24,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 52,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240000.26,
+      "dur": 0.48,
+      "pid": 0,
+      "tid": 52,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240000.74,
+      "dur": 0.16,
+      "pid": 0,
+      "tid": 52,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 53,
+      "args": {
+        "name": "SCHED3-AIV-49"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239411.56,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 53,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239411.58,
+      "dur": 0.36,
+      "pid": 0,
+      "tid": 53,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239411.94,
+      "dur": 206.6,
+      "pid": 0,
+      "tid": 53,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239618.54,
+      "dur": 1.88,
+      "pid": 0,
+      "tid": 53,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239620.42,
+      "dur": 193.98,
+      "pid": 0,
+      "tid": 53,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239814.4,
+      "dur": 1.0,
+      "pid": 0,
+      "tid": 53,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239815.4,
+      "dur": 16.36,
+      "pid": 0,
+      "tid": 53,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239831.76,
+      "dur": 1.22,
+      "pid": 0,
+      "tid": 53,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239832.98,
+      "dur": 171.52,
+      "pid": 0,
+      "tid": 53,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240004.5,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 53,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240004.52,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 53,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240004.54,
+      "dur": 0.16,
+      "pid": 0,
+      "tid": 53,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 54,
+      "args": {
+        "name": "SCHED3-AIV-50"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239411.64,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 54,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239411.66,
+      "dur": 0.56,
+      "pid": 0,
+      "tid": 54,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239412.22,
+      "dur": 206.08,
+      "pid": 0,
+      "tid": 54,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239618.3,
+      "dur": 1.58,
+      "pid": 0,
+      "tid": 54,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239619.88,
+      "dur": 207.32,
+      "pid": 0,
+      "tid": 54,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239827.2,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 54,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239827.22,
+      "dur": 4.32,
+      "pid": 0,
+      "tid": 54,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239831.54,
+      "dur": 1.7,
+      "pid": 0,
+      "tid": 54,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239833.24,
+      "dur": 170.32,
+      "pid": 0,
+      "tid": 54,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240003.56,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 54,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240003.58,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 54,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240003.6,
+      "dur": 0.26,
+      "pid": 0,
+      "tid": 54,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 55,
+      "args": {
+        "name": "SCHED3-AIV-51"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239412.0,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 55,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239412.02,
+      "dur": 0.34,
+      "pid": 0,
+      "tid": 55,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239412.36,
+      "dur": 205.92,
+      "pid": 0,
+      "tid": 55,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239618.28,
+      "dur": 1.7,
+      "pid": 0,
+      "tid": 55,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239619.98,
+      "dur": 205.98,
+      "pid": 0,
+      "tid": 55,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239825.96,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 55,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239825.98,
+      "dur": 5.42,
+      "pid": 0,
+      "tid": 55,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239831.4,
+      "dur": 1.48,
+      "pid": 0,
+      "tid": 55,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239832.88,
+      "dur": 170.22,
+      "pid": 0,
+      "tid": 55,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240003.1,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 55,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240003.12,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 55,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240003.14,
+      "dur": 0.16,
+      "pid": 0,
+      "tid": 55,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 56,
+      "args": {
+        "name": "SCHED3-AIV-52"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239412.26,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 56,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239412.28,
+      "dur": 0.34,
+      "pid": 0,
+      "tid": 56,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239412.62,
+      "dur": 205.82,
+      "pid": 0,
+      "tid": 56,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239618.44,
+      "dur": 1.44,
+      "pid": 0,
+      "tid": 56,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239619.88,
+      "dur": 207.8,
+      "pid": 0,
+      "tid": 56,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239827.68,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 56,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239827.72,
+      "dur": 3.7,
+      "pid": 0,
+      "tid": 56,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239831.42,
+      "dur": 1.34,
+      "pid": 0,
+      "tid": 56,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239832.76,
+      "dur": 167.12,
+      "pid": 0,
+      "tid": 56,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239999.88,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 56,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239999.9,
+      "dur": 1.24,
+      "pid": 0,
+      "tid": 56,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240001.14,
+      "dur": 0.16,
+      "pid": 0,
+      "tid": 56,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 57,
+      "args": {
+        "name": "SCHED3-AIV-53"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239411.42,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 57,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239411.44,
+      "dur": 0.34,
+      "pid": 0,
+      "tid": 57,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239411.78,
+      "dur": 206.62,
+      "pid": 0,
+      "tid": 57,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239618.4,
+      "dur": 1.56,
+      "pid": 0,
+      "tid": 57,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239619.96,
+      "dur": 209.6,
+      "pid": 0,
+      "tid": 57,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239829.56,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 57,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239829.6,
+      "dur": 1.78,
+      "pid": 0,
+      "tid": 57,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239831.38,
+      "dur": 1.5,
+      "pid": 0,
+      "tid": 57,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239832.88,
+      "dur": 167.02,
+      "pid": 0,
+      "tid": 57,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239999.9,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 57,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239999.92,
+      "dur": 1.7,
+      "pid": 0,
+      "tid": 57,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240001.62,
+      "dur": 0.18,
+      "pid": 0,
+      "tid": 57,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 58,
+      "args": {
+        "name": "SCHED3-AIV-54"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239411.68,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 58,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239411.7,
+      "dur": 0.38,
+      "pid": 0,
+      "tid": 58,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239412.08,
+      "dur": 206.48,
+      "pid": 0,
+      "tid": 58,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239618.56,
+      "dur": 2.58,
+      "pid": 0,
+      "tid": 58,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239621.14,
+      "dur": 207.58,
+      "pid": 0,
+      "tid": 58,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239828.72,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 58,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239828.76,
+      "dur": 2.64,
+      "pid": 0,
+      "tid": 58,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239831.4,
+      "dur": 1.56,
+      "pid": 0,
+      "tid": 58,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239832.96,
+      "dur": 180.52,
+      "pid": 0,
+      "tid": 58,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240013.48,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 58,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240013.5,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 58,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240013.52,
+      "dur": 0.18,
+      "pid": 0,
+      "tid": 58,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 59,
+      "args": {
+        "name": "SCHED3-AIV-55"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239411.84,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 59,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239411.86,
+      "dur": 0.36,
+      "pid": 0,
+      "tid": 59,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239412.22,
+      "dur": 206.18,
+      "pid": 0,
+      "tid": 59,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239618.4,
+      "dur": 1.64,
+      "pid": 0,
+      "tid": 59,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239620.04,
+      "dur": 200.9,
+      "pid": 0,
+      "tid": 59,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239820.94,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 59,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239820.98,
+      "dur": 10.54,
+      "pid": 0,
+      "tid": 59,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239831.52,
+      "dur": 1.58,
+      "pid": 0,
+      "tid": 59,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239833.1,
+      "dur": 181.16,
+      "pid": 0,
+      "tid": 59,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240014.26,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 59,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240014.28,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 59,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240014.3,
+      "dur": 0.2,
+      "pid": 0,
+      "tid": 59,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 60,
+      "args": {
+        "name": "SCHED3-AIV-56"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239412.26,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 60,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239412.28,
+      "dur": 0.38,
+      "pid": 0,
+      "tid": 60,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239412.66,
+      "dur": 205.8,
+      "pid": 0,
+      "tid": 60,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239618.46,
+      "dur": 1.64,
+      "pid": 0,
+      "tid": 60,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239620.1,
+      "dur": 205.34,
+      "pid": 0,
+      "tid": 60,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239825.44,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 60,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239825.48,
+      "dur": 6.28,
+      "pid": 0,
+      "tid": 60,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239831.76,
+      "dur": 1.54,
+      "pid": 0,
+      "tid": 60,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239833.3,
+      "dur": 181.8,
+      "pid": 0,
+      "tid": 60,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240015.1,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 60,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240015.12,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 60,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240015.16,
+      "dur": 0.18,
+      "pid": 0,
+      "tid": 60,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 61,
+      "args": {
+        "name": "SCHED3-AIV-57"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239411.94,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 61,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239411.96,
+      "dur": 0.32,
+      "pid": 0,
+      "tid": 61,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239412.28,
+      "dur": 206.3,
+      "pid": 0,
+      "tid": 61,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239618.58,
+      "dur": 3.24,
+      "pid": 0,
+      "tid": 61,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239621.82,
+      "dur": 205.6,
+      "pid": 0,
+      "tid": 61,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239827.42,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 61,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239827.46,
+      "dur": 4.36,
+      "pid": 0,
+      "tid": 61,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239831.82,
+      "dur": 1.42,
+      "pid": 0,
+      "tid": 61,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239833.24,
+      "dur": 166.0,
+      "pid": 0,
+      "tid": 61,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239999.24,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 61,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239999.26,
+      "dur": 0.3,
+      "pid": 0,
+      "tid": 61,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239999.56,
+      "dur": 0.2,
+      "pid": 0,
+      "tid": 61,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 62,
+      "args": {
+        "name": "SCHED3-AIV-58"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239412.44,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 62,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239412.46,
+      "dur": 0.32,
+      "pid": 0,
+      "tid": 62,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239412.78,
+      "dur": 206.0,
+      "pid": 0,
+      "tid": 62,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239618.78,
+      "dur": 3.64,
+      "pid": 0,
+      "tid": 62,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239622.42,
+      "dur": 204.08,
+      "pid": 0,
+      "tid": 62,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239826.5,
+      "dur": 0.1,
+      "pid": 0,
+      "tid": 62,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239826.6,
+      "dur": 5.18,
+      "pid": 0,
+      "tid": 62,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239831.78,
+      "dur": 1.44,
+      "pid": 0,
+      "tid": 62,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239833.22,
+      "dur": 166.92,
+      "pid": 0,
+      "tid": 62,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240000.14,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 62,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240000.16,
+      "dur": 3.82,
+      "pid": 0,
+      "tid": 62,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240003.98,
+      "dur": 0.28,
+      "pid": 0,
+      "tid": 62,
+      "freq": 50
+    },
+    {
+      "name": "thread_name",
+      "ph": "M",
+      "pid": 0,
+      "tid": 63,
+      "args": {
+        "name": "SCHED3-AIV-59"
+      }
+    },
+    {
+      "name": "BEGIN",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239412.42,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 63,
+      "freq": 50
+    },
+    {
+      "name": "INIT",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239412.44,
+      "dur": 0.32,
+      "pid": 0,
+      "tid": 63,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239412.76,
+      "dur": 205.84,
+      "pid": 0,
+      "tid": 63,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239618.6,
+      "dur": 3.34,
+      "pid": 0,
+      "tid": 63,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239621.94,
+      "dur": 206.26,
+      "pid": 0,
+      "tid": 63,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(0)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239828.2,
+      "dur": 0.04,
+      "pid": 0,
+      "tid": 63,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_RCV_MODEL(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239828.24,
+      "dur": 3.44,
+      "pid": 0,
+      "tid": 63,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_RCV_FIRST_CALLOP_TASK(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239831.68,
+      "dur": 1.76,
+      "pid": 0,
+      "tid": 63,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_ALL_CALLOP_TASK_EXEC(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239833.44,
+      "dur": 166.36,
+      "pid": 0,
+      "tid": 63,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_ALL_DEV_TASK_CALLOP_EXEC_FINISH",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239999.8,
+      "dur": 0.02,
+      "pid": 0,
+      "tid": 63,
+      "freq": 50
+    },
+    {
+      "name": "DEV_TASK_WAIT_SYNC_STOP_NOTIFY(1)",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574239999.82,
+      "dur": 0.46,
+      "pid": 0,
+      "tid": 63,
+      "freq": 50
+    },
+    {
+      "name": "WAIT_EXIT_NOTIFY",
+      "cat": "SCHED3-AIV",
+      "ph": "X",
+      "ts": 162574240000.28,
+      "dur": 0.2,
+      "pid": 0,
+      "tid": 63,
+      "freq": 50
+    }
+  ]
+}
