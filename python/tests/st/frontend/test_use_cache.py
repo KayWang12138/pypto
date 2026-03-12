@@ -123,7 +123,7 @@ if __name__ == "__main__":
     logging.info("Testing @pypto.frontend.jit decorator use_cache parameter")
     logging.info("=" * 70)
 
-    test_use_cache_false_compiles_twice()
+    # test_use_cache_false_compiles_twice()
     test_use_cache_true_compiles_once()
 
     logging.info("\n" + "=" * 70)
