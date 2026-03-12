@@ -79,6 +79,7 @@ TILEOP void TPRelu(T0 dst, T1 src, T2 weight, T3 tmp) {
         TmpTileDefine tmpTile(1, tmpShape);
         SrcTileDefine weightTile(1, srcShape4);
         pto::TASSIGN(tmpTile, (uint64_t)(tmp.GetAddr()));
+        pto::TASSIGN(weightTile, (uint64_t)(weight.GetAddr()));
         
         for (LoopVar n3Index = 0; n3Index < dstShape3; ++n3Index) {
             auto dstOffset = n3Index * dstStride3;
@@ -86,7 +87,6 @@ TILEOP void TPRelu(T0 dst, T1 src, T2 weight, T3 tmp) {
             
             pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
             pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
-            pto::TASSIGN(weightTile, (uint64_t)(weight.GetAddr()));
             
             pto::TPRELU(dstTile, srcTile, weightTile, tmpTile);
         }
