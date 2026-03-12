@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/*!
+ * \file osp_partitioner.h
+ * \brief This file declares the OspPartitioner class, which is a tile graph pass that fuses single operations into kernels using OSP algorithms.
+ */
+
 #ifndef PASS_OSP_PARTITIONER_H
 #define PASS_OSP_PARTITIONER_H
 
