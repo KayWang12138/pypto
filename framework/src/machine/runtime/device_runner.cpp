@@ -515,12 +515,12 @@ int DeviceRunner::Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t t
 #ifdef ENABLE_TRACR
     rc = StoreTracrData();
     if (rc != 0) {
-        ALOG_INFO_F("StoreTracrData() failed");
+        ALOG_INFO_F("StoreTracrData() for the static scheduler failed");
     }   
 
     rc = StoreTracrMetaData();
     if (rc != 0) {
-        ALOG_INFO_F("StoreTracrMetaData() failed");
+        ALOG_INFO_F("StoreTracrMetaData() for the static scheduler failed");
     }
 #endif
 
@@ -962,12 +962,12 @@ int DeviceRunner::DynamicRun(rtStream_t aicpuStream, rtStream_t ctrlStream, rtSt
 #ifdef ENABLE_TRACR
     rc = StoreTracrData();
     if (rc != 0) {
-        ALOG_INFO_F("StoreTracrData() failed");
+        ALOG_INFO_F("StoreTracrData() for the dynamic scheduler failed");
     }   
 
     rc = StoreTracrMetaData();
     if (rc != 0) {
-        ALOG_INFO_F("StoreTracrMetaData() failed");
+        ALOG_INFO_F("StoreTracrMetaData() for the dynamic scheduler failed");
     }
 #endif
 
