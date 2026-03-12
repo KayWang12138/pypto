@@ -240,7 +240,7 @@ OspPartitioner::VTypeType OspPartitioner::GetOspCoreTypeSplit(OpCoreType coreTyp
     if (it != ospCoreTypeMapSplit.end()) {
         return it->second;
     }
-    APASS_LOG_ERROR_F(Elements::Operation, "OpCoreType (%d) not found in ospCoreTypeMapSplit.", coreType);
+    APASS_LOG_ERROR_F(Elements::Operation, "OpCoreType (%d) not found in ospCoreTypeMapSplit.", static_cast<int>(coreType));
     return 0U;
 }
 
@@ -250,7 +250,7 @@ OspPartitioner::VTypeType OspPartitioner::GetOspCoreTypeMix(OpCoreType coreType)
     if (it != ospCoreTypeMapMix.end()) {
         return it->second;
     }
-    APASS_LOG_ERROR_F(Elements::Operation, "OpCoreType (%d) not found in ospCoreTypeMapMix.", coreType);
+    APASS_LOG_ERROR_F(Elements::Operation, "OpCoreType (%d) not found in ospCoreTypeMapMix.", static_cast<int>(coreType));
     return 0U;
 }
 
@@ -264,7 +264,7 @@ Status OspPartitioner::ConstructDagCVSplit(GraphType &graph)
     for (const auto &superNode : graph.Vertices()) {
         const OpCoreType vertexType = superNodeInfo_->nodeCoreType_[superNode];
         if (vertexType != OpCoreType::AIC && vertexType != OpCoreType::AIV && vertexType != OpCoreType::AICPU) {
-            APASS_LOG_ERROR_F(Elements::Operation, "SuperNode (%d) has core type (%d) which is neither cube nor vector nor ai-scalar.", superNode, vertexType);
+            APASS_LOG_ERROR_F(Elements::Operation, "SuperNode (%d) has core type (%d) which is neither cube nor vector nor ai-scalar.", static_cast<int>(superNode), static_cast<int>(vertexType));
             return FAILED;
         }
         graph.SetVertexType(superNode, GetOspCoreTypeSplit(vertexType));
@@ -283,7 +283,7 @@ Status OspPartitioner::ConstructDagCVMix(GraphType &graph)
 
         OpCoreType vertexType = superNodeInfo_->nodeCoreType_[superNode];
         if (vertexType != OpCoreType::AIC && vertexType != OpCoreType::AIV && vertexType != OpCoreType::AICPU) {
-            APASS_LOG_ERROR_F(Elements::Operation, "SuperNode (%d) has core type (%d) which is neither cube nor vector nor ai-scalar.", superNode, vertexType);
+            APASS_LOG_ERROR_F(Elements::Operation, "SuperNode (%d) has core type (%d) which is neither cube nor vector nor ai-scalar.", static_cast<int>(superNode), static_cast<int>(vertexType));
             return FAILED;
         }
         graph.SetVertexType(superNode, GetOspCoreTypeMix(vertexType));
