@@ -81,9 +81,14 @@ N1, N2, DIM = 32, 1, 256
 def softmax_kernel(
     input_tensor: pypto.Tensor((B, N1, N2, DIM), pypto.DT_FP32),
 ) -> pypto.Tensor((B, N1, N2, DIM), pypto.DT_FP32):
+    """
+    Softmax kernel with return value. Use return pattern for aclgraph compatibility.
+    See docs/tutorials/network_integration/pytorch_integration.md
+    """
     output_tensor = pypto.tensor((B, N1, N2, DIM), pypto.DT_FP32)
+    bs = input_tensor.shape[0]
     tile_b = 1  # Process one batch at a time
-    b_loop = B // tile_b
+    b_loop = bs // tile_b
 
     # Tiling shape setting for efficient execution
     pypto.set_vec_tile_shapes(1, 4, 1, 64)
@@ -97,6 +102,7 @@ def softmax_kernel(
                                 valid_shape=[b_offset_end - b_offset, N1, N2, DIM])
         softmax_out = softmax_core(input_view)
         output_tensor[b_offset:, ...] = softmax_out
+
     return output_tensor
 
 
@@ -105,10 +111,8 @@ def softmax(x: torch.Tensor, dynamic: bool = True) -> torch.Tensor:
     if isinstance(x, FakeTensor):
         return torch.zeros(x.shape, dtype=x.dtype, device=f'{x.device}')
 
-    # launch the kernel
-    out = softmax_kernel(x)
-
-    return out
+    # launch the kernel - use return pattern for aclgraph compatibility
+    return softmax_kernel(x)
 
 
 class MM(torch.nn.Module):
