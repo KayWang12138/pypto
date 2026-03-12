@@ -1681,20 +1681,28 @@ class Parser(ast.NodeVisitor):
             )
 
         # Unroll the loop at compile time
-        with self.context.with_frame():
-            for item in iter_expr:
-                self._assign_loop_variable(node.target, item, is_tuple_unpack, loop_var_name, target_names)
-                self._visit_body(node.body)
+        # Use Python function-level scoping semantics, do not create a new frame
+        # Variable lifetime is controlled by liveness analysis
+        for item in iter_expr:
+            self._assign_loop_variable(node.target, item, is_tuple_unpack, loop_var_name, target_names)
+            self._visit_body(node.body)
+        
+        # Clean up variables after loop based on liveness analysis
+        self._auto_cleanup_after_stmt(node)
 
     def _handle_pto_iterator(self, node: ast.For, iterator: Iterator,
                             loop_vars: tuple[bool, str, list[str]]) -> None:
         """Handle PTO iterators with traditional loop processing."""
         is_tuple_unpack, loop_var_name, target_names = loop_vars
 
-        with self.context.with_frame():
-            for loop_var in iterator:
-                self._assign_loop_variable(node.target, loop_var, is_tuple_unpack, loop_var_name, target_names)
-                self._visit_body(node.body)
+        # Use Python function-level scoping semantics, do not create a new frame
+        # Variable lifetime is controlled by liveness analysis
+        for loop_var in iterator:
+            self._assign_loop_variable(node.target, loop_var, is_tuple_unpack, loop_var_name, target_names)
+            self._visit_body(node.body)
+        
+        # Clean up variables after loop based on liveness analysis
+        self._auto_cleanup_after_stmt(node)
 
     def _assign_loop_variable(self, target: ast.expr, value: Any, is_tuple_unpack: bool,
                              loop_var_name: str, target_names: list[str]) -> None:
