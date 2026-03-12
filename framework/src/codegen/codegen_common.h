@@ -198,6 +198,7 @@ const std::map<MemoryType, OperandType> OPERAND_TYPE_TO_MEMORY_TYPE{
     {MemoryType::MEM_FIX_MTE2_ANTIQ,   BUF_FIX},
     {         MemoryType::MEM_L0AMX, BUF_L0AMX},
     {         MemoryType::MEM_L0BMX, BUF_L0BMX},
+    {       MemoryType::MEM_UNKNOWN,    BUF_UB}, // Map UNKNOWN to UB for flexibility/mocking
 };
 
 } // namespace npu::tile_fwk

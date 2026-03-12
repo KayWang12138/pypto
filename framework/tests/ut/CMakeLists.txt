@@ -19,9 +19,10 @@ if (ENABLE_UTEST)
         PTO_Fwk_UTest_AddModuleDir(DIR simulation)
     endif ()
 
+    PTO_Fwk_UTest_AddModuleDir(DIR codegen)
+
     if (BUILD_WITH_CANN)
         PTO_Fwk_UTest_AddModuleDir(DIR machine)
-        PTO_Fwk_UTest_AddModuleDir(DIR codegen)
     endif ()
 
     # 可执行程序

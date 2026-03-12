@@ -224,6 +224,10 @@ public:
     bool BindAddrWithVariableName(
         const AllocKey &key, const std::string &varName, const std::string &varNameTileTensor);
 
+    bool IsVariableBound(const AllocKey &key) {
+        return key2VariableName_.find(key) != key2VariableName_.end();
+    }
+
     void AddToTensorMap(int magicNum, const std::shared_ptr<LogicalTensor> &tensor) {
         auto res = tensorMap_.insert({magicNum, tensor});
         if (!res.second) {
@@ -234,6 +238,19 @@ public:
                 << "\nexisted tensor key: " << FormatAllocKey(CreateAllocKey(tensorMap_[magicNum]))
                 << "\ntensor dump info -- " << tensorMap_[magicNum]->Dump();
         }
+    }
+
+    // New API for GLSL SSBO Binding
+    void BindSSBOName(int magicNum, const std::string& ssboName) {
+        magic2SSBOName_[magicNum] = ssboName;
+    }
+
+    std::string QuerySSBOName(int magicNum) const {
+        auto it = magic2SSBOName_.find(magicNum);
+        if (it != magic2SSBOName_.end()) {
+            return it->second;
+        }
+        return "";
     }
 
     static std::string FormatAllocKey(const AllocKey &key);
@@ -256,10 +273,11 @@ public:
         tensorNameInLoopToFullDim_.clear();
     }
 
-private:
-    std::shared_ptr<LogicalTensor> GetTensorByMagic(int magicNum) const;
     AllocKey CreateAllocKey(const std::shared_ptr<LogicalTensor> &tensor) const;
     AllocKey CreateAllocKey(int tensorMagicNum) const;
+
+private:
+    std::shared_ptr<LogicalTensor> GetTensorByMagic(int magicNum) const;
     std::string FindUsingName(const TileTensorUsing &tileTensorUsing) const;
 
     // <AllocKey, buffer variable name>
@@ -280,5 +298,8 @@ private:
     std::unordered_map<std::string, std::string> tensorNameInLoopToFullDim_;
     // <using type, TileTensorUsing>
     std::unordered_map<std::string, TileTensorUsing> tileTensorUsing_;
+    
+    // <tensor magic, SSBO name>
+    std::unordered_map<int, std::string> magic2SSBOName_;
 };
 } // namespace npu::tile_fwk
