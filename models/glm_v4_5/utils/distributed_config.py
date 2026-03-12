@@ -79,9 +79,11 @@ class DistributedConfig:
         return self.physical_device_ids[logical_rank_id]
 
     def _get_hccl_comm_name(self, logical_rank_id: int) -> str:
-        """简单获取HCCL通信名称"""
+        """获取HCCL通信名称"""
         group_handle = dist.new_group(backend='hccl', ranks=self.logical_ranks)
-        return group_handle._get_backend(torch.device('npu')).get_hccl_comm_name(logical_rank_id)
+        get_backend_method = getattr(group_handle, '_get_backend')
+        backend = get_backend_method(torch.device('npu'))
+        return backend.get_hccl_comm_name(logical_rank_id)
 
     def _parse_device_list(self):
         """解析设备列表"""
