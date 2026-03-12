@@ -264,346 +264,261 @@ def mla_indexer_prolog_quant_compute(
         pypto.assemble(weights_f16, [bs_offset, 0], ip_weights_out)
 
 
-def mla_indexer_prolog_quant_p(h, n_q, q_lora_rank, kv_lora_rank, qk_nope_head_dim, \
-        qk_rope_head_dim, idx_n_heads, idx_head_dim, 
-        mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, mla_tile_config, 
-        ip_attrs, ip_configs, rope_cfg):
-    t = pypto.frontend.dynamic("t")
-    block_num = pypto.frontend.dynamic("blovk_num")
-    block_size = ip_configs.block_size
-    q_head_dim = qk_nope_head_dim + qk_rope_head_dim
-    mla_w_uq_qr_dim1 = n_q * q_head_dim
-    mla_w_dkv_kr_dim1 = kv_lora_rank + qk_rope_head_dim
-    ip_w_qb_in_dim1 = idx_n_heads * idx_head_dim
+@pypto.frontend.jit(
+    # prefill版本融合算子优化参数
+    pass_options={
+        "cube_l1_reuse_setting": {-1: 4},
+        "pg_upper_bound": 8192,
+    },
+    runtime_options={"stitch_function_max_num": 128,
+                    "device_sched_mode": 2}
+)
+def mla_indexer_prolog_quant_p(
+    token_x: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
+    mla_w_dq: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_NZ),
+    mla_w_uq_qr: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_INT8, format=pypto.TileOpFormat.TILEOP_NZ),
+    mla_dequant_scale: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
+    mla_w_uk: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    mla_w_dkv_kr: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_NZ),
+    mla_gamma_cq: pypto.Tensor([pypto.STATIC], pypto.DT_BF16),
+    mla_gamma_ckv: pypto.Tensor([pypto.STATIC], pypto.DT_BF16),
+    cos: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
+    sin: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
+    cache_index: pypto.Tensor([pypto.DYNAMIC], pypto.DT_INT64),
+    mla_kv_cache: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_INT8),
+    mla_kr_cache: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    mla_k_scale_cache: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
+    ip_w_qb_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_INT8, format=pypto.TileOpFormat.TILEOP_NZ),
+    ip_w_qb_scale_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
+    ip_wk_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_NZ),
+    ip_w_proj_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_NZ),
+    ip_ln_gamma_k_in: pypto.Tensor([pypto.STATIC], pypto.DT_BF16),
+    ip_ln_beta_k_in: pypto.Tensor([pypto.STATIC], pypto.DT_BF16),
+    ip_hadamard_q_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    ip_hadamard_k_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    ip_k_cache: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_INT8),
+    ip_k_cache_scale: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP16),
 
-    token_x_shape = (t, h)
-    mla_w_dq_shape = (h, q_lora_rank)
-    mla_w_uq_qr_shape = (q_lora_rank, n_q * q_head_dim)
-    mla_dequant_scale_shape = (n_q * q_head_dim, 1)
-    mla_w_uk_shape = (n_q, qk_nope_head_dim, kv_lora_rank)
-    mla_w_dkv_kr_shape = (h, kv_lora_rank + qk_rope_head_dim)
-    mla_gamma_cq_shape = (q_lora_rank,)
-    mla_gamma_ckv_shape = (kv_lora_rank,)
-    cos_shape = (t, qk_rope_head_dim)
-    sin_shape = (t, qk_rope_head_dim)
-    cache_index_shape = (t,)
-    mla_kv_cache_shape = (block_num, block_size, 1, kv_lora_rank)
-    mla_kr_cache_shape = (block_num, block_size, 1, qk_rope_head_dim)
-    mla_k_scale_cache_shape = (block_num, block_size, 1, 4)
+    mla_query_nope_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    mla_query_rope_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    mla_kv_cache_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_INT8),
+    mla_kr_cache_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    mla_k_scale_cache_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
+    ip_q_int8_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC], pypto.DT_INT8),
+    ip_q_scale_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP16),
+    ip_k_int8_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_INT8),
+    ip_k_scale_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP16),
+    ip_weights_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_FP16),
 
-    ip_w_qb_in_shape = (q_lora_rank, ip_w_qb_in_dim1)
-    ip_w_qb_scale_in_shape = (ip_w_qb_in_dim1, 1)
-    ip_wk_in_shape = (h, idx_head_dim)
-    ip_w_proj_in_shape = (h, idx_n_heads)
-    ip_ln_gamma_k_in_shape = (idx_head_dim,)
-    ip_ln_beta_k_in_shape = (idx_head_dim,)
-    ip_hadamard_q_in_shape = (idx_head_dim, idx_head_dim)
-    ip_hadamard_k_in_shape = (idx_head_dim, idx_head_dim)
-    ip_k_cache_shape = (block_num, block_size, 1, idx_head_dim)
-    ip_k_cache_scale_shape = (block_num, block_size, 1, 1)
+    mla_epsilon_cq,
+    mla_epsilon_ckv,
+    mla_cache_mode,
+    mla_tile_config,
+    ip_attrs,
+    ip_configs,
+    rope_cfg
+):
+    """Fused MLA and Indexer Prolog quantization for prefill phase.
 
-    mla_query_nope_out_shape = (t, n_q, kv_lora_rank)
-    mla_query_rope_out_shape = (t, n_q, qk_rope_head_dim)
-    mla_kv_cache_out_shape = (block_num, block_size, 1, kv_lora_rank)
-    mla_kr_cache_out_shape = (block_num, block_size, 1, qk_rope_head_dim)
-    mla_k_scale_cache_out_shape = (block_num, block_size, 1, 4)   
-    ip_q_int8_out_shape = (t, idx_n_heads, idx_head_dim)
-    ip_q_scale_out_shape = (t, idx_n_heads, 1)
-    ip_k_int8_out_shape = (block_num, block_size, 1, idx_head_dim)
-    ip_k_scale_out_shape = (block_num, block_size, 1, 1)
-    ip_weights_out_shape = (t, idx_n_heads)
+    Combines MLA Prolog and Lightning Indexer Prolog computations in a single
+    fused operator for prefill phase. This enables pipeline parallelism and
+    reduces memory transfers between operators.
 
-    @pypto.frontend.jit(
-        # prefill版本融合算子优化参数
-        pass_options={
-            "cube_l1_reuse_setting": {-1: 4},
-            "pg_upper_bound": 8192,
-        },
-        runtime_options={"stitch_function_max_num": 128,
-                        "device_sched_mode": 2}
+    The computation flow:
+    1. MLA Prolog: Computes MLA query, key, and value projections
+    2. Indexer Prolog: Uses MLA's q_norm output to compute indexer query, key, and weights
+
+    Args:
+        token_x: Input token tensor, shape (t, h), dtype BF16
+        mla_w_dq: MLA down-projection weight for query, NZ format
+        mla_w_uq_qr: MLA up-projection weight for query and RoPE, NZ format
+        mla_dequant_scale: MLA dequantization scale, FP32
+        mla_w_uk: MLA up-projection weight for key, BF16
+        mla_w_dkv_kr: MLA down-projection weight for key-value and RoPE, NZ format
+        mla_gamma_cq: MLA RMSNorm scale for query, BF16
+        mla_gamma_ckv: MLA RMSNorm scale for key-value, BF16
+        cos: Cosine values for RoPE, BF16
+        sin: Sine values for RoPE, BF16
+        cache_index: Cache index for scatter update, INT64
+        mla_kv_cache: MLA key-value cache input/output, INT8
+        mla_kr_cache: MLA key RoPE cache input/output, BF16
+        mla_k_scale_cache: MLA key scale cache input/output, FP16
+        ip_w_qb_in: Indexer query projection weight, INT8, NZ format
+        ip_w_qb_scale_in: Indexer query weight dequantization scale, FP32
+        ip_wk_in: Indexer key projection weight, BF16, NZ format
+        ip_w_proj_in: Indexer weight projection matrix, BF16, NZ format
+        ip_ln_gamma_k_in: Indexer LayerNorm scale for key, BF16
+        ip_ln_beta_k_in: Indexer LayerNorm shift for key, BF16
+        ip_hadamard_q_in: Indexer Hadamard matrix for query, BF16
+        ip_hadamard_k_in: Indexer Hadamard matrix for key, BF16
+        ip_k_cache: Indexer key cache input/output, INT8
+        ip_k_cache_scale: Indexer key cache scale input/output, FP16
+        mla_query_nope_out: Output MLA query without RoPE, BF16
+        mla_query_rope_out: Output MLA query with RoPE, BF16
+        mla_kv_cache_out: Output MLA key-value cache
+        mla_kr_cache_out: Output MLA key RoPE cache
+        mla_k_scale_cache_out: Output MLA key scale cache
+        ip_q_int8_out: Output indexer quantized query, INT8
+        ip_q_scale_out: Output indexer query quantization scale, FP16
+        ip_k_int8_out: Output indexer key cache
+        ip_k_scale_out: Output indexer key cache scale
+        ip_weights_out: Output indexer weights, FP16
+        mla_epsilon_cq: MLA RMSNorm epsilon for query
+        mla_epsilon_ckv: MLA RMSNorm epsilon for key-value
+        mla_cache_mode: MLA cache mode
+        mla_tile_config: MlaTileConfig object for MLA computation
+        ip_attrs: IndexerPrologQuantAttr object for indexer computation
+        ip_configs: IndexerPrologQuantip_configs object for indexer computation
+        rope_cfg: RopeTileShapeConfig object for RoPE computation
+
+    Note:
+        The function creates intermediate tensors (mla_q_norm_out, mla_q_norm_scale_out)
+        to pass data from MLA Prolog to Indexer Prolog. Pipeline parallelism is
+        enabled through device_sched_mode=2.
+    """
+    t = token_x.shape[0]
+    actual_q_lora_rank = ip_w_qb_in.shape[0]
+    mla_q_norm_out = pypto.Tensor((t, actual_q_lora_rank), pypto.DT_INT8)
+    mla_q_norm_scale_out = pypto.Tensor((t, 1), pypto.DT_FP32)
+    mla_indexer_prolog_quant_compute(
+        token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale, mla_w_uk, mla_w_dkv_kr, mla_gamma_cq,
+        mla_gamma_ckv, cos, sin, cache_index, mla_kv_cache, mla_kr_cache,
+        mla_k_scale_cache, ip_w_qb_in, ip_w_qb_scale_in, ip_wk_in, ip_w_proj_in,
+        ip_ln_gamma_k_in, ip_ln_beta_k_in, ip_hadamard_q_in, ip_hadamard_k_in,
+        ip_k_cache, ip_k_cache_scale, mla_query_nope_out, mla_query_rope_out,
+        mla_q_norm_out, mla_q_norm_scale_out,
+        mla_kv_cache_out, mla_kr_cache_out,
+        mla_k_scale_cache_out, ip_q_int8_out, ip_q_scale_out, ip_k_int8_out,
+        ip_k_scale_out, ip_weights_out, mla_epsilon_cq, mla_epsilon_ckv,
+        mla_cache_mode, mla_tile_config,
+        ip_attrs, ip_configs, rope_cfg
     )
-    def mla_indexer_prolog_quant_kernel(
-        token_x: pypto.Tensor(token_x_shape, pypto.DT_BF16),
-        mla_w_dq: pypto.Tensor(mla_w_dq_shape, pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_NZ),
-        mla_w_uq_qr: pypto.Tensor(mla_w_uq_qr_shape, pypto.DT_INT8, format=pypto.TileOpFormat.TILEOP_NZ),
-        mla_dequant_scale: pypto.Tensor(mla_dequant_scale_shape, pypto.DT_FP32),
-        mla_w_uk: pypto.Tensor(mla_w_uk_shape, pypto.DT_BF16),
-        mla_w_dkv_kr: pypto.Tensor(mla_w_dkv_kr_shape, pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_NZ),
-        mla_gamma_cq: pypto.Tensor(mla_gamma_cq_shape, pypto.DT_BF16),
-        mla_gamma_ckv: pypto.Tensor(mla_gamma_ckv_shape, pypto.DT_BF16),
-        cos: pypto.Tensor(cos_shape, pypto.DT_BF16),
-        sin: pypto.Tensor(sin_shape, pypto.DT_BF16),
-        cache_index: pypto.Tensor(cache_index_shape, pypto.DT_INT64),
-        mla_kv_cache: pypto.Tensor(mla_kv_cache_shape, pypto.DT_INT8),
-        mla_kr_cache: pypto.Tensor(mla_kr_cache_shape, pypto.DT_BF16),
-        mla_k_scale_cache: pypto.Tensor(mla_k_scale_cache_shape, pypto.DT_FP32),
-        ip_w_qb_in: pypto.Tensor(ip_w_qb_in_shape, pypto.DT_INT8, format=pypto.TileOpFormat.TILEOP_NZ),
-        ip_w_qb_scale_in: pypto.Tensor(ip_w_qb_scale_in_shape, pypto.DT_FP32),
-        ip_wk_in: pypto.Tensor(ip_wk_in_shape, pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_NZ),
-        ip_w_proj_in: pypto.Tensor(ip_w_proj_in_shape, pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_NZ),
-        ip_ln_gamma_k_in: pypto.Tensor(ip_ln_gamma_k_in_shape, pypto.DT_BF16),
-        ip_ln_beta_k_in: pypto.Tensor(ip_ln_beta_k_in_shape, pypto.DT_BF16),
-        ip_hadamard_q_in: pypto.Tensor(ip_hadamard_q_in_shape, pypto.DT_BF16),
-        ip_hadamard_k_in: pypto.Tensor(ip_hadamard_k_in_shape, pypto.DT_BF16),
-        ip_k_cache: pypto.Tensor(ip_k_cache_shape, pypto.DT_INT8),
-        ip_k_cache_scale: pypto.Tensor(ip_k_cache_scale_shape, pypto.DT_FP16),
-
-        mla_query_nope_out: pypto.Tensor(mla_query_nope_out_shape, pypto.DT_BF16),
-        mla_query_rope_out: pypto.Tensor(mla_query_rope_out_shape, pypto.DT_BF16),
-        mla_kv_cache_out: pypto.Tensor(mla_kv_cache_out_shape, pypto.DT_INT8),
-        mla_kr_cache_out: pypto.Tensor(mla_kr_cache_out_shape, pypto.DT_BF16),
-        mla_k_scale_cache_out: pypto.Tensor(mla_k_scale_cache_out_shape, pypto.DT_FP32),
-        ip_q_int8_out: pypto.Tensor(ip_q_int8_out_shape, pypto.DT_INT8),
-        ip_q_scale_out: pypto.Tensor(ip_q_scale_out_shape, pypto.DT_FP16),
-        ip_k_int8_out: pypto.Tensor(ip_k_int8_out_shape, pypto.DT_INT8),
-        ip_k_scale_out: pypto.Tensor(ip_k_scale_out_shape, pypto.DT_FP16),
-        ip_weights_out: pypto.Tensor(ip_weights_out_shape, pypto.DT_FP16),
-        ) -> None:
-        """Fused MLA and Indexer Prolog quantization for prefill phase.
-
-        Combines MLA Prolog and Lightning Indexer Prolog computations in a single
-        fused operator for prefill phase. This enables pipeline parallelism and
-        reduces memory transfers between operators.
-
-        The computation flow:
-        1. MLA Prolog: Computes MLA query, key, and value projections
-        2. Indexer Prolog: Uses MLA's q_norm output to compute indexer query, key, and weights
-
-        Args:
-            token_x: Input token tensor, shape (t, h), dtype BF16
-            mla_w_dq: MLA down-projection weight for query, NZ format
-            mla_w_uq_qr: MLA up-projection weight for query and RoPE, NZ format
-            mla_dequant_scale: MLA dequantization scale, FP32
-            mla_w_uk: MLA up-projection weight for key, BF16
-            mla_w_dkv_kr: MLA down-projection weight for key-value and RoPE, NZ format
-            mla_gamma_cq: MLA RMSNorm scale for query, BF16
-            mla_gamma_ckv: MLA RMSNorm scale for key-value, BF16
-            cos: Cosine values for RoPE, BF16
-            sin: Sine values for RoPE, BF16
-            cache_index: Cache index for scatter update, INT64
-            mla_kv_cache: MLA key-value cache input/output, INT8
-            mla_kr_cache: MLA key RoPE cache input/output, BF16
-            mla_k_scale_cache: MLA key scale cache input/output, FP16
-            ip_w_qb_in: Indexer query projection weight, INT8, NZ format
-            ip_w_qb_scale_in: Indexer query weight dequantization scale, FP32
-            ip_wk_in: Indexer key projection weight, BF16, NZ format
-            ip_w_proj_in: Indexer weight projection matrix, BF16, NZ format
-            ip_ln_gamma_k_in: Indexer LayerNorm scale for key, BF16
-            ip_ln_beta_k_in: Indexer LayerNorm shift for key, BF16
-            ip_hadamard_q_in: Indexer Hadamard matrix for query, BF16
-            ip_hadamard_k_in: Indexer Hadamard matrix for key, BF16
-            ip_k_cache: Indexer key cache input/output, INT8
-            ip_k_cache_scale: Indexer key cache scale input/output, FP16
-            mla_query_nope_out: Output MLA query without RoPE, BF16
-            mla_query_rope_out: Output MLA query with RoPE, BF16
-            mla_kv_cache_out: Output MLA key-value cache
-            mla_kr_cache_out: Output MLA key RoPE cache
-            mla_k_scale_cache_out: Output MLA key scale cache
-            ip_q_int8_out: Output indexer quantized query, INT8
-            ip_q_scale_out: Output indexer query quantization scale, FP16
-            ip_k_int8_out: Output indexer key cache
-            ip_k_scale_out: Output indexer key cache scale
-            ip_weights_out: Output indexer weights, FP16
-            mla_epsilon_cq: MLA RMSNorm epsilon for query
-            mla_epsilon_ckv: MLA RMSNorm epsilon for key-value
-            mla_cache_mode: MLA cache mode
-            mla_tile_config: MlaTileConfig object for MLA computation
-            ip_attrs: IndexerPrologQuantAttr object for indexer computation
-            ip_configs: IndexerPrologQuantip_configs object for indexer computation
-            rope_cfg: RopeTileShapeConfig object for RoPE computation
-
-        Note:
-            The function creates intermediate tensors (mla_q_norm_out, mla_q_norm_scale_out)
-            to pass data from MLA Prolog to Indexer Prolog. Pipeline parallelism is
-            enabled through device_sched_mode=2.
-        """
-        actual_q_lora_rank = ip_w_qb_in.shape[0]
-        mla_q_norm_out = pypto.Tensor((t, actual_q_lora_rank), pypto.DT_INT8)
-        mla_q_norm_scale_out = pypto.Tensor((t, 1), pypto.DT_FP32)
-        mla_indexer_prolog_quant_compute(
-            token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale, mla_w_uk, mla_w_dkv_kr, mla_gamma_cq,
-            mla_gamma_ckv, cos, sin, cache_index, mla_kv_cache, mla_kr_cache,
-            mla_k_scale_cache, ip_w_qb_in, ip_w_qb_scale_in, ip_wk_in, ip_w_proj_in,
-            ip_ln_gamma_k_in, ip_ln_beta_k_in, ip_hadamard_q_in, ip_hadamard_k_in,
-            ip_k_cache, ip_k_cache_scale, mla_query_nope_out, mla_query_rope_out,
-            mla_q_norm_out, mla_q_norm_scale_out,
-            mla_kv_cache_out, mla_kr_cache_out,
-            mla_k_scale_cache_out, ip_q_int8_out, ip_q_scale_out, ip_k_int8_out,
-            ip_k_scale_out, ip_weights_out, mla_epsilon_cq, mla_epsilon_ckv,
-            mla_cache_mode, mla_tile_config,
-            ip_attrs, ip_configs, rope_cfg
-        )
-        return
-    return mla_indexer_prolog_quant_kernel
 
 
-def mla_indexer_prolog_quant_d(h, n_q, q_lora_rank, kv_lora_rank, qk_nope_head_dim, \
-        qk_rope_head_dim, idx_n_heads, idx_head_dim, 
-        mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, mla_tile_config, 
-        ip_attrs, ip_configs, rope_cfg):
-    t = pypto.frontend.dynamic("t")
-    block_num = pypto.frontend.dynamic("blovk_num")
-    block_size = ip_configs.block_size
-    q_head_dim = qk_nope_head_dim + qk_rope_head_dim
-    mla_w_uq_qr_dim1 = n_q * q_head_dim
-    mla_w_dkv_kr_dim1 = kv_lora_rank + qk_rope_head_dim
-    ip_w_qb_in_dim1 = idx_n_heads * idx_head_dim
+@pypto.frontend.jit(
+    pass_options={
+        "cube_l1_reuse_setting": {-1: 4},
+        "pg_upper_bound": 8192,
+    },
+    runtime_options={"device_sched_mode": 2}
+)
+def mla_indexer_prolog_quant_d(
+    token_x: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
+    mla_w_dq: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_NZ),
+    mla_w_uq_qr: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_INT8, format=pypto.TileOpFormat.TILEOP_NZ),
+    mla_dequant_scale: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
+    mla_w_uk: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    mla_w_dkv_kr: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_NZ),
+    mla_gamma_cq: pypto.Tensor([pypto.STATIC], pypto.DT_BF16),
+    mla_gamma_ckv: pypto.Tensor([pypto.STATIC], pypto.DT_BF16),
+    cos: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
+    sin: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
+    cache_index: pypto.Tensor([pypto.DYNAMIC], pypto.DT_INT64),
+    mla_kv_cache: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_INT8),
+    mla_kr_cache: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    mla_k_scale_cache: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
+    ip_w_qb_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_INT8, format=pypto.TileOpFormat.TILEOP_NZ),
+    ip_w_qb_scale_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
+    ip_wk_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_NZ),
+    ip_w_proj_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_NZ),
+    ip_ln_gamma_k_in: pypto.Tensor([pypto.STATIC], pypto.DT_BF16),
+    ip_ln_beta_k_in: pypto.Tensor([pypto.STATIC], pypto.DT_BF16),
+    ip_hadamard_q_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    ip_hadamard_k_in: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    ip_k_cache: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_INT8),
+    ip_k_cache_scale: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP16),
 
-    token_x_shape = (t, h)
-    mla_w_dq_shape = (h, q_lora_rank)
-    mla_w_uq_qr_shape = (q_lora_rank, n_q * q_head_dim)
-    mla_dequant_scale_shape = (n_q * q_head_dim, 1)
-    mla_w_uk_shape = (n_q, qk_nope_head_dim, kv_lora_rank)
-    mla_w_dkv_kr_shape = (h, kv_lora_rank + qk_rope_head_dim)
-    mla_gamma_cq_shape = (q_lora_rank,)
-    mla_gamma_ckv_shape = (kv_lora_rank,)
-    cos_shape = (t, qk_rope_head_dim)
-    sin_shape = (t, qk_rope_head_dim)
-    cache_index_shape = (t,)
-    mla_kv_cache_shape = (block_num, block_size, 1, kv_lora_rank)
-    mla_kr_cache_shape = (block_num, block_size, 1, qk_rope_head_dim)
-    mla_k_scale_cache_shape = (block_num, block_size, 1, 4)
+    mla_query_nope_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    mla_query_rope_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    mla_kv_cache_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_INT8),
+    mla_kr_cache_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    mla_k_scale_cache_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
+    ip_q_int8_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC], pypto.DT_INT8),
+    ip_q_scale_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP16),
+    ip_k_int8_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_INT8),
+    ip_k_scale_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP16),
+    ip_weights_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_FP16),
 
-    ip_w_qb_in_shape = (q_lora_rank, ip_w_qb_in_dim1)
-    ip_w_qb_scale_in_shape = (ip_w_qb_in_dim1, 1)
-    ip_wk_in_shape = (h, idx_head_dim)
-    ip_w_proj_in_shape = (h, idx_n_heads)
-    ip_ln_gamma_k_in_shape = (idx_head_dim,)
-    ip_ln_beta_k_in_shape = (idx_head_dim,)
-    ip_hadamard_q_in_shape = (idx_head_dim, idx_head_dim)
-    ip_hadamard_k_in_shape = (idx_head_dim, idx_head_dim)
-    ip_k_cache_shape = (block_num, block_size, 1, idx_head_dim)
-    ip_k_cache_scale_shape = (block_num, block_size, 1, 1)
+    mla_epsilon_cq,
+    mla_epsilon_ckv,
+    mla_cache_mode,
+    mla_tile_config,
+    ip_attrs,
+    ip_configs,
+    rope_cfg
+):
+    """Fused MLA and Indexer Prolog quantization for decode phase.
 
-    mla_query_nope_out_shape = (t, n_q, kv_lora_rank)
-    mla_query_rope_out_shape = (t, n_q, qk_rope_head_dim)
-    mla_kv_cache_out_shape = (block_num, block_size, 1, kv_lora_rank)
-    mla_kr_cache_out_shape = (block_num, block_size, 1, qk_rope_head_dim)
-    mla_k_scale_cache_out_shape = (block_num, block_size, 1, 4)   
-    ip_q_int8_out_shape = (t, idx_n_heads, idx_head_dim)
-    ip_q_scale_out_shape = (t, idx_n_heads, 1)
-    ip_k_int8_out_shape = (block_num, block_size, 1, idx_head_dim)
-    ip_k_scale_out_shape = (block_num, block_size, 1, 1)
-    ip_weights_out_shape = (t, idx_n_heads)
+    Combines MLA Prolog and Lightning Indexer Prolog computations in a single
+    fused operator for decode phase. This enables pipeline parallelism and
+    reduces memory transfers between operators.
 
-    @pypto.frontend.jit(
-        # prefill版本融合算子优化参数
-        pass_options={
-            "cube_l1_reuse_setting": {-1: 4},
-            "pg_upper_bound": 8192,
-        },
-        runtime_options={"device_sched_mode": 2}
+    The computation flow:
+    1. MLA Prolog: Computes MLA query, key, and value projections
+    2. Indexer Prolog: Uses MLA's q_norm output to compute indexer query, key, and weights
+
+    Args:
+        token_x: Input token tensor, shape (t, h), dtype BF16
+        mla_w_dq: MLA down-projection weight for query, NZ format
+        mla_w_uq_qr: MLA up-projection weight for query and RoPE, NZ format
+        mla_dequant_scale: MLA dequantization scale, FP32
+        mla_w_uk: MLA up-projection weight for key, BF16
+        mla_w_dkv_kr: MLA down-projection weight for key-value and RoPE, NZ format
+        mla_gamma_cq: MLA RMSNorm scale for query, BF16
+        mla_gamma_ckv: MLA RMSNorm scale for key-value, BF16
+        cos: Cosine values for RoPE, BF16
+        sin: Sine values for RoPE, BF16
+        cache_index: Cache index for scatter update, INT64
+        mla_kv_cache: MLA key-value cache input/output, INT8
+        mla_kr_cache: MLA key RoPE cache input/output, BF16
+        mla_k_scale_cache: MLA key scale cache input/output, FP16
+        ip_w_qb_in: Indexer query projection weight, INT8, NZ format
+        ip_w_qb_scale_in: Indexer query weight dequantization scale, FP32
+        ip_wk_in: Indexer key projection weight, BF16, NZ format
+        ip_w_proj_in: Indexer weight projection matrix, BF16, NZ format
+        ip_ln_gamma_k_in: Indexer LayerNorm scale for key, BF16
+        ip_ln_beta_k_in: Indexer LayerNorm shift for key, BF16
+        ip_hadamard_q_in: Indexer Hadamard matrix for query, BF16
+        ip_hadamard_k_in: Indexer Hadamard matrix for key, BF16
+        ip_k_cache: Indexer key cache input/output, INT8
+        ip_k_cache_scale: Indexer key cache scale input/output, FP16
+        mla_query_nope_out: Output MLA query without RoPE, BF16
+        mla_query_rope_out: Output MLA query with RoPE, BF16
+        mla_kv_cache_out: Output MLA key-value cache
+        mla_kr_cache_out: Output MLA key RoPE cache
+        mla_k_scale_cache_out: Output MLA key scale cache
+        ip_q_int8_out: Output indexer quantized query, INT8
+        ip_q_scale_out: Output indexer query quantization scale, FP16
+        ip_k_int8_out: Output indexer key cache
+        ip_k_scale_out: Output indexer key cache scale
+        ip_weights_out: Output indexer weights, FP16
+        mla_epsilon_cq: MLA RMSNorm epsilon for query
+        mla_epsilon_ckv: MLA RMSNorm epsilon for key-value
+        mla_cache_mode: MLA cache mode
+        mla_tile_config: MlaTileConfig object for MLA computation
+        ip_attrs: IndexerPrologQuantAttr object for indexer computation
+        ip_configs: IndexerPrologQuantip_configs object for indexer computation
+        rope_cfg: RopeTileShapeConfig object for RoPE computation
+
+    Note:
+        The function creates intermediate tensors (mla_q_norm_out, mla_q_norm_scale_out)
+        to pass data from MLA Prolog to Indexer Prolog. Pipeline parallelism is
+        enabled through device_sched_mode=2.
+    """
+    t = token_x.shape[0]
+    actual_q_lora_rank = ip_w_qb_in.shape[0]
+    mla_q_norm_out = pypto.Tensor((t, actual_q_lora_rank), pypto.DT_INT8)
+    mla_q_norm_scale_out = pypto.Tensor((t, 1), pypto.DT_FP32)
+    mla_indexer_prolog_quant_compute(
+        token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale, mla_w_uk, mla_w_dkv_kr, mla_gamma_cq,
+        mla_gamma_ckv, cos, sin, cache_index, mla_kv_cache, mla_kr_cache,
+        mla_k_scale_cache, ip_w_qb_in, ip_w_qb_scale_in, ip_wk_in, ip_w_proj_in,
+        ip_ln_gamma_k_in, ip_ln_beta_k_in, ip_hadamard_q_in, ip_hadamard_k_in,
+        ip_k_cache, ip_k_cache_scale, mla_query_nope_out, mla_query_rope_out,
+        mla_q_norm_out, mla_q_norm_scale_out,
+        mla_kv_cache_out, mla_kr_cache_out,
+        mla_k_scale_cache_out, ip_q_int8_out, ip_q_scale_out, ip_k_int8_out,
+        ip_k_scale_out, ip_weights_out, mla_epsilon_cq, mla_epsilon_ckv,
+        mla_cache_mode, mla_tile_config,
+        ip_attrs, ip_configs, rope_cfg
     )
-    def mla_indexer_prolog_quant_kernel(
-        token_x: pypto.Tensor(token_x_shape, pypto.DT_BF16),
-        mla_w_dq: pypto.Tensor(mla_w_dq_shape, pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_NZ),
-        mla_w_uq_qr: pypto.Tensor(mla_w_uq_qr_shape, pypto.DT_INT8, format=pypto.TileOpFormat.TILEOP_NZ),
-        mla_dequant_scale: pypto.Tensor(mla_dequant_scale_shape, pypto.DT_FP32),
-        mla_w_uk: pypto.Tensor(mla_w_uk_shape, pypto.DT_BF16),
-        mla_w_dkv_kr: pypto.Tensor(mla_w_dkv_kr_shape, pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_NZ),
-        mla_gamma_cq: pypto.Tensor(mla_gamma_cq_shape, pypto.DT_BF16),
-        mla_gamma_ckv: pypto.Tensor(mla_gamma_ckv_shape, pypto.DT_BF16),
-        cos: pypto.Tensor(cos_shape, pypto.DT_BF16),
-        sin: pypto.Tensor(sin_shape, pypto.DT_BF16),
-        cache_index: pypto.Tensor(cache_index_shape, pypto.DT_INT64),
-        mla_kv_cache: pypto.Tensor(mla_kv_cache_shape, pypto.DT_INT8),
-        mla_kr_cache: pypto.Tensor(mla_kr_cache_shape, pypto.DT_BF16),
-        mla_k_scale_cache: pypto.Tensor(mla_k_scale_cache_shape, pypto.DT_FP32),
-        ip_w_qb_in: pypto.Tensor(ip_w_qb_in_shape, pypto.DT_INT8, format=pypto.TileOpFormat.TILEOP_NZ),
-        ip_w_qb_scale_in: pypto.Tensor(ip_w_qb_scale_in_shape, pypto.DT_FP32),
-        ip_wk_in: pypto.Tensor(ip_wk_in_shape, pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_NZ),
-        ip_w_proj_in: pypto.Tensor(ip_w_proj_in_shape, pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_NZ),
-        ip_ln_gamma_k_in: pypto.Tensor(ip_ln_gamma_k_in_shape, pypto.DT_BF16),
-        ip_ln_beta_k_in: pypto.Tensor(ip_ln_beta_k_in_shape, pypto.DT_BF16),
-        ip_hadamard_q_in: pypto.Tensor(ip_hadamard_q_in_shape, pypto.DT_BF16),
-        ip_hadamard_k_in: pypto.Tensor(ip_hadamard_k_in_shape, pypto.DT_BF16),
-        ip_k_cache: pypto.Tensor(ip_k_cache_shape, pypto.DT_INT8),
-        ip_k_cache_scale: pypto.Tensor(ip_k_cache_scale_shape, pypto.DT_FP16),
-
-        mla_query_nope_out: pypto.Tensor(mla_query_nope_out_shape, pypto.DT_BF16),
-        mla_query_rope_out: pypto.Tensor(mla_query_rope_out_shape, pypto.DT_BF16),
-        mla_kv_cache_out: pypto.Tensor(mla_kv_cache_out_shape, pypto.DT_INT8),
-        mla_kr_cache_out: pypto.Tensor(mla_kr_cache_out_shape, pypto.DT_BF16),
-        mla_k_scale_cache_out: pypto.Tensor(mla_k_scale_cache_out_shape, pypto.DT_FP32),
-        ip_q_int8_out: pypto.Tensor(ip_q_int8_out_shape, pypto.DT_INT8),
-        ip_q_scale_out: pypto.Tensor(ip_q_scale_out_shape, pypto.DT_FP16),
-        ip_k_int8_out: pypto.Tensor(ip_k_int8_out_shape, pypto.DT_INT8),
-        ip_k_scale_out: pypto.Tensor(ip_k_scale_out_shape, pypto.DT_FP16),
-        ip_weights_out: pypto.Tensor(ip_weights_out_shape, pypto.DT_FP16),
-        ) -> None:
-        """Fused MLA and Indexer Prolog quantization for prefill phase.
-
-        Combines MLA Prolog and Lightning Indexer Prolog computations in a single
-        fused operator for prefill phase. This enables pipeline parallelism and
-        reduces memory transfers between operators.
-
-        The computation flow:
-        1. MLA Prolog: Computes MLA query, key, and value projections
-        2. Indexer Prolog: Uses MLA's q_norm output to compute indexer query, key, and weights
-
-        Args:
-            token_x: Input token tensor, shape (t, h), dtype BF16
-            mla_w_dq: MLA down-projection weight for query, NZ format
-            mla_w_uq_qr: MLA up-projection weight for query and RoPE, NZ format
-            mla_dequant_scale: MLA dequantization scale, FP32
-            mla_w_uk: MLA up-projection weight for key, BF16
-            mla_w_dkv_kr: MLA down-projection weight for key-value and RoPE, NZ format
-            mla_gamma_cq: MLA RMSNorm scale for query, BF16
-            mla_gamma_ckv: MLA RMSNorm scale for key-value, BF16
-            cos: Cosine values for RoPE, BF16
-            sin: Sine values for RoPE, BF16
-            cache_index: Cache index for scatter update, INT64
-            mla_kv_cache: MLA key-value cache input/output, INT8
-            mla_kr_cache: MLA key RoPE cache input/output, BF16
-            mla_k_scale_cache: MLA key scale cache input/output, FP16
-            ip_w_qb_in: Indexer query projection weight, INT8, NZ format
-            ip_w_qb_scale_in: Indexer query weight dequantization scale, FP32
-            ip_wk_in: Indexer key projection weight, BF16, NZ format
-            ip_w_proj_in: Indexer weight projection matrix, BF16, NZ format
-            ip_ln_gamma_k_in: Indexer LayerNorm scale for key, BF16
-            ip_ln_beta_k_in: Indexer LayerNorm shift for key, BF16
-            ip_hadamard_q_in: Indexer Hadamard matrix for query, BF16
-            ip_hadamard_k_in: Indexer Hadamard matrix for key, BF16
-            ip_k_cache: Indexer key cache input/output, INT8
-            ip_k_cache_scale: Indexer key cache scale input/output, FP16
-            mla_query_nope_out: Output MLA query without RoPE, BF16
-            mla_query_rope_out: Output MLA query with RoPE, BF16
-            mla_kv_cache_out: Output MLA key-value cache
-            mla_kr_cache_out: Output MLA key RoPE cache
-            mla_k_scale_cache_out: Output MLA key scale cache
-            ip_q_int8_out: Output indexer quantized query, INT8
-            ip_q_scale_out: Output indexer query quantization scale, FP16
-            ip_k_int8_out: Output indexer key cache
-            ip_k_scale_out: Output indexer key cache scale
-            ip_weights_out: Output indexer weights, FP16
-            mla_epsilon_cq: MLA RMSNorm epsilon for query
-            mla_epsilon_ckv: MLA RMSNorm epsilon for key-value
-            mla_cache_mode: MLA cache mode
-            mla_tile_config: MlaTileConfig object for MLA computation
-            ip_attrs: IndexerPrologQuantAttr object for indexer computation
-            ip_configs: IndexerPrologQuantip_configs object for indexer computation
-            rope_cfg: RopeTileShapeConfig object for RoPE computation
-
-        Note:
-            The function creates intermediate tensors (mla_q_norm_out, mla_q_norm_scale_out)
-            to pass data from MLA Prolog to Indexer Prolog. Pipeline parallelism is
-            enabled through device_sched_mode=2.
-        """
-        actual_q_lora_rank = ip_w_qb_in.shape[0]
-        mla_q_norm_out = pypto.Tensor((t, actual_q_lora_rank), pypto.DT_INT8)
-        mla_q_norm_scale_out = pypto.Tensor((t, 1), pypto.DT_FP32)
-        mla_indexer_prolog_quant_compute(
-            token_x, mla_w_dq, mla_w_uq_qr, mla_dequant_scale, mla_w_uk, mla_w_dkv_kr, mla_gamma_cq,
-            mla_gamma_ckv, cos, sin, cache_index, mla_kv_cache, mla_kr_cache,
-            mla_k_scale_cache, ip_w_qb_in, ip_w_qb_scale_in, ip_wk_in, ip_w_proj_in,
-            ip_ln_gamma_k_in, ip_ln_beta_k_in, ip_hadamard_q_in, ip_hadamard_k_in,
-            ip_k_cache, ip_k_cache_scale, mla_query_nope_out, mla_query_rope_out,
-            mla_q_norm_out, mla_q_norm_scale_out,
-            mla_kv_cache_out, mla_kr_cache_out,
-            mla_k_scale_cache_out, ip_q_int8_out, ip_q_scale_out, ip_k_int8_out,
-            ip_k_scale_out, ip_weights_out, mla_epsilon_cq, mla_epsilon_ckv,
-            mla_cache_mode, mla_tile_config,
-            ip_attrs, ip_configs, rope_cfg
-        )
-        return
-    return mla_indexer_prolog_quant_kernel
