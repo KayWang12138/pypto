@@ -16,8 +16,8 @@
 #ifndef PASS_SET_HEURISTIC_TILE_SHAPES_H_
 #define PASS_SET_HEURISTIC_TILE_SHAPES_H_
  
-#define CUBE_TILES // comment to disable
-#define VECTOR_TILES // comment to disable
+// #define CUBE_TILES // comment to disable
+// #define VECTOR_TILES // comment to disable
 
 #include "tilefwk/platform.h"
 #include "passes/pass_interface/pass.h"
