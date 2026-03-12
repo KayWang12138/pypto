@@ -961,43 +961,41 @@ TEST_F(OspAlgorithmTest, BspSchedulers) {
     EXPECT_TRUE(schedule.IsValid());
 }
 
-// TEST_F(OspAlgorithmTest, CoarsenMerkleBsp) {
-//     BspInstance<GraphType> bspInst;
-//     bspInst.GetArchitecture() = BspArchitecture<GraphType>(3U);
-//     bspInst.GetArchitecture().SetProcessorsWithTypes(std::vector<unsigned>({0U, 0U, 1U}));
-//     bspInst.GetComputationalDag() = SimpleGraphWithVertexTypes();
+TEST_F(OspAlgorithmTest, CoarsenMerkleBsp) {
+    BspInstance<GraphType> bspInst;
+    bspInst.GetArchitecture() = BspArchitecture<GraphType>(3U);
+    bspInst.GetArchitecture().SetProcessorsWithTypes(std::vector<unsigned>({0U, 0U, 1U}));
+    bspInst.GetComputationalDag() = SimpleGraphWithVertexTypes();
 
-//     GrowLocalAutoCores<ConstrGraphType> growlocal;
-//     GreedyChildren<ConstrGraphType> children;
+    GrowLocalAutoCores<ConstrGraphType> growlocal;
+    GreedyChildren<ConstrGraphType> children;
         
-//     KlImprover<ConstrGraphType, KlHyperTotalCommCostFunction<ConstrGraphType, double, 1>, 1, double> kl;
-//     kl.SetSuperstepRemoveStrengthParameter(1.0);
-//     kl.SetTimeQualityParameter(1.0);
+    KlImprover<ConstrGraphType, KlHyperTotalCommCostFunction<ConstrGraphType, double, 1>, 1, double> kl;
+    kl.SetSuperstepRemoveStrengthParameter(1.0);
+    kl.SetTimeQualityParameter(1.0);
     
-//     ComboScheduler<ConstrGraphType> growlocalKl(growlocal, kl);
-//     ComboScheduler<ConstrGraphType> childrenKl(children, kl);
+    ComboScheduler<ConstrGraphType> growlocalKl(growlocal, kl);
+    ComboScheduler<ConstrGraphType> childrenKl(children, kl);
 
-//     GreedyMetaScheduler<ConstrGraphType> scheduler;
-//     scheduler.AddScheduler(growlocalKl);
-//     scheduler.AddScheduler(childrenKl);
-//     scheduler.AddSerialScheduler();
+    GreedyMetaScheduler<ConstrGraphType> scheduler;
+    scheduler.AddScheduler(growlocalKl);
+    scheduler.AddScheduler(childrenKl);
+    scheduler.AddSerialScheduler();
 
-//     std::vector<uint64_t> nodeHashList(bspInst.GetComputationalDag().NumVertices());
-//     std::iota(nodeHashList.begin(), nodeHashList.end(), 0U);
+    std::vector<uint64_t> nodeHashList(bspInst.GetComputationalDag().NumVertices(), 7U);
+    MerkleHashComputer<GraphType, PrecomBwdMerkleNodeHashFunc<GraphType>> hashComputer(bspInst.GetComputationalDag(), bspInst.GetComputationalDag(), nodeHashList);
+    IsomorphicSubgraphScheduler<GraphType, ConstrGraphType> isoScheduler(scheduler, hashComputer);
+    isoScheduler.SetWorkThreshold(200);
+    isoScheduler.SetCriticalPathThreshold(500);
 
-//     MerkleHashComputer<GraphType, PrecomBwdMerkleNodeHashFunc<GraphType>> hashComputer(bspInst.GetComputationalDag(), bspInst.GetComputationalDag(), nodeHashList);
-//     IsomorphicSubgraphScheduler<GraphType, ConstrGraphType> isoScheduler(scheduler, hashComputer);
-//     isoScheduler.SetWorkThreshold(200);
-//     isoScheduler.SetCriticalPathThreshold(500);
+    const auto vertexContractionMap = isoScheduler.ComputePartition(bspInst);
+    EXPECT_TRUE(coarser_util::CheckValidContractionMap<ConstrGraphType>(vertexContractionMap));
 
-//     const auto vertexContractionMap = isoScheduler.ComputePartition(bspInst);
-//     EXPECT_TRUE(coarser_util::CheckValidContractionMap<ConstrGraphType>(vertexContractionMap));
+    ConstrGraphType coarseGraph;
+    coarser_util::ConstructCoarseDag(bspInst.GetComputationalDag(), coarseGraph, vertexContractionMap);
 
-//     ConstrGraphType coarseGraph;
-//     coarser_util::ConstructCoarseDag(bspInst.GetComputationalDag(), coarseGraph, vertexContractionMap);
-
-//     testValidContractionMap(bspInst.GetComputationalDag(), coarseGraph, vertexContractionMap);
-// }
+    testValidContractionMap(bspInst.GetComputationalDag(), coarseGraph, vertexContractionMap);
+}
 
 } // namespace osp
 } // namespace npu::tile_fwk
