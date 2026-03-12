@@ -10,7 +10,7 @@
 
 /*!
  * \file reduce_copy.h
- * \brief
+ * \brief ReduceCopy pass for subgraph merging optimization.
  */
 
 #ifndef PASS_REDUCE_COPY_H_
@@ -20,53 +20,8 @@
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "tilefwk/platform.h"
-#include "passes/pass_utils/pass_utils.h"
-#include "interface/utils/log.h"
-#include "interface/tensor/logical_tensor.h"
 
 namespace npu::tile_fwk {
-class DSU {
-public:
-    DSU() = default;
-    DSU(int n, const std::vector<int>& nodeWeights, std::vector<OpCoreType> &colorCoreType);
-    int Find(int i);
-    void Union(int i, int j);
-    std::pair<int, int> GetWeight(int i);
-    void ResetLink(int i);
-
-    std::vector<int> parent;
-    std::vector<int> AIVSupernodeWeights;
-    std::vector<int> AICSupernodeWeights;
-    std::vector<int> AIVSingleWeights;
-    std::vector<int> AICSingleWeights;
-    std::vector<OpCoreType> coreType;
-};
-
-class ReduceCopyRunner {
-public:
-    Status ReduceCopy(Function &func);
-    Status Init(Function &func); 
-    Status MergePrepare(std::vector<std::tuple<int, int, size_t>> &candidates, std::map<int, int> &rootToDense);
-    Status MergeLoop(std::vector<std::tuple<int, int, size_t>> &candidates, const std::pair<double, double> &thres,
-    bool &mergedInLoop, std::map<int, int> &rootToDense);
-    Status RemarkInternalSubgraphID(Function &func);
-    void BuildGraph(const OperationsViewer opOriList);
-    void BuildGraphInner(const OperationsViewer &opOriList, int opIdx, int opColor);
-    std::map<int, size_t> magic2Size;
-    std::map<std::pair<int, int>, std::set<int>> originalEdges;
-    std::set<std::pair<int, int>> crossEdges;
-    std::vector<std::set<int>> superNodeInGraph;
-    std::vector<std::set<int>> superNodeOutGraph;
-    std::vector<bool> isReshape;
-    std::vector<OpCoreType> colorCoreType;
-    std::vector<std::vector<size_t>> colorNode;
-    std::vector<std::pair<double, double>> mergeThresholds;
-    std::unordered_set<int> mergedGraphId;
-    std::unordered_set<int> currMergedGraphId;
-    DSU dsu;
-    int upperBound{10000};
-    int color;
-};
 
 class ReduceCopyMerge : public Pass {
 public:
@@ -80,4 +35,5 @@ private:
 };
 
 }
+
 #endif
