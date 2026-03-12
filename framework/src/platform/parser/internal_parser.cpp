@@ -73,7 +73,7 @@ MemoryType StringToMemoryType(const std::string& memType) {
 
 bool InternalParser::LoadInternalInfo() {
     std::string internalFile = RealPath(GetCurSharedLibPath() + iniFile);
-    FUNCTION_LOGD("Try to obtain internal info from [%s].", internalFile.c_str());
+    PLATFORM_LOGD("Try to obtain internal info from [%s].", internalFile.c_str());
     if (!IsPathExist(internalFile)) {
         return false;
     }
@@ -110,7 +110,7 @@ bool InternalParser::LoadInternalInfo() {
         }
     }
     file.close();
-    FUNCTION_LOGD("Obtained internal info successfully.");
+    PLATFORM_LOGD("Obtained internal info successfully.");
     return true;
 }
 
