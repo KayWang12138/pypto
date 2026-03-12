@@ -243,7 +243,7 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation &op) const {
     auto assembleOpAttribute = dynamic_cast<AssembleOpAttribute *>(op.GetOpAttribute().get());
     auto ASSEMBLE_in = op.iOperand.front();
     auto parentOp = *ASSEMBLE_in->GetProducers().begin();
-    auto inputMemtype = op.iOperand.front()->GetMemoryTypeOriginal();
+    auto inputMemtype = ASSEMBLE_in->GetMemoryTypeOriginal();
     auto outputMemtype = op.oOperand.front()->GetMemoryTypeOriginal();
     if (inputMemtype == MemoryType::MEM_L0C && outputMemtype == MemoryType::MEM_L1) {
         SetOpcodeByMemPath(op, inputMemtype, outputMemtype);
@@ -268,8 +268,8 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation &op) const {
 Status GenerateMoveOp::CreateMoveOpForConvert(Function &function, Operation &op) const {
     auto convertOpAttribute = dynamic_cast<ConvertOpAttribute *>(op.GetOpAttribute().get());
     auto [from, to] = convertOpAttribute->GetConvertPath();
-    Status status = SetOpcodeByMemPath(op,from,to);
-    if(op.GetOpcode() == Opcode::OP_UB_COPY_L1) {
+    Status status = SetOpcodeByMemPath(op, from, to);	 
+    if (op.GetOpcode() == Opcode::OP_UB_COPY_L1) {
         ProcessUB2L1(function, op);
     }
     if (op.GetOpcode() == Opcode::OP_L0C_TO_L1) {
@@ -280,6 +280,7 @@ Status GenerateMoveOp::CreateMoveOpForConvert(Function &function, Operation &op)
     op.UpdateSubgraphID(childOp->GetSubgraphID());
     return SUCCESS;
 }
+
 void GenerateMoveOp::ProcessUB2L1(Function &function, Operation &op) const {
     //插入UB2L1节点（NZ2NZ)，并设置UBcopyL1的NZ属性
     op.SetAttribute(OP_ATTR_PREFIX + "is_nz", 1);
