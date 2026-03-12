@@ -34,6 +34,12 @@ const std::string l0bSize = "l0_b_size";
 const std::string l0cSize = "l0_c_size";
 const std::string l1Size = "l1_size";
 const std::string ubSize = "ub_size";
+const std::string btSize = "bt_size";
+const std::string fixQuantPreSize = "fb0_size";
+
+constexpr size_t kDefaultFixSize = 1 * 1024;
+constexpr size_t kDefaultL0mxSize = 2 * 1024;
+
 const std::unordered_map<std::string, NPUArch> npuArchMap = {
     {"1001", NPUArch::DAV_1001},
     {"2201", NPUArch::DAV_2201},
@@ -200,6 +206,16 @@ void Platform::SetMemoryLimit(const PlatformParser &parser) {
     if (parser.GetSizeVal(aiCoreSpec, ubSize, memoryLimit)) {
         GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_UB, memoryLimit));
     }
+    if (parser.GetSizeVal(aiCoreSpec, btSize, memoryLimit)) {
+        GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_BT, memoryLimit));
+    }
+    if (parser.GetSizeVal(aiCoreSpec, fixQuantPreSize, memoryLimit)) {
+        GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_FIX_QUANT_PRE, memoryLimit));
+    }
+    // 插桩
+    GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_FIX, kDefaultFixSize));
+    GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0AMX, kDefaultL0mxSize));
+    GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0BMX, kDefaultL0mxSize));
 }
 
 void Platform::LoadPlatformInfo(const PlatformParser &parser) {
