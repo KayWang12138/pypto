@@ -28,14 +28,22 @@ Status AutoCastChecker::DoPreCheck(Function &function) {
         if (std::find(CAST_OPS.begin(), CAST_OPS.end(), op->GetOpcode()) == CAST_OPS.end()) {
             continue;
         }
-        if (op->GetIOperands().size() != 1) {
-            APASS_LOG_ERROR_F(Elements::Operation, "CAST op %d has %d input tensor, which should be 1.",
-                         op->GetOpMagic(), static_cast<int>(op->GetIOperands().size()));
+
+        int inputNum = static_cast<int>(op->GetIOperands().size());
+        if (inputNum != 1) {
+            APASS_LOG_ERROR_F(Elements::Operation,
+                             "CAST op %d has %d input tensor, which should be 1.",
+                             op->GetOpMagic(),
+                             inputNum);
             return FAILED;
         }
-        if (op->GetOOperands().size() != 1) {
-            APASS_LOG_ERROR_F(Elements::Operation, "CAST op %d has %d output tensor, which should be 1.",
-                         op->GetOpMagic(), static_cast<int>(op->GetOOperands().size()));
+
+        int outputNum = static_cast<int>(op->GetOOperands().size());
+        if (outputNum != 1) {
+            APASS_LOG_ERROR_F(Elements::Operation,
+                             "CAST op %d has %d output tensor, which should be 1.",
+                             op->GetOpMagic(),
+                             outputNum);
             return FAILED;
         }
     }
@@ -49,29 +57,40 @@ Status AutoCastChecker::DoPostCheck(Function &function) {
         Operation *op = opList[opIdx];
         bool supportBF16 = SupportBF16(op);
         bool supportFP16 = SupportFP16(op);
+        const int opMagic = op->GetOpMagic();
+        
         auto iOperands = op->GetIOperands();
         for (const auto &iop : iOperands) {
             if (!supportBF16 && iop->Datatype() == DataType::DT_BF16) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Exist unsupported BF16 compute between op %d and tensor %d",
-                             op->GetOpMagic(), iop->GetMagic());
+                APASS_LOG_ERROR_F(Elements::Operation,
+                                 "Exist unsupported BF16 compute between op %d and tensor %d",
+                                 opMagic,
+                                 iop->GetMagic());
                 return FAILED;
             }
             if (!supportFP16 && iop->Datatype() == DataType::DT_FP16) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Exist unsupported FP16 compute between op %d and tensor %d",
-                            op->GetOpMagic(), iop->GetMagic());
+                APASS_LOG_ERROR_F(Elements::Operation,
+                                 "Exist unsupported FP16 compute between op %d and tensor %d",
+                                 opMagic,
+                                 iop->GetMagic());
                 return FAILED;
             }
         }
+
         auto oOperands = op->GetOOperands();
         for (const auto &oop : oOperands) {
             if (!supportBF16 && oop->Datatype() == DataType::DT_BF16) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Exist unsupported BF16 compute between op %d and tensor %d",
-                             op->GetOpMagic(), oop->GetMagic());
+                APASS_LOG_ERROR_F(Elements::Operation,
+                                 "Exist unsupported BF16 compute between op %d and tensor %d",
+                                 opMagic,
+                                 oop->GetMagic());
                 return FAILED;
             }
             if (!supportFP16 && oop->Datatype() == DataType::DT_FP16) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Exist unsupported FP16 compute between op %d and tensor %d",
-                            op->GetOpMagic(), oop->GetMagic());
+                APASS_LOG_ERROR_F(Elements::Operation,
+                                 "Exist unsupported FP16 compute between op %d and tensor %d",
+                                 opMagic,
+                                 oop->GetMagic());
                 return FAILED;
             }
         }
