@@ -2,18 +2,57 @@
 import re
 import os
 import glob
+import sys
+
+
+def process_log_line(line, pass_pattern, current_pass_lines, current_pass_name,
+                      current_function_name, output_dir, function_index_map,
+                      pass_count):
+    """
+    处理单行日志
+    
+    Args:
+        line: 日志行
+        pass_pattern: pass匹配正则表达式
+        current_pass_lines: 当前pass日志行列表
+        current_pass_name: 当前pass名称
+        current_function_name: 当前function名称
+        output_dir: 输出目录
+        function_index_map: 用于跟踪每个function_name的序号字典
+        pass_count: pass计数
+    
+    Returns:
+        tuple: (current_pass_lines, current_pass_name, current_function_name, pass_count)
+    """
+    match = pass_pattern.search(line)
+    
+    if match:
+        if current_pass_name is not None:
+            save_pass_log(current_pass_lines, current_pass_name,
+                         current_function_name, output_dir,
+                         function_index_map)
+            pass_count += 1
+        
+        current_pass_name = match.group(1)
+        current_function_name = match.group(2)
+        current_pass_lines = [line]
+    else:
+        if current_pass_name is not None:
+            current_pass_lines.append(line)
+    
+    return current_pass_lines, current_pass_name, current_function_name, pass_count
+
 
 def extract_pass_logs(log_file_paths, output_dir):
     """
     提取日志文件中的每个pass部分并保存到单独的文件中
-    支持多个输入文件/处理跨文件的pass日志
+    支持多个输入文件，处理跨文件的pass日志
     
     Args:
         log_file_paths: 输入日志文件路径列表
         output_dir: 输出目录文件路径
     """
     
-    # 创建输出目录
     os.makedirs(output_dir, exist_ok=True)
     
     # 正则表达式匹配pass开始行
@@ -29,37 +68,23 @@ def extract_pass_logs(log_file_paths, output_dir):
     
     # 处理每个日志文件
     for log_file_path in log_file_paths:
-        print(f"正在处理文件: {log_file_path}")
         
         # 读取日志文件
         with open(log_file_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
         
         for line in lines:
-            # 检查是否是pass开始行
-            match = pass_pattern.search(line)
-            
-            if match:
-                # 如果有当前pass的日志，先保存
-                if current_pass_name is not None:
-                    save_pass_log(current_pass_lines, current_pass_name, current_function_name, output_dir, function_index_map)
-                    pass_count += 1
-                
-                # 开始新的pass
-                current_pass_name = match.group(1)
-                current_function_name = match.group(2)
-                current_pass_lines = [line]
-            else:
-                # 添加到当前pass的日志
-                if current_pass_name is not None:
-                    current_pass_lines.append(line)
+            current_pass_lines, current_pass_name, current_function_name, pass_count = \
+                process_log_line(line, pass_pattern, current_pass_lines,
+                               current_pass_name, current_function_name,
+                               output_dir, function_index_map, pass_count)
     
-    # 保存最后一个pass
     if current_pass_name is not None:
-        save_pass_log(current_pass_lines, current_pass_name, current_function_name, output_dir, function_index_map)
+        save_pass_log(current_pass_lines, current_pass_name,
+                     current_function_name, output_dir,
+                     function_index_map)
         pass_count += 1
-    
-    print(f"提取完成！共提取 {pass_count} 个pass日志到 {output_dir} 目录")
+
 
 def save_pass_log(pass_lines, pass_name, function_name, output_dir, function_index_map):
     """
@@ -79,7 +104,7 @@ def save_pass_log(pass_lines, pass_name, function_name, output_dir, function_ind
     # 生成文件名，格式为Pass_{xx}_{pass_name}_{function_name}.log
     index = function_index_map[function_name]
     filename = f"Pass_{index:02d}_{pass_name}_{function_name}.log"
-
+    
     # 创建子目录，格式为Pass_{xx}_{pass_name}
     subdir_name = f"Pass_{index:02d}_{pass_name}"
     subdir_path = os.path.join(output_dir, subdir_name)
@@ -92,21 +117,23 @@ def save_pass_log(pass_lines, pass_name, function_name, output_dir, function_ind
     with open(filepath, 'w', encoding='utf-8') as f:
         f.writelines(pass_lines)
     
-    print(f"保存: {subdir_name}/{filename} ({len(pass_lines)} 行)")
     
     # 序号自增
     function_index_map[function_name] += 1
 
+
 if __name__ == "__main__":
-    import sys
-    
+
+    """
+    使用方法: python extract_pass_logs.py <日志文件路径1> [日志文件路径2 ...] [输出目录]
+    示例: python extract_pass_logs.py pypto-log-xxx.log
+    示例: python extract_pass_logs.py pypto-log-xxx.log ./output
+    示例: python extract_pass_logs.py log1.log log2.log log3.log ./output
+    示例: python extract_pass_logs.py 'log*.log' ./output
+    """
+
     if len(sys.argv) < 2:
-        print("使用方法: python3 extract_pass_logs.py <日志文件路径1> [日志文件路径2 ...] [输出目录]")
-        print("示例: python3 extract_pass_logs.py pypto-log-xxx.log")
-        print("示例: python3 extract_pass_logs.py pypto-log-xxx.log ./output")
-        print("示例: python3 extract_pass_logs.py log1.log log2.log log3.log ./output")
-        print("示例: python3 extract_pass_logs.py 'log*.log' ./output")
-        sys.exit(1)
+        sys.exit("Error, need at least 2 input args")
     
     # 检查最后一个参数是否是输出目录
     if len(sys.argv) >= 3 and (sys.argv[-1].endswith('/') or not sys.argv[-1].endswith('.log')):
@@ -124,19 +151,12 @@ if __name__ == "__main__":
         matched_files = glob.glob(pattern)
         if matched_files:
             log_files.extend(matched_files)
-        else:
-            print(f"警告: 没有找到匹配 '{pattern}' 的文件")
     
     if not log_files:
-        print("错误: 没有找到任何日志文件")
-        sys.exit(1)
+        sys.exit("Error, no log has been found.")
     
     # 按文件名排序，确保按顺序处理
     log_files.sort()
-    
-    print(f"找到 {len(log_files)} 个日志文件:")
-    for f in log_files:
-        print(f"  - {f}")
     
     # 提取pass日志
     extract_pass_logs(log_files, output_directory)
