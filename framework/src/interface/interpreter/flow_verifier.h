@@ -93,7 +93,7 @@ public:
             return errorCount_ <= errorCountThreshold_ && failNum_ == 0;
         }
 
-        std::vector<std::string> Dump(int indent = 2, size_t maxPrint = 50) const {
+        std::vector<std::string> Dump(int indent = 2, size_t maxPrint = 5) const {
             float maxAbsDiff = 0;
             float maxRelDiff = 0;
             CompareElement maxAbsElement;

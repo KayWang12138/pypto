@@ -401,8 +401,15 @@ void ExecuteOpIndexOutcast(ExecuteOperationContext *ctx) {
     int axis = ctx->op->GetIntAttribute("axis");
     int blockSize = ctx->op->GetIntAttribute(OpAttributeKey::panzBlockSize);
     std::string cacheMode = ctx->op->GetStringAttribute(OpAttributeKey::cacheMode);
-
-    calc::ScatterUpdate(oop, src, index, dst, axis, cacheMode, blockSize);
+    auto actualOop = std::make_shared<LogicalTensorData>(dst->GetData());
+    if (dst->GetSize() != oop->GetSize()) {
+        VERIFY_EVENT("%s", ctx->op->Dump().c_str());
+        VERIFY_EVENT("dst validShape: %s ---> oop validShape: %s", IntVecToStr(dst->GetShape()).c_str(), IntVecToStr(oop->GetShape()).c_str());
+        VERIFY_EVENT("IndexOutcast: oop validShape is not equal to dst validShape");
+        calc::ScatterUpdate(actualOop, src, index, dst, axis, cacheMode, blockSize);
+    } else {
+        calc::ScatterUpdate(oop, src, index, dst, axis, cacheMode, blockSize);
+    }
 }
 REGISTER_CALC_OP(OP_INDEX_OUTCAST, Opcode::OP_INDEX_OUTCAST, ExecuteOpIndexOutcast);
 
