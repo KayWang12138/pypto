@@ -27,6 +27,7 @@ class Tensor:
                  data_ptr: Optional[int] = None, device=None, ori_shape=None):
         self.ori_shape = None
         self.status_shape = None
+        self.status_dtype = dtype
         if shape is None or dtype is None:
             # init default
             nshape = shape if shape is not None else []
