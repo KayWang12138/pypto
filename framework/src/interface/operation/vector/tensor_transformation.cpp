@@ -481,6 +481,9 @@ Tensor Transpose(const Tensor& self, std::vector<int> perm)
         return self;
     }
     auto oldVecTileShapes = TileShape::Current().GetVecTile();
+    std::cerr << " alignedVecTile in Tensor Transpose=============";
+    for (auto d : oldVecTileShapes.tile) std::cerr << d << ",";
+    std::cerr << std::endl;
     ASSERT(VectorErrorCode::ERR_PARAM_INVALID, (int)oldVecTileShapes.size() == shapeSize)
         << "TileShape dim num should same to input.";
     auto oldValidShapes = self.GetStorage()->GetDynValidShape();
