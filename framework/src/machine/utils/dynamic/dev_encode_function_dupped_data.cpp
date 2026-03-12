@@ -58,9 +58,17 @@ std::string DevAscendFunctionDuppedData::Dump(int indent) const {
 void DevAscendFunctionDupped::DumpTopo(std::ofstream &os, int seqNo, int funcIdx, const DevCceBinary *cceBinary) const {
     auto func = GetSource();
     for (size_t opIdx = 0; opIdx < DupData()->GetSource()->GetOperationSize(); opIdx++) {
-        auto &cceInfo = cceBinary[func->GetOperationAttrCalleeIndex(opIdx)];
+        int leafIndex;
+        bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
+        enableVF = enableVF && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
+        if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) == 1 || enableVF) {
+            leafIndex = (func->GetOperationAttrCalleeIndex(opIdx) + 1) / 2;
+        else {
+            leafIndex = func->GetOperationAttrCalleeIndex(opIdx);
+        }
+        auto &cceInfo = cceBinary[leafIndex];
         os << seqNo << "," << MakeTaskID(funcIdx, opIdx) << "," << func->funcKey << "," << func->rootHash << ","
-            <<func->GetOperationDebugOpmagic(opIdx) << "," << func->GetOperationAttrCalleeIndex(opIdx) << ","
+            <<func->GetOperationDebugOpmagic(opIdx) << "," << leafIndex << ","
             << cceInfo.funcHash << "," << cceInfo.coreType << "," << cceInfo.psgId << ",";
         auto &succList = func->GetOperationDepGraphSuccList(opIdx);
         for (size_t j = 0; j < succList.size(); j++) {
