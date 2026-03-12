@@ -71,22 +71,10 @@ void TestAddDynBody(const std::vector<int64_t> &shape, const std::vector<int64_t
     function->SetUnderDynamicFunction(true);
     for (auto &subFunc : function->rootFunc_->programs_) {
         for (auto &op : subFunc.second->Operations()) {
-            if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
-                if (IsCopyIn(op.GetOpcode()))
-                    op.SetIOpAttrOffset(0, 0);
-                else
-                    op.SetOOpAttrOffset(0, 0);
-                op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
-            }
             if (op.GetOpcode() == Opcode::OP_ADD && isNeedCalcMinForBinaryOperands) {
                 op.SetAttribute(OpAttributeKey::inplaceIdx, 0);
             }
         }
-        DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->dynParamTable_.emplace("sym_2_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_2_dim_1", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_4_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_4_dim_1", fakeParam);
     }
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
@@ -423,6 +411,10 @@ TEST_F(TestCodegenDynBinary, TestAddTileTensor) {
     std::string res = cop.GenOpCode();
     std::string expect = R"!!!(TAdd<LastUse2Dim<0, 0>>(ubTensor_1, ubTensor_2, ubTensor_2);
 )!!!";
+    EXPECT_EQ(res, expect);
+
+    expect = "UBTileTensorFP16Dim2_2";
+    res = symbolManager->QueryTileTensorTypeByBufVar("UB_S0_E0_T");
     EXPECT_EQ(res, expect);
 }
 } // namespace npu::tile_fwk
