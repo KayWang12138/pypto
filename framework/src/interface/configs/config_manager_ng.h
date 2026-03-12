@@ -56,6 +56,7 @@ constexpr const char *CFG_RUN_MODE = "run_mode";
 constexpr const char *CFG_VALID_SHAPE_OPTIMIZE = "valid_shape_optimize";
 constexpr int64_t CFG_RUN_MODE_NPU = 0;
 constexpr int64_t CFG_RUN_MODE_SIM = 1;
+constexpr const char *READY_ON_HOST_TENSORS = "ready_on_host_tensors";
 
 // host
 constexpr const char *COMPILE_STAGE = "compile_stage";
@@ -85,7 +86,6 @@ constexpr const char *CFG_COMPILE_DBEUG_MODE = "compile_debug_mode";
 constexpr const char *CFG_RUNTIME_DBEUG_MODE = "runtime_debug_mode";
 constexpr int64_t CFG_DEBUG_NONE = 0;
 constexpr int64_t CFG_DEBUG_ALL = 1;
-constexpr int64_t CFG_DEBUG_NO_DEVICE_TENSOR_DEPEND = 2;
 
 // operation
 const std::string KEY_FORCE_COMBINE_AXIS = "force_combine_axis";

@@ -13,6 +13,7 @@
  * \brief
  */
 #include <gtest/gtest.h>
+#include "interface/utils/file_utils.h"
 #include "test_suite_stest_ops.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "operator/models/deepseek/page_attention.h"
@@ -23,7 +24,7 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class DynamicCastTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
-TEST_F(DynamicCastTest, testDynCastUnalign) {
+void TestDynCastUnalign(bool ready_on_host) {
     TileShape::Current().SetVecTile(1, 16);
     int b = 1;
     int sq = 32;
@@ -37,7 +38,9 @@ TEST_F(DynamicCastTest, testDynCastUnalign) {
     Tensor q(iType, qShape, "q");
     Tensor actSeqs(DT_INT32, {b, 1}, "actual_seq");
     Tensor out(oType, outShape, "out");
-
+    if (ready_on_host) {
+        config::SetRuntimeOption<std::vector<std::string>>(READY_ON_HOST_TENSORS, {"actual_seq"});
+    }
     std::vector<int> actSeqsData(b, 20);
     std::vector<int32_t> golden(b * sq * d, 0);
     for (int bidx = 0; bidx < b; ++bidx) {
@@ -79,7 +82,35 @@ TEST_F(DynamicCastTest, testDynCastUnalign) {
         reinterpret_cast<int32_t *>(outs->data()) + outs->size() / sizeof(int32_t));
     int ret = resultCmpCast<float, int32_t>(x, golden, outVec, 0.001f);
     EXPECT_EQ(ret, true);
+    std::string aicpuDirPath = config::LogTopFolder() + "/kernel_aicpu";
+    // 校验 controlFlow_dev_***.cpp 文件中是否存在 WaitAicoreStart 字符串
+    bool foundWaitAicoreStart = false;
+    std::vector<std::string> cppFiles = GetFiles(aicpuDirPath, "cpp");
+    for (const auto& fileName : cppFiles) {
+        if (fileName.substr(0, 15) == "controlFlow_dev") {
+            std::string controlFlowFile = aicpuDirPath + "/" + fileName;
+            std::ifstream file(controlFlowFile);
+            std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+            if (content.find("WaitAicoreStart") != std::string::npos) {
+                foundWaitAicoreStart = true;
+                break;
+            }
+        }
+    }
+    if (ready_on_host) {
+        EXPECT_FALSE(foundWaitAicoreStart);
+    } else {
+        EXPECT_TRUE(foundWaitAicoreStart);
+    }
     unsetenv("ENABLE_CTRLFLOW_COMPILE");
+}
+
+TEST_F(DynamicCastTest, testDynCastUnalign) {
+    TestDynCastUnalign(true);
+}
+
+TEST_F(DynamicCastTest, testDynCastUnalign1) {
+    TestDynCastUnalign(false);
 }
 
 TEST_F(DynamicCastTest, testDynCastDevSeparate) {
