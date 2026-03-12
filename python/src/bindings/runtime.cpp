@@ -580,6 +580,10 @@ public:
 
     KernelBinary *RegisterLastCompiledKernel(py::object &module) {
         auto func = Program::GetInstance().GetLastFunction();
+        auto attr = func->GetDyndevAttribute();
+        if (attr->devProgBinary.empty() || attr->kernelBinary.empty()) {
+            return nullptr;
+        }
         auto kernel = new KernelBinary(Program::GetInstance().GetFunctionSharedPtr(func));
         kernels.push_back(kernel);
         if (inferCacheShape) {
@@ -796,6 +800,11 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
         ALOG_ERROR("compile kernel");
 #endif
         kbinary = compile_fn(kmodule);
+    }
+
+    if (config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_ALL_COMPLETE) {
+        HOST_PERF_EVT_END(EventPhase::LaunchKernel);
+        return;
     }
 
     kmodule->EmulationLaunch(kbinary, tensors);
