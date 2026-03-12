@@ -452,6 +452,12 @@ void DataDumpUnInit() {
         if (sf != 0) {
             MACHINE_LOGE("AdxDataDumpServerUnInit is failed %d \n", sf);
         }
+        uint32_t hostPid = GetProcessId();
+        std::string sourceDir = "output/dump_tensor_" + std::to_string(hostPid);
+        std::string targetDir = config::LogTopFolder() + "/dump_tensor_" + std::to_string(hostPid);
+        if (std::filesystem::exists(sourceDir)) {
+            std::filesystem::rename(sourceDir, targetDir);
+        }
     }
 }
 
