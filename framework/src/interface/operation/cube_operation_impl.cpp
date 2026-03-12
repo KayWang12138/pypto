@@ -1212,7 +1212,8 @@ Tensor ConstructTensorGraph(DataType dataType, MatmulGraphNodes &tensorGraphNode
 }
 
 static Tensor ConstructGmAccumulationTensorGraph(
-    DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const MatmulAttrParam &attrParam) {
+    DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const MatmulAttrParam &attrParam,
+    const MatmulExtendParam &param = {}) {
     auto &cubeTile = TileShape::Current().GetCubeTile();
     OP_CHECK(true, {
         ASSERT(aMatrix.GetStorage() != nullptr && bMatrix.GetStorage() != nullptr)
@@ -1246,7 +1247,7 @@ static Tensor ConstructGmAccumulationTensorGraph(
             tensorB = View(bMatrix, {kL1Size, nSize}, {kValidshape, nValidShape}, {kL1Size * kIdx, 0});
         }
         MatmulGraphNodes tensorGraphNodes(tensorA.GetStorage(), tensorB.GetStorage());
-        Tensor gmPartialSum = ConstructTensorGraph(outType, tensorGraphNodes, attrParam);
+        Tensor gmPartialSum = ConstructTensorGraph(outType, tensorGraphNodes, attrParam, param);
         gmPartialSums.emplace_back(gmPartialSum);
     }
     for (int64_t kIdx = 1; kIdx < kLoop; ++kIdx) {
@@ -1274,7 +1275,7 @@ Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, co
     MatmulGraphNodes tensorGraphNodes(aMatrix.GetStorage(), bMatrix.GetStorage());
     auto &cubeTile = TileShape::Current().GetCubeTile();
     if (cubeTile.enableSplitK) {
-        return ConstructGmAccumulationTensorGraph(outType, aMatrix, bMatrix, attrParam);
+        return ConstructGmAccumulationTensorGraph(outType, aMatrix, bMatrix, attrParam, param);
     }
     return ConstructTensorGraph(outType, tensorGraphNodes, attrParam, param);
 }
