@@ -190,10 +190,12 @@ Status Checker::CheckDynAttrForView(Function &function) {
 Status Checker::CheckToDynOffsetForAssemble(Function &function) {
     std::unordered_set<Operation *> needCheckAssembleOps = GetNeedCheckOps(function, Opcode::OP_ASSEMBLE);
     for (const auto &op : needCheckAssembleOps) {
+        const int opMagic = op->GetOpMagic();
+        const int funcMagic = function.GetFuncMagic();
         auto assembleAttr = std::static_pointer_cast<AssembleOpAttribute>(op->GetOpAttribute());
         std::vector<SymbolicScalar> &assembleToDynOffset = assembleAttr->GetToDynOffset();
         if (assembleToDynOffset.empty()) {
-            APASS_LOG_ERROR_F(Elements::Operation, "CheckToDynOffsetForAssemble failed, toDynOffset_ of op[%d] in function[%d] is empty.", op->GetOpMagic(), function.GetFuncMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "CheckToDynOffsetForAssemble failed, toDynOffset_ of op[%d] in function[%d] is empty.", opMagic, funcMagic);
             return FAILED;
         }
     }
