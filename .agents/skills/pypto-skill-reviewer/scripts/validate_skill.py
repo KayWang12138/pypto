@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+# coding: utf-8
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+
 """
 validate_skill.py — Static checker for skill directories.
 
@@ -10,9 +20,8 @@ Usage:
 
 Requirements: Python 3.8+, pyyaml.
 """
-import logging
-
 import json
+import logging
 import os
 import py_compile
 import re
@@ -556,8 +565,8 @@ def check_r41(skill_dir, **_):
     return results if results else None
 
 
-def check_r45(skill_dir, standard_dirs, **_):
-    """R45: Subdirectory structure should use standard naming"""
+def check_r43(skill_dir, standard_dirs, **_):
+    """R43: Subdirectory structure should use standard naming"""
     results = []
     try:
         entries = os.listdir(skill_dir)
@@ -566,14 +575,14 @@ def check_r45(skill_dir, standard_dirs, **_):
     for entry in entries:
         full = os.path.join(skill_dir, entry)
         if os.path.isdir(full) and entry not in standard_dirs and not entry.startswith("."):
-            results.append(finding("R45", "S3", "D3", "FAIL",
+            results.append(finding("R43", "S3", "D3", "FAIL",
                                    f"非标准子目录 `{entry}`（期望: {', '.join(standard_dirs)}）",
                                    entry, 0, entry))
     return results if results else None
 
 
-def check_r46(fm, **_):
-    """R46: description must not contain angle-bracket placeholders like <xxx>"""
+def check_r44(fm, **_):
+    """R44: description must not contain angle-bracket placeholders like <xxx>"""
     if fm is None:
         return None
     desc = fm.get("description", "")
@@ -582,14 +591,14 @@ def check_r46(fm, **_):
     placeholder_re = re.compile(r"<[a-zA-Z][a-zA-Z0-9_-]*>")
     matches = placeholder_re.findall(desc)
     if matches:
-        return finding("R46", "S2", "D1", "FAIL",
+        return finding("R44", "S2", "D1", "FAIL",
                        f"`description` 包含未替换的占位符: {', '.join(matches)}",
                        "SKILL.md", 1, desc[:100])
     return None
 
 
-def check_r47(lines, fm_end_line, **_):
-    """R47: No duplicate section headings within the same file"""
+def check_r45(lines, fm_end_line, **_):
+    """R45: No duplicate section headings within the same file"""
     tracker = CodeBlockTracker()
     body_start = fm_end_line if fm_end_line else 0
     heading_re = re.compile(r"^(#{1,6})\s+(.+)$")
@@ -603,7 +612,7 @@ def check_r47(lines, fm_end_line, **_):
         if m:
             text = m.group(2).strip()
             if text in seen:
-                results.append(finding("R47", "S2", "D2", "FAIL",
+                results.append(finding("R45", "S2", "D2", "FAIL",
                                        f"重复的标题 `{text}`（首次出现在第 {seen[text]} 行）",
                                        "SKILL.md", i + 1, line.rstrip()))
             else:
@@ -611,8 +620,8 @@ def check_r47(lines, fm_end_line, **_):
     return results if results else None
 
 
-def check_r48(lines, **_):
-    """R48: Fenced code blocks should have a language annotation"""
+def check_r46(lines, **_):
+    """R46: Fenced code blocks should have a language annotation"""
     fence_re = re.compile(r"^(`{3,}|~{3,})\s*(\S*)")
     in_block = False
     results = []
@@ -624,20 +633,17 @@ def check_r48(lines, **_):
                 in_block = True
                 lang = m.group(2)
                 if not lang:
-                    results.append(finding("R48", "S3", "D4", "FAIL",
+                    results.append(finding("R46", "S3", "D4", "FAIL",
                                            "代码块缺少语言标注",
                                            "SKILL.md", i + 1, stripped))
             else:
                 in_block = False
     return results if results else None
 
-
-
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def finding(rule_id, *args):
     """Create a standardized finding dict."""
@@ -756,10 +762,10 @@ def validate(skill_dir):
         check_r39(**ctx),
         check_r40(**ctx),
         check_r41(**ctx),
+        check_r43(**ctx),
+        check_r44(**ctx),
         check_r45(**ctx),
         check_r46(**ctx),
-        check_r47(**ctx),
-        check_r48(**ctx),
     ]
 
     findings = flatten(results)
