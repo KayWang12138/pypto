@@ -41,17 +41,27 @@ TileShape需要满足以下约束条件：
 
         - 1 <= tileHin <= Hin（Hin为输入特征图实际高度）
 
-        - 1 <= tileHout <= Hout（Hout为输出特征图实际高度）
+        - wout % 16 = 0 时， 1 <= tileHout <= Hout（Hout为输出特征图实际高度）
+
+        - wout & 16 != 0 时， tileHout = 1
 
         - 1 <= tileWin <= Win（Win为输入特征图实际宽度）
 
-        - 1 <= tileWout <= Wout（Wout为输出特征图实际宽度）
+        - 1 <= tileWout <= CeilAlign(Wout, 16)（Wout为输出特征图实际宽度）
+
+        - tileHout > 1 时， tileWout == wout
 
         - 1 <= tileCinFmap <= Cin（Cin为输入特征图实际通道数）
 
+        - tileCinFmap * sizeof(dtype) % 32 == 0
+
         - 1 <= tileCinWeight <= Cin（Cin为权重输入通道实际数量）
 
-        - 1 <= tileN <= Cout（Cout为输出特征图实际通道数）
+        - tileCinWeight * sizeof(dtype) % 32 == 0
+
+        - 1 <= tileN <= CeilAlign(Cout // groups, 16)（Cout为输出特征图实际通道数）
+
+        - tileN % 16 == 0
 
         - tileBatch = 1（代表batch数）
 
@@ -59,11 +69,27 @@ TileShape需要满足以下约束条件：
 
         - tileK需满足32字节对齐，即 `tileK * sizeof(dtype) % 32 == 0`
 
+        - tileK `1 <= tileK <= min(kAL1, kBL1)`
+
         - tileW需满足16元素对齐，即 `tileW % 16 == 0`
+
+        - tileW `1 <= tileW <= tileWout`
 
         - tileH `1 <= tileH <= tileHout`
 
         - tileN（代表L0上的n的大小）需满足16元素对齐，即 `tileN % 16 == 0`
+
+        - tileN `1 <= tileN <= CeilAlign(tileL1Info.tileN, 16)
+
+        其中：
+
+        - `kAL1 = CeilAlign(tileCinFmap, k0) * kh * kw`
+
+        - `kBL1 = CeilAlign(tileCinWeight, k0) * kh * kw`
+
+        - `k0 = ALIGN_SIZE_32 / sizeof(dtype)`
+
+        - `ALIGN_SIZE_32 = 32`
 
     - L0与L1维度层级约束：
 
@@ -80,16 +106,27 @@ TileShape需要满足以下约束条件：
         ```
         CeilAlign(tileH * tileW, 16)* CeilAlign(tileK, C0) * sizeof(dtype) <= L0A_size
 
-        CeilAlign(tileK, C0)* CeilAlign(tileN,16) * sizeof(dtype) <= L0B_size
+        CeilAlign(tileK, C0) * CeilAlign(tileN, 16) * sizeof(dtype) <= L0B_size
 
-        CeilAlign(tileH * tileW, 16)* CeilAlign(tileN,16) * sizeof(FP32) <= L0C_size
+        CeilAlign(tileH * tileW, 16)* CeilAlign(tileN, 16) * sizeof(FP32) <= L0C_size
         ```
-        其中`C0 = ALIGN_SIZE_32 / sizeof(dtype)`
+
+        其中：
+        
+        - `C0 = ALIGN_SIZE_32 / sizeof(dtype)`
+
+        - `L0A_size = 65536 bytes`
+
+        - `L0B_size = 65536 bytes`
+
+        - `L0C_size = 131072 bytes`
+
+        - `ALIGN_SIZE_32 = 32`
 
     - L1空间约束：
 
         ```
-        CeilAlign(mL1,16)* CeilAlign(kL1, C0) * sizeof(dtype) + CeilAlign(nL1,16) * CeilAlign(kL1, C0) * sizeof(dtype) + CeilAlign(tileN,16)*sizeof(dtype) <= L1_size
+        CeilAlign(mL1, 16)* CeilAlign(kL1, C0) * sizeof(dtype) + CeilAlign(nL1, 16) * CeilAlign(kL1, C0) * sizeof(dtype) + CeilAlign(tileN, 16)*sizeof(dtype) <= L1_size
         ```
 
         其中：
