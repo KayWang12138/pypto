@@ -19,7 +19,7 @@
 #define MODULE_NAME "PreGraphProcess"
 
 namespace npu::tile_fwk {
-void SetCopyAttr::ProcessSpecialMTEOperation(Operation &op) const {
+void SetCopyAttr::ProcessSpecialMTEOperation(Operation &op) {
     APASS_LOG_DEBUG_F(Elements::Operation, "Process Special MTE Operation %d.", op.opmagic);
     auto inputTensor = op.iOperand.front();
     auto outputTensor = op.oOperand.front();
@@ -33,7 +33,7 @@ void SetCopyAttr::ProcessSpecialMTEOperation(Operation &op) const {
     op.oOperand[0]->isSubGraphBoundary = true;
 }
 
-void SetCopyAttr::ProcessMoveInOperation(Operation &op) const {
+void SetCopyAttr::ProcessMoveInOperation(Operation &op) {
     APASS_LOG_DEBUG_F(Elements::Operation, "Process MoveIn Operation %d.", op.opmagic);
     auto inputTensor = op.iOperand.front();
     if (inputTensor == nullptr) {

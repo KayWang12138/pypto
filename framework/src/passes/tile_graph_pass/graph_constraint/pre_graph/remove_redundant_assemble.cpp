@@ -15,6 +15,7 @@
 
 #include "remove_redundant_assemble.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/tile_graph_pass/graph_constraint/pre_graph/set_copy_attr.h"
 
 #define MODULE_NAME "PreGraphProcess"
 
@@ -599,6 +600,11 @@ Status RemoveRedundantAssemble::HanldeForSingleAssemble(Function &function, Logi
 */
 Status RemoveRedundantAssemble::DeleteRedundantAssemble(Function &function) const {
     for (auto &op : function.Operations()) {
+        if (IsCopyOut(op.GetOpcode()) && op.GetOpcode() != Opcode::OP_COPY_OUT) {
+            SetCopyAttr::ProcessSpecialMTEOperation(op);
+        }
+    }
+    for (auto &op : function.Operations()) {
         if (!IsCandidateAssembleOp(function, op)) {
             continue;
         }
@@ -624,11 +630,30 @@ Status RemoveRedundantAssemble::DeleteRedundantAssemble(Function &function) cons
 }
 
 Status RemoveRedundantAssemble::DeleteRedundantView(Function &function) const {
+    for (auto &op : function.Operations()) {
+        if (IsCopyIn(op.GetOpcode()) && op.GetOpcode() != Opcode::OP_COPY_IN &&
+            op.GetOpcode() != Opcode::OP_SHMEM_GET_GM2UB) {
+            SetCopyAttr::ProcessMoveInOperation(op);
+        }
+    }
     if (ProcessView(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "ProcessView failed.");
         return FAILED;
     }
     function.EraseOperations(false);
+    return SUCCESS;
+}
+
+Status RemoveRedundantAssemble::RemoveRedundant(Function &function) const {
+    if (DeleteRedundantAssemble(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "DeleteRedundantAssemble failed.");
+        return FAILED;
+    }
+    if (DeleteRedundantView(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "DeleteRedundantView failed.");
+        return FAILED;
+    }
+    HandleForReshapeToOutcast(function);
     return SUCCESS;
 }
 } // namespace npu::tile_fwk

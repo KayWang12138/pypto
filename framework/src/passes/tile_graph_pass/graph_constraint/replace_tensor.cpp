@@ -16,7 +16,6 @@
 #include "replace_tensor.h"
 #include "passes/pass_log/pass_log.h"
 #include "passes/tile_graph_pass/graph_constraint/pre_graph/remove_redundant_assemble.h"
-#include "passes/tile_graph_pass/graph_constraint/pre_graph/set_copy_attr.h"
 
 #define MODULE_NAME "ReplaceTensor"
 
@@ -910,17 +909,6 @@ Status ReplaceTensor::RunOnFunction(Function &function) {
         return FAILED;
     }
     // 因 copyout->assembel 场景处理过程存在中间态，将DeleteRedundantAssemble移动至此处
-    // Processing Special Ops
-    SetCopyAttr setCopyAttr;
-    for (auto &op : function.Operations()) {
-        if (IsCopyOut(op.GetOpcode()) && op.GetOpcode() != Opcode::OP_COPY_OUT) {
-            setCopyAttr.ProcessSpecialMTEOperation(op);
-        }
-        if (IsCopyIn(op.GetOpcode()) && op.GetOpcode() != Opcode::OP_COPY_IN &&
-            op.GetOpcode() != Opcode::OP_SHMEM_GET_GM2UB) {
-            setCopyAttr.ProcessMoveInOperation(op);
-        }
-    }
     RemoveRedundantAssemble removeRedundantAssemble;
     if (removeRedundantAssemble.DeleteRedundantAssemble(function) == FAILED) {
         return FAILED;

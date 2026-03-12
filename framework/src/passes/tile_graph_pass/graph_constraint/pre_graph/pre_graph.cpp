@@ -63,11 +63,10 @@ Status PreGraphProcess::RunOnFunction(Function &function) {
     SetBoundary setBoundary;
     setBoundary.SetTensorBoundary(function);
     RemoveRedundantAssemble removeRedundantAssemble;
-    if (removeRedundantAssemble.DeleteRedundantView(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "DeleteRedundantView failed.");
+    if (removeRedundantAssemble.RemoveRedundant(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "RemoveRedundant failed.");
         return FAILED;
     }
-    removeRedundantAssemble.HandleForReshapeToOutcast(function);
     CubeProcess cubeProcess;
     if (cubeProcess.UpdateCubeOp(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Update Cube attr failed.");
