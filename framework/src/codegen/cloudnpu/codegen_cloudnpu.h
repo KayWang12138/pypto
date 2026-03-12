@@ -19,6 +19,9 @@
 #include <string>
 #include <unordered_set>
 #include <utility>
+#include <mutex>
+#include <vector>
+#include <chrono>
 
 #include "tilefwk/platform.h"
 #include "interface/operation/operation.h"
@@ -28,6 +31,13 @@
 #include "interface/configs/config_manager.h"
 
 namespace npu::tile_fwk {
+
+struct CompileTaskInfo {
+    std::string outputPath;
+    std::string inputPath;
+    std::string compileCmd;
+};
+
 class CompileInfo {
 public:
     CompileInfo(Function &topFunc, const CodeGenCtx &ctx, const std::pair<uint64_t, Function *> &subFuncPair,
@@ -109,7 +119,8 @@ public:
     ~CodeGenCloudNPU() override = default;
 
     void GenCode(Function &topFunc, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset) override;
-    std::pair<int, std::string> CompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const;
+    std::string PrepareCmd(const CompileInfo &compileInfo, const std::string &compileOptions) const;
+    void CompileCode(const std::string &compileCmd) const;
     std::optional<std::string> GenExtraAlloc(
         const std::shared_ptr<SymbolManager> &sm, const std::shared_ptr<LogicalTensor> &tensor) const;
     std::string GenAllocForLocalBuffer(const Operation &op, const std::shared_ptr<SymbolManager> &sm) const;
@@ -126,10 +137,12 @@ private:
     void GenFuncEnd(std::ostringstream &oss) const;
     static std::string GenKernelName(Function &topFunc, uint64_t programId);
 
-    bool IsNeedDumpCCE(const std::string &inputFile) const;
-    void DumpCCE(const std::string &name, std::ostringstream &oss) const;
+    void CodeToBinary(
+        std::ostringstream &code, const CompileInfo &compileInfo, const std::string &compileOptions) const;
+    bool IsNeedDumpCode(const std::string &inputFile) const;
+    void DumpCode(const std::string &name, std::ostringstream &code) const;
+    int DoCompileCmd(const std::string &compileCmd) const;
 
-    void DoCompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const;
     void BuildArchOptions(std::ostringstream &oss, const CompileInfo &compileInfo) const;
     void BuildIncludes(std::ostringstream &oss) const;
     void BuildExtraOptions(std::ostringstream &oss, const std::string &compileOptions) const;
@@ -147,6 +160,14 @@ private:
 
     std::string GetIncludePathForCompileCCE() const;
     std::string GetPtoTileLibPathByEnv() const;
+
+    void CollectCompileTask(const CompileTaskInfo &task) const;
+    void GenerateMakefile(const std::string &makefilePath) const;
+    void ExecuteParallelCompile();
+    std::string GetOutputDir() const;
+
+    mutable std::mutex compileTasksMutex_;
+    mutable std::vector<CompileTaskInfo> compileTasks_;
 
     NPUArch platform_;
 };
