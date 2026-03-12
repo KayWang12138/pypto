@@ -966,6 +966,7 @@ TEST_F(OspAlgorithmTest, CoarsenMerkleBsp) {
     bspInst.GetArchitecture() = BspArchitecture<GraphType>(3U);
     bspInst.GetArchitecture().SetProcessorsWithTypes(std::vector<unsigned>({0U, 0U, 1U}));
     bspInst.GetComputationalDag() = SimpleGraphWithVertexTypes();
+    bspInst.SetDiagonalCompatibilityMatrix(2);
 
     GrowLocalAutoCores<ConstrGraphType> growlocal;
     GreedyChildren<ConstrGraphType> children;
