@@ -218,14 +218,24 @@ public:
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
         }
+        #if ENABLE_PERF_TRACE == 1
         PerfMtTrace(PERF_TRACE_DEV_TASK_SCHED_EXEC, aicpuIdx_);
         PerfMtBegin(PERF_EVT_SYNC_AICORE, aicpuIdx_);
+        #endif
+
         int32_t rc = SyncTaskFinish();
+
+        #if ENABLE_PERF_TRACE == 1
         PerfMtTrace(PERF_TRACE_DEV_TASK_SYNC_CORE_STOP, aicpuIdx_);
+        #endif
+
         if (rc != DEVICE_MACHINE_OK) {
             ret = rc;
         }
+
+        #if ENABLE_PERF_TRACE == 1
         PerfMtEnd(PERF_EVT_SYNC_AICORE, aicpuIdx_);
+        #endif
 
         #if ENABLE_AICORE_PRINT == 1
         DEV_DEBUG("aicpu %d proc finish send all task,aic: %lu, aiv: %lu, aicpu: %lu, sync finish ret: %d.",
@@ -255,7 +265,11 @@ public:
         }
 
         if (IsNeedProcAicpuTask()) {
+            #if ENABLE_PERF_TRACE == 1
             const bool profSwitch = aicoreProf_.ProfIsEnable();
+            #else
+            const bool profSwitch = false;
+            #endif
             ret = aicpuTaskManager_.Init(reinterpret_cast<DynDeviceTask *>(curDevTask_), profSwitch);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
@@ -337,10 +351,12 @@ public:
             }
         }
 
+        #if ENABLE_PERF_TRACE == 1
         if constexpr (IsDeviceMode()) {
             PerfMtTrace(PERF_TRACE_WAIT_CORE_EXIT, aicpuIdx_);
             ProfStop();
         }
+        #endif
 
         #if ENABLE_AICORE_PRINT == 1
         DEV_INFO("Aicpu %d stop ret = %d, proc aic task cnt: %lu, aiv task cnt: %lu.",
@@ -356,7 +372,10 @@ public:
         #endif
 
         Init(threadIdx, devStartArgs, deviceArgs, schedIdx);
+
+        #if ENABLE_PERF_TRACE == 1
         PerfMtTrace(PERF_TRACE_INIT, threadIdx);
+        #endif
 
         #if ENABLE_AICORE_PRINT == 1
         DEV_DEBUG("Schedule run init succ");
@@ -366,7 +385,11 @@ public:
         taskQueue_ = &(devStartArgs->deviceRuntimeDataDesc.taskQueueList[schedIdx_]);
         if constexpr (IsDeviceMode()) {
             ret = HandShake();
+
+            #if ENABLE_PERF_TRACE == 1
             PerfMtTrace(PERF_TRACE_CORE_HAND_SHAKE, threadIdx);
+            #endif
+
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 DEV_ERROR("hand shake timeout.");
                 AbnormalStop();
@@ -376,14 +399,17 @@ public:
                 return ret;
             }
             devStartArgs->syncFlag = 1;
+
+            #if ENABLE_PERF_TRACE == 1
             aicoreProf_.ProfStart();
+            #endif
         }
 
         #if ENABLE_AICORE_PRINT == 1
         DEV_DEBUG("Schedule run start succ");
         #endif
 
-        uint64_t lastDevTaskFinCycle = 0;
+       [[maybe_unused]] uint64_t lastDevTaskFinCycle = 0;
         while (ret == 0) {
             #if ENABLE_AICORE_PRINT == 1
             DEV_DEBUG("Schedule task wait");
@@ -396,18 +422,29 @@ public:
             #endif
 
             if (taskCtrl == nullptr) {
+
+                #if ENABLE_PERF_TRACE == 1
                 PerfMtTrace(PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, aicpuIdx_, lastDevTaskFinCycle);
+                #endif
+
                 if (!isSendStop) {
                     SyncTaskFinish(true);
                 }
                 break;
             }
+
+            #if ENABLE_PERF_TRACE == 1
             PerfMtTrace(PERF_TRACE_DEV_TASK_RCV, aicpuIdx_);
             PROF_STAGE_BEGIN_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.before\n");
             PerfMtBegin(PERF_EVT_RUN_TASK, threadIdx);
+            #endif
+
             ret = RunTask(taskCtrl);
             lastDevTaskFinCycle = GetCycles();
+
+            #if ENABLE_PERF_TRACE == 1
             PerfMtEnd(PERF_EVT_RUN_TASK, threadIdx);
+            #endif
 
             #if ENABLE_AICORE_PRINT == 1
             DEV_DEBUG("Run task finish taskid=%d ret %d.", curTaskId_, ret);
@@ -416,8 +453,11 @@ public:
             if (ret != 0)
                 break;
             taskCtrl->PutTask(ret);
+
+            #if ENABLE_PERF_TRACE == 1
             PerfMtTrace(PERF_TRACE_DEV_TASK_RSP, threadIdx);
             PROF_STAGE_END_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.after\n");
+            #endif
         }
         PostRun(ret, taskCtrl);
         return ret;
@@ -433,7 +473,6 @@ public:
 
     inline void DumpAicorePerfTrace(std::ostringstream& oss) {
         (void)oss;
-#if ENABLE_PERF_TRACE
         for (int i = aicStart_; i < aicEnd_; ++i) {
             int ret = aicoreHal_.DumpAicorePerfTrace(aicpuIdx_, i, CoreType::AIC, oss);
             if (ret == DEVICE_MACHINE_OK) {
@@ -446,7 +485,6 @@ public:
                 oss << ((i == aivEnd_ - 1) ? "" : ",");
             }
         }
-#endif
     }
 
 private:
@@ -455,13 +493,17 @@ private:
     }
 
     inline void ProfStop() {
+#if ENABLE_PERF_TRACE == 1
         if (aicoreProf_.ProfIsEnable()) {
 #if PROF_DFX_HOST_PREPARE_MEMORY_MODE
             DumpTaskProf();
 #endif
         }
+#endif
 
+        #if ENABLE_PERF_TRACE == 1
         aicoreProf_.ProfStop();
+        #endif
     }
 
     inline void DumpAiCoreStatus() const {
@@ -781,7 +823,11 @@ private:
 
             return 0;
         }
+
+        #if ENABLE_PERF_TRACE == 1
         PerfMtBegin(PERF_EVT_SEND_AIC_TASK, aicpuIdx_);
+        #endif
+
         uint32_t readyId[MAX_MANAGER_AIV_NUM];
         ReadyQueueLock(readyQue);
         uint32_t head = __atomic_load_n(&readyQue->head, __ATOMIC_RELAXED);
@@ -794,7 +840,11 @@ private:
             #endif
 
             ReadyQueueUnLock(readyQue);
+
+            #if ENABLE_PERF_TRACE == 1
             PerfMtEnd(PERF_EVT_SEND_AIC_TASK, aicpuIdx_);
+            #endif
+
             return 0;
         }
         bool isRealLifo = (enableL2CacheSch_ && !firstLock[static_cast<int>(type)]);
@@ -819,7 +869,11 @@ private:
         #endif
 
         firstLock[static_cast<int>(type)] = false;
+
+        #if ENABLE_PERF_TRACE == 1
         PerfMtEnd(PERF_EVT_SEND_AIC_TASK, aicpuIdx_);
+        #endif
+        
         return taskCount;
     }
 
@@ -1006,10 +1060,12 @@ private:
         pendingResolveIndexList_[coreIdx] = 0;
         context_->sendCnt_[static_cast<int>(type)]++;
 
+        #if ENABLE_PERF_TRACE == 1
         if (isFirstTaskSend_) {
             PerfMtTrace(PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK, aicpuIdx_);
             isFirstTaskSend_ = false;
         }
+        #endif
 
         DEV_IF_VERBOSE_DEBUG {
             sendTask_[coreIdx].push_back(TaskInfo(coreIdx, newTask));
@@ -1026,13 +1082,16 @@ private:
         #endif
     }
 
+    #if ENABLE_PERF_TRACE == 1
     inline void SetAiCpuStat(int coreIdx, uint64_t taskId) {
         struct AiCpuTaskStat aiCpuTaskStat;
         aiCpuTaskStat.taskId = taskId;
         aiCpuTaskStat.coreId = aicoreHal_.GetPhyIdByBlockId(coreIdx);
+
         aicoreProf_.AsmCntvc(aiCpuTaskStat.taskGetStart);
         aicoreProf_.SetAiCpuTaskStat(taskId, aiCpuTaskStat);
     };
+    #endif
 
     inline int32_t PushReadyQue(ReadyCoreFunctionQueue *readyQue, void *idList, uint32_t idCnt) const {
         ReadyQueueLock(readyQue);
@@ -1053,7 +1112,11 @@ private:
     }
     inline int32_t ResolveDepForAllAiCore(CoreType type, int coreIdxStart, int coreIdxEnd) {
         int32_t ret = DEVICE_MACHINE_OK;
+
+        #if ENABLE_PERF_TRACE == 1
         PerfMtBegin(static_cast<int>(PERF_EVT_RESOLVE_DEPENDENCE), aicpuIdx_);
+        #endif
+
         for (int i = coreIdxStart; i < coreIdxEnd; i++) {
             if ((runningIds_[i] != AICORE_TASK_INIT || pendingIds_[i] != AICORE_TASK_INIT)) {
                 ret = ResolveByRegVal(type, i);
@@ -1076,7 +1139,11 @@ private:
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
         }
+
+        #if ENABLE_PERF_TRACE == 1
         PerfMtEnd(static_cast<int>(PERF_EVT_RESOLVE_DEPENDENCE), aicpuIdx_);
+        #endif
+
         return ret;
     }
 
@@ -1388,6 +1455,7 @@ private:
         return ret;
     }
 
+    #if ENABLE_PERF_TRACE == 1
     inline uint64_t GetCostModelTaskTime(uint64_t coreIdx, uint64_t taskId, uint64_t currentTime) {
         auto funcId = FuncID(taskId);
         auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
@@ -1404,9 +1472,12 @@ private:
         // devTaskId - funcId - leaf function Id - psgId
         std::string name = std::to_string(curTaskId_) + '-' + std::to_string(funcId) + '-' +
                            std::to_string(opIndex) + '-' + std::to_string(psgId);
+                           
         PerfMtEvent(PERF_EVT_TASK, coreIdx + PERF_AICORE_THREAD_START, currentTime, currentTime + timeCost, name);
+
         return timeCost;
     }
+    #endif
 
     inline int32_t ResolveDynStitched(DynDeviceTask *dyntask, int origfunc, int origop, int coreIdx = 0) {
         int32_t ret = DEVICE_MACHINE_OK;
@@ -1645,12 +1716,17 @@ private:
         UpdateAiCoreBlockIndexSection();
         if constexpr (IsDeviceMode()) {
             aicoreHal_.MapRegistersForAllCores(aicNum_);
+
+            #if ENABLE_PERF_TRACE == 1
             aicoreProf_.ProfInit(reinterpret_cast<int64_t *>(deviceArgs->corePmuRegAddr),
                reinterpret_cast<int64_t *>(deviceArgs->pmuEventAddr),
                deviceArgs->toSubMachineConfig.profConfig, deviceArgs->archInfo);
+            #endif
         } else {
+            #if ENABLE_PERF_TRACE == 1
             aicoreHal_.SetTaskTimeCost([this](uint64_t coreIdx, uint64_t taskId, uint64_t time)
                 {return GetCostModelTaskTime(coreIdx, taskId, time); });
+            #endif
         }
         firstLock[static_cast<int>(CoreType::AIC)] = true;
         firstLock[static_cast<int>(CoreType::AIV)] = true;
@@ -1922,8 +1998,10 @@ private:
 
         volatile TaskStat *stat = aicoreHal_.GetTaskStat(coreIdx, 0);
 
+#if ENABLE_PERF_TRACE == 1
 #if PROF_DFX_HOST_PREPARE_MEMORY_MODE != 1
         aicoreProf_.ProfGet(coreIdx, stat->subGraphId, stat->taskId, const_cast<TaskStat*>(stat));
+#endif
 #endif
 
 #if ENABLE_TENSOR_DUMP
