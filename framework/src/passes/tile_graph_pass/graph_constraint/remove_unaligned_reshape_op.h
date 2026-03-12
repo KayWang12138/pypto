@@ -52,12 +52,17 @@ public:
 private:
     void CollectReshapeOps(Function &function);
     void ReplaceDynUnalignedReshapeOps(Function &function);
+    void ReplaceReshapeWithCopyOps(Function &function, Operation &op);
+    Status ReplaceReshapeWithCopyOpsForDDR(Operation &op);
+    std::vector<Operation *> FindAllProducerCopyOuts(LogicalTensorPtr tensor);
+    void FindConsumerCopyIns(LogicalTensorPtr tensor, std::vector<Operation *> &copyInOps, bool &hasViewOrAssemble);
     bool CheckUnaligned(Operation &op);
-    LogicalTensorPtr InsertIOTensor(Function &function, Operation &op, std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>> &rawIO, LogicalTensorPtr &ioTensor);
+    LogicalTensorPtr InsertIOTensor(Function &function, Operation &op,
+        std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>> &rawIO, LogicalTensorPtr &ioTensor);
     std::vector<CopyOutOpMemUnalign> copyOuts;
     std::vector<CopyInOpMemUnalign> copyIns;
     std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>> reshapeRawOutputs;
     std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>> reshapeRawInputs;
 };
-} // namespace
+} // namespace npu::tile_fwk
 #endif // PASS_REMOVE_UNALIGNED_RESHAPE_OP_H_
