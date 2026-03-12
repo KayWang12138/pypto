@@ -24,7 +24,6 @@
 #include "interface/configs/config_manager.h"
 #include "computational_graph_builder.h"
 #include "passes/tensor_graph_pass/auto_cast.h"
-#include "passes/pass_log/pass_log.h"
 
 namespace npu {
 namespace tile_fwk {
