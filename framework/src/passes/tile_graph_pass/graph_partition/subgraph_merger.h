@@ -9,31 +9,26 @@
  */
 
 /*!
- * \file reduce_copy.h
- * \brief ReduceCopy pass for subgraph merging optimization.
+ * \file subgraph_merger.h
+ * \brief Subgraph merge algorithm for computing graph optimization.
  */
 
-#ifndef PASS_REDUCE_COPY_H_
-#define PASS_REDUCE_COPY_H_
+#ifndef PASS_SUBGRAPH_MERGER_H_
+#define PASS_SUBGRAPH_MERGER_H_
 
-#include "passes/pass_interface/pass.h"
-#include "interface/function/function.h"
-#include "tilefwk/tilefwk.h"
-#include "tilefwk/platform.h"
+#include <vector>
+#include <unordered_map>
+#include <set>
 
-namespace npu::tile_fwk {
+#define MAX_LATENCY 10000
 
-class ReduceCopyMerge : public Pass {
-public:
-    ReduceCopyMerge() : Pass("ReduceCopyMerge") {
-        SetSupportedArches({NPUArch::DAV_UNKNOWN});
-    }
-    ~ReduceCopyMerge() override = default;
-private:
-    Status RunOnFunction(Function &function) override;
-    Status PostCheck(Function &function) override;
-};
-
-}
+void MergeSubgraphs(
+    int numOp,
+    int numSubgraph,
+    const std::vector<int>& opLatency,
+    std::vector<int>& opSubgraph,
+    const std::unordered_map<int, std::set<int>>& opOutGraph,
+    const std::unordered_map<int, std::set<int>>& opInGraph
+);
 
 #endif
