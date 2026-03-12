@@ -154,6 +154,7 @@ inline void DeviceLogSplitDebug([[maybe_unused]] const std::string& mode_name,
         D_DEV_LOGD(TILE_FWK_DEVICE_MACHINE, fmt, ##args);                             \
     }                                                                                 \
   } while(0)
+  
 #define DEV_DEBUG(fmt, args...) D_DEV_LOGD(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
 #define DEV_INFO(fmt, args...) D_DEV_LOGI(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
 #define DEV_WARN(fmt, args...) D_DEV_LOGW(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
