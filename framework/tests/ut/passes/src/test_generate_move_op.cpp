@@ -834,5 +834,61 @@ TEST_F(GenerateMoveOpPassTest, ProcessUB2L1NonNDFormat) {
         EXPECT_EQ(ubCopyL1Op->iOperand.front()->Format(), TileOpFormat::TILEOP_NZ);
     }
 }
+
+TEST_F(GenerateMoveOpPassTest, ProcessDefault_L0C_UB_SetIsCube) {
+    PROGRAM("ProcessDefault_L0C_UB_SetIsCube") {
+        std::vector<int64_t> shape{16, 16};
+        Tensor a(DT_FP32, shape, "a");
+        Tensor b(DT_FP32, shape, "b");
+
+        Function* func = nullptr;
+        FUNCTION("ProcessDefault_L0C_UB_Func") {
+            func = Program::GetInstance().GetCurrentFunction();
+            b = View(a, shape, {0, 0});
+        }
+
+        // 创建输入tensor（L0C）
+        auto l0cRawTensor = std::make_shared<RawTensor>(DT_FP32, shape, TileOpFormat::TILEOP_ND);
+        std::vector<int64_t> l0cOffset(shape.size(), 0);
+        auto l0cTensor = std::make_shared<LogicalTensor>(*func, l0cRawTensor, l0cOffset, shape);
+        l0cTensor->SetMemoryTypeOriginal(MEM_L0C);
+        l0cTensor->SetMemoryTypeToBe(MEM_L0C);
+
+        // 创建输出tensor（UB）
+        auto ubRawTensor = std::make_shared<RawTensor>(DT_FP32, shape, TileOpFormat::TILEOP_ND);
+        std::vector<int64_t> ubOffset(shape.size(), 0);
+        auto ubTensor = std::make_shared<LogicalTensor>(*func, ubRawTensor, ubOffset, shape);
+        ubTensor->SetMemoryTypeOriginal(MEM_UB);
+        ubTensor->SetMemoryTypeToBe(MEM_UB);
+
+        // 使用AddRawOperation将OP_VIEW添加到func中
+        auto& viewOp = func->AddRawOperation(Opcode::OP_VIEW, {l0cTensor}, {ubTensor});
+
+        // 验证输入输出内存类型不同
+        ASSERT_EQ(viewOp.iOperand.front()->GetMemoryTypeOriginal(), MEM_L0C)
+            << "Input memory type should be L0C";
+        ASSERT_EQ(viewOp.oOperand.front()->GetMemoryTypeOriginal(), MEM_UB)
+            << "Output memory type should be UB";
+
+        // 设置ViewOpAttribute
+        auto viewAttr = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0}, MemoryType::MEM_UB);
+        viewOp.SetOpAttribute(viewAttr);
+
+        // 直接调用ProcessDefault函数
+        GenerateMoveOp generateMoveOp;
+        Status status = generateMoveOp.ProcessDefault(*func, viewOp, viewAttr.get());
+        ASSERT_EQ(status, SUCCESS);
+
+        // 验证OP_VIEW已被转换为OP_L0C_COPY_UB
+        EXPECT_EQ(viewOp.GetOpcode(), Opcode::OP_L0C_COPY_UB)
+            << "VIEW should convert to OP_L0C_COPY_UB";
+
+        // 验证isCube属性已设置为true
+        ASSERT_TRUE(viewOp.HasAttribute(OpAttributeKey::isCube))
+            << "OP_L0C_COPY_UB should have isCube attribute";
+        EXPECT_TRUE(viewOp.GetBoolAttribute(OpAttributeKey::isCube))
+            << "isCube should be true for OP_L0C_COPY_UB";
+    }
+}
 }
 } // namespace npu::tile_fwk
