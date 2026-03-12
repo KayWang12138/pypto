@@ -21,7 +21,7 @@ namespace pypto {
 void BindTensor(py::module &m) {
     py::class_<Tensor>(m, "Tensor")
         .def(py::init<>())
-        .def(py::init([](DataType dtype, const py::sequence &shape, const std::string &name, TileOpFormat format) {
+        .def(py::init([](DataType dtype, const py::sequence &shape, const std::string &name, TileOpFormat format, bool readyOnAicoreStart) {
             bool has_symbolic = false;
             for (const auto &item : shape) {
                 if (py::isinstance<SymbolicScalar>(item)) {
@@ -35,31 +35,30 @@ void BindTensor(py::module &m) {
                 for (const auto &item : shape) {
                     symbolic_shape.push_back(item.cast<SymbolicScalar>());
                 }
-                return std::make_unique<Tensor>(dtype, symbolic_shape, name, format);
+                return std::make_unique<Tensor>(dtype, symbolic_shape, name, format, readyOnAicoreStart);
             } else {
                 std::vector<int64_t> int_shape;
                 int_shape.reserve(py::len(shape));
                 for (const auto &item : shape) {
                     int_shape.push_back(item.cast<int64_t>());
                 }
-                return std::make_unique<Tensor>(dtype, int_shape, name, format);
+                return std::make_unique<Tensor>(dtype, int_shape, name, format, readyOnAicoreStart);
             }
         }),
-            py::arg("dtype"), py::arg("shape"), py::arg("name") = "", py::arg("format") = TileOpFormat::TILEOP_ND)
-        .def(py::init<DataType, std::vector<int64_t>, uint8_t *, std::string, TileOpFormat>(), py::arg("dtype"),
-            py::arg("shape"), py::arg("data_ptr"), py::arg("name"), py::arg("format") = TileOpFormat::TILEOP_ND)
-        .def(py::init<DataType, std::vector<int64_t>, std::string>(), py::arg("dtype"), py::arg("shape"),
-            py::arg("name") = "int_init")
-        .def(py::init<DataType, std::vector<SymbolicScalar>, std::string>(), py::arg("dtype"), py::arg("shape"),
-            py::arg("name") = "SymbolicScalar_init")
-        .def(py::init<DataType, std::vector<int64_t>, std::string, TileOpFormat>(), py::arg("dtype"), py::arg("shape"),
-            py::arg("name") = "", py::arg("format") = TileOpFormat::TILEOP_ND)
-        .def(py::init<DataType, std::vector<int64_t>, uint8_t *, std::string, TileOpFormat>(), py::arg("dtype"),
-            py::arg("shape"), py::arg("data_ptr"), py::arg("name"), py::arg("format") = TileOpFormat::TILEOP_ND)
-        .def(py::init<DataType, std::vector<SymbolicScalar>, std::string, TileOpFormat>(), py::arg("dtype"),
-            py::arg("shape"), py::arg("name") = "", py::arg("format") = TileOpFormat::TILEOP_ND)
+            py::arg("dtype"), py::arg("shape"), py::arg("name") = "", py::arg("format") = TileOpFormat::TILEOP_ND, py::arg("readyOnAicoreStart") = true)
+        .def(py::init<DataType, std::vector<int64_t>, uint8_t *, std::string, TileOpFormat, bool>(), py::arg("dtype"),
+            py::arg("shape"), py::arg("data_ptr"), py::arg("name"), py::arg("format") = TileOpFormat::TILEOP_ND, py::arg("readyOnAicoreStart") = true)
+        .def(py::init<DataType, std::vector<int64_t>, std::string>(), py::arg("dtype"), py::arg("shape"), py::arg("name") = "int_init")
+        .def(py::init<DataType, std::vector<SymbolicScalar>, std::string>(), py::arg("dtype"), py::arg("shape"), py::arg("name") = "SymbolicScalar_init")
+
+        .def(py::init<DataType, std::vector<int64_t>, std::string, TileOpFormat, bool>(), py::arg("dtype"), py::arg("shape"),
+            py::arg("name") = "", py::arg("format") = TileOpFormat::TILEOP_ND, py::arg("readyOnAicoreStart") = true)
+        .def(py::init<DataType, std::vector<SymbolicScalar>, std::string, TileOpFormat, bool>(), py::arg("dtype"), py::arg("shape"),
+            py::arg("name") = "", py::arg("format") = TileOpFormat::TILEOP_ND, py::arg("readyOnAicoreStart") = true)
         .def("IsEmpty", &Tensor::IsEmpty)
         .def("Id", &Tensor::Id)
+        .def("SetReadyOnAicoreStart", &Tensor::SetReadyOnAicoreStart, py::arg("readyOnAicoreStart"))
+        .def("GetReadyOnAicoreStart", &Tensor::GetReadyOnAicoreStart)
         .def("GetDataType",
             [](const Tensor &t) -> DataType {
                 if (t.IsEmpty()) {

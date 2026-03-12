@@ -57,9 +57,11 @@ public:
      * \param shape : A vector that stores the shape of the tensor.
      * \param name : Name of the tensor. The default value is "".
      * \param format : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
+     * \param readyOnAicoreStart : Whether the tensor ready when aicore start. The default value is true.
      * \attention : The parameters dataType and shape are required parameters.
      */
-    Tensor(DataType dataType, const Shape &shape, std::string name = "", TileOpFormat format = TileOpFormat::TILEOP_ND);
+    Tensor(DataType dataType, const Shape &shape, std::string name = "", TileOpFormat format = TileOpFormat::TILEOP_ND,
+           bool readyOnAicoreStart = true);
 
     /**
      * \brief Construct a new Tensor object with 6 input parameters
@@ -69,11 +71,12 @@ public:
      * \param dataPtr : Pointer to the dataPtr of the tensor.
      * \param name : Name of the tensor.
      * \param format : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
+     * \param readyOnAicoreStart : Whether the tensor ready when aicore start. The default value is true.
      * \attention : The parameters dataType,shape,dataPtr and name are required parameters.
      */
     Tensor(DataType dataType, const Shape &shape, uint8_t *dataPtr, std::string name,
-        TileOpFormat format = TileOpFormat::TILEOP_ND)
-        : Tensor(dataType, shape, name, format) {
+        TileOpFormat format = TileOpFormat::TILEOP_ND, bool readyOnAicoreStart = true)
+        : Tensor(dataType, shape, name, format, readyOnAicoreStart) {
         SetData(dataPtr);
     }
 
@@ -84,9 +87,10 @@ public:
      * \param shape : Shape of the tensor
      * \param name : Name of the tensor.
      * \param format : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
+     * \param readyOnAicoreStart : Whether the tensor ready when aicore start. The default value is true.
      */
     Tensor(DataType dataType, std::vector<SymbolicScalar> shape, std::string name = "",
-        TileOpFormat format = TileOpFormat::TILEOP_ND);
+        TileOpFormat format = TileOpFormat::TILEOP_ND, bool readyOnAicoreStart = true);
 
     /**
      * \brief Construct a new Tensor object
@@ -95,6 +99,7 @@ public:
      * \param shape : Shape of the tensor
      * \param name : Name of the tensor.
      * \param format : Format of the tensor. The default value is TileOpFormat::TILEOP_ND.
+     * \param readyOnAicoreStart : Whether the tensor ready when aicore start. The default value is true.
      * \code {.cpp}
      * Tensor t0(DT_FP32, {32, 32}) // shape with fixed type
      * Tensor t1(DT_FP32, {?, 32})  // first axis use dynamic shape
@@ -102,8 +107,8 @@ public:
      * \endcode
      */
     Tensor(DataType t, std::initializer_list<SymbolicScalar> shape, std::string name = "",
-        TileOpFormat format = TileOpFormat::TILEOP_ND)
-        : Tensor(t, std::vector<SymbolicScalar>(shape), name, format) {}
+        TileOpFormat format = TileOpFormat::TILEOP_ND, bool readyOnAicoreStart = true)
+        : Tensor(t, std::vector<SymbolicScalar>(shape), name, format, readyOnAicoreStart) {}
 
     /**
      * \brief Overload the assignment operator to assign the value of another Tensor object to the current Tensor
@@ -273,6 +278,20 @@ public:
      * \return false : Otherwise.
      */
     bool IsEmpty() const;
+
+    /**
+     * \brief Set the depend type of Tensor.
+     *
+     * \param readyOnAicoreStart : Whether the tensor depends on const.
+     */
+    void SetReadyOnAicoreStart(bool readyOnAicoreStart);
+
+    /**
+     * \brief Get the depend type of Tensor.
+     *
+     * \return bool : Whether the tensor depends on const.
+     */
+    bool GetReadyOnAicoreStart() const;
 
 private:
     std::shared_ptr<LogicalTensor> storage_;
