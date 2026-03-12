@@ -117,6 +117,7 @@ void ExecuteOpCopyOut(ExecuteOperationContext *ctx) {
     }
 }
 REGISTER_CALC_OP(OP_COPY_OUT, Opcode::OP_COPY_OUT, ExecuteOpCopyOut);
+REGISTER_CALC_OP(OP_RESHAPE_COPY_OUT, Opcode::OP_RESHAPE_COPY_OUT, ExecuteOpCopyOut);
 
 void ExecuteOpCopyIn(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 1);
@@ -160,6 +161,7 @@ void ExecuteOpCopyIn(ExecuteOperationContext *ctx) {
     }
 }
 REGISTER_CALC_OP(OP_COPY_IN, Opcode::OP_COPY_IN, ExecuteOpCopyIn);
+REGISTER_CALC_OP(OP_RESHAPE_COPY_IN, Opcode::OP_RESHAPE_COPY_IN, ExecuteOpCopyIn);
 
 void ExecuteOpCopy(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 1);
