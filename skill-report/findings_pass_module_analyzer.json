@@ -1,0 +1,431 @@
+[
+  {
+    "rule_id": "R01",
+    "severity": "S0",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "Frontmatter 格式正确",
+    "evidence": {"file": "SKILL.md", "line": 1, "snippet": "---"}
+  },
+  {
+    "rule_id": "R02",
+    "severity": "S0",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "name 字段符合 kebab-case 且长度合规",
+    "evidence": {"file": "SKILL.md", "line": 2, "snippet": "name: pypto-pass-module-analyzer"}
+  },
+  {
+    "rule_id": "R03",
+    "severity": "S0",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "description 字段存在且长度 >= 20 字符",
+    "evidence": {"file": "SKILL.md", "line": 3, "snippet": "description: PyPTO Pass 模块代码分析技能"}
+  },
+  {
+    "rule_id": "R04",
+    "severity": "S1",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "name 值与 skill 目录名一致",
+    "evidence": {"file": "SKILL.md", "line": 2, "snippet": "name: pypto-pass-module-analyzer"}
+  },
+  {
+    "rule_id": "R05",
+    "severity": "S2",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "description 长度未超过 1024 字符",
+    "evidence": {"file": "SKILL.md", "line": 3, "snippet": "description: PyPTO Pass 模块代码分析技能"}
+  },
+  {
+    "rule_id": "R06",
+    "severity": "S3",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "frontmatter 仅包含已知字段",
+    "evidence": {"file": "SKILL.md", "line": 1, "snippet": "---"}
+  },
+  {
+    "rule_id": "R07",
+    "severity": "S1",
+    "dimension": "D1",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "description 清晰回答了'做什么'（分析PyPTO pass代码，生成模块分析文档）和'何时使用'（当需要理解PyPTO pass中某个模块的代码、功能和设计时使用此技能）",
+    "evidence": {"file": "SKILL.md", "line": 3, "snippet": "description: PyPTO Pass 模块代码分析技能。用于分析 PyPTO pass的代码，并结合输入文档中的相应内容，生成Pass模块分析文档。帮助开发者理解各个模块的接口、功能与特殊场景。当需要理解 PyPTO pass 中某个模块的代码、功能和设计时使用此技能。"}
+  },
+  {
+    "rule_id": "R08",
+    "severity": "S2",
+    "dimension": "D1",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "description 包含自然触发短语，如'分析Pass代码'、'查看XXX Pass代码'等，与触发机制章节的示例一致",
+    "evidence": {"file": "SKILL.md", "line": 3, "snippet": "PyPTO Pass 模块代码分析技能。用于分析 PyPTO pass的代码"}
+  },
+  {
+    "rule_id": "R09",
+    "severity": "S2",
+    "dimension": "D1",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "description 以结果为导向，聚焦于'帮助开发者理解各个模块的接口、功能与特殊场景'这一成果",
+    "evidence": {"file": "SKILL.md", "line": 3, "snippet": "帮助开发者理解各个模块的接口、功能与特殊场景"}
+  },
+  {
+    "rule_id": "R10",
+    "severity": "S2",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "不存在 allowed-tools 字段，无需检查格式",
+    "evidence": {"file": "SKILL.md", "line": 1, "snippet": "---"}
+  },
+  {
+    "rule_id": "R11",
+    "severity": "S1",
+    "dimension": "D2",
+    "type": "static",
+    "status": "PASS",
+    "message": "SKILL.md 共 188 行，未超过 600 行限制",
+    "evidence": {"file": "SKILL.md", "line": 188, "snippet": "7. 附录"}
+  },
+  {
+    "rule_id": "R12",
+    "severity": "S2",
+    "dimension": "D2",
+    "type": "static",
+    "status": "PASS",
+    "message": "正文约 1500 词，未超过 6000 词限制",
+    "evidence": {"file": "SKILL.md", "line": 1, "snippet": "---"}
+  },
+  {
+    "rule_id": "R13",
+    "severity": "S1",
+    "dimension": "D2",
+    "type": "static",
+    "status": "PASS",
+    "message": "未发现 TODO/FIXME/HACK 占位符",
+    "evidence": {"file": "SKILL.md", "line": 1, "snippet": "---"}
+  },
+  {
+    "rule_id": "R14",
+    "severity": "S2",
+    "dimension": "D2",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "各章节内容各有侧重，未发现明显冗余重复",
+    "evidence": {"file": "SKILL.md", "line": 59, "snippet": "## 工作流程"}
+  },
+  {
+    "rule_id": "R15",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "目录名 'pypto-pass-module-analyzer' 符合 kebab-case 且长度合规",
+    "evidence": {"file": "SKILL.md", "line": 1, "snippet": "---"}
+  },
+  {
+    "rule_id": "R16",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "大型内容已放入 Pass_Analysis_Template.md 参考文件中",
+    "evidence": {"file": "SKILL.md", "line": 21, "snippet": "按照 Pass_Analysis_Template.md 模板格式输出结果"}
+  },
+  {
+    "rule_id": "R17",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "引用路径使用相对路径",
+    "evidence": {"file": "SKILL.md", "line": 45, "snippet": "framework/src/passes/pass_mgr/pass_manager.cpp"}
+  },
+  {
+    "rule_id": "R18",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "被引用文件 Pass_Analysis_Template.md 存在于同一目录",
+    "evidence": {"file": "SKILL.md", "line": 21, "snippet": "Pass_Analysis_Template.md"}
+  },
+  {
+    "rule_id": "R19",
+    "severity": "S2",
+    "dimension": "D3",
+    "type": "semantic",
+    "status": "FAIL",
+    "message": "Pass_Analysis_Template.md 被多次引用（第21、70、81、88行），但未明确说明该文件的用途（定义输出文档的章节结构）和加载时机（在生成输出文档时作为格式参考）",
+    "evidence": {"file": "SKILL.md", "line": 21, "snippet": "- 按照 Pass_Analysis_Template.md 模板格式输出结果"},
+    "suggested_fix": "在'输出文件规则'或'输出格式'章节中添加说明：'Pass_Analysis_Template.md 定义了输出文档的章节结构，在步骤6生成输出文档时需按此模板格式组织内容'"
+  },
+  {
+    "rule_id": "R20",
+    "severity": "S2",
+    "dimension": "D4",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "指令主要使用祈使语气，如'确认文档描述的pass模块'、'总结文档内容'、'在项目中...查找对应pass模块代码'等",
+    "evidence": {"file": "SKILL.md", "line": 65, "snippet": "1. 确认文档描述的pass模块"}
+  },
+  {
+    "rule_id": "R21",
+    "severity": "S3",
+    "dimension": "D4",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "未发现'考虑'、'你可以'、'也许'等含糊措辞",
+    "evidence": {"file": "SKILL.md", "line": 1, "snippet": "---"}
+  },
+  {
+    "rule_id": "R22",
+    "severity": "S2",
+    "dimension": "D4",
+    "type": "static",
+    "status": "PASS",
+    "message": "代码块正确闭合",
+    "evidence": {"file": "SKILL.md", "line": 1, "snippet": "---"}
+  },
+  {
+    "rule_id": "R23",
+    "severity": "S2",
+    "dimension": "D4",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "关键指令包含理由说明，如'以下三个视图类 OPCode 在 Pass 中经常需要特殊处理，**必须**在分析时重点记录它们的特判场景'解释了为什么需要重点关注",
+    "evidence": {"file": "SKILL.md", "line": 113, "snippet": "以下三个视图类 OPCode 在 Pass 中经常需要特殊处理，**必须**在分析时重点记录它们的特判场景"}
+  },
+  {
+    "rule_id": "R24",
+    "severity": "S2",
+    "dimension": "D5",
+    "type": "semantic",
+    "status": "FAIL",
+    "message": "工作流步骤缺少明确的可验证成功标准。例如步骤'4. 执行代码分析'和'5. 执行Pass概述分析'没有说明如何判断这些步骤已成功完成",
+    "evidence": {"file": "SKILL.md", "line": 68, "snippet": "4. 执行代码分析（详见\"代码分析章节\"）"},
+    "suggested_fix": "为关键步骤添加成功标准，如'4. 执行代码分析（详见\"代码分析章节\"），确认已识别出所有入口函数、Checker和关键业务函数'"
+  },
+  {
+    "rule_id": "R25",
+    "severity": "S2",
+    "dimension": "D5",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "命令和路径具体明确，如'framework/src/passes/pass_mgr/pass_manager.cpp'、'framework/src/passes'等",
+    "evidence": {"file": "SKILL.md", "line": 45, "snippet": "framework/src/passes/pass_mgr/pass_manager.cpp"}
+  },
+  {
+    "rule_id": "R26",
+    "severity": "S1",
+    "dimension": "D5",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "所有提及的操作都有具体方法。'执行代码分析'指向'代码分析章节'的详细说明，'执行Pass概述分析'指向'Pass概述分析'章节",
+    "evidence": {"file": "SKILL.md", "line": 91, "snippet": "## 代码分析章节"}
+  },
+  {
+    "rule_id": "R27",
+    "severity": "S2",
+    "dimension": "D5",
+    "type": "semantic",
+    "status": "FAIL",
+    "message": "未明确定义完成标准。虽然列出了输出格式章节，但没有说明整体任务何时算完成、最终交付物应满足什么条件",
+    "evidence": {"file": "SKILL.md", "line": 169, "snippet": "## 输出格式"},
+    "suggested_fix": "在'输出格式'章节末尾添加完成标准：'任务完成标准：生成符合 Pass_Analysis_Template.md 格式要求的完整分析文档，包含全部7个章节且格式统一'"
+  },
+  {
+    "rule_id": "R28",
+    "severity": "S1",
+    "dimension": "D6",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "定义了清晰的分步工作流，包含两个场景，每个场景都有编号步骤（1-7）",
+    "evidence": {"file": "SKILL.md", "line": 59, "snippet": "## 工作流程"}
+  },
+  {
+    "rule_id": "R29",
+    "severity": "S2",
+    "dimension": "D6",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "工作流步骤衔接顺畅，前一步输出为后一步输入，如'查找对应pass模块代码'后接'执行代码分析'",
+    "evidence": {"file": "SKILL.md", "line": 67, "snippet": "3. 在项目中 framework/src/passes 中查找对应pass模块代码"}
+  },
+  {
+    "rule_id": "R30",
+    "severity": "S2",
+    "dimension": "D6",
+    "type": "semantic",
+    "status": "FAIL",
+    "message": "缺少错误处理说明。未提及如果找不到指定pass、代码解析失败、文档格式错误等情况应如何处理",
+    "evidence": {"file": "SKILL.md", "line": 59, "snippet": "## 工作流程"},
+    "suggested_fix": "添加错误处理章节或在工作流中添加异常分支：'若在 framework/src/passes 中未找到对应pass代码，向用户报告并询问是否继续分析其他pass'"
+  },
+  {
+    "rule_id": "R31",
+    "severity": "S2",
+    "dimension": "D6",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "条件分支描述完整。场景2中'查找特定pass名称'和'查找全部'两个分支都有详细步骤说明",
+    "evidence": {"file": "SKILL.md", "line": 75, "snippet": "1. 询问用户是否要查找全部pass"}
+  },
+  {
+    "rule_id": "R32",
+    "severity": "S3",
+    "dimension": "D7",
+    "type": "semantic",
+    "status": "PASS",
+    "message": "采用渐进披露模式：概述（使用场景、功能概述）→ 工作流程 → 代码分析章节（详细技术内容）→ 输出格式（参考）",
+    "evidence": {"file": "SKILL.md", "line": 8, "snippet": "## 概述"}
+  },
+  {
+    "rule_id": "R33",
+    "severity": "S3",
+    "dimension": "D7",
+    "type": "semantic",
+    "status": "FAIL",
+    "message": "验证任务（检查最终输出文件格式）完全依赖LLM判断，没有使用确定性脚本或检查工具",
+    "evidence": {"file": "SKILL.md", "line": 71, "snippet": "7. 检查最终输出文件的格式，对于格式错误的进行修复"},
+    "suggested_fix": "考虑提供格式检查清单或建议使用Markdown格式检查工具辅助验证"
+  },
+  {
+    "rule_id": "R34",
+    "severity": "S0",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "未发现密钥、凭据或敏感数据",
+    "evidence": {"file": "SKILL.md", "line": 1, "snippet": "---"}
+  },
+  {
+    "rule_id": "R35",
+    "severity": "S1",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "未发现硬编码的绝对路径",
+    "evidence": {"file": "SKILL.md", "line": 1, "snippet": "---"}
+  },
+  {
+    "rule_id": "R36",
+    "severity": "S1",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "未发现超过50行的大型数据块",
+    "evidence": {"file": "SKILL.md", "line": 1, "snippet": "---"}
+  },
+  {
+    "rule_id": "R37",
+    "severity": "S1",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "frontmatter 中未发现 XML 标签",
+    "evidence": {"file": "SKILL.md", "line": 1, "snippet": "---"}
+  },
+  {
+    "rule_id": "R38",
+    "severity": "S2",
+    "dimension": "D8",
+    "type": "static",
+    "status": "PASS",
+    "message": "未发现 Windows 风格路径",
+    "evidence": {"file": "SKILL.md", "line": 1, "snippet": "---"}
+  },
+  {
+    "rule_id": "R39",
+    "severity": "S2",
+    "dimension": "D9",
+    "type": "static",
+    "status": "PASS",
+    "message": "不存在 Python 脚本文件",
+    "evidence": {"file": "SKILL.md", "line": 1, "snippet": "---"}
+  },
+  {
+    "rule_id": "R40",
+    "severity": "S2",
+    "dimension": "D9",
+    "type": "static",
+    "status": "PASS",
+    "message": "不存在脚本文件",
+    "evidence": {"file": "SKILL.md", "line": 1, "snippet": "---"}
+  },
+  {
+    "rule_id": "R41",
+    "severity": "S2",
+    "dimension": "D9",
+    "type": "static",
+    "status": "PASS",
+    "message": "不存在脚本文件",
+    "evidence": {"file": "SKILL.md", "line": 1, "snippet": "---"}
+  },
+  {
+    "rule_id": "R42",
+    "severity": "S2",
+    "dimension": "D9",
+    "type": "semantic",
+    "status": "SKIP",
+    "message": "不存在 scripts/ 目录，此规则不适用",
+    "evidence": {"file": "SKILL.md", "line": 1, "snippet": "---"}
+  },
+  {
+    "rule_id": "R43",
+    "severity": "S3",
+    "dimension": "D3",
+    "type": "static",
+    "status": "PASS",
+    "message": "不存在非标准命名的子目录",
+    "evidence": {"file": "SKILL.md", "line": 1, "snippet": "---"}
+  },
+  {
+    "rule_id": "R44",
+    "severity": "S2",
+    "dimension": "D1",
+    "type": "static",
+    "status": "PASS",
+    "message": "description 中未发现尖括号占位符",
+    "evidence": {"file": "SKILL.md", "line": 3, "snippet": "description: PyPTO Pass 模块代码分析技能"}
+  },
+  {
+    "rule_id": "R45",
+    "severity": "S2",
+    "dimension": "D2",
+    "type": "static",
+    "status": "PASS",
+    "message": "未发现重复的章节标题",
+    "evidence": {"file": "SKILL.md", "line": 1, "snippet": "---"}
+  },
+  {
+    "rule_id": "R46",
+    "severity": "S3",
+    "dimension": "D4",
+    "type": "static",
+    "status": "PASS",
+    "message": "不存在围栏代码块，无需检查语言标注",
+    "evidence": {"file": "SKILL.md", "line": 1, "snippet": "---"}
+  },
+  {
+    "rule_id": "R47",
+    "severity": "S2",
+    "dimension": "D7",
+    "type": "semantic",
+    "status": "FAIL",
+    "message": "场景2提供两个选项（'查找特定pass名称'和'查找全部'）但未标注推荐默认项",
+    "evidence": {"file": "SKILL.md", "line": 75, "snippet": "1. 询问用户是否要查找全部pass"},
+    "suggested_fix": "标注推荐选项：'1. 询问用户是否要查找全部pass（推荐：先查找特定pass，减少分析范围）'"
+  }
+]
