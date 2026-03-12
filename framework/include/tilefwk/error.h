@@ -100,28 +100,119 @@ public:
     }
 };
 
-#ifndef __DEVICE__
-/* used for internal check */
-#define ASSERT(cond)                                                                                                           \
-   (cond) ? 0 : npu::tile_fwk::Error(__func__, __FILE__, __LINE__, npu::tile_fwk::GetBacktrace(0, /* 64 is maxFrames */ 64)) = \
-        npu::tile_fwk::ErrorMessage() << "ASSERTION FAILED: " #cond << "\n"
+namespace detail {
+/* Host 侧流式 ASSERT/CHECK 构建器 */
+class HostAssertStream {
+public:
+    HostAssertStream(bool enabled,
+                     const char *func,
+                     const char *file,
+                     size_t line,
+                     const char *prefix)
+        : enabled_(enabled),
+          err_(func, file, line, GetBacktrace(0, /* 64 is maxFrames */ 64)) {
+        if (enabled_) {
+            msg_ << prefix;
+        }
+    }
 
-/* check for user input */
-#define CHECK(cond)                                                                                                           \
-   (cond) ? 0 : npu::tile_fwk::Error(__func__, __FILE__, __LINE__, npu::tile_fwk::GetBacktrace(0, /* 64 is maxFrames */ 64)) = \
-        npu::tile_fwk::ErrorMessage() << "CHECK FAILED: " #cond << "\n"
+    HostAssertStream(bool enabled,
+                     const char *func,
+                     const char *file,
+                     size_t line,
+                     const char *prefix,
+                     uint32_t errCode)
+        : enabled_(enabled),
+          err_(func, file, line, GetBacktrace(0, /* 64 is maxFrames */ 64)) {
+        if (enabled_) {
+            msg_ << prefix << " ErrCode: F" << errCode << "!";
+        }
+    }
+
+    template <typename T>
+    HostAssertStream &operator<<(const T &value) {
+        if (enabled_) {
+            msg_ << value;
+        }
+        return *this;
+    }
+
+    HostAssertStream &operator<<(std::ostream &(*manip)(std::ostream &)) {
+        if (enabled_) {
+            msg_ << manip;
+        }
+        return *this;
+    }
+
+    ~HostAssertStream() {
+        if (enabled_) {
+            err_ = msg_;
+        }
+    }
+
+    HostAssertStream(const HostAssertStream &) = delete;
+    HostAssertStream &operator=(const HostAssertStream &) = delete;
+
+private:
+    bool enabled_{false};
+    Error err_;
+    ErrorMessage msg_;
+};
+} // namespace detail
+
+#ifndef __DEVICE__
+/* host 侧 ASSERT：支持可选 errCode + 流式输出 */
+#define ASSERT_IMPL_NO_ERRCODE(cond)                                                                                          \
+    npu::tile_fwk::detail::HostAssertStream(!(cond), __func__, __FILE__, __LINE__,                                           \
+        "ASSERTION FAILED: " #cond)
+
+#define ASSERT_IMPL_WITH_ERRCODE(cond, errCode)                                                                               \
+    npu::tile_fwk::detail::HostAssertStream(!(cond), __func__, __FILE__, __LINE__,                                           \
+        "ASSERTION FAILED: " #cond, static_cast<uint32_t>(errCode))
+
+#define ASSERT_SELECT_MACRO(_1, _2, NAME, ...) NAME
+#define ASSERT(...) ASSERT_SELECT_MACRO(__VA_ARGS__,                                      \
+    ASSERT_IMPL_WITH_ERRCODE, ASSERT_IMPL_NO_ERRCODE)(__VA_ARGS__)
+
+#define ASSERT_C(cond, errCode) ASSERT(cond, errCode)
+
+/* host 侧 CHECK：支持可选 errCode + 流式输出 */
+#define CHECK_IMPL_NO_ERRCODE(cond)                                                                                           \
+    npu::tile_fwk::detail::HostAssertStream(!(cond), __func__, __FILE__, __LINE__,                                           \
+        "CHECK FAILED: " #cond)
+
+#define CHECK_IMPL_WITH_ERRCODE(cond, errCode)                                                                                \
+    npu::tile_fwk::detail::HostAssertStream(!(cond), __func__, __FILE__, __LINE__,                                           \
+        "CHECK FAILED: " #cond, static_cast<uint32_t>(errCode))
+
+#define CHECK_SELECT_MACRO(_1, _2, NAME, ...) NAME
+#define CHECK(...) CHECK_SELECT_MACRO(__VA_ARGS__,                                        \
+    CHECK_IMPL_WITH_ERRCODE, CHECK_IMPL_NO_ERRCODE)(__VA_ARGS__)
+
+#define CHECK_C(cond, errCode) CHECK(cond, errCode)
 
 #define TILEFWK_ERROR()                                                                                            \
     npu::tile_fwk::Error(__func__, __FILE__, __LINE__, npu::tile_fwk::GetBacktrace(0, /* 64 is maxFrames */ 64)) = \
         npu::tile_fwk::ErrorMessage()
 #else
 
+/* device 侧仍使用简单的非流式实现 */
 #define ASSERT(cond)                             \
     (cond) ? 0 : AssertInfo() = npu::tile_fwk::ErrorMessage() \
         << "ASSERTION FAILED: " #cond " file " << __FILE__ << ", line " << __LINE__ << "\n"
 
+#define ASSERT_C(cond, errCode)                             \
+    (cond) ? 0 : AssertInfo() = npu::tile_fwk::ErrorMessage() \
+        << "ASSERTION FAILED: " #cond " ErrCode: F" << static_cast<uint32_t>(errCode) \
+        << "! file " << __FILE__ << ", line " << __LINE__ << "\n"
+
 #define CHECK(cond)                             \
     (cond) ? 0 : AssertInfo() = npu::tile_fwk::ErrorMessage() \
         << "CHECK FAILED: " #cond " file " << __FILE__ << ", line " << __LINE__ << "\n"
+
+#define CHECK_C(cond, errCode)                             \
+    (cond) ? 0 : AssertInfo() = npu::tile_fwk::ErrorMessage() \
+        << "CHECK FAILED: " #cond " ErrCode: F" << static_cast<uint32_t>(errCode) \
+        << "! file " << __FILE__ << ", line " << __LINE__ << "\n"
 #endif
 } // namespace npu::tile_fwk

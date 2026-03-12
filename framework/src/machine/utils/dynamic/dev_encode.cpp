@@ -135,7 +135,7 @@ void DevAscendFunction::InitOperationDynamicField(
         }
         for (uint64_t i = 0; i < incastSize; i++) {
             uint8_t *ptr = reinterpret_cast<uint8_t *>(&dupData->GetIncastAddress(i));
-            ASSERT(incastBegin <= ptr && ptr < outcastBegin) "Incast address out of range:  ptr "
+            ASSERT(incastBegin <= ptr && ptr < outcastBegin) << "Incast address out of range:  ptr "
                    << ptr << " not in [" << incastBegin << ", " << outcastBegin << ")";
         }
         for (uint64_t i = 0; i < outcastSize; i++) {

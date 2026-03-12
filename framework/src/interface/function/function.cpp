@@ -3624,7 +3624,8 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
             auto assembleResult = std::make_shared<LogicalTensor>(*this, iOperand->Datatype(), iOperand->shape,
                 iOperand->GetDynValidShape(), iOperand->Format(), "Assemble_" + matches[0]->Symbol(),
                 iOperand->nodetype);
-            ASSERT(assembleResult->GetProducers().empty()) << "Assemble result should have no producers";
+            ASSERT(assembleResult->GetProducers().empty())
+                << "Assemble result should have no producers";
             for (size_t idx = 0; idx < matches.size(); idx++) {
                 auto &assembleOp = AddRawOperation(Opcode::OP_ASSEMBLE, {matches[idx]}, {assembleResult});
                 assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(offsetOfOverlaps[idx], SymbolicScalar::FromConcrete(offsetOfOverlaps[idx])));
@@ -3657,7 +3658,8 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
             if (!iOperand->GetDynValidShape().empty()) {
                 assembleResult->UpdateDynValidShape(iOperand->GetDynValidShape());
             }
-            ASSERT(assembleResult->GetProducers().empty()) "Assemble result should have no producers";
+            ASSERT(assembleResult->GetProducers().empty())
+                << "Assemble result should have no producers";
             for (size_t idx = 0; idx < matches.size(); idx++) {
                 auto &assembleOp = AddRawOperation(Opcode::OP_ASSEMBLE, {matches[idx]}, {assembleResult});
                 assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(offsetOfOverlaps[idx], SymbolicScalar::FromConcrete(offsetOfOverlaps[idx])));

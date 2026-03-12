@@ -20,7 +20,8 @@
 #include "machine/host/perf_analysis.h"
 #include "interface/utils/op_info_manager.h"
 #include "tilefwk/pypto_fwk_log.h"
-
+#include "machine/utils/machine_error.h"
+#include "tilefwk/error.h"
 struct process_sign {
     pid_t tgid;
     char sign[49];   // 49 is PROCESS_SIGN_LENGTH
@@ -45,7 +46,8 @@ int GetCfgBlockdim() {
     // 如果未进行控核，GetMaxBlockdim接口将通过aclrtGetResInCurrentThread函数返回硬件物理最大核数
     auto maxBlk = GetMaxBlockdim();
     blk = maxBlk < static_cast<int>(blk) ? maxBlk : blk;
-    MACHINE_LOGD("Get blockdim[%zu].", blk);
+    MACHINE_LOGE_C(ThreadErr::DEVICE_ARGS_INVALID, "Get blockdim[%zu].", blk);
+    CHECK(0, ThreadErr::DEVICE_ARGS_INVALID) << "Get blockdim.";
     return blk;
 #else
     return kMinDefaultDim;
