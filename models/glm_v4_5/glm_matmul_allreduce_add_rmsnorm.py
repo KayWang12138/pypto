@@ -245,7 +245,7 @@ def matmul_allreduce_add_rmsnorm(
 
 
 @pytest.mark.world_size(4)
-def test_matmul_allreduce_add_rmsnorm():
+def run_matmul_allreduce_add_rmsnorm():
     mp.set_start_method('spawn', force=True)
     config = DistributedConfig(world_size=4)
     processes = []
@@ -261,7 +261,7 @@ def test_matmul_allreduce_add_rmsnorm():
 
 
 def main():
-    test_matmul_allreduce_add_rmsnorm()
+    run_matmul_allreduce_add_rmsnorm()
 
 
 if __name__ == '__main__':
