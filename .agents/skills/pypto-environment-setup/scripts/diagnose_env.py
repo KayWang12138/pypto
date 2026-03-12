@@ -29,6 +29,55 @@ from detect_npu import (  # noqa: E402  # pyright: ignore[reportImplicitRelative
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 
 
+
+def _setup_environment_variables() -> None:
+    """在诊断前自动配置必要的环境变量，避免错误诊断。"""
+    ascend_install_path = os.environ.get("ASCEND_INSTALL_PATH", "/usr/local/Ascend")
+
+    # 1. 尝试加载 CANN 环境变量（source set_env.sh）
+    set_env_candidates = [
+        os.path.join(ascend_install_path, "ascend-toolkit", "set_env.sh"),
+        os.path.join(ascend_install_path, "ascend-toolkit", "latest", "set_env.sh"),
+    ]
+
+    for set_env_path in set_env_candidates:
+        if os.path.isfile(set_env_path):
+            try:
+                result = subprocess.run(
+                    ["bash", "-c", f"source {set_env_path} && env"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if result.returncode == 0:
+                    for line in result.stdout.splitlines():
+                        if "=" in line:
+                            key, value = line.split("=", 1)
+                            if key.startswith("ASCEND_") or key in (
+                                "LD_LIBRARY_PATH",
+                                "PATH",
+                                "PYTHONPATH",
+                            ):
+                                os.environ[key] = value
+                    logging.info(f"✓ 已加载 CANN 环境变量: {set_env_path}")
+                    break
+            except Exception:
+                continue
+
+    # 2. 设置 TILE_FWK_DEVICE_ID（如果未设置）
+    if "TILE_FWK_DEVICE_ID" not in os.environ:
+        os.environ["TILE_FWK_DEVICE_ID"] = "0"
+
+    # 3. 设置 PTO_TILE_LIB_CODE_PATH（如果未设置）
+    if "PTO_TILE_LIB_CODE_PATH" not in os.environ:
+        ascend_home = os.environ.get("ASCEND_HOME_PATH") or os.environ.get(
+            "ASCEND_TOOLKIT_HOME"
+        )
+        if ascend_home:
+            pto_isa_path = os.path.join(ascend_home, "aarch64-linux")
+            if os.path.isdir(pto_isa_path):
+                os.environ["PTO_TILE_LIB_CODE_PATH"] = pto_isa_path
+                
 def _parse_timeout_env() -> int:
     raw = os.environ.get('DIAG_TIMEOUT', '10')
     try:
@@ -309,10 +358,10 @@ def _detect_build_tools() -> dict[str, Any]:
 
 
 def _detect_third_party_deps(pypto_repo_path: str | None) -> dict[str, Any]:
-    """检测第三方编译依赖（源码包）：nlohmann/json v3.11.3、libboundscheck v1.1.16。"""
-    json_url = 'https://gitcode.com/cann-src-third-party/json/releases/download/v3.11.3/json-3.11.3.tar.gz'
-    securec_url = 'https://gitcode.com/cann-src-third-party/libboundscheck/releases/' \
-                    'download/v1.1.16/libboundscheck-v1.1.16.tar.gz'
+     """检测第三方编译依赖（源码包）：nlohmann/json v3.11.3、libboundscheck v1.1.16。"""
+     json_url = 'https://gitcode.com/cann-src-third-party/json/releases/download/v3.11.3/json-3.11.3.tar.gz'
+     securec_url = 'https://gitcode.com/cann-src-third-party/libboundscheck/releases/' \
+                     'download/v1.1.16/libboundscheck-v1.1.16.tar.gz'
 
     result: dict[str, Any] = {
         'json': {'found': False, 'version': 'v3.11.3', 'download_url': json_url},
@@ -877,6 +926,7 @@ def main() -> int:
     ap.add_argument('--checklist', action='store_true', help='Human-readable confirmation checklist')
     args = ap.parse_args()
 
+    _setup_environment_variables()
     # 环境变量（仅 Ascend 相关条目）
     env: dict[str, Any] = {}
     env_keys = (

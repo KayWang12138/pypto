@@ -21,15 +21,17 @@ INSTALL_PATH="/usr/local/Ascend"
 DOWNLOAD_DIR=$(dirname "$(dirname "$(dirname "$(readlink -f "$0")")")")/pypto_download
 QUIET=false
 
+CANN_DOWNLOAD_PATH="$DOWNLOAD_DIR/cann_packages"
+THIRD_PARTY_DOWNLOAD_PATH="$DOWNLOAD_DIR/third_party_packages"
+
 DOWNLOADED_CANN_FILES=()
-INSTALL_CANN_FILES=()
+INSTALL_CANN_FILES=("$CANN_DOWNLOAD_PATH"/*.run)
 BASIC_MISSING_PKGS=()
 BASIC_OUTDATED_PKGS=()
 
 SCRIPT_PATH=$(readlink -f "$0")
 
-CANN_DOWNLOAD_PATH="$DOWNLOAD_DIR/cann_packages"
-THIRD_PARTY_DOWNLOAD_PATH="$DOWNLOAD_DIR/third_party_packages"
+
 CANN_VERSION_LATEST="8.5.0" 
 OS=""
 ARCH=""
@@ -171,7 +173,7 @@ parse_arguments() {
     
     if [ -z "$TYPE" ]; then
         missing_params+=("--type")
-    elif [[ ! "$TYPE" =~ ^("deps"|"cann"|"third_party"|"all")$ ]]; then
+    elif [[ ! "$TYPE" =~ ^("deps"|"cann"|"third_party"|"all"|"download_cann"|"install_cann")$ ]]; then
         log_print "error" "Invalid value for --type: $TYPE (must be 'deps' or 'cann' or third_party or 'all')"
         return 1
     fi
@@ -586,7 +588,7 @@ get_package_name_from_url() {
 download_single_cann_package() {
     local resource_type="$1"
     local resource_url="$2"
-    
+    INSTALL_CANN_FILES=()
     cd "$CANN_DOWNLOAD_PATH" || {
         log_print "error" "Failed to enter download directory: $CANN_DOWNLOAD_PATH"
         return 1
@@ -662,8 +664,11 @@ install_downloaded_packages() {
 }
 
 install_single_package() {
-    local filename="$1"    
-
+    local filename="$1"
+    local max_retries=${2:-3}      # 默认重试3次
+    local timeout_seconds=${3:-300} # 默认超时5分钟
+    local retry_delay=${4:-10}      # 重试间隔10秒
+    
     if [ ! -f "$filename" ]; then
         log_print "error" "File not found: $filename"
         return 1
@@ -678,23 +683,50 @@ install_single_package() {
     fi
     
     local install_cmd=""
-
-    if [[ "$filename" =~ "ops" ]]; then
-        install_cmd="$filename --quiet --install --force --install-path=$INSTALL_PATH "
-    elif [[ "$filename" =~ "toolkit" ]]; then
-        install_cmd="$filename --quiet --install --force --install-path=$INSTALL_PATH "
+    if [[ "$filename" =~ "ops" ]] || [[ "$filename" =~ "toolkit" ]]; then
+        install_cmd="$filename --quiet --install --force --install-path=$INSTALL_PATH"
     elif [[ "$filename" =~ "pto-isa" ]]; then
-        install_cmd="$filename --quiet --full --install-path=$INSTALL_PATH "
+        install_cmd="$filename --quiet --full --install-path=$INSTALL_PATH"
     else
-        install_cmd="$filename --full --install-path=$INSTALL_PATH "
+        install_cmd="$filename --full --install-path=$INSTALL_PATH"
     fi
-
-    log_print "info" "Running: $install_cmd"
-    if eval "$install_cmd"; then
-        return 0
-    else
-        return 1
-    fi
+    
+    local retry_count=0
+    local exit_code=0
+    
+    while [ $retry_count -lt $max_retries ]; do
+        log_print "info" "Running (attempt $((retry_count+1))/$max_retries): $install_cmd"
+        log_print "info" "Timeout set to ${timeout_seconds} seconds"
+        
+        # 使用 timeout 命令执行
+        timeout --kill-after=30s $timeout_seconds bash -c "$install_cmd"
+        exit_code=$?
+        
+        case $exit_code in
+            0)
+                log_print "success" "Successfully installed: $filename"
+                return 0
+                ;;
+            124|137)
+                # 124: timeout 命令的超时退出码
+                # 137: SIGKILL (kill -9) 退出码
+                log_print "warning" "Installation timed out after ${timeout_seconds} seconds (attempt $((retry_count+1))/$max_retries)"
+                ;;
+            *)
+                log_print "warning" "Installation failed with exit code $exit_code (attempt $((retry_count+1))/$max_retries)"
+                ;;
+        esac
+        
+        retry_count=$((retry_count + 1))
+        
+        if [ $retry_count -lt $max_retries ]; then
+            log_print "info" "Retrying in ${retry_delay} seconds..."
+            sleep $retry_delay
+        fi
+    done
+    
+    log_print "error" "Failed to install $filename after $max_retries attempts"
+    return 1
 }
 
 show_installation_plan() {
@@ -919,6 +951,13 @@ main() {
     
     if [[ "$TYPE" == "cann" || "$TYPE" == "all" ]]; then
         download_cann_packages
+        install_cann_packages
+    fi
+
+    if [[ "$TYPE" == "download_cann" ]]; then
+        download_cann_packages
+    fi
+    if [[ "$TYPE" == "install_cann" ]]; then
         install_cann_packages
     fi
 }
