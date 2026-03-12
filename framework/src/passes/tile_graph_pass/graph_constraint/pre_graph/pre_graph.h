@@ -20,7 +20,6 @@
 #include "passes/tile_graph_pass/graph_constraint/pre_graph/cube_process.h"
 #include "passes/tile_graph_pass/graph_constraint/pre_graph/remove_redundant_assemble.h"
 #include "passes/tile_graph_pass/graph_constraint/pre_graph/set_boundary.h"
-#include "passes/tile_graph_pass/graph_constraint/pre_graph/set_copy_attr.h"
 
 namespace npu::tile_fwk {
 class PreGraphProcess : public Pass {

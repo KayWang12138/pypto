@@ -15,6 +15,7 @@
 
 #include "remove_redundant_assemble.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/tile_graph_pass/graph_constraint/pre_graph/set_copy_attr.h"
 
 #define MODULE_NAME "PreGraphProcess"
 
@@ -28,9 +29,14 @@ std::vector<OpImmediate> SumOffset(const std::vector<OpImmediate> offset1, const
 }
 
 // 当前op为Copy Out时，需要将后继Assemble上的offset累加到当前op的CopyOpAttr上
-void UpdateCopyOutAttr(Operation &op, Operation &opNext) {
+Status UpdateCopyOutAttr(Operation &op, Operation &opNext) {
     auto opAttr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
     auto opNextAttr = std::static_pointer_cast<AssembleOpAttribute>(opNext.GetOpAttribute());
+    if (!opAttr || !opNextAttr) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Copyout[%d] miss attribute or Assemble[%d] miss attribute.",
+            op.GetOpMagic(), opNext.GetOpMagic());
+        return FAILED;
+    }
     if (opNextAttr->GetToDynOffset().size() != 0) {
         if (op.GetOpcode() != Opcode::OP_COPY_OUT) {
             opAttr->SetToOffset(OpImmediate::Specified(opNextAttr->GetToDynOffset()));
@@ -45,6 +51,7 @@ void UpdateCopyOutAttr(Operation &op, Operation &opNext) {
         } 
     }
     opAttr->SetRawShape(OpImmediate::Specified(op.GetOOperands().front()->tensor->GetDynRawShape()));
+    return SUCCESS;
 }
 
 bool CalculateNewRawShape(
@@ -564,7 +571,10 @@ Status RemoveRedundantAssemble::HanldeForSingleAssemble(Function &function, Logi
             if (!IsCopyOut(producer->GetOpcode())) continue;
             APASS_LOG_DEBUG_F(Elements::Operation, "The producer op:[%d] is copyOut, update its CopyOpAttr. %s",
                 producer->GetOpMagic(), producer->GetOpcodeStr().c_str());
-            UpdateCopyOutAttr(*producer, *cons);
+            if (UpdateCopyOutAttr(*producer, *cons) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "UpdateCopyOutAttr failed.");
+                return FAILED;
+            }
         }
     }
     HandleForAssembleFromInOut(function, op, producersBackup);
@@ -590,6 +600,11 @@ Status RemoveRedundantAssemble::HanldeForSingleAssemble(Function &function, Logi
 */
 Status RemoveRedundantAssemble::DeleteRedundantAssemble(Function &function) const {
     for (auto &op : function.Operations()) {
+        if (IsCopyOut(op.GetOpcode()) && op.GetOpcode() != Opcode::OP_COPY_OUT) {
+            SetCopyAttr::ProcessSpecialMTEOperation(op);
+        }
+    }
+    for (auto &op : function.Operations()) {
         if (!IsCandidateAssembleOp(function, op)) {
             continue;
         }
@@ -610,11 +625,34 @@ Status RemoveRedundantAssemble::DeleteRedundantAssemble(Function &function) cons
             if (HanldeForSingleAssemble(function, input, output, op) != SUCCESS) return FAILED;
         }
     }
+    function.EraseOperations(false);
+    return SUCCESS;
+}
+
+Status RemoveRedundantAssemble::DeleteRedundantView(Function &function) const {
+    for (auto &op : function.Operations()) {
+        if (IsCopyIn(op.GetOpcode()) && op.GetOpcode() != Opcode::OP_COPY_IN &&
+            op.GetOpcode() != Opcode::OP_SHMEM_GET_GM2UB) {
+            SetCopyAttr::ProcessMoveInOperation(op);
+        }
+    }
     if (ProcessView(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "ProcessView failed.");
         return FAILED;
     }
     function.EraseOperations(false);
+    return SUCCESS;
+}
+
+Status RemoveRedundantAssemble::RemoveRedundant(Function &function) const {
+    if (DeleteRedundantAssemble(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "DeleteRedundantAssemble failed.");
+        return FAILED;
+    }
+    if (DeleteRedundantView(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "DeleteRedundantView failed.");
+        return FAILED;
+    }
     HandleForReshapeToOutcast(function);
     return SUCCESS;
 }

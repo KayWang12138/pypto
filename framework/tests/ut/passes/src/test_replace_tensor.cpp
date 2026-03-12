@@ -37,6 +37,7 @@ static const uint32_t kNumFour = 4u;
 static const uint32_t kNumSix = 6u;
 static const uint32_t kNumEight = 8u;
 static const uint32_t kNumSixteen = 16u;
+static const uint32_t kNumThirtyTwo = 32u;
 
 class ReplaceTensorTest : public testing::Test {
 public:
@@ -492,10 +493,10 @@ TEST_F(ReplaceTensorTest, TestSameAssembleOut) {
     auto outcast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, outRawTensor1, offset0, shape1);
     outcast1->SetMemoryTypeBoth(MEM_DEVICE_DDR, true);
     /*       Init Graph
-                            /—————> assemble -outcast1
-                             /————> assemble \         
-        incast ————> copyIn -                 - outcast0  
-                             \————> assemble /          
+                              /———> assemble -outcast1
+                             /————> assemble \
+        incast ————> copyIn -                 - outcast0
+                             \————> assemble /
     */
     auto &copyInOp = currFunctionPtr->AddOperation(Opcode::OP_COPY_IN, {incast}, {copyInOut});
     auto &assOp0 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {copyInOut}, {outcast0});
@@ -519,10 +520,25 @@ TEST_F(ReplaceTensorTest, TestSameAssembleOut) {
     currFunctionPtr->inCasts_.push_back(incast);
     currFunctionPtr->outCasts_.push_back(outcast0);
     currFunctionPtr->outCasts_.push_back(outcast1);
-    int opSumBefore = currFunctionPtr->Operations().size();
     EXPECT_EQ(pass.RunOnFunction(*currFunctionPtr), SUCCESS);
-    EXPECT_EQ(currFunctionPtr->Operations().size(), opSumBefore + 4);
     EXPECT_EQ(pass.PostCheck(*currFunctionPtr), SUCCESS);
+    int copyInCnt = 0;
+    int copyOutCnt = 0;
+    int assembleCnt = 0;
+    for (const auto &op : currFunctionPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_COPY_IN) {
+            ++copyInCnt;
+        }
+        if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
+            ++copyOutCnt;
+        }
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            ++assembleCnt;
+        }
+    }
+    EXPECT_EQ(copyInCnt, 3);
+    EXPECT_EQ(copyOutCnt, 2);
+    EXPECT_EQ(assembleCnt, 0);
 }
 
 TEST_F(ReplaceTensorTest, TestNotInplaceReshape) {
@@ -560,5 +576,72 @@ TEST_F(ReplaceTensorTest, TestNotInplaceReshape) {
     EXPECT_EQ(pass.PostCheck(*currFunctionPtr), SUCCESS);
 }
 
+void CompareOpImmediateVector(const std::vector<OpImmediate> &result, const std::vector<int64_t> &expect) {
+    EXPECT_EQ(result.size(), expect.size());
+    for (size_t idx = 0; idx < result.size(); ++idx) {
+        EXPECT_EQ(result[idx].Dump(), std::to_string(expect[idx]));
+    }
+}
+/*
+incast1 - a_mul_b - copyout \
+                              assemble - outcast
+incast2 - a_mul_b - copyout /
+*/
+TEST_F(ReplaceTensorTest, TestBackASSEMBLE) {
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestBackASSEMBLE", "TestBackASSEMBLE", nullptr);
+    EXPECT_NE(currFunctionPtr, nullptr);
+    // Prepare the graph
+    std::vector<int64_t> shape = {kNumEight, kNumThirtyTwo};
+    std::vector<int64_t> shape1 = {kNumEight, kNumSixteen};
+    std::vector<int64_t> offset0 = {kNumZero, kNumZero};
+    // init RawTensor
+    std::shared_ptr<RawTensor> inRawTensor0 = std::make_shared<RawTensor>(DT_FP32, shape1);
+    std::shared_ptr<RawTensor> inRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape1);
+    std::shared_ptr<RawTensor> outRawTensor = std::make_shared<RawTensor>(DT_FP32, shape);
+    // init LogicalTensor
+    auto incast1 = std::make_shared<LogicalTensor>(*currFunctionPtr, inRawTensor0, offset0, shape1);
+    auto incast2 = std::make_shared<LogicalTensor>(*currFunctionPtr, inRawTensor1, offset0, shape1);
+    auto mulOut0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    auto mulOut1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    auto copyOut0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, outRawTensor, offset0, shape);
+    outcast->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
+    outcast->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
+
+    currFunctionPtr->AddOperation(Opcode::OP_A_MUL_B, {incast1, incast1}, {mulOut0});
+    currFunctionPtr->AddOperation(Opcode::OP_A_MUL_B, {incast2, incast2}, {mulOut1});
+    auto copyAttr = std::make_shared<CopyOpAttribute>(MemoryType::MEM_UB, OpImmediate::Specified(offset0),
+        OpImmediate::Specified(shape1), OpImmediate::Specified(shape1));
+    auto &c1 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {mulOut0}, {copyOut0});
+    auto &c2 = currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {mulOut1}, {copyOut0});
+    c1.SetOpAttribute(copyAttr);
+    c2.SetOpAttribute(copyAttr);
+    auto &assOp0 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {copyOut0}, {outcast});
+
+    auto assAttr0 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset0);
+    assOp0.SetOpAttribute(assAttr0);
+
+    // Run the Pass
+    ReplaceTensor pass;
+    currFunctionPtr->inCasts_.push_back(incast1);
+    currFunctionPtr->inCasts_.push_back(incast2);
+    currFunctionPtr->outCasts_.push_back(outcast);
+    EXPECT_EQ(pass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    EXPECT_EQ(pass.PostCheck(*currFunctionPtr), SUCCESS);
+    auto updatedOperations = currFunctionPtr->Operations();
+    int64_t cnt = 0;
+    for (const auto &op : updatedOperations) {
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            ++cnt;
+        }
+        if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
+            auto opAttr = std::dynamic_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
+            auto rawShape = opAttr->GetRawShape();
+            CompareOpImmediateVector(rawShape, shape);
+        }
+    }
+    EXPECT_EQ(cnt, 0);
+}
 }
 }

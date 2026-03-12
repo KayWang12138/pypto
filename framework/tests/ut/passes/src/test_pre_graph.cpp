@@ -24,6 +24,7 @@
 #include "passes/pass_mgr/pass_manager.h"
 #include "interface/configs/config_manager.h"
 #include "passes/tile_graph_pass/graph_constraint/pre_graph/pre_graph.h"
+#include "passes/tile_graph_pass/graph_constraint/pre_graph/remove_redundant_assemble.h"
 #include "ut_json/ut_json_tool.h"
 #include "computational_graph_builder.h"
 #define private public
@@ -887,13 +888,6 @@ TEST_F(PreGraphTest, TestRemoveViewMultiReshapeErrCondition) {
     EXPECT_EQ(pass.RemoveViewMultiReshape(multiReshapeVector), FAILED);
 }
 
-void CompareOpImmediateVector(const std::vector<OpImmediate> &result, const std::vector<int64_t> &expect) {
-    EXPECT_EQ(result.size(), expect.size());
-    for (size_t idx = 0; idx < result.size(); ++idx) {
-        EXPECT_EQ(result[idx].Dump(), std::to_string(expect[idx]));
-    }
-}
-
 TEST_F(PreGraphTest, TestRemoveRedundantAssemble) {
     ComputationalGraphBuilder G;
     // add tensor
@@ -1091,7 +1085,8 @@ TEST_F(PreGraphTest, TestTransposeMoveout) {
     preGraph.Run(*function, "", "", 0);
     preGraph.PostCheck(*function);
     //after validate transpose_moveout_attr
-    auto transpose_moveout_attr = dynamic_cast<CopyOpAttribute *>(transpose_moveout->GetOpAttribute().get());
+    auto transpose_moveout_attr = std::dynamic_pointer_cast<CopyOpAttribute>(transpose_moveout->GetOpAttribute());
+    EXPECT_NE(transpose_moveout_attr, nullptr);
     EXPECT_EQ(transpose_moveout_attr->from_, MemoryType::MEM_UB);
     EXPECT_EQ(transpose_moveout_attr->GetToOffset().size(), vec_out->GetOffset().size());
     for (size_t i = 0; i < vec_out->GetOffset().size(); i++) {
@@ -1103,7 +1098,8 @@ TEST_F(PreGraphTest, TestTransposeMoveout) {
     }
     EXPECT_EQ(transpose_moveout_attr->GetRawShape().size(), vec_out->tensor->GetDynRawShape().size());
     for (size_t i = 0; i < vec_out->tensor->GetDynRawShape().size(); i++) {
-        EXPECT_EQ(transpose_moveout_attr->GetRawShape()[i].Dump(), std::to_string(vec_out->tensor->GetRawShape()[i]));
+        EXPECT_EQ(transpose_moveout_attr->GetRawShape()[i].Dump(),
+        std::to_string(vec_out->tensor->GetRawShape()[i]));
     }
 }
 
