@@ -26,6 +26,7 @@ public:
 
     void EliminateDeadOperationBackward(Function &function);
     void EliminateOperation(Function &function, bool sorted = true);
+    void EliminateOperationAndNotSortAfterErase(Function &function, bool sorted = true);
     static Status EliminateDeadOperation(Function &function);
 };
 }
