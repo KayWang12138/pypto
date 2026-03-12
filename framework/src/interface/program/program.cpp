@@ -64,7 +64,6 @@ void Program::Reset() {
     functionmap_.clear();
     functionMagicNameStack_.clear();
     currentFunctionMagicName_ = PROGRAM_ENTRY_FUNCTION_NAME;
-    config::Reset();
     IdGen<IdType::LOGICAL_TENSOR>::Inst().Reset();
     aliveTensors_.clear();
     functionCache_.Reset();
