@@ -1265,7 +1265,8 @@ static Tensor GetGmAtomicAccumulationTensor(DataType outType, Tensor gmAccumulat
 }
 
 static Tensor ConstructGmAccumulationTensorGraph(
-    DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const MatmulAttrParam &attrParam) {
+    DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const MatmulAttrParam &attrParam,
+    const MatmulExtendParam &extendParam = {}) {
     auto &cubeTile = TileShape::Current().GetCubeTile();
     OP_CHECK(true, {
         ASSERT(aMatrix.GetStorage() != nullptr && bMatrix.GetStorage() != nullptr)
@@ -1304,7 +1305,7 @@ static Tensor ConstructGmAccumulationTensorGraph(
         }
         MatmulGraphNodes tensorGraphNodes(
             tensorA.GetStorage(), tensorB.GetStorage(), gmAccumulationTensor.GetStorage());
-        Tensor gmPartialSum = ConstructTensorGraph(outType, tensorGraphNodes, attrParam);
+        Tensor gmPartialSum = ConstructTensorGraph(outType, tensorGraphNodes, attrParam, extendParam);
         gmPartialSums.emplace_back(gmPartialSum);
     }
     if (outType == DT_INT32) {
@@ -1334,7 +1335,7 @@ Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, co
     MatmulGraphNodes tensorGraphNodes(aMatrix.GetStorage(), bMatrix.GetStorage());
     auto &cubeTile = TileShape::Current().GetCubeTile();
     if (cubeTile.enableSplitK) {
-        return ConstructGmAccumulationTensorGraph(outType, aMatrix, bMatrix, attrParam);
+        return ConstructGmAccumulationTensorGraph(outType, aMatrix, bMatrix, attrParam, param);
     }
     return ConstructTensorGraph(outType, tensorGraphNodes, attrParam, param);
 }
