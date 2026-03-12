@@ -700,7 +700,7 @@ TEST_F(DynamicOpsTest, OpsElementWise)
             if (i == 0) {
                 r0Data = t0Data + t1Data;
             } else {
-                r0Data = r0Data + t1Data;     // +t0, +t1
+                r0Data = r0Data + t1Data; // +t0, +t1
                 if (i < condThreshold) {
                     r0Data = r0Data + t2Data; // +t2 * 5
                 } else {
@@ -710,7 +710,7 @@ TEST_F(DynamicOpsTest, OpsElementWise)
             }
         }
         for (int i = 0; i < loopCount; i++) {
-            r0Data = r0Data + t1Data;     // +t1
+            r0Data = r0Data + t1Data; // +t1
             if (i < condThreshold) {
                 r0Data = r0Data + t2Data; // +t2 * 5
             } else {
@@ -2544,6 +2544,106 @@ TEST_F(DynamicOpsTest, Range)
         });
 
         FUNCTION("main", {}, {out}) { out = Range(start, end, step); }
+    });
+    EXPECT_NO_VERIFY_FAILED(logOutput);
+}
+
+TEST_F(DynamicOpsTest, Permute3DFp32)
+{
+    std::string logOutput = CaptureLogFileAndEcho([]() {
+        config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+        config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+
+        int64_t d0 = 2;
+        int64_t d1 = 3;
+        int64_t d2 = 4;
+        Tensor input(DT_FP32, {d0, d1, d2}, "input");
+        Tensor out(DT_FP32, {d1, d0, d2}, "out");
+
+        std::vector<float> inputData(d0 * d1 * d2);
+        for (size_t i = 0; i < inputData.size(); ++i) {
+            inputData[i] = static_cast<float>(i + 1);
+        }
+        std::vector<float> goldenData(d1 * d0 * d2, 0.0f);
+        for (int64_t i = 0; i < d0; ++i) {
+            for (int64_t j = 0; j < d1; ++j) {
+                for (int64_t k = 0; k < d2; ++k) {
+                    int64_t srcIdx = (i * d1 + j) * d2 + k;
+                    int64_t dstIdx = (j * d0 + i) * d2 + k;
+                    goldenData[dstIdx] = inputData[srcIdx];
+                }
+            }
+        }
+
+        ProgramData::GetInstance().AppendInputs({
+            RawTensorData::CreateTensor<float>(input, inputData),
+        });
+        ProgramData::GetInstance().AppendOutputs({
+            RawTensorData::CreateConstantTensor<float>(out, 0.0f),
+        });
+        ProgramData::GetInstance().AppendGoldens({
+            RawTensorData::CreateTensor<float>(out, goldenData),
+        });
+
+        FUNCTION("main", {input}, {out})
+        {
+            LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+            {
+                (void)i;
+                auto t0 = View(input, {d0, d1, d2}, {0, 0, 0});
+                out = Permute(t0, {1, 0, 2});
+            }
+        }
+    });
+    EXPECT_NO_VERIFY_FAILED(logOutput);
+}
+
+TEST_F(DynamicOpsTest, PermuteElement3DFp32)
+{
+    std::string logOutput = CaptureLogFileAndEcho([]() {
+        config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+        config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+
+        int64_t d0 = 2;
+        int64_t d1 = 3;
+        int64_t d2 = 4;
+        Tensor input(DT_FP32, {d0, d1, d2}, "input");
+        Tensor out(DT_FP32, {d0, d2, d1}, "out");
+
+        std::vector<float> inputData(d0 * d1 * d2);
+        for (size_t i = 0; i < inputData.size(); ++i) {
+            inputData[i] = static_cast<float>(i + 1);
+        }
+        std::vector<float> goldenData(d0 * d2 * d1, 0.0f);
+        for (int64_t i = 0; i < d0; ++i) {
+            for (int64_t j = 0; j < d1; ++j) {
+                for (int64_t k = 0; k < d2; ++k) {
+                    int64_t srcIdx = (i * d1 + j) * d2 + k;
+                    int64_t dstIdx = (i * d2 + k) * d1 + j;
+                    goldenData[dstIdx] = inputData[srcIdx];
+                }
+            }
+        }
+
+        ProgramData::GetInstance().AppendInputs({
+            RawTensorData::CreateTensor<float>(input, inputData),
+        });
+        ProgramData::GetInstance().AppendOutputs({
+            RawTensorData::CreateConstantTensor<float>(out, 0.0f),
+        });
+        ProgramData::GetInstance().AppendGoldens({
+            RawTensorData::CreateTensor<float>(out, goldenData),
+        });
+
+        FUNCTION("main", {input}, {out})
+        {
+            LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1))
+            {
+                (void)i;
+                auto t0 = View(input, {d0, d1, d2}, {0, 0, 0});
+                out = Permute(t0, {0, 2, 1});
+            }
+        }
     });
     EXPECT_NO_VERIFY_FAILED(logOutput);
 }
