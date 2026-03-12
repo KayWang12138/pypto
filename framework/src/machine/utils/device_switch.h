@@ -56,6 +56,10 @@ namespace npu::tile_fwk {
 
 #define ENABLE_AICORE_PRINT 0
 
+// Macros to enable tracing and debugging in the AICPU scheduler at runtime
+#define ENABLE_AICPU_PRINT 0
+#define ENABLE_AICPU_PROFILING 0
+
 // for tensor dump
 #define ENABLE_TENSOR_DUMP 1
 
