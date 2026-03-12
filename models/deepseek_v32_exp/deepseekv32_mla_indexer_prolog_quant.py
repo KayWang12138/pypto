@@ -658,9 +658,9 @@ def gen_test_data(params):
     mla_inputs_npu['sin'] = mla_inputs_npu['sin'].reshape(t, qk_rope_head_dim).contiguous()
     mla_inputs_npu['cache_index'] = mla_inputs_npu['cache_index'].reshape(t).contiguous()
     mla_inputs_npu['w_qb_scale'] = mla_inputs_npu['w_qb_scale'].reshape(-1, 1).contiguous()
-    mla_inputs_npu['w_dq'] = torch_npu.npu_format_cast(mla_inputs_npu['w_dq'], torch_npu.Format.FRACTAL_NZ)
-    mla_inputs_npu['w_uqqr'] = torch_npu.npu_format_cast(mla_inputs_npu['w_uqqr'], torch_npu.Format.FRACTAL_NZ)
-    mla_inputs_npu['w_dkvkr'] = torch_npu.npu_format_cast(mla_inputs_npu['w_dkvkr'], torch_npu.Format.FRACTAL_NZ)
+    mla_inputs_npu['w_dq'] = torch_npu.npu_format_cast(mla_inputs_npu['w_dq'], 29)
+    mla_inputs_npu['w_uqqr'] = torch_npu.npu_format_cast(mla_inputs_npu['w_uqqr'], 29)
+    mla_inputs_npu['w_dkvkr'] = torch_npu.npu_format_cast(mla_inputs_npu['w_dkvkr'], 29)
     mla_goldens['q_nope'] = mla_goldens['q_nope'].reshape(t, n1, kv_lora_rank).contiguous().cpu()
     mla_goldens['q_rope'] = mla_goldens['q_rope'].reshape(t, n1, qk_rope_head_dim).contiguous().cpu()
 
@@ -692,10 +692,9 @@ def gen_test_data(params):
     ip_inputs_npu['w_idx_qb_scale'] = ip_inputs_npu['w_idx_qb_scale'].reshape(-1, 1).contiguous()
     ip_inputs_npu['q_norm'] = ip_inputs_npu['q_norm'].reshape(t, q_lora_rank).contiguous()
     ip_inputs_npu['q_norm_scale'] = ip_inputs_npu['q_norm_scale'].reshape(t, 1).contiguous()
-    ip_inputs_npu['w_idx_qb_nz'] = torch_npu.npu_format_cast(ip_inputs_npu['w_idx_qb'], torch_npu.Format.FRACTAL_NZ)
-    ip_inputs_npu['w_idx_k_nz'] = torch_npu.npu_format_cast(ip_inputs_npu['w_idx_k'], torch_npu.Format.FRACTAL_NZ)
-    ip_inputs_npu['w_idx_proj_nz'] = torch_npu.npu_format_cast(ip_inputs_npu['w_idx_proj'],
-                                                               torch_npu.Format.FRACTAL_NZ)
+    ip_inputs_npu['w_idx_qb_nz'] = torch_npu.npu_format_cast(ip_inputs_npu['w_idx_qb'], 29)
+    ip_inputs_npu['w_idx_k_nz'] = torch_npu.npu_format_cast(ip_inputs_npu['w_idx_k'], 29)
+    ip_inputs_npu['w_idx_proj_nz'] = torch_npu.npu_format_cast(ip_inputs_npu['w_idx_proj'], 29)
 
     ip_goldens['q_int8'] = ip_goldens['q_int8'].reshape(t, head_num, idx_head_dim).contiguous()
     ip_goldens['q_scale'] = ip_goldens['q_scale'].reshape(t, head_num, 1).contiguous()
@@ -853,14 +852,6 @@ def do_test(case_name, params, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, 
         outputs["idx_k_scale_cache_out"],
         outputs["weights"]
     ]
-    h = params["h"]
-    n_q = params["n1"]
-    q_lora_rank = params["q_lora_rank"]
-    kv_lora_rank = params["kv_lora_rank"]
-    qk_nope_head_dim = params["qk_nope_head_dim"]
-    qk_rope_head_dim = params["qk_rope_head_dim"]
-    idx_n_heads = params["idx_n_heads"]
-    idx_head_dim = params["idx_head_dim"]
 
     import mla_indexer_prolog_quant_impl as mla_lp_quant
     if is_prefill:
@@ -868,9 +859,8 @@ def do_test(case_name, params, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, 
     else:
         fun = mla_lp_quant.mla_indexer_prolog_quant_d
 
-    fun(h, n_q, q_lora_rank, kv_lora_rank, qk_nope_head_dim, qk_rope_head_dim, idx_n_heads, idx_head_dim, 
-        mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, mla_tile_config, 
-        ip_attrs, ip_configs, rope_tile_shape)(*pto_inputs, *pto_outputs)
+    fun(*pto_inputs, *pto_outputs, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, mla_tile_config,
+        ip_attrs, ip_configs, rope_tile_shape)
     torch_npu.npu.synchronize()
     check(case_name, outputs, goldens)
 

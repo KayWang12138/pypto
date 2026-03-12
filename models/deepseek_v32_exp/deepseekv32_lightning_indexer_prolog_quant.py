@@ -350,11 +350,11 @@ def do_test_lighting_indexer_prolog_quant(case_name, configs):
         x=inputs_data["token_x"].npu().reshape(t, h),
         q_norm=inputs_data["q_norm"].npu().reshape(t, q_lora_rank),
         q_norm_scale=inputs_data["q_norm_scale"].npu().reshape(t, 1),
-        w_qb=torch_npu.npu_format_cast(inputs_data["w_idx_qb"].npu().contiguous(), torch_npu.Format.FRACTAL_NZ),
+        w_qb=torch_npu.npu_format_cast(inputs_data["w_idx_qb"].npu().contiguous(), 29),
         w_qb_scale=inputs_data["w_idx_qb_scale"].npu(),
-        wk=torch_npu.npu_format_cast(inputs_data["w_idx_k"].npu().contiguous(), torch_npu.Format.FRACTAL_NZ),
+        wk=torch_npu.npu_format_cast(inputs_data["w_idx_k"].npu().contiguous(), 29),
         w_proj=torch_npu.npu_format_cast(
-            inputs_data["w_idx_proj"].npu().contiguous(), torch_npu.Format.FRACTAL_NZ),
+            inputs_data["w_idx_proj"].npu().contiguous(), 29),
         ln_gamma_k=inputs_data["layer_norm_gamma"].npu(),
         ln_beta_k=inputs_data["layer_norm_beta"].npu(),
         cos_idx_rope=inputs_data["cos_idx_rope"].npu().reshape(t, rope_head_dim),
@@ -387,19 +387,9 @@ def do_test_lighting_indexer_prolog_quant(case_name, configs):
         layerout_key="PA_BSND",
     )
 
-    shapes = [tensor.shape for _, tensor in vars(inputs).items()] + \
-             [tensor.shape for _, tensor in vars(outputs).items()]
     tensors = [tensor for _, tensor in vars(inputs).items()] + \
               [tensor for _, tensor in vars(outputs).items()]
-    lightning_indexer_prolog_quant(*shapes, configs, attrs)(*tensors)
-
-    outputs = IndexerPrologQuantOutput(
-        q_int8=tensors[16],
-        q_scale=tensors[17],
-        k_int8=tensors[18],
-        k_scale=tensors[19],
-        weights=tensors[20]
-    )
+    lightning_indexer_prolog_quant(*tensors, configs, attrs)
     
     compare(outputs.q_int8.cpu(), q_int8_golden, "q_int8", 1, 0, 0)
     compare(outputs.q_scale.cpu(), q_scale_golden, "q_scale", 0.000025, 0, 0.005)

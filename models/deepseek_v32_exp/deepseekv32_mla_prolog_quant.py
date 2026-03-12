@@ -560,12 +560,9 @@ def mla_prolog_quant_v32(params, input_tensors, golden_data, dtype, w_dtype, is_
     output_kv_cache_data = input_tensors["kv_cache"].reshape(kv_cache_shape).npu()
     output_kr_cache_data = input_tensors["kr_cache"].reshape(kr_cache_shape).npu()
 
-    w_dq_nz = torch_npu.npu_format_cast(input_tensors["w_dq"].reshape(w_dq_shape).npu().contiguous(), \
-                                        torch_npu.Format.FRACTAL_NZ)
-    w_dkvkr_nz = torch_npu.npu_format_cast(input_tensors["w_dkvkr"].reshape(w_dkv_kr_shape).npu().contiguous(), \
-                                        torch_npu.Format.FRACTAL_NZ)
-    w_uqqr_nz = torch_npu.npu_format_cast(input_tensors["w_uqqr"].reshape(w_uq_qr_shape).npu().contiguous(), \
-                                        torch_npu.Format.FRACTAL_NZ)
+    w_dq_nz = torch_npu.npu_format_cast(input_tensors["w_dq"].reshape(w_dq_shape).npu().contiguous(), 29)
+    w_dkvkr_nz = torch_npu.npu_format_cast(input_tensors["w_dkvkr"].reshape(w_dkv_kr_shape).npu().contiguous(), 29)
+    w_uqqr_nz = torch_npu.npu_format_cast(input_tensors["w_uqqr"].reshape(w_uq_qr_shape).npu().contiguous(), 29)
     input_tensors["w_uqqr"] = w_uqqr_nz
     input_tensors["w_dkvkr"] = w_dkvkr_nz
     input_tensors["w_dq"] = w_dq_nz
@@ -612,23 +609,15 @@ def mla_prolog_quant_v32(params, input_tensors, golden_data, dtype, w_dtype, is_
     output_data = [output_q_norm_data, output_q_norm_scale_data, output_q_nope_data,
                 output_q_rope_data, output_kv_cache_data, output_kr_cache_data, k_scale_cache_data_out]
 
-    block_num_value = kv_cache_shape[0]
-    n_kv = n2
-    n_q = n1
-
     if is_p:
         from mla_prolog_quant_impl import RopeTileShapeConfig
         rope_tile_shape = RopeTileShapeConfig(two_dim=[32, 64], three_dim=[32, 32, 128], four_dim=[16, 128, 128, 128])
-        mla_prolog_quant_p(h, q_lora_rank, n1, qk_nope_head_dim, kv_lora_rank, qk_rope_head_dim,
-                            block_num_value, block_size, n_kv, n_q, 1e-5, 1e-5, 
-                            cache_mode, tile_config, rope_tile_shape)(*input_data, *output_data)
+        mla_prolog_quant_p(*input_data, *output_data, 1e-5, 1e-5, cache_mode, tile_config, rope_tile_shape)
     else:
         from mla_prolog_quant_impl import RopeTileShapeConfig
         rope_tile_shape = RopeTileShapeConfig(two_dim=[128, 128],
             three_dim=[128, 128, 128], four_dim=[16, 128, 128, 128])
-        mla_prolog_quant_d(h, q_lora_rank, n1, qk_nope_head_dim, kv_lora_rank, qk_rope_head_dim,
-                            block_num_value, block_size, n_kv, n_q, 1e-5, 1e-5, 
-                            cache_mode, tile_config, rope_tile_shape)(*input_data, *output_data)
+        mla_prolog_quant_d(*input_data, *output_data, 1e-5, 1e-5, cache_mode, tile_config, rope_tile_shape)
     torch_npu.npu.synchronize()
 
     ########### compare #######
