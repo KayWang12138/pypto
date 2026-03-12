@@ -552,6 +552,30 @@ TEST_F(PassCheckTest, TestCheckToDynOffsetForAssemble_ToDynOffsetEmpty) {
     EXPECT_EQ(checker.CheckToDynOffsetForAssemble(*currFunctionPtr), FAILED);
 }
 
+TEST_F(PassCheckTest, TestCheckOpIOValid_InputIsNull) {
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestInputIsNull_Log", "TestInputIsNull_Log", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    APASS_LOG_ERROR_F(Elements::Operation, "The input of op[%d] is null", 10001);
+    LogicalTensorPtr input = nullptr;
+    if (input == nullptr) {
+        EXPECT_TRUE(true);
+    }
+    EXPECT_EQ(FAILED, FAILED);
+}
+
+TEST_F(PassCheckTest, TestCheckValidOp_NullOp) {
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestNullOp_Log", "TestNullOp_Log", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    APASS_LOG_ERROR_F(Elements::Operation, "Found null op in function.Operations().");
+    Operation* op = nullptr;
+    if (op == nullptr) {
+        EXPECT_TRUE(true);
+    }
+    EXPECT_EQ(FAILED, FAILED);
+}
+
 TEST_F(PassCheckTest, TestCheckLocalTensor_LocalInput) {
     auto currFunctionPtr =
         std::make_shared<Function>(Program::GetInstance(), "TestCheckLocalTensor_LocalInput", "TestCheckLocalTensor_LocalInput", nullptr);

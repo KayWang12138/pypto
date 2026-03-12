@@ -144,7 +144,7 @@ Status Checker::PublicCheck(Function &function) {
         return FAILED;
     }
     if (CheckLocalTensor(function) != SUCCESS) {
-        ALOG_ERROR_F("CheckLocalTensor for function[%d] failed!", function.GetFuncMagic());
+        APASS_LOG_ERROR_F(Elements::Function, "CheckLocalTensor for function[%d] failed!", function.GetFuncMagic());
         return FAILED;
     }
     return SUCCESS;
