@@ -556,8 +556,7 @@ Status L1CopyInReuseRunner::Run(Function &func, int color, std::vector<std::vect
     // print hashorder
     APASS_LOG_INFO_F(Elements::Operation, "Computation graph [%s] overview.", func.GetRawName().c_str());
     for (auto &entry : hashMap_) {
-        APASS_LOG_INFO_F(Elements::Operation, "Hash order: %d, Subgraph hash: %lu, Subgraph ID: %s.",
-            hashOrder_[entry.first], entry.first, IntVecToStr(entry.second).c_str());
+        APASS_LOG_INFO_F(Elements::Operation, "Hash order: %d, Subgraph hash: %lu, Subgraph IDs: %s.", hashOrder_[entry.first], entry.first, IntVecToStr(entry.second).c_str());
     }
     APASS_LOG_INFO_F(Elements::Operation, "Computation graph [%s] overview end.", func.GetRawName().c_str());
     auto colorCopyIn = GetCopyIn(opOriList, color, colorNode);   // 记录各子图的大小

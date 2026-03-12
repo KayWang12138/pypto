@@ -489,7 +489,7 @@ Status NBufferMerge::NBufferMergeProcess(Function &func) {
     // print hashorder
     APASS_LOG_INFO_F(Elements::Operation, "Computation graph [%s] overview.", func.GetRawName().c_str());
     for (auto &entry : hashMap) {
-        APASS_LOG_INFO_F(Elements::Operation, "Hash order: %d, Subgraph hash: %lu, Subgraph ID: %s.", hashOrder_[entry.first], entry.first, IntVecToStr(entry.second).c_str());
+        APASS_LOG_INFO_F(Elements::Operation, "Hash order: %d, Subgraph hash: %lu, Subgraph IDs: %s.", hashOrder_[entry.first], entry.first, IntVecToStr(entry.second).c_str());
     }
     APASS_LOG_INFO_F(Elements::Operation, "Computation graph [%s] overview end.", func.GetRawName().c_str());
     std::map<uint64_t, size_t> hashMergeNum;
@@ -534,7 +534,7 @@ Status NBufferMerge::CheckVecNBufferSettingForManualMerge() {
     for (const auto& pair : vecNBufferSetting_) {
         if (pair.first < VEC_NBUFFER_SETTING_DEFAULT_MERGE_NUM_KEY || pair.first > static_cast<int64_t>(hashOrder_.size()) - 1) {
             APASS_LOG_WARN_F(Elements::Config,
-                "The VEC_NBUFFER_SETTING key %ld is invalid; For the current graph, valid keys should be between -1 and max hashOrder %ld.",
+                "The VEC_NBUFFER_SETTING key %ld is invalid; For the current graph, valid keys should be between -2 and max hashOrder %ld.",
                 pair.first, static_cast<int64_t>(hashOrder_.size()) - 1);
         }
         if (pair.second <= 0 || pair.second > static_cast<int64_t>(INT_MAX)) {
