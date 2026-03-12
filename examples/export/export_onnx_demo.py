@@ -49,11 +49,11 @@ def add_pypto_fake(x0, x1, run_mode = 0):
     return torch.empty_like(x0)
 
 @pypto.export.pypto_op_infer_shape(pypto_op_kernel=add_kernel_body)
-def add_pypto_infer_shape(x0_shape, x1_shape):
-    return x0_shape
+def add_pypto_infer_shape(x0_shape: tuple[int, int], x1_shape: tuple[int, int]) -> tuple[int, int]:
+    return (x0_shape[0], x1_shape[1])
 
 @pypto.export.pypto_op_calc_workspace(pypto_op_kernel=add_kernel_body)
-def add_pypto_calc_workspace(x0_shape, x1_shape):
+def add_pypto_calc_workspace(x0_shape: tuple[int, int], x1_shape: tuple[int, int]) -> int:
     return 42
 
 @pypto.export.pypto_op_onnx_symbolic(pypto_op_kernel=add_kernel_body)
