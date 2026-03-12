@@ -54,8 +54,7 @@ namespace DAV_3510 {
 
 class AicoreHAL {
 public:
-    inline void Init(DeviceArgs *deviceArgs, AiCoreProf *aicoreProf) {
-        aicoreProf_ = aicoreProf;
+    inline void Init(DeviceArgs *deviceArgs) {
         sharedBuffer_ = deviceArgs->sharedBuffer;
         regAddrs_ = reinterpret_cast<int64_t *>(deviceArgs->coreRegAddr);
         regNum_ = deviceArgs->nrAic + deviceArgs->nrAiv;
@@ -364,75 +363,6 @@ public:
         return reinterpret_cast<Metrics *>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
     }
 
-    int DumpTaskProf(int coreIdx) {
-        Metrics* metric =  GetMetrics(coreIdx);
-        if (metric == nullptr) {
-            return DEVICE_MACHINE_ERROR;
-        }
-
-        DEV_VERBOSE_DEBUG("Dump core %d prof data , task cnt %ld, metric:%p.", coreIdx, metric->taskCount, metric);
-        for (int i = 0; i < metric->taskCount; i++) {
-            volatile TaskStat *stat = &metric->tasks[i];
-            aicoreProf_->ProfGet(coreIdx, stat->subGraphId, stat->taskId, &(metric)->tasks[i]);
-            DEV_VERBOSE_DEBUG("  Dump prof for task %d, execstart: %ld execend :%ld.",
-                     stat->taskId, stat->execStart, stat->execEnd);
-        }
-        return 0;
-    }
-
-    int DumpAicorePerfTrace(int aicpuIdx, int coreIdx, CoreType coretype, std::ostringstream& oss) {
-        (void)coreIdx;
-        (void)coretype;
-        (void)oss;
-        (void)aicpuIdx;
-#if ENABLE_PERF_TRACE
-        Metrics* metric =  GetMetrics(coreIdx);
-        if (metric == nullptr) {
-            return DEVICE_MACHINE_ERROR;
-        }
-
-        oss << "{\"blockIdx\":" << coreIdx << ",\"coreType\":\"SCHED" << aicpuIdx << "-"
-            << (coretype == CoreType::AIC ? "AIC" : "AIV") << "\",\"freq\":" << freq_ << ",\"tasks\":[";
-
-        uint64_t curCycle = 0;
-        for (uint32_t type = 0; type < PERF_TRACE_CORE_MAX; type++) {
-            for (uint32_t cnt = 0; cnt < metric->perfTraceCnt[type]; cnt++) {
-                curCycle = metric->perfTrace[type][cnt];
-                if (curCycle == 0) {
-                    break;
-                }
-
-                oss << "{\"name\":\"" << AicorePerfTraceName[type];
-                if (metric->perfTraceDevTaskId[type][cnt] != INVALID_DEV_TASK_ID) {
-                    oss << "(" << metric->perfTraceDevTaskId[type][cnt] << ")";
-                }
-
-                oss << "\",\"end\":" << curCycle << "}"
-                    << (((type == PERF_TRACE_CORE_MAX - 1) && (cnt ==  metric->perfTraceCnt[type] - 1)) ? "" : ",");
-            }
-        }
-        oss << "]}";
-        if (!aicoreProf_->ProfIsEnable()) {
-            memset_s(metric, sizeof(Metrics), 0, sizeof(Metrics));
-        }
-#endif
-        return DEVICE_MACHINE_OK;
-    }
-
-    void DumpAicoreStatus(int coreIdx) const {
-        volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
-        DEV_VERBOSE_DEBUG("!!***********************aicore %d last status **************************!!", coreIdx);
-        DEV_VERBOSE_DEBUG("hello status %ld.", arg->shakeBuffer[0]);
-        DEV_VERBOSE_DEBUG("last_taskId %ld task status [%ld, %ld, %ld, %ld].", arg->shakeBuffer[NUM_ONE],
-            arg->shakeBuffer[NUM_TWO], arg->shakeBuffer[NUM_THREE], arg->shakeBuffer[NUM_FOUR], arg->shakeBuffer[NUM_FIVE]);
-
-        for (size_t i = 0; i < sizeof(arg->taskStat) / sizeof(TaskStat); i++) {
-            DEV_VERBOSE_DEBUG("task rsp index %lu: taskId %d, subGraphID %d execStart %ld execEnd %ld.", i,
-                arg->taskStat[i].taskId, arg->taskStat[i].subGraphId,
-                arg->taskStat[i].execStart, arg->taskStat[i].execEnd);
-        }
-    }
-
     uint64_t GetAicoreStatus(int coreIdx) const {
         int aicoreStatusIndex = 2;
         volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
@@ -522,7 +452,6 @@ private:
     uint32_t regSprCond_{DAV_2201::REG_SPR_COND};
 
     bool isNeedWriteRegForFastPath_{true};
-    AiCoreProf *aicoreProf_{nullptr};
     CostModel::AiCoreModel *costModel_{nullptr};
 };
 }
