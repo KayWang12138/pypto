@@ -1808,16 +1808,12 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
         std::to_string(srcShapeD), std::to_string(srcShapeH), std::to_string(srcShapeW)};
 
     std::ostringstream oss;
-    oss << tileOpName;
-    oss << "<" << copyInModeStr << ", " << std::to_string(isConv3D) << ", " << std::to_string(isFmap) << ">";
-    oss << PrintParams({"(", ")"}, tileOpParamList, ", ") << STMT_END;
+    oss << tileOpName << WrapParamByAngleBrackets({copyInModeStr, std::to_string(isConv3D), std::to_string(isFmap)});
+    oss << WrapParamByParentheses(tileOpParamList) << STMT_END;
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const {
-    std::string gmVarName = GenGmParamVar(ToUnderlying(MISOIdx::DST_IDX));
-    std::string dstTensor = sm->QueryTileTensorNameByBufVar(gmVarName);
-    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+std::string CodeGenOpCloudNPU::GetConvCopyOutMode() const {
     int64_t copyOutMode = -1;
     std::string copyOutModeStr = "";
     auto ret = GetAttr(Conv::LoadStoreConvOpAttributeKey::copyOutMode, copyOutMode);
@@ -1831,6 +1827,14 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const {
     } else {
         ASSERT(false) << "Check CopyOutMode failed";
     }
+    return copyOutModeStr;
+}
+
+std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const {
+    std::string gmVarName = GenGmParamVar(ToUnderlying(MISOIdx::DST_IDX));
+    std::string dstTensor = sm->QueryTileTensorNameByBufVar(gmVarName);
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::string copyOutModeStr = GetConvCopyOutMode();
 
     bool isConv3D = false;
     int64_t realM = 0, realN = 0;
@@ -1860,8 +1864,8 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const {
         std::to_string(realN)};
 
     std::ostringstream oss;
-    oss << tileOpName << "<" << copyOutModeStr << ", " << std::to_string(isConv3D) << ">";
-    oss << PrintParams({"(", ")"}, tileOpParamList, ", ") << STMT_END;
+    oss << tileOpName << WrapParamByAngleBrackets({copyOutModeStr, std::to_string(isConv3D)});
+    oss << WrapParamByParentheses(tileOpParamList) << STMT_END;
     return oss.str();
 }
 
@@ -1916,13 +1920,12 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
     ALOG_INFO_F("GenMemL1ToL0Load3D %s, fmapL0Shape is %s", tileOpName.c_str(), IntVecToStr(fmapL0Shape).c_str());
     ASSERT(fmapL0Shape.size() == SHAPE_DIM2) << "GenMemL1ToL0Load3D L0 fmap only support 2-dim!";
 
-    std::string tiloOpCallParam = JoinString(paramList, ", ");
-
     bool isConv3D = false;
     GetAttr(Conv::LoadStoreConvOpAttributeKey::isConv3D, isConv3D);
 
     std::ostringstream oss;
-    oss << tileOpName.c_str() << "<" << std::to_string(isConv3D) << ">" << "(" << tiloOpCallParam << ");\n";
+    oss << tileOpName.c_str() << WrapParamByAngleBrackets({std::to_string(isConv3D)});
+ 	oss << WrapParamByParentheses(paramList) << STMT_END;
     return oss.str();
 }
 
@@ -1942,16 +1945,13 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load2D() const {
 
     std::vector<int64_t> weightL1Shape = this->rawShape[ID1];
     ALOG_INFO_F("GenMemL1ToL0Load2D %s, weightL1Shape is %s", tileOpName.c_str(), IntVecToStr(weightL1Shape).c_str());
-    ASSERT(weightL1Shape.size() == SHAPE_DIM4) << "GenMemL1ToL0Load2D weight only support 4-dim!";
 
     std::vector<int64_t> weightL0Shape = this->rawShape[ID0];
     ALOG_INFO_F("GenMemL1ToL0Load2D %s, weightL0Shape is %s", tileOpName.c_str(), IntVecToStr(weightL0Shape).c_str());
     ASSERT(weightL0Shape.size() == SHAPE_DIM2) << "GenMemL1ToL0Load2D L0 weight only support 2-dim!";
 
-    std::string tiloOpCallParam = JoinString(paramList, ", ");
-
     std::ostringstream oss;
-    oss << tileOpName.c_str() <<  "(" << tiloOpCallParam << ");\n";
+    oss << tileOpName.c_str() << WrapParamByParentheses(paramList) << STMT_END;
     return oss.str();
 }
 } // namespace npu::tile_fwk
