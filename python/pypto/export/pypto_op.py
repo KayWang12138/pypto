@@ -1,12 +1,17 @@
+import datetime
 import inspect
 import json
+import os
+from pathlib import Path
+import random
 
 import torchair
-
-from .kernel_utils import _find_kernel_binary_path, _find_kernel_pto_path
-from .zip import _zip_source_file_to_b64, _zip_kernel_dir_to_b64, _zip_pto_file_to_b64
-
 import pypto_ir
+
+from .cpp import _generate_pybind_wrapper, _generate_op_kernel_info, _generate_op_compile, _generate_op_execute
+from .helpers import _get_renamed_func_source
+from .kernel_utils import _find_kernel_binary_path, _find_kernel_pto_path
+from .zip import _zip_source_file_to_b64, _zip_kernel_dir_to_b64, _zip_pto_file_to_b64, _zip_cpp_sources_dir_to_b64
 
 # FIXME temporary import path just for demos, TODO update after ir_converter is finalized and pushed by the developer
 from .ir_converter.ir_converter_tile import convert_kernel_to_tile_ir
@@ -20,40 +25,42 @@ KERNEL_FORMAT__MULTI = "multi"
 _FUNC_NAME__INFER_SHAPE = "infer_shape"
 _FUNC_NAME__CALC_WORKSPACE = "calc_workspace"
 
+# can refactor and add meta key registration interface with attributes like hidden, user, etc.
 _META_KEY__KERNEL_NAME = "kernel_name"
 _META_KEY__KERNEL_FORMAT = "kernel_format"
 _META_KEY__KERNEL_SOURCE_ZIP = "kernel_source_zip"
 _META_KEY__KERNEL_BINARY_ZIP = "kernel_binary_zip"
 _META_KEY__KERNEL_IR_ZIP = "kernel_ir_zip"
 
+_META_KEY__CPP_SOURCES_ZIP = "cpp_sources_zip"
+
 _META_KEY__TILE_SHAPES = "tile_shapes"
 
 _META_KEY__INFER_SHAPE_SOURCE = "infer_shape_source"
+_META_KEY__INFER_SHAPE_SOURCE_CPP = "infer_shape_source_cpp"
 _META_KEY__CALC_WORKSPACE_SOURCE = "calc_workspace_source"
+_META_KEY__CALC_WORKSPACE_SOURCE_CPP = "calc_workspace_source_cpp"
 
 _META_KEY__META_JSON = "meta_json"
 
 _OPTIONS_KEY__INCL_BINARY = "incl_binary"
 _OPTIONS_KEY__INCL_IR = "incl_ir"
 
-def _unwrap_decorated_func_source(source: str):
-    return source[source.find("def "):] # a bit ugly, check if there're better options
+def _is_hidden_meta(key: str) -> bool:
+    return key in [
+        _META_KEY__INFER_SHAPE_SOURCE_CPP, _META_KEY__CALC_WORKSPACE_SOURCE_CPP,
+    ]
 
-def _unwrap_decorated_func_name(name: str):
-    return name.split()[0]
+def _is_user_meta(key: str) -> bool:
+    return key not in [
+        _META_KEY__INFER_SHAPE_SOURCE, _META_KEY__INFER_SHAPE_SOURCE_CPP,
+        _META_KEY__CALC_WORKSPACE_SOURCE, _META_KEY__CALC_WORKSPACE_SOURCE_CPP,
+        _META_KEY__KERNEL_SOURCE_ZIP, _META_KEY__KERNEL_BINARY_ZIP, _META_KEY__KERNEL_IR_ZIP,
+    ]
 
-def _get_renamed_func_source(func, new_func_name: str):
-    source = _unwrap_decorated_func_source(inspect.getsource(func))
-    orig_func_name = _unwrap_decorated_func_name(func.__name__)
-    return source.replace(orig_func_name, new_func_name, 1)
-
-def _json_dumps_user_meta(meta: dict, *args, **kwargs):
+def _json_dumps_user_meta(meta: dict, *args, **kwargs) -> dict:
     user_meta = {
-        k: v for k, v in meta.items()
-        if k not in [
-            _META_KEY__INFER_SHAPE_SOURCE, _META_KEY__CALC_WORKSPACE_SOURCE,
-            _META_KEY__KERNEL_SOURCE_ZIP, _META_KEY__KERNEL_BINARY_ZIP, _META_KEY__KERNEL_IR_ZIP,
-        ]
+        k: v for k, v in meta.items() if _is_user_meta(k)
     }
     return json.dumps(user_meta, *args, **kwargs)
 
@@ -95,14 +102,20 @@ def pypto_op_kernel(*, kernel_name, tile_shapes=None, incl_src=False, incl_binar
 def pypto_op_infer_shape(*, pypto_op_kernel):
     def decorator(fn):
         # can pass func names as separate attributes instead of renaming if needed later
-        pypto_op_kernel.__pypto_meta__[_META_KEY__INFER_SHAPE_SOURCE] = _get_renamed_func_source(fn, _FUNC_NAME__INFER_SHAPE)
+        pypto_op_kernel.__pypto_meta__[_META_KEY__INFER_SHAPE_SOURCE] = \
+            _get_renamed_func_source(fn, _FUNC_NAME__INFER_SHAPE)
+        pypto_op_kernel.__pypto_meta__[_META_KEY__INFER_SHAPE_SOURCE_CPP] = \
+            _generate_pybind_wrapper(fn, _FUNC_NAME__INFER_SHAPE)
         return fn
     return decorator
 
 def pypto_op_calc_workspace(*, pypto_op_kernel):
     def decorator(fn):
         # can pass func names as separate attributes instead of renaming if needed later
-        pypto_op_kernel.__pypto_meta__[_META_KEY__CALC_WORKSPACE_SOURCE] = _get_renamed_func_source(fn, _FUNC_NAME__CALC_WORKSPACE)
+        pypto_op_kernel.__pypto_meta__[_META_KEY__CALC_WORKSPACE_SOURCE] = \
+            _get_renamed_func_source(fn, _FUNC_NAME__CALC_WORKSPACE)
+        pypto_op_kernel.__pypto_meta__[_META_KEY__CALC_WORKSPACE_SOURCE_CPP] = \
+            _generate_pybind_wrapper(fn, _FUNC_NAME__CALC_WORKSPACE)
         return fn
     return decorator
 
@@ -130,9 +143,41 @@ def _create_pypto_op_kernel_export(*, pypto_op_kernel, dump_meta, extract_input_
         compile_and_preview(prog, _kernel_name, pypto_ir.ir.OptimizationStrategy.PTOAS, pypto_ir.backend.BackendType.PTO)
         return _find_kernel_pto_path(_kernel_name)
 
+    # TODO refactor when requirements are finalized
+    def _generate_cpp_sources(kernel_name, extra_sources: dict[str, str] = {}):
+        def _create_cpp_sources_dir(kernel_name):
+            now_str = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+            rand_int = random.randint(1000, 9999)
+            path = Path(f"./output_cpp_sources/{kernel_name}_{now_str}_{rand_int}")
+            os.makedirs(path, exist_ok=True)
+            return path
+
+        cpp_sources = {
+            "op_kernel_info": _generate_op_kernel_info(),
+            "op_compile": _generate_op_compile(),
+            "op_execute": _generate_op_execute(),
+            **extra_sources,
+        }
+        cpp_sources_dir = _create_cpp_sources_dir(kernel_name)
+        for fname, content in cpp_sources.items():
+            with open(cpp_sources_dir / f"{fname}.cpp", "w") as f:
+                f.write(content)
+        return cpp_sources_dir
+
+
     def pypto_op_kernel_export(*input_nodes):
         meta = getattr(pypto_op_kernel, "__pypto_meta__", {})
         kernel_name = str(meta.get(_META_KEY__KERNEL_NAME))
+
+        cpp_sources_dir = _generate_cpp_sources(
+            kernel_name,
+            extra_sources = {
+                "infer_shape": meta.get(_META_KEY__INFER_SHAPE_SOURCE_CPP),
+                "calc_workspace": meta.get(_META_KEY__CALC_WORKSPACE_SOURCE_CPP),
+            }
+        )
+        meta[_META_KEY__CPP_SOURCES_ZIP] = _zip_cpp_sources_dir_to_b64(cpp_sources_dir)
+        print(f"cpp sources path ::: {cpp_sources_dir}")
 
         options = getattr(pypto_op_kernel, "__pypto_options__", {})
         incl_binary = options.get(_OPTIONS_KEY__INCL_BINARY, False)
@@ -175,6 +220,8 @@ def pypto_op_onnx_symbolic(*, pypto_op_kernel):
         def _dump_meta(meta: dict):
             op_context = {}
             for k, v in meta.items():
+                if _is_hidden_meta(k):
+                    continue
                 if type(v) in [list, tuple, dict]:
                     op_context[f"{k}_s"] = json.dumps(v)
                 elif type(v) not in [int, float, str]:
