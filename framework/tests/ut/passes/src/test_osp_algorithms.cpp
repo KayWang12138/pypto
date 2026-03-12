@@ -26,13 +26,28 @@
 #include "passes/algorithms/osp/auxiliary/datastructures/union_find.h"
 #include "passes/algorithms/osp/auxiliary/balanced_coin_flips.h"
 #include "passes/algorithms/osp/bsp/model/bsp_architecture.h"
-#include "passes/algorithms/osp/graph_algorithms/directed_graph_path_util.h"
+#include "passes/algorithms/osp/bsp/model/bsp_instance.h"
+#include "passes/algorithms/osp/bsp/model/bsp_schedule.h"
+#include "passes/algorithms/osp/bsp/model/util/set_schedule.h"
+#include "passes/algorithms/osp/bsp/scheduler/greedy_schedulers/greedy_children.h"
+#include "passes/algorithms/osp/bsp/scheduler/greedy_schedulers/greedy_meta_scheduler.h"
+#include "passes/algorithms/osp/bsp/scheduler/greedy_schedulers/grow_local_auto_cores.h"
+#include "passes/algorithms/osp/bsp/scheduler/improvement_scheduler.h"
+#include "passes/algorithms/osp/bsp/scheduler/local_search/kernighan_lin/kl_improver.h"
+#include "passes/algorithms/osp/bsp/scheduler/local_search/kernighan_lin/comm_cost_modules/kl_hyper_total_comm_cost.h"
+#include "passes/algorithms/osp/dag_divider/isomorphism_divider/isomorphic_subgraph_scheduler.h"
+#include "passes/algorithms/osp/dag_divider/isomorphism_divider/precomputed_hash_computer.h"
 #include "passes/algorithms/osp/coarser/coarser_util.h"
 #include "passes/algorithms/osp/coarser/sarkar/sarkar.h"
 #include "passes/algorithms/osp/coarser/sarkar/sarkar_mul.h"
+#include "passes/algorithms/osp/concepts/directed_graph_edge_desc_concept.h"
+#include "passes/algorithms/osp/graph_algorithms/directed_graph_path_util.h"
 #include "passes/algorithms/osp/graph_implementations/adj_list_impl/compact_sparse_graph.h"
 #include "passes/algorithms/osp/graph_implementations/adj_list_impl/dag_vector_adapter.h"
+#include "passes/algorithms/osp/graph_implementations/adj_list_impl/cdag_vertex_impl.h"
+#include "passes/algorithms/osp/graph_implementations/adj_list_impl/computational_dag_vector_impl.h"
 #include "passes/algorithms/osp/graph_implementations/integral_range.h"
+
 
 namespace npu::tile_fwk {
 namespace osp {
@@ -45,6 +60,7 @@ using GraphType = CompactSparseGraph<VertType, VertType, WorkType, WorkType, Wor
 
 using VertexImpl = osp::CDagVertexImpl<VertType, WorkType, WorkType, WorkType, VTypeType>;
 using GraphAdapterType = osp::DagVectorAdapter<VertexImpl>;
+using ConstrGraphType = osp::ComputationalDagVectorImpl<VertexImpl>;
 
 class OspAlgorithmTest : public testing::Test {
 public:
@@ -717,21 +733,10 @@ TEST_F(OspAlgorithmTest, TestIntegralRange) {
     EXPECT_EQ(start134, end257);
 }
 
-void testCoarseningAlgorithm(Coarser<GraphType, GraphType> &coarser) {
-    std::vector<unsigned> vt(11, 0);
-    vt[0] = 1U;
-    vt[1] = 1U;
-    vt[2] = 1U;
-
-    GraphType graph = SimpleGraph();
-    for (auto vert : graph.Vertices()) {
-        graph.SetVertexType(vert, vt[vert]);
-    }
-
-    GraphType coarseGraph;
-    std::vector<VertexIdxT<GraphType>> contractionMap;
-
-    EXPECT_TRUE(coarser.CoarsenDag(graph, coarseGraph, contractionMap));
+template<typename OtherGraphType>
+void testValidContractionMap(const GraphType &graph,
+                             const OtherGraphType &coarseGraph,
+                             const std::vector<VertexIdxT<GraphType>> &contractionMap) {
     EXPECT_EQ(contractionMap.size(), graph.NumVertices());
     EXPECT_TRUE(coarser_util::CheckValidContractionMap<GraphType>(contractionMap));
 
@@ -742,7 +747,7 @@ void testCoarseningAlgorithm(Coarser<GraphType, GraphType> &coarser) {
     // Acyclic check
     std::vector<VertexIdxT<GraphType>> coarseVerts(coarseGraph.NumVertices());
     std::iota(coarseVerts.begin(), coarseVerts.end(), 0);
-    const auto coarseTopOrder = GetTopOrder<GraphType>(coarseGraph);
+    const auto coarseTopOrder = GetTopOrder<OtherGraphType>(coarseGraph);
     EXPECT_TRUE(std::is_permutation(coarseTopOrder.cbegin(), coarseTopOrder.cend(), coarseVerts.cbegin(), coarseVerts.cend()));
     for (const auto vert : coarseGraph.Vertices()) {
         for (const auto chld : coarseGraph.Children(vert)) {
@@ -768,6 +773,30 @@ void testCoarseningAlgorithm(Coarser<GraphType, GraphType> &coarser) {
         }
         coarseTypes[coarseVert] = graph.VertexType(vert);
     }
+}
+
+GraphType SimpleGraphWithVertexTypes() {
+    std::vector<unsigned> vt(11, 0);
+    vt[0] = 1U;
+    vt[1] = 1U;
+    vt[2] = 1U;
+
+    GraphType graph = SimpleGraph();
+    for (auto vert : graph.Vertices()) {
+        graph.SetVertexType(vert, vt[vert]);
+    }
+
+    return graph;
+}
+
+void testCoarseningAlgorithm(Coarser<GraphType, GraphType> &coarser) {
+    GraphType graph = SimpleGraphWithVertexTypes();
+
+    GraphType coarseGraph;
+    std::vector<VertexIdxT<GraphType>> contractionMap;
+
+    EXPECT_TRUE(coarser.CoarsenDag(graph, coarseGraph, contractionMap));
+    testValidContractionMap(graph, coarseGraph, contractionMap);
 }
 
 TEST_F(OspAlgorithmTest, CoarsenSarkar) {
@@ -895,6 +924,80 @@ TEST_F(OspAlgorithmTest, DagAdaptorSimpleGraph) {
         EXPECT_EQ(graph.VertexType(vert), static_cast<VTypeType>(4*vert + 3));
     }
 }
+
+TEST_F(OspAlgorithmTest, BspSchedulers) {
+    BspInstance<GraphType> bspInst;
+    bspInst.GetArchitecture() = BspArchitecture<GraphType>(3U);
+    bspInst.GetComputationalDag() = SimpleGraph();
+
+    BspSchedule<GraphType> schedule(bspInst);
+
+    GrowLocalAutoCores<GraphType> growlocal;
+    growlocal.ComputeSchedule(schedule);
+    EXPECT_TRUE(schedule.IsValid());
+
+    GreedyChildren<GraphType> children;
+    children.ComputeSchedule(schedule);
+    EXPECT_TRUE(schedule.IsValid());
+        
+    KlImprover<GraphType, KlHyperTotalCommCostFunction<GraphType, double, 1>, 1, double> kl;
+    kl.SetSuperstepRemoveStrengthParameter(1.0);
+    kl.SetTimeQualityParameter(1.0);
+    
+    ComboScheduler<GraphType> growlocalKl(growlocal, kl);
+    growlocalKl.ComputeSchedule(schedule);
+    EXPECT_TRUE(schedule.IsValid());
+
+    ComboScheduler<GraphType> childrenKl(children, kl);
+    childrenKl.ComputeSchedule(schedule);
+    EXPECT_TRUE(schedule.IsValid());
+
+    GreedyMetaScheduler<GraphType> greedymeta;
+    greedymeta.AddScheduler(growlocalKl);
+    greedymeta.AddScheduler(childrenKl);
+    greedymeta.AddSerialScheduler();
+
+    greedymeta.ComputeSchedule(schedule);
+    EXPECT_TRUE(schedule.IsValid());
+}
+
+// TEST_F(OspAlgorithmTest, CoarsenMerkleBsp) {
+//     BspInstance<GraphType> bspInst;
+//     bspInst.GetArchitecture() = BspArchitecture<GraphType>(3U);
+//     bspInst.GetArchitecture().SetProcessorsWithTypes(std::vector<unsigned>({0U, 0U, 1U}));
+//     bspInst.GetComputationalDag() = SimpleGraphWithVertexTypes();
+
+//     GrowLocalAutoCores<ConstrGraphType> growlocal;
+//     GreedyChildren<ConstrGraphType> children;
+        
+//     KlImprover<ConstrGraphType, KlHyperTotalCommCostFunction<ConstrGraphType, double, 1>, 1, double> kl;
+//     kl.SetSuperstepRemoveStrengthParameter(1.0);
+//     kl.SetTimeQualityParameter(1.0);
+    
+//     ComboScheduler<ConstrGraphType> growlocalKl(growlocal, kl);
+//     ComboScheduler<ConstrGraphType> childrenKl(children, kl);
+
+//     GreedyMetaScheduler<ConstrGraphType> scheduler;
+//     scheduler.AddScheduler(growlocalKl);
+//     scheduler.AddScheduler(childrenKl);
+//     scheduler.AddSerialScheduler();
+
+//     std::vector<uint64_t> nodeHashList(bspInst.GetComputationalDag().NumVertices());
+//     std::iota(nodeHashList.begin(), nodeHashList.end(), 0U);
+
+//     MerkleHashComputer<GraphType, PrecomBwdMerkleNodeHashFunc<GraphType>> hashComputer(bspInst.GetComputationalDag(), bspInst.GetComputationalDag(), nodeHashList);
+//     IsomorphicSubgraphScheduler<GraphType, ConstrGraphType> isoScheduler(scheduler, hashComputer);
+//     isoScheduler.SetWorkThreshold(200);
+//     isoScheduler.SetCriticalPathThreshold(500);
+
+//     const auto vertexContractionMap = isoScheduler.ComputePartition(bspInst);
+//     EXPECT_TRUE(coarser_util::CheckValidContractionMap<ConstrGraphType>(vertexContractionMap));
+
+//     ConstrGraphType coarseGraph;
+//     coarser_util::ConstructCoarseDag(bspInst.GetComputationalDag(), coarseGraph, vertexContractionMap);
+
+//     testValidContractionMap(bspInst.GetComputationalDag(), coarseGraph, vertexContractionMap);
+// }
 
 } // namespace osp
 } // namespace npu::tile_fwk

@@ -336,7 +336,7 @@ class BspSchedule {
      * @return True if node type constraints are satisfied, false otherwise.
      */
     [[nodiscard]] bool SatisfiesNodeTypeConstraints() const {
-        if (nodeToProcessorAssignment_.size() != instance_->NumberOfVertices()) {
+        if (nodeToProcessorAssignment_.size() != static_cast<std::size_t>(instance_->NumberOfVertices())) {
             return false;
         }
 
