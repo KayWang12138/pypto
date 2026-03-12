@@ -600,7 +600,7 @@ def moe_distributed_dispatch(
 
 
 @pytest.mark.world_size(4)
-def test_moe_distributed_dispatch() -> None:
+def run_moe_distributed_dispatch() -> None:
     config = DistributedConfig(world_size=4)
     mp.set_start_method('spawn', force=True)
     processes = []
@@ -809,4 +809,4 @@ def test_moe_distributed_combine() -> None:
 
 if __name__ == '__main__':
     test_moe_distributed_combine()
-    test_moe_distributed_dispatch()
+    run_moe_distributed_dispatch()
