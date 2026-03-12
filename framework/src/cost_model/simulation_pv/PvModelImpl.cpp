@@ -532,9 +532,6 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::BuildFuncData(DynFuncData *funcda
     for (size_t i = 0; i < funcdata->rawTensorAddrSize; i++) {
         auto addr = reinterpret_cast<uint64_t>(funcdata->rawTensorAddr[i]) & ((1UL << RAW_TENSOR_OFFSET_SIZE) - 1);
         tensorAddr[i] = LookupData(addr);
-        if (!tensorAddr[i]) {
-            throw std::runtime_error(std::string("bad incast tensor addr: ") + std::to_string(addr));
-        }
     }
     auto err = memcpy_s(ref.data() + offset, rawTensorSize, tensorAddr.data(), rawTensorSize);
     ASSERT(err == 0) << "[SIMULATION]: tensorAddr copy failed. error=" << err;
@@ -560,8 +557,7 @@ template <typename SystemConfig, typename CaseConfig>
 void DynPvModelImpl<SystemConfig, CaseConfig>::BuildFuncDataWorkSpace(DynFuncData *funcdata, DynFuncData *dupData)
 {
     if (funcdata->workspaceAddr) {
-        constexpr int workspaceSize = 10 * 1024 * 1024;
-        dupData->workspaceAddr = allocator_->AllocWorkspace(workspaceSize);
+        dupData->workspaceAddr = LookupWorkspace(funcdata->workspaceAddr);
         if (!dupData->workspaceAddr) {
             throw std::runtime_error(std::string("bad workspace addr: ") + std::to_string(funcdata->workspaceAddr));
         }
@@ -577,7 +573,6 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::BuildFuncDataWorkSpace(DynFuncDat
     } else {
         dupData->stackWorkSpaceAddr = 0;
     }
-    dupData->workspaceAddr = workspace_.devPtr;
     dupData->stackWorkSpaceSize = funcdata->stackWorkSpaceSize;
 }
 
@@ -697,15 +692,21 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::TearDown()
     }
 }
 
-template class PvModelImpl<PvModelSystemConfig, PvModelCaseConfig>;
+template class PvModelImpl<PvModelSystemA2A3Config, PvModelCaseConfig>;
 
 extern "C" std::shared_ptr<PvModel> CreatePvModelImplA2A3() {
-    return std::make_shared<PvModelImpl<PvModelSystemConfig, PvModelCaseConfig>>("A2A3");
+    return std::make_shared<PvModelImpl<PvModelSystemA2A3Config, PvModelCaseConfig>>("A2A3");
 }
 
-template class DynPvModelImpl<PvModelSystemConfig, PvModelCaseConfig>;
+template class DynPvModelImpl<PvModelSystemA2A3Config, PvModelCaseConfig>;
 
-extern "C" std::shared_ptr<DynPvModel> CreateDynPvModelImpl() {
-    return std::make_shared<DynPvModelImpl<PvModelSystemConfig, PvModelCaseConfig>>();
+extern "C" std::shared_ptr<DynPvModel> CreateDynPvModelImplA2A3() {
+    return std::make_shared<DynPvModelImpl<PvModelSystemA2A3Config, PvModelCaseConfig>>();
+}
+
+template class DynPvModelImpl<PvModelSystemA5Config, PvModelCaseConfig>;
+
+extern "C" std::shared_ptr<DynPvModel> CreateDynPvModelImplA5() {
+    return std::make_shared<DynPvModelImpl<PvModelSystemA5Config, PvModelCaseConfig>>();
 }
 } // namespace CostModel
