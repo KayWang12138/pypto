@@ -19,37 +19,85 @@
 
 ### 3.1 整体流程图
 
-[使用 Mermaid 或文字描述整体流程]
+```mermaid
+graph TD
+    Start([开始]) --> Pass1[Pass1]
+    Pass1 --> Pass2[Pass2]
+    Pass2 --> Pass3[Pass3]
+    Pass3 --> Pass4[Pass4]
+    Pass4 --> Pass5[Pass5]
+    Pass5 --> Pass6[Pass6]
+    Pass6 --> End([结束])
+    
+    subgraph 阶段1
+        Pass1
+        Pass2
+        Pass3
+    end
+    
+    subgraph 阶段2
+        Pass4
+        Pass5
+    end
+    
+    subgraph 阶段3
+        Pass6
+    end
+    
+    style Start fill:#e1f5ff
+    style End fill:#e1f5ff
+```
 
-### 3.2 详细执行顺序
-
-1. **[阶段1名称]**
-   - [Pass1] → [Pass2] → [Pass3]
-
-2. **[阶段2名称]**
-   - [Pass4] → [Pass5]
-
-3. **[阶段3名称]**
-   - [Pass6] → [Pass7] → [Pass8]
-
-## 4. 依赖关系分析
-
-### 4.1 前置依赖
+## 4. 依赖关系
 
 - [Pass2] 依赖 [Pass1] 的输出
 - [Pass5] 依赖 [Pass4] 的状态
-
-### 4.2 数据依赖
-
 - [数据流1]：[Pass1] → [数据A] → [Pass2]
 - [数据流2]：[Pass3] → [数据B] → [Pass5]
-
-### 4.3 状态依赖
-
-- [状态1]：[Pass1] 设置的状态被 [Pass4]）使用
+- [状态1]：[Pass1] 设置的状态被 [Pass4] 使用
 - [状态2]：[Pass2] 设置的标志被 [Pass6] 检查
 
-## 5. 各 Pass 详细说明
+## 5. 数据流转
+
+### 5.1 关键数据变化
+
+| 数据项 | 来源 Pass | 变化描述 | 目标 Pass |
+|--------|-----------|----------|-----------|
+| [数据A] | [Pass1] | [变化说明] | [Pass2] |
+| [数据B] | [Pass3] | [变化说明] | [Pass5] |
+| [数据C] | [Pass4] | [变化说明] | [Pass6] |
+
+## 6. 状态变化
+
+### 6.1 状态机图
+
+```mermaid
+stateDiagram-v2
+    [*] --> Initial: 初始化
+    Initial --> Processing: Pass1执行
+    Processing --> Validated: Pass2验证
+    Validated --> Optimized: Pass3优化
+    Optimized --> [*]: 完成
+    
+    note right of Processing
+        处理中状态
+        检查数据完整性
+    end note
+    
+    note right of Validated
+        验证通过状态
+        标记为可优化
+    end note
+```
+
+### 6.2 关键状态变更
+
+| 状态名称 | 初始值 | 设置 Pass | 变化条件 | 使用 Pass |
+|----------|--------|-----------|----------|-----------|
+| [状态1] | [初始值] | [Pass1] | [变化条件] | [Pass4] |
+| [状态2] | [初始值] | [Pass2] | [变化条件] | [Pass6] |
+
+## 7. 各 Pass 详细说明
 
 ### [Pass1 名称]
 
@@ -69,24 +117,24 @@
 
 [... 其他 Pass 的详细说明]
 
-## 6. 业务价值
+## 8. 业务价值
 
 - **性能提升**：[性能提升说明]
 - **资源优化**：[资源优化说明]
 - **功能增强**：[功能增强说明]
 
-## 7. 典型应用场景
+## 9. 典型应用场景
 
 - [场景1描述]
 - [场景2描述]
 - [场景3描述]
 
-## 8. 注意事项
+## 10. 注意事项
 
 - [注意事项1]
 - [注意事项2]
 
-## 9. 相关文件
+## 11. 相关文件
 
 - **文档**：[文档路径]
 - **代码**：[代码路径列表]
