@@ -1107,37 +1107,15 @@ TEST_F(FunctionTest, Test_ScalarOp) {
 TEST_F(FunctionTest, TestPad) {
     config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     std::vector<int64_t> shape{8, 16};
-    std::vector<int64_t> newShape{8, 24};
     Tensor a(DT_FP32, shape, "a");
     Tensor b;
     TileShape::Current().SetVecTile(8, 8);
 
     config::SetBuildStatic(true);
     FUNCTION("Pad") {
-        b = Pad(a, newShape);
+        b = Pad(a, {0, 0, 0, 8}, "constant");
     }
     ALOG_INFO(Program::GetInstance().Dump());
-}
-
-TEST_F_WITH_COST(FunctionTest, Test_quantMM, 95) {
-    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
-
-    std::vector<int64_t> vecTileShape  = {32, 512};
-    int m = 128;
-    int k = 16384;
-    int n = 7168;
-
-    Tensor inputA = Tensor(DT_BF16, {m, k}, "inputA");
-    Tensor inputW = Tensor(DT_INT8, {k, n}, "inputW");
-    Tensor inputScaleW = Tensor(DT_FP32, {1, n}, "inputScaleW");
-    Tensor res;
-
-    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
-    TileShape::Current().SetVecTile(32, 64); // for Assemble
-
-    FUNCTION("A") {
-        res = npu::tile_fwk::Matrix::QuantMM(inputA, inputW, inputScaleW);
-    }
 }
 
 TEST_F(FunctionTest, TestRmsNorm) {

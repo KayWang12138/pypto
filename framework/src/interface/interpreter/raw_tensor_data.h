@@ -63,6 +63,8 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
         constexpr int DATA_SIZE_LONG = 8;
         switch (dataType) {
             case DT_INT4: result = DATA_SIZE_HALF; break;
+            case DT_FP4_E2M1X2: result = DATA_SIZE_BYTE; break;
+            case DT_FP4_E1M2X2: result = DATA_SIZE_BYTE; break;
             case DT_INT8: result = DATA_SIZE_BYTE; break;
             case DT_INT16: result = DATA_SIZE_SHORT; break;
             case DT_INT32: result = DATA_SIZE_INT; break;
@@ -244,7 +246,7 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
     void ToFile(const std::string &path) const {
         std::ofstream ofile(path, std::ios::out | std::ios::binary);
         if (!ofile) {
-            VERIFY_LOGE("open file %s failed!!!!", path.c_str());
+            VERIFY_LOGE_FULL("open file %s failed!!!!", path.c_str());
         }
         ofile.write(reinterpret_cast<const char *>(data()), size());
         ofile.close();

@@ -11,8 +11,6 @@
 #include "machine/host/device_agent_task.h"
 
 namespace npu::tile_fwk {
-DeviceAgentTaskPtr gDeviceAgentTaskPtr = nullptr;
-
 void DeviceAgentTask::ProcessReadyCoreFunctions(const CacheValue &cacheValue) {
     ReadyCoreFunctionCache *readyFunction = cacheValue.readyListCache.get();
     for (uint64_t i = 0; i < cacheValue.header.readyCoreFunctionNum; i++) {
@@ -87,7 +85,7 @@ void DeviceAgentTask::UpdateCompileInfo() {
             } else {
                 tensorsIdx.emplace_back(elm.opOriginArgsSeq);
             }
-            MACHINE_LOGD("offset %lu  opOriginArgsSeq %zu.\n", elm.offset, elm.opOriginArgsSeq);
+            MACHINE_LOGD("offset %lu  opOriginArgsSeq %d.\n", elm.offset, elm.opOriginArgsSeq);
             coreTensorInfoVec.emplace_back(tensorInfo);
         }
         this->compileInfo.invokeArgsOffset.emplace_back(argsOffset);

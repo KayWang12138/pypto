@@ -327,9 +327,6 @@ def do_test_sparse_attention_func_aq(bn1n2s1, actual_seq, input_params, input_da
     block_table_npu = block_table.npu()
     kv_act_seqs_npu = kv_act_seqs.npu()
 
-    calc_attention_out_npu = calc_attention_out.npu()
-    calc_attention_out_npu = calc_attention_out_npu.reshape(-1, kv_lora_rank)
-
     pto_inputs = [q_nope_npu, q_rope_npu, nope_cache_npu, topk_indices_npu, block_table_npu, kv_act_seqs_npu]
 
     max_blocknum_perbatch = math.ceil(max_kv_seq / block_size)

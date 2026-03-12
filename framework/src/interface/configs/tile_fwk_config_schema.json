@@ -77,9 +77,9 @@
                         "zh": "合图参数，用于配置相同结构AIV子图的合并数量。该参数适用于结构相同的AIV子图合并。",
                         "en": "Graph merging parameter, used to configure the merging count of AIV subgraphs with identical structures. This parameter is applicable to the merging of AIV subgraphs that share the same structures."
                     },
-                    "key_minimum": -1,
+                    "key_minimum": -2,
                     "key_maximum": 2147483647,
-                    "value_minimum": 1,
+                    "value_minimum": 0,
                     "value_maximum": 2147483647
                 },
                 "mg_vec_parallel_lb": {
@@ -293,6 +293,44 @@
                     "label": {
                         "zh": "控制编译执行的阶段",
                         "en": "Set the stage of compile."
+                    }
+                },
+                "compile_monitor_enable": {
+                    "type": "boolean",
+                    "default": true,
+                    "label": {
+                        "zh": "控制编译阶段是否开启编译过程进度打印",
+                        "en": "Control whether to enable compilation progress printing during the compilation phase."
+                    }
+                },
+                "compile_monitor_print_interval": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2147483647,
+                    "default": 60,
+                    "label": {
+                        "zh": "控制某个阶段编译过程进度打印的频率",
+                        "en": "Control the frequency of printing the compilation progress for a certain stage."
+                    }
+                },
+                "compile_timeout_stage": {
+                    "type": "integer",
+                    "minimum": -1,
+                    "maximum": 2147483647,
+                    "default": -1,
+                    "label": {
+                        "zh": "控制某个阶段编译过程超时的时间",
+                        "en": "Control the timeout duration of a certain stage of the compilation process."
+                    }
+                },
+                "compile_timeout": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2147483647,
+                    "default": 600,
+                    "label": {
+                        "zh": "控制整个编译过程超时的时间",
+                        "en": "Control the timeout duration for the entire compilation process."
                     }
                 }
             }
