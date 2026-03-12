@@ -110,6 +110,7 @@ class NestedFunctionMarker:
                     f"does not match the dtype of parameter definition ({input_tensor_def.dtype})."
                 )
 
+
 DEFAULT_VISIT = {
     "Interactive",
     "Module",
@@ -374,6 +375,16 @@ class Parser(ast.NodeVisitor):
 
         function_node = self.diag.source.as_ast()
 
+        def _is_enum_dyn(tensor_input_args: List[pypto.Tensor]) -> bool:
+            return any(
+                len(tensor_def.shape) == 0 or
+                any(
+                    isinstance(dim, pypto.StatusType) or (dim is Ellipsis)
+                    for dim in tensor_def.shape
+                )
+                for tensor_def in tensor_input_args
+            )
+
         # Temporarily set up context to parse signature
         with self.context.with_frame():
             for k, v in self._parsed_extra_vars.items():
@@ -382,11 +393,14 @@ class Parser(ast.NodeVisitor):
             self._apply_bound_dim_values_to_context_frame()
 
             # Get input arguments (only tensors allowed)
-            tensor_input_args_def = self._visit_arguments(function_node.args)
-            tensor_input_args = self.input_pto_tensor[:len(tensor_input_args_def)]  # ensure len equal
+            tensor_input_args = self._visit_arguments(function_node.args)
 
-            for in_obj, def_obj in zip(tensor_input_args, tensor_input_args_def):
-                in_obj.name = def_obj.name
+            if _is_enum_dyn(tensor_input_args):
+                tensor_input_args_def = self._visit_arguments(function_node.args)
+                tensor_input_args = self.input_pto_tensor[:len(tensor_input_args_def)]  # ensure len equal
+                
+                for in_obj, def_obj in zip(tensor_input_args, tensor_input_args_def):
+                    in_obj.name = def_obj.name
 
             # Get and validate output arguments
             if function_node.returns is None:
