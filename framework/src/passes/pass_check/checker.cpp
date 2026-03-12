@@ -172,15 +172,17 @@ inline std::unordered_set<Operation *> GetNeedCheckOps(Function &function, Opcod
 Status Checker::CheckDynAttrForView(Function &function) {
     std::unordered_set<Operation *> needCheckViewOps = GetNeedCheckOps(function, Opcode::OP_VIEW);
     for (const auto &op : needCheckViewOps) {
+        const int opMagic = op->GetOpMagic();
+        const int funcMagic = function.GetFuncMagic();
         auto viewAttr = std::static_pointer_cast<ViewOpAttribute>(op->GetOpAttribute());
         std::vector<SymbolicScalar> &viewFromDynOffset = viewAttr->GetFromDynOffset();
         if (viewFromDynOffset.empty()) {
-            APASS_LOG_ERROR_F(Elements::Operation, "CheckDynAttrForView failed, fromDynOffset_ of op[%d] in function[%d] is empty.", op->GetOpMagic(), function.GetFuncMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "CheckDynAttrForView failed, fromDynOffset_ of op[%d] in function[%d] is empty.", opMagic, funcMagic);
             return FAILED;
         }
         std::vector<SymbolicScalar> &viewToDynValidShape = viewAttr->GetToDynValidShape();
         if (viewToDynValidShape.empty()) {
-            APASS_LOG_ERROR_F(Elements::Operation, "CheckDynAttrForView failed, toDynValidShape_ of op[%d] in function[%d] is empty.", op->GetOpMagic(), function.GetFuncMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "CheckDynAttrForView failed, toDynValidShape_ of op[%d] in function[%d] is empty.", opMagic, funcMagic);
             return FAILED;
         }
     }
