@@ -61,7 +61,7 @@ const std::string TILE_FWK_DEVICE_MACHINE = "AI_CPU";
 inline bool g_isLogEnableDebug = false;
 inline bool g_isLogEnableInfo = false;
 inline bool g_isLogEnableWarn = false;
-inline bool g_isLogEnableError = true;
+inline bool g_isLogEnableError = false;
 
 inline void InitLogSwitch() {
     g_isLogEnableDebug = CheckLogLevel(AICPU, DLOG_DEBUG);
