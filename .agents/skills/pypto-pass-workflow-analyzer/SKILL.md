@@ -45,8 +45,8 @@ description: PyPTO Pass 业务流分析技能。用于分析 PyPTO pass 文档�
    - 每个 pass 的名称和基本功能
 
 3. **执行顺序**
-   - Pass 的执行序列
-   - 执行阶段划分（如：tensor_graph阶段优化、tile_graph阶段优化、block_graph阶段优化）
+   - 根据 `framework/src/passes/pass_mgr/pass_manager.cpp` 中的默认执行策略中定义的执行顺序，识别Pass模块的执行顺序
+   - 根据pass源码所在目录识别该pass所处阶段，执行阶段划分[Tensor Graph Pass / Tile Graph Pass / Block Graph Pass / Execute Graph Pass]
 
 4. **依赖关系**
    - Pass 之间的前置依赖
