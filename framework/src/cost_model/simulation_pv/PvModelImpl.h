@@ -375,7 +375,7 @@ public:
                     *func, ctx, {leaf->GetProgramId(), leaf}, isCube, leaf->IsUnderDynamicFunction());
                 compileInfo.SetCCEAbsPath(srcPath);
                 compileInfo.SetBinAbsPath(objPath);
-                cga.CompileCCE(compileInfo, "");
+                cga.CompileCode(cga.PrepareCmd(compileInfo, ""));
 
                 binPath = srcPath.substr(0, srcPath.length() - Len3) + "bin";
                 constexpr int cmdLen = 2048;

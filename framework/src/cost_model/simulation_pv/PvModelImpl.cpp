@@ -278,7 +278,7 @@ void PvModelImpl<SystemConfig, CaseConfig>::CodeGen(npu::tile_fwk::Function *fun
             *func, ctx, subFuncPair, isCube, subFuncPair.second->IsUnderDynamicFunction());
         compileInfo.SetCCEAbsPath(srcPath);
         compileInfo.SetBinAbsPath(binPath);
-        cga.CompileCCE(compileInfo, "");
+        cga.CompileCode(cga.PrepareCmd(compileInfo, ""));
     }
 }
 
