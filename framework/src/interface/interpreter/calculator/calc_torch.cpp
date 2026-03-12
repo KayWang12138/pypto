@@ -1187,7 +1187,7 @@ static torch::Tensor From4GatherINUB(const TensorData &data) {
 void GatherINUB(const TensorData &out, const TensorData &params, const TensorData &indices,
     const TensorData &pageTable, int64_t blockSize, int64_t axis) {
     auto tout = From(out);
-    auto tparams = From4GatherINUB(params);
+    auto tparams = From(params);
     auto tindices = From(indices);
     auto tpageTable = From(pageTable);
     GatherINUBGolden(tout.second, tparams, tindices.second, tpageTable.second, blockSize, axis);
