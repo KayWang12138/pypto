@@ -87,7 +87,7 @@
             ]
         },
         "codegen": {
-            "parallel_compile" : 8,
+            "parallel_compile" : 128,
             "support_dynamic_aligned": false,
             "fixed_output_path": false,
             "force_overwrite": true,
