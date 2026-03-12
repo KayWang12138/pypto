@@ -9,7 +9,7 @@
 # -----------------------------------------------------------------------------------------------------------
 
 function(tracr_enable target)
-    message(STATUS "Enabling TraCR for target: ${target}")
+    message(STATUS "Enabling TraCR '${BUILD_TRACR}' for target: ${target}")
 
     if (NOT TARGET ${target})
         message(FATAL_ERROR "Target '${target}' does not exist.")
