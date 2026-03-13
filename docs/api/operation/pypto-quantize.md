@@ -22,7 +22,7 @@
 ## 函数原型
 
 ```python
-quantize(input: Tensor, scale: Tensor, otype: DataType, axis: int, zero_points) -> Tensor
+quantize(input: Tensor, scale: Tensor, otype: DataType, axis: int, zero_points: Tensor) -> Tensor
 ```
 
 ## 参数说明

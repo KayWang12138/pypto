@@ -1,4 +1,4 @@
-# pypto.cbrt
+# pypto.dequantize
 
 ## 产品支持情况
 
@@ -9,12 +9,16 @@
 
 ## 功能说明
 
-计算输入Tensor中每个元素的 e 的指数，逐元素运算，返回与输入形状相同的Tensor。
+将量化后的低精度数据转换为高精度格式， 并应用缩放(scale)和偏移(zero_points)参数，当前支持
+- 输入int8/int16的Tensor反量化为float32的Tensor
+  $$
+  \text{dst} = ([float]\text{input} + \text{zero\_points}) * \text{scale}
+  $$
 
 ## 函数原型
 
 ```python
-cbrt(input: Tensor) -> Tensor
+dequantize(input: Tensor, scale: Tensor, otype: DataType, axis: int, zero_points: Tensor) -> Tensor
 ```
 
 ## 参数说明
@@ -22,11 +26,16 @@ cbrt(input: Tensor) -> Tensor
 
 | 参数名 | 输入/输出 | 说明                                                                 |
 |--------|-----------|----------------------------------------------------------------------|
-| input  | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP32, DT_FP16， DT_BF16。 <br> 不支持空Tensor；Shape仅支持2-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+| input  | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_INT8/DT_INT16。 <br> 不支持空Tensor；Shape仅支持2-4维；Shape Size不大于2147483647（即INT32_MAX）。<br> shape记为 [..., row, col] |
+| scale  | 输入      | 缩放因子。 <br> 支持的类型为：Tensor。 <br> Tensor数据类型与otype一致，支持：DT_FP32。 <br> 不支持空Tensor；Shape仅支持2-4维；Shape Size不大于2147483647（即INT32_MAX）。<br> axis = -1 或 input.shape.size() -1 时， shape = [..., row, 1] <br> axis = -2 或 input.shape.size() -2 时， shape = [..., 1, col]|
+| otype  | 输入      | 返回值的数值类型 <br> 目前支持DT_FP32。|
+| axis  | 输入      | 指定反量化压缩的轴 <br> 目前支持末尾两轴，即 -1/-2 或者input.shape.size() -1/input.shape.size()-2|
+| zero_points  | 输入      | 可选的非对称量化的偏移因子 <br> 支持的类型为：Tensor。 <br> Tensor数据类型与otype一致，支持：DT_FP32。 <br> 不支持空Tensor；Shape仅支持2-4维；Shape Size不大于2147483647（即INT32_MAX）。<br> axis = -1 或 input.shape.size() -1 时， shape = [..., row, 1] <br> axis = -2 或 input.shape.size() -2 时， shape = [..., 1, col] |
+
 
 ## 返回值说明
 
-返回输出Tensor，Tensor的数据类型和input相同，Shape与input相同。
+返回输出Tensor，Tensor的数据类型由otype指定，Shape与input相同。
 
 ## 调用示例
 
@@ -45,14 +54,23 @@ pypto.set_vec_tile_shapes(4, 16)
 ### 接口调用示例
 
 ```python
-x = pypto.tensor([1, 2], pypto.DT_FP32)
-y = pypto.cbrt(x)
+x = pypto.tensor([3， 4], pypto.DT_INT8)
+scale = pypto.tensor([3, 1], pypto.DT_FP32)
+zero_points = pypto.tensor([3, 1], pypto.DT_FP32)
+
+# fp32 -> int8 对称反量化
+y1 = pypto.quantize(x, scale, pypto.DT_FP32, -1, None)
+# fp32 -> uint8 非对称反量化
+y2 = pypto.quantize(x, scale, pypto.DT_FP32, -1, zero_points)
 ```
 
 结果示例如下：
 
 ```python
-Input  x:[[8, -8]]
-Output y:[[2, -2]]
+Input  x:[[1, 2, 3, 4], [1, 2, 3, 4], [1, 2, 3, 4]]
+Input  scale:[[1.0], [1.0], [1.0]]
+Input  zero_points:[[-2.0], [-2.0], [-2.0]]
+Output y1:[[1.0, 2.0, 3.0, 4.0], [1.0, 2.0, 3.0, 4.0], [1.0, 2.0, 3.0, 4.0]]
+Output y2:[[-1.0, 0.0, 1.0, 2.0], [-1.0, 0.0, 1.0, 2.0], [-1.0, 0.0, 1.0, 2.0]]
 ```
 
