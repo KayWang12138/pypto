@@ -316,7 +316,7 @@ void CheckL1SizeTiling(DataType outType, const Tensor &inputTensor, const Tensor
 {
     auto convTile = TileShape::Current().GetConvTile();
     Platform& platform = Platform::Instance();
-    uint64_t l1Size = platform.GetAICCore().GetMemorySize(MemoryType::MEM_L1);
+    uint64_t l1Size = platform.GetAIVCore().GetMemorySize(MemoryType::MEM_L1);
     uint32_t indexH = attrParam.isConv3D ? NCDHW_H_IDX : NCHW_H_IDX;
     uint32_t indexW = attrParam.isConv3D ? NCDHW_W_IDX : (attrParam.isConv1D ? NCHW_H_IDX : NCHW_W_IDX);
 
