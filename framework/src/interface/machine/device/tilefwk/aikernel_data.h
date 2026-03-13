@@ -104,8 +104,10 @@ struct DynFuncBin {
     uint32_t coreType;
     uint32_t psgId;
     uint64_t funcHash;
+#ifdef ARCH_3510
     int32_t wrapVecId {-1};
     uint32_t mixResourceType {0};
+#endif
 };
 
 struct DynFuncHeader {

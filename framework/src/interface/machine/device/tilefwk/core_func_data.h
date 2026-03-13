@@ -128,7 +128,9 @@ struct DeviceTask {
     uint64_t readyAivCoreFunctionQue; // 指针指向ReadyCoreFunctionQueue 结构
     uint64_t readyAicpuFunctionQue; // 指针指向ReadyCoreFunctionQueue 结构
     DieReadyQueueData dieReadyFunctionQue; // 跨die调度readyQueue
+#ifdef ARCH_3510
     MixTaskData mixTaskData; // mix调度相关信息
+#endif
     CoreFunctionData coreFuncData;
     L2PreInfo l2Info;
     uint64_t costModelData;           // costmodel仿真时长
