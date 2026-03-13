@@ -25,9 +25,11 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
     constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
     constexpr auto n3 = Std::tuple_element<DIM_3RD, LastUse>::type::value;
     if constexpr (op == BinaryOp::ADD) {
-        if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide != TileOp::PenuBroadcastOperand::NONE) {
+        if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND) {
+            PTO_WITH_LAST_USE(pto::TCOLEXPANDADD(dst, src1, src0), n1, n2, n3);
+        } else if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND) {
             PTO_WITH_LAST_USE(pto::TCOLEXPANDADD(dst, src0, src1), n1, n2, n3);
-        } else if constexpr (tailBrcSide != TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::NONE) {
+        } else if constexpr (tailBrcSide != TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::NON) {
             PTO_WITH_LAST_USE(pto::TROWEXPANDADD(dst, src0, src1), n1, n2, n3);
         } else {
             PTO_WITH_LAST_USE(pto::TADD(dst, src0, src1), n1, n2, n3);
