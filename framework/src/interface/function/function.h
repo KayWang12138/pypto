@@ -448,10 +448,10 @@ struct DynParamInfo{
 };
 struct ParamConfigs {
     bool dynamicAlignedOps;
-    int sgPgUpperBound{1};
-    int sgPgLowerBound{1};
-    int sgParallelNum{1};
-    int sgMgCopyInUpperBound{2*1024*1024};
+    int sgPgUpperBound{10000};
+    int sgPgLowerBound{512};
+    int sgParallelNum{20};
+    int sgMgCopyInUpperBound{100*1024*1024};
     uint8_t machineConfig_{0}; // machine config
     uint16_t stitchFunctionNumInitial_{0};
     uint16_t stitchFunctionNumStep_{0};

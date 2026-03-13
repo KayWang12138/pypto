@@ -54,25 +54,18 @@ def set_print_options(*,
 
 
 def set_pass_options(*,
-                     pg_skip_partition: Optional[bool] = None,
-                     pg_upper_bound: Optional[int] = None,
                      vec_nbuffer_setting: Optional[Dict[int, int]] = None,
                      cube_l1_reuse_setting: Optional[Dict[int, int]] = None,
                      cube_nbuffer_setting: Optional[Dict[int, int]] = None,
                      sg_set_scope: Optional[int] = None,
+                     pg_skip_partition: Optional[bool] = None,
+                     pg_upper_bound: Optional[int] = None,
                      ) -> None:
     """
     Set pass options.
 
     Parameters
     ---------
-    pg_skip_partition : bool
-        Whether to skip the subgraph partitioning process.
-
-    pg_upper_bound : int
-        Merged graph parameter, used to configure
-        the upper bound of subgraph size.
-
     vec_nbuffer_setting : Dict[int, int]
         Merged graph parameter, used to configure
         the merging quantity of AIV subgraphs with the same structure.
@@ -85,6 +78,22 @@ def set_pass_options(*,
     cube_nbuffer_setting : Dict[int, int]
         Merged graph parameter, used to configure
         the merging quantity of AIC subgraphs with the same structure.
+    
+    sg_set_scope : int
+        Merged graph parameter, used to manually control graph merging.
+
+    pg_skip_partition : bool
+        .. deprecated::
+            This parameter is deprecated and will be removed in a future version.
+            Please remove this parameter from your configuration.
+        Whether to skip the subgraph partitioning process.
+
+    pg_upper_bound : int
+        .. deprecated::
+            This parameter is deprecated and will be removed in a future version.
+            Please remove this parameter from your configuration.
+        Merged graph parameter, used to configure
+        the upper bound of subgraph size.
     """
     options_dict = {k: v for k, v in locals().items() if v is not None}
     set_options(pass_options=options_dict)
@@ -100,7 +109,14 @@ def get_pass_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
         All pass options
     """
     scope = get_current_scope()
-    return scope.get_pass_options()
+    rst = scope.get_pass_options()
+    allowed_keys = {
+        'vec_nbuffer_setting',
+        'cube_l1_reuse_setting',
+        'cube_nbuffer_setting',
+        'sg_set_scope',
+    }
+    return {k: v for k, v in rst.items() if k in allowed_keys}
 
 
 
