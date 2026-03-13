@@ -141,7 +141,9 @@ public:
     inline int32_t RunCoreTask(DeviceTaskCtrl *taskCtrl, uint64_t& sent) {
         int32_t ret = DEVICE_MACHINE_OK;
         (void)taskCtrl;
+#ifdef ARCH_3510
         wrapManager_.DispatchMixCoreTask();
+#endif
         ret = DispatchAiCoreTask(CoreType::AIC, readyAicCoreFunctionQue_, aicStart_, aicEnd_);
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
@@ -754,7 +756,11 @@ private:
         DEV_VERBOSE_DEBUG("  ## send task left pend ready cnt %u , last core index:%u.",
             context_->corePendReadyCnt_[static_cast<int>(type)], idx);
         while (context_->corePendReadyCnt_[static_cast<int>(type)] > 0 && sendCnt < taskCount) {
+#ifdef ARCH_3510
             if (pendingIds_[idx] == AICORE_TASK_INIT && wrapManager_.GetWrapCoreAvailable(idx)) {
+#else
+            if (pendingIds_[idx] == AICORE_TASK_INIT) {
+#endif
                 DEV_VERBOSE_DEBUG("  ## send task use pendready core %u.", idx);
                 SendTaskToAiCore(type, idx, isLifo ? *newTask-- : *newTask++);
                 sendCnt++;
@@ -780,14 +786,18 @@ private:
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
+#ifdef ARCH_3510
             wrapManager_.DispatchMixCoreTask();
+#endif
         }
+#ifdef ARCH_3510
         if (wrapManager_.GetIsMixarch()) {
             ReadyCoreFunctionQueue* dieReadyQue  = (type == CoreType::AIC) ?  readyDieAicFunctionQue_ : readyDieAivFunctionQue_;
             if (dieReadyQue != readyQue) {
                 TryBatchSendTask(type, dieReadyQue, coreIdxStart, coreIdxEnd);
             }
         }
+#endif
         TryBatchSendTask(type, readyQue, coreIdxStart, coreIdxEnd);
         if (enableFairSch_ || wrapManager_.GetIsMixarch()) {   // for die-to-die scheduling
             if (context_->coreRunReadyCnt_[static_cast<int>(type)] > 0)  {
@@ -901,12 +911,14 @@ private:
 
         DEV_IF_VERBOSE_DEBUG {
             sendTask_[coreIdx].push_back(TaskInfo(coreIdx, newTask));
+#ifdef ARCH_3510
             if (wrapManager_.IsBindedWrapId(newTask) && wrapManager_.GetWrapCoreAvailable(coreIdx)) {
                 DEV_WARN("newTask[%lu][%lx] is mix task, but core[%d] is available!", newTask, newTask, coreIdx);
             }
             if (!wrapManager_.IsBindedWrapId(newTask) && !wrapManager_.GetWrapCoreAvailable(coreIdx)) {
                 DEV_WARN("newTask[%lu][%lx] is not mix task, but core[%d] is not available!", newTask, newTask, coreIdx);
             }
+#endif
         }
         DEV_VERBOSE_DEBUG("Send task %lu, at core %d ,type:%d.", newTask, coreIdx, static_cast<int>(type));
     }
@@ -1028,11 +1040,15 @@ private:
             }
             pendingIds_[coreIdx] = AICORE_TASK_INIT;
             pendingResolveIndexList_[coreIdx] = 0;
+#ifdef ARCH_3510
             if (wrapManager_.GetWrapCoreAvailable(coreIdx)) {
+#endif
                 context_->corePendReadyCnt_[static_cast<int>(type)]++;
                 context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
+#ifdef ARCH_3510
             }
             wrapManager_.UpdateFinishIdForMixCore(finTaskId);
+#endif
         }
         return ret;
     }
@@ -1064,10 +1080,14 @@ private:
             runningResolveIndexBaseRef = 0;
             pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
             pendingResolveIndexBaseRef = 0;
+#ifdef ARCH_3510
             if (wrapManager_.GetWrapCoreAvailable(coreIdx)) { // wrapcore doesnt support pending & running yet
+#endif
                 context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
                 context_->corePendReadyCnt_[static_cast<int>(type)]++;
+#ifdef ARCH_3510
             }
+#endif
             if (runningIdValue != AICORE_TASK_INIT) {
                 ret = ResolveDepWithDfx(type, coreIdx, runningIdValue, runningResolveIndexBaseValue);
                 if (unlikely(ret != DEVICE_MACHINE_OK)) {
@@ -1075,7 +1095,9 @@ private:
                 }
             }
             ret = ResolveDepWithDfx(type, coreIdx, pendingIdValue, pendingResolveIndexBaseValue);
+#ifdef ARCH_3510
             wrapManager_.UpdateFinishIdForMixCore(finTaskId);
+#endif
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
@@ -1091,9 +1113,13 @@ private:
             runningResolveIndexBaseRef = copyOutResolveCounter + 1;
             pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
             pendingResolveIndexBaseRef = 0;
+#ifdef ARCH_3510
             if (wrapManager_.GetWrapCoreAvailable(coreIdx)) {
+#endif
                 context_->corePendReadyCnt_[static_cast<int>(type)]++;
+#ifdef ARCH_3510
             }
+#endif
             if (runningIdValueCopyout != AICORE_TASK_INIT) {
                 ret = ResolveDepWithDfx(type, coreIdx, runningIdValueCopyout, runningResolveIndexBaseValueCopyout);
                 if (unlikely(ret != DEVICE_MACHINE_OK)) {
@@ -1112,13 +1138,17 @@ private:
             }
             uint32_t runningIdValueAck = runningIdRef;
             int runningResolveIndexBaseValueAck = runningResolveIndexBaseRef;
+#ifdef ARCH_3510
             if (wrapManager_.GetWrapCoreAvailable(coreIdx)) {
+#endif
                 runningIdRef = finTaskId;
                 runningResolveIndexBaseRef = pendingResolveIndexBaseRef;
                 pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
                 pendingResolveIndexBaseRef = 0;
                 context_->corePendReadyCnt_[static_cast<int>(type)]++;
+#ifdef ARCH_3510
             }
+#endif
             if (runningIdValueAck != AICORE_TASK_INIT) {
                 ret = ResolveDepWithDfx(type, coreIdx, runningIdValueAck, runningResolveIndexBaseValueAck);
                 if (unlikely(ret != DEVICE_MACHINE_OK)) {
@@ -1193,7 +1223,11 @@ private:
             startIdx = aivStart_;
             coreNum = aivEnd_ - aivStart_;
         }
+#ifdef ARCH_3510
         while (pendingIds_[idx] != AICORE_TASK_INIT || !wrapManager_.GetWrapCoreAvailable(idx)) {
+#else
+        while (pendingIds_[idx] != AICORE_TASK_INIT) {
+#endif
             idx = startIdx + (idx - startIdx + 1) % (coreNum);
         }
         context_->lastPendReadyCoreIdx_[coreType] = static_cast<uint32_t>(startIdx + (idx - startIdx + 1) % (coreNum));
@@ -1274,8 +1308,10 @@ private:
                     context_->resolveHubCnt_++;
                 } else if (coreType == static_cast<int>(MachineType::AICPU)){
                     PushAicpuTaskQueue(id);
+#ifdef ARCH_3510
                 } else if (wrapManager_.IsBindedWrapId(id)) {
                     wrapManager_.ResolveDepForMixCore(id);
+#endif
                 } else {
                     ret = PushReadyTask(static_cast<int>(coreType), id);
                     if (unlikely(ret != DEVICE_MACHINE_OK)) {
@@ -1337,8 +1373,10 @@ private:
                     context_->resolveHubCnt_++;
                 } else if (unlikely(coreType == static_cast<int>(MachineType::AICPU))){
                     PushAicpuTaskQueue(id);
+#ifdef ARCH_3510
                 } else if (wrapManager_.IsBindedWrapId(id)) {
                     wrapManager_.ResolveDepForMixCore(id);
+#endif
                 } else {
                     ret = PushReadyTask(static_cast<int>(coreType), id);
                     if (unlikely(ret != DEVICE_MACHINE_OK)) {return ret;}
@@ -1378,8 +1416,10 @@ private:
                         return ret;
                     }
                     context_->resolveHubCnt_++;
+#ifdef ARCH_3510
                 } else if (wrapManager_.IsBindedWrapId(id)) {
                     wrapManager_.ResolveDepForMixCore(id);
+#endif
                 } else if (unlikely(coreType == static_cast<int>(MachineType::AICPU))){
                     PushAicpuTaskQueue(id);
                 } else {
