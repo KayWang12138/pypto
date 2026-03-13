@@ -36,7 +36,8 @@ Status SplitK::PreCheck(Function &function) {
                 return FAILED;
             }
             auto output = op.GetOOperands().front();
-            if ((output->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) || (output->GetConsumers().size() != 1) 
+            if ((output->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) 
+            || (output->GetConsumers().size() != 1) 
                 || (*output->GetConsumers().begin() == nullptr)) {
                 APASS_LOG_ERROR_F(Elements::Operation, "Op[%d] has invalid output tenosr[%d]; Please check if the output tensor is vaild.%s", 
                 op.GetOpMagic(), output->magic, GetFormatBacktrace(op).c_str());
