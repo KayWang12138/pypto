@@ -399,10 +399,16 @@ int DeviceExecuteContext::ControlFlowCacheStopCache(uint64_t rootKey) {
 void *DeviceExecuteContext::CallRootFunctionAlloc(uint64_t rootKey) {
     int ret = DEVICE_MACHINE_OK;
     DevAscendFunction *devRoot = devProg->GetFunction(rootKey);
-    DEV_DEBUG("Slloc one func %lu %p %s.", rootKey, devRoot, devRoot->GetRawName());
+    DEV_DEBUG("Slloc one func rootKey=%lu, devRoot=%p, name=%s, opSize=%u, "
+              "stitchTaskLoopNumThreshold=%u, stitchedTaskNum=%zu, stitchedCallOpSize=%u, stitchFunctionSizeLimit=%u.",
+        rootKey, devRoot, devRoot->GetRawName(), devRoot->GetOperationSize(),
+        stitchTaskLoopNumThreshold, stitchContext.Size(),
+        stitchContext.stitchedCallOpSize(), devProg->stitchFunctionsize);
     if (stitchContext.Size() == stitchTaskLoopNumThreshold ||
         stitchContext.stitchedCallOpSize() + devRoot->GetOperationSize() > devProg->stitchFunctionsize) {
-        DEV_INFO("[Stitch Finish] Stitch Limit Exceeded. #task=%zu+1 (limit=%u), #callop=%u+%zu (limit=%u).",
+        DEV_INFO("[Stitch Finish] Stitch Limit Exceeded. rootKey=%lu, func=%s, "
+                 "#task=%zu+1 (limit=%u), #callop=%u+%zu (limit=%u).",
+            rootKey, devRoot->GetRawName(),
             stitchContext.Size(), stitchTaskLoopNumThreshold,
             stitchContext.stitchedCallOpSize(), devRoot->GetOperationSize(), devProg->stitchFunctionsize);
         ret = SubmitToAicoreAndRecycleMemory(false);
