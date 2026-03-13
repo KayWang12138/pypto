@@ -9,29 +9,11 @@
                 "en": "By processing and optimizing function computations, compilation passes transform their underlying computational graphs into execution graphs, providing an extensible compilation and optimization framework to deliver differentiated optimization outcomes."
             },
             "properties": {
-                "pg_parallel_lower_bound": {
-                    "type": "integer",
-                    "label": {
-                        "zh": "合图参数，用于配置相同结构子图的最小并行度。当某个相同结构的子图数小于该值时不做合并。",
-                        "en": "Graph merging parameter, used to configure the minimum parallelism of subgraphs with identical structures. Merging is not performed when the number of subgraphs with the same structure is less than this value."
-                    },
-                    "minimum": 0,
-                    "maximum": 2147483647
-                },
                 "pg_upper_bound": {
                     "type": "integer",
                     "label": {
                         "zh": "合图参数，用于配置子图大小上界。当子图大小达到上界不允许与其他子图合并。",
                         "en": "Graph merging parameter, used to configure the upper bound of subgraph size. When the subgraph size reaches the upper bound, merging with other subgraphs is not allowed."
-                    },
-                    "minimum": 0,
-                    "maximum": 2147483647
-                },
-                "pg_lower_bound": {
-                    "type": "integer",
-                    "label": {
-                        "zh": "合图参数，用于配置子图大小下界。当子图大小小于下界时尝试与其他子图合并。",
-                        "en": "Graph merging parameter, used to configure the lower bound of subgraph size. When the subgraph size is smaller than the lower bound, an attempt is made to merge it with other subgraphs."
                     },
                     "minimum": 0,
                     "maximum": 2147483647
@@ -61,15 +43,6 @@
                     "value_maximum": 2147483647
 
                 },
-                "mg_copyin_upper_bound": {
-                    "type": "integer",
-                    "label": {
-                        "zh": "合图参数，用于配置合图大小。该参数控制子图内搬运数据总量上界。当子图内数据搬运量大于该值则不再合并。",
-                        "en": "Graph merging parameter, used to configure the graph merging size. This parameter controls the upper limit of the total data transfer volume within a subgraph. Mergeing will not be performed if the data transfer volume within the subgraph exceeds this value."
-                    },
-                    "minimum": 0,
-                    "maximum": 2147483647
-                },
                 "vec_nbuffer_setting": {
                     "type": "object",
                     "typeHints": "intmap",
@@ -82,30 +55,12 @@
                     "value_minimum": 0,
                     "value_maximum": 2147483647
                 },
-                "mg_vec_parallel_lb": {
-                    "type": "integer",
-                    "label": {
-                        "zh": "合图参数，用于配置相同结构AIV子图的最小并行度。当某个相同结构的子图数小于该值时不做合并。",
-                        "en": "Graph merging parameters, used to configure the minimum parallelism of AIV subgraphs with identical structures. Merging will not be performed when the number of subgraphs with the same structure is less than this value."
-                    },
-                    "minimum": 1,
-                    "maximum": 48
-                },
                 "pg_skip_partition": {
                     "type": "boolean",
                     "label": {
                         "zh": "是否跳过子图切分过程。当值为True时，将完整的计算图作为单一子图，不进行切分。当值为False时，进行子图切分。",
                         "en": "Whether to skip the subgraph partitioning process. When the value is True, the complete computation graph is treated as a single subgraph without partitioning; when the value is False, subgraph partitioning is performed."
                     }
-                },
-                "copyout_resolve_coalescing": {
-                    "type": "integer",
-                    "label": {
-                        "zh": "手动控制片上内存拷贝输出优化策略。置0时关闭合并优化；非0时筛选离散copyout指令，合并为连续大粒度操作并完成地址规整。",
-                        "en": "Manual control for on-chip copyout optimization. 0 disables merging; non-zero values aggregate discrete copyout instructions into continuous large-grain operations with address alignment."
-                    },
-                    "minimum": 0,
-                    "maximum": 1000000
                 },
                 "sg_set_scope": {
                     "type": "integer",
