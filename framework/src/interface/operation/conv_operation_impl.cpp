@@ -320,9 +320,9 @@ void CheckL1SizeTiling(DataType outType, const Tensor &inputTensor, const Tensor
     uint32_t indexW = attrParam.isConv3D ? NCDHW_W_IDX : (attrParam.isConv1D ? NCHW_H_IDX : NCHW_W_IDX);
 
     int64_t kh = attrParam.isConv1D ? 1 : weightTensor.GetShape()[indexH];
-    int64_t hin = attrParam.isConv1D ? 1 : inputTensor.GetShape()[indexH];
+    uint64_t hin = attrParam.isConv1D ? 1 : inputTensor.GetShape()[indexH];
     int64_t kw = weightTensor.GetShape()[indexW];
-    int64_t win = inputTensor.GetShape()[indexW];
+    uint64_t win = inputTensor.GetShape()[indexW];
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
 
     std::vector<int64_t> strides = attrParam.strides;
