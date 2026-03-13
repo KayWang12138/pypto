@@ -123,7 +123,7 @@ public:
         readyAicpuFunctionQue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(curDevTask_->readyAicpuFunctionQue);
         wrapManager_.Init(curDevTask_, context_->coreRunReadyCnt_, context_->runReadyCoreIdx_[CORE_IDX_AIV],
             context_->runReadyCoreIdx_[CORE_IDX_AIC], context_->corePendReadyCnt_, pendingIds_.data(),
-            runningIds_.data(), aicValidNum_, [&](CoreType coreType, int arg1, uint64_t arg2) {SendTaskToAiCore(coreType, arg1, arg2);});
+            runningIds_.data(), aicValidNum_, wrapCoreAvailableMask_, [&](CoreType coreType, int arg1, uint64_t arg2) {SendTaskToAiCore(coreType, arg1, arg2);});
         readyDieAicFunctionQue_ = wrapManager_.GetDieReadyQueue(CoreType::AIC, readyAicCoreFunctionQue_);
         readyDieAivFunctionQue_ = wrapManager_.GetDieReadyQueue(CoreType::AIV, readyAivCoreFunctionQue_);
     }
@@ -1803,6 +1803,8 @@ private:
     std::array<uint32_t, MAX_AICORE_NUM> pendingIds_;
     std::array<int, MAX_AICORE_NUM> runningResolveIndexList_;
     std::array<int, MAX_AICORE_NUM> pendingResolveIndexList_;
+
+    std::array<uint64_t, (MAX_AICORE_NUM + 63) / 64> wrapCoreAvailableMask_{};
 
     /* prepare aicore ready task list */
     ReadyCoreFunctionQueue* readyAicCoreFunctionQue_{nullptr};

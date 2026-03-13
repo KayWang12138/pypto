@@ -85,6 +85,9 @@ public:
     ReadyCoreFunctionQueue* readyDieAicFunctionQue_[DIE_NUM] = {nullptr};
     ReadyCoreFunctionQueue* readyDieAivFunctionQue_[DIE_NUM] = {nullptr};
 
+    // Optimized wrap core management using bitmask
+    uint64_t* wrapCoreAvailableMask_{nullptr};
+
     inline void InitDeviceInfo(DeviceArgs *deviceArgs, int schedIdx) {
         archInfo = deviceArgs->archInfo;
         InitDieMaxCpuId(static_cast<int>(deviceArgs->scheCpuNum));
@@ -125,7 +128,7 @@ public:
 
     inline void Init(DeviceTask* curDevTask, uint32_t* coreRunReadyCnt, uint32_t* runReadyCoreIdxZero,
         uint32_t* runReadyCoreIdxOne, uint32_t* corePendReadyCnt, uint32_t* pendingIds, uint32_t* runningIds,
-        int aicValidNum, SendTaskToAiCoreFunc func) {
+        int aicValidNum, uint64_t* wrapCoreAvailableMask, SendTaskToAiCoreFunc func) {
 
         if (archInfo != ArchInfo::DAV_3510) {
             return;
@@ -141,6 +144,7 @@ public:
         runningIds_ = runningIds;
 
         aicValidNum_ = aicValidNum;
+        wrapCoreAvailableMask_ = wrapCoreAvailableMask;
         SendTaskToAiCore = func;
         readyWrapCoreFunctionQue_ = reinterpret_cast<WrapInfoQueue *>(curDevTask_->mixTaskData.readyWrapCoreFunctionQue);
         wrapTasklist_ = reinterpret_cast<uint32_t *>(curDevTask_->mixTaskData.wrapTasklist);
@@ -150,6 +154,36 @@ public:
         wrapQueueForThread_.elem = curDevTask_->mixTaskData.wrapIdNum == 0 ? nullptr :
             static_cast<uint64_t *>(malloc(curDevTask_->mixTaskData.wrapIdNum * sizeof(uint64_t)));
         SetDieReadyQueue(curDevTask->dieReadyFunctionQue);
+
+        InitWrapCoreAvailableMask();
+    }
+
+    inline void InitWrapCoreAvailableMask() {
+        if (wrapCoreAvailableMask_ == nullptr) {
+            return;
+        }
+        for (uint32_t i = 0; i < coreRunReadyCnt_[CORE_IDX_AIC]; i++) {
+            uint32_t aicIdx = runReadyCoreIdx_[CORE_IDX_AIC][i];
+            uint64_t mask = (1ULL << (aicIdx % 64));
+            wrapCoreAvailableMask_[aicIdx / 64] |= mask;
+        }
+        for (uint32_t i = 0; i < coreRunReadyCnt_[CORE_IDX_AIV]; i++) {
+            uint32_t aivIdx = runReadyCoreIdx_[CORE_IDX_AIV][i];
+            uint64_t mask = (1ULL << (aivIdx % 64));
+            wrapCoreAvailableMask_[aivIdx / 64] |= mask;
+        }
+    }
+
+    inline void UpdateWrapCoreAvailableMask(uint32_t coreIdx, bool isAvailable) {
+        if (wrapCoreAvailableMask_ == nullptr) {
+            return;
+        }
+        uint64_t mask = (1ULL << (coreIdx % 64));
+        if (isAvailable) {
+            wrapCoreAvailableMask_[coreIdx / 64] |= mask;
+        } else {
+            wrapCoreAvailableMask_[coreIdx / 64] &= ~mask;
+        }
     }
 
     inline void Deinit() {
@@ -172,29 +206,32 @@ public:
     }
 
     inline uint32_t GetAvailableCoreIdx(MixResourceType mixType = MixResourceType::MIX_UNKNOWN) {
+        if (wrapCoreAvailableMask_ == nullptr) {
+            return INVALID_CORE_IDX;
+        }
+
         if (mixType == MixResourceType::MIX_1C1V) {
             for (uint32_t i = 0; i < coreRunReadyCnt_[CORE_IDX_AIC]; i++) {
-                for (uint32_t j = 0; j < coreRunReadyCnt_[CORE_IDX_AIV]; j++) {
-                    uint32_t aicIdx = runReadyCoreIdx_[CORE_IDX_AIC][i];
-                    uint32_t aivIdx = runReadyCoreIdx_[CORE_IDX_AIV][j];
-                    if (aicIdx * AIV_NUM_PER_AI_CORE + aicValidNum_ == aivIdx) {
-                        return aicIdx;
-                    }
+                uint32_t aicIdx = runReadyCoreIdx_[CORE_IDX_AIC][i];
+                uint32_t aivIdx = aicIdx * AIV_NUM_PER_AI_CORE + aicValidNum_;
+                uint64_t mask = (1ULL << (aicIdx % 64));
+                if ((wrapCoreAvailableMask_[aicIdx / 64] & mask) == 0) {
+                    return INVALID_CORE_IDX;
                 }
+                return aicIdx;
             }
             return INVALID_CORE_IDX;
         }
 
         for (uint32_t i = 0; i < coreRunReadyCnt_[CORE_IDX_AIC]; i++) {
-            for (uint32_t j = 0; j < coreRunReadyCnt_[CORE_IDX_AIV]; j++) {
-                for (uint32_t k = 0; k < coreRunReadyCnt_[CORE_IDX_AIV]; k++) {
-                    uint32_t aicIdx = runReadyCoreIdx_[CORE_IDX_AIC][i];
-                    uint32_t aivIdx0 = runReadyCoreIdx_[CORE_IDX_AIV][j];
-                    uint32_t aivIdx1 = runReadyCoreIdx_[CORE_IDX_AIV][k];
-                    if (aicIdx * AIV_NUM_PER_AI_CORE + aicValidNum_ == aivIdx0 && aivIdx0 + 1 == aivIdx1) {
-                        return aicIdx;
-                    }
-                }
+            uint32_t aicIdx = runReadyCoreIdx_[CORE_IDX_AIC][i];
+            uint32_t aivIdx0 = aicIdx * AIV_NUM_PER_AI_CORE + aicValidNum_;
+            uint32_t aivIdx1 = aivIdx0 + 1;
+            uint64_t mask0 = (1ULL << (aivIdx0 % 64));
+            uint64_t mask1 = (1ULL << (aivIdx1 % 64));
+            if ((wrapCoreAvailableMask_[aivIdx0 / 64] & mask0) != 0 &&
+                (wrapCoreAvailableMask_[aivIdx1 / 64] & mask1) != 0) {
+                return aicIdx;
             }
         }
         return INVALID_CORE_IDX;
@@ -203,12 +240,9 @@ public:
     inline void RemoveRunReadyCoreIdxForWrap(uint32_t coreIdx, MixResourceType mixType = MixResourceType::MIX_UNKNOWN) {
         coreRunReadyCnt_[CORE_IDX_AIC]--;
         corePendReadyCnt_[CORE_IDX_AIC]--;
-        // if coreIdx is at the tail of runReadyCoreIdx_, no processing is need, simply cnt--
         if (runReadyCoreIdx_[CORE_IDX_AIC][coreRunReadyCnt_[CORE_IDX_AIC]] != coreIdx) {
-            // if coreIdx isnt at the tail of runReadyCoreIdx_, replace it by tail data
             for (uint32_t i = 0; i < coreRunReadyCnt_[CORE_IDX_AIC]; i++) {
                 if (runReadyCoreIdx_[CORE_IDX_AIC][i] == coreIdx) {
-                    // swap tail data with coreIdx
                     runReadyCoreIdx_[CORE_IDX_AIC][i] = runReadyCoreIdx_[CORE_IDX_AIC][coreRunReadyCnt_[CORE_IDX_AIC]];
                     runReadyCoreIdx_[CORE_IDX_AIC][coreRunReadyCnt_[CORE_IDX_AIC]] = coreIdx;
                 }
@@ -229,6 +263,8 @@ public:
 
         CheckCoreIdxInitStatus(coreIdx);
         CheckCoreIdxInitStatus(aivIdx0);
+        UpdateWrapCoreAvailableMask(coreIdx, false);
+        UpdateWrapCoreAvailableMask(aivIdx0, false);
 
         if (mixType != MixResourceType::MIX_1C1V) {
             coreRunReadyCnt_[CORE_IDX_AIV]--;
@@ -243,10 +279,122 @@ public:
                 }
             }
             CheckCoreIdxInitStatus(aivIdx1);
+            UpdateWrapCoreAvailableMask(aivIdx1, false);
             DEV_VERBOSE_DEBUG("remove coreIdx %u  %u  %u", coreIdx, aivIdx0, aivIdx1);
         } else {
             DEV_VERBOSE_DEBUG("remove coreIdx %u  %u", coreIdx, aivIdx0);
         }
+    }
+
+    inline uint32_t GetAndRemoveAvailableCoreIdx(MixResourceType mixType = MixResourceType::MIX_UNKNOWN) {
+        if (wrapCoreAvailableMask_ == nullptr) {
+            return INVALID_CORE_IDX;
+        }
+
+        if (mixType == MixResourceType::MIX_1C1V) {
+            for (uint32_t i = 0; i < coreRunReadyCnt_[CORE_IDX_AIC]; i++) {
+                uint32_t aicIdx = runReadyCoreIdx_[CORE_IDX_AIC][i];
+                uint32_t aivIdx = aicIdx * AIV_NUM_PER_AI_CORE + aicValidNum_;
+                uint64_t mask = (1ULL << (aicIdx % 64));
+                if ((wrapCoreAvailableMask_[aicIdx / 64] & mask) == 0) {
+                    continue;
+                }
+                if ((wrapCoreAvailableMask_[aivIdx / 64] & (1ULL << (aivIdx % 64))) == 0) {
+                    continue;
+                }
+
+                coreRunReadyCnt_[CORE_IDX_AIC]--;
+                corePendReadyCnt_[CORE_IDX_AIC]--;
+                if (runReadyCoreIdx_[CORE_IDX_AIC][coreRunReadyCnt_[CORE_IDX_AIC]] != aicIdx) {
+                    for (uint32_t j = 0; j < coreRunReadyCnt_[CORE_IDX_AIC]; j++) {
+                        if (runReadyCoreIdx_[CORE_IDX_AIC][j] == aicIdx) {
+                            runReadyCoreIdx_[CORE_IDX_AIC][j] = runReadyCoreIdx_[CORE_IDX_AIC][coreRunReadyCnt_[CORE_IDX_AIC]];
+                            runReadyCoreIdx_[CORE_IDX_AIC][coreRunReadyCnt_[CORE_IDX_AIC]] = aicIdx;
+                            break;
+                        }
+                    }
+                }
+
+                coreRunReadyCnt_[CORE_IDX_AIV]--;
+                corePendReadyCnt_[CORE_IDX_AIV]--;
+                if (runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]] != aivIdx) {
+                    for (uint32_t j = 0; j < coreRunReadyCnt_[CORE_IDX_AIV]; j++) {
+                        if (runReadyCoreIdx_[CORE_IDX_AIV][j] == aivIdx) {
+                            runReadyCoreIdx_[CORE_IDX_AIV][j] = runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]];
+                            runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]] = aivIdx;
+                            break;
+                        }
+                    }
+                }
+
+                CheckCoreIdxInitStatus(aicIdx);
+                CheckCoreIdxInitStatus(aivIdx);
+                UpdateWrapCoreAvailableMask(aicIdx, false);
+                UpdateWrapCoreAvailableMask(aivIdx, false);
+                DEV_VERBOSE_DEBUG("get and remove coreIdx %u  %u", aicIdx, aivIdx);
+
+                return aicIdx;
+            }
+            return INVALID_CORE_IDX;
+        }
+
+        for (uint32_t i = 0; i < coreRunReadyCnt_[CORE_IDX_AIC]; i++) {
+            uint32_t aicIdx = runReadyCoreIdx_[CORE_IDX_AIC][i];
+            uint32_t aivIdx0 = aicIdx * AIV_NUM_PER_AI_CORE + aicValidNum_;
+            uint32_t aivIdx1 = aivIdx0 + 1;
+            uint64_t mask0 = (1ULL << (aivIdx0 % 64));
+            uint64_t mask1 = (1ULL << (aivIdx1 % 64));
+            if ((wrapCoreAvailableMask_[aivIdx0 / 64] & mask0) != 0 &&
+                (wrapCoreAvailableMask_[aivIdx1 / 64] & mask1) != 0) {
+
+                coreRunReadyCnt_[CORE_IDX_AIC]--;
+                corePendReadyCnt_[CORE_IDX_AIC]--;
+                if (runReadyCoreIdx_[CORE_IDX_AIC][coreRunReadyCnt_[CORE_IDX_AIC]] != aicIdx) {
+                    for (uint32_t j = 0; j < coreRunReadyCnt_[CORE_IDX_AIC]; j++) {
+                        if (runReadyCoreIdx_[CORE_IDX_AIC][j] == aicIdx) {
+                            runReadyCoreIdx_[CORE_IDX_AIC][j] = runReadyCoreIdx_[CORE_IDX_AIC][coreRunReadyCnt_[CORE_IDX_AIC]];
+                            runReadyCoreIdx_[CORE_IDX_AIC][coreRunReadyCnt_[CORE_IDX_AIC]] = aicIdx;
+                            break;
+                        }
+                    }
+                }
+
+                coreRunReadyCnt_[CORE_IDX_AIV]--;
+                corePendReadyCnt_[CORE_IDX_AIV]--;
+                if (runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]] != aivIdx0) {
+                    for (uint32_t j = 0; j < coreRunReadyCnt_[CORE_IDX_AIV]; j++) {
+                        if (runReadyCoreIdx_[CORE_IDX_AIV][j] == aivIdx0) {
+                            runReadyCoreIdx_[CORE_IDX_AIV][j] = runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]];
+                            runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]] = aivIdx0;
+                            break;
+                        }
+                    }
+                }
+
+                coreRunReadyCnt_[CORE_IDX_AIV]--;
+                corePendReadyCnt_[CORE_IDX_AIV]--;
+                if (runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]] != aivIdx1) {
+                    for (uint32_t j = 0; j < coreRunReadyCnt_[CORE_IDX_AIV]; j++) {
+                        if (runReadyCoreIdx_[CORE_IDX_AIV][j] == aivIdx1) {
+                            runReadyCoreIdx_[CORE_IDX_AIV][j] = runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]];
+                            runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]] = aivIdx1;
+                            break;
+                        }
+                    }
+                }
+
+                CheckCoreIdxInitStatus(aicIdx);
+                CheckCoreIdxInitStatus(aivIdx0);
+                CheckCoreIdxInitStatus(aivIdx1);
+                UpdateWrapCoreAvailableMask(aicIdx, false);
+                UpdateWrapCoreAvailableMask(aivIdx0, false);
+                UpdateWrapCoreAvailableMask(aivIdx1, false);
+                DEV_VERBOSE_DEBUG("get and remove coreIdx %u  %u  %u", aicIdx, aivIdx0, aivIdx1);
+
+                return aicIdx;
+            }
+        }
+        return INVALID_CORE_IDX;
     }
 
     inline void CheckCoreIdxInitStatus(uint32_t coreIdx) {
@@ -265,10 +413,13 @@ public:
         corePendReadyCnt_[CORE_IDX_AIV]++;
         CheckCoreIdxInitStatus(coreIdx);
         CheckCoreIdxInitStatus(aivIdx0);
+        UpdateWrapCoreAvailableMask(coreIdx, true);
+        UpdateWrapCoreAvailableMask(aivIdx0, true);
         if (mixType != MixResourceType::MIX_1C1V) {
             uint32_t aivIdx1 = coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_ + 1;
             CheckCoreIdxInitStatus(aivIdx1);
             runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]++] = aivIdx1;
+            UpdateWrapCoreAvailableMask(aivIdx1, true);
             DEV_VERBOSE_DEBUG("add coreIdx %u  %u  %u", coreIdx, coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_,
                 coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_ + 1);
             corePendReadyCnt_[CORE_IDX_AIV]++;
@@ -295,7 +446,7 @@ public:
             uint32_t wrapId = wrapInfo->wrapId;
             MixResourceType mixType = static_cast<MixResourceType>(wrapInfo->mixResourceType);
 
-            uint32_t avaiCoreIdx = GetAvailableCoreIdx(mixType);
+            uint32_t avaiCoreIdx = GetAndRemoveAvailableCoreIdx(mixType);
             if (avaiCoreIdx == INVALID_CORE_IDX) {
                 DEV_VERBOSE_DEBUG("no available wrap core.");
                 WrapInfoQueueUnLock(readyWrapCoreFunctionQue_);
@@ -305,7 +456,6 @@ public:
             DEV_VERBOSE_DEBUG("move wrapId[%u] to wrapQueueForThread. occupy coreIdx[%u]", wrapId, avaiCoreIdx);
             wrapQueueForThread_.elem[wrapQueueForThread_.tail++] = reinterpret_cast<uint64_t>(wrapInfo);
             __atomic_fetch_add(&readyWrapCoreFunctionQue_->head, 1, std::memory_order_release);
-            RemoveRunReadyCoreIdxForWrap(avaiCoreIdx, mixType);
 
             wrapInfo->aicCoreIdx = avaiCoreIdx;
             wrapInfo->aivCoreIdxZero = avaiCoreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_;
