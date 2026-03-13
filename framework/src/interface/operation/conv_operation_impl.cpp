@@ -245,7 +245,7 @@ void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const T
     CheckValueRange(tileN, "tileL0Info.tileN" , NUM1, ConvAlignB(tileCout, NUM16));
     OP_CHECK(true, {
         ASSERT(kAL1 % tileK == 0 && kBL1 % tileK == 0)
-            << "Invalid tileK: " << tileK 
+            << "Invalid tileK: " << tileK
             << ", must be a factor of both kAL1:" << kAL1
             << " and kBL1:" << kBL1 << std::endl;
     });
