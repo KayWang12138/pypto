@@ -139,59 +139,72 @@ inline int TracrData2BTS(const TraCR::Payload* tracrData, const size_t* tracrDat
 }
 
 /**
+ * 
+ */
+inline int checkPtrExists(const uint64_t& args_ptr) {
+    if (args_ptr != 0) {
+        void *ptr = reinterpret_cast<void *>(args_ptr);
+        if (ptr == nullptr) {
+            ALOG_INFO_F("args_ ptr doesn't exist anymore.\n");
+            return 1;
+        }
+    } else {
+        ALOG_INFO_F("args_ ptr not initialized.\n");
+        return 1;
+    }
+    return 0;
+} 
+
+/**
+ * 
+ */
+inline int cpyD2H(void** host, void* dev, const size_t size) {
+    int rc = rtMallocHost(host, size, 0);
+    if (rc != 0) {
+        ALOG_INFO_F("rtMallocHost failed");
+        return rc;
+    }
+
+    rc = rtMemcpy(*host, size, dev, size, RT_MEMCPY_DEVICE_TO_HOST);
+    if (rc != 0) {
+        ALOG_INFO_F("rtMemcpy failed");
+        return rc;
+    }
+
+    return 0;
+}
+
+/**
  * A function for extracting the TraCR data from the Device to Host
  */
 int DeviceRunner::StoreTracrData() {
     static_assert(std::is_trivially_copyable_v<TraCR::Payload>,
               "TraCR::Payload must be trivially copyable for raw binary dump");
 
-    if (args_.tracrData != 0) {
-        void *ptr = reinterpret_cast<void *>(args_.tracrData);
-        if (ptr == nullptr) {
-            ALOG_INFO_F("args_.tracrData doesn't exist anymore.\n");
-            return 1;
-        }
+    if (checkPtrExists(args_.tracrData) != 0) {
+        return 1;
     }
 
-    if (args_.tracrDataSizes != 0) {
-        void *ptr = reinterpret_cast<void *>(args_.tracrDataSizes);
-        if (ptr == nullptr) {
-            ALOG_INFO_F("args_.tracrDataSizes doesn't exist anymore.\n");
-            return 1;
-        }
+    if (checkPtrExists(args_.tracrDataSizes) != 0) {
+        return 1;
     }
 
-    TraCR::Payload* tracrData;
-    size_t* tracrDataSizes;
+    TraCR::Payload* tracrData = nullptr;
+    size_t* tracrDataSizes = nullptr;
 
     size_t size = sizeof(TraCR::Payload) * TraCR::CAPACITY * args_.scheCpuNum;
-    int rc = rtMallocHost(reinterpret_cast<void **>(&tracrData), size, 0);
+    int rc = cpyD2H(reinterpret_cast<void**>(&tracrData), 
+                    reinterpret_cast<void*>(args_.tracrData), 
+                    size);
     if (rc != 0) {
-        ALOG_INFO_F("rtMallocHost failed");
         return rc;
     }
 
-    rc = rtMemcpy(reinterpret_cast<void *>(tracrData), size,
-                      reinterpret_cast<void *>(args_.tracrData),
-                      size, RT_MEMCPY_DEVICE_TO_HOST);
-    if (rc != 0) {
-        ALOG_INFO_F("rtMemcpy failed");
-        return rc;
-    }
-
-    
     size = sizeof(size_t) * args_.scheCpuNum;
-    rc = rtMallocHost(reinterpret_cast<void **>(&tracrDataSizes), size, 0);
+    rc = cpyD2H(reinterpret_cast<void**>(&tracrDataSizes), 
+                reinterpret_cast<void*>(args_.tracrDataSizes), 
+                size);
     if (rc != 0) {
-        ALOG_INFO_F("rtMallocHost failed");
-        return rc;
-    }
-
-    rc = rtMemcpy(reinterpret_cast<void *>(tracrDataSizes), size,
-                      reinterpret_cast<void *>(args_.tracrDataSizes),
-                      size, RT_MEMCPY_DEVICE_TO_HOST);
-    if (rc != 0) {
-        ALOG_INFO_F("rtMemcpy failed");
         return rc;
     }
 
