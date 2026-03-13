@@ -194,16 +194,14 @@ int DeviceRunner::StoreTracrData() {
 
     size_t size = sizeof(TraCR::Payload) * TraCR::CAPACITY * args_.scheCpuNum;
     int rc = cpyD2H(reinterpret_cast<void**>(&tracrData), 
-                    reinterpret_cast<void*>(args_.tracrData), 
-                    size);
+                    reinterpret_cast<void*>(args_.tracrData), size);
     if (rc != 0) {
         return rc;
     }
 
     size = sizeof(size_t) * args_.scheCpuNum;
     rc = cpyD2H(reinterpret_cast<void**>(&tracrDataSizes), 
-                reinterpret_cast<void*>(args_.tracrDataSizes), 
-                size);
+                reinterpret_cast<void*>(args_.tracrDataSizes), size);
     if (rc != 0) {
         return rc;
     }
