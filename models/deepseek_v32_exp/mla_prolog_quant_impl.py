@@ -832,7 +832,7 @@ def mla_prolog_quant_d(h, q_lora_rank, n, qk_nope_head_dim, kv_lora_rank, qk_rop
 
     @pypto.frontend.jit(
         pass_options={
-            "cube_l1_reuse_setting": {-1: 4},
+            "cube_l1_reuse_setting": {-1: 4, -1: 1, 1: 1},
         },
     )
     def mla_prolog_quant_kernel(

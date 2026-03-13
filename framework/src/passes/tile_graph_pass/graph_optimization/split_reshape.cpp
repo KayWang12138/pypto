@@ -637,7 +637,7 @@ Status SplitReshape::ProcessPerfectlyMatch(Function &function, Operation &op, co
         APASS_LOG_ERROR_F(Elements::Operation, "ObtainReshapeSource failed. %s", GetFormatBacktrace(op).c_str());
         return FAILED;
     }
-    auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
+    auto viewOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(op.GetOpAttribute());
     auto isAddReshapeOp = std::make_shared<ReshapeOp>(newReshapeSource, reshapeOutput, reshapeOpPtrs_[op.GetIOperands().front()->GetMagic()]);
     if (isAddReshapeOp == nullptr || viewOpAttribute == nullptr) {
         APASS_LOG_ERROR_F(Elements::Operation, "Failed to make a shared ptr for isAddReshapeOp or found null view attr for op[%d]. %s",
@@ -647,7 +647,7 @@ Status SplitReshape::ProcessPerfectlyMatch(Function &function, Operation &op, co
     auto existOp = ReshapeOperationExist(isAddReshapeOp);
     if (existOp != nullptr) {
         op.ReplaceInput(existOp->output, input);
-        viewOpAttribute->SetFromOffset(existOp->output->offset);
+        viewOpAttribute->SetFromOffset(existOp->output->offset, viewOpAttribute->GetFromDynOffset());
         GraphUtils::UpdateViewAttr(function, op);
         if (UpdateDynShape(existOp, existOp->output->offset, para.viewDynShape) != SUCCESS ||
             GroupReshapeOffset(existOp, existOp->output->offset) != SUCCESS) {
@@ -662,7 +662,7 @@ Status SplitReshape::ProcessPerfectlyMatch(Function &function, Operation &op, co
         return FAILED;
     }
     op.ReplaceInput(reshapeOutput, input);
-    viewOpAttribute->SetFromOffset(reshapeOutput->offset);
+    viewOpAttribute->SetFromOffset(reshapeOutput->offset, viewOpAttribute->GetFromDynOffset());
     GraphUtils::UpdateViewAttr(function, op);
     if (UpdateDynShape(isAddReshapeOp, reshapeOutput->offset, para.viewDynShape) != SUCCESS ||
         GroupReshapeOffset(isAddReshapeOp, reshapeOutput->offset) != SUCCESS) {
@@ -718,7 +718,7 @@ Status SplitReshape::ProcessBeCovered(Function &function, Operation &op, const B
     auto reshapeOutput = para.reshapeOutput;
     auto reshapeSource = para.reshapeSource;
     auto newOffset = para.newOffset;
-    auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
+    auto viewOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(op.GetOpAttribute());
     if (viewOpAttribute == nullptr) {
         APASS_LOG_ERROR_F(Elements::Operation, "Failed to obtain a shared ptr for viewOpAttribute. %s", GetFormatBacktrace(op).c_str());
         return FAILED;
@@ -731,7 +731,7 @@ Status SplitReshape::ProcessBeCovered(Function &function, Operation &op, const B
     }
     auto isAddReshapeOp = std::make_shared<ReshapeOp>(newReshapeSource, reshapeOutput, reshapeOpPtrs_[op.GetIOperands().front()->GetMagic()]);
     auto existOp = ReshapeOperationExist(isAddReshapeOp);
-    viewOpAttribute->SetFromOffset(newOffset);
+    viewOpAttribute->SetFromOffset(newOffset,viewOpAttribute->GetFromDynOffset());
     GraphUtils::UpdateViewAttr(function, op);
     if (existOp != nullptr) {
         op.ReplaceInput(existOp->output, input);
@@ -821,7 +821,7 @@ Status SplitReshape::ProcessPerfectlyMatchWithAll(Function &function, Operation 
     auto reshapeOutput = para.reshapeOutput;
     auto newReshapeSource = para.newReshapeSource;
     reshapeOutput->SetMemoryTypeBoth(input->GetMemoryTypeOriginal(), true);
-    auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
+    auto viewOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(op.GetOpAttribute());
     auto isAddReshapeOp = std::make_shared<ReshapeOp>(newReshapeSource, reshapeOutput, reshapeOpPtrs_[op.GetIOperands().front()->GetMagic()]);
     if (isAddReshapeOp == nullptr || viewOpAttribute == nullptr) {
         APASS_LOG_ERROR_F(Elements::Operation, "Failed to create isAddReshapeOp or viewOpAttribute; Please make sure newReshapeSource, "
@@ -836,12 +836,12 @@ Status SplitReshape::ProcessPerfectlyMatchWithAll(Function &function, Operation 
             return FAILED;
         }
         op.ReplaceInput(existOp->output, input);
-        viewOpAttribute->SetFromOffset(existOp->output->offset);
+        viewOpAttribute->SetFromOffset(existOp->output->offset,viewOpAttribute->GetFromDynOffset());
         GraphUtils::UpdateViewAttr(function, op);
         return SUCCESS;
     }
     op.ReplaceInput(reshapeOutput, input);
-    viewOpAttribute->SetFromOffset(reshapeOutput->offset);
+    viewOpAttribute->SetFromOffset(reshapeOutput->offset,viewOpAttribute->GetFromDynOffset());
     GraphUtils::UpdateViewAttr(function, op);
     if (UpdateDynShape(isAddReshapeOp, reshapeOutput->offset, para.viewDynShape) != SUCCESS ||
         GroupReshapeOffset(isAddReshapeOp, reshapeOutput->offset) != SUCCESS) {
