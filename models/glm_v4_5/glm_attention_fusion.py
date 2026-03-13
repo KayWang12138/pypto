@@ -59,6 +59,11 @@ class AttentionConfig:
     eps: float = 1e-05
 
 
+def check_cond(cond, msg):
+    if not cond:
+        raise ValueError(msg)
+
+
 # pypto
 def rms_norm_bias(tensor_value, gamma, bias, mean_coff, eps, tile_shape):
     input_dtype = tensor_value.dtype
@@ -725,6 +730,11 @@ def test_attention():
             "residual_g", rtol=0.001, atol=0.001)
     compare(np.array(attention_output.flatten().tolist()), np.array(output.flatten().tolist()),
             "golden vs pypto", rtol=0.003, atol=0.003)
+
+    # 获取编译总耗时
+    import pypto.pypto_impl as pypto_impl
+    total_elapsed = pypto_impl.GetCompilerMonitorTotalElapsed()
+    check_cond(total_elapsed <= 60, f"glm attention fusion compile elapsed timeout {total_elapsed}s > 115s.")
 
 
 if __name__ == "__main__":
