@@ -121,7 +121,7 @@ def test_conv2d_bias_op():
                 tileWout=64,
                 tileCinFmap=16,
                 tileCinWeight=16,
-                tileN=64,
+                tileN=32,
                 tileBatch=1
             ),
             pypto.pypto_impl.TileL0Info(
