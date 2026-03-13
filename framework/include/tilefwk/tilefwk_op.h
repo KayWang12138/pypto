@@ -268,6 +268,10 @@ Tensor ArgSort(const Tensor &self, int axis = -1, bool descending = false);
 Tensor Sort32(const Tensor &self, int idxStart = 0);
 Tensor MrgSort(const Tensor &self, int mergeSize);
 
+// support float32 -> int8/uint8
+Tensor Quantize(const Tensor &input, const Tensor &scale, DataType otype, int axis, const Tensor &zeroPoints);
+// TODO: DeQuantize
+
 /**
  * @brief Sort a tensor with shape (1, n) along the last dimension, n must be orders of 2.
  *        The vecTile (1, t), t must be orders of 2, maximum is 8K.

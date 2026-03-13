@@ -2823,9 +2823,73 @@ def gen_ceil_divs_golden(case_name: str, output: Path, case_index: int = None) -
         scalar = get_dtype_by_name(params["scalar_type"])(params["scalar"])
         result = torch.ceil(torch.div(from_numpy(inputs[0]), scalar))
         return [to_numpy(result)]
-    
+
     logging.debug(f"Generating golden files of {case_name} ...")
     return gen_op_golden("CeilDivs", generate_wrapper, output, case_index)
+
+
+@TestCaseLoader.reg_params_handler(ops=["Quantize"])
+def quantize_params_func(params: dict):
+    """
+    Parameter handler for Quantize operation.
+    Converts parameter types from JSON strings to appropriate Python types.
+    """
+    params["otype"] = int(params.get("otype", "3"))  # Default to DT_INT8
+    params["axis"] = int(params.get("axis", "-1"))
+    # Convert use_zero_points from string to bool
+    use_zero_points_str = params.get("use_zero_points", "False")
+    if isinstance(use_zero_points_str, bool):
+        params["use_zero_points"] = use_zero_points_str
+    else:
+        params["use_zero_points"] = str_to_bool(use_zero_points_str)
+    return params
+
+
+@GoldenRegister.reg_golden_func(case_names=[
+    "TestQuantize/QuantizeOperationTest.TestQuantize",
+])
+def gen_quantize_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+
+    def quantize_golden_func(
+        inputs: List[np.ndarray],
+        config: Dict[str, Any],    # noqa
+    ) -> List[np.ndarray]:
+        """
+        Golden implementation for Quantize operation.
+
+        Supports:
+        - Symmetric quantization: q = round(x * scale)
+        - Asymmetric quantization: q = round(x * scale) + zero_points
+        """
+        params = config.get("params")
+        input_tensor = from_numpy(inputs[0])
+        scale = from_numpy(inputs[1])
+
+        # Get output dtype from config
+        output_dtype = config.get("output_tensors")[0].get("dtype")
+        use_zero_points = params.get("use_zero_points", False)
+
+        # Convert to target dtype
+        if output_dtype == "int8":
+            # Perform quantization: q = round(x * scale)
+            quantized = torch.round(input_tensor * scale)
+            # Clamp to int8 range
+            quantized = torch.clamp(quantized, -128, 127)
+            result = quantized.to(torch.int8)
+        elif output_dtype == "uint8":
+            zero_points = from_numpy(inputs[2])
+            # Perform quantization: q = round(x * scale)
+            quantized = torch.round(input_tensor * scale + zero_points)
+            # Clamp to uint8 range
+            quantized = torch.clamp(quantized, 0, 255)
+            result = quantized.to(torch.uint8)
+        else:
+            raise ValueError(f"Unsupported output dtype for quantize: {output_dtype}")
+
+        return [to_numpy(result)]
+
+    logging.debug(f"Generating golden files of {case_name} ...")
+    return gen_op_golden("Quantize", quantize_golden_func, output, case_index)
 
 
 def main() -> bool:
