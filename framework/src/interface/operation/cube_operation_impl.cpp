@@ -1121,7 +1121,8 @@ static Tensor GetGmAtomicAccumulationTensor(DataType outType, Tensor gmAccumulat
 }
 
 static Tensor ConstructGmAccumulationTensorGraph(
-    DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const MatmulAttrParam &attrParam) {
+    DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const MatmulAttrParam &attrParam,
+    const MatmulExtendParam &extendParam = {}) {
     auto &cubeTile = TileShape::Current().GetCubeTile();
     MATMUL_ASSERT(MatmulErrorCode::ERR_RUNTIME_NULLPTR,
                   aMatrix.GetStorage() != nullptr && bMatrix.GetStorage() != nullptr,
@@ -1161,7 +1162,7 @@ static Tensor ConstructGmAccumulationTensorGraph(
         }
         MatmulGraphNodes tensorGraphNodes(
             tensorA.GetStorage(), tensorB.GetStorage(), gmAccumulationTensor.GetStorage());
-        Tensor gmPartialSum = ConstructTensorGraph(outType, tensorGraphNodes, attrParam);
+        Tensor gmPartialSum = ConstructTensorGraph(outType, tensorGraphNodes, attrParam, extendParam);
         gmPartialSums.emplace_back(gmPartialSum);
     }
     if (outType == DT_INT32) {
@@ -1197,7 +1198,7 @@ Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, co
     auto &cubeTile = TileShape::Current().GetCubeTile();
     if (cubeTile.enableSplitK) {
         MATMUL_LOGD("Matmul: Using GM accumulation mode.");
-        return ConstructGmAccumulationTensorGraph(outType, aMatrix, bMatrix, attrParam);
+        return ConstructGmAccumulationTensorGraph(outType, aMatrix, bMatrix, attrParam, param);
     }
     return ConstructTensorGraph(outType, tensorGraphNodes, attrParam, param);
 }
