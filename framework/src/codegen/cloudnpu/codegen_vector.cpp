@@ -1750,4 +1750,14 @@ std::string CodeGenOpCloudNPU::GenLogicalAndOp() const {
 
     return os.str();
 }
+
+std::string CodeGenOpCloudNPU::GenQuantizeOp() const {
+    if (isSupportLayout) {
+        return PrintQuantizeTileTensor();
+    }
+}
+
+std::string CodeGenOpCloudNPU::PrintQuantizeTileTensor() const {
+    // TODO
+}
 } // namespace npu::tile_fwk
