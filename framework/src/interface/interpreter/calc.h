@@ -444,6 +444,33 @@ inline void Sort(LogicalTensorDataPtr value, LogicalTensorDataPtr index, Logical
     GetCalcOps()->Sort(Trans(value), Trans(index), Trans(self), axis, descending);
 }
 
+// quantization
+inline void Quantize(LogicalTensorDataPtr out, LogicalTensorDataPtr input, LogicalTensorDataPtr scale,
+    LogicalTensorDataPtr otype, int64_t axis, LogicalTensorDataPtr zeroPoints) {
+    CalcOps *ops = GetCalcOps();
+    ASSERT(ops != nullptr);
+
+    // Get output data type from otype tensor
+    uint64_t otypeValue = 0;
+    if (otype != nullptr) {
+        otypeValue = static_cast<uint64_t>(Trans(otype).dtype);
+    }
+
+    // Prepare scale data
+    TensorData scaleData = Trans(scale);
+
+    // Handle zeroPoints parameter
+    if (zeroPoints == nullptr) {
+        // Symmetric quantization (no zero_points)
+        TensorData emptyZeroPoints = {nullptr, {}, {}, {}, 0, DataType::DT_FP32, false};
+        ops->Quantize(Trans(out), Trans(input), scaleData, otypeValue, axis, emptyZeroPoints);
+    } else {
+        // Asymmetric quantization (with zero_points)
+        ops->Quantize(Trans(out), Trans(input), scaleData, otypeValue, axis, Trans(zeroPoints));
+    }
+}
+// TODO: Dequantize
+
 // matmul
 inline void FormatNZ2ND(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->FormatNZ2ND(Trans(out), Trans(self));
