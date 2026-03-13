@@ -319,11 +319,11 @@ void CheckL1SizeTiling(DataType outType, const Tensor &inputTensor, const Tensor
     uint32_t indexH = attrParam.isConv3D ? NCDHW_H_IDX : NCHW_H_IDX;
     uint32_t indexW = attrParam.isConv3D ? NCDHW_W_IDX : (attrParam.isConv1D ? NCHW_H_IDX : NCHW_W_IDX);
 
-    int64_t kh = attrParam.isConv1D ? 1 : weightTensor.GetShape()[indexH];
+    uint64_t kh = attrParam.isConv1D ? 1 : weightTensor.GetShape()[indexH];
     uint64_t hin = attrParam.isConv1D ? 1 : inputTensor.GetShape()[indexH];
-    int64_t kw = weightTensor.GetShape()[indexW];
+    uint64_t kw = weightTensor.GetShape()[indexW];
     uint64_t win = inputTensor.GetShape()[indexW];
-    int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
+    uint64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
 
     std::vector<int64_t> strides = attrParam.strides;
     std::vector<int64_t> dilations = attrParam.dilations;
@@ -338,10 +338,10 @@ void CheckL1SizeTiling(DataType outType, const Tensor &inputTensor, const Tensor
     if (!biasTensor.IsEmpty()) {
         biasL1Size = ConvAlignB(tileN * BytesOf(outType), ALIGN_SIZE_32);
     }
-    int64_t tileCinFmap = convTile.tileL1Info.tileCinFmap;
-    int64_t tileCinWeight = convTile.tileL1Info.tileCinWeight;
-    int64_t kAL1 = ConvAlignB(tileCinFmap * kh * kw, k0);
-    int64_t kBL1 = ConvAlignB(tileCinWeight * kh * kw, k0);
+    uint64_t tileCinFmap = convTile.tileL1Info.tileCinFmap;
+    uint64_t tileCinWeight = convTile.tileL1Info.tileCinWeight;
+    uint64_t kAL1 = ConvAlignB(tileCinFmap * kh * kw, k0);
+    uint64_t kBL1 = ConvAlignB(tileCinWeight * kh * kw, k0);
     uint64_t weightL1Size = ConvAlignB(kBL1 * tileN * BytesOf(outType), ALIGN_SIZE_32);
 
     uint64_t inputL1Size = 0;
