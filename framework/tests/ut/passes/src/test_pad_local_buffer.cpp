@@ -1313,3 +1313,41 @@ TEST_F(TestPadLocalBuffer, padDimTest1) {
     EXPECT_EQ(padLocalBufferTest.RunOnFunction(*rootFuncPtr), SUCCESS);
     EXPECT_EQ(graph.GetTensor("t1")->GetRawTensor()->GetRawShape()[0], 16);
 }
+
+
+TEST_F(TestPadLocalBuffer, axiscombineCastCase) {
+    ComputationalGraphBuilder graph;
+    EXPECT_EQ(graph.AddTensor(DataType::DT_BF16, {2, 1}, MemoryType::MEM_DEVICE_DDR, "in1"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_BF16, {2, 1}, MemoryType::MEM_UB, "t2"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"in1"}, {"t2"}, "copyin1", true), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {2, 1}, MemoryType::MEM_UB, "t3"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_CAST, {"t2"}, {"t3"}, "cast1", true), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {2, 1}, MemoryType::MEM_UB, "t4"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_OUT, {"t3"}, {"t4"}, "copyout1", true), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {2, 1}, MemoryType::MEM_UB, "t5"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {2, 1}, MemoryType::MEM_UB, "t6"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"t4"}, {"t5"}, "copyin2", true), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"t4"}, {"t6"}, "copyin3", true), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {2, 16}, MemoryType::MEM_UB, "t7"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {2, 16}, MemoryType::MEM_UB, "t8"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {2, 16}, MemoryType::MEM_UB, "t9"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_ADD, {"t7", "t5"}, {"t8"}, "add1", true), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_EXPANDEXPDIF, {"t7", "t6"}, {"t9"}, "add2", true), true);
+
+    config::SetOperationOption(KEY_COMBINE_AXIS, true);
+    auto *rootFuncPtr = graph.GetFunction();
+    rootFuncPtr->paramConfigs_.combineAxis = true;
+    AxisCombine axisCombineTest;
+    EXPECT_EQ(axisCombineTest.RunOnFunction(*rootFuncPtr), SUCCESS);
+    PadLocalBuffer padLocalBufferTest;
+    EXPECT_EQ(padLocalBufferTest.RunOnFunction(*rootFuncPtr), SUCCESS);
+    int64_t cnt = 0;
+    for (const auto &op : rootFuncPtr->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_BRCB) {
+            ++cnt;
+        }
+    }
+    EXPECT_EQ(cnt, 2);
+    EXPECT_EQ(graph.GetTensor("t2")->GetRawTensor()->GetRawShape(), (std::vector<int64_t>{16, 1}));
+    EXPECT_EQ(graph.GetTensor("t3")->GetRawTensor()->GetRawShape(), (std::vector<int64_t>{8, 1}));
+}

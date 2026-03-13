@@ -134,6 +134,12 @@ bool ConfigScope::HasConfig(const std::string &key) const {
     return values_.find(key) != values_.end() || (parent_ && parent_->HasConfig(key));
 }
 
+void ConfigScope::Clear() {
+    values_.clear();
+    FUNCTION_LOGD("Clear config scope successfully");
+}
+
+
 const std::type_info &ConfigScope::Type(const std::string &key) const {
     return ConfigManagerNg::GetInstance().Type(key);
 }

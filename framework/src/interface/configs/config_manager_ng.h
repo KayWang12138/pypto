@@ -245,9 +245,7 @@ public:
     /**
      * \brief clear the config in Scope
      */
-    void Clear() {
-        values_.clear();
-    }
+    void Clear();
 
     template <typename T>
     T GetConfigAllType(const std::string &key) const {

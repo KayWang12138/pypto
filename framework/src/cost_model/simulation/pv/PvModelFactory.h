@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include "tilefwk/platform.h"
 #include "PvModel.h"
 
 namespace CostModel

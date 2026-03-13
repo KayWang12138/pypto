@@ -287,6 +287,74 @@ TEST_F(DynamicOpsTest, Assemble) {
     EXPECT_NO_VERIFY_FAILED(logOutput);
 }
 
+TEST_F(DynamicOpsTest, IndexOutcastSeveralLoops) {
+    std::string logOutput = CaptureStdoutAndEcho([]() {
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+    // 4D 场景下 TileShape：[tileB, tileS, 1, d]，尾轴 d 不切分
+    TileShape::Current().SetVecTile(256, 128, 1, 64);
+    int b = 16;
+    int s1 = 4;
+    int s2 = 2048;
+    int d = 64;
+    int blockSize = 128;
+    int blockNum = b * s2 / blockSize;
+    Tensor src(DT_FP32, {b, s1, 1, d}, "t0");
+    Tensor index(DT_INT32, {b, s1}, "t1");
+    Tensor dst(DT_FP32, {blockNum, blockSize, 1, d}, "t2");
+    Tensor out(DT_FP32, {blockNum, blockSize, 1, d}, "out");
+
+    // 构造 index: index[i][j] = i * s2 + j * (s2 / s1)
+    std::vector<int32_t> indexData(b * s1);
+    int stride = s2 / s1;
+    for (int i = 0; i < b; ++i) {
+        for (int j = 0; j < s1; ++j) {
+            indexData[i * s1 + j] = i * s2 + j * stride;
+        }
+    }
+
+    // 构造 golden dst
+    std::vector<float> dstGolden(blockNum * blockSize * d, 0.0f);
+    for (int i = 0; i < b; ++i) {
+        for (int j = 0; j < s1; ++j) {
+            int g = indexData[i * s1 + j];
+            int blk = g / blockSize;
+            int off = g % blockSize;
+            for (int k = 0; k < d; ++k) {
+                int64_t pos = ((static_cast<int64_t>(blk) * blockSize + off) * d) + k;
+                dstGolden[static_cast<size_t>(pos)] = 1.0f;
+            }
+        }
+    }
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(src, 1.0f),
+        RawTensorData::CreateTensor<int32_t>(index, indexData),
+        RawTensorData::CreateConstantTensor<float>(dst, 0.0f),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 0.0f),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor(out, dstGolden),
+    });
+
+    // FUNCTION 中执行一次 ScatterUpdate
+    std::string funcName = "IndexOutcastScatterUpdate";
+    FUNCTION(funcName, {src, index, dst}, {out}) {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(2)) {
+            (void)i;
+            std::string cacheMode = "PA_BNSD";
+            auto tmpIndex = View(index, {b / 2, s1}, {i * (b / 2), 0});
+            auto tmpSrc = View(src, {b / 2, s1, 1, d}, {i * (b / 2), 0, 0, 0});
+            out = ScatterUpdate(dst, tmpIndex, tmpSrc, -2, cacheMode, blockSize);
+        }
+    }
+    });
+    EXPECT_NO_VERIFY_FAILED(logOutput);
+}
+
+
 TEST_F(DynamicOpsTest, AssembleFp16) {
     std::string logOutput = CaptureLogFileAndEcho([]() {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
