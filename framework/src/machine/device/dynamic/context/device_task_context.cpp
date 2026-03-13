@@ -194,8 +194,11 @@ int DeviceTaskContext::BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram 
     ReadyCoreFunctionQueue *dieAivQueue[DIE_NUM] = {nullptr};
     ReadyCoreFunctionQueue *dieAicQueue[DIE_NUM] = {nullptr};
     InitDieReadyQueues(dyntask, devProg, dieAivQueue, dieAicQueue);
-
+#ifdef ARCH_3510
     bool isNeedWrap = IsNeedWrapProcess(dyntask, devProg);
+#else
+    const bool isNeedWrap = false;
+#endif 
     uint32_t *wrapTasklistAddr = isNeedWrap ? AllocWrapTasklist(dyntask) : nullptr;
     WrapInfoQueue *wrapQueue = isNeedWrap ? AllocWrapQueue(dyntask) : nullptr;
 
