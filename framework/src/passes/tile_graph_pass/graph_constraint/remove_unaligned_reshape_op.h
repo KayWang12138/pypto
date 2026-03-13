@@ -52,6 +52,10 @@ public:
 private:
     void CollectReshapeOps(Function &function);
     void ReplaceDynUnalignedReshapeOps(Function &function);
+    void ReplaceDynUnalignedReshapeOpsForUB(Function &function, Operation &op);
+    Status ReplaceDynUnalignedReshapeOpsForDDR(Function &function, Operation &op);
+    std::vector<Operation *> FindAllProducerCopyOuts(LogicalTensorPtr tensor);
+    void FindAllConsumerCopyIns(LogicalTensorPtr tensor, std::vector<Operation *> &copyInOps, bool &hasViewOrAssemble);
     bool CheckUnaligned(Operation &op);
     LogicalTensorPtr InsertIOTensor(Function &function, Operation &op, std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>> &rawIO, LogicalTensorPtr &ioTensor);
     std::vector<CopyOutOpMemUnalign> copyOuts;
