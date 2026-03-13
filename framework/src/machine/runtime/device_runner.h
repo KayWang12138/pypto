@@ -60,8 +60,6 @@ class DeviceRunner {
 public:
     static DeviceRunner &Get();
 
-    int Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, uint64_t taskData, int taskType = DEVICE_TASK_TYPE_STATIC);
-    int RunAsync(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, uint64_t taskData, int taskType = DEVICE_TASK_TYPE_STATIC);
     uint64_t GetTasksTime() const;
     int DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId, DeviceKernelArgs *kernelArgs, int blockdim, int launchAicpuNum);
     int DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream);
@@ -97,8 +95,6 @@ private:
     int InitDeviceArgs(DeviceArgs &args);
     int Init();
 
-    int LaunchAiCpu(const rtStream_t aicpuStream, const uint64_t taskId, const uint64_t taskData, int taskType) const;
-    int LaunchAiCore(rtStream_t aicoreStream, int taskType);
     void Dump();
     void AllocDfxMetricMemory();
     /**************DynamicFunction**************/
@@ -140,18 +136,6 @@ namespace npu::tile_fwk {
 class DeviceRunner {
 public:
     static DeviceRunner &Get();
-    int Run(void *stream, int64_t taskId, uint64_t taskData) {
-        (void)stream;
-        (void)taskId;
-        (void)taskData;
-        return 0;
-    }
-    int RunAsync(void *stream, int64_t taskId, uint64_t taskData) {
-        (void)stream;
-        (void)taskId;
-        (void)taskData;
-        return 0;
-    }
     void InitMetaData(DeviceArgs &devArgs);
     bool GetValidGetPgMask() const;
     HostProf &GetHostProfInstance() {

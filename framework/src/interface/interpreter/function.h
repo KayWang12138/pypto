@@ -704,7 +704,11 @@ struct FunctionInterpreter {
         ASSERT(iOpDataList[index] != nullptr);
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             auto opAttr = std::static_pointer_cast<ViewOpAttribute>(op.GetOpAttribute());
-            ASSERT(opAttr != nullptr);
+            if (opAttr == nullptr) {
+                //viewType在Codegenpreproc后会走这个分支
+                oOpDataList.emplace_back(AllocateDataView(frame, oop));
+                return;
+            }
             Offset iopOffsets = iOpDataList[index]->GetOffset();
             Offset viewOffsets = EvaluateOffset(opAttr->GetFromOffset(), opAttr->GetFromDynOffset());
             auto validShape = EvaluateValidShape(oop->GetDynValidShape(), (frame.callopAttr != nullptr) ? frame.callopAttr->GetLinearArgList() : std::vector<SymbolicScalar>{});
