@@ -17,6 +17,7 @@
 #include <string>
 #include <vector>
 #include <unistd.h>
+#include <unordered_map>
 
 namespace npu::tile_fwk {
 namespace test {
@@ -105,22 +106,18 @@ TEST_F(TestExprBatchGenerator, BatchFileGeneration) {
     std::ostringstream exprHeaderOss;
     std::vector<std::string> exprSrcFiles;
     
-    // Create a mock expression set
-    struct MockExpr {
-        int value;
-    };
-    std::vector<MockExpr> expressions;
+    // Create an OrderedSet of RawSymbolicScalarPtr with T_SCALAR_SYMBOLIC_IMMEDIATE expressions
+    SymbolicExpressionTable exprTable;
+    OrderedSet<RawSymbolicScalarPtr> expressions;
     for (int i = 0; i < 1500; ++i) {
-        expressions.push_back({i});
+        // Create T_SCALAR_SYMBOLIC_IMMEDIATE expression
+        RawSymbolicScalarPtr expr = RawSymbolicImmediate::Create(i);
+        expressions.Insert(expr);
     }
-    
-    // Mock buildExpr function
-    auto buildExpr = [](const MockExpr& expr) {
-        return std::to_string(expr.value);
-    };
-    
+    std::unordered_map<std::string, bool> tensorNameToDependCore;
     // Generate batch files
-    generator.GenerateBatchFile(controlFlowOss, exprHeaderOss, "test_exp.h", expressions, exprSrcFiles, 1, 1, buildExpr);
+    generator.GenerateBatchFile(&exprTable, controlFlowOss, exprHeaderOss, "test_exp.h", expressions,
+        exprSrcFiles, 1, 1, tensorNameToDependCore);
     
     // Check if batch files were created
     ASSERT_EQ(exprSrcFiles.size(), 2);
