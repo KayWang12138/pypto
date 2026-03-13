@@ -334,23 +334,27 @@ void CheckL1SizeTiling(DataType outType, const Tensor &inputTensor, const Tensor
     int64_t dilationW = dilations[indexAttrW];
 
     uint64_t biasL1Size = 0;
-    uint64_t nBL1min = NUM16;
+    uint64_t tileN = convTile.tileL1Info.tileN;
     if (!biasTensor.IsEmpty()) {
-        biasL1Size = ConvAlignB(nBL1min * BytesOf(outType), ALIGN_SIZE_32);
+        biasL1Size = ConvAlignB(tileN * BytesOf(outType), ALIGN_SIZE_32);
     }
-    uint64_t kBL1min = k0 * kh * kw;
-    uint64_t weightL1Size = ConvAlignB(kBL1min * nBL1min * BytesOf(outType), ALIGN_SIZE_32);
+    int64_t tileCinFmap = convTile.tileL1Info.tileCinFmap;
+    int64_t tileCinWeight = convTile.tileL1Info.tileCinWeight;
+    int64_t kAL1 = ConvAlignB(tileCinFmap * kh * kw, k0);
+    int64_t kBL1 = ConvAlignB(tileCinWeight * kh * kw, k0);
+    uint64_t weightL1Size = ConvAlignB(kBL1 * tileN * BytesOf(outType), ALIGN_SIZE_32);
+
     uint64_t inputL1Size = 0;
     uint64_t m0 = NUM16;
     uint64_t wo = ConvComputeWo(inputTensor, weightTensor, attrParam);
-    uint64_t hoAL1min = (wo == 0) ? 1 : (wo < m0 ? (m0 + wo - 1) / wo : 1);
+    uint64_t tileWout = convTile.tileL1Info.tileWout;
+    uint64_t tileHout = convTile.tileL1Info.tileHout;
     uint64_t khDilated = (kh - 1) * dilationH + 1;
-    uint64_t hiAL1min = Conv2DInferHiL1(hoAL1min, khDilated, hin, strideH);
-    uint64_t kAL1min = k0;
-    uint64_t woAL1min = m0;
+    uint64_t hiAL1 = std::min((tileHout - 1) * strideH + khDilated, hin);
     uint64_t kwDilated = (kw - 1) * dilationW + 1;
-    uint64_t wiAL1min = Conv2DInferHiL1(woAL1min, kwDilated, win, strideW);
-    inputL1Size = ConvAlignB(hiAL1min * wiAL1min * kAL1min * BytesOf(outType), ALIGN_SIZE_32);
+    uint64_t wiAL1 = std::min((tileWout - 1) * strideW + kwDilated, win);;
+
+    inputL1Size = ConvAlignB(hiAL1 * wiAL1 * kAL1 * BytesOf(outType), ALIGN_SIZE_32);
     uint64_t minL1LoadSize = biasL1Size + inputL1Size + weightL1Size;
     OP_CHECK(true, {
         ASSERT(minL1LoadSize <= l1Size)
