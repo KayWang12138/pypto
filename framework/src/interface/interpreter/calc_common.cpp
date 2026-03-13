@@ -307,11 +307,6 @@ void ExecuteOpReshape(ExecuteOperationContext *ctx) {
     auto &oop = ctx->ooperandInplaceDataViewList->at(0);
     auto &iop = ctx->ioperandDataViewList->at(0);
     auto actualIop = std::make_shared<LogicalTensorData>(iop->GetData());
-    std::cout << "op magic: " << ctx->op->GetOpMagic() << std::endl;
-    std::cout << "iop shape: " << iop->GetShape() << std::endl;
-    std::cout << "oop shape: " << oop->GetShape() << std::endl;
-    std::cout << "iop raw shape: " << iop->GetData()->GetShape() << std::endl;
-    std::cout << "oop size: " << oop->GetSize() << " iop size: " << iop->GetSize() << std::endl;
     if (oop->GetSize() != iop->GetSize()) {
         VERIFY_EVENT("%s", ctx->op->Dump().c_str());
         VERIFY_EVENT("iop validShape: %s ---> oop validShape: %s", IntVecToStr(iop->GetShape()).c_str(), IntVecToStr(oop->GetShape()).c_str());
