@@ -39,6 +39,11 @@ torch.manual_seed(0)
 np.set_printoptions(formatter={'float': '{:.6f}'.format})
 
 
+def check_cond(cond, msg):
+    if not cond:
+        raise ValueError(msg)
+
+
 def check_args(
     query,
     key_cache,
@@ -247,6 +252,11 @@ def softmax(x, is_fp16=False):
 
 
 @pypto.frontend.jit(
+    host_options={
+        "compile_monitor_enable": True,
+        "compile_timeout": 10,
+        "compile_timeout_stage": 5,
+        "compile_monitor_print_interval": 2},
     runtime_options={"stitch_function_max_num": 128},
     # 当子图大小达到上界不允许与其他子图合并
     pass_options={"pg_upper_bound": 1536,
@@ -482,9 +492,13 @@ def IFA(atten_cfg):
                     np.array(out_torch.cpu().flatten().tolist()),
                     rtol=0.0078125, atol=0.0001)
 
+    # 获取编译总耗时
+    import pypto.pypto_impl as pypto_impl
+    total_elapsed = pypto_impl.GetCompilerMonitorTotalElapsed()
+    check_cond(total_elapsed <= 1, f"glm attention fusion compile elapsed timeout {total_elapsed}s > 115s.")
 
-@pytest.mark.soc("950", "910")
-@pytest.mark.skip(reason="large test case")
+
+@pytest.mark.soc("910")
 def test_ifa():
     # 1. 设置参数
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
