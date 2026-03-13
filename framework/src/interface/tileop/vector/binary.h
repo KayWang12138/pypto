@@ -29,7 +29,7 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
             PTO_WITH_LAST_USE(pto::TCOLEXPANDADD(dst, src1, src0), n1, n2, n3);
         } else if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND) {
             PTO_WITH_LAST_USE(pto::TCOLEXPANDADD(dst, src0, src1), n1, n2, n3);
-        } else if constexpr (tailBrcSide != TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::NON) {
+        } else if constexpr (tailBrcSide != TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::NONE) {
             PTO_WITH_LAST_USE(pto::TROWEXPANDADD(dst, src0, src1), n1, n2, n3);
         } else {
             PTO_WITH_LAST_USE(pto::TADD(dst, src0, src1), n1, n2, n3);
@@ -38,43 +38,68 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
     }
 
     if constexpr (op == BinaryOp::SUB) {
-        if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE) {
-            PTO_WITH_LAST_USE(pto::TSUB(dst, src0, src1), n1, n2, n3);
-        } else {
+        if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND) {
+            PTO_WITH_LAST_USE(pto::TCOLEXPANDSUB(dst, src1, src0), n1, n2, n3);
+        } else if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND) {
+            PTO_WITH_LAST_USE(pto::TCOLEXPANDSUB(dst, src0, src1), n1, n2, n3);
+        } else if constexpr (tailBrcSide != TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::NONE) {
             PTO_WITH_LAST_USE(pto::TROWEXPANDSUB(dst, src0, src1), n1, n2, n3);
+        } else {
+            PTO_WITH_LAST_USE(pto::TSUB(dst, src0, src1), n1, n2, n3);
         }
+        return;
     }
 
     if constexpr (op == BinaryOp::MUL) {
-        if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE) {
-            PTO_WITH_LAST_USE(pto::TMUL(dst, src0, src1), n1, n2, n3);
-        } else {
+        if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND) {
+            PTO_WITH_LAST_USE(pto::TCOLEXPANDMUL(dst, src1, src0), n1, n2, n3);
+        } else if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND) {
+            PTO_WITH_LAST_USE(pto::TCOLEXPANDMUL(dst, src0, src1), n1, n2, n3);
+        } else if constexpr (tailBrcSide != TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::NONE) {
             PTO_WITH_LAST_USE(pto::TROWEXPANDMUL(dst, src0, src1), n1, n2, n3);
+        } else {
+            PTO_WITH_LAST_USE(pto::TMUL(dst, src0, src1), n1, n2, n3);
         }
+        return;
     }
 
     if constexpr (op == BinaryOp::DIV) {
-        if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE) {
-            PTO_WITH_LAST_USE(pto::TDIV(dst, src0, src1), n1, n2, n3);
-        } else {
+        if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND) {
+            PTO_WITH_LAST_USE(pto::TCOLEXPANDDIV(dst, src1, src0), n1, n2, n3);
+        } else if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND) {
+            PTO_WITH_LAST_USE(pto::TCOLEXPANDDIV(dst, src0, src1), n1, n2, n3);
+        } else if constexpr (tailBrcSide != TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::NONE) {
             PTO_WITH_LAST_USE(pto::TROWEXPANDDIV(dst, src0, src1), n1, n2, n3);
+        } else {
+            PTO_WITH_LAST_USE(pto::TDIV(dst, src0, src1), n1, n2, n3);
         }
+        return;
     }
 
     if constexpr (op == BinaryOp::MAX) {
-        if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE) {
-            PTO_WITH_LAST_USE(pto::TMAX(dst, src0, src1), n1, n2, n3);
-        } else {
+        if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND) {
+            PTO_WITH_LAST_USE(pto::TCOLEXPANDMAX(dst, src1, src0), n1, n2, n3);
+        } else if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND) {
+            PTO_WITH_LAST_USE(pto::TCOLEXPANDMAX(dst, src0, src1), n1, n2, n3);
+        } else if constexpr (tailBrcSide != TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::NONE) {
             PTO_WITH_LAST_USE(pto::TROWEXPANDMAX(dst, src0, src1), n1, n2, n3);
+        } else {
+            PTO_WITH_LAST_USE(pto::TMAX(dst, src0, src1), n1, n2, n3);
         }
+        return;
     }
 
     if constexpr (op == BinaryOp::MIN) {
-        if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE) {
-            PTO_WITH_LAST_USE(pto::TMIN(dst, src0, src1), n1, n2, n3);
-        } else {
+        if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND) {
+            PTO_WITH_LAST_USE(pto::TCOLEXPANDMIN(dst, src1, src0), n1, n2, n3);
+        } else if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND) {
+            PTO_WITH_LAST_USE(pto::TCOLEXPANDMIN(dst, src0, src1), n1, n2, n3);
+        } else if constexpr (tailBrcSide != TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::NONE) {
             PTO_WITH_LAST_USE(pto::TROWEXPANDMIN(dst, src0, src1), n1, n2, n3);
+        } else {
+            PTO_WITH_LAST_USE(pto::TMIN(dst, src0, src1), n1, n2, n3);
         }
+        return;
     }
 
     if constexpr (op == BinaryOp::BITWISEAND) {
