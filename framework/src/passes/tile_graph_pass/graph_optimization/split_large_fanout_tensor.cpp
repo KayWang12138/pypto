@@ -171,12 +171,12 @@ void SplitLargeFanoutTensor::CreateOpFor1toM(Function &function, LogicalTensorPt
             auto assembleOp = *newTensor->GetProducers().begin();
             APASS_LOG_INFO_F(Elements::Operation, "In one-to-multiple situation, create an AssembleOp[%d], input is a "
                 "overlap[%d], output is a newTensor[%d].", assembleOp->GetOpMagic(), overlap->GetMagic(), newTensor->GetMagic());
-            auto viewOpAttr = dynamic_cast<ViewOpAttribute *>(viewOp->GetOpAttribute().get());
+            auto viewOpAttr = std::dynamic_pointer_cast<ViewOpAttribute>(viewOp->GetOpAttribute());
             Shape newViewOffset = viewOpAttr->GetFromOffset();
             for (size_t j = 0; j < newViewOffset.size(); j++) {
                 newViewOffset[j] -= lcmTileOffset[j];
             }
-            viewOpAttr->SetFromOffset(newViewOffset);
+            viewOpAttr->SetFromOffset(newViewOffset, viewOpAttr->GetFromDynOffset());
             GraphUtils::UpdateViewAttr(function, *viewOp);
             viewOp->ReplaceInput(newTensor, largeTensor);
             APASS_LOG_INFO_F(Elements::Operation, "In one-to-multiple situation, "
@@ -204,12 +204,12 @@ void SplitLargeFanoutTensor::CreateOpForMtoM(Function &function, LogicalTensorPt
             APASS_LOG_INFO_F(Elements::Operation, "ViewOp[%d]'s input has been replaced, don't deal with ViewOp.",
                 viewOp->GetOpMagic());
         } else {
-            auto viewOpAttr = dynamic_cast<ViewOpAttribute *>(viewOp->GetOpAttribute().get());
+            auto viewOpAttr = std::dynamic_pointer_cast<ViewOpAttribute>(viewOp->GetOpAttribute());
             Shape newViewOffset = viewOpAttr->GetFromOffset();
             for (size_t j = 0; j < newViewOffset.size(); j++) {
                 newViewOffset[j] -= lcmTileOffset[j];
             }
-            viewOpAttr->SetFromOffset(newViewOffset);
+            viewOpAttr->SetFromOffset(newViewOffset, viewOpAttr->GetFromDynOffset());
             GraphUtils::UpdateViewAttr(function, *viewOp);
             viewOp->ReplaceInput(newTensor, largeTensor);
             APASS_LOG_INFO_F(Elements::Operation, "In multiple-to-multiple situation, viewOp[%d]'s input[%d] has been "
