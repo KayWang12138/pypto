@@ -66,7 +66,7 @@ def test_conv2d_op():
             pypto.pypto_impl.TileL0Info(
                 tileH=3,
                 tileW=16,
-                tileK=32,
+                tileK=48,
                 tileN=64
             )
         )
@@ -127,7 +127,7 @@ def test_conv2d_bias_op():
             pypto.pypto_impl.TileL0Info(
                 tileH=2,
                 tileW=64,
-                tileK=32,
+                tileK=48,
                 tileN=32
             )
         )
