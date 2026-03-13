@@ -1755,4 +1755,69 @@ std::string CodeGenOpCloudNPU::GenLogicalAndOp() const {
 
     return os.str();
 }
+
+std::string CodeGenOpCloudNPU::GenQuantizeOp() const {
+    if (isSupportLayout) {
+        return PrintQuantizeTileTensor();
+    }
+    ASSERT(false) << "Quantize only support TileTensor mode";
+    return "";
+}
+
+std::string CodeGenOpCloudNPU::PrintQuantizeTileTensor() const
+{
+    // Get tensor names
+    // For QUANTIZE_SYM: dst(ID0), src(ID1), scale(ID2)
+    // For QUANTIZE_ASYM: dst(ID0), src(ID1), scale(ID2), offset(ID3)
+    std::string dstTensor = QueryTileTensorNameByIdx(ID0);
+    std::string srcTensor = QueryTileTensorNameByIdx(ID1);
+    std::string scaleTensor = QueryTileTensorNameByIdx(ID2);
+
+    // Get axis attribute, default is -1
+    int64_t axis = -1;
+    if (opAttrs.count(OP_ATTR_PREFIX + "axis")) {
+        axis = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
+    }
+
+    // Convert axis to 5D representation
+    // axis = -1 means last axis (dim 4 in 5D)
+    // axis = -2 means second to last axis (dim 3 in 5D)
+    int axisIn5D = static_cast<int>(SHAPE_DIM5 + axis);
+
+    // Determine quantization type based on opcode
+    std::string quantType;
+    if (opCode == Opcode::OP_QUANTIZE_SYM) {
+        quantType = "pto::QuantType::INT8_SYM";
+    } else {
+        quantType = "pto::QuantType::INT8_ASYM";
+    }
+
+    std::ostringstream oss;
+    std::vector<std::string> templateParamList;
+    templateParamList.emplace_back(quantType);
+    templateParamList.emplace_back(std::to_string(axisIn5D));
+
+    std::string lastUse = GetLastUse();
+    if (!lastUse.empty()) {
+        templateParamList.emplace_back(lastUse);
+    }
+
+    std::vector<std::string> paramList;
+    paramList.emplace_back(dstTensor);
+    paramList.emplace_back(srcTensor);
+    paramList.emplace_back(scaleTensor);
+
+    // For asymmetric quantization, add offset tensor
+    if (opCode == Opcode::OP_QUANTIZE_ASYM) {
+        std::string offsetTensor = QueryTileTensorNameByIdx(ID3);
+        paramList.emplace_back(offsetTensor);
+    }
+
+    oss << tileOpName;
+    oss << WrapParamByAngleBrackets(templateParamList);
+    oss << WrapParamByParentheses(paramList);
+    oss << STMT_END;
+
+    return oss.str();
+}
 } // namespace npu::tile_fwk
