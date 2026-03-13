@@ -146,7 +146,7 @@ def convert_to_perfetto_format(input_json: List[Dict]) -> List[Dict]:
         for task in adjusted_tasks:
             task_name = task.get("name", "UNKNOWN")
             end_time = task.get("end", 0)
-            if task_name.startswith("BEGIN"):
+            if prev_end is None:
                 start_time = end_time - 1
             else:
                 start_time = prev_end
@@ -539,6 +539,89 @@ def analyze_aicore(aicore_exec_rows: List[Dict[str, Any]]) -> None:
     print_table(["Compute Units", "End-to-End time", "Total run time (max)"], [["AICore", e2e_time, total_runtime_max]])
 
 
+def build_round_combined_rows(aicpu_dev_pref: List[Dict[str, Any]], round_id: Optional[int]) -> List[List[str]]:
+    rows: List[List[str]] = []
+
+    # CTRL AICPU row
+    ctrl = next((x for x in aicpu_dev_pref if str(x.get("coreType")) == "AICPU-CTRL"), None)
+    if ctrl is not None:
+        tasks = ctrl.get("tasks", [])
+        freq = float(ctrl.get("freq", 0)) or 1.0
+        block_idx = int(ctrl.get("blockIdx", 0))
+        build_dur = get_task_duration(tasks, "BEGIN", "DEV_TASK_BUILD", None, 0, round_id)
+        ctrl_post_dur = get_task_duration(tasks, "DEV_TASK_BUILD", "EXIT", 0, None, round_id)
+        ctrl_total_dur = get_task_duration(tasks, "BEGIN", "EXIT", None, None, round_id)
+        rows.append(
+            [
+                f"AICPU-CTRL-{block_idx}",
+                format_us(build_dur, freq),
+                "-",
+                "-",
+                "-",
+                "-",
+                format_us(ctrl_post_dur, freq),
+                "-",
+                format_us(ctrl_total_dur, freq),
+            ]
+        )
+
+    # SCHED AICPU rows
+    scheds = [x for x in aicpu_dev_pref if str(x.get("coreType")) == "AICPU-SCHED"]
+    for s in sorted(scheds, key=lambda x: int(x.get("blockIdx", 0))):
+        block_idx = int(s.get("blockIdx", -1))
+        tasks = s.get("tasks", [])
+        freq = float(s.get("freq", 0)) or 1.0
+        alloc_dur = get_task_duration(tasks, "BEGIN", "ALLOC_THREAD_ID", None, None, round_id)
+        init_dur = get_task_duration(tasks, "ALLOC_THREAD_ID", "INIT", None, None, round_id)
+        handshake_dur = get_task_duration(tasks, "INIT", "CORE_HAND_SHAKE", None, None, round_id)
+        dev_task_rcv = get_task_duration(tasks, "CORE_HAND_SHAKE", "DEV_TASK_RCV", None, 0, round_id)
+        post_dur = get_task_duration(tasks, "DEV_TASK_SCHED_EXEC", "WAIT_CORE_EXIT", 0, None, round_id)
+        sched_total_dur = get_task_duration(tasks, "BEGIN", "WAIT_CORE_EXIT", None, None, round_id)
+        rows.append(
+            [
+                f"AICPU-SCHED-{block_idx}",
+                "-",
+                format_us(alloc_dur, freq),
+                format_us(init_dur, freq),
+                format_us(handshake_dur, freq),
+                format_us(dev_task_rcv, freq),
+                format_us(post_dur, freq),
+                "-",
+                format_us(sched_total_dur, freq),
+            ]
+        )
+
+    # AICore summary row
+    aicore_exec_rows = collect_aicore_exec_rows(aicpu_dev_pref, round_id)
+    if aicore_exec_rows:
+        all_wait_first: List[float] = []
+        all_exec_done: List[float] = []
+        begin_to_exit_values: List[float] = []
+        ref_freq = float(aicore_exec_rows[0].get("freq", 1.0)) or 1.0
+        for row in aicore_exec_rows:
+            wait_first = row.get("wait_first")
+            all_exec = row.get("all_exec")
+            begin_to_exit = row.get("begin_to_exit")
+            if wait_first is not None and all_exec is not None and all_exec > wait_first:
+                all_wait_first.append(wait_first)
+                all_exec_done.append(all_exec)
+            if begin_to_exit is not None and begin_to_exit > 0:
+                begin_to_exit_values.append(begin_to_exit)
+
+        e2e_time = "-"
+        total_runtime_max = "-"
+        if all_wait_first and all_exec_done:
+            e2e_cycles = max(all_exec_done) - min(all_wait_first)
+            e2e_time = f"{to_us(e2e_cycles, ref_freq):.2f}"
+        if begin_to_exit_values:
+            total_runtime_max = f"{to_us(max(begin_to_exit_values), ref_freq):.2f}"
+        rows.append(["AICore", "-", "-", "-", "-", "-", "-", e2e_time, total_runtime_max])
+    else:
+        rows.append(["AICore", "-", "-", "-", "-", "-", "-", "-", "-"])
+
+    return rows
+
+
 def analyze_output_command(output_dir_arg: Optional[str]) -> None:
     if not is_print_device_perf_enabled():
         return
@@ -571,10 +654,20 @@ def analyze_output_command(output_dir_arg: Optional[str]) -> None:
         display_round = 1 if round_id is None else (round_id + 1)
         round_name = f"round{display_round}"
         print_section(round_name)
-        analyze_ctrl_aicpu(aicpu_dev_pref, round_id)
-        analyze_sched_aicpu(aicpu_dev_pref, round_id)
-        aicore_exec_rows = collect_aicore_exec_rows(aicpu_dev_pref, round_id)
-        analyze_aicore(aicore_exec_rows)
+        print_table(
+            [
+                "Compute Units",
+                "DEV_TASK_BUILD(us)",
+                "ALLOC_THREAD_ID(us)",
+                "INIT(us)",
+                "CORE_HAND_SHAKE(us)",
+                "DEV_TASK_RCV(us)",
+                "Post-process(us)",
+                "End-to-End time",
+                "Total run time",
+            ],
+            build_round_combined_rows(aicpu_dev_pref, round_id),
+        )
     print()
 
 
