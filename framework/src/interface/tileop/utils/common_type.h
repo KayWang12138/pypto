@@ -16,19 +16,41 @@
 #ifndef TILEOP_UTILS_COMMON_TYPE_H
 #define TILEOP_UTILS_COMMON_TYPE_H
 
-enum class Hardware : uint8_t { GM = 0, UB, L1, L0A, L0B, L0C, BIAS, FIXBUF, MAX };
+enum class Hardware : uint8_t { GM = 0, UB, L1, L0A, L0B, L0C, BIAS, FIXBUF, MAX, L0A_MX, L0B_MX };
 
-enum class UnaryOp : uint8_t { ABS = 0, EXP, NEG, REC, RSQRT, SQRT, BRCB, CEIL, FLOOR, TRUNC, ROUND, RECIPROCAL, BITWISENOT, RELU };
+enum class UnaryOp : uint8_t {
+    ABS = 0,
+    EXP,
+    EXP2,
+    EXPM1,
+    NEG,
+    REC,
+    RSQRT,
+    SQRT,
+    BRCB,
+    CEIL,
+    FLOOR,
+    TRUNC,
+    ROUND,
+    RECIPROCAL,
+    BITWISENOT,
+    RELU,
+    LN,
+    PAD,
+    SIGN,
+    ISFINITE,
+    SIGNBIT
+};
 
-enum class BinaryOp : uint8_t { ADD = 0, SUB, MUL, DIV, AND, OR, MAX, MIN, SUM, AMAX, MOD, BITWISEAND, BITWISEOR, BITWISEXOR };
+enum class BinaryOp : uint8_t { ADD = 0, SUB, MUL, DIV, AND, OR, MAX, MIN, SUM, AMAX, MOD, REM, POW, BITWISEAND, BITWISEOR, BITWISEXOR, EXPANDEXPDIF, HYPOT };
 
 enum class BroadcastOperand : uint8_t { NONE = 0, LEFT, RIGHT };
 
-enum class PairBinaryOp : uint8_t { ADD = 0, MAX, MIN };
+enum class PairBinaryOp : uint8_t { ADD = 0, MAX, MIN, MUL };
 
-enum class ReduceOp : uint8_t { SUM = 0, MAX, MIN};
+enum class ReduceOp : uint8_t { SUM = 0, MAX, MIN, PROD};
 
-enum class BinaryScalarOp : uint8_t { ADD = 0, SUB, MUL, DIV, MAX, MIN, MOD, BITWISEAND, BITWISEOR, BITWISEXOR };
+enum class BinaryScalarOp : uint8_t { ADD = 0, SUB, MUL, DIV, MAX, MIN, MOD, REM, BITWISEAND, BITWISEOR, BITWISEXOR, LRELU};
 
 enum class BitwiseShiftOp : uint8_t { BITWISERIGHTSHIFT = 0, BITWISELEFTSHIFT };
 #endif // TILEOP_UTILS_COMMON_TYPE_H

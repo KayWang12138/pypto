@@ -106,35 +106,6 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
         auto inputTile2 = input2.tensor->View(function, input2.tileInfo.shape, input2.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         auto opName = GetBinaryOpName<T>();
-        if (opName == "MOD") {
-            std::vector<int64_t> tmpShape;
-            auto tileShapeSize = input1.tileInfo.shape.size();
-            if (tileShapeSize >= 2) {
-                tmpShape = {
-                    std::max(input1.tileInfo.shape[tileShapeSize - 2], input2.tileInfo.shape[tileShapeSize - 2]),
-                    std::max(input1.tileInfo.shape[tileShapeSize - 1], input2.tileInfo.shape[tileShapeSize - 1])};
-            } else {
-                tmpShape = {
-                    std::max(input1.tileInfo.shape[tileShapeSize - 1], input2.tileInfo.shape[tileShapeSize - 1])};
-            }
-            auto alignSize = BLOCK_SIZE / BytesOf(input1.tensor->Datatype());
-            tmpShape[tmpShape.size() - 1] = (tmpShape[tmpShape.size() - 1] + alignSize - 1) / alignSize * alignSize;
-            int64_t tmpSize = 1;
-            for (int64_t num : tmpShape) {
-                tmpSize *= num;
-            }
-            size_t totalBytes = 0;
-            if (input2.tensor->Datatype() == DataType::DT_FP32) {
-                totalBytes = BytesOf(DataType::DT_FP32) * tmpSize * 2;
-            } else {
-                totalBytes = BytesOf(DataType::DT_FP32) * tmpSize * 4;
-            }
-            std::vector<int64_t> tmpTensorShape({static_cast<int64_t>(totalBytes)});
-            auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_UINT8, tmpTensorShape);
-            function.AddOperation(
-                GetBinaryOpNameCode<T, false, false>(), {inputTile1, inputTile2}, {resultTile, tmpTensor});
-            return;
-        }
         if (withBrc) {
             std::vector<int64_t> tmpShape(input1.tileInfo.shape);
             auto alignSize = BLOCK_SIZE / BytesOf(input2.tensor->Datatype());
@@ -147,7 +118,7 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
             function.AddOperation(
                 GetBinaryOpNameCode<T, false, true>(), {inputTile1, inputTile2}, {resultTile, tempTensor});
         } else {
-            if (opName == "BITWISEXOR" || opName == "COPYSIGN") {
+            if (opName == "BITWISEXOR" || opName == "COPYSIGN" || opName == "POW") {
                 std::vector<int64_t> tmpShape(resultTileInfo.shape);
                 auto alignSize = BLOCK_SIZE / BytesOf(result->Datatype());
                 tmpShape[resultTileInfo.shape.size() - 1] = 
@@ -200,6 +171,103 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, Logica
     TiledBinaryOperation<T>(function, tileShape, 0, input1, input2, result, resultTileInfo, withBrc);
 }
 
+void TiledPReLUOperation(
+    Function &function, const TileShape &tileShape, size_t cur, Input &input, Input &weight, const LogicalTensorPtr &result) {
+    if (cur == input.tensor.GetShape().size()) {
+        auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        auto weightTile = weight.tensor.GetStorage()->View(function, weight.tileInfo.shape, weight.tileInfo.offset);
+        auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        int axis = 5 - cur + 1;
+        constexpr size_t ALIGN_SIZE = 32;
+        constexpr size_t SIZEOFBYTE = 8;
+        int64_t tmpSize = ALIGN_SIZE;
+        if (axis == 4) {
+            tmpSize = (input.tileInfo.shape[cur - 1] + SIZEOFBYTE - 1) / SIZEOFBYTE;
+            tmpSize = (tmpSize + ALIGN_SIZE - 1) / ALIGN_SIZE * ALIGN_SIZE + ALIGN_SIZE;
+        }
+        std::vector<int64_t> tmpShape({tmpSize});
+        auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_UINT8, tmpShape);
+        auto &op = function.AddOperation(Opcode::OP_PRELU, {tile, weightTile}, {resultTile, tmpTensor});
+        op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+        return;
+    }
+    auto &vecTile = tileShape.GetVecTile();
+    
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
+        input.tileInfo.offset[cur] = i;
+        if (cur == 1) {
+            weight.tileInfo.shape[0] = std::min(weight.tensor.GetShape()[0] - i, vecTile[cur]);
+            weight.tileInfo.offset[0] = i;
+        }
+        TiledPReLUOperation(function, tileShape, cur + 1, input, weight, result);
+    }
+}
+
+void TiledPReLUOperation(
+    Function &function, const TileShape &tileShape, const LogicalTensorPtr &input, const LogicalTensorPtr &weight, const LogicalTensorPtr &result) {
+    ASSERT(input->shape.size() == input->offset.size()) << "The shape size of input and offset must be equal";
+    ASSERT(weight->shape.size() == weight->offset.size()) << "The shape size of weight and offset must be equal";
+
+    TileInfo inputTileInfo(input->shape.size(), input->offset.size());
+    TileInfo weightTileInfo(weight->shape.size(), weight->offset.size());
+    auto inputArg = Input{input, inputTileInfo};
+    auto weightArg = Input{weight, weightTileInfo};
+    TiledPReLUOperation(function, tileShape, 0, inputArg, weightArg, result);
+}
+
+void PReLUOperationOperandCheck(
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand) {
+    ASSERT(iOperand.size() == 2) << "The input operand size should be 2";
+    ASSERT(oOperand.size() == 1) << "The output operand size should be 1";
+    
+    auto input = iOperand[0];
+    auto weight = iOperand[1];
+    
+    ASSERT(input->Datatype() == weight->Datatype()) 
+        << "The input and weight should have the same data type";
+    
+    ASSERT(input->shape.size() >= 2 && input->shape.size() <= 4) 
+        << "The input shape dimension should be in range [2, 4]";
+    
+    ASSERT(weight->shape.size() == 1) 
+        << "The weight should be 1-dimensional";
+    
+    ASSERT(weight->shape[0] == input->shape[1]) 
+        << "The weight size should equal to input's second dimension";
+    
+    int64_t inputSize = 1;
+    for (size_t i = 0; i < input->shape.size(); ++i) {
+        inputSize *= input->shape[i];
+    }
+    ASSERT(inputSize <= INT32_MAX) << "The input shape size should not exceed INT32_MAX";
+    
+    int64_t weightSize = weight->shape[0];
+    ASSERT(weightSize <= INT32_MAX) << "The weight shape size should not exceed INT32_MAX";
+}
+
+void PReLUOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    [[maybe_unused]] const Operation &op) {
+    PReLUOperationOperandCheck(iOperand, oOperand);
+    TiledPReLUOperation(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
+}
+
+LogicalTensorPtr TensorPReLUOperation(Function &function, const Tensor &self, const Tensor &weight) {
+    auto selfTensor = self.GetStorage();
+    auto weightTensor = weight.GetStorage();
+    
+    auto result = std::make_shared<LogicalTensor>(function, selfTensor->Datatype(), selfTensor->shape, selfTensor->GetDynValidShape());
+    function.AddOperation(Opcode::OP_PRELU, {selfTensor, weightTensor}, {result});
+    return result;
+}
+
+Tensor PReLU(const Tensor &self, const Tensor &weight) {
+    DECLARE_TRACER();
+
+    RETURN_CALL(PReLUOperation, *Program::GetInstance().GetCurrentFunction(), self, weight);
+}
+
 Tensor Add(const Tensor &self, const Tensor &other) {
     DECLARE_TRACER();
     RETURN_CALL(BinaryOperation<BinaryOpType::ADD>, *Program::GetInstance().GetCurrentFunction(), self, other);
@@ -226,6 +294,11 @@ Tensor Div(const Tensor &self, const Tensor &other) {
 Tensor Fmod(const Tensor &self, const Tensor &other) {
     DECLARE_TRACER();
     RETURN_CALL(BinaryOperation<BinaryOpType::MOD>, *Program::GetInstance().GetCurrentFunction(), self, other);
+}
+
+Tensor Remainder(const Tensor &self, const Tensor &other) {
+    DECLARE_TRACER();
+    RETURN_CALL(BinaryOperation<BinaryOpType::REM>, *Program::GetInstance().GetCurrentFunction(), self, other);
 }
 
 Tensor Maximum(const Tensor &operand1, const Tensor &operand2) {
@@ -257,52 +330,47 @@ Tensor BitwiseXor(const Tensor &self, const Tensor &other) {
     RETURN_CALL(BinaryOperation<BinaryOpType::BITWISEXOR>, *Program::GetInstance().GetCurrentFunction(), self, other);
 }
 
+Tensor Gcd(const Tensor &self, const Tensor &other) {
+    DECLARE_TRACER();
+    auto shapeSize = self.GetShape().size();
+    auto dataType = self.GetDataType();
+    ASSERT(dataType == other.GetDataType()) << "Inputs must have the same dataType.";
+    ASSERT(SHAPE_DIM1 <= shapeSize && shapeSize <= SHAPE_DIM5) << "This operation's input only support 1-5 dims";
+    std::unordered_set<DataType> GCD_SUPPORT_DATATYPES = {DataType::DT_INT32, DataType::DT_INT16, DataType::DT_INT8, DataType::DT_UINT8};
+    ASSERT(GCD_SUPPORT_DATATYPES.count(dataType))<< "This datatype is not supported";
+    RETURN_CALL(BinaryOperation<BinaryOpType::GCD>, *Program::GetInstance().GetCurrentFunction(), self, other);
+}
+
+Tensor Gcd(const Tensor &self, const Element &other) {
+    DECLARE_TRACER();
+    auto shapeSize = self.GetShape().size();
+    auto dataType = self.GetDataType();
+    ASSERT(SHAPE_DIM1 <= shapeSize && shapeSize <= SHAPE_DIM5) << "This operation's input only support 1-5 dims";
+    std::unordered_set<DataType> GCD_SUPPORT_DATATYPES = {DataType::DT_INT32, DataType::DT_INT16, DataType::DT_INT8, DataType::DT_UINT8};
+    ASSERT(GCD_SUPPORT_DATATYPES.count(dataType))<< "This datatype is not supported";
+    RETURN_CALL(BinaryOperationScalar<BinaryOpType::GCD>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), other);
+}
+
 template <BinaryOpType T>
 void TiledBinaryOperationScalar(Function &function, const TileShape &tileShape, size_t cur, LogicalInput &input1,
     Element &value, const LogicalTensorPtr &result, TileInfo &resultTileInfo, bool reverseOperand) {
+    auto opNameCode = GetBinaryOpNameCode<T, true>();
     if (cur == input1.tensor->GetShape().size()) {
         auto inputTile1 = input1.tensor->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
-        auto opName = GetBinaryOpName<T>();
-        if (opName == "MOD") {
-            std::vector<int64_t> tmpShape;
-            if (input1.tileInfo.shape.size() >= 2) {
-                tmpShape.assign(input1.tileInfo.shape.end() - 2, input1.tileInfo.shape.end());
-            } else {
-                tmpShape = input1.tileInfo.shape;
-            }
-            auto alignSize = BLOCK_SIZE / BytesOf(input1.tensor->Datatype());
-            tmpShape[tmpShape.size() - 1] = (tmpShape[tmpShape.size() - 1] + alignSize -1) / alignSize * alignSize;
-            int64_t tmpSize = 1;
-            for (int64_t num : tmpShape) {
-                tmpSize *= num;
-            }
-            size_t totalBytes = 0;
-            if (input1.tensor->Datatype() == DataType::DT_FP32) {
-                totalBytes = BytesOf(DataType::DT_FP32) * tmpSize * 2;
-            } else {
-                totalBytes = BytesOf(DataType::DT_FP32) * tmpSize * 4;
-            }
-            std::vector<int64_t> tmpTensorShape({static_cast<int64_t>(totalBytes)});
-            auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_UINT8, tmpTensorShape);
-
-            auto &op = function.AddOperation(GetBinaryOpNameCode<T, true>(), {inputTile1}, {resultTile, tmpTensor});
-            op.SetAttribute(OpAttributeKey::scalar, value);
-            op.SetAttribute(OP_ATTR_PREFIX + "reverseOperand", reverseOperand);
-            return;
-        } else if (GetBinaryOpNameCode<T, true, false>() == Opcode::OP_BITWISEXORS) {
+        if (opNameCode == Opcode::OP_BITWISEXORS || opNameCode == Opcode::OP_REMRS) {
             std::vector<int64_t> tmpShape(resultTileInfo.shape);
             auto alignSize = BLOCK_SIZE / BytesOf(input1.tensor->Datatype());
             tmpShape[resultTileInfo.shape.size() - 1] = AlignUp(tmpShape[resultTileInfo.shape.size() - 1], alignSize);
             auto tempTensor = std::make_shared<LogicalTensor>(function, input1.tensor->Datatype(), tmpShape);
             auto &tmpOp = function.AddOperation(
-                GetBinaryOpNameCode<T, true, false>(), {inputTile1}, {resultTile, tempTensor});
+                opNameCode, {inputTile1}, {resultTile, tempTensor});
             tmpOp.SetAttribute(OpAttributeKey::scalar, value);
             tmpOp.SetAttribute(OP_ATTR_PREFIX + "reverseOperand", reverseOperand);
             return;
         }
         // 确认接口
-        auto &op = function.AddOperation(GetBinaryOpNameCode<T, true>(), {inputTile1}, {resultTile});
+        auto &op = function.AddOperation(opNameCode, {inputTile1}, {resultTile});
         op.SetAttribute(OpAttributeKey::scalar, value);
         op.SetAttribute(OP_ATTR_PREFIX + "reverseOperand", reverseOperand);
         return;
@@ -358,6 +426,37 @@ Tensor Fmod(const Tensor &self, const Element &other) {
     RETURN_CALL(BinaryOperationScalar<BinaryOpType::MOD>, *Program::GetInstance().GetCurrentFunction(),
         self.GetStorage(), other);
 }
+
+Tensor Remainder(const Tensor &self, const Element &other) {
+    DECLARE_TRACER();
+    auto selfDtype = self.GetDataType();
+    Tensor castSelf = self;
+    Element other_ = other;
+    if ((selfDtype == DT_INT16 || selfDtype == DT_INT32) && other.GetDataType() == DT_FP32) {
+        castSelf = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            self.GetStorage(), DT_FP32, CastMode::CAST_NONE);
+    } else {
+        other_ = Element(selfDtype, other.Cast<float>());
+    }
+    RETURN_CALL(BinaryOperationScalar<BinaryOpType::REM>, *Program::GetInstance().GetCurrentFunction(),
+        castSelf.GetStorage(), other_);
+}
+
+Tensor Remainder(const Element &self, const Tensor &other) {
+    DECLARE_TRACER();
+    auto otherDtype = other.GetDataType();
+    Tensor castOther = other;
+    Element self_ = self;
+    if ((otherDtype == DT_INT16 || otherDtype == DT_INT32) && self.GetDataType() == DT_FP32) {
+        castOther = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            other.GetStorage(), DT_FP32, CastMode::CAST_NONE);
+    } else {
+        self_ = Element(otherDtype, self.Cast<float>());
+    }
+    RETURN_CALL(BinaryOperationAllScalar<BinaryOpType::REMR>, *Program::GetInstance().GetCurrentFunction(),
+        castOther.GetStorage(), self_, true);
+}
+
 Tensor BitwiseAnd(const Tensor &self, const Element &other) {
     DECLARE_TRACER();
     RETURN_CALL(BinaryOperationScalar<BinaryOpType::BITWISEAND>, *Program::GetInstance().GetCurrentFunction(),
@@ -398,6 +497,42 @@ Tensor Minimum(const Tensor &operand1, const Element &operand2) {
         << "The datatype is not supported";
     RETURN_CALL(BinaryOperationScalar<BinaryOpType::MIN>, *Program::GetInstance().GetCurrentFunction(),
         operand1.GetStorage(), operand2);
+}
+
+Tensor LReLU(const Tensor &self, const Element &other) {
+    DECLARE_TRACER();
+    RETURN_CALL(BinaryOperationScalar<BinaryOpType::LRELU>, *Program::GetInstance().GetCurrentFunction(),
+        self.GetStorage(), other);
+}
+
+Tensor CeilDiv(const Tensor &self, const Tensor &other) {
+    std::vector<DataType> CEILDIV_SUPPORT_TYPES = {DataType::DT_INT32};
+    ASSERT(
+        self.GetDataType() == other.GetDataType() && 
+        std::find(CEILDIV_SUPPORT_TYPES.begin(), CEILDIV_SUPPORT_TYPES.end(), self.GetDataType()) != CEILDIV_SUPPORT_TYPES.end())
+        << "CeilDiv only supports same data type for self and other! And it should be in DT_INT32.";
+
+    Tensor selfFp32 = Cast(self, DataType::DT_FP32);
+    Tensor otherFp32 = Cast(other, DataType::DT_FP32);
+    Tensor resultFp32 = Div(selfFp32, otherFp32);
+    resultFp32 = Ceil(resultFp32);
+    Tensor result = Cast(resultFp32, DT_INT32);
+    return result;
+}
+
+Tensor CeilDiv(const Tensor &self, const Element &other) {
+    std::vector<DataType> CEILDIV_SUPPORT_TYPES = {DataType::DT_INT32};
+    ASSERT(
+        self.GetDataType() == other.GetDataType() && 
+        std::find(CEILDIV_SUPPORT_TYPES.begin(), CEILDIV_SUPPORT_TYPES.end(), self.GetDataType()) != CEILDIV_SUPPORT_TYPES.end())
+        << "CeilDiv only supports same data type for self and other! And it should be in DT_INT32.";
+
+    Tensor selfFp32 = Cast(self, DataType::DT_FP32);
+    Element otherFp32(DT_FP32, other.Cast<float>());
+    Tensor resultFp32 = Div(selfFp32, otherFp32);
+    resultFp32 = Ceil(resultFp32);
+    Tensor result = Cast(resultFp32, DT_INT32);
+    return result;
 }
 
 template <BinaryOpType T>
@@ -557,7 +692,19 @@ Tensor ScalarMax(const Tensor &operand1, const Tensor &operand2) {
 Tensor CopySign(const Tensor &self, const Tensor &other) {
     DECLARE_TRACER();
 
-    RETURN_CALL(BinaryOperation<BinaryOpType::COPYSIGN>, *Program::GetInstance().GetCurrentFunction(), self, other);
+    DataType selfDType = self.GetDataType();
+    DataType otherDType = other.GetDataType();
+    Tensor castSelf = self;
+    Tensor castOther = other;
+    if (selfDType == DT_INT16 || selfDType == DT_INT32) {
+        castSelf = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            self.GetStorage(), DataType::DT_FP32, CastMode::CAST_NONE);
+    }
+    if (otherDType == DT_INT16 || otherDType == DT_INT32) {
+        castOther = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            other.GetStorage(), DataType::DT_FP32, CastMode::CAST_NONE);
+    }
+    RETURN_CALL(BinaryOperation<BinaryOpType::COPYSIGN>, *Program::GetInstance().GetCurrentFunction(), castSelf, castOther);
 }
 
 // OP_ADD OP_SUB OP_MUL OP_DIV OP_MAX OP_BITWISEAND OP_BITWISEOR OP_BITWISEXOR
@@ -576,6 +723,14 @@ void BinaryOperationScalarTileFunc(Function &function, const TileShape &tileShap
     [[maybe_unused]] const Operation &op) {
     TiledBinaryOperationScalar<T>(
         function, tileShape, iOperand[0], op.GetElementAttribute(OpAttributeKey::scalar), oOperand[0]);
+}
+
+template <BinaryOpType T>
+void BinaryOperationScalarResTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    [[maybe_unused]] const Operation &op) {
+    TiledBinaryOperationScalar<T>(function, tileShape, iOperand[0], op.GetElementAttribute(OpAttributeKey::scalar),
+        oOperand[0], op.GetBoolAttribute(OP_ATTR_PREFIX + "reverseOperand"));
 }
 
 // OP_S_ADDS OP_S_SUBS OP_S_MULS OP_S_DIVS OP_S_MAXS
@@ -604,10 +759,13 @@ REGISTER_OPERATION_TILED_FUNC(OP_MAXIMUM, Opcode::OP_MAXIMUM, BinaryOperationTil
 REGISTER_OPERATION_TILED_FUNC(OP_MINIMUM, Opcode::OP_MINIMUM, BinaryOperationTileFunc<BinaryOpType::MINIMUM>);
 REGISTER_OPERATION_TILED_FUNC(OP_POW, Opcode::OP_POW, BinaryOperationTileFunc<BinaryOpType::POW>);
 REGISTER_OPERATION_TILED_FUNC(OP_MOD, Opcode::OP_MOD, BinaryOperationTileFunc<BinaryOpType::MOD>);
+REGISTER_OPERATION_TILED_FUNC(OP_REM, Opcode::OP_REM, BinaryOperationTileFunc<BinaryOpType::REM>);
 REGISTER_OPERATION_TILED_FUNC(OP_BITWISEAND, Opcode::OP_BITWISEAND, BinaryOperationTileFunc<BinaryOpType::BITWISEAND>);
 REGISTER_OPERATION_TILED_FUNC(OP_BITWISEOR, Opcode::OP_BITWISEOR, BinaryOperationTileFunc<BinaryOpType::BITWISEOR>);
 REGISTER_OPERATION_TILED_FUNC(OP_BITWISEXOR, Opcode::OP_BITWISEXOR, BinaryOperationTileFunc<BinaryOpType::BITWISEXOR>);
 REGISTER_OPERATION_TILED_FUNC(OP_COPYSIGN, Opcode::OP_COPYSIGN, BinaryOperationTileFunc<BinaryOpType::COPYSIGN>);
+REGISTER_OPERATION_TILED_FUNC(OP_GCD, Opcode::OP_GCD, BinaryOperationTileFunc<BinaryOpType::GCD>);
+REGISTER_OPERATION_TILED_FUNC(OP_PRELU, Opcode::OP_PRELU, PReLUOperationTileFunc);
 
 REGISTER_OPERATION_TILED_FUNC(OP_ADDS, Opcode::OP_ADDS, BinaryOperationScalarTileFunc<BinaryOpType::ADD>);
 REGISTER_OPERATION_TILED_FUNC(OP_SUBS, Opcode::OP_SUBS, BinaryOperationScalarTileFunc<BinaryOpType::SUB>);
@@ -615,10 +773,14 @@ REGISTER_OPERATION_TILED_FUNC(OP_MULS, Opcode::OP_MULS, BinaryOperationScalarTil
 REGISTER_OPERATION_TILED_FUNC(OP_DIVS, Opcode::OP_DIVS, BinaryOperationScalarTileFunc<BinaryOpType::DIV>);
 REGISTER_OPERATION_TILED_FUNC(OP_MAXS, Opcode::OP_MAXS, BinaryOperationScalarTileFunc<BinaryOpType::MAX>);
 REGISTER_OPERATION_TILED_FUNC(OP_MINS, Opcode::OP_MINS, BinaryOperationScalarTileFunc<BinaryOpType::MIN>);
+REGISTER_OPERATION_TILED_FUNC(OP_LRELU, Opcode::OP_LRELU, BinaryOperationScalarTileFunc<BinaryOpType::LRELU>);
 REGISTER_OPERATION_TILED_FUNC(OP_MODS, Opcode::OP_MODS, BinaryOperationScalarTileFunc<BinaryOpType::MOD>);
 REGISTER_OPERATION_TILED_FUNC(OP_BITWISEANDS, Opcode::OP_BITWISEANDS, BinaryOperationScalarTileFunc<BinaryOpType::BITWISEAND>);
 REGISTER_OPERATION_TILED_FUNC(OP_BITWISEORS, Opcode::OP_BITWISEORS, BinaryOperationScalarTileFunc<BinaryOpType::BITWISEOR>);
 REGISTER_OPERATION_TILED_FUNC(OP_BITWISEXORS, Opcode::OP_BITWISEXORS, BinaryOperationScalarTileFunc<BinaryOpType::BITWISEXOR>);
+REGISTER_OPERATION_TILED_FUNC(OP_GCDS, Opcode::OP_GCDS, BinaryOperationScalarTileFunc<BinaryOpType::GCD>);
+REGISTER_OPERATION_TILED_FUNC(OP_REMS, Opcode::OP_REMS, BinaryOperationScalarTileFunc<BinaryOpType::REM>);
+REGISTER_OPERATION_TILED_FUNC(OP_REMRS, Opcode::OP_REMRS, BinaryOperationScalarResTileFunc<BinaryOpType::REMR>);
 
 REGISTER_OPERATION_TILED_FUNC(OP_S_ADDS, Opcode::OP_S_ADDS, BinaryOperationAllScalarResTileFunc<BinaryOpType::S_ADD>);
 REGISTER_OPERATION_TILED_FUNC(OP_S_SUBS, Opcode::OP_S_SUBS, BinaryOperationAllScalarResTileFunc<BinaryOpType::S_SUB>);

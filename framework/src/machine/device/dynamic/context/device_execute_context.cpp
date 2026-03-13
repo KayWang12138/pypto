@@ -14,7 +14,7 @@
  */
 
 #include "machine/device/dynamic/context/device_execute_context.h"
-#include "tileop/distributed/hccl_context.h"
+#include "tileop/distributed/comm_context.h"
 
 #include <cinttypes>
 
@@ -95,7 +95,7 @@ int DeviceExecuteContext::RunInit(DevStartArgs *startArgs, PushTaskEntry tPushTa
 
     workspace.Init(startArgs);
     if (devProg->stitchFunctionNumInitial > 0) {
-        stitchTaskLoopNumThreshold = std::min<uint16_t>(devProg->stitchFunctionNumInitial, MAX_CACHED_FUNC_NUM);
+        stitchTaskLoopNumThreshold = std::min<uint16_t>(devProg->stitchFunctionNumInitial, devProg->stitchMaxFunctionNum);
         DEV_INFO("First stitch task loop num threshold is %u.", stitchTaskLoopNumThreshold);
     }
 
@@ -177,8 +177,8 @@ void DeviceExecuteContext::GELaunchRunCached(DevStartArgs *startArgs, PushTaskEn
 
         PROF_STAGE_BEGIN(PERF_EVT_STAGE_PUSH_TASK, "push.before\n");
         DumpDeviceTask(taskId, dynTask);
-        PushTask(dynTask);
         PerfMtTrace(PERF_TRACE_DEV_TASK_BUILD, CTRL_CPU_THREAD_IDX);
+        PushTask(dynTask);
         PROF_STAGE_END(PERF_EVT_STAGE_PUSH_TASK, "push.after\n");
     }
     PerfEnd(PERF_EVT_CONTROL_FLOW);
@@ -292,6 +292,8 @@ void DeviceExecuteContext::DumpDeviceTask(uint64_t taskId, DynDeviceTask *device
         for (size_t i = 0; i < outcastSize; ++i) {
             DEV_TRACE_DEBUG(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), RActOutcast(i, dupped->SchemaGetOutcastRange(i))));
         }
+        DEV_TRACE_DEBUG(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), RActExpressionCount(dupped->GetExpressionSize())));
+        DEV_TRACE_DEBUG_SPLIT(REvent(RUid(taskId, dupIdx, dupped->GetSource()->GetRootIndex()), expr(dupped->SchemaGetExpressionList())));
     }
 }
 
@@ -347,7 +349,12 @@ int DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool 
         DEV_ERROR("Build device task data failed.");
         return DEVICE_MACHINE_ERROR;
     }
-    dynTask->SetLastTask(isLastTask);
+
+    if (!devProg->ctrlFlowCacheAnchor->IsRecording() ||
+        (devProg->ctrlFlowCacheAnchor->IsRecording() && devProg->ctrlFlowCacheAnchor->IsCacheOriginShape())) {
+        dynTask->SetLastTask(isLastTask);
+    }
+
     PROF_STAGE_END(PERF_EVT_STAGE_BUILD_TASK, "BuildDeviceTaskData.after\n");
 
     PROF_STAGE_BEGIN(PERF_EVT_DEALLOCATE_WORKSPACE, "RecycleTensorWorkspace.before\n");
@@ -363,9 +370,9 @@ int DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool 
 
     PROF_STAGE_BEGIN(PERF_EVT_STAGE_PUSH_TASK, "push.before\n");
     DumpDeviceTask(taskId, dynTask);
+    PerfMtTrace(PERF_TRACE_DEV_TASK_BUILD, CTRL_CPU_THREAD_IDX);
     PushTask(dynTask);
     PROF_STAGE_END(PERF_EVT_STAGE_PUSH_TASK, "push.after\n");
-    PerfMtTrace(PERF_TRACE_DEV_TASK_BUILD, CTRL_CPU_THREAD_IDX);
     return ret;
 }
 
@@ -403,7 +410,7 @@ void *DeviceExecuteContext::CallRootFunctionAlloc(uint64_t rootKey) {
             return RUNTIME_FUNCKEY_ERROR;
         }
         auto nextThreshold =
-            std::min<uint16_t>(stitchTaskLoopNumThreshold + devProg->stitchFunctionNumStep, MAX_CACHED_FUNC_NUM);
+            std::min<uint16_t>(stitchTaskLoopNumThreshold + devProg->stitchFunctionNumStep, devProg->stitchMaxFunctionNum);
         stitchTaskLoopNumThreshold = nextThreshold;
     }
     DEV_TRACE_DEBUG(REvent(GetRuid(rootKey), RActDup(devRoot->GetRawName())));
@@ -545,9 +552,6 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallRootStitch(void *ctx_, uint6
 void *DeviceExecuteContext::DeviceExecuteRuntimeCallLog(void *ctx_, uint64_t value) {
     (void)ctx_;
     DEV_DEBUG("DeviceExecuteRuntimeCallLog -> Value: %lu", value);
-#if DEBUG_PLOG
-    (void)value;
-#endif
     return nullptr;
 }
 
@@ -556,7 +560,7 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, u
     uint64_t memType = (reinterpret_cast<uint64_t*>(value))[1];
     uint64_t size = (reinterpret_cast<uint64_t*>(value))[2];
     constexpr uint64_t memTypeCount = 2;
-    constexpr uint64_t OFFSET_BITS = 58UL;
+    constexpr uint64_t OFFSET_BITS = 54UL;
     constexpr uint64_t GROUP_BITS = 2UL;
     constexpr uint64_t MEMTYPE_BITS = 2UL;
     constexpr uint64_t GROUP_SHIFT = OFFSET_BITS;
@@ -564,10 +568,13 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, u
     constexpr uint64_t FILL_SHIFT = MEMTYPE_SHIFT + MEMTYPE_BITS;
     DEV_ASSERT(memType < memTypeCount);
     DeviceExecuteContext* ctx = (DeviceExecuteContext*)ctx_;
-    auto hcclOpParam = reinterpret_cast<TileOp::HcclCombinOpParam*>(ctx->args->hcclContextAddr[groupIndex]);
-    uint64_t winSize = memType == 0 ? hcclOpParam->winSize : hcclOpParam->winExpSize;
-    if (ctx->shmemAddrOffset[memType] + size > winSize) {
+    DEV_ASSERT(groupIndex < ctx->args->commGroupNum);
+    auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(ctx->args->commContexts[groupIndex]);
+    uint64_t winSize = memType == 0 ? hcclOpParam->winDataSize : hcclOpParam->winStatusSize;
+    uint64_t shmemAddrEndOffset = ctx->shmemAddrOffset[memType] + size;
+    if (shmemAddrEndOffset > winSize) {
         ctx->shmemAddrOffset[memType] = 0UL;
+        DEV_ERROR("Exceeds winSize limit. Maximum allowed: %lu, got: %lu", winSize, shmemAddrEndOffset);
     }
     uint64_t vaddr = ctx->shmemAddrOffset[memType] | (groupIndex << GROUP_SHIFT) | (memType << MEMTYPE_SHIFT) | (1UL << FILL_SHIFT);
     ctx->shmemAddrOffset[memType] += size;

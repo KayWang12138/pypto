@@ -26,6 +26,9 @@ void SetCopyAttr::ProcessSpecialMTEOperation(Operation &op) const {
     if ((inputTensor == nullptr) || (outputTensor == nullptr)) {
         return;
     }
+    if (op.GetOpcode() == Opcode::OP_INDEX_PUT) {
+        outputTensor = inputTensor;
+    }
     /* transpose datamove 输入和输出的shape不相同 */
     op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MemoryType::MEM_UB,
         OpImmediate::Specified(outputTensor->GetTensorOffset()), OpImmediate::Specified(outputTensor->GetShape()),
@@ -56,10 +59,12 @@ void SetCopyAttr::ProcessMoveInOperation(Operation &op) const {
             }
         }
     }
-    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(offset),
+    if (op.GetOpcode() != Opcode::OP_L1_COPY_IN_A_SCALE && op.GetOpcode() != Opcode::OP_L1_COPY_IN_B_SCALE) {
+        op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(offset),
         MemoryType::MEM_UB, OpImmediate::Specified(inputTensor->GetShape()),
         OpImmediate::Specified(inputTensor->tensor->GetDynRawShape()),
         OpImmediate::Specified(inputTensor->GetDynValidShape())));
+    }
     op.iOperand[0]->isSubGraphBoundary = true;
 }
 } // namespace npu::tile_fwk

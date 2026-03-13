@@ -30,7 +30,11 @@
 
 ```bash
 # 配置 CANN 环境变量
-source /usr/local/Ascend/ascend-toolkit/latest/bin/setenv.bash
+# 安装完成后请配置环境变量，请用户根据set_env.sh的实际路径执行如下命令。
+# 上述环境变量配置只在当前窗口生效，用户可以按需将以上命令写入环境变量配置文件（如.bashrc文件）。
+
+# 默认路径安装，以root用户为例（非root用户，将/usr/local替换为${HOME}）
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
 
 # 设置 NPU 设备 ID（运行 NPU 样例时必需）
 export TILE_FWK_DEVICE_ID=0
@@ -47,7 +51,7 @@ export TILE_FWK_DEVICE_ID=0
 python3 examples/01_beginner/basic/basic_ops.py
 
 # 运行特定的样例
-python3 examples/01_beginner/basic/basic_ops.py view_operations::test_view_operations
+python3 examples/01_beginner/basic/basic_ops.py matmul::test_matmul
 
 # 列出脚本中所有可用的样例
 python3 examples/01_beginner/basic/basic_ops.py --list
@@ -62,17 +66,21 @@ python3 examples/01_beginner/basic/basic_ops.py --run_mode sim
 1. **第一阶段：夯实基础**
    - [Hello World](00_hello_world/hello_world.py)
    - [01_beginner/basic](01_beginner/basic/README.md)
+   - [01_beginner/tiling](01_beginner/tiling/README.md)
    - [01_beginner/compute](01_beginner/compute/README.md)
+   - [01_beginner/transform](01_beginner/transform/README.md)
 
 2. **第二阶段：进阶组件**
-   - [02_intermediate/nn/layer_normalization](02_intermediate/basic_nn/layer_normalization/README.md)
-   - [02_intermediate/operators/softmax](02_intermediate/operators/softmax/README.md)
-   - [02_intermediate/nn/ffn](02_intermediate/basic_nn/ffn/README.md)
+   - [02_intermediate/operators](02_intermediate/operators/README.md)
+   - [02_intermediate/basic_nn](02_intermediate/basic_nn/README.md)
+   - [02_intermediate/controlflow](02_intermediate/controlflow/README.md)
+
 
 3. **第三阶段：深度实践**
-   - [03_advanced/nn/attention](03_advanced/advanced_nn/attention/README.md)
-   - [models/deepseek_v32_exp](../models/deepseek_v32_exp/README.md)
-   - [models/glm_v4_5](../models/glm_v4_5/README.md)
+   - [03_advanced/advanced_nn](03_advanced/advanced_nn/README.md)
+   - [03_advanced/patterns](03_advanced/patterns/README.md)
+   - [../models/deepseek_v32_exp](../models/deepseek_v32_exp/README.md)
+   - [../models/glm_v4_5](../models/glm_v4_5/README.md)
 
 ---
 

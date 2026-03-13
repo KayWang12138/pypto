@@ -32,7 +32,6 @@
 #include "opcode.h"
 #include "attribute.h"
 #include "attr_holder.h"
-#include "interface/utils/log.h"
 #include "interface/utils/source_location.h"
 #include "interface/tensor/logical_tensor.h"
 #include "operation_common.h"
@@ -93,6 +92,8 @@ public:
     static const std::string lastUse;
     static const std::string isUpper;
     static const std::string blockSize;
+    static const std::string transMode;
+    static const std::string workspaceBaseOffset;
 };
 
 
@@ -374,7 +375,9 @@ public:
             Opcode::OP_SHMEM_SET,
             Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND,
             Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
-            Opcode::OP_GATHER_IN_UB, Opcode::OP_COPY_TO_LOCAL_EXPERT};
+            Opcode::OP_GATHER_IN_UB, Opcode::OP_COPY_TO_LOCAL_EXPERT,
+            Opcode::OP_L1_COPY_IN_A_SCALE, Opcode::OP_L1_COPY_IN_B_SCALE, Opcode::OP_L1_TO_L0A_SCALE,
+            Opcode::OP_L1_TO_L0B_SCALE, Opcode::OP_L1_COPY_IN_CONV, Opcode::OP_L0C_COPY_OUT_CONV};
         if (copyOpAttrOpTypes.count(opcode_) > 0) {
             ASSERT(std::dynamic_pointer_cast<CopyOpAttribute>(opAttribute_) != nullptr);
             return;
@@ -445,13 +448,13 @@ public:
     void UpdateRemainingTime(int remainingTime) { remainingTime_ = remainingTime; }
 
     int GetSubgraphID() const { return subgraphID_; }
-    int GetInternalSubgraphID() const { 
+    int GetInternalSubgraphID() const {
         return mixSubgraphFields_ ? mixSubgraphFields_->internalSubgraphID : NOT_IN_SUBGRAPH;
     }
     void UpdateSubgraphID(int subgraphID) { subgraphID_ = subgraphID; }
-    void UpdateInternalSubgraphID(int internalSubgraphID) { 
+    void UpdateInternalSubgraphID(int internalSubgraphID) {
         ensureMixSubgraphFields();
-        mixSubgraphFields_->internalSubgraphID = internalSubgraphID; 
+        mixSubgraphFields_->internalSubgraphID = internalSubgraphID;
     }
 
     auto GroupID() const { return groupID_; }
@@ -468,10 +471,10 @@ public:
     void SetAsNotDeleted() { isDeleted_ = false; }
     [[nodiscard]] bool IsDeleted() const { return isDeleted_; }
 
-    [[nodiscard]] AIVCore GetAIVCore() const { 
+    [[nodiscard]] AIVCore GetAIVCore() const {
         return mixSubgraphFields_ ? mixSubgraphFields_->aivCore : AIVCore::UNSPECIFIED;
     }
-    void SetAIVCore(AIVCore aivCore) { 
+    void SetAIVCore(AIVCore aivCore) {
         ensureMixSubgraphFields();
         mixSubgraphFields_->aivCore = aivCore; }
 

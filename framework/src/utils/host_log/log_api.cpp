@@ -13,50 +13,57 @@
  * \brief
  */
 
-#include <map>
 #include <cstdarg>
+#include <array>
 
-#include "tilefwk/tilefwk_log.h"
+#include "tilefwk/pypto_fwk_log.h"
 #include "host_log/log_manager.h"
 #include "host_log/dlog_handler.h"
+#include "host_log/log_module_manager.h"
 
 namespace npu::tile_fwk {
-namespace {
-const std::map<int32_t, LogLevel> LOG_LEVEL_MAP = {
-    {DLOG_DEBUG, LogLevel::DEBUG},
-    {DLOG_INFO, LogLevel::INFO},
-    {DLOG_WARN, LogLevel::WARN},
-    {DLOG_ERROR, LogLevel::ERROR},
-    {DLOG_EVENT, LogLevel::EVENT}
-};
-LogLevel GetLogLevel(const int32_t logLevel) {
-    auto iter = LOG_LEVEL_MAP.find(logLevel);
-    return iter == LOG_LEVEL_MAP.end() ? LogLevel::ERROR : iter->second;
-}
-}
-
-int32_t TilefwkCheckLogLevel(int32_t moduleId, int32_t logLevel) {
+int32_t TilefwkCheckLogLevel(int32_t moduleId, int32_t logLevel, LogModule logModule) {
     (void)moduleId;
-    return LogManager::Instance().CheckLevel(GetLogLevel(logLevel)) ? 1 : 0;
+    int32_t moduleLevel = LogModuleManager::Instance().GetModuleLogLevel(logModule);
+    if (moduleLevel >= 0) {
+        return logLevel >= moduleLevel ? 1 : 0;
+    }
+    return LogManager::Instance().CheckLevel(static_cast<LogLevel>(logLevel)) ? 1 : 0;
 }
 
 void TilefwkLogRecord(int32_t moduleId, int32_t logLevel, const char *fmt, ...) {
     (void)moduleId;
     va_list list;
     va_start(list, fmt);
-    LogManager::Instance().Record(GetLogLevel(logLevel), fmt, list);
+    LogManager::Instance().Record(static_cast<LogLevel>(logLevel), fmt, list);
     va_end(list);
 }
 
-#ifndef __DEVICE__
-TilefwkLogFuncInfo::TilefwkLogFuncInfo() {
-    checkLevel = TilefwkCheckLogLevel;
-    record = TilefwkLogRecord;
+void TilefwkSetLogAttr(bool isDevice) {
+    if (isDevice) {
+        LogManager::Instance().EnableDeviceLog();
+    } else {
+        LogManager::Instance().EnableHostLog();
+    }
 }
 
-TilefwkLogFuncInfo::~TilefwkLogFuncInfo() {
+#ifndef __DEVICE__
+LogFuncInfo &LogFuncInfo::Instance() {
+    static LogFuncInfo instance;
+    return instance;
+}
+LogFuncInfo::LogFuncInfo() {
+    checkLevel = TilefwkCheckLogLevel;
+    record = TilefwkLogRecord;
+    pyptoRecord = TilefwkLogRecord;
+    setAttr = TilefwkSetLogAttr;
+}
+
+LogFuncInfo::~LogFuncInfo() {
     checkLevel = nullptr;
-    record= nullptr;
+    record = nullptr;
+    pyptoRecord = nullptr;
+    setAttr = nullptr;
 }
 #endif
 }

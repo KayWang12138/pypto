@@ -10,15 +10,16 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
-import os
-import math
-import logging
 from dataclasses import dataclass
+import os
+import logging
+import math
+import pytest
 import torch
 import torch_npu
 import numpy as np
-import pytest
 import pypto
+from utils.compare import compare
 
 
 @dataclass
@@ -39,7 +40,7 @@ class LightningIndexerConfigs:
     }
     # tile params
     s1_tile = 2
-    topk_tile = 16384
+    topk_tile = 8192
     # set the tileshape size in cube computation
     c1_tile = [64, 64, 128, 128, 128, 128] # (m, M), (k, K), (n, N)
     c2_tile = [128, 128, 64, 64, 128, 128] # (m, M), (k, K), (n, N)
@@ -68,7 +69,6 @@ def gen_cache_tensor(k_tensor, block_table, block_num, block_size, b):
     for b_idx in range(b):  # 遍历batch维度
         for block_idx, cache_block_idx in enumerate(block_table[b_idx]):  # 遍历块映射表
             block_offset = block_idx * block_size  # 计算当前块在序列中的起始位置
-
             # 如果cache_block_idx有效（非-1），则执行数据拷贝
             if cache_block_idx != -1:
                 # 将数据从k_tensor_bsh复制到k_cache的指定块位置
@@ -229,7 +229,7 @@ def lightning_indexer_compute(input_data_map, params):
             # cur_k形状为(tail_seq, d)
             cur_k = key[cur_block_idx * block_size: (cur_block_idx * block_size + tail_seq), :]
             # 使用随路量化计算，qk_dot形状为(s1 * n1, tail_seq)
-            qk_dot = torch.matmul(cur_q.to(torch.int32),
+            qk_dot = torch.matmul(cur_q.to(torch.int32), 
                                   cur_k.transpose(1, 0).to(torch.int32)).to(torch.float32).relu()
             qk_dot = qk_dot * avoid_fp32_to_fp16_overflow_scale
             qk_dot = qk_dot.to(torch.float16)
@@ -274,7 +274,7 @@ def topk_idx_compare(t: torch.Tensor, t_ref: torch.Tensor, name, atol, error_cou
     err_msg = None
 
     # 按元素遍历比较
-    for idx, (exp, act) in enumerate(zip(t.flatten().tolist(), t_ref.flatten().tolist())):
+    for idx, (act, exp) in enumerate(zip(t.flatten().tolist(), t_ref.flatten().tolist())):
         # 按误差阈值分组（每组包含error_count_threshold个元素）
         part_index = idx // error_count_threshold
         # 记录不匹配的索引
@@ -305,11 +305,10 @@ def topk_idx_compare(t: torch.Tensor, t_ref: torch.Tensor, name, atol, error_cou
             if topk_id not in act_list:
                 error_count += 1
 
-        # 判断是否超出阈值
         if error_count > int(error_count_threshold * atol):
             precision = "FAIL"
             err_msg = f"compare fail: {name}, error_count: {error_count}, \
-                        error_count_threshold: {error_count_threshold}"
+                        error_count_threshold: {int(error_count_threshold * atol)}"
             break
     assert precision == "PASS", err_msg
 
@@ -329,7 +328,7 @@ def lightning_indexer(case_name: str) -> bool:
     # 根据测试用例名称配置参数
     if case_name == "LightningIndexerSTest.lightning_indexer_quant_4_b_2_s1_64k_s2":
         b, s1 = 4, 2  # batch size和query序列长度
-        act_seq = [64 * 1024] * b  # 每个样本的实际序列长度
+        act_seq = [64 * 1024, 971, 32 * 1024 + 101, 16 * 1024 - 1] # 每个样本的实际序列长度
     else:
         logging.error("Fail to gen golden for Case(%s)", case_name)
         return False
@@ -356,62 +355,34 @@ def lightning_indexer(case_name: str) -> bool:
         "selected_count": selected_count
     }
 
-    # 生成量化输入数据
     input_data_map = gen_data_for_compute(params, is_quant=True)
 
-    # 数据转换到NPU设备
     idx_query_npu = input_data_map["query"].reshape(b * s1, n1, d).npu()
-    idx_query_pto = pypto.from_torch(idx_query_npu, dynamic_axis=[0], name="idx_query")
-
     idx_query_scale_npu = input_data_map["q_scale"].reshape(b * s1, n1).npu()
-    idx_query_scale_pto = pypto.from_torch(idx_query_scale_npu, dynamic_axis=[0], name="idx_query_scale")
-
     idx_key_cache_npu = input_data_map["key"].npu()
-    idx_key_cache_pto = pypto.from_torch(idx_key_cache_npu, dynamic_axis=[0], name="idx_key_cache")
-
     idx_key_scale_npu = input_data_map["k_scale"].reshape(block_num, block_size, 1).npu()
-    idx_key_scale_pto = pypto.from_torch(idx_key_scale_npu, dynamic_axis=[0], name="idx_key_scale")
-
     idx_weight_npu = input_data_map["weights"].reshape(b * s1, n1).npu()
-    idx_weight_pto = pypto.from_torch(idx_weight_npu, dynamic_axis=[0], name="idx_weight")
-
     act_seq_key_npu = input_data_map["act_seq"].npu()
-    act_seq_key_pto = pypto.from_torch(act_seq_key_npu, dynamic_axis=[0], name="act_seq_key")
-
     block_table_npu = input_data_map["block_table"].npu()
-    block_table_pto = pypto.from_torch(block_table_npu, dynamic_axis=[0, 1], name="block_table")
 
-    # 初始化输出张量
-    topk_res = torch.zeros([b * s1, 1, selected_count], dtype=torch.int32)
-    topk_res_npu = topk_res.npu()
-    topk_res_pto = pypto.from_torch(topk_res_npu, dynamic_axis=[0], name="topk_res_pto")
+    topk_res_out = torch.zeros([b * s1, 1, selected_count], dtype=torch.int32)
+    topk_res_npu = topk_res_out.npu()
 
-    # 配置展开参数
     unroll_list = [128, 64, 32, 16, 8, 4, 1]
-
-    # 配置计算参数
     configs = LightningIndexerConfigs()
 
-    # 执行核心计算
-    lightning_indexer_decode(idx_query_pto, idx_query_scale_pto, idx_key_cache_pto, idx_key_scale_pto, idx_weight_pto,
-                             act_seq_key_pto, block_table_pto, topk_res_pto, unroll_list, configs, selected_count)
+    lightning_indexer_decode(idx_query_npu, idx_query_scale_npu, idx_key_cache_npu, idx_key_scale_npu,
+                         idx_weight_npu, act_seq_key_npu, block_table_npu, topk_res_npu,
+                         unroll_list, configs, selected_count)
 
-    # 设备同步
     torch_npu.npu.synchronize()
 
-    # 生成参考结果
     topk_res_golden = lightning_indexer_compute(input_data_map, params)
-
-    # 重塑张量以匹配计算结果
-    topk_res_golden = topk_res_golden.reshape(b * s1, 1, selected_count)
-
-    # 执行结果比较
     topk_idx_compare(topk_res_npu.cpu(), topk_res_golden.cpu(), "topk_res", 5e-3, selected_count)
 
     return True
 
 
-@pytest.mark.skip(reason="large test case")
 def test_lightning_indexer_topk_quant_4_b_2_s1_64k_s2():
     lightning_indexer("LightningIndexerSTest.lightning_indexer_quant_4_b_2_s1_64k_s2")
 

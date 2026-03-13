@@ -23,6 +23,9 @@
 #include "interface/program/program.h"
 #include "interface/utils/op_info_manager.h"
 #include "machine/host/perf_analysis.h"
+#include "tilefwk/pypto_fwk_log.h"
+#include "interface/compiler_monitor/monitor_manager.h"
+#include "interface/compiler_monitor/monitor_stage_scope.h"
 
 extern "C" {
 using RunPassFunc = int (*)(npu::tile_fwk::Program &, npu::tile_fwk::Function &, const std::string &);
@@ -63,7 +66,6 @@ private:
         runPass = (RunPassFunc)GetSymbol(progHandle, "RunPass");
         getResumePath = (GetResumePathFunc)GetSymbol(progHandle, "GetResumePath");
         execute = (ExecuteFunc)GetSymbol(compilerHandle, "Execute");
-        platform = (PlatformFunc)GetSymbol(compilerHandle, "GetPlatformInfo");
         matchCache = (MatchCacheFunc)GetSymbol(compilerHandle, "MatchCache");
         simuExecute = (ExecuteFunc)GetSymbol(simuHandle, "ExecuteSimulation");
 
@@ -108,18 +110,13 @@ HostMachine& HostMachine::GetInstance() {
 /* 支持模式转换 */
 bool HostMachine::Init(const HostMachineMode mode) {
     if (initialized_.load() && mode == mode_) {
-        ALOG_DEBUG("HostMachine is already initialized.");
+        MACHINE_LOGD("HostMachine is already initialized.");
         return true;
     }
     if (mode_ == HostMachineMode::SERVER && mode == HostMachineMode::API) {
         DestroyThread();
     }
     mode_ = mode;
-
-    if (mode == HostMachineMode::SERVER) {
-        InitThread();
-    }
-
     initialized_.store(true);
     HOST_PERF_TRACE_START();
     return true;
@@ -135,10 +132,13 @@ void HostMachine::Destroy() {
     PerfAnalysis::Get().Dump(true, fileName);
     PerfAnalysis::Get().Dump(false);
 #endif
-    ALOG_DEBUG("HostMachine is destroying...");
+    MACHINE_LOGD("HostMachine is destroying...");
 }
 
 void HostMachine::InitThread() {
+    if (!compileThreads_.empty()) {
+        return;
+    }
     stopFlag_.store(false);
     for (int idx = 0; idx < compileThreadCount_; ++idx) {
         compileThreads_.emplace_back(&HostMachine::CompileThreadFunc, this);
@@ -175,7 +175,7 @@ void HostMachine::DestroyThread() {
 void HostMachine::CompileFunction(Function* func) const {
     auto &backend = Backend::GetBackend();
     if (!func->HasCallOperation() && backend.runPass) {
-        ALOG_INFO_F("RunPass function %s", func->GetMagicName().c_str());
+        MACHINE_LOGI("RunPass function %s", func->GetMagicName().c_str());
         ASSERT(backend.runPass(Program::GetInstance(), *func, config::GetPassStrategy())) << "Run pass failed.";
     }
     if (func->IsFunctionType(FunctionType::DYNAMIC) || func->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
@@ -191,15 +191,27 @@ void HostMachine::CompileFunction(Function* func) const {
 void HostMachine::SubTask(Function *function) {
     if (mode_ == HostMachineMode::API) {
         if (curTask != nullptr) {
-            ALOG_WARN("CurTask is already running.");
+            MACHINE_LOGW("CurTask is already running.");
         }
         MACHINE_ASSERT(curTask == nullptr);
         curTask = new MachineTask(curTaskId_++, function);
+        int function_done_idx = MonitorManager::Instance().GetAndIncrementNextFunctionIndex();
+        curTask->SetFunctionIndex(function_done_idx);
+        MonitorManager::Instance().SetCurrentFunctionIndex(curTask->GetFunctionIndex());
         return;
+    } else if (mode_ == HostMachineMode::SERVER) {
+        InitThread();
     }
 
     std::lock_guard<std::mutex> lock(compileQueueMutex_);
     auto task = std::make_unique<MachineTask>(curTaskId_++, function);
+    int function_done_idx = MonitorManager::Instance().GetAndIncrementNextFunctionIndex();
+    COMPILER_LOGI("Stashed function idx:%d begin compile, function name: %s .", function_done_idx,
+        function->GetMagicName().c_str());
+    MonitorManager::Instance().SetCurrentFunctionName(function->GetMagicName());
+    
+    task->SetFunctionIndex(function_done_idx);
+    MonitorManager::Instance().SetCurrentFunctionIndex(task->GetFunctionIndex());
     compileQueue_.Push(std::move(task));
     compileQueueCv_.notify_one(); // 通知编译线程
 }
@@ -208,7 +220,7 @@ void HostMachine::WaitTaskFinish() {
     while (curTaskId_ != finishQueue_.Size()) {
         usleep(1000); // sleep 1000 us
     } // wait all task finish
-    ALOG_DEBUG_F("Finish all host machine task count: %lu.", curTaskId_.load());
+    MACHINE_LOGD("Finish all host machine task count: %lu.", curTaskId_.load());
 
     /* reset counter */
     curTaskId_ = 0;
@@ -232,10 +244,18 @@ void HostMachine::StashTask(Function* function) {
         config::Duplicate(),
         ConfigManager::Instance().GetInternalConfig(),
         ConfigManager::Instance().GetJsonData()));
+    MonitorManager::Instance().SetTotalFunctionCount(static_cast<int>(stashedFuncQueue_.Size()));
+    COMPILER_LOGI("Stashed function queue size:%lu, push function: %s .", stashedFuncQueue_.Size(),
+        function->GetMagicName().c_str());
 }
 
 void HostMachine::SubAllStashedTask() {
     std::lock_guard<std::mutex> lock(stashQueueMutex_);
+    const size_t totalStashed = stashedFuncQueue_.Size();
+    if (totalStashed > 0) {
+        MonitorManager::Instance().SetTotalFunctionCount(static_cast<int>(totalStashed));
+        COMPILER_LOGI("Compiler monitor set function total count: %d.", static_cast<int>(totalStashed));
+    }
     while (!stashedFuncQueue_.Empty()) {
         auto funcData = stashedFuncQueue_.Pop();
         config::Restore(std::get<static_cast<size_t>(StashType::ProgramConfig)>(funcData));
@@ -270,9 +290,9 @@ MachineTask *HostMachine::Compile(MachineTask *task) const {
     MachineTask *compileTask = task;
     if (compileTask == nullptr) {
         if (curTask == nullptr) {   
-            ALOG_WARN("Compile task is null.");
+            MACHINE_LOGW("Compile task is null.");
+            return nullptr;
         }
-        MACHINE_ASSERT(curTask != nullptr);
         compileTask = curTask;
     }
     std::string jsonPath;
@@ -326,6 +346,7 @@ void HostMachine::CompileThreadFunc() {
         lock.unlock();
 
         try {
+            MonitorStageScope passScope("Pass");
             (void)Compile(task.get());
         } catch (const Error &e) {
             task->SetError(e.what());
@@ -338,6 +359,7 @@ void HostMachine::CompileThreadFunc() {
 }
 
 void HostMachine::PushFinishQueue(std::unique_ptr<MachineTask> task) {
+    COMPILER_LOGI("Stashed function idx:%d finish compile. \n", task->GetFunctionIndex());
     finishQueue_.Push(std::move(task));
 }
 
@@ -356,11 +378,11 @@ void HostMachine::AgentThreadFunc() {
             auto &cache = Program::GetInstance().GetFunctionCache();
             auto &backend = Backend::GetBackend();
             if (backend.simuExecute && config::GetPlatformConfig(KEY_ENABLE_COST_MODEL, true)) {
-                ALOG_INFO_F("Simulate function %s", task->GetFunction()->GetMagicName().c_str());
+                MACHINE_LOGI("Simulate function %s", task->GetFunction()->GetMagicName().c_str());
                 backend.simuExecute(task.get(), cache);
             }
             if (backend.execute && config::GetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true)) {
-                ALOG_INFO_F("Compile function %s", task->GetFunction()->GetMagicName().c_str());
+                MACHINE_LOGI("Compile function %s", task->GetFunction()->GetMagicName().c_str());
                 backend.execute(task.get(), cache);
             }
         } catch (const std::exception &e) {
@@ -368,14 +390,5 @@ void HostMachine::AgentThreadFunc() {
         }
         PushFinishQueue(std::move(task));
     }
-}
-
-std::string HostMachine::GetPlatformInfo() const {
-    auto &backend = Backend::GetBackend();
-    if (backend.platform == nullptr) {
-        ALOG_ERROR("Backend platform symbol GetPlatformInfo not found.");
-        return "";
-    }
-    return backend.platform();
 }
 } // namespace npu::tile_fwk

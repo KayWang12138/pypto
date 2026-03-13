@@ -15,6 +15,7 @@
 
 #include <fstream>
 #include "gtest/gtest.h"
+#include "tilefwk/platform.h"
 #include "cost_model/simulation_pv/PvModelImpl.h"
 #include "cost_model/simulation/pv/PvModelFactory.h"
 
@@ -71,6 +72,9 @@ TEST(PvModelTest, TestFactory) {
 TEST(PvModelTest, TestDynFactory) {
     auto pv = CostModel::PvModelFactory::CreateDyn();
     EXPECT_NE(pv, nullptr);
+    npu::tile_fwk::Platform::Instance().GetSoc().SetNPUArch(npu::tile_fwk::NPUArch::DAV_3510);
+    pv = CostModel::PvModelFactory::CreateDyn();
+    EXPECT_NE(pv, nullptr);
 }
 
 TEST(PvModelTest, TestDynImpl) {
@@ -109,7 +113,7 @@ extern "C" [aicore] void TENSOR_PATH0_4_0(CoreFuncParam* param, int64_t GMStackB
 
 extern "C" __global__ [aicore] void PvModelKernelEntry(__gm__ npu::tile_fwk::DynFuncData *funcData, __gm__ uint64_t *opAttrOffset) {
     CoreFuncParam param = {funcData, &funcData->opAttrs[opAttrOffset[0]], funcData->exprTbl};
-    TENSOR_PATH0_4_0(&param, funcData->stackWorkSpaceAddr, (__gm__ int64_t *)funcData->hcclContext, (__gm__ GMTensorInfo*)NULL);
+    TENSOR_PATH0_4_0(&param, funcData->stackWorkSpaceAddr, (__gm__ int64_t *)funcData->startArgs->commContexts, (__gm__ GMTensorInfo*)NULL);
 }
 
 

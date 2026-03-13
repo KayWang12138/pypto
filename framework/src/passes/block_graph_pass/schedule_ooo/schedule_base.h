@@ -29,6 +29,7 @@
 #include "passes/statistics/ooo_schedule_statistic.h"
 #include "passes/block_graph_pass/schedule_ooo/buffer_pool.h"
 #include "passes/pass_utils/reschedule_utils.h"
+#include "passes/pass_utils/pass_utils.h"
 
 #ifndef MODULE_NAME
 #define MODULE_NAME "OoOScheduleBase"
@@ -36,11 +37,6 @@
 
 namespace npu::tile_fwk {
 
-constexpr int64_t MAX_L0A_SIZE = 64 * 1024;
-constexpr int64_t MAX_L0C_SIZE = 128 * 1024;
-constexpr int64_t MAX_BT_SIZE = 1 * 1024;
-constexpr int64_t MAX_FIX_SIZE = 1 * 1024;
-constexpr int64_t MAX_FIX_QUANT_PRE_SIZE = 1 * 2048;
 constexpr int32_t DIM_FIVE = 5;
 constexpr int32_t LAST_TWO_DIM = 2;
 constexpr int32_t UB_BLOCK_SIZE = 32;
@@ -89,34 +85,17 @@ public:
         LogicalTensors inOutOperand;
         inOutOperand.reserve(op->GetOOperands().size() + op->GetIOperands().size());
         for (auto o : op->GetOOperands()) {
-            if (o->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+            if (o->GetMemoryTypeOriginal() < MemoryType::MEM_DEVICE_DDR) {
                 inOutOperand.push_back(o);
             }
         }
         for (auto i : op->GetIOperands()) {
-            if (i->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+            if (i->GetMemoryTypeOriginal() < MemoryType::MEM_DEVICE_DDR) {
                 inOutOperand.push_back(i);
             }
         }
         auto cacheIt = inOutOperandsCache_.emplace(op, std::move(inOutOperand)).first;
         return cacheIt->second;
-    }
-
-    void InitMemorySize() {
-        localMemSize = {
-            {MemoryType::MEM_L0A, MAX_L0A_SIZE}, {MemoryType::MEM_L0C, MAX_L0C_SIZE},
-            {MemoryType::MEM_BT, MAX_BT_SIZE}, {MemoryType::MEM_FIX, MAX_FIX_SIZE},
-            {MemoryType::MEM_FIX_QUANT_PRE, MAX_FIX_QUANT_PRE_SIZE},
-        };
-        localMemSize.insert({MemoryType::MEM_UB,
-            Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB)});
-        localMemSize.insert({MemoryType::MEM_L1,
-            Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L1)});
-        localMemSize.insert({MemoryType::MEM_L0B,
-            Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L0B)});
-        localMemSize.insert({MemoryType::MEM_FIX_QUANT_PRE,
-            Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_FIX_QUANT_PRE)});
-        localMemoryCurrentSize = localMemSize;
     }
 
     void InitOpConsumerAndProducer() {
@@ -143,9 +122,8 @@ public:
             return SUCCESS;
         }
         if (static_cast<uint64_t>(oOperand->tensor->GetRawDataSize()) != ShapeCeilAlign(oOperand->tensor->rawshape, oOperand->tensor->datatype)) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "InitLocalBuffer Failed at ShapeCeilAlign! "
+            APASS_LOG_WARN_F(Elements::Tensor, "InitLocalBuffer Failed at ShapeCeilAlign! "
                 "Please ensure that the rawTensor[%d] shapes are aligned.", oOperand->GetRawMagic());
-            return FAILED;
         }
         if (localBufferMap_.find(memId) == localBufferMap_.end()) {
             localBufferMap_[memId] = std::make_shared<LocalBuffer>(
@@ -197,7 +175,7 @@ public:
 
     void UpdateBufRefCount(LogicalTensorPtr tensor) {
         int memId = tensor->memoryrange.memId;
-        if (tensor->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+        if (tensor->GetMemoryTypeOriginal() < MemoryType::MEM_DEVICE_DDR) {
             bufRefCount_[memId]++;
         }
     }
@@ -210,7 +188,7 @@ public:
             for (auto &tensor : op->GetIOperands()) {
                 UpdateBufRefCount(tensor);
                 int memId = tensor->memoryrange.memId;
-                if (InitLocalBuffer(tensor, memId) != SUCCESS) {
+                if (InitLocalBuffer(tensor, memId) == FAILED) {
                     APASS_LOG_ERROR_F(Elements::Operation, "InitLocalBuffer failed at InitBufRefCount!");
                     return FAILED;
                 }
@@ -218,7 +196,7 @@ public:
             for (auto &tensor : op->GetOOperands()) {
                 UpdateBufRefCount(tensor);
                 int memId = tensor->memoryrange.memId;
-                if (InitLocalBuffer(tensor, memId) != SUCCESS) {
+                if (InitLocalBuffer(tensor, memId) == FAILED) {
                     APASS_LOG_ERROR_F(Elements::Operation, "InitLocalBuffer failed at InitBufRefCount!");
                     return FAILED;
                 }
@@ -245,7 +223,7 @@ public:
     Status InitAllocDependencies(Operation* op, std::unordered_map<int, Operation*> &tensor2AllocMap) {
         for (auto &tensor : op->GetOOperands()) {
             int memId = tensor->memoryrange.memId;
-            if (tensor->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+            if (tensor->GetMemoryTypeOriginal() < MemoryType::MEM_DEVICE_DDR) {
                 if (tensor2AllocMap.find(memId) == tensor2AllocMap.end()) {
                     APASS_LOG_ERROR_F(Elements::Operation, "Tensor[%d] must have alloc. magic: %d, op: %s", memId, tensor->GetMagic(), GetOpInfo(op).c_str());
                     return FAILED;
@@ -364,7 +342,7 @@ public:
                 continue;
             }
             if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
-                APASS_LOG_ERROR_F(Elements::Operation, "Alloc tensor [%d] size [%d] exceeds %s size [%d]! %s",
+                APASS_LOG_ERROR_F(Elements::Operation, "Alloc tensor [%d] size [%ld] exceeds %s size [%ld]! %s",
                     op->GetOutputOperand(0)->GetMagic(), bufferPair.second, MemoryTypeToString(bufferPair.first).c_str(),
                     localMemSize[bufferPair.first], GetFormatBacktrace(*op).c_str());
                 APASS_LOG_ERROR_F(Elements::Operation, "Tensor [%d] producer info:", op->GetOutputOperand(0)->GetMagic());
@@ -375,7 +353,7 @@ public:
                     APASS_LOG_ERROR_F(Elements::Operation, "      %s.", DumpOpInfo(*producer).c_str());
                 }
             } else {
-                APASS_LOG_ERROR_F(Elements::Operation, "OP %s[%d] in/output total size [%ld] exceeds %s size [%d]!",
+                APASS_LOG_ERROR_F(Elements::Operation, "OP %s[%d] in/output total size [%ld] exceeds %s size [%ld]!",
                     op->GetOpcodeStr().c_str(), op->GetOpMagic(), bufferPair.second, MemoryTypeToString(bufferPair.first).c_str(),
                     localMemSize[bufferPair.first]);
                 APASS_LOG_ERROR_F(Elements::Operation, " %s.", DumpOpInfo(*op).c_str());
@@ -387,7 +365,7 @@ public:
 
     void UpdateAllocMap(Operation* op, std::map<int, Operation*> &tensorAllocMap) {
         for (auto outTensor : op->GetOOperands()) {
-            if (outTensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+            if (outTensor->GetMemoryTypeOriginal() >= MemoryType::MEM_DEVICE_DDR) {
                 continue;
             }
             int memId = outTensor->memoryrange.memId;
@@ -396,7 +374,7 @@ public:
             }
         }
         for (auto inTensor : op->GetIOperands()) {
-            if (inTensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+            if (inTensor->GetMemoryTypeOriginal() >= MemoryType::MEM_DEVICE_DDR) {
                 continue;
             }
             int memId = inTensor->memoryrange.memId;
@@ -435,7 +413,8 @@ public:
 
     Status Init(std::vector<Operation*> &opList) {
         // 初始化芯片各buffer大小
-        InitMemorySize();
+        localMemSize = CommonUtils::GetLocalMemorySize();
+ 	    localMemoryCurrentSize = localMemSize;
         operations = opList;
         InitOpConsumerAndProducer();
         for (auto& op : operations) {

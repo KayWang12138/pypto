@@ -318,38 +318,27 @@ def do_test_sparse_attention_func_aq(bn1n2s1, actual_seq, input_params, input_da
     q_nope, q_rope, nope_cache_2d, topk_indices, block_table, kv_actual_seqs = input_data
     kv_act_seqs = torch.tensor(actual_seq, dtype=torch.int32)
 
-    calc_attention_out = torch.zeros([b, s1, n_q, kv_lora_rank], dtype=torch.bfloat16)
+    calc_attention_out = torch.zeros([b * s1 * n_q, kv_lora_rank], dtype=torch.bfloat16)
+    calc_attention_out_npu = calc_attention_out.npu()
 
     q_nope_npu = q_nope.npu()
-    q_nope_pto = pypto.from_torch(q_nope_npu, dynamic_axis=[0], name="q_nope")
     q_rope_npu = q_rope.npu()
-    q_rope_pto = pypto.from_torch(q_rope_npu, dynamic_axis=[0], name="q_rope")
     nope_cache_npu = nope_cache_2d.npu()
-    nope_cache_pto = pypto.from_torch(nope_cache_npu, name="nope_cache")
     topk_indices_npu = topk_indices.npu()
-    topk_indices_pto = pypto.from_torch(topk_indices_npu, dynamic_axis=[0], name="topk_indices")
     block_table_npu = block_table.npu()
-    block_table_pto = pypto.from_torch(block_table_npu, dynamic_axis=[0], name="block_table")
     kv_act_seqs_npu = kv_act_seqs.npu()
-    kv_act_seqs_pto = pypto.from_torch(kv_act_seqs_npu, dynamic_axis=[0], name="kv_act_seqs")
 
-    calc_attention_out_npu = calc_attention_out.npu()
-    calc_attention_out_npu = calc_attention_out_npu.reshape(-1, kv_lora_rank)
-    calc_attention_out_pto = pypto.from_torch(calc_attention_out_npu, dynamic_axis=[0], name="calc_attention_out")
-
-    pto_inputs = [q_nope_pto, q_rope_pto, nope_cache_pto, topk_indices_pto, block_table_pto, kv_act_seqs_pto]
-    pto_outputs = [calc_attention_out_pto]
+    pto_inputs = [q_nope_npu, q_rope_npu, nope_cache_npu, topk_indices_npu, block_table_npu, kv_act_seqs_npu]
+    pto_outputs = [calc_attention_out_npu]
 
     max_blocknum_perbatch = math.ceil(max_kv_seq / block_size)
 
     if is_p:
-        sparse_attention_antiquant_p(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale, topk, block_size,
-                                           max_blocknum_perbatch, tile_config)
+        sparse_attention_antiquant_p(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale, topk, block_size, \
+            max_blocknum_perbatch, tile_config)
     else:
-        sparse_attention_antiquant_d(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale,
-                                                    topk, block_size, max_blocknum_perbatch, tile_config)
-
-
+        sparse_attention_antiquant_d(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale, topk, block_size, \
+            max_blocknum_perbatch, tile_config)
     calc_attention_out_npu = calc_attention_out_npu.reshape(b, s1, n_q, kv_lora_rank)
     torch_npu.npu.synchronize()
     compare(calc_attention_out_npu.cpu(), atten_out, "atten_out", atol=0.0001, rtol=0.005, max_error_count=100)
@@ -388,7 +377,7 @@ def do_test_sfa_entry(case_name: str, is_p: bool):
     return True
 
 
-@pytest.mark.skip(reason="large test case")
+@pytest.mark.soc("950", "910")
 def test_sfa_bf16_b4_s2_seq64k_total_int8_d():
     '''
     sfa decode测试函数
@@ -396,6 +385,7 @@ def test_sfa_bf16_b4_s2_seq64k_total_int8_d():
     do_test_sfa_entry("sfa_bf16_b4_s2_seq64K_total_int8_d", is_p=False)
 
 
+@pytest.mark.soc("950", "910")
 @pytest.mark.skip(reason="perf")
 def test_sfa_bf16_b4_s2_seq64k_per_int8_d():
     '''
@@ -404,6 +394,7 @@ def test_sfa_bf16_b4_s2_seq64k_per_int8_d():
     do_test_sfa_entry("sfa_bf16_b4_s2_seq64K_per_int8_d", is_p=False)
 
 
+@pytest.mark.soc("950", "910")
 @pytest.mark.skip(reason="large test case")
 def test_sfa_bf16_b1_s256_seq64k_int8_p():
     '''

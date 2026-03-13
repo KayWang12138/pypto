@@ -1792,91 +1792,6 @@ TILEOP void DynTtransposeMoveIn4dim_(__ubuf__ T *dst, __gm__ T *src, unsigned TS
     }
 }
 
-TILEOP void splitNumber(__ubuf__ float *dst, __ubuf__ float *src0) {
-    float k = *src0;
-    int p = 0;
-    uint32_t intK = *(reinterpret_cast<int32_t *>(&k));
-    constexpr uint32_t INF = 0x7F800000;
-    constexpr uint32_t NEG_INF = 0xFF800000;
-    constexpr uint32_t Q_NAN = 0x7FC00000;
-    constexpr uint32_t S_NAN = 0x7F800001;
-    constexpr uint32_t MAX = 0x7F7FFFFF;
-    constexpr uint32_t MIN_NORMAL = 0x00800000;
-    constexpr uint32_t MIN_DENORMAL = 0x00000001;
-    if (intK != 0 && intK != INF && intK != NEG_INF && intK != Q_NAN && intK != S_NAN && intK != MAX &&
-        intK != MIN_NORMAL && intK != MIN_DENORMAL) {
-        // a = 2 ^ p * k, p is Z, 0.6 <= |k| <= 1.4
-        constexpr float NUM_0_6 = 0.6;
-        constexpr float NUM_1_4 = 1.4;
-        constexpr int MAX_LOOP = 256;
-        int maxLoop = MAX_LOOP;
-        while ((k < -NUM_1_4 || k > NUM_1_4) && maxLoop > 0) {
-            k /= 2;
-            p++;
-            maxLoop--;
-        }
-        maxLoop = MAX_LOOP;
-        while (k > -NUM_0_6 && k < NUM_0_6 && maxLoop > 0) {
-            k *= 2;
-            p--;
-            maxLoop--;
-        }
-    }
-    *dst = static_cast<float>(p);
-    *src0 = k;
-}
-
-template <unsigned DS0, unsigned DS1, unsigned S0S0, unsigned S0S1, unsigned S1S0, unsigned S1S1>
-TILEOP void DynTpow_(__ubuf__ float *dst, __ubuf__ float *src0, __ubuf__ float *src1, unsigned src0T0, unsigned src0T1,
-    unsigned src1T0, unsigned src1T1) {
-    unsigned T0 = src0T0 < src1T0 ? src1T0 : src0T0;
-    unsigned T1 = src0T1 < src1T1 ? src1T1 : src0T1;
-    set_flag(PIPE_S, PIPE_V, EVENT_ID0);
-    wait_flag(PIPE_S, PIPE_V, EVENT_ID0);
-    // src0: ln a
-    DynTln_<float, S0S1, S0S1>(src0, src0, T0, T1);
-    pipe_barrier(PIPE_V);
-    // src0: b * ln a
-    DynTmul_<float, S0S1, S0S0, S0S1, S1S0, S1S1>(src0, src0, src1, T0, T1, T0, T1);
-    pipe_barrier(PIPE_V);
-    // dst: e ^ (b * ln a)
-    DynTexp_<float, DS1, S0S1>(dst, src0, T0, T1);
-    set_flag(PIPE_V, PIPE_S, EVENT_ID0);
-    wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
-}
-
-template <typename T, unsigned DS0, unsigned DS1, unsigned DS2, unsigned DS3, unsigned S0S0, unsigned S0S1,
-    unsigned S0S2, unsigned S0S3, unsigned S1S0, unsigned S1S1, unsigned S1S2, unsigned S1S3>
-TILEOP void DynTpow_(__ubuf__ float *dst, __ubuf__ float *src0, __ubuf__ float *src1,
-    unsigned src0T0, unsigned src0T1, unsigned src0T2, unsigned src0T3,
-    unsigned src1T0, unsigned src1T1, unsigned src1T2, unsigned src1T3) {
-    static_assert(std::is_same<T, float>::value);
-    static_assert((DS3 * sizeof(float)) % BLOCK_SIZE == 0);
-    static_assert((S0S3 * sizeof(float)) % BLOCK_SIZE == 0);
-    static_assert((S1S3 * sizeof(float)) % BLOCK_SIZE == 0);
-    if (src0T0 == 0 || src0T1 == 0 || src0T2 == 0 || src0T3 == 0 ||
-        src1T0 == 0 || src1T1 == 0 || src1T2 == 0 || src1T3 == 0) {
-        return;
-    }
-
-    unsigned T0 = src0T0 < src1T0 ? src1T0 : src0T0;
-    unsigned T1 = src0T1 < src1T1 ? src1T1 : src0T1;
-    for (int i = 0; i < T0; i++) {
-        auto dst_ = dst;
-        auto src0_ = src0;
-        auto src1_ = src1;
-        for (int j = 0; j < T1; j++) {
-            DynTpow_<DS2, DS3, S0S2, S0S3, S1S2, S1S3>(dst_, src0_, src1_, src0T2, src0T3, src1T2, src1T3);
-            dst_ += DS2 * DS3;
-            src0_ += S0S2 * S0S3;
-            src1_ += S1S2 * S1S3;
-        }
-        dst += DS1 * DS2 * DS3;
-        src0 += S0S1 * S0S2 * S0S3;
-        src1 += S1S1 * S1S2 * S1S3;
-    }
-}
-
 template <typename T>
 TILEOP void ProcessLogicalNot(__ubuf__ bool *dst, __ubuf__ T *src, __ubuf__ half *castCondition,
                 __ubuf__ int8_t *vcmpBitResult, __ubuf__ int8_t *compareCondition,__ubuf__ int8_t *oneCondition,
@@ -3404,11 +3319,13 @@ TILEOP void DynRange(__ubuf__ T *dst, unsigned oriShape0, T baseStart, T step, i
 }
 
 template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0, unsigned srcShape1, int axis, int offset, int isLargest>
-TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, unsigned oriShape1) {
+TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp, unsigned oriShape0, unsigned oriShape1) {
     // 生成index数据,首先创建一个1~8的数组,之后扩展到TShape1,构成0~TShape1的index数组
     // pipe_barrier(PIPE_ALL); // 当前OP无法描述两条流水,UB复用场景存在问题,暂时按照pipe_all规避
     int32_t srcShape1Align = (oriShape1 + 31) / 32 * 32;
-    __ubuf__ uint32_t *idx = (__ubuf__ uint32_t *)dst + 2 * srcShape1Align;
+    __ubuf__ uint32_t *idx = (__ubuf__ uint32_t *)tmp;
+    set_flag(PIPE_V, PIPE_S, EVENT_ID6);
+    wait_flag(PIPE_V, PIPE_S, EVENT_ID6);
     for (int32_t j = 0; j < oriShape1; j++) {
         *(idx + j) = (j + offset);
     }
@@ -3418,37 +3335,27 @@ TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
 
     // 对于不满足32元素对齐场景,首先将src拷贝到dst的3*srcShape1位置
     if (oriShape1 < 32) {
-        uint64_t srcShape1_Align_Block_Num = (oriShape1 * sizeof(float) + 31) / 32;
-        uint64_t dstShape1_Block_Num = dstShape1 * sizeof(float) / 32;
-        copy_ubuf_to_ubuf((__ubuf__ float *)dst + 3 * srcShape1Align, (__ubuf__ void *)src, 0, oriShape0,
-            srcShape1_Align_Block_Num, 0, dstShape1_Block_Num - srcShape1_Align_Block_Num);
-        pipe_barrier(PIPE_V);
-        if constexpr (isLargest == 0) {
-            for (int32_t i = 0; i < oriShape0; ++i) {
+        uint64_t mask = ~(((static_cast<uint32_t>(1)) << oriShape1) - 1);
+        mask = mask & 0xFFFFFFFF;
+        for (int rowIdx = 0; rowIdx < oriShape0; rowIdx++) {
+            if constexpr (isLargest == 0) {
                 set_mask_count();
                 set_vector_mask(0, oriShape1);
-                // 按照升序排列时,需要首先将数据加上0x80000000,同时不可以污染src
-                vadds((__ubuf__ int32_t *)dst + 3 * srcShape1Align + i * dstShape1,
-                 (__ubuf__ int32_t *)dst + 3 * srcShape1Align + i * dstShape1, 0x80000000, 1, 1, 1, 8, 8);
+                vadds((__ubuf__ int32_t *)src + rowIdx * srcShape1,
+                (__ubuf__ int32_t *)src + rowIdx * srcShape1, 0x80000000, 1, 1, 1, 8, 8);
                 pipe_barrier(PIPE_V);
                 set_mask_norm();
                 set_vector_mask(-1, -1);
             }
-        }
-        // 需要将尾块部分置为-inf，之后再排序
-        // 计算duplicate的mask
-        uint64_t mask = ~(((static_cast<uint32_t>(1)) << oriShape1) - 1);
-        mask = mask & 0xFFFFFFFF;
-        for (int rowIdx = 0; rowIdx < oriShape0; rowIdx++) {
             set_mask_norm();
             set_vector_mask(0, mask);
-            vector_dup(dst + 3 * srcShape1Align + rowIdx * dstShape1, FLOAT_MIN, 1, 1, 1, 0, (int64_t)0);
+            vector_dup(src + rowIdx * srcShape1, FLOAT_MIN, 1, 1, 1, 0, (int64_t)0);
             pipe_barrier(PIPE_V);
             vbitsort((__ubuf__ float *)dst + rowIdx * dstShape1,
-                (__ubuf__ float *)dst + rowIdx * dstShape1 + 3 * srcShape1Align, (__ubuf__ uint32_t *)idx, 1);
+                (__ubuf__ float *)src + rowIdx * srcShape1, (__ubuf__ uint32_t *)idx, 1);
             pipe_barrier(PIPE_V);
+            set_vector_mask(-1, -1);
         }
-        set_vector_mask(-1, -1);
     }
 
     if (oriShape1 == 32) {
@@ -3459,10 +3366,8 @@ TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
             if constexpr (isLargest == 0) {
                 set_mask_count();
                 set_vector_mask(0, oriShape1);
-                // 按照升序排列时,需要首先将数据加上0x80000000,同时不可以污染src
-                srcData = reinterpret_cast<__ubuf__ float *>(dst) + rowIdx * dstShape1 + 3 * srcShape1Align;
-                vadds(reinterpret_cast<__ubuf__ int32_t *>(srcData), reinterpret_cast<__ubuf__ int32_t *>(src) + rowIdx * srcShape1,
-                 0x80000000, 1, 1, 1, 8, 8);
+                vadds((__ubuf__ int32_t *)src + rowIdx * srcShape1,
+                (__ubuf__ int32_t *)src + rowIdx * srcShape1, 0x80000000, 1, 1, 1, 8, 8);
                 pipe_barrier(PIPE_V);
                 set_mask_norm();
                 set_vector_mask(-1, -1);
@@ -3485,19 +3390,16 @@ TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
             if constexpr (isLargest == 0) {
                 set_mask_count();
                 set_vector_mask(0, oriShape1);
-                // 按照升序排列时,需要首先将数据乘以-1,同时不可以污染src
-                srcData = reinterpret_cast<__ubuf__ float *>(dst) + rowIdx * dstShape1 + 3 * srcShape1Align;
-                vadds(reinterpret_cast<__ubuf__ int32_t *>(srcData), reinterpret_cast<__ubuf__ int32_t *>(src) + rowIdx * srcShape1,
-                 0x80000000, 1, 1, 1, 8, 8);
+                vadds((__ubuf__ int32_t *)src + rowIdx * srcShape1,
+                (__ubuf__ int32_t *)src + rowIdx * srcShape1, 0x80000000, 1, 1, 1, 8, 8);
                 pipe_barrier(PIPE_V);
                 set_mask_norm();
                 set_vector_mask(-1, -1);
-            } else {
-                constexpr uint16_t lenBurst = srcShape1 * sizeof(T) / BLOCK_SIZE;
-                srcData = reinterpret_cast<__ubuf__ float *>(dst) + rowIdx * dstShape1 + 3 * srcShape1Align;
-                copy_ubuf_to_ubuf(srcData, src + rowIdx * srcShape1, 0, 1, lenBurst, 0, 0);
-                pipe_barrier(PIPE_V);
             }
+            constexpr uint16_t lenBurst = srcShape1 * sizeof(T) / BLOCK_SIZE;
+            srcData = reinterpret_cast<__ubuf__ float *>(tmp) + srcShape1Align;
+            copy_ubuf_to_ubuf(srcData, src + rowIdx * srcShape1, 0, 1, lenBurst, 0, 0);
+            pipe_barrier(PIPE_V);
             if (max_repeat_num > 0) {
                 for (int j = 0; j < max_repeat_num; ++j) {
                     vbitsort(dstData + j * REPEAT_MAX * 64, srcData + j * REPEAT_MAX * 32,
@@ -3533,13 +3435,13 @@ TILEOP void DynBitSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
 template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned dstShape2, unsigned dstShape3,
     unsigned srcShape0, unsigned srcShape1, unsigned srcShape2, unsigned srcShape3, int axis, int offset, int isLargest>
 TILEOP void DynBitSort(
-    __ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, unsigned oriShape1, unsigned oriShape2, unsigned oriShape3) {
+    __ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp, unsigned oriShape0, unsigned oriShape1, unsigned oriShape2, unsigned oriShape3) {
     for (int i = 0; i < oriShape0; ++i) {
         __ubuf__ T *dst_ = dst;
         __ubuf__ T *src_ = src;
         for (int j = 0; j < oriShape1; ++j) {
             if (oriShape2 != 0 && oriShape3 != 0) {
-                TileOp::DynBitSort<T, dstShape2, dstShape3, srcShape2, srcShape3, axis, offset, isLargest>(dst_, src_, oriShape2, oriShape3);
+                TileOp::DynBitSort<T, dstShape2, dstShape3, srcShape2, srcShape3, axis, offset, isLargest>(dst_, src_, tmp, oriShape2, oriShape3);
                 dst_ += dstShape2 * dstShape3;
                 src_ += srcShape2 * srcShape3;
                 pipe_barrier(PIPE_V);
@@ -3550,17 +3452,17 @@ TILEOP void DynBitSort(
     }
 }
 
-template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0, unsigned srcShape1, int axis, int k, int isLargest>
-TILEOP void DynMrgSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, unsigned oriShape1) {
+template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned srcShape0, unsigned srcShape1, int axis, int k, int mergeSize>
+TILEOP void DynMrgSort(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp, unsigned oriShape0, unsigned oriShape1) {
     constexpr int32_t kAlign = (k + 7) / 8 * 8; // k需要向32Bytes取整,否则最后搬运出问题
-    int32_t totalNum = srcShape1 / 4;
-    oriShape1 = oriShape1 - (oriShape1 + 31) / 32 * 32 / 3 * 2;
+    int32_t totalNum = srcShape1 / 2;
+    oriShape1 = oriShape1 / 2;
     for (int rowIdx = 0; rowIdx < oriShape0; rowIdx++) {
         // 每4个合并,计算整块
-        int32_t z = 32;
+        int32_t z = mergeSize;
         for (; z * 4 <= oriShape1; z *= 4) {
             __ubuf__ float *srcData = reinterpret_cast<__ubuf__ float *>(src) + rowIdx * srcShape1;
-            __ubuf__ float *dstData = reinterpret_cast<__ubuf__ float *>(src) + rowIdx * srcShape1 + totalNum * 2;
+            __ubuf__ float *dstData = reinterpret_cast<__ubuf__ float *>(tmp);
             uint64_t config = 0;
             uint32_t repeat_mrg = oriShape1 / (z * 4);
             config |= uint64_t(oriShape1 / (z * 4)); // Xt[7:0]: repeat time
@@ -3602,7 +3504,7 @@ TILEOP void DynMrgSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
             uint16_t mrgSortedLen = 0;
             for (int32_t i = 0; i < arrayCount - 1; ++i) {
                 __ubuf__ float *srcData = reinterpret_cast<__ubuf__ float *>(src) + rowIdx * srcShape1;
-                __ubuf__ float *dstData = reinterpret_cast<__ubuf__ float *>(src) + rowIdx * srcShape1 + totalNum * 2;
+                __ubuf__ float *dstData = reinterpret_cast<__ubuf__ float *>(tmp);
                 mrgSortedLen += static_cast<uint16_t>(mrgArray[i]);
                 uint64_t tmpMrgSortedLen = mrgSortedLen;
                 uint64_t tmpMrgArray = mrgArray[i + 1];
@@ -3638,15 +3540,15 @@ TILEOP void DynMrgSort(__ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, uns
 }
 
 template <typename T, unsigned dstShape0, unsigned dstShape1, unsigned dstShape2, unsigned dstShape3,
-    unsigned srcShape0, unsigned srcShape1, unsigned srcShape2, unsigned srcShape3, int axis, int k, int isLargest>
+    unsigned srcShape0, unsigned srcShape1, unsigned srcShape2, unsigned srcShape3, int axis, int k, int mergeSize>
 TILEOP void DynMrgSort(
-    __ubuf__ T *dst, __ubuf__ T *src, unsigned oriShape0, unsigned oriShape1, unsigned oriShape2, unsigned oriShape3) {
+    __ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T *tmp, unsigned oriShape0, unsigned oriShape1, unsigned oriShape2, unsigned oriShape3) {
     for (int i = 0; i < oriShape0; ++i) {
         __ubuf__ T *dst_ = dst;
         __ubuf__ T *src_ = src;
         for (int j = 0; j < oriShape1; ++j) {
             if (oriShape2 != 0 && oriShape3 != 0) {
-                TileOp::DynMrgSort<T, dstShape2, dstShape3, srcShape2, srcShape3, axis, k, isLargest>(dst_, src_, oriShape2, oriShape3);
+                TileOp::DynMrgSort<T, dstShape2, dstShape3, srcShape2, srcShape3, axis, k, mergeSize>(dst_, src_, tmp, oriShape2, oriShape3);
                 dst_ += dstShape2 * dstShape3;
                 src_ += srcShape2 * srcShape3;
                 pipe_barrier(PIPE_V);

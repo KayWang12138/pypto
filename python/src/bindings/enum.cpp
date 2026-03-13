@@ -33,6 +33,9 @@ void bind_enum(py::module &m){
         .value("DT_HF8", DataType::DT_HF8)
         .value("DT_FP8E4M3", DataType::DT_FP8E4M3)
         .value("DT_FP8E5M2", DataType::DT_FP8E5M2)
+        .value("DT_FP8E8M0", DataType::DT_FP8E8M0)
+        .value("DT_FP4_E2M1X2", DataType::DT_FP4_E2M1X2)
+        .value("DT_FP4_E1M2X2", DataType::DT_FP4_E1M2X2)
         .value("DT_UINT8", DataType::DT_UINT8)
         .value("DT_UINT16", DataType::DT_UINT16)
         .value("DT_UINT32", DataType::DT_UINT32)
@@ -139,10 +142,26 @@ void bind_enum(py::module &m){
         .value("RELU", Matrix::ReLuType::ReLu)
         .export_values();
 
+    py::enum_<Conv::ReLuType>(m, "ConvReLuType")
+        .value("NO_RELU", Conv::ReLuType::NoReLu)
+        .value("RELU", Conv::ReLuType::ReLu)
+        .export_values();
+
+    py::enum_<Matrix::TransMode>(m, "TransMode")
+        .value("CAST_NONE", Matrix::TransMode::CAST_NONE)
+        .value("CAST_RINT", Matrix::TransMode::CAST_RINT)
+        .value("CAST_ROUND", Matrix::TransMode::CAST_ROUND)
+        .export_values();
+
     py::enum_<LogBaseType>(m, "LogBaseType")
         .value("LOG_E", LogBaseType::LOG_E)
         .value("LOG_2", LogBaseType::LOG_2)
         .value("LOG_10", LogBaseType::LOG_10)
+        .export_values();
+
+    py::enum_<Distributed::AtomicType>(m, "AtomicType")
+        .value("SET", Distributed::AtomicType::SET)
+        .value("ADD", Distributed::AtomicType::ADD)
         .export_values();
 }
 }

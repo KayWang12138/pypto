@@ -42,6 +42,16 @@ struct IndexAddTileInfoPara {
     TileInfo dstTileInfo;
 };
 
+Shape GetTempShape(Shape shape, size_t axis) {
+    Shape newShape(shape.size(), 1);
+    for (size_t i = axis + 1; i < shape.size(); ++i) {
+        newShape[i] = shape[i];
+    }
+    auto alignSize = BLOCK_SIZE / BytesOf(DT_BF16);
+    newShape[shape.size() - 1] = (newShape[shape.size() - 1] + alignSize - 1) / alignSize * alignSize;
+    return newShape;
+}
+
 void IndexAddExpandFunc(Function &function, const IndexAddPara indexaddPara, IndexAddTileInfoPara &indexaddTileInfo) {
     const LogicalTensorPtr &selfInput = indexaddPara.selfInput;
     const LogicalTensorPtr &srcInput = indexaddPara.srcInput;
@@ -59,6 +69,11 @@ void IndexAddExpandFunc(Function &function, const IndexAddPara indexaddPara, Ind
     indexaddTileInfo.indicesTileInfo.shape = {indexaddTileInfo.srcTileInfo.shape[axis]};
     auto indexTile =
         indicesInput->View(function, indexaddTileInfo.indicesTileInfo.shape, indexaddTileInfo.indicesTileInfo.offset);
+    Shape tempShape(dstTile->GetShape().size(), 1);
+    auto alignSize = BLOCK_SIZE / BytesOf(DT_BF16);
+    tempShape[dstTile->GetShape().size() - 1] =
+        (tempShape[dstTile->GetShape().size() - 1] + alignSize - 1) / alignSize * alignSize;
+    auto tempBuffer = std::make_shared<LogicalTensor>(function, DT_BF16, tempShape);
 
     if (selfTile->Datatype() == DT_INT8) { // vector指令不支持int8的直接计算
         LogicalTensorPtr selfConvertedTile = std::make_shared<LogicalTensor>(function, DT_FP16, selfTile->GetShape());
@@ -72,13 +87,16 @@ void IndexAddExpandFunc(Function &function, const IndexAddPara indexaddPara, Ind
         LogicalTensorPtr dstConvertedTile = std::make_shared<LogicalTensor>(function, DT_FP16, dstTile->GetShape());
 
         auto &op = function.AddOperation(
-            Opcode::OP_INDEX_ADD, {selfConvertedTile, srcConvertedTile, indexTile}, {dstConvertedTile});
+            Opcode::OP_INDEX_ADD, {selfConvertedTile, srcConvertedTile, indexTile}, {dstConvertedTile, tempBuffer});
         dstConvertedTile->UpdateDynValidShape(dstTile->GetDynValidShape());
         op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
         op.SetAttribute(OpAttributeKey::scalar, alpha);
         Operation &castDstOp = function.AddOperation(Opcode::OP_CAST, {dstConvertedTile}, {dstTile});
         castDstOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_TRUNC);
-    } else if (selfTile->Datatype() == DT_BF16) { // vector和scalar均不支持BF16直接计算
+    } else if (selfTile->Datatype() == DT_BF16 ||
+               (selfTile->Datatype() == DT_FP16 && indexTile->Datatype() == DT_INT64 &&
+                   (std::abs(alpha.Cast<float>() - 1) < 1e-6f))) {
+        // vector和scalar均不支持BF16直接计算; alpha=1,且index类型为int64时逻辑不一样
         LogicalTensorPtr selfConvertedTile = std::make_shared<LogicalTensor>(function, DT_FP32, selfTile->GetShape());
         Operation &castSelfOp = function.AddOperation(Opcode::OP_CAST, {selfTile}, {selfConvertedTile});
         selfConvertedTile->UpdateDynValidShape(selfTile->GetDynValidShape());
@@ -88,16 +106,16 @@ void IndexAddExpandFunc(Function &function, const IndexAddPara indexaddPara, Ind
         srcConvertedTile->UpdateDynValidShape(srcTile->GetDynValidShape());
         castSrcOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
         LogicalTensorPtr dstConvertedTile = std::make_shared<LogicalTensor>(function, DT_FP32, dstTile->GetShape());
-
+        tempBuffer = std::make_shared<LogicalTensor>(function, DT_BF16, GetTempShape(dstTile->GetShape(), axis));
         auto &op = function.AddOperation(
-            Opcode::OP_INDEX_ADD, {selfConvertedTile, srcConvertedTile, indexTile}, {dstConvertedTile});
+            Opcode::OP_INDEX_ADD, {selfConvertedTile, srcConvertedTile, indexTile}, {dstConvertedTile, tempBuffer});
         dstConvertedTile->UpdateDynValidShape(dstTile->GetDynValidShape());
         op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
         op.SetAttribute(OpAttributeKey::scalar, alpha);
         Operation &castDstOp = function.AddOperation(Opcode::OP_CAST, {dstConvertedTile}, {dstTile});
         castDstOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_RINT);
     } else {
-        auto &op = function.AddOperation(Opcode::OP_INDEX_ADD, {selfTile, srcTile, indexTile}, {dstTile});
+        auto &op = function.AddOperation(Opcode::OP_INDEX_ADD, {selfTile, srcTile, indexTile}, {dstTile, tempBuffer});
         op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
         op.SetAttribute(OpAttributeKey::scalar, alpha);
     }
@@ -327,6 +345,15 @@ LogicalTensorPtr TensorGatherOperation(
     op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
 
     return result;
+}
+
+void TensorGatherMask(
+    Function &function, const LogicalTensorPtr &self, const LogicalTensorPtr &result, const uint8_t &patternMode) {
+    if (patternMode != 0) {
+        auto &op = function.AddOperation(Opcode::OP_GATHER_MASK_BUILDIN, {self}, {result});
+        op.SetAttribute(OP_ATTR_PREFIX + "patternMode", patternMode);
+        return;
+    }
 }
 
 Tensor Gather(const Tensor &params, const Tensor &indices, int axis) {
@@ -1028,26 +1055,47 @@ Tensor ScatterUpdate(
     return result;
 }
 
-void TiledIndexPut(Function &function, const TileShape &tileShape, const LogicalTensorPtr &inputSelf, Input &inputValues,
-    std::vector<Input> &inputIndices, const LogicalTensorPtr result, bool accumulate) {
-    const auto &vecTile = tileShape.GetVecTile()[0];
-    for (int i = 0; i < inputValues.tensor.GetShape()[0]; i += vecTile) {
-        inputValues.tileInfo.shape[0] = std::min(inputValues.tensor.GetShape()[0] - i, vecTile);
-        inputValues.tileInfo.offset[0] = i;
+void TiledIndexPut(Function &function, const TileShape &tileShape, Input &inputSelf, Input &inputValues,
+    std::vector<Input> &inputIndices, const LogicalTensorPtr result, bool accumulate, size_t cur) {
+    size_t selfDim = inputSelf.tileInfo.shape.size();
+    size_t valuesDim = inputValues.tileInfo.shape.size();
+    size_t indicesCount = inputIndices.size();
+    if (cur == valuesDim) {
+        auto inputSelfTile = inputSelf.tensor.GetStorage()->View(function, inputSelf.tileInfo.shape, inputSelf.tileInfo.offset);
         auto inputValuesTile = inputValues.tensor.GetStorage()->View(function, inputValues.tileInfo.shape, inputValues.tileInfo.offset);
         std::vector<LogicalTensorPtr> inputsTile;
-        inputsTile.push_back(inputSelf);
+        inputsTile.push_back(inputSelfTile);
         inputsTile.push_back(inputValuesTile);
-        for (size_t j = 0; j < inputIndices.size(); j++) {
-            inputIndices[j].tileInfo.shape[0] = std::min(inputIndices[j].tensor.GetShape()[0] - i, vecTile);
-            inputIndices[j].tileInfo.offset[0] = i;
-            auto inputIndicesTileTemp = inputIndices[j].tensor.GetStorage()->View(function, inputIndices[j].tileInfo.shape, inputIndices[j].tileInfo.offset);
-            inputsTile.push_back(inputIndicesTileTemp);
+        for (size_t j = 0; j < indicesCount; j++) {
+            auto inputIndicesTile = inputIndices[j].tensor.GetStorage()->View(function, inputIndices[j].tileInfo.shape, inputIndices[j].tileInfo.offset);
+            inputsTile.push_back(inputIndicesTile);
         }
         auto &newOp = function.AddOperation(Opcode::OP_INDEX_PUT, inputsTile, {result});
         newOp.SetAttribute(OpAttributeKey::inplaceIdx, 0);
         newOp.SetAttribute(OpAttributeKey::accumulate, accumulate);
-        newOp.SetAttribute(OpAttributeKey::indicesSize, static_cast<int>(inputIndices.size()));
+        newOp.SetAttribute(OpAttributeKey::indicesSize, static_cast<int>(indicesCount));
+        return;
+    }
+    const auto &vecTile = tileShape.GetVecTile();
+    int64_t tileSize = inputValues.tensor.GetShape()[cur];
+    if (cur < vecTile.size()) {
+        tileSize = vecTile[cur];
+    }
+    for (int64_t i = 0, size = inputValues.tensor.GetShape()[cur]; i < size; i += tileSize) {
+        if (cur != 0) {
+            size_t selfIndex = selfDim - valuesDim + cur;
+            inputSelf.tileInfo.shape[selfIndex] = std::min(inputSelf.tensor.GetShape()[selfIndex] - i, tileSize);
+            inputSelf.tileInfo.offset[selfIndex] = i;
+        }
+        inputValues.tileInfo.shape[cur] = std::min(inputValues.tensor.GetShape()[cur] - i, tileSize);
+        inputValues.tileInfo.offset[cur] = i;
+        if (cur == 0) {
+            for (size_t j = 0; j < indicesCount; ++j) {
+                inputIndices[j].tileInfo.shape[cur] = std::min(inputIndices[j].tensor.GetShape()[cur] - i, tileSize);
+                inputIndices[j].tileInfo.offset[cur] = i;
+            }
+        }
+        TiledIndexPut(function, tileShape, inputSelf, inputValues, inputIndices, result, accumulate, cur + 1);
     }
 }
 
@@ -1059,18 +1107,20 @@ void TiledIndexPut(Function &function, const TileShape &tileShape, const Logical
         ASSERT(indices[i]->GetShape().size() == indices[i]->GetOffset().size());
     }
     TileInfo valuesTileInfo(values->shape.size(), values->offset.size());
-    for (size_t i = 1; i < values->GetShape().size(); i++) {
-        valuesTileInfo.shape[i] = values->GetShape()[i];
-        valuesTileInfo.offset[i] = 0;
-    }
+    TileInfo selfTileInfo(self->shape.size(), self->offset.size());
     auto inputValues = Input{values, valuesTileInfo};
+    auto inputSelf = Input{self, selfTileInfo};
+    for (size_t i = 0, size = self->shape.size(); i < size; ++i) {
+        inputSelf.tileInfo.shape[i] = self->shape[i];
+        inputSelf.tileInfo.offset[i] = 0;
+    }
     std::vector<Input> inputIndices;
-    for (size_t i = 0; i < indices.size(); i++) {
+    for (size_t i = 0, size = indices.size(); i < size; ++i) {
         TileInfo indicesTileInfoTemp(indices[i]->shape.size(), indices[i]->offset.size());
         auto inputIndicesTemp = Input{indices[i], indicesTileInfoTemp};
         inputIndices.push_back(inputIndicesTemp);
     }
-    TiledIndexPut(function, tileShape, self, inputValues, inputIndices, result, accumulate);
+    TiledIndexPut(function, tileShape, inputSelf, inputValues, inputIndices, result, accumulate, 0);
 }
 
 void TensorIndexPut(Function &function, const LogicalTensorPtr &self, const LogicalTensors &indices, const LogicalTensorPtr &values,
@@ -1306,6 +1356,85 @@ Tensor Range(const Element &start, const Element &end, const Element &step) {
     return resTensor;
 }
 
+Tensor GatherMask(const Tensor &self, const uint8_t patternMode) {
+    DECLARE_TRACER();
+    auto shape = self.GetShape();
+    auto &vecTile = TileShape::Current().GetVecTile();
+    if (patternMode == 1 || patternMode == 2) {
+        ASSERT(shape[shape.size() - 1] % 2 == 0) 
+            << "The last axis of input shape should be divisible by 2 when ptternMode is 1 or 2";
+        ASSERT(vecTile.tile[vecTile.tile.size() - 1] % 2 == 0) 
+            << "The last axis of tileshape should be divisible by 2 when ptternMode is 1 or 2";
+        shape[shape.size() - 1] = shape[shape.size() - 1] / 2;
+    } else if (patternMode == 3 || patternMode == 4 || patternMode == 5 || patternMode == 6) {
+        ASSERT(shape[shape.size() - 1] % 4 == 0) 
+            << "The last axis of input shape should be divisible by 4 when ptternMode is 3, 4, 5 or 6";
+        ASSERT(vecTile.tile[vecTile.tile.size() - 1] % 4 == 0) 
+            << "The last axis of tileshape should be divisible by 4 when ptternMode is 3, 4, 5 or 6";
+        shape[shape.size() - 1] = shape[shape.size() - 1] / 4;
+    } else {
+        ASSERT(patternMode == 7) << "Just support patternMode is 1, 2, 3, 4, 5, 6, 7";
+    }
+    auto result = Tensor(self.GetStorage()->tensor->datatype, shape);
+
+    if (!self.GetStorage()->GetDynValidShape().empty()) {
+        std::vector<SymbolicScalar> outValidShape;
+        for (auto dim : self.GetStorage()->GetDynValidShape()) {
+            outValidShape.push_back(dim);
+        }
+        if (patternMode == 1 || patternMode == 2){
+            outValidShape[outValidShape.size() - 1] = outValidShape[outValidShape.size() - 1] / 2;
+        } else if (patternMode == 3 || patternMode == 4 || patternMode == 5 || patternMode == 6) {
+            outValidShape[outValidShape.size() - 1] = outValidShape[outValidShape.size() - 1] / 4;
+        }
+        result.GetStorage()->UpdateDynValidShape(outValidShape);
+    }
+
+    CALL(GatherMask, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), result.GetStorage(), patternMode);
+    return result;
+}
+
+void TiledGatherMaskBuildIn(Function &function, const TileShape &tileShape, size_t cur, Input &input,
+    const LogicalTensorPtr &result, TileInfo &resultTileInfo, const uint8_t patternMode) {
+    if (cur == input.tensor.GetShape().size()) {
+        auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
+        auto &op = function.AddOperation(Opcode::OP_GATHER_MASK, {inputTile}, {resultTile});
+        op.SetAttribute(OP_ATTR_PREFIX + "patternMode", patternMode);
+        return;
+    }
+
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
+        // update input && result && resultDices shape and offset info
+        input.tileInfo.offset[cur] = i % input.tensor.GetShape()[cur];
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - input.tileInfo.offset[cur], vecTile[cur]);
+
+        if ((cur == input.tensor.GetShape().size() - 1) && (patternMode == 1 || patternMode == 2)) {
+            resultTileInfo.offset[cur] = i / 2;
+            resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur] / 2);
+        }else if ((cur == input.tensor.GetShape().size() - 1) && (
+            patternMode == 3 || patternMode == 4 || patternMode == 5 || patternMode == 6)) {
+            resultTileInfo.offset[cur] = i / 4;
+            resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur] / 4);
+        }else{
+            resultTileInfo.offset[cur] = i;
+            resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
+        }
+        TiledGatherMaskBuildIn(function, tileShape, cur + 1, input, result, resultTileInfo, patternMode);
+    }
+}
+
+void TiledGatherMaskBuildIn(Function &function, const TileShape &tileShape, const LogicalTensorPtr operand,
+    const LogicalTensorPtr resOperand, const uint8_t patternMode) {
+    TileInfo tileInfo(operand->shape.size(), operand->offset.size());
+    TileInfo resultTileInfo(resOperand->shape.size(), resOperand->offset.size());
+    tileInfo.shape = operand->shape;
+    resultTileInfo.shape = resOperand->shape;
+    auto input = Input{operand, tileInfo};
+    TiledGatherMaskBuildIn(function, tileShape, 0, input, resOperand, resultTileInfo, patternMode);
+}
+
 void IndexAddOperationTileFunc(Function &function, const TileShape &tileShape,
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
     int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "axis");
@@ -1367,6 +1496,12 @@ void RangeOperationTileFunc(Function &function, const TileShape &tileShape,
     TiledRange(function, tileShape, start, step, oOperand[0]);
 }
 
+void GatherMaskBuildInOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
+    uint8_t patternMode = op.GetIntAttribute(OP_ATTR_PREFIX + "patternMode");
+    TiledGatherMaskBuildIn(function, tileShape, iOperand[0], oOperand[0], patternMode);
+}
+
 REGISTER_OPERATION_TILED_FUNC(OP_INDEX_ADD, Opcode::OP_INDEX_ADD, IndexAddOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_GATHER, Opcode::OP_GATHER, GatherOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_GATHER_ELEMENT, Opcode::OP_GATHER_ELEMENT, GatherElementOperationTileFunc);
@@ -1375,5 +1510,6 @@ REGISTER_OPERATION_TILED_FUNC(OP_SCATTER, Opcode::OP_SCATTER, ScatterOperationTi
 REGISTER_OPERATION_TILED_FUNC(OP_INDEX_PUT, Opcode::OP_INDEX_PUT, IndexPutOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_INDEX_OUTCAST, Opcode::OP_INDEX_OUTCAST, IndexOutcastOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_RANGE, Opcode::OP_RANGE, RangeOperationTileFunc);
+REGISTER_OPERATION_TILED_FUNC(OP_GATHER_MASK_BUILDIN, Opcode::OP_GATHER_MASK_BUILDIN, GatherMaskBuildInOperationTileFunc);
 
 } // namespace npu::tile_fwk

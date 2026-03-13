@@ -60,21 +60,29 @@ result ：Tensor，Shape由输入的广播得到，详细广播场景可看上�
 
 ## 约束说明
 
-1. 建议优先使用 Element，传入 float 标量对于 fp16 场景，不保证正确性。
+1. 建议优先使用 Element，传入 float 标量，对于 fp16 场景，不保证正确性。
 
-## TileShape设置示例
+## 调用示例
+
+### TileShape设置示例
+
+说明：调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
 
 TileShape维度应和输出一致。
 
-如非广播场景，输入condition为[m, n]，input为[m, n]，other为[m, n]，输出为[m, n]，TileShape设置为[m1, n1], 则m1, n1分别用于切分m, n轴。
-
-广播场景，输入condition为[m, 1]，input为[m, n]，other为[m, n]，输出为[m, n]，TileShape设置为[m1, n1], 则m1, n1分别用于切分m, n轴。
+示例1：非广播场景，输入condition为[m, n]，input为[m, n]，other为[m, n]，输出为[m, n]，TileShape设置为[m1, n1], 则m1, n1分别用于切分m, n轴。
 
 ```python
-pypto.set_vec_tile_shapes(m1, n1)
+pypto.set_vec_tile_shapes(4, 16)
 ```
 
-## 调用示例
+示例2：广播场景，输入condition为[m, 1]，input为[m, n]，other为[m, n]，输出为[m, n]，TileShape设置为[m1, n1], 则m1, n1分别用于切分m, n轴。
+
+```python
+pypto.set_vec_tile_shapes(4, 16)
+```
+
+### 接口调用示例
 
 ```python
 cond1 = pypto.tensor([4], pypto.DT_BOOL)

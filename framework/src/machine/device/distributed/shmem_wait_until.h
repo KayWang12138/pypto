@@ -24,6 +24,9 @@
 #include "machine/device/dynamic/device_utils.h"
 
 namespace npu::tile_fwk::Distributed {
+constexpr int32_t ATTR_STRIDE_OFFSET = 1;
+constexpr int32_t ATTR_TILEROW_OFFSET = 3;
+constexpr int32_t ATTR_TILECOL_OFFSET = 4;
 struct SignalTileOp {
     void Init(uint64_t taskId, int32_t* addr, int32_t expectedSum, bool resetSignal) {
         taskId_ = taskId;
@@ -169,7 +172,8 @@ public:
     inline void Init(npu::tile_fwk::dynamic::DynDeviceTask *dynDeviceTask) {
         dynDeviceTask_ = dynDeviceTask;
         funcDataList_ = reinterpret_cast<DynFuncData*>(&dynDeviceTask->GetDynFuncDataList()->At(0));
-        hcclContextAddr_ = funcDataList_->hcclContext;
+        hcclContextAddr_ = funcDataList_->startArgs->commContexts;
+        commGroupNum_ = funcDataList_->startArgs->commGroupNum;
         hashMap_.Init();
     }
 
@@ -192,9 +196,9 @@ public:
         TensorInfo info = ShmemWaitUntil::GetTensorInfo(taskId, aicpuCode);
         const int32_t expectedSum = info.expectedSum;
         const bool resetSignal = info.resetSignal;
-        int32_t stride = aicpuCode[paramInfo_.attrIndex + 1];
-        int32_t tileRowShape = aicpuCode[paramInfo_.attrIndex + 3];
-        int32_t tileColShape = aicpuCode[paramInfo_.attrIndex + 4];
+        int32_t stride = aicpuCode[paramInfo_.attrIndex + ATTR_STRIDE_OFFSET];
+        int32_t tileRowShape = aicpuCode[paramInfo_.attrIndex + ATTR_TILEROW_OFFSET];
+        int32_t tileColShape = aicpuCode[paramInfo_.attrIndex + ATTR_TILECOL_OFFSET];
 
         int32_t tileCols = (paramInfo_.rawShapeCol + tileColShape - 1) / tileColShape;
         int32_t tileRows = (paramInfo_.rawShapeRow + tileRowShape - 1) / tileRowShape;
@@ -223,7 +227,8 @@ private:
 
     npu::tile_fwk::dynamic::DynDeviceTask *dynDeviceTask_;
     npu::tile_fwk::DynFuncData *funcDataList_;
-    uint64_t *hcclContextAddr_;
+    int64_t *hcclContextAddr_;
+    uint64_t commGroupNum_{0};
     AicpuParamInfo paramInfo_;
 
     uint64_t GetRawAddr(const uint64_t addr, const uint64_t dstRankId);

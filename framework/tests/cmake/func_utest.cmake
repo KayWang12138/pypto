@@ -90,8 +90,8 @@ function(PTO_Fwk_UTest_RunExe)
             if (PyEnvLines)
                 list(APPEND _Args "--env" "${PyEnvLines}")
             endif ()
-            get_filename_component(ParallelPy    "${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/python/utest_accelerate.py" REALPATH)
-            get_filename_component(ParallelPyCwd "${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/python" REALPATH)
+            get_filename_component(ParallelPy    "${PTO_FWK_SRC_ROOT}/cmake/scripts/utest_accelerate.py" REALPATH)
+            get_filename_component(ParallelPyCwd "${PTO_FWK_SRC_ROOT}/cmake/scripts" REALPATH)
             add_custom_command(
                     TARGET ${ARG_TARGET} POST_BUILD
                     COMMAND ${PyCmdSetup} ${Python3_EXECUTABLE} ${ParallelPy} ARGS ${_Args}
@@ -156,8 +156,9 @@ function(PTO_Fwk_UTest_AddExe_RunExe)
             $<$<BOOL:${BUILD_WITH_CANN}>:${PTO_Fwk_UTestNamePrefix}_stubs>
             # 基本依赖
             # Interface 内 HostMachine 存在 dlopen 逻辑, 此处增加对应库连接, 触发相关 so 被添加到可执行程序依赖中
-            tile_fwk_simulation_platform
             tile_fwk_utils
+            tile_fwk_cann_host_runtime
+            tile_fwk_platform
             tile_fwk_interface
             tile_fwk_codegen
             tile_fwk_compiler

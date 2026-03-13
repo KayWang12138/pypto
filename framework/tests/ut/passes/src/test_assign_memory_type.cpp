@@ -29,6 +29,7 @@ using namespace npu::tile_fwk;
 
 namespace npu{
 namespace tile_fwk {
+const int NUM_1 = 1;
 const int NUM_32 = 32;
 const int NUM_64 = 64;
 const int NUM_128 = 128;
@@ -48,7 +49,6 @@ public:
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetPlatformConfig(KEY_TEST_IS_TIG, true);
-        Platform::Instance().ObtainPlatformInfo();
     }
     void TearDown() override {}
 
@@ -60,6 +60,16 @@ public:
             {        "ExpandFunction",          PassName::EXPAND_FUNCTION},
             {           "DuplicateOp",             PassName::DUPLICATE_OP},
             {     "MergeViewAssemble",      PassName::MERGE_VIEW_ASSEMBLE},
+        });
+        ConfigManager::Instance();
+    }
+
+    void SetTestStrategy() {
+        PassManager &passManager = PassManager::Instance();
+        passManager.RegisterStrategy("AssignMemoryTypeTestStrategy", {
+            {   "InferMemoryConflict",    PassName::INFER_MEMORY_CONFLICT},
+            {        "ExpandFunction",          PassName::EXPAND_FUNCTION},
+            {      "AssignMemoryType",       PassName::ASSIGN_MEMORY_TYPE},
         });
         ConfigManager::Instance();
     }
@@ -262,8 +272,8 @@ TEST_F(AssignMemoryTypeTest, TestVecToCubeV2) {
                 CheckConvertOp(op, true);
             }
         }
-        constexpr int expextedConvertNum = 12;
-        EXPECT_EQ(convertNum, expextedConvertNum) << "12 operations should be Convert";
+        constexpr int expextedConvertNum = 4;
+        EXPECT_EQ(convertNum, expextedConvertNum) << "4 operations should be Convert";
     }
 }
 
@@ -379,8 +389,8 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCubeV2) {
             CheckConvertOp(op, true);
             convertNum++;
         }
-        constexpr int expextedConvertNum = 32;
-        EXPECT_EQ(convertNum, expextedConvertNum) << "32 operations should be Convert";
+        constexpr int expextedConvertNum = 16;
+        EXPECT_EQ(convertNum, expextedConvertNum) << "16 operations should be Convert";
     }
 }
 
@@ -429,7 +439,9 @@ TEST_F(AssignMemoryTypeTest, TestCubeToVec) {
             if (op.GetOpcode() == Opcode::OP_VIEW) {
                 ++afterViewNum;
                 auto viewOpAttr = std::dynamic_pointer_cast<ViewOpAttribute>(op.GetOpAttribute());
-                EXPECT_TRUE(viewOpAttr->GetTo() == MemoryType::MEM_L1 || viewOpAttr->GetTo() == MemoryType::MEM_UB) << "View to either l1 or ub";
+                EXPECT_TRUE(viewOpAttr->GetTo() == MemoryType::MEM_L1 || viewOpAttr->GetTo() == MemoryType::MEM_UB
+                 || viewOpAttr->GetTo() == MemoryType::MEM_L0A || viewOpAttr->GetTo() == MemoryType::MEM_L0B) << 
+                    "View to either l1, ub, l0a or l0b";
             }
         }
         EXPECT_EQ(afterViewNum, beforeViewNum + 1) << "Should insert one view after assemble and transfter data to DDR before to UB";
@@ -856,6 +868,136 @@ TEST_F(AssignMemoryTypeTest, TestPostcheckFailWhenPathUnreachable) {
 
     AssignMemoryType assignMemoryType;
     EXPECT_EQ(assignMemoryType.PostCheck(*function), FAILED);
+}
+
+TEST_F(AssignMemoryTypeTest, AssembleAndReshapeAfterAssemble) {
+    config::SetHostConfig(KEY_STRATEGY, "AssignMemoryTypeTestStrategy");
+    std::vector<int64_t> shape0 = {NUM_64, NUM_32};
+    std::vector<int64_t> shape1 = {NUM_32, NUM_64};
+    PROGRAM("AssignMemoryTest") {
+        Tensor input1(DataType::DT_FP32, shape0, "In1");
+        Tensor input2(DataType::DT_FP32, shape0, "In2");
+        Tensor input3(DataType::DT_FP32, shape1, "In3");
+        Tensor output1(DataType::DT_FP32, shape1, "Out1");
+        Tensor output2(DataType::DT_FP32, shape0, "Out2");
+        SetTestStrategy();
+        Function* originFunction = nullptr;
+        config::SetBuildStatic(true);
+        FUNCTION("AssembleAndReshapeAfterAssemble", {input1, input2, output1, output2}) {
+            TileShape::Current().SetVecTile(NUM_256, NUM_128);
+            Tensor t1 = Add(input1, input2);
+            Tensor t2(DT_FP32, shape0, "t2");
+            Tensor t3(DT_FP32, shape0, "t2");
+            Assemble(t1, {0, 0}, t2);
+            Assemble(t2, {0, 0}, t3);
+            Assemble(t3, {0, 0}, output2);
+            Tensor r1 = Reshape(t2, shape1);
+            output1 = Add(r1, input3);
+        }
+        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_AssembleAndReshapeAfterAssemble"); // Tensor_{Function名字}
+        ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
+        for (auto &op : originFunction->Operations()) {
+            if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+                EXPECT_EQ(op.iOperand[0]->GetMemoryTypeOriginal(), op.oOperand[0]->GetMemoryTypeOriginal());
+            }
+        }
+    }
+}
+
+void ConstructMultiDataLoadGraphBranch(ComputationalGraphBuilder &G, std::string name) {
+    G.AddTensor(DataType::DT_FP32, {NUM_128, NUM_1, NUM_128}, MemoryType::MEM_UNKNOWN, "in" + name);
+    G.AddTensor(DataType::DT_FP32, {NUM_128, NUM_1, NUM_128}, MemoryType::MEM_UNKNOWN, "t1" + name);
+    G.AddOp(Opcode::OP_VIEW, {"in" + name}, {"t1" + name}, "v1" + name);
+    G.GetOp("v1" + name)
+        ->SetOpAttribute(
+            std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_128, NUM_1, NUM_128}, MemoryType::MEM_UNKNOWN));
+    G.AddTensor(DataType::DT_FP32, {NUM_128, NUM_128}, MemoryType::MEM_UNKNOWN, "t2" + name);
+    G.AddOp(Opcode::OP_RESHAPE, {"t1" + name}, {"t2" + name}, "r" + name);
+    G.AddTensor(DataType::DT_FP32, {NUM_128, NUM_128}, MemoryType::MEM_UNKNOWN, "t4" + name);
+    G.AddOp(Opcode::OP_VIEW, {"t2" + name}, {"t4" + name}, "v2" + name);
+    G.GetOp("v2" + name)
+        ->SetOpAttribute(std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_128, NUM_128}, MemoryType::MEM_L1));
+    G.AddTensor(DataType::DT_FP32, {NUM_128, NUM_128}, MemoryType::MEM_UNKNOWN, "t5" + name);
+    G.AddOp(Opcode::OP_VIEW, {"t4" + name}, {"t5" + name}, "v3" + name);
+}
+
+void ConstructMultiDataLoadGraph(ComputationalGraphBuilder &G) {
+    ConstructMultiDataLoadGraphBranch(G, "a");
+    ConstructMultiDataLoadGraphBranch(G, "b");
+    G.AddTensor(DataType::DT_FP32, {NUM_128, NUM_128}, MemoryType::MEM_UNKNOWN, "t6");
+    G.AddOp(Opcode::OP_A_MUL_B, {"t5a", "t5b"}, {"t6"}, "amulb");
+    G.AddTensor(DataType::DT_FP32, {NUM_128, NUM_128}, MemoryType::MEM_UNKNOWN, "t3b");
+    G.AddOp(Opcode::OP_MUL, {"t2b", "t2b"}, {"t3b"}, "mulb");
+    G.GetOp("v3a")->SetOpAttribute(
+        std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_128, NUM_128}, MemoryType::MEM_L0A));
+    G.GetOp("v3b")->SetOpAttribute(
+        std::make_shared<ViewOpAttribute>(std::vector<int64_t>{NUM_128, NUM_128}, MemoryType::MEM_L0B));
+}
+
+void MultiDataLoadCheck(Function *func) {
+    for (const auto &op : func->Operations()) {
+        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            EXPECT_TRUE(op.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR);
+        }
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            EXPECT_FALSE(op.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_UB &&
+                         op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L1);
+        }
+    }
+}
+TEST_F(AssignMemoryTypeTest, TestMultiDataLoad) {
+    ComputationalGraphBuilder G;
+    ConstructMultiDataLoadGraph(G);
+    Function *func = G.GetFunction();
+    AssignMemoryType assignMemoryType;
+    EXPECT_EQ(assignMemoryType.PostCheck(*func), FAILED);
+    EXPECT_EQ(assignMemoryType.RunOnFunction(*func), SUCCESS);
+    EXPECT_EQ(assignMemoryType.PostCheck(*func), SUCCESS);
+    MultiDataLoadCheck(func);
+}
+TEST_F(AssignMemoryTypeTest, TestMultiDataLoad1) {
+    ComputationalGraphBuilder G;
+    ConstructMultiDataLoadGraph(G);
+    G.GetOp("rb")->SetOpCode(Opcode::OP_ADDS);
+    Function *func = G.GetFunction();
+    AssignMemoryType assignMemoryType;
+    EXPECT_EQ(assignMemoryType.PostCheck(*func), FAILED);
+    EXPECT_EQ(assignMemoryType.RunOnFunction(*func), SUCCESS);
+    EXPECT_EQ(assignMemoryType.PostCheck(*func), SUCCESS);
+    MultiDataLoadCheck(func);
+}
+TEST_F(AssignMemoryTypeTest, TestMultiDataLoad2) {
+    ComputationalGraphBuilder G;
+    ConstructMultiDataLoadGraph(G);
+    Shape s{NUM_128, NUM_128};
+    G.GetOp("rb")->SetOpCode(Opcode::OP_A_MUL_B);
+    G.AddTensor(DataType::DT_FP32, s, MemoryType::MEM_UNKNOWN, "inb2");
+    G.AddTensor(DataType::DT_FP32, s, MemoryType::MEM_UNKNOWN, "t1b2");
+    G.AddOp(Opcode::OP_VIEW, {"inb2"}, {"t1b2"}, "v1b2");
+    G.GetOp("v1b2")->SetOpAttribute(std::make_shared<ViewOpAttribute>(s, MemoryType::MEM_L1));
+    G.AddTensor(DataType::DT_FP32, s, MemoryType::MEM_UNKNOWN, "t2b2");
+    G.AddOp(Opcode::OP_VIEW, {"t1b2"}, {"t2b2"}, "v2b2");
+    G.GetOp("v2b2")->SetOpAttribute(std::make_shared<ViewOpAttribute>(s, MemoryType::MEM_L0A));
+    G.GetTensor("t2b2")->AddConsumer(G.GetOp("rb"));
+    G.GetOp("rb")->iOperand = {G.GetTensor("t1b"), G.GetTensor("t2b2")};
+    // rb b
+    G.GetTensor("inb")->shape = s;
+    G.GetTensor("inb")->tensor->rawshape = s;
+    G.GetTensor("t1b")->shape = s;
+    G.GetTensor("t1b")->tensor->rawshape = s;
+    G.AddTensor(DataType::DT_FP32, s, MemoryType::MEM_UNKNOWN, "t2b22");
+    G.GetOp("v1b")->ReplaceInput(G.GetTensor("t2b22"), G.GetTensor("inb"));
+    G.GetTensor("inb")->RemoveConsumer(G.GetOp("v1b"));
+    G.AddOp(Opcode::OP_VIEW, {"inb"}, {"t2b22"}, "v2b22");
+    G.GetOp("v2b22")->SetOpAttribute(std::make_shared<ViewOpAttribute>(s, MemoryType::MEM_L1));
+    G.GetOp("v1b")->SetOpAttribute(std::make_shared<ViewOpAttribute>(s, MemoryType::MEM_L0B));
+
+    Function *func = G.GetFunction();
+    AssignMemoryType assignMemoryType;
+    EXPECT_EQ(assignMemoryType.PostCheck(*func), FAILED);
+    EXPECT_EQ(assignMemoryType.RunOnFunction(*func), SUCCESS);
+    EXPECT_EQ(assignMemoryType.PostCheck(*func), SUCCESS);
+    MultiDataLoadCheck(func);
 }
 }
 } // namespace npu::tile_fwk

@@ -85,11 +85,10 @@ struct DevAscendProgram {
     DeviceRuntimeOffset deviceRuntimeOffset;
     const void *controlFlowBinaryAddr{nullptr};
     std::atomic<bool> runtimeDataRingBufferInited{false};
-    uint64_t hcclContext[HCCL_GROUP_NUM];
-    uint64_t commGroupNum{0};
     uint16_t stitchFunctionNumInitial{0};
     uint16_t stitchFunctionNumStep{0};
     uint32_t stitchFunctionsize{0};
+    uint32_t stitchMaxFunctionNum{0};
     uint32_t ctrlFlowCacheSize{0};
     DevRelocVector<DevAscendProgramSymbol> symbolTable;
     DevRelocVector<char> symbolTableNameList;
@@ -159,6 +158,18 @@ struct DevAscendProgram {
 
     void DumpExpressionTable(const int indent, const bool dumpAddr, std::ostringstream& oss) const;
 
+    void DumpBasicInfo(const int indent, std::ostringstream& oss) const;
+
+    void DumpSymbolTable(const int indent, std::ostringstream& oss) const;
+
+    void DumpInputOutputSlots(const int indent, std::ostringstream& oss) const;
+
+    void DumpAssembleAndInplaceSlots(const int indent, std::ostringstream& oss) const;
+
+    void DumpPartialUpdate(const int indent, std::ostringstream& oss) const;
+
+    void DumpInputSymbols(const int indent, std::ostringstream& oss) const;
+    
     std::string Dump(const int indent = 0, const bool dumpAddr = false) const;
 
     void DumpFile(const std::string &filePath) const;
@@ -304,8 +315,40 @@ struct DevAscendProgram {
         RelocOffset(shift, offset, controlFlowCache.cacheData);
     }
 
+    struct DevArgsPreservedParams {
+        uint32_t nrAic;
+        uint32_t nrAiv;
+        uint32_t nrAicpu;
+        uint32_t nrValidAic;
+        uint32_t scheCpuNum;
+        ArchInfo archInfo;
+    };
+
+    DevArgsPreservedParams BackupDevArgsParams(const DeviceArgs& src) {
+        DevArgsPreservedParams params;
+        params.nrAic = src.nrAic;
+        params.nrAiv = src.nrAiv;
+        params.nrAicpu = src.nrAicpu;
+        params.nrValidAic = src.nrValidAic;
+        params.scheCpuNum = src.scheCpuNum;
+        params.archInfo = src.archInfo;
+        return params;
+    }
+
+    void RestoreDevArgsParams(DeviceArgs& dst, const DevArgsPreservedParams& params) {
+        dst.nrAic = params.nrAic;
+        dst.nrAiv = params.nrAiv;
+        dst.nrAicpu = params.nrAicpu;
+        dst.nrValidAic = params.nrValidAic;
+        dst.scheCpuNum = params.scheCpuNum;
+        dst.archInfo = params.archInfo;
+    }
+
     void ResetFromLaunch() {
+        DevArgsPreservedParams preservedParams = BackupDevArgsParams(devArgs);
         memset_s(&devArgs, sizeof(devArgs), 0, sizeof(devArgs));
+        RestoreDevArgsParams(devArgs, preservedParams);
+
         controlFlowBinaryAddr = nullptr;
         runtimeDataRingBufferInited = false;
         workspaceSize = 0;

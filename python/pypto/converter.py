@@ -15,7 +15,6 @@ from functools import wraps
 
 from .enum import DataType, TileOpFormat
 from .tensor import Tensor
-from .pypto_impl import ir
 
 
 def _count_calls(func):
@@ -31,6 +30,23 @@ def _count_calls(func):
         return func(tensor, name, dynamic_axis, tensor_format, dtype)
 
     return wrapper
+
+
+def _check_inner_shape(tensor, dtype, is_nz):
+    if tensor.dim() <= 0:
+        return
+    is_b4 = dtype == DataType.DT_FP4_E2M1X2 or dtype == DataType.DT_FP4_E1M2X2
+    shape_back = tensor.shape[-1]
+    if shape_back == -1:
+        return
+    if is_nz:
+        block_align_bytes = 64 if is_b4 else 32
+        total_bytes = shape_back if is_b4 else shape_back * tensor.element_size()
+        if total_bytes % block_align_bytes != 0:
+            raise RuntimeError("NZ format inner axis must be aligned to 32B(4bit dtype must be aligned to 64).")
+    elif is_b4:
+        if shape_back % 2 != 0:
+            raise RuntimeError("ND format and 4bit dtype inner axis must be even number.")
 
 
 @_count_calls
@@ -89,6 +105,7 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
     if not tensor.is_contiguous():
         raise RuntimeError("not all tensors are contiguous")
 
+    dtype = _dtype_from(tensor.dtype) if dtype is None else dtype
     if tensor_format is None:
         tensor_format = TileOpFormat.TILEOP_ND
         if tensor.device.type == "npu":
@@ -96,8 +113,10 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
 
             if torch_npu.get_npu_format(tensor) == 29:
                 tensor_format = TileOpFormat.TILEOP_NZ
+                _check_inner_shape(tensor, dtype, is_nz=True)
+            else:
+                _check_inner_shape(tensor, dtype, is_nz=False)
 
-    dtype = _dtype_from(tensor.dtype) if dtype is None else dtype
     if tensor.dim() == 0:
         return Tensor(
             shape=tuple([1]),
@@ -138,6 +157,8 @@ _dtype_dict = {
     "torch.bool": DataType.DT_BOOL,
     "torch.float8_e4m3fn": DataType.DT_FP8E4M3,
     "torch.float8_e5m2": DataType.DT_FP8E5M2,
+    "torch.float8_e8m0fnu": DataType.DT_FP8E8M0,
+    "torch.float4_e2m1fn_x2": DataType.DT_FP4_E2M1X2,
 }
 
 
@@ -188,7 +209,7 @@ def _torch_dtype_from(dtype: DataType) -> "torch.dtype":
 
 def _gen_pto_tensor(input_tensors):
     import torch
-    
+
     torch_tensors = []
     pto_tensors = []
     for t in input_tensors:
@@ -208,12 +229,3 @@ def _gen_pto_tensor(input_tensors):
     return pto_tensors, torch_tensors
 
 
-def ir_from_tensor(pto_tensor: Tensor):
-    tensor_shape = []
-    dim_num = 0
-    for ele in pto_tensor.shape:
-        dim = ir.Scalar(ir.DataType.int32, ele, "dim_" + str(dim_num))
-        tensor_shape.append(dim)
-        dim_num = dim_num + 1
-    return ir.Tensor(tensor_shape, ir.DataType(int(pto_tensor.dtype)), \
-        "_MACRO_" + pto_tensor.name, ir.Format((int(pto_tensor.format))))

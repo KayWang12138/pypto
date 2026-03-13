@@ -9,7 +9,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """PyPTO"""
-from typing import Union
+from typing import Union, Sequence, List
 
 from .. import pypto_impl
 from .._op_wrapper import op_wrapper
@@ -99,6 +99,67 @@ def where(
 
 
 @op_wrapper
+def pad(input: Tensor, pad: Sequence[int], mode: str = "constant", value: float = 0.0) -> Tensor:
+    """
+    Pads the input tensor.
+
+    Padding size:
+    The padding size by which to pad some dimensions of input are described starting from
+    the last dimension and moving forward.
+    For pad has format (d_last_dim, d_last_dim-1, ..., d_last_dim-k).
+    Current implementation supports padding the last 2 dimensions (Right and Bottom) with 
+    constant values.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor to be padded.
+    pad : tuple or list of int
+        m-elements tuple, where m/2 <= input dimensions and m is even.
+        Format is (pad_left, pad_right, pad_top, pad_bottom, ...).
+        Note: Currently only supports pad_left=0 and pad_top=0 (Right/Bottom padding only).
+    mode : str, optional
+        'constant', 'reflect', 'replicate' or 'circular'. Default: 'constant'
+        Note: Currently only 'constant' is supported.
+    value : float, optional
+        fill value for 'constant' padding. Default: 0.0
+        Note: Currently only 'inf' '-inf' '0.0' is supported.
+
+    Returns
+    -------
+    Tensor
+        Padded tensor.
+
+    Raises
+    ------
+    TypeError
+        If input is not a Tensor.
+        If pad is not a sequence of integers.
+    ValueError
+        If pad length is not even.
+
+    Examples
+    --------
+    t4d = pypto.tensor([1, 1, 2, 2], pypto.DT_FP32)
+    # Pad last dim by (0, 1) -> Right pad 1
+    # Pad 2nd to last dim by (0, 1) -> Bottom pad 1
+    p1 = (0, 1, 0, 1) 
+    out = pypto.pad(t4d, p1, "constant", 0.0)
+
+    Input t4d: [[[[0.0, 1.0],
+                [2.0, 3.0]]]]
+    
+    Output out: [[[[0.0, 1.0, 0.0],
+                [2.0, 3.0, 0.0],
+                [0.0, 0.0, 0.0]]]]
+
+    """
+
+    pad_list = list(pad)
+    return pypto_impl.Pad(input, pad_list, mode, float(value))
+
+
+@op_wrapper
 def one_hot(input: Tensor, num_classes: int) -> Tensor:
     """
     Converts a tensor of indices to one-hot encoded tensor.
@@ -138,3 +199,44 @@ def one_hot(input: Tensor, num_classes: int) -> Tensor:
     if num_classes <= 0:
         raise RuntimeError("num_classes must be a positive integer")
     return pypto_impl.OneHot(input, num_classes)
+
+
+@op_wrapper
+def expand_exp_dif(input: Tensor, other: Tensor) -> Tensor:
+    """Computes the exp dif of `input` and `other`.
+
+    This function calculates the formula: `out = e ** (input - other)`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The first input tensor.
+    other : Tensor
+        The second input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise expand exp dif.
+
+    Examples
+    --------
+    x = pypto.tensor([2, 3], pypto.DT_FP32)
+    y = pypto.tensor([1, 3], pypto.DT_FP32)
+    z = pypto.expand_exp_dif(x, y)
+
+    Input x:      [[1, 2, 3], [4, 5, 6]]
+    Input y:      [[1, 2, 3]]
+    Output z :    [[ 1.      ,  1.      ,  1.      ],
+                   [20.085537, 20.085537, 20.085537]]
+
+    x = pypto.tensor([2, 3], pypto.DT_FP32)
+    y = pypto.tensor([2, 1], pypto.DT_FP32)
+    z = pypto.expand_exp_dif(x, y)
+
+    Input x:      [[1, 2, 3], [4, 5, 6]]
+    Input x:      [[1], [2]]
+    Output z :    [[ 1.       ,  2.718282 ,  7.3890557],
+                   [ 7.3890557, 20.085537 , 54.59815  ]]
+    """
+    return pypto_impl.ExpandExpDif(input, other)

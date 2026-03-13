@@ -272,7 +272,7 @@ Status PipeSync::InsertSync(Function &function, std::vector<Operation *> &synced
     uint64_t idxInput = 0;
     for (const auto &op : opLogPtr) {
         BuildTensorRangeMap(op);
-        APASS_LOG_DEBUG_F(Elements::Operation, "Input operation %d %d: %s.", idxInput, op->GetOpMagic(), op->GetOpcodeStr().c_str());
+        APASS_LOG_DEBUG_F(Elements::Operation, "Input operation %lu %lu: %s.", static_cast<unsigned long>(idxInput), static_cast<unsigned long>(op->GetOpMagic()), op->GetOpcodeStr().c_str());
         idxInput++;
     }
     if (PipeDispatch(opLogPtr, synced) != SUCCESS) { 
@@ -513,7 +513,8 @@ void PipeSync::InitIssueQueue() {
 
 void PipeSync::EnqueueOp(DepOp &op, const std::vector<Operation *> opLogPtr, std::vector<IndexOp> &syncedOpLog) {
    if (opLogPtr[op.idx]->GetOpcode() == Opcode::OP_ASSEMBLE || opLogPtr[op.idx]->GetOpcode() == Opcode::OP_VIEW ||
-        opLogPtr[op.idx]->GetOpcode() == Opcode::OP_NOP || opLogPtr[op.idx]->GetOpcode() == Opcode::OP_HUB) {
+        opLogPtr[op.idx]->GetOpcode() == Opcode::OP_NOP || opLogPtr[op.idx]->GetOpcode() == Opcode::OP_HUB ||
+        opLogPtr[op.idx]->GetOpcode() == Opcode::OP_VIEW_TYPE) {
         syncedOpLog.emplace_back(std::make_pair(op.idx * SEQUENCE_IDX, std::ref(*opLogPtr[op.idx])));
         return;
     }
@@ -1071,7 +1072,7 @@ Status PipeSync::GetDepInfo(std::vector<IndexOp> &syncedOpLog, const PipePair &p
     std::reverse(depInfo.setOpIdList.begin(), depInfo.setOpIdList.end());
     std::reverse(depInfo.setOpEventIdList.begin(), depInfo.setOpEventIdList.end());
     if (depInfo.opDepList.size() != eventNum || depInfo.setOpIdList.size() != eventNum || depInfo.setOpEventIdList.size() != eventNum) {
-        APASS_LOG_ERROR_F(Elements::Operation, "dep size should be %d, RelaxFakeDataDep failed.", eventNum);
+        APASS_LOG_ERROR_F(Elements::Operation, "dep size should be %zu, RelaxFakeDataDep failed.", eventNum);
         return FAILED;
     }
     return SUCCESS;
@@ -1316,6 +1317,7 @@ bool PipeSync::IgnorableIntraPipeDep(size_t prev, size_t curr, const std::vector
     // true表示依赖关系可忽略，false表示依赖关系不可忽略
     // VIEW or ASSEMBLE data dependency can be ignored
     if (opLogPtr[prev]->GetOpcode() == Opcode::OP_VIEW || opLogPtr[curr]->GetOpcode() == Opcode::OP_VIEW ||
+        opLogPtr[prev]->GetOpcode() == Opcode::OP_VIEW_TYPE || opLogPtr[curr]->GetOpcode() == Opcode::OP_VIEW_TYPE ||
         opLogPtr[prev]->GetOpcode() == Opcode::OP_ASSEMBLE || opLogPtr[curr]->GetOpcode() == Opcode::OP_ASSEMBLE ||
         opLogPtr[prev]->GetOpcode() == Opcode::OP_NOP || opLogPtr[curr]->GetOpcode() == Opcode::OP_NOP ||
         opLogPtr[prev]->GetOpcode() == Opcode::OP_HUB || opLogPtr[curr]->GetOpcode() == Opcode::OP_HUB) {
@@ -1609,7 +1611,8 @@ void InsertSync::InsertPipeAll(Function *subGraphFunc) {
     std::vector<Operation*> newOpList;
     for (auto op : oriOpList) {
         newOpList.push_back(op);
-        if (op->GetOpcode() == Opcode::OP_RESHAPE || op->GetOpcode() == Opcode::OP_VIEW || op->GetOpcode() == Opcode::OP_ASSEMBLE) {
+        if (op->GetOpcode() == Opcode::OP_RESHAPE || op->GetOpcode() == Opcode::OP_VIEW ||
+            op->GetOpcode() == Opcode::OP_VIEW_TYPE || op->GetOpcode() == Opcode::OP_ASSEMBLE) {
             continue;
         }
         std::vector<std::shared_ptr<LogicalTensor>> input;
@@ -1711,7 +1714,7 @@ Status InsertSync::RunOnFunction(Function &function) {
         workers.emplace_back([&subPrograms, &nextIdx, leafFuncSize, &index, this, &status] {
             for (size_t idx = nextIdx.fetch_add(1, std::memory_order_relaxed); idx < leafFuncSize; idx = nextIdx.fetch_add(1, std::memory_order_relaxed)) {
                 auto program = subPrograms[idx];
-                APASS_LOG_DEBUG_F(Elements::Operation, "====================================Program %d ===========================================", index);
+                APASS_LOG_DEBUG_F(Elements::Operation, "====================================Program %zu ===========================================", index);
                 if (InsertSyncMainLoop(program.second) != SUCCESS) {
                     status = false;
                     break;

@@ -72,25 +72,65 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
             PTO_WITH_LAST_USE(pto::TROWEXPANDMIN(dst, src0, src1), n1, n2, n3);
         }
     }
-        
+
     if constexpr (op == BinaryOp::BITWISEAND) {
         pto::TAND(dst, src0, src1);
         return;
     }
-  
+
     if constexpr (op == BinaryOp::BITWISEOR) {
         pto::TOR(dst, src0, src1);
         return;
-    }      
+    }
+    
+    if constexpr (op == BinaryOp::REM) {
+        pto::TREM(dst, src0, src1);
+        return;
+    }  
+
+    if constexpr (op == BinaryOp::EXPANDEXPDIF) {
+        if constexpr (operand == TileOp::BroadcastOperand::NONE) {
+            pto::TCOLEXPANDEXPDIF(dst, src0, src1);
+        } else {
+            pto::TROWEXPANDEXPDIF(dst, src0, src1);
+        }
+    }
+
+    if constexpr (op == BinaryOp::MOD) {
+        if constexpr (operand == TileOp::BroadcastOperand::NONE) {
+            pto::TFMOD(dst, src0, src1);
+        } else {
+            pto::TROWEXPANDDIV(dst, src0, src1);
+            #ifdef __DAV_V220
+            pipe_barrier(PIPE_V);
+            #endif
+            pto::TCVT(dst, dst, pto::RoundMode::CAST_TRUNC);
+            #ifdef __DAV_V220
+            pipe_barrier(PIPE_V);
+            #endif
+            pto::TROWEXPANDMUL(dst, dst, src1);
+            #ifdef __DAV_V220
+            pipe_barrier(PIPE_V);
+            #endif
+            pto::TROWEXPANDSUB(dst, src0, dst);
+        }
+        return;
+    }
 }
 
 template <BinaryOp op, TileOp::BroadcastOperand operand, typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
+    constexpr auto src0TileW = TileOp::GetTensorTileShapeDim<T1, DIM_5TH, MAX_DIMS>();
+    constexpr auto src1TileW = TileOp::GetTensorTileShapeDim<T2, DIM_5TH, MAX_DIMS>();
     if constexpr (TileOp::IsConstContinous<T0, T1, T2>() == true) {
         auto dstTile = PtoTile<T0, pto::BLayout::RowMajor, true>().Data();
-        auto src0Tile = PtoTile<T1, pto::BLayout::RowMajor, true>().Data();
-        auto src1Tile = PtoTile<T2, pto::BLayout::RowMajor, true>().Data();
+        using Src0PtoTile = typename std::conditional<(src0TileW == 1 && operand == TileOp::BroadcastOperand::LEFT_OPERAND),
+            PtoTile<T1, pto::BLayout::ColMajor, true>, PtoTile<T1, pto::BLayout::RowMajor, true>>::type;
+        using Src1PtoTile = typename std::conditional<(src1TileW == 1 && operand == TileOp::BroadcastOperand::RIGHT_OPERAND),
+            PtoTile<T2, pto::BLayout::ColMajor, true>, PtoTile<T2, pto::BLayout::RowMajor, true>>::type;
+        auto src0Tile = Src0PtoTile().Data();
+        auto src1Tile = Src1PtoTile().Data();
         pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
         pto::TASSIGN(src0Tile, (uint64_t)src0.GetAddr());
         pto::TASSIGN(src1Tile, (uint64_t)src1.GetAddr());
@@ -102,11 +142,9 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
     auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
     auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
 
-    constexpr auto src0TileW = TileOp::GetTensorTileShapeDim<T1, DIM_5TH, MAX_DIMS>();
-    constexpr auto src1TileW = TileOp::GetTensorTileShapeDim<T2, DIM_5TH, MAX_DIMS>();
-    using Src0PtoTile = typename std::conditional<(src0TileW == 1 && operand == TileOp::BroadcastOperand::LEFT_OPERAND), 
+    using Src0PtoTile = typename std::conditional<(src0TileW == 1 && operand == TileOp::BroadcastOperand::LEFT_OPERAND),
         PtoTile<T1, pto::BLayout::ColMajor>, PtoTile<T1>>::type;
-    using Src1PtoTile = typename std::conditional<(src1TileW == 1 && operand == TileOp::BroadcastOperand::RIGHT_OPERAND), 
+    using Src1PtoTile = typename std::conditional<(src1TileW == 1 && operand == TileOp::BroadcastOperand::RIGHT_OPERAND),
         PtoTile<T2, pto::BLayout::ColMajor>, PtoTile<T2>>::type;
 
     auto dstTile = PtoTile<T0>(dst);
@@ -161,6 +199,12 @@ TILEOP void TMin(T0 dst, T1 src0, T2 src1) {
     BinaryCompute<BinaryOp::MIN, operand, LastUse>(dst, src0, src1);
 }
 
+#define OP_TILE_OP_REM TRem
+template <typename LastUse = LastUse3Dim<0, 0, 0>, TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
+TILEOP void TRemainder(T0 dst, T1 src0, T2 src1) {
+    BinaryCompute<BinaryOp::REM, operand, LastUse>(dst, src0, src1);
+}
+
 #define OP_TILE_OP_BITWISEAND TBitwiseAnd
 template <typename LastUse = LastUse3Dim<0, 0, 0>, TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TBitwiseAnd(T0 dst, T1 src0, T2 src1) {
@@ -173,144 +217,199 @@ TILEOP void TBitwiseOr(T0 dst, T1 src0, T2 src1) {
     BinaryCompute<BinaryOp::BITWISEOR, operand, LastUse>(dst, src0, src1);
 }
 
-#define OP_TILE_OP_Mod TMod
-template <TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2,  typename T3>
-TILEOP void TMod(T0 dst, T1 src0, T2 src1, T3 tmp) {
-    constexpr size_t expectSize = 5;
-    const auto dstLayout = dst.GetLayout();
-    const auto src0Layout = src0.GetLayout();
-    const auto src1Layout = src1.GetLayout();
-    constexpr auto dataTypeSize = sizeof(typename T0::Type);
-    auto dstShape0 = dstLayout.template GetShapeDim<0, expectSize>();
-    auto dstShape1 = dstLayout.template GetShapeDim<1, expectSize>();
-    auto dstShape2 = dstLayout.template GetShapeDim<2, expectSize>();
-    auto dstShape3 = dstLayout.template GetShapeDim<3, expectSize>();
-    auto dstShape4 = dstLayout.template GetShapeDim<4, expectSize>();
-    if (dstShape0 == 0 || dstShape1 == 0 || dstShape2 == 0 || dstShape3 == 0 || dstShape4 == 0) {
-        return;
+#define OP_TILE_OP_EXPANDEXPDIF TExpandExpDif
+template <TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
+TILEOP void TExpandExpDif(T0 dst, T1 src0, T2 src1) {
+    if constexpr (operand == TileOp::BroadcastOperand::NONE) {
+        const auto src0Layout = src0.GetLayout();
+        auto src0Shape3 = src0Layout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
+        auto src0Shape4 = src0Layout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
+        const auto src1Layout = src1.GetLayout();
+        auto src1Shape3 = src1Layout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
+        auto src1Shape4 = src1Layout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
+        // (1024, 1) & (1024, 1) -> (1024, 1) use TROWEXPANDEXPDIF
+        if ((src0Shape3 == src1Shape3) && (src0Shape4 == src1Shape4) && (src1Shape4 == 1)) {
+            BinaryCompute<BinaryOp::EXPANDEXPDIF, TileOp::BroadcastOperand::RIGHT_OPERAND, LastUse3Dim<0, 0, 0>>(
+                dst, src0, src1);
+            return;
+        }
     }
+    BinaryCompute<BinaryOp::EXPANDEXPDIF, operand, LastUse3Dim<0, 0, 0>>(dst, src0, src1);
+}
 
-    auto dstStride0 = dstLayout.template GetStrideDim<0, expectSize>();
-    auto dstStride1 = dstLayout.template GetStrideDim<1, expectSize>();
-    auto dstStride2 = dstLayout.template GetStrideDim<2, expectSize>();
+TILEOP int gcd(int a, int b) {
+    if (a < 0) {
+        a = 0 - a;
+    }
+    if (b < 0) {
+        b = 0 - b;
+    }
+    while (a % b != 0) {
+        int c = a % b;
+        a = b;
+        b = c;
+    }
+    return b;
+}
 
-    auto src0Stride0 = src0Layout.template GetStrideDim<0, expectSize>();
-    auto src0Stride1 = src0Layout.template GetStrideDim<1, expectSize>();
-    auto src0Stride2 = src0Layout.template GetStrideDim<2, expectSize>();
+#define OP_TILE_OP_GCD TGcd
+template <TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
+TILEOP void TGcd(T0 dst, T1 src0, T2 src1) {
+    const auto dstLayout = dst.GetLayout();
+    auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+    auto shape3 = dstLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
+    auto shape4 = dstLayout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
+    auto dstStride0 = dstLayout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
+    auto dstStride1 = dstLayout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
+    auto dstStride2 = dstLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
+    auto dstStride3 = dstLayout.template GetStrideDim<DIM_4TH, MAX_DIMS>();
+    constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, 3, 5>();
+    constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, 4, 5>();
+    auto src0Addr = (__ubuf__ typename T1::Type *)((uint64_t)(src0.GetAddr()));
+    auto src1Addr = (__ubuf__ typename T2::Type *)((uint64_t)(src1.GetAddr()));
+    auto dstAddr = (__ubuf__ typename T0::Type *)((uint64_t)(dst.GetAddr()));
 
-    auto src1Stride0 = src1Layout.template GetStrideDim<0, expectSize>();
-    auto src1Stride1 = src1Layout.template GetStrideDim<1, expectSize>();
-    auto src1Stride2 = src1Layout.template GetStrideDim<2, expectSize>();
-
-    constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, 3, expectSize>();
-    constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, 4, expectSize>();
-    constexpr auto src0TileH = TileOp::GetTensorTileShapeDim<T1, 3, expectSize>();
-    constexpr auto src0TileW = TileOp::GetTensorTileShapeDim<T1, 4, expectSize>();
-    constexpr auto src1TileH = TileOp::GetTensorTileShapeDim<T2, 3, expectSize>();
-    constexpr auto src1TileW = TileOp::GetTensorTileShapeDim<T2, 4, expectSize>();
-    __ubuf__ float *castBufAddr = reinterpret_cast<__ubuf__ float*>(tmp.GetAddr());
-    using DstTileDefine =
-        pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
-    using Src0TileDefine =
-        pto::Tile<pto::TileType::Vec, typename T1::Type, src0TileH, src0TileW, pto::BLayout::RowMajor, -1, -1>;
-    using Src1TileDefine =
-        pto::Tile<pto::TileType::Vec, typename T2::Type, src1TileH, src1TileW, pto::BLayout::RowMajor, -1, -1>;
-    DstTileDefine dstTile(dstShape3, dstShape4);
-    Src0TileDefine src0Tile(dstShape3, dstShape4);
-    Src1TileDefine src1Tile(dstShape3, dstShape4);
-
-    using DstType = typename T0::Type;
-    for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
-        for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
-            for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
-                auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
-                auto src0Offset = n0Index * src0Stride0 + n1Index * src0Stride1 + n2Index * src0Stride2;
-                auto src1Offset = n0Index * src1Stride0 + n1Index * src1Stride1 + n2Index * src1Stride2;
-                pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dataTypeSize));
-                pto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + src0Offset * dataTypeSize));
-                pto::TASSIGN(src1Tile, (uint64_t)(src1.GetAddr() + src1Offset * dataTypeSize));
-                if constexpr (std::is_same_v<DstType, float>) {
-                    DstTileDefine divTmpTile(dstShape3, dstShape4);
-                    DstTileDefine castTmpTile(dstShape3, dstShape4);
-                    pto::TASSIGN(divTmpTile, reinterpret_cast<uint64_t>(castBufAddr + dstTileH * dstTileW));
-                    pto::TASSIGN(castTmpTile, reinterpret_cast<uint64_t>(castBufAddr + dstTileH * dstTileW * 2));
-                    if constexpr (operand == TileOp::BroadcastOperand::NONE) {
-                        pto::TDIV(divTmpTile, src0Tile, src1Tile);
-                    } else {
-                        pto::TROWEXPANDDIV(divTmpTile, src0Tile, src1Tile);
+    set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    for (LoopVar n = 0; n < shape0; n++) {
+        for (LoopVar j = 0; j < shape1; j++) {
+            for (LoopVar k = 0; k < shape2; k++) {
+                for (LoopVar m = 0; m < shape3; m++) {
+                    for (LoopVar i = 0; i < shape4; i++) {
+                        int tmpStride = n * dstStride0 + j * dstStride1 + k * dstStride2 + m * dstStride3 + i;
+                        dstAddr[tmpStride] = gcd(src0Addr[tmpStride], src1Addr[tmpStride]);
                     }
-                    #ifdef __DAV_V220
-                    pipe_barrier(PIPE_V);
-                    #endif
-                    pto::TCVT(castTmpTile, divTmpTile, pto::RoundMode::CAST_TRUNC);
-                    #ifdef __DAV_V220
-                    pipe_barrier(PIPE_V);
-                    #endif
-                    if constexpr (operand == TileOp::BroadcastOperand::NONE) {
-                        pto::TMUL(castTmpTile, castTmpTile, src1Tile);
-                    } else {
-                        pto::TROWEXPANDMUL(castTmpTile, castTmpTile, src1Tile);
-                    }
-                    #ifdef __DAV_V220
-                    pipe_barrier(PIPE_V);
-                    #endif
-                    if constexpr (operand == TileOp::BroadcastOperand::NONE) {
-                        pto::TSUB(dstTile, src0Tile, castTmpTile);
-                    } else {
-                        pto::TROWEXPANDSUB(dstTile, src0Tile, castTmpTile);
-                    }
-                    #ifdef __DAV_V220
-                    pipe_barrier(PIPE_V);
-                    #endif
-                } else if constexpr (std::is_same_v<DstType, half> || std::is_same_v<DstType, bfloat16_t>) {
-                    using Fp32TmpTileDefine =
-                        pto::Tile<pto::TileType::Vec, float, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
-                    Fp32TmpTileDefine dstTileTmp(dstShape3, dstShape4);
-                    Fp32TmpTileDefine src0TileTmp(dstShape3, dstShape4);
-                    Fp32TmpTileDefine src1TileTmp(dstShape3, dstShape4);
-                    Fp32TmpTileDefine castTileTmp(dstShape3, dstShape4);
-                    pto::TASSIGN(dstTileTmp, reinterpret_cast<uint64_t>(castBufAddr + dstTileH * dstTileW));
-                    pto::TASSIGN(src0TileTmp, reinterpret_cast<uint64_t>(castBufAddr + dstTileH * dstTileW * 2));
-                    pto::TASSIGN(src1TileTmp, reinterpret_cast<uint64_t>(castBufAddr + dstTileH * dstTileW * 3));
-                    pto::TASSIGN(castTileTmp, reinterpret_cast<uint64_t>(castBufAddr + dstTileH * dstTileW * 4));
-                    pto::TCVT(dstTileTmp, dstTile, pto::RoundMode::CAST_NONE);
-                    pto::TCVT(src0TileTmp, src0Tile, pto::RoundMode::CAST_NONE);
-                    pto::TCVT(src1TileTmp, src1Tile, pto::RoundMode::CAST_NONE);
-                    #ifdef __DAV_V220
-                    pipe_barrier(PIPE_V);
-                    #endif
-                    if constexpr (operand == TileOp::BroadcastOperand::NONE) {
-                        pto::TDIV(dstTileTmp, src0TileTmp, src1TileTmp);
-                    } else {
-                        pto::TROWEXPANDDIV(dstTileTmp, src0TileTmp, src1TileTmp);
-                    }
-                    #ifdef __DAV_V220
-                    pipe_barrier(PIPE_V);
-                    #endif
-                    pto::TCVT(castTileTmp, dstTileTmp, pto::RoundMode::CAST_TRUNC);
-                    #ifdef __DAV_V220
-                    pipe_barrier(PIPE_V);
-                    #endif
-                    if constexpr (operand == TileOp::BroadcastOperand::NONE) {
-                        pto::TMUL(dstTileTmp, castTileTmp, src1TileTmp);
-                    } else {
-                        pto::TROWEXPANDMUL(dstTileTmp, castTileTmp, src1TileTmp);
-                    }
-                    #ifdef __DAV_V220
-                    pipe_barrier(PIPE_V);
-                    #endif
-                    if constexpr (operand == TileOp::BroadcastOperand::NONE) {
-                        pto::TSUB(dstTileTmp, src0TileTmp, dstTileTmp);
-                    } else {
-                        pto::TROWEXPANDSUB(dstTileTmp, src0TileTmp, dstTileTmp);
-                    }
-                    #ifdef __DAV_V220
-                    pipe_barrier(PIPE_V);
-                    #endif
-                    pto::TCVT(dstTile, dstTileTmp, pto::RoundMode::CAST_NONE);
                 }
             }
         }
+    }
+    set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+    wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+}
+
+#define OP_TILE_OP_Mod TMod
+template <typename LastUse = LastUse3Dim<0, 0, 0>, TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
+TILEOP void TMod(T0 dst, T1 src0, T2 src1) {
+    BinaryCompute<BinaryOp::MOD, operand, LastUse>(dst, src0, src1);
+}
+
+template <typename T0, typename T1, typename T2, typename T3>
+TILEOP void SwitchPowResult(const size_t offset, T0 dst, T1 src0, T2 src1, T3 tmp) {
+    float a = src0.GetValue(offset);
+    float b = src1.GetValue(offset);
+    if (b == 0) {
+        dst.SetValue(offset, static_cast<float>(1));
+        return;
+    }
+    if (a == 0) {
+        if (b > 0) {
+            dst.SetValue(offset, static_cast<float>(0));
+            return;
+        }
+        dst.SetValue(offset, static_cast<float>(1) / static_cast<float>(0));
+        return;
+    }
+    if (TileOp::IsInteger(b)) {
+        if (static_cast<int>(b) % 2 != 0 && a < 0) {
+            dst.SetValue(offset, -tmp.GetValue(offset));
+        } else {
+            dst.SetValue(offset, tmp.GetValue(offset));
+        }
+    }
+}
+
+template <typename T0, typename T1, typename T2, typename T3>
+TILEOP void SwitchPowResult(T0 dst, T1 src0, T2 src1, T3 tmp) {
+    constexpr size_t rowStride = src0.RowStride;
+    constexpr size_t colStride = src0.ColStride;
+    for (size_t n0 = 0, validRow = src0.GetValidRow(); n0 < validRow; ++n0) {
+        for (size_t n1 = 0, validCol = src0.GetValidCol(); n1 < validCol; ++n1) {
+            auto offset = n0 * rowStride + n1 * colStride;
+            SwitchPowResult(offset, dst, src0, src1, tmp);
+        }
+    }
+}
+
+TILEOP int QuickPow(int a, int b) {
+    if (b == 0) {
+        return 1;
+    }
+    if (a == 0) {
+        return 0;
+    }
+    if (a == 1) {
+        return 1;
+    }
+    if (a == -1) {
+        if ((b & 1) == 0) {
+            return 1;
+        }
+        return -1;
+    }
+    if (b < 0) {
+        return 0;
+    }
+    int result = 1;
+    int tmp = a;
+    while (b != 0) {
+        if ((b & 1) != 0) {
+            result *= tmp;
+        }
+        b /= 2;
+        tmp *= tmp;
+    }
+    return result;
+}
+
+template <typename T0, typename T1, typename T2>
+TILEOP void IntegerPow(T0 dst, T1 src0, T2 src1) {
+    constexpr size_t rowStride = src0.RowStride;
+    constexpr size_t colStride = src0.ColStride;
+    for (size_t n0 = 0, validRow = src0.GetValidRow(); n0 < validRow; ++n0) {
+        for (size_t n1 = 0, validCol = src0.GetValidCol(); n1 < validCol; ++n1) {
+            auto offset = n0 * rowStride + n1 * colStride;
+            int a = src0.GetValue(offset);
+            int b = src1.GetValue(offset);
+            dst.SetValue(offset, QuickPow(a, b));
+        }
+    }
+}
+
+template <typename T0, typename T1, typename T2, typename T3>
+TILEOP void CalcPow(T0 dst, T1 src0, T2 src1, T3 tmp) {
+    if constexpr (std::is_same_v<typename T1::DType, int32_t>) {
+        set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+        wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+        IntegerPow(dst, src0, src1);
+        set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+        wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+    } else {
+        pto::TABS(tmp, src0);
+        #ifdef __DAV_V220
+            pipe_barrier(PIPE_V);
+        #endif
+        pto::TLOG(tmp, tmp);
+        pto::TLOG(dst, src0);
+        #ifdef __DAV_V220
+            pipe_barrier(PIPE_V);
+        #endif
+        pto::TMUL(tmp, tmp, src1);
+        pto::TMUL(dst, dst, src1);
+        #ifdef __DAV_V220
+            pipe_barrier(PIPE_V);
+        #endif
+        pto::TEXP(tmp, tmp);
+        pto::TEXP(dst, dst);
+        #ifdef __DAV_V220
+            pipe_barrier(PIPE_V);
+        #endif
+        set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+        wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+        SwitchPowResult(dst, src0, src1, tmp);
+        set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+        wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
     }
 }
 
@@ -318,6 +417,10 @@ template <BinaryOp op, TileOp::BroadcastOperand operand, typename T0, typename T
 TILEOP void BinaryTmpComputeImpl(T0 dst, T1 src0, T2 src1, T3 tmp) {
     if constexpr (op == BinaryOp::BITWISEXOR) {
         pto::TXOR(dst, src0, src1, tmp);
+        return;
+    }
+    if constexpr (op == BinaryOp::POW) {
+        CalcPow(dst, src0, src1, tmp);
         return;
     }
 }
@@ -365,4 +468,12 @@ template <TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typ
 TILEOP void TBitwiseXor(T0 dst, T1 src0, T2 src1, T3 tmp) {
     BinaryTmpCompute<BinaryOp::BITWISEXOR, operand>(dst, src0, src1, tmp);
 }
+
+#define OP_TILE_OP_POW TPow
+template <TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2,  typename T3>
+TILEOP void TPow(T0 dst, T1 src0, T2 src1, T3 tmp) {
+    static_assert(std::is_same_v<typename T1::Type, float> || std::is_same_v<typename T1::Type, int32_t>);
+    BinaryTmpCompute<BinaryOp::POW, operand>(dst, src0, src1, tmp);
+}
+
 #endif

@@ -385,37 +385,32 @@ public:
         (void)coretype;
         (void)oss;
         (void)aicpuIdx;
-#if ENABLE_PERF_TRACE
+#if ENABLE_PERF_TRACE 
         Metrics* metric =  GetMetrics(coreIdx);
         if (metric == nullptr) {
             return DEVICE_MACHINE_ERROR;
         }
-
         oss << "{\"blockIdx\":" << coreIdx << ",\"coreType\":\"SCHED" << aicpuIdx << "-"
             << (coretype == CoreType::AIC ? "AIC" : "AIV") << "\",\"freq\":" << freq_ << ",\"tasks\":[";
 
+        auto turnNumIdx = metric->turnNum - 1;
         uint64_t curCycle = 0;
         for (uint32_t type = 0; type < PERF_TRACE_CORE_MAX; type++) {
-            for (uint32_t cnt = 0; cnt < metric->perfTraceCnt[type]; cnt++) {
-                curCycle = metric->perfTrace[type][cnt];
+            for (uint32_t cnt = 0; cnt < metric->perfTraceCnt[turnNumIdx][type]; cnt++) {
+                curCycle = metric->perfTrace[turnNumIdx][type][cnt];
                 if (curCycle == 0) {
                     break;
                 }
-
-                oss << "{\"name\":\"" << AicorePerfTraceName[type];
-                if (metric->perfTraceDevTaskId[type][cnt] != INVALID_DEV_TASK_ID) {
-                    oss << "(" << metric->perfTraceDevTaskId[type][cnt] << ")";
+                oss << "{\"name\":\"" << AicorePerfTraceName[type]; 
+                if (metric->perfTraceDevTaskId[turnNumIdx][type][cnt] != INVALID_DEV_TASK_ID) { 
+                    oss << "(" << metric->perfTraceDevTaskId[turnNumIdx][type][cnt] << ")"; 
                 }
-
-                oss << "\",\"end\":" << curCycle << "}"
-                    << (((type == PERF_TRACE_CORE_MAX - 1) && (cnt ==  metric->perfTraceCnt[type] - 1)) ? "" : ",");
+                oss << "\",\"end\":" << curCycle << "}" 
+                    << (((type == PERF_TRACE_CORE_MAX - 1) && (cnt ==  metric->perfTraceCnt[turnNumIdx][type] - 1)) ? "" : ","); 
             }
         }
         oss << "]}";
-        if (!aicoreProf_->ProfIsEnable()) {
-            memset_s(metric, sizeof(Metrics), 0, sizeof(Metrics));
-        }
-#endif
+ #endif
         return DEVICE_MACHINE_OK;
     }
 
@@ -451,29 +446,11 @@ public:
             __sync_synchronize();
 #endif
             arg->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX] = funcdata;
-            arg->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX] = 0;
         } else {
             if (costModel_) {
                 costModel_->InitData(coreIdx, funcdata);
             }
         }
-    }
-
-    int HandShakeByGm(int coreIdx, int64_t dotStatus) {
-        auto args =
-            reinterpret_cast<KernelArgs*>((static_cast<uint64_t>(sharedBuffer_)) + SHARED_BUFFER_SIZE * coreIdx);
-        args->taskEntry.reserved[0] = static_cast<uint32_t>(dotStatus);
-        volatile int64_t *shakeBuffer = args->shakeBuffer;
-        uint64_t cycles_start = GetCycles();
-        while ((*shakeBuffer & 0xFFFFFFFF) != AICORE_SAY_HELLO) {
-            if (GetCycles() - cycles_start > HAND_SHAKE_TIMEOUT) {
-                DEV_ERROR("hand shake %d timeout.\n", coreIdx);
-                return -1;
-            }
-        }
-        args_[coreIdx] = args;
-        GetPhyIdByBlockId(coreIdx) = (*shakeBuffer >> NUM_THIRTY_TWO) & AICORE_COREID_MASK;
-        return DEVICE_MACHINE_OK;
     }
 
     bool TryHandShakeByGm(int coreIdx, int64_t dotStatus) {
@@ -491,6 +468,8 @@ public:
             WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_OPEN);
         }
         SetReadyQueue(coreIdx, (uint64_t)0);
+        // make sure reset wave goodbye flag after hand shake ,orelse impact last aicore exit through wavegoodbye flag
+        args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX] = 0;
         DEV_VERBOSE_DEBUG("hand shake success coreidex:%d", coreIdx);
         return true;
     }

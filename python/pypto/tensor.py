@@ -9,7 +9,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 import typing
-from typing import Union, List, Optional, Tuple
+from typing import Union, List, Optional, Tuple, Sequence
 
 import sympy
 import pypto
@@ -26,17 +26,25 @@ class Tensor:
                  name: str = "", format: TileOpFormat = TileOpFormat.TILEOP_ND,
                  data_ptr: Optional[int] = None, device=None, ori_shape=None):
         self.ori_shape = None
-        if shape is None or dtype is None:
-            self._base = pypto_impl.Tensor()
-        elif all([isinstance(s, int) for s in shape]):
+        self.status_shape = None
+        self.status_dtype = dtype
+        ndtype = dtype if dtype is not None else pypto.DT_FP32
+        if shape is None:
+            nshape = []
+            self._base = pypto_impl.Tensor(ndtype, nshape, name, format)
+        elif shape and all([isinstance(s, int) for s in shape]):
             nshape = typing.cast(List[int], shape)
-            self._base = pypto_impl.Tensor(dtype, nshape, name, format)
+            self._base = pypto_impl.Tensor(ndtype, nshape, name, format)
             self.ori_shape = ori_shape
+        elif isinstance(shape, list) and self._validate_status_shape(shape):
+            nshape = []
+            self.status_shape = shape
+            self._base = pypto_impl.Tensor(ndtype, nshape, name, format)
         else:
             sym_shape = to_syms(shape)
             assert isinstance(
                 sym_shape, list), "shape must be a list of int or SymbolicScalar"
-            self._base = pypto_impl.Tensor(dtype, sym_shape, name, format)
+            self._base = pypto_impl.Tensor(ndtype, sym_shape, name, format)
         self.data_ptr = data_ptr
         self.device = device
 
@@ -204,6 +212,7 @@ class Tensor:
         key = self._normalize_key(key)
 
         if all(isinstance(k, (int, SymbolicScalar)) for k in key):
+            assert self._base.dtype == DataType.DT_INT32, "tensor dtype must be DT_INT32."
             return SymbolicScalar.from_base(pypto_impl.GetTensorData(self._base, to_syms(key)))
 
         if all(isinstance(k, slice) for k in key):
@@ -269,13 +278,70 @@ class Tensor:
             raise RuntimeError("unsupported dtype")
         return pypto.matmul(self, other, out_dtype)
 
+    @source_location
+    def __neg__(self) -> 'Tensor':
+        return pypto.neg(self)
+
+    @source_location
+    def __pos__(self) -> 'Tensor':
+        return self
+
+    @source_location
+    def __rsub__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.neg(self.sub(other))
+
+    @source_location
+    def __rmul__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.mul(self, other)
+
+    @source_location
+    def __rtruediv__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.mul(pypto.reciprocal(self), other)
+
+    @source_location
+    def __floordiv__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.floor(pypto.div(self, other))
+
+    @source_location
+    def __mod__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.remainder(self, other)
+
+    @source_location
+    def __pow__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.pow(self, other)
+
+    @source_location
+    def __lt__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.lt(self, other)
+
+    @source_location
+    def __le__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.le(self, other)
+
+    @source_location
+    def __ge__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.ge(self, other)
+
+    @source_location
+    def __eq__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.eq(self, other)
+
+    @source_location
+    def __ne__(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.ne(self, other)
+
     @property
     def dtype(self) -> DataType:
         return self._base.GetDataType()
 
     @property
     def shape(self) -> List[SymInt]:
+        if getattr(self, "status_shape", None) is not None:
+            return self.status_shape
+
         out = []
+        if self._base.IsEmpty():
+            return out
         for i, n in enumerate(self._base.GetShape()):
             if n == -1:
                 out.append(SymbolicScalar.from_base(
@@ -310,6 +376,46 @@ class Tensor:
     @name.setter
     def name(self, value: str) -> None:
         self._base.SetName(value)
+
+    @staticmethod
+    def _validate_status_shape(lst):
+        """
+        Validates the types of elements in the list:
+        - All elements except the last one: only pypto.StatusType enum or int are allowed
+        - The last element: pypto.StatusType, int or Ellipsis (...) are allowed
+        :param lst: The list to be validated
+        :return: (bool, str) → (validation result, validation message)
+        """
+
+        # boundary 1: empty list
+        if not isinstance(lst, list):
+            return False
+        if len(lst) == 0:
+            return True
+
+        for idx, elem in enumerate(lst):
+            # Check if this is the last element
+            is_last = idx == len(lst) - 1
+
+            # Case1: last element -> allows enum/int/...
+            if is_last:
+                # Check if it's an allowed type
+                if (isinstance(elem, pypto.StatusType) or  # pypto.enum type
+                    isinstance(elem, int) or             # int type
+                    elem is ...):                        # ellipsis
+                    continue
+                else:
+                    return False
+
+            # Case2: non-last element -> only allows enum/int
+            else:
+                if isinstance(elem, pypto.StatusType) or isinstance(elem, int):
+                    continue
+                else:
+                    return False
+
+        # All elements passed validation
+        return True
 
     @staticmethod
     def _get_assemble_offset(key, shape):
@@ -425,6 +531,14 @@ class Tensor:
     @source_location
     def mul(self, other: 'Tensor | int | float') -> 'Tensor':
         return pypto.mul(self, other)
+    
+    @source_location
+    def hypot(self, other: 'Tensor') -> 'Tensor':
+        return pypto.hypot(self, other)
+
+    @source_location
+    def prelu(self, weight: 'Tensor') -> 'Tensor':
+        return pypto.prelu(self, weight)
 
     @source_location
     def div(self, other: 'Tensor | int | float') -> 'Tensor':
@@ -522,20 +636,65 @@ class Tensor:
         return pypto.maximum(self, other)
 
     @source_location
-    def where(self, condition: 'Tensor', y: Union['Tensor', float]) -> 'Tensor':
-        return pypto.where(condition, self, y)
+    def where(
+        self,
+        condition: 'Tensor',
+        x: Union['Tensor', Element, float],
+        y: Union['Tensor', Element, float]
+    ) -> 'Tensor':
+        return pypto.where(self, condition, x, y)
+
+    @source_location
+    def lrelu(self, other: 'Tensor', negative_slope: Union[float, Element] = 0.01) -> 'Tensor':
+        return pypto.lrelu(self, other, negative_slope)
 
     @source_location
     def topk(self, k: int, dim: Optional[int] = None, largest: bool = True) -> Tuple['Tensor', 'Tensor']:
         return pypto.topk(self, k, dim, largest)
+    
+    @source_location
+    def sort32(self, index: Optional[int] = None) -> 'Tensor':
+        return pypto.sort32(self, index)
+
+    @source_location
+    def mrgsort(self, mergesize: int) -> 'Tensor':
+        return pypto.mrgsort(self, mergesize)
 
     @source_location
     def exp(self) -> 'Tensor':
         return pypto.exp(self)
+    
+    @source_location
+    def sign(self) -> 'Tensor':
+        return pypto.sign(self)
+
+    @source_location
+    def signbit(self) -> 'Tensor':
+        return pypto.signbit(self)
+
+    @source_location
+    def exp2(self) -> 'Tensor':
+        return pypto.exp2(self)
+
+    @source_location
+    def expm1(self) -> 'Tensor':
+        return pypto.expm1(self)
 
     @source_location
     def log(self) -> 'Tensor':
         return pypto.log(self)
+
+    @source_location
+    def log1p(self) -> 'Tensor':
+        return pypto.log1p(self)
+
+    @source_location
+    def log10(self) -> 'Tensor':
+        return pypto.log10(self)
+        
+    @source_location
+    def log2(self) -> 'Tensor':
+        return pypto.log2(self)
 
     @source_location
     def logical_not(self) -> 'Tensor':
@@ -594,6 +753,10 @@ class Tensor:
         return pypto.gather(self, dim, index)
 
     @source_location
+    def gathermask(self, pattern_mode: int) -> 'Tensor':
+        return pypto.gathermask(self, pattern_mode)
+
+    @source_location
     def index_add_(self, dim: int, index: 'Tensor', source: 'Tensor', *,
                     alpha: Union[int, float] = 1) -> 'Tensor':
         return pypto.index_add_(self, dim, index, source, alpha=alpha)
@@ -606,6 +769,10 @@ class Tensor:
     @source_location
     def cumsum(self: 'Tensor', dim: int) -> 'Tensor':
         return pypto.cumsum(self, dim)
+
+    @source_location
+    def gcd(self: 'Tensor', other: 'Tensor | int') -> 'Tensor':
+        return pypto.gcd(self, other)
 
     @source_location
     def triu(self: 'Tensor', diagonal: 'int | SymbolicScalar' = 0) -> 'Tensor':
@@ -633,6 +800,10 @@ class Tensor:
         return pypto.expand_clone(self, shape, valid_shape=valid_shape)
 
     @source_location
+    def pad(self, pad: Sequence[int], mode: str = "constant", value: float = 0.0) -> 'Tensor':
+        return pypto.pad(self, pad, mode, value)
+
+    @source_location
     def scatter_update(self, dim: int, index: 'Tensor', src: 'Tensor') -> 'Tensor':
         return pypto.scatter_update(self, dim, index, src)
 
@@ -645,6 +816,11 @@ class Tensor:
     def scatter(self, dim: int, index: 'Tensor',
                 src: Union[float, Element, 'Tensor'], *, reduce: str = None) -> 'Tensor':
         return pypto.scatter(self, dim, index, src, reduce=reduce)
+
+    @source_location
+    def var(self, dim: Union[int, List[int], Tuple[int]] = None, *,
+            correction: float = 1, keepdim: bool = False) -> 'Tensor':
+        return pypto.var(self, dim, correction=correction, keepdim=keepdim)
 
     def _is_empty_slice(self, key):
         if isinstance(key, slice):

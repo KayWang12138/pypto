@@ -67,9 +67,7 @@ class MlaTileConfig:
         self.k_vec_tile0 = 16
         self.k_vec_tile1 = 16
         self.cube_l1_reuse_setting = {-1: 4}
-        self.mg_copyin_upper_bound = 2 * 1024 * 1024
         self.pg_upper_bound = 8192
-        self.vec_nbuffer_mode = 1
         self.cube_nbuffer_setting = {3: 4}
         self.dynamic_unaligned_enable = False
 
@@ -196,12 +194,14 @@ def quant(
     if is_symmetry:
         abs_res = pypto.abs(input_fp32)
         max_value = pypto.amax(abs_res, -1, keepdim=True)
-        scale_quant = scalar_div(max_value, 127.0, True)
+        temp127 = pypto.full(max_value.shape, 127.0, pypto.DT_FP32)
+        scale_quant = temp127 / max_value
         out_fp32 = pypto.mul(input_fp32, scale_quant)
         out_int32 = pypto.cast(out_fp32, pypto.DT_INT32, pypto.CastMode.CAST_RINT)
         out_half = pypto.cast(out_int32, pypto.DT_FP16, pypto.CastMode.CAST_ROUND)
         out_int8 = pypto.cast(out_half, pypto.DT_INT8, pypto.CastMode.CAST_TRUNC)
-        scale_de_quant = scalar_div(scale_quant, 1.0, True)
+        temp1 = pypto.full(max_value.shape, 1.0, pypto.DT_FP32)
+        scale_de_quant = temp1 / scale_quant
         return out_int8, scale_de_quant
     else:
         max_value = pypto.amax(input_fp32, -1, keepdim=True)
@@ -262,8 +262,6 @@ def rotate_half(input_tensor: pypto.Tensor) -> pypto.Tensor:
     """
     shape = input_tensor.shape
     shape_size = len(shape)
-    assert shape_size >= 1, "rope rotate_half input dim less than 1"
-    assert shape[shape_size - 1] % 2 == 0, "rope rotate_half last dim shape is even"
 
     new_shape = list(shape)
     new_shape[shape_size - 1] //= 2
@@ -301,7 +299,6 @@ def rope_v2(
         The function performs reshape and transpose operations before applying
         rotation to optimize memory access patterns.
     """
-    assert len(x.shape) == 2 and len(cos.shape) == 2 and len(sin.shape) == 2
     seq_size = x.shape[0]
     d_r = x.shape[1]
     x_dtype = x.dtype
@@ -340,7 +337,6 @@ def rope_3d_v2(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor) -> pypto.T
         The function broadcasts cos and sin to match the head dimension,
         then applies rotation: x_rotated = x * cos + rotate_half(x) * sin
     """
-    assert len(x.shape) == 3 and len(cos.shape) == 2 and len(sin.shape) == 2
 
     pypto.set_vec_tile_shapes(1, 64)
     cast_cos = pypto.cast(cos, pypto.DT_FP32)
@@ -444,7 +440,7 @@ def pre_compute_2d(
                                    [tile_config.pre_quant_cube_tile[2], tile_config.pre_quant_cube_tile[3]],
                                    [tile_config.pre_quant_cube_tile[4], tile_config.pre_quant_cube_tile[5]])
         pypto.set_semantic_label("Matmul_qa")
-        q_a_proj = pypto.matmul(token_x, w_dq, dtype)
+        q_a_proj = pypto.matmul(token_x, w_dq, pypto.DT_FP32)
 
     pypto.set_vec_tile_shapes(mv, q_lora_rank)
     pypto.set_semantic_label("RmsNorm_qa")
@@ -585,9 +581,6 @@ def mla_prolog_quant_compute(
         Key quantization is performed per-channel with 4 channels.
         All cache updates use scatter_update with axis=-2.
     """
-    assert len(token_x.shape) == 2 and len(w_uk.shape) == 3 and len(sin.shape) == 2
-    assert len(kv_cache.shape) == 4 and len(kr_cache.shape) == 4
-    assert cache_mode in ["PA_BSND", "PA_NZ"]
 
     dtype = token_x.dtype
     h = token_x.shape[1]
@@ -598,13 +591,7 @@ def mla_prolog_quant_compute(
     qk_rope_head_dim = sin.shape[1]
     q_head_dim = qk_nope_head_dim + qk_rope_head_dim
 
-    assert qk_nope_head_dim == 128 or qk_rope_head_dim == 64
-
-    tile_bs = tile_config.tile_bs
-
     t = token_x.shape[0]
-    bs_loop = (t + tile_bs - 1) // tile_bs
-
     quant_inputs = MlaQuantInputs()
 
     k_cache_index_2d = pypto.reshape(cache_index, [t, 1], inplace=True)
@@ -706,43 +693,46 @@ def mla_prolog_quant_compute(
         k_scale_cache_out[:] = pypto.scatter_update(k_scale_cache, -2, index, k_scale_4d)
 
 
-@pypto.jit(
-    pass_options={"vec_nbuffer_mode": 1,
-                "cube_l1_reuse_setting": {-1: 4},
-                "cube_nbuffer_setting": {3: 4},
-                "mg_copyin_upper_bound": 2 * 1024 * 1024}
+@pypto.frontend.jit(
+    pass_options={
+        "cube_l1_reuse_setting": {-1: 4},
+    },
+    runtime_options={
+        "stitch_function_max_num": 128
+    },
+    debug_options={
+        "runtime_debug_mode": 3
+    }
 )
 def mla_prolog_quant_p(
-    token_x: pypto.Tensor,
-    w_dq: pypto.Tensor,
-    w_uq_qr: pypto.Tensor,
-    dequant_scale: pypto.Tensor,
-    w_uk: pypto.Tensor,
-    w_dkv_kr: pypto.Tensor,
-    gamma_cq: pypto.Tensor,
-    gamma_ckv: pypto.Tensor,
-    cos: pypto.Tensor,
-    sin: pypto.Tensor,
-    cache_index: pypto.Tensor,
-    kv_cache: pypto.Tensor,
-    kr_cache: pypto.Tensor,
-    k_scale_cache: pypto.Tensor,
-    q_norm_out: pypto.Tensor,
-    q_norm_scale_out: pypto.Tensor,
-    query_nope_out: pypto.Tensor,
-    query_rope_out: pypto.Tensor,
-    kv_cache_out: pypto.Tensor,
-    kr_cache_out: pypto.Tensor,
-    k_scale_cache_out: pypto.Tensor,
-    epsilon_cq: float,
-    epsilon_ckv: float,
-    cache_mode: str,
-    tile_config: MlaTileConfig,
-    rope_cfg: RopeTileShapeConfig):
-    """JIT-compiled MLA Prolog quantization for prefill phase.
+    token_x: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
+    w_dq: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_NZ),
+    w_uq_qr: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_INT8, format=pypto.TileOpFormat.TILEOP_NZ),
+    dequant_scale: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
+    w_uk: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    w_dkv_kr: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_NZ),
+    gamma_cq: pypto.Tensor([pypto.STATIC], pypto.DT_BF16),
+    gamma_ckv: pypto.Tensor([pypto.STATIC], pypto.DT_BF16),
+    cos: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
+    sin: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
+    cache_index: pypto.Tensor([pypto.DYNAMIC], pypto.DT_INT64),
+    kv_cache: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_INT8),
+    kr_cache: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    k_scale_cache: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
+    q_norm_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_INT8),
+    q_norm_scale_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_FP32),
+    query_nope_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    query_rope_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    kv_cache_out: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_INT8),
+    kr_cache_out: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    k_scale_cache_out: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
+    epsilon_cq, epsilon_ckv, cache_mode, tile_config, rope_cfg
+):
+    """
+    JIT-compiled MLA Prolog quantization for prefill phase.
 
     Optimized version for prefill phase with specific pass configurations.
-    Processes multiple tokens in parallel for better throughput.
+    Processes single or few tokens at a time for low latency.
 
     Args:
         token_x: Input token tensor, shape (t, h), dtype BF16
@@ -771,55 +761,51 @@ def mla_prolog_quant_p(
         cache_mode: Cache mode ("PA_BSND" or "PA_NZ")
         tile_config: MlaTileConfig object
         rope_cfg: RopeTileShapeConfig object
-
     Note:
-        Configured for prefill phase with optimized memory and parallelism settings.
+        Configured for decode phase with optimized memory and latency settings.
     """
     mla_prolog_quant_compute(
-                             token_x, w_dq, w_uq_qr, dequant_scale, w_uk,
-                             w_dkv_kr, gamma_cq, gamma_ckv, cos,
-                             sin, cache_index, kv_cache, kr_cache, k_scale_cache,
-                             q_norm_out, q_norm_scale_out, query_nope_out,
-                             query_rope_out, kv_cache_out,
-                             kr_cache_out, k_scale_cache_out, epsilon_cq,
-                             epsilon_ckv, cache_mode, tile_config, rope_cfg
+                            token_x, w_dq, w_uq_qr, dequant_scale, w_uk,
+                            w_dkv_kr, gamma_cq, gamma_ckv, cos,
+                            sin, cache_index, kv_cache, kr_cache, k_scale_cache,
+                            q_norm_out, q_norm_scale_out, query_nope_out,
+                            query_rope_out, kv_cache_out,
+                            kr_cache_out, k_scale_cache_out, epsilon_cq,
+                            epsilon_ckv, cache_mode, tile_config, rope_cfg
     )
 
 
-@pypto.jit(
-    pass_options={"vec_nbuffer_mode": 1,
-                "cube_l1_reuse_setting": {-1: 4},
-                "cube_nbuffer_setting": {3: 4},
-                "mg_copyin_upper_bound": 2 * 1024 * 1024}
+@pypto.frontend.jit(
+    pass_options={
+        "cube_l1_reuse_setting": {-1: 4, -1: 1, 1: 1},
+    },
 )
 def mla_prolog_quant_d(
-    token_x: pypto.Tensor,
-    w_dq: pypto.Tensor,
-    w_uq_qr: pypto.Tensor,
-    dequant_scale: pypto.Tensor,
-    w_uk: pypto.Tensor,
-    w_dkv_kr: pypto.Tensor,
-    gamma_cq: pypto.Tensor,
-    gamma_ckv: pypto.Tensor,
-    cos: pypto.Tensor,
-    sin: pypto.Tensor,
-    cache_index: pypto.Tensor,
-    kv_cache: pypto.Tensor,
-    kr_cache: pypto.Tensor,
-    k_scale_cache: pypto.Tensor,
-    q_norm_out: pypto.Tensor,
-    q_norm_scale_out: pypto.Tensor,
-    query_nope_out: pypto.Tensor,
-    query_rope_out: pypto.Tensor,
-    kv_cache_out: pypto.Tensor,
-    kr_cache_out: pypto.Tensor,
-    k_scale_cache_out: pypto.Tensor,
-    epsilon_cq: float,
-    epsilon_ckv: float,
-    cache_mode: str,
-    tile_config: MlaTileConfig,
-    rope_cfg: RopeTileShapeConfig):
-    """JIT-compiled MLA Prolog quantization for decode phase.
+    token_x: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
+    w_dq: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_NZ),
+    w_uq_qr: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_INT8, format=pypto.TileOpFormat.TILEOP_NZ),
+    dequant_scale: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
+    w_uk: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    w_dkv_kr: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16, format=pypto.TileOpFormat.TILEOP_NZ),
+    gamma_cq: pypto.Tensor([pypto.STATIC], pypto.DT_BF16),
+    gamma_ckv: pypto.Tensor([pypto.STATIC], pypto.DT_BF16),
+    cos: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
+    sin: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
+    cache_index: pypto.Tensor([pypto.DYNAMIC], pypto.DT_INT64),
+    kv_cache: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_INT8),
+    kr_cache: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    k_scale_cache: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
+    q_norm_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_INT8),
+    q_norm_scale_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_FP32),
+    query_nope_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    query_rope_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    kv_cache_out: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_INT8),
+    kr_cache_out: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
+    k_scale_cache_out: pypto.Tensor([pypto.STATIC, pypto.STATIC, pypto.STATIC, pypto.STATIC], pypto.DT_FP32),
+    epsilon_cq, epsilon_ckv, cache_mode, tile_config, rope_cfg
+):
+    """
+    JIT-compiled MLA Prolog quantization for decode phase.
 
     Optimized version for decode phase with specific pass configurations.
     Processes single or few tokens at a time for low latency.
@@ -851,16 +837,15 @@ def mla_prolog_quant_d(
         cache_mode: Cache mode ("PA_BSND" or "PA_NZ")
         tile_config: MlaTileConfig object
         rope_cfg: RopeTileShapeConfig object
-
     Note:
         Configured for decode phase with optimized memory and latency settings.
     """
     mla_prolog_quant_compute(
-                             token_x, w_dq, w_uq_qr, dequant_scale, w_uk,
-                             w_dkv_kr, gamma_cq, gamma_ckv, cos,
-                             sin, cache_index, kv_cache, kr_cache, k_scale_cache,
-                             q_norm_out, q_norm_scale_out, query_nope_out,
-                             query_rope_out, kv_cache_out,
-                             kr_cache_out, k_scale_cache_out, epsilon_cq,
-                             epsilon_ckv, cache_mode, tile_config, rope_cfg
+                            token_x, w_dq, w_uq_qr, dequant_scale, w_uk,
+                            w_dkv_kr, gamma_cq, gamma_ckv, cos,
+                            sin, cache_index, kv_cache, kr_cache, k_scale_cache,
+                            q_norm_out, q_norm_scale_out, query_nope_out,
+                            query_rope_out, kv_cache_out,
+                            kr_cache_out, k_scale_cache_out, epsilon_cq,
+                            epsilon_ckv, cache_mode, tile_config, rope_cfg
     )

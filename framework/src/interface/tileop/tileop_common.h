@@ -63,18 +63,32 @@
     wait_flag(PIPE_MTE1, PIPE_MTE2, EVENT_ID7)
 #endif
 
-enum class CopyInMode : int64_t
-{
+enum class CopyInMode : int64_t {
     ND2ND = 0,
     ND2NZ = 1,
-    NZ2NZ = 2
+    NZ2NZ = 2,
+    DN2NZ = 3
 };
 
 enum class CopyOutMode : int64_t
 {
     NZ2ND = 0,
     NZ2NZ = 1,
-    ND2ND = 2
+    ND2ND = 2,
+    NZ2DN = 3
+};
+
+enum class TransMode : int64_t
+{
+    CAST_NONE = 0,
+    CAST_RINT = 1,
+    CAST_ROUND = 2
+};
+
+enum class PaddingMode : int64_t {
+    NO_PADDING = 0,
+    PADDING_OUTER = 1,
+    PADDING_INNER = 2
 };
 
 enum class ReLuType : int64_t
@@ -111,7 +125,7 @@ constexpr uint64_t REPEAT_STRIDE_MAX = 255;
 constexpr uint64_t DUP_REPEAT_STRIDE_MAX = 4095;
 constexpr uint64_t BLOCK_NUM_ONE_REPEAT = 8;
 constexpr uint32_t BF16_FP32_MAN_LEN = 16;
-constexpr float EPSILON = 1e-5f;
+constexpr float EPSILON = 1e-6f;
 
 // fp32->bf16, rint mode
 INLINE bfloat16_t Fp32ToBf16R(const float fVal) {
@@ -167,6 +181,31 @@ INLINE float Bf16ToFp32(const bfloat16_t bVal) {
     bf16Union.bVal = bVal;
     fp32Union.fNum = static_cast<uint32_t>(bf16Union.bNum) << BF16_FP32_MAN_LEN;
     return fp32Union.fVal;
+}
+
+TILEOP bool IsInteger(float f) {
+    union {
+        float f;
+        uint32_t u;
+    } converter;
+    converter.f = f;
+    uint32_t bits = converter.u;
+    uint32_t exponent = (bits >> 23) & 0xFF;
+    uint32_t fraction = bits & 0x7FFFFF;
+    //NaN or Inf
+    if (exponent == 0xFF) {
+        return false;
+    }
+    int32_t e = static_cast<int32_t>(exponent) - 127;
+    if (e < 0) {
+        // +0 or -0
+        return bits == 0 || bits == 0x80000000;
+    }
+    if (e >= 23) {
+        return true;
+    }
+    uint32_t mask = (1u << (23 - e)) - 1;
+    return (fraction & mask) == 0;
 }
 
 inline TILEOP void SetContinuousMask(unsigned n) {

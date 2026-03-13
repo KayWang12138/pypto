@@ -21,16 +21,11 @@ import math
 import numpy as np
 import torch
 
-root_path: Path = Path(__file__).parent.parent.parent.parent.parent.parent.resolve()
-scripts_path: Path = Path(root_path, 'tests/cmake/scripts')
+root_path: Path = Path(Path(__file__).parent, "../../../../../../").resolve()
+scripts_path: Path = Path(root_path, 'cmake/scripts')
 if str(scripts_path) not in sys.path:
     sys.path.append(str(scripts_path))
 from golden_register import GoldenRegister
-
-helper_path: Path = Path(scripts_path, 'helper')
-if str(helper_path) not in sys.path:
-    sys.path.append(str(helper_path))
-from test_case_loader import TestCaseLoader
 
 
 np.random.seed(0)
@@ -111,6 +106,25 @@ class AllGatherAttnPostReducescatterCase:
     output_hidden_size: int
     world_size: int
     value_range: ValueRange
+
+
+@dataclasses.dataclass
+class SendToRoutedExpertsArgs:
+    case: MoeCase
+    x_list: List[torch.Tensor]
+    routed_expert_ids_list: List[torch.Tensor]
+    y_list: List[List[List[torch.Tensor]]]
+    combine_info_list: List[List[List[torch.Tensor]]]
+
+
+@dataclasses.dataclass
+class GetRoutedOutAndSaveArgs:
+    case: MoeCase
+    expand_x_list: List[torch.Tensor]
+    assist_info_for_combine: List[torch.Tensor]
+    expert_scales_list: List[torch.Tensor]
+    recv_counts_list: List[torch.Tensor]
+    save_dir: Path
 
 
 def get_dtype(dtype_str: str) -> torch.dtype:
@@ -336,13 +350,12 @@ def get_routed_expert_rank_id_and_expert_offset(case: MoeCase, expert_id: int) -
     return divmod(expert_id, routed_expert_capacity)
 
 
-def send_to_routed_experts(
-    case: MoeCase,
-    x_list: List[torch.Tensor],
-    routed_expert_ids_list: List[torch.Tensor],
-    y_list: List[List[List[torch.Tensor]]],
-    combine_info_list: List[List[List[torch.Tensor]]],
-) -> None:
+def send_to_routed_experts(args: SendToRoutedExpertsArgs) -> None:
+    case = args.case
+    x_list = args.x_list
+    routed_expert_ids_list = args.routed_expert_ids_list
+    y_list = args.y_list
+    combine_info_list = args.combine_info_list
     for source_rank_id in range(case.world_size):
         x = x_list[source_rank_id]
         routed_expert_ids = routed_expert_ids_list[source_rank_id]
@@ -377,7 +390,7 @@ def collect_and_save(
     routed_expert_capacity = get_routed_expert_capacity(case)
     for rank_id in range(case.world_size):
         fixed_shape_y = torch.zeros((row, case.hidden_size), dtype=case.dtype)
-        fixed_shape_combine_info = torch.full((row, 3), -1, dtype=torch.int32)
+        fixed_shape_combine_info = torch.zeros((row, 3), dtype=torch.int32)
         valid_count = torch.zeros([routed_expert_capacity], dtype=torch.int32)
         y_offset, combine_info_offset = 0, 0
         for expert_offset in range(routed_expert_capacity):
@@ -409,7 +422,9 @@ def generate_moe_dispatch_case(case: MoeCase, save_dir: Path) -> None:
     combine_info_list = [[[] for _ in range(routed_expert_capacity)] for _ in range(case.world_size)]
     if case.shared_expert_num > 0:
         send_to_shared_experts(case, x_list, y_list, combine_info_list)
-    send_to_routed_experts(case, x_list, routed_expert_ids_list, y_list, combine_info_list)
+    args = SendToRoutedExpertsArgs(case=case, x_list=x_list, routed_expert_ids_list=routed_expert_ids_list,
+    y_list=y_list, combine_info_list=combine_info_list)
+    send_to_routed_experts(args)
     collect_and_save(case, y_list, combine_info_list, save_dir)
 
 
@@ -418,6 +433,7 @@ def get_moe_distributed_combine_input_data(dispatch_save_dir: Path, case: MoeCas
     expand_x_list = []
     assist_info_for_combine_list = []
     expert_scales_list = []
+    recv_counts_list = []
     row = get_dispatch_output_row(case)
     for rank in range(case.world_size):
         expand_x = torch.from_numpy(np.fromfile(dispatch_save_dir / f'y_rank_{rank}.bin'))
@@ -434,7 +450,9 @@ def get_moe_distributed_combine_input_data(dispatch_save_dir: Path, case: MoeCas
         expert_scales = expert_scales.view([case.batch_size, case.top_k, 1])
         expert_scales_list.append(expert_scales)
 
-    return expand_x_list, assist_info_for_combine_list, expert_scales_list
+        recvcounts = torch.from_numpy(np.fromfile(dispatch_save_dir / f'recv_counts_rank_{rank}.bin', dtype=np.int32))
+        recv_counts_list.append(recvcounts)
+    return expand_x_list, assist_info_for_combine_list, expert_scales_list, recv_counts_list
 
 
 def get_shared_out_and_save(
@@ -455,13 +473,13 @@ def get_shared_out_and_save(
     return shared_out_list
 
 
-def get_routed_out_and_save(
-    case: MoeCase,
-    expand_x_list: List[torch.Tensor],
-    assist_info_for_combine_list: List[torch.Tensor],
-    expert_scales_list: List[torch.Tensor],
-    save_dir: Path,
-) -> List[torch.Tensor]:
+def get_routed_out_and_save(args: GetRoutedOutAndSaveArgs) -> List[torch.Tensor]:
+    case = args.case
+    expand_x_list = args.expand_x_list
+    assist_info_for_combine_list = args.assist_info_for_combine
+    expert_scales_list = args.expert_scales_list
+    recv_counts_list = args.recv_counts_list
+    save_dir = args.save_dir
     routed_out_list = [
         torch.zeros([case.batch_size, case.top_k, case.hidden_size], dtype=case.dtype)
         for _ in range(case.world_size)
@@ -469,8 +487,9 @@ def get_routed_out_and_save(
     for source_rank_id in range(case.shared_expert_num, case.world_size):
         expand_x = expand_x_list[source_rank_id]
         assist_info_for_combine = assist_info_for_combine_list[source_rank_id]
-        for token, (target_rank_id, token_id, k_offset) in zip(expand_x, assist_info_for_combine):
-            if target_rank_id != -1:
+        valid_row_shape = recv_counts_list[source_rank_id]
+        for i, (token, (target_rank_id, token_id, k_offset)) in enumerate(zip(expand_x, assist_info_for_combine)):
+            if i < valid_row_shape:
                 routed_out_list[target_rank_id][token_id, k_offset] = token
     for source_rank_id in range(case.world_size):
         routed_out = routed_out_list[source_rank_id]
@@ -485,18 +504,15 @@ def get_routed_out_and_save(
 
 def generate_moe_distributed_combine_case(case: MoeCase, save_dir: Path, dispatch_save_dir: Path) \
     -> None:
-    expand_x_list, assist_info_for_combine_list, expert_scales_list \
+    expand_x_list, assist_info_for_combine_list, expert_scales_list, recv_counts_list \
         = get_moe_distributed_combine_input_data(dispatch_save_dir, case)
 
     if case.shared_expert_num > 0:
         shared_out_list = get_shared_out_and_save(case, expand_x_list, assist_info_for_combine_list, save_dir)
-    routed_out_list = get_routed_out_and_save(
-        case,
-        expand_x_list,
-        assist_info_for_combine_list,
-        expert_scales_list,
-        save_dir,
-    )
+    args = GetRoutedOutAndSaveArgs(case=case, expand_x_list=expand_x_list,
+        assist_info_for_combine=assist_info_for_combine_list,
+        expert_scales_list=expert_scales_list, recv_counts_list=recv_counts_list, save_dir=save_dir)
+    routed_out_list = get_routed_out_and_save(args)
 
     for rank_id in range(case.world_size):
         routed_out = routed_out_list[rank_id]
@@ -730,7 +746,8 @@ def generate_single_golden(config: dict, output: Path):
 @GoldenRegister.reg_golden_func(
     case_names=[
         'TestDistributedOps/DistributedTest.TestOps',
-    ]
+    ],
+    version=1,
 )
 def generate_golden_case(case_name: str, output: Path, case_index: int = None) -> bool:
     case_files = get_case_files()

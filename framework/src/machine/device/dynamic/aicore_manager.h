@@ -124,6 +124,8 @@ public:
         wrapManager_.Init(curDevTask_, context_->coreRunReadyCnt_, context_->runReadyCoreIdx_[CORE_IDX_AIV],
             context_->runReadyCoreIdx_[CORE_IDX_AIC], context_->corePendReadyCnt_, pendingIds_.data(),
             runningIds_.data(), aicValidNum_, [&](CoreType coreType, int arg1, uint64_t arg2) {SendTaskToAiCore(coreType, arg1, arg2);});
+        readyDieAicFunctionQue_ = wrapManager_.GetDieReadyQueue(CoreType::AIC, readyAicCoreFunctionQue_);
+        readyDieAivFunctionQue_ = wrapManager_.GetDieReadyQueue(CoreType::AIV, readyAivCoreFunctionQue_);
     }
 
     void CountSendTask(uint64_t &sentAic, uint64_t &sentAiv) {
@@ -752,7 +754,7 @@ private:
         DEV_VERBOSE_DEBUG("  ## send task left pend ready cnt %u , last core index:%u.",
             context_->corePendReadyCnt_[static_cast<int>(type)], idx);
         while (context_->corePendReadyCnt_[static_cast<int>(type)] > 0 && sendCnt < taskCount) {
-            if (pendingIds_[idx] == AICORE_TASK_INIT) {
+            if (pendingIds_[idx] == AICORE_TASK_INIT && wrapManager_.GetWrapCoreAvailable(idx)) {
                 DEV_VERBOSE_DEBUG("  ## send task use pendready core %u.", idx);
                 SendTaskToAiCore(type, idx, isLifo ? *newTask-- : *newTask++);
                 sendCnt++;
@@ -780,8 +782,14 @@ private:
             }
             wrapManager_.DispatchMixCoreTask();
         }
+        if (wrapManager_.GetIsMixarch()) {
+            ReadyCoreFunctionQueue* dieReadyQue  = (type == CoreType::AIC) ?  readyDieAicFunctionQue_ : readyDieAivFunctionQue_;
+            if (dieReadyQue != readyQue) {
+                TryBatchSendTask(type, dieReadyQue, coreIdxStart, coreIdxEnd);
+            }
+        }
         TryBatchSendTask(type, readyQue, coreIdxStart, coreIdxEnd);
-        if (enableFairSch_) {
+        if (enableFairSch_ || wrapManager_.GetIsMixarch()) {   // for die-to-die scheduling
             if (context_->coreRunReadyCnt_[static_cast<int>(type)] > 0)  {
                 AicpuIsIdle(type);
             } else {
@@ -790,12 +798,93 @@ private:
         }
         return ret;
     }
+    
+    #define RAW_TENSOR_ADDR_MASK ((1UL << 63) - 1)
+    inline DynFuncData* GetDynFuncData(uint64_t taskId) {
+        auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
+        DynFuncHeader *head = (DynFuncHeader *) dyntask->GetDynFuncDataList();
+        auto funcDataList = (DynFuncData *)(head + 1);
+        auto funcData = &funcDataList[FuncID(taskId)];
+        return funcData;
+    }
+
+    inline uint64_t GetTensorAddr(DynFuncData *dynFuncData, uint64_t rawTensorIndex) {
+        auto desc = &dynFuncData->rawTensorDesc[rawTensorIndex];
+        if (desc->location == npu::tile_fwk::RAW_TENSOR_LOCATION_LOCAL) {
+            return dynFuncData->workspaceAddr + desc->offsetOrIndex;
+        } else {
+            return dynFuncData->rawTensorAddr[desc->offsetOrIndex] & RAW_TENSOR_ADDR_MASK;
+        }
+    }
+
+    inline uint64_t GetCoa(DynFuncData *dynFuncData, const SymInt *attrs, int idx) {
+        return attrs[idx].IsExpression() ? dynFuncData->exprTbl[attrs[idx].Value()] : attrs[idx].Value();
+    }
+
+    inline schema::shape SchemaGetShape(DynFuncData *dynFuncData, const SymInt *attrs, const DevAscendOperationOperandInfo &info) {
+        auto attrOffset = info.staticOffsetAttrBeginIndex;
+        std::vector<schema::Int64Type> shapeList;
+        for (int d = 0; d < info.GetDim(); d++) {
+            auto shapeIdx = attrOffset + d + info.GetDim() * 3;
+            auto actualShape = GetCoa(dynFuncData, attrs, shapeIdx);
+            shapeList.push_back(actualShape);
+        }
+        return schema::shape(schema::shapeList(shapeList));
+    }
+
+    inline schema::offset SchemaGetOffset(DynFuncData *dynFuncData, const SymInt *attrs, const DevAscendOperationOperandInfo &info) {
+        auto attrOffset = info.staticOffsetAttrBeginIndex;
+        std::vector<schema::Int64Type> offsetList;
+        for (int d = 0; d < info.GetDim(); d++) {
+            auto offsetIdx = attrOffset + d;
+            auto actualOffset = GetCoa(dynFuncData, attrs, offsetIdx);
+            offsetList.push_back(actualOffset);
+        }
+        return schema::offset(schema::offsetList(offsetList));
+    }
+
+    inline void DumpSchemaOperationInfo(int coreIdx, uint64_t taskId) {
+        uint64_t deviceTaskId = curTaskCtrl_->taskId;
+        uint32_t funcId = FuncID(taskId);
+        int rootIndex = GetRootIndex(taskId);
+        int leafIndex = GetLeafIndex(taskId);
+        uint32_t opIdx = TaskID(taskId);
+        auto duppedData = GetDuppedData(taskId);
+        auto dynFuncData = GetDynFuncData(taskId);
+        auto attrBase = &duppedData->GetSource()->GetOperationAttr(opIdx, 0);
+
+        DEV_TRACE_DEBUG(LEvent(LUid(deviceTaskId, funcId, rootIndex, opIdx, leafIndex),LActStart(coreIdx)));
+        DEV_TRACE_DEBUG_SPLIT(LEvent(LUid(deviceTaskId, funcId, rootIndex, opIdx, leafIndex),
+            duppedData->GetSource()->SchemaGetCoa(opIdx)));
+
+        auto iOperandSize = duppedData->GetSource()->GetOperationIOperandSize(opIdx);
+        DEV_TRACE_DEBUG(LEvent(LUid(deviceTaskId, funcId, rootIndex, opIdx, leafIndex),LActIncastCount(iOperandSize)));
+        for (size_t i = 0; i < iOperandSize; i++) {
+            auto iOperand = duppedData->GetSource()->GetOperationIOperand(opIdx, i);
+            auto base = GetTensorAddr(dynFuncData, iOperand->rawIndex);
+            auto size = duppedData->GetRawTensorDataSize(iOperand->rawIndex);
+            auto opInfo = duppedData->GetSource()->GetOperationIOperandInfo(opIdx, i);
+            DEV_TRACE_DEBUG(LEvent(LUid(deviceTaskId, funcId, rootIndex, opIdx, leafIndex),
+                LActIncast(SchemaGetShape(dynFuncData, attrBase, opInfo), SchemaGetOffset(dynFuncData, attrBase, opInfo), Range(base, base + size))));
+        }
+
+        auto oOperandSize = duppedData->GetSource()->GetOperationOOperandSize(opIdx);
+        DEV_TRACE_DEBUG(LEvent(LUid(deviceTaskId, funcId, rootIndex, opIdx, leafIndex), LActOutcastCount(oOperandSize)));
+        for (size_t i = 0; i < oOperandSize; i++) {
+            auto oOperand = duppedData->GetSource()->GetOperationOOperand(opIdx, i);
+            auto base = GetTensorAddr(dynFuncData, oOperand->rawIndex);
+            auto size = duppedData->GetRawTensorDataSize(oOperand->rawIndex);
+            auto opInfo = duppedData->GetSource()->GetOperationOOperandInfo(opIdx, i);
+            DEV_TRACE_DEBUG(LEvent(LUid(deviceTaskId, funcId, rootIndex, opIdx, leafIndex),
+                LActOutcast(SchemaGetShape(dynFuncData, attrBase, opInfo), SchemaGetOffset(dynFuncData, attrBase, opInfo), Range(base, base + size))));
+        }  
+    }
 
     inline void SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTask) {
-        DEV_TRACE_DEBUG(LEvent(
-            LUid(curTaskCtrl_->taskId, FuncID(newTask), GetRootIndex(newTask), TaskID(newTask), GetLeafIndex(newTask)),
-            LActStart(coreIdx)));
-
+        DEV_IF_VERBOSE_DEBUG {
+            DumpSchemaOperationInfo(coreIdx, newTask);
+        }
+        
 #if ENABLE_TENSOR_DUMP
         // dump input tensor
         aicoreDump_.DoDump(curDevTask_, "input", newTask, GetPhyIdByBlockId(coreIdx));
@@ -812,6 +901,12 @@ private:
 
         DEV_IF_VERBOSE_DEBUG {
             sendTask_[coreIdx].push_back(TaskInfo(coreIdx, newTask));
+            if (wrapManager_.IsBindedWrapId(newTask) && wrapManager_.GetWrapCoreAvailable(coreIdx)) {
+                DEV_WARN("newTask[%lu][%lx] is mix task, but core[%d] is available!", newTask, newTask, coreIdx);
+            }
+            if (!wrapManager_.IsBindedWrapId(newTask) && !wrapManager_.GetWrapCoreAvailable(coreIdx)) {
+                DEV_WARN("newTask[%lu][%lx] is not mix task, but core[%d] is not available!", newTask, newTask, coreIdx);
+            }
         }
         DEV_VERBOSE_DEBUG("Send task %lu, at core %d ,type:%d.", newTask, coreIdx, static_cast<int>(type));
     }
@@ -880,7 +975,11 @@ private:
             }
             DEV_VERBOSE_DEBUG("resolved new task, aic ready count: %u coretype:%u.", context_->readyCount[aicIndex], aicIndex);
             if (context_->readyCount[aicIndex] > 0) {
-                ret = PushReadyQue(readyAicCoreFunctionQue_, context_->readyIds[aicIndex], context_->readyCount[aicIndex]);
+                ReadyCoreFunctionQueue* targetReadyQue = readyAicCoreFunctionQue_;
+                if (wrapManager_.GetIsMixarch() && IsExistAicpuIdleOneDie(CoreType::AIC)) {
+                    targetReadyQue = readyDieAicFunctionQue_;
+                }
+                ret = PushReadyQue(targetReadyQue, context_->readyIds[aicIndex], context_->readyCount[aicIndex]);
                 if (unlikely(ret != DEVICE_MACHINE_OK)) {
                     return ret;
                 }
@@ -896,7 +995,11 @@ private:
             }
             DEV_VERBOSE_DEBUG("resolved new task, aiv ready count: %u coretype: %u.", context_->readyCount[aivIndex], aivIndex);
             if (context_->readyCount[aivIndex] > 0) {
-                ret = PushReadyQue(readyAivCoreFunctionQue_, context_->readyIds[aivIndex], context_->readyCount[aivIndex]);
+                ReadyCoreFunctionQueue* targetReadyQue = readyAivCoreFunctionQue_;
+                if (wrapManager_.GetIsMixarch() && IsExistAicpuIdleOneDie(CoreType::AIV)) {
+                    targetReadyQue = readyDieAivFunctionQue_;
+                }
+                ret = PushReadyQue(targetReadyQue, context_->readyIds[aivIndex], context_->readyCount[aivIndex]);
                 if (unlikely(ret != DEVICE_MACHINE_OK)) {
                     return ret;
                 }
@@ -925,8 +1028,11 @@ private:
             }
             pendingIds_[coreIdx] = AICORE_TASK_INIT;
             pendingResolveIndexList_[coreIdx] = 0;
-            context_->corePendReadyCnt_[static_cast<int>(type)]++;
-            context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
+            if (wrapManager_.GetWrapCoreAvailable(coreIdx)) {
+                context_->corePendReadyCnt_[static_cast<int>(type)]++;
+                context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
+            }
+            wrapManager_.UpdateFinishIdForMixCore(finTaskId);
         }
         return ret;
     }
@@ -947,7 +1053,6 @@ private:
         auto &pendingResolveIndexBaseRef = pendingResolveIndexList_[coreIdx];
         auto &runningIdRef = runningIds_[coreIdx];
         auto &runningResolveIndexBaseRef = runningResolveIndexList_[coreIdx];
-        bool isWrapCoreAvailable = wrapManager_.GetWrapCoreAvailable(coreIdx);
         if (likely(finTaskId == pendingIdRef && finTaskState == TASK_FIN_STATE)) {
             // pending task is finished, resolve both running and pending task.
             DEV_VERBOSE_DEBUG("Pending Finished: core:%d pending:%x,%d running:%x,%d", coreIdx, pendingIdRef, pendingResolveIndexBaseRef, runningIdRef, runningResolveIndexBaseRef);
@@ -959,7 +1064,7 @@ private:
             runningResolveIndexBaseRef = 0;
             pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
             pendingResolveIndexBaseRef = 0;
-            if (isWrapCoreAvailable) { // wrapcore doesnt support pending & running yet
+            if (wrapManager_.GetWrapCoreAvailable(coreIdx)) { // wrapcore doesnt support pending & running yet
                 context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
                 context_->corePendReadyCnt_[static_cast<int>(type)]++;
             }
@@ -970,6 +1075,7 @@ private:
                 }
             }
             ret = ResolveDepWithDfx(type, coreIdx, pendingIdValue, pendingResolveIndexBaseValue);
+            wrapManager_.UpdateFinishIdForMixCore(finTaskId);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
@@ -985,7 +1091,7 @@ private:
             runningResolveIndexBaseRef = copyOutResolveCounter + 1;
             pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
             pendingResolveIndexBaseRef = 0;
-            if (isWrapCoreAvailable) {
+            if (wrapManager_.GetWrapCoreAvailable(coreIdx)) {
                 context_->corePendReadyCnt_[static_cast<int>(type)]++;
             }
             if (runningIdValueCopyout != AICORE_TASK_INIT) {
@@ -1006,11 +1112,11 @@ private:
             }
             uint32_t runningIdValueAck = runningIdRef;
             int runningResolveIndexBaseValueAck = runningResolveIndexBaseRef;
-            runningIdRef = finTaskId;
-            runningResolveIndexBaseRef = pendingResolveIndexBaseRef;
-            pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
-            pendingResolveIndexBaseRef = 0;
-            if (isWrapCoreAvailable) {
+            if (wrapManager_.GetWrapCoreAvailable(coreIdx)) {
+                runningIdRef = finTaskId;
+                runningResolveIndexBaseRef = pendingResolveIndexBaseRef;
+                pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
+                pendingResolveIndexBaseRef = 0;
                 context_->corePendReadyCnt_[static_cast<int>(type)]++;
             }
             if (runningIdValueAck != AICORE_TASK_INIT) {
@@ -1026,7 +1132,7 @@ private:
             int runningResolveIndexBaseValue = runningResolveIndexBaseRef;
             runningIdRef = AICORE_TASK_INIT;
             runningResolveIndexBaseRef = 0;
-            if (isWrapCoreAvailable && pendingIdRef == AICORE_TASK_INIT) {
+            if (pendingIdRef == AICORE_TASK_INIT) {
                 context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
             }
             ret = ResolveDepWithDfx(type, coreIdx, runningIdValue, runningResolveIndexBaseValue);
@@ -1087,7 +1193,7 @@ private:
             startIdx = aivStart_;
             coreNum = aivEnd_ - aivStart_;
         }
-        while (pendingIds_[idx] != AICORE_TASK_INIT) {
+        while (pendingIds_[idx] != AICORE_TASK_INIT || !wrapManager_.GetWrapCoreAvailable(idx)) {
             idx = startIdx + (idx - startIdx + 1) % (coreNum);
         }
         context_->lastPendReadyCoreIdx_[coreType] = static_cast<uint32_t>(startIdx + (idx - startIdx + 1) % (coreNum));
@@ -1106,6 +1212,9 @@ private:
         if (unlikely(context_->readyCount[coreType] == READY_ID_FIX_CACHE_NUM)) {
             ReadyCoreFunctionQueue* readyQue =
                 coreType == static_cast<int>(CoreType::AIC) ?  readyAicCoreFunctionQue_ : readyAivCoreFunctionQue_;
+            if (wrapManager_.GetIsMixarch() && IsExistAicpuIdleOneDie(static_cast<CoreType>(coreType))) {
+                readyQue = coreType == static_cast<int>(CoreType::AIC) ?  readyDieAicFunctionQue_ : readyDieAivFunctionQue_;
+            }
             ret = PushReadyQue(readyQue, context_->readyIds[coreType], context_->readyCount[coreType]);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
@@ -1205,7 +1314,6 @@ private:
         auto funcId = FuncID(finishId);
         auto opIndex = TaskID(finishId);
 
-        wrapManager_.UpdateFinishIdForMixCore(finishId, coreIdx);
         auto cceBinary = dyntask->cceBinary;
         auto func = dyntask->dynFuncDataCacheList[funcId].devFunc;
         auto predCounts =  dyntask->dynFuncDataCacheList[funcId].predCount;
@@ -1307,6 +1415,22 @@ private:
         return false;
     }
 
+    inline bool IsExistAicpuIdleOneDie(CoreType type) {
+    #ifdef SUPPORT_DIE_TO_DIE_SCHE
+        int schedStart = 0;
+        int schedEnd = 0;
+        wrapManager_.GetDieSchedIdRange(schedStart, schedEnd, aicpuNum_);
+        for (int idx = schedStart; idx < schedEnd; idx++) {
+            if (curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][idx].load(std::memory_order_relaxed) == true) {
+                return true;
+            }
+        }
+    #else
+        (void)type;
+    #endif
+        return false;
+    }
+
     inline void AicpuIsBusy(CoreType type) {
         if (curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][schedIdx_] != false) {
             curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][schedIdx_].store(false, std::memory_order_relaxed);
@@ -1337,8 +1461,8 @@ private:
         if (IsNeedProcAicpuTask()) {
             aicpuTaskManager_.InitDeviceArgs(deviceArgs);
         }
+        wrapManager_.InitDeviceInfo(deviceArgs, schedIdx_);
 
-        wrapManager_.InitArchInfo(deviceArgs->archInfo);
 #if ENABLE_TENSOR_DUMP
         aicoreDump_.Init(startArgs, schedIdx);
 #endif
@@ -1371,25 +1495,13 @@ private:
             (void *)aicoreHal_.GetSharedBuffer(), static_cast<uint8_t>(deviceArgs->machineConfig));
     }
 
-    inline int HandShakeByGm() {
-        int rc = ForEachManageAicoreWithRet([this](int coreIdx) -> int {
-            int ret = aicoreHal_.HandShakeByGm(coreIdx, dotStatus_);
-            DEV_VERBOSE_DEBUG("coreidx %d handshake by gm phycorid %d.",
-                coreIdx, aicoreHal_.GetPhyIdByBlockId(coreIdx));
-            return ret;
-        });
-
-        return rc;
-    }
-
     inline void HandShakeTryPreFetchDevTask(bool &needSendAic, bool &needSendAiv) {
         if (!preFetchSuccess_ && PreFetchNextDevTask()) {
             preFetchNextDevTaskCtrl_->isFirstDevTask = true;
-            readyAicCoreFunctionQue_ =  reinterpret_cast<ReadyCoreFunctionQueue*>(preFetchNextDevTaskCtrl_->devTask->readyAicCoreFunctionQue);
-            readyAivCoreFunctionQue_ =  reinterpret_cast<ReadyCoreFunctionQueue*>(preFetchNextDevTaskCtrl_->devTask->readyAivCoreFunctionQue);
+            SendDevTaskModel(preFetchNextDevTaskCtrl_->devTask);
+            InitDevTask(preFetchNextDevTaskCtrl_);
             needSendAic = (readyAicCoreFunctionQue_->tail != readyAicCoreFunctionQue_->head);
             needSendAiv = (readyAivCoreFunctionQue_->tail != readyAivCoreFunctionQue_->head);
-            SendDevTaskModel(preFetchNextDevTaskCtrl_->devTask);
             DEV_DEBUG("hand shake prefetch dev task success :needsendaic %d needsend aiv %d", needSendAic, needSendAiv);
         }
     }
@@ -1698,6 +1810,9 @@ private:
     ReadyCoreFunctionQueue* readyAicpuFunctionQue_{nullptr};
     WrapManager wrapManager_;
     SchduleContext * context_{nullptr};
+    // for die-to-die shchedule
+    ReadyCoreFunctionQueue* readyDieAicFunctionQue_{nullptr};
+    ReadyCoreFunctionQueue* readyDieAivFunctionQue_{nullptr};
 
     bool preFetchSuccess_{false};
     DeviceTaskCtrl* preFetchNextDevTaskCtrl_{nullptr};

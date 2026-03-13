@@ -62,6 +62,21 @@ TILEOP void BinaryScalarComputeImpl(T0 dst, T1 src0, Scalar src1) {
         pto::TORS(dst, src0, src1);
         return;
     }
+
+    if constexpr (op == BinaryScalarOp::MOD) {
+        pto::TFMODS(dst, src0, src1);
+        return;
+    }
+
+    if constexpr (op == BinaryScalarOp::LRELU) {
+        pto::TLRELU(dst, src0, src1);
+        return;
+    }
+
+    if constexpr (op == BinaryScalarOp::REM) {
+        pto::TREMS(dst, src0, src1);
+        return;
+    }
 }
 
 template <BinaryScalarOp op, typename LastUse, typename T0, typename T1, typename Scalar>
@@ -120,6 +135,18 @@ TILEOP void TMinS(T0 dst, T1 src0, Scalar src1) {
     BinaryScalarCompute<BinaryScalarOp::MIN, LastUse>(dst, src0, src1);
 }
 
+#define OP_TILE_OP_LRELU TLReLU
+template <typename LastUse = LastUse2Dim<0, 0>, typename Scalar, typename T0, typename T1>
+TILEOP void TLReLU(T0 dst, T1 src0, Scalar src1) {
+    BinaryScalarCompute<BinaryScalarOp::LRELU, LastUse>(dst, src0, src1);
+}
+
+#define OP_TILE_OP_REMS TRemainderS
+template <typename Scalar, typename T0, typename T1>
+TILEOP void TRemainderS(T0 dst, T1 src0, Scalar src1) {
+    BinaryScalarCompute<BinaryScalarOp::REM, LastUse2Dim<0, 0>>(dst, src0, src1);
+}
+
 #define OP_TILE_OP_BITWISEANDS TBitwiseAndS
 template <typename LastUse = LastUse2Dim<0, 0>, typename Scalar, typename T0, typename T1>
 TILEOP void TBitwiseAndS(T0 dst, T1 src0, Scalar src1) {
@@ -132,108 +159,61 @@ TILEOP void TBitwiseOrS(T0 dst, T1 src0, Scalar src1) {
     BinaryScalarCompute<BinaryScalarOp::BITWISEOR, LastUse>(dst, src0, src1);
 }
 
-#define OP_TILE_OP_MODS TModS
-template <typename Scalar, typename T0, typename T1, typename T2>
-TILEOP void TModS(T0 dst, T1 src0, Scalar src1, T2 tmp) {
-    constexpr size_t expectSize = 5;
-    const auto dstLayout = dst.GetLayout();
-    const auto src0Layout = src0.GetLayout();
-    constexpr auto dataTypeSize = sizeof(typename T0::Type);
-    auto dstShape0 = dstLayout.template GetShapeDim<0, expectSize>();
-    auto dstShape1 = dstLayout.template GetShapeDim<1, expectSize>();
-    auto dstShape2 = dstLayout.template GetShapeDim<2, expectSize>();
-    auto dstShape3 = dstLayout.template GetShapeDim<3, expectSize>();
-    auto dstShape4 = dstLayout.template GetShapeDim<4, expectSize>();
-    if (dstShape0 == 0 || dstShape1 == 0 || dstShape2 == 0 || dstShape3 == 0 || dstShape4 == 0) {
-        return;
+TILEOP int gcds(int a, int b) {
+    if (a < 0) {
+        a = 0 - a;
     }
+    if (b < 0) {
+        b = 0 - b;
+    }
+    while (a % b != 0) {
+        int c = a % b;
+        a = b;
+        b = c;
+    }
+    return b;
+}
 
-    auto dstStride0 = dstLayout.template GetStrideDim<0, expectSize>();
-    auto dstStride1 = dstLayout.template GetStrideDim<1, expectSize>();
-    auto dstStride2 = dstLayout.template GetStrideDim<2, expectSize>();
+#define OP_TILE_OP_GCDS TGcdS
+template <typename Scalar, typename T0, typename T1>
+TILEOP void TGcdS(T0 dst, T1 src0, Scalar src1) {
+    const auto dstLayout = dst.GetLayout();
+    auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+    auto shape3 = dstLayout.template GetShapeDim<DIM_4TH, MAX_DIMS>();
+    auto shape4 = dstLayout.template GetShapeDim<DIM_5TH, MAX_DIMS>();
+    auto dstStride0 = dstLayout.template GetStrideDim<DIM_1ST, MAX_DIMS>();
+    auto dstStride1 = dstLayout.template GetStrideDim<DIM_2ND, MAX_DIMS>();
+    auto dstStride2 = dstLayout.template GetStrideDim<DIM_3RD, MAX_DIMS>();
+    auto dstStride3 = dstLayout.template GetStrideDim<DIM_4TH, MAX_DIMS>();
+    constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, 3, 5>();
+    constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, 4, 5>();
+    auto src0Addr = (__ubuf__ typename T1::Type *)((uint64_t)(src0.GetAddr()));
+    auto dstAddr = (__ubuf__ typename T0::Type *)((uint64_t)(dst.GetAddr()));
 
-    auto src0Stride0 = src0Layout.template GetStrideDim<0, expectSize>();
-    auto src0Stride1 = src0Layout.template GetStrideDim<1, expectSize>();
-    auto src0Stride2 = src0Layout.template GetStrideDim<2, expectSize>();
-
-    constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T0, 3, expectSize>();
-    constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, 4, expectSize>();
-    constexpr auto src0TileH = TileOp::GetTensorTileShapeDim<T1, 3, expectSize>();
-    constexpr auto src0TileW = TileOp::GetTensorTileShapeDim<T1, 4, expectSize>();
-    __ubuf__ float *castBufAddr = reinterpret_cast<__ubuf__ float*>(tmp.GetAddr());
-    using DstTileDefine =
-        pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
-    using Src0TileDefine =
-        pto::Tile<pto::TileType::Vec, typename T1::Type, src0TileH, src0TileW, pto::BLayout::RowMajor, -1, -1>;
-    DstTileDefine dstTile(dstShape3, dstShape4);
-    Src0TileDefine src0Tile(dstShape3, dstShape4);
-
-    using DstType = typename T0::Type;
-    for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
-        for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
-            for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
-                auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
-                auto src0Offset = n0Index * src0Stride0 + n1Index * src0Stride1 + n2Index * src0Stride2;
-                pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dataTypeSize));
-                pto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + src0Offset * dataTypeSize));
-
-                if constexpr (std::is_same_v<DstType, float>) {
-                    DstTileDefine divTmpTile(dstShape3, dstShape4);
-                    DstTileDefine castTmpTile(dstShape3, dstShape4);
-                    pto::TASSIGN(divTmpTile, reinterpret_cast<uint64_t>(castBufAddr + dstTileH * dstTileW));
-                    pto::TASSIGN(castTmpTile, reinterpret_cast<uint64_t>(castBufAddr + dstTileH * dstTileW * 2));
-                    pto::TDIVS(divTmpTile, src0Tile, src1);
-                    #ifdef __DAV_V220
-                    pipe_barrier(PIPE_V);
-                    #endif
-                    pto::TCVT(castTmpTile, divTmpTile, pto::RoundMode::CAST_TRUNC);
-                    #ifdef __DAV_V220
-                    pipe_barrier(PIPE_V);
-                    #endif
-                    pto::TMULS(castTmpTile, castTmpTile, src1);
-                    #ifdef __DAV_V220
-                    pipe_barrier(PIPE_V);
-                    #endif
-                    pto::TSUB(dstTile, src0Tile, castTmpTile);
-                    #ifdef __DAV_V220
-                    pipe_barrier(PIPE_V);
-                    #endif
-                }  else if constexpr (std::is_same_v<DstType, half> || std::is_same_v<DstType, bfloat16_t>) {
-                    float src1Tmp = static_cast<float>(src1);
-                    using Fp32TmpTileDefine =
-                        pto::Tile<pto::TileType::Vec, float, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
-                    Fp32TmpTileDefine dstTileTmp(dstShape3, dstShape4);
-                    Fp32TmpTileDefine src0TileTmp(dstShape3, dstShape4);
-                    Fp32TmpTileDefine castTileTmp(dstShape3, dstShape4);
-                    pto::TASSIGN(dstTileTmp, reinterpret_cast<uint64_t>(castBufAddr + dstTileH * dstTileW));
-                    pto::TASSIGN(src0TileTmp, reinterpret_cast<uint64_t>(castBufAddr + dstTileH * dstTileW * 2));
-                    pto::TASSIGN(castTileTmp, reinterpret_cast<uint64_t>(castBufAddr + dstTileH * dstTileW * 3));
-                    pto::TCVT(dstTileTmp, dstTile, pto::RoundMode::CAST_NONE);
-                    pto::TCVT(src0TileTmp, src0Tile, pto::RoundMode::CAST_NONE);
-                    #ifdef __DAV_V220
-                    pipe_barrier(PIPE_V);
-                    #endif
-                    pto::TDIVS(dstTileTmp, src0TileTmp, src1Tmp);
-                    #ifdef __DAV_V220
-                    pipe_barrier(PIPE_V);
-                    #endif
-                    pto::TCVT(castTileTmp, dstTileTmp, pto::RoundMode::CAST_TRUNC);
-                    #ifdef __DAV_V220
-                    pipe_barrier(PIPE_V);
-                    #endif
-                    pto::TMULS(dstTileTmp, castTileTmp, src1Tmp);
-                    #ifdef __DAV_V220
-                    pipe_barrier(PIPE_V);
-                    #endif
-                    pto::TSUB(dstTileTmp, src0TileTmp, dstTileTmp);
-                    #ifdef __DAV_V220
-                    pipe_barrier(PIPE_V);
-                    #endif
-                    pto::TCVT(dstTile, dstTileTmp, pto::RoundMode::CAST_NONE);
+    set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    for (LoopVar n = 0; n < shape0; n++) {
+        for (LoopVar j = 0; j < shape1; j++) {
+            for (LoopVar k = 0; k < shape2; k++) {
+                for (LoopVar m = 0; m < shape3; m++) {
+                    for (LoopVar i = 0; i < shape4; i++) {
+                        int tmpStride = n * dstStride0 + j * dstStride1 + k * dstStride2 + m * dstStride3 + i;
+                        dstAddr[tmpStride] = gcds(src0Addr[tmpStride], src1);
+                    }
                 }
             }
         }
     }
+    set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+    wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+}
+
+#define OP_TILE_OP_MODS TModS
+template <typename LastUse = LastUse2Dim<0, 0>, typename Scalar, typename T0, typename T1>
+TILEOP void TModS(T0 dst, T1 src0, Scalar src1) {
+    BinaryScalarCompute<BinaryScalarOp::MOD, LastUse>(dst, src0, src1);
 }
 
 template <BinaryScalarOp op, typename T0, typename T1, typename Scalar, typename T2>
@@ -271,5 +251,32 @@ TILEOP void BinaryScalarTmpCompute(T0 dst, T1 src0, Scalar src1, T2 tmp) {
 template <typename Scalar, typename T0, typename T1, typename T2>
 TILEOP void TBitwiseXorS(T0 dst, T1 src0, Scalar src1, T2 tmp) {
     BinaryScalarTmpCompute<BinaryScalarOp::BITWISEXOR>(dst, src0, src1, tmp);
+}
+
+#define OP_TILE_OP_REMRS TRemainderRS
+template <typename Scalar, typename T0, typename T1, typename T2>
+TILEOP void TRemainderRS(T0 dst, T1 src0, Scalar src1, T2 tmp) {
+    const auto dstLayout = dst.GetLayout();
+    auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+    auto dstTile = PtoTile<T0>(dst);
+    auto src0Tile = PtoTile<T1>(src0);
+    auto tmpTile = PtoTile<T2>(tmp);
+    for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
+        for (LoopVar n1Index = 0; n1Index < shape1; ++n1Index) {
+            for (LoopVar n2Index = 0; n2Index < shape2; ++n2Index) {
+                auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
+                dstTile.Assign(dst, tileOffsets);
+                src0Tile.Assign(src0, tileOffsets);
+                tmpTile.Assign(tmp, tileOffsets);
+                pto::TEXPANDS(tmpTile.Data(), src1);
+                #ifdef __DAV_V220
+                pipe_barrier(PIPE_V);
+                #endif
+                pto::TREM(dstTile.Data(), tmpTile.Data(), src0Tile.Data());
+            }
+        }
+    }
 }
 #endif

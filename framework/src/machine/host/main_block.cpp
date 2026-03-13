@@ -15,6 +15,8 @@
 
 #include "main_block.h"
 #include "codegen/codegen.h"
+#include "tilefwk/platform.h"
+#include "tilefwk/pypto_fwk_log.h"
 
 namespace npu::tile_fwk {
 MainBlockCondBulider::MainBlockCondBulider() = default;
@@ -57,7 +59,7 @@ bool MainBlockCondBulider::GetValidShapeFromCoa(const std::vector<SymbolicScalar
         Shape &shape, std::vector<SymbolicScalar> &dynValidShape)
 {
     if (argList.empty()) {
-        ALOG_WARN_F("argList is empty!");
+        MACHINE_LOGW("argList is empty!");
         return false;
     }
 
@@ -83,7 +85,9 @@ bool MainBlockCondBulider::GetValidShapeFromCoa(const std::vector<SymbolicScalar
 
 void MainBlockCondBulider::CollectCallopMainBlockConds(Function *func)
 {
-    if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) != 1) {
+    bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
+    enableVF = enableVF && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
+    if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) != 1 && !enableVF) {
         AddUniqueCondition(SymbolicScalar(false));
         return;
     }
@@ -91,7 +95,7 @@ void MainBlockCondBulider::CollectCallopMainBlockConds(Function *func)
     auto checkOperand = [&](auto &op, auto &shape, auto &validshape, const char* tag) -> bool {
         auto cond = CheckShapeEquality(shape, validshape);
         if (!cond) {
-            ALOG_WARN_F("get mainBlock flag false, op code %s, %s shape is %s, validShape is %s",
+            MACHINE_LOGW("get mainBlock flag false, op code %s, %s shape is %s, validShape is %s",
                op.GetOpcodeStr().c_str(),
                tag,
                IntVecToStr(shape).c_str(),
@@ -116,7 +120,9 @@ void MainBlockCondBulider::CollectCallopMainBlockConds(Function *func)
 
 void MainBlockCondBulider::CollectCoaMainBlockConds(const std::vector<std::vector<SymbolicScalar>> &argList)
 {
-    if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) != 1) {
+    bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
+    enableVF = enableVF && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
+    if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) != 1 && !enableVF) {
         AddUniqueCondition(SymbolicScalar(false));
         return;
     }
@@ -130,7 +136,7 @@ void MainBlockCondBulider::CollectCoaMainBlockConds(const std::vector<std::vecto
         }
         auto cond = CheckShapeEquality(shape, dynValidShape);
         if (!cond) {
-            ALOG_WARN_F("get mainBlock flag false, coa shape is %s, validShape is %s",
+            MACHINE_LOGW("get mainBlock flag false, coa shape is %s, validShape is %s",
                IntVecToStr(shape).c_str(),
                IntVecToStr(dynValidShape).c_str());
             return;
@@ -156,12 +162,14 @@ SymbolicScalar MainBlockCondBulider::BuildMainBlockExpression()
     return cond;
 }
 
-void MainBlockCondBulider::Gencode(Function *function, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset)
+void MainBlockCondBulider::Gencode(Function *function)
 {
-    if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) == 1) {
+    bool enableVF = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510;
+    enableVF = enableVF && config::GetPassGlobalConfig(KEY_ENABLE_VF, false);
+    if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) == 1 || enableVF) {
         npu::tile_fwk::CodeGenCtx codeGenCtxMainBlock("", GetEmitPath("kernel_aicore"), true);
         npu::tile_fwk::CodeGen codeGenMainBlock(codeGenCtxMainBlock);
-        codeGenMainBlock.GenCode(*function, invokeParaOffset);
+        codeGenMainBlock.GenCode(*function, {});
     }
 }
 

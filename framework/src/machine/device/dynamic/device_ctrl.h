@@ -248,7 +248,8 @@ public:
 
         devStartArgs->inputSymbolList = nullptr;
         devStartArgs->inputSymbolSize = 0;
-        devStartArgs->hcclContextAddr = (uint64_t*)&devProg->hcclContext[0];
+        devStartArgs->commGroupNum = (kargs->commContexts == nullptr) ? 0 : static_cast<uint64_t>(*kargs->commContexts);
+        devStartArgs->commContexts = (devStartArgs->commGroupNum == 0) ? nullptr : kargs->commContexts + 1;
 
         DevControlFlowCache *ctrlFlowCacheBase = reinterpret_cast<DevControlFlowCache *>(kargs->ctrlFlowCache);
         DevControlFlowCache *ctrlFlowCache;
@@ -259,7 +260,7 @@ public:
         } else {
             ctrlFlowCache = reinterpret_cast<DevControlFlowCache *>(
                 reinterpret_cast<uint8_t *>(kargs->ctrlFlowCache) +
-                ctrlFlowCacheBase->allCacheSize * ringBufferHead->GetIndexPendingIndex());
+                ctrlFlowCacheBase->usedCacheSize * ringBufferHead->GetIndexPendingIndex());
         }
         InitCtrlFlowCache(devProg, ctrlFlowCache, devStartArgs, firstInit);
 
@@ -320,7 +321,7 @@ public:
     int EntryInit(DeviceKernelArgs *kargs) {
         SetModuleLogLevel(kargs);
         PerfBegin(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
-#if DEBUG_PLOG && defined(__DEVICE__)
+#ifdef __DEVICE__
         InitLogSwitch();
 #endif
         if (kargs == nullptr) {

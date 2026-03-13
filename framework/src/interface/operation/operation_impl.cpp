@@ -27,7 +27,6 @@
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
 #include "interface/utils/common.h"
-#include "interface/utils/log.h"
 #include "interface/utils/operator_tracer.h"
 #include "passes/pass_utils/graph_utils.h"
 
@@ -269,6 +268,72 @@ Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum) {
     return Reshape(old, newShape, validShape);
 }
 
+static void SqueezeParamsValidCheck(const Tensor &input, std::vector<int> &dim)
+{
+    Shape oriShape = input.GetShape();
+    size_t shapeSize = oriShape.size();
+    ASSERT(shapeSize <= SHAPE_DIM4) << "The input dimension only support 1~4. Cur dimension is " << shapeSize;
+
+    if (dim.empty()) {
+        for (size_t i = 0; i < shapeSize; i++) {
+            dim.push_back(static_cast<int>(i));
+        }
+    }
+    ASSERT(dim.size() <= shapeSize) << "The dim.size <= input.dim is not matched. dim.size is " << dim.size()
+        << ", input.dim is " << shapeSize;
+    std::set<int> dupDimSet(dim.begin(), dim.end());
+    ASSERT(dupDimSet.size() == dim.size()) << "There is duplicates elements in dim";
+    for (size_t i = 0; i < dim.size(); i++) {
+        ASSERT(dim[i] < static_cast<int>(shapeSize) && dim[i] >= -(static_cast<int>(shapeSize))) << "dim " << i <<
+            " in dim is out of range";
+        if (dim[i] < 0) {
+            dim[i] = dim[i] + static_cast<int>(shapeSize);
+        }
+    }
+    std::sort(dim.begin(), dim.end());
+}
+
+Tensor Squeeze(const Tensor &input, const std::vector<int> &dim)
+{
+    DECLARE_TRACER();
+
+    Shape oriShape = input.GetShape();
+    Shape dstShape(oriShape.begin(), oriShape.end());
+    size_t shapeSize = oriShape.size();
+    std::vector<SymbolicScalar> validShape;
+    std::vector<int> innerDim(dim.begin(), dim.end());
+
+    if (shapeSize == 1) {
+        return input;
+    }
+    SqueezeParamsValidCheck(input, innerDim);
+    for (auto shape : input.GetStorage()->GetDynValidShape()){
+        validShape.push_back(shape);
+    }
+
+    ASSERT(!validShape.empty()) << "The input validshape should not be empty.";
+
+    for (auto it = innerDim.rbegin(); it != innerDim.rend(); ++it) {
+        int axis = *it;
+        if (oriShape[axis] == 1) {
+            dstShape.erase(dstShape.begin() + axis);
+            validShape.erase(validShape.begin() + axis);
+        }
+    }
+    if (dstShape.empty()) {
+        dstShape.push_back(1);
+    }
+    if (validShape.empty()) {
+        validShape.push_back(1);
+    }
+
+    if (dstShape.size() == shapeSize) {
+        return input;
+    } else {
+        return Reshape(input, dstShape, validShape);
+    }
+}
+
 void TensorInnerAssign(Function &function, const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
     function.AddOperation(Opcode::OP_REGISTER_COPY, {operand}, {result});
 }
@@ -281,7 +346,6 @@ Tensor Assign(const Tensor &operand) {
 }
 
 #define CALL(n, ...) Tensor##n(__VA_ARGS__)
-#define RETURN_CALL(n, ...) return Tensor##n(__VA_ARGS__)
 
 void TiledInnerRegisterCopy(const int dimIdx, Function &function, const TileShape &tileShape,
     const LogicalTensorPtr &operand, const LogicalTensorPtr &result,
@@ -309,80 +373,6 @@ void TiledInnerRegisterCopy(Function &function, const TileShape &tileShape,
     std::vector<int64_t> actOffset(result->GetShape().size(), 0);
     std::vector<int64_t> actTileShape(result->GetShape().size(), 1);
     TiledInnerRegisterCopy(0, function, tileShape, operand, result, actTileShape, actOffset);
-}
-
-void TiledPadOperation(Function &function, const std::vector<int64_t> &tileShape, const std::vector<int64_t> &tileOffset,
-    const LogicalTensorPtr &result, const LogicalTensorPtr &operand)
-{
-    auto resultTile = result->View(function, tileShape, tileOffset);
-    std::vector<int64_t> originTileShape(tileShape);
-    for (auto i = 0; static_cast<size_t>(i) < tileOffset.size(); i++) {
-        if (tileOffset[i] >= operand->GetShape()[i]) {
-            function.AddOperation("TILE_PAD", {}, { resultTile });
-            return;
-        } else if ((tileOffset[i] + tileShape[i]) > operand->GetShape()[i]) {
-            originTileShape[i] = std::min(operand->GetShape()[i] - tileOffset[i], tileShape[i]);
-        }
-    }
-    auto operandTile = View(operand, originTileShape, tileOffset);
-    function.AddOperation("TILE_PAD", { operandTile.GetStorage() }, { resultTile });
-}
-
-void TiledPadLoop(Function &function, int dimIdx, std::vector<int64_t> &tileShape, std::vector<int64_t> &tileOffset,
-    const LogicalTensorPtr &result, const LogicalTensorPtr &operand,
-    std::vector<int64_t> &cfgShape)
-{
-    if (static_cast<size_t>(dimIdx) == result->GetShape().size()) {
-        TiledPadOperation(function, tileShape, tileOffset, result, operand);
-        return;
-    }
-    for (auto i = 0; i < result->GetShape()[dimIdx]; i += cfgShape[dimIdx]) {
-        tileShape[dimIdx] = std::min(result->GetShape()[dimIdx] - i, cfgShape[dimIdx]);
-        tileOffset[dimIdx] = i;
-        TiledPadLoop(function, dimIdx + 1, tileShape, tileOffset, result, operand, cfgShape);
-    }
-}
-
-void TileInnerPad(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
-    const LogicalTensorPtr &result)
-{
-    std::vector<int64_t> offset(result->shape.size(), 0);
-    std::vector<int64_t> padTileShape(result->GetShape().size(), 1);
-    std::vector<int64_t> cfgShape(result->GetShape().size(), 1);
-    auto &vecTile = tileShape.GetVecTile();
-    cfgShape[cfgShape.size() - 1] = vecTile[1];
-    cfgShape[cfgShape.size() - 2] = vecTile[0];
-    TiledPadLoop(function, 0, padTileShape, offset, result, operand, cfgShape);
-}
-
-LogicalTensorPtr TensorPadOperation(Function &function, const TileShape &tileShape,
-    const LogicalTensorPtr operand, const std::vector<int64_t> &newShape)
-{
-    auto tmpResult = std::make_shared<LogicalTensor>(function, operand->Datatype(), newShape);
-    auto result = std::make_shared<LogicalTensor>(function, operand->Datatype(), newShape, operand->Format());
-    TileInnerPad(function, tileShape, operand, tmpResult);
-    auto &assembleOp = function.AddOperation(Opcode::OP_ASSEMBLE, {tmpResult}, {result});
-    assembleOp.SetAssembleOpAttribute(std::vector<int64_t>(newShape.size(), 0));
-    return result;
-}
-
-Tensor Pad(const Tensor &old, const std::vector<int64_t> &newShape)
-{
-    DECLARE_TRACER();
-    auto oldShape = old.GetShape();
-    auto oldShapeSize = oldShape.size();
-    assert(oldShapeSize == newShape.size());
-    assert(oldShape.size() >= SHAPE_DIM2);
-    for (int i = 0; static_cast<size_t>(i) < oldShapeSize; ++i) {
-        // 目前只支持最后一维做pad
-        if (static_cast<size_t>(i) == (oldShapeSize - 1)) {
-            assert(newShape[i] >= oldShape[i]);
-            continue;
-        }
-        ASSERT(oldShape[i] == newShape[i]);
-    }
-    RETURN_CALL(
-        PadOperation, *Program::GetInstance().GetCurrentFunction(), TileShape::Current(), old.GetStorage(), newShape);
 }
 
 void TiledInnerCompact(Function &function, const TileShape &tileShape,
@@ -852,13 +842,6 @@ void TiledTopKExtract(Function &function, const LogicalTensorPtr &x, const Logic
     auto &op = function.AddOperation(Opcode::OP_TOPK_EXTRACT, {x}, {y});
     op.SetAttribute(TOPK_K, k);
     op.SetAttribute(TOPK_INDEX, static_cast<int>(isIndex));
-}
-
-Tensor TopKExtract(const Tensor &x, int k, bool isIndex) {
-    DataType dType = isIndex ? DataType::DT_INT32 : x.GetStorage()->tensor->datatype;
-    auto y = Tensor(dType, {1, k});
-    TiledTopKExtract(*Program::GetInstance().GetCurrentFunction(), x.GetStorage(), y.GetStorage(), k, isIndex);
-    return y;
 }
 
 // view op
@@ -1510,6 +1493,10 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             Matrix::ConstructTileGraph(function, tileShape, iOperand, oOperand[0], op);
             break;
         }
+        case Opcode::OP_CONV: {
+            Conv::ConstructTileGraph(function, tileShape, iOperand, oOperand[0], op);
+            break;
+        }
         case Opcode::OP_TOPK_SORT: {
             int idxStart = op.GetIntAttribute(TOPK_START_INDEX);
             SymbolicScalar dynIdxStart;
@@ -1658,7 +1645,7 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             break;
         }
         default: {
-            ALOG_ERROR_F("Unsupported opcode %d, opmagic is %d", static_cast<int>(opCode), op.GetOpMagic());
+            FUNCTION_LOGE("Unsupported opcode %d, opmagic is %d", static_cast<int>(opCode), op.GetOpMagic());
             ASSERT(false) << "Unsupported opcode " << static_cast<int>(opCode) << ", opmagic is " << op.GetOpMagic();
         }
     }

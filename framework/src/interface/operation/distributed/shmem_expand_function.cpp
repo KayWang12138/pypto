@@ -19,7 +19,7 @@
 namespace npu::tile_fwk::Distributed {
 namespace {
 using DummyTileFunc = std::function<LogicalTensorPtr(int32_t tileIndex)>;
-
+int32_t tileNumOfWaitUntil = 0;
 constexpr uint16_t UB_BUFFER_BYTE_SIZE = 16 * 1024;
 constexpr uint16_t DTYPE_CAST_BYTE_SIZE = 256;
 constexpr uint16_t UB_ALIGN_SIZE = 32;
@@ -28,7 +28,7 @@ LogicalTensorPtr View2DTile(const LogicalTensorPtr dummy, int32_t tileIndex, int
     Function& function)
 {
     Shape dummyShape = dummy->shape;
-    ASSERT(tileRowNum > 0 && tileColNum > 0) << "TileRowNum and tileColNum can not be 0";
+    CHECK(tileRowNum > 0 && tileColNum > 0) << "TileRowNum and tileColNum cannot be zero";
     int32_t rowIndex = tileIndex / tileColNum;
     int32_t colIndex = tileIndex % tileColNum;
 
@@ -102,10 +102,6 @@ void DfsTiling(const Shape& shmemTensorTileShape, Input& input, size_t curDim, u
     std::vector<int64_t>& tileShape = input.tileInfo.shape;
     std::vector<int64_t>& tileOffset = input.tileInfo.offset;
     if (curDim == tileShape.size()) {
-        ASSERT(tileIndex < MAX_TILE_NUM) << "tileIndex must be < " << MAX_TILE_NUM << ", but got " << tileIndex;
-        for (int64_t shape : tileShape) {
-            ASSERT(shape != 0) << "view shape should not be 0, but got " << IntVecToStr(tileShape);
-        }
         addTileOp(tileIndex, input);
         tileIndex++;
         return;
@@ -142,15 +138,16 @@ Shape GetCopyBufferShape(DataType nonShmemDtype, DataType shmemDtype, Shape tile
 {
     const uint32_t copyNum = UB_BUFFER_BYTE_SIZE / BytesOf(nonShmemDtype);
     Shape copyShape;
-    auto tileRowSize = tileShape[0];
-    auto tileColSize = tileShape[1];
+    int64_t tileRowSize = tileShape[0];
+    int64_t tileColSize = tileShape[1];
+    int64_t alignTileColSize = AlignUp(tileColSize * BytesOf(nonShmemDtype), UB_ALIGN_SIZE) / BytesOf(nonShmemDtype);
     if ((nonShmemDtype != shmemDtype) && ((tileColSize * BytesOf(nonShmemDtype)) % UB_ALIGN_SIZE != 0)) {
         uint32_t copyColSize = copyNum > tileColSize ? tileColSize : copyNum;
         copyShape = {1, copyColSize};
-    } else if (copyNum >= tileRowSize * tileColSize) {
+    } else if (copyNum >= tileRowSize * alignTileColSize) {
         copyShape = {tileRowSize, tileColSize};
     } else if (copyNum >= tileColSize) {
-        copyShape = {(copyNum + tileColSize - 1) / tileColSize, tileColSize};
+        copyShape = {(copyNum + alignTileColSize - 1) / alignTileColSize, tileColSize};
     } else {
         copyShape = {1, copyNum};
     }
@@ -296,7 +293,9 @@ void TiledShmemWaitUntil(Function& function, const TileShape& tileShape,
         auto outTile = outTileFunc(tileIndex);
 
         auto& tileOp = function.AddOperation(Opcode::OP_SHMEM_WAIT_UNTIL, {predTokenTile, shmemSignalTile}, {outTile});
-        
+        tileNumOfWaitUntil++;
+        ASSERT(tileNumOfWaitUntil <= MAX_TILE_NUM) <<
+            "WaitUntil tile count exceeds the maximum allowed value: " << MAX_TILE_NUM;
         DistOpAttr distOpAttr;
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         distOpAttr.aicpuOpParams.push_back(tileRowShape);
@@ -368,8 +367,8 @@ void TiledShmemGetGM2UB(Function& function, const TileShape& tileShape,
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetOpAttribute(
             std::make_shared<CopyOpAttribute>(OpImmediate::Specified({0, 0}), MEM_UB, 
-            OpImmediate::Specified(nonShmemDataTileShape), OpImmediate::Specified(nonShmemDataTileShape), 
-            OpImmediate::Specified(nonShmemDataTileShape)));
+            OpImmediate::Specified({shmemDataTile->shape[2], shmemDataTile->shape[3]}), OpImmediate::Specified({outUb->shape[0], outUb->shape[1]}), 
+            OpImmediate::Specified(std::vector<SymbolicScalar>{shmemDataTile->dynValidShape_[2], shmemDataTile->dynValidShape_[3]})));
     });
 }
 
