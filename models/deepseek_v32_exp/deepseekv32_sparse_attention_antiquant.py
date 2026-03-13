@@ -318,7 +318,8 @@ def do_test_sparse_attention_func_aq(bn1n2s1, actual_seq, input_params, input_da
     q_nope, q_rope, nope_cache_2d, topk_indices, block_table, kv_actual_seqs = input_data
     kv_act_seqs = torch.tensor(actual_seq, dtype=torch.int32)
 
-    calc_attention_out = torch.zeros([b, s1, n_q, kv_lora_rank], dtype=torch.bfloat16)
+    calc_attention_out = torch.zeros([b * s1 * n_q, kv_lora_rank], dtype=torch.bfloat16)
+    calc_attention_out_npu = calc_attention_out.npu()
 
     q_nope_npu = q_nope.npu()
     q_rope_npu = q_rope.npu()
@@ -328,18 +329,17 @@ def do_test_sparse_attention_func_aq(bn1n2s1, actual_seq, input_params, input_da
     kv_act_seqs_npu = kv_act_seqs.npu()
 
     pto_inputs = [q_nope_npu, q_rope_npu, nope_cache_npu, topk_indices_npu, block_table_npu, kv_act_seqs_npu]
+    pto_outputs = [calc_attention_out_npu]
 
     max_blocknum_perbatch = math.ceil(max_kv_seq / block_size)
 
     if is_p:
-        calc_attention_out = sparse_attention_antiquant_p(block_num, max_kv_seq, kv_lora_rank, qk_rope_dim,
-                                                    n_q, n_kv, softmax_scale, topk, block_size,
-                                                    max_blocknum_perbatch, tile_config)(*pto_inputs)
+        sparse_attention_antiquant_p(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale, topk, block_size, \
+            max_blocknum_perbatch, tile_config)
     else:
-        calc_attention_out = sparse_attention_antiquant_d(block_num, max_kv_seq, kv_lora_rank, qk_rope_dim,
-                                                    n_q, n_kv, softmax_scale, topk, block_size,
-                                                    max_blocknum_perbatch, tile_config)(*pto_inputs)
-    calc_attention_out_npu = calc_attention_out.reshape(b, s1, n_q, kv_lora_rank)
+        sparse_attention_antiquant_d(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale, topk, block_size, \
+            max_blocknum_perbatch, tile_config)
+    calc_attention_out_npu = calc_attention_out_npu.reshape(b, s1, n_q, kv_lora_rank)
     torch_npu.npu.synchronize()
     compare(calc_attention_out_npu.cpu(), atten_out, "atten_out", atol=0.0001, rtol=0.005, max_error_count=100)
 
