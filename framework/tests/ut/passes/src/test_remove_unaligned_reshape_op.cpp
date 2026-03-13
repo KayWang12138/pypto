@@ -372,18 +372,23 @@ TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeCopy) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     // Prepare the graph
-    std::vector<int64_t> inshape = {2, 2};
-    std::vector<int64_t> outshape = {3, 4};
+    std::vector<int64_t> inshape = {4, 4};
+    std::vector<int64_t> reshapeShape = {2, 8};
+    std::vector<int64_t> outshape = {4, 8};
     auto incast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
     auto copyinTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
     copyinTensor1->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
     auto copyoutTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
     copyoutTensor1->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
-    auto reshapeTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
+    std::vector<SymbolicScalar> validShape1 = {SymbolicScalar("Input_0_Dim_0"), SymbolicScalar("Input_0_Dim_1")};
+    copyoutTensor1->UpdateDynValidShape(validShape1);                                
+    auto reshapeTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshapeShape);
     reshapeTensor->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
-    auto copyinTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
+    std::vector<SymbolicScalar> validShape2 = {SymbolicScalar("Input_1_Dim_0"), SymbolicScalar("Input_1_Dim_1")};
+    reshapeTensor->UpdateDynValidShape(validShape2);                                
+    auto copyinTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshapeShape);
     copyinTensor2->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
-    auto copyinTensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, inshape);
+    auto copyinTensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, reshapeShape);
     copyinTensor3->SetMemoryTypeBoth(MemoryType::MEM_L1, true);
     auto outcast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outshape);
     outcast->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
