@@ -65,12 +65,12 @@ void CheckBinaryInputTensors(const LogicalTensorPtr &tensor1, const LogicalTenso
 }
 
 void BroadcastOperandTensor(LogicalTensorPtr &operand, LogicalTensorPtr &other, LogicalTensorPtr result,
-                                      Function& function, const TileShape& tileShape, bool tailBrc) {
+                                      Function& function, const TileShape& tileShape, bool withBrc) {
     auto dstShape = result->shape;
     if (operand->shape == dstShape) {
         return;
     }
-    if (tailBrc) {
+    if (withBrc) {
         dstShape = operand->shape;
         dstShape[operand->shape.size() - 1] = result->shape[operand->shape.size() - 1];
     }
@@ -88,7 +88,7 @@ void BinaryOperationOperandCheck(
 }
 
 // [m,n] + [m, 1]
-bool CallTailBrcBinOp(LogicalTensorPtr operand1, LogicalTensorPtr operand2) {
+bool CallwithBrcBinOp(LogicalTensorPtr operand1, LogicalTensorPtr operand2) {
     ASSERT(operand1->shape.size() == operand2->shape.size() && "Dims not match");
     size_t shapeSize = operand1->shape.size();
 
@@ -98,7 +98,7 @@ bool CallTailBrcBinOp(LogicalTensorPtr operand1, LogicalTensorPtr operand2) {
 
 template <BinaryOpType T>
 void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t cur, LogicalInput &input1,
-    LogicalInput &input2, const LogicalTensorPtr &result, TileInfo &resultTileInfo, bool tailBrc) {
+    LogicalInput &input2, const LogicalTensorPtr &result, TileInfo &resultTileInfo, bool withBrc) {
     size_t shapeSize = input1.tensor->GetShape().size();
     if (cur == shapeSize) {
         auto inputTile1 = input1.tensor->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
@@ -106,7 +106,7 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
         auto opName = GetBinaryOpName<T>();
         Operation *op = nullptr;
-        if (tailBrc) {
+        if (withBrc) {
             std::vector<int64_t> tmpShape(input1.tileInfo.shape);
             auto alignSize = BLOCK_SIZE / BytesOf(input2.tensor->Datatype());
             tmpShape[input1.tileInfo.shape.size() - 1] = alignSize;
@@ -149,7 +149,7 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
         input2.tileInfo.offset[cur] = i % input2.tensor->GetShape()[cur];
         input2.tileInfo.shape[cur] =
             std::min(input2.tensor->GetShape()[cur] - input2.tileInfo.offset[cur], vecTile[cur]);
-        TiledBinaryOperation<T>(function, tileShape, cur + 1, input1, input2, result, resultTileInfo, tailBrc);
+        TiledBinaryOperation<T>(function, tileShape, cur + 1, input1, input2, result, resultTileInfo, withBrc);
     }
 }
 
@@ -157,9 +157,8 @@ template <BinaryOpType T>
 void TiledBinaryOperation(Function &function, const TileShape &tileShape, LogicalTensorPtr operand1,
     LogicalTensorPtr operand2, const LogicalTensorPtr &result) {
     CheckBinOpOperandsValid(operand1, operand2);
-    bool tailBrc = CallTailBrcBinOp(operand1, operand2);
-    bool combineAxisOn = function.paramConfigs_.forceCombineAxis || function.paramConfigs_.combineAxis;
-    if (tailBrc && !combineAxisOn) {
+    bool tailBrc = CallwithBrcBinOp(operand1, operand2);
+    if (tailBrc && !function.paramConfigs_.forceCombineAxis && !function.paramConfigs_.combineAxis) {
         BroadcastOperandTensor(operand1, operand2, result, function, tileShape, tailBrc);
         BroadcastOperandTensor(operand2, operand1, result, function, tileShape, tailBrc);
     }
@@ -169,11 +168,9 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, Logica
     TileInfo resultTileInfo(result->shape.size(), result->offset.size());
     auto input1 = LogicalInput{operand1, tileInfo1};
     auto input2 = LogicalInput{operand2, tileInfo2};
-    // 如果使能了Combine Axis逻辑，需要将tailBrc置为false，避免后续走OP_XX_BRC逻辑
-    if (function.paramConfigs_.combineAxis) {
-        tailBrc = false;
-    }
-    TiledBinaryOperation<T>(function, tileShape, 0, input1, input2, result, resultTileInfo, tailBrc);
+    // 如果打开了forceCombineAxis要走进OP_XX_BRC，如果打开combineAxis要避免后续走OP_XX_BRC逻辑
+    bool withBrc = tailBrc && function.paramConfigs_.forceCombineAxis && !function.paramConfigs_.combineAxis;
+    TiledBinaryOperation<T>(function, tileShape, 0, input1, input2, result, resultTileInfo, withBrc);
 }
 
 void TiledPReLUOperation(
