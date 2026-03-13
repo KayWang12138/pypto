@@ -44,9 +44,7 @@ def test_pass_option():
         "sg_set_scope": 5,
         "vec_nbuffer_setting": {1: 2},
         "cube_l1_reuse_setting": {-1: 6, 2: 3},
-        "cube_nbuffer_setting": {-1: 2},
-        "pg_skip_partition": True,
-        "pg_upper_bound": 2,
+        "cube_nbuffer_setting": {-1: 2}
     }
     pypto.set_pass_options(**test_params)
     option = pypto.get_pass_options()
