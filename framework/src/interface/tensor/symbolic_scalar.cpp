@@ -32,7 +32,9 @@ std::string CompileSourceCode(const std::string &sourceFilePath, const std::stri
     std::string objectFilePath = sourceFilePath + "_t.o";
     std::string LD_PRELOAD = "LD_PRELOAD= ";
     std::string includePath = GetCurrentSharedLibPath() + "/../include/tile_fwk";
+    std::string macro = extraCflag.empty() ? "-D__DEVICE__" : "";
     std::string cmdGcc = LD_PRELOAD + gcc + " -fPIC -fno-stack-protector -O2 " + extraCflag +
+        " " + macro + " " +
         " -I" + includePath + " " +
         " -I" + GetCurrentSharedLibPath() + "/include/" +
         " -I" + includePath + "/tilefwk " +
@@ -137,16 +139,17 @@ void SymbolicExpressionTable::SetTitleOnce(const std::string &title) {
     }
 }
 
-std::string SymbolicExpressionTable::BuildExpression(const SymbolicScalar &ss) {
-    return BuildExpression(ss.Raw());
+std::string SymbolicExpressionTable::BuildExpression(const SymbolicScalar &ss, CheckTensorDependCallback callback) {
+    return BuildExpression(ss.Raw(), callback);
 }
 
-std::string SymbolicExpressionTable::BuildExpression(const RawSymbolicScalarPtr &ss) {
-    std::string expr = BuildExpressionByRaw(ss, {});
+std::string SymbolicExpressionTable::BuildExpression(const RawSymbolicScalarPtr &ss, CheckTensorDependCallback callback) {
+    std::string expr = BuildExpressionByRaw(ss, {}, callback);
     return expr;
 }
 
-std::string SymbolicExpressionTable::BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict) {
+std::string SymbolicExpressionTable::BuildExpressionByRaw(const RawSymbolicScalarPtr &raw, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict,
+    CheckTensorDependCallback callback) {
     if (exprDict.count(raw)) {
         return exprDict.find(raw)->second;
     }
@@ -171,7 +174,7 @@ std::string SymbolicExpressionTable::BuildExpressionByRaw(const RawSymbolicScala
         } break;
         case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION: {
             RawSymbolicExpPtr expr = std::dynamic_pointer_cast<RawSymbolicExpression>(raw);
-            result = BuildExpressionCode(expr, exprDict);
+            result = BuildExpressionCode(expr, exprDict, callback);
         } break;
         default: ASSERT(false) << SymbolicScalarKind2Name(raw->Kind()) << " undefined behavior"; break;
     }
@@ -179,7 +182,7 @@ std::string SymbolicExpressionTable::BuildExpressionByRaw(const RawSymbolicScala
 }
 
 void SymbolicExpressionTable::BuildExtremaExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict,
-        std::ostringstream &oss) {
+        std::ostringstream &oss, CheckTensorDependCallback callback) {
     const auto& operands = expr->OperandList();
     ASSERT(operands.size() >= MIN_EXTREMA_OPERANDS) << "Extrema expression must have at least 2 operands";
     std::string funcName = (expr->Opcode() == SymbolicOpcode::T_MOP_MAX) ? "RUNTIME_Max" : "RUNTIME_Min";
@@ -188,15 +191,15 @@ void SymbolicExpressionTable::BuildExtremaExpressionCode(const RawSymbolicExpPtr
     // 写前operandSize-2层: fn(op_i,
     for (size_t i = 0; i < operandSize - 2; ++i) {
         oss << funcName << "("
-            << BuildExpressionByRaw(operands[i], exprDict)
+            << BuildExpressionByRaw(operands[i], exprDict, callback)
             << ", ";
     }
 
     // 最内层: fn(op_{operandSize-2}, op_{operandSize-1})
     oss << funcName << "("
-        << BuildExpressionByRaw(operands[operandSize - 2], exprDict)
+        << BuildExpressionByRaw(operands[operandSize - 2], exprDict, callback)
         << ", "
-        << BuildExpressionByRaw(operands[operandSize - 1], exprDict)
+        << BuildExpressionByRaw(operands[operandSize - 1], exprDict, callback)
         << ")";
 
     // 补齐右括号
@@ -205,23 +208,29 @@ void SymbolicExpressionTable::BuildExtremaExpressionCode(const RawSymbolicExpPtr
     }
 }
 
-std::string SymbolicExpressionTable::BuildExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict) {
+std::string SymbolicExpressionTable::BuildExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict,
+    CheckTensorDependCallback callback) {
     std::ostringstream oss;
     oss << "(";
     if (SymbolicOpcode::T_UOP_BEGIN <= expr->Opcode() && expr->Opcode() < SymbolicOpcode::T_UOP_END) {
         oss << RawSymbolicExpression::GetSymbolicCalcOpcode(expr->Opcode());
-        oss << BuildExpressionByRaw(expr->OperandList()[0], exprDict);
+        oss << BuildExpressionByRaw(expr->OperandList()[0], exprDict, callback);
     } else if (SymbolicOpcode::T_BOP_BEGIN <= expr->Opcode() && expr->Opcode() < SymbolicOpcode::T_BOP_END) {
         for (size_t idx = 0; idx < expr->OperandList().size(); idx++) {
             if (idx != 0) {
                 oss << " " + RawSymbolicExpression::GetSymbolicCalcOpcode(expr->Opcode()) + " ";
             }
-            oss << BuildExpressionByRaw(expr->OperandList()[idx], exprDict);
+            oss << BuildExpressionByRaw(expr->OperandList()[idx], exprDict, callback);
         }
     } else if (expr->Opcode() == SymbolicOpcode::T_MOP_MAX || expr->Opcode() == SymbolicOpcode::T_MOP_MIN) {
-        BuildExtremaExpressionCode(expr, exprDict, oss);
+        BuildExtremaExpressionCode(expr, exprDict, oss, callback);
     } else if (expr->Opcode() == SymbolicOpcode::T_MOP_CALL) {
-        std::string callee = BuildExpressionByRaw(expr->OperandList()[0], exprDict);
+        std::string callee = BuildExpressionByRaw(expr->OperandList()[0], exprDict, callback);
+        if ((callback != nullptr) && (CallIsGetInputData(callee))) {
+            ASSERT(expr->OperandList().size() > 2);
+            const auto &argName = std::dynamic_pointer_cast<RawSymbolicSymbol>(expr->OperandList()[1])->Name();
+            callback(argName);
+        }
         if (CheckRuntimePrefix(callee)) {
             oss << callee;
         } else {
@@ -230,7 +239,7 @@ std::string SymbolicExpressionTable::BuildExpressionCode(const RawSymbolicExpPtr
         oss << "(";
         for (size_t idx = 1; idx < expr->OperandList().size(); idx++) {
             oss << (idx == 1 ? "" : ", ");
-            oss << BuildExpressionByRaw(expr->OperandList()[idx], exprDict);
+            oss << BuildExpressionByRaw(expr->OperandList()[idx], exprDict, callback);
         }
         oss << ")";
     }
