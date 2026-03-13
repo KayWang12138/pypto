@@ -1,9 +1,11 @@
 import os
 
 ROOT_KERNEL_BINARIES_DIR = "output"
-ROOT_KERNEL_IR_DIR = "build_output" # TODO update after ir converter is finalized
+ROOT_KERNEL_IR_DIR = "build_output"  # TODO update after ir converter is finalized
+
 
 def _find_kernel_binary_path(kernel_name):
+    """Locate the most recent kernel binary directory for the given kernel name."""
     kernels = os.listdir(ROOT_KERNEL_BINARIES_DIR)
     kernels.sort(reverse=True)
 
@@ -16,9 +18,11 @@ def _find_kernel_binary_path(kernel_name):
                 if kernel_name in file:
                     return kernel_path
 
-    raise OSError(f"No binaries were found for kernel {kernel_name}") # OSError or ValueError ?
+    raise OSError(f"No binaries were found for kernel {kernel_name}")  # OSError or ValueError ?
+
 
 def _find_kernel_pto_path(kernel_name):
+    """Locate the output.pto file for the given kernel name."""
     kernels = os.listdir(ROOT_KERNEL_IR_DIR)
     kernels.sort(reverse=True)
 

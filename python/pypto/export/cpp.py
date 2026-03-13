@@ -4,10 +4,13 @@ from .helpers import _unwrap_decorated_func_source, _unwrap_decorated_func_name
 
 # This module is WIP and subject to changes (pending requirement clarifications)
 
+
 def _generate_pybind_wrapper(func, cpp_func_name: str) -> str:
+    """Generate C++ pybind11 wrapper that runs the given Python function."""
     def _to_cpp_type(py_ann):
+        """Map a Python type annotation to a C++ type string."""
         if py_ann == int:
-            return "int" # use int32_t instead? (need explicit conversion)
+            return "int"  # use int32_t instead? (need explicit conversion)
         elif py_ann == float:
             return "float"
         elif py_ann == bool:
@@ -18,6 +21,7 @@ def _generate_pybind_wrapper(func, cpp_func_name: str) -> str:
             return f"std::vector<{_to_cpp_type(py_ann.__args__[0])}>"
 
     def _to_cpp_arg(py_arg):
+        """Format a parameter as 'cpp_type name'."""
         return f"{_to_cpp_type(py_arg.annotation)} {py_arg.name}"
 
     py_source = _unwrap_decorated_func_source(inspect.getsource(func))
@@ -53,7 +57,9 @@ using namespace py::literals;
 }}
 """
 
+
 def _generate_op_kernel_info():
+    """Return C++ source for op_kernel_info stub."""
     return f"""//Auto-generated
 
 #include <iostream>
@@ -65,7 +71,9 @@ std::tuple<int, int> op_kernel_info(int inputs_num, int outputs_num) {{
 }}
 """
 
+
 def _generate_op_compile():
+    """Return C++ source for op_compile stub."""
     return f"""// Auto-generated
 
 #include <iostream>
@@ -77,7 +85,9 @@ int op_compile(int flags) {{
 }}
 """
 
+
 def _generate_op_execute():
+    """Return C++ source for op_execute stub."""
     return f"""// Auto-generated
 
 #include <iostream>
