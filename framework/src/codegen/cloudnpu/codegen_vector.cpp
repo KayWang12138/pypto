@@ -19,6 +19,7 @@
 #include "securec.h"
 #include "codegen/utils/codegen_utils.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
+#include "interface/operation/vector/quantize.h"
 #include <string>
 
 namespace npu::tile_fwk {
@@ -1749,5 +1750,87 @@ std::string CodeGenOpCloudNPU::GenLogicalAndOp() const {
        << "(" << tiloOpCallParam << ");\n";
 
     return os.str();
+}
+
+std::string CodeGenOpCloudNPU::GenQuantizeOp() const {
+    if (isSupportLayout) {
+        return PrintQuantizeTileTensor();
+    }
+
+    // std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+    // std::string srcVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+    // std::string scaleVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
+
+    // AppendLocalBufVarOffsetInOrder(dstVar, srcVar, scaleVar);
+
+    // bool isAsymmetric = (operandDtype[ID0] == DataType::DT_UINT8);
+
+    // std::string offsetVar;
+    // if (isAsymmetric) {
+    //     offsetVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID3]);
+    //     AppendLocalBufVarOffsetInOrder(offsetVar);
+    // }
+
+    // // Determine quantize type string
+    // std::string quantTypeStr = isAsymmetric ?
+    //     QuantizeTypeToISAString(QuantizeType::INT8_ASYM) :
+    //     QuantizeTypeToISAString(QuantizeType::INT8_SYM);
+
+    // // Generate TQUANT call
+    // std::ostringstream os;
+    // os << "TQUANT<" << quantTypeStr << ">("
+    //    << dstVar << ", " << srcVar << ", " << scaleVar;
+
+    // if (isAsymmetric) {
+    //     os << ", " << offsetVar;
+    // }
+
+    // os << ");\n";
+
+    // return os.str();
+    return "";
+}
+
+std::string CodeGenOpCloudNPU::PrintQuantizeTileTensor() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::string scaleTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC1_IDX));
+
+    // Get Tile type strings for template parameters
+    std::string dstType = QueryTileTensorTypeByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcType = QueryTileTensorTypeByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::string scaleType = QueryTileTensorTypeByIdx(ToUnderlying(MISOIdx::SRC1_IDX));
+
+    bool isAsymmetric = (operandDtype[ToUnderlying(MISOIdx::DST_IDX)] == DataType::DT_UINT8);
+
+    std::vector<std::string> tileOpCallParamList = {dstTensor, srcTensor, scaleTensor};
+
+    if (isAsymmetric) {
+        std::string offsetTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC2_IDX));
+        tileOpCallParamList.emplace_back(offsetTensor);
+    }
+
+    // Build template parameters in correct order:
+    // ISA template: <quant_type, TileDataOut, TileDataSrc, TileDataPara, ...WaitEvents>
+    std::vector<std::string> templateParamList;
+
+    std::string quantTypeStr = isAsymmetric ?
+        QuantizeTypeToISAString(QuantizeType::INT8_ASYM) :
+        QuantizeTypeToISAString(QuantizeType::INT8_SYM);
+    templateParamList.emplace_back(quantTypeStr);      // quant_type
+    templateParamList.emplace_back(dstType);            // TileDataOut
+    templateParamList.emplace_back(srcType);            // TileDataSrc
+    templateParamList.emplace_back(scaleType);          // TileDataPara
+
+    std::string lastUse = GetLastUse();
+    if (!lastUse.empty()) {
+        templateParamList.emplace_back(lastUse);
+    }
+
+    std::ostringstream oss;
+    oss << tileOpName;
+    oss << WrapParamByAngleBrackets(templateParamList);
+    oss << WrapParamByParentheses(tileOpCallParamList) << STMT_END;
+    return oss.str();
 }
 } // namespace npu::tile_fwk
