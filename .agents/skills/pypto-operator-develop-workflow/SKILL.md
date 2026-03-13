@@ -34,7 +34,7 @@ tag: [PyPTO，算子开发]
 
 ## 常见问题与解决方案
 
-### 最常见错误 TOP 5
+### 最常见错误 TOP 8
 
 1. **BFloat16 转 NumPy 失败**：必须先 `.float()` 再 `.numpy()`
 2. **环境变量未设置**：第一步就要 `export TILE_FWK_DEVICE_ID=0`
@@ -42,6 +42,8 @@ tag: [PyPTO，算子开发]
 4. **Tile Shape 未设置**：matmul 前必须调用 `set_cube_tile_shapes`
 5. **精度标准不合理**：bfloat16 使用 atol=0.0001, rtol=0.0078125
 6. **使用 PyTorch 作为 Golden 函数**：使用 NumPy 实现 golden 函数时，bfloat16 数据类型转换不够准确
+7. **动态数据范围使用 valid_shape**：最后一块数据量可能会小于固定块大小时，view函数中一定要指定valid_shape
+8. **动态循环边界使用 unroll_list**：当循环次数是动态的，需要使用 unroll_list，多层循环嵌套时，只有最内层可以使用 `unroll_list`。
 
 详细的错误示例、正确做法和经验教训请查看：**[common_issues.md](./common_issues.md)**
 
@@ -112,6 +114,7 @@ export PTO_TILE_LIB_CODE_PATH=./pto_isa/pto-isa/
    - 创建custom/my_operator/
 2. 编写 golden 及测试用例
    - 创建my_operator.py
+   - 测试用例涉及随机数生成时，设置随机数种子
 3. 编写 operator 实现代码
    - 创建my_operator_impl.py
    - 使用@pypto.frontend.jit的方式实现
