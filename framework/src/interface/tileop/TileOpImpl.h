@@ -56,6 +56,7 @@
 #include "vector/where.h"
 #include "vector/pad.h"
 #include "vector/fillpad.h"
+#include "vector/quantize.h"
 #include "vector/logicaland.h"
 #include "vector/vector_dup.h"
 #include "vector/range.h"
