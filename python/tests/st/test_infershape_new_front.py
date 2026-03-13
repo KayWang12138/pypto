@@ -44,7 +44,7 @@ def kernel(x: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_BF16),
            scale: pypto.Tensor([3], pypto.DT_FP32),
            base_: pypto.Tensor([pypto.STATIC], pypto.DT_FP32),
            result: pypto.Tensor([pypto.STATIC, num], pypto.DT_BF16)):
-    pypto.set_debug_options(runtime_debug_mode=1)
+    
 
     pypto.set_vec_tile_shapes(64, 64)
     pypto.set_cube_tile_shapes([16, 16], [256, 512], [128, 128])
@@ -79,7 +79,7 @@ def test_main(t=16):
     scale_npu = scale.to(device=f'npu:{device_id}')
     base_npu = base.to(device=f'npu:{device_id}')
     result = torch.zeros((t, num), dtype=torch.bfloat16, device=f'npu:{device_id}')
-
+    pypto.set_debug_options(runtime_debug_mode=1)
     kernel(x_npu, scale_npu, base_npu, result)
     torch_npu.npu.synchronize()
 

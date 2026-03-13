@@ -511,6 +511,11 @@ public:
         return oss.str();
     }
 
+    // 判断 Tensor 的 shape 是否存在-1
+    static bool ContainsNegativeOne(const Shape &shape) {
+        return std::any_of(shape.begin(), shape.end(), [](int64_t val) { return val == -1; });
+    }
+
     // Number of Elements, 用来计算给定（tensor的）shape的总元素数量
     static int64_t Numel(const Shape &shape) {
         if (shape.empty())
