@@ -123,6 +123,7 @@ private:
     DeviceArgs args_;
     ToSubMachineConfig lastLaunchToSubMachineConfig_;
     DeviceArgs *devArgs_;
+    bool tracrDataStored_{false};
     std::vector<void *> perfData_;
     std::once_flag once_;
     rtBinHandle binHdl_;

@@ -145,6 +145,22 @@ int DeviceRunner::StoreTracrData() {
     static_assert(std::is_trivially_copyable_v<TraCR::Payload>,
               "TraCR::Payload must be trivially copyable for raw binary dump");
 
+    if (args_.tracrData != 0) {
+        void *ptr = reinterpret_cast<void *>(args_.tracrData);
+        if (ptr == nullptr) {
+            ALOG_INFO_F("args_.tracrData doesn't exist anymore.\n");
+            return 1;
+        }
+    }
+
+    if (args_.tracrDataSizes != 0) {
+        void *ptr = reinterpret_cast<void *>(args_.tracrDataSizes);
+        if (ptr == nullptr) {
+            ALOG_INFO_F("args_.tracrDataSizes doesn't exist anymore.\n");
+            return 1;
+        }
+    }
+
     TraCR::Payload* tracrData;
     size_t* tracrDataSizes;
 
@@ -194,6 +210,17 @@ int DeviceRunner::StoreTracrData() {
     rc = rtFreeHost(reinterpret_cast<void *>(tracrDataSizes));
     if (rc != 0) {
         ALOG_INFO_F("rtFreeHost tracrDataSizes sync failed");
+        return rc;
+    }
+
+    rc = rtFree(reinterpret_cast<void *>(args_.tracrData));
+    if (rc != 0) {
+        ALOG_INFO_F("rtFree args_.tracrData sync failed");
+        return rc;
+    }
+    rc = rtFree(reinterpret_cast<void *>(args_.tracrDataSizes));
+    if (rc != 0) {
+        ALOG_INFO_F("rtFree args_.tracrDataSizes sync failed");
         return rc;
     }
 
@@ -526,19 +553,6 @@ int DeviceRunner::Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t t
             MACHINE_LOGE("AdxDataDumpServerUnInit is failed %d\n", rc);
         }
     }
-
-    // load TraCR payloads
-#ifdef ENABLE_TRACR
-    rc = StoreTracrData();
-    if (rc != 0) {
-        ALOG_INFO_F("StoreTracrData() for the static scheduler failed");
-    }   
-
-    rc = StoreTracrMetaData();
-    if (rc != 0) {
-        ALOG_INFO_F("StoreTracrMetaData() for the static scheduler failed");
-    }
-#endif
 
     uint64_t taskWastTime = GetTasksTime();
     MACHINE_LOGI("task wast time %lu\n", taskWastTime);
@@ -990,17 +1004,19 @@ int DeviceRunner::DynamicRun(rtStream_t aicpuStream, rtStream_t ctrlStream, rtSt
         return rc;
     }
 
-    // Store TraCR payloads
+    // load TraCR payloads
 #ifdef ENABLE_TRACR
     rc = StoreTracrData();
     if (rc != 0) {
-        ALOG_INFO_F("StoreTracrData() for the dynamic scheduler failed");
+        ALOG_INFO_F("StoreTracrData() for the static scheduler failed");
     }   
 
     rc = StoreTracrMetaData();
     if (rc != 0) {
-        ALOG_INFO_F("StoreTracrMetaData() for the dynamic scheduler failed");
+        ALOG_INFO_F("StoreTracrMetaData() for the static scheduler failed");
     }
+
+    tracrDataStored_ = true;
 #endif
 
     return rc;
@@ -1116,6 +1132,21 @@ void DeviceRunner::MachinePerfTraceDumpThread() {
 }
 
 DeviceRunner::~DeviceRunner() {
+    // Store TraCR payloads for Python applications
+#ifdef ENABLE_TRACR
+    if (!tracrDataStored_) {
+        int rc = StoreTracrData();
+        if (rc != 0) {
+            ALOG_INFO_F("StoreTracrData() for the static scheduler failed");
+        }   
+    
+        rc = StoreTracrMetaData();
+        if (rc != 0) {
+            ALOG_INFO_F("StoreTracrMetaData() for the static scheduler failed");
+        }
+    }
+#endif
+
     MACHINE_LOGD("Start to cleanup perfData");
     StopMachinePerfTraceDumpThread();
 }
