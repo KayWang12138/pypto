@@ -111,12 +111,12 @@ def get_pass_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
     scope = get_current_scope()
     rst = scope.get_pass_options()
     allowed_keys = {
-        'pg_skip_partition',
-        'pg_upper_bound',
-        'sg_set_scope',
         'vec_nbuffer_setting',
         'cube_l1_reuse_setting',
         'cube_nbuffer_setting',
+        'sg_set_scope',
+        'pg_skip_partition',
+        'pg_upper_bound',
     }
     return {k: v for k, v in rst.items() if k in allowed_keys}
 
