@@ -361,8 +361,7 @@ int DeviceRunner::DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t ct
     int rcAicpu = rtStreamSynchronize(aicpuStream);
     int rcCtrl = 0;
     if (ctrlStream != nullptr) {
-        rcCtrl = rtStreamSynchronize(aicpuStream);
-        // hello
+        rcCtrl = rtStreamSynchronize(ctrlStream);
     }
     if (IsPtoDataDumpEnabled()) {
         MACHINE_LOGD("DataDumpServerInit is called \n");
