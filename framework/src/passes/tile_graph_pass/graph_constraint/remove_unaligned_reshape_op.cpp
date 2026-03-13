@@ -243,61 +243,63 @@ Status RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function &fun
                 op.GetOpMagic());
             return FAILED;
         }
-        //当copyout的输入是ub输出为ddr可以直接转化为reshapecopyop
-        //否则需要插copy
-        auto copyOutInput = copyOutOp->GetIOperands().front();
-        auto copyOutInputMemType = copyOutInput->GetMemoryTypeOriginal();
-        auto copyOutOutput = copyOutOp->GetOOperands().front();
-        auto copyOutOutputMemType = copyOutOutput->GetMemoryTypeOriginal();
-        if (copyOutInputMemType == MemoryType::MEM_UB && copyOutOutputMemType == MemoryType::MEM_DEVICE_DDR) {
-            copyOutOp->SetOpCode(Opcode::OP_RESHAPE_COPY_OUT);
-        }
 
-        for (auto *copyInOp : copyInOps) {
-            auto copyInInput = copyInOp->GetIOperands().front();
-            auto copyInInputMemType = copyInInput->GetMemoryTypeOriginal();
-            auto copyInOutput = copyInOp->GetOOperands().front();
-            auto copyInOutputMemType = copyInOutput->GetMemoryTypeOriginal();
-            if (copyInInputMemType == MemoryType::MEM_DEVICE_DDR && copyInOutputMemType == MemoryType::MEM_UB) {
-                copyInOp->SetOpCode(Opcode::OP_RESHAPE_COPY_IN);
-            } else if (copyInInputMemType == MemoryType::MEM_DEVICE_DDR && copyInOutputMemType == MemoryType::MEM_L1) {
-                //reshape -- copyInInput(ddr) -- COPYIN -- copyInOutout(L1)
-                //    | | |
-                //reshape -- copyInInput(ddr) -- RESHAPECOPYIN -- newTensor(ub) -- COPYOUT -- newTensor2(ddr) -- COPYIN --copyInOutout(L1)
-                LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(function, copyInInput->tensor->GetDataType(), copyInInput->GetShape());
-                newTensor->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-                auto &reshapeCopyInOp = function.AddOperation(Opcode::OP_RESHAPE_COPY_IN, {copyInInput}, {newTensor});
-                reshapeCopyInOp.UpdateSubgraphID(op.GetSubgraphID());
-                reshapeCopyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-                    OpImmediate::Specified(std::vector<SymbolicScalar>(copyInInput->GetShape().size(), 0)),
-                    MemoryType::MEM_UB, 
-                    OpImmediate::Specified(copyInInput->GetShape()),
-                    OpImmediate::Specified(copyInInput->tensor->GetDynRawShape()),
-                    OpImmediate::Specified(copyInInput->GetDynValidShape())
-                ));
+        ProcessCopyOfDDRReshape(function, op, copyOutOp, copyInOps);
 
-                LogicalTensorPtr newTensor2 = std::make_shared<LogicalTensor>(function, copyInInput->tensor->GetDataType(), copyInInput->GetShape());
-                newTensor2->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
-                auto &newCopyOutOp = function.AddOperation(Opcode::OP_COPY_OUT, {newTensor}, {newTensor2});
-                newCopyOutOp.UpdateSubgraphID(op.GetSubgraphID());
-                newCopyOutOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-                    MemoryType::MEM_UB, 
-                    OpImmediate::Specified(std::vector<SymbolicScalar>(copyInInput->GetShape().size(), 0)),
-                    OpImmediate::Specified(copyInInput->GetShape()),
-                    OpImmediate::Specified(copyInInput->tensor->GetDynRawShape()),
-                    OpImmediate::Specified(copyInInput->GetDynValidShape())
-                ));
-
-                copyInInput->RemoveConsumer(copyInOp);
-                copyInOp->ReplaceInput(newTensor2, copyInInput);
-            }
-        }
-
-        APASS_LOG_INFO_F(Elements::Operation,
-            "DDR Reshape op %d is replaced: copy_out %d -> reshape_copy_out, copy_in count %lu -> reshape_copy_in.",
+        APASS_LOG_INFO_F(Elements::Operation, "DDR Reshape op %d is replaced: copy_out %d -> reshape_copy_out, copy_in count %lu -> reshape_copy_in.",
             op.GetOpMagic(), copyOutOp->GetOpMagic(), copyInOps.size());
     }
     return SUCCESS;
+}
+
+void RemoveUnalignedReshape::ProcessCopyOfDDRReshape(Function &function, Operation &op, Operation * copyOutOp, std::vector<Operation *> &copyInOps) {
+    //当copyout的输入是ub输出为ddr可以直接转化为reshapecopyop
+    //否则需要插copy
+    auto copyOutInput = copyOutOp->GetIOperands().front();
+    auto copyOutInputMemType = copyOutInput->GetMemoryTypeOriginal();
+    auto copyOutOutput = copyOutOp->GetOOperands().front();
+    auto copyOutOutputMemType = copyOutOutput->GetMemoryTypeOriginal();
+    if (copyOutInputMemType == MemoryType::MEM_UB && copyOutOutputMemType == MemoryType::MEM_DEVICE_DDR) {
+        copyOutOp->SetOpCode(Opcode::OP_RESHAPE_COPY_OUT);
+    }
+
+    for (auto *copyInOp : copyInOps) {
+        auto copyInInput = copyInOp->GetIOperands().front();
+        auto copyInInputMemType = copyInInput->GetMemoryTypeOriginal();
+        auto copyInOutput = copyInOp->GetOOperands().front();
+        auto copyInOutputMemType = copyInOutput->GetMemoryTypeOriginal();
+        if (copyInInputMemType == MemoryType::MEM_DEVICE_DDR && copyInOutputMemType == MemoryType::MEM_UB) {
+            copyInOp->SetOpCode(Opcode::OP_RESHAPE_COPY_IN);
+        } else if (copyInInputMemType == MemoryType::MEM_DEVICE_DDR && copyInOutputMemType == MemoryType::MEM_L1) {
+            //reshape -- copyInInput(ddr) -- COPYIN -- copyInOutout(L1)
+            //    | | |
+            //reshape -- copyInInput(ddr) -- RESHAPECOPYIN -- newTensor(ub) -- COPYOUT -- newTensor2(ddr) -- COPYIN --copyInOutout(L1)
+            LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(function, copyInInput->tensor->GetDataType(), copyInInput->GetShape());
+            newTensor->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+            auto &reshapeCopyInOp = function.AddOperation(Opcode::OP_RESHAPE_COPY_IN, {copyInInput}, {newTensor});
+            reshapeCopyInOp.UpdateSubgraphID(op.GetSubgraphID());
+            reshapeCopyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+                OpImmediate::Specified(std::vector<SymbolicScalar>(copyInInput->GetShape().size(), 0)),
+                MemoryType::MEM_UB, OpImmediate::Specified(copyInInput->GetShape()),
+                OpImmediate::Specified(copyInInput->tensor->GetDynRawShape()),
+                OpImmediate::Specified(copyInInput->GetDynValidShape())
+            ));
+
+            LogicalTensorPtr newTensor2 = std::make_shared<LogicalTensor>(function, copyInInput->tensor->GetDataType(), copyInInput->GetShape());
+            newTensor2->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+            auto &newCopyOutOp = function.AddOperation(Opcode::OP_COPY_OUT, {newTensor}, {newTensor2});
+            newCopyOutOp.UpdateSubgraphID(op.GetSubgraphID());
+            newCopyOutOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+                MemoryType::MEM_UB, OpImmediate::Specified(std::vector<SymbolicScalar>(copyInInput->GetShape().size(), 0)),
+                OpImmediate::Specified(copyInInput->GetShape()),
+                OpImmediate::Specified(copyInInput->tensor->GetDynRawShape()),
+                OpImmediate::Specified(copyInInput->GetDynValidShape())
+            ));
+
+            copyInInput->RemoveConsumer(copyInOp);
+            copyInOp->ReplaceInput(newTensor2, copyInInput);
+        }
+    }
 }
 
 /* 从tensor的生产者列表中递归查找所有OP_COPY_OUT：
