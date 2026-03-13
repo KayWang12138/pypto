@@ -67,9 +67,13 @@ TileShape需要满足以下约束条件：
 
     - tileL0Info各维度值需满足对齐约束：
 
-        - tileK需满足32字节对齐，即 `tileK * sizeof(dtype) % 32 == 0`
+        - tileK `C0 <= tileK <= min(kAL1, kBL1)`
 
-        - tileK `1 <= tileK <= min(kAL1, kBL1)`
+        - tileK `tileK % C0 = 0`
+
+        - tileK `kAL1 % tilek = 0`
+
+        - tilek `kBL1 % tilek = 0`
 
         - tileW需满足16元素对齐，即 `tileW % 16 == 0`
 
@@ -83,11 +87,11 @@ TileShape需要满足以下约束条件：
 
         其中：
 
-        - `kAL1 = CeilAlign(tileCinFmap, k0) * kh * kw`
+        - `kAL1 = CeilAlign(tileCinFmap * kh * kw, C0)`
 
-        - `kBL1 = CeilAlign(tileCinWeight, k0) * kh * kw`
+        - `kBL1 = CeilAlign(tileCinWeight * kh * kw, C0)`
 
-        - `k0 = ALIGN_SIZE_32 / sizeof(dtype)`
+        - `C0 = ALIGN_SIZE_32 / sizeof(dtype)`
 
         - `ALIGN_SIZE_32 = 32`
 
@@ -126,10 +130,18 @@ TileShape需要满足以下约束条件：
     - L1空间约束：
 
         ```
-        CeilAlign(mL1, 16)* CeilAlign(kL1, C0) * sizeof(dtype) + CeilAlign(nL1, 16) * CeilAlign(kL1, C0) * sizeof(dtype) + CeilAlign(tileN, 16)*sizeof(dtype) <= L1_size
+        CeilAlign(hinL1 * winL1 * kAL1 * sizeof(dtype), ALIGN_SIZE_32) + CeilAlign(nL1 * kBL1 * sizeof(dtype), ALIGN_SIZE_32) + CeilAlign(tileN * sizeof(dtype), ALIGN_SIZE_32) <= L1_size
         ```
 
         其中：
+
+        - `hinL1 = min((tileHout - 1) * strideH + (Kh - 1) * dilationH + 1, orgHin)` （orgHin为特征图高度）
+
+        - `winL1 = min((tileWout - 1) * strideW + (Kw - 1) * dilationW + 1, orgWin)` （orgWin为特征图宽度）
+        
+        - `kAL1 = CeilAlign(tileCinFmap * kh * kw, C0)`
+
+        - `kBL1 = CeilAlign(tileCinWeight * kh * kw, C0)`
 
         - `mL1 = tileWout * tileHout`
 
