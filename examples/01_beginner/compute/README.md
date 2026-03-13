@@ -49,44 +49,52 @@ python3 elementwise_ops.py abs::test_abs_basic
 ## 算子特性说明
 
 ### 逐元素运算
+
 支持广播（Broadcasting）机制和标量（Scalar）操作。
+
 ```python
 @pypto.frontend.jit()
 def add_example(
     a: pypto.Tensor(shape, dtype),
-    b: pypto.Tensor(shape, dtype)
-) -> pypto.Tensor(shape, dtype):
+    b: pypto.Tensor(shape, dtype),
+    out: pypto.Tensor(shape, dtype)
+):
     pypto.set_vec_tile_shapes(2, 8)
-    out = pypto.add(a, b)
-    return out
+    out[:] = pypto.add(a, b)
+
 ```
 
 ### 矩阵乘法
+
 使用 Cube Tiling 进行高效计算，支持指定输出数据类型。
+
 ```python
 @pypto.frontend.jit()
 def matmul_example(
     a: pypto.Tensor((M, K), pypto.DT_BF16),
-    b: pypto.Tensor((K, N), pypto.DT_BF16)
-) -> pypto.Tensor((M, N), pypto.DT_BF16):
+    b: pypto.Tensor((K, N), pypto.DT_BF16),
+    out: pypto.Tensor((M, N), pypto.DT_BF16)
+):
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-    out = pypto.matmul(a, b, out_dtype=pypto.DT_BF16)
-    return out
+    out[:] = pypto.matmul(a, b, out_dtype=pypto.DT_BF16)
 ```
 
 ### 归约运算
+
 支持指定维度（dim）和是否保持维度（keepdim）。
+
 ```python
 @pypto.frontend.jit()
 def sum_example(
-    x: pypto.Tensor(x_shape, dtype)
-) -> pypto.Tensor(out_shape, dtype):
+    x: pypto.Tensor(x_shape, dtype),
+    out: pypto.Tensor(out_shape, dtype)
+):
     pypto.set_vec_tile_shapes(2, 8)
-    out = pypto.sum(x, dim=0, keepdim=True)
-    return out
+    out[:] = pypto.sum(x, dim=0, keepdim=True)
 ```
 
 ## 注意事项
+
 - 在进行矩阵乘法时，建议显式设置 Cube Tile 形状以获得最佳性能。
 - 归约操作通常涉及到跨 Tile 的数据交互，请注意 Tiling 的划分策略。
 - 所有的样例都包含与 PyTorch 原生算子的对比验证，确保计算结果的准确性。
