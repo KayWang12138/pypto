@@ -137,14 +137,12 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOps(Function &function) {
             ReplaceDynUnalignedReshapeOpsForUB(function, op);
         } else if (input->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && output->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             if (ReplaceDynUnalignedReshapeOpsForDDR(function, op) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Function, "DDR reshape replace failed for op %d.", op.GetOpMagic());
+                APASS_LOG_DEBUG_F(Elements::Function, "DDR reshape replace failed for op %d.", op.GetOpMagic());
             }
         }
     }   
     APASS_LOG_INFO_F(Elements::Function, "===> End ReplaceDynUnalignedReshapeOps.");
 }
-
-
 
 void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForUB(Function &function, Operation &op) {
     auto input = op.GetIOperands().front();
@@ -271,7 +269,7 @@ Status RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function &fun
                 auto &reshapeCopyInOp = function.AddOperation(Opcode::OP_RESHAPE_COPY_IN, {copyInInput}, {newTensor});
                 reshapeCopyInOp.UpdateSubgraphID(op.GetSubgraphID());
                 reshapeCopyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
-                    OpImmediate::Specified(std::vector<SymbolicScalar>(copyInInput->GetShape.size(), 0)),
+                    OpImmediate::Specified(std::vector<SymbolicScalar>(copyInInput->GetShape().size(), 0)),
                     MemoryType::MEM_UB, 
                     OpImmediate::Specified(copyInInput->GetShape()),
                     OpImmediate::Specified(copyInInput->tensor->GetDynRawShape()),
@@ -284,7 +282,7 @@ Status RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function &fun
                 newCopyOutOp.UpdateSubgraphID(op.GetSubgraphID());
                 newCopyOutOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
                     MemoryType::MEM_UB, 
-                    OpImmediate::Specified(std::vector<SymbolicScalar>(copyInInput->GetShape.size(), 0)),
+                    OpImmediate::Specified(std::vector<SymbolicScalar>(copyInInput->GetShape().size(), 0)),
                     OpImmediate::Specified(copyInInput->GetShape()),
                     OpImmediate::Specified(copyInInput->tensor->GetDynRawShape()),
                     OpImmediate::Specified(copyInInput->GetDynValidShape())
