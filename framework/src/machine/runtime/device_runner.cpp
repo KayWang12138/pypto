@@ -301,89 +301,6 @@ bool DeviceRunner::GetValidGetPgMask() const {
     return machine::GetRA()->GetValidGetPgMask();
 }
 
-int DeviceRunner::Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, uint64_t taskData, int taskType) {
-    int rc;
-
-    rc = RunAsync(aicpuStream, aicoreStream, taskId, taskData, taskType);
-    if (rc < 0) {
-        return rc;
-    }
-    rc = rtStreamSynchronize(aicoreStream);
-    if (rc != 0) {
-        MACHINE_LOGI("aicore stream sync failed");
-    }
-    rc = rtStreamSynchronize(aicpuStream);
-    if (rc != 0) {
-        MACHINE_LOGI("aicpu stream sync failed");
-    }
-    ASSERT(rc == 0);
-    if (IsPtoDataDumpEnabled()) {
-        MACHINE_LOGD("DataDumpServerInit is called\n");
-        rc = AdxDataDumpServerUnInit();
-        if (rc != 0) {
-            MACHINE_LOGE("AdxDataDumpServerUnInit is failed %d\n", rc);
-        }
-    }
-    uint64_t taskWastTime = GetTasksTime();
-    MACHINE_LOGI("task wast time %lu\n", taskWastTime);
-    return rc;
-}
-
-int DeviceRunner::LaunchAiCore(rtStream_t aicoreStream, int taskType) {
-    struct Args {
-        int64_t *ctrlFlowCache = nullptr;
-        int64_t *inputs = nullptr;
-        int64_t *outputs = nullptr;
-        int64_t *workspace = nullptr;
-        int64_t *tilingData = nullptr;
-        DeviceArgs *cfgdata = nullptr;
-        int64_t *logBuf = nullptr;
-    };
-
-    auto localArgs = args_;
-    auto size = sizeof(args_);
-    localArgs.taskType = taskType;
-    if (devArgs_ == nullptr) {
-        MACHINE_LOGE("devArgs_ is null..");
-        return -1;
-    }
-    int rc = rtMemcpy(devArgs_, size, &localArgs, size, RT_MEMCPY_HOST_TO_DEVICE);
-    if (rc != 0) {
-        MACHINE_LOGE("rtmemcpy failed %p rc %d\n", devArgs_, rc);
-        return rc;
-    }
-    Args args{nullptr, nullptr, nullptr, nullptr, nullptr, devArgs_};
-    rtArgsEx_t rtArgs;
-    memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
-    rtArgs.args = &args;
-    rtArgs.argsSize = sizeof(args);
-    return rtKernelLaunchWithHandleV2(binHdl_, 0, blockDim_, &rtArgs, nullptr, aicoreStream, nullptr);
-}
-
-int DeviceRunner::LaunchAiCpu(
-    const rtStream_t aicpuStream, const uint64_t taskId, const uint64_t taskData, int taskType) const {
-    struct Args {
-        DeviceArgs devArgs;
-        const char kernelName[32] = {"StaticTileFwkKernelServer"};
-        const char soName[32] = {"libaicpu_extend_kernels.so"};
-        const char opName[32] = {""};
-    } args;
-
-    args.devArgs = args_;
-    args.devArgs.taskType = taskType;
-    args.devArgs.taskId = taskId;
-    args.devArgs.taskData = taskData;
-
-    rtAicpuArgsEx_t rtArgs;
-    memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
-    rtArgs.args = &args;
-    rtArgs.argsSize = sizeof(args);
-    rtArgs.kernelNameAddrOffset = offsetof(struct Args, kernelName);
-    rtArgs.soNameAddrOffset = offsetof(struct Args, soName);
-    return rtAicpuKernelLaunchExWithArgs(
-        rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_AICPU", aicpuNum_, &rtArgs, nullptr, aicpuStream, 0);
-}
-
 void DeviceRunner::AllocDfxMetricMemory() {
     for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv + AICPU_NUM_OF_RUN_AICPU_TASKS; i++) {
         KernelArgs kernelArgs;
@@ -394,34 +311,6 @@ void DeviceRunner::AllocDfxMetricMemory() {
             reinterpret_cast<uint8_t *>(&kernelArgs), sizeof(kernelArgs), RT_MEMCPY_HOST_TO_DEVICE);
         MACHINE_LOGI("aicore %u , dfxaddr 0x%ld \n", i, kernelArgs.shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
     }
-}
-
-int DeviceRunner::RunAsync(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, uint64_t taskData, int taskType) {
-    int rc;
-    SyncStreams(aicpuStream, aicoreStream, false);
-
-#if PROF_DFX_HOST_PREPARE_MEMORY_MODE
-    AllocDfxMetricMemory();
-#else
-    int size = (args_.nrAic + args_.nrAiv + AICPU_NUM_OF_RUN_AICPU_TASKS) * SHARED_BUFFER_SIZE;
-    rtMemset(reinterpret_cast<void *>(args_.sharedBuffer), size, 0, size);
-#endif
-
-    std::lock_guard<FileLock> lock(lock_);
-    rc = LaunchAiCore(aicoreStream, DEVICE_TASK_TYPE_STATIC);
-    if (rc < 0) {
-        MACHINE_LOGI("launch aicpu failed %d\n", rc);
-        return rc;
-    }
-
-    InitAiCpuSoBin(args_);
-    rc = LaunchAiCpu(aicpuStream, taskId, taskData, taskType);
-    if (rc < 0) {
-        MACHINE_LOGI("launch aicpu failed %d\n", rc);
-        return rc;
-    }
-
-    return 0;
 }
 
 void DeviceRunner::Dump() {
