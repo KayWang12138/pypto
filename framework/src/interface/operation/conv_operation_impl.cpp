@@ -328,10 +328,10 @@ void CheckL1SizeTiling(DataType outType, const Tensor &inputTensor, const Tensor
     std::vector<int64_t> strides = attrParam.strides;
     std::vector<int64_t> dilations = attrParam.dilations;
     uint32_t indexAttrW = attrParam.isConv1D ? PAD_STRIDE_H : PAD_STRIDE_W;
-    int64_t strideH = attrParam.isConv1D ? 1 : strides[PAD_STRIDE_H];
-    int64_t strideW = strides[indexAttrW];
-    int64_t dilationH = attrParam.isConv1D ? 1 : dilations[PAD_STRIDE_H];
-    int64_t dilationW = dilations[indexAttrW];
+    uint64_t strideH = attrParam.isConv1D ? 1 : strides[PAD_STRIDE_H];
+    uint64_t strideW = strides[indexAttrW];
+    uint64_t dilationH = attrParam.isConv1D ? 1 : dilations[PAD_STRIDE_H];
+    uint64_t dilationW = dilations[indexAttrW];
 
     uint64_t biasL1Size = 0;
     uint64_t tileN = convTile.tileL1Info.tileN;
@@ -345,8 +345,6 @@ void CheckL1SizeTiling(DataType outType, const Tensor &inputTensor, const Tensor
     uint64_t weightL1Size = ConvAlignB(kBL1 * tileN * BytesOf(outType), ALIGN_SIZE_32);
 
     uint64_t inputL1Size = 0;
-    uint64_t m0 = NUM16;
-    uint64_t wo = ConvComputeWo(inputTensor, weightTensor, attrParam);
     uint64_t tileWout = convTile.tileL1Info.tileWout;
     uint64_t tileHout = convTile.tileL1Info.tileHout;
     uint64_t khDilated = (kh - 1) * dilationH + 1;
