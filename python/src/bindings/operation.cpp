@@ -142,7 +142,13 @@ void bind_operation(py::module &m) {
             return npu::tile_fwk::Cast(self, dstDataType, mode);
         },
         py::arg("operand"), py::arg("new_data_type"), py::arg("mode") = CAST_NONE, "Tensor cast.");
-
+    m.def(
+        "Quantize",
+        [](const Tensor &input, const Tensor &scale, DataType otype, int axis, const Tensor &zeroPoints) {
+            return npu::tile_fwk::Quantize(input, scale, otype, axis, zeroPoints);
+        },
+        py::arg("input"), py::arg("scale"), py::arg("otype"), py::arg("axis"),
+        py::arg("zero_points") = nullptr, "Tensor Quantize.");
     m.def(
         "Add", [](const Tensor &self, const Element &other) { return npu::tile_fwk::Add(self, other); },
         "Tensor add scalar.");
