@@ -243,7 +243,12 @@ void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const T
     CheckAlignment(tileN, NUM16, "tileL0Info.tileN");
     CheckAlignment(tileW, NUM16, "tileW");
     CheckValueRange(tileN, "tileL0Info.tileN" , NUM1, ConvAlignB(tileCout, NUM16));
-
+    OP_CHECK(true, {
+        ASSERT(kAL1 % tileK == 0 && kBL1 % tileK == 0)
+            << "Invalid tileK: " << tileK 
+            << ", must be a factor of both kAL1:" << kAL1
+            << " and kBL1:" << kBL1 << std::endl;
+    });
     Platform& platform = Platform::Instance();
     size_t l0aSize = platform.GetAICCore().GetMemorySize(MemoryType::MEM_L0A);
     size_t l0bSize = platform.GetAICCore().GetMemorySize(MemoryType::MEM_L0B);
