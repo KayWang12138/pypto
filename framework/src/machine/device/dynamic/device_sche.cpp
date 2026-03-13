@@ -39,9 +39,15 @@ void SigAct(int signum, siginfo_t* info, void* act) {
 }
 
 extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServerInit(void *targ);
+
 extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServer(void *targ);
 
 extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelServerInit(void *targ) {
+    (void)targ;
+    return 0;
+}
+
+extern "C" __attribute__((visibility("default"))) int StaticTileFwkBackendKernelServer(void *targ) {
     (void)targ;
     return 0;
 }

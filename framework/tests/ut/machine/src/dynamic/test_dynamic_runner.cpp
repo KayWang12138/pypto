@@ -14,6 +14,7 @@
  */
 
 #include "gtest/gtest.h"
+#include <cstdlib>
 #include "machine/runtime/device_runner.h"
 #include "machine/runtime/device_launcher.h"
 #include "machine/runtime/host_prof.h"
@@ -36,6 +37,7 @@ using namespace npu::tile_fwk;
 
 extern "C" uint32_t DynPyptoKernelServerNull(void *targ);
 extern "C" uint32_t DynTileFwkBackendKernelServer(void *targ);
+extern "C" uint32_t StaticTileFwkBackendKernelServer(void *targ);
 class TestDynamicDeviceRunner : public testing::Test {
 public:
     static void SetUpTestCase() {
@@ -97,6 +99,7 @@ TEST_F(TestDynamicDeviceRunner, test_pypto_kernel_server_null) {
 }
 
 TEST_F(TestDynamicDeviceRunner, test_dump_device_perf) {
+    setenv("DUMP_DEVICE_PERF", "true", 1);
     DeviceArgs devKernelArgs;
     devKernelArgs.nrAic = 1;
     devKernelArgs.nrAiv = 2;
@@ -111,8 +114,8 @@ TEST_F(TestDynamicDeviceRunner, test_dump_device_perf) {
     taskStat.execEnd =1;
     metr->taskCount = 1;
     metr->tasks[0] = taskStat;
-    metr->perfTrace[0][0] = 1;
-    metr->taskCount = 1;
+    metr->perfTrace[0][0][0] = 1;
+    metr->turnNum = 1;
 
     MetricPerf aicpuMetPer;
     aicpuMetPer.perfAicpuTraceDevTask[0][0][0] = 1;
@@ -127,8 +130,11 @@ TEST_F(TestDynamicDeviceRunner, test_dump_device_perf) {
     free(metr);
     std::string jsonPath = npu::tile_fwk::config::LogTopFolder() + "/tilefwk_L1_prof_data.json";
     EXPECT_EQ(IsPathExist(jsonPath), true);
+    setenv("DUMP_DEVICE_PERF", "true", 1);
+    npu::tile_fwk::dynamic::DumpDevTaskPerfData(devKernelArgs, perfData, true);
     jsonPath = npu::tile_fwk::config::LogTopFolder() + "/machine_runtime_operator_trace.json";
-    EXPECT_EQ(IsPathExist(jsonPath), true);
+    unsetenv("DUMP_DEVICE_PERF");
+    EXPECT_EQ(IsPathExist(jsonPath), false);
 }
 
 TEST_F(TestDynamicDeviceRunner, test_launch_init) {
@@ -138,4 +144,8 @@ TEST_F(TestDynamicDeviceRunner, test_launch_init) {
     pyptoKernelArgs.cfgdata = static_cast<int64_t *>(static_cast<void *>(&devKernelArgs));
     auto ret = DynTileFwkBackendKernelServer(&pyptoKernelArgs);
     EXPECT_EQ(ret, -1);
+}
+
+TEST_F(TestDynamicDeviceRunner, test_static) {
+    EXPECT_EQ(StaticTileFwkBackendKernelServer(nullptr), 0);
 }

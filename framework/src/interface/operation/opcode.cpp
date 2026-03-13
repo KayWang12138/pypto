@@ -632,7 +632,7 @@ void OpcodeManager::RegisterCube() {
     RegisterInfo(Opcode::OP_LOAD3D_CONV, OpCoreType::AIC, "IMG2COL", {MemoryType::MEM_L1},
         {MemoryType::MEM_L0A}, {"TileOp::TLoad3D", PIPE_MTE1, PIPE_MTE1, CoreType::AIC}, OpCalcType::MOVE_LOCAL);
     RegisterInfo(Opcode::OP_LOAD2D_CONV, OpCoreType::AIC, "LOAD2D", {MemoryType::MEM_L1},
-        {MemoryType::MEM_L0B}, {"TileOp::Tload2D", PIPE_MTE1, PIPE_MTE1, CoreType::AIC}, OpCalcType::MOVE_LOCAL);
+        {MemoryType::MEM_L0B}, {"TileOp::TLoad2D", PIPE_MTE1, PIPE_MTE1, CoreType::AIC}, OpCalcType::MOVE_LOCAL);
     RegisterInfo(Opcode::OP_L0C_COPY_OUT_CONV, OpCoreType::AIC, "L0C_COPY_OUT_CONV", {MemoryType::MEM_L0C},
         {MemoryType::MEM_DEVICE_DDR}, {"TileOp::L0CCopyOutConv", PIPE_FIX, PIPE_FIX, CoreType::AIC}, OpCalcType::MOVE_OUT,
         {OpAttributeKey::excludeBufferReuse});
