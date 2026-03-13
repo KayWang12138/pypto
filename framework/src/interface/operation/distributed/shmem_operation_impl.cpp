@@ -163,7 +163,7 @@ Tensor ShmemPut(const Tensor& predToken, const Tensor& in, const Tensor& shmemDa
     auto out = std::make_shared<LogicalTensor>(function, DT_INT32, predToken.GetShape());
     auto &op = function.AddOperation(Opcode::OP_SHMEM_PUT,
         {predToken.GetStorage(), in.GetStorage(), shmemData.GetStorage()}, {out});
-    DistOpAttr distOpAttr;
+    ShmemPutGetAttr distOpAttr;
     distOpAttr.atomicType = atomicType;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
@@ -176,7 +176,7 @@ Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor
     auto dummy = std::make_shared<LogicalTensor>(function, DT_INT32, barrierDummy.GetShape());
     auto &op = function.AddOperation(Opcode::OP_SHMEM_PUT_UB2GM,
         {in.GetStorage(), shmemDataTile.GetStorage(), barrierDummy.GetStorage()}, {dummy});
-    DistOpAttr distOpAttr;
+    ShmemPutGetAttr distOpAttr;
     distOpAttr.atomicType = atomicType;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return dummy;
@@ -190,9 +190,9 @@ Tensor ShmemSignal(const Tensor& predToken, const Tensor& shmemSignal, AtomicTyp
     auto out = std::make_shared<LogicalTensor>(function, DT_INT32, predToken.GetShape());
     auto &op = function.AddOperation(Opcode::OP_SHMEM_SIGNAL, {predToken.GetStorage(), shmemSignal.GetStorage()},
         {out});
-    DistOpAttr distOpAttr;
-    distOpAttr.signalValue = 1;
+    ShmemSignalAttr distOpAttr;
     distOpAttr.atomicType = atomicType;
+    distOpAttr.signalValue = 1;
     distOpAttr.signalStride = SHMEM_SIGNAL_STRIDE;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
@@ -212,7 +212,7 @@ Tensor ShmemGet(const Tensor& predToken, const Tensor& shmemData, DataType nonSh
     auto out = std::make_shared<LogicalTensor>(function, nonShmemDataType, shape, shmemData.Format());
     auto &op = function.AddOperation(Opcode::OP_SHMEM_GET, {predToken.GetStorage(), shmemData.GetStorage()},
         {out});
-    DistOpAttr distOpAttr;
+    ShmemPutGetAttr distOpAttr;
     distOpAttr.atomicType = atomicType;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
@@ -233,7 +233,7 @@ Tensor ShmemGetGm2Ub(const Tensor &dummy, const Tensor &shmemDataTile, DataType 
         OpImmediate::Specified({tempOutTile->shape[0], tempOutTile->shape[1]}),
         OpImmediate::Specified(std::vector<SymbolicScalar>{shmemDataTile.GetValidShape()[2], shmemDataTile.GetValidShape()[3]})));
     function.UpdateTensorDataUsage(op);
-    DistOpAttr distOpAttr;
+    ShmemPutGetAttr distOpAttr;
     distOpAttr.atomicType = atomicType;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return tempOutTile;
@@ -249,7 +249,7 @@ Tensor WaitUntil(const Tensor& predToken, const Tensor& shmemSignal, int32_t exp
         {out});
     std::vector<int64_t> param = {static_cast<int64_t>(expectedSum),
         static_cast<int64_t>(SHMEM_SIGNAL_STRIDE), static_cast<int64_t>(resetSignal)};
-    DistOpAttr distOpAttr;
+    ShmemWaitUntilAttr distOpAttr;
     distOpAttr.aicpuOpParams = param;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
@@ -326,7 +326,7 @@ Tensor ShmemDataSet(const Tensor& predToken, const Tensor& shmemData)
     auto& function = *Program::GetInstance().GetCurrentFunction();
     auto out = std::make_shared<LogicalTensor>(function, DT_INT32, Shape{1, 1});
     auto& op = function.AddOperation(Opcode::OP_SHMEM_SET, {predToken.GetStorage(), shmemData.GetStorage()}, {out});
-    DistOpAttr distOpAttr;
+    ShmemSetAttr distOpAttr;
     distOpAttr.setType = 0;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
@@ -341,7 +341,7 @@ Tensor ShmemSignalSet(const Tensor& predToken, const Tensor& shmemSignal)
     auto& function = *Program::GetInstance().GetCurrentFunction();
     auto out = std::make_shared<LogicalTensor>(function, DT_INT32, Shape{1, 1});
     auto& op = function.AddOperation(Opcode::OP_SHMEM_SET, {predToken.GetStorage(), shmemSignal.GetStorage()}, {out});
-    DistOpAttr distOpAttr;
+    ShmemSetAttr distOpAttr;
     distOpAttr.setType = 1;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     return out;
