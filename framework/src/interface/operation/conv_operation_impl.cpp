@@ -315,6 +315,7 @@ uint64_t Conv2DInferHiL1(uint64_t inputHoL1, uint64_t khDilated, uint64_t hi, ui
 void CheckL1SizeTiling(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const Tensor &biasTensor, ConvAttrParam &attrParam)
 {
     auto convTile = TileShape::Current().GetConvTile();
+    Platform& platform = Platform::Instance();
     uint64_t l1Size = Platform::Instance().GetAICCore().GetMemorySize(MemoryType::MEM_L1);
     uint32_t indexH = attrParam.isConv3D ? NCDHW_H_IDX : NCHW_H_IDX;
     uint32_t indexW = attrParam.isConv3D ? NCDHW_W_IDX : (attrParam.isConv1D ? NCHW_H_IDX : NCHW_W_IDX);
