@@ -115,8 +115,6 @@ def get_pass_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
         'cube_l1_reuse_setting',
         'cube_nbuffer_setting',
         'sg_set_scope',
-        'pg_skip_partition',
-        'pg_upper_bound',
     }
     return {k: v for k, v in rst.items() if k in allowed_keys}
 
