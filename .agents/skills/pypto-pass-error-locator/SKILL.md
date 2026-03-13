@@ -1,10 +1,10 @@
 ---
 name: pypto-pass-error-analyzer
-description: PyPTO Pass 模块错误分析技能。用于解析 PyPTO 运行日志，提取错误信息、堆栈跟踪等关键信息，识别错误是哪个 pass 模块导致的，分析错误产生的可能原因，为用户自行修复和通过skill自动修复提供参考。当需要分析 PyPTO pass 模块错误时使用此技能。
+description: PyPTO Pass 模块问题定位技能。用于解析 PyPTO 运行日志，提取错误信息、堆栈跟踪等关键信息，识别错误是哪个 pass 模块导致的，分析错误产生的可能原因，为用户自行修复和通过skill自动修复提供参考。当需要分析 PyPTO pass 模块错误时使用此技能。
 tag: [PyPTO, Pass分析, 错误诊断, 日志解析]
 ---
 
-# PyPTO Pass 模块错误分析技能
+# PyPTO Pass 模块问题定位技能
 
 本技能提供 PyPTO Pass 模块错误的完整分析能力，包括日志解析、错误识别、原因分析和修复建议。
 
@@ -15,7 +15,12 @@ tag: [PyPTO, Pass分析, 错误诊断, 日志解析]
 - 分析错误产生的根本原因
 - 提供错误分类和严重程度评估
 - 生成详细的错误分析报告
-- 为自动修复提供策略建议
+- 提供问题修复策略建议
+
+## 使用场景
+
+本技能适用于以下场景：
+- 某个用例执行失败，执行到某pass时抛出异常，定位异常原因
 
 ## 工作流程
 
@@ -114,7 +119,7 @@ find $LOG_DIR -name "pypto_*.log" -type f
 
 **识别策略**：
 
-1. **直接识别**：从错误消息中提取 pass 名称
+1. **直接识别**：从错误日志解析获取的关键信息中提取 pass 名称
    - 模式：`Pass\[([^\]]+)\]`
    - 模式：`in pass ([a-zA-Z0-9_]+)`
 
@@ -185,82 +190,6 @@ find $LOG_DIR -name "pypto_*.log" -type f
 **报告格式**（Markdown）：
 
 报告模板参见 `references/error_report_template.md` 文件。
-
-## 使用场景
-
-本技能适用于以下场景：
-
-### 场景 1：分析单个日志文件中的 Pass 错误
-
-当您有一个日志文件，需要快速定位和分析其中包含的 Pass 模块错误时使用。
-
-**示例**：
-```python
-from pypto_pass_error_analyzer import parse_and_analyze_log
-
-result = parse_and_analyze_log("path/to/error.log")
-print(result)
-```
-
-### 场景 2：分析日志内容字符串
-
-当您直接拥有日志内容字符串，需要分析其中的错误时使用。
-
-**示例**：
-```python
-from pypto_pass_error_analyzer import parse_and_analyze_log_content
-
-log_content = """
-[INFO ] PYPTO(592313):2026-03-13 14:26:37.767 [l1_copy_reuse.cpp:642][PASS]:[L1CopyInReuseMerge.Operation]:Op 704 feature: [63, 128, 0, 32, 512, 148].
-[ERROR] PYPTO(592314):2026-03-13 14:26:38.123 [shape_inference.cpp:123][ERROR]:[ShapeInference]:Shape mismatch at dim 2.
-"""
-
-result = parse_and_analyze_log_content(log_content)
-print(result)
-```
-
-### 场景 3：批量分析多个日志文件
-
-当您需要同时分析多个日志文件中的错误时使用。
-
-**示例**：
-```python
-from pypto_pass_error_analyzer import analyze_logs_batch
-
-results = analyze_logs_batch([
-    "log1.log",
-    "log2.log",
-    "log3.log"
-])
-```
-
-### 场景 4：按 Pass 模块分组分析
-
-当您需要按不同的 Pass 模块对错误进行分类统计时使用。
-
-**示例**：
-```python
-from pypto_pass_error_analyzer import group_by_pass
-
-result = parse_and_analyze_log("error.log")
-grouped = group_by_pass(result["errors"])
-
-for pass_name, pass_errors in grouped.items():
-    print(f"Pass: {pass_name}, Errors: {len(pass_errors)}")
-```
-
-### 场景 5：流式处理大日志文件
-
-当日志文件非常大，需要逐行处理以避免内存溢出时使用。
-
-**示例**：
-```python
-from pypto_pass_error_analyzer import parse_and_analyze_stream
-
-with open("large.log", "r") as f:
-    for error_analysis in parse_and_analyze_stream(f):
-        process_error(error_analysis)
-```
 
 ## 错误模式匹配规则
 

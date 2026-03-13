@@ -1,7 +1,7 @@
 ---
 name: pypto-pass-error-fixer
-description: PyPTO 自动修复与验证技能。根据 pass 模块错误分析结果，自动定位问题代码，尝试修复错误，并验证修复结果。当需要自动修复 PyPTO 错误时使用此技能。
-tag: [PyPTO, 自动修复, 错误验证]
+description: pass问题自动修复与验证技能。根据 pass 模块错误分析结果，自动定位问题代码，尝试修复错误，并验证修复结果。当需要自动修复 pass 模块错误时使用此技能。
+tag: [pass, 自动修复, 错误验证]
 ---
 
 # PyPTO 自动修复与验证技能
