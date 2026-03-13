@@ -53,12 +53,52 @@ REGISTER_CALC_OP(OP_NOP, Opcode::OP_NOP, ExecuteOpNone);
 REGISTER_CALC_OP(OP_CV_SYNC_SRC, Opcode::OP_CV_SYNC_SRC, ExecuteOpNone);
 REGISTER_CALC_OP(OP_CV_SYNC_DST, Opcode::OP_CV_SYNC_DST, ExecuteOpNone);
 
+void ExecuteOpViewType(ExecuteOperationContext *ctx) {
+    ASSERT(ctx != nullptr && ctx->op != nullptr);
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+
+    auto &oop = ctx->ooperandInplaceDataViewList->at(0);
+    auto &iop = ctx->ioperandDataViewList->at(0);
+    ASSERT(oop != nullptr && iop != nullptr);
+
+    auto inData = iop->GetData();
+    auto outData = oop->GetData();
+    ASSERT(inData != nullptr && outData != nullptr);
+
+    const int64_t inElemSize = inData->GetElementSize();
+    const int64_t outElemSize = outData->GetElementSize();
+    const int64_t inRegionElems = iop->GetSize();
+    const int64_t outRegionElems = oop->GetSize();
+
+    // VIEW_TYPE 语义：保持底层字节数一致，只改变逻辑数据类型和 shape。
+    const int64_t srcBytes = inRegionElems * inElemSize;
+    const int64_t dstBytes = outRegionElems * outElemSize;
+    ASSERT(srcBytes == dstBytes);
+
+    const int64_t srcOffsetBytes = static_cast<int64_t>(iop->GetStorageOffset()) * inElemSize;
+    const int64_t dstOffsetBytes = static_cast<int64_t>(oop->GetStorageOffset()) * outElemSize;
+
+    uint8_t *srcPtr = inData->data() + srcOffsetBytes;
+    uint8_t *dstPtr = outData->data() + dstOffsetBytes;
+
+    StringUtils::DataCopy(dstPtr, dstBytes, srcPtr, srcBytes);
+}
+REGISTER_CALC_OP(OP_VIEW_TYPE, Opcode::OP_VIEW_TYPE, ExecuteOpViewType);
+
 void ExecuteOpView(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
     ASSERT(ctx->ioperandDataViewList->size() == 1);
     ASSERT(ctx != nullptr && ctx->op != nullptr);
     auto &oop = ctx->ooperandInplaceDataViewList->at(0);
     auto &iop = ctx->ioperandDataViewList->at(0);
+
+    // 若输入输出 dtype 不同，则按 ViewType 语义处理（保持底层字节不变，仅视图变换）
+    if (oop->GetDataType() != iop->GetDataType()) {
+        ExecuteOpViewType(ctx);
+        return;
+    }
+
     auto opAttr = std::static_pointer_cast<ViewOpAttribute>(ctx->op->GetOpAttribute());
     auto offset = ctx->opInter->EvaluateOffset(opAttr->GetFromOffset(), opAttr->GetFromDynOffset());
     if (oop->GetData() == iop->GetData()) {
@@ -267,7 +307,7 @@ void ExecuteOpReshape(ExecuteOperationContext *ctx) {
     auto &oop = ctx->ooperandInplaceDataViewList->at(0);
     auto &iop = ctx->ioperandDataViewList->at(0);
     auto actualIop = std::make_shared<LogicalTensorData>(iop->GetData());
-    if (oop->GetSize() > iop->GetSize()) {
+    if (oop->GetSize() != iop->GetSize()) {
         VERIFY_EVENT("%s", ctx->op->Dump().c_str());
         VERIFY_EVENT("iop validShape: %s ---> oop validShape: %s", IntVecToStr(iop->GetShape()).c_str(), IntVecToStr(oop->GetShape()).c_str());
         VERIFY_EVENT("Reshape: input tensor is not enough to reshape to output tensor");
