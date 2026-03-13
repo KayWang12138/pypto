@@ -51,7 +51,7 @@ std::set<Operation *, LogicalTensor::CompareOp> FindProducers(
     return producerOps;
 }
 
-void DeadOperationEliminator::EliminateOperation(Function &function, bool sorted) {
+inline void EliminateOperationCommon(Function &function, bool sorted, bool sortAfterErase) {
     std::queue<Operation *> q;
     std::unordered_set<Operation*> visited;
     std::unordered_set<std::shared_ptr<LogicalTensor>> visitedOperands;
@@ -89,7 +89,7 @@ void DeadOperationEliminator::EliminateOperation(Function &function, bool sorted
             op.SetAsDeleted();
         }
     }
-    function.EraseOperations(false, sorted);
+    function.EraseOperations(false, sortAfterErase);
     /* 删除没有生产者和消费者的tensor */
     auto inverseMapCopy = function.GetTensorMap().inverseMap_;
     for (const auto &item : inverseMapCopy) {
@@ -97,5 +97,13 @@ void DeadOperationEliminator::EliminateOperation(Function &function, bool sorted
             function.GetTensorMap().Erase(item.second);
         }
     }
+}
+
+void DeadOperationEliminator::EliminateOperation(Function &function, bool sorted) {
+    EliminateOperationCommon(function, sorted, true);
+}
+
+void DeadOperationEliminator::EliminateOperationAndNotSortAfterErase(Function &function, bool sorted) {
+    EliminateOperationCommon(function, sorted, false);
 }
 } // namespace
