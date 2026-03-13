@@ -54,7 +54,8 @@ private:
     void ReplaceDynUnalignedReshapeOps(Function &function);
     void ReplaceDynUnalignedReshapeOpsForUB(Function &function, Operation &op);
     Status ReplaceDynUnalignedReshapeOpsForDDR(Function &function, Operation &op);
-    void ProcessCopyOfDDRReshape(Function &function, Operation &op, Operation *copyOutOp, std::vector<Operation *> &copyInOps);
+    void ProcessCopyOutOfDDRReshape(Function &function, Operation &op, Operation *copyOutOp);
+    void ProcessCopyInOfDDRReshape(Function &function, Operation &op, std::vector<Operation *> &copyInOps);
     std::vector<Operation *> FindAllProducerCopyOuts(LogicalTensorPtr tensor);
     void FindAllConsumerCopyIns(LogicalTensorPtr tensor, std::vector<Operation *> &copyInOps, bool &hasViewOrAssemble);
     bool CheckUnaligned(Operation &op);

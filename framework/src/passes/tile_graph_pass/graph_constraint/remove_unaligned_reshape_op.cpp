@@ -244,7 +244,8 @@ Status RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function &fun
             return FAILED;
         }
 
-        ProcessCopyOfDDRReshape(function, op, copyOutOp, copyInOps);
+        ProcessCopyOutOfDDRReshape(function, op, copyOutOp);
+        ProcessCopyInOfDDRReshape(function, op, copyInOps);
 
         APASS_LOG_INFO_F(Elements::Operation, "DDR Reshape op %d is replaced: copy_out %d -> reshape_copy_out, copy_in count %lu -> reshape_copy_in.",
             op.GetOpMagic(), copyOutOp->GetOpMagic(), copyInOps.size());
@@ -252,7 +253,7 @@ Status RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function &fun
     return SUCCESS;
 }
 
-void RemoveUnalignedReshape::ProcessCopyOfDDRReshape(Function &function, Operation &op, Operation * copyOutOp, std::vector<Operation *> &copyInOps) {
+void RemoveUnalignedReshape::ProcessCopyOutOfDDRReshape(Function &function, Operation &op, Operation * copyOutOp) {
     //当copyout的输入是ub输出为ddr可以直接转化为reshapecopyop
     //否则需要插copy
     auto copyOutInput = copyOutOp->GetIOperands().front();
@@ -291,7 +292,9 @@ void RemoveUnalignedReshape::ProcessCopyOfDDRReshape(Function &function, Operati
         copyOutOutput->RemoveConsumer(&op);
         op.ReplaceInput(newTensor2Ptr, copyOutOutput);
     }
+}
 
+void RemoveUnalignedReshape::ProcessCopyInOfDDRReshape(Function &function, Operation &op, std::vector<Operation *> &copyInOps) {
     for (auto *copyInOp : copyInOps) {
         auto copyInInput = copyInOp->GetIOperands().front();
         auto copyInInputMemType = copyInInput->GetMemoryTypeOriginal();
