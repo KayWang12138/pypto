@@ -44,6 +44,8 @@ def lightning_indexer_decode_compute(
     act_seq_key: pypto.tensor,
     block_table: pypto.tensor,
     topk_res: pypto.tensor,
+    mm_out: pypto.tensor,
+    topk_value: pypto.tensor,
     unroll_list: list,
     configs: LightningIndexerConfigs,
     selected_count: int):
@@ -171,6 +173,8 @@ def lightning_indexer_decode_compute(
 
                 k_res = pypto.mul(second_mm, pypto.cast(ks_assemble, pypto.DT_FP32))
                 pypto.assemble(k_res, [s1_tile_idx * s1_tile, bn_idx * block_size], max_tensor)
+                if mm_out is not None:
+                    pypto.assemble(k_res, [b_idx * s1 + s1_tile_idx * s1_tile, bn_idx * block_size], mm_out)
 
             for s1_idx in pypto.loop(0, s1, 1, name="LOOP_TOPK_S1", idx_name="s1_idx"):
                 # TopK Process
@@ -206,8 +210,9 @@ def lightning_indexer_decode_compute(
                     eff_in = pypto.view(max_tensor, [1, MAX_LI_S2], [src_offset, 0], valid_shape=[1, eff_seq])
                     eff_3d = pypto.reshape(eff_in, [1, 1, MAX_LI_S2], valid_shape=[1, 1, eff_seq])
                     pypto.set_vec_tile_shapes(1, 1, topk_tile)
-                    _, res_index = pypto.topk(eff_3d, k=selected_count, dim=-1, largest=True)
+                    res_value, res_index = pypto.topk(eff_3d, k=selected_count, dim=-1, largest=True)
                     pypto.assemble(res_index, [dst_offset, 0, 0], topk_res)
+                    pypto.assemble(res_value, [dst_offset, 0, 0], topk_value)
 
 
 def lightning_indexer_decode(
@@ -232,6 +237,7 @@ def lightning_indexer_decode(
     t = pypto.frontend.dynamic("t")  # Total tokens = b * s1
     b = pypto.frontend.dynamic("b")  # Batch size
     max_blocks = pypto.frontend.dynamic("max_blocks")
+    max_length = pypto.frontend.dynamic("max_length")
 
     # Assemble tensor shapes
     idx_query_shape = (t, idx_n_heads, idx_head_dim)
@@ -242,12 +248,16 @@ def lightning_indexer_decode(
     act_seq_key_shape = (b,)
     block_table_shape = (b, max_blocks)
     topk_res_shape = (t, 1, selected_count)
+    topk_value_shape = (t, 1, selected_count)
+    mm_out_shape = (t, max_length)
 
     @pypto.frontend.jit(
         runtime_options={
             "stitch_function_max_num": 128,
             "device_sched_mode": 1
-        }
+        },
+        debug_options={"runtime_debug_mode": 1,
+                "compile_debug_mode": 1}
     )
     def lightning_indexer_decode_kernel(
         idx_query: pypto.Tensor(idx_query_shape, pypto.DT_INT8),
@@ -257,6 +267,8 @@ def lightning_indexer_decode(
         idx_weight: pypto.Tensor(idx_weight_shape, pypto.DT_FP16),
         act_seq_key: pypto.Tensor(act_seq_key_shape, pypto.DT_INT32),
         block_table: pypto.Tensor(block_table_shape, pypto.DT_INT32),
+        mm_out: pypto.Tensor(mm_out_shape, pypto.DT_FP32),
+        topk_value: pypto.Tensor(topk_value_shape, pypto.DT_FP32),
     ) -> (
         pypto.Tensor(topk_res_shape, pypto.DT_INT32),
     ):
@@ -295,6 +307,8 @@ def lightning_indexer_decode(
             act_seq_key,
             block_table,
             topk_res,
+            mm_out,
+            topk_value,
             unroll_list,
             configs,
             selected_count
