@@ -256,9 +256,9 @@ int DeviceRunner::StoreTracrMetaData() {
     metadata["markerTypes"] = nlohmann::json::object();
 
     for (int i = 0; i < npu::tile_fwk::dynamic::PERF_TRACE_MAX; i++) {
-        char id_str[16];
-        snprintf(id_str, sizeof(id_str), "%02d", i + 1); // Zero-pad to 2 digits
-        metadata["markerTypes"][id_str] = npu::tile_fwk::dynamic::PerfTraceName[i];
+        std::ostringstream oss;
+        oss << std::setw(2) << std::setfill('0') << (i + 1);
+        metadata["markerTypes"][oss.str()] = npu::tile_fwk::dynamic::PerfTraceName[i];
     }
 
     metadata["pid"] = 1;

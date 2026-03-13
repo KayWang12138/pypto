@@ -1059,7 +1059,7 @@ private:
         [[maybe_unused]] uint32_t aicpuCallCode = finTaskRegVal >> 32;
         uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
         uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
-        DEV_VERBOSE_DEBUG("reslove task core index: %d, finishtaskid:%x, finishstate: %u.", coreIdx, finTaskId, finTaskState);
+
 #if SCHEDULE_USE_PENDING_AND_RUNING_SWITCH
         auto &pendingIdRef = pendingIds_[coreIdx];
         auto &pendingResolveIndexBaseRef = pendingResolveIndexList_[coreIdx];
@@ -1068,7 +1068,6 @@ private:
         if (likely(finTaskId == pendingIdRef && finTaskState == TASK_FIN_STATE)) {
             // pending task is finished, resolve both running and pending task.
             INSTRUMENTATION_MARK_RESET(coreIdx2tracrIdx(coreIdx, type));
-            DEV_VERBOSE_DEBUG("Pending Finished: core:%d pending:%x,%d running:%x,%d", coreIdx, pendingIdRef, pendingResolveIndexBaseRef, runningIdRef, runningResolveIndexBaseRef);
             uint32_t runningIdValue = runningIdRef;
             int runningResolveIndexBaseValue = runningResolveIndexBaseRef;
             uint32_t pendingIdValue = pendingIdRef;
