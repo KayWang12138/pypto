@@ -1,6 +1,6 @@
 ---
 name: pypto-pass-error-analyzer
-description: PyPTO Pass 模块错误分析技能。用于解析 PyPTO 运行日志，提取错误信息、堆栈跟踪等关键信息，识别错误是哪个 pass 模块导致的，分析错误产生的可能原因，为自动修复提供依据。当需要分析 PyPTO pass 模块错误时使用此技能。
+description: PyPTO Pass 模块错误分析技能。用于解析 PyPTO 运行日志，提取错误信息、堆栈跟踪等关键信息，识别错误是哪个 pass 模块导致的，分析错误产生的可能原因，为用户自行修复和通过skill自动修复提供参考。当需要分析 PyPTO pass 模块错误时使用此技能。
 tag: [PyPTO, Pass分析, 错误诊断, 日志解析]
 ---
 
@@ -67,13 +67,11 @@ find $LOG_DIR -name "pypto_*.log" -type f
 **解析模式**：
 
 1. **日志级别识别**
-   - 模式：`\[(INFO|WARNING|ERROR|DEBUG|CRITICAL|FATAL)\s*\]`
-   - INFO (1 ASCEND_GLOBAL_LOG_LEVEL): 一般信息
-   - WARNING (2 ASCEND_GLOBAL_LOG_LEVEL): 警告信息
-   - ERROR (3 ASCEND_GLOBAL_LOG_LEVEL): 致命错误
-   - DEBUG (0 ASCEND_GLOBAL_LOG_LEVEL): 调试信息
-   - CRITICAL: 严重错误
-   - FATAL: 致命错误
+    - 模式：`\[(DEBUG|INFO|WARNING|ERROR)\s*\]`
+    - DEBUG (0 ASCEND_GLOBAL_LOG_LEVEL): 调试信息
+    - INFO (1 ASCEND_GLOBAL_LOG_LEVEL): 一般信息
+    - WARNING (2 ASCEND_GLOBAL_LOG_LEVEL): 警告信息
+    - ERROR (3 ASCEND_GLOBAL_LOG_LEVEL): 致命错误
 
 2. **模块名提取**
    - 模式：`PYPTO\((\d+)\):`
@@ -105,38 +103,12 @@ find $LOG_DIR -name "pypto_*.log" -type f
    - Pass模块名：`L1CopyInReuseMerge.Operation`
 
 7. **消息内容提取**
-   - 提取最后一个冒号后的所有内容
-   - 示例：`Op 704 feature: [63, 128, 0, 32, 512, 148].`
+    - 提取最后一个冒号后的所有内容
+    - 示例：`Op 704 feature: [63, 128, 0, 32, 512, 148].`
 
 8. **堆栈跟踪提取**（Python异常）
-   - 识别 `Traceback (most recent call last):` 开始的堆栈
-   - 提取每个堆栈帧的文件、行号、函数名
-
-**解析后的结构化输出**（JSON）：
-```json
-{
-  "log_file": "path/to/logfile.log",
-  "entries": [
-    {
-      "timestamp": "2026-03-13 14:26:37.767",
-      "level": "INFO",
-      "module": "PYPTO",
-      "pid": 592313,
-      "file": "l1_copy_reuse.cpp",
-      "line": 642,
-      "tag": "PASS",
-      "pass_module": "L1CopyInReuseMerge.Operation",
-      "message": "Op 704 feature: [63, 128, 0, 32, 512, 148]."
-    }
-  ],
-  "errors": [],
-  "warnings": [],
-  "metadata": {
-    "pypto_version": "x.x.x",
-    "device_id": 0
-  }
-}
-```
+    - 识别 `Traceback (most recent call last):` 开始的堆栈
+    - 提取每个堆栈帧的文件、行号、函数名
 
 ### 步骤 2：Pass 模块识别
 
@@ -210,45 +182,19 @@ find $LOG_DIR -name "pypto_*.log" -type f
 
 ### 步骤 6：生成分析报告
 
-**报告格式**（JSON）：
-```json
-{
-  "error_id": "unique_error_id",
-  "pass_module": "ShapeInference",
-  "error_type": "ShapeMismatch",
-  "severity": "HIGH",
-  "root_cause": {
-    "category": "input_data",
-    "description": "输入张量的shape与期望的不匹配",
-    "details": {
-      "expected_shape": [32, 128],
-      "actual_shape": [32, 64]
-    }
-  },
-  "possible_causes": [
-    "输入张量shape计算错误",
-    "模型定义中shape配置不当",
-    "动态shape推断失败"
-  ],
-  "fix_suggestions": [
-    "检查输入张量的shape",
-    "验证模型定义中的shape配置",
-    "使用print调试中间结果"
-  ],
-  "related_code": [
-    {
-      "file": "path/to/file.py",
-      "line": 123,
-      "function": "function_name"
-    }
-  ]
-}
-```
+**报告格式**（Markdown）：
 
-## 使用方法
+报告模板参见 `references/error_report_template.md` 文件。
 
-### 方式 1：解析并分析单个日志文件
+## 使用场景
 
+本技能适用于以下场景：
+
+### 场景 1：分析单个日志文件中的 Pass 错误
+
+当您有一个日志文件，需要快速定位和分析其中包含的 Pass 模块错误时使用。
+
+**示例**：
 ```python
 from pypto_pass_error_analyzer import parse_and_analyze_log
 
@@ -256,8 +202,11 @@ result = parse_and_analyze_log("path/to/error.log")
 print(result)
 ```
 
-### 方式 2：解析日志内容字符串并分析
+### 场景 2：分析日志内容字符串
 
+当您直接拥有日志内容字符串，需要分析其中的错误时使用。
+
+**示例**：
 ```python
 from pypto_pass_error_analyzer import parse_and_analyze_log_content
 
@@ -270,8 +219,11 @@ result = parse_and_analyze_log_content(log_content)
 print(result)
 ```
 
-### 方式 3：批量分析
+### 场景 3：批量分析多个日志文件
 
+当您需要同时分析多个日志文件中的错误时使用。
+
+**示例**：
 ```python
 from pypto_pass_error_analyzer import analyze_logs_batch
 
@@ -282,8 +234,11 @@ results = analyze_logs_batch([
 ])
 ```
 
-### 方式 4：按 pass 模块分组分析
+### 场景 4：按 Pass 模块分组分析
 
+当您需要按不同的 Pass 模块对错误进行分类统计时使用。
+
+**示例**：
 ```python
 from pypto_pass_error_analyzer import group_by_pass
 
@@ -294,8 +249,11 @@ for pass_name, pass_errors in grouped.items():
     print(f"Pass: {pass_name}, Errors: {len(pass_errors)}")
 ```
 
-### 方式 5：流式处理大日志文件
+### 场景 5：流式处理大日志文件
 
+当日志文件非常大，需要逐行处理以避免内存溢出时使用。
+
+**示例**：
 ```python
 from pypto_pass_error_analyzer import parse_and_analyze_stream
 
@@ -423,80 +381,7 @@ Device not found
 
 ## 常见问题
 
-### Q1: 日志文件很大，如何处理？
-
-**A**: 使用流式解析，逐行读取，避免一次性加载整个文件：
-```python
-from pypto_pass_error_analyzer import parse_and_analyze_stream
-
-with open("large.log", "r") as f:
-    for error_analysis in parse_and_analyze_stream(f):
-        process_error(error_analysis)
-```
-
-### Q2: 如何过滤特定 pass 模块的错误？
-
-**A**: 解析后过滤：
-```python
-result = parse_and_analyze_log("error.log")
-pass_errors = [e for e in result["errors"] if e["pass_module"] == "ConstantFolding"]
-```
-
-### Q3: 堆栈跟踪不完整怎么办？
-
-**A**: 检查日志级别设置，确保 DEBUG 或 INFO 级别日志被记录。
-
-### Q4: 如何识别动态 shape 相关的错误？
-
-**A**: 检查错误消息中是否包含动态 shape 的关键词：
-- `dyn_shape`
-- `symbolic`
-- `unknown dimension`
-- `variable shape`
-
-### Q5: 如何区分是用户代码错误还是框架错误？
-
-**A**: 检查堆栈跟踪：
-- 用户代码：堆栈中包含 `custom/` 或用户定义的文件
-- 框架代码：堆栈中包含 `framework/` 或 `pypto/`
-
-### Q6: 如何获取更详细的错误信息？
-
-**A**:
-1. 设置日志级别为 DEBUG：`export ASCEND_GLOBAL_LOG_LEVEL=0`
-2. 启用详细堆栈跟踪
-3. 使用 `--verbose` 标志运行
-4. 检查完整的日志文件
-
-### Q7: 如何修改日志输出目录？
-
-**A**:
-```bash
-# 方式 1：使用 ASCEND_PROCESS_LOG_PATH（优先级最高）
-export ASCEND_PROCESS_LOG_PATH=/custom/log/path
-
-# 方式 2：使用 ASCEND_WORK_PATH（优先级次之）
-export ASCEND_WORK_PATH=/custom/work/path
-
-# 方式 3：使用默认目录 $HOME/ascend/log
-```
-
-### Q8: 如何设置日志级别？
-
-**A**:
-```bash
-# DEBUG 级别（最详细）
-export ASCEND_GLOBAL_LOG_LEVEL=0
-
-# INFO 级别
-export ASCEND_GLOBAL_LOG_LEVEL=1
-
-# WARNING 级别
-export ASCEND_GLOBAL_LOG_LEVEL=2
-
-# ERROR 级别（仅错误）
-export ASCEND_GLOBAL_LOG_LEVEL=3
-```
+常见问题详见 `references/faq.md` 文件。
 
 ## 输出验证
 
@@ -505,7 +390,6 @@ export ASCEND_GLOBAL_LOG_LEVEL=3
 - [ ] 堆栈跟踪准确解析
 - [ ] Pass 模块名称正确识别
 - [ ] 时间戳格式正确
-- [ ] JSON 输出格式有效
 - [ ] 错误原因分析准确
 - [ ] 修复建议合理可行
 
