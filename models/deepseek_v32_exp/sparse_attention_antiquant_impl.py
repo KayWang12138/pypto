@@ -243,154 +243,116 @@ def sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_
                         pypto.assemble(q1, [cur_offset, 0], attention_out)
 
 
-def sparse_attention_antiquant_d(block_num, max_kv, kv_lora_rank, qk_rope_dim, nq, n_kv, softmax_scale, topk,
-                                block_size, max_blocknum_perbatch, tile_config):
-    shape1 = pypto.frontend.dynamic("shape1")
-    shape2 = pypto.frontend.dynamic("shape2")
-    bs = pypto.frontend.dynamic("bs")
+@pypto.frontend.jit(
+    pass_options={
+        "pg_upper_bound": 5000000,
+        "vec_nbuffer_setting": {-1: 2, 0: 4},
+        "cube_l1_reuse_setting": {-1: 2},
+    },
+    runtime_options={
+        "stitch_function_max_num": 128,
+        "device_sched_mode": 3
+    }
+)
+def sparse_attention_antiquant_d(
+    query_nope: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
+    query_rope: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
+    nope_cache: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_INT8),
+    topk_indices: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_INT32),
+    block_table: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_INT32),
+    kv_act_seqs: pypto.Tensor([pypto.DYNAMIC], pypto.DT_INT32),
+    attention_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
 
-    # Assemble tensor shapes
-    query_nope_shape = (shape1, kv_lora_rank)
-    query_rope_shape = (shape1, qk_rope_dim)
-    nope_cache_shape = (block_num * block_size, kv_lora_rank + qk_rope_dim * 2 + 16)
-    topk_indices_shape = (shape2, n_kv * topk)
-    block_table_shape = (bs, math.ceil(max_kv / block_size))
-    kv_act_seqs_shape = (bs,)
-    attention_out_shape = (shape1, kv_lora_rank)
+    nq, n_kv, softmax_scale, topk, block_size, max_blocknum_perbatch, tile_config
+):
+    """JIT-compiled sparse flash attention for decode phase.
 
-    @pypto.frontend.jit(
-        pass_options={
-            "pg_upper_bound": 5000000,
-            "vec_nbuffer_setting": {-1: 2, 0: 4},
-            "cube_l1_reuse_setting": {-1: 2},
-        },
-        runtime_options={
-            "stitch_function_max_num": 128,
-            "device_sched_mode": 3
-        }
-    )
-    def sparse_attention_antiquant_d_kernel(
-            query_nope: pypto.Tensor(query_nope_shape, pypto.DT_BF16),
-            query_rope: pypto.Tensor(query_rope_shape, pypto.DT_BF16),
-            nope_cache: pypto.Tensor(nope_cache_shape, pypto.DT_INT8),
-            topk_indices: pypto.Tensor(topk_indices_shape, pypto.DT_INT32),
-            block_table: pypto.Tensor(block_table_shape, pypto.DT_INT32),
-            kv_act_seqs: pypto.Tensor(kv_act_seqs_shape, pypto.DT_INT32),
-        ) -> (
-            pypto.Tensor(attention_out_shape, pypto.DT_BF16)
-        ):
-        """JIT-compiled sparse flash attention for decode phase.
+    Optimized version for decode phase with specific pass configurations.
+    Uses flash attention algorithm with online softmax for numerical stability.
 
-        Optimized version for decode phase with specific pass configurations.
-        Uses flash attention algorithm with online softmax for numerical stability.
+    Args:
+        query_nope: Query tensor without RoPE, shape (t * n_q, kv_lora_rank), dtype BF16
+        query_rope: Query tensor with RoPE, shape (t * n_q, rope_dim), dtype BF16
+        nope_cache: Key tensor without RoPE, Key tensor with RoPE, Dequantization scales for quantized keys,
+                    shape (block_num * block_size, kv_lora_rank + rope_dim*2 + 4*4),
+                    dtype INT8
+        topk_indices: Top-k indices for each query token, shape (t, n_kv * topk), dtype INT32
+        block_table: Block mapping table for PagedAttention, shape (b, max_blocknum_perbatch),
+                    dtype INT32
+        kv_act_seqs: Actual sequence lengths for each batch, shape (b,), dtype INT32
+        attention_out: Output attention tensor, shape (b, s, n_q, kv_lora_rank), dtype BF16
+        nq: Number of query heads
+        n_kv: Number of key-value heads
+        softmax_scale: Scaling factor for attention scores
+        topk: Number of top-k keys to attend to
+        block_size: Size of each block in PagedAttention
+        max_blocknum_perbatch: Maximum number of blocks per batch
+        tile_config: SaTileShapeConfig object containing tiling parameters
 
-        Args:
-            query_nope: Query tensor without RoPE, shape (t * n_q, kv_lora_rank), dtype BF16
-            query_rope: Query tensor with RoPE, shape (t * n_q, rope_dim), dtype BF16
-            nope_cache: Key tensor without RoPE, Key tensor with RoPE, Dequantization scales for quantized keys,
-                        shape (block_num * block_size, kv_lora_rank + rope_dim*2 + 4*4),
-                        dtype INT8
-            topk_indices: Top-k indices for each query token, shape (t, n_kv * topk), dtype INT32
-            block_table: Block mapping table for PagedAttention, shape (b, max_blocknum_perbatch),
-                        dtype INT32
-            kv_act_seqs: Actual sequence lengths for each batch, shape (b,), dtype INT32
-            attention_out: Output attention tensor, shape (b, s, n_q, kv_lora_rank), dtype BF16
-            nq: Number of query heads
-            n_kv: Number of key-value heads
-            softmax_scale: Scaling factor for attention scores
-            topk: Number of top-k keys to attend to
-            block_size: Size of each block in PagedAttention
-            max_blocknum_perbatch: Maximum number of blocks per batch
-            tile_config: SaTileShapeConfig object containing tiling parameters
+    Note:
+        Configured for decode phase with optimized memory and parallelism settings.
+        Uses flash attention algorithm for better numerical stability.
+    """
+    pypto.experimental.set_operation_options(combine_axis=True)
 
-        Note:
-            Configured for decode phase with optimized memory and parallelism settings.
-            Uses flash attention algorithm for better numerical stability.
-        """
-        pypto.experimental.set_operation_options(combine_axis=True)
-
-        attention_out = pypto.Tensor(attention_out_shape, pypto.DT_BF16)
-
-        sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_indices,
-                                                block_table, kv_act_seqs, attention_out,
-                                                nq, n_kv, softmax_scale, topk, block_size,
-                                                max_blocknum_perbatch, tile_config)
-        return attention_out
-
-    return sparse_attention_antiquant_d_kernel
+    sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_indices,
+                                            block_table, kv_act_seqs, attention_out,
+                                            nq, n_kv, softmax_scale, topk, block_size,
+                                            max_blocknum_perbatch, tile_config)
 
 
-def sparse_attention_antiquant_p(block_num, max_kv, kv_lora_rank, qk_rope_dim, nq, n_kv, softmax_scale, topk,
-                                block_size, max_blocknum_perbatch, tile_config):
-    shape1 = pypto.frontend.dynamic("shape1")
-    shape2 = pypto.frontend.dynamic("shape2")
-    bs = pypto.frontend.dynamic("bs")
+@pypto.frontend.jit(
+    pass_options={
+        "pg_upper_bound": 5000000,
+        "vec_nbuffer_setting": {-1: 4, 0: 4},
+        "cube_l1_reuse_setting": {-1: 4},
+    },
+    runtime_options={
+        "stitch_function_max_num": 128
+    }
+)
+def sparse_attention_antiquant_p(
+    query_nope: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
+    query_rope: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
+    nope_cache: pypto.Tensor([pypto.STATIC, pypto.STATIC], pypto.DT_INT8),
+    topk_indices: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_INT32),
+    block_table: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_INT32),
+    kv_act_seqs: pypto.Tensor([pypto.DYNAMIC], pypto.DT_INT32),
+    attention_out: pypto.Tensor([pypto.DYNAMIC, pypto.STATIC], pypto.DT_BF16),
 
-    # Assemble tensor shapes
-    query_nope_shape = (shape1, kv_lora_rank)
-    query_rope_shape = (shape1, qk_rope_dim)
-    nope_cache_shape = (block_num * block_size, kv_lora_rank + qk_rope_dim * 2 + 16)
-    topk_indices_shape = (shape2, n_kv * topk)
-    block_table_shape = (bs, math.ceil(max_kv / block_size))
-    kv_act_seqs_shape = (bs,)
-    attention_out_shape = (shape1, kv_lora_rank)
+    nq, n_kv, softmax_scale, topk, block_size, max_blocknum_perbatch, tile_config
+):
+    """JIT-compiled sparse flash attention for prefill phase.
 
-    @pypto.frontend.jit(
-        pass_options={
-            "pg_upper_bound": 5000000,
-            "vec_nbuffer_setting": {-1: 4, 0: 4},
-            "cube_l1_reuse_setting": {-1: 4},
-        },
-        runtime_options={
-            "stitch_function_max_num": 128
-        }
-    )
-    def sparse_attention_antiquant_p_kernel(
-            query_nope: pypto.Tensor(query_nope_shape, pypto.DT_BF16),
-            query_rope: pypto.Tensor(query_rope_shape, pypto.DT_BF16),
-            nope_cache: pypto.Tensor(nope_cache_shape, pypto.DT_INT8),
-            topk_indices: pypto.Tensor(topk_indices_shape, pypto.DT_INT32),
-            block_table: pypto.Tensor(block_table_shape, pypto.DT_INT32),
-            kv_act_seqs: pypto.Tensor(kv_act_seqs_shape, pypto.DT_INT32),
-        ) -> (
-            pypto.Tensor(attention_out_shape, pypto.DT_BF16)
-        ):
-        """JIT-compiled sparse flash attention for decode phase.
-        
-        Optimized version for decode phase with specific pass configurations.
-        Uses flash attention algorithm with online softmax for numerical stability.
-        
-        Args:
-            query_nope: Query tensor without RoPE, shape (t * n_q, kv_lora_rank), dtype BF16
-            query_rope: Query tensor with RoPE, shape (t * n_q, rope_dim), dtype BF16
-            nope_cache: Key tensor without RoPE, Key tensor with RoPE, Dequantization scales for quantized keys, 
-                        shape (block_num * block_size, kv_lora_rank + rope_dim*2 + 4*4),
-                        dtype INT8
-            topk_indices: Top-k indices for each query token, shape (t, n_kv * topk), dtype INT32
-            block_table: Block mapping table for PagedAttention, shape (b, max_blocknum_perbatch),
-                        dtype INT32
-            kv_act_seqs: Actual sequence lengths for each batch, shape (b,), dtype INT32
-            attention_out: Output attention tensor, shape (b, s, n_q, kv_lora_rank), dtype BF16
-            nq: Number of query heads
-            n_kv: Number of key-value heads
-            softmax_scale: Scaling factor for attention scores
-            topk: Number of top-k keys to attend to
-            block_size: Size of each block in PagedAttention
-            max_blocknum_perbatch: Maximum number of blocks per batch
-            tile_config: SaTileShapeConfig object containing tiling parameters
-            
-        Note:
-            Configured for decode phase with optimized memory and parallelism settings.
-            Uses flash attention algorithm for better numerical stability.
-        """
-        pypto.experimental.set_operation_options(combine_axis=True)
-    
-        attention_out = pypto.Tensor(attention_out_shape, pypto.DT_BF16)
+    Optimized version for prefill phase with specific pass configurations.
+    Uses flash attention algorithm with online softmax for numerical stability.
 
-        sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_indices, 
-                                                block_table, kv_act_seqs, attention_out, 
-                                                nq, n_kv, softmax_scale, topk, block_size, 
-                                                max_blocknum_perbatch, tile_config)
-        return attention_out
+    Args:
+        query_nope: Query tensor without RoPE, shape (t * n_q, kv_lora_rank), dtype BF16
+        query_rope: Query tensor with RoPE, shape (t * n_q, rope_dim), dtype BF16
+        nope_cache: Key tensor without RoPE, Key tensor with RoPE, Dequantization scales for quantized keys,
+                    shape (block_num * block_size, kv_lora_rank + rope_dim*2 + 4*4),
+                    dtype INT8
+        topk_indices: Top-k indices for each query token, shape (t, n_kv * topk), dtype INT32
+        block_table: Block mapping table for PagedAttention, shape (b, max_blocknum_perbatch),
+                    dtype INT32
+        kv_act_seqs: Actual sequence lengths for each batch, shape (b,), dtype INT32
+        attention_out: Output attention tensor, shape (b, s, n_q, kv_lora_rank), dtype BF16
+        nq: Number of query heads
+        n_kv: Number of key-value heads
+        softmax_scale: Scaling factor for attention scores
+        topk: Number of top-k keys to attend to
+        block_size: Size of each block in PagedAttention
+        max_blocknum_perbatch: Maximum number of blocks per batch
+        tile_config: SaTileShapeConfig object containing tiling parameters
 
-    return sparse_attention_antiquant_p_kernel
+    Note:
+        Configured for prefill phase with optimized memory and parallelism settings.
+        Uses flash attention algorithm for better numerical stability.
+    """
+    pypto.experimental.set_operation_options(combine_axis=True)
+
+    sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_indices,
+                                            block_table, kv_act_seqs, attention_out,
+                                            nq, n_kv, softmax_scale, topk, block_size,
+                                            max_blocknum_perbatch, tile_config)
