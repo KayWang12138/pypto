@@ -185,16 +185,6 @@ public:
     ShapedType(DataType dtype, const std::vector<int64_t> &shape, std::optional<MemRefPtr> memref);
 
     /**
-     * \brief Create a shaped type with memory reference (shared_ptr)
-     *
-     * \param dtype Element data type
-     * \param shape Shape dimensions
-     * \param memref Memory reference (shared pointer)
-     */
-    ShapedType(DataType dtype, std::vector<ExprPtr> shape, MemRefPtr memref)
-        : dtype_(dtype), shape_(std::move(shape)), memref_(std::move(memref)) {}
-
-    /**
      * \brief Create a shaped type with optional memory reference (shared_ptr)
      *
      * \param dtype Element data type
@@ -231,16 +221,6 @@ public:
      * \param dtype Element data type
      */
     TensorType(std::vector<ExprPtr> shape, DataType dtype) : ShapedType(dtype, std::move(shape)) {}
-
-    /**
-     * \brief Create a tensor type with memory reference (shared_ptr)
-     *
-     * \param shape Shape dimensions
-     * \param dtype Element data type
-     * \param memref Memory reference (shared pointer)
-     */
-    TensorType(std::vector<ExprPtr> shape, DataType dtype, MemRefPtr memref)
-        : ShapedType(dtype, std::move(shape), std::move(memref)) {}
 
     /**
      * \brief Create a tensor type with constant shape
@@ -290,16 +270,6 @@ public:
         : ShapedType(dtype, std::move(shape)), tileView_(std::nullopt) {}
 
     /**
-     * \brief Create a tile type with memory reference (shared_ptr)
-     *
-     * \param shape Shape dimensions (supports multi-dimensional tensors)
-     * \param dtype Element data type
-     * \param memref Memory reference (shared pointer)
-     */
-    TileType(std::vector<ExprPtr> shape, DataType dtype, MemRefPtr memref)
-        : ShapedType(dtype, std::move(shape), std::move(memref)), tileView_(std::nullopt) {}
-
-    /**
      * \brief Create a tile type with optional memory reference (shared_ptr)
      *
      * \param shape Shape dimensions (supports multi-dimensional tensors)
@@ -322,17 +292,6 @@ public:
     TileType(const std::vector<int64_t> &shape, DataType dtype, std::optional<MemRefPtr> memref,
         std::optional<TileView> tileView)
         : ShapedType(dtype, shape, std::move(memref)), tileView_(std::move(tileView)) {}
-
-    /**
-     * \brief Create a tile type with memory reference and tile view (shared_ptr)
-     *
-     * \param shape Shape dimensions (supports multi-dimensional tensors)
-     * \param dtype Element data type
-     * \param memref Memory reference (shared pointer)
-     * \param tileView Tile view information
-     */
-    TileType(std::vector<ExprPtr> shape, DataType dtype, MemRefPtr memref, std::optional<TileView> tileView)
-        : ShapedType(dtype, std::move(shape), std::move(memref)), tileView_(std::move(tileView)) {}
 
     /**
      * \brief Create a tile type with optional memory reference and tile view (shared_ptr)
