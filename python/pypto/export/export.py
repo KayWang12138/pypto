@@ -7,7 +7,9 @@ import torchair
 from pathlib import Path
 from typing import Union
 
+
 def export_to_onnx(model: nn.Module, inputs: torch.Tensor, path: str, input_names: list[str], output_names: list[str]):
+    """Export a PyTorch model to ONNX and run checker."""
     torch.onnx.export(
         model,
         inputs,
@@ -27,7 +29,9 @@ def export_to_onnx(model: nn.Module, inputs: torch.Tensor, path: str, input_name
     print("ONNX graph:")
     print(onnx.helper.printable_graph(m.graph))
 
+
 def export_to_torchair(model: nn.Module, inputs: torch.Tensor, path: str):
+    """Export a PyTorch model to TorchAir format."""
     path = Path(path)
 
     torchair.dynamo_export(
