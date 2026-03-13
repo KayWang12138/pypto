@@ -19,6 +19,7 @@
 #include "securec.h"
 #include "codegen/utils/codegen_utils.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
+#include "interface/operation/vector/quantize.h"
 #include <string>
 
 namespace npu::tile_fwk {
@@ -1747,6 +1748,46 @@ std::string CodeGenOpCloudNPU::GenLogicalAndOp() const {
 
     os << tileOpName.c_str() << "<" << templateParam << ">"
        << "(" << tiloOpCallParam << ");\n";
+
+    return os.str();
+}
+
+std::string CodeGenOpCloudNPU::GenQuantizeOp() const {
+    std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+    std::string srcVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+    std::string scaleVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
+
+    AppendLocalBufVarOffsetInOrder(dstVar, srcVar, scaleVar);
+
+    bool isAsymmetric = (operandDtype[ID0] == DataType::DT_UINT8);
+
+    std::string offsetVar;
+    if (isAsymmetric) {
+        offsetVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID3]);
+        AppendLocalBufVarOffsetInOrder(offsetVar);
+    }
+
+    // Call PrintQuantizeOp (simplified parameters)
+    return PrintQuantizeOp({dstVar, srcVar, scaleVar, offsetVar, isAsymmetric});
+}
+
+std::string CodeGenOpCloudNPU::PrintQuantizeOp(const PrintQuantizeParam &param) const {
+    std::ostringstream os;
+
+    // Determine quantize type string
+    std::string quantTypeStr = param.isAsymmetric ?
+        QuantizeTypeToISAString(QuantizeType::INT8_ASYM) :
+        QuantizeTypeToISAString(QuantizeType::INT8_SYM);
+
+    // Generate TQUANT call - correct single-layer call form
+    os << "TQUANT<" << quantTypeStr << ">("
+       << param.dstVar << ", " << param.srcVar << ", " << param.scaleVar;
+
+    if (param.isAsymmetric) {
+        os << ", &" << param.offsetVar;
+    }
+
+    os << ");\n";
 
     return os.str();
 }
