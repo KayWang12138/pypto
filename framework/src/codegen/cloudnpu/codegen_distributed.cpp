@@ -25,7 +25,6 @@ namespace npu::tile_fwk {
 
 using AtomicType = Distributed::AtomicType;
 using DistOpAttr = Distributed::DistOpAttr;
-constexpr int32_t GM2UB_SHMEMDATA_INDEX = 2;
 
 void CheckInRange(int64_t value)
 {
@@ -82,7 +81,7 @@ std::string CodeGenOpCloudNPU::GenTemplateParamsForPutAndGet() const
     static const std::unordered_map<Opcode, std::array<int32_t, 2>> opcodeIndexMap = {
         {Opcode::OP_SHMEM_PUT, {3, 4}},
         {Opcode::OP_SHMEM_GET, {0, 3}},
-        {Opcode::OP_SHMEM_PUT_UB2GM, {1, GM2UB_SHMEMDATA_INDEX}},
+        {Opcode::OP_SHMEM_PUT_UB2GM, {1, 2}},
         {Opcode::OP_SHMEM_GET_GM2UB, {0, 3}}
     };
     auto [nonShmemDataIndex, shmemDataIndex] = opcodeIndexMap.at(opCode);
