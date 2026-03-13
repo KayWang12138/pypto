@@ -612,3 +612,77 @@ class ExpandExpDifTestCase(TestCase):
 
     def golden_func_params(self) -> dict:
         return {}
+
+
+class QuantizeTestCase(TestCase):
+    def __init__(
+        self,
+        case_index: str,
+        case_name: str,
+        input_tensors: list,
+        output_tensors: list,
+        view_shape: tuple,
+        tile_shape: tuple,
+        params: dict,
+    ):
+        super().__init__(
+            case_index,
+            case_name,
+            "Quantize",
+            input_tensors,
+            output_tensors,
+            view_shape,
+            tile_shape,
+            params,
+            PTOTestCaseRunner(
+                "Quantize", input_tensors, output_tensors, view_shape, tile_shape, params
+            ),
+        )
+
+    def run_in_dyn_func(self, inputs, params: dict) -> dict:
+        output_dtype = get_pto_dtype_by_name(params["otype"])
+        axis = params.get("axis", -1)
+
+        if params.get("is_asymmetric", False):
+            return pypto.quantize(inputs[0], inputs[1], output_dtype, axis, inputs[2])
+        else:
+            return pypto.quantize(inputs[0], inputs[1], output_dtype, axis)
+
+    def golden_func(self, inputs, params: dict) -> list:
+        import numpy as np
+
+        input_tensor = inputs[0]
+        scale_tensor = inputs[1]
+        axis = params.get("axis", -1)
+
+        # Normalize axis to positive index
+        if axis < 0:
+            axis = len(input_tensor.shape) + axis
+
+        # Broadcast scale to input shape
+        if scale_tensor.shape != input_tensor.shape:
+            # For axis=-1: scale shape is [..., row, 1]
+            # For axis=-2: scale shape is [..., 1, col]
+            scale_tensor = scale_tensor.broadcast_to(input_tensor.shape)
+
+        if params.get("is_asymmetric", False):
+            zero_points = inputs[2]
+            if zero_points.shape != input_tensor.shape:
+                zero_points = zero_points.broadcast_to(input_tensor.shape)
+            # Perform quantization
+            scaled = input_tensor * scale_tensor + zero_points
+            output = torch.round(scaled).to(torch.uint8)
+        else:
+            # Perform quantization
+            scaled = input_tensor * scale_tensor
+            output = torch.round(scaled).to(torch.int8)
+
+        return [output]
+
+    def golden_func_params(self) -> dict:
+        return {
+            "otype": self._case_desc.output_tensors[0].dtype,
+            "axis": self._case_desc.params.get("axis", -1),
+            "is_asymmetric": self._case_desc.params.get("is_asymmetric", False),
+        }
+        return {}
