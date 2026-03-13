@@ -54,11 +54,12 @@ python3 elementwise_ops.py abs::test_abs_basic
 @pypto.frontend.jit()
 def add_example(
     a: pypto.Tensor(shape, dtype),
-    b: pypto.Tensor(shape, dtype)
-) -> pypto.Tensor(shape, dtype):
+    b: pypto.Tensor(shape, dtype),
+    out: pypto.Tensor(shape, dtype)
+):
     pypto.set_vec_tile_shapes(2, 8)
-    out = pypto.add(a, b)
-    return out
+    out[:] = pypto.add(a, b)
+
 ```
 
 ### 矩阵乘法
@@ -67,11 +68,11 @@ def add_example(
 @pypto.frontend.jit()
 def matmul_example(
     a: pypto.Tensor((M, K), pypto.DT_BF16),
-    b: pypto.Tensor((K, N), pypto.DT_BF16)
-) -> pypto.Tensor((M, N), pypto.DT_BF16):
+    b: pypto.Tensor((K, N), pypto.DT_BF16),
+    out: pypto.Tensor((M, N), pypto.DT_BF16)
+):
     pypto.set_cube_tile_shapes([32, 32], [64, 64], [64, 64])
-    out = pypto.matmul(a, b, out_dtype=pypto.DT_BF16)
-    return out
+    out[:] = pypto.matmul(a, b, out_dtype=pypto.DT_BF16)
 ```
 
 ### 归约运算
@@ -79,11 +80,11 @@ def matmul_example(
 ```python
 @pypto.frontend.jit()
 def sum_example(
-    x: pypto.Tensor(x_shape, dtype)
-) -> pypto.Tensor(out_shape, dtype):
+    x: pypto.Tensor(x_shape, dtype),
+    out: pypto.Tensor(out_shape, dtype)
+):
     pypto.set_vec_tile_shapes(2, 8)
-    out = pypto.sum(x, dim=0, keepdim=True)
-    return out
+    out[:] = pypto.sum(x, dim=0, keepdim=True)
 ```
 
 ## 注意事项

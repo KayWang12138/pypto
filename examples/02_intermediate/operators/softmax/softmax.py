@@ -36,9 +36,7 @@ def get_device_id():
         int: The device ID if valid, None otherwise.
     """
     if 'TILE_FWK_DEVICE_ID' not in os.environ:
-        print("If no NPU environment is available, set --run_mode sim to run in simulation mode;")
-        print("otherwise, set the environment variable TILE_FWK_DEVICE_ID.")
-        print("Please set it before running this example:")
+        print("Please set the environment variable TILE_FWK_DEVICE_ID before running:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
 
@@ -71,40 +69,24 @@ def softmax_core(x: pypto.Tensor) -> pypto.Tensor:
     return exp / esum
 
 
-def softmax(shape: tuple, run_mode: str = "npu", dynamic: bool = True):
+@pypto.frontend.jit
+def softmax_kernel(
+    input_tensor: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
+    output_tensor: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
+):
+    bs, seqlen, head, dim = input_tensor.shape
+    tile_b = 1  # Process one batch at a time
+    b_loop = bs // tile_b
 
-    bs, seqlen, head, dim = shape
-    if dynamic:
-        bs = pypto.frontend.dynamic("bs")
-    
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
-    else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
-    # launch the kernel
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def softmax_kernel(
-        input_tensor: pypto.Tensor((bs, seqlen, head, dim), pypto.DT_FP32),
-    ) -> pypto.Tensor((bs, seqlen, head, dim), pypto.DT_FP32):
-        output_tensor = pypto.tensor((bs, seqlen, head, dim), pypto.DT_FP32)
-        tile_b = 1  # Process one batch at a time
-        b_loop = bs // tile_b
+    # Tiling shape setting for efficient execution
+    pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
-        # Tiling shape setting for efficient execution
-        pypto.set_vec_tile_shapes(1, 4, 1, 64)
-
-        for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
-            b_offset = idx * tile_b
-            b_offset_end = (idx + 1) * tile_b
-            input_view = input_tensor[b_offset:b_offset_end, :seqlen, :head, :dim]
-            softmax_out = softmax_core(input_view)
-            output_tensor[b_offset:, ...] = softmax_out
-        return output_tensor
-
-    return softmax_kernel
+    for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
+        b_offset = idx * tile_b
+        b_offset_end = (idx + 1) * tile_b
+        input_view = input_tensor[b_offset:b_offset_end, :seqlen, :head, :dim]
+        softmax_out = softmax_core(input_view)
+        output_tensor[b_offset:, ...] = softmax_out
 
 
 def test_softmax(device_id: int = None, run_mode: str = "npu", dynamic: bool = True) -> None:
@@ -112,10 +94,12 @@ def test_softmax(device_id: int = None, run_mode: str = "npu", dynamic: bool = T
 
     shape = (32, 32, 1, 256)
     x = torch.rand(shape, dtype=torch.float, device=device)
+    y = torch.zeros(shape, dtype=torch.float, device=device)
 
-    y = softmax(x.shape, run_mode, dynamic)(x).cpu() # default dim: -1
+    softmax_kernel(x, y) # default dim: -1
     golden = torch.softmax(x, dim=-1).cpu()
-
+    y = y.cpu()
+    
     max_diff = np.abs(y.numpy() - golden.numpy()).max()
     print(f"Input shape: {x.shape}")
     print(f"Output shape: {y.shape}")
@@ -159,9 +143,9 @@ Examples:
         '--run_mode',
         type=str,
         nargs='?',
-        default="npu",
-        choices=["npu", "sim"],
-        help='Run mode, such as npu/sim etc.'
+        default='npu',
+        choices=["npu"],
+        help='Run mode, currently only support npu.'
     )
 
     args = parser.parse_args()

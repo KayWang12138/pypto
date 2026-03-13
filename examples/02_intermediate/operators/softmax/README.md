@@ -32,8 +32,8 @@ def softmax_core(x: pypto.Tensor) -> pypto.Tensor:
 ```python
 @pypto.frontend.jit
 def softmax_kernel(
-    x: pypto.Tensor(x_shape, pypto.DT_FP32)
-) -> pypto.Tensor(x_shape, pypto.DT_FP32):
+    x: pypto.Tensor(x_shape, pypto.DT_FP32),
+):
     # 设置 Tiling 形状
     pypto.set_vec_tile_shapes(1, 4, 1, 64)
     # 使用 pypto.loop 处理数据分块
