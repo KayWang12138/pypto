@@ -141,25 +141,24 @@ TEST_F(AutoCastTest, PostCheckNormal) {
 
     AutoCast autoCast;
     EXPECT_EQ(autoCast.PostCheck(*function), FAILED); 
-    autoCast.RunOnFunction(*function);
 }
 
 TEST_F(AutoCastTest, InvalidOutputNum) {
-    ComputationalGraphBuilder G1;
-    EXPECT_EQ(G1.AddTensor(DataType::DT_INT32, {16, 16}, "t1"), true);
-    EXPECT_EQ(G1.AddTensor(DataType::DT_FP16, {16, 16}, "t2"), true);
-    EXPECT_EQ(G1.AddTensor(DataType::DT_FP16, {16, 16}, "t3"), true);
-    std::vector<Opcode> opCodes1{Opcode::OP_CAST};
-    std::vector<std::vector<std::string>> ioperands1{{"t1"}};
-    std::vector<std::vector<std::string>> ooperands1{{"t2", "t3"}};
-    std::vector<std::string> opNames1{"Cast"};
-    EXPECT_EQ(G1.AddOps(opCodes1, ioperands1, ooperands1, opNames1, true), true);
-    Function *function1 = G1.GetFunction();
-    ASSERT_NE(function1, nullptr);
+    ComputationalGraphBuilder G;
+    EXPECT_EQ(G.AddTensor(DataType::DT_INT32, {16, 16}, "t1"), true);
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP16, {16, 16}, "t2"), true);
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP16, {16, 16}, "t3"), true);
+    std::vector<Opcode> opCodes{Opcode::OP_CAST};
+    std::vector<std::vector<std::string>> ioperands{{"t1"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2", "t3"}};
+    std::vector<std::string> opNames{"Cast"};
+    EXPECT_EQ(G.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Function *function = G.GetFunction();
+    ASSERT_NE(function, nullptr);
 
-    AutoCast autoCast1;
-    EXPECT_EQ(autoCast1.PreCheck(*function1), FAILED);
-    autoCast1.RunOnFunction(*function1);
+    AutoCast autoCast;
+    EXPECT_EQ(autoCast.PreCheck(*function), FAILED);
+    autoCast.RunOnFunction(*function);
 }
 
 TEST_F(AutoCastTest, BF16UnsupportedInput) {
