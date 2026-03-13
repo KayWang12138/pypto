@@ -38,7 +38,7 @@ namespace py = pybind11;
 using namespace py::literals;
 
 {cpp_return_type} {cpp_func_name}({cpp_args_list}) {{
-    py::scoped_interpreter guard{{}};
+    py::gil_scoped_acquire gil;
 
     const std::string py_source = R"(
 {py_source}
