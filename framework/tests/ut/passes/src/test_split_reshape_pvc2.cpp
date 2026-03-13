@@ -85,7 +85,7 @@ TEST_F(TestSplitReshapeOpPVC2, Test_Reshape_1toMulti) {
         currentFunction = Program::GetInstance().GetCurrentFunction();
     }
     EXPECT_NE(currentFunction, nullptr);
-    std::vector<int64_t> expiInShape = {8, 4, 4};
+    std::vector<int64_t> expiInShape = {8, 4, 8};
     std::vector<int64_t> expOutShape = {8, 16};
     for (auto &op : currentFunction->Operations()) {
         if (op.GetOpcode() == Opcode::OP_RESHAPE) {
