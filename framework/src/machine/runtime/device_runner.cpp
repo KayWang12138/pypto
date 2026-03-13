@@ -224,9 +224,13 @@ int DeviceRunner::StoreTracrMetaData() {
     metadata["num_channels"] = channel_names.size();
 
     // markerTypes
-    metadata["markerTypes"] = {
-        {"1", "running task"}
-    };
+    metadata["markerTypes"] = nlohmann::json::object();
+
+    for (int i = 0; i < npu::tile_fwk::dynamic::PERF_TRACE_MAX; i++) {
+        char id_str[16];
+        snprintf(id_str, sizeof(id_str), "%02d", i + 1); // Zero-pad to 2 digits
+        metadata["markerTypes"][id_str] = npu::tile_fwk::dynamic::PerfTraceName[i];
+    }
 
     metadata["pid"] = 1;
     metadata["start_time"] = 0;

@@ -214,9 +214,11 @@ public:
             return ret;
         }
 
+        INSTRUMENTATION_MARK_SET(aicpuIdx_-1, PERF_TRACE_DEV_TASK_SCHED_EXEC, 0);
         PerfMtTrace(PERF_TRACE_DEV_TASK_SCHED_EXEC, aicpuIdx_);
         PerfMtBegin(PERF_EVT_SYNC_AICORE, aicpuIdx_);
         int32_t rc = SyncTaskFinish();
+        INSTRUMENTATION_MARK_SET(aicpuIdx_-1, PERF_TRACE_DEV_TASK_SYNC_CORE_STOP, 0);
         PerfMtTrace(PERF_TRACE_DEV_TASK_SYNC_CORE_STOP, aicpuIdx_);
         if (rc != DEVICE_MACHINE_OK) {
             ret = rc;
@@ -326,6 +328,7 @@ public:
         }
 
         if constexpr (IsDeviceMode()) {
+            INSTRUMENTATION_MARK_SET(aicpuIdx_-1, PERF_TRACE_WAIT_CORE_EXIT, 0);
             PerfMtTrace(PERF_TRACE_WAIT_CORE_EXIT, aicpuIdx_);
             ProfStop();
         }
@@ -336,11 +339,13 @@ public:
     inline int RunManager(int threadIdx, DevStartArgs *devStartArgs, DeviceArgs *deviceArgs, int schedIdx) {
         int ret = DEVICE_MACHINE_OK;
         Init(threadIdx, devStartArgs, deviceArgs, schedIdx);
+        INSTRUMENTATION_MARK_SET(aicpuIdx_-1, PERF_TRACE_INIT, 0);
         PerfMtTrace(PERF_TRACE_INIT, threadIdx);
         DeviceTaskCtrl *taskCtrl = nullptr;
         taskQueue_ = &(devStartArgs->deviceRuntimeDataDesc.taskQueueList[schedIdx_]);
         if constexpr (IsDeviceMode()) {
             ret = HandShake();
+            INSTRUMENTATION_MARK_SET(aicpuIdx_-1, PERF_TRACE_CORE_HAND_SHAKE, 0);
             PerfMtTrace(PERF_TRACE_CORE_HAND_SHAKE, threadIdx);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 AbnormalStop();
@@ -356,12 +361,14 @@ public:
         while (ret == 0) {
             taskCtrl = preFetchSuccess_ ? preFetchNextDevTaskCtrl_ : taskQueue_->Dequeue();
             if (taskCtrl == nullptr) {
+                INSTRUMENTATION_MARK_SET(aicpuIdx_-1, PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, 0);
                 PerfMtTrace(PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, aicpuIdx_, lastDevTaskFinCycle);
                 if (!isSendStop) {
                     SyncTaskFinish(true);
                 }
                 break;
             }
+            INSTRUMENTATION_MARK_SET(aicpuIdx_-1, PERF_TRACE_DEV_TASK_RCV, 0);
             PerfMtTrace(PERF_TRACE_DEV_TASK_RCV, aicpuIdx_);
             PROF_STAGE_BEGIN_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.before\n");
             PerfMtBegin(PERF_EVT_RUN_TASK, threadIdx);
@@ -372,6 +379,7 @@ public:
             if (ret != 0)
                 break;
             taskCtrl->PutTask(ret);
+            INSTRUMENTATION_MARK_SET(aicpuIdx_-1, PERF_TRACE_DEV_TASK_RSP, 0);
             PerfMtTrace(PERF_TRACE_DEV_TASK_RSP, threadIdx);
             PROF_STAGE_END_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.after\n");
         }
@@ -894,8 +902,9 @@ private:
         pendingResolveIndexList_[coreIdx] = 0;
         context_->sendCnt_[static_cast<int>(type)]++;
 
-        INSTRUMENTATION_MARK_SET(coreIdx2tracrIdx(coreIdx, type), 0, (uint32_t)newTask);  // 0 = "running task"
+        INSTRUMENTATION_MARK_SET(coreIdx2tracrIdx(coreIdx, type), PERF_TRACE_DEV_TASK_RUN, (uint32_t)newTask);  // 0 = "running task"
         if (isFirstTaskSend_) {
+            INSTRUMENTATION_MARK_SET(aicpuIdx_-1, PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK, (uint32_t)newTask);
             PerfMtTrace(PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK, aicpuIdx_);
             isFirstTaskSend_ = false;
         }
