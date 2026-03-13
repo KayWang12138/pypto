@@ -60,6 +60,7 @@ public:
     std::string GenMemL1CopyIn() const;
     std::string GenMemL1CopyOut() const;
     std::string GetConvCopyInMode() const;
+    std::string GetConvCopyOutMode() const;
     std::string GenMemL1CopyInConv() const;
     std::string GenMemL1CopyOutConv() const;
     std::string GenMemL1ToFB() const;
