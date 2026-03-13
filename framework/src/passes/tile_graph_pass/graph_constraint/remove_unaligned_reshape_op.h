@@ -56,6 +56,7 @@ private:
     Status ReplaceDynUnalignedReshapeOpsForDDR(Function &function, Operation &op);
     void ProcessCopyOutOfDDRReshape(Function &function, Operation &op, Operation *copyOutOp);
     void ProcessCopyInOfDDRReshape(Function &function, Operation &op, std::vector<Operation *> &copyInOps);
+    std::unordered_set<int> processedReshapeOps;
     std::vector<Operation *> FindAllProducerCopyOuts(LogicalTensorPtr tensor);
     void FindAllConsumerCopyIns(LogicalTensorPtr tensor, std::vector<Operation *> &copyInOps, bool &hasViewOrAssemble);
     bool CheckUnaligned(Operation &op);

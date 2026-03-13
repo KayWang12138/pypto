@@ -128,17 +128,19 @@ std::vector<int64_t> FindChangedDims(const std::vector<int64_t>& inputShapes, co
 void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOps(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "===> Start ReplaceDynUnalignedReshapeOps.");
     for (auto &op : function.Operations()) {
-        if (op.GetOpcode() != Opcode::OP_RESHAPE){
+        if (op.GetOpcode() != Opcode::OP_RESHAPE || processedReshapeOps.count(op.GetOpMagic())) {
             continue;
         }
         auto input = op.GetIOperands().front();
         auto output = op.GetOOperands().front();
         if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB && output->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
             ReplaceDynUnalignedReshapeOpsForUB(function, op);
+            processedReshapeOps.insert(op.GetOpMagic());
         } else if (input->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && output->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             if (ReplaceDynUnalignedReshapeOpsForDDR(function, op) != SUCCESS) {
                 APASS_LOG_DEBUG_F(Elements::Function, "DDR reshape replace failed for op %d.", op.GetOpMagic());
             }
+            processedReshapeOps.insert(op.GetOpMagic());
         }
     }   
     APASS_LOG_INFO_F(Elements::Function, "===> End ReplaceDynUnalignedReshapeOps.");
@@ -387,7 +389,7 @@ void RemoveUnalignedReshape::FindAllConsumerCopyIns(
 
 void RemoveUnalignedReshape::CollectReshapeOps(Function &function) {
     for (auto &op : function.Operations()) {
-        if (op.GetOpcode() != Opcode::OP_RESHAPE) {
+        if (op.GetOpcode() != Opcode::OP_RESHAPE || processedReshapeOps.count(op.GetOpMagic())) {
             continue;
         }
 
@@ -413,6 +415,7 @@ void RemoveUnalignedReshape::CollectReshapeOps(Function &function) {
         op.ReplaceOutput(newReshapeOutput, output);
         output->tensor->actualRawmagic = -1;
         op.GetOOperands().front()->tensor->actualRawmagic = op.GetIOperands().front()->tensor->GetRawMagic();
+        processedReshapeOps.insert(op.GetOpMagic());
     }
 }
 
