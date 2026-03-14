@@ -21,6 +21,7 @@
 #include "machine/device/dynamic/device_utils.h"
 
 namespace npu::tile_fwk::dynamic {
+struct DevAscendProgram;
 constexpr int ARG_ATTR_TYPE = 4;
 const uint32_t RAW_TENSOR_OFFSET_SIZE = 63;
 const uint32_t RAW_TENSOR_DESC_PRE_SIZE = 8;
@@ -316,7 +317,7 @@ struct DevAscendFunctionDupped {
         return oss.str();
     }
 
-    void DumpTopo(std::ofstream &os, int seqNo, int funcIdx, const DevCceBinary *cceBinary) const;
+    void DumpTopo(std::ofstream &os, int seqNo, int funcIdx, const DevCceBinary *cceBinary, bool enableVf) const;
 
 #if DEBUG_INFINITE_LIFETIME
     void DumpTensorAddrInfo(std::vector<std::string> &infos, uint32_t seqNo, uint32_t funcIdx);
