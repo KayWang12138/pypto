@@ -224,7 +224,7 @@ Status RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function &fun
         bool hasiOtherBranch = false;
         std::vector<Operation *> copyOutOps = FindAllProducerCopyOuts(input, hasiOtherBranch);
         if (hasiOtherBranch) {
-            APASS_LOG_ERROR_F(Elements::Operation, "There are more one op-tensor branch between Reshape and CopyOut.", op.GetOpMagic(), copyOutOps.size());
+            APASS_LOG_ERROR_F(Elements::Operation, "There are more one op-tensor branch between Reshape and CopyOut.");
             return FAILED;
         }
         if (copyOutOps.size() != 1) {
