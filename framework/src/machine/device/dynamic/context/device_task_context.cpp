@@ -130,19 +130,18 @@ void DeviceTaskContext::ProcessAivBatchTasks(ReadyCoreFunctionQueue *aivQueue, s
 }
 
 void DeviceTaskContext::UpdateDeviceTaskQueueInfo(DynDeviceTask *dyntask, ReadyCoreFunctionQueue *aicpuQueue,
-    ReadyCoreFunctionQueue *aivQueue, ReadyCoreFunctionQueue *aicQueue, WrapInfoQueue *wrapQueue, uint32_t *wrapTasklistAddr) {
+    ReadyCoreFunctionQueue *aivQueue, ReadyCoreFunctionQueue *aicQueue, WrapInfoQueue *wrapQueue) {
     dyntask->devTask.readyAivCoreFunctionQue = PtrToValue(aivQueue);
     dyntask->devTask.readyAicCoreFunctionQue = PtrToValue(aicQueue);
     dyntask->devTask.readyAicpuFunctionQue = PtrToValue(aicpuQueue);
     dyntask->devTask.mixTaskData.readyWrapCoreFunctionQue = PtrToValue(wrapQueue);
-    dyntask->devTask.mixTaskData.wrapTasklist = PtrToValue(wrapTasklistAddr);
 }
 
-int DeviceTaskContext::ProcessZeroPredTask(DynDeviceTask *dyntask, uint32_t *wrapTasklistAddr, WrapInfoQueue *wrapQueue, bool isNeedWrap) {
+int DeviceTaskContext::ProcessZeroPredTask(DynDeviceTask *dyntask, WrapInfoQueue *wrapQueue, bool isNeedWrap) {
     int wrapTaskNum = 0;
     size_t funcSize = dyntask->dynFuncDataCacheListSize;
     for (size_t funcIndex = 0; funcIndex < funcSize; ++funcIndex) {
-        BuildReadyQueueForFunc(dyntask, funcIndex, isNeedWrap, wrapQueue, wrapTasklistAddr, wrapTaskNum);
+        BuildReadyQueueForFunc(dyntask, funcIndex, isNeedWrap, wrapQueue, wrapTaskNum);
     }
     return wrapTaskNum;
 }
@@ -159,18 +158,17 @@ int DeviceTaskContext::BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram 
     InitDieReadyQueues(dyntask, devProg);
 
     bool isNeedWrap = IsNeedWrapProcess(dyntask, devProg);
-    uint32_t *wrapTasklistAddr = isNeedWrap ? AllocWrapTasklist(dyntask) : nullptr;
     WrapInfoQueue *wrapQueue = isNeedWrap ? AllocWrapQueue(dyntask) : nullptr;
 
-    int wrapTaskNum = ProcessZeroPredTask(dyntask, wrapTasklistAddr, wrapQueue, isNeedWrap);
-    UpdateDeviceTaskQueueInfo(dyntask, aicpuQueue, aivQueue, aicQueue, wrapQueue, wrapTasklistAddr);
+    int wrapTaskNum = ProcessZeroPredTask(dyntask, wrapQueue, isNeedWrap);
+    UpdateDeviceTaskQueueInfo(dyntask, aicpuQueue, aivQueue, aicQueue, wrapQueue);
     readyTaskNum += static_cast<uint64_t>(aivQueue->tail + aicQueue->tail + aicpuQueue->tail + wrapTaskNum);
     PerfEnd(PERF_EVT_READY_QUEUE_IN);
     return DEVICE_MACHINE_OK;
 }
 
 void DeviceTaskContext::BuildReadyQueueForFunc(DynDeviceTask *dyntask, size_t funcIndex, bool isNeedWrap,
-     WrapInfoQueue *wrapQueue, uint32_t *wrapTasklistAddr, int &wrapTaskNum) {
+     WrapInfoQueue *wrapQueue, int &wrapTaskNum) {
     ReadyCoreFunctionQueue *aicpuQueue = dyntask->readyQueue[DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AICPU)];
     ReadyCoreFunctionQueue *aivQueue = dyntask->readyQueue[DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AIV)];
     ReadyCoreFunctionQueue *aicQueue = dyntask->readyQueue[DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AIC)];
@@ -193,7 +191,7 @@ void DeviceTaskContext::BuildReadyQueueForFunc(DynDeviceTask *dyntask, size_t fu
         if (likely(dupPredCountList[opIndex] == 0)) {
             if (isNeedWrap && opWrapList != nullptr && opWrapList[opIndex] != -1) {
                 ProcessWrapQueue(dyntask, MakeMixWrapID(funcIndex, static_cast<uint32_t>(opWrapList[opIndex])),
-                    funcIndex, opIndex, wrapQueue, wrapTasklistAddr);
+                    funcIndex, opIndex, wrapQueue);
                 wrapTaskNum++;
             } else {
                 targetAivQueue->elem[targetAivQueue->tail++] = MakeTaskID(funcIndex, opIndex);
@@ -207,7 +205,7 @@ void DeviceTaskContext::BuildReadyQueueForFunc(DynDeviceTask *dyntask, size_t fu
         if (likely(dupPredCountList[opIndex] == 0)) {
             if (isNeedWrap && opWrapList != nullptr && opWrapList[opIndex] != -1) {
                 ProcessWrapQueue(dyntask, MakeMixWrapID(funcIndex, static_cast<uint32_t>(opWrapList[opIndex])),
-                    funcIndex, opIndex, wrapQueue, wrapTasklistAddr);
+                    funcIndex, opIndex, wrapQueue);
                 wrapTaskNum++;
             } else {
                 targetAicQueue->elem[targetAicQueue->tail++] = MakeTaskID(funcIndex, opIndex);
