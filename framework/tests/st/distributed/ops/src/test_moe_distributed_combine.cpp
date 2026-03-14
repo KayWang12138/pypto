@@ -42,6 +42,9 @@ void TestMoeDistributedCombine(OpTestParam& testParam, std::string& goldenDir)
     Tensor recvCounts(DataType::DT_INT32, recvCountsShape, "recvCounts");
     Tensor expertScales(DataType::DT_FP32, scaleShape, "expertScales");
     Tensor out(dType, outShape, "out");
+    std::vector<uint64_t> hcclContexts = DistributedContext::GetCommContextToHost(std::vector<std::string>{testParam.group});
+    auto contextSize = DistributedContext::GetCommContextSize(hcclContexts);
+    Tensor commTensor(DT_INT8, Shape{1, contextSize[0]}, "commTensor");
 
     std::string dispatchPath = goldenDir + "/dispatch";
     std::vector<T> expandXPtr = ReadToVector<T>(
@@ -57,8 +60,8 @@ void TestMoeDistributedCombine(OpTestParam& testParam, std::string& goldenDir)
         uint32_t, uint32_t, uint32_t, uint32_t, Tensor&)>;
     CombineFunc func = (useV2 == 1) ? MoeDistributedCombineV2 : MoeDistributedCombine;
 
-    FUNCTION("MoeDistributedCombineMain", {expandX, assistInfoForCombine, recvCounts, expertScales}, {out}) {
-        func(expandX, assistInfoForCombine, recvCounts, expertScales, testParam.group,
+    FUNCTION("MoeDistributedCombineMain", {expandX, assistInfoForCombine, recvCounts, expertScales, commTensor}, {out}) {
+        func(expandX, assistInfoForCombine, recvCounts, expertScales, commTensor,
             testParam.rankSize, moeExpertNum, 0, 0, out);
     }
 
@@ -66,7 +69,8 @@ void TestMoeDistributedCombine(OpTestParam& testParam, std::string& goldenDir)
         RawTensorData::CreateTensor<T>(expandX, expandXPtr),
         RawTensorData::CreateTensor<int32_t>(assistInfoForCombine, assistInfoForCombinePtr),
         RawTensorData::CreateTensor<int32_t>(recvCounts, recvCountsPtr),
-        RawTensorData::CreateTensor<float>(expertScales, expertScalesPtr)
+        RawTensorData::CreateTensor<float>(expertScales, expertScalesPtr),
+        RawTensorData::CreateTensor(DT_INT8, Shape{1, contextSize[0]}, (uint8_t *)(hcclContexts[0]))
     });
     ProgramData::GetInstance().AppendOutputs({RawTensorData::CreateTensorZero(out)});
 

@@ -559,14 +559,14 @@ void MoeDistributedDispatch(const Tensor &tokenTensor, const Tensor &tokenExpert
     }
 }
 
-void MoeDispatchValidateV2(const Tensor& x, const Tensor& expertIds, const char *group, 
+void MoeDispatchValidateV2(const Tensor& x, const Tensor& expertIds, 
     uint32_t epWorldSize, uint32_t moeExpertNum, uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& expandX,
     Tensor& expertTokenNums, Tensor& assistInfoForCombine, Tensor& recvCounts)
 {
     std::string assertResult;
-    CHECK(group != nullptr) << "MoeDispatch constraint violated: group name can't be nullptr.";
-    CHECK(group[0] != '\0') << "MoeDispatch constraint violated: group name must be valid, but got '\0'";
-    CHECK(strnlen(group, 128) < 128) << "MoeDispatch constraint violated: group name max size must be 128, but got " << strnlen(group, 128);
+    //CHECK(group != nullptr) << "MoeDispatch constraint violated: group name can't be nullptr.";
+    //CHECK(group[0] != '\0') << "MoeDispatch constraint violated: group name must be valid, but got '\0'";
+    //CHECK(strnlen(group, 128) < 128) << "MoeDispatch constraint violated: group name max size must be 128, but got " << strnlen(group, 128);
     CHECK(epWorldSize > 0) << "MoeDispatch constraint violated: epWorldSize must be > 0, but got " << epWorldSize;
     CHECK(moeExpertNum == 160) << "MoeDispatch constraint violated: moeExpertNum must 160, but got " << moeExpertNum;
     CHECK(sharedExpertNum == 0) << "MoeDispatch constraint violated: sharedExpertNum must 0, but got " << sharedExpertNum;
@@ -620,11 +620,11 @@ Tensor DispatchCalcOccurrences(Tensor& expertIds, SymbolicScalar expertId, int32
     return expertOffset;
 }
 
-void MoeDistributedDispatchV2(const Tensor& x, const Tensor& expertIds, const char* group,
+void MoeDistributedDispatchV2(const Tensor& x, const Tensor& expertIds, const Tensor& commTensor,
     uint32_t epWorldSize, uint32_t moeExpertNum, uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& expandX,
     Tensor& assistInfoForCombine, Tensor& expertTokenNums, Tensor& recvCounts)
 {
-    MoeDispatchValidateV2(x, expertIds, group, epWorldSize, moeExpertNum, sharedExpertNum, 
+    MoeDispatchValidateV2(x, expertIds, epWorldSize, moeExpertNum, sharedExpertNum, 
         sharedExpertRankNum, expandX, expertTokenNums, assistInfoForCombine, recvCounts);
     int32_t routedExpertNum = moeExpertNum - sharedExpertNum;
     CHECK(epWorldSize > 0) << "MoeDispatch constraint violated: epWorldSize must be > 0, but got " << epWorldSize;
@@ -643,7 +643,7 @@ void MoeDistributedDispatchV2(const Tensor& x, const Tensor& expertIds, const ch
     int32_t countSize = 8;
     int32_t signalCol = 128;
     int32_t cumSumRowShape = AlignUp(routedExpertNum, 256);
-    SymbolicScalar thisRank = GetHcclRankId(group);
+    SymbolicScalar thisRank = GetHcclRankIdV2(commTensor);
 
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void) index;
@@ -652,11 +652,11 @@ void MoeDistributedDispatchV2(const Tensor& x, const Tensor& expertIds, const ch
         Shape shmemCountShape = {1, cumSumRowShape, countSize};
         Shape shmemCountSignalShape = {1, moeExpertNum, 1, signalCol};
         Shape shmemDataSignalgShape = {1, 1, 1, signalCol};
-        CreateShmemData(group, epWorldSize, x.GetDataType(), shmemDataShape, shmemData, 0);
-        CreateShmemData(group, epWorldSize, DT_INT32, shmemInfoShape, shmemInfo, 0);
-        CreateShmemData(group, epWorldSize, DT_INT32, shmemCountShape, shmemCount, 0);
-        CreateShmemData(group, epWorldSize, DT_INT32, shmemCountSignalShape, shmemCountSignal, 0);
-        CreateShmemData(group, epWorldSize, DT_INT32, shmemDataSignalgShape, shmemDataSignal, 0);
+        CreateShmemData(commTensor, epWorldSize, x.GetDataType(), shmemDataShape, shmemData, 0);
+        CreateShmemData(commTensor, epWorldSize, DT_INT32, shmemInfoShape, shmemInfo, 0);
+        CreateShmemData(commTensor, epWorldSize, DT_INT32, shmemCountShape, shmemCount, 0);
+        CreateShmemData(commTensor, epWorldSize, DT_INT32, shmemCountSignalShape, shmemCountSignal, 0);
+        CreateShmemData(commTensor, epWorldSize, DT_INT32, shmemDataSignalgShape, shmemDataSignal, 0);
     }
 
     TileShape::Current().SetVecTile({1, batchSize * topK});
