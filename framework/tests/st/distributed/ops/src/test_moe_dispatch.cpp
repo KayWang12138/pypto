@@ -40,19 +40,23 @@ void TestShmemMoeDispatch(OpTestParam& testParam, std::string& goldenDir)
     Tensor expandX(dType, expandXShape, "expandX");
     Tensor combineInfo(DataType::DT_INT32, combineInfoShape, "combineInfo");
     Tensor recvCounts(DataType::DT_INT32, {1}, "recvCounts");
+    std::vector<uint64_t> hcclContexts = DistributedContext::GetCommContextToHost(std::vector<std::string>{testParam.group});
+    auto contextSize = DistributedContext::GetCommContextSize(hcclContexts);
+    Tensor commTensor(DT_INT8, Shape{1, contextSize[0]}, "commTensor");
     int64_t expandXEleNum = expandXShape[0] * expandXShape[1];
     int64_t combineInfoEleNum = combineInfoShape[0] * combineInfoShape[1];
     std::string xPath = goldenDir+ "/x_rank_" + std::to_string(testParam.rankId) + ".bin";
     std::vector<T> tokenTensorPtr = ReadToVector<T>(xPath, tokenTensorShape);
     std::string expertIdsPath = goldenDir + "/expert_ids_rank_" + std::to_string(testParam.rankId) + ".bin";
     std::vector<int32_t> tokenExpertTablePtr = ReadToVector<int32_t>(expertIdsPath, tokenExpertTableShape);
-    FUNCTION("MoeDispatch", {tokenTensor, tokenExpertTable}, {expandX, expertTokenNums, combineInfo, recvCounts}) {
-        Distributed::MoeDistributedDispatchV2(tokenTensor, tokenExpertTable, testParam.group,
+    FUNCTION("MoeDispatch", {tokenTensor, tokenExpertTable, commTensor}, {expandX, expertTokenNums, combineInfo, recvCounts}) {
+        Distributed::MoeDistributedDispatchV2(tokenTensor, tokenExpertTable, commTensor,
             static_cast<uint32_t>(testParam.rankSize), routedNum, 0, 0, expandX, combineInfo, expertTokenNums, recvCounts);
     }
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<T>(tokenTensor, tokenTensorPtr),
         RawTensorData::CreateTensor<int32_t>(tokenExpertTable, tokenExpertTablePtr),
+        RawTensorData::CreateTensor(DT_INT8, Shape{1, contextSize[0]}, (uint8_t *)(hcclContexts[0]))
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateTensorZero(expandX),
