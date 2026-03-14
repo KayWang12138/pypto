@@ -32,7 +32,9 @@ std::string CompileSourceCode(const std::string &sourceFilePath, const std::stri
     std::string objectFilePath = sourceFilePath + "_t.o";
     std::string LD_PRELOAD = "LD_PRELOAD= ";
     std::string includePath = GetCurrentSharedLibPath() + "/../include/tile_fwk";
+    std::string macro = extraCflag.empty() ? "-D__DEVICE__" : "";
     std::string cmdGcc = LD_PRELOAD + gcc + " -fPIC -fno-stack-protector -O2 " + extraCflag +
+        " " + macro + " " +
         " -I" + includePath + " " +
         " -I" + GetCurrentSharedLibPath() + "/include/" +
         " -I" + includePath + "/tilefwk " +
@@ -716,4 +718,45 @@ void RawSymbolicExpression::DumpBuffer(std::ostream& buffer) const {
     }
 }
 
+bool CheckExprDependCore(const RawSymbolicScalarPtr &raw, const std::unordered_map<std::string, bool> &tensorNameToDependCore) {
+    switch (raw->Kind()) {
+        case SymbolicScalarKind::T_SCALAR_SYMBOLIC_IMMEDIATE:
+        case SymbolicScalarKind::T_SCALAR_SYMBOLIC_SYMBOL:
+            return false;
+        case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION: {
+            auto expr = std::dynamic_pointer_cast<RawSymbolicExpression>(raw);
+            if (expr->Opcode() == SymbolicOpcode::T_MOP_CALL) {
+                auto operandList = expr->OperandList();
+                if (operandList.size() < 2) {
+                    return false;
+                }
+                auto calleeExpr = operandList[0];
+                std::string callee;
+                if (calleeExpr->Kind() == SymbolicScalarKind::T_SCALAR_SYMBOLIC_SYMBOL) {
+                    callee = std::dynamic_pointer_cast<RawSymbolicSymbol>(calleeExpr)->Name();
+                } else {
+                    // For more complex callee expressions, we need to build the expression string
+                    // This is a simplified version, you may need to call BuildExpressionByRaw for complex cases
+                    return false;
+                }
+                FUNCTION_LOGE("[RunCmd] ===TEST=== callee %s", callee.c_str());
+                if (CallIsGetInputData(callee)) {
+                    auto argExpr = operandList[1];
+                    std::string argName = std::dynamic_pointer_cast<RawSymbolicSymbol>(argExpr)->Name();
+                    return tensorNameToDependCore.count(argName) == 0;
+                }
+            }
+
+            // Recursively check all operands
+            for (const auto &operand : expr->OperandList()) {
+                if (CheckExprDependCore(operand, tensorNameToDependCore)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        default:
+            return false;
+    }
+}
 } // namespace npu::tile_fwk
