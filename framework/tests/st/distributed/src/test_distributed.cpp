@@ -30,8 +30,12 @@ public:
 
     void SetUp() override
     {
-        //Distributed::TestFrameworkInit(testParam, hcomTestParam, physicalDeviceId);
-        Distributed::TestFrameworkInitMulti(testParam, hcomTestParam, physicalDeviceId);
+        const nlohmann::json& testData = GetParam().testData_;
+        Distributed::TestFrameworkInit(testParam, hcomTestParam, physicalDeviceId);
+        std::string opName = testData["operation"].get<std::string>();
+        if (opName == "AllGather") {
+            Distributed::TestFrameworkInitSub(testParam, subHcomTestParam);
+        }
         std::string outputDir = "output";
         bool res = CreateDir(outputDir);
         CHECK(res) << "Failed to create directory: " << outputDir;
@@ -72,6 +76,9 @@ protected:
     void DistributedTestDestroy()
     {
         // 销毁集合通信域
+        if (subHcomTestParam) {
+            CHECK(HcclCommDestroy(subHcomTestParam.hcclComm) == 0) << "SubHcclCommDestroy failed";
+        }
         CHECK(HcclCommDestroy(hcomTestParam.hcclComm) == 0) << "HcclCommDestroy failed";
         // 重置设备
         CHECK(aclrtResetDevice(physicalDeviceId) == 0) << "aclResetDevice failed";
@@ -81,6 +88,7 @@ protected:
 
     Distributed::OpTestParam testParam;
     Distributed::HcomTestParam hcomTestParam;
+    Distributed::HcomTestParam subHcomTestParam;
     int32_t timeout = 10;
     int physicalDeviceId = 0;
 };
