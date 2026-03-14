@@ -72,6 +72,11 @@ public:
     int curDie1StartCpuId_{0};
     DieId dieId_{DieId::DIE_MIX};
 
+    uint64_t* runReadyCoreBitmask_{nullptr};
+    uint32_t* coreIdxPosition_{nullptr};
+    AddReadyCoreIdxFunc addReadyCoreIdxFunc_{nullptr};
+    RemoveReadyCoreIdxFunc removeReadyCoreIdxFunc_{nullptr};
+
     WrapInfoQueue* readyWrapCoreFunctionQue_{nullptr};
     // Queue managed by each thread, elem is wrapInfo's addr
     StaticReadyCoreFunctionQueue wrapQueueForThread_{0, 0, nullptr, 0};
@@ -123,10 +128,15 @@ public:
         return DieId::DIE_MIX;
     }
 
+    using AddReadyCoreIdxFunc = std::function<void(int coreIdx, CoreType type)>;
+    using RemoveReadyCoreIdxFunc = std::function<void(int coreIdx, CoreType type)>;
+
     inline void Init(DeviceTask* curDevTask, uint32_t* coreRunReadyCnt, uint32_t* runReadyCoreIdxZero,
         uint32_t* runReadyCoreIdxOne, uint32_t* corePendReadyCnt, uint32_t* pendingIds, uint32_t* runningIds,
-        int aicValidNum, SendTaskToAiCoreFunc func) {
-
+        int aicValidNum, SendTaskToAiCoreFunc func, uint32_t* coreIdxPosition = nullptr,
+        uint64_t* runReadyCoreBitmask = nullptr,
+        AddReadyCoreIdxFunc addReadyCoreIdxFunc = nullptr, RemoveReadyCoreIdxFunc removeReadyCoreIdxFunc = nullptr) {
+ 
         if (archInfo != ArchInfo::DAV_3510) {
             return;
         }
@@ -135,21 +145,25 @@ public:
         coreRunReadyCnt_ = coreRunReadyCnt;
         runReadyCoreIdx_[CORE_IDX_AIV] = runReadyCoreIdxZero;
         runReadyCoreIdx_[CORE_IDX_AIC] = runReadyCoreIdxOne;
-
+ 
         corePendReadyCnt_ = corePendReadyCnt;
         pendingIds_ = pendingIds;
         runningIds_ = runningIds;
-
+ 
         aicValidNum_ = aicValidNum;
         SendTaskToAiCore = func;
         readyWrapCoreFunctionQue_ = reinterpret_cast<WrapInfoQueue *>(curDevTask_->mixTaskData.readyWrapCoreFunctionQue);
         wrapTasklist_ = reinterpret_cast<uint32_t *>(curDevTask_->mixTaskData.wrapTasklist);
-
+ 
         wrapQueueForThread_.head = 0;
         wrapQueueForThread_.tail = 0;
         wrapQueueForThread_.elem = curDevTask_->mixTaskData.wrapIdNum == 0 ? nullptr :
             static_cast<uint64_t *>(malloc(curDevTask_->mixTaskData.wrapIdNum * sizeof(uint64_t)));
         SetDieReadyQueue(curDevTask->dieReadyFunctionQue);
+        coreIdxPosition_ = coreIdxPosition;
+        runReadyCoreBitmask_ = runReadyCoreBitmask;
+        addReadyCoreIdxFunc_ = addReadyCoreIdxFunc;
+        removeReadyCoreIdxFunc_ = removeReadyCoreIdxFunc;
     }
 
     inline void Deinit() {
@@ -171,77 +185,117 @@ public:
         return wrapCoreStatus_[coreIdx] == 0;
     }
 
-    inline uint32_t GetAvailableCoreIdx(MixResourceType mixType = MixResourceType::MIX_UNKNOWN) {
+    // Get available wrap core and remove it from ready lists
+    // This function combines the functionality of GetAvailableCoreIdx and RemoveRunReadyCoreIdxForWrap
+    // to reduce function complexity and improve code maintainability
+    // 
+    // For MIX_1C1V: Find 1 AIC + 1 AIV available combination
+    // For MIX_1C2V: Find 1 AIC + 2 AIV available combination
+    // 
+    // Returns: coreIdx if found, INVALID_CORE_IDX if no available core
+    inline uint32_t RemoveAndGetAvailableCoreIdx(MixResourceType mixType = MixResourceType::MIX_UNKNOWN) {
+        uint32_t coreIdx = INVALID_CORE_IDX;
+        
+        // Step 1: Find available coreIdx based on mixType
         if (mixType == MixResourceType::MIX_1C1V) {
-            for (uint32_t i = 0; i < coreRunReadyCnt_[CORE_IDX_AIC]; i++) {
-                for (uint32_t j = 0; j < coreRunReadyCnt_[CORE_IDX_AIV]; j++) {
-                    uint32_t aicIdx = runReadyCoreIdx_[CORE_IDX_AIC][i];
-                    uint32_t aivIdx = runReadyCoreIdx_[CORE_IDX_AIV][j];
-                    if (aicIdx * AIV_NUM_PER_AI_CORE + aicValidNum_ == aivIdx) {
-                        return aicIdx;
-                    }
+            // MIX_1C1V mode: Find 1 AIC and 1 AIV available combination
+            uint64_t aicBitmask = runReadyCoreBitmask_[CORE_IDX_AIC];
+            uint64_t aivBitmask = runReadyCoreBitmask_[CORE_IDX_AIV];
+            
+            while (aicBitmask) {
+                uint32_t aicIdx = __builtin_ctzll(aicBitmask);
+                uint32_t aivIdx = aicIdx * AIV_NUM_PER_AI_CORE + aicValidNum_;
+                if (aivIdx < MAX_AICORE_NUM && (aivBitmask & (1ULL << aivIdx))) {
+                    coreIdx = aicIdx;
+                    break;
                 }
+                aicBitmask &= ~(1ULL << aicIdx);
             }
+        } else {
+            // MIX_1C2V mode: Find 1 AIC and 2 AIV available combination
+            uint64_t aicBitmask = runReadyCoreBitmask_[CORE_IDX_AIC];
+            uint64_t aivBitmask = runReadyCoreBitmask_[CORE_IDX_AIV];
+            
+            while (aicBitmask) {
+                uint32_t aicIdx = __builtin_ctzll(aicBitmask);
+                uint32_t aivIdx0 = aicIdx * AIV_NUM_PER_AI_CORE + aicValidNum_;
+                uint32_t aivIdx1 = aivIdx0 + 1;
+                if (aivIdx1 < MAX_AICORE_NUM && 
+                    (aivBitmask & (1ULL << aivIdx0)) && 
+                    (aivBitmask & (1ULL << aivIdx1))) {
+                    coreIdx = aicIdx;
+                    break;
+                }
+                aicBitmask &= ~(1ULL << aicIdx);
+            }
+        }
+        
+        // If no available coreIdx found, return INVALID_CORE_IDX
+        if (coreIdx == INVALID_CORE_IDX) {
             return INVALID_CORE_IDX;
         }
+        
+        // Step 2: Remove coreIdx from AIC ready list using removeReadyCoreIdxFunc_
+        removeReadyCoreIdxFunc_(coreIdx, CoreType::AIC);
 
-        for (uint32_t i = 0; i < coreRunReadyCnt_[CORE_IDX_AIC]; i++) {
-            for (uint32_t j = 0; j < coreRunReadyCnt_[CORE_IDX_AIV]; j++) {
-                for (uint32_t k = 0; k < coreRunReadyCnt_[CORE_IDX_AIV]; k++) {
-                    uint32_t aicIdx = runReadyCoreIdx_[CORE_IDX_AIC][i];
-                    uint32_t aivIdx0 = runReadyCoreIdx_[CORE_IDX_AIV][j];
-                    uint32_t aivIdx1 = runReadyCoreIdx_[CORE_IDX_AIV][k];
-                    if (aicIdx * AIV_NUM_PER_AI_CORE + aicValidNum_ == aivIdx0 && aivIdx0 + 1 == aivIdx1) {
-                        return aicIdx;
-                    }
-                }
-            }
-        }
-        return INVALID_CORE_IDX;
-    }
-
-    inline void RemoveRunReadyCoreIdxForWrap(uint32_t coreIdx, MixResourceType mixType = MixResourceType::MIX_UNKNOWN) {
-        coreRunReadyCnt_[CORE_IDX_AIC]--;
-        corePendReadyCnt_[CORE_IDX_AIC]--;
-        // if coreIdx is at the tail of runReadyCoreIdx_, no processing is need, simply cnt--
-        if (runReadyCoreIdx_[CORE_IDX_AIC][coreRunReadyCnt_[CORE_IDX_AIC]] != coreIdx) {
-            // if coreIdx isnt at the tail of runReadyCoreIdx_, replace it by tail data
-            for (uint32_t i = 0; i < coreRunReadyCnt_[CORE_IDX_AIC]; i++) {
-                if (runReadyCoreIdx_[CORE_IDX_AIC][i] == coreIdx) {
-                    // swap tail data with coreIdx
-                    runReadyCoreIdx_[CORE_IDX_AIC][i] = runReadyCoreIdx_[CORE_IDX_AIC][coreRunReadyCnt_[CORE_IDX_AIC]];
-                    runReadyCoreIdx_[CORE_IDX_AIC][coreRunReadyCnt_[CORE_IDX_AIC]] = coreIdx;
-                }
-            }
-        }
-
-        coreRunReadyCnt_[CORE_IDX_AIV]--;
-        corePendReadyCnt_[CORE_IDX_AIV]--;
+        // Step 3: Remove corresponding aivIdx0 from AIV ready list using removeReadyCoreIdxFunc_
         uint32_t aivIdx0 = coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_;
-        if (runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]] != aivIdx0) {
-            for (uint32_t i = 0; i < coreRunReadyCnt_[CORE_IDX_AIV]; i++) {
-                if (runReadyCoreIdx_[CORE_IDX_AIV][i] == aivIdx0) {
-                    runReadyCoreIdx_[CORE_IDX_AIV][i] = runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]];
-                    runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]] = aivIdx0;
-                }
-            }
-        }
-
+        removeReadyCoreIdxFunc_(aivIdx0, CoreType::AIV);
         CheckCoreIdxInitStatus(coreIdx);
         CheckCoreIdxInitStatus(aivIdx0);
 
+        // Step 4: For MIX_1C2V mode, also remove aivIdx1 from AIV ready list using removeReadyCoreIdxFunc_
         if (mixType != MixResourceType::MIX_1C1V) {
-            coreRunReadyCnt_[CORE_IDX_AIV]--;
-            corePendReadyCnt_[CORE_IDX_AIV]--;
             uint32_t aivIdx1 = coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_ + 1;
-            if (runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]] != aivIdx1) {
-                for (uint32_t i = 0; i < coreRunReadyCnt_[CORE_IDX_AIV]; i++) {
-                    if (runReadyCoreIdx_[CORE_IDX_AIV][i] == aivIdx1) {
-                        runReadyCoreIdx_[CORE_IDX_AIV][i] = runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]];
-                        runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]] = aivIdx1;
-                    }
-                }
+            if (removeReadyCoreIdxFunc_ != nullptr) {
+                removeReadyCoreIdxFunc_(aivIdx1, CoreType::AIV);
             }
+            CheckCoreIdxInitStatus(aivIdx1);
+            DEV_VERBOSE_DEBUG("remove coreIdx %u  %u  %u", coreIdx, aivIdx0, aivIdx1);
+        } else {
+            DEV_VERBOSE_DEBUG("remove coreIdx %u  %u", coreIdx, aivIdx0);
+        }
+        
+        return coreIdx;
+    }
+
+    inline void RemoveRunReadyCoreIdxForWrap(uint32_t coreIdx, MixResourceType mixType = MixResourceType::MIX_UNKNOWN) {
+        uint32_t aicPos = coreIdxPosition_[coreIdx];
+        uint32_t aicTail = --coreRunReadyCnt_[CORE_IDX_AIC];
+        corePendReadyCnt_[CORE_IDX_AIC]--;
+        
+        if (aicPos != aicTail) {
+            runReadyCoreIdx_[CORE_IDX_AIC][aicPos] = runReadyCoreIdx_[CORE_IDX_AIC][aicTail];
+            coreIdxPosition_[runReadyCoreIdx_[CORE_IDX_AIC][aicPos]] = aicPos;
+        }
+        runReadyCoreBitmask_[CORE_IDX_AIC] &= ~(1ULL << coreIdx);
+ 
+        uint32_t aivIdx0 = coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_;
+        uint32_t aivPos0 = coreIdxPosition_[aivIdx0];
+        uint32_t aivTail0 = coreRunReadyCnt_[CORE_IDX_AIV] -1;
+        corePendReadyCnt_[CORE_IDX_AIV]--;
+        
+        if (aivPos0 != aivTail0) {
+            runReadyCoreIdx_[CORE_IDX_AIV][aivPos0] = runReadyCoreIdx_[CORE_IDX_AIV][aivTail0];
+            coreIdxPosition_[runReadyCoreIdx_[CORE_IDX_AIV][aivPos0]] = aivPos0;
+        }
+        runReadyCoreBitmask_[CORE_IDX_AIV] &= ~(1ULL << aivIdx0);
+ 
+        CheckCoreIdxInitStatus(coreIdx);
+        CheckCoreIdxInitStatus(aivIdx0);
+ 
+        if (mixType != MixResourceType::MIX_1C1V) {
+            uint32_t aivIdx1 = coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_ + 1;
+            uint32_t aivPos1 = coreIdxPosition_[aivIdx1];
+            uint32_t aivTail1 = --coreRunReadyCnt_[CORE_IDX_AIV];
+            corePendReadyCnt_[CORE_IDX_AIV]--;
+            
+            if (aivPos1 != aivTail1) {
+                runReadyCoreIdx_[CORE_IDX_AIV][aivPos1] = runReadyCoreIdx_[CORE_IDX_AIV][aivTail1];
+                coreIdxPosition_[runReadyCoreIdx_[CORE_IDX_AIV][aivPos1]] = aivPos1;
+            }
+            runReadyCoreBitmask_[CORE_IDX_AIV] &= ~(1ULL << aivIdx1);
+            
             CheckCoreIdxInitStatus(aivIdx1);
             DEV_VERBOSE_DEBUG("remove coreIdx %u  %u  %u", coreIdx, aivIdx0, aivIdx1);
         } else {
@@ -259,16 +313,25 @@ public:
 
     inline void AddRunReadyCoreIdxForWrap(uint32_t coreIdx, MixResourceType mixType = MixResourceType::MIX_UNKNOWN) {
         uint32_t aivIdx0 = coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_;
-        runReadyCoreIdx_[CORE_IDX_AIC][coreRunReadyCnt_[CORE_IDX_AIC]++] = coreIdx;
-        runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]++] = aivIdx0;
+        
+        // Add coreIdx to AIC ready list using addReadyCoreIdxFunc_
+        addReadyCoreIdxFunc_(coreIdx, CoreType::AIC);
+        
+        // Add aivIdx0 to AIV ready list using addReadyCoreIdxFunc_
+        addReadyCoreIdxFunc_(aivIdx0, CoreType::AIV);
+        
         corePendReadyCnt_[CORE_IDX_AIC]++;
         corePendReadyCnt_[CORE_IDX_AIV]++;
+        
         CheckCoreIdxInitStatus(coreIdx);
         CheckCoreIdxInitStatus(aivIdx0);
+        
         if (mixType != MixResourceType::MIX_1C1V) {
             uint32_t aivIdx1 = coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_ + 1;
             CheckCoreIdxInitStatus(aivIdx1);
-            runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]++] = aivIdx1;
+            
+            // Add aivIdx1 to AIV ready list using addReadyCoreIdxFunc_
+            addReadyCoreIdxFunc_(aivIdx1, CoreType::AIV);
             DEV_VERBOSE_DEBUG("add coreIdx %u  %u  %u", coreIdx, coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_,
                 coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_ + 1);
             corePendReadyCnt_[CORE_IDX_AIV]++;
@@ -295,7 +358,7 @@ public:
             uint32_t wrapId = wrapInfo->wrapId;
             MixResourceType mixType = static_cast<MixResourceType>(wrapInfo->mixResourceType);
 
-            uint32_t avaiCoreIdx = GetAvailableCoreIdx(mixType);
+            uint32_t avaiCoreIdx = RemoveAndGetAvailableCoreIdx(mixType);
             if (avaiCoreIdx == INVALID_CORE_IDX) {
                 DEV_VERBOSE_DEBUG("no available wrap core.");
                 WrapInfoQueueUnLock(readyWrapCoreFunctionQue_);
@@ -305,7 +368,6 @@ public:
             DEV_VERBOSE_DEBUG("move wrapId[%u] to wrapQueueForThread. occupy coreIdx[%u]", wrapId, avaiCoreIdx);
             wrapQueueForThread_.elem[wrapQueueForThread_.tail++] = reinterpret_cast<uint64_t>(wrapInfo);
             __atomic_fetch_add(&readyWrapCoreFunctionQue_->head, 1, std::memory_order_release);
-            RemoveRunReadyCoreIdxForWrap(avaiCoreIdx, mixType);
 
             wrapInfo->aicCoreIdx = avaiCoreIdx;
             wrapInfo->aivCoreIdxZero = avaiCoreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_;
