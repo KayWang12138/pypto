@@ -650,10 +650,9 @@ void DevAscendFunction::InitWrapInfo(uintdevptr_t &initOffset, const OrderedSet<
         return;
     }
     opWrapList_.HostInitDataSizeOffset(initOffset, callList.size());
-    opWrapTaskNumList_.HostInitDataSizeOffset(initOffset, callList.size());
 
     ONFILLCONTENT {
-        std::unordered_map<int, int> wrapTaskNumMap;
+        std::unordered_map<int, int> wrapTaskNumMap; // TODO 可以改成set
         for (size_t i = 0; i < callList.size(); i++) {
             auto callop = std::static_pointer_cast<CallOpAttribute>(callList[i]->GetOpAttribute());
             if (callop->wrapId != -1) {
@@ -664,7 +663,6 @@ void DevAscendFunction::InitWrapInfo(uintdevptr_t &initOffset, const OrderedSet<
         for (size_t i = 0; i < callList.size(); i++) {
             auto callop = std::static_pointer_cast<CallOpAttribute>(callList[i]->GetOpAttribute());
             At(opWrapList_, i) = callop->wrapId;
-            At(opWrapTaskNumList_, i) = wrapTaskNumMap[callop->wrapId];
         }
     }
 }
