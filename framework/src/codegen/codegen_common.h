@@ -173,10 +173,12 @@ enum class CopyOutMode : int {
 struct CodeGenCtx {
     std::string includePath;
     std::string cceDir;
-    bool isMainBlock{false}; // if true, use tile shape as valid shape to imporove performance
+    bool isMainBlock{false};
+    bool isDynamicAligned{false};
     CodeGenCtx() = default;
-    CodeGenCtx(std::string inPath, std::string cmpPath, bool isMainBlk = false)
-        : includePath(std::move(inPath)), cceDir(std::move(cmpPath)), isMainBlock(isMainBlk) {}
+    CodeGenCtx(std::string inPath, std::string cmpPath, bool isMainBlk = false, bool isDynAligned = false)
+        : includePath(std::move(inPath)), cceDir(std::move(cmpPath)), isMainBlock(isMainBlk), 
+          isDynamicAligned(isDynAligned) {}
     bool IsCCEPathEmpty() const { return cceDir.empty(); }
     bool IsIncludePathEmpty() const { return includePath.empty(); }
 };
