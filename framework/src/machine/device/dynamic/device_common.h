@@ -58,6 +58,9 @@ struct SchduleContext {
     uint32_t readyIds[AICORE_TYPE_NUM][READY_ID_FIX_CACHE_NUM];
     uint32_t readyCount[AICORE_TYPE_NUM]{0,0};
     uint32_t sendCnt_[AICORE_TYPE_NUM]{0,0};
+
+    uint64_t runReadyCoreBitmask_[AICORE_TYPE_NUM]{0, 0};
+    uint32_t coreIdxPosition_[MAX_AICORE_NUM]{0};
 };
 
 } // namespace npu::tile_fwk
