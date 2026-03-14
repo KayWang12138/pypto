@@ -135,12 +135,10 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOps(Function &function) {
         auto output = op.GetOOperands().front();
         if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB && output->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
             ReplaceDynUnalignedReshapeOpsForUB(function, op);
-            processedReshapeOps.insert(op.GetOpMagic());
         } else if (input->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR && output->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             if (ReplaceDynUnalignedReshapeOpsForDDR(function, op) != SUCCESS) {
                 APASS_LOG_DEBUG_F(Elements::Function, "DDR reshape replace failed for op %d.", op.GetOpMagic());
             }
-            processedReshapeOps.insert(op.GetOpMagic());
         }
     }   
     APASS_LOG_INFO_F(Elements::Function, "===> End ReplaceDynUnalignedReshapeOps.");
@@ -192,6 +190,7 @@ void RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForUB(Function &functi
 
             APASS_LOG_INFO_F(Elements::Operation,"Reshape op %d is replaceed by reshapeCopyOutOp %d and reshapeCopyInOp %d.", 
                 op.opmagic, reshapeCopyOutOp.opmagic, reshapeCopyInOp.opmagic);
+            processedReshapeOps.insert(op.GetOpMagic());
             break;
         }
     }
@@ -252,6 +251,8 @@ Status RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function &fun
         APASS_LOG_INFO_F(Elements::Operation, "DDR Reshape op %d is replaced: copy_out %d -> reshape_copy_out, copy_in count %lu -> reshape_copy_in.",
             op.GetOpMagic(), copyOutOp->GetOpMagic(), copyInOps.size());
     }
+    processedReshapeOps.insert(op.GetOpMagic());
+
     return SUCCESS;
 }
 
