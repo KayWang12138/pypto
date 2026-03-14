@@ -33,27 +33,31 @@ void TestReduceScatter(OpTestParam& testParam, std::string& goldenDir)
     DataType dType = GetDataTypeNum(typeNum);
     Tensor in(dType, {row, col}, "in");
     Tensor out(dType, {rowOut, col}, "out");
+    std::vector<uint64_t> hcclContexts = DistributedContext::GetCommContextToHost(std::vector<std::string>{testParam.group});
+    auto contextSize = DistributedContext::GetCommContextSize(hcclContexts);
+    Tensor commTensor(DT_INT8, Shape{1, contextSize[0]}, "commTensor");
 
     std::vector<T> inData = ReadToVector<T>(
         goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
 
     Shape shmemDataShape {1, rowOut, col};
-    FUNCTION("ShmemReduceScatter", {in}, {out}) {
+    FUNCTION("ShmemReduceScatter", {in, commTensor}, {out}) {
         DataType shmemDataType = in.GetDataType();
         shmemDataType = (shmemDataType == DT_BF16) || (shmemDataType == DT_FP16) ? DT_FP32 : shmemDataType;
         Tensor shmemData;
         Tensor shmemSignal;
         LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, unused, LoopRange(1)) {
             (void)unused;
-            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
-            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
+            CreateShmemData(commTensor, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
+            CreateShmemSignal(commTensor, shmemData, shmemSignal);
         }
         TileShape::Current().SetVecTile({tileRow, tileCol});
-        ReduceScatter(in, in, testParam.group, shmemData, shmemSignal, DistReduceType::DIST_REDUCE_ADD, out);
+        ReduceScatter(in, in, commTensor, shmemData, shmemSignal, DistReduceType::DIST_REDUCE_ADD, out);
     }
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<T>(in, inData),
+        RawTensorData::CreateTensor(DT_INT8, Shape{1, contextSize[0]}, (uint8_t *)(hcclContexts[0]))
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<T>(out, 0),

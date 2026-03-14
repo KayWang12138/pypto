@@ -115,12 +115,12 @@ void BindDistributed(py::module& m) {
     m.def(
         "GetCommContext", 
         [](const std::string& group) -> std::pair<int64_t, uint64_t> { 
-            std::vector<uint64_t> hcclContexts = dynamic::DistributedContext::GetCommContextToHost(std::vector<std::string>{testParam.group});
+            std::vector<uint64_t> hcclContexts = dynamic::DistributedContext::GetCommContextToHost(std::vector<std::string>{group});
             auto hcclOpParam = (TileOp::CommContext*)hcclContexts[0];
             auto rankNum = hcclOpParam->rankNum;
             int64_t ctxSize = static_cast<int64_t>(sizeof(TileOp::CommContext)) + 
                 static_cast<int64_t>(sizeof(uint64_t)) * rankNum * dynamic::WIN_TYPE_NUM;
-            auto commContext = dynamic::DistributedContext::GetCommContext(std::vector<string>{group});
+            auto commContext = dynamic::DistributedContext::GetCommContext(std::vector<std::string>{group});
             return {ctxSize, commContext[0]}; 
         }, 
         py::arg("group"),
