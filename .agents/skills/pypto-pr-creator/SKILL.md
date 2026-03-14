@@ -1,34 +1,39 @@
 ---
 name: pypto-pr-creator
-description: "PyPTO 项目 PR 创建全流程指南。当需要为 cann/pypto 仓库创建 PR、编写 commit 信息、准备代码提交、检查 PR 规范时使用。覆盖：(1) 仓库发现与 fork 验证，(2) 用户确认检查点（强制阻塞确认），(3) 分支创建与 commit，(4) 通过 GitCode MCP 创建/更新 PR，(5) PR 创建后结构化报告。触发词：创建PR、提交PR、PR规范、commit message、pypto贡献、代码提交到pypto、更新PR。"
+description: "PyPTO 项目 PR 创建全流程指南。当需要为 riflebird/pypto 仓库创建 PR、编写 commit 信息、准备代码提交、检查 PR 规范时使用。覆盖：(1) 仓库发现与目标仓库验证，(2) 用户确认检查点（强制阻塞确认），(3) 分支创建与 commit，(4) 通过 GitCode MCP 创建/更新 PR，(5) PR 创建后结构化报告。触发词：创建PR、提交PR、PR规范、commit message、pypto贡献、代码提交到pypto、更新PR。"
 ---
 
 # PyPTO PR Creator
 
 ---
 
-## ⚠️ 核心概念：跨 Fork PR
+## ⚠️ 核心概念：当前项目默认 PR 目标
 
-> **本 skill 的目标是创建从用户 fork 仓库到上游仓库 `cann/pypto` 的 PR**
+> **本 skill 的目标是向 `riflebird/pypto` 创建 PR。**
+>
+> **当前项目默认约定**：
+> - 若用户未额外指定目标仓库，默认提交到 `riflebird/pypto`
+> - 不要默认提交到 `cann/pypto`
+> - 若本地 `origin` 已经指向 `riflebird/pypto`，则直接在该仓库内创建 PR
+> - 若本地仓库是某个 fork，再按 fork -> `riflebird/pypto` 的方式建 PR
 
 ```
 ┌─────────────────────┐      PR       ┌─────────────────────┐
-│  <username>/pypto   │ ─────────────▶│     cann/pypto      │
-│    (用户 fork)      │               │    (上游主仓库)      │
-│  add-shared-skills  │               │       master        │
+│  riflebird/pypto    │ ─────────────▶│   riflebird/pypto   │
+│   feat/xxx 分支     │               │       master        │
 └─────────────────────┘               └─────────────────────┘
 ```
 
 | 项目 | 值 |
 |------|-----|
-| **源仓库** | `<username>/pypto`（用户 fork） |
+| **源仓库** | 默认 `riflebird/pypto`，也可为用户 fork |
 | **源分支** | `<branch_name>`（如 `feat/add-skill`） |
-| **目标仓库** | `cann/pypto`（上游主仓库） |
+| **目标仓库** | `riflebird/pypto` |
 | **目标分支** | `master` |
-| **PR 链接格式** | `https://gitcode.com/cann/pypto/merge_requests/<pr_id>` |
+| **PR 链接格式** | `https://gitcode.com/riflebird/pypto/merge_requests/<pr_id>` |
 
-> ⚠️ **常见错误**：在 fork 仓库内创建 PR（链接为 `gitcode.com/<username>/pypto/...`），这是**错误**的！
-> ✅ **正确做法**：PR 必须指向 `cann/pypto`（链接为 `gitcode.com/cann/pypto/...`）
+> ⚠️ **常见错误**：默认把目标写成 `cann/pypto`
+> ✅ **正确做法**：PR 目标必须优先看作 `riflebird/pypto`
 
 ---
 
@@ -36,9 +41,9 @@ description: "PyPTO 项目 PR 创建全流程指南。当需要为 cann/pypto �
 
 | 规则 | 说明 |
 |------|------|
-| **跨 Fork PR** | PR 目标必须是 `cann/pypto`，不是用户 fork |
+| **目标仓库** | PR 目标默认必须是 `riflebird/pypto` |
 | **远程操作** | 所有远程操作必须通过 GitCode MCP，禁止直接使用 `GITCODE_TOKEN` |
-| **Origin 配置** | `origin` 必须指向用户 fork（如 `<username>/pypto`），不能是 `cann/pypto` |
+| **Origin 配置** | 优先接受 `origin` 指向 `riflebird/pypto`；若是 fork，也允许创建指向 `riflebird/pypto` 的 PR |
 | **隐私保护** | ⚠️ **禁止打印 `GITCODE_TOKEN`，包括屏幕、日志、调试信息** |
 | **用户确认** | 创建分支、commit、push、创建/更新 PR 前必须获得用户明确确认 |
 | **文件路径** | 使用 `$PYPTO_REPO` 指代用户的 pypto 本地仓库根目录 |
@@ -56,12 +61,12 @@ description: "PyPTO 项目 PR 创建全流程指南。当需要为 cann/pypto �
 
 ### 阶段 1：仓库发现与验证
 
-**目标**：找到用户的 pypto fork 仓库，验证 origin 配置正确。
+**目标**：找到当前 pypto 仓库，验证默认 PR 目标为 `riflebird/pypto`。
 
 **执行逻辑**（按优先级）：
 
 1. 检查当前工作目录是否是 pypto 仓库（`git rev-parse --is-inside-work-tree`）
-2. 检查 origin：必须包含 `pypto` 且不能包含 `cann/pypto`
+2. 检查 origin：只要是有效的 pypto 仓库即可；若已是 `riflebird/pypto`，直接按同仓 PR 处理
 3. 若当前目录不符合，在工作区搜索（`find` 搜索 `.git` 目录，检查 remote）
 4. 检测浅克隆：`git rev-parse --is-shallow-repository`（若 true，后续需 `git fetch --unshallow origin`）
 
@@ -163,15 +168,15 @@ git config --global credential.helper /usr/share/doc/git/contrib/credential/libs
 
 | Origin 配置 | 判定 | 处理 |
 |-------------|------|------|
-| `<username>/pypto`（用户 fork） | ✅ | 直接使用 |
-| `cann/pypto`（upstream） | ❌ | 需修复 origin：`git remote set-url origin https://gitcode.com/<username>/pypto.git`；或重新克隆 fork：`git clone https://gitcode.com/<username>/pypto.git` |
+| `<username>/pypto`（用户 fork） | ✅ | 可直接使用，并创建指向 `riflebird/pypto` 的 PR |
+| `riflebird/pypto` | ✅ | 直接在该仓库内创建 PR |
 | 无 origin 或非 pypto | ❌ | 询问用户正确的仓库路径 |
 
 **通过 GitCode MCP 验证 fork 关系**：
 
 ```python
 result = gitcode_get_repository(owner="<username>", repo="pypto")
-# 验证: result.parent.full_name == "cann/pypto"
+# 验证: 仓库本身是 riflebird/pypto，或其 parent.full_name == "riflebird/pypto"
 ```
 
 ### 阶段 3：用户确认（强制阻塞）
@@ -181,11 +186,11 @@ result = gitcode_get_repository(owner="<username>", repo="pypto")
 向用户展示执行计划表（包含以下字段），等待确认：
 
 - 本地仓库路径（`$PYPTO_REPO`）
-- Fork 仓库（`<username>/pypto`）
+- 源仓库（`riflebird/pypto` 或 `<username>/pypto`）
 - 本地分支名
 - Commit 信息（`tag(scope): Summary` 格式）
 - Push 目标（origin → 分支名）
-- PR 目标（`cann/pypto` → `master`）
+- PR 目标（`riflebird/pypto` → `master`）
 - PR 标题与 Body 预览
 
 ### 阶段 4：预检修复
@@ -195,7 +200,7 @@ result = gitcode_get_repository(owner="<username>", repo="pypto")
 #### 3.1 基础检查
 
 - 浅克隆修复：若 `git rev-parse --is-shallow-repository` 为 true → `git fetch --unshallow origin`
-- 再次验证 origin 不是 `cann/pypto`
+- 若 origin 已是 `riflebird/pypto`，直接继续；不要因为它是目标仓库而误判
 
 #### 3.2 Upstream 同步检查（关键）
 
@@ -207,7 +212,7 @@ result = gitcode_get_repository(owner="<username>", repo="pypto")
 git remote -v | grep upstream
 
 # 若无，添加 upstream
-git remote add upstream https://gitcode.com/cann/pypto.git
+git remote add upstream https://gitcode.com/riflebird/pypto.git
 ```
 
 **步骤 2：获取 upstream 最新状态**
@@ -314,7 +319,7 @@ gitcode_create_pull_request(
 
 **关键细节**：
 - `head` 格式为 `<username>:<branch_name>`（冒号分隔），不是纯分支名
-- `owner`/`repo` 指向**上游仓库**（`cann/pypto`），不是 fork
+- `owner`/`repo` 指向**上游仓库**（`riflebird/pypto`），不是 fork
 - 所有参数名必须**小写**
 
 > 完整参数说明和示例见 [references/pr-spec.md](references/pr-spec.md)。
@@ -340,7 +345,7 @@ gitcode_update_pull_request(
 
 ```bash
 # 直接调用 GitCode API 创建 PR
-curl -s -X POST "https://api.gitcode.com/api/v5/repos/cann/pypto/pulls" \
+curl -s -X POST "https://api.gitcode.com/api/v5/repos/riflebird/pypto/pulls" \
   -H "PRIVATE-TOKEN: ${GITCODE_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -364,7 +369,7 @@ curl -s -X POST "https://api.gitcode.com/api/v5/repos/cann/pypto/pulls" \
 PR 操作成功后，向用户展示结构化报告，包含：
 
 - **PR 链接**（取自返回值的 `html_url` 字段）
-  - ⚠️ **必须验证**：链接格式为 `https://gitcode.com/cann/pypto/merge_requests/<pr_id>`
+  - ⚠️ **必须验证**：链接格式为 `https://gitcode.com/riflebird/pypto/merge_requests/<pr_id>`
   - ❌ **错误格式**：`https://gitcode.com/<username>/pypto/merge_requests/<pr_id>`（这是 fork 内 PR）
 - 操作类型（创建/更新）
 - PR 标题、源分支 → 目标分支
@@ -375,7 +380,7 @@ PR 操作成功后，向用户展示结构化报告，包含：
 ```python
 # 正确的 PR 链接
 pr_url = result["html_url"]
-assert "cann/pypto" in pr_url, f"PR 链接错误：{pr_url}，应为 cann/pypto"
+assert "riflebird/pypto" in pr_url, f"PR 链接错误：{pr_url}，应为 riflebird/pypto"
 ```
 
 ### 阶段 8：CLA 检查（关键）
@@ -539,7 +544,7 @@ CLA 失败时，向用户展示诊断信息并询问：
 
 || 陷阱 | 解决方案 |
 |------|---------|
-| origin 指向 `cann/pypto` | `git remote set-url origin https://gitcode.com/<username>/pypto.git`，或重新克隆你的 fork |
+| origin 指向 `riflebird/pypto` | `git remote set-url origin https://gitcode.com/<username>/pypto.git`，或重新克隆你的 fork |
 | push 报 "shallow update not allowed" | `git fetch --unshallow origin` |
 | push 报认证错误 401/403 | 检查并删除 `http.extraheader` Bearer 配置，使用 credential.helper store |
 | git 强制使用 Bearer token | `git config --local --unset http.extraheader` 并重新配置 credential |
@@ -548,7 +553,7 @@ CLA 失败时，向用户展示诊断信息并询问：
 | PR 创建返回 400 | 检查 `head` 是否用了 `<username>:<branch_name>` 格式 |
 | `head` 只有分支名 | 必须是 `<username>:<branch_name>` |
 | `owner` 指向了 fork | `owner` 应为 `cann`（上游仓库） |
-|| **PR 链接指向 fork** | PR 链接必须是 `cann/pypto/merge_requests/<id>`，不是 `<username>/pypto/...` |
+|| **PR 链接指向 fork** | PR 链接必须是 `riflebird/pypto/merge_requests/<id>`，不是 `<username>/pypto/...` |
 || MCP 创建 PR 返回 400 但参数正确 | 使用 curl 兜底方案（见阶段 5.4） |
 | commit message 超过 10 行 | 精简内容，控制在 10 行以内 |
 | commit message 使用中文 | **必须使用英文** |
