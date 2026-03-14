@@ -37,12 +37,11 @@ struct CodeGenOpCloudNPUCtx : public CodeGenOpCtx {
     std::shared_ptr<ForBlockManager> forBlockManager{nullptr};
 
     CodeGenOpCloudNPUCtx(std::shared_ptr<SymbolManager> sm, Function &tf, Function &sf, const Operation &op,
-        const std::map<int, int> &lto = {}, bool isMainBlk = false)
-        : CodeGenOpCtx(std::move(sm), tf, sf, op, lto, isMainBlk) {}
+        const std::map<int, int> &lto = {}, bool isMainBlk = false, bool isDynAligned = false)
+        : CodeGenOpCtx(std::move(sm), tf, sf, op, lto, isMainBlk, isDynAligned) {}
 
-    CodeGenOpCloudNPUCtx(std::shared_ptr<SymbolManager> sm, std::shared_ptr<ForBlockManager> fbm, Function &tf,
-        Function &sf, const Operation &op, const std::map<int, int> &lto = {}, bool isMainBlk = false)
-        : CodeGenOpCtx(std::move(sm), tf, sf, op, lto, isMainBlk), forBlockManager(std::move(fbm)) {}
+    CodeGenOpCloudNPUCtx(const CodeGenOpCtx &ctx, std::shared_ptr<ForBlockManager> fbm = nullptr)
+        : CodeGenOpCtx(ctx), forBlockManager(std::move(fbm)) {}
 };
 
 class CodeGenOpCloudNPU : public CodeGenOp {
