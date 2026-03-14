@@ -23,23 +23,23 @@ VkStatus GpuVkPassManager::RunTensorPasses(GpuVkTensorGraph &graph) {
     RegisterDefaultPasses();
     for (const auto &pass : tensorPasses_) {
         const VkStatus status = pass->Run(graph);
-        if (status != VkStatus::SUCCESS) {
+        if (status != VkStatus::kSuccess) {
             return status;
         }
     }
-    return VkStatus::SUCCESS;
+    return VkStatus::kSuccess;
 }
 
 VkStatus GpuVkPassManager::LowerToDispatch(
     GpuVkTensorGraph &graph, GpuVkDispatchGraph &dispatchGraph, GpuVkShaderFunction &shaderFunction) {
     VkStatus status = RunTensorPasses(graph);
-    if (status != VkStatus::SUCCESS) {
+    if (status != VkStatus::kSuccess) {
         return status;
     }
 
     TileLoweringPass tileLowering;
     status = tileLowering.Run(graph, dispatchGraph);
-    if (status != VkStatus::SUCCESS) {
+    if (status != VkStatus::kSuccess) {
         return status;
     }
 

@@ -11,6 +11,7 @@ namespace npu::tile_fwk::gpu_vk {
 struct GpuVkShaderOp {
     GpuVkOpKind op{GpuVkOpKind::UNKNOWN};
     std::string expr;
+    std::string output;
 };
 
 class GpuVkShaderFunction {

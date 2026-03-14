@@ -60,6 +60,13 @@ option(ENABLE_STEST_DISTRIBUTED "Enable STest(Distributed)" OFF)
 
 # 缺省编译配置, 编译函数
 find_package(Threads REQUIRED)
+if (BUILD_WITH_VULKAN)
+    find_package(Vulkan QUIET)
+    if (NOT Vulkan_FOUND)
+        set(BUILD_WITH_VULKAN OFF)
+        message(WARNING "Vulkan headers/libs were not found. Auto turn off BUILD_WITH_VULKAN.")
+    endif ()
+endif ()
 include(ExternalProject)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)

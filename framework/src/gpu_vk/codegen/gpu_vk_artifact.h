@@ -12,8 +12,14 @@ namespace npu::tile_fwk::gpu_vk {
 struct GpuVkArtifact {
     ShaderMeta meta;
     GpuVkShaderFunction shaderFunction;
+    std::string entryPoint{"main"};
     std::string glsl;
     std::vector<std::uint32_t> spirv;
+    std::string glslPath;
+    std::string spirvPath;
+    std::string compileLog;
+    std::string sourceHash;
+    bool isRealSpirv{false};
     std::string debugSummary;
 
     bool Empty() const;

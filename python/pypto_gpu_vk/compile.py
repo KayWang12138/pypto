@@ -10,15 +10,32 @@ from .backend import GpuVkBackend
 from .config import CompileConfig
 
 
+def _supports_real_vulkan(op_name: str, inputs: tuple[torch.Tensor, ...], artifact) -> bool:
+    if not bool(artifact.is_real_spirv):
+        return False
+    if op_name not in {"add", "mul", "relu", "where"}:
+        return False
+    return all(tensor.device.type == "cpu" and tensor.dtype == torch.float32 for tensor in inputs)
+
+
 def _normalize_options(options: dict | CompileConfig | None) -> CompileConfig:
     if options is None:
         return CompileConfig()
     if isinstance(options, CompileConfig):
-        return CompileConfig(optimize=options.optimize, debug_info=options.debug_info)
+        return CompileConfig(
+            optimize=options.optimize,
+            debug_info=options.debug_info,
+            glslang_validator_path=options.glslang_validator_path,
+            dump_artifacts=options.dump_artifacts,
+            dump_dir=options.dump_dir,
+        )
     if isinstance(options, dict):
         return CompileConfig(
             optimize=options.get("optimize", True),
             debug_info=options.get("debug_info", False),
+            glslang_validator_path=options.get("glslang_validator_path"),
+            dump_artifacts=options.get("dump_artifacts", False),
+            dump_dir=options.get("dump_dir"),
         )
     raise TypeError(f"Unsupported options type: {type(options).__name__}.")
 
@@ -39,7 +56,14 @@ def compile_to_spirv(shader_ir, dispatch_graph, dtype: int = 0, options: dict | 
     config = _normalize_options(options)
     meta = pypto_impl.GpuVkBuildShaderMeta(dispatch_graph, dtype)
     glsl = pypto_impl.GpuVkEmitGlsl(shader_ir, meta)
-    spirv = pypto_impl.GpuVkCompileSpirv(glsl, config.optimize, config.debug_info)
+    spirv = pypto_impl.GpuVkCompileSpirv(
+        glsl,
+        config.optimize,
+        config.debug_info,
+        config.glslang_validator_path or "",
+        config.dump_artifacts,
+        config.dump_dir or "",
+    )
     return meta, glsl, spirv
 
 
@@ -51,6 +75,7 @@ class CompiledVkOp:
     shader_ir: object
     artifact: object
     options: CompileConfig
+    supports_real_vulkan: bool = False
 
     def __call__(self, *inputs, runtime=None):
         from .runtime import VkRuntime
@@ -72,4 +97,12 @@ def compile_op(op_name: str, *inputs: torch.Tensor, options: dict | CompileConfi
     dispatch_graph = backend.lower_to_dispatch(graph)
     shader_ir = backend.lower_to_shader(graph)
     artifact = backend.compile_artifact(graph)
-    return CompiledVkOp(op_name, graph, dispatch_graph, shader_ir, artifact, config)
+    return CompiledVkOp(
+        op_name,
+        graph,
+        dispatch_graph,
+        shader_ir,
+        artifact,
+        config,
+        _supports_real_vulkan(op_name, inputs, artifact),
+    )

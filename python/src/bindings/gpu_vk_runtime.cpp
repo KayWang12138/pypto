@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -35,16 +36,33 @@ VkTensorDesc BuildTensorDescFromTorch(const py::object &tensor) {
     return desc;
 }
 
+std::uintptr_t GetTensorDataPtr(const py::object &tensor) {
+    return tensor.attr("data_ptr")().cast<std::uintptr_t>();
+}
+
 } // namespace
 
 void BindGpuVkRuntime(py::module &m) {
     py::enum_<VkStatus>(m, "GpuVkStatus")
-        .value("SUCCESS", VkStatus::SUCCESS)
-        .value("UNAVAILABLE", VkStatus::UNAVAILABLE)
-        .value("INVALID_ARGUMENT", VkStatus::INVALID_ARGUMENT)
-        .value("OUT_OF_MEMORY", VkStatus::OUT_OF_MEMORY)
-        .value("NOT_SUPPORTED", VkStatus::NOT_SUPPORTED)
-        .value("INTERNAL_ERROR", VkStatus::INTERNAL_ERROR);
+        .value("SUCCESS", VkStatus::kSuccess)
+        .value("UNAVAILABLE", VkStatus::kUnavailable)
+        .value("INVALID_ARGUMENT", VkStatus::kInvalidArgument)
+        .value("OUT_OF_MEMORY", VkStatus::kOutOfMemory)
+        .value("NOT_SUPPORTED", VkStatus::kNotSupported)
+        .value("INTERNAL_ERROR", VkStatus::kInternalError)
+        .value("DEVICE_NOT_FOUND", VkStatus::kDeviceNotFound)
+        .value("TOOL_NOT_FOUND", VkStatus::kToolNotFound)
+        .value("SHADER_COMPILE_FAILED", VkStatus::kShaderCompileFailed)
+        .value("SHADER_MODULE_CREATE_FAILED", VkStatus::kShaderModuleCreateFailed)
+        .value("DESCRIPTOR_CREATE_FAILED", VkStatus::kDescriptorCreateFailed)
+        .value("PIPELINE_LAYOUT_CREATE_FAILED", VkStatus::kPipelineLayoutCreateFailed)
+        .value("PIPELINE_CREATE_FAILED", VkStatus::kPipelineCreateFailed)
+        .value("BUFFER_CREATE_FAILED", VkStatus::kBufferCreateFailed)
+        .value("MEMORY_ALLOC_FAILED", VkStatus::kMemoryAllocFailed)
+        .value("COMMAND_RECORD_FAILED", VkStatus::kCommandRecordFailed)
+        .value("QUEUE_SUBMIT_FAILED", VkStatus::kQueueSubmitFailed)
+        .value("DISPATCH_FAILED", VkStatus::kDispatchFailed)
+        .value("DOWNLOAD_FAILED", VkStatus::kDownloadFailed);
 
     m.def("GpuVkStatusToString", [](VkStatus status) { return std::string(VkStatusToString(status)); });
 
@@ -63,6 +81,7 @@ void BindGpuVkRuntime(py::module &m) {
         .def("run_elementwise_binary",
              [](VkLauncher &launcher, const std::string &op_name, py::object input0, py::object input1) {
                  const std::uint8_t dummy = 0;
+                 (void)input1;
                  const VkTensorDesc desc = BuildTensorDescFromTorch(input0);
                  return launcher.RunElementwiseBinary(op_name, &dummy, &dummy, const_cast<std::uint8_t *>(&dummy), desc);
              },
@@ -88,22 +107,30 @@ void BindGpuVkRuntime(py::module &m) {
         .def("pipeline_cache_entry_count", &VkRunner::PipelineCacheEntryCount)
         .def(
             "run_artifact",
-            [](VkRunner &runner, const npu::tile_fwk::gpu_vk::GpuVkArtifact &artifact, py::sequence inputs) {
+            [](VkRunner &runner, const npu::tile_fwk::gpu_vk::GpuVkArtifact &artifact, py::sequence inputs) -> py::tuple {
                 if (inputs.size() == 0) {
-                    return VkStatus::INVALID_ARGUMENT;
+                    return py::make_tuple(VkStatus::kInvalidArgument, py::none());
                 }
+
+                py::module_ torch = py::module_::import("torch");
                 std::vector<VkTensorDesc> inputDescs;
                 std::vector<const void *> inputPtrs;
                 inputDescs.reserve(inputs.size());
                 inputPtrs.reserve(inputs.size());
                 for (const py::handle &input : inputs) {
-                    inputDescs.push_back(BuildTensorDescFromTorch(py::reinterpret_borrow<py::object>(input)));
-                    inputPtrs.push_back(reinterpret_cast<const void *>(0x1));
+                    py::object tensor = py::reinterpret_borrow<py::object>(input);
+                    inputDescs.push_back(BuildTensorDescFromTorch(tensor));
+                    inputPtrs.push_back(reinterpret_cast<const void *>(GetTensorDataPtr(tensor)));
                 }
 
-                std::vector<VkTensorDesc> outputDescs{BuildTensorDescFromTorch(py::reinterpret_borrow<py::object>(inputs[0]))};
-                std::vector<void *> outputPtrs{reinterpret_cast<void *>(0x1)};
-                return runner.Run(artifact, inputDescs, outputDescs, inputPtrs, outputPtrs);
+                py::object outputTensor = torch.attr("empty_like")(py::reinterpret_borrow<py::object>(inputs[0]));
+                std::vector<VkTensorDesc> outputDescs{BuildTensorDescFromTorch(outputTensor)};
+                std::vector<void *> outputPtrs{reinterpret_cast<void *>(GetTensorDataPtr(outputTensor))};
+                const VkStatus status = runner.Run(artifact, inputDescs, outputDescs, inputPtrs, outputPtrs);
+                if (status != VkStatus::kSuccess) {
+                    return py::make_tuple(status, py::none());
+                }
+                return py::make_tuple(status, outputTensor);
             },
             py::arg("artifact"),
             py::arg("inputs"));

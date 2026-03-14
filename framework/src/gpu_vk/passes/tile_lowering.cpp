@@ -21,7 +21,7 @@ std::uint32_t ComputeElementCount(const GpuVkValue *value) {
 
 VkStatus TileLoweringPass::Run(const GpuVkTensorGraph &graph, GpuVkDispatchGraph &dispatchGraph) const {
     if (graph.Empty()) {
-        return VkStatus::INVALID_ARGUMENT;
+        return VkStatus::kInvalidArgument;
     }
 
     dispatchGraph.SetKernelName(graph.Name().empty() ? "gpu_vk_kernel" : graph.Name());
@@ -43,7 +43,7 @@ VkStatus TileLoweringPass::Run(const GpuVkTensorGraph &graph, GpuVkDispatchGraph
     dispatch.localX = 64;
     dispatch.groupX = std::max<std::uint32_t>(1, (elementCount + dispatch.localX - 1) / dispatch.localX);
     dispatchGraph.SetDispatch(dispatch);
-    return VkStatus::SUCCESS;
+    return VkStatus::kSuccess;
 }
 
 } // namespace npu::tile_fwk::gpu_vk

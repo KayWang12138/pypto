@@ -32,14 +32,14 @@ std::size_t ExtractBytes(const py::object &tensor) {
 
 VkStatus TorchVkInterop::ImportFromTorchCpu(const py::object &tensor, VkTensorStorage &out) const {
     if (tensor.is_none()) {
-        return VkStatus::INVALID_ARGUMENT;
+        return VkStatus::kInvalidArgument;
     }
     out.mode = VkTensorStorageMode::CPU_STAGING;
     out.desc.shape = ExtractShape(tensor);
     out.desc.stride = MakeStride(out.desc.shape);
     out.desc.nbytes = ExtractBytes(tensor);
     out.hostData.assign(out.desc.nbytes, 0);
-    return VkStatus::SUCCESS;
+    return VkStatus::kSuccess;
 }
 
 VkStatus TorchVkInterop::ExportToTorchCpu(const VkTensorStorage &storage, py::object &outTensor) const {
@@ -49,14 +49,14 @@ VkStatus TorchVkInterop::ExportToTorchCpu(const VkTensorStorage &storage, py::ob
         shape[i] = py::int_(storage.desc.shape[i]);
     }
     outTensor = torch.attr("zeros")(shape);
-    return VkStatus::SUCCESS;
+    return VkStatus::kSuccess;
 }
 
 VkStatus TorchVkInterop::TryImportExternalMemory(const py::object &tensor, VkTensorStorage &out) const {
     (void)tensor;
     out.mode = VkTensorStorageMode::EXTERNAL_MEMORY;
     out.hostData.clear();
-    return VkStatus::UNAVAILABLE;
+    return VkStatus::kUnavailable;
 }
 
 } // namespace npu::tile_fwk::gpu_vk

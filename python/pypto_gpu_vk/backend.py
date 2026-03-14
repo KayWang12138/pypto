@@ -35,4 +35,11 @@ class GpuVkBackend:
         return pypto_impl.GpuVkLowerToShader(graph)
 
     def compile_artifact(self, graph):
-        return pypto_impl.GpuVkCompileArtifact(graph, self.config.optimize, self.config.debug_info)
+        return pypto_impl.GpuVkCompileArtifact(
+            graph,
+            self.config.optimize,
+            self.config.debug_info,
+            self.config.glslang_validator_path or "",
+            self.config.dump_artifacts,
+            self.config.dump_dir or "",
+        )

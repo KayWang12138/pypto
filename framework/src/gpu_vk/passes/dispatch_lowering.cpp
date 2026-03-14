@@ -4,25 +4,29 @@ namespace npu::tile_fwk::gpu_vk {
 
 namespace {
 
+std::string LoadValue(const std::vector<std::string> &inputs, std::size_t index) {
+    return index < inputs.size() ? inputs[index] + "[idx]" : "0.0";
+}
+
 std::string BuildExpr(const GpuVkNode &node) {
     switch (node.op) {
         case GpuVkOpKind::ADD:
-            return "input0[idx] + input1[idx]";
+            return LoadValue(node.inputs, 0) + " + " + LoadValue(node.inputs, 1);
         case GpuVkOpKind::MUL:
-            return "input0[idx] * input1[idx]";
+            return LoadValue(node.inputs, 0) + " * " + LoadValue(node.inputs, 1);
         case GpuVkOpKind::RELU:
-            return "max(input0[idx], 0.0)";
+            return "max(" + LoadValue(node.inputs, 0) + ", 0.0)";
         case GpuVkOpKind::WHERE:
-            return "cond[idx] != 0.0 ? input0[idx] : input1[idx]";
+            return LoadValue(node.inputs, 0) + " != 0.0 ? " + LoadValue(node.inputs, 1) + " : " + LoadValue(node.inputs, 2);
         case GpuVkOpKind::SUM:
-            return "input0[idx]";
+            return LoadValue(node.inputs, 0);
         case GpuVkOpKind::MATMUL:
-            return "input0[idx]";
+            return LoadValue(node.inputs, 0);
         case GpuVkOpKind::INPUT:
         case GpuVkOpKind::OUTPUT:
         case GpuVkOpKind::UNKNOWN:
         default:
-            return "input0[idx]";
+            return LoadValue(node.inputs, 0);
     }
 }
 
@@ -31,15 +35,19 @@ std::string BuildExpr(const GpuVkNode &node) {
 VkStatus DispatchLoweringPass::Run(
     const GpuVkTensorGraph &graph, const GpuVkDispatchGraph &dispatchGraph, GpuVkShaderFunction &shaderFunction) const {
     if (graph.Empty()) {
-        return VkStatus::INVALID_ARGUMENT;
+        return VkStatus::kInvalidArgument;
     }
 
     shaderFunction.SetName(dispatchGraph.KernelName());
     shaderFunction.SetDispatch(dispatchGraph.Dispatch());
     for (const auto &node : graph.Nodes()) {
-        shaderFunction.AddOp(GpuVkShaderOp{node.op, BuildExpr(node)});
+        shaderFunction.AddOp(GpuVkShaderOp{
+            node.op,
+            BuildExpr(node),
+            node.outputs.empty() ? std::string{} : node.outputs.front(),
+        });
     }
-    return VkStatus::SUCCESS;
+    return VkStatus::kSuccess;
 }
 
 } // namespace npu::tile_fwk::gpu_vk

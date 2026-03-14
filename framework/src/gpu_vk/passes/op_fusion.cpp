@@ -10,7 +10,7 @@ const char *OpFusionPass::Name() const {
 
 VkStatus OpFusionPass::Run(GpuVkTensorGraph &graph) {
     fusionGroupCount_ = std::max<std::size_t>(1, graph.NodeCount());
-    return VkStatus::SUCCESS;
+    return VkStatus::kSuccess;
 }
 
 std::size_t OpFusionPass::FusionGroupCount() const {

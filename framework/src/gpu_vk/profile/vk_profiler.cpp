@@ -5,18 +5,18 @@ namespace npu::tile_fwk::gpu_vk {
 VkStatus VkProfiler::Begin() {
     begin_ = std::chrono::steady_clock::now();
     running_ = true;
-    return VkStatus::SUCCESS;
+    return VkStatus::kSuccess;
 }
 
 VkStatus VkProfiler::End() {
     if (!running_) {
-        return VkStatus::INVALID_ARGUMENT;
+        return VkStatus::kInvalidArgument;
     }
     end_ = std::chrono::steady_clock::now();
     running_ = false;
     profile_.dispatchNs =
         static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(end_ - begin_).count());
-    return VkStatus::SUCCESS;
+    return VkStatus::kSuccess;
 }
 
 VkKernelProfile VkProfiler::Read() const {

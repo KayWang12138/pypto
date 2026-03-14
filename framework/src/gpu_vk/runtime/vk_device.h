@@ -14,12 +14,16 @@ public:
     bool Available() const { return available_; }
     std::uintptr_t InstanceHandle() const { return instanceHandle_; }
     std::uintptr_t NativeHandle() const { return nativeHandle_; }
+    std::uintptr_t PhysicalDeviceHandle() const { return physicalDeviceHandle_; }
+    std::uintptr_t ComputeQueueHandle() const { return computeQueueHandle_; }
     std::uint32_t ComputeQueueFamily() const { return computeQueueFamily_; }
 
 private:
     bool available_{false};
     std::uintptr_t instanceHandle_{0};
     std::uintptr_t nativeHandle_{0};
+    std::uintptr_t physicalDeviceHandle_{0};
+    std::uintptr_t computeQueueHandle_{0};
     std::uint32_t computeQueueFamily_{0};
 };
 

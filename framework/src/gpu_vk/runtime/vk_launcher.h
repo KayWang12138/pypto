@@ -6,6 +6,8 @@
 #include <vector>
 
 #include "gpu_vk/common/vk_status.h"
+#include "gpu_vk/runtime/vk_device.h"
+#include "gpu_vk/runtime/vk_instance.h"
 
 namespace npu::tile_fwk::gpu_vk {
 
@@ -35,6 +37,8 @@ public:
 private:
     bool available_{false};
     bool validationEnabled_{false};
+    VkInstanceContext instance_;
+    VkDeviceContext device_;
 };
 
 } // namespace npu::tile_fwk::gpu_vk

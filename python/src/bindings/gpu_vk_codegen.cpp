@@ -2,7 +2,9 @@
 
 #include <cstdint>
 #include <sstream>
+#include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "gpu_vk/codegen/glsl_codegen.h"
@@ -26,6 +28,9 @@ using npu::tile_fwk::gpu_vk::ShaderBindingMeta;
 using npu::tile_fwk::gpu_vk::ShaderMeta;
 using npu::tile_fwk::gpu_vk::SpirvCompileOptions;
 using npu::tile_fwk::gpu_vk::SpirvCompiler;
+using npu::tile_fwk::gpu_vk::SpirvCompileResult;
+using npu::tile_fwk::gpu_vk::VkStatus;
+using npu::tile_fwk::gpu_vk::VkStatusToString;
 
 namespace {
 
@@ -40,7 +45,22 @@ ShaderMeta BuildShaderMeta(const GpuVkDispatchGraph &dispatchGraph, std::int32_t
     return meta;
 }
 
-GpuVkArtifact CompileArtifact(GpuVkTensorGraph graph, bool optimize, bool debugInfo) {
+void ThrowCompileFailure(VkStatus status, const std::string &detail) {
+    std::ostringstream builder;
+    builder << "GPU Vulkan compile failed: " << VkStatusToString(status);
+    if (!detail.empty()) {
+        builder << ": " << detail;
+    }
+    throw std::runtime_error(builder.str());
+}
+
+GpuVkArtifact CompileArtifact(
+    GpuVkTensorGraph graph,
+    bool optimize,
+    bool debugInfo,
+    const std::string &validatorPath,
+    bool dumpArtifacts,
+    const std::string &dumpDir) {
     GpuVkPassManager passManager;
     GpuVkDispatchGraph dispatchGraph;
     GpuVkShaderFunction shaderFunction;
@@ -54,20 +74,43 @@ GpuVkArtifact CompileArtifact(GpuVkTensorGraph graph, bool optimize, bool debugI
     artifact.glsl = codegen.Emit(shaderFunction, artifact.meta);
 
     SpirvCompiler compiler;
-    compiler.CompileGlslToSpirv(artifact.glsl, SpirvCompileOptions{optimize, debugInfo}, artifact.spirv);
+    SpirvCompileResult result;
+    const VkStatus status = compiler.CompileGlslToSpirv(
+        artifact.glsl,
+        SpirvCompileOptions{optimize, debugInfo, validatorPath, dumpArtifacts, dumpDir},
+        result);
+    artifact.spirv = std::move(result.spirv);
+    artifact.glslPath = std::move(result.glslPath);
+    artifact.spirvPath = std::move(result.spirvPath);
+    artifact.compileLog = std::move(result.compileLog);
+    artifact.sourceHash = std::move(result.sourceHash);
+    artifact.isRealSpirv = result.isRealSpirv;
+    if (status != VkStatus::kSuccess) {
+        ThrowCompileFailure(status, artifact.compileLog);
+    }
 
     std::ostringstream summary;
     summary << artifact.meta.kernelName << " bindings=" << artifact.meta.bindings.size()
-            << " spirv_words=" << artifact.spirv.size();
+            << " spirv_words=" << artifact.spirv.size() << " real_spirv=" << artifact.isRealSpirv;
     artifact.debugSummary = summary.str();
     return artifact;
 }
 
-std::vector<std::uint32_t> CompileSpirv(const std::string &glsl, bool optimize, bool debugInfo) {
+std::vector<std::uint32_t> CompileSpirv(
+    const std::string &glsl,
+    bool optimize,
+    bool debugInfo,
+    const std::string &validatorPath,
+    bool dumpArtifacts,
+    const std::string &dumpDir) {
     SpirvCompiler compiler;
-    std::vector<std::uint32_t> spirv;
-    compiler.CompileGlslToSpirv(glsl, SpirvCompileOptions{optimize, debugInfo}, spirv);
-    return spirv;
+    SpirvCompileResult result;
+    const VkStatus status = compiler.CompileGlslToSpirv(
+        glsl, SpirvCompileOptions{optimize, debugInfo, validatorPath, dumpArtifacts, dumpDir}, result);
+    if (status != VkStatus::kSuccess) {
+        ThrowCompileFailure(status, result.compileLog);
+    }
+    return result.spirv;
 }
 
 } // namespace
@@ -96,14 +139,23 @@ void BindGpuVkCodegen(py::module &m) {
     py::class_<SpirvCompileOptions>(m, "GpuVkSpirvCompileOptions")
         .def(py::init<>())
         .def_readwrite("optimize", &SpirvCompileOptions::optimize)
-        .def_readwrite("debug_info", &SpirvCompileOptions::debugInfo);
+        .def_readwrite("debug_info", &SpirvCompileOptions::debugInfo)
+        .def_readwrite("validator_path", &SpirvCompileOptions::validatorPath)
+        .def_readwrite("dump_artifacts", &SpirvCompileOptions::dumpArtifacts)
+        .def_readwrite("dump_dir", &SpirvCompileOptions::dumpDir);
 
     py::class_<GpuVkArtifact>(m, "GpuVkArtifact")
         .def(py::init<>())
         .def_readwrite("meta", &GpuVkArtifact::meta)
         .def_readwrite("shader_function", &GpuVkArtifact::shaderFunction)
+        .def_readwrite("entry_point", &GpuVkArtifact::entryPoint)
         .def_readwrite("glsl", &GpuVkArtifact::glsl)
         .def_readwrite("spirv", &GpuVkArtifact::spirv)
+        .def_readwrite("glsl_path", &GpuVkArtifact::glslPath)
+        .def_readwrite("spirv_path", &GpuVkArtifact::spirvPath)
+        .def_readwrite("compile_log", &GpuVkArtifact::compileLog)
+        .def_readwrite("source_hash", &GpuVkArtifact::sourceHash)
+        .def_readwrite("is_real_spirv", &GpuVkArtifact::isRealSpirv)
         .def_readwrite("debug_summary", &GpuVkArtifact::debugSummary)
         .def("empty", &GpuVkArtifact::Empty);
 
@@ -121,13 +173,19 @@ void BindGpuVkCodegen(py::module &m) {
         &CompileSpirv,
         py::arg("glsl"),
         py::arg("optimize") = true,
-        py::arg("debug_info") = false);
+        py::arg("debug_info") = false,
+        py::arg("validator_path") = "",
+        py::arg("dump_artifacts") = false,
+        py::arg("dump_dir") = "");
     m.def(
         "GpuVkCompileArtifact",
         &CompileArtifact,
         py::arg("graph"),
         py::arg("optimize") = true,
-        py::arg("debug_info") = false);
+        py::arg("debug_info") = false,
+        py::arg("validator_path") = "",
+        py::arg("dump_artifacts") = false,
+        py::arg("dump_dir") = "");
 }
 
 } // namespace pypto

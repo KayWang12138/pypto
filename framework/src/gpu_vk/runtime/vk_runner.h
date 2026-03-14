@@ -9,7 +9,10 @@
 #include "gpu_vk/common/vk_status.h"
 #include "gpu_vk/runtime/vk_allocator.h"
 #include "gpu_vk/runtime/vk_descriptor_cache.h"
+#include "gpu_vk/runtime/vk_device.h"
 #include "gpu_vk/runtime/vk_executable.h"
+#include "gpu_vk/runtime/vk_instance.h"
+#include "gpu_vk/runtime/vk_launcher.h"
 #include "gpu_vk/runtime/vk_pipeline_cache.h"
 
 namespace npu::tile_fwk::gpu_vk {
@@ -38,6 +41,8 @@ private:
     bool available_{false};
     bool validationEnabled_{false};
     bool enableCache_{true};
+    VkInstanceContext instanceContext_;
+    VkDeviceContext deviceContext_;
     VkAllocator allocator_;
     VkDescriptorCache descriptorCache_;
     VkPipelineCacheManager pipelineCache_;

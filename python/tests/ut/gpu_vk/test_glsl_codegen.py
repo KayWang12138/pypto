@@ -12,3 +12,4 @@ def test_glsl_codegen_emits_compute_shader():
     _meta, glsl, _spirv = compile_to_spirv(shader_ir, dispatch_graph)
     assert "#version 450" in glsl
     assert "gl_GlobalInvocationID.x" in glsl
+    assert _spirv[0] == 0x07230203

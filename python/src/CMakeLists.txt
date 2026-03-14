@@ -92,6 +92,9 @@ target_link_libraries(pypto_impl
             intf_pub_cxx17
             tile_fwk_intf_pub
 )
+if (BUILD_WITH_VULKAN)
+    target_link_libraries(pypto_impl PRIVATE Vulkan::Vulkan)
+endif ()
 if (TARGET c_sec_shared)
     add_dependencies(pypto_impl c_sec_shared)
 endif ()

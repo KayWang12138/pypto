@@ -26,17 +26,28 @@ struct VkLaunchSpec {
 class VkComputePipelineHandle {
 public:
     VkStatus Create(
+        std::uintptr_t deviceHandle,
         const std::string &kernelName,
+        const std::string &entryPoint,
         const std::vector<std::uint32_t> &spirv,
-        const std::vector<VkBindingDesc> &bindings);
+        const std::vector<VkBindingDesc> &bindings,
+        std::uint32_t pushConstantBytes);
     void Destroy();
 
     bool Created() const { return created_; }
     const std::string &KernelName() const { return kernelName_; }
     const std::vector<VkBindingDesc> &Bindings() const { return bindings_; }
+    std::uintptr_t PipelineLayoutHandle() const { return pipelineLayoutHandle_; }
+    std::uintptr_t NativeHandle() const { return pipelineHandle_; }
+    std::uintptr_t DescriptorSetLayoutHandle() const { return descriptorSetLayoutHandle_; }
 
 private:
     bool created_{false};
+    std::uintptr_t deviceHandle_{0};
+    std::uintptr_t shaderModuleHandle_{0};
+    std::uintptr_t descriptorSetLayoutHandle_{0};
+    std::uintptr_t pipelineLayoutHandle_{0};
+    std::uintptr_t pipelineHandle_{0};
     std::string kernelName_;
     std::vector<VkBindingDesc> bindings_;
 };

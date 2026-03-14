@@ -15,12 +15,26 @@ def _normalize_tensor(tensor):
 
 
 class VkRuntime:
-    def __init__(self, enable_validation: bool = False, enable_cache: bool = True, fallback_to_torch: bool = True):
-        self.config = RuntimeConfig(enable_validation=enable_validation, enable_cache=enable_cache, fallback_to_torch=fallback_to_torch)
+    def __init__(
+        self,
+        enable_validation: bool = False,
+        enable_cache: bool = True,
+        fallback_to_torch: bool = True,
+        allow_cpu_fallback_for_dev: bool | None = None,
+    ):
+        self.config = RuntimeConfig(
+            enable_validation=enable_validation,
+            enable_cache=enable_cache,
+            fallback_to_torch=fallback_to_torch,
+            allow_cpu_fallback_for_dev=fallback_to_torch if allow_cpu_fallback_for_dev is None else allow_cpu_fallback_for_dev,
+        )
         self._launcher = pypto_impl.GpuVkLauncher()
         self._runner = pypto_impl.GpuVkRunner()
         self._status = self._launcher.initialize(enable_validation)
-        self._runner.initialize(enable_validation)
+        self._runner_status = self._runner.initialize(enable_validation)
+        self._last_execute_status = None
+        if self._status == pypto_impl.GpuVkStatus.SUCCESS and self._runner_status != pypto_impl.GpuVkStatus.SUCCESS:
+            self._status = self._runner_status
         self._runner.set_enable_cache(enable_cache)
 
     @property
@@ -35,6 +49,10 @@ class VkRuntime:
 
     def pipeline_cache_entry_count(self) -> int:
         return self._runner.pipeline_cache_entry_count()
+
+    @property
+    def last_execute_status(self):
+        return self._last_execute_status
 
     def run_elementwise_binary(self, op_name: str, input0, input1):
         input0 = _normalize_tensor(input0)
@@ -53,7 +71,18 @@ class VkRuntime:
 
     def execute(self, compiled_op, *inputs):
         tensors = [_normalize_tensor(tensor) for tensor in inputs]
-        self._runner.run_artifact(compiled_op.artifact, tensors)
+        if not compiled_op.supports_real_vulkan:
+            self._last_execute_status = pypto_impl.GpuVkStatus.NOT_SUPPORTED
+            if not self.config.fallback_to_torch and not self.config.allow_cpu_fallback_for_dev:
+                raise RuntimeError(f"Vulkan execution is not supported for op {compiled_op.op_name}.")
+            return self._cpu_fallback(compiled_op.op_name, *tensors)
+
+        status, output = self._runner.run_artifact(compiled_op.artifact, tensors)
+        self._last_execute_status = status
+        if status == pypto_impl.GpuVkStatus.SUCCESS and output is not None:
+            return output
+        if not self.config.fallback_to_torch and not self.config.allow_cpu_fallback_for_dev:
+            raise RuntimeError(f"Vulkan execution failed with status {status}.")
         return self._cpu_fallback(compiled_op.op_name, *tensors)
 
     def synchronize(self) -> None:
@@ -64,7 +93,7 @@ class VkRuntime:
         self._launcher.destroy()
 
     def _cpu_fallback(self, op_name: str, *inputs):
-        if not self.config.fallback_to_torch:
+        if not self.config.fallback_to_torch and not self.config.allow_cpu_fallback_for_dev:
             raise RuntimeError("Vulkan execution is unavailable and fallback_to_torch is disabled.")
         if op_name == "add":
             return inputs[0] + inputs[1]

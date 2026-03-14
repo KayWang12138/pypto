@@ -8,7 +8,7 @@ const char *BroadcastLegalizePass::Name() const {
 
 VkStatus BroadcastLegalizePass::Run(GpuVkTensorGraph &graph) {
     (void)graph;
-    return VkStatus::SUCCESS;
+    return VkStatus::kSuccess;
 }
 
 } // namespace npu::tile_fwk::gpu_vk

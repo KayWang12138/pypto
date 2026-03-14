@@ -26,7 +26,7 @@ VkStatus LayoutNormalizePass::Run(GpuVkTensorGraph &graph) {
             value.stride = ComputeStride(value.shape);
         }
     }
-    return VkStatus::SUCCESS;
+    return VkStatus::kSuccess;
 }
 
 } // namespace npu::tile_fwk::gpu_vk
