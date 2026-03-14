@@ -173,7 +173,7 @@ inline void DumpAicoreDevTask(DeviceArgs &args, json &aicpuPrefArray,
         Metrics *aicoreMetric = reinterpret_cast<Metrics*>(hostBuffer.data());
         std::string coreType = (i < args.nrValidAic) ? "AIC" : "AIV";
         json aicoreTask;
-        aicoreTask["blockIdx"] = i;
+        aicoreTask["blockIdx"] = i + 1;
         aicoreTask["coreType"] = "SCHED" + std::to_string(coreArray[i]) + "-" + coreType;
         aicoreTask["freq"] = freq;
         json tasksArr = json::array();
@@ -264,7 +264,8 @@ void DumpAicpuPerfInfo(DeviceArgs &args, const std::vector<void *> &perfData, ui
     std::string scriptPath = GetCurrentSharedLibPath() + "/scripts/machine_perf_trace.py";
     std::string cmd = "python3 " + scriptPath + " gen_perfetto " + aicpuPerfilePath + " "
                         + npu::tile_fwk::config::LogTopFolder() +
-                        "/machine_runtime_operator_trace_" + std::to_string(g_last_turn_num) + ".json";
+                        "/machine_runtime_operator_trace_" + std::to_string(g_last_turn_num) + ".json " +
+                        npu::tile_fwk::config::LogTopFolder() + "/merged_swimlane.json";
     if (system(cmd.c_str()) != 0) {
         MACHINE_LOGW("Failed to execute machine_perf_trace.py, cannot get aicpu perfetto.json.");
     }
