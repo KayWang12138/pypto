@@ -72,6 +72,9 @@ public:
     int curDie1StartCpuId_{0};
     DieId dieId_{DieId::DIE_MIX};
 
+    uint64_t runReadyCoreBitmask_[AICORE_TYPE_NUM]{0, 0};
+    uint32_t coreIdxPosition_[MAX_AICORE_NUM]{0};
+
     WrapInfoQueue* readyWrapCoreFunctionQue_{nullptr};
     // Queue managed by each thread, elem is wrapInfo's addr
     StaticReadyCoreFunctionQueue wrapQueueForThread_{0, 0, nullptr, 0};
@@ -173,75 +176,74 @@ public:
 
     inline uint32_t GetAvailableCoreIdx(MixResourceType mixType = MixResourceType::MIX_UNKNOWN) {
         if (mixType == MixResourceType::MIX_1C1V) {
-            for (uint32_t i = 0; i < coreRunReadyCnt_[CORE_IDX_AIC]; i++) {
-                for (uint32_t j = 0; j < coreRunReadyCnt_[CORE_IDX_AIV]; j++) {
-                    uint32_t aicIdx = runReadyCoreIdx_[CORE_IDX_AIC][i];
-                    uint32_t aivIdx = runReadyCoreIdx_[CORE_IDX_AIV][j];
-                    if (aicIdx * AIV_NUM_PER_AI_CORE + aicValidNum_ == aivIdx) {
-                        return aicIdx;
-                    }
+            uint64_t aicBitmask = runReadyCoreBitmask_[CORE_IDX_AIC];
+            uint64_t aivBitmask = runReadyCoreBitmask_[CORE_IDX_AIV];
+            
+            while (aicBitmask) {
+                uint32_t aicIdx = __builtin_ctzll(aicBitmask);
+                uint32_t aivIdx = aicIdx * AIV_NUM_PER_AI_CORE + aicValidNum_;
+                if (aivIdx < MAX_AICORE_NUM && (aivBitmask & (1ULL << aivIdx))) {
+                    return aicIdx;
                 }
+                aicBitmask &= ~(1ULL << aicIdx);
             }
             return INVALID_CORE_IDX;
         }
 
-        for (uint32_t i = 0; i < coreRunReadyCnt_[CORE_IDX_AIC]; i++) {
-            for (uint32_t j = 0; j < coreRunReadyCnt_[CORE_IDX_AIV]; j++) {
-                for (uint32_t k = 0; k < coreRunReadyCnt_[CORE_IDX_AIV]; k++) {
-                    uint32_t aicIdx = runReadyCoreIdx_[CORE_IDX_AIC][i];
-                    uint32_t aivIdx0 = runReadyCoreIdx_[CORE_IDX_AIV][j];
-                    uint32_t aivIdx1 = runReadyCoreIdx_[CORE_IDX_AIV][k];
-                    if (aicIdx * AIV_NUM_PER_AI_CORE + aicValidNum_ == aivIdx0 && aivIdx0 + 1 == aivIdx1) {
-                        return aicIdx;
-                    }
-                }
+        uint64_t aicBitmask = runReadyCoreBitmask_[CORE_IDX_AIC];
+        uint64_t aivBitmask = runReadyCoreBitmask_[CORE_IDX_AIV];
+        
+        while (aicBitmask) {
+            uint32_t aicIdx = __builtin_ctzll(aicBitmask);
+            uint32_t aivIdx0 = aicIdx * AIV_NUM_PER_AI_CORE + aicValidNum_;
+            uint32_t aivIdx1 = aivIdx0 + 1;
+            if (aivIdx1 < MAX_AICORE_NUM && 
+                (aivBitmask & (1ULL << aivIdx0)) && 
+                (aivBitmask & (1ULL << aivIdx1))) {
+                return aicIdx;
             }
+            aicBitmask &= ~(1ULL << aicIdx);
         }
         return INVALID_CORE_IDX;
     }
 
     inline void RemoveRunReadyCoreIdxForWrap(uint32_t coreIdx, MixResourceType mixType = MixResourceType::MIX_UNKNOWN) {
-        coreRunReadyCnt_[CORE_IDX_AIC]--;
+        uint32_t aicPos = coreIdxPosition_[coreIdx];
+        uint32_t aicTail = --coreRunReadyCnt_[CORE_IDX_AIC];
         corePendReadyCnt_[CORE_IDX_AIC]--;
-        // if coreIdx is at the tail of runReadyCoreIdx_, no processing is need, simply cnt--
-        if (runReadyCoreIdx_[CORE_IDX_AIC][coreRunReadyCnt_[CORE_IDX_AIC]] != coreIdx) {
-            // if coreIdx isnt at the tail of runReadyCoreIdx_, replace it by tail data
-            for (uint32_t i = 0; i < coreRunReadyCnt_[CORE_IDX_AIC]; i++) {
-                if (runReadyCoreIdx_[CORE_IDX_AIC][i] == coreIdx) {
-                    // swap tail data with coreIdx
-                    runReadyCoreIdx_[CORE_IDX_AIC][i] = runReadyCoreIdx_[CORE_IDX_AIC][coreRunReadyCnt_[CORE_IDX_AIC]];
-                    runReadyCoreIdx_[CORE_IDX_AIC][coreRunReadyCnt_[CORE_IDX_AIC]] = coreIdx;
-                }
-            }
+        
+        if (aicPos != aicTail) {
+            runReadyCoreIdx_[CORE_IDX_AIC][aicPos] = runReadyCoreIdx_[CORE_IDX_AIC][aicTail];
+            coreIdxPosition_[runReadyCoreIdx_[CORE_IDX_AIC][aicPos]] = aicPos;
         }
+        runReadyCoreBitmask_[CORE_IDX_AIC] &= ~(1ULL << coreIdx);
 
-        coreRunReadyCnt_[CORE_IDX_AIV]--;
-        corePendReadyCnt_[CORE_IDX_AIV]--;
         uint32_t aivIdx0 = coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_;
-        if (runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]] != aivIdx0) {
-            for (uint32_t i = 0; i < coreRunReadyCnt_[CORE_IDX_AIV]; i++) {
-                if (runReadyCoreIdx_[CORE_IDX_AIV][i] == aivIdx0) {
-                    runReadyCoreIdx_[CORE_IDX_AIV][i] = runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]];
-                    runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]] = aivIdx0;
-                }
-            }
+        uint32_t aivPos0 = coreIdxPosition_[aivIdx0];
+        uint32_t aivTail0 = --coreRunReadyCnt_[CORE_IDX_AIV];
+        corePendReadyCnt_[CORE_IDX_AIV]--;
+        
+        if (aivPos0 != aivTail0) {
+            runReadyCoreIdx_[CORE_IDX_AIV][aivPos0] = runReadyCoreIdx_[CORE_IDX_AIV][aivTail0];
+            coreIdxPosition_[runReadyCoreIdx_[CORE_IDX_AIV][aivPos0]] = aivPos0;
         }
+        runReadyCoreBitmask_[CORE_IDX_AIV] &= ~(1ULL << aivIdx0);
 
         CheckCoreIdxInitStatus(coreIdx);
         CheckCoreIdxInitStatus(aivIdx0);
 
         if (mixType != MixResourceType::MIX_1C1V) {
-            coreRunReadyCnt_[CORE_IDX_AIV]--;
-            corePendReadyCnt_[CORE_IDX_AIV]--;
             uint32_t aivIdx1 = coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_ + 1;
-            if (runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]] != aivIdx1) {
-                for (uint32_t i = 0; i < coreRunReadyCnt_[CORE_IDX_AIV]; i++) {
-                    if (runReadyCoreIdx_[CORE_IDX_AIV][i] == aivIdx1) {
-                        runReadyCoreIdx_[CORE_IDX_AIV][i] = runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]];
-                        runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]] = aivIdx1;
-                    }
-                }
+            uint32_t aivPos1 = coreIdxPosition_[aivIdx1];
+            uint32_t aivTail1 = --coreRunReadyCnt_[CORE_IDX_AIV];
+            corePendReadyCnt_[CORE_IDX_AIV]--;
+            
+            if (aivPos1 != aivTail1) {
+                runReadyCoreIdx_[CORE_IDX_AIV][aivPos1] = runReadyCoreIdx_[CORE_IDX_AIV][aivTail1];
+                coreIdxPosition_[runReadyCoreIdx_[CORE_IDX_AIV][aivPos1]] = aivPos1;
             }
+            runReadyCoreBitmask_[CORE_IDX_AIV] &= ~(1ULL << aivIdx1);
+            
             CheckCoreIdxInitStatus(aivIdx1);
             DEV_VERBOSE_DEBUG("remove coreIdx %u  %u  %u", coreIdx, aivIdx0, aivIdx1);
         } else {
@@ -259,16 +261,29 @@ public:
 
     inline void AddRunReadyCoreIdxForWrap(uint32_t coreIdx, MixResourceType mixType = MixResourceType::MIX_UNKNOWN) {
         uint32_t aivIdx0 = coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_;
+        
+        coreIdxPosition_[coreIdx] = coreRunReadyCnt_[CORE_IDX_AIC];
         runReadyCoreIdx_[CORE_IDX_AIC][coreRunReadyCnt_[CORE_IDX_AIC]++] = coreIdx;
+        runReadyCoreBitmask_[CORE_IDX_AIC] |= (1ULL << coreIdx);
+        
+        coreIdxPosition_[aivIdx0] = coreRunReadyCnt_[CORE_IDX_AIV];
         runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]++] = aivIdx0;
+        runReadyCoreBitmask_[CORE_IDX_AIV] |= (1ULL << aivIdx0);
+        
         corePendReadyCnt_[CORE_IDX_AIC]++;
         corePendReadyCnt_[CORE_IDX_AIV]++;
+        
         CheckCoreIdxInitStatus(coreIdx);
         CheckCoreIdxInitStatus(aivIdx0);
+        
         if (mixType != MixResourceType::MIX_1C1V) {
             uint32_t aivIdx1 = coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_ + 1;
             CheckCoreIdxInitStatus(aivIdx1);
+            
+            coreIdxPosition_[aivIdx1] = coreRunReadyCnt_[CORE_IDX_AIV];
             runReadyCoreIdx_[CORE_IDX_AIV][coreRunReadyCnt_[CORE_IDX_AIV]++] = aivIdx1;
+            runReadyCoreBitmask_[CORE_IDX_AIV] |= (1ULL << aivIdx1);
+            
             DEV_VERBOSE_DEBUG("add coreIdx %u  %u  %u", coreIdx, coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_,
                 coreIdx * AIV_NUM_PER_AI_CORE + aicValidNum_ + 1);
             corePendReadyCnt_[CORE_IDX_AIV]++;
