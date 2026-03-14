@@ -1,0 +1,75 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import torch
+
+from pypto import pypto_impl
+
+from .backend import GpuVkBackend
+from .config import CompileConfig
+
+
+def _normalize_options(options: dict | CompileConfig | None) -> CompileConfig:
+    if options is None:
+        return CompileConfig()
+    if isinstance(options, CompileConfig):
+        return CompileConfig(optimize=options.optimize, debug_info=options.debug_info)
+    if isinstance(options, dict):
+        return CompileConfig(
+            optimize=options.get("optimize", True),
+            debug_info=options.get("debug_info", False),
+        )
+    raise TypeError(f"Unsupported options type: {type(options).__name__}.")
+
+
+def build_tensor_graph(op_name: str, *inputs: torch.Tensor):
+    return GpuVkBackend().build_tensor_graph(op_name, *inputs)
+
+
+def lower_to_dispatch(graph):
+    return pypto_impl.GpuVkLowerToDispatch(graph)
+
+
+def lower_to_shader(graph):
+    return pypto_impl.GpuVkLowerToShader(graph)
+
+
+def compile_to_spirv(shader_ir, dispatch_graph, dtype: int = 0, options: dict | CompileConfig | None = None):
+    config = _normalize_options(options)
+    meta = pypto_impl.GpuVkBuildShaderMeta(dispatch_graph, dtype)
+    glsl = pypto_impl.GpuVkEmitGlsl(shader_ir, meta)
+    spirv = pypto_impl.GpuVkCompileSpirv(glsl, config.optimize, config.debug_info)
+    return meta, glsl, spirv
+
+
+@dataclass(slots=True)
+class CompiledVkOp:
+    op_name: str
+    graph: object
+    dispatch_graph: object
+    shader_ir: object
+    artifact: object
+    options: CompileConfig
+
+    def __call__(self, *inputs, runtime=None):
+        from .runtime import VkRuntime
+
+        runtime = runtime or VkRuntime()
+        return runtime.execute(self, *inputs)
+
+    def dump_glsl(self) -> str:
+        return self.artifact.glsl
+
+    def dump_spirv(self) -> bytes:
+        return b"".join(int(word).to_bytes(4, "little", signed=False) for word in self.artifact.spirv)
+
+
+def compile_op(op_name: str, *inputs: torch.Tensor, options: dict | CompileConfig | None = None):
+    config = _normalize_options(options)
+    backend = GpuVkBackend(config)
+    graph = backend.build_tensor_graph(op_name, *inputs)
+    dispatch_graph = backend.lower_to_dispatch(graph)
+    shader_ir = backend.lower_to_shader(graph)
+    artifact = backend.compile_artifact(graph)
+    return CompiledVkOp(op_name, graph, dispatch_graph, shader_ir, artifact, config)

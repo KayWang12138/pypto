@@ -31,10 +31,12 @@ recursive-include framework/src/machine *
 recursive-include framework/src/passes *
 recursive-include framework/src/cann_host_runtime *
 recursive-include framework/src/platform *
+recursive-include framework/src/gpu_vk *
 
 # python
 include python/CMakeLists.txt
 recursive-include python/pypto *
+recursive-include python/pypto_gpu_vk *
 recursive-include python/src *
 
 # others

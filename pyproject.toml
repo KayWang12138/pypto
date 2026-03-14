@@ -71,6 +71,8 @@ packages.find.where = ["python", ]
 packages.find.include = [
     "pypto",
     "pypto.op",
+    "pypto_gpu_vk",
+    "pypto_gpu_vk.op",
     "pypto.include.tilefwk",
     "pypto.lib",
     "pypto.lib.configs",

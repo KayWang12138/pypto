@@ -30,10 +30,13 @@ message(STATUS "PTO_FWK_BIN_ROOT=${PTO_FWK_BIN_ROOT}")
 
 # 公开编译开关(build)
 option(BUILD_WITH_CANN "Build with CANN." ON)  # Need to install CANN package and set corresponding environment variables.
+option(BUILD_WITH_VULKAN "Build Vulkan GPU backend scaffold." ON)
 option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
 option(ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
 option(ENABLE_GCOV "Enable GNU Coverage Instrumentation Tool" OFF)
 option(ENABLE_COMPILE_DEPENDENCY_CHECK "Enable compile dependency relation check" OFF)
+option(GPU_VK_ENABLE_VALIDATION "Enable Vulkan GPU validation scaffold." OFF)
+option(GPU_VK_ENABLE_SHADER_CACHE "Enable Vulkan GPU shader cache scaffold." ON)
 
 # 公开编译开关(Feature 特性级开关)
 option(ENABLE_FEATURE_PYTHON_FRONT_END "Enable Python Front-end" ON)

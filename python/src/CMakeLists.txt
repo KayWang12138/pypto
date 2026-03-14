@@ -11,6 +11,39 @@
 pybind11_add_module(pypto_impl
         MODULE
             pybind11.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/common/vk_status.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/ir/gpu_vk_tensor_ir.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/ir/gpu_vk_dispatch_ir.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/ir/gpu_vk_shader_ir.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/passes/gpu_vk_pass_manager.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/passes/constant_fold.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/passes/layout_normalize.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/passes/broadcast_legalize.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/passes/op_fusion.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/passes/tile_lowering.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/passes/dispatch_lowering.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/passes/fusion_planner.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/passes/shared_memory_planner.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/runtime/vk_instance.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/runtime/vk_device.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/runtime/vk_buffer.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/runtime/vk_pipeline.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/runtime/vk_launcher.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/runtime/vk_allocator.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/runtime/vk_descriptor_cache.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/runtime/vk_pipeline_cache.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/runtime/vk_executable.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/runtime/vk_runner.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/runtime/vk_tensor_storage.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/runtime/torch_vk_interop.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/cache/shape_cache.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/cache/artifact_cache.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/codegen/shader_meta.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/codegen/glsl_codegen.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/codegen/spirv_compiler.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/codegen/gpu_vk_artifact.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/profile/vk_profiler.cpp
+            ${PROJECT_SOURCE_DIR}/framework/src/gpu_vk/profile/workgroup_tuner.cpp
             bindings/torch_tensor_converter.cpp
             bindings/enum.cpp
             bindings/element.cpp
@@ -19,6 +52,11 @@ pybind11_add_module(pypto_impl
             bindings/controller.cpp
             bindings/operation.cpp
             bindings/runtime.cpp
+            bindings/gpu_vk_runtime.cpp
+            bindings/gpu_vk_ir.cpp
+            bindings/gpu_vk_codegen.cpp
+            bindings/torch_vk_interop.cpp
+            bindings/gpu_vk_profile.cpp
             bindings/cost_model.cpp
             bindings/pass_config.cpp
             bindings/function.cpp
@@ -36,10 +74,14 @@ target_include_directories(pypto_impl
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/runtime>>
         PRIVATE
             ${CMAKE_CURRENT_LIST_DIR}
+            ${PROJECT_SOURCE_DIR}/framework/src
 )
 target_compile_definitions(pypto_impl
         PRIVATE
             $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_VULKAN}>:BUILD_WITH_VULKAN>>
+            $<BUILD_INTERFACE:$<$<BOOL:${GPU_VK_ENABLE_VALIDATION}>:GPU_VK_ENABLE_VALIDATION>>
+            $<BUILD_INTERFACE:$<$<BOOL:${GPU_VK_ENABLE_SHADER_CACHE}>:GPU_VK_ENABLE_SHADER_CACHE>>
 )
 
 # 所依赖的本项目 so 均在 pypto 包 __init__.py 中加载, 此处不再 link

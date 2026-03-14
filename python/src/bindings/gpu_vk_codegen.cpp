@@ -1,0 +1,133 @@
+#include "pybind_common.h"
+
+#include <cstdint>
+#include <sstream>
+#include <string>
+#include <vector>
+
+#include "gpu_vk/codegen/glsl_codegen.h"
+#include "gpu_vk/codegen/gpu_vk_artifact.h"
+#include "gpu_vk/codegen/shader_meta.h"
+#include "gpu_vk/codegen/spirv_compiler.h"
+#include "gpu_vk/ir/gpu_vk_dispatch_ir.h"
+#include "gpu_vk/ir/gpu_vk_tensor_ir.h"
+#include "gpu_vk/passes/gpu_vk_pass_manager.h"
+
+namespace pypto {
+
+using npu::tile_fwk::gpu_vk::GlslComputeCodegen;
+using npu::tile_fwk::gpu_vk::GpuVkArtifact;
+using npu::tile_fwk::gpu_vk::GpuVkDispatchGraph;
+using npu::tile_fwk::gpu_vk::GpuVkPassManager;
+using npu::tile_fwk::gpu_vk::GpuVkShaderFunction;
+using npu::tile_fwk::gpu_vk::GpuVkTensorGraph;
+using npu::tile_fwk::gpu_vk::PushConstantMeta;
+using npu::tile_fwk::gpu_vk::ShaderBindingMeta;
+using npu::tile_fwk::gpu_vk::ShaderMeta;
+using npu::tile_fwk::gpu_vk::SpirvCompileOptions;
+using npu::tile_fwk::gpu_vk::SpirvCompiler;
+
+namespace {
+
+ShaderMeta BuildShaderMeta(const GpuVkDispatchGraph &dispatchGraph, std::int32_t dtype) {
+    ShaderMeta meta;
+    meta.kernelName = dispatchGraph.KernelName();
+    meta.dispatch = dispatchGraph.Dispatch();
+    for (const auto &binding : dispatchGraph.Bindings()) {
+        meta.bindings.push_back(ShaderBindingMeta{binding.binding, binding.name, dtype, binding.isOutput});
+    }
+    meta.pushConstants.push_back(PushConstantMeta{"numel", 0, 4});
+    return meta;
+}
+
+GpuVkArtifact CompileArtifact(GpuVkTensorGraph graph, bool optimize, bool debugInfo) {
+    GpuVkPassManager passManager;
+    GpuVkDispatchGraph dispatchGraph;
+    GpuVkShaderFunction shaderFunction;
+    passManager.LowerToDispatch(graph, dispatchGraph, shaderFunction);
+
+    GpuVkArtifact artifact;
+    artifact.shaderFunction = shaderFunction;
+    artifact.meta = BuildShaderMeta(dispatchGraph, 0);
+
+    GlslComputeCodegen codegen;
+    artifact.glsl = codegen.Emit(shaderFunction, artifact.meta);
+
+    SpirvCompiler compiler;
+    compiler.CompileGlslToSpirv(artifact.glsl, SpirvCompileOptions{optimize, debugInfo}, artifact.spirv);
+
+    std::ostringstream summary;
+    summary << artifact.meta.kernelName << " bindings=" << artifact.meta.bindings.size()
+            << " spirv_words=" << artifact.spirv.size();
+    artifact.debugSummary = summary.str();
+    return artifact;
+}
+
+std::vector<std::uint32_t> CompileSpirv(const std::string &glsl, bool optimize, bool debugInfo) {
+    SpirvCompiler compiler;
+    std::vector<std::uint32_t> spirv;
+    compiler.CompileGlslToSpirv(glsl, SpirvCompileOptions{optimize, debugInfo}, spirv);
+    return spirv;
+}
+
+} // namespace
+
+void BindGpuVkCodegen(py::module &m) {
+    py::class_<ShaderBindingMeta>(m, "GpuVkShaderBindingMeta")
+        .def(py::init<>())
+        .def_readwrite("binding", &ShaderBindingMeta::binding)
+        .def_readwrite("name", &ShaderBindingMeta::name)
+        .def_readwrite("dtype", &ShaderBindingMeta::dtype)
+        .def_readwrite("is_output", &ShaderBindingMeta::isOutput);
+
+    py::class_<PushConstantMeta>(m, "GpuVkPushConstantMeta")
+        .def(py::init<>())
+        .def_readwrite("name", &PushConstantMeta::name)
+        .def_readwrite("offset", &PushConstantMeta::offset)
+        .def_readwrite("size", &PushConstantMeta::size);
+
+    py::class_<ShaderMeta>(m, "GpuVkShaderMeta")
+        .def(py::init<>())
+        .def_readwrite("kernel_name", &ShaderMeta::kernelName)
+        .def_readwrite("bindings", &ShaderMeta::bindings)
+        .def_readwrite("push_constants", &ShaderMeta::pushConstants)
+        .def_readwrite("dispatch", &ShaderMeta::dispatch);
+
+    py::class_<SpirvCompileOptions>(m, "GpuVkSpirvCompileOptions")
+        .def(py::init<>())
+        .def_readwrite("optimize", &SpirvCompileOptions::optimize)
+        .def_readwrite("debug_info", &SpirvCompileOptions::debugInfo);
+
+    py::class_<GpuVkArtifact>(m, "GpuVkArtifact")
+        .def(py::init<>())
+        .def_readwrite("meta", &GpuVkArtifact::meta)
+        .def_readwrite("shader_function", &GpuVkArtifact::shaderFunction)
+        .def_readwrite("glsl", &GpuVkArtifact::glsl)
+        .def_readwrite("spirv", &GpuVkArtifact::spirv)
+        .def_readwrite("debug_summary", &GpuVkArtifact::debugSummary)
+        .def("empty", &GpuVkArtifact::Empty);
+
+    m.def("GpuVkBuildShaderMeta", &BuildShaderMeta, py::arg("dispatch_graph"), py::arg("dtype") = 0);
+    m.def(
+        "GpuVkEmitGlsl",
+        [](const GpuVkShaderFunction &shaderFunction, const ShaderMeta &meta) {
+            GlslComputeCodegen codegen;
+            return codegen.Emit(shaderFunction, meta);
+        },
+        py::arg("shader_function"),
+        py::arg("meta"));
+    m.def(
+        "GpuVkCompileSpirv",
+        &CompileSpirv,
+        py::arg("glsl"),
+        py::arg("optimize") = true,
+        py::arg("debug_info") = false);
+    m.def(
+        "GpuVkCompileArtifact",
+        &CompileArtifact,
+        py::arg("graph"),
+        py::arg("optimize") = true,
+        py::arg("debug_info") = false);
+}
+
+} // namespace pypto

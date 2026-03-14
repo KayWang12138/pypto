@@ -1,0 +1,77 @@
+from __future__ import annotations
+
+import torch
+
+import pypto  # noqa: F401
+from pypto import pypto_impl
+
+from .config import RuntimeConfig
+
+
+def _normalize_tensor(tensor):
+    if not isinstance(tensor, torch.Tensor):
+        raise TypeError(f"Expected torch.Tensor, but got {type(tensor).__name__}.")
+    return tensor.contiguous() if not tensor.is_contiguous() else tensor
+
+
+class VkRuntime:
+    def __init__(self, enable_validation: bool = False, enable_cache: bool = True, fallback_to_torch: bool = True):
+        self.config = RuntimeConfig(enable_validation=enable_validation, enable_cache=enable_cache, fallback_to_torch=fallback_to_torch)
+        self._launcher = pypto_impl.GpuVkLauncher()
+        self._runner = pypto_impl.GpuVkRunner()
+        self._status = self._launcher.initialize(enable_validation)
+        self._runner.initialize(enable_validation)
+        self._runner.set_enable_cache(enable_cache)
+
+    @property
+    def status(self):
+        return self._status
+
+    def available(self) -> bool:
+        return self._launcher.available() and self._runner.available()
+
+    def pipeline_cache_hit_count(self) -> int:
+        return self._runner.pipeline_cache_hit_count()
+
+    def pipeline_cache_entry_count(self) -> int:
+        return self._runner.pipeline_cache_entry_count()
+
+    def run_elementwise_binary(self, op_name: str, input0, input1):
+        input0 = _normalize_tensor(input0)
+        input1 = _normalize_tensor(input1)
+        status = self._launcher.run_elementwise_binary(op_name, input0, input1)
+        if status == pypto_impl.GpuVkStatus.SUCCESS and self.available():
+            return None
+        return self._cpu_fallback(op_name, input0, input1)
+
+    def run_elementwise_unary(self, op_name: str, input0):
+        input0 = _normalize_tensor(input0)
+        status = self._launcher.run_elementwise_unary(op_name, input0)
+        if status == pypto_impl.GpuVkStatus.SUCCESS and self.available():
+            return None
+        return self._cpu_fallback(op_name, input0)
+
+    def execute(self, compiled_op, *inputs):
+        tensors = [_normalize_tensor(tensor) for tensor in inputs]
+        self._runner.run_artifact(compiled_op.artifact, tensors)
+        return self._cpu_fallback(compiled_op.op_name, *tensors)
+
+    def synchronize(self) -> None:
+        return None
+
+    def destroy(self) -> None:
+        self._runner.destroy()
+        self._launcher.destroy()
+
+    def _cpu_fallback(self, op_name: str, *inputs):
+        if not self.config.fallback_to_torch:
+            raise RuntimeError("Vulkan execution is unavailable and fallback_to_torch is disabled.")
+        if op_name == "add":
+            return inputs[0] + inputs[1]
+        if op_name == "mul":
+            return inputs[0] * inputs[1]
+        if op_name == "relu":
+            return torch.relu(inputs[0])
+        if op_name == "where":
+            return torch.where(inputs[0].bool(), inputs[1], inputs[2])
+        raise NotImplementedError(f"Unsupported op for torch fallback: {op_name}")
