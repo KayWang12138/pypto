@@ -42,15 +42,17 @@ struct CodeGenOpCtx {
     Function &subFunc;
     const std::map<int, int> &locToOffset = {};
     bool isMainBlock{false};
+    bool isDynamicAligned{false};
     const Operation &operation;
 
     CodeGenOpCtx(std::shared_ptr<SymbolManager> sm, Function &tf, Function &sf, const Operation &op,
-        const std::map<int, int> &lto = {}, bool isMainBlk = false)
+        const std::map<int, int> &lto = {}, bool isMainBlk = false, bool isDynAligned = false)
         : symbolManager(std::move(sm)),
           topFunc(tf),
           subFunc(sf),
           locToOffset(lto),
           isMainBlock(isMainBlk),
+          isDynamicAligned(isDynAligned),
           operation(op) {}
 };
 
@@ -61,7 +63,8 @@ public:
           functionType(ctx.topFunc.GetFunctionType()),
           paramLocToParamListOffset(ctx.locToOffset),
           isUnderDynamicFunction(ctx.topFunc.IsUnderDynamicFunction()),
-          isMainBlock(ctx.isMainBlock) {
+          isMainBlock(ctx.isMainBlock),
+          isDynamicAligned(ctx.isDynamicAligned) {
         for (size_t i = 0; i < MAX_OPERANDS; i++) {
             operand[i] = NULL_OPERAND;
             operandType[i] = BUF_UNKNOWN;
@@ -124,6 +127,7 @@ protected:
     bool isSupportLayout{false};
     const std::map<int, int> &paramLocToParamListOffset{};
     bool isUnderDynamicFunction{false};
+    bool isDynamicAligned{false};
     int operandCnt{0};
     bool isMainBlock{false};
 
