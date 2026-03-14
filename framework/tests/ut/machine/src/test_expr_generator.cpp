@@ -17,6 +17,7 @@
 #include <string>
 #include <vector>
 #include <unistd.h>
+#include <unordered_map>
 
 namespace npu::tile_fwk {
 namespace test {
@@ -98,47 +99,68 @@ TEST_F(TestExprBatchGenerator, LinkScriptGeneration) {
     ASSERT_TRUE(scriptContent.find(".pypto") != std::string::npos);
 }
 
+// Test CheckExprDependCore function
+TEST_F(TestExprBatchGenerator, CheckExprDependCoreTest) {
+    // Create a test tensor name
+    std::string testTensorName = "test_tensor";
+    std::unordered_map<std::string, bool> tensorNameToDependCore;
+    tensorNameToDependCore[testTensorName] = true;
+
+    // Create a GetInputData call expression to test CheckExprDependCore
+    RawSymbolicScalarPtr callee = RawSymbolicSymbol::Create("RUNTIME_GetInputData");
+    RawSymbolicScalarPtr arg1 = RawSymbolicSymbol::Create(testTensorName);
+    RawSymbolicScalarPtr arg2 = RawSymbolicImmediate::Create(0);
+    std::vector<RawSymbolicScalarPtr> operands = {callee, arg1, arg2};
+    RawSymbolicScalarPtr getInputDataExpr = std::make_shared<RawSymbolicExpression>(SymbolicOpcode::T_MOP_CALL, operands);
+    std::unordered_map<RawSymbolicScalarPtr, bool> valDependMap;
+    bool dependsCore = SymbolicExpressionTable::CheckExprDependCore(getInputDataExpr, tensorNameToDependCore, valDependMap);
+    ASSERT_TRUE(dependsCore);
+
+    tensorNameToDependCore[testTensorName] = false;
+    valDependMap.clear();
+    dependsCore = SymbolicExpressionTable::CheckExprDependCore(getInputDataExpr, tensorNameToDependCore, valDependMap);
+    ASSERT_FALSE(dependsCore);
+}
+
 // Test GenerateBatchFile method
 TEST_F(TestExprBatchGenerator, BatchFileGeneration) {
     ExprBatchGenerator generator(testDir_, 1, 1500); // 2 batches
     std::ostringstream controlFlowOss;
     std::ostringstream exprHeaderOss;
     std::vector<std::string> exprSrcFiles;
-    
-    // Create a mock expression set
-    struct MockExpr {
-        int value;
-    };
-    std::vector<MockExpr> expressions;
+
+    // Create an OrderedSet of RawSymbolicScalarPtr with T_SCALAR_SYMBOLIC_IMMEDIATE expressions
+    SymbolicExpressionTable exprTable;
+    OrderedSet<RawSymbolicScalarPtr> expressions;
     for (int i = 0; i < 1500; ++i) {
-        expressions.push_back({i});
+        // Create T_SCALAR_SYMBOLIC_IMMEDIATE expression
+        RawSymbolicScalarPtr expr = RawSymbolicImmediate::Create(i);
+        expressions.Insert(expr);
     }
-    
-    // Mock buildExpr function
-    auto buildExpr = [](const MockExpr& expr) {
-        return std::to_string(expr.value);
-    };
-    
+
+    std::unordered_map<std::string, bool> tensorNameToDependCore;
+
     // Generate batch files
-    generator.GenerateBatchFile(controlFlowOss, exprHeaderOss, "test_exp.h", expressions, exprSrcFiles, 1, 1, buildExpr);
-    
+    generator.GenerateBatchFile(&exprTable, controlFlowOss, exprHeaderOss, "test_exp.h", expressions,
+        exprSrcFiles, 1, 1, tensorNameToDependCore);
+
     // Check if batch files were created
     ASSERT_EQ(exprSrcFiles.size(), 2);
     for (const auto& filePath : exprSrcFiles) {
         ASSERT_TRUE(FileExists(filePath));
-        
+
         // Check file content
         std::ifstream batchFile(filePath);
         std::string fileContent((std::istreambuf_iterator<char>(batchFile)),
                                std::istreambuf_iterator<char>());
         ASSERT_TRUE(fileContent.find("RUNTIME_SetExpr") != std::string::npos);
     }
-    
+
     // Check control flow content
     std::string controlFlowContent = controlFlowOss.str();
     ASSERT_TRUE(controlFlowContent.find("SetExprBatch_1_0") != std::string::npos);
     ASSERT_TRUE(controlFlowContent.find("SetExprBatch_1_1") != std::string::npos);
-    
+
     // Check header content
     std::string headerContent = exprHeaderOss.str();
     ASSERT_TRUE(headerContent.find("SetExprBatch_1_0") != std::string::npos);
