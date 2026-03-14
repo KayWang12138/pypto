@@ -221,10 +221,14 @@ Status RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function &fun
     }
     
     if (hasNonImmediate) {
-        std::vector<Operation *> copyOutOps = FindAllProducerCopyOuts(input);
+        bool hasiOtherBranch = false;
+        std::vector<Operation *> copyOutOps = FindAllProducerCopyOuts(input, hasiOtherBranch);
+        if (hasiOtherBranch) {
+            APASS_LOG_ERROR_F(Elements::Operation, "There are more one op-tensor branch between Reshape and CopyOut.", op.GetOpMagic(), copyOutOps.size());
+            return FAILED;
+        }
         if (copyOutOps.size() != 1) {
-            APASS_LOG_ERROR_F(Elements::Operation,"Reshape op %d has %lu copy_out producers, only support exactly 1.", 
-                op.GetOpMagic(), copyOutOps.size());
+            APASS_LOG_ERROR_F(Elements::Operation, "Reshape op %d has %lu copy_out producers, only support exactly 1.", op.GetOpMagic(), copyOutOps.size());
             return FAILED;
         }
         Operation *copyOutOp = copyOutOps.front();
@@ -233,8 +237,7 @@ Status RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function &fun
         bool hasViewOrAssemble = false;
         FindAllConsumerCopyIns(output, copyInOps, hasViewOrAssemble);
         if (hasViewOrAssemble) {
-            APASS_LOG_ERROR_F(Elements::Operation,
-                "Reshape op %d is has view or assemble between reshape and copy in, not supported now.", op.GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Reshape op %d is has view or assemble between reshape and copy in, not supported now.", op.GetOpMagic());
             return FAILED;
         }
          if (copyInOps.empty()) {
@@ -244,16 +247,12 @@ Status RemoveUnalignedReshape::ReplaceDynUnalignedReshapeOpsForDDR(Function &fun
 
         auto copyOutConsumers = copyOutOp->GetOOperands().front()->GetConsumers();
         if (copyOutConsumers.size() != 1 || *(copyOutConsumers.begin()) != &op) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Reshape op %d has branch consumers before reshape, not supported.",
-                op.GetOpMagic());
+            APASS_LOG_ERROR_F(Elements::Operation, "Reshape op %d has branch consumers before reshape, not supported.", op.GetOpMagic());
             return FAILED;
         }
 
         ProcessCopyOutOfDDRReshape(function, op, copyOutOp);
         ProcessCopyInOfDDRReshape(function, op, copyInOps);
-
-        APASS_LOG_INFO_F(Elements::Operation, "DDR Reshape op %d is replaced: copy_out %d -> reshape_copy_out, copy_in count %lu -> reshape_copy_in.",
-            op.GetOpMagic(), copyOutOp->GetOpMagic(), copyInOps.size());
     }
     processedReshapeOps.insert(op.GetOpMagic());
 
@@ -347,9 +346,13 @@ void RemoveUnalignedReshape::ProcessCopyInOfDDRReshape(Function &function, Opera
  * - 如果遇到OP_VIEW、OP_ASSEMBLE或OP_ASSEMBLE_SSA，递归继续向前追溯
  * - 遇到其他op也继续递归追溯
  */
-std::vector<Operation *> RemoveUnalignedReshape::FindAllProducerCopyOuts(LogicalTensorPtr tensor) {
+std::vector<Operation *> RemoveUnalignedReshape::FindAllProducerCopyOuts(LogicalTensorPtr tensor, bool &hasOtherBranch) {
     std::vector<Operation *> copyOutOps;
-
+    //后续实现
+    if (tensor->GetConsumers().size() > 1) {
+        hasOtherBranch = true;
+        return copyOutOps;
+    }
     auto producers = tensor->GetProducers();
     if (producers.empty()) {
         return copyOutOps;
@@ -366,7 +369,10 @@ std::vector<Operation *> RemoveUnalignedReshape::FindAllProducerCopyOuts(Logical
         // 其他类型的op（包括view/assemble或其他op），继续向前追溯
         auto inputOperands = producerOp->GetIOperands();
         if (!inputOperands.empty()) {
-            auto subCopyOuts = FindAllProducerCopyOuts(inputOperands.front());
+            auto subCopyOuts = FindAllProducerCopyOuts(inputOperands.front(), hasOtherBranch);
+            if (hasOtherBranch) {
+                return copyOutOps;
+            }
             copyOutOps.insert(copyOutOps.end(), subCopyOuts.begin(), subCopyOuts.end());
         }
     }

@@ -42,8 +42,7 @@ struct CopyInOpMemUnalign {
 };
 /*
  移除尾轴非对齐的reshape，插入copy_out, copy_in
-*/
-class RemoveUnalignedReshape : public Pass {
+*/`class RemoveUnalignedReshape : public Pass {
 public:
     RemoveUnalignedReshape() : Pass("RemoveUnalignedReshape") {}
     ~RemoveUnalignedReshape() override = default;
@@ -57,7 +56,7 @@ private:
     void ProcessCopyOutOfDDRReshape(Function &function, Operation &op, Operation *copyOutOp);
     void ProcessCopyInOfDDRReshape(Function &function, Operation &op, std::vector<Operation *> &copyInOps);
     std::unordered_set<int> processedReshapeOps;
-    std::vector<Operation *> FindAllProducerCopyOuts(LogicalTensorPtr tensor);
+    std::vector<Operation *> FindAllProducerCopyOuts(LogicalTensorPtr tensor, bool &hasOtherBranch);
     void FindAllConsumerCopyIns(LogicalTensorPtr tensor, std::vector<Operation *> &copyInOps, bool &hasViewOrAssemble);
     bool CheckUnaligned(Operation &op);
     LogicalTensorPtr InsertIOTensor(Function &function, Operation &op, std::unordered_map<OverlaprawMagic, std::shared_ptr<RawTensor>> &rawIO, LogicalTensorPtr &ioTensor);
