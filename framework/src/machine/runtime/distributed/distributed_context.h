@@ -123,6 +123,7 @@ public:
     ~DistributedContext(){};
     static std::vector<uint64_t> GetCommContext(const std::vector<std::string> &groupNames);
     static std::vector<uint64_t> GetCommContextToHost(const std::vector<std::string> &groupNames);
+    static int64_t GetCommContextSize(uint64_t commContextAddr);
     template<ResType T>
     static uint64_t AllocCommContext(const uint64_t ctxAddr, const std::string &groupName);
 private:

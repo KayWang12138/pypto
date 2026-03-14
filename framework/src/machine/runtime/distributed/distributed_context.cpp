@@ -335,4 +335,17 @@ std::vector<uint64_t> DistributedContext::GetCommContextToHost(
 #endif
     return {};
 }
+
+std::vector<int64_t> DistributedContext::GetCommContextSize(std::vector<uint64_t> commContextAddr) {
+    vector<int64_t> contextSizeArr;
+    for(auto i = 0; i < commContextAddr.size(); i++) {
+        check(!commContextAddr) << "please input correct commContextAddr";
+        auto hcclOpParam = (TileOp::CommContext*)commContextAddr;
+        auto rankNum = hcclOpParam->rankNum;
+        int64_t contextSize = static_cast<int64_t>(sizeof(TileOp::CommContext)) + 
+            static_cast<int64_t>(sizeof(uint64_t)) * rankNum * WIN_TYPE_NUM;
+        contextSizeArr.push_back(contextSize);
+    }
+    return contextSizeArr;
+}
 } // namespace npu::tile_fwk::dynamic
