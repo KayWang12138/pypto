@@ -40,12 +40,15 @@ void TestAllGather(OpTestParam& testParam, std::string& goldenDir)
     Tensor out(dType, outShape, "out");
 
     std::vector<uint64_t> hcclContexts = DistributedContext::GetCommContextToHost(std::vector<std::string>{testParam.group});
-    auto hcclOpParam = (TileOp::CommContext*)hcclContexts[0];
-    auto rankNum = hcclOpParam->rankNum;
-    int64_t ctxSize = static_cast<int64_t>(sizeof(TileOp::CommContext)) + 
-        static_cast<int64_t>(sizeof(uint64_t)) * rankNum * WIN_TYPE_NUM;
-    Tensor commTensor(DT_INT8, Shape{1, ctxSize}, "commTensor");
-    std::vector<T> inPtr = ReadToVector<T>(goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
+    auto contextSize = DistributedContext::GetCommContextSize(hcclContexts);
+    Tensor commTensor(DT_INT8, Shape{1, contextSize[0]}, "commTensor");
+    std::vector<T> inPtr;
+    if(testParam.worldRankId % 2 == 0) {
+        inPtr = ReadToVector<T>(goldenDir + "/input_even_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
+    } else {
+        inPtr = ReadToVector<T>(goldenDir + "/input_odd_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
+    }
+    
     
     Shape shmemDataShape{testParam.rankSize, row, col};
     FUNCTION("ALLGATHER", {in, commTensor}, {out}) {
@@ -54,15 +57,15 @@ void TestAllGather(OpTestParam& testParam, std::string& goldenDir)
         Tensor shmemSignal;
         LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
-            CreateShmemData(commTensor, testParam.group, testParam.rankSize, dType, shmemDataShape, shmemData);
-            CreateShmemSignal(commTensor, testParam.group, shmemData, shmemSignal);
+            CreateShmemData(commTensor, testParam.rankSize, dType, shmemDataShape, shmemData);
+            CreateShmemSignal(commTensor, shmemData, shmemSignal);
         }
         AllGather(in, in, commTensor, testParam.group, shmemData, shmemSignal, out);
     }
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<T>(in, inPtr),
-        RawTensorData::CreateTensor(DT_INT8, Shape{1, ctxSize}, (uint8_t *)(hcclOpParam))
+        RawTensorData::CreateTensor(DT_INT8, Shape{1, contextSize[0]}, (uint8_t *)(hcclContexts[0]))
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateTensorZero(out)
@@ -70,7 +73,12 @@ void TestAllGather(OpTestParam& testParam, std::string& goldenDir)
 
     RunTest();
     auto outPtr = ProgramData::GetInstance().GetOutputData(0)->GetDevPtr();
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", outSize, outPtr, testParam));
+    if(testParam.worldRankId%2 == 0) {
+        EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_even_rank_", outSize, outPtr, testParam));
+    } else {
+        EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_odd_rank_", outSize, outPtr, testParam));
+    }
+    
 
 }
 

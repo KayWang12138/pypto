@@ -294,10 +294,9 @@ void CreateShmemSignal(const char* group, Tensor& shmemData, Tensor& shmemSignal
         BytesOf(DataType::DT_INT32) * worldSize * SHMEM_SIGNAL_STRIDE * MAX_TILE_NUM));
 }
 
-void CreateShmemData(const Tensor &commContext, const char* group, int64_t worldSize, DataType dataType,
+void CreateShmemData(const Tensor &commContext, int64_t worldSize, DataType dataType,
     const Shape &shape, Tensor &shmemTensor, uint64_t memType)
 {
-    (void)group;
     auto &function = *Program::GetInstance().GetCurrentFunction();
     Shape shmemShape{worldSize};
     shmemShape.insert(shmemShape.end(), shape.begin(), shape.end());
@@ -309,9 +308,8 @@ void CreateShmemData(const Tensor &commContext, const char* group, int64_t world
         AlignUp(BytesOf(dataType) * std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int64_t>()), 512)));
 }
 
-void CreateShmemSignal(const Tensor &commContext, const char* group, Tensor& shmemData, Tensor& shmemSignal)
+void CreateShmemSignal(const Tensor &commContext, Tensor& shmemData, Tensor& shmemSignal)
 {
-    (void)group;
     auto &function = *Program::GetInstance().GetCurrentFunction();
     int64_t worldSize = shmemData.GetShape(0);
     Shape shmemShape{worldSize, worldSize};
@@ -396,7 +394,7 @@ void AllGather(const Tensor& predToken, const Tensor& in, const char* group, Ten
     }
 }
 
-void AllGather(const Tensor& predToken, const Tensor& in, const Tensor& commContext, const char* group, Tensor& shmemData, Tensor& shmemSignal,
+void AllGather(const Tensor& predToken, const Tensor& in, const Tensor& commContext, Tensor& shmemData, Tensor& shmemSignal,
     Tensor& out)
 {
     uint32_t worldSize = shmemData.GetShape()[0];
@@ -404,9 +402,6 @@ void AllGather(const Tensor& predToken, const Tensor& in, const Tensor& commCont
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
     SymbolicScalar thisRank = GetHcclRankIdV2(commContext);
-    const TileShape& tileShape = TileShape::Current();
-    ValidateGroup(group);
-    ValidateTilingSize(tileShape.GetVecTile(), in, worldSize);
     ValidateParams(predToken, in, out, shmemData.GetShape(), in.GetDataType());
     ValidateTypeAndShape(shmemData, out.GetDataType(), {worldSize, worldSize, row, col});
     ValidateTypeAndShape(shmemSignal, DataType::DT_INT32, {worldSize, worldSize, worldSize, row, col});

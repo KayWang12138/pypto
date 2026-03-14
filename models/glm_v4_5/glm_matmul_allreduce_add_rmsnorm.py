@@ -194,7 +194,7 @@ def matmul_allreduce_add_rmsnorm_worker(
 
     out_tensor = torch.empty(residual.shape, dtype=torch.bfloat16, device=device)
     residual_out = torch.empty(residual.shape, dtype=torch.bfloat16, device=device)
-    comm_tensor = pypto.creat_comm_tensor
+    comm_tensor = pypto.create_comm_tensor
     inputs = [comm_tensor, in_tensor.to(device), matmul_weight.to(device), residual.to(device), gamma.to(device),
         bias.to(device), out_tensor, residual_out]
 
