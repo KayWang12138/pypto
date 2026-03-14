@@ -131,8 +131,18 @@ TILEOP void BinaryBrcDispatch(T0 dst, T1 src0, T2 src1) {
         BinaryColExpandComputeImpl<op, LastUse>(dst, src0, src1);
         return;
     } else if constexpr (mode == BrcMode::MIX_LEFT_TAIL) {
+        PTO_WITH_LAST_USE(pto::TCOLEXPAND(dst, src1), n1, n2, n3);
+        #ifdef __DAV_V220
+        pipe_barrier(PIPE_V);
+        #endif
+        BinaryRowExpandComputeImpl<op, LastUse>(dst, dst, src0);
         return;
     } else if constexpr (mode == BrcMode::MIX_RIGHT_TAIL) {
+        PTO_WITH_LAST_USE(pto::TCOLEXPAND(dst, src0), n1, n2, n3);
+        #ifdef __DAV_V220
+        pipe_barrier(PIPE_V);
+        #endif
+        BinaryRowExpandComputeImpl<op, LastUse>(dst, dst, src1);
         return;
     } else {
         BinaryComputeImpl<op, mode, LastUse>(dst, src0, src1);
@@ -172,9 +182,9 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
         return;
     }
     
-    using Src0PtoTile = typename std::conditional<(src0TileW == 1 && brcmode == BrcMode::TAIL_LEFT), 
+    using Src0PtoTile = typename std::conditional<(src0TileW == 1 && (brcmode == BrcMode::TAIL_LEFT || brcmode == BrcMode::MIX_LEFT_TAIL)), 
         PtoTile<T1, pto::BLayout::ColMajor>, PtoTile<T1>>::type;
-    using Src1PtoTile = typename std::conditional<(src1TileW == 1 && brcmode == BrcMode::TAIL_RIGHT), 
+    using Src1PtoTile = typename std::conditional<(src1TileW == 1 && (brcmode == BrcMode::TAIL_RIGHT || brcmode == BrcMode::MIX_RIGHT_TAIL)), 
         PtoTile<T2, pto::BLayout::ColMajor>, PtoTile<T2>>::type;
 
     auto dstTile = PtoTile<T0>(dst);
