@@ -207,9 +207,9 @@ def attention(
 
 
 @pypto.frontend.jit(
-    runtime_options={"stitch_function_max_num": 128
+    runtime_options={"stitch_function_max_num": 128,
+                     "ready_on_host_tensors": ["block_table", "kv_act_seqs"]
                     },
-    debug_options={"runtime_debug_mode": 2}
 )
 def ifa_func_kernel(
     block_table: pypto.Tensor(),

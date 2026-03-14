@@ -17,6 +17,7 @@
 #include <string>
 #include <vector>
 #include <unistd.h>
+#include <unordered_map>
 
 namespace npu::tile_fwk {
 namespace test {
@@ -105,22 +106,43 @@ TEST_F(TestExprBatchGenerator, BatchFileGeneration) {
     std::ostringstream exprHeaderOss;
     std::vector<std::string> exprSrcFiles;
     
-    // Create a mock expression set
-    struct MockExpr {
-        int value;
-    };
-    std::vector<MockExpr> expressions;
+    // Create an OrderedSet of RawSymbolicScalarPtr with T_SCALAR_SYMBOLIC_IMMEDIATE expressions
+    SymbolicExpressionTable exprTable;
+    OrderedSet<RawSymbolicScalarPtr> expressions;
     for (int i = 0; i < 1500; ++i) {
-        expressions.push_back({i});
+        // Create T_SCALAR_SYMBOLIC_IMMEDIATE expression
+        RawSymbolicScalarPtr expr = RawSymbolicImmediate::Create(i);
+        expressions.Insert(expr);
     }
     
-    // Mock buildExpr function
-    auto buildExpr = [](const MockExpr& expr) {
-        return std::to_string(expr.value);
-    };
+    // Create a test tensor name
+    std::string testTensorName = "test_tensor";
+    std::unordered_map<std::string, bool> tensorNameToDependCore;
+    tensorNameToDependCore[testTensorName] = true;
+    
+    // Create a GetInputData call expression to test CheckExprDependCore
+    RawSymbolicScalarPtr callee = RawSymbolicSymbol::Create("RUNTIME_GetInputData");
+    RawSymbolicScalarPtr arg1 = RawSymbolicSymbol::Create(testTensorName);
+    RawSymbolicScalarPtr arg2 = RawSymbolicImmediate::Create(0);
+    std::vector<RawSymbolicScalarPtr> operands = {callee, arg1, arg2};
+    RawSymbolicScalarPtr getInputDataExpr = std::make_shared<RawSymbolicExpression>(SymbolicOpcode::T_MOP_CALL, operands);
+    
+    // Test CheckExprDependCore function
+    bool dependsCore = CheckExprDependCore(getInputDataExpr, tensorNameToDependCore);
+    ASSERT_TRUE(dependsCore) << "CheckExprDependCore should return true for GetInputData call with tensor in map";
+    
+    // Test with a tensor not in the map
+    std::string nonExistentTensor = "non_existent_tensor";
+    RawSymbolicScalarPtr arg1NonExistent = RawSymbolicSymbol::Create(nonExistentTensor);
+    std::vector<RawSymbolicScalarPtr> operandsNonExistent = {callee, arg1NonExistent, arg2};
+    RawSymbolicScalarPtr getInputDataExprNonExistent = std::make_shared<RawSymbolicExpression>(SymbolicOpcode::T_MOP_CALL, operandsNonExistent);
+    
+    bool dependsCoreNonExistent = CheckExprDependCore(getInputDataExprNonExistent, tensorNameToDependCore);
+    ASSERT_FALSE(dependsCoreNonExistent) << "CheckExprDependCore should return false for GetInputData call with tensor not in map";
     
     // Generate batch files
-    generator.GenerateBatchFile(controlFlowOss, exprHeaderOss, "test_exp.h", expressions, exprSrcFiles, 1, 1, buildExpr);
+    generator.GenerateBatchFile(&exprTable, controlFlowOss, exprHeaderOss, "test_exp.h", expressions,
+        exprSrcFiles, 1, 1, tensorNameToDependCore);
     
     // Check if batch files were created
     ASSERT_EQ(exprSrcFiles.size(), 2);
