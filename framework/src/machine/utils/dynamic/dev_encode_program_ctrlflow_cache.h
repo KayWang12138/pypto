@@ -48,10 +48,8 @@ struct ReadyQueueCache {
 
 struct MixTaskDataCache {
     WrapInfoQueue queue;
-    uint32_t* wrapTasklist;
     uint64_t wrapIdNum;
-    uint64_t opWrapList[MAX_STITCH_FUNC_NUM_LOWER];	 
-    uint64_t opWrapTaskNumList[MAX_STITCH_FUNC_NUM_LOWER];
+    uint64_t opWrapList[MAX_STITCH_FUNC_NUM_LOWER];
 };
 
 struct DynFuncDataCache {
@@ -414,30 +412,19 @@ struct DevControlFlowCache {
         if (wrapQueueBackupElem == nullptr) {
             return;
         }
-        size_t tasklistBackupSize = base->devTask.coreFunctionCnt;
-        uint32_t *tasklistAddr = reinterpret_cast<uint32_t *>(AllocateCache(tasklistBackupSize));
-        if (tasklistAddr == nullptr) {
-            return;
-        }
-        mixTaskDataBackup->wrapTasklist = tasklistAddr;
         mixTaskDataBackup->queue.head = wrapInfoQueue->head;
         mixTaskDataBackup->queue.tail = wrapInfoQueue->tail;
         mixTaskDataBackup->queue.capacity = wrapInfoQueue->capacity;
         mixTaskDataBackup->queue.elem = wrapQueueBackupElem;
         memcpy_s(mixTaskDataBackup->queue.elem, wrapInfoBackupSize, wrapInfoQueue->elem, wrapInfoBackupSize);
 
-        uint32_t tasklistOffset = 0;
         for (uint32_t i = mixTaskDataBackup->queue.head; i < mixTaskDataBackup->queue.tail; i++) {
             WrapInfo* srcWrapInfo = &wrapInfoQueue->elem[i];
             WrapInfo* dstWrapInfo = &mixTaskDataBackup->queue.elem[i];
-            dstWrapInfo->tasklist.elem = tasklistAddr + tasklistOffset;
-            uint32_t tasklistSize = srcWrapInfo->tasklist.capacity;
-            tasklistOffset += tasklistSize;
-            memcpy_s(dstWrapInfo->tasklist.elem, tasklistSize, srcWrapInfo->tasklist.elem, tasklistSize);
+            memcpy_s(dstWrapInfo->tasklist, MAX_WRAP_TASK_NUM, srcWrapInfo->tasklist, MAX_WRAP_TASK_NUM);
         }
 
         memcpy_s(mixTaskDataBackup->opWrapList, MAX_STITCH_FUNC_NUM_LOWER, base->devTask.mixTaskData.opWrapList, MAX_STITCH_FUNC_NUM_LOWER);
-        memcpy_s(mixTaskDataBackup->opWrapTaskNumList, MAX_STITCH_FUNC_NUM_LOWER, base->devTask.mixTaskData.opWrapTaskNumList, MAX_STITCH_FUNC_NUM_LOWER);
         base->mixTaskDataBackup = mixTaskDataBackup;
     }
 
@@ -447,29 +434,16 @@ struct DevControlFlowCache {
         }
         MixTaskDataCache *mixTaskDataBackup = base->mixTaskDataBackup;
         base->devTask.mixTaskData.wrapIdNum = mixTaskDataBackup->wrapIdNum;
-        base->devTask.mixTaskData.wrapTasklist = PtrToValue(mixTaskDataBackup->wrapTasklist);
 
         WrapInfoQueue *wrapInfoQueue = reinterpret_cast<WrapInfoQueue *>(base->devTask.mixTaskData.readyWrapCoreFunctionQue);
         wrapInfoQueue->head = mixTaskDataBackup->queue.head;
         wrapInfoQueue->tail = mixTaskDataBackup->queue.tail;
         wrapInfoQueue->capacity = mixTaskDataBackup->queue.capacity;
-        wrapInfoQueue->elem = mixTaskDataBackup->queue.elem;
 
         size_t wrapInfoBackupSize = sizeof(WrapInfo) * wrapInfoQueue->capacity;
         memcpy_s(wrapInfoQueue->elem, wrapInfoBackupSize, mixTaskDataBackup->queue.elem, wrapInfoBackupSize);
 
-        uint32_t tasklistOffset = 0;
-        for (uint32_t i = mixTaskDataBackup->queue.head; i < mixTaskDataBackup->queue.tail; i++) {
-            WrapInfo* srcWrapInfo = &mixTaskDataBackup->queue.elem[i];
-            WrapInfo* dstWrapInfo = &wrapInfoQueue->elem[i];
-            dstWrapInfo->tasklist.elem = mixTaskDataBackup->wrapTasklist + tasklistOffset;
-            uint32_t tasklistSize = srcWrapInfo->tasklist.capacity;
-            tasklistOffset += tasklistSize;
-            memcpy_s(dstWrapInfo->tasklist.elem, tasklistSize, srcWrapInfo->tasklist.elem, tasklistSize);
-        }
-
         memcpy_s(base->devTask.mixTaskData.opWrapList, MAX_STITCH_FUNC_NUM_LOWER, mixTaskDataBackup->opWrapList, MAX_STITCH_FUNC_NUM_LOWER);
-        memcpy_s(base->devTask.mixTaskData.opWrapTaskNumList, MAX_STITCH_FUNC_NUM_LOWER, mixTaskDataBackup->opWrapTaskNumList, MAX_STITCH_FUNC_NUM_LOWER);
     }
 
     static void RelocBuildInputOutputDesc(
@@ -845,7 +819,8 @@ struct DevControlFlowCache {
         if (dynTaskBase->devTask.mixTaskData.wrapIdNum == 0) {
             return;
         }
-        relocCtrlCache.Reloc(dynTaskBase->devTask.mixTaskData.wrapTasklist);
+
+        //TODO check
         WrapInfoQueue *tmpWrapInfoQueue = reinterpret_cast<WrapInfoQueue *>(dynTaskBase->devTask.mixTaskData.readyWrapCoreFunctionQue);
         WrapInfoQueue *&wrapInfoQueueRef = tmpWrapInfoQueue;
         WrapInfoQueue *wrapInfoQueue = RelocControlFlowCachePointer(wrapInfoQueueRef, relocCtrlCache);
@@ -853,27 +828,17 @@ struct DevControlFlowCache {
 
         WrapInfo *&wrapInfoElemRef = wrapInfoQueue->elem;
         WrapInfo *wrapInfoElem = RelocControlFlowCachePointer(wrapInfoElemRef, relocCtrlCache);
-
-        for (uint32_t i = wrapInfoQueue->head; i < wrapInfoQueue->tail; i++) {
-            WrapInfo *wrapInfo = wrapInfoElem + i;
-            relocCtrlCache.Reloc(wrapInfo->tasklist.elem);
-        }
+        (void)wrapInfoElem;
 
         MixTaskDataCache *&mixTaskDataBackupRef = dynTaskBase->mixTaskDataBackup;
         MixTaskDataCache *mixTaskDataBackup = RelocControlFlowCachePointer(mixTaskDataBackupRef, relocCtrlCache);
-        relocCtrlCache.Reloc(mixTaskDataBackup->wrapTasklist);
         WrapInfo *&wrapInfoBackupElemRef = mixTaskDataBackup->queue.elem;
         WrapInfo *wrapInfoBackupElem = RelocControlFlowCachePointer(wrapInfoBackupElemRef, relocCtrlCache);
-        for (uint32_t i = 0; i < wrapInfoQueue->tail; i++) {
-            WrapInfo *wrapInfo = wrapInfoBackupElem + i;
-            relocCtrlCache.Reloc(wrapInfo->tasklist.elem);
-        }
+        (void)wrapInfoBackupElem;
 
         for (uint32_t dupIndex = 0; dupIndex < dynFuncDataList->funcNum; dupIndex++) {
             relocProgram.Reloc(dynTaskBase->devTask.mixTaskData.opWrapList[dupIndex]);
-            relocProgram.Reloc(dynTaskBase->devTask.mixTaskData.opWrapTaskNumList[dupIndex]);
             relocProgram.Reloc(mixTaskDataBackup->opWrapList[dupIndex]);
-            relocProgram.Reloc(mixTaskDataBackup->opWrapTaskNumList[dupIndex]);
         }
     }
 
