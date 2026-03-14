@@ -219,7 +219,7 @@ TEST_F(SubgraphToFunctionTest, DifferentOffset) {
     currFunctionPtr->outCasts_.push_back(output_tensor);
 
     currFunctionPtr->SetTotalSubGraphCount(totalSubGraphCount);
-    ALOG_INFO("draw program graph before pass.");
+    FUNCTION_LOGI("draw program graph before pass.");
 
     std::stringstream ssBefore;
     ssBefore << "Before_subgraphToFunction";
@@ -334,7 +334,7 @@ TEST_F(SubgraphToFunctionTest, SameOffset) {
     currFunctionPtr->outCasts_.push_back(output_tensor);
 
     currFunctionPtr->SetTotalSubGraphCount(totalSubGraphCount);
-    ALOG_INFO("draw program graph before pass.");
+    FUNCTION_LOGI("draw program graph before pass.");
 
     Json progDump;
     progDump["version"] = "2.0";
