@@ -18,87 +18,66 @@
 #include "pto_tile.h"
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
+#include "utils/broadcast_mode.h"
+#include "binary_scalar.h"
+#include "binary_brcinline.h"
 
-template <BinaryOp op, TileOp::BroadcastOperand tailBrcSide, TileOp::PenuBroadcastOperand penuBrcSide, typename LastUse, typename T0, typename T1, typename T2>
+template <typename T>
+TILEOP typename T::DType GetScalar(T &src) {
+    set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    auto s = src.GetValue(0);
+    set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+    wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+    return s;
+}
+
+template <BinaryOp op, BrcMode mode, typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
+    if constexpr (mode == BrcMode::SCALAR_LEFT) {
+        auto s = GetScalar(src0);
+        BinaryLeftScalarComputeImpl<op, LastUse>(dst, s, src1);
+    } else if constexpr (mode == BrcMode::SCALAR_RIGHT) {
+        auto s = GetScalar(src1);
+        BinaryRightScalarComputeImpl<op, LastUse>(dst, src0, s);
+    } else if constexpr (mode == BrcMode::TAIL_LEFT || mode == BrcMode::TAIL_RIGHT) {
+        BinaryRowExpandComputeImpl<op, LastUse>(dst, src0, src1);
+    } else if constexpr (mode == BrcMode::PENU_LEFT) {
+        BinaryColExpandComputeImpl<op, LastUse>(dst, src1, src0);
+    } else if constexpr (mode == BrcMode::PENU_RIGHT) {
+        BinaryColExpandComputeImpl<op, LastUse>(dst, src0, src1);
+    }
+
     constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
     constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
     constexpr auto n3 = Std::tuple_element<DIM_3RD, LastUse>::type::value;
     if constexpr (op == BinaryOp::ADD) {
-        if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND) {
-            PTO_WITH_LAST_USE(pto::TCOLEXPANDADD(dst, src1, src0), n1, n2, n3);
-        } else if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND) {
-            PTO_WITH_LAST_USE(pto::TCOLEXPANDADD(dst, src0, src1), n1, n2, n3);
-        } else if constexpr (tailBrcSide != TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::NONE) {
-            PTO_WITH_LAST_USE(pto::TROWEXPANDADD(dst, src0, src1), n1, n2, n3);
-        } else {
-            PTO_WITH_LAST_USE(pto::TADD(dst, src0, src1), n1, n2, n3);
-        }
+        PTO_WITH_LAST_USE(pto::TADD(dst, src0, src1), n1, n2, n3);
         return;
     }
 
     if constexpr (op == BinaryOp::SUB) {
-        if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND) {
-            PTO_WITH_LAST_USE(pto::TCOLEXPANDSUB(dst, src1, src0), n1, n2, n3);
-        } else if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND) {
-            PTO_WITH_LAST_USE(pto::TCOLEXPANDSUB(dst, src0, src1), n1, n2, n3);
-        } else if constexpr (tailBrcSide != TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::NONE) {
-            PTO_WITH_LAST_USE(pto::TROWEXPANDSUB(dst, src0, src1), n1, n2, n3);
-        } else {
-            PTO_WITH_LAST_USE(pto::TSUB(dst, src0, src1), n1, n2, n3);
-        }
+        PTO_WITH_LAST_USE(pto::TSUB(dst, src0, src1), n1, n2, n3);
         return;
     }
 
     if constexpr (op == BinaryOp::MUL) {
-        if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND) {
-            PTO_WITH_LAST_USE(pto::TCOLEXPANDMUL(dst, src1, src0), n1, n2, n3);
-        } else if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND) {
-            PTO_WITH_LAST_USE(pto::TCOLEXPANDMUL(dst, src0, src1), n1, n2, n3);
-        } else if constexpr (tailBrcSide != TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::NONE) {
-            PTO_WITH_LAST_USE(pto::TROWEXPANDMUL(dst, src0, src1), n1, n2, n3);
-        } else {
-            PTO_WITH_LAST_USE(pto::TMUL(dst, src0, src1), n1, n2, n3);
-        }
+        PTO_WITH_LAST_USE(pto::TMUL(dst, src0, src1), n1, n2, n3);
         return;
     }
 
     if constexpr (op == BinaryOp::DIV) {
-        if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND) {
-            PTO_WITH_LAST_USE(pto::TCOLEXPANDDIV(dst, src1, src0), n1, n2, n3);
-        } else if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND) {
-            PTO_WITH_LAST_USE(pto::TCOLEXPANDDIV(dst, src0, src1), n1, n2, n3);
-        } else if constexpr (tailBrcSide != TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::NONE) {
-            PTO_WITH_LAST_USE(pto::TROWEXPANDDIV(dst, src0, src1), n1, n2, n3);
-        } else {
-            PTO_WITH_LAST_USE(pto::TDIV(dst, src0, src1), n1, n2, n3);
-        }
+        PTO_WITH_LAST_USE(pto::TDIV(dst, src0, src1), n1, n2, n3);
         return;
     }
 
     if constexpr (op == BinaryOp::MAX) {
-        if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND) {
-            PTO_WITH_LAST_USE(pto::TCOLEXPANDMAX(dst, src1, src0), n1, n2, n3);
-        } else if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND) {
-            PTO_WITH_LAST_USE(pto::TCOLEXPANDMAX(dst, src0, src1), n1, n2, n3);
-        } else if constexpr (tailBrcSide != TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::NONE) {
-            PTO_WITH_LAST_USE(pto::TROWEXPANDMAX(dst, src0, src1), n1, n2, n3);
-        } else {
-            PTO_WITH_LAST_USE(pto::TMAX(dst, src0, src1), n1, n2, n3);
-        }
+        PTO_WITH_LAST_USE(pto::TMAX(dst, src0, src1), n1, n2, n3);
         return;
     }
 
     if constexpr (op == BinaryOp::MIN) {
-        if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND) {
-            PTO_WITH_LAST_USE(pto::TCOLEXPANDMIN(dst, src1, src0), n1, n2, n3);
-        } else if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND) {
-            PTO_WITH_LAST_USE(pto::TCOLEXPANDMIN(dst, src0, src1), n1, n2, n3);
-        } else if constexpr (tailBrcSide != TileOp::BroadcastOperand::NONE && penuBrcSide == TileOp::PenuBroadcastOperand::NONE) {
-            PTO_WITH_LAST_USE(pto::TROWEXPANDMIN(dst, src0, src1), n1, n2, n3);
-        } else {
-            PTO_WITH_LAST_USE(pto::TMIN(dst, src0, src1), n1, n2, n3);
-        }
+        PTO_WITH_LAST_USE(pto::TMIN(dst, src0, src1), n1, n2, n3);
         return;
     }
 
@@ -157,34 +136,32 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
     constexpr auto src0Tile0 = TileOp::GetTensorTileShapeDim<T1, DIM_1ST, MAX_DIMS>();
     constexpr auto src0Tile1 = TileOp::GetTensorTileShapeDim<T1, DIM_2ND, MAX_DIMS>();
     constexpr auto src0Tile2 = TileOp::GetTensorTileShapeDim<T1, DIM_3RD, MAX_DIMS>();
-    constexpr auto src0TileH = TileOp::GetTensorTileShapeDim<T1, DIM_4TH, MAX_DIMS>();
-    constexpr auto src0TileW = TileOp::GetTensorTileShapeDim<T1, DIM_5TH, MAX_DIMS>();
     constexpr auto src1Tile0 = TileOp::GetTensorTileShapeDim<T2, DIM_1ST, MAX_DIMS>();
     constexpr auto src1Tile1 = TileOp::GetTensorTileShapeDim<T2, DIM_2ND, MAX_DIMS>();
     constexpr auto src1Tile2 = TileOp::GetTensorTileShapeDim<T2, DIM_3RD, MAX_DIMS>();
-    constexpr auto src1TileH = TileOp::GetTensorTileShapeDim<T2, DIM_4TH, MAX_DIMS>();
+    
+    constexpr auto src0TileW = TileOp::GetTensorTileShapeDim<T1, DIM_5TH, MAX_DIMS>();
     constexpr auto src1TileW = TileOp::GetTensorTileShapeDim<T2, DIM_5TH, MAX_DIMS>();
-
-    constexpr bool src0PenuBrc = (src0TileH == 1 && penuBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND);
-    constexpr bool src1PenuBrc = (src1TileH == 1 && penuBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND);
-    constexpr bool src0TailBrc = (src0TileW == 1 && tailBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND);
-    constexpr bool src1TailBrc = (src1TileW == 1 && tailBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND);
-
+    constexpr BrcMode brcmode = GetBrcMode<tailBrcSide, penuBrcSide>();
     if constexpr (TileOp::IsConstContinous<T0, T1, T2>() == true) {
         auto dstTile = PtoTile<T0, pto::BLayout::RowMajor, true>().Data();
-        using Src0PtoTile = typename std::conditional<src0TailBrc, PtoTile<T1, pto::BLayout::ColMajor, true>, PtoTile<T1, pto::BLayout::RowMajor, true>>::type;
-        using Src1PtoTile = typename std::conditional<src1TailBrc, PtoTile<T2, pto::BLayout::ColMajor, true>, PtoTile<T2, pto::BLayout::RowMajor, true>>::type;
+        using Src0PtoTile = typename std::conditional<(src0TileW == 1 && brcmode == BrcMode::TAIL_LEFT), 
+            PtoTile<T1, pto::BLayout::ColMajor, true>, PtoTile<T1, pto::BLayout::RowMajor, true>>::type;
+        using Src1PtoTile = typename std::conditional<(src0TileW == 1 && brcmode == BrcMode::TAIL_RIGHT), 
+            PtoTile<T2, pto::BLayout::ColMajor, true>, PtoTile<T2, pto::BLayout::RowMajor, true>>::type;
         auto src0Tile = Src0PtoTile().Data();
         auto src1Tile = Src1PtoTile().Data();
         pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
         pto::TASSIGN(src0Tile, (uint64_t)src0.GetAddr());
         pto::TASSIGN(src1Tile, (uint64_t)src1.GetAddr());
-        BinaryComputeImpl<op, tailBrcSide, penuBrcSide, LastUse>(dstTile, src0Tile, src1Tile);
+        BinaryComputeImpl<op, brcmode, LastUse>(dstTile, src0Tile, src1Tile);
         return;
     }
     
-    using Src0PtoTile = typename std::conditional<src0TailBrc, PtoTile<T1, pto::BLayout::ColMajor>, PtoTile<T1>>::type;
-    using Src1PtoTile = typename std::conditional<src1TailBrc, PtoTile<T2, pto::BLayout::ColMajor>, PtoTile<T2>>::type;
+    using Src0PtoTile = typename std::conditional<(src0TileW == 1 && brcmode == BrcMode::TAIL_LEFT), 
+        PtoTile<T1, pto::BLayout::ColMajor>, PtoTile<T1>>::type;
+    using Src1PtoTile = typename std::conditional<(src0TileW == 1 && brcmode == BrcMode::TAIL_RIGHT), 
+        PtoTile<T2, pto::BLayout::ColMajor>, PtoTile<T2>>::type;
 
     auto dstTile = PtoTile<T0>(dst);
     auto src0Tile = Src0PtoTile(src0);
@@ -204,7 +181,7 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
                 dstTile.Assign(dst, tileOffsets);
                 src0Tile.Assign(src0, src0tileOffsets);
                 src1Tile.Assign(src1, src1tileOffsets);
-                BinaryComputeImpl<op, tailBrcSide, penuBrcSide, LastUse>(dstTile.Data(), src0Tile.Data(), src1Tile.Data());
+                BinaryComputeImpl<op, brcmode, LastUse>(dstTile.Data(), src0Tile.Data(), src1Tile.Data());
             }
         }
     }
