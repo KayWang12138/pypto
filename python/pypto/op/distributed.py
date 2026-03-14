@@ -96,8 +96,8 @@ def create_shmem_tensor(
     signal = Tensor([n_pes, n_pes] + shape, DataType.DT_INT32)
 
     for _ in loop(1, name="CREATE_SHMEM_TENSOR", idx_name="_"):
-        pypto_impl.CreateShmemData(comm_tensor, group_name, n_pes, dtype, shape, data.base(), ShmemMemType.WIN_IN.value)
-        pypto_impl.CreateShmemSignal(comm_tensor, group_name, data.base(), signal.base())
+        pypto_impl.CreateShmemData(comm_tensor, n_pes, dtype, shape, data.base(), ShmemMemType.WIN_IN.value)
+        pypto_impl.CreateShmemSignal(comm_tensor, data.base(), signal.base())
     
     if group_name not in comm_configs:
         comm_configs[group_name] = CommConfig(group_name, n_pes, pypto_impl.GetSymbolicScalarPeId(comm_tensor))
@@ -137,7 +137,7 @@ def create_shmem_signal(
     signal = Tensor([n_pes] + signal_shape, DataType.DT_INT32)
 
     for _ in loop(1, name="CREATE_SHMEM_SIGNAL", idx_name="_"):
-        pypto_impl.CreateShmemData(comm_tensor, group_name, n_pes, DataType.DT_INT32, signal_shape,
+        pypto_impl.CreateShmemData(comm_tensor, n_pes, DataType.DT_INT32, signal_shape,
             signal.base(), ShmemMemType.WIN_EXP.value)
     
     if group_name not in comm_configs:
@@ -370,6 +370,7 @@ def shmem_wait_until(
 
 @op_wrapper
 def shmem_barrier_all(
+    comm_tensor: Tensor,
     src: Tensor,
     pred: list[Tensor] = None,
 ) -> Tensor:
@@ -397,7 +398,7 @@ def shmem_barrier_all(
     group_name = shmem_id_to_group[src.Id()]
     comm_config = comm_configs[group_name]
     dummy = __normalize_pred(pred)
-    return pypto_impl.ShmemBarrier(dummy, src, group_name, comm_config.n_pes)
+    return pypto_impl.ShmemBarrier(dummy, src, comm_tensor, comm_config.n_pes)
 
 
 @op_wrapper

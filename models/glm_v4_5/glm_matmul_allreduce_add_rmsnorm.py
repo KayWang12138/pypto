@@ -75,7 +75,7 @@ def matmul_allreduce_add_rmsnorm_kernel(
                 shmem_signal, shmem_shape, [0, 0, 0], pred=[in_tensor_tile], is_signal=True)
             pypto.set_vec_tile_shapes(1, 8)
             barrier_out = pypto.distributed.shmem_barrier_all(
-                shmem_barrier_signal, [data_clear_out, signal_clear_out])
+                comm_tensor, shmem_barrier_signal, [data_clear_out, signal_clear_out])
 
             # 3. matmul
             pypto.set_cube_tile_shapes([8, 8], [128, 256], [256, 512])
@@ -194,7 +194,7 @@ def matmul_allreduce_add_rmsnorm_worker(
 
     out_tensor = torch.empty(residual.shape, dtype=torch.bfloat16, device=device)
     residual_out = torch.empty(residual.shape, dtype=torch.bfloat16, device=device)
-    comm_tensor = pypto.creat_comm_tensor
+    comm_tensor = pypto.distributed.create_comm_tensor(groups[0], device)
     inputs = [comm_tensor, in_tensor.to(device), matmul_weight.to(device), residual.to(device), gamma.to(device),
         bias.to(device), out_tensor, residual_out]
 

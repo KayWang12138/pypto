@@ -23,13 +23,13 @@ namespace npu::tile_fwk {
 namespace Distributed {
 
 struct HcomTestParam {
-    HcclComm hcclComm;
+    HcclComm hcclComm{nullptr};
     int32_t rootRank;
     HcclRootInfo rootInfo;
 };
 
 void TestFrameworkInit(OpTestParam &testParam, HcomTestParam &hcomTestParam, int &physicalDeviceId);
-void TestFrameworkInitMulti(OpTestParam &testParam, HcomTestParam &hcomTestParam, int &physicalDeviceId);
+void TestFrameworkInitSub(OpTestParam &testParam, HcomTestParam &subHcomTestParam);
 void TestFrameworkDestroy(int32_t timeout);
 std::string getTimeStamp() ;
 

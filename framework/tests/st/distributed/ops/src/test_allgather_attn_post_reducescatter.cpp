@@ -21,7 +21,9 @@
 
 namespace npu::tile_fwk {
 namespace Distributed {
-std::tuple<Tensor, Tensor, Tensor, Tensor> InitializeTestData(OpTestParam& testParam, std::string& goldenDir) {
+std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor> InitializeTestData(OpTestParam& testParam, std::string& goldenDir) {
+    std::vector<uint64_t> hcclContexts = DistributedContext::GetCommContextToHost(std::vector<std::string>{testParam.group});
+    std::vector<int64_t> contextSize = DistributedContext::GetCommContextSize(hcclContexts);
     constexpr size_t paramsSize = 7;
     auto [b, s, n, kvLoraRank, vHeadDim, h, typeNum] = GetParams<paramsSize>(goldenDir + "/params.bin");
     DataType dtype = GetDataTypeNum(typeNum);
@@ -32,6 +34,7 @@ std::tuple<Tensor, Tensor, Tensor, Tensor> InitializeTestData(OpTestParam& testP
     Shape outShape = {b * s / testParam.rankSize, h};
 
     Tensor agIn(dtype, agInShape, "agIn");
+    Tensor commTensor(DT_INT8, Shape{1, contextSize[0]}, "commTensor");
     Tensor wLora(dtype, wLoraShape, "wLora");
     Tensor wOut(dtype, wOutShape, "wOut");
     Tensor out(dtype, outShape, "out");
@@ -44,19 +47,20 @@ std::tuple<Tensor, Tensor, Tensor, Tensor> InitializeTestData(OpTestParam& testP
         ReadToVector<bfloat16>(goldenDir + "/w_out_rank_" + std::to_string(testParam.rankId) + ".bin", wOutShape);
 
     ProgramData::GetInstance().AppendInputs({RawTensorData::CreateTensor<bfloat16>(agIn, agInPtr)});
+    ProgramData::GetInstance().AppendInputs({RawTensorData::CreateTensor(DT_INT8, Shape{1, contextSize[0]}, (uint8_t *)(hcclContexts[0]))});
     ProgramData::GetInstance().AppendInputs({RawTensorData::CreateTensor<bfloat16>(wLora, wLoraPtr)});
     ProgramData::GetInstance().AppendInputs({RawTensorData::CreateTensor<bfloat16>(wOut, wOutPtr)});
     ProgramData::GetInstance().AppendOutputs({RawTensorData::CreateTensorZero(out)});
-    return {agIn, wLora, wOut, out};
+    return {agIn, commTensor, wLora, wOut, out};
 }
 
-std::tuple<Tensor, Tensor> CreateShmemTensors(OpTestParam& testParam, DataType dtype, const Shape& shape) {
+std::tuple<Tensor, Tensor> CreateShmemTensors(const Tensor& commTensor, OpTestParam& testParam, DataType dtype, const Shape& shape) {
     Tensor shmemData;
     Tensor shmemSignal;
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
-        CreateShmemData(testParam.group, testParam.rankSize, dtype, shape, shmemData);
-        CreateShmemSignal(testParam.group, shmemData, shmemSignal);
+        CreateShmemData(commTensor, testParam.rankSize, dtype, shape, shmemData);
+        CreateShmemSignal(commTensor, shmemData, shmemSignal);
     }
     return {shmemData, shmemSignal};
 }
@@ -65,17 +69,17 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam& testParam, std::string
     constexpr size_t paramsSize = 7;
     auto [b, s, n, kvLoraRank, vHeadDim, h, typeNum] = GetParams<paramsSize>(goldenDir + "/params.bin");
     DataType dtype = GetDataTypeNum(typeNum);
-    auto [agIn, wLora, wOut, out] = InitializeTestData(testParam, goldenDir);
+    auto [agIn, commTensor, wLora, wOut, out] = InitializeTestData(testParam, goldenDir);
     CHECK(testParam.rankSize > 0) << "testParam.rankSize must be > 0, but got: " << testParam.rankSize;
     int32_t outRow = b * s / testParam.rankSize;
-    FUNCTION("ALLGATHER_ATTNPOST_REDUCESCATTER", {agIn, wLora, wOut}, {out}) {
+    FUNCTION("ALLGATHER_ATTNPOST_REDUCESCATTER", {agIn, commTensor, wLora, wOut}, {out}) {
         Tensor agOut(dtype, {b * n * s, kvLoraRank}, "agOut");
         LOOP("ALLGATHER", FunctionType::DYNAMIC_LOOP, unusedDynRankId, LoopRange(1)) {
             (void) unusedDynRankId;
             Shape shmemDataAgShape{testParam.rankSize, b * n * s / testParam.rankSize, kvLoraRank};
-            auto [shmemData, shmemSignal] = CreateShmemTensors(testParam, dtype, shmemDataAgShape);
+            auto [shmemData, shmemSignal] = CreateShmemTensors(commTensor, testParam, dtype, shmemDataAgShape);
             TileShape::Current().SetVecTile({64, kvLoraRank});
-            AllGather(agIn, agIn, testParam.group, shmemData, shmemSignal, agOut);
+            AllGather(agIn, agIn, commTensor, shmemData, shmemSignal, agOut);
         }
         Tensor attnOut(dtype, {b * s, h}, "attnOut");
         LOOP("ATTNPOST", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(1)) {
@@ -102,9 +106,9 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam& testParam, std::string
             (void) unusedIndex;
             DataType shmemDataType = (attnOut.GetDataType() == DT_BF16 || attnOut.GetDataType() == DT_FP16) 
                 ? DT_FP32 : attnOut.GetDataType();
-            auto [shmemData, shmemSignal] = CreateShmemTensors(testParam, shmemDataType, {1, outRow, h});
+            auto [shmemData, shmemSignal] = CreateShmemTensors(commTensor, testParam, shmemDataType, {1, outRow, h});
             TileShape::Current().SetVecTile({16, h});
-            Distributed::ReduceScatter(attnOut, attnOut, testParam.group, shmemData, shmemSignal,
+            Distributed::ReduceScatter(attnOut, attnOut, commTensor, shmemData, shmemSignal,
                 DistReduceType::DIST_REDUCE_ADD, out);
         }
     }
