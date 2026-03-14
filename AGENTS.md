@@ -6,6 +6,12 @@
 
 本项目是华为 CANN PyPTO 算子开发项目，用于开发能在华为昇腾 AI 处理器上运行的自定义算子
 
+### PR 目标约定
+
+- 本项目默认提交 PR 到 `riflebird/pypto`
+- 不要默认提交到 `cann/pypto`
+- 当用户要求“提交 PR”但未额外指定目标仓库时，默认以 `riflebird/pypto` 为准
+
 ### 核心功能
 
 - 使用 PyPTO 编程语言开发昇腾 AI 处理器自定义算子
@@ -54,7 +60,7 @@
 - 优先查阅本地 `./docs/api/` API 文档
 - 参考 `./examples/` 中的类似实现
 - 按照官方示例结构进行开发
-- 所有资料均可`cann/pypto`仓中获取到，请参考`README.md`进行搜索
+- 所有资料均可在当前 `riflebird/pypto` 仓中获取到，请参考 `README.md` 进行搜索
 
 ### 原则 3：优先保证方案可用
 
