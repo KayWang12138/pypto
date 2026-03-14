@@ -108,11 +108,9 @@ struct L2PreInfo {
 
 struct MixTaskData {
     uint64_t readyWrapCoreFunctionQue; // 指针指向WrapInfoQueue 结构
-    uint64_t wrapTasklist; // 指针指向tasklist数组
     uint64_t wrapIdNum; // 包含的有效wrapId个数
     /**wraplist**/
     uint64_t opWrapListPtr; // 指向 workspace 上分配的 opWrapList 指针数组
-    uint64_t opWrapTaskNumListPtr; 
 };
 
 inline constexpr size_t DIE_NUM = 2UL;

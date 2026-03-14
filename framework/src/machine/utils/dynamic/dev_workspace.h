@@ -806,20 +806,11 @@ private:
         }
     }
 
-    uint32_t WrapTasklistSlabMemObjSize() {
-        if (devProg_->devArgs.archInfo == ArchInfo::DAV_3510) {
-            return devProg_-> stitchFunctionsize * sizeof(uint32_t);
-        } else {
-            return 1;
-        }
-    }
     /**wraplist**/
     uint32_t WrapOpWrapListSlabMemObjSize() {
         return devProg_-> stitchMaxFunctionNum * sizeof(uint64_t);
     }
-    uint32_t WrapOpWrapTaskNumListSlabMemObjSize() {
-        return devProg_-> stitchMaxFunctionNum  * sizeof(uint64_t);
-    }
+
     uint32_t (DeviceWorkspaceAllocator::*slabMemObjSizeFunc[ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT)])() = {
         &DeviceWorkspaceAllocator::DevFunctionDuppedSlabMemObjSize,
         &DeviceWorkspaceAllocator::DynFuncDataSlabMemObjSize,
@@ -828,9 +819,7 @@ private:
         &DeviceWorkspaceAllocator::ReadyQueSlabMemObjSize,
         &DeviceWorkspaceAllocator::DieReadyQueSlabMemObjSize,
         &DeviceWorkspaceAllocator::WrapQueSlabMemObjSize,
-        &DeviceWorkspaceAllocator::WrapTasklistSlabMemObjSize,
         &DeviceWorkspaceAllocator::WrapOpWrapListSlabMemObjSize,
-        &DeviceWorkspaceAllocator::WrapOpWrapTaskNumListSlabMemObjSize,
         nullptr, // invalid type
         &DeviceWorkspaceAllocator::DuppedStitchSlabMemObjSize,
     };

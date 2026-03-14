@@ -47,31 +47,28 @@ private:
 private:
     int BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram *devProg);
     void BuildReadyQueueForFunc(DynDeviceTask *dyntask, size_t funcIndex, bool isNeedWrap,
-        uint64_t *opWrapArrayBase, WrapInfoQueue *wrapQueue, uint32_t *wrapTasklistAddr, int &wrapTaskNum);
+        uint64_t *opWrapArrayBase, WrapInfoQueue *wrapQueue, int &wrapTaskNum);
     void ProcessAivBatchTasks(ReadyCoreFunctionQueue *aivQueue, size_t totalZeroPredAIVBatchEnd,
         const predcount_t *dupPredCountList, size_t funcIndex);
     void InitReadyCoreFunctionQueue(ReadyCoreFunctionQueue *q, uint32_t capacity);
     int InitReadyQueues(DynDeviceTask *dyntask, DevAscendProgram *devProg,
         ReadyCoreFunctionQueue* queue[READY_QUEUE_SIZE]);
-    int ProcessZeroPredTask(DynDeviceTask *dyntask, uint32_t *wrapTasklistAddr, WrapInfoQueue *wrapQueue, bool isNeedWrap);
+    int ProcessZeroPredTask(DynDeviceTask *dyntask, WrapInfoQueue *wrapQueue, bool isNeedWrap);
     void InitDieReadyQueues(DynDeviceTask *dyntask, DevAscendProgram *devProg,
         ReadyCoreFunctionQueue* dieAivQueue[DIE_NUM], ReadyCoreFunctionQueue* dieAicQueue[DIE_NUM]);
     void UpdateDeviceTaskQueueInfo(DynDeviceTask *dyntask, ReadyCoreFunctionQueue *aicpuQueue, ReadyCoreFunctionQueue *aivQueue,
-        ReadyCoreFunctionQueue *aicQueue, WrapInfoQueue *wrapQueue, uint32_t *wrapTasklistAddr);
+        ReadyCoreFunctionQueue *aicQueue, WrapInfoQueue *wrapQueue);
     void UpdateDeviceDieTaskQueueInfo(DynDeviceTask *dyntask, ReadyCoreFunctionQueue *dieAivQueue[DIE_NUM],
         ReadyCoreFunctionQueue *dieAicQueue[DIE_NUM]);
     int BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId,
         DevAscendFunctionDupped *stitchedList, uint64_t stitchedSize);
 
     // mix subgraph schedule
-    uint32_t* AllocWrapTasklist(DynDeviceTask *dyntask);
     WrapInfoQueue* AllocWrapQueue(DynDeviceTask *dyntask);
     void ProcessWrapQueue(DynDeviceTask *dyntask, uint32_t wrapId, int funcIndex, size_t opIndex,
-        WrapInfoQueue *wrapQueue, uint32_t *wrapTasklistAddr);
+        WrapInfoQueue *wrapQueue);
     bool IsMixArch(DevAscendProgram *devProg);
     bool IsNeedWrapProcess(DynDeviceTask *dyntask, DevAscendProgram *devProg);
-    void AllocOpWrapList(DynDeviceTask *dyntask);
-    void AllocOpWrapTaskNumList(DynDeviceTask *dyntask);
     inline void doResolve(DynDeviceTask *dyntask, int coreType, size_t funcIdx, size_t succIdx, predcount_t *predList) {
         predList[succIdx] -= 1;
         if (predList[succIdx] != 0)
@@ -88,8 +85,7 @@ private:
                                                  : reinterpret_cast<int32_t *>(opWrapArrayBase[funcIdx]);
             if (dyntask->devTask.mixTaskData.wrapIdNum > 0 && opWrapList != nullptr && opWrapList[succIdx] != -1) {
                 ProcessWrapQueue(dyntask, MakeMixWrapID(funcIdx, static_cast<uint32_t>(opWrapList[succIdx])), funcIdx, succIdx,
-                    reinterpret_cast<WrapInfoQueue *>(dyntask->devTask.mixTaskData.readyWrapCoreFunctionQue),
-                    reinterpret_cast<uint32_t *>(dyntask->devTask.mixTaskData.wrapTasklist));
+                    reinterpret_cast<WrapInfoQueue *>(dyntask->devTask.mixTaskData.readyWrapCoreFunctionQue));
             } else {
                 auto q = dyntask->readyQueue[dyntask->GetReadyQueueIndexByCoreType(static_cast<CoreType>(coreType))];
                 q->elem[q->tail++] = MakeTaskID(funcIdx, succIdx);

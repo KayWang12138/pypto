@@ -23,6 +23,8 @@
 namespace npu::tile_fwk {
 enum class MachineStatus { START = 0, FINISH = 1, STOP = 2 };
 
+#define MAX_WRAP_TASK_NUM 3 // 最多1C2V任务
+
 // aic aiv 已经ready的core function id队列
 struct ReadyCoreFunctionQueue {
   uint32_t head;
@@ -46,9 +48,8 @@ struct WrapInfo {
     uint32_t aicCoreIdx;
     uint32_t aivCoreIdxZero;
     uint32_t aivCoreIdxOne;
-    uint32_t taskCnt {0};
     uint32_t mixResourceType;
-    ReadyCoreFunctionQueue tasklist;
+    uint32_t tasklist[MAX_WRAP_TASK_NUM];
 };
 
 struct WrapInfoQueue {
