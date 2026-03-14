@@ -106,7 +106,7 @@ TEST_F(GraphTest, deepseek_qkvPre) {
     int vHeadDim = std::get<int>(deepseekConfig1["vHeadDim"]);
     int qkNopeHeadDim = std::get<int>(deepseekConfig1["qkNopeHeadDim"]);
     int q_head_dim = qkNopeHeadDim + qkRopeHeadDim;
-    ALOG_INFO("Test_qkvPre  b,s,h: ", b, ", ", s, ", ", h);
+    FUNCTION_LOGI("Test_qkvPre  b[%d], s[%d], h[%d].", b, s, h);
 
     Tensor hidden_states = Tensor(DT_BF16, {b, s, h}, "hidden_states");
 

@@ -741,7 +741,7 @@ struct FunctionInterpreter {
             if (iOpDataList[index] == nullptr) {
                 auto iop = op->GetIOperands()[index];
                 if (frame.callop != nullptr) {
-                    ALOG_INFO("ExecuteOperation: iop ", index, " is null, try to find in mixGlobalTensorDict.");
+                    FUNCTION_LOGI("ExecuteOperation: iop %zu is null, try to find in mixGlobalTensorDict.", index);
                     auto callopAttr = std::static_pointer_cast<CallOpAttribute>(frame.callop->GetOpAttribute());
                     iOpDataList[index] = mixGlobalTensorDict[{iop, callopAttr->wrapId}];
                     if (iOpDataList[index] != nullptr) {continue;}

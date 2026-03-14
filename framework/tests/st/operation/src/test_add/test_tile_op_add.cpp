@@ -55,13 +55,13 @@ int CompileCCEForSingleOpTest(const std::string &srcFile, const std::string &obj
         compileOptions.c_str(), coreType.c_str(), lib64Path.c_str(), runtimePath.c_str(), codeSrcPath.c_str(),
         codeSrcPath.c_str(), codeSrcPath.c_str(), codeSrcPath.c_str(), objFile.c_str(), srcFile.c_str());
     if (ret < 0) {
-        ALOG_INFO << "CompileCCE snprintf_s failed " << ret;
+        FUNCTION_LOGI("CompileCCE snprintf_s failed %d", ret);
     }
 
-    ALOG_INFO << "compile kernel...\n" << ccecCmd;
+    FUNCTION_LOGI("compile kernel...\n %s" << ccecCmd);
     ret = std::system(ccecCmd);
     if (ret != 0) {
-        ALOG_INFO << "CompileCce ccec failed " << ret;
+        FUNCTION_LOGI("CompileCce ccec failed %d", ret);
     }
     return ret;
 }

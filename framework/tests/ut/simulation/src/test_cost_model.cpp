@@ -246,7 +246,7 @@ TEST_F(CostModelTest, TestAttentionPostL2Cache)
 
 TEST_F(CostModelTest, TestBuildBasedOnConfigs)
 {
-    ALOG_INFO("Init CostModel Simulation.");
+    FUNCTION_LOGI("Init CostModel Simulation.");
     std::string configPath("./config/test_config.conf");
     std::vector<std::string> configs;
     configs.push_back("--conf");

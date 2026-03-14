@@ -25,7 +25,6 @@
 #include "machine/runtime/load_aicpu_op.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/device/dynamic/device_common.h"
-#include "interface/utils/log.h"
 #include "interface/utils/file_utils.h"
 #include "runtime/mem.h"
 #include "machine/utils/device_switch.h"
