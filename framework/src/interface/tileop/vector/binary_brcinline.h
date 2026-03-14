@@ -19,8 +19,57 @@
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
 
+enum class BrcMode : uint8_t {
+    NONE,
+    TAIL_LEFT,      // [m, 1] [m, n]
+    TAIL_RIGHT,     // [m, n] [m, 1]
+    PENU_LEFT,      // [1, n] [m, n]
+    PENU_RIGHT,     // [m, n] [1, n]
+    SCALAR_LEFT,    // [1, 1] [m ,n]
+    SCALAR_RIGHT,   // [m, n] [1, 1]
+    MIX_LEFT_TAIL,  // [m, 1] [1, n]
+    MIX_RIGHT_TAIL  // [1, n] [m, 1]
+};
+
+template <TileOp::BroadcastOperand tailBrcSide, TileOp::PenuBroadcastOperand penuBrcSide>
+TILEOP constexpr BrcMode GetBrcMode() {
+    if constexpr (tailBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND &&
+                  penuBrcSide == TileOp::PenuBroadcastOperand::NONE) {
+        return BrcMode::TAIL_LEFT;
+    }
+    if constexpr (tailBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND &&
+                  penuBrcSide == TileOp::PenuBroadcastOperand::NONE) {
+        return BrcMode::TAIL_RIGHT;
+    }
+    if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE &&
+                  penuBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND) {
+        return BrcMode::PENU_LEFT;
+    }
+    if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE &&
+                  penuBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND) {
+        return BrcMode::PENU_RIGHT;
+    }
+    if constexpr (tailBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND &&
+                  penuBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND) {
+        return BrcMode::SCALAR_LEFT;
+    }
+    if constexpr (tailBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND &&
+                  penuBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND) {
+        return BrcMode::SCALAR_RIGHT;
+    }
+    if constexpr (tailBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND &&
+                  penuBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND) {
+        return BrcMode::MIX_LEFT_TAIL;
+    }
+    if constexpr (tailBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND &&
+                  penuBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND) {
+        return BrcMode::MIX_RIGHT_TAIL;
+    }
+    return BrcMode::NONE;
+}
+
 template <BinaryOp op, typename LastUse, typename T0, typename T1, typename Scalar>
-TILEOP void BinaryLeftScalarComputeImpl(T0 dst, Scalar src0, T1 src1) {
+TILEOP void BinaryLeftScalarComputeImpl(T0 dst, T1 src1, Scalar src0) {
     constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
     constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
     constexpr auto n3 = Std::tuple_element<DIM_3RD, LastUse>::type::value;
@@ -34,7 +83,7 @@ TILEOP void BinaryLeftScalarComputeImpl(T0 dst, Scalar src0, T1 src1) {
         #ifdef __DAV_V220
         pipe_barrier(PIPE_V);
         #endif
-        PTO_WITH_LAST_USE(pto::TADDS(dst, dst, scr0), n1, n2, n3);
+        PTO_WITH_LAST_USE(pto::TADDS(dst, dst, src0), n1, n2, n3);
         return;
     }
 

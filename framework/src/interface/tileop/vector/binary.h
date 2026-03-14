@@ -18,36 +18,11 @@
 #include "pto_tile.h"
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
-#include "utils/broadcast_mode.h"
 #include "binary_scalar.h"
 #include "binary_brcinline.h"
 
-template <typename T>
-TILEOP typename T::DType GetScalar(T &src) {
-    set_flag(PIPE_V, PIPE_S, EVENT_ID7);
-    wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
-    auto s = src.GetValue(0);
-    set_flag(PIPE_S, PIPE_V, EVENT_ID7);
-    wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
-    return s;
-}
-
 template <BinaryOp op, BrcMode mode, typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
-    if constexpr (mode == BrcMode::SCALAR_LEFT) {
-        auto s = GetScalar(src0);
-        BinaryLeftScalarComputeImpl<op, LastUse>(dst, s, src1);
-    } else if constexpr (mode == BrcMode::SCALAR_RIGHT) {
-        auto s = GetScalar(src1);
-        BinaryRightScalarComputeImpl<op, LastUse>(dst, src0, s);
-    } else if constexpr (mode == BrcMode::TAIL_LEFT || mode == BrcMode::TAIL_RIGHT) {
-        BinaryRowExpandComputeImpl<op, LastUse>(dst, src0, src1);
-    } else if constexpr (mode == BrcMode::PENU_LEFT) {
-        BinaryColExpandComputeImpl<op, LastUse>(dst, src1, src0);
-    } else if constexpr (mode == BrcMode::PENU_RIGHT) {
-        BinaryColExpandComputeImpl<op, LastUse>(dst, src0, src1);
-    }
-
     constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
     constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
     constexpr auto n3 = Std::tuple_element<DIM_3RD, LastUse>::type::value;
@@ -97,7 +72,7 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
     }  
 
     if constexpr (op == BinaryOp::EXPANDEXPDIF) {
-        if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE) {
+        if constexpr (mode != BrcMode::TAIL_LEFT && mode != BrcMode::TAIL_RIGHT) {
             pto::TCOLEXPANDEXPDIF(dst, src0, src1);
         } else {
             pto::TROWEXPANDEXPDIF(dst, src0, src1);
@@ -105,7 +80,7 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
     }
 
     if constexpr (op == BinaryOp::MOD) {
-        if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE) {
+        if constexpr (mode != BrcMode::TAIL_LEFT && mode != BrcMode::TAIL_RIGHT) {
             pto::TFMOD(dst, src0, src1);
         } else {
             pto::TROWEXPANDDIV(dst, src0, src1);
@@ -122,6 +97,45 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
             #endif
             pto::TROWEXPANDSUB(dst, src0, dst);
         }
+        return;
+    }
+}
+
+template <typename T>
+TILEOP typename T::DType GetScalar(T &src) {
+    set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    auto s = src.GetValue(0);
+    set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+    wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+    return s;
+}
+
+template <BinaryOp op, BrcMode mode, typename LastUse, typename T0, typename T1, typename T2>
+TILEOP void BinaryBrcDispatch(T0 dst, T1 src0, T2 src1) {
+    if constexpr (mode == BrcMode::SCALAR_LEFT) {
+        auto s = GetScalar(src0);
+        BinaryLeftScalarComputeImpl<op, LastUse>(dst, src1, s);
+        return;
+    } else if constexpr (mode == BrcMode::SCALAR_RIGHT) {
+        auto s = GetScalar(src1);
+        BinaryRightScalarComputeImpl<op, LastUse>(dst, src0, s);
+        return;
+    } else if constexpr (mode == BrcMode::TAIL_LEFT || mode == BrcMode::TAIL_RIGHT) {
+        BinaryRowExpandComputeImpl<op, LastUse>(dst, src0, src1);
+        return;
+    } else if constexpr (mode == BrcMode::PENU_LEFT) {
+        BinaryColExpandComputeImpl<op, LastUse>(dst, src1, src0);
+        return;
+    } else if constexpr (mode == BrcMode::PENU_RIGHT) {
+        BinaryColExpandComputeImpl<op, LastUse>(dst, src0, src1);
+        return;
+    } else if constexpr (mode == BrcMode::MIX_LEFT_TAIL) {
+        return;
+    } else if constexpr (mode == BrcMode::MIX_RIGHT_TAIL) {
+        return;
+    } else {
+        BinaryComputeImpl<op, mode, LastUse>(dst, src0, src1);
         return;
     }
 }
@@ -147,20 +161,20 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
         auto dstTile = PtoTile<T0, pto::BLayout::RowMajor, true>().Data();
         using Src0PtoTile = typename std::conditional<(src0TileW == 1 && brcmode == BrcMode::TAIL_LEFT), 
             PtoTile<T1, pto::BLayout::ColMajor, true>, PtoTile<T1, pto::BLayout::RowMajor, true>>::type;
-        using Src1PtoTile = typename std::conditional<(src0TileW == 1 && brcmode == BrcMode::TAIL_RIGHT), 
+        using Src1PtoTile = typename std::conditional<(src1TileW == 1 && brcmode == BrcMode::TAIL_RIGHT), 
             PtoTile<T2, pto::BLayout::ColMajor, true>, PtoTile<T2, pto::BLayout::RowMajor, true>>::type;
         auto src0Tile = Src0PtoTile().Data();
         auto src1Tile = Src1PtoTile().Data();
         pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
         pto::TASSIGN(src0Tile, (uint64_t)src0.GetAddr());
         pto::TASSIGN(src1Tile, (uint64_t)src1.GetAddr());
-        BinaryComputeImpl<op, brcmode, LastUse>(dstTile, src0Tile, src1Tile);
+        BinaryBrcDispatch<op, brcmode, LastUse>(dstTile, src0Tile, src1Tile);
         return;
     }
     
     using Src0PtoTile = typename std::conditional<(src0TileW == 1 && brcmode == BrcMode::TAIL_LEFT), 
         PtoTile<T1, pto::BLayout::ColMajor>, PtoTile<T1>>::type;
-    using Src1PtoTile = typename std::conditional<(src0TileW == 1 && brcmode == BrcMode::TAIL_RIGHT), 
+    using Src1PtoTile = typename std::conditional<(src1TileW == 1 && brcmode == BrcMode::TAIL_RIGHT), 
         PtoTile<T2, pto::BLayout::ColMajor>, PtoTile<T2>>::type;
 
     auto dstTile = PtoTile<T0>(dst);
@@ -181,7 +195,7 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
                 dstTile.Assign(dst, tileOffsets);
                 src0Tile.Assign(src0, src0tileOffsets);
                 src1Tile.Assign(src1, src1tileOffsets);
-                BinaryComputeImpl<op, brcmode, LastUse>(dstTile.Data(), src0Tile.Data(), src1Tile.Data());
+                BinaryBrcDispatch<op, brcmode, LastUse>(dstTile.Data(), src0Tile.Data(), src1Tile.Data());
             }
         }
     }
