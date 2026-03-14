@@ -11,6 +11,72 @@
 
 ## 排查建议
 
+### 怀疑和MACHINE内存处理有关的精度问题
+
+1. 扩大workspace大小
+`python/pypto/frontend/parser/entry.py`
+```python
+workspace_tensor = torch.empty(workspace_size, dtype=torch.uint8, device=device)
+```
+
+```python
+workspace_tensor = torch.empty(workspace_size * 10, dtype=torch.uint8, device=device)
+```
+如果问题不复现，则是workspace计算问题
+
+
+2. workspace从torch管理，改为内部自管理
+`framework/src/machine/runtime/device_launcher.cpp`
+```cpp
+    static void PrepareDevProgArgs(DevAscendProgram *devProg, DeviceLauncherConfig &config,
+                                  [[maybe_unused]]bool isDevice) {
+        ...
+        if (config.workspaceAddr) {
+            kArgs.workspace = (int64_t *)config.workspaceAddr;
+        } else if (kArgs.workspace == nullptr && (devProg->workspaceSize != 0)) {
+            kArgs.workspace = (int64_t *)devMem.AllocDev(devProg->workspaceSize, CachedOperator::GetWorkspaceDevAddrHolder(cachedOperator));
+        }
+        ...
+    }
+```
+
+```cpp
+    static void PrepareDevProgArgs(DevAscendProgram *devProg, DeviceLauncherConfig &config,
+                                  [[maybe_unused]]bool isDevice) {
+        ...
+        if (0) {
+            kArgs.workspace = (int64_t *)config.workspaceAddr;
+        } else if (kArgs.workspace == nullptr && (devProg->workspaceSize != 0)) {
+            kArgs.workspace = (int64_t *)devMem.AllocDev(devProg->workspaceSize, CachedOperator::GetWorkspaceDevAddrHolder(cachedOperator));
+        }
+        ...
+    }
+```
+如果问题不复现，则是workspace使用问题，存在内存踩踏等
+
+3. leaf function粒度的内存重叠检测
+a.打开VERBOSE日志
+`framework/src/machine/utils/device_switch.h`
+```cpp
+#define ENABLE_COMPILE_VERBOSE_LOG 1
+```
+
+b.打开DEBUG日志
+```bash
+export ASCEND_GLOBAL_LOG_LEVEL=0
+```
+
+c.重新编pypto whl包，执行用例
+
+d.执行内存检测脚本
+```bash
+python3 tools/schema/schema_memory_check.py -d {device_log_path} -t {topo_file_path}
+```
+
+如无异常，提示device task 无内存重叠；
+如存在异常，提示内存重叠的 device task 以及 leaf function。
+
+
 ### F70006 HANDSHAKE_TIMEOUT
 
 1. **确认设备与驱动**：NPU 设备可用、驱动正常，`npu-smi info` 无异常。
