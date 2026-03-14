@@ -22,26 +22,26 @@ namespace pypto {
 void BindDistributed(py::module& m) {
     m.def(
         "CreateShmemData",
-        [](const Tensor& commTensor, const char* group, int64_t worldSize, DataType dataType, const Shape& shape, Tensor& shmemTensor,
+        [](const Tensor& commTensor, int64_t worldSize, DataType dataType, const Shape& shape, Tensor& shmemTensor,
             uint64_t memType = 0) {
-            return Distributed::CreateShmemData(commTensor, group, worldSize, dataType, shape, shmemTensor, memType);
+            return Distributed::CreateShmemData(commTensor, worldSize, dataType, shape, shmemTensor, memType);
         },
-        py::arg("commTensor"), py::arg("group"), py::arg("worldSize"), py::arg("dataType"), py::arg("shape"), py::arg("shmemTensor"),
+        py::arg("commTensor"), py::arg("worldSize"), py::arg("dataType"), py::arg("shape"), py::arg("shmemTensor"),
         py::arg("memType") = 0, "Create shmem data.");
 
     m.def(
         "CreateShmemSignal",
-        [](const Tensor& commTensor, const char* group, Tensor& shmemData, Tensor& shmemSignal) {
-            return Distributed::CreateShmemSignal(commTensor, group, shmemData, shmemSignal);
+        [](const Tensor& commTensor, Tensor& shmemData, Tensor& shmemSignal) {
+            return Distributed::CreateShmemSignal(commTensor, shmemData, shmemSignal);
         },
-        py::arg("commTensor"), py::arg("group"), py::arg("shmemData"), py::arg("shmemSignal"), "Create shmem signal data.");
+        py::arg("commTensor"), py::arg("shmemData"), py::arg("shmemSignal"), "Create shmem signal data.");
 
     m.def(
         "ShmemBarrier",
-        [](const Tensor& predToken, Tensor& shmemSignal, const char* group, uint32_t worldSize) {
-            return Distributed::ShmemBarrier(predToken, shmemSignal, group, worldSize);
+        [](const Tensor& predToken, Tensor& shmemSignal, const Tensor& commTensor, uint32_t worldSize) {
+            return Distributed::ShmemBarrier(predToken, shmemSignal, commTensor, worldSize);
         },
-        py::arg("predToken"), py::arg("shmemSignal"), py::arg("group"), py::arg("worldSize"),
+        py::arg("predToken"), py::arg("shmemSignal"), py::arg("commTensor"), py::arg("worldSize"),
         "Sync shared memory acess between comm operators.");
 
     m.def(
@@ -115,12 +115,12 @@ void BindDistributed(py::module& m) {
     m.def(
         "GetCommContext", 
         [](const std::string& group) -> std::pair<int64_t, uint64_t> { 
-            std::vector<uint64_t> hcclContexts = dynamic::DistributedContext::GetCommContextToHost(std::vector<std::string>{testParam.group});
+            std::vector<uint64_t> hcclContexts = dynamic::DistributedContext::GetCommContextToHost(std::vector<std::string>{group});
             auto hcclOpParam = (TileOp::CommContext*)hcclContexts[0];
             auto rankNum = hcclOpParam->rankNum;
             int64_t ctxSize = static_cast<int64_t>(sizeof(TileOp::CommContext)) + 
                 static_cast<int64_t>(sizeof(uint64_t)) * rankNum * dynamic::WIN_TYPE_NUM;
-            auto commContext = dynamic::DistributedContext::GetCommContext(std::vector<string>{group});
+            auto commContext = dynamic::DistributedContext::GetCommContext(std::vector<std::string>{group});
             return {ctxSize, commContext[0]}; 
         }, 
         py::arg("group"),

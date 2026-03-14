@@ -24,6 +24,7 @@ struct OpTestParam {
     char group[128]{0};
     int rankSize;
     int rankId;
+    int worldRankId;
 };
 
 template<typename T>

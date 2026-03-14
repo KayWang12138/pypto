@@ -78,6 +78,9 @@ using MpiBcastFunc = int(*)(void*, int, MPI_Datatype, int, MPI_Comm);
 using MpiBarrierFunc = int(*)(MPI_Comm);
 using MpiAbortFunc = int (*)(MPI_Comm, int);
 using MpiFinalizeFunc = int (*)();
+using MpiGroupInclFunc = int(*)(MPI_Group, int, int*, MPI_Group*);
+using MpiCommCreateFunc = int(*)(MPI_Comm, MPI_Group, MPI_Comm*);
+using MpiCommGroupFunc = int(*)(MPI_Comm, MPI_Group*);
 
 // Try several common MPI library paths/names so the test can find MPICH/MPILib without
 // requiring system-level changes (e.g., no sudo inside container).
@@ -261,105 +264,53 @@ void TestFrameworkInit(OpTestParam &testParam, HcomTestParam &hcomTestParam, int
     return;
 }
 
-void TestFrameworkInitMulti(OpTestParam &testParam, HcomTestParam &hcomTestParam, int &physicalDeviceId)
+void TestFrameworkInitSub(OpTestParam &testParam, HcomTestParam &subHcomTestParam)
 {
-    // 获取MPI函数指针（类型安全）
-    auto mpiInit = GetFunction<MpiInitFunc>("MPI_Init");
-    CHECK(mpiInit != nullptr) << "MpiInitFunc ptr not found";
-    auto mpiCommSize = GetFunction<MpiCommSizeFunc>("MPI_Comm_size");
-    CHECK(mpiCommSize != nullptr) << "MpiCommSizeFunc ptr not found";
-    auto mpiCommRank = GetFunction<MpiCommRankFunc>("MPI_Comm_rank");
-    CHECK(mpiCommRank != nullptr) << "MpiCommRankFunc ptr not found";
+    auto mpiGroupIncl = GetFunction<MpiGroupInclFunc>("MPI_Group_incl");
+    CHECK(mpiGroupIncl != nullptr) << "MpiGroupInclFunc ptr not found";
+    auto mpiCommCreate = GetFunction<MpiCommCreateFunc>("MPI_Comm_create");
+    CHECK(mpiCommCreate != nullptr) << "MpiCommCreateFunc ptr not found";
+    auto mpiCommGroup = GetFunction<MpiCommGroupFunc>("MPI_Comm_group");
+    CHECK(mpiCommGroup != nullptr) << "MpiCommGroupFunc ptr not found";
     auto mpiBcast = GetFunction<MpiBcastFunc>("MPI_Bcast");
     CHECK(mpiBcast != nullptr) << "MpiBcastFunc ptr not found";
     auto mpiBarrier = GetFunction<MpiBarrierFunc>("MPI_Barrier");
     CHECK(mpiBarrier != nullptr) << "MpiBarrierFunc ptr not found";
-    
-    mpiInit(NULL, NULL);
 
-    // 获取当前进程在所属进程组的编号
-    mpiCommSize(MPI_COMM_WORLD, &testParam.rankSize);
-    mpiCommRank(MPI_COMM_WORLD, &testParam.rankId);
-
-    // 获取物理卡id - 使用线程安全的环境变量访问
-    const std::string& dev_list_str = ThreadSafeEnv::getDeviceIdList();
-    if (!dev_list_str.empty()) {
-        std::vector<int> device_list;
-        std::stringstream ss(dev_list_str);
-        std::string id;
-        while (std::getline(ss, id, ',')) {
-            device_list.push_back(std::stoi(id));
-        }
-        CHECK(testParam.rankId < static_cast<int>(device_list.size())) << "RankID out of range";
-        physicalDeviceId = device_list[testParam.rankId];
-    } else {
-        physicalDeviceId = testParam.rankId;
-    }
-
-    // ACL、NPU初始化与绑定
-    CHECK(aclInit(NULL) == 0) << "aclInit falied";   // 设备资源初始化
-    if (testParam.rankId == 0) {
-        CHECK(rtSetDevice(physicalDeviceId) == 0) << "Set device falied";   // 将当前进程绑定到指定的物理NPU
-    }
-    CHECK(aclrtSetDevice(physicalDeviceId) == 0) << "Set device falied";   // 指定集合通信操作使用的设备
-
-    // ------------ 默认全局通信域 ------------
-    hcomTestParam.rootRank = 0;
-    if (testParam.rankId == hcomTestParam.rootRank) {
-        CHECK(HcclGetRootInfo(&hcomTestParam.rootInfo) == 0) << "HcclGetRootInfo failed";
-    }
-    mpiBcast(&hcomTestParam.rootInfo, HCCL_ROOT_INFO_BYTES, MPI_CHAR, hcomTestParam.rootRank, MPI_COMM_WORLD);
-    mpiBarrier(MPI_COMM_WORLD);
-    CHECK(HcclCommInitRootInfo(testParam.rankSize, &hcomTestParam.rootInfo, testParam.rankId,
-        &hcomTestParam.hcclComm) == 0) << "HcclCommInitRootInfo failed";
-    CHECK(HcclGetCommName(hcomTestParam.hcclComm, testParam.group) == 0) << "HcclGetCommName failed";
-
-    // ------------ 子通信域 ------------
+    // 子通信域范围
     HcclRootInfo subRootInfo;
     HcclComm subComm;
-    char subGroupName[128] = {0};
-
     int subCommId = (testParam.rankId % 2 == 0) ? 0 : 1;
-    
-    // 假设rankSize >= 2
     int subRootRank = subCommId; 
     if (testParam.rankId == subRootRank) {
         CHECK(HcclGetRootInfo(&subRootInfo) == 0) << "SubGroup HcclGetRootInfo failed";
     }
-    // 创建 MPI 子通信域用于广播 rootInfo
-    MPI_Group worldGroup, subGroup;
+    // 创建MPI子通信域
+    MPI_Group subGroup;
     MPI_Comm subMpiComm;
-    auto mpiGroupIncl = GetFunction<int(*)(MPI_Group, int, int*, MPI_Group*)>("MPI_Group_incl");
-    auto mpiCommCreate = GetFunction<int(*)(MPI_Comm, MPI_Group, MPI_Comm*)>("MPI_Comm_create");
-    auto mpiGroupFree = GetFunction<int(*)(MPI_Group*)>("MPI_Group_free");
-    auto mpiCommFree = GetFunction<int(*)(MPI_Comm*)>("MPI_Comm_free");
-    if (mpiGroupIncl && mpiCommCreate) {
-        int subRankSize = (testParam.rankSize + (subCommId == 0 ? 1 : 0)) / 2; // 子通信域大小
-        std::vector<int> subRanks;
-        for (int r = subCommId; r < testParam.rankSize; r += 2) {
-            subRanks.push_back(r);
-        }
-        // 创建 MPI 子组
-        mpiGroupIncl(MPI_COMM_WORLD, subRanks.size(), subRanks.data(), &subGroup);
-        mpiCommCreate(MPI_COMM_WORLD, subGroup, &subMpiComm);
-
-        // 在子 MPI 通信域内广播 rootInfo
-        int mpiRootInSub = 0; 
-        mpiBcast(&subRootInfo, HCCL_ROOT_INFO_BYTES, MPI_CHAR, mpiRootInSub, subMpiComm);
-        mpiBarrier(subMpiComm); // 子组同步
-        int subRankId = std::distance(subRanks.begin(), std::find(subRanks.begin(), subRanks.end(), testParam.rankId));
-        
-        CHECK(HcclCommInitRootInfo(subRankSize, &subRootInfo, subRankId, &subComm) == 0) << "SubGroup HcclCommInitRootInfo failed";
-        mpiGroupFree(&subGroup);
-        mpiCommFree(&subMpiComm);
-    
+    int subRankSize = (testParam.rankSize + (subCommId == 0 ? 1 : 0)) / 2;
+    std::vector<int> subRanks;
+    for (int r = subCommId; r < testParam.rankSize; r += 2) {
+        subRanks.push_back(r);
+    }
+    MPI_Group worldGroup;
+    mpiCommGroup(MPI_COMM_WORLD, &worldGroup);
+    mpiGroupIncl(worldGroup, static_cast<int>(subRanks.size()), subRanks.data(), &subGroup);
+    mpiCommCreate(MPI_COMM_WORLD, subGroup, &subMpiComm);
+    // hccl初始化
+    int mpiRootInSub = 0; 
+    mpiBcast(&subRootInfo, HCCL_ROOT_INFO_BYTES, MPI_CHAR, mpiRootInSub, subMpiComm);
+    mpiBarrier(subMpiComm); 
+    int subRankId = std::distance(subRanks.begin(), std::find(subRanks.begin(), subRanks.end(), testParam.rankId));
+    CHECK(HcclCommInitRootInfo(subRankSize, &subRootInfo, subRankId, &subComm) == 0) << "SubGroup HcclCommInitRootInfo failed";
     CHECK(HcclGetCommName(subComm, testParam.group) == 0) << "SubGroup HcclGetCommName failed";
 
+    testParam.worldRankId = testParam.rankId;
     testParam.rankId = subRankId;   
     testParam.rankSize = subRankSize; 
+    subHcomTestParam.hcclComm = subComm;
     DISTRIBUTED_LOGI("Init SubGroup: %s, SubRank: %d, SubSize: %d", 
-                     testParam.group, testParam.rankId, testParam.rankSize);
-    }
+                    testParam.group, testParam.rankId, testParam.rankSize);
     return;
 }
 

@@ -658,7 +658,7 @@ def CreateShmemData(
 def CreateShmemSignal(comm_tensor: Tensor, group: str, shmem_data: Tensor, shmem_signal: Tensor) -> None:
 
 
-def ShmemBarrier(pred_token: Tensor, shmem_signal: Tensor, group: str, world_size: int) -> Tensor: ...
+def ShmemBarrier(pred_token: Tensor, shmem_signal: Tensor, comm_tensor: Tensor, world_size: int) -> Tensor: ...
 
 
 def ShmemDataSet(pred_token: Tensor, shmem_data: Tensor) -> None:
