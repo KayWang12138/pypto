@@ -21,7 +21,7 @@ std::string BuildExpr(const GpuVkNode &node) {
         case GpuVkOpKind::SUM:
             return LoadValue(node.inputs, 0);
         case GpuVkOpKind::MATMUL:
-            return LoadValue(node.inputs, 0);
+            return "matmul_f32";
         case GpuVkOpKind::INPUT:
         case GpuVkOpKind::OUTPUT:
         case GpuVkOpKind::UNKNOWN:
@@ -33,7 +33,7 @@ std::string BuildExpr(const GpuVkNode &node) {
 } // namespace
 
 VkStatus DispatchLoweringPass::Run(
-    const GpuVkTensorGraph &graph, const GpuVkDispatchGraph &dispatchGraph, GpuVkShaderFunction &shaderFunction) const {
+    const GpuVkTensorGraph &graph, GpuVkDispatchGraph &dispatchGraph, GpuVkShaderFunction &shaderFunction) const {
     if (graph.Empty()) {
         return VkStatus::kInvalidArgument;
     }
@@ -41,6 +41,7 @@ VkStatus DispatchLoweringPass::Run(
     shaderFunction.SetName(dispatchGraph.KernelName());
     shaderFunction.SetDispatch(dispatchGraph.Dispatch());
     for (const auto &node : graph.Nodes()) {
+        dispatchGraph.AddLoweredOp(BuildExpr(node));
         shaderFunction.AddOp(GpuVkShaderOp{
             node.op,
             BuildExpr(node),

@@ -25,6 +25,81 @@ using npu::tile_fwk::gpu_vk::ParseGpuVkOpKind;
 
 namespace {
 
+struct MatmulShapeInfo {
+    std::size_t lhsRank{0};
+    std::size_t rhsRank{0};
+    std::int64_t lhsBatch{1};
+    std::int64_t rhsBatch{1};
+    std::int64_t batch{1};
+    std::int64_t m{1};
+    std::int64_t n{1};
+    std::int64_t k{1};
+};
+
+MatmulShapeInfo AnalyzeMatmulShapes(
+    const std::vector<std::int64_t> &lhsShape, const std::vector<std::int64_t> &rhsShape) {
+    MatmulShapeInfo info;
+    info.lhsRank = lhsShape.size();
+    info.rhsRank = rhsShape.size();
+    if (info.lhsRank < 1 || info.lhsRank > 3 || info.rhsRank < 1 || info.rhsRank > 3) {
+        throw std::invalid_argument("matmul currently supports only rank-1, rank-2 or rank-3 tensors.");
+    }
+
+    info.m = info.lhsRank == 1 ? 1 : lhsShape[info.lhsRank - 2];
+    info.k = lhsShape.back();
+    const std::int64_t rhsK = info.rhsRank == 1 ? rhsShape.front() : rhsShape[info.rhsRank - 2];
+    info.n = info.rhsRank == 1 ? 1 : rhsShape.back();
+    if (info.k != rhsK) {
+        if (info.lhsRank == 2 && info.rhsRank == 2) {
+            throw std::invalid_argument("matmul requires lhs.shape[1] == rhs.shape[0].");
+        }
+        throw std::invalid_argument("matmul requires contracted dimensions to match.");
+    }
+
+    info.lhsBatch = info.lhsRank == 3 ? lhsShape.front() : 1;
+    info.rhsBatch = info.rhsRank == 3 ? rhsShape.front() : 1;
+    if (info.lhsBatch != info.rhsBatch && info.lhsBatch != 1 && info.rhsBatch != 1) {
+        throw std::invalid_argument("batched matmul requires compatible batch dimensions.");
+    }
+    info.batch = std::max(info.lhsBatch, info.rhsBatch);
+    return info;
+}
+
+std::vector<std::int64_t> InferOutputShape(
+    const std::string &opName, const std::vector<std::vector<std::int64_t>> &inputShapes) {
+    if (inputShapes.empty()) {
+        return {};
+    }
+    if (opName == "matmul") {
+        if (inputShapes.size() != 2) {
+            throw std::invalid_argument("matmul expects exactly 2 input tensors.");
+        }
+        const auto &lhsShape = inputShapes[0];
+        const auto &rhsShape = inputShapes[1];
+        const MatmulShapeInfo info = AnalyzeMatmulShapes(lhsShape, rhsShape);
+        if (info.lhsRank == 1 && info.rhsRank == 1) {
+            return {};
+        }
+        if (info.lhsRank == 1 && info.rhsRank == 2) {
+            return {info.n};
+        }
+        if (info.lhsRank == 2 && info.rhsRank == 1) {
+            return {info.m};
+        }
+        if (info.lhsRank == 1 && info.rhsRank == 3) {
+            return {info.batch, info.n};
+        }
+        if (info.lhsRank == 3 && info.rhsRank == 1) {
+            return {info.batch, info.m};
+        }
+        if (info.lhsRank == 2 && info.rhsRank == 2) {
+            return {info.m, info.n};
+        }
+        return {info.batch, info.m, info.n};
+    }
+    return inputShapes.front();
+}
+
 GpuVkTensorGraph BuildTensorGraphFromShapes(
     const std::string &opName, const std::vector<std::vector<std::int64_t>> &inputShapes, std::int32_t dtype) {
     GpuVkTensorGraph graph;
@@ -37,7 +112,7 @@ GpuVkTensorGraph BuildTensorGraphFromShapes(
         graph.AddInput(GpuVkValue{name, inputShapes[i], {}, dtype, true, false});
     }
 
-    std::vector<std::int64_t> outputShape = inputShapes.empty() ? std::vector<std::int64_t>{} : inputShapes.front();
+    const std::vector<std::int64_t> outputShape = InferOutputShape(opName, inputShapes);
     graph.AddOutput(GpuVkValue{"output0", outputShape, {}, dtype, false, true});
     graph.AddNode(ParseGpuVkOpKind(opName), inputNames, {"output0"});
     return graph;

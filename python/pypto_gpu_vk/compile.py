@@ -10,9 +10,34 @@ from .backend import GpuVkBackend
 from .config import CompileConfig
 
 
+def _analyze_matmul_inputs(lhs: torch.Tensor, rhs: torch.Tensor):
+    if lhs.ndim not in {1, 2, 3} or rhs.ndim not in {1, 2, 3}:
+        return None
+    lhs_batch = lhs.shape[0] if lhs.ndim == 3 else 1
+    rhs_batch = rhs.shape[0] if rhs.ndim == 3 else 1
+    rhs_k = rhs.shape[0] if rhs.ndim == 1 else rhs.shape[-2]
+    if lhs.shape[-1] != rhs_k:
+        return None
+    if lhs_batch != rhs_batch and lhs_batch != 1 and rhs_batch != 1:
+        return None
+    return lhs_batch, rhs_batch
+
+
 def _supports_real_vulkan(op_name: str, inputs: tuple[torch.Tensor, ...], artifact) -> bool:
     if not bool(artifact.is_real_spirv):
         return False
+    if op_name == "matmul":
+        if len(inputs) != 2:
+            return False
+        lhs, rhs = inputs
+        analyzed = _analyze_matmul_inputs(lhs, rhs)
+        return (
+            lhs.device.type == "cpu"
+            and rhs.device.type == "cpu"
+            and lhs.dtype == torch.float32
+            and rhs.dtype == torch.float32
+            and analyzed is not None
+        )
     if op_name not in {"add", "mul", "relu", "where"}:
         return False
     return all(tensor.device.type == "cpu" and tensor.dtype == torch.float32 for tensor in inputs)

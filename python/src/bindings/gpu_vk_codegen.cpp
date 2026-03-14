@@ -34,6 +34,15 @@ using npu::tile_fwk::gpu_vk::VkStatusToString;
 
 namespace {
 
+bool IsMatmulDispatch(const GpuVkDispatchGraph &dispatchGraph) {
+    for (const auto &expr : dispatchGraph.LoweredOps()) {
+        if (expr == "matmul_f32") {
+            return true;
+        }
+    }
+    return false;
+}
+
 ShaderMeta BuildShaderMeta(const GpuVkDispatchGraph &dispatchGraph, std::int32_t dtype) {
     ShaderMeta meta;
     meta.kernelName = dispatchGraph.KernelName();
@@ -41,7 +50,16 @@ ShaderMeta BuildShaderMeta(const GpuVkDispatchGraph &dispatchGraph, std::int32_t
     for (const auto &binding : dispatchGraph.Bindings()) {
         meta.bindings.push_back(ShaderBindingMeta{binding.binding, binding.name, dtype, binding.isOutput});
     }
-    meta.pushConstants.push_back(PushConstantMeta{"numel", 0, 4});
+    if (IsMatmulDispatch(dispatchGraph)) {
+        meta.pushConstants.push_back(PushConstantMeta{"B", 0, 4});
+        meta.pushConstants.push_back(PushConstantMeta{"M", 4, 4});
+        meta.pushConstants.push_back(PushConstantMeta{"N", 8, 4});
+        meta.pushConstants.push_back(PushConstantMeta{"K", 12, 4});
+        meta.pushConstants.push_back(PushConstantMeta{"lhsBatchStride", 16, 4});
+        meta.pushConstants.push_back(PushConstantMeta{"rhsBatchStride", 20, 4});
+    } else {
+        meta.pushConstants.push_back(PushConstantMeta{"numel", 0, 4});
+    }
     return meta;
 }
 

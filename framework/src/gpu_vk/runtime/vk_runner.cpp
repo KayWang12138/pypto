@@ -1,6 +1,7 @@
 #include "gpu_vk/runtime/vk_runner.h"
 
 #include <algorithm>
+#include <cstring>
 #include <sstream>
 
 #if defined(BUILD_WITH_VULKAN)
@@ -10,6 +11,15 @@
 namespace npu::tile_fwk::gpu_vk {
 
 namespace {
+
+struct MatmulRuntimeShape {
+    std::uint32_t batch{1};
+    std::uint32_t m{1};
+    std::uint32_t n{1};
+    std::uint32_t k{1};
+    std::uint32_t lhsBatchStride{0};
+    std::uint32_t rhsBatchStride{0};
+};
 
 std::uint32_t ComputeNumel(const VkTensorDesc &desc) {
     if (!desc.shape.empty()) {
@@ -22,6 +32,14 @@ std::uint32_t ComputeNumel(const VkTensorDesc &desc) {
     return static_cast<std::uint32_t>(std::max<std::size_t>(1, desc.nbytes / sizeof(float)));
 }
 
+std::uint32_t ComputePushConstantBytes(const ShaderMeta &meta) {
+    std::uint32_t totalBytes = 0;
+    for (const auto &pushConstant : meta.pushConstants) {
+        totalBytes = std::max(totalBytes, pushConstant.offset + pushConstant.size);
+    }
+    return totalBytes;
+}
+
 std::vector<GpuVkBufferBinding> BuildDescriptorBindings(const GpuVkArtifact &artifact) {
     std::vector<GpuVkBufferBinding> bindings;
     bindings.reserve(artifact.meta.bindings.size());
@@ -29,6 +47,73 @@ std::vector<GpuVkBufferBinding> BuildDescriptorBindings(const GpuVkArtifact &art
         bindings.push_back(GpuVkBufferBinding{binding.name, binding.binding, binding.isOutput});
     }
     return bindings;
+}
+
+bool IsMatmulArtifact(const GpuVkArtifact &artifact) {
+    return !artifact.shaderFunction.Ops().empty() && artifact.shaderFunction.Ops().back().op == GpuVkOpKind::MATMUL;
+}
+
+bool TryBuildMatmulRuntimeShape(
+    const std::vector<VkTensorDesc> &inputs, const std::vector<VkTensorDesc> &outputs, MatmulRuntimeShape &shape) {
+    if (inputs.size() != 2 || outputs.size() != 1) {
+        return false;
+    }
+    const auto &lhsShape = inputs[0].shape;
+    const auto &rhsShape = inputs[1].shape;
+    if (lhsShape.empty() || lhsShape.size() > 3 || rhsShape.empty() || rhsShape.size() > 3) {
+        return false;
+    }
+
+    const std::uint32_t lhsRank = static_cast<std::uint32_t>(lhsShape.size());
+    const std::uint32_t rhsRank = static_cast<std::uint32_t>(rhsShape.size());
+    shape.batch = std::max<std::uint32_t>(
+        lhsRank == 3 ? static_cast<std::uint32_t>(std::max<std::int64_t>(1, lhsShape.front())) : 1,
+        rhsRank == 3 ? static_cast<std::uint32_t>(std::max<std::int64_t>(1, rhsShape.front())) : 1);
+    shape.m = lhsRank == 1
+        ? 1
+        : static_cast<std::uint32_t>(std::max<std::int64_t>(1, lhsShape[lhsShape.size() - 2]));
+    shape.k = static_cast<std::uint32_t>(std::max<std::int64_t>(1, lhsShape.back()));
+    const std::uint32_t rhsContract = rhsRank == 1
+        ? static_cast<std::uint32_t>(std::max<std::int64_t>(1, rhsShape.front()))
+        : static_cast<std::uint32_t>(std::max<std::int64_t>(1, rhsShape[rhsShape.size() - 2]));
+    if (shape.k != rhsContract) {
+        return false;
+    }
+    shape.n = rhsRank == 1
+        ? 1
+        : static_cast<std::uint32_t>(std::max<std::int64_t>(1, rhsShape.back()));
+    shape.lhsBatchStride = lhsRank == 3 && lhsShape.front() > 1 ? shape.m * shape.k : 0;
+    shape.rhsBatchStride = rhsRank == 3 && rhsShape.front() > 1 ? shape.k * shape.n : 0;
+    return true;
+}
+
+VkStatus BuildPushConstantData(
+    const GpuVkArtifact &artifact,
+    const std::vector<VkTensorDesc> &inputs,
+    const std::vector<VkTensorDesc> &outputs,
+    std::vector<std::uint32_t> &pushConstantData) {
+    pushConstantData.clear();
+    if (IsMatmulArtifact(artifact)) {
+        MatmulRuntimeShape shape;
+        if (!TryBuildMatmulRuntimeShape(inputs, outputs, shape)) {
+            return VkStatus::kInvalidArgument;
+        }
+        pushConstantData = {
+            shape.batch,
+            shape.m,
+            shape.n,
+            shape.k,
+            shape.lhsBatchStride,
+            shape.rhsBatchStride,
+        };
+        return VkStatus::kSuccess;
+    }
+
+    if (outputs.empty()) {
+        return VkStatus::kInvalidArgument;
+    }
+    pushConstantData = {ComputeNumel(outputs[0])};
+    return VkStatus::kSuccess;
 }
 
 } // namespace
@@ -103,7 +188,7 @@ VkStatus VkRunner::Run(
             artifact.entryPoint,
             artifact.spirv,
             bindings,
-            sizeof(std::uint32_t));
+            ComputePushConstantBytes(artifact.meta));
         if (pipelineStatus != VkStatus::kSuccess) {
             return pipelineStatus;
         }
@@ -203,6 +288,12 @@ VkStatus VkRunner::Run(
     fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     if (vkCreateFence(device, &fenceCreateInfo, nullptr, &fence) != VK_SUCCESS) {
         return finish(VkStatus::kQueueSubmitFailed);
+    }
+
+    std::vector<std::uint32_t> pushConstantData;
+    status = BuildPushConstantData(artifact, inputs, outputs, pushConstantData);
+    if (status != VkStatus::kSuccess) {
+        return finish(status);
     }
 
     VkDescriptorPoolSize descriptorPoolSize{};
@@ -325,14 +416,15 @@ VkStatus VkRunner::Run(
         0,
         nullptr);
 
-    const std::uint32_t numel = ComputeNumel(outputs[0]);
-    vkCmdPushConstants(
-        commandBuffer,
-        reinterpret_cast<VkPipelineLayout>(cachedPipeline->PipelineLayoutHandle()),
-        VK_SHADER_STAGE_COMPUTE_BIT,
-        0,
-        sizeof(numel),
-        &numel);
+    if (!pushConstantData.empty()) {
+        vkCmdPushConstants(
+            commandBuffer,
+            reinterpret_cast<VkPipelineLayout>(cachedPipeline->PipelineLayoutHandle()),
+            VK_SHADER_STAGE_COMPUTE_BIT,
+            0,
+            static_cast<std::uint32_t>(pushConstantData.size() * sizeof(std::uint32_t)),
+            pushConstantData.data());
+    }
     vkCmdDispatch(
         commandBuffer, artifact.meta.dispatch.groupX, artifact.meta.dispatch.groupY, artifact.meta.dispatch.groupZ);
 

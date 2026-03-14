@@ -107,7 +107,10 @@ void BindGpuVkRuntime(py::module &m) {
         .def("pipeline_cache_entry_count", &VkRunner::PipelineCacheEntryCount)
         .def(
             "run_artifact",
-            [](VkRunner &runner, const npu::tile_fwk::gpu_vk::GpuVkArtifact &artifact, py::sequence inputs) -> py::tuple {
+            [](VkRunner &runner,
+               const npu::tile_fwk::gpu_vk::GpuVkArtifact &artifact,
+               py::sequence inputs,
+               py::object outputShape) -> py::tuple {
                 if (inputs.size() == 0) {
                     return py::make_tuple(VkStatus::kInvalidArgument, py::none());
                 }
@@ -123,7 +126,16 @@ void BindGpuVkRuntime(py::module &m) {
                     inputPtrs.push_back(reinterpret_cast<const void *>(GetTensorDataPtr(tensor)));
                 }
 
-                py::object outputTensor = torch.attr("empty_like")(py::reinterpret_borrow<py::object>(inputs[0]));
+                py::object firstInput = py::reinterpret_borrow<py::object>(inputs[0]);
+                py::object outputTensor;
+                if (outputShape.is_none()) {
+                    outputTensor = torch.attr("empty_like")(firstInput);
+                } else {
+                    outputTensor = torch.attr("empty")(
+                        outputShape,
+                        py::arg("dtype") = firstInput.attr("dtype"),
+                        py::arg("device") = firstInput.attr("device"));
+                }
                 std::vector<VkTensorDesc> outputDescs{BuildTensorDescFromTorch(outputTensor)};
                 std::vector<void *> outputPtrs{reinterpret_cast<void *>(GetTensorDataPtr(outputTensor))};
                 const VkStatus status = runner.Run(artifact, inputDescs, outputDescs, inputPtrs, outputPtrs);
@@ -133,7 +145,8 @@ void BindGpuVkRuntime(py::module &m) {
                 return py::make_tuple(status, outputTensor);
             },
             py::arg("artifact"),
-            py::arg("inputs"));
+            py::arg("inputs"),
+            py::arg("output_shape") = py::none());
 }
 
 } // namespace pypto

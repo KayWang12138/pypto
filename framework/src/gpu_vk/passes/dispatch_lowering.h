@@ -10,7 +10,7 @@ namespace npu::tile_fwk::gpu_vk {
 class DispatchLoweringPass {
 public:
     VkStatus Run(
-        const GpuVkTensorGraph &graph, const GpuVkDispatchGraph &dispatchGraph, GpuVkShaderFunction &shaderFunction) const;
+        const GpuVkTensorGraph &graph, GpuVkDispatchGraph &dispatchGraph, GpuVkShaderFunction &shaderFunction) const;
 };
 
 } // namespace npu::tile_fwk::gpu_vk

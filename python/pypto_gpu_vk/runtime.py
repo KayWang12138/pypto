@@ -14,6 +14,17 @@ def _normalize_tensor(tensor):
     return tensor.contiguous() if not tensor.is_contiguous() else tensor
 
 
+def _get_compiled_output_shape(compiled_op):
+    output_names = compiled_op.graph.output_names()
+    if not output_names:
+        return None
+    output_name = output_names[0]
+    for value in compiled_op.graph.values():
+        if value.name == output_name:
+            return tuple(int(dim) for dim in value.shape)
+    return None
+
+
 class VkRuntime:
     def __init__(
         self,
@@ -77,7 +88,7 @@ class VkRuntime:
                 raise RuntimeError(f"Vulkan execution is not supported for op {compiled_op.op_name}.")
             return self._cpu_fallback(compiled_op.op_name, *tensors)
 
-        status, output = self._runner.run_artifact(compiled_op.artifact, tensors)
+        status, output = self._runner.run_artifact(compiled_op.artifact, tensors, _get_compiled_output_shape(compiled_op))
         self._last_execute_status = status
         if status == pypto_impl.GpuVkStatus.SUCCESS and output is not None:
             return output
@@ -103,4 +114,6 @@ class VkRuntime:
             return torch.relu(inputs[0])
         if op_name == "where":
             return torch.where(inputs[0].bool(), inputs[1], inputs[2])
+        if op_name == "matmul":
+            return torch.matmul(inputs[0], inputs[1])
         raise NotImplementedError(f"Unsupported op for torch fallback: {op_name}")
