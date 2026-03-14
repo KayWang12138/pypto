@@ -205,7 +205,7 @@ void CodeGenOp::Init(const Operation &ops) {
         << ", ops.oOperand.size: " << ops.oOperand.size() << ", Op is " << ops.Dump();
 
     isDynamicFunction = functionType == FunctionType::DYNAMIC_LOOP_PATH;
-    isSupportDynamicAligned = config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_ALIGNED);
+    isSupportDynamicAligned = isDynamicAligned || config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_ALIGNED);
     CODEGEN_LOGI("%s: init CodeGenOp from Operation, isDynamicFunction is %d, isSupportDynamicAligned is %d",
         __FUNCTION__, isDynamicFunction, isSupportDynamicAligned);
 
