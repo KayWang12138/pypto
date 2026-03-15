@@ -1,6 +1,6 @@
 ---
 name: pypto-op-design
-description: "PyPTO 算子设计方案生成。基于 spec.md 需求规范，生成结构化的算子设计文档 design.md，指导 AI Agent 或开发者实现 PyPTO 算子代码。当用户需要生成算子设计方案、设计文档时触发，例如：'生成设计方案'、'生成 design'、'设计这个算子'、'API 映射'、'Tiling 策略'。也会在 spec.md 存在且用户请求实现指导时触发。输出 design.md 到 custom/{算子名}/ 目录。"
+description: "基于 spec.md 生成算子设计文档 design.md（含 API 映射、Tiling 策略、Loop 结构），在算子开发过程的 spec.md 需求文档就绪后、编码实现前使用。Triggers: 生成设计方案、生成 design、设计这个算子、写 design.md、算子设计、API 映射、Tiling 策略、tiling strategy、Loop 结构、数据切分、怎么切分数据、怎么做 tiling、设计文档、实现方案。"
 ---
 
 # PyPTO 算子设计方案生成

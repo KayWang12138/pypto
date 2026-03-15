@@ -1,11 +1,11 @@
 ---
 name: pypto-op-develop
-description: "PyPTO 算子功能实现。读取 spec.md、design.md、{op}_golden.py，产出可运行的 PyPTO 算子实现目录。由 pypto-op-orchestrator 在 Stage 3 调用。"
+description: "读取 spec.md、design.md 和 {op}_golden.py，产出完整可运行的 PyPTO 算子：{op}_impl.py（kernel 实现，导出 {op}_wrapper()）、test_{op}.py（测试入口）、README.md。在 design.md 与 golden脚本就绪后，需要编写 PyPTO 算子实现时使用。Triggers: 实现算子、写 kernel、编写实现、写 impl、算子编码、开始编码、code the op、写 test、生成测试、写实现代码、op develop、算子开发、kernel 实现。"
 ---
 
 # PyPTO 算子功能实现
 
-读取 `spec.md`、`design.md`、`{op}_golden.py`，产出一个能正常运行的 PyPTO 算子实现目录。
+读取 `spec.md`、`design.md`、`{op}_golden.py`，产出一个能正常运行的 PyPTO 算子实现。
 
 ## Contract
 
@@ -19,8 +19,8 @@ description: "PyPTO 算子功能实现。读取 spec.md、design.md、{op}_golde
 ### Outputs
 
 - `custom/{op}/test_{op}.py` — 测试入口（从 golden 和 impl 导入，不含实现代码）
-- `custom/{op}/{op}_impl.py` — kernel 实现（导出 `{op}_wrapper()` 函数）
-- `custom/{op}/README.md` — 算子文档
+- `custom/{op}/{op}_impl.py` — PyPTO kernel 实现（必须使用pypto接口实现，导出 `{op}_wrapper()` 函数）
+- `custom/{op}/README.md` — PyPTO 算子文档
 
 ### Side Effects
 
@@ -76,7 +76,7 @@ description: "PyPTO 算子功能实现。读取 spec.md、design.md、{op}_golde
 
 ## Generate test_{op}.py
 
-基于固定模板 `references/test-template.py` 生成。
+torch golden函数实现，基于固定模板 `references/test-template.py` 生成。
 
 ### 结构
 
@@ -102,7 +102,7 @@ description: "PyPTO 算子功能实现。读取 spec.md、design.md、{op}_golde
 
 ## Generate {op}_impl.py
 
-基于固定模板 `references/impl-template.py` 生成。
+PyPTO kernel函数实现，基于固定模板 `references/impl-template.py` 生成。
 
 | 规范 | 说明 |
 |------|------|
@@ -149,10 +149,11 @@ description: "PyPTO 算子功能实现。读取 spec.md、design.md、{op}_golde
 2. `test_{op}.py` 可执行（无语法错误）
 3. 精度判定由 orchestrator 负责（非本 skill 职责）
 
-## 常见问题
+## 注意事项
 
 1. **BFloat16 转 NumPy 失败**：必须先 `.float()` 再 `.numpy()`
 2. **环境变量未设置**：需要 `export TILE_FWK_DEVICE_ID=0`
 3. **动态轴定义位置错误**：必须在 jit 函数外部定义
 4. **Tile Shape 未设置**：matmul 前必须调用 `set_cube_tile_shapes`
 5. **使用 PyTorch 作为 Golden**：golden 必须独立在 `{op}_golden.py`，使用纯 torch 实现
+6. **使用 PyPTO 接口实现 kernel 函数**：kernel 函数必须使用纯 pypto 实现

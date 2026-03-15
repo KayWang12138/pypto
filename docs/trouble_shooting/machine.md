@@ -116,4 +116,4 @@ python3 tools/schema/schema_memory_check.py -d /path/to/my_log/debug/device-8/ -
 3. **确认超时配置**：若存在握手/同步超时配置项，检查是否过短或与环境不符。
 4. **查日志上下文**：结合同线程前后日志（如 “Schedule run init succ” 之后、AbnormalStop 相关）确认是首次握手失败还是运行中异常。
 
-**关联 Skill**：[pypto-environment-setup](../../.agents/skills/pypto-environment-setup/SKILL.md)（环境与 NPU 设备诊断、`npu-smi`、驱动与编译运行）
+**关联 Skill**：使用 `pypto-environment-setup` 技能（环境与 NPU 设备诊断、`npu-smi`、驱动与编译运行）

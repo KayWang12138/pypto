@@ -4,14 +4,14 @@
 
 ### 0.1 本文档目标
 
-将 `.agents/skills/pypto-op-design/references/` 下 4 个现有 reference 文件，从“骨架+示例+TODO”升级为“可直接用于设计期可行性闸门”的规则文档。
+将 `references/` 下 4 个现有 reference 文件，从”骨架+示例+TODO”升级为”可直接用于设计期可行性闸门”的规则文档。
 
 ### 0.2 修改范围（仅 4 个文件）
 
-- `.agents/skills/pypto-op-design/references/api_mapping.md`
-- `.agents/skills/pypto-op-design/references/tiling_rules.md`
-- `.agents/skills/pypto-op-design/references/loop_strategy.md`
-- `.agents/skills/pypto-op-design/references/performance_params.md`
+- `references/api_mapping.md`
+- `references/tiling_rules.md`
+- `references/loop_strategy.md`
+- `references/performance_params.md`
 
 ### 0.3 明确不做
 

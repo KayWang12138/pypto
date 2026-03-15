@@ -1,6 +1,6 @@
 ---
 name: pypto-golden-generator
-description: "PyPTO 算子 Golden 参考实现生成。基于 spec.md 自动生成 PyTorch golden 函数和验证代码。当用户需要生成 golden 脚本、golden 函数、参考实现、验证代码时触发，例如：'生成 golden'、'生成参考实现'、'生成验证代码'、'帮我写 golden 函数'。也会在 spec.md 存在且用户请求测试/验证时触发。输出 {算子名}_golden.py 到 custom/{算子名}/ 目录。"
+description: "基于 spec.md 生成纯 PyTorch golden 参考实现 {op}_golden.py，导出 {op}_golden() 函数，供 test / accuracy-verify / binary-search 等下游 skill 作为精度基准。spec.md 就绪后触发（流水线第 2 步，与 design 并行）。Triggers: 生成 golden、生成参考实现、写 golden 函数、golden script、golden reference、reference implementation、generate golden、torch 参考、验证基准、baseline implementation、写验证代码、'帮我写 golden'、golden.py、参考代码。"
 ---
 
 # PyPTO Golden 参考实现生成
@@ -342,18 +342,39 @@ if __name__ == "__main__":
 
 ---
 
-## 12. 下游提示
+## 12. 验证报告（必须执行）
 
-文件生成完成后，向用户展示：
+文件生成完成后，向用户展示验证结果，示例：
 
 ```
 ✅ Golden 参考实现已生成:
   • custom/{name}/{name}_golden.py
 
-验证报告:
-  典型 case: {通过数}/{总数} ✓
-  泛化 case: {通过数} 组 shape ✓
-  置信度: ⭐⭐⭐⭐⭐
+============================================================
+attention_golden 验证报告
+============================================================
+
+[典型 case 验证]
+  性能_P0: b=2,h=8,s=512,d=64,w=128 ... ✓ PASS
+  功能_P0: b=1,h=4,s=256,d=64,w=128 ... ✓ PASS
+
+[泛化 case 验证]
+  b=1,h=4,s=128,d=32,w=64 ... ✓ PASS
+  b=64,h=8,s=1024,d=64,w=128 ... ✓ PASS
+
+[值域检查]
+  检查 softmax 归一化 ... ✓ PASS
+
+[数值稳定性检查]
+  大值输入 (x=100) ... ✓ PASS
+  小窗口 (w=4) ... ✓ PASS
+
+[功能正确性检查]
+  验证窗口边界 ... ✓ PASS
+
+============================================================
+✅ 所有验证通过
+============================================================
 
 后续可用技能:
   • /pypto-op-design — 生成算子设计方案（如未生成）
