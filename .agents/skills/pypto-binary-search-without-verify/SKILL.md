@@ -143,6 +143,28 @@ pypto.assemble要求输入输出tensor的dtype一致，否则编译报错"Source
 
 不需要return。调用kernel函数时添加中间变量在输出列表，不需要接收返回值，因为会原地修改变量。
 
+## Contract
+
+### Inputs
+- `custom/{op}/test_{op}.py`
+- `custom/{op}/{op}_impl.py`
+- `custom/{op}/{op}_golden.py`
+
+### Outputs
+- 精度定位报告：通过 checkpoint 对比定位到精度差异 op
+
+### Side Effects
+- 修改 kernel 函数签名（添加 checkpoint tensor 参数）
+- 在 kernel 中使用 assemble 原地写入
+
+### Overwrite Policy
+- 无需确认
+
+### Failure Exit
+- 无法定位 → BLOCKED_ACCURACY
+
+> **注意**：本 skill 只做定位，不做修复。输出定位报告和修复建议。
+
 ## 参考资料
 
 - PyPTO API: `docs/api/`

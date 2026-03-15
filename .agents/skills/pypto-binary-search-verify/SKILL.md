@@ -217,7 +217,3 @@ python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.p
   - [ ] 重新验证
   - [ ] 清理调试代码
 
-## 参考资料
-
-- PyPTO API: `docs/api/`
-- pass_verify_save API: `docs/api/others/pypto-pass_verify_save.md`

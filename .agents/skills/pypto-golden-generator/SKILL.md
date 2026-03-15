@@ -9,6 +9,8 @@ description: "PyPTO 算子 Golden 参考实现生成。基于 spec.md 自动生�
 
 生成的 golden 脚本用于开发阶段快速验证算子实现的正确性，作为独立模块被 `test_xxx.py` 导入调用。
 
+基于固定模板 `references/golden-template.py` 生成。纯 torch 实现，禁止引入 pypto。
+
 ## 1. 输入输出
 
 | 项目 | 说明 |
@@ -357,3 +359,22 @@ if __name__ == "__main__":
   • /pypto-op-design — 生成算子设计方案（如未生成）
   • 可继续创建 test_{name}.py 或 kernel 实现
 ```
+
+---
+
+## Contract
+
+### Inputs
+- `custom/{op}/spec.md`
+
+### Outputs
+- `custom/{op}/{op}_golden.py` — 纯 torch 参考实现，导出 `{op}_golden()` 函数
+
+### Side Effects
+- 无
+
+### Overwrite Policy
+- 覆盖前需确认
+
+### Failure Exit
+- spec.md 不存在或缺少数学公式 → FAIL

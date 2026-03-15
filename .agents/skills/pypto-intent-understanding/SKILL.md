@@ -445,22 +445,6 @@ Algorithm: Flash Attention (Forward)
 
 ---
 
-## 下游技能衔接
-
-文件生成完成后，向用户展示以下信息：
-
-```
-✅ 需求文档已生成:
-  • custom/{name}/spec.md
-
-后续可用技能:
-  • /pypto-golden-generator — 生成 PyTorch golden 参考实现和验证代码
-  • /pypto-op-design — 生成算子设计方案（API映射、Tiling策略、Loop结构等）
-```
-
-
----
-
 ## 字段定义与默认值
 
 ### 必须字段（无默认值，用户必须提供）
@@ -506,3 +490,22 @@ Algorithm: Flash Attention (Forward)
 1. **算子名称验证**：必须符合 `^[a-z][a-z0-9_]*$` 模式
 2. **不保留历史**：始终生成最新版本，不追加历史记录
 3. **不输出设计文档**：设计文档（design.md）由下游技能负责
+
+---
+
+## Contract
+
+### Inputs
+- 用户需求描述（自然语言）
+
+### Outputs
+- `custom/{op}/spec.md` — 算子需求规格说明
+
+### Side Effects
+- 创建 `custom/{op}/` 目录（如不存在）
+
+### Overwrite Policy
+- 覆盖前需确认
+
+### Failure Exit
+- 需求不清晰 → 返回问题清单要求补充

@@ -235,3 +235,24 @@ spec.md §11 中的典型配置在 design.md 中的用途：
   • /pypto-golden-generator — 生成 PyTorch golden 参考实现（如未生成）
   • 可继续实现 {name}_impl.py（基于 design.md 指导）
 ```
+
+---
+
+## Contract
+
+### Inputs
+- `custom/{op}/spec.md`
+- `custom/{op}/{op}_golden.py` — 参考 golden 的函数签名和结构
+
+### Outputs
+- `custom/{op}/design.md`
+
+### Side Effects
+- 无
+
+### Overwrite Policy
+- 覆盖前需确认
+
+### Failure Exit
+- spec.md 不存在 → FAIL
+- {op}_golden.py 不存在 → WARN，可继续

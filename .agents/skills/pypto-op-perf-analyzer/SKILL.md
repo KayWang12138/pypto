@@ -1,5 +1,5 @@
 ---
-name: pypto-operator-perf-analyzer
+name: pypto-op-perf-analyzer
 description: 分析 PyPTO 算子的性能指标。用于分析 PyPTO 算子的性能指标，从性能数据文件中提取关键指标，计算性能评级，并提供性能瓶颈分析和优化建议。
 ---
 
@@ -391,6 +391,23 @@ python3 .opencode/skills/pypto-operator-perf-analyzer/scripts/analyze_perf.py ou
 
 可在 https://ui.perfetto.dev/ 上传泳道图文件进行可视化分析。
 ```
+
+## Contract
+
+### Inputs
+- `custom/{op}/output/output_*` — 性能数据文件
+
+### Outputs
+- 性能分析报告（core_utilization、bubble_rate、load_balance、max_work_time）
+
+### Side Effects
+- 无
+
+### Overwrite Policy
+- 无需确认
+
+### Failure Exit
+- 性能数据文件不存在 → FAIL
 
 ## 参考资料
 

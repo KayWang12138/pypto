@@ -1,5 +1,5 @@
 ---
-name: pypto-operator-accuracy-verify
+name: pypto-op-accuracy-verify
 description: PyPTO 算子精度验证技能。用于验证 PyPTO 算子的计算精度，提供多种容差配置、详细精度分析和调试方法。当用户需要验证算子精度、调试精度问题或选择合适的容差参数时使用此技能。
 license: 完整条款见 LICENSE.txt
 ---
@@ -452,3 +452,25 @@ elif dtype == torch.float32:
 - 详细比较工具: `models/glm_v4_5/utils/np_compare.py`
 - numpy.testing 文档: https://numpy.org/doc/stable/reference/routines.testing.html
 - PyPTO API: `docs/api/`
+
+---
+
+## Contract
+
+### Inputs
+- `custom/{op}/test_{op}.py`
+- `custom/{op}/{op}_impl.py`
+- `custom/{op}/{op}_golden.py`
+- Stage 3 执行失败的错误输出
+
+### Outputs
+- 精度问题初步排查报告（误差分布、数值范围、可能的问题类型）
+
+### Side Effects
+- 无
+
+### Overwrite Policy
+- 无需确认
+
+### Failure Exit
+- 无法定位问题 → 建议使用 `pypto-binary-search-verify` 进一步定位
