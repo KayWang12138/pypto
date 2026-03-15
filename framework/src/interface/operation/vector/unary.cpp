@@ -22,8 +22,8 @@ namespace npu::tile_fwk {
 
 void UnaryOperationOperandCheck(
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand) {
-    ASSERT(iOperand.size() == 1) << "The input operand size should be 1";
-    ASSERT(oOperand.size() == 1) << "The output operand size should be 1";
+    ASSERT(ERROR_CODE_UNDEFINED, iOperand.size() == 1) << "The input operand size should be 1";
+    ASSERT(ERROR_CODE_UNDEFINED, oOperand.size() == 1) << "The output operand size should be 1";
 }
 
 template <UnaryOpType T>
@@ -51,7 +51,7 @@ void TiledUnaryOperation(
 template <UnaryOpType T>
 void TiledUnaryOperation(
     Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand, const LogicalTensorPtr &result, int32_t workspaceSize = 0) {
-    ASSERT(operand->shape.size() == operand->offset.size()) << "The shape size of operand and offset must be equal";
+    ASSERT(ERROR_CODE_UNDEFINED, operand->shape.size() == operand->offset.size()) << "The shape size of operand and offset must be equal";
 
     TileInfo tileInfo(result->shape.size(), result->offset.size());
     auto input = Input{operand, tileInfo};
@@ -82,7 +82,7 @@ Tensor IsFinite(const Tensor &self) {
         return result;
     }
 
-    ASSERT(std::find(SUPPORT_FLOAT_TYPES.begin(), SUPPORT_FLOAT_TYPES.end(), self.GetDataType()) !=
+    ASSERT(ERROR_CODE_UNDEFINED, std::find(SUPPORT_FLOAT_TYPES.begin(), SUPPORT_FLOAT_TYPES.end(), self.GetDataType()) !=
            SUPPORT_FLOAT_TYPES.end()) << "`IsFinite` only supports FP16/BF16/FP32 in float datatypes!";
     RETURN_CALL(UnaryOperation<UnaryOpType::ISFINITE>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), DT_BOOL);
 }

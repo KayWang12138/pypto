@@ -196,9 +196,9 @@ void IndexPutTestCase(TestCaseDesc &testCase_, const nlohmann::json &test_data) 
     size_t sizeIndices = testCase_.inputTensors.size() - NUM2;
     size_t sizeIndicesMax = 4;
     size_t sizeIndicesMin = 1;
-    ASSERT(sizeIndices >= sizeIndicesMin && sizeIndices <= sizeIndicesMax) << "unsupport the input indices dim";
+    ASSERT(ERROR_CODE_UNDEFINED, sizeIndices >= sizeIndicesMin && sizeIndices <= sizeIndicesMax) << "unsupport the input indices dim";
     for (size_t i = 0; i < sizeIndices; i++) {
-        ASSERT(testCase_.inputTensors[i + NUM2].GetShape().size() == 1) << "indices must be a one-dimensional array";
+        ASSERT(ERROR_CODE_UNDEFINED, testCase_.inputTensors[i + NUM2].GetShape().size() == 1) << "indices must be a one-dimensional array";
     }
     testCase_.opFunc = func[sizeIndices - 1];
     std::vector<std::string> paths = {GetGoldenDir() + "/" + testCase_.inputTensors[0].GetStorage()->Symbol() + ".bin",

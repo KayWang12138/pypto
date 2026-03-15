@@ -136,7 +136,7 @@ void CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc, std::ost
         CodeGenOpCloudNPU cop(
             {symbolMgr, topFunc, subFunc, op, locToOffsetMap, ctx.isMainBlock, ctx.isDynamicAligned, forBlkMgr});
         std::string tileOpSourceCode = cop.GenOpCode();
-        ASSERT(tileOpSourceCode.find("CG_ERROR") == tileOpSourceCode.npos)
+        ASSERT(ERROR_CODE_UNDEFINED, tileOpSourceCode.find("CG_ERROR") == tileOpSourceCode.npos)
             << "Generate code of op failed, op is " << op.Dump();
 
         allocSourceRegion.append(allocSourceCode);
@@ -366,8 +366,8 @@ void CodeGenCloudNPU::DumpCode(const std::string &fileName, std::ostringstream &
         codeFile.flush();
         codeFile.close();
     } catch (const std::ofstream::failure &e) {
-        CODEGEN_LOGE("Code file operation failed: %s, error: %s, errno: %d", fileName.c_str(), e.what(), errno);
-        codeFile.close();
+        CODEGEN_LOGE(ERROR_CODE_UNDEFINED, "CCE file operation failed: %s, error: %s, errno: %d", fileName.c_str(), e.what(), errno);
+        cceFile.close();
         std::remove(fileName.c_str());
         return;
     }
@@ -377,7 +377,7 @@ std::optional<std::string> CodeGenCloudNPU::GenExtraAlloc(
     const std::shared_ptr<SymbolManager> &symbolMgr, const std::shared_ptr<LogicalTensor> &tensor) const {
     auto memType = tensor->GetMemoryTypeOriginal();
     if (OPERAND_TYPE_TO_MEMORY_TYPE.find(memType) == OPERAND_TYPE_TO_MEMORY_TYPE.end()) {
-        CODEGEN_LOGE("%s: memory type(%zu) of tensor from PASS is invalid, tensor is: %s", __FUNCTION__,
+        CODEGEN_LOGE(ERROR_CODE_UNDEFINED, "%s: memory type(%zu) of tensor from PASS is invalid, tensor is: %s", __FUNCTION__,
             static_cast<size_t>(memType), tensor->Dump().c_str());
         return std::nullopt;
     }
@@ -404,7 +404,7 @@ std::pair<std::string, std::string> GenAllocVarName(const std::string &prefix, c
 std::string CodeGenCloudNPU::GenAlloc(
     const std::shared_ptr<SymbolManager> &sm, BufferType bufferType, DataType dataType, const TileRange &range) const {
     if ((BUFFER_TYPE_TO_PREFIX.count(bufferType) == 0) || (OPERAND_TYPE_TO_ADDR_TYPE.count(bufferType) == 0)) {
-        ASSERT(false) << "invalid bufferType: " << static_cast<size_t>(bufferType);
+        ASSERT(ERROR_CODE_UNDEFINED, false) << "invalid bufferType: " << static_cast<size_t>(bufferType);
         return "";
     }
 
@@ -442,9 +442,10 @@ void CodeGenCloudNPU::CompileCode(const std::string &compileCmd) const {
         CODEGEN_LOGI("Compile stage terminates after codegen instruction.");
         return;
     }
-    int ret = DoCompileCmd(compileCmd);
-    ASSERT(ret == 0) << "DoCompileCmd failed. errCode = " << ret << "\n******** bisheng compiling cmd start ********\n"
-                     << compileCmd << "\n******** bisheng compiling cmd end ********\n";
+    auto [ret, ccecCmd] = CompileCCE(compileInfo, compileOptions);
+    ASSERT(ret == 0) << "CompileCCE failed. errCode = " << ret << ", cce file: " << compileInfo.GetCCEAbsPath()
+                     << "\n******** bisheng compiling cmd start ********\n"
+                     << ccecCmd << "\n******** bisheng compiling cmd end ********\n";
 }
 
 std::string GetIncludePathByLib() {
@@ -475,7 +476,7 @@ std::string CodeGenCloudNPU::GetIncludePathForCompileCCE() const {
         return includePathByLib;
     }
 
-    ASSERT(false) << "include path for compiling cce is unavailable";
+    ASSERT(ERROR_CODE_UNDEFINED, false) << "include path for compiling cce is unavailable";
     return "";
 }
 
@@ -488,7 +489,7 @@ std::string CodeGenCloudNPU::GetPtoTileLibPathByEnv() const {
     const char *homePath = std::getenv(ENV_PTO_TILE_LIB_CODE_PATH.c_str());
     if (homePath != nullptr) {
         std::string envPath = std::string(homePath) + "/include";
-        ASSERT(IsPathExist(envPath + "/pto")) << "Pto-isa path " << envPath << "/pto not found! please check.";
+        ASSERT(ERROR_CODE_UNDEFINED, IsPathExist(envPath + "/pto")) << "Pto-isa path " << envPath << "/pto not found! please check.";
         return envPath;
     }
 
@@ -496,11 +497,11 @@ std::string CodeGenCloudNPU::GetPtoTileLibPathByEnv() const {
     homePath = std::getenv(ENV_ASCEND_HOME_PATH.c_str());
     if (homePath != nullptr) {
         std::string cannPath = std::string(homePath) + "/include";
-        ASSERT(IsPathExist(cannPath + "/pto")) << "Pto-isa path " << cannPath << "/pto not found! please check.";
+        ASSERT(ERROR_CODE_UNDEFINED, IsPathExist(cannPath + "/pto")) << "Pto-isa path " << cannPath << "/pto not found! please check.";
         return cannPath;
     }
 
-    ASSERT(false) << "Pto-isa path not found. please install pto-isa properly.";
+    ASSERT(ERROR_CODE_UNDEFINED, false) << "Pto-isa path not found. please install pto-isa properly.";
     return "";
 }
 
@@ -569,10 +570,28 @@ std::string CodeGenCloudNPU::GetCoreArch(const CompileInfo &compileInfo) const {
     }
 }
 
-int CodeGenCloudNPU::DoCompileCmd(const std::string &compileCmd) const {
-    int ret = std::system(compileCmd.c_str());
+std::pair<int, std::string> CodeGenCloudNPU::CompileCCE(
+    const CompileInfo &compileInfo, const std::string &compileOptions) const {
+    std::ostringstream oss;
+    oss << "bisheng -c -O3 -g -x cce -std=c++17 ";
+    BuildArchOptions(oss, compileInfo);
+    BuildIncludes(oss);
+    BuildExtraOptions(oss, compileOptions);
+
+    const std::string srcFile = compileInfo.GetCCEAbsPath();
+    const std::string objFile = compileInfo.GetBinAbsPath();
+    oss << "-o " << objFile << " " << srcFile;
+
+    std::string ccecCmd = oss.str();
+
+    CODEGEN_LOGI_FULL("compile kernel...\n%s", ccecCmd.c_str());
+
+    int ret = CheckInjectStr(ccecCmd.c_str(), ccecCmd.length());
+    ASSERT(ret == 0) << "CheckInjectStr failed. errCode = " << ret;
+
+    ret = std::system(ccecCmd.c_str());
     if (ret != 0) {
-        CODEGEN_LOGE("kernel compilation failed, ret = %d\ncompile cmd is:\n %s", ret, compileCmd.c_str());
+        CODEGEN_LOGE("Compile cce kernel failed, ret = %d\ncompile cmd is:\n %s", ret, ccecCmd.c_str());
     }
     return ret;
 }

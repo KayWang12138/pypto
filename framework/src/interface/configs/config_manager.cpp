@@ -72,7 +72,7 @@ Status ConfigManager::Initialize() {
     config::SetRunDataOption(KEY_RUNTYPE, "npu");
     FUNCTION_LOGI("Start to parse op_json_file %s", jsonFilePath.c_str());
     if (!ReadJsonFile(jsonFilePath, json_)) {
-        FUNCTION_LOGE("ReadJsonFile failed.");
+        FUNCTION_LOGE(ERROR_CODE_UNDEFINED, "ReadJsonFile failed.");
         return FAILED;
     }
 
@@ -137,11 +137,11 @@ static std::string CreateLogTopFolder() {
         }
     }
     bool ret = CreateDir(folderPath);
-    CHECK(ret) << "Failed to create dir: " << folderPath << ", ensure its parent dir exists.";
+    CHECK(ERROR_CODE_UNDEFINED, ret) << "Failed to create dir: " << folderPath << ", ensure its parent dir exists.";
 
     folderPath = folderPath + "/output_" + timestamp.str() + "_" + std::to_string(getpid());
     ret = CreateDir(folderPath);
-    ASSERT(ret) << "Failed to create dir: " << folderPath << ", ensure its parent dir exists.";
+    ASSERT(ERROR_CODE_UNDEFINED, ret) << "Failed to create dir: " << folderPath << ", ensure its parent dir exists.";
     config::SetRunDataOption(KEY_COMPUTE_GRAPH_PATH, RealPath(folderPath));
 
     return folderPath;
@@ -366,7 +366,7 @@ void CreateRunDataDir() {
     timestamp << std::put_time(std::localtime(&time), "%Y%m%d%H%M%S");
     g_config.rundataDir.dName = PREFIX_RUNDATA + timestamp.str();
     bool res = CreateMultiLevelDir(g_config.rundataDir.montage());
-    ASSERT(res) << "Failed to create directory: " << g_config.rundataDir.montage();
+    ASSERT(ERROR_CODE_UNDEFINED, res) << "Failed to create directory: " << g_config.rundataDir.montage();
 }
 
 void SetRunDataOption(const std::string &key, const std::string &value) {

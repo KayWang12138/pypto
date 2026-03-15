@@ -21,8 +21,8 @@ using namespace npu::tile_fwk;
 namespace npu::tile_fwk {
 
 Tensor LayerNorm(const Tensor &x, const Tensor &weight, const Tensor &bias, const int dim) {
-    ASSERT(dim == (int)(x.GetShape().size() - 1) || dim == -1) << "We only support LayerNorm for the last dimension";
-    ASSERT(x.GetStorage()->Datatype() == DT_FP32);
+    ASSERT(ERROR_CODE_UNDEFINED, dim == (int)(x.GetShape().size() - 1) || dim == -1) << "We only support LayerNorm for the last dimension";
+    ASSERT(ERROR_CODE_UNDEFINED, x.GetStorage()->Datatype() == DT_FP32);
     constexpr float epsilon = 1e-6f;
     int actualDim = dim < 0 ? dim + x.GetShape().size() : dim;
 
@@ -48,8 +48,8 @@ Tensor LayerNorm(const Tensor &x, const Tensor &weight, const Tensor &bias, cons
 Tensor RotateHalfValidShape(const Tensor &input) {
     auto shape = input.GetShape();
     auto shapeSize = shape.size();
-    ASSERT(shapeSize >= 1) << "rope rotate_half input dim less than 1";
-    ASSERT(shape[shapeSize - 1] % NUM2 == 0) << "rope rotate_half last dim shape is even.";
+    ASSERT(ERROR_CODE_UNDEFINED, shapeSize >= 1) << "rope rotate_half input dim less than 1";
+    ASSERT(ERROR_CODE_UNDEFINED, shape[shapeSize - 1] % NUM2 == 0) << "rope rotate_half last dim shape is even.";
 
     shape[shapeSize - 1] /= NUM2;
     std::vector<SymbolicScalar> offset1(shapeSize, 0);
@@ -69,7 +69,7 @@ Tensor RotateHalfValidShape(const Tensor &input) {
 
 Tensor Rope3D(const Tensor &x, const Tensor &cos, const Tensor &sin, const RopeTileShapeConfig &tileConfig) {
     (void)tileConfig;
-    ASSERT(x.GetShape().size() == SHAPE_DIM3 && cos.GetShape().size() == SHAPE_DIM2 &&
+    ASSERT(ERROR_CODE_UNDEFINED, x.GetShape().size() == SHAPE_DIM3 && cos.GetShape().size() == SHAPE_DIM2 &&
            sin.GetShape().size() == SHAPE_DIM2);
 
     TileShape::Current().SetVecTile(NUM_1, NUM_32, NUM_128);
@@ -98,7 +98,7 @@ Tensor Rope3D(const Tensor &x, const Tensor &cos, const Tensor &sin, const RopeT
 
 Tensor Rope(const Tensor &x, const Tensor &cos, const Tensor &sin, const RopeTileShapeConfig &tileConfig) {
     (void)tileConfig;
-    ASSERT(x.GetShape().size() == SHAPE_DIM2 && cos.GetShape().size() == SHAPE_DIM2 &&
+    ASSERT(ERROR_CODE_UNDEFINED, x.GetShape().size() == SHAPE_DIM2 && cos.GetShape().size() == SHAPE_DIM2 &&
            sin.GetShape().size() == SHAPE_DIM2);
 
     auto seqSize = x.GetShape()[NUM_VALUE_0];

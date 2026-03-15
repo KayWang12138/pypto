@@ -270,7 +270,7 @@
      
      // Change readyAic & readyAiv & readyAicpu priorities
      std::map<int, int> LastLevelMap = GetLastLevelMap(function);
-     ASSERT(priorities[priorities.size() - 1].size() == LastLevelMap.size());
+     ASSERT(ERROR_CODE_UNDEFINED, priorities[priorities.size() - 1].size() == LastLevelMap.size());
      
      size_t lastLevelSize = LastLevelMap.size();
      std::vector<std::pair<int, int>> LastLevelVector;

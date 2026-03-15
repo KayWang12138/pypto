@@ -121,7 +121,7 @@ inline constexpr const char *PassNameStr(PassName name){
         case PassName::TUNE_SYNC_FOR_VF: return "TuneSyncForVF";
         case PassName::NOT_DEFINED: return "NotDefined";
         default: 
-            ASSERT(false) << "[PassDependency][Manager][ERROR]: PassName not defined.";
+            ASSERT(ERROR_CODE_UNDEFINED, false) << "[PassDependency][Manager][ERROR]: PassName not defined.";
             return "Invalid";
     }
 }

@@ -105,7 +105,7 @@ std::string GetTypeForB16B32(const DataType &dtype);
 
 inline std::string GetPipeId(PipeType queue) {
     auto res = PIPE_ID.find(queue);
-    ASSERT(res != PIPE_ID.end()) << "can not find pipe id: " << ToUnderlying(queue);
+    ASSERT(ERROR_CODE_UNDEFINED, res != PIPE_ID.end()) << "can not find pipe id: " << ToUnderlying(queue);
     return res->second;
 }
 
@@ -175,7 +175,7 @@ struct FloatSpecVal {
                 return iter->second;
             }
         }
-        ASSERT(false) << "FloatSpecVal not found, dtype: " << ToUnderlying(dtype) << ", value: " << value;
+        ASSERT(ERROR_CODE_UNDEFINED, false) << "FloatSpecVal not found, dtype: " << ToUnderlying(dtype) << ", value: " << value;
         return "";
     }
 };

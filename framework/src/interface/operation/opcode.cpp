@@ -33,9 +33,9 @@ namespace npu::tile_fwk {
 void OpcodeManager::RegisterInfo(Opcode opcode, OpCoreType coreType, std::string str,
     std::vector<MemoryType> inputsMemType, std::vector<MemoryType> outputsMemType, const TileOpCfg tileOpCfg,
     OpCalcType calcType, const std::vector<std::string> &attrs, VerifyOperationEntry verifyOperationEntry) {
-    ASSERT(opcode < Opcode::OP_UNKNOWN) << "opcode: " << static_cast<int64_t>(opcode);
-    ASSERT(strToEnum_.count(str) == 0) << str << " doesn't exist.";
-    ASSERT(registered_.count(opcode) == 0) << "opcode: " << static_cast<int64_t>(opcode) << " not registered.";
+    ASSERT(ERROR_CODE_UNDEFINED, opcode < Opcode::OP_UNKNOWN) << "opcode: " << static_cast<int64_t>(opcode);
+    ASSERT(ERROR_CODE_UNDEFINED, strToEnum_.count(str) == 0) << str << " doesn't exist.";
+    ASSERT(ERROR_CODE_UNDEFINED, registered_.count(opcode) == 0) << "opcode: " << static_cast<int64_t>(opcode) << " not registered.";
     registered_.emplace(opcode);
     strToEnum_.emplace(str, opcode);
     opcodeInfos_[static_cast<int>(opcode)] = OpcodeInfo{opcode, coreType, std::move(str), std::move(inputsMemType),
@@ -895,7 +895,7 @@ OpcodeManager::OpcodeManager() {
     RegisterCube();
     RegisterDistribute();
     RegisterCommon();
-    ASSERT(strToEnum_.size() == static_cast<size_t>(Opcode::OP_UNKNOWN));
+    ASSERT(ERROR_CODE_UNDEFINED, strToEnum_.size() == static_cast<size_t>(Opcode::OP_UNKNOWN));
 }
 
 // NEXTNEXT: delete after tile op register has supported tile tensor

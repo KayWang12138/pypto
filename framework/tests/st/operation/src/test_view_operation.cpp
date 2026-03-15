@@ -64,16 +64,16 @@ void TestInnerView() {
     } else if constexpr (std::is_same_v<T, bfloat16>) {
         dType = DT_BF16;
     } else {
-        ASSERT(false);
+        ASSERT(ERROR_CODE_UNDEFINED, false);
     }
 
     constexpr int N = 20;
     constexpr int M = 1032;
 
-    ASSERT(N % 5 == 0);
+    ASSERT(ERROR_CODE_UNDEFINED, N % 5 == 0);
     int row = N / 5;
     auto SimuResult = [&row](const std::vector<T> &a, const std::vector<T> &b) {
-        ASSERT(a.size() == N * M);
+        ASSERT(ERROR_CODE_UNDEFINED, a.size() == N * M);
         std::vector<T> out(N * M, -5.0f);
         for (int i = 0; i < row; i++) {
             for (int j = 0; j < M; j++) {

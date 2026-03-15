@@ -79,7 +79,7 @@ private:
         if (it != operationInterpreterFuncs_().end()) {
             it->second(ctx);
         } else {
-            ASSERT(0) << "opcode [" << ctx->op->GetOpcodeStr() << "]'s torch interface implementation is not registered";
+            ASSERT(ERROR_CODE_UNDEFINED, 0) << "opcode [" << ctx->op->GetOpcodeStr() << "]'s torch interface implementation is not registered";
         }
     }
 

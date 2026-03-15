@@ -44,7 +44,7 @@ public:
 
     uint8_t* AllocHostAddr(uint64_t size) {
         if (size == 0) {
-            SIMULATION_LOGE("malloc size is 0!");
+            SIMULATION_LOGE(ERROR_CODE_UNDEFINED, "malloc size is 0!");
             return nullptr;
         }
         auto hostPtr = (uint8_t *)malloc(size);
@@ -262,7 +262,7 @@ private:
         auto *devProg = GetDevProg(function_);
         uint8_t *dumpTensorWsPtr = reinterpret_cast<uint8_t *>(kArgs.workspace) + devProg->memBudget.tensor.Total() + devProg->memBudget.metadata.Total();
         uint64_t dumpTensorWsUsed = 0;
-        SIMULATION_LOGE("[DumpTensor] dumpTensorWsPtr=%p, memory used=%lu\n", dumpTensorWsPtr, dumpTensorWsUsed);
+        SIMULATION_LOGE(ERROR_CODE_UNDEFINED, "[DumpTensor] dumpTensorWsPtr=%p, memory used=%lu\n", dumpTensorWsPtr, dumpTensorWsUsed);
 
         std::string path = config::LogTopFolder() + "/dump_tensor.txt";
         std::ofstream fout(path, std::ios::out | std::ios::binary);
@@ -273,15 +273,15 @@ private:
             int idx = 0;
             for (auto &ptr : ptrs) {
                 uint64_t devPtr = ptr ? reinterpret_cast<uint64_t>(ptr->GetDevPtr()) : 0;
-                SIMULATION_LOGE("[DumpTensor] devPtr %d = %lu\n", idx++, devPtr);
+                SIMULATION_LOGE(ERROR_CODE_UNDEFINED, "[DumpTensor] devPtr %d = %lu\n", idx++, devPtr);
                 fout.write(reinterpret_cast<const char *>(&devPtr), sizeof(devPtr));
             }
         };
 
         // write input/output devAddr list
-        SIMULATION_LOGE("[DumpTensor] #inputs=%zu\n", inputs.size());
+        SIMULATION_LOGE(ERROR_CODE_UNDEFINED, "[DumpTensor] #inputs=%zu\n", inputs.size());
         printIODevAddrs(inputs);
-        SIMULATION_LOGE("[DumpTensor] #outputs=%zu\n", outputs.size());
+        SIMULATION_LOGE(ERROR_CODE_UNDEFINED, "[DumpTensor] #outputs=%zu\n", outputs.size());
         printIODevAddrs(outputs);
 
         DumpDevDataBinary(fout, nullptr, dumpTensorWsUsed, dumpTensorWsPtr);
@@ -348,7 +348,7 @@ private:
             pv_ = CostModel::PvModelFactory::CreateDyn();
             pv_->InitPv();
         } catch (const std::runtime_error &e) {
-            SIMULATION_LOGE("pv init fail.");
+            SIMULATION_LOGE(ERROR_CODE_UNDEFINED, "pv init fail.");
             return;
         }
 

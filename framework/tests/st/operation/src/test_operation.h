@@ -421,7 +421,7 @@ T GetValueByName(const nlohmann::json &json_data, const std::string &name) {
     if (json_data.find(name) == json_data.end()) {
         data = json_data.at("params");
     }
-    ASSERT(data.find(name) != data.end()) << "failed to load " << name << " in " << json_data << "!";
+    ASSERT(ERROR_CODE_UNDEFINED, data.find(name) != data.end()) << "failed to load " << name << " in " << json_data << "!";
     return data.at(name).get<T>();
 }
 
@@ -431,7 +431,7 @@ T GetValueByNameWithKey(const nlohmann::json &json_data, const std::string &name
     if (json_data.find(name) == json_data.end()) {
         data = json_data.at("params").at(key);
     }
-    ASSERT(data.find(name) != data.end()) << "failed to load " << name << " in " << json_data << "!";
+    ASSERT(ERROR_CODE_UNDEFINED, data.find(name) != data.end()) << "failed to load " << name << " in " << json_data << "!";
     return data.at(name).get<T>();
 }
 
@@ -441,7 +441,7 @@ T2 GetMapValByName(const std::map<T1, T2> &map_data, const T1 &name) {
     if (it != map_data.end()) {
         return it->second;
     }
-    ASSERT(0) << "failed to get map val: " << name;
+    ASSERT(ERROR_CODE_UNDEFINED, 0) << "failed to get map val: " << name;
     return T2(0);
 }
 

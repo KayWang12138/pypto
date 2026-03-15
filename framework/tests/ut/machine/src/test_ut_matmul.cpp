@@ -164,7 +164,7 @@ TEST_F(DynamicMatmulUTest, mm_A_B_ND_perchannel_with_bias) {
 
 TEST_F(DynamicMatmulUTest, mm_A_B_ND_config) {
     std::shared_ptr<ConfigScope> scope = ConfigManagerNg::GetInstance().CurrentScope();
-    ASSERT(scope != nullptr);
+    ASSERT(ERROR_CODE_UNDEFINED, scope != nullptr);
     const TileShape &tileScope = scope->GenerateTileShape();
     if (tileScope.GetCubeTile().enableSplitK == false){
         return;
