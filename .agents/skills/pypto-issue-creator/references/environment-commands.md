@@ -9,7 +9,7 @@
 | 信息类型 | 命令 | 输出示例 |
 |---------|------|---------|
 | CANN 版本 | `echo $ASCEND_HOME_PATH \| grep -oP 'cann-\\K[\\d.]+'` | `8.5.0` |
-| PyPTO Commit | `git log -1 --format='%H %ci' @{u}` | `abc123... 2025-03-10 10:00:00 +0800` |
+| PyPTO Commit | `COMMIT=$(git merge-base HEAD $(git remote -v \| grep 'gitcode.com/cann/pypto.git' \| head -1 \| cut -f1)/master 2>/dev/null \|\| git merge-base HEAD origin/master 2>/dev/null) && git log -1 --format='%H %ci' $COMMIT \|\| echo "Unknown"` | `abc123... 2025-03-10 10:00:00 +0800` |
 | 服务器类型 | `lspci -n -D \| grep '19e5:d80[23]' \| sed 's/.*d80\\([23]\\).*/A\\1/'` | `A3` |
 | Python 版本 | `python --version` | `Python 3.10.12` |
 | 操作系统 | `cat /etc/os-release \| grep PRETTY_NAME` | `PRETTY_NAME="Ubuntu 22.04.3 LTS"` |
@@ -34,8 +34,9 @@ ls -d /usr/local/Ascend/ascend-toolkit/* | grep -oP '\d+\.\d+\.\d+'
 ### PyPTO Commit
 
 ```bash
-# 获取最新commit信息
-git log -1 --format='%H %ci' @{u}
+# 获取本地存在于 cann/pypto master 的最新commit
+# 优先使用 cann/pypto 远程，回退到 origin/master
+COMMIT=$(git merge-base HEAD $(git remote -v | grep 'gitcode.com/cann/pypto.git' | head -1 | cut -f1)/master 2>/dev/null || git merge-base HEAD origin/master 2>/dev/null) && git log -1 --format='%H %ci' $COMMIT || echo "Unknown"
 
 # 仅获取短哈希
 git rev-parse --short HEAD
@@ -97,7 +98,7 @@ uname -a
 
 echo "=== 环境信息 ==="
 echo "CANN 版本: $(echo $ASCEND_HOME_PATH | grep -oP 'cann-\K[\d.]+')"
-echo "PyPTO Commit: $(git log -1 --format='%h %ci' @{u} 2>/dev/null || echo 'Not a git repo')"
+echo "PyPTO Commit: $(COMMIT=$(git merge-base HEAD $(git remote -v | grep 'gitcode.com/cann/pypto.git' | head -1 | cut -f1)/master 2>/dev/null || git merge-base HEAD origin/master 2>/dev/null) && git log -1 --format='%h %ci' $COMMIT 2>/dev/null || echo 'Unknown')"
 echo "服务器类型: $(lspci -n -D 2>/dev/null | grep '19e5:d80[23]' | sed 's/.*d80\([23]\).*/A\1/' | head -1 || echo 'Unknown')"
 echo "Python 版本: $(python --version 2>&1)"
 echo "操作系统: $(cat /etc/os-release 2>/dev/null | grep PRETTY_NAME | cut -d'"' -f2 || echo 'Unknown')"
