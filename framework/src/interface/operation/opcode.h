@@ -126,6 +126,7 @@ enum class Opcode {
     OP_SCATTER,
     OP_INDEX_PUT,
     OP_INDEX_ADD,
+    OP_INDEX_ADD_UB,
     OP_CONCAT,
     OP_CUM_SUM,
     OP_SCATTER_UPDATE,
@@ -598,7 +599,7 @@ const std::unordered_set<Opcode> GATHER_ELEMENT_OPS{Opcode::OP_GATHER_ELEMENT};
 const std::unordered_set<Opcode> GATHER_MASK_OPS{Opcode::OP_GATHER_MASK};
 const std::unordered_set<Opcode> SCATTER_ELEMENT_OPS{Opcode::OP_SCATTER_ELEMENT};
 const std::unordered_set<Opcode> SCATTER_OPS{Opcode::OP_SCATTER};
-const std::unordered_set<Opcode> INDEX_ADD_OPS{Opcode::OP_INDEX_ADD};
+const std::unordered_set<Opcode> INDEX_ADD_OPS{Opcode::OP_INDEX_ADD, Opcode::OP_INDEX_ADD_UB};
 const std::unordered_set<Opcode> INDEX_PUT_OPS{Opcode::OP_INDEX_PUT};
 const std::unordered_set<Opcode> CUM_SUM_OPS{Opcode::OP_CUM_SUM};
 
@@ -616,7 +617,7 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE,
     Opcode::OP_L1_TO_L0_AT, Opcode::OP_A_MUL_B, Opcode::OP_A_MULACC_B, Opcode::OP_A_MUL_BT, Opcode::OP_AT_MUL_B,
     Opcode::OP_AT_MUL_BT, Opcode::OP_WHERE_TT, Opcode::OP_WHERE_TS, Opcode::OP_WHERE_ST, Opcode::OP_WHERE_SS,
     Opcode::OP_ROWSUMLINE, Opcode::OP_ADD_BRC, Opcode::OP_ADD_BRC, Opcode::OP_SUB_BRC, Opcode::OP_MUL_BRC,
-    Opcode::OP_DIV_BRC, Opcode::OP_MAX_BRC, Opcode::OP_MIN_BRC, Opcode::OP_GATHER,
+    Opcode::OP_DIV_BRC, Opcode::OP_MAX_BRC, Opcode::OP_MIN_BRC, Opcode::OP_GATHER, Opcode::OP_INDEX_ADD_UB,
     Opcode::OP_HYPOT, Opcode::OP_S_ADDS, Opcode::OP_LRELU, Opcode::OP_REM, Opcode::OP_REMS, Opcode::OP_REMRS,
     Opcode::OP_S_SUBS, Opcode::OP_S_DIVS, Opcode::OP_S_MULS, Opcode::OP_S_MAXS, Opcode::OP_S_MINS, Opcode::OP_ROUND,
     Opcode::OP_BITSORT, Opcode::OP_MRGSORT, Opcode::OP_CMP, Opcode::OP_CMPS, Opcode::OP_EXTRACT, Opcode::OP_PRELU,
