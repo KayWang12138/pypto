@@ -87,7 +87,7 @@ gitcode_search_issues(query="repo:cann/pypto {关键词}")
 | 信息 | 命令 |
 |-----|------|
 | CANN 版本 | `echo $ASCEND_HOME_PATH \| grep -oP 'cann-\\K[\\d.]+'` |
-| PyPTO Commit | `git log -1 --format='%H %ci' @{u}` |
+| PyPTO Commit | `COMMIT=$(git merge-base HEAD $(git remote -v \| grep 'gitcode.com/cann/pypto.git' \| head -1 \| cut -f1)/master 2>/dev/null \|\| git merge-base HEAD origin/master 2>/dev/null) && git log -1 --format='%H %ci' $COMMIT \|\| echo "Unknown"` |
 | 服务器类型 | `lspci -n -D \| grep '19e5:d80[23]' \| sed 's/.*d80\\([23]\\).*/A\\1/' \| head -n1`|
 | Python 版本 | `python --version` |
 | 操作系统 | `cat /etc/os-release \| grep PRETTY_NAME` |
