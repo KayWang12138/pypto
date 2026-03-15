@@ -101,8 +101,8 @@ void TiledPadOperation(Function &function, const TileShape &tileShape, const Log
 
 LogicalTensorPtr TensorPadOperation(
     Function &function, const Tensor &self, const std::vector<int64_t> &padding, const std::string &mode, float value) {
-    ASSERT(mode == "constant") << "Pad: only 'constant' mode is supported.";
-    ASSERT(std::isinf(value) || (std::abs(value) < 1e-6)) << "Pad: pad value must be -inf, inf, or 0.";
+    ASSERT(ERROR_CODE_UNDEFINED, mode == "constant") << "Pad: only 'constant' mode is supported.";
+    ASSERT(ERROR_CODE_UNDEFINED, std::isinf(value) || (std::abs(value) < 1e-6)) << "Pad: pad value must be -inf, inf, or 0.";
 
     auto operand = self.GetStorage();
     std::vector<int64_t> outputShape = operand->shape;
@@ -111,13 +111,13 @@ LogicalTensorPtr TensorPadOperation(
     int64_t padBottom = 0;
 
     if (ndim == 1) {
-        ASSERT(padding.size() == 2) << "Pad: 1D tensor only support 2 padding values.";
-        ASSERT(padding[0] == 0) << "Pad: 1D tensor only support right pad.";
+        ASSERT(ERROR_CODE_UNDEFINED, padding.size() == 2) << "Pad: 1D tensor only support 2 padding values.";
+        ASSERT(ERROR_CODE_UNDEFINED, padding[0] == 0) << "Pad: 1D tensor only support right pad.";
         padRight = padding[1];
         outputShape[0] += padRight;
     } else {
-        ASSERT(padding.size() == 4) << "Pad: only support last 2 axis pad.";
-        ASSERT(padding[0] == 0 && padding[2] == 0) << "Pad: only support bottom and right pad.";
+        ASSERT(ERROR_CODE_UNDEFINED, padding.size() == 4) << "Pad: only support last 2 axis pad.";
+        ASSERT(ERROR_CODE_UNDEFINED, padding[0] == 0 && padding[2] == 0) << "Pad: only support bottom and right pad.";
         padRight = padding[1];
         padBottom = padding[3];
         outputShape[ndim - 1] += padRight;

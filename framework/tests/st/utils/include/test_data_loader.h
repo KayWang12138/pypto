@@ -294,12 +294,12 @@ public:
         auto &tensor = this->inputTensors.at(name);
         Shape dynamicShape = tensor.GetShape();
         for(int axis : dynAxises) {
-            ASSERT(axis >= 0 && (size_t)axis < dynamicShape.size());
+            ASSERT(ERROR_CODE_UNDEFINED, axis >= 0 && (size_t)axis < dynamicShape.size());
             dynamicShape[axis] = -1;
         }
         Tensor dynamicT(tensor.GetDataType(), dynamicShape, tensor.GetName(), tensor.GetStorage()->Format());
         auto [it, is_inserted] = this->inputTensors.insert_or_assign(name, dynamicT);
-        ASSERT(is_inserted);
+        ASSERT(ERROR_CODE_UNDEFINED, is_inserted);
         this->inputTensorList[this->inputNameToIdx.at(name)] = std::cref(it->second);
 
         return it->second;
@@ -307,10 +307,10 @@ public:
 
     Tensor& SetOutputDynAxis(const std::string& name, const std::vector<SymbolicScalar>& dynShape) {
         auto &tensor = this->outputTensors.at(name);
-        ASSERT(tensor.GetShape().size() == dynShape.size());
+        ASSERT(ERROR_CODE_UNDEFINED, tensor.GetShape().size() == dynShape.size());
         Tensor dynamicT(tensor.GetDataType(), dynShape, tensor.GetName(), tensor.GetStorage()->Format());
         auto [it, is_inserted] =  this->outputTensors.insert_or_assign(name, dynamicT);
-        ASSERT(is_inserted);
+        ASSERT(ERROR_CODE_UNDEFINED, is_inserted);
         this->outputTensorList[this->outputNameToIdx.at(name)] = std::cref(it->second);
 
         return it->second;
@@ -381,7 +381,7 @@ private:
             auto [tensor, dataPtr] = CreateTensor(tensorName, dtypeStr, shape, binFile, opFormat);
 
             auto [it, is_inserted] = inputTensors.emplace(tensorName, tensor);
-            ASSERT(is_inserted);
+            ASSERT(ERROR_CODE_UNDEFINED, is_inserted);
             inputTensorList.push_back(std::cref(it->second));
             this->inputDataList.push_back(dataPtr);
             this->inputNameToIdx.emplace(tensorName, index++);
@@ -402,7 +402,7 @@ private:
 
             auto [output, outputData] = CreateTensor(name, dtype, shape, std::string());
             auto [it, is_inserted] = this->outputTensors.emplace(name, output);
-            ASSERT(is_inserted);
+            ASSERT(ERROR_CODE_UNDEFINED, is_inserted);
             this->outputTensorList.push_back(std::cref(it->second));
             this->outputDataList.push_back(outputData);
             this->outputNameToIdx.emplace(name, index++);
@@ -411,7 +411,7 @@ private:
 
     std::string GetFullPath(const std::string& relativePath) {
         size_t pos = this->configPath.find_last_of('/');
-        ASSERT(pos != std::string::npos);
+        ASSERT(ERROR_CODE_UNDEFINED, pos != std::string::npos);
         std::string fullPath = this->configPath.substr(0, pos + 1) + relativePath;
         return fullPath;
     }

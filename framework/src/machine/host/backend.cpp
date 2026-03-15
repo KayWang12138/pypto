@@ -60,7 +60,7 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
         return 0;
     }
     if (task == nullptr || task->GetFunction() == nullptr) {
-        MACHINE_LOGE("Machine task or function of machine task is null.");
+        MACHINE_LOGE(ERROR_CODE_UNDEFINED, "Machine task or function of machine task is null.");
         return 0;
     }
     Function *function = task->GetFunction();
@@ -98,7 +98,7 @@ static std::vector<Function *> GetCalleeList(FunctionCache &cache, Function *fun
         if (cacheFunction != nullptr) {
             calleeList.push_back(cacheFunction);
         } else {
-            MACHINE_LOGE("Cannot find cache %lu", hash.GetHash());
+            MACHINE_LOGE(ERROR_CODE_UNDEFINED, "Cannot find cache %lu", hash.GetHash());
         }
     }
     return calleeList;
@@ -145,7 +145,7 @@ static void FindAllExpression(FunctionCache &cache, Linker &linker, Function *fu
             }
         }
     } else {
-        ASSERT(false) << "Impossible function type: " << GetFunctionTypeNameDict().Find(func->GetFunctionType());
+        ASSERT(ERROR_CODE_UNDEFINED, false) << "Impossible function type: " << GetFunctionTypeNameDict().Find(func->GetFunctionType());
     }
 }
 
@@ -206,7 +206,7 @@ static void ReplaceSlotIndex(DyndevFunctionAttribute *attr, std::vector<bool>& s
     for (Function *devRoot : attr->funcGroup.devRootList) {
         Function *devTile = attr->rootTileDict[devRoot];
 
-        ASSERT(inoutLink.ioslotDict.count(devTile))<<"Function pointer "<<devTile->GetMagicName()<<" not found in ioslotDict";
+        ASSERT(ERROR_CODE_UNDEFINED, inoutLink.ioslotDict.count(devTile))<<"Function pointer "<<devTile->GetMagicName()<<" not found in ioslotDict";
         IncastOutcastSlot &ioslot = inoutLink.ioslotDict[devTile];
 
         for (auto &incastSlots : ioslot.incastSlot) {
@@ -265,7 +265,7 @@ static void SimplifySlots(DyndevFunctionAttribute *attr, std::unordered_map<int,
     for (Function *devRoot : attr->funcGroup.devRootList) {
         Function *devTile = attr->rootTileDict[devRoot];
 
-        ASSERT(inoutLink.ioslotDict.count(devTile))<<"Function pointer "<<devTile->GetMagicName()<<" not found in ioslotDict";
+        ASSERT(ERROR_CODE_UNDEFINED, inoutLink.ioslotDict.count(devTile))<<"Function pointer "<<devTile->GetMagicName()<<" not found in ioslotDict";
         IncastOutcastSlot &ioslot = inoutLink.ioslotDict[devTile];
 
         for (auto &incastSlots : ioslot.incastSlot) {
@@ -291,10 +291,10 @@ static void SimplifySlots(DyndevFunctionAttribute *attr, std::unordered_map<int,
     for (Function *devRoot : attr->funcGroup.devRootList) {
         Function *devTile = attr->rootTileDict[devRoot];
 
-        ASSERT(inoutLink.ioslotDict.count(devTile))<<"Function pointer "<<devTile->GetMagicName()<<" not found in ioslotDict";
+        ASSERT(ERROR_CODE_UNDEFINED, inoutLink.ioslotDict.count(devTile))<<"Function pointer "<<devTile->GetMagicName()<<" not found in ioslotDict";
         IncastOutcastSlot &ioslot = inoutLink.ioslotDict[devTile];
         for (auto &outcastSlots : ioslot.outcastSlot) {
-            ASSERT(!outcastSlots.empty()) << "devTile: " << devTile->GetMagicName();
+            ASSERT(ERROR_CODE_UNDEFINED, !outcastSlots.empty()) << "devTile: " << devTile->GetMagicName();
             bool outcastSlotFound = false;
             for (auto &outcastSlot : outcastSlots) {
                 outcastSlotFound = outcastSlotFound || slotUsed[outcastSlot];
@@ -314,7 +314,7 @@ static void BuildSlotRootIncastOutcastDict(DyndevFunctionAttribute *attr) {
         Function *devRoot = attr->funcGroup.devRootList[idx];
         Function *devTile = attr->rootTileDict[devRoot];
 
-        ASSERT(inoutLink.ioslotDict.count(devTile))<<"Function pointer "<<devTile->GetMagicName()<<" not found in ioslotDict";
+        ASSERT(ERROR_CODE_UNDEFINED, inoutLink.ioslotDict.count(devTile))<<"Function pointer "<<devTile->GetMagicName()<<" not found in ioslotDict";
         IncastOutcastSlot &ioslot = inoutLink.ioslotDict[devTile];
         for (size_t incastIndex = 0; incastIndex < ioslot.incastSlot.size(); incastIndex++) {
             for (auto &slotIndex : ioslot.incastSlot[incastIndex]) {
@@ -431,14 +431,14 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
                         if (node->branchNodeList[0] != nullptr) {
                             condBuilder(node->branchNodeList[0], condIndent);
                         } else {
-                            ASSERT(false) << "Both conds is nullptr!";
+                            ASSERT(ERROR_CODE_UNDEFINED, false) << "Both conds is nullptr!";
                         }
                     }
                 }
             };
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "// hash=" << func->GetFunctionHash() << "\n";
         auto attr = func->GetDynloopAttribute();
-        ASSERT(attr != nullptr)<<"attr is nullptr!";
+        ASSERT(ERROR_CODE_UNDEFINED, attr != nullptr)<<"attr is nullptr!";
         if (attr->submitBeforeLoop) {
             controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_LOOP_BARRIER); // force submit before LOOP \n";
         }
@@ -468,7 +468,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
             pathRootList.push_back(attr->pathList[i].root);
         }
         std::sort(pathRootList.begin(), pathRootList.end());
-        ASSERT(calleeList == pathRootList)<<"calleeList size:"<<calleeList.size()<<" pathRootList size:"<<pathRootList.size();
+        ASSERT(ERROR_CODE_UNDEFINED, calleeList == pathRootList)<<"calleeList size:"<<calleeList.size()<<" pathRootList size:"<<pathRootList.size();
         condBuilder(pathNode, indent + 1);
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "}\n";
     } else if (func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC_LOOP_PATH, GraphType::TENSOR_GRAPH)) {
@@ -496,7 +496,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         }
 
         auto currDynFuncAttr = Program::GetInstance().GetCurrentDynamicFunction()->GetDyndevAttribute();
-        ASSERT(rootTileDict.count(func))<<"Function not found in rootTileDict";
+        ASSERT(ERROR_CODE_UNDEFINED, rootTileDict.count(func))<<"Function not found in rootTileDict";
         Function *tile = rootTileDict[func];
         if (currDynFuncAttr->valueDependDescDict.count(tile)) {
             auto valueDependDesc = currDynFuncAttr->valueDependDescDict[tile];
@@ -515,7 +515,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         }
         controlFlowOss << std::setw(indent * TABSIZE) << ' ' << "RUNTIME_RootStitch(" << devRootKey << "ULL);\n";
     } else {
-        ASSERT(false) << "Impossible function type: " << GetFunctionTypeNameDict().Find(funcType);
+        ASSERT(ERROR_CODE_UNDEFINED, false) << "Impossible function type: " << GetFunctionTypeNameDict().Find(funcType);
     }
 }
 
@@ -635,7 +635,7 @@ static void ConstructCodeInfo(struct EncodeDevAscendFunctionParam &encodeDevAsce
     int leafIndex = 1;
     for (auto &[hash, leaf] : leafDict) {
       auto leafFuncAttr = leaf->GetLeafFuncAttribute();
-      ASSERT(leafFuncAttr != nullptr)<<"leafFuncAttr is null\n";
+      ASSERT(ERROR_CODE_UNDEFINED, leafFuncAttr != nullptr)<<"leafFuncAttr is null\n";
       encodeDevAscendFunctionParam.calleeHashIndexDict[hash] = leafIndex;
       attr->devLeafIndex2Hash[leafIndex] = hash;
       MACHINE_LOGI("Dyndev.codegen: [ %d ] hash= %lu binpath= %s", leafIndex, hash, leafFuncAttr->binPath.c_str());
@@ -721,9 +721,9 @@ static void OverCallOpMaxNum(Function *devRoot, DevAscendFunction *funcBin){
     uint32_t CallOpSize = funcBin->GetOperationSize();
     uint32_t CallOpmaxSize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
     auto funcMagicName = devRoot->GetRawName() + "_" + std::to_string(devRoot->GetFuncMagic());
-    MACHINE_LOGE("the loop function operation: %s size is %u hitting the maxinum single-loop-operation limit:%u.\n",
+    MACHINE_LOGE(ERROR_CODE_UNDEFINED, "the loop function operation: %s size is %u hitting the maxinum single-loop-operation limit:%u.\n",
     funcMagicName.c_str(), CallOpSize, CallOpmaxSize);
-    ASSERT(CallOpSize <= CallOpmaxSize) << " loopFunction: " << funcMagicName << " CallOpSize: " << CallOpSize
+    ASSERT(ERROR_CODE_UNDEFINED, CallOpSize <= CallOpmaxSize) << " loopFunction: " << funcMagicName << " CallOpSize: " << CallOpSize
     << " CallOpmaxSize: " << CallOpmaxSize;
 }
 
@@ -736,7 +736,7 @@ static void CompileControlFlow(const std::string &aicpuDirPath,
     MACHINE_LOGD("Dumpath is %s, functionName %s, path is %s",
                  aicpuDirPath.c_str(), funcName.c_str(), controlFlowCompilepath.c_str());
     if (!CreateMultiLevelDir(controlFlowCompilepath)) {
-        MACHINE_LOGE("Creat AicpuCompile dir not success\n");
+        MACHINE_LOGE(ERROR_CODE_UNDEFINED, "Creat AicpuCompile dir not success\n");
         return;
     }
     std::string controlFlowFileName = controlFlowCompilepath + "/controlFlow_dev" + funcName + ".h";
@@ -748,17 +748,17 @@ static void CompileControlFlow(const std::string &aicpuDirPath,
 #ifdef BUILD_WITH_CANN
     if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
         if (std::getenv("ASCEND_HOME_PATH") != nullptr) {
-            ASSERT(TileFwkAiCpuCompile(funcName, aicpuDirPath)) << ": PyPto Control Flow compile failed";
+            ASSERT(ERROR_CODE_UNDEFINED, TileFwkAiCpuCompile(funcName, aicpuDirPath)) << ": PyPto Control Flow compile failed";
         }
     }
 #endif
 }
 
 static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[maybe_unused]] const std::string &ccePath) {
-    ASSERT((PassManager::Instance().RunPass(Program::GetInstance(), *function, "ExecuteGraph") == SUCCESS));
+    ASSERT(ERROR_CODE_UNDEFINED, (PassManager::Instance().RunPass(Program::GetInstance(), *function, "ExecuteGraph") == SUCCESS));
 
     std::shared_ptr<DyndevFunctionAttribute> attr = function->GetDyndevAttribute();
-    ASSERT(attr != nullptr)<<"DyndevFunctionAttribute is nullptr\n";
+    ASSERT(ERROR_CODE_UNDEFINED, attr != nullptr)<<"DyndevFunctionAttribute is nullptr\n";
     Linker linker(attr->symbolTable, attr->funcGroup, attr->exprTableDictGroup);
     FindAllExpression(cache, linker, function);
 
@@ -852,7 +852,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
                 leafDict[hash] = leaf;
                 MACHINE_LOGI("Dyndev.codegen: %s", leaf->GetRawName().c_str());
             } else {
-                MACHINE_LOGE(" Duplicate func hash %lu name %s", hash, leaf->GetRawName().c_str());
+                MACHINE_LOGE(ERROR_CODE_UNDEFINED, " Duplicate func hash %lu name %s", hash, leaf->GetRawName().c_str());
             }
         }
     }
@@ -870,7 +870,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
         int ret = CompileAICoreKernel(leafDict, encodeDevAscendFunctionParam,
                                     ccePath, function->GetFunctionHash().Data(), kernelPath);
         if (ret != 0) {
-            MACHINE_LOGE("Compile dynamic aicore.o failed.");
+            MACHINE_LOGE(ERROR_CODE_UNDEFINED, "Compile dynamic aicore.o failed.");
             return;
         }
     }
@@ -883,9 +883,9 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
     for (auto &devRoot : attr->funcGroup.devRootList) {
         int devRootKey = attr->funcGroup.devRootList.GetIndex(devRoot);
         MACHINE_LOGI("Dyndev.encode: %s", devRoot->GetRawName().c_str());
-        ASSERT(attr->rootTileDict.count(devRoot))<<"devRoot not found in rootTileDict";
+        ASSERT(ERROR_CODE_UNDEFINED, attr->rootTileDict.count(devRoot))<<"devRoot not found in rootTileDict";
         Function *devTile = attr->rootTileDict[devRoot];
-        ASSERT(attr->inoutLink.ioslotDict.count(devTile))<<"devTile not found in rootTileDict";
+        ASSERT(ERROR_CODE_UNDEFINED, attr->inoutLink.ioslotDict.count(devTile))<<"devTile not found in rootTileDict";
         IncastOutcastSlot *slot = &attr->inoutLink.ioslotDict[devTile];
         encodeDevAscendFunctionParam.symbolTable = linker.GetSymbolTable();
         if (linker.GetExpressionTableDictGroup().devRootCoaDict.count(devRoot) != 0) {
@@ -906,7 +906,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
         EncodeDevAscendFunction(function, encodeDevAscendFunctionParam, size, funcBin);
         funcBin->Reloc(-reinterpret_cast<int64_t>(funcBin), true);
         uint32_t CallOpmaxSize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
-        ASSERT(CallOpmaxSize <= STITCH_FUNCTION_MAX_SIZE) << " CallOpmaxSize set: "<< CallOpmaxSize
+        ASSERT(ERROR_CODE_UNDEFINED, CallOpmaxSize <= STITCH_FUNCTION_MAX_SIZE) << " CallOpmaxSize set: "<< CallOpmaxSize
         << "exceeds the maximum allowed value of 65535.";
         if (funcBin->GetOperationSize() > CallOpmaxSize) {
             OverCallOpMaxNum(devRoot,funcBin);

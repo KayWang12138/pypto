@@ -176,7 +176,7 @@ void HostMachine::CompileFunction(Function* func) const {
     auto &backend = Backend::GetBackend();
     if (!func->HasCallOperation() && backend.runPass) {
         MACHINE_LOGI("RunPass function %s", func->GetMagicName().c_str());
-        ASSERT(backend.runPass(Program::GetInstance(), *func, config::GetPassStrategy())) << "Run pass failed.";
+        ASSERT(ERROR_CODE_UNDEFINED, backend.runPass(Program::GetInstance(), *func, config::GetPassStrategy())) << "Run pass failed.";
     }
     if (func->IsFunctionType(FunctionType::DYNAMIC) || func->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
         auto path = config::GetAbsoluteTopFolder() + "/program.json";
@@ -303,12 +303,12 @@ MachineTask *HostMachine::Compile(MachineTask *task) const {
     bool existResumeFile = !jsonPath.empty() && (access(jsonPath.c_str(), F_OK) == 0);
     if (existResumeFile) {
         std::ifstream file(jsonPath);
-        ASSERT(file.good()) << "Json file: " << jsonPath << " open failed!!!";
+        ASSERT(ERROR_CODE_UNDEFINED, file.good()) << "Json file: " << jsonPath << " open failed!!!";
         Json jsonData;
         try {
             file >> jsonData;
         } catch (const std::exception &e) {
-            ASSERT(false) << "Json file: " << jsonPath << " parsing error: " << e.what();
+            ASSERT(ERROR_CODE_UNDEFINED, false) << "Json file: " << jsonPath << " parsing error: " << e.what();
         }
         Program::GetInstance().LoadJson(jsonData);
         Function *func = Program::GetInstance().GetCurrentFunction();

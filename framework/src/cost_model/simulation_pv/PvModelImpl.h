@@ -384,7 +384,7 @@ public:
 
                 int ret = std::system(cmd);
                 if (ret != 0) {
-                    SIMULATION_LOGE("cmd error: %s", cmd);
+                    SIMULATION_LOGE(ERROR_CODE_UNDEFINED, "cmd error: %s", cmd);
                 }
 
                 cceBin.emplace_back(

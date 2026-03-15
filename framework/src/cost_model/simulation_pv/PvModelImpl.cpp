@@ -54,7 +54,7 @@ void PvModelBinHelper::ReadBin(std::string path, std::vector<uint8_t> &bytes)
     std::ifstream inFile(path, std::ios::binary);
 
     if (!inFile.is_open()) {
-        SIMULATION_LOGE("open bin file error: %s", path.c_str());
+        SIMULATION_LOGE(ERROR_CODE_UNDEFINED, "open bin file error: %s", path.c_str());
         return;
     }
 
@@ -73,7 +73,7 @@ void PvModelBinHelper::ReadBin(std::string path, std::vector<uint8_t> &bytes)
 uint64_t PvModelBinHelper::GetBinSize(std::string path) {
     std::ifstream file(path, std::ios::binary | std::ios::ate);
     if (!file) {
-        SIMULATION_LOGE("open file error: %s", path.c_str());
+        SIMULATION_LOGE(ERROR_CODE_UNDEFINED, "open file error: %s", path.c_str());
         return 0;
     }
 
@@ -300,7 +300,7 @@ void PvModelImpl<SystemConfig, CaseConfig>::BinGen(npu::tile_fwk::Function *func
 
             int ret = std::system(cmd);
             if (ret != 0) {
-                SIMULATION_LOGE("cmd error: %s", cmd);
+                SIMULATION_LOGE(ERROR_CODE_UNDEFINED, "cmd error: %s", cmd);
             }
 
             auto size = PvModelBinHelper::GetBinSize(task_.binPath[subFuncPair.first]);
@@ -444,7 +444,7 @@ void PvModelImpl<SystemConfig, CaseConfig>::RunModel(std::string esgDir)
 
     int result = std::system(cmd);
     if (result != 0) {
-        SIMULATION_LOGE("cmd error: %s", cmd);
+        SIMULATION_LOGE(ERROR_CODE_UNDEFINED, "cmd error: %s", cmd);
     }
 }
 
@@ -534,7 +534,7 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::BuildFuncData(DynFuncData *funcda
         tensorAddr[i] = LookupData(addr);
     }
     auto err = memcpy_s(ref.data() + offset, rawTensorSize, tensorAddr.data(), rawTensorSize);
-    ASSERT(err == 0) << "[SIMULATION]: tensorAddr copy failed. error=" << err;
+    ASSERT(ERROR_CODE_UNDEFINED, err == 0) << "[SIMULATION]: tensorAddr copy failed. error=" << err;
     *ref_data = ref;
 
     auto addr = allocator_->AllocArg(*refSize);

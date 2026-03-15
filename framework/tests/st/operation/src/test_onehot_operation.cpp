@@ -142,7 +142,7 @@ TEST_P(OneHotOperationTest, TestOneHot) {
     auto testCase = CreateTestCaseDesc<OneHotOpMetaData>(GetParam(), &args);
     std::vector<OpFunc> func{OneHotOperationExeFunc2Dims, OneHotOperationExeFunc3Dims, OneHotOperationExeFunc4Dims};
     int dim = testCase.inputTensors[0].GetShape().size();
-    ASSERT(dim >= 1 && dim <= 3) << "unsupport input dim";
+    ASSERT(ERROR_CODE_UNDEFINED, dim >= 1 && dim <= 3) << "unsupport input dim";
     testCase.opFunc = func[dim - 1];
     TestExecutor::runTest(testCase);
 }

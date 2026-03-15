@@ -368,21 +368,21 @@ public:
 
     Opcode GetOpcode(const std::string &str) const {
         auto it = strToEnum_.find(str);
-        ASSERT(it != strToEnum_.end());
+        ASSERT(ERROR_CODE_UNDEFINED, it != strToEnum_.end());
         return it->second;
     }
     const std::string &GetOpcodeStr(Opcode opcode) const {
-        ASSERT(HasOpcode(opcode));
+        ASSERT(ERROR_CODE_UNDEFINED, HasOpcode(opcode));
         return opcodeInfos_[static_cast<int>(opcode)].str;
     }
 
     OpCoreType GetCoreType(Opcode opcode) const {
-        ASSERT(HasOpcode(opcode)) << "Can't find op " << static_cast<int>(opcode) << std::endl;
+        ASSERT(ERROR_CODE_UNDEFINED, HasOpcode(opcode)) << "Can't find op " << static_cast<int>(opcode) << std::endl;
         return opcodeInfos_[static_cast<int>(opcode)].coreType;
     }
 
     const TileOpCfg &GetTileOpCfg(Opcode opcode) const {
-        ASSERT(HasOpcode(opcode)) << "Can't find op " << static_cast<int>(opcode) << std::endl;
+        ASSERT(ERROR_CODE_UNDEFINED, HasOpcode(opcode)) << "Can't find op " << static_cast<int>(opcode) << std::endl;
         return opcodeInfos_[static_cast<int>(opcode)].tileOpCfg;
     }
 
@@ -524,7 +524,7 @@ inline Opcode FindOpcode(const std::string &op) {
     }
 
     if (!OpcodeManager::Inst().HasOpcode(originOp)) {
-        ASSERT(0) << "Can't find op " << originOp << "\n" << OpcodeManager::Inst().PrintSupportOpcodes();
+        ASSERT(ERROR_CODE_UNDEFINED, 0) << "Can't find op " << originOp << "\n" << OpcodeManager::Inst().PrintSupportOpcodes();
     }
 
     return OpcodeManager::Inst().GetOpcode(originOp);

@@ -267,7 +267,7 @@ public:
                 return;
             }
         } catch (...) {
-            FUNCTION_LOGE("json parse error");
+            FUNCTION_LOGE(ERROR_CODE_UNDEFINED, "json parse error");
         }
     }
 };
