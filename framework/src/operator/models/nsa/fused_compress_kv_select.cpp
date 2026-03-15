@@ -25,7 +25,7 @@ namespace npu::tile_fwk {
 
 Tensor MlpSingleRope(const Tensor &x, const Tensor &cos, const Tensor &sin, MlpRopeTile &tileConfig) {
     // x: [cmpBlockSize, dR], cos: [1, cmpBlockSize, dR], sin: [1, cmpBlockSize, dR]
-    ASSERT(x.GetShape().size() == SHAPE_DIM3 && cos.GetShape().size() == SHAPE_DIM3 && sin.GetShape().size() == SHAPE_DIM3);
+    ASSERT(ERROR_CODE_UNDEFINED, x.GetShape().size() == SHAPE_DIM3 && cos.GetShape().size() == SHAPE_DIM3 && sin.GetShape().size() == SHAPE_DIM3);
 
     auto cmpSize = x.GetShape()[NUM_VALUE_0];
     auto n2 = x.GetShape()[NUM_VALUE_1];

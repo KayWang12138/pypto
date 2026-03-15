@@ -31,7 +31,7 @@
 
 namespace npu::tile_fwk {
 #if defined(MACHINE_DEBUG) && MACHINE_DEBUG == 1
-#define MACHINE_ASSERT(exp) ASSERT(exp)
+#define MACHINE_ASSERT(exp) ASSERT(ERROR_CODE_UNDEFINED, exp)
 #else
 #define MACHINE_ASSERT(exp)
 #endif

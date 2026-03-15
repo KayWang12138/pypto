@@ -107,7 +107,7 @@ inline int32_t GetUserDeviceId() {
 inline int32_t GetLogDeviceId() {
     int32_t logicDeviceId = 0;
     int32_t userDeviceId = GetUserDeviceId();
-    ASSERT(rtGetLogicDevIdByUserDevId(userDeviceId, &logicDeviceId) == RT_ERROR_NONE) << "Trans usrDeviceId: " <<
+    ASSERT(ERROR_CODE_UNDEFINED, rtGetLogicDevIdByUserDevId(userDeviceId, &logicDeviceId) == RT_ERROR_NONE) << "Trans usrDeviceId: " <<
            userDeviceId << " to logDevId not success";
     MACHINE_LOGD("Current userDeviceId is %d, logic Deviceid is %d", userDeviceId, logicDeviceId);
     return logicDeviceId;

@@ -602,12 +602,12 @@ static std::unordered_map<int, GetTensorDataOutcastDesc> GetTensorDataBuildOutca
     }
     for (auto &[index, desc] : getTensorDataOutcastDescDict) {
         (void)index;
-        ASSERT(desc.opListDict[Opcode::OP_ADDS].size() == 1) << "Expect the size is 1 for opListDict, but we get " << desc.opListDict[Opcode::OP_ADDS].size() << "OP_ADDS";
+        ASSERT(ERROR_CODE_UNDEFINED, desc.opListDict[Opcode::OP_ADDS].size() == 1) << "Expect the size is 1 for opListDict, but we get " << desc.opListDict[Opcode::OP_ADDS].size() << "OP_ADDS";
         auto mark = desc.opListDict[Opcode::OP_ADDS][0];
 
         std::shared_ptr<LogicalTensor> addsOpOut = mark->GetOOperands()[0];
         auto copyout = *addsOpOut->GetConsumers().begin();
-        ASSERT(copyout->GetOpcode() == Opcode::OP_COPY_OUT) << "Expect Opcode OP_COPY_OUT, but we get " << copyout->GetOpcodeStr() << " at operation[" << copyout->GetOpMagic() << "].";;
+        ASSERT(ERROR_CODE_UNDEFINED, copyout->GetOpcode() == Opcode::OP_COPY_OUT) << "Expect Opcode OP_COPY_OUT, but we get " << copyout->GetOpcodeStr() << " at operation[" << copyout->GetOpMagic() << "].";;
 
         auto outcast = copyout->GetOOperands()[0];
 
@@ -670,7 +670,7 @@ static std::vector<GetTensorDataUsageDesc> GetTensorDataBuildUsageDesc(Function 
         }
         // subgraphTensor should be the same subgraph to the copyin.
         std::shared_ptr<LogicalTensor> subgraphTensor = GetTensorDataSubgraphTensor(refOp);
-        ASSERT(subgraphTensor != nullptr) << "Expect operation[" << refOp.GetOpMagic() << "] has valid IOperand/OOperand, but we get nullptr. Please check the operation.";
+        ASSERT(ERROR_CODE_UNDEFINED, subgraphTensor != nullptr) << "Expect operation[" << refOp.GetOpMagic() << "] has valid IOperand/OOperand, but we get nullptr. Please check the operation.";
         MemoryType subgraphMemoryType = subgraphTensor->GetMemoryTypeToBe();
         int subgraphID = subgraphTensor->GetSubgraphID();
         getTensorDataUsageDescList.emplace_back(&refOp, usageDict, subgraphMemoryType, subgraphID);

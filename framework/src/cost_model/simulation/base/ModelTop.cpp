@@ -178,7 +178,7 @@ void SimSys::CalendarDispatchTasksToCore(int key, std::shared_ptr<CoreMachine> c
         TaskPack packet;
         packet.taskId = task.first;
         packet.task.taskPtr = calendarTaskMap[task.first];
-        ASSERT(packet.task.taskPtr != nullptr) << "[SIMULATION]: " << "task does not exist. taskId=" << packet.taskId;
+        ASSERT(ERROR_CODE_UNDEFINED, packet.task.taskPtr != nullptr) << "[SIMULATION]: " << "task does not exist. taskId=" << packet.taskId;
         packet.task.functionHash = task.second;
         coreMachine->SubmitTask(packet);
     }
@@ -253,7 +253,7 @@ void SimSys::BuildAICPU(DevicePtr device, uint64_t idInDevice)
     uint64_t aicNum = config.cubeMachineNumberPerAICPU;
     uint64_t aivNum = config.vecMachineNumberPerAICPU;
     uint64_t mixedCoreNum = 0;
-    ASSERT(config.coreMachineNumberPerAICPU == (aicNum + aivNum)) << "[SIMULATION]: " 
+    ASSERT(ERROR_CODE_UNDEFINED, config.coreMachineNumberPerAICPU == (aicNum + aivNum)) << "[SIMULATION]: " 
         << "The number of cores must be equal to the sum of the aic and aiv. Please reconfigure them.";
     if (config.cubeVecMixMode) {
         mixedCoreNum = config.coreMachineNumberPerAICPU;
@@ -811,7 +811,7 @@ uint64_t SimSys::GetCycles() const
 }
 
 void SimSys::UpdateNextCycles(uint64_t nextCycle) {
-    ASSERT(nextCycle > globalCycles) << "[SIMULATION]: " 
+    ASSERT(ERROR_CODE_UNDEFINED, nextCycle > globalCycles) << "[SIMULATION]: " 
         << "nextCycle is less than or equels to globalCycles. nextCycles=" << nextCycle << ", globalCycles=" << globalCycles;
     nextSimulationCycles = std::min(nextSimulationCycles, nextCycle);
 }

@@ -59,7 +59,7 @@ void TestAssembleBasic() {
         constexpr int SHAPE0 = 128;
         constexpr int SHAPE1_IN = 512;
         constexpr int SHAPE1_OUT = 8192;
-        ASSERT(a.size() == SHAPE0 * SHAPE1_IN);
+        ASSERT(ERROR_CODE_UNDEFINED, a.size() == SHAPE0 * SHAPE1_IN);
         std::vector<float> out(SHAPE0 * SHAPE1_OUT, 0);
         std::vector<int> shape1{1, 256};
         std::vector<int> shape2{1, 128};
@@ -164,7 +164,7 @@ void TestAssembleOverride() {
     constexpr int SHIFT = 20;
 
     auto SimuResult = [](const std::vector<float> &a) {
-        ASSERT(a.size() == N * M);
+        ASSERT(ERROR_CODE_UNDEFINED, a.size() == N * M);
         std::vector<float> out(T, 0);
         for (int i = 0; i < N; i++) {
             for (int j = 0; j < 16; j++) {
@@ -250,7 +250,7 @@ TEST_F(AssembleTest, test_overwrite_in_assemble_and_parallel_between_assemble) {
     constexpr int SHIFT = 32;
 
     auto SimuResult = [](const std::vector<float> &a) {
-        ASSERT(a.size() == N * M);
+        ASSERT(ERROR_CODE_UNDEFINED, a.size() == N * M);
         std::vector<float> out(T, 0);
         for (int i = 0; i < N; i++) {
             for (int j = 0; j < 16; j++) {
@@ -324,7 +324,7 @@ TEST_F(AssembleTest, test_process_after_assemble) {
         constexpr int SHAPE0 = 128;
         constexpr int SHAPE1_IN = 32;
         constexpr int SHAPE1_OUT = 128;
-        ASSERT(a.size() == SHAPE0 * SHAPE1_IN);
+        ASSERT(ERROR_CODE_UNDEFINED, a.size() == SHAPE0 * SHAPE1_IN);
         std::vector<float> out(SHAPE0 * SHAPE1_OUT, 0);
         for (int i = 0; i < 128; i++) {
             std::vector<float> tmpOut(24, 0);
@@ -417,7 +417,7 @@ void TestLoopAfterLoop() {
 
     int row = 50;
     auto SimuResult = [&row](const std::vector<float> &a) {
-        ASSERT(a.size() == N * M);
+        ASSERT(ERROR_CODE_UNDEFINED, a.size() == N * M);
         std::vector<float> out(N * T, 0);
         for (int i = 0; i < row; i++) {
             for (int j = 0; j < 16; j++) {
@@ -539,7 +539,7 @@ TEST_F(AssembleTest, test_override_between_assemble) {
     constexpr int T = 128;
 
     auto SimuResult = [](const std::vector<float> &a) {
-        ASSERT(a.size() == N * M);
+        ASSERT(ERROR_CODE_UNDEFINED, a.size() == N * M);
         std::vector<float> out(N * T, 0);
         for (int i = 0; i < N; i++) {
             for (int j = 0; j < 16; j++) {
@@ -648,7 +648,7 @@ TEST_F(AssembleTest, test_mix_assemble_0) {
 
     int row = 50;
     auto SimuResult = [&row](const std::vector<float> &a) {
-        ASSERT(a.size() == N * M);
+        ASSERT(ERROR_CODE_UNDEFINED, a.size() == N * M);
         std::vector<float> out(N * T, 0);
         for (int i = 0; i < row - 1; i++) {
             for (int j = 0; j < 8; j++) {
@@ -776,7 +776,7 @@ TEST_F(AssembleTest, test_mix_assemble_1) {
 
     int row = 30;
     auto SimuResult = [&row](const std::vector<float> &a) {
-        ASSERT(a.size() == N * M);
+        ASSERT(ERROR_CODE_UNDEFINED, a.size() == N * M);
         std::vector<float> out(N * T, 0);
         for (int i = 0; i < row - 1; i++) {
             for (int j = 0; j < 8; j++) {
@@ -923,7 +923,7 @@ TEST_F(AssembleTest, test_assemble_to_inner_tensor_0) {
 
     int row = 30;
     auto SimuResult = [&row](const std::vector<float> &a) {
-        ASSERT(a.size() == N * M);
+        ASSERT(ERROR_CODE_UNDEFINED, a.size() == N * M);
         std::vector<float> out(N * T, 0);
         for (int i = 0; i < row - 1; i++) {
             for (int j = 0; j < 8; j++) {
@@ -1080,7 +1080,7 @@ TEST_F(AssembleTest, test_assemble_to_inner_tensor_1) {
 
     int row = 20;
     auto SimuResult = [&row](const std::vector<float> &a) {
-        ASSERT(a.size() == N * M);
+        ASSERT(ERROR_CODE_UNDEFINED, a.size() == N * M);
         std::vector<float> out(N * T, 0);
         for (int i = 0; i < row - 1; i++) {
             for (int j = 0; j < 8; j++) {
@@ -1239,7 +1239,7 @@ TEST_F(AssembleTest, test_assemble_to_inner_tensor_2) {
 
     int row = 20;
     auto SimuResult = [&row](const std::vector<float> &a) {
-        ASSERT(a.size() == N * M);
+        ASSERT(ERROR_CODE_UNDEFINED, a.size() == N * M);
         std::vector<float> out(N * T, 0);
         for (int i = 0; i < row; i++) {
             for (int j = 0; j < 8; j++) {
@@ -1395,7 +1395,7 @@ TEST_F(AssembleTest, test_assemble_to_inner_tensor_3) {
                               // TODO：SHIFT设为20会出现非对齐，导致丢失依赖，等兴旺的cell 链表上库后再试试
 
     auto SimuResult = [](const std::vector<float> &a) {
-        ASSERT(a.size() == N * M);
+        ASSERT(ERROR_CODE_UNDEFINED, a.size() == N * M);
         std::vector<float> out(T, 0);
         for (int i = 0; i < N; i++) {
             for (int j = 0; j < 16; j++) {
@@ -1495,7 +1495,7 @@ TEST_F(AssembleTest, test_mix_assemble_with_tiling) {
 
     int row = 50;
     auto SimuResult = [&row](const std::vector<float> &a) {
-        ASSERT(a.size() == N * M);
+        ASSERT(ERROR_CODE_UNDEFINED, a.size() == N * M);
         std::vector<float> out(N * T, 0);
         for (int i = 0; i < row - 1; i++) {
             for (int j = 0; j < 128; j++) {
@@ -1618,7 +1618,7 @@ TEST_F(AssembleTest, test_inner_assemble_with_concat) {
     constexpr int M = 1024;
 
     auto SimuResult = [](const std::vector<float> &a, const std::vector<float> &b) {
-        ASSERT(a.size() + b.size() == M);
+        ASSERT(ERROR_CODE_UNDEFINED, a.size() + b.size() == M);
         std::vector<float> out(M, 0);
         for (size_t i = 0; i < a.size(); i++) {
             out[i] = a[i];
@@ -1693,7 +1693,7 @@ void TestInnerAssemble() {
     } else if constexpr (std::is_same_v<T, bfloat16>) {
         dType = DT_BF16;
     } else {
-        ASSERT(false);
+        ASSERT(ERROR_CODE_UNDEFINED, false);
     }
 
     constexpr int N = 20;
@@ -1701,8 +1701,8 @@ void TestInnerAssemble() {
 
     int row = N;
     auto SimuResult = [&row](const std::vector<T> &a, const std::vector<int> &lens, T startValue) {
-        ASSERT(a.size() == N * M);
-        ASSERT(lens.size() == N);
+        ASSERT(ERROR_CODE_UNDEFINED, a.size() == N * M);
+        ASSERT(ERROR_CODE_UNDEFINED, lens.size() == N);
         std::vector<T> out(N * M, -5.0f);
         for (int i = 0; i < row; i++) {
             for (int j = 0; j < lens[i]; j++) {
@@ -1800,7 +1800,7 @@ void TestInnerAssembleByFrameWork() {
     } else if constexpr (std::is_same_v<T, bfloat16>) {
         dType = DT_BF16;
     } else {
-        ASSERT(false);
+        ASSERT(ERROR_CODE_UNDEFINED, false);
     }
 
     constexpr int N = 20;
@@ -1808,8 +1808,8 @@ void TestInnerAssembleByFrameWork() {
 
     int row = N;
     auto SimuResult = [&row](const std::vector<T> &a, const std::vector<int> &lens) {
-        ASSERT(a.size() == N * M);
-        ASSERT(lens.size() == N);
+        ASSERT(ERROR_CODE_UNDEFINED, a.size() == N * M);
+        ASSERT(ERROR_CODE_UNDEFINED, lens.size() == N);
         std::vector<T> out(N * M, -5.0f);
         for (int i = 0; i < row; i++) {
             for (int j = 0; j < lens[i]; j++) {
@@ -1897,17 +1897,17 @@ void TestInnerAssembleMultiLine() {
     } else if constexpr (std::is_same_v<T, bfloat16>) {
         dType = DT_BF16;
     } else {
-        ASSERT(false);
+        ASSERT(ERROR_CODE_UNDEFINED, false);
     }
 
     constexpr int N = 20;
     constexpr int M = 1032;
 
-    ASSERT(N % 5 == 0);
+    ASSERT(ERROR_CODE_UNDEFINED, N % 5 == 0);
     int row = N / 5;
     auto SimuResult = [&row](const std::vector<T> &a, const std::vector<int> &lens, T startValue) {
-        ASSERT(a.size() == N * M);
-        ASSERT(lens.size()  * 5 == N);
+        ASSERT(ERROR_CODE_UNDEFINED, a.size() == N * M);
+        ASSERT(ERROR_CODE_UNDEFINED, lens.size()  * 5 == N);
         std::vector<T> out(N * M, -5.0f);
         for (int i = 0; i < row; i++) {
             for (int j = 0; j < 5; j++) {
@@ -2008,19 +2008,19 @@ void TestInnerAssembleMultiView() {
     } else if constexpr (std::is_same_v<T, bfloat16>) {
         dType = DT_BF16;
     } else {
-        ASSERT(false);
+        ASSERT(ERROR_CODE_UNDEFINED, false);
     }
 
     constexpr int N = 20;
     constexpr int M = 1032;
 
-    ASSERT(N % 5 == 0);
+    ASSERT(ERROR_CODE_UNDEFINED, N % 5 == 0);
     int row = N / 5;
     auto SimuResult = [&row](const std::vector<T> &a, const std::vector<T> &b, const std::vector<T> &c,
                           const std::vector<int> &lens1, const std::vector<int> &lens2) {
-        ASSERT(a.size() == N * M);
-        ASSERT(lens1.size() * 5 == N);
-        ASSERT(lens2.size() * 5 == N);
+        ASSERT(ERROR_CODE_UNDEFINED, a.size() == N * M);
+        ASSERT(ERROR_CODE_UNDEFINED, lens1.size() * 5 == N);
+        ASSERT(ERROR_CODE_UNDEFINED, lens2.size() * 5 == N);
         std::vector<T> out(N * M, -5.0f);
         for (int i = 0; i < row; i++) {
             for (int j = 0; j < 5; j++) {

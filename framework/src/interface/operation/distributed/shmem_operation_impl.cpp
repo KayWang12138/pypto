@@ -30,23 +30,23 @@ namespace npu::tile_fwk::Distributed {
 
 void ValidateGroup(const char* group)
 {
-    CHECK(group != nullptr) << "\"group\" cannot be nullptr";
+    CHECK(ERROR_CODE_UNDEFINED, group != nullptr) << "\"group\" cannot be nullptr";
     int32_t groupLen = std::strlen(group);
-    CHECK((groupLen >= 1) && (groupLen < 128)) << "The length of \"group\" only supports [1, 128), but got "
+    CHECK(ERROR_CODE_UNDEFINED, (groupLen >= 1) && (groupLen < 128)) << "The length of \"group\" only supports [1, 128), but got "
         << groupLen;
 }
 
 void ValidateTypeAndShape(const Tensor& tensor, const DataType expectedType, const Shape expectedShape)
 {
-    CHECK(tensor.GetDataType() == expectedType) << "Tensor dtype not supported";
-    CHECK(tensor.GetShape() == expectedShape) << "Tensor shape not supported";
+    CHECK(ERROR_CODE_UNDEFINED, tensor.GetDataType() == expectedType) << "Tensor dtype not supported";
+    CHECK(ERROR_CODE_UNDEFINED, tensor.GetShape() == expectedShape) << "Tensor shape not supported";
 }
 
 void ValidateTilingSize(const Opcode& opCode, const VecTile& vecTile, const int32_t supportDim)
 {
-    CHECK(vecTile.valid()) << OpcodeManager::Inst().GetOpcodeStr(opCode) << ": vecTile must contains exactly " <<
+    CHECK(ERROR_CODE_UNDEFINED, vecTile.valid()) << OpcodeManager::Inst().GetOpcodeStr(opCode) << ": vecTile must contains exactly " <<
         supportDim << " elements and both must be non-zero";
-    CHECK(supportDim == static_cast<int32_t>(vecTile.size())) << OpcodeManager::Inst().GetOpcodeStr(opCode) <<
+    CHECK(ERROR_CODE_UNDEFINED, supportDim == static_cast<int32_t>(vecTile.size())) << OpcodeManager::Inst().GetOpcodeStr(opCode) <<
         " has invalid dim of tile shape: dim of tile shape must be equal to " << std::to_string(supportDim) <<
         ", but got " << static_cast<int32_t>(vecTile.size());
 }
@@ -65,22 +65,22 @@ void ValidateDataType(const Tensor& tensor, const std::string& tensorDesc, const
         first = false;
     }
     oss << "]";
-    CHECK(allowedTypes.count(dataType)) << "Invalid data type: " << tensorDesc << " data type only support "
+    CHECK(ERROR_CODE_UNDEFINED, allowedTypes.count(dataType)) << "Invalid data type: " << tensorDesc << " data type only support "
         << oss.str() << ", but got:" << DataType2String(dataType);
 }
 
 void ValidateShape(const Tensor& tensor, const std::string& tensorDesc, uint32_t supportedDim) {
     const auto& shape = tensor.GetShape();
-    CHECK(shape.size() == supportedDim) << "Invalid dimensional: " << tensorDesc << " dimensional must be "
+    CHECK(ERROR_CODE_UNDEFINED, shape.size() == supportedDim) << "Invalid dimensional: " << tensorDesc << " dimensional must be "
         << supportedDim << ", but got dimensional=" << shape.size();
     for (size_t i = 0; i < shape.size(); ++i) {
-        CHECK(shape[i] > 0) << "Invaild dimemsion value: " << tensorDesc << " dimension " << i
+        CHECK(ERROR_CODE_UNDEFINED, shape[i] > 0) << "Invaild dimemsion value: " << tensorDesc << " dimension " << i
             << " must be greater than 0, but got " << shape[i];
     }
 }
 
 void ValidateFormat(const Tensor& tensor, const std::string& tensorDesc) {
-    CHECK(tensor.Format() == TileOpFormat::TILEOP_ND) << "Invalid format: " << tensorDesc
+    CHECK(ERROR_CODE_UNDEFINED, tensor.Format() == TileOpFormat::TILEOP_ND) << "Invalid format: " << tensorDesc
         << " only support ND format, but got format: " << std::to_string(tensor.Format());
 }
 
@@ -88,11 +88,11 @@ void ValidateWorldSize(const char* group, int64_t worldSize) {
     static std::unordered_map<std::string, int64_t> groupWorldSizeMap;
     auto groupWorldSize = groupWorldSizeMap.find(group);
     if (groupWorldSize== groupWorldSizeMap.end()) {
-        CHECK(worldSize > 0) << "Invalid world size for group " << group << ": world size must be greather than 0"
+        CHECK(ERROR_CODE_UNDEFINED, worldSize > 0) << "Invalid world size for group " << group << ": world size must be greather than 0"
             << ", but got " << worldSize;
         groupWorldSizeMap.emplace(group, worldSize);
     } else {
-        CHECK(worldSize == groupWorldSize->second) << "WorldSize mismatch for group " << group
+        CHECK(ERROR_CODE_UNDEFINED, worldSize == groupWorldSize->second) << "WorldSize mismatch for group " << group
             << ": expected " << groupWorldSize->second << ", but got " << worldSize;
     }
 }
@@ -104,11 +104,11 @@ void ValidateParams(const Tensor& predToken, const Tensor& in, const Tensor& out
     ValidateShape(predToken, "PredToken", 2);
     int32_t predRow = predToken.GetShape(0);
     int32_t predCol = predToken.GetShape(1);
-    CHECK(predRow > 0 && predCol > 0) << "PredToken parameter error - the 'row' and 'col' dimensional of the input tensor must be greater than 0, "
+    CHECK(ERROR_CODE_UNDEFINED, predRow > 0 && predCol > 0) << "PredToken parameter error - the 'row' and 'col' dimensional of the input tensor must be greater than 0, "
         << "but got row=" << predRow << ", col=" << predCol;
     ValidateShape(in, "Input tensor", 2);
     ValidateShape(out, "Output tensor", 2);
-    CHECK(out.GetDataType() == in.GetDataType()) << "The data type of \"out\" must be consistent with that of \"in\", "
+    CHECK(ERROR_CODE_UNDEFINED, out.GetDataType() == in.GetDataType()) << "The data type of \"out\" must be consistent with that of \"in\", "
         << "but the data type of \"out\" is "<< DataType2String(out.GetDataType()) << " and the data type of \"in\" is "
         << DataType2String(in.GetDataType()) << ".";
     ValidateFormat(in, "Input tensor");
@@ -118,7 +118,7 @@ void ValidateParams(const Tensor& predToken, const Tensor& in, const Tensor& out
     int32_t outRow = out.GetShape(0);
     int32_t outCol = out.GetShape(1);
     if (checkShapeMatch) {
-        CHECK((inRow == outRow) && (inCol == outCol)) <<
+        CHECK(ERROR_CODE_UNDEFINED, (inRow == outRow) && (inCol == outCol)) <<
         "Shape mismatch: Input and output dimensions must be the same, but got "
         << "Input shape: (" << inRow << "," << inCol << "), Output shape: (" << outRow << "," << outCol << ").";
     }
@@ -130,7 +130,7 @@ void ValidateParams(const Tensor& predToken, const Tensor& in, const Tensor& out
     int64_t shmemSignalEleNum = shmemDataShape[0] * MAX_TILE_NUM * SHMEM_SIGNAL_STRIDE;
     uint64_t shmemSize = shmemDataEleNum * BytesOf(shmemDataType) + shmemSignalEleNum * BytesOf(DT_INT32);
     const uint64_t winSize = 1024 * 1024 * 200;
-    CHECK(shmemSize < winSize) << "Exceeds winSize limit. Maximum allowed: " << winSize << ", got: " << shmemSize;
+    CHECK(ERROR_CODE_UNDEFINED, shmemSize < winSize) << "Exceeds winSize limit. Maximum allowed: " << winSize << ", got: " << shmemSize;
 }
 
 Tensor ShmemPut(const Tensor& predToken, const Tensor& in, const Tensor& shmemData, AtomicType atomicType)
@@ -309,7 +309,7 @@ Tensor ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* gr
 Tensor ShmemDataSet(const Tensor& predToken, const Tensor& shmemData)
 {
     constexpr int32_t supportedDim = 4;
-    CHECK(shmemData.GetShape().size() == supportedDim) << "The dim of \"shmemData\" only supports " << supportedDim
+    CHECK(ERROR_CODE_UNDEFINED, shmemData.GetShape().size() == supportedDim) << "The dim of \"shmemData\" only supports " << supportedDim
         << ", but got " << shmemData.GetShape().size();
 
     auto& function = *Program::GetInstance().GetCurrentFunction();
@@ -324,7 +324,7 @@ Tensor ShmemDataSet(const Tensor& predToken, const Tensor& shmemData)
 Tensor ShmemSignalSet(const Tensor& predToken, const Tensor& shmemSignal)
 {
     constexpr int32_t supportedDim = 5;
-    CHECK(shmemSignal.GetShape().size() == supportedDim) << "The dim of \"shmemSignal\" only supports " << supportedDim
+    CHECK(ERROR_CODE_UNDEFINED, shmemSignal.GetShape().size() == supportedDim) << "The dim of \"shmemSignal\" only supports " << supportedDim
         << ", but got " << shmemSignal.GetShape().size();
 
     auto& function = *Program::GetInstance().GetCurrentFunction();
@@ -340,7 +340,7 @@ void AllGather(const Tensor& predToken, const Tensor& in, const char* group, Ten
     Tensor& out)
 {
     uint32_t worldSize = shmemData.GetShape()[0];
-    CHECK(worldSize > 0) << "worldSize should be more than 0.";
+    CHECK(ERROR_CODE_UNDEFINED, worldSize > 0) << "worldSize should be more than 0.";
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
     SymbolicScalar thisRank = GetHcclRankId(group);
@@ -371,8 +371,8 @@ void ReduceScatter(const Tensor& predToken, const Tensor& in, const char* group,
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
     uint32_t worldSize = shmemData.GetShape()[0];
-    CHECK(worldSize > 0) << "worldSize should be more than 0.";
-    CHECK((row % worldSize) == 0) << "ReduceScatter constraint: row must be divisible by worldSize, but row: " << row
+    CHECK(ERROR_CODE_UNDEFINED, worldSize > 0) << "worldSize should be more than 0.";
+    CHECK(ERROR_CODE_UNDEFINED, (row % worldSize) == 0) << "ReduceScatter constraint: row must be divisible by worldSize, but row: " << row
         << ", worldSize: " << worldSize;
     const int32_t rowOut = row / worldSize;
     SymbolicScalar thisRank = GetHcclRankId(group);
@@ -417,7 +417,7 @@ void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const char* gro
     ValidateTypeAndShape(shmemData, ((in.GetDataType() == DT_BF16) || (in.GetDataType() == DT_FP16) ? DT_FP32 :
         out.GetDataType()), {worldSize, 1, row, col});
     ValidateTypeAndShape(shmemSignal, DataType::DT_INT32, {worldSize, worldSize, 1, row, col});
-    CHECK(worldSize > 0) << "worldSize should be more than 0.";
+    CHECK(ERROR_CODE_UNDEFINED, worldSize > 0) << "worldSize should be more than 0.";
     for (uint32_t dynRankId = 0; dynRankId < worldSize; ++dynRankId) {
         auto shmemDataTile = View(shmemData, {1, 1, row, col}, std::vector<SymbolicScalar>{dynRankId, 0, 0, 0});
         auto shmemSignalTile = View(shmemSignal, {1, 1, 1, row, col},
@@ -438,8 +438,8 @@ void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* gro
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
     uint32_t worldSize = shmemData.GetShape()[0];
-    CHECK(worldSize > 0) << "AllReduce worldSize should be more than 0.";
-    CHECK(row % worldSize == 0) << "Two_Shot_AllReduce constraint: row must be divisible by worldSize but row: " << row
+    CHECK(ERROR_CODE_UNDEFINED, worldSize > 0) << "AllReduce worldSize should be more than 0.";
+    CHECK(ERROR_CODE_UNDEFINED, row % worldSize == 0) << "Two_Shot_AllReduce constraint: row must be divisible by worldSize but row: " << row
         << ", worldSize: " << worldSize;
     int32_t rowPerRank = row / worldSize;
     AllReduceValidate(predToken, in, shmemData, group, out);

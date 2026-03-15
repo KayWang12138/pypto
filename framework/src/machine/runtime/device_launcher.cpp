@@ -246,7 +246,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     }
     if (streamSynchronize) {
         rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, nullptr, aicoreStream);
-        ASSERT(machine::GetRA()->CheckAllSentinels());
+        ASSERT(ERROR_CODE_UNDEFINED, machine::GetRA()->CheckAllSentinels());
     }
     MACHINE_LOGI("finish Kernel Launch.");
 
@@ -755,7 +755,7 @@ int DeviceLauncher::LaunchAicoreKernel(
             return rc;
         }
         devRunner.SynchronizeDeviceToHostProfData();
-        ASSERT(machine::GetRA()->CheckAllSentinels());
+        ASSERT(ERROR_CODE_UNDEFINED, machine::GetRA()->CheckAllSentinels());
     }
     return ret;
 #else

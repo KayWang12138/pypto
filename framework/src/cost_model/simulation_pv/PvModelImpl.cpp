@@ -534,7 +534,7 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::BuildFuncData(DynFuncData *funcda
         tensorAddr[i] = LookupData(addr);
     }
     auto err = memcpy_s(ref.data() + offset, rawTensorSize, tensorAddr.data(), rawTensorSize);
-    ASSERT(err == 0) << "[SIMULATION]: tensorAddr copy failed. error=" << err;
+    ASSERT(ERROR_CODE_UNDEFINED, err == 0) << "[SIMULATION]: tensorAddr copy failed. error=" << err;
     *ref_data = ref;
 
     auto addr = allocator_->AllocArg(*refSize);

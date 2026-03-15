@@ -134,7 +134,7 @@ void CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc, std::ost
 
         CodeGenOpCloudNPU cop({symbolMgr, forBlkMgr, topFunc, subFunc, op, locToOffsetMap, ctx.isMainBlock});
         std::string tileOpSourceCode = cop.GenOpCode();
-        ASSERT(tileOpSourceCode.find("CG_ERROR") == tileOpSourceCode.npos)
+        ASSERT(ERROR_CODE_UNDEFINED, tileOpSourceCode.find("CG_ERROR") == tileOpSourceCode.npos)
             << "Generate code of op failed, op is " << op.Dump();
 
         allocSourceRegion.append(allocSourceCode);
@@ -345,7 +345,7 @@ std::pair<std::string, std::string> GenAllocVarName(const std::string &prefix, c
 std::string CodeGenCloudNPU::GenAlloc(
     const std::shared_ptr<SymbolManager> &sm, BufferType bufferType, DataType dataType, const TileRange &range) const {
     if ((BUFFER_TYPE_TO_PREFIX.count(bufferType) == 0) || (OPERAND_TYPE_TO_ADDR_TYPE.count(bufferType) == 0)) {
-        ASSERT(false) << "invalid bufferType: " << static_cast<size_t>(bufferType);
+        ASSERT(ERROR_CODE_UNDEFINED, false) << "invalid bufferType: " << static_cast<size_t>(bufferType);
         return "";
     }
 
@@ -399,7 +399,7 @@ void CodeGenCloudNPU::DoCompileCCE(const CompileInfo &compileInfo, const std::st
         return;
     }
     auto [ret, ccecCmd] = CompileCCE(compileInfo, compileOptions);
-    ASSERT(ret == 0) << "CompileCCE failed. errCode = " << ret << ", cce file: " << compileInfo.GetCCEAbsPath()
+    ASSERT(ERROR_CODE_UNDEFINED, ret == 0) << "CompileCCE failed. errCode = " << ret << ", cce file: " << compileInfo.GetCCEAbsPath()
                      << "\n******** bisheng compiling cmd start ********\n"
                      << ccecCmd << "\n******** bisheng compiling cmd end ********\n";
 }
@@ -432,7 +432,7 @@ std::string CodeGenCloudNPU::GetIncludePathForCompileCCE() const {
         return includePathByLib;
     }
 
-    ASSERT(false) << "include path for compiling cce is unavailable";
+    ASSERT(ERROR_CODE_UNDEFINED, false) << "include path for compiling cce is unavailable";
     return "";
 }
 
@@ -445,7 +445,7 @@ std::string CodeGenCloudNPU::GetPtoTileLibPathByEnv() const {
     const char *homePath = std::getenv(ENV_PTO_TILE_LIB_CODE_PATH.c_str());
     if (homePath != nullptr) {
         std::string envPath = std::string(homePath) + "/include";
-        ASSERT(IsPathExist(envPath + "/pto")) << "Pto-isa path " << envPath << "/pto not found! please check.";
+        ASSERT(ERROR_CODE_UNDEFINED, IsPathExist(envPath + "/pto")) << "Pto-isa path " << envPath << "/pto not found! please check.";
         return envPath;
     }
 
@@ -453,11 +453,11 @@ std::string CodeGenCloudNPU::GetPtoTileLibPathByEnv() const {
     homePath = std::getenv(ENV_ASCEND_HOME_PATH.c_str());
     if (homePath != nullptr) {
         std::string cannPath = std::string(homePath) + "/include";
-        ASSERT(IsPathExist(cannPath + "/pto")) << "Pto-isa path " << cannPath << "/pto not found! please check.";
+        ASSERT(ERROR_CODE_UNDEFINED, IsPathExist(cannPath + "/pto")) << "Pto-isa path " << cannPath << "/pto not found! please check.";
         return cannPath;
     }
 
-    ASSERT(false) << "Pto-isa path not found. please install pto-isa properly.";
+    ASSERT(ERROR_CODE_UNDEFINED, false) << "Pto-isa path not found. please install pto-isa properly.";
     return "";
 }
 
@@ -543,7 +543,7 @@ std::pair<int, std::string> CodeGenCloudNPU::CompileCCE(
     CODEGEN_LOGI_FULL("compile kernel...\n%s", ccecCmd.c_str());
 
     int ret = CheckInjectStr(ccecCmd.c_str(), ccecCmd.length());
-    ASSERT(ret == 0) << "CheckInjectStr failed. errCode = " << ret;
+    ASSERT(ERROR_CODE_UNDEFINED, ret == 0) << "CheckInjectStr failed. errCode = " << ret;
 
     ret = std::system(ccecCmd.c_str());
     if (ret != 0) {

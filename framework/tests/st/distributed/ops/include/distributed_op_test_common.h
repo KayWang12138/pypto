@@ -86,7 +86,7 @@ template <typename PtrType>
 bool CompareWithGolden(const DataType dType, const std::string &goldenFilename, const uint64_t outSize,
     const PtrType &outPtrs, const OpTestParam &testParam, float threshold = 0.001f)
 {
-    CHECK((std::is_same_v<PtrType, uint8_t *>) || (std::is_same_v<PtrType, std::vector<uint8_t *>>))
+    CHECK(ERROR_CODE_UNDEFINED, (std::is_same_v<PtrType, uint8_t *>) || (std::is_same_v<PtrType, std::vector<uint8_t *>>))
         << "PtrType must be either uint8_t* or std::vector<uint8_t*>";
 
     const size_t dTypeSize = BytesOf(dType);
@@ -135,7 +135,7 @@ public:
     std::vector<T> GetWinValue(WinType winType, size_t count = 0UL, size_t offset = 0UL)
     {
         auto [devAddr, winSize] = GetWinAddrAndSize(winType);
-        CHECK((devAddr != 0) && (winSize != 0)) << "devAddr and winSize must not be 0";
+        CHECK(ERROR_CODE_UNDEFINED, (devAddr != 0) && (winSize != 0)) << "devAddr and winSize must not be 0";
         auto maxDataCnt = winSize / sizeof(T);
         offset = offset % maxDataCnt;
         if ((count == 0UL) || (count > maxDataCnt - offset)) {

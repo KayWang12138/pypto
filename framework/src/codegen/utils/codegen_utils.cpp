@@ -26,7 +26,7 @@ namespace npu::tile_fwk {
 std::vector<int64_t> NormalizeShape(const std::vector<int64_t> &shapeVec, unsigned dim) {
     std::vector<int64_t> normalizedVec(dim, 1);
     for (size_t i = 0; i < shapeVec.size(); i++) {
-        ASSERT(i < dim && "exceed dimension limit!");
+        ASSERT(ERROR_CODE_UNDEFINED, i < dim && "exceed dimension limit!");
         normalizedVec[i] = shapeVec[shapeVec.size() - 1 - i];
     }
     std::reverse(normalizedVec.begin(), normalizedVec.end());
@@ -60,7 +60,7 @@ std::string GetTypeForB16B32(const DataType &dtype) {
     if (BytesOf(dtype) == K_BYTES_OF32_BIT) {
         return "uint32_t";
     }
-    ASSERT(false) << "can not support dtype: " << DataType2String(dtype);
+    ASSERT(ERROR_CODE_UNDEFINED, false) << "can not support dtype: " << DataType2String(dtype);
     return {};
 }
 
@@ -69,7 +69,7 @@ std::string GetAddrTypeByOperandType(OperandType type) {
     if (iter != OPERAND_TYPE_TO_ADDR_TYPE.end()) {
         return iter->second;
     }
-    ASSERT(false) << "cannot support current OperandType " << type;
+    ASSERT(ERROR_CODE_UNDEFINED, false) << "cannot support current OperandType " << type;
     return "";
 }
 

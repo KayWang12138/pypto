@@ -121,7 +121,7 @@ int LoadAicpuOp::AicpuKernelLaunch([[maybe_unused]]void* funcHandle, [[maybe_unu
 
 int LoadAicpuOp::LaunchCustomOp([[maybe_unused]]rtStream_t stream, [[maybe_unused]]DeviceKernelArgs *kArgs, [[maybe_unused]]std::string &OpType) {
 #ifdef BUILD_WITH_NEW_CANN
-    ASSERT(customBinHandle_ != nullptr) << "customBinHandle cannot be null";
+    ASSERT(ERROR_CODE_UNDEFINED, customBinHandle_ != nullptr) << "customBinHandle cannot be null";
     rtFuncHandle custFuncHandle;
     auto ret = rtsFuncGetByName(customBinHandle_, OpType.c_str(), &custFuncHandle);
     if (ret != 0) {

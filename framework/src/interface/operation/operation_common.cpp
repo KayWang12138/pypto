@@ -36,15 +36,15 @@ void CheckTensorShape(const LogicalTensorPtr &tensor, const std::string &op) {
     auto shape = tensor->shape;
     // valid input dims must in [1, 4]
     auto shape_len_limit = GetShapeLenLimit(op);
-    ASSERT(shape.size() >= shape_len_limit[0] && shape.size() <= shape_len_limit[1])
+    ASSERT(ERROR_CODE_UNDEFINED, shape.size() >= shape_len_limit[0] && shape.size() <= shape_len_limit[1])
         << "The dims of tensor out of range. shape.size(): " << shape.size()
         << "shape_len_limit[0]: "<< shape_len_limit[0]
         << "shape_len_limit[1]" << shape_len_limit[1];
     size_t shapeSize = 1;
     for (const auto &value : shape) {
-        ASSERT(value <= INT32_MAX) << "The dim value of tensor must less than or equal to INT32_MAX(2,147,483,647)";
+        ASSERT(ERROR_CODE_UNDEFINED, value <= INT32_MAX) << "The dim value of tensor must less than or equal to INT32_MAX(2,147,483,647)";
         shapeSize *= static_cast<size_t>(value);
-        ASSERT(shapeSize <= INT32_MAX) << "The shape size of tensor must less than or equal to INT32_MAX(2,147,483,647)";
+        ASSERT(ERROR_CODE_UNDEFINED, shapeSize <= INT32_MAX) << "The shape size of tensor must less than or equal to INT32_MAX(2,147,483,647)";
     }
 }
 
@@ -88,6 +88,6 @@ void CheckAxisRange(const Tensor &tensor, int &axis) {
     if (axis < 0) {
         axis += shapeSize;
     }
-    ASSERT(axis >= 0 && axis < shapeSize) << "Axis is not in the reasonable range!";
+    ASSERT(ERROR_CODE_UNDEFINED, axis >= 0 && axis < shapeSize) << "Axis is not in the reasonable range!";
 }
 }
