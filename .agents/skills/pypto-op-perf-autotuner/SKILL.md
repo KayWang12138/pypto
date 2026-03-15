@@ -50,7 +50,7 @@ python3 custom/operator_name/operator.py --run-mode npu
 3. 如果检查失败，失败是由于上一轮修改导致，回退修改，尝试其它优化方案
 
 ### 步骤 3：分析性能数据
-使用pypto-operator-perf-analyzer分析性能，生成性能报告和性能优化建议
+使用pypto-op-perf-analyzer分析性能，生成性能报告和性能优化建议
 
 ### 步骤 4：执行性能优化
 根据上一步的性能优化建议, 执行性能优化

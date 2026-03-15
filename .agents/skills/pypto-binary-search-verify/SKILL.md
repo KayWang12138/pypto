@@ -17,6 +17,50 @@ license: 完整条款见 LICENSE.txt
 5. **定位第一个计算结果不同的 op**
 6. **插入原则**：一次性添加的检查点不要多，从关键的节点开始，插入的检查点数据切片必须一致，不一致提示用户，不再进行比对
 
+## 通用对比工具
+
+本技能提供了通用对比脚本 `scripts/verify_binary_search.py`，自动完成检查点扫描和对比。
+
+### 快速使用
+
+```bash
+# 在算子目录运行（自动检测检查点）
+python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py
+
+# 列出所有检查点
+python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py --list
+
+# 显示详细对比
+python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py --verbose
+
+# 指定工作目录
+python3 .agents/skills/pypto-binary-search-verify/scripts/verify_binary_search.py -w models/your_operator -v
+```
+
+### 命令行参数
+
+```bash
+python3 verify_binary_search.py [OPTIONS]
+
+必需参数:
+  -w, --work-dir DIR      工作目录（算子所在目录）
+
+可选参数:
+  -o, --output-dir DIR    指定 output 目录名（不指定则自动检测）
+  --rtol FLOAT            相对误差容忍度（默认 1e-3）
+  --atol FLOAT            绝对误差容忍度（默认 1e-3）
+  -v, --verbose           显示详细的元素级对比
+  -l, --list              只列出检查点，不进行对比
+```
+
+### 工具功能
+
+- ✓ 自动检测最新 output 目录
+- ✓ 自动扫描所有检查点文件
+- ✓ 智能匹配 jit 和 golden 文件
+- ✓ 自动分析并给出二分建议
+- ✓ 支持详细元素级对比
+
 ## 核心原则
 
 ### 原则 1：插入检查点（kernel 函数）

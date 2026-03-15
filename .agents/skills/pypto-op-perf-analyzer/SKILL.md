@@ -174,12 +174,12 @@ AicoreTime = 核心总工作时间 - 总等待时间
 使用技能中的性能分析脚本自动生成报告：
 
 ```bash
-python3 .opencode/skills/pypto-operator-perf-analyzer/scripts/analyze_perf.py <output_dir>
+python3 .agents/skills/pypto-op-perf-analyzer/scripts/analyze_perf.py <output_dir>
 ```
 
 示例：
 ```bash
-python3 .opencode/skills/pypto-operator-perf-analyzer/scripts/analyze_perf.py output/output_20260214_152549_401503_511667
+python3 .agents/skills/pypto-op-perf-analyzer/scripts/analyze_perf.py output/output_20260214_152549_401503_511667
 ```
 
 ## 性能优化建议库
