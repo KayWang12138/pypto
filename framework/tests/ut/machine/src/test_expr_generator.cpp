@@ -30,7 +30,7 @@ protected:
 
     void TearDown() override {
         std::string cmd = "rm -rf " + testDir_;
-        ASSERT(system(cmd.c_str()) == 0);
+        ASSERT(ERROR_CODE_UNKNOWN, system(cmd.c_str()) == 0);
     }
 
     std::string testDir_;

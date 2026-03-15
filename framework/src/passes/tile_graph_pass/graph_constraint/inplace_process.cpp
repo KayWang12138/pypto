@@ -504,7 +504,7 @@ LogicalTensorPtr FindInplaceSource(Function &function, Operation &op, std::unord
         return visited.at(&op);
     }
     auto inplaceIdx = op.GetIntAttribute(OpAttributeKey::inplaceIdx);
-    ASSERT(inplaceIdx >= 0 && inplaceIdx < static_cast<int>(op.GetIOperands().size())) << "Invalid inplaceIdx " << inplaceIdx << " for operation " << op.GetOpMagic();
+    ASSERT(ERROR_CODE_UNKNOWN, inplaceIdx >= 0 && inplaceIdx < static_cast<int>(op.GetIOperands().size())) << "Invalid inplaceIdx " << inplaceIdx << " for operation " << op.GetOpMagic();
     auto inplaceIOperand = op.GetInputOperand(inplaceIdx);
     LogicalTensorPtr res = nullptr;
     for (const auto producer : inplaceIOperand->GetProducers()) {
@@ -515,7 +515,7 @@ LogicalTensorPtr FindInplaceSource(Function &function, Operation &op, std::unord
         if (res == nullptr) {
             res = tmp;
         } else {
-            ASSERT(res == tmp) << "Inconsistent inplace source for operation " << op.GetOpMagic(); // inplace路径应总是交汇于同一起点
+            ASSERT(ERROR_CODE_UNKNOWN, res == tmp) << "Inconsistent inplace source for operation " << op.GetOpMagic(); // inplace路径应总是交汇于同一起点
         }
     }
     if (res == nullptr) {

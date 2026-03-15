@@ -27,8 +27,8 @@ FlowVerifier::CompareResult FlowVerifier::VerifyResult(
         const std::shared_ptr<LogicalTensorData> &outputDataView, float rtol, float atol) {
     // tensor maybe padded during PadLocalBuffer Pass, tensor shape maybe changed, just check the valid data
     goldenDataView->UpdateValidShape(outputDataView->GetValidShape());
-    ASSERT(goldenDataView->GetValidShape() == outputDataView->GetValidShape());
-    ASSERT(goldenDataView->GetDataType() == outputDataView->GetDataType());
+    ASSERT(ERROR_CODE_UNKNOWN, goldenDataView->GetValidShape() == outputDataView->GetValidShape());
+    ASSERT(ERROR_CODE_UNKNOWN, goldenDataView->GetDataType() == outputDataView->GetDataType());
     switch (goldenDataView->GetDataType()) {
         case DT_INT8: return CompareData<int8_t, double>(goldenDataView, outputDataView, rtol, atol);
         case DT_INT16: return CompareData<int16_t, double>(goldenDataView, outputDataView, rtol, atol);
@@ -43,7 +43,7 @@ FlowVerifier::CompareResult FlowVerifier::VerifyResult(
         case DT_UINT64: return CompareData<uint64_t, double>(goldenDataView, outputDataView, rtol, atol);
         case DT_DOUBLE: return CompareData<double, double>(goldenDataView, outputDataView, rtol, atol);
         case DT_BOOL: return CompareData<uint8_t, double>(goldenDataView, outputDataView, rtol, atol);
-        default: ASSERT(false); break;
+        default: ASSERT(ERROR_CODE_UNKNOWN, false); break;
     }
     return CompareResult();
 }
@@ -110,7 +110,7 @@ void FlowVerifier::VerifyTensorGraph(Function *entry,
     outputDataViewList_ = outputDataViewList;
     goldenDataViewList_ = goldenDataViewList;
 
-    ASSERT(calc::IsVerifyEnabled()) << "Verify not supported";
+    ASSERT(ERROR_CODE_UNKNOWN, calc::IsVerifyEnabled()) << "Verify not supported";
     auto attr = entry->GetDyndevAttribute();
     std::vector<int> inputSlotList = slotManager->LookupSlotIndexConst(attr->startArgsInputTensorList);
     std::vector<int> outputSlotList = slotManager->LookupSlotIndexConst(attr->startArgsOutputTensorList);
@@ -119,8 +119,8 @@ void FlowVerifier::VerifyTensorGraph(Function *entry,
     std::unordered_map<int, std::shared_ptr<LogicalTensorData>> slotDataViewDict;
     std::unordered_set<int> outputSlotSet;
 
-    ASSERT(inputSlotList.size() == attr->startArgsInputTensorList.size());
-    ASSERT(inputDataViewList.size() == inputSlotList.size());
+    ASSERT(ERROR_CODE_UNKNOWN, inputSlotList.size() == attr->startArgsInputTensorList.size());
+    ASSERT(ERROR_CODE_UNKNOWN, inputDataViewList.size() == inputSlotList.size());
     for (size_t i = 0; i < inputDataViewList.size(); i++) {
         auto inputTensor = attr->startArgsInputTensorList[i].get().GetStorage();
         if (inputTensor == nullptr) {
@@ -129,13 +129,13 @@ void FlowVerifier::VerifyTensorGraph(Function *entry,
         auto tileop = inputTensor->Format();
 
         auto input = inputDataViewList[i];
-        ASSERT(inputTensor->Datatype() == input->GetDataType());
+        ASSERT(ERROR_CODE_UNKNOWN, inputTensor->Datatype() == input->GetDataType());
         if (tileop == TileOpFormat::TILEOP_NZ) {
             slotTileOpFormatDict[inputSlotList[i]] = TileOpFormat::TILEOP_NZ;
         }
         slotDataViewDict[inputSlotList[i]] = input;
     }
-    ASSERT(outputDataViewList.size() == outputSlotList.size());
+    ASSERT(ERROR_CODE_UNKNOWN, outputDataViewList.size() == outputSlotList.size());
     for (size_t i = 0; i < outputDataViewList.size(); i++) {
         slotDataViewDict[outputSlotList[i]] = outputDataViewList[i];
         auto outputTensor = attr->startArgsOutputTensorList[i].get().GetStorage();

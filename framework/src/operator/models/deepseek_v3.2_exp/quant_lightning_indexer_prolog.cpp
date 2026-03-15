@@ -41,7 +41,7 @@ std::tuple<Tensor, Tensor> PrologQuant(const Tensor &input) {
 
 Tensor QuantLayerNorm(const Tensor &x, const Tensor &gamma, const Tensor &beta, const int dim, float epsilon) {
     config::SetSemanticLabel("Key-LayerNorm");
-    ASSERT(dim == static_cast<int64_t>(x.GetShape().size()) - 1 || dim == -1)
+    ASSERT(ERROR_CODE_UNKNOWN, dim == static_cast<int64_t>(x.GetShape().size()) - 1 || dim == -1)
         << "Only support Last axis QuantLayerNorm";
     int actualDim = dim < 0 ? dim + x.GetShape().size() : dim;
     auto xDtype = x.GetDataType();
@@ -88,7 +88,7 @@ Tensor QuantRope3D(const Tensor &x, const Tensor &cos, const Tensor &sin, const 
     constexpr size_t query_rope_dim = 3;
     constexpr size_t head_num_axis = 1;
     constexpr size_t head_dim_axis = 2;
-    ASSERT(x.GetShape().size() == query_rope_dim && cos.GetShape().size() == COS_SIN_DIM &&
+    ASSERT(ERROR_CODE_UNKNOWN, x.GetShape().size() == query_rope_dim && cos.GetShape().size() == COS_SIN_DIM &&
            sin.GetShape().size() == COS_SIN_DIM);
 
     auto xDtype = x.GetDataType();
@@ -116,7 +116,7 @@ Tensor QuantRope2D(const Tensor &x, const Tensor &cos, const Tensor &sin) {
     auto xDtype = x.GetDataType();
     int tTile = x.GetShape()[0];
     int ropeDim = x.GetShape()[1];
-    ASSERT(x.GetShape().size() == key_rope_dim && cos.GetShape().size() == COS_SIN_DIM &&
+    ASSERT(ERROR_CODE_UNKNOWN, x.GetShape().size() == key_rope_dim && cos.GetShape().size() == COS_SIN_DIM &&
            sin.GetShape().size() == COS_SIN_DIM);
 
     TileShape::Current().SetVecTile(tTile, ropeDim);
@@ -137,7 +137,7 @@ void QuantLightningIndexerPrologCompute(const QuantIndexerPrologInput &inputs, Q
     config::SetPassOption("mg_copyin_upper_bound", configs.mgCopyInUpperBound);
     config::SetPassOption("pg_upper_bound", configs.pgUpperBound);
 
-    ASSERT(inputs.x.GetShape().size() == Q_PARAM_DIM && inputs.qNorm.GetShape().size() == Q_PARAM_DIM &&
+    ASSERT(ERROR_CODE_UNKNOWN, inputs.x.GetShape().size() == Q_PARAM_DIM && inputs.qNorm.GetShape().size() == Q_PARAM_DIM &&
            inputs.wk.GetShape().size() == NZ_DIM && inputs.wProj.GetShape().size() == NZ_DIM &&
            inputs.cosIdxRope.GetShape().size() == Q_PARAM_DIM);
     DataType xDtype = inputs.x.GetDataType();

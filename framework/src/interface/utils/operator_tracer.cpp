@@ -37,15 +37,15 @@ void OperatorChecker::PostCheck() {
 
     for (int i = preOpCount; i < postOpCount; i++) {
         auto &lop = operations[i];
-        ASSERT(preOp <= lop.GetOpMagic() && lop.GetOpMagic() < postOp);
+        ASSERT(ERROR_CODE_UNKNOWN, preOp <= lop.GetOpMagic() && lop.GetOpMagic() < postOp);
         for (auto &loperand : lop.GetOOperands()) {
-            ASSERT(preMagic <= loperand->GetMagic() && loperand->GetMagic() < postMagic);
-            ASSERT(preRawMagic <= loperand->tensor->GetRawMagic() && loperand->tensor->GetRawMagic() < postRawMagic);
+            ASSERT(ERROR_CODE_UNKNOWN, preMagic <= loperand->GetMagic() && loperand->GetMagic() < postMagic);
+            ASSERT(ERROR_CODE_UNKNOWN, preRawMagic <= loperand->tensor->GetRawMagic() && loperand->tensor->GetRawMagic() < postRawMagic);
             for (int j = i + 1; j < postOpCount; j++) {
                 auto &rop = operations[j];
                 for (auto &roperand : rop.GetOOperands()) {
                     if (loperand->tensor->GetRawMagic() == roperand->tensor->GetRawMagic()) {
-                        ASSERT(!Overlap(loperand, roperand));
+                        ASSERT(ERROR_CODE_UNKNOWN, !Overlap(loperand, roperand));
                     }
                 }
             }

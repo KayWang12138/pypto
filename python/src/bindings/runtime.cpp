@@ -403,7 +403,7 @@ public:
         auto aicpuArgs = (AiCpuArgs *)aicpuArgBuf.data();
         int64_t *inputp = (int64_t *)(aicpuArgs + 1);
         auto tensorData = (DevTensorData *)(inputp + 2);
-        ASSERT((int64_t)tensors.size() == inputp[0]) << "mismatch tensor size";
+        ASSERT(ERROR_CODE_UNKNOWN, (int64_t)tensors.size() == inputp[0]) << "mismatch tensor size";
         for (size_t i = 0; i < (size_t)inputp[0]; ++i) {
             auto &t = tensors[i];
             auto addr = (uint64_t)t.GetAddr();
@@ -469,7 +469,7 @@ private:
         auto argNum =
             dynAttr->startArgsInputLogicalTensorList.size() + dynAttr->startArgsOutputLogicalTensorList.size();
         auto argSize = sizeof(AiCpuArgs) + 2 * sizeof(int64_t) + argNum * sizeof(DevTensorData);
-        ASSERT(argSize % 8 == 0);
+        ASSERT(ERROR_CODE_UNKNOWN, argSize % 8 == 0);
         aicpuArgBuf.resize(argSize / 8);
 
         auto aicpuArgs = new (aicpuArgBuf.data()) AiCpuArgs();
@@ -618,11 +618,11 @@ public:
 #endif
         DeviceLauncher::SetDevPerfAddr(debugEnable, isCaptureMode);
         int ret = DeviceLauncher::LaunchAicpuKernel(rtAicpuArgs, tripleStream, debugEnable, kernel->GetFunction());
-        ASSERT(ret == RT_ERROR_NONE) << "launch aicpu failed: " << ret;
+        ASSERT(ERROR_CODE_UNKNOWN, ret == RT_ERROR_NONE) << "launch aicpu failed: " << ret;
 
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
         ret = DeviceLauncher::LaunchAicoreKernel(aicoreStream, kernel->GetKernelBin(), rtAicoreArgs, rtTaskCfg, debugEnable);
-        ASSERT(ret == RT_ERROR_NONE) << "launch aicore failed: " << ret;
+        ASSERT(ERROR_CODE_UNKNOWN, ret == RT_ERROR_NONE) << "launch aicore failed: " << ret;
     }
 
     void EmulationLaunch(KernelBinary *kernel, std::vector<DeviceTensorData> &tensors) {
@@ -633,7 +633,7 @@ public:
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
         int ret = EmulationLauncher::EmulationLaunchDeviceTensorData(kernel->GetFunction(), tensors, {}, config);
-        ASSERT(ret == RT_ERROR_NONE) << "emulation run failed: " << ret;
+        ASSERT(ERROR_CODE_UNKNOWN, ret == RT_ERROR_NONE) << "emulation run failed: " << ret;
     }
 
 private:
@@ -781,7 +781,7 @@ static int GetInputTensors(py::args &args, std::vector<DeviceTensorData> &tensor
             }
         }
     }
-    ASSERT(tensors.size()) << "No input tensors found";
+    ASSERT(ERROR_CODE_UNKNOWN, tensors.size()) << "No input tensors found";
     if (py::getattr(device, "type").cast<std::string>() != "npu") {
         throw std::runtime_error("Not npu device");
     }

@@ -37,7 +37,7 @@ struct MinimumOpMetaData {
 
 
 Shape GetBroadCastViewShape(const Tensor &self, const Tensor &other, const Shape &viewShape) {
-    ASSERT(self.GetShape().size() == other.GetShape().size());
+    ASSERT(ERROR_CODE_UNKNOWN, self.GetShape().size() == other.GetShape().size());
     Shape result = viewShape;
     for (size_t i = 0; i < self.GetShape().size(); i++) {
         int64_t selfDim = self.GetShape()[i];
@@ -52,7 +52,7 @@ Shape GetBroadCastViewShape(const Tensor &self, const Tensor &other, const Shape
 }
 
 std::vector<int64_t> GetBroadCastOffsetRatio(const Tensor &self, const Tensor &other, const Shape &viewShape) {
-    ASSERT(self.GetShape().size() == other.GetShape().size());
+    ASSERT(ERROR_CODE_UNKNOWN, self.GetShape().size() == other.GetShape().size());
     Shape result(viewShape.size(), 1);
     for (size_t i = 0; i < self.GetShape().size(); i++) {
         int64_t selfDim = self.GetShape()[i];

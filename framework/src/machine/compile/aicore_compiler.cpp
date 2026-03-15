@@ -73,13 +73,13 @@ static int CompileCoreMachine(const std::string &objFile, bool isCube, uint64_t 
                    GetCurrentSharedLibPath().c_str(), GetCurrentSharedLibPath().c_str(),
                    objFile.c_str(), aicoreSrcFile.c_str());
   if (ret < 0) {
-    MACHINE_LOGE("Compile aicore construct cmd failed.");
+    MACHINE_LOGE(ERROR_CODE_UNDEFINED, "Compile aicore construct cmd failed.");
     return ret;
   }
   MACHINE_LOGD("Compile ccec command:[%s].", ccecCmd.c_str());
   ret = std::system(ccecCmd.c_str());
   if (ret != 0) {
-    MACHINE_LOGE("Compile ccec failed.");
+    MACHINE_LOGE(ERROR_CODE_UNDEFINED, "Compile ccec failed.");
   }
   return ret;
 }
@@ -95,7 +95,7 @@ std::string GenSubFuncCall(std::map<uint64_t, Function *> &leafDict, CoreType co
       const auto leaf = iter.second;
       leafIndex = param.calleeHashIndexDict[leaf->ComputeHash().GetHash()];
       auto leafFuncAttr = leaf->GetLeafFuncAttribute();
-      ASSERT(leafFuncAttr != nullptr) << "LeafFuncAttr is null for leaf: " << leaf;
+      ASSERT(ERROR_CODE_UNKNOWN, leafFuncAttr != nullptr) << "LeafFuncAttr is null for leaf: " << leaf;
       if (coreType != leafFuncAttr->coreType) {
           continue;
       }
@@ -133,7 +133,7 @@ std::string GenSubFuncCall(std::map<uint64_t, Function *> &leafDict, CoreType co
   head_file = ccePath + head_file + std::to_string(tilingKey) + ".h";
   FILE *fsrc = fopen(head_file.c_str(), "w");
   if (fsrc == nullptr) {
-    MACHINE_LOGE("Fail to open call.h.");
+    MACHINE_LOGE(ERROR_CODE_UNDEFINED, "Fail to open call.h.");
     return "";
   }
   (void)fprintf(fsrc, "%s", code.str().c_str());
@@ -151,7 +151,7 @@ static int LinkObject(const std::string &src_objs, std::string &objPath, const s
                        "%s "
                        "%s", BISHENG_LD_CMD, relocate ? "-r" : "" , objPath.c_str(), src_objs.c_str());
   if (ret < 0) {
-    MACHINE_LOGE("LinkCoreMachine construct cmd failed.");
+    MACHINE_LOGE(ERROR_CODE_UNDEFINED, "LinkCoreMachine construct cmd failed.");
     return ret;
   }
   MACHINE_LOGD("Link ccec command:[%s].", ccecCmd.c_str());
@@ -163,7 +163,7 @@ static int LinkObject(const std::string &src_objs, std::string &objPath, const s
   const std::string ldCmd = "bash " + linkScript;
   ret = std::system(ldCmd.c_str());
   if (ret != 0) {
-    MACHINE_LOGE("Link kernel failed.");
+    MACHINE_LOGE(ERROR_CODE_UNDEFINED, "Link kernel failed.");
   }
   return ret;
 }
@@ -171,7 +171,7 @@ static int LinkObject(const std::string &src_objs, std::string &objPath, const s
 int CompileAICoreKernel(std::map<uint64_t, Function *> &leafDict, dynamic::EncodeDevAscendFunctionParam &param,
                         const std::string &ccePath, const std::string &funcHash, std::string &kernelPath) {
   if (ccePath.empty()) {
-    MACHINE_LOGE("No cce path.");
+    MACHINE_LOGE(ERROR_CODE_UNDEFINED, "No cce path.");
     return -1;
   }
   uint64_t tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
@@ -179,7 +179,7 @@ int CompileAICoreKernel(std::map<uint64_t, Function *> &leafDict, dynamic::Encod
   std::string aiv_obj = ccePath + "dy_kernel_" + funcHash + "_aiv_" + std::to_string(tilingKey) + ".o";
   std::string aicoreSrcFile = ccePath + "aicore.cpp";
   if (!GenAicoreSrcFile(aicoreSrcFile, funcHash)) {
-    MACHINE_LOGE("Fail to generate aicore src file.");
+    MACHINE_LOGE(ERROR_CODE_UNDEFINED, "Fail to generate aicore src file.");
     return -1;
   }
   std::deque<std::function<void(void)>> tasks;
@@ -189,10 +189,10 @@ int CompileAICoreKernel(std::map<uint64_t, Function *> &leafDict, dynamic::Encod
       auto headFile = GenSubFuncCall(leafDict, CoreType::AIC, param, ccePath, tilingKey, src_aic_obj);
       std::string mid_aic_obj = ccePath + "mid_kernel_" + funcHash + "_aic_" + std::to_string(tilingKey) + ".o";
       auto ret = CompileCoreMachine(mid_aic_obj, true, tilingKey, headFile, aicoreSrcFile);
-      ASSERT(ret == 0) << "CompileCoreMachine failed with return code  " << ret;
+      ASSERT(ERROR_CODE_UNKNOWN, ret == 0) << "CompileCoreMachine failed with return code  " << ret;
       src_aic_obj << mid_aic_obj;
       ret = LinkObject(src_aic_obj.str(), aic_obj, ccePath, true, "aic");
-      ASSERT(ret == 0) << "LinkObject failed with return code  " << ret;
+      ASSERT(ERROR_CODE_UNKNOWN, ret == 0) << "LinkObject failed with return code  " << ret;
       return;
   };
   tasks.push_back(task);
@@ -202,10 +202,10 @@ int CompileAICoreKernel(std::map<uint64_t, Function *> &leafDict, dynamic::Encod
       auto headFile = GenSubFuncCall(leafDict, CoreType::AIV, param, ccePath, tilingKey, src_aiv_obj);
       std::string mid_aiv_obj = ccePath + "mid_kernel_" + funcHash + "_aiv_" + std::to_string(tilingKey) + ".o";
       auto ret = CompileCoreMachine(mid_aiv_obj, false, tilingKey, headFile, aicoreSrcFile);
-      ASSERT(ret == 0) << "CompileCoreMachine failed with return code  " << ret;
+      ASSERT(ERROR_CODE_UNKNOWN, ret == 0) << "CompileCoreMachine failed with return code  " << ret;
       src_aiv_obj << mid_aiv_obj;
       ret = LinkObject(src_aiv_obj.str(), aiv_obj, ccePath, true, "aiv");
-      ASSERT(ret == 0) << "LinkObject failed with return code  " << ret;
+      ASSERT(ERROR_CODE_UNKNOWN, ret == 0) << "LinkObject failed with return code  " << ret;
       return;
   };
   tasks.push_back(task1);

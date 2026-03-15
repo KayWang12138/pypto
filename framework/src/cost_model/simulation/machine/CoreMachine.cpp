@@ -71,7 +71,7 @@ void CoreMachine::SetCalendar()
             counterSetQueue.Enqueue(calendarSecondSet);
         }
 
-        SIMULATION_LOGE("[Cycle: %lu][CoreMachine][SetCalendar] task id %lu SetCalendar pass!!!", static_cast<unsigned long>(GetSim()->GetCycles()), static_cast<unsigned long>(executingTaskId));
+        SIMULATION_LOGE(npu::tile_fwk::ERROR_CODE_UNDEFINED, "[Cycle: %lu][CoreMachine][SetCalendar] task id %lu SetCalendar pass!!!", static_cast<unsigned long>(GetSim()->GetCycles()), static_cast<unsigned long>(executingTaskId));
     }
 }
 
@@ -170,14 +170,14 @@ void CoreMachine::StepQueue()
         sim->calendarCounter[sim->taskSetMap[executingTaskId]]++;
         if ((number == calendarSecondSet) && (sim->calendarCounter[sim->taskSetMap[executingTaskId]] !=
                               sim->taskSetExpectMap[executingTaskId])) {
-            SIMULATION_LOGE("[Cycle: %lu][CoreMachine][StepQueue] task id %lu after set counter %d calendar value is %d expect value is %d", 
+            SIMULATION_LOGE(npu::tile_fwk::ERROR_CODE_UNDEFINED, "[Cycle: %lu][CoreMachine][StepQueue] task id %lu after set counter %d calendar value is %d expect value is %d", 
                         static_cast<unsigned long>(GetSim()->GetCycles()), static_cast<unsigned long>(executingTaskId), sim->taskSetMap[executingTaskId], 
                         sim->calendarCounter[sim->taskSetMap[executingTaskId]], 
                         sim->taskSetExpectMap[executingTaskId]);
 
         } else if ((number == calendarFirstSet) && (sim->calendarCounter[sim->taskSetMap[executingTaskId]] !=
                                      sim->taskFirstSetMap[executingTaskId])) {
-            SIMULATION_LOGE("[Cycle: %lu][CoreMachine][StepQueue] task id %lu after first set counter %d calendar value is %d expect value is %d", 
+            SIMULATION_LOGE(npu::tile_fwk::ERROR_CODE_UNDEFINED, "[Cycle: %lu][CoreMachine][StepQueue] task id %lu after first set counter %d calendar value is %d expect value is %d", 
                         static_cast<unsigned long>(GetSim()->GetCycles()), static_cast<unsigned long>(executingTaskId), 
                         sim->taskSetMap[executingTaskId], sim->calendarCounter[sim->taskSetMap[executingTaskId]], 
                         sim->taskFirstSetMap[executingTaskId]);
@@ -947,14 +947,14 @@ bool ReadyQueue::Empty() const
 
 int ReadyQueue::Front()
 {
-    ASSERT(!readyQueue.empty()) << "[SIMULATION]: " << "readyQueue is empty";
+    ASSERT(ERROR_CODE_UNKNOWN, !readyQueue.empty()) << "[SIMULATION]: " << "readyQueue is empty";
     int idx = readyQueue.front();
     return idx;
 }
 
 int ReadyQueue::Pop()
 {
-    ASSERT(!readyQueue.empty()) << "[SIMULATION]: " << "readyQueue is empty";    
+    ASSERT(ERROR_CODE_UNKNOWN, !readyQueue.empty()) << "[SIMULATION]: " << "readyQueue is empty";    
     int idx = readyQueue.front();
     readyQueue.pop_front();
     return idx;

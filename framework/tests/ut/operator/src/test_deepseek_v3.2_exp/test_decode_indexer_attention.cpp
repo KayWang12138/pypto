@@ -49,7 +49,7 @@ struct TensorWithData {
 
 template <typename T>
 TensorWithData CreateConstantDynamicOutputTensor(const std::vector<int64_t> &shape, DataType dType, std::string name, T value, const std::vector<SymbolicScalar> &dynamicShape = {}) {
-    ASSERT(dynamicShape.size() == 0 || dynamicShape.size() == shape.size());
+    ASSERT(ERROR_CODE_UNKNOWN, dynamicShape.size() == 0 || dynamicShape.size() == shape.size());
 
     if (dynamicShape.empty()) {
         Tensor dynamicT(dType, shape, name);
@@ -65,7 +65,7 @@ TensorWithData CreateConstantDynamicOutputTensor(const std::vector<int64_t> &sha
 Tensor CreateDynamicTensor(DataType dType, const std::vector<int64_t> &shape, std::string name, const std::vector<int> &dynamicAxises = {}) {
      std::vector<int64_t> dynamicShape = shape;
      for (int axis : dynamicAxises) {
-        ASSERT(axis >= 0 && (size_t)axis < dynamicShape.size());
+        ASSERT(ERROR_CODE_UNKNOWN, axis >= 0 && (size_t)axis < dynamicShape.size());
         dynamicShape[axis] = -1;
      }
 

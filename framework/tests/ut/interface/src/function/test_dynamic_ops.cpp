@@ -918,7 +918,7 @@ TEST_F(DynamicOpsTest, ViewTypeInt8ToFp32) {
     {
         int64_t inBytes = xRaw->GetDataSize();
         int64_t outBytes = goldenRaw->GetDataSize();
-        ASSERT(inBytes == outBytes);
+        ASSERT(ERROR_CODE_UNKNOWN, inBytes == outBytes);
         StringUtils::DataCopy(goldenRaw->data(), outBytes, xRaw->data(), inBytes);
     }
 

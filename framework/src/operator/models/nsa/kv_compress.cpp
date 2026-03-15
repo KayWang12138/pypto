@@ -57,10 +57,10 @@ void compressKv(const Tensor &kvCache, const Tensor &krCache, const Tensor &cmpK
         const int rc = auxTensor.GetShape()[NUM_VALUE_0] - rs;
         const int auxVecLen = auxTensor.GetShape()[SHAPE_DIM1];
 
-        ASSERT(n2 == 1);
+        ASSERT(ERROR_CODE_UNKNOWN, n2 == 1);
 
-        ASSERT(cmpBlockSize == NUM_32);
-        ASSERT(cmpStride == NUM_16);
+        ASSERT(ERROR_CODE_UNKNOWN, cmpBlockSize == NUM_32);
+        ASSERT(ERROR_CODE_UNKNOWN, cmpStride == NUM_16);
 
         Tensor batchConcatNR(kDtype, {b, cmpBlockSize, dN + dR}, "batchConcatNR");
 

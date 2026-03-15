@@ -67,7 +67,7 @@ public:
             params_[index](args[currentIndex + 1]);
             ++currentIndex;  // 跳过下一个参数
         } else {
-            SIMULATION_LOGE("Missing argument for %s", args[currentIndex].c_str());
+            SIMULATION_LOGE(npu::tile_fwk::ERROR_CODE_UNDEFINED, "Missing argument for %s", args[currentIndex].c_str());
         }
     }
     
@@ -80,7 +80,7 @@ public:
                 ++currentIndex;  // 跳过下一个参数
             }
         } else {
-            SIMULATION_LOGE("Unknown parameter: %s", args[currentIndex].c_str());
+            SIMULATION_LOGE(npu::tile_fwk::ERROR_CODE_UNDEFINED, "Unknown parameter: %s", args[currentIndex].c_str());
         }
     }
 

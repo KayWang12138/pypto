@@ -204,7 +204,7 @@ private:
 
     template <typename T = int64_t>
     std::vector<T> GetShapeInLoop(const std::vector<T> &input) {
-        ASSERT(input.size() > SHAPE_DIM2) << "input size " << input.size() << " is less than 2";
+        ASSERT(ERROR_CODE_UNKNOWN, input.size() > SHAPE_DIM2) << "input size " << input.size() << " is less than 2";
         std::vector<T> reservedShapeExceptLoopAxes = {*(input.rbegin() + 1), input.back()};
         return reservedShapeExceptLoopAxes;
     }
@@ -222,7 +222,7 @@ private:
             value = AnyCast<T>(it->second);
             return true;
         }
-        CODEGEN_LOGE("Type of attribute %s from PASS is mismatch: %s != %s", key.c_str(), it->second.Type().name(),
+        CODEGEN_LOGE(ERROR_CODE_UNDEFINED, "Type of attribute %s from PASS is mismatch: %s != %s", key.c_str(), it->second.Type().name(),
             typeid(T).name());
         return false;
     }

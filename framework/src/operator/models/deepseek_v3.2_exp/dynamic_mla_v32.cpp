@@ -26,7 +26,7 @@ Tensor DeQuantV32(DataType dType, const Tensor &input, const Tensor &scale, cons
  
 Tensor RopeV2(const Tensor &x, const Tensor &cos, const Tensor &sin, const RopeTileShapeConfig &tileConfig) {
     (void)tileConfig;
-    ASSERT(x.GetShape().size() == SHAPE_DIM2 && cos.GetShape().size() == SHAPE_DIM2 && sin.GetShape().size() == SHAPE_DIM2);
+    ASSERT(ERROR_CODE_UNKNOWN, x.GetShape().size() == SHAPE_DIM2 && cos.GetShape().size() == SHAPE_DIM2 && sin.GetShape().size() == SHAPE_DIM2);
  
     auto seqSize = x.GetShape()[NUM_0];
     auto dR = x.GetShape()[NUM_1];
@@ -60,7 +60,7 @@ Tensor RopeV2(const Tensor &x, const Tensor &cos, const Tensor &sin, const RopeT
  
 Tensor Rope3DV2(const Tensor &x, const Tensor &cos, const Tensor &sin, const RopeTileShapeConfig &tileConfig) {
     (void)tileConfig;
-    ASSERT(x.GetShape().size() == SHAPE_DIM3 && cos.GetShape().size() == SHAPE_DIM2 && sin.GetShape().size() == SHAPE_DIM2);
+    ASSERT(ERROR_CODE_UNKNOWN, x.GetShape().size() == SHAPE_DIM3 && cos.GetShape().size() == SHAPE_DIM2 && sin.GetShape().size() == SHAPE_DIM2);
  
     TileShape::Current().SetVecTile(NUM_1, NUM_32, NUM_128);
     auto castX = Cast(x, DT_FP32);

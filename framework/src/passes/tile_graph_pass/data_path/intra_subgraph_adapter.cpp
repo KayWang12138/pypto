@@ -294,7 +294,7 @@ Status IntraSubgraphAdapter::AdapteTensorConsumers(Function &function, LogicalTe
 LogicalTensorPtr IntraSubgraphAdapter::InsertOpBetween(Function &function, Opcode opcode,
         Operation &op, LogicalTensorPtr tensor) {
     APASS_LOG_DEBUG_F(Elements::Operation, "intraSubgraphAdapter::InsertOpBetween %s 1.", OpcodeManager::Inst().GetOpcodeStr(opcode).c_str());
-    ASSERT(opcode == Opcode::OP_ASSEMBLE) << "[IntraSubgraphAdapter][Operation][ERROR]: Opcode for IntraSubgraphAdapter::InsertOpBetween must be OP_ASSEMBLE.";
+    ASSERT(ERROR_CODE_UNKNOWN, opcode == Opcode::OP_ASSEMBLE) << "[IntraSubgraphAdapter][Operation][ERROR]: Opcode for IntraSubgraphAdapter::InsertOpBetween must be OP_ASSEMBLE.";
     auto newRawTensor = std::make_shared<RawTensor>(tensor->Datatype(),
         tensor->GetRawTensor()->rawshape, tensor->Format());
     LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(function, newRawTensor,
@@ -335,7 +335,7 @@ LogicalTensorPtr IntraSubgraphAdapter::InsertOpBetween(Function &function, Opcod
         APASS_LOG_ERROR_F(Elements::Operation, "Insert op between tensor and ops failed; The ops to be inserted can't be empty.");
         return nullptr;
     }
-    ASSERT(opcode == Opcode::OP_VIEW || opcode == Opcode::OP_ASSEMBLE) << "[IntraSubgraphAdapter][Operation][ERROR]: Opcode for IntraSubgraphAdapter::InsertOpBetween must be OP_VIEW or OP_ASSEMBLE.";
+    ASSERT(ERROR_CODE_UNKNOWN, opcode == Opcode::OP_VIEW || opcode == Opcode::OP_ASSEMBLE) << "[IntraSubgraphAdapter][Operation][ERROR]: Opcode for IntraSubgraphAdapter::InsertOpBetween must be OP_VIEW or OP_ASSEMBLE.";
     auto newRawTensor = std::make_shared<RawTensor>(tensor->Datatype(),
         tensor->GetRawTensor()->rawshape, tensor->Format());
     LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(function, newRawTensor,

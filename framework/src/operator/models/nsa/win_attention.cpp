@@ -28,10 +28,10 @@ void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &
     // 入参B*S*N合轴
     int dNopeSize = qNope.GetShape()[1];
     int dRopeSize = qRope.GetShape()[1];
-    ASSERT(nKv != 0) << "nKv cant't be zero!";
+    ASSERT(ERROR_CODE_UNKNOWN, nKv != 0) << "nKv cant't be zero!";
     auto gGroup = nQ / nKv;
     int gTile = tileConfig.gTile; // 128
-    ASSERT(blockSize != 0) << "blockSize can't be zero!";
+    ASSERT(ERROR_CODE_UNKNOWN, blockSize != 0) << "blockSize can't be zero!";
 
     auto nopeTile = tileConfig.vNopeTileShape;
     auto ropeTile = tileConfig.vRopeTileShape;
@@ -42,17 +42,17 @@ void WinAttentionCompute(const Tensor &qNope, Tensor &vNopeCache, const Tensor &
     // loop config
     SymbolicScalar bSize = blockTable.GetShape()[0];
     SymbolicScalar bTile = 1;
-    ASSERT(bTile != 0) << "bTile can't be zero!";
-    ASSERT(nQ != 0) << "nQ can't be zero!";
+    ASSERT(ERROR_CODE_UNKNOWN, bTile != 0) << "bTile can't be zero!";
+    ASSERT(ERROR_CODE_UNKNOWN, nQ != 0) << "nQ can't be zero!";
     SymbolicScalar bLoop = bSize / bTile;
     SymbolicScalar s1Size = qNope.GetShape()[0] / bSize / nQ; // [B_s1_N1, D]
     SymbolicScalar s1Tile = 1;
-    ASSERT(s1Tile != 0) << "s1Tile can't be zero!";
+    ASSERT(ERROR_CODE_UNKNOWN, s1Tile != 0) << "s1Tile can't be zero!";
     SymbolicScalar s1Loop = s1Size / s1Tile;
     SymbolicScalar n2Tile = 1;
-    ASSERT(n2Tile != 0) << "n2Tile can't be zero!";
+    ASSERT(ERROR_CODE_UNKNOWN, n2Tile != 0) << "n2Tile can't be zero!";
     SymbolicScalar n2Loop = nKv / n2Tile;
-    ASSERT(gTile != 0) << "gTile can't be zero!";
+    ASSERT(ERROR_CODE_UNKNOWN, gTile != 0) << "gTile can't be zero!";
     SymbolicScalar gLoop = gGroup / gTile;
 
     // block tile config
@@ -145,11 +145,11 @@ void WinAttentionComputeFlash(const Tensor &qNope, Tensor &vNopeCache, const Ten
     // 入参B*S*N合轴
     int dNopeSize = qNope.GetShape()[1];
     int dRopeSize = qRope.GetShape()[1];
-    ASSERT(nKv != 0) << "nKv cant't be zero!";
+    ASSERT(ERROR_CODE_UNKNOWN, nKv != 0) << "nKv cant't be zero!";
     auto gGroup = nQ / nKv;
     int gTile = tileConfig.gTile; // 128
     int s2Tile = tileConfig.skvTile; // 1、skvTile == windowsize:非flash；2、skvTile < windowsize:flash
-    ASSERT(blockSize != 0) << "blockSize can't be zero!";
+    ASSERT(ERROR_CODE_UNKNOWN, blockSize != 0) << "blockSize can't be zero!";
 
     auto nopeTile = tileConfig.vNopeTileShape;
     auto ropeTile = tileConfig.vRopeTileShape;
@@ -160,17 +160,17 @@ void WinAttentionComputeFlash(const Tensor &qNope, Tensor &vNopeCache, const Ten
     // loop config
     SymbolicScalar bSize = blockTable.GetShape()[0];
     SymbolicScalar bTile = 1;
-    ASSERT(bTile != 0) << "bTile can't be zero!";
-    ASSERT(nQ != 0) << "nQ can't be zero!";
+    ASSERT(ERROR_CODE_UNKNOWN, bTile != 0) << "bTile can't be zero!";
+    ASSERT(ERROR_CODE_UNKNOWN, nQ != 0) << "nQ can't be zero!";
     SymbolicScalar bLoop = bSize / bTile;
     SymbolicScalar s1Size = qNope.GetShape()[0] / bSize / nQ; // [B_s1_N1, D]
     SymbolicScalar s1Tile = 1;
-    ASSERT(s1Tile != 0) << "s1Tile can't be zero!";
+    ASSERT(ERROR_CODE_UNKNOWN, s1Tile != 0) << "s1Tile can't be zero!";
     SymbolicScalar s1Loop = s1Size / s1Tile;
     SymbolicScalar n2Tile = 1;
-    ASSERT(n2Tile != 0) << "n2Tile can't be zero!";
+    ASSERT(ERROR_CODE_UNKNOWN, n2Tile != 0) << "n2Tile can't be zero!";
     SymbolicScalar n2Loop = nKv / n2Tile;
-    ASSERT(gTile != 0) << "gTile can't be zero!";
+    ASSERT(ERROR_CODE_UNKNOWN, gTile != 0) << "gTile can't be zero!";
     SymbolicScalar gLoop = gGroup / gTile;
 
     // block tile config
@@ -312,10 +312,10 @@ void WinAttentionDebugCompute(const Tensor &qNope, Tensor &vNopeCache, const Ten
     // 入参B*S*N合轴
     int dNopeSize = qNope.GetShape()[1];
     int dRopeSize = qRope.GetShape()[1];
-    ASSERT(nKv != 0) << "nKv cant't be zero!";
+    ASSERT(ERROR_CODE_UNKNOWN, nKv != 0) << "nKv cant't be zero!";
     auto gGroup = nQ / nKv;
     int gTile = tileConfig.gTile; // 128
-    ASSERT(blockSize != 0) << "blockSize can't be zero!";
+    ASSERT(ERROR_CODE_UNKNOWN, blockSize != 0) << "blockSize can't be zero!";
 
     auto nopeTile = tileConfig.vNopeTileShape;
     auto ropeTile = tileConfig.vRopeTileShape;
@@ -327,17 +327,17 @@ void WinAttentionDebugCompute(const Tensor &qNope, Tensor &vNopeCache, const Ten
     // loop config
     SymbolicScalar bSize = blockTable.GetShape()[0];
     SymbolicScalar bTile = 1;
-    ASSERT(bTile != 0) << "bTile can't be zero!";
-    ASSERT(nQ != 0) << "nQ can't be zero!";
+    ASSERT(ERROR_CODE_UNKNOWN, bTile != 0) << "bTile can't be zero!";
+    ASSERT(ERROR_CODE_UNKNOWN, nQ != 0) << "nQ can't be zero!";
     SymbolicScalar bLoop = bSize / bTile;
     SymbolicScalar s1Size = qNope.GetShape()[0] / bSize / nQ; // [B_s1_N1, D]
     SymbolicScalar s1Tile = 1;
-    ASSERT(s1Tile != 0) << "s1Tile can't be zero!";
+    ASSERT(ERROR_CODE_UNKNOWN, s1Tile != 0) << "s1Tile can't be zero!";
     SymbolicScalar s1Loop = s1Size / s1Tile;
     SymbolicScalar n2Tile = 1;
-    ASSERT(n2Tile != 0) << "n2Tile can't be zero!";
+    ASSERT(ERROR_CODE_UNKNOWN, n2Tile != 0) << "n2Tile can't be zero!";
     SymbolicScalar n2Loop = nKv / n2Tile;
-    ASSERT(gTile != 0) << "gTile can't be zero!";
+    ASSERT(ERROR_CODE_UNKNOWN, gTile != 0) << "gTile can't be zero!";
     SymbolicScalar gLoop = gGroup / gTile;
     // block tile config
     SymbolicScalar blockStartIndex = 0;

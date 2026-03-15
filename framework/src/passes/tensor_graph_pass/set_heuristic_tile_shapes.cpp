@@ -877,8 +877,8 @@ void SetReduceTiles(std::vector<Operation *> reduceOrderedOperations) {
         if (inputTypeSize == 0 || maxTypeSize == 0) {
             ALOG_ERROR_F("typeSize = 0, division by zero");
         }
-        ASSERT(inputDims == outputDims) << "Input dims should be equal output dims";
-        ASSERT(outputsNum == 1) << "ReduceOp must have 1 output";
+        ASSERT(ERROR_CODE_UNKNOWN, inputDims == outputDims) << "Input dims should be equal output dims";
+        ASSERT(ERROR_CODE_UNKNOWN, outputsNum == 1) << "ReduceOp must have 1 output";
 
         std::vector<int64_t> maxInputShape = MaxInputShapeCalculation(op, inputsNum, inputDims, maxTypeSize);
         int64_t reducedDim = -1;
@@ -886,10 +886,10 @@ void SetReduceTiles(std::vector<Operation *> reduceOrderedOperations) {
             if ((maxInputShape[dim] != op->GetOOperands()[0]->shape[dim]) && (op->GetOOperands()[0]->shape[dim] == 1) && (reducedDim == -1)) {
                 reducedDim = dim;
             } else {
-                ASSERT(!((maxInputShape[dim] != op->GetOOperands()[0]->shape[dim]) && (op->GetOOperands()[0]->shape[dim] == 1) && (reducedDim != -1))) << "Several reduced dims \n";
+                ASSERT(ERROR_CODE_UNKNOWN, !((maxInputShape[dim] != op->GetOOperands()[0]->shape[dim]) && (op->GetOOperands()[0]->shape[dim] == 1) && (reducedDim != -1))) << "Several reduced dims \n";
             }
         }
-        ASSERT(reducedDim >= 0) << "Not found reduced dims";
+        ASSERT(ERROR_CODE_UNKNOWN, reducedDim >= 0) << "Not found reduced dims";
         int64_t tileSize = MAX_TILE_SIZE / maxTypeSize;
         vectorTilesReduce.resize(inputDims);
         
@@ -1120,7 +1120,7 @@ void SetHeuristicTileShapes::SetHeuristicTileShapesFunc(Function &function) cons
     
     // Check that all tiles was defined by algorithm
     for (auto &op : function.Operations()) {
-        ASSERT(op.GetTileShape().GetVecTile()[0] != -1) << "Not all tiles was set";
+        ASSERT(ERROR_CODE_UNKNOWN, op.GetTileShape().GetVecTile()[0] != -1) << "Not all tiles was set";
     }
     #endif
 

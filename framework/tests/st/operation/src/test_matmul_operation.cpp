@@ -48,7 +48,7 @@ static Tensor CallMatmulOp(const Tensor &tensorA, const Tensor &tensorB, const M
 static Tensor CallMatmulOpWithL0C2L1(const Tensor &tensorA, const Tensor &tensorB, const vector<int> &transInfo,
     const bool &isCMatrixNz, const DataType &outDtype) {
     // 2: transinfo vector has two elements
-    ASSERT(transInfo.size() == 2);
+    ASSERT(ERROR_CODE_UNKNOWN, transInfo.size() == 2);
     return Matrix::Matmul(outDtype, tensorA, tensorB, transInfo.at(0), transInfo.at(1), isCMatrixNz);
 }
 
@@ -56,7 +56,7 @@ static Tensor CallMatmulOpWithL0C2L1AndScale(const Tensor &tensorA, const Tensor
     const vector<int> &transInform, const bool &isCMatrixNz, const DataType &outDtype,
     const Matrix::MatmulExtendParam &matmulExtendParam) {
     // 2: transinfo vector has two elements
-    ASSERT(transInform.size() == 2);
+    ASSERT(ERROR_CODE_UNKNOWN, transInform.size() == 2);
     return Matrix::Matmul(
         outDtype, tensorA, tensorB, matmulExtendParam, transInform.at(0), transInform.at(1), isCMatrixNz);
 }
@@ -311,7 +311,7 @@ static void MatmulOperationExeFunc(
     }
 
     const size_t MM_VIEW_SHAPE_DIM = 2;
-    ASSERT(args->viewShape_.size() == MM_VIEW_SHAPE_DIM);
+    ASSERT(ERROR_CODE_UNKNOWN, args->viewShape_.size() == MM_VIEW_SHAPE_DIM);
     const int64_t mView = args->viewShape_[0];
     const int64_t nView = args->viewShape_[1];
     if (args->param_.enable_l0c2l1) {
@@ -330,14 +330,14 @@ static void MatmulOperationExeFunc(
 
 static void CheckBTransNZUnaligned(bool transB, bool isCMatrixNz, const Tensor &b, const Tensor &c) {
     constexpr int blockAlignBytes = 32;
-    ASSERT(BytesOf(c.GetDataType()) != 0)
+    ASSERT(ERROR_CODE_UNKNOWN, BytesOf(c.GetDataType()) != 0)
         << "wrong data type";
     int innerNum = blockAlignBytes / BytesOf(c.GetDataType());
     SymbolicScalar bN = transB ? b.GetShape()[0] : b.GetShape()[1];
     SymbolicScalar cN = c.GetShape()[1];
     bool nNotEqualCase = !transB && isCMatrixNz && cN % innerNum == 0;
     // (N, K)输入，NZ输出是，由于ND2NZ指令无法在N轴补零，最终NPU输出在N轴可能存在脏数据，暂不支持。
-    ASSERT(bN == cN || nNotEqualCase)
+    ASSERT(ERROR_CODE_UNKNOWN, bN == cN || nNotEqualCase)
         << "N, K shape for NZ output format with N unaligned is not supported";
 }
 

@@ -67,7 +67,7 @@ inline void Cast(LogicalTensorDataPtr out, LogicalTensorDataPtr self, CastMode m
 }
 inline void QuantPreCompute(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr scalePtr, uint64_t scale, int relu) {
     CalcOps *ops = GetCalcOps();
-    ASSERT(ops != nullptr);
+    ASSERT(ERROR_CODE_UNKNOWN, ops != nullptr);
     if (scalePtr == nullptr) {
         ops->QuantPreCompute(Trans(out), Trans(self), nullptr, scale, relu);
     } else {
@@ -406,7 +406,7 @@ inline void GatherINUB(LogicalTensorDataPtr out, LogicalTensorDataPtr params, Lo
 inline void GatherInL1(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices,
     LogicalTensorDataPtr pageTable, int64_t blockSize) {
     CalcOps *ops = GetCalcOps();
-    ASSERT(ops != nullptr);
+    ASSERT(ERROR_CODE_UNKNOWN, ops != nullptr);
     ops->GatherInL1(Trans(out), Trans(params), Trans(indices), Trans(pageTable), blockSize);
 }
 
@@ -454,14 +454,14 @@ inline void FormatND2NZ(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 inline void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
     MatMulParam param = {false, false, 0, 0, 0, nullptr, nullptr}) {
     CalcOps *ops = GetCalcOps();
-    ASSERT(ops != nullptr);
+    ASSERT(ERROR_CODE_UNKNOWN, ops != nullptr);
     ops->MatMul(Trans(out), Trans(self), Trans(other), nullptr, param);
 }
 
 inline void AccMatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
     LogicalTensorDataPtr acc = nullptr, MatMulParam param = {false, false, 0, 0, 0, nullptr, nullptr}) {
     CalcOps *ops = GetCalcOps();
-    ASSERT(ops != nullptr);
+    ASSERT(ERROR_CODE_UNKNOWN, ops != nullptr);
     if (acc == nullptr) {
         ops->MatMul(Trans(out), Trans(self), Trans(other), nullptr, param);
     } else {

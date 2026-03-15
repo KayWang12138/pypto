@@ -509,7 +509,7 @@ std::string CodeGenOpCloudNPU::GenTopKSortOp() const {
     std::string startIdx;
     if (opAttrs.count(OpAttributeKey::dynScalar)) {
         auto scalar = opAttrs.at(OpAttributeKey::dynScalar);
-        ASSERT((scalar.HasValue()) && (scalar.Type() == typeid(SymbolicScalar)))
+        ASSERT(ERROR_CODE_UNKNOWN, (scalar.HasValue()) && (scalar.Type() == typeid(SymbolicScalar)))
             << AnyCast<SymbolicScalar>(scalar).IsValid()
             << "SCALAR attribute has to have symbolic value.";
         auto scalarExpr = AnyCast<SymbolicScalar>(scalar);

@@ -44,7 +44,7 @@ void TiledCompareOperationImpl(Function &function, const TileShape &tileShape, s
         if (inputTile1->Datatype() == DT_BF16) {
             element_size = BytesOf(DT_FP32);
         }
-        ASSERT(element_size != 0) << "Element size cannot be zero.";
+        ASSERT(ERROR_CODE_UNKNOWN, element_size != 0) << "Element size cannot be zero.";
         int64_t elements_per_chunk = COUNT_MODE_SIZE / element_size;
         int64_t vcmp_bits_size = (elements_per_chunk + 7) / 8;
 
@@ -237,7 +237,7 @@ void TiledCmpsOperationImpl(Function &function, const TileShape &tileShape, size
         if (inputTile->Datatype() == DT_BF16) {
             element_size = BytesOf(DT_FP32);
         }
-        ASSERT(element_size != 0) << "Element size cannot be zero.";
+        ASSERT(ERROR_CODE_UNKNOWN, element_size != 0) << "Element size cannot be zero.";
         int64_t elements_per_chunk = COUNT_MODE_SIZE / element_size;
         int64_t vcmp_bits_size = (elements_per_chunk + 8 - 1) / 8;
 

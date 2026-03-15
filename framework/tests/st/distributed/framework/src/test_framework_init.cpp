@@ -157,7 +157,7 @@ void* GetLibHandle()
             }
         }
 
-        DISTRIBUTED_LOGE("Failed to load MPI library from common candidate paths/names");
+        DISTRIBUTED_LOGE(ERROR_CODE_UNDEFINED, "Failed to load MPI library from common candidate paths/names");
         return static_cast<void*>(nullptr);
     }();
     return handle;
@@ -183,13 +183,13 @@ auto GetFunction(const std::string& funcName) -> FuncType
 {
     auto handle = GetLibHandle();
     if (!handle) {
-        DISTRIBUTED_LOGE("Failed to load MPI library");
+        DISTRIBUTED_LOGE(ERROR_CODE_UNDEFINED, "Failed to load MPI library");
         return nullptr;
     }
 
     auto func = dlsym(handle, funcName.c_str());
     if (!func) {
-        DISTRIBUTED_LOGE("Failed to find function %s: %s", funcName.c_str(), dlerror());
+        DISTRIBUTED_LOGE(ERROR_CODE_UNDEFINED, "Failed to find function %s: %s", funcName.c_str(), dlerror());
         return nullptr;
     }
     return FunctionConverter<FuncType>::Convert(func);
@@ -200,15 +200,15 @@ void TestFrameworkInit(OpTestParam &testParam, HcomTestParam &hcomTestParam, int
 {
     // 获取MPI函数指针（类型安全）
     auto mpiInit = GetFunction<MpiInitFunc>("MPI_Init");
-    CHECK(mpiInit != nullptr) << "MpiInitFunc ptr not found";
+    CHECK(ERROR_CODE_UNKNOWN, mpiInit != nullptr) << "MpiInitFunc ptr not found";
     auto mpiCommSize = GetFunction<MpiCommSizeFunc>("MPI_Comm_size");
-    CHECK(mpiCommSize != nullptr) << "MpiCommSizeFunc ptr not found";
+    CHECK(ERROR_CODE_UNKNOWN, mpiCommSize != nullptr) << "MpiCommSizeFunc ptr not found";
     auto mpiCommRank = GetFunction<MpiCommRankFunc>("MPI_Comm_rank");
-    CHECK(mpiCommRank != nullptr) << "MpiCommRankFunc ptr not found";
+    CHECK(ERROR_CODE_UNKNOWN, mpiCommRank != nullptr) << "MpiCommRankFunc ptr not found";
     auto mpiBcast = GetFunction<MpiBcastFunc>("MPI_Bcast");
-    CHECK(mpiBcast != nullptr) << "MpiBcastFunc ptr not found";
+    CHECK(ERROR_CODE_UNKNOWN, mpiBcast != nullptr) << "MpiBcastFunc ptr not found";
     auto mpiBarrier = GetFunction<MpiBarrierFunc>("MPI_Barrier");
-    CHECK(mpiBarrier != nullptr) << "MpiBarrierFunc ptr not found";
+    CHECK(ERROR_CODE_UNKNOWN, mpiBarrier != nullptr) << "MpiBarrierFunc ptr not found";
 
     mpiInit(NULL, NULL);
 
@@ -225,32 +225,32 @@ void TestFrameworkInit(OpTestParam &testParam, HcomTestParam &hcomTestParam, int
         while (std::getline(ss, id, ',')) {
             device_list.push_back(std::stoi(id));
         }
-        CHECK(testParam.rankId < static_cast<int>(device_list.size())) << "RankID out of range";
+        CHECK(ERROR_CODE_UNKNOWN, testParam.rankId < static_cast<int>(device_list.size())) << "RankID out of range";
         physicalDeviceId = device_list[testParam.rankId];
     } else {
         physicalDeviceId = testParam.rankId;
     }
 
     // ACL、NPU初始化与绑定
-    CHECK(aclInit(NULL) == 0) << "aclInit falied";   // 设备资源初始化
+    CHECK(ERROR_CODE_UNKNOWN, aclInit(NULL) == 0) << "aclInit falied";   // 设备资源初始化
     if (testParam.rankId == 0) {
-        CHECK(rtSetDevice(physicalDeviceId) == 0) << "Set device falied";   // 将当前进程绑定到指定的物理NPU
+        CHECK(ERROR_CODE_UNKNOWN, rtSetDevice(physicalDeviceId) == 0) << "Set device falied";   // 将当前进程绑定到指定的物理NPU
     }
-    CHECK(aclrtSetDevice(physicalDeviceId) == 0) << "Set device falied";   // 指定集合通信操作使用的设备
+    CHECK(ERROR_CODE_UNKNOWN, aclrtSetDevice(physicalDeviceId) == 0) << "Set device falied";   // 指定集合通信操作使用的设备
 
     // 在 rootRank 获取 rootInfo
     hcomTestParam.rootRank = 0;
     if (testParam.rankId == hcomTestParam.rootRank) {
-        CHECK(HcclGetRootInfo(&hcomTestParam.rootInfo) == 0) << "HcclGetRootInfo failed";
+        CHECK(ERROR_CODE_UNKNOWN, HcclGetRootInfo(&hcomTestParam.rootInfo) == 0) << "HcclGetRootInfo failed";
     }
     // 将root_info广播到通信域内的其他rank, 初始化集合通信域
     mpiBcast(&hcomTestParam.rootInfo, HCCL_ROOT_INFO_BYTES, MPI_CHAR, hcomTestParam.rootRank, MPI_COMM_WORLD);
     mpiBarrier(MPI_COMM_WORLD);
-    CHECK(HcclCommInitRootInfo(testParam.rankSize, &hcomTestParam.rootInfo, testParam.rankId,
+    CHECK(ERROR_CODE_UNKNOWN, HcclCommInitRootInfo(testParam.rankSize, &hcomTestParam.rootInfo, testParam.rankId,
         &hcomTestParam.hcclComm) == 0) << "HcclCommInitRootInfo failed";
 
     // 获取 group name
-    CHECK(HcclGetCommName(hcomTestParam.hcclComm, testParam.group) == 0) << "HcclGetCommName failed";
+    CHECK(ERROR_CODE_UNKNOWN, HcclGetCommName(hcomTestParam.hcclComm, testParam.group) == 0) << "HcclGetCommName failed";
 
     DISTRIBUTED_LOGI("testParam.rankSize %d\n", testParam.rankSize);
     DISTRIBUTED_LOGI("testParam.rankId %d\n", testParam.rankId);
@@ -263,16 +263,16 @@ void TestFrameworkInit(OpTestParam &testParam, HcomTestParam &hcomTestParam, int
 void TestFrameworkDestroy(int32_t timeout)
 {
     auto mpiAbort = GetFunction<MpiAbortFunc>("MPI_Abort");
-    CHECK(mpiAbort != nullptr) << "MpiAbortFunc ptr not found";
+    CHECK(ERROR_CODE_UNKNOWN, mpiAbort != nullptr) << "MpiAbortFunc ptr not found";
     std::future<void> finalizeTask = std::async(
         [] {
             auto mpiFinalize = GetFunction<MpiFinalizeFunc>("MPI_Finalize");
-            CHECK(mpiFinalize != nullptr) << "MpiFinalizeFunc ptr not found";
+            CHECK(ERROR_CODE_UNKNOWN, mpiFinalize != nullptr) << "MpiFinalizeFunc ptr not found";
             mpiFinalize();
         }
     );
     if (finalizeTask.wait_for(std::chrono::seconds(timeout)) == std::future_status::timeout) {
-        DISTRIBUTED_LOGE("MPI_Finalize timeout, forcing exit");
+        DISTRIBUTED_LOGE(ERROR_CODE_UNDEFINED, "MPI_Finalize timeout, forcing exit");
         mpiAbort(MPI_COMM_WORLD, 1);
     }
 }

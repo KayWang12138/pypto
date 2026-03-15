@@ -501,9 +501,9 @@ inline uint32_t GetParam(string param)
         unsigned long num = std::stoul(param);
         return static_cast<uint32_t>(num);
     } catch (const std::invalid_argument& e) {
-        SIMULATION_LOGE("invalid parameter: %s", e.what());
+        SIMULATION_LOGE(npu::tile_fwk::ERROR_CODE_UNDEFINED, "invalid parameter: %s", e.what());
     } catch (const std::out_of_range& e) {
-        SIMULATION_LOGE("out of range: %s", e.what());
+        SIMULATION_LOGE(npu::tile_fwk::ERROR_CODE_UNDEFINED, "out of range: %s", e.what());
     }
     return 0;
 }
@@ -514,9 +514,9 @@ inline uint64_t GetLongParam(string param)
         uint64_t num = std::stoull(param);
         return static_cast<uint64_t>(num);
     } catch (const std::invalid_argument& e) {
-        SIMULATION_LOGE("invalid parameter: %s", e.what());
+        SIMULATION_LOGE(npu::tile_fwk::ERROR_CODE_UNDEFINED, "invalid parameter: %s", e.what());
     } catch (const std::out_of_range& e) {
-        SIMULATION_LOGE("out of range: %s", e.what());
+        SIMULATION_LOGE(npu::tile_fwk::ERROR_CODE_UNDEFINED, "out of range: %s", e.what());
     }
     return 0;
 }
