@@ -102,5 +102,5 @@ pypto-unsqueeze
 pypto-var
 pypto-view
 pypto-where
-ptpto-zeros
+pypto-zeros
 ```
