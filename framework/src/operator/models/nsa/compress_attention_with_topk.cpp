@@ -57,16 +57,16 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
     auto kDtype = cmpKvCache.GetStorage()->Datatype();
 
     const int b = cmpBlockTable.GetShape()[SHAPE_DIM0];
-    ASSERT(n1 !=0) << "n1 can't be zero!";
+    ASSERT(ERROR_CODE_UNKNOWN, n1 !=0) << "n1 can't be zero!";
     const int s1 = qNope.GetShape()[SHAPE_DIM0] / b / n1;
 
     const int dN = qNope.GetShape()[SHAPE_DIM1];
     const int dR = qRope.GetShape()[SHAPE_DIM1];
     const int dQK = dN + dR;
     const int maxCmpBlock = cmpBlockTable.GetShape()[SHAPE_DIM1];
-    ASSERT(cmpStride !=0) << "n1 can't be zero!";
+    ASSERT(ERROR_CODE_UNKNOWN, cmpStride !=0) << "n1 can't be zero!";
     const int slcSize = slcBlockSize / cmpStride;
-    ASSERT(slcSize !=0) << "slcSize can't be zero!";
+    ASSERT(ERROR_CODE_UNKNOWN, slcSize !=0) << "slcSize can't be zero!";
     const int blockSlcNum = blockSize / slcSize;
     const int cmpSize = cmpBlockSize / cmpStride;
     const int slcWindow = slcSize + cmpSize - 1;
@@ -88,9 +88,9 @@ void CompressAttentionWithTopK(const Tensor &qNope, const Tensor &qRope, const T
         SymbolicScalar curSeq = GetTensorData(actSeq, {bIdx});
         LOOP("CMP_ATTN_LOOP_S1", FunctionType::DYNAMIC_LOOP, s1Idx, LoopRange(s1), {}, true) {
             // 因果推理，注意可用实际的s2长度
-            ASSERT(cmpStride !=0) << "cmpStride can't be zero!";
+            ASSERT(ERROR_CODE_UNKNOWN, cmpStride !=0) << "cmpStride can't be zero!";
             auto casCmpSeq = (curSeq - (s1 - s1Idx - 1) - cmpBlockSize) / cmpStride + 1;
-            ASSERT(blockSize !=0) << "blockSize can't be zero!";
+            ASSERT(ERROR_CODE_UNKNOWN, blockSize !=0) << "blockSize can't be zero!";
             auto curCmpBlock = (casCmpSeq + blockSize - 1) / blockSize;
             auto slcLoop = (casCmpSeq + slcSize - 1) / slcSize;
             auto qOffset = bIdx * s1 * n1 + s1Idx * n1;

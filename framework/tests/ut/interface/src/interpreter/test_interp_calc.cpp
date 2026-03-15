@@ -50,7 +50,7 @@ static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t
 }
 
 #define ASSERT_ALLCLOSE(self, other) \
-    ASSERT(calc::AllClose(self, other)) << "lhs:\n" << self->ToString() << "\nrhs:\n" << other->ToString() << "\n"
+    ASSERT(ERROR_CODE_UNKNOWN, calc::AllClose(self, other)) << "lhs:\n" << self->ToString() << "\nrhs:\n" << other->ToString() << "\n"
 
 TEST_F(TorchAdaptorTest, LogicalNot) {
     {
@@ -1251,7 +1251,7 @@ TEST_F(TorchAdaptorTest, Misc) {
             for (int j = 0; j < 2; j++) {
                 auto v = out->View({4, 4}, {i * 4, j * 4});
                 auto g = makeTensorData(DT_FP32, {4, 4}, i * 2.0f + j);
-                ASSERT(calc::AllClose(v, g)) << v << "\n" << g;
+                ASSERT(ERROR_CODE_UNKNOWN, calc::AllClose(v, g)) << v << "\n" << g;
             }
         }
     }

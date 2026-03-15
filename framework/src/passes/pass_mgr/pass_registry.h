@@ -56,7 +56,7 @@ public:
         []() {                                                                                             \
             static_assert(std::is_base_of_v<::npu::tile_fwk::Pass, DerivedPass>);                                 \
             std::string passName = DerivedPass().GetName();                                                \
-            ASSERT(passName == #DerivedPass)                                                               \
+            ASSERT(ERROR_CODE_UNKNOWN, passName == #DerivedPass)                                                               \
                 << "[PassRegistry][Manager][ERROR]: Pass class " << #DerivedPass << " has incompatible name: " << passName;                \
         })
 } // namespace npu::tile_fwk

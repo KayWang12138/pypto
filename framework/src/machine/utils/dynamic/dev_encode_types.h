@@ -177,7 +177,7 @@ struct DevRelocVector {
         HostAssignDataSize(reinterpret_cast<uintdevptr_t>((base.Data() + offset)), size);
     }
     void HostInitDataSizeOffset(uintdevptr_t &offset, size_t size) {
-        ASSERT(offset % alignof(T) == 0) << "Offset is not properly aligned for type T"; // Ensure offset is aligned
+        ASSERT(ERROR_CODE_UNKNOWN, offset % alignof(T) == 0) << "Offset is not properly aligned for type T"; // Ensure offset is aligned
         HostAssign(data_, offset);
         size_ = size;
         offset = reinterpret_cast<uintdevptr_t>(data_ + size);

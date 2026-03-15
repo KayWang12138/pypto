@@ -38,10 +38,10 @@ static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t
 }
 
 #define ASSERT_ALLCLOSE(self, other) \
-    ASSERT(calc::AllClose(self, other)) << "lhs:\n" << self->ToString() << "\nrhs:\n" << other->ToString() << "\n"
+    ASSERT(ERROR_CODE_UNKNOWN, calc::AllClose(self, other)) << "lhs:\n" << self->ToString() << "\nrhs:\n" << other->ToString() << "\n"
 
 #define ASSERT_ALLCLOSE_ATOL(lhs, rhs, atol) \
-    ASSERT(calc::AllClose(lhs, rhs, atol, 1e-5)) << "lhs:\n" << lhs->ToString() << "\nrhs:\n" << rhs->ToString() << "\n"
+    ASSERT(ERROR_CODE_UNKNOWN, calc::AllClose(lhs, rhs, atol, 1e-5)) << "lhs:\n" << lhs->ToString() << "\nrhs:\n" << rhs->ToString() << "\n"
 
 // Compare FP8 output with golden: Cast FP8 to FP32 first to avoid GetElement crash on FP8 (raw_tensor_data lacks FP8 support)
 #define ASSERT_FP8_ALLCLOSE_ATOL(fp8_out, golden, atol) \
@@ -251,7 +251,7 @@ TEST_F(InterpTypeConvertTest, Fp8E4M3SpecialValues) {
 
         if (c.is_nan) {
             for (int64_t i = 0; i < 4; ++i) {
-                ASSERT(std::isnan(out->Get<float>(i))) << "expected NaN at index " << i;
+                ASSERT(ERROR_CODE_UNKNOWN, std::isnan(out->Get<float>(i))) << "expected NaN at index " << i;
             }
         } else {
             auto golden = makeTensorData(DT_FP32, {4}, c.expected);
@@ -282,16 +282,16 @@ TEST_F(InterpTypeConvertTest, Fp8E5M2SpecialValues) {
 
         if (c.is_nan) {
             for (int64_t i = 0; i < 4; ++i) {
-                ASSERT(std::isnan(out->Get<float>(i))) << "expected NaN at index " << i;
+                ASSERT(ERROR_CODE_UNKNOWN, std::isnan(out->Get<float>(i))) << "expected NaN at index " << i;
             }
         } else if (c.is_inf) {
             for (int64_t i = 0; i < 4; ++i) {
                 float v = out->Get<float>(i);
-                ASSERT(std::isinf(v)) << "expected Inf at index " << i;
+                ASSERT(ERROR_CODE_UNKNOWN, std::isinf(v)) << "expected Inf at index " << i;
                 if (c.expected > 0.0f) {
-                    ASSERT(v > 0.0f) << "expected +Inf at index " << i;
+                    ASSERT(ERROR_CODE_UNKNOWN, v > 0.0f) << "expected +Inf at index " << i;
                 } else {
-                    ASSERT(v < 0.0f) << "expected -Inf at index " << i;
+                    ASSERT(ERROR_CODE_UNKNOWN, v < 0.0f) << "expected -Inf at index " << i;
                 }
             }
         } else {

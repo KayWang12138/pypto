@@ -53,7 +53,7 @@ void CopyOutResolve::CheckOutcastProducer(Function *leafFunc) const {
                     if (!OpcodeManager::Inst().IsCopyOut(producerOpCode)) {
                         // not a copyout outcast, which should be ignored
                     } else {
-                        ASSERT(false) << "Outcast not filled by any operation!";
+                        ASSERT(ERROR_CODE_UNKNOWN, false) << "Outcast not filled by any operation!";
                     }
                 }
             }

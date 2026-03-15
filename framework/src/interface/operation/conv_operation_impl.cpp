@@ -73,7 +73,7 @@ void CheckValueRange(int64_t value, const std::string& name, int64_t min, int64_
             oss << "Formula: " << formula;
         }
         oss << std::endl;
-        ASSERT(value >= min && value <= max) << oss.str();
+        ASSERT(ERROR_CODE_UNKNOWN, value >= min && value <= max) << oss.str();
     });
 }
 
@@ -156,8 +156,8 @@ void CheckOutputShape(const Tensor &inputTensor, const Tensor &weightTensor, con
 void CheckAlignment(int64_t value, int64_t alignment, const std::string& valueName)
 {
     OP_CHECK(true, {
-        ASSERT(alignment != 0) << "Error in alignment check for "<< valueName << ".";
-        ASSERT(value % alignment == 0)
+        ASSERT(ERROR_CODE_UNKNOWN, alignment != 0) << "Error in alignment check for "<< valueName << ".";
+        ASSERT(ERROR_CODE_UNKNOWN, value % alignment == 0)
             << "Invalid " << valueName << ":" << value
             << ", requires " << alignment << "-element alignment." << std::endl;
     });
@@ -180,14 +180,14 @@ void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const 
     int64_t wOut = ConvComputeWo(inputTensor, weightTensor, attrParam);
     if (wOut % 16 != 0) {
         OP_CHECK(true, {
-            ASSERT(tileHout == 1)
+            ASSERT(ERROR_CODE_UNKNOWN, tileHout == 1)
                 << "When wOut is not a multiple of 16, tileHout should be 1." << std::endl;
         });
     }
     CheckValueRange(tileHout, "tileHout" , NUM1, hOut);
     if (tileHout > 1) {
         OP_CHECK(true, {
-            ASSERT(tileWout == wOut)
+            ASSERT(ERROR_CODE_UNKNOWN, tileWout == wOut)
                 << "When tileHout > 1, tileWout must be equal to wOut.Now tileHout=" << tileHout
                 << ", tileWout=" << tileWout
                 << ", wOut=" << wOut << std::endl;
@@ -201,7 +201,7 @@ void ValidateL0Constraint(int64_t tile1, int64_t tile2, int64_t tile3, size_t dt
     const std::string& dim1Name, const std::string& dim2Name, const std::string& dim3Name)
 {
     OP_CHECK(true, {
-        ASSERT(tile1 * tile2 * tile3 * dtypeSize <= cacheSize)
+        ASSERT(ERROR_CODE_UNKNOWN, tile1 * tile2 * tile3 * dtypeSize <= cacheSize)
             << "Shape does not satisfy " << cacheName 
             << " load constraints, " << dim1Name << ":" << tile1
             << ", " << dim2Name << ":" << tile2 << ", " << dim3Name << ":" << tile3
@@ -244,7 +244,7 @@ void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const T
     CheckAlignment(tileW, NUM16, "tileW");
     CheckValueRange(tileN, "tileL0Info.tileN" , NUM1, ConvAlignB(tileCout, NUM16));
     OP_CHECK(true, {
-        ASSERT(kAL1 % tileK == 0 && kBL1 % tileK == 0)
+        ASSERT(ERROR_CODE_UNKNOWN, kAL1 % tileK == 0 && kBL1 % tileK == 0)
             << "Invalid tileK: " << tileK
             << ", must be a factor of both kAL1:" << kAL1
             << " and kBL1:" << kBL1 << std::endl;
@@ -261,8 +261,8 @@ void CheckL0TileTiling(DataType outType, const ConvAttrParam &attrParam, const T
 void CheckDivisible(int64_t value, int64_t divisor, const std::string& valueName, const std::string& divisorName)
 {
     OP_CHECK(true, {
-        ASSERT(divisor != 0) << divisorName << " cannot be zero.";
-        ASSERT(value % divisor == 0)
+        ASSERT(ERROR_CODE_UNKNOWN, divisor != 0) << divisorName << " cannot be zero.";
+        ASSERT(ERROR_CODE_UNKNOWN, value % divisor == 0)
             << "The value of " << divisorName << " (" << divisor
             << ") does not divide "<< valueName
             << "(" << value << "). Adjusting " << divisorName 
@@ -356,7 +356,7 @@ void CheckL1SizeTiling(DataType outType, const Tensor &inputTensor, const Tensor
     inputL1Size = ConvAlignB(hiAL1 * wiAL1 * kAL1 * BytesOf(outType), ALIGN_SIZE_32);
     uint64_t minL1LoadSize = biasL1Size + inputL1Size + weightL1Size;
     OP_CHECK(true, {
-        ASSERT(minL1LoadSize <= l1Size)
+        ASSERT(ERROR_CODE_UNKNOWN, minL1LoadSize <= l1Size)
             << "MinL1LoadSize > L1size, current MinL1LoadSize: " << minL1LoadSize
             << ", L1size: " << l1Size
             << "." << std::endl;
@@ -371,7 +371,7 @@ void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64
     CheckDivisible(cOut, groups, "Cout", "groups");
 
     OP_CHECK(true, {
-        ASSERT(cinFmap == cinWeight * groups)
+        ASSERT(ERROR_CODE_UNKNOWN, cinFmap == cinWeight * groups)
             << "Fmap Cin (" << cinFmap
             << ") != weight Cin (" << cinWeight
             << ") * groups (" << groups
@@ -382,7 +382,7 @@ void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64
 void CheckDimParam(const std::vector<int64_t>& vec, const std::string& name, int expectedDim)
 {
     OP_CHECK(true, {
-        ASSERT(vec.size() == static_cast<size_t>(expectedDim))
+        ASSERT(ERROR_CODE_UNKNOWN, vec.size() == static_cast<size_t>(expectedDim))
             << "Input attr " << name << " dim: " << vec.size()
             << " != " << expectedDim << "." << std::endl;
     });
@@ -392,7 +392,7 @@ void CheckDimensionRange(const std::vector<int64_t>& vec, const std::string& nam
 {
     for (size_t i = 0; i < vec.size(); ++i) {
         OP_CHECK(true, {
-            ASSERT(vec[i] >= minVal && vec[i] <= maxVal)
+            ASSERT(ERROR_CODE_UNKNOWN, vec[i] >= minVal && vec[i] <= maxVal)
                 << "The value of the " << i
                 << "-th dimension of " << name
                 << " must be in the range [" << minVal
@@ -421,7 +421,7 @@ void CheckLoad3dShape(DataType outType, const Tensor &weightTensor, const ConvAt
     int64_t kw = weightTensor.GetShape()[indexW];
     int64_t kh = attrParam.isConv1D ? 1 : weightTensor.GetShape()[indexH];
     OP_CHECK(true, {
-        ASSERT(kh <= MAX_PAD_KERNEL && kw  <= MAX_PAD_KERNEL)
+        ASSERT(ERROR_CODE_UNKNOWN, kh <= MAX_PAD_KERNEL && kw  <= MAX_PAD_KERNEL)
             << "Weight shapes do not satisfy Load3D's"
             << (attrParam.isConv1D ? " limit: kw=" : " limits: kh=")
             << (attrParam.isConv1D ? kw : kh)
@@ -431,7 +431,7 @@ void CheckLoad3dShape(DataType outType, const Tensor &weightTensor, const ConvAt
 
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
     OP_CHECK(true, {
-        ASSERT(kh * kw * k0 <= SHAPE_INNER_AXIS_MAX_SIZE)
+        ASSERT(ERROR_CODE_UNKNOWN, kh * kw * k0 <= SHAPE_INNER_AXIS_MAX_SIZE)
             << "Weight shapes do not satisfy Load3D's limits: kh*kw*k0=" << kh * kw * k0
             << "(k0 = 32 bytes / dtypesize), which must <=" << SHAPE_INNER_AXIS_MAX_SIZE
             << "." << std::endl;
@@ -462,7 +462,7 @@ void CheckAttrShape(DataType outType, const Tensor &inputTensor, const Tensor &w
         int paddingLeft = paddings[i * 2];
         int paddingRight = paddings[i * 2 + 1];
         OP_CHECK(true, {
-            ASSERT(paddingLeft < weightVal && paddingRight < weightVal)
+            ASSERT(ERROR_CODE_UNKNOWN, paddingLeft < weightVal && paddingRight < weightVal)
                 << "The value of the " << dimNames[i]
                 << " dimension of weight must be >= padding.Current weight value:" << weightVal
                 << ",padding value:" << paddingLeft
@@ -484,7 +484,7 @@ void CheckOriginShape(const Tensor &inputTensor, const Tensor &weightTensor, con
     }
     int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
     OP_CHECK(true, {
-        ASSERT(biasTensor.GetShape()[0] == cOut)
+        ASSERT(ERROR_CODE_UNKNOWN, biasTensor.GetShape()[0] == cOut)
             << "Input illegal bias shape:" << biasTensor.GetShape()[0]
             << ", which must equal to Cout:" << cOut
             << "." << std::endl;
@@ -493,7 +493,7 @@ void CheckOriginShape(const Tensor &inputTensor, const Tensor &weightTensor, con
 void CheckConvOperands(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const Tensor &biasTensor, ConvAttrParam &attrParam)
 {
     OP_CHECK(true, {
-        ASSERT(outType == DataType::DT_FP32 || outType == DataType::DT_FP16 || outType == DataType::DT_BF16)
+        ASSERT(ERROR_CODE_UNKNOWN, outType == DataType::DT_FP32 || outType == DataType::DT_FP16 || outType == DataType::DT_BF16)
             << "Unsupported output data type. Only DT_FP32, DT_FP16, DT_BF16 are supported.";
     });
     if (inputTensor.Dim() == CONV1D_INPUT_DIM && weightTensor.Dim() == CONV1D_INPUT_DIM) {
@@ -527,7 +527,7 @@ Tensor ConstructTensorGraph(const Tensor &inputTensor, const Tensor &weightTenso
 {
     // add Conv node
     Function *functionPtr = Program::GetInstance().GetCurrentFunction();
-    OP_CHECK(true, { ASSERT(functionPtr != nullptr) << "functionPtr is nullptr." << std::endl; });
+    OP_CHECK(true, { ASSERT(ERROR_CODE_UNKNOWN, functionPtr != nullptr) << "functionPtr is nullptr." << std::endl; });
     std::vector<LogicalTensorPtr> operandVecIn = {inputTensor.GetStorage(), weightTensor.GetStorage()};
     std::vector<LogicalTensorPtr> operandVecOut = {resTensor.GetStorage()};
     if (convAttrParam.isConv1D) {
@@ -586,11 +586,11 @@ void SetConvAttrParam(const Operation &op, ConvAttrParam &convAttrParam)
     convAttrParam.hasBias = (op.HasAttr(CONV_BIAS_ATTR)) ? op.GetBoolAttribute(CONV_BIAS_ATTR) : false;
     convAttrParam.isInOutTensorNZ = false;
     OP_CHECK(true, {
-        ASSERT(op.HasAttr(CONV_ORI_FMAP_SHAPE_ATTR))
+        ASSERT(ERROR_CODE_UNKNOWN, op.HasAttr(CONV_ORI_FMAP_SHAPE_ATTR))
         << "Conv ori fmapshape should be set when InOut Tensor NZ mode." << std::endl;
     });
     OP_CHECK(true, {
-        ASSERT(op.HasAttr(CONV_ORI_WEIGHT_SHAPE_ATTR))
+        ASSERT(ERROR_CODE_UNKNOWN, op.HasAttr(CONV_ORI_WEIGHT_SHAPE_ATTR))
         << "Conv ori weightshape should be set when InOut Tensor NZ mode." << std::endl;
     });
     convAttrParam.oriFmapShape = op.GetVectorIntAttribute(CONV_ORI_FMAP_SHAPE_ATTR);
@@ -604,7 +604,7 @@ void SetTensorGraphNodes(const std::vector<LogicalTensorPtr> &operandVec, const 
     // set tensor GraphNodes
     size_t operandVecSize = SHAPE_DIM2 + static_cast<size_t>(convAttrParam.hasBias);
     OP_CHECK(true, {
-            ASSERT(operandVec.size() == operandVecSize)
+            ASSERT(ERROR_CODE_UNKNOWN, operandVec.size() == operandVecSize)
         << "Operand vector size mismatch: "
         << "Expected size: " << operandVecSize << ", actual size: " << operandVec.size()
         << ", Conv Common Input: " << SHAPE_DIM2 << ", hasBias: " << convAttrParam.hasBias
@@ -617,10 +617,10 @@ void SetTensorGraphNodes(const std::vector<LogicalTensorPtr> &operandVec, const 
         tensorGraphNodes.biasTensorPtr = operandVec[INPUT_BIAS_IDX];
     }
     OP_CHECK(true,
-    {     ASSERT(tensorGraphNodes.fmapTensorPtr != nullptr && tensorGraphNodes.weightTensorPtr != nullptr)
+    {     ASSERT(ERROR_CODE_UNKNOWN, tensorGraphNodes.fmapTensorPtr != nullptr && tensorGraphNodes.weightTensorPtr != nullptr)
         << "Expected aTensorPtr and bTensorPtr to be non-nullptr." << std::endl; });
 
-    OP_CHECK(true, {ASSERT(cTensorPtr != nullptr) << "cTensorPtr is nullptr." << std::endl;});
+    OP_CHECK(true, {ASSERT(ERROR_CODE_UNKNOWN, cTensorPtr != nullptr) << "cTensorPtr is nullptr." << std::endl;});
     tensorGraphNodes.resTensorPtr = cTensorPtr;
 }
 
@@ -932,7 +932,7 @@ void SetAMulBAttr(const ConvGraphNodes &tensorGraphNodes, const ConvTileInfo &co
 {
     OP_CHECK(true,
         {
-            ASSERT(tensorGraphNodes.fmapTensorPtr != nullptr && tensorGraphNodes.weightTensorPtr != nullptr &&
+            ASSERT(ERROR_CODE_UNKNOWN, tensorGraphNodes.fmapTensorPtr != nullptr && tensorGraphNodes.weightTensorPtr != nullptr &&
             tensorGraphNodes.resTensorPtr != nullptr)
             << "Expected fmapTensorPtr, weightTensorPtr, and resTensorPtr to be non-nullptr." << std::endl;
         });
@@ -954,7 +954,7 @@ LogicalTensorPtr DoMmad(Function &function, const ConvAttrParam &convAttrParam, 
                         ConvGraphNodes &tileGraphNodes, const ConvTileInfo &convTileInfo, const ConvIterInfo &iterInfo)
 {
     OP_CHECK(true, {
-        ASSERT(tileGraphNodes.fmapTensorPtr != nullptr && tileGraphNodes.weightTensorPtr != nullptr &&
+        ASSERT(ERROR_CODE_UNKNOWN, tileGraphNodes.fmapTensorPtr != nullptr && tileGraphNodes.weightTensorPtr != nullptr &&
                tileGraphNodes.resTensorPtr != nullptr)
             << "Inputs and res must be non-nullptr." << std::endl;
     });
@@ -965,7 +965,7 @@ LogicalTensorPtr DoMmad(Function &function, const ConvAttrParam &convAttrParam, 
     if (iterInfo.isFirstK) {
         mmadInputs = {tileGraphNodes.fmapTensorPtr, tileGraphNodes.weightTensorPtr};
         if (convAttrParam.hasBias) {
-            OP_CHECK(true, { ASSERT(tileGraphNodes.biasTensorPtr != nullptr)
+            OP_CHECK(true, { ASSERT(ERROR_CODE_UNKNOWN, tileGraphNodes.biasTensorPtr != nullptr)
                 << "bias must be non-nullptr when hasBias Flag." << std::endl;});
             mmadInputs.push_back(tileGraphNodes.biasTensorPtr);
         }

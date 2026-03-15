@@ -33,7 +33,7 @@ public:
         Distributed::TestFrameworkInit(testParam, hcomTestParam, physicalDeviceId);
         std::string outputDir = "output";
         bool res = CreateDir(outputDir);
-        CHECK(res) << "Failed to create directory: " << outputDir;
+        CHECK(ERROR_CODE_UNKNOWN, res) << "Failed to create directory: " << outputDir;
         std::string folderPath = outputDir + "/output_" + getTimeStamp() + "_" + std::to_string(physicalDeviceId);
         setenv("TILE_FWK_OUTPUT_DIR", folderPath.c_str(), 0);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
@@ -71,11 +71,11 @@ protected:
     void DistributedTestDestroy()
     {
         // 销毁集合通信域
-        CHECK(HcclCommDestroy(hcomTestParam.hcclComm) == 0) << "HcclCommDestroy failed";
+        CHECK(ERROR_CODE_UNKNOWN, HcclCommDestroy(hcomTestParam.hcclComm) == 0) << "HcclCommDestroy failed";
         // 重置设备
-        CHECK(aclrtResetDevice(physicalDeviceId) == 0) << "aclResetDevice failed";
+        CHECK(ERROR_CODE_UNKNOWN, aclrtResetDevice(physicalDeviceId) == 0) << "aclResetDevice failed";
         // 设备去初始化
-        CHECK(aclFinalize() == 0) << "aclFinalize failed";
+        CHECK(ERROR_CODE_UNKNOWN, aclFinalize() == 0) << "aclFinalize failed";
     }
 
     Distributed::OpTestParam testParam;

@@ -199,7 +199,7 @@ inline bool IsDebugMode() {
 #define DEV_ASSERT_MSG(expr, fmt, args...)           \
     do {                                             \
         if (!(expr)) {                               \
-            MACHINE_LOGE("%s :" fmt, #expr, ##args); \
+            MACHINE_LOGE(ERROR_CODE_UNDEFINED, "%s :" fmt, #expr, ##args); \
             assert(0);                               \
         }                                            \
     } while (0)
@@ -207,7 +207,7 @@ inline bool IsDebugMode() {
 #define DEV_ASSERT(expr)               \
     do {                               \
         if (!(expr)) {                 \
-            MACHINE_LOGE("%s", #expr); \
+            MACHINE_LOGE(ERROR_CODE_UNDEFINED, "%s", #expr); \
             assert(0);                 \
         }                              \
     } while (0)

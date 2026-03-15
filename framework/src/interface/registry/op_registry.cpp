@@ -29,7 +29,7 @@ OpImplRegister::~OpImplRegister() {}
 
 void OpImplRegister::AddImplFunc(const std::map<uint64_t, OpImplFunc> &implFuncMap) {
     for (const auto &iter : implFuncMap) {
-      ASSERT((iter.first & SUB_KEY_MASK) == 0) << "Config key only allow use low 52 bit!";
+      ASSERT(ERROR_CODE_UNKNOWN, (iter.first & SUB_KEY_MASK) == 0) << "Config key only allow use low 52 bit!";
       implFuncMap_.emplace(iter.first, iter.second);
     }
 }
@@ -38,7 +38,7 @@ void OpImplRegister::AddImplFunc(const uint64_t configKey, const OpImplFunc impl
     if (implFunc == nullptr) {
         return;
     }
-    ASSERT((configKey & SUB_KEY_MASK) == 0) << "Config key only allow use low 52 bit!";
+    ASSERT(ERROR_CODE_UNKNOWN, (configKey & SUB_KEY_MASK) == 0) << "Config key only allow use low 52 bit!";
     implFuncMap_.emplace(configKey, implFunc);
 }
 

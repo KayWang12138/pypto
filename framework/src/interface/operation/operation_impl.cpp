@@ -36,14 +36,14 @@ namespace {
 
 void CheckFwkOpTileShape(const VecTile &vecTile, const std::shared_ptr<LogicalTensor> &tensor) {
     const auto& tensorShape = tensor->GetShape();
-    ASSERT(vecTile.size() >= tensorShape.size()) << "FwkOp tile shape dimension mismatch! "
+    ASSERT(ERROR_CODE_UNKNOWN, vecTile.size() >= tensorShape.size()) << "FwkOp tile shape dimension mismatch! "
                                                     << "Tile dims: " << vecTile.size() << ", "
                                                     << "Tensor dims: " << tensorShape.size() << ", "
                                                     << "Dump tensor: " << tensor->Dump();
 
     DataType dataType = tensor->Datatype();
     size_t lastDimBytes = vecTile[vecTile.size() - 1] * BytesOf(dataType);
-    ASSERT(lastDimBytes % BLOCK_SIZE == 0) << "FwkOp tile shape's last dim is not aligned. "
+    ASSERT(ERROR_CODE_UNKNOWN, lastDimBytes % BLOCK_SIZE == 0) << "FwkOp tile shape's last dim is not aligned. "
                                             << "Last dim bytes: " << lastDimBytes << ", "
                                             << "BLOCK_SIZE: " << BLOCK_SIZE << ", "
                                             << "Dump tensor: " << tensor->Dump();
@@ -195,7 +195,7 @@ Tensor Maxpool(const Tensor &operand, const std::vector<int> &pools, const std::
     const std::vector<int> &paddings) {
     DECLARE_TRACER();
     // 目前只支持5D操作
-    ASSERT((operand.GetShape().size() == NC1HWC0_DIM_NUM) && pools.size() == NUM_VALUE_2 &&
+    ASSERT(ERROR_CODE_UNKNOWN, (operand.GetShape().size() == NC1HWC0_DIM_NUM) && pools.size() == NUM_VALUE_2 &&
            strides.size() == STRIDE_DIM_NUM && paddings.size() == PADS_DIM_NUM);
 
     const int inDimH = operand.GetShape()[NUM_VALUE_2];
@@ -245,7 +245,7 @@ void experimental::Print(SymbolicScalar cond, const std::string &format, const s
 void ToFile(const Tensor &operand, const std::string &fname, const std::vector<SymbolicScalar> &scalars, SymbolicScalar cond) {
     auto function = Program::GetInstance().GetCurrentFunction();
     auto &op = function->AddOperation(Opcode::OP_PRINT, {operand.GetStorage()}, {});
-    ASSERT(!fname.empty()) << "Invalid file name";
+    ASSERT(ERROR_CODE_UNKNOWN, !fname.empty()) << "Invalid file name";
     op.SetAttribute(OP_ATTR_PREFIX + "fname", fname);
     op.SetAttribute(OP_ATTR_PREFIX + "scalars", scalars);
     op.SetAttribute(OP_ATTR_PREFIX + "cond", cond);
@@ -255,7 +255,7 @@ void ToFile(const Tensor &operand, const std::string &fname, const std::vector<S
 Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum) {
     DECLARE_TRACER();
 
-    ASSERT(unsqueezeDimNum < static_cast<int>(old.GetShape().size()) + 1 && unsqueezeDimNum >= -static_cast<int>(old.GetShape().size()) - 1);
+    ASSERT(ERROR_CODE_UNKNOWN, unsqueezeDimNum < static_cast<int>(old.GetShape().size()) + 1 && unsqueezeDimNum >= -static_cast<int>(old.GetShape().size()) - 1);
     size_t unsqueezeDim = unsqueezeDimNum;
     if (unsqueezeDimNum < 0) {
         unsqueezeDim = unsqueezeDimNum + old.GetShape().size() + 1;
@@ -263,7 +263,7 @@ Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum) {
     std::vector<int64_t> newShape(old.GetStorage()->shape);
     newShape.insert(newShape.begin() + unsqueezeDim, 1);
     auto validShape = old.GetStorage()->GetDynValidShape();
-    ASSERT(!validShape.empty());
+    ASSERT(ERROR_CODE_UNKNOWN, !validShape.empty());
     validShape.insert(validShape.begin() + unsqueezeDim, 1);
     return Reshape(old, newShape, validShape);
 }
@@ -272,19 +272,19 @@ static void SqueezeParamsValidCheck(const Tensor &input, std::vector<int> &dim)
 {
     Shape oriShape = input.GetShape();
     size_t shapeSize = oriShape.size();
-    ASSERT(shapeSize <= SHAPE_DIM4) << "The input dimension only support 1~4. Cur dimension is " << shapeSize;
+    ASSERT(ERROR_CODE_UNKNOWN, shapeSize <= SHAPE_DIM4) << "The input dimension only support 1~4. Cur dimension is " << shapeSize;
 
     if (dim.empty()) {
         for (size_t i = 0; i < shapeSize; i++) {
             dim.push_back(static_cast<int>(i));
         }
     }
-    ASSERT(dim.size() <= shapeSize) << "The dim.size <= input.dim is not matched. dim.size is " << dim.size()
+    ASSERT(ERROR_CODE_UNKNOWN, dim.size() <= shapeSize) << "The dim.size <= input.dim is not matched. dim.size is " << dim.size()
         << ", input.dim is " << shapeSize;
     std::set<int> dupDimSet(dim.begin(), dim.end());
-    ASSERT(dupDimSet.size() == dim.size()) << "There is duplicates elements in dim";
+    ASSERT(ERROR_CODE_UNKNOWN, dupDimSet.size() == dim.size()) << "There is duplicates elements in dim";
     for (size_t i = 0; i < dim.size(); i++) {
-        ASSERT(dim[i] < static_cast<int>(shapeSize) && dim[i] >= -(static_cast<int>(shapeSize))) << "dim " << i <<
+        ASSERT(ERROR_CODE_UNKNOWN, dim[i] < static_cast<int>(shapeSize) && dim[i] >= -(static_cast<int>(shapeSize))) << "dim " << i <<
             " in dim is out of range";
         if (dim[i] < 0) {
             dim[i] = dim[i] + static_cast<int>(shapeSize);
@@ -311,7 +311,7 @@ Tensor Squeeze(const Tensor &input, const std::vector<int> &dim)
         validShape.push_back(shape);
     }
 
-    ASSERT(!validShape.empty()) << "The input validshape should not be empty.";
+    ASSERT(ERROR_CODE_UNKNOWN, !validShape.empty()) << "The input validshape should not be empty.";
 
     for (auto it = innerDim.rbegin(); it != innerDim.rend(); ++it) {
         int axis = *it;
@@ -432,16 +432,16 @@ void TiledLoad(Function &function, const TileShape &tileShape, size_t cur, TileI
 
 void TiledLoad(Function &function, const TileShape &tileShape, const LogicalTensorPtr &src,
     const LogicalTensorPtr &offsets, const LogicalTensorPtr &output) {
-    ASSERT(offsets->GetShape() == output->GetShape());
-    ASSERT(src->Datatype() == output->Datatype());
+    ASSERT(ERROR_CODE_UNKNOWN, offsets->GetShape() == output->GetShape());
+    ASSERT(ERROR_CODE_UNKNOWN, src->Datatype() == output->Datatype());
     TileInfo tileInfo(offsets->GetShape().size(), offsets->GetOffset().size());
     TiledLoad(function, tileShape, 0, tileInfo, src, offsets, output);
 }
 
 void TensorLoad(
     Function &function, const LogicalTensorPtr &src, const LogicalTensorPtr &offsets, const LogicalTensorPtr &output) {
-    ASSERT(offsets->GetShape() == output->GetShape());
-    ASSERT(src->Datatype() == output->Datatype());
+    ASSERT(ERROR_CODE_UNKNOWN, offsets->GetShape() == output->GetShape());
+    ASSERT(ERROR_CODE_UNKNOWN, src->Datatype() == output->Datatype());
     function.AddOperation(Opcode::OP_LOAD, {src, offsets}, {output});
 }
 
@@ -680,13 +680,13 @@ int NextPowerofTwo(int n) {
 
 std::tuple<Tensor, Tensor> Sort(const Tensor &x, bool descending) {
     DECLARE_TRACER();
-    ASSERT(x.GetShape().size() == NUM2);
-    ASSERT(x.GetShape()[0] == 1);
+    ASSERT(ERROR_CODE_UNKNOWN, x.GetShape().size() == NUM2);
+    ASSERT(ERROR_CODE_UNKNOWN, x.GetShape()[0] == 1);
     auto &vecTile = TileShape::Current().GetVecTile();
-    ASSERT(vecTile.size() == NUM2);
-    ASSERT(vecTile[0] == 1);
+    ASSERT(ERROR_CODE_UNKNOWN, vecTile.size() == NUM2);
+    ASSERT(ERROR_CODE_UNKNOWN, vecTile[0] == 1);
     auto tileSize = vecTile[1];
-    ASSERT(IsPowerOfTwo(tileSize));
+    ASSERT(ERROR_CODE_UNKNOWN, IsPowerOfTwo(tileSize));
     int length = x.GetShape()[1];
     int padLength = NextPowerofTwo(length);
 
@@ -738,13 +738,13 @@ std::tuple<Tensor, Tensor> Sort(const Tensor &x, bool descending) {
 
 std::tuple<Tensor, Tensor> SortWithIndex(const Tensor &x, const Tensor &idx, bool descending) {
     DECLARE_TRACER();
-    ASSERT(x.GetShape().size() == NUM2);
-    ASSERT(x.GetShape()[0] == 1);
+    ASSERT(ERROR_CODE_UNKNOWN, x.GetShape().size() == NUM2);
+    ASSERT(ERROR_CODE_UNKNOWN, x.GetShape()[0] == 1);
     auto &vecTile = TileShape::Current().GetVecTile();
-    ASSERT(vecTile.size() == NUM2);
-    ASSERT(vecTile[0] == 1);
+    ASSERT(ERROR_CODE_UNKNOWN, vecTile.size() == NUM2);
+    ASSERT(ERROR_CODE_UNKNOWN, vecTile[0] == 1);
     auto tileSize = vecTile[1];
-    ASSERT(IsPowerOfTwo(tileSize));
+    ASSERT(ERROR_CODE_UNKNOWN, IsPowerOfTwo(tileSize));
     int length = x.GetShape()[1];
     int padLength = NextPowerofTwo(length);
     int nTile = padLength / tileSize;
@@ -866,13 +866,13 @@ bool isInteger(float num) {
 }
 
 void FactorCheck(const Tensor &operand, const float factor) {
-    ASSERT(factor > 0) << "factor must > 0";
+    ASSERT(ERROR_CODE_UNKNOWN, factor > 0) << "factor must > 0";
     if(factor > 1) {
-        ASSERT(isInteger(factor)) << "factor must be int";
+        ASSERT(ERROR_CODE_UNKNOWN, isInteger(factor)) << "factor must be int";
     }
     else if(factor < 1) {
         auto lastDim = operand.GetShape()[operand.GetShape().size() - 1];
-        ASSERT(isInteger(lastDim * factor)) << "lastDim * factor must be int,  lastDim = " << lastDim << ", factor = " << factor;
+        ASSERT(ERROR_CODE_UNKNOWN, isInteger(lastDim * factor)) << "lastDim * factor must be int,  lastDim = " << lastDim << ", factor = " << factor;
     }
 }
 
@@ -933,7 +933,7 @@ void TiledViewTypeOperation(Function &function, const TileShape &tileShape,
     if(factor < 1){
         auto vecTile = tileShape.GetVecTile();
         auto lastDim = vecTile[vecTile.size() - 1];
-        ASSERT(isInteger(lastDim * factor)) << "TileShape lastDim * factor must be int";
+        ASSERT(ERROR_CODE_UNKNOWN, isInteger(lastDim * factor)) << "TileShape lastDim * factor must be int";
     }
     TiledViewTypeOperation(function, tileShape, 0, input, factor, result);
 }
@@ -993,17 +993,17 @@ void InnerAssemble(Function &function, const LogicalTensorPtr &operand, const Lo
 Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tensors) {
     DECLARE_TRACER();
 
-    ASSERT(!tensors.empty());
+    ASSERT(ERROR_CODE_UNKNOWN, !tensors.empty());
     std::vector<int64_t> shape = tensors.front().first.GetShape();
     TileOpFormat format = tensors.front().first.Format();
     for (const auto &[tensor, offset] : tensors) {
         // 目前只支持2维操作
         if (tensor.GetShape().size() != 2) {
-            ASSERT(false) << "unsupported dimension";
+            ASSERT(ERROR_CODE_UNKNOWN, false) << "unsupported dimension";
         }
-        ASSERT(tensor.GetShape().size() == tensor.GetStorage()->offset.size());
-        ASSERT(tensor.GetShape().size() == offset.size());
-        ASSERT(tensor.Format() == format);
+        ASSERT(ERROR_CODE_UNKNOWN, tensor.GetShape().size() == tensor.GetStorage()->offset.size());
+        ASSERT(ERROR_CODE_UNKNOWN, tensor.GetShape().size() == offset.size());
+        ASSERT(ERROR_CODE_UNKNOWN, tensor.Format() == format);
     }
 
     auto shapeSize = tensors[0].first.GetShape().size(); // 2
@@ -1013,25 +1013,25 @@ Tensor Assemble(const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tens
     std::set<std::vector<int64_t>> position;
     for (const auto &[tensor, offset] : tensors) {
         (void)tensor;
-        ASSERT(position.find(offset) == position.end());
+        ASSERT(ERROR_CODE_UNKNOWN, position.find(offset) == position.end());
         position.emplace(offset);
     }
-    ASSERT(position.find(std::vector<int64_t>(shapeSize, 0)) != position.end());
+    ASSERT(ERROR_CODE_UNKNOWN, position.find(std::vector<int64_t>(shapeSize, 0)) != position.end());
 
     for (const auto &[tensor, offset] : tensors) {
         for (int j = 0; static_cast<size_t>(j) < shapeSize; j++) {
             rawShape[j] = std::max(rawShape[j], tensor.GetShape()[j] + offset[j]);
-            ASSERT(offset[j] % shape[j] == 0);
+            ASSERT(ERROR_CODE_UNKNOWN, offset[j] % shape[j] == 0);
             if (offset[j] > 0) {
                 auto tmpOffset = offset;
                 tmpOffset[j] -= shape[j];
-                ASSERT(position.find(tmpOffset) != position.end());
+                ASSERT(ERROR_CODE_UNKNOWN, position.find(tmpOffset) != position.end());
             }
         }
     }
 
     for (int i = 0; static_cast<size_t>(i) < shapeSize; i++) {
-        ASSERT(rawShape[i] > 0);
+        ASSERT(ERROR_CODE_UNKNOWN, rawShape[i] > 0);
     }
 
     Tensor result(tensors[0].first.GetStorage()->Datatype(), rawShape, "Assemble", tensors[0].first.Format());
@@ -1060,9 +1060,9 @@ void DInnerAssemble(Function &function, const LogicalTensorPtr &operand,
 void Assemble(const Tensor &tensor, const std::vector<SymbolicScalar> &dynOffset, Tensor &dest) {
     DECLARE_TRACER();
 
-    ASSERT(dest.GetStorage(false)->Format() == tensor.GetStorage(false)->Format())<<"Assemble: src and dest requires same format";
-    ASSERT(dest.GetShape().size() == tensor.GetShape().size())<<"Assemble: src and dest requires same shape";
-    ASSERT(dest.GetShape().size() == dynOffset.size())<<"Assemble: dynOffset and dest requires same shape";
+    ASSERT(ERROR_CODE_UNKNOWN, dest.GetStorage(false)->Format() == tensor.GetStorage(false)->Format())<<"Assemble: src and dest requires same format";
+    ASSERT(ERROR_CODE_UNKNOWN, dest.GetShape().size() == tensor.GetShape().size())<<"Assemble: src and dest requires same shape";
+    ASSERT(ERROR_CODE_UNKNOWN, dest.GetShape().size() == dynOffset.size())<<"Assemble: dynOffset and dest requires same shape";
     DInnerAssemble(*Program::GetInstance().GetCurrentFunction(), tensor.GetStorage(), dest.GetStorage(), dynOffset);
 
     Program::GetInstance().GetTensorSlotManager()->TensorWrite(dest, SlotProperty::ASSEMBLE_DST);
@@ -1075,7 +1075,7 @@ void TiledInnerAssemble(Function &function, const TileShape &tileShape, size_t c
         auto srcTile = src->View(function, tileInfo.shape, tileInfo.offset);
         auto &op = function.AddOperation(Opcode::OP_ASSEMBLE_SSA, {srcTile, dst}, {result});
         auto srcTileOffset = initialOffsets;
-        ASSERT(initialOffsets.size() == tileInfo.offset.size());
+        ASSERT(ERROR_CODE_UNKNOWN, initialOffsets.size() == tileInfo.offset.size());
         for (size_t i = 0; i < srcTileOffset.size(); i++) {
             srcTileOffset[i] = srcTileOffset[i] + tileInfo.offset[i];
         }
@@ -1085,7 +1085,7 @@ void TiledInnerAssemble(Function &function, const TileShape &tileShape, size_t c
         return;
     }
     const auto &vecTile = tileShape.GetVecTile();
-    ASSERT(vecTile.size() >= src->shape.size());
+    ASSERT(ERROR_CODE_UNKNOWN, vecTile.size() >= src->shape.size());
     CheckFwkOpTileShape(vecTile, src);
 
     for (auto i = 0; i < src->shape[cur]; i += vecTile[cur]) {
@@ -1096,14 +1096,14 @@ void TiledInnerAssemble(Function &function, const TileShape &tileShape, size_t c
 }
 
 void TiledInnerAssemble(Function &function, const TileShape &tileShape, const Operation &op) {
-    ASSERT(op.GetIOperands().size() == NUM_VALUE_2);
-    ASSERT(op.GetOOperands().size() == 1);
-    ASSERT(op.HasAttribute(OpAttributeKey::inplaceIdx));
+    ASSERT(ERROR_CODE_UNKNOWN, op.GetIOperands().size() == NUM_VALUE_2);
+    ASSERT(ERROR_CODE_UNKNOWN, op.GetOOperands().size() == 1);
+    ASSERT(ERROR_CODE_UNKNOWN, op.HasAttribute(OpAttributeKey::inplaceIdx));
     auto src = op.GetInputOperand(0);
     auto dst = op.GetInputOperand(1);
     auto result = op.GetOutputOperand(0);
     auto assembleOpAttribute = std::dynamic_pointer_cast<AssembleOpAttribute>(op.GetOpAttribute());
-    ASSERT(assembleOpAttribute != nullptr);
+    ASSERT(ERROR_CODE_UNKNOWN, assembleOpAttribute != nullptr);
     const auto &initialOffsets = assembleOpAttribute->GetToDynOffset();
     TileInfo tileInfo(src->GetShape().size(), src->GetOffset().size());
     TiledInnerAssemble(function, tileShape, 0, initialOffsets, src, dst, result, tileInfo);
@@ -1121,14 +1121,14 @@ void TensorInnerAssemble(Function &function, const LogicalTensorPtr &value, cons
 void Assemble(const std::vector<AssembleItem> &items, Tensor &src, bool parallelInAssemble) {
     DECLARE_TRACER();
 
-    ASSERT(!items.empty());
+    ASSERT(ERROR_CODE_UNKNOWN, !items.empty());
 
     for (const auto &item : items) {
-        ASSERT(src.GetStorage(false)->Format() == item.tensor.GetStorage(false)->Format())
+        ASSERT(ERROR_CODE_UNKNOWN, src.GetStorage(false)->Format() == item.tensor.GetStorage(false)->Format())
             << "Assemble: src and dest requires same format";
-        ASSERT(src.GetShape().size() == item.tensor.GetShape().size())
+        ASSERT(ERROR_CODE_UNKNOWN, src.GetShape().size() == item.tensor.GetShape().size())
             << "Assemble: src and dest requires same shape size";
-        ASSERT(src.GetShape().size() == item.offsets.size()) << "Assemble: offsets and dest requires same shape size";
+        ASSERT(ERROR_CODE_UNKNOWN, src.GetShape().size() == item.offsets.size()) << "Assemble: offsets and dest requires same shape size";
     }
 
     if (parallelInAssemble) {
@@ -1199,11 +1199,11 @@ void TiledGatherInL1(Function &function, const TileShape &tileShape, const Logic
 template <bool isB, bool isTrans>
 Tensor experimental::GatherInL1(const Tensor &src, const Tensor &offsets, const Tensor &blockTable, int blockSize, const int size) {
     constexpr int32_t NUM_SIZE = 2;
-    ASSERT(src.GetShape().size() == NUM_SIZE);
-    ASSERT(offsets.GetShape().size() == NUM_SIZE); // offsets必须是两维是因为不支持1维的Tensor
-    ASSERT(offsets.GetShape()[0] == 1);
-    ASSERT(size <= src.GetShape()[1]);
-    ASSERT(!offsets.GetStorage()->GetDynValidShape().empty());
+    ASSERT(ERROR_CODE_UNKNOWN, src.GetShape().size() == NUM_SIZE);
+    ASSERT(ERROR_CODE_UNKNOWN, offsets.GetShape().size() == NUM_SIZE); // offsets必须是两维是因为不支持1维的Tensor
+    ASSERT(ERROR_CODE_UNKNOWN, offsets.GetShape()[0] == 1);
+    ASSERT(ERROR_CODE_UNKNOWN, size <= src.GetShape()[1]);
+    ASSERT(ERROR_CODE_UNKNOWN, !offsets.GetStorage()->GetDynValidShape().empty());
 
     Tensor dst(src.GetStorage()->Datatype(), {offsets.GetShape()[1], size});
     if (!offsets.GetStorage()->GetDynValidShape().empty()) {
@@ -1256,12 +1256,12 @@ static std::vector<int64_t> CheckAndInferShape(const std::vector<int64_t> &oriSh
 
     for (size_t i = 0; i < newShape.size(); i++) {
         int x = newShape[i];
-        ASSERT(x >= -1) << "Invalid shape " << x;
+        ASSERT(ERROR_CODE_UNKNOWN, x >= -1) << "Invalid shape " << x;
         if (x == -1) {
-            ASSERT(negIdx == -1) << "Only one dim can be inferred";
+            ASSERT(ERROR_CODE_UNKNOWN, negIdx == -1) << "Only one dim can be inferred";
             negIdx = i;
         }
-        ASSERT(capacity % x == 0) << "Invalid dstshape";
+        ASSERT(ERROR_CODE_UNKNOWN, capacity % x == 0) << "Invalid dstshape";
         capacity /= x;
     }
 
@@ -1269,7 +1269,7 @@ static std::vector<int64_t> CheckAndInferShape(const std::vector<int64_t> &oriSh
         newShape[negIdx] = -capacity;
         capacity = 1;
     }
-    ASSERT(capacity == 1) << "Shape size not match";
+    ASSERT(ERROR_CODE_UNKNOWN, capacity == 1) << "Shape size not match";
     return newShape;
 }
 
@@ -1331,7 +1331,7 @@ static bool ReshapeNeedCopy(const Tensor &operand) {
 
 Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, const std::vector<SymbolicScalar> &validShape, const bool inplace, const void *lr) {
     DECLARE_TRACERX(lr);
-    ASSERT(!inplace) << "The 'inplace' parameter must be false !!!";
+    ASSERT(ERROR_CODE_UNKNOWN, !inplace) << "The 'inplace' parameter must be false !!!";
     if (operand.GetShape() == dstshape) {
         return operand;
     }
@@ -1342,7 +1342,7 @@ Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, cons
     } else {
         for (auto validShapeItem : validShape) {
             if (validShapeItem.IsImmediate() && validShapeItem == -1) {
-                ASSERT(false) << "Not supported: validShape contains -1";
+                ASSERT(ERROR_CODE_UNKNOWN, false) << "Not supported: validShape contains -1";
             }
         }
     }
@@ -1374,7 +1374,7 @@ Tensor Reshape(const Tensor &operand, const std::initializer_list<int64_t> &dsts
 }
 
 Tensor Reshape(const Tensor &operand, const std::vector<SymbolicScalar> &dstShape, const bool inplace) {
-    ASSERT(inplace) << "The 'inplace' parameter must be true !!!";
+    ASSERT(ERROR_CODE_UNKNOWN, inplace) << "The 'inplace' parameter must be true !!!";
     Tensor dst(operand.GetStorage()->Datatype(), dstShape, "", operand.Format());
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
     auto &operation = Program::GetInstance().GetCurrentFunction()->AddOperation(Opcode::OP_RESHAPE, {operand.GetStorage()}, {dst.GetStorage()});
@@ -1436,7 +1436,7 @@ Tensor experimental::GatherInUB(
 }
 
 void Reshape(const Tensor &operand, Tensor &dst) {
-    ASSERT(operand.Format() == dst.Format()) << "Tensor format not match";
+    ASSERT(ERROR_CODE_UNKNOWN, operand.Format() == dst.Format()) << "Tensor format not match";
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
     auto &operation = Program::GetInstance().GetCurrentFunction()->AddOperation(Opcode::OP_RESHAPE, {operand.GetStorage()}, {dst.GetStorage()});
     operation.SetAttribute(OP_ATTR_PREFIX + "isInplace", true);
@@ -1645,8 +1645,8 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             break;
         }
         default: {
-            FUNCTION_LOGE("Unsupported opcode %d, opmagic is %d", static_cast<int>(opCode), op.GetOpMagic());
-            ASSERT(false) << "Unsupported opcode " << static_cast<int>(opCode) << ", opmagic is " << op.GetOpMagic();
+            FUNCTION_LOGE(ERROR_CODE_UNDEFINED, "Unsupported opcode %d, opmagic is %d", static_cast<int>(opCode), op.GetOpMagic());
+            ASSERT(ERROR_CODE_UNKNOWN, false) << "Unsupported opcode " << static_cast<int>(opCode) << ", opmagic is " << op.GetOpMagic();
         }
     }
 }

@@ -108,7 +108,7 @@ public:
     }
 
     static void NormalizeValue(SymbolicScalar &arg, OpImmediate &opImm, const SymbolicScalar &normCall, bool valueToIndex) {
-        ASSERT(opImm.IsSpecified());
+        ASSERT(ERROR_CODE_UNKNOWN, opImm.IsSpecified());
         SymbolicScalar value = opImm.GetSpecifiedValue();
         if (valueToIndex) {
             opImm = OpImmediate::Specified(normCall);
@@ -120,7 +120,7 @@ public:
         std::vector<OpImmediate> &opImmList, int coaIndex, bool valueToIndex) {
         int offset = 0;
         for (auto &op : opImmList) {
-            ASSERT(op.IsSpecified());
+            ASSERT(ERROR_CODE_UNKNOWN, op.IsSpecified());
             SymbolicScalar value = op.GetSpecifiedValue();
             if (valueToIndex) {
                 op = OpImmediate::Parameter(coaIndex + offset);
@@ -147,28 +147,28 @@ public:
     bool IsParameter() const { return kind_ == OpImmediateKind::T_SCALAR_PARAMETER; }
 
     const SymbolicScalar &GetSpecifiedValue() const {
-        ASSERT(IsSpecified());
+        ASSERT(ERROR_CODE_UNKNOWN, IsSpecified());
         return specifiedValue_;
     }
     SymbolicScalar &GetSpecifiedValue() {
-        ASSERT(IsSpecified());
+        ASSERT(ERROR_CODE_UNKNOWN, IsSpecified());
         return specifiedValue_;
     }
 
     int GetParameterIndex() const {
-        ASSERT(IsParameter());
+        ASSERT(ERROR_CODE_UNKNOWN, IsParameter());
         return parameterIndex_;
     }
 
     OpImmediateKind Kind() const { return kind_; }
 
     OpImmediate operator+(const OpImmediate &rhs) const {
-        ASSERT(IsSpecified() && rhs.IsSpecified());
+        ASSERT(ERROR_CODE_UNKNOWN, IsSpecified() && rhs.IsSpecified());
         return Specified(GetSpecifiedValue() + rhs.GetSpecifiedValue());
     }
 
     OpImmediate &operator-=(int offset) {
-        ASSERT(IsSpecified());
+        ASSERT(ERROR_CODE_UNKNOWN, IsSpecified());
         specifiedValue_ = specifiedValue_ - offset;
         return *this;
     }

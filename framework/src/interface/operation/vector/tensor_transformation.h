@@ -42,7 +42,7 @@ Opcode GetCastOpName() {
     case CastOpType::X: return Opcode::OP_##X
     switch (T) {
         CASE(CAST);
-        default: ASSERT(false && "unknown cast op type");
+        default: ASSERT(ERROR_CODE_UNKNOWN, false && "unknown cast op type");
     }
 #undef CASE
 }

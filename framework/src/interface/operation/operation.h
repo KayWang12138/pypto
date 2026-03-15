@@ -379,39 +379,39 @@ public:
             Opcode::OP_L1_COPY_IN_A_SCALE, Opcode::OP_L1_COPY_IN_B_SCALE, Opcode::OP_L1_TO_L0A_SCALE,
             Opcode::OP_L1_TO_L0B_SCALE, Opcode::OP_L1_COPY_IN_CONV, Opcode::OP_L0C_COPY_OUT_CONV};
         if (copyOpAttrOpTypes.count(opcode_) > 0) {
-            ASSERT(std::dynamic_pointer_cast<CopyOpAttribute>(opAttribute_) != nullptr);
+            ASSERT(ERROR_CODE_UNKNOWN, std::dynamic_pointer_cast<CopyOpAttribute>(opAttribute_) != nullptr);
             return;
         }
 
         switch (opcode_) {
             case Opcode::OP_VIEW: {
-                ASSERT(std::dynamic_pointer_cast<ViewOpAttribute>(opAttribute_) != nullptr);
+                ASSERT(ERROR_CODE_UNKNOWN, std::dynamic_pointer_cast<ViewOpAttribute>(opAttribute_) != nullptr);
                 break;
             }
             case Opcode::OP_ASSEMBLE: {
-                ASSERT(std::dynamic_pointer_cast<AssembleOpAttribute>(opAttribute_) != nullptr);
+                ASSERT(ERROR_CODE_UNKNOWN, std::dynamic_pointer_cast<AssembleOpAttribute>(opAttribute_) != nullptr);
                 break;
             }
             case Opcode::OP_ASSEMBLE_SSA:
-                ASSERT(std::dynamic_pointer_cast<AssembleOpAttribute>(opAttribute_) != nullptr ||
+                ASSERT(ERROR_CODE_UNKNOWN, std::dynamic_pointer_cast<AssembleOpAttribute>(opAttribute_) != nullptr ||
                        std::dynamic_pointer_cast<CopyOpAttribute>(opAttribute_) != nullptr);
                 break;
             case Opcode::OP_BLOCK_CALL:
             case Opcode::OP_CALL: {
-                ASSERT(std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_) != nullptr);
+                ASSERT(ERROR_CODE_UNKNOWN, std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_) != nullptr);
                 break;
             }
             case Opcode::OP_CONVERT: {
-                ASSERT(std::dynamic_pointer_cast<ConvertOpAttribute>(opAttribute_) != nullptr);
+                ASSERT(ERROR_CODE_UNKNOWN, std::dynamic_pointer_cast<ConvertOpAttribute>(opAttribute_) != nullptr);
                 break;
             }
-            default: ASSERT(opAttribute_ == nullptr);
+            default: ASSERT(ERROR_CODE_UNKNOWN, opAttribute_ == nullptr);
         }
     }
 
     void SetAssembleOpAttribute(
         const std::vector<int64_t> &toOffset, const std::vector<SymbolicScalar> &toDynOffset = {}) {
-        ASSERT(opcode_ == Opcode::OP_ASSEMBLE || opcode_ == Opcode::OP_ASSEMBLE_SSA);
+        ASSERT(ERROR_CODE_UNKNOWN, opcode_ == Opcode::OP_ASSEMBLE || opcode_ == Opcode::OP_ASSEMBLE_SSA);
         SetOpAttribute(std::make_shared<AssembleOpAttribute>(toOffset, toDynOffset));
     }
 
@@ -419,7 +419,7 @@ public:
     void ReplaceOOperand(size_t index, std::shared_ptr<LogicalTensor> newTensor);
 
     std::string GetCalleeMagicName() const {
-        ASSERT(IsCall());
+        ASSERT(ERROR_CODE_UNKNOWN, IsCall());
         return std::static_pointer_cast<CallOpAttribute>(opAttribute_)->GetCalleeMagicName();
     }
 
@@ -428,7 +428,7 @@ public:
     }
 
     const FunctionHash &GetCalleeHash() const {
-        ASSERT(IsCall() || opcode_ == Opcode::OP_BLOCK_CALL);
+        ASSERT(ERROR_CODE_UNKNOWN, IsCall() || opcode_ == Opcode::OP_BLOCK_CALL);
         auto callop = std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_);
         return callop->GetCalleeHash();
     }
@@ -482,7 +482,7 @@ public:
 
     SubfuncInvokeInfoTy &GetSubFuncInvokeInfo() {
         auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_);
-        ASSERT(callAttr != nullptr);
+        ASSERT(ERROR_CODE_UNKNOWN, callAttr != nullptr);
         return *(callAttr->invokeInfo_);
     }
 

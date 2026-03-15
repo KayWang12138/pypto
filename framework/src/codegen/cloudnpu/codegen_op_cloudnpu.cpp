@@ -367,8 +367,8 @@ void CodeGenOpCloudNPU::AppendLocalBufferVarOffset(
         }
 
         std::vector<int64_t> varRawShape = rawShape[operandIdx];
-        ASSERT(!varRawShape.empty()) << "varRawShape is empty!! operandIdx: " << operandIdx;
-        ASSERT(varOffset.size() == varRawShape.size())
+        ASSERT(ERROR_CODE_UNKNOWN, !varRawShape.empty()) << "varRawShape is empty!! operandIdx: " << operandIdx;
+        ASSERT(ERROR_CODE_UNKNOWN, varOffset.size() == varRawShape.size())
             << "varOffset " << IntVecToStr(varOffset) << ", size " << varOffset.size() << " vs varRawShape "
             << IntVecToStr(varRawShape) << ", size " << varRawShape.size()
             << " is not equal!! operandIdx: " << operandIdx;
@@ -380,7 +380,7 @@ void CodeGenOpCloudNPU::AppendLocalBufferVarOffset(
 
         std::string &var = kv.second.get();
 
-        ASSERT(!var.empty()) << "operandIdx: " << operandIdx << ", var is empty !!";
+        ASSERT(ERROR_CODE_UNKNOWN, !var.empty()) << "operandIdx: " << operandIdx << ", var is empty !!";
         CODEGEN_LOGI("var: %s, varRawShape: %s, varOffset: %s, resOffset: %ld", var.c_str(),
             IntVecToStr(varRawShape).c_str(), IntVecToStr(varOffset).c_str(), static_cast<long>(resOffset));
 
@@ -397,8 +397,8 @@ SymbolicScalar CodeGenOpCloudNPU::GetOperandStartOffset(int operandIdx) const {
     const auto &dynOffset = dynamicOffset[operandIdx];
     if (!dynOffset.empty()) {
         std::vector varRawShape = rawShape[operandIdx]; // 内部应该不能出现dynRawShape，所以这里用立即数即可
-        ASSERT(!varRawShape.empty()) << "varRawShape is empty!!";
-        ASSERT(dynOffset.size() == varRawShape.size())
+        ASSERT(ERROR_CODE_UNKNOWN, !varRawShape.empty()) << "varRawShape is empty!!";
+        ASSERT(ERROR_CODE_UNKNOWN, dynOffset.size() == varRawShape.size())
             << "dynOffset " << SymbolicVecToStr(dynOffset) << ", size " << dynOffset.size() << " vs varRawShape "
             << IntVecToStr(varRawShape) << ", size " << varRawShape.size() << " is not equal!!";
 
@@ -408,7 +408,7 @@ SymbolicScalar CodeGenOpCloudNPU::GetOperandStartOffset(int operandIdx) const {
             resOffset = resOffset + dynOffset[i];
         }
 
-        ASSERT(operandIdx < operandCnt) << "operandIdx: " << operandIdx << ", operandCnt: " << operandCnt;
+        ASSERT(ERROR_CODE_UNKNOWN, operandIdx < operandCnt) << "operandIdx: " << operandIdx << ", operandCnt: " << operandCnt;
         CODEGEN_LOGD(" varRawShape: %s", IntVecToStr(varRawShape).c_str());
         CODEGEN_LOGD(" varOffset: %s", SymbolicVecToStr(dynOffset).c_str());
         CODEGEN_LOGD(" resOffset: %s", resOffset.Dump().c_str());
@@ -419,8 +419,8 @@ SymbolicScalar CodeGenOpCloudNPU::GetOperandStartOffset(int operandIdx) const {
     }
 
     std::vector varRawShape = rawShape[operandIdx];
-    ASSERT(!varRawShape.empty()) << "varRawShape is empty!!";
-    ASSERT(varOffset.size() == varRawShape.size())
+    ASSERT(ERROR_CODE_UNKNOWN, !varRawShape.empty()) << "varRawShape is empty!!";
+    ASSERT(ERROR_CODE_UNKNOWN, varOffset.size() == varRawShape.size())
         << "varOffset " << IntVecToStr(varOffset) << ", size " << varOffset.size() << " vs varRawShape "
         << IntVecToStr(varRawShape) << ", size " << varRawShape.size() << " is not equal!!";
 
@@ -429,7 +429,7 @@ SymbolicScalar CodeGenOpCloudNPU::GetOperandStartOffset(int operandIdx) const {
         return 0;
     }
 
-    ASSERT(operandIdx < operandCnt) << "operandIdx: " << operandIdx << ", operandCnt: " << operandCnt;
+    ASSERT(ERROR_CODE_UNKNOWN, operandIdx < operandCnt) << "operandIdx: " << operandIdx << ", operandCnt: " << operandCnt;
     CODEGEN_LOGD(" varRawShape: %s", IntVecToStr(varRawShape).c_str());
     CODEGEN_LOGD(" varOffset: %s", IntVecToStr(varOffset).c_str());
     CODEGEN_LOGD(" resOffset: %ld", static_cast<long>(resOffset));
@@ -446,7 +446,7 @@ std::string CodeGenOpCloudNPU::GenGmParamVar(unsigned gmParamIdx) const {
 
     auto paramLoc = paramLocation[gmParamIdx];
     auto iter = paramLocToParamListOffset.find(paramLoc);
-    ASSERT(iter != paramLocToParamListOffset.end())
+    ASSERT(ERROR_CODE_UNKNOWN, iter != paramLocToParamListOffset.end())
         << "paramLoc " << paramLoc << " can not be found in paramLocToParamListOffset";
     std::string gmVar = "((" + GM_PARAM_TYPE_FOR_STATIC + "*)(param) + " + std::to_string(iter->second) + ")->Addr";
     return gmVar;
@@ -594,7 +594,7 @@ void CodeGenOpCloudNPU::UpdateTileTensorInfo() {
 
     auto iter = SUPPORT_TILETENSOR_OPS.find(opCode);
     if (iter == SUPPORT_TILETENSOR_OPS.end()) {
-        ASSERT(iter != SUPPORT_TILETENSOR_OPS.end()) << "opCode: " << opCodeStr << " not support tile tensor!";
+        ASSERT(ERROR_CODE_UNKNOWN, iter != SUPPORT_TILETENSOR_OPS.end()) << "opCode: " << opCodeStr << " not support tile tensor!";
         return;
     }
 
@@ -722,7 +722,7 @@ TileTensor CodeGenOpCloudNPU::QueryTileTensorByIdx(int paramIdx) const {
         }
     }
 
-    ASSERT(false) << "TileTensor: paramIdx " << paramIdx << ", tensor magic " << operandWithMagic[paramIdx]
+    ASSERT(ERROR_CODE_UNKNOWN, false) << "TileTensor: paramIdx " << paramIdx << ", tensor magic " << operandWithMagic[paramIdx]
                   << " is not found !!! res size is " << res.size();
     static TileTensor emptyTileTensor;
     return emptyTileTensor;
@@ -773,7 +773,7 @@ std::string CodeGenOpCloudNPU::GetLastUse() const {
     }
     std::vector<int64_t> val = GetVectorIntAttribute(OpAttributeKey::lastUse);
     int valSize = val.size();
-    ASSERT(valSize != 0) << "GetLastUse error!!!";
+    ASSERT(ERROR_CODE_UNKNOWN, valSize != 0) << "GetLastUse error!!!";
     std::ostringstream oss;
     oss << "LastUse" << valSize << "Dim";
     oss << WrapParamByAngleBrackets(val);

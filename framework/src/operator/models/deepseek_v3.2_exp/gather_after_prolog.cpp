@@ -28,7 +28,7 @@ Tensor CalcOffsetsForGather(const Tensor &topKIndcies, const Tensor &blockTable,
 
     Tensor offsets(DT_INT32, {maxBatch * maxS1, n2 * params.topk}, "offsets");
     LOOP("gather_and_matmul", FunctionType::DYNAMIC_LOOP, idx, LoopRange(b * s1)) {
-        // ASSERT(s1 != 0) << "s1 can`t be zero!";
+        // ASSERT(ERROR_CODE_UNKNOWN, s1 != 0) << "s1 can`t be zero!";
         auto bIdx = idx / s1;
         auto s1Idx = idx % s1;
         config::SetSemanticLabel("calc_offset");

@@ -23,7 +23,7 @@ void IncreFlashAttention(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, 
     std::vector<std::vector<int>> &blockTable, std::vector<int> &actSeqs, float softmaxScale, Tensor &attentionOut,
     IfaTileShapeConfig &tileConfig) {
     auto batchSize = blockTable.size();
-    ASSERT(batchSize == actSeqs.size());
+    ASSERT(ERROR_CODE_UNKNOWN, batchSize == actSeqs.size());
     int dN = qNope.GetShape()[1];
     int dR = qRope.GetShape()[1];
     int nQ = qNope.GetShape()[0] / batchSize;

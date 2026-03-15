@@ -74,7 +74,7 @@ static const std::unordered_map<int, std::string> aicpuCallNumDict = {
 };
 
 std::string CodeGenOpCloudNPU::GenAicpuCallOp() const {
-    ASSERT(opAttrs.count(OpAttributeKey::aicpuCall)) << "OpAttributeKey::aicpuCall not found";
+    ASSERT(ERROR_CODE_UNKNOWN, opAttrs.count(OpAttributeKey::aicpuCall)) << "OpAttributeKey::aicpuCall not found";
     uint32_t call =
         static_cast<uint32_t>(AnyCast<int64_t>(opAttrs.find(OpAttributeKey::aicpuCall)->second));
     uint16_t callNum = call >> AICPU_CALL_ARG_BIT;

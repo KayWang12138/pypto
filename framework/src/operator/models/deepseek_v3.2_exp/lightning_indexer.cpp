@@ -82,7 +82,7 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
     Tensor weight2D(wDType, {b * s1 * indexN1, 1}, "weight2D");
 
     constexpr int32_t NUMS_2048 = 2048;
-    ASSERT(selectedCount == NUMS_2048);
+    ASSERT(ERROR_CODE_UNKNOWN, selectedCount == NUMS_2048);
 
     LOOP("INPUT_4D_2_2D", FunctionType::DYNAMIC_LOOP, unUsedIdx, LoopRange(1)) {
         (void)unUsedIdx;

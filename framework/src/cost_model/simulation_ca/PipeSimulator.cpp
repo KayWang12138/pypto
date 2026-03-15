@@ -70,7 +70,7 @@ namespace CostModel
     {
         std::ofstream os(fileName);
         if (!os.is_open()) {
-            SIMULATION_LOGE("can't open %s", fileName.c_str());
+            SIMULATION_LOGE(npu::tile_fwk::ERROR_CODE_UNDEFINED, "can't open %s", fileName.c_str());
             return false;
         }
 
@@ -100,7 +100,7 @@ namespace CostModel
         std::vector<std::string> outputLines;
         FILE* pipe = popen(exePath.c_str(), "r");
         if (!pipe) {
-            SIMULATION_LOGE("run error");
+            SIMULATION_LOGE(npu::tile_fwk::ERROR_CODE_UNDEFINED, "run error");
             return outputLines;
         }
 
@@ -155,7 +155,7 @@ namespace CostModel
         }
         std::string buf = GenerateBuf(tileOp);
         if (buf == "" || buf == "CODEGEN_ERROR") {
-            SIMULATION_LOGE("can't generate buf");
+            SIMULATION_LOGE(npu::tile_fwk::ERROR_CODE_UNDEFINED, "can't generate buf");
             return 0;
         }
         int notSize = 3;
@@ -173,7 +173,7 @@ namespace CostModel
 
         std::string simulatorDir = "simulator";
         if (!CreateDir(simulatorDir)) {
-            SIMULATION_LOGE("can't create simulator dir");
+            SIMULATION_LOGE(npu::tile_fwk::ERROR_CODE_UNDEFINED, "can't create simulator dir");
             return 0;
         }
         auto func = tileOp->funcPtr;
@@ -181,14 +181,14 @@ namespace CostModel
         std::string fileName(fileHeader + ".cpp");
         bool success = GenerateCode(buf, fileName);
         if (!success) {
-            SIMULATION_LOGE("can't generate code, buf: %s", buf.c_str());
+            SIMULATION_LOGE(npu::tile_fwk::ERROR_CODE_UNDEFINED, "can't generate code, buf: %s", buf.c_str());
             return tileopLatencyCacheMp[buf] = 0;
         }
 
         EnvConfig config;
         std::vector<std::string> program = CompileAndRunCode(fileName, config);
         if (program.empty()) {
-            SIMULATION_LOGE("can't run code, buf: %s", buf.c_str());
+            SIMULATION_LOGE(npu::tile_fwk::ERROR_CODE_UNDEFINED, "can't run code, buf: %s", buf.c_str());
             return tileopLatencyCacheMp[buf] = 1;
         }
 

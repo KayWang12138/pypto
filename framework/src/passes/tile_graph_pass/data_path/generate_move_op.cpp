@@ -32,7 +32,7 @@ constexpr int64_t OUTER_PAD_VALUE = 16;
 const Offset ZERO_OFFSET = {0, 0};
 
 int64_t GenerateMoveOp::PadUB(int64_t dim, int64_t padValue) {
-    ASSERT (padValue >0);
+    ASSERT(ERROR_CODE_UNKNOWN, padValue >0);
     return (dim + padValue - 1) / padValue * padValue;
 }
 

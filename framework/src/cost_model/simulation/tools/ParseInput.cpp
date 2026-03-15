@@ -32,7 +32,7 @@ void ParseInput::ParseJson(std::shared_ptr<CostModel::SimSys> sim, const std::st
 {
     std::ifstream input(jsonPath);
     if (!input.is_open()) {
-        SIMULATION_LOGE("Error: fail to open file: %s", jsonPath.c_str());
+        SIMULATION_LOGE(npu::tile_fwk::ERROR_CODE_UNDEFINED, "Error: fail to open file: %s", jsonPath.c_str());
         return;
     }
     Json j;
@@ -373,7 +373,7 @@ void ParseInput::BuildFunction(std::shared_ptr<CostModel::SimSys> sim, npu::tile
         func->tileOps.emplace_back(tileOp);
         func->tileOpMap[tileOp->magic] = tileOp;
     }
-    ASSERT(hasCall || func->opSequenceAfterOOO_.size() == 0 || (func->tileOps.size() == func->opSequenceAfterOOO_.size()))
+    ASSERT(ERROR_CODE_UNKNOWN, hasCall || func->opSequenceAfterOOO_.size() == 0 || (func->tileOps.size() == func->opSequenceAfterOOO_.size()))
         << "[SIMULATION]: " << "hasCall=" << hasCall << " func->opSequenceAfterOOO_.size=" << func->opSequenceAfterOOO_.size()
         << " func->tileOps.size=" << func->tileOps.size();
     if (sim->config.useOOOPassSeq) {
@@ -480,7 +480,7 @@ void ParseInput::ParseFunction(std::shared_ptr<CostModel::SimSys> sim,
 {
     if (topoFromRootFunc) {
         sim->enableExpectValue = true;
-        ASSERT(inputFuncs.size() == 1) << "[SIMULATION]: inputFuncs.size is not equals to 1."
+        ASSERT(ERROR_CODE_UNKNOWN, inputFuncs.size() == 1) << "[SIMULATION]: inputFuncs.size is not equals to 1."
             << "inputFuncs.size=" << inputFuncs.size();
         for (const auto &rootFunction : inputFuncs) {
             if (sim->pvLevel != PVModelLevel::PV_NON) {
@@ -578,7 +578,7 @@ void ParseInput::ParseJsonConfig(const std::string &path, std::vector<std::strin
 {
     std::ifstream file(path);
     if (!file.is_open()) {
-        SIMULATION_LOGE("Error: fail to open file: %s", path.c_str());
+        SIMULATION_LOGE(npu::tile_fwk::ERROR_CODE_UNDEFINED, "Error: fail to open file: %s", path.c_str());
         return;
     }
     Json j;
@@ -594,7 +594,7 @@ void ParseInput::ParseConfig(const std::string &path, std::vector<std::string> &
 {
     std::ifstream file(path);
     if (!file.is_open()) {
-        SIMULATION_LOGE("Error: fail to open file: %s", path.c_str());
+        SIMULATION_LOGE(npu::tile_fwk::ERROR_CODE_UNDEFINED, "Error: fail to open file: %s", path.c_str());
         return;
     }
     std::string line;
@@ -603,7 +603,7 @@ void ParseInput::ParseConfig(const std::string &path, std::vector<std::string> &
         if (pos != std::string::npos) {
             cfg.emplace_back(line);
         } else {
-            SIMULATION_LOGE("Parse Config File Error: %s", line.c_str());
+            SIMULATION_LOGE(npu::tile_fwk::ERROR_CODE_UNDEFINED, "Parse Config File Error: %s", line.c_str());
         }
     }
     file.close();
@@ -613,7 +613,7 @@ void ParseInput::ParseCalendarJson(std::shared_ptr<CostModel::SimSys> sim, const
 {
     std::ifstream jsonInput(jsonPath);
     if (!jsonInput.is_open()) {
-        SIMULATION_LOGE("Error: fail to open file: %s", jsonPath.c_str());
+        SIMULATION_LOGE(npu::tile_fwk::ERROR_CODE_UNDEFINED, "Error: fail to open file: %s", jsonPath.c_str());
         return;
     }
     Json calendarJson;
@@ -634,7 +634,7 @@ void ParseInput::ParseCalendarJson(std::shared_ptr<CostModel::SimSys> sim, const
                     {task["taskId"].get<int>(), std::stoull(task["functionHash"].get<std::string>())});
                 taskId = task["taskId"].get<int>();
                 if (sim->config.calendarMode == static_cast<uint64_t>(CalendarMode::GLOBAL_COUNTER)) {
-                    ASSERT(waitVector.size() == 1) << "[SIMULATION]: task has two wait in calendar global counter."
+                    ASSERT(ERROR_CODE_UNKNOWN, waitVector.size() == 1) << "[SIMULATION]: task has two wait in calendar global counter."
                         << "waitVector.size=" << waitVector.size();
                     sim->taskFirstSetMap[taskId] = waitVector[0].second + 1;
                 }
@@ -658,7 +658,7 @@ void ParseInput::ParseFixedLatencyTask(std::shared_ptr<CostModel::SimSys> sim, s
 {
     std::ifstream jsonInput(path);
     if (!jsonInput.is_open()) {
-        SIMULATION_LOGE("Error: fail to open file: %s", path.c_str());
+        SIMULATION_LOGE(npu::tile_fwk::ERROR_CODE_UNDEFINED, "Error: fail to open file: %s", path.c_str());
         return;
     }
     Json fixedLatencyTask;
@@ -692,7 +692,7 @@ void ParseInput::ParseFixedLatencyTask(std::shared_ptr<CostModel::SimSys> sim, s
         double exeTime = item["execTime"].get<double>();
         entry.fixedLatency = true;
         entry.fixedLatencyVal = static_cast<uint64_t>(std::trunc(exeTime * cycleConvert));
-        ASSERT(entry.fixedLatencyVal > 0) << "[SIMULATION]: " << "entry.fixedLatencyVal=" << entry.fixedLatencyVal;
+        ASSERT(ERROR_CODE_UNKNOWN, entry.fixedLatencyVal > 0) << "[SIMULATION]: " << "entry.fixedLatencyVal=" << entry.fixedLatencyVal;
         std::string machineType = item["coreType"];
         entry.mType = ToMachineType(machineType);
         leafMachineTypeMap[funcName] = entry.mType;
@@ -715,7 +715,7 @@ void ParseInput::ParseTopoJson(std::string path, std::deque<TaskMap> &taskMapQue
 {
     std::ifstream jsonInput(path);
     if (!jsonInput.is_open()) {
-        SIMULATION_LOGE("Error: fail to open file: %s", path.c_str());
+        SIMULATION_LOGE(npu::tile_fwk::ERROR_CODE_UNDEFINED, "Error: fail to open file: %s", path.c_str());
         return;
     }
     Json topoJson;
@@ -755,7 +755,7 @@ void ParseInput::ParseReplayInfoJson(const std::string &path,
 {
     std::ifstream file(path);
     if (!file.is_open()) {
-        SIMULATION_LOGE("Error: fail to open file: %s", path.c_str());
+        SIMULATION_LOGE(npu::tile_fwk::ERROR_CODE_UNDEFINED, "Error: fail to open file: %s", path.c_str());
         return;
     }
     Json j;

@@ -108,7 +108,7 @@ template <typename T>
 TensorWithData CreateTensorAndData(const std::vector<int64_t> &shape, DataType dType, std::string name, TileOpFormat format, std::string binPath, const std::vector<int> &dynamicAxises = {}) {
      std::vector<int64_t> dynamicShape = shape;
      for (int axis : dynamicAxises) {
-        ASSERT(axis >= 0 && (size_t)axis < dynamicShape.size());
+        ASSERT(ERROR_CODE_UNKNOWN, axis >= 0 && (size_t)axis < dynamicShape.size());
         dynamicShape[axis] = -1;
      }
 
@@ -124,7 +124,7 @@ TensorWithData CreateTensorAndData(const std::vector<int64_t> &shape, DataType d
 
 template <typename T>
 TensorWithData CreateDynamicOutputTensor(const std::vector<int64_t> &shape, DataType dType, std::string name, std::string binPath, const std::vector<SymbolicScalar> &dynamicShape = {}) {
-    ASSERT(dynamicShape.size() == 0 || dynamicShape.size() == shape.size());
+    ASSERT(ERROR_CODE_UNKNOWN, dynamicShape.size() == 0 || dynamicShape.size() == shape.size());
 
     if (dynamicShape.empty()) {
         Tensor dynamicT(dType, shape, name);
@@ -139,7 +139,7 @@ TensorWithData CreateDynamicOutputTensor(const std::vector<int64_t> &shape, Data
 
 template <typename T>
 TensorWithData CreateConstantDynamicOutputTensor(const std::vector<int64_t> &shape, DataType dType, std::string name, T value, const std::vector<SymbolicScalar> &dynamicShape = {}) {
-    ASSERT(dynamicShape.size() == 0 || dynamicShape.size() == shape.size());
+    ASSERT(ERROR_CODE_UNKNOWN, dynamicShape.size() == 0 || dynamicShape.size() == shape.size());
 
     if (dynamicShape.empty()) {
         Tensor dynamicT(dType, shape, name);
@@ -156,7 +156,7 @@ template <typename T>
 TensorWithData CreateConstantTensorAndData(const std::vector<int64_t> &shape, DataType dType, std::string name, T value, const std::vector<int> &dynamicAxises = {}) {
      std::vector<int64_t> dynamicShape = shape;
      for (int axis : dynamicAxises) {
-        ASSERT(axis >= 0 && (size_t)axis < dynamicShape.size());
+        ASSERT(ERROR_CODE_UNKNOWN, axis >= 0 && (size_t)axis < dynamicShape.size());
         dynamicShape[axis] = -1;
      }
 
