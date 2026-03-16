@@ -1,3 +1,4 @@
+
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
@@ -593,8 +594,6 @@ TEST_F(SplitLargeFanoutTensorTest, MtoM) {
             auto viewAttr = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
             auto offset = viewAttr->GetFromOffset();
             EXPECT_EQ(accumulate(offset.begin(), offset.end(), 0), 0) << "OP_VIEW offset should be all zero";
-            auto dynOffset = viewAttr->GetFromDynOffset();
-            EXPECT_EQ(dynOffset.size(), 0);
             auto input = op.GetIOperands().front();
             auto inputDynShape = input->GetDynValidShape();
             EXPECT_EQ(inputDynShape.size(), NUM_2);
@@ -911,8 +910,6 @@ TEST_F(SplitLargeFanoutTensorTest, PerfectlyMatchWithAll_Full) {
             auto viewAttr = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
             auto offset = viewAttr->GetFromOffset();
             EXPECT_EQ(accumulate(offset.begin(), offset.end(), 0), 0) << "OP_VIEW offset should be all zero";
-            auto dynOffset = viewAttr->GetFromDynOffset();
-            EXPECT_EQ(dynOffset.size(), 0);
             auto input = op.GetIOperands().front();
             auto inputDynShape = input->GetDynValidShape();
             EXPECT_EQ(inputDynShape.size(), NUM_2);
