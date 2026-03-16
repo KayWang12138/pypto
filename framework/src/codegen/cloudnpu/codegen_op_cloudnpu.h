@@ -502,6 +502,8 @@ private:
 
     const std::unordered_map<Opcode, std::function<std::string()>> normalVecOps_;
 
+    const std::unordered_map<Opcode, std::function<std::string()>> quantOps_;
+
     std::unordered_map<Opcode, std::function<std::string()>> perfOps_;
 
     std::unordered_map<Opcode, std::function<std::string()>> aicpuOps_;

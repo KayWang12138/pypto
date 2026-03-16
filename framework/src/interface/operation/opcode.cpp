@@ -419,11 +419,19 @@ void OpcodeManager::RegisterVectorReduction() {
         {OpAttributeKey::excludeBufferReuse});
 }
 
+void OpcodeManager::RegisterVectorQuant() {
+    RegisterInfo(Opcode::OP_QUANTIZE, OpCoreType::AIV, "QUANTIZE", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::Quantize", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
+        {OP_ATTR_PREFIX + "axis"}, TileShapeVerifier::Verify);
+    // TODO: DeQauntize
+}
+
 void OpcodeManager::RegisterVector() {
     RegisterVectorBinary();
     RegisterVectorUnary();
     RegisterVectorSort();
     RegisterVectorReduction();
+    RegisterVectorQuant();
     RegisterInfo(Opcode::OP_CAST, OpCoreType::AIV, "CAST", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tcast", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::CAST, {OP_ATTR_PREFIX + "mode"},
         TileShapeVerifier::Verify);

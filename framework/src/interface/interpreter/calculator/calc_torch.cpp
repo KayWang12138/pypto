@@ -1271,6 +1271,8 @@ void IndexAdd(const TensorData &out, const TensorData &self, const TensorData &s
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
+// TODO: Quantize/DeQuantize
+
 void TriU(const TensorData &out, const TensorData &in, int diagonal) {
     auto output = From(out);
     auto input = From(in);

@@ -443,6 +443,13 @@ inline void Sort(LogicalTensorDataPtr value, LogicalTensorDataPtr index, Logical
     GetCalcOps()->Sort(Trans(value), Trans(index), Trans(self), axis, descending);
 }
 
+// quantization
+inline void Quantize(LogicalTensorDataPtr out, LogicalTensorDataPtr input, LogicalTensorDataPtr scale, 
+    LogicalTensorDataPtr otype, int64_t axis, LogicalTensorDataPtr zeroPoints) {
+    GetCalcOps()->Quantize(Trans(out), Trans(input), Trans(otype), axis, Trans(zeroPoints));
+}
+// TODO: Dequantize
+
 // matmul
 inline void FormatNZ2ND(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->FormatNZ2ND(Trans(out), Trans(self));
