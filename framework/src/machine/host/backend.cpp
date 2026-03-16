@@ -17,6 +17,7 @@
 #include "machine/host/expr_generator.h"
 #include "tilefwk/tilefwk.h"
 #include "codegen/codegen.h"
+#include "codegen/utils/parallel_execute.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/operation/operation.h"
@@ -836,26 +837,37 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
     }
     AlignUpTo(attr->devControlFlowBinary, 0x8, 0);
     std::map<uint64_t, Function *> leafDict;
+    std::mutex leafDictMutex;
+    
+    std::deque<std::function<void(void)>> tasks;
     for (auto &devRoot : attr->funcGroup.devRootList) {
-        Function *devTile = attr->rootTileDict[devRoot];
-        config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, devTile->paramConfigs_.dynamicAlignedOps);
-        npu::tile_fwk::CodeGenCtx codeGenCtx("", GetEmitPath("kernel_aicore"));
-        npu::tile_fwk::CodeGen codeGen(codeGenCtx);
-        COMPILER_LOGI("Function :[%s] starts executing codegen and binary compilation",
-                      devTile->GetMagicName().c_str());
-        codeGen.GenCode(*devTile, {});
-        MainBlockCondBulider::Gencode(devTile);
-        for (auto &[psgId, leaf] : devRoot->programs_) {
-            (void)psgId;
-            auto hash = leaf->GetFunctionHash().GetHash();
-            if (!leafDict.count(hash)) {
-                leafDict[hash] = leaf;
-                MACHINE_LOGI("Dyndev.codegen: %s", leaf->GetRawName().c_str());
-            } else {
-                MACHINE_LOGE(" Duplicate func hash %lu name %s", hash, leaf->GetRawName().c_str());
+        std::function task = [&devRoot, &attr, &leafDict, &leafDictMutex]() {
+            Function *devTile = attr->rootTileDict[devRoot];
+            bool isDynamicAligned = devTile->paramConfigs_.dynamicAlignedOps;
+            npu::tile_fwk::CodeGenCtx codeGenCtx("", GetEmitPath("kernel_aicore"), false, isDynamicAligned);
+            npu::tile_fwk::CodeGen codeGen(codeGenCtx);
+            COMPILER_LOGI("Function :[%s] starts executing codegen and binary compilation",
+                          devTile->GetMagicName().c_str());
+            codeGen.GenCode(*devTile, {});
+            MainBlockCondBulider::Gencode(devTile);
+            
+            std::lock_guard<std::mutex> lock(leafDictMutex);
+            for (auto &[psgId, leaf] : devRoot->programs_) {
+                (void)psgId;
+                auto hash = leaf->GetFunctionHash().GetHash();
+                if (!leafDict.count(hash)) {
+                    leafDict[hash] = leaf;
+                    MACHINE_LOGI("Dyndev.codegen: %s", leaf->GetRawName().c_str());
+                } else {
+                    MACHINE_LOGE(" Duplicate func hash %lu name %s", hash, leaf->GetRawName().c_str());
+                }
             }
-        }
+        };
+        tasks.push_back(task);
     }
+    
+    unsigned threadNum = ConfigManager::Instance().GetCodeGenConfig(KEY_PARALLEL_COMPILE, 1u);
+    ParallelExecuteAndWait(threadNum, tasks);
 
     struct EncodeDevAscendFunctionParam encodeDevAscendFunctionParam = {};
     ConstructCodeInfo(encodeDevAscendFunctionParam, leafDict, attr);
