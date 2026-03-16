@@ -389,12 +389,14 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                                << "Shape size mismatch: expected " << actualRaw->GetRawShapeSize() * (outSize / inSize)
                                << ", got " << rawTensor->GetRawShapeSize();
                     }
-                    ASSERT(rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize()) << "Data size mismatch:"
-                           << rawTensor->GetRawDataSize() << "!=" << actualRaw->GetRawDataSize();
+ASSERT(rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize())
+ 	                         << "Data size mismatch1:" << rawTensor->GetRawDataSize() << "!=" << actualRaw->GetRawDataSize()
+ 	                         << ":" << rawTensor->GetRawMagic() << ":" << actualRaw->GetRawMagic();
                     continue;
                 }
-                ASSERT(rawTensor->GetRawShapeSize() == actualRaw->GetRawShapeSize()) << "Shape size mismatch:"
-                       << rawTensor->GetRawShapeSize() << "!=" << actualRaw->GetRawShapeSize();
+ ASSERT(rawTensor->GetRawShapeSize() == actualRaw->GetRawShapeSize())
+ 	                     << "Shape size mismatch2:" << rawTensor->GetRawShapeSize() << "!=" << actualRaw->GetRawShapeSize()
+ 	                     << ":" << rawTensor->GetRawMagic() << ":" << actualRaw->GetRawMagic();
                 ASSERT(rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize()) << "Data size mismatch:"
                        << rawTensor->GetRawDataSize() << "!=" << actualRaw->GetRawDataSize();
             }
