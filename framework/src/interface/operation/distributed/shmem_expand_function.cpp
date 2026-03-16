@@ -211,7 +211,7 @@ void TiledShmemPut(Function& function, const TileShape& tileShape,
 
         auto& tileOp = function.AddOperation(Opcode::OP_SHMEM_PUT, {predTokenTile, inTile, shmemDataTile},
             {outTile, ubTensor});
-        ShmemPutGetAttr distOpAttr;
+        ShmemPutAttr distOpAttr;
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         distOpAttr.copyBufferShape = copyBufferShape;
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
@@ -229,7 +229,7 @@ void TiledShmemPutUB2GM(Function& function, const TileShape& tileShape,
     auto shmemData = iOperand[1];
     auto barrierDummy = iOperand[2]; // operand 2
     auto dummy = oOperand[0];
-    ShmemPutGetAttr distOpAttr;
+    ShmemPutAttr distOpAttr;
     op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     Shape shape = in->shape;
     auto copyBufferShape = GetCopyBufferShape(in->Datatype(), shmemData->Datatype(), shape);
@@ -328,7 +328,7 @@ void TiledShmemGet(Function& function, const TileShape& tileShape,
 
         auto& tileOp = function.AddOperation(Opcode::OP_SHMEM_GET, {predTokenTile, shmemDataTile}, {outTile, ubTensor});
 
-        ShmemPutGetAttr distOpAttr;
+        ShmemGetAttr distOpAttr;
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         distOpAttr.copyBufferShape = copyBufferShape;
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
@@ -361,7 +361,7 @@ void TiledShmemGetGM2UB(Function& function, const TileShape& tileShape,
         auto ubTensor = CreateAdaptiveUbTensor(function, copyBufferShape, outUb->Datatype(), shmemDataTile->Datatype(), true);
         auto& tileOp = function.AddOperation(Opcode::OP_SHMEM_GET_GM2UB, {dummyTile, shmemDataTile}, {outUbTile, ubTensor});
 
-        ShmemPutGetAttr distOpAttr;
+        ShmemGetAttr distOpAttr;
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         distOpAttr.copyBufferShape = copyBufferShape;
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
