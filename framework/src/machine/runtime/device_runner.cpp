@@ -118,7 +118,9 @@ void SyncStreams(rtStream_t aicpuStream, rtStream_t aicoreStream, bool useSyncFl
 DeviceRunner& DeviceRunner::Get()
 {
     static DeviceRunner runner;
-    std::call_once(runner.once_, [&]() { runner.Init(); });
+    std::call_once(runner.once_, [&]() {
+        runner.Init();
+    });
     return runner;
 }
 
