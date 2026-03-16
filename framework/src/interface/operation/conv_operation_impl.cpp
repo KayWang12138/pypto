@@ -22,6 +22,7 @@
 #include "interface/utils/common.h"
 #include "interface/utils/log.h"
 #include "interface/utils/operator_tracer.h"
+#include "interface/utils/conv_error.h"
 #include "operation_impl.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/tile_shape.h"
@@ -930,12 +931,10 @@ LogicalTensorPtr ConstructWeightTile(Function &function, const ConvGraphNodes &t
 
 void SetAMulBAttr(const ConvGraphNodes &tensorGraphNodes, const ConvTileInfo &convTileInfo, Operation &op)
 {
-    OP_CHECK(true,
-        {
-            ASSERT(tensorGraphNodes.fmapTensorPtr != nullptr && tensorGraphNodes.weightTensorPtr != nullptr &&
-            tensorGraphNodes.resTensorPtr != nullptr)
-            << "Expected fmapTensorPtr, weightTensorPtr, and resTensorPtr to be non-nullptr." << std::endl;
-        });
+    CONV_ASSERT(ConvExpandFuncError::EXPANDFUNC_TENSOR_OP_NULLPTR,
+        tensorGraphNodes.fmapTensorPtr != nullptr && tensorGraphNodes.weightTensorPtr != nullptr &&
+        tensorGraphNodes.resTensorPtr != nullptr,
+        "Expected fmapTensorPtr, weightTensorPtr, and resTensorPtr to be non-nullptr.");
 
     int64_t nzAttr = (static_cast<int64_t>(tensorGraphNodes.fmapTensorPtr->Format())) |
                      (static_cast<int64_t>(tensorGraphNodes.weightTensorPtr->Format()) << 1) |
@@ -953,11 +952,9 @@ void SetAMulBAttr(const ConvGraphNodes &tensorGraphNodes, const ConvTileInfo &co
 LogicalTensorPtr DoMmad(Function &function, const ConvAttrParam &convAttrParam, const ConvGraphNodes &tensorGraphNodes,
                         ConvGraphNodes &tileGraphNodes, const ConvTileInfo &convTileInfo, const ConvIterInfo &iterInfo)
 {
-    OP_CHECK(true, {
-        ASSERT(tileGraphNodes.fmapTensorPtr != nullptr && tileGraphNodes.weightTensorPtr != nullptr &&
-               tileGraphNodes.resTensorPtr != nullptr)
-            << "Inputs and res must be non-nullptr." << std::endl;
-    });
+    CONV_ASSERT(ConvExpandFuncError::EXPANDFUNC_TILE_OP_NULLPTR,
+        tileGraphNodes.fmapTensorPtr != nullptr && tileGraphNodes.weightTensorPtr != nullptr &&
+        tileGraphNodes.resTensorPtr != nullptr, "Inputs and res must be non-nullptr.");
     // MMAD node add
     std::vector<LogicalTensorPtr> mmadInputs;
     std::vector<LogicalTensorPtr> mmadOutputs;
@@ -965,8 +962,8 @@ LogicalTensorPtr DoMmad(Function &function, const ConvAttrParam &convAttrParam, 
     if (iterInfo.isFirstK) {
         mmadInputs = {tileGraphNodes.fmapTensorPtr, tileGraphNodes.weightTensorPtr};
         if (convAttrParam.hasBias) {
-            OP_CHECK(true, { ASSERT(tileGraphNodes.biasTensorPtr != nullptr)
-                << "bias must be non-nullptr when hasBias Flag." << std::endl;});
+            CONV_ASSERT(ConvExpandFuncError::EXPANDFUNC_TILE_OP_NULLPTR, tileGraphNodes.biasTensorPtr != nullptr,
+                        "bias must be non-nullptr when hasBias Flag.");
             mmadInputs.push_back(tileGraphNodes.biasTensorPtr);
         }
     } else {
