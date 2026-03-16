@@ -641,3 +641,14 @@ TEST_F(CostModelTest, TestParseInputFile) {
     parser.ParseJson(nullptr, path);
 
 }
+
+TEST_F(CostModelTest, TestJsonFileErrorFormat) {
+    using namespace CostModel;
+    const std::string path = "./config/test_config.conf";
+    CostModelAgent agent;
+    try {
+        agent.GetFunctionFromJson(path);
+    } catch (const std::exception& e) {
+    }
+
+}
