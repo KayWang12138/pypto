@@ -491,22 +491,35 @@ private:
         readyQue->head += taskCount;
         ReadyQueueUnLock(readyQue);
 
-        BatchSendTask(type, &readyQue->elem[head], taskCount, coreIdxStart, coreIdxEnd, false);
+        BatchSendTask(type, &readyQue->elem[head], taskCount, coreIdxStart, coreIdxEnd);
         return taskCount;
     }
 
-    inline uint32_t BatchSendTask(CoreType type, uint32_t *newTask, uint32_t taskCount,
-        int coreIdxStart, int coreIdxEnd, bool isLifo) {
+    inline uint32_t BatchSendTask(CoreType type, uint32_t *newTask, uint32_t taskCount, int coreIdxStart, int coreIdxEnd) {
         uint32_t sendCnt = 0;
         uint32_t coreRunReadyCnt = context_->coreRunReadyCnt_[static_cast<int>(type)];
         while (sendCnt < static_cast<uint64_t>(coreRunReadyCnt) && sendCnt < taskCount) {
-            SendTaskToAiCore(type,
-                context_->runReadyCoreIdx_[static_cast<int>(type)][--context_->coreRunReadyCnt_[static_cast<int>(type)]],
-                isLifo ? *newTask-- : *newTask++);
+            SendTaskToAiCore(type, context_->runReadyCoreIdx_[static_cast<int>(type)][--context_->coreRunReadyCnt_[static_cast<int>(type)]], *newTask++);
             sendCnt++;
         }
         context_->corePendReadyCnt_[static_cast<int>(type)] -= sendCnt;
 
+        uint32_t idx = context_->lastPendReadyCoreIdx_[static_cast<int>(type)];
+        uint32_t coreNum = coreIdxEnd - coreIdxStart;
+        uint32_t lastProcCore = idx;
+        while (context_->corePendReadyCnt_[static_cast<int>(type)] > 0 && sendCnt < taskCount) {
+            if (pendingIds_[idx] == AICORE_TASK_INIT) {
+                SendTaskToAiCore(type, idx, *newTask++);
+                sendCnt++;
+                context_->corePendReadyCnt_[static_cast<int>(type)]--;
+                lastProcCore = idx;
+            }
+            idx = coreIdxStart + (idx - coreIdxStart + 1) % coreNum;
+        }
+
+        if (lastProcCore != context_->lastPendReadyCoreIdx_[static_cast<int>(type)]) {
+            context_->lastPendReadyCoreIdx_[static_cast<int>(type)] = coreIdxStart + (lastProcCore - coreIdxStart + 1) % coreNum;
+        }
         return sendCnt;
     }
 
@@ -548,10 +561,7 @@ private:
         uint32_t aivIndex = static_cast<uint32_t>(CoreType::AIV);
         if (context_->readyCount[aicIndex] > 0) {
             uint32_t needSendCnt = std::min(GetReadyCoreNum(CoreType::AIC), context_->readyCount[aicIndex]);
-            if (needSendCnt > 0) {
-                context_->readyCount[aicIndex] -= BatchSendTask(CoreType::AIC, &context_->readyIds[aicIndex][context_->readyCount[aicIndex] - 1],
-                    needSendCnt, aicStart_, aicEnd_, true);
-            }
+            if (needSendCnt > 0) context_->readyCount[aicIndex] -= BatchSendTask(CoreType::AIC, &context_->readyIds[aicIndex][context_->readyCount[aicIndex] - needSendCnt], needSendCnt, aicStart_, aicEnd_);
             if (context_->readyCount[aicIndex] > 0) {
                 PushReadyQue(readyAicCoreFunctionQue_, context_->readyIds[aicIndex], context_->readyCount[aicIndex]);
             }
@@ -560,10 +570,7 @@ private:
 
         if (context_->readyCount[aivIndex] > 0) {
             uint32_t needSendCnt = std::min(GetReadyCoreNum(CoreType::AIV), context_->readyCount[aivIndex]);
-            if (needSendCnt > 0) {
-                context_->readyCount[aivIndex] -= BatchSendTask(CoreType::AIV, &context_->readyIds[aivIndex][context_->readyCount[aivIndex] - 1],
-                    needSendCnt, aivStart_, aivEnd_, true);
-            }
+            if (needSendCnt > 0) context_->readyCount[aivIndex] -= BatchSendTask(CoreType::AIV, &context_->readyIds[aivIndex][context_->readyCount[aivIndex] - needSendCnt], needSendCnt, aivStart_, aivEnd_);
             if (context_->readyCount[aivIndex] > 0) {
                 PushReadyQue(readyAivCoreFunctionQue_, context_->readyIds[aivIndex], context_->readyCount[aivIndex]);
             }
