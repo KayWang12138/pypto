@@ -171,8 +171,8 @@ parse_arguments() {
     
     if [ -z "$TYPE" ]; then
         missing_params+=("--type")
-    elif [[ ! "$TYPE" =~ ^("deps"|"cann"|"third_party"|"all")$ ]]; then
-        log_print "error" "Invalid value for --type: $TYPE (must be 'deps' or 'cann' or third_party or 'all')"
+    elif [[ ! "$TYPE" =~ ^("deps"|"cann"|"third_party"|"all"|"only_download")$ ]]; then
+        log_print "error" "Invalid value for --type: $TYPE (must be 'deps' or 'cann' or third_party or 'all' or 'only_download')"
         return 1
     fi
     
@@ -662,8 +662,8 @@ install_downloaded_packages() {
 }
 
 install_single_package() {
-    local filename="$1"    
-
+    local filename="$1"
+    
     if [ ! -f "$filename" ]; then
         log_print "error" "File not found: $filename"
         return 1
@@ -688,10 +688,10 @@ install_single_package() {
     else
         install_cmd="$filename --full --install-path=$INSTALL_PATH "
     fi
-
+    
     log_print "info" "Running: $install_cmd"
     if eval "$install_cmd"; then
-        return 0
+                return 0
     else
         return 1
     fi
@@ -920,6 +920,11 @@ main() {
     if [[ "$TYPE" == "cann" || "$TYPE" == "all" ]]; then
         download_cann_packages
         install_cann_packages
+    fi
+
+    if [[ "$TYPE" == "only_download" ]]; then
+        download_third_party_packages
+        download_cann_packages
     fi
 }
 
