@@ -84,7 +84,8 @@ license: 完整条款见 LICENSE.txt
 
 6. **Pass 模块信息提取**
    - 模式：`\[([a-zA-Z0-9_]+\.[a-zA-Z0-9_]+)\]:`
-   - Pass模块名：`L1CopyInReuseMerge.Operation`
+   - Pass模块名：`L1CopyInReuseMerge`
+   - Element类型：`Operation`
 
 7. **消息内容提取**
     - 提取最后一个冒号后的所有内容
