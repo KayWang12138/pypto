@@ -847,6 +847,10 @@ class JitCallableWrapper:
                 captured_locals_hash = None
 
             non_tensor_hash = make_hashable(non_tensor_values) if non_tensor_values else None
+            print("================cache key===============")
+            for i in (source_code, options_hash, captured_locals_hash, non_tensor_hash):
+                print(i)
+            print("================cache key end===============")
 
             return (source_code, options_hash, captured_locals_hash, non_tensor_hash)
         except (OSError, TypeError):
