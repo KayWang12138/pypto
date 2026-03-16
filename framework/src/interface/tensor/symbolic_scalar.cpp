@@ -32,7 +32,9 @@ std::string CompileSourceCode(const std::string &sourceFilePath, const std::stri
     std::string objectFilePath = sourceFilePath + "_t.o";
     std::string LD_PRELOAD = "LD_PRELOAD= ";
     std::string includePath = GetCurrentSharedLibPath() + "/../include/tile_fwk";
+    std::string macro = extraCflag.empty() ? "-D__DEVICE__" : "";
     std::string cmdGcc = LD_PRELOAD + gcc + " -fPIC -fno-stack-protector -O2 " + extraCflag +
+        " " + macro + " " +
         " -I" + includePath + " " +
         " -I" + GetCurrentSharedLibPath() + "/include/" +
         " -I" + includePath + "/tilefwk " +
@@ -282,6 +284,52 @@ std::string SymbolicExpressionTable::BuildExpressionTempVarInit(int indent) {
         oss << std::setw(indent) << " " << exprNameTempVarInit << ";";
     }
     return oss.str();
+}
+
+bool SymbolicExpressionTable::CheckExprDependCore(const RawSymbolicScalarPtr &raw,
+    const std::unordered_map<std::string, bool> &tensorNameToDependCore,
+    std::unordered_map<RawSymbolicScalarPtr, bool> &valDependMap) {
+    switch (raw->Kind()) {
+        case SymbolicScalarKind::T_SCALAR_SYMBOLIC_IMMEDIATE:
+        case SymbolicScalarKind::T_SCALAR_SYMBOLIC_SYMBOL:
+            return false;
+        case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION: {
+            auto expr = std::dynamic_pointer_cast<RawSymbolicExpression>(raw);
+            if (expr->Opcode() == SymbolicOpcode::T_MOP_CALL) {
+                auto operandList = expr->OperandList();
+                if (operandList.size() < 2) {
+                    return false;
+                }
+                const auto &calleeExpr = operandList[0];
+                if (calleeExpr->Kind() != SymbolicScalarKind::T_SCALAR_SYMBOLIC_SYMBOL) {
+                    return false;
+                }
+                const auto iter = valDependMap.find(calleeExpr);
+                if (iter != valDependMap.end()) {
+                    return iter->second;
+                }
+                const auto &callee = std::dynamic_pointer_cast<RawSymbolicSymbol>(calleeExpr)->Name();
+                if (CallIsGetInputData(callee)) {
+                    auto argExpr = operandList[1];
+                    const std::string &argName = std::dynamic_pointer_cast<RawSymbolicSymbol>(argExpr)->Name();
+                    FUNCTION_LOGI("[RunCmd] Value depend tensor name:%s", argName.c_str());
+                    auto it = tensorNameToDependCore.find(argName);
+                    ASSERT(it != tensorNameToDependCore.end())<<"Tensor "<<argName<<" not found in tensorNameToDependCore";
+                    valDependMap[calleeExpr] = it->second;
+                    return it->second;
+                }
+            }
+            // Recursively check all operands
+            for (const auto &operand : expr->OperandList()) {
+                if (CheckExprDependCore(operand, tensorNameToDependCore, valDependMap)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        default:
+            return false;
+    }
 }
 
 void RawSymbolicScalar::FlattenOperands(const std::vector<RawSymbolicScalarPtr> &inOperandList, SymbolicOpcode objOpcode, std::vector<RawSymbolicScalarPtr> &outOperandList) {
@@ -715,5 +763,4 @@ void RawSymbolicExpression::DumpBuffer(std::ostream& buffer) const {
         buffer << ")";
     }
 }
-
 } // namespace npu::tile_fwk
