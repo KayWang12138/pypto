@@ -179,8 +179,6 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl) {
         if (isLeaderScheduler_ == false) while(curDevTask_->isTaskInitialized == false){ /* Busy wait */ };
 
         // Getting queue pointers
-        availableTaskQueue_[(int)CoreType::AIV] = (taskQueue_t*)curDevTask_->availableVectorTaskQueue;
-        availableTaskQueue_[(int)CoreType::AIC] = (taskQueue_t*)curDevTask_->availableCubeTaskQueue;
         runningPairQueue_                       = (pairQueue_t*)curDevTask_->runningPairQueue;
 
         availableCoreQueue_[(int)CoreType::AIV] = new coreQueue_t(AIV_CORE_COUNT);
@@ -472,9 +470,6 @@ private:
     }
 
     inline uint32_t GetReadyCoreNum(CoreType type) {
-        if (enableFairSch_ && IsExistOtherAicpuIdle(type))  {
-            return context_->coreRunReadyCnt_[static_cast<int>(type)];
-        }
         return context_->corePendReadyCnt_[static_cast<int>(type)];
     }
 
@@ -512,22 +507,6 @@ private:
         }
         context_->corePendReadyCnt_[static_cast<int>(type)] -= sendCnt;
 
-        uint32_t idx = context_->lastPendReadyCoreIdx_[static_cast<int>(type)];
-        uint32_t coreNum = coreIdxEnd - coreIdxStart;
-        uint32_t lastProcCore = idx;
-        while (context_->corePendReadyCnt_[static_cast<int>(type)] > 0 && sendCnt < taskCount) {
-            if (pendingIds_[idx] == AICORE_TASK_INIT) {
-                SendTaskToAiCore(type, idx, isLifo ? *newTask-- : *newTask++);
-                sendCnt++;
-                context_->corePendReadyCnt_[static_cast<int>(type)]--;
-                lastProcCore = idx;
-            }
-            idx = coreIdxStart + (idx - coreIdxStart + 1) % coreNum;
-        }
-
-        if (lastProcCore != context_->lastPendReadyCoreIdx_[static_cast<int>(type)]) {
-            context_->lastPendReadyCoreIdx_[static_cast<int>(type)] = coreIdxStart + (lastProcCore - coreIdxStart + 1) % coreNum;
-        }
         return sendCnt;
     }
 
@@ -538,13 +517,6 @@ private:
             wrapManager_.DispatchMixCoreTask();
         }
         TryBatchSendTask(type, readyQue, coreIdxStart, coreIdxEnd);
-        if (enableFairSch_) {
-            if (context_->coreRunReadyCnt_[static_cast<int>(type)] > 0)  {
-                AicpuIsIdle(type);
-            } else {
-                AicpuIsBusy(type);
-            }
-        }
     }
 
     inline void SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTask) {
@@ -565,12 +537,6 @@ private:
         for (int i = coreIdxStart; i < coreIdxEnd; i++) {
             if ((runningIds_[i] != AICORE_TASK_INIT || pendingIds_[i] != AICORE_TASK_INIT)) {
                 ResolveByRegVal(type, i);
-                if (enableFairSch_) {
-                    if (readyAicCoreFunctionQue_->tail - readyAicCoreFunctionQue_->head == 0 ||
-                        readyAivCoreFunctionQue_->tail - readyAivCoreFunctionQue_->head == 0) {
-                        BatchPushReadyQueue();
-                    }
-                }
             }
         }
 
@@ -715,10 +681,6 @@ private:
             return false;
         }
 
-        if (enableFairSch_ && IsExistOtherAicpuIdle(static_cast<CoreType>(coreType))) {
-            return false;
-        }
-
         int startIdx;
         int coreNum;
         int idx = static_cast<int>(context_->lastPendReadyCoreIdx_[coreType]);
@@ -739,8 +701,6 @@ private:
     }
 
     inline void PushReadyTask(int coreType, uint64_t taskId) {
-        if (enableL2CacheSch_ && TrySendTaskDirectly(coreType, taskId))  return;
-
         if (unlikely(context_->readyCount[coreType] == READY_ID_FIX_CACHE_NUM)) {
             ReadyCoreFunctionQueue* readyQue =
                 coreType == static_cast<int>(CoreType::AIC) ?  readyAicCoreFunctionQue_ : readyAivCoreFunctionQue_;
@@ -923,15 +883,6 @@ private:
         isLeaderScheduler_ = leadSchedulerId->compare_exchange_strong(expectedValue, (uint32_t)aicpuIdx_);
 
         wrapManager_.InitDeviceInfo(deviceArgs);
-
-        if (deviceArgs->machineConfig != static_cast<uint8_t>(MachineScheduleConfig::DEFAULT_SCH)) {
-            if (aicpuNum_ > 1) {
-                enableFairSch_ = static_cast<uint8_t>(deviceArgs->machineConfig) &
-                    static_cast<uint8_t>(MachineScheduleConfig::MULTI_CORE_FAIR_SCH);
-            }
-            enableL2CacheSch_ = static_cast<uint8_t>(deviceArgs->machineConfig) &
-                static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH);
-        }
         UpdateAiCoreBlockIndexSection();
         aicoreHal_.MapRegistersForAllCores(aicNum_);
         preFetchSuccess_ = false;
@@ -1135,8 +1086,6 @@ private:
     uint64_t procAicCoreFunctionCnt_{0};
     uint64_t procAivCoreFunctionCnt_{0};
     uint64_t procAicpuFunctionCnt_{0};
-    bool enableL2CacheSch_{false};
-    bool enableFairSch_{false};
     bool validGetPgMask_{true};
 
     DeviceTask* curDevTask_{nullptr};
@@ -1173,7 +1122,6 @@ private:
     friend class AiCoreProf;
 
     // Queues for managing tasks, cores and their pairing
-    pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>* availableTaskQueue_[AICORE_TYPE_NUM];
     pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>* availableCoreQueue_[AICORE_TYPE_NUM];
     pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>* runningPairQueue_; 
 
