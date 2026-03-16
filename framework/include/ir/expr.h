@@ -22,7 +22,7 @@
 
 #include "core/any_cast.h"
 #include "core/dtype.h"
-#include "core/error.h"
+#include "core/logging.h"
 #include "ir/core.h"
 #include "ir/memref.h"
 #include "ir/pipe.h"
@@ -120,9 +120,7 @@ public:
      */
     [[nodiscard]] std::type_index GetAttrType(const std::string &key) const {
         auto it = attrs_.find(key);
-        if (it == attrs_.end()) {
-            throw ValueError("Attribute '" + key + "' not found in operator '" + name_ + "'");
-        }
+        CHECK(it != attrs_.end()) << "Attribute '" << key << "' not found in operator '" << name_ << "'";
         return it->second;
     }
 
