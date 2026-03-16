@@ -4,9 +4,15 @@ description: PyPTO Pass 模块问题定位技能。用于解析 PyPTO 运行日�
 tag: [PyPTO, Pass分析, 错误诊断, 日志解析]
 ---
 
-# PyPTO Pass 模块问题定位技能
+# PyPTO Pass Error locator Skill
+
+## 概述
 
 本技能提供 PyPTO Pass 模块错误的完整分析能力，包括日志解析、错误识别、原因分析和修复建议。
+
+## 使用场景
+
+当需要根据执行异常日志，分析定位某pass异常原因以及如何修复该问题时使用此技能。
 
 ## 功能概述
 
@@ -17,52 +23,26 @@ tag: [PyPTO, Pass分析, 错误诊断, 日志解析]
 - 生成详细的错误分析报告
 - 提供问题修复策略建议
 
-## 使用场景
+## 触发机制
 
-本技能适用于以下场景：
-- 某个用例执行失败，执行到某pass时抛出异常，定位异常原因
+当用户输入包含以下关键字时，自动触发此技能：
+
+- **执行xx用例异常，分析某pass失败原因**：根据用例执行日志信息，分析在指定pass执行失败的错误原因
+- **根据xx日志信息，分析某pass失败原因**：根据用户提供的错误日志信息，分析在指定pass执行失败的错误原因
 
 ## 工作流程
 
-### 步骤 1：日志文件定位与解析
+### 步骤 1：获取日志
 
-**日志目录配置**：
+1. 如果用户提供了具体的错误信息，直接使用用户提供的日志内容
+2. 如果用户提供了具体的错误日志路径，从用户指定的错误文件中获取日志内容
+3. 如果用户提供了具体的错误日志目录，从用户指定的日志目录下查找日志文件并获取日志内容
+4. 如果用户没提供具体错误信息或日志路径，从如下位置获取日志文件
+    - `$HOME/ascend/log/` 目录（默认）
+    - `$ASCEND_PROCESS_LOG_PATH/` 目录（如果设置）
+    - `$ASCEND_WORK_PATH/` 目录（如果设置且未设置 ASCEND_PROCESS_LOG_PATH）
 
-PyPTO 日志目录的确定规则（按优先级从高到低）：
-1. **ASCEND_PROCESS_LOG_PATH** 环境变量（最高优先级）
-2. **ASCEND_WORK_PATH** 环境变量
-3. **$HOME/ascend/log**（默认目录）
-
-**日志级别配置**：
-
-通过 **ASCEND_GLOBAL_LOG_LEVEL** 环境变量设置：
-- `0`: DEBUG 级别（最详细）
-- `1`: INFO 级别
-- `2`: WARNING 级别
-- `3`: ERROR 级别（仅错误）
-
-**查找日志文件**：
-```bash
-# 获取日志目录
-if [ -n "$ASCEND_PROCESS_LOG_PATH" ]; then
-    LOG_DIR="$ASCEND_PROCESS_LOG_PATH"
-elif [ -n "$ASCEND_WORK_PATH" ]; then
-    LOG_DIR="$ASCEND_WORK_PATH"
-else
-    LOG_DIR="$HOME/ascend/log"
-fi
-
-# 查找日志文件
-find $LOG_DIR -name "*.log" -type f
-find $LOG_DIR -name "pypto_*.log" -type f
-```
-
-**常见日志位置**：
-- `$HOME/ascend/log/` 目录（默认）
-- `$ASCEND_PROCESS_LOG_PATH/` 目录（如果设置）
-- `$ASCEND_WORK_PATH/` 目录（如果设置且未设置 ASCEND_PROCESS_LOG_PATH）
-
-**日志解析规则**：
+### 步骤 1：解析日志
 
 **日志格式示例**：
 ```
@@ -115,7 +95,7 @@ find $LOG_DIR -name "pypto_*.log" -type f
     - 识别 `Traceback (most recent call last):` 开始的堆栈
     - 提取每个堆栈帧的文件、行号、函数名
 
-### 步骤 2：Pass 模块识别
+### 步骤 3：Pass 模块识别
 
 **识别策略**：
 
@@ -133,7 +113,7 @@ find $LOG_DIR -name "pypto_*.log" -type f
    - 常量折叠 → ConstantFolding
    - 内存分配 → MemoryPlanning
 
-### 步骤 3：错误原因分析
+### 步骤 4：错误原因分析
 
 **分析维度**：
 
@@ -161,7 +141,7 @@ find $LOG_DIR -name "pypto_*.log" -type f
    - 类型转换错误
    - 内存访问越界
 
-### 步骤 4：Pass 模块知识库
+### 步骤 5：Pass 模块知识库
 
 **常见 Pass 模块及错误模式**：
 
@@ -176,7 +156,7 @@ find $LOG_DIR -name "pypto_*.log" -type f
 | **FuseOps** | 算子融合 | Fusion failed, Pattern not matched | 融合模式不匹配、算子属性冲突 |
 | **LayoutTransform** | 布局转换 | Layout mismatch, Transform failed | 布局不兼容、转换规则缺失 |
 
-### 步骤 5：错误严重程度评估
+### 步骤 6：错误严重程度评估
 
 **评估标准**：
 
@@ -185,7 +165,7 @@ find $LOG_DIR -name "pypto_*.log" -type f
 - **MEDIUM**: 影响性能、功能受限
 - **LOW**: 警告信息、可忽略
 
-### 步骤 6：生成分析报告
+### 步骤 7：生成分析报告
 
 **报告格式**（Markdown）：
 
