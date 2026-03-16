@@ -31,6 +31,10 @@
 #define __FILE_NAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #endif
 
+#ifndef ERROR_CODE_UNDEFINED
+#define ERROR_CODE_UNDEFINED 00000U
+#endif
+
 namespace npu::tile_fwk {
 enum class LogModule {
     FUNCTION = 0,
@@ -127,10 +131,19 @@ private:
         }                                                                                                                                    \
     } while (0)
 
+#define PYPTO_HOST_LOGE_WITH_CODE(module, errCode, fmt, ...) \
+    PYPTO_HOST_LOG(DLOG_ERROR, module, "ErrCode: F%u! " fmt, static_cast<uint32_t>(errCode), ##__VA_ARGS__)
+
+#define PYPTO_HOST_LOGE_OVERLOAD_SELECT(_1, _2, _3, NAME, ...) NAME
+#define PYPTO_HOST_LOGE_WITHOUT_ERR_CODE(module, fmt, ...)          PYPTO_HOST_LOGE_WITH_CODE(module, ERROR_CODE_UNDEFINED, fmt, ...)
+#define PYPTO_HOST_LOGE_WITH_ERR_CODE(module, errCode, fmt, ...)    PYPTO_HOST_LOGE_WITH_CODE(module, errCode, fmt, ...)
+#define PYPTO_HOST_LOGE(...)
+    PYPTO_HOST_LOGE_OVERLOAD_SELECT(__VA_ARGS__, PYPTO_HOST_LOGE_WITH_ERR_CODE, PYPTO_HOST_LOGE_WITHOUT_ERR_CODE)(__VA_ARGS__)
+    
 #define FUNCTION_LOGD(...) PYPTO_HOST_LOG(DLOG_DEBUG, FUNCTION, __VA_ARGS__)
 #define FUNCTION_LOGI(...) PYPTO_HOST_LOG(DLOG_INFO, FUNCTION, __VA_ARGS__)
 #define FUNCTION_LOGW(...) PYPTO_HOST_LOG(DLOG_WARN, FUNCTION, __VA_ARGS__)
-#define FUNCTION_LOGE(...) PYPTO_HOST_LOG(DLOG_ERROR, FUNCTION, __VA_ARGS__)
+#define FUNCTION_LOGE(...) PYPTO_HOST_LOGE(FUNCTION, __VA_ARGS__)
 #define FUNCTION_EVENT(...) PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, FUNCTION, __VA_ARGS__)
 #define FUNCTION_LOGD_FULL(...) PYPTO_HOST_SPLIT_LOG(DLOG_DEBUG, FUNCTION, __VA_ARGS__)
 
@@ -152,7 +165,7 @@ private:
 #define MACHINE_LOGD(...) PYPTO_HOST_LOG(DLOG_DEBUG, MACHINE, __VA_ARGS__)
 #define MACHINE_LOGI(...) PYPTO_HOST_LOG(DLOG_INFO, MACHINE, __VA_ARGS__)
 #define MACHINE_LOGW(...) PYPTO_HOST_LOG(DLOG_WARN, MACHINE, __VA_ARGS__)
-#define MACHINE_LOGE(...) PYPTO_HOST_LOG(DLOG_ERROR, MACHINE, __VA_ARGS__)
+#define MACHINE_LOGE(...) PYPTO_HOST_LOGE(MACHINE, __VA_ARGS__)
 #define MACHINE_EVENT(...) PYPTO_HOST_LOG_WITHOUT_LEVEL_CHECK(DLOG_INFO, MACHINE, __VA_ARGS__)
 #define MACHINE_LOGD_FULL(...) PYPTO_HOST_SPLIT_LOG(DLOG_DEBUG, MACHINE, __VA_ARGS__)
 
