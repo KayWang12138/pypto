@@ -87,17 +87,12 @@ public:
     AiCoreManager() = default;
     virtual ~AiCoreManager() = default;
 
-    void InitLogger(AicoreLogger *logger) {
-        logger_ = logger;
-    }
-
     void SendDevTaskModel(DeviceTask *devTask) {
         int64_t funcdata;
         auto dyntask = (DynDeviceTask *)devTask;
         funcdata = static_cast<int64_t>(PtrToValue(dyntask->GetDynFuncDataList()));
         ForEachManageAicore([&](int coreIdx) {
-            auto logbuf = logger_ ? logger_[coreIdx].GetBuffer() : nullptr;
-            aicoreHal_.InitTaskData(coreIdx, funcdata, (uint64_t)logbuf);
+            aicoreHal_.InitTaskData(coreIdx, funcdata, (uint64_t)nullptr);
         });
     }
     inline void SetSchduleContext(SchduleContext * context) {
@@ -130,7 +125,6 @@ public:
 inline void InitDevTask(DeviceTaskCtrl *taskCtrl) {
         curTaskCtrl_ = taskCtrl;
         curDevTask_ = taskCtrl->devTask;
-        curTaskType_ = taskCtrl->taskType;
         curTaskId_ = taskCtrl->taskId;
 
         if (!preFetchSuccess_) {
@@ -229,8 +223,6 @@ inline void InitDevTask(DeviceTaskCtrl *taskCtrl) {
     }
 
     inline void ProcessTask(DeviceTaskCtrl *taskCtrl) {
-        seq = taskCtrl->taskId;
-
         uint64_t curSent = 0UL;
         if (!taskCtrl->isFirstDevTask) {
             RunCoreTask(curSent);
@@ -351,8 +343,7 @@ private:
         int64_t funcdata;
         auto dyntask = reinterpret_cast<DynDeviceTask *>(preFetchNextDevTaskCtrl_->devTask);
         funcdata = static_cast<int64_t>(PtrToValue(dyntask->GetDynFuncDataList()));
-        auto logbuf = logger_ ? logger_[coreIdx].GetBuffer() : nullptr;
-        aicoreHal_.InitTaskData(coreIdx, funcdata, (uint64_t)logbuf);
+        aicoreHal_.InitTaskData(coreIdx, funcdata, (uint64_t)nullptr);
         return;
     }
 
@@ -368,8 +359,7 @@ private:
             coreStatus[coreIdx] = AicoreStatus::CORE_FINISH_STOP;
             finishStopNum++;
         } else {
-            uint64_t stopFlag =
-                (static_cast<uint64_t>(curTaskId_) << REG_HIGH_DTASKID_SHIFT) | (AICORE_FUNC_STOP + 1);
+            uint64_t stopFlag = (static_cast<uint64_t>(curTaskId_) << REG_HIGH_DTASKID_SHIFT) | (AICORE_FUNC_STOP + 1);
             aicoreHal_.SetReadyQueue(coreIdx, stopFlag);
             coreStatus[coreIdx] = AicoreStatus::CORE_SEND_STOP;
         }
@@ -714,29 +704,6 @@ private:
         context_->waitTaskCnt_[static_cast<int>(type)]--;
     }
 
-    inline bool IsExistOtherAicpuIdle(CoreType type) {
-        int idx = (schedIdx_ + 1) % aicpuNum_;
-        while (idx != schedIdx_) {
-            if (curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][idx].load(std::memory_order_relaxed) == true){
-                return true;
-            }
-            idx = (idx + 1) % aicpuNum_;
-        }
-        return false;
-    }
-
-    inline void AicpuIsBusy(CoreType type) {
-        if (curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][schedIdx_] != false) {
-            curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][schedIdx_].store(false, std::memory_order_relaxed);
-        }
-    }
-
-    inline void AicpuIsIdle(CoreType type) {
-        if (curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][schedIdx_] != true) {
-            curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][schedIdx_].store(true, std::memory_order_relaxed);
-        }
-    }
-
     inline void Init(int threadIdx, DeviceArgs *deviceArgs, int schedIdx) {
         aicNum_ = static_cast<int32_t>(deviceArgs->nrAic);
         aivNum_ = static_cast<int32_t>(deviceArgs->nrAiv);
@@ -750,7 +717,6 @@ private:
         pendingIds_.fill(AICORE_STATUS_INIT);
         runningResolveIndexList_.fill(0);
         pendingResolveIndexList_.fill(0);
-        taskDfxStatPos_.fill(REG_LOW_TASK_PING);
         isSendStop = false;
 
         // Getting variable controlling who is the scheduler lead. The first to arrive here should take the lead so that this starts as fast as possible
@@ -905,27 +871,9 @@ private:
         }
     }
 
-    inline void ForEachManageAicoreReverse(std::function<void(int coreIdx)> func) const {
-        for (int i = aicEnd_ - 1; i >= aicStart_; --i) {
-            func(i);
-        }
-        for (int i = aivEnd_ -1; i >= aivStart_ ; --i) {
-            func(i);
-        }
-    }
-
     inline void AbnormalStop() {
         ResetRegAll();
         CheckAndResetReg();
-    }
-
-    inline void NormalStop() {
-        ForEachManageAicore([this](auto coreIdx) { aicoreHal_.SetReadyQueue(coreIdx, AICORE_TASK_STOP + 1) ; });
-        /* write to MAINBASE reg must be done before close 0x18 */
-        __sync_synchronize();
-        ForEachManageAicore([this](auto coreIdx) {
-            aicoreHal_.ResetShakeBuf(coreIdx);
-        });
     }
 
     inline void NormalStopSingleCore(int coreIdx) {
@@ -939,7 +887,6 @@ private:
     inline CoreType AicoreType(int coreIdx) const { return coreIdx < aicEnd_ ? CoreType::AIC : CoreType::AIV; }
 
 private:
-    uint64_t seq;
     AicoreHAL aicoreHal_;
     int aicNum_{0};
     int aivNum_{0};
@@ -951,14 +898,10 @@ private:
     int aicEnd_{0};
     int aivStart_{0};
     int aivEnd_{0};
-    uint64_t procAicCoreFunctionCnt_{0};
-    uint64_t procAivCoreFunctionCnt_{0};
-    uint64_t procAicpuFunctionCnt_{0};
     bool validGetPgMask_{true};
 
     DeviceTask* curDevTask_{nullptr};
     DeviceTaskCtrl* curTaskCtrl_{nullptr};
-    int curTaskType_{0};
     int curTaskId_{0};
 
     std::array<uint32_t, MAX_AICORE_NUM> runningIds_;
@@ -976,17 +919,10 @@ private:
     bool preFetchSuccess_{false};
     DeviceTaskCtrl* preFetchNextDevTaskCtrl_{nullptr};
 
-    std::array<int, MAX_AICORE_NUM> taskDfxStatPos_;
-
     SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *taskQueue_{nullptr};
     int64_t dotStatus_{0};
     bool isSendStop{false};
 
-    std::vector<TaskInfo> sendTask_[MAX_AICORE_NUM];
-    std::vector<TaskInfo> recvFinTask_[MAX_AICORE_NUM];
-    std::vector<TaskInfo> recvAckTask_[MAX_AICORE_NUM];
-
-    AicoreLogger *logger_{nullptr};
     friend class AiCoreProf;
 
     // Queues for managing tasks, cores and their pairing
