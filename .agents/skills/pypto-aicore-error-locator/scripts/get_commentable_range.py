@@ -3,6 +3,7 @@
 
 import os
 import sys
+import logging
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import (
@@ -15,7 +16,7 @@ from common import (
 
 setup_logging()
 
-logger = __import__('logging').getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def get_commentable_range(cce_file):
@@ -68,8 +69,8 @@ def main():
     left, right = get_commentable_range(cce_file)
     
     if left is not None:
-        print(f"LEFT {left}")
-        print(f"RIGHT {right}")
+        logger.info(f"LEFT {left}")
+        logger.info(f"RIGHT {right}")
 
 
 if __name__ == "__main__":

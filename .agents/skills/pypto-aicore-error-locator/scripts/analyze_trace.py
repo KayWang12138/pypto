@@ -247,7 +247,7 @@ def main():
     
     logger.info("=" * 80)
     for cce_file in problem_cce_files:
-        print(cce_file)
+        logger.info(cce_file)
 
 
 if __name__ == "__main__":

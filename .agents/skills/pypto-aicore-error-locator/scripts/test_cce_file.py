@@ -4,6 +4,7 @@
 import os
 import sys
 import shutil
+import logging
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import (
@@ -21,7 +22,7 @@ from common import (
 
 setup_logging()
 
-logger = __import__('logging').getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def test_cce_file(cce_file, test_cmd, run_dir):
@@ -99,7 +100,7 @@ def main():
     
     if is_problem_file:
         logger.info("\n此文件可能是问题文件")
-        print(cce_file)
+        logger.info(cce_file)
     else:
         logger.info("\n此文件不是问题文件")
 

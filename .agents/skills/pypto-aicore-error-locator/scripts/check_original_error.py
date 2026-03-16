@@ -3,6 +3,7 @@
 
 import os
 import sys
+import logging
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import (
@@ -15,7 +16,7 @@ from common import (
 
 setup_logging()
 
-logger = __import__('logging').getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def check_original_error(cce_file, test_cmd, run_dir):
@@ -71,9 +72,9 @@ def main():
     result = check_original_error(cce_file, test_cmd, run_dir)
     
     if result:
-        print("HAS_ERROR")
+        logger.info("HAS_ERROR")
     else:
-        print("NO_ERROR")
+        logger.info("NO_ERROR")
 
 
 if __name__ == "__main__":

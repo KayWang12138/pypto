@@ -4,6 +4,7 @@
 import os
 import sys
 import shutil
+import logging
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import (
@@ -21,7 +22,7 @@ from common import (
 
 setup_logging()
 
-logger = __import__('logging').getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def check_all_commented_error(cce_file, test_cmd, run_dir):
@@ -102,11 +103,11 @@ def main():
     result = check_all_commented_error(cce_file, test_cmd, run_dir)
     
     if result is True:
-        print("NO_ERROR_AFTER_COMMENT")
+        logger.info("NO_ERROR_AFTER_COMMENT")
     elif result is False:
-        print("HAS_ERROR_AFTER_COMMENT")
+        logger.info("HAS_ERROR_AFTER_COMMENT")
     else:
-        print("NO_COMMENTABLE_LINES")
+        logger.info("NO_COMMENTABLE_LINES")
 
 
 if __name__ == "__main__":

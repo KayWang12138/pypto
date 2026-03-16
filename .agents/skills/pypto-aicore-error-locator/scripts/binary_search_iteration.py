@@ -47,12 +47,12 @@ def binary_search_iteration(cce_file, test_cmd, run_dir, left, right):
     mid = (left + right) // 2
     logger.info("mid = (left + right) // 2 = (%d + %d) // 2 = %d", left, right, mid)
     logger.info("取消注释范围 [0, %d] 的行", mid)
-    logger.info(commentable_lines[0:mid+1])
+    logger.info(commentable_lines[0:mid + 1])
     
     current_lines = cce_lines.copy()
     current_lines = comment_lines(current_lines, commentable_lines)
     
-    lines_to_uncomment = commentable_lines[0:mid+1]
+    lines_to_uncomment = commentable_lines[0:mid + 1]
     current_lines = uncomment_lines(current_lines, lines_to_uncomment)
     
     write_file(cce_file, current_lines)
@@ -127,10 +127,10 @@ def main():
     new_left, new_right, problem_line = binary_search_iteration(cce_file, test_cmd, run_dir, left, right)
     
     if new_left is not None:
-        print(f"NEXT_LEFT {new_left}")
-        print(f"NEXT_RIGHT {new_right}")
+        logger.info(f"NEXT_LEFT {new_left}")
+        logger.info(f"NEXT_RIGHT {new_right}")
         if problem_line is not None:
-            print(f"FOUND {problem_line}")
+            logger.info(f"FOUND {problem_line}")
 
 
 if __name__ == "__main__":
