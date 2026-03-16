@@ -38,7 +38,6 @@ option(ENABLE_COMPILE_DEPENDENCY_CHECK "Enable compile dependency relation check
 # 公开编译开关(Feature 特性级开关)
 option(ENABLE_FEATURE_PYTHON_FRONT_END "Enable Python Front-end" ON)
 option(ENABLE_FEATURE_INSTALL_EXPERIMENT "Enable experiment header or binary file install" OFF)
-option(ENABLE_TORCH_VERIFIER "Flow verify with libtorch" OFF)
 
 # 公开编译开关(tests)
 option(ENABLE_TESTS_EXECUTE "Enable auto execute tests executable" OFF)
@@ -88,9 +87,9 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
     # 安装 二进制文件
     set(InstallExport ${PROJECT_NAME}Targets)
     set(InstallTargets
-            tile_fwk_cann_host_runtime
-            tile_fwk_simulation_platform
             tile_fwk_utils
+            tile_fwk_cann_host_runtime
+            tile_fwk_platform
             tile_fwk_interface
             tile_fwk_codegen
             tile_fwk_compiler
@@ -110,9 +109,6 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
             DESTINATION "${PyPTO_WhlName}/lib"
             PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
     )
-    if (ENABLE_TORCH_VERIFIER)
-        list(APPEND InstallTargets tile_fwk_calculator)
-    endif()
     PTO_Fwk_InstallBinaries(
             EXPORT      ${InstallExport}
             WHL_NAME    ${PyPTO_WhlName}
@@ -125,7 +121,8 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
                 framework/src/interface/configs/tile_fwk_config.json
                 framework/src/interface/configs/tile_fwk_types.json
                 framework/src/interface/configs/tile_fwk_config_schema.json
-                framework/src/cost_model/simulation_platform/platform_config/A2A3.ini
+                framework/src/platform/parser/platforminfo.ini
+                framework/src/platform/parser/simulation_platform/platform_config/A2A3.ini
             DESTINATION ${PyPTO_WhlName}/lib/configs
     )
 

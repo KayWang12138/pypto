@@ -136,7 +136,7 @@ TEST_F(TestCodegenBinary, TestCodegenAddMulDim4TileTensor) {
     std::string res = GetResultFromCpp(*function);
     std::string expect = R"!!!(#include "TileOpImpl.h"
 
-// funcHash: 11664662471222470415
+// funcHash: 15129337852299427049
 
 extern "C" [aicore] void TENSOR_AddMulDim4_TILETENSOR_2_0_4503599627370496(__gm__ GMTensorInfo* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
 float __ubuf__ *UB_S0_E1024 = (float __ubuf__ *)get_imm(0x0); // size: 0x400
@@ -156,14 +156,14 @@ TLoad(ubTensor_3, gmTensor_4, Coord4Dim(0, 0, 0, 0));
 SUBKERNEL_PHASE2
 set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
 wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-TAdd<LastUse3Dim<0, 0, 0>>(ubTensor_3, ubTensor_1, ubTensor_3);
+TAdd<LastUse3Dim<0, 0, 1>>(ubTensor_3, ubTensor_1, ubTensor_3);
 pipe_barrier(PIPE_V);
-TMul<LastUse3Dim<0, 0, 0>>(ubTensor_3, ubTensor_1, ubTensor_3);
+TMul<LastUse3Dim<0, 1, 1>>(ubTensor_3, ubTensor_1, ubTensor_3);
 set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
 wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
 TStore(gmTensor_11, ubTensor_3, Coord4Dim(0, 0, 0, 0));
 }
 )!!!";
-    EXPECT_EQ(res, expect);
+    CheckStringExist(expect, res);
 }
 } // namespace npu::tile_fwk

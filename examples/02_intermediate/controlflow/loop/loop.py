@@ -35,9 +35,7 @@ def get_device_id():
         int: The device ID if valid, None otherwise.
     """
     if 'TILE_FWK_DEVICE_ID' not in os.environ:
-        print("If no NPU environment is available, set --run_mode sim to run in simulation mode;")
-        print("otherwise, set the environment variable TILE_FWK_DEVICE_ID.")
-        print("Please set it before running this example:")
+        print("Please set the environment variable TILE_FWK_DEVICE_ID before running:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
 
@@ -60,41 +58,26 @@ def _get_mode(run_mode: str):
 # ============================================================================
 # 1. Basic Loop Usage
 # ============================================================================
+@pypto.frontend.jit
+def loop_basic_kernel(
+        t0: pypto.Tensor(),
+        t1: pypto.Tensor(),
+        out0: pypto.Tensor(),
+        out1: pypto.Tensor(),
+        s: int,
+        n: int,
+    ):
+    pypto.set_vec_tile_shapes(64, 64)
+    for bs_idx in pypto.loop(0, n, 1):  # start, stop, step
+        t0s = t0[bs_idx * s: (bs_idx + 1) * s, :]
+        t1s = t1[bs_idx * s: (bs_idx + 1) * s, :]
+        out0[bs_idx * s: (bs_idx + 1) * s, :] = pypto.add(t0s, t1s)
+    new_step = 2
+    for bs_idx in pypto.loop(0, n, new_step):  # start, stop, step
+        t0s = t0[bs_idx * s: (bs_idx + new_step) * s, :]
+        t1s = t1[bs_idx * s: (bs_idx + new_step) * s, :]
+        out1[bs_idx * s: (bs_idx + new_step) * s, :] = pypto.add(t0s, t1s)
 
-def loop_basic(run_mode: str = "npu", dynamic: bool = True):
-    if dynamic:
-        n = pypto.frontend.dynamic("n")
-    else:
-        n = 8
-
-    s = 64
-    shape = (n * s, s)
-    dtype = pypto.DT_FP16
-    mode = _get_mode(run_mode)
-
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def loop_basic_kernel(
-            t0: pypto.Tensor(shape, dtype),
-            t1: pypto.Tensor(shape, dtype),
-        ) -> (
-            pypto.Tensor(shape, dtype),
-            pypto.Tensor(shape, dtype),
-        ):
-        out0 = pypto.tensor(shape, dtype)
-        out1 = pypto.tensor(shape, dtype)
-        pypto.set_vec_tile_shapes(64, 64)
-        for bs_idx in pypto.loop(0, n, 1):  # start, stop, step
-            t0s = t0[bs_idx * s: (bs_idx + 1) * s, :]
-            t1s = t1[bs_idx * s: (bs_idx + 1) * s, :]
-            out0[bs_idx * s: (bs_idx + 1) * s, :] = pypto.add(t0s, t1s)
-        new_step = 2
-        for bs_idx in pypto.loop(0, n, new_step):  # start, stop, step
-            t0s = t0[bs_idx * s: (bs_idx + new_step) * s, :]
-            t1s = t1[bs_idx * s: (bs_idx + new_step) * s, :]
-            out1[bs_idx * s: (bs_idx + new_step) * s, :] = pypto.add(t0s, t1s)
-        return out0, out1
-
-    return loop_basic_kernel
 
 
 def test_loop_basic(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
@@ -109,7 +92,9 @@ def test_loop_basic(device_id: int = None, run_mode: str = "npu", dynamic: bool 
     shape = (n * s, s)
     input_t1 = torch.randn(shape, dtype=torch.float16, device=device)
     input_t2 = torch.randn(shape, dtype=torch.float16, device=device)
-    output1, output2 = loop_basic(run_mode, dynamic)(input_t1, input_t2)
+    output1 = torch.empty(shape, dtype=torch.float16, device=device)
+    output2 = torch.empty(shape, dtype=torch.float16, device=device)    
+    loop_basic_kernel(input_t1, input_t2, output1, output2, s, n)
 
     expected = input_t1 + input_t2
     if run_mode == "npu":
@@ -127,58 +112,46 @@ def test_loop_basic(device_id: int = None, run_mode: str = "npu", dynamic: bool 
 # 2. Loop Compile Phase Print
 # ============================================================================
 
-def loop_compile_phase_print(shape: tuple, run_mode: str = "npu", dynamic: bool = False):
-    if dynamic:
-        m = pypto.frontend.dynamic("m")
-        _, n = shape
-    else:
-        m, n = shape
-
-    mode = _get_mode(run_mode)
-
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def loop_compile_phase_print_kernel(
-        in_t0: pypto.Tensor((m, n), pypto.DT_FP16),
-        in_t1: pypto.Tensor((m, n), pypto.DT_FP16),
-    ) -> (
-        pypto.Tensor(shape, pypto.DT_FP16),
-        pypto.Tensor(shape, pypto.DT_FP16),
-    ):
-        pypto.set_vec_tile_shapes(64, 64)
-        note = '''
-        Below are demonstrations of print usage within loops.
-        It executes only during compilation, cannot truly print variable values,
-        and the number of prints is related to the number of subgraphs generated.
-        '''
-        separator = "*" * 60
-        print(note)
-        print(separator)
-        cnt_inside_cond = 0
-        cnt_outside_cond = 0
-        for outside_idx in pypto.loop(5):
-            print(f"outside_idx: {outside_idx}")
-            for inside_idx in pypto.loop(3):
-                print(f"inside_idx: {outside_idx}")
+@pypto.frontend.jit
+def loop_compile_phase_print_kernel(
+    in_t0: pypto.Tensor(),
+    in_t1: pypto.Tensor(),
+    out_t0: pypto.Tensor(),
+    out_t1: pypto.Tensor(),
+):
+    pypto.set_vec_tile_shapes(64, 64)
+    note = '''
+    Below are demonstrations of print usage within loops.
+    It executes only during compilation, cannot truly print variable values,
+    and the number of prints is related to the number of subgraphs generated.
+    '''
+    separator = "*" * 60
+    print(note)
+    print(separator)
+    cnt_inside_cond = 0
+    cnt_outside_cond = 0
+    for outside_idx in pypto.loop(5):
+        print(f"outside_idx: {outside_idx}")
+        for inside_idx in pypto.loop(3):
+            print(f"inside_idx: {outside_idx}")
+            res = pypto.add(in_t0, in_t0)
+            print(f"res: {res}")
+            if outside_idx < 3:
+                print(f"(outside_idx < 3)_count: {cnt_outside_cond}")
+                cnt_outside_cond = cnt_outside_cond + 1
                 res = pypto.add(in_t0, in_t0)
-                print(f"res: {res}")
-                if outside_idx < 3:
-                    print(f"(outside_idx < 3)_count: {cnt_outside_cond}")
-                    cnt_outside_cond = cnt_outside_cond + 1
-                    res = pypto.add(in_t0, in_t0)
-                else:
-                    res = pypto.sub(in_t0, in_t0)
-                if inside_idx < 2:
-                    print(f"(inside_idx < 2)_count: {cnt_inside_cond}")
-                    cnt_inside_cond = cnt_inside_cond + 1
-                    res = pypto.div(in_t0, in_t0)
-                else:
-                    res = pypto.add(in_t1, in_t1)
-                out_t0 = pypto.add(in_t0, in_t0)
-                out_t1 = pypto.add(in_t1, in_t1)
-        print(separator)
-        return out_t0, out_t1
+            else:
+                res = pypto.sub(in_t0, in_t0)
+            if inside_idx < 2:
+                print(f"(inside_idx < 2)_count: {cnt_inside_cond}")
+                cnt_inside_cond = cnt_inside_cond + 1
+                res = pypto.div(in_t0, in_t0)
+            else:
+                res = pypto.add(in_t1, in_t1)
+            out_t0.move(pypto.add(in_t0, in_t0))
+            out_t1.move(pypto.add(in_t1, in_t1))
+    print(separator)
 
-    return loop_compile_phase_print_kernel
 
 
 def test_loop_compile_phase_print(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
@@ -193,7 +166,9 @@ def test_loop_compile_phase_print(device_id: int = None, run_mode: str = "npu", 
     shape = (m, n)
     input_t1 = torch.randn(shape, dtype=torch.float16, device=device)
     input_t2 = torch.randn(shape, dtype=torch.float16, device=device)
-    output_t1, output_t2 = loop_compile_phase_print(shape, run_mode, dynamic)(input_t1, input_t2)
+    output_t1 = torch.empty(shape, dtype=torch.float16, device=device)
+    output_t2 = torch.empty(shape, dtype=torch.float16, device=device)
+    loop_compile_phase_print_kernel(input_t1, input_t2, output_t1, output_t2)
     expected_t1 = input_t1 + input_t1
     expected_t2 = input_t2 + input_t2
     if run_mode == "npu":
@@ -210,40 +185,28 @@ def test_loop_compile_phase_print(device_id: int = None, run_mode: str = "npu", 
 # ============================================================================
 # 3. Loop with Scalar Addition (add_scalar_loop)
 # ============================================================================
+@pypto.frontend.jit
+def add_kernel(
+    input0: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
+    input1: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
+    output: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
+    val: int,
+):
+    pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
-def add_scalar_loop(shape: tuple, val: int, run_mode: str = "npu", dynamic: bool = True):
-    if dynamic:
-        w = pypto.frontend.dynamic("w")
-        _, h, c, n = shape
-    else:
-        w, h, c, n = shape
+    b = input0.shape[0]
+    tile_b = 1
+    b_loop = b // tile_b
 
-    shape = (w, h, c, n)
-    mode = _get_mode(run_mode)
+    for idx in pypto.loop(b_loop):
+        b_offset = idx * tile_b
+        b_offset_end = (idx + 1) * tile_b
+        t0_sub = input0[b_offset:b_offset_end, ...]
+        t1_sub = input1[b_offset:b_offset_end, ...]
+        t3_sub = t0_sub + t1_sub
+        t3_sub = t3_sub + val
+        pypto.assemble(t3_sub, [b_offset, 0, 0, 0], output)
 
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def add_kernel(
-        input0: pypto.Tensor(shape, pypto.DT_FP32),
-        input1: pypto.Tensor(shape, pypto.DT_FP32),
-    ) -> pypto.Tensor(shape, pypto.DT_FP32):
-        pypto.set_vec_tile_shapes(1, 4, 1, 64)
-
-        b = w
-        tile_b = 1
-        b_loop = b // tile_b
-
-        output = pypto.tensor(shape, pypto.DT_FP32)
-        for idx in pypto.loop(b_loop):
-            b_offset = idx * tile_b
-            b_offset_end = (idx + 1) * tile_b
-            t0_sub = input0[b_offset:b_offset_end, ...]
-            t1_sub = input1[b_offset:b_offset_end, ...]
-            t3_sub = t0_sub + t1_sub
-            t3_sub = t3_sub + val
-            pypto.assemble(t3_sub, [b_offset, 0, 0, 0], output)
-        return output
-
-    return add_kernel
 
 
 def test_add_scalar_loop(device_id=None, run_mode: str = "npu", dynamic: bool = True) -> None:
@@ -258,8 +221,8 @@ def test_add_scalar_loop(device_id=None, run_mode: str = "npu", dynamic: bool = 
     val = 1
     x = torch.rand(shape, dtype=torch.float32, device=device)
     y = torch.rand(shape, dtype=torch.float32, device=device)
-
-    z = add_scalar_loop(shape, val, run_mode, dynamic)(x, y)
+    z = torch.empty(shape, dtype=torch.float32, device=device)
+    add_kernel(x, y, z, val)
     golden = torch.add(x, y) + val
 
     max_diff = np.abs(z.cpu().numpy() - golden.cpu().numpy()).max()
@@ -277,38 +240,31 @@ def test_add_scalar_loop(device_id=None, run_mode: str = "npu", dynamic: bool = 
 # ============================================================================
 # 4. Loop with Dynamic Axis (add_scalar_loop_dyn_axis)
 # ============================================================================
+@pypto.frontend.jit
+def add_scalar_loop_dynamic_axis_kernel(
+    input0: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
+    input1: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
+    output: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
+    val: int,
+):
+    pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
-def add_scalar_loop_dynamic_axis(shape: tuple, val: int, run_mode: str = "npu"):
-    _, w, n, c = shape
-    h = pypto.frontend.dynamic("h")
-    mode = _get_mode(run_mode)
+    b, w, n, c = input0.shape
+    tile_b = 1
+    b_loop = b // tile_b
+    
 
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def add_scalar_loop_dynamic_axis_kernel(
-        input0: pypto.Tensor((h, w, n, c), pypto.DT_FP32),
-        input1: pypto.Tensor((h, w, n, c), pypto.DT_FP32),
-    ) -> pypto.Tensor((h, w, n, c), pypto.DT_FP32):
-        pypto.set_vec_tile_shapes(1, 4, 1, 64)
+    for idx in pypto.loop(b_loop):
+        b_offset = idx * tile_b
+        b_offset_end = pypto.min((idx + 1) * tile_b, b)
 
-        b = h
-        tile_b = 1
-        b_loop = b // tile_b
+        valid_shape = [b_offset_end - b_offset, w, n, c]
 
-        output = pypto.tensor((h, w, n, c), pypto.DT_FP32)
-        for idx in pypto.loop(b_loop):
-            b_offset = idx * tile_b
-            b_offset_end = pypto.min((idx + 1) * tile_b, b)
-
-            valid_shape = [b_offset_end - b_offset, w, n, c]
-
-            t0_sub = pypto.view(input0, [tile_b, w, n, c], [b_offset, 0, 0, 0], valid_shape=valid_shape)
-            t1_sub = pypto.view(input1, [tile_b, w, n, c], [b_offset, 0, 0, 0], valid_shape=valid_shape)
-            t3_sub = t0_sub + t1_sub
-            t3_sub = t3_sub + val
-            pypto.assemble(t3_sub, [b_offset, 0, 0, 0], output)
-        return output
-
-    return add_scalar_loop_dynamic_axis_kernel
+        t0_sub = pypto.view(input0, [tile_b, w, n, c], [b_offset, 0, 0, 0], valid_shape=valid_shape)
+        t1_sub = pypto.view(input1, [tile_b, w, n, c], [b_offset, 0, 0, 0], valid_shape=valid_shape)
+        t3_sub = t0_sub + t1_sub
+        t3_sub = t3_sub + val
+        pypto.assemble(t3_sub, [b_offset, 0, 0, 0], output)
 
 
 def test_add_scalar_loop_dyn_axis(device_id: int = None, run_mode: str = "npu") -> None:
@@ -323,8 +279,8 @@ def test_add_scalar_loop_dyn_axis(device_id: int = None, run_mode: str = "npu") 
     val = 1
     input_data0 = torch.rand(shape, dtype=torch.float, device=device)
     input_data1 = torch.rand(shape, dtype=torch.float, device=device)
-
-    output_data = add_scalar_loop_dynamic_axis(shape, val, run_mode)(input_data0, input_data1)
+    output_data = torch.empty(shape, dtype=torch.float, device=device)
+    add_scalar_loop_dynamic_axis_kernel(input_data0, input_data1, output_data, val)
     golden = torch.add(input_data0, input_data1) + val
 
     max_diff = np.abs(output_data.cpu().numpy() - golden.cpu().numpy()).max()
@@ -361,8 +317,8 @@ Examples:
     )
     parser.add_argument('--list', action='store_true', help='List available examples')
     parser.add_argument(
-        '--run_mode', type=str, nargs='?', default="npu", choices=["npu", "sim"],
-        help='Run mode: npu or sim'
+        '--run_mode', type=str, nargs='?', default="npu", choices=["npu"],
+        help='Run mode, currently only support npu.'
     )
 
     args = parser.parse_args()

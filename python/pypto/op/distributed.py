@@ -102,27 +102,27 @@ def create_shmem_signal(group_name: str, n_pes: int) -> Tensor:
 
     Returns
     -------
-    shmem_barrier_signal : Tensor
+    signal : Tensor
         A barrier signal tensor to coordinate process execution.
     
 
     Examples
     --------
-    shmem_barrier_signal = pypto.distributed.create_shmem_barrier_signal("tp", 8)
+    signal = pypto.distributed.create_shmem_signal("tp", 8)
     """
-    shmem_barrier_signal_shape = [1, 1, 1, 8]
-    shmem_barrier_signal = Tensor([n_pes] + shmem_barrier_signal_shape, DataType.DT_INT32)
+    signal_shape = [1, 1, 1, 8]
+    signal = Tensor([n_pes] + signal_shape, DataType.DT_INT32)
 
-    for _ in loop(1, name="CREATE_SHMEM_BARRIER_SIGNAL", idx_name="_"):
-        pypto_impl.CreateShmemData(group_name, n_pes, DataType.DT_INT32, shmem_barrier_signal_shape,
-            shmem_barrier_signal.base(), ShmemMemType.WIN_EXP.value)
+    for _ in loop(1, name="CREATE_SHMEM_SIGNAL", idx_name="_"):
+        pypto_impl.CreateShmemData(group_name, n_pes, DataType.DT_INT32, signal_shape,
+            signal.base(), ShmemMemType.WIN_EXP.value)
     
     if group_name not in comm_configs:
         comm_configs[group_name] = CommConfig(group_name, n_pes, pypto_impl.GetSymbolicScalarPeId(group_name))
     
-    shmem_id_to_group[shmem_barrier_signal.base().Id()] = group_name
+    shmem_id_to_group[signal.base().Id()] = group_name
         
-    return shmem_barrier_signal
+    return signal
 
 
 @op_wrapper
@@ -162,17 +162,17 @@ def shmem_put(
     Send local GM data to dst_pe 1
     tile = pypto.distributed.shmem_put(
         local_tensor,
-        offset,
+        [0, 0, 0],
         shmem_tensor, 
-        dst_pe,
+        1,
         put_op=pypto.AtomicType.SET,
-        pred=None,
+        pred=pred_token,
     )
     """
     if dst.Id() not in shmem_id_to_group:
         raise TypeError("dst tensor of shmem_put must be created by create_shmem_tensor interface.")
-    dummy = pred[0] if len(pred) == 1 else pypto_impl.Nop(pred)
-    dst_tile = pypto_impl.View(dst, [1, 1] + src.shape, to_syms([dst_pe] + offsets))
+    dummy = __normalize_pred(pred)
+    dst_tile = pypto_impl.View(dst, [1, 1] + src.shape, [dst_pe] + offsets)
     return pypto_impl.ShmemPut(dummy, src, dst_tile, put_op)
 
 
@@ -214,19 +214,19 @@ def shmem_get(
     --------
     Load data from a remote device to local GM
     local_tensor = pypto.distributed.shmem_get(
-        src,
-        src_pe,
-        shape,
-        offset,
-        valid_shape=None,
-        pred=None,
+        shmem_data,
+        1,
+        [1, 128, 256],
+        [0, 0, 0],
+        valid_shape=valid_shape,
+        pred=pred_token,
     )
     """
     if src.Id() not in shmem_id_to_group:
         raise TypeError("src tensor of shmem_get must be created by create_shmem_tensor interface.")
-    dummy = pred[0] if len(pred) == 1 else pypto_impl.Nop(pred)
+    dummy = __normalize_pred(pred)
     if valid_shape is None:
-        src_tile = pypto_impl.View(src, [1] + shape, to_syms([src_pe] + offset))
+        src_tile = pypto_impl.View(src, [1] + shape, [src_pe] + offset)
     else:
         src_tile = pypto_impl.View(src, [1] + shape, to_syms(valid_shape), to_syms([src_pe] + offset))
     return pypto_impl.ShmemGet(dummy, src_tile)
@@ -272,26 +272,25 @@ def shmem_signal(
     Load data from a remote device to local GM
     dummy = pypto.distributed.shmem_signal(
         shmem_signal,
-        dst_pe=1,
-        signal,
-        shape,
-        offset,
+        1,
+        2,
+        [1, 1, 1, 128, 256],
+        [2, 2, 0, 0, 0],
         sig_op=pypto.AtomicType.SET,
-        pred=None,
+        pred=pred_token,
     )
     """
     if dst.Id() not in shmem_id_to_group:
         raise TypeError("dst tensor of shmem_signal must be created by create_shmem_tensor interface.")
-    dummy = pred[0] if len(pred) == 1 else pypto_impl.Nop(pred)
-    dst_tile = pypto_impl.View(dst, shape, to_syms(offset))
-    out_dummy = pypto_impl.ShmemSignal(dummy, dst_tile, sig_op)
-    return out_dummy
+    dummy = __normalize_pred(pred)
+    dst_tile = pypto_impl.View(dst, shape, offset)
+    return pypto_impl.ShmemSignal(dummy, dst_tile, sig_op)
 
 
 @op_wrapper
 def shmem_wait_until(
     src: Tensor,
-    cmp: int = OpType.EQ,
+    cmp: OpType = OpType.EQ,
     cmp_value: int = 0,
     shape: list[int] = None,
     offset: list[Union[int, SymbolicScalar]] = None,
@@ -313,10 +312,10 @@ def shmem_wait_until(
         The shapes of the shared memory signal;
     offset : list of int
         he offsets of the shmem signal.
-    pred : Tensor
-        Predicate tokens used as control dependencies.
     clear_signal : bool
         Whether to reset the signal after waiting.
+    pred : Tensor
+        Predicate tokens used as control dependencies.
 
     Returns
     -------
@@ -325,22 +324,23 @@ def shmem_wait_until(
 
     Examples
     --------
-    dummy = pypto.distributed.shmem_wait(
+    dummy = pypto.distributed.shmem_wait_until(
         shmem_signal,
-        cmp,
-        cmp_value,
-        shape,
-        offset,
+        OpType.EQ,
+        4,
+        [1, 1, 1, 128, 256],
+        [3, 3, 0, 0, 0],
         clear_signal=False,
-        pred=None,
+        pred=pred_token,
     )
     """
+    dummy = __normalize_pred(pred)
     if src.Id() not in shmem_id_to_group:
         raise TypeError("dst tensor of shmem_wait_until must be created by create_shmem_tensor interface.")
     if cmp != OpType.EQ:
         raise TypeError("shmem_wait_until only support OpType.EQ currently.")
-    dummy = pred[0] if len(pred) == 1 else pypto_impl.Nop(pred)
-    src_tile = pypto_impl.View(src, shape, to_syms(offset))
+
+    src_tile = pypto_impl.View(src, shape, offset)
     out_dummy = pypto_impl.WaitUntil(dummy, src_tile, cmp_value, clear_signal)
     return out_dummy
 
@@ -373,7 +373,7 @@ def shmem_barrier_all(
     """
     group_name = shmem_id_to_group[src.Id()]
     comm_config = comm_configs[group_name]
-    dummy = pred[0] if len(pred) == 1 else pypto_impl.Nop(pred)
+    dummy = __normalize_pred(pred)
     return pypto_impl.ShmemBarrier(dummy, src, group_name, comm_config.n_pes)
 
 
@@ -411,28 +411,28 @@ def shmem_clear(
     Clear a shmem data tensor in shared memory
     data_clear_dummy = pypto.distributed.shmem_clear(
         shmem_data,
-        shmem_shape,
-        shmem_offset,
-        pred=None,
+        [1, 128, 256],
+        [0, 0, 0],
+        pred=pred_token,
         is_signal=False,
     )
     Clear a shmem signal tensor in shared memory
     data_clear_dummy = pypto.distributed.shmem_clear(
         shmem_signal,
-        shmem_shape,
-        shmem_offset,
-        pred=None,
+        [1, 128, 256],
+        [0, 0, 0],
+        pred=pred_token,
         is_signal=True,
     )
     """
     group_name = shmem_id_to_group[src.Id()]
     comm_config = comm_configs[group_name]
-    dummy = pred[0] if len(pred) == 1 else pypto_impl.Nop(pred)
+    dummy = __normalize_pred(pred)
     if is_signal:
-        src_tile = pypto_impl.View(src, [1, comm_config.n_pes] + shape, to_syms([comm_config.my_pe, 0] + offset))
+        src_tile = pypto_impl.View(src, [1, comm_config.n_pes] + shape, [comm_config.my_pe, 0] + offset)
         out = pypto_impl.ShmemSignalSet(dummy, src_tile)
     else:
-        src_tile = pypto_impl.View(src, [1] + shape, [comm_config.my_pe] + to_syms(offset))
+        src_tile = pypto_impl.View(src, [1] + shape, [comm_config.my_pe] + offset)
         out = pypto_impl.ShmemDataSet(dummy, src_tile)
     return out
 
@@ -457,3 +457,11 @@ def my_symbolic_pe(group_name: str) -> SymbolicScalar:
        my_pe = pypto.distributed.my_symbolic_pe(group_name) 
     """
     return SymbolicScalar.from_base(pypto_impl.GetSymbolicScalarPeId(group_name))
+
+
+def __normalize_pred(pred: Union[list[Tensor], None]) -> Tensor:
+    if pred is None:
+        return Tensor([1, 1], DataType.DT_INT32).base()
+    if len(pred) == 1:
+        return pred[0]
+    return pypto_impl.Nop(pred)
