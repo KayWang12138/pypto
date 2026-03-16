@@ -62,7 +62,7 @@ public:
 
     uint64_t GetTasksTime() const;
     int DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId, DeviceKernelArgs *kernelArgs, int blockdim, int launchAicpuNum);
-    int DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream);
+    int DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t aicoreStream);
     int DynamicRun(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId, DeviceKernelArgs *kernelArgs, int blockdim = 25, int launchAicpuNum = 5);
     void InitDynamicArgs(DeviceArgs &args);
     int RegisterKernelBin(void **hdl, std::vector<uint8_t> *funcBinBuf = nullptr);

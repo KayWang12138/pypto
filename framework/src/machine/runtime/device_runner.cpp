@@ -356,21 +356,17 @@ void DeviceRunner::SynchronizeDeviceToHostProfData() {
     }
 }
 
-int DeviceRunner::DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream) {
+int DeviceRunner::DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t aicoreStream) {
     int rcAicore = rtStreamSynchronize(aicoreStream);
     int rcAicpu = rtStreamSynchronize(aicpuStream);
-    int rcCtrl = 0;
-    if (ctrlStream != nullptr) {
-        rcCtrl = rtStreamSynchronize(aicpuStream);
-    }
     if (IsPtoDataDumpEnabled()) {
         MACHINE_LOGD("DataDumpServerInit is called \n");
         AdxDataDumpServerUnInit();
     }
-    if (rcAicore != 0 || rcAicpu != 0 || rcCtrl != 0) {
-        MACHINE_LOGW("sync stream failed aicpu:%d aicore:%d ctrl cpu:%d", rcAicpu, rcAicore, rcCtrl);
+    if (rcAicore != 0 || rcAicpu != 0) {
+        MACHINE_LOGW("sync stream failed aicpu:%d aicore:%d", rcAicpu, rcAicore);
     }
-    return rcAicore + rcAicpu + rcCtrl;
+    return rcAicore + rcAicpu;
 }
 
 int DeviceRunner::launchDynamicAiCore(rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs) {
@@ -657,7 +653,7 @@ int DeviceRunner::DynamicRun(rtStream_t aicpuStream, rtStream_t ctrlStream, rtSt
     if (isCapture_) {
         return 0;
     }
-    return DynamicLaunchSynchronize(aicpuStream, ctrlStream, aicoreStream);
+    return DynamicLaunchSynchronize(aicpuStream, aicoreStream);
 }
 
 /**************************** DynamicFunction *****************************/
