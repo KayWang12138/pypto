@@ -40,35 +40,6 @@ COS_SIN_DIM = 2
 SCATTER_DIM = -2
 
 
-@dataclass
-class IndexerPrologQuantInput:
-    x: torch.tensor  # BF16, (t, h)
-    q_norm: torch.tensor  # HIF8, (t, qLoraRank)
-    q_norm_scale: torch.tensor  # FP32, (t, 1)
-    w_qb: torch.tensor  # HIF8, (qLoraRank, headNum * headDim)
-    w_qb_scale: torch.tensor  # FP32, (headNum * headDim, 1)
-    wk: torch.tensor  # BF16, (h, headDim)
-    w_proj: torch.tensor  # BF16, (h, headNum)
-    gamma_k: torch.tensor  # BF16, (headDim,)
-    cos_idx_rope: torch.tensor  # BF16, (t, ropeHeadDim)
-    sin_idx_rope: torch.tensor  # BF16, (t, ropeHeadDim)
-    hadamard_q: torch.tensor  # BF16, (headDim, headDim)
-    hadamard_k: torch.tensor  # BF16, (headDim, headDim)
-    k_cache: torch.tensor  # HIF8, (blockNum, blockSize, nKv, headDim)
-    k_scale_cache: torch.tensor  # FP16, (blockNum, blockSize, nKv, 1)
-    k_cache_index: torch.tensor  # INT64, (t,)
-    k_scale_cache_index: torch.tensor  # INT64, (t,)
-
-
-@dataclass
-class IndexerPrologQuantOutput:
-    q_hif8: torch.tensor
-    q_scale: torch.tensor
-    k_hif8: torch.tensor
-    k_scale: torch.tensor
-    weights: torch.tensor
-
-
 def quant_rms_norm(x: pypto.Tensor, gamma: pypto.Tensor, dim: int, epsilon: float):
     """Compute quantized RmsNorm operation.
 
