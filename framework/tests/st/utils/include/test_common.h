@@ -63,7 +63,7 @@ static void readInput(std::string filename, vector<T> &inputData) {
     ifstream input_file(filename, ios::binary);
     if (!input_file) {
         std::cerr << "Failed to open file for writing input data! filename:" << filename;
-        ASSERT(false);
+        ASSERT(ERROR_CODE_UNDEFINED, false);
     }
     input_file.read((char *)inputData.data(), inputData.size() * sizeof(T));
     input_file.close();

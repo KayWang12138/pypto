@@ -166,7 +166,7 @@ void TiledWhereOperation(Function &function, const TileShape &tileShape, const L
     std::vector<int64_t> conditionExpandShape(result->shape);
     if (condition->Datatype() == DT_UINT8) {
         int bitsNumOfByte = 8;
-        ASSERT(tileShape.GetVecTile().tile.back() % bitsNumOfByte == 0)
+        ASSERT(ERROR_CODE_UNDEFINED, tileShape.GetVecTile().tile.back() % bitsNumOfByte == 0)
             << "The tileShape of last axis need to 8 align!";
         conditionValidShape.back() = conditionValidShape.back() / bitsNumOfByte;
         conditionExpandShape.back() = conditionExpandShape.back() / bitsNumOfByte;
@@ -299,20 +299,20 @@ LogicalTensorPtr BinaryOperationUnsqueeze(const LogicalTensorPtr &operand, const
 
 LogicalTensorPtr TensorWhereOperation(
     Function &function, const Tensor &condition, const Tensor &input, const Tensor &other) {
-    ASSERT(condition.GetShape().size() == condition.GetStorage()->offset.size())
+    ASSERT(ERROR_CODE_UNDEFINED, condition.GetShape().size() == condition.GetStorage()->offset.size())
         << "The shape size of condition and offset must be equal";
-    ASSERT(input.GetShape().size() == input.GetStorage()->offset.size())
+    ASSERT(ERROR_CODE_UNDEFINED, input.GetShape().size() == input.GetStorage()->offset.size())
         << "The shape size of input and offset must be equal";
-    ASSERT(other.GetShape().size() == other.GetStorage()->offset.size())
+    ASSERT(ERROR_CODE_UNDEFINED, other.GetShape().size() == other.GetStorage()->offset.size())
         << "The shape size of other and offset must be equal";
 
     if (condition.GetStorage()->Datatype() == DT_UINT8) {
         int bitsNumOfByte = 8;
         int broadcastFlag = 1;
-        ASSERT(
+        ASSERT(ERROR_CODE_UNDEFINED, 
             input.GetStorage()->shape.back() % bitsNumOfByte == 0 || input.GetStorage()->shape.back() == broadcastFlag)
             << "The input shape of last axis need to 8 align or equal to 1";
-        ASSERT(
+        ASSERT(ERROR_CODE_UNDEFINED, 
             other.GetStorage()->shape.back() % bitsNumOfByte == 0 || other.GetStorage()->shape.back() == broadcastFlag)
             << "The other shape of last axis need to 8 align or equal to 1";
     }
@@ -345,14 +345,14 @@ LogicalTensorPtr TensorWhereOperation(
 
 LogicalTensorPtr TensorWhereOperation(
     Function &function, const Tensor &condition, const Tensor &input, const Element &other) {
-    ASSERT(condition.GetShape().size() == condition.GetStorage()->offset.size())
+    ASSERT(ERROR_CODE_UNDEFINED, condition.GetShape().size() == condition.GetStorage()->offset.size())
         << "The shape size of condition and offset must be equal";
-    ASSERT(input.GetShape().size() == input.GetStorage()->offset.size())
+    ASSERT(ERROR_CODE_UNDEFINED, input.GetShape().size() == input.GetStorage()->offset.size())
         << "The shape size of input and offset must be equal";
     if (condition.GetStorage()->Datatype() == DT_UINT8) {
         int bitsNumOfByte = 8;
         int broadcastFlag = 1;
-        ASSERT(
+        ASSERT(ERROR_CODE_UNDEFINED, 
             input.GetStorage()->shape.back() % bitsNumOfByte == 0 || input.GetStorage()->shape.back() == broadcastFlag)
             << "The input shape of last axis need to 8 align or equal to 1";
     }
@@ -382,14 +382,14 @@ LogicalTensorPtr TensorWhereOperation(
 
 LogicalTensorPtr TensorWhereOperation(
     Function &function, const Tensor &condition, const Element &input, const Tensor &other) {
-    ASSERT(condition.GetShape().size() == condition.GetStorage()->offset.size())
+    ASSERT(ERROR_CODE_UNDEFINED, condition.GetShape().size() == condition.GetStorage()->offset.size())
         << "The shape size of condition and offset must be equal";
-    ASSERT(other.GetShape().size() == other.GetStorage()->offset.size())
+    ASSERT(ERROR_CODE_UNDEFINED, other.GetShape().size() == other.GetStorage()->offset.size())
         << "The shape size of other and offset must be equal";
     if (condition.GetStorage()->Datatype() == DT_UINT8) {
         int bitsNumOfByte = 8;
         int broadcastFlag = 1;
-        ASSERT(
+        ASSERT(ERROR_CODE_UNDEFINED, 
             other.GetStorage()->shape.back() % bitsNumOfByte == 0 || other.GetStorage()->shape.back() == broadcastFlag)
             << "The other shape of last axis need to 8 align or equal to 1";
     }
@@ -420,7 +420,7 @@ LogicalTensorPtr TensorWhereOperation(
 
 LogicalTensorPtr TensorWhereOperation(
     Function &function, const Tensor &condition, const Element &input, const Element &other) {
-    ASSERT(condition.GetShape().size() == condition.GetStorage()->offset.size())
+    ASSERT(ERROR_CODE_UNDEFINED, condition.GetShape().size() == condition.GetStorage()->offset.size())
         << "The shape size of condition and offset must be equal";
     auto conditionT0 = condition.GetStorage();
     std::vector<int64_t> resultShape = {};

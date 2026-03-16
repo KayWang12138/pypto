@@ -142,7 +142,7 @@ Json CostModelAgent::ParseDynTopo(std::string &path)
             } catch (const std::invalid_argument& e) {
                 // ignore
             } catch (const std::out_of_range& e) {
-                SIMULATION_LOGE("Out of range: %s", e.what());
+                SIMULATION_LOGE(ERROR_CODE_UNDEFINED, "Out of range: %s", e.what());
             }
         }
         uint64_t seqNo = fields[seqPos];
@@ -233,12 +233,12 @@ void CostModelAgent::DebugSingleFunc(Function *func)
 void CostModelAgent::GetFunctionFromJson(const std::string &jsonPath)
 {
     std::ifstream file(jsonPath);
-    CHECK(file.good()) << "[SIMULATION]: " << "Json file: " << jsonPath << " open failed!!!";
+    CHECK(ERROR_CODE_UNDEFINED, file.good()) << "[SIMULATION]: " << "Json file: " << jsonPath << " open failed!!!";
     Json jsonData;
     try {
         file >> jsonData;
     } catch (const std::exception &e) {
-        CHECK(false) << "[SIMULATION]: " << "Json file: " << jsonPath << " parsing error: " << e.what();
+        CHECK(ERROR_CODE_UNDEFINED, false) << "[SIMULATION]: " << "Json file: " << jsonPath << " parsing error: " << e.what();
     }
     Program::GetInstance().LoadJson(jsonData);
 }

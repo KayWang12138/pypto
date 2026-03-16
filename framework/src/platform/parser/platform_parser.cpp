@@ -91,7 +91,7 @@ INIParser::INIParser() {
 bool INIParser::Initialize(const std::string& iniFilePath) {
     PLATFORM_LOGI("Start to parse ini_file %s.", iniFilePath.c_str());
     if (!ReadINIFile(iniFilePath)) {
-        PLATFORM_LOGE("ReadINIFile failed.");
+        PLATFORM_LOGE(ERROR_CODE_UNDEFINED, "ReadINIFile failed.");
         return false;
     }
     PLATFORM_LOGD("Parse ini_file %s successfully.", iniFilePath.c_str());
@@ -103,7 +103,7 @@ bool INIParser::ReadINIFile(const std::string& filepath) {
     std::ifstream file(filepath);
     PLATFORM_LOGD("Try to open ini file: %s.", filepath.c_str());
     if (!file.is_open()) {
-        PLATFORM_LOGE("Failed to open ini file: %s.", filepath.c_str());
+        PLATFORM_LOGE(ERROR_CODE_UNDEFINED, "Failed to open ini file: %s.", filepath.c_str());
         return false;
     }
     std::string line;
@@ -144,13 +144,13 @@ bool INIParser::GetStringVal(const std::string& column, const std::string& key, 
     val.clear();
     auto iter = data_.find(column);
     if (iter == data_.end()) {
-        PLATFORM_LOGE("Cannot find attr '%s' from the ini file.", column.c_str());
+        PLATFORM_LOGE(ERROR_CODE_UNDEFINED, "Cannot find attr '%s' from the ini file.", column.c_str());
         return false;
     }
     auto value = iter->second;
     auto iter2 = value.find(key);
     if (iter2 == value.end()) {
-        PLATFORM_LOGE("Cannot find attr '%s' from the [%s] tab.", key.c_str(), column.c_str());
+        PLATFORM_LOGE(ERROR_CODE_UNDEFINED, "Cannot find attr '%s' from the [%s] tab.", key.c_str(), column.c_str());
         return false;
     }
     val = iter2->second;
@@ -161,7 +161,7 @@ bool INIParser::GetStringVal(const std::string& column, const std::string& key, 
 bool CmdParser::GetStringVal(const std::string& column, const std::string& key, std::string& val) const {
     val.clear();
     if (!CannHostRuntime::Instance().GetSocSpec(column, key, val)) {
-        PLATFORM_LOGE("Cannot find soc spec '%s' from the [%s] column.", key.c_str(), column.c_str());
+        PLATFORM_LOGE(ERROR_CODE_UNDEFINED, "Cannot find soc spec '%s' from the [%s] column.", key.c_str(), column.c_str());
         return false;
     }
     return true;

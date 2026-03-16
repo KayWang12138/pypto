@@ -110,9 +110,9 @@ Tensor FlashAttention(const Tensor &q, const Tensor &k, const Tensor &v, const T
                         continue;
                     }
 
-                    ASSERT(lastOi.count(oiOffset) > 0);
-                    ASSERT(lastLi.count(liOffset) > 0);
-                    ASSERT(lastMi.count(miOffset) > 0);
+                    ASSERT(ERROR_CODE_UNDEFINED, lastOi.count(oiOffset) > 0);
+                    ASSERT(ERROR_CODE_UNDEFINED, lastLi.count(liOffset) > 0);
+                    ASSERT(ERROR_CODE_UNDEFINED, lastMi.count(miOffset) > 0);
                     auto oi = lastOi[oiOffset];
                     auto li = lastLi[liOffset];
                     auto mi = lastMi[miOffset];

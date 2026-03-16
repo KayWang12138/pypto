@@ -55,7 +55,7 @@ std::shared_ptr<LogicalTensor> CreateLogicalTensor(const LogicalTensorInfo &info
 std::string GetResultFromCpp(const Function &function) {
     const auto &subFunc = function.rootFunc_->programs_[0];
     auto leafFuncAttr = subFunc->GetLeafFuncAttribute();
-    ASSERT(leafFuncAttr != nullptr);
+    ASSERT(ERROR_CODE_UNDEFINED, leafFuncAttr != nullptr);
     std::string binPath = leafFuncAttr->binPath;
     std::string cppFile = binPath.substr(0, binPath.rfind('.')) + ".cpp";
     std::ifstream ifs(cppFile);

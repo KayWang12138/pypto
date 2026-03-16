@@ -58,7 +58,7 @@ TEST_F(LoadTest, test) {
     auto Simu = [](const std::vector<float16> &src, const std::vector<int32_t> &offsets) {
         std::vector<float16> dst(offsets.size());
         for (size_t i = 0; i < dst.size(); i++) {
-            ASSERT(static_cast<size_t>(offsets[i]) < src.size());
+            ASSERT(ERROR_CODE_UNDEFINED, static_cast<size_t>(offsets[i]) < src.size());
             dst[i] = src[offsets[i]];
         }
         return dst;

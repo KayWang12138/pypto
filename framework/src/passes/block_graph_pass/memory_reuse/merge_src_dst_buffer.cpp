@@ -297,7 +297,7 @@ bool SrcDstBufferMergeImpl::IsL1ToL0Transfer(const Operation& op) {
             return false;
         }
     }
-    ASSERT(op.GetIOperands().size() == 1 && op.GetOOperands().size() == 1) << "The L1-to-L0 copy op can have only one input and one output tensor";
+    ASSERT(ERROR_CODE_UNDEFINED, op.GetIOperands().size() == 1 && op.GetOOperands().size() == 1) << "The L1-to-L0 copy op can have only one input and one output tensor";
     return true;
 }
 
@@ -312,7 +312,7 @@ bool SrcDstBufferMergeImpl::IsL0CToL1Transfer(const Operation& op) {
             return false;
         }
     }
-    ASSERT(op.GetIOperands().size() == 1 && op.GetOOperands().size() == 1) << "The L0C-to-L1 copy op can have only one input and one output tensor";
+    ASSERT(ERROR_CODE_UNDEFINED, op.GetIOperands().size() == 1 && op.GetOOperands().size() == 1) << "The L0C-to-L1 copy op can have only one input and one output tensor";
     return true;
 }
 
