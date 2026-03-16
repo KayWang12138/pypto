@@ -146,6 +146,12 @@ struct DeviceRuntimeOffset {
     uint64_t count{0};
 };
 
+struct PrefetchInfo {
+    uint64_t prefetchNum{0};
+    uint64_t prefetchSize[MAX_PREFETCH_NUM];
+    uint64_t prefetchIdx[MAX_PREFETCH_NUM];
+};
+
 struct DeviceArgs {
     uint32_t nrAic{0};
     uint32_t nrAiv{0};

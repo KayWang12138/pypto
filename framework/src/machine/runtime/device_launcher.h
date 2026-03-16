@@ -22,6 +22,7 @@
 #ifdef BUILD_WITH_CANN
 #include "machine/runtime/device_runner.h"
 #include "acl/acl_rt.h"
+#include "runtime/kernel.h"
 #endif
 
 #include "machine/runtime/device_launcher_binding.h"
@@ -51,6 +52,12 @@ typedef struct tagRtTaskCfgInfo rtTaskCfgInfo_t;
 #endif
 
 namespace npu::tile_fwk::dynamic {
+
+struct L2TensorInfo {
+    uint64_t prefetchNum{0};
+    uint64_t prefetchSize[MAX_PREFETCH_NUM];
+    uint64_t prefetchAddr[MAX_PREFETCH_NUM];
+};
 
 struct AiCpuArgs {
     DeviceKernelArgs kArgs;
@@ -299,6 +306,36 @@ public:
         }
     }
 
+    static void DeviceRunner::ResetPrefetchInfo() {
+ 	   l2prefetch_.prefetchNum = 0;
+ 	}
+ 	 
+ 	static void DeviceRunner::AddPrefetch(uint64_t addr, uint64_t size) {
+        if (l2prefetch_.prefetchNum == MAX_PREFETCH_NUM) {
+            return;
+        }
+
+        l2prefetch_.prefetchSize[l2prefetch_.prefetchNum] = size;
+        l2prefetch_.prefetchAddr[l2prefetch_.prefetchNum] = addr;
+        l2prefetch_.prefetchNum++;
+        printf("Add prefetch addr:%lx size:%lu.", addr, size);
+ 	}
+
+    static void FillL2PrefetchInfo(DevAscendProgram *devProg, size_t idx, uint64_t addr, bool isTest, bool is_input) {
+        if (!is_input || isTest) {
+            return;
+        }
+
+
+        for (size_t i = 0; i < devProg->l2Info.prefetchNum; ++i) {
+            if (devProg->l2Info.prefetchIdx[i] == idx) {
+                AddPrefetch(addr, devProg->l2Info.prefetchSize[i]);
+                break;
+            }
+        }
+        return;
+    }
+
     /*
      *  inputs          |  inputSize  |
      *  outputs         |  outputSize |
@@ -312,16 +349,24 @@ public:
     template<typename DeviceMemoryTy>
     static void DeviceInitKernelInOuts(DeviceMemoryTy& devMem, DeviceKernelArgs &kArgs,
             const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
-            const std::vector<uint8_t>& disableL2List) {
+            const std::vector<uint8_t>& disableL2List, Function *func = nullptr) {
         size_t l2InfoSize = disableL2List.size();
+        
+        DevAscendProgram *devProg = nullptr;
+        if (func != nullptr) {
+            devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(func).data()));
+        }
         auto buildInouts = [&](const std::vector<DeviceTensorData> &tensorDataList, DevTensorData* data,
-            size_t &tensorIdx) {
+            size_t &tensorIdx, bool isInput) {
             for (size_t k = 0; k < tensorDataList.size(); ++k) {
                 auto &tensorData = tensorDataList[k];
                 uint64_t addr = reinterpret_cast<uint64_t>(tensorData.GetAddr());
                 if (unlikely(addr != 0 && tensorIdx < l2InfoSize && disableL2List[tensorIdx] == 1)) {
                     MACHINE_LOGI("Tneosr[%zu] ori:%lx, l2offset[%lu].", tensorIdx, addr, devMem.GetL2Offset());
                     addr += devMem.GetL2Offset();
+                }
+                if (func != nullptr) {
+                    FillL2PrefetchInfo(devProg, k, reinterpret_cast<uint64_t>(addr), true, isInput);
                 }
                 DevAscendTensorDataCreator::Init(data, addr, tensorData.GetShape().data(), tensorData.GetShape().size());
                 data++;
@@ -344,9 +389,9 @@ public:
         data++;
         auto dataPtr = reinterpret_cast<DevTensorData*>(data);
         size_t tensorIdx = 0;
-        buildInouts(inputList, dataPtr, tensorIdx);
+        buildInouts(inputList, dataPtr, tensorIdx, true);
         dataPtr += inputList.size();
-        buildInouts(outputList, dataPtr, tensorIdx);
+        buildInouts(outputList, dataPtr, tensorIdx, false);
         if (devMem.IsDevice()) {
             kArgs.inputs = reinterpret_cast<int64_t*>(tensorInfo_.data());
             kArgs.outputs = (int64_t *)allSize;
@@ -445,6 +490,7 @@ public:
     static int LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream, [[maybe_unused]]bool debugEnable, [[maybe_unused]]Function *function);
     static int LaunchAicoreKernel(
         aclrtStream aicoreStream, void *kernel, rtArgsEx_t &rtArgs, rtTaskCfgInfo_t &rtTaskCfg, bool debugEnable);
+    static int LaunchCmoKernel(aclrtStream cmoStream);
     static int DeviceRunOnce(Function *function, DevControlFlowCache* hostCtrlCache = nullptr,
         const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
@@ -458,6 +504,7 @@ public:
     static std::vector<uint8_t> tensorInfo_;
 private:
     static bool captureMode_;
+    L2TensorInfo l2prefetch_;
 };
 
 void DataDumpInit();

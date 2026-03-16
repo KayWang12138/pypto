@@ -600,7 +600,7 @@ public:
         return kernel->GetWorkspaceSize(tensors);
     }
 
-    void Launch(KernelBinary *kernel, aclrtStream aicoreStream, std::vector<DeviceTensorData> &tensors,
+    void Launch(KernelBinary *kernel, aclrtStream aicoreStream, aclrtStream cmoStream, std::vector<DeviceTensorData> &tensors,
         uint8_t *ctrlFlowCache, int64_t *workspace) {
         auto [args, argsSize] = kernel->BuildKernelArgs(tensors);
         rtAicpuArgs.args = args;
@@ -623,6 +623,12 @@ public:
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
         ret = DeviceLauncher::LaunchAicoreKernel(aicoreStream, kernel->GetKernelBin(), rtAicoreArgs, rtTaskCfg, debugEnable);
         ASSERT(ret == RT_ERROR_NONE) << "launch aicore failed: " << ret;
+
+        auto cmoStream = (aclrtStream)machine::GetRA()->GetCmoStream();
+        if (cmoStream != nullptr) {
+            ret = DeviceLauncher::LaunchCmoKernel(cmoStream);
+            ASSERT(ret == RT_ERROR_NONE) << "launch cmoStream failed: " << ret;
+        }
     }
 
     void EmulationLaunch(KernelBinary *kernel, std::vector<DeviceTensorData> &tensors) {
