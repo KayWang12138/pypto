@@ -308,4 +308,135 @@ __aicore__ inline void TIndexPut(DST dst, C coordinate, VAL values, IDX indices0
     wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
 }
 
+#define OP_TILE_OP_MSCATTER MScatter
+template <int axis, int scatterMode, typename T0, typename T1, typename T2, typename T3, typename C>
+TILEOP void MScatter(T0 dst, T1 src1, T2 src2, T3 tmp, C coordinate) {
+    static_assert(scatterMode < SCATTER_MODE_MAX, "Unsupport scatterMode");
+    constexpr size_t expectSize = 5;
+
+    const auto dstLayout = dst.GetLayout();
+    auto dstStride0 = dstLayout.template GetStrideDim<0, expectSize>();
+    auto dstStride1 = dstLayout.template GetStrideDim<1, expectSize>();
+    auto dstStride2 = dstLayout.template GetStrideDim<2, expectSize>();
+    auto dstStride3 = dstLayout.template GetStrideDim<3, expectSize>();
+
+    auto gmElementOffset = dstLayout.template GetGmOffset<C, expectSize>(coordinate);
+    __gm__ typename T0::Type* dstGMBase = reinterpret_cast<__gm__ typename T0::Type*>(dst.GetAddr());
+    dstGMBase += gmElementOffset;  
+
+    const auto idxLayout = src1.GetLayout();
+    auto idxStride0 = idxLayout.template GetStrideDim<0, expectSize>();
+    auto idxStride1 = idxLayout.template GetStrideDim<1, expectSize>();
+    auto idxStride2 = idxLayout.template GetStrideDim<2, expectSize>();
+    auto idxStride3 = idxLayout.template GetStrideDim<3, expectSize>();
+    auto idxShape0 = idxLayout.template GetShapeDim<0, expectSize>();
+    auto idxShape1 = idxLayout.template GetShapeDim<1, expectSize>();
+    auto idxShape2 = idxLayout.template GetShapeDim<2, expectSize>();
+    auto idxShape3 = idxLayout.template GetShapeDim<3, expectSize>();
+    auto idxShape4 = idxLayout.template GetShapeDim<4, expectSize>();
+
+    const auto srcLayout = src2.GetLayout();
+    auto srcStride0 = srcLayout.template GetStrideDim<0, expectSize>();
+    auto srcStride1 = srcLayout.template GetStrideDim<1, expectSize>();
+    auto srcStride2 = srcLayout.template GetStrideDim<2, expectSize>();
+    auto srcStride3 = srcLayout.template GetStrideDim<3, expectSize>();
+
+    constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, 4, 5>();
+    constexpr auto idxTileW = TileOp::GetTensorTileShapeDim<T1, 4, 5>();
+    constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<T2, 4, 5>();
+
+    constexpr auto dstTypeSize = sizeof(typename T0::Type);
+    constexpr auto idxTypeSize = sizeof(typename T1::Type);
+    constexpr auto srcTypeSize = sizeof(typename T2::Type);
+
+#ifdef __DAV_V220
+    constexpr bool scalarFlag = true;
+#else
+    constexpr bool scalarFlag = ((sizeof(typename T1::Type) == 8) || (scatterMode > 0) ||
+        (dstTypeSize == 2 && idxTypeSize == 4)) ? true : false;
+#endif
+
+    constexpr auto dstTileShapeH = TileOp::GetOutterAxisMergeResult<5, typename T0::TileShape>();
+    using dstTileDefine = pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileShapeH, dstTileW, pto::BLayout::RowMajor>;
+    using idxTileDefine = pto::Tile<pto::TileType::Vec, typename T1::Type, 1, idxTileW, pto::BLayout::RowMajor, -1, -1>;
+    using srcTileDefine = pto::Tile<pto::TileType::Vec, typename T2::Type, 1, srcTileW, pto::BLayout::RowMajor>;
+
+    dstTileDefine dstTile;
+    idxTileDefine idxTile(1, idxShape4);
+    srcTileDefine srcTile;
+
+    if constexpr (scalarFlag) {
+        set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+        wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+    }
+
+    // UB 地址不变（src/idx/tmp 仍在 UB）
+    auto idxAddr = (__ubuf__ typename T1::Type*)((uint64_t)(src1.GetAddr()));
+    auto srcAddr = (__ubuf__ typename T2::Type*)((uint64_t)(src2.GetAddr()));
+    auto tmpAddr = (__ubuf__ typename T3::Type*)((uint64_t)(tmp.GetAddr()));
+
+    for (LoopVar i = 0; i < idxShape0; ++i) {
+        for (LoopVar j = 0; j < idxShape1; ++j) {
+            for (LoopVar k = 0; k < idxShape2; ++k) {
+                for (LoopVar l = 0; l < idxShape3; ++l) {
+                    if constexpr (!scalarFlag) {
+                        set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+                        wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
+                    }
+                    for (LoopVar m = 0; m < idxShape4; ++m) {
+                        typename T1::Type index =
+                            *(idxAddr + i * idxStride0 + j * idxStride1 + k * idxStride2 + l * idxStride3 + m);
+                        typename T1::Type src2Offset = 
+                            i * srcStride0 + j * srcStride1 + k * srcStride2 + l * srcStride3 + m;
+
+                        // === 计算 tile 内局部偏移（local offset）===
+                        typename T1::Type localOffset;
+                        if constexpr (axis == 0) {
+                            localOffset = index * dstStride0 + j * dstStride1 + k * dstStride2 + l * dstStride3 + m;
+                        } else if constexpr (axis == 1) {
+                            localOffset = i * dstStride0 + index * dstStride1 + k * dstStride2 + l * dstStride3 + m;
+                        } else if constexpr (axis == 2) {
+                            localOffset = i * dstStride0 + j * dstStride1 + index * dstStride2 + l * dstStride3 + m;
+                        } else if constexpr (axis == 3) {
+                            localOffset = i * dstStride0 + j * dstStride1 + k * dstStride2 + index * dstStride3 + m;
+                        } else { // axis == 4
+                            localOffset = i * dstStride0 + j * dstStride1 + k * dstStride2 + l * dstStride3 + index;
+                        }
+
+                        /* idx类型为int64或scatter操作为add或multiply，退化为标量实现 */
+                        if constexpr (scalarFlag) {
+                            if constexpr (scatterMode == 0) { // 直接赋值
+                                dstGMBase[localOffset] = srcAddr[src2Offset];
+                            } else if constexpr (scatterMode == 1) {
+                                dstGMBase[localOffset] = srcAddr[src2Offset] + dstGMBase[localOffset];
+                            } else {
+                                dstGMBase[localOffset] = srcAddr[src2Offset] * dstGMBase[localOffset];
+                            }
+                        } else {
+                            // TSCATTER 是 UB→UB，仍使用 localOffset（相对于当前 tile 起点）
+                            *(tmpAddr + m) = localOffset;
+                        }
+                    }
+                    if constexpr (!scalarFlag) {
+                        set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+                        wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+                        auto srcOffset = i * srcStride0 + j * srcStride1 + k * srcStride2 + l * srcStride3;
+                        pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr())); // 注意：TSCATTER 用原始 dst（UB 视图）
+                        pto::TASSIGN(idxTile, (uint64_t)(tmp.GetAddr()));
+                        pto::TASSIGN(srcTile, (uint64_t)(src2.GetAddr() + srcOffset * srcTypeSize));
+                        pto::TSCATTER(dstTile, srcTile, idxTile);
+                    }
+                }
+            }
+        }
+    }
+
+    if constexpr (scalarFlag) {
+        set_flag(PIPE_S, PIPE_V, EVENT_ID7);
+        wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
+    } else {
+        set_flag(PIPE_V, PIPE_MTE3, EVENT_ID7);
+        wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID7);
+    }
+}
 #endif
