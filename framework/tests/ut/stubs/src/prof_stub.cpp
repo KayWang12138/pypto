@@ -25,7 +25,7 @@ int32_t AdprofCheckFeatureIsOn(uint64_t feature)
 {
     (void)feature;
     std::cout << "AdprofCheckFeatureIsOn is called." << std::endl;
-    return 1;
+    return 0;
 }
 
 int32_t AdprofReportAdditionalInfo(uint32_t agingFlag, const void *data, uint32_t length)
