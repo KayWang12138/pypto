@@ -1,6 +1,6 @@
 ---
 name: pypto-op-develop
-description: "读取 spec.md、design.md 和 {op}_golden.py，产出完整可运行的 PyPTO 算子：{op}_impl.py（kernel 实现，导出 {op}_wrapper()）、test_{op}.py（测试入口）、README.md。在 design.md 与 golden脚本就绪后，需要编写 PyPTO 算子实现时使用。Triggers: 实现算子、写 kernel、编写实现、写 impl、算子编码、开始编码、code the op、写 test、生成测试、写实现代码、op develop、算子开发、kernel 实现。"
+description: "读取 spec.md、design.md 和 {op}_golden.py，产出完整可运行的 PyPTO 算子：{op}_impl.py（kernel 实现，导出 {op}_wrapper()）、test_{op}.py（测试入口）、README.md。当需要编写 PyPTO 算子实现时使用此 skill。Triggers: 实现算子、写 kernel、编写实现、写 impl、算子编码、开始编码、code the op、写 test、生成测试、写实现代码、op develop、算子开发、kernel 实现。"
 ---
 
 # PyPTO 算子功能实现

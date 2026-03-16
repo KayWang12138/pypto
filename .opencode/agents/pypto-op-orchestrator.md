@@ -113,11 +113,10 @@ flowchart TD
     J -->|Not equal to tolerance, loop < 10| S4[Stage 4: 精度定位]
     J -->|Not equal to tolerance, loop >= 10| BA[BLOCKED_ACCURACY]
     J -->|其他错误| S3
-    S4 --> S4a[4a: pypto-op-accuracy-verify]
-    S4a --> S4b[4b: pypto-binary-search-verify]
-    S4b -->|定位成功| S3
-    S4b -->|不适用| S4c[4c: pypto-binary-search-without-verify]
-    S4c --> S3
+    S4 --> S4a[4a: pypto-binary-search-verify]
+    S4a -->|定位成功| S3
+    S4a -->|不适用| S4b[4b: pypto-binary-search-without-verify]
+    S4b --> S3
     S5 --> G5{output 数据存在?}
     G5 -->|否| S5
     G5 -->|是| S6[Stage 6: pypto-op-perf-analyzer]
@@ -199,9 +198,8 @@ flowchart TD
 
 | 步骤 | 技能 | 说明 |
 |------|------|------|
-| 4a | `pypto-op-accuracy-verify` | 快速分析精度失败特征 |
-| 4b | `pypto-binary-search-verify` | verify-based，通过 `pass_verify_save()` 捕获中间结果 |
-| 4c | `pypto-binary-search-without-verify` | checkpoint-based，修改函数签名 + assemble 原地写入（仅 verify 方式不适用时降级） |
+| 4a | `pypto-binary-search-verify` | verify-based，通过 `pass_verify_save()` 捕获中间结果 |
+| 4b | `pypto-binary-search-without-verify` | checkpoint-based，修改函数签名 + assemble 原地写入（仅 verify 方式不适用时降级） |
 
 优先级：用户显式指定 > verify-based（默认）> checkpoint-based（降级）
 

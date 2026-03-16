@@ -1,6 +1,6 @@
 ---
 name: pypto-golden-generator
-description: "基于 spec.md 生成纯 PyTorch golden 参考实现 {op}_golden.py，导出 {op}_golden() 函数，供 test / accuracy-verify / binary-search 等下游 skill 作为精度基准。spec.md 就绪后触发（流水线第 2 步，与 design 并行）。Triggers: 生成 golden、生成参考实现、写 golden 函数、golden script、golden reference、reference implementation、generate golden、torch 参考、验证基准、baseline implementation、写验证代码、'帮我写 golden'、golden.py、参考代码。"
+description: "基于 spec.md 生成纯 PyTorch golden 参考实现 {op}_golden.py，导出 {op}_golden() 函数，作为精度验证基准。当需要生成 golden 参考实现时使用此 skill。Triggers: 生成 golden、生成参考实现、写 golden 函数、golden script、golden reference、reference implementation、generate golden、torch 参考、验证基准、baseline implementation、写验证代码、'帮我写 golden'、golden.py、参考代码。"
 ---
 
 # PyPTO Golden 参考实现生成

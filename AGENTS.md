@@ -108,7 +108,6 @@
 ### 调试辅助
 | 技能 | 用途 | 触发时机 |
 |------|------|---------|
-| `pypto-op-accuracy-verify` | 精度问题初步排查 | 精度不通过时（第一步） |
 | `pypto-binary-search-verify` | verify-based 精度定位 | 精度不通过时（默认） |
 | `pypto-binary-search-without-verify` | checkpoint-based 精度定位 | verify 方式不适用时 |
 
