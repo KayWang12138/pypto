@@ -71,7 +71,7 @@ def softmax_core(x: pypto.Tensor) -> pypto.Tensor:
     esum = pypto.sum(exp, dim=-1, keepdim=True)
     return exp / esum
 
-B = pypto.frontend.dynamic("B")
+B = pypto.DYNAMIC
 N1, N2, DIM = 32, 1, 256
 
 

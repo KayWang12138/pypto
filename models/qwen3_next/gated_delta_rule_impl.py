@@ -466,7 +466,7 @@ def recurrent_state_attn_all(**kwargs) -> tuple[pypto.Tensor, pypto.Tensor]:
 
 def chunk_gated_delta_rule(b, nqk, nv, d, l):
     
-    t = pypto.frontend.dynamic("t")
+    t = pypto.DYNAMIC
     query_shape = (t, nqk, d)
     key_shape = (t, nqk, d)
     value_shape = (t, nv, d)
@@ -589,7 +589,7 @@ def chunk_gated_delta_rule(b, nqk, nv, d, l):
 
 def chunk_gated_delta_rule_unaligned(b, nqk, nv, d, l):
     
-    t_unaligned = pypto.frontend.dynamic("t")
+    t_unaligned = pypto.DYNAMIC
     query_shape = (t_unaligned, nqk, d)
     key_shape = (t_unaligned, nqk, d)
     value_shape = (t_unaligned, nv, d)
