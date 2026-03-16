@@ -146,7 +146,7 @@ license: 完整条款见 LICENSE.txt
 
 详细的 Pass 模块知识库请参考：`references/pass-modules-knowledge-base.md`
 
-该文档包含了 42 个常见 Pass 模块的完整知识库，涵盖：
+该文档包含了 Pass 模块常见错误原因知识库，涵盖：
 - 每个模块的详细功能描述
 - 常见错误类型列表
 - 可能的根本原因分析
