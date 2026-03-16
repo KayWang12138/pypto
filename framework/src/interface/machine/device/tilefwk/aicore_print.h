@@ -18,8 +18,14 @@
 #include <cstdint>
 #include <cstdlib>
 #include <type_traits>
+#include <cstring>
 
 #include "aikernel_data.h"
+
+// 仅在 AICore 编译环境下引入 TileOp 相关头文件，避免主机侧 UT 编译报错
+#if defined(__TILE_FWK_AICORE__)
+#include "tileop/utils/layout.h"
+#endif
 
 #ifndef CACHE_LINE_SIZE
 #define CACHE_LINE_SIZE 64
@@ -39,6 +45,68 @@ struct LogContext {
     void (*Print)(LogContext *ctx, __gm__ const char *fmt);
 };
 
+// 通用安全内存拷贝函数：将 src 指向的对象位模式拷贝到 dst 指向的对象
+template <typename T, typename U>
+INLINE void safe_bit_cast(T& dst, const U& src) {
+    const unsigned char* src_bytes = reinterpret_cast<const unsigned char*>(&src);
+    unsigned char* dst_bytes = reinterpret_cast<unsigned char*>(&dst);
+    for (std::size_t i = 0; i < sizeof(T); ++i) {
+        dst_bytes[i] = src_bytes[i];
+    }
+}
+
+// 返回值版本的辅助函数：直接返回转换后的结果
+template <typename T, typename U>
+INLINE T safe_bit_cast(const U& src) {
+    T dst;
+    const unsigned char* src_bytes = reinterpret_cast<const unsigned char*>(&src);
+    unsigned char* dst_bytes = reinterpret_cast<unsigned char*>(&dst);
+    for (std::size_t i = 0; i < sizeof(T); ++i) {
+        dst_bytes[i] = src_bytes[i];
+    }
+    return dst;
+}
+
+INLINE float DecodeBf16(uint16_t bits) {
+    uint32_t u = static_cast<uint32_t>(bits) << 16;
+    return safe_bit_cast<float>(u);
+}
+
+INLINE float DecodeF16(uint16_t bits) {
+    uint16_t sign = static_cast<uint16_t>((bits & 0x8000u) >> 15);
+    uint16_t exp = static_cast<uint16_t>((bits & 0x7C00u) >> 10);
+    uint16_t mant = static_cast<uint16_t>(bits & 0x03FFu);
+
+    uint32_t sign32 = static_cast<uint32_t>(sign) << 31;
+    uint32_t exp32;
+    uint32_t mant32;
+
+    if (exp == 0) {
+        if (mant == 0) {
+            exp32 = 0;
+            mant32 = 0;
+        } else {
+            // subnormal
+            exp32 = 127 - 14;
+            while ((mant & 0x0400u) == 0) {
+                mant <<= 1;
+                --exp32;
+            }
+            mant &= 0x03FFu;
+            mant32 = static_cast<uint32_t>(mant) << 13;
+        }
+    } else if (exp == 0x1Fu) {
+        exp32 = 0xFFu;
+        mant32 = static_cast<uint32_t>(mant) << 13;
+    } else {
+        exp32 = static_cast<uint32_t>(exp) - 15 + 127;
+        mant32 = static_cast<uint32_t>(mant) << 13;
+    }
+
+    uint32_t u = sign32 | (exp32 << 23) | mant32;
+    return safe_bit_cast<float>(u);
+}
+
 template <typename T>
 INLINE void __AiCorePrint(LogContext *ctx, __gm__ const char **fmt, T val) {
     if constexpr (std::is_integral_v<T>) {
@@ -47,6 +115,24 @@ INLINE void __AiCorePrint(LogContext *ctx, __gm__ const char **fmt, T val) {
         ctx->PrintFloat(ctx, fmt, static_cast<float>(val));
     } else if constexpr (std::is_pointer_v<T>) {
         ctx->PrintInt(ctx, fmt, reinterpret_cast<int64_t>(val));
+    } else if constexpr (sizeof(T) == 2 && std::is_trivially_copyable_v<T>) {
+        uint16_t bits = safe_bit_cast<uint16_t>(val);
+
+        float f = 0.0f;
+#if IS_AICORE
+        if constexpr (std::is_same_v<T, bfloat16_t>) {
+            f = DecodeBf16(bits);
+        } else if constexpr (std::is_same_v<T, half>) {
+            f = DecodeF16(bits);
+        } else {
+            f = DecodeF16(bits);
+        }
+#else
+        f = DecodeF16(bits);
+#endif
+        ctx->PrintFloat(ctx, fmt, f);
+    } else {
+        ctx->PrintInt(ctx, fmt, reinterpret_cast<int64_t>(&val));
     }
 }
 
@@ -357,3 +443,54 @@ private:
     volatile __gm__ Remote *remote_;
     __gm__ uint8_t *data_;
 };
+
+#if defined(__TILE_FWK_AICORE__) && defined(TILEOP_UTILS_TUPLE_H)
+// 通用 Shape 打印接口：支持 Shape1Dim~Shape5Dim，按 tuple size 展开
+template <typename... Dims>
+INLINE void AiCorePrintShape(LogContext *ctx, const TileOp::Shape<Dims...> &shape)
+{
+    constexpr size_t N = Std::tuple_size<TileOp::Shape<Dims...>>::value;
+    int64_t d[6] = {1, 1, 1, 1, 1, 1};
+
+    if constexpr (N > 0) {
+        d[0] = static_cast<int64_t>(Std::get<0>(shape));
+    }
+    if constexpr (N > 1) {
+        d[1] = static_cast<int64_t>(Std::get<1>(shape));
+    }
+    if constexpr (N > 2) {
+        d[2] = static_cast<int64_t>(Std::get<2>(shape));
+    }
+    if constexpr (N > 3) {
+        d[3] = static_cast<int64_t>(Std::get<3>(shape));
+    }
+    if constexpr (N > 4) {
+        d[4] = static_cast<int64_t>(Std::get<4>(shape));
+    }
+    if constexpr (N > 5) {
+        d[5] = static_cast<int64_t>(Std::get<5>(shape));
+    }
+    if constexpr (N == 1) {
+        AiCoreLogF(ctx, "shape=[%ld]\n", d[0]);
+    } else if constexpr (N == 2) {
+        AiCoreLogF(ctx, "shape=[%ld,%ld]\n", d[0], d[1]);
+    } else if constexpr (N == 3) {
+        AiCoreLogF(ctx, "shape=[%ld,%ld,%ld]\n", d[0], d[1], d[2]);
+    } else if constexpr (N == 4) {
+        AiCoreLogF(ctx, "shape=[%ld,%ld,%ld,%ld]\n", d[0], d[1], d[2], d[3]);
+    } else if constexpr (N == 5) {
+        AiCoreLogF(ctx, "shape=[%ld,%ld,%ld,%ld,%ld]\n", d[0], d[1], d[2], d[3], d[4]);
+    } else if constexpr (N == 6) {
+        AiCoreLogF(ctx, "shape=[%ld,%ld,%ld,%ld,%ld,%ld]\n", d[0], d[1], d[2], d[3], d[4], d[5]);
+    }
+}
+#endif
+
+template <typename T>
+INLINE void AiCorePrintTensor(LogContext *ctx, const T *data, int64_t end, int64_t begin = 0)
+{
+    AiCoreLogF(ctx, "tensor data, range=[%ld, end=%ld)\n", begin, end);
+    for (int64_t i = begin; i < end; ++i) {
+        AiCoreLogF(ctx, "%f\n", data[i]);
+    }
+}
