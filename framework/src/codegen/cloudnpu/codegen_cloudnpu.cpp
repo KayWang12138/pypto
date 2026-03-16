@@ -17,6 +17,7 @@
 #include <cstring>
 #include <error.h>
 #include <fstream>
+#include <stdio.h>
 
 #include "codegen/utils/parallel_execute.h"
 #include "codegen_op_cloudnpu.h"
@@ -442,9 +443,10 @@ void CodeGenCloudNPU::CompileCode(const std::string &compileCmd) const {
         CODEGEN_LOGI("Compile stage terminates after codegen instruction.");
         return;
     }
-    int ret = DoCompileCmd(compileCmd);
+    auto [ret, compileOutput] = DoCompileCmd(compileCmd);
     ASSERT(ret == 0) << "DoCompileCmd failed. errCode = " << ret << "\n******** bisheng compiling cmd start ********\n"
-                     << compileCmd << "\n******** bisheng compiling cmd end ********\n";
+                     << compileCmd << "\n******** bisheng compiling cmd end ********\n"
+                     << "Output: " << compileOutput;
 }
 
 std::string GetIncludePathByLib() {
@@ -569,12 +571,41 @@ std::string CodeGenCloudNPU::GetCoreArch(const CompileInfo &compileInfo) const {
     }
 }
 
-int CodeGenCloudNPU::DoCompileCmd(const std::string &compileCmd) const {
-    int ret = std::system(compileCmd.c_str());
-    if (ret != 0) {
-        CODEGEN_LOGE("kernel compilation failed, ret = %d\ncompile cmd is:\n %s", ret, compileCmd.c_str());
+std::pair<int, std::string> CodeGenCloudNPU::DoCompileCmd(const std::string &compileCmd) const {
+    // Redirect stderr to stdout to capture all output (including compiler errors)
+    std::string cmdWithRedirect = compileCmd + " 2>&1";
+    FILE *pipe = popen(cmdWithRedirect.c_str(), "r");
+    if (!pipe) {
+        CODEGEN_LOGE("Failed to open pipe for command: %s", compileCmd.c_str());
+        return {-1, ""};
     }
-    return ret;
+
+    const size_t BUFFER_SIZE = 4096;
+    const size_t MAX_OUTPUT_SIZE = 1024 * 1024; // 1MB limit
+    char buffer[BUFFER_SIZE];
+    std::string output;
+    size_t totalRead = 0;
+
+    while (fgets(buffer, BUFFER_SIZE, pipe) != nullptr) {
+        size_t readSize = strlen(buffer);
+        if (totalRead + readSize > MAX_OUTPUT_SIZE) {
+            // Limit output to MAX_OUTPUT_SIZE
+            size_t remaining = MAX_OUTPUT_SIZE - totalRead;
+            buffer[remaining] = '\0';
+            output.append(buffer, remaining);
+            output.append("\n[Output truncated - maximum size 1MB reached]");
+            break;
+        }
+        output.append(buffer);
+        totalRead += readSize;
+    }
+
+    int ret = pclose(pipe);
+    if (ret != 0) {
+        CODEGEN_LOGE_FULL("kernel compilation failed, ret = %d\ncompile cmd is:\n %s\noutput:\n%s", ret,
+            compileCmd.c_str(), output.c_str());
+    }
+    return {ret, output};
 }
 
 void EncodeWaitUntilInfo(const Operation &op, std::vector<int32_t> &code) {
@@ -708,7 +739,7 @@ void CodeGenCloudNPU::GenerateMakefile(const std::string &makefilePath) const {
 
     for (const auto &task : compileTasks_) {
         makefile << task.outputPath << ": " << task.inputPath << "\n";
-        makefile << "\t@" << task.compileCmd << "\n\n";
+        makefile << "\t" << task.compileCmd << " 2>&1\n\n";
     }
 
     makefile << ".PHONY: all clean\n\n";
@@ -755,12 +786,13 @@ void CodeGenCloudNPU::ExecuteParallelCompile(const Function &topFunc) {
     CODEGEN_LOGI("Execute: %s", makeCmd.str().c_str());
 
     auto startTime = std::chrono::high_resolution_clock::now();
-    int ret = DoCompileCmd(makeCmd.str());
+    auto [ret, compileOutput] = DoCompileCmd(makeCmd.str());
     auto endTime = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration<double, std::milli>(endTime - startTime);
     CODEGEN_LOGI("Parallel compilation finished in %f ms", duration.count());
 
-    ASSERT(ret == 0) << "Parallel compilation failed with return code: " << ret;
+    ASSERT(ret == 0) << "Parallel compilation failed with return code: " << ret << "\nCommand: " << makeCmd.str()
+                     << "\nOutput: " << compileOutput;
 
     compileTasks_.clear();
 }
