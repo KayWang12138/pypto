@@ -202,6 +202,71 @@ static void AddOperationExeFunc4Dims(
     }
 }
 
+static void AddOperationExeFunc5Dims(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
+        std::vector<SymbolicScalar> firstInputsShape = {inputs[0].GetShape()[0], inputs[0].GetShape()[1], inputs[0].GetShape()[2],
+                                                        inputs[0].GetShape()[3], inputs[0].GetShape()[4]};
+        std::vector<SymbolicScalar> secondInputsShape = {inputs[1].GetShape()[0], inputs[1].GetShape()[1], inputs[1].GetShape()[2],
+                                                         inputs[1].GetShape()[3], inputs[1].GetShape()[4]};
+        std::vector<SymbolicScalar> outputsShape = {outputs[0].GetShape()[0], outputs[0].GetShape()[1], outputs[0].GetShape()[2],
+                                                    outputs[0].GetShape()[3], outputs[0].GetShape()[4]};
+        auto args = static_cast<const AddOpFuncArgs *>(opArgs);
+        std::vector<int64_t> viewShape = {args->viewShape_[0], args->viewShape_[1], args->viewShape_[2],
+                                          args->viewShape_[3], args->viewShape_[4]};
+        std::vector<int64_t> firstInputViewShape = viewShape;
+        std::vector<int64_t> secondInputViewShape = viewShape;
+        UpdateInputBrcViewShape(firstInputViewShape, firstInputsShape, outputsShape);
+        UpdateInputBrcViewShape(secondInputViewShape, secondInputsShape, outputsShape);
+
+        const int bloop = CeilDiv(outputsShape[0], viewShape[0]);
+        const int sloop = CeilDiv(outputsShape[1], viewShape[1]);
+        const int nloop = CeilDiv(outputsShape[2], viewShape[2]);
+        const int mloop = CeilDiv(outputsShape[3], viewShape[3]);
+        const int qloop = CeilDiv(outputsShape[4], viewShape[4]);
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                LOOP("LOOP_L2_mIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, nloop, 1)) {
+                    LOOP("LOOP_L3_nIdx", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, mloop, 1)) {
+                        LOOP("LOOP_L4_nIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(0, qloop, 1)) {
+                            std::vector<SymbolicScalar> firstInputValidShape =
+                                {std::min(firstInputsShape[0] - bIdx * firstInputViewShape[0], firstInputViewShape[0]),
+                                std::min(firstInputsShape[1] - sIdx * firstInputViewShape[1], firstInputViewShape[1]),
+                                std::min(firstInputsShape[2] - nIdx * firstInputViewShape[2], firstInputViewShape[2]),
+                                std::min(firstInputsShape[3] - mIdx * firstInputViewShape[3], firstInputViewShape[3]),
+                                std::min(firstInputsShape[4] - qIdx * firstInputViewShape[4], firstInputViewShape[4])}; 
+                            std::vector<SymbolicScalar> secondInputValidShape =
+                                {std::min(secondInputsShape[0] - bIdx * secondInputViewShape[0], secondInputViewShape[0]),
+                                std::min(secondInputsShape[1] - sIdx * secondInputViewShape[1], secondInputViewShape[1]),
+                                std::min(secondInputsShape[2] - nIdx * secondInputViewShape[2], secondInputViewShape[2]),
+                                std::min(secondInputsShape[3] - mIdx * secondInputViewShape[3], secondInputViewShape[3]),
+                                std::min(secondInputsShape[4] - qIdx * secondInputViewShape[4], secondInputViewShape[4])};
+                            std::vector<SymbolicScalar> firstOffset = {bIdx * firstInputViewShape[0], sIdx * firstInputViewShape[1],
+                                nIdx * firstInputViewShape[2], mIdx * firstInputViewShape[3], qIdx * firstInputViewShape[4]};
+                            std::vector<SymbolicScalar> secondOffset = {bIdx * secondInputViewShape[0], sIdx * secondInputViewShape[1],
+                                nIdx * secondInputViewShape[2], mIdx * secondInputViewShape[3], qIdx * secondInputViewShape[4]};
+
+                            UpdateInputBrcVaildShape(firstInputValidShape, firstInputsShape, outputsShape);
+                            UpdateInputBrcVaildShape(secondInputValidShape, secondInputsShape, outputsShape);
+                            UpdateOffset(firstOffset, firstInputsShape, outputsShape);
+                            UpdateOffset(secondOffset, secondInputsShape, outputsShape);
+                            Tensor tileTensor0 = View(inputs[0], firstInputViewShape, firstInputValidShape, firstOffset);
+                            Tensor tileTensor1 = View(inputs[1], secondInputViewShape, secondInputValidShape, secondOffset);
+                            TileShape::Current().SetVecTile(args->tileShape_);
+                            auto res = Add(tileTensor0, tileTensor1);
+                            Assemble(res, 
+                                {bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2],  mIdx * viewShape[3], qIdx * viewShape[4]}, 
+                                outputs[0]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
 class AddOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<AddOpMetaData> {};
 
 INSTANTIATE_TEST_SUITE_P(TestAdd, AddOperationTest,

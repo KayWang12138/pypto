@@ -84,17 +84,17 @@ TILEOP constexpr BrcMode GetBrcMode() {
 
 #define BINARY_SCALAR_EXPAND_DISPATCH(dst, tensor, scalar)                              \
     if constexpr (op == BinaryOp::ADD) {                                                \
-        PTO_WITH_LAST_USE(pto::TADDS(dst, tensor, scalar), n1, n2, n3); return;             \
+        PTO_WITH_LAST_USE(pto::TADDS(dst, tensor, scalar), n1, n2, n3); return;         \
     } else if constexpr (op == BinaryOp::SUB) {                                         \
-        PTO_WITH_LAST_USE(pto::TSUBS(dst, tensor, scalar), n1, n2, n3); return;             \
+        PTO_WITH_LAST_USE(pto::TSUBS(dst, tensor, scalar), n1, n2, n3); return;         \
     } else if constexpr (op == BinaryOp::MUL) {                                         \
-        PTO_WITH_LAST_USE(pto::TMULS(dst, tensor, scalar), n1, n2, n3); return;             \
+        PTO_WITH_LAST_USE(pto::TMULS(dst, tensor, scalar), n1, n2, n3); return;         \
     } else if constexpr (op == BinaryOp::DIV) {                                         \
-        PTO_WITH_LAST_USE(pto::TDIVS(dst, tensor, scalar), n1, n2, n3); return;             \
+        PTO_WITH_LAST_USE(pto::TDIVS(dst, tensor, scalar), n1, n2, n3); return;         \
     } else if constexpr (op == BinaryOp::MAX) {                                         \
-        PTO_WITH_LAST_USE(pto::TMAXS(dst, tensor, scalar), n1, n2, n3); return;             \
+        PTO_WITH_LAST_USE(pto::TMAXS(dst, tensor, scalar), n1, n2, n3); return;         \
     } else if constexpr (op == BinaryOp::MIN) {                                         \
-        PTO_WITH_LAST_USE(pto::TMINS(dst, tensor, scalar), n1, n2, n3); return;             \
+        PTO_WITH_LAST_USE(pto::TMINS(dst, tensor, scalar), n1, n2, n3); return;         \
     }
 
 template <BinaryOp op, typename LastUse, typename T0, typename T1, typename Scalar>
