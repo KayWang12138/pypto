@@ -183,8 +183,7 @@ Status RemoveRedundantAssemble::RemoveViewSingleReshape(Function &function) cons
         if (!MatchReshapePattern(reshapeOp.GetIOperands().front(), reshapeOp.GetOOperands().front())) continue;
         auto producers = reshapeOp.GetIOperands().front()->GetProducers();
         if (producers.empty()) {
-            APASS_LOG_INFO_F(Elements::Operation, "No producers found for RESHAPE op's input %d.", reshapeOp.GetOpMagic());
-            continue;;
+            APASS_LOG_INFO_F(Elements::Operation, "No producers found for RESHAPE op's input %d.", reshapeOp.GetOpMagic()); continue;
         }
         auto producerOp = *producers.begin();
         if (producerOp == nullptr || producers.size() != 1 || producerOp->GetOpcode() != Opcode::OP_VIEW) continue;
@@ -194,10 +193,12 @@ Status RemoveRedundantAssemble::RemoveViewSingleReshape(Function &function) cons
         }
         auto opAttr = std::dynamic_pointer_cast<ViewOpAttribute>(producerOp->GetOpAttribute());
         if (opAttr == nullptr) {
-            APASS_LOG_INFO_F(Elements::Operation, "Op %d Attribute is nullptr.", producerOp->GetOpMagic());
-            continue;;
+            APASS_LOG_INFO_F(Elements::Operation, "Op %d Attribute is nullptr.", producerOp->GetOpMagic()); continue;
         }
-        auto &offset = opAttr->GetFromDynOffset();
+        auto offset = opAttr->GetFromDynOffset();
+        if (offset.empty()) {
+            offset = OpImmediate::ToSpecified(OpImmediate::Specified(opAttr->GetFromOffset()));
+        }
         Shape newRawShape = reshapeOp.GetOOperands().front()->shape;
         if (!CalculateNewRawShape(reshapeOp.GetOOperands().front()->shape, viewInput->tensor->GetRawShape(), newRawShape)) return SUCCESS;
         std::vector<SymbolicScalar> newDynOffset;
