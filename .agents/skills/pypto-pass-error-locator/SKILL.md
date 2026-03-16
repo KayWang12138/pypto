@@ -41,7 +41,7 @@ license: 完整条款见 LICENSE.txt
 
 ## 工作流程
 
-### 步骤 1：获取日志
+### 步骤 1：获取日志内容
 
 1. 如果用户提供了具体的错误信息，直接使用用户提供的日志内容
 2. 如果用户提供了具体的错误日志路径，从用户指定的错误文件中获取日志内容
@@ -51,121 +51,36 @@ license: 完整条款见 LICENSE.txt
     - `$ASCEND_PROCESS_LOG_PATH/` 目录（如果设置）
     - `$ASCEND_WORK_PATH/` 目录（如果设置且未设置 ASCEND_PROCESS_LOG_PATH）
 
-### 步骤 2：解析日志
+### 步骤 2：解析日志关键信息
 
-**日志格式示例**：
+以如下日志格式为例，分段解析：
 ```
 [INFO ] PYPTO(592313):2026-03-13 14:26:37.767 [l1_copy_reuse.cpp:642][PASS]:[L1CopyInReuseMerge.Operation]:Op 704 feature: [63, 128, 0, 32, 512, 148].
 ```
 
-**解析模式**：
+1. 日志级别：[INFO ]
+2. 模块名及进程：PYPTO(592313)
+3. 日志打印时间：2026-03-13 14:26:37.767
+4. 代码位置及行号：[l1_copy_reuse.cpp:642]
+5. 所属模块类型：[PASS]
+6. 具体模块信息：[L1CopyInReuseMerge.Operation] Pass模块名：`L1CopyInReuseMerge`，Element类型：`Operation`
+7. 日志内容：Op 704 feature: [63, 128, 0, 32, 512, 148].
 
-1. **日志级别识别**
-    - 模式：`\[(DEBUG|INFO|WARNING|ERROR)\s*\]`
-    - DEBUG: 调试信息
-    - INFO: 一般信息
-    - WARNING: 警告信息
-    - ERROR: 致命错误
+### 步骤 3：错误原因分析
 
-2. **模块名提取**
-    - 模式：`PYPTO\((\d+)\):`
-    - 模块名：`PYPTO`
-    - 进程ID：`592313`
+#### 3.1 分析流程
 
-3. **时间戳提取**
-    - 模式：`\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}`
-    - 示例：`2026-03-13 14:26:37.767`
+1. 根据日志信息中识别的pass模块，参考 `pypto-pass-module-analyzer` 技能理解该模块的代码、功能和设计
+2. 根据代码位置及行号信息，获取异常所属方法，分析该方法在模块中的作用
+3. 结合错误日志内容，模块的代码、功能和设计，异常方法在该pass中的作用推断可能的失败原因
 
-4. **文件位置提取**
-    - 模式：`\[([a-zA-Z0-9_]+\.(cpp|py|h|cc)):(\d+)\]`
-    - 文件名：`l1_copy_reuse.cpp`
-    - 行号：`642`
+#### 3.2 分析维度
+错误原因的分析可从以下维度入手，但不仅限于这些维度
 
-5. **所属模块识别**
-    - 模式：`\[(FUNCTION|PASS|CODEGEN|MACHINE|DISTRIBUTED|SIMULATION|VERIFY)\]:`
-    - FUNCTION: 表示这是函数调用相关的日志，记录函数入口、出口、参数等信息
-    - PASS: 表示这是pass模块的日志，记录各个pass阶段的执行情况
-    - CODEGEN: 表示这是代码生成相关的日志，记录中间表示(IR)生成、优化等信息
-    - MACHINE: 表示这是机器码生成相关的日志，记录汇编代码生成、指令调度等信息
-    - DISTRIBUTED: 表示这是分布式相关的日志，记录多设备通信、数据分发等信息
-    - SIMULATION: 表示这是仿真相关的日志，记录NPU仿真执行、内存模拟等信息
-    - VERIFY: 表示这是验证相关的日志，记录结果验证、精度检查等信息
-    - 示例：`[PASS]:`
-
-6. **Pass 模块信息提取**
-    - 模式：`\[([a-zA-Z0-9_]+\.[a-zA-Z0-9_]+)\]:`
-    - Pass模块名：`L1CopyInReuseMerge`
-    - Element类型：`Operation`
-
-7. **消息内容提取**
-    - 提取最后一个冒号后的所有内容
-    - 示例：`Op 704 feature: [63, 128, 0, 32, 512, 148].`
-
-8. **堆栈跟踪提取**（Python异常）
-    - 识别 `Traceback (most recent call last):` 开始的堆栈
-    - 提取每个堆栈帧的文件、行号、函数名
-
-### 步骤 3：Pass 模块识别
-
-**识别策略**：
-
-1. **直接识别**：从错误日志解析获取的关键信息中提取 pass 名称
-    - 模式：`Pass\[([^\]]+)\]`
-    - 模式：`in pass ([a-zA-Z0-9_]+)`
-
-2. **堆栈分析**：从堆栈跟踪中推断 pass 模块
-    - 检查文件路径：`framework/passes/`
-    - 检查函数名：`run_pass`, `apply_pass`, `execute`
-
-3. **错误模式匹配**：根据错误特征推断 pass 模块
-    - 冗余消除 → RemoveUndrivenView、RemoveRedundantOp、CommonOperationEliminate
-    - 切图合图 → GraphPartition、ReduceCopyMerge、NBufferMerge、L1CopyInReuseMerge
-    - 数据通路 → IntraSubgraphAdapter、GenerateMoveOp
-    - 动态推导 → InferDynShape、InferParamIndex
-    - 内存管理 → InferMemoryConflict、SrcDstBufferMerge、AddAlloc、OoOSchedule、RemoveAlloc、GlobalMemoryReuse
-    - 调度优化 → OoOSchedule
-
-### 步骤 4：错误原因分析
-
-**定位策略**：
-
-1. **基于堆栈跟踪定位**
-    - 从堆栈中提取文件路径和行号
-    - 定位到具体的错误代码行
-
-2. **基于 pass 模块定位**
-    - 在 `framework/passes/` 目录中搜索 pass 模块
-    - 查找 pass 模块的实现代码
-
-3. **基于错误模式定位**
-    - 使用 grep 搜索错误消息
-    - 在相关文件中查找匹配的代码
-
-**分析维度**：
-
-1. **输入数据问题**
-    - Shape 不对齐
-    - Dtype 不匹配
-    - 数据范围异常
-    - 空张量/零维度
-
-2. **API 使用问题**
-    - 参数错误
-    - 不支持的配置
-    - 缺少必需参数
-    - 参数冲突
-
-3. **环境问题**
-    - NPU 设备不可用
-    - 内存不足
-    - CANN 版本不兼容
-    - 驱动问题
-
-4. **代码逻辑问题**
-    - 算子实现错误
-    - 边界条件处理不当
-    - 类型转换错误
-    - 内存访问越界
+1. 输入数据问题：Shape 不对齐、Dtype 不匹配、数据范围异常、空张量/零维度等
+2. API 使用问题： 参数错误、不支持的配置、缺少必需参数、参数冲突等
+3. 环境问题：NPU 设备不可用、内存不足、CANN 版本不兼容、驱动问题等
+4. 代码逻辑问题：算子实现错误、边界条件处理不当、类型转换错误、内存访问越界等
 
 **Pass 模块详细知识库**：
 
@@ -179,7 +94,7 @@ license: 完整条款见 LICENSE.txt
 
 在分析 Pass 模块错误时，请先查阅该知识库以获取详细的错误模式信息。
 
-### 步骤 5：代码修复
+### 步骤 4：代码修复
 
 根据上一步分析的错误原因及相关修改建议，执行对应的修复操作
 
