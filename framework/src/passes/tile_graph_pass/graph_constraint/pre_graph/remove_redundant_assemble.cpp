@@ -197,7 +197,10 @@ Status RemoveRedundantAssemble::RemoveViewSingleReshape(Function &function) cons
             APASS_LOG_INFO_F(Elements::Operation, "Op %d Attribute is nullptr.", producerOp->GetOpMagic());
             continue;;
         }
-        auto &offset = opAttr->GetFromDynOffset();
+        auto offset = opAttr->GetFromDynOffset();
+        if (offset.empty()) {
+            offset = OpImmediate::ToSpecified(OpImmediate::Specified(opAttr->GetFromOffset()));
+        }
         Shape newRawShape = reshapeOp.GetOOperands().front()->shape;
         if (!CalculateNewRawShape(reshapeOp.GetOOperands().front()->shape, viewInput->tensor->GetRawShape(), newRawShape)) return SUCCESS;
         std::vector<SymbolicScalar> newDynOffset;
