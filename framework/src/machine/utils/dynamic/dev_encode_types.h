@@ -256,8 +256,9 @@ struct DevAicpuLeafBinary {
 };
 
 struct PrefetchInfo {
-    uint64_t tensorSize;
-    uint64_t tensorIdx;
+    uint64_t prefetchNum{0};
+    uint64_t prefetchSize[MAX_PREFETCH_NUM];
+    uint64_t prefetchIdx[MAX_PREFETCH_NUM];
 };
 
 enum class DevIOProperty : uint32_t {

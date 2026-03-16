@@ -69,7 +69,7 @@ int EmulationLauncher::EmulationLaunchOnceWithHostTensorData(
     auto dynAttr = function->GetDyndevAttribute();
     DeviceLauncher::DeviceInitDistributedContext(memUtils, dynAttr->commGroupNames, kArgs);
     DeviceLauncher::DeviceInitTilingData(memUtils, kArgs, dynAttr->devProgBinary, ctrlCache, config, nullptr);
-    DeviceLauncher::DeviceInitKernelInOuts(memUtils, kArgs, inputList, outputList, dynAttr->disableL2List);
+    DeviceLauncher::DeviceInitKernelInOuts(memUtils, kArgs, inputList, outputList, dynAttr->disableL2List, function);
     int rc = EmulationLaunchOnce(kArgs);
     return rc;
 }
@@ -126,7 +126,7 @@ int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
     DeviceKernelArgs kArgs;
     DeviceLauncher::DeviceInitDistributedContext(memUtils, dynAttr->commGroupNames, kArgs);
     DeviceLauncher::DeviceInitTilingData(memUtils, kArgs, dynAttr->devProgBinary, hostCtrlFlowCache, config, nullptr);
-    DeviceLauncher::DeviceInitKernelInOuts(memUtils, kArgs, inputList, outputList, dynAttr->disableL2List);
+    DeviceLauncher::DeviceInitKernelInOuts(memUtils, kArgs, inputList, outputList, dynAttr->disableL2List, function);
     int rc = EmulationLaunchOnce(kArgs);
 
     hostCtrlFlowCache->isRecording = false;

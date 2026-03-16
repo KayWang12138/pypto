@@ -36,6 +36,7 @@ struct DevAscendProgram {
     uint64_t workspaceSize;
     uint64_t l2CacheOffset;
     uint64_t configKey;
+    PrefetchInfo l2Info;
     uint64_t hashKey;
     uint32_t slotSize;
     uint32_t runtimeOutcastPoolSize;
@@ -454,8 +455,7 @@ private:
     void InitDevEncodeList(
             uintdevptr_t &initOffset, const std::vector<std::vector<uint8_t>> &devEncodeListInput, bool fillContent);
     void InitCceCodeList(uintdevptr_t &initOffset, const std::vector<CceCodeInfo> &cceInfo, bool fillContent);
-    void InitPrefetchInfoList(
-            uintdevptr_t &initOffset, const std::vector<L2Info> &l2InfoList, bool fillContent);
+    void InitPrefetchInfoList(const std::vector<L2Info> &l2InfoList, bool fillContent);
     void InitDisableL2List(uintdevptr_t &initOffset, const std::vector<uint8_t> &disableL2, bool fillContent);
     void InitStartArgsABIParamList(uintdevptr_t &initOffset, const std::vector<int> &tStartArgsInputTensorSlotIndexList,
         const std::vector<int> &tStartArgsOutputTensorSlotIndexList,
