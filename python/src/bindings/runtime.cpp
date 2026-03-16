@@ -368,7 +368,7 @@ public:
         EmulationMemoryUtils memUtils;
         int ret = EmulationLauncher::BuildControlFlowCache(dynFunc.get(), memUtils, inputs, {}, &ctrlCache, config);
         if (ret != 0) {
-            ALOG_ERROR("control flow cache failed", ret);
+            ALOG_ERROR_F("control flow cache failed %d", ret);
             return nullptr;
         }
 
@@ -408,7 +408,7 @@ public:
             auto &t = tensors[i];
             auto addr = (uint64_t)t.GetAddr();
             if (unlikely(addr && disableL2List.size() && disableL2List[i])) {
-                ALOG_ERROR("mismatch tensor addr");
+                ALOG_ERROR_F("mismatch tensor addr");
                 addr += l2Offset;
             }
             tensorData->address = addr;
@@ -589,7 +589,7 @@ public:
         kernels.push_back(kernel);
         if (inferCacheShape) {
 #if ENABALE_VERBOSE_LOG
-            ALOG_ERROR("build default cache");
+            ALOG_ERROR_F("build default cache");
 #endif
             BuildDefaultCache(kernel, module);
         }
@@ -693,8 +693,8 @@ private:
             }
         }
 #if ENABALE_VERBOSE_LOG
-        ALOG_ERROR("triple_stream_sched: ", tripleStream, " stitch_cfgcache_size: ", stitchCfgCacheSize,
-            " infer_cache_shape: ", inferCacheShape);
+        ALOG_ERROR_F("triple_stream_sched: %d, stitch_cfgcache_size: %ld, infer_cache_shape: %d",
+                     tripleStream, stitchCfgCacheSize, inferCacheShape);
 #endif
     }
 
@@ -705,7 +705,7 @@ private:
         for (auto &pyshape : cfshapes) {
             auto inputShapes = pyshape.cast<std::vector<std::vector<int64_t>>>();
             if (inputShapes.size() != tensors.size()) {
-                ALOG_ERROR("Invalid input size, expect: ", tensors.size(), " got: ", inputShapes.size());
+                ALOG_ERROR_F("Invalid input size, expect: %zu, get: %zu.", tensors.size(), inputShapes.size());
                 continue;
             }
             std::vector<DeviceTensorData> inputs;
@@ -715,7 +715,7 @@ private:
             if (kernel->CheckArgs(inputs)) {
                 kernel->BuildControlFlowCache(inputs, stitchCfgCacheSize, false);
             } else {
-                ALOG_ERROR("Invalid cache shape, skip it");
+                ALOG_ERROR_F("Invalid cache shape, skip it");
             }
         }
     }
@@ -804,7 +804,7 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
         Program::GetInstance().Reset();
         AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
 #if ENABALE_VERBOSE_LOG
-        ALOG_ERROR("compile kernel");
+        ALOG_ERROR_F("compile kernel");
 #endif
         kbinary = compile_fn(kmodule);
     }
@@ -818,7 +818,7 @@ static void DoLaunch(py::object &module, aclrtStream aicoreStream, int devId,
     HOST_PERF_TRACE(TracePhase::LaunchGetKernel);
 
 #if ENABALE_VERBOSE_LOG
-    ALOG_ERROR("alloc workspace");
+    ALOG_ERROR_F("alloc workspace");
 #endif
     int64_t *wsAddr = nullptr;
     int64_t wsSize = kmodule->GetWorkspaceSize(kbinary, tensors);
