@@ -920,6 +920,59 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUB(PrintMemCopyWithUBParam &param
     return PrintMemCopyWithUBStatic(param);
 }
 
+std::string CodeGenOpCloudNPU::PrintScatterLayout() const {
+    // Scatter: dst = scatter(self, indices, src)
+    // Operand mapping:
+    //   ID0: dst (GM)
+    //   ID1: tmp (UB)
+    //   ID2: self (UB) - not loaded, skip
+    //   ID3: indices (UB)
+    //   ID4: src (UB)
+
+    auto dstRawShapes = rawShape[ID0];
+    auto tmpRawShapes = rawShape[ID1];
+    auto indicesRawShapes = rawShape[ID3];
+    auto srcRawShapes = rawShape[ID4];
+
+    auto dstValidShapes = dynamicValidShape[ID0];
+    auto tmpValidShapes = dynamicValidShape[ID1];
+    auto indicesValidShapes = dynamicValidShape[ID3];
+    auto srcValidShapes = dynamicValidShape[ID4];
+
+    size_t indicesRawShapeDim = indicesRawShapes.size();
+    size_t dstDim = dstValidShapes.size();
+    
+    const int64_t axis = AnyCast<int64_t>(opAttrs.at("op_attr_axis")) +  SHAPE_DIM5 - indicesRawShapeDim;
+    const int64_t scatterMode = AnyCast<int64_t>(opAttrs.at("op_attr_scatter_mode"));
+    // Generate coordinate for dst (GM tensor)
+    auto dstOffsetSymbol = GenGetParamMacroPacked(ID0, dstDim, PREFIX_STR_OFFSET);
+    std::string coordCpDstOffset = WrapParamByParentheses(dstOffsetSymbol);
+    std::string coord4Dst = PrintCoord(dstDim, coordCpDstOffset);
+
+    // Get tensor names (skip ID2/self)
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));     // ID0, GM
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));     // ID1, UB
+    std::string indicesTensor = QueryTileTensorNameByIdx(ID3); // ID3, UB
+    std::string srcTensor = QueryTileTensorNameByIdx(ID4);     // ID4, UB
+    std::vector<std::string> paramList;
+    paramList.emplace_back(std::to_string((axis)));
+    paramList.emplace_back(std::to_string((scatterMode)));
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
+
+    std::vector<std::string> tileOpParamList = {dstTensor, tmpTensor, indicesTensor, srcTensor, coord4Dst};
+    std::ostringstream oss;
+    oss << tileOpName << "<" << templateParam << ">" << WrapParamByParentheses(tileOpParamList) << STMT_END;
+    return oss.str();
+
+}
+
+std::string CodeGenOpCloudNPU::GenScatterOp() const {
+    if (isSupportLayout) {
+        return PrintScatterLayout();
+    }
+    ASSERT(GenCodeErr::PRINT_MODE_ERROR, false) << "Scatter operator does not support static graph";
+    return "";
+}
 std::string CodeGenOpCloudNPU::PrintMemCopyWithUBStatic(const PrintMemCopyWithUBParam &param) const {
     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
 
