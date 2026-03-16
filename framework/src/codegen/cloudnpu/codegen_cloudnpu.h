@@ -143,7 +143,7 @@ private:
         std::ostringstream &code, const CompileInfo &compileInfo, const std::string &compileOptions) const;
     bool IsNeedDumpCode(const std::string &inputFile) const;
     void DumpCode(const std::string &name, std::ostringstream &code) const;
-    int DoCompileCmd(const std::string &compileCmd) const;
+    std::pair<int, std::string> DoCompileCmd(const std::string &compileCmd) const;
 
     void BuildArchOptions(std::ostringstream &oss, const CompileInfo &compileInfo) const;
     void BuildIncludes(std::ostringstream &oss) const;
