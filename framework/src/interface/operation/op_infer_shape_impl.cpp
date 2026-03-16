@@ -193,6 +193,21 @@ void PadInferShapeFunc(Operation* op,
 }
 REGISTER_INFER_SHAPE_FUNC(OP_PAD, Opcode::OP_PAD, PadInferShapeFunc);
 
+void FillPadInferShapeFunc(Operation* op,
+                       std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    auto outputValidShape = op->GetIOperands()[0]->GetDynValidShape();
+    if (outputValidShape.empty()) {
+        return;
+    }
+    std::vector<SymbolicScalar> outValidShape = outputValidShape;
+    
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(outValidShape);
+    }
+}
+REGISTER_INFER_SHAPE_FUNC(OP_FILLPAD, Opcode::OP_FILLPAD, FillPadInferShapeFunc);
+
+
 void IndexOutCastInferFunc(Operation* op,
                       std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     std::vector<SymbolicScalar> outValidShape;
