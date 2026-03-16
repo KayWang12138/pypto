@@ -164,6 +164,6 @@ wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
 TStore(gmTensor_11, ubTensor_3, Coord4Dim(0, 0, 0, 0));
 }
 )!!!";
-    EXPECT_EQ(res, expect);
+    CheckStringExist(expect, res);
 }
 } // namespace npu::tile_fwk

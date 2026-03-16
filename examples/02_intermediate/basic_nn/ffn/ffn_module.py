@@ -59,9 +59,7 @@ def get_device_id():
         int: The device ID if valid, None otherwise.
     """
     if 'TILE_FWK_DEVICE_ID' not in os.environ:
-        print("If no NPU environment is available, set --run_mode sim to run in simulation mode;")
-        print("otherwise, set the environment variable TILE_FWK_DEVICE_ID.")
-        print("Please set it before running this example:")
+        print("Please set the environment variable TILE_FWK_DEVICE_ID before running:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
 
@@ -200,50 +198,45 @@ def dynamic_gelu_activation_core(output: pypto.tensor, hidden_states: pypto.tens
     return
 
 
-def ffn(config: FFNConfig):
+@pypto.frontend.jit
+def ffn_activation_kernel(
+    hidden_states: pypto.tensor(),
+    gate_proj_weight: pypto.tensor(),
+    up_proj_weight: pypto.tensor(),
+    down_proj_weight: pypto.tensor(),
+    output: pypto.tensor(),
+    config: FFNConfig,
+):
+    # Configure tiling for matrix operations
+    pypto.set_cube_tile_shapes(
+        [config.cube_tile_shape[0], config.cube_tile_shape[0]],
+        [config.cube_tile_shape[1], config.cube_tile_shape[1]],
+        [config.cube_tile_shape[2], config.cube_tile_shape[2]]
+    )
+    pypto.set_vec_tile_shapes(*config.vec_tile_shape)
 
-    batch_size, hidden_size, intermediate_size = config.batch_size, config.hidden_size, config.intermediate_size
+    # Gate projection: [batch_size, hidden_size] @ [hidden_size, intermediate_size]
+    gate = pypto.matmul(hidden_states, gate_proj_weight, config.dtype)
     
-    @pypto.frontend.jit(runtime_options={"run_mode": config.run_mode})
-    def ffn_activation_kernel(
-        hidden_states: pypto.tensor((batch_size, hidden_size), config.dtype),
-        gate_proj_weight: pypto.tensor((hidden_size, intermediate_size), config.dtype),
-        up_proj_weight: pypto.tensor((hidden_size, intermediate_size), config.dtype),
-        down_proj_weight: pypto.tensor((intermediate_size, hidden_size), config.dtype),
-    ) -> pypto.tensor((batch_size, hidden_size), config.dtype):
-        # Configure tiling for matrix operations
-        pypto.set_cube_tile_shapes(
-            [config.cube_tile_shape[0], config.cube_tile_shape[0]],
-            [config.cube_tile_shape[1], config.cube_tile_shape[1]],
-            [config.cube_tile_shape[2], config.cube_tile_shape[2]]
-        )
-        pypto.set_vec_tile_shapes(*config.vec_tile_shape)
+    if config.use_dynamic_shape == True and config.activation == "gelu":
+        # Dynamic GELU activation
+        dynamic_gelu_activation_core(output, hidden_states, gate_proj_weight, down_proj_weight, config)
+    elif config.activation == "gelu":
+        # GELU activation
+        activated = gelu_activation_core(gate)
+    elif config.activation == "swiglu":
+        # SwiGLU activation
+        up_proj_weight = pypto.matmul(hidden_states, up_proj_weight, config.dtype)
+        activated = swiglu_activation_core(gate, up_proj_weight)
+    elif config.activation == "relu":
+        # ReLU activation
+        activated = relu_activation_core(gate) 
+    else:
+        raise ValueError(f"Unsupported activation: {config.activation}")
 
-        # Gate projection: [batch_size, hidden_size] @ [hidden_size, intermediate_size]
-        gate = pypto.matmul(hidden_states, gate_proj_weight, config.dtype)
-        
-        if config.use_dynamic_shape == True and config.activation == "gelu":
-            # Dynamic GELU activation
-            output = pypto.tensor(hidden_states.shape, config.dtype)
-            dynamic_gelu_activation_core(output, hidden_states, gate_proj_weight, down_proj_weight, config)
-        elif config.activation == "gelu":
-            # GELU activation
-            activated = gelu_activation_core(gate)
-        elif config.activation == "swiglu":
-            # SwiGLU activation
-            up_proj_weight = pypto.matmul(hidden_states, up_proj_weight, config.dtype)
-            activated = swiglu_activation_core(gate, up_proj_weight)
-        elif config.activation == "relu":
-            # ReLU activation
-            activated = relu_activation_core(gate) 
-        else:
-            raise ValueError(f"Unsupported activation: {config.activation}")
-
-        if config.use_dynamic_shape == False:
-            output = pypto.matmul(activated, down_proj_weight, config.dtype, b_trans=False)
-        return output
-    
-    return ffn_activation_kernel
+    if config.use_dynamic_shape == False:
+        result = pypto.matmul(activated, down_proj_weight, config.dtype, b_trans=False)
+        pypto.assemble(result, [0, 0], output)    
 
 
 def test_ffn_static_gelu(device_id=None, run_mode: str = "npu"):
@@ -286,8 +279,10 @@ def test_ffn_static_gelu(device_id=None, run_mode: str = "npu"):
     gate_torch = torch.matmul(hidden_states_torch, gate_proj_weight_torch)
     gate_activated_torch = gelu_torch(gate_torch.float()).to(dtype)
     output_torch_ref = torch.matmul(gate_activated_torch, down_proj_weight_torch)
+    output = torch.empty(batch_size, hidden_size, dtype=dtype, device=device)
 
-    output = ffn(config)(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch, down_proj_weight_torch)
+    ffn_activation_kernel(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch,
+                            down_proj_weight_torch, output, config)
     if run_mode == "npu":
         assert_allclose(output.cpu().to(torch.float32), output_torch_ref.cpu().to(torch.float32), rtol=3e-3, atol=3e-3)
     print(f"Output shape: {output_torch_ref.shape}")
@@ -333,8 +328,10 @@ def test_ffn_static_swiglu(device_id=None, run_mode: str = "npu"):
     up_torch = torch.matmul(hidden_states_torch, up_proj_weight_torch)
     activated_torch = swiglu_torch(gate_torch.float(), up_torch.float()).to(dtype)
     output_torch_ref = torch.matmul(activated_torch, down_proj_weight_torch)
+    output = torch.empty(batch_size, hidden_size, dtype=dtype, device=device)
 
-    output = ffn(config)(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch, down_proj_weight_torch)
+    ffn_activation_kernel(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch, 
+                          down_proj_weight_torch, output, config)
     print(f"Input shape: {hidden_states_torch.shape}")
     print(f"Gate weight shape: {gate_proj_weight_torch.shape}")
     print(f"Up weight shape: {up_proj_weight_torch.shape}")
@@ -394,8 +391,10 @@ def test_ffn_dynamic_gelu(device_id: int = None, run_mode: str = "npu", dynamic:
     print(f"Number of iterations: {(batch_size + basic_batch - 1) // basic_batch}")
     print(f"Output shape: {output_torch_ref.shape}")
     print(f"Output range: [{output_torch_ref.min().item():.4f}, {output_torch_ref.max().item():.4f}]")
-    
-    output = ffn(config)(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch, down_proj_weight_torch)
+
+    output = torch.empty(batch_size, hidden_size, dtype=dtype, device=device)
+    ffn_activation_kernel(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch, 
+                          down_proj_weight_torch, output, config)
     if run_mode == "npu":
         assert_allclose(output.cpu().to(torch.float32), output_torch_ref.cpu().to(torch.float32), rtol=3e-3, atol=3e-3)
     
@@ -441,8 +440,10 @@ def test_ffn_static_relu(device_id: int = None, run_mode: str = "npu", dynamic: 
     gate_torch = torch.matmul(hidden_states_torch, gate_proj_weight_torch)
     gate_activated_torch = torch.relu(gate_torch)
     output_torch_ref = torch.matmul(gate_activated_torch, down_proj_weight_torch)
-    
-    output = ffn(config)(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch, down_proj_weight_torch)
+
+    output = torch.empty(batch_size, hidden_size, dtype=dtype, device=device)
+    ffn_activation_kernel(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch, 
+                          down_proj_weight_torch, output, config)
     max_diff = np.abs((output.cpu().numpy() - output_torch_ref.cpu().numpy())).max()
     print(f"Input shape: {hidden_states_torch.shape}")
     print(f"Output shape: {output_torch_ref.shape}")
@@ -488,9 +489,9 @@ Examples:
         '--run_mode',
         type=str,
         nargs='?',
-        default="npu",
-        choices=["npu", "sim"],
-        help='Run mode, such as npu/sim etc.'
+        default='npu',
+        choices=["npu"],
+        help='Run mode, currently only support npu.'
     )
 
     args = parser.parse_args()

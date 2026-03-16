@@ -75,5 +75,7 @@ TEST_F(TestCodegenDynIndexPut, DynIndexPutUnaligned) {
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
+    std::string res = GetResultFromCpp(*function);
+    CheckStringExist("TIndexPut<0, 1>(gmTensor_4, Coord2Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 24, 0)), (RUNTIME_COA_GET_PARAM_OFFSET(2, 24, 1))), ubTensor_0, ubTensor_2, ubTensor_2, ubTensor_2, ubTensor_2);", res);
 }
 } // namespace npu::tile_fwk
