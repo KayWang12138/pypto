@@ -375,10 +375,10 @@ void GenerateMoveOp::InsertCopyUBOp(Function &function, Operation *needInsertCop
     ));
     copyOutOp.UpdateSubgraphID(needInsertCopyAssOp->GetSubgraphID());
 
-    LogicalTensor CopyInOutput(function, input->Datatype(), copyShape);
-    CopyInOutput.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-    auto CopyInOutputPtr = std::make_shared<LogicalTensor>(std::move(CopyInOutput));
-    auto &copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {copyOutOutputPtr}, {CopyInOutputPtr});
+    LogicalTensor copyInOutput(function, input->Datatype(), copyShape);
+    copyInOutput.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto copyInOutputPtr = std::make_shared<LogicalTensor>(std::move(copyInOutput));
+    auto &copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {copyOutOutputPtr}, {copyInOutputPtr});
     copyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
         OpImmediate::Specified(offset),
         input->GetMemoryTypeOriginal(),
@@ -387,7 +387,7 @@ void GenerateMoveOp::InsertCopyUBOp(Function &function, Operation *needInsertCop
     ));
     copyInOp.UpdateSubgraphID(needInsertCopyAssOp->GetSubgraphID());
 
-    needInsertCopyAssOp->ReplaceInput(CopyInOutputPtr, input);
+    needInsertCopyAssOp->ReplaceInput(copyInOutputPtr, input);
 }
 
 /**
@@ -398,10 +398,10 @@ void GenerateMoveOp::InsertCopyDDROp(Function &function, Operation *needInsertCo
     auto copyDynShape = input->GetDynValidShape();
     Offset offset(copyShape.size(), 0);
 
-    LogicalTensor CopyInOutput(function, input->Datatype(), copyShape);
-    CopyInOutput.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-    auto CopyInOutputPtr = std::make_shared<LogicalTensor>(std::move(CopyInOutput));
-    auto &copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {input}, {CopyInOutputPtr});
+    LogicalTensor copyInOutput(function, input->Datatype(), copyShape);
+    copyInOutput.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto copyInOutputPtr = std::make_shared<LogicalTensor>(std::move(copyInOutput));
+    auto &copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {input}, {copyInOutputPtr});
     copyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
         OpImmediate::Specified(input->GetOffset()),
         MemoryType::MEM_UB,
@@ -413,7 +413,7 @@ void GenerateMoveOp::InsertCopyDDROp(Function &function, Operation *needInsertCo
     LogicalTensor copyOutOutput(function, input->Datatype(), copyShape);
     copyOutOutput.SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     auto copyOutOutputPtr = std::make_shared<LogicalTensor>(std::move(copyOutOutput));
-    auto &copyOutOp = function.AddOperation(Opcode::OP_COPY_OUT, {CopyInOutputPtr}, {copyOutOutputPtr});
+    auto &copyOutOp = function.AddOperation(Opcode::OP_COPY_OUT, {copyInOutputPtr}, {copyOutOutputPtr});
     copyOutOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
         MemoryType::MEM_UB,
         OpImmediate::Specified(offset),
