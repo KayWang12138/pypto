@@ -103,12 +103,12 @@ struct DynDeviceTask : DynDeviceTaskBase {
             stitchedList[funcIdx].DumpTensorAddrInfo(infos, GetDynFuncDataList()->seqNo, funcIdx);
         }
         auto str = std::move(oss).str();
-        DEV_ERROR("[DumpTensor] seqNo,taskId,rawMagic,address,dtype,bytesOfDtype,(shapes,)");
-        DEV_ERROR("[DumpTensor] >>>");
+        DEV_ERROR(ERROR_CODE_UNDEFINED, "[DumpTensor] seqNo,taskId,rawMagic,address,dtype,bytesOfDtype,(shapes,)");
+        DEV_ERROR(ERROR_CODE_UNDEFINED, "[DumpTensor] >>>");
         for (auto &info : infos) {
-            DEV_ERROR("[DumpTensor] %s", info.c_str());
+            DEV_ERROR(ERROR_CODE_UNDEFINED, "[DumpTensor] %s", info.c_str());
         }
-        DEV_ERROR("[DumpTensor] <<<");
+        DEV_ERROR(ERROR_CODE_UNDEFINED, "[DumpTensor] <<<");
     }
 #endif
 };

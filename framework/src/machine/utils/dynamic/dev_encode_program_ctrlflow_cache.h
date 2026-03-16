@@ -465,7 +465,7 @@ struct DevControlFlowCache {
             memcpy_s(dstWrapInfo->tasklist.elem, tasklistSize, srcWrapInfo->tasklist.elem, tasklistSize);
         }
         if (!MixTaskOpWrapBackup(base, mixTaskDataBackup)) {
-            DEV_ERROR("[MixTaskOpWrapBackup] Backup for opWraptask is failed");
+            DEV_ERROR(ERROR_CODE_UNDEFINED, "[MixTaskOpWrapBackup] Backup for opWraptask is failed");
             return;
         }
         base->mixTaskDataBackup = mixTaskDataBackup;
@@ -578,7 +578,7 @@ struct DevControlFlowCache {
                 resultAddr = desc.cacheValue;
                 break;
             default:
-                DEV_ERROR("[RelocDescFromCache] Invalid kind: %lu\n", (unsigned long)desc.cacheKind);
+                DEV_ERROR(ERROR_CODE_UNDEFINED, "[RelocDescFromCache] Invalid kind: %lu\n", (unsigned long)desc.cacheKind);
                 break;
         }
         AddressDescriptor resultDesc = AddressDescriptor::MakeFromAddress(resultAddr);
