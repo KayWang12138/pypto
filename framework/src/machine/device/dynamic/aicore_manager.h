@@ -583,13 +583,8 @@ private:
         }
     }
 
-    static inline uint64_t RuntimeCopyOutResolveCounterDecode(uint64_t aicpuCallCode) {
-        return aicpuCallCode & 0xffff;
-    }
-
     inline void ResolveByRegVal(CoreType type, int coreIdx) {
         uint64_t finTaskRegVal = aicoreHal_.GetFinishedTask(coreIdx);
-        [[maybe_unused]] uint32_t aicpuCallCode = finTaskRegVal >> 32;
         uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
         uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
 
@@ -598,6 +593,7 @@ private:
         auto &runningIdRef = runningIds_[coreIdx];
         auto &runningResolveIndexBaseRef = runningResolveIndexList_[coreIdx];
         bool isWrapCoreAvailable = wrapManager_.GetWrapCoreAvailable(coreIdx);
+        
         if (likely(finTaskId == pendingIdRef && finTaskState == TASK_FIN_STATE)) {
             // pending task is finished, resolve both running and pending task.
             uint32_t runningIdValue = runningIdRef;
@@ -616,25 +612,10 @@ private:
                 ResolveDepWithDfx(type, coreIdx, runningIdValue, runningResolveIndexBaseValue);
             }
             ResolveDepWithDfx(type, coreIdx, pendingIdValue, pendingResolveIndexBaseValue);
-        } else if (unlikely(finTaskId == pendingIdRef && aicpuCallCode != 0)) {
-            // pending task is copyout, reolve both running and pending task.
-            uint32_t copyOutResolveCounter = RuntimeCopyOutResolveCounterDecode(aicpuCallCode);
-            uint32_t runningIdValueCopyout = runningIdRef;
-            int runningResolveIndexBaseValueCopyout = runningResolveIndexBaseRef;
-            uint32_t pendingIdValue = pendingIdRef;
-            int pendingResolveIndexBaseValue = pendingResolveIndexBaseRef;
-            runningIdRef = pendingIdRef;
-            runningResolveIndexBaseRef = copyOutResolveCounter + 1;
-            pendingIdRef = AICORE_TASK_INIT; // ResolveDepWithDfx depend this line
-            pendingResolveIndexBaseRef = 0;
-            if (isWrapCoreAvailable) {
-                context_->corePendReadyCnt_[static_cast<int>(type)]++;
-            }
-            if (runningIdValueCopyout != AICORE_TASK_INIT) {
-                ResolveDepWithDfx(type, coreIdx, runningIdValueCopyout, runningResolveIndexBaseValueCopyout);
-            }
-            ResolveCopyOutDepDyn(copyOutResolveCounter, pendingIdValue, pendingResolveIndexBaseValue);
-        } else if (finTaskId == pendingIdRef && finTaskState == TASK_ACK_STATE) {
+        }
+        
+        
+        if (finTaskId == pendingIdRef && finTaskState == TASK_ACK_STATE) {
             // pending task is acknowledged, resolve running task. And move pending to running
             uint32_t runningIdValueAck = runningIdRef;
             int runningResolveIndexBaseValueAck = runningResolveIndexBaseRef;
@@ -648,7 +629,9 @@ private:
             if (runningIdValueAck != AICORE_TASK_INIT) {
                 ResolveDepWithDfx(type, coreIdx, runningIdValueAck, runningResolveIndexBaseValueAck);
             }
-        } else if (finTaskId == runningIdRef && finTaskState == TASK_FIN_STATE) {
+        }
+        
+        if (finTaskId == runningIdRef && finTaskState == TASK_FIN_STATE) {
             // running task is finished, resolve running task. Pending task is unmodified
             uint32_t runningIdValue = runningIdRef;
             int runningResolveIndexBaseValue = runningResolveIndexBaseRef;
@@ -658,14 +641,7 @@ private:
                 context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
             }
             ResolveDepWithDfx(type, coreIdx, runningIdValue, runningResolveIndexBaseValue);
-        } else if (unlikely(finTaskId == runningIdRef && aicpuCallCode != 0)) {
-            // running task is copyout, resolve running task. Pending task is unmodified
-            uint32_t copyOutResolveCounter = RuntimeCopyOutResolveCounterDecode(aicpuCallCode);
-            uint32_t runningIdValue = runningIdRef;
-            int runningResolveIndexBaseValue = runningResolveIndexBaseRef;
-            runningResolveIndexBaseRef = copyOutResolveCounter + 1;
-            ResolveCopyOutDepDyn(copyOutResolveCounter, runningIdValue, runningResolveIndexBaseValue);
-        } 
+        }
     }
 
     inline void PushReadyTask(int coreType, uint64_t taskId) {
@@ -737,39 +713,6 @@ private:
         }
 
         ResolveDynStitched(dyntask, funcId, opIndex, coreIdx);
-    }
-
-    inline void ResolveCopyOutDepDyn(uint32_t currResolveIndex, uint64_t taskId, uint32_t resolveIndexBase) {
-        auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
-        auto funcId = FuncID(taskId);
-        auto opIndex = TaskID(taskId);
-
-        auto cceBinary = dyntask->cceBinary;
-        auto func = dyntask->dynFuncDataCacheList[funcId].devFunc;
-        auto predCounts =  dyntask->dynFuncDataCacheList[funcId].predCount;
-        auto callList = dyntask->dynFuncDataCacheList[funcId].calleeList;
-
-        size_t succIndexSize;
-        const int *succIndexList = func->GetOperationDepGraphCopyOutResolveSuccIndexAddr(opIndex, succIndexSize);
-        size_t succSize;
-        const int *succList = func->GetOperationDepGraphSuccAddr(opIndex, succSize);
-        // here we don't use resolveIndexBase + 1, because at the beginning, resolveIndexBase is 0. And we resolve from 0.
-        for (int i = succIndexList[resolveIndexBase]; i < succIndexList[currResolveIndex + 1]; i++) {
-            auto succIdx = succList[i];
-            if (predCounts[succIdx] == 1 ||
-                __atomic_sub_fetch(&predCounts[succIdx], 1, __ATOMIC_RELAXED) == 0) {
-                auto id = MakeTaskID(funcId, succIdx);
-                auto coreType = cceBinary[callList[succIdx]].coreType;
-                if (unlikely(coreType == static_cast<int>(CoreType::HUB))) {
-                    ResolveDepDyn(id);
-                    context_->resolveHubCnt_++;
-                } else if (wrapManager_.IsBindedWrapId(id)) {
-                    wrapManager_.ResolveDepForMixCore(id);
-                } else {
-                    PushReadyTask(static_cast<int>(coreType), id);
-                }
-            }
-        }
     }
 
     inline void ResolveDepWithDfx(CoreType type, int coreIdx, uint64_t finishId, size_t resolveIndexBase = 0) {
