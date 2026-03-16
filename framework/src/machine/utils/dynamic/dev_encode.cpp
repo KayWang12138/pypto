@@ -33,7 +33,7 @@
 #include <unordered_map>
 #include <utility>
 #include <queue>
-
+#include <sstream>
 using namespace npu::tile_fwk;
 namespace npu::tile_fwk {
 namespace dynamic {
@@ -221,6 +221,20 @@ static int64_t GetShapeSizeSafe(const std::vector<int64_t> &shape) {
     return nelm;
 }
 
+static std::string FormatShape(const std::vector<int64_t> &shape) {
+    std::ostringstream oss;
+    oss << "[";
+    for (size_t i = 0; i < shape.size(); i++) {
+        if (i > 0) {
+            oss << ", ";
+        }
+        oss << shape[i];
+    }
+    oss << "]";
+    return oss.str();
+}
+
+
 static void EncodeRawShape(const SymbolicExpressionTable *expressionTable, DevAscendRawTensor *encoded,
         std::shared_ptr<RawTensor> rawTensor, bool needIndependentlyAlloc, const std::string rootName = "") {
     std::vector<SymInt> shape;
@@ -363,6 +377,8 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
 
         for (size_t i = 0; i < rawList.size(); i++) {
             const auto &rawTensor = rawList[i];
+            std::string rawShape = FormatShape(rawTensor->GetRawShape()).c_str();
+            std::string actualrawShape = FormatShape(actualRaw->GetRawShape()).c_str();
             if (rawTensor->actualRawmagic != -1 && rawTensor->actualRawmagic != rawTensor->rawmagic) {
                 auto it = rawMagicToRawTensor.find(rawTensor->actualRawmagic);
                 ASSERT(it != rawMagicToRawTensor.end()) << "rawMagic is not found in rawMagicToRawTensor: " <<
@@ -394,31 +410,45 @@ void DevAscendFunction::InitRawTensorAndMemoryRequirement(
                     continue;
                 }
                 ASSERT(rawTensor->GetRawShapeSize() == actualRaw->GetRawShapeSize()) << "Shape size mismatch:"
-                       << rawTensor->GetRawShapeSize() << "!=" << actualRaw->GetRawShapeSize();
+                       << rawTensor->GetRawShapeSize() << "!=" << actualRaw->GetRawShapeSize()
+ 	                   << ", rootMagic="<< param.devRoot->GetMagicName()
+ 	                   << ", rootHash="<< param.devRoot->GetFunctionHash().GetHash()
+                       <<" ,rawShape="<< rawShape
+                       <<",actualrawShape="<< actualrawShape
+ 	                   << ", rawTensor->rawMagic=" << rawTensor->GetRawMagic()
+ 	                   << ", rawTensor->actualRawmagic=" << rawTensor->actualRawmagic
+ 	                   << ", actualRaw->rawMagic=" << actualRaw->rawmagic;
                 ASSERT(rawTensor->GetRawDataSize() == actualRaw->GetRawDataSize()) << "Data size mismatch:"
-                       << rawTensor->GetRawDataSize() << "!=" << actualRaw->GetRawDataSize();
+                       << rawTensor->GetRawDataSize() << "!=" << actualRaw->GetRawDataSize()
+ 	                   << ", rootMagic="<< param.devRoot->GetMagicName()
+ 	                   << ", rootHash="<< param.devRoot->GetFunctionHash().GetHash()
+                       <<" ,rawShape="<< rawShape
+                       <<",actualrawShape="<< actualrawShape
+ 	                   << ", rawTensor->rawMagic=" << rawTensor->GetRawMagic()
+ 	                   << ", rawTensor->actualRawmagic=" << rawTensor->actualRawmagic
+ 	                   << ", actualRaw->rawMagic=" << actualRaw->rawmagic;
             }
         }
 
         // file linkedIncastId
         auto outIncastLinkMap = param.devRoot->outIncastLinkMap;
-        MACHINE_LOGD("devRoot is %s", param.devRoot->GetRawName().c_str());
+        MACHINE_LOGD("rootName is %s", param.devRoot->GetRawName().c_str());
         for (size_t i = 0; i < rawList.size(); i++) {
             auto &encoded = *GetRawTensor(i);
             if (outIncastLinkMap.find(rawList[i]) != outIncastLinkMap.end()) {
-                ASSERT(outIncastLinkMap[rawList[i]]->actualRawmagic != rawList[i]->rawmagic) << "Unexpected rawmagic match: actualRawmagic "
+                ASSERT(outIncastLinkMap[rawList[i]]->actualRawmagic != rawList[i]->rawmagic) << "Unexpected rawmagic match: actualRawmagic is "
                        << outIncastLinkMap[rawList[i]]->actualRawmagic <<
-                       " == rawmagic " << rawList[i]->rawmagic;
+                       " == rawmagic is " << rawList[i]->rawmagic;
                 auto replacedIncast = outIncastLinkMap[rawList[i]];
                 if (std::find(rawList.begin(), rawList.end(), replacedIncast) != rawList.end()) {
                     encoded.linkedIncastId = incastRawList.GetIndex(replacedIncast); //换成incast的下标 ioidx
-                    MACHINE_LOGD("linkedIncastId is %d", encoded.linkedIncastId);
+                    MACHINE_LOGD("raw tensor linkedIncastId is %d", encoded.linkedIncastId);
                 } else {
                     encoded.linkedIncastId = -1;
                 }
             } else {
                 encoded.linkedIncastId = -1;
-                MACHINE_LOGD("linkedIncastId is %d", encoded.linkedIncastId);
+                MACHINE_LOGD("raw tensor linkedIncastId is %d", encoded.linkedIncastId);
             }
         }
     }; // ONFILLCONTENT
@@ -969,13 +999,13 @@ struct EncodeDevAscendFunctionInfo {
             cellMatchSize *= tile;
             cellMatchStride[r] = cellMatchSize;
         }
-        MACHINE_LOGD("Outcast is %d raw %d shape %s | cellMatchSize %d cellMatchShape %s cellMatchStride %s\n", tensor->magic, tensor->GetRawMagic(),
+        MACHINE_LOGD("Outcast is %d rawtensor magic %d shape %s | cellMatchSize %d cellMatchShape %s cellMatchStride %s\n", tensor->magic, tensor->GetRawMagic(),
             IntVecToStr(tensor->shape).c_str(),
             cellMatchSize,
             IntVecToStr(ShapeToVector(cellMatchShape)).c_str(),
             IntVecToStr(StrideToVector(cellMatchStride)).c_str());
         if (cellMatchStride[0] > MAX_CELLMATCHSSTRIDE) {
- 	  	    MACHINE_LOGE("Assemble out-cast %d raw %d stitch results in excessive memory consumption "
+ 	  	    MACHINE_LOGE("Assemble out-cast %d rawtensor magic %d stitch results in excessive memory consumption "
  	  	                 "Please appropriately configure the view shape and tile shape, and ensure aligned with the input shape ",
  	  	                 tensor->magic, tensor->GetRawMagic());
  	  	}
@@ -1015,7 +1045,7 @@ struct EncodeDevAscendFunctionInfo {
                 } else {
                     useList.emplace_back(i, j, coaIndex, coaIndex + dimSize);
                 }
-                MACHINE_LOGD("Outcast oOperandIdx for outcast %d %d is %zu", o->magic, o->GetRawMagic(), j);
+                MACHINE_LOGD("Outcast oOperandIdx for outcast %d rawtensor maigic %d is %zu", o->magic, o->GetRawMagic(), j);
                 outcastUseOpSet.insert(i);
                 auto expr = callAttr->GetOutcastSymbolicExpr(j);
                 outcastOpAttr.bindTensorExprIndex = -1;
@@ -1034,7 +1064,7 @@ struct EncodeDevAscendFunctionInfo {
                     UNUSED(offsetAttrIdx);
                     auto shape = callAttr->GetLinearImmediateArgList(shapeAttrIdx, shapeAttrIdx + dimSize, false);
                     UpdateCellMatchShape(outcastOpAttr.cellMatchTableDesc, shape);
-                    MACHINE_LOGD("minimal shape for outcast %d raw %d op %zu %d is %s\n", o->magic, o->GetRawMagic(), i,
+                    MACHINE_LOGD("minimal shape for outcast %d rawtensor magic %d op %zu %d is %s\n", o->magic, o->GetRawMagic(), i,
                         op.GetOpMagic(), IntVecToStr(ShapeToVector(outcastOpAttr.cellMatchTableDesc.cellShape)).c_str());
                 }
             }
@@ -1130,7 +1160,7 @@ struct EncodeDevAscendFunctionInfo {
                         }
                         incastOpAttr.useList.emplace_back(j, k, coaIndex, coaIndex + dimSize);
                         UpdateCellMatchShape(incastOpAttr.cellMatchTableDesc, shape);
-                        MACHINE_LOGD("minimal shape for incast %d raw %d op %zu %d is %s\n", index->magic, index->GetRawMagic(), j,
+                        MACHINE_LOGD("minimal shape for incast %d rawtensor magic %d op %zu %d is %s\n", index->magic, index->GetRawMagic(), j,
                             op.GetOpMagic(), IntVecToStr(ShapeToVector(incastOpAttr.cellMatchTableDesc.cellShape)).c_str());
                         incastUseOpSet.insert(j);
                     }
@@ -1946,6 +1976,7 @@ static uint32_t ExpectedMaxCachedNum() {
         return 1;
     }
     expectedMaxCachedNum = (expectedMaxCachedNum > (int)MAX_STITCH_FUNC_NUM_LOWER) ? expectedMaxCachedNum : MAX_STITCH_FUNC_NUM_LOWER;
+    MACHINE_LOGD("max stitch function num  user expected is %d", expectedMaxCachedNum);
     return std::min(static_cast<uint32_t>(expectedMaxCachedNum), static_cast<uint32_t>(MAX_STITCH_FUNC_NUM));
 }
 
@@ -1971,6 +2002,7 @@ struct EncodeDevAscendProgramInfo {
             int unroll = ParseUnrollTimes(devRoot->GetRawName());
             MAX_UNROLL_TIMES = std::max(MAX_UNROLL_TIMES, (uint32_t)unroll);
         }
+        MACHINE_LOGD("MAX_UNROLL_TIMES user set is %u", MAX_UNROLL_TIMES);
     }
 
     void Init(DevAscendProgram *devProg, bool fillContent) {
@@ -2212,9 +2244,13 @@ static void ProcessDevFunctionOutcasts(Function *func, DevAscendFunction *devFun
         devFunc->rootInnerTensorWsMemoryRequirement, unroll, WorkspaceRecyclePeriod());
     uint64_t funcDevTaskInnerExclusiveOutcastMem = CalcUnrolledRootBudget(
         devFunc->exclusiveOutcastWsMemoryRequirement, unroll, EstimatedStitchingCount());
-
+    MACHINE_LOGD("rootInnerTensorWsMemoryRequirement is %lu, funcDevTaskInnerExclusiveOutcastMem is %lu", 
+                  devFunc->rootInnerTensorWsMemoryRequirement, devFunc->exclusiveOutcastWsMemoryRequirement);
+    
     maxRootInnerMem = std::max(maxRootInnerMem, funcRootInnerMem);
     maxDevTaskInnerExclusiveOutcastMem = std::max(maxDevTaskInnerExclusiveOutcastMem, funcDevTaskInnerExclusiveOutcastMem);
+    MACHINE_LOGD("maxRootInnerMem is %lu, maxDevTaskInnerExclusiveOutcastMem is %lu", 
+                  maxRootInnerMem, maxDevTaskInnerExclusiveOutcastMem);
     maxPerCoreSpilledMem = std::max(maxPerCoreSpilledMem, static_cast<uint64_t>(devFunc->stackWorkSpaceSize));
 }
 
@@ -2282,7 +2318,6 @@ static uint64_t CalcGeneralMetadataSlotWorkspace(DevAscendProgram *devProg) {
     MACHINE_LOGD("workspace of generalMetadataSlotSize is %lu, ", generalMetadataSlotSize);
     return generalMetadataSlotSize;
 }
-/**wraplist**/
 static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram *devProg) {
     DeviceWorkspaceAllocator workspace(devProg);
     uint64_t generalMetadataSlabSize = 0;
@@ -2295,8 +2330,6 @@ static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram *devProg) {
         1,// DynDevTask
         READY_QUEUE_SIZE, //ReadyQue
         DIE_READY_QUEUE_SIZE * DIE_NUM, // DieReadyQue
-        1,
-        1,
         1,
         1,
     };
