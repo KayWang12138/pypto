@@ -687,6 +687,7 @@ LogicalTensorPtr ConstructBiasTile(Function &function, const ConvGraphNodes &ten
             SymbolicScalar::FromConcrete(dstBiasL1Offset), dstBiasl1TensorPtr->GetDynValidShape());
     viewOpBiasL1.SetOpAttribute(viewAttributeBiasL1);
     viewOpBiasL1.SetAttribute(Matrix::A_MUL_B_COPY_IN_MODE, static_cast<int64_t>(Matrix::CopyInMode::ND2ND));
+    viewOpBiasL1.SetAttribute("isConv", true);
 
     std::vector<int64_t> dstBiasBtShape = std::vector<int64_t>{1, ConvAlignB(iterInfo.nL0Size, MKN_N_VALUE)};
     std::vector<int64_t> dstBiasBtOffset = std::vector<int64_t>{0, iterInfo.nL0Offset};
@@ -699,6 +700,7 @@ LogicalTensorPtr ConstructBiasTile(Function &function, const ConvGraphNodes &ten
     auto viewAttributeBiasBt = std::make_shared<ViewOpAttribute>(dstBiasBtOffset, MemoryType::MEM_BT,
             SymbolicScalar::FromConcrete(dstBiasBtOffset), dstBiasBtTensorPtr->GetDynValidShape());
     viewOpBiasBt.SetOpAttribute(viewAttributeBiasBt);
+    viewOpBiasBt.SetAttribute("isConv", true);
 
     return dstBiasBtTensorPtr;
 }
@@ -825,6 +827,7 @@ LogicalTensorPtr ConstructFmapTile(Function &function, const ConvGraphNodes &ten
         dstAL1TensorPtr->UpdateDynValidShape(SymbolicScalar::FromConcrete(dstAL1Shape));
         auto &copyInOpAl1 = function.AddOperation(Opcode::OP_L1_COPY_IN_CONV, {tensorGraphNodes.fmapTensorPtr},
                                                   {dstAL1TensorPtr});
+        copyInOpAl1.SetAttribute("isConv", true);
         SetCopyInAL1Op(copyInOpAl1, convTileInfo, iterInfo, convAttrParam, dstAL1Shape, srcGmValidShape, srcCinOffset);
     }
 
@@ -839,6 +842,7 @@ LogicalTensorPtr ConstructFmapTile(Function &function, const ConvGraphNodes &ten
     dstAL1TensorPtr->UpdateDynValidShape(SymbolicScalar::FromConcrete({iterInfo.mL0Size, iterInfo.kL0Size}));
     auto &load3dOpAl0 = function.AddOperation(Opcode::OP_LOAD3D_CONV, {dstAL1TensorPtr}, {dstAL0TensorPtr});
     load3dOpAl0.SetAttribute("l0_tile_shape", SymbolicScalar::FromConcrete(dstAL0Shape));
+    load3dOpAl0.SetAttribute("isConv", true);
     SetImg2ColAttr(load3dOpAl0, convAttrParam, iterInfo, convTileInfo);
     return dstAL0TensorPtr;
 }
@@ -911,6 +915,7 @@ LogicalTensorPtr ConstructWeightTile(Function &function, const ConvGraphNodes &t
         dstBL1TensorPtr->UpdateDynValidShape(SymbolicScalar::FromConcrete(dstBL1Shape));
         auto &copyInOpBl1 = function.AddOperation(Opcode::OP_L1_COPY_IN_CONV, {tensorGraphNodes.weightTensorPtr},
                                                   {dstBL1TensorPtr});
+        copyInOpBl1.SetAttribute("isConv", true);
         SetCopyInBL1Op(copyInOpBl1, convTileInfo, iterInfo, convAttrParam, dstBL1Shape, srcGmValidShape, srcCinOffset);
     }
     // load2d()
@@ -925,6 +930,7 @@ LogicalTensorPtr ConstructWeightTile(Function &function, const ConvGraphNodes &t
     load2dOpBl0.SetAttribute(L12L0ConvOpAttributeKey::postK, iterInfo.kL0Offset % convTileInfo.kBL1);
     load2dOpBl0.SetAttribute(L12L0ConvOpAttributeKey::postN, iterInfo.nL0Offset);
     load2dOpBl0.SetAttribute("l0_tile_shape", SymbolicScalar::FromConcrete(dstBL0Shape));
+    load2dOpBl0.SetAttribute("isConv", true);
     return dstBL0TensorPtr;
 }
 
@@ -986,6 +992,7 @@ LogicalTensorPtr DoMmad(Function &function, const ConvAttrParam &convAttrParam, 
         mmadOutputs = {tileGraphNodes.cL0PartialSumPtr};
     }
     auto &aMulBOp = function.AddOperation(MmadOpStr, mmadInputs, mmadOutputs);
+    aMulBOp.SetAttribute("isConv", true);
 
     SetAMulBAttr(tensorGraphNodes, convTileInfo, aMulBOp);
 
@@ -998,6 +1005,7 @@ void ConstrucCopyOutTile(Function &function, const ConvAttrParam &convAttrParam,
 {
     auto &fixpipeOpRes = function.AddOperation(Opcode::OP_L0C_COPY_OUT_CONV, {resCl0TensorPtr},
                                                {tensorGraphNodes.resTensorPtr});
+    fixpipeOpRes.SetAttribute("isConv", true);
     // set fixpipe copy out validshape
     fixpipeOpRes.SetAttribute(LoadStoreConvOpAttributeKey::copyOutMode,
                               static_cast<int64_t>(CopyOutMode::COPY_MOD_NZ2DN));
