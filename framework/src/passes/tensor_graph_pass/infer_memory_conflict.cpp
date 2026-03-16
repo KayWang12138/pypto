@@ -64,10 +64,6 @@ Status InferMemoryConflict::RunOnFunction(Function &function) {
         APASS_LOG_ERROR_F(Elements::Operation, "ProcessViewType failed.");
         return FAILED;
     }    
-    if (InsertCopysForViewAssemble(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "InsertCopysForViewAssemble failed.");
-        return FAILED;
-    }
     DeadOperationEliminator::EliminateDeadOperation(function);
     APASS_LOG_INFO_F(Elements::Operation, "End InferMemoryConflict for function [%s].", function.GetRawName().c_str());
     return SUCCESS;
@@ -540,7 +536,9 @@ Status InferMemoryConflict::InsertCopysForViewAssemble(Function &function) {
  	        //跳过非view的op
  	        continue;
  	    }
+        TileShape viewTypeTile;
  	    auto consumers = op.oOperand.front()->GetConsumers();
+        auto vecTypeTile = op.GetTileShape().GetVecTile();
  	        //获取view级联的assemble消费者
         for (const auto &consumer : consumers) {
             if (consumer->GetOpcode() != Opcode::OP_ASSEMBLE) {
@@ -548,15 +546,14 @@ Status InferMemoryConflict::InsertCopysForViewAssemble(Function &function) {
                 continue;
             }
             LogicalTensorPtr inputTensor = consumer->GetIOperands().front();
-            if (inputTensor->tensor->GetRawDataSize() <= 192 * 1024) {
-                continue;
-            }
             std::shared_ptr<RawTensor> newRawTensor = std::make_shared<RawTensor>(inputTensor->Datatype(), inputTensor->GetShape());
             Offset newOffset(inputTensor->GetShape().size(), 0);
             LogicalTensorPtr newTensor = std::make_shared<LogicalTensor>(function, newRawTensor, newOffset, inputTensor->GetShape(), inputTensor->GetDynValidShape());
             inputTensor->RemoveConsumer(consumer);
-            function.AddRawOperation(Opcode::OP_REGISTER_COPY, {inputTensor}, {newTensor});
+            auto &regCopy = function.AddRawOperation(Opcode::OP_REGISTER_COPY, {inputTensor}, {newTensor});
             consumer->ReplaceInput(newTensor, inputTensor);
+            viewTypeTile.SetVecTile(vecTypeTile);
+            regCopy.UpdateTileShape(viewTypeTile);
         }
  	}
     return SUCCESS;
