@@ -63,7 +63,7 @@ description: PyPTO Pass 业务流分析技能。用于分析 PyPTO pass 文档�
 
 ### 步骤4：生成业务流分析报告
 
-按照 `REPORT_TEMPLATE.md` 中的模板格式输出分析结果。该模板包含以下章节：
+按照 `references/pass-workflow-report-template.md` 中的模板格式输出分析结果。该模板包含以下章节：
 
 1. 业务概述
 2. 涉及的 Pass 模块（表格形式）

@@ -144,7 +144,7 @@ license: 完整条款见 LICENSE.txt
 
 **Pass 模块详细知识库**：
 
-详细的 Pass 模块知识库请参考：`references/pass_modules_knowledge_base.md`
+详细的 Pass 模块知识库请参考：`references/pass-modules-knowledge-base.md`
 
 该文档包含了 42 个常见 Pass 模块的完整知识库，涵盖：
 - 每个模块的详细功能描述
@@ -167,7 +167,7 @@ license: 完整条款见 LICENSE.txt
 
 **报告格式**（Markdown）：
 
-报告模板参见 `references/error_report_template.md` 文件。
+报告模板参见 `references/pass-error-report-template.md` 文件。
 
 ## 错误模式匹配规则
 
@@ -288,7 +288,7 @@ Device not found
 
 ## 常见问题
 
-常见问题详见 `references/faq.md` 文件。
+常见问题详见 `references/pass-error-locating-faq.md` 文件。
 
 ## 输出验证
 
