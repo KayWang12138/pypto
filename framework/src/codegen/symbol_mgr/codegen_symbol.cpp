@@ -75,7 +75,7 @@ std::string SymbolManager::FormatAllocKey(const AllocKey &key) {
 }
 
 std::string SymbolManager::QueryVariableName(const AllocKey &key) {
-    CODEGEN_LOGI("%s: query varname by identifier: %s", __FUNCTION__, FormatAllocKey(key).c_str());
+    CODEGEN_LOGI("query varname by identifier: %s", FormatAllocKey(key).c_str());
     auto iter = key2VariableName_.find(key);
     ASSERT(GenCodeErr::SYMBOL_NOT_FOUND, iter != key2VariableName_.end())
         << "QueryVariableName Failed: UNDEFINED_VAR !!! AllocKey: " << FormatAllocKey(key);
@@ -83,7 +83,7 @@ std::string SymbolManager::QueryVariableName(const AllocKey &key) {
 }
 
 std::string SymbolManager::QueryVariableNameTileTensor(const AllocKey &key) {
-    CODEGEN_LOGI("%s: query varname TileTensor mode by identifier: %s", __FUNCTION__, FormatAllocKey(key).c_str());
+    CODEGEN_LOGI("query varname TileTensor mode by identifier: %s", FormatAllocKey(key).c_str());
 
     auto iter = key2VariableNameTileTensor_.find(key);
     if (iter != key2VariableNameTileTensor_.end()) {
