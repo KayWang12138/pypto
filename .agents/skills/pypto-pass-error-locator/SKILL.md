@@ -307,13 +307,5 @@ rollback_fix(fix_id)
 
 | 文件 | 内容 |
 |------|----------|
-| `scripts/parse_log.py` | 日志解析脚本 |
-| `scripts/analyze_pass_error.py` | Pass 模块错误分析脚本 |
-| `scripts/auto_fix.py` | 自动修复脚本 |
-| `scripts/verify_fix.py` | 修复验证脚本 |
-| `tests/test_log_parser.py` | 日志解析单元测试 |
-| `tests/test_pass_analyzer.py` | Pass 分析单元测试 |
-| `tests/test_auto_fixer.py` | 自动修复单元测试 |
 | `references/pass-modules-knowledge-base.md` | Pass 模块知识库 |
 | `references/pass-error-report-template.md` | 错误报告模板 |
-| `knowledge_base/fix_strategies.json` | 修复策略知识库 |
