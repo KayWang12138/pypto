@@ -70,7 +70,7 @@ def create_shmem_tensor(
         "tp",
         8,
         pypto.DT_FP16,
-        [64, 128],
+        [1, 64, 128],
     )
     """
     data = Tensor([n_pes] + shape, dtype)
@@ -160,10 +160,11 @@ def shmem_put(
     Examples
     --------
     Send local GM data to dst_pe 1
-    tile = pypto.distributed.shmem_put(
+    shmem_data, _ = pypto.distributed.create_shmem_tensor("tp", 8, pypto.DT_FP16, [1, 64, 128])
+    put_out = pypto.distributed.shmem_put(
         local_tensor,
         [0, 0, 0],
-        shmem_tensor, 
+        shmem_data,
         1,
         put_op=pypto.AtomicType.SET,
         pred=pred_token,
@@ -265,7 +266,7 @@ def shmem_signal(
     Returns
     -------
     Tensor
-        The destination tensor in local GM.
+        Output predicate tokens representing the completion dependency of the operation.
 
     Examples
     --------
