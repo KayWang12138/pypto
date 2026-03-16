@@ -179,20 +179,25 @@ public:
 
     rtStream_t &GetCtrlStream() { return raStreamInstanceCtrl; }
 
+    aclrtStream &GetCmoStream() { return raStreamInstanceCmo; }
+
     void CreateStream() {
         rtStreamCreate(&raStreamInstance, RT_STREAM_PRIORITY_DEFAULT);
         rtStreamCreate(&raStreamInstanceSche, RT_STREAM_PRIORITY_DEFAULT);
         rtStreamCreate(&raStreamInstanceCtrl, RT_STREAM_PRIORITY_DEFAULT);
+        rtStreamCreate(&raStreamInstanceCmo, RT_STREAM_PRIORITY_DEFAULT);
     }
     void DestroyStream() {
         rtStreamDestroy(raStreamInstance);
         rtStreamDestroy(raStreamInstanceSche);
         rtStreamDestroy(raStreamInstanceCtrl);
+        rtStreamDestroy(raStreamInstanceCmo);
     }
 private:
     rtStream_t raStreamInstance{0};
     rtStream_t raStreamInstanceCtrl{0};
     aclrtStream raStreamInstanceSche{0};
+    aclrtStream raStreamInstanceCmo{0};
 };
 
 class RuntimeAgent : public RuntimeAgentMemory, public RuntimeAgentStream {

@@ -101,9 +101,15 @@ struct ReadyCoreFunctionList {
 
 inline constexpr uint32_t MAX_PREFETCH_NUM = 4;
 struct L2PreInfo {
-    int64_t prefetchNum;
+    int64_t prefetchNum {0};
     uint64_t prefetchSizes[MAX_PREFETCH_NUM];
     uint64_t prefetchAddrs[MAX_PREFETCH_NUM];
+};
+
+struct PrefetchInfo {
+    uint64_t prefetchNum {0};
+    uint64_t prefetchSize[MAX_PREFETCH_NUM];
+    uint64_t prefetchIdx[MAX_PREFETCH_NUM];
 };
 
 struct MixTaskData {
