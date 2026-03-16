@@ -93,14 +93,14 @@ from numpy.testing import assert_allclose
         bs, seqlen, head, dim = shape
         if dynamic:
             bs = pypto.frontend.dynamic("bs")
-        
+
         if run_mode == "npu":
             mode = pypto.RunMode.NPU
         elif run_mode == "sim":
             mode = pypto.RunMode.SIM
         else:
             raise ValueError(f"Invalid run_mode: {run_mode}")
-        
+
         # 使用jit装饰器编译kernel
         @pypto.frontend.jit(runtime_options={"run_mode": mode})
         def softmax_kernel(
@@ -108,7 +108,7 @@ from numpy.testing import assert_allclose
         ) -> pypto.Tensor((bs, seqlen, head, dim), pypto.DT_FP32):
             # ... kernel实现 ...
             return output_tensor
-        
+
         return softmax_kernel
     ```
 
@@ -143,7 +143,7 @@ def test_softmax(device_id: int = None, run_mode: str = "npu", dynamic: bool = T
 
 ```bash
 # 配置 CANN 环境变量
-source /usr/local/Ascend/cann/bin/setenv.bash
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
 
 # 设置设备 ID
 export TILE_FWK_DEVICE_ID=0
@@ -210,7 +210,7 @@ PyPTO程序在编译过程中，会自动生成由Tensor和Operation组合而成
 
     右键单击merged\_swimlane.json，在弹出的菜单中选择“使用PyPTO Toolkit打开”，如下图所示。
 
-    **图 1**  泳道图界面  
+    **图 1**  泳道图界面
     ![](../figures/swimlane_graph.png "泳道图界面")
 
     上图中带有色块的部分即为泳道，展示了每个AIC/AIV上的任务执行情况。泳道条目的长度对应任务的耗时，能够直观地反映计算的密集程度。用户可以通过观察相邻泳道之间的空闲间隔（如图中的黑色区域，或称气泡）以及耗时较长的泳道条目，来分析可能存在的性能瓶颈问题。

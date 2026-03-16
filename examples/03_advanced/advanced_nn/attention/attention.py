@@ -48,9 +48,7 @@ def get_device_id():
         int: The device ID if valid, None otherwise.
     """
     if 'TILE_FWK_DEVICE_ID' not in os.environ:
-        print("If no NPU environment is available, set --run_mode sim to run in simulation mode;")
-        print("otherwise, set the environment variable TILE_FWK_DEVICE_ID.")
-        print("Please set it before running this example:")
+        print("Please set the environment variable TILE_FWK_DEVICE_ID before running:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
 
@@ -109,31 +107,20 @@ def scaled_dot_product_attention_core(q: pypto.Tensor, k: pypto.Tensor, v: pypto
     return res
 
 
-def scaled_dot_product_attention(run_mode: str = "npu"):
-    
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
-    else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def scaled_dot_product_attention_kernel(
-        q: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM), pypto.DT_BF16),
-        k: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM), pypto.DT_BF16),
-        v: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM), pypto.DT_BF16),
-    ) -> pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM), pypto.DT_BF16):
-        scale = 1.0 / (HEAD_DIM ** 0.5)
-        pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
-        pypto.set_vec_tile_shapes(1, 8, 16, HEAD_DIM)
-        scores = pypto.matmul(q, pypto.transpose(k, 2, 3), out_dtype=pypto.DT_BF16)
-        scores_scaled = pypto.mul(scores, scale)
-        attn_weights = pypto.softmax(scores_scaled, dim=-1)
-        output = pypto.matmul(attn_weights, v, out_dtype=pypto.DT_BF16)
-        return output
-    
-    return scaled_dot_product_attention_kernel
+@pypto.frontend.jit
+def scaled_dot_product_attention_kernel(
+    q: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM), pypto.DT_BF16),
+    k: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM), pypto.DT_BF16),
+    v: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM), pypto.DT_BF16),
+    output: pypto.Tensor((BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM), pypto.DT_BF16),
+):
+    scale = 1.0 / (HEAD_DIM ** 0.5)
+    pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
+    pypto.set_vec_tile_shapes(1, 8, 16, HEAD_DIM)
+    scores = pypto.matmul(q, pypto.transpose(k, 2, 3), out_dtype=pypto.DT_BF16)
+    scores_scaled = pypto.mul(scores, scale)
+    attn_weights = pypto.softmax(scores_scaled, dim=-1)
+    output.move(pypto.matmul(attn_weights, v, out_dtype=pypto.DT_BF16))
 
 
 def test_scaled_dot_product_attention(device_id=None, run_mode: str = "npu", dynamic: bool = False) -> None:
@@ -147,8 +134,8 @@ def test_scaled_dot_product_attention(device_id=None, run_mode: str = "npu", dyn
     q_torch = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM, dtype=torch.bfloat16, device=device)
     k_torch = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM, dtype=torch.bfloat16, device=device)
     v_torch = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_KV, HEAD_DIM, dtype=torch.bfloat16, device=device)
-    
-    out = scaled_dot_product_attention(run_mode)(q_torch, k_torch, v_torch)
+    out = torch.empty(BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, HEAD_DIM, dtype=torch.bfloat16, device=device)
+    scaled_dot_product_attention_kernel(q_torch, k_torch, v_torch, out)
 
     scale = 1.0 / (HEAD_DIM ** 0.5)
     golden = scaled_dot_product_attention_golden(q_torch, k_torch, v_torch, scale)
@@ -186,65 +173,52 @@ def attention_with_projection_core(q_view: pypto.Tensor, k_view: pypto.Tensor,
     return res
 
 
-def attention_with_projection(run_mode: str = "npu"):
-    
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
-    else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-    
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def attention_with_projection_kernel(
-        hidden_states: pypto.Tensor((BATCH_SIZE, SEQ_LEN, HIDDEN_SIZE), pypto.DT_BF16),
-        q_weight: pypto.Tensor((1, HIDDEN_SIZE, NUM_HEADS * HEAD_DIM), pypto.DT_BF16),
-        k_weight: pypto.Tensor((1, HIDDEN_SIZE, NUM_HEADS * HEAD_DIM), pypto.DT_BF16),
-        v_weight: pypto.Tensor((1, HIDDEN_SIZE, NUM_HEADS * HEAD_DIM), pypto.DT_BF16),
-        out_weight: pypto.Tensor((1, NUM_HEADS * HEAD_DIM, HIDDEN_SIZE), pypto.DT_BF16),
-    ) -> pypto.Tensor((BATCH_SIZE, SEQ_LEN, HIDDEN_SIZE), pypto.DT_BF16):
-        output_tensor = pypto.tensor((BATCH_SIZE, SEQ_LEN, HIDDEN_SIZE), pypto.DT_BF16)
-        tile_b = 1
-        b_loop = BATCH_SIZE // tile_b
+@pypto.frontend.jit
+def attention_with_projection_kernel(
+    hidden_states: pypto.Tensor((BATCH_SIZE, SEQ_LEN, HIDDEN_SIZE), pypto.DT_BF16),
+    q_weight: pypto.Tensor((1, HIDDEN_SIZE, NUM_HEADS * HEAD_DIM), pypto.DT_BF16),
+    k_weight: pypto.Tensor((1, HIDDEN_SIZE, NUM_HEADS * HEAD_DIM), pypto.DT_BF16),
+    v_weight: pypto.Tensor((1, HIDDEN_SIZE, NUM_HEADS * HEAD_DIM), pypto.DT_BF16),
+    out_weight: pypto.Tensor((1, NUM_HEADS * HEAD_DIM, HIDDEN_SIZE), pypto.DT_BF16),
+    output_tensor: pypto.Tensor((BATCH_SIZE, SEQ_LEN, HIDDEN_SIZE), pypto.DT_BF16),
+):
+    tile_b = 1
+    b_loop = BATCH_SIZE // tile_b
 
-        scale = 1.0 / (HEAD_DIM ** 0.5)
-        pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
-        pypto.set_vec_tile_shapes(1, 16, 8, HEAD_DIM)
+    scale = 1.0 / (HEAD_DIM ** 0.5)
+    pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
+    pypto.set_vec_tile_shapes(1, 16, 8, HEAD_DIM)
 
-        q_flat = pypto.matmul(hidden_states, q_weight, out_dtype=pypto.DT_BF16)
-        k_flat = pypto.matmul(hidden_states, k_weight, out_dtype=pypto.DT_BF16)
-        v_flat = pypto.matmul(hidden_states, v_weight, out_dtype=pypto.DT_BF16)
+    q_flat = pypto.matmul(hidden_states, q_weight, out_dtype=pypto.DT_BF16)
+    k_flat = pypto.matmul(hidden_states, k_weight, out_dtype=pypto.DT_BF16)
+    v_flat = pypto.matmul(hidden_states, v_weight, out_dtype=pypto.DT_BF16)
 
-        q = pypto.reshape(q_flat, [BATCH_SIZE, SEQ_LEN, NUM_HEADS, HEAD_DIM])
-        k = pypto.reshape(k_flat, [BATCH_SIZE, SEQ_LEN, NUM_HEADS, HEAD_DIM])
-        v = pypto.reshape(v_flat, [BATCH_SIZE, SEQ_LEN, NUM_HEADS, HEAD_DIM])
+    q = pypto.reshape(q_flat, [BATCH_SIZE, SEQ_LEN, NUM_HEADS, HEAD_DIM])
+    k = pypto.reshape(k_flat, [BATCH_SIZE, SEQ_LEN, NUM_HEADS, HEAD_DIM])
+    v = pypto.reshape(v_flat, [BATCH_SIZE, SEQ_LEN, NUM_HEADS, HEAD_DIM])
 
-        q = pypto.transpose(q, 1, 2)
-        k = pypto.transpose(k, 1, 2)
-        v = pypto.transpose(v, 1, 2)
+    q = pypto.transpose(q, 1, 2)
+    k = pypto.transpose(k, 1, 2)
+    v = pypto.transpose(v, 1, 2)
 
-        for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
-            b_offset = idx * tile_b
-            b_offset_end = pypto.min((idx + 1) * tile_b, BATCH_SIZE)
-            view_shape = [tile_b, NUM_HEADS, SEQ_LEN, HEAD_DIM]
-            valid_shape = [b_offset_end - b_offset, NUM_HEADS, SEQ_LEN, HEAD_DIM]
-            q_view = pypto.view(q, view_shape, [b_offset, 0, 0, 0], valid_shape=valid_shape)
-            k_view = pypto.view(k, view_shape, [b_offset, 0, 0, 0], valid_shape=valid_shape)
-            v_view = pypto.view(v, view_shape, [b_offset, 0, 0, 0], valid_shape=valid_shape)
+    for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
+        b_offset = idx * tile_b
+        b_offset_end = pypto.min((idx + 1) * tile_b, BATCH_SIZE)
+        view_shape = [tile_b, NUM_HEADS, SEQ_LEN, HEAD_DIM]
+        valid_shape = [b_offset_end - b_offset, NUM_HEADS, SEQ_LEN, HEAD_DIM]
+        q_view = pypto.view(q, view_shape, [b_offset, 0, 0, 0], valid_shape=valid_shape)
+        k_view = pypto.view(k, view_shape, [b_offset, 0, 0, 0], valid_shape=valid_shape)
+        v_view = pypto.view(v, view_shape, [b_offset, 0, 0, 0], valid_shape=valid_shape)
 
-            scores = pypto.matmul(q_view, pypto.transpose(k_view, 2, 3), out_dtype=pypto.DT_BF16)
-            scores_scaled = pypto.mul(scores, scale)
-            attn_weights = pypto.softmax(scores_scaled, dim=-1)
-            context = pypto.matmul(attn_weights, v_view, out_dtype=pypto.DT_BF16)
+        scores = pypto.matmul(q_view, pypto.transpose(k_view, 2, 3), out_dtype=pypto.DT_BF16)
+        scores_scaled = pypto.mul(scores, scale)
+        attn_weights = pypto.softmax(scores_scaled, dim=-1)
+        context = pypto.matmul(attn_weights, v_view, out_dtype=pypto.DT_BF16)
 
-            context = pypto.transpose(context, 1, 2)
-            context_flat = pypto.reshape(context, [tile_b, SEQ_LEN, NUM_HEADS * HEAD_DIM])
-            output_view = pypto.matmul(context_flat, out_weight, out_dtype=pypto.DT_BF16)
-            output_tensor[b_offset:, ...] = output_view
-
-        return output_tensor
-
-    return attention_with_projection_kernel
+        context = pypto.transpose(context, 1, 2)
+        context_flat = pypto.reshape(context, [tile_b, SEQ_LEN, NUM_HEADS * HEAD_DIM])
+        output_view = pypto.matmul(context_flat, out_weight, out_dtype=pypto.DT_BF16)
+        output_tensor[b_offset:, ...] = output_view
 
 
 def attention_with_projection_golden(
@@ -292,7 +266,8 @@ def test_attention_with_projection(device_id=None, run_mode: str = "npu", dynami
     out_weight = torch.randn(1, NUM_HEADS * HEAD_DIM, HIDDEN_SIZE, dtype=torch.bfloat16, device=device)
 
     # Execute
-    out = attention_with_projection(run_mode)(hidden_states, q_weight, k_weight, v_weight, out_weight)
+    out = torch.empty(BATCH_SIZE, SEQ_LEN, HIDDEN_SIZE, dtype=torch.bfloat16, device=device)
+    attention_with_projection_kernel(hidden_states, q_weight, k_weight, v_weight, out_weight, out)
     
     golden = attention_with_projection_golden(
         hidden_states, q_weight, k_weight, v_weight, out_weight
@@ -342,9 +317,9 @@ Examples:
         '--run_mode',
         type=str,
         nargs='?',
-        default="npu",
-        choices=["npu", "sim"],
-        help='Run mode, such as npu/sim etc.'
+        default='npu',
+        choices=["npu"],
+        help='Run mode, currently only support npu.'
     )
     args = parser.parse_args()
 

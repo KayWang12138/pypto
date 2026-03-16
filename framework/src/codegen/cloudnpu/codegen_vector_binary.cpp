@@ -21,7 +21,7 @@
 
 namespace npu::tile_fwk {
 std::string GetBrcOprandIdxStr(int64_t brcbOperandIdx) {
-    CODEGEN_LOGI("input brcbOperandIdx is %d", brcbOperandIdx);
+    CODEGEN_LOGI("input brcbOperandIdx is %ld", static_cast<long>(brcbOperandIdx));
     std::string ret = "TileOp::";
     switch (brcbOperandIdx) {
         case ToUnderlying(BroadcastOperand::NONE): ret.append("BroadcastOperand::NONE"); break;

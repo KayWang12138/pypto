@@ -134,6 +134,12 @@ bool ConfigScope::HasConfig(const std::string &key) const {
     return values_.find(key) != values_.end() || (parent_ && parent_->HasConfig(key));
 }
 
+void ConfigScope::Clear() {
+    values_.clear();
+    FUNCTION_LOGD("Clear config scope successfully");
+}
+
+
 const std::type_info &ConfigScope::Type(const std::string &key) const {
     return ConfigManagerNg::GetInstance().Type(key);
 }
@@ -147,9 +153,10 @@ ConfigScope::ConfigScope(ConfigScopePtr parent) : parent_(parent) {
 TileShape ConfigScope::GenerateTileShape() const {
     std::vector<int64_t> vecTile = GetConfig<std::vector<int64_t>>("vec_tile_shapes");
     CubeTile cubeTile = GetConfig<CubeTile>("cube_tile_shapes");
+    ConvTile convTile = GetConfig<ConvTile>("conv_tile_shapes");
     DistTile distTile = GetConfig<DistTile>("dist_tile_shapes");
     std::vector<int64_t> matrixSize = GetConfig<std::vector<int64_t>>("matrix_size");
-    TileShape tileShape(vecTile, cubeTile, distTile, matrixSize);
+    TileShape tileShape(vecTile, cubeTile, convTile, distTile, matrixSize);
     return tileShape;
 }
 
@@ -392,9 +399,11 @@ private:
             root->AddValue(prefix, jData.get<bool>());
         } else if (typeInfo.Type(prefix) == typeid(std::map<int64_t, int64_t>)) {
             std::map<int64_t, int64_t> mapJson;
-            auto arr = jData.get<std::vector<int64_t>>();
-            for (size_t i = 0; i + 1 < arr.size(); i += 2) {
-                mapJson[arr[i]] = arr[i + 1];
+            for (const auto &pair : jData) {
+                auto arr = pair.get<std::vector<int64_t>>();
+                if (arr.size() >= 2) {
+                    mapJson[arr[0]] = arr[1];
+                }
             }
             root->AddValue(prefix, mapJson);
         } else if (jData.is_array()) {
@@ -434,6 +443,7 @@ private:
         tileShape.Reset();
         root->AddValue("cube_tile_shapes", tileShape.GetCubeTile());
         root->AddValue("vec_tile_shapes", tileShape.GetVecTile().tile);
+        root->AddValue("conv_tile_shapes", tileShape.GetConvTile());
         root->AddValue("matrix_size", tileShape.GetMatrixSize());
         root->AddValue("dist_tile_shapes", tileShape.GetDistTile());
     }
@@ -493,7 +503,6 @@ const std::map<std::string, std::pair<int64_t, int64_t>> &ConfigManagerNg::Range
 std::string ConfigManagerNg::GetOptionsTree() {
     return impl_->GetOptionsTree();
 }
-
 
 ConfigManagerNg::ConfigManagerNg() : impl_(std::make_unique<ConfigManagerImpl>()) {
     globalScope = impl_->root;

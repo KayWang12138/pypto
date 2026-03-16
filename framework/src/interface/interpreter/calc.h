@@ -117,6 +117,9 @@ inline void Reciprocal(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 inline void Relu(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Relu(Trans(out), Trans(self));
 }
+inline void Pad(LogicalTensorDataPtr out, LogicalTensorDataPtr input, const Element& padValue) {
+    GetCalcOps()->Pad(Trans(out), Trans(input), padValue);
+}
 inline void BitwiseNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->BitwiseNot(Trans(out), Trans(self));
 }
@@ -411,8 +414,8 @@ inline void Extract(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int mod
     GetCalcOps()->Extract(Trans(out), Trans(self), mod, descending);
 }
 
-inline void Topk(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, int64_t k, bool descending) {
-    GetCalcOps()->Topk(Trans(out), Trans(self), axis, k, descending);
+inline void MrgSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, int64_t k) {
+    GetCalcOps()->MrgSort(Trans(out), Trans(self), axis, k);
 }
 
 inline void TopK(LogicalTensorDataPtr outValue, LogicalTensorDataPtr outIndex, LogicalTensorDataPtr self, int k, int axis, bool descending) {
