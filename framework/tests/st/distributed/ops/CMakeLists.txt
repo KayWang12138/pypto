@@ -10,7 +10,6 @@
 
 set(_Target ${PTO_Fwk_STestNamePrefix}_distributed_ops)
 
-tracr_enable(${_Target})
 
 file(GLOB_RECURSE _Sources src/*.cpp)
 file(GLOB_RECURSE _Device_Srcs ${PTO_FWK_SRC_ROOT}/framework/src/machine/device/*.cpp)
@@ -27,6 +26,7 @@ target_include_directories(Dist_GTest_Inc
             ${GTest_Gtest_Inc}
 )
 
+tracr_enable(${_Target})
 add_library(${_Target} SHARED)
 target_sources(${_Target}
         PRIVATE
