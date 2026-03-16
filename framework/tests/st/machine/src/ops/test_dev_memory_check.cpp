@@ -91,7 +91,7 @@ TEST_F(TestGenAtten, test_mem_check_ok) {
     tileConfig.tileS1Size = 1;
     const int dTileSize = NUM_512;
     const int nTileSize = NUM_128;
-    machine::GetRA()->needMemCheck_ = true;
+    machine::GetRA()->memPool_.needMemCheck_ = true;
     tileConfig.vec1TileShape = {1, 1, NUM_16, dTileSize};
     tileConfig.vec2TileShape = {1, 1, nTileSize, NUM_3};
     std::string configPath = GetGoldenDir() + "/config.json";
@@ -109,11 +109,11 @@ TEST_F(TestGenAtten, test_mem_check_fail) {
     tileConfig.tileS1Size = 1;
     tileConfig.vec1TileShape = {1, 1, NUM_16, dTileSize};
     tileConfig.vec2TileShape = {1, 1, nTileSize, NUM_3};
-    machine::GetRA()->needMemCheck_ = true;
+    machine::GetRA()->memPool_.needMemCheck_ = true;
     std::string configPath = GetGoldenDir() + "/config.json";
     TestDataLoader data(configPath);
     genAtten1<npu::tile_fwk::float16>(data, tileConfig);
-    auto &sentinelValMap = machine::GetRA()->sentinelValMap_;
+    auto &sentinelValMap = machine::GetRA()->memPool_.sentinelValMap_;
     EXPECT_FALSE(sentinelValMap.empty());
     auto &firstPair = *sentinelValMap.begin();
     auto &firstVec = firstPair.second;

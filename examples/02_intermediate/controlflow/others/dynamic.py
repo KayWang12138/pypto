@@ -52,9 +52,7 @@ def get_device_id():
         int: The device ID if valid, None otherwise.
     """
     if 'TILE_FWK_DEVICE_ID' not in os.environ:
-        print("If no NPU environment is available, set --run_mode sim to run in simulation mode;")
-        print("otherwise, set the environment variable TILE_FWK_DEVICE_ID.")
-        print("Please set it before running this example:")
+        print("Please set the environment variable TILE_FWK_DEVICE_ID before running:")
         print("  export TILE_FWK_DEVICE_ID=0")
         return None
 
@@ -80,56 +78,32 @@ def get_device_id():
 #            pypto.frontend.dynamic(), never inside kernel functions.
 
 # Module-level dynamic dimension definition
-batch_size_dyn = pypto.frontend.dynamic("batch_size")
 
+@pypto.frontend.jit
+def dynamic_mul_kernel(
+    x: pypto.Tensor([pypto.DYNAMIC, 128], pypto.DT_FP16),
+    output: pypto.Tensor([pypto.DYNAMIC, 128], pypto.DT_FP16),
+    tile_b: int,
+):
+    batch_size_dyn = x.shape[0]
+    # Compute loop count: ceil(batch_size / tile_b)
+    b_loop = (batch_size_dyn + tile_b - 1) // tile_b
 
-def create_dynamic_mul_kernel(batch_shape: int, run_mode: str = "npu"):
-    """Create a kernel with dynamic batch dimension that multiplies input by 2.
+    for idx in pypto.loop(b_loop):
+        b_offset = idx * tile_b
+        # Boundary management: clamp end offset to actual batch size
+        b_offset_end = pypto.min(b_offset + tile_b, batch_size_dyn)
+        valid_shape = [b_offset_end - b_offset, 128]
 
-    Args:
-        batch_shape: Actual batch size of the input (used for tiling step size).
-        run_mode: Execution mode ('npu' or 'sim').
+        # View a tile from the input
+        x_view = pypto.view(x, [tile_b, 128], [b_offset, 0],
+                            valid_shape=valid_shape)
+        pypto.set_vec_tile_shapes(1, 128)
+        result = pypto.mul(x_view, 2.0)
 
-    Returns:
-        JIT-compiled kernel that handles any batch size.
-    """
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
-    else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
+        # Assemble the result back into the output
+        pypto.assemble(result, [b_offset, 0], output)
 
-    tile_b = batch_shape  # Tile step equals the actual batch size
-
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def dynamic_mul_kernel(
-        x: pypto.Tensor((batch_size_dyn, 128), pypto.DT_FP16)
-    ) -> pypto.Tensor((batch_size_dyn, 128), pypto.DT_FP16):
-        # Create output tensor with dynamic shape
-        output = pypto.Tensor((batch_size_dyn, 128), pypto.DT_FP16)
-
-        # Compute loop count: ceil(batch_size / tile_b)
-        b_loop = (batch_size_dyn + tile_b - 1) // tile_b
-
-        for idx in pypto.loop(b_loop):
-            b_offset = idx * tile_b
-            # Boundary management: clamp end offset to actual batch size
-            b_offset_end = pypto.min(b_offset + tile_b, batch_size_dyn)
-            valid_shape = [b_offset_end - b_offset, 128]
-
-            # View a tile from the input
-            x_view = pypto.view(x, [tile_b, 128], [b_offset, 0],
-                                valid_shape=valid_shape)
-            pypto.set_vec_tile_shapes(1, 128)
-            result = pypto.mul(x_view, 2.0)
-
-            # Assemble the result back into the output
-            pypto.assemble(result, [b_offset, 0], output)
-
-        return output
-
-    return dynamic_mul_kernel
 
 
 def test_dynamic_mul(device_id: int = None, run_mode: str = "npu"):
@@ -143,8 +117,9 @@ def test_dynamic_mul(device_id: int = None, run_mode: str = "npu"):
     test_batch_sizes = [8, 16]
     for bs in test_batch_sizes:
         x = torch.randn(bs, 128, dtype=torch.float16, device=device)
-        kernel = create_dynamic_mul_kernel(x.shape[0], run_mode)
-        result = kernel(x)
+        result = torch.zeros(bs, 128, dtype=torch.float16, device=device)
+        dynamic_mul_kernel(x, result, bs)
+        
 
         if run_mode == "npu":
             torch.npu.synchronize()
@@ -170,7 +145,6 @@ def test_dynamic_mul(device_id: int = None, run_mode: str = "npu"):
 # dimensions dynamic unless truly necessary.
 
 # Module-level: only batch is dynamic
-bs_dyn = pypto.frontend.dynamic("bs")
 
 
 def softmax_core(input_tensor: pypto.Tensor) -> pypto.Tensor:
@@ -178,43 +152,25 @@ def softmax_core(input_tensor: pypto.Tensor) -> pypto.Tensor:
     return pypto.softmax(input_tensor, dim=-1)
 
 
-def create_dynamic_softmax_kernel(shape: tuple, run_mode: str = "npu"):
-    """Create a softmax kernel where only the batch dimension is dynamic.
+@pypto.frontend.jit
+def softmax_kernel(
+    input_tensor: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
+    output_tensor: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
+):
+    tile_b = 1
+    bs_dyn, seqlen, head, dim = input_tensor.shape
+    b_loop = bs_dyn // tile_b
+    
+    pypto.set_vec_tile_shapes(1, 4, 1, 64)
 
-    Args:
-        shape: (batch_size, seqlen, head, dim) - concrete shape for tiling.
-        run_mode: Execution mode ('npu' or 'sim').
-    """
-    _, seqlen, head, dim = shape  # seqlen, head, dim stay concrete
+    for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
+        b_offset = idx * tile_b
+        b_offset_end = (idx + 1) * tile_b
+        # Use slicing to extract a tile (concrete dims stay as-is)
+        input_view = input_tensor[b_offset:b_offset_end, :seqlen, :head, :dim]
+        softmax_out = softmax_core(input_view)
+        output_tensor[b_offset:, ...] = softmax_out
 
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
-    else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def softmax_kernel(
-        input_tensor: pypto.Tensor((bs_dyn, seqlen, head, dim), pypto.DT_FP32),
-    ) -> pypto.Tensor((bs_dyn, seqlen, head, dim), pypto.DT_FP32):
-        output_tensor = pypto.Tensor((bs_dyn, seqlen, head, dim), pypto.DT_FP32)
-        tile_b = 1
-        b_loop = bs_dyn // tile_b
-
-        pypto.set_vec_tile_shapes(1, 4, 1, 64)
-
-        for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
-            b_offset = idx * tile_b
-            b_offset_end = (idx + 1) * tile_b
-            # Use slicing to extract a tile (concrete dims stay as-is)
-            input_view = input_tensor[b_offset:b_offset_end, :seqlen, :head, :dim]
-            softmax_out = softmax_core(input_view)
-            output_tensor[b_offset:, ...] = softmax_out
-
-        return output_tensor
-
-    return softmax_kernel
 
 
 def test_dynamic_partial(device_id: int = None, run_mode: str = "npu"):
@@ -232,9 +188,9 @@ def test_dynamic_partial(device_id: int = None, run_mode: str = "npu"):
     for bs in test_batch_sizes:
         shape = (bs, seqlen, head, dim)
         x = torch.rand(shape, dtype=torch.float32, device=device)
+        y = torch.zeros(shape, dtype=torch.float32, device=device)
 
-        kernel = create_dynamic_softmax_kernel(shape, run_mode)
-        y = kernel(x)
+        softmax_kernel(x, y)
 
         if run_mode == "npu":
             torch.npu.synchronize()
@@ -298,76 +254,57 @@ def scaled_dot_product_attention_core(
     return res
 
 
-def create_dynamic_attention_kernel(
-    q_shape: tuple, k_shape: tuple, config: AttentionConfig,
-    run_mode: str = "npu"
+@pypto.frontend.jit
+def attention_kernel(
+    q: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
+    k: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
+    v: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
+    output_tensor: pypto.Tensor([pypto.DYNAMIC, ...], pypto.DT_FP32),
+    config: AttentionConfig,
+    tile: int,
 ):
-    """Create an attention kernel with dynamic batch dimension.
-
-    Args:
-        q_shape: Shape of query tensor (batch, heads, q_len, dim).
-        k_shape: Shape of key tensor (batch, heads, kv_len, dim).
-        config: Attention configuration.
-        run_mode: Execution mode ('npu' or 'sim').
-    """
+    """Scaled dot-product attention with dynamic batch size."""
+    bs_dyn = q.shape[0]
     head = config.num_heads
     dim = config.head_dim
-    q_len = q_shape[2]
-    kv_len = k_shape[2]
-    tile = q_shape[0]  # Tile step equals actual batch size
+    q_len = q.shape[2]
+    kv_len = k.shape[2] # Tile step equals actual batch size
     scale = config.scale if config.scale is not None else (1.0 / (dim ** 0.5))
+    cube_tiling = 64
+    pypto.set_cube_tile_shapes(
+        [cube_tiling, cube_tiling],
+        [cube_tiling, cube_tiling],
+        [cube_tiling, cube_tiling],
+    )
 
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
-    else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
+    
+    bs_loop = (bs_dyn + tile - 1) // tile
 
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def attention_kernel(
-        q: pypto.Tensor((bs_dyn, head, q_len, dim), pypto.DT_FP32),
-        k: pypto.Tensor((bs_dyn, head, kv_len, dim), pypto.DT_FP32),
-        v: pypto.Tensor((bs_dyn, head, kv_len, dim), pypto.DT_FP32),
-    ) -> pypto.Tensor((bs_dyn, head, q_len, dim), pypto.DT_FP32):
-        """Scaled dot-product attention with dynamic batch size."""
-        cube_tiling = 64
-        pypto.set_cube_tile_shapes(
-            [cube_tiling, cube_tiling],
-            [cube_tiling, cube_tiling],
-            [cube_tiling, cube_tiling],
+    for bss_idx in pypto.loop(bs_loop):
+        bs_offset = bss_idx * tile
+        bs_offset_end = pypto.min(bs_offset + tile, bs_dyn)
+
+        # View tiles along the dynamic batch axis
+        q_view = pypto.view(
+            q, [tile, head, q_len, dim], [bs_offset, 0, 0, 0],
+            valid_shape=[bs_offset_end - bs_offset, head, q_len, dim]
+        )
+        k_view = pypto.view(
+            k, [tile, head, kv_len, dim], [bs_offset, 0, 0, 0],
+            valid_shape=[bs_offset_end - bs_offset, head, kv_len, dim]
+        )
+        v_view = pypto.view(
+            v, [tile, head, kv_len, dim], [bs_offset, 0, 0, 0],
+            valid_shape=[bs_offset_end - bs_offset, head, kv_len, dim]
         )
 
-        output_tensor = pypto.tensor((bs_dyn, head, q_len, dim), pypto.DT_FP32)
-        bs_loop = (bs_dyn + tile - 1) // tile
+        pypto.set_vec_tile_shapes(1, 8, 16, 64)
+        res = scaled_dot_product_attention_core(
+            q_view, k_view, v_view, scale, config.dtype
+        )
+        pypto.assemble(res, [bs_offset, 0, 0, 0], output_tensor)
 
-        for bss_idx in pypto.loop(bs_loop):
-            bs_offset = bss_idx * tile
-            bs_offset_end = pypto.min(bs_offset + tile, bs_dyn)
 
-            # View tiles along the dynamic batch axis
-            q_view = pypto.view(
-                q, [tile, head, q_len, dim], [bs_offset, 0, 0, 0],
-                valid_shape=[bs_offset_end - bs_offset, head, q_len, dim]
-            )
-            k_view = pypto.view(
-                k, [tile, head, kv_len, dim], [bs_offset, 0, 0, 0],
-                valid_shape=[bs_offset_end - bs_offset, head, kv_len, dim]
-            )
-            v_view = pypto.view(
-                v, [tile, head, kv_len, dim], [bs_offset, 0, 0, 0],
-                valid_shape=[bs_offset_end - bs_offset, head, kv_len, dim]
-            )
-
-            pypto.set_vec_tile_shapes(1, 8, 16, 64)
-            res = scaled_dot_product_attention_core(
-                q_view, k_view, v_view, scale, config.dtype
-            )
-            pypto.assemble(res, [bs_offset, 0, 0, 0], output_tensor)
-
-        return output_tensor
-
-    return attention_kernel
 
 
 def test_dynamic_attention(device_id: int = None, run_mode: str = "npu"):
@@ -397,10 +334,9 @@ def test_dynamic_attention(device_id: int = None, run_mode: str = "npu"):
         v = torch.randn(batch_size, num_heads, seq_len_kv, head_dim,
                          dtype=dtype, device=device)
 
-        kernel = create_dynamic_attention_kernel(
-            q.shape, k.shape, config, run_mode
-        )
-        out = kernel(q, k, v).cpu()
+        out = torch.empty(batch_size, num_heads, seq_len_q, head_dim,
+                          dtype=dtype, device=device)
+        attention_kernel(q, k, v, out, config, batch_size)
 
         if run_mode == "npu":
             torch.npu.synchronize()
@@ -409,10 +345,11 @@ def test_dynamic_attention(device_id: int = None, run_mode: str = "npu"):
         golden = scaled_dot_product_attention_golden(q, k, v, scale).cpu()
 
         if run_mode == "npu":
-            max_diff = (out - golden).abs().max().item()
+            out_cpu = out.cpu()
+            max_diff = (out_cpu - golden).abs().max().item()
             print(f"  Batch={batch_size}, SeqQ={seq_len_q}, SeqKV={seq_len_kv}, "
                   f"Max diff: {max_diff:.6f}")
-            assert_allclose(np.array(out), np.array(golden), rtol=3e-3, atol=3e-3)
+            assert_allclose(np.array(out_cpu), np.array(golden), rtol=3e-3, atol=3e-3)
         print(f"  Input shape: {q.shape} -> Output shape: {out.shape}")
 
     print("✓ Dynamic attention passed for all test cases")
@@ -427,66 +364,47 @@ def test_dynamic_attention(device_id: int = None, run_mode: str = "npu"):
 # are dynamic. This pattern is useful for layer normalization or similar
 # operations where both dimensions may vary.
 
-batch_dyn = pypto.frontend.dynamic("batch_dyn")
-hidden_dyn = pypto.frontend.dynamic("hidden_dyn")
+
+@pypto.frontend.jit
+def dynamic_add_kernel(
+    x: pypto.Tensor([pypto.DYNAMIC, pypto.DYNAMIC], pypto.DT_FP16),
+    y: pypto.Tensor([pypto.DYNAMIC, pypto.DYNAMIC], pypto.DT_FP16),
+    output: pypto.Tensor([pypto.DYNAMIC, pypto.DYNAMIC], pypto.DT_FP16),
+    tile_b: int,
+    tile_h: int,
+):
+    batch_dyn = x.shape[0]
+    hidden_dyn = x.shape[1]
+    b_loop = (batch_dyn + tile_b - 1) // tile_b
+
+    for b_idx in pypto.loop(b_loop):
+        b_offset = b_idx * tile_b
+        b_offset_end = pypto.min(b_offset + tile_b, batch_dyn)
+        valid_b = b_offset_end - b_offset
+
+        h_loop = (hidden_dyn + tile_h - 1) // tile_h
+
+        for h_idx in pypto.loop(h_loop):
+            h_offset = h_idx * tile_h
+            h_offset_end = pypto.min(h_offset + tile_h, hidden_dyn)
+            valid_h = h_offset_end - h_offset
+
+            x_view = pypto.view(
+                x, [tile_b, tile_h], [b_offset, h_offset],
+                valid_shape=[valid_b, valid_h]
+            )
+            y_view = pypto.view(
+                y, [tile_b, tile_h], [b_offset, h_offset],
+                valid_shape=[valid_b, valid_h]
+            )
+
+            pypto.set_vec_tile_shapes(tile_b, tile_h)
+            result = pypto.add(x_view, y_view)
+            pypto.assemble(result, [b_offset, h_offset], output)
 
 
-def create_dynamic_add_kernel(batch_shape: int, hidden_shape: int,
-                              run_mode: str = "npu"):
-    """Create an element-wise add kernel with two dynamic dimensions.
 
-    Args:
-        batch_shape: Actual batch size (used as tile step).
-        hidden_shape: Actual hidden size (used as tile step).
-        run_mode: Execution mode ('npu' or 'sim').
-    """
-    if run_mode == "npu":
-        mode = pypto.RunMode.NPU
-    elif run_mode == "sim":
-        mode = pypto.RunMode.SIM
-    else:
-        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
-
-    tile_b = batch_shape
-    tile_h = hidden_shape
-
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
-    def dynamic_add_kernel(
-        x: pypto.Tensor((batch_dyn, hidden_dyn), pypto.DT_FP16),
-        y: pypto.Tensor((batch_dyn, hidden_dyn), pypto.DT_FP16),
-    ) -> pypto.Tensor((batch_dyn, hidden_dyn), pypto.DT_FP16):
-        output = pypto.Tensor((batch_dyn, hidden_dyn), pypto.DT_FP16)
-
-        b_loop = (batch_dyn + tile_b - 1) // tile_b
-
-        for b_idx in pypto.loop(b_loop):
-            b_offset = b_idx * tile_b
-            b_offset_end = pypto.min(b_offset + tile_b, batch_dyn)
-            valid_b = b_offset_end - b_offset
-
-            h_loop = (hidden_dyn + tile_h - 1) // tile_h
-
-            for h_idx in pypto.loop(h_loop):
-                h_offset = h_idx * tile_h
-                h_offset_end = pypto.min(h_offset + tile_h, hidden_dyn)
-                valid_h = h_offset_end - h_offset
-
-                x_view = pypto.view(
-                    x, [tile_b, tile_h], [b_offset, h_offset],
-                    valid_shape=[valid_b, valid_h]
-                )
-                y_view = pypto.view(
-                    y, [tile_b, tile_h], [b_offset, h_offset],
-                    valid_shape=[valid_b, valid_h]
-                )
-
-                pypto.set_vec_tile_shapes(tile_b, tile_h)
-                result = pypto.add(x_view, y_view)
-                pypto.assemble(result, [b_offset, h_offset], output)
-
-        return output
-
-    return dynamic_add_kernel
+    
 
 
 def test_dynamic_multi_dim(device_id: int = None, run_mode: str = "npu"):
@@ -505,8 +423,8 @@ def test_dynamic_multi_dim(device_id: int = None, run_mode: str = "npu"):
         x = torch.randn(bs, hs, dtype=torch.float16, device=device)
         y = torch.randn(bs, hs, dtype=torch.float16, device=device)
 
-        kernel = create_dynamic_add_kernel(bs, hs, run_mode)
-        result = kernel(x, y)
+        result = torch.zeros(bs, hs, dtype=torch.float16, device=device)
+        dynamic_add_kernel(x, y, result, bs, hs)
 
         if run_mode == "npu":
             torch.npu.synchronize()
@@ -561,9 +479,9 @@ Examples:
         '--run_mode',
         type=str,
         nargs='?',
-        default="npu",
-        choices=["npu", "sim"],
-        help='Run mode, such as npu/sim etc.'
+        default='npu',
+        choices=["npu"],
+        help='Run mode, currently only support npu.'
     )
 
     args = parser.parse_args()

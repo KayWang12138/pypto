@@ -80,7 +80,7 @@ bool FlowVerifier::VerifyResult(const std::string &key,
 
         auto tensorGraphResult = VerifyResult(goldenDataViewList[k], tensorDataViewList[k], rtol, atol);
         if (!tensorGraphResult.Check()) {
-            VERIFY_LOGE("%s Verify for %zu data view list index %zu result FAILED", key.c_str(), goldenDataViewList.size(), k);
+            VERIFY_LOGE_FULL("%s Verify for %zu data view list index %zu result FAILED", key.c_str(), goldenDataViewList.size(), k);
             opInfo[toIndex(OpInfoCsvHeader::verifyResult)] = "FAILED";
             result = false;
         } else {
@@ -216,7 +216,11 @@ void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &
     }
 
     std::vector<std::string> passFilter = config::GetVerifyOption<std::vector<std::string>>(KEY_PASS_VERIFY_FILTER);
-    if (!passFilter.empty()) {
+    if (passFilter.empty()) {
+ 	         return;
+ 	}
+
+ 	if (std::find(passFilter.begin(), passFilter.end(), "all") == passFilter.end()) {
         auto it = std::find(passFilter.begin(), passFilter.end(), passIdentifier);
         if (it == passFilter.end()) {
             return;
@@ -243,7 +247,7 @@ void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &
         try {
             captureExecution = functionInterpreter_->RunForPass(functionInterpreter_->execDumpPassName, func, capture);
         } catch (std::exception &e) {
-            VERIFY_LOGE("VerifyPass failed for function %s, pass %s (passIndex: %d, captureIndex: %zu): %s",
+            VERIFY_LOGE_FULL("VerifyPass failed for function %s, pass %s (passIndex: %d, captureIndex: %zu): %s",
                         func->GetMagicName().c_str(), passIdentifier.c_str(), passIndex, captureIndex, e.what());
             checkResult = false;
             continue;
