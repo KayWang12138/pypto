@@ -467,8 +467,7 @@ TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeCopyOnUB) {
 // in - COPYIN - COPYOUT - RESHAPE - COPYIN - COPYOUT - out
 //    - COPYIN - COPYOUT           - COPYIN - COPYOUT - out
 
-// in - COPYIN - COPYOUT - RESHAPE - COPYIN - COPYOUT - out
-//    - COPYIN - COPYOUT           - COPYIN - COPYOUT - out
+// 不变
 TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeBeforeMultCopyOutOnL1) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestCopyToReshapeCopy", "TestCopyToReshapeCopy", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
@@ -520,8 +519,7 @@ TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeBeforeMultCopyOutOnL1) {
 // in - COPYIN - COPYOUT - RESHAPE - COPYIN   - COPYOUT - out1
 //                                 - ASSEMBLE - out2
 
-// in - COPYIN - COPYOUT - RESHAPE - COPYIN   - COPYOUT - out1
-//                                 - ASSEMBLE - out2                                                 - RESHAPECOPYIN - COPYOUT - COPYIN - COPYOUT - out
+// 不变
 TEST_F(TestRemoveUnalignedReshapeOp, TestCopyToReshapeConsumerAssembleOnL1) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestCopyToReshapeCopy", "TestCopyToReshapeCopy", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
