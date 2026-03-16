@@ -1271,11 +1271,11 @@ void IndexAdd(const TensorData &out, const TensorData &self, const TensorData &s
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
-static void Quantize(const TensorData &out, const TensorData &input, const TensorData *scale,
-                     uint64_t otype, int axis, const TensorData *zeroPoints) {
+static void Quantize(const TensorData &out, const TensorData &input, const TensorData &scale,
+                     uint64_t otype, int axis, const TensorData &zeroPoints) {
     auto tout = From(out);
     auto tinput = From(input);
-    auto tscale = From(*scale);
+    auto tscale = From(scale);
 
     // Normalize axis to positive index
     int inputRank = tinput.second.sizes().size();
@@ -1298,8 +1298,8 @@ static void Quantize(const TensorData &out, const TensorData &input, const Tenso
     auto scaled = tinput.second * scaleTensor;
 
     // Apply zero_points for asymmetric quantization
-    if (zeroPoints != nullptr) {
-        auto tzeroPoints = From(*zeroPoints);
+    if (zeroPoints.dataPtr != nullptr) {
+        auto tzeroPoints = From(zeroPoints);
         auto zeroPointsTensor = tzeroPoints.second;
 
         // Broadcast zero_points based on axis (same as scale)

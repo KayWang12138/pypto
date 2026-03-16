@@ -444,9 +444,14 @@ inline void Sort(LogicalTensorDataPtr value, LogicalTensorDataPtr index, Logical
 }
 
 // quantization
-inline void Quantize(LogicalTensorDataPtr out, LogicalTensorDataPtr input, LogicalTensorDataPtr scale, 
+inline void Quantize(LogicalTensorDataPtr out, LogicalTensorDataPtr input, LogicalTensorDataPtr scale,
     LogicalTensorDataPtr otype, int64_t axis, LogicalTensorDataPtr zeroPoints) {
-    GetCalcOps()->Quantize(Trans(out), Trans(input), Trans(otype), axis, Trans(zeroPoints));
+    auto otypeValue = static_cast<uint64_t>(otype->dtype);
+    if (zeroPoints != nullptr && zeroPoints->tensor != nullptr) {
+        GetCalcOps()->Quantize(Trans(out), Trans(input), &Trans(scale)[0], otypeValue, axis, Trans(zeroPoints));
+    } else {
+        GetCalcOps()->Quantize(Trans(out), Trans(input), &Trans(scale)[0], otypeValue, axis, {nullptr});
+    }
 }
 // TODO: Dequantize
 
