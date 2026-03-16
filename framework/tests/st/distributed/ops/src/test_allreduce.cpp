@@ -354,6 +354,93 @@ template void TestAllReduce_v6<float>(OpTestParam &testParam, std::string &golde
 template void TestAllReduce_v6<float16>(OpTestParam &testParam, std::string& goldenDir);
 template void TestAllReduce_v6<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
 
+// v7: grouped signaling with tunable chunksPerSignal (k).
+template<typename T>
+void TestAllReduce_v7(OpTestParam &testParam, std::string &goldenDir)
+{
+    constexpr size_t paramsSize = 6;
+    auto [row, col, typeNum, tileRow, tileCol, useTwoShot] = GetParams<paramsSize>(goldenDir + "/params.bin");
+    (void)useTwoShot; // v7 is one-shot only
+    DataType dType = GetDataTypeNum(typeNum);
+
+    int32_t outSize = row * col;
+    Shape shape{row, col};
+    Tensor in(dType, shape, "in");
+    Tensor out(dType, shape, "out");
+
+    std::vector<T> inPtr = ReadToVector<T>(
+        goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<T>(in, inPtr),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateTensorZero(out),
+    });
+
+    // Use 7 chunks to guarantee a tail-group when k=4 (7 % 4 != 0).
+    uint32_t payloadChunkCount = static_cast<uint32_t>(row >= 7 ? 7 : row);
+    ASSERT(payloadChunkCount > 0) << "payloadChunkCount must be > 0";
+
+    Shape shmemDataShape{1, row, col};
+    FUNCTION("ALLREDUCE_V7", {in}, {out}) {
+        TileShape::Current().SetVecTile({tileRow, tileCol});
+        Tensor shmemData;
+        Tensor shmemSignal;
+        DataType shmemDataType = in.GetDataType();
+        if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
+            shmemDataType = DT_FP32;
+        }
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
+            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
+        }
+
+        // k sweep: 1, 2, 4, C_payload.
+        std::vector<uint32_t> kCandidates{1u, 2u, 4u, payloadChunkCount};
+        std::vector<uint32_t> validK;
+        for (uint32_t k : kCandidates) {
+            if (k <= payloadChunkCount) {
+                validK.push_back(k);
+            }
+        }
+        for (size_t idx = 0; idx < validK.size(); ++idx) {
+            uint32_t k = validK[idx];
+
+            // Reset buffers between variants in the same test function.
+            auto resetData = ShmemDataSet(in, shmemData);
+            auto resetSignal = ShmemSignalSet(resetData, shmemSignal);
+
+            OneShotCommunicatorV3 comm(testParam.group, testParam.rankSize, shmemSignal, payloadChunkCount, k);
+            OneShotAllReduce_v7(resetSignal, in, shmemData, comm);
+
+            // Materialize full output only on last iteration, but always exercise grouped Wait/Pull.
+            bool materialize = (idx + 1 == validK.size());
+            for (uint32_t groupId = 0; groupId < comm.SignalGroupCount(); ++groupId) {
+                auto waitToken = comm.WaitGroup(in, groupId);
+                uint32_t begin = comm.GroupBeginChunk(groupId);
+                uint32_t gSize = comm.GroupSize(groupId);
+                for (uint32_t local = 0; local < gSize; ++local) {
+                    uint32_t chunkId = begin + local;
+                    auto reducedChunk = comm.PullChunk(waitToken, shmemData, chunkId);
+                    if (materialize) {
+                        Assemble(reducedChunk, {comm.ChunkStartRow(chunkId), 0}, out);
+                    }
+                }
+            }
+        }
+    }
+    RunTest();
+    auto output = ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", outSize, output->GetDevPtr(), testParam));
+}
+
+template void TestAllReduce_v7<int32_t>(OpTestParam &testParam, std::string &goldenDir);
+template void TestAllReduce_v7<float>(OpTestParam &testParam, std::string &goldenDir);
+template void TestAllReduce_v7<float16>(OpTestParam &testParam, std::string& goldenDir);
+template void TestAllReduce_v7<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
+
 // TwoShot v2–v5 system tests — same golden data as TwoShotAllReduce
 template<typename T>
 void TestAllReduce_TwoShot_v2(OpTestParam &testParam, std::string &goldenDir)

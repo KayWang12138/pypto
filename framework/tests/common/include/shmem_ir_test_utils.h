@@ -152,6 +152,20 @@ inline void VerifyOneShotCounts(const ShmemOpCounts& c, uint32_t worldSize)
     EXPECT_EQ(c.get, 1u) << "Expected 1 OP_SHMEM_GET op";
 }
 
+// OneShot grouped (v7): W*C puts/signals, ceil(C/k) waits, C gets.
+inline void VerifyOneShotGroupedCounts(const ShmemOpCounts& c,
+    uint32_t worldSize, uint32_t payloadChunkCount, uint32_t chunksPerSignal)
+{
+    ASSERT_GT(payloadChunkCount, 0u);
+    ASSERT_GT(chunksPerSignal, 0u);
+    uint32_t groupCount = (payloadChunkCount + chunksPerSignal - 1u) / chunksPerSignal;
+    uint32_t expectedScatter = worldSize * payloadChunkCount;
+    EXPECT_EQ(c.put, expectedScatter) << "Expected " << expectedScatter << " OP_SHMEM_PUT ops";
+    EXPECT_EQ(c.signal, expectedScatter) << "Expected " << expectedScatter << " OP_SHMEM_SIGNAL ops";
+    EXPECT_EQ(c.wait, groupCount) << "Expected " << groupCount << " OP_SHMEM_WAIT_UNTIL ops";
+    EXPECT_EQ(c.get, payloadChunkCount) << "Expected " << payloadChunkCount << " OP_SHMEM_GET ops";
+}
+
 // TwoShot: W^2 of each op type (W chunks x W ops per chunk).
 inline void VerifyTwoShotCounts(const ShmemOpCounts& c, uint32_t worldSize)
 {
