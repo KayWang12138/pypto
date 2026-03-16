@@ -75,7 +75,10 @@ public:
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-        std::string folderPath = "output/output_" + getTimeStamp() + "_" + std::to_string(getpid());
+        std::string outputDir = "output";
+        bool res = CreateDir(outputDir);
+        CHECK(res) << "Failed to create directory: " << outputDir;
+        std::string folderPath = outputDir + "/output_" + getTimeStamp() + "_" + std::to_string(getpid());
         setenv("TILE_FWK_OUTPUT_DIR", folderPath.c_str(), 0);
     }
 
@@ -266,7 +269,28 @@ TEST_F(TestDistributedShmemImpl, TestShmemGetGm2Ub)
             out = ShmemGetGm2Ub(dummy, shmemData);
         }
     }
+    std::string functionRawName = GetFunctionRawName(functionName);
+    auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
 
+TEST_F(TestDistributedShmemImpl, TestShmemPutUb2Gm)
+{
+    int64_t row = 16;
+    int64_t col = 32;
+    Tensor in(DT_FP32, {row, col}, "in");
+    Tensor shmemData(DT_FP32, {1, 1, row, col}, "shmemData");
+    Tensor predToken(DT_INT32, {1, 1}, "predToken");
+    std::string functionName = "ShmemPutUb2Gm";
+    FUNCTION(functionName + "Main", {in, shmemData, predToken}, {}) {
+        TileShape::Current().SetVecTile({row, col});
+        LOOP(functionName, FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void) index;
+            ShmemPutUb2Gm(in, shmemData, predToken, AtomicType::ADD);
+        }
+    }
     std::string functionRawName = GetFunctionRawName(functionName);
     auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
     npu::tile_fwk::CodeGenCtx ctx;
