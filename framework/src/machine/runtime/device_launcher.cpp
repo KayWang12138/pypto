@@ -158,7 +158,7 @@ int DeviceLauncher::RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStre
             MACHINE_LOGW("The swimlane function is not currently supported in CaptureMode. The contents of tilefwk_L1_prof_data may be empty.");
             return 0;
         }
-        int rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, nullptr, aicoreStream);
+        int rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, aicoreStream);
         if (rc < 0) {
             return rc;
         }
@@ -245,7 +245,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         return rc;
     }
     if (streamSynchronize) {
-        rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, nullptr, aicoreStream);
+        rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, aicoreStream);
         ASSERT(machine::GetRA()->CheckAllSentinels());
     }
     MACHINE_LOGI("finish Kernel Launch.");
@@ -256,7 +256,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
 }
 
 int DeviceLauncher::DeviceSynchronize(rtStream_t aicpuStream, rtStream_t aicoreStream) {
-    int rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, nullptr, aicoreStream);
+    int rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, aicoreStream);
     return rc;
 }
 #endif
@@ -749,7 +749,7 @@ int DeviceLauncher::LaunchAicoreKernel(
     devRunner.ReportHostProfInfo(startTime, blockDim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
     if (debugEnable) {
         auto scheStream = (aclrtStream)machine::GetRA()->GetScheStream();
-        int rc = DeviceRunner::Get().DynamicLaunchSynchronize(scheStream, nullptr, aicoreStream);
+        int rc = DeviceRunner::Get().DynamicLaunchSynchronize(scheStream, aicoreStream);
         if (rc != 0) {
             MACHINE_LOGE("sync failed");
             return rc;
