@@ -46,6 +46,19 @@ namespace CostModel {
 
     class PvModelSystemConfig {
     public:
+        virtual void Dump(std::string) {};
+        virtual ~PvModelSystemConfig() = default;
+    };
+
+    class PvModelSystemA2A3Config : public PvModelSystemConfig {
+    public:
+        PvModelSystemA2A3Config() = default;
+        void Dump(std::string path);
+    };
+
+    class PvModelSystemA5Config : public PvModelSystemConfig {
+    public:
+        PvModelSystemA5Config() = default;
         void Dump(std::string path);
     };
 

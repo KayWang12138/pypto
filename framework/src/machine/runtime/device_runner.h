@@ -22,6 +22,9 @@
 #include <mutex>
 #include <unistd.h>
 #include <sys/file.h>
+#include <thread>
+#include <atomic>
+#include <condition_variable>
 #include "tilefwk/platform.h"
 #include "machine/runtime/host_prof.h"
 #include "machine/utils/machine_ws_intf.h"
@@ -57,8 +60,6 @@ class DeviceRunner {
 public:
     static DeviceRunner &Get();
 
-    int Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, uint64_t taskData, int taskType = DEVICE_TASK_TYPE_STATIC);
-    int RunAsync(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, uint64_t taskData, int taskType = DEVICE_TASK_TYPE_STATIC);
     uint64_t GetTasksTime() const;
     int DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId, DeviceKernelArgs *kernelArgs, int blockdim, int launchAicpuNum);
     int DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream);
@@ -72,6 +73,7 @@ public:
     }
 
     void SetDebugEnable();
+    void ResetMetrics(const uint32_t &coreId);
     void ResetPerData();
     void DumpAiCoreExecutionTimeData();
     void DumpAiCorePmuData();
@@ -80,17 +82,19 @@ public:
     void InitAiCpuSoBin(DeviceArgs &devArgs);
     bool GetValidGetPgMask() const;
     void ReportHostProfInfo(uint64_t startTime, uint32_t blockDim, uint16_t taskType, bool isCore = false);
+    bool GetEnableDumpDevPref() const;
+    void StartMachinePerfTraceDumpThread();
+    void StopMachinePerfTraceDumpThread();
 
 private:
     DeviceRunner() = default;
+    ~DeviceRunner();
     void *DevAlloc(int size);
     void GetModuleLogLevel(DeviceArgs &args);
     int InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t> &regs, const std::vector<int64_t> &regsPmu);
     int InitDeviceArgs(DeviceArgs &args);
     int Init();
 
-    int LaunchAiCpu(const rtStream_t aicpuStream, const uint64_t taskId, const uint64_t taskData, int taskType) const;
-    int LaunchAiCore(rtStream_t aicoreStream, int taskType);
     void Dump();
     void AllocDfxMetricMemory();
     /**************DynamicFunction**************/
@@ -104,6 +108,7 @@ private:
     int DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs, int blockdim);
     int DynamicSeparateLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs, int blockdim);
     int ConstrutDeviceArgs(DeviceArgs &args, const std::vector<int64_t> &regs, const std::vector<int64_t> &regsPmu);
+    void MachinePerfTraceDumpThread();
 private:
     int devId_;
     int aicpuNum_{5};
@@ -120,6 +125,10 @@ private:
     std::unordered_map<ArchInfo, std::function<int(std::vector<int64_t>&, std::vector<int64_t>&)>> addressMappingTable_;
     bool isCapture_{false};
     bool initFlag_{false};
+    bool enableDumpMachinePerfTrace_{false};
+    
+    std::thread dumpThread_;
+    std::atomic<bool> dumpThreadStopFlag_{false};
 };
 }
 #else
@@ -127,18 +136,6 @@ namespace npu::tile_fwk {
 class DeviceRunner {
 public:
     static DeviceRunner &Get();
-    int Run(void *stream, int64_t taskId, uint64_t taskData) {
-        (void)stream;
-        (void)taskId;
-        (void)taskData;
-        return 0;
-    }
-    int RunAsync(void *stream, int64_t taskId, uint64_t taskData) {
-        (void)stream;
-        (void)taskId;
-        (void)taskData;
-        return 0;
-    }
     void InitMetaData(DeviceArgs &devArgs);
     bool GetValidGetPgMask() const;
     HostProf &GetHostProfInstance() {

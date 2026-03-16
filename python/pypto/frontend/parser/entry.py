@@ -28,6 +28,7 @@ from pypto.cost_model import _cost_model_run_once_data_from_host
 from pypto.frontend.parser.diagnostics import Source
 from pypto.frontend.parser.parser import NestedFunctionMarker, Parser
 from pypto.runtime import _pto_verify_datas
+from pypto._utils import BuildOnlineManager
 
 
 def _default_globals() -> dict[str, Any]:
@@ -474,15 +475,14 @@ class JitCallableWrapper:
             dynamic_axis = [
                 i
                 for i, dim in enumerate(tensor_def.shape)
-                if isinstance(dim, pypto.SymbolicScalar)
+                if isinstance(dim, pypto.SymbolicScalar) or dim in (pypto.StatusType.DYN, pypto.StatusType.DYNAMIC)
             ]
+
             pto_tensors.append(
                 pypto.from_torch(
                     torch_tensor,
                     name=tensor_def.name,
-                    dynamic_axis=dynamic_axis if dynamic_axis else None,
-                    tensor_format=tensor_def.format,
-                    dtype=tensor_def.dtype,
+                    dynamic_axis=dynamic_axis if dynamic_axis else None
                 )
             )
         return pto_tensors
@@ -539,18 +539,20 @@ class JitCallableWrapper:
         # Re-create parser for compilation
         self._parser = self._create_parser()
         self._parser.parse()
+        self._parser.input_pto_tensor = args
 
         # Initialize backend for compilation
         self._setup_verify_data(args)
 
         # Set options AFTER OperatorBegin() to match @pypto.jit behavior
-        self._set_config_option()
+        with pypto.options("jit_scope"):
+            self._set_config_option()
 
-        # Bind dynamic dimensions from concrete inputs
-        self._parser.bind_dynamic_dims_to_input_tensors()
+            # Bind dynamic dimensions from concrete inputs
+            self._parser.bind_dynamic_dims_to_input_tensors()
 
-        # Execute the deferred parsing (happens on first __call__)
-        self._pto_function = self._parser.execute()
+            # Execute the deferred parsing (happens on first __call__)
+            self._pto_function = self._parser.execute()
 
         # Reset golden data after compilation, similar to pypto.jit
         _pto_verify_datas.reset()
@@ -633,9 +635,19 @@ class JitCallableWrapper:
             result[param_name] = val
         return result
 
+    def _ensure_debug_options(self) -> None:
+        """Ensure _debug_options is initialized with runtime_debug_mode from global config."""
+        if self._debug_options is None:
+            self._debug_options = {}
+        if "runtime_debug_mode" not in self._debug_options:
+            self._debug_options["runtime_debug_mode"] = pypto.get_debug_options().get(
+                "runtime_debug_mode", 0
+            )
+
     def _get_or_create_kmodule(self, non_tensor_values: dict[str, Any]) -> None:
         """Set self.kwargs and resolve kmodule from cache or create new."""
         self.kwargs = non_tensor_values
+        self._ensure_debug_options()
         key = self._get_compilation_cache_key(non_tensor_values)
         if (
             self._use_cache
@@ -682,6 +694,7 @@ class JitCallableWrapper:
             if debug_mode is not None:
                 if debug_mode == DebugMode.CHECKATTR:
                     self._check_input_defs_match_tensors(in_tensors, input_tensor_defs)
+
         symbolic_dim_value_map = None
         out_tensors = []
         for out_tensor_def in output_tensor_defs:
@@ -710,8 +723,8 @@ class JitCallableWrapper:
             with pypto.options("jit_scope"):
                 self._set_config_option()
                 pypto_impl.DeviceInit()
-                self.compile([*pto_tensors])
-                self._run_with_cpu([*pto_tensors], [])
+                self.compile(pto_tensors)
+                self._run_with_cpu(pto_tensors, [])
 
     def _check_input_defs_match_tensors(self, in_tensors: list, input_tensor_defs: list[pypto.Tensor]) -> None:
         """Check if the input tensor definitions match the input tensors.
@@ -735,21 +748,31 @@ class JitCallableWrapper:
         idx = 0
         for in_tensor, input_tensor_def in zip(in_tensors, input_tensor_defs):
             idx += 1
-            # Check the shape of input tensors and input tensor definitions
-            if len(in_tensor.shape) != len(input_tensor_def.shape):
-                raise ValueError(f"The number of dimensions of {ordinal(idx)} input tensor {in_tensor.shape} \
-                    does not match the number of dimensions of input tensor definition {input_tensor_def.shape}.")
-            for i, dim in enumerate(input_tensor_def.shape):
-                if isinstance(dim, int) and in_tensor.shape[i] != dim:
-                    raise ValueError(f"The shape of {ordinal(idx)} input tensor {in_tensor.shape} \
-                        does not match the shape of input tensor definition {input_tensor_def.shape}.")
+
+            # Skip checking if the input tensor definition is None or（shape len is 0 && shape object is not list）
+            if len(input_tensor_def.shape) != 0 or input_tensor_def.status_shape is not None:
+
+                # def shape len must <= tensor shape len
+                is_diff_shape = len(in_tensor.shape) != len(input_tensor_def.shape) \
+                    if input_tensor_def.status_shape is None \
+                    else len(in_tensor.shape) < len(input_tensor_def.shape)
+
+                # Check the shape of input tensors and input tensor definitions
+                if is_diff_shape:
+                    raise ValueError(f"The number of dimensions of {ordinal(idx)} input tensor {in_tensor.shape} \
+                        does not match the number of dimensions of input tensor definition {input_tensor_def.shape}.")
+                for i, dim in enumerate(input_tensor_def.shape):
+                    if isinstance(dim, int) and in_tensor.shape[i] != dim:
+                        raise ValueError(f"The shape of {ordinal(idx)} input tensor {in_tensor.shape} \
+                            does not match the shape of input tensor definition {input_tensor_def.shape}.")
 
             # Check the dtype of input tensors and input tensor definitions
-            if self._dtype_dict[str(in_tensor.dtype)] != input_tensor_def.dtype:
+            if input_tensor_def.status_dtype is not None and \
+                    self._dtype_dict[str(in_tensor.dtype)] != input_tensor_def.dtype:
                 raise ValueError(f"The dtype of {ordinal(idx)} input tensor {in_tensor.dtype} \
                     does not match the dtype of input tensor definition {input_tensor_def.dtype}.")
 
-            if in_tensor.device == "npu":
+            if in_tensor.device.type == "npu":
                 if self._format_dict[get_format(in_tensor)] != input_tensor_def.format:
                     raise ValueError(f"The format of {ordinal(idx)} input tensor {get_format(in_tensor)} \
                         does not match the format of input tensor definition {input_tensor_def.format}.")
@@ -822,7 +845,7 @@ class JitCallableWrapper:
                 captured_locals_hash = make_hashable(filtered_locals)
             else:
                 captured_locals_hash = None
-                
+
             non_tensor_hash = make_hashable(non_tensor_values) if non_tensor_values else None
 
             return (source_code, options_hash, captured_locals_hash, non_tensor_hash)
@@ -904,7 +927,6 @@ class JitCallableWrapper:
         - verify options (verification settings)
         - debug options (debugging settings)
         """
-        self._set_run_mode()
         if self._codegen_options:
             pypto.set_codegen_options(**self._codegen_options)
         if self._host_options:
@@ -935,6 +957,9 @@ class JitCallableWrapper:
             and self._verify_options.get("enable_pass_verify")
         ):
             return
+        # Compile and load calculator
+        mgr = BuildOnlineManager()
+        mgr.build_and_load_calculator()
 
         # Copy NPU Tensor to CPU, then convert to pypto.Tensor for constructing DeviceTensorData
 

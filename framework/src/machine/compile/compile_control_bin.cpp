@@ -142,7 +142,7 @@ bool TileFwkAiCpuCompile(const std::string &funcName, const std::string &aicpuDi
     // preCompile
     std::string preCompileO= "";
     if (!TieFwkAicpuPreCompile(preCompileO, controlAicpuPath)) {
-        MACHINE_LOGE("Op %s preCompile fail\n", funcName);
+        MACHINE_LOGE("Op %s preCompile fail\n", funcName.c_str());
         return false;
     }
     return SharedAicpuCompile(funcName, aicpuDirPath, preCompileO);

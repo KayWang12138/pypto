@@ -15,6 +15,7 @@
 
 #include <fstream>
 #include "gtest/gtest.h"
+#include "tilefwk/platform.h"
 #include "cost_model/simulation_pv/PvModelImpl.h"
 #include "cost_model/simulation/pv/PvModelFactory.h"
 
@@ -70,6 +71,9 @@ TEST(PvModelTest, TestFactory) {
 
 TEST(PvModelTest, TestDynFactory) {
     auto pv = CostModel::PvModelFactory::CreateDyn();
+    EXPECT_NE(pv, nullptr);
+    npu::tile_fwk::Platform::Instance().GetSoc().SetNPUArch(npu::tile_fwk::NPUArch::DAV_3510);
+    pv = CostModel::PvModelFactory::CreateDyn();
     EXPECT_NE(pv, nullptr);
 }
 

@@ -42,7 +42,7 @@ void FunctionCache::CountFunctionCache(uint64_t key, CostModel::Pid pid, CostMod
         } else {
             GetSim()->GetLogger()->AddCounterEvent(pid, tid, CostModel::CounterType::CACHE_MISS);
             
-            SIMULATION_LOGI("[Cycle: %llu][CoreMachine][ReceivePacket] CoreMachine: %llu Function Not Exist In Function Cache.", GetSim()->GetCycles(), key);
+            SIMULATION_LOGI("[Cycle: %lu][CoreMachine][ReceivePacket] CoreMachine: %lu Function Not Exist In Function Cache.", GetSim()->GetCycles(), key);
         }
     }
 }
