@@ -373,7 +373,7 @@ public:
         DEV_VERBOSE_DEBUG("Dump core %d prof data , task cnt %ld, metric:%p.", coreIdx, metric->taskCount, metric);
         for (int i = 0; i < metric->taskCount; i++) {
             volatile TaskStat *stat = &metric->tasks[i];
-            aicoreProf_->ProfGet(coreIdx, stat->subGraphId, stat->taskId, &(metric)->tasks[i]);
+            // aicoreProf_->ProfGet(coreIdx, stat->subGraphId, stat->taskId, &(metric)->tasks[i]);
             DEV_VERBOSE_DEBUG("  Dump prof for task %d, execstart: %ld execend :%ld.",
                      stat->taskId, stat->execStart, stat->execEnd);
         }

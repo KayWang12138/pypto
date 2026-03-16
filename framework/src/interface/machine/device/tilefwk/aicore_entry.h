@@ -188,12 +188,16 @@ INLINE void SetTaskStatistic(__gm__ KernelArgs *args, int32_t& dfxPose,
                              int32_t taskId, int32_t subGraphId, int64_t tStart, uint16_t seqNo = 0)
 {
     __gm__ volatile TaskStat *stat = &args->taskStat[dfxPose];
-    stat->subGraphId = subGraphId;
-    stat->taskId = taskId;
-    stat->execStart = tStart;
-    stat->execEnd = get_sys_cnt();
-    stat->seqNo = seqNo;
-    dcci(stat, SINGLE_CACHE_LINE, CACHELINE_OUT);
+    if (stat->isSetTask == 0) {
+        stat->subGraphId = subGraphId;
+        stat->taskId = taskId;
+        stat->execStart = tStart;
+        stat->execEnd = get_sys_cnt();
+        stat->seqNo = seqNo;
+        stat->isSetTask = 1;
+        dcci(stat, SINGLE_CACHE_LINE, CACHELINE_OUT);
+    }
+    
 }
 
 INLINE void AddMetricStatistic(ExecuteContext *ctx, uint32_t seqNo, uint32_t taskId, int32_t subGraphId, int64_t t1) {
