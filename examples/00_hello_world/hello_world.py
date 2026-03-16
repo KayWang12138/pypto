@@ -55,9 +55,9 @@ def create_add_kernel(shape: tuple, run_mode: str = "npu"):
     
     @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def add_kernel(
-        x: pypto.Tensor(shape, pypto.DT_FP32),
-        y: pypto.Tensor(shape, pypto.DT_FP32),
-        out: pypto.Tensor(shape, pypto.DT_FP32),
+        x: pypto.Tensor(shape, pypto.DT_BF16),
+        y: pypto.Tensor(shape, pypto.DT_BF16),
+        out: pypto.Tensor(shape, pypto.DT_BF16),
     ):
         pypto.set_vec_tile_shapes(1, 4, 1, 64)
         out[:] = x + y
@@ -68,24 +68,30 @@ def create_add_kernel(shape: tuple, run_mode: str = "npu"):
 def test_add_direct(device_id=None, run_mode: str = "npu") -> None:
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
     shape = (1, 4, 1, 64)
-    #prepare data
-    input_data0 = torch.rand(shape, dtype=torch.float, device=device)
-    input_data1 = torch.rand(shape, dtype=torch.float, device=device)
+    # prepare BF16 data
+    input_data0 = torch.rand(shape, dtype=torch.bfloat16, device=device)
+    input_data1 = torch.rand(shape, dtype=torch.bfloat16, device=device)
 
-    output_data = torch.empty(shape, dtype=torch.float32, device=device)
+    output_data = torch.empty(shape, dtype=torch.bfloat16, device=device)
     create_add_kernel(shape, run_mode)(input_data0, input_data1, output_data)
 
-    golden = torch.add(input_data0, input_data1)
+    # golden 使用 float32 计算，避免累积误差
+    golden = torch.add(input_data0.to(torch.float32), input_data1.to(torch.float32))
 
-    max_diff = np.abs(output_data.cpu().numpy() - golden.cpu().numpy()).max()
+    max_diff = np.abs(output_data.cpu().to(torch.float32).numpy() - golden.cpu().numpy()).max()
     print(f"Input0 shape: {input_data0.shape}")
     print(f"Input1 shape: {input_data1.shape}")
     print(f"Output shape: {output_data.shape}")
     
     if run_mode == "npu":
-        print(f"Max difference: {max_diff:.6f}")
-        assert_allclose(np.array(output_data.cpu()), np.array(golden.cpu()), rtol=3e-3, atol=3e-3)
-    print("✓ Hello world example passed")
+        print(f"Max difference (BF16 vs FP32 golden): {max_diff:.6f}")
+        assert_allclose(
+            np.array(output_data.cpu().to(torch.float32)),
+            np.array(golden.cpu()),
+            rtol=3e-2,
+            atol=3e-2,
+        )
+    print("✓ Hello world BF16 example passed")
     print()
 
 
@@ -200,3 +206,4 @@ Examples:
 
 if __name__ == "__main__":
     main()
+
