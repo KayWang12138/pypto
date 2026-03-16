@@ -20,8 +20,6 @@
 #include "utils/tile_tensor.h"
 
 #define OP_TILE_OP_CAST TCast
-// template <typename LastUse = LastUse2Dim<0, 0>, unsigned Mode, pto::SaturationMode satmode = pto::SaturationMode::OFF, typename T0, typename T1, typename T2>
-// TILEOP void TCast(T0 dst, T1 src, T2 tmp) {
 template <typename LastUse = LastUse2Dim<0, 0>, unsigned Mode, pto::SaturationMode satmode = pto::SaturationMode::OFF, typename T0, typename T1>
 TILEOP void TCast(T0 dst, T1 src) {
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
@@ -45,8 +43,6 @@ TILEOP void TCast(T0 dst, T1 src) {
     constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T0, 4, 5>();
     constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<T1, 3, 5>();
     constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<T1, 4, 5>();
-    // constexpr auto tmpTileH = TileOp::GetTensorTileShapeDim<T2, 3, 5>();
-    // constexpr auto tmpTileW = TileOp::GetTensorTileShapeDim<T2, 4, 5>();
     constexpr auto dstTypeSize = sizeof(typename T0::Type);
     constexpr auto srcTypeSize = sizeof(typename T1::Type);
     constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
@@ -61,12 +57,9 @@ TILEOP void TCast(T0 dst, T1 src) {
                 using TileDefineDst =
                     pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
                 using TileDefineSrc =
-                    pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
-                // using TmpTile = 
-                //     pto::Tile<pto::TileType::Vec, int32_t, tmpTileH, tmpTileW, pto::BLayout::RowMajor, -1, -1>;                 
+                    pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;            
                 TileDefineDst dstTile(shape3, shape4);
                 TileDefineSrc srcTile(shape3, shape4);
-                // TmpTile tmpTile(shape3, shape4);
                 auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
                 auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
                 pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));

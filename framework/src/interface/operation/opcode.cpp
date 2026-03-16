@@ -260,6 +260,11 @@ void OpcodeManager::RegisterVectorUnary() {
     RegisterInfo(Opcode::OP_RELU, OpCoreType::AIV, "RELU", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Trelu", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
         {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_PAD, OpCoreType::AIV, "PAD", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::Tpad", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
+        {OpAttributeKey::scalar, OP_ATTR_PREFIX + "pad_right", OP_ATTR_PREFIX + "pad_bottom",
+            OpAttributeKey::excludeBufferReuse},
+        TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_SQRT, OpCoreType::AIV, "SQRT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tsqrt", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
         {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
@@ -622,6 +627,15 @@ void OpcodeManager::RegisterCube() {
         {"CUBE_CONV_D2S", PIPE_FIX, PIPE_FIX, CoreType::AIC}, OpCalcType::CONV);
     RegisterInfo(Opcode::OP_CUBE_CONCAT_C, OpCoreType::AIC, "CONCAT_C", {}, {},
         {"CUBE_CONCAT_C", PIPE_MTE1, PIPE_FIX, CoreType::AIC}, OpCalcType::CONV);
+    RegisterInfo(Opcode::OP_L1_COPY_IN_CONV, OpCoreType::AIC, "L1_COPY_IN_CONV", {MemoryType::MEM_DEVICE_DDR},
+        {MemoryType::MEM_L1}, {"TileOp::L1CopyInConv", PIPE_MTE2, PIPE_MTE2, CoreType::AIC}, OpCalcType::MOVE_IN);
+    RegisterInfo(Opcode::OP_LOAD3D_CONV, OpCoreType::AIC, "IMG2COL", {MemoryType::MEM_L1},
+        {MemoryType::MEM_L0A}, {"TileOp::TLoad3D", PIPE_MTE1, PIPE_MTE1, CoreType::AIC}, OpCalcType::MOVE_LOCAL);
+    RegisterInfo(Opcode::OP_LOAD2D_CONV, OpCoreType::AIC, "LOAD2D", {MemoryType::MEM_L1},
+        {MemoryType::MEM_L0B}, {"TileOp::TLoad2D", PIPE_MTE1, PIPE_MTE1, CoreType::AIC}, OpCalcType::MOVE_LOCAL);
+    RegisterInfo(Opcode::OP_L0C_COPY_OUT_CONV, OpCoreType::AIC, "L0C_COPY_OUT_CONV", {MemoryType::MEM_L0C},
+        {MemoryType::MEM_DEVICE_DDR}, {"TileOp::L0CCopyOutConv", PIPE_FIX, PIPE_FIX, CoreType::AIC}, OpCalcType::MOVE_OUT,
+        {OpAttributeKey::excludeBufferReuse});
 
     RegisterInfo(Opcode::OP_L1_ALLOC, OpCoreType::AIC, "L1_ALLOC", {}, {MemoryType::MEM_L1},
         {"L1_ALLOC", PIPE_S, PIPE_S, CoreType::AIC}, OpCalcType::SYS);
@@ -779,8 +793,6 @@ void OpcodeManager::RegisterCommon() {
         {"TileOp::Thub", PIPE_V, PIPE_V, CoreType::HUB}, OpCalcType::ELMWISE, {OpAttributeKey::inplaceInfo});
     RegisterInfo(Opcode::OP_REGISTER_COPY, OpCoreType::AIV, "REGISTER_COPY", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"REGISTER_COPY", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::SYS, {}, TileShapeVerifier::Verify);
-    RegisterInfo(Opcode::OP_PAD, OpCoreType::ANY, "PAD", {MemoryType::MEM_UB}, {MemoryType::MEM_UB}, {},
-        OpCalcType::ELMWISE, {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis});
     RegisterInfo(Opcode::OP_UB_ALLOC, OpCoreType::AIV, "UB_ALLOC", {}, {MemoryType::MEM_UB},
         {"UB_ALLOC", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::SYS, {OpAttributeKey::excludeBufferReuse});
     RegisterInfo(Opcode::OP_REG_ALLOC, OpCoreType::AIV, "REG_ALLOC", {}, {MemoryType::MEM_VECTOR_REG},
@@ -917,6 +929,8 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {            Opcode::OP_MRGSORT,       "TMrgSort"},
     {       Opcode::OP_TILEDMRGSORT,  "TTiledMrgSort"},
     {            Opcode::OP_EXTRACT,       "TExtract"},
+    {     Opcode::OP_TWOTILEMRGSORT,"TTwoTileMrgSort"},
+    {     Opcode::OP_EXTRACT_SINGLE, "TExtractSingle"},
     {        Opcode::OP_GATHER_MASK,    "TGatherMask"},
     {               Opcode::OP_CAST,          "TCast"},
     {      Opcode::OP_ROWSUM_SINGLE,  "TRowSumSingle"},
@@ -948,6 +962,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {              Opcode::OP_RSQRT,         "TRsqrt"},
     {              Opcode::OP_RELU,           "TRelu"},
     {              Opcode::OP_LOG1P,         "TLog1p"},
+    {              Opcode::OP_PAD,             "TPad"},
     {               Opcode::OP_SQRT,          "TSqrt"},
     {               Opcode::OP_SIGN,          "TSign"},
     {            Opcode::OP_SIGNBIT,       "TSignbit"},
@@ -1004,11 +1019,15 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {       Opcode::OP_L0C_COPY_OUT,         "TStore"},
     {        Opcode::OP_L1_COPY_OUT,         "TStore"},
     {       Opcode::OP_GATHER_IN_L1,    "TGatherInL1"},
-    {         Opcode::OP_ISFINITE,    "TIsFinite"},
+    {         Opcode::OP_ISFINITE,        "TIsFinite"},
     { Opcode::OP_L1_COPY_IN_A_SCALE,       "TLoadAMX"},
     { Opcode::OP_L1_COPY_IN_B_SCALE,       "TLoadBMX"},
     {    Opcode::OP_L1_TO_L0A_SCALE,     "TExtractMX"},
     {    Opcode::OP_L1_TO_L0B_SCALE,     "TExtractMX"},
+    {    Opcode::OP_L1_COPY_IN_CONV,      "TLoadConv"},
+    {        Opcode::OP_LOAD3D_CONV,        "TLoad3D"},
+    {        Opcode::OP_LOAD2D_CONV,        "TLoad2D"},
+    {  Opcode::OP_L0C_COPY_OUT_CONV,     "TStoreConv"},
 };
 
 std::unordered_set<Opcode> SUPPORT_VF_FUSE_OPS{

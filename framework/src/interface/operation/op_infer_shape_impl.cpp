@@ -168,6 +168,31 @@ REGISTER_INFER_SHAPE_FUNC(OP_BITWISEXOR, Opcode::OP_BITWISEXOR, ElewiseInferFunc
 REGISTER_INFER_SHAPE_FUNC(OP_EXPANDEXPDIF, Opcode::OP_EXPANDEXPDIF, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_COPYSIGN, Opcode::OP_COPYSIGN, ElewiseInferFunc);
 
+void PadInferShapeFunc(Operation* op,
+                       std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    auto inputValidShape = op->GetIOperands()[0]->GetDynValidShape();
+    if (inputValidShape.empty()) {
+        return;
+    }
+    size_t ndim = inputValidShape.size();
+    std::vector<SymbolicScalar> outValidShape = inputValidShape;
+
+    int64_t padRight = 0;
+    int64_t padBottom = 0;
+    op->GetAttr(OP_ATTR_PREFIX + "pad_right", padRight);
+    op->GetAttr(OP_ATTR_PREFIX + "pad_bottom", padBottom);
+    if (ndim >= 1 && padRight > 0) {
+        outValidShape[ndim - 1] = outValidShape[ndim - 1] + padRight;
+    }
+    if (ndim >= 2 && padBottom > 0) {
+        outValidShape[ndim - 2] = outValidShape[ndim - 2] + padBottom;
+    }
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(outValidShape);
+    }
+}
+REGISTER_INFER_SHAPE_FUNC(OP_PAD, Opcode::OP_PAD, PadInferShapeFunc);
+
 void IndexOutCastInferFunc(Operation* op,
                       std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     std::vector<SymbolicScalar> outValidShape;
@@ -684,6 +709,72 @@ void LoadL0MXInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &
 REGISTER_INFER_SHAPE_FUNC(OP_L1_TO_L0A_SCALE, Opcode::OP_L1_TO_L0A_SCALE, LoadL0MXInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_L1_TO_L0B_SCALE, Opcode::OP_L1_TO_L0B_SCALE, LoadL0MXInferFunc);
 
+// conv infer
+void L1CopyInConvInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes)
+{
+    ASSERT(op != nullptr);
+    const std::string L1_TILE_SHAPE = "l1_tile_shape";
+    const std::string IS_FMAP_FLAG = "IS_FMAP";
+    ASSERT(op->HasAttr(L1_TILE_SHAPE));
+    std::vector<SymbolicScalar> tile;
+    op->GetAttr(L1_TILE_SHAPE, tile);
+    ASSERT(op->HasAttr(IS_FMAP_FLAG));
+    bool isFmap = false;
+    op->GetAttr(IS_FMAP_FLAG, isFmap);
+    if (isFmap) {
+        // fmap l1 has 5/6 dim
+        ASSERT(tile.size() == SHAPE_DIM5 || tile.size() == SHAPE_DIM6);
+    } else {
+        ASSERT(tile.size() == SHAPE_DIM4);
+    }
+    std::vector<SymbolicScalar> outShape;
+    for (size_t i = 0; i < tile.size(); i++) {
+        outShape.push_back(tile[i]);
+    }
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(outShape);
+    }
+}
+
+void L1ToL0ConvInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes)
+{
+    ASSERT(op != nullptr);
+    const std::string L0_TILE_SHAPE = "l0_tile_shape";
+    ASSERT(op->HasAttr(L0_TILE_SHAPE));
+    // img2col，无法通过input推出tile out shape，通过传入的tile shape配置
+    // load2d, L1 大包搬运，无法通过input推出tile out shape，通过传入的tile shape配置
+    std::vector<SymbolicScalar> tile;
+    op->GetAttr(L0_TILE_SHAPE, tile);
+    std::vector<SymbolicScalar> outShape;
+    for (size_t i = 0; i < tile.size(); i++) {
+        outShape.push_back(tile[i]);
+    }
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(outShape);
+    }
+}
+
+void L0CCopyOutConvInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes)
+{
+    ASSERT(op != nullptr);
+    const std::string RES_TILE_SHAPE = "res_tile_shape";
+    ASSERT(op->HasAttr(RES_TILE_SHAPE));
+    std::vector<SymbolicScalar> tile;
+    op->GetAttr(RES_TILE_SHAPE, tile);
+    std::vector<SymbolicScalar> outShape;
+    for (size_t i = 0; i < tile.size(); i++) {
+        outShape.push_back(tile[i]);
+    }
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(outShape);
+    }
+}
+
+REGISTER_INFER_SHAPE_FUNC(OP_L1_COPY_IN_CONV, Opcode::OP_L1_COPY_IN_CONV, L1CopyInConvInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_LOAD3D_CONV, Opcode::OP_LOAD3D_CONV, L1ToL0ConvInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_LOAD2D_CONV, Opcode::OP_LOAD2D_CONV, L1ToL0ConvInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_L0C_COPY_OUT_CONV, Opcode::OP_L0C_COPY_OUT_CONV, L0CCopyOutConvInferFunc);
+
 void CopyInInferFunc(Operation* op,
                      std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     auto copyOpAttribute = std::dynamic_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
@@ -893,8 +984,10 @@ void ViewInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outV
             inputValidShape.resize(shapeImm.size());
             OpImmediate::NormalizeValue(inputValidShape, 0, shapeImm, 0, false);
         }
+
         auto newDynValidShape = GetViewValidShape(inputValidShape, viewOpAttribute->GetFromOffset(),
                                                     viewOpAttribute->GetFromDynOffset(), op->GetOOperands()[0]->oriShape);
+
         for (auto output : op->GetOOperands()) {
             outValidShapes.push_back(newDynValidShape);
         }
@@ -958,10 +1051,12 @@ void BitSortFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outVal
     }
     std::vector<SymbolicScalar> res(inputValidShapes[0]);
     auto topk_axis = op->GetIntAttribute(TOPK_AXIS);
-    res[topk_axis] = (res[topk_axis] + blockSize - 1) / blockSize * blockSize;
     res[topk_axis] = res[topk_axis] * NUM2;
-    for (auto output : op->GetOOperands()) {
-        outValidShapes.push_back(res);
+    outValidShapes.emplace_back(res);
+    if (inputValidShapes[0].size() == 1) {
+        outValidShapes.emplace_back(std::vector<SymbolicScalar>{res[topk_axis]});
+    } else {
+        outValidShapes.emplace_back(std::vector<SymbolicScalar>{1, res[topk_axis]});
     }
 }
 
@@ -979,11 +1074,12 @@ void MrgSortFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outVal
     std::vector<SymbolicScalar> res(inputValidShapes[0]);
     auto topk_axis = op->GetIntAttribute(TOPK_AXIS);
     auto topk_kvalue = op->GetIntAttribute(TOPK_KVALUE);
-    SymbolicScalar tmp = (res[topk_axis] + blockSize - 1) / blockSize * blockSize;
-    res[topk_axis] = std::min(res[topk_axis],
-     (topk_kvalue + kBlockFpNum - 1) / kBlockFpNum * kBlockFpNum) * NUM2;
-    for (auto output : op->GetOOperands()) {
-        outValidShapes.push_back(res);
+    res[topk_axis] = std::min(res[topk_axis], (topk_kvalue + kBlockFpNum - 1) / kBlockFpNum * kBlockFpNum * NUM2);
+    outValidShapes.emplace_back(res);
+    if (inputValidShapes[0].size() == 1) {
+        outValidShapes.emplace_back(std::vector<SymbolicScalar>{res[topk_axis]});
+    } else {
+        outValidShapes.emplace_back(std::vector<SymbolicScalar>{1, res[topk_axis]});
     }
 }
 

@@ -49,7 +49,7 @@ void FunctionClone::CopyInferParamIndexInfo() {
         DynParamInfo copiedInfo = info;
         cloneFunc->InsertDynParam(dim, copiedInfo);
     }
-    ALOG_DEBUG_F("Copied %zu dyn param entries to function: %s",
+    APASS_LOG_DEBUG_F(Elements::Function, "Copied %zu dyn param entries to function: %s",
                 originalDynParamTable.size(), cloneFunc->GetRawName().c_str());
 }
 
@@ -57,7 +57,7 @@ Function* FunctionClone::CloneFunctionByComponent(const InternalComponentInfo& c
                                                     uint64_t newProgramID, size_t idx) {
     // 创建新的function名称
     std::string leafName = originalMixFunc->GetRawName() + "_leaf" + std::to_string(idx);
-    ALOG_DEBUG_F("Add leafFunction %s", leafName.c_str());
+    APASS_LOG_DEBUG_F(Elements::Function, "Add leafFunction %s", leafName.c_str());
     // 手动创建function对象
     auto funcMagicName = leafName + "_" + std::to_string(IdGen<IdType::FUNCTION>::Inst().CurId());
     cloneFunc = std::make_shared<Function>(Program::GetInstance(), funcMagicName, leafName, &rootFunc);
@@ -65,12 +65,12 @@ Function* FunctionClone::CloneFunctionByComponent(const InternalComponentInfo& c
     cloneFunc->SetFunctionType(originalMixFunc->GetFunctionType());
     cloneFunc->SetGraphType(originalMixFunc->GetGraphType());
     if (cloneFunc->GetGraphType() != GraphType::BLOCK_GRAPH){
-        ALOG_ERROR_F("WRONG GRAPH TYPE FOR CLONE FUNCTION: %s", funcMagicName.c_str());
+        APASS_LOG_ERROR_F(Elements::Function, "WRONG GRAPH TYPE FOR CLONE FUNCTION: %s", funcMagicName.c_str());
     }
 
     ProcessOperations(component);
     // 验证顺序正确性
-    ALOG_DEBUG_F("Leaf function %s has %zu ops in original order",
+    APASS_LOG_DEBUG_F(Elements::Function, "Leaf function %s has %zu ops in original order",
                 leafName.c_str(), programOps.size());
     cloneFunc->SetProgramOp(programOps);
     // 创建并设置LeafFuncAttribute
@@ -82,14 +82,14 @@ Function* FunctionClone::CloneFunctionByComponent(const InternalComponentInfo& c
     cloneFunc->SetProgramId(newProgramID);
     // 复制参数配置
     cloneFunc->paramConfigs_ = originalMixFunc->paramConfigs_;
-    ALOG_DEBUG_F("Called UpdateBelongToThis for new function: %s", leafName.c_str());
+    APASS_LOG_DEBUG_F(Elements::Function, "Called UpdateBelongToThis for new function: %s", leafName.c_str());
     CopyInferParamIndexInfo();
     // 设置每个新建leaf function继承originalMixFuncisUnderDynamicFunction属性
     bool isUnderDynamicFunction = originalMixFunc->IsUnderDynamicFunction();
-    ALOG_DEBUG_F("Original mix function isUnderDynamicFunction: %s for programID=%d", 
+    APASS_LOG_DEBUG_F(Elements::Function, "Original mix function isUnderDynamicFunction: %s for programID=%d",
                  isUnderDynamicFunction ? "true" : "false", originalMixFunc->GetProgramId());
     cloneFunc->SetUnderDynamicFunction(isUnderDynamicFunction);
-    ALOG_DEBUG_F("Set isUnderDynamicFunction=%s for leaf function programID=%d",
+    APASS_LOG_DEBUG_F(Elements::Function, "Set isUnderDynamicFunction=%s for leaf function programID=%d",
                     isUnderDynamicFunction ? "true" : "false", cloneFunc->GetProgramId());
     
     auto* resultFunc = cloneFunc.get();

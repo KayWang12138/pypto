@@ -59,6 +59,10 @@ constexpr int64_t CFG_RUN_MODE_SIM = 1;
 
 // host
 constexpr const char *COMPILE_STAGE = "compile_stage";
+constexpr const char *COMPILE_MONITOR_ENABLE = "compile_monitor_enable";
+constexpr const char *INTERVAL_SEC = "compile_monitor_print_interval";
+constexpr const char *TIMEOUT_SEC = "compile_timeout_stage";
+constexpr const char *TOTAL_TIMEOUT_SEC = "compile_timeout";
 constexpr int64_t CS_ALL_COMPLETE = 0;
 constexpr int64_t CS_TENSOR_GRAPH = 1;
 constexpr int64_t CS_TILE_GRAPH = 2;
@@ -176,6 +180,14 @@ public:
     }
 
     /**
+     * \brief Retrieves the ConvTile configuration.
+     */
+    ConvTile GetConvTile() const {
+        const Any& value = GetAnyConfig("conv_tile_shapes");
+        return AnyCast<ConvTile>(value);
+    }
+
+    /**
      * \brief Retrieves the VecTile configuration as a VecTile structure.
      */
     VecTile GetVecTile() const {
@@ -233,9 +245,7 @@ public:
     /**
      * \brief clear the config in Scope
      */
-    void Clear() {
-        values_.clear();
-    }
+    void Clear();
 
     template <typename T>
     T GetConfigAllType(const std::string &key) const {
