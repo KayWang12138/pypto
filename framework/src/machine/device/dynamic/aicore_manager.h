@@ -583,16 +583,6 @@ private:
         }
     }
 
-    inline void ResolveWhenSyncMode(CoreType type, uint32_t finTaskId, uint32_t finTaskState, int coreIdx)  {
-        if (finTaskId == pendingIds_[coreIdx] && finTaskState == TASK_FIN_STATE) {
-            ResolveDepWithDfx(type, coreIdx, finTaskId);
-            pendingIds_[coreIdx] = AICORE_TASK_INIT;
-            pendingResolveIndexList_[coreIdx] = 0;
-            context_->corePendReadyCnt_[static_cast<int>(type)]++;
-            context_->runReadyCoreIdx_[static_cast<int>(type)][context_->coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
-        }
-    }
-
     static inline uint64_t RuntimeCopyOutResolveCounterDecode(uint64_t aicpuCallCode) {
         return aicpuCallCode & 0xffff;
     }
@@ -602,7 +592,7 @@ private:
         [[maybe_unused]] uint32_t aicpuCallCode = finTaskRegVal >> 32;
         uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
         uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
-#if SCHEDULE_USE_PENDING_AND_RUNING_SWITCH
+
         auto &pendingIdRef = pendingIds_[coreIdx];
         auto &pendingResolveIndexBaseRef = pendingResolveIndexList_[coreIdx];
         auto &runningIdRef = runningIds_[coreIdx];
@@ -676,18 +666,9 @@ private:
             runningResolveIndexBaseRef = copyOutResolveCounter + 1;
             ResolveCopyOutDepDyn(copyOutResolveCounter, runningIdValue, runningResolveIndexBaseValue);
         } 
-#else
-        ResolveWhenSyncMode(type, finTaskId, finTaskState, coreIdx);
-#endif
     }
 
     inline void PushReadyTask(int coreType, uint64_t taskId) {
-        if (unlikely(context_->readyCount[coreType] == READY_ID_FIX_CACHE_NUM)) {
-            ReadyCoreFunctionQueue* readyQue =
-                coreType == static_cast<int>(CoreType::AIC) ?  readyAicCoreFunctionQue_ : readyAivCoreFunctionQue_;
-            PushReadyQue(readyQue, context_->readyIds[coreType], context_->readyCount[coreType]);
-            context_->readyCount[coreType] = 0;
-        }
         context_->readyIds[coreType][context_->readyCount[coreType]++] = taskId;
     }
 
@@ -721,27 +702,6 @@ private:
                 }
             }
         }
-    }
-
-    inline int GetRootIndex(uint32_t taskId) const {
-        auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
-        auto funcId = FuncID(taskId);
-        auto func = dyntask->dynFuncDataCacheList[funcId].devFunc;
-        return func->GetRootIndex();
-    }
-
-    inline int GetLeafIndex(uint32_t taskId) const {
-        auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
-        auto funcId = FuncID(taskId);
-        auto opIndex = TaskID(taskId);
-        auto callList = dyntask->dynFuncDataCacheList[funcId].calleeList;
-        return callList[opIndex];
-    }
-
-    inline DevAscendFunctionDuppedData *GetDuppedData(uint32_t taskId) const {
-        auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
-        auto funcId = FuncID(taskId);
-        return dyntask->dynFuncDataCacheList[funcId].duppedData;
     }
 
     inline void ResolveDepDyn(uint64_t finishId, size_t resolveIndexBase = 0, int coreIdx = 0) {
