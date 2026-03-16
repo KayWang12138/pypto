@@ -271,7 +271,7 @@ class MulOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_
 
 INSTANTIATE_TEST_SUITE_P(TestMul, MulOperationTest,
     ::testing::ValuesIn(GetOpMetaData<MulOpMetaData>(
-        {MulOperationExeFunc2Dims, MulOperationExeFunc3Dims, MulOperationExeFunc4Dims}, "Mul")));
+        {MulOperationExeFunc2Dims, MulOperationExeFunc3Dims, MulOperationExeFunc4Dims, MulOperationExeFunc5Dims}, "Mul")));
 
 TEST_P(MulOperationTest, TestMul) {
     auto test_data = GetParam().test_data_;

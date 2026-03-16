@@ -271,7 +271,7 @@ class SubOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_
 
 INSTANTIATE_TEST_SUITE_P(TestSub, SubOperationTest,
     ::testing::ValuesIn(GetOpMetaData<SubOpMetaData>(
-        {SubOperationExeFunc2Dims, SubOperationExeFunc3Dims, SubOperationExeFunc4Dims}, "Sub")));
+        {SubOperationExeFunc2Dims, SubOperationExeFunc3Dims, SubOperationExeFunc4Dims, SubOperationExeFunc5Dims}, "Sub")));
 
 TEST_P(SubOperationTest, TestSub) {
     auto test_data = GetParam().test_data_;

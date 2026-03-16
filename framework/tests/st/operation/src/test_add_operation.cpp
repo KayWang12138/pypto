@@ -271,7 +271,7 @@ class AddOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_
 
 INSTANTIATE_TEST_SUITE_P(TestAdd, AddOperationTest,
     ::testing::ValuesIn(GetOpMetaData<AddOpMetaData>(
-        {AddOperationExeFunc2Dims, AddOperationExeFunc3Dims, AddOperationExeFunc4Dims}, "Add")));
+        {AddOperationExeFunc2Dims, AddOperationExeFunc3Dims, AddOperationExeFunc4Dims, AddOperationExeFunc5Dims}, "Add")));
 
 TEST_P(AddOperationTest, TestAdd) {
     auto test_data = GetParam().test_data_;

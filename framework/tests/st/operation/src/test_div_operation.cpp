@@ -272,7 +272,7 @@ class DivOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_
 
 INSTANTIATE_TEST_SUITE_P(TestDiv, DivOperationTest,
     ::testing::ValuesIn(GetOpMetaData<DivOpMetaData>(
-        {DivOperationExeFunc2Dims, DivOperationExeFunc3Dims, DivOperationExeFunc4Dims}, "Div")));
+        {DivOperationExeFunc2Dims, DivOperationExeFunc3Dims, DivOperationExeFunc4Dims, DivOperationExeFunc5Dims}, "Div")));
 
 TEST_P(DivOperationTest, TestDiv) {
     auto test_data = GetParam().test_data_;
