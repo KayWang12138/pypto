@@ -15,6 +15,7 @@
 
 #include <gtest/gtest.h>
 #include <cstdint>
+#include <memory>
 
 #include "machine/utils/dynamic/dev_encode.h"
 #include "tilefwk/data_type.h"
@@ -22,6 +23,8 @@
 #include "interface/configs/config_manager.h"
 #include "interface/configs/config_manager.h"
 #include "interface/program/program.h"
+#include "interface/tensor/raw_tensor.h"
+#include "interface/function/function.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -206,4 +209,31 @@ TEST_F(TestDevEncode, test_dev_func_dupped) {
     std::stringstream oss;
     DevAscendFunctionDupped funcDuppped;
     funcDuppped.DumpRawShape(&rawTensor, 0, lines, oss);
+}
+
+// 覆盖 rawTensor->GetRawDataSize()!=actualRaw->GetRawDataSize() 的日志路径：在 test_encode.cpp 内前向声明并调用
+namespace npu::tile_fwk::dynamic {
+extern static void LogRawTensorAndRoot(const std::shared_ptr<RawTensor> &rawTensor,
+    const std::shared_ptr<RawTensor> &actualRaw,
+    const EncodeDevAscendFunctionParam &param);
+}
+TEST_F(TestDevEncode, LogRawTensorSizeMismatch_Coverage) {
+    Program::GetInstance().Reset();
+    config::Reset();
+    config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
+    Tensor t(DT_FP32, {2, 2}, "t");
+    FUNCTION("log_mismatch_ut", {t}, {t}) {
+        t = t;
+    }
+    Function *devRoot = Program::GetInstance().GetLastFunction();
+    ASSERT_NE(devRoot, nullptr);
+
+    auto rawTensor = std::make_shared<RawTensor>(DT_FP32, std::vector<int64_t>{2, 4}, TileOpFormat::TILEOP_ND, "raw", 100);
+    rawTensor->actualRawmagic = 200;
+    auto actualRaw = std::make_shared<RawTensor>(DT_FP32, std::vector<int64_t>{2, 2}, TileOpFormat::TILEOP_ND, "actual", 200);
+
+    EncodeDevAscendFunctionParam param{};
+    param.devRoot = devRoot;
+
+    LogRawTensorAndRoot(rawTensor, actualRaw, param);
 }
