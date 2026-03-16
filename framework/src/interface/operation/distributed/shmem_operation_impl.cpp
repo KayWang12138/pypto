@@ -674,4 +674,21 @@ void OneShotAllReduce_v6(const Tensor& predToken, const Tensor& in, Tensor& shme
     }
 }
 
+// OneShotAllReduce_v7: scatter-only with grouped signaling.
+// Communicator controls chunking and chunk->signal-group mapping.
+void OneShotAllReduce_v7(const Tensor& predToken, const Tensor& in, Tensor& shmemData, OneShotCommunicatorV3& comm)
+{
+    int32_t col = in.GetShape(1);
+    for (uint32_t dynRankId = 0; dynRankId < comm.WorldSize(); ++dynRankId) {
+        for (uint32_t chunkId = 0; chunkId < comm.PayloadChunkCount(); ++chunkId) {
+            int32_t chunkRow = comm.ChunkStartRow(chunkId);
+            int32_t chunkRows = comm.ChunkRows(chunkId);
+            auto inChunk = View(in, {chunkRows, col}, std::vector<SymbolicScalar>{chunkRow, 0});
+            auto dynRankView = View(shmemData, {1, 1, chunkRows, col},
+                std::vector<SymbolicScalar>{dynRankId, 0, chunkRow, 0});
+            comm.Put(predToken, inChunk, dynRankView, dynRankId, chunkId, AtomicType::ADD);
+        }
+    }
+}
+
 }   // namespace npu::tile_fwk::Distributed
