@@ -148,27 +148,27 @@ license: 完整条款见 LICENSE.txt
 
 | Pass 模块 | 功能 | 常见错误 | 可能原因 |
 |----------|------|---------|---------|
-| **RemoveRedundantReshape** | 删除冗余的reshape操作 | 输入输出操作数无效、消费者为空指针、操作已删除标记错误 | 图结构不一致、操作已被其他pass删除、消费者链断裂 |
-| **AutoCast** | 自动插入类型转换操作 | CAST插入失败、类型转换链优化失败、内存类型不匹配错误 | 架构不支持的数据类型、类型转换链过长、内存类型冲突 |
-| **InferMemoryConflict** | 推断内存冲突并插入register copy | 内存冲突检测失败、Copy操作插入失败、Tile shape推断失败 | 内存重叠、tile shape不匹配、动态shape处理错误 |
-| **RemoveUndrivenView** | 删除无驱动的view操作 | 缺少INPLACE_IDX属性错误、生产者数量无效错误、生产者类型错误 | SSA形式转换不完整、属性缺失、图结构损坏 |
-| **ExpandFunction** | 将tensor graph扩展为tile graph | 操作验证失败、操作展开失败、Scope混合错误 | 操作不支持展开、scope配置错误、Cube和Vector操作混合 |
-| **MergeViewAssemble** | 合并view/assemble操作 | 合并操作失败、图连接更新失败 | 操作属性不兼容、内存类型不匹配、offset计算错误 |
-| **SplitReshape** | 拆分reshape操作 | Reshape拆分失败、动态shape处理失败、Tile对齐计算失败 | Shape不可分、动态轴处理复杂、tile size不匹配 |
+| **RemoveRedundantReshape** | 删除冗余的reshape操作（当所有消费者都是reshape时） | 输入输出操作数无效、消费者为空指针、操作已删除标记错误 | 输入输出操作数数量不为1、输入输出tensor为空指针、消费者为空指针、操作已被其他pass标记为删除 |
+| **AutoCast** | 自动插入类型转换操作（BF16/FP16/INT32-FP16）并优化冗余CAST链 | 获取InOutCast连接tensor失败、插入BF16 CAST失败、插入FP16 CAST失败、插入INT32-FP16 CAST失败、冗余CAST链消除失败 | 架构不支持某些数据类型、INCAST/OUTCAST节点连接问题、CAST链优化过程中图结构问题、类型转换路径不合法 |
+| **InferMemoryConflict** | 推断内存冲突并插入register copy | 初始化失败、前向传播失败、后向传播失败、插入Copy失败、更新前向tensor失败、更新后向tensor失败、设置默认shape失败、推断tile shape失败、获取reshape tile失败、插入前置copy失败、插入后置copy失败、获取tile shape失败、ViewType处理失败、检查原始shape冲突失败、检查冲突失败、检查传输失败、验证tile shape失败 | ViewType输入输出tensor的数据类型不在viewType表中、vecTypeTile的tile维度n不是偶数、输入输出tensor的raw shape中有负数（动态shape）、输入输出tensor的raw size不相等且不匹配特定的reshape pattern（4D<->2D, 3D<->2D的batch matmul优化pattern）、tile shape维度与输入shape维度不等、tile shape大小为0、无法推导tile shape、推导reshape tile shape失败 |
+| **RemoveUndrivenView** | 删除无驱动的view操作（将OP_ASSEMBLE_SSA降级为OP_ASSEMBLE并删除无驱动的OP_VIEW） | 缺少INPLACE_IDX属性错误、生产者数量无效错误、生产者类型错误 | OP_ASSEMBLE_SSA缺少INPLACE_IDX属性、输入操作数的生产者数量不为1、生产者类型不是OP_VIEW |
+| **ExpandFunction** | 将tensor graph扩展为tile graph | 操作验证失败、更新IO操作数失败、操作展开失败、Scope混合错误 | 操作验证失败、输入输出操作数为空指针、操作不支持展开、scope配置错误、在CV分离平台上混合Cube和Vector操作 |
+| **MergeViewAssemble** | 合并连续的view/assemble操作链 | 初始化失败、处理操作失败、清理失败、追加合并的view操作失败、追加合并的assemble操作失败、合并view链失败、合并assemble链失败、处理消费者链失败、处理assemble消费者失败、处理链尾失败、处理assemble链尾失败、计算合并offset失败、计算assemble offset失败、删除冗余assemble失败 | 创建ViewOpAttribute/AssembleOpAttribute失败、获取view/assemble属性失败、操作链中存在空指针、链首操作没有输入操作数、链尾操作没有输出操作数、输入/输出tensor为空指针、offset计算失败、tensor offset添加失败、获取view valid shape失败 |
+| **SplitReshape** | 拆分reshape操作，将一个reshape拆分为多个reshape并添加view/assemble | 初始化失败、收集CopyOut失败、检查CopyIn失败、添加操作失败、删除reshape失败、消除死操作失败、设置内存类型失败、获取变化轴失败、检查动态状态失败、更新动态shape失败、分组reshape偏移失败 | 对齐shape不正确（alignedShape中有0）、输出维度与动态shape维度不匹配、动态shape涉及变化的轴（合轴、分轴、部分合轴）、offset与dynShape维度不同、偏移值维度不一致 |
 | **SplitRawTensor** | 拆分原始tensor | Tensor拆分失败、内存分配失败、Offset计算错误 | Tensor size过大、内存不足、offset边界错误 |
 | **SplitLargeFanoutTensor** | 拆分大扇出tensor | LCM shape计算失败、Offset生成失败、操作创建失败 | Shape维度不匹配、GCD/LCM计算溢出、内存类型冲突 |
 | **DuplicateOp** | 复制操作 | 操作复制失败、Tensor克隆失败、消费者替换失败 | 内存不足、属性复制不完整、消费者链断裂 |
-| **AssignMemoryType** | 分配内存类型 | 内存类型分配失败、Convert操作插入失败、内存类型推断失败 | 内存类型不兼容、内存大小超限、对齐要求不满足 |
-| **InferDiscontinuousInput** | 推断不连续输入 | 不连续输入检测失败、Copy操作插入失败、内存类型处理失败 | 内存访问模式复杂、动态shape处理、内存类型转换错误 |
-| **RemoveRedundantOp** | 删除冗余操作 | 冗余操作检测失败、图重连失败、死操作消除失败 | 操作属性不匹配、shape比较错误、消费者链复杂 |
+| **AssignMemoryType** | 为tensor分配内存类型（original和tobe），处理特殊操作（reshape/view/assemble/nop/reduce_acc/shmem_wait_until），处理cube级联场景，插入convert操作 | 插入convert失败、处理未知内存类型失败、处理小tile到大tile失败、处理大tile到小tile失败 | 操作属性获取失败、offset与rawshape维度不匹配、offset计算失败、内存对齐检查失败（32字节对齐）、内存大小超限（UB/L1阈值）、维度倍数检查失败、tobeMap更新失败、视图属性为空、输入输出操作数索引越界 |
+| **InferDiscontinuousInput** | 推断不连续输入并插入copy操作 | 从INCAST推断失败、插入copy操作失败 | 图结构复杂、内存类型不匹配、动态shape处理、offset重叠检查失败、view冲突检测失败 |
+| **RemoveRedundantOp** | 删除冗余的view-assemble操作对和reshape操作 | 处理DummyOps失败、处理DummyOp失败、处理Reshape失败、处理ViewAssemble失败、合并ViewAssemble失败 | 输入输出shape和dynshape不相等、ASSEMBLE输出有多个生产者、View输入非同源、Assemble数据重排（view offset与assemble offset不匹配）、图连接更新失败 |
 | **InsertOpForViewAssemble** | 为view-assemble插入操作 | 操作插入失败、属性设置失败、图连接更新失败 | 内存类型不匹配、offset计算错误、操作顺序依赖 |
-| **SplitK** | 拆分K维度 | K拆分失败、Reduce_Acc消除失败、操作验证失败 | 矩阵维度不匹配、内存类型错误、累加操作不支持 |
-| **GraphPartition** | 图切分 | 图切分失败、子图创建失败、依赖关系分析失败 | 图结构复杂、循环依赖、资源约束冲突 |
-| **ReduceCopyMerge** | 减少copy合并 | Copy操作分析失败、合并策略应用失败、图优化失败 | Copy操作链过长、内存类型转换复杂、依赖关系冲突 |
-| **NBufferMerge** | 向量子图合并 | 合并策略失败 | 缓冲区大小不匹配、访问模式冲突、子图成环 |
+| **SplitK** | 拆分K维度，消除Reduce_Acc操作 | Loop检查失败、Reduce_Acc消除失败、操作验证失败 | 存在Loop结构、OP_A_MUL_B/OP_A_MULACC_B输出数量不为1、输出tensor不是L0C类型或消费者数量不为1、OP_REDUCE_ACC输入数量小于1、OP_REDUCE_ACC输出数量不为1、OP_REDUCE_ACC输入输出tensor不是DDR类型 |
+| **GraphPartition** | 图切分（将图划分为多个子图以支持并行执行） | 设置参数失败、图切分失败、构建操作图失败、构建超级节点图失败、构建hash值失败、构建同构组失败、合并非同构组失败、合并同构组失败、更新切分结果失败 | 切分参数未初始化、图结构复杂、循环依赖、资源约束冲突、同构组扩展失败 |
+| **ReduceCopyMerge** | 减少copy合并（在DAV_3510平台上处理CV混合图并优化copy操作） | ReduceCopy失败、内部子图ID检查失败、图构建失败、合并策略应用失败、循环检测失败、混合图验证失败 | 操作不属于任何内部子图、图结构复杂、CV混合图权重计算失败、合并阈值不满足、存在循环依赖、混合图比例不合法 |
+| **NBufferMerge** | 向量子图合并 | 合并策略失败 | 参数配置错误、子图成环 |
 | **L1CopyInReuseMerge** | L1拷贝输入重用合并 | 重用分析失败、L1缓存策略失败、依赖关系错误 | 缓存容量限制、访问模式不规律、数据依赖复杂 |
-| **IntraSubgraphAdapter** | 子图内适配器 | 子图适配失败、接口处理失败、通信插入失败 | 子图接口不匹配、通信协议错误、内存类型冲突 |
-| **GenerateMoveOp** | 生成移动操作 | Move操作生成失败、内存路径分析失败、传输策略错误 | 内存层次复杂、传输路径阻塞、带宽限制 |
+| **IntraSubgraphAdapter** | 处理边界tensor，插入view/assemble打通子图间数据通路 | 内存类型冲突、无效内存类型、生产者类型错误、生产者输入错误、跨核move操作错误 | 边界tensor的original和tobe内存类型不一致、内存类型不在[UB, L1, DDR, L0C]范围内、tensor有多个生产者但不是OP_ASSEMBLE/OP_COPY_OUT、OP_ASSEMBLE输入操作数不为1、跨核move操作出现在子图开头 |
+| **GenerateMoveOp** | 将view/assemble/convert/duplicate操作转换为具体的移动操作 | 内存路径查找失败、UB2L1转换失败、L0C2L1属性设置失败 | 内存路径不支持、ND到NZ格式转换失败、内存层次结构复杂 |
 | **CommonOperationEliminate** | 通用操作消除 | 公共操作检测失败、消除策略失败、图一致性错误 | 操作等价判断错误、副作用分析不完整、依赖关系遗漏 |
 | **AxisCombine** | 轴组合 | 轴组合轴组合失败、Shape变换失败、内存布局错误 | 轴依赖关系复杂、stride不连续、内存对齐要求 |
 | **PadLocalBuffer** | 填充本地缓冲区 | 填充计算失败、缓冲区重分配失败、对齐验证失败 | 对齐要求复杂、缓冲区大小限制、填充策略冲突 |
