@@ -1277,10 +1277,21 @@ static void Quantize(const TensorData &out, const TensorData &input, const Tenso
     auto tinput = From(input);
     auto tscale = From(*scale);
 
-    // Broadcast scale to match input shape if needed
+    // Normalize axis to positive index
+    int inputRank = tinput.second.sizes().size();
+    int normalizedAxis = axis;
+    if (axis < 0) {
+        normalizedAxis = inputRank + axis;
+    }
+
+    // Broadcast scale to match input shape based on axis
+    // axis=-1 (last dim): scale shape is [..., row, 1] → broadcast to [..., row, col]
+    // axis=-2 (second last): scale shape is [..., 1, col] → broadcast to [..., row, col]
     auto scaleTensor = tscale.second;
     if (tscale.second.sizes() != tinput.second.sizes()) {
-        scaleTensor = tscale.second.expand_as(tinput.second);
+        // Create expand shape based on axis
+        std::vector<int64_t> expandShape(tinput.second.sizes().begin(), tinput.second.sizes().end());
+        scaleTensor = tscale.second.expand(expandShape);
     }
 
     // Perform scaling
@@ -1290,9 +1301,13 @@ static void Quantize(const TensorData &out, const TensorData &input, const Tenso
     if (zeroPoints != nullptr) {
         auto tzeroPoints = From(*zeroPoints);
         auto zeroPointsTensor = tzeroPoints.second;
+
+        // Broadcast zero_points based on axis (same as scale)
         if (tzeroPoints.second.sizes() != tinput.second.sizes()) {
-            zeroPointsTensor = tzeroPoints.second.expand_as(tinput.second);
+            std::vector<int64_t> expandShape(tinput.second.sizes().begin(), tinput.second.sizes().end());
+            zeroPointsTensor = tzeroPoints.second.expand(expandShape);
         }
+
         scaled = scaled + zeroPointsTensor;
     }
 
