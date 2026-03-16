@@ -361,6 +361,7 @@ public:
     void RegisterVectorUnary();
     void RegisterVectorSort();
     void RegisterVectorReduction();
+    void RegisterVectorQuant();
     void RegisterVector();
     void RegisterCube();
     void RegisterDistribute();
