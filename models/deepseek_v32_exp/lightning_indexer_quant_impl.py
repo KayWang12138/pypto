@@ -247,7 +247,8 @@ def lightning_indexer_decode(
         runtime_options={
             "stitch_function_max_num": 128,
             "device_sched_mode": 1
-        }
+        },
+        verify_options = {"enable_pass_verify": True,}
     )
     def lightning_indexer_decode_kernel(
         idx_query: pypto.Tensor(idx_query_shape, pypto.DT_INT8),
@@ -282,6 +283,7 @@ def lightning_indexer_decode(
             topk_res: (t, 1, selected_count), dtype INT32
                 TopK indices for sparse attention
         """
+        pypto.set_pass_default_config(pypto.PassConfigKey.KEY_DUMP_GRAPH, True)
         # Create output tensor
         topk_res = pypto.Tensor(topk_res_shape, pypto.DT_INT32)
 
