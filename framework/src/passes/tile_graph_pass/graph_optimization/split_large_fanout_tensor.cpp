@@ -176,7 +176,8 @@ void SplitLargeFanoutTensor::CreateOpFor1toM(Function &function, LogicalTensorPt
             for (size_t j = 0; j < newViewOffset.size(); j++) {
                 newViewOffset[j] -= lcmTileOffset[j];
             }
-            viewOpAttr->SetFromOffset(newViewOffset);
+             auto newDynOffset = OpImmediate::ToSpecified(OpImmediate::Specified(newViewOffset));
+ 	             viewOpAttr->SetFromOffset(newViewOffset, newDynOffset);
             GraphUtils::UpdateViewAttr(function, *viewOp);
             viewOp->ReplaceInput(newTensor, largeTensor);
             APASS_LOG_INFO_F(Elements::Operation, "In one-to-multiple situation, "
@@ -209,7 +210,8 @@ void SplitLargeFanoutTensor::CreateOpForMtoM(Function &function, LogicalTensorPt
             for (size_t j = 0; j < newViewOffset.size(); j++) {
                 newViewOffset[j] -= lcmTileOffset[j];
             }
-            viewOpAttr->SetFromOffset(newViewOffset);
+             auto newDynOffset = OpImmediate::ToSpecified(OpImmediate::Specified(newViewOffset));
+ 	             viewOpAttr->SetFromOffset(newViewOffset, newDynOffset);
             GraphUtils::UpdateViewAttr(function, *viewOp);
             viewOp->ReplaceInput(newTensor, largeTensor);
             APASS_LOG_INFO_F(Elements::Operation, "In multiple-to-multiple situation, viewOp[%d]'s input[%d] has been "
