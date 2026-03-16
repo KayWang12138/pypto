@@ -36,47 +36,70 @@ TILEOP constexpr BrcMode GetBrcMode() {
     if constexpr (tailBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND &&
                   penuBrcSide == TileOp::PenuBroadcastOperand::NONE) {
         return BrcMode::TAIL_LEFT;
-    }
-    if constexpr (tailBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND &&
+    } else if constexpr (tailBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND &&
                   penuBrcSide == TileOp::PenuBroadcastOperand::NONE) {
         return BrcMode::TAIL_RIGHT;
-    }
-    if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE &&
+    } else if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE &&
                   penuBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND) {
         return BrcMode::PENU_LEFT;
-    }
-    if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE &&
+    } else if constexpr (tailBrcSide == TileOp::BroadcastOperand::NONE &&
                   penuBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND) {
         return BrcMode::PENU_RIGHT;
-    }
-    if constexpr (tailBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND &&
+    } else if constexpr (tailBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND &&
                   penuBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND) {
         return BrcMode::SCALAR_LEFT;
-    }
-    if constexpr (tailBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND &&
+    } else if constexpr (tailBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND &&
                   penuBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND) {
         return BrcMode::SCALAR_RIGHT;
-    }
-    if constexpr (tailBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND &&
+    } else if constexpr (tailBrcSide == TileOp::BroadcastOperand::LEFT_OPERAND &&
                   penuBrcSide == TileOp::PenuBroadcastOperand::RIGHT_OPERAND) {
         return BrcMode::MIX_LEFT_TAIL;
-    }
-    if constexpr (tailBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND &&
+    } else if constexpr (tailBrcSide == TileOp::BroadcastOperand::RIGHT_OPERAND &&
                   penuBrcSide == TileOp::PenuBroadcastOperand::LEFT_OPERAND) {
         return BrcMode::MIX_RIGHT_TAIL;
+    } else {
+        return BrcMode::NONE;
     }
-    return BrcMode::NONE;
 }
+
+#define EXTRACT_LAST_USE_3DIM(LastUse)                                           \
+    constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;       \
+    constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;       \
+    constexpr auto n3 = Std::tuple_element<DIM_3RD, LastUse>::type::value;
+
+#define BINARY_EXPAND_DISPATCH(PREFIX)                                                  \
+    if constexpr (op == BinaryOp::ADD) {                                                \
+        PTO_WITH_LAST_USE(pto::T##PREFIX##ADD(dst, src0, src1), n1, n2, n3); return;    \
+    } else if constexpr (op == BinaryOp::SUB) {                                         \
+        PTO_WITH_LAST_USE(pto::T##PREFIX##SUB(dst, src0, src1), n1, n2, n3); return;    \
+    } else if constexpr (op == BinaryOp::MUL) {                                         \
+        PTO_WITH_LAST_USE(pto::T##PREFIX##MUL(dst, src0, src1), n1, n2, n3); return;    \
+    } else if constexpr (op == BinaryOp::DIV) {                                         \
+        PTO_WITH_LAST_USE(pto::T##PREFIX##DIV(dst, src0, src1), n1, n2, n3); return;    \
+    } else if constexpr (op == BinaryOp::MAX) {                                         \
+        PTO_WITH_LAST_USE(pto::T##PREFIX##MAX(dst, src0, src1), n1, n2, n3); return;    \
+    } else if constexpr (op == BinaryOp::MIN) {                                         \
+        PTO_WITH_LAST_USE(pto::T##PREFIX##MIN(dst, src0, src1), n1, n2, n3); return;    \
+    }
+
+#define BINARY_SCALAR_EXPAND_DISPATCH(dst, tensor, scalar)                              \
+    if constexpr (op == BinaryOp::ADD) {                                                \
+        PTO_WITH_LAST_USE(pto::TADDS(dst, tensor, scalar), n1, n2, n3); return;             \
+    } else if constexpr (op == BinaryOp::SUB) {                                         \
+        PTO_WITH_LAST_USE(pto::TSUBS(dst, tensor, scalar), n1, n2, n3); return;             \
+    } else if constexpr (op == BinaryOp::MUL) {                                         \
+        PTO_WITH_LAST_USE(pto::TMULS(dst, tensor, scalar), n1, n2, n3); return;             \
+    } else if constexpr (op == BinaryOp::DIV) {                                         \
+        PTO_WITH_LAST_USE(pto::TDIVS(dst, tensor, scalar), n1, n2, n3); return;             \
+    } else if constexpr (op == BinaryOp::MAX) {                                         \
+        PTO_WITH_LAST_USE(pto::TMAXS(dst, tensor, scalar), n1, n2, n3); return;             \
+    } else if constexpr (op == BinaryOp::MIN) {                                         \
+        PTO_WITH_LAST_USE(pto::TMINS(dst, tensor, scalar), n1, n2, n3); return;             \
+    }
 
 template <BinaryOp op, typename LastUse, typename T0, typename T1, typename Scalar>
 TILEOP void BinaryLeftScalarComputeImpl(T0 dst, T1 src1, Scalar src0) {
-    constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
-    constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
-    constexpr auto n3 = Std::tuple_element<DIM_3RD, LastUse>::type::value;
-    if constexpr (op == BinaryOp::ADD) {
-        PTO_WITH_LAST_USE(pto::TADDS(dst, src1, src0), n1, n2, n3);
-        return;
-    }
+    EXTRACT_LAST_USE_3DIM(LastUse)
 
     if constexpr (op == BinaryOp::SUB) {
         PTO_WITH_LAST_USE(pto::TNEG(dst, src1), n1, n2, n3);
@@ -87,136 +110,30 @@ TILEOP void BinaryLeftScalarComputeImpl(T0 dst, T1 src1, Scalar src0) {
         return;
     }
 
-    if constexpr (op == BinaryOp::MUL) {
-        PTO_WITH_LAST_USE(pto::TMULS(dst, src1, src0), n1, n2, n3);
-        return;
-    }
-
     if constexpr (op == BinaryOp::DIV) {
         PTO_WITH_LAST_USE(pto::TDIVS(dst, src1, src0), n1, n2, n3);   
         // 存在问题，scalar/tensor不支持，如果要用TRECIP 不允许 dst 和 src 指向同一块内存，这里地址一定会复用的
         return;
     }
 
-    if constexpr (op == BinaryOp::MAX) {
-        PTO_WITH_LAST_USE(pto::TMAXS(dst, src1, src0), n1, n2, n3);
-        return;
-    }
-
-    if constexpr (op == BinaryOp::MIN) {
-        PTO_WITH_LAST_USE(pto::TMINS(dst, src1, src0), n1, n2, n3);
-        return;
-    }
+    BINARY_SCALAR_EXPAND_DISPATCH(dst, src1, src0)
 }
 
 template <BinaryOp op, typename LastUse, typename T0, typename T1, typename Scalar>
 TILEOP void BinaryRightScalarComputeImpl(T0 dst, T1 src0, Scalar src1) {
-    constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
-    constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
-    constexpr auto n3 = Std::tuple_element<DIM_3RD, LastUse>::type::value;
-    if constexpr (op == BinaryOp::ADD) {
-        PTO_WITH_LAST_USE(pto::TADDS(dst, src0, src1), n1, n2, n3);
-        return;
-    }
-
-    if constexpr (op == BinaryOp::SUB) {
-        PTO_WITH_LAST_USE(pto::TADDS(dst, src0, -src1), n1, n2, n3);
-        return;
-    }
-
-    if constexpr (op == BinaryOp::MUL) {
-        PTO_WITH_LAST_USE(pto::TMULS(dst, src0, src1), n1, n2, n3);
-        return;
-    }
-
-    if constexpr (op == BinaryOp::DIV) {
-        PTO_WITH_LAST_USE(pto::TDIVS(dst, src0, src1), n1, n2, n3);
-        return;
-    }
-
-    if constexpr (op == BinaryOp::MAX) {
-        PTO_WITH_LAST_USE(pto::TMAXS(dst, src0, src1), n1, n2, n3);
-        return;
-    }
-
-    if constexpr (op == BinaryOp::MIN) {
-        PTO_WITH_LAST_USE(pto::TMINS(dst, src0, src1), n1, n2, n3);
-        return;
-    }
+    EXTRACT_LAST_USE_3DIM(LastUse)
+    BINARY_SCALAR_EXPAND_DISPATCH(dst, src0, src1)
 }
 
 template <BinaryOp op, typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryRowExpandComputeImpl(T0 dst, T1 src0, T2 src1) {
-    constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
-    constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
-    constexpr auto n3 = Std::tuple_element<DIM_3RD, LastUse>::type::value;
-    
-    if constexpr (op == BinaryOp::ADD) {
-        PTO_WITH_LAST_USE(pto::TROWEXPANDADD(dst, src0, src1), n1, n2, n3);
-        return;
-    }
-
-    if constexpr (op == BinaryOp::SUB) {
-        PTO_WITH_LAST_USE(pto::TROWEXPANDSUB(dst, src0, src1), n1, n2, n3);
-        return;
-    }
-
-    if constexpr (op == BinaryOp::MUL) {
-        PTO_WITH_LAST_USE(pto::TROWEXPANDMUL(dst, src0, src1), n1, n2, n3);
-        return;
-    }
-
-    if constexpr (op == BinaryOp::DIV) {
-        PTO_WITH_LAST_USE(pto::TROWEXPANDDIV(dst, src0, src1), n1, n2, n3);
-        return;
-    }
-
-    if constexpr (op == BinaryOp::MAX) {
-        PTO_WITH_LAST_USE(pto::TROWEXPANDMAX(dst, src0, src1), n1, n2, n3);
-        return;
-    }
-
-    if constexpr (op == BinaryOp::MIN) {
-        PTO_WITH_LAST_USE(pto::TROWEXPANDMIN(dst, src0, src1), n1, n2, n3);
-        return;
-    }
+    EXTRACT_LAST_USE_3DIM(LastUse)
+    BINARY_EXPAND_DISPATCH(ROWEXPAND)
 }
 
 template <BinaryOp op, typename LastUse, typename T0, typename T1, typename T2>
-TILEOP void BinaryColExpandComputeImpl(T0 dst, T1 full, T2 brc) {
-    constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
-    constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
-    constexpr auto n3 = Std::tuple_element<DIM_3RD, LastUse>::type::value;
-    
-    if constexpr (op == BinaryOp::ADD) {
-        PTO_WITH_LAST_USE(pto::TCOLEXPANDADD(dst, full, brc), n1, n2, n3);
-        return;
-    }
-
-    if constexpr (op == BinaryOp::SUB) {
-        PTO_WITH_LAST_USE(pto::TCOLEXPANDSUB(dst, full, brc), n1, n2, n3);
-        return;
-    }
-
-    if constexpr (op == BinaryOp::MUL) {
-        PTO_WITH_LAST_USE(pto::TCOLEXPANDMUL(dst, full, brc), n1, n2, n3);
-        return;
-    }
-
-    if constexpr (op == BinaryOp::DIV) {
-        PTO_WITH_LAST_USE(pto::TCOLEXPANDDIV(dst, full, brc), n1, n2, n3);
-        return;
-    }
-
-    if constexpr (op == BinaryOp::MAX) {
-        PTO_WITH_LAST_USE(pto::TCOLEXPANDMAX(dst, full, brc), n1, n2, n3);
-        return;
-    }
-
-    if constexpr (op == BinaryOp::MIN) {
-        PTO_WITH_LAST_USE(pto::TCOLEXPANDMIN(dst, full, brc), n1, n2, n3);
-        return;
-    }
+TILEOP void BinaryColExpandComputeImpl(T0 dst, T1 src0, T2 src1) {
+    EXTRACT_LAST_USE_3DIM(LastUse)
+    BINARY_EXPAND_DISPATCH(COLEXPAND)
 }
-
 #endif

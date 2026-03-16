@@ -77,6 +77,7 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
         } else {
             pto::TROWEXPANDEXPDIF(dst, src0, src1);
         }
+        return;
     }
 
     if constexpr (op == BinaryOp::MOD) {
@@ -113,6 +114,9 @@ TILEOP typename T::DType GetScalar(T &src) {
 
 template <BinaryOp op, BrcMode mode, typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryBrcDispatch(T0 dst, T1 src0, T2 src1) {
+    constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
+    constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
+    constexpr auto n3 = Std::tuple_element<DIM_3RD, LastUse>::type::value;
     if constexpr (mode == BrcMode::SCALAR_LEFT) {
         auto s = GetScalar(src0);
         BinaryLeftScalarComputeImpl<op, LastUse>(dst, src1, s);
@@ -153,7 +157,6 @@ TILEOP void BinaryBrcDispatch(T0 dst, T1 src0, T2 src1) {
 template <BinaryOp op, TileOp::BroadcastOperand tailBrcSide, TileOp::PenuBroadcastOperand penuBrcSide, typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
     const auto dstLayout = dst.GetLayout();
-    constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
     auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
     auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
     auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
@@ -495,7 +498,6 @@ TILEOP void BinaryTmpComputeImpl(T0 dst, T1 src0, T2 src1, T3 tmp) {
 
 template <BinaryOp op, TileOp::BroadcastOperand tailBrcSide, TileOp::PenuBroadcastOperand penuBrcSide, typename T0, typename T1, typename T2, typename T3>
 TILEOP void BinaryTmpCompute(T0 dst, T1 src0, T2 src1, T3 tmp) {
-    constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
     if constexpr (TileOp::IsConstContinous<T0, T1, T2, T3>() == true) {
         auto dstTile = PtoTile<T0, pto::BLayout::RowMajor, true>().Data();
         auto src0Tile = PtoTile<T1, pto::BLayout::RowMajor, true>().Data();
