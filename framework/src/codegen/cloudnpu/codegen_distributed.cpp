@@ -391,8 +391,8 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForFfnCombineInfo() const
 std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForShmemSet() const
 {
     std::ostringstream oss;
-    Distributed::MoeCombineAttr distOpAttr =
-        AnyCast<Distributed::MoeCombineAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
+    Distributed::ShmemSetAttr distOpAttr =
+        AnyCast<Distributed::ShmemSetAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
     int32_t shmemTensorIndex = 3;
     int32_t shmemTensorDim;
     if (distOpAttr.setType == 0) {

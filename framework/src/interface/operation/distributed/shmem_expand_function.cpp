@@ -396,19 +396,6 @@ void TiledShmemSet(Function& function, const TileShape& tileShape,
     tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
 }
 
-Shape GetReduceUbShape(int64_t rowSize, int64_t colSize, DataType dType, bool fp32Mode)
-{
-    Shape ubShape;
-    if (fp32Mode) {
-        ubShape = {rowSize * colSize +                                              // copy需要的ub大小
-            rowSize * colSize * (int64_t)(BytesOf(DT_FP32) / BytesOf(dType)) +      // 存放fp32计算结果的ub大小
-            (int64_t)(256 / BytesOf(dType))};                                       // fp32计算需要的额外
-    } else {
-        ubShape = {2 * rowSize * colSize};  // copy 和 sum 需要的ub大小
-    }
-    return ubShape;
-}
-
 void TiledShmemBindTensor(Function& function, const TileShape& tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>>& iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>>& oOperand, const Operation& op)

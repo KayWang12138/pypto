@@ -581,7 +581,7 @@ void EncodeWaitUntilInfo(const Operation &op, std::vector<int32_t> &code) {
     auto it = map.find(OpAttributeKey::distOpAttr);
     if (it != map.end()) {
         Distributed::ShmemWaitUntilAttr distAttr = AnyCast<Distributed::ShmemWaitUntilAttr>(it->second);
-        code.push_back(static_cast<int32_t>(distAttr.GetFieldCount()));
+        code.push_back(static_cast<int32_t>(distAttr.GetFieldCount())); // 属性顺序固定
         code.push_back(static_cast<int32_t>(distAttr.expectedSum));
         code.push_back(static_cast<int32_t>(distAttr.signalStride));
         code.push_back(static_cast<int32_t>(distAttr.resetSignal));
