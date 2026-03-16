@@ -136,9 +136,9 @@ int TorchTensorConverter::Convert(py::sequence &tensors, py::sequence &tensor_de
 
 size_t ValidateInputs(py::sequence &tensors, py::sequence &tensorDefs) {
     size_t n = static_cast<size_t>(py::len(tensors));
-    CHECK(n == static_cast<size_t>(py::len(tensorDefs)))
+    CHECK(ERROR_CODE_UNDEFINED, n == static_cast<size_t>(py::len(tensorDefs)))
         << "Input length mismatch: tensors(" << n << ") vs tensor_defs(" << py::len(tensorDefs) << ")";
-    CHECK(n != 0) << "Empty tensor list";
+    CHECK(ERROR_CODE_UNDEFINED, n != 0) << "Empty tensor list";
     return n;
 }
 

@@ -257,10 +257,10 @@ static void BatchMatmulOperationExeFuncSplitMN(
 
 static void BatchMatmulOperationExeFunc(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
-    ASSERT(inputs[0].GetShape().size() == inputs[1].GetShape().size());
+    ASSERT(ERROR_CODE_UNDEFINED, inputs[0].GetShape().size() == inputs[1].GetShape().size());
     auto args = static_cast<const BatchMatmulOpFuncArgs *>(opArgs);
     size_t inputDim = inputs[0].GetShape().size();
-    ASSERT(args->viewShape_.size() == inputDim);
+    ASSERT(ERROR_CODE_UNDEFINED, args->viewShape_.size() == inputDim);
     const size_t DIM_OFFSET_2 = 2;
     const int mView = args->viewShape_[inputDim - DIM_OFFSET_2];
     const int nView = args->viewShape_[inputDim - 1UL];

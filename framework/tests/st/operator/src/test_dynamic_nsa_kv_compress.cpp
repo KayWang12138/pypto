@@ -219,7 +219,7 @@ void TestAuxTensor() {
         cmpBlockSize, slcBlockSize, stride, rs, rc, auxVecLen);
 
     DataType dType = DT_FP32;
-    ASSERT((std::is_same<T, float>::value)) << "We only support FP32 for auxTensor now";
+    ASSERT(ERROR_CODE_UNDEFINED, (std::is_same<T, float>::value)) << "We only support FP32 for auxTensor now";
     Tensor auxTensor(dType, {rc + rs, auxVecLen}, "auxTensor");
     std::vector<T> auxTensorGolden((rc + rs - 1) * auxVecLen, 0.0);
     readInput(GetGoldenDir() + "/aux_tensor.bin", auxTensorGolden);
