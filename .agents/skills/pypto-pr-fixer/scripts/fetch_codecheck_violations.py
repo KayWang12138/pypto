@@ -134,6 +134,17 @@ def _collect_candidate_texts(page: object) -> list[str]:
     from playwright.sync_api import Page
 
     candidate_page = cast(Page, page)
+
+    try:
+        page_title = candidate_page.title()
+        if "访问被拦截" in page_title or "blocked" in page_title.lower():
+            body_text = candidate_page.inner_text("body")
+            raise RuntimeError(f"WAF blocked the request: {body_text[:200]}")
+    except Exception as exc:
+        if "WAF" in str(exc):
+            raise
+        logging.debug("check page title failed: %s", exc)
+
     texts: list[str] = []
     try:
         texts.append(candidate_page.inner_text("body"))
@@ -163,9 +174,19 @@ def extract_violations_with_playwright(
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
         try:
-            page = browser.new_page(viewport={"width": 1440, "height": 2200})
+            browser = playwright.webkit.launch(headless=True)
+        except Exception:
+            try:
+                browser = playwright.firefox.launch(headless=True)
+            except Exception:
+                browser = playwright.chromium.launch(headless=True)
+        try:
+            context = browser.new_context(
+                viewport={"width": 1440, "height": 2200},
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            )
+            page = context.new_page()
             last_error: Exception | None = None
 
             for strategy in config.wait_strategies:
