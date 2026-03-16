@@ -28,7 +28,7 @@
 #include "lazy.h"
 
 #ifndef ERROR_CODE_UNDEFINED
-#define ERROR_CODE_UNDEFINED 00000U
+#define ERROR_CODE_UNDEFINED 0xFFFFFU
 #endif
 
 namespace npu::tile_fwk {
@@ -106,35 +106,39 @@ public:
 };
 
 #ifndef __DEVICE__
-/* used for internal check（支持带/不带 errcode 两种形式） */
-#define ASSERT_WITH_CODE(errcode, cond)                                                                                \
-    (cond) ?                                                                                                           \
-        0 :                                                                                                            \
-        npu::tile_fwk::Error(__func__, __FILE__, __LINE__, npu::tile_fwk::GetBacktrace(0, /* 64 is maxFrames */ 64)) = \
-            npu::tile_fwk::ErrorMessage()                                                                              \
-            << "Errcode: F" << std::setw(5) << std::setfill('0') << static_cast<unsigned>(errcode) << "!\n"
+#define ASSERT_WITH_CODE(errcode, cond)                                                                                     \
+    (cond) ?                                                                                                                \
+        0 :                                                                                                                 \
+        npu::tile_fwk::Error(__func__, __FILE__, __LINE__, npu::tile_fwk::GetBacktrace(0, /* 64 is maxFrames */ 64)) =      \
+            npu::tile_fwk::ErrorMessage()                                                                                   \
+            << "Errcode: F"                                                                                                 \
+            << std::uppercase << std::hex << std::setw(5) << std::setfill('0')                                             \
+            << (static_cast<unsigned>(errcode) & 0xFFFFF) << "!\n"
 
-/* check for user input（支持带/不带 errcode 两种形式） */
-#define CHECK_WITH_CODE(errcode, cond)                                                                                 \
-    (cond) ?                                                                                                           \
-        0 :                                                                                                            \
-        npu::tile_fwk::Error(__func__, __FILE__, __LINE__, npu::tile_fwk::GetBacktrace(0, /* 64 is maxFrames */ 64)) = \
-            npu::tile_fwk::ErrorMessage()                                                                              \
-            << "Errcode: F" << std::setw(5) << std::setfill('0') << static_cast<unsigned>(errcode) << "!\n"
+#define CHECK_WITH_CODE(errcode, cond)                                                                                      \
+    (cond) ?                                                                                                                \
+        0 :                                                                                                                 \
+        npu::tile_fwk::Error(__func__, __FILE__, __LINE__, npu::tile_fwk::GetBacktrace(0, /* 64 is maxFrames */ 64)) =      \
+            npu::tile_fwk::ErrorMessage()                                                                                   \
+            << "Errcode: F"                                                                                                 \
+            << std::uppercase << std::hex << std::setw(5) << std::setfill('0')                                             \
+            << (static_cast<unsigned>(errcode) & 0xFFFFF) << "!\n"
 
 #define TILEFWK_ERROR()                                                                                            \
     npu::tile_fwk::Error(__func__, __FILE__, __LINE__, npu::tile_fwk::GetBacktrace(0, /* 64 is maxFrames */ 64)) = \
         npu::tile_fwk::ErrorMessage()
 #else
-#define ASSERT_WITH_CODE(errcode, cond)                                                                                \
-    (cond) ? 0 :                                                                                                   \
-             AssertInfo() = npu::tile_fwk::ErrorMessage() << "Errcode: F" << std::setw(5) << std::setfill('0')     \
-                                                          << static_cast<unsigned>(errcode) << "!\n"
+#define ASSERT_WITH_CODE(errcode, cond)                                                                                     \
+    (cond) ? 0 :                                                                                                            \
+             AssertInfo() = npu::tile_fwk::ErrorMessage()                                                                   \
+             << "Errcode: F" << std::uppercase << std::hex << std::setw(5) << std::setfill('0')                            \
+             << (static_cast<unsigned>(errcode) & 0xFFFFF) << "!\n"
 
-#define CHECK_WITH_CODE(errcode, cond)                                                                                 \
-    (cond) ? 0 :                                                                                                   \
-             AssertInfo() = npu::tile_fwk::ErrorMessage() << "Errcode: F" << std::setw(5) << std::setfill('0')     \
-                                                          << static_cast<unsigned>(errcode) << "!\n"
+#define CHECK_WITH_CODE(errcode, cond)                                                                                      \
+    (cond) ? 0 :                                                                                                            \
+             AssertInfo() = npu::tile_fwk::ErrorMessage()                                                                   \
+             << "Errcode: F" << std::uppercase << std::hex << std::setw(5) << std::setfill('0')                            \
+             << (static_cast<unsigned>(errcode) & 0xFFFFF) << "!\n"
 #endif
 
 #define ASSERT_OVERLOAD_SELECT(_1, _2, NAME, ...) NAME
